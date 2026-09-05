@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.7.5",
+    "itens": [
+      "No histórico, cada dia virou um bloco com a lista dele dentro.",
+      "Ficou fácil ver onde uma sessão acaba e a outra começa."
+    ]
+  },
+  {
     "versao": "1.7.4",
     "itens": [
       "Durante um preparo ou download, o botão de opções do item vira um botão de cancelar.",

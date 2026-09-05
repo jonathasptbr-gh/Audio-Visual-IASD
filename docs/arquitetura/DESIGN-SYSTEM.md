@@ -1069,6 +1069,20 @@ Pela mesma aritmética o scroller do acervo não pode ter `padding-top`: padding
 de um scroller é scrollport, e uma tampa em `top: 0` para no topo do CONTEÚDO,
 que fica abaixo dele.
 
+**E ELA SAIU DA BIBLIOTECA** (v1.7.5). A folha do HISTÓRICO tinha o mesmo
+defeito medido pela mesma régua — o cabeçalho de um dia e as linhas dele em
+`rgb(48, 66, 84)`, **1,00:1** —, e a resposta foi a mesma, inclusive na metade
+que não é tom: papel (a folha) → poço (o bloco do dia, `.hist-sessao`) → papel
+(a linha, pela `.hist-corpo { --camada: var(--panel) }`). MEDIDO: os mesmos
+**1,43:1** e **1,35:1**, pela mesma razão.
+
+**A metade que viaja junto é a FILIAÇÃO.** Dois tons alternados numa lista PLANA
+continuam sendo uma corrida de irmãos: é ter CORPO que faz um agrupamento dizer
+onde ele acaba. O que NÃO viaja é o `sticky` da barra — ali não há tampa de
+nível acima a que se colar, e um cabeçalho grudado dentro de um popup que já
+rola inteiro flutuaria sobre a lista de outro dia. Ver `docs/arquitetura/CONTROLE.md`,
+"O DIA É UM BLOCO".
+
 **E o que carrega a profundidade são três mecanismos NÃO-TONAIS**, que é o que
 os torna ilimitados: o cabeçalho GRUDENTO nos dois níveis (o único que continua
 respondendo depois de a lista rolar — tom, cor e borda só falam enquanto o topo

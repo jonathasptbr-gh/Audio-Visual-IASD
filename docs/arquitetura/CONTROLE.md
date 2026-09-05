@@ -2640,6 +2640,57 @@ abaixo dela.
 - **Guardadas: 12 sessões** (`HIST_SESSOES_MAX`). Um culto por sábado mais dois
   menores na semana dá cerca de um mês, que é o alcance da pergunta.
 
+#### O DIA É UM BLOCO, E A SUBLISTA TEM CORPO (v1.7.5)
+
+Relato do operador: *"ajuste os cards que separam os dias, para que tenham uma
+coloração diferente dos cards de itens exibidos naquela seção. Atualmente a
+lista está confusa, pois está difícil distinguir as sublistas"* — e, em seguida:
+*"caso ache mais correto, utilize o design de corpo e lista que já temos na
+biblioteca"*.
+
+**MEDIDO, e era literal:** o cabeçalho pintava `--camada` e a `.row` de cada
+linha pinta `--linha`, que dentro desta folha resolve para `--camada` também —
+`rgb(48, 66, 84)` no escuro e `rgb(212, 218, 226)` no claro, os DOIS. **1,00:1**,
+o mesmo número que a Biblioteca mediu na v1.5.14 entre a tampa de um álbum e as
+faixas dele.
+
+**A resposta é a de lá, inteira — e ela tem DUAS metades**, porque o degrau de
+tom sozinho não resolve o que o relato descreve: dois tons alternados numa lista
+PLANA continuam sendo uma corrida de irmãos.
+
+```
+#histList (.popup-list, papel da folha)
+  └ li.hist-sessao        ← o BLOCO do dia: pinta o POÇO
+      ├ .hist-sessao-bar  ← a barra (sem tom próprio; herda por transparência)
+      └ ul.hist-corpo     ← --camada: var(--panel)
+          └ li.row-item   ← a LINHA: pousa no PAPEL
+```
+
+- **A FILIAÇÃO.** As linhas de um dia moram DENTRO do bloco daquele dia; elas
+  eram irmãs do cabeçalho, e um cabeçalho sem corpo não tem como dizer onde a
+  sublista dele acaba. É a anatomia da `.coll-group` da Biblioteca, e o `<li>`
+  continua sendo da MESMA `<ul>` pela razão de sempre — a folha rola inteira, e
+  um cabeçalho fora dela ficaria parado sobre o conteúdo errado. Aninhar não
+  muda isso: muda só de quem cada linha é filha.
+- **A ALTERNÂNCIA.** Não se acrescenta um degrau: papel (a folha) → poço (o
+  bloco do dia) → papel (a linha). Quem RESERVA o tom é o contêiner — a
+  `.hist-corpo` declara `--camada: var(--panel)` e a `.row-item` a lê em
+  `--linha` —, nunca quem pinta. MEDIDO no par novo: **1,43:1** no escuro e
+  **1,35:1** no claro, os mesmos números da Biblioteca e pela mesma razão.
+- **O TEMA CLARO é quem fecha a conta:** nele `--panel` é BRANCO e todo o resto
+  se agrupa perto de L≈0,70, então o único tom que passa o piso de 1,28:1 contra
+  o poço é o próprio papel. Logo um dos dois tem de ser o papel, e a escolha sai
+  do que cada um É — o bloco do dia é a MOLDURA de um agrupamento, a linha é o
+  CONTEÚDO que pousa nela.
+- **A barra NÃO gruda** (a `.coll-group-bar` da Biblioteca é `sticky`): aqui não
+  há tampa de nível acima a que se colar, e um cabeçalho grudado num popup que
+  já rola inteiro flutuaria sobre a lista de OUTRO dia.
+
+Oráculo: `historico.test.mjs`, nas duas metades e nos dois temas, com as três
+reversões medidas — sem a camada reservada o passo cai a **1,08:1** (escuro) e
+**1,04:1** (claro); sem o poço do bloco, a **1,00:1**; e com a lista PLANA o
+arquivo reprova já na primeira leitura.
+
 #### A gravação sai do caminho quente
 
 Foi este o argumento que manteve o histórico em memória por vinte e nove

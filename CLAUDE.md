@@ -4401,7 +4401,7 @@ mundo anterior por outro caminho.
 | `leitor-camadas.test.mjs` | **o auxiliar oferece TUDO o que está em exibição** (v1.4.26), e a lista é a PILHA das camadas: uma música de fundo com a Bíblia por cima dá as três abas e ABRE na Bíblia. O pedido revoga duas exclusividades que este arquivo defendeu (a da Bíblia, v1.1.11, e a da apresentação, v1.4.24) — elas acertavam a PRECEDÊNCIA e erravam em tirar as outras da mesa. As metades falham CALADAS e em direções opostas: de MENOS a aba não está lá e o operador conclui que o recurso não existe; de MAIS — o caro — a lista certa com a ABERTURA errada mostra a letra do louvor de fundo com o versículo no telão, e **parece certo**. A terceira é a ESCOLHA GUARDADA, que com a pilha passa a poder contradizer o pedido: quem tocou "Cifra" com o louvor sozinho no ar não pediu cifra para quando o versículo subir. A regra é *mudou a frente, mudou a pergunta*, e ela só está certa com as duas metades medidas — zerar sempre passa numa, apagar o recurso passa na outra |
 | `toque-instantaneo.test.mjs` | **o "Tocar agora" de um vídeo responde no INSTANTE do toque.** Ele começa por uma extração de rede de SEGUNDOS, e até a v1.4.6 nada mudava na tela nesse intervalo — nem o aro de carregamento; o único sinal acendia uma linha da Biblioteca que o `closeHymnSearch` acabara de fechar. Mede o MEIO (a ponte de mentira SEGURA o `ytStream`), porque um teste do desfecho passa nas duas versões. Sete metades: as quatro do toque (a cena sai, o comando vai ao BARRAMENTO, o cartão aparece, e guardar no Cronograma NÃO interrompe — a que impede a correção de virar um defeito maior), o ITEM DE LINK de uma lista (a outra porta do mesmo trabalho, que a v1.4.6 deixou de fora), o subtexto do "Online", e o CONFIRMAR sempre último da faixa |
 | `ferramentas-folha.test.mjs` | **A NAVEGAÇÃO DO APP: uma tela e duas folhas** (v1.3.10 → v1.5.0). Ele nasceu para as Ferramentas virando folha e cresceu no lote em que a faixa de abas saiu inteira — as três coisas se medem juntas porque são UMA decisão. Trava que a faixa e a máquina dela (`TAB_ORDER`, `SWIPE_TABS`, `switchTab`) não existem, que o rodapé tem as TRÊS portas na ordem do pedido, que a folha da Bíblia é o MESMO molde da de Ferramentas (não invade cabeçalho nem controles, cobre a lista, e tem host PRÓPRIO — ela disputava o `<ul>` do Cronograma), que as duas folhas não se empilham, que o alternador da Biblioteca troca de DESENHO (seta × ✕, medido no renderizado: a folha do documento não atravessa a árvore-sombra de um `<use>`) e que o voltar do Android SOBE dentro da Bíblia antes de fechá-la. A asserção que carrega o lote é GEOMÉTRICA — a caixa da folha contra o cabeçalho e a caixa de controles —, porque uma folha de corpo inteiro continua funcionando e continua bonita: o que ela perde é o transporte e a preview à vista, e isso não aparece em teste de comportamento nenhum. Trava também que `activeTab` continua em `'imports'` com a folha aberta (se ela trocasse a aba, o rodapé onde mora a porta dela deixaria de ser desenhado). **E AS TRÊS PORTAS FICAM QUIETAS E BAIXAS** (v1.5.19), com dez asserções cujo tema é *"padronize"*: as três iguais em cor COMPOSTA (parse por CANVAS — `color-mix` computa como `color(srgb 1 1 1 / .49)` e uma regex de números lê (1,1,1)), altura, raio, ícone e família de fonte; a superfície mais quieta que o `--btn-accent` era **e acima do tom do `--op-inativo`**, que é a linguagem do INDISPONÍVEL neste app e o piso duro; o rodapé **não pulando** ao entrar na seleção múltipla — um defeito LATENTE de 7,77px que o lote corrigiu, contra a promessa escrita do próprio `--hit-foot` —; **a fatia SEGUINDO o token**, que é outra pergunta e sem a qual um patch que engorde as duas inquilinas por igual passa o bloco inteiro (provado: com o `padding` de volta E o token em 51,77px, tudo verde); a `.selbar` NÃO ficando discreta, porque os `.sel-btn` em cima dela cairiam a ΔE 2,11 no tema claro e o app perderia a distinção entre disponível e indisponível na barra que hospeda o EXCLUIR; o raio continuando UM SÓ para as quatro peças; a FAIXA não transbordando (a do `<span>` sozinha é uma TAUTOLOGIA — na pilha ele nunca é clampado, e ela passa com o rótulo a 403px dentro de um botão de 93); e as duas que só falham NO APP ou por acidente — a `font-family` da porta do meio (lá ela é `<button>` e não `<label>`) e o ícone das três saindo do MESMO token, cuja divergência a altura nunca denuncia porque a `.import-row` é `align-items: stretch` |
-| `historico.test.mjs` | **o histórico do culto**, uma lista que se preenche sozinha no ponto mais quente do app (`send`) e cujos três modos de errar são mudos: não registrar (a folha abre vazia depois de um culto inteiro), registrar demais (`repeat: 'one'` enterrando o culto em cópias do mesmo nome) e oferecer ao Cronograma um id que o coletor já recolheu — este só aparece no sábado seguinte. **E as SESSÕES** (v1.4.31): que ele atravessa a carga da página, que a carga nova NÃO abre sessão antes da primeira projeção, e a régua do pedido — numa sessão antiga o que dependia de um ARQUIVO fica só como registro (e DIZ isso) enquanto texto e link continuam usáveis, remontados pela RECEITA a partir de um id que já não existe. Mais as duas saídas (por sessão · tudo). O `waitForFunction` do Playwright **não espera a promise de um predicado `async`** — ela é truthy e a espera passa no primeiro quadro, aprovando o que veio verificar —, então quem pergunta ao IndexedDB usa o laço do lado do Node |
+| `historico.test.mjs` | **o histórico do culto**, uma lista que se preenche sozinha no ponto mais quente do app (`send`) e cujos três modos de errar são mudos: não registrar (a folha abre vazia depois de um culto inteiro), registrar demais (`repeat: 'one'` enterrando o culto em cópias do mesmo nome) e oferecer ao Cronograma um id que o coletor já recolheu — este só aparece no sábado seguinte. **E as SESSÕES** (v1.4.31): que ele atravessa a carga da página, que a carga nova NÃO abre sessão antes da primeira projeção, e a régua do pedido — numa sessão antiga o que dependia de um ARQUIVO fica só como registro (e DIZ isso) enquanto texto e link continuam usáveis, remontados pela RECEITA a partir de um id que já não existe. Mais as duas saídas (por sessão · tudo). **E O DIA COMO BLOCO** (v1.7.4), nas duas metades que só juntas dizem a regra: o DEGRAU DE TOM entre o cabeçalho do dia e a linha do item, medido na cor RENDERIZADA e nos DOIS temas — um teste de token ou de classe aprovava o defeito, porque os dois nomes eram diferentes (`--camada` e `--linha`) e resolviam para o MESMO valor, e é o tema claro que fecha a conta —, e a FILIAÇÃO de cada linha ao bloco do dia dela, sem a qual dois tons alternados numa lista PLANA continuam sendo uma corrida de irmãos. Três reversões medidas (1,08:1 · 1,00:1 · a lista plana reprovando na primeira leitura). O `waitForFunction` do Playwright **não espera a promise de um predicado `async`** — ela é truthy e a espera passa no primeiro quadro, aprovando o que veio verificar —, então quem pergunta ao IndexedDB usa o laço do lado do Node |
 | `restaurar-letra-adiada.test.mjs` | **a letra que volta depois de um aviso não pode ser a do hino ANTERIOR.** `restoreSceneAfterText` lia `stage.getCurrent()` sem saber que havia `load` em voo, e o `current` só troca depois do `runFadeOut` — a janela são os ~600 ms do `FADE.time` de TODA troca de cena, não um fio de navalha, e o estado é PERMANENTE: a letra errada AVANÇA pelo relógio da música nova. Três cenas, e as duas metades provadas por reversão: sem o adiamento a CENA 1 reprova, sem o CANCELAMENTO na saída de cena a CENA 3 reprova — um `clear` durante a espera remontava a letra sobre um palco já esvaziado, invisível porque a cortina cobre |
 | `restaurar-letra-adiada-preview.test.mjs` | **o par PREVIEW do de cima, e ele existe porque corrigir um lado não corrige o outro.** As duas metades foram confirmadas independentemente, por medição — é a armadilha que o `fundo-da-letra` já pagou uma vez: *ler cada lado isolado aprova os dois.* Sem TV a preview É a projeção |
 | `gaveta-e-cartao.test.mjs` | **o cartão da preview.** A SETA de download é condicional (v1.4.19): o `.dl-ring` são dois desenhos — o aro diz "espere", a seta diz "bytes chegando" —, e só uma delas é verdade numa PREPARAÇÃO (a extração de um link, a montagem de uma playlist, e a própria fase pré-bytes de um download, que nasce em "Preparando vídeo"). O ícone segue a LEGENDA, escrita nos DOIS pontos (a criação e o `atualizar`), e a asserção mede o RENDERIZADO: a classe sem a regra de CSS passaria num teste de classe e continuaria desenhando a seta na tela. E **o cartão de falha não pode prender o trabalho SEGUINTE.** `falhar()` segura o cartão pelo prazo de leitura retendo o `pvBusyCount`, e um trabalho novo que nascesse e terminasse dentro da janela encontrava o contador em 1: o cartão ficava na tela com a legenda do trabalho NOVO, já terminado. Regressão de uma correção desta campanha, pega pelo revisor e provada por reversão. Tem a OUTRA metade — falhando sozinho o cartão FICA —, sem a qual a primeira seria a volta do defeito que o prazo existe para impedir |
@@ -4863,7 +4863,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.7.4 · APK v1.7.0** · `SHELL_VERSION` **63** ·
+**Versão atual: base web v1.7.5 · APK v1.7.0** · `SHELL_VERSION` **63** ·
 bundle com `minShell: 63` e **sem `shellTag`** — o shell 63 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -4873,7 +4873,47 @@ não foram tocados, e nenhum método da ponte entrou ou mudou de forma. Daí o
 Release que não vai sair, em silêncio, e a única pista seria a linha no resumo
 do run.
 
-**O QUE O LOTE TRAZ — seis pedidos do operador, e três deles são a MESMA REGRA:**
+**O QUE O LOTE TRAZ — o histórico ganhou a anatomia da Biblioteca:**
+
+| peça | onde |
+|---|---|
+| o `<li>` do dia virou o BLOCO, com a barra e a lista dele dentro | `renderHistorico`/`histCabecalho` + `.hist-sessao`/`.hist-corpo` |
+
+> **O DIA E AS LINHAS ERAM O MESMO PIXEL** (v1.7.5). Relato do operador:
+> *"ajuste os cards que separam os dias, para que tenham uma coloração
+> diferente dos cards de itens exibidos naquela seção. Atualmente a lista está
+> confusa, pois está difícil distinguir as sublistas"* — e, em seguida, *"caso
+> ache mais correto, utilize o design de corpo e lista que já temos na
+> biblioteca"*.
+>
+> **MEDIDO, e era literal:** o cabeçalho pintava `--camada` e a `.row` de cada
+> linha pinta `--linha`, que dentro daquela folha resolve para `--camada`
+> também — `rgb(48, 66, 84)` no escuro e `rgb(212, 218, 226)` no claro, os
+> DOIS. **1,00:1**, o mesmo número que a Biblioteca mediu na v1.5.14 entre a
+> tampa de um álbum e as faixas dele.
+>
+> **A RESPOSTA É A DE LÁ, E ELA TEM DUAS METADES.** O degrau de tom sozinho não
+> resolve o que o relato descreve: *"distinguir as sublistas"* é uma pergunta de
+> ESTRUTURA, e dois tons alternados numa lista PLANA continuam sendo uma corrida
+> de irmãos. A **FILIAÇÃO** é a `.coll-group` inteira (o `<li>` é o BLOCO, com a
+> `.hist-sessao-bar` e uma `ul.hist-corpo` dentro dele) e a **ALTERNÂNCIA** é
+> papel → poço → papel, com quem RESERVA o tom sendo o contêiner:
+> `.hist-corpo { --camada: var(--panel) }`, lido pela `.row-item` em `--linha`.
+> MEDIDO no par novo: **1,43:1** no escuro e **1,35:1** no claro.
+>
+> **O `<li>` CONTINUA SENDO DA MESMA `<ul>`**, pela razão da v1.4.31 — a folha
+> rola inteira, e um cabeçalho fora dela ficaria parado sobre o conteúdo errado.
+> Aninhar não muda isso; muda só de quem cada linha é filha. E a barra **não
+> gruda**: aqui não há tampa de nível acima a que se colar, e um cabeçalho
+> grudado num popup que já rola inteiro flutuaria sobre a lista de OUTRO dia.
+>
+> **E OS SELETORES DO PRÓPRIO ORÁCULO MUDARAM JUNTO** — não é ajuste de teste, é
+> o teste voltando a falar do app: a leitura por IRMÃOS descrevia o desenho
+> anterior, e `#histList > li` devolveria blocos VAZIOS enquanto um `.find()`
+> por texto casaria o BLOCO (cujo `textContent` contém o de todas as linhas)
+> antes da linha procurada.
+
+**O LOTE ANTERIOR (v1.7.4) — seis pedidos do operador, e três deles são a MESMA REGRA:**
 
 | peça | onde |
 |---|---|
@@ -4943,54 +4983,13 @@ do run.
 > passou a ser pela UNIÃO dos baldes**, o que fecha por construção a classe de
 > defeito que o balde por host existia para tratar.
 
-**O LOTE ANTERIOR (v1.7.3) — a resposta de uma ação nasce ONDE ela foi pedida:**
+> **E O ANTERIOR A ELE (v1.7.3) — a resposta de uma ação nasce ONDE ela foi
+> pedida:** o progresso da exportação/importação passou para o PRÓPRIO botão
+> (`falarNoTile`/`calarTile` + `pacoteTrabalhando`), e a folha de escolha ganhou
+> o "tudo" e as coleções AGRUPADAS como na Biblioteca (`plano.folha` +
+> `renderPacoteGrupos`).
 
-| peça | onde |
-|---|---|
-| o progresso da exportação/importação no PRÓPRIO botão, e o toque nele cancelando | `falarNoTile`/`calarTile` + `pacoteTrabalhando` |
-| a folha de escolha com "tudo" e com as coleções AGRUPADAS como na Biblioteca | `plano.folha` + `renderPacoteGrupos` |
-
-> **O CARTÃO SOBRE A PREVIEW SAIU DO CAMINHO DO PACOTE** (v1.7.3). Pedido do
-> operador: *"o feedback da ui sobre a preparação da exportação … que seja
-> exibida sobre o próprio botão de exportar, já que a ação acontece ali e não na
-> tela ou controle. o mesmo vale para feedbacks visuais das ações das
-> configurações"*.
->
-> **Ele está certo e o app já tinha a mecânica**, em dois lugares: o `#otaRow`
-> (`falarNoOta`) e o "Guardar como pacote" (`falarNoPacote`). A regra está na
-> lista de canais de resposta do `controle.js` desde a v5.207 — *"o rótulo do
-> controle empresta a si mesmo por alguns segundos e volta"* —, e o cartão da
-> preview é o canal do que ACONTECERIA NELA. Uma exportação não acontece na
-> preview: ela acontece no botão. O tile diz "Medindo…", depois o percentual,
-> depois o tamanho do arquivo, e volta a ser "Exportar".
->
-> **E ISSO NÃO REABRE A SEGUNDA LINHA que a v1.7.2 removeu**: aquela era
-> PERMANENTE e descrevia o estado em repouso; esta é o próprio TÍTULO, por
-> alguns segundos.
->
-> **O CANCELAR VOLTOU PARA O MESMO LUGAR:** o toque no botão que trabalha para
-> a exportação. É o gesto que quem opera tenta primeiro, e é seguro porque
-> exportar é refazível. A IMPORTAÇÃO não tem isso, e a diferença é de natureza:
-> ela só ACRESCENTA, e parar no meio deixaria metade do acervo dentro sem nada
-> para apagar a outra metade.
->
-> **O `data-nome` guarda o rótulo de origem, e não um `WeakMap` de módulo** —
-> foi a primeira escrita e não durou um teste: `pacoteRenderTiles()` roda no
-> TOPO do arquivo, na carga, e leria a constante antes da linha que a declara.
-> Zona morta temporal, `ReferenceError`, app parado.
-
-> **E A FOLHA DE ESCOLHA GANHOU "TUDO" E AS SEÇÕES DA BIBLIOTECA** (v1.7.3):
-> *"haja uma opção de selecionar todos, e opções de agrupamentos das coleções da
-> mesma forma que já existe na biblioteca, podendo marcar um grupo inteiro de
-> uma vez só"*. O agrupamento sai da MESMA fonte que a Biblioteca desenha (as
-> coletâneas do `AVColetanea.aplicar`, com os hinários e as séries na raiz);
-> uma segunda leitura do catálogo divergiria da tela em que o operador aprendeu
-> onde cada coleção mora. A **barra do grupo MARCA** e a **seta ABRE** — na
-> Biblioteca a barra abre, porque lá o que se vem fazer é olhar dentro; aqui o
-> que se vem fazer é incluir e excluir. E a marca do grupo tem TRÊS estados: com
-> metade escolhida, cheia e vazia mentem as duas.
-
-> **E O ANTERIOR A ELE (v1.7.2) — três pedidos, e o terceiro é um defeito com
+> **E ANTES DESSE (v1.7.2) — três pedidos, e o terceiro é um defeito com
 > relato:**
 
 | peça | onde |
