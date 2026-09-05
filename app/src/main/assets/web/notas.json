@@ -1,8 +1,15 @@
 [
   {
-    "versao": "1.8.3",
+    "versao": "1.8.4",
     "itens": [
       "Ao trocar de tela na Bíblia, os livros deixaram de escapar para fora da folha."
+    ]
+  },
+  {
+    "versao": "1.8.3",
+    "itens": [
+      "A cópia entre celulares deixou de travar em itens grandes, como os vídeos.",
+      "O Registro passou a guardar o que aconteceu na última cópia, e onde ela parou."
     ]
   },
   {

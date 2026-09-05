@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.8.3** — O DESLIZE DA BÍBLIA VAZAVA DA FOLHA. Relato do operador: *"um bugs visual de animação, os itens dentro das seções da bíblia estão aparecendo horizontalmente em sua animação de entrada e saída, saindo da caixa a qual pertecem."* A navegação DENTRO da Bíblia desliza (`deslizarNaFolha`): um `translateX(±100%)` no `#bibleBody`, 220ms. A `.tools-sheet` é um CARTÃO — fundo, raio e sombra — e **não recortava nada**, então durante o movimento a grade de livros, os ladrilhos e o cabeçalho pintavam FORA dela, por cima do Cronograma em volta. MEDIDO a 393×786: **47,7px** de vazamento e 25 nós fora da caixa numa das transições. Quem já recortava era o `<main>`, e só na LARGURA DA TELA — era o que segurava o deslize da faixa de abas de antes da v1.5.0, uma camada acima; entre a borda da folha e a da tela sobra justamente a moldura em que o vazamento aparecia. **DEFEITO PRÉ-EXISTENTE, e isso foi conferido antes de consertar**: a mesma sonda contra o `controle.css` da v1.8.0 devolve os mesmos 47,6px. `overflow: hidden` na folha, e ele não custa nada — os dois corpos (`#bibleBody` e `#toolsBody`) já têm `min-height: 0` e rolagem própria, e o que transbordasse viraria um corte, que o `geometria.test.mjs` reprova. **O ORÁCULO NOVO NÃO CABIA NO DE GEOMETRIA, por duas razões de método**: aquele ASSENTA as animações antes de medir (e tem de assentar — uma folha medida no meio do movimento devolve uma caixa que não existe), então um defeito que só existe DURANTE o movimento nasce fora do alcance dele; e **geometria não responde a esta pergunta** — `overflow: hidden` recorta a PINTURA, não o layout, e com a correção aplicada o `getBoundingClientRect` de cada ladrilho continua devolvendo a caixa inteira, 47,6px fora da folha. Medido por geometria, antes e depois são IDÊNTICOS, e foi assim que a primeira tentativa do arquivo "reprovou" a correção certa. A régua virou o PIXEL: quantas cores distintas aparecem na moldura entre a folha e o `<main>` — **9 em repouso e com a correção, 59 sem ela**. Lote **só de base web**.
+- **v1.8.4** — O DESLIZE DA BÍBLIA VAZAVA DA FOLHA. Relato do operador: *"um bugs visual de animação, os itens dentro das seções da bíblia estão aparecendo horizontalmente em sua animação de entrada e saída, saindo da caixa a qual pertecem."* A navegação DENTRO da Bíblia desliza (`deslizarNaFolha`): um `translateX(±100%)` no `#bibleBody`, 220ms. A `.tools-sheet` é um CARTÃO — fundo, raio e sombra — e **não recortava nada**, então durante o movimento a grade de livros, os ladrilhos e o cabeçalho pintavam FORA dela, por cima do Cronograma em volta. MEDIDO a 393×786: **47,7px** de vazamento e 25 nós fora da caixa numa das transições. Quem já recortava era o `<main>`, e só na LARGURA DA TELA — era o que segurava o deslize da faixa de abas de antes da v1.5.0, uma camada acima; entre a borda da folha e a da tela sobra justamente a moldura em que o vazamento aparecia. **DEFEITO PRÉ-EXISTENTE, e isso foi conferido antes de consertar**: a mesma sonda contra o `controle.css` da v1.8.0 devolve os mesmos 47,6px. `overflow: hidden` na folha, e ele não custa nada — os dois corpos (`#bibleBody` e `#toolsBody`) já têm `min-height: 0` e rolagem própria, e o que transbordasse viraria um corte, que o `geometria.test.mjs` reprova. **O ORÁCULO NOVO NÃO CABIA NO DE GEOMETRIA, por duas razões de método**: aquele ASSENTA as animações antes de medir (e tem de assentar — uma folha medida no meio do movimento devolve uma caixa que não existe), então um defeito que só existe DURANTE o movimento nasce fora do alcance dele; e **geometria não responde a esta pergunta** — `overflow: hidden` recorta a PINTURA, não o layout, e com a correção aplicada o `getBoundingClientRect` de cada ladrilho continua devolvendo a caixa inteira, 47,6px fora da folha. Medido por geometria, antes e depois são IDÊNTICOS, e foi assim que a primeira tentativa do arquivo "reprovou" a correção certa. A régua virou o PIXEL: quantas cores distintas aparecem na moldura entre a folha e o `<main>` — **9 em repouso e com a correção, 59 sem ela**. Lote **só de base web**.
+- **v1.8.3** — O ITEM INTEIRO NO HEAP, E UM DIÁRIO QUE SOBREVIVE AO PROCESSO. O "medindo" saiu com a v1.8.2 (*"agora ele achou e deu a medição correta"*) e a cópia continuou falhando, com o Registro do aparelho que RECEBE sem uma linha sobre ela — o bloco é montado do estado do SHELL, que nasce limpo num processo novo, e é justamente reabrindo o app que o operador vai copiar o Registro. **O ITEM INTEIRO NO HEAP:** `cloneBaixarItem` empilhava o `arrayBuffer()` de cada pedaço, então um episódio de ~300 MB eram 300 MB no renderer que hospeda os dois WebViews e a `Presentation` — e o desfecho é o renderer morrendo, a cópia parando e nada explicando por quê. **É o defeito que a v1.7.9 corrigiu no caminho do ARQUIVO, deixado de pé no da REDE**: hoje cada pedaço vira Blob na hora e o pico passa a ser UM pedaço. A asserção do oráculo é ESTRUTURAL de propósito — medir pico de memória num navegador é medir a máquina, e o que se afirma sem ambiguidade é a forma (blobs, nunca `ArrayBuffer` acumulado). **E O DIÁRIO DO CLONE MORA NO BANCO**, para sobreviver ao processo. Lote SÓ WEB. *(Linha de índice escrita no lote seguinte — ver o corpo, que é o registro do lote.)*
 - **v1.8.2** — O "MEDINDO" ETERNO, E UM DESMONTE QUE NÃO DIZIA POR QUÊ. Relato do operador, com o Registro junto: *"deu erro, diz que não deu para falar com o outro aparelho, 'a cópia parou'"* e *"na seleção do aparelho para conectar, ele fica eternamente 'medindo', mesmo aparecendo o aparelho para conectar"*. No SHELL: a cessão anunciava por mDNS com ZERO itens e o `acervoPublicar` reanunciava com os números de verdade — mas reanunciar é desanunciar e anunciar com o MESMO nome, e do outro lado um nome já achado nunca era resolvido de novo, então o TXT novo não chegava. Hoje quem põe o aparelho na rede é o `acervoPublicar`, já com contagem e peso, e um nome já achado volta à fila passada uma janela (`REVER_MS`). No WEB: "medindo" prometia um estado que aquele lado não tem como observar, e a linha passou a mostrar o ENDEREÇO. *(Linha de índice escrita no lote seguinte: a v1.8.2 entrou com a seção e sem ela — ver o corpo, que é o registro do lote.)*
 - **v1.8.1** — A VARREDURA GEOMÉTRICA, E O PADRÃO SEGURO DE DESIGN. Pedido do operador: *"faça a varredura completa no layout do app para que ele se torne responsivo geometricamente. vamos criar um padrão seguro de design."* **Primeiro a RÉGUA, depois a correção, e só então o portão** — escrever a asserção antes de medir é como o desenho da Bíblia nasceu. `tools/varredura-geometrica.mjs` abre as 16 superfícies do app (a tela nos dois modos, os dez popups da tabela `POPUPS`, as duas folhas, as duas gavetas) em 9 combinações de tela × escala de fonte do sistema, e mede cinco coisas: **T1** elemento fora da janela, **T2** irmãos sobrepostos numa linha `flex`, **T3** corte serrado (`overflow` cortando texto sem clamp ENGATADO e sem máscara), **T4** alvo abaixo de `--hit`, **T5** camada `fixed` fora da tela. **As cinco foram vistas DISPARANDO antes de a régua valer** — duas por reversão do `controle.css` de antes da v1.7.10 (a pílula "Versão" a 22px fora da tela, o versículo com 210px de excesso e `cabem 0ln, clamp 6`), duas por um DOM montado à mão, uma pela varredura de verdade: uma sonda que nunca dispara é indistinguível de um app sem defeito e aprova tudo em silêncio. **O RESULTADO É A NOTÍCIA BOA:** 13 das 16 superfícies saíram limpas nas oito telas da primeira passada, e as 145 ocorrências colapsaram em **seis defeitos**, todos com a MESMA anatomia — *a caixa é da TELA e encolhe, o conteúdo é da FONTE e cresce, e nada apresenta os dois*. (1) **A GRADE DE 66 LIVROS DA BÍBLIA** era `repeat(11, 1fr)` sem piso: MEDIDO, fileira de **16,4px com letra de 20px** a 360×640 e de **12,8px com letra de 26px** com a fonte do sistema em 1,3× — a abreviação cortada ao meio, e um alvo de toque intocável. Três mudanças, nenhuma suficiente sozinha: piso `--hit-denso` (28px, o número que a `.bible-half` já usava, exceção NOMEADA ao `--hit` porque 66 alvos de 34px pedem 414px numa folha que mede 280,5px), **rolagem** (um piso sem rolagem é o corte de volta um nível acima) e a letra seguindo a célula (`min(var(--fs-4xl), 76cqh)`, com a porcentagem CALIBRADA — 20/26 — para a tela folgada desenhar exatamente o que desenhava). Depois: `corta: 0` nas cinco telas medidas, letra de 19,76 a 20px, e só a 360×640 a grade passa a rolar. (2) **A FOLHA DE FERRAMENTAS** espremia o miolo: a 360×640 com fonte 1,3× o corpo tem 181,2px, o seletor come 53,3 e o rodapé do microfone 73,7, sobrando **42,9px** para um painel cujo botão "+ Nova mensagem" mede 51,1 — a lista sumia inteira e o botão saía cortado numa caixa que não rolava. `min-height: min-content` é o piso HONESTO (a lista rola sozinha e contribui zero), e a `.lib-misc` passou a rolar em vez de esconder: 42,9 → **143,4px**. (3–6) Quatro controles abaixo do piso de toque, e nenhum era um número escolhido — os quatro eram um `padding` em `rem` caindo onde caiu: `.misc-tab` a 32,6px, `.fit-opt` a 31, `.misc-chip` a 29,5 e o `.cue-save-btn` da leitura a **20px**, este último uma regressão da própria v1.7.10 (`height: auto` para esticar junto das pílulas, sem piso para quando a barra QUEBRA). **O padrão ficou escrito** em `docs/arquitetura/DESIGN-SYSTEM.md` — seis regras (orçamento em vez de sobra · corte declarado · piso que não depende da fonte · caixa por largura não hospeda texto por fonte · rolar nunca esconder) mais o corolário *numa folha, o cromo é o que cede, nunca o miolo* —, e com ele o que NÃO é regra: `px` não é o vilão (o `--hit` é `px` de propósito, porque alvo de toque é FÍSICO), e media query de largura não faz falta, porque o que o fluxo não resolve é a ALTURA. Portão novo: `tools/geometria.test.mjs`, 16 superfícies × 5 telas em **29s**, com as sondas se autoprovando a cada execução e **oito reversões medidas** — a oitava só passou a ser cobrada depois de a escala **1,5×** (o "Ampliar" do Android) entrar na matriz, porque a 1,3× a letra cabia por ZERO, e "cabe por zero" não é uma correção. Lote **só de base web**.
 - **v1.8.0** — O ARQUIVO ÚNICO ERA TUDO-OU-NADA, E ISSO ERA O DEFEITO. Pedido do operador, depois de o `.avpkg` falhar em 15 GB e de novo em 3,5 GB: *"vamos planejar um método mais gradual, algo que possa ser interrompido e continuado a qualquer momento sem risco de perder todo o trabalho … um método direto de comunicação … que se comunique diretamente com o outro app que vai clonar a biblioteca"*, e em seguida *"tente fazer um sistema de comunicação entre eles, para que eu não tenha de digitar um endereço, quanto mais automatizado melhor"*. **O NÚCLEO JÁ EXISTIA, e foi ele quem o nomeou**: *"já temos um sistema que busca online para saber se tem algo faltando, a biblioteca é a mesma, só muda a fonte"* — é o `songVariantsNeeded`/`syncCollection`, cuja lista do que falta é DERIVADA do disco a cada passada e nunca guardada. Daí a propriedade que o arquivo único nunca teve: *nenhum progresso pode ser perdido, porque nenhum progresso é anotado*. O CLONE celular a celular: mDNS para os dois se acharem sem ninguém digitar endereço (`AcervoDescoberta.kt`), pareamento COM confirmação do operador — o acervo NÃO herda a porta aberta do telão (`AcervoCessao.kt`) —, as rotas `/acervo/` no servidor que já existia (agora com DUAS razões de viver, como o `SessionService`), e o `AcervoProxy` porque a página é `https` e o outro celular serve `http`. O FORMATO não mudou: cada item é um fluxo dos MESMOS registros do `.avpkg`, e o aplicador virou UM só para as duas fontes. Ponte: oito métodos, `SHELL_VERSION` 65. Lote COM Release.
@@ -363,7 +364,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.8.3 — o deslize da Bíblia vazava da folha
+## v1.8.4 — o deslize da Bíblia vazava da folha
 
 Relato do operador: *"um bugs visual de animação, os itens dentro das seções da
 bíblia estão aparecendo horizontalmente em sua animação de entrada e saída,
@@ -443,20 +444,27 @@ esconder a grade — passaria na primeira.
 Campanha de determinismo do arquivo novo: **12/12** a 2× de carga. Suíte
 completa: **69/69**.
 
-**E MAIS UM ORÁCULO ÓRFÃO, o segundo em três lotes:** a v1.8.2 escreveu
+**E A VARREDURA DOS ÓRFÃOS, feita de uma vez.** A v1.8.2 escreveu
 `tools/clone-lista-de-aparelhos.test.mjs` e não o registrou no workflow — o
 mesmo vão da v1.8.0 com o `clone-de-outro-celular.test.mjs`, corrigido no lote
-anterior. Pela regra escrita aqui, *"teste que não está no workflow é
-documentação, não rede de segurança"*. Conferido verde e registrado. **Duas
-ocorrências seguidas deixam de ser esquecimento e viram um passo que falta no
-rito de entrega**: quem escreve o oráculo escreve a linha do `rodar` no MESMO
-lote, e o modo de falhar é sempre este — o run fica verde porque ninguém o roda.
+anterior. **Duas ocorrências seguidas deixam de ser esquecimento**, então em vez
+de corrigir mais uma comparou-se `tools/*.test.mjs` contra o workflow, arquivo a
+arquivo — e apareceu um TERCEIRO, bem mais antigo:
+`preview-volta-ao-wallpaper.test.mjs`, descrito na tabela de oráculos do
+`CLAUDE.md` desde que nasceu e nunca registrado. Os três foram conferidos verdes
+e entraram; **depois deles não sobra nenhum**.
 
-**E um vão de passagem, restaurado:** a v1.8.2 entrou com a seção no corpo e
-**sem linha no índice** — a regra deste arquivo é *"o bloco novo entra logo
-abaixo do índice e ganha uma linha no índice"*, e sem ela o `grep` que este
-apêndice existe para servir não acha o lote. A linha foi escrita a partir do
-corpo dela, e diz que foi escrita depois.
+Pela regra escrita aqui, *"teste que não está no workflow é documentação, não
+rede de segurança"* — e o modo de falhar é sempre o mesmo: o run fica verde
+porque ninguém o roda. A regra de entrega passou a dizer o passo que faltava:
+**quem escreve o oráculo escreve a linha do `rodar` no MESMO lote.**
+
+**E o mesmo vão no ÍNDICE, DUAS vezes:** a v1.8.2 e a v1.8.3 entraram com a
+seção no corpo e **sem linha no índice**. A regra deste arquivo é *"o bloco novo
+entra logo abaixo do índice e ganha uma linha no índice"*, e sem ela o `grep`
+que este apêndice existe para servir não acha o lote — que é o único uso que ele
+tem. As duas linhas foram escritas a partir do corpo de cada uma, e dizem que
+foram escritas depois.
 
 **E o padrão ganhou a sexta regra** (`docs/arquitetura/DESIGN-SYSTEM.md`):
 **G6 · uma caixa que ANIMA o conteúdo dela recorta** — um `translateX(±100%)`
@@ -467,6 +475,51 @@ de assentar) e o recorte de PINTURA (geometria não o vê).
 Lote **só de base web**.
 
 ---
+## v1.8.3 — o item inteiro no heap, e um diário que sobrevive ao processo
+
+O "medindo" saiu com a v1.8.2 (*"agora ele achou e deu a medição correta"*), e a
+cópia continuou falhando. O Registro do aparelho que RECEBE não tinha uma linha
+sobre ela — e não por esquecimento: o bloco inteiro é montado do estado do
+SHELL, que nasce limpo num processo novo, e o operador reabre o app justamente
+para copiar o Registro.
+
+### O item inteiro no heap — e é o defeito da v1.7.9 no outro caminho
+
+`cloneBaixarItem` fazia `partes.push(ab)` com o `arrayBuffer()` de cada pedaço:
+o item INTEIRO na memória do renderer antes de virar Blob. Num episódio de
+~300 MB são 300 MB de heap num processo que hospeda os DOIS WebViews e a
+`Presentation` — e o aparelho do relato é intermediário (SM-A566E) enquanto o
+que cede é um topo de linha. O desfecho é o renderer morrendo: a cópia para, o
+app volta limpo, e nada explica por quê.
+
+**É o mesmo defeito que a v1.7.9 corrigiu no caminho do ARQUIVO** (*"O LEITOR
+NUNCA MATERIALIZA O ARQUIVO"*, quando o `resp.blob()` de 15 GB não coube),
+deixado de pé no caminho da REDE. Hoje cada pedaço vira Blob na hora — o
+navegador o tira do heap — e o `pacoteCursor` o lê por fatias preguiçosas
+depois. O pico passa a ser UM pedaço.
+
+**A asserção do oráculo é ESTRUTURAL de propósito:** o que se quer garantir é o
+PICO de memória, e medir pico num navegador é medir a máquina, o que este
+repositório proíbe a um oráculo que guarda portão. O que se afirma sem
+ambiguidade é a forma — blobs, nunca `ArrayBuffer` acumulado.
+
+### E o diário do clone mora no BANCO
+
+Duas cópias falharam em campo e nenhum dos dois Registros pôde dizer por quê,
+pela MESMA razão nas duas vezes: a falha aparece num diálogo, o operador toca em
+"Entendi" e reabre o app — e aí o anel do web nasceu vazio, o estado do shell
+também, e o `cloneComecar` ainda solta o pareamento no `finally`. Tudo que sabia
+o que aconteceu era volátil.
+
+O `clone-diario` é uma chave de `state` (o único lugar deste app que atravessa a
+morte do processo — o mesmo e pelo mesmo motivo da intenção do OTA), escrita com
+`updateState` e nunca `setState`. Ela guarda as oito últimas tentativas com o
+desfecho e ONDE parou (*"item 7 de 900"*), e o bloco do Registro passou a
+existir a partir dela SOZINHA. A chave entra na lista `FORA` do pacote, pela
+razão do `historico`: ela responde *"o que aconteceu NESTE aparelho?"*.
+
+**Lote SÓ WEB:** nada em `java/` ou `res/` — chega por OTA em minutos.
+
 ## v1.8.2 — o "medindo" eterno, e um desmonte que não dizia por quê
 
 Relato do operador, com o Registro junto: *"deu erro, diz que não deu para

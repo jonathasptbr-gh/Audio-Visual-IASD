@@ -1419,7 +1419,7 @@ come o resto. Quem ganha piso ganha `overflow-y: auto` no mesmo lote.
 **G6 · Uma caixa que ANIMA o conteúdo dela recorta.** Um `translateX(±100%)`
 num filho é conteúdo passando por fora da caixa por definição; sem
 `overflow: hidden` no pai, o que se vê durante o movimento é o conteúdo pintando
-sobre o que estiver ao redor. MEDIDO na `.tools-sheet` (v1.8.3): **47,7px** de
+sobre o que estiver ao redor. MEDIDO na `.tools-sheet` (v1.8.4): **47,7px** de
 grade de livros por cima do Cronograma, durante os 220ms do deslize da Bíblia.
 **E o recorte é da caixa a que o conteúdo pertence**, não de um ancestral
 distante — o `<main>` já recortava na largura da TELA, e a moldura entre ele e a
