@@ -361,6 +361,51 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.8.3 — o item inteiro no heap, e um diário que sobrevive ao processo
+
+O "medindo" saiu com a v1.8.2 (*"agora ele achou e deu a medição correta"*), e a
+cópia continuou falhando. O Registro do aparelho que RECEBE não tinha uma linha
+sobre ela — e não por esquecimento: o bloco inteiro é montado do estado do
+SHELL, que nasce limpo num processo novo, e o operador reabre o app justamente
+para copiar o Registro.
+
+### O item inteiro no heap — e é o defeito da v1.7.9 no outro caminho
+
+`cloneBaixarItem` fazia `partes.push(ab)` com o `arrayBuffer()` de cada pedaço:
+o item INTEIRO na memória do renderer antes de virar Blob. Num episódio de
+~300 MB são 300 MB de heap num processo que hospeda os DOIS WebViews e a
+`Presentation` — e o aparelho do relato é intermediário (SM-A566E) enquanto o
+que cede é um topo de linha. O desfecho é o renderer morrendo: a cópia para, o
+app volta limpo, e nada explica por quê.
+
+**É o mesmo defeito que a v1.7.9 corrigiu no caminho do ARQUIVO** (*"O LEITOR
+NUNCA MATERIALIZA O ARQUIVO"*, quando o `resp.blob()` de 15 GB não coube),
+deixado de pé no caminho da REDE. Hoje cada pedaço vira Blob na hora — o
+navegador o tira do heap — e o `pacoteCursor` o lê por fatias preguiçosas
+depois. O pico passa a ser UM pedaço.
+
+**A asserção do oráculo é ESTRUTURAL de propósito:** o que se quer garantir é o
+PICO de memória, e medir pico num navegador é medir a máquina, o que este
+repositório proíbe a um oráculo que guarda portão. O que se afirma sem
+ambiguidade é a forma — blobs, nunca `ArrayBuffer` acumulado.
+
+### E o diário do clone mora no BANCO
+
+Duas cópias falharam em campo e nenhum dos dois Registros pôde dizer por quê,
+pela MESMA razão nas duas vezes: a falha aparece num diálogo, o operador toca em
+"Entendi" e reabre o app — e aí o anel do web nasceu vazio, o estado do shell
+também, e o `cloneComecar` ainda solta o pareamento no `finally`. Tudo que sabia
+o que aconteceu era volátil.
+
+O `clone-diario` é uma chave de `state` (o único lugar deste app que atravessa a
+morte do processo — o mesmo e pelo mesmo motivo da intenção do OTA), escrita com
+`updateState` e nunca `setState`. Ela guarda as oito últimas tentativas com o
+desfecho e ONDE parou (*"item 7 de 900"*), e o bloco do Registro passou a
+existir a partir dela SOZINHA. A chave entra na lista `FORA` do pacote, pela
+razão do `historico`: ela responde *"o que aconteceu NESTE aparelho?"*.
+
+**Lote SÓ WEB:** nada em `java/` ou `res/` — chega por OTA em minutos.
+
 ## v1.8.2 — o "medindo" eterno, e um desmonte que não dizia por quê
 
 Relato do operador, com o Registro junto: *"deu erro, diz que não deu para

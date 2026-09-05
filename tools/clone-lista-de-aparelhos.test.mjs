@@ -153,6 +153,70 @@ try {
   checar(/Procurando na rede/.test(r.vazia.texto),
     'e a lista VAZIA continua dizendo que está procurando — é ela que cobre os '
     + 'segundos em que o outro celular monta o índice', r.vazia.texto);
+  // -------------------------------------------------------------------------
+  // METADE 3 — O DIÁRIO SOBREVIVE AO QUE APAGOU AS DUAS PROVAS DE CAMPO
+  // -------------------------------------------------------------------------
+  //
+  // Duas cópias falharam e nenhum dos dois Registros pôde dizer por quê, pela
+  // MESMA razão nas duas vezes: a falha aparece num diálogo, o operador toca em
+  // "Entendi" e reabre o app para copiar o Registro — e aí o anel do web nasceu
+  // vazio e o estado do shell também. O `blocoClone` inteiro sumia.
+  //
+  // A asserção é sobre a PROPRIEDADE que faltava: o bloco existe a partir do
+  // DIÁRIO SOZINHO, sem estado de shell nenhum. Um teste que passasse o estado
+  // junto aprovaria a versão antiga.
+  const trechoBloco = JS.match(/^function blocoClone\(e, diario\)[\s\S]*?^}/m);
+  checar(!!trechoBloco, 'consegui isolar o `blocoClone` do controle.js');
+
+  const b = await pg.evaluate(({ fonte }) => {
+    const fmtBytes = (n) => n + ' B';
+    // eslint-disable-next-line no-new-func
+    const montar = new Function('fmtBytes', fonte + '\nreturn blocoClone;');
+    const blocoClone = montar(fmtBytes);
+    return {
+      // O CASO DE CAMPO: processo novo, shell sem memória, e uma tentativa
+      // gravada no banco.
+      soDiario: blocoClone(null, [
+        { em: Date.parse('2026-09-05T18:20:00'), papel: 'levar',
+          desfecho: 'Não deu para falar com o outro aparelho.', detalhe: 'parou em: item 7 de 900 (nº 12)' },
+      ]),
+      // E o silêncio continua sendo silêncio: um aparelho que nunca clonou nem
+      // cedeu não ganha bloco (a regra do `ytCenso`).
+      semNada: blocoClone(null, []),
+      semNadaComShell: blocoClone({ cessao: {}, descoberta: { diag: 'sem uso' }, proxy: 'sem uso' }, []),
+    };
+  }, { fonte: trechoBloco ? trechoBloco[0] : '' });
+
+  checar(/Clone da biblioteca/.test(b.soDiario) && /Não deu para falar/.test(b.soDiario),
+    'o bloco do clone EXISTE a partir do diário sozinho — sem ele, a cópia que '
+    + 'falhou saía do Registro sem deixar uma linha', b.soDiario);
+  checar(/item 7 de 900/.test(b.soDiario),
+    'e ele diz ONDE parou: "não começou" e "parou no meio" pedem conferências opostas',
+    b.soDiario);
+  checar(b.semNada === '' && b.semNadaComShell === '',
+    'e quem nunca clonou nem cedeu continua sem bloco nenhum — uma linha de zeros '
+    + 'é mais uma para ler em toda cópia do Registro',
+    JSON.stringify([b.semNada, b.semNadaComShell]));
+
+  // O ITEM NUNCA É MATERIALIZADO NO HEAP (v1.8.3). A asserção é ESTRUTURAL de
+  // propósito: o que se quer garantir é o PICO de memória, e medir pico num
+  // navegador é medir a máquina — o que este repositório proíbe a um oráculo
+  // que guarda portão. O que dá para afirmar sem ambiguidade é a forma: o laço
+  // guarda BLOBS (que o navegador manda para o armazenamento dele) e nunca
+  // `ArrayBuffer`s, que ficam no heap do renderer até o fim do item.
+  const corpoBaixar = JS.match(/^async function cloneBaixarItem\([\s\S]*?^}/m);
+  checar(!!corpoBaixar, 'consegui isolar o `cloneBaixarItem`');
+  const cb = corpoBaixar ? corpoBaixar[0] : '';
+  checar(/await resp\.blob\(\)/.test(cb) && !/arrayBuffer\(\)/.test(cb),
+    'o item chega em BLOBS, nunca em `ArrayBuffer` acumulado — era o mesmo defeito '
+    + 'que a v1.7.9 corrigiu no caminho do ARQUIVO, de pé no caminho da REDE', cb.slice(0, 0));
+
+  // O DIÁRIO NÃO VIAJA NO PACOTE, pela mesma razão do histórico: ele descreve
+  // ESTE aparelho, e um Registro que mostrasse as tentativas de outro celular é
+  // um log que discorda do aparelho — lido a distância por quem não confere.
+  const PACOTE = fs.readFileSync(path.join(WEB, 'controle/pacote.js'), 'utf8');
+  checar(/'clone-diario',/.test(PACOTE.match(/const FORA = \[[\s\S]*?\];/)?.[0] || ''),
+    'e a chave do diário está na lista `FORA` do pacote');
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

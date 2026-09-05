@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.3",
+    "itens": [
+      "A cópia entre celulares deixou de travar em itens grandes, como os vídeos.",
+      "O Registro passou a guardar o que aconteceu na última cópia, e onde ela parou."
+    ]
+  },
+  {
     "versao": "1.8.2",
     "itens": [
       "O outro celular deixou de ficar preso em “medindo” na lista de aparelhos.",

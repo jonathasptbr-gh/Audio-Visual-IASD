@@ -112,6 +112,12 @@
     // importa; importar o histórico misturaria dois cultos num diário só.
     'current',
     'historico',
+    // O DIÁRIO DO CLONE, pelo mesmo motivo do histórico: ele responde *"o que
+    // aconteceu NESTE aparelho?"*, e um Registro que mostrasse as tentativas de
+    // outro celular seria o pior artefato que este projeto sabe produzir — um
+    // log que discorda do aparelho, lido a distância por quem não tem como
+    // conferir.
+    'clone-diario',
   ];
 
   /** A assinatura do arquivo, pronta para ser o primeiro bloco escrito. */
