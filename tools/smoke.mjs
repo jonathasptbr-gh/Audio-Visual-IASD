@@ -3017,14 +3017,25 @@ try {
   checar(pressLinha.respondeu !== 'none' && pressLinha.cartao.w > 0,
     'e o cartão RESPONDE de verdade: a luz do toque ficou, o feedback não sumiu',
     JSON.stringify(pressLinha));
-  // ===== E O RECUO É ABSOLUTO, NÃO UMA FRAÇÃO (v1.3.14) =====
-  // A outra metade, e ela é a que impede a correção acima de virar o defeito
-  // anterior por outro caminho: `scale(.96)` num cartão de 408px recuava 8,2px
-  // de cada lado. `translateY(2px)` não mexe na LARGURA — é `matrix(1,0,0,1,0,2)`
-  // —, e é por não mexer que a fresta acima não pode voltar.
-  checar(/matrix\(1,\s*0,\s*0,\s*1,\s*0,\s*2\)/.test(pressLinha.moveu),
-    'e o recuo é ABSOLUTO (2px para baixo), não uma fração da largura: é isso '
-    + 'que impede a fresta de voltar em qualquer tamanho de cartão',
+  // ===== E O BLOCO NÃO SE MEXE (v1.7.4) =====
+  //
+  // Pedido do operador: *"Há um efeito de encolhimento que distorce os
+  // elementos, remova esse efeito, deixe apenas um efeito de
+  // coloração/sombreamento ao toque sem encolhimento."*
+  //
+  // Esta asserção era o oposto — ela exigia `matrix(1,0,0,1,0,2)` no cartão —, e
+  // o comentário logo acima já dizia a regra certa desde a v1.3.14: *"quem
+  // responde num BLOCO é a LUZ, não a geometria"*. As duas conviveram porque o
+  // recuo absoluto não abria a fresta que aquele caso mede; o que ele fazia era
+  // deslocar a pílula inteira 2px a cada dedo, numa lista de trinta linhas.
+  //
+  // A metade de cima (`respondeu !== 'none'`) continua sendo o que impede isto
+  // de virar "o feedback sumiu": o par diz a regra inteira — o bloco RESPONDE, e
+  // responde SEM se mexer.
+  checar(pressLinha.moveu === 'none',
+    'e o BLOCO não se mexe: o recuo fica para o CONTROLE FOLHA, que é onde ele '
+    + 'significa alguma coisa — num contêiner ele desliza o conteúdo dentro de '
+    + 'uma caixa parada, que foi o que o operador leu como distorção',
     JSON.stringify(pressLinha));
   await pg.evaluate(() => {
     window.__gaveta.lista.remove();
@@ -4545,16 +4556,34 @@ try {
     return r;
   });
   checar(!slot.erro && slot.capaAntes === true && slot.maisAntes === true
-    && slot.delCapa === false && slot.delMais === false
-    && slot.renCapa === false && slot.renMais === false,
-    'A CAPA E O `⋮` SAEM DE CENA durante os dois processos (v1.4.27) — o `⋮` é '
-    + 'uma terceira saída para uma pergunta que já tem duas, e a capa já não '
-    + 'identificava nada (na exclusão ela virava uma lixeira). Com a gaveta '
-    + 'COMUM aberta os dois continuam lá', JSON.stringify(slot));
-  checar(!slot.erro && slot.delFaixa > slot.faixaAntes && slot.renFaixa > slot.faixaAntes,
-    'e a faixa GANHA a largura das duas colunas (' + slot.faixaAntes + 'px → '
-    + slot.delFaixa + 'px) — o operador pediu o espaço, não o sumiço: sem esta '
-    + 'metade, esconder as colunas seria só uma remoção', JSON.stringify(slot));
+    && slot.delMais === false && slot.renMais === false,
+    'O `⋮` SAI DE CENA durante os dois processos (v1.4.27) — ele é uma terceira '
+    + 'saída para uma pergunta que já tem duas. Com a gaveta COMUM aberta ele '
+    + 'continua lá', JSON.stringify(slot));
+  // ===== E A CAPA SÓ SAI NA RENOMEAÇÃO (v1.7.4) =====
+  //
+  // Pedido do operador: *"pode deixar visivel a thumbnail do item durante essa
+  // confirmação. Ela tinha sido tirada desse momento do layout, mas julguei
+  // melhor ter ela ali."*
+  //
+  // A v1.4.27 tirou a capa dos DOIS processos com um argumento que valia só
+  // enquanto ela VIRAVA UMA LIXEIRA: um desenho igual em toda linha não
+  // identifica nada. Com o símbolo morando na coluna do `⋮`, a capa volta a ser
+  // a capa — e é a única parte da linha que a faixa não cobre, isto é, a única
+  // que responde *"de qual item é esta pergunta?"*.
+  //
+  // O PAR é o que diz a regra: no RENOMEAR ela continua saindo, porque ali o
+  // campo quer a faixa inteira. Sem essa metade, "mostrar sempre" passaria.
+  checar(!slot.erro && slot.delCapa === true && slot.renCapa === false,
+    'e A CAPA FICA na pergunta da exclusão e SAI na renomeação (v1.7.4) — o par '
+    + 'é a regra: ali ela identifica o item, aqui ela é a largura de que o campo '
+    + 'precisa', JSON.stringify(slot));
+  checar(!slot.erro && slot.delFaixa === slot.faixaAntes && slot.renFaixa > slot.faixaAntes,
+    'e a faixa ganha a largura das DUAS colunas no renomear (' + slot.faixaAntes
+    + 'px → ' + slot.renFaixa + 'px) e mantém a de sempre na exclusão ('
+    + slot.delFaixa + 'px): o par de rótulos cabe onde a fileira de botões cabia, '
+    + 'e é isso que devolve a coluna da capa sem apertar nada',
+    JSON.stringify(slot));
   checar(!slot.erro && slot.delSimbolo === true && slot.renOk === true
     && slot.delNaColuna === true && slot.renNaColuna === true,
     'e a COLUNA continua ocupada pelo símbolo do processo, na caixa exata do '

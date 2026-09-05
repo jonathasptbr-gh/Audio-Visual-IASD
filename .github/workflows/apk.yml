@@ -476,6 +476,7 @@ jobs:
           rodar tools/pacote-por-grupos.test.mjs
           rodar tools/configuracoes-sem-subtitulo.test.mjs
           rodar tools/linha-da-preparacao.test.mjs
+          rodar tools/miniaturas-estaveis.test.mjs
           rodar tools/mse.test.mjs
           rodar tools/stage-fade.test.mjs
           rodar tools/aba-sem-estalo.test.mjs

@@ -670,16 +670,19 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    Cancelar/Excluir, o campo de renomear). Mover o cartão junto é uma segunda
    resposta a um gesto que já tem a sua, e ela chega no exato quadro em que a
    outra está entrando. */
-.lib-item:has(:is(.row-mais, .row-slot):active),
+/* A LINHA DE LISTA RESPONDE POR LUZ (v1.7.4), pela regra do bloco — ver "O
+   BLOCO RESPONDE POR LUZ", mais abaixo. Ela é o outro contêiner que hospeda
+   controles (o `⋮`, o "Tirar do ar" na capa, a gaveta inteira), e o pedido do
+   operador nomeia os FAVORITOS, que são justamente estas linhas.
+   `filter` num elemento que PINTA acende o corpo dele — a pílula com as
+   margens e os cantos —, ao contrário da barra transparente de um card. */
+.lib-item:active { filter: var(--press-luz); }
+.lib-item:has(:is(.row-mais, .row-slot, .row-cancel):active),
 .lib-item:has(:is(.hymn-gaveta, .folder-itens, .row-acoes) :active),
 .lib-item:has(.lib-item:active) { transform: none; filter: none; }
-/* A BARRA de um card ou de uma seção hospeda os botões da coluna da direita
-   (baixar, remover, atualizar) e a seta do acordeão: o dedo pousa num deles e
-   é ELE que responde, não a linha inteira por baixo. */
-.coll-bar:has(:is(.coll-bar-dl, .coll-bar-icon, .coll-bar-fechar):active),
-.coll-group-bar:has(:is(.coll-group-btn, .coll-group-acao, .coll-group-icon):active) {
-  transform: none; filter: none;
-}
+/* (A guarda das duas BARRAS saiu na v1.7.4 com elas: quem responde ao toque numa
+   tampa é o BLOCO, e a guarda dele — que é a mesma regra, um nível acima — mora
+   junto da resposta, em "O BLOCO RESPONDE POR LUZ".) */
 /* ---------- E A REGRA VALE PARA A `.row` DELE TAMBÉM (v1.2.27) ----------
    Relato do operador: *"ao encolher, as bordas do card de título ficam com uma
    marca de encolhimento nas laterais direita e esquerda"*.
@@ -709,16 +712,23 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      na tela dizer por quê. Nenhum ancestral dele responde ao toque. */
   .lv-cheia-btn,
   .coll-bar-dl, .coll-group-btn, .coll-more-btn,
-  /* AS DUAS BARRAS QUE ABREM UM BLOCO (v1.3.14). A `.coll-bar` respondia por um
-     overlay próprio (que saiu com a luz) e a `.coll-group-bar` não respondia a
-     nada — duas linhas com a mesma função, uma muda. Com o recuo ABSOLUTO elas
-     entram na lista sem trazer de volta o hit-test que tirava o dedo do botão
-     de baixar: 2px na vertical não movem alvo nenhum. */
-  .coll-bar, .coll-group-bar,
+  /* (AS DUAS BARRAS QUE ABREM UM BLOCO saíram desta lista na v1.7.4. Elas
+     entraram na v1.3.14 e o defeito estava no ARGUMENTO: uma barra é a TAMPA de
+     um bloco, não um controle folha — e a regra escrita duas telas abaixo, na
+     `.coll-bar`, já dizia isso ("`--press` é para CONTROLE FOLHA. Um contêiner
+     que hospeda um controle nunca escala"). O que se via era o pedido do
+     operador: *"Há um efeito de encolhimento que distorce os elementos"* — a
+     barra é TRANSPARENTE, então o `--press-luz` acendia só o texto e os ícones
+     dentro dela, e o `translateY(2px)` deslizava esse conteúdo dentro de um
+     card que não se mexia. Quem responde agora é o BLOCO, com a luz e por
+     inteiro: ver "O BLOCO RESPONDE POR LUZ".) */
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .song-menu-btn, .msg-add-btn, .msg-item,
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
-  .fit-opt, .dialog-btn, .lib-item, .coll-group-acao,
+  /* (`.lib-item` saiu na v1.7.4, pela regra do bloco — ver "O BLOCO RESPONDE
+     POR LUZ". Ela é a linha de lista deste app, isto é, o outro CONTÊINER que
+     hospeda controles: o `⋮`, o "Tirar do ar" na capa, a gaveta inteira.) */
+  .fit-opt, .dialog-btn, .coll-group-acao,
   .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy, .hino-indice-chip,
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol,
   /* A linha de slide que PROJETA, no auxiliar de leitura (v1.4.26). */
@@ -1435,18 +1445,19 @@ body {
 .lib-item.carregando .thumb img,
 .lib-item.carregando .thumb .msym { opacity: .25; }
 
-/* CANCELAR na linha: um download mandado ao Cronograma com a busca já fechada
-   não tinha nenhuma outra superfície onde ser parado. */
-.dl-cancel {
-  flex-shrink: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px;
-  border: none; border-radius: var(--radius-pill);
-  background: transparent; color: var(--muted);
-  cursor: pointer;
-}
-.dl-cancel .msym { font-size: var(--fs-3xl); }
-.dl-cancel:active { color: var(--danger-text); }
+/* ---------- CANCELAR, NA COLUNA DO `⋮` (v5.191, refeito na v1.7.4) ----------
+   Um download mandado ao Cronograma com a busca já fechada não tinha nenhuma
+   outra superfície onde ser parado. Ele era um `.dl-cancel` PRÓPRIO — 34px,
+   chapado, encostado na borda —, e a linha ao lado (o mesmo trabalho, num item
+   que já existe) tinha o `⋮` de 40px na mesma posição: duas caixas para a mesma
+   ação na mesma coluna, que é a divergência que a v5.259 já tirou desta lista.
+
+   Hoje ele é um `.row-btn` e a caixa vem de graça (`--thumb` no Cronograma,
+   `--hit` na fila) — ver o esqueleto único mais acima. O que ele acrescenta é a
+   COR: o cancelar é destrutivo (ele apaga o item que estava sendo preparado), e
+   veste o par da paleta que todo destrutivo deste app veste, o mesmo do
+   `.linha-sim` e do `.row-slot--del`. */
+.row-cancel { background: var(--btn-danger); color: var(--danger-strong); }
 /* O PERCENTUAL SOLTO, à direita da linha. Desde a v1.7.1 ele vive só na LISTA
    DE RESULTADOS DO YOUTUBE, que não tem subtítulo e portanto não tem onde pôr a
    faixa; no Cronograma e na Biblioteca quem responde é a `.dl-prog` abaixo. */
@@ -1455,66 +1466,26 @@ body {
   color: var(--accent); font-variant-numeric: tabular-nums;
 }
 
-/* ---------- A FAIXA DE PROGRESSO DA LINHA (v1.7.1) ----------
+/* ---------- A LEGENDA DO TRABALHO, NA POSIÇÃO DO SUBTÍTULO (v1.7.1) ----------
    Pedido do operador, sobre a preparação de uma apresentação: *"ajuste a
-   ilustração da representação do progresso no item do cronograma, atualmente
-   ele só tem a porcentagem, mas gostaria que usasse a posição do texto
-   secundário para uma barra de progresso, e a fração das páginas já
+   ilustração da representação do progresso no item do cronograma … gostaria que
+   usasse a posição do texto secundário … e a fração das páginas já
    preparadas"*.
 
-   ELA OCUPA A POSIÇÃO DO SUBTÍTULO, e por isso herda a tipografia dele
-   (`--fs-xs` em `--muted`): é a mesma segunda linha da mesma coluna, e um corpo
-   diferente ali faria a linha mudar de altura quando o trabalho começasse.
+   ELA OCUPA A POSIÇÃO DO SUBTÍTULO, e por isso VESTE A RECEITA DELE (`--fs-xs`
+   em `--muted`, na mesma caixa que corta com reticências): é a mesma segunda
+   linha da mesma coluna, e um corpo diferente ali faria a linha mudar de altura
+   quando o trabalho começasse.
 
-   A ORDEM É TEXTO → TRILHO, e não o contrário: com o texto em `flex: 1` o
-   trilho fica ANCORADO à direita da coluna e não se mexe quando a legenda muda
-   de comprimento ("página 9 de 40" → "página 10 de 40"). O inverso — trilho
-   elástico à esquerda — faria a barra encolher e crescer a cada página, que é
-   movimento sem significado numa peça cujo único trabalho é significar
-   movimento. */
+   O TRILHO SAIU NA v1.7.4 — *"a barra de progresso ficou ruim, tire ela"*. Ele
+   desenhava, num filete de 4px, o mesmo número que a frase ao lado já diz por
+   extenso; o que sobra é a informação sem a repetição. A barra continua onde
+   ela é a única resposta: a NOTIFICAÇÃO do sistema, que é a janela do trabalho
+   com o app minimizado. */
 .dl-prog {
-  display: flex; align-items: center; gap: var(--sp-3);
-  min-width: 0;
+  display: block; min-width: 0;
   font-size: var(--fs-xs); line-height: 1.25; color: var(--muted);
-}
-.dl-prog-txt {
-  flex: 1 1 auto; min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-/* 34% da coluna, com teto: numa linha larga uma barra de 200px seria a peça
-   mais pesada da lista, e a lista tem dezenas de linhas. O piso existe pelo
-   motivo oposto — abaixo de ~44px o preenchimento deixa de ser lido como
-   proporção e vira um pontinho.
-
-   O TRILHO É `--surface`, O MESMO DA `.simple-time-bar` — e é o mesmo por ser a
-   MESMA peça: um trilho de progresso sob um preenchimento em `--accent`. Um
-   token próprio aqui seria uma segunda opinião sobre a mesma coisa.
-
-   E ele é `--surface` e não `--accent-soft` por medição: `-soft` é tinta com
-   ALFA da família do accent, e alfa EMPILHA — sobre a linha da lista ela compõe
-   a 1,07:1 do fundo, isto é, some. `--surface` segue a regra de camada deste
-   app (flutua sobre a página, AFUNDA dentro de um cartão) e MEDIDO nas quatro
-   combinações dá 1,20–1,38:1 contra a base, com o preenchimento a 4,01–7,15:1
-   dele. É também o que o `tokens.test.mjs` cobra: superfície de controle não é
-   tinta com alfa da família do accent. */
-.dl-prog-trilho {
-  flex: 0 0 34%; min-width: 44px; max-width: 96px;
-  height: 4px; border-radius: var(--radius-pill);
-  background: var(--surface); overflow: hidden;
-}
-/* `display` DECLARADO VENCE O `hidden` — a mesma armadilha do `.qs-tile`: o
-   atributo só esconde porque a folha do agente diz `[hidden] { display: none }`,
-   e qualquer `display` depois o atropela em silêncio. Aqui ele não está
-   declarado, mas a guarda fica: o dia em que alguém precisar de `flex` neste
-   trilho, a barra volta a aparecer VAZIA na fase que não sabe o total. */
-.dl-prog-trilho[hidden] { display: none; }
-.dl-prog-fill {
-  display: block; height: 100%; width: 0;
-  background: var(--accent); border-radius: inherit;
-  /* O passo do progresso é grosso (uma página, um megabyte) e a transição é o
-     que o torna contínuo. `linear` e curta: uma curva de aceleração numa barra
-     que anda por saltos se lê como atraso. */
-  transition: width .2s linear;
 }
 
 /* ---------- "Baixando…" NA PREVIEW ----------
@@ -2680,6 +2651,42 @@ main {
 }
 .row-item.active, .lib-item.active, .lib-item.selected { --linha: var(--sel-fill); }
 
+/* ---------- A LINHA QUE ESTÁ SENDO APAGADA SAI DE CENA (v1.7.4) ----------
+   Relato do operador: *"ao tocar em excluir, na confirmação, o item se
+   transforma ao seu estado inicial sem os botões antes de desaparecer, isso
+   causa estranheza"*.
+
+   Ela não volta mais ao estado inicial (ver `pedirConfirmacaoNaLinha`), e o que
+   toma o lugar daquele instante é esta saída: a linha encolhe e apaga ONDE ELA
+   ESTÁ, e a lista se fecha por cima. É o mesmo vocabulário do acordeão — altura
+   mais opacidade, a mesma curva —, e por isso ela não precisa aprender nada
+   novo para ser lida.
+
+   `pointer-events: none` porque durante os 200 ms ela ainda está no documento e
+   um toque ali projetaria um item que acabou de ser apagado.
+
+   E O VÃO SAI JUNTO. As listas são colunas com `gap`, e o `gap` não é do item:
+   uma linha de altura zero continua reservando o espaço até a de baixo, e o que
+   se veria é a lista fechando em dois tempos. A margem negativa da MEDIDA DO
+   GAP o engole, e só em quem tem vizinho abaixo — na última linha não há gap a
+   devolver, e descontá-lo puxaria o pé da lista para cima.
+
+   `--sp-3` é o gap das TRÊS listas que podem hospedar uma linha saindo, e as
+   três o declaram: `.lib-list` (o Cronograma), `.fav-itens` (os favoritos) e
+   `.popup-list` (a fila da playlist). Uma quarta lista com outro gap fecharia
+   com um degrauzinho — não com um buraco —, e o conserto é uma linha.
+
+   `overflow: hidden` já vem da regra acima, e é ele que recorta o conteúdo
+   enquanto a caixa fecha. A `height` inline é escrita pelo JS (uma transição de
+   `auto` para `0` não interpola em navegador nenhum). */
+:is(.lib-item, .row-item).saindo {
+  opacity: 0; pointer-events: none;
+  transition: height .2s cubic-bezier(.22, .61, .36, 1),
+              opacity .2s ease,
+              margin-bottom .2s cubic-bezier(.22, .61, .36, 1);
+}
+:is(.lib-item, .row-item).saindo:not(:last-child) { margin-bottom: calc(-1 * var(--sp-3)); }
+
 .row { position: relative; z-index: 1; display: flex; align-items: center; gap: var(--sp-4); padding: .35rem .5rem; background: var(--linha); touch-action: pan-y; }
 
 /* ---------- NO AR: a linha que está no telão AGORA ---------- */
@@ -2771,7 +2778,7 @@ main {
    Medido: o glifo em `--danger-text` dá 6,02:1 no tema escuro e 4,09:1 no
    claro sobre essa base — acima do piso de 3:1 de um ícone que carrega
    informação, nos dois. */
-.lib-item.no-ar .thumb > :not(.row-stop) { display: none; }
+.lib-item.no-ar:not(.excluindo) .thumb > :not(.row-stop) { display: none; }
 .row-stop {
   display: none; position: absolute; inset: 0;
   align-items: center; justify-content: center;
@@ -2785,8 +2792,18 @@ main {
    lugar.) */
 /* Na seleção múltipla nada disso vale: o alvo é o conjunto, e a linha volta a
    ser uma caixa de escolha. (O JS já não põe `.no-ar` ali — cinto e
-   suspensório, como a regra de cima.) */
-.lib-item.selected .row-stop { display: none; }
+   suspensório, como a regra de cima.)
+
+   E NA PERGUNTA DA EXCLUSÃO TAMBÉM NÃO (v1.7.4): ali o operador pediu a capa à
+   vista, e uma linha NO AR é justamente a que mais precisa dela — é a que tem
+   o quadrado ocupado. O "Tirar do ar" cede o lugar por outra razão ainda: ele
+   é uma TERCEIRA ação num momento que já tem duas, que é o argumento com que a
+   v1.4.27 tirou o `⋮` daqui.
+
+   `:is()` para o par medir 0,3,0 e vencer o `display: flex` do `.no-ar` logo
+   acima — sem isso a regra de cima (0,2,0 mas escrita depois) continuaria
+   valendo. */
+:is(.lib-item.selected, .lib-item.excluindo) .row-stop { display: none; }
 
 /* ---------- A PERGUNTA DA EXCLUSÃO MORA NA LINHA (v5.301) ----------
    Pedido do operador: *"remova os popups de confirmar exclusão… coloque a
@@ -2870,38 +2887,24 @@ main {
   min-height: var(--thumb);
 }
 
-/* ---------- E A MINIATURA VIRA A LIXEIRA ----------
-   O MESMO mecanismo do "Tirar do ar": o conteúdo da capa é escondido e o
-   desenho novo entra por cima, dentro da mesma caixa. É a única parte da linha
-   que a faixa de ações não cobre — logo, a única que ainda pode dizer de QUAL
-   item é a pergunta —, e trocar o que ela mostra é o que transforma "dois
-   botões apareceram" em "este item aqui está para sair".
+/* ---------- A CAPA FICA À VISTA DURANTE A PERGUNTA (v1.7.4) ----------
+   Pedido do operador: *"pode deixar visivel a thumbnail do item durante essa
+   confirmação. Ela tinha sido tirada desse momento do layout, mas julguei
+   melhor ter ela ali."*
 
-   Ele VENCE o `.row-stop`: uma linha no ar também pode ser excluída, e ali as
-   duas regras disputam a mesma caixa. A conta de especificidade é 0,5,0 contra
-   os 0,2,0 de `.lib-item.no-ar .row-stop`.
+   A v1.4.27 tirou a capa dos DOIS processos de uma vez, e o argumento dela
+   ("dentro de um processo ela já não identificava coisa nenhuma") valia porque
+   naquele desenho a capa VIRAVA UMA LIXEIRA — um desenho igual em toda linha.
+   Com a lixeira morando na coluna do `⋮`, a capa volta a ser a capa: é ela que
+   responde *"de qual item é esta pergunta?"* com a faixa cobrindo o nome.
 
-   O par é o DESTRUTIVO da paleta (`--danger-soft` + `--danger-strong`), e o
-   fundo dele compõe sobre `--bg` — a `.thumb` tem cor própria, então a medida
-   não depende do estado da linha. MEDIDO: **6,50:1** no tema escuro e
-   **4,18:1** no claro, acima do piso de 3:1 de um ícone que carrega informação.
+   E ELA SÓ SAI NA RENOMEAÇÃO, que é o processo que precisa da largura: o campo
+   ocupa a faixa inteira, e a capa mais o vão dela são ~96px. O par
+   Cancelar/Excluir são dois rótulos curtos e cabem sem tomar coluna nenhuma.
 
-   Sem `pointer-events`: é um `<span>`, não um botão — ilustra, não decide.
-
-   ELE VIROU O CAMINHO B NA v1.4.27. Onde a linha tem `⋮` (o Cronograma e a
-   fila) o símbolo passou a morar NA COLUNA DELE — ver `.row-slot` logo abaixo.
-   A miniatura continua sendo a casa do símbolo onde não há `⋮` para
-   reaproveitar: a gaveta dos FAVORITOS, cuja faixa fica ABAIXO da linha e não a
-   cobre, então lá a capa nunca foi o que a faixa ia esconder. */
-.row-lixo {
-  display: none; position: absolute; inset: 0;
-  align-items: center; justify-content: center;
-  border-radius: inherit;
-  background: var(--btn-danger); color: var(--danger-strong);
-}
-.row-lixo .msym { font-size: var(--icon-lg); }
-.lib-item.excluindo > .row > .thumb > .row-lixo { display: flex; }
-.lib-item.excluindo > .row > .thumb > :not(.row-lixo) { display: none; }
+   (`.row-lixo` — o símbolo desenhado POR CIMA da capa — saiu com este bloco: o
+   caminho B da lixeira passou a ser o mesmo do ✓ do renomear, dentro da própria
+   faixa. Ver `pedirConfirmacaoNaLinha`.) */
 
 /* ---------- O `⋮` CEDE A COLUNA AO PROCESSO (v1.4.27) ----------
    Pedido do operador: *"durante a renomeação e durante a confirmação de
@@ -2937,11 +2940,18 @@ main {
    O SLOT MEDE O `⋮` POR CONSTRUÇÃO, não por um número repetido aqui: ele entra
    nas MESMAS regras de caixa e de escala de ícone (ver `.row-btn`), então segue
    `--hit` na fila e `--thumb` no Cronograma sem que ninguém precise lembrar. */
-.row:has(> .row-acoes.confirmando) > :is(.thumb, .row-mais) { display: none; }
+.row:has(> .row-acoes.confirmando) > .row-mais { display: none; }
+/* A CAPA SÓ SAI NA RENOMEAÇÃO (v1.7.4) — ver o bloco logo acima. A marca é do
+   `li`, escrita por `abrirNaFaixaDaLinha`: é ela que separa os dois processos,
+   que até aqui dividiam a mesma classe `.confirmando` na faixa. */
+:is(.lib-item, .row-item).renomeando > .row > .thumb { display: none; }
 /* Com as duas colunas fora, a faixa começa na borda do conteúdo da linha. O
    `right` NÃO muda: a coluna da direita continua ocupada — pelo slot, que tem a
-   caixa do `⋮` que ele substituiu. */
-.row-acoes.confirmando {
+   caixa do `⋮` que ele substituiu.
+   NA EXCLUSÃO ela mantém a geometria de sempre (depois da capa), porque a capa
+   continua lá: o par de rótulos cabe na largura que a fileira de botões já
+   ocupava. */
+:is(.lib-item, .row-item).renomeando > .row > .row-acoes.confirmando {
   left: .5rem; width: auto; min-width: 0; max-width: none;
 }
 /* O DESTRUTIVO é o par da paleta (`--danger-soft` + `--danger-strong`), o mesmo
@@ -4801,7 +4811,9 @@ main {
 #hymnResults.acervo > .coll-group--drop.aberto {
   padding-top: max(0px, calc(var(--tampa-h, var(--bar-secao-h)) - var(--bar-secao-h) - .35rem));
 }
-/* ---------- E O BLOCO CRESCIDO RESPONDE POR INTEIRO (v1.5.17) ----------
+/* ---------- O BLOCO RESPONDE POR LUZ, E RESPONDE INTEIRO ----------
+   (v1.5.17, generalizado e desencolhido na v1.7.4.)
+
    O bloco cresce e a barra não, então em volta dela sobra uma faixa de ~4,8px
    de cada lado. Deixá-la muda é o que a própria folha proíbe: o bloco da
    `.coll-bar` diz, desde a v5.288, *"O RECUO É DA BARRA, e não do card: é o que
@@ -4812,30 +4824,55 @@ main {
    numa SEÇÃO o ouvinte morava na barra, e um toque ali não fazia NADA
    (`elementFromPoint` devolve o `li`, o toque não abre); num `.hymnal-card` o
    ouvinte já é do `li`, então o toque ABRIA o card e nada respondia, porque
-   quem está na lista do `--press` é a barra. Quatro blocos da raiz são cards.
+   quem estava na lista do `--press` era a barra. Quatro blocos da raiz são
+   cards.
 
-   A CORREÇÃO É A DO CARD, generalizada: o ALVO é o bloco (o ouvinte da seção
-   mudou para o `li`, em `controle.js`) e a RESPOSTA também. A barra deixa de
-   respondê-la aqui dentro — uma resposta por dedo, que é a regra escrita lá em
-   cima —, e os botões que ela hospeda continuam sendo quem responde ao toque
-   deles.
+   ===== O QUE A v1.7.4 MUDOU, e é uma regra e não um ajuste =====
+
+   Pedido do operador: *"Ao abrir coleções e álbuns na biblioteca, assim com os
+   favoritos… Há um efeito de encolhimento que distorce os elementos, remova
+   esse efeito, deixe apenas um efeito de coloração/sombreamento ao toque sem
+   encolhimento. Também aproveite para verificar se está colorindo o corpo do
+   card corretamente e não apenas o arrangment/card do texto ou cabeçalho. Pois
+   tem de considerar colorir as zonas que formam o corpo real, com margens e
+   bordas circulares."*
+
+   As duas metades são o MESMO defeito visto de dois lados, e ele valia em todo
+   card ABERTO e em todo card DENTRO de uma seção — os casos que as regras
+   anteriores (`> X:not(.aberto)`) não alcançavam, e onde quem sobrava para
+   responder era a BARRA:
+
+    · **a barra é TRANSPARENTE.** `--press-luz` é um `filter`, e num elemento
+      sem fundo próprio ele acende só o TEXTO e os ícones — o "corpo real, com
+      margens e bordas circulares" ficava intocado. Era literalmente *"colorindo
+      o arrangment do texto"*;
+    · **e ela DESLIZA dentro de um bloco parado.** `translateY(2px)` move o
+      conteúdo da tampa 2px para baixo enquanto a pílula em volta fica onde
+      está: o que se vê é a tampa escorregando e sendo recortada — a
+      *"distorção"* do relato.
+
+   DAÍ A REGRA, que é a que a `.coll-bar` já escrevia desde a v5.288 e que a
+   v1.3.14 contrariou ao pôr as barras na lista do `--press`: **um CONTROLE
+   responde por RECUO; um BLOCO responde por LUZ, e o bloco inteiro.** O recuo
+   continua onde ele significa alguma coisa (um botão que afunda); aqui a
+   resposta é a pílula acendendo, com as margens e os cantos que ela tem.
+
+   `:has(> tampa:active)` e não `:active` no bloco: com o card ABERTO o corpo
+   dele é a lista inteira, e `:active` casa em ancestral — tocar uma faixa lá
+   dentro acenderia o álbum todo. A pergunta é *"o dedo pousou na TAMPA?"*.
 
    REGRA SEPARADA e não mais um nome na lista do `--press`: `:is()` toma a
    especificidade do argumento MAIS específico, e um seletor com id ali dentro
    levaria as ~40 classes da lista para (1,x,0) de uma vez. */
-#hymnResults.acervo > .coll-group--drop:not(.aberto):active,
-#hymnResults.acervo > .hymnal-card:not(.expanded):active {
-  transform: var(--press); filter: var(--press-luz);
-}
-#hymnResults.acervo > .coll-group--drop:not(.aberto) > .coll-group-bar:active,
-#hymnResults.acervo > .hymnal-card:not(.expanded) > .coll-bar:active {
-  transform: none; filter: none;
-}
-#hymnResults.acervo > .coll-group--drop:not(.aberto):has(
-  :is(.coll-group-btn, .coll-group-acao, .coll-group-icon):active),
-#hymnResults.acervo > .hymnal-card:not(.expanded):has(
-  :is(.coll-bar-dl, .coll-bar-icon, .coll-bar-fechar):active) {
-  transform: none; filter: none;
+.hymnal-card:has(> .coll-bar:active),
+.coll-group--drop:has(> .coll-group-bar:active) { filter: var(--press-luz); }
+/* Menos quando o dedo pousou num BOTÃO da tampa (baixar, atualizar, a seta):
+   quem responde é ele, que é a regra de uma resposta por dedo. A conta de
+   especificidade é 0,4,0 contra os 0,3,0 acima — o argumento do `:has` tem um
+   componente a mais. */
+.hymnal-card:has(> .coll-bar > :is(.coll-bar-dl, .coll-bar-icon, .coll-bar-fechar):active),
+.coll-group--drop:has(> .coll-group-bar > :is(.coll-group-btn, .coll-group-acao, .coll-group-icon):active) {
+  filter: none;
 }
 /* NÍVEL 2 — dentro de uma seção, o bloco volta ao PAPEL. É a alternância, e é
    ela que dispensa um quarto tom: o neto tem a cor do avô, e isso não confunde
@@ -6180,11 +6217,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    hoje e o de sábado passado viram uma corrida de horas que se repetem — "09:12"
    aparece três vezes e nada diz de que dia é qual.
    Ele é um `<li>` da MESMA `<ul>` das linhas — a folha rola inteira, e um
-   cabeçalho fora dela ficaria parado sobre o conteúdo errado. Desde a v1.7.4
+   cabeçalho fora dela ficaria parado sobre o conteúdo errado. Desde a v1.7.5
    esse `<li>` é o BLOCO do dia, com a barra e o corpo dentro dele; o que o
    separa das linhas é o degrau de TOM, sem contorno, como tudo neste app.
 
-   ===== ELE E AS LINHAS ERAM O MESMO TOM (v1.7.4) =====
+   ===== ELE E AS LINHAS ERAM O MESMO TOM (v1.7.5) =====
    Relato do operador: *"ajuste os cards que separam os dias, para que tenham
    uma coloração diferente dos cards de itens exibidos naquela seção. Atualmente
    a lista está confusa, pois está difícil distinguir as sublistas"* — e, em
@@ -8168,6 +8205,37 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    O de velocidade CICLA (a escada volta ao começo), como o botão de girar a
    mídia — com CINCO degraus, dar a volta custa menos que um segundo botão. */
 .lv-cifra-rolar.ativa { color: var(--accent); }
+/* ===== A VELOCIDADE ABRE UMA GAVETA NA PRÓPRIA FILA (v1.7.4) =====
+
+   Pedido do operador: *"faça com que o botão de velocidade abra uma gaveta,
+   substituindo seus botões vizinhos, pela lista de botões com as variações de
+   velocidade, dessa forma, permitindo escolher as velocidades sem passar por
+   cada uma delas em carrocel"*.
+
+   É O MECANISMO DA FAIXA DA LINHA (`.row-acoes.confirmando`), aqui: **a fila
+   troca de CONTEÚDO, não de lugar**. Nada é criado por cima da folha, nada a
+   empurra, e a caixa fica com a mesma altura — o que muda são os botões que
+   estão nela.
+
+   `display: contents` no invólucro, e é ele que dispensa uma segunda regra de
+   layout: os cinco botões viram filhos DE FATO da fila, então seguem a direção
+   dela — LINHA no retrato, COLUNA em tela cheia — sem ninguém repetir aqui o
+   `flex-direction` que aquele modo já escreve. E, sendo o invólucro um nó do
+   DOM ainda assim, o `>` das regras abaixo continua alcançando só os quatro
+   botões originais.
+
+   O ⛶ NÃO ENTRA NA LISTA DO QUE SOME, e é a única exceção à palavra "vizinhos"
+   do pedido: *a fila da cifra sempre tem a saída* (a invariante do
+   `lvBuildCifra`). Escondê-lo deixaria uma gaveta aberta em paisagem sem
+   nenhuma saída à vista. */
+.lv-cifra-vels { display: none; }
+.lv-cifra-ctl.escolhendo > .lv-cifra-vels { display: contents; }
+.lv-cifra-ctl.escolhendo > .lv-fonte-btn { display: none; }
+/* ESCOLHIDO ENTRE ALTERNATIVAS: `--accent-fill` + `--on-accent`, a linguagem de
+   estado deste app (a mesma do ✓ do seletor de destinos). Ela é PREENCHIMENTO e
+   não cor de texto porque *cor de texto nunca carrega estado sozinha* — e aqui
+   os cinco botões são idênticos em tudo o mais. */
+.lv-cifra-vel-op.escolhido { background: var(--accent-fill); color: var(--on-accent); }
 /* O ⛶ É A SAÍDA, e ela não pode encostar no `+½`: o erro é ASSIMÉTRICO — errar
    o `+½` e pegar a saída desfaz o modo inteiro e gira a Activity ida e volta na
    frente de quem está tocando; errar a saída e pegar o `+½` custa um meio tom,

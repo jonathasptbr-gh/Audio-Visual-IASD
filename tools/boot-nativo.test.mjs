@@ -2620,10 +2620,16 @@ try {
     });
     await pg.mouse.move(pt.x, pt.y);
     await pg.mouse.down();
-    const dur = await pg.evaluate(() => ({
-      pasta: getComputedStyle(document.querySelector('[data-fav-corpo] .folder-opfs')).transform,
-      item: getComputedStyle(document.querySelector('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item')).transform,
-    }));
+    const dur = await pg.evaluate(() => {
+      const cs = (sel) => {
+        const e = getComputedStyle(document.querySelector(sel));
+        return { transform: e.transform, filter: e.filter };
+      };
+      return {
+        pasta: cs('[data-fav-corpo] .folder-opfs'),
+        item: cs('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item'),
+      };
+    });
     await pg.mouse.up();
     await pg.waitForTimeout(500);
     return dur;
@@ -2684,9 +2690,22 @@ try {
     + 'faixa preta embaixo de cada item era `.lib-item.expanded .hymn-gaveta` '
     + 'casando com a PASTA, que também é uma `.lib-item`',
     JSON.stringify(nin.fechadas));
-  checar(pressPasta.pasta === 'none' && pressPasta.item !== 'none',
-    'e pressionar um arquivo NÃO encolhe a pasta inteira — quem responde ao '
+  checar(pressPasta.pasta.transform === 'none' && pressPasta.pasta.filter === 'none'
+    && pressPasta.item.filter !== 'none',
+    'e pressionar um arquivo NÃO acende a pasta inteira — quem responde ao '
     + 'toque é a peça tocada', JSON.stringify(pressPasta));
+  // ===== E A PEÇA TOCADA RESPONDE POR LUZ, NÃO POR GEOMETRIA (v1.7.4) =====
+  //
+  // Pedido do operador: *"Há um efeito de encolhimento que distorce os
+  // elementos, remova esse efeito, deixe apenas um efeito de
+  // coloração/sombreamento ao toque sem encolhimento."* A linha de lista é um
+  // CONTÊINER — ela hospeda o `⋮`, o "Tirar do ar" e a gaveta inteira —, e a
+  // regra deste app para contêiner é a luz. A metade de cima (`filter !== none`)
+  // é o que impede o conserto de virar "o toque deixou de responder".
+  checar(pressPasta.item.transform === 'none',
+    'e ela não se MEXE: a linha é um bloco, e um bloco responde por LUZ — o '
+    + 'recuo fica para o controle folha, que é onde ele significa alguma coisa',
+    JSON.stringify(pressPasta));
   checar(fechou.abriu && !fechou.classe && fechou.disp === 'none' && fechou.h === 0,
     'e o segundo toque FECHA as opções de verdade: era a pasta que as mantinha '
     + 'visíveis, então tirar a classe do item não escondia nada',
@@ -4596,22 +4615,25 @@ try {
     li.querySelector('.row-excluir').click();
     await new Promise((r) => setTimeout(r, 200));
     const dlg = document.getElementById('appDialog');
-    const lixo = li.querySelector(':scope > .row > .thumb > .row-lixo');
+    const lixo = li.querySelector('.fav-acoes .linha-confirma > .row-slot--del');
     const capa = [...li.querySelectorAll(':scope > .row > .thumb > *')]
-      .filter((n) => !n.classList.contains('row-lixo'))
       .filter((n) => getComputedStyle(n).display !== 'none').length;
     const r = {
       // 1. A PERGUNTA ESTÁ NA FAIXA, e o modal do app NÃO abriu.
       perguntouNaFaixa: !!li.querySelector('.fav-acoes.confirmando > .linha-confirma'),
       semModal: !dlg || !dlg.classList.contains('open'),
-      // 2. A MINIATURA VIROU A LIXEIRA, e a capa saiu de baixo dela.
-      //    ESTE É O CAMINHO B DO SÍMBOLO (v1.4.27): no Cronograma e na fila ele
-      //    passou a morar na COLUNA DO `⋮`, e a capa sai de cena junto. Aqui
-      //    não há `⋮` — a gaveta abre pelo corpo da linha e a faixa fica ABAIXO
-      //    dela, sem cobrir nada —, então a capa continua sendo a casa dele.
+      // 2. A LIXEIRA ENTRA NA FAIXA, E A CAPA FICA À VISTA (v1.7.4).
+      //    ESTE É O CAMINHO B DO SÍMBOLO: no Cronograma e na fila ele mora na
+      //    COLUNA DO `⋮` (v1.4.27); aqui não há `⋮` — a gaveta abre pelo corpo
+      //    da linha e a faixa fica ABAIXO dela —, e desde a v1.7.4 ele entra na
+      //    própria faixa, do mesmo jeito que o ✓ do renomear.
+      //    A CAPA É A OUTRA METADE, e é o pedido do operador: *"pode deixar
+      //    visivel a thumbnail do item durante essa confirmação"*. Ela morava
+      //    debaixo da lixeira, e as duas asserções juntas é que dizem a regra —
+      //    o símbolo mudou de casa PORQUE a capa voltou a ocupar a dela.
       semMais: !li.querySelector(':scope > .row > .row-mais'),
-      lixeiraNaCapa: !!lixo && getComputedStyle(lixo).display !== 'none',
-      capaEscondida: capa === 0,
+      lixeiraNaFaixa: !!lixo && getComputedStyle(lixo).display !== 'none',
+      capaAVista: capa > 0,
       // 3. As opções da faixa cedem o lugar — sem isto o par apareceria ao lado
       //    dos botões que ele está confirmando.
       opcoesEscondidas: [...li.querySelectorAll('.fav-acoes > .row-btn')]
@@ -4623,13 +4645,26 @@ try {
     li.querySelector('.linha-nao').click();
     await new Promise((f) => setTimeout(f, 200));
     r.cancelouVoltou = !li.querySelector('.linha-confirma')
-      && !li.querySelector('.row-lixo')
+      && !li.querySelector('.row-slot--del')
       && (await AVDB.listIds('favs')).includes(alvo);
     // ---- E O SEGUNDO TOQUE executa ----
     li.querySelector('.row-excluir').click();
     await new Promise((f) => setTimeout(f, 200));
     li.querySelector('.linha-sim').click();
-    await new Promise((f) => setTimeout(f, 400));
+    // ESPERA PELO FATO, e não por um relógio (v1.7.4): desde este lote a linha
+    // SAI DE CENA antes de o item ser apagado — 200 ms de saída mais o que o
+    // banco levar —, e um prazo fixo aqui não mede a exclusão: mede o
+    // agendador, e deixa o `load()` dela cair dentro do bloco SEGUINTE.
+    const semAlvo = async (ms) => {
+      const fim = Date.now() + ms;
+      while (Date.now() < fim) {
+        const vivo = document.querySelector('[data-fav-corpo] .lib-item[data-id="' + alvo + '"]');
+        if (!vivo && !(await AVDB.listIds('favs')).includes(alvo)) return true;
+        await new Promise((f) => setTimeout(f, 40));
+      }
+      return false;
+    };
+    await semAlvo(8000);
     r.naLista = !!document.querySelector('[data-fav-corpo] .lib-item[data-id="' + alvo + '"]');
     r.nosFavs = (await AVDB.listIds('favs')).includes(alvo);
     // Ele estava no Cronograma também (`imports`), e de lá NÃO sai: excluir é
@@ -4641,12 +4676,15 @@ try {
     'o excluir da gaveta PERGUNTA na própria faixa (v5.301), e não abre popup '
     + 'nenhum — a pergunta "excluir este item?" feita por cima de uma tela sem '
     + 'o item era respondida de memória', JSON.stringify(saiu));
-  checar(saiu.semMais === true && saiu.lixeiraNaCapa && saiu.capaEscondida
-    && saiu.opcoesEscondidas,
-    'e aqui a MINIATURA vira a lixeira — o CAMINHO B do símbolo (v1.4.27): '
-    + 'esta gaveta não tem `⋮` para o processo tomar emprestado, e a faixa fica '
-    + 'ABAIXO da linha em vez de cobri-la, então a capa continua sendo a casa '
-    + 'dele. No Cronograma e na fila os dois saem de cena juntos',
+  checar(saiu.semMais === true && saiu.lixeiraNaFaixa && saiu.opcoesEscondidas,
+    'e a lixeira entra na PRÓPRIA FAIXA — o CAMINHO B do símbolo: esta gaveta '
+    + 'não tem `⋮` para o processo tomar emprestado, e desde a v1.7.4 ele é o '
+    + 'mesmo caminho do ✓ do renomear, ao lado dos dois rótulos',
+    JSON.stringify(saiu));
+  checar(saiu.capaAVista,
+    'e A CAPA FICA À VISTA durante a pergunta (v1.7.4) — pedido do operador: ela '
+    + 'é a única parte da linha que ainda diz de QUAL item é a confirmação, e '
+    + 'até aqui a lixeira desenhava por cima dela um símbolo igual em toda linha',
     JSON.stringify(saiu));
   checar(saiu.antesDoSim === true && saiu.cancelouVoltou === true,
     'o primeiro toque não tira nada e o Cancelar devolve a faixa inteira — sem '
@@ -4948,8 +4986,8 @@ try {
     await new Promise((f) => setTimeout(f, 220));
     const sim = a.querySelector('.linha-sim');
     r.dicaDoExcluirDeA = sim ? (sim.getAttribute('aria-label') || '') : '';
-    r.lixeiraEmA = !!a.querySelector(':scope > .row > .thumb > .row-lixo');
-    r.lixeiraEmB = !!b.querySelector(':scope > .row > .thumb > .row-lixo');
+    r.lixeiraEmA = !!a.querySelector('.fav-acoes .linha-confirma > .row-slot--del');
+    r.lixeiraEmB = !!b.querySelector('.fav-acoes .linha-confirma > .row-slot--del');
     a.querySelector('.linha-nao').click();
     await new Promise((f) => setTimeout(f, 220));
     // ---- 2. CONFIRMAR e depois mexer na MESMA gaveta ----

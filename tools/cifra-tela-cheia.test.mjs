@@ -387,20 +387,39 @@ try {
     // Percorrida com `click()`, como no retrato: a promessa é sobre o CICLO, e
     // um botão medido parado prova só o rótulo que calhou de estar em cena.
     const velBtn = lyricsPopupEl.querySelector('.lv-cifra-vel');
+    // A ESCADA É PERCORRIDA PELA GAVETA desde a v1.7.4 (o toque no botão a ABRE
+    // em vez de avançar um degrau): abrir, escolher o degrau `i`, medir o botão
+    // já FECHADO. A pergunta é a mesma de sempre — a caixa não depende do rótulo
+    // em cena — e ela vale numa coluna flex, que é o ponto deste arquivo.
     const velCaixas = [];
+    const opsDe = () => [...lyricsCifraCtlEl.querySelectorAll('.lv-cifra-vel-op')];
     for (let i = 0; i < CIFRA_VELOCIDADES.length; i++) {
+      velBtn.click();
+      opsDe()[i].click();
       const b = velBtn.getBoundingClientRect();
       velCaixas.push({
         rotulo: velBtn.textContent.trim(),
         w: +b.width.toFixed(2), h: +b.height.toFixed(2),
         sw: velBtn.scrollWidth, cw: velBtn.clientWidth,
       });
-      velBtn.click();
     }
+    // E OS BOTÕES DA GAVETA, na COLUNA: é aqui que o `display: contents` do
+    // invólucro se prova — sem ele os cinco ficariam numa LINHA dentro da
+    // coluna, e a fila da paisagem sairia com um bloco horizontal no meio dela.
+    velBtn.click();
+    const velOps = opsDe().map((b) => {
+      const r = b.getBoundingClientRect();
+      return {
+        rotulo: b.textContent.trim(),
+        w: +r.width.toFixed(2), h: +r.height.toFixed(2),
+        x: Math.round(r.left), y: Math.round(r.top),
+      };
+    });
+    opsDe()[2].click();
     return {
       ausentes, fora, meiosTons, icoW,
       hit: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')),
-      velCaixas,
+      velCaixas, velOps,
       trilha: +lyricsCifraCtlEl.getBoundingClientRect().width.toFixed(2),
       velIrmao: +lyricsPopupEl.querySelector('.lv-fonte-mais')
         .getBoundingClientRect().width.toFixed(2),
@@ -502,6 +521,23 @@ try {
     'e ele mede o MESMO que o A+ ao lado: uma coluna com um botão mais largo que '
     + 'os outros é o que o pedido nomeia',
     { vel: controles.velCaixas[0], irmao: controles.velIrmao });
+  // ===== E A GAVETA É UMA COLUNA, COMO A FILA (v1.7.4) =====
+  //
+  // O invólucro é `display: contents`, então os cinco botões viram filhos DE
+  // FATO da fila e herdam o `flex-direction: column` do modo deitado. Sem ele
+  // eles ficariam numa LINHA horizontal dentro da trilha de 66px: a asserção é
+  // o EMPILHAMENTO (mesmo x, y crescente), que é a única coisa que distingue as
+  // duas montagens — as caixas medem o mesmo nas duas.
+  const ops = controles.velOps || [];
+  // O NÚMERO SAI DA PRÓPRIA MEDIÇÃO (as caixas percorridas no laço acima), e não
+  // de uma constante da página: aqui, no Node, ela não existe — e um literal `5`
+  // envelheceria com a escada.
+  const emColuna = ops.length === controles.velCaixas.length
+    && ops.every((c, i) => i === 0 || (c.x === ops[0].x && c.y > ops[i - 1].y));
+  checar(emColuna,
+    'e a GAVETA da velocidade empilha na coluna deitada, como a fila que ela '
+    + 'substitui — o invólucro é `display: contents`, e sem ele os cinco sairiam '
+    + 'numa linha horizontal dentro de uma trilha de 66px', ops);
   const velEstourando = controles.velCaixas.filter((c) => c.sw > c.cw);
   checar(velEstourando.length === 0,
     'e o rótulo CABE nele aqui também — com `width` fixo, um rótulo grande '

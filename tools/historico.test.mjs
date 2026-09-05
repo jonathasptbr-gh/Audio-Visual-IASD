@@ -109,7 +109,7 @@ try {
 
   // CADA SESSÃO É UM `<li>` DA MESMA LISTA (v1.4.31) — a folha rola inteira, e
   // um cabeçalho fora do `<ul>` ficaria parado sobre o conteúdo errado. Desde a
-  // v1.7.4 esse `<li>` é o BLOCO do dia e as linhas são filhas do corpo dele,
+  // v1.7.5 esse `<li>` é o BLOCO do dia e as linhas são filhas do corpo dele,
   // que é por onde estas asserções as endereçam: o que elas medem são as
   // LINHAS, e o `textContent` do bloco contém o de todas elas.
   const lido = () => pg.evaluate(() => {
@@ -293,7 +293,7 @@ try {
     const r = [...document.querySelectorAll('#histList .hist-sessao')].map((li) => ({
       tit: (li.querySelector('.hist-sessao-tit') || {}).textContent || '',
       sub: (li.querySelector('.hist-sessao-sub') || {}).textContent || '',
-      // OS BOTÕES DA BARRA, não os do bloco: desde a v1.7.4 o `<li>` do dia
+      // OS BOTÕES DA BARRA, não os do bloco: desde a v1.7.5 o `<li>` do dia
       // contém também as linhas dele, e perguntar ao bloco devolveria o
       // "Adicionar ao Cronograma" de cada uma.
       botoes: [...li.querySelectorAll('.hist-sessao-bar button')].map((b) => b.title),
@@ -364,7 +364,7 @@ try {
   const depois = await pg.evaluate(() => {
     setAppMode('full');
     openHistPopup();
-    // UMA SESSÃO É UM BLOCO, E AS LINHAS DELA MORAM DENTRO (v1.7.4) — a
+    // UMA SESSÃO É UM BLOCO, E AS LINHAS DELA MORAM DENTRO (v1.7.5) — a
     // anatomia da `.coll-group` da Biblioteca. A leitura por IRMÃOS que estava
     // aqui (`#histList > li`, alternando cabeçalho e linha) descrevia o desenho
     // ANTERIOR; hoje ela devolveria três blocos VAZIOS, com o cabeçalho certo,
@@ -404,7 +404,7 @@ try {
     'o LINK também: o endereço é tudo o que ele sempre foi', comLink);
 
   // =========================================================================
-  // O CABEÇALHO DO DIA E AS LINHAS NÃO PODEM SER O MESMO TOM (v1.7.4)
+  // O CABEÇALHO DO DIA E AS LINHAS NÃO PODEM SER O MESMO TOM (v1.7.5)
   // =========================================================================
   //
   // Relato do operador: *"ajuste os cards que separam os dias, para que tenham
@@ -585,7 +585,7 @@ try {
   const limpou = await pg.evaluate(async () => {
     openHistPopup();
     const bloco = [...document.querySelectorAll('#histList .hist-sessao')][1];
-    // A BARRA, e não o bloco: desde a v1.7.4 o `<li>` contém também o corpo com
+    // A BARRA, e não o bloco: desde a v1.7.5 o `<li>` contém também o corpo com
     // as linhas do dia, e medir o bloco inteiro responderia outra pergunta — a
     // daqui é se a FAIXA do cabeçalho muda de altura sob o dedo.
     const cab = bloco.querySelector('.hist-sessao-bar');
