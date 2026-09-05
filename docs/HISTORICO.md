@@ -369,6 +369,25 @@ na nota que a revoga, não apagada da que a criou.
 
 ## v1.8.9 — o clone nunca pareou, e por duas razões independentes
 
+> **NOTA DE OUTRA SESSÃO (documentação).** O bloco *"Versão atual"* do
+> `CLAUDE.md` é a **QUARTA casa da versão**, e a única sem oráculo: as três
+> oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
+> `verificar`, esta não. MEDIDO nesta noite, ela ficou para trás **duas vezes
+> em vinte minutos** — a v1.8.8 a deixou em v1.8.7, e a v1.8.9 a deixou em
+> v1.8.8 depois de corrigida. Não chega a aparelho nenhum, mas é o arquivo que
+> se lê ANTES do trabalho, a cada sessão, e quem o lê não confere. O bloco foi
+> atualizado e a lacuna está nomeada nele; **fechá-la por oráculo é uma linha
+> no mesmo `python3` que já compara as três**, e está por fazer.
+>
+> **E um mecanismo que estava sendo lido errado ficou escrito:** um `apk`
+> reprovado **não pula** o `web-ota`. O `if:` dele é `!cancelled() &&
+> needs.verificar.result == 'success'` — o resultado do `apk` é
+> deliberadamente ignorado, e o `needs` está lá pela ORDEM. O job RODA com o
+> `apk` vermelho; o que impede a publicação é o HOLD do `shellTag`, cuja
+> Release o build que falhou não chegou a criar, e o desfecho é um job VERDE
+> que não publicou. Foi assim com a v1.8.6.
+
+
 Relato: *"ainda não funcionou"*, com o Registro. O `clone-diario` da v1.8.5
 tinha, das duas vezes, a mesma linha: `copiei: Não deu para falar com o outro
 aparelho. — parou em:` **com o campo vazio**. Vazio prova que a cópia nunca

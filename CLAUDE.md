@@ -5070,9 +5070,20 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.8 · APK v1.8.8** · `SHELL_VERSION` **65** ·
-bundle com `minShell: 65` e **`shellTag: v1.8.8`** — o shell 65 é o **PISO**:
+**Versão atual: base web v1.8.9 · APK v1.8.9** · `SHELL_VERSION` **65** ·
+bundle com `minShell: 65` e **`shellTag: v1.8.9`** — o shell 65 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
+
+> **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
+> oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
+> `verificar` e por isso nunca divergem; esta não tem, e MEDIDO ela ficou para
+> trás **duas vezes em vinte minutos** (a v1.8.8 a deixou em v1.8.7; corrigida,
+> a v1.8.9 a deixou em v1.8.8). O modo de falhar é o desta seção inteira: um
+> arquivo lido a cada sessão, ANTES do trabalho, afirmando um estado que o
+> repositório já não tem — e quem o lê não confere, porque é justamente para
+> não conferir que ele existe. **Renumerar o lote inclui esta linha**, ao lado
+> das três e do `shellTag`. Fechá-la por oráculo é barato (o mesmo bloco que
+> compara as três, lendo esta linha) e está por fazer.
 
 > **UM `apk` REPROVADO NÃO PULA O `web-ota` — QUEM SEGURA É O HOLD.** A
 > confusão é fácil e custou um lote inteiro de raciocínio errado: o `web-ota`
@@ -5095,13 +5106,19 @@ todo método da ponte existe, e não há guarda de versão no lado web.
 > resolveria `null`, e o que o operador teria seriam dois botões tocáveis que
 > não fazem nada.
 
-**O QUE O LOTE TRAZ — um símbolo sem import, e o oráculo que passou a cobrá-lo:**
+**O QUE O LOTE TRAZ — um identificador que nunca existiu, e o http de SAÍDA:**
 
 | peça | onde |
 |---|---|
+| a função que era chamada e nunca foi definida | `cloneMeuRotulo`, no `controle.js` |
+| o Android bloqueia o `http` de SAÍDA (`targetSdk` 35) | `usesCleartextTraffic`, no manifesto |
 | todo símbolo do Kotlin tem de onde vir | `tools/kotlin-simbolo-importado.test.mjs` |
-| o `import` que faltava | `MainActivity.kt` (`android.os.SystemClock`) |
 | o relógio da página CONGELADO antes de a página nascer | `tools/abertura-e-transferencia.test.mjs`, bloco A3 |
+
+> **O TELÃO SERVE; O CLONE PEDE — e só o segundo esbarra na política.** O
+> mesmo servidor, na mesma porta, com dois desfechos: tráfego de ENTRADA não
+> passa pelo `cleartext`, e foi isso que manteve o defeito invisível por nove
+> lotes. Ver `docs/HISTORICO.md`, v1.8.9.
 
 > **UM SÍMBOLO SEM IMPORT DERRUBOU A MAIN** (v1.8.8). O `MainActivity.kt` da
 > v1.8.6 usou `SystemClock.elapsedRealtime()` sem `import android.os.SystemClock`:
