@@ -63,6 +63,11 @@ object AcervoDescoberta {
      *  a rede de anúncios. */
     private const val TETO_ACHADOS = 12
 
+    /** De quanto em quanto tempo um aparelho JÁ ACHADO pode ser resolvido de
+     *  novo. Ver [enfileirarResolve]: sem esta janela o TXT do [reanunciar]
+     *  nunca chegava; sem o limite dela, a fila de resolve viraria rajada. */
+    private const val REVER_MS = 5_000L
+
     /** O anúncio é um só por processo — o celular CEDE de um lugar só. */
     private var registro: NsdManager.RegistrationListener? = null
 
@@ -75,6 +80,16 @@ object AcervoDescoberta {
      *  quando o nome já existe na rede ("Galaxy A54 (2)"), e é este — não o que
      *  pedimos — que o outro lado enxerga. */
     @Volatile private var nomePublicado: String = ""
+
+    /**
+     * A INTENÇÃO de ceder, que é diferente de haver anúncio no ar.
+     *
+     * A cessão liga ANTES de existir índice, e o anúncio só sai quando há o que
+     * anunciar (ver [preparar]). Entre um instante e o outro este aparelho quer
+     * ceder e não está na rede — e é esta bandeira, não `registro != null`, que
+     * autoriza o [reanunciar] a subir o primeiro anúncio.
+     */
+    @Volatile private var querAnunciar: Boolean = false
 
     /** O que o [reanunciar] repete. Ver o porquê do `applicationContext` lá. */
     @Volatile private var ultimoContexto: Context? = null
@@ -124,6 +139,35 @@ object AcervoDescoberta {
      * chamador trata como "não deu", e o operador continua com o caminho de
      * digitar o endereço, que não sai do app.
      */
+    /**
+     * GUARDA O QUE O ANÚNCIO VAI PRECISAR, sem anunciar nada ainda.
+     *
+     * O anúncio saía aqui, com ZERO itens, porque o índice leva segundos para
+     * ser montado — e o [reanunciar] o refaria com os números de verdade. Isso
+     * não chegava ao outro celular: reanunciar é desanunciar e anunciar com o
+     * MESMO nome de serviço, e quem procura ignora um nome que já achou. A
+     * linha ficava em "medindo" para sempre.
+     *
+     * E havia um segundo defeito no mesmo lugar, mais caro que o rótulo: o
+     * aparelho aparecia na lista do outro celular ANTES de ter índice, isto é,
+     * OFERECIDO PARA TOQUE sem ter o que servir. É o mesmo argumento que já
+     * obriga o servidor a subir antes do estado da cessão — *"o outro celular
+     * acha o aparelho e não conecta"* —, um passo adiante.
+     *
+     * Hoje o primeiro anúncio é o do [reanunciar], com a contagem e o peso
+     * dentro. Enquanto ele não sai, quem procura vê "Procurando na rede…", que
+     * é a verdade.
+     */
+    fun preparar(ctx: Context, porta: Int, rotulo: String) {
+        ultimoContexto = ctx.applicationContext
+        ultimaPorta = porta
+        ultimoRotulo = rotulo
+        ultimosItens = -1
+        ultimosBytes = -1L
+        querAnunciar = true
+        diario = "cedendo — o anúncio espera a contagem do acervo"
+    }
+
     fun anunciar(ctx: Context, porta: Int, rotulo: String, itens: Int, bytes: Long): Boolean {
         if (registro != null) { diario = "já anunciando"; return true }
         val m = manager(ctx) ?: run { diario = "sem NsdManager"; return false }
@@ -207,15 +251,27 @@ object AcervoDescoberta {
         val ctx = ultimoContexto ?: return false
         val porta = ultimaPorta
         val rotulo = ultimoRotulo
-        if (registro == null || porta <= 0) return false
+        // A GUARDA É A INTENÇÃO, e não "há anúncio no ar". Ela era
+        // `registro == null`, e com o primeiro anúncio saindo daqui isso
+        // recusaria justamente a subida que este método passou a fazer. O que
+        // ela protege continua protegido: quem não está cedendo não passa a
+        // ceder por publicar um índice.
+        if (!querAnunciar || porta <= 0) return false
         if (itens == ultimosItens && bytes == ultimosBytes) return true
         pararAnuncio()
+        querAnunciar = true      // `pararAnuncio` a baixa; a intenção não mudou
         return anunciar(ctx, porta, rotulo, itens, bytes)
     }
 
     /** Tira o anúncio do ar. Idempotente — chamar duas vezes é inofensivo, que
      *  é o que faz o caminho de desligar poder ser burro. */
     fun pararAnuncio() {
+        // A INTENÇÃO CAI PRIMEIRO, e fora dos dois `return` abaixo: parar de
+        // ceder antes de o primeiro anúncio ter subido é o caso NORMAL agora
+        // (o índice falhou, o operador desistiu), e deixá-la de pé faria o
+        // `acervoPublicar` seguinte pôr na rede um aparelho que ninguém está
+        // cedendo.
+        querAnunciar = false
         val m = nsd ?: return
         val r = registro ?: return
         registro = null
@@ -291,9 +347,25 @@ object AcervoDescoberta {
     private val paraResolver = ArrayDeque<NsdServiceInfo>()
     private var resolvendo = false
 
+    /**
+     * UM NOME JÁ ACHADO PODE SER RESOLVIDO DE NOVO — passada a janela.
+     *
+     * A guarda era `containsKey`, e ela travava o recurso: o [reanunciar] põe
+     * na rede o MESMO nome de serviço com o TXT novo, e um nome bloqueado para
+     * sempre nunca relia a contagem. Do outro lado isso saía como uma linha
+     * eternamente em "medindo".
+     *
+     * A janela é o que a substitui, e não a remoção da guarda: `onServiceFound`
+     * chega em rajada a cada passada da descoberta, e resolver a cada uma delas
+     * enche a fila SERIALIZADA (ver [procurar]) de trabalho que devolve sempre
+     * a mesma resposta.
+     */
     @Synchronized
     private fun enfileirarResolve(m: NsdManager, s: NsdServiceInfo) {
-        if (achados.containsKey(s.serviceName ?: "")) return
+        val nome = s.serviceName ?: ""
+        val ja = achados[nome]
+        if (ja != null && System.currentTimeMillis() - ja.achadoEm < REVER_MS) return
+        if (paraResolver.any { it.serviceName == nome }) return
         paraResolver.addLast(s)
         proximoResolve(m)
     }

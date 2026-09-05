@@ -478,7 +478,17 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // ESQUECER que estava servindo, senão sobra um servidor sem serviço e a
         // folha continua dizendo "ligado".
         EspelhoEnergia.onDesligar = { stopMirror() }
-        EspelhoEnergia.onGone = { runOnUiThread { desmontarEspelho() } }
+        EspelhoEnergia.onGone = {
+            runOnUiThread {
+                // O ANDROID ENCERROU O SERVIÇO. Nada disto sobrevive a isso, e
+                // as duas bandeiras caem junto: deixá-las de pé faria o
+                // `stopMirror` seguinte devolver cedo (`if (acervoPedido)
+                // return`) sobre um servidor que já não existe.
+                telaoPedido = false
+                acervoPedido = false
+                desmontarEspelho("o Android encerrou o servico em primeiro plano")
+            }
+        }
         EspelhoEnergia.onTermica = { grau -> aoEsquentar(grau) }
 
         onBackPressedDispatcher.addCallback(this) { handleBack() }
@@ -777,7 +787,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             try {
                 telaoPedido = false
                 acervoPedido = false
-                desmontarEspelho()
+                desmontarEspelho("o app foi fechado")
             } catch (e: Exception) {
                 Log.w(TAG, "espelho não desligou", e)
             }
@@ -1889,7 +1899,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // no bloco do clone. Desligar o telão no meio de uma cópia de
         // gigabytes derrubaria a cópia sem nada dizendo por quê.
         if (acervoPedido) return
-        desmontarEspelho()
+        desmontarEspelho("o operador desligou a transmissao")
     }
 
     /**
@@ -1901,7 +1911,22 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * pareamento já o são, e o `stopService` de um serviço que não está de pé é
      * um no-op.
      */
-    private fun desmontarEspelho() {
+    /**
+     * DESMONTAR DIZ POR QUÊ, e isso não é zelo de log.
+     *
+     * Este método era MUDO no [espelhoDiag]. O Registro que o operador copia
+     * saía com a última linha em *"cessao da biblioteca ligada"* e o estado em
+     * *"servidor: desligado"*, sem nada entre as duas — e as causas possíveis
+     * pedem ações OPOSTAS: o operador desligou, o app foi fechado, ou o Android
+     * encerrou o serviço. A distância entre elas é a diferença entre "toque de
+     * novo" e "não deixe o app ser fechado durante a cópia", e nenhuma delas
+     * era dizível a distância.
+     *
+     * O `motivo` é obrigatório de propósito: um chamador novo tem de escolher
+     * uma frase, e não herdar silêncio.
+     */
+    private fun desmontarEspelho(motivo: String) {
+        if (espelhoSrv != null) espelhoDiag.registrar("transmissao desligada: " + motivo)
         // O ANÚNCIO SAI COM O SERVIDOR, sempre. Um anúncio mDNS de pé sobre uma
         // porta fechada é pior que anúncio nenhum: o outro celular acha o
         // aparelho, toca nele e recebe uma falha de conexão sem causa.
@@ -2125,11 +2150,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
         val rotulo = rotuloPedido.ifBlank { nomeDesteAparelho() }
         AcervoCessao.ligar(rotulo)
         val porta = espelhoSrv?.estado()?.optInt("porta", 0) ?: 0
-        // O ANÚNCIO SAI COM ZERO ITENS, e é assim que tem de ser: o índice
-        // varre o OPFS inteiro e leva segundos. O `acervoPublicar` o refaz com
-        // os números de verdade — ver [AcervoDescoberta.reanunciar].
-        AcervoDescoberta.anunciar(this, porta, rotulo, 0, 0L)
-        espelhoDiag.registrar("cessao da biblioteca ligada")
+        // O ANÚNCIO NÃO SAI AINDA, e esta é a correção do "medindo eterno": o
+        // índice varre o OPFS e leva segundos, e um anúncio com ZERO itens
+        // nunca se corrigia (ver [AcervoDescoberta.preparar]). Quem o põe na
+        // rede é o `acervoPublicar`, já com a contagem e o peso — e, com isso,
+        // este aparelho só aparece na lista do outro quando tem o que servir.
+        AcervoDescoberta.preparar(this, porta, rotulo)
+        espelhoDiag.registrar("cessao da biblioteca ligada (o anuncio espera a contagem)")
     }
 
     override fun acervoPararCessao() {
@@ -2139,7 +2166,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             AcervoDescoberta.pararAnuncio()
             espelhoDiag.registrar("cessao da biblioteca desligada")
             // O SERVIDOR SÓ CAI SE NINGUÉM MAIS O QUISER.
-            if (!telaoPedido) desmontarEspelho()
+            if (!telaoPedido) desmontarEspelho("o operador parou de ceder a biblioteca")
         }
     }
 

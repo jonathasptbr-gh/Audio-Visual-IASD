@@ -361,6 +361,65 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.8.2 — o "medindo" eterno, e um desmonte que não dizia por quê
+
+Relato do operador, com o Registro junto: *"deu erro, diz que não deu para
+falar com o outro aparelho, 'a cópia parou'"* e *"na seleção do aparelho para
+conectar, ele fica eternamente 'medindo', mesmo aparecendo o aparelho para
+conectar"*.
+
+### O "medindo" eterno — duas metades, uma em cada lado da ponte
+
+**No shell.** A cessão anunciava por mDNS assim que ligava, com ZERO itens (o
+índice varre o OPFS e leva segundos), e o `acervoPublicar` refazia o anúncio
+com os números de verdade. Só que **reanunciar é desanunciar e anunciar com o
+MESMO nome de serviço**, e do outro lado `enfileirarResolve` fazia
+`if (achados.containsKey(nome)) return`: um nome já achado NUNCA era resolvido
+de novo. O TXT novo não chegava, e a linha ficava em "medindo" para sempre.
+
+**E o segundo defeito no mesmo ponto é mais caro que o rótulo:** o aparelho
+aparecia na lista — isto é, OFERECIDO PARA TOQUE — antes de ter índice para
+servir. É o mesmo argumento que já obriga o servidor a subir antes do estado da
+cessão (*"o outro celular acha o aparelho e não conecta"*), um passo adiante.
+
+Hoje `AcervoDescoberta.preparar` guarda porta e rótulo sem anunciar, quem põe o
+aparelho na rede é o `acervoPublicar` — já com a contagem e o peso —, e um nome
+já achado volta à fila de resolve passada uma janela (`REVER_MS`, 5 s). A
+janela não é a remoção da guarda: `onServiceFound` chega em rajada a cada
+passada da descoberta, e resolver a cada uma encheria a fila SERIALIZADA de
+trabalho que devolve sempre a mesma resposta.
+
+**No web.** "medindo" era uma promessa sobre um estado que este lado não tem
+como observar: o que chega é o TXT do anúncio, e "zero itens" não distingue
+*"ainda estou contando"* de *"a biblioteca está vazia"*. Sem os números a linha
+passou a mostrar o ENDEREÇO — verdade, e o que identifica o aparelho quando há
+dois iguais na sala. **A metade web importa por si**: contra um shell 1.8.0, que
+continua anunciando zero, ela é a única que chega por OTA.
+
+### E o desmonte era MUDO
+
+`desmontarEspelho()` não escrevia nada no `espelhoDiag`. O Registro do relato
+saiu com a última linha em *"cessao da biblioteca ligada"* e o estado em
+*"servidor: desligado"*, **sem nada entre as duas** — e as causas possíveis
+pedem ações opostas: o operador desligou, o app foi fechado, ou o Android
+encerrou o serviço em primeiro plano. A distância entre elas é a distância
+entre "toque de novo" e "não deixe o app ser fechado durante a cópia".
+
+Hoje o `motivo` é PARÂMETRO OBRIGATÓRIO, e os quatro chamadores escrevem a
+frase deles. **Isto não conserta a queda** — não há evidência de qual das
+quatro aconteceu, e adivinhar seria pior. Conserta o Registro seguinte poder
+responder.
+
+### Oráculo
+
+`clone-lista-de-aparelhos.test.mjs`, nas duas metades que só juntas dizem a
+regra: o TEXTO (medido no que a lista desenha, com a lista VAZIA continuando a
+dizer "Procurando na rede…" — sem essa terceira, apagar o feedback inteiro
+passaria) e o MECANISMO (lido do Kotlin, técnica do `tipos-que-sobem`: provar a
+palavra sem o anúncio aprova metade do conserto). Cinco reversões medidas.
+
+**Lote COM Release:** o Kotlin não chega por OTA — `shellTag: "v1.8.2"`.
+
 ## v1.8.1 — a varredura geométrica, e o padrão seguro de design
 
 Pedido do operador: *"faça a varredura completa no layout do app para que ele se
