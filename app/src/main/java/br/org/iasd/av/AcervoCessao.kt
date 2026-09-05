@@ -1,6 +1,5 @@
 package br.org.iasd.av
 
-import android.os.SystemClock
 import org.json.JSONObject
 import java.security.SecureRandom
 import java.util.ArrayDeque
@@ -139,18 +138,23 @@ object AcervoCessao {
     /**
      * O ÍNDICE, publicado pelo Controle. Chega ANTES de o destino poder pedir
      * qualquer item: é ele que define as posições, e a `sessao` que as valida.
+     *
+     * **A CONTAGEM VEM PRONTA, e não é preguiça:** quem faz o `JSONObject(json)`
+     * é a ponte, que já roda no shell. Sem esse parse aqui, este arquivo fica
+     * sem uma linha de Android no caminho que o oráculo percorre — e o que ele
+     * decide é quem pode copiar o acervo inteiro. `quantos < 0` é o sinal de
+     * que o parse falhou lá.
      */
-    fun publicar(sessaoNova: String, json: String): Boolean {
+    fun publicar(sessaoNova: String, json: String, quantos: Int, peso: Long): Boolean {
         if (!cedendo) return false
         if (!FORMA_SESSAO.matches(sessaoNova)) return false
+        if (quantos < 0) { anotar("índice recusado: não é JSON"); return false }
         val corpo = json.toByteArray(Charsets.UTF_8)
         if (corpo.size > TETO_INDICE) { anotar("índice recusado: ${corpo.size} bytes"); return false }
-        val o = try { JSONObject(json) } catch (e: Exception) { null }
-            ?: run { anotar("índice recusado: não é JSON"); return false }
         indice = corpo
         sessao = sessaoNova
-        itens = o.optJSONArray("itens")?.length() ?: 0
-        bytes = o.optLong("bytes", 0L)
+        itens = quantos
+        bytes = peso
         entregues = 0
         anotar("índice publicado: $itens item(ns), ${corpo.size} bytes de lista")
         return true
@@ -159,40 +163,49 @@ object AcervoCessao {
     // ------------------------------------------------------------ pareamento
 
     /**
-     * `POST /acervo/par`. Devolve `(status, corpo)`, e os quatro desfechos são
-     * distintos de propósito: o destino desenha frases diferentes para
-     * *"esperando o outro celular"*, *"recusado"* e *"há outro clone em
-     * curso"*, e as três pedem ações opostas de quem está com o aparelho na
-     * mão.
+     * O VEREDITO de um pedido de pareamento — DADO, nunca JSON.
+     *
+     * Quem monta a resposta é o [EspelhoServidor], como no `respostaDoVeredito`
+     * do pareamento das telas. A razão aqui é o oráculo: sem `JSONObject` no
+     * caminho, esta máquina de estados roda em JUnit — e ela decide quem pode
+     * copiar o acervo inteiro.
+     */
+    data class Veredito(
+        val status: Int,
+        val estado: String,
+        val com: String = "",
+        val token: String = "",
+    )
+
+    /**
+     * `POST /acervo/par`. Os cinco desfechos são distintos de propósito: o
+     * destino desenha frases diferentes para *"esperando o outro celular"*,
+     * *"recusado"* e *"há outro clone em curso"*, e as três pedem ações opostas
+     * de quem está com o aparelho na mão.
      *
      * **Não há 404 uniforme aqui**, e a diferença com o resto do servidor é
      * deliberada: no telão o 404 esconde quais rotas existem de quem varre a
      * rede; esta rota só responde qualquer coisa que não seja 404 depois de
      * uma pessoa ter tocado em Permitir.
      */
-    fun parear(origem: String, rotuloPedinte: String): Pair<Int, JSONObject> {
-        if (!cedendo) return 404 to JSONObject()
+    fun parear(origem: String, rotuloPedinte: String, agora: Long): Veredito {
+        if (!cedendo) return Veredito(404, "")
         val nome = EspelhoPares.sanear(rotuloPedinte, 48).ifEmpty { "um aparelho" }
 
         // JÁ APROVADO — e para ESTA origem. O destino repete o pedido enquanto
         // espera, e é essa repetição que colhe o token.
         if (token.isNotEmpty() && parOrigem == origem) {
-            return 200 to JSONObject().put("estado", "pareado").put("token", token)
+            return Veredito(200, "pareado", parRotulo, token)
         }
-        if (token.isNotEmpty()) {
-            return 409 to JSONObject().put("estado", "ocupado").put("com", parRotulo)
-        }
-        if (recusada == origem) {
-            return 403 to JSONObject().put("estado", "recusado")
-        }
-        val agora = SystemClock.elapsedRealtime()
+        if (token.isNotEmpty()) return Veredito(409, "ocupado", parRotulo)
+        if (recusada == origem) return Veredito(403, "recusado")
         // O PEDIDO VENCE, e vencer não é recusar: o operador pode não ter visto
         // a tela. Vencido, o pedido seguinte reabre a pergunta.
         if (pedinteOrigem.isNotEmpty() && agora - pedinteEm > PRAZO_PEDIDO_MS) {
             pedinteOrigem = ""; pedinteRotulo = ""
         }
         if (pedinteOrigem.isNotEmpty() && pedinteOrigem != origem) {
-            return 409 to JSONObject().put("estado", "ocupado").put("com", pedinteRotulo)
+            return Veredito(409, "ocupado", pedinteRotulo)
         }
         if (pedinteOrigem.isEmpty()) {
             pedinteOrigem = origem
@@ -200,7 +213,7 @@ object AcervoCessao {
             pedinteEm = agora
             anotar("pedido de clone: $nome ($origem)")
         }
-        return 202 to JSONObject().put("estado", "aguardando")
+        return Veredito(202, "aguardando")
     }
 
     /** O operador respondeu. `sim` cunha o token; `não` guarda a origem para a
@@ -276,13 +289,34 @@ object AcervoCessao {
         .put("com", parRotulo)
         .put("diario", synchronized(diario) { diario.joinToString("\n") })
 
+    /**
+     * O token, em base64url escrito à mão.
+     *
+     * **Não é `android.util.Base64`, e a razão é o oráculo:** este arquivo é a
+     * máquina de estados do pareamento — quatro desfechos que decidem quem pode
+     * copiar o acervo inteiro —, e sem um import de Android ele roda em JUnit
+     * como o [EspelhoPares] e o [EspelhoHttp]. Vinte linhas de alfabeto valem
+     * isso; escrever o pareamento sem oráculo, num repositório que recusa o
+     * RFC 6455 por falta dele, seria o argumento aplicado contra ele mesmo.
+     */
     private fun novoToken(): String {
         val b = ByteArray(16)
         random.nextBytes(b)
-        return android.util.Base64.encodeToString(
-            b,
-            android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP,
-        )
+        val alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        val sb = StringBuilder()
+        var i = 0
+        while (i < b.size) {
+            val n = b.size - i
+            val b0 = b[i].toInt() and 0xFF
+            val b1 = if (n > 1) b[i + 1].toInt() and 0xFF else 0
+            val b2 = if (n > 2) b[i + 2].toInt() and 0xFF else 0
+            sb.append(alfabeto[b0 ushr 2])
+            sb.append(alfabeto[((b0 and 0x03) shl 4) or (b1 ushr 4)])
+            if (n > 1) sb.append(alfabeto[((b1 and 0x0F) shl 2) or (b2 ushr 6)])
+            if (n > 2) sb.append(alfabeto[b2 and 0x3F])
+            i += 3
+        }
+        return sb.toString()
     }
 
     /** A sessão é cunhada pelo WEB (é ele que monta a lista), e o shell só

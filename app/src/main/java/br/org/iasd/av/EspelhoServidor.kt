@@ -613,12 +613,18 @@ class EspelhoServidor(
             JSONObject()
         }
         val origem = enderecoDe(cru)
-        val (status, json) = AcervoCessao.parear(origem, corpo.optString("rotulo"))
-        if (status == 404) return responder(saida, naoAchei())
-        if (status != 202) registrar("clone: pedido de $origem respondido com $status")
+        val v = AcervoCessao.parear(origem, corpo.optString("rotulo"), SystemClock.elapsedRealtime())
+        if (v.status == 404) return responder(saida, naoAchei())
+        if (v.status != 202) registrar("clone: pedido de $origem respondido com ${v.status}")
+        // O VEREDITO VIRA JSON AQUI, como no `respostaDoVeredito` do pareamento
+        // das telas: o [AcervoCessao] devolve DADO, e é isso que o mantém
+        // rodável em JUnit.
+        val json = JSONObject().put("estado", v.estado)
+        if (v.com.isNotEmpty()) json.put("com", v.com)
+        if (v.token.isNotEmpty()) json.put("token", v.token)
         responder(
             saida,
-            EspelhoHttp.resposta(status, "application/json", json.toString().toByteArray(Charsets.UTF_8)),
+            EspelhoHttp.resposta(v.status, "application/json", json.toString().toByteArray(Charsets.UTF_8)),
         )
     }
 

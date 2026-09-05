@@ -280,5 +280,84 @@ checar(!!P, 'o módulo publica `AVPacote`');
     'e vazio para os grupos que não são coleção');
 }
 
+// ===========================================================================
+// AS REGRAS DO CLONE CELULAR A CELULAR
+//
+// O `clone-de-outro-celular.test.mjs` prende a LIGAÇÃO (dois navegadores, os
+// bytes atravessando); aqui ficam as três perguntas PURAS, e cada uma erra
+// calada:
+//
+//  · **a chave de decisão** — é ela que responde "eu já tenho isto?", e uma
+//    chave errada faz o destino rebaixar o acervo inteiro toda vez (funciona, e
+//    leva horas) ou pular um item que ele não tem (não funciona, e ninguém vê);
+//  · **o índice válido** — as recusas pedem ações opostas ("atualize o app" ×
+//    "tente de novo"), e um booleano as igualaria;
+//  · **o que falta** — a ORDEM, o tipo desconhecido que é PULADO e CONTADO, e
+//    o `l` que volta sempre.
+// ===========================================================================
+{
+  console.log('\n-- o clone celular a celular --');
+
+  checar(P.chaveDoItem({ t: 'm', k: 'abc' }) === 'm:abc'
+    && P.chaveDoItem({ t: 'o', k: 'folders/x/1.m4a' }) === 'o:folders/x/1.m4a',
+    'a chave de decisão junta o TIPO ao nome');
+  // O TIPO ENTRA NA CHAVE, e não é enfeite: um caminho de OPFS e um id de mídia
+  // podem coincidir (nada os impede), e sem o prefixo o destino pularia um
+  // arquivo por já ter uma mídia de mesmo nome.
+  checar(P.chaveDoItem({ t: 'm', k: 'x' }) !== P.chaveDoItem({ t: 'o', k: 'x' }),
+    'e duas naturezas com o MESMO nome não colidem');
+  checar(P.chaveDoItem({ t: '?', k: 'x' }) === '' && P.chaveDoItem(null) === '',
+    'um item de tipo desconhecido não ganha chave — ele não pode casar com nada');
+
+  checar(P.sessaoValida('abcd1234efgh') === true
+    && P.sessaoValida('curta') === false
+    && P.sessaoValida('com/barra/dentro!!') === false,
+    'a forma da sessão é a MESMA que a rota do shell aceita — validação que '
+    + 'mora só num lado não é validação');
+
+  checar(P.indiceValido({ v: 1, sessao: 'abcd1234efgh', itens: [] }).ok === true,
+    'um índice bem formado passa');
+  const futuro = P.indiceValido({ v: 99, sessao: 'abcd1234efgh', itens: [] });
+  checar(futuro.ok === false && /mais nova/.test(futuro.erro),
+    'e um de versão MAIOR recusa com a frase que manda ATUALIZAR — as recusas '
+    + 'deste caminho pedem ações opostas', JSON.stringify(futuro));
+  checar(P.indiceValido({ v: 1, sessao: 'x', itens: [] }).ok === false
+    && P.indiceValido({ v: 1, sessao: 'abcd1234efgh' }).ok === false
+    && P.indiceValido(null).ok === false,
+    'sessão malformada, lista ausente e resposta que não é objeto também');
+
+  const itens = [
+    { t: 'l', k: '0', b: 10 },
+    { t: 'm', k: 'ja-tenho', b: 100 },
+    { t: 'm', k: 'falta', b: 200 },
+    { t: 'o', k: 'folders/c/1.m4a', b: 300 },
+    { t: 'z', k: 'de-uma-versao-nova', b: 400 },
+  ];
+  const tem = new Set(['m:ja-tenho']);
+  const r = P.itensQueFaltam(itens, tem);
+  checar(r.falta.map((x) => x.n).join(',') === '0,2,3',
+    'o que falta sai na ORDEM DO ÍNDICE — uma retomada tem de pedir a mesma '
+    + 'coisa na mesma ordem, senão a barra recomeça em outro ponto a cada '
+    + 'tentativa', JSON.stringify(r.falta.map((x) => x.n)));
+  // O `l` VOLTA SEMPRE, e é decisão: importar `state` MESCLA, então "já tenho a
+  // chave" não responde "já tenho o conteúdo dela" — um Cronograma com dois
+  // itens e um com duzentos têm a mesma chave.
+  checar(r.falta.some((x) => x.item.t === 'l'),
+    'e o lote dos LEVES volta mesmo com tudo o mais no lugar');
+  checar(r.desconhecidos === 1,
+    'o tipo que este app não conhece é PULADO e CONTADO — recusar o índice '
+    + 'inteiro deixaria o operador sem clone nenhum, e não contá-lo faria a '
+    + 'tela anunciar "tudo copiado" sobre uma cópia incompleta', r.desconhecidos);
+  checar(r.bytes === 10 + 200 + 300,
+    'e o peso do que falta soma só o que vai ser buscado — é a régua da barra',
+    r.bytes);
+  // O CONJUNTO VAZIO NÃO PODE VIRAR "não falta nada": um destino recém-aberto
+  // tem exatamente esse conjunto, e é o caso de uso do recurso.
+  checar(P.itensQueFaltam(itens, new Set()).falta.length === 4,
+    'sem nada no disco, tudo o que o app conhece falta');
+  checar(P.itensQueFaltam(null, tem).falta.length === 0,
+    'e uma lista ausente não lança — ela simplesmente não pede nada');
+}
+
 falhas.length ? (console.log('\n' + falhas.length + ' falha(s).'), process.exit(1))
   : console.log('\nTodos passaram.');

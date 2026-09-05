@@ -1211,8 +1211,22 @@ class NativeBridge(
     fun acervoPublicar(callId: String, sessao: String, indice: String) {
         if (host == null) { resolve(callId, "false"); return }
         io.execute {
+            // O PARSE MORA AQUI, e não no [AcervoCessao]: é ele que mantém
+            // aquele arquivo sem Android no caminho da máquina de estados, que
+            // é o que o JUnit percorre. `-1` é "não deu para ler", e lá isso é
+            // recusa.
+            val quantos: Int
+            var peso = 0L
+            try {
+                val o = JSONObject(indice)
+                quantos = o.optJSONArray("itens")?.length() ?: 0
+                peso = o.optLong("bytes", 0L)
+            } catch (e: Exception) {
+                resolve(callId, "false")
+                return@execute
+            }
             val ok = try {
-                AcervoCessao.publicar(sessao, indice)
+                AcervoCessao.publicar(sessao, indice, quantos, peso)
             } catch (e: Exception) {
                 false
             }
