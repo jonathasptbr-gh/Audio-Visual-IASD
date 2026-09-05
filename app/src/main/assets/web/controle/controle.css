@@ -7433,6 +7433,27 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    texto, encostado. O `.6rem` daqui devolve exatamente os 9,6px que a barra
    dava: o número não é novo, é o que estava lá antes de a barra sair. */
 .lyricsview-seg { padding: 0 .9rem .6rem; flex-shrink: 0; }
+/* ===== A JANELA DO AUXILIAR TEM TAMANHO PRÓPRIO (v1.6.4) =====
+
+   Relato do operador: *"a janela do auxiliar de leitura é encolhida quando não
+   há cifra, isso muda a posição do botão de navegação dessa janela"*.
+
+   A `.popup-sheet` é dimensionada pelo CONTEÚDO até o teto de `80vh`, e é a
+   regra certa para uma gaveta que responde a um toque — a de Configurações não
+   tem por que ocupar a tela inteira. Aqui ela erra: esta folha é um LEITOR, e
+   quem a abre alterna entre fontes com o dedo no seletor. Uma cifra que não foi
+   encontrada tem uma frase de conteúdo e encolhe a janela, e o seletor sobe
+   junto — o alvo se move debaixo do dedo de quem ia tocar em "Letra" para sair
+   dali. É a mesma razão pela qual o botão de velocidade ganhou largura fixa na
+   v1.6.2: *um controle que se desloca sob o dedo erra o alvo na segunda batida*.
+
+   `height` no lugar de `max-height`, com o MESMO valor: a janela deixa de
+   depender do que coube dentro dela, e a sobra vai para a caixa de texto
+   (`.lyricsview-body` é `flex: 1`), que é onde ela não atrapalha ninguém.
+
+   A TELA CHEIA CONTINUA MANDANDO: `#lyricsPopup:fullscreen .popup-sheet` é
+   (1,1,1) contra os (1,0,1) daqui, e lá a folha é `height: 100%`. */
+#lyricsPopup .popup-sheet { height: 80vh; }
 /* O CORPO É UMA CAIXA, e a caixa é o que diz "há mais texto aqui dentro"
    (v1.1.11). Sem ela o texto terminava no ar contra o fundo da folha, e não
    havia como distinguir "acabou" de "está cortado" — a rolagem só se descobria

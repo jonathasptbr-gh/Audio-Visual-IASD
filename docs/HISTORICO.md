@@ -384,12 +384,40 @@ sobra à direita, e o ✕ saía do canto em que mora nas outras três fontes.
 punha, sem dar ao contêiner dela uma caixa que cresce: os botões mantêm a
 largura, e o que estica é o vão.
 
+### E a janela encolhia quando não havia cifra
+
+Quarto relato do mesmo lote: *"a janela do auxiliar de leitura é encolhida
+quando não há cifra, isso muda a posição do botão de navegação dessa janela"*.
+
+A `.popup-sheet` é dimensionada pelo CONTEÚDO até o teto de `80vh` — regra certa
+para uma gaveta que responde a um toque, errada para um LEITOR em que se alterna
+entre fontes com o dedo no seletor. Uma cifra não encontrada tem uma frase por
+conteúdo, e a folha inteira encolhia.
+
+MEDIDO por reversão, com a animação assentada:
+
+| | altura | seletor |
+|---|---|---|
+| cifra encontrada | 720px | y=238 |
+| cifra não encontrada, sem o conserto | **178,9px** | y=**779** |
+| com o conserto | 720px nos dois | y=238 nos dois |
+
+O seletor saltava **541px** — e ele é justamente o botão que se usa para SAIR da
+cifra. É o princípio que deu largura fixa ao botão de velocidade na v1.6.2: *um
+controle que se desloca sob o dedo erra o alvo na segunda batida*.
+
+`height` no lugar de `max-height`, com o MESMO valor: a sobra vai para a caixa de
+texto, que já é a que cresce. A tela cheia continua mandando — lá a regra é mais
+específica e a folha é `height: 100%`.
+
 ### A asserção é uma COMPARAÇÃO, e isso é a decisão
 
 Não existe x absoluto certo para o ✕ — existe o lugar que as quatro abas
 compartilham. Por isso o oráculo mede a cifra CONTRA a letra: um número fixo
 escrito no teste envelheceria no primeiro ajuste do cabeçalho, e o que ele
-guardaria seria a memória de um layout, não a regra.
+guardaria seria a memória de um layout, não a regra. Vale igual para a altura:
+`80vh` depende da tela, e o oráculo compara a aba de cifra com a de letra em vez
+de fixar um número.
 
 Lote **só de base web**: `version.json` sem `shellTag`.
 
