@@ -24,6 +24,7 @@
 | [Feedback](#feedback-sem-alerta-flutuante--e-a-exceção-do-salvamento) | a resposta nasce onde o toque nasceu |
 | [Compartilhamento](#compartilhamento) · [Diálogo padrão](#diálogo-padrão-do-app-confirmações--prompts) | entradas e confirmações |
 | [O histórico do culto](#o-histórico-do-culto-em-configurações-v120--v1430) | o que já foi ao telão, por sessão |
+| [A abertura e a badge de versão](#a-abertura-e-a-badge-de-versão-v170) | a cortina do `#splash`, o número no cabeçalho |
 | [O que o telão retoma](#o-que-o-telão-retoma-ao-reconectar-midianoar-v5142) | reconexão |
 
 
@@ -1161,7 +1162,7 @@ entre elas continuam se lendo como dois assuntos, e o assunto é UM. Hoje a
 
 | na faixa | o quê |
 |---|---|
-| esquerda | `Web vX · Shell vY` |
+| esquerda | `vX` — a versão da base web, e só ela (v1.7.0: o índice do shell saiu da tela e ficou no Registro) |
 | direita | o rótulo "Registro" + `#diagSave` |
 
 - **O respiro da esquerda é `padding`; o da direita é o ALVO.** A versão é texto
@@ -1556,6 +1557,38 @@ pelo teclado (`innerHeight - vv.height - vv.offsetTop`) e escreve em `--kb`, que
 `body { height: calc(100svh - var(--kb)) }` (controle.css) usa para encolher o
 app pra cima. Quando o layout já é redimensionado pelo navegador (ou o teclado
 está fechado), a conta dá ~0 e nada muda — os dois mecanismos convivem.
+
+### A abertura e a badge de versão (v1.7.0)
+
+**A CORTINA.** O contrato inteiro está no `CLAUDE.md`, em "A abertura por trás
+dos panos"; o que interessa a este capítulo é onde ela mora e o que ela cobre:
+
+- o `#splash` é o **primeiro filho do `<body>`** e pinta `--bg`, para existir no
+  primeiro quadro que o navegador desenhar;
+- quem decide a cor é um `<script>` inline do `<head>`, que escreve `data-tema`
+  antes de qualquer folha ser aplicada — e ele é a **única** leitura de
+  `av.tema` do app (o `storedTema()` deste arquivo lê o ATRIBUTO que sai dali);
+- ela levanta na última linha do `init()` que muda o que se vê — logo depois do
+  `applyPvWallpaper()`, porque uma preview sem wallpaper é mais um dos
+  "carregamentos" que o relato nomeia;
+- o **prazo** que a levanta de qualquer jeito é armado no `<head>`, e não aqui:
+  um bundle cujo `controle.js` não é parseado precisa terminar com o app à
+  vista, não atrás de uma cortina.
+
+**A BADGE.** `renderVersionLabel()` é o escritor ÚNICO de TRÊS casas — a badge do
+Modo Fácil (colada na marca), a do avançado (a trilha 1 da `.list-header`, vaga
+desde a v1.5.0) e o rodapé de Configurações. Todas dizem `v<base web>`, e só
+isso: o índice do shell saiu da tela e ficou no Registro.
+
+- **A grade da faixa mudou por causa dela.** As duas trilhas laterais eram
+  caixas FIXAS de `--hit`, e a badge é texto: com uma trilha fixa o título saía
+  do eixo, que é o que a trilha reservada da v5.309 existia para impedir.
+  `minmax(var(--hit), 1fr)` nos dois lados reparte a sobra em partes iguais e
+  devolve a promessa sem número escrito à mão.
+- **No Modo Fácil a marca deixou de comer a sobra** (`flex: 0 1 auto`), para a
+  badge poder ficar colada nela; quem empurra a engrenagem para a outra ponta é
+  o `margin-right: auto` da badge. O encolher e o `min-width: 0` ficam — num
+  aparelho estreito é a MARCA que cede, nunca o número.
 
 ### O que o telão retoma ao RECONECTAR (`midiaNoAr`, v5.142)
 

@@ -5,7 +5,7 @@ para a TV com `android.app.Presentation`.
 
 > **Este diretório é o irmão de [`../arquitetura/`](../arquitetura/).** Aquele
 > cobre a base web (`assets/web/`); este cobre o Kotlin
-> (`app/src/main/java/br/org/iasd/av/`, 29 arquivos). As regras que valem para
+> (`app/src/main/java/br/org/iasd/av/`, 31 arquivos). As regras que valem para
 > o app inteiro — invariantes, paleta, entrega, divergências web × nativo —
 > ficam em [`../../CLAUDE.md`](../../CLAUDE.md), que continua sendo a **leitura
 > obrigatória**; aqui está o detalhe que ela aponta.
@@ -23,11 +23,11 @@ para a TV com `android.app.Presentation`.
 > build/assinatura/backup) vive nas seções correspondentes do `CLAUDE.md` mais o
 > KDoc dos arquivos.
 
-## Os 29 arquivos, e onde cada um é explicado
+## Os 31 arquivos, e onde cada um é explicado
 
 | arquivo | linhas | onde |
 |---|---|---|
-| `NativeBridge.kt` | 1.731 | [`PONTE.md`](PONTE.md) |
+| `NativeBridge.kt` | 1.953 | [`PONTE.md`](PONTE.md) |
 | `WebViewFactory.kt` | 285 | [`PONTE.md`](PONTE.md) — invariantes 1-4 |
 | `SafPathHandler.kt` | 99 | [`PONTE.md`](PONTE.md) — o token `/saf/` |
 | `WebUpdater.kt` | 1.160 | [`OTA.md`](OTA.md) |
@@ -48,10 +48,11 @@ para a TV com `android.app.Presentation`.
 | `TrilhaAudio.kt` | 138 | `CLAUDE.md` — "Séries do YouTube" |
 | `SessionService.kt` | 916 | `CLAUDE.md` — "Notificação de controles" |
 | `SyncService.kt` | 550 | `CLAUDE.md` — "Trabalho em segundo plano" |
-| `MainActivity.kt` | 2.116 | `CLAUDE.md` — voltar, volume, cast, fullscreen |
+| `MainActivity.kt` | 2.321 | `CLAUDE.md` — voltar, volume, cast, fullscreen |
 | `StagePresentation.kt` | 188 | `CLAUDE.md` — "Reconexão e morte do renderer" |
 | `MicChromeClient.kt` | 81 | `CLAUDE.md` — "Microfone ao vivo" |
 | `MicDiag.kt` | 181 | `CLAUDE.md` — "Microfone ao vivo" (o `micDiag` da ponte: POR QUE ele não abre — leitura PURA, não pede nada) |
+| `PacoteCanal.kt` | 265 | `CLAUDE.md` — "O pacote de transferência" (o SEGUNDO canal de `ArrayBuffer` do shell; abrir e fechar o destino entram pela ponte, porque envolvem uma PESSOA) |
 | `MessageBus.kt` | 54 | `CLAUDE.md` — "Barramento de comandos" |
 | `ShareIntake.kt` | 143 | `CLAUDE.md` — "Compartilhamento" |
 | `SlideDeck.kt` | 321 | [`../arquitetura/DOCUMENTO-EM-CENA.md`](../arquitetura/DOCUMENTO-EM-CENA.md) |

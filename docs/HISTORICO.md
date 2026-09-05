@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.7.0** — A ABERTURA POR TRÁS DOS PANOS, A BADGE DE VERSÃO, O COMPARTILHAR E O PACOTE DE TRANSFERÊNCIA. Quatro pedidos do operador num lote, e o que os une é serem tudo o que o app tinha DE FORA do culto. (1) **A CORTINA**: *"é comum abrir o app e telas piscarem até que fique no lugar correto… o tema escuro aparece antes de se ajustar para o tema correto"*. O lado NATIVO já estava certo (o `windowBackground`, a raiz da Activity e o WebView nascem na cor guardada); quem piscava era o DOCUMENTO, entre o primeiro quadro e a última linha do `init()` — o `controle.js` é o ÚLTIMO dos catorze scripts do `<body>`, e até ele rodar quem pinta é o `:root` sem atributo. O tema ganhou conserto próprio (um script inline no `<head>`, que é agora a ÚNICA leitura de `av.tema`: o `storedTema()` passou a ler o ATRIBUTO que sai dali); o resto — o modo, a lista vazia, a preview sem wallpaper — ganhou a cortina. **O PRAZO É ARMADO NO `<head>`, e é a decisão do bloco**: uma cortina que não levanta é um app inutilizável, e o caminho provável disso é justamente o que o watchdog do OTA existe para pegar — um bundle cujo `controle.js` nem é parseado. Armado lá, o prazo roda mesmo aí, e o desfecho ruim volta a ser o app quebrado À VISTA. (2) **A BADGE**: *"coloque uma nova badge de versão na tela principal, após o título áudio visual iasd (no modo simples) e no canto superior esquerdo (no modo avançado)"* · *"remova da ui a informação nas configurações do shell… coloque apenas ela, e apenas um número, sem o 'web'"*. As três casas passam a ter um escritor só, e o índice do shell continua no REGISTRO — tirá-lo dos dois lugares seria o conserto largo demais, e o oráculo o afirma. A casa do avançado já estava vaga desde a v1.5.0 (o `#backBtn` perdeu o dono quando a Bíblia virou folha); as duas trilhas laterais da faixa passaram a repartir a sobra em partes iguais, e é isso que mantém o título no eixo. (3) **O COMPARTILHAR**: até aqui não havia, de dentro do app, NENHUMA forma de passar o link da página adiante — e é o operador quem conversa com as outras igrejas. `compartilharTexto` (`ACTION_SEND` + `createChooser`); `navigator.share` não existe no WebView do Android, e `openExternal` faz o oposto do pedido (abre a página no próprio aparelho). (4) **O PACOTE**: *"a biblioteca e o resto são pesados… permitir copiar e compartilhar o arquivo diretamente de um smartphone para o outro é extremamente útil"*. Formato `.avpkg` SEQUENCIAL e não zip (um zip pede o diretório central no fim, e o acervo passa de gigabytes); a regra é pura, no `controle/pacote.js`, e os bytes vão pelo `PacoteCanal.kt` — o SEGUNDO canal de `ArrayBuffer` do shell, irmão do `EspelhoMidiaCanal`. **A importação não precisou de método nenhum**: `pickDoc` já devolve uma `/saf/` servível, e o lado web a lê por `Blob.slice()`, como o `pptxzip.js` faz com um `.pptx` de 570 MB. A promessa é *"importar só ACRESCENTA"* (`add` e não `put`; união nas listas, mescla nos mapas, local vencendo em tudo o mais), e ela tem oráculo de IDA E VOLTA em dois contextos de navegador. A varredura do OPFS é do DISCO e não do catálogo — as imagens de fundo da letra não viram registro, e um pacote montado pelo catálogo chegaria com o hinário e as estrofes sobre preto. **E a integração com a `main` cobrou um achado:** o `pptx-video-na-pagina.test.mjs` (v1.6.6) esperava pelo `currentId` e afirmava sobre o que vem DEPOIS dele — `send()` escreve aquele campo no COMEÇO e só emite o `load` no fim. MEDIDO: 2 reprovações em 8 rodadas a 3x de carga com este lote, 0 em 8 sem ele — a janela já existia, e o lote a alargou. A espera passou a ser pelo `load` daquele id, e a correção só pode reprovar MAIS: 0 em 10 rodadas depois dela. Lote **com Release** (`SHELL_VERSION` 63, `shellTag: "v1.7.0"`).
 - **v1.6.6** — OS TRÊS DEFEITOS DA AUTOMAÇÃO DO VÍDEO DE SLIDE, MAIS O PISCAR DA CAPA E O AUTOPLAY DA PRIMEIRA PÁGINA. Dois deles deles são o MESMO visto de dois lugares. Relato do operador: *"a importação funcionou, mas há um erro na automação, eu não consigo pular o vídeo. primeiro que o botão de próximo slide não reconhece o vídeo como uma página, logo ele não fica ativo para toque. segundo que qualquer tipo de tocar seguinte, faz com que a apresentação volte para o início"*. **A raiz é uma só:** com o vídeo em cena `currentItem` é o VÍDEO, então `deckNoAr()` devolve null, `slideTarget()` não acha eixo e o par de botões nasce DESABILITADO — mas para quem opera a cena continua sendo *"a página N da apresentação"*, porque o vídeo é o conteúdo daquela página e não um item à parte. `deckDoSlide`/`paginaDoSlide` respondem isso ao `slideTarget` e ao `renderSlideNav`, e `deckNoAr` fica INTOCADO de propósito: ele responde outra pergunta (*"que deck está no slot do motor?"*) e tem meia dúzia de consumidores que dependem dela. **O segundo é o mesmo defeito no `step()`:** o vídeo não está em lista nenhuma (é isso que o mantém fora do Cronograma), então o `findIndex` devolvia −1 e o `idx === -1` caía no PRIMEIRO item da fila — que num culto é a própria apresentação, e o que se via era ela voltando ao começo a cada toque. A âncora passa a ser a apresentação a que o vídeo pertence. **O TERCEIRO NÃO FOI RELATADO e é pior que os dois:** com o vídeo na ÚLTIMA página, `deckIr(pagina + 1)` é limitado ao fim, a volta pousa na MESMA página e a chegada redispara o vídeo — um laço que só um Parar quebra. `deckVideoVoltar` calcula o pouso ANTES de sair e suprime o gatilho SÓ quando ele é a página de origem; numa volta que anda de verdade a página seguinte com vídeo toca, que é o encadeamento pedido. **E O ORÁCULO TINHA DOIS DEFEITOS PRÓPRIOS, os dois achados pela disciplina da reversão.** O primeiro: o bloco novo montava a cena com um ÁUDIO no ar, e ali o `send` de uma apresentação a SOBREPÕE em vez de substituir (v1.4.28) — a automação não arma, e as asserções passavam medindo o caso da CAMADA. O segundo, o mais instrutivo: o "vídeo" da fixture era um WAV de 3 s, que ACABAVA sozinho no meio das asserções e fazia a automação disparar por conta própria — a prova de que o BOTÃO pulava o vídeo passava por CORRIDA, e a reversão do pulo não reprovava. Trinta segundos, e o fim só acontece quando o teste o pede. Cinco reversões nomeadas, todas reexecutadas. Lote **só de base web**.
 - **v1.6.5** — OS TRÊS VÃOS QUE A BARRA DEIXOU, E O ESPAÇADOR QUE ERA O TÍTULO. Relatos do operador: o seletor Letra/Cifra *"está sem margem"* contra a caixa de texto, tem *"margem em excesso acima… me parece uma margem duplicada"*, e o A+/A− com o ✕ *"ficaram puxados para a esquerda, colados nos outros botões, se movendo de sua posição original correta"*. **Os três são de LAYOUT e falham calados** — nada lança, nada some, e um teste de comportamento passa por cima deles. (1) O vão ABAIXO era da BARRA: ela deixava 9,6px entre si e o corpo, e ao sair na v1.6.3 levou isso junto — MEDIDO, sobraram 3,2px e o seletor ficou encostado. O `.6rem` que volta é o MESMO número que a barra dava, não um novo. (2) O vão ACIMA era mesmo DUPLICADO, e é anterior a estes lotes: o `.popup-header` fecha com 11,2px e o seletor abria com mais 9,6 — 20,8px entre duas fileiras de controles, contra os ~10px do resto da folha. O recuo de cima vai a ZERO e quem separa passa a ser o do cabeçalho, que é de quem a decisão é (ele é o mesmo nas quatro fontes). (3) O terceiro é DEFEITO DA v1.6.3: `.popup-title` é `flex: 1` — ele era o ESPAÇADOR da linha —, e escondê-lo na aba de cifra colapsou os três blocos à esquerda. MEDIDO: o último terminava em x=331,6 numa caixa que vai até 414, com 82,4px de sobra. `margin-right: auto` na fila devolve a folga ao mesmo lugar, sem dar ao contêiner uma caixa que cresce. **A ASSERÇÃO DO TERCEIRO É UMA COMPARAÇÃO, e de propósito:** não há x absoluto certo, há o lugar que as quatro abas compartilham — o ✕ e o A+/A− têm de cair no MESMO x na cifra e na letra. Um número fixo no oráculo envelheceria no primeiro ajuste do cabeçalho. Lote **só de base web**.
 - **v1.6.4** — O VÍDEO EMBUTIDO NUMA APRESENTAÇÃO, E O TETO QUE A RECUSAVA. Relato do operador, com captura: um `.pptx` recusado com *"não pôde ser lido"* e o detalhe `PPTX zip limit exceeded: ppt/media/media3.mp4 is 82733397 bytes > maxEntryUncompressedBytes 33554432`. **A causa não era o arquivo:** o app passava ao renderizador o `RECOMMENDED_ZIP_LIMITS` da própria biblioteca (`deck.js:422`), cujo teto por ENTRADA é 32 MiB, e a recusa acontece na varredura do DIRETÓRIO CENTRAL do zip — antes de descomprimir um byte. O absurdo do caso está medido: o vídeo de 78,9 MiB nunca viraria pixel, porque `embutirRecursos` não alcança `<video>` (a QUARTA coisa que o `<foreignObject>` perde, e a única que faltava na lista) e o renderizador o desenha como `<video preload="none">` sobre fundo preto. **E o arquivo real tem 570 MB**, o que derruba a correção óbvia: `Ow` (no buildado) sempre materializa o ArrayBuffer, então subir o teto poria 570 MB no heap de um processo que hospeda os dois WebViews e a `Presentation`. **A saída é `controle/pptxzip.js`** (`AVPptxZip`, PURO, oráculo próprio): ele lê o índice do zip por `Blob.slice()` — preguiçoso, sem copiar byte nenhum —, separa os vídeos e remonta um `.pptx` enxuto com os bytes COMPRIMIDOS copiados verbatim, com o CRC e os tamanhos que o índice já declara: nada é recomprimido, e descompressão só acontece nos `.rels`, para saber qual vídeo é de qual slide. No enxuto o renderizador não acha a mídia e cai no ramo do PÔSTER, que desenha o quadro de capa como `<img>` — a única forma que o `embutirRecursos` sabe embutir. **As duas armadilhas do formato estão no oráculo com REVERSÃO:** o cabeçalho LOCAL tem campos de nome e extra PRÓPRIOS (deduzir o início dos bytes do índice entrega bytes DESLOCADOS, não um erro — MEDIDO, 16 bytes numa fixture que imita o PowerPoint), e a ORDEM dos slides sai do `sldIdLst` e nunca dos nomes dos arquivos (numa apresentação REORDENADA as duas divergem, e o vídeo tocaria no slide errado, sem sintoma). **A AUTOMAÇÃO é o pedido do operador ao pé da letra** — *"faça as interações de forma automática, como iniciar e voltar para a apresentação prosseguindo para o próximo slide"*. Ela mora no `controle.js` e NÃO no `stage.js`: o motor de projeção é o caminho que desenha na frente da congregação, e tudo o que este recurso precisa já existe como comando — chegar na página manda um `load` do vídeo (`deckIr` → `deckVideoTalvezTocar`), o fim dele manda um `load` da apresentação na página SEGUINTE (`autoAdvance` → `deckVideoVoltar`, e é o `autoAdvance` porque ele é o ponto único por onde o `media-ended` do telão e o `onEnded` da preview passam). Fade, cortina, telas da rede, barra e notificação vêm de graça, e nenhuma linha nova roda no telão. **Três decisões declaradas:** abrir a apresentação NÃO conta como chegar na página (ali o operador acabou de escolher projetar os SLIDES, e entregar-lhe um vídeo no mesmo toque tira dele a única ação deliberada antes de o telão mudar); a automação só vale com a apresentação como MÍDIA, nunca como CAMADA (ali há um louvor tocando por baixo, e trocar a cena o mataria); e projetar qualquer outra coisa DESARMA a volta, senão a apresentação voltaria por cima do que o operador escolheu. **Os vídeos não entram em lista nenhuma**, e quem os segura é a própria apresentação: `lerDetentores` desce no `videos` de um registro `deck`, como já descia nos `data.ids` de um `cue` — o percurso da morte é o mesmo, tirar a apresentação da última lista a mata na hora e o `gcOrfaos` da abertura seguinte recolhe os vídeos. **O que a escrita do oráculo achou e corrigiu:** a primeira versão dele afirmava que `listRemove` cascateia (não cascateia — o comentário do `db.js` foi reescrito), e a primeira campanha usava `waitForFunction` cru, cuja exceção MATA o processo — as reversões saíam como crash em vez de reprovação atribuível, que é o anti-padrão *"prazo lido como veredito"* deste repositório; hoje as esperas passam por `esperar()`/`porque()`. **E A MENSAGEM PASSOU A SEGUIR O MOTIVO:** o diálogo mandava procurar SENHA num arquivo que não tinha e salvar como `.pptx` um arquivo que já era `.pptx` — duas instruções que não resolvem nada, num sábado de manhã, com o app SABENDO o motivo e não o usando. Oráculos novos: `tools/pptxzip.test.mjs` (26 asserções, com reversão no deslocamento e na ordem) e `tools/pptx-video-na-pagina.test.mjs` (reversão em QUATRO eixos). Lote **só de base web**.
@@ -346,6 +347,234 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.7.0 — a abertura por trás dos panos, a badge, o compartilhar e o pacote
+
+Quatro pedidos do operador num lote só, e o que os une é serem **tudo o que o
+app tinha de fora do culto**: como ele abre, como ele se identifica, como ele
+chega a outra igreja e como o acervo dele chega a outro celular.
+
+### 1 · A cortina de abertura
+
+> *"O aplicativo não possui uma tela de carregamento ou splash screen
+> propriamente configurada, pois é comum abrir o app e telas piscarem até que
+> fique no lugar correto e atualizado dos elementos. Isso faz por exemplo que o
+> tema escuro apareça antes de se ajustar para o tema correto atual, ou diversos
+> outros carregamentos … vamos criar uma, para que tudo seja carregado por trás
+> dos panos."*
+
+**O LADO NATIVO JÁ ESTAVA CERTO**, e é por isso que o conserto é todo do web: o
+`windowBackground` (`themes.xml`), a raiz da Activity e o próprio WebView já
+nasciam na cor do tema guardado — a v5.192 pagou por isso. O que piscava era o
+DOCUMENTO, e ele passa por três estados que não são o do operador:
+
+1. **o TEMA.** `pintarTema()` escreve `data-tema` no `controle.js`, que é o
+   ÚLTIMO dos catorze scripts do `<body>`. Até ele rodar quem pinta é o `:root`
+   sem atributo — o tema ESCURO. Era o exemplo do relato.
+2. **o MODO.** O `<body>` nasce `mode-simple`; quem deixou o avançado vê a tela
+   errada trocar embaixo do dedo.
+3. **o CONTEÚDO.** `init()` é assíncrono: a lista nasce vazia, o nome da cena
+   diz "Nada tocando", a preview não tem wallpaper.
+
+O 1 tem conserto próprio — um `<script>` inline no `<head>`, antes de existir
+primeiro quadro. Ele é a **única** leitura de `av.tema` do app: o `storedTema()`
+passou a ler o ATRIBUTO que sai dali, porque uma segunda leitura seria a mesma
+regra escrita duas vezes, com duas chances de divergir. Os 2 e 3 não têm — eles
+dependem de trabalho que leva o tempo que leva —, e para eles a resposta é a
+cortina (`#splash`, primeiro filho do `<body>`), que levanta na última linha do
+`init()` que muda o que se vê.
+
+**O PRAZO É ARMADO NO `<head>`, E É A DECISÃO DESTE BLOCO.** Uma cortina que não
+levanta é um app INUTILIZÁVEL — pior que o piscar que ela veio corrigir —, e o
+caminho mais provável de isso acontecer é justamente o que o watchdog do OTA
+existe para pegar: um bundle em que o `controle.js` nem chega a ser parseado. Um
+prazo escrito lá dentro não roda nesse caso. Armado no `<head>`, ele roda
+enquanto houver JavaScript nenhum além daquelas linhas, e o desfecho ruim volta
+a ser o app quebrado À VISTA, que é diagnosticável. Doze segundos: o pior caso
+honesto de um `init()` sobre um acervo grande num aparelho lento; vencido, o app
+volta a se comportar como se comportava antes deste lote — degradação, nunca
+quebra.
+
+**Ela some por REMOÇÃO DO NÓ**, não por opacidade: uma camada `opacity: 0` sobre
+a tela inteira continua recebendo o toque, e o app abriria intocável. O oráculo
+mede isso por HIT-TEST no meio da tela, e não pelo estilo computado.
+
+A cortina é o próprio ÍCONE do app ampliado — os mesmos caminhos de
+`res/drawable/ic_launcher_foreground.xml`, lendo os TOKENS em vez dos
+hexadecimais escritos à mão lá (um recurso de Android não enxerga custom
+property; aqui dentro isso não é problema, e a cor segue o tema de verdade).
+
+### 2 · A badge de versão, e o índice do shell fora da tela
+
+> *"Aproveite também para colocar uma nova badge de versão na tela principal,
+> após o título áudio visual iasd (no modo simples) e no canto superior esquerdo
+> (no modo avançado)."* · *"Remova da ui a informação nas configurações do
+> shell, essa numeração é interna, pode estar nos registros, mas em 99% dos
+> casos a outra versão é a numeração correta. Não apenas isso, mas na exibição
+> da badge da versão, coloque apenas ela, e apenas um número, sem o 'web'."*
+
+TRÊS casas, UM escritor (`renderVersionLabel`): duas telas anunciando versões
+diferentes é o defeito que o operador repassa como fato ao pedir ajuda.
+
+**O QUE ISSO CUSTA, dito:** `Web v1.6.6 · Shell v1.5.21` respondia, de graça e
+na tela, à pergunta *"o OTA chegou e o APK ainda não?"* — e essa pergunta é
+real, porque os dois canais são independentes por construção. O que a resposta
+valia não pagava o preço: o operador via DOIS números onde há UM app, e o que
+ele repete ao pedir ajuda é o primeiro que lê. A pergunta continua respondida no
+REGISTRO, e o oráculo afirma as duas metades — sumiu da tela, ficou no Registro.
+Tirá-lo dos dois lugares é o conserto largo demais, e é a regressão silenciosa
+que este lote poderia ter produzido.
+
+**A CASA DO AVANÇADO JÁ ESTAVA VAGA** desde a v1.5.0: o `#backBtn` da faixa
+perdeu o dono quando a Bíblia virou folha, e `renderListTitle` o esconde em toda
+passada. O que mudou foi a GRADE: as duas trilhas laterais eram caixas FIXAS de
+`--hit`, e a badge é texto — com uma trilha fixa o título saía do eixo, que é
+justamente o que a trilha reservada da v5.309 existia para impedir.
+`minmax(var(--hit), 1fr)` nos dois lados devolve a promessa sem número nenhum
+escrito à mão. No Modo Fácil, a marca deixou de comer a sobra (`flex: 0 1 auto`)
+para a badge poder ficar COLADA nela, que é o pedido ao pé da letra.
+
+### 3 · Compartilhar o link do app
+
+> *"Verifique que dentro do app não tem um botão de compartilhamento, que
+> compartilhe o Link da página do site de download do app, impedindo o
+> compartilhamento pelo usuário. Adicione isso nas configurações."*
+
+`compartilharTexto` (shell 63) → `ACTION_SEND` + `createChooser`. Ele **não** é
+uma variante do `openExternal`: aquele MANDA este aparelho abrir um endereço,
+este OFERECE um texto a quem o operador escolher — um link aberto no navegador
+do próprio celular não chega a ninguém. E não é `navigator.share`: o WebView do
+Android não implementa a Web Share API, então aquela chamada não existe ali,
+sem erro e sem chooser.
+
+Síncrono e sem resposta, como o `openCast`: o desfecho de um chooser é uma
+pessoa escolhendo (ou não) um app, e não há API que entregue esse veredito nem
+nada que o lado web faria com ele. O endereço da página é digitado à mão no
+`controle.js` (`AV_PAGINA`), como o `WebUpdater.REPO` do lado Kotlin e pelo
+mesmo motivo: não há de onde perguntá-lo em runtime.
+
+### 4 · O pacote de transferência
+
+> *"Precisamos analisar a criação de método de exportar o armazenamento e as
+> preferências de um app para outro aparelho e importar. Pois o download e
+> instalação do app é leve, mas a biblioteca e o resto são pesados; para opções
+> offline, permitir copiar e compartilhar o arquivo diretamente de um smartphone
+> para o outro é extremamente útil … no caso criar um modelo de arquivo para
+> exportar e importar."*
+
+**O FORMATO É SEQUENCIAL, E NÃO UM ZIP.** Um zip pede o DIRETÓRIO CENTRAL no
+fim: quem escreve guarda uma entrada por arquivo até o último byte, e quem lê
+precisa alcançar o fim antes de abrir o primeiro item. Um acervo passa de
+gigabytes. Aqui os dois lados andam para a frente, um registro por vez (`u32` do
+cabeçalho JSON · JSON · corpo), e a memória usada é a do maior BLOCO (1 MiB),
+nunca a do maior arquivo. Nada é comprimido: o que pesa é mp4 e m4a, que já são.
+
+**O ÚLTIMO REGISTRO É `fim`, E ELE É OBRIGATÓRIO.** É ele — e não o tamanho do
+arquivo — que separa um pacote inteiro de um que acabou no meio. Meia biblioteca
+importando em silêncio é o pior desfecho que este recurso pode produzir, e por
+isso toda saída de falha da exportação APAGA o parcial, inclusive a morte do
+renderer (`buildControleWebView` chama `descartarPacote`, ao lado do que ele já
+zerava do trabalho em segundo plano).
+
+**OS BYTES ENTRAM PELO CANAL DE `ArrayBuffer`, NÃO PELA PONTE.** Um
+`@JavascriptInterface` troca STRINGS, e base64 sobre gigabytes é exatamente o
+que o princípio da ponte proíbe. E um `<a download>` sobre um Blob não faz NADA
+neste WebView, que não tem `DownloadListener` — a mesma parede que criou o
+`salvarTexto`. `PacoteCanal.kt` é o SEGUNDO `addWebMessageListener` de
+`ArrayBuffer` do shell e repete as três guardas do `EspelhoMidiaCanal` uma a
+uma. O que **espera uma pessoa** (o "Salvar como") ou **precisa de um veredito**
+(quantos bytes foram gravados) continua entrando pela ponte — é a mesma divisão
+que separa `pickFolder` de `listFolder`.
+
+**A IMPORTAÇÃO NÃO PRECISOU DE MÉTODO NENHUM**, e isso é o princípio da ponte
+pagando: `pickDoc` já devolve uma `/saf/<token>` servível, e o lado web a lê por
+`fetch` + `Blob.slice()` — a mesma técnica com que o `pptxzip.js` abre um
+`.pptx` de 570 MB sem materializar um byte a mais do que precisa.
+
+**A PROMESSA É "IMPORTAR SÓ ACRESCENTA".** Um id que já existe é pulado
+(`AVDB.mediaAdd` usa `add`, não `put`, e é a FALHA dele que vira "já está
+aqui"); um caminho de OPFS que já abre é pulado; uma chave de `state` que já
+existe só ganha o que não tinha — união nas listas de ids, mescla nos mapas, e o
+LOCAL vence em tudo o mais. É o que faz "importar de novo" ser inofensivo, que é
+o que de fato acontece quando alguém não tem certeza se deu certo da primeira. A
+regra é por FORMA e não por nome de chave: uma tabela de nomes envelheceria em
+silêncio a cada chave nova, e o modo de falhar dela seria o pior. **O preço,
+dito:** num aparelho que já tem biblioteca, as preferências do pacote não
+entram; o caso de uso é o aparelho NOVO, em que nada existe e tudo atravessa.
+
+**A VARREDURA DO OPFS É DO DISCO, NUNCA DO CATÁLOGO.** O download de uma coleção
+grava dois tipos de arquivo na mesma pasta: os áudios, que viram registro em
+`files`, e as IMAGENS DE FUNDO DA LETRA, que não. Um pacote montado pelo
+catálogo chegaria ao outro aparelho com o hinário inteiro e as estrofes sobre
+preto — o mesmo argumento que já obrigou o `opfsFolderSize` a somar o disco.
+
+**O QUE FICA DE FORA está nomeado**, com o motivo ao lado (`AVPacote.FORA`):
+`ota-intencao` e `yt-intencoes` fariam o destino AGIR sozinho na primeira
+abertura; `current` e `historico` descrevem aquele aparelho; e `opfs-folders` —
+as pastas do celular — guardam concessões do SAF que não existem no outro, com o
+modo de falhar mais caro do app: `listFolder` sobre uma URI que não abre devolve
+lista VAZIA, que o `controle.js` lê como *"a pasta sumiu do aparelho"*. Os
+arquivos delas saem junto, e o corte é por SEGMENTO de caminho, nunca por
+prefixo de texto. O `stream` de um registro também é retirado: ele é um
+manifesto do googlevideo expirado com tokens de um `StreamProxy` que só existe
+na origem — sem o campo, o item é o LINK que ele sempre foi.
+
+**A IMPORTAÇÃO TERMINA EM `location.reload()`, e isso é parte do recurso**: o
+`controle.js` lê o acervo UMA vez, no `init()`, e guarda listas e catálogos em
+variáveis de módulo. Não há caminho de invalidação que alcance as dezenas de
+lugares que dependem delas; reabrir o documento é o único ponto do app que
+reconstrói tudo por construção.
+
+**A EXTENSÃO É COSMÉTICA.** Quem identifica o arquivo são os oito bytes de
+assinatura: um provedor de documentos pode trocar `.avpkg` por `.bin` ao criar
+(o MIME do `CreateDocument` é `application/octet-stream`, cuja extensão canônica
+é `.bin`), e o pacote continua importando. Mesma disciplina do `SafRegistry`.
+
+### Os oráculos
+
+- **`pacote.test.mjs`** (Node puro) — a REGRA: assinatura, cursor, recusas,
+  saneamento e a mescla medida pela PROPRIEDADE.
+- **`pacote-ida-e-volta.test.mjs`** (Chromium) — a LIGAÇÃO, em DOIS contextos
+  com armazenamentos separados, como dois celulares. Nada é comparado contra o
+  que a exportação achou que escreveu: afirma-se o que o segundo aparelho tem
+  depois. Inclui a imagem de fundo da estrofe (a que prova a varredura do
+  disco), o `stream` que não atravessa, a pasta do aparelho que fica para trás,
+  e a segunda importação com o local já diferente.
+- **`abertura-e-transferencia.test.mjs`** (Chromium) — a cortina no cenário
+  catastrófico, a badge nas três casas, o índice do shell no Registro, e o bloco
+  "Este aparelho" com a reversão (sem ponte ele não existe).
+
+### O que a integração com a `main` cobrou: uma espera que media o RUNNER
+
+O merge trouxe o `pptx-video-na-pagina.test.mjs` (v1.6.6), e ele reprovou — **2
+vezes em 8 rodadas a 3× de carga**, sempre nas mesmas duas asserções, e **0 em 8
+na `main` sem este lote**. A diferença não é ruído: este lote acrescenta um
+script, um nó com animação infinita e trabalho de abertura, e isso ALARGOU uma
+janela que já existia.
+
+**A janela é da PERGUNTA, não do app.** `send()` escreve `currentId` LOGO NO
+COMEÇO — antes do `getMedia`, do `persistCurrent` e da resolução do registro — e
+só no FIM emite o `load` e assenta o que a cena deixa atrás de si (a página
+dentro do comando, o `deckVideoVolta`, o eixo do ⏮/⏭). O oráculo esperava pelo
+`currentId` e lia o que vem DEPOIS dele: esperava pela INTENÇÃO e afirmava sobre
+o FATO. É a classe que o `CLAUDE.md` já nomeia — *esperar pela INGESTÃO, nunca
+pela resposta DERIVADA*.
+
+A espera passou a ser pelo **último comando de cena ser o `load` daquele id**,
+que é o último passo do `send`. **Não é tautologia** — o que as asserções
+afirmam continua sendo o CONTEÚDO do comando e o ESTADO que ele deixou, nunca
+que ele existe —, e a troca só pode reprovar MAIS: a condição nova é a antiga
+mais uma. Campanha depois da correção: **0 em 10 rodadas a 3× de carga**.
+
+### O que este lote NÃO fez
+
+Não há caminho de **substituir** o acervo local por um pacote, nem de escolher o
+que importar. Os dois foram considerados e ficaram de fora pelo mesmo motivo: a
+promessa "importar só acrescenta" é o que torna o recurso seguro de tocar sem
+ler nada, e qualquer forma de apagar exigiria uma tela de confirmação que
+descrevesse o que vai sumir — que é outro recurso, não um grau a mais deste.
 
 ---
 
@@ -13814,6 +14043,7 @@ história do contrato, não regra viva.
 
 | shell | o que mudou |
 |---|---|
+| **63** | `+ compartilharTexto(txt)` e os TRÊS do PACOTE (`pacoteCriar`/`pacoteFechar`/`pacoteCancelar`), mais o canal `__avPacote` — o SEGUNDO de `ArrayBuffer` do shell. O degrau é de quatro métodos e de um canal, e não de uma forma de retorno: os bytes do acervo não cabem numa string, e a importação **não** precisou de método nenhum (`pickDoc` já entrega uma `/saf/` servível) |
 | **56** | `+ projecaoLocal(bool)` — a preview que É a projeção não pode ser suspensa. O primeiro degrau em anos cujo motivo estava escrito ANTES dele: `DISPLAY.md` dizia *"se um dia o louvor calar ao minimizar o app com o som saindo do celular, é aqui que a resposta começa"*, e o dia chegou |
 | **48** | `areaTransferencia(desde)` — o LINK COPIADO, quando ele é novo. O carimbo é a metade que importa: sem ele, LER a área de transferência daria o aviso do Android 12+ em toda retomada |
 | **47** | `atualizacaoEstado` ganha `webNotas` — a LINHA DO TEMPO da atualização, lida do `notas.json` do bundle baixado. Não acrescenta poder: acrescenta um campo, e **forma de retorno é superfície** |

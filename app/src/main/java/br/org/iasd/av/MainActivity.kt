@@ -13,6 +13,8 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Log
 import android.view.Display
@@ -253,6 +255,48 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // e a string vazia é o mesmo desfecho de ter desistido, que é o que
             // a tela sabe explicar.
             Log.w(TAG, "não consegui gravar o texto", e)
+            ""
+        }
+        cb(nome)
+    }
+
+    /** Callback do `AVNative.pacoteCriar()` em andamento. */
+    private var pendingPacoteCreate: ((String) -> Unit)? = null
+
+    /**
+     * "Salvar como" do PACOTE DE TRANSFERÊNCIA (shell 63).
+     *
+     * `application/octet-stream` e não um tipo próprio: o Android não conhece
+     * `.avpkg`, e um MIME inventado faz provedores recusarem a criação. O nome
+     * sugerido já traz a extensão; **se um provedor a trocar, nada quebra** —
+     * quem identifica o arquivo na importação é a ASSINATURA nos primeiros bytes
+     * (ver `AVPacote.lerAssinatura`), nunca o nome. É a mesma disciplina do
+     * `SafRegistry`: o que vale é o conteúdo, não o rótulo.
+     *
+     * Ao contrário do [textSaver], que grava e fecha na hora, aqui o destino
+     * fica ABERTO: o que vem depois são gigabytes em blocos de 1 MiB pelo
+     * [PacoteCanal].
+     */
+    private val pacoteSaver = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri ->
+        val cb = pendingPacoteCreate
+        pendingPacoteCreate = null
+        if (cb == null) return@registerForActivityResult
+        if (uri == null) { cb(""); return@registerForActivityResult }
+        val nome = try {
+            val out = contentResolver.openOutputStream(uri, "wt")
+                ?: throw java.io.IOException("provedor não abriu o documento")
+            pacoteCanal.adotar(out, uri)
+            nomeVisivelDoDocumento(uri)
+        } catch (e: Exception) {
+            // Não conseguir abrir é o operador ficar sem o arquivo, não o app
+            // quebrar — e a string vazia é o MESMO desfecho de ter desistido,
+            // que é o que a tela sabe explicar. O documento vazio que o SAF
+            // acabou de criar é apagado aqui: deixá-lo seria um arquivo de zero
+            // byte com nome de acervo.
+            Log.w(TAG, "não consegui abrir o pacote para escrita", e)
+            try { DocumentsContract.deleteDocument(contentResolver, uri) } catch (_: Exception) {}
             ""
         }
         cb(nome)
@@ -522,6 +566,14 @@ class MainActivity : ComponentActivity(), BridgeHost {
                     Log.w(TAG, "serviço de sincronização não parou", e)
                 }
             }
+            // E A EXPORTAÇÃO EM CURSO, pela MESMA razão e com uma consequência
+            // pior (shell 63): o empurrão dos blocos morreu com o renderer, mas
+            // o destino do SAF continuaria ABERTO — e o que ficaria no cartão do
+            // operador é meio acervo com nome de acervo inteiro, que importa em
+            // silêncio até o registro em que os bytes acabam. `descartarPacote`
+            // fecha e APAGA o parcial; a página nova não sabe que houve uma
+            // exportação e nunca a retomaria.
+            descartarPacote()
             // MESMA classe de estado do documento morto: os dois foram ligados
             // pela página que acabou de morrer, e a nova pede de novo ao
             // carregar. `captureVolumeKeys` órfão é o pior dos dois — com a
@@ -562,6 +614,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // suporte); com a transmissão desligada o cache resolve nulo e o
         // canal recusa com frase.
         espelhoMidiaCanal.instalar(w)
+        // O canal do PACOTE (shell 63), pela mesma regra e no mesmo lugar: por
+        // instância de WebView, reinstalado sozinho a cada remontagem. Instalado
+        // SEMPRE — a presença de `window.__avPacote` é como o lado web detecta o
+        // suporte, exatamente como faz com o `__avTelaMidia` — e sem destino
+        // aberto ele recusa todo bloco com `-1`.
+        pacoteCanal.instalar(w)
         // A BASE SERVIDA MUDOU DESDE O LANÇAMENTO ANTERIOR: limpar o cache
         // antes de carregar. Ver `WebUpdater.baseTrocou` — as URLs não mudam de
         // nome entre versões da base, então sem isto a página nasce com metade
@@ -663,6 +721,14 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // Idem para a sessão: sem WebView não há quem execute a ação, e a
         // notificação de controles viraria um painel de botões mortos.
         SessionRemote.onAction = null
+        // E A EXPORTAÇÃO EM CURSO, SEM A GUARDA DE `isChangingConfigurations`
+        // (shell 63) — ao contrário do serviço de mídia e da transmissão, que
+        // sobrevivem a uma recriação de propósito. Aqui não há o que sobreviver:
+        // quem empurrava os blocos era o DOCUMENTO desta Activity, e ele morre
+        // com ela nos dois casos. O que ficaria aberto é um destino do SAF que
+        // ninguém mais alimenta, com meio acervo dentro e nome de acervo
+        // inteiro. `descartarPacote` fecha e apaga; sem nada aberto é no-op.
+        descartarPacote()
         // E o empurrão do OTA, pelo mesmo motivo dos dois acima: ele captura
         // esta Activity, e a ronda do `WebUpdater` sobrevive à tela.
         WebUpdater.aoChegar = null
@@ -998,6 +1064,110 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 Log.w(TAG, "seletor de gravação indisponível", e)
                 pendingTextSave = null
                 onResult("")
+            }
+        }
+    }
+
+    override fun requestPacoteCreate(nome: String, onResult: (String) -> Unit) {
+        runOnUiThread {
+            // Mesmo padrão do [requestTextSave]: o pendente resolve vazio antes
+            // de ser sobrescrito, senão a Promise sem prazo do lado web fica
+            // pendurada para sempre.
+            pendingPacoteCreate?.invoke("")
+            pendingPacoteCreate = onResult
+            try {
+                pacoteSaver.launch(nome)
+            } catch (e: Exception) {
+                Log.w(TAG, "seletor de gravação do pacote indisponível", e)
+                pendingPacoteCreate = null
+                onResult("")
+            }
+        }
+    }
+
+    override fun pacoteFinish(onResult: (Long) -> Unit) {
+        runOnUiThread { onResult(pacoteCanal.fechar()) }
+    }
+
+    override fun pacoteCancel() {
+        runOnUiThread { descartarPacote() }
+    }
+
+    /**
+     * Fecha o pacote em curso e APAGA o documento parcial.
+     *
+     * NOME PRÓPRIO, e não uma sobrecarga do [pacoteCancel] acima: em Kotlin as
+     * duas teriam a MESMA assinatura na JVM — o compilador as recusa, e a
+     * versão que "compilaria" (o `override` chamando a si mesmo dentro do
+     * `runOnUiThread`) é recursão infinita na main thread.
+     *
+     * A ORDEM IMPORTA: o `uriEmCurso()` é lido ANTES do `fechar()`, que o zera.
+     * Apagar um documento que o operador já vê no gerenciador de arquivos é a
+     * resposta certa aqui — meio acervo com nome de acervo inteiro é pior que
+     * arquivo nenhum, porque ele importa em silêncio até o registro em que os
+     * bytes acabam.
+     *
+     * Roda na main (é de lá que os dois chamadores vêm: o `pacoteCancel` da
+     * ponte e o `onRendererGone`), e é idempotente — sem nada aberto, o
+     * `fechar()` devolve `-1` e o `uri` já é nulo.
+     */
+    private fun descartarPacote() {
+        val alvo = pacoteCanal.uriEmCurso()
+        pacoteCanal.fechar()
+        if (alvo == null) return
+        try {
+            DocumentsContract.deleteDocument(contentResolver, alvo)
+        } catch (e: Exception) {
+            // O provedor pode recusar a exclusão (nuvem, somente-leitura). Aí
+            // sobra o parcial no cartão, e é o cabeçalho do próprio arquivo que
+            // impede o estrago: sem o registro `fim`, a importação recusa o
+            // pacote inteiro em vez de aceitar meia biblioteca.
+            Log.w(TAG, "não consegui apagar o pacote parcial", e)
+        }
+    }
+
+    /**
+     * O NOME DE EXIBIÇÃO de um documento recém-criado, para a tela poder dizer
+     * onde o arquivo ficou. Cai no último segmento do URI quando o provedor não
+     * responde — feio, mas nunca vazio: vazio é o código de "desistiu".
+     */
+    private fun nomeVisivelDoDocumento(uri: Uri): String {
+        val nome = try {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { c ->
+                    val i = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (i >= 0 && c.moveToFirst()) c.getString(i) else null
+                }
+        } catch (_: Exception) { null }
+        return (nome ?: uri.lastPathSegment ?: "pacote").substringAfterLast('/')
+    }
+
+    /**
+     * O SELETOR DE COMPARTILHAMENTO, com um texto (shell 63).
+     *
+     * `createChooser` e não um `startActivity` cru: sem ele o Android manda
+     * direto para o app "padrão" de compartilhamento — e não existe padrão certo
+     * aqui, porque a pergunta é *"para QUEM eu mando isto?"*, que muda a cada
+     * vez. O chooser é a tela em que essa pergunta é feita.
+     *
+     * `FLAG_ACTIVITY_NEW_TASK` pelo mesmo motivo do [openExternalUrl]: o app
+     * escolhido abre numa tarefa PRÓPRIA, e voltar do WhatsApp não pode
+     * significar voltar para dentro desta Activity com a projeção no meio.
+     */
+    override fun shareText(texto: String) {
+        runOnUiThread {
+            try {
+                val envio = Intent(Intent.ACTION_SEND)
+                    .setType("text/plain")
+                    .putExtra(Intent.EXTRA_TEXT, texto)
+                startActivity(
+                    Intent.createChooser(envio, getString(R.string.share_app_titulo))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            } catch (e: Exception) {
+                // Um aparelho sem NADA que receba texto é improvável, e um
+                // `ActivityNotFoundException` aqui derrubaria o app inteiro.
+                Log.w(TAG, "nada recebeu o texto compartilhado", e)
             }
         }
     }
@@ -2129,6 +2299,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
             cache = { espelhoMidia },
             registrar = { linha -> espelhoDiag.registrar(linha) },
         )
+
+        /** O canal __avPacote (shell 63) — UM por processo, pela mesma razão do
+         *  irmão acima: o listener é por-instância de WebView e é reinstalado a
+         *  cada remontagem do Controle, mas a fila, a thread e o destino aberto
+         *  são um só. Ele vive no companion também porque o destino precisa
+         *  SOBREVIVER a uma morte de renderer no meio de uma exportação — não
+         *  para continuar (o empurrão morre com a página), mas para o
+         *  `pacoteCancel` do lançamento seguinte encontrar o que apagar. */
+        private val pacoteCanal = PacoteCanal()
 
         /**
          * Cache de [castCandidates] — no companion porque a informação é do

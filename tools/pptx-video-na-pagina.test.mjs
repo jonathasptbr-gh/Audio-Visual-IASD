@@ -149,6 +149,34 @@ try {
 
   const loads = () => pg.evaluate(() => window.__cmds.filter((c) => c.type === 'load').map((c) => c.mediaId));
   const zerar = () => pg.evaluate(() => { window.__cmds = []; });
+
+  // ===== A CENA NO AR, E POR QUE `currentId` NÃO BASTA =====
+  //
+  // `send()` escreve `currentId` LOGO NO COMEÇO — antes do `getMedia`, do
+  // `persistCurrent` e da resolução do registro — e só no FIM emite o `load` e
+  // assenta o que a cena deixa atrás de si: o `deckVideoVolta`, o eixo do
+  // ⏮/⏭, a página que o comando leva. Esperar pelo `currentId` é esperar pela
+  // INTENÇÃO, não pelo FATO, e entre os dois há turnos de microtarefa.
+  //
+  // MEDIDO: com o oráculo perguntando pelo `currentId`, 2 reprovações em 8
+  // rodadas a 3× de carga — sempre nas asserções que leem o que vem DEPOIS
+  // dele (a página dentro do `load` da volta, o `slideTarget()` com o vídeo no
+  // ar), e nunca nas que leem o próprio `currentId`. É a classe que o
+  // `CLAUDE.md` nomeia: *esperar pela INGESTÃO (o dado entrando), nunca pela
+  // resposta DERIVADA.*
+  //
+  // Aqui a espera é pelo ÚLTIMO comando de cena ser o `load` daquele id — o
+  // último passo do `send`. **Não é tautologia**: o que as asserções afirmam é
+  // o CONTEÚDO daquele comando (a página que ele leva) e o ESTADO que ele
+  // deixou (o eixo dos botões, a volta armada), nunca que ele existe.
+  const noAr = (id) => esperar(pg, (alvo) => {
+    if (typeof currentId === 'undefined' || currentId !== alvo) return false;
+    const cena = window.__cmds.filter(
+      (c) => c.type === 'load' || c.type === 'clear' || c.type === 'media-clear',
+    );
+    const ultimo = cena[cena.length - 1];
+    return !!ultimo && ultimo.type === 'load' && ultimo.mediaId === alvo;
+  }, id, 10000);
   const estado = () => pg.evaluate(() => ({
     atual: currentId, pagina: deckPagina,
     armado: !!deckVideoVolta,
@@ -158,7 +186,7 @@ try {
   // 1. ABRIR a apresentação NÃO toca o vídeo — a decisão escrita no código
   // ======================================================================
   await pg.evaluate((id) => send(id), ids.deck);
-  let r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  let r = await noAr(ids.deck);
   checar(r === true, 'a apresentação entra em cena', porque(r));
   let st = await estado();
   checar(st.pagina === 0, 'a apresentação abre na página 0', st.pagina);
@@ -170,7 +198,7 @@ try {
   // ======================================================================
   await zerar();
   await pg.evaluate(() => deckStep(1));
-  r = await esperar(pg, (id) => currentId === id, ids.vid, 10000);
+  r = await noAr(ids.vid);
   checar(r === true, 'o vídeo da página entra em cena', porque(r));
   const l1 = await loads();
   checar(l1.indexOf(ids.vid) >= 0, 'chegar na página 1 projeta o vídeo daquela página', l1.join(','));
@@ -184,7 +212,7 @@ try {
   // ======================================================================
   await zerar();
   await pg.evaluate(() => autoAdvance());
-  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  r = await noAr(ids.deck);
   checar(r === true, 'a apresentação volta ao fim do vídeo', porque(r));
   const l2 = await loads();
   checar(l2.indexOf(ids.deck) >= 0, 'o fim do vídeo devolve a apresentação', l2.join(','));
@@ -212,11 +240,11 @@ try {
   //    a apresentação voltar por cima dele quando o louvor acaba.
   // ======================================================================
   await pg.evaluate(() => deckIr(1));
-  r = await esperar(pg, (id) => currentId === id, ids.vid, 10000);
+  r = await noAr(ids.vid);
   checar(r === true, 'o vídeo volta ao ar pelo deckIr', porque(r));
   checar((await estado()).armado === true, 'armada de novo na página do vídeo', true);
   await pg.evaluate((id) => send(id), ids.outro);
-  r = await esperar(pg, (id) => currentId === id, ids.outro, 10000);
+  r = await noAr(ids.outro);
   checar(r === true, 'o louvor do pós-sermão entra em cena', porque(r));
   checar((await estado()).armado === false,
     'projetar outra coisa desarma a volta', (await estado()).armado);
@@ -239,12 +267,12 @@ try {
   // aprovando por outro caminho. Foi o que a primeira escrita deste bloco fez.
   await pg.evaluate(() => stopClear());
   await pg.evaluate((id) => send(id), ids.deck);
-  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  r = await noAr(ids.deck);
   checar(r === true, 'a apresentação entra como MÍDIA, não como camada', porque(r));
   checar((await pg.evaluate(() => deckSobreProjetando())) === false,
     'e não está sobreposta — a automação só vale para o deck como mídia', true);
   await pg.evaluate(() => deckIr(1));
-  r = await esperar(pg, (id) => currentId === id, ids.vid, 10000);
+  r = await noAr(ids.vid);
   checar(r === true, 'e o vídeo da página 1 entra', porque(r));
 
   // 5-B.1 — O PAR DE BOTÕES RECONHECE O VÍDEO COMO PÁGINA
@@ -260,7 +288,7 @@ try {
   // 5-B.2 — O ⏭ DE SLIDE PULA O VÍDEO, e vai para a página seguinte
   await zerar();
   await pg.evaluate(() => stepSlide(1));
-  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  r = await noAr(ids.deck);
   checar(r === true, 'o ⏭ de slide devolve a apresentação', porque(r));
   r = await esperar(pg, () => deckPagina === 2, null, 10000);
   checar(r === true, 'e pula o vídeo, indo para a página SEGUINTE', porque(r));
@@ -270,11 +298,11 @@ try {
   // A apresentação é o PRIMEIRO item da fila, que é o caso do relato: com a
   // âncora errada o `idx === -1` caía no índice 0 — nela mesma, na página 0.
   await pg.evaluate(() => deckIr(1));
-  r = await esperar(pg, (id) => currentId === id, ids.vid, 10000);
+  r = await noAr(ids.vid);
   checar(r === true, 'o vídeo volta ao ar para a metade 3', porque(r));
   await zerar();
   await pg.evaluate(() => step(1));
-  r = await esperar(pg, (id) => currentId === id, ids.outro, 10000);
+  r = await noAr(ids.outro);
   checar(r === true,
     'o ⏭ de MÍDIA vai para o item SEGUINTE da fila, não para o começo dela', porque(r));
 
@@ -285,13 +313,13 @@ try {
   // vídeo. A prova é o vídeo NÃO voltar ao ar depois de acabar.
   await pg.evaluate(() => stopClear());
   await pg.evaluate((id) => send(id), ids.deck);
-  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  r = await noAr(ids.deck);
   checar(r === true, 'a apresentação volta ao ar para a metade 4', porque(r));
   await pg.evaluate((n) => deckIr(n), PAGINAS - 1);
-  r = await esperar(pg, (id) => currentId === id, ids.vidFim, 10000);
+  r = await noAr(ids.vidFim);
   checar(r === true, 'o vídeo da ÚLTIMA página entra', porque(r));
   await pg.evaluate(() => autoAdvance());
-  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  r = await noAr(ids.deck);
   checar(r === true, 'o fim dele devolve a apresentação', porque(r));
   // A janela tem de ser maior que o caminho do redisparo (um `send` inteiro).
   await pg.waitForTimeout(1200);
@@ -305,10 +333,10 @@ try {
   // 5-B.5 — REVERSÃO: sem vídeo no ar o ⏭ de mídia continua o de sempre
   await pg.evaluate(() => stopClear());
   await pg.evaluate((id) => send(id), ids.deck);
-  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  r = await noAr(ids.deck);
   checar(r === true, 'a apresentação no ar, sem vídeo', porque(r));
   await pg.evaluate(() => step(1));
-  r = await esperar(pg, (id) => currentId === id, ids.outro, 10000);
+  r = await noAr(ids.outro);
   checar(r === true, 'REVERSÃO: o ⏭ de mídia sem vídeo de slide segue a fila', porque(r));
 
   // ======================================================================
@@ -327,14 +355,14 @@ try {
   // do `load`: um teste do estado final passa nas duas versões.
   await pg.evaluate(() => stopClear());
   await pg.evaluate((id) => send(id), ids.deck);
-  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  r = await noAr(ids.deck);
   checar(r === true, 'a apresentação no ar para o bloco 5-C', porque(r));
   await pg.evaluate(() => deckIr(1));
-  r = await esperar(pg, (id) => currentId === id, ids.vid, 10000);
+  r = await noAr(ids.vid);
   checar(r === true, 'o vídeo da página 1 entra', porque(r));
   await zerar();
   await pg.evaluate(() => autoAdvance());
-  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  r = await noAr(ids.deck);
   checar(r === true, 'e o fim dele devolve a apresentação', porque(r));
 
   const cmds = await pg.evaluate(() => window.__cmds.map((c) => ({ t: c.type, p: c.page })));
@@ -354,13 +382,13 @@ try {
   await pg.evaluate(() => stopClear());
   await zerar();
   await pg.evaluate((id) => send(id), ids.deckCapa);
-  r = await esperar(pg, (id) => currentId === id, ids.vidCapa, 10000);
+  r = await noAr(ids.vidCapa);
   checar(r === true, 'abrir uma apresentação que começa com vídeo já o projeta', porque(r));
   checar((await estado()).armado === true, 'e a volta fica armada', true);
 
   // E a volta dele anda: página 0 → 1.
   await pg.evaluate(() => autoAdvance());
-  r = await esperar(pg, (id) => currentId === id, ids.deckCapa, 10000);
+  r = await noAr(ids.deckCapa);
   checar(r === true, 'o fim dele devolve a apresentação', porque(r));
   r = await esperar(pg, () => deckPagina === 1, null, 10000);
   checar(r === true, 'na página SEGUINTE, e sem repetir o vídeo da capa', porque(r));

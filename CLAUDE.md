@@ -28,10 +28,12 @@ espelhar o celular.
 | 9 | [Telão por comandos](#telão-por-comandos-o-telão-nas-telas-da-rede-local) | as telas da rede local |
 | 10 | [Séries do YouTube](#séries-do-youtube-o-álbum-provai-e-vede-2026) | os álbuns oficiais da Biblioteca |
 | 11 | [A aba de cifra](#a-aba-de-cifra-acordes-ao-lado-da-letra) | acordes sobre a letra, sob demanda |
-| 12 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** |
-| 13 | [Divergências web × nativo](#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
-| 14 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
-| 15 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
+| 12 | [O pacote de transferência](#o-pacote-de-transferência-o-acervo-num-arquivo) | levar a biblioteca para outro aparelho |
+| 13 | [A abertura por trás dos panos](#a-abertura-por-trás-dos-panos) | a cortina, o tema no primeiro quadro |
+| 14 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** |
+| 15 | [Divergências web × nativo](#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
+| 16 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
+| 17 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
 
 **Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
 corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
@@ -138,6 +140,11 @@ app/src/main/
 │   │                            #   injetadas, com oráculo Node). "Sem infantis"
 │   │                            #   (508–557 do Hinário 2022) é o ÚNICO filtro
 │   │                            #   que nasce LIGADO — daí o `!== false`
+│   ├── controle/pacote.js       #   o PACOTE DE TRANSFERÊNCIA: a regra de como
+│   │                            #   o acervo de um aparelho vira UM arquivo e
+│   │                            #   volta noutro. PURA, com oráculo Node — os
+│   │                            #   bytes não passam por aqui; quem os move é o
+│   │                            #   `controle.js`, pelo canal `__avPacote`
 │   ├── controle/pptxzip.js      #   o ZIP de um `.pptx` lido por FATIAS: é ele
 │   │                            #   que faz uma apresentação de centenas de MB
 │   │                            #   caber, tirando os vídeos embutidos ANTES de
@@ -178,6 +185,12 @@ app/src/main/
 │   ├── MicDiag.kt               # POR QUE o microfone não abre — o que só o SHELL
 │   │                            #   sabe (permissão, AppOps, modo, entradas).
 │   │                            #   LEITURA PURA: não abre nada, não pede nada
+│   ├── PacoteCanal.kt           # o canal de ArrayBuffer web→SAF do PACOTE DE
+│   │                            #   TRANSFERÊNCIA — o SEGUNDO do shell, irmão
+│   │                            #   do EspelhoMidiaCanal e com as mesmas três
+│   │                            #   guardas. Ele só carrega BYTES: abrir e
+│   │                            #   fechar o destino envolve uma PESSOA no
+│   │                            #   seletor do sistema, e isso entra pela ponte
 │   ├── MessageBus.kt            # relay de comandos entre os dois WebViews
 │   │                            # ↓ TELÃO POR COMANDOS (ver a seção do recurso)
 │   ├── EspelhoHttp.kt           # o parser HTTP (+ Range/SSE) — PURO, zero import de Android
@@ -226,7 +239,7 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**30 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**31 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -597,6 +610,21 @@ window.AVNative = {
                        //     propósito, para um diagnóstico ganhar campo sem
                        //     mexer na ponte. O degrau do `SHELL_VERSION` continua
                        //     obrigatório: a FORMA de retorno mudou
+  compartilharTexto(txt), // o SELETOR DE COMPARTILHAMENTO do Android
+                       //   (ACTION_SEND + createChooser). Síncrono e sem
+                       //   resposta, como o `openCast`: o desfecho é uma pessoa
+                       //   escolhendo um app, e não há API que o entregue. NÃO
+                       //   é `openExternal` — aquele MANDA este aparelho abrir
+                       //   um endereço, este OFERECE um texto a outro. E não é
+                       //   `navigator.share`, que o WebView do Android não tem
+  pacoteCriar(nome),   // → o NOME gravado, ou '': o "Salvar como" do PACOTE DE
+                       //   TRANSFERÊNCIA, que DEIXA O DESTINO ABERTO. SEM
+                       //   prazo (espera uma pessoa no seletor). Os bytes vão
+                       //   pelo canal `__avPacote`, nunca por aqui
+  pacoteFechar(),      // → os BYTES gravados, ou -1 (nada aberto, ou o fecho
+                       //   falhou). Os acks por bloco já disseram "recebi"; é o
+                       //   `flush`/`close` que descobre o cartão cheio
+  pacoteCancelar(),    // fecha e APAGA o parcial. Síncrono, como o `ytCancel`
   salvarTexto(nome, texto), // → o NOME gravado, ou '' (desistiu ou falhou): o
                        //   "Salvar como" do sistema (SAF `CREATE_DOCUMENT`),
                        //   com o shell ESCREVENDO o texto. Existe porque o
@@ -614,7 +642,7 @@ window.AVNative = {
                        //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
-São **51 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **55 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -628,9 +656,10 @@ do share pendente, que alimenta o `onShare`).
 `espelho/tela.js`, não pela ponte), `__SHELL_VERSION__` (o inteiro do contrato) e
 `__SHELL_NAME__` (o `versionName` do APK — o índice de versão exibido ao
 operador, que **não** se confunde com `__SHELL_VERSION__`: base web e shell
-atualizam por caminhos independentes, e o rodapé de Configurações mostra os dois
-via `renderVersionLabel`). Sem `appVersion()` a string vem vazia e a UI cai em só
-a versão web.
+atualizam por caminhos independentes). **Desde a v1.7.0 o `__SHELL_NAME__` NÃO
+aparece na tela**: quem o mostra é o REGISTRO, e a UI diz um número só — ver a
+badge de versão. Sem `appVersion()` a string vem vazia, e o Registro cai em só a
+versão web.
 
 > **O ÚNICO MÉTODO QUE JÁ SAIU** é o `farolContar` (shell 61, v1.4.42) — a chave
 > "este aparelho entra na contagem", descartada a pedido do operador:
@@ -681,7 +710,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **62**, e ele é o **PISO**: o bundle declara `minShell: 62`, então
+Hoje vale **63**, e ele é o **PISO**: o bundle declara `minShell: 63`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -694,7 +723,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 62 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 63 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -756,7 +785,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 62`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 63`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -1682,8 +1711,8 @@ sintoma é "a atualização não chega".
 `window.AVDB` no `load` não bastava: a ordem dos scripts do Controle é
 `native.js` → `db.js` → `mse.js` → `stage.js` → `louvorja.js` → `bible.js` →
 `serie.js` → `cifra.js` → `sorteio.js` → `hinario.js` → `coletanea.js` →
-`pptxzip.js` → `deck.js` → `controle.js`, e um erro
-em qualquer um dos **treze** últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
+`pptxzip.js` → `deck.js` → `pacote.js` → `controle.js`, e um erro
+em qualquer um dos **catorze** últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
 bundle quebrado era carimbado como bom **para sempre**. As cinco condições,
 cada uma cobrindo o que a anterior não cobre:
 
@@ -1701,7 +1730,7 @@ cada uma cobrindo o que a anterior não cobre:
    `loadCollections()`. Prova que a inicialização terminou.
 
 5. **`Louvorja` · `Bible` · `AVSerie` · `AVSorteio` · `AVCifra` · `AVHinario` ·
-   `AVDeck` · `AVColetanea` · `AVPptxZip`** — os nove
+   `AVDeck` · `AVColetanea` · `AVPptxZip` · `AVPacote`** — os dez
    scripts do Controle, cada um publicando seu global na ÚLTIMA linha do arquivo. Eram o
    buraco declarado deste watchdog até a v5.315: todo uso de `AVSerie`/`AVSorteio`
    no `controle.js` está DENTRO de função, então um erro de topo num deles **não**
@@ -2802,6 +2831,131 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
 
 ---
 
+## O pacote de transferência (o acervo num arquivo)
+
+A biblioteca inteira de um aparelho — mídia, arquivos do OPFS, catálogos e
+preferências — num arquivo `.avpkg`, para entrar em outro celular por cabo,
+Bluetooth ou cartão. Pedido do operador: *"o download e instalação do app é
+leve, mas a biblioteca e o resto são pesados … permitir copiar e compartilhar o
+arquivo diretamente de um smartphone para o outro é extremamente útil"*.
+
+```
+ ┌──────── aparelho A ────────┐                 ┌──── aparelho B ────┐
+ │ controle.js  (IDB + OPFS)  │                 │ pickDoc → /saf/<t> │
+ │   └─ blocos de 512 kB ─────┼─ __avPacote ──► │   └─ fetch → Blob  │
+ │      (ArrayBuffer)         │  PacoteCanal.kt │      → Blob.slice()│
+ │ AVNative.pacoteCriar()  ───┼─► SAF, destino  │ (nenhum método novo│
+ │ AVNative.pacoteFechar() ───┼─► ABERTO        │  foi preciso aqui) │
+ └────────────────────────────┘                 └────────────────────┘
+```
+
+**A REGRA é do web** (`controle/pacote.js`, PURA, com oráculo Node); os BYTES são
+do Kotlin (`PacoteCanal.kt`). É a divisão do `pptxzip.js` × `deck.js`, e pelo
+mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos.
+
+### As decisões que precisam estar ditas
+
+- **O formato é SEQUENCIAL, não zip.** Um acervo passa de gigabytes, e um zip
+  pede o diretório central no fim: quem escreve guarda uma entrada por arquivo
+  até o último byte, e quem lê precisa alcançar o fim antes de abrir o primeiro
+  item. Aqui os dois lados andam para a frente, um registro por vez
+  (`u32` do cabeçalho JSON · JSON · corpo), e a memória usada é a do maior
+  BLOCO (1 MiB), nunca a do maior arquivo. **Nada é comprimido**: o que pesa é
+  mp4 e m4a, que já são comprimidos.
+- **O último registro é `fim`, e ele é OBRIGATÓRIO.** É ele — e não o tamanho do
+  arquivo — que separa um pacote inteiro de um que acabou no meio. Meia
+  biblioteca importando em silêncio é o pior desfecho que este recurso pode
+  produzir, e por isso toda saída de falha da exportação APAGA o parcial
+  (`MainActivity.descartarPacote`), inclusive a morte do renderer.
+- **A EXTENSÃO É COSMÉTICA.** Quem identifica o arquivo são os oito bytes de
+  assinatura; um provedor de documentos do Android pode trocar `.avpkg` por
+  `.bin` ao criar, e o pacote continua importando. Mesma disciplina do
+  `SafRegistry`: vale o conteúdo, nunca o rótulo.
+- **IMPORTAR SÓ ACRESCENTA — nada que já esteja no aparelho é substituído.** Um
+  id que já existe é pulado (`AVDB.mediaAdd` usa `add`, não `put`, e é a FALHA
+  dele que vira "já está aqui"); um caminho de OPFS que já abre é pulado; uma
+  chave de `state` que já existe só ganha o que não tinha — **união** nas listas
+  de ids, **mescla** nos mapas, e o LOCAL vence em tudo o mais. É essa promessa
+  que faz "importar de novo" ser inofensivo, que é o que de fato acontece quando
+  alguém não tem certeza se deu certo da primeira vez.
+  - **A regra é por FORMA e não por nome de chave**: uma tabela de nomes
+    envelheceria em silêncio a cada chave nova, e o modo de falhar dela seria o
+    pior — uma chave desconhecida caindo no ramo errado e apagando o que o
+    operador tem.
+  - **O preço, dito:** num aparelho que JÁ TEM biblioteca, as preferências do
+    pacote não entram. O caso de uso é o aparelho NOVO, em que nenhuma chave
+    existe e tudo atravessa.
+- **A VARREDURA DO OPFS É DO DISCO, nunca do catálogo** (`AVDB.opfsTodosOsArquivos`).
+  O download de uma coleção grava dois tipos de arquivo na mesma pasta: os
+  áudios, que viram registro em `files`, e as IMAGENS DE FUNDO DA LETRA, que
+  não. Um pacote montado pelo catálogo chega ao outro aparelho com o hinário
+  inteiro e as estrofes sobre preto — o mesmo argumento que já obrigou o
+  `opfsFolderSize` a somar o disco.
+- **O que NÃO viaja está nomeado em `AVPacote.FORA`**, com o motivo ao lado:
+  `ota-intencao` e `yt-intencoes` (fariam o destino AGIR sozinho), `current` e
+  `historico` (descrevem aquele aparelho) e **`opfs-folders`** — as pastas do
+  aparelho guardam concessões do SAF que não existem no outro celular, e o modo
+  de falhar é o pior do app: `listFolder` sobre uma URI que não abre devolve
+  lista VAZIA, que o `controle.js` lê como *"a pasta sumiu do aparelho"*. Os
+  arquivos delas saem junto (`AVPacote.pastasDoAparelho`), e o corte é por
+  SEGMENTO de caminho, nunca por prefixo de texto.
+- **O `stream` de um registro é RETIRADO na exportação.** Ele é o manifesto de
+  uma transmissão direta: URLs do googlevideo que expiram em horas e tokens de
+  um `StreamProxy` que só existe na origem. Sem o campo, o item é o LINK do
+  YouTube que ele sempre foi — resolvido no primeiro toque, pelo caminho que já
+  existe.
+- **A importação termina em `location.reload()`, e isso é parte do recurso.** O
+  `controle.js` lê o acervo UMA vez, no `init()`, e guarda listas e catálogos em
+  variáveis de módulo; depois de uma importação todas estão desatualizadas, e
+  não há caminho de invalidação que alcance as dezenas de lugares que dependem
+  delas. Reabrir o documento é o único ponto do app que reconstrói tudo por
+  construção.
+- **O plano guarda IDs e TAMANHOS, nunca registros.** Um acervo tem milhares de
+  entradas, cada uma com a letra inteira e uma miniatura; segurá-las todas
+  enquanto gigabytes atravessam o canal é um OOM num processo que hospeda dois
+  WebViews e a `Presentation`. Ler um registro NÃO lê os bytes do Blob (o IDB o
+  guarda por referência), então reler cada um na hora de escrever custa o
+  metadado.
+
+Oráculos: **`pacote.test.mjs`** (a REGRA — assinatura, cursor, recusas,
+saneamento) e **`pacote-ida-e-volta.test.mjs`** (a LIGAÇÃO — dois contextos de
+navegador, como dois celulares: semear, exportar, importar num armazenamento
+vazio, e importar DE NOVO sem apagar nada). São dois porque *ler cada lado
+isolado aprova os dois*.
+
+---
+
+## A abertura por trás dos panos
+
+O app piscava ao abrir: o tema escuro aparecia antes do claro, o Modo Fácil
+antes do avançado, a lista vazia antes do Cronograma. **O lado nativo já estava
+certo** — `windowBackground`, a raiz da Activity e o próprio WebView nascem na
+cor do tema guardado —; o que piscava era o DOCUMENTO, entre o primeiro quadro e
+a última linha do `init()`.
+
+- **O TEMA tem conserto próprio:** um `<script>` inline no `<head>` do
+  `controle/index.html` lê `av.tema` e escreve `data-tema` ANTES do primeiro
+  quadro. Ele é a **única** leitura daquela chave — o `storedTema()` do
+  `controle.js` lê o ATRIBUTO que sai dali, porque uma segunda leitura seria a
+  mesma regra escrita duas vezes.
+- **O resto é a CORTINA** (`#splash`, primeiro filho do `<body>`): opaca, no
+  topo da pilha, com o ícone do app e a marca, e ela levanta na última linha do
+  `init()` que muda o que se vê (depois do `applyPvWallpaper`).
+- **O PRAZO É ARMADO NO `<head>`, e não no `controle.js`.** Uma cortina que não
+  levanta é um app INUTILIZÁVEL, e o caminho mais provável de isso acontecer é
+  justamente o que o watchdog do OTA existe para pegar: um bundle em que o
+  `controle.js` nem chega a ser parseado. Armado no `<head>`, o prazo (12 s)
+  roda mesmo aí, e o desfecho ruim volta a ser o app quebrado À VISTA, que é
+  diagnosticável.
+- **Ela some por REMOÇÃO DO NÓ**, não por opacidade: uma camada `opacity: 0`
+  sobre a tela inteira continua recebendo o toque, e o app abriria intocável.
+
+Oráculo: `abertura-e-transferencia.test.mjs`, com o cenário catastrófico medido
+(o `controle.js` abortado pela rota, o tema já certo, a cortina levantando pelo
+prazo).
+
+---
+
 ## A paleta
 
 Mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos dois
@@ -3588,6 +3742,9 @@ que ela é desenvolvida e testada fora do aparelho.
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
 | Download minimizado | a aba continua baixando | **foreground service + wake lock**; sem isso o processo é congelado |
+| **Levar a biblioteca para outro aparelho** | **não existe** (não há SAF nem canal de bytes: um `<a download>` sobre um Blob de gigabytes não é caminho) | **um arquivo `.avpkg`** (shell 63) — ver a seção do recurso. Exportar abre o "Salvar como" do sistema e empurra os bytes pelo canal `__avPacote`; importar entra por `pickDoc` e lê o arquivo por `Blob.slice()`. **Só ACRESCENTA**: nada que já esteja no aparelho é substituído |
+| **Compartilhar o link do app** | `navigator.share`, onde o navegador o tiver | **`compartilharTexto`** (shell 63) → `ACTION_SEND` + `createChooser`. O WebView do Android **não** implementa a Web Share API, então este era o único caminho — e sem ele não havia, de dentro do app, forma nenhuma de passá-lo adiante |
+| Abertura do app | a página pisca igual, e ninguém tem o que fazer a respeito | **a CORTINA** (`#splash`) mais o `data-tema` escrito no `<head>` antes do primeiro quadro. O prazo que a levanta mora no mesmo script inline, e não no `controle.js`: um bundle que nem chega a ser parseado tem de terminar com o app À VISTA |
 | Atualização da base web | recarregar a página | **OTA** |
 | Contagem de uso | **não existe** — nada é contado num navegador, e não há chave nenhuma a desenhar | **o farol** (shell 58): uma busca por dia a um asset de contagem, agregada e sem id. Pega carona na ronda do OTA. **SEMPRE ATIVO desde a v1.4.42**: a chave de exclusão saiu (com o `farolContar` da ponte), e o que sobra é o BUILD DEBUGGÁVEL, que acende num contador separado por construção. O preço está no painel — a página de alcance avisa que os números incluem o uso próprio |
 | Atualização do APP | — | **o app baixa e instala**; o diálogo do Android é obrigatório e está certo que seja |
@@ -3869,7 +4026,7 @@ herdados por cópia em vez de escolhidos.
   oráculo pedi-la.
 - **`checar` mora em `tools/checar.mjs`, SEM uma linha de `import`**, e a
   separação NÃO é organização: o `arnes.mjs` importa o Playwright, e no workflow
-  os 16 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
+  os 17 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
   **antes** do `npm ci`. Um deles importando o arnês passaria na máquina de quem
   escreve (onde `node_modules/` existe) e falharia só no runner, no passo sem
   `continue-on-error` — "a atualização não chega", por um
@@ -3903,7 +4060,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os 59 de Chromium somavam **~8 min em série**, e o custo não é o que parece:
+Os 61 de Chromium somavam **~8 min em série**, e o custo não é o que parece:
 lançar o navegador são **~110 ms** e subir o `/controle/` inteiro é **~1 s** —
 compartilhar um navegador entre oráculos, a otimização óbvia, economizaria 2% e
 custaria o isolamento. O que sobra é espera, com os quatro núcleos ociosos.
@@ -3930,6 +4087,7 @@ o código de saída não pode entrar no placar como quem passou.
 | `serie.test.mjs` | quais playlists e vídeos entram no álbum. **Entradas VERBATIM do canal** — nomenclatura imaginada prova só que o código concorda com quem o escreveu. **E o que a regra CARREGA além do rótulo** (v1.5.21): o `canal` e o TÍTULO CRU sobrevivem a ela, e o canal ausente vira string VAZIA e nunca `undefined` — a diferença entre a gaveta não desenhar a linha e a gaveta escrever "undefined". O caso do canal é a ARMADILHA 5 pelos dois lados na mesma fixture: a string que não pode virar filtro é a que o card mostra |
 | `hinario.test.mjs` | as **seções temáticas do Hinário 2022**: a cobertura é CONTÍGUA de 1 a 600, sem lacuna e sem sobreposição. É a única propriedade que pega um limite digitado errado — e esse erro é MUDO: a lista continua completa, na ordem certa, com um cabeçalho mentindo no meio. Confere também a faixa infantil contra o `sorteio.js` |
 | `coletanea.test.mjs` | **a leitura EDITORIAL das coletâneas**: qual coletânea se DISSOLVE em qual, e o que acontece quando a tabela deixa de bater com o banco. Os três modos de errar são silenciosos e apagam conteúdo da tela — dissolver sem destino (a origem some com os álbuns dentro), casar por `includes` ("Diversas" pegando "Diversas Antigas") e movidos DUPLICADOS quando o mesmo álbum já está no destino. Entradas VERBATIM da tela do aparelho (`site/telas/biblioteca.webp`): o operador escreveu *"diversos"* e a seção chama-se **"Diversas"**, e nenhuma normalização une as duas |
+| `pacote.test.mjs` | a REGRA do PACOTE DE TRANSFERÊNCIA — assinatura, cursor, recusas e saneamento. Os três modos de errar não dão erro em lugar nenhum: o pacote TRUNCADO que importa em silêncio (o registro `fim` é o que o separa de um inteiro, nunca o tamanho do arquivo), o cursor que anda o passo errado (um `bytes` ausente faz o leitor parar no meio de um corpo e ler bytes de mídia como cabeçalho) e o `stream` que atravessa — um manifesto do googlevideo expirado, com tokens de um proxy que só existe na origem. Mais a mescla, medida pela PROPRIEDADE: o que era local continua alcançável |
 | `cifra.test.mjs` | o que o app entende de uma página de cifra: slug, gramática do acorde, e a transposição PRESERVANDO A COLUNA. É a peça mais frágil do projeto — lê a marcação de um servidor que não é nosso. Fixtures **SINTÉTICAS** de propósito: nenhum conteúdo de terceiro entra neste repositório. Elas provam a GRAMÁTICA, não que ela case com o HTML de hoje — essa metade se conserta por OTA, e o Registro diz quando quebrou |
 | `pptxzip.test.mjs` | **o ZIP de um `.pptx` lido por FATIAS** — o caminho que faz uma apresentação de 570 MB caber. Os três modos de errar são SILENCIOSOS: o início dos bytes sai do cabeçalho LOCAL (deduzi-lo do índice entrega bytes DESLOCADOS, não um erro), a ORDEM dos slides sai do `sldIdLst` e nunca dos nomes (numa apresentação REORDENADA o vídeo tocaria no slide errado) e a remontagem tem de ZERAR o bit do descritor de dados. Fixture escrita à mão — um zip produzido pela mesma biblioteca que o lê prova só que ela concorda consigo mesma —, com REVERSÃO nas duas primeiras |
 | `sorteio.test.mjs` | quais faixas a **playlist automática** pode mandar ao telão. O operador toca UM botão e a faixa entra em cena, sem tela intermediária: os quatro modos de errar (série no lugar do louvor · faixa que casa e não aparece · PLAYBACK onde se esperava a voz · fila cheia do que falta baixar) são todos silenciosos |
@@ -4026,6 +4184,8 @@ mundo anterior por outro caminho.
 | oráculo | o que cobre, e por que existe |
 |---|---|
 | `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E A PERNA DA RAIZ** (v1.5.15), que a v1.5.14 não media e por isso deixou passar dois defeitos: a PLACA de uma coleção da raiz tem degrau de verdade contra o poço em volta **e vale o MESMO que o card de álbum de dentro de uma seção** — sem essa segunda metade a faixa continua pousando em duas cores conforme onde a coleção mora, que é o relato; o `top` da tampa da raiz é ZERO, medido ao lado do da tampa aninhada na mesma passada (um `top` escrito por TIPO passa numa das duas e reprova na outra); e o primeiro bloco começa NO TOPO do scrollport, porque `padding` de um scroller é scrollport e a lista rola por ele à vista. A régua desta última é a GEOMETRIA, nunca `paddingTop` lido de volta: o vão pode voltar por qualquer caminho. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40): quem não tem "desligado" fica aceso o tempo todo (apagado, neste app, quer dizer INDISPONÍVEL) **e mesmo assim troca de desenho** — `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. A metade que impede o conserto preguiçoso (acender tudo, sempre) é o fundo da letra continuar APAGANDO, medido na cor RENDERIZADA: uma classe sem a regra de CSS passa num teste de classe e continua invisível na tela. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
+| `pacote-ida-e-volta.test.mjs` | **o pacote de um aparelho para o outro**, em DOIS contextos de navegador com armazenamentos separados — o `pacote.test.mjs` prende a regra, este prende a LIGAÇÃO, que falha com a regra certa e o acervo não chegando. Nada é comparado contra o que a exportação achou que escreveu: afirma-se o que o SEGUNDO aparelho tem depois. Cobre a imagem de fundo da estrofe (que NENHUM registro do catálogo nomeia — é ela que prova que a varredura é do DISCO), o `stream` que não atravessa, a pasta do aparelho que fica para trás, e a promessa inteira: importar DE NOVO, com o local já diferente, não apaga o renomeado nem a preferência de quem importou — e a lista de ids se SOMA |
+| `abertura-e-transferencia.test.mjs` | **a CORTINA que não pode ficar no ar**, no cenário catastrófico: o `controle.js` abortado pela rota, o tema guardado já no `<html>` (quem o escreveu foi o script do `<head>`) e a cortina levantando pelo PRAZO — sem isso o app fica trancado, e não há erro em lugar nenhum. Mais a saída por REMOÇÃO DO NÓ, medida por hit-test (uma camada `opacity: 0` sobre a tela inteira continua recebendo o toque). E a BADGE: as TRÊS casas dizem o mesmo número, nenhuma escreve "Web"/"Shell" — **e o REGISTRO continua trazendo o índice do shell**, que é a metade que impede o conserto largo demais. Mais o bloco "Este aparelho", com a reversão (sem ponte ele não existe) |
 | `boot-nativo.test.mjs` | **A GAVETA DE DETALHE DE UM VÍDEO** (v1.5.21), nas duas metades que só juntas dizem a regra: com o dado, o card ABRE pela identidade e as quatro linhas saem na ORDEM DO DOM (uma asserção do tipo *"o texto contém o canal?"* aprovaria o canal desenhado embaixo do estado no aparelho); sem ele — um ÍNDICE ANTIGO, a janela real entre o OTA chegar e a varredura refazer a lista —, a linha ausente SOME e não sobra "undefined" em lugar nenhum. Provado por reversão: desenhando SEMPRE, o card sai com `Título: undefined`. E o `serie.test.mjs` não cobre isto — ele prende a REGRA, este prende a LIGAÇÃO, que falha com a regra certa e o card mudo. Mais **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? **E a LIGAÇÃO da regra das coletâneas** (v1.5.16): o `coletanea.test.mjs` prende a REGRA, este prende o fio até a tela, que falha de outro jeito — a regra continua certa e o recurso não faz nada. São DOIS consumidores do mesmo resultado (o laço que desenha as seções e o `claimed` dos órfãos), e ligar só um devolve *"Outros álbuns"*. **Os nomes das seções do fixture de rolagem viraram neutros no mesmo lote**: três eram os nomes REAIS do banco, e com a regra no ar aquele cenário montava CINCO seções onde o texto diz seis — MEDIDO, com a asserção VERDE, medindo outra coisa |
 | `display-smoke.mjs` | **o TELÃO** — a metade que roda na frente da congregação, e a que menos rede de segurança tem (o watchdog do OTA não a valida). Viewport fixo em 961×540, explicitamente. Trava o endereçamento do reenvio de cena |
 | `ota.test.mjs` | **o fluxo de atualização** — o único caminho cujo defeito NÃO TEM SINTOMA: nada quebra, o operador só continua na versão de anteontem. Afirma a pergunta com e sem Release, o "depois", e a INTENÇÃO atravessando a MORTE DO DOCUMENTO (semeada numa página que só tem o banco, porque semeá-la no Controle é uma corrida contra o `retomarAtualizacao` da abertura — e uma que o app ganha com razão) |
@@ -4501,16 +4661,16 @@ componentes é o `.1`**: depois da `1.0` veio a `1.0.1`, e depois da `1.1` vem a
 
 **As DUAS LINHAS usam o mesmo número, e podem ficar em degraus diferentes.** A
 base web sobe a cada lote (chega por OTA em minutos); o APK só sobe quando um
-lote exige Release. Um `Web v1.0.7 · Shell v1.0.3` no rodapé não é divergência —
-é a resposta exata a *"o OTA chegou e o APK ainda não?"*, que é para isso que o
-rodapé mostra os dois.
+lote exige Release. Um `web v1.0.7 · shell v1.0.3` no REGISTRO não é divergência —
+é a resposta exata a *"o OTA chegou e o APK ainda não?"*. **Desde a v1.7.0 essa
+resposta mora só lá:** a tela mostra um número, e é o da base web.
 
 ### A versão mora em TRÊS lugares, e os três precisam andar juntos
 
 | Onde | O quê | Para quê |
 |---|---|---|
 | `assets/web/version.json` | `"version"` | **faz a atualização chegar aos aparelhos**: o OTA compara este campo (`compareVersions`) e ignora, em silêncio, um bundle cuja versão não seja maior que a instalada |
-| `controle/controle.js` | `WEB_VERSION` | **é o que a UI mostra**: `renderVersionLabel()` sobrescreve o span do rodapé na carga |
+| `controle/controle.js` | `WEB_VERSION` | **é o que a UI mostra**: `renderVersionLabel()` escreve as TRÊS casas na carga — as duas badges do cabeçalho e o rodapé de Configurações |
 | `controle/index.html` | `<span id="appVersion">` | o que aparece antes do primeiro render — e a única versão visível num shell sem `appVersion()` |
 
 Esquecer o `WEB_VERSION` é o erro **silencioso** (o bundle novo chega e o
@@ -4518,16 +4678,40 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.6.6 · APK v1.5.21** · `SHELL_VERSION` **62** ·
-bundle com `minShell: 62` e **SEM `shellTag`** — o shell 62 é o **PISO**: todo
-método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
-NÃO sobe neste lote**: a superfície da ponte não mudou.
+**Versão atual: base web v1.7.0 · APK v1.7.0** · `SHELL_VERSION` **63** ·
+bundle com `minShell: 63` e **`shellTag: "v1.7.0"`** — o shell 63 é o **PISO**:
+todo método da ponte existe, e não há guarda de versão no lado web.
 
-**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — os três defeitos da
-automação do vídeo de slide (o ⏮/⏭ que não o reconhecia como página, o ⏭ de
-mídia que mandava a apresentação ao início, e o laço do vídeo na última
-página), mais a volta que pintava a CAPA entre dois comandos e o autoplay do
-vídeo na primeira página. Nada em `java/`, `res/` ou no manifesto foi tocado.
+**E ESTE LOTE PEDE RELEASE**, porque a ponte ganhou QUATRO métodos:
+`compartilharTexto` e os três do PACOTE DE TRANSFERÊNCIA
+(`pacoteCriar`/`pacoteFechar`/`pacoteCancelar`), mais o canal de `ArrayBuffer`
+`__avPacote` (`PacoteCanal.kt`, o segundo do shell). O `shellTag` segura o
+bundle até a Release existir; sem ele a metade web chegaria sozinha à frota, os
+três tiles novos de Configurações chamariam métodos que o APK instalado não
+tem, o `call()` venceria os 60 s e resolveria `null` — três botões tocáveis que
+não fazem nada, sem nada na tela dizendo por quê.
+
+**O QUE O LOTE TRAZ, em quatro peças:**
+
+| peça | onde |
+|---|---|
+| a CORTINA DE ABERTURA — o tema certo no primeiro quadro e o app montado por trás dela | o script inline do `<head>` + `#splash` (só web) |
+| a BADGE DE VERSÃO nos dois modos, com UM número, e o índice do shell fora da tela | `renderVersionLabel` (só web) |
+| COMPARTILHAR o link da página | `compartilharTexto` (ponte + `MainActivity.shareText`) |
+| EXPORTAR/IMPORTAR o acervo num arquivo | `controle/pacote.js` (a regra) + `PacoteCanal.kt` (os bytes) |
+
+> **POR QUE O PACOTE ENTROU PELO CANAL DE `ArrayBuffer`, e não pela ponte.** Um
+> `@JavascriptInterface` troca STRINGS, e o acervo de uma igreja passa de
+> gigabytes — base64 sobre isso é exatamente o que o princípio da ponte proíbe
+> ("URLs servíveis, nunca bytes"). E um `<a download>` sobre um Blob não faz
+> NADA neste WebView, que não tem `DownloadListener`: é a mesma parede que criou
+> o `salvarTexto`. O precedente é o `EspelhoMidiaCanal`, e o `PacoteCanal` repete
+> as três guardas dele uma a uma.
+>
+> **A IMPORTAÇÃO NÃO PRECISOU DE MÉTODO NENHUM**, e isso é o princípio da ponte
+> pagando: `pickDoc` já devolve uma `/saf/<token>` servível, e o lado web a lê
+> por `fetch` + `Blob.slice()` — a mesma técnica com que o `pptxzip.js` abre um
+> `.pptx` de 570 MB.
 
 > **O LOTE ANTERIOR (v1.6.4)** trouxe o VÍDEO EMBUTIDO num
 `.pptx` (o `pptxzip.js` novo, a separação em `deck.js`, a automação no
@@ -4535,7 +4719,7 @@ vídeo na primeira página. Nada em `java/`, `res/` ou no manifesto foi tocado.
 a frase do aviso de importação, que passou a seguir o MOTIVO. Nada em `java/`,
 `res/` ou no manifesto foi tocado, e nenhum método da ponte entrou ou mudou de
 forma: o zip é lido em JavaScript, por `Blob.slice()`, sobre o mesmo blob que o
-`/saf/` já entregava. O `minShell` fica em 62.
+`/saf/` já entregava.
 
 > **POR QUE O ZIP É LIDO NO WEB, e não no Kotlin** (v1.6.4). O shell tem
 > `ZipInputStream` e leria o arquivo sem passar 570 MB pelo WebView — e é

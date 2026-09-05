@@ -113,8 +113,9 @@ git push origin main
   1. `version` em `assets/web/version.json` — **a fonte da verdade**. É este
      valor que o `WebUpdater` compara e que dispara (ou não) a atualização por
      OTA nos aparelhos.
-  2. a constante `WEB_VERSION` em `controle/controle.js` — é ela que o rodapé
-     de Configurações renderiza (`renderVersionLabel()`). Esquecê-la é o erro mais
+  2. a constante `WEB_VERSION` em `controle/controle.js` — é ela que as TRÊS
+     casas renderizam (`renderVersionLabel()`: as duas badges do cabeçalho e o
+     rodapé de Configurações). Esquecê-la é o erro mais
      traiçoeiro dos três: o OTA entrega o bundle novo e o aparelho continua
      **exibindo a versão antiga**, que é exatamente a leitura que o indicador
      existe para dar.
@@ -127,10 +128,12 @@ git push origin main
   MENOR que o já publicado — caso em que `WebUpdater.compareVersions` ignora o
   bundle em silêncio. Para saber onde a base está, leia `version.json`.
 
-  No app nativo o rótulo mostra os **dois índices** — `Web v5.86 · Shell v1.31`
-  —, porque base web e shell atualizam por caminhos independentes (OTA ×
-  instalar APK); no navegador sai só `Controle v<versão>`. **Ele mora no rodapé
-  do popup de Configurações** desde a v5.49 (antes ficava no cabeçalho da lista,
+  **Desde a v1.7.0 a UI mostra UM número — o da base web —, nas duas badges do
+  cabeçalho e no rodapé de Configurações.** O índice do SHELL saiu da tela e
+  vive no REGISTRO: base web e shell atualizam por caminhos independentes (OTA ×
+  instalar APK), e a distinção só responde alguma pergunta para quem está
+  diagnosticando. **O rótulo do rodapé mora no popup de Configurações** desde a
+  v5.49 (antes ficava no cabeçalho da lista,
   visível só na aba Cronograma): versão é metadado de diagnóstico, e o lugar
   onde se procura diagnóstico é junto do estado do telão e do alvo de
   espelhamento.
@@ -216,6 +219,11 @@ app/src/main/assets/web/
 │   │                           # dentro do WebView, com oráculo em Chromium. As
 │   │                           # QUATRO coisas que o `<foreignObject>` não
 │   │                           # alcança, e o FORMATO de cada página
+│   ├── pacote.js               # A REGRA do PACOTE DE TRANSFERÊNCIA — PURA, com
+│   │                           # oráculo em Node: como o acervo de um aparelho
+│   │                           # vira UM arquivo e volta noutro. Os BYTES não
+│   │                           # passam por aqui: quem os move é o controle.js,
+│   │                           # pelo canal `__avPacote` do shell
 │   └── bible.js                # Cliente da parte bíblica do banco LouvorJA (livros/versões/capítulos — ver seção "Bíblia")
 ├── espelho/                    # o papel `tela` (telão nas telas da rede)
 │   ├── tela.js                 # a casca: SSE, dreno de subida, entrada, relógio

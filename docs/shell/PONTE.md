@@ -66,11 +66,12 @@ inverso**: o navegador é o padrão, o nativo é a exceção que se declara.
 > testa `=== 'display'`** — é isso que faz o telão da rede funcionar sem um
 > ramo próprio.
 
-> **`__SHELL_VERSION__` não é `__SHELL_NAME__`.** O primeiro é contrato interno
-> (hoje **44**); o segundo é o índice que o rodapé de Configurações exibe. Base
-> web e shell atualizam por caminhos independentes — OTA × instalar APK —, e o
-> `renderVersionLabel()` mostra os dois justamente para o operador conseguir
-> dizer qual metade chegou.
+> **`__SHELL_VERSION__` não é `__SHELL_NAME__`.** O primeiro é o contrato
+> interno da ponte; o segundo é o `versionName` do APK. Base web e shell
+> atualizam por caminhos independentes — OTA × instalar APK —, e **desde a
+> v1.7.0 quem mostra os dois é o REGISTRO, não a tela**: a UI diz um número só,
+> o da base web (ver a badge de versão no `CLAUDE.md`). O número do primeiro não
+> se repete aqui — a única cópia é `NativeBridge.SHELL_VERSION`.
 
 ---
 
@@ -119,7 +120,7 @@ resolvia a promise homônima da NOVA.
 |---|---|---|
 | `CALL_TIMEOUT_MS` = **60 s** | tudo que depende de MÁQUINA | nenhuma deveria demorar mais que isso |
 | `APK_TIMEOUT_MS` = **15 min** | `apkInstalar` | dezenas de MB numa rede de igreja levam minutos; um prazo curto resolveria `null` sobre um trabalho que continua, e o instalador abriria sozinho depois de a tela já ter dito que falhou |
-| **sem prazo** | `pickFolder`, `pickDoc`, `requestMic`, `salvarTexto`, `ytFetch`, `deckPages` | quem responde é uma **PESSOA** num diálogo do sistema — um timeout resolveria `null` com o operador ainda escolhendo a pasta |
+| **sem prazo** | `pickFolder`, `pickDoc`, `requestMic`, `salvarTexto`, `pacoteCriar`, `ytFetch`, `deckPages` | quem responde é uma **PESSOA** num diálogo do sistema — um timeout resolveria `null` com o operador ainda escolhendo a pasta |
 
 Vencido o prazo, `call()` resolve **`null`**, e cada chamador já trata isso como
 lista vazia, string vazia ou `false`. **Isso é uma mentira silenciosa por
@@ -475,6 +476,56 @@ para contornar. Ligar sempre trocaria um defeito por um consumo.
 > protege é o `<video>` inteiro — a imagem parava junto.
 
 ---
+
+### Os TRÊS do PACOTE e o canal `__avPacote` (shell 63)
+
+O acervo de um aparelho num arquivo — ver a seção do recurso no `CLAUDE.md`.
+Aqui só a **divisão de trabalho**, que é o que este capítulo existe para dizer:
+
+| entra por | o quê | por quê |
+|---|---|---|
+| **ponte** | `pacoteCriar(nome)` | abre o "Salvar como" do SAF. Quem responde é uma PESSOA — daí ele estar na lista dos **sem prazo** |
+| **canal** | `__avPacote.postMessage(ArrayBuffer)` | os blocos de 512 kB, com **ack por bloco**. `postMessage` não tem backpressure: sem o ack, a main thread do shell vira fila de megabytes |
+| **ponte** | `pacoteFechar()` | devolve os BYTES gravados, ou `-1`. É a única confirmação de que os blocos chegaram ao DISCO — os acks já disseram "recebi", e é o `flush`/`close` que descobre o cartão cheio |
+| **ponte** | `pacoteCancelar()` | fecha e APAGA o parcial. Síncrono e sem resposta, como o `ytCancel` |
+
+**A REGRA GERAL, e ela vale para o próximo canal que nascer:** *o que espera uma
+PESSOA, ou precisa de um VEREDITO, entra pela ponte; BYTES entram pelo canal.*
+É a mesma divisão que separa `pickFolder` de `listFolder`.
+
+**Por que os bytes não passam pela ponte:** um `@JavascriptInterface` troca
+STRINGS, e o acervo passa de gigabytes — base64 sobre isso é exatamente o que o
+princípio "URLs servíveis, nunca bytes" proíbe. E por que não um `<a download>`:
+o WebView deste app não tem `DownloadListener`, e ali um clique desses não faz
+NADA — a mesma parede que criou o `salvarTexto`.
+
+**A IMPORTAÇÃO NÃO TEM MÉTODO NENHUM**, e é o princípio pagando: `pickDoc` já
+devolve uma `/saf/<token>` servível, e o lado web a lê por `fetch` +
+`Blob.slice()` — a mesma técnica com que o `pptxzip.js` abre um `.pptx` de
+570 MB. Um método novo aqui teria sido superfície a mais para nada.
+
+**O canal recusa com `-1` sem destino aberto**, e é isso que faz um empurrão
+órfão (a página recarregou no meio) parar sozinho em vez de gravar num arquivo
+de outra sessão. E o `onRendererGone` da Activity chama `descartarPacote()`: o
+destino do SAF sobreviveria à morte do renderer, e o que ficaria no cartão do
+operador é meio acervo com nome de acervo inteiro.
+
+### `compartilharTexto(txt)` — e por que ele não é o `openExternal` (shell 63)
+
+`ACTION_SEND` + `createChooser`. **`openExternal` faz o oposto do pedido**: ele
+MANDA este aparelho abrir um endereço, e o que se quer é OFERECER um texto a
+outro aparelho. Um link aberto no navegador do próprio celular não chega a
+ninguém.
+
+**E não é `navigator.share`**: o WebView do Android não implementa a Web Share
+API — com `WebChromeClient` nenhum —, então aquela chamada simplesmente não
+existe do lado da página. Sem erro, sem chooser.
+
+**Síncrono e sem resposta**, como o `openCast`: o desfecho de um chooser é uma
+pessoa escolhendo (ou não) um app, e não há API que entregue esse veredito nem
+nada que o lado web faria com ele. TETO DE 4 kB no Kotlin: um `Intent` grande
+demais lança `TransactionTooLargeException` no `startActivity`, o que derrubaria
+o app com a projeção junto.
 
 ## As oito coisas que o `native.js` chama e NÃO são API
 

@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.7.0",
+    "itens": [
+      "O app deixou de piscar ao abrir: o tema certo já aparece na primeira tela.",
+      "A versão do app agora aparece no topo, nos dois modos.",
+      "Configurações passou a mostrar um número de versão só.",
+      "Um botão novo compartilha o link para baixar o app.",
+      "A biblioteca inteira pode ser salva num arquivo e levada para outro aparelho.",
+      "Importar só acrescenta: nada que já esteja no aparelho é apagado."
+    ]
+  },
+  {
     "versao": "1.6.6",
     "itens": [
       "O botão de próximo slide passou a funcionar durante o vídeo de uma página.",
@@ -65,196 +76,6 @@
       "E a descrição abre inteira, sem precisar tocar em “Ver mais”.",
       "A faixa que entra no ar volta a ficar selecionada, e o ▶ a repete.",
       "E um telão que reconecta no meio da projeção não volta mais vazio."
-    ]
-  },
-  {
-    "versao": "1.5.21",
-    "itens": [
-      "Os detalhes de um vídeo agora mostram o título completo, o canal e a duração.",
-      "E também a descrição do vídeo, quando ela existe.",
-      "A seção de detalhes deixou de vazar para fora da caixa do item.",
-      "Um link do YouTube guardado passa a lembrar a duração e o canal, mesmo sem internet."
-    ]
-  },
-  {
-    "versao": "1.5.20",
-    "itens": [
-      "O link do YouTube adicionado a uma lista agora guarda a miniatura, e ela persiste sem internet.",
-      "A rolagem automática da cifra agora espera um instante antes de começar a mover a folha.",
-      "O card de Favoritos voltou a respirar da barra de busca, no mesmo espaço das outras coleções.",
-      "O espaço entre a busca e o título da mídia em execução ficou do tamanho certo."
-    ]
-  },
-  {
-    "versao": "1.5.19",
-    "itens": [
-      "Os botões de tamanho da letra do modo simples deixaram de encostar no que vem abaixo.",
-      "Os botões de Bíblia, Importar e Ferramentas ficaram mais baixos e discretos.",
-      "E o cartão de uma coleção parou de mudar de tamanho ao abrir a lista dela."
-    ]
-  },
-  {
-    "versao": "1.5.18",
-    "itens": [
-      "O cartão dono das opções agora ganha a cor da caixa de opções.",
-      "A lista de favoritos ganhou as mesmas linhas divisórias das outras listas.",
-      "E as coleções deixaram de sobrar espaço no pé da lista."
-    ]
-  },
-  {
-    "versao": "1.5.17",
-    "itens": [
-      "As coleções da Biblioteca agora preenchem a altura da tela, em vez de sobrar espaço no pé.",
-      "O primeiro cartão de uma coleção aberta ganhou o respiro que faltava sob o título.",
-      "O item aberto voltou a ter a mesma cor do corpo dele.",
-      "As linhas divisórias ficaram centradas entre as faixas.",
-      "E as opções de uma faixa ficaram mais compactas, no ritmo da lista."
-    ]
-  },
-  {
-    "versao": "1.5.16",
-    "itens": [
-      "As faixas de um álbum ganharam uma linha divisória, para distinguir uma da outra.",
-      "As bordas da lista da Biblioteca borram o que passa por baixo, indicando que há mais itens.",
-      "Os álbuns do Celebra SP passaram a ficar dentro da coletânea Diversas.",
-      "As coleções ficaram mais compactas, para caberem todas na tela sem rolar.",
-      "E o favorito que está no telão voltou a ficar destacado na lista."
-    ]
-  },
-  {
-    "versao": "1.5.15",
-    "itens": [
-      "As faixas de um hinário ou de uma série voltaram a pousar em fundo claro, e não no azul do grupo.",
-      "O bloco do episódio deste sábado voltou a se destacar da caixa em volta.",
-      "A lista deixou de aparecer acima do nome da coleção preso no topo.",
-      "E esse nome deixou de ficar no topo depois que a lista dele acabou.",
-      "O cartão do título e do tempo ficou no cinza claro dos botões de slide apagados."
-    ]
-  },
-  {
-    "versao": "1.5.14",
-    "itens": [
-      "A Biblioteca não usa mais linhas finas: o que separa os grupos passou a ser o tom das caixas.",
-      "E o nome de uma coleção fica preso no topo enquanto se rola a lista dela.",
-      "O tema escuro ficou azul-denim, a cor oficial da igreja, no lugar de um cinza quase preto.",
-      "A seta que abre e fecha as coleções voltou a responder ao toque, e ficou maior.",
-      "Os tamanhos de texto, os espaços e as animações ficaram uniformes no app inteiro.",
-      "No Modo Fácil, com uma apresentação no ar sobram só os controles que fazem alguma coisa."
-    ]
-  },
-  {
-    "versao": "1.5.13",
-    "itens": [
-      "O título e a barra de progresso ganharam um cartão, como o resto dos controles."
-    ]
-  },
-  {
-    "versao": "1.5.12",
-    "itens": [
-      "No tema claro os textos do app ficaram pretos, em vez de cinza escuro."
-    ]
-  },
-  {
-    "versao": "1.5.11",
-    "itens": [
-      "Os nomes das coleções deixaram de sair em maiúsculas na Biblioteca.",
-      "E o nome de uma seção ficou tão escuro quanto o título de um álbum."
-    ]
-  },
-  {
-    "versao": "1.5.10",
-    "itens": [
-      "Os cards da Biblioteca trocaram o cinza escuro pelo azul claro do app.",
-      "A caixa dos Favoritos deixou de nascer com o cabeçalho deslocado.",
-      "E o primeiro item de uma coleção ganhou o mesmo respiro dos outros."
-    ]
-  },
-  {
-    "versao": "1.5.9",
-    "itens": [
-      "As cores das coleções saíram: a Biblioteca voltou ao branco e azul do app.",
-      "Cada grupo passou a ter uma moldura, e dá para ver onde ele começa e acaba.",
-      "Abrir uma coleção não muda mais a cor dela."
-    ]
-  },
-  {
-    "versao": "1.5.8",
-    "itens": [
-      "A borda da caixa de busca ficou do mesmo cinza dos botões ao lado.",
-      "As cores da Biblioteca ficaram em ordem, como um arco-íris.",
-      "E ao abrir uma coleção o corpo dela mantém a cor, em vez de virar cinza."
-    ]
-  },
-  {
-    "versao": "1.5.7",
-    "itens": [
-      "A Biblioteca ganhou cantos curvos e fundo claro, como as janelas de Bíblia e Ferramentas.",
-      "E deixou de encostar nos controles: dá para ver onde a lista acaba.",
-      "As coleções ganharam cores em ordem, como os livros da Bíblia.",
-      "A borda da caixa de busca ficou mais encorpada."
-    ]
-  },
-  {
-    "versao": "1.5.6",
-    "itens": [
-      "A barra de busca deixou de aparecer por cima das configurações e da playlist.",
-      "Com a Biblioteca aberta, o que se abre dos controles agora fica por cima dela.",
-      "A caixa de busca limpa o texto ao fechar.",
-      "Com o teclado aberto, a Biblioteca usa a tela toda — e no modo simples também.",
-      "O botão de parar passou para depois do de próxima mídia.",
-      "A rolagem da cifra anda com a música parada e não desfaz mais o que você rolou."
-    ]
-  },
-  {
-    "versao": "1.5.5",
-    "itens": [
-      "Os botões de playlist automática e de abrir a Biblioteca ficaram iguais aos do controle.",
-      "E do mesmo tamanho dos botões logo abaixo deles.",
-      "A caixa de busca voltou a ser branca, agora com borda."
-    ]
-  },
-  {
-    "versao": "1.5.4",
-    "itens": [
-      "A Biblioteca deixou de cobrir os controles: ela abre até a linha da barra de busca.",
-      "O louvor pode ser pausado sem fechar a Biblioteca.",
-      "Sumiu a faixa que aparecia acima da barra ao fechar a Biblioteca."
-    ]
-  },
-  {
-    "versao": "1.5.3",
-    "itens": [
-      "A barra de busca deixou de aparecer cortada em telas com entalhe.",
-      "E deixou de ficar fora do lugar depois que o teclado some."
-    ]
-  },
-  {
-    "versao": "1.5.2",
-    "itens": [
-      "A faixa cinza atrás da barra de busca saiu.",
-      "O campo e os botões dela ficaram do mesmo tom dos botões do controle.",
-      "A barra voltou para o topo dos controles, acima do nome da mídia.",
-      "A Biblioteca continua subindo dali e levando a barra até o topo da tela."
-    ]
-  },
-  {
-    "versao": "1.5.1",
-    "itens": [
-      "A barra de busca virou uma faixa de lado a lado, na base do app.",
-      "A Biblioteca agora é uma janela de tela cheia, que sobe da base.",
-      "Ela leva a barra de busca junto: o campo termina no topo da tela.",
-      "Com isso o teclado deixou de cobrir o campo de busca."
-    ]
-  },
-  {
-    "versao": "1.5.0",
-    "itens": [
-      "O Cronograma virou a tela única: a barra de abas saiu.",
-      "Na base dele: Bíblia à esquerda, Importar no centro e Ferramentas à direita, com nome.",
-      "A Bíblia virou uma janela do Cronograma, como as Ferramentas.",
-      "A barra de busca da Biblioteca saiu de dentro dela e ficou sempre à mão.",
-      "Tocar no campo abre a Biblioteca com o teclado; a seta ao lado abre sem ele.",
-      "A Biblioteca agora sobe da barra e para um pouco abaixo do topo, como uma janela."
     ]
   }
 ]

@@ -27,13 +27,111 @@
        o ../shared/material-symbols.css acima. -->
   <link rel="stylesheet" href="../shared/tokens.css">
   <link rel="stylesheet" href="controle.css">
+  <!-- ===== A CORTINA DE ABERTURA (v1.7.0) =====
+       Pedido do operador: *"o aplicativo não possui uma tela de carregamento ou
+       splash screen propriamente configurada, pois é comum abrir o app e telas
+       piscarem até que fique no lugar correto e atualizado dos elementos. Isso
+       faz por exemplo que o tema escuro apareça antes de se ajustar para o tema
+       correto atual, ou diversos outros carregamentos … vamos criar uma, para
+       que tudo seja carregado por trás dos panos."*
+
+       O LADO NATIVO JÁ ESTAVA CERTO, e é por isso que o conserto é todo daqui:
+       o `windowBackground`, a raiz da Activity e o próprio WebView já nascem na
+       cor do tema guardado (ver `MainActivity.onCreate` e `WebViewFactory`). O
+       que pisca é o DOCUMENTO — entre o primeiro quadro e a última linha do
+       `init()` ele passa por três estados que não são o do operador:
+
+         1. o TEMA. `pintarTema()` escreve `data-tema` no `controle.js`, que é o
+            ÚLTIMO dos treze scripts do `<body>`: até ele rodar, quem pinta é o
+            `:root` sem atributo, isto é, o tema ESCURO. Quem escolheu o claro
+            abre o app num flash de preto — foi o exemplo do relato.
+         2. o MODO. O `<body>` nasce `mode-simple` (é o padrão de quem nunca
+            escolheu); quem deixou o avançado vê a tela errada trocar embaixo do
+            dedo, no mesmo instante.
+         3. o CONTEÚDO. `init()` é assíncrono e lê o IndexedDB: a lista nasce
+            vazia, o nome da cena diz "Nada tocando", a preview não tem
+            wallpaper. Tudo isso se resolve sozinho — DEPOIS de aparecer.
+
+       O 1 tem conserto próprio (o `dataset.tema` abaixo, escrito antes de
+       existir primeiro quadro, e é a ÚNICA leitura de `av.tema` do app — o
+       `storedTema()` do `controle.js` lê o atributo que sai daqui). O 2 e o 3
+       não têm: eles dependem de trabalho que leva o tempo que leva. Para eles a
+       resposta é a cortina — o `#splash`, primeiro filho do `<body>`, opaco e no
+       topo da pilha, que só levanta quando o `init()` termina.
+
+       ===== O PRAZO É ARMADO AQUI, E NÃO NO `controle.js` =====
+       Uma cortina que não levanta é um app INUTILIZÁVEL, e o caminho mais
+       provável de isso acontecer é justamente o que o watchdog do OTA existe
+       para pegar: um bundle em que o `controle.js` nem chega a ser parseado. Um
+       prazo escrito lá dentro não roda nesse caso. Armado aqui, ele roda
+       enquanto houver JavaScript nenhum além destas linhas — e o desfecho ruim
+       volta a ser o app quebrado À VISTA, que é diagnosticável, em vez de uma
+       tela de abertura para sempre.
+
+       Doze segundos: o pior caso honesto de um `init()` sobre um acervo grande
+       num aparelho lento. Vencido, a cortina sai e o app volta a se comportar
+       como se comportava antes deste lote — degradação, nunca quebra. -->
+  <script>
+    (function () {
+      var raiz = document.documentElement;
+      // O TEMA, ANTES DO PRIMEIRO QUADRO. Mesma gaveta do `controle.js`
+      // (`localStorage`, síncrono e no mesmo `app_webview/`), e daqui em diante
+      // quem responde "qual tema?" é este atributo — ver `storedTema()`.
+      try {
+        if (localStorage.getItem('av.tema') === 'claro') raiz.dataset.tema = 'claro';
+      } catch (e) { /* armazenamento bloqueado: o escuro é o padrão */ }
+      var prazo = 0;
+      function levantar() {
+        if (prazo) { clearTimeout(prazo); prazo = 0; }
+        var c = document.getElementById('splash');
+        if (!c) return;
+        // A classe faz o esmaecimento; a remoção do nó é o que garante que
+        // nada dela sobre no caminho do dedo (uma camada `opacity: 0` continua
+        // recebendo toque).
+        c.classList.add('saindo');
+        setTimeout(function () { if (c.parentNode) c.parentNode.removeChild(c); }, 260);
+      }
+      window.__avSplash = { pronto: levantar };
+      prazo = setTimeout(levantar, 12000);
+    })();
+  </script>
 </head>
 <!-- A classe vem no HTML para a tela certa aparecer sem esperar JS/IndexedDB —
      o simplificado é o padrão de quem nunca escolheu. Quem escolheu reabre no
-     ÚLTIMO modo usado, e a troca acontece ainda no topo do controle.js, numa
-     leitura SÍNCRONA (localStorage), antes do primeiro quadro: uma leitura do
-     IDB chegaria tarde e a tela trocaria embaixo do dedo. Ver "Modos de uso". -->
+     ÚLTIMO modo usado, e a troca acontece no topo do controle.js, numa leitura
+     SÍNCRONA (localStorage): uma leitura do IDB chegaria tarde e a tela trocaria
+     embaixo do dedo. Ver "Modos de uso".
+
+     "SÍNCRONA" NÃO É "ANTES DO PRIMEIRO QUADRO", e a frase dizia isso até a
+     v1.7.0: o `controle.js` é o ÚLTIMO dos treze scripts do fim deste corpo, e
+     entre o primeiro quadro e ele o app fica na tela de quem NUNCA escolheu.
+     Quem cobre esse vão é a cortina de abertura logo abaixo. -->
 <body class="mode-simple">
+  <!-- ===== A CORTINA (v1.7.0) — ver o script do `<head>` para o porquê =====
+       PRIMEIRO FILHO do corpo de propósito: é o que garante que ela exista no
+       primeiro quadro que o navegador pintar, sem depender de nada mais abaixo.
+       Ela é o próprio ÍCONE DO APP ampliado — o mesmo desenho de
+       `res/drawable/ic_launcher_foreground.xml`, com os mesmos caminhos, mas
+       lendo os TOKENS em vez dos hexadecimais escritos à mão lá (um recurso de
+       Android não enxerga custom property; aqui dentro isso não é um problema,
+       então aqui a cor segue o tema de verdade). Abrir o app passa a ser o
+       ícone que se tocou crescendo, que é o argumento que `values/colors.xml` já
+       fazia para o fundo.
+
+       `aria-hidden`: ela não é conteúdo e não tem nada a anunciar; quem chegar
+       por leitor de tela encontra o app pronto do outro lado. -->
+  <div id="splash" aria-hidden="true">
+    <svg class="splash-marca" viewBox="0 0 108 108" width="96" height="96" aria-hidden="true">
+      <path class="splash-trilhas" d="M72.5,32.5 L72.5,75.5 A2.5,2.5 0 0 1 67.5,75.5 L67.5,32.5 A2.5,2.5 0 0 1 72.5,32.5 Z M56.5,32.5 L56.5,75.5 A2.5,2.5 0 0 1 51.5,75.5 L51.5,32.5 A2.5,2.5 0 0 1 56.5,32.5 Z M40.5,32.5 L40.5,75.5 A2.5,2.5 0 0 1 35.5,75.5 L35.5,32.5 A2.5,2.5 0 0 1 40.5,32.5 Z"/>
+      <path class="splash-cabos" d="M64.5,40.5 H75.5 A3.5,3.5 0 0 1 79,44 V48 A3.5,3.5 0 0 1 75.5,51.5 H64.5 A3.5,3.5 0 0 1 61,48 V44 A3.5,3.5 0 0 1 64.5,40.5 Z M48.5,60.5 H59.5 A3.5,3.5 0 0 1 63,64 V68 A3.5,3.5 0 0 1 59.5,71.5 H48.5 A3.5,3.5 0 0 1 45,68 V64 A3.5,3.5 0 0 1 48.5,60.5 Z M32.5,36.5 H43.5 A3.5,3.5 0 0 1 47,40 V44 A3.5,3.5 0 0 1 43.5,47.5 H32.5 A3.5,3.5 0 0 1 29,44 V40 A3.5,3.5 0 0 1 32.5,36.5 Z"/>
+    </svg>
+    <span class="splash-nome">Audio Visual <b>IASD</b></span>
+    <!-- A LINHA DE ESPERA, e ela só APARECE depois de 700 ms (o `animation-delay`
+         da opacidade, em controle.css). Numa abertura rápida — o caso normal —
+         ninguém a vê, e uma barra que pisca por 200 ms é ruído; numa lenta, ela
+         é o que separa "está carregando" de "travou". -->
+    <span class="splash-espera" aria-hidden="true"></span>
+  </div>
   <!-- ÍCONES DEFINIDOS UMA VEZ (<symbol> + <use>): os desenhos que aparecem em
        mais de um lugar — a engrenagem (porta de Configurações no mixer e
        cabeçalho do próprio popup), o "texto corrido" (botão da letra no mixer e
@@ -334,6 +432,26 @@
       <rect x="3.5" y="4" width="17" height="16" rx="2.6"/>
       <circle cx="12" cy="12" r="3.6"/>
     </symbol>
+    <!-- COMPARTILHAR: os três nós ligados — o desenho universal de "manda isto
+         para alguém". Ele não tem par: compartilhar não tem estado. -->
+    <symbol id="icoCompartilhar" viewBox="0 0 24 24">
+      <circle cx="18" cy="5.5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="18.5" r="2.6"/>
+      <path d="m8.3 10.8 7.4-4"/><path d="m8.3 13.2 7.4 4"/>
+    </symbol>
+    <!-- EXPORTAR e IMPORTAR: a MESMA caixa, com a seta em sentidos opostos. Os
+         dois são um par de verdade (ao contrário do giro e do wallpaper, que
+         não têm par), e é o SENTIDO DA SETA que os distingue — a mesma
+         gramática do `icoEspelhar`, em que a seta entrando na tela é o que
+         separa "que telas existem" de "manda para lá agora".
+         A caixa é aberta em cima: é por ali que a seta entra e sai. -->
+    <symbol id="icoExportar" viewBox="0 0 24 24">
+      <path d="M4.5 14.5v3.2a2.3 2.3 0 0 0 2.3 2.3h10.4a2.3 2.3 0 0 0 2.3-2.3v-3.2"/>
+      <path d="M12 15.4V3.8"/><path d="m8.2 7.6 3.8-3.8 3.8 3.8"/>
+    </symbol>
+    <symbol id="icoImportar" viewBox="0 0 24 24">
+      <path d="M4.5 14.5v3.2a2.3 2.3 0 0 0 2.3 2.3h10.4a2.3 2.3 0 0 0 2.3-2.3v-3.2"/>
+      <path d="M12 3.8v11.6"/><path d="m8.2 11.6 3.8 3.8 3.8-3.8"/>
+    </symbol>
     <symbol id="icoModoAvancado" viewBox="0 0 24 24">
       <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
       <path d="M9 7h.01" stroke-width="4.6"/>
@@ -364,6 +482,21 @@
          não há tela conectada. -->
     <div class="simple-head">
       <span class="simple-brand">Audio Visual <b>IASD</b></span>
+      <!-- A BADGE DE VERSÃO (v1.7.0, pedido do operador: *"coloque uma nova
+           badge de versão na tela principal, após o título áudio visual iasd (no
+           modo simples) e no canto superior esquerdo (no modo avançado)"*).
+
+           ELA MOSTRA UM NÚMERO SÓ, e isso também é pedido: *"na exibição da
+           badge da versão, coloque apenas ela, e apenas um número, sem o
+           'web'"*. Os DOIS índices continuam existindo e continuam divergindo
+           por construção (a base chega por OTA em minutos, o shell só
+           instalando um APK) — o que mudou é quem os lê: o Registro, que é o
+           artefato de diagnóstico, e não a tela de quem opera o culto.
+
+           Preenchida por `renderVersionLabel`, junto com a irmã do avançado e o
+           rodapé de Configurações: um escritor só para as três casas é o que
+           impede duas delas de anunciarem versões diferentes. -->
+      <span class="ver-badge" id="simpleVersion" title="Versão do aplicativo"></span>
       <button type="button" id="simpleSettingsBtn" class="settings-btn" title="Configurações" aria-label="Configurações">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGear"/></svg>
       </button>
@@ -559,6 +692,18 @@
            que era a outra dona dele, virou a gaveta `#favPopup` e levou junto o
            próprio voltar, a busca da pasta e o botão de sincronizar. -->
       <button id="backBtn" class="back-btn" title="Voltar" aria-label="Voltar" hidden><span class="msym" aria-hidden="true">&#xe5c4;</span></button>
+      <!-- A BADGE DE VERSÃO, no canto superior esquerdo (v1.7.0). Ver a gêmea
+           do Modo Fácil, logo acima, para o pedido e para a regra do número
+           único.
+
+           A CASA JÁ ESTAVA VAGA: o `#backBtn` da faixa perdeu o dono na v1.5.0
+           (a Bíblia virou folha e levou o voltar dela junto) e `renderListTitle`
+           o esconde explicitamente em toda passada. A trilha 1 da grade
+           continuava reservada só para manter o título no eixo — agora ela tem
+           um morador, e o título segue centrado porque as duas trilhas laterais
+           passaram a repartir a sobra em partes iguais (ver `.list-header` no
+           CSS). -->
+      <span class="ver-badge" id="listVersion" title="Versão do aplicativo"></span>
       <!-- A ORDEM DA FAIXA É saída · lugar · destino (v5.107): "Modo Fácil" à
            esquerda, o nome da tela no meio, "Favoritos" à direita. A seta do
            botão de modo aponta para a esquerda, e um botão que aponta para fora
@@ -1611,6 +1756,58 @@
             <span class="qs-estado">0°</span>
           </button>
         </div>
+        <!-- ===== ESTE APARELHO (v1.7.0) =====
+             Um bloco à parte do painel rápido, e a separação é de ASSUNTO: a
+             grade de cima responde *"como o telão se comporta?"* — sete
+             decisões de projeção que o operador ajusta e esquece. Estas três
+             respondem *"o que eu faço com este app fora dele?"*, e nenhuma
+             delas é uma preferência: são AÇÕES, e duas levam minutos.
+
+             Elas reusam o `.qs-tile` e a `.qs-grade` de propósito: são a mesma
+             peça (ícone, título, palavra do estado) e o mesmo gesto, e um
+             quarto formato de botão nesta folha seria a densidade que o painel
+             rápido acabou de tirar dela. O precedente é o Histórico, que também
+             não alterna nada — abre uma coisa e pronto.
+
+             NASCEM ACESAS pela regra do painel: quem não tem "desligado" fica
+             aceso o tempo todo, porque apagado, neste app, quer dizer
+             INDISPONÍVEL. Enquanto uma exportação corre, é a PALAVRA DO ESTADO
+             que muda ("42%"), nunca a luz.
+
+             O BLOCO INTEIRO SÓ EXISTE NO APP (`hidden` no navegador, escrito por
+             `pacoteRenderTiles`): os três dependem da ponte — o chooser do
+             Android, o "Salvar como" do SAF e o canal de bytes —, e três botões
+             que só sabem não funcionar são piores que bloco nenhum. -->
+        <div class="fade-row fade-row--fit" id="aparelhoRow" hidden>
+          <span>Este aparelho</span>
+          <div class="qs-grade">
+            <!-- COMPARTILHAR O APP: o link da página de download, pelo seletor
+                 do Android. Até a v1.7.0 não havia, de dentro do app, NENHUMA
+                 forma de o operador passá-lo adiante — e é ele quem conversa
+                 com as outras igrejas. O endereço é o da página que o próprio
+                 repositório publica (ver `AV_PAGINA` em controle.js). -->
+            <button type="button" class="qs-tile qs-on" id="shareAppTile" title="Compartilhar o link para baixar o app">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCompartilhar"/></svg>
+              <span class="qs-titulo">Compartilhar</span>
+              <span class="qs-estado">O app</span>
+            </button>
+            <!-- EXPORTAR / IMPORTAR o acervo. O peso do app é de megabytes; o
+                 da biblioteca, de gigabytes baixados um a um da internet — e a
+                 Wi-Fi de uma igreja no sábado de manhã é o pior lugar possível
+                 para refazer isso num aparelho novo. Ver o bloco do PACOTE DE
+                 TRANSFERÊNCIA em controle.js. -->
+            <button type="button" class="qs-tile qs-on" id="pacoteExportarTile" title="Salvar a biblioteca e os ajustes num arquivo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoExportar"/></svg>
+              <span class="qs-titulo">Exportar</span>
+              <span class="qs-estado">Acervo</span>
+            </button>
+            <button type="button" class="qs-tile qs-on" id="pacoteImportarTile" title="Trazer a biblioteca e os ajustes de um arquivo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoImportar"/></svg>
+              <span class="qs-titulo">Importar</span>
+              <span class="qs-estado">Acervo</span>
+            </button>
+          </div>
+        </div>
         <!-- O REGISTRO, e é UM só (v5.121). Ele nasceu como a caixa-preta do
              telão: três versões seguidas tentaram consertar "o vídeo para
              quando o app é minimizado" por hipótese e as três erraram, porque
@@ -1688,7 +1885,16 @@
                METADADO de diagnóstico e o lugar onde se procura diagnóstico é
                junto do estado do telão e do alvo de espelhamento, não numa faixa
                de navegação. Preenchido por `renderVersionLabel`. -->
-          <span id="appVersion" class="app-version">Controle v1.6.6</span>
+          <!-- UM NÚMERO SÓ desde a v1.7.0, e o índice do SHELL saiu da tela
+               (pedido do operador: *"remova da ui a informação nas configurações
+               do shell, essa numeração é interna, pode estar nos registros, mas
+               em 99% dos casos a outra versão é a numeração correta"*). Ele
+               continua no Registro, na primeira linha do cabeçalho — que é o
+               artefato que se copia para diagnosticar, e o único lugar em que a
+               distinção entre os dois canais de atualização responde alguma
+               pergunta. Aqui ela só oferecia dois números para o operador
+               escolher errado. -->
+          <span id="appVersion" class="app-version">v1.7.0</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o
@@ -2269,6 +2475,13 @@
        `tools/pptxzip.test.mjs`. ANTES do `deck.js`, que o consome. -->
   <script src="pptxzip.js"></script>
   <script src="deck.js"></script>
+  <!-- O FORMATO DO PACOTE DE TRANSFERÊNCIA (v1.7.0): a regra de como o acervo
+       de um aparelho vira um arquivo e volta. Puro, sem DOM e sem ponte —
+       oráculo em `tools/pacote.test.mjs`. ANTES do `controle.js`, que o
+       consome, e dentro do watchdog de boot (`AVPacote`, em `otaAppIsUp`): um
+       erro de topo aqui deixaria a exportação morta com o bundle carimbado
+       como bom, que é o buraco que a v5.315 fechou para os outros oito. -->
+  <script src="pacote.js"></script>
   <script src="controle.js"></script>
 </body>
 </html>

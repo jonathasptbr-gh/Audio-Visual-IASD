@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Áudio Visual IASD</string>
+    <!-- O título do seletor de compartilhamento (shell 63). Ele é a ÚNICA
+         string de UI que o shell escreve — todo o resto da tela é a base web,
+         que não passa por `res/`. Ela vive aqui porque quem desenha o chooser é
+         o SISTEMA, e o `createChooser` só aceita um texto. -->
+    <string name="share_app_titulo">Compartilhar o app</string>
 </resources>
