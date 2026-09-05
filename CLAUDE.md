@@ -3182,12 +3182,20 @@ comum (o cartão, o cabo).
 - **A PERGUNTA AO DISCO É UMA VARREDURA SÓ**, nunca um `getMedia` por item: um
   acervo tem milhares de entradas, e seriam milhares de transações em fila. É a
   mesma economia do `AVDB.mediaResumo`.
+- **A PROJEÇÃO PASSA NA FRENTE DO CLONE.** O canal do shell tem UM slot aberto
+  por vez, e um item do clone pode ter centenas de megabytes: um `load` no meio
+  dele esperaria o arquivo inteiro atravessar antes de a tela da rede receber a
+  música. **Ceder a biblioteca é auxiliar; projetar não é.** O empurrão do clone
+  CEDE A VEZ E SAI — e sair é de graça, porque o `abrir` do outro lado devolve
+  `recebido` e o item volta de onde parou; é a mesma retomada que um empurrão
+  interrompido por morte de renderer já usava.
 - **UM CLONE POR VEZ.** Não é limite de recurso: é o pareamento ter um DONO, e o
   operador saber quem está copiando.
 
 Oráculos: **`pacote.test.mjs`** (as três regras PURAS), **`clone-de-outro-celular.test.mjs`**
 (a LIGAÇÃO, em dois contextos de navegador como dois celulares — o que falta, a
-retomada medida em PEDIDOS, o 409 e a faixa na query) e **`AcervoCessaoTest`**
+retomada medida em PEDIDOS, o 409, a faixa na query e a projeção passando na
+frente do empurrão) e **`AcervoCessaoTest`**
 (a máquina de estados do pareamento, em JUnit: ela decide quem pode copiar o
 acervo inteiro, e nasceu com oráculo pelo mesmo argumento que criou o
 `EspelhoParesTest`).

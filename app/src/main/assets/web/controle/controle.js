@@ -24341,6 +24341,11 @@ async function cloneAtenderPedido(msg) {
     blob: corpo,
     name: 'item ' + n,
     type: 'application/octet-stream',
+    // A MARCA que faz este empurrão ceder a vez a um `load` do culto — ver
+    // `telaEmpurrarAgora`. Ela é um CAMPO e não um teste sobre o `id`: quem lê
+    // um prefixo de string acaba lendo o prefixo errado, e aqui o preço disso
+    // seria a projeção esperando o clone.
+    clonagem: true,
   });
 }
 
@@ -31603,6 +31608,21 @@ async function telaEmpurrarAgora(it) {
   const PASSO = 512 * 1024;
   while (pos < arquivo.size) {
     if (!telaAtiva()) { await telaPedir(c, JSON.stringify({ cancelar: true }), 'cancelar'); return; }
+    // A PROJEÇÃO PASSA NA FRENTE DO CLONE (v1.8.0).
+    //
+    // O canal do shell tem UM slot aberto por vez, e um item do clone pode ter
+    // centenas de megabytes: um `load` no meio dele esperaria o arquivo inteiro
+    // atravessar antes de a tela da rede receber a música. **Ceder a biblioteca
+    // é auxiliar; projetar não é.**
+    //
+    // Ele CEDE E SAI, e não cede e espera: o `abrir` do outro lado devolve
+    // `recebido`, então voltar para o fim da fila custa zero byte — é a mesma
+    // retomada que um empurrão interrompido por morte de renderer já usava. Sem
+    // essa propriedade, ceder a vez seria recomeçar.
+    if (it.clonagem && telaFila.some((x) => !x.clonagem)) {
+      telaFila.push(it);
+      return;
+    }
     const fatia = await arquivo.slice(pos, Math.min(pos + PASSO, arquivo.size)).arrayBuffer();
     const r = await telaPedir(c, fatia, 'bloco');
     if (!r) return;                                   // prazo: o próximo load retoma

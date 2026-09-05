@@ -132,6 +132,51 @@ async function atender(u, res) {
 // A PONTE de mentira — só o que o clone toca
 // ---------------------------------------------------------------------------
 const PONTE = `(function () {
+  // O CANAL DE BYTES do telão, reduzido ao que o lado web enxerga: ele responde
+  // \`{r: total}\` a cada bloco (o ACK que libera o próximo) e REGISTRA a ordem
+  // dos \`abrir\`, que é o que o bloco 6 mede.
+  window.__abertos = [];
+  const canal = {
+    postMessage(m) {
+      if (typeof m === 'string') {
+        let j = null;
+        try { j = JSON.parse(m); } catch (_) { j = null; }
+        if (j && j.abrir) {
+          // O CACHE DO SHELL LEMBRA quanto já recebeu de cada token, e é isso
+          // que faz um empurrão interrompido continuar de onde parou. O
+          // \`recebido\` daqui é a mesma resposta, e é ela que o bloco 6 mede.
+          window.__porToken = window.__porToken || {};
+          window.__aberto = j.abrir.token;
+          window.__abertos.push({ id: j.abrir.id, recebido: window.__porToken[j.abrir.token] || 0 });
+          window.__recebido = window.__porToken[j.abrir.token] || 0;
+          setTimeout(() => canal.onmessage({
+            data: JSON.stringify({ ok: true, recebido: window.__recebido, completo: false }),
+          }), 0);
+          return;
+        }
+        setTimeout(() => canal.onmessage({ data: JSON.stringify({ ok: true }) }), 0);
+        return;
+      }
+      window.__recebido = (window.__recebido || 0) + m.byteLength;
+      window.__porToken = window.__porToken || {};
+      if (window.__aberto) window.__porToken[window.__aberto] = window.__recebido;
+      window.__blocos = (window.__blocos || 0) + 1;
+      // O GATILHO É O BLOCO, e não o relógio: o \`load\` do culto precisa chegar
+      // com o clone JÁ EM VOO, e uma espera fixa é uma aposta na máquina — a
+      // regra deste repositório. No terceiro bloco o item do clone está no
+      // meio, sempre.
+      if (window.__blocos === 3 && window.__soltarMusica) {
+        const f = window.__soltarMusica;
+        window.__soltarMusica = null;
+        setTimeout(f, 0);
+      }
+      const r = window.__recebido;
+      setTimeout(() => canal.onmessage({ data: JSON.stringify({ r }) }), 0);
+    },
+    onmessage: null,
+  };
+  window.__avTelaMidia = canal;
+
   const vazio = { displays: [], listFolder: [], otaPending: '', otaDiag: '',
     espelhoEstado: { ligado: false, telas: [], redes: [] }, espelhoDiag: {},
     castTarget: { label: '' }, apkProcurar: {}, ytDiag: '', cifraDiag: '',
@@ -489,6 +534,53 @@ try {
   checar(!end.octeto && !end.nome && !end.vazio && !end.porta0,
     '4-D · e o que não é um IPv4 devolve `null` em vez de virar um pedido a um '
     + 'endereço inventado', JSON.stringify(end));
+
+  // =========================================================================
+  // 6 · A PROJEÇÃO PASSA NA FRENTE DO CLONE
+  // =========================================================================
+  //
+  // O canal do shell tem UM slot aberto por vez, e um item do clone pode ter
+  // centenas de megabytes: um `load` no meio dele esperaria o arquivo inteiro
+  // atravessar antes de a tela da rede receber a música. **Ceder a biblioteca é
+  // auxiliar; projetar não é** — e a falha aqui é MUDA: a projeção fica parada
+  // e nada na tela diz por quê.
+  //
+  // O que se mede é a ORDEM dos `abrir` no canal. Um teste do desfecho (os dois
+  // itens chegaram) passa nas duas versões.
+  const ordemCanal = await a.pg.evaluate(async () => {
+    window.__abertos = [];
+    window.__blocos = 0;
+    window.__porToken = {};
+    // A cessão sobe o servidor de verdade no aparelho; aqui basta o cache do
+    // espelho dizer que está ligado, que é o que o `telaAtiva()` pergunta.
+    mirrorEstado = { ligado: true, telas: [], redes: [] };
+    const bytes = (n) => new Blob([new Uint8Array(n).fill(1)]);
+    // O `load` do culto é SOLTO PELO CANAL, no terceiro bloco: assim ele chega
+    // com o clone no meio do caminho, sempre — e não por uma espera que a
+    // máquina decide.
+    window.__soltarMusica = () => telaGarantirEnvio({
+      id: 'musica-do-culto', blob: bytes(4096), name: 'louvor', type: '',
+    });
+    telaGarantirEnvio({
+      id: 'clone:teste:0', blob: bytes(3 * 1024 * 1024),
+      name: 'item grande do clone', type: '', clonagem: true,
+    });
+    for (let i = 0; i < 400 && window.__abertos.length < 3; i++) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    return window.__abertos.slice();
+  });
+  checar(ordemCanal.map((x) => x.id).join(',')
+      === 'clone:teste:0,musica-do-culto,clone:teste:0',
+    '6 · a MÚSICA passa na frente de um item do clone JÁ EM VOO, e o clone volta '
+    + 'depois — três aberturas, e a do meio é a do culto',
+    JSON.stringify(ordemCanal));
+  // A OUTRA METADE, e ela é a que torna a cedência aceitável: ceder a vez não
+  // pode ser RECOMEÇAR. Quem responde é o `recebido` do cache do shell, o mesmo
+  // que já retoma um empurrão interrompido por morte de renderer.
+  checar(ordemCanal.length === 3 && ordemCanal[2].recebido > 0,
+    '6 · e ele RETOMA de onde parou — zero aqui seriam os megabytes já enviados '
+    + 'atravessando o canal de novo', JSON.stringify(ordemCanal));
 
   // =========================================================================
   // 5 · A FAIXA — nenhum pedido acima do pedaço combinado
