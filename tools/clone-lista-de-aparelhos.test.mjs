@@ -231,6 +231,34 @@ try {
     'o item chega em BLOBS, nunca em `ArrayBuffer` acumulado — era o mesmo defeito '
     + 'que a v1.7.9 corrigiu no caminho do ARQUIVO, de pé no caminho da REDE', cb.slice(0, 0));
 
+  // A PONTE NÃO RESPONDER TEM FRASE PRÓPRIA (v1.8.6), e esta é a asserção que
+  // o Registro de campo comprou: a falha chegou como *"Não deu para falar com o
+  // outro aparelho"* SEM parêntese nenhum — isto é, `r` era `null`, os 60 s do
+  // `CALL_TIMEOUT_MS` vencendo —, e aquela frase manda procurar defeito na
+  // REDE quando o que venceu foi o prazo DA PONTE.
+  const pedir = JS.match(/^async function clonePedirPar\([\s\S]*?^}/m);
+  checar(!!pedir, 'consegui isolar o `clonePedirPar`');
+  const pj = pedir ? pedir[0] : '';
+  checar(/if \(!r\) \{[\s\S]{0,400}?60 s/.test(pj),
+    'o `null` da ponte tem desfecho PRÓPRIO, e não cai no ramo de "erro"');
+  checar(/ponto de acesso/.test(pj),
+    'e a frase nomeia a saída — o ponto de acesso é o que contorna uma Wi-Fi que '
+    + 'não deixa dois celulares se falarem, a falha muda deste recurso');
+  checar(/cloneOnde = 'pareando com/.test(pj),
+    'e o PAREAMENTO entra no `cloneOnde` — sem isso o "parou em:" do diário sai '
+    + 'vazio justamente na etapa que mais falha (foi o que o Registro mostrou)');
+
+  // O VIGIA DO PEDIDO, no shell: os prazos do `pedirPar` somam 16 s e ainda
+  // assim o que chegou ao campo foi um `null` de ponte (60 s).
+  checar(/relogioDoPar\.postDelayed/.test(KT_ACT) && /travou sem resposta/.test(KT_ACT),
+    'o `acervoParear` tem vigia: um pedido que passa dos 20 s responde com frase, '
+    + 'em vez de deixar a ponte vencer em silêncio');
+  checar(/AtomicBoolean\(false\)[\s\S]{0,900}?compareAndSet\(false, true\)[\s\S]{0,900}?compareAndSet\(false, true\)/.test(KT_ACT),
+    'e só um dos dois responde — o vigia e o pedido disputam o mesmo `AtomicBoolean`');
+  checar(/quanto\(\)/.test(KT_ACT),
+    'e a frase do erro diz QUANTO demorou: 8 s de connect e 60 s de ponte pedem '
+    + 'consertos opostos');
+
   // O DIÁRIO NÃO VIAJA NO PACOTE, pela mesma razão do histórico: ele descreve
   // ESTE aparelho, e um Registro que mostrasse as tentativas de outro celular é
   // um log que discorda do aparelho — lido a distância por quem não confere.
