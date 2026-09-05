@@ -164,6 +164,8 @@ app/src/main/
 │   ├── WebViewFactory.kt        # asset loader + settings comuns (invariantes 1-4)
 │   ├── NativeBridge.kt          # @JavascriptInterface — a ponte
 │   ├── SafPathHandler.kt        # serve arquivos do dispositivo em /saf/<token>
+│   │                           #   + SafJanela: `?r=<ini>-<fim>`, a fatia
+│   │                           #   que tira o teto de 2 GB do `available()`
 │   ├── ShareIntake.kt           # intent ACTION_SEND → formato do share web
 │   ├── SyncService.kt           # foreground service: downloads com o app minimizado
 │   ├── SessionService.kt        # o único FGS DO CULTO (o Sync só sobe em download)
@@ -438,7 +440,19 @@ navegador a IIFE retorna na entrada e nada é definido, nem `__NATIVE__`.
 ```js
 window.AVNative = {
   pickFolder(),        // → { id, name, uri }   (SAF ACTION_OPEN_DOCUMENT_TREE)
-  pickDoc(mimes),      // → [{ url, name, type }]: o SELETOR DE ARQUIVOS do aparelho
+  pickDoc(mimes),      // → [{ url, name, type, size }]: o SELETOR DE ARQUIVOS
+                       //   do aparelho. `size` entrou no shell 64 e é o que
+                       //   torna a leitura por JANELA possível — quem lê um
+                       //   pacote de gigabytes precisa saber onde o arquivo
+                       //   acaba, e o caminho antigo só sabia a resposta depois
+                       //   de materializar o arquivo inteiro. `-1` = o provedor
+                       //   não disse, e NÃO é `0` (arquivo vazio): achatar os
+                       //   dois faz um pacote bom ser recusado como vazio.
+                       //   ELE É O ÚNICO MÉTODO QUE NÃO É REMONTADO campo a
+                       //   campo no `native.js` (o irmão do `micDiag`), e aqui
+                       //   é de propósito pelo motivo OPOSTO: a lista vem do
+                       //   Kotlin já na forma final, e o remonte só poderia
+                       //   perder o campo de amanhã
   listFolder(uri),     // → [{ name, size, mtime, type, url }]   (só no Controle)
   onShare(cb),         // cb({ files:[{name,type,size,url}], url, title })
   areaTransferencia(desde), // → { texto, carimbo } ou null: o LINK COPIADO, e
@@ -710,7 +724,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **63**, e ele é o **PISO**: o bundle declara `minShell: 63`, então
+Hoje vale **64**, e ele é o **PISO**: o bundle declara `minShell: 64`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -785,7 +799,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 63`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 64`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -2840,14 +2854,24 @@ leve, mas a biblioteca e o resto são pesados … permitir copiar e compartilhar
 arquivo diretamente de um smartphone para o outro é extremamente útil"*.
 
 ```
- ┌──────── aparelho A ────────┐                 ┌──── aparelho B ────┐
- │ controle.js  (IDB + OPFS)  │                 │ pickDoc → /saf/<t> │
- │   └─ blocos de 512 kB ─────┼─ __avPacote ──► │   └─ fetch → Blob  │
- │      (ArrayBuffer)         │  PacoteCanal.kt │      → Blob.slice()│
- │ AVNative.pacoteCriar()  ───┼─► SAF, destino  │ (nenhum método novo│
- │ AVNative.pacoteFechar() ───┼─► ABERTO        │  foi preciso aqui) │
- └────────────────────────────┘                 └────────────────────┘
+ ┌──────── aparelho A ────────┐                 ┌───── aparelho B ──────┐
+ │ controle.js  (IDB + OPFS)  │                 │ pickDoc → /saf/<t>    │
+ │   └─ blocos de 512 kB ─────┼─ __avPacote ──► │   + size (shell 64)   │
+ │      (ArrayBuffer)         │  PacoteCanal.kt │   └─ JANELAS:         │
+ │ AVNative.pacoteCriar()  ───┼─► SAF, destino  │      /saf/<t>?r=a-b   │
+ │ AVNative.pacoteFechar() ───┼─► ABERTO        │      (SafJanela.kt)   │
+ └────────────────────────────┘                 └───────────────────────┘
 ```
+
+**E O LEITOR NUNCA TEM O ARQUIVO NA MÃO** (v1.7.6). Ele teve, da v1.7.0 até
+aqui — `resp.blob()` —, e não sobreviveu ao tamanho: quinze gigabytes não cabem
+nem na memória nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da
+primeira. Junto com isso vinha um teto que ninguém tinha medido: o caminho
+`/saf/` para em **2 GB**, porque o Chromium dimensiona toda resposta
+interceptada pelo `available()` do `InputStream` — um `int` (a invariante 8,
+pelo lado de dentro). Acima disso o web recebe o arquivo CORTADO, sem erro
+nenhum, e o cursor tropeça no meio de um registro. Ver `pacoteFonteDaUrl` e o
+`SafJanela.kt`.
 
 **A REGRA é do web** (`controle/pacote.js`, PURA, com oráculo Node); os BYTES são
 do Kotlin (`PacoteCanal.kt`). É a divisão do `pptxzip.js` × `deck.js`, e pelo
@@ -2904,6 +2928,23 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   um `StreamProxy` que só existe na origem. Sem o campo, o item é o LINK do
   YouTube que ele sempre foi — resolvido no primeiro toque, pelo caminho que já
   existe.
+- **O LEITOR NUNCA MATERIALIZA O ARQUIVO** (v1.7.6). Ele lê por JANELAS
+  (`pacoteFonteDaUrl` → `/saf/<token>?r=<ini>-<fim>`), e são DUAS operações
+  porque elas custam coisas diferentes: `bytes()` para os CABEÇALHOS (dezenas
+  de bytes, aos milhares — a Bíblia é uma chave por capítulo) e `blob()` para os
+  CORPOS, montado de pedaços de 8 MB para que a memória fique no tamanho do
+  PEDAÇO e não no do item.
+  - **A CONFERÊNCIA não lê os corpos** (`proximo(false)`): ela percorre o
+    arquivo inteiro pelos cabeçalhos, e lê-los junto dobraria a importação de um
+    acervo. Sobre um `Blob` isso era de graça — `slice` é preguiçoso —, e é
+    justamente o que deixa de ser verdade quando a fonte é uma URL.
+  - **A leitura antecipada CRESCE E ENCOLHE**, e foi o oráculo que pegou isso:
+    uma janela fixa erra nos dois regimes do formato. Pedido que começa onde o
+    buffer acabou é uma CORRIDA de cabeçalhos (dobra, até 1 MB); pedido que
+    salta é um corpo pulado (volta a 8 kB).
+  - **E o `size` vem do `pickDoc`** (shell 64). Sem ele não há como saber onde o
+    arquivo acaba — e `-1` ("o provedor não disse") para a importação com frase
+    própria, em vez de virar um zero que recusaria um pacote bom como vazio.
 - **A importação termina em `location.reload()`, e isso é parte do recurso.** O
   `controle.js` lê o acervo UMA vez, no `init()`, e guarda listas e catálogos em
   variáveis de módulo; depois de uma importação todas estão desatualizadas, e
@@ -3923,7 +3964,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
 | Download minimizado | a aba continua baixando | **foreground service + wake lock**; sem isso o processo é congelado |
-| **Levar a biblioteca para outro aparelho** | **não existe** (não há SAF nem canal de bytes: um `<a download>` sobre um Blob de gigabytes não é caminho) | **um arquivo `.avpkg`** (shell 63) — ver a seção do recurso. Exportar abre o "Salvar como" do sistema e empurra os bytes pelo canal `__avPacote`; importar entra por `pickDoc` e lê o arquivo por `Blob.slice()`. **Só ACRESCENTA**: nada que já esteja no aparelho é substituído |
+| **Levar a biblioteca para outro aparelho** | **não existe** (não há SAF nem canal de bytes: um `<a download>` sobre um Blob de gigabytes não é caminho) | **um arquivo `.avpkg`** (shell 63) — ver a seção do recurso. Exportar abre o "Salvar como" do sistema e empurra os bytes pelo canal `__avPacote`; importar entra por `pickDoc` e lê o arquivo por JANELAS (`/saf/<token>?r=<ini>-<fim>`, shell 64) — nunca inteiro, porque o caminho `/saf/` tem teto de 2 GB e um `resp.blob()` de quinze gigabytes não cabe em lugar nenhum. **Só ACRESCENTA**: nada que já esteja no aparelho é substituído |
 | **Compartilhar o link do app** | `navigator.share`, onde o navegador o tiver | **`compartilharTexto`** (shell 63) → `ACTION_SEND` + `createChooser`. O WebView do Android **não** implementa a Web Share API, então este era o único caminho — e sem ele não havia, de dentro do app, forma nenhuma de passá-lo adiante |
 | Abertura do app | a página pisca igual, e ninguém tem o que fazer a respeito | **a CORTINA** (`#splash`) mais o `data-tema` escrito no `<head>` antes do primeiro quadro. O prazo que a levanta mora no mesmo script inline, e não no `controle.js`: um bundle que nem chega a ser parseado tem de terminar com o app À VISTA |
 | Atualização da base web | recarregar a página | **OTA** |
@@ -4365,9 +4406,9 @@ mundo anterior por outro caminho.
 | oráculo | o que cobre, e por que existe |
 |---|---|
 | `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E A PERNA DA RAIZ** (v1.5.15), que a v1.5.14 não media e por isso deixou passar dois defeitos: a PLACA de uma coleção da raiz tem degrau de verdade contra o poço em volta **e vale o MESMO que o card de álbum de dentro de uma seção** — sem essa segunda metade a faixa continua pousando em duas cores conforme onde a coleção mora, que é o relato; o `top` da tampa da raiz é ZERO, medido ao lado do da tampa aninhada na mesma passada (um `top` escrito por TIPO passa numa das duas e reprova na outra); e o primeiro bloco começa NO TOPO do scrollport, porque `padding` de um scroller é scrollport e a lista rola por ele à vista. A régua desta última é a GEOMETRIA, nunca `paddingTop` lido de volta: o vão pode voltar por qualquer caminho. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40): quem não tem "desligado" fica aceso o tempo todo (apagado, neste app, quer dizer INDISPONÍVEL) **e mesmo assim troca de desenho** — `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. A metade que impede o conserto preguiçoso (acender tudo, sempre) é o fundo da letra continuar APAGANDO, medido na cor RENDERIZADA: uma classe sem a regra de CSS passa num teste de classe e continua invisível na tela. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
-| `pacote-ida-e-volta.test.mjs` | **o pacote de um aparelho para o outro**, em DOIS contextos de navegador com armazenamentos separados — o `pacote.test.mjs` prende a regra, este prende a LIGAÇÃO, que falha com a regra certa e o acervo não chegando. Nada é comparado contra o que a exportação achou que escreveu: afirma-se o que o SEGUNDO aparelho tem depois. Cobre a imagem de fundo da estrofe (que NENHUM registro do catálogo nomeia — é ela que prova que a varredura é do DISCO), o `stream` que não atravessa, a pasta do aparelho que fica para trás, e a promessa inteira: importar DE NOVO, com o local já diferente, não apaga o renomeado nem a preferência de quem importou — e a lista de ids se SOMA |
+| `pacote-ida-e-volta.test.mjs` | **o pacote de um aparelho para o outro**, em DOIS contextos de navegador com armazenamentos separados — o `pacote.test.mjs` prende a regra, este prende a LIGAÇÃO, que falha com a regra certa e o acervo não chegando. Nada é comparado contra o que a exportação achou que escreveu: afirma-se o que o SEGUNDO aparelho tem depois. Cobre a imagem de fundo da estrofe (que NENHUM registro do catálogo nomeia — é ela que prova que a varredura é do DISCO), o `stream` que não atravessa, a pasta do aparelho que fica para trás, e a promessa inteira: importar DE NOVO, com o local já diferente, não apaga o renomeado nem a preferência de quem importou — e a lista de ids se SOMA. **E COMO ELE É LIDO** (v1.7.6), que é o que não tem sintoma num arquivo pequeno — o percurso inteiro dos outros blocos passava com o leitor que não cabia: o arquivo é pedido por JANELAS e NUNCA de uma vez (um pedido sem faixa é o `resp.blob()` de volta, e é ele que não cabe em quinze gigabytes), nenhuma janela passa do PEDAÇO (acima do teto do `SafJanela` o aparelho devolve o arquivo CORTADO, sem erro nenhum) e a CONFERÊNCIA não lê os corpos — o total lido fica perto do tamanho do arquivo, não perto do dobro; foi esta que pegou a leitura antecipada fixa. A rota do próprio oráculo fala o MESMO contrato do `SafJanela.kt`: um `blob:` — que era o que ele entregava — não tem query nenhuma, e por ele o leitor novo nem sairia do lugar |
 | `linha-da-preparacao.test.mjs` | **a linha de uma PREPARAÇÃO não é a de um download** (v1.7.1), e as metades falham CALADAS. A LEGENDA ocupa a POSIÇÃO DO SUBTÍTULO — a pergunta é de ÁRVORE (dentro da coluna de texto e DEPOIS do nome), porque um `.dl-prog` solto na `.row` passa num teste de presença e aparece noutro lugar da linha — e ela ANDA, página a página, vinda de quem TEM os números (nem a linha nem o oráculo parseiam frase nenhuma). O ícone: preparar uma apresentação não baixa byte nenhum, e a seta prometia bytes — a regra de v1.4.19 (*o ícone segue a LEGENDA*) num lugar novo, com a REVERSÃO ao lado, porque a seta ACENDE num download de verdade e APAGA de volta quando a legenda deixa de prometê-los. **E o que a v1.7.3 acrescentou:** a asserção NEGATIVA do DESENHO DO NÚMERO — nem percentual solto (até a v1.7.1) nem trilho (só a v1.7.1) —, que é o par exato da que o lote anterior escreveu; e o `⋮` cedendo a COLUNA, em três metades que nenhuma basta sozinha (o cancelar está lá com a caixa EXATA do `⋮` de uma linha vizinha sem trabalho — nunca um número escrito no teste —, a fileira de opções NÃO está, e o toque CANCELA de verdade: a linha sai e nenhuma apresentação nasce). Mais a AUSÊNCIA em asserção própria: sem alça de cancelamento não há botão. **A linha é endereçada pelo NOME** — MEDIDO, 1 reprovação em 8 rodadas a 3× de carga com `querySelector`: as duas metades montam uma linha cada, e sob carga a de baixo media a seta da de cima |
-| `miniaturas-estaveis.test.mjs` | **a `object-URL` de uma capa é do BLOB, não do render** (v1.7.3). Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante processos de download"*. Um teste de "a capa aparece" passa nas DUAS versões — ela aparece, só que um quadro depois, três vezes por segundo —, então o que se afirma é a IDENTIDADE da URL entre dois `renderCollectionsNow` (o redesenho do relato, e não um `load()`: aquele RELÊ o acervo, e um `Blob` relido é outro objeto). Quatro metades: a URL sobrevive, ela continua VÁLIDA (uma igual e revogada seria o defeito piorado), o que SAI de cena é recolhido (sem isto "nunca revogar" passaria — e uma object-URL viva segura o blob inteiro), e a PASTA DO APARELHO, que é o que o desenho pode quebrar sem sintoma: o corpo dela é montado por uma função ASSÍNCRONA, isto é, DEPOIS de o balde do render ter sido devolvido, e sem um balde próprio a varredura seguinte apaga aquelas capas da tela. As duas reversões estão nomeadas e foram reexecutadas |
+| `miniaturas-estaveis.test.mjs` | **a `object-URL` de uma capa é do BLOB, não do render** (v1.7.3). Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante processos de download"*. Um teste de "a capa aparece" passa nas DUAS versões — ela aparece, só que um quadro depois, três vezes por segundo —, então o que se afirma é a IDENTIDADE da URL entre dois `renderCollectionsNow` (o redesenho do relato, e não um `load()`: aquele RELÊ o acervo, e um `Blob` relido é outro objeto). Quatro metades: a URL sobrevive, ela continua VÁLIDA (uma igual e revogada seria o defeito piorado), o que SAI de cena é recolhido (sem isto "nunca revogar" passaria — e uma object-URL viva segura o blob inteiro), e a PASTA DO APARELHO, que é o que o desenho pode quebrar sem sintoma: o corpo dela é montado por uma função ASSÍNCRONA, isto é, DEPOIS de o balde do render ter sido devolvido, e sem um balde próprio a varredura seguinte apaga aquelas capas da tela. As duas reversões estão nomeadas e foram reexecutadas. **E A RELEITURA** (v1.7.6), que aquele lote deixou de fora e disse por quê: um `load()` devolve blobs NOVOS para as mesmas capas, e excluir um item É um `load()` — a lista inteira piscava por causa da linha que saiu. A asserção é a IDENTIDADE no CRONOGRAMA depois de excluir OUTRO item, e ela é distinta da validade que o bloco C já media: a capa continuava válida, numa URL nova — é por isso que aquela metade passava com o defeito em cena |
 | `configuracoes-sem-subtitulo.test.mjs` | **as Configurações sem a palavra do estado** (v1.7.2). A segunda linha de cada tile saiu a pedido do operador, e a razão de ela existir era real — *um ícone sozinho responde por CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por semana* —, então o que este oráculo prende não é a remoção: é a informação ter MUDADO DE CANAL. Um tile cujo estado não vira desenho fica idêntico nos dois estados, sem erro e sem sintoma. Mede o giro pela matriz COMPUTADA do ícone (uma regra de CSS ausente deixa o `data-estado` certo e o desenho parado), o wallpaper pelo `display` de cada `<use>` do par novo — **com o tile continuando ACESO nos dois estados**, senão o conserto barato é apagá-lo, e apagado neste app quer dizer INDISPONÍVEL —, e o rótulo do modo em DUAS larguras, pelo número de retângulos de cliente ("Modo avançado" quebrado em duas linhas tem dois, e `scrollWidth` de um inline que quebra não denuncia nada). **Assentar é `getAnimations()` + `finished`**: o ícone GIRA, e uma leitura por relógio mede a transição no meio (MEDIDO: `matrix(0.80, 0.59, …)` a 60 ms, que não é ângulo nenhum) |
 | `pacote-por-grupos.test.mjs` | **a exportação por grupos, e o 0%** (v1.7.2; a folha AGRUPADA e o feedback no BOTÃO entraram na v1.7.3 — o percentual é lido do `.qs-titulo` por um `MutationObserver`, porque um estado final não distingue "andou de 0 a 100" de "pulou para o fim", e há asserção para o rótulo VOLTAR e para o cartão da preview NÃO entrar em cena). Três coisas falham CALADAS. (1) O **LOTE**: cada bloco do canal é uma ida e volta, e ela custa o mesmo para 50 bytes e para 512 kB — a Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e a versão anterior mandava um bloco por cabeçalho e um por corpo. A semente imita isso (400 chaves e nada mais) e a asserção é o número de blocos. (2) O **PROGRESSO** naquela fase, que não era reportado nem somado no plano — a régua é o percentual do CARTÃO no fim, e não o `done` da notificação: `> 0` passa só com o cabeçalho humano (MEDIDO ao escrever o arquivo), e o `done` emitido mede o freio de 700 ms, não o app. (3) A **ESCOLHA** cortar bytes de verdade, com o catálogo seguindo os bytes — um registro de `files` sem o arquivo dele é uma faixa que aparece na Biblioteca do destino e não toca. Cinco reversões nomeadas |
 | `abertura-e-transferencia.test.mjs` | **a CORTINA que não pode ficar no ar**, no cenário catastrófico: o `controle.js` abortado pela rota, o tema guardado já no `<html>` (quem o escreveu foi o script do `<head>`) e a cortina levantando pelo PRAZO — sem isso o app fica trancado, e não há erro em lugar nenhum. Mais a saída por REMOÇÃO DO NÓ, medida por hit-test (uma camada `opacity: 0` sobre a tela inteira continua recebendo o toque). E a BADGE: as TRÊS casas dizem o mesmo número, nenhuma escreve "Web"/"Shell" — **e o REGISTRO continua trazendo o índice do shell**, que é a metade que impede o conserto largo demais. Mais o bloco "Este aparelho", com a reversão (sem ponte ele não existe) |
@@ -4863,57 +4904,83 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.7.5 · APK v1.7.0** · `SHELL_VERSION` **63** ·
-bundle com `minShell: 63` e **sem `shellTag`** — o shell 63 é o **PISO**:
+**Versão atual: base web v1.7.6 · APK v1.7.6** · `SHELL_VERSION` **64** ·
+bundle com `minShell: 64` e **`shellTag: v1.7.6`** — o shell 64 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
-**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só web: `java/`, `res/` e o manifesto
-não foram tocados, e nenhum método da ponte entrou ou mudou de forma. Daí o
-`shellTag` estar AUSENTE — declarado, ele seguraria o bundle esperando uma
-Release que não vai sair, em silêncio, e a única pista seria a linha no resumo
-do run.
+**E ESTE LOTE PEDE RELEASE.** A ponte mudou de FORMA (`pickDoc` passou a
+devolver `size`) e o contrato do `/saf/` ganhou a JANELA — as duas coisas só
+chegam instalando um APK. O `shellTag` segura o bundle até a Release existir, e
+sem ele a metade web chegaria sozinha à frota: `alvo.size` viria `undefined`, o
+leitor pararia em *"não foi possível ler o tamanho"* e a importação ficaria
+IMPOSSÍVEL num aparelho em que ela já não funcionava — o defeito trocado por
+outro, que é o pior desfecho de publicar meio lote.
 
-**O QUE O LOTE TRAZ — o histórico ganhou a anatomia da Biblioteca:**
+**O QUE O LOTE TRAZ — a importação de um acervo de verdade:**
 
 | peça | onde |
 |---|---|
-| o `<li>` do dia virou o BLOCO, com a barra e a lista dele dentro | `renderHistorico`/`histCabecalho` + `.hist-sessao`/`.hist-corpo` |
+| o pacote é lido por JANELAS, e nunca inteiro | `pacoteFonteDaUrl` + `SafJanela.kt` (`/saf/<token>?r=`) |
+| o TAMANHO do documento escolhido | `pickDoc` → `size` (shell 64) |
+| a capa de uma linha é do ITEM, não do objeto `Blob` | `chaveDaCapa`/`thumbUrlDaCapa` |
+| a folha de exportação perdeu a linha de "tudo" | `renderPacoteGrupos` |
 
-> **O DIA E AS LINHAS ERAM O MESMO PIXEL** (v1.7.5). Relato do operador:
-> *"ajuste os cards que separam os dias, para que tenham uma coloração
-> diferente dos cards de itens exibidos naquela seção. Atualmente a lista está
-> confusa, pois está difícil distinguir as sublistas"* — e, em seguida, *"caso
-> ache mais correto, utilize o design de corpo e lista que já temos na
-> biblioteca"*.
+> **A IMPORTAÇÃO NÃO ERA LENTA: ELA NÃO CABIA** (v1.7.6). Relato do operador:
+> *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de
+> 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo
+> estivesse corrompido. Verifique se é problema no leitor, ou é algum problema
+> tamanho do arquivo."* **São os dois, um em cada camada:**
 >
-> **MEDIDO, e era literal:** o cabeçalho pintava `--camada` e a `.row` de cada
-> linha pinta `--linha`, que dentro daquela folha resolve para `--camada`
-> também — `rgb(48, 66, 84)` no escuro e `rgb(212, 218, 226)` no claro, os
-> DOIS. **1,00:1**, o mesmo número que a Biblioteca mediu na v1.5.14 entre a
-> tampa de um álbum e as faixas dele.
+> - **o leitor** fazia `resp.blob()` — o arquivo INTEIRO materializado antes do
+>   primeiro byte. Quinze gigabytes não cabem nem na memória nem no
+>   armazenamento de blobs, que é uma SEGUNDA cópia ao lado da primeira num
+>   aparelho que já está cheio. É o `Failed to fetch`;
+> - **o tamanho**, e este é estrutural: o caminho `/saf/` tem **teto de 2 GB**,
+>   porque o Chromium dimensiona toda resposta interceptada pelo `available()`
+>   do `InputStream` — um `int` (a invariante 8, pelo lado que ninguém tinha
+>   olhado). Acima de `Integer.MAX_VALUE` o web recebe o arquivo CORTADO, sem
+>   erro nenhum, e o cursor tropeça no meio de um registro. É o segundo relato.
 >
-> **A RESPOSTA É A DE LÁ, E ELA TEM DUAS METADES.** O degrau de tom sozinho não
-> resolve o que o relato descreve: *"distinguir as sublistas"* é uma pergunta de
-> ESTRUTURA, e dois tons alternados numa lista PLANA continuam sendo uma corrida
-> de irmãos. A **FILIAÇÃO** é a `.coll-group` inteira (o `<li>` é o BLOCO, com a
-> `.hist-sessao-bar` e uma `ul.hist-corpo` dentro dele) e a **ALTERNÂNCIA** é
-> papel → poço → papel, com quem RESERVA o tom sendo o contêiner:
-> `.hist-corpo { --camada: var(--panel) }`, lido pela `.row-item` em `--linha`.
-> MEDIDO no par novo: **1,43:1** no escuro e **1,35:1** no claro.
+> **A FORMA DO CONSERTO É A DO `StreamProxy`, e não uma invenção:** a faixa vai
+> na QUERY e nunca num cabeçalho `Range` — com o cabeçalho, o `ParseRange` do
+> WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que já é uma fatia.
+> Sem cabeçalho não há `ParseRange`, não há `ComputeBounds`, e o `available()`
+> passa a ser o da JANELA e não o do arquivo. **O teto de 2 GB deixa de existir
+> porque nenhuma resposta chega perto dele.**
 >
-> **O `<li>` CONTINUA SENDO DA MESMA `<ul>`**, pela razão da v1.4.31 — a folha
-> rola inteira, e um cabeçalho fora dela ficaria parado sobre o conteúdo errado.
-> Aninhar não muda isso; muda só de quem cada linha é filha. E a barra **não
-> gruda**: aqui não há tampa de nível acima a que se colar, e um cabeçalho
-> grudado num popup que já rola inteiro flutuaria sobre a lista de OUTRO dia.
->
-> **E OS SELETORES DO PRÓPRIO ORÁCULO MUDARAM JUNTO** — não é ajuste de teste, é
-> o teste voltando a falar do app: a leitura por IRMÃOS descrevia o desenho
-> anterior, e `#histList > li` devolveria blocos VAZIOS enquanto um `.find()`
-> por texto casaria o BLOCO (cujo `textContent` contém o de todas as linhas)
-> antes da linha procurada.
+> **E A LEITURA ANTECIPADA CRESCE E ENCOLHE**, porque uma janela fixa erra nos
+> dois regimes do formato — e foi o oráculo que pegou isso, não a leitura: com
+> 4 MB fixos, a conferência de um acervo (cabeçalhos separados por corpos de
+> centenas de MB) lia 4 MB para aproveitar duzentos bytes, uma vez por registro.
+> A regra é o próprio percurso: pedido que começa onde o buffer acabou é uma
+> CORRIDA de cabeçalhos (dobra, até 1 MB); pedido que salta é um corpo pulado
+> (volta a 8 kB). A Bíblia mora em `state` com uma chave por capítulo — 1189 por
+> versão —, e é ela o regime de cima.
 
-**O LOTE ANTERIOR (v1.7.4) — seis pedidos do operador, e três deles são a MESMA REGRA:**
+> **E A CAPA DE UMA LINHA É DO ITEM, NÃO DO OBJETO** (v1.7.6). Relato: *"os
+> mesmos problemas de miniaturas piscando da biblioteca, temos nas miniaturas
+> piscando no cronograma ao excluir outro item."* A v1.7.4 fechou o REDESENHO e
+> deixou aberta a RELEITURA — e a nota dela já dizia por quê sem tirar a
+> conclusão: *"quem as relê é o `load()`"*. Excluir É um `load()`: o `getAll`
+> devolve blobs NOVOS para as mesmas capas, a chave por objeto não os
+> reconhece, e a lista inteira ganha URLs inéditas. A chave passou a ser
+> `id + tamanho + tipo`, que sobrevive à releitura e continua distinguindo uma
+> capa que mudou. **O preço está dito**: duas capas do mesmo id com exatamente
+> os mesmos bytes seriam confundidas — e a capa de um id é, na prática,
+> imutável (`mediaAdd` usa `add`, não `put`).
+
+> **E A LINHA DE "TUDO" SAIU DA FOLHA DE EXPORTAÇÃO** (v1.7.6), a pedido: *"o
+> seletor de 'tudo' … está inútil agora que temos o agrupamento … deixe tudo
+> selecionado por padrão e o usuário seleciona/desseleciona os poucos itens"*.
+> É o pedido da v1.7.3 chegando ao fim — "marcar tudo" já é o estado em que a
+> folha NASCE, e a barra de um grupo cobre o caso de massa que sobrava.
+
+> **O LOTE ANTERIOR (v1.7.5) — o dia do histórico virou um bloco:** o `<li>` do
+> dia passou a conter a barra e a lista dele (`.hist-sessao`/`.hist-corpo`), com
+> a alternância papel → poço → papel da Biblioteca. Eles eram o mesmo pixel
+> (1,00:1); hoje são 1,43:1 no escuro e 1,35:1 no claro.
+
+**E O ANTERIOR A ELE (v1.7.4) — seis pedidos do operador, e três deles são a MESMA REGRA:**
 
 | peça | onde |
 |---|---|
@@ -4983,7 +5050,7 @@ do run.
 > passou a ser pela UNIÃO dos baldes**, o que fecha por construção a classe de
 > defeito que o balde por host existia para tratar.
 
-> **E O ANTERIOR A ELE (v1.7.3) — a resposta de uma ação nasce ONDE ela foi
+> **E ANTES DELE (v1.7.3) — a resposta de uma ação nasce ONDE ela foi
 > pedida:** o progresso da exportação/importação passou para o PRÓPRIO botão
 > (`falarNoTile`/`calarTile` + `pacoteTrabalhando`), e a folha de escolha ganhou
 > o "tudo" e as coleções AGRUPADAS como na Biblioteca (`plano.folha` +

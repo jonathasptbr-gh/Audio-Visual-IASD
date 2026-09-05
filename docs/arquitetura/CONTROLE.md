@@ -5600,11 +5600,27 @@ de referência de verdade), a **estrela em toda linha** e as **cenas de roteiro*
 > decodificação em cache: ela nasce vazia e pinta no quadro seguinte, três vezes
 > por segundo, em toda linha com capa.
 >
-> `thumbUrlDoBlob` guarda uma URL por BLOB (mais `decoding="sync"`, que é a outra
+> `thumbUrlDaCapa` guarda uma URL por CAPA (mais `decoding="sync"`, que é a outra
 > metade: com a decodificação assíncrona o elemento novo ainda esperava um
-> quadro). O blob é o MESMO objeto entre um render e outro porque quem o segura
-> são as listas em memória, e quem as relê é o `load()` — que é exatamente o
-> momento em que a miniatura PODE mudar.
+> quadro).
+>
+> **E A CHAVE DEIXOU DE SER O OBJETO (v1.7.6).** A v1.7.4 prometeu o redesenho
+> que NÃO relê e disse isso por extenso; o que ela deixou de fora estava na
+> própria nota — *"quem as relê é o `load()`"*. Relato do operador: *"os mesmos
+> problemas de miniaturas piscando da biblioteca, temos nas miniaturas piscando
+> no cronograma ao excluir outro item."* **Excluir É um `load()`**: o `getAll`
+> do IndexedDB devolve blobs NOVOS para as mesmas capas, a chave por objeto não
+> os reconhece, e a lista inteira ganha URLs inéditas — todas as capas piscando
+> por causa da linha que saiu.
+>
+> `chaveDaCapa` é `id + tamanho + tipo`: sobrevive à releitura e continua
+> distinguindo uma capa que MUDOU. **O preço está dito** — duas capas do mesmo
+> id com exatamente os mesmos bytes seriam confundidas, e a antiga ficaria na
+> tela. É aceitável porque a capa de um id é, na prática, imutável (`mediaAdd`
+> usa `add` e não `put`: o que muda de capa muda de id), e porque errar custa
+> uma miniatura velha, não um app quebrado. **Sem `id` a chave volta a ser o
+> OBJETO** — sem ele não há como reencontrar a capa depois da releitura, e uma
+> chave que colidisse entre itens diferentes seria pior que o pisca-pisca.
 >
 > **E a varredura passou a ser pela UNIÃO dos baldes** (`varrerMiniaturas`), não
 > pela diferença: uma URL só morre quando nenhum host a desenha. Isso fecha POR
@@ -5620,7 +5636,10 @@ de referência de verdade), a **estrela em toda linha** e as **cenas de roteiro*
 > varredura seguinte as apaga da tela. UMA chave, e não uma por pasta: só há uma
 > aberta por vez, então abrir outra substitui o balde; uma chave por id deixaria
 > de pé, para sempre, os blobs de toda pasta já visitada. Oráculo:
-> `tools/miniaturas-estaveis.test.mjs`.
+> `tools/miniaturas-estaveis.test.mjs`, cujo bloco E mede a IDENTIDADE da URL no
+> CRONOGRAMA depois de excluir OUTRO item — e ela é outra pergunta que a
+> VALIDADE que o bloco C já media: a capa continuava válida, numa URL nova, e é
+> por isso que aquela metade passava com o defeito em cena.
 
 O mecanismo por baixo continua usando as MESMAS chaves de state (renomear a
 leitura não pode custar a biblioteca de ninguém) — o que mudou é o

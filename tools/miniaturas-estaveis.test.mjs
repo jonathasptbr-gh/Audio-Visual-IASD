@@ -91,10 +91,16 @@ try {
       ids.push(rec.id);
       await AVDB.listAdd('favs', rec.id);
     }
+    // A TERCEIRA é só do CRONOGRAMA: é ela que o bloco E exclui, e pô-la nos
+    // Favoritos mudaria o que o bloco C conta.
+    const terceira = await AVDB.addMedia(bytes, {
+      name: 'Capa C', type: 'audio/mpeg', kind: 'audio', thumb: png, list: 'imports',
+    });
+    ids.push(terceira.id);
     await load();
     return ids;
   });
-  checar(semeou.length === 2, 'dois itens com capa entraram no Cronograma e nos Favoritos', semeou);
+  checar(semeou.length === 3, 'três itens com capa entraram (dois deles nos Favoritos)', semeou);
 
   // A CASA DO RELATO é a seção de Favoritos DENTRO da Biblioteca: é ela que o
   // `renderCollectionsNow` do progresso redesenha a cada 400 ms.
@@ -140,6 +146,60 @@ try {
   checar(viva === true,
     'B · e a URL continua VÁLIDA: uma igual e revogada seria o defeito piorado — '
     + 'a capa não voltaria nunca', viva);
+
+  // =========================================================================
+  // E · E ELA SOBREVIVE A UM `load()` — o CRONOGRAMA, ao excluir OUTRO item
+  // =========================================================================
+  //
+  // Relato do operador: *"os mesmos problemas de miniaturas piscando da
+  // biblioteca, temos nas miniaturas piscando no cronograma ao excluir outro
+  // item."*
+  //
+  // A v1.7.4 prometeu o redesenho que NÃO relê, e disse isso por extenso no
+  // bloco A. Excluir É uma releitura: o `getAll` do IndexedDB devolve BLOBS
+  // NOVOS para as mesmas capas, a chave por OBJETO não os reconhece, e a lista
+  // inteira ganha URLs inéditas — todas as capas piscando por causa da linha
+  // que saiu.
+  //
+  // O QUE SE MEDE É A IDENTIDADE, e não a validade: o bloco C já afirma que a
+  // capa que ficou continua VÁLIDA, e ela continuava — numa URL nova. É por
+  // isso que aquela metade passava com o defeito em cena.
+  //
+  // O CAMINHO É O DA EXCLUSÃO de verdade (`listRemove` + `load()`), que é o que
+  // o `aoConfirmar` da lixeira executa.
+  const srcNoCronograma = (nome) => pg.evaluate((alvo) => {
+    const li = [...document.querySelectorAll('#library > .lib-item')]
+      .find((x) => ((x.querySelector('.row-name') || {}).textContent || '') === alvo);
+    const im = li && li.querySelector('.thumb img');
+    return im ? im.getAttribute('src') : null;
+  }, nome);
+
+  const antesDoExcluir = await srcNoCronograma('Capa A');
+  checar(!!antesDoExcluir && antesDoExcluir.startsWith('blob:'),
+    'E · a capa da primeira linha do Cronograma nasce com uma object-URL',
+    antesDoExcluir);
+  const excluiu = await pg.evaluate(async (id) => {
+    await AVDB.listRemove('imports', id);
+    await load();
+    return !document.querySelector('#library > .lib-item .row-name[data-nada]');
+  }, semeou[2]);
+  const sumiu = await pg.evaluate(() => ![...document.querySelectorAll('#library > .lib-item')]
+    .some((x) => ((x.querySelector('.row-name') || {}).textContent || '') === 'Capa C'));
+  checar(excluiu === true && sumiu === true,
+    'E · o cenário está montado: OUTRO item foi excluído e saiu da lista',
+    { excluiu, sumiu });
+  const depoisDoExcluir = await srcNoCronograma('Capa A');
+  checar(!!depoisDoExcluir && depoisDoExcluir === antesDoExcluir,
+    'E · e a capa de quem FICOU não muda de URL — a chave de uma miniatura é o '
+    + 'ITEM, não o objeto Blob, e um `load()` devolve blobs novos para as mesmas '
+    + 'capas', { antes: antesDoExcluir, depois: depoisDoExcluir });
+  const vivaNoCronograma = await pg.evaluate(async (url) => {
+    try { const r = await fetch(url); return r.ok && (await r.blob()).size > 0; }
+    catch (_) { return false; }
+  }, depoisDoExcluir);
+  checar(vivaNoCronograma === true,
+    'E · e ela continua VÁLIDA: uma URL estável e revogada seria o defeito '
+    + 'piorado', vivaNoCronograma);
 
   // =========================================================================
   // C · O QUE SAI DA LISTA É RECOLHIDO

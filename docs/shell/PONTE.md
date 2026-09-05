@@ -499,10 +499,24 @@ princípio "URLs servíveis, nunca bytes" proíbe. E por que não um `<a downloa
 o WebView deste app não tem `DownloadListener`, e ali um clique desses não faz
 NADA — a mesma parede que criou o `salvarTexto`.
 
-**A IMPORTAÇÃO NÃO TEM MÉTODO NENHUM**, e é o princípio pagando: `pickDoc` já
-devolve uma `/saf/<token>` servível, e o lado web a lê por `fetch` +
-`Blob.slice()` — a mesma técnica com que o `pptxzip.js` abre um `.pptx` de
-570 MB. Um método novo aqui teria sido superfície a mais para nada.
+**A IMPORTAÇÃO CONTINUA SEM MÉTODO PRÓPRIO** — `pickDoc` já devolve uma
+`/saf/<token>` servível —, **mas o `fetch` + `Blob.slice()` da v1.7.0 não
+sobreviveu ao tamanho** (shell 64). Relato do operador: *"'failed to fetch' era
+um arquivo de 15GB… um arquivo de 3,52GB deu erro como se estivesse
+corrompido"*. Dois defeitos, um em cada camada:
+
+- `resp.blob()` materializava o arquivo INTEIRO antes do primeiro byte — quinze
+  gigabytes não cabem nem na memória nem no armazenamento de blobs, que é uma
+  SEGUNDA cópia ao lado da primeira;
+- e o caminho `/saf/` tem **teto de 2 GB**: o Chromium dimensiona toda resposta
+  interceptada pelo `available()` do `InputStream`, que é um `int`. Acima disso
+  o web recebe o arquivo CORTADO, sem erro nenhum.
+
+Hoje o web lê por JANELAS — `/saf/<token>?r=<ini>-<fim>`, servidas pelo
+`SafJanela` — e o `pickDoc` devolve o `size` que diz onde o arquivo acaba. A
+faixa vai na QUERY e nunca num cabeçalho `Range`, pela razão do `StreamProxy`:
+com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA
+vez sobre o que já é uma fatia.
 
 **O canal recusa com `-1` sem destino aberto**, e é isso que faz um empurrão
 órfão (a página recarregou no meio) parar sozinho em vez de gravar num arquivo

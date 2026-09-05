@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.7.5';
+const WEB_VERSION = '1.7.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -689,30 +689,68 @@ const selected = new Set();
 // a união, e não a diferença. Isso fecha por CONSTRUÇÃO a classe de defeito que
 // o balde por host existia para tratar (um host revogando o que o outro tem em
 // cena): uma URL só morre quando ninguém mais a desenha.
-const thumbUrlPorBlob = new Map();   // Blob -> object URL (uma por blob, viva)
-const thumbBlobsPorHost = new Map(); // host -> Set(Blob) do último render dele
-let thumbBlobsAtual = new Set();     // o balde do render em curso
+//
+// ===== E O OBJETO NÃO ATRAVESSA UM `load()` (v1.7.6) =====
+//
+// Relato do operador: *"os mesmos problemas de miniaturas piscando da
+// biblioteca, temos nas miniaturas piscando no cronograma ao excluir outro
+// item."*
+//
+// A v1.7.4 fechou o caso do REDESENHO e deixou aberto o da RELEITURA, e a nota
+// dela já dizia por quê sem tirar a conclusão: *"o blob é o mesmo OBJETO entre
+// um render e outro porque quem o segura são as listas em memória — quem as
+// relê é o `load()`"*. Excluir um item É um `load()`: o `getAll` do IndexedDB
+// devolve BLOBS NOVOS para as mesmas capas, a chave por objeto não os
+// reconhece, e a lista inteira ganha URLs inéditas — todas as capas piscando,
+// por causa da linha que saiu.
+//
+// A CHAVE PASSA A SER O ITEM: `id` + o tamanho e o tipo da capa. Ela sobrevive
+// a uma releitura (é o que o defeito pede) e continua distinguindo uma capa que
+// MUDOU (outro tamanho, outra URL).
+//
+// O PREÇO, dito: duas capas do MESMO id com exatamente o mesmo número de bytes
+// e o mesmo tipo seriam confundidas, e a antiga continuaria na tela. Ele é
+// aceitável porque a capa de um id é, na prática, imutável — `mediaAdd` usa
+// `add` e não `put`, então um registro não é substituído; o que muda de capa
+// muda de id. E o desfecho de errar é uma miniatura velha, não um app quebrado.
+//
+// SEM `id` a chave volta a ser o OBJETO, que é o comportamento da v1.7.4: sem
+// ele não há como reencontrar a capa depois da releitura, e uma chave que
+// colide entre itens diferentes seria pior que o pisca-pisca.
+const thumbUrlPorChave = new Map();   // chave -> object URL (uma por capa, viva)
+const thumbChavesPorHost = new Map(); // host -> Set(chave) do último render dele
+let thumbChavesAtual = new Set();     // o balde do render em curso
+
+// A CHAVE de uma capa. String quando o item tem id; o próprio Blob quando não
+// tem — um `Map` aceita os dois, e o segundo caso é o da v1.7.4.
+function chaveDaCapa(item) {
+  const b = item && item.thumb;
+  if (!b) return '';
+  if (!item.id) return b;
+  return item.id + ':' + b.size + ':' + (b.type || '');
+}
 
 // A URL desta miniatura, criada UMA vez. O `add` é o que a mantém viva: a
 // varredura recolhe o que este render não pediu.
-function thumbUrlDoBlob(blob) {
-  thumbBlobsAtual.add(blob);
-  let url = thumbUrlPorBlob.get(blob);
-  if (!url) { url = URL.createObjectURL(blob); thumbUrlPorBlob.set(blob, url); }
+function thumbUrlDaCapa(item) {
+  const chave = chaveDaCapa(item);
+  thumbChavesAtual.add(chave);
+  let url = thumbUrlPorChave.get(chave);
+  if (!url) { url = URL.createObjectURL(item.thumb); thumbUrlPorChave.set(chave, url); }
   return url;
 }
 
 // Revoga o que NENHUM host desenha mais. Sem ela cada `load()` deixaria para
-// trás a URL de todo blob substituído — e uma object URL viva SEGURA o blob,
+// trás a URL de toda capa substituída — e uma object URL viva SEGURA o blob,
 // então o vazamento seria de memória de verdade, não de um punhado de strings.
 function varrerMiniaturas() {
-  if (!thumbUrlPorBlob.size) return;
+  if (!thumbUrlPorChave.size) return;
   const vivos = new Set();
-  thumbBlobsPorHost.forEach((baldes) => baldes.forEach((b) => vivos.add(b)));
-  thumbUrlPorBlob.forEach((url, blob) => {
-    if (vivos.has(blob)) return;
+  thumbChavesPorHost.forEach((baldes) => baldes.forEach((k) => vivos.add(k)));
+  thumbUrlPorChave.forEach((url, chave) => {
+    if (vivos.has(chave)) return;
     URL.revokeObjectURL(url);
-    thumbUrlPorBlob.delete(blob);
+    thumbUrlPorChave.delete(chave);
   });
 }
 // FAVORITOS: os ids marcados. `Set` em memória porque a tela pergunta "este item
@@ -3609,7 +3647,7 @@ function thumbEl(item) {
     t.appendChild(im);
   } else if (item.thumb) {
     const im = document.createElement('img');
-    im.src = thumbUrlDoBlob(item.thumb);
+    im.src = thumbUrlDaCapa(item);
     im.alt = '';
     // `sync` porque a `<img>` é MONTADA a cada redesenho: com a decodificação
     // assíncrona (o padrão), a capa já decodificada ainda esperava um quadro
@@ -9699,9 +9737,10 @@ let favHost = null;
 function favAlvo() { return favHost; }
 
 /**
- * O BALDE DE MINIATURAS DE UM RENDER — hoje um conjunto de BLOBS (v1.7.4).
+ * O BALDE DE MINIATURAS DE UM RENDER — um conjunto de CHAVES DE CAPA (v1.7.6;
+ * eram os Blobs desde a v1.7.4 — ver `chaveDaCapa`).
  *
- * `thumbEl` pede a URL de cada capa a `thumbUrlDoBlob`, que a registra no balde
+ * `thumbEl` pede a URL de cada capa a `thumbUrlDaCapa`, que a registra no balde
  * do render EM CURSO. Cada host tem o seu, e a varredura no fim recolhe o que
  * não está em nenhum: quem some da lista some da memória, e quem continua em
  * cena continua com a MESMA URL, seja qual for o host que a desenhou.
@@ -9722,14 +9761,14 @@ function favAlvo() { return favHost; }
  * host vazio no meio da própria passada dele.
  */
 function comBaldeDeMiniaturas(chave, fn) {
-  const anterior = thumbBlobsAtual;
+  const anterior = thumbChavesAtual;
   const usados = new Set();
-  thumbBlobsAtual = usados;
+  thumbChavesAtual = usados;
   try {
     fn();
   } finally {
-    thumbBlobsAtual = anterior;
-    thumbBlobsPorHost.set(chave, usados);
+    thumbChavesAtual = anterior;
+    thumbChavesPorHost.set(chave, usados);
     varrerMiniaturas();
   }
 }
@@ -23391,10 +23430,6 @@ function pacoteSelecao(plano) {
   return sel;
 }
 
-/** As chaves que o operador PODE marcar — tudo menos o fixo. */
-function pacoteChavesLivres(plano) {
-  return plano.grupos.filter((g) => !g.fixo).map((g) => g.chave);
-}
 
 /**
  * `todas` · `nenhuma` · `parte` — o estado de uma marca de GRUPO.
@@ -23443,38 +23478,23 @@ function renderPacoteGrupos(plano) {
   const remontar = () => renderPacoteGrupos(plano);
   destRemontar = remontar;
   const porChave = new Map(plano.grupos.map((g) => [g.chave, g]));
-  const livres = pacoteChavesLivres(plano);
 
-  // ===== "TUDO", A PRIMEIRA LINHA (v1.7.3) =====
+  // ===== NÃO HÁ LINHA DE "TUDO", E ELA EXISTIU (v1.7.3 → v1.7.6) =====
   //
-  // Pedido do operador: *"haja uma opção de selecionar todos"*. Ela é um
-  // ALTERNADOR e não dois botões: com tudo marcado ela LIMPA, com qualquer
-  // coisa desmarcada ela MARCA TUDO. Dois botões ("marcar" / "limpar") seriam
-  // um deles sempre inútil, e o estado da caixa já diz qual dos dois o toque
-  // vai fazer.
-  const geral = pacoteEstadoDe(livres);
-  const liTudo = document.createElement('li');
-  const btnTudo = document.createElement('button');
-  btnTudo.type = 'button';
-  btnTudo.className = 'song-menu-btn song-menu-sel song-menu-tudo';
-  const icTudo = document.createElement('span');
-  icTudo.className = 'song-menu-icon';
-  icTudo.innerHTML = pacoteIconeSvg('icoExportar');
-  const txTudo = document.createElement('span'); txTudo.className = 'song-menu-text';
-  const rotTudo = document.createElement('span'); rotTudo.className = 'song-menu-label';
-  rotTudo.textContent = geral === 'todas' ? 'Limpar a seleção' : 'Selecionar tudo';
-  const subTudo = document.createElement('span'); subTudo.className = 'song-menu-sub';
-  subTudo.textContent = livres.filter((k) => destMarcados.has(k)).length
-    + ' de ' + livres.length + ' · ' + fmtBytes(pacoteBytesDe(plano, pacoteSelecao(plano)));
-  txTudo.append(rotTudo, subTudo);
-  btnTudo.append(icTudo, txTudo, pacoteCheckGrupo(geral));
-  btnTudo.addEventListener('click', () => {
-    if (geral === 'todas') for (const k of livres) destMarcados.delete(k);
-    else for (const k of livres) destMarcados.add(k);
-    remontar();
-  });
-  liTudo.appendChild(btnTudo);
-  songMenuListEl.appendChild(liTudo);
+  // Ela era um ALTERNADOR na primeira linha ("Selecionar tudo" / "Limpar a
+  // seleção"), e saiu a pedido do operador: *"O seletor de 'tudo' no processo
+  // de seleção de exportação está inútil agora que temos o agrupamento, então
+  // não precisa dele, deixe tudo selecionado por padrão e o usuário
+  // seleciona/desseleciona os poucos itens."*
+  //
+  // **O AGRUPAMENTO É QUEM A TORNOU INÚTIL**, e isso é o pedido da v1.7.3
+  // chegando ao fim: "marcar tudo" já é o ESTADO EM QUE A FOLHA NASCE, e
+  // "limpar tudo" para depois remarcar quase tudo é mais toques que tirar as
+  // duas ou três coleções que não vão. A barra de um GRUPO cobre o caso de
+  // massa que sobrava — uma seção inteira num toque.
+  //
+  // O que ela dizia e não se perdeu: o PESO do que está marcado continua no
+  // botão de confirmar, que é onde a pergunta ("cabe no cartão?") é feita.
 
   const linhaDeGrupo = (g, dentro) => {
     const peso = fmtBytes(g.bytes);
@@ -23825,24 +23845,134 @@ async function exportarPacote() {
  * `ArrayBuffer`. É a mesma técnica com que o `pptxzip.js` abre um `.pptx` de
  * 570 MB.
  */
-function pacoteCursor(blob) {
+// ===== A FONTE DE UM PACOTE, E POR QUE ELA NÃO É UM `Blob` (v1.7.6) =====
+//
+// Relato do operador: *"Não estou conseguindo importar os dados, 'failed to
+// fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro
+// como se o arquivo estivesse corrompido."*
+//
+// Eram DOIS defeitos, um em cada camada, e os dois só aparecem no tamanho:
+//
+//  1. **`resp.blob()` materializava o arquivo INTEIRO** antes do primeiro byte
+//     ser lido. Quinze gigabytes não cabem em lugar nenhum — nem na memória,
+//     nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da
+//     primeira num aparelho que já está cheio. O `Failed to fetch` é isso.
+//  2. **o caminho `/saf/` tem teto de 2 GB, e ele é estrutural**: o Chromium
+//     dimensiona toda resposta interceptada pelo `available()` do
+//     `InputStream`, que é um `int` (ver a invariante 8 e o `SafJanela.kt`).
+//     Acima de `Integer.MAX_VALUE` o web recebe um arquivo CORTADO, sem erro
+//     nenhum, e o cursor tropeça no meio de um registro. É o segundo relato.
+//
+// A FONTE é a resposta aos dois: ela entrega FATIAS e nunca o arquivo. O
+// formato do pacote já era sequencial e por deslocamento — o que faltava era
+// um leitor que não precisasse do arquivo inteiro na mão para começar.
+//
+// DUAS OPERAÇÕES, e elas são separadas porque custam coisas diferentes:
+//  · `bytes(ini, fim)` → `Uint8Array` para os CABEÇALHOS, que são dezenas de
+//    bytes e vêm aos milhares (a Bíblia é uma chave por capítulo);
+//  · `blob(ini, fim, tipo)` → `Blob` para os CORPOS, montado a partir de
+//    pedaços para que a memória fique no tamanho do PEDAÇO e não no do item.
+//
+// HÁ UMA FONTE SÓ, e é a de URL: a importação é NATIVA por construção
+// (`if (!window.__NATIVE__) return`), então uma segunda fonte sobre um `Blob`
+// já na mão não teria chamador nenhum — e uma fonte sem consumidor é a
+// armadilha de quem for lê-la amanhã achando que há dois caminhos.
+
+// A leitura antecipada dos CABEÇALHOS e o PEDAÇO de um corpo. Os dois abaixo do
+// teto de 24 MB do `SafJanela`, que é a trava do outro lado.
+const PACOTE_JANELA_MIN = 8 * 1024;
+const PACOTE_JANELA_MAX = 1024 * 1024;
+const PACOTE_PEDACO = 8 * 1024 * 1024;
+
+/**
+ * A fonte de um documento do aparelho, lida por JANELAS (`?r=<ini>-<fim>`).
+ *
+ * A LEITURA ANTECIPADA existe por medição do próprio formato: a Bíblia mora em
+ * `state` com uma chave POR CAPÍTULO (1189 por versão), então os cabeçalhos vêm
+ * aos milhares e EM SEQUÊNCIA. Sem o buffer, a conferência faria duas
+ * requisições por registro. Os CORPOS não passam por ele — eles são o que pesa,
+ * e guardá-los seria a materialização de volta.
+ *
+ * E ELA CRESCE E ENCOLHE, porque uma janela fixa erra nos DOIS regimes e o
+ * oráculo pegou isso: com 4 MB fixos, a conferência de um pacote de acervo
+ * (cabeçalhos separados por corpos de centenas de MB) lia 4 MB para aproveitar
+ * duzentos bytes, uma vez por registro — mais bytes que o arquivo inteiro. Com
+ * uma janela pequena fixa, a corrida de chaves da Bíblia volta a ser uma
+ * requisição por registro.
+ *
+ * A REGRA É A DO PRÓPRIO PERCURSO: pedido que começa onde o buffer acabou é uma
+ * CORRIDA (dobra, até 1 MB); pedido que salta é um corpo pulado (volta ao
+ * mínimo). Os dois regimes do formato, cada um no tamanho dele.
+ */
+function pacoteFonteDaUrl(url, size) {
+  let bufIni = 0;
+  let buf = new Uint8Array(0);
+  let janelaAtual = PACOTE_JANELA_MIN;
+  const janela = async (ini, fim) => {
+    const r = await fetch(url + '?r=' + ini + '-' + (fim - 1), { cache: 'no-store' });
+    // O MOTIVO VIAJA NA RAZÃO HTTP (a receita do `StreamProxy`): sem ele o que
+    // chega ao operador é um número solto, e uma faixa recusada e um documento
+    // que sumiu do aparelho pedem ações opostas.
+    if (!r.ok) throw new Error('pacote: janela ' + r.status + ' ' + (r.statusText || ''));
+    const u8 = new Uint8Array(await r.arrayBuffer());
+    if (!u8.length) throw new Error('pacote: acabou no meio de um registro');
+    return u8;
+  };
+  return {
+    size,
+    async bytes(ini, fim) {
+      if (ini >= bufIni && fim <= bufIni + buf.length) {
+        return buf.subarray(ini - bufIni, fim - bufIni);
+      }
+      // SEQUÊNCIA ou SALTO — ver a nota acima. `bufIni + buf.length` é onde o
+      // buffer anterior acabou; começar exatamente ali é a corrida de
+      // cabeçalhos que vale a pena antecipar.
+      janelaAtual = (ini === bufIni + buf.length)
+        ? Math.min(PACOTE_JANELA_MAX, janelaAtual * 2)
+        : PACOTE_JANELA_MIN;
+      const ate = Math.min(size, Math.max(fim, ini + janelaAtual));
+      buf = await janela(ini, ate);
+      bufIni = ini;
+      if (fim - ini > buf.length) throw new Error('pacote: acabou no meio de um registro');
+      return buf.subarray(0, fim - ini);
+    },
+    async blob(ini, fim, tipo) {
+      // AS PARTES VIRAM UM `Blob` DE UMA VEZ, e é isso que mantém a memória no
+      // tamanho do pedaço: o `Blob` mora no armazenamento do navegador (que
+      // pagina para o disco), e o que passa pelo heap é um pedaço por vez.
+      const partes = [];
+      for (let p = ini; p < fim; p += PACOTE_PEDACO) {
+        partes.push(await janela(p, Math.min(fim, p + PACOTE_PEDACO)));
+      }
+      return new Blob(partes, { type: tipo || '' });
+    },
+  };
+}
+
+/**
+ * O cursor, sobre uma FONTE.
+ *
+ * `comCorpo` é o que separa a CONFERÊNCIA da aplicação: a primeira percorre o
+ * arquivo inteiro só pelos cabeçalhos, PULANDO os corpos pelo `bytes` que cada
+ * um declara — e num pacote lido por janelas buscar um corpo que ninguém vai
+ * usar seria ler gigabytes duas vezes.
+ */
+function pacoteCursor(fonte) {
   let pos = AVPacote.ASSINATURA_BYTES;
   return {
     get pos() { return pos; },
-    async proximo() {
-      if (pos >= blob.size) return null;
+    async proximo(comCorpo) {
+      if (pos >= fonte.size) return null;
       const p = AVPacote.PREFIXO_BYTES;
-      const n = AVPacote.tamanhoDoCabecalho(
-        new Uint8Array(await blob.slice(pos, pos + p).arrayBuffer()),
-      );
+      const n = AVPacote.tamanhoDoCabecalho(await fonte.bytes(pos, pos + p));
       const cabIni = pos + p;
-      if (cabIni + n > blob.size) throw new Error('pacote: acabou no meio de um registro');
-      const cab = AVPacote.cabecalhoDeBytes(
-        new Uint8Array(await blob.slice(cabIni, cabIni + n).arrayBuffer()),
-      );
+      if (cabIni + n > fonte.size) throw new Error('pacote: acabou no meio de um registro');
+      const cab = AVPacote.cabecalhoDeBytes(await fonte.bytes(cabIni, cabIni + n));
       const corpoIni = cabIni + n;
-      if (corpoIni + cab.bytes > blob.size) throw new Error('pacote: acabou no meio de um registro');
-      const corpo = cab.bytes ? blob.slice(corpoIni, corpoIni + cab.bytes, cab.tipo || '') : null;
+      if (corpoIni + cab.bytes > fonte.size) throw new Error('pacote: acabou no meio de um registro');
+      const corpo = (comCorpo !== false && cab.bytes)
+        ? await fonte.blob(corpoIni, corpoIni + cab.bytes, cab.tipo || '')
+        : null;
       pos = corpoIni + cab.bytes;
       return { cab, corpo };
     },
@@ -23894,9 +24024,11 @@ function pacoteMesclarValor(local, vindo) {
  * para importar". Um pacote é ou não é: com a conferência à frente, ele é
  * recusado INTEIRO, e o aparelho fica exatamente como estava.
  *
- * **E ela é barata**, que é o que a torna aceitável: `Blob.slice()` é
- * preguiçoso, e o que se lê são alguns milhares de fatias de duzentos bytes —
- * não os gigabytes que vêm depois.
+ * **E ela é barata**, que é o que a torna aceitável: ela pede `proximo(false)`
+ * e o que se lê são alguns milhares de fatias de duzentos bytes — não os
+ * gigabytes que vêm depois. Sobre um `Blob` isso é de graça (o `slice` é
+ * preguiçoso); sobre um documento do aparelho, a fonte lê por JANELAS de 4 MB
+ * e serve os cabeçalhos em sequência de dentro delas.
  */
 // AS DUAS FRASES DE UM PACOTE QUE NÃO ABRE, e elas pedem ações opostas:
 // "incompleto" manda copiar o arquivo de novo (a cópia entre os dois aparelhos
@@ -23908,11 +24040,15 @@ const PACOTE_INCOMPLETO = 'O pacote está incompleto — ele acabou antes do fim
   + 'Copie o arquivo de novo e tente outra vez.';
 const PACOTE_DANIFICADO = 'O pacote está danificado — o app não reconhece o conteúdo dele.';
 
-async function pacoteConferir(blob) {
-  const cursor = pacoteCursor(blob);
+async function pacoteConferir(fonte) {
+  const cursor = pacoteCursor(fonte);
   try {
     for (;;) {
-      const r = await cursor.proximo();
+      // SEM CORPO: ela lê cabeçalhos e PULA os bytes de cada um. Sobre um
+      // `Blob` isso já era de graça (o `slice` é preguiçoso); sobre uma fonte
+      // lida por JANELAS, buscar um corpo que ninguém vai usar leria o pacote
+      // inteiro duas vezes.
+      const r = await cursor.proximo(false);
       if (!r) break;               // os bytes acabaram sem o registro `fim`
       if (r.cab.t === 'fim') return;
     }
@@ -23940,17 +24076,29 @@ async function importarPacote() {
   let erro = '';
   const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0 };
   try {
-    const resp = await fetch(alvo.url);
-    if (!resp.ok) throw new Error('Não foi possível ler o arquivo escolhido.');
-    const blob = await resp.blob();
+    // ===== NADA DE `resp.blob()` (v1.7.6) =====
+    //
+    // Ele materializava o arquivo INTEIRO antes do primeiro byte ser lido, e é
+    // metade do relato do operador: quinze gigabytes não cabem em lugar nenhum.
+    // A outra metade é o teto de 2 GB do caminho `/saf/` — as duas estão
+    // explicadas em `pacoteFonteDaUrl` e no `SafJanela.kt`.
+    //
+    // O TAMANHO VEM DO `pickDoc` (shell 64) e é obrigatório: sem ele não há
+    // como saber onde o arquivo acaba, e um leitor por janelas sem fim é um
+    // laço infinito. `-1` é "o provedor não disse" — diferente de `0`, que é um
+    // arquivo vazio —, e os dois param aqui com frases próprias.
+    const tam = typeof alvo.size === 'number' ? alvo.size : -1;
+    if (tam < 0) throw new Error('Não foi possível ler o tamanho do arquivo escolhido.');
+    if (tam < AVPacote.ASSINATURA_BYTES) throw new Error(PACOTE_DANIFICADO);
+    const fonte = pacoteFonteDaUrl(alvo.url, tam);
     const assinatura = AVPacote.conferirAssinatura(
-      new Uint8Array(await blob.slice(0, AVPacote.ASSINATURA_BYTES).arrayBuffer()),
+      await fonte.bytes(0, AVPacote.ASSINATURA_BYTES),
     );
     if (!assinatura.ok) throw new Error(assinatura.erro);
     // O PACOTE INTEIRO É CONFERIDO ANTES DE UMA LINHA SER GRAVADA. Ver
     // `pacoteConferir`: é o que faz um arquivo cortado no meio ser recusado
     // inteiro, em vez de entrar pela metade.
-    await pacoteConferir(blob);
+    await pacoteConferir(fonte);
     await withBgWork(async () => {
       const tarefa = bgTaskStart('Importando o acervo', 1);
       bgItemOnly(tarefa, alvo.name || 'pacote');
@@ -23962,7 +24110,7 @@ async function importarPacote() {
       // ela só ACRESCENTA, então o que já entrou está certo, e desfazê-lo seria
       // apagar o que o operador foi buscar.
       try {
-        const cursor = pacoteCursor(blob);
+        const cursor = pacoteCursor(fonte);
         // O ITEM EM MONTAGEM. A miniatura e as páginas de uma mídia chegam
         // DEPOIS do registro dela (é o contrato do exportador), então ele fica
         // pendente até o registro seguinte que não é dele. Os Blobs guardados
@@ -23991,10 +24139,10 @@ async function importarPacote() {
           const r = await cursor.proximo();
           if (!r) throw new Error('O pacote está incompleto — ele acabou antes do fim.');
           const { cab, corpo } = r;
-          bgTaskBytes(tarefa, cursor.pos, blob.size);
-          if (blob.size) {
+          bgTaskBytes(tarefa, cursor.pos, fonte.size);
+          if (fonte.size) {
             falarNoTile(pacoteImportarTileEl,
-              Math.min(100, Math.round((cursor.pos / blob.size) * 100)) + '%', 0);
+              Math.min(100, Math.round((cursor.pos / fonte.size) * 100)) + '%', 0);
           }
           if (cab.t === 'media-thumb' && pendente && pendente.tipo === 'media') {
             pendente.rec.thumb = corpo; continue;

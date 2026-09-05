@@ -347,26 +347,23 @@ try {
   checar(/2 de 2/.test((secao && secao.sub) || ''),
     'B · com a conta do que está marcado dentro dela', secao && secao.sub);
 
-  // ===== "SELECIONAR TUDO" É UM ALTERNADOR =====
+  // ===== NÃO HÁ LINHA DE "TUDO", E TUDO NASCE MARCADO (v1.7.6) =====
   //
-  // Com tudo marcado — que é como a folha nasce — ele LIMPA, e o rótulo diz
-  // isso. Dois botões seriam um deles sempre inútil, e a ordem deste bloco é a
-  // prova: a primeira linha da folha aberta já se chama "Limpar a seleção".
-  checar(fechada[0].rotulo === 'Limpar a seleção' && fechada[0].marca === 'todas',
-    'B · com tudo marcado, a primeira linha da folha LIMPA — o rótulo dela diz '
-    + 'qual das duas coisas o toque vai fazer',
-    JSON.stringify([fechada[0].rotulo, fechada[0].marca]));
-  await tocar(b.pg, 'Limpar a seleção');
-  const vazia = await lerFolha(b.pg);
-  checar(vazia[0].rotulo === 'Selecionar tudo' && vazia[0].marca === 'nenhuma'
-    && !vazia.some((l) => l.marca === 'todas' && !l.sub.includes('sempre vai junto')),
-    'B · e limpar tira a marca de TODAS as linhas de uma vez — menos a fixa, que '
-    + 'não se desmarca', JSON.stringify(vazia.map((l) => [l.rotulo, l.marca])));
-  await tocar(b.pg, 'Selecionar tudo');
-  const cheia = await lerFolha(b.pg);
-  checar(cheia[0].rotulo === 'Limpar a seleção' && cheia[0].marca === 'todas',
-    'B · e marcar de volta também é um toque só',
-    JSON.stringify(cheia.map((l) => [l.rotulo, l.marca])));
+  // Ela existiu da v1.7.3 à v1.7.5 e saiu a pedido: *"o seletor de 'tudo' …
+  // está inútil agora que temos o agrupamento … deixe tudo selecionado por
+  // padrão e o usuário seleciona/desseleciona os poucos itens"*.
+  //
+  // AS DUAS METADES, e a segunda é a que impede o conserto largo demais: a
+  // linha não existe **e** a folha continua abrindo com tudo marcado. Só a
+  // primeira passaria com a folha nascendo VAZIA, que é o estado em que o
+  // operador teria de montar a seleção inteira à mão — o oposto do pedido.
+  checar(!fechada.some((l) => /Selecionar tudo|Limpar a seleção/.test(l.rotulo)),
+    'B · a folha não tem mais a linha de "tudo" — com o agrupamento ela virou '
+    + 'toques a mais para chegar ao estado em que a folha já nasce',
+    JSON.stringify(fechada.map((l) => l.rotulo)));
+  checar(fechada.every((l) => !l.marca || l.marca === 'todas'),
+    'B · e TUDO nasce marcado: o que se faz nela é TIRAR as poucas coleções que '
+    + 'não vão', JSON.stringify(fechada.map((l) => [l.rotulo, l.marca])));
 
   // ===== A BARRA DO GRUPO MARCA O GRUPO INTEIRO =====
   await tocar(b.pg, 'Álbuns');

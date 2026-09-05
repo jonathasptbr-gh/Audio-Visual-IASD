@@ -35,7 +35,42 @@ import { servirEstatico, abrirNavegador, esperar, esperarDb, checar, falhas } fr
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
-const servidor = servirEstatico(RAIZ);
+// ===== O ARQUIVO ESCOLHIDO É SERVIDO POR JANELA (v1.7.6) =====
+//
+// No aparelho o `.avpkg` chega como uma `/saf/<token>` e o lado web o lê em
+// FATIAS (`?r=<ini>-<fim>`), porque o caminho antigo — `resp.blob()` — não
+// existe mais: ele materializava o arquivo inteiro, e quinze gigabytes não
+// cabem em lugar nenhum.
+//
+// A ROTA DAQUI FALA O MESMO CONTRATO do `SafJanela.kt`, e é isso que a torna
+// uma prova: um servidor de mentira mais permissivo que o de verdade aprovaria
+// um leitor que o aparelho recusa. Um `blob:` — que era o que este oráculo
+// entregava — não tem query nenhuma, e por ele o leitor novo nem sairia do
+// lugar.
+let pacoteServido = null;   // Uint8Array — o arquivo que o "aparelho B" escolhe
+// O DIÁRIO DA LEITURA. É por ele que o bloco 5 mede o que não tem sintoma:
+// quantas janelas foram pedidas, de que tamanho, e se alguém pediu o arquivo
+// SEM faixa — que é o `resp.blob()` de volta.
+let janelas = [];
+let semFaixa = 0;
+const zerarDiario = () => { janelas = []; semFaixa = 0; };
+const bytesLidos = () => janelas.reduce((t, j) => t + (j.fim - j.ini + 1), 0);
+
+const servidor = servirEstatico(RAIZ, (req, res) => {
+  const u = new URL(req.url, 'http://x');
+  if (u.pathname !== '/pacote-de-teste') return false;
+  if (!pacoteServido) { res.writeHead(404).end('sem pacote'); return true; }
+  const m = /^(\d+)-(\d+)$/.exec(u.searchParams.get('r') || '');
+  if (!m) { semFaixa++; res.writeHead(416).end('sem faixa'); return true; }
+  const ini = Number(m[1]);
+  const fim = Number(m[2]);
+  if (fim < ini) { res.writeHead(416).end('faixa invertida'); return true; }
+  janelas.push({ ini, fim });
+  const fatia = pacoteServido.subarray(ini, Math.min(pacoteServido.length, fim + 1));
+  res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' });
+  res.end(Buffer.from(fatia));
+  return true;
+});
 
 // ---------------------------------------------------------------------------
 // A PONTE, com o CANAL DE BYTES de mentira
@@ -88,15 +123,19 @@ const PONTE = `(function () {
       for (const p of (window.__saida || [])) total += p.length;
       setTimeout(() => window.__avResolve(id, total), 0);
     },
-    // O ARQUIVO ESCOLHIDO na importação. Ele chega como uma \`/saf/<token>\`
-    // servível no aparelho; aqui é um \`blob:\` do próprio documento — o que o
-    // lado web faz com ele é o mesmo \`fetch\` + \`Blob.slice()\` nos dois casos.
+    // O ARQUIVO ESCOLHIDO na importação. No aparelho ele é uma
+    // \`/saf/<token>\` que o shell serve POR JANELA; aqui é a rota do próprio
+    // servidor do oráculo, que fala o mesmo contrato.
+    //
+    // O \`size\` ENTROU NO SHELL 64 e é obrigatório: sem ele o leitor não sabe
+    // onde o arquivo acaba. \`-1\` é "o provedor não disse", e o app para com
+    // frase própria — é o que o bloco 5 mede.
     pickDoc: (id) => {
-      const bytes = window.__entrada || null;
-      const url = bytes
-        ? URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'application/octet-stream' }))
-        : '';
-      setTimeout(() => window.__avResolve(id, url ? [{ url, name: 'acervo-de-teste.avpkg', type: '' }] : []), 0);
+      const tam = window.__tamEntrada;
+      const achou = typeof tam === 'number';
+      setTimeout(() => window.__avResolve(id, achou
+        ? [{ url: '/pacote-de-teste', name: 'acervo-de-teste.avpkg', type: '', size: tam }]
+        : []), 0);
     },
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
@@ -141,7 +180,10 @@ async function aparelho(entrada) {
   });
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
   await pg.addInitScript(PONTE);
-  if (entrada) await pg.addInitScript(`window.__entrada = ${JSON.stringify(entrada)};`);
+  if (entrada) {
+    pacoteServido = Uint8Array.from(entrada);
+    await pg.addInitScript(`window.__tamEntrada = ${entrada.length};`);
+  }
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await esperar(pg, () => !document.getElementById('splash'), null, 30000);
   return { ctx, pg };
@@ -213,6 +255,12 @@ try {
     });
     await AVDB.opfsWriteFile('folders/colecao/001-fundo.jpg',
       new Blob([new Uint8Array(500).fill(5)], { type: 'image/jpeg' }));
+    // UM CORPO GRANDE, e ele existe só para o bloco 5: com os corpos dominando
+    // o arquivo, "a conferência leu os corpos" e "não leu" são dois números
+    // separados por um fator de dois. Com a semente toda em bytes contados, os
+    // dois seriam indistinguíveis do ruído dos cabeçalhos.
+    await AVDB.opfsWriteFile('folders/colecao/002-grande.m4a',
+      new Blob([new Uint8Array(512 * 1024).fill(11)], { type: 'audio/mp4' }));
     await AVDB.setState('lyricsFont', 'grande-de-teste');
     await AVDB.setState('favs', ['item-de-teste']);
     // A PASTA DO APARELHO, com um arquivo dentro. Ela é o corte declarado do
@@ -262,6 +310,7 @@ try {
   // listas do módulo foram lidas uma vez, no `init()`). O oráculo espera pela
   // NAVEGAÇÃO, não por um prazo.
   const recarregou = b.pg.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
+  zerarDiario();
   await b.pg.evaluate(() => { window.__fim = importarPacote(); });
   const conta = await responderDialogo(b.pg);
   checar(typeof conta === 'string' && /entraram neste aparelho/.test(conta),
@@ -311,6 +360,42 @@ try {
     '2 · e a PASTA DO APARELHO ficou para trás, com os arquivos dela — as concessões do SAF '
     + 'não existem aqui, e uma pasta que não pode ser relida o app lê como "sumiu do aparelho"',
     { arquivo: chegou.pastaDoCelular, catalogo: chegou.pastas });
+
+  // =========================================================================
+  // 5 · O ARQUIVO É LIDO POR JANELAS, E A CONFERÊNCIA NÃO LÊ OS CORPOS (v1.7.6)
+  // =========================================================================
+  //
+  // Relato do operador: *"Não estou conseguindo importar os dados, 'failed to
+  // fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu
+  // erro como se o arquivo estivesse corrompido."*
+  //
+  // Eram dois defeitos, e NENHUM dos dois tem sintoma num arquivo pequeno —
+  // que é a razão de este bloco medir o COMO e não o desfecho: o percurso
+  // inteiro dos blocos 1 a 4 passava com o leitor antigo.
+  //
+  //  · **`resp.blob()` materializava o arquivo inteiro** antes do primeiro byte
+  //    ser lido. A asserção é a AUSÊNCIA de um pedido sem faixa: o leitor de
+  //    hoje nunca busca o documento inteiro, e o de ontem só sabia fazer isso.
+  //  · **e o `/saf/` tem teto de 2 GB** (o `available()` do Chromium é `int` —
+  //    ver o `SafJanela.kt`), então uma janela grande demais devolve o arquivo
+  //    CORTADO sem erro nenhum. A asserção é o TAMANHO da maior janela.
+  //  · **a conferência percorre o arquivo inteiro** antes de gravar a primeira
+  //    linha, e ela lê só cabeçalhos: com os corpos, um pacote de gigabytes
+  //    seria lido DUAS vezes. A asserção é aritmética — o total lido fica perto
+  //    do tamanho do arquivo, não perto do dobro.
+  const maior = janelas.reduce((m, j) => Math.max(m, j.fim - j.ini + 1), 0);
+  checar(semFaixa === 0 && janelas.length > 1,
+    '5 · o arquivo é lido por JANELAS, e NUNCA de uma vez — um pedido sem faixa '
+    + 'é o `resp.blob()` de volta, e ele é o que não cabe em quinze gigabytes',
+    { semFaixa, janelas: janelas.length });
+  checar(maior > 0 && maior <= 8 * 1024 * 1024,
+    '5 · e nenhuma janela passa do PEDAÇO — acima do teto do `SafJanela` o '
+    + 'aparelho devolve o arquivo cortado, sem erro nenhum',
+    { maior, teto: 8 * 1024 * 1024 });
+  checar(bytesLidos() < saida.length * 1.5,
+    '5 · e a CONFERÊNCIA não lê os corpos: ela percorre o arquivo inteiro pelos '
+    + 'cabeçalhos, e lê-los duas vezes dobraria a importação de um acervo',
+    { lidos: bytesLidos(), arquivo: saida.length });
 
   // =========================================================================
   // 3 · IMPORTAR DE NOVO NÃO PODE APAGAR NADA
@@ -373,6 +458,30 @@ try {
     checar(entrou.media === 0 && entrou.pref === undefined,
       '4 · e NADA entrou — a conferência roda antes de a primeira linha ser gravada', entrou);
     await c.ctx.close();
+  }
+
+  // =========================================================================
+  // 6 · SEM O TAMANHO, A IMPORTAÇÃO PARA E DIZ (v1.7.6)
+  // =========================================================================
+  //
+  // O `size` do `pickDoc` entrou no shell 64 e é o que diz ao leitor onde o
+  // arquivo acaba. Um provedor de documentos pode não informá-lo, e o que NÃO
+  // pode acontecer ali é o leitor seguir mesmo assim: `size` ausente vira `-1`,
+  // e `-1` lido como "zero bytes" faria um pacote bom ser recusado como vazio —
+  // ou, pior, um laço de janelas sem fim.
+  //
+  // A ASSERÇÃO É A FRASE, e não só a recusa: "não deu para importar" sem dizer
+  // o quê manda o operador repetir a tentativa que acabou de falhar.
+  {
+    const d = await aparelho(saida);
+    await d.pg.evaluate(() => { window.__tamEntrada = -1; window.__fim = importarPacote(); });
+    const frase = await responderDialogo(d.pg);
+    checar(typeof frase === 'string' && /tamanho/.test(frase),
+      '6 · sem o tamanho do arquivo a importação PARA, e a frase nomeia o que '
+      + 'faltou', frase);
+    const entrou = await d.pg.evaluate(async () => (await AVDB.mediaChaves()).length);
+    checar(entrou === 0, '6 · e nada entrou', entrou);
+    await d.ctx.close();
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));

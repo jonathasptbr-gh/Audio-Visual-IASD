@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.7.6",
+    "itens": [
+      "A importação do acervo voltou a funcionar em arquivos grandes.",
+      "Antes o app tentava abrir o arquivo inteiro de uma vez e desistia.",
+      "As miniaturas do Cronograma pararam de piscar ao excluir outro item.",
+      "A folha de exportação perdeu a linha de marcar tudo: ela já abre com tudo marcado."
+    ]
+  },
+  {
     "versao": "1.7.5",
     "itens": [
       "No histórico, cada dia virou um bloco com a lista dele dentro.",

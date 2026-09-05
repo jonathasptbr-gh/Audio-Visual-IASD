@@ -251,7 +251,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 63
+        const val SHELL_VERSION = 64
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1727,6 +1727,15 @@ class NativeBridge(
                     JSONObject()
                         .put("url", SafRegistry.urlFor(uri))
                         .put("name", nomeDoDocumento(uri))
+                        // O TAMANHO ENTROU NO SHELL 64, e ele é o que torna a
+                        // leitura por JANELA possível: quem lê um pacote de
+                        // gigabytes precisa saber onde o arquivo acaba, e o
+                        // caminho antigo (`resp.blob()`) só tinha essa resposta
+                        // depois de materializar o arquivo inteiro — que é
+                        // justamente o que não cabe. `-1` = o provedor não
+                        // respondeu; é diferente de `0` (arquivo vazio), e quem
+                        // chama tem de distinguir os dois.
+                        .put("size", tamanhoDoDocumento(uri))
                         .put("type", ctx.contentResolver.getType(uri) ?: "application/octet-stream"),
                 )
             }
@@ -1839,6 +1848,28 @@ class NativeBridge(
     }
 
     /** O nome de exibição do documento, ou "Apresentação" se o provedor não o der. */
+    /**
+     * O tamanho de um documento do SAF, ou `-1` quando o provedor não o informa.
+     *
+     * `-1` E NÃO `0`: um arquivo vazio é uma resposta legítima, e achatar as
+     * duas faria o leitor de pacotes tratar "não sei" como "acabou" — um
+     * pacote recusado como vazio, sem nada explicando por quê.
+     */
+    private fun tamanhoDoDocumento(uri: Uri): Long {
+        try {
+            ctx.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
+                ?.use { c ->
+                    val i = c.getColumnIndex(OpenableColumns.SIZE)
+                    if (i >= 0 && c.moveToFirst() && !c.isNull(i)) return c.getLong(i)
+                }
+        } catch (_: Exception) { /* provedor sem a coluna */ }
+        // PLANO B: o descritor sabe o tamanho de um arquivo de verdade mesmo
+        // quando a coluna não vem — e é o caso normal de um `.avpkg` no cartão.
+        return try {
+            ctx.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: -1L
+        } catch (_: Exception) { -1L }
+    }
+
     private fun nomeDoDocumento(uri: Uri): String {
         val nome = try {
             ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)

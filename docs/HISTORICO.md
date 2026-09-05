@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.7.6** — A IMPORTAÇÃO NÃO ERA LENTA: ELA NÃO CABIA. Relato do operador: *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo estivesse corrompido. Verifique se é problema no leitor, ou é algum problema tamanho do arquivo."* **São os dois, um em cada camada.** (1) **O LEITOR** fazia `resp.blob()` — o arquivo INTEIRO materializado antes do primeiro byte: quinze gigabytes não cabem nem na memória nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da primeira num aparelho que já está cheio. (2) **O TAMANHO**, e este é estrutural: o caminho `/saf/` tem **teto de 2 GB**, porque o Chromium dimensiona toda resposta interceptada pelo `available()` do `InputStream` — um `int`. É a invariante 8 pelo lado que ninguém tinha olhado: acima de `Integer.MAX_VALUE` o web recebe o arquivo CORTADO, sem erro nenhum, e o cursor tropeça no meio de um registro. **A forma do conserto é a do `StreamProxy`, e não uma invenção**: `/saf/<token>?r=<ini>-<fim>`, com a faixa na QUERY e nunca num cabeçalho `Range` — com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que já é uma fatia. Sem cabeçalho não há `ParseRange` nem `ComputeBounds`, e o `available()` passa a ser o da JANELA: o teto some porque nenhuma resposta chega perto dele. O `SafJanela` faz SEEK de verdade (`openFileDescriptor` + `FileChannel.position`; `skip` só como plano B para provedor sem descritor posicionável — pular quatorze gigabytes lendo-os seria quadrático) e usa `AutoCloseInputStream`, porque `FileInputStream(pfd.fileDescriptor)` não é dono do descritor e vazaria um por janela. Do lado web, `pacoteFonteDaUrl` entrega FATIAS: `bytes()` para cabeçalhos e `blob()` para corpos, montado de pedaços de 8 MB. **A leitura antecipada CRESCE E ENCOLHE, e foi o oráculo que pegou isso** — com 4 MB fixos a conferência de um acervo lia 4 MB para aproveitar duzentos bytes, uma vez por registro; a regra virou o próprio percurso (sequência dobra até 1 MB, salto volta a 8 kB). `pickDoc` passou a devolver `size` (`-1` = o provedor não disse, que NÃO é `0`). **Mais dois pedidos:** as MINIATURAS do Cronograma pararam de piscar ao excluir outro item — a v1.7.4 fechou o REDESENHO e deixou a RELEITURA, e excluir É um `load()`, que devolve blobs NOVOS para as mesmas capas; a chave passou a ser `id + tamanho + tipo` —, e a linha de "tudo" saiu da folha de exportação (*"está inútil agora que temos o agrupamento"*). Lote **com Release** (`SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.6"`).
 - **v1.7.5** — O DIA VIROU UM BLOCO, E A SUBLISTA GANHOU CORPO. Relato: *"No histórico, nas configurações, ajuste os cards que separam os dias, para que tenham uma coloração diferente dos cards de itens exibidos naquela seção. Atualmente a lista está confusa, pois está difícil distinguir as sublistas dentro desse histórico"* — e, em seguida, *"caso ache mais correto, utilize o design de corpo e lista que já temos na biblioteca..."*. **MEDIDO, e era literal:** o cabeçalho pintava `--camada` e a `.row` de cada linha pinta `--linha`, que dentro daquela folha resolve para `--camada` também — `rgb(48, 66, 84)` no escuro e `rgb(212, 218, 226)` no claro, os DOIS. **1,00:1**, o mesmo número que a Biblioteca mediu na v1.5.14 entre a tampa de um álbum e as faixas dele. A resposta é a de lá, INTEIRA, e ela tem duas metades — o degrau de tom sozinho não resolve o relato, porque dois tons alternados numa lista PLANA continuam sendo uma corrida de irmãos. **A FILIAÇÃO:** o `<li>` do dia deixou de ser a barra e virou o BLOCO, com a `.hist-sessao-bar` e uma `ul.hist-corpo` dentro dele — a anatomia da `.coll-group`. O `<li>` continua sendo da MESMA `<ul>` pela razão da v1.4.31 (a folha rola inteira, e um cabeçalho fora dela ficaria parado sobre o conteúdo errado); aninhar muda só de quem cada linha é filha. **A ALTERNÂNCIA:** papel (a folha) → poço (o bloco do dia) → papel (a linha), com quem RESERVA o tom sendo o contêiner — a `.hist-corpo` declara `--camada: var(--panel)` e a `.row-item` a lê em `--linha`. MEDIDO no par novo: **1,43:1** no escuro e **1,35:1** no claro. O TEMA CLARO é quem fecha a conta: nele `--panel` é branco e todo o resto se agrupa perto de L≈0,70, então o único tom que passa o piso de 1,28:1 contra o poço é o próprio papel — logo um dos dois tem de ser o papel, e a escolha sai do que cada um É. A barra NÃO gruda (a da Biblioteca é `sticky`): aqui não há tampa de nível acima a que se colar, e um cabeçalho grudado num popup que já rola inteiro flutuaria sobre a lista de OUTRO dia. O `historico.test.mjs` ganhou as duas metades — o degrau medido na cor RENDERIZADA nos dois temas (um teste de token ou de classe aprovava o defeito: os dois nomes eram diferentes e resolviam para o mesmo valor) e a filiação de cada linha —, com as três reversões medidas: sem a camada reservada o passo cai a 1,08:1 e 1,04:1, sem o poço do bloco a 1,00:1, e com a lista plana o arquivo reprova já na primeira leitura. **E os seletores do próprio oráculo mudaram junto**, porque a leitura por IRMÃOS descrevia o desenho anterior: `#histList > li` devolveria blocos VAZIOS e um `.find()` por texto casaria o BLOCO antes da linha. Lote **só de base web**.
 - **v1.7.4** — SEIS PEDIDOS DO OPERADOR NUMA PASSADA, E TRÊS DELES SÃO A MESMA REGRA. (1) **A BARRA DE PROGRESSO SAIU DA LINHA**: *"O subtitulo com as informações ficou muito bom, mas a barra de progresso ficou ruim, tire ela."* Ele aprovou a metade que ACRESCENTOU informação (a fração por extenso na posição do subtítulo) e reprovou a que só desenhava, num filete de 4px, o mesmo número que a frase ao lado diz — numa lista de trinta linhas isso é peso por repetição. O `pct` continua no registro: quem desenha barra é a NOTIFICAÇÃO, que é a janela do trabalho com o app minimizado. (2) **O `⋮` CEDE A COLUNA AO TRABALHO EM CURSO**: *"por um botão, na mesma posição do botão de opções do item do cronograma… esse botão só tem uma função durante um preparo ou download. Esse botão cancela o processo e apaga o item."* É o movimento que a v1.4.27 já fez para a exclusão e a renomeação, agora para o trabalho — e ele obrigou a tornar CANCELÁVEIS as duas esperas que não sabiam parar: a preparação de apresentação (o laço de páginas do `.pptx` lê a desistência; no PDF quem rasteriza é o shell e o que se cancela é o DESFECHO, com o `deckDiscard` que já existia) e a importação de arquivo (um `AbortController` no `fetch` do `/saf/`). **O limite está escrito porque é uma decisão**: "apaga o item" vale para o item que só existe POR CAUSA do processo; um item que já estava no Cronograma (converter um link do YouTube) FICA — apagá-lo seria destruir o que ninguém mandou destruir. E o `.dl-cancel` de 34px virou um `.row-btn`, que mede o `⋮` por construção. (3) **A LINHA NÃO VOLTA AO ESTADO INICIAL PARA SUMIR**: *"ao tocar em excluir, na confirmação, o item se transforma ao seu estado inicial sem os botões antes de desaparecer, isso causa estranheza"*. Era a ORDEM: `fecharConfirmacaoNaLinha()` corria ANTES do `aoConfirmar`, e o comentário que a justificava falava do DOM (um cuidado que não custa nada — `desfazer()` sobre um nó órfão é no-op). O que ele custava era o que se via. Hoje a linha SAI (200 ms de altura mais opacidade, a curva do acordeão, com a margem negativa do `gap` para o vão sair junto) e só então o item é apagado. **E A INVERSÃO COBROU UM DEFEITO NOVO, achado pelo oráculo**: `fecharConfirmacaoNaLinha` fecha *a que estiver aberta*, e com o `aoConfirmar` rodando antes dela há uma janela em que OUTRA pergunta já nasceu — MEDIDO pelo `boot-nativo`, a exclusão de um favorito fechava o campo de RENOMEAR aberto logo depois. A guarda é a mesma regra do botão de cancelar do cartão da preview: *ele sai com o DONO dele*. (4) **A CAPA FICA À VISTA NA PERGUNTA DA EXCLUSÃO**: *"Ela tinha sido tirada desse momento do layout, mas julguei melhor ter ela ali."* O argumento da v1.4.27 valia enquanto a capa VIRAVA UMA LIXEIRA (um desenho igual em toda linha); com o símbolo morando na coluna do `⋮`, ela volta a ser a única parte da linha que diz de QUAL item é a pergunta. Ela continua saindo no RENOMEAR, que precisa da largura — e o par é a regra. Com ela, o `.row-lixo` saiu e o caminho B da lixeira virou o mesmo do ✓ (dentro da faixa), com a exceção nomeada: a lixeira ILUSTRA e não entra numa faixa que não fala de um item (limpar a playlist, o histórico), onde os dois rótulos dividem a caixa ao meio. (5) **AS MINIATURAS DOS FAVORITOS PARARAM DE PISCAR**: *"veja se pode deixar isso mais estável visualmente, sem piscar"*. A causa é aritmética — a Biblioteca é redesenhada a cada 400 ms enquanto um download corre, e cada passada REVOGAVA as URLs do render anterior e criava outras para os MESMOS blobs; uma `<img>` com `src` inédito não tem decodificação em cache. A chave passou a ser o BLOB (mesmo blob, mesma URL) e a varredura passou a ser pela UNIÃO dos baldes, o que fecha POR CONSTRUÇÃO a classe de defeito que o balde por host existia para tratar. (6) **O TOQUE NUM BLOCO DEIXOU DE ENCOLHER**: *"Há um efeito de encolhimento que distorce os elementos… deixe apenas um efeito de coloração/sombreamento ao toque sem encolhimento. Também aproveite para verificar se está colorindo o corpo do card corretamente e não apenas o arrangment do texto ou cabeçalho."* As duas metades são o mesmo defeito por dois lados, e a regra que as resolve **já estava escrita na `.coll-bar` desde a v5.288** (*"`--press` é para CONTROLE FOLHA. Um contêiner que hospeda um controle nunca escala"*) — a v1.3.14 a contrariou ao pôr as duas barras na lista do `--press`: a barra é TRANSPARENTE, então o `filter` acendia só o texto, e o `translateY(2px)` deslizava a tampa dentro de um card parado. Hoje **um CONTROLE responde por RECUO; um BLOCO responde por LUZ, e o bloco inteiro** — vale para os cards, as seções e a `.lib-item`, em qualquer profundidade e nos dois estados. (7) **E A VELOCIDADE DA CIFRA VIROU GAVETA**: *"faça com que o botão de velocidade abra uma gaveta, substituindo seus botões vizinhos, pela lista de botões com as variações de velocidade… sem passar por cada uma delas em carrocel"*. O ciclo era um preço escrito desde a v1.1.20 (*"com CINCO degraus, dar a volta custa menos que um segundo botão"*), e a conta muda quando o alvo é ESPECÍFICO: os degraus do meio ACONTECEM, com a música no ar. É o mecanismo da faixa da linha na fila da cifra — a fila troca de CONTEÚDO, não de lugar —, com `display: contents` no invólucro para os cinco seguirem a direção dela (linha no retrato, coluna deitada) sem uma segunda regra de layout. O ⛶ é a exceção nomeada: *a fila da cifra sempre tem a saída*. Lote **só de base web**.
 - **v1.7.3** — A RESPOSTA NASCE ONDE O TOQUE NASCEU, E A FOLHA DE ESCOLHA GANHOU AS SEÇÕES DA BIBLIOTECA. Dois pedidos. (1) *"o feedback da ui sobre a preparação da exportação, que hoje está sendo exibida sobre o preview, para que seja exibida sobre o próprio botão de exportar. já que a ação acontece ali e não na tela ou controle. o mesmo vale para feedbacks visuais das ações das configurações"*. **O app já tinha a mecânica**, em dois lugares — o `#otaRow` (`falarNoOta`) e o "Guardar como pacote" (`falarNoPacote`) —, e a regra está na lista de canais de resposta do `controle.js` desde a v5.207: *o rótulo do controle empresta a si mesmo por alguns segundos e volta*. O cartão sobre a preview é o canal do que ACONTECERIA NELA, e uma exportação não acontece na preview. `falarNoTile` troca o `.qs-titulo` e o devolve: "Medindo…", o percentual, o tamanho do arquivo, e de volta a "Exportar". **Isso não reabre a segunda linha que a v1.7.2 removeu** — aquela era permanente e descrevia o repouso. O CANCELAR voltou para o mesmo lugar (o toque no botão que trabalha), e a importação não o tem por natureza: ela só ACRESCENTA, e parar no meio deixaria metade do acervo sem nada para apagar a outra metade. A ETAPA foi para a notificação, que é a superfície com espaço e a que existe com o app minimizado; no botão cabe o número. E o desfecho fala nos DOIS lugares sem repetir: o botão diz que deu certo e quanto pesou, o diálogo diz o NOME do arquivo e o que fazer com ele. **O `data-nome` guarda o rótulo de origem, e não um `WeakMap` de módulo** — foi a primeira escrita e não durou um teste: `pacoteRenderTiles()` roda no topo do arquivo, na carga, e o `pintarTile` leria a constante antes da linha que a declara (zona morta temporal, `ReferenceError`, app parado). (2) *"durante a seleção da exportação, haja uma opção de selecionar todos, e opções de agrupamentos das coleções da mesma forma que já existe na biblioteca, podendo marcar um grupo inteiro de uma vez só"*. "Tudo" é um ALTERNADOR na primeira linha (com tudo marcado ele limpa, e o rótulo diz qual das duas o toque faz); o agrupamento sai da MESMA fonte que a Biblioteca desenha — as coletâneas do `AVColetanea.aplicar`, com os hinários e as séries na raiz e os álbuns sem categoria em "Outros álbuns" —, porque uma segunda leitura do catálogo divergiria da tela em que o operador aprendeu onde cada coleção mora. A BARRA do grupo MARCA e a SETA ABRE (na Biblioteca a barra abre, porque lá o que se vem fazer é olhar dentro; aqui é incluir e excluir), a seção nasce FECHADA, e a marca do grupo tem TRÊS estados — com metade escolhida, cheia e vazia mentem as duas. `plano.grupos` continua plano (é ele que o laço de escrita consome) e `plano.folha` é a árvore; uma varredura no fim recolhe o que a árvore não alcançou, porque uma coleção que não apareça na folha nunca é marcada. O `pacote-por-grupos.test.mjs` cresceu com as duas metades, com reversão em cada asserção nova. Lote **só de base web**.
@@ -352,6 +353,106 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.7.6 — a importação não era lenta: ela não cabia
+
+> *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de
+> 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo
+> estivesse corrompido. Verifique se é problema no leitor, ou é algum problema
+> tamanho do arquivo."*
+
+**São os dois**, um em cada camada, e nenhum dos dois tem sintoma num arquivo
+pequeno — o oráculo de ida e volta passava inteiro com o leitor que não cabia.
+
+### 1 · O leitor materializava o arquivo
+
+`resp.blob()`: o arquivo INTEIRO antes do primeiro byte ser lido. Quinze
+gigabytes não cabem nem na memória nem no armazenamento de blobs, que é uma
+SEGUNDA cópia ao lado da primeira num aparelho que já está cheio de acervo. O
+`Failed to fetch` do relato é isso.
+
+### 2 · E o caminho `/saf/` tem teto de 2 GB
+
+Estrutural, e é a invariante 8 pelo lado de dentro: o Chromium dimensiona toda
+resposta interceptada pelo `available()` do `InputStream` — um `int`. Acima de
+`Integer.MAX_VALUE` não há número a devolver, e o que o web recebe é o arquivo
+CORTADO, **sem erro nenhum**. O cursor então tropeça no meio de um registro, que
+é o segundo relato.
+
+### A forma do conserto é a do `StreamProxy`
+
+`/saf/<token>?r=<ini>-<fim>`, com a faixa na **QUERY** e nunca num cabeçalho
+`Range`: com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma
+SEGUNDA vez sobre o que já é uma fatia — a armadilha que a invariante 8 descreve
+inteira. Sem cabeçalho não há `ParseRange`, não há `Seek` e não há
+`ComputeBounds`; a resposta é um 200 seco e o `available()` passa a ser o da
+JANELA, não o do arquivo. **O teto some porque nenhuma resposta chega perto
+dele.**
+
+Duas armadilhas do lado Kotlin, e as duas custam em produção:
+
+- **SEEK, não `skip`** (`openFileDescriptor` + `FileChannel.position`). Pular
+  quatorze gigabytes com `skip()` LÊ os quatorze, e a importação ficaria
+  quadrática. O `skip` fica como plano B para o provedor que não devolve um
+  descritor posicionável — lento e correto é melhor que rápido e ausente.
+- **`AutoCloseInputStream`, e não `FileInputStream(pfd.fileDescriptor)`:** o
+  segundo não é DONO do descritor, então fechar o stream deixaria o `pfd`
+  aberto. Um vazamento de descritor por janela, e são milhares por importação.
+
+Do lado web, `pacoteFonteDaUrl` entrega FATIAS — `bytes()` para os cabeçalhos e
+`blob()` para os corpos, montado de pedaços de 8 MB para que a memória fique no
+tamanho do pedaço e não no do item. `pickDoc` passou a devolver `size`, que é o
+que diz onde o arquivo acaba (`-1` = o provedor não informou, e **não é `0`**:
+achatar os dois recusaria um pacote bom como vazio).
+
+### E a leitura antecipada cresce e encolhe — o oráculo pegou isso
+
+A primeira escrita usava uma janela fixa de 4 MB, e ela erra nos DOIS regimes do
+formato. Numa corrida de cabeçalhos (a Bíblia mora em `state` com uma chave por
+capítulo, 1189 por versão) uma janela pequena vira uma requisição por registro;
+num acervo — cabeçalhos separados por corpos de centenas de MB — uma janela
+grande lê 4 MB para aproveitar duzentos bytes, **uma vez por registro**. MEDIDO
+pelo bloco 5 do `pacote-ida-e-volta`: o total lido deu o DOBRO do arquivo.
+
+A regra passou a ser o próprio percurso: pedido que começa onde o buffer acabou
+é uma corrida (dobra, até 1 MB); pedido que salta é um corpo pulado (volta a
+8 kB). E a CONFERÊNCIA passou a pedir `proximo(false)` — ela percorre o arquivo
+inteiro pelos cabeçalhos, e lê-los junto com os corpos dobraria a importação.
+
+### O oráculo mede o COMO, porque o desfecho não distingue
+
+O bloco 5 afirma três coisas que um arquivo pequeno não denuncia: o arquivo é
+pedido por JANELAS e nunca de uma vez (um pedido sem faixa é o `resp.blob()` de
+volta), nenhuma janela passa do PEDAÇO, e o total lido fica perto do tamanho do
+arquivo e não perto do dobro. A rota do próprio oráculo fala o MESMO contrato do
+`SafJanela.kt` — um `blob:`, que era o que ele entregava, não tem query nenhuma,
+e por ele o leitor novo nem sairia do lugar.
+
+### E mais dois pedidos
+
+> *"os mesmos problemas de miniaturas piscando da biblioteca, temos nas
+> miniaturas piscando no cronograma ao excluir outro item."*
+
+A v1.7.4 fechou o REDESENHO e deixou a RELEITURA — e a nota dela já dizia por
+quê sem tirar a conclusão: *"quem as relê é o `load()`"*. **Excluir É um
+`load()`**: o `getAll` devolve blobs NOVOS para as mesmas capas, a chave por
+objeto não os reconhece, e a lista inteira ganha URLs inéditas. `chaveDaCapa`
+passou a ser `id + tamanho + tipo`. O preço está dito: duas capas do mesmo id
+com exatamente os mesmos bytes seriam confundidas — e a capa de um id é, na
+prática, imutável (`mediaAdd` usa `add`, não `put`).
+
+> *"O seletor de 'tudo' no processo de seleção de exportação está inútil agora
+> que temos o agrupamento, então não precisa dele, deixe tudo selecionado por
+> padrão e o usuário seleciona/desseleciona os poucos itens."*
+
+É o pedido da v1.7.3 chegando ao fim: "marcar tudo" já é o estado em que a folha
+NASCE, e a barra de um grupo cobre o caso de massa que sobrava. O peso do que
+está marcado continua no botão de confirmar, que é onde a pergunta ("cabe no
+cartão?") é feita.
+
+Lote **com Release**: `SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.6"`.
 
 ---
 
