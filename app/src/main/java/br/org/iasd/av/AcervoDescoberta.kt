@@ -76,6 +76,13 @@ object AcervoDescoberta {
      *  pedimos — que o outro lado enxerga. */
     @Volatile private var nomePublicado: String = ""
 
+    /** O que o [reanunciar] repete. Ver o porquê do `applicationContext` lá. */
+    @Volatile private var ultimoContexto: Context? = null
+    @Volatile private var ultimaPorta: Int = 0
+    @Volatile private var ultimoRotulo: String = ""
+    @Volatile private var ultimosItens: Int = -1
+    @Volatile private var ultimosBytes: Long = -1L
+
     /** Os achados, por nome de serviço. `ConcurrentHashMap` porque os callbacks
      *  do `NsdManager` chegam numa thread dele e o web lê da thread do WebView. */
     private val achados = ConcurrentHashMap<String, Achado>()
@@ -121,6 +128,15 @@ object AcervoDescoberta {
         if (registro != null) { diario = "já anunciando"; return true }
         val m = manager(ctx) ?: run { diario = "sem NsdManager"; return false }
         if (porta <= 0) { diario = "porta inválida"; return false }
+        // O QUE O [reanunciar] PRECISA TER NA MÃO. `applicationContext` e não o
+        // que veio: guardar uma Activity aqui a manteria viva além do ciclo
+        // dela, que é o vazamento que o `companion` das filas da ponte já
+        // documenta.
+        ultimoContexto = ctx.applicationContext
+        ultimaPorta = porta
+        ultimoRotulo = rotulo
+        ultimosItens = itens
+        ultimosBytes = bytes
         val info = NsdServiceInfo().apply {
             // O NOME é o que aparece na lista do outro celular. Saneado porque
             // ele vira um rótulo de DNS: barra e ponto o quebrariam.
@@ -168,6 +184,35 @@ object AcervoDescoberta {
         }
     }
 
+    /**
+     * REANUNCIA COM OS NÚMEROS DE VERDADE.
+     *
+     * A cessão liga ANTES de o índice existir — ele varre o OPFS inteiro e leva
+     * segundos —, então o primeiro anúncio sai com zero itens. Quando o
+     * Controle publica o índice, este método o refaz com a contagem e o peso,
+     * que é o que faz a lista do outro celular dizer *"Galaxy A54 · 612 itens ·
+     * 14,2 GB"* em vez de um nome solto.
+     *
+     * **Anunciar de novo é desanunciar e anunciar**: o `NsdManager` só ganhou
+     * `registerServiceInfoCallback`/atualização de TXT em versões recentes, e
+     * um caminho que só funciona no Android novo falharia calado no aparelho
+     * do culto. O buraco de alguns milissegundos entre os dois é inofensivo: a
+     * procura do outro lado é contínua, e um anúncio que some e volta reaparece
+     * na varredura seguinte.
+     *
+     * NO-OP quando não há anúncio no ar — quem não está cedendo não passa a
+     * cedê-lo por publicar um índice.
+     */
+    fun reanunciar(itens: Int, bytes: Long): Boolean {
+        val ctx = ultimoContexto ?: return false
+        val porta = ultimaPorta
+        val rotulo = ultimoRotulo
+        if (registro == null || porta <= 0) return false
+        if (itens == ultimosItens && bytes == ultimosBytes) return true
+        pararAnuncio()
+        return anunciar(ctx, porta, rotulo, itens, bytes)
+    }
+
     /** Tira o anúncio do ar. Idempotente — chamar duas vezes é inofensivo, que
      *  é o que faz o caminho de desligar poder ser burro. */
     fun pararAnuncio() {
@@ -183,7 +228,7 @@ object AcervoDescoberta {
     // =====================================================================
 
     /**
-     * Começa a procurar. Os achados vão sendo acumulados em [achadosJson]; o
+     * Começa a procurar. Os achados vão sendo acumulados em [achados]; o
      * lado web enquete, que é o mesmo formato do `espelhoEstado`.
      *
      * O RESOLVE É SERIALIZADO. `NsdManager.resolveService` **não aceita dois
@@ -330,7 +375,12 @@ object AcervoDescoberta {
     // O QUE O WEB LÊ
     // =====================================================================
 
-    fun achadosJson(): String {
+    /** DEVOLVE O OBJETO, e não a string dele: quem o compõe é a
+     *  [MainActivity], num JSON maior. Serializar aqui obrigaria a reparsear
+     *  lá — e um `put` de string num objeto entrega ao web uma string com cara
+     *  de JSON, que é a forma de falhar mais silenciosa que existe deste lado
+     *  (o `JSON.parse` do outro devolve texto e nada reclama). */
+    fun achados(): JSONArray {
         val arr = JSONArray()
         achados.values.sortedBy { it.rotulo.lowercase() }.forEach { a ->
             arr.put(
@@ -343,16 +393,15 @@ object AcervoDescoberta {
                     .put("bytes", a.bytes),
             )
         }
-        return arr.toString()
+        return arr
     }
 
-    fun estadoJson(): String = JSONObject()
+    fun estadoJson(): JSONObject = JSONObject()
         .put("anunciando", registro != null)
         .put("nome", nomePublicado)
         .put("procurando", procura != null)
         .put("achados", achados.size)
         .put("diag", diario)
-        .toString()
 
     /** Tudo abaixo do ar. Chamado quando a Activity morre — um anúncio que
      *  sobrevive ao app aponta para uma porta que já fechou. */
