@@ -5097,6 +5097,16 @@ teria seriam dois botões tocáveis que não fazem nada.
 > é uma CORRIDA de cabeçalhos (dobra, até 1 MB); pedido que salta é um corpo
 > pulado (volta a 8 kB).
 
+> **E UM PACOTE DANIFICADO PASSOU A DIZER ONDE QUEBROU** (v1.8.0). O número não
+> diz nada a quem opera, e é justamente ele que diz tudo a quem conserta: um
+> pacote que quebra no byte 0 é outro defeito que um que quebra em 3,4 GB — o
+> primeiro é o arquivo errado, o segundo é o LEITOR. Essa diferença é a única
+> pista que existe quando o relato chega por mensagem de texto, de outro
+> aparelho, dias depois; foi exatamente o que aconteceu com a v1.7.9 (*"O pacote
+> está danificado, o app não reconhece o conteúdo dele"*, sem como saber onde).
+> A mensagem crua continua indo para o console — mas o console não atravessa uma
+> conversa, e este número atravessa.
+
 > **E A LINHA DE "TUDO" SAIU DA FOLHA DE EXPORTAÇÃO** (v1.7.9), a pedido: *"o
 > seletor de 'tudo' … está inútil agora que temos o agrupamento … deixe tudo
 > selecionado por padrão e o usuário seleciona/desseleciona os poucos itens"*.

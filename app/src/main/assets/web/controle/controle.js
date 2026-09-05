@@ -23926,6 +23926,20 @@ const PACOTE_INCOMPLETO = 'O pacote está incompleto — ele acabou antes do fim
   + 'Copie o arquivo de novo e tente outra vez.';
 const PACOTE_DANIFICADO = 'O pacote está danificado — o app não reconhece o conteúdo dele.';
 
+/**
+ * A MESMA FRASE, com o BYTE em que a leitura tropeçou.
+ *
+ * O número não diz nada a quem opera, e é justamente ele que diz tudo a quem
+ * conserta: um pacote que quebra no byte 0 é outro defeito que um que quebra
+ * em 3,4 GB, e **a diferença entre os dois é a única pista que existe** quando
+ * o relato chega por mensagem de texto, de outro aparelho, dias depois. A
+ * mensagem crua continua indo para o console — mas o console não atravessa uma
+ * conversa, e este número atravessa.
+ */
+function pacoteDanificadoEm(pos) {
+  return PACOTE_DANIFICADO + ' (a leitura parou no byte ' + fmtBytes(pos) + ')';
+}
+
 async function pacoteConferir(fonte) {
   const cursor = pacoteCursor(fonte);
   try {
@@ -23943,7 +23957,9 @@ async function pacoteConferir(fonte) {
     // — a frase da tela é para quem opera, e o console é para quem conserta.
     const m = (e && e.message) || '';
     console.warn('[pacote]', m);
-    throw new Error(/acabou no meio/.test(m) ? PACOTE_INCOMPLETO : PACOTE_DANIFICADO);
+    throw new Error(/acabou no meio/.test(m)
+      ? PACOTE_INCOMPLETO
+      : pacoteDanificadoEm(cursor.pos));
   }
   throw new Error(PACOTE_INCOMPLETO);
 }

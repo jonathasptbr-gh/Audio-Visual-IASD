@@ -484,6 +484,61 @@ try {
     await d.ctx.close();
   }
 
+  // =========================================================================
+  // 7 · UM PACOTE DANIFICADO DIZ ONDE ELE QUEBROU (v1.8.0)
+  // =========================================================================
+  //
+  // O número não diz nada a quem opera, e é justamente ele que diz tudo a quem
+  // conserta: um pacote que quebra no byte 0 é outro defeito que um que quebra
+  // em 3,4 GB — o primeiro é o arquivo errado, o segundo é o LEITOR. E essa
+  // diferença é a única pista que existe quando o relato chega por mensagem de
+  // texto, de outro aparelho, dias depois (foi exatamente o que aconteceu com a
+  // v1.7.9: *"O pacote está danificado, o app não reconhece o conteúdo dele"*,
+  // e não havia como saber onde).
+  //
+  // A ASSERÇÃO É QUE O NÚMERO É A POSIÇÃO, e não um zero constante — que é como
+  // ele nasceria se alguém o lesse do lugar errado.
+  {
+    const sujo = Uint8Array.from(saida);
+    // O ESTRAGO TEM DE CAIR NUM CABEÇALHO, e por isso o oráculo PERCORRE o
+    // arquivo em vez de escolher uma fração dele. MEDIDO ao escrever este
+    // bloco: 50% do pacote cai dentro do corpo de 3 MB, os bytes trocados são
+    // conteúdo de mídia, e a importação termina INTEIRA — a asserção
+    // reprovaria por um cenário que não existe.
+    //
+    // A caminhada é a mesma do cursor, escrita AQUI de propósito: usar o
+    // `pacoteCursor` do app para achar onde estragar o app seria uma
+    // tautologia.
+    const dv = new DataView(sujo.buffer);
+    let p = 8;                       // depois da assinatura
+    let alvoByte = -1;
+    while (p + 4 < sujo.length) {
+      const n = dv.getUint32(p, true);
+      if (n <= 0 || p + 4 + n > sujo.length) break;
+      const cab = JSON.parse(new TextDecoder().decode(sujo.subarray(p + 4, p + 4 + n)));
+      // O PRIMEIRO cabeçalho passado de um terço do arquivo: fundo o bastante
+      // para o número não poder ser confundido com "o começo".
+      if (p > sujo.length / 3) { alvoByte = p; break; }
+      p = p + 4 + n + (cab.bytes | 0);
+    }
+    checar(alvoByte > 0, '7 · o oráculo achou um cabeçalho fundo para estragar', alvoByte);
+    for (let i = 0; i < 8; i++) sujo[alvoByte + i] = 0xFF;
+    const e = await aparelho(sujo);
+    await e.pg.evaluate(() => { window.__fim = importarPacote(); });
+    const frase = await responderDialogo(e.pg);
+    checar(typeof frase === 'string' && /danificado/.test(frase),
+      '7 · um pacote com um cabeçalho estragado é recusado', frase);
+    // A UNIDADE NÃO ENTRA NA ASSERÇÃO — quem a escolhe é o `fmtBytes`, e prendê-la
+    // aqui faria este bloco reprovar no dia em que ele ganhar um degrau novo. O
+    // que se afirma é que há um número DEPOIS de "byte" e que ele não é zero:
+    // zero constante é como ele nasceria se alguém o lesse do lugar errado.
+    const onde = /parou no byte (.+?)\)/.exec(String(frase));
+    checar(!!onde && !/^0\b/.test(onde[1].trim()),
+      '7 · e a frase diz em QUE BYTE a leitura parou — zero constante seria o '
+      + 'número lido do lugar errado', frase);
+    await e.ctx.close();
+  }
+
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));
 } finally {
   await navegador.close();
