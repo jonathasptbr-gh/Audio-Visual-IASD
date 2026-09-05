@@ -19270,6 +19270,10 @@ function closeSongMenu() {
   // uma promessa pendente que ninguém resolve deixa o `exportarPacote` esperando
   // para sempre — e com o plano inteiro na memória.
   if (pacoteGruposResolve) { fecharPacoteGrupos(null); return; }
+  // A LISTA DO CLONE não resolve promessa nenhuma, mas tem efeito colateral: o
+  // mDNS fica varrendo a rede enquanto ela está aberta. Fechar sem desligá-lo
+  // deixaria a procura girando pelo resto da sessão, sem nada na tela.
+  if (songMenuFor && songMenuFor.clone) cloneFecharLista();
   destLimpar();
   songMenuFor = null;
   songMenuPopupEl.classList.remove('open');
@@ -21437,6 +21441,56 @@ function mirrorDur(ms) {
 // `PowerManager.THERMAL_STATUS_*` por índice.
 const MIRROR_TERMICA = ['NONE', 'LIGHT', 'MODERATE', 'SEVERE', 'CRITICAL', 'EMERGENCY', 'SHUTDOWN'];
 
+/**
+ * O CLONE CELULAR A CELULAR — os dois papéis num bloco só.
+ *
+ * DADO VIRANDO FRASE (invariante 5): o Kotlin devolve JSON e é aqui que ele
+ * vira texto. As duas perguntas que só ele responde são as que não deixam
+ * rastro em lugar nenhum: *"o outro celular chegou a me ver?"* (o anúncio mDNS
+ * é invisível — ou funciona, ou o aparelho simplesmente não aparece na lista
+ * do outro) e *"o que ele já levou?"*.
+ *
+ * SÓ SAI QUANDO HOUVE USO. Um aparelho que nunca cedeu nem clonou não ganha
+ * bloco: uma linha de zeros é mais uma para ler em toda cópia do Registro, e é
+ * a regra que o `AVStream.fome` e o `ytCenso` já seguem.
+ */
+function blocoClone(e) {
+  if (!e) return '';
+  const c = e.cessao || {};
+  const d = e.descoberta || {};
+  const usou = c.cedendo || d.procurando || e.pareado
+    || (d.diag && d.diag !== 'sem uso') || (e.proxy && e.proxy !== 'sem uso');
+  if (!usou) return '';
+  const L = ['Clone da biblioteca (celular a celular)'];
+  if (c.cedendo) {
+    L.push('· cedendo como "' + (c.rotulo || '?') + '" em ' + (e.endereco || '?'));
+    L.push('  lista: ' + (c.itens || 0) + ' item(ns), ' + fmtBytes(c.bytes || 0)
+      + (c.sessao ? ' (sessão ' + c.sessao + ')' : ''));
+    // ENTREGUES é o número que separa "ninguém veio" de "veio e parou no meio",
+    // e as duas pedem conferências opostas — a rede de um lado, o aparelho do
+    // outro.
+    if (c.pareado) L.push('  copiando para "' + (c.com || '?') + '": ' + (c.entregues || 0) + ' item(ns) entregue(s)');
+    else if (c.pedinte) L.push('  "' + c.pedinte + '" está esperando resposta');
+    else L.push('  ninguém pareado ainda');
+  }
+  // O ANÚNCIO É INVISÍVEL POR NATUREZA: sem esta linha, "o outro celular não me
+  // acha" tem três causas indistinguíveis (o NsdManager não existe, o registro
+  // foi recusado, a rede não passa multicast).
+  L.push('· anúncio na rede: ' + (d.anunciando
+    ? 'no ar como "' + (d.nome || '?') + '"' : 'fora do ar'));
+  L.push('  ' + (d.diag || 'sem uso'));
+  if (d.procurando) L.push('· procurando: ' + (d.achados || 0) + ' aparelho(s) achado(s)');
+  const achados = Array.isArray(e.achados) ? e.achados : [];
+  for (const a of achados) {
+    L.push('  - ' + (a.rotulo || a.nome) + ' em ' + a.host + ':' + a.porta
+      + ' · ' + (a.itens || 0) + ' item(ns) · ' + fmtBytes(a.bytes || 0));
+  }
+  if (e.pareado || (e.proxy && e.proxy !== 'sem uso')) {
+    L.push('· trazendo de outro aparelho: ' + (e.proxy || '?'));
+  }
+  return L.join('\n');
+}
+
 function blocoEspelho(d) {
   if (!d || typeof d !== 'object') return '';
   // O TÍTULO É "TRANSMISSÃO PARA NAVEGADOR" (v5.202). Ele dizia "Espelho de
@@ -22485,6 +22539,18 @@ async function renderDiag() {
     const bloco = blocoEspelho(ed);
     if (bloco) blocos.push(bloco);
   }
+  // O CLONE, colado no estado da transmissão porque ele usa o MESMO servidor —
+  // e porque as duas perguntas que ele responde não têm outra resposta em lugar
+  // nenhum: *"o outro celular chegou a me ver?"* e *"o que ele já levou?"*.
+  // SÓ SAI QUANDO HOUVE USO: uma linha de zeros é mais uma para ler em toda
+  // cópia (a regra do `ytCenso`).
+  if (window.__NATIVE__) {
+    let ac = null;
+    try { ac = await AVNative.acervoEstado(); } catch (_) { ac = null; }
+    if (meu !== diagSeq) return;
+    const bcl = blocoClone(ac);
+    if (bcl) blocos.push(bcl);
+  }
   // O ÁUDIO DO APARELHO — logo depois do estado da transmissão, porque responde
   // à mesma pergunta ("o que está no ar?") pelo lado que ninguém escolheu.
   const ba = blocoAudio();
@@ -22812,8 +22878,16 @@ async function pacoteBloco(c, ab) {
  * `aoAndar` é chamado só com bytes de CORPO, que é o que o plano soma. Contar
  * os cabeçalhos junto faria a barra passar de 100% num acervo com muitos
  * registros pequenos — e o plano não tem como prevê-los sem montá-los.
+ *
+ * ===== O SUMIDOURO É INJETADO (v1.8.0) =====
+ *
+ * `enviar(ab)` recebe cada bloco. A exportação para arquivo o liga ao canal
+ * `__avPacote`; o CLONE celular a celular o liga a um array em memória, porque
+ * ali cada item é um corpo de resposta HTTP e não um trecho de arquivo. É o
+ * MESMO escritor nos dois — um segundo seria um segundo lugar para errar o
+ * formato, e o formato é o que o outro aparelho vai ler.
  */
-function pacoteEscritor(c, aoAndar, parou) {
+function pacoteEscritor(enviar, aoAndar, parou) {
   const buf = new Uint8Array(PACOTE_BLOCO);
   let n = 0;
   const conferirParada = () => {
@@ -22826,7 +22900,7 @@ function pacoteEscritor(c, aoAndar, parou) {
     // mandar o buffer inteiro de 512 kB com 50 bytes úteis seria pior.
     const ab = buf.buffer.slice(0, n);
     n = 0;
-    await pacoteBloco(c, ab);
+    await enviar(ab);
   }
   async function bytes(u8) {
     let pos = 0;
@@ -22860,7 +22934,7 @@ function pacoteEscritor(c, aoAndar, parou) {
       conferirParada();
       const fim = Math.min(pos + PACOTE_BLOCO, x.size);
       // `slice` é preguiçoso: o que entra na memória por vez é UM bloco.
-      await pacoteBloco(c, await x.slice(pos, fim).arrayBuffer());
+      await enviar(await x.slice(pos, fim).arrayBuffer());
       if (aoAndar) aoAndar(fim - pos);
       pos = fim;
     }
@@ -23369,7 +23443,7 @@ async function exportarPacote() {
         falarNoTile(pacoteExportarTileEl,
           Math.min(100, Math.round((feitos / total) * 100)) + '%', 0);
       };
-      const esc = pacoteEscritor(c, andou, () => pacoteCancelar);
+      const esc = pacoteEscritor((ab) => pacoteBloco(c, ab), andou, () => pacoteCancelar);
       try {
         await esc.bytes(AVPacote.assinatura());
         // O CABEÇALHO HUMANO. Ele não é lido para decidir nada — quem decide é
@@ -23650,8 +23724,12 @@ function pacoteFonteDaUrl(url, size) {
  * um declara — e num pacote lido por janelas buscar um corpo que ninguém vai
  * usar seria ler gigabytes duas vezes.
  */
-function pacoteCursor(fonte) {
-  let pos = AVPacote.ASSINATURA_BYTES;
+function pacoteCursor(fonte, inicio) {
+  // O INÍCIO É PARÂMETRO desde a v1.8.0: o arquivo `.avpkg` começa depois da
+  // assinatura, e o corpo de um item do CLONE é um fluxo de registros NU — ele
+  // não tem assinatura porque não é um arquivo, é uma resposta HTTP cuja
+  // identidade já foi provada pelo índice que a nomeou.
+  let pos = inicio == null ? AVPacote.ASSINATURA_BYTES : (inicio | 0);
   return {
     get pos() { return pos; },
     async proximo(comCorpo) {
@@ -23701,6 +23779,121 @@ function pacoteMesclarValor(local, vindo) {
   const mapa = (v) => !!v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Blob);
   if (mapa(local) && mapa(vindo)) return Object.assign({}, vindo, local);
   return local;
+}
+
+/**
+ * O APLICADOR — o laço que transforma um fluxo de registros em acervo.
+ *
+ * ELE É UM SÓ PARA DUAS FONTES (v1.8.0): o arquivo `.avpkg` lido do disco e o
+ * corpo de um item do CLONE celular a celular. É o pedido do operador escrito
+ * como código — *"a biblioteca é a mesma, só muda a fonte"* —, e a razão de
+ * não haver dois é a de sempre neste arquivo: duas escritas da mesma regra
+ * divergem no primeiro ajuste, e aqui a divergência seria SILENCIOSA (um
+ * caminho gravando a miniatura e o outro não, com os dois "funcionando").
+ *
+ * `contagem` é mutado no lugar, para o chamador somar vários fluxos num total
+ * só — que é exatamente o que o clone faz, um item por vez.
+ *
+ * Devolve `true` quando viu o registro `fim`. Quem lê um ARQUIVO exige isso (é
+ * o `fim` que separa um pacote inteiro de um cortado no meio); quem lê o corpo
+ * de um item do clone não, porque ali o fim é o fim da resposta HTTP, cujo
+ * tamanho o `Content-Range` já afirmou.
+ */
+async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
+  let viuFim = false;
+  // O ITEM EM MONTAGEM. A miniatura e as páginas de uma mídia chegam DEPOIS do
+  // registro dela (é o contrato do exportador), então ele fica pendente até o
+  // registro seguinte que não é dele. Os Blobs guardados aqui são FATIAS da
+  // fonte — referências, não bytes —, então segurar um deck de cem páginas
+  // custa cem ponteiros.
+  let pendente = null;
+  const fechar = async () => {
+    const p = pendente;
+    pendente = null;
+    if (!p) return;
+    if (p.tipo === 'media') {
+      try { await AVDB.mediaAdd(p.rec); contagem.media++; } catch (_) { contagem.repetidos++; }
+    } else {
+      try {
+        if (await AVDB.fileGet(p.rec.id)) { contagem.repetidos++; } else {
+          await AVDB.fileAdd(p.rec); contagem.arquivos++;
+        }
+      } catch (_) { contagem.repetidos++; }
+    }
+  };
+  for (;;) {
+    const r = await cursor.proximo();
+    // FIM DOS BYTES. Para um item do clone é o desfecho normal; para um
+    // arquivo é o pacote ter acabado sem o registro `fim`, e quem reprova isso
+    // é o chamador, pelo valor devolvido.
+    if (!r) break;
+    const { cab, corpo } = r;
+    if (aoAndar) aoAndar(cursor.pos);
+    if (cab.t === 'media-thumb' && pendente && pendente.tipo === 'media') {
+      pendente.rec.thumb = corpo; continue;
+    }
+    if (cab.t === 'media-pagina' && pendente && pendente.tipo === 'media') {
+      if (!Array.isArray(pendente.rec.pages)) pendente.rec.pages = [];
+      pendente.rec.pages[cab.i | 0] = corpo; continue;
+    }
+    if (cab.t === 'arquivo-thumb' && pendente && pendente.tipo === 'arquivo') {
+      pendente.rec.thumb = corpo; continue;
+    }
+    await fechar();
+    if (cab.t === 'fim') { viuFim = true; break; }
+    if (cab.t === 'info') continue;   // o cabeçalho humano; nada a aplicar
+    if (cab.t === 'media') {
+      // O `blob` volta do CORPO, e os campos que o exportador tirou continuam
+      // ausentes de propósito: `stream` é o manifesto de uma transmissão que
+      // expirou horas atrás, e o item sem ele é o LINK que ele sempre foi —
+      // resolvido no primeiro toque, pelo caminho que já existe.
+      const rec = Object.assign({}, cab.rec, { blob: corpo, thumb: null, pages: null });
+      pendente = { tipo: 'media', rec };
+      continue;
+    }
+    if (cab.t === 'arquivo') {
+      pendente = { tipo: 'arquivo', rec: Object.assign({}, cab.rec, { thumb: null }) };
+      continue;
+    }
+    if (cab.t === 'opfs') {
+      // JÁ EXISTE = PULA, e a pergunta é feita ao DISCO: um caminho que abre é
+      // um arquivo que este aparelho já tem, e sobrescrevê-lo seria a única
+      // forma de uma importação destruir alguma coisa.
+      let tem = false;
+      try { await AVDB.opfsGetFile(cab.caminho); tem = true; } catch (_) { tem = false; }
+      if (tem) { contagem.repetidos++; continue; }
+      try { await AVDB.opfsWriteFile(cab.caminho, corpo); contagem.opfs++; } catch (_) {
+        throw new Error('Não deu para gravar o acervo — o aparelho pode estar sem espaço.');
+      }
+      continue;
+    }
+    if (cab.t === 'state' || cab.t === 'state-blob') {
+      let valor;
+      if (cab.t === 'state-blob') {
+        valor = corpo;
+      } else {
+        try { valor = JSON.parse(await corpo.text()); } catch (_) { continue; }
+      }
+      const antes = await AVDB.getState(cab.chave);
+      const depois = pacoteMesclarValor(antes, valor);
+      // `updateState` e não `setState`: é a regra do arquivo inteiro para um
+      // read-modify-write de `state` — uma transação só, e o commit confirmado
+      // antes de seguir. A `fn` é SÍNCRONA (um `await` lá dentro deixaria a
+      // transação fechar sozinha).
+      // `depois === antes` é a regra 4 devolvendo o LOCAL por identidade: nada
+      // mudou, e contá-lo faria a tela anunciar ajustes que não entraram.
+      if (depois !== antes) {
+        await AVDB.updateState(cab.chave, (atual) => pacoteMesclarValor(atual, valor));
+        contagem.chaves++;
+      }
+      continue;
+    }
+  }
+  // O ÚLTIMO REGISTRO DO FLUXO. Num arquivo o `fim` já fechou o pendente; no
+  // corpo de um item do clone não há `fim`, e sem esta linha a mídia do último
+  // registro seria montada e jogada fora.
+  await fechar();
+  return viuFim;
 }
 
 /**
@@ -23803,102 +23996,18 @@ async function importarPacote() {
       // ela só ACRESCENTA, então o que já entrou está certo, e desfazê-lo seria
       // apagar o que o operador foi buscar.
       try {
-        const cursor = pacoteCursor(fonte);
-        // O ITEM EM MONTAGEM. A miniatura e as páginas de uma mídia chegam
-        // DEPOIS do registro dela (é o contrato do exportador), então ele fica
-        // pendente até o registro seguinte que não é dele. Os Blobs guardados
-        // aqui são FATIAS do pacote — referências, não bytes —, então segurar
-        // um deck de cem páginas custa cem ponteiros.
-        let pendente = null;
-        const fechar = async () => {
-          const p = pendente;
-          pendente = null;
-          if (!p) return;
-          if (p.tipo === 'media') {
-            try { await AVDB.mediaAdd(p.rec); contagem.media++; } catch (_) { contagem.repetidos++; }
-          } else {
-            try {
-              if (await AVDB.fileGet(p.rec.id)) { contagem.repetidos++; } else {
-                await AVDB.fileAdd(p.rec); contagem.arquivos++;
-              }
-            } catch (_) { contagem.repetidos++; }
-          }
-        };
-        for (;;) {
-          // O `null` daqui é inalcançável: `pacoteConferir` já provou que o
-          // arquivo chega ao `fim`. A guarda fica porque um laço sem saída
-          // sobre um cursor é a forma de travar o app para sempre no dia em
-          // que alguém mexer na conferência.
-          const r = await cursor.proximo();
-          if (!r) throw new Error('O pacote está incompleto — ele acabou antes do fim.');
-          const { cab, corpo } = r;
-          bgTaskBytes(tarefa, cursor.pos, fonte.size);
+        const viuFim = await pacoteAplicarFluxo(pacoteCursor(fonte), contagem, (pos) => {
+          bgTaskBytes(tarefa, pos, fonte.size);
           if (fonte.size) {
             falarNoTile(pacoteImportarTileEl,
-              Math.min(100, Math.round((cursor.pos / fonte.size) * 100)) + '%', 0);
+              Math.min(100, Math.round((pos / fonte.size) * 100)) + '%', 0);
           }
-          if (cab.t === 'media-thumb' && pendente && pendente.tipo === 'media') {
-            pendente.rec.thumb = corpo; continue;
-          }
-          if (cab.t === 'media-pagina' && pendente && pendente.tipo === 'media') {
-            if (!Array.isArray(pendente.rec.pages)) pendente.rec.pages = [];
-            pendente.rec.pages[cab.i | 0] = corpo; continue;
-          }
-          if (cab.t === 'arquivo-thumb' && pendente && pendente.tipo === 'arquivo') {
-            pendente.rec.thumb = corpo; continue;
-          }
-          await fechar();
-          if (cab.t === 'fim') break;
-          if (cab.t === 'info') continue;   // o cabeçalho humano; nada a aplicar
-          if (cab.t === 'media') {
-            // O `blob` volta do CORPO, e os campos que o exportador tirou
-            // continuam ausentes de propósito: `stream` é o manifesto de uma
-            // transmissão que expirou horas atrás, e o item sem ele é o LINK
-            // que ele sempre foi — resolvido no primeiro toque, pelo caminho
-            // que já existe.
-            const rec = Object.assign({}, cab.rec, { blob: corpo, thumb: null, pages: null });
-            pendente = { tipo: 'media', rec };
-            continue;
-          }
-          if (cab.t === 'arquivo') {
-            pendente = { tipo: 'arquivo', rec: Object.assign({}, cab.rec, { thumb: null }) };
-            continue;
-          }
-          if (cab.t === 'opfs') {
-            // JÁ EXISTE = PULA, e a pergunta é feita ao DISCO: um caminho que
-            // abre é um arquivo que este aparelho já tem, e sobrescrevê-lo
-            // seria a única forma de uma importação destruir alguma coisa.
-            let tem = false;
-            try { await AVDB.opfsGetFile(cab.caminho); tem = true; } catch (_) { tem = false; }
-            if (tem) { contagem.repetidos++; continue; }
-            try { await AVDB.opfsWriteFile(cab.caminho, corpo); contagem.opfs++; } catch (_) {
-              throw new Error('Não deu para gravar o acervo — o aparelho pode estar sem espaço.');
-            }
-            continue;
-          }
-          if (cab.t === 'state' || cab.t === 'state-blob') {
-            let valor;
-            if (cab.t === 'state-blob') {
-              valor = corpo;
-            } else {
-              try { valor = JSON.parse(await corpo.text()); } catch (_) { continue; }
-            }
-            const antes = await AVDB.getState(cab.chave);
-            const depois = pacoteMesclarValor(antes, valor);
-            // `updateState` e não `setState`: é a regra do arquivo inteiro para
-            // um read-modify-write de `state` — uma transação só, e o commit
-            // confirmado antes de seguir. A `fn` é SÍNCRONA (um `await` lá
-            // dentro deixaria a transação fechar sozinha).
-            // `depois === antes` é a regra 4 devolvendo o LOCAL por
-            // identidade: nada mudou, e contá-lo faria a tela anunciar
-            // ajustes que não entraram.
-            if (depois !== antes) {
-              await AVDB.updateState(cab.chave, (atual) => pacoteMesclarValor(atual, valor));
-              contagem.chaves++;
-            }
-            continue;
-          }
-        }
+        });
+        // O `false` daqui é inalcançável: `pacoteConferir` já provou que o
+        // arquivo chega ao `fim`. A guarda fica porque ela é a diferença entre
+        // um pacote inteiro e um cortado no meio, e é o dia em que alguém
+        // mexer na conferência que ela existe para cobrir.
+        if (!viuFim) throw new Error('O pacote está incompleto — ele acabou antes do fim.');
       } finally {
         bgTaskEnd(tarefa);
       }
@@ -23951,6 +24060,717 @@ async function importarPacote() {
 const AV_PAGINA = 'https://jonathasptbr-gh.github.io/Audio-Visual-IASD/';
 
 const shareAppTileEl = document.getElementById('shareAppTile');
+// ===========================================================================
+// O CLONE CELULAR A CELULAR (v1.8.0)
+// ===========================================================================
+//
+// Pedido do operador, depois de o arquivo único falhar em 15 GB e em 3,5 GB:
+// *"vamos planejar um método mais gradual, algo que possa ser interrompido e
+// continuado a qualquer momento sem risco de perder todo o trabalho … um
+// método direto de comunicação … que se comunique diretamente com o outro app
+// que vai clonar a biblioteca"* e *"tente fazer um sistema de comunicação
+// entre eles, para que eu não tenha de digitar um endereço, quanto mais
+// automatizado melhor"*.
+//
+// ===== O NÚCLEO JÁ EXISTIA, E ELE É DE QUEM PERGUNTA AO DISCO =====
+//
+// O operador viu isso antes do código: *"já temos um sistema que busca online
+// para saber se tem algo faltando, a biblioteca é a mesma, só muda a fonte"*.
+// É o `songVariantsNeeded`/`syncCollection`: a lista do que falta é **derivada
+// do disco a cada passada, nunca guardada**. Daí a propriedade que o arquivo
+// único não tinha — *nenhum progresso pode ser perdido, porque nenhum
+// progresso é anotado*. Interromper é fechar o app; continuar é abrir e mandar
+// sincronizar de novo.
+//
+// ===== AS QUATRO PEÇAS, E ONDE CADA UMA MORA =====
+//
+// | peça | onde | por quê |
+// |---|---|---|
+// | achar o outro celular | `AcervoDescoberta.kt` (mDNS) | ninguém digita endereço |
+// | autorizar | `AcervoCessao.kt` | o acervo NÃO herda a porta aberta do telão: quem cede toca em Permitir |
+// | servir | as rotas `/acervo/` do `EspelhoServidor` | o shell não lê o acervo: ele PEDE ao Controle e serve o que for empurrado |
+// | trazer | `AcervoProxy.kt` + este arquivo | a página é `https` e o outro celular serve `http` |
+//
+// ===== O FORMATO É O DO PACOTE, SERVIDO EM PEDAÇOS =====
+//
+// Nada de vocabulário novo: cada item é um fluxo dos MESMOS registros que o
+// `.avpkg` escreve, e quem o aplica é o MESMO `pacoteAplicarFluxo`. O que muda
+// é a fonte — em vez de um arquivo de gigabytes lido de ponta a ponta, uma
+// resposta HTTP por item.
+
+/** O pedaço de cada GET. Ele é o teto do `AcervoProxy` (24 MB) com folga: o
+ *  corpo atravessa a memória do shell inteiro, uma vez por pedido. */
+const CLONE_PEDACO = 4 * 1024 * 1024;
+
+/** Quantos registros LEVES cabem num item. Ver o `l` no `pacote.js`: a Bíblia
+ *  são 1189 chaves por versão, e um pedido HTTP por chave trocaria megabytes
+ *  por horas. */
+const CLONE_LOTE = 400;
+
+/** De quanto em quanto tempo a folha do clone relê o estado do shell. O mDNS
+ *  responde quando responde, e a autorização depende de uma pessoa. */
+const CLONE_ENQUETE_MS = 1500;
+
+/** Quantas vezes um item é retentado antes de a cópia parar com uma frase. Uma
+ *  rede de igreja oscila, e desistir no primeiro tropeço num acervo de
+ *  milhares de itens é desistir sempre. */
+const CLONE_TENTATIVAS = 3;
+
+// ---------------------------------------------------------------------------
+// COMUM
+// ---------------------------------------------------------------------------
+
+/** A sessão do índice: 24 caracteres do alfabeto que a rota aceita. */
+function cloneNovaSessao() {
+  const b = new Uint8Array(12);
+  crypto.getRandomValues(b);
+  return Array.from(b, (x) => x.toString(36).padStart(2, '0')).join('');
+}
+
+/**
+ * Uma fonte de cursor sobre um `Blob` — o irmão em memória do
+ * `pacoteFonteDaUrl`.
+ *
+ * Ele volta a existir na v1.8.0 (saiu na v1.7.9 por ficar sem consumidor): o
+ * corpo de um item do clone JÁ está inteiro na mão quando o cursor o percorre,
+ * e ler por janelas um Blob de poucos megabytes seria pagar o preço de uma
+ * solução para um problema que aqui não existe.
+ */
+function cloneFonteDoBlob(b) {
+  return {
+    size: b.size,
+    async bytes(ini, fim) { return new Uint8Array(await b.slice(ini, fim).arrayBuffer()); },
+    async blob(ini, fim, tipo) { return b.slice(ini, fim, tipo || ''); },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// QUEM CEDE
+// ---------------------------------------------------------------------------
+
+let cloneCedendo = false;
+let cloneSessao = '';
+/** Paralelo ao índice: COMO montar cada item. Guarda chaves, nunca bytes — a
+ *  cessão fica ligada por minutos, e segurar o acervo codificado em memória
+ *  durante todo esse tempo é o OOM que o `pacotePlano` já evita. */
+let cloneReceitas = [];
+let cloneRelogio = 0;
+let clonePerguntando = false;
+
+const cloneCederTileEl = document.getElementById('cloneCederTile');
+const cloneReceberTileEl = document.getElementById('cloneReceberTile');
+
+/**
+ * O ÍNDICE — a lista de decisão que o outro celular vai diferenciar contra o
+ * próprio disco.
+ *
+ * Ele sai do MESMO `pacotePlano` que a exportação usa: uma segunda varredura do
+ * acervo divergiria da primeira no primeiro ajuste, e o que o operador veria
+ * seria um clone trazendo coisa diferente do que o arquivo traz.
+ */
+async function cloneMontarIndice() {
+  const plano = await pacotePlano();
+  const itens = [];
+  const receitas = [];
+  let total = 0;
+
+  // 1) OS LEVES. As chaves de `state` e os registros de catálogo que não
+  //    apontam para arquivo nenhum — os que apontam viajam COLADOS no arquivo
+  //    deles, que é o que faz um item chegar inteiro ou não chegar.
+  const catalogo = await AVDB.filesAll();
+  const catPorCaminho = new Map();
+  const soltos = [];
+  for (const rec of catalogo) {
+    if (!rec || !rec.id) continue;
+    if (!rec.opfsPath) { soltos.push({ a: rec.id }); continue; }
+    if (!plano.caminhoViaja(rec.opfsPath)) continue;
+    catPorCaminho.set(rec.opfsPath, rec.id);
+  }
+  const leves = plano.estado
+    .map((e) => ({ s: e.chave, b: e.blob ? e.blob.size : e.bytes.length }))
+    .concat(soltos.map((x) => ({ a: x.a, b: 0 })));
+  for (let i = 0; i < leves.length; i += CLONE_LOTE) {
+    const fatia = leves.slice(i, i + CLONE_LOTE);
+    let b = 0;
+    for (const x of fatia) b += x.b;
+    itens.push({ t: 'l', k: String(itens.length), b });
+    receitas.push({ t: 'l', chaves: fatia.map((x) => (x.s ? { s: x.s } : { a: x.a })) });
+    total += b;
+  }
+
+  // 2) A MÍDIA — um item por registro, com a miniatura e as páginas dentro.
+  for (const m of plano.midia) {
+    itens.push({ t: 'm', k: m.id, b: m.bytes });
+    receitas.push({ t: 'm', id: m.id });
+    total += m.bytes;
+  }
+
+  // 3) O OPFS — um item por arquivo, com o registro de catálogo dele junto.
+  for (const [, pacote] of plano.porGrupo) {
+    for (const a of pacote.arquivos) {
+      itens.push({ t: 'o', k: a.caminho, b: a.tamanho });
+      receitas.push({ t: 'o', caminho: a.caminho, rec: catPorCaminho.get(a.caminho) || '' });
+      total += a.tamanho;
+    }
+  }
+
+  cloneSessao = cloneNovaSessao();
+  cloneReceitas = receitas;
+  return { v: AVPacote.CLONE_V, sessao: cloneSessao, bytes: total, itens };
+}
+
+/**
+ * O CORPO DE UM ITEM — um fluxo de registros, sem assinatura e sem `fim`.
+ *
+ * **Ele NÃO usa o `pacoteEscritor`, e a razão é memória.** Aquele empurra
+ * BYTES: um vídeo de 380 MB viraria 380 MB de `ArrayBuffer` num array. Aqui o
+ * corpo é um `Blob`, e o construtor de `Blob` REFERENCIA as fatias em vez de
+ * copiá-las — o arquivo continua no disco até alguém pedir os bytes. O que
+ * atravessa a memória é só o cabeçalho de cada registro.
+ */
+async function cloneCorpoDoItem(n) {
+  const r = cloneReceitas[n];
+  if (!r) return null;
+  const partes = [];
+  const reg = (cab, corpo) => {
+    partes.push(AVPacote.cabecalhoParaBytes(cab));
+    if (corpo && corpo.size) partes.push(corpo);
+  };
+  if (r.t === 'l') {
+    const codificador = new TextEncoder();
+    for (const x of r.chaves) {
+      if (x.s) {
+        let valor;
+        try { valor = await AVDB.getState(x.s); } catch (_) { continue; }
+        if (valor === undefined) continue;
+        if (valor instanceof Blob) {
+          reg({ t: 'state-blob', chave: x.s, tipo: valor.type || '', bytes: valor.size }, valor);
+          continue;
+        }
+        let bytes;
+        try { bytes = codificador.encode(JSON.stringify(valor)); } catch (_) { continue; }
+        reg({ t: 'state', chave: x.s, bytes: bytes.length }, new Blob([bytes]));
+        continue;
+      }
+      let rec = null;
+      try { rec = await AVDB.fileGet(x.a); } catch (_) { continue; }
+      if (!rec) continue;
+      reg({ t: 'arquivo', rec: AVPacote.sanearArquivo(rec), bytes: 0 });
+      if (rec.thumb) reg({ t: 'arquivo-thumb', bytes: rec.thumb.size }, rec.thumb);
+    }
+  } else if (r.t === 'm') {
+    let rec = null;
+    try { rec = await AVDB.getMedia(r.id); } catch (_) { rec = null; }
+    if (!rec) return new Blob([]);
+    const corpo = rec.blob || null;
+    // A ORDEM — registro, miniatura, páginas — é CONTRATO com o aplicador: ele
+    // monta o item enquanto lê, e por isso os satélites vêm colados nele.
+    reg({ t: 'media', rec: AVPacote.sanearMedia(rec), bytes: corpo ? corpo.size : 0 }, corpo);
+    if (rec.thumb) reg({ t: 'media-thumb', bytes: rec.thumb.size }, rec.thumb);
+    if (Array.isArray(rec.pages)) {
+      for (let i = 0; i < rec.pages.length; i++) {
+        const pg = rec.pages[i];
+        if (!pg) continue;
+        reg({ t: 'media-pagina', i, tipo: pg.type || '', bytes: pg.size }, pg);
+      }
+    }
+  } else if (r.t === 'o') {
+    if (r.rec) {
+      let rec = null;
+      try { rec = await AVDB.fileGet(r.rec); } catch (_) { rec = null; }
+      if (rec) {
+        reg({ t: 'arquivo', rec: AVPacote.sanearArquivo(rec), bytes: 0 });
+        if (rec.thumb) reg({ t: 'arquivo-thumb', bytes: rec.thumb.size }, rec.thumb);
+      }
+    }
+    let f = null;
+    try { f = await AVDB.opfsGetFile(r.caminho); } catch (_) { f = null; }
+    if (!f) return new Blob([]);
+    reg({ t: 'opfs', caminho: r.caminho, tipo: f.type || '', bytes: f.size }, f);
+  }
+  return new Blob(partes, { type: 'application/octet-stream' });
+}
+
+/**
+ * O PEDIDO DO SHELL — ele chega pelo BARRAMENTO, e não por enquete.
+ *
+ * A rota `/acervo/item/` do outro lado do fio não acha o item no cache, injeta
+ * este comando e ESPERA. Enquetar aqui seria somar meio segundo a cada item de
+ * um acervo com milhares deles.
+ *
+ * A `sessao` é conferida antes de qualquer coisa: um pedido de um índice que já
+ * foi remontado (a página recarregou por OTA no meio) tem de ficar sem
+ * resposta, para o outro lado receber o 409 e buscar o índice novo. Responder
+ * com o item de OUTRA lista é o que a sessão existe para impedir.
+ */
+async function cloneAtenderPedido(msg) {
+  if (!cloneCedendo || !cloneSessao) return;
+  if (msg.sessao !== cloneSessao) return;
+  const n = msg.n | 0;
+  const token = String(msg.token || '');
+  if (!token || n < 0 || n >= cloneReceitas.length) return;
+  let corpo = null;
+  try { corpo = await cloneCorpoDoItem(n); } catch (e) {
+    diagC('clone: não deu para montar o item ' + n + ' (' + ((e && e.message) || e) + ')');
+    return;
+  }
+  if (!corpo) return;
+  // O EMPURRÃO É O DO TELÃO, sem uma linha nova: `telaGarantirEnvio` já
+  // enfileira, deduplica por id+token, retoma de onde parou e fala o protocolo
+  // do `EspelhoMidiaCanal`. O `id` carrega a sessão para o cache do shell
+  // tratar dois índices como itens diferentes.
+  telaGarantirEnvio({
+    id: 'clone:' + cloneSessao + ':' + n,
+    token,
+    blob: corpo,
+    name: 'item ' + n,
+    type: 'application/octet-stream',
+  });
+}
+
+/** Publica (ou republica) o índice no shell. Devolve a frase do erro, ou ''. */
+async function clonePublicarIndice() {
+  let ind;
+  try { ind = await cloneMontarIndice(); } catch (e) {
+    return (e && e.message) || 'Não deu para montar a lista do acervo.';
+  }
+  const ok = await AVNative.acervoPublicar(ind.sessao, JSON.stringify(ind));
+  if (!ok) return 'O aparelho não aceitou a lista do acervo.';
+  diagC('clone: cedendo ' + ind.itens.length + ' item(ns), ' + fmtBytes(ind.bytes));
+  return '';
+}
+
+async function cloneLigarCessao() {
+  if (!window.__NATIVE__ || cloneCedendo) return;
+  falarNoTile(cloneCederTileEl, 'Ligando…', 0);
+  const r = await AVNative.acervoCeder('');
+  if (!r || r.erro) {
+    calarTile(cloneCederTileEl);
+    pulsar(cloneCederTileEl, 'erro');
+    await openAppDialog({
+      title: 'Não deu para ceder',
+      message: (r && r.erro) || 'Não foi possível abrir a rede deste aparelho.',
+      okText: 'Entendi',
+      cancelText: null,
+    });
+    return;
+  }
+  cloneCedendo = true;
+  cloneRenderTiles();
+  falarNoTile(cloneCederTileEl, 'Medindo…', 0);
+  const erro = await clonePublicarIndice();
+  if (erro) {
+    await cloneDesligarCessao();
+    pulsar(cloneCederTileEl, 'erro');
+    await openAppDialog({ title: 'Não deu para ceder', message: erro, okText: 'Entendi', cancelText: null });
+    return;
+  }
+  cloneAcertarRelogio();
+}
+
+async function cloneDesligarCessao() {
+  cloneCedendo = false;
+  cloneSessao = '';
+  cloneReceitas = [];
+  try { AVNative.acervoPararCessao(); } catch (_) { /* ponte */ }
+  calarTile(cloneCederTileEl);
+  cloneRenderTiles();
+  cloneAcertarRelogio();
+}
+
+/**
+ * A RETOMADA DA CESSÃO depois de a página morrer (OTA aplicado, renderer
+ * remontado). O SERVIDOR vive no shell e sobrevive ao documento, então o
+ * aparelho continua anunciado e pareado — e as `cloneReceitas` não, porque elas
+ * eram memória desta página.
+ *
+ * Sem esta função o outro celular pediria itens de uma sessão que ninguém sabe
+ * mais montar, e a cópia pararia com "sem resposta" a cada item. Republicar
+ * um índice NOVO faz o pedido antigo levar 409, e o outro lado busca a lista
+ * de novo e continua de onde estava — que é exatamente o que a sessão existe
+ * para permitir. É a mesma semente que o `lerEspelho()` faz para o telão.
+ */
+async function cloneRetomar() {
+  if (!window.__NATIVE__) return;
+  let e = null;
+  try { e = await AVNative.acervoEstado(); } catch (_) { return; }
+  if (!e || !e.cessao || !e.cessao.cedendo) return;
+  cloneCedendo = true;
+  cloneRenderTiles();
+  await clonePublicarIndice();
+  cloneAcertarRelogio();
+}
+
+/**
+ * A ENQUETE — e ela só liga quando há o que perguntar.
+ *
+ * Duas perguntas, e as duas dependem de coisas que não avisam: *"alguém pediu
+ * para clonar?"* (uma pessoa do outro lado) e *"que aparelhos apareceram?"* (o
+ * mDNS responde quando responde). O PEDIDO DE ITEM não passa por aqui — ele
+ * chega pelo barramento, porque somar meio segundo por item num acervo de
+ * milhares deles seria pagar horas por comodidade.
+ */
+function cloneAcertarRelogio() {
+  const precisa = cloneCedendo || cloneProcurando;
+  if (precisa && !cloneRelogio) {
+    cloneRelogio = setInterval(cloneEnquete, CLONE_ENQUETE_MS);
+  } else if (!precisa && cloneRelogio) {
+    clearInterval(cloneRelogio);
+    cloneRelogio = 0;
+  }
+}
+
+async function cloneEnquete() {
+  if (!window.__NATIVE__) return;
+  let e = null;
+  try { e = await AVNative.acervoEstado(); } catch (_) { return; }
+  if (!e) return;
+  const c = e.cessao || {};
+  if (cloneCedendo) {
+    // A PERGUNTA. `clonePerguntando` impede duas caixas empilhadas enquanto a
+    // primeira espera o dedo — a enquete continua girando por baixo dela.
+    if (c.pedinte && !clonePerguntando) {
+      clonePerguntando = true;
+      const sim = await openAppDialog({
+        title: 'Copiar a biblioteca?',
+        message: c.pedinte + ' quer copiar a biblioteca deste aparelho.\n\n'
+          + 'Vão junto as músicas, os vídeos, os arquivos importados e os ajustes. '
+          + 'Nada é apagado daqui.',
+        okText: 'Permitir',
+        cancelText: 'Recusar',
+        fixo: true,
+      });
+      clonePerguntando = false;
+      try { AVNative.acervoResponder(!!sim); } catch (_) { /* ponte */ }
+      return;
+    }
+    if (c.pareado) {
+      falarNoTile(cloneCederTileEl,
+        c.entregues ? c.entregues + ' de ' + c.itens : 'Copiando…', 0);
+    } else {
+      falarNoTile(cloneCederTileEl, 'Aguardando…', 0);
+    }
+  }
+  if (cloneProcurando) cloneRenderAchados(Array.isArray(e.achados) ? e.achados : []);
+}
+
+// ---------------------------------------------------------------------------
+// QUEM CLONA
+// ---------------------------------------------------------------------------
+
+let cloneProcurando = false;
+let cloneCopiando = false;
+
+/** A folha de escolha do aparelho é a MESMA `songMenu` do resto do app — um
+ *  segundo formato de lista seria a divergência que a v5.252 gastou um lote
+ *  para tirar daqui. */
+function cloneAbrirLista() {
+  if (!window.__NATIVE__ || cloneCopiando) return;
+  cloneProcurando = true;
+  try { AVNative.acervoProcurar(true); } catch (_) { /* ponte */ }
+  songMenuFor = { clone: true };
+  songMenuTitleEl.textContent = 'De qual celular?';
+  cloneRenderAchados([]);
+  songMenuPopupEl.classList.add('open');
+  cloneAcertarRelogio();
+}
+
+function cloneFecharLista() {
+  cloneProcurando = false;
+  try { AVNative.acervoProcurar(false); } catch (_) { /* ponte */ }
+  cloneAcertarRelogio();
+}
+
+function cloneRenderAchados(lista) {
+  if (!songMenuFor || !songMenuFor.clone) return;
+  songMenuListEl.innerHTML = '';
+  if (!lista.length) {
+    // PROCURANDO NÃO É "NÃO ACHEI". A lista vazia dos primeiros segundos é o
+    // caso normal, e um "nenhum aparelho" ali mandaria o operador desistir
+    // antes de o mDNS ter respondido. A linha é a MESMA `.song-menu-fixo` da
+    // folha de exportação: uma linha com cara de alvo que não responde ao
+    // toque é pior que uma que nunca prometeu responder.
+    const li = document.createElement('li');
+    const caixa = document.createElement('div');
+    caixa.className = 'song-menu-btn song-menu-sel song-menu-fixo';
+    const ic = document.createElement('span');
+    ic.className = 'song-menu-icon';
+    ic.innerHTML = pacoteIconeSvg('icoLupa');
+    const txt = document.createElement('span');
+    txt.className = 'song-menu-text';
+    const t = document.createElement('span');
+    t.className = 'song-menu-label';
+    t.textContent = 'Procurando na rede…';
+    const d = document.createElement('span');
+    d.className = 'song-menu-sub';
+    d.textContent = 'No outro celular, abra Configurações e toque em "Ceder".';
+    txt.append(t, d);
+    caixa.append(ic, txt);
+    li.appendChild(caixa);
+    songMenuListEl.appendChild(li);
+    return;
+  }
+  for (const a of lista) {
+    const sub = (a.itens ? a.itens + (a.itens === 1 ? ' item' : ' itens') : 'medindo')
+      + (a.bytes ? ' · ' + fmtBytes(a.bytes) : '');
+    songMenuListEl.appendChild(songMenuItem(
+      pacoteIconeSvg('icoCelular'),
+      a.rotulo || a.nome,
+      sub,
+      () => { closeSongMenu(); cloneComecar(a); },
+    ));
+  }
+}
+
+/**
+ * O PAREAMENTO, com a espera do dedo do outro lado.
+ *
+ * Ele INSISTE em vez de falhar: a resposta é uma pessoa tocando em Permitir, e
+ * um pedido único devolveria "aguardando" e pararia ali. Cada desfecho tem
+ * frase própria porque cada um pede uma ação diferente de quem está com o
+ * aparelho na mão.
+ */
+async function clonePedirPar(a) {
+  const ate = Date.now() + 120000;
+  for (;;) {
+    let r = null;
+    try { r = await AVNative.acervoParear(a.host, a.porta, cloneMeuRotulo()); } catch (_) { r = null; }
+    const estado = (r && r.estado) || 'erro';
+    if (estado === 'pareado') return '';
+    if (estado === 'recusado') return 'O outro aparelho recusou a cópia.';
+    if (estado === 'ocupado') return 'O outro aparelho já está copiando para alguém.';
+    if (estado === 'nao-cede') return 'Aquele aparelho parou de ceder a biblioteca.';
+    if (estado === 'erro') return (r && r.erro) ? ('Não deu para falar com o outro aparelho (' + r.erro + ').') : 'Não deu para falar com o outro aparelho.';
+    if (Date.now() > ate) return 'Ninguém respondeu no outro aparelho.';
+    falarNoTile(cloneReceberTileEl, 'Aguardando…', 0);
+    await new Promise((x) => setTimeout(x, CLONE_ENQUETE_MS));
+  }
+}
+
+async function cloneComecar(a) {
+  if (cloneCopiando) return;
+  cloneCopiando = true;
+  cloneRenderTiles();
+  let erro = '';
+  const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0 };
+  try {
+    falarNoTile(cloneReceberTileEl, 'Pareando…', 0);
+    erro = await clonePedirPar(a);
+    if (!erro) erro = await cloneSincronizar(contagem);
+  } catch (e) {
+    erro = (e && e.message) || 'A cópia falhou.';
+  } finally {
+    cloneCopiando = false;
+    try { AVNative.acervoSoltar(); } catch (_) { /* ponte */ }
+    calarTile(cloneReceberTileEl);
+    cloneRenderTiles();
+  }
+  if (erro) {
+    pulsar(cloneReceberTileEl, 'erro');
+    await openAppDialog({
+      title: 'A cópia parou',
+      // O QUE JÁ ENTROU FICA, e a frase diz isso: a lista do que falta é
+      // derivada do disco, então tocar de novo continua de onde parou. Sem
+      // esta linha o operador conclui que perdeu o que já tinha copiado.
+      message: erro + '\n\nO que já foi copiado ficou no aparelho. '
+        + 'Toque em "Clonar" de novo para continuar de onde parou.',
+      okText: 'Entendi',
+      cancelText: null,
+    });
+    return;
+  }
+  pulsar(cloneReceberTileEl, 'ok');
+  await openAppDialog({
+    title: 'Biblioteca copiada',
+    message: cloneResumo(contagem) + '\n\nO app vai reabrir para carregar o que chegou.',
+    okText: 'Reabrir',
+    cancelText: null,
+  });
+  // A MESMA razão da importação por arquivo: o `controle.js` lê o acervo UMA
+  // vez, no `init()`, e guarda listas e catálogos em variáveis de módulo.
+  // Depois de uma cópia todas estão desatualizadas, e reabrir o documento é o
+  // único ponto do app que reconstrói tudo por construção.
+  location.reload();
+}
+
+function cloneResumo(c) {
+  const p = [];
+  if (c.media) p.push(c.media + (c.media === 1 ? ' item' : ' itens'));
+  if (c.opfs) p.push(c.opfs + (c.opfs === 1 ? ' arquivo' : ' arquivos'));
+  if (c.chaves) p.push(c.chaves + (c.chaves === 1 ? ' ajuste' : ' ajustes'));
+  if (!p.length) return 'Este aparelho já tinha tudo o que o outro oferecia.';
+  return 'Chegaram ' + p.join(', ') + '.';
+}
+
+/**
+ * O LAÇO — e ele é `syncCollection` com outra fonte.
+ *
+ * 1. busca o índice; 2. pergunta ao PRÓPRIO disco o que já existe, numa
+ * varredura só (nunca um `getMedia` por item — seriam milhares de transações
+ * em fila, a mesma economia do `AVDB.mediaResumo`); 3. baixa e aplica o que
+ * falta, na ordem do índice.
+ *
+ * Retomável por construção: nada do que ele faz é anotado, então recomeçar é
+ * refazer o passo 2 e achar a lista menor.
+ */
+async function cloneSincronizar(contagem) {
+  falarNoTile(cloneReceberTileEl, 'Lendo a lista…', 0);
+  let ind = null;
+  try {
+    const resp = await fetch('/clone/indice', { cache: 'no-store' });
+    if (!resp.ok) return 'O outro aparelho não entregou a lista (HTTP ' + resp.status + ').';
+    ind = await resp.json();
+  } catch (e) {
+    return 'Não deu para ler a lista do outro aparelho.';
+  }
+  const val = AVPacote.indiceValido(ind);
+  if (!val.ok) return val.erro;
+
+  const tem = new Set();
+  for (const m of await AVDB.mediaResumo()) tem.add('m:' + m.id);
+  for (const a of await AVDB.opfsTodosOsArquivos()) tem.add('o:' + a.caminho);
+  const { falta, desconhecidos, bytes } = AVPacote.itensQueFaltam(ind.itens, tem);
+  if (!falta.length) return '';
+
+  await withBgWork(async () => {
+    const tarefa = bgTaskStart('Copiando a biblioteca', bytes || falta.length);
+    bgTaskBytes(tarefa, 0, bytes || falta.length);
+    try {
+      let feitos = 0;
+      let quantos = 0;
+      for (const { n, item } of falta) {
+        const corpo = await cloneBaixarItem(ind.sessao, n);
+        // CORPO VAZIO NÃO É FALHA: é o item que sumiu do outro aparelho entre
+        // a montagem do índice e o pedido (o operador apagou uma coleção). Ele
+        // é PULADO, e o `repetidos` do resumo não o conta porque ele não
+        // chegou a existir.
+        if (corpo && corpo.size) {
+          await pacoteAplicarFluxo(pacoteCursor(cloneFonteDoBlob(corpo), 0), contagem, null);
+        }
+        feitos += Number(item.b) > 0 ? Number(item.b) : 0;
+        quantos++;
+        bgTaskBytes(tarefa, bytes ? feitos : quantos, bytes || falta.length);
+        // A RÉGUA É DE BYTES QUANDO HÁ BYTES. Um acervo é feito de milhares de
+        // itens minúsculos e algumas dezenas enormes: contar ITENS faria a
+        // barra correr até 90% na Bíblia e ficar parada nos vídeos.
+        falarNoTile(cloneReceberTileEl, Math.min(100, Math.round(
+          (bytes ? feitos / bytes : quantos / falta.length) * 100,
+        )) + '%', 0);
+      }
+    } finally {
+      bgTaskEnd(tarefa);
+    }
+  });
+  if (desconhecidos) {
+    return desconhecidos + ' item(ns) do outro aparelho são de uma versão mais nova do app '
+      + 'e não puderam ser copiados. Atualize este aparelho e tente de novo.';
+  }
+  return '';
+}
+
+/**
+ * UM ITEM, EM PEDAÇOS — e a faixa vai na QUERY, nunca num cabeçalho `Range`.
+ *
+ * É a invariante 8: o `InputStream` que o `shouldInterceptRequest` devolve é o
+ * recurso INTEIRO a partir do byte 0, e quem aplica o `Range` é o próprio
+ * WebView, por cima do que o app entregou. Pedir por cabeçalho aplicaria o
+ * deslocamento duas vezes — e o `AcervoProxy` recusa isso em voz alta,
+ * justamente para ninguém descobrir por bytes deslocados.
+ *
+ * O TAMANHO TOTAL vem do `X-Av-Total`, e não do índice: o `b` de lá é o peso do
+ * CONTEÚDO, e o corpo carrega os cabeçalhos dos registros por cima. Adivinhar o
+ * fim pelo índice pararia a leitura no meio do último registro.
+ */
+async function cloneBaixarItem(sessao, n) {
+  const partes = [];
+  let pos = 0;
+  let total = -1;
+  for (;;) {
+    const fim = total >= 0 ? Math.min(pos + CLONE_PEDACO, total) : pos + CLONE_PEDACO;
+    const resp = await cloneBuscarPedaco(sessao, n, pos, fim - 1);
+    const t = Number(resp.headers.get('X-Av-Total'));
+    if (Number.isFinite(t) && t > 0) total = t;
+    const ab = await resp.arrayBuffer();
+    if (!ab.byteLength) break;
+    partes.push(ab);
+    pos += ab.byteLength;
+    if (total >= 0 && pos >= total) break;
+    // SEM TOTAL E COM PEDAÇO INCOMPLETO acabou: é a única saída que sobra
+    // quando o outro lado não disse o tamanho, e ela não pode ser um laço
+    // infinito.
+    if (total < 0 && ab.byteLength < CLONE_PEDACO) break;
+  }
+  return new Blob(partes);
+}
+
+async function cloneBuscarPedaco(sessao, n, ini, fim) {
+  let ultima = '';
+  for (let tentativa = 0; tentativa < CLONE_TENTATIVAS; tentativa++) {
+    let resp = null;
+    try {
+      resp = await fetch('/clone/item/' + sessao + '/' + n + '?r=' + ini + '-' + fim,
+        { cache: 'no-store' });
+    } catch (e) {
+      ultima = 'a rede caiu no meio';
+      resp = null;
+    }
+    if (resp && resp.ok) return resp;
+    if (resp) {
+      // 409 = O ÍNDICE FOI REMONTADO do outro lado (a página de lá recarregou).
+      // Ele NÃO é retentável: a lista mudou, e insistir pediria a posição de
+      // uma lista que não existe mais.
+      if (resp.status === 409) {
+        throw new Error('A lista do outro aparelho mudou no meio da cópia.');
+      }
+      ultima = 'HTTP ' + resp.status;
+    }
+    await new Promise((x) => setTimeout(x, 800 * (tentativa + 1)));
+  }
+  throw new Error('O item ' + n + ' não veio (' + ultima + ').');
+}
+
+// ---------------------------------------------------------------------------
+// OS DOIS TILES
+// ---------------------------------------------------------------------------
+
+function cloneRenderTiles() {
+  const fora = !window.__NATIVE__;
+  for (const el of [cloneCederTileEl, cloneReceberTileEl]) {
+    if (el) el.hidden = fora;
+  }
+  // O TILE DE CEDER É UM INTERRUPTOR e o de clonar é uma AÇÃO: o primeiro
+  // responde "está ligado?" com a luz, e o segundo fica sempre aceso porque
+  // apagado, neste painel, quer dizer INDISPONÍVEL.
+  // CEDER É UM INTERRUPTOR DE VERDADE, e por isso ele APAGA: `qs-on` responde
+  // *"está ligado?"* e `qs-alt` responde *"qual desenho?"* — a distinção da
+  // v1.4.40. O desenho ligado é o celular com as ondas, que é o que ele está
+  // de fato fazendo: se anunciando na rede.
+  if (cloneCederTileEl) {
+    cloneCederTileEl.disabled = cloneCopiando;
+    pintarTile(cloneCederTileEl, cloneCedendo ? 'cedendo' : 'parado',
+      cloneCedendo ? 'ligado' : 'desligado', cloneCedendo, cloneCedendo);
+  }
+  // CLONAR É UMA AÇÃO, e ações ficam ACESAS: apagado, neste painel, quer dizer
+  // INDISPONÍVEL — que é o que ele de fato fica enquanto este aparelho cede (os
+  // dois papéis ao mesmo tempo não fazem sentido, e o `disabled` diz isso).
+  if (cloneReceberTileEl) {
+    cloneReceberTileEl.classList.toggle('qs-trabalhando', cloneCopiando);
+    cloneReceberTileEl.disabled = cloneCedendo;
+    if (!cloneCopiando) {
+      pintarTile(cloneReceberTileEl, 'pronto', 'de outro celular', !cloneCedendo, false);
+    }
+  }
+}
+
+if (cloneCederTileEl) {
+  cloneCederTileEl.addEventListener('click', () => {
+    if (cloneCedendo) cloneDesligarCessao(); else cloneLigarCessao();
+  });
+}
+if (cloneReceberTileEl) {
+  cloneReceberTileEl.addEventListener('click', () => cloneAbrirLista());
+}
+
 const pacoteExportarTileEl = document.getElementById('pacoteExportarTile');
 const pacoteImportarTileEl = document.getElementById('pacoteImportarTile');
 
@@ -24040,6 +24860,11 @@ if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => {
 // Na CARGA, e não só ao abrir a folha: é este toque que revela (ou esconde) o
 // bloco inteiro, e uma folha aberta antes dele mostraria um rótulo sozinho.
 pacoteRenderTiles();
+cloneRenderTiles();
+// A CESSÃO SOBREVIVE À PÁGINA e as receitas dela não — ver `cloneRetomar`.
+// Roda na carga e sem `await`: é uma leitura da ponte, e o resto do app não a
+// espera.
+cloneRetomar();
 
 // ===== PINTAR UM TILE DO PAINEL RÁPIDO (v1.4.38) =====
 //
@@ -29555,6 +30380,11 @@ function resendSceneToDisplay(para) {
 // diferentes nos dois lados.
 AVDB.onCommand((msg) => {
   if (!msg) return;
+  // O PEDIDO DE UM ITEM DO CLONE. Ele vem do SHELL (`MessageBus.post(null,…)`,
+  // que não passa pelo `busPost` e por isso não ecoa para as telas da rede), e
+  // não do outro celular: a rota `/acervo/item/` de cá não achou o item no
+  // cache e está esperando o empurrão. Ver `cloneAtenderPedido`.
+  if (msg.type === 'acervo-pedido') { cloneAtenderPedido(msg); return; }
   // Reenvia SÓ para quem se anunciou (ver `resendSceneToDisplay`). Um telão
   // com bundle antigo não manda `__de`, e aí o reenvio volta a ser broadcast —
   // exatamente o comportamento de antes desta versão.

@@ -58,11 +58,15 @@ object AcervoCessao {
      *  dono, e o operador sabendo quem está copiando. */
     private const val PRAZO_PEDIDO_MS = 90_000L
 
-    /** Quanto a rota espera o empurrão do Controle antes de desistir. Generoso
-     *  porque do outro lado há uma leitura de OPFS e uma travessia de canal
-     *  com ack por bloco; curto o bastante para não segurar a conexão de quem
-     *  perdeu a página do Controle. */
-    const val PRAZO_ITEM_MS = 45_000L
+    /**
+     * Quanto a rota espera **SEM PROGRESSO** antes de desistir de um item.
+     *
+     * É prazo de PARADA e não de duração: enquanto os bytes andam, a espera
+     * continua. Um teto absoluto mataria justamente os arquivos grandes, que
+     * são os que mais custam a refazer — e o que ele precisa detectar é outra
+     * coisa: a página do Controle ter morrido no meio do empurrão.
+     */
+    const val PRAZO_ITEM_MS = 60_000L
 
     private val random = SecureRandom()
 

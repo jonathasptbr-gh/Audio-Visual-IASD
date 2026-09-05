@@ -663,19 +663,45 @@ class EspelhoServidor(
         val token = AcervoCessao.tokenDoItem(resto.substring(0, corte), n)
             ?: return responder(saida, jsonSimples(409, "indice-trocado"))
         val cache = midia ?: return responder(saida, naoAchei())
-        if (cache.servir(token) == null) {
-            MessageBus.post(
-                null,
-                JSONObject()
-                    .put("type", "acervo-pedido")
-                    .put("sessao", AcervoCessao.sessao)
-                    .put("n", n)
-                    .put("token", token)
-                    .toString(),
-            )
-            val ate = SystemClock.elapsedRealtime() + AcervoCessao.PRAZO_ITEM_MS
-            while (cache.servir(token) == null) {
-                if (desligando.get() || SystemClock.elapsedRealtime() >= ate) break
+        // ESPERA O ITEM FICAR **COMPLETO**, e não só existir — esta é a
+        // diferença que separa esta rota do `/m/`.
+        //
+        // Lá o item EM CRESCIMENTO sai por chunked de propósito: o `<video>` da
+        // tela começa a tocar sem esperar o fim, e é isso que se quer. Aqui não
+        // há nada tocando: o destino pede FAIXAS de bytes, e `servirMidia` só
+        // honra `Range` num item completo — servir o crescimento ignoraria a
+        // faixa e entregaria o começo do arquivo rotulado como o pedaço do
+        // meio. O proxy do outro lado reprova isso (é a conferência de
+        // `Content-Range` dele), mas o certo é não produzir a resposta errada.
+        //
+        // O PRAZO É DE PARADA, não de duração: enquanto os bytes andam, a
+        // espera continua. Um item de 380 MB atravessa o canal em dezenas de
+        // segundos, e um teto absoluto o mataria justamente nos arquivos que
+        // mais custam a refazer.
+        var item = cache.servir(token)
+        if (item?.completo != true) {
+            if (item == null) {
+                MessageBus.post(
+                    null,
+                    JSONObject()
+                        .put("type", "acervo-pedido")
+                        .put("sessao", AcervoCessao.sessao)
+                        .put("n", n)
+                        .put("token", token)
+                        .toString(),
+                )
+            }
+            var recebido = item?.recebido ?: -1L
+            var paradoDesde = SystemClock.elapsedRealtime()
+            while (true) {
+                item = cache.servir(token)
+                if (item?.completo == true) break
+                if (item?.cancelado == true) break
+                if (desligando.get()) return
+                val agora = SystemClock.elapsedRealtime()
+                val atual = item?.recebido ?: -1L
+                if (atual != recebido) { recebido = atual; paradoDesde = agora }
+                if (agora - paradoDesde > AcervoCessao.PRAZO_ITEM_MS) break
                 try {
                     Thread.sleep(120)
                 } catch (e: InterruptedException) {
@@ -683,8 +709,8 @@ class EspelhoServidor(
                     return
                 }
             }
-            if (cache.servir(token) == null) {
-                registrar("clone: o item $n nao chegou do Controle em ${AcervoCessao.PRAZO_ITEM_MS} ms")
+            if (item?.completo != true) {
+                registrar("clone: o item $n nao ficou pronto (parado por ${AcervoCessao.PRAZO_ITEM_MS} ms)")
                 return responder(saida, jsonSimples(503, "sem-resposta"))
             }
         }

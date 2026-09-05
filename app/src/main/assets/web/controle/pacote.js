@@ -335,6 +335,113 @@
       + '-' + p(q.getHours()) + p(q.getMinutes()) + '.avpkg';
   }
 
+  // =====================================================================
+  // O CLONE CELULAR A CELULAR
+  // =====================================================================
+  //
+  // ELE É O MESMO PACOTE, SERVIDO EM PEDAÇOS. O vocabulário de registros não
+  // muda — `state`, `media`, `opfs`, `arquivo` e os satélites deles —, e o
+  // leitor do outro lado é o MESMO cursor. O que muda é a FONTE: em vez de um
+  // arquivo de gigabytes lido do começo ao fim, cada item é uma resposta HTTP
+  // independente, pedida por posição.
+  //
+  // ===== POR QUE ISSO É RETOMÁVEL POR CONSTRUÇÃO =====
+  //
+  // A lista do que falta é **derivada do disco**, nunca guardada: o destino
+  // pergunta ao próprio acervo *"eu já tenho isto?"* e busca só o resto. É a
+  // forma do `songVariantsNeeded`, que decide há anos o que um hinário
+  // incompleto ainda precisa baixar — e a propriedade que ela dá é a que o
+  // arquivo único não tinha: **nenhum progresso pode ser perdido, porque
+  // nenhum progresso é anotado.** Interromper é fechar o app; continuar é
+  // abrir de novo e mandar sincronizar.
+  //
+  // ===== TRÊS TIPOS DE ITEM, E A PERGUNTA DE CADA UM =====
+  //
+  // | tipo | o que é | "eu já tenho?" |
+  // |---|---|---|
+  // | `l` | os registros LEVES em lote: as chaves de `state` e o catálogo de arquivos | **nunca** — ver abaixo |
+  // | `m` | uma mídia inteira (registro + bytes + miniatura + páginas) | `getMedia(id)` |
+  // | `o` | um arquivo do OPFS | o caminho ABRE |
+  //
+  // **O `l` É SEMPRE BUSCADO, e isso é decisão e não descuido.** Importar
+  // `state` MESCLA (união nas listas, o local vencendo no resto), então "já
+  // tenho a chave" não responde "já tenho o conteúdo dela": um Cronograma com
+  // dois itens e um com duzentos têm a mesma chave. O preço é medido e
+  // pequeno — a Bíblia é o maior morador de `state`, ~2 MB por versão — e o
+  // lote existe justamente para isso: mandar 3.600 chaves como 3.600 pedidos
+  // HTTP seria trocar megabytes por horas.
+  const CLONE_V = 1;
+  const CLONE_TIPOS = ['l', 'm', 'o'];
+
+  /** A chave de decisão de um item — o que o destino pergunta ao disco. */
+  function chaveDoItem(it) {
+    if (!it || CLONE_TIPOS.indexOf(it.t) < 0) return '';
+    return it.t + ':' + String(it.k == null ? '' : it.k);
+  }
+
+  /** A forma da sessão do índice. O shell valida a MESMA coisa (ela entra numa
+   *  rota), e as duas existem porque validação que mora só num lado não é
+   *  validação. */
+  function sessaoValida(s) {
+    return typeof s === 'string' && /^[A-Za-z0-9_-]{8,32}$/.test(s);
+  }
+
+  /**
+   * `{ ok: true }` ou `{ ok: false, erro }` — a FRASE, como no
+   * `conferirAssinatura`, e pelo mesmo motivo: as recusas pedem ações
+   * diferentes ("o outro aparelho tem uma versão mais nova" manda atualizar;
+   * "resposta ilegível" manda tentar de novo).
+   */
+  function indiceValido(obj) {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+      return { ok: false, erro: 'O outro aparelho respondeu algo que não é um índice.' };
+    }
+    if ((obj.v | 0) > CLONE_V) {
+      return { ok: false, erro: 'O outro aparelho tem uma versão mais nova do app. Atualize antes de clonar.' };
+    }
+    if (!sessaoValida(obj.sessao)) {
+      return { ok: false, erro: 'O índice veio sem identificação de sessão.' };
+    }
+    if (!Array.isArray(obj.itens)) {
+      return { ok: false, erro: 'O índice veio sem a lista de itens.' };
+    }
+    return { ok: true };
+  }
+
+  /**
+   * O QUE FALTA — a lista, na ORDEM DO ÍNDICE.
+   *
+   * `tem` é o conjunto de chaves que o destino já tem, montado de UMA varredura
+   * do disco (o cursor da mídia e a varredura do OPFS), nunca de uma pergunta
+   * por item: um `getMedia` por entrada seriam milhares de transações em fila.
+   * É a mesma economia do `AVDB.mediaResumo`.
+   *
+   * ORDEM DO ÍNDICE e não "os pequenos primeiro": uma retomada tem de pedir a
+   * mesma coisa na mesma ordem, senão o que o operador vê é a barra recomeçando
+   * em outro ponto a cada tentativa.
+   *
+   * `desconhecidos` conta o que este app não sabe receber — um tipo novo vindo
+   * de um aparelho mais atualizado. Ele é PULADO e CONTADO, nunca ignorado em
+   * silêncio: recusar o índice inteiro por causa dele deixaria o operador sem
+   * clone nenhum, e não contá-lo faria a tela anunciar "tudo copiado" sobre
+   * uma cópia incompleta.
+   */
+  function itensQueFaltam(itens, tem) {
+    const falta = [];
+    let desconhecidos = 0;
+    let bytes = 0;
+    const lista = Array.isArray(itens) ? itens : [];
+    for (let n = 0; n < lista.length; n++) {
+      const it = lista[n];
+      if (!it || typeof it !== 'object') { desconhecidos++; continue; }
+      if (CLONE_TIPOS.indexOf(it.t) < 0) { desconhecidos++; continue; }
+      if (it.t !== 'l' && tem && tem.has && tem.has(chaveDoItem(it))) continue;
+      falta.push({ n, item: it });
+      bytes += Number(it.b) > 0 ? Number(it.b) : 0;
+    }
+    return { falta, desconhecidos, bytes };
+  }
+
   global.AVPacote = {
     VERSAO,
     ASSINATURA_BYTES,
@@ -357,5 +464,11 @@
     colecaoDoGrupo,
     pastasDoAparelho,
     nomeDoArquivo,
+    CLONE_V,
+    CLONE_TIPOS,
+    chaveDoItem,
+    sessaoValida,
+    indiceValido,
+    itensQueFaltam,
   };
 })(this);

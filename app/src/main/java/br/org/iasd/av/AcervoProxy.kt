@@ -53,7 +53,13 @@ object AcervoProxy {
     const val ROTA = "/clone/"
 
     private const val CONECTA_MS = 10_000
-    private const val LE_MS = 45_000
+    // GENEROSO DE PROPÓSITO: o primeiro pedido de um item paga o empurrão
+    // INTEIRO dele do outro lado (o Controle de lá lê o arquivo do OPFS e o
+    // atravessa pelo canal, com ack por bloco). Um item de 380 MB leva dezenas
+    // de segundos, e um prazo curto aqui derrubaria a cópia exatamente nos
+    // arquivos que mais custam a refazer. Os pedidos seguintes do mesmo item
+    // batem no cache e voltam na hora.
+    private const val LE_MS = 240_000
 
     /** O mesmo teto do [StreamProxy]: o corpo é lido inteiro em memória, e é o
      *  lado web que fatia. */

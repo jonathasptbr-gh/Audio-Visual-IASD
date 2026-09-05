@@ -300,8 +300,10 @@ try {
     checar(bloco.escondidos.length === 0,
       'C · no APP os três tiles deste aparelho estão à vista', bloco);
     checar(bloco.grade.join(',') === 'temaTile,fitTile,wallTile,histOpenRow,'
-      + 'lyricsBgTile,rotBtn,shareAppTile,pacoteExportarTile,pacoteImportarTile',
-      'C · na MESMA grade dos outros, e na fileira da BASE',
+      + 'lyricsBgTile,rotBtn,shareAppTile,pacoteExportarTile,pacoteImportarTile,'
+      + 'cloneCederTile,cloneReceberTile',
+      'C · na MESMA grade dos outros, e na metade de BAIXO — com os dois do '
+      + 'CLONE (v1.8.0) ao lado deles, que é a mesma natureza',
       bloco.grade);
 
     // O COMPARTILHAR CHEGA À PONTE COM O ENDEREÇO DENTRO. A asserção é sobre o

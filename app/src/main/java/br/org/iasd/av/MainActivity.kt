@@ -2108,7 +2108,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
-    private fun ligarCessao(rotulo: String) {
+    private fun ligarCessao(rotuloPedido: String) {
+        // O NOME DESTE APARELHO É RESOLVIDO AQUI, num ponto só. O web não tem
+        // como saber o modelo (`Build` é do shell), e cada lugar que
+        // improvisasse um nome genérico faria dois celulares chegarem ao outro
+        // lado como "Celular" — justamente na tela em que uma pessoa decide se
+        // autoriza a cópia.
+        val rotulo = rotuloPedido.ifBlank { nomeDesteAparelho() }
         AcervoCessao.ligar(rotulo)
         val porta = espelhoSrv?.estado()?.optInt("porta", 0) ?: 0
         // O ANÚNCIO SAI COM ZERO ITENS, e é assim que tem de ser: o índice
@@ -2159,13 +2165,29 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
+    /** O nome deste aparelho, para o outro lado. Ponto ÚNICO — ver
+     *  [ligarCessao]. */
+    private fun nomeDesteAparelho(): String {
+        val marca = (android.os.Build.MANUFACTURER ?: "").trim()
+        val modelo = (android.os.Build.MODEL ?: "").trim()
+        return when {
+            modelo.isEmpty() -> marca.ifEmpty { "Celular" }
+            // "Samsung SM-A546E" e não "samsung samsung SM-A546E": vários
+            // fabricantes já põem a marca no modelo.
+            marca.isEmpty() || modelo.startsWith(marca, ignoreCase = true) -> modelo
+            else -> marca.replaceFirstChar { it.uppercase() } + " " + modelo
+        }
+    }
+
     private fun pedirPar(endereco: String, porta: Int, rotulo: String): JSONObject {
         if (endereco.isBlank() || porta <= 0) {
             return JSONObject().put("estado", "erro").put("erro", "endereco invalido")
         }
         var conn: java.net.HttpURLConnection? = null
         return try {
-            val corpo = JSONObject().put("rotulo", rotulo).toString().toByteArray(Charsets.UTF_8)
+            val corpo = JSONObject()
+                .put("rotulo", rotulo.ifBlank { nomeDesteAparelho() })
+                .toString().toByteArray(Charsets.UTF_8)
             conn = (java.net.URL("http://$endereco:$porta/acervo/par").openConnection()
                 as java.net.HttpURLConnection).apply {
                 requestMethod = "POST"
