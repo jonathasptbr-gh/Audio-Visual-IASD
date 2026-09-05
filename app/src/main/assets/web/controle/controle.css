@@ -1447,9 +1447,74 @@ body {
 }
 .dl-cancel .msym { font-size: var(--fs-3xl); }
 .dl-cancel:active { color: var(--danger-text); }
+/* O PERCENTUAL SOLTO, à direita da linha. Desde a v1.7.1 ele vive só na LISTA
+   DE RESULTADOS DO YOUTUBE, que não tem subtítulo e portanto não tem onde pôr a
+   faixa; no Cronograma e na Biblioteca quem responde é a `.dl-prog` abaixo. */
 .dl-pct {
   flex-shrink: 0; font-size: var(--fs-sm); font-weight: var(--fw-forte);
   color: var(--accent); font-variant-numeric: tabular-nums;
+}
+
+/* ---------- A FAIXA DE PROGRESSO DA LINHA (v1.7.1) ----------
+   Pedido do operador, sobre a preparação de uma apresentação: *"ajuste a
+   ilustração da representação do progresso no item do cronograma, atualmente
+   ele só tem a porcentagem, mas gostaria que usasse a posição do texto
+   secundário para uma barra de progresso, e a fração das páginas já
+   preparadas"*.
+
+   ELA OCUPA A POSIÇÃO DO SUBTÍTULO, e por isso herda a tipografia dele
+   (`--fs-xs` em `--muted`): é a mesma segunda linha da mesma coluna, e um corpo
+   diferente ali faria a linha mudar de altura quando o trabalho começasse.
+
+   A ORDEM É TEXTO → TRILHO, e não o contrário: com o texto em `flex: 1` o
+   trilho fica ANCORADO à direita da coluna e não se mexe quando a legenda muda
+   de comprimento ("página 9 de 40" → "página 10 de 40"). O inverso — trilho
+   elástico à esquerda — faria a barra encolher e crescer a cada página, que é
+   movimento sem significado numa peça cujo único trabalho é significar
+   movimento. */
+.dl-prog {
+  display: flex; align-items: center; gap: var(--sp-3);
+  min-width: 0;
+  font-size: var(--fs-xs); line-height: 1.25; color: var(--muted);
+}
+.dl-prog-txt {
+  flex: 1 1 auto; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* 34% da coluna, com teto: numa linha larga uma barra de 200px seria a peça
+   mais pesada da lista, e a lista tem dezenas de linhas. O piso existe pelo
+   motivo oposto — abaixo de ~44px o preenchimento deixa de ser lido como
+   proporção e vira um pontinho.
+
+   O TRILHO É `--surface`, O MESMO DA `.simple-time-bar` — e é o mesmo por ser a
+   MESMA peça: um trilho de progresso sob um preenchimento em `--accent`. Um
+   token próprio aqui seria uma segunda opinião sobre a mesma coisa.
+
+   E ele é `--surface` e não `--accent-soft` por medição: `-soft` é tinta com
+   ALFA da família do accent, e alfa EMPILHA — sobre a linha da lista ela compõe
+   a 1,07:1 do fundo, isto é, some. `--surface` segue a regra de camada deste
+   app (flutua sobre a página, AFUNDA dentro de um cartão) e MEDIDO nas quatro
+   combinações dá 1,20–1,38:1 contra a base, com o preenchimento a 4,01–7,15:1
+   dele. É também o que o `tokens.test.mjs` cobra: superfície de controle não é
+   tinta com alfa da família do accent. */
+.dl-prog-trilho {
+  flex: 0 0 34%; min-width: 44px; max-width: 96px;
+  height: 4px; border-radius: var(--radius-pill);
+  background: var(--surface); overflow: hidden;
+}
+/* `display` DECLARADO VENCE O `hidden` — a mesma armadilha do `.qs-tile`: o
+   atributo só esconde porque a folha do agente diz `[hidden] { display: none }`,
+   e qualquer `display` depois o atropela em silêncio. Aqui ele não está
+   declarado, mas a guarda fica: o dia em que alguém precisar de `flex` neste
+   trilho, a barra volta a aparecer VAZIA na fase que não sabe o total. */
+.dl-prog-trilho[hidden] { display: none; }
+.dl-prog-fill {
+  display: block; height: 100%; width: 0;
+  background: var(--accent); border-radius: inherit;
+  /* O passo do progresso é grosso (uma página, um megabyte) e a transição é o
+     que o torna contínuo. `linear` e curta: uma curva de aceleração numa barra
+     que anda por saltos se lê como atraso. */
+  transition: width .2s linear;
 }
 
 /* ---------- "Baixando…" NA PREVIEW ----------
@@ -1518,10 +1583,18 @@ body {
    escrito por quem o hospeda.
 
    E SÃO DOIS DESENHOS, não um (v1.4.19): o aro (`::before`) diz "espere" e a
-   seta (`svg`) diz "bytes chegando". No cartão da preview a segunda é
-   CONDICIONAL — ver `.pv-busy.sem-seta`, mais abaixo —, porque nem toda espera
-   ali é um download. Na miniatura da LINHA ela não é: aquele indicador só
-   acende quando há download de verdade (`ensureSongDownloaded`). */
+   seta (`svg`) diz "bytes chegando". A segunda é CONDICIONAL nas DUAS
+   superfícies — o cartão da preview (`.pv-busy.sem-seta`, mais abaixo) e, desde
+   a v1.7.1, a miniatura da LINHA.
+
+   ELA NÃO ERA, e a frase que estava aqui dizia que a linha "só acende quando há
+   download de verdade" — o que deixou de ser verdade quando a mesma linha
+   passou a anunciar a preparação de uma apresentação e a importação de um
+   arquivo. Hoje quem decide é `legendaEhDownload`, no `controle.js`, para as
+   duas: o ícone segue a LEGENDA, e assim as duas nunca dizem coisas diferentes
+   sobre o mesmo trabalho. Na linha a seta não é escondida por classe — ela
+   simplesmente não é DESENHADA (`aroDeTrabalho`), porque ali o `<svg>` é
+   construído em tempo de execução. */
 .dl-ring {
   position: relative; flex-shrink: 0;
   width: var(--dl-ring, 28px); height: var(--dl-ring, 28px);

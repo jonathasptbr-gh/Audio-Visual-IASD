@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.7.0';
+const WEB_VERSION = '1.7.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7014,17 +7014,20 @@ function renderLibrary() {
     if (dl) {
       li.classList.add('baixando');
       li.dataset.dl = item.id;
-      const anel = document.createElement('span'); anel.className = 'dl-ring';
-      anel.innerHTML = downloadArrowIconSvg();
-      thumb.appendChild(anel);
+      thumb.appendChild(aroDeTrabalho(dl.acao));
+      // A FAIXA TOMA O LUGAR DO SUBTÍTULO (v1.7.1), e não se acrescenta a ele:
+      // é a mesma linha, e as duas coisas não podem estar no ar juntas. O que o
+      // subtítulo diz — o tipo do item, a procedência — continua verdade e
+      // volta assim que o trabalho termina; o que este item está FAZENDO agora
+      // é a única coisa que muda a cada segundo, e é ela que ocupa a posição.
+      //
+      // Trocar o NÓ (e não o texto dele) é o que preserva o `pintarFalha`/
+      // `pintarSubNoAr` já aplicados: eles escrevem no `.row-sub`, e um `.row-sub`
+      // que virasse hospedeiro da barra teria dois donos escrevendo nele.
+      sub.replaceWith(faixaDeProgresso(dl));
     }
 
     const parts = [thumb, textWrap];
-    if (dl) {
-      const pct = document.createElement('span'); pct.className = 'dl-pct';
-      pct.textContent = dl.pct >= 0 ? dl.pct + '%' : '';
-      parts.push(pct);
-    }
     // TUDO ATRÁS DO `⋮` (v5.258) — ver `montarAcoesDaLinha`. A ordem dentro da
     // caixa é a de sempre, da esquerda para a direita: o que se usa mais fica
     // mais perto do dedo que acabou de tocar no `⋮`, que é a direita.
@@ -19760,24 +19763,44 @@ const pvFalhasPendentes = [];
 // player), e uma chave provisória quando não existe (um link recém-chegado).
 const libBaixando = new Map();
 
-function libBusy(nome, chaveExistente, aoCancelar) {
+// A ASSINATURA É A DO GÊMEO (`previewBusy(acao, nome, aoCancelar)`), e a
+// simetria é o ponto: as duas superfícies passaram a mostrar as MESMAS duas
+// coisas — a legenda do trabalho e o nome do item —, e um contrato torto entre
+// elas seria a próxima chance de discordarem. A `chave` entra no meio porque é
+// o que esta tem a mais: a linha precisa saber a QUAL item ela pertence.
+function libBusy(acao, nome, chaveExistente, aoCancelar) {
   const chave = chaveExistente || ('dl:' + Math.random().toString(36).slice(2, 9));
-  libBaixando.set(chave, { nome: nome || 'Baixando…', pct: -1, cancelar: aoCancelar || null });
+  libBaixando.set(chave, {
+    nome: nome || 'Baixando…',
+    // A LEGENDA INICIAL vem do chamador, e não de um literal daqui: é ela que
+    // decide se a miniatura desenha a seta (`legendaEhDownload`), e um padrão
+    // escrito aqui prometeria download em toda espera — que é o defeito.
+    acao: acao || '',
+    pct: -1,
+    cancelar: aoCancelar || null,
+  });
   load();
   let solto = false;
   return {
     visivel: true,
-    atualizar(_acao, _nome, pct) {
+    atualizar(acaoNova, _nome, pct) {
       const r = libBaixando.get(chave);
       if (!r || solto) return;
+      if (acaoNova != null) r.acao = acaoNova;
       r.pct = typeof pct === 'number' ? pct : r.pct;
-      // Repinta SÓ o texto, sem refazer a lista: o percentual chega a cada
-      // megabyte, e um `load()` por atualização reconstruiria dezenas de linhas
-      // (com object URLs de miniatura) enquanto o operador rola a lista.
+      // Repinta SÓ o que mudou, sem refazer a lista: o progresso chega a cada
+      // megabyte (ou a cada página), e um `load()` por atualização
+      // reconstruiria dezenas de linhas — com object URLs de miniatura —
+      // enquanto o operador rola a lista.
       document.querySelectorAll('.lib-item').forEach((li) => {
         if (li.dataset.dl !== chave) return;
-        const t = li.querySelector('.dl-pct');
-        if (t) t.textContent = r.pct >= 0 ? r.pct + '%' : '';
+        pintarFaixaDeProgresso(li.querySelector('.dl-prog'), r);
+        // A SETA ACENDE (ou apaga) AQUI, e é este ponto que a torna honesta na
+        // linha como já era no cartão: é o primeiro progresso de um download
+        // que troca "Preparando vídeo" por "Baixando vídeo · N%". Antes dele
+        // não havia byte nenhum.
+        const anel = li.querySelector('.thumb .dl-ring[data-dl]');
+        if (anel) anel.innerHTML = legendaEhDownload(r.acao) ? downloadArrowIconSvg() : '';
       });
     },
     soltar() {
@@ -19789,22 +19812,27 @@ function libBusy(nome, chaveExistente, aoCancelar) {
   };
 }
 
-// A linha provisória: mesma anatomia de uma linha de mídia (miniatura + nome),
-// com o anel no lugar da miniatura — que é justamente o que ela ainda não tem.
+// A linha provisória: mesma anatomia de uma linha de mídia (miniatura + nome +
+// subtítulo), com o anel no lugar da miniatura — que é justamente o que ela
+// ainda não tem.
+//
+// O `row-text` com as DUAS linhas entrou na v1.7.1: o nome era um `row-name`
+// solto, então a linha provisória não tinha "posição de texto secundário"
+// nenhuma — e é ela que o operador pediu para a faixa de progresso. Com o
+// `row-text` a anatomia fica idêntica à de uma linha de verdade, que é o que o
+// comentário acima sempre prometeu.
 function libBusyRow(chave, reg) {
   const li = document.createElement('li');
   li.className = 'lib-item baixando';
   li.dataset.dl = chave;
   const row = document.createElement('div'); row.className = 'row';
   const t = document.createElement('div'); t.className = 'thumb thumb--icon';
-  const anel = document.createElement('span'); anel.className = 'dl-ring';
-  anel.innerHTML = downloadArrowIconSvg();
-  t.appendChild(anel);
+  t.appendChild(aroDeTrabalho(reg.acao));
+  const textWrap = document.createElement('div'); textWrap.className = 'row-text';
   const nome = document.createElement('span'); nome.className = 'row-name';
   nome.textContent = reg.nome;
-  const pct = document.createElement('span'); pct.className = 'dl-pct';
-  pct.textContent = reg.pct >= 0 ? reg.pct + '%' : '';
-  row.append(t, nome, pct);
+  textWrap.append(nome, faixaDeProgresso(reg));
+  row.append(t, textWrap);
   // O CANCELAR MORA NA PRÓPRIA LINHA (v5.191). É o pedido do operador em
   // palavras dele — "a opção de cancelar no mesmo elemento visual do item na
   // listagem onde está baixando" —, e ele resolve o caso que o toque na linha
@@ -19864,8 +19892,93 @@ function pintarPvBusyCancelar() {
 // promete download sem download é a queixa; um que não promete é apenas menos
 // específico.
 const CARTAO_BAIXANDO = /^\s*baixando/i;
+
+/**
+ * A LEGENDA PROMETE BYTES? — e a resposta vale para as DUAS superfícies.
+ *
+ * A regra nasceu no cartão da preview (v1.4.19) e valia só lá; a LINHA continuou
+ * desenhando a seta em toda espera, inclusive nas que não baixam nada. Pedido do
+ * operador sobre a preparação de uma apresentação: *"toque o ícone da thumbnail
+ * que ainda fica um ícone de seta de download. Use outra coisa … ou deixe sem
+ * ícone, só o spinner, pois acho que já temos um desses"* — e temos: o
+ * `aroDeEspera()` da resolução de link já é o aro sem seta.
+ *
+ * Uma função só para as duas casas é o que impede o cartão e a linha de
+ * discordarem sobre o mesmo trabalho, que é o defeito que a v1.4.19 nomeou.
+ */
+function legendaEhDownload(acao) {
+  return CARTAO_BAIXANDO.test(String(acao || ''));
+}
+
 function pintarSetaDoCartao(acao) {
-  pvBusyEl.classList.toggle('sem-seta', !CARTAO_BAIXANDO.test(String(acao || '')));
+  pvBusyEl.classList.toggle('sem-seta', !legendaEhDownload(acao));
+}
+
+/**
+ * O ARO DA MINIATURA DE UM TRABALHO EM CURSO — com a seta só quando há bytes.
+ *
+ * Irmão do `aroDeEspera()` (que nunca tem seta, porque resolver um link nunca
+ * baixa) e do aro do cartão. `data-dl` o distingue do de espera na MESMA
+ * miniatura: a repintura só pode remover o que ela mesma pôs.
+ */
+function aroDeTrabalho(acao) {
+  const a = document.createElement('span');
+  a.className = 'dl-ring';
+  a.dataset.dl = '1';
+  a.setAttribute('aria-hidden', 'true');
+  if (legendaEhDownload(acao)) a.innerHTML = downloadArrowIconSvg();
+  return a;
+}
+
+// ===== A FAIXA DE PROGRESSO NA LINHA (v1.7.1) =====
+//
+// Pedido do operador: *"ajuste a ilustração da representação do progresso no
+// item do cronograma, atualmente ele só tem a porcentagem, mas gostaria que
+// usasse a posição do texto secundário para uma barra de progresso, e a fração
+// das páginas já preparadas"*.
+//
+// O QUE FALTAVA NÃO ERA O DADO: `libBusy.atualizar` recebia a LEGENDA e a
+// jogava fora (`atualizar(_acao, _nome, pct)`), ficando só com o percentual. E
+// a legenda é justamente onde a fração vive, escrita por quem tem os números —
+// "Preparando página 12 de 40…" no deck, "Baixando vídeo · 34%" no download.
+// A linha passa a mostrar o que o cartão já mostrava, no lugar do subtítulo:
+// **um escritor só para as duas superfícies**, sem parsear frase nenhuma e sem
+// um parâmetro novo no contrato.
+//
+// E O PERCENTUAL SOLTO (`.dl-pct`) SAI DAQUI. A barra diz o mesmo número, e a
+// legenda o repete por extenso: três formas do mesmo fato na mesma linha é o
+// que este app tira de cena em toda passada (a fração da Biblioteca contra o
+// verde, o ponto de atualização contra o botão). Ele fica onde continua sendo a
+// única resposta: a lista de resultados do YouTube, que não tem subtítulo.
+//
+// SEM NÚMERO NÃO HÁ BARRA (`pct < 0`): o trilho some e sobra a legenda. Uma
+// barra parada em zero durante a fase que não sabe o total se lê como travada —
+// quem diz "espere" ali é o aro da miniatura, que é a peça feita para isso.
+function faixaDeProgresso(reg) {
+  const f = document.createElement('span');
+  f.className = 'dl-prog';
+  const t = document.createElement('span');
+  t.className = 'dl-prog-txt';
+  const trilho = document.createElement('span');
+  trilho.className = 'dl-prog-trilho';
+  const fill = document.createElement('span');
+  fill.className = 'dl-prog-fill';
+  trilho.appendChild(fill);
+  f.append(t, trilho);
+  pintarFaixaDeProgresso(f, reg);
+  return f;
+}
+
+function pintarFaixaDeProgresso(f, reg) {
+  if (!f || !reg) return;
+  const t = f.querySelector('.dl-prog-txt');
+  if (t) t.textContent = reg.acao || '';
+  const trilho = f.querySelector('.dl-prog-trilho');
+  if (!trilho) return;
+  const tem = reg.pct >= 0;
+  trilho.hidden = !tem;
+  const fill = trilho.querySelector('.dl-prog-fill');
+  if (fill && tem) fill.style.width = Math.min(100, Math.max(0, reg.pct)) + '%';
 }
 
 function previewBusy(acao, nome, aoCancelar) {
@@ -23240,6 +23353,12 @@ async function ytBaixarNativo(link, nome, opts) {
   // escolha na tela já a esconde nesse shell (ver `openYtMenu`); esta guarda é
   // para o caminho que não passa pela tela.
   const soAudio = !!(opts && opts.somenteAudio);
+  // A LEGENDA DE ABERTURA, numa variável e não em dois literais: desde a
+  // v1.7.1 ela vai para as DUAS superfícies (o cartão e a linha), e é dela que
+  // sai a decisão de desenhar ou não a seta na miniatura
+  // (`legendaEhDownload`). Duas cópias seriam duas chances de o cartão e a
+  // linha discordarem sobre o mesmo trabalho.
+  const LEGENDA_PREPARANDO = soAudio ? 'Preparando áudio' : 'Preparando vídeo';
   // O TETO DE RESOLUÇÃO escolhido pelo operador (v5.118). Ausente = o padrão do
   // shell (1080p), que é o caminho que funciona em qualquer versão: o `ytFetch`
   // do `native.js` só usa o método novo da ponte quando o teto pedido é MENOR
@@ -23283,8 +23402,8 @@ async function ytBaixarNativo(link, nome, opts) {
     if (parou) { cancelado = true; bg.soltar(); }
   };
   const bg = aviso === 'preview'
-    ? previewBusy(soAudio ? 'Preparando áudio' : 'Preparando vídeo', rotulo, cancelar)
-    : aviso === 'lib' ? libBusy(rotulo, opts && opts.chave, cancelar)
+    ? previewBusy(LEGENDA_PREPARANDO, rotulo, cancelar)
+    : aviso === 'lib' ? libBusy(LEGENDA_PREPARANDO, rotulo, opts && opts.chave, cancelar)
       : { visivel: false, atualizar() {}, soltar() {} };
   const notif = bgTaskStart(rotuloBaixando, 1);
   // O NOME DO VÍDEO na linha da notificação, pela mesma razão do lote de
@@ -23839,13 +23958,20 @@ async function deckVideoVoltar(passo) {
 // que tem porta de entrada. Aqui fica só o que é do APP: a lista de destino, o
 // aviso e a linha que nasce.
 
+// A LEGENDA DE ABERTURA de uma apresentação, para as DUAS superfícies e para os
+// DOIS caminhos (o `.pptx` desenhado aqui e o PDF rasterizado pelo shell). Ela
+// não diz "Baixando" de propósito: preparar uma apresentação não baixa byte
+// nenhum, e é essa palavra que decide a seta da miniatura — ver
+// `legendaEhDownload`.
+const LEGENDA_DECK = 'Preparando apresentação';
+
 // Importa um `.pptx` já lido como File/Blob.
 async function pptxImportar(file, nome, opts) {
   const rotulo = nome || 'Apresentação';
   const naPreview = !!(opts && opts.naPreview);
   const bg = naPreview
-    ? previewBusy('Preparando apresentação', rotulo)
-    : libBusy(rotulo, opts && opts.chave);
+    ? previewBusy(LEGENDA_DECK, rotulo)
+    : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave);
   const notif = bgTaskStart('Preparando apresentação', 1);
   // O NOME DA APRESENTAÇÃO na linha da notificação, pela mesma razão do vídeo
   // (ver `ytArquivo`): "Preparando apresentação" sozinho não diz QUAL, e com o
@@ -23936,8 +24062,8 @@ async function deckImportar(origem, nome, opts) {
   const rotulo = nome || 'Apresentação';
   const naPreview = !!(opts && opts.naPreview);
   const bg = naPreview
-    ? previewBusy('Preparando apresentação', rotulo)
-    : libBusy(rotulo, opts && opts.chave);
+    ? previewBusy(LEGENDA_DECK, rotulo)
+    : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave);
   const notif = bgTaskStart('Preparando apresentação', 1);
   bgItemOnly(notif, rotulo);
   let primeira = null;   // uma página basta para o descarte: ele apaga a pasta
@@ -24371,7 +24497,7 @@ async function importShare(pending) {
     const rotulo = nomeSemExtensao((item && item.name) || 'Arquivo');
     const bgImport = simplificado()
       ? previewBusy('Importando', rotulo)
-      : libBusy(rotulo, null);
+      : libBusy('Importando', rotulo, null);
     try {
       let blob = null;
       let name = '';

@@ -459,8 +459,10 @@ try {
     out.sumiuAoSoltar = document.getElementById('pvBusyCancel').hidden;
 
     // 2. A linha provisória do Cronograma, com o ✕ na própria linha.
+    //    A assinatura ESPELHA a do `previewBusy` acima — legenda primeiro, nome
+    //    depois —, e é a legenda que decide o ícone da miniatura (v1.7.1).
     let naLinha = 0;
-    const dl = libBusy('Vídeo do YouTube', null, () => { naLinha++; });
+    const dl = libBusy('Baixando vídeo', 'Vídeo do YouTube', null, () => { naLinha++; });
     await load();
     const li = [...document.querySelectorAll('.lib-item.baixando')].pop();
     const x = li && li.querySelector('.dl-cancel');

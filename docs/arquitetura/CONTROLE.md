@@ -3704,8 +3704,48 @@ diferentes. **O que muda são duas coisas:**
 
 | | `.baixando` | `.carregando` |
 |---|---|---|
-| a seta do `.dl-ring` | **sim** — bytes chegando | **não** (a regra da v1.4.20: o desenho segue o que está acontecendo) |
+| a seta do `.dl-ring` | **conforme a LEGENDA** (v1.7.1) — ver abaixo | **não** (a regra da v1.4.20: o desenho segue o que está acontecendo) |
 | a linha esmaece | **sim** — ali ela é PROVISÓRIA, o item ainda não existe | **não** — aqui ela é o item de verdade, prestes a entrar no ar |
+
+#### A LINHA PROVISÓRIA: o ícone segue a LEGENDA, e a barra ocupa o SUBTÍTULO
+
+`libBusy(acao, nome, chaveExistente, aoCancelar)` — a assinatura ESPELHA a do
+`previewBusy`, e isso não é simetria de enfeite: os dois desenham a MESMA espera
+em dois lugares, e é a legenda que decide o desenho nos dois.
+
+- **A seta é CONDICIONAL, aqui como no cartão** (`legendaEhDownload`, fonte
+  ÚNICA dos dois desde a v1.7.1). O `.dl-ring` são dois desenhos: o aro diz
+  *"espere"*, a seta diz *"bytes chegando"*. O cartão aprendeu isso na v1.4.19 e
+  a linha ficou com a seta INCONDICIONAL — preparando uma apresentação, a
+  miniatura prometia um download que não estava acontecendo, e a fase pré-bytes
+  de um download de verdade (*"Preparando vídeo"*) prometia cedo demais. Ela
+  ACENDE quando a legenda passa a dizer "Baixando" e APAGA de volta quando
+  deixa de dizê-lo: o `atualizar` repinta o ícone junto com a faixa, senão o
+  desenho ficaria preso na primeira legenda.
+- **A FAIXA DE PROGRESSO ocupa a posição do SUBTÍTULO** (`.dl-prog`, dentro da
+  `.row-text` e DEPOIS do `.row-name` — a pergunta é de ÁRVORE, e é ela que
+  mantém a altura da linha). São duas peças: a LEGENDA por extenso
+  (*"Preparando página 4 de 8…"*) e o trilho.
+- **A fração não custa parâmetro nenhum.** A linha já RECEBIA essa legenda — a
+  mesma que a notificação do sistema mostra, escrita por quem TEM os números — e
+  a descartava. Consumi-la entrega a fração de graça, e sem ninguém parsear
+  frase nenhuma; um segundo lugar contando páginas divergiria no primeiro
+  ajuste.
+- **O trilho só existe quando há proporção** (`pct < 0` o esconde): uma barra
+  parada em zero durante o preparo se lê como TRAVADA, que é o oposto do que ela
+  veio dizer.
+- **A cor do trilho é `--surface`**, o mesmo token da `.simple-time-bar` — e não
+  um `-soft`, que é tinta com alfa e a regra dos tokens proíbe numa superfície de
+  controle. MEDIDO: `--btn-accent` ali dá 1,07:1 contra o fundo da linha (some);
+  `--surface` dá 1,20–1,38:1, com o preenchimento a 4,01–7,15:1 contra ele nos
+  quatro pares de base × tema.
+- **O `.dl-pct` solto SAIU da linha** do Cronograma e da Biblioteca. Ele fica na
+  lista de resultados do YouTube, que não tem subtítulo para ceder; onde a barra
+  e a legenda já dizem o número, um terceiro lugar dizendo o mesmo é o que este
+  app tira de cena em toda passada.
+
+Oráculo: `tools/linha-da-preparacao.test.mjs`, com a REVERSÃO nas duas metades
+(seta incondicional reprova a preparação; legenda descartada reprova a fração).
 
 **O estado vive num `Set`, não na classe do nó** (`linhasCarregando`) — a lista é
 reconstruída no meio da espera (o `load()` do caminho do download), e uma classe

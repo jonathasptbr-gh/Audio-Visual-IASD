@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.7.1",
+    "itens": [
+      "A linha do Cronograma passou a mostrar uma barra de progresso durante a preparação.",
+      "E ao lado dela, quantas páginas já foram preparadas.",
+      "A miniatura deixou de mostrar a seta de download no que não é download.",
+      "Ela volta a aparecer assim que os bytes começam a chegar."
+    ]
+  },
+  {
     "versao": "1.7.0",
     "itens": [
       "O app deixou de piscar ao abrir: o tema certo já aparece na primeira tela.",
