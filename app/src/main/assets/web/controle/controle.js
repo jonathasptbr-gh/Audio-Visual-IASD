@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.2';
+const WEB_VERSION = '1.8.3';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21493,12 +21493,17 @@ const MIRROR_TERMICA = ['NONE', 'LIGHT', 'MODERATE', 'SEVERE', 'CRITICAL', 'EMER
  * bloco: uma linha de zeros é mais uma para ler em toda cópia do Registro, e é
  * a regra que o `AVStream.fome` e o `ytCenso` já seguem.
  */
-function blocoClone(e) {
-  if (!e) return '';
-  const c = e.cessao || {};
-  const d = e.descoberta || {};
-  const usou = c.cedendo || d.procurando || e.pareado
-    || (d.diag && d.diag !== 'sem uso') || (e.proxy && e.proxy !== 'sem uso');
+function blocoClone(e, diario) {
+  const hist = Array.isArray(diario) ? diario : [];
+  // O BLOCO EXISTE COM O DIÁRIO SOZINHO, e é este o ponto do lote: o estado do
+  // shell nasce limpo num processo novo, e o operador reabre o app justamente
+  // para copiar o Registro. Enquanto `usou` dependia só dele, a cópia que
+  // falhou saía do Registro sem deixar uma linha.
+  if (!e && !hist.length) return '';
+  const c = (e && e.cessao) || {};
+  const d = (e && e.descoberta) || {};
+  const usou = hist.length || c.cedendo || d.procurando || (e && e.pareado)
+    || (d.diag && d.diag !== 'sem uso') || (e && e.proxy && e.proxy !== 'sem uso');
   if (!usou) return '';
   const L = ['Clone da biblioteca (celular a celular)'];
   if (c.cedendo) {
@@ -21519,13 +21524,23 @@ function blocoClone(e) {
     ? 'no ar como "' + (d.nome || '?') + '"' : 'fora do ar'));
   L.push('  ' + (d.diag || 'sem uso'));
   if (d.procurando) L.push('· procurando: ' + (d.achados || 0) + ' aparelho(s) achado(s)');
-  const achados = Array.isArray(e.achados) ? e.achados : [];
+  const achados = (e && Array.isArray(e.achados)) ? e.achados : [];
   for (const a of achados) {
     L.push('  - ' + (a.rotulo || a.nome) + ' em ' + a.host + ':' + a.porta
       + ' · ' + (a.itens || 0) + ' item(ns) · ' + fmtBytes(a.bytes || 0));
   }
-  if (e.pareado || (e.proxy && e.proxy !== 'sem uso')) {
+  if (e && (e.pareado || (e.proxy && e.proxy !== 'sem uso'))) {
     L.push('· trazendo de outro aparelho: ' + (e.proxy || '?'));
+  }
+  // AS TENTATIVAS, da mais nova para a mais velha. É a única parte deste bloco
+  // que sobrevive ao processo — e, nas duas falhas de campo, era a única que
+  // teria respondido.
+  if (hist.length) {
+    L.push('· tentativas (a mais nova primeiro)');
+    for (const h of hist) {
+      L.push('  ' + new Date(h.em).toLocaleString('pt-BR', { hour12: false }) + '  ' + (h.papel === 'ceder' ? 'cedi' : 'copiei')
+        + ': ' + (h.desfecho || '?') + (h.detalhe ? ' — ' + h.detalhe : ''));
+    }
   }
   return L.join('\n');
 }
@@ -22586,8 +22601,10 @@ async function renderDiag() {
   if (window.__NATIVE__) {
     let ac = null;
     try { ac = await AVNative.acervoEstado(); } catch (_) { ac = null; }
+    let hist = [];
+    try { hist = (await AVDB.getState('clone-diario')) || []; } catch (_) { hist = []; }
     if (meu !== diagSeq) return;
-    const bcl = blocoClone(ac);
+    const bcl = blocoClone(ac, hist);
     if (bcl) blocos.push(bcl);
   }
   // O ÁUDIO DO APARELHO — logo depois do estado da transmissão, porque responde
@@ -24395,8 +24412,12 @@ async function clonePublicarIndice() {
     return (e && e.message) || 'Não deu para montar a lista do acervo.';
   }
   const ok = await AVNative.acervoPublicar(ind.sessao, JSON.stringify(ind));
-  if (!ok) return 'O aparelho não aceitou a lista do acervo.';
+  if (!ok) {
+    await cloneAnotar('ceder', 'O aparelho não aceitou a lista do acervo.', '');
+    return 'O aparelho não aceitou a lista do acervo.';
+  }
   diagC('clone: cedendo ' + ind.itens.length + ' item(ns), ' + fmtBytes(ind.bytes));
+  await cloneAnotar('ceder', 'cedendo ' + ind.itens.length + ' item(ns)', fmtBytes(ind.bytes));
   return '';
 }
 
@@ -24715,6 +24736,12 @@ async function cloneComecar(a) {
     erro = (e && e.message) || 'A cópia falhou.';
   } finally {
     cloneCopiando = false;
+    // O DIÁRIO ANTES DE SOLTAR O PAREAMENTO. Depois do `acervoSoltar` o estado
+    // do shell já não sabe com quem estávamos falando, e é justamente essa a
+    // informação que o Registro precisa carregar.
+    const trouxe = contagem.media + contagem.arquivos + contagem.chaves + contagem.opfs;
+    await cloneAnotar('levar', erro || 'copiou ' + trouxe + ' item(ns)',
+      erro ? ('parou em: ' + cloneOnde) : '');
     try { AVNative.acervoSoltar(); } catch (_) { /* ponte */ }
     calarTile(cloneReceberTileEl);
     cloneRenderTiles();
@@ -24772,7 +24799,48 @@ function cloneResumo(c) {
  * Retomável por construção: nada do que ele faz é anotado, então recomeçar é
  * refazer o passo 2 e achar a lista menor.
  */
+/**
+ * O DIÁRIO DO CLONE — e ele mora no BANCO porque tudo o mais morre antes de ser
+ * lido (v1.8.3).
+ *
+ * Duas cópias falharam em campo e nenhum dos dois Registros pôde dizer por quê.
+ * A razão é estrutural e não foi esquecimento: a falha é mostrada num diálogo,
+ * o operador toca em "Entendi", e para copiar o Registro ele reabre o app. Aí
+ * o anel do web (a linha do tempo) já nasceu vazio, e o `blocoClone` inteiro
+ * some — ele é montado do estado do SHELL (`acervoEstado`), que também nasce
+ * limpo num processo novo, e o `cloneComecar` ainda solta o pareamento no
+ * `finally`. Tudo que sabia o que aconteceu é volátil; o único lugar deste app
+ * que atravessa a morte do processo é o `state` do IndexedDB — o mesmo e pelo
+ * mesmo motivo da intenção do OTA e da do download do YouTube.
+ *
+ * `updateState` e não `setState`: é leitura-cálculo-escrita numa transação só,
+ * a regra dura deste arquivo (a `fn` é SÍNCRONA de propósito).
+ *
+ * E ele NUNCA derruba a cópia: um diário que lança no meio de uma
+ * transferência de gigabytes teria trocado um defeito por outro pior.
+ */
+const CLONE_DIARIO_MAX = 8;
+async function cloneAnotar(papel, desfecho, detalhe) {
+  try {
+    await AVDB.updateState('clone-diario', (v) => {
+      const l = Array.isArray(v) ? v.slice(0, CLONE_DIARIO_MAX - 1) : [];
+      l.unshift({
+        em: Date.now(),
+        papel,
+        desfecho: String(desfecho || '').slice(0, 160),
+        detalhe: String(detalhe || '').slice(0, 160),
+      });
+      return l;
+    });
+  } catch (_) { /* o diário nunca pode custar a cópia */ }
+}
+
+/** ONDE A CÓPIA ESTAVA quando parou. Um item só, e é o que separa "não começou"
+ *  de "parou no meio" — as duas pedem conferências opostas. */
+let cloneOnde = '';
+
 async function cloneSincronizar(contagem) {
+  cloneOnde = 'pedindo a lista';
   falarNoTile(cloneReceberTileEl, 'Lendo a lista…', 0);
   let ind = null;
   try {
@@ -24789,6 +24857,7 @@ async function cloneSincronizar(contagem) {
   for (const m of await AVDB.mediaResumo()) tem.add('m:' + m.id);
   for (const a of await AVDB.opfsTodosOsArquivos()) tem.add('o:' + a.caminho);
   const { falta, desconhecidos, bytes } = AVPacote.itensQueFaltam(ind.itens, tem);
+  cloneOnde = falta.length + ' item(ns) a buscar, ' + fmtBytes(bytes);
   // O AVISO É REGISTRADO ANTES DA SAÍDA CURTA. "Não falta nada" e "não falta
   // nada que eu saiba receber" são respostas diferentes, e é justamente na
   // segunda passada — quando o acervo já veio inteiro — que a saída curta
@@ -24804,6 +24873,7 @@ async function cloneSincronizar(contagem) {
       let feitos = 0;
       let quantos = 0;
       for (const { n, item } of falta) {
+        cloneOnde = 'item ' + (quantos + 1) + ' de ' + falta.length + ' (nº ' + n + ')';
         const corpo = await cloneBaixarItem(ind.sessao, n);
         // CORPO VAZIO NÃO É FALHA: é o item que sumiu do outro aparelho entre
         // a montagem do índice e o pedido (o operador apagou uma coleção). Ele
@@ -24861,15 +24931,28 @@ async function cloneBaixarItem(sessao, n) {
     if (resp === null) break;
     const t = Number(resp.headers.get('X-Av-Total'));
     if (Number.isFinite(t) && t > 0) total = t;
-    const ab = await resp.arrayBuffer();
-    if (!ab.byteLength) break;
-    partes.push(ab);
-    pos += ab.byteLength;
+    // CADA PEDAÇO VIRA BLOB NA HORA, e nunca um `ArrayBuffer` guardado (v1.8.3).
+    //
+    // Este laço acumulava `partes.push(ab)` — o item INTEIRO na memória do
+    // renderer antes de virar Blob. Num episódio de ~300 MB isso são 300 MB de
+    // heap num processo que hospeda os DOIS WebViews e a `Presentation`, e num
+    // aparelho intermediário o desfecho é o renderer morrendo: a cópia para, o
+    // app volta limpo, e nada explica por quê.
+    //
+    // É O MESMO DEFEITO QUE A v1.7.9 JÁ TINHA CORRIGIDO NO CAMINHO DO ARQUIVO
+    // (*"O LEITOR NUNCA MATERIALIZA O ARQUIVO"*), deixado de pé no caminho da
+    // REDE. Um `Blob` é gerido pelo navegador — grande, ele vai para o
+    // armazenamento de blobs e sai do heap —, e o `pacoteCursor` o lê por
+    // fatias preguiçosas depois. O pico passa a ser UM pedaço.
+    const b = await resp.blob();
+    if (!b.size) break;
+    partes.push(b);
+    pos += b.size;
     if (total >= 0 && pos >= total) break;
     // SEM TOTAL E COM PEDAÇO INCOMPLETO acabou: é a única saída que sobra
     // quando o outro lado não disse o tamanho, e ela não pode ser um laço
     // infinito.
-    if (total < 0 && ab.byteLength < CLONE_PEDACO) break;
+    if (total < 0 && b.size < CLONE_PEDACO) break;
   }
   return new Blob(partes);
 }

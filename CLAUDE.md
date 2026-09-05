@@ -3189,6 +3189,18 @@ comum (o cartão, o cabo).
   mais atualizado não pode recusar o índice inteiro (o operador ficaria sem
   clone nenhum) nem passar em silêncio (a tela anunciaria "tudo copiado" sobre
   uma cópia incompleta). Ele vira uma frase no fim, mandando atualizar.
+- **O ITEM CHEGA EM BLOBS, nunca em `ArrayBuffer` acumulado** (v1.8.3). O laço
+  guardava os pedaços e só no fim fazia o Blob — o item INTEIRO no heap do
+  renderer, num processo que hospeda os dois WebViews e a `Presentation`. Num
+  episódio de ~300 MB isso mata o renderer num aparelho intermediário: a cópia
+  para e o app volta limpo. É o defeito que a v1.7.9 corrigiu no caminho do
+  ARQUIVO, deixado de pé no da REDE.
+- **E A CÓPIA DEIXA RASTRO NO BANCO** (`clone-diario`, v1.8.3). Tudo que sabia
+  o que aconteceu era volátil — o anel do web, o estado do shell, o pareamento
+  que o `finally` solta —, e o operador reabre o app justamente para copiar o
+  Registro. A chave guarda as oito últimas tentativas com o desfecho e ONDE
+  parou, e o bloco do Registro existe a partir dela sozinha. Ela está na lista
+  `FORA` do pacote, pela razão do `historico`.
 - **A PERGUNTA AO DISCO É UMA VARREDURA SÓ**, nunca um `getMedia` por item: um
   acervo tem milhares de entradas, e seriam milhares de transações em fila. É a
   mesma economia do `AVDB.mediaResumo`.
