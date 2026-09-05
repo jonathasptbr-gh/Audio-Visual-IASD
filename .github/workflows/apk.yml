@@ -267,6 +267,7 @@ jobs:
           node tools/sorteio.test.mjs
           node tools/hinario.test.mjs
           node tools/coletanea.test.mjs
+          node tools/pptxzip.test.mjs
           node tools/glifos.test.mjs
           node tools/cifra.test.mjs
 
@@ -494,6 +495,7 @@ jobs:
           rodar tools/telao-no-chao.test.mjs
           rodar tools/imagem-sobre-audio.test.mjs
           rodar tools/slides-sobre-audio.test.mjs
+          rodar tools/pptx-video-na-pagina.test.mjs
           rodar tools/modo-facil-slides.test.mjs
           rodar tools/modo-facil-um-elemento.test.mjs
           rodar tools/modo-facil-fonte.test.mjs

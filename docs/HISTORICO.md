@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.6.4** — O VÍDEO EMBUTIDO NUMA APRESENTAÇÃO, E O TETO QUE A RECUSAVA. Relato do operador, com captura: um `.pptx` recusado com *"não pôde ser lido"* e o detalhe `PPTX zip limit exceeded: ppt/media/media3.mp4 is 82733397 bytes > maxEntryUncompressedBytes 33554432`. **A causa não era o arquivo:** o app passava ao renderizador o `RECOMMENDED_ZIP_LIMITS` da própria biblioteca (`deck.js:422`), cujo teto por ENTRADA é 32 MiB, e a recusa acontece na varredura do DIRETÓRIO CENTRAL do zip — antes de descomprimir um byte. O absurdo do caso está medido: o vídeo de 78,9 MiB nunca viraria pixel, porque `embutirRecursos` não alcança `<video>` (a QUARTA coisa que o `<foreignObject>` perde, e a única que faltava na lista) e o renderizador o desenha como `<video preload="none">` sobre fundo preto. **E o arquivo real tem 570 MB**, o que derruba a correção óbvia: `Ow` (no buildado) sempre materializa o ArrayBuffer, então subir o teto poria 570 MB no heap de um processo que hospeda os dois WebViews e a `Presentation`. **A saída é `controle/pptxzip.js`** (`AVPptxZip`, PURO, oráculo próprio): ele lê o índice do zip por `Blob.slice()` — preguiçoso, sem copiar byte nenhum —, separa os vídeos e remonta um `.pptx` enxuto com os bytes COMPRIMIDOS copiados verbatim, com o CRC e os tamanhos que o índice já declara: nada é recomprimido, e descompressão só acontece nos `.rels`, para saber qual vídeo é de qual slide. No enxuto o renderizador não acha a mídia e cai no ramo do PÔSTER, que desenha o quadro de capa como `<img>` — a única forma que o `embutirRecursos` sabe embutir. **As duas armadilhas do formato estão no oráculo com REVERSÃO:** o cabeçalho LOCAL tem campos de nome e extra PRÓPRIOS (deduzir o início dos bytes do índice entrega bytes DESLOCADOS, não um erro — MEDIDO, 16 bytes numa fixture que imita o PowerPoint), e a ORDEM dos slides sai do `sldIdLst` e nunca dos nomes dos arquivos (numa apresentação REORDENADA as duas divergem, e o vídeo tocaria no slide errado, sem sintoma). **A AUTOMAÇÃO é o pedido do operador ao pé da letra** — *"faça as interações de forma automática, como iniciar e voltar para a apresentação prosseguindo para o próximo slide"*. Ela mora no `controle.js` e NÃO no `stage.js`: o motor de projeção é o caminho que desenha na frente da congregação, e tudo o que este recurso precisa já existe como comando — chegar na página manda um `load` do vídeo (`deckIr` → `deckVideoTalvezTocar`), o fim dele manda um `load` da apresentação na página SEGUINTE (`autoAdvance` → `deckVideoVoltar`, e é o `autoAdvance` porque ele é o ponto único por onde o `media-ended` do telão e o `onEnded` da preview passam). Fade, cortina, telas da rede, barra e notificação vêm de graça, e nenhuma linha nova roda no telão. **Três decisões declaradas:** abrir a apresentação NÃO conta como chegar na página (ali o operador acabou de escolher projetar os SLIDES, e entregar-lhe um vídeo no mesmo toque tira dele a única ação deliberada antes de o telão mudar); a automação só vale com a apresentação como MÍDIA, nunca como CAMADA (ali há um louvor tocando por baixo, e trocar a cena o mataria); e projetar qualquer outra coisa DESARMA a volta, senão a apresentação voltaria por cima do que o operador escolheu. **Os vídeos não entram em lista nenhuma**, e quem os segura é a própria apresentação: `lerDetentores` desce no `videos` de um registro `deck`, como já descia nos `data.ids` de um `cue` — o percurso da morte é o mesmo, tirar a apresentação da última lista a mata na hora e o `gcOrfaos` da abertura seguinte recolhe os vídeos. **O que a escrita do oráculo achou e corrigiu:** a primeira versão dele afirmava que `listRemove` cascateia (não cascateia — o comentário do `db.js` foi reescrito), e a primeira campanha usava `waitForFunction` cru, cuja exceção MATA o processo — as reversões saíam como crash em vez de reprovação atribuível, que é o anti-padrão *"prazo lido como veredito"* deste repositório; hoje as esperas passam por `esperar()`/`porque()`. **E A MENSAGEM PASSOU A SEGUIR O MOTIVO:** o diálogo mandava procurar SENHA num arquivo que não tinha e salvar como `.pptx` um arquivo que já era `.pptx` — duas instruções que não resolvem nada, num sábado de manhã, com o app SABENDO o motivo e não o usando. Oráculos novos: `tools/pptxzip.test.mjs` (26 asserções, com reversão no deslocamento e na ordem) e `tools/pptx-video-na-pagina.test.mjs` (reversão em QUATRO eixos). Lote **só de base web**.
 - **v1.6.3** — O TÍTULO E O TOM PARA DENTRO DA CAIXA, E A MARGEM QUE A INTRO NÃO TINHA. Pedido do operador: *"antes do início do texto, coloque o título da obra, e o tom. tudo dentro da caixa do texto, um abaixo do outro com uma linha entre eles e duas entre o início da intro/cifras"* — e a razão, que é o que decide o desenho: *"percebi que mesmo o texto rolando devagar, pelo fato da intro estar colada no topo, ele acaba sempre cortando ela no início, então vamos criar uma 'margem natural' para esse início da informação"*. **A RAMPA DA v1.6.2 NÃO BASTAVA, e o motivo é aritmético:** ela fez a folha andar POUCO, mas a primeira linha começa no pixel ZERO — qualquer deslocamento já a corta. MEDIDO com a margem: a cifra passa a começar a **94px** do topo (15,6% da caixa), e aos **12s** de rolagem a primeira linha de acorde continua INTEIRA na tela. **OS ESPAÇOS SÃO A LINHA DA FOLHA, não números novos:** `--cifra-linha` é a altura de linha renderizada de `.lv-cifra-folha`, e é dela que saem "uma linha" e "duas linhas" — MEDIDO, 28,18px e 56,36px (2,00 linhas exatas). O bloco é IRMÃO da folha e nunca filho: `cifraColunas` mede uma amostra dentro de `.lv-cifra-folha` para a quebra por caractere, e um filho de outra fonte ali contamina a medida — a folha quebraria errado PARECENDO certa. E ele ROLA JUNTO: fixo, seria mais um rótulo cobrando altura, e a intro continuaria colada. **O TOM SAIU DA BARRA e a barra saiu com ele** — ficara só com botões —, e a fila subiu para o cabeçalho, *"onde fica atualmente o nome da música"*, que pôde recebê-la porque o nome desceu. MEDIDO: a fila tem 195,6px e a caixa de conteúdo do cabeçalho tem 328px a 360px de tela, então com o título no lugar seriam 343,6px — estoura por 15,6; o ícone, que acompanhava o título, se esconde junto. O `#lyricsPopupTitle` continua ESCRITO (é o que o leitor de tela anuncia); quem o tira da vista é o CSS. **A COLUNA DEITADA mudou de forma:** sem a barra, o cabeçalho ocupa as duas linhas do grid, com `space-between` pondo a fila no topo e o A+/A− no pé — os dois extremos do alcance do polegar. O ⛶ segue sendo o ÚLTIMO da fila e deixou de ser o controle mais baixo da coluna; a asserção do oráculo foi reescrita para dizer isso, com o par que prova que a distribuição sobreviveu. **A NOTA DA ROLAGEM SAIU INTEIRA**, a pedido. **E O LOTE QUEBROU O APP NO MEIO DO CAMINHO, de um jeito que fica registrado:** ao remover a nota, o corte pegou do MEIO de um bloco de comentário, e o `/**` órfão passou a engolir a função seguinte. O `node --check` APROVOU — é sintaticamente válido —, e o sintoma na tela foi *"Sem resposta da internet"*, porque o `.catch` do caminho da cifra traduz QUALQUER exceção em `MOTIVO_SEM_REDE`. Um erro de comentário chegando como falha de rede é o argumento inteiro da regra de que **poda de comentário se PROVA, não se confere de olho**. Lote **só de base web**.
 - **v1.6.2** — A ESPERA PARADA VIROU RAMPA, E O BOTÃO DE VELOCIDADE VIROU QUADRADO. Pedido do operador: *"revise o sistema da mensagem sobre o autoscroll, infelizmente não achei o sistema responsivo… ao invés de ficar parado esperando para se mover, faça com que haja nesse início, uma velocidade extremamente lenta por um tempo, mas ainda perceptível, para que o usuário entenda que começou, mas que no fim das contas, o texto inicial onde fica a introdução da música, fique realmente visível por um bom tempo"* — e *"diminua a fonte do botão de 1x para que ele seja um botão exatamente do mesmo tamanho e quadrado como os seus vizinhos"*. **A ESPERA PARADA DA v1.5.20 ESTÁ REVOGADA:** ela prometia deixar ler a introdução e cumpria ficando IMÓVEL, e imobilidade não se distingue de um botão quebrado — foi o que o operador leu como falta de resposta. No lugar, `AVCifra.rampaInicialDaRolagem` e `AVCifra.ritmoDaRampa` (PURAS, com oráculo): a folha arranca no primeiro quadro e acelera até o compasso cheio. MEDIDO em Chromium: o primeiro pixel anda em **253ms** — o toque tem resposta —, e mesmo assim aos 3s ela consumiu 2,3% da caixa, aos 8s 9,2% e aos 12s **25%**: a introdução continua na tela. **O EXPOENTE É 3, e a régua que o escolhe é quanto da folha a rampa consome** — a quadrática leva meia tela embora antes de a rampa acabar, e a quártica roda a maior parte do tempo abaixo de 6 px/s, que é a espera de volta com outro nome. **E O FECHO DA JANELA FOI RESOLVIDO POR CONSTRUÇÃO, não aceito como perda:** a rampa deixa a folha `T·k` segundos atrás, e a duração é escolhida para que todo marco além dela seja atingido no MESMO instante de relógio de antes — a rampa custa exatamente o que a espera custava, e nunca fica atrás dela (as duas posições coincidem em `t = T` e a da rampa é maior antes disso, porque a outra é zero). **A NOTA FICOU, REESCRITA:** ela deixou de explicar uma imobilidade e passou a descrever o arranque — *"Ao tocar, rola devagar na introdução e depois no ritmo da música"* —, e continua dizendo o ritmo da música só onde isso é verdade. A frase tem 65 caracteres de propósito: MEDIDO, uma de 99 vira DUAS linhas e leva a barra de 53,98 a 69,97px — dezesseis pixels tirados da folha em toda música. **O BOTÃO QUADRADO custou o corpo**, e as outras duas alavancas mediram ZERO: `tabular-nums` dá 31,72px com e sem, e o peso muda 2,31px em `system-ui` e nada em Arial (lá o negrito é sintético). `--fs-2xs` (9,6px) é o único degrau que cabe em 34px com o rótulo mais largo (`0,75×`, 31,72px), contra 13,12px dos vizinhos — o preço está dito, e o degrau `0,75` NÃO foi removido porque ninguém pediu. E a largura FIXA é mais forte que o `min-width` que ela substitui: aquele era um piso sobre `width: auto`, e sob a família larga a caixa crescia, empurrava os vizinhos e transbordava a coluna deitada. Lote **só de base web**.
 - **v1.6.1** — TRÊS AJUSTES NA BARRA DA CIFRA, E UM DEFEITO QUE ELES DESENTERRARAM. Pedido do operador: *"coloque o botão de tela, na mesma lonha dos botões de rolagem automática e etc... coloque ele no fim da lista a direita"*; *"para o efeito de início da rolagem, que atualmente é um spiner, remova esse efeito… coloque uma mensagem de confirmação… tente usar o sistema padrão do app de colocar essa mensagem na própria ui e não em pop up"*; e *"ao invés de usar o botão com nome 'auto', use apenas 0,5x, 1x, 1,5x... como inidcadores"*. **O ACHADO É O QUARTO ITEM, e ele já estava na frota:** o ouvinte do par A+/A− é UM, delegado no `document`, e casava `.lv-fonte-btn` — a classe de APARÊNCIA, que veste também os quatro botões da barra da cifra. O `-1` era um `else` sobre um conjunto ABERTO, então transpor meio tom ou trocar a velocidade também ENCOLHIA a letra. MEDIDO em Chromium: `1,4rem → 1,2rem → 1rem` até o piso, e em tela cheia a escada DAQUELE modo de `2rem` para `1,7rem` **com gravação** (`cifraFonteCheia`), no modo cujo objetivo declarado é ler de longe. O botão de ROLAR escapava POR ACIDENTE — `cifraPintarRolar` troca o `innerHTML` dele dentro do próprio handler, então o `e.target` é um `span.msym` já desligado da árvore; `closest()` começa por SI MESMO, e é por isso que os outros três casavam desligados. MEDIDO no hit-test: o acidente cobria **62,7%** da caixa de 34×34 e **nada** do teclado. A correção é o ouvinte casar `.lv-fonte-menos, .lv-fonte-mais` — o MESMO conjunto que `aplicarTamanhoDaLetra` desabilita: o pintor e o ouvinte deixaram de falar de conjuntos diferentes, e era essa divergência. **O ⛶ FOI PARA A BARRA, e a borda é o estado não-ok:** `lvBuildCifra` retorna cedo em `buscando` e em erro, e o botão anexado depois disso sumiria com a barra — deixando quem estivesse em tela cheia sem saída. A barra, o `tom` e o `ctl` passam a ser montados ANTES dos dois `return`, o ⛶ é anexado ali (um ponto só) e os outros quatro entram por `prepend`, que é o que o põe no FIM à direita; o `span.lv-cifra-tom` vai sempre, mesmo vazio, senão o `space-between` com um filho só o jogaria para a ESQUERDA. **O ANEL VIROU NOTA**, no padrão que o app já tinha (`.sorteio-nota`, `.song-menu-seg-nota`): `--muted`, `--fs-sm`, sem caixa e sem ícone. Ela existe enquanto a folha NÃO está andando sozinha — antes do toque ANUNCIA (o pedido está no futuro: *"ao dar play, ele VAI ficar imóvel"*), durante a espera é a RAZÃO da imobilidade, e some no primeiro quadro de movimento, no mesmo ponto em que o anel sumia. Suprimida em tela cheia, onde a barra é uma coluna de ~66px. **E A FRASE SÓ PROMETE O RITMO DA MÚSICA ONDE ISSO É VERDADE:** o operador pediu *"depois irá seguir a rolagem no ritmo da música"*, e isso só vale no degrau BASE com duração no ar — fora daí o compasso é o fixo vezes o fator. `cifraNotaTexto` decide pela MESMA fonte do `cifraVelTitulo` (`cifraDuracaoNoAr`), porque duas contas para *"a folha segue a música?"* divergiriam e o que sobraria seria a nota e o título discordando a dois centímetros um do outro. **O `AUTO` VIROU `1×`, E SÓ O NOME MUDOU** — correção do operador, por extenso: *"não mude o comportamento da escala, o comportamento estava correto, o nome auto que não representava uma comparação de velocidade… as variações 1,5x ou 0,5x representam mais rápido ou mais devagar em comparação com o 1x"*. `cifraRolarQuadro` não é tocado; o valor interno segue sendo o sentinela `'auto'`, e com ele a preferência gravada de quem já usava. Saem DOIS degraus: o `1` NUMÉRICO, forçado pelo rótulo (dois botões escritos `1×` no mesmo ciclo) e dispensável porque sem duração ele é o MESMO `Number` que o `auto` (`CIFRA_PX_POR_S * 1`); e o `3`, por pedido — *"pode remover o 3x, não vamos precisar mais que isso"*. A escada fica `[0.5, 0.75, 'auto', 1.5, 2]`, MONÓTONA porque o botão CICLA. **A TENSÃO ESTÁ DECLARADA e não foi consertada:** mantido o comportamento, com duração no ar o `1×` segue o relógio e os outros multiplicam o ritmo FIXO — então `1,5×` não é literalmente uma vez e meia o `1×` naquele caso. O operador decidiu que o rótulo é um indicador RELATIVO, não um contrato numérico, e o `cifra-rolagem.test.mjs` passou a ter a asserção que REPROVA quem "consertar" isso. Oráculo novo: `tools/fonte-so-do-par.test.mjs`. Lote **só de base web**.
@@ -346,6 +347,104 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.6.4 — o vídeo embutido numa apresentação
+
+Relato do operador, com captura: um `.pptx` recusado com *"não pôde ser lido"* e,
+no detalhe, `PPTX zip limit exceeded: ppt/media/media3.mp4 is 82733397 bytes >
+maxEntryUncompressedBytes 33554432`. Depois, por escrito: *"o tamanho total desse
+.pptx é de 570mb. idealmente eu preciso conseguir reproduzir os vídeos da
+apresentação."*
+
+### O defeito não era o arquivo
+
+O app passava ao renderizador o `RECOMMENDED_ZIP_LIMITS` da própria biblioteca
+(`deck.js:422`), com teto de **32 MiB por entrada**, e a recusa acontece na
+varredura do DIRETÓRIO CENTRAL do zip — antes de descomprimir um byte. O vídeo
+tinha 78,9 MiB.
+
+E ele **nunca viraria pixel**: `embutirRecursos` alcança `<img>`/`<image>` e o
+`url(...)` de estilo inline, e mais nada; o renderizador desenha vídeo como
+`<video preload="none">` sobre fundo preto. Era a QUARTA coisa que o
+`<foreignObject>` perde, e a única que faltava na lista do cabeçalho do
+`deck.js`.
+
+**A correção óbvia estava fechada pelos 570 MB:** `Ow`, no buildado, sempre
+materializa o ArrayBuffer — subir o teto poria 570 MB no heap de um processo que
+hospeda os dois WebViews e a `Presentation`.
+
+### A saída: ler o zip por fatias
+
+`controle/pptxzip.js` (`AVPptxZip`, PURO) lê o índice por `Blob.slice()`, separa
+os vídeos e remonta um `.pptx` enxuto com os bytes **comprimidos copiados
+verbatim**, com o CRC e os tamanhos que o índice já declara. Nada é
+recomprimido; descompressão só acontece nos `.rels`, para saber qual vídeo é de
+qual slide. No enxuto o renderizador não acha a mídia e cai no ramo do PÔSTER,
+que desenha o quadro de capa como `<img>` — a única forma que o
+`embutirRecursos` sabe embutir.
+
+As duas armadilhas do formato estão no oráculo, com REVERSÃO ao lado:
+
+- **O cabeçalho LOCAL tem campos de nome e extra PRÓPRIOS.** Deduzir o início
+  dos bytes do índice entrega bytes DESLOCADOS, não um erro. MEDIDO: 16 bytes,
+  numa fixture escrita à mão que imita o que o PowerPoint faz.
+- **A ORDEM dos slides sai do `sldIdLst`**, nunca dos nomes dos arquivos. Numa
+  apresentação REORDENADA as duas divergem e o vídeo tocaria no slide errado,
+  sem sintoma.
+
+Os tetos de zip passaram a ser do app (`LIMITES_DO_ZIP`): depois da separação o
+que sobra é XML e imagem, e o teto por ENTRADA acompanha o de mídia. Os dois
+AGREGADOS ficam — são eles que protegem o culto de uma apresentação patológica
+derrubar o processo, e com ele a projeção.
+
+### A automação
+
+Pedido do operador: *"Pode fazer o anexado a página, mas faça as interações de
+forma automática, como iniciar e voltar para a apresentação prosseguindo para o
+próximo slide e etc..."*
+
+Ela mora no `controle.js` e **não** no `stage.js`: o motor de projeção é o
+caminho que desenha na frente da congregação, e tudo o que este recurso precisa
+já existe como comando. Chegar na página manda um `load` do vídeo (`deckIr` →
+`deckVideoTalvezTocar`); o fim dele manda um `load` da apresentação na página
+SEGUINTE (`autoAdvance` → `deckVideoVoltar` — e é o `autoAdvance` porque ele é o
+ponto único por onde o `media-ended` do telão e o `onEnded` da preview passam).
+Fade, cortina, telas da rede, barra e notificação vêm de graça.
+
+Três decisões declaradas:
+
+- **Abrir a apresentação NÃO conta como chegar na página.** Ali o operador
+  acabou de escolher projetar os SLIDES, e entregar-lhe um vídeo no mesmo toque
+  tira dele a única ação deliberada antes de o telão mudar.
+- **Só com a apresentação como MÍDIA, nunca como CAMADA** — ali há um louvor
+  tocando por baixo, e trocar a cena o mataria.
+- **Projetar outra coisa DESARMA a volta**, senão a apresentação voltaria por
+  cima do que o operador escolheu.
+
+Os vídeos não entram em lista nenhuma, e quem os segura é a própria
+apresentação: `lerDetentores` desce no `videos` de um registro `deck`, como já
+descia nos `data.ids` de um `cue`.
+
+### O que a escrita dos oráculos achou
+
+- A primeira versão afirmava que `listRemove` CASCATEIA. Não cascateia: o vídeo
+  fica órfão e morre no `gcOrfaos` seguinte, como os ids de um `cue`. O
+  comentário do `db.js` foi reescrito para dizer o percurso certo.
+- A primeira campanha usava `waitForFunction` cru, cuja exceção **mata o
+  processo** — as reversões saíam como crash em vez de reprovação atribuível,
+  que é o anti-padrão *"prazo lido como veredito"* deste repositório. Hoje as
+  esperas passam por `esperar()`/`porque()`.
+- `send` põe TODO item projetado na prateleira `avulsos` (`fixarAvulso`, teto de
+  3 e FIFO), e isso vale para o vídeo de slide. A asserção do coletor esvazia a
+  prateleira antes de medir — com ela cheia, ela passaria mesmo sem a regra nova.
+
+### A mensagem passou a seguir o motivo
+
+O diálogo mandava procurar SENHA num arquivo que não tinha, e salvar como
+`.pptx` um arquivo que já era `.pptx`. Duas instruções que não resolvem nada, num
+sábado de manhã, com o app SABENDO o motivo e não o usando.
+
+Oráculos novos: `tools/pptxzip.test.mjs` e `tools/pptx-video-na-pagina.test.mjs`
+(reversão em quatro eixos). Lote **só de base web**.
 ## v1.6.3 — o cabeçalho da obra, e a margem que a intro não tinha
 
 ### A rampa não bastava, e o motivo é aritmético

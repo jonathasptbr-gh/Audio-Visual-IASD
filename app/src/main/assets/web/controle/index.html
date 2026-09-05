@@ -1688,7 +1688,7 @@
                METADADO de diagnóstico e o lugar onde se procura diagnóstico é
                junto do estado do telão e do alvo de espelhamento, não numa faixa
                de navegação. Preenchido por `renderVersionLabel`. -->
-          <span id="appVersion" class="app-version">Controle v1.6.3</span>
+          <span id="appVersion" class="app-version">Controle v1.6.4</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o
@@ -2263,6 +2263,11 @@
        símbolo que o aparelho não tem) — oráculo em
        `tools/apresentacao.test.mjs`. A biblioteca de 1,5 MB continua entrando
        por `import()` dinâmico DENTRO dele: aqui não entra byte nenhum. -->
+  <!-- O ZIP de um `.pptx` lido por FATIAS: é ele que faz uma apresentação de
+       centenas de MB caber, tirando os vídeos embutidos antes de o
+       renderizador abrir o arquivo. Puro, sem DOM — oráculo em
+       `tools/pptxzip.test.mjs`. ANTES do `deck.js`, que o consome. -->
+  <script src="pptxzip.js"></script>
   <script src="deck.js"></script>
   <script src="controle.js"></script>
 </body>

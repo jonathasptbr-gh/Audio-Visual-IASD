@@ -96,6 +96,34 @@
   /** Qualidade do WebP quando a página é fotográfica. */
   const QUALIDADE = 0.9;
 
+  /**
+   * OS TETOS DO ZIP, escritos aqui e não herdados da biblioteca.
+   *
+   * O `RECOMMENDED_ZIP_LIMITS` do `vendor/` traz 32 MiB por entrada, e esse
+   * número mede a coisa errada para este app: ele olha o MAIOR arquivo de
+   * dentro do zip, enquanto o que custa heap é o TOTAL. Ele foi o que recusou
+   * a apresentação do operador por um vídeo de 78,9 MiB — que hoje nem chega
+   * aqui, porque o `separarVideos` o tira antes.
+   *
+   * O que sobra no enxuto é XML e IMAGEM, e é sobre isso que estes números
+   * decidem. A entrada acompanha o total: depois da separação não existe mais
+   * a classe de arquivo que justificava um teto próprio, e uma foto de fundo
+   * em alta de uma apresentação legítima passa de 32 MiB sem esforço.
+   *
+   * Os dois AGREGADOS ficam, e são eles que protegem o culto: o renderizador
+   * infla toda `ppt/media/*` na abertura, e sem teto uma apresentação
+   * patológica derruba o processo — que leva junto a projeção. `maxEntries` e
+   * `maxConcurrency` seguem os da biblioteca; o custo deles para o operador é
+   * comprovadamente zero (um deck de 300 páginas não passa de ~2.000 entradas).
+   */
+  const LIMITES_DO_ZIP = Object.freeze({
+    maxEntries: 4000,
+    maxEntryUncompressedBytes: 192 * 1024 * 1024,
+    maxTotalUncompressedBytes: 256 * 1024 * 1024,
+    maxMediaBytes: 192 * 1024 * 1024,
+    maxConcurrency: 8,
+  });
+
   // ==========================================================================
   // FONTES DE SÍMBOLO
   //
@@ -401,16 +429,93 @@
   // ==========================================================================
 
   /**
+   * O VÍDEO EMBUTIDO SAI DO ARQUIVO ANTES DE ELE SER ABERTO.
+   *
+   * Um `.pptx` com vídeo não cabe pelo caminho normal, e por DOIS motivos que
+   * se somam. O renderizador só aceita ArrayBuffer, então abrir o arquivo do
+   * operador (MEDIDO: 570 MB) põe 570 MB no heap de um processo que hospeda os
+   * dois WebViews e a `Presentation`; e o teto de 32 MiB por entrada da
+   * própria biblioteca recusa o arquivo antes disso, por um `media3.mp4` de
+   * 78,9 MiB — um vídeo que, se tivesse entrado, sairia como retângulo PRETO
+   * (o `embutirRecursos` daqui não alcança `<video>`, que é a QUARTA coisa que
+   * o `<foreignObject>` perde).
+   *
+   * Daí a separação: o `pptxzip.js` lê o índice do zip por `Blob.slice()` — sem
+   * materializar nada —, tira os vídeos e remonta um `.pptx` enxuto com os
+   * bytes comprimidos copiados verbatim. O que sobra são XML e imagens, que é
+   * exatamente o que vira página. Onde havia vídeo o renderizador não acha a
+   * mídia e cai no ramo do PÔSTER, que desenha o quadro de capa como `<img>` —
+   * a única das três formas que o `embutirRecursos` sabe embutir.
+   *
+   * Devolve `{ enxuto, videos, total }`: `videos` é `[{ pagina, blob, nome }]`.
+   */
+  async function separarVideos(file) {
+    const Z = global.AVPptxZip;
+    const dir = await Z.lerDiretorio(file);
+    const pesadas = dir.filter((e) => Z.ehMidiaPesada(e.nome));
+    if (!pesadas.length) return { enxuto: file, videos: [], total: 0 };
+
+    // QUAL VÍDEO É DE QUAL SLIDE. A ordem sai do `sldIdLst` e nunca dos nomes
+    // dos arquivos: numa apresentação REORDENADA as duas divergem, e o vídeo
+    // tocaria no slide errado — sem sintoma, na frente da congregação.
+    let porPagina = {};
+    try {
+      const achar = (n) => dir.find((e) => e.nome === n);
+      const eApres = achar('ppt/presentation.xml');
+      const eRels = achar('ppt/_rels/presentation.xml.rels');
+      if (eApres && eRels) {
+        const ordem = Z.ordemDosSlides(
+          await Z.extrairTexto(file, eApres),
+          await Z.extrairTexto(file, eRels),
+        );
+        const rels = {};
+        for (const slide of ordem) {
+          const nome = Z.relsDoSlide(slide);
+          const e = achar(nome);
+          if (e) rels[nome] = await Z.extrairTexto(file, e);
+        }
+        porPagina = Z.videosPorPagina(ordem, rels);
+      }
+    } catch (e) {
+      // A LIGAÇÃO É O QUE PODE FALTAR, NUNCA A APRESENTAÇÃO. Um `.rels` que não
+      // parseia custa a automação daquele arquivo: os vídeos saem daqui com
+      // `pagina: -1` e o `pptxImportar` os descarta — DIZENDO na linha do item,
+      // porque uma apresentação que chega sem os vídeos e sem explicação é
+      // indistinguível de uma que nunca os teve. Derrubar a importação inteira
+      // por causa do mapa seria trocar um recurso a menos por uma apresentação
+      // a menos.
+      console.warn('[pptx] não deu para ligar vídeo a slide:', e && e.message);
+    }
+
+    const porCaminho = {};
+    for (const p in porPagina) porCaminho[porPagina[p]] = p | 0;
+
+    const videos = [];
+    for (const e of pesadas) {
+      videos.push({
+        pagina: (e.nome in porCaminho) ? porCaminho[e.nome] : -1,
+        blob: await Z.extrair(file, e),
+        nome: e.nome,
+        bytes: e.cru,
+      });
+    }
+    const enxuto = await Z.remontar(file, dir.filter((e) => !Z.ehMidiaPesada(e.nome)));
+    return { enxuto, videos, total: pesadas.length };
+  }
+
+  /**
    * `.pptx` → uma imagem por página.
    *
-   * Devolve `{ pages: [Blob], truncado: bool }`, ou `null` quando não saiu
-   * página nenhuma. `onProgresso(feitas, total)` é chamado a cada página.
+   * Devolve `{ pages: [Blob], videos: [{pagina, blob, nome}], truncado }`, ou
+   * `null` quando não saiu página nenhuma. `onProgresso(feitas, total)` é
+   * chamado a cada página.
    *
    * A biblioteca entra por `import()` DINÂMICO: é 1,5 MB que só interessa a
    * quem importar um `.pptx`, e carregá-la no boot custaria isso a todo culto.
    */
   async function paginasDoPptx(file, onProgresso) {
-    const { PptxViewer, RECOMMENDED_ZIP_LIMITS } = await import('../vendor/pptx-renderer.js');
+    const { PptxViewer } = await import('../vendor/pptx-renderer.js');
+    const { enxuto, videos } = await separarVideos(file);
     const palco = criarPalco();
     let visor = null;
     try {
@@ -419,14 +524,14 @@
       // re-renderiza a apresentação inteira a cada mudança — e o contêiner
       // aqui tem largura ZERO, que não é uma medida sobre a qual escalar.
       visor = new PptxViewer(palco.oficina, {
-        zipLimits: RECOMMENDED_ZIP_LIMITS, fitMode: 'none',
+        zipLimits: LIMITES_DO_ZIP, fitMode: 'none',
       });
       // `renderMode: 'slide'` é o que impede a abertura de montar a
       // apresentação INTEIRA de uma vez — o pico de memória que este arquivo
       // existe para não ter. A página que ela desenha é descartada logo abaixo,
       // no primeiro `queueRender` que não vem: quem desenha o que vale é o
       // laço.
-      await visor.open(await file.arrayBuffer(), { renderMode: 'slide' });
+      await visor.open(await enxuto.arrayBuffer(), { renderMode: 'slide' });
       const total = Math.min(visor.slideCount || 0, MAX_PAGINAS);
       if (!total) return null;
       // A ESCALA SAI DA APRESENTAÇÃO, não da caixa medida. O `.pptx` declara o
@@ -461,8 +566,12 @@
         }
         if (onProgresso) onProgresso(i + 1, total);
       }
+      // O VÍDEO DE UMA PÁGINA QUE NÃO SAIU não pode ficar apontando para ela: a
+      // apresentação é cortada em `MAX_PAGINAS`, e um índice além do fim faria
+      // a automação buscar uma página que não existe.
+      for (const v of videos) if (v.pagina >= pages.length) v.pagina = -1;
       return pages.length
-        ? { pages, truncado: (visor.slideCount || 0) > MAX_PAGINAS }
+        ? { pages, videos, truncado: (visor.slideCount || 0) > MAX_PAGINAS }
         : null;
     } finally {
       // `destroy` ANTES de tirar o palco: é ele que revoga as URLs de objeto da
@@ -475,10 +584,10 @@
   }
 
   global.AVDeck = {
-    LARGURA, MAX_PAGINAS, PAGINA_LEVE, QUALIDADE,
+    LARGURA, MAX_PAGINAS, PAGINA_LEVE, QUALIDADE, LIMITES_DO_ZIP,
     tabelaDaFonte, textoDeSimbolo, trocarSimbolos,
     ehExterna, cacheDeRecursos, comoDataUrl, embutirRecursos, trocarCanvas,
-    escolherFormato, elementoParaImagem, criarPalco, paginasDoPptx,
+    escolherFormato, elementoParaImagem, criarPalco, paginasDoPptx, separarVideos,
     WINGDINGS, SYMBOL,
   };
 })(this);
