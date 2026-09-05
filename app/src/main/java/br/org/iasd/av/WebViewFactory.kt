@@ -137,12 +137,20 @@ object WebViewFactory {
      *   WebView já foi desligado do barramento e destruído; cabe ao dono
      *   construir um novo no lugar. Sem callback, a página simplesmente some
      *   — mas o app continua vivo, que é o ponto.
+     * @param withSaf o MESMO valor dado ao [assetLoader]. Ele existe porque a
+     *   JANELA do `/saf/` (shell 64) precisa da QUERY e por isso mora no
+     *   `shouldInterceptRequest`, fora do loader — e a invariante 9 vale para
+     *   ela igual: onde o handler `/saf/` não é montado, a janela também não.
+     *   O padrão é `false` de propósito: quem der um loader COM `/saf/` e
+     *   esquecer este parâmetro perde a janela (o import cai no caminho antigo)
+     *   em vez de abrir a leitura de arquivos no WebView errado.
      */
     @SuppressLint("SetJavaScriptEnabled")
     fun create(
         ctx: Context,
         loader: WebViewAssetLoader,
         keepVisible: Boolean = false,
+        withSaf: Boolean = false,
         onRendererGone: (() -> Unit)? = null,
     ): WebView {
         // SEMPRE a subclasse, e desde a v1.3.12 isso voltou a ser CAPACIDADE, e
@@ -252,6 +260,12 @@ object WebViewFactory {
                 // faixa do vídeo que já está em cena, não para o índice de uma
                 // pasta do aparelho.
                 StreamProxy.tryHandle(request)?.let { return it }
+                // A JANELA DO `/saf/` (shell 64) vem antes do loader pela MESMA
+                // razão do proxy acima — ela precisa da QUERY, e um
+                // `PathHandler` recebe só o caminho. E só onde o `/saf/` existe:
+                // sem o `withSaf`, um script no documento do telão leria
+                // qualquer arquivo já concedido (invariante 9).
+                if (withSaf) SafJanela.tryHandle(ctx, request)?.let { return it }
                 return loader.shouldInterceptRequest(request.url)
             }
 

@@ -7308,10 +7308,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   padding-left: calc(var(--opcao-recuo-h) + var(--icon-lg) + var(--sp-5));
 }
 
-/* "TUDO" — a primeira linha, e um ALTERNADOR: com tudo marcado ela LIMPA, com
-   qualquer coisa fora ela MARCA TUDO. Dois botões seriam um deles sempre
-   inútil, e a caixa já diz qual dos dois o toque vai fazer. */
-.song-menu-tudo { cursor: pointer; }
 /* O quadrado é um `::before` para o ALVO (acima) e o DESENHO (aqui) serem
    independentes — a mesma separação do `.pv-fab`.
    DESMARCADO ELE É UM RECESSO, não um contorno: o buraco escuro diz "aqui cabe

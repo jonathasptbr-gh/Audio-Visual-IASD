@@ -549,7 +549,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
     private fun buildControleWebView() {
         if (isFinishing || isDestroyed) return
         val loader = WebViewFactory.assetLoader(this)
-        val w = WebViewFactory.create(this, loader) {
+        val w = WebViewFactory.create(this, loader, withSaf = true) {
             web = null
             // O estado de "download em curso" pertencia ao documento que acabou
             // de morrer: os `fetch` morreram com o renderer e o `finally` de

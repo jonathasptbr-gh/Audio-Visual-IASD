@@ -686,6 +686,17 @@
     //
     // SEM PRAZO, como o `pickFolder`: quem responde é uma PESSOA escolhendo um
     // arquivo, e um timeout resolveria null com o seletor ainda aberto.
+    //
+    // CADA ITEM É `{ url, name, type, size }`, e este é o único método da ponte
+    // que NÃO remonta campo a campo — a lista vem do Kotlin já na forma final e
+    // passa direto. É deliberado: aqui o remonte seria a armadilha em vez da
+    // proteção, porque o campo novo de amanhã sumiria em silêncio e o de hoje
+    // (`size`) é o que decide se um pacote de gigabytes pode ser lido.
+    //
+    // `size` é `-1` quando o provedor não informou o tamanho — ver
+    // `tamanhoDoDocumento` no Kotlin. **`-1` não é `0`**: um arquivo vazio é
+    // uma resposta legítima, e achatar os dois faz um pacote bom ser recusado
+    // como vazio.
     pickDoc: (mimes) => call((id) => B.pickDoc(id, String(mimes || ''))).then((r) => r || []),
 
     // ---- apresentação (PDF / Google Apresentações) ----

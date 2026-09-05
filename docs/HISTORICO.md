@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.7.9** — A IMPORTAÇÃO NÃO ERA LENTA: ELA NÃO CABIA. Relato do operador: *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo estivesse corrompido. Verifique se é problema no leitor, ou é algum problema tamanho do arquivo."* **São os dois, um em cada camada.** (1) **O LEITOR** fazia `resp.blob()` — o arquivo INTEIRO materializado antes do primeiro byte: quinze gigabytes não cabem nem na memória nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da primeira num aparelho que já está cheio. (2) **O TAMANHO**, e este é estrutural: o caminho `/saf/` tem **teto de 2 GB**, porque o Chromium dimensiona toda resposta interceptada pelo `available()` do `InputStream` — um `int`. É a invariante 8 pelo lado que ninguém tinha olhado: acima de `Integer.MAX_VALUE` o web recebe o arquivo CORTADO, sem erro nenhum, e o cursor tropeça no meio de um registro. **A forma do conserto é a do `StreamProxy`, e não uma invenção**: `/saf/<token>?r=<ini>-<fim>`, com a faixa na QUERY e nunca num cabeçalho `Range` — com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que já é uma fatia. Sem cabeçalho não há `ParseRange` nem `ComputeBounds`, e o `available()` passa a ser o da JANELA: o teto some porque nenhuma resposta chega perto dele. O `SafJanela` faz SEEK de verdade (`openFileDescriptor` + `FileChannel.position`; `skip` só como plano B para provedor sem descritor posicionável — pular quatorze gigabytes lendo-os seria quadrático) e usa `AutoCloseInputStream`, porque `FileInputStream(pfd.fileDescriptor)` não é dono do descritor e vazaria um por janela. Do lado web, `pacoteFonteDaUrl` entrega FATIAS: `bytes()` para cabeçalhos e `blob()` para corpos, montado de pedaços de 8 MB. **A leitura antecipada CRESCE E ENCOLHE, e foi o oráculo que pegou isso** — com 4 MB fixos a conferência de um acervo lia 4 MB para aproveitar duzentos bytes, uma vez por registro; a regra virou o próprio percurso (sequência dobra até 1 MB, salto volta a 8 kB). `pickDoc` passou a devolver `size` (`-1` = o provedor não disse, que NÃO é `0`). **E mais um pedido:** a linha de "tudo" saiu da folha de exportação (*"está inútil agora que temos o agrupamento"*). Lote **com Release** (`SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.9"`).
 - **v1.7.8** — UM `load()` RELÊ O BANCO, E UM BLOB RELIDO É OUTRO OBJETO. Relato: *"Os mesmos problemas de miniaturas piscando da biblioteca, temos nas miniaturas piscando no cronograma ao excluir outro item."* **É a porta que a v1.7.4 deixou aberta, e o oráculo dela a nomeava por extenso**: aquele lote keou a `object-URL` de cada capa pelo BLOB, o que resolve o redesenho de 400 ms de um download — ali o blob é o mesmo OBJETO, porque quem o segura são as listas em MEMÓRIA (`libItems`, `favItems`). Mas `load()` as relê do IndexedDB, e a releitura devolve blobs novos para TODAS as capas de uma vez; e `load()` não é raro — ele roda em toda escrita no banco, e excluir um item é uma. A chave passou a ser **`id|tamanho|tipo`**, e cada pedaço responde a uma coisa: o `id` é o que atravessa a releitura, e o par `size`/`type` é a impressão digital que impede uma capa TROCADA de ser servida da memória (hoje nenhum caminho substitui a miniatura de um registro existente, e o dia em que um existir ele mudará o tamanho). Sem `id` a chave continua sendo o blob, que é o comportamento da v1.7.4: no pior caso, o de antes. **De quebra, o MESMO item em duas listas passa a ter UMA url** — `listItems('imports')` e `listItems('favs')` são duas leituras, então a mesma capa vinha como dois blobs e ocupava a memória duas vezes. O `miniaturas-estaveis.test.mjs` ganhou o bloco E (o Cronograma, excluindo outro item) e uma asserção nova no C (a mesma propriedade na Biblioteca, que é a outra metade da frase do relato): são dois hosts porque um tem balde próprio e o outro não. Duas reversões medidas — com a chave de volta no blob os dois reprovam, e com a varredura em no-op reprovam as duas que cobram a revogação. Lote **só de base web**.
 - **v1.7.6** — A GRADE DE CONFIGURAÇÕES TEM UMA COR SÓ, E O QUE GIRA É UM QUADRO. Três pedidos, e os dois primeiros são a mesma regra. (1) **NENHUM TILE APAGA**: *"O botão do girar no telão, está apagado no modo sem giro, mas todos os botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda diferença de estado é pelo icone, não pela cor."* A v1.4.40 acendeu os tiles que não têm "desligado" e deixou DOIS apagando — o fundo da letra e o giro —, e os dois **já tinham o estado no DESENHO** (a imagem riscada; o quadro na posição em que a mídia está): a luz era a segunda cópia da mesma resposta, gasta na única propriedade que este app já usa para outra coisa. **Apagado aqui quer dizer INDISPONÍVEL**, que é a queixa da v1.4.25, e enquanto a mesma tinta dizia *"você está no padrão"* as duas frases se confundiam na mesma grade. `qs-on` e o parâmetro `aceso` FICAM — morreu a política de usá-los para dizer estado, não a capacidade de apagar um tile de fato indisponível. **A consequência para o próximo tile é a soma de duas remoções** (a palavra saiu na v1.7.2, a cor sai agora): um estado que não caiba num desenho não cabe nesta grade. (2) **O QUE GIRA É UM QUADRO DE PAISAGEM**: *"troque o icone dele, use um icone de picture, paisagem. O próprio quadro vai girar e vai ser mais intuitivo que um seta circular rodando, pois vai literalmente representar em qual posição está a paisagem."* **O mecanismo não mudou uma linha** — o `#rotBtn` já desenhava o ícone na posição que ele descreve desde a v1.7.2; mudou o que ele vira. Uma seta girada é a AÇÃO desenhada duas vezes (ela já significa *"gire"*), e a 90° é só uma seta apontando para outro lado; um quadro girado é o ESTADO. O desenho é **assimétrico nos dois eixos, de propósito**, e é exigência dura: sem isso 0° e 180° ficam idênticos, e 90° e 270° também — quatro estados em dois desenhos (o sol no alto e o morro embaixo resolvem o vertical; o sol à direita e o morro à esquerda, o horizontal). **E O MORRO NÃO ATRAVESSA O QUADRO, o que foi MEDIDO**: um pico que toca as duas paredes com pouco céu acima é a ABA DE UM ENVELOPE, e a 180° vira o glifo universal de e-mail — quatro candidatos renderizados a 22px e a 58px, e os três que atravessavam liam-se assim. Ele **não é o `#icoImagem` do tile vizinho**, que é a armadilha que o `#icoWallpaper` já pagou nesta grade: quadro bem mais largo (21×13 contra 17×14), o SOL À DIREITA (lá está à esquerda) e um pico só, na metade esquerda, contra o recorte que atravessa o outro inteiro. O `#icoGirar` saiu do sprite junto (a regra deste repositório: um `<symbol>` sem consumidor viaja em todo aparelho sem desenhar nada), e a seta circular do desfazer sobre a PREVIEW fica: ela é INLINE desde a v1.4.45 exatamente para este dia, e responde outra pergunta. (3) **A ORDEM PASSOU A SER POR ASSUNTO**: *"reordene os botões: compartilhar, exportar e importar devem ser os tres itens da base"*. Ela era por NATUREZA (os sempre-acesos no topo, v1.4.40) e **essa ordem deixou de existir no mesmo lote** — nenhum tile apaga mais, então não há duas naturezas de LUZ para ordenar. Sobram as seis preferências da PROJEÇÃO em cima e as três coisas que se fazem com o APP fora dela embaixo, numa fileira inteira. E o `glifos.test.mjs` ganhou a OUTRA fonte de ícone do bundle: um `<use href="#ico…">` sem `<symbol>` falha igual a um glifo fora do subset — sem erro, só um vão —, e a operação que produz isso é a RENOMEAÇÃO deste lote. Varre nos dois sentidos, com as duas reversões provadas. Lote **só de base web**.
 - **v1.7.5** — O DIA VIROU UM BLOCO, E A SUBLISTA GANHOU CORPO. Relato: *"No histórico, nas configurações, ajuste os cards que separam os dias, para que tenham uma coloração diferente dos cards de itens exibidos naquela seção. Atualmente a lista está confusa, pois está difícil distinguir as sublistas dentro desse histórico"* — e, em seguida, *"caso ache mais correto, utilize o design de corpo e lista que já temos na biblioteca..."*. **MEDIDO, e era literal:** o cabeçalho pintava `--camada` e a `.row` de cada linha pinta `--linha`, que dentro daquela folha resolve para `--camada` também — `rgb(48, 66, 84)` no escuro e `rgb(212, 218, 226)` no claro, os DOIS. **1,00:1**, o mesmo número que a Biblioteca mediu na v1.5.14 entre a tampa de um álbum e as faixas dele. A resposta é a de lá, INTEIRA, e ela tem duas metades — o degrau de tom sozinho não resolve o relato, porque dois tons alternados numa lista PLANA continuam sendo uma corrida de irmãos. **A FILIAÇÃO:** o `<li>` do dia deixou de ser a barra e virou o BLOCO, com a `.hist-sessao-bar` e uma `ul.hist-corpo` dentro dele — a anatomia da `.coll-group`. O `<li>` continua sendo da MESMA `<ul>` pela razão da v1.4.31 (a folha rola inteira, e um cabeçalho fora dela ficaria parado sobre o conteúdo errado); aninhar muda só de quem cada linha é filha. **A ALTERNÂNCIA:** papel (a folha) → poço (o bloco do dia) → papel (a linha), com quem RESERVA o tom sendo o contêiner — a `.hist-corpo` declara `--camada: var(--panel)` e a `.row-item` a lê em `--linha`. MEDIDO no par novo: **1,43:1** no escuro e **1,35:1** no claro. O TEMA CLARO é quem fecha a conta: nele `--panel` é branco e todo o resto se agrupa perto de L≈0,70, então o único tom que passa o piso de 1,28:1 contra o poço é o próprio papel — logo um dos dois tem de ser o papel, e a escolha sai do que cada um É. A barra NÃO gruda (a da Biblioteca é `sticky`): aqui não há tampa de nível acima a que se colar, e um cabeçalho grudado num popup que já rola inteiro flutuaria sobre a lista de OUTRO dia. O `historico.test.mjs` ganhou as duas metades — o degrau medido na cor RENDERIZADA nos dois temas (um teste de token ou de classe aprovava o defeito: os dois nomes eram diferentes e resolviam para o mesmo valor) e a filiação de cada linha —, com as três reversões medidas: sem a camada reservada o passo cai a 1,08:1 e 1,04:1, sem o poço do bloco a 1,00:1, e com a lista plana o arquivo reprova já na primeira leitura. **E os seletores do próprio oráculo mudaram junto**, porque a leitura por IRMÃOS descrevia o desenho anterior: `#histList > li` devolveria blocos VAZIOS e um `.find()` por texto casaria o BLOCO antes da linha. Lote **só de base web**.
@@ -354,6 +355,95 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.7.9 — a importação não era lenta: ela não cabia
+
+> *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de
+> 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo
+> estivesse corrompido. Verifique se é problema no leitor, ou é algum problema
+> tamanho do arquivo."*
+
+**São os dois**, um em cada camada, e nenhum dos dois tem sintoma num arquivo
+pequeno — o oráculo de ida e volta passava inteiro com o leitor que não cabia.
+
+### 1 · O leitor materializava o arquivo
+
+`resp.blob()`: o arquivo INTEIRO antes do primeiro byte ser lido. Quinze
+gigabytes não cabem nem na memória nem no armazenamento de blobs, que é uma
+SEGUNDA cópia ao lado da primeira num aparelho que já está cheio de acervo. O
+`Failed to fetch` do relato é isso.
+
+### 2 · E o caminho `/saf/` tem teto de 2 GB
+
+Estrutural, e é a invariante 8 pelo lado de dentro: o Chromium dimensiona toda
+resposta interceptada pelo `available()` do `InputStream` — um `int`. Acima de
+`Integer.MAX_VALUE` não há número a devolver, e o que o web recebe é o arquivo
+CORTADO, **sem erro nenhum**. O cursor então tropeça no meio de um registro, que
+é o segundo relato.
+
+### A forma do conserto é a do `StreamProxy`
+
+`/saf/<token>?r=<ini>-<fim>`, com a faixa na **QUERY** e nunca num cabeçalho
+`Range`: com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma
+SEGUNDA vez sobre o que já é uma fatia — a armadilha que a invariante 8 descreve
+inteira. Sem cabeçalho não há `ParseRange`, não há `Seek` e não há
+`ComputeBounds`; a resposta é um 200 seco e o `available()` passa a ser o da
+JANELA, não o do arquivo. **O teto some porque nenhuma resposta chega perto
+dele.**
+
+Duas armadilhas do lado Kotlin, e as duas custam em produção:
+
+- **SEEK, não `skip`** (`openFileDescriptor` + `FileChannel.position`). Pular
+  quatorze gigabytes com `skip()` LÊ os quatorze, e a importação ficaria
+  quadrática. O `skip` fica como plano B para o provedor que não devolve um
+  descritor posicionável — lento e correto é melhor que rápido e ausente.
+- **`AutoCloseInputStream`, e não `FileInputStream(pfd.fileDescriptor)`:** o
+  segundo não é DONO do descritor, então fechar o stream deixaria o `pfd`
+  aberto. Um vazamento de descritor por janela, e são milhares por importação.
+
+Do lado web, `pacoteFonteDaUrl` entrega FATIAS — `bytes()` para os cabeçalhos e
+`blob()` para os corpos, montado de pedaços de 8 MB para que a memória fique no
+tamanho do pedaço e não no do item. `pickDoc` passou a devolver `size`, que é o
+que diz onde o arquivo acaba (`-1` = o provedor não informou, e **não é `0`**:
+achatar os dois recusaria um pacote bom como vazio).
+
+### E a leitura antecipada cresce e encolhe — o oráculo pegou isso
+
+A primeira escrita usava uma janela fixa de 4 MB, e ela erra nos DOIS regimes do
+formato. Numa corrida de cabeçalhos (a Bíblia mora em `state` com uma chave por
+capítulo, 1189 por versão) uma janela pequena vira uma requisição por registro;
+num acervo — cabeçalhos separados por corpos de centenas de MB — uma janela
+grande lê 4 MB para aproveitar duzentos bytes, **uma vez por registro**. MEDIDO
+pelo bloco 5 do `pacote-ida-e-volta`: o total lido deu o DOBRO do arquivo.
+
+A regra passou a ser o próprio percurso: pedido que começa onde o buffer acabou
+é uma corrida (dobra, até 1 MB); pedido que salta é um corpo pulado (volta a
+8 kB). E a CONFERÊNCIA passou a pedir `proximo(false)` — ela percorre o arquivo
+inteiro pelos cabeçalhos, e lê-los junto com os corpos dobraria a importação.
+
+### O oráculo mede o COMO, porque o desfecho não distingue
+
+O bloco 5 afirma três coisas que um arquivo pequeno não denuncia: o arquivo é
+pedido por JANELAS e nunca de uma vez (um pedido sem faixa é o `resp.blob()` de
+volta), nenhuma janela passa do PEDAÇO, e o total lido fica perto do tamanho do
+arquivo e não perto do dobro. A rota do próprio oráculo fala o MESMO contrato do
+`SafJanela.kt` — um `blob:`, que era o que ele entregava, não tem query nenhuma,
+e por ele o leitor novo nem sairia do lugar.
+
+### E mais um pedido
+
+> *"O seletor de 'tudo' no processo de seleção de exportação está inútil agora
+> que temos o agrupamento, então não precisa dele, deixe tudo selecionado por
+> padrão e o usuário seleciona/desseleciona os poucos itens."*
+
+É o pedido da v1.7.3 chegando ao fim: "marcar tudo" já é o estado em que a folha
+NASCE, e a barra de um grupo cobre o caso de massa que sobrava. O peso do que
+está marcado continua no botão de confirmar, que é onde a pergunta ("cabe no
+cartão?") é feita.
+
+Lote **com Release**: `SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.9"`.
 
 ---
 

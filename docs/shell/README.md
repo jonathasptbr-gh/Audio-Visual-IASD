@@ -29,7 +29,7 @@ para a TV com `android.app.Presentation`.
 |---|---|---|
 | `NativeBridge.kt` | 1.953 | [`PONTE.md`](PONTE.md) |
 | `WebViewFactory.kt` | 285 | [`PONTE.md`](PONTE.md) — invariantes 1-4 |
-| `SafPathHandler.kt` | 99 | [`PONTE.md`](PONTE.md) — o token `/saf/` |
+| `SafPathHandler.kt` | 266 | [`PONTE.md`](PONTE.md) — o token `/saf/` e a JANELA `?r=` |
 | `WebUpdater.kt` | 1.160 | [`OTA.md`](OTA.md) |
 | `ShellUpdater.kt` | 340 | [`OTA.md`](OTA.md) |
 | `WebPathHandler.kt` | 88 | [`OTA.md`](OTA.md) |
