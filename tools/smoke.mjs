@@ -267,34 +267,44 @@ try {
     + 'ao padrão na abertura seguinte',
     'state.fit: ' + JSON.stringify(grade.guardado));
 
-  // ---- QUEM NÃO TEM "DESLIGADO" FICA SEMPRE ACESO (v1.4.40) ----
-  // Pedido do operador: *"a maioria dos botões das configurações não tem estado
-  // de ativo e inativo… então pode deixar eles no estado azul de 'sempre ativo'
-  // o tempo todo"*. Apagado, no vocabulário deste app, quer dizer
-  // INDISPONÍVEL — é a queixa da v1.4.25 (*"foi simplesmente ofuscado o botão
-  // inteiro"*), e escolher "Ajustar" não desliga coisa nenhuma.
+  // ---- A GRADE TEM UMA COR SÓ, E O ESTADO MORA NO DESENHO (v1.7.6) ----
+  // Pedido do operador: *"todos os botões devem ter o mesmo azul de ativo, não
+  // temos mais essa diferença, toda diferença de estado é pelo icone, não pela
+  // cor"*. Apagado, no vocabulário deste app, quer dizer INDISPONÍVEL — é a
+  // queixa da v1.4.25 (*"foi simplesmente ofuscado o botão inteiro"*).
   //
-  // DUAS METADES QUE SÓ JUNTAS DIZEM A REGRA, e a segunda é a que impede o
-  // conserto preguiçoso (acender TUDO, sempre): o preenchimento fica aceso nos
-  // dois estados **e troca de desenho**, e o fundo da letra continua APAGANDO
-  // quando a função está desligada. Sem a primeira, o pedido não foi atendido;
-  // sem a segunda, o painel perde a única linguagem de ligado/desligado que
-  // sobrou.
+  // A v1.4.40 acendeu os tiles sem "desligado" e deixou DOIS apagando (o fundo
+  // da letra e o giro); este oráculo prendia esse resto, e prendia com o
+  // argumento certo para o desenho da época — *"a metade que impede o conserto
+  // preguiçoso: acender TUDO, sempre"*. O pedido revoga a política, e o que
+  // sobra por prender é o CANAL que ficou sozinho: o DESENHO.
+  //
+  // ENTÃO A GUARDA MUDOU DE LUGAR, não de força. Ela era "algum tile ainda
+  // apaga"; passou a ser "o tile aceso nos dois estados TROCA DE DESENHO, e a
+  // troca acontece no RENDERIZADO" — que é a asserção que reprova quem apagar a
+  // regra de CSS do par (`.qs-alt .ico-base`/`.ico-alt`) e ficar com a classe
+  // certa sobre dois desenhos empilhados. É a mesma técnica do wallpaper no
+  // `configuracoes-sem-subtitulo.test.mjs`, e pelo mesmo motivo.
   checar(grade.antes.aceso && grade.depois.aceso && grade.antes.cor === grade.depois.cor,
-    'o PREENCHIMENTO fica aceso nos dois estados — ele não tem "desligado", e '
-    + 'apagado ali se lê como indisponível',
+    'o PREENCHIMENTO fica aceso nos dois estados — a cor não diz estado nenhum',
     JSON.stringify([grade.antes.cor, grade.depois.cor]));
   checar(!grade.antes.alt && grade.depois.alt,
-    'e mesmo aceso o tempo todo ele TROCA DE DESENHO: `qs-alt` responde "qual '
-    + 'desenho?" e `qs-on` responde "está ligado?" — enquanto foram a mesma '
-    + 'classe, um tile sempre aceso ficava preso no desenho alternativo',
+    'e é o DESENHO que troca: `qs-alt` responde "qual desenho?" e `qs-on` '
+    + 'responde "está ligado?" — enquanto foram a mesma classe, um tile sempre '
+    + 'aceso ficava preso no desenho alternativo',
     JSON.stringify([grade.antes.alt, grade.depois.alt]));
   const liga = await pg.evaluate(() => {
     const t = document.getElementById('lyricsBgTile');
+    // O DESENHO NO RENDERIZADO, e não a classe: qual dos dois `<use>` está de
+    // fato pintado. Uma classe sem a regra de CSS passa num teste de classe e
+    // deixa os dois desenhos empilhados na tela para sempre.
+    const desenhado = () => [...t.querySelectorAll('use')]
+      .filter((u) => getComputedStyle(u).display !== 'none')
+      .map((u) => u.getAttribute('href')).join('+');
     const sonda = () => ({
       estado: t.dataset.estado,
       aceso: t.classList.contains('qs-on'),
-      alt: t.classList.contains('qs-alt'),
+      desenho: desenhado(),
       cor: getComputedStyle(t).backgroundColor,
     });
     const antes = sonda();
@@ -303,37 +313,65 @@ try {
     t.click();
     return { antes, depois, volta: sonda() };
   });
-  checar(liga.antes.estado === 'image' && liga.antes.aceso && !liga.antes.alt
-    && liga.depois.estado === 'black' && !liga.depois.aceso && liga.depois.alt,
-    'e o FUNDO DA LETRA continua apagando — ele TEM desligado, e o desenho '
-    + 'riscado e a luz apagada dizem a mesma coisa',
-    JSON.stringify([liga.antes, liga.depois]));
-  checar(liga.antes.cor !== liga.depois.cor,
-    'na cor RENDERIZADA: a classe sem a regra de CSS passaria num teste de '
-    + 'classe e continuaria invisível na tela',
+  checar(liga.antes.estado === 'image' && liga.depois.estado === 'black',
+    'o FUNDO DA LETRA alterna o estado — ele TEM desligado',
+    JSON.stringify([liga.antes.estado, liga.depois.estado]));
+  checar(liga.antes.aceso && liga.depois.aceso && liga.antes.cor === liga.depois.cor,
+    'e mesmo assim NÃO APAGA (v1.7.6): a cor RENDERIZADA é a mesma nos dois '
+    + 'estados — era o último tile a gastar a tinta do indisponível para dizer '
+    + '"você está no padrão"',
     JSON.stringify([liga.antes.cor, liga.depois.cor]));
-  checar(liga.volta.estado === 'image' && liga.volta.aceso,
+  checar(liga.antes.desenho === '#icoImagem' && liga.depois.desenho === '#icoImagemOff',
+    'e o canal que sobrou RESPONDE: um desenho por estado, medido no que está '
+    + 'PINTADO — com a cor fora, um par que não troca deixa o tile idêntico nos '
+    + 'dois estados',
+    JSON.stringify([liga.antes.desenho, liga.depois.desenho]));
+  checar(liga.volta.estado === 'image' && liga.volta.desenho === '#icoImagem',
     'e ele volta com o segundo toque, sem deixar o acervo com a letra sobre preto');
+  // O GIRO É O OUTRO QUE APAGAVA, e ele é o tile que o pedido NOMEIA (*"está
+  // apagado no modo sem giro"*). A 0° — o estado em que ele apagava — ele agora
+  // acende como todos. Quem prova que o desenho dele responde é o
+  // `configuracoes-sem-subtitulo.test.mjs`, que mede a MATRIZ do ícone.
+  const giro = await pg.evaluate(() => {
+    const t = document.getElementById('rotBtn');
+    return { estado: t.dataset.estado, aceso: t.classList.contains('qs-on') };
+  });
+  checar(giro.estado === '0' && giro.aceso,
+    'e o GIRO acende A 0° — o estado em que ele era o único apagado da grade',
+    JSON.stringify(giro));
 
-  // ---- E A ORDEM É POR NATUREZA: os sempre-acesos no topo (v1.4.40) ----
-  // *"ajuste para que esses itens que não se ativam fiquem no topo da listagem
-  // e deixe os outros mais em baixo"*. A asserção é sobre a ORDEM DO DOCUMENTO,
-  // que numa grade row-major é a ordem que se lê — e não sobre a posição em
-  // pixels, que mediria a largura da tela junto.
+  // ---- E A ORDEM É POR ASSUNTO: a projeção em cima, o app na base (v1.7.6) ----
+  // *"reordene os botões: compartilhar, exportar e importar devem ser os tres
+  // itens da base"*. A asserção é sobre a ORDEM DO DOCUMENTO, que numa grade
+  // row-major é a ordem que se lê — e não sobre a posição em pixels, que
+  // mediria a largura da tela junto.
+  //
+  // A ORDEM ANTERIOR ERA POR NATUREZA (os sempre-acesos no topo, v1.4.40), e
+  // ela deixou de existir no mesmo lote que este pedido: nenhum tile apaga
+  // mais, então não há duas naturezas de LUZ para ordenar. O que sobra é o
+  // ASSUNTO — seis preferências da PROJEÇÃO, e as três coisas que se fazem com
+  // o APP fora dela, numa fileira inteira e sozinha.
+  //
+  // Os três da base são `hidden` no navegador (a ponte não existe aqui) e por
+  // isso continuam na ORDEM DO DOCUMENTO, que é o que esta asserção lê: um
+  // `hidden` sai da tela, não da árvore.
   const ordem = await pg.$eval('.qs-grade',
     (g) => [...g.children].map((e) => e.id));
-  // AS TRÊS AÇÕES DESTE APARELHO entraram na MESMA grade na v1.7.2, quando o
-  // rótulo "Este aparelho" que as agrupava saiu. Elas são sempre-acesas, então
-  // a ordem por natureza as põe entre o histórico e os dois que apagam — e a
-  // grade fecha em TRÊS fileiras exatas. Elas são `hidden` no navegador (a
-  // ponte não existe aqui) e por isso continuam na ORDEM DO DOCUMENTO, que é o
-  // que esta asserção lê: um `hidden` sai da tela, não da árvore.
-  const fixos = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow',
-    'shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile'];
-  const alterna = ['lyricsBgTile', 'rotBtn'];
-  checar(JSON.stringify(ordem) === JSON.stringify(fixos.concat(alterna)),
-    'os tiles SEM "desligado" vêm primeiro e os que ligam e desligam depois',
+  const projecao = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow',
+    'lyricsBgTile', 'rotBtn'];
+  const aparelho = ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile'];
+  checar(JSON.stringify(ordem) === JSON.stringify(projecao.concat(aparelho)),
+    'compartilhar, exportar e importar são os TRÊS ITENS DA BASE',
     JSON.stringify(ordem));
+  // E A BASE É UMA FILEIRA INTEIRA, e não três células que calham de terminar a
+  // lista: a grade tem três colunas e nove tiles, então os três últimos ocupam
+  // a última fileira sozinhos. É a metade GEOMÉTRICA do pedido — um décimo tile
+  // acrescentado no fim empurraria um deles para a fileira de cima e a costura
+  // entre as duas naturezas cairia no meio de uma linha.
+  checar(ordem.length % grade.cols === 0,
+    'e ela fecha em fileiras EXATAS — um tile a mais quebra a costura entre as '
+    + 'duas naturezas no meio de uma linha',
+    'tiles: ' + ordem.length + ' · colunas: ' + grade.cols);
 
   // ---- O MODO DO APP É UM INTERRUPTOR QUE DESLIZA (v1.4.43) ----
   //

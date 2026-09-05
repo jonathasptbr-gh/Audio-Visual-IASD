@@ -32,7 +32,7 @@
 // não fala com o `googlevideo` (é o `StreamProxy`, no origin do app, com o UA
 // que combina com a URL). Aqui só entram bytes que já chegaram.
 // ============================================================================
-// ===== NADA NESTE APP CRIA UM MANIFESTO NOVO (v1.7.6) =====
+// ===== NADA NESTE APP CRIA UM MANIFESTO NOVO (v1.7.7) =====
 //
 // Pedido do operador: *"vamos abandonar o modo online direto, ele é muito
 // instável"*. Os TRÊS caminhos que produziam uma cena de transmissão saíram do
@@ -346,7 +346,7 @@
   // tropeço foi acidente é quem o produziu — casar strings de erro depois é a
   // forma de errar que este arquivo já paga em outro lugar (ver o
   // `/HTTP 40[13]/` que o Controle reconhecia pela mensagem — o `recuperarStream`
-// saiu com a transmissão, na v1.7.6, e a forma do texto fica pelo Registro).
+// saiu com a transmissão, na v1.7.7, e a forma do texto fica pelo Registro).
   function marcar(erro, sim) {
     erro.retentavel = !!sim;
     return erro;

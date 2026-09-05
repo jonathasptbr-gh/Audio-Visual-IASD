@@ -194,7 +194,7 @@ fadeTime)` roda **depois** de `play()` (que restaura o volume alvo e limpa o
   considerar `ended` (além do `kind`): sem isso, o `currentTime=0` do fim
   natural (preparando o replay) mostraria um salto pro primeiro frame antes
   do preto/cortina cobrir.
-- **E ESSA SEQUÊNCIA É CHAMÁVEL DE FORA** (`stage.marcarFim()`, v1.7.6), porque
+- **E ESSA SEQUÊNCIA É CHAMÁVEL DE FORA** (`stage.marcarFim()`, v1.7.7), porque
   nem sempre é ESTE `<video>` que sabe que a mídia acabou. Com telão no ar a
   preview do Controle é ILUSTRAÇÃO e segue o `display-status`: o telão termina,
   dispara `pause` ANTES de `ended` (a ordem do HTML), e o status que sai daí faz

@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.7.6';
+const WEB_VERSION = '1.7.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1013,7 +1013,7 @@ let projecaoSeq = 0;
 // correção.
 let palcoEmVoo = null;   // { senha, cartoes[] } — a projeção que espera a rede
 
-// SÃO VÁRIOS CARTÕES, E NÃO UM (v1.7.6). A mesma tentativa de projeção abre
+// SÃO VÁRIOS CARTÕES, E NÃO UM (v1.7.7). A mesma tentativa de projeção abre
 // DOIS em sequência: o do toque (`cederOPalco`, "Preparando <nome>") e o do
 // download (`ytBaixarNativo` com `aviso: 'preview'`), que antes deste lote era
 // inalcançável neste caminho — a transmissão direta resolvia a cena antes de
@@ -1799,7 +1799,7 @@ const SYNC_DRIFT = 0.5;
 // poupar, há um desvio conhecido e possivelmente enorme. `RESYNC_EXATO` é só a
 // margem que evita um seek inútil quando por sorte já estava alinhado.
 const RESYNC_EXATO = 0.15;
-// A PROJEÇÃO PARADA A MENOS DISTO DO FIM ESTÁ NO FIM (v1.7.6).
+// A PROJEÇÃO PARADA A MENOS DISTO DO FIM ESTÁ NO FIM (v1.7.7).
 //
 // A rede de segurança do `marcarFim` — o caminho EXATO é o `media-ended`, e ele
 // não cobre tudo: as telas da rede o perdem no DRENO de propósito (N telas
@@ -2142,13 +2142,17 @@ async function setLyricsBg(mode) {
   await AVDB.setState('lyricsBg', lyricsBg);
   cmd({ type: 'lyricsbg', mode: lyricsBg });
 }
-// ESTE LIGA E DESLIGA, e a v1.4.40 INVERTEU o aceso dele: as imagens MOSTRADAS
-// são a função ligada, e antes o aceso marcava "Remover" (o que não é o padrão).
-// Com a inversão o desenho e a luz passam a concordar — imagem inteira e aceso,
-// imagem riscada e apagado —, em vez de dizerem coisas opostas no mesmo botão.
+// ESTE LIGA E DESLIGA, E MESMO ASSIM NÃO APAGA (v1.7.6). Pedido do operador:
+// *"todos os botões devem ter o mesmo azul de ativo, não temos mais essa
+// diferença, toda diferença de estado é pelo icone, não pela cor"*. Ele era o
+// ÚLTIMO tile da grade a escurecer junto com o giro, e o par de desenhos
+// (imagem inteira × imagem riscada) já dizia o estado inteiro sozinho — a luz
+// era a segunda cópia da mesma resposta, na única propriedade que este app já
+// gastou com outro significado (apagado = INDISPONÍVEL, a queixa da v1.4.25).
+// O `alt` continua sendo o canal, e é ele que os oráculos leem.
 function renderLyricsBgTile() {
   const mostra = lyricsBg === 'image';
-  pintarTile(lyricsBgTileEl, lyricsBg, mostra ? 'Mostrar' : 'Remover', mostra, !mostra);
+  pintarTile(lyricsBgTileEl, lyricsBg, mostra ? 'Mostrar' : 'Remover', true, !mostra);
 }
 
 // Envia o comando ao display E aplica na preview. YouTube usa o player pequeno
@@ -17706,7 +17710,7 @@ function pintarYtLinha(li, reg) {
 // por sete versões. Acima de 1080p também não: o telão não mostra a diferença e
 // o aparelho ainda guarda hinário e Bíblia.
 const YT_ALTURAS = [1080, 720, 480];
-// ===== A QUALIDADE PADRÃO É 720p, E ELA É DO OPERADOR (v1.7.6) =====
+// ===== A QUALIDADE PADRÃO É 720p, E ELA É DO OPERADOR (v1.7.7) =====
 //
 // Pedido do operador: *"sobre os travamentos do YouTube, vamos abandonar o modo
 // online direto, ele é muito instável, vamos manter o download em 720p como
@@ -17801,7 +17805,7 @@ const ytCenso = {
   menor: 0,        // a MENOR altura que chegou a ir ao ar limitada
 };
 
-// O TETO EFETIVO de um pedido. `0` significa "o padrão", e desde a v1.7.6 o
+// O TETO EFETIVO de um pedido. `0` significa "o padrão", e desde a v1.7.7 o
 // padrão é o do OPERADOR (`ytAlturaPadrao`), não o primeiro da escada — só um
 // teto EXPLÍCITO vale por si, e é ele que ele escolheu na folha.
 function tetoEfetivo(altura) {
@@ -17921,7 +17925,7 @@ function openYtMenu(r, alvoDado) {
   // Shell ≥ 25, pelo método `ytFetchAte` da ponte. Num anterior a linha não
   // aparece e o download sai no padrão de sempre — que é exatamente o que este
   // app fazia até agora, então nada regride.
-  // O DEGRAU "ONLINE" SAIU na v1.7.6, junto com a transmissão direta que ele
+  // O DEGRAU "ONLINE" SAIU na v1.7.7, junto com a transmissão direta que ele
   // existia para alimentar: um item guardado só como link é um item que, ao
   // tocar, teria de vir da internet ao vivo — e é exatamente isso que o
   // operador mandou abandonar. Toda qualidade daqui BAIXA bytes.
@@ -18003,7 +18007,7 @@ function openYtMenu(r, alvoDado) {
 // Um registro `kind: 'youtube'` é o LINK sem bytes — a última carta de quando
 // o download falhou. Sem o embed (removido na v5.212) ele deixa de ser tocável
 // como link e é RESOLVIDO no toque, por DOWNLOAD (`ytArquivo`). Era uma escada
-// de dois degraus até a v1.7.6, e o primeiro (a transmissão direta) saiu do app.
+// de dois degraus até a v1.7.7, e o primeiro (a transmissão direta) saiu do app.
 //
 // O DOWNLOAD TROCA O ITEM NA LISTA. O arquivo é durável e
 // toma o lugar do link EM POSIÇÃO — `listSet` com função é read-modify-write
@@ -18147,7 +18151,7 @@ async function resolverLinkInterno(rec) {
   // de volta. (Um item de link nasce como `youtube`; a leitura fica dita para o
   // dia em que houver um link só de áudio.)
   const soAudio = rec.kind === 'audio';
-  // SEM TRANSMISSÃO (v1.7.6): o link vira ARQUIVO, e só. Este era o segundo
+  // SEM TRANSMISSÃO (v1.7.7): o link vira ARQUIVO, e só. Este era o segundo
   // caminho que projetava direto da rede, e ele cai junto com o primeiro (ver o
   // bloco do "Tocar agora" em `ytAcaoInterno`). O arquivo toma o lugar do link
   // EM POSIÇÃO (`trocarLinkPeloArquivo`), então a linha passa a ser a mídia e o
@@ -18220,7 +18224,7 @@ const streamRetentado = new Map();   // id → carimbo da última re-extração
 // Biblioteca que o `closeHymnSearch` acabou de fechar. Do lado do operador:
 // nada.
 //
-// O CARTÃO CONTINUA VALENDO, e desde a v1.7.6 ele vale MAIS: sem a transmissão
+// O CARTÃO CONTINUA VALENDO, e desde a v1.7.7 ele vale MAIS: sem a transmissão
 // direta, "Tocar agora" espera o download inteiro, e essa espera é de minutos —
 // é ele e a barra de progresso que a tornam legível.
 //
@@ -18284,7 +18288,7 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
   // reaproveitamento do arquivo e o download.
   const soAudio = !!somenteAudio;
 
-  // A TRANSMISSÃO DIRETA SAIU DAQUI (v1.7.6). Ela era o caminho do "Tocar
+  // A TRANSMISSÃO DIRETA SAIU DAQUI (v1.7.7). Ela era o caminho do "Tocar
   // agora": o shell montava o manifesto, o `mse.js` o virava um `<video>` e a
   // cena entrava com o primeiro fragmento, na casa dos kB — sem esperar
   // centenas de MB.
@@ -22414,7 +22418,7 @@ async function renderDiag() {
     }
 
   }
-  // A QUALIDADE QUE DE FATO FOI AO AR (v1.7.6).
+  // A QUALIDADE QUE DE FATO FOI AO AR (v1.7.7).
   //
   // Este bloco descrevia a TRANSMISSÃO DIRETA e morava atrás de um
   // `if (motivoStream)`. Com ela fora do app, o que sobrou é a pergunta que
@@ -23905,13 +23909,19 @@ pacoteRenderTiles();
 // oráculos perguntam, e nunca pela classe, que é aparência), a palavra do
 // estado, o desenho e o aceso.
 //
-// `aceso` E `alt` SÃO DUAS PERGUNTAS, e não uma (v1.4.40). `aceso` é *"a função
-// está ligada?"* — e num tile que não tem "desligado" (tema, preenchimento,
-// wallpaper, histórico) ele é SEMPRE verdadeiro, porque apagado ali quer dizer
-// INDISPONÍVEL, que é a queixa da v1.4.25 aplicada a este painel. `alt` é
-// *"qual dos dois desenhos?"*. Enquanto as duas foram a mesma classe, um tile
-// sempre aceso ficava preso no desenho alternativo para sempre.
-// Ver as três regras do tile no `index.html`.
+// `aceso` E `alt` SÃO DUAS PERGUNTAS, e não uma (v1.4.40). `alt` é *"qual dos
+// dois desenhos?"*; `aceso` é *"a função está ligada?"*. Enquanto as duas foram
+// a mesma classe, um tile sempre aceso ficava preso no desenho alternativo para
+// sempre. Ver as três regras do tile no `index.html`.
+//
+// E HOJE TODO TILE PASSA `aceso: true` (v1.7.6) — o parâmetro sobrevive porque
+// a distinção acima é real e porque ele é o que escreve a classe; o que morreu
+// foi a POLÍTICA de usá-lo para dizer estado. Pedido do operador: *"todos os
+// botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda
+// diferença de estado é pelo icone, não pela cor"*. A grade tem UMA cor, e o
+// estado mora no desenho — o que sobra da luz é a única coisa que ela já
+// significava sem ambiguidade: apagado é INDISPONÍVEL (v1.4.25).
+// Quem passar `false` aqui está dizendo isso, e é assim que se lê.
 function pintarTile(el, estado, rotulo, aceso, alt) {
   if (!el) return;
   el.dataset.estado = String(estado);
@@ -24025,14 +24035,18 @@ async function applyFit(mode) {
 const ROTACOES = [0, 90, 180, 270];
 let mediaRot = 0;
 function renderRotBtn() {
-  // O ÍCONE GIRA COM A MÍDIA (v1.7.2). O ângulo era a palavra do estado deste
-  // tile, e ela saiu com as outras; a resposta não é um par de desenhos — a
-  // v1.4.38 mediu que quatro desenhos parecidos não se distinguem a 22px —, é o
-  // MESMO desenho na posição que ele descreve. Quem o gira é o CSS, pelo
-  // `data-estado` que o `pintarTile` acabou de escrever: a seta aponta para
-  // cima, para a direita, para baixo e para a esquerda, e o operador vê o ícone
-  // VIRAR sob o dedo, que é o que o toque faz com o telão.
-  pintarTile(rotBtnEl, mediaRot, mediaRot + '°', mediaRot !== 0, false);
+  // O ÍCONE GIRA COM A MÍDIA (v1.7.2), e desde a v1.7.6 ele é O QUADRO
+  // (`#icoPaisagem`). O ângulo era a palavra do estado deste tile e saiu com as
+  // outras; a resposta não é um par de desenhos — a v1.4.38 mediu que quatro
+  // desenhos parecidos não se distinguem a 22px —, é o MESMO desenho na posição
+  // que ele descreve. Quem o gira é o CSS, pelo `data-estado` que o
+  // `pintarTile` acabou de escrever, e o que vira sob o dedo é a própria
+  // paisagem: deitada, de pé, de cabeça para baixo, de pé do outro lado.
+  // ACESO SEMPRE, inclusive a 0° (v1.7.6). Ele era o único tile em que o
+  // apagado ainda tentava dizer "esta função está no padrão", e o operador
+  // encerrou a distinção: *"toda diferença de estado é pelo icone, não pela
+  // cor"*. Aqui o ícone É o estado — o quadro na posição em que a mídia está.
+  pintarTile(rotBtnEl, mediaRot, mediaRot + '°', true, false);
   if (rotBtnEl) {
     // A FRASE DIZ ONDE, nas duas pontas: o rótulo do tile já diz "no telão", e
     // o `title` fecha pela negativa — é o app inteiro que NÃO gira.
@@ -24177,7 +24191,7 @@ async function ytBaixarNativo(link, nome, opts) {
     if (parou) { cancelado = true; bg.soltar(); }
   };
   // O CARTÃO DA PREVIEW É DE UMA TENTATIVA DE PROJEÇÃO, e por isso ele entra no
-  // `palcoEmVoo` (v1.7.6): quem ganhar a vez o derruba junto com o do toque. Só
+  // `palcoEmVoo` (v1.7.7): quem ganhar a vez o derruba junto com o do toque. Só
   // o da preview — o `libBusy` mora na LINHA da Biblioteca, que é onde ele deve
   // ficar mesmo com outra coisa no ar.
   const bg = aviso === 'preview'
@@ -25094,7 +25108,7 @@ async function handleSharedUrl(url, title) {
     }
     // NO SIMPLIFICADO O LINK COMPARTILHADO CONTINUA SENDO UM "TOCAR AGORA" —
     // ele vai direto ao telão, não entra em lista visível nenhuma e ninguém
-    // pediu para guardar nada. O que mudou na v1.7.6 é o MEIO: era a
+    // pediu para guardar nada. O que mudou na v1.7.7 é o MEIO: era a
     // transmissão direta (v5.138), e ela saiu do app; hoje é o download de
     // sempre, logo abaixo, que projeta quando os bytes chegam.
     // O link vira ARQUIVO — é a via que toca em segundo plano e não depende da
@@ -29557,7 +29571,7 @@ AVDB.onCommand((msg) => {
     // a letra esmaece e trava, para o slide de capa não piscar no replay.
     pvLyricsEnded = true;
     if (pvLyrics) pvLayerOut(pvLyricsEl);
-    // E A PREVIEW VOLTA AO WALLPAPER (v1.7.6). Relato do operador: *"ao
+    // E A PREVIEW VOLTA AO WALLPAPER (v1.7.7). Relato do operador: *"ao
     // encerrar o tempo de uma música, a imagem no telão se encerra normalmente,
     // e volta para o wallpaper, mas na preview, ele está parando em uma tela
     // preta"* — com espelhamento para a TV.

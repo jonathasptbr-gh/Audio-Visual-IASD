@@ -3458,7 +3458,7 @@ try {
     'e a lista vazia diz uma frase só — "Nenhum favorito ainda"',
     JSON.stringify(favs.vazioTexto));
 
-  // ── A QUALIDADE PADRÃO É 720p, E ELA GRUDA (v1.7.6) ────────────────────
+  // ── A QUALIDADE PADRÃO É 720p, E ELA GRUDA (v1.7.7) ────────────────────
   //
   // Pedido do operador: *"vamos abandonar o modo online direto, ele é muito
   // instável, vamos manter o download em 720p como padrão, e caso o usuário

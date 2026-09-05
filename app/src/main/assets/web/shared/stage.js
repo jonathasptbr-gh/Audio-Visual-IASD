@@ -1343,7 +1343,7 @@
     // desse prazo — a cortina não pisca entre os itens da playlist.
     //
     // ELE É CHAMÁVEL DE FORA (`marcarFim`), e essa é a metade que faltava
-    // (v1.7.6). Relato do operador: *"ao encerrar o tempo de uma música, a
+    // (v1.7.7). Relato do operador: *"ao encerrar o tempo de uma música, a
     // imagem no telão se encerra normalmente, e volta para o wallpaper, mas na
     // preview, ele está parando em uma tela preta e não volta para o
     // wallpaper"* — COM espelhamento para a TV.
@@ -1389,7 +1389,7 @@
       await runFadeOut(false);
       if (seq !== loadSeq) return;
       ended = true;
-      // PAUSA EXPLÍCITA, e ela só importa para o chamador DE FORA (v1.7.6): no
+      // PAUSA EXPLÍCITA, e ela só importa para o chamador DE FORA (v1.7.7): no
       // caminho do evento o `<video>` já parou sozinho — `ended` implica
       // `paused` —, mas quem avisa que a PROJEÇÃO acabou pega este elemento
       // ainda TOCANDO, a milissegundos do fim dele. Sem ela o `currentTime = 0`
@@ -1465,7 +1465,7 @@
       reporGiro: () => { if (rot) aplicarGiroTudo(); },
       setForceMuted,
       coverIn, coverOut, instantCover, fadeOutToBlack, setOverlay,
-      // O FIM DA PROJEÇÃO É UM FIM, E NÃO UMA PAUSA (v1.7.6). Quem sabe que a
+      // O FIM DA PROJEÇÃO É UM FIM, E NÃO UMA PAUSA (v1.7.7). Quem sabe que a
       // mídia acabou nem sempre é este `<video>`: com telão no ar a preview é
       // ilustração e é PAUSADA pelo `resyncPreviewToDisplay` antes de chegar ao
       // fim dela, e um `<video>` pausado nunca emite `ended`. Ver

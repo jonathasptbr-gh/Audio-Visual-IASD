@@ -77,7 +77,7 @@ const PONTE = `(() => {
   };
   // OS TRES DESTINOS DO DOWNLOAD sao o mesmo passo lento, e o app escolhe entre
   // eles pelo teto e pela forma: ytFetchAte num teto MENOR que 1080p (o padrao
-  // desde a v1.7.6 e 720p, entao e este o caminho normal), ytFetch sem teto e
+  // desde a v1.7.7 e 720p, entao e este o caminho normal), ytFetch sem teto e
   // ytFetchAudio no "So audio". Segurar um so deixaria o caso passar reto pelos
   // outros dois.
   for (const n of ['ytFetch', 'ytFetchAte', 'ytFetchAudio']) {
@@ -279,7 +279,7 @@ try {
   }, null, { timeout: 15000 });
   checar(true, 'e ele sai no fim — o `finally` do `resolverLinkYoutube` cobre os quatro `return`');
 
-  // (6. O SUBTEXTO do "Tocar agora" com "Online" — removido na v1.7.6.)
+  // (6. O SUBTEXTO do "Tocar agora" com "Online" — removido na v1.7.7.)
   //
   // Ele media a frase que aquele degrau punha na linha: *"toca direto da
   // internet — a qualidade varia bastante conforme a conexão"*. O degrau saiu
@@ -370,7 +370,7 @@ try {
     // depois: o `recuperarStream` troca o registro quando as URLs de mentira
     // falham, e o coletor apaga o que ficou sem lista. Procurá-lo no fim mede o
     // desfecho do arnês, não a regra.
-    // O ESPIÃO DO REGISTRO É O DO DOWNLOAD (v1.7.6): era o `addStreamMedia`, e
+    // O ESPIÃO DO REGISTRO É O DO DOWNLOAD (v1.7.7): era o `addStreamMedia`, e
     // a transmissão que o chamava saiu do app. A regra medida não mudou — o
     // nome que o app já tem VENCE o título que o shell extraiu —, mudou o
     // ponto em que ela é aplicada.

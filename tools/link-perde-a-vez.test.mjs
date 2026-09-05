@@ -59,7 +59,7 @@ const PONTE = `(() => {
     otaConfirm: () => {},
     ytDiag: (id) => { setTimeout(() => { try { window.__avResolve(id, ''); } catch (_) {} }, 0); },
   };
-  // OS TRES DESTINOS DO DOWNLOAD, e nao so o ytFetch (v1.7.6): o teto padrao
+  // OS TRES DESTINOS DO DOWNLOAD, e nao so o ytFetch (v1.7.7): o teto padrao
   // passou a ser 720p, e um teto MENOR que 1080p vai pelo ytFetchAte. Segurar
   // so um deixava o caminho normal cair no generico, que resolve null na hora —
   // o download falhava instantaneamente e nao havia janela nenhuma a medir.
@@ -328,7 +328,7 @@ try {
     'e a linha marcada como "no ar" é a da MÚSICA — o link abandonado não se '
     + 'declara em cena', { noAr: depois.noAr, musica: ids.audio, link: ids.l1 });
 
-  // (METADE 2 — "E ELE NÃO CAI NO DOWNLOAD" — removida na v1.7.6.)
+  // (METADE 2 — "E ELE NÃO CAI NO DOWNLOAD" — removida na v1.7.7.)
   //
   // Ela media a escada de dois degraus do `resolverLinkYoutube`: a transmissão
   // que perdia a vez não podia escorregar para o download, porque seriam MINUTOS
@@ -359,7 +359,7 @@ try {
   // dois. E o desfecho é ASSIMÉTRICO de propósito: o arquivo já foi baixado e já
   // tomou o lugar do link na lista do operador (`trocarLinkPeloArquivo`), que é
   // valor durável e foi o que o toque pediu. O que ele não pode é subir ao palco.
-  // O CONTADOR ZERA aqui: desde a v1.7.6 as metades acima já pedem download (a
+  // O CONTADOR ZERA aqui: desde a v1.7.7 as metades acima já pedem download (a
   // resolução de um link É o download), então esperar por `> 0` em absoluto
   // passaria no ato, com o pedido DESTA metade ainda por sair.
   await pg.evaluate(() => { window.__soltarFetch = false; window.__fetchPedido = 0; });

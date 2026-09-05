@@ -108,6 +108,12 @@ try {
       // A matriz COMPUTADA, não a classe nem o atributo: uma regra de CSS
       // ausente deixaria o `data-estado` certo e o desenho parado.
       t: getComputedStyle(svg).transform,
+      // E A COR, nas quatro posições (v1.7.6): ele era o único tile da grade
+      // que apagava a 0°.
+      cor: getComputedStyle(b).backgroundColor,
+      simbolo: (b.querySelector('use') || {}).getAttribute
+        ? b.querySelector('use').getAttribute('href')
+        : null,
     });
     await assentar();
     const zero = ler();
@@ -127,6 +133,24 @@ try {
     JSON.stringify(giro.noventa));
   checar(giro.cento.estado === '180' && /matrix\(-1, 0, 0, -1/.test(giro.cento.t),
     'B · e a 180° ele está de cabeça para baixo', JSON.stringify(giro.cento));
+  // ---- E ELE NÃO APAGA A 0° (v1.7.6) ----
+  // Pedido do operador: *"o botão do girar no telão está apagado no modo sem
+  // giro, mas todos os botões devem ter o mesmo azul de ativo … toda diferença
+  // de estado é pelo icone, não pela cor"*. A cor RENDERIZADA nas três leituras
+  // que este bloco já tinha na mão — 0° é a que importa, e as outras duas são o
+  // que prova que a igualdade não veio de o tile ter apagado em todas.
+  checar(giro.zero.cor === giro.noventa.cor && giro.noventa.cor === giro.cento.cor,
+    'B · e a COR é a mesma nas três posições — a 0° ele era o único apagado da grade',
+    JSON.stringify([giro.zero.cor, giro.noventa.cor, giro.cento.cor]));
+  // ---- E O QUE GIRA É UM QUADRO, não uma seta (v1.7.6) ----
+  // *"use um icone de picture, paisagem. O próprio quadro vai girar e vai ser
+  // mais intuitivo que um seta circular rodando, pois vai literalmente
+  // representar em qual posição está a paisagem"*. Uma seta girada é a AÇÃO
+  // desenhada duas vezes; um quadro girado é o ESTADO — e a asserção da matriz
+  // acima passa com qualquer desenho, inclusive a seta que saiu.
+  checar(giro.zero.simbolo === '#icoPaisagem',
+    'B · e o desenho que gira é o QUADRO — a matriz sozinha aprovaria a seta',
+    giro.zero.simbolo);
 
   // =========================================================================
   // C · O WALLPAPER TEM O PAR DE DESENHOS
