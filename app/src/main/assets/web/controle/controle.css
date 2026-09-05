@@ -180,6 +180,18 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      mesmo, ou a caixa da lista muda de tamanho ao entrar na seleção e a lista
      pula debaixo do dedo. */
   --hit: 34px;
+  /* O PISO DE UMA GRADE DENSA — a exceção NOMEADA ao `--hit` (v1.8.1).
+     A grade de livros da Bíblia é 66 alvos numa folha só, e 66 alvos de 34px
+     não cabem numa tela de 640px por aritmética: 11 fileiras de 34 mais os
+     vãos pedem 414px, e a folha inteira mede 280,5px ali. A escolha não é
+     entre 34px e 28px — é entre 28px e o que havia, que MEDIDO era **16,4px de
+     caixa com 20px de letra dentro** (e 12,8px com a fonte do sistema em
+     1,3×): o alvo intocável e a abreviação cortada ao meio.
+     28px é o número que `.bible-half` já usava, e o motivo é o mesmo: uma
+     grade densa é percorrida com o olho e mirada com o dedo depois. Ele é
+     EXCEÇÃO e tem nome próprio — uma exceção por escopo ("dentro da Bíblia
+     pode") é a que mais barato se alarga. */
+  --hit-denso: 28px;
   /* ---------- A COLUNA DA CIFRA EM TELA CHEIA (v1.6.0) ----------
      A largura da faixa de controles à direita da folha deitada. É TOKEN porque
      ela é a segunda TRILHA do grid e o recuo interno de quem mora nela saem da
@@ -4549,10 +4561,51 @@ main {
 .bible-grid--num { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); }
 /* Livros: 66 células em 6×11; as 11 linhas dividem a altura disponível (1fr)
    pra caber TUDO sem scroll. Células retangulares (sem aspect-ratio), compactas. */
-.bible-grid--books { flex: 1; min-height: 0; gap: 4px; grid-template-rows: repeat(11, 1fr); }
-.bible-grid--books .bible-cell { aspect-ratio: auto; padding: 1px; }
+/* ===== A GRADE DE LIVROS TEM PISO, E ROLA EM VEZ DE CORTAR (v1.8.1) =====
+   Ela era `repeat(11, 1fr)` dentro de um `flex: 1`: onze fileiras dividindo o
+   que sobrasse, SEM piso. A caixa é da TELA (encolhe) e o conteúdo é da FONTE
+   (cresce) — as duas se movem em sentidos opostos e nada as apresentava.
+   MEDIDO antes:
+
+   | tela | célula | a abreviação |
+   |---|---|---|
+   | 360×640 | 48,7×**16,4** | 20px — cortada ao meio |
+   | 393×786 | 54,2×30,0 | 20px, raspando |
+   | 430×900 | 60,3×39,8 | 20px, folgada |
+   | 360×640 · 1,3× | 46,3×**12,8** | 26px — sobra um filete |
+
+   São TRÊS mudanças, e nenhuma sozinha resolve: o PISO devolve o alvo de
+   toque, a ROLAGEM é o que impede o piso de virar um corte novo (uma grade
+   maior que a caixa dentro de um `overflow` escondido é o defeito de volta,
+   um nível acima), e a LETRA QUE SEGUE A CÉLULA é o que faz a fileira curta
+   encolher o texto em vez de cortá-lo.
+
+   O preço, MEDIDO: só a 360×640 a grade passa a rolar (o piso pede 348px e
+   ali há 220,9px — cerca de seis fileiras e meia à vista). A 393×786 e acima
+   nada muda, porque o `1fr` já entrega mais que o piso. É a mesma disciplina
+   que as grades de CAPÍTULO e VERSÍCULO já têm desde sempre
+   (`minmax(46px, 1fr)` nas colunas, mais o `aspect-ratio: 1`): a de livros
+   era a única que escapava dela. */
+.bible-grid--books {
+  flex: 1; min-height: 0; gap: 4px;
+  grid-template-rows: repeat(11, minmax(var(--hit-denso), 1fr));
+  overflow-y: auto; touch-action: pan-y;
+}
+/* A CÉLULA É O CONTÊINER DA PRÓPRIA LETRA. `container-type: size` é seguro
+   aqui porque a caixa vem da GRADE nos dois eixos — nada do conteúdo entra na
+   conta dela. */
+.bible-grid--books .bible-cell { aspect-ratio: auto; padding: 1px; container-type: size; }
 /* Só a abreviação (sem nome completo) — fonte maior, centralizada. */
-.bible-grid--books .bible-cell-sym { font-size: var(--fs-4xl); }
+/* `min()` e não `clamp()`: o teto continua sendo `--fs-4xl` — a fileira folgada
+   desenha EXATAMENTE o que desenhava —, e o `cqh` só entra quando a fileira é
+   curta demais para ele.
+   A PORCENTAGEM É CALIBRADA, não escolhida: `cqh` resolve contra a caixa de
+   CONTEÚDO, que na fileira do piso mede 26px (28 menos os 2 de recuo), e
+   `--fs-4xl` são 20px — 20/26 = 76,9%. Com `76cqh` a fileira de 30px (a de
+   393×786) devolve 21,3px e o `min()` a devolve para os 20px de sempre; com
+   `66cqh` ela caía para 18,5px, que era o recurso cobrando de uma tela em que
+   nada estava cortado. */
+.bible-grid--books .bible-cell-sym { font-size: min(var(--fs-4xl), 76cqh); }
 
 /* Bloco de livro: a TINTA do grupo, e só ela (ver `.bg-<g>` abaixo e o campo
    `g` em `bible.js`) — sem número de índice. Capítulos e versículos
@@ -5356,7 +5409,12 @@ main {
    dela, em vez de repetirem um número que teria de ser mantido à mão nos dois
    lugares. */
 .bible-read-acoes { display: flex; gap: var(--sp-3); flex-shrink: 0; }
-.bible-read-acoes .cue-save-btn { width: 42px; height: auto; }
+/* `height: auto` para ESTICAR junto das pílulas (é o que `align-items:
+   stretch` faz), mas com PISO: quando a barra QUEBRA em duas linhas as ações
+   ficam sozinhas na sua, param de esticar e caíam para **20px** — MEDIDO em 5
+   das 8 telas, e um alvo de 20px no rodapé da leitura é um alvo que se erra.
+   (Regressão da v1.7.10, achada pela varredura geométrica.) */
+.bible-read-acoes .cue-save-btn { width: 42px; height: auto; min-height: var(--hit); }
 .bible-ref-part:first-child { border-radius: var(--radius-btn) 0 0 var(--radius-btn); }
 .bible-ref-part:last-child { border-radius: 0 var(--radius-btn) var(--radius-btn) 0; }
 /* Rótulo e valor herdam a cor da PÍLULA (`currentColor`), senão as quatro
@@ -5463,7 +5521,11 @@ main {
    um acordeão e ele cobrava três cabeçalhos permanentes de altura para entregar
    a mesma coisa — além de deslocar o painel conforme a posição da ferramenta
    na pilha. */
-.lib-misc { overflow: hidden; gap: 0; padding-bottom: 0; }
+/* E O CORPO DA FOLHA ROLA EM VEZ DE CORTAR. O `overflow: hidden` daqui era o
+   par do `min-height: 0` acima: com o painel podendo encolher até zero, nada
+   nunca transbordava. Com o piso, transborda — e a resposta a "não cabe" é
+   rolar, nunca esconder. */
+.lib-misc { overflow-y: auto; touch-action: pan-y; gap: 0; padding-bottom: 0; }
 /* Trilho do seletor: fundo próprio e segmento ativo PREENCHIDO, para não se
    confundir com os segmentados de DENTRO das ferramentas (Relógio/Cronômetro/
    Timer, Número/Texto), que usam contorno. São dois níveis de escolha, e
@@ -5474,7 +5536,10 @@ main {
   padding: .25rem; margin-bottom: .55rem;
 }
 .misc-tab {
-  flex: 1; min-width: 0; padding: .55rem .3rem;
+  /* PISO — MEDIDO antes: 32,6px, a 1,4px do alvo. Perto não conta: o número
+     saía do recuo em `rem`, e um recuo que acerta o piso numa fonte só é um
+     piso que não existe. */
+  flex: 1; min-width: 0; min-height: var(--hit); padding: .55rem .3rem;
   display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
   border: 0; border-radius: var(--radius-btn); background: none; color: var(--muted);
   font-size: var(--fs-md); font-weight: var(--fw-max); cursor: pointer;
@@ -5505,8 +5570,18 @@ main {
    seguia assumindo a rolagem no primeiro movimento e matando o gesto com um
    `pointercancel`. É a MESMA regra que preserva o `pan-x` do histórico do
    sorteio, só que lida do outro lado. */
+/* ===== O MIOLO DE UMA FOLHA NÃO ENCOLHE ATÉ SUMIR (v1.8.1) =====
+   `min-height: 0` deixava o painel ir a QUALQUER altura, e o `overflow:
+   hidden` da `.lib-misc` cortava o que sobrasse. MEDIDO a 360×640 com a fonte
+   do sistema em 1,3×: o corpo da folha tem 181,2px, o seletor come 53,3 e o
+   rodapé do microfone 73,7 — sobravam **42,9px** para um painel cujo botão
+   "+ Nova mensagem" mede 51,1px. A lista de mensagens sumia inteira e o botão
+   saía CORTADO, dentro de uma caixa que não rolava.
+   `min-content` é o piso HONESTO: a lista tem `min-height: 0` e rola sozinha,
+   então ela contribui ZERO — o que sobra na conta é exatamente o que não pode
+   encolher. */
 .misc-panel {
-  flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y;
+  flex: 1; min-height: min-content; overflow-y: auto; touch-action: pan-y;
   display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-5);
   padding-bottom: .4rem;
 }
@@ -5538,6 +5613,10 @@ main {
 .chrono-read.over { color: var(--danger-strong); }
 .chrono-presets, .misc-opts { display: flex; flex-wrap: wrap; gap: var(--sp-3); justify-content: center; }
 .misc-chip {
+  /* PISO, e não `height`: a pílula continua crescendo com a fonte do sistema —
+     o que ela não pode é ENCOLHER abaixo do alvo. MEDIDO antes: 29,5px em 6
+     das 8 telas, com o recuo em `rem` "dando no piso" só com a fonte padrão. */
+  min-height: var(--hit);
   padding: .34rem .7rem;
   border-radius: var(--radius-pill);
   background: var(--surface-2); color: var(--muted);
@@ -7654,7 +7733,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    v5.121, e nenhum JS a desenhava mais.) */
 .fit-seg { display: flex; gap: var(--sp-3); }
 .fit-opt {
-  flex: 1; border: none; border-radius: var(--radius-btn); padding: .5rem .4rem;
+  /* PISO — MEDIDO antes: 31px no segmentado da playlist automática. Na grade
+     de Configurações (`.qs-modo .fit-opt`) ele é no-op: lá a caixa já passa
+     do alvo, e a varredura confirma. */
+  flex: 1; min-height: var(--hit); border: none; border-radius: var(--radius-btn); padding: .5rem .4rem;
   background: var(--surface); color: var(--muted);
   font-size: var(--fs-md); font-weight: var(--fw-medio); cursor: pointer;
 }

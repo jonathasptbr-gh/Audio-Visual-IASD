@@ -4929,9 +4929,10 @@ dedo anda `TAB_SWIPE_MIN` (60px) na horizontal com o eixo X dominando o Y em
   linhas, e excluí-las mataria o gesto na aba em que ele mais é tentado.
 - **`touch-action: pan-y` NO SCROLLER, nunca num ancestral.** A regra PARA de
   subir na árvore no elemento que IMPLEMENTA o gesto: quem precisa da declaração
-  é cada scroller — `.lib-list`, `.misc-panel`, `.msg-list` (em Ferramentas a
-  `.lib-list` é `overflow: hidden` e quem rola é o painel de dentro) e as
-  `.bible-half`. Sem ela o navegador considera o gesto dele (`manipulation`,
+  é cada scroller — `.lib-list`, `.misc-panel`, `.msg-list`, a `.lib-misc` (o
+  corpo da folha de Ferramentas, que desde a v1.8.1 ROLA em vez de esconder:
+  com o miolo ganhando piso, o que antes era espremido até sumir passou a
+  transbordar) e as `.bible-half`. Sem ela o navegador considera o gesto dele (`manipulation`,
   herdado do `*`) e o engole com `pointercancel` antes dos 60px. E a MESMA regra
   preserva o `pan-x` do histórico do sorteio (`.draw-hist`): um `pan-y` acima
   dele não o alcança. **Esta lição custou três versões e voltou três vezes.**

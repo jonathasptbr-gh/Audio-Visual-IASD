@@ -152,8 +152,41 @@ classes **não aparecem literais em lugar nenhum fora do CSS**, e não são cód
 morto. Cada ladrilho é **tinta escura + faixa lateral de 3px** com a matiz do
 grupo, não mais um bloco saturado: ver "Ladrilhos da Bíblia" no Design System
 para o porquê e as medições. Sem número de índice e **só a abreviação** (sem o
-nome completo, fonte maior). A grade de livros (`.bible-grid--books`)
-**preenche a altura disponível** (11 linhas em `1fr`) pra caber **sem scroll**.
+nome completo, fonte maior).
+
+**A GRADE DE LIVROS TEM PISO, E ROLA EM VEZ DE CORTAR (v1.8.1).** Ela era
+`repeat(11, 1fr)` dentro de um `flex: 1` — onze fileiras dividindo o que
+sobrasse, para caber "sem scroll" — e a promessa nunca foi verdade na tela
+pequena: o que havia lá não era encaixe, era CORTE. MEDIDO:
+
+| tela | célula | a abreviação |
+|---|---|---|
+| 360×640 | 48,7×**16,4** | 20px — cortada ao meio |
+| 393×786 | 54,2×30,0 | 20px, raspando |
+| 430×900 | 60,3×39,8 | 20px, folgada |
+| 360×640 · 1,3× | 46,3×**12,8** | 26px — sobra um filete |
+
+A caixa é da TELA e encolhe; o conteúdo é da FONTE e cresce. São **três**
+mudanças, e nenhuma resolve sozinha:
+
+- **PISO** (`minmax(var(--hit-denso), 1fr)`, 28px) — devolve o alvo de toque.
+  `--hit-denso` é EXCEÇÃO NOMEADA ao `--hit`: 66 alvos de 34px pedem 414px de
+  altura e a folha inteira mede 280,5px a 360×640, então a escolha não é entre
+  34 e 28 — é entre 28 e os 16,4 que havia. É o mesmo número da `.bible-half`,
+  pelo mesmo motivo.
+- **ROLAGEM** — um piso sem rolagem é o corte de volta um nível acima. Só a
+  360×640 a grade passa a rolar (o piso pede 348px e ali há 220,9 — cerca de
+  seis fileiras e meia à vista); a 393×786 e acima nada muda.
+- **A LETRA SEGUE A CÉLULA** (`min(var(--fs-4xl), 76cqh)`, com a célula virando
+  `container-type: size`) — a fileira curta encolhe o texto em vez de cortá-lo.
+  A porcentagem é CALIBRADA e não escolhida: `cqh` resolve contra a caixa de
+  conteúdo, que na fileira do piso mede 26px, e `--fs-4xl` são 20 — 20/26 =
+  76,9%, e o `min()` garante que a tela folgada desenhe exatamente o que
+  desenhava.
+
+É a mesma disciplina que as grades de CAPÍTULO e VERSÍCULO já tinham
+(`minmax(46px, 1fr)` nas colunas mais o `aspect-ratio: 1`): a de livros era a
+única que escapava dela. Portão: `tools/geometria.test.mjs`.
 
 **Capítulo e versículo convivem numa tela só** (`'chapters'`), dividida na
 vertical (`.bible-split`): em cima a grade de **capítulos**, embaixo a de
@@ -327,9 +360,12 @@ sigla que todo mundo já usa diz a mesma coisa em três letras. As regras, em
 ordem: um acrônimo entre parênteses no próprio nome é a melhor resposta
 possível; um nome de uma palavra já é a sigla; senão, as iniciais das palavras
 significativas (ignorando "e", "de", "na"…) — o que dá ARA, ARC, NVI, NAA,
-NTLH, ACF. Sem `flex-wrap`: quem cede espaço quando a linha aperta é o **nome
-do livro** (`.bible-ref-part--book`, o único de largura imprevisível), com
-reticências.
+NTLH, ACF. Quando a linha aperta quem cede primeiro é o **nome do livro**
+(`.bible-ref-part--book`, o único de largura imprevisível, com `flex-shrink`
+três vezes maior), e quando nem isso basta a barra QUEBRA — ver "E a barra CABE
+encolhendo, nunca pintando por cima", acima. *(Este parágrafo dizia "sem
+`flex-wrap`" até a v1.8.1 — dois lotes depois de a v1.7.10 acrescentar o
+`flex-wrap`, e ninguém tinha lido a frase desde então.)*
 
 **À direita da referência, na MESMA linha** (v5.109), os dois botões de guardar
 (`.cue-save-btn`: ⊞ para o Cronograma, ★ para os favoritos). **Aqui eles são
@@ -338,7 +374,11 @@ e 22px mais estreitos que as células de Livro/Capítulo/Versículo ao lado, e n
 linha só isso não se lê como "botão menor", se lê como desalinhado. A altura vem
 de `align-items: stretch` no rodapé — eles acompanham a referência seja qual for
 a altura dela, em vez de repetirem um número que precisaria ser mantido à mão nos
-dois lugares. A v5.103 os pôs
+dois lugares —, **com um `min-height: var(--hit)` embaixo (v1.8.1)**: quando a
+barra QUEBRA, as ações ficam sozinhas na linha delas, param de esticar e caíam
+para **20px**, MEDIDO em 5 das 8 telas. Esticar é o desenho; o piso é o que o
+impede de virar um alvo que se erra. (Regressão da própria v1.7.10, achada pela
+varredura geométrica.) A v5.103 os pôs
 numa segunda faixa porque com RÓTULO — "Ao Cronograma", "Favoritar" — eles
 disputavam a largura com os quatro campos e empurravam a referência para
 reticências. Sem rótulo o par mede ~74px e cabe: o que a segunda faixa custava

@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.1",
+    "itens": [
+      "As abreviações dos livros da Bíblia pararam de sair cortadas em telas menores.",
+      "A grade de livros ganhou rolagem em vez de esconder o que não cabia.",
+      "Os botões de guardar o versículo voltaram ao tamanho de sempre.",
+      "Na folha de Ferramentas, o botão de nova mensagem parou de ficar cortado.",
+      "Chips, abas e opções pequenas passaram a respeitar o tamanho mínimo de toque."
+    ]
+  },
+  {
     "versao": "1.8.0",
     "itens": [
       "Agora dá para copiar a biblioteca de um celular para outro pela rede, sem arquivo.",

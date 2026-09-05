@@ -919,8 +919,11 @@
              folha do app cujo fechar não parecia um botão. -->
         <button id="toolsClose" class="popup-close" type="button" title="Fechar" aria-label="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
-      <!-- O host das ferramentas. Ele veste `.lib-misc` de sempre: quem
-           administra a altura aqui é o painel ativo, não a rolagem da lista. -->
+      <!-- O host das ferramentas. Ele veste `.lib-misc`: quem administra a
+           altura aqui é o painel ativo. Desde a v1.8.1 ele ROLA em vez de
+           esconder — com o miolo ganhando piso (`min-height: min-content`), o
+           que antes era espremido até sumir passou a transbordar, e a resposta
+           a "não cabe" é rolar. -->
       <div id="toolsBody" class="tools-body lib-misc"></div>
     </div>
     <!-- ===== A BÍBLIA É UMA FOLHA DO CRONOGRAMA (v1.5.0) =====
@@ -2076,7 +2079,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">Áudio Visual IASD v1.8.0</span>
+          <span id="appVersion" class="app-version">Áudio Visual IASD v1.8.1</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o

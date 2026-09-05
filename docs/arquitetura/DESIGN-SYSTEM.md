@@ -1309,7 +1309,12 @@ rótulo foi de 6,46:1 para **15,31:1**.
    cujo glifo não pode mudar** (o `repeat` cicla) → superfície, nunca só cor de
    texto.
 5b. O botão **manda algo para a projeção**? Acrescente-o ao `ECO_SELETOR`.
-6. Atualizar esta seção e incrementar a versão (os três lugares — ver "Regras
+6. **Caixa nova que hospede texto ou controles?** Passe pelas cinco regras de
+   GEOMETRIA (seção própria, abaixo): piso de toque que não dependa da fonte,
+   corte declarado onde houver corte, e rolagem — nunca `overflow` — quando não
+   couber. A régua é `node tools/varredura-geometrica.mjs`, e o portão é o
+   `geometria.test.mjs`.
+7. Atualizar esta seção e incrementar a versão (os três lugares — ver "Regras
    de desenvolvimento").
 
 ### Ao mexer em cor: NÃO há teste automatizado de CONTRASTE
@@ -1342,6 +1347,119 @@ Enquanto não houver o teste, **meça à mão** antes de mudar um token: luminâ
 relativa WCAG, com as superfícies `rgba` compostas contra o fundo real do
 contexto — **inclusive o caso "dentro de um cartão"**, que é onde as regressões
 aparecem (R1).
+
+---
+
+## Geometria — o padrão seguro para qualquer tela
+
+Pedido do operador: *"faça a varredura completa no layout do app para que ele se
+torne responsivo geometricamente. vamos criar um padrão seguro de design."*
+
+O app é **retrato por manifesto**, então "responsivo" aqui não é paisagem: é
+sobreviver às DUAS variações que um parque de celulares tem — a **proporção da
+tela** (de 360×640 a 430×900, o dobro de altura útil entre as pontas) e a
+**escala de fonte do sistema**, que multiplica todo `rem` da folha e que quem
+escreve o CSS não tem ligada.
+
+**O app não tem uma media query de largura ou de altura, e não precisa ter.** O
+que o segura é o fluxo do CSS, e MEDIDO ele segura bem: na varredura completa
+(16 superfícies × 8 combinações de tela e fonte), **13 das 16 saíram limpas nas
+oito**. Os defeitos não estavam espalhados — estavam concentrados nos dois
+lugares em que o fluxo não tem como decidir sozinho.
+
+### As duas formas de errar, e as duas são MUDAS
+
+| forma | onde ela apareceu | o que se vê |
+|---|---|---|
+| **contagem fixa numa caixa variável** | a grade de 66 livros da Bíblia (`repeat(11, 1fr)`) | fileira de **16,4px** com letra de 20px: a abreviação cortada ao meio |
+| **cromo em `rem` dentro de folha em `px` de tela** | a folha de Ferramentas | o painel espremido a **42,9px** para um botão de 51,1px, cortado |
+
+As duas têm a mesma anatomia: **a caixa é da TELA e encolhe; o conteúdo é da
+FONTE e cresce.** Elas se movem em sentidos opostos e nada as apresenta uma à
+outra. Nada lança, nada aparece no console, e na tela em que o desenho foi
+decidido está tudo certo — que é por que os dois relatos do operador sobre a
+folha da Bíblia (v1.7.10) e este lote descrevem o mesmo defeito em quatro
+lugares diferentes.
+
+### As cinco regras
+
+**G1 · A altura de uma folha é ORÇAMENTO, não sobra.** Onde o conteúdo pode não
+caber, quem decide o que sai é uma `@container`, nunca o `overflow`. O
+precedente é a folha de leitura da Bíblia (v1.7.10), que esconde a quarta seção
+abaixo de 18em, a primeira abaixo de 14em e a terceira abaixo de 11em — três
+degraus declarados, em vez de um corte.
+
+**G2 · Toda caixa que corta texto declara COMO corta.** `-webkit-line-clamp` só
+corta limpo quando o clamp **cabe**: um `clamp: 6` numa caixa em que cabem duas
+linhas não engata, e quem corta é o `overflow`, no meio da linha. Onde o número
+de linhas não é previsível, a saída é a MÁSCARA (`mask-image`), que esmaece em
+qualquer altura. `overflow: hidden` cru sobre texto é sempre um defeito à espera
+de uma tela menor.
+
+**G3 · `--hit` é PISO, e piso não pode depender da métrica da fonte.** Um
+controle é `min-height: var(--hit)` — nunca um `height` que possa encolher, e
+nunca um `padding` em `rem` que "dá no piso" com a fonte padrão. MEDIDO neste
+lote: `.misc-tab` a **32,6px** (1,4px do alvo), `.fit-opt` a **31px**,
+`.misc-chip` a **29,5px**, e o `.cue-save-btn` da leitura a **20px**. Nenhum
+deles era um número escolhido: os quatro eram o recuo em `rem` caindo onde caiu.
+
+**G4 · Caixa dirigida pela LARGURA não hospeda texto dirigido pela FONTE — uma
+das duas tem de ceder.** Ou a caixa ganha piso (`minmax(...)`, `min-height`), ou
+o texto passa a seguir a caixa (`min(<teto>, N cqh)` com `container-type: size`).
+Na grade de livros foram as duas, e nenhuma sozinha bastava: o piso devolve o
+alvo de toque, a letra que segue a célula tira o corte. **A porcentagem do `cqh`
+é CALIBRADA, não escolhida** — ela sai da razão entre o teto de fonte e a caixa
+de conteúdo do piso, e o `min()` garante que a tela folgada desenhe exatamente o
+que desenhava.
+
+**G5 · A resposta a "não cabe" é ROLAR, nunca ESCONDER.** Um piso sem rolagem é
+o corte de volta um nível acima: a grade fica maior que a caixa e o `overflow`
+come o resto. Quem ganha piso ganha `overflow-y: auto` no mesmo lote.
+
+**E o corolário que amarra as cinco: numa folha, o CROMO é o que cede — nunca o
+miolo.** Cabeçalho, seletor e rodapé crescem com a fonte dentro de uma caixa que
+encolhe com a tela; quando os dois se cruzam, quem fica com zero é o conteúdo,
+que é a razão de a folha existir. `min-height: min-content` no miolo é o piso
+HONESTO: o que rola sozinho lá dentro contribui zero, então o que sobra na conta
+é exatamente o que não pode encolher.
+
+### O que NÃO é regra
+
+- **`px` não é o vilão.** MEDIDO: dos 166 valores em `px` do `controle.css`, os
+  que carregam geometria são ícones, pontos e o `--hit` — e `--hit` é `px` de
+  propósito, porque um alvo de toque é FÍSICO e não pode encolher quando alguém
+  aumenta a fonte. Quem quebra são os 185 em `rem` presos dentro de caixas que
+  não são `rem`.
+- **Media query de largura não faz falta.** O fluxo resolve a largura; o que ele
+  não resolve é a ALTURA, e para isso a ferramenta certa é a `@container`, que
+  mede a caixa e não a janela. `display.css` já é assim inteiro (27 unidades
+  `cq`, zero media queries) — ele projeta em qualquer TV, e é o mesmo problema.
+
+### Onde o app está hoje
+
+Depois das correções da v1.8.1, a varredura completa (16 superfícies × 9
+combinações de tela e fonte, da 360×640 à 430×900 e da fonte padrão ao 1,5× do
+"Ampliar" do Android) devolve **as 16 limpas e as cinco sondas em ZERO** —
+inclusive a única exceção de piso de toque que existe, que está DECLARADA
+(`--hit-denso`, a grade de 66 livros) e por isso não é um achado.
+
+Isso é o estado, não uma garantia: a varredura mede o que ela abre. Superfície
+nova entra na lista de `tools/geometria.mjs` no mesmo lote em que nasce — uma
+que não é aberta não tem achado nenhum, e um placar limpo sobre uma tela que
+não montou é indistinguível de um app correto (por isso o portão também afirma
+que toda superfície ABRIU e mostrou nós).
+
+### A régua: `tools/varredura-geometrica.mjs`
+
+Ele abre cada superfície do app em cada combinação de tela × escala de fonte e
+mede cinco coisas: **T1** elemento fora da janela, **T2** irmãos sobrepostos numa
+linha, **T3** corte serrado (o `overflow` cortando texto sem clamp engatado e sem
+máscara), **T4** alvo abaixo de `--hit`, **T5** camada `fixed` fora da tela.
+
+**Ele não é o oráculo — ele é a régua.** O portão do CI é o
+`geometria.test.mjs`, que roda as mesmas sondas e reprova; a régua imprime, e é
+com ela que se decide o que a asserção deve dizer. Escrever a asserção antes de
+medir é como o desenho da Bíblia nasceu.
 
 ---
 

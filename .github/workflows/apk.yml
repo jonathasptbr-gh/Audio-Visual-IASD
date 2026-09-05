@@ -544,6 +544,12 @@ jobs:
 
           rodar tools/plataforma.test.mjs
           rodar tools/lista-da-biblioteca.test.mjs
+          rodar tools/geometria.test.mjs
+          # A v1.8.0 escreveu este oráculo e não o registrou. Pela regra do
+          # próprio repositório — *"teste que não está no workflow é
+          # documentação, não rede de segurança"* — ele não estava guardando
+          # nada. Conferido verde antes de entrar.
+          rodar tools/clone-de-outro-celular.test.mjs
           rodar tools/enquadramento-da-camada.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
