@@ -24738,6 +24738,12 @@ async function cloneSincronizar(contagem) {
   for (const m of await AVDB.mediaResumo()) tem.add('m:' + m.id);
   for (const a of await AVDB.opfsTodosOsArquivos()) tem.add('o:' + a.caminho);
   const { falta, desconhecidos, bytes } = AVPacote.itensQueFaltam(ind.itens, tem);
+  // O AVISO É REGISTRADO ANTES DA SAÍDA CURTA. "Não falta nada" e "não falta
+  // nada que eu saiba receber" são respostas diferentes, e é justamente na
+  // segunda passada — quando o acervo já veio inteiro — que a saída curta
+  // acontece: sem esta linha, o aviso sumiria exatamente na vez em que ele é a
+  // única coisa que a tela ainda tem a dizer.
+  contagem.desconhecidos = desconhecidos;
   if (!falta.length) return '';
 
   await withBgWork(async () => {
@@ -24769,11 +24775,10 @@ async function cloneSincronizar(contagem) {
       bgTaskEnd(tarefa);
     }
   });
-  // O QUE ESTE APP NÃO SABE RECEBER NÃO É UMA FALHA DA CÓPIA — ela terminou. É
-  // um AVISO, e ele vai no diálogo de sucesso: chamar isto de "a cópia parou"
-  // sobre uma cópia que foi até o fim seria mentir na única tela que responde o
-  // que aconteceu.
-  contagem.desconhecidos = desconhecidos;
+  // (O `desconhecidos` foi registrado lá em cima, antes da saída curta: ele NÃO
+  // é uma falha da cópia — ela terminou. Chamar isto de "a cópia parou" sobre
+  // uma cópia que foi até o fim seria mentir na única tela que responde o que
+  // aconteceu.)
   return '';
 }
 

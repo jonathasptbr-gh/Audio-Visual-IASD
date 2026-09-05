@@ -502,6 +502,15 @@ try {
   checar(pediuOFuturo === false,
     '4-C · e nem chega a ser pedido: o app não saberia o que fazer com os bytes',
     JSON.stringify(pedidos.map((p) => p.n)));
+  // E ELE SOBREVIVE À SEGUNDA PASSADA, que é justamente onde ele quase se
+  // perdeu: com o acervo já completo, o laço sai CEDO (não falta nada), e um
+  // aviso registrado só no fim sumiria exatamente na vez em que ele é a única
+  // coisa que a tela ainda tem a dizer.
+  const r8 = await sincronizar(f.pg);
+  checar(r8.erro === '' && r8.contagem.desconhecidos === 1,
+    '4-C · e o aviso sobrevive à passada em que NADA falta — "não falta nada" e '
+    + '"não falta nada que eu saiba receber" são respostas diferentes',
+    JSON.stringify(r8));
   indiceServido = JSON.stringify(ind.i);
 
   // =========================================================================

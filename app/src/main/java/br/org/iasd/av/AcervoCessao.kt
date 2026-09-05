@@ -97,8 +97,16 @@ object AcervoCessao {
     @Volatile private var itens: Int = 0
     @Volatile private var bytes: Long = 0L
 
-    /** Quantos itens o destino já buscou — só para o Registro e para a folha. */
-    @Volatile private var entregues: Int = 0
+    /**
+     * QUAIS itens o destino já buscou — e é um conjunto, não um contador.
+     *
+     * Um item de 380 MB é pedido em dezenas de FAIXAS, e contar requisições
+     * faria a linha do Registro dizer "1.400 itens entregues" sobre um acervo
+     * de 600. O número que responde *"ele parou no meio?"* é quantos ITENS
+     * saíram daqui, e é ele que separa "ninguém veio" de "veio e parou" — duas
+     * causas com conferências opostas (a rede de um lado, o aparelho do outro).
+     */
+    private val entregues = java.util.Collections.synchronizedSet(HashSet<Int>())
 
     private val diario = ArrayDeque<String>()
 
@@ -120,7 +128,7 @@ object AcervoCessao {
         rotulo = rotuloDoAparelho
         pedinteRotulo = ""; pedinteOrigem = ""; pedinteEm = 0L
         token = ""; parRotulo = ""; parOrigem = ""; recusada = ""
-        indice = null; sessao = ""; itens = 0; bytes = 0L; entregues = 0
+        indice = null; sessao = ""; itens = 0; bytes = 0L; entregues.clear()
         anotar("cessão ligada")
     }
 
@@ -131,7 +139,7 @@ object AcervoCessao {
         token = ""; parRotulo = ""; parOrigem = ""
         pedinteRotulo = ""; pedinteOrigem = ""; pedinteEm = 0L
         recusada = ""
-        indice = null; sessao = ""; itens = 0; bytes = 0L
+        indice = null; sessao = ""; itens = 0; bytes = 0L; entregues.clear()
         anotar("cessão desligada")
     }
 
@@ -155,7 +163,7 @@ object AcervoCessao {
         sessao = sessaoNova
         itens = quantos
         bytes = peso
-        entregues = 0
+        entregues.clear()
         anotar("índice publicado: $itens item(ns), ${corpo.size} bytes de lista")
         return true
     }
@@ -273,7 +281,7 @@ object AcervoCessao {
         return s + "n" + n
     }
 
-    fun contarEntrega() { entregues++ }
+    fun contarEntrega(n: Int) { entregues.add(n) }
 
     // ------------------------------------------------------------- diagnóstico
 
@@ -283,7 +291,7 @@ object AcervoCessao {
         .put("sessao", sessao)
         .put("itens", itens)
         .put("bytes", bytes)
-        .put("entregues", entregues)
+        .put("entregues", entregues.size)
         .put("pedinte", pedinteRotulo)
         .put("pareado", token.isNotEmpty())
         .put("com", parRotulo)

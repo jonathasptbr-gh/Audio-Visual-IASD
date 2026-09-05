@@ -720,7 +720,7 @@ class EspelhoServidor(
                 return responder(saida, jsonSimples(503, "sem-resposta"))
             }
         }
-        AcervoCessao.contarEntrega()
+        AcervoCessao.contarEntrega(n)
         // DAQUI PARA A FRENTE É A ROTA `/m/` INTEIRA — Range de verdade para o
         // item completo, chunked para o que ainda está chegando. Reusá-la é o
         // ponto: um segundo servidor de bytes seria um segundo lugar para
