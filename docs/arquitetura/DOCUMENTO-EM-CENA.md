@@ -46,7 +46,7 @@ apresentação sai completa, com o número de páginas certo, e vazia. Um orácu
 teste do desfecho aprovaria as duas versões. Cada asserção de conteúdo lá tem a
 REVERSÃO ao lado.
 
-São **três** coisas que o SVG não alcança, e a primeira apagou 27 slides do
+São **quatro** coisas que o SVG não alcança, e a primeira apagou 27 slides do
 operador:
 
 - **Toda mídia do `.pptx` chega como `blob:`, e uma URL blob não carrega dentro
@@ -59,6 +59,11 @@ operador:
   `style` inline. Os bytes atravessam por `FileReader` — o blob já é o JPEG que
   veio dentro do `.pptx`, e redesenhá-lo num canvas para `toDataURL` (o que a
   versão anterior fazia) reencodava uma fotografia como PNG de vários MB.
+- **O `<video>` de um slide não sobrevive ao SVG, e nem deveria.** O
+  renderizador desenha vídeo como `<video preload="none">` sobre fundo preto, e
+  o `embutirRecursos` não o alcança: a página sairia com um retângulo preto no
+  lugar do vídeo. Ele é tratado ANTES de o arquivo abrir — ver "O vídeo
+  embutido" logo abaixo.
 - **`cloneNode` copia o `<canvas>` e não o bitmap dele** (`trocarCanvas`): um
   GRÁFICO do PowerPoint sairia como retângulo vazio.
 - **A fonte de símbolo não existe no Android** (`trocarSimbolos`). Marcador de
@@ -70,6 +75,66 @@ operador:
   que parece certo), com uma exceção — um caractere da área privativa
   (U+F000–U+F0FF) sem tradução vira `•`, porque ali não há como o caractere
   estar certo e um ponto é infinitamente melhor que um retângulo vazio.
+
+### O vídeo embutido (v1.6.2)
+
+Um `.pptx` com vídeo dentro não cabia pelo caminho normal, e por **dois**
+motivos que se somam. O renderizador só aceita ArrayBuffer, então abrir o
+arquivo do operador (MEDIDO: **570 MB**) põe 570 MB no heap de um processo que
+hospeda os dois WebViews e a `Presentation`; e o teto de 32 MiB por entrada do
+próprio `vendor/` recusava o arquivo antes disso, por um `ppt/media/media3.mp4`
+de **78,9 MiB** — um vídeo que, se tivesse entrado, sairia como retângulo preto.
+
+`controle/pptxzip.js` (`AVPptxZip`, PURO, oráculo `tools/pptxzip.test.mjs`) lê o
+DIRETÓRIO CENTRAL do zip por `Blob.slice()` — preguiçoso, sem copiar byte
+nenhum —, separa os vídeos e remonta um `.pptx` enxuto. **Nada é
+recomprimido**: os bytes comprimidos de cada entrada mantida são copiados
+verbatim, com o CRC e os tamanhos que o índice já declara. Descompressão só
+acontece onde alguém quer LER (os `.rels`, para saber qual vídeo é de qual
+slide). No enxuto o renderizador não acha a mídia do vídeo e cai no ramo do
+PÔSTER, que desenha o quadro de capa como `<img>` — a única das formas que o
+`embutirRecursos` sabe embutir.
+
+- **A ORDEM dos slides sai do `sldIdLst`, nunca dos nomes dos arquivos.** Numa
+  apresentação REORDENADA as duas divergem, e o vídeo tocaria no slide errado —
+  sem sintoma. O oráculo tem a reversão desse par.
+- **O deslocamento dos dados sai do cabeçalho LOCAL**, que tem campos de nome e
+  extra PRÓPRIOS. Deduzi-lo do índice entrega bytes DESLOCADOS, não um erro.
+- **Os tetos de zip passaram a ser do app** (`LIMITES_DO_ZIP`, em `deck.js`), e
+  não mais os `RECOMMENDED_ZIP_LIMITS` da biblioteca: depois da separação o que
+  sobra é XML e imagem, e o teto por ENTRADA acompanha o de mídia. Os dois
+  AGREGADOS ficam — são eles que protegem o culto de uma apresentação
+  patológica derrubar o processo, e com ele a projeção.
+
+**A automação é o pedido do operador ao pé da letra** — *"iniciar e voltar para
+a apresentação prosseguindo para o próximo slide"*. Ela mora no `controle.js` e
+**não** no `stage.js`: o motor de projeção é o caminho que desenha na frente da
+congregação, e tudo o que este recurso precisa já existe como comando. Chegar na
+página manda um `load` do vídeo (`deckIr` → `deckVideoTalvezTocar`); o fim dele
+manda um `load` da apresentação na página SEGUINTE (`autoAdvance` →
+`deckVideoVoltar` — e é o `autoAdvance` porque ele é o ponto único por onde o
+`media-ended` do telão e o `onEnded` da preview passam). Fade, cortina, telas da
+rede, barra e notificação vêm de graça, e nenhuma linha nova roda no telão.
+
+- **Abrir a apresentação NÃO conta como chegar na página.** Ali o operador
+  acabou de escolher projetar os SLIDES, e entregar-lhe um vídeo no mesmo toque
+  tira dele a única ação deliberada antes de o telão mudar. Um vídeo na primeira
+  página continua alcançável pelo par de botões.
+- **Só quando a apresentação é a MÍDIA.** Como CAMADA ela está sobre um louvor
+  que segue tocando, e trocar a cena ali mataria o louvor.
+- **Projetar qualquer outra coisa DESARMA a volta** (`send` limpa na entrada),
+  senão a apresentação voltaria por cima do que o operador escolheu.
+- **Os vídeos não entram em lista nenhuma**, e quem os segura é a própria
+  apresentação: `lerDetentores` desce no `videos` de um registro `deck`, como já
+  descia nos `data.ids` de um `cue`. O percurso da morte é o mesmo — tirar a
+  apresentação da última lista a mata na hora, e o `gcOrfaos` da abertura
+  seguinte recolhe os vídeos.
+- **Um vídeo que não deu para ligar a slide nenhum é DESCARTADO** (um `.rels`
+  ilegível, ou uma página além do corte de `MAX_PAGINAS`): guardar dezenas de MB
+  que nada no app sabe tocar é o vazamento silencioso que o `db.js` documenta em
+  três lugares.
+
+Oráculo: `tools/pptx-video-na-pagina.test.mjs`, com reversão em quatro eixos.
 
 Mais duas regras que não são opcionais:
 

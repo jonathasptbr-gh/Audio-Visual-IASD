@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.6.2",
+    "itens": [
+      "Apresentações com vídeo embutido voltaram a abrir, mesmo as de centenas de MB.",
+      "O vídeo de um slide agora toca sozinho ao chegar naquela página.",
+      "E, ao acabar, a apresentação volta sozinha já no slide seguinte.",
+      "O aviso de arquivo que não abre passou a dizer o motivo certo."
+    ]
+  },
+  {
     "versao": "1.6.1",
     "itens": [
       "Transpor o tom ou trocar a velocidade deixou de encolher a letra da cifra.",

@@ -138,6 +138,11 @@ app/src/main/
 │   │                            #   injetadas, com oráculo Node). "Sem infantis"
 │   │                            #   (508–557 do Hinário 2022) é o ÚNICO filtro
 │   │                            #   que nasce LIGADO — daí o `!== false`
+│   ├── controle/pptxzip.js      #   o ZIP de um `.pptx` lido por FATIAS: é ele
+│   │                            #   que faz uma apresentação de centenas de MB
+│   │                            #   caber, tirando os vídeos embutidos ANTES de
+│   │                            #   o renderizador abrir o arquivo. PURO, com
+│   │                            #   oráculo Node. Nada é recomprimido
 │   ├── controle/deck.js         #   a APRESENTAÇÃO EM IMAGENS: o `.pptx` desenhado
 │   │                            #   dentro do WebView (`AVDeck`), com oráculo em
 │   │                            #   Chromium. As três coisas que o
@@ -3563,7 +3568,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Retomada do telão ao reconectar | idem (`resendSceneToDisplay`) | **só reenvia o que ESTAVA no ar** — a pergunta é `midiaNoAr`, nunca `currentId` (que sobrevive ao stop de propósito, para o ▶ repetir a faixa). Telão vazio também é estado: restaurá-lo é não mandar nada |
 | Girar a mídia | idem (comando `rotate`) | tile **"Girar no telão"** em Configurações, 90° por toque — o nome diz ONDE, porque "Girar" sozinho se lê como o giro da INTERFACE (v1.4.41). O motor TROCA O EIXO da caixa antes de girar, para o `object-fit` medir o retângulo em que a mídia vai de fato aparecer |
 | Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão |
-| PDF · `.pptx` · Google Apresentações | **PDF não existe**; `.pptx` funciona pelo mesmo caminho do app | **uma IMAGEM POR PÁGINA**. PDF pelo `PdfRenderer` da plataforma (`SlideDeck.kt` + `deckPages`); `.pptx` pelo renderizador de `assets/web/vendor/` (`controle/deck.js`, `import()` dinâmico + `<foreignObject>`/canvas). Daí é mídia comum, com ⏮/⏭ passando página — **e uma CAMADA desde a v1.4.28**: com um áudio no ar, o toque na apresentação a sobrepõe em vez de substituir, pela mesma porta da imagem (`mode:'image'` com um `page`), e o louvor de fundo continua tocando por baixo dos slides. **O FORMATO de cada página é decidido por ela**, nos dois caminhos e pelo mesmo número (`PAGINA_LEVE`, 512 kB): PNG na página chapada, WebP na fotográfica — MEDIDO, uma apresentação de fundo fotográfico dá 100,4 MB em PNG contra 12,3 MB. **Não há botão de "apresentação"** — entra por "Importar arquivos" (`pickDoc`: o PDF precisa que o shell abra o ARQUIVO, e `<input type=file>` só devolve bytes) ou pelo share. `.ppt` legado e `.odp` ficam de fora: ninguém sabe desenhá-los |
+| PDF · `.pptx` · Google Apresentações | **PDF não existe**; `.pptx` funciona pelo mesmo caminho do app | **uma IMAGEM POR PÁGINA**. PDF pelo `PdfRenderer` da plataforma (`SlideDeck.kt` + `deckPages`); `.pptx` pelo renderizador de `assets/web/vendor/` (`controle/deck.js`, `import()` dinâmico + `<foreignObject>`/canvas). Daí é mídia comum, com ⏮/⏭ passando página — **e uma CAMADA desde a v1.4.28**: com um áudio no ar, o toque na apresentação a sobrepõe em vez de substituir, pela mesma porta da imagem (`mode:'image'` com um `page`), e o louvor de fundo continua tocando por baixo dos slides. **O FORMATO de cada página é decidido por ela**, nos dois caminhos e pelo mesmo número (`PAGINA_LEVE`, 512 kB): PNG na página chapada, WebP na fotográfica — MEDIDO, uma apresentação de fundo fotográfico dá 100,4 MB em PNG contra 12,3 MB. **Não há botão de "apresentação"** — entra por "Importar arquivos" (`pickDoc`: o PDF precisa que o shell abra o ARQUIVO, e `<input type=file>` só devolve bytes) ou pelo share. `.ppt` legado e `.odp` ficam de fora: ninguém sabe desenhá-los **E O VÍDEO EMBUTIDO TOCA** (v1.6.2): o `pptxzip.js` o tira do zip ANTES de abrir o arquivo — sem isso um `.pptx` com vídeo é RECUSADO (teto de entrada da biblioteca) e, passando, sairia como retângulo PRETO (o `embutirRecursos` não alcança `<video>`). Ele vira mídia presa à PÁGINA em que estava: chegar nela projeta o vídeo, e o fim dele devolve a apresentação no slide SEGUINTE |
 | **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **TRANSMISSÃO DIRETA** (shell 26; só funciona do 27 em diante): `ytStream` monta o manifesto das duas adaptativas, `StreamProxy` as serve pelo NOSSO origin com o UA que combina, e `shared/mse.js` as vira um `<video>` comum — fade, cortina, `MediaSession` e barra de graça, zero pixel de YouTube no telão. Faixa de bytes na QUERY (`?r=ini-fim`), **nunca** em `Range` (invariante 8). Só em "Tocar agora": as outras ações GUARDAM, e manifesto expira em horas. Falhando qualquer coisa, cai no download, calado. **É o único tipo de mídia que precisa de JS rodando enquanto toca** — ver abaixo |
 | **Cifra do hino** | **não existe** — sem ponte não há como buscar a página (CORS), e a aba nem é oferecida | **aba CIFRA no visualizador de letras** (shell 49): `cifraHtml` traz o HTML cru, `controle/cifra.js` o lê, e a folha aparece com transposição por meio tom. **SOB DEMANDA:** nada é baixado em lote, nada entra no bundle, nada é gravado em disco — o cache é um `Map` que morre com o app |
 | Vídeo do YouTube | **não toca** | **baixado PELO APARELHO** (`YoutubeGrab.kt` + `ytFetch`) — a extração sai do IP do chip, que é o que o YouTube não bloqueia. Falhando, vira item de LINK, retentado no toque seguinte |
@@ -4511,18 +4516,28 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.6.1 · APK v1.5.21** · `SHELL_VERSION` **62** ·
+**Versão atual: base web v1.6.2 · APK v1.5.21** · `SHELL_VERSION` **62** ·
 bundle com `minShell: 62` e **SEM `shellTag`** — o shell 62 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
 NÃO sobe neste lote**: a superfície da ponte não mudou.
 
-**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — os três ajustes da BARRA
-DA CIFRA (o ⛶ no fim da fila, o anel da espera virando NOTA, e o `Auto` virando
-`1×`) mais o defeito que eles desenterraram: o ouvinte do par A+/A− casava
-`.lv-fonte-btn`, a classe de APARÊNCIA que veste também os botões da barra, e
-transpor meio tom ENCOLHIA a letra —, e nada em `java/`, `res/` ou no manifesto
-foi tocado. O `minShell` fica em 62: o piso não desce, e a Release `v1.5.21` já
-o entregou.
+**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — o VÍDEO EMBUTIDO num
+`.pptx` (o `pptxzip.js` novo, a separação em `deck.js`, a automação no
+`controle.js` e a apresentação como DETENTORA dos vídeos dela no `db.js`), mais
+a frase do aviso de importação, que passou a seguir o MOTIVO. Nada em `java/`,
+`res/` ou no manifesto foi tocado, e nenhum método da ponte entrou ou mudou de
+forma: o zip é lido em JavaScript, por `Blob.slice()`, sobre o mesmo blob que o
+`/saf/` já entregava. O `minShell` fica em 62.
+
+> **POR QUE O ZIP É LIDO NO WEB, e não no Kotlin** (v1.6.2). O shell tem
+> `ZipInputStream` e leria o arquivo sem passar 570 MB pelo WebView — e é
+> justamente por isso que a pergunta precisa de resposta escrita. Três razões, e
+> a primeira decide: o `Blob.slice()` **já não materializa nada**, então o ganho
+> do Kotlin seria zero sobre o que existe; a REGRA que erra aqui é a de ler o
+> `.rels` e casar vídeo com slide, que muda quando o PowerPoint quiser e no web
+> se conserta por OTA em minutos (invariante 5, o mesmo argumento das SÉRIES e
+> da CIFRA); e um método novo na ponte custaria um degrau de `SHELL_VERSION` e
+> uma Release para entregar o que o operador precisa neste sábado.
 
 > **A ESCADA DA CIFRA FOI RENOMEADA, NÃO REDESENHADA** (v1.6.1), e a distinção é
 > do operador: *"não mude o comportamento da escala, o comportamento estava

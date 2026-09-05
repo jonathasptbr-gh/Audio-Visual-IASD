@@ -170,6 +170,13 @@
       // O IndexedDB guarda Blob por REFERÊNCIA: ler o registro não traz os
       // bytes de dezenas de páginas para a memória.
       pages: null,
+      // OS VÍDEOS QUE ESTAVAM DENTRO DA APRESENTAÇÃO: `{ página: id }`. Aqui
+      // vai o ID e não o Blob, ao contrário do `pages`: um vídeo de dezenas de
+      // MB é mídia de primeira classe (tem transporte, barra, cortina e
+      // MediaSession), e enfiá-lo dentro do registro do deck o esconderia de
+      // tudo isso. Quem segura os bytes é o coletor, que trata a apresentação
+      // como DETENTORA deles — ver `lerDetentores`.
+      videos: null,
       // CENA DE ROTEIRO (kind 'cue', v5.103): o item do Cronograma que não tem
       // bytes — um versículo, uma mensagem, a letra de um hino, o cronômetro de
       // abertura, um sorteio ou um pacote de mídias. `cue` é o subtipo e `data`
@@ -387,6 +394,12 @@
       type: 'application/pdf',
       kind: 'deck',
       name: (meta && meta.name) || 'Apresentação',
+      // OS VÍDEOS DA APRESENTAÇÃO: `{ página: id da mídia }`. Só um `.pptx` com
+      // vídeo embutido o traz; um PDF e um `.pptx` sem vídeo continuam sem o
+      // campo, e `deckVideoDaPagina` lê ausente como "não há" — um bundle
+      // ANTERIOR a este que encontre o campo simplesmente o ignora, e o que ele
+      // perde é a automação, nunca a apresentação.
+      videos: (meta && meta.videos) || null,
     });
     return addMediaToList(record, (meta && meta.list) || 'imports');
   }
@@ -756,11 +769,30 @@
     //
     // Lê do store "media" da MESMA transação: todo chamador tem de abri-la com
     // STORE_MEDIA no escopo (todos já abrem — é lá que a mídia é apagada).
+    // E UMA APRESENTAÇÃO É DETENTORA DOS VÍDEOS DELA (v1.6.2), pela mesma
+    // passada e pelo mesmo argumento. Os vídeos que saem de dentro de um
+    // `.pptx` não entram em lista nenhuma de propósito — o operador pediu que
+    // eles toquem SOZINHOS na página em que estavam, não que virem itens
+    // soltos no Cronograma. Sem esta linha eles nasceriam órfãos e o
+    // `gcOrfaos` da abertura seguinte os recolheria: a apresentação continuaria
+    // na lista, as páginas continuariam desenhando, e o vídeo simplesmente não
+    // tocaria mais — no sábado, sem erro em lugar nenhum.
+    //
+    // O percurso da morte é o MESMO dos ids de um `cue`, e vale dizê-lo porque
+    // ele não é o intuitivo: `listRemove` coleta o id que saiu e só ele, então
+    // tirar a apresentação da última lista a mata na hora e deixa os vídeos
+    // ÓRFÃOS — quem os recolhe é o `gcOrfaos` da abertura seguinte. Ninguém
+    // precisa lembrar de apagá-los, e nada fica para sempre.
     const midias = stateStore.transaction.objectStore(STORE_MEDIA);
     for (const id of Array.from(donos)) {
       const rec = await asPromise(midias.get(id));
-      if (!rec || rec.kind !== 'cue' || !rec.data) continue;
-      if (Array.isArray(rec.data.ids)) for (const dep of rec.data.ids) donos.add(dep);
+      if (!rec) continue;
+      if (rec.kind === 'cue' && rec.data && Array.isArray(rec.data.ids)) {
+        for (const dep of rec.data.ids) donos.add(dep);
+      }
+      if (rec.kind === 'deck' && rec.videos) {
+        for (const p in rec.videos) if (rec.videos[p]) donos.add(rec.videos[p]);
+      }
     }
     return donos;
   }

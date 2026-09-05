@@ -109,6 +109,12 @@
     // que o operador mandou dissolver de volta na tela, e o bundle seria
     // carimbado como bom para sempre.
     if (!global.AVColetanea) return false;
+    // `AVPptxZip` (v1.6.2) entra pela mesma regra, e o caso dele é o do
+    // `AVDeck` levado ao extremo: ele só é lido dentro de `separarVideos`, que
+    // só roda ao importar um `.pptx`. Um erro de topo ali deixa o app inteiro
+    // de pé e tira do ar a única porta de apresentação com vídeo — que é o
+    // material do culto, descoberto no sábado.
+    if (!global.AVPptxZip) return false;
     if (typeof global.__avBack !== 'function') return false;
     return !!document.querySelector('#playlist > li');
   }

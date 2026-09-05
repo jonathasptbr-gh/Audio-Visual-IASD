@@ -322,7 +322,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.6.1';
+const WEB_VERSION = '1.6.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10660,6 +10660,13 @@ function favBtn(id, nome) {
 // sobre áudio, lá dentro: é a única coisa que a distingue de um toque.
 async function send(id, daFila, retomarEm) {
   ++projecaoSeq;   // ver `projecaoSeq`: invalida um versículo de roteiro em voo
+  // E DESARMA A VOLTA DA APRESENTAÇÃO. `send` é o ponto por onde todo caminho
+  // que projeta passa, então qualquer coisa que entre em cena — um toque na
+  // lista, o ⏮/⏭, a notificação — cancela a automação do vídeo de slide. Sem
+  // isto, o operador que interrompesse o vídeo para projetar outra coisa veria
+  // a apresentação voltar por cima dela no fim do que ele escolheu. Quem rearma
+  // é o `deckVideoTalvezTocar`, DEPOIS do `send` dele.
+  deckVideoVolta = null;
   derrubarPalcoEmVoo();   // ver `palcoEmVoo`: e o cartão de uma resolução de link
   // UMA CENA DE ROTEIRO NÃO É MÍDIA: ela não pode virar um comando `load` (o
   // telão apagaria, porque um registro sem blob/url/pages cai no `clear` do
@@ -13897,6 +13904,12 @@ function resetAfterEnd() {
 // cima do atual. Sem a marca, a fila pararia de andar sozinha na primeira
 // imagem — com o áudio anterior tocando para sempre por baixo dela.
 function autoAdvance() {
+  // A VOLTA DA APRESENTAÇÃO VEM ANTES DE TUDO, e mora aqui porque este é o
+  // ponto único por onde os DOIS caminhos de fim de mídia passam — o
+  // `media-ended` do telão e o `onEnded` da preview. Um vídeo de slide não é um
+  // item da fila: deixá-lo cair no avanço normal projetaria o próximo louvor no
+  // meio do sermão, e com `repeat: 'one'` ele tocaria em laço para sempre.
+  if (deckVideoVolta) { deckVideoVoltar(); return; }
   if (repeat === 'off') { resetAfterEnd(); return; }
   if (repeat === 'one') { if (currentId) send(currentId, true); return; }
   if (plItems.length === 0) return;
@@ -22861,10 +22874,24 @@ let deckUltimoErro = '';
 function avisarNaoAbriu(nome) {
   const motivo = deckUltimoErro;
   deckUltimoErro = '';
+  // A FRASE SEGUE O MOTIVO, e isto nasceu de um caso real: a apresentação do
+  // operador foi recusada por um vídeo grande demais e o diálogo mandou
+  // procurar SENHA num arquivo que não tinha, e salvar como `.pptx` um arquivo
+  // que já era `.pptx`. Duas instruções que não resolvem nada custam ao
+  // operador o tempo dele num sábado de manhã — e o app SABE o motivo, ele só
+  // não estava usando. É a regra dos cinco motivos da cifra num lugar novo.
+  const teto = /zip limit exceeded/i.test(motivo);
+  const senha = /senha|password|encrypt/i.test(motivo);
+  const explica = teto
+    ? 'Ele é grande demais para o aparelho abrir de uma vez. Uma cópia com menos '
+      + 'vídeo, ou com as imagens em resolução menor, resolve.'
+    : (senha
+      ? 'Ele está protegido por senha, e o app não abre uma cópia protegida.'
+      : 'Um PDF com senha precisa de uma cópia sem proteção; um PowerPoint muito '
+        + 'antigo (.ppt) precisa ser salvo como .pptx.');
   return appConfirm({
     title: 'Não deu para abrir',
-    message: '"' + nome + '" não pôde ser lido. Um PDF com senha precisa de uma cópia '
-      + 'sem proteção; um PowerPoint muito antigo (.ppt) precisa ser salvo como .pptx.'
+    message: '"' + nome + '" não pôde ser lido. ' + explica
       // O detalhe técnico fica no FIM e entre parênteses: quem só quer resolver
       // lê as duas frases acima e ignora esta; quem está diagnosticando (às
       // vezes por mensagem, sem o aparelho em mãos) tem o que precisa sem
@@ -22920,11 +22947,87 @@ function deckIr(alvo) {
   }
   renderSlideNav();
   renderNowPlaying();
+  // E SE ESTA PÁGINA TEM VÍDEO, ELE TOCA. Depois do comando e do redesenho: o
+  // slide chega ao telão de qualquer jeito, e é ele que fica no ar se o vídeo
+  // não entrar.
+  deckVideoTalvezTocar(d, n);
 }
 
 function deckStep(delta) {
   if (!deckNoAr()) return;
   deckIr(deckPagina + delta);
+}
+
+// ===== O VÍDEO QUE ESTAVA DENTRO DA APRESENTAÇÃO =====
+//
+// Um `.pptx` com vídeo embutido chega aqui já separado: as páginas são imagens
+// e cada vídeo é uma mídia própria, presa à PÁGINA em que ele estava (ver
+// `separarVideos`, no `deck.js`). A automação é o pedido do operador ao pé da
+// letra — *"iniciar e voltar para a apresentação prosseguindo para o próximo
+// slide"* —, e ela mora AQUI e não no `stage.js` de propósito: o motor de
+// projeção é o caminho que desenha na frente da congregação, e tudo o que este
+// recurso precisa já existe como comando. Chegar na página manda um `load` do
+// vídeo; o fim dele manda um `load` da apresentação. Fade, cortina, telas da
+// rede, barra de progresso e notificação vêm de graça, e nenhuma linha nova
+// roda no telão.
+//
+// `{ deckId, pagina, videoId }` enquanto um vídeo de slide está no ar.
+let deckVideoVolta = null;
+
+/** O vídeo daquela página, ou null. Registro sem o campo lê como "não há". */
+function deckVideoDaPagina(d, n) {
+  return (d && d.videos && d.videos[n]) || null;
+}
+
+/**
+ * Chegou numa página com vídeo: projeta o vídeo.
+ *
+ * SÓ QUANDO A APRESENTAÇÃO É A MÍDIA. Como CAMADA ela está por cima de um
+ * louvor que segue tocando, e trocar a cena ali mataria o louvor — o operador
+ * pôs os slides sobre a música justamente para ela continuar. O caso não é
+ * ambíguo e a escolha é a conservadora: sobreposta, a página com vídeo mostra
+ * o pôster e mais nada.
+ *
+ * E SÓ POR NAVEGAÇÃO — quem chama é o `deckIr`, nunca o `send`. ABRIR a
+ * apresentação não conta como chegar na página: ali o operador acabou de
+ * escolher projetar os SLIDES, e entregar-lhe um vídeo no mesmo toque é tirar
+ * da mão dele a única ação deliberada que existe antes de o telão mudar. Um
+ * vídeo na primeira página continua alcançável pelo par de botões (⏭ e ⏮), e a
+ * volta a uma página já vista REPROJETA o vídeo dela, que é a leitura direta de
+ * "chegou na página".
+ */
+function deckVideoTalvezTocar(d, n) {
+  if (deckSobreProjetando()) return;
+  const vid = deckVideoDaPagina(d, n);
+  if (!vid) return;
+  const volta = { deckId: d.id, pagina: n, videoId: vid };
+  // O `send` LIMPA a volta na entrada (um toque do operador em qualquer outra
+  // coisa desarma a automação), então ela só pode ser armada DEPOIS dele.
+  send(vid, true).then(() => { deckVideoVolta = volta; })
+    .catch((e) => { console.warn('[pptx] vídeo do slide não entrou:', e && e.message); });
+}
+
+/**
+ * O vídeo acabou: volta para a apresentação, na página SEGUINTE.
+ *
+ * O `send` devolve a apresentação na página 0 (é a regra dele, e ela está
+ * certa), então quem anda é o `deckIr` logo depois — que por sua vez pode cair
+ * noutra página com vídeo e encadear sozinho, que é o comportamento desejado.
+ *
+ * NA ÚLTIMA PÁGINA ele não avança: `deckIr` limita ao fim, e a apresentação
+ * fica no ar no último slide. Avançar dali seria passar para o item seguinte da
+ * fila — o louvor de depois do sermão, sem ninguém pedir.
+ */
+async function deckVideoVoltar() {
+  const v = deckVideoVolta;
+  deckVideoVolta = null;
+  if (!v) return;
+  try {
+    await send(v.deckId, true);
+    deckIr(v.pagina + 1);
+  } catch (e) {
+    console.warn('[pptx] não deu para voltar à apresentação:', e && e.message);
+  }
 }
 
 // ===== .pptx → páginas, DENTRO do WebView =====
@@ -22970,9 +23073,40 @@ async function pptxImportar(file, nome, opts) {
       });
       if (!feito) { deckUltimoErro = 'pptx: nenhuma página desenhada'; return null; }
       const thumb = await makeThumb(feito.pages[0], 'image');
+      // OS VÍDEOS EMBUTIDOS VIRAM MÍDIA DE VERDADE, e entram em lista NENHUMA.
+      // Quem os segura é a própria apresentação (ver `lerDetentores` no
+      // `db.js`), e é isso que os faz nascer e morrer com ela sem aparecer como
+      // item solto no Cronograma — que é o que o operador pediu ao escolher o
+      // vídeo "anexado à página".
+      //
+      // O `pagina < 0` é o vídeo que existe no arquivo e que não deu para ligar
+      // a slide nenhum (um `.rels` ilegível, ou uma página que o corte de
+      // `MAX_PAGINAS` deixou de fora). Ele é DESCARTADO: guardar dezenas de MB
+      // que nada no app sabe tocar é o vazamento silencioso que o `db.js`
+      // documenta em três lugares.
+      const videos = {};
+      let semPagina = 0;
+      for (const v of (feito.videos || [])) {
+        if (v.pagina < 0) { semPagina++; continue; }
+        const rec = await AVDB.addMedia(v.blob, {
+          name: rotulo + ' · página ' + (v.pagina + 1),
+          kind: 'video',
+          type: v.blob.type || 'video/mp4',
+          list: 'avulsos',
+        });
+        if (rec) videos[v.pagina] = rec.id;
+      }
       const criado = await AVDB.addDeck(feito.pages, {
         name: rotulo, thumb, list: (opts && opts.lista) || 'imports',
+        videos: Object.keys(videos).length ? videos : null,
       });
+      // E SÓ AGORA ELES SAEM DA PRATELEIRA. `avulsos` é o detentor provisório
+      // que os segura entre o `addMedia` e o `addDeck`: sem ele, uma faxina
+      // caindo nessa janela levaria os vídeos embora e a apresentação nasceria
+      // apontando para bytes que não existem mais. Depois do `addDeck` quem os
+      // segura é a apresentação, e ficar nos dois lugares faria o vídeo
+      // sobreviver a ela.
+      for (const p in videos) await AVDB.listRemove('avulsos', videos[p]);
       // O CORTE É DITO, e pela mesma porta do PDF (ver `deckImportar`): uma
       // apresentação cortada sem aviso leria como "o arquivo era assim", e o
       // operador só descobriria na frente da congregação, na página que não
@@ -22980,6 +23114,13 @@ async function pptxImportar(file, nome, opts) {
       // aquele item.
       if (feito.truncado && criado) {
         falharNoItem(criado.id, 'truncada em ' + feito.pages.length + ' páginas');
+      }
+      // E O VÍDEO DESCARTADO É DITO, pela mesma porta e pelo mesmo argumento do
+      // corte acima: uma apresentação que chega sem os vídeos e sem explicação é
+      // indistinguível de uma que nunca os teve, e o operador só descobriria na
+      // página em que nada acontece.
+      if (semPagina && criado && !feito.truncado) {
+        falharNoItem(criado.id, semPagina + ' vídeo(s) sem slide, fora da apresentação');
       }
       return criado;
     });
