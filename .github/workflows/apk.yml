@@ -474,6 +474,7 @@ jobs:
           rodar tools/abertura-e-transferencia.test.mjs
           rodar tools/pacote-ida-e-volta.test.mjs
           rodar tools/linha-da-preparacao.test.mjs
+          rodar tools/miniaturas-estaveis.test.mjs
           rodar tools/mse.test.mjs
           rodar tools/stage-fade.test.mjs
           rodar tools/aba-sem-estalo.test.mjs

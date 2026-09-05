@@ -517,8 +517,26 @@
    *
    * A biblioteca entra por `import()` DINÂMICO: é 1,5 MB que só interessa a
    * quem importar um `.pptx`, e carregá-la no boot custaria isso a todo culto.
+   *
+   * ===== `cancelado()` — A DESISTÊNCIA, POR PÁGINA (v1.7.2) =====
+   *
+   * Preparar uma apresentação leva MINUTOS (dezenas de páginas rasterizadas uma
+   * a uma), e até aqui não havia como parar: o botão que o operador pediu na
+   * linha precisa de um ponto em que a desistência seja lida. Ele é o LAÇO —
+   * granularidade de uma página, que é o único lugar em que o trabalho está
+   * entre duas coisas e não no meio de uma.
+   *
+   * DESISTIR DEVOLVE `null`, o MESMO desfecho de "não saiu página nenhuma", e
+   * isso é decisão: quem chama já trata esse valor como "não há apresentação", e
+   * um terceiro estado obrigaria os dois chamadores a aprender uma forma nova
+   * para dizer o que a antiga já dizia. Quem sabe que foi CANCELAMENTO é quem
+   * cancelou — a bandeira é dele.
+   *
+   * Ele é OPCIONAL: sem a função o laço roda como sempre rodou.
    */
-  async function paginasDoPptx(file, onProgresso) {
+  async function paginasDoPptx(file, onProgresso, cancelado) {
+    const parou = () => { try { return !!(cancelado && cancelado()); } catch (_) { return false; } };
+    if (parou()) return null;
     const { PptxViewer } = await import('../vendor/pptx-renderer.js');
     const { enxuto, videos } = await separarVideos(file);
     const palco = criarPalco();
@@ -537,6 +555,7 @@
       // no primeiro `queueRender` que não vem: quem desenha o que vale é o
       // laço.
       await visor.open(await enxuto.arrayBuffer(), { renderMode: 'slide' });
+      if (parou()) return null;
       const total = Math.min(visor.slideCount || 0, MAX_PAGINAS);
       if (!total) return null;
       // A ESCALA SAI DA APRESENTAÇÃO, não da caixa medida. O `.pptx` declara o
@@ -548,6 +567,7 @@
       const cache = cacheDeRecursos();
       const pages = [];
       for (let i = 0; i < total; i++) {
+        if (parou()) return null;
         const cela = doc.createElement('div');
         cela.style.cssText = 'width:' + w + 'px;height:' + h + 'px;'
           + 'overflow:hidden;position:relative;background:#fff;';

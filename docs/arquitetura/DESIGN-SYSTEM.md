@@ -184,7 +184,7 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 | `--deck-pv-h` | `130px` | altura da faixa da preview na grade do `.deck` — é token porque a LARGURA da preview sai dela (altura × proporção do telão) |
 | `--fader-cap` | `26px` | espessura do cap do fader — **dois** faders a usam (mixer e modo simplificado), e a posição do número sai dela |
 | `--icon-sm` / `--icon-md` / `--icon-lg` | `20` / `22` / `24px` | escala dos **glifos de fonte** (`.msym`). Os SVGs inline trazem `width`/`height` no próprio HTML e nunca estiveram sob ela; o modo simplificado tem escala própria, porque ali o alvo é o polegar de quem está de pé |
-| `--press` / `--press-luz` | `translateY(2px)` / `brightness(1.35)` · `.88` no claro | feedback de toque: recuo ABSOLUTO mais luz. Ver "Feedback de toque" |
+| `--press` / `--press-luz` | `translateY(2px)` / `brightness(1.35)` · `.88` no claro | feedback de toque: recuo ABSOLUTO mais luz no CONTROLE; só a luz, no bloco inteiro, em quem hospeda controles. Ver "Feedback de toque" |
 | `--fs-2xs`…`--fs-4xl` (9) + `--fs-display-sm` / `--fs-display` | `.60` `.68` `.74` `.82` `.90` `.95` `1.05` `1.15` `1.25` + `1.6` `2.6` rem | **a escala tipográfica** (v1.5.14). Eram 31 corpos distintos em 126 declarações. Os degraus saíram da DISTRIBUIÇÃO REAL de uso (o pico é `.82rem`, 19 declarações — o corpo de uma linha de lista), e não de uma fórmula: entre cinco escalas candidatas esta é a que move menos pixel — sete declarações mudam mais de 0,65px, e a maior mudança é 0,8px. Consolidar não podia custar um redesenho acidental |
 | `--sp-1`…`--sp-6` | `.15` `.25` `.35` `.5` `.6` `.8` rem | **a escala de espaço** (v1.5.14). Eram 16 valores de `gap` quase contínuos em passos de .05, isto é, nenhum ritmo. 71 das 110 declarações caem EXATAS num degrau; o resto se move no máximo 1,6px — o que não se vê numa peça e se sente no conjunto |
 | `--dur-rapida` / `--dur-media` / `--dur-lenta` | `.14s` / `.2s` / `.3s` | **a escala de movimento** (v1.5.14). Eram dez durações de transição entre .12s e .3s — faixa em que o olho não distingue os degraus, mas em que peças VIZINHAS animam em tempos diferentes, e isso se nota. As ANIMAÇÕES ficam de fora e mantêm o tempo delas: um pulso de 1,2s não é uma transição de interface |
@@ -262,6 +262,33 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   Um traço BRANCO já está no teto — `brightness` não tem para onde subir, e o
   que ela move é o halo ESCURO, desbotando o contorno. Os `1,86:1` medidos na
   v1.3.14 são de um glifo colorido sem fundo, não de um traço branco.
+
+  **E O RECUO É DO CONTROLE FOLHA: UM BLOCO RESPONDE SÓ COM A LUZ** (v1.7.2).
+  Pedido do operador sobre a Biblioteca: *"Há um efeito de encolhimento que
+  distorce os elementos, remova esse efeito, deixe apenas um efeito de
+  coloração/sombreamento ao toque sem encolhimento. Também aproveite para
+  verificar se está colorindo o corpo do card corretamente e não apenas o
+  arrangment/card do texto ou cabeçalho. Pois tem de considerar colorir as zonas
+  que formam o corpo real, com margens e bordas circulares."*
+
+  A regra **já estava escrita na `.coll-bar` desde a v5.288** — *"`--press` é
+  para CONTROLE FOLHA. Um contêiner que hospeda um controle nunca escala: ele
+  responde por PREENCHIMENTO, que não move nada"* —, e a v1.3.14 a contrariou ao
+  pôr na lista do `--press` as duas barras que abrem um bloco. As duas metades do
+  relato são o mesmo defeito:
+
+  - **a barra é TRANSPARENTE**, então o `filter` acendia só o TEXTO e os ícones —
+    o corpo do card, com as margens e os cantos, ficava intocado. Era literalmente
+    *"colorindo o arrangment do texto"*;
+  - **e ela DESLIZA dentro de um bloco parado**: o `translateY(2px)` move o
+    conteúdo da tampa enquanto a pílula em volta fica onde está, e o que se vê é
+    a tampa escorregando e sendo recortada.
+
+  Hoje quem responde é o BLOCO — `.hymnal-card`, `.coll-group--drop` e a
+  `.lib-item`, que é a linha de lista deste app e o outro contêiner que hospeda
+  controles —, com a luz e por inteiro, em qualquer profundidade e nos dois
+  estados. A pergunta é `:has(> tampa:active)` e não `:active` no bloco: com o
+  card ABERTO o corpo dele é a lista inteira, e `:active` casa em ancestral.
 
   Por isso o `.pv-fab` **saiu da lista** e tem resposta própria: a **pena do
   traço** (`stroke-width`), com o halo engrossando junto. É a única coisa que
@@ -1104,10 +1131,12 @@ texto por cima precisa ser escura. Daí três tokens, um por papel:
   `--btn-accent`/`--btn-danger`/`--btn-warn`/`--btn-ok`. Os `-soft` são wash
   (sombra de pulso, trilho de anel) e nunca superfície: alfa empilha, e o mesmo
   token compõe uma cor por camada. `tokens.test.mjs` trava.
-- **R7 — o feedback de toque é ABSOLUTO.** `--press` (2px para baixo) mais
-  `--press-luz`; nunca uma escala, que vira doze valores diferentes num app cujos
-  alvos vão de 34 a 408px. Um ancestral não responde ao toque que foi para um
-  filho — e suprime as DUAS partes.
+- **R7 — um CONTROLE responde por RECUO; um BLOCO responde por LUZ.** `--press`
+  (2px para baixo, ABSOLUTO — nunca uma escala, que vira doze valores diferentes
+  num app cujos alvos vão de 34 a 408px) mais `--press-luz` no controle folha; só
+  a luz, e no bloco INTEIRO, em quem hospeda controles (o card de álbum, a seção,
+  a `.lib-item`). Um ancestral não responde ao toque que foi para um filho — e
+  suprime as DUAS partes.
 - **R8 — texto secundário DENTRO de um controle preenchido herda a cor do
   rótulo com alfa, nunca `--muted`.** O cinza é calibrado contra as superfícies
   do app (fundo, painel, `--surface`), não contra o denim de `--accent-fill`:

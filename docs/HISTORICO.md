@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.7.2** — SEIS PEDIDOS DO OPERADOR NUMA PASSADA, E TRÊS DELES SÃO A MESMA REGRA. (1) **A BARRA DE PROGRESSO SAIU DA LINHA**: *"O subtitulo com as informações ficou muito bom, mas a barra de progresso ficou ruim, tire ela."* Ele aprovou a metade que ACRESCENTOU informação (a fração por extenso na posição do subtítulo) e reprovou a que só desenhava, num filete de 4px, o mesmo número que a frase ao lado diz — numa lista de trinta linhas isso é peso por repetição. O `pct` continua no registro: quem desenha barra é a NOTIFICAÇÃO, que é a janela do trabalho com o app minimizado. (2) **O `⋮` CEDE A COLUNA AO TRABALHO EM CURSO**: *"por um botão, na mesma posição do botão de opções do item do cronograma… esse botão só tem uma função durante um preparo ou download. Esse botão cancela o processo e apaga o item."* É o movimento que a v1.4.27 já fez para a exclusão e a renomeação, agora para o trabalho — e ele obrigou a tornar CANCELÁVEIS as duas esperas que não sabiam parar: a preparação de apresentação (o laço de páginas do `.pptx` lê a desistência; no PDF quem rasteriza é o shell e o que se cancela é o DESFECHO, com o `deckDiscard` que já existia) e a importação de arquivo (um `AbortController` no `fetch` do `/saf/`). **O limite está escrito porque é uma decisão**: "apaga o item" vale para o item que só existe POR CAUSA do processo; um item que já estava no Cronograma (converter um link do YouTube) FICA — apagá-lo seria destruir o que ninguém mandou destruir. E o `.dl-cancel` de 34px virou um `.row-btn`, que mede o `⋮` por construção. (3) **A LINHA NÃO VOLTA AO ESTADO INICIAL PARA SUMIR**: *"ao tocar em excluir, na confirmação, o item se transforma ao seu estado inicial sem os botões antes de desaparecer, isso causa estranheza"*. Era a ORDEM: `fecharConfirmacaoNaLinha()` corria ANTES do `aoConfirmar`, e o comentário que a justificava falava do DOM (um cuidado que não custa nada — `desfazer()` sobre um nó órfão é no-op). O que ele custava era o que se via. Hoje a linha SAI (200 ms de altura mais opacidade, a curva do acordeão, com a margem negativa do `gap` para o vão sair junto) e só então o item é apagado. **E A INVERSÃO COBROU UM DEFEITO NOVO, achado pelo oráculo**: `fecharConfirmacaoNaLinha` fecha *a que estiver aberta*, e com o `aoConfirmar` rodando antes dela há uma janela em que OUTRA pergunta já nasceu — MEDIDO pelo `boot-nativo`, a exclusão de um favorito fechava o campo de RENOMEAR aberto logo depois. A guarda é a mesma regra do botão de cancelar do cartão da preview: *ele sai com o DONO dele*. (4) **A CAPA FICA À VISTA NA PERGUNTA DA EXCLUSÃO**: *"Ela tinha sido tirada desse momento do layout, mas julguei melhor ter ela ali."* O argumento da v1.4.27 valia enquanto a capa VIRAVA UMA LIXEIRA (um desenho igual em toda linha); com o símbolo morando na coluna do `⋮`, ela volta a ser a única parte da linha que diz de QUAL item é a pergunta. Ela continua saindo no RENOMEAR, que precisa da largura — e o par é a regra. Com ela, o `.row-lixo` saiu e o caminho B da lixeira virou o mesmo do ✓ (dentro da faixa), com a exceção nomeada: a lixeira ILUSTRA e não entra numa faixa que não fala de um item (limpar a playlist, o histórico), onde os dois rótulos dividem a caixa ao meio. (5) **AS MINIATURAS DOS FAVORITOS PARARAM DE PISCAR**: *"veja se pode deixar isso mais estável visualmente, sem piscar"*. A causa é aritmética — a Biblioteca é redesenhada a cada 400 ms enquanto um download corre, e cada passada REVOGAVA as URLs do render anterior e criava outras para os MESMOS blobs; uma `<img>` com `src` inédito não tem decodificação em cache. A chave passou a ser o BLOB (mesmo blob, mesma URL) e a varredura passou a ser pela UNIÃO dos baldes, o que fecha POR CONSTRUÇÃO a classe de defeito que o balde por host existia para tratar. (6) **O TOQUE NUM BLOCO DEIXOU DE ENCOLHER**: *"Há um efeito de encolhimento que distorce os elementos… deixe apenas um efeito de coloração/sombreamento ao toque sem encolhimento. Também aproveite para verificar se está colorindo o corpo do card corretamente e não apenas o arrangment do texto ou cabeçalho."* As duas metades são o mesmo defeito por dois lados, e a regra que as resolve **já estava escrita na `.coll-bar` desde a v5.288** (*"`--press` é para CONTROLE FOLHA. Um contêiner que hospeda um controle nunca escala"*) — a v1.3.14 a contrariou ao pôr as duas barras na lista do `--press`: a barra é TRANSPARENTE, então o `filter` acendia só o texto, e o `translateY(2px)` deslizava a tampa dentro de um card parado. Hoje **um CONTROLE responde por RECUO; um BLOCO responde por LUZ, e o bloco inteiro** — vale para os cards, as seções e a `.lib-item`, em qualquer profundidade e nos dois estados. (7) **E A VELOCIDADE DA CIFRA VIROU GAVETA**: *"faça com que o botão de velocidade abra uma gaveta, substituindo seus botões vizinhos, pela lista de botões com as variações de velocidade… sem passar por cada uma delas em carrocel"*. O ciclo era um preço escrito desde a v1.1.20 (*"com CINCO degraus, dar a volta custa menos que um segundo botão"*), e a conta muda quando o alvo é ESPECÍFICO: os degraus do meio ACONTECEM, com a música no ar. É o mecanismo da faixa da linha na fila da cifra — a fila troca de CONTEÚDO, não de lugar —, com `display: contents` no invólucro para os cinco seguirem a direção dela (linha no retrato, coluna deitada) sem uma segunda regra de layout. O ⛶ é a exceção nomeada: *a fila da cifra sempre tem a saída*. Lote **só de base web**.
 - **v1.7.1** — A LINHA DE UMA PREPARAÇÃO DEIXOU DE SE PARECER COM A DE UM DOWNLOAD. Dois ajustes pedidos com a apresentação preparando na tela: *"na notificação temos barra de progresso e informações como quantas páginas já foram preparadas… ajuste a ilustração da representação do progresso no item do cronograma, atualmente ele só tem a porcentagem, mas gostaria que usasse a posição do texto secundário para uma barra de progresso, e a fração das páginas já preparadas"* e *"para essas preparações, não downloads, [troque] o ícone da thumbnail que ainda fica um ícone de seta de download… deixe sem ícone, só o spinner"*. (1) **A FAIXA** ocupa a posição do SUBTÍTULO (`.dl-prog` dentro da `.row-text`, depois do `.row-name` — a pergunta é de ÁRVORE, e é ela que mantém a altura da linha), com a legenda por extenso e um trilho que **só existe quando há proporção**: uma barra parada em zero durante o preparo se lê como travada. **E a fração não custou parâmetro nenhum** — a linha já RECEBIA a legenda (`Preparando página 4 de 8…`, a mesma que a notificação do sistema mostra, escrita por quem tem os números) e a descartava, desenhando só o percentual solto; consumi-la entrega a fração de graça, sem ninguém parsear frase nenhuma. O `.dl-pct` saiu da linha do Cronograma e da Biblioteca (fica na lista de resultados do YouTube, que não tem subtítulo a ceder): onde a barra e a legenda já dizem o número, um terceiro lugar dizendo o mesmo é o que este app tira de cena em toda passada. (2) **A SETA** virou condicional na LINHA, como já era no cartão — o operador reconheceu o próprio precedente (*"acho que já temos um desses que também não vai ícone"*): a v1.4.19 estabeleceu que o `.dl-ring` são DOIS desenhos (o aro diz *espere*, a seta diz *bytes chegando*) e a linha ficou com a seta incondicional por três lotes, prometendo um download que não estava acontecendo. `legendaEhDownload` passou a ser a fonte ÚNICA dos dois, então eles não têm como discordar, e o `atualizar` repinta o ícone junto com a faixa — senão o desenho ficaria preso na primeira legenda. **A cor do trilho é `--surface`** e não um `-soft`: alfa numa superfície de controle é o que o `tokens.test.mjs` reprova, e MEDIDO o `--btn-accent` ali dá 1,07:1 contra o fundo da linha (some), contra 1,20–1,38:1 do `--surface` nos quatro pares de base × tema. **E o oráculo novo cobrou a si mesmo na campanha:** 1 reprovação em 8 rodadas a 3× de carga, porque as duas metades montam uma linha cada e o `querySelector` da de baixo pegava a linha da de cima — três asserções vermelhas descrevendo um app correto. A linha passou a ser endereçada pelo NOME; 12/12 depois disso. Oráculo: `tools/linha-da-preparacao.test.mjs`, com REVERSÃO nas duas metades. Lote **só de base web**.
 - **v1.7.0** — A ABERTURA POR TRÁS DOS PANOS, A BADGE DE VERSÃO, O COMPARTILHAR E O PACOTE DE TRANSFERÊNCIA. Quatro pedidos do operador num lote, e o que os une é serem tudo o que o app tinha DE FORA do culto. (1) **A CORTINA**: *"é comum abrir o app e telas piscarem até que fique no lugar correto… o tema escuro aparece antes de se ajustar para o tema correto"*. O lado NATIVO já estava certo (o `windowBackground`, a raiz da Activity e o WebView nascem na cor guardada); quem piscava era o DOCUMENTO, entre o primeiro quadro e a última linha do `init()` — o `controle.js` é o ÚLTIMO dos catorze scripts do `<body>`, e até ele rodar quem pinta é o `:root` sem atributo. O tema ganhou conserto próprio (um script inline no `<head>`, que é agora a ÚNICA leitura de `av.tema`: o `storedTema()` passou a ler o ATRIBUTO que sai dali); o resto — o modo, a lista vazia, a preview sem wallpaper — ganhou a cortina. **O PRAZO É ARMADO NO `<head>`, e é a decisão do bloco**: uma cortina que não levanta é um app inutilizável, e o caminho provável disso é justamente o que o watchdog do OTA existe para pegar — um bundle cujo `controle.js` nem é parseado. Armado lá, o prazo roda mesmo aí, e o desfecho ruim volta a ser o app quebrado À VISTA. (2) **A BADGE**: *"coloque uma nova badge de versão na tela principal, após o título áudio visual iasd (no modo simples) e no canto superior esquerdo (no modo avançado)"* · *"remova da ui a informação nas configurações do shell… coloque apenas ela, e apenas um número, sem o 'web'"*. As três casas passam a ter um escritor só, e o índice do shell continua no REGISTRO — tirá-lo dos dois lugares seria o conserto largo demais, e o oráculo o afirma. A casa do avançado já estava vaga desde a v1.5.0 (o `#backBtn` perdeu o dono quando a Bíblia virou folha); as duas trilhas laterais da faixa passaram a repartir a sobra em partes iguais, e é isso que mantém o título no eixo. (3) **O COMPARTILHAR**: até aqui não havia, de dentro do app, NENHUMA forma de passar o link da página adiante — e é o operador quem conversa com as outras igrejas. `compartilharTexto` (`ACTION_SEND` + `createChooser`); `navigator.share` não existe no WebView do Android, e `openExternal` faz o oposto do pedido (abre a página no próprio aparelho). (4) **O PACOTE**: *"a biblioteca e o resto são pesados… permitir copiar e compartilhar o arquivo diretamente de um smartphone para o outro é extremamente útil"*. Formato `.avpkg` SEQUENCIAL e não zip (um zip pede o diretório central no fim, e o acervo passa de gigabytes); a regra é pura, no `controle/pacote.js`, e os bytes vão pelo `PacoteCanal.kt` — o SEGUNDO canal de `ArrayBuffer` do shell, irmão do `EspelhoMidiaCanal`. **A importação não precisou de método nenhum**: `pickDoc` já devolve uma `/saf/` servível, e o lado web a lê por `Blob.slice()`, como o `pptxzip.js` faz com um `.pptx` de 570 MB. A promessa é *"importar só ACRESCENTA"* (`add` e não `put`; união nas listas, mescla nos mapas, local vencendo em tudo o mais), e ela tem oráculo de IDA E VOLTA em dois contextos de navegador. A varredura do OPFS é do DISCO e não do catálogo — as imagens de fundo da letra não viram registro, e um pacote montado pelo catálogo chegaria com o hinário e as estrofes sobre preto. **E a integração com a `main` cobrou um achado:** o `pptx-video-na-pagina.test.mjs` (v1.6.6) esperava pelo `currentId` e afirmava sobre o que vem DEPOIS dele — `send()` escreve aquele campo no COMEÇO e só emite o `load` no fim. MEDIDO: 2 reprovações em 8 rodadas a 3x de carga com este lote, 0 em 8 sem ele — a janela já existia, e o lote a alargou. A espera passou a ser pelo `load` daquele id, e a correção só pode reprovar MAIS: 0 em 10 rodadas depois dela. Lote **com Release** (`SHELL_VERSION` 63, `shellTag: "v1.7.0"`).
 - **v1.6.6** — OS TRÊS DEFEITOS DA AUTOMAÇÃO DO VÍDEO DE SLIDE, MAIS O PISCAR DA CAPA E O AUTOPLAY DA PRIMEIRA PÁGINA. Dois deles deles são o MESMO visto de dois lugares. Relato do operador: *"a importação funcionou, mas há um erro na automação, eu não consigo pular o vídeo. primeiro que o botão de próximo slide não reconhece o vídeo como uma página, logo ele não fica ativo para toque. segundo que qualquer tipo de tocar seguinte, faz com que a apresentação volte para o início"*. **A raiz é uma só:** com o vídeo em cena `currentItem` é o VÍDEO, então `deckNoAr()` devolve null, `slideTarget()` não acha eixo e o par de botões nasce DESABILITADO — mas para quem opera a cena continua sendo *"a página N da apresentação"*, porque o vídeo é o conteúdo daquela página e não um item à parte. `deckDoSlide`/`paginaDoSlide` respondem isso ao `slideTarget` e ao `renderSlideNav`, e `deckNoAr` fica INTOCADO de propósito: ele responde outra pergunta (*"que deck está no slot do motor?"*) e tem meia dúzia de consumidores que dependem dela. **O segundo é o mesmo defeito no `step()`:** o vídeo não está em lista nenhuma (é isso que o mantém fora do Cronograma), então o `findIndex` devolvia −1 e o `idx === -1` caía no PRIMEIRO item da fila — que num culto é a própria apresentação, e o que se via era ela voltando ao começo a cada toque. A âncora passa a ser a apresentação a que o vídeo pertence. **O TERCEIRO NÃO FOI RELATADO e é pior que os dois:** com o vídeo na ÚLTIMA página, `deckIr(pagina + 1)` é limitado ao fim, a volta pousa na MESMA página e a chegada redispara o vídeo — um laço que só um Parar quebra. `deckVideoVoltar` calcula o pouso ANTES de sair e suprime o gatilho SÓ quando ele é a página de origem; numa volta que anda de verdade a página seguinte com vídeo toca, que é o encadeamento pedido. **E O ORÁCULO TINHA DOIS DEFEITOS PRÓPRIOS, os dois achados pela disciplina da reversão.** O primeiro: o bloco novo montava a cena com um ÁUDIO no ar, e ali o `send` de uma apresentação a SOBREPÕE em vez de substituir (v1.4.28) — a automação não arma, e as asserções passavam medindo o caso da CAMADA. O segundo, o mais instrutivo: o "vídeo" da fixture era um WAV de 3 s, que ACABAVA sozinho no meio das asserções e fazia a automação disparar por conta própria — a prova de que o BOTÃO pulava o vídeo passava por CORRIDA, e a reversão do pulo não reprovava. Trinta segundos, e o fim só acontece quando o teste o pede. Cinco reversões nomeadas, todas reexecutadas. Lote **só de base web**.
@@ -348,6 +349,247 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.7.2 — a linha que sai, o botão que cancela, e o bloco que não encolhe
+
+Seis pedidos numa passada, e três deles são a **mesma regra vista em lugares
+diferentes**: uma peça que responde ao toque tem de responder pelo que ela é —
+um controle afunda, um bloco acende, e o que ilustra não decide.
+
+### 1 · A barra de progresso saiu da linha
+
+> *"O subtitulo com as informações ficou muito bom, mas a barra de progresso
+> ficou ruim, tire ela."*
+
+O que ele aprovou foi a metade que ACRESCENTOU informação — a fração por extenso
+na posição do subtítulo, que a v1.7.1 tirou de graça de uma legenda que já
+viajava. O trilho não acrescentava nenhuma: ele desenhava, num filete de 4px
+encostado na borda da coluna, o MESMO número que a frase ao lado dele diz. Numa
+lista de trinta linhas isso é peso visual por repetição.
+
+**O `pct` continua no registro e continua chegando.** Ele não ficou órfão: é o
+que a NOTIFICAÇÃO do sistema desenha (`bgTaskStep`), que é a única janela do
+trabalho com o app minimizado. A barra saiu da LINHA, não do app.
+
+A faixa continua sendo um nó PRÓPRIO e não o `.row-sub`, pela razão da v1.7.1 e
+não pela barra: `pintarFalha` e `pintarSubNoAr` escrevem no subtítulo, e um
+subtítulo que hospedasse o progresso teria dois donos.
+
+### 2 · O `⋮` cede a coluna ao trabalho em curso
+
+> *"Aproveite para por um botão, na mesma posição do botão de opções do item do
+> cronograma, para manter o design igual. A diferença é que esse botão só tem
+> uma função durante um preparo ou download. Esse botão cancela o processo e
+> apaga o item."*
+
+É o movimento que a v1.4.27 já fez para a exclusão e para a renomeação, agora
+para o trabalho: o `⋮` abre opções (excluir, renomear, favoritar, reordenar)
+para um item que ainda não existe ou que está sendo escrito neste instante, e o
+toque numa delas cai no meio do trabalho.
+
+**E ELE OBRIGOU A TORNAR CANCELÁVEIS as duas esperas que não sabiam parar.** Um
+botão que às vezes não está lá é pior que botão nenhum, e até aqui só o download
+tinha alça:
+
+- **a preparação de apresentação** — no `.pptx` o laço é nosso, e
+  `AVDeck.paginasDoPptx` passou a receber um predicado de desistência, lido a
+  cada página; no PDF quem rasteriza é o SHELL, e `deckPages` não tem
+  cancelamento — o que se cancela ali é o DESFECHO (nada é criado, e o `finally`
+  que já existia devolve as páginas ao lixo com `deckDiscard`). A linha sai na
+  hora nos dois casos, e o preço do segundo está dito: o shell termina de
+  desenhar para o lixo;
+- **a importação de arquivo** — um `AbortController` no `fetch` do `/saf/`, que
+  é o único ponto de parada que aquele caminho tem (é um `await` só, e a cópia
+  de um vídeo do aparelho passa de gigabytes).
+
+**O LIMITE DE "APAGA O ITEM" ESTÁ ESCRITO PORQUE É UMA DECISÃO.** O toque cancela
+o PROCESSO, e o item que só existe por causa dele some junto — a linha provisória
+é a mídia que estava sendo preparada. Um item que JÁ ESTAVA no Cronograma (o
+único caso é converter um link do YouTube em arquivo) FICA: ali o operador pediu
+para parar o download, não para perder o item que ele tinha, e apagá-lo seria
+destruir o que ninguém mandou destruir.
+
+O `.dl-cancel` de 34px, chapado, encostado na borda, virou um `.row-btn` — a
+caixa vem da mesma regra dos vizinhos (`--thumb` no Cronograma, `--hit` na fila)
+em vez de um número repetido. Duas caixas para a mesma ação na mesma coluna era
+a divergência que a v5.259 já tinha tirado desta lista uma vez.
+
+### 3 · A linha não volta ao estado inicial para sumir
+
+> *"verifique o processo de excluir itens dessas listas como o cronograma. Pois
+> ao tocar em excluir, na confirmação, o item se transforma ao seu estado inicial
+> sem os botões antes de desaparecer, isso causa extranhesa."*
+
+Ele descreveu a ORDEM exata. `fecharConfirmacaoNaLinha()` corria ANTES do
+`aoConfirmar`, e o comentário que a justificava falava do DOM — *"um redesenho
+com a faixa ainda montada deixaria o par pendurado num nó fora do documento"* —,
+um cuidado que não custa nada, porque `desfazer()` sobre um nó órfão é no-op. O
+que ele custava era a única coisa que se via: entre o toque e o redesenho (uma
+volta ao banco, não um quadro) a linha ficava igual a qualquer outra da lista, e
+só depois sumia sozinha.
+
+A ordem se inverte: **a linha SAI e só então o item é apagado.** A saída são
+200 ms de altura mais opacidade, na curva do acordeão, com uma `margin-bottom`
+negativa da medida do `gap` — as listas são colunas com `gap`, e uma linha de
+altura zero continua reservando o espaço até a de baixo. O `linha-sim` entrou em
+`ACOES_QUE_NAO_FECHAM` pelo motivo OPOSTO ao dos outros nomes de lá: eles ficam
+porque a conversa com o item continua; ele fica porque ela ACABOU.
+
+**E A INVERSÃO COBROU UM DEFEITO NOVO, achado pelo oráculo.**
+`fecharConfirmacaoNaLinha` fecha *a que estiver aberta* — e com o `aoConfirmar`
+rodando antes dela existe uma janela em que OUTRA pergunta já nasceu. MEDIDO
+pelo `boot-nativo`: a exclusão de um favorito fechava o campo de RENOMEAR aberto
+logo em seguida, e o campo simplesmente não aparecia. A guarda é a regra que o
+botão de cancelar do cartão da preview já segue — *ele sai com o DONO dele*.
+
+### 4 · A capa fica à vista na pergunta da exclusão
+
+> *"faça um pequeno ajuste durante a gaveta de confirmar exclusão: pode deixar
+> visivel a thumbnail do item durante essa confirmação. Ela tinha sido tirada
+> desse momento do layout, mas julguei melhor ter ela ali."*
+
+O argumento da v1.4.27 — *"dentro de um processo ela já não identificava coisa
+nenhuma"* — valia porque naquele desenho a capa VIRAVA UMA LIXEIRA, um desenho
+igual em toda linha. Com o símbolo morando na coluna do `⋮`, a capa volta a ser
+a capa: é ela que responde *"de qual item é esta pergunta?"* com a faixa cobrindo
+o nome.
+
+**E ela só sai na RENOMEAÇÃO**, que é o processo que precisa da largura (o campo
+ocupa a faixa inteira, e a capa mais o vão dela são ~96px). O par de rótulos
+Cancelar/Excluir cabe onde a fileira de botões cabia, então devolver a coluna não
+apertou nada — e é o PAR de asserções que diz a regra: sem a metade do renomear,
+"mostrar sempre" passaria.
+
+Uma linha NO AR mostra a capa também: o "Tirar do ar" cede o quadrado durante a
+pergunta, pela razão com que a v1.4.27 tirou o `⋮` dali — é uma TERCEIRA ação num
+momento que já tem duas.
+
+Com a capa de volta, o `.row-lixo` saiu e o caminho B da lixeira virou o mesmo do
+✓ do renomear (dentro da faixa). A exceção ficou nomeada: **a lixeira ILUSTRA e o
+✓ DECIDE**, então ela não entra numa faixa que não fala de UM item — limpar a
+playlist, limpar o histórico —, onde o par de rótulos divide a caixa ao meio
+desde a v5.309. Esta metade custou uma reprovação do `smoke` para aparecer.
+
+### 5 · As miniaturas dos favoritos pararam de piscar
+
+> *"Os itens da lista de favoritos, tem suas thumbnails piscando durante
+> processos de download na biblioteca e afins, veja se pode deixar isso mais
+> estável visualmente, sem piscar."*
+
+A causa é aritmética: a Biblioteca é redesenhada a cada 400 ms enquanto um
+download corre, e cada passada REVOGAVA as URLs do render anterior e criava
+outras para os MESMOS blobs. Uma `<img>` com `src` inédito não tem decodificação
+em cache — ela nasce vazia e pinta no quadro seguinte. Vezes três por segundo,
+em toda linha com capa.
+
+**A chave passou a ser o BLOB.** Mesmo blob, mesma URL: a `<img>` que o redesenho
+monta nasce com um `src` que o navegador já decodificou (mais `decoding="sync"`,
+que é a outra metade — com a decodificação assíncrona o elemento novo ainda
+esperava um quadro). O blob é o mesmo OBJETO entre um render e outro porque quem
+o segura são as listas em memória, e quem as relê é o `load()` — que é exatamente
+o momento em que a miniatura PODE mudar.
+
+**E a varredura passou a ser pela UNIÃO dos baldes**, não pela diferença: uma URL
+só morre quando nenhum host a desenha. Isso fecha POR CONSTRUÇÃO a classe de
+defeito que o balde por host existia para tratar (um host revogando o que o outro
+tem em cena). O `renderLibrary` passou a publicar o balde dele no `finally`, como
+a outra casa já fazia — publicá-lo ANTES do render deixaria a varredura ver este
+host vazio no meio da própria passada dele.
+
+**E ESCREVER O ORÁCULO ACHOU UM TERCEIRO BALDE QUE FALTAVA.** O corpo de uma
+PASTA DO APARELHO é montado por uma função ASSÍNCRONA (`filesByFolder`), isto é,
+DEPOIS de o `comBaldeDeMiniaturas('fav-biblioteca', …)` já ter devolvido o balde:
+sem um balde próprio, as capas daqueles arquivos caem num conjunto que nenhum
+host publica, e a varredura seguinte — que revoga o que ninguém desenha — as
+apaga da tela. É o modo de falhar exato do balde por host, com a chave a menos, e
+foi encontrado relendo o próprio diff. `'pasta-aberta'` é UMA chave e não uma por
+pasta: só há uma aberta por vez, então abrir outra substitui o balde e as capas
+da anterior são recolhidas — uma chave por id deixaria de pé, para sempre, os
+blobs de toda pasta já visitada.
+
+Oráculo novo: `tools/miniaturas-estaveis.test.mjs`, com as duas reversões
+nomeadas e reexecutadas.
+
+### 6 · O toque num bloco deixou de encolher
+
+> *"Ao abrir coleções e álbuns na biblioteca, assim com os favoritos… Há um
+> efeito de encolhimento que distorce os elementos, remova esse efeito, deixe
+> apenas um efeito de coloração/sombreamento ao toque sem encolhimento. Também
+> aproveite para verificar se está colorindo o corpo do card corretamente e não
+> apenas o arrangment/card do texto ou cabeçalho. Pois tem de considerar colorir
+> as zonas que formam o corpo real, com margens e bordas circulares."*
+
+As duas metades são o MESMO defeito visto de dois lados, e valiam em todo card
+ABERTO e em todo card DENTRO de uma seção — os casos que as regras da v1.5.17
+(`> X:not(.aberto)`) não alcançavam, e onde quem sobrava para responder era a
+BARRA:
+
+- **a barra é TRANSPARENTE.** `--press-luz` é um `filter`, e num elemento sem
+  fundo próprio ele acende só o TEXTO e os ícones — o *"corpo real, com margens e
+  bordas circulares"* ficava intocado. Era literalmente *"colorindo o arrangment
+  do texto"*;
+- **e ela DESLIZA dentro de um bloco parado.** `translateY(2px)` move o conteúdo
+  da tampa 2px para baixo enquanto a pílula em volta fica onde está: o que se vê
+  é a tampa escorregando e sendo recortada — a *"distorção"* do relato.
+
+**A REGRA QUE OS RESOLVE JÁ ESTAVA ESCRITA NA `.coll-bar` DESDE A v5.288** —
+*"`--press` é para CONTROLE FOLHA. Um contêiner que hospeda um controle nunca
+escala"* —, e a v1.3.14 a contrariou ao pôr as duas barras na lista do `--press`.
+Hoje ela vale por inteiro: **um CONTROLE responde por RECUO; um BLOCO responde
+por LUZ, e o bloco inteiro.** Vale para o card, para a seção e para a `.lib-item`
+(a linha de lista deste app, que é o outro contêiner que hospeda controles), em
+qualquer profundidade e nos dois estados.
+
+`:has(> tampa:active)` e não `:active` no bloco: com o card ABERTO o corpo dele é
+a lista inteira, e `:active` casa em ancestral — tocar uma faixa lá dentro
+acenderia o álbum todo. A pergunta é *"o dedo pousou na TAMPA?"*.
+
+**O `smoke.mjs` guardava a asserção OPOSTA**, e o comentário ao lado dela já
+dizia a regra certa desde a v1.3.14 (*"quem responde num BLOCO é a LUZ, não a
+geometria"*): as duas conviveram porque o recuo absoluto não abria a fresta que
+aquele caso mede. A metade que sobrevive — *o cartão RESPONDE de verdade* — é o
+que impede a correção de virar "o feedback sumiu".
+
+### 7 · A velocidade da cifra virou gaveta
+
+> *"ajuste também a forma de seleção da velocidade do scroll automático da seção
+> de cifras… faça com que o botão de velocidade abra uma gaveta, substituindo
+> seus botões vizinhos, pela lista de botões com as variações de velocidade,
+> dessa forma, permitindo escolher as velocidades sem passar por cada uma delas
+> em carrocel"*
+
+O ciclo era um preço, e ele estava escrito desde a v1.1.20: *"com CINCO degraus,
+dar a volta custa menos que um segundo botão"*. **A conta muda quando o alvo é
+ESPECÍFICO:** ir do `2×` ao `0,5×` custa um toque na gaveta e quatro no ciclo, e
+os três do meio ACONTECEM — a folha muda de ritmo em cada um deles, com a música
+no ar. Um carrossel faz o operador atravessar estados que ele não pediu, e este
+é um controle que se usa com o instrumento na mão.
+
+É **o mecanismo da faixa da linha, na fila da cifra**: a fila troca de CONTEÚDO,
+não de lugar. Nada é criado por cima da folha, nada a empurra, e a caixa fica com
+a mesma altura.
+
+**`display: contents` no invólucro** é o que dispensa uma segunda regra de
+layout: os cinco botões viram filhos DE FATO da fila e seguem a direção dela —
+LINHA no retrato, COLUNA em tela cheia — sem ninguém repetir o `flex-direction`
+que aquele modo já escreve. E, sendo o invólucro um nó do DOM ainda assim, o `>`
+das regras continua alcançando só os quatro botões originais.
+
+**O ⛶ FICA**, e é a única exceção à palavra "vizinhos" do pedido: a invariante do
+`lvBuildCifra` é *a fila da cifra sempre tem a saída*, e escondê-lo deixaria uma
+gaveta aberta em paisagem sem nenhuma saída à vista. Todo botão da gaveta a
+fecha — inclusive o do degrau já escolhido, que é o "cancelar" natural.
+
+O `fonte-so-do-par.test.mjs` ganhou um bloco próprio para eles: os cinco vestem
+`.lv-fonte-btn`, que é exatamente a classe pela qual o defeito da v1.6.1 passava,
+e a propriedade daquele arquivo (*só o par A+/A− escreve na escada da fonte*)
+vale para eles também — o que os separava do laço principal é nascerem
+escondidos.
+
+**Lote só de base web** — nada em `java/`, `res/` ou no manifesto, e nenhum
+método da ponte entrou ou mudou de forma. Sem `shellTag` e sem Release.
 
 ---
 
