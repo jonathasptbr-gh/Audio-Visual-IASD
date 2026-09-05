@@ -291,7 +291,7 @@ try {
       return {
         escondidos: ids.filter((id) => (document.getElementById(id) || {}).hidden !== false),
         // A ORDEM DENTRO DA GRADE, e não a existência: eles são a ÚLTIMA
-        // FILEIRA (v1.7.5) — as seis preferências da PROJEÇÃO em cima, o que se
+        // FILEIRA (v1.7.6) — as seis preferências da PROJEÇÃO em cima, o que se
         // faz com o APP fora dela embaixo. Ler a grade inteira é o que prova
         // que eles não voltaram a morar num bloco à parte.
         grade: grade ? [...grade.children].map((e) => e.id) : [],

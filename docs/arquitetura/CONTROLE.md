@@ -821,7 +821,7 @@ tocar três vezes — olhando para a folha, não para a projeção.
 - **A seta é INLINE, e não um símbolo do sprite** (v1.4.45). Arco de raio 6 em
   torno de (10,10), ocupando 4→16 — o canto inferior direito, de 16,4 a 21,5, é
   do ✕. A razão escrita então era *"o dia em que um dos dois mudar de forma o
-  outro não pode ir junto"*, e a v1.7.5 cobrou: o tile trocou a seta circular
+  outro não pode ir junto"*, e a v1.7.6 cobrou: o tile trocou a seta circular
   pelo QUADRO DE PAISAGEM e nada aqui teve de mudar. **A seta fica**, porque as
   duas peças respondem perguntas diferentes — o tile mostra o ESTADO (a paisagem
   na posição em que ela está) e este botão é a AÇÃO (*desfaça*), com o estado ao
@@ -1004,7 +1004,7 @@ altura. Hoje é uma **grade de três colunas** de tiles: **ícone e título curt
 e o toque **alterna** — o painel rápido de um celular. (A palavra do estado, que
 era uma segunda linha em cada tile, saiu na v1.7.2; ver a regra 2 abaixo.)
 
-**A ORDEM DA GRADE É POR ASSUNTO** (v1.7.5), e ela é a tabela abaixo, de cima
+**A ORDEM DA GRADE É POR ASSUNTO** (v1.7.6), e ela é a tabela abaixo, de cima
 para baixo: as **seis preferências da PROJEÇÃO**, e depois as **três coisas que
 se fazem com o APP fora dela**, numa fileira inteira e sozinha. Pedido do
 operador: *"reordene os botões: compartilhar, exportar e importar devem ser os
@@ -1031,7 +1031,7 @@ dizer o que a fileira já diz.
 | Importar | `#pacoteImportarTile` | `pronto` · `ocupado` | **sempre** | `#icoImportar` (idem) |
 
 **A COLUNA "ACESO" DIZ "SEMPRE" NAS NOVE LINHAS, e é assim que ela fica**
-(v1.7.5). Pedido do operador: *"todos os botões devem ter o mesmo azul de ativo,
+(v1.7.6). Pedido do operador: *"todos os botões devem ter o mesmo azul de ativo,
 não temos mais essa diferença, toda diferença de estado é pelo icone, não pela
 cor"*. A v1.4.40 acendeu os tiles sem "desligado" e deixou dois apagando (o
 fundo da letra e o giro); os dois já tinham o estado no DESENHO, então a luz era
@@ -1082,7 +1082,7 @@ As três regras do tile, escritas por inteiro no `index.html`:
    |---|---|---|
    | tema, preenchimento, fundo da letra | `Escuro`, `Ajustar`, `Mostrar` | o par de desenhos, que eles JÁ tinham |
    | wallpaper | `Padrão` · `Própria` | o par NOVO: o rolo vazio × o rolo cheio |
-   | girar | `0°` … `270°` | o próprio ícone, GIRADO pelo `data-estado` (e desde a v1.7.5 ele é um QUADRO DE PAISAGEM) |
+   | girar | `0°` … `270°` | o próprio ícone, GIRADO pelo `data-estado` (e desde a v1.7.6 ele é um QUADRO DE PAISAGEM) |
    | histórico, compartilhar | `Abrir`, `O app` | nada — eles não tinham estado |
    | exportar, importar | `42%` | o ARO no lugar do ícone; o NÚMERO voltou para o PRÓPRIO TÍTULO na v1.7.3 (ver abaixo) |
 
@@ -1091,7 +1091,7 @@ As três regras do tile, escritas por inteiro no `index.html`:
    que ele ganhou foi o MESMO desenho na posição que ele descreve, com
    `transition`: é vendo o ícone VIRAR sob o dedo que se lê o que o toque fez.
 
-   **E na v1.7.5 esse desenho passou a ser um QUADRO DE PAISAGEM**
+   **E na v1.7.6 esse desenho passou a ser um QUADRO DE PAISAGEM**
    (`#icoPaisagem`), a pedido: *"use um icone de picture, paisagem. O próprio
    quadro vai girar e vai ser mais intuitivo que um seta circular rodando, pois
    vai literalmente representar em qual posição está a paisagem"*. **O mecanismo
@@ -1145,13 +1145,13 @@ As três regras do tile, escritas por inteiro no `index.html`:
    módulo: `pacoteRenderTiles()` roda no topo do arquivo, na carga, e o
    `pintarTile` leria a constante antes da linha que a declara — zona morta
    temporal, e o app não abre.
-3. **A COR NÃO DIZ ESTADO NENHUM: TODO TILE É ACESO** (v1.7.5). `qs-on` é
+3. **A COR NÃO DIZ ESTADO NENHUM: TODO TILE É ACESO** (v1.7.6). `qs-on` é
    `--btn-accent` + `--accent`, a gramática de INTERRUPTOR LIGADO da paleta,
    nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS.
 
    A v1.4.38 lia o aceso como *"o estado não é o padrão"*; a v1.4.40 acendeu os
    tiles sem "desligado" e deixou DOIS apagando (o fundo da letra e o giro); e a
-   v1.7.5 encerrou a distinção, a pedido do operador: *"todos os botões devem
+   v1.7.6 encerrou a distinção, a pedido do operador: *"todos os botões devem
    ter o mesmo azul de ativo, não temos mais essa diferença, toda diferença de
    estado é pelo icone, não pela cor"*.
 
@@ -1180,7 +1180,7 @@ As três regras do tile, escritas por inteiro no `index.html`:
 
    (A v1.4.40 tinha INVERTIDO o aceso do **fundo da letra**, que marcava o
    estado fora do padrão e passou a marcar a função ligada. A inversão morreu
-   com a política na v1.7.5 — hoje ele é aceso nos dois estados, e quem responde
+   com a política na v1.7.6 — hoje ele é aceso nos dois estados, e quem responde
    é o par de desenhos que ele já tinha.)
 
 **Quem pinta é `pintarTile(el, estado, rotulo, aceso, alt)`, e é um ponto só** —
@@ -2699,6 +2699,57 @@ abaixo dela.
   noite.
 - **Guardadas: 12 sessões** (`HIST_SESSOES_MAX`). Um culto por sábado mais dois
   menores na semana dá cerca de um mês, que é o alcance da pergunta.
+
+#### O DIA É UM BLOCO, E A SUBLISTA TEM CORPO (v1.7.5)
+
+Relato do operador: *"ajuste os cards que separam os dias, para que tenham uma
+coloração diferente dos cards de itens exibidos naquela seção. Atualmente a
+lista está confusa, pois está difícil distinguir as sublistas"* — e, em seguida:
+*"caso ache mais correto, utilize o design de corpo e lista que já temos na
+biblioteca"*.
+
+**MEDIDO, e era literal:** o cabeçalho pintava `--camada` e a `.row` de cada
+linha pinta `--linha`, que dentro desta folha resolve para `--camada` também —
+`rgb(48, 66, 84)` no escuro e `rgb(212, 218, 226)` no claro, os DOIS. **1,00:1**,
+o mesmo número que a Biblioteca mediu na v1.5.14 entre a tampa de um álbum e as
+faixas dele.
+
+**A resposta é a de lá, inteira — e ela tem DUAS metades**, porque o degrau de
+tom sozinho não resolve o que o relato descreve: dois tons alternados numa lista
+PLANA continuam sendo uma corrida de irmãos.
+
+```
+#histList (.popup-list, papel da folha)
+  └ li.hist-sessao        ← o BLOCO do dia: pinta o POÇO
+      ├ .hist-sessao-bar  ← a barra (sem tom próprio; herda por transparência)
+      └ ul.hist-corpo     ← --camada: var(--panel)
+          └ li.row-item   ← a LINHA: pousa no PAPEL
+```
+
+- **A FILIAÇÃO.** As linhas de um dia moram DENTRO do bloco daquele dia; elas
+  eram irmãs do cabeçalho, e um cabeçalho sem corpo não tem como dizer onde a
+  sublista dele acaba. É a anatomia da `.coll-group` da Biblioteca, e o `<li>`
+  continua sendo da MESMA `<ul>` pela razão de sempre — a folha rola inteira, e
+  um cabeçalho fora dela ficaria parado sobre o conteúdo errado. Aninhar não
+  muda isso: muda só de quem cada linha é filha.
+- **A ALTERNÂNCIA.** Não se acrescenta um degrau: papel (a folha) → poço (o
+  bloco do dia) → papel (a linha). Quem RESERVA o tom é o contêiner — a
+  `.hist-corpo` declara `--camada: var(--panel)` e a `.row-item` a lê em
+  `--linha` —, nunca quem pinta. MEDIDO no par novo: **1,43:1** no escuro e
+  **1,35:1** no claro, os mesmos números da Biblioteca e pela mesma razão.
+- **O TEMA CLARO é quem fecha a conta:** nele `--panel` é BRANCO e todo o resto
+  se agrupa perto de L≈0,70, então o único tom que passa o piso de 1,28:1 contra
+  o poço é o próprio papel. Logo um dos dois tem de ser o papel, e a escolha sai
+  do que cada um É — o bloco do dia é a MOLDURA de um agrupamento, a linha é o
+  CONTEÚDO que pousa nela.
+- **A barra NÃO gruda** (a `.coll-group-bar` da Biblioteca é `sticky`): aqui não
+  há tampa de nível acima a que se colar, e um cabeçalho grudado num popup que
+  já rola inteiro flutuaria sobre a lista de OUTRO dia.
+
+Oráculo: `historico.test.mjs`, nas duas metades e nos dois temas, com as três
+reversões medidas — sem a camada reservada o passo cai a **1,08:1** (escuro) e
+**1,04:1** (claro); sem o poço do bloco, a **1,00:1**; e com a lista PLANA o
+arquivo reprova já na primeira leitura.
 
 #### A gravação sai do caminho quente
 

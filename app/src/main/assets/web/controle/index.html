@@ -434,7 +434,7 @@
       <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
       <path d="M6.4 4.5v15"/><path d="M17.6 4.5v15"/>
     </symbol>
-    <!-- O GIRO É UM QUADRO DE PAISAGEM (v1.7.5), e não mais a seta circular.
+    <!-- O GIRO É UM QUADRO DE PAISAGEM (v1.7.6), e não mais a seta circular.
          Pedido do operador: *"troque o icone dele, use um icone de picture,
          paisagem. O próprio quadro vai girar e vai ser mais intuitivo que um
          seta circular rodando, pois vai literalmente representar em qual
@@ -1227,7 +1227,7 @@
 
                  A SETA ENCOLHEU para o ✕ caber: arco de raio 6 em torno de
                  (10,10), ocupando 4→16 — o canto inferior direito, de 16,4 a
-                 21,5, é do ✕. Ela é INLINE e não um `<use>`, e a v1.7.5 cobrou
+                 21,5, é do ✕. Ela é INLINE e não um `<use>`, e a v1.7.6 cobrou
                  essa decisão: o tile de Configurações trocou a seta circular
                  pelo QUADRO de paisagem, e nada aqui teve de mudar. **A seta
                  fica**, porque as duas peças respondem perguntas diferentes — o
@@ -1657,7 +1657,7 @@
               estado não caiba num desenho não cabe nesta grade.** Não há mais
               onde escrever a palavra, e acrescentá-la de volta para um só
               devolve a segunda linha a todos (a grade tem altura comum).
-           3. **A COR NÃO DIZ ESTADO NENHUM** (v1.7.5). Todo tile é aceso, o
+           3. **A COR NÃO DIZ ESTADO NENHUM** (v1.7.6). Todo tile é aceso, o
               tempo todo: `qs-on` é `--btn-accent` + `--accent` (a gramática de
               INTERRUPTOR LIGADO da paleta, nunca o `--accent-fill` de ESCOLHA
               ENTRE ALTERNATIVAS — este é um botão que alterna, não um segmento
@@ -1746,7 +1746,7 @@
              Quem pinta cada tile é `pintarTile()` — o `data-estado` é escrito
              lá e é por ele que os oráculos perguntam, nunca pela classe.
 
-             A ORDEM É POR ASSUNTO (v1.7.5), e foi pedida: *"reordene os
+             A ORDEM É POR ASSUNTO (v1.7.6), e foi pedida: *"reordene os
              botões: compartilhar, exportar e importar devem ser os tres itens
              da base"*. As SEIS preferências da PROJEÇÃO em cima — tema,
              preenchimento, wallpaper, histórico, fundo da letra, girar —, e as
@@ -1855,7 +1855,7 @@
                O `qs-on` DELE ESTÁ NO HTML porque nenhuma função o pinta: ele
                não tem estado nenhum — abre uma folha e pronto. Os outros oito
                passam pelo `pintarTile`, que escreve a classe na carga (e desde
-               a v1.7.5 sempre a escreve: a grade tem uma cor só). -->
+               a v1.7.6 sempre a escreve: a grade tem uma cor só). -->
           <button type="button" class="qs-tile qs-on" id="histOpenRow" title="O que já foi ao telão">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoHistorico"/></svg>
             <span class="qs-titulo">Histórico</span>
@@ -1864,7 +1864,7 @@
                imagem de fundo baixada com ele. Removê-las deixa a letra sobre
                preto.
                QUEM DIZ O ESTADO É O DESENHO — imagem inteira × imagem riscada.
-               Ele foi o último tile a apagar junto com a função (v1.7.5): com o
+               Ele foi o último tile a apagar junto com a função (v1.7.6): com o
                par de desenhos à vista, a luz era a segunda cópia da mesma
                resposta, dita na tinta que este app reserva para INDISPONÍVEL. -->
           <button type="button" class="qs-tile" id="lyricsBgTile" title="Mostrar ou remover a imagem de fundo das estrofes">
@@ -1877,7 +1877,7 @@
                volta. Ninguém pensa em "270°", pensa em "gira mais uma vez até
                ficar de pé".
 
-               O ÍCONE GIRA COM A MÍDIA (v1.7.2), e desde a v1.7.5 ele é o
+               O ÍCONE GIRA COM A MÍDIA (v1.7.2), e desde a v1.7.6 ele é o
                QUADRO DE PAISAGEM. O rótulo dizia o ângulo e ele saiu com a
                palavra do estado; a resposta não é um desenho novo — a v1.4.38
                já tinha medido que quatro desenhos parecidos não se distinguem a
@@ -1885,7 +1885,7 @@
                chega pelo movimento: o quadro VIRA sob o dedo, que é o que o
                toque faz com o telão. Ver o `#icoPaisagem` no sprite.
 
-               ELE NÃO APAGA A 0°, como nenhum outro (v1.7.5). O apagado
+               ELE NÃO APAGA A 0°, como nenhum outro (v1.7.6). O apagado
                tentava dizer "no padrão" na única tinta que este app já usa para
                INDISPONÍVEL, e aqui era ainda mais barato perdê-lo: o ângulo já
                está no desenho, e o desfazer mora sobre a preview, com a
@@ -1917,7 +1917,7 @@
                SAF e o canal de bytes —, e um botão que só sabe não funcionar é
                pior que botão nenhum.
 
-               ELES SÃO A ÚLTIMA FILEIRA (v1.7.5), a pedido: *"reordene os
+               ELES SÃO A ÚLTIMA FILEIRA (v1.7.6), a pedido: *"reordene os
                botões: compartilhar, exportar e importar devem ser os tres itens
                da base"*. Eles estavam ANTES dos dois que então apagavam, pela
                ordem por natureza da v1.4.40 (primeiro os sempre acesos, depois
@@ -2041,7 +2041,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">Áudio Visual IASD v1.7.5</span>
+          <span id="appVersion" class="app-version">Áudio Visual IASD v1.7.6</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o

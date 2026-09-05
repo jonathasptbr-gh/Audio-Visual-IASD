@@ -267,7 +267,7 @@ try {
     + 'ao padrão na abertura seguinte',
     'state.fit: ' + JSON.stringify(grade.guardado));
 
-  // ---- A GRADE TEM UMA COR SÓ, E O ESTADO MORA NO DESENHO (v1.7.5) ----
+  // ---- A GRADE TEM UMA COR SÓ, E O ESTADO MORA NO DESENHO (v1.7.6) ----
   // Pedido do operador: *"todos os botões devem ter o mesmo azul de ativo, não
   // temos mais essa diferença, toda diferença de estado é pelo icone, não pela
   // cor"*. Apagado, no vocabulário deste app, quer dizer INDISPONÍVEL — é a
@@ -317,7 +317,7 @@ try {
     'o FUNDO DA LETRA alterna o estado — ele TEM desligado',
     JSON.stringify([liga.antes.estado, liga.depois.estado]));
   checar(liga.antes.aceso && liga.depois.aceso && liga.antes.cor === liga.depois.cor,
-    'e mesmo assim NÃO APAGA (v1.7.5): a cor RENDERIZADA é a mesma nos dois '
+    'e mesmo assim NÃO APAGA (v1.7.6): a cor RENDERIZADA é a mesma nos dois '
     + 'estados — era o último tile a gastar a tinta do indisponível para dizer '
     + '"você está no padrão"',
     JSON.stringify([liga.antes.cor, liga.depois.cor]));
@@ -340,7 +340,7 @@ try {
     'e o GIRO acende A 0° — o estado em que ele era o único apagado da grade',
     JSON.stringify(giro));
 
-  // ---- E A ORDEM É POR ASSUNTO: a projeção em cima, o app na base (v1.7.5) ----
+  // ---- E A ORDEM É POR ASSUNTO: a projeção em cima, o app na base (v1.7.6) ----
   // *"reordene os botões: compartilhar, exportar e importar devem ser os tres
   // itens da base"*. A asserção é sobre a ORDEM DO DOCUMENTO, que numa grade
   // row-major é a ordem que se lê — e não sobre a posição em pixels, que

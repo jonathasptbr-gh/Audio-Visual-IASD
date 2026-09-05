@@ -225,7 +225,7 @@ checar(!!bloco && [...pedidos.values()].some((v) => v.some((o) => o.startsWith('
   'e a tabela ICON do controle.js também foi lida');
 
 // ============================================================================
-// A OUTRA FONTE DE ÍCONE DO BUNDLE: O SPRITE (v1.7.5)
+// A OUTRA FONTE DE ÍCONE DO BUNDLE: O SPRITE (v1.7.6)
 //
 // O `.msym` é metade do desenho deste app; a outra é o sprite `<symbol id="ico…">`
 // do `controle/index.html`, consumido por `<use href="#ico…">`. **O modo de
@@ -234,7 +234,7 @@ checar(!!bloco && [...pedidos.values()].some((v) => v.some((o) => o.startsWith('
 // requisição falhando —, e o botão continua existindo, tocável, fazendo o que
 // promete e invisível.
 //
-// A operação que o produz é a RENOMEAÇÃO, e ela acabou de acontecer: a v1.7.5
+// A operação que o produz é a RENOMEAÇÃO, e ela acabou de acontecer: a v1.7.6
 // trocou o `#icoGirar` do tile do giro pelo `#icoPaisagem`. Um `<use>` esquecido
 // ali sai no bundle do OTA e chega à frota.
 //
