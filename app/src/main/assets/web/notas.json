@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.8",
+    "itens": [
+      "Correção do app que impedia a versão anterior de ser publicada."
+    ]
+  },
+  {
     "versao": "1.8.7",
     "itens": [
       "Ajustes internos de verificação — nada muda na tela."

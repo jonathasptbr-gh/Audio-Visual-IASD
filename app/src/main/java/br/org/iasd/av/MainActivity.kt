@@ -2267,8 +2267,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // isto é, alguma coisa aqui passou de 60 s. Sem o número não há como
         // separar "o connect estourou os 8 s" de "ficou preso muito além do que
         // estes timeouts prometem", e as duas pedem consertos opostos.
-        val comecou = SystemClock.elapsedRealtime()
-        fun quanto() = " após " + ((SystemClock.elapsedRealtime() - comecou) / 1000.0) + "s"
+        val comecou = android.os.SystemClock.elapsedRealtime()
+        fun quanto() =
+            " após " + ((android.os.SystemClock.elapsedRealtime() - comecou) / 1000.0) + "s"
         return try {
             val corpo = JSONObject()
                 .put("rotulo", rotulo.ifBlank { nomeDesteAparelho() })
