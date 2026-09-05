@@ -926,7 +926,11 @@
   // O que fica da janela é o FECHO — a folha termina antes do fim da música —, e
   // ele sobrevive por construção: percorrer `rolavel` em `t1 - t0` segundos põe
   // a última linha na tela no instante `t1`, que é o que o fecho sempre quis
-  // dizer. **A ABERTURA sai**, e sai porque perdeu o referente: ela era "a
+  // dizer. **NO APP ELA CHEGA EM `t1 + atraso`**, e sempre chegou desde a
+  // v1.5.20: a rampa de arranque (antes, a espera parada) custa até 8 s, e o
+  // fecho reserva de 8 a 25. Esta função é o CONTRATO da janela; o desconto de
+  // quem começa devagar mora na `rampaInicialDaRolagem` e é MEDIDO lá.
+  // **A ABERTURA sai**, e sai porque perdeu o referente: ela era "a
   // música ACABOU de começar", e não há mais começo nenhum — a origem é onde o
   // scroll está.
   //
@@ -949,40 +953,109 @@
     return px / util;
   }
 
-  // ===== A ESPERA INICIAL: ler antes de rolar (v1.5.20) =====
+  // ===== A RAMPA DE ARRANQUE: começar devagar, nunca parado (v1.6.2) =====
   //
-  // Pedido do operador: *"o sistema de rolagem automática de cifra não está
-  // sendo parado no início para permitir ler e executar a introdução da
-  // música durante um instrumental… o objetivo não é ter a linha a ser lida
-  // no topo, mas no centro. Desse modo, o sistema deve esperar o usuário 'ler
-  // até chegar no ponto médio' antes de se preocupar em mover
-  // automaticamente."*
+  // **Isto REVOGA a espera parada da v1.5.20.** Pedido do operador: *"ao invés
+  // de ficar parado esperando para se mover, faça com que haja nesse início,
+  // uma velocidade extremamente lenta por um tempo, mas ainda perceptível, para
+  // que o usuário entenda que começou, mas que no fim das contas, o texto
+  // inicial onde fica a introdução da música, fique realmente visível por um
+  // bom tempo."*
   //
-  // A folha abre com a primeira linha no TOPO da caixa visível, e quem lê
-  // olha até o MEIO dela antes de precisar que algo desça. `altura / 2`
-  // dividido pelo ritmo (`pxPorS`) já escolhido é quanto tempo esse trecho
-  // leva para ser lido no compasso que a folha vai seguir — não é um número
-  // à parte, é o MESMO ritmo aplicado ao pedaço que ainda não rolou. Piso e
-  // teto em SEGUNDOS pelo mesmo motivo de `ABERTURA`/`FECHO`: sem piso uma
-  // caixa baixa ou um ritmo rápido dariam uma espera imperceptível; sem teto
-  // uma caixa alta ou um ritmo lento prenderiam a folha por tempo demais
-  // antes de o operador entender que ela vai se mexer.
-  const ESPERA_INICIAL = { min: 2, max: 8 };
+  // As três exigências, e a terceira é a que amarra as outras duas:
+  //
+  //  1. NADA DE PARADO — o movimento é que diz "começou";
+  //  2. EXTREMAMENTE LENTO, MAS PERCEPTÍVEL;
+  //  3. e a INTRODUÇÃO visível por um bom tempo, "no fim das contas".
+  //
+  // ## A DURAÇÃO SAI DA (3), e por isso ela é a fórmula de ontem
+  //
+  // Uma rampa de duração `T` deixa a folha PERMANENTEMENTE `T·k` segundos atrás
+  // de onde estaria a ritmo cheio (`k` é a fatia de percurso de que ela abre mão
+  // por segundo); uma parada de `E` segundos deixa `E`. Fazendo `T·k = E`, **todo
+  // marco além da rampa é atingido no MESMO instante de relógio de hoje** — a
+  // introdução fica visível exatamente o tanto que ficava, que é a (3) lida ao pé
+  // da letra. MEDIDO (caixa 533px, 22 px/s): a introdução de quatro linhas sai da
+  // tela aos 13,12 s nos dois desenhos, meia caixa aos 20,11 s nos dois, a caixa
+  // inteira aos 32,23 s nos dois. O que muda é a primeira linha cruzar a borda:
+  // 6,26 s contra 9,28 s da espera parada, e contra 1,28 s de um arranque nu.
+  //
+  // E a rampa NUNCA fica atrás da espera que ela substitui: as duas posições
+  // coincidem em `t = T` e a da rampa é maior antes disso (a outra é zero até
+  // `E`). Nenhum ponto da folha chega mais tarde do que chegava.
+  //
+  // Daí `LEITURA` ser o par de ontem, com os mesmos números e o mesmo argumento
+  // — só que agora ele trava o ATRASO, e não a imobilidade. Ler da primeira
+  // linha até o MEIO da caixa, no compasso que a folha vai seguir.
+  const LEITURA = { min: 2, max: 8 };
+
+  // O PISO É ABSOLUTO E NÃO UMA FRAÇÃO, e é a (2) que o obriga: 15% do `auto` de
+  // uma folha de 2000px numa música de 4 min dariam 1,08 px/s — 1px a cada 0,92
+  // s, que ninguém vê. 4 px/s são 36% dos 11 px/s do degrau mais lento da escada,
+  // que este app já entrega como velocidade de leitura: 1 px a cada 0,25 s, um
+  // terço de linha em 2,35 s, e 8px (28% de uma linha) em 2 s contra a borda FIXA
+  // do topo da caixa. Ele é o MESMO em todo degrau, porque `v(0) = piso` não
+  // depende de V.
+  //
+  // O EXPOENTE É 3, e a régua que o escolhe é quanto da folha a rampa consome.
+  // MEDIDO, para V de 5 a 60 px/s: a cúbica fica entre 0,18 e 0,26 da caixa (3,4
+  // a 4,8 linhas) em TODO o intervalo — a introdução, e nada além dela —,
+  // enquanto a linear vai a 0,63 (11,4 linhas) no degrau `2×`, isto é, mais de
+  // meia tela embora ANTES de a rampa acabar. A quártica cobre menos, mas roda
+  // 58% a 89% do tempo abaixo de 6 px/s: é a espera de volta com outro nome.
+  //
+  // O TETO existe só para o degenerado: `T → ∞` quando V se aproxima do piso (a
+  // 4,5 px/s ele pede 96 s). Em 25 s ele NÃO age em nenhum degrau da escada (o
+  // mais lento é 11 px/s) e só alcança um `auto` abaixo de 7 px/s, onde a folha
+  // já rasteja e 4 contra 7 px/s é a mesma coisa aos olhos. **Onde ele age o
+  // atraso ENCOLHE, nunca cresce** (MEDIDO: 3,75 s a 5 px/s, contra os 8 de
+  // ontem), e é essa monotonia que o torna uma segurança e não uma regressão.
+  const RAMPA = { piso: 4, expoente: 3, tetoS: 25 };
 
   /**
-   * Quantos MILISSEGUNDOS esperar, parado, antes de começar a mover a folha.
+   * Quantos MILISSEGUNDOS dura a rampa de arranque.
    *
-   * Zero quando não há o que rolar (`rolavel <= 0`, a rolagem nem vai
-   * acontecer) ou quando `pxPorS` é inválido — nos dois casos não há
-   * pergunta "quanto tempo até o meio?" para responder.
+   * `0` é RESPOSTA e não falha, em três desfechos: sem altura, sem `pxPorS`
+   * válido, e — o caso próprio desta função — quando o ritmo cheio JÁ é igual ou
+   * menor que o piso do arranque. Ali não há de onde acelerar, e a folha começa
+   * no ritmo dela, que já é o "extremamente lento" do pedido.
    */
-  function esperaInicialDaRolagem(altura, pxPorS) {
+  function rampaInicialDaRolagem(altura, pxPorS) {
     const h = Number(altura) || 0;
-    const ritmo = Number(pxPorS) || 0;
-    if (!(h > 0) || !(ritmo > 0)) return 0;
-    const segundos = (h / 2) / ritmo;
-    const trava = Math.min(ESPERA_INICIAL.max, Math.max(ESPERA_INICIAL.min, segundos));
-    return Math.round(trava * 1000);
+    const V = Number(pxPorS) || 0;
+    if (!(h > 0) || !(V > 0)) return 0;
+    const v0 = Math.min(V, RAMPA.piso);
+    const n = RAMPA.expoente;
+    // A FATIA DE PERCURSO DE QUE A RAMPA ABRE MÃO, por segundo de rampa. É ela
+    // que amarra a duração à espera que a rampa substitui: `T · k` é o atraso
+    // permanente, e é ele que se iguala ao tempo de leitura.
+    const k = (1 - v0 / V) * (n / (n + 1));
+    if (!(k > 0)) return 0;
+    const leitura = Math.min(LEITURA.max, Math.max(LEITURA.min, (h / 2) / V));
+    return Math.round(Math.min(RAMPA.tetoS, leitura / k) * 1000);
+  }
+
+  /**
+   * O px/s DESTE instante da rampa — e exatamente `pxPorS` passada ela.
+   *
+   * Em px/s e não num FATOR, por três razões: só quem recebe `pxPorS` pode
+   * aplicar um piso ABSOLUTO; um fator teria de devolver >1 quando o ritmo cheio
+   * é menor que o piso, e "mais rápido que o cheio" é a única coisa que uma
+   * rampa não pode fazer; e o ponto de uso já produz um px/s, então a rampa é a
+   * troca de um `Number` por outro, não uma segunda unidade multiplicando a
+   * primeira. A IDENTIDADE fica provável: `ritmoDaRampa(T, T, V) === V`.
+   *
+   * `rampaMs <= 0` (inclusive o sentinel `-1` de "ainda não armada") devolve o
+   * ritmo cheio: a rampa é o COMEÇO, não um modo.
+   */
+  function ritmoDaRampa(decorridoMs, rampaMs, pxPorS) {
+    const V = Number(pxPorS) || 0;
+    const T = Number(rampaMs) || 0;
+    const t = Number(decorridoMs) || 0;
+    if (!(V > 0)) return 0;
+    if (!(T > 0) || t >= T) return V;
+    const v0 = Math.min(V, RAMPA.piso);
+    return v0 + (V - v0) * Math.pow(Math.max(0, t) / T, RAMPA.expoente);
   }
 
   // ===== A RADIOGRAFIA: o que a PÁGINA parecia (v1.1.24) =====
@@ -1053,6 +1126,7 @@
     lerFolha, lerPagina, lerBusca, somenteLetra, varianteSemCifra,
     ordenarBusca, parentesco, ehCaminhoDeMusica, radiografia,
     quebrarPares, pontoDeQuebra,
-    janelaDeRolagem, fracaoDaRolagem, ritmoDaRolagem, esperaInicialDaRolagem,
+    janelaDeRolagem, fracaoDaRolagem, ritmoDaRolagem,
+    rampaInicialDaRolagem, ritmoDaRampa,
   };
 })(this);

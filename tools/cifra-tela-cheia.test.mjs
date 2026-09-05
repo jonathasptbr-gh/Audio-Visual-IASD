@@ -58,10 +58,24 @@
 //    e construída depois deles a barra some — sobra uma paisagem deitada com
 //    uma frase de erro e nenhuma saída à vista.
 //
-// E A ESPERA INICIAL DEIXOU DE TER ANEL: o `.dl-ring` virou uma NOTA na barra,
-// que aqui é SUPRIMIDA (numa trilha de 66px a frase viraria oito linhas). O que
-// este arquivo afirma dela é a ausência DESENHADA, com o `flex-wrap: nowrap`
-// ao lado — numa coluna o wrap não quebra linha, ele abre uma segunda coluna.
+// E O ARRANQUE DA ROLAGEM NÃO TEM LEGENDA AQUI: o `.dl-ring` da v1.5.20 virou
+// uma NOTA na barra (v1.6.1), e ela é SUPRIMIDA em tela cheia — numa trilha de
+// 66px a frase vira oito linhas. **A SUPRESSÃO SOBREVIVEU À v1.6.2**: a espera
+// parada virou uma RAMPA e a nota trocou de fato junto (ela explica a lentidão,
+// não mais a imobilidade), mas a aritmética que a tira daqui é a mesma — e o que
+// se perde encolheu, porque agora a folha JÁ SE MEXE, que é mais do que a
+// legenda dizia. O que este arquivo afirma dela é a ausência DESENHADA, com o
+// `flex-wrap: nowrap` ao lado — numa coluna o wrap não quebra linha, ele abre
+// uma segunda coluna.
+//
+// ## O BOTÃO DE VELOCIDADE FICOU QUADRADO (v1.6.2)
+//
+// *"diminua a fonte do botão de 1x para que ele seja um botão exatamente do
+// mesmo tamanho e quadrado como os seus vizinhos"*. O retrato é medido no
+// `cifra-rolagem.test.mjs`, que já percorre a escada inteira com `click()`;
+// aqui a promessa é reafirmada na COLUNA DEITADA, que é outro contexto de
+// layout (`flex-direction: column`) e o modo em que a folha é lida de longe.
+// Ver o bloco 6-B — inclusive para o palpite ERRADO de qual regra a sustenta.
 //
 //   node tools/cifra-tela-cheia.test.mjs
 // ============================================================================
@@ -368,8 +382,28 @@ try {
       return el ? el.getBoundingClientRect().top : -1;
     };
     const nota = lyricsPopupEl.querySelector('.lv-cifra-nota');
+    // ===== A CAIXA DO BOTÃO DE VELOCIDADE, NA COLUNA DEITADA (v1.6.2) =====
+    //
+    // Percorrida com `click()`, como no retrato: a promessa é sobre o CICLO, e
+    // um botão medido parado prova só o rótulo que calhou de estar em cena.
+    const velBtn = lyricsPopupEl.querySelector('.lv-cifra-vel');
+    const velCaixas = [];
+    for (let i = 0; i < CIFRA_VELOCIDADES.length; i++) {
+      const b = velBtn.getBoundingClientRect();
+      velCaixas.push({
+        rotulo: velBtn.textContent.trim(),
+        w: +b.width.toFixed(2), h: +b.height.toFixed(2),
+        sw: velBtn.scrollWidth, cw: velBtn.clientWidth,
+      });
+      velBtn.click();
+    }
     return {
       ausentes, fora, meiosTons, icoW,
+      hit: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')),
+      velCaixas,
+      trilha: +lyricsViewBarEl.getBoundingClientRect().width.toFixed(2),
+      velIrmao: +lyricsPopupEl.querySelector('.lv-fonte-mais')
+        .getBoundingClientRect().width.toFixed(2),
       saidaY: cx('#cifraCheiaBtn'), maisY: cx('.lv-fonte-mais'),
       transporY: [...lyricsPopupEl.querySelectorAll('.lv-cifra-ctl .lv-fonte-btn')]
         .filter((b) => b.textContent.trim() === '+½')
@@ -403,11 +437,62 @@ try {
   // frase viraria oito linhas roubando o lugar dos controles que este modo
   // existe para oferecer. `display: none` e não `visibility: hidden`: a coluna
   // é `space-between`, e um filho invisível MAS PRESENTE seria distribuído.
+  //
+  // A CONTA NÃO MUDOU COM A v1.6.2, e é por isso que a asserção fica: a nota
+  // sobreviveu à rampa trocando de FATO (explica a lentidão, não a imobilidade)
+  // e a frase mais longa foi de 63 para 65 caracteres — as mesmas ~8 linhas na
+  // trilha. O que mudou é o preço: aqui já não se perde a explicação de uma
+  // folha PARADA, se perde a de uma folha que anda devagar, e o toque continua
+  // reconhecido pelo glifo do pause mais a folha se mexendo.
+  //
   // REVERSÃO: tirar `.lv-cifra-nota` da lista de supressão do bloco
   // `:fullscreen` a devolve à coluna, com altura medível.
   checar(controles.notaDisplay === 'none' && controles.notaAltura === 0,
     'e a mensagem da barra NÃO é desenhada em tela cheia: numa trilha de 66px '
     + 'ela viraria oito linhas de oito caracteres', controles);
+  // ── 6-B. O BOTÃO DE VELOCIDADE É QUADRADO TAMBÉM DEITADO (v1.6.2) ───────
+  //
+  // Pedido do operador: *"diminua a fonte do botão de 1x para que ele seja um
+  // botão exatamente do mesmo tamanho e quadrado como os seus vizinhos"*.
+  //
+  // A MEDIÇÃO SE REPETE AQUI porque a trilha deitada é `flex-direction: column`,
+  // e numa coluna flex quem decide a largura de um filho não é a mesma coisa que
+  // no retrato — uma regra escrita só para a fila horizontal pode não alcançar a
+  // vertical, e este é o modo em que a folha é lida de longe.
+  //
+  // A régua é `--hit`, o que o DESENHO reserva, e não uma fração da trilha: a
+  // trilha é medida ao lado só para o `obtido` dizer de quanto era a folga.
+  //
+  // REVERSÃO NOMEADA: devolver `width: auto; min-width: calc(var(--hit) + 1.2rem)`
+  // ao `.lv-cifra-vel` reprova a primeira aqui também — a caixa vai a 53,19px
+  // dentro da trilha, e o `align-items: center` do bloco `:fullscreen` a segura
+  // ali em vez de esticá-la.
+  //
+  // E O QUE **NÃO** É A REVERSÃO, dito porque é o palpite óbvio e ele está
+  // ERRADO: tirar `align-items: center` daquele bloco não muda nada. MEDIDO com
+  // a folha deitada, os cinco filhos e a `.lv-cifra-ctl` medem 34,00px com
+  // `center` E com `stretch` — `stretch` só age sobre um filho de largura
+  // `auto`, e desde a v1.6.2 os cinco herdam o `width: var(--hit)` do
+  // `.lv-fonte-btn`. Aquela linha ficou INERTE neste lote (era o
+  // `.lv-cifra-vel` de largura automática que ela existia para segurar), e é a
+  // largura explícita que sustenta esta asserção hoje.
+  const velFora = controles.velCaixas.filter(
+    (c) => Math.abs(c.w - controles.hit) > 0.5 || Math.abs(c.h - controles.hit) > 0.5);
+  checar(controles.hit > 0 && velFora.length === 0,
+    'o botão de velocidade é QUADRADO e mede `--hit` na COLUNA DEITADA, em todo '
+    + 'degrau da escada — a largura não depende do rótulo em cena nem da '
+    + 'orientação', { hit: controles.hit, trilha: controles.trilha, fora: velFora });
+  checar(Math.abs(controles.velIrmao - controles.hit) < 0.5,
+    'e ele mede o MESMO que o A+ ao lado: uma coluna com um botão mais largo que '
+    + 'os outros é o que o pedido nomeia',
+    { vel: controles.velCaixas[0], irmao: controles.velIrmao });
+  const velEstourando = controles.velCaixas.filter((c) => c.sw > c.cw);
+  checar(velEstourando.length === 0,
+    'e o rótulo CABE nele aqui também — com `width` fixo, um rótulo grande '
+    + 'demais transbordaria por fora sem mexer na caixa nem na trilha',
+    velEstourando.length ? velEstourando
+      : controles.velCaixas.map((c) => c.rotulo + ' ' + c.sw + '/' + c.cw).join(' · '));
+
   // E O WRAP DO RETRATO É DESFEITO: numa COLUNA o `flex-wrap` não quebra linha,
   // ele abre uma SEGUNDA COLUNA dentro da trilha — e faria isso calado no dia
   // em que um sexto controle não coubesse.
@@ -583,20 +668,23 @@ try {
   // não do topo: com a leitura no zero, "voltou ao topo" e "sobreviveu" são o
   // MESMO resultado, e o oráculo aprovaria o defeito.
   const rolagem = await pg.evaluate(async () => {
-    // O degrau mais rápido da escada, só para encurtar a espera — `2×` desde a
+    // O degrau mais rápido da escada, só para encurtar a rampa — `2×` desde a
     // v1.6.1 (o `3×` saiu a pedido do operador). E o número IMPORTA: um degrau
     // FORA da escada cai no `CIFRA_VEL_PADRAO` pelo `indexOf`, que é o sentinela
     // `'auto'`, e a linha abaixo calcularia `CIFRA_PX_POR_S * 'auto'` = `NaN`;
-    // `esperaInicialDaRolagem` devolve 0 diante disso e o oráculo mediria a
-    // folha antes de ela poder andar.
+    // `rampaInicialDaRolagem` devolve 0 diante disso e o oráculo mediria a folha
+    // ainda no arranque de 4 px/s, longe do compasso que ela vai seguir.
     cifraAdotarVelocidade(2);
     midiaNoAr = false;
     const el = lyricsViewBodyEl;
     el.scrollTop = (el.scrollHeight - el.clientHeight) * 0.4;
     const pxPorS = CIFRA_PX_POR_S * CIFRA_VELOCIDADES[cifraVelIdx];
-    const esperaMs = AVCifra.esperaInicialDaRolagem(el.clientHeight, pxPorS);
+    // A RAMPA DE ARRANQUE (v1.6.2) no lugar da espera parada: o número continua
+    // saindo da função pura do app, e o que ele passou a significar é o TRECHO
+    // em que a folha anda devagar, não o instante em que ela começa a andar.
+    const rampaMs = AVCifra.rampaInicialDaRolagem(el.clientHeight, pxPorS);
     cifraRolarAlternar();
-    await new Promise((r) => setTimeout(r, esperaMs + 700));
+    await new Promise((r) => setTimeout(r, rampaMs + 700));
     const rolavel = el.scrollHeight - el.clientHeight;
     return { fracao: rolavel > 0 ? el.scrollTop / rolavel : 0, rolando: cifraRolando };
   });
