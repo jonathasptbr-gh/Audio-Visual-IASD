@@ -5070,18 +5070,22 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.7 · APK v1.8.5** · `SHELL_VERSION` **65** ·
-bundle com `minShell: 65` e **`shellTag: v1.8.6`** — o shell 65 é o **PISO**:
+**Versão atual: base web v1.8.8 · APK v1.8.8** · `SHELL_VERSION` **65** ·
+bundle com `minShell: 65` e **`shellTag: v1.8.8`** — o shell 65 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
-**ESTE LOTE NÃO TOCA NO APP — mas o `shellTag` FICA, e essa é a decisão.** O que
-mudou aqui são ORÁCULOS (`tools/`), que não entram no bundle. Só que o bundle
-carrega TAMBÉM a metade web da v1.8.6, cujo conserto é `MainActivity.kt`: a
-Release `v1.8.6` ainda não existe (conferido na API), e o `shellTag` é o que
-segura a publicação até ela sair. **Tirá-lo aqui atropelaria a retenção do outro
-lote** — o bundle sairia com a metade web de um conserto cuja metade nativa não
-está em aparelho nenhum, que é exatamente o desfecho silencioso que o `shellTag`
-existe para impedir.
+> **UM `apk` REPROVADO NÃO PULA O `web-ota` — QUEM SEGURA É O HOLD.** A
+> confusão é fácil e custou um lote inteiro de raciocínio errado: o `web-ota`
+> tem `needs: [verificar, apk]`, mas o `if:` dele é `!cancelled() &&
+> needs.verificar.result == 'success'` — **o resultado do `apk` é
+> deliberadamente ignorado**, e o `needs` está lá pela ORDEM (o passo que
+> consulta a Release precisa rodar depois de quem a publica). O job RODA com o
+> `apk` vermelho. O que impede a publicação é o HOLD do `shellTag`, cuja
+> Release o build que falhou não chegou a criar — e por isso o desfecho é um
+> job VERDE que não publicou, com o motivo no resumo do run. Foi assim com a
+> v1.8.6. A conclusão prática continua a mesma (**um lote que toca `java/`
+> confere o `apk`**); o mecanismo é este, e está escrito no comentário do
+> próprio `web-ota`, vinte linhas acima do `if:`.
 
 > **O LOTE ANTERIOR (v1.8.0) PEDIU RELEASE**, e a razão fica registrada porque
 > ela é o caso normal: a ponte ganhou OITO métodos e o shell três arquivos
@@ -5091,13 +5095,24 @@ existe para impedir.
 > resolveria `null`, e o que o operador teria seriam dois botões tocáveis que
 > não fazem nada.
 
-**O QUE O LOTE TRAZ — um oráculo que media o runner, e o canal OTA calado:**
+**O QUE O LOTE TRAZ — um símbolo sem import, e o oráculo que passou a cobrá-lo:**
 
 | peça | onde |
 |---|---|
+| todo símbolo do Kotlin tem de onde vir | `tools/kotlin-simbolo-importado.test.mjs` |
+| o `import` que faltava | `MainActivity.kt` (`android.os.SystemClock`) |
 | o relógio da página CONGELADO antes de a página nascer | `tools/abertura-e-transferencia.test.mjs`, bloco A3 |
 
-> **O `verificar` REPROVOU E O `web-ota` FOI PULADO** (v1.8.7) — o bundle da
+> **UM SÍMBOLO SEM IMPORT DERRUBOU A MAIN** (v1.8.8). O `MainActivity.kt` da
+> v1.8.6 usou `SystemClock.elapsedRealtime()` sem `import android.os.SystemClock`:
+> o Kotlin não compilou, a Release não nasceu, e o HOLD do `shellTag` segurou o
+> bundle — levando junto o lote SEGUINTE, de outra sessão, que não tinha nada
+> com aquilo. **Ninguém compila Kotlin fora do CI** (o `./gradlew` exige o
+> Android SDK) e a suíte inteira é de JavaScript, então o primeiro sinal era o
+> build falhando DEPOIS do merge. O oráculo novo responde a única pergunta que
+> dá para responder sem compilador: *este nome tem de onde vir?*
+
+> **O `verificar` REPROVOU E O `web-ota` NÃO PUBLICOU** (v1.8.7) — o bundle da
 > v1.8.4 não chegou a aparelho nenhum. É o modo de falhar que este arquivo já
 > nomeia (*"o `verificar` é `needs` do `web-ota`"*) acontecendo.
 >
