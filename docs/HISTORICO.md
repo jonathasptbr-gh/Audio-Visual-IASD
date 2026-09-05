@@ -24,6 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.8.9** — O CLONE NUNCA PAREOU, E POR DUAS RAZÕES INDEPENDENTES. `cloneMeuRotulo()` era CHAMADA e nunca foi DEFINIDA, desde a v1.8.0: o `ReferenceError` síncrono caía no `catch` do `clonePedirPar` e virava o MESMO `null` que a ponte devolve ao vencer o prazo — e a frase que saía mandava investigar a rede. Nada o pegava: `node --check` aprova (a sintaxe está certa) e o `sombra.test.mjs` procura redeclaração, não ausência. **E o Android bloqueia o `http` de SAÍDA** (`targetSdk` 35 sem `usesCleartextTraffic`): o telão nunca sofreu disso porque ele SERVE — tráfego de ENTRADA não passa por essa política, e foi isso que tornou o defeito invisível por nove lotes. Os dois consertos são independentes: sem o primeiro nem se pede, sem o segundo o pedido não sai. *(Linha de índice escrita no lote seguinte — ver o corpo.)*
+- **v1.8.8** — UM SÍMBOLO SEM IMPORT DERRUBOU A MAIN. O `MainActivity.kt` da v1.8.6 usou `SystemClock.elapsedRealtime()` sem `import android.os.SystemClock`: o Kotlin não compilou, a Release não nasceu, e o HOLD do `shellTag` segurou o bundle — levando junto o lote SEGUINTE, de outra sessão, que não tinha nada com aquilo. **O erro não é interessante; ONDE ele apareceu é**: ninguém compila Kotlin fora do CI (o `./gradlew` exige o Android SDK) e a suíte inteira é de JavaScript, então o primeiro sinal era o build falhando DEPOIS do merge, no ponto mais caro possível. Daí o `kotlin-simbolo-importado.test.mjs` — o `node --check` do lado Kotlin, na única pergunta que dá para responder sem compilador: *este nome tem de onde vir?* **E a primeira versão dele foi um placebo**: tirava comentários com regex, e comentário de bloco em Kotlin ANINHA — MEDIDO, ela aprovava o próprio defeito que veio pegar. E o `version.json` estava com `version: 1.8.7` e `shellTag: v1.8.6`, um SEGUNDO motivo de falha esperando atrás do primeiro. *(Linha de índice escrita no lote seguinte — ver o corpo.)*
 - **v1.8.7** — O ORÁCULO DA CORTINA MEDIA O RUNNER, E ISSO CALOU O CANAL OTA. O merge da v1.8.4 ficou VERMELHO na `main`: o `verificar` reprovou em `abertura-e-transferencia.test.mjs` (70/71) e, como ele é `needs` do `web-ota`, **o job de publicação foi PULADO — o bundle da v1.8.4 não chegou a aparelho nenhum**. O oráculo passava 10/10 aqui sob 3× de carga, que é a assinatura da classe. A causa, MEDIDA: o relógio instalado do Playwright **também anda com o tempo real** (`fastForward(2000)` deixa o relógio da página 2012 ms à frente), e o PISO da cortina é contado do INÍCIO DA PÁGINA — `falta = 1800 − (Date.now() − nasceu)`. Num runner com três Chromiums em paralelo o boot come esses 1800 ms de tempo real, e o par de asserções deixava de medir o piso e passava a medir quanto o runner demorou para abrir o app. **Qual das duas pontas quebra depende de ONDE o tempo de boot cai**: simulando 2,2 s de boot, reprova a PRIMEIRA; no runner reprovou a SEGUNDA. O conserto é `pauseAt` ANTES do `goto` — o relógio da página congela de verdade (MEDIDO: 0 ms de avanço em 1,5 s reais), `nasceu` É o instante congelado e `falta` vale exatamente 1800 seja qual for a carga; e o app sobe com ele congelado (`__avBack` em 180 ms), porque o boot espera microtarefas e o IndexedDB, não temporizadores. `runFor` no lugar de `fastForward` pela razão que as fatias de 500 ms contornavam: ele processa o temporizador agendado DENTRO do avanço, que é o encadeamento piso → esmaecimento → remoção do nó. **E entrou uma guarda que faltava**: o oráculo AFIRMA que o relógio está parado antes de medir — sem ela, um Playwright que mude o `pauseAt` devolve as duas asserções ao regime antigo e o vermelho volta a chegar como veredito sobre o app. Provado LADO A LADO com o mesmo boot lento: antes reprova, depois passa. Lote **só de oráculo** — nada do app mudou.
 - **v1.8.6** — O DIÁRIO RESPONDEU, E A RESPOSTA ERA OUTRA PERGUNTA. O `clone-diario` da v1.8.5 chegou ao campo e fez o trabalho dele: duas linhas no aparelho que RECEBE, e o `parou em:` **VAZIO** é o achado — `cloneOnde` é escrito na primeira linha do `cloneSincronizar`, então vazio significa que a cópia **nunca chegou a pedir a lista**: ela parou no PAREAMENTO. E a frase sem parêntese é a segunda metade: o ramo de erro cita `r.erro` quando ele existe, logo uma frase nua significa que `r` era **`null`** — os 60 s do `CALL_TIMEOUT_MS` vencendo. Todo caminho do Kotlin preenche o `erro` (inclusive o `catch`) e os prazos do `pedirPar` somam 16 s, então um `null` de ponte ali é alguma coisa passando de 60 s DENTRO do shell. Lote COM Release (`shellTag: v1.8.6`) — o conserto é `MainActivity.kt`. *(Linha de índice escrita no lote seguinte — ver o corpo, que é o registro do lote.)*
 - **v1.8.5** — O REGISTRO SALVO POR CIMA DO ANTIGO, E A PORTA DE CEDER QUE NÃO ANOTAVA. Dois achados do Registro que o operador mandou dizendo *"persiste o mesmo problema"* — e o primeiro estava DENTRO do próprio arquivo. `salvarTexto` abria o documento com `openOutputStream(uri)`, modo `"w"`, que **não trunca**: salvando sobre o Registro da vez anterior, o texto novo cobria o começo e a CAUDA do antigo ficava, entrando no meio de uma linha. MEDIDO no arquivo de campo: o bloco das Coletâneas aparecia duas vezes, a segunda com um pedaço da lista das séries colado antes. **O defeito é pior do que parece**: o que sobra é conteúdo PLAUSÍVEL — blocos inteiros, bem formatados, descrevendo um estado que já não existe —, e o Registro existe para ser lido A DISTÂNCIA por quem não confere nada no aparelho. O caminho do PACOTE já usava `"wt"` desde a v1.7.0; este ficou para trás. E o `clone-diario` da v1.8.3 só era escrito depois de a lista existir, então o Registro de quem tentou ceder e não conseguiu era IDÊNTICO ao de quem nunca tocou no botão. Lote COM Release (`shellTag: v1.8.5`). *(Linha de índice escrita no lote seguinte — ver o corpo, que é o registro do lote.)*
@@ -368,6 +370,57 @@ na nota que a revoga, não apagada da que a criou.
 ---
 
 ## v1.8.9 — o clone nunca pareou, e por duas razões independentes
+
+> **NOTA DE OUTRA SESSÃO (varredura da documentação).** Uma passada pelas
+> afirmações VERIFICÁVEIS do `CLAUDE.md`, medindo cada uma contra o
+> repositório. O que ela achou, e o primeiro item NÃO é documentação:
+>
+> - **O `kotlin-simbolo-importado.test.mjs` NUNCA RODOU.** Ele nasceu na v1.8.8
+>   com linha na tabela de oráculos e ficou **fora do workflow** — logo, pela
+>   regra deste arquivo, documentação e não rede de segurança. É a quarta
+>   ocorrência dessa classe em nove lotes, e a mais cara delas: o oráculo
+>   escrito para impedir que um símbolo sem `import` derrubasse a `main` passou
+>   um lote inteiro sem guardar nada, com o repositório respondendo *"isso está
+>   coberto?"* com um sim que não existia. Registrado no passo de Node puro
+>   (agora 18) e conferido verde. *Um oráculo que não roda é pior que oráculo
+>   nenhum.*
+> - **E a varredura vale nos DOIS sentidos:** o `clone-lista-de-aparelhos.test.mjs`
+>   rodava no CI desde a v1.8.2 **sem linha em tabela nenhuma**. Ganhou a dela.
+>   O comando está escrito ao lado da regra, porque é ele — e não a memória —
+>   que responde à pergunta.
+> - **Números velhos, corrigidos:** a poda do `notas.json` estava descrita como
+>   *"hoje 1.5.x e 1.4.x"* (é 1.8.x e 1.7.x) e a medição dos tópicos como *"80,
+>   55 de média, 79 no maior"* (é 75, 67 e 90 — sob o teto de 120 do CI, a regra
+>   segue cumprida).
+> - **A cadeia "O LOTE ANTERIOR" tinha DOIS donos** e pulava seis lotes. Ela é
+>   uma SELEÇÃO, não uma sequência: os elos passaram a "UM LOTE ANTERIOR", o
+>   bloco que ilustrava a regra da Release deixou de reivindicar o lugar, e o
+>   cabeçalho diz onde mora o registro completo (este arquivo).
+>
+> **Conferido e CERTO** (não mexido): os 34 arquivos Kotlin, os 63 métodos da
+> ponte, o `SHELL_VERSION` 65 contra o `minShell`, as oito chamadas do
+> `native.js` que não são API, os 17 oráculos de Node puro citados na prosa, e
+> a árvore de `Estrutura do repositório` inteira — arquivo por arquivo, sem
+> sobra dos dois lados.
+
+> **NOTA DE OUTRA SESSÃO (documentação).** O bloco *"Versão atual"* do
+> `CLAUDE.md` é a **QUARTA casa da versão**, e a única sem oráculo: as três
+> oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
+> `verificar`, esta não. MEDIDO nesta noite, ela ficou para trás **duas vezes
+> em vinte minutos** — a v1.8.8 a deixou em v1.8.7, e a v1.8.9 a deixou em
+> v1.8.8 depois de corrigida. Não chega a aparelho nenhum, mas é o arquivo que
+> se lê ANTES do trabalho, a cada sessão, e quem o lê não confere. O bloco foi
+> atualizado e a lacuna está nomeada nele; **fechá-la por oráculo é uma linha
+> no mesmo `python3` que já compara as três**, e está por fazer.
+>
+> **E um mecanismo que estava sendo lido errado ficou escrito:** um `apk`
+> reprovado **não pula** o `web-ota`. O `if:` dele é `!cancelled() &&
+> needs.verificar.result == 'success'` — o resultado do `apk` é
+> deliberadamente ignorado, e o `needs` está lá pela ORDEM. O job RODA com o
+> `apk` vermelho; o que impede a publicação é o HOLD do `shellTag`, cuja
+> Release o build que falhou não chegou a criar, e o desfecho é um job VERDE
+> que não publicou. Foi assim com a v1.8.6.
+
 
 Relato: *"ainda não funcionou"*, com o Registro. O `clone-diario` da v1.8.5
 tinha, das duas vezes, a mesma linha: `copiei: Não deu para falar com o outro
