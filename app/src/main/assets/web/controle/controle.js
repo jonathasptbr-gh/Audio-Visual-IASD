@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.7.7';
+const WEB_VERSION = '1.7.8';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -677,42 +677,71 @@ const selected = new Set();
 // não tem decodificação em cache — ela nasce vazia e pinta no quadro seguinte.
 // Vezes três por segundo, em toda linha com capa: a lista piscando.
 //
-// A CHAVE PASSA A SER O BLOB. Mesmo blob, mesma URL, para sempre: a `<img>` que
-// o redesenho monta nasce com um `src` que o navegador já decodificou, e não há
-// quadro vazio nenhum. O blob é o mesmo OBJETO entre um render e outro porque
-// quem o segura são as listas em memória (`libItems`, `favItems`) — quem as
-// relê é o `load()`, e um `load()` é exatamente o momento em que a miniatura
-// PODE mudar.
+// A CHAVE É O ITEM, E NÃO O OBJETO BLOB (v1.7.7). A v1.7.4 keou pelo BLOB, e
+// aquilo resolvia o relato original e só ele: o blob é o mesmo OBJETO entre dois
+// redesenhos porque quem o segura são as listas em memória (`libItems`,
+// `favItems`). **Mas um `load()` as RELÊ do IndexedDB, e um blob relido é outro
+// objeto** — toda capa da tela ganhava URL nova de uma vez.
 //
-// E A VARREDURA SUBSTITUI A REVOGAÇÃO POR HOST. O balde de cada host passa a
-// guardar BLOBS, e o que se revoga é o que não está em balde nenhum — isto é,
-// a união, e não a diferença. Isso fecha por CONSTRUÇÃO a classe de defeito que
-// o balde por host existia para tratar (um host revogando o que o outro tem em
-// cena): uma URL só morre quando ninguém mais a desenha.
-const thumbUrlPorBlob = new Map();   // Blob -> object URL (uma por blob, viva)
-const thumbBlobsPorHost = new Map(); // host -> Set(Blob) do último render dele
-let thumbBlobsAtual = new Set();     // o balde do render em curso
+// E `load()` não é raro: ele roda em TODA escrita no banco. Excluir um item do
+// Cronograma reescreve a lista, chama `load()`, e as capas de todos os OUTROS
+// piscam — o mesmo defeito, pela porta que a v1.7.4 deixou aberta (o oráculo
+// dela dizia isso por extenso, e o relato seguinte foi exatamente ele).
+//
+// A CHAVE É `id|bytes|tipo`, e cada pedaço responde a uma coisa: o `id` é o que
+// sobrevive à releitura, e o par `size`/`type` é a impressão digital que impede
+// uma capa TROCADA de ser servida da memória — hoje nenhum caminho substitui a
+// miniatura de um registro existente, e quando um existir ele mudará o tamanho.
+// Sem `id` (nunca observado) a chave é o próprio blob, que é o comportamento da
+// v1.7.4: pior caso, o de antes.
+//
+// DE QUEBRA, o MESMO item em duas listas passa a ter UMA url. `listItems`
+// ('imports') e `listItems('favs')` são duas leituras, então a mesma capa vinha
+// como dois blobs e ocupava a memória duas vezes.
+//
+// E A VARREDURA SUBSTITUI A REVOGAÇÃO POR HOST. O balde de cada host guarda
+// CHAVES, e o que se revoga é o que não está em balde nenhum — isto é, a união,
+// e não a diferença. Isso fecha por CONSTRUÇÃO a classe de defeito que o balde
+// por host existia para tratar (um host revogando o que o outro tem em cena):
+// uma URL só morre quando ninguém mais a desenha.
+const thumbUrlPorChave = new Map();   // chave -> object URL (uma por capa, viva)
+const thumbChavesPorHost = new Map(); // host -> Set(chave) do último render dele
+let thumbChavesAtual = new Set();     // o balde do render em curso
+
+// A chave de uma capa. String quando há `id`; o PRÓPRIO blob quando não há —
+// os dois servem de chave de `Map`, e o segundo é a degradação para a v1.7.4.
+function thumbChaveDe(item) {
+  const b = item.thumb;
+  return item.id ? item.id + '|' + b.size + '|' + (b.type || '') : b;
+}
 
 // A URL desta miniatura, criada UMA vez. O `add` é o que a mantém viva: a
 // varredura recolhe o que este render não pediu.
-function thumbUrlDoBlob(blob) {
-  thumbBlobsAtual.add(blob);
-  let url = thumbUrlPorBlob.get(blob);
-  if (!url) { url = URL.createObjectURL(blob); thumbUrlPorBlob.set(blob, url); }
+//
+// SÓ COM `item.thumb` SENDO UM BLOB — quem separa os três casos (blob, string,
+// nada) é o `thumbEl`, e uma segunda guarda aqui seria uma segunda opinião:
+// devolver `''` daria um `src` vazio, que o navegador resolve para o próprio
+// documento e busca. É melhor lançar do que desenhar a página dentro de uma
+// miniatura.
+function thumbUrlDaCapa(item) {
+  const chave = thumbChaveDe(item);
+  thumbChavesAtual.add(chave);
+  let url = thumbUrlPorChave.get(chave);
+  if (!url) { url = URL.createObjectURL(item.thumb); thumbUrlPorChave.set(chave, url); }
   return url;
 }
 
 // Revoga o que NENHUM host desenha mais. Sem ela cada `load()` deixaria para
-// trás a URL de todo blob substituído — e uma object URL viva SEGURA o blob,
+// trás a URL de toda capa substituída — e uma object URL viva SEGURA o blob,
 // então o vazamento seria de memória de verdade, não de um punhado de strings.
 function varrerMiniaturas() {
-  if (!thumbUrlPorBlob.size) return;
-  const vivos = new Set();
-  thumbBlobsPorHost.forEach((baldes) => baldes.forEach((b) => vivos.add(b)));
-  thumbUrlPorBlob.forEach((url, blob) => {
-    if (vivos.has(blob)) return;
+  if (!thumbUrlPorChave.size) return;
+  const vivas = new Set();
+  thumbChavesPorHost.forEach((baldes) => baldes.forEach((c) => vivas.add(c)));
+  thumbUrlPorChave.forEach((url, chave) => {
+    if (vivas.has(chave)) return;
     URL.revokeObjectURL(url);
-    thumbUrlPorBlob.delete(blob);
+    thumbUrlPorChave.delete(chave);
   });
 }
 // FAVORITOS: os ids marcados. `Set` em memória porque a tela pergunta "este item
@@ -3628,7 +3657,7 @@ function thumbEl(item) {
     t.appendChild(im);
   } else if (item.thumb) {
     const im = document.createElement('img');
-    im.src = thumbUrlDoBlob(item.thumb);
+    im.src = thumbUrlDaCapa(item);
     im.alt = '';
     // `sync` porque a `<img>` é MONTADA a cada redesenho: com a decodificação
     // assíncrona (o padrão), a capa já decodificada ainda esperava um quadro
@@ -9718,9 +9747,10 @@ let favHost = null;
 function favAlvo() { return favHost; }
 
 /**
- * O BALDE DE MINIATURAS DE UM RENDER — hoje um conjunto de BLOBS (v1.7.4).
+ * O BALDE DE MINIATURAS DE UM RENDER — um conjunto de CHAVES (v1.7.7; eram os
+ * BLOBS na v1.7.4, e é essa troca que faz a capa sobreviver a um `load()`).
  *
- * `thumbEl` pede a URL de cada capa a `thumbUrlDoBlob`, que a registra no balde
+ * `thumbEl` pede a URL de cada capa a `thumbUrlDaCapa`, que a registra no balde
  * do render EM CURSO. Cada host tem o seu, e a varredura no fim recolhe o que
  * não está em nenhum: quem some da lista some da memória, e quem continua em
  * cena continua com a MESMA URL, seja qual for o host que a desenhou.
@@ -9741,14 +9771,14 @@ function favAlvo() { return favHost; }
  * host vazio no meio da própria passada dele.
  */
 function comBaldeDeMiniaturas(chave, fn) {
-  const anterior = thumbBlobsAtual;
-  const usados = new Set();
-  thumbBlobsAtual = usados;
+  const anterior = thumbChavesAtual;
+  const usadas = new Set();
+  thumbChavesAtual = usadas;
   try {
     fn();
   } finally {
-    thumbBlobsAtual = anterior;
-    thumbBlobsPorHost.set(chave, usados);
+    thumbChavesAtual = anterior;
+    thumbChavesPorHost.set(chave, usadas);
     varrerMiniaturas();
   }
 }

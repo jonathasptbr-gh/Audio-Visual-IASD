@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.7.8",
+    "itens": [
+      "As miniaturas do Cronograma pararam de piscar ao excluir outro item."
+    ]
+  },
+  {
     "versao": "1.7.7",
     "itens": [
       "A prévia voltou a mostrar o papel de parede quando a música acaba, em vez de ficar preta.",
