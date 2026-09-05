@@ -465,7 +465,9 @@ try {
     const dl = libBusy('Baixando vídeo', 'Vídeo do YouTube', null, () => { naLinha++; });
     await load();
     const li = [...document.querySelectorAll('.lib-item.baixando')].pop();
-    const x = li && li.querySelector('.dl-cancel');
+    // `.row-cancel` desde a v1.7.4: o ✕ deixou de ser um botão próprio e passou
+    // a ocupar a COLUNA DO `⋮`, com a caixa e a escala de um `.row-btn`.
+    const x = li && li.querySelector('.row-cancel');
     out.temBotaoNaLinha = !!x;
     if (x) x.click();
     out.cancelouNaLinha = naLinha === 1;

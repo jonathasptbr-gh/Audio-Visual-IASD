@@ -1,14 +1,45 @@
 [
   {
-    "versao": "1.7.3",
+    "versao": "1.7.6",
     "itens": [
       "A prévia voltou a mostrar o papel de parede quando a música acaba, em vez de ficar preta.",
       "Os vídeos do YouTube deixaram de tocar direto da internet — agora eles são baixados antes.",
       "Isso acaba com os travamentos durante a projeção.",
       "A qualidade padrão passou a ser 720p.",
-      "E a qualidade que você escolher fica guardada como a sua padrão.",
-      "Na Biblioteca, tocar num álbum ou coleção não desloca mais o card.",
-      "O toque agora colore o card inteiro, e não só a faixa do título."
+      "E a qualidade que você escolher fica guardada como a sua padrão."
+    ]
+  },
+  {
+    "versao": "1.7.5",
+    "itens": [
+      "No histórico, cada dia virou um bloco com a lista dele dentro.",
+      "Ficou fácil ver onde uma sessão acaba e a outra começa."
+    ]
+  },
+  {
+    "versao": "1.7.4",
+    "itens": [
+      "Durante um preparo ou download, o botão de opções do item vira um botão de cancelar.",
+      "Cancelar tira da lista o item que estava sendo preparado.",
+      "Preparar uma apresentação e importar um arquivo passaram a poder ser cancelados.",
+      "Ao excluir, o item sai de cena em vez de voltar ao normal antes de sumir.",
+      "A miniatura do item fica à vista durante a confirmação da exclusão.",
+      "As miniaturas dos favoritos pararam de piscar durante os downloads.",
+      "O toque em coleções, álbuns e favoritos deixou de encolher o card.",
+      "E ele acende o card inteiro, não só o texto do cabeçalho.",
+      "A velocidade da rolagem da cifra abre uma lista, em vez de girar uma a uma.",
+      "A barra de progresso saiu da linha: fica a frase com o que está sendo feito."
+    ]
+  },
+  {
+    "versao": "1.7.3",
+    "itens": [
+      "O progresso da exportação passou a aparecer no próprio botão que a começou.",
+      "E o botão diz quanto o arquivo pesou quando ela termina.",
+      "Tocar nele durante a exportação agora para o trabalho.",
+      "A folha de escolha ganhou uma linha para marcar ou limpar tudo de uma vez.",
+      "As coleções aparecem nas mesmas seções da Biblioteca.",
+      "E dá para marcar uma seção inteira num toque só."
     ]
   },
   {

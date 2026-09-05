@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.7.3';
+const WEB_VERSION = '1.7.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -665,11 +665,56 @@ let repeat = 'all';
 let bibliaNoAr = false;
 let selectionMode = false;
 const selected = new Set();
-// Miniaturas blob→object URL, POR HOST de lista: com um balde único, redesenhar
-// um host revogava URLs ainda EM USO no outro e as miniaturas de lá viravam
-// ícone quebrado. Cada host revoga só o que ele criou (ver `renderLibrary`).
-const thumbUrlsPorHost = new Map(); // host -> [urls do último render dele]
-let thumbUrlsAtual = [];            // o balde do render em curso
+// ===== A `object-URL` DE UMA MINIATURA É DO BLOB, NÃO DO RENDER (v1.7.4) =====
+//
+// Relato do operador: *"Os itens da lista de favoritos têm suas thumbnails
+// piscando durante processos de download na biblioteca e afins, veja se pode
+// deixar isso mais estável visualmente, sem piscar."*
+//
+// Era isto, e a causa é aritmética: a Biblioteca é redesenhada a cada 400 ms
+// enquanto um download corre, e cada passada REVOGAVA as URLs do render
+// anterior e criava outras para os MESMOS blobs. Uma `<img>` com `src` inédito
+// não tem decodificação em cache — ela nasce vazia e pinta no quadro seguinte.
+// Vezes três por segundo, em toda linha com capa: a lista piscando.
+//
+// A CHAVE PASSA A SER O BLOB. Mesmo blob, mesma URL, para sempre: a `<img>` que
+// o redesenho monta nasce com um `src` que o navegador já decodificou, e não há
+// quadro vazio nenhum. O blob é o mesmo OBJETO entre um render e outro porque
+// quem o segura são as listas em memória (`libItems`, `favItems`) — quem as
+// relê é o `load()`, e um `load()` é exatamente o momento em que a miniatura
+// PODE mudar.
+//
+// E A VARREDURA SUBSTITUI A REVOGAÇÃO POR HOST. O balde de cada host passa a
+// guardar BLOBS, e o que se revoga é o que não está em balde nenhum — isto é,
+// a união, e não a diferença. Isso fecha por CONSTRUÇÃO a classe de defeito que
+// o balde por host existia para tratar (um host revogando o que o outro tem em
+// cena): uma URL só morre quando ninguém mais a desenha.
+const thumbUrlPorBlob = new Map();   // Blob -> object URL (uma por blob, viva)
+const thumbBlobsPorHost = new Map(); // host -> Set(Blob) do último render dele
+let thumbBlobsAtual = new Set();     // o balde do render em curso
+
+// A URL desta miniatura, criada UMA vez. O `add` é o que a mantém viva: a
+// varredura recolhe o que este render não pediu.
+function thumbUrlDoBlob(blob) {
+  thumbBlobsAtual.add(blob);
+  let url = thumbUrlPorBlob.get(blob);
+  if (!url) { url = URL.createObjectURL(blob); thumbUrlPorBlob.set(blob, url); }
+  return url;
+}
+
+// Revoga o que NENHUM host desenha mais. Sem ela cada `load()` deixaria para
+// trás a URL de todo blob substituído — e uma object URL viva SEGURA o blob,
+// então o vazamento seria de memória de verdade, não de um punhado de strings.
+function varrerMiniaturas() {
+  if (!thumbUrlPorBlob.size) return;
+  const vivos = new Set();
+  thumbBlobsPorHost.forEach((baldes) => baldes.forEach((b) => vivos.add(b)));
+  thumbUrlPorBlob.forEach((url, blob) => {
+    if (vivos.has(blob)) return;
+    URL.revokeObjectURL(url);
+    thumbUrlPorBlob.delete(blob);
+  });
+}
 // FAVORITOS: os ids marcados. `Set` em memória porque a tela pergunta "este item
 // está favoritado?" uma vez por linha desenhada; no banco é a lista `favs` (ver
 // `LISTS` em db.js), e é ela que faz a estrela segurar o blob contra o gc.
@@ -968,7 +1013,7 @@ let projecaoSeq = 0;
 // correção.
 let palcoEmVoo = null;   // { senha, cartoes[] } — a projeção que espera a rede
 
-// SÃO VÁRIOS CARTÕES, E NÃO UM (v1.7.3). A mesma tentativa de projeção abre
+// SÃO VÁRIOS CARTÕES, E NÃO UM (v1.7.6). A mesma tentativa de projeção abre
 // DOIS em sequência: o do toque (`cederOPalco`, "Preparando <nome>") e o do
 // download (`ytBaixarNativo` com `aviso: 'preview'`), que antes deste lote era
 // inalcançável neste caminho — a transmissão direta resolvia a cena antes de
@@ -1754,7 +1799,7 @@ const SYNC_DRIFT = 0.5;
 // poupar, há um desvio conhecido e possivelmente enorme. `RESYNC_EXATO` é só a
 // margem que evita um seek inútil quando por sorte já estava alinhado.
 const RESYNC_EXATO = 0.15;
-// A PROJEÇÃO PARADA A MENOS DISTO DO FIM ESTÁ NO FIM (v1.7.3).
+// A PROJEÇÃO PARADA A MENOS DISTO DO FIM ESTÁ NO FIM (v1.7.6).
 //
 // A rede de segurança do `marcarFim` — o caminho EXATO é o `media-ended`, e ele
 // não cobre tudo: as telas da rede o perdem no DRENO de propósito (N telas
@@ -3578,9 +3623,13 @@ function thumbEl(item) {
     const im = document.createElement('img'); im.src = item.thumb; im.alt = '';
     t.appendChild(im);
   } else if (item.thumb) {
-    const url = URL.createObjectURL(item.thumb);
-    thumbUrlsAtual.push(url);
-    const im = document.createElement('img'); im.src = url; im.alt = '';
+    const im = document.createElement('img');
+    im.src = thumbUrlDoBlob(item.thumb);
+    im.alt = '';
+    // `sync` porque a `<img>` é MONTADA a cada redesenho: com a decodificação
+    // assíncrona (o padrão), a capa já decodificada ainda esperava um quadro
+    // para aparecer no elemento novo — o mesmo pisca-pisca por outro caminho.
+    im.decoding = 'sync';
     t.appendChild(im);
   } else {
     t.appendChild(msym(item.kind === 'audio' ? ICON.music : ICON.broken));
@@ -6896,16 +6945,22 @@ function fecharBiblia() {
 // mesma pergunta dos outros cinco provedores de Camada de Texto.
 function msgProjecting() { return !!(msgSession && msgSession.projecting); }
 
+// ELE PASSA PELO MESMO BALDE QUE A OUTRA CASA (v1.7.4). Antes ele trocava o
+// balde à mão, ANTES de desenhar — e com a varredura pela união isso publicaria
+// um host vazio no meio da própria passada dele. O `comBaldeDeMiniaturas` já
+// fazia a coisa certa para o segundo host; o que muda é este passar por ele.
+//
+// Os `return` de dentro continuam funcionando: eles saem da arrow, e o
+// `finally` do balde roda do mesmo jeito.
 function renderLibrary() {
+  comBaldeDeMiniaturas(libraryEl, () => renderLibraryCorpo());
+}
+
+function renderLibraryCorpo() {
   // O menu de uma linha (v5.258) não sobrevive ao redesenho — ver
   // `renderFolderList`, mesmo motivo.
   fecharAcoesDaLinha();
   const host = libraryEl;
-  // Revoga SÓ as URLs que este host criou no render anterior — as do outro
-  // host continuam em cena e continuam válidas (ver `thumbUrlsPorHost`).
-  (thumbUrlsPorHost.get(host) || []).forEach((u) => URL.revokeObjectURL(u));
-  thumbUrlsAtual = [];
-  thumbUrlsPorHost.set(host, thumbUrlsAtual);
   host.innerHTML = '';
   // ANTES do desvio por aba, e não no fim: a Bíblia e a raiz dos Favoritos saem
   // por `return` daqui, e o rodapé é da CAIXA da lista, não da lista — deixado
@@ -7066,14 +7121,19 @@ function renderLibrary() {
     // caixa é a de sempre, da esquerda para a direita: o que se usa mais fica
     // mais perto do dedo que acabou de tocar no `⋮`, que é a direita.
     //
-    // Baixando: o botão de converter sai de cena. Ele já está desabilitado, mas
-    // continuar desenhando "baixar" ao lado de um anel girando é oferecer a
-    // ação que está justamente em curso.
-    //
     // Na SELEÇÃO MÚLTIPLA não há `⋮`: ali o alvo é o conjunto, e quem age é a
     // barra do rodapé. (Antes a alça de arrastar continuava na linha; arrastar
     // com meia lista marcada nunca foi uma operação que alguém quisesse.)
-    if (!selectionMode) {
+    //
+    // E COM UM TRABALHO EM CURSO A COLUNA É DELE (v1.7.4) — ver
+    // `botaoCancelarDoTrabalho`. A fileira inteira sai de cena junto: ela abre
+    // o que fazer com um item que está sendo ESCRITO neste instante, e o
+    // "baixar o vídeo" desta linha em particular oferece a ação que já está em
+    // curso. O que sobra é a única decisão que cabe ali — parar.
+    if (!selectionMode && dl) {
+      const cancelar = botaoCancelarDoTrabalho(dl);
+      if (cancelar) parts.push(cancelar);
+    } else if (!selectionMode) {
       parts.push(...montarAcoesDaLinha(li, [
         // ===== O EXCLUIR É O PRIMEIRO, isto é, o MAIS LONGE do `⋮` (v5.288) =====
         //
@@ -7113,7 +7173,11 @@ function renderLibrary() {
         // O "baixar o vídeo" de uma linha de LINK não está na ordem pedida — ele
         // só existe nessa linha. Entra DEPOIS dela, para não partir ao meio a
         // sequência que o operador ditou.
-        (ytDl && !dl) ? ytDl : null,
+        // (O `&& !dl` saiu na v1.7.4: com um trabalho em curso a fileira
+        // inteira não é desenhada, então a guarda passou a ser sempre
+        // verdadeira — e uma condição que nunca é falsa afirma uma regra que
+        // outra pessoa já garante.)
+        ytDl,
         // O PAR ↑↓ (v5.285), no lugar da alça de arrastar. Só onde há ordem a
         // mexer: a pasta do aparelho não é uma lista reordenável.
         ...botoesDeOrdem('imports', item.id, i, items.length),
@@ -7619,6 +7683,11 @@ function abrirNaFaixaDaLinha(botao, opts) {
  *    montada deixaria o par pendurado num nó fora do documento.
  */
 function pedirConfirmacaoNaLinha(botao, opts) {
+  // A LINHA a que esta pergunta pertence — `null` nas três faixas que não são
+  // uma linha (limpar a playlist, limpar o histórico, limpar uma sessão). É ela
+  // que SAI quando o "sim" é tocado, e por isso a busca sobe até aqui: ela já
+  // era feita no `abrirNaFaixaDaLinha` e no caminho B, cada uma por sua conta.
+  const li = botao.closest('.lib-item,.row-item');
   // A LIXEIRA É O SÍMBOLO DA PERGUNTA, e não um botão: `<span>` sem ponteiro,
   // fora da árvore de acessibilidade. Quem decide são os dois rótulos.
   const lixo = document.createElement('span');
@@ -7628,17 +7697,37 @@ function pedirConfirmacaoNaLinha(botao, opts) {
   const cx = abrirNaFaixaDaLinha(botao, {
     marca: 'excluindo',
     simbolo: lixo,
-    // CAMINHO B (a gaveta dos Favoritos): de volta à capa, o lugar de onde ela
-    // saiu na v1.4.27 — ali a faixa não cobre a linha e não há `⋮` a ceder.
-    semSlot: (sim) => {
-      const li = botao.closest('.lib-item,.row-item');
-      const thumb = li && li.querySelector(':scope > .row > .thumb');
-      if (!thumb) return;
-      sim.className = 'row-lixo';
-      thumb.appendChild(sim);
+    // CAMINHO B — a gaveta dos FAVORITOS, que não tem `⋮` a ceder. Ele é hoje o
+    // MESMO do ✓ do renomear (v1.7.4): a lixeira entra na própria faixa, ao
+    // lado dos dois rótulos.
+    //
+    // ELA MOROU NA CAPA da v1.4.27 até aqui, e saiu de lá porque a capa deixou
+    // de estar livre: o operador pediu a miniatura à vista durante a pergunta
+    // (ver a regra `.renomeando` no CSS), e um símbolo por cima dela responde a
+    // pergunta "de qual item é isto?" com um desenho que serve a todos. Com os
+    // dois caminhos B iguais some também a assimetria que o comentário antigo
+    // precisava explicar.
+    //
+    // E SÓ ONDE HÁ LINHA. As três faixas que perguntam sobre uma LISTA inteira
+    // (limpar a playlist, limpar o histórico, limpar uma sessão) não têm `li`, e
+    // nelas o par de rótulos DIVIDE A CAIXA AO MEIO — um terceiro filho a
+    // encolhe, que é o desenho que a v5.309 pediu por extenso. O símbolo
+    // pertence à pergunta sobre UM item; ali ele não tem item de quem falar.
+    semSlot: (sim, caixa) => {
+      if (!li) return;
+      sim.classList.add('row-slot');
+      caixa.appendChild(sim);
     },
   });
   if (!cx) return;
+  // A MINHA pergunta, guardada como a função que a desfaz. Com o `aoConfirmar`
+  // agora rodando ANTES do fechamento (ver o `sim`, logo abaixo), há uma janela
+  // em que OUTRA pergunta pode ter nascido — e `fecharConfirmacaoNaLinha` fecha
+  // "a que estiver aberta", não a minha. MEDIDO pelo `boot-nativo`: a exclusão
+  // de um favorito fechava o campo de RENOMEAR aberto logo depois, e o campo
+  // simplesmente não aparecia. É a mesma regra do botão de cancelar do cartão
+  // da preview — *ele sai com o DONO dele*.
+  const meuDesfazer = desfazerConfirmacao;
   const nao = document.createElement('button');
   nao.type = 'button';
   nao.className = 'linha-confirma-btn linha-nao';
@@ -7657,8 +7746,79 @@ function pedirConfirmacaoNaLinha(botao, opts) {
     // segundo cairia sobre uma lista já redesenhada.
     if (sim.disabled) return;
     sim.disabled = true;
-    fecharConfirmacaoNaLinha();
-    await opts.aoConfirmar();
+    // ===== A LINHA NÃO VOLTA AO ESTADO INICIAL PARA SUMIR (v1.7.4) =====
+    //
+    // Relato do operador: *"ao tocar em excluir, na confirmação, o item se
+    // transforma ao seu estado inicial sem os botões antes de desaparecer, isso
+    // causa estranheza"*.
+    //
+    // Ele descreveu a ordem exata: `fecharConfirmacaoNaLinha()` corria ANTES do
+    // `aoConfirmar`, e o comentário que a justificava falava do DOM ("um
+    // redesenho com a faixa ainda montada deixaria o par pendurado num nó fora
+    // do documento") — um cuidado que não custa nada, porque `desfazer()` sobre
+    // um nó órfão é no-op. O que ele custava era a única coisa que se via: entre
+    // o toque e o redesenho — uma volta ao banco, não um quadro — a linha ficava
+    // igual a qualquer outra da lista, e depois sumia sozinha.
+    //
+    // A ORDEM SE INVERTE: a linha SAI e só então o item é apagado. `aoSair`
+    // resolve quando a saída terminou, e ela é a última coisa que aquela linha
+    // faz — o redesenho que vem a seguir já não a encontra.
+    //
+    // O `finally` cobre o caso em que `aoConfirmar` falha (ou não remove nada):
+    // sem ele, uma linha que continua na lista ficaria invisível para sempre.
+    await aoSair(li);
+    try {
+      await opts.aoConfirmar();
+    } finally {
+      if (desfazerConfirmacao === meuDesfazer) fecharConfirmacaoNaLinha();
+      // A ALTURA INLINE SAI JUNTO COM A CLASSE, e as duas metades importam: se
+      // `aoConfirmar` não remover a linha (uma falha, ou uma lista que este
+      // redesenho não alcança), o que sobraria é um `li` de altura ZERO — uma
+      // linha invisível e permanente, que é pior que a estranheza que este lote
+      // veio corrigir.
+      if (li) { li.classList.remove('saindo'); li.style.height = ''; }
+    }
+  });
+}
+
+/**
+ * A SAÍDA DE UMA LINHA QUE VAI SER APAGADA (v1.7.4).
+ *
+ * Ela existe para que o desaparecimento seja o FIM de um gesto e não um evento
+ * solto: o item encolhe e apaga no lugar em que está, e a lista se fecha por
+ * cima dele. Sem ela o desfecho de um "Excluir" é a linha piscando fora de cena
+ * no meio de um redesenho — que é o que o operador leu como estranheza.
+ *
+ * O VÃO SAI JUNTO. `.lib-list` é uma coluna com `gap`, e o `gap` não é do item:
+ * uma linha de altura zero ainda deixa o espaço entre ela e a de baixo. A
+ * `margin-bottom` negativa da MEDIDA DO GAP o engole, e só em quem TEM vizinho
+ * abaixo (`:not(:last-child)`) — na última não há gap a devolver, e descontá-lo
+ * puxaria o pé da lista para cima.
+ *
+ * `prefers-reduced-motion` desliga tudo, como no acordeão: quem pediu menos
+ * movimento no sistema pediu isso para o app inteiro.
+ *
+ * `height` é ANIMADA A PARTIR DA MEDIDA, não de `auto`: uma transição para
+ * `0` a partir de `auto` não interpola em navegador nenhum. Medir aqui é
+ * seguro — a linha está no documento e não vai mudar de tamanho.
+ */
+const SAIDA_MS = 200;
+function aoSair(li) {
+  if (!li || !li.isConnected || semMovimento()) return Promise.resolve();
+  const alto = li.offsetHeight;
+  if (!alto) return Promise.resolve();
+  li.style.height = alto + 'px';
+  li.classList.add('saindo');
+  // Um quadro para o `height` medido virar o estado DE PARTIDA: escrevê-lo e
+  // zerá-lo na mesma passada dá uma caixa que nunca teve altura, e a transição
+  // não acontece.
+  return new Promise((pronto) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        li.style.height = '0px';
+        setTimeout(pronto, SAIDA_MS);
+      });
+    });
   });
 }
 
@@ -7706,11 +7866,19 @@ function pedirRenomearNaLinha(botao, item, aoGravar) {
   ok.innerHTML = checkIconSvg();
   const cx = abrirNaFaixaDaLinha(botao, {
     classe: 'linha-renome',
+    // A MARCA DO PROCESSO, no `li` (v1.7.4). Ela existe pelo motivo pelo qual a
+    // da exclusão sempre existiu — o CSS precisa saber QUAL processo está no ar
+    // —, e passou a ser necessária quando os dois deixaram de esconder a capa:
+    // aqui ela sai (o campo quer a faixa inteira), lá ela fica.
+    marca: 'renomeando',
     simbolo: ok,
     // CAMINHO B (a gaveta dos Favoritos, sem `⋮`): ele volta para DENTRO da
-    // faixa, ao lado do campo, que é onde morou até a v1.4.27. A lixeira tem
-    // outro caminho B de propósito — ela ilustra e ele decide, e um botão que
-    // desaparece por não achar coluna deixa o campo sem confirmação.
+    // faixa, ao lado do campo, que é onde morou até a v1.4.27. Ele é o mesmo da
+    // lixeira desde a v1.7.4 — o que os separava era a capa, e ela deixou de
+    // estar livre —, com uma diferença que fica: o ✓ DECIDE, então ele entra
+    // sempre que a faixa existir; a lixeira ILUSTRA, e não entra numa faixa que
+    // não fala de um item (ver `pedirConfirmacaoNaLinha`). Um botão que
+    // desaparece por não achar coluna deixaria o campo sem confirmação.
     semSlot: (sim, caixa) => { sim.classList.add('row-slot'); caixa.appendChild(sim); },
   });
   if (!cx) return;
@@ -7921,8 +8089,21 @@ async function moverNaLista(listName, id, delta) {
 // este ouvinte só enxerga o que está dentro dela. A razão em si continua de pé
 // no código: ele fecha a pergunta SOZINHO, depois de ler o campo, e o inverso
 // perderia o nome digitado.)
+//
+// E O `linha-sim` ENTROU NA v1.7.4, pelo motivo OPOSTO ao de todos os outros.
+// Relato do operador: *"ao tocar em excluir, na confirmação, o item se
+// transforma ao seu estado inicial sem os botões antes de desaparecer, isso
+// causa estranheza"*.
+//
+// Era isto, e a estranheza era exata: este ouvinte fechava a gaveta, o handler
+// do próprio botão desfazia a pergunta, e a linha voltava a ser uma linha comum
+// — capa, nome, `⋮` — durante o `await` que apaga o item. Quem olhava via o app
+// DESISTIR e só então o item sumir. Os outros nomes desta lista ficam porque a
+// conversa com o item CONTINUA; este fica porque ela ACABOU, e a linha não pode
+// passar por um estado que diga o contrário no caminho da saída. Quem a tira de
+// cena é a saída de `pedirConfirmacaoNaLinha`.
 const ACOES_QUE_NAO_FECHAM = ['row-ordem', 'fav-btn', 'row-excluir', 'row-playlist',
-  'row-crono', 'row-renomear', 'linha-nao'];
+  'row-crono', 'row-renomear', 'linha-nao', 'linha-sim'];
 
 /**
  * Os botões de uma linha, guardados atrás do `⋮`.
@@ -9533,28 +9714,39 @@ let favHost = null;
 function favAlvo() { return favHost; }
 
 /**
- * O BALDE DE `object-URL` DA TERCEIRA CASA.
+ * O BALDE DE MINIATURAS DE UM RENDER — hoje um conjunto de BLOBS (v1.7.4).
  *
- * `thumbEl` cria as URLs das miniaturas e as empurra em `thumbUrlsAtual` — o
- * balde do render EM CURSO. Quem troca esse balde e revoga o anterior é só o
- * `renderLibrary`, e ele o faz por CHAVE — o host único `libraryEl` e a string
- * `'fav-biblioteca'`. A seção de Favoritos DENTRO da Biblioteca é o segundo
- * balde, desenhada pelo mesmo
- * `renderFolderList` por outro caminho: as URLs que ela criava caíam no balde
- * de OUTRO host, e o `renderLibrary` seguinte — que roda a cada 400 ms enquanto
- * um download corre — as revogava COM ELAS EM CENA. As miniaturas da Biblioteca
- * simplesmente sumiam, e nada explicava por quê.
+ * `thumbEl` pede a URL de cada capa a `thumbUrlDoBlob`, que a registra no balde
+ * do render EM CURSO. Cada host tem o seu, e a varredura no fim recolhe o que
+ * não está em nenhum: quem some da lista some da memória, e quem continua em
+ * cena continua com a MESMA URL, seja qual for o host que a desenhou.
+ *
+ * O BALDE POR HOST NASCEU DE UM DEFEITO e continua fechando-o, agora por
+ * construção: a seção de Favoritos DENTRO da Biblioteca é um segundo host,
+ * desenhado pelo mesmo `renderFolderList` por outro caminho, e o
+ * `renderLibrary` seguinte — que roda a cada 400 ms enquanto um download corre
+ * — revogava as URLs dela COM ELAS EM CENA. Com a varredura pela UNIÃO isso já
+ * não é possível: uma URL só morre quando nenhum host a pediu.
  *
  * A chave é uma STRING e não o elemento: o corpo da seção é recriado a cada
  * render completo da Biblioteca, e um `Map` keyado pelo nó nunca reencontraria
  * o balde do render anterior — trocaria a revogação prematura por um vazamento.
+ *
+ * E O BALDE SÓ É PUBLICADO NO `finally`, isto é, DEPOIS do render: publicá-lo
+ * antes (que era o que o `renderLibrary` fazia) deixaria a varredura ver este
+ * host vazio no meio da própria passada dele.
  */
 function comBaldeDeMiniaturas(chave, fn) {
-  const anterior = thumbUrlsAtual;
-  (thumbUrlsPorHost.get(chave) || []).forEach((u) => URL.revokeObjectURL(u));
-  thumbUrlsAtual = [];
-  thumbUrlsPorHost.set(chave, thumbUrlsAtual);
-  try { fn(); } finally { thumbUrlsAtual = anterior; }
+  const anterior = thumbBlobsAtual;
+  const usados = new Set();
+  thumbBlobsAtual = usados;
+  try {
+    fn();
+  } finally {
+    thumbBlobsAtual = anterior;
+    thumbBlobsPorHost.set(chave, usados);
+    varrerMiniaturas();
+  }
 }
 
 function renderFolderList() {
@@ -9657,9 +9849,24 @@ function renderFolderList() {
       // sincronizados"). Um excluir por linha ainda seria desfeito pela
       // sincronização seguinte, que é o mesmo argumento que mantém o renomear
       // fora daqui (v5.288).
-      arquivos.forEach((a) => corpo.appendChild(linhaDeItem(a, {
-        destinos: ['playlist', 'cronograma', 'favoritos'],
-      })));
+      // ===== O TERCEIRO BALDE DE MINIATURAS, e ele é OBRIGATÓRIO (v1.7.4) =====
+      //
+      // `montarCorpo` é ASSÍNCRONA (o `filesByFolder` acima), então este laço
+      // roda DEPOIS de o `comBaldeDeMiniaturas('fav-biblioteca', …)` já ter
+      // devolvido o balde. Sem um balde próprio, as capas destes arquivos
+      // cairiam num conjunto que NENHUM host publica — e a varredura seguinte,
+      // que revoga o que ninguém desenha, as apagaria da tela. Era o modo de
+      // falhar exato do balde por host, com a chave a menos.
+      //
+      // UMA chave para a pasta ABERTA, e não uma por pasta: só há uma aberta por
+      // vez (o laço logo abaixo fecha as irmãs), então abrir outra substitui
+      // este balde e as capas da anterior são recolhidas. Uma chave por id
+      // deixaria de pé, para sempre, os blobs de toda pasta já visitada.
+      comBaldeDeMiniaturas('pasta-aberta', () => {
+        arquivos.forEach((a) => corpo.appendChild(linhaDeItem(a, {
+          destinos: ['playlist', 'cronograma', 'favoritos'],
+        })));
+      });
     }
 
     row.addEventListener('click', async (e) => {
@@ -9803,8 +10010,8 @@ function linhaDeItem(item, opts) {
   //     então ela nasce acesa e o único toque possível é o que apaga) — nas
   //     outras listas ela alterna de verdade e continua inteira lá;
   //  2. a lixeira PERGUNTA — e desde a v5.301 a pergunta nasce nesta mesma
-  //     faixa, com o par Cancelar/Excluir no lugar dos botões e a miniatura
-  //     virando lixeira (ver `pedirConfirmacaoNaLinha`);
+  //     faixa, com o par Cancelar/Excluir no lugar dos botões e o símbolo da
+  //     lixeira ao lado deles (ver `pedirConfirmacaoNaLinha`);
   //  3. ela solta a prateleira invisível (`soltarAvulso`) — a diferença entre
   //     "a linha sumiu" e "os bytes saíram". Desfavoritar não é declaração de
   //     intenção de apagar.
@@ -13146,10 +13353,13 @@ function cifraDuracaoNoAr() {
  * cobre a escada que existe — um degrau abaixo de `0.005` sairia como `0,0×`,
  * e é para isso que esta linha está escrita.
  */
-function cifraVelRotulo() {
-  const v = CIFRA_VELOCIDADES[cifraVelIdx];
+function cifraVelRotuloDe(v) {
   if (v === 'auto') return '1×';
   return (v % 1 === 0 ? String(v) : v.toFixed(2).replace(/0$/, '')).replace('.', ',') + '×';
+}
+
+function cifraVelRotulo() {
+  return cifraVelRotuloDe(CIFRA_VELOCIDADES[cifraVelIdx]);
 }
 
 /**
@@ -13182,12 +13392,16 @@ function cifraVelRotulo() {
  * "consertar" o rótulo.
  */
 function cifraVelTitulo() {
+  // O QUE O TOQUE FAZ mudou na v1.7.4 — ele ABRE A LISTA em vez de avançar um
+  // degrau —, e as três frases dizem isso porque elas são a única superfície que
+  // responde por extenso: num WebView Android não há hover, então este texto
+  // vive para o leitor de tela.
   if (CIFRA_VELOCIDADES[cifraVelIdx] !== 'auto') {
-    return 'Ritmo fixo, mais rápido ou mais devagar que o 1× (toque para trocar)';
+    return 'Ritmo fixo, mais rápido ou mais devagar que o 1× (toque para escolher outro)';
   }
   return cifraDuracaoNoAr() > 0
     ? '1×: rolagem no ritmo da música (toque para escolher uma velocidade fixa)'
-    : '1×: sem duração da música, rolagem em ritmo fixo (toque para trocar)';
+    : '1×: sem duração da música, rolagem em ritmo fixo (toque para escolher outro)';
 }
 
 // Os dois botões vivem no DOM, que `renderLyricsView` refaz inteiro — então o
@@ -13413,14 +13627,109 @@ function cifraAdotarVelocidade(v) {
   cifraVelIdx = i >= 0 ? i : CIFRA_VEL_PADRAO;
 }
 
-async function cifraVelPasso() {
-  cifraVelIdx = (cifraVelIdx + 1) % CIFRA_VELOCIDADES.length;
+/**
+ * ===== A ESCADA VIROU UMA GAVETA, E NÃO UM CARROSSEL (v1.7.4) =====
+ *
+ * Pedido do operador: *"ajuste também a forma de seleção da velocidade do
+ * scroll automático da seção de cifras… faça com que o botão de velocidade abra
+ * uma gaveta, substituindo seus botões vizinhos, pela lista de botões com as
+ * variações de velocidade, dessa forma, permitindo escolher as velocidades sem
+ * passar por cada uma delas em carrocel"*.
+ *
+ * O CICLO ERA UM PREÇO, e ele estava escrito no código desde a v1.1.20 — *"com
+ * CINCO degraus, dar a volta custa menos que um segundo botão"*. A conta muda
+ * quando o alvo é ESPECÍFICO: ir do `2×` ao `0,5×` custa um toque na gaveta e
+ * quatro no ciclo, e os três do meio ACONTECEM — a folha muda de ritmo em cada
+ * um deles, com a música no ar. Um carrossel faz o operador atravessar estados
+ * que ele não pediu, e este é um controle que se usa com o instrumento na mão.
+ *
+ * É O MECANISMO DA FAIXA DA LINHA, na fila da cifra: **a fila troca de conteúdo,
+ * não de lugar** (ver `abrirNaFaixaDaLinha`). Nada é criado por cima, nada
+ * empurra a folha, e a caixa continua com a mesma altura — o que muda são os
+ * botões que estão nela.
+ *
+ * O ⛶ FICA, e é a única exceção à palavra "vizinhos" do pedido: ele é a SAÍDA da
+ * tela cheia, e a invariante escrita no `lvBuildCifra` é *a fila da cifra sempre
+ * tem a saída*. Com ele escondido, uma gaveta aberta em paisagem deixaria a
+ * folha deitada sem nenhuma saída à vista.
+ *
+ * E TODO BOTÃO DA GAVETA A FECHA — inclusive o do degrau que já está escolhido,
+ * que é o "cancelar" natural. Não há um sexto botão para desistir: com a lista
+ * ocupando a fila inteira, um toque em qualquer lugar dela resolve.
+ */
+let cifraVelAberta = false;
+
+function cifraVelFilaAlternar() {
+  cifraVelAberta = !cifraVelAberta;
+  cifraPintarVels();
+}
+
+async function cifraVelEscolher(i) {
+  cifraVelAberta = false;
+  const antes = cifraVelIdx;
+  cifraVelIdx = Math.max(0, Math.min(CIFRA_VELOCIDADES.length - 1, i));
   // Nada a zerar: os dois modos integram a partir da posição atual, e o degrau
   // só troca o px/s do próximo quadro. (A v1.1.20 zerava aqui o `cifraDesvio`,
   // que era medido contra um alvo absoluto — ele saiu com o alvo.)
   cifraPintarRolar();
+  cifraPintarVels();
+  // O MESMO degrau não gasta uma transação: escolher o que já está escolhido é
+  // o caminho de FECHAR a gaveta, e ele acontece sempre que alguém a abre por
+  // engano.
+  if (cifraVelIdx === antes) return;
   try { await AVDB.setState('cifraVelocidade', CIFRA_VELOCIDADES[cifraVelIdx]); }
   catch (_) { /* sem banco: vale a sessão */ }
+}
+
+/**
+ * Pinta a gaveta: a classe que troca o conteúdo da fila e a marca do degrau em
+ * cena.
+ *
+ * ESCOLHIDO ENTRE ALTERNATIVAS é `--accent-fill` + `--on-accent`, a linguagem de
+ * estado deste app — a mesma do seletor de destinos. Ela mora numa classe e não
+ * numa cor de texto porque *cor de texto nunca carrega estado sozinha*.
+ */
+function cifraPintarVels() {
+  const ctl = lyricsCifraCtlEl;
+  if (!ctl) return;
+  ctl.classList.toggle('escolhendo', cifraVelAberta);
+  ctl.querySelectorAll('.lv-cifra-vel-op').forEach((b) => {
+    const escolhido = Number(b.dataset.vel) === cifraVelIdx;
+    b.classList.toggle('escolhido', escolhido);
+    b.setAttribute('aria-checked', escolhido ? 'true' : 'false');
+  });
+  if (cifraVelBtnEl) cifraVelBtnEl.setAttribute('aria-expanded', cifraVelAberta ? 'true' : 'false');
+}
+
+/**
+ * A LISTA, um botão por degrau.
+ *
+ * `display: contents` no invólucro (ver o CSS): os botões viram filhos de fato
+ * da fila, e por isso seguem a direção dela — LINHA no retrato, COLUNA em tela
+ * cheia — sem uma segunda regra de layout escrita aqui.
+ */
+function cifraVelFila() {
+  const caixa = document.createElement('span');
+  caixa.className = 'lv-cifra-vels';
+  caixa.setAttribute('role', 'radiogroup');
+  caixa.setAttribute('aria-label', 'Velocidade da rolagem');
+  CIFRA_VELOCIDADES.forEach((v, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'lv-fonte-btn lv-cifra-vel lv-cifra-vel-op';
+    b.dataset.vel = String(i);
+    b.setAttribute('role', 'radio');
+    // O RÓTULO SAI DA MESMA FUNÇÃO que pinta o botão fechado — duas escritas do
+    // mesmo rótulo divergiriam no primeiro ajuste, e a gaveta passaria a
+    // oferecer nomes que o botão não mostra.
+    b.textContent = cifraVelRotuloDe(v);
+    const t = 'Rolar a ' + cifraVelRotuloDe(v);
+    b.title = t;
+    b.setAttribute('aria-label', t);
+    b.addEventListener('click', () => cifraVelEscolher(i));
+    caixa.appendChild(b);
+  });
+  return caixa;
 }
 
 // A LARGURA MUDA SEM NINGUÉM TOCAR EM NADA: girar o aparelho, o teclado do
@@ -13594,15 +13903,21 @@ function lvBuildCifra(el) {
   cifraVelBtnEl = document.createElement('button');
   cifraVelBtnEl.type = 'button';
   cifraVelBtnEl.className = 'lv-fonte-btn lv-cifra-vel';
-  cifraVelBtnEl.title = 'Velocidade da rolagem';
-  cifraVelBtnEl.setAttribute('aria-label', 'Velocidade da rolagem');
-  cifraVelBtnEl.addEventListener('click', cifraVelPasso);
+  cifraVelBtnEl.setAttribute('aria-haspopup', 'true');
+  cifraVelBtnEl.addEventListener('click', cifraVelFilaAlternar);
   // `prepend` E NÃO `append`: o ⛶ já está no `ctl` desde antes dos retornos
-  // cedo, e ele é o ÚLTIMO da fila (o pedido). Inserir os quatro na frente dele
+  // cedo, e ele é o ÚLTIMO da fila (o pedido). Inserir os cinco na frente dele
   // mantém UM ponto de anexo para a saída — dois `append` do mesmo nó em ramos
   // diferentes é a divergência que este arquivo evita por construção.
-  ctl.prepend(cifraRolarBtnEl, cifraVelBtnEl, menos, mais);
+  //
+  // A GAVETA NASCE JUNTO e nasce FECHADA (v1.7.4): ela é `display: none` até a
+  // classe da fila mudar, então construí-la aqui não custa layout nenhum — e
+  // custaria uma segunda porta de montagem se fosse criada no toque, num nó que
+  // `renderLyricsView` refaz a cada transposição.
+  cifraVelAberta = false;
+  ctl.prepend(cifraRolarBtnEl, cifraVelBtnEl, cifraVelFila(), menos, mais);
   cifraPintarRolar();
+  cifraPintarVels();
 
   // ===== O CABEÇALHO DA OBRA, DENTRO DA CAIXA (v1.6.3) =====
   //
@@ -17391,7 +17706,7 @@ function pintarYtLinha(li, reg) {
 // por sete versões. Acima de 1080p também não: o telão não mostra a diferença e
 // o aparelho ainda guarda hinário e Bíblia.
 const YT_ALTURAS = [1080, 720, 480];
-// ===== A QUALIDADE PADRÃO É 720p, E ELA É DO OPERADOR (v1.7.3) =====
+// ===== A QUALIDADE PADRÃO É 720p, E ELA É DO OPERADOR (v1.7.6) =====
 //
 // Pedido do operador: *"sobre os travamentos do YouTube, vamos abandonar o modo
 // online direto, ele é muito instável, vamos manter o download em 720p como
@@ -17486,7 +17801,7 @@ const ytCenso = {
   menor: 0,        // a MENOR altura que chegou a ir ao ar limitada
 };
 
-// O TETO EFETIVO de um pedido. `0` significa "o padrão", e desde a v1.7.3 o
+// O TETO EFETIVO de um pedido. `0` significa "o padrão", e desde a v1.7.6 o
 // padrão é o do OPERADOR (`ytAlturaPadrao`), não o primeiro da escada — só um
 // teto EXPLÍCITO vale por si, e é ele que ele escolheu na folha.
 function tetoEfetivo(altura) {
@@ -17606,7 +17921,7 @@ function openYtMenu(r, alvoDado) {
   // Shell ≥ 25, pelo método `ytFetchAte` da ponte. Num anterior a linha não
   // aparece e o download sai no padrão de sempre — que é exatamente o que este
   // app fazia até agora, então nada regride.
-  // O DEGRAU "ONLINE" SAIU na v1.7.3, junto com a transmissão direta que ele
+  // O DEGRAU "ONLINE" SAIU na v1.7.6, junto com a transmissão direta que ele
   // existia para alimentar: um item guardado só como link é um item que, ao
   // tocar, teria de vir da internet ao vivo — e é exatamente isso que o
   // operador mandou abandonar. Toda qualidade daqui BAIXA bytes.
@@ -17688,7 +18003,7 @@ function openYtMenu(r, alvoDado) {
 // Um registro `kind: 'youtube'` é o LINK sem bytes — a última carta de quando
 // o download falhou. Sem o embed (removido na v5.212) ele deixa de ser tocável
 // como link e é RESOLVIDO no toque, por DOWNLOAD (`ytArquivo`). Era uma escada
-// de dois degraus até a v1.7.3, e o primeiro (a transmissão direta) saiu do app.
+// de dois degraus até a v1.7.6, e o primeiro (a transmissão direta) saiu do app.
 //
 // O DOWNLOAD TROCA O ITEM NA LISTA. O arquivo é durável e
 // toma o lugar do link EM POSIÇÃO — `listSet` com função é read-modify-write
@@ -17832,7 +18147,7 @@ async function resolverLinkInterno(rec) {
   // de volta. (Um item de link nasce como `youtube`; a leitura fica dita para o
   // dia em que houver um link só de áudio.)
   const soAudio = rec.kind === 'audio';
-  // SEM TRANSMISSÃO (v1.7.3): o link vira ARQUIVO, e só. Este era o segundo
+  // SEM TRANSMISSÃO (v1.7.6): o link vira ARQUIVO, e só. Este era o segundo
   // caminho que projetava direto da rede, e ele cai junto com o primeiro (ver o
   // bloco do "Tocar agora" em `ytAcaoInterno`). O arquivo toma o lugar do link
   // EM POSIÇÃO (`trocarLinkPeloArquivo`), então a linha passa a ser a mídia e o
@@ -17905,7 +18220,7 @@ const streamRetentado = new Map();   // id → carimbo da última re-extração
 // Biblioteca que o `closeHymnSearch` acabou de fechar. Do lado do operador:
 // nada.
 //
-// O CARTÃO CONTINUA VALENDO, e desde a v1.7.3 ele vale MAIS: sem a transmissão
+// O CARTÃO CONTINUA VALENDO, e desde a v1.7.6 ele vale MAIS: sem a transmissão
 // direta, "Tocar agora" espera o download inteiro, e essa espera é de minutos —
 // é ele e a barra de progresso que a tornam legível.
 //
@@ -17969,7 +18284,7 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
   // reaproveitamento do arquivo e o download.
   const soAudio = !!somenteAudio;
 
-  // A TRANSMISSÃO DIRETA SAIU DAQUI (v1.7.3). Ela era o caminho do "Tocar
+  // A TRANSMISSÃO DIRETA SAIU DAQUI (v1.7.6). Ela era o caminho do "Tocar
   // agora": o shell montava o manifesto, o `mse.js` o virava um `<video>` e a
   // cena entrava com o primeiro fragmento, na casa dos kB — sem esperar
   // centenas de MB.
@@ -19594,18 +19909,14 @@ function libBusyRow(chave, reg) {
   // listagem onde está baixando" —, e ele resolve o caso que o toque na linha
   // da busca não cobria: um download que foi para o Cronograma e cuja busca já
   // está fechada não tinha mais nenhuma superfície onde ser parado.
-  if (reg.cancelar) {
-    const x = document.createElement('button');
-    x.type = 'button';
-    x.className = 'dl-cancel';
-    x.title = 'Cancelar o download';
-    x.setAttribute('aria-label', 'Cancelar o download');
-    x.innerHTML = '<span class="msym" aria-hidden="true">' + ICON.close + '</span>';
-    // A linha inteira tem gestos próprios (abrir, arrastar para reordenar):
-    // sem isto, cancelar dispararia também o de baixo.
-    x.addEventListener('click', (ev) => { ev.stopPropagation(); reg.cancelar(); });
-    row.appendChild(x);
-  }
+  //
+  // ELE É O MESMO BOTÃO DA LINHA DE UM ITEM DE VERDADE desde a v1.7.4 (ver
+  // `botaoCancelarDoTrabalho`): era um `.dl-cancel` de 34px encostado na borda,
+  // e a linha ao lado — o mesmo trabalho, num item que já existe — tinha o `⋮`
+  // de 40px na mesma coluna. Duas caixas diferentes para a mesma ação na mesma
+  // posição é a divergência que a v5.259 já tirou desta lista uma vez.
+  const cancelar = botaoCancelarDoTrabalho(reg);
+  if (cancelar) row.appendChild(cancelar);
   li.appendChild(row);
   return li;
 }
@@ -19671,6 +19982,54 @@ function pintarSetaDoCartao(acao) {
 }
 
 /**
+ * ===== O `⋮` CEDE A COLUNA AO TRABALHO EM CURSO (v1.7.4) =====
+ *
+ * Pedido do operador: *"por um botão, na mesma posição do botão de opções do
+ * item do cronograma, para manter o design igual. A diferença é que esse botão
+ * só tem uma função durante um preparo ou download. Esse botão cancela o
+ * processo e apaga o item."*
+ *
+ * É o MESMO movimento que a v1.4.27 fez para a exclusão e para a renomeação: o
+ * processo toma emprestada a coluna do `⋮`, e ela passa a dizer QUAL processo
+ * está no ar. Aqui a razão é a de sempre — o `⋮` abre opções (excluir,
+ * renomear, favoritar, reordenar) para um item que ainda não existe, ou que
+ * está sendo escrito neste instante —, e o toque numa delas cai no meio do
+ * trabalho.
+ *
+ * ELE É UM `.row-btn`, e é isso que o faz medir o `⋮` sem repetir número nenhum:
+ * a caixa e a escala de ícone saem da mesma regra (`--thumb` no Cronograma,
+ * `--hit` na fila). O que ele NÃO herda é o fundo — o cancelar é a única saída
+ * de um trabalho em curso, e ela veste o destrutivo da paleta, como todo
+ * destrutivo deste app.
+ *
+ * O QUE "APAGA O ITEM" QUER DIZER, e o limite está escrito porque ele é uma
+ * decisão: o toque cancela o PROCESSO, e o item que só existe POR CAUSA dele
+ * some junto — a linha provisória é a mídia que estava sendo preparada, e sem o
+ * processo não sobra nada. Um item que JÁ ESTAVA no Cronograma antes (o único
+ * caso é converter um link do YouTube em arquivo, ver `renderLibrary`) FICA:
+ * ali o operador pediu para parar o download, não para perder o item que ele
+ * tinha. Apagá-lo seria destruir o que ninguém mandou destruir.
+ *
+ * Sem `cancelar` não há botão — e desde este lote não há trabalho sem
+ * cancelar: as três esperas que desenham a linha (o download, a preparação de
+ * apresentação e a importação de arquivo) ganharam a alça no mesmo lote. Um
+ * botão que às vezes não está lá é pior que botão nenhum.
+ */
+function botaoCancelarDoTrabalho(reg) {
+  if (!reg || !reg.cancelar) return null;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'row-btn row-cancel';
+  b.title = 'Cancelar e tirar da lista';
+  b.setAttribute('aria-label', b.title);
+  b.appendChild(msym(ICON.close));
+  // A linha inteira tem gestos próprios (projetar, abrir a gaveta): sem isto,
+  // cancelar dispararia também o de baixo.
+  b.addEventListener('click', (e) => { e.stopPropagation(); reg.cancelar(); });
+  return b;
+}
+
+/**
  * O ARO DA MINIATURA DE UM TRABALHO EM CURSO — com a seta só quando há bytes.
  *
  * Irmão do `aroDeEspera()` (que nunca tem seta, porque resolver um link nunca
@@ -19701,40 +20060,39 @@ function aroDeTrabalho(acao) {
 // **um escritor só para as duas superfícies**, sem parsear frase nenhuma e sem
 // um parâmetro novo no contrato.
 //
-// E O PERCENTUAL SOLTO (`.dl-pct`) SAI DAQUI. A barra diz o mesmo número, e a
-// legenda o repete por extenso: três formas do mesmo fato na mesma linha é o
-// que este app tira de cena em toda passada (a fração da Biblioteca contra o
-// verde, o ponto de atualização contra o botão). Ele fica onde continua sendo a
-// única resposta: a lista de resultados do YouTube, que não tem subtítulo.
+// E O PERCENTUAL SOLTO (`.dl-pct`) SAI DAQUI: a legenda já o traz por extenso,
+// escrito por quem tem os números. Ele fica onde continua sendo a única
+// resposta — a lista de resultados do YouTube, que não tem subtítulo.
 //
-// SEM NÚMERO NÃO HÁ BARRA (`pct < 0`): o trilho some e sobra a legenda. Uma
-// barra parada em zero durante a fase que não sabe o total se lê como travada —
-// quem diz "espere" ali é o aro da miniatura, que é a peça feita para isso.
+// ===== E A BARRA SAIU (v1.7.4) =====
+//
+// Relato do operador: *"O subtitulo com as informações ficou muito bom, mas a
+// barra de progresso ficou ruim, tire ela."*
+//
+// O que ele aprovou foi a metade que ACRESCENTOU informação — a fração por
+// extenso na posição do subtítulo. O trilho não acrescentava nenhuma: ele
+// desenhava, num filete de 4px encostado na borda da coluna, o MESMO número que
+// a frase ao lado dele já diz. Numa lista de trinta linhas isso é peso visual
+// por repetição, que é o que este app tira de cena em toda passada.
+//
+// **A faixa continua sendo um nó PRÓPRIO, e não o `.row-sub`** — a razão é a
+// mesma da v1.7.1 e não mudou com a barra: `pintarFalha` e `pintarSubNoAr`
+// escrevem no `.row-sub`, e um subtítulo que hospedasse o progresso teria dois
+// donos escrevendo nele.
+//
+// O `pct` continua no registro e continua chegando aqui. Ele não é órfão: é o
+// que a NOTIFICAÇÃO do sistema desenha (`bgTaskStep`), que é a única janela do
+// trabalho com o app minimizado — a barra saiu da LINHA, não do app.
 function faixaDeProgresso(reg) {
   const f = document.createElement('span');
   f.className = 'dl-prog';
-  const t = document.createElement('span');
-  t.className = 'dl-prog-txt';
-  const trilho = document.createElement('span');
-  trilho.className = 'dl-prog-trilho';
-  const fill = document.createElement('span');
-  fill.className = 'dl-prog-fill';
-  trilho.appendChild(fill);
-  f.append(t, trilho);
   pintarFaixaDeProgresso(f, reg);
   return f;
 }
 
 function pintarFaixaDeProgresso(f, reg) {
   if (!f || !reg) return;
-  const t = f.querySelector('.dl-prog-txt');
-  if (t) t.textContent = reg.acao || '';
-  const trilho = f.querySelector('.dl-prog-trilho');
-  if (!trilho) return;
-  const tem = reg.pct >= 0;
-  trilho.hidden = !tem;
-  const fill = trilho.querySelector('.dl-prog-fill');
-  if (fill && tem) fill.style.width = Math.min(100, Math.max(0, reg.pct)) + '%';
+  f.textContent = reg.acao || '';
 }
 
 function previewBusy(acao, nome, aoCancelar) {
@@ -22056,7 +22414,7 @@ async function renderDiag() {
     }
 
   }
-  // A QUALIDADE QUE DE FATO FOI AO AR (v1.7.3).
+  // A QUALIDADE QUE DE FATO FOI AO AR (v1.7.6).
   //
   // Este bloco descrevia a TRANSMISSÃO DIRETA e morava atrás de um
   // `if (motivoStream)`. Com ela fora do app, o que sobrou é a pergunta que
@@ -22325,6 +22683,10 @@ let pacoteEmCurso = false;
 // quer parar). Uma exportação de gigabytes sem saída era um app travado por dez
 // minutos.
 let pacoteCancelar = false;
+// QUAL dos dois trabalhos está em curso. `pacoteEmCurso` responde "a ponte está
+// ocupada?" (e trava os dois tiles); este responde "o que está acontecendo?", e
+// é ele que decide qual tile fala e qual aceita o toque de cancelar.
+let pacoteExportando = false;
 let pacoteResposta = null;
 
 // Detecção por PRESENÇA, nunca por versão de shell — a mesma regra do
@@ -22570,16 +22932,19 @@ async function pacotePlano() {
     bytes: bytesEstado,
     fixo: true,
   }];
+  const porColecao = new Map();
   for (const c of cols) {
     const g = porGrupo.get(AVPacote.GRUPO_COL + c.id);
     if (!g || !g.arquivos.length) continue;
-    grupos.push({
+    const item = {
       chave: AVPacote.GRUPO_COL + c.id,
       rotulo: c.name || c.id,
       sub: g.arquivos.length + (g.arquivos.length === 1 ? ' arquivo' : ' arquivos'),
       bytes: g.bytes,
       fixo: false,
-    });
+    };
+    grupos.push(item);
+    porColecao.set(c.id, item);
   }
   if (bytesMidia || midia.length) {
     grupos.push({
@@ -22594,14 +22959,72 @@ async function pacotePlano() {
   if (soltos && soltos.arquivos.length) {
     grupos.push({
       chave: AVPacote.GRUPO_OUTROS,
-      rotulo: 'Outros arquivos',
+      // "OUTROS ARQUIVOS" seria o nome de duas coisas nesta mesma folha: a
+      // Biblioteca já chama de "Outros álbuns" a seção dos álbuns sem
+      // categoria, e ela também aparece aqui. Este é o outro caso — bytes no
+      // disco cuja coleção saiu do catálogo —, e o nome diz isso.
+      rotulo: 'Arquivos sem coleção',
       sub: soltos.arquivos.length + ' de coleções que saíram do catálogo',
       bytes: soltos.bytes,
       fixo: false,
     });
   }
 
-  return { estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos };
+  // ===== A FOLHA É A ÁRVORE DA BIBLIOTECA (v1.7.3) =====
+  //
+  // Pedido do operador: *"opções de agrupamentos das coleções da mesma forma que
+  // já existe na biblioteca, podendo marcar um grupo inteiro de uma vez só"*.
+  //
+  // A ORDEM E O AGRUPAMENTO SAEM DA MESMA FONTE que a Biblioteca desenha — as
+  // coletâneas do `AVColetanea.aplicar`, com os hinários e as séries na RAIZ e
+  // os álbuns sem categoria em "Outros álbuns". Uma segunda leitura do catálogo
+  // aqui divergiria da tela em que o operador aprendeu onde cada coleção mora,
+  // que é justamente o que ele pediu para NÃO acontecer.
+  //
+  // `plano.grupos` continua PLANO — é ele que o laço de escrita e o
+  // `pacoteBytesDe` consomem, e nenhum dos dois tem o que fazer com uma árvore.
+  // `plano.folha` é a árvore, e ela existe só para a folha desenhar.
+  const naFolha = new Set();
+  const folha = [{ tipo: 'fixo', chave: AVPacote.GRUPO_AJUSTES }];
+  const linha = (chave) => {
+    if (!chave || naFolha.has(chave) || !porGrupo.has(chave)) return;
+    naFolha.add(chave);
+    folha.push({ tipo: 'linha', chave });
+  };
+  // A RAIZ, na ordem da Biblioteca: as séries (o material datado do sábado que
+  // vem) e depois os hinários (o acervo permanente).
+  for (const c of [...serieCollections(), ...FIXED_COLLECTIONS]) {
+    const item = porColecao.get(c.id);
+    if (item) { naFolha.add(item.chave); folha.push({ tipo: 'linha', chave: item.chave }); }
+  }
+  const secao = (nome, chaves) => {
+    const dentro = chaves.filter((k) => k && !naFolha.has(k));
+    if (!dentro.length) return;
+    for (const k of dentro) naFolha.add(k);
+    folha.push({ tipo: 'secao', nome, chaves: dentro });
+  };
+  const coletaneas = AVColetanea.aplicar(albumCatalog.categories);
+  const reivindicados = new Set();
+  for (const cat of coletaneas.categorias) {
+    for (const a of cat.albums) reivindicados.add('album-' + a.id_album);
+    secao(cat.name, cat.albums
+      .map((a) => porColecao.get('album-' + a.id_album))
+      .filter(Boolean).map((x) => x.chave));
+  }
+  const orfaos = albumCatalog.albums
+    .map((a) => porColecao.get('album-' + a.id_album))
+    .filter((x) => x && !reivindicados.has(AVPacote.colecaoDoGrupo(x.chave)));
+  secao(coletaneas.categorias.length ? 'Outros álbuns' : 'Álbuns', orfaos.map((x) => x.chave));
+  // O QUE SOBROU entra como linha, e essa varredura é a rede de segurança: uma
+  // coleção que o catálogo conheça e a árvore não alcance (um hinário fora do
+  // `FIXED_COLLECTIONS`, uma categoria que a coletânea dissolveu para um
+  // destino ausente) sairia da folha sem aparecer em lista nenhuma — e sem
+  // aparecer na folha ela nunca é marcada, isto é, não entra no arquivo.
+  for (const g of grupos) if (!g.fixo && g.chave.indexOf(AVPacote.GRUPO_COL) === 0) linha(g.chave);
+  linha('midia');
+  linha(AVPacote.GRUPO_OUTROS);
+
+  return { estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos, folha };
 }
 
 /** Os bytes que os grupos escolhidos vão escrever — o total da barra. */
@@ -22628,6 +23051,12 @@ function pacoteBytesDe(plano, sel) {
 // `<div>` com a mesma roupa e a marca já acesa, e o `sub` diz por que ela está
 // ali sem ser escolha.
 let pacoteGruposResolve = null;
+// UMA seção aberta por vez, como na Biblioteca (`grupoAberto`): com todas
+// abertas a folha vira a lista inteira de álbuns, que é o que a seção existe
+// para não ser. Ela nasce vazia — TUDO colapsado —, porque a folha abre com
+// tudo marcado e o que se faz nela é TIRAR: a barra do grupo resolve o caso
+// comum sem abrir nada.
+let pacoteSecaoAberta = '';
 
 function fecharPacoteGrupos(valor) {
   const r = pacoteGruposResolve;
@@ -22642,6 +23071,7 @@ function escolherGruposDoPacote(plano) {
   return new Promise((resolve) => {
     pacoteGruposResolve = resolve;
     destLimpar();
+    pacoteSecaoAberta = '';
     // TUDO MARCADO por padrão: o caso normal é levar o acervo inteiro, e a
     // folha existe para PODER tirar, não para obrigar a montar.
     for (const g of plano.grupos) if (!g.fixo) destMarcados.add(g.chave);
@@ -22650,6 +23080,43 @@ function escolherGruposDoPacote(plano) {
     renderPacoteGrupos(plano);
     songMenuPopupEl.classList.add('open');
   });
+}
+
+/** O que está marcado, MAIS o que é fixo. */
+function pacoteSelecao(plano) {
+  const sel = new Set(destMarcados);
+  for (const g of plano.grupos) if (g.fixo) sel.add(g.chave);
+  return sel;
+}
+
+/** As chaves que o operador PODE marcar — tudo menos o fixo. */
+function pacoteChavesLivres(plano) {
+  return plano.grupos.filter((g) => !g.fixo).map((g) => g.chave);
+}
+
+/**
+ * `todas` · `nenhuma` · `parte` — o estado de uma marca de GRUPO.
+ *
+ * Ele existe porque uma caixa de duas posições MENTE sobre um grupo: com dois
+ * de cinco álbuns marcados, "vazia" diz que nada vai e "cheia" diz que tudo
+ * vai. O terceiro estado é o único honesto, e é ele que dá o traço no lugar do
+ * ✓ (ver `.song-menu-check.parcial`).
+ */
+function pacoteEstadoDe(chaves) {
+  let marcadas = 0;
+  for (const k of chaves) if (destMarcados.has(k)) marcadas++;
+  if (!marcadas) return 'nenhuma';
+  return marcadas === chaves.length ? 'todas' : 'parte';
+}
+
+/** A caixa de um grupo, nos três estados. */
+function pacoteCheckGrupo(estado) {
+  const cx = document.createElement('span');
+  cx.className = 'song-menu-check'
+    + (estado === 'todas' ? ' on' : estado === 'parte' ? ' parcial' : '');
+  cx.setAttribute('role', 'checkbox');
+  cx.setAttribute('aria-checked', estado === 'todas' ? 'true' : estado === 'parte' ? 'mixed' : 'false');
+  return cx;
 }
 
 // O ÍCONE DE UM GRUPO sai do sprite, e não da fonte: o `ICON` é o subset de 31
@@ -22662,14 +23129,64 @@ function pacoteIconeSvg(id) {
     + 'stroke-linejoin="round" aria-hidden="true"><use href="#' + id + '"/></svg>';
 }
 
+/** O peso de um conjunto de chaves, para o resumo de uma seção. */
+function pacotePesoDe(plano, chaves) {
+  let t = 0;
+  for (const g of plano.grupos) if (chaves.indexOf(g.chave) >= 0) t += g.bytes;
+  return t;
+}
+
 function renderPacoteGrupos(plano) {
   songMenuListEl.innerHTML = '';
   const remontar = () => renderPacoteGrupos(plano);
   destRemontar = remontar;
-  for (const g of plano.grupos) {
+  const porChave = new Map(plano.grupos.map((g) => [g.chave, g]));
+  const livres = pacoteChavesLivres(plano);
+
+  // ===== "TUDO", A PRIMEIRA LINHA (v1.7.3) =====
+  //
+  // Pedido do operador: *"haja uma opção de selecionar todos"*. Ela é um
+  // ALTERNADOR e não dois botões: com tudo marcado ela LIMPA, com qualquer
+  // coisa desmarcada ela MARCA TUDO. Dois botões ("marcar" / "limpar") seriam
+  // um deles sempre inútil, e o estado da caixa já diz qual dos dois o toque
+  // vai fazer.
+  const geral = pacoteEstadoDe(livres);
+  const liTudo = document.createElement('li');
+  const btnTudo = document.createElement('button');
+  btnTudo.type = 'button';
+  btnTudo.className = 'song-menu-btn song-menu-sel song-menu-tudo';
+  const icTudo = document.createElement('span');
+  icTudo.className = 'song-menu-icon';
+  icTudo.innerHTML = pacoteIconeSvg('icoExportar');
+  const txTudo = document.createElement('span'); txTudo.className = 'song-menu-text';
+  const rotTudo = document.createElement('span'); rotTudo.className = 'song-menu-label';
+  rotTudo.textContent = geral === 'todas' ? 'Limpar a seleção' : 'Selecionar tudo';
+  const subTudo = document.createElement('span'); subTudo.className = 'song-menu-sub';
+  subTudo.textContent = livres.filter((k) => destMarcados.has(k)).length
+    + ' de ' + livres.length + ' · ' + fmtBytes(pacoteBytesDe(plano, pacoteSelecao(plano)));
+  txTudo.append(rotTudo, subTudo);
+  btnTudo.append(icTudo, txTudo, pacoteCheckGrupo(geral));
+  btnTudo.addEventListener('click', () => {
+    if (geral === 'todas') for (const k of livres) destMarcados.delete(k);
+    else for (const k of livres) destMarcados.add(k);
+    remontar();
+  });
+  liTudo.appendChild(btnTudo);
+  songMenuListEl.appendChild(liTudo);
+
+  const linhaDeGrupo = (g, dentro) => {
     const peso = fmtBytes(g.bytes);
-    const sub = g.sub ? g.sub + ' · ' + peso : peso;
-    if (g.fixo) {
+    const li = songMenuItem(
+      g.chave === 'midia' ? msym(ICON.import) : msym(ICON.music),
+      g.rotulo, (g.sub ? g.sub + ' · ' : '') + peso, () => {}, g.chave, remontar);
+    if (dentro) li.firstChild.classList.add('song-menu-dentro');
+    return li;
+  };
+
+  for (const item of plano.folha) {
+    if (item.tipo === 'fixo') {
+      const g = porChave.get(item.chave);
+      if (!g) continue;
       const li = document.createElement('li');
       const caixa = document.createElement('div');
       caixa.className = 'song-menu-btn song-menu-sel song-menu-fixo';
@@ -22681,7 +23198,7 @@ function renderPacoteGrupos(plano) {
       const t = document.createElement('span'); t.className = 'song-menu-label';
       t.textContent = g.rotulo;
       const d = document.createElement('span'); d.className = 'song-menu-sub';
-      d.textContent = sub + ' · sempre vai junto';
+      d.textContent = (g.sub ? g.sub + ' · ' : '') + fmtBytes(g.bytes) + ' · sempre vai junto';
       txt.append(t, d);
       caixa.appendChild(txt);
       const marca = document.createElement('span');
@@ -22693,12 +23210,68 @@ function renderPacoteGrupos(plano) {
       songMenuListEl.appendChild(li);
       continue;
     }
-    // A MÍDIA leva a pasta (ela é o que ENTROU no aparelho por fora); uma
-    // coleção e o grupo de escape levam a nota, que é o que eles guardam.
-    songMenuListEl.appendChild(songMenuItem(
-      g.chave === 'midia' ? msym(ICON.import) : msym(ICON.music),
-      g.rotulo, sub, () => {}, g.chave, remontar));
+    if (item.tipo === 'linha') {
+      const g = porChave.get(item.chave);
+      if (g) songMenuListEl.appendChild(linhaDeGrupo(g, false));
+      continue;
+    }
+    // ===== UMA SEÇÃO =====
+    //
+    // A BARRA MARCA O GRUPO INTEIRO e a SETA abre — dois alvos, duas coisas, e
+    // é por isso que a barra é uma `<div role="button">` com um `<button>`
+    // dentro: botão dentro de botão é HTML inválido, e é a mesma solução da
+    // `.coll-group-bar` da Biblioteca.
+    //
+    // A BARRA é a que marca porque esta é uma folha de ESCOLHA: o que se vem
+    // fazer aqui é incluir e excluir, e abrir é o gesto de refinar. Na
+    // Biblioteca a barra abre porque lá o que se vem fazer é olhar dentro.
+    const estado = pacoteEstadoDe(item.chaves);
+    const aberta = pacoteSecaoAberta === item.nome;
+    const li = document.createElement('li');
+    const bar = document.createElement('div');
+    bar.className = 'song-menu-btn song-menu-sel song-menu-grupo';
+    bar.setAttribute('role', 'button');
+    bar.setAttribute('tabindex', '0');
+    const seta = document.createElement('button');
+    seta.type = 'button';
+    seta.className = 'song-menu-seta' + (aberta ? ' aberta' : '');
+    seta.innerHTML = pacoteIconeSvg('icoSlideNext');
+    seta.setAttribute('aria-label', (aberta ? 'Fechar ' : 'Abrir ') + item.nome);
+    seta.setAttribute('aria-expanded', aberta ? 'true' : 'false');
+    seta.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      pacoteSecaoAberta = aberta ? '' : item.nome;
+      remontar();
+    });
+    const txt = document.createElement('span'); txt.className = 'song-menu-text';
+    const t = document.createElement('span'); t.className = 'song-menu-label';
+    t.textContent = item.nome;
+    const d = document.createElement('span'); d.className = 'song-menu-sub';
+    d.textContent = item.chaves.filter((k) => destMarcados.has(k)).length
+      + ' de ' + item.chaves.length + ' · ' + fmtBytes(pacotePesoDe(plano, item.chaves));
+    txt.append(t, d);
+    bar.append(seta, txt, pacoteCheckGrupo(estado));
+    const marcarGrupo = () => {
+      // PARCIAL VAI PARA CHEIO, e não para vazio: o toque numa marca parcial é
+      // "quero este grupo", e quem quer tirar toca de novo. O contrário faria o
+      // primeiro toque DESFAZER o que o operador acabou de marcar à mão.
+      if (estado === 'todas') for (const k of item.chaves) destMarcados.delete(k);
+      else for (const k of item.chaves) destMarcados.add(k);
+      remontar();
+    };
+    bar.addEventListener('click', marcarGrupo);
+    bar.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); marcarGrupo(); }
+    });
+    li.appendChild(bar);
+    songMenuListEl.appendChild(li);
+    if (!aberta) continue;
+    for (const k of item.chaves) {
+      const g = porChave.get(k);
+      if (g) songMenuListEl.appendChild(linhaDeGrupo(g, true));
+    }
   }
+
   const li = document.createElement('li');
   li.className = 'song-menu-go-row';
   const go = document.createElement('button');
@@ -22716,13 +23289,6 @@ function renderPacoteGrupos(plano) {
   songMenuListEl.appendChild(li);
 }
 
-/** O que está marcado, MAIS o que é fixo. */
-function pacoteSelecao(plano) {
-  const sel = new Set(destMarcados);
-  for (const g of plano.grupos) if (g.fixo) sel.add(g.chave);
-  return sel;
-}
-
 const PACOTE_CANCELADO = 'cancelado';
 
 async function exportarPacote() {
@@ -22730,28 +23296,26 @@ async function exportarPacote() {
   if (!c || pacoteEmCurso) return;
   pacoteOuvirCanal(c);
 
-  // ===== A MEDIÇÃO VEM ANTES DE TUDO, E ELA APARECE =====
+  // ===== A MEDIÇÃO VEM ANTES DE TUDO, E ELA APARECE NO PRÓPRIO BOTÃO =====
   // Ela varre o OPFS inteiro, percorre a store de mídia e lê as chaves de
   // `state` — segundos num acervo grande. Até a v1.7.2 ela acontecia DEPOIS do
-  // "Salvar como", em silêncio absoluto: nem cartão, nem notificação, nem
-  // palavra no tile. Somada à escrita das milhares de chaves de `state` (que
-  // também não reportava nada), era isso que o operador via como "não sai de
-  // 0%".
+  // "Salvar como", em silêncio absoluto; a v1.7.2 a mostrou no cartão sobre a
+  // PREVIEW, e a v1.7.3 a trouxe para cá: a ação acontece no botão, e é nele
+  // que ela responde (ver `falarNoTile`).
   let plano = null;
-  const medindo = previewBusy('Preparando a exportação', 'Medindo o acervo');
+  falarNoTile(pacoteExportarTileEl, 'Medindo…', 0);
+  pacoteExportarTileEl.classList.add('qs-trabalhando');
   try {
     plano = await pacotePlano();
   } catch (e) {
     plano = null;
   } finally {
-    medindo.soltar();
+    pacoteExportarTileEl.classList.remove('qs-trabalhando');
+    calarTile(pacoteExportarTileEl);
   }
   if (!plano) {
-    await openAppDialog({
-      title: 'Não deu para exportar',
-      message: 'Não foi possível ler o acervo deste aparelho.',
-      okText: 'Entendi', cancelText: null,
-    });
+    pulsar(pacoteExportarTileEl, 'erro');
+    falarNoTile(pacoteExportarTileEl, 'Não deu', 4000);
     return;
   }
   pacotePlanoAtual = plano;
@@ -22766,30 +23330,29 @@ async function exportarPacote() {
   // `salvarTexto` do Registro.
   if (!nome) { pacotePlanoAtual = null; return; }
   pacoteEmCurso = true;
+  pacoteExportando = true;
   pacoteCancelar = false;
   pacoteRenderTiles();
+  falarNoTile(pacoteExportarTileEl, '0%', 0);
   let erro = '';
   let gravados = -1;
   const total = Math.max(pacoteBytesDe(plano, sel), 1);
-  // O CARTÃO SOBRE A PREVIEW é onde o número mora agora (a palavra do estado do
-  // tile saiu na v1.7.2), e ele traz o CANCELAR — que esta exportação não
-  // tinha: até aqui, começar era ficar preso até o fim ou até uma falha.
-  const cartao = previewBusy('Exportando o acervo', nome, () => { pacoteCancelar = true; });
   try {
     await withBgWork(async () => {
       const tarefa = bgTaskStart('Exportando o acervo', 1);
       bgItemOnly(tarefa, nome);
       let feitos = 0;
       let etapa = '';
-      // O NÚMERO VAI NO TEXTO, e não num terceiro parâmetro: o cartão da preview
-      // não tem casa para um percentual (o 3º argumento do `atualizar` existe só
-      // para a assinatura bater com a do `libBusy`), e quem o mostra é a própria
-      // legenda — a mesma forma do "Baixando vídeo · 34%".
+      // O NÚMERO VAI NO RÓTULO DO BOTÃO (v1.7.3), e é a única coisa que cabe
+      // lá: o tile tem uma linha de texto, e a ETAPA — o nome do grupo que está
+      // sendo escrito — é longa demais para ela. A etapa continua indo para a
+      // NOTIFICAÇÃO, que é a superfície com espaço e a que existe com o app
+      // minimizado, que é onde uma exportação de gigabytes de fato acontece.
       const andou = (n) => {
         feitos += n;
         bgTaskBytes(tarefa, feitos, total);
-        const pct = Math.min(100, Math.round((feitos / total) * 100));
-        cartao.atualizar('Exportando o acervo', (etapa || nome) + ' · ' + pct + '%');
+        falarNoTile(pacoteExportarTileEl,
+          Math.min(100, Math.round((feitos / total) * 100)) + '%', 0);
       };
       const esc = pacoteEscritor(c, andou, () => pacoteCancelar);
       try {
@@ -22816,6 +23379,7 @@ async function exportarPacote() {
         // gravaria um wallpaper vazio por cima do padrão — o modo de falhar
         // mudo que este arquivo inteiro evita.
         etapa = 'Ajustes e catálogos';
+        bgItemOnly(tarefa, etapa);
         for (const e of plano.estado) {
           if (e.blob) {
             await esc.registro({
@@ -22831,6 +23395,7 @@ async function exportarPacote() {
         // páginas de um item vêm coladas nele.
         if (sel.has('midia')) {
           etapa = 'Itens importados e vídeos';
+          bgItemOnly(tarefa, etapa);
           for (const m of plano.midia) {
             let rec = null;
             try { rec = await AVDB.getMedia(m.id); } catch (_) { continue; }
@@ -22860,6 +23425,7 @@ async function exportarPacote() {
         // registro de catálogo cujo arquivo não viaja é uma faixa que não toca
         // do outro lado.
         etapa = 'Catálogo';
+        bgItemOnly(tarefa, etapa);
         for (const rec of await AVDB.filesAll()) {
           if (!rec || !rec.id) continue;
           if (rec.opfsPath && !plano.caminhoViaja(rec.opfsPath)) continue;
@@ -22877,6 +23443,7 @@ async function exportarPacote() {
           const pacote = plano.porGrupo.get(g.chave);
           if (!pacote) continue;
           etapa = g.rotulo;
+          bgItemOnly(tarefa, etapa);
           for (const a of pacote.arquivos) {
             let f = null;
             try { f = await AVDB.opfsGetFile(a.caminho); } catch (_) { continue; }
@@ -22908,20 +23475,32 @@ async function exportarPacote() {
     // em que os bytes acabam. Inofensivo depois de um `pacoteFechar` bem
     // sucedido — ali já não há nada aberto.
     if (erro) { try { AVNative.pacoteCancelar(); } catch (_) { /* ponte */ } }
-    cartao.soltar();
     pacoteEmCurso = false;
+    pacoteExportando = false;
     pacoteCancelar = false;
     pacotePlanoAtual = null;
+    calarTile(pacoteExportarTileEl);
     pacoteRenderTiles();
   }
   // DESISTIR NÃO É FALHAR, e por isso não abre diálogo de erro: o operador
-  // acabou de tocar no ✕ e sabe o que aconteceu. O parcial já foi apagado pelo
-  // caminho acima.
-  if (erro === PACOTE_CANCELADO) return;
+  // acabou de tocar no botão e sabe o que aconteceu. O parcial já foi apagado
+  // pelo caminho acima — e o BOTÃO confirma, que é onde ele tocou.
+  if (erro === PACOTE_CANCELADO) {
+    falarNoTile(pacoteExportarTileEl, 'Cancelado', 3000);
+    return;
+  }
   if (erro) {
+    pulsar(pacoteExportarTileEl, 'erro');
     await openAppDialog({ title: 'Não deu para exportar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
+  // O DESFECHO FALA NOS DOIS LUGARES, e não é repetição: o BOTÃO diz que deu
+  // certo e quanto pesou — a resposta ao toque, onde o toque foi dado —, e o
+  // DIÁLOGO diz o que o botão não tem como dizer: o NOME do arquivo e o que
+  // fazer com ele. Sem o nome, "exportado" não responde *"qual arquivo eu
+  // copio?"* numa pasta de Downloads com meia dúzia deles.
+  pulsar(pacoteExportarTileEl, 'ok');
+  falarNoTile(pacoteExportarTileEl, fmtBytes(gravados), 5000);
   await openAppDialog({
     title: 'Acervo exportado',
     message: 'O arquivo "' + nome + '" tem ' + fmtBytes(gravados) + '. '
@@ -23052,6 +23631,10 @@ async function importarPacote() {
   if (!alvo || !alvo.url) return;
   pacoteEmCurso = true;
   pacoteRenderTiles();
+  // A CONFERÊNCIA vem antes do primeiro byte gravado e lê o arquivo inteiro
+  // pelos cabeçalhos: num pacote de gigabytes ela leva segundos, e sem esta
+  // linha o botão fica parado enquanto ela roda.
+  falarNoTile(pacoteImportarTileEl, 'Conferindo…', 0);
   let erro = '';
   const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0 };
   try {
@@ -23069,13 +23652,13 @@ async function importarPacote() {
     await withBgWork(async () => {
       const tarefa = bgTaskStart('Importando o acervo', 1);
       bgItemOnly(tarefa, alvo.name || 'pacote');
-      // O CARTÃO SOBRE A PREVIEW carrega o número desde a v1.7.2, aqui como na
-      // exportação: era a palavra do estado do tile que o mostrava, e ela saiu.
+      // O NÚMERO MORA NO PRÓPRIO BOTÃO (v1.7.3), aqui como na exportação: a
+      // ação nasceu nele. O NOME do arquivo vai para a notificação, que é a
+      // superfície com espaço.
       // Sem CANCELAR, e a diferença é de natureza: parar uma importação no meio
       // deixaria metade do acervo no aparelho e nada apagaria a outra metade —
       // ela só ACRESCENTA, então o que já entrou está certo, e desfazê-lo seria
       // apagar o que o operador foi buscar.
-      const cartao = previewBusy('Importando o acervo', alvo.name || 'pacote');
       try {
         const cursor = pacoteCursor(blob);
         // O ITEM EM MONTAGEM. A miniatura e as páginas de uma mídia chegam
@@ -23108,8 +23691,8 @@ async function importarPacote() {
           const { cab, corpo } = r;
           bgTaskBytes(tarefa, cursor.pos, blob.size);
           if (blob.size) {
-            cartao.atualizar('Importando o acervo', (alvo.name || 'pacote')
-              + ' · ' + Math.min(100, Math.round((cursor.pos / blob.size) * 100)) + '%');
+            falarNoTile(pacoteImportarTileEl,
+              Math.min(100, Math.round((cursor.pos / blob.size) * 100)) + '%', 0);
           }
           if (cab.t === 'media-thumb' && pendente && pendente.tipo === 'media') {
             pendente.rec.thumb = corpo; continue;
@@ -23175,19 +23758,21 @@ async function importarPacote() {
         }
       } finally {
         bgTaskEnd(tarefa);
-        cartao.soltar();
       }
     });
   } catch (e) {
     erro = (e && e.message) || 'A importação falhou.';
   } finally {
     pacoteEmCurso = false;
+    calarTile(pacoteImportarTileEl);
     pacoteRenderTiles();
   }
   if (erro) {
+    pulsar(pacoteImportarTileEl, 'erro');
     await openAppDialog({ title: 'Não deu para importar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
+  pulsar(pacoteImportarTileEl, 'ok');
   await openAppDialog({
     title: 'Acervo importado',
     message: contagem.media + ' item(ns), ' + contagem.opfs + ' arquivo(s) e '
@@ -23245,10 +23830,24 @@ const pacoteImportarTileEl = document.getElementById('pacoteImportarTile');
  * A LUZ NÃO MUDA com o trabalho: aceso, neste painel, responde *"a função está
  * ligada?"*, e apagar um tile em curso diria INDISPONÍVEL, que é o oposto.
  */
-function pacoteTrabalhando(el, ligado, rotulo) {
+/**
+ * `podeParar` mantém o tile TOCÁVEL enquanto trabalha, e o toque CANCELA.
+ *
+ * A exportação perdeu o cartão sobre a preview na v1.7.3, e com ele o ✕ que era
+ * a única saída de um trabalho de minutos. A saída volta para o mesmo lugar em
+ * que a ação nasceu: o botão. É o gesto que quem opera tenta primeiro — tocar
+ * de novo no botão que está trabalhando —, e ele é seguro porque exportar é
+ * refazível: o parcial é apagado e o arquivo escolhido some.
+ *
+ * A IMPORTAÇÃO NÃO TEM ISSO, e a diferença é de natureza: ela só ACRESCENTA, e
+ * parar no meio deixaria metade do acervo dentro sem nada para apagar a outra
+ * metade. O que já entrou está certo; desfazê-lo seria apagar o que o operador
+ * foi buscar. Lá o tile fica `disabled` mesmo.
+ */
+function pacoteTrabalhando(el, ligado, rotulo, podeParar) {
   if (!el) return;
   el.classList.toggle('qs-trabalhando', !!ligado);
-  el.disabled = !!ligado;
+  el.disabled = !!ligado && !podeParar;
   pintarTile(el, ligado ? 'ocupado' : 'pronto', rotulo, true, false);
 }
 
@@ -23258,8 +23857,13 @@ function pacoteRenderTiles() {
     if (el) el.hidden = fora;
   }
   if (shareAppTileEl) pintarTile(shareAppTileEl, 'app', 'O app', true, false);
-  pacoteTrabalhando(pacoteExportarTileEl, pacoteEmCurso, pacoteEmCurso ? 'em curso' : 'o acervo');
-  pacoteTrabalhando(pacoteImportarTileEl, pacoteEmCurso, pacoteEmCurso ? 'em curso' : 'o acervo');
+  // QUEM ESTÁ TRABALHANDO É UM SÓ, e é ele que fica tocável: o outro é o
+  // IRMÃO — desabilitado porque a ponte só sustenta um destino aberto por vez,
+  // e não porque haja o que cancelar nele.
+  pacoteTrabalhando(pacoteExportarTileEl, pacoteEmCurso,
+    pacoteEmCurso ? 'em curso' : 'o acervo', pacoteExportando);
+  pacoteTrabalhando(pacoteImportarTileEl, pacoteEmCurso,
+    pacoteEmCurso ? 'em curso' : 'o acervo', false);
 }
 
 if (shareAppTileEl) {
@@ -23273,7 +23877,22 @@ if (shareAppTileEl) {
     );
   });
 }
-if (pacoteExportarTileEl) pacoteExportarTileEl.addEventListener('click', () => { exportarPacote(); });
+if (pacoteExportarTileEl) {
+  pacoteExportarTileEl.addEventListener('click', () => {
+    // O TOQUE NO BOTÃO QUE TRABALHA É O CANCELAR (v1.7.3). Ele é o gesto que
+    // quem opera tenta primeiro, e é seguro porque exportar é refazível: o
+    // parcial é apagado e o arquivo escolhido some. `qs-trabalhando` sem
+    // `pacoteExportando` é a fase de MEDIÇÃO, que não tem o que cancelar —
+    // ela não escreveu byte nenhum e acaba sozinha em segundos.
+    if (pacoteExportando) {
+      pacoteCancelar = true;
+      falarNoTile(pacoteExportarTileEl, 'Parando…', 0);
+      return;
+    }
+    if (pacoteEmCurso) return;
+    exportarPacote();
+  });
+}
 if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => { importarPacote(); });
 // Na CARGA, e não só ao abrir a folha: é este toque que revela (ou esconde) o
 // bloco inteiro, e uma folha aberta antes dele mostraria um rótulo sozinho.
@@ -23302,11 +23921,68 @@ function pintarTile(el, estado, rotulo, aceso, alt) {
   // tinha o título sozinho ("Tema"), que não responde nada. É o mesmo par do
   // botão da cortina na notificação — o desenho mostra o ESTADO, e o texto que
   // acompanha diz o que ele é por extenso.
+  //
+  // O NOME VEM DO `data-nome`, e não do texto que está na tela (v1.7.3): com o
+  // tile FALANDO (ver `falarNoTile`) o título é a frase emprestada, e lê-la
+  // aqui faria o `aria-label` virar "42%: em curso".
   const titulo = el.querySelector('.qs-titulo');
-  const nome = (titulo && titulo.textContent) || '';
+  const nome = el.dataset.nome || (titulo && titulo.textContent) || '';
   el.setAttribute('aria-label', rotulo ? nome + ': ' + rotulo : nome);
   el.classList.toggle('qs-on', !!aceso);
   el.classList.toggle('qs-alt', !!alt);
+}
+
+// ===== O TILE EMPRESTA O PRÓPRIO RÓTULO (v1.7.3) =====
+//
+// Pedido do operador: *"ajuste o feedback da ui sobre a preparação da
+// exportação, que hoje está sendo exibida sobre o preview, para que seja
+// exibida sobre o próprio botão de exportar. já que a ação acontece ali e não
+// na tela ou controle. o mesmo vale para feedbacks visuais das ações das
+// configurações, eles devem notificar ali mesmo"*.
+//
+// ELE ESTÁ CERTO E O APP JÁ TINHA A MECÂNICA, em dois lugares: o `#otaRow`
+// (`falarNoOta`) e o "Guardar como pacote" (`falarNoPacote`). A regra está
+// escrita desde a v5.207 na lista de canais de resposta deste arquivo — *"o
+// rótulo do controle empresta a si mesmo por alguns segundos e volta"* —, e o
+// cartão sobre a preview é o canal do que ACONTECERIA NELA. Uma exportação não
+// acontece na preview: ela acontece no botão.
+//
+// E ISSO NÃO REABRE A SEGUNDA LINHA que a v1.7.2 removeu. Aquela era PERMANENTE
+// e descrevia o estado em repouso; esta é o próprio TÍTULO, por alguns
+// segundos, e volta. O tile continua com uma linha de texto — a diferença é o
+// que ela diz enquanto o trabalho corre.
+//
+// O RÓTULO DE ORIGEM MORA NO PRÓPRIO NÓ (`data-nome`), guardado na PRIMEIRA
+// fala — lê-lo do HTML a cada vez pegaria a frase emprestada de uma fala
+// anterior que ainda não voltou.
+//
+// E ELE NÃO É UM `WeakMap` DE MÓDULO, que foi a primeira escrita e não durou um
+// teste: `pacoteRenderTiles()` roda no TOPO deste arquivo, na carga, e chama o
+// `pintarTile` — que leria a constante ANTES da linha que a declara. Zona morta
+// temporal, `ReferenceError` na carga, e o app inteiro parado. É a mesma
+// armadilha que o `cifraAdotarVelocidade` documenta, e o atributo a fecha por
+// construção: não há ordem de declaração a respeitar. O prazo continua num
+// campo do nó pelo mesmo motivo.
+function falarNoTile(el, texto, ms) {
+  if (!el) return;
+  const titulo = el.querySelector('.qs-titulo');
+  if (!titulo) return;
+  if (el.dataset.nome == null) el.dataset.nome = titulo.textContent;
+  clearTimeout(el._tileFala);
+  titulo.textContent = texto;
+  el.dataset.falando = '1';
+  // `0` = fica até alguém reescrever ou calar. É o desfecho de um trabalho em
+  // curso, e é o mesmo contrato do `falarNoOta`.
+  if (ms) el._tileFala = setTimeout(() => calarTile(el), ms);
+}
+
+function calarTile(el) {
+  if (!el) return;
+  clearTimeout(el._tileFala);
+  el._tileFala = null;
+  const titulo = el.querySelector('.qs-titulo');
+  if (titulo && el.dataset.nome != null) titulo.textContent = el.dataset.nome;
+  delete el.dataset.falando;
 }
 
 // SEMPRE ACESO: escolher "Ajustar" não desliga nada — é a outra metade de um
@@ -23501,7 +24177,7 @@ async function ytBaixarNativo(link, nome, opts) {
     if (parou) { cancelado = true; bg.soltar(); }
   };
   // O CARTÃO DA PREVIEW É DE UMA TENTATIVA DE PROJEÇÃO, e por isso ele entra no
-  // `palcoEmVoo` (v1.7.3): quem ganhar a vez o derruba junto com o do toque. Só
+  // `palcoEmVoo` (v1.7.6): quem ganhar a vez o derruba junto com o do toque. Só
   // o da preview — o `libBusy` mora na LINHA da Biblioteca, que é onde ele deve
   // ficar mesmo com outra coisa no ar.
   const bg = aviso === 'preview'
@@ -24066,13 +24742,55 @@ async function deckVideoVoltar(passo) {
 // `legendaEhDownload`.
 const LEGENDA_DECK = 'Preparando apresentação';
 
+// ===== DESISTIR DE UMA PREPARAÇÃO (v1.7.4) =====
+//
+// Pedido do operador, sobre o botão que passou a ocupar a coluna do `⋮`: *"esse
+// botão só tem uma função durante um preparo ou download. Esse botão cancela o
+// processo e apaga o item."*
+//
+// Um botão que às vezes não está lá é pior que botão nenhum, e até aqui só o
+// DOWNLOAD sabia parar: a preparação de uma apresentação — a espera mais longa
+// deste app, dezenas de páginas rasterizadas uma a uma — não tinha saída
+// nenhuma. Esta alça é o que a dá, e ela é a MESMA nos dois caminhos do deck.
+//
+// ELA SOLTA A LINHA NA HORA, e o trabalho morre onde der. É a diferença entre
+// os dois caminhos, e ela está dita porque é a única parte assimétrica:
+//
+//  · no `.pptx` o laço é NOSSO, e `AVDeck.paginasDoPptx` para na página
+//    seguinte — segundos, no pior caso;
+//  · no PDF quem rasteriza é o SHELL, e `deckPages` não tem cancelamento. O que
+//    se cancela ali é o DESFECHO: nada é criado, e o `finally` que já existia
+//    descarta as páginas do cache (`deckDiscard`). O shell termina de desenhar
+//    para o lixo, e isso é o preço — soltar a linha na hora é o que o operador
+//    pediu, e mantê-la de pé por minutos depois do toque seria o defeito que
+//    este botão existe para não ter.
+//
+// Devolve `{ cancelado(), cancelar }` — a função é a alça que vai ao `libBusy`,
+// e o predicado é o que os laços consultam.
+function alcaDeCancelamento(pegarBg) {
+  let cancelado = false;
+  return {
+    cancelado: () => cancelado,
+    cancelar: () => {
+      if (cancelado) return;
+      cancelado = true;
+      const bg = pegarBg();
+      if (bg) bg.soltar();
+    },
+  };
+}
+
 // Importa um `.pptx` já lido como File/Blob.
 async function pptxImportar(file, nome, opts) {
   const rotulo = nome || 'Apresentação';
   const naPreview = !!(opts && opts.naPreview);
+  // A alça é criada ANTES do `bg` e o alcança por closure: o `libBusy` precisa
+  // dela no argumento, e ela precisa do `bg` para soltar a linha — sem o
+  // getter, um dos dois teria de existir antes de si mesmo.
+  const alca = alcaDeCancelamento(() => bg);
   const bg = naPreview
-    ? previewBusy(LEGENDA_DECK, rotulo)
-    : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave);
+    ? previewBusy(LEGENDA_DECK, rotulo, alca.cancelar)
+    : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave, alca.cancelar);
   const notif = bgTaskStart('Preparando apresentação', 1);
   // O NOME DA APRESENTAÇÃO na linha da notificação, pela mesma razão do vídeo
   // (ver `ytArquivo`): "Preparando apresentação" sozinho não diz QUAL, e com o
@@ -24091,7 +24809,11 @@ async function pptxImportar(file, nome, opts) {
         // dezenas de páginas, minutos de espera). A página é a unidade certa
         // aqui, e o total só existe depois que o arquivo abre.
         bgTaskStep(notif, feitas, null, total);
-      });
+      }, alca.cancelado);
+      // DESISTIR NÃO É FALHAR: o `deckUltimoErro` alimenta o Registro, e escrever
+      // "nenhuma página desenhada" para quem apertou cancelar poria um defeito
+      // no diário por uma escolha do operador.
+      if (alca.cancelado()) return null;
       if (!feito) { deckUltimoErro = 'pptx: nenhuma página desenhada'; return null; }
       const thumb = await makeThumb(feito.pages[0], 'image');
       // OS VÍDEOS EMBUTIDOS VIRAM MÍDIA DE VERDADE, e entram em lista NENHUMA.
@@ -24162,9 +24884,10 @@ async function deckImportar(origem, nome, opts) {
   if (!window.__NATIVE__) return null;
   const rotulo = nome || 'Apresentação';
   const naPreview = !!(opts && opts.naPreview);
+  const alca = alcaDeCancelamento(() => bg);
   const bg = naPreview
-    ? previewBusy(LEGENDA_DECK, rotulo)
-    : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave);
+    ? previewBusy(LEGENDA_DECK, rotulo, alca.cancelar)
+    : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave, alca.cancelar);
   const notif = bgTaskStart('Preparando apresentação', 1);
   bgItemOnly(notif, rotulo);
   let primeira = null;   // uma página basta para o descarte: ele apaga a pasta
@@ -24192,6 +24915,12 @@ async function deckImportar(origem, nome, opts) {
         return null;
       }
       primeira = r.pages[0];
+      // O PRIMEIRO PONTO EM QUE A DESISTÊNCIA É LIDA no caminho do PDF: quem
+      // rasteriza é o shell e ele não sabe parar, então o que se cancela aqui é
+      // o DESFECHO. `primeira` já está na mão, e é ela que o `finally` usa para
+      // devolver as páginas ao lixo (`deckDiscard`) — sair antes dela deixaria
+      // o cache do aparelho com um deck que ninguém mais tem como apagar.
+      if (alca.cancelado()) return null;
       // TRUNCADA PELO SHELL (`truncado`, campo que o shell novo passa a
       // enviar): um deck cortado sem aviso leria como "o arquivo era assim", e
       // o operador só descobriria na frente da congregação, na página que não
@@ -24221,6 +24950,9 @@ async function deckImportar(origem, nome, opts) {
       bgTaskStep(notif, r.pages.length, 'Guardando as páginas');
       bgTaskSend(true);
       for (const u of r.pages) {
+        // E o SEGUNDO: a cópia é o único trecho desta função em que o laço é
+        // nosso, e um deck de dezenas de páginas ainda leva segundos aqui.
+        if (alca.cancelado()) return null;
         const res = await fetch(u);
         if (!res.ok) { deckUltimoErro = 'página ' + (pages.length + 1) + ': HTTP ' + res.status; return null; }
         const b = await res.blob();
@@ -24362,7 +25094,7 @@ async function handleSharedUrl(url, title) {
     }
     // NO SIMPLIFICADO O LINK COMPARTILHADO CONTINUA SENDO UM "TOCAR AGORA" —
     // ele vai direto ao telão, não entra em lista visível nenhuma e ninguém
-    // pediu para guardar nada. O que mudou na v1.7.3 é o MEIO: era a
+    // pediu para guardar nada. O que mudou na v1.7.6 é o MEIO: era a
     // transmissão direta (v5.138), e ela saiu do app; hoje é o download de
     // sempre, logo abaixo, que projeta quando os bytes chegam.
     // O link vira ARQUIVO — é a via que toca em segundo plano e não depende da
@@ -24585,9 +25317,16 @@ async function importShare(pending) {
     // um número parado em 0% mente mais do que o aro girando. O que o operador
     // precisa saber aqui é que HÁ trabalho em curso e sobre QUAL arquivo.
     const rotulo = nomeSemExtensao((item && item.name) || 'Arquivo');
+    // A DESISTÊNCIA (v1.7.4), pela mesma alça do deck e do download. Aqui o
+    // trabalho é UMA cópia — o `/saf/` de um vídeo do aparelho passa de
+    // gigabytes —, e ela é um `await` só: quem a interrompe é o `AbortController`
+    // do próprio `fetch`, que é o único ponto de parada que existe neste caminho.
+    const corte = new AbortController();
+    const alca = alcaDeCancelamento(() => bgImport);
+    const cancelar = () => { alca.cancelar(); try { corte.abort(); } catch (_) {} };
     const bgImport = simplificado()
-      ? previewBusy('Importando', rotulo)
-      : libBusy('Importando', rotulo, null);
+      ? previewBusy('Importando', rotulo, cancelar)
+      : libBusy('Importando', rotulo, null, cancelar);
     try {
       let blob = null;
       let name = '';
@@ -24596,7 +25335,7 @@ async function importShare(pending) {
         name = item.name;
       } else if (item && item.url) {
         try {
-          const res = await fetch(item.url);
+          const res = await fetch(item.url, { signal: corte.signal });
           if (!res.ok) continue;
           blob = await res.blob();
         } catch (_) { continue; }
@@ -24604,6 +25343,11 @@ async function importShare(pending) {
       } else {
         continue;
       }
+      // O `abort` derruba o `fetch` e cai no `continue` acima; um arquivo já
+      // LIDO (o ramo do `File`) não passa por ele, e é este `if` que fecha o
+      // caso — sem ele, cancelar no instante entre a leitura e o `addMedia`
+      // criaria o item que o operador acabou de dispensar.
+      if (alca.cancelado()) continue;
       // O tipo vem da extensão (mesma fonte usada na sincronização de pastas):
       // provedores do Android costumam devolver MIME genérico.
       const type = guessMediaType(name) || blob.type;
@@ -25949,9 +26693,11 @@ async function histResolver(h, destino) {
  *    de que ele tocou.
  *  - **mais a HORA**, que é a coluna pela qual esta lista se lê.
  *
- * OS CABEÇALHOS DE SESSÃO SÃO `<li>` DA MESMA LISTA (v1.4.31), e não um bloco
- * por fora: a folha rola inteira, e um cabeçalho fora do `<ul>` ficaria parado
- * sobre o conteúdo errado.
+ * CADA SESSÃO É UM `<li>` DA MESMA LISTA (v1.4.31), e não um bloco FORA dela:
+ * a folha rola inteira, e um cabeçalho fora do `<ul>` ficaria parado sobre o
+ * conteúdo errado. Desde a v1.7.5 esse `<li>` é o BLOCO do dia, com a barra e
+ * o corpo dele dentro — o que muda é de quem cada linha é filha, não onde a
+ * lista rola.
  */
 function renderHistorico() {
   histListEl.innerHTML = '';
@@ -25965,10 +26711,28 @@ function renderHistorico() {
       + ' fica guardado, separado por sessão.</li>';
     return;
   }
+  // ===== UMA SESSÃO É UM BLOCO, COM BARRA E CORPO (v1.7.5) =====
+  //
+  // É a anatomia de uma SEÇÃO da Biblioteca (`.coll-group` = a barra mais o
+  // `.coll-group-corpo`), e ela veio inteira a pedido do operador: *"caso ache
+  // mais correto, utilize o design de corpo e lista que já temos na
+  // biblioteca"*. O que ela resolve é o relato — *"está difícil distinguir as
+  // sublistas"* —, e resolve porque a sublista passa a ter CORPO: as linhas de
+  // um dia moram DENTRO do bloco daquele dia, e não soltas entre dois
+  // cabeçalhos.
+  //
+  // O `<ul>` ANINHADO CONTINUA NO MESMO SCROLLER, que era a razão de o
+  // cabeçalho ser um `<li>` da lista de fora: um cabeçalho fora dela ficaria
+  // parado sobre o conteúdo errado. Aninhar não muda isso — muda só de quem
+  // cada linha é filha.
   historico.forEach((ses) => {
     const atual = ses === histSessao;
-    histListEl.appendChild(histCabecalho(ses, atual));
-    ses.itens.forEach((h) => histListEl.appendChild(histLinha(h, atual)));
+    const bloco = histCabecalho(ses, atual);
+    const corpo = document.createElement('ul');
+    corpo.className = 'hist-corpo';
+    ses.itens.forEach((h) => corpo.appendChild(histLinha(h, atual)));
+    bloco.appendChild(corpo);
+    histListEl.appendChild(bloco);
   });
   // E A CONFERÊNCIA DE TODAS AS LINHAS VEM DEPOIS DO DESENHO, nunca antes: a
   // folha abre com a lista JÁ na tela e as linhas mortas esmaecem no quadro
@@ -25989,6 +26753,11 @@ function histCabecalho(ses, atual) {
   const li = document.createElement('li');
   li.className = 'hist-sessao';
   li.dataset.histSessao = String(ses.inicio);
+  // A BARRA é a primeira faixa do bloco, e o corpo vem depois dela — a anatomia
+  // da `.coll-group` da Biblioteca. O `<li>` deixou de ser a barra e passou a
+  // ser o BLOCO: é ele que pinta o poço, e é dentro dele que a sublista mora.
+  const bar = document.createElement('div');
+  bar.className = 'hist-sessao-bar';
 
   const txt = document.createElement('div');
   txt.className = 'hist-sessao-txt';
@@ -26024,7 +26793,8 @@ function histCabecalho(ses, atual) {
   });
   acoes.appendChild(limpar);
 
-  li.append(txt, acoes);
+  bar.append(txt, acoes);
+  li.appendChild(bar);
   return li;
 }
 
@@ -26178,10 +26948,11 @@ async function histConferirVivos() {
   const cab = histListEl.querySelector('.hist-sessao');
   const atual = histSessao && cab && cab.dataset.histSessao === String(histSessao.inicio);
   if (!atual) return;
-  const linhas = [];
-  for (let no = cab.nextElementSibling; no && !no.classList.contains('hist-sessao'); no = no.nextElementSibling) {
-    if (no.dataset.histId) linhas.push(no);
-  }
+  // AS LINHAS SÃO FILHAS DO BLOCO desde a v1.7.5 (antes eram irmãs dele, e o
+  // percurso era um passeio por `nextElementSibling` até o cabeçalho seguinte).
+  // Com o corpo aninhado a pergunta é direta — e continua sendo só a PRIMEIRA
+  // sessão, que é a atual.
+  const linhas = [...cab.querySelectorAll('[data-hist-id]')];
   await Promise.all(linhas.map(async (li) => {
     const vivo = await AVDB.getMedia(li.dataset.histId);
     // A FOLHA PODE TER SIDO REDESENHADA no meio (outra abertura): mexer num
@@ -28786,7 +29557,7 @@ AVDB.onCommand((msg) => {
     // a letra esmaece e trava, para o slide de capa não piscar no replay.
     pvLyricsEnded = true;
     if (pvLyrics) pvLayerOut(pvLyricsEl);
-    // E A PREVIEW VOLTA AO WALLPAPER (v1.7.3). Relato do operador: *"ao
+    // E A PREVIEW VOLTA AO WALLPAPER (v1.7.6). Relato do operador: *"ao
     // encerrar o tempo de uma música, a imagem no telão se encerra normalmente,
     // e volta para o wallpaper, mas na preview, ele está parando em uma tela
     // preta"* — com espelhamento para a TV.

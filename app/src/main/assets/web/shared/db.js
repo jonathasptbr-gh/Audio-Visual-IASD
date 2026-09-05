@@ -346,7 +346,7 @@
   // que ela tem é o manifesto das faixas. Não passa por `addMedia`, que deriva
   // tipo e kind de um blob que aqui não existe.
   //
-  // SEM CHAMADOR DESDE A v1.7.3, e isto está dito para não ser lido como
+  // SEM CHAMADOR DESDE A v1.7.6, e isto está dito para não ser lido como
   // contrato vivo: a transmissão direta saiu do `controle.js` a pedido do
   // operador, e nada no app cria um registro de stream. Elas ficam porque o
   // banco continua LENDO registros gravados antes daquele lote (o `stage.js` os

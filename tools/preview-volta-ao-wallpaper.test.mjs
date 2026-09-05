@@ -1,6 +1,6 @@
 // A PREVIEW VOLTA AO WALLPAPER QUANDO A MÍDIA ACABA — COM TELÃO NO AR.
 //
-// Relato do operador (v1.7.3): *"ao encerrar o tempo de uma música, a imagem no
+// Relato do operador (v1.7.6): *"ao encerrar o tempo de uma música, a imagem no
 // telão se encerra normalmente, e volta para o wallpaper, mas na preview, ele
 // está parando em uma tela preta e não volta para o wallpaper. (Testado em modo
 // de espelhamento de tela direto para tv, não por conexão de navegador)"*.

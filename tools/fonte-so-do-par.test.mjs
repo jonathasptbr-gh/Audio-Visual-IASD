@@ -143,8 +143,13 @@ const testemunha = () => pg.evaluate(() => {
   };
   // O TOM DESCEU PARA DENTRO DA CAIXA na v1.6.3 (`.lv-cifra-cab-tom`), junto do
   // título da obra: a barra que o hospedava saiu, e com ela o `.lv-cifra-tom`.
+  // A GAVETA DA VELOCIDADE entrou na testemunha na v1.7.4: o toque no botão de
+  // velocidade deixou de trocar o rótulo (ele ABRE a lista), e sem este termo o
+  // botão passaria a contar como MUDO — a guarda de "todos agiram" reprovaria um
+  // app correto, e o oráculo perderia justamente o alvo que ele veio vigiar.
+  const gaveta = lyricsCifraCtlEl.classList.contains('escolhendo') ? 'gaveta' : 'fila';
   return q('.lv-cifra-vel') + ' | ' + q('.lv-cifra-cab-tom')
-    + ' | ' + (cifraRolando ? 'rolando' : 'parada');
+    + ' | ' + (cifraRolando ? 'rolando' : 'parada') + ' | ' + gaveta;
 });
 
 // OS ALVOS SÃO DESCOBERTOS NO DOM VIVO, nunca escritos como lista: é assim que
@@ -152,7 +157,13 @@ const testemunha = () => pg.evaluate(() => {
 // seletor é a definição da propriedade — *tudo que veste `.lv-fonte-btn` sem
 // ser o par* —, e o `nth(i)` resolve na ORDEM DO DOM, que é a mesma a cada
 // remontagem.
-const SEL_ALVO = '#lyricsPopup .lv-fonte-btn:not(.lv-fonte-menos):not(.lv-fonte-mais)';
+// `:not(.lv-cifra-vel-op)` exclui os botões da GAVETA da velocidade (v1.7.4), e
+// não porque a propriedade não vale para eles — vale, e o bloco 1-B a cobre. É
+// que eles nascem ESCONDIDOS (a gaveta fechada é `display: none`), e dois dos
+// três caminhos daqui exigem uma caixa: `boundingBox()` devolve `null` e o
+// `focus()` não pousa. Eles entram num bloco próprio, que os revela antes.
+const SEL_ALVO = '#lyricsPopup .lv-fonte-btn:not(.lv-fonte-menos):not(.lv-fonte-mais)'
+  + ':not(.lv-cifra-vel-op)';
 const alvo = (i) => pg.locator(SEL_ALVO).nth(i);
 const alvosVivos = () => pg.locator(SEL_ALVO).evaluateAll((els) => els.map((b) => (
   b.className.replace('lv-fonte-btn', '').trim() || b.textContent.trim() || '?'
@@ -264,7 +275,15 @@ try {
       // A ROLAGEM NÃO PODE FICAR LIGADA entre um alvo e o próximo: ela escreve
       // no `scrollTop` a cada quadro, e o alvo seguinte é medido com a folha
       // andando por baixo. (Não muda o que se afirma; muda o que se depura.)
-      await pg.evaluate(() => { if (cifraRolando) cifraRolarParar(); });
+      //
+      // E A GAVETA DA VELOCIDADE TAMPOUCO (v1.7.4), e esta metade não é
+      // cosmética: com ela aberta os botões da fila são `display: none`, e o
+      // alvo seguinte não tem caixa — `boundingBox()` devolve `null` e o
+      // caminho do dedo morre com um TypeError, não com uma reprovação.
+      await pg.evaluate(() => {
+        if (cifraRolando) cifraRolarParar();
+        if (lyricsCifraCtlEl.classList.contains('escolhendo')) cifraVelFilaAlternar();
+      });
     }
     checar(mudos.length === 0,
       'no caminho "' + caminho + '" todos os botões da barra de fato AGIRAM — '
@@ -274,6 +293,60 @@ try {
       'e NENHUM deles mexeu no tamanho da letra por "' + caminho + '": só o par '
       + 'A+/A− escreve nessa escada', mexeram);
   }
+
+  // ========================================================================
+  // BLOCO 1-B — E OS BOTÕES DA GAVETA DA VELOCIDADE (v1.7.4)
+  // ========================================================================
+  //
+  // Eles são `.lv-fonte-btn` como os outros — é a PINTURA de um passo numa
+  // escada, e é exatamente a classe que o ouvinte delegado casava —, então a
+  // propriedade deste arquivo vale para eles: *só o par A+/A− escreve na escada
+  // da fonte*. O que os separa do laço acima é serem ESCONDIDOS até alguém
+  // abrir a gaveta; aqui ela é aberta antes de cada toque.
+  //
+  // Os TRÊS caminhos, como lá — e o motivo de não bastar o `click()` é o mesmo:
+  // o acidente que poupava um botão era o alvo do evento, e ele muda conforme o
+  // dedo cai no `<button>` ou no que estiver dentro dele.
+  const SEL_OP = '#lyricsPopup .lv-cifra-vel-op';
+  const abrirGaveta = () => pg.evaluate(() => {
+    if (!lyricsCifraCtlEl.classList.contains('escolhendo')) cifraVelFilaAlternar();
+    return lyricsCifraCtlEl.querySelectorAll('.lv-cifra-vel-op').length;
+  });
+  const quantasOps = await abrirGaveta();
+  checar(quantasOps >= 2,
+    'a gaveta da velocidade tem botões a vigiar — eles vestem `.lv-fonte-btn`, '
+    + 'que é a classe pela qual o defeito passava', quantasOps);
+  for (const caminho of ['click()', 'dedo na borda', 'teclado (Enter)']) {
+    const mexeram = [];
+    for (let i = 0; i < quantasOps; i++) {
+      await armar();
+      // `armar()` remede a folha, o que REFAZ a fila — a gaveta fecha junto.
+      // Reabri-la aqui é parte do cenário, e por isso vem ANTES da leitura.
+      await abrirGaveta();
+      const antes = await lerFonte();
+      const loc = pg.locator(SEL_OP).nth(i);
+      const nome = await loc.evaluate((b) => b.textContent.trim());
+      if (caminho === 'click()') await loc.evaluate((b) => b.click());
+      else if (caminho === 'dedo na borda') {
+        const cx = await loc.boundingBox();
+        await loc.click({ position: { x: 2, y: Math.round(cx.height / 2) } });
+      } else { await loc.focus(); await pg.keyboard.press('Enter'); }
+      const depois = await lerFonte();
+      if (depois.raiz !== antes.raiz) {
+        mexeram.push(nome + ': ' + antes.raiz + ' → ' + depois.raiz);
+      }
+      await pg.evaluate(() => { if (cifraRolando) cifraRolarParar(); });
+    }
+    checar(mexeram.length === 0,
+      'e nenhum botão da GAVETA da velocidade mexe na escada da fonte por "'
+      + caminho + '" — eles vestem a mesma classe do par, e é por ela que o '
+      + 'defeito passava', mexeram);
+  }
+  await pg.evaluate(() => {
+    if (lyricsCifraCtlEl.classList.contains('escolhendo')) cifraVelFilaAlternar();
+    cifraAdotarVelocidade('auto');
+    cifraPintarRolar();
+  });
 
   // ========================================================================
   // BLOCO 2 — EM TELA CHEIA, NEM NA ESCADA DELA NEM NO QUE ELA GRAVA
@@ -329,7 +402,11 @@ try {
           + ' → ' + depois.escopado + '/' + depois.idxCheia);
       }
       if (t0 === t1) mudos.push(nome + ' (' + t0 + ')');
-      await pg.evaluate(() => { if (cifraRolando) cifraRolarParar(); });
+      // A MESMA LIMPEZA do bloco 1, e pelas mesmas duas razões — ver lá.
+      await pg.evaluate(() => {
+        if (cifraRolando) cifraRolarParar();
+        if (lyricsCifraCtlEl.classList.contains('escolhendo')) cifraVelFilaAlternar();
+      });
     }
     checar(mudos.length === 0,
       'na tela cheia, no caminho "' + caminho + '", todos os botões da coluna '

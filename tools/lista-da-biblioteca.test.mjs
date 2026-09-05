@@ -1076,10 +1076,7 @@ try {
   // que faz a faixa em volta dela ser ALVO em vez de margem morta"*.
   //
   // REVERSÃO: devolvendo o ouvinte da seção à barra, D6a reprova; tirando a
-  // regra que ACENDE o bloco, D6b reprova; devolvendo o `--press` (o
-  // `translateY`) à Biblioteca, D6b2 reprova; devolvendo a luz à barra, D6c
-  // reprova; e restringindo a luz ao bloco COLAPSADO — que era o estado da
-  // v1.5.17 —, D6d reprova.
+  // resposta do bloco, D6b reprova; devolvendo o `--press` a ele, D6b2.
   // O cenário deste arquivo tem uma seção e dois cards ABERTOS (é o que os
   // casos A e B precisam). A faixa em volta da barra só existe num bloco
   // COLAPSADO — que é o estado em que a Biblioteca abre —, então este caso
@@ -1147,75 +1144,23 @@ try {
   checar(resp.blocoLuz !== 'none',
     'D6b · e a RESPOSTA é do BLOCO crescido: a pastilha inteira acende, em vez '
     + 'de uma menor e descentrada dentro dela', resp);
-  // ---- D6b2 · E ELA NÃO DESLOCA NADA (v1.7.3) -------------------------
+  // ===== E ELE NÃO SE MEXE (v1.7.4) =====
   //
-  // Relato do operador: *"há um efeito de encolhimento ou deslocamento que
-  // distorce os elementos, remova esse efeito … deixe apenas um efeito de
-  // coloração/sombreamento ao toque sem encolhimento ou deslocamento visual"*.
+  // Pedido do operador: *"Há um efeito de encolhimento que distorce os
+  // elementos, remova esse efeito, deixe apenas um efeito de
+  // coloração/sombreamento ao toque sem encolhimento."*
   //
-  // `--press` é `translateY(2px)`, e num acordeão que já se move sozinho ao
-  // abrir ele era um segundo movimento no mesmo gesto. A metade que COLORE fica
-  // (é ela que o pedido nomeia); a que MOVE sai — e só na Biblioteca: a regra do
-  // "recuo ABSOLUTO" segue valendo no resto do app, e é o `smoke.mjs` que a
-  // guarda.
-  //
-  // A ASSERÇÃO É SOBRE A `transform` COMPUTADA, e não sobre a ausência do nome
-  // `--press` na folha: o token continua definido e continua sendo usado em
-  // dezenas de lugares — o que mudou é quem o recebe.
-  checar(resp.bloco === 'none' && resp.barra === 'none',
-    'D6b2 · e NADA se desloca: nem o bloco, nem a barra dentro dele. O toque na '
-    + 'Biblioteca colore e mais nada', resp);
+  // A metade de cima (a luz) é o que impede isto de virar "o feedback sumiu"; a
+  // de baixo é o pedido. Uma pastilha que anda 2px a cada dedo, numa lista de
+  // dezenas, é movimento sem informação — e na TAMPA de um card ela deslizava o
+  // conteúdo dentro de uma caixa parada, que foi a "distorção" relatada.
+  checar(resp.bloco === 'none',
+    'D6b2 · e ele NÃO se mexe: um bloco responde por LUZ, e o recuo fica para o '
+    + 'controle folha', resp);
   checar(resp.barra === 'none' && resp.barraLuz === 'none',
-    'D6c · com a BARRA calada dentro dele — uma resposta por dedo, que é a '
-    + 'regra escrita na lista do `--press`', resp);
-
-  // ---- D6d · E O BLOCO ABERTO ACENDE PELO CORPO, NÃO PELO CABEÇALHO ----
-  //
-  // A segunda metade do mesmo relato: *"verifique se está colorindo o corpo do
-  // card corretamente e não apenas o arrangment/card do texto ou cabeçalho.
-  // Pois tem de considerar colorir as zonas que formam o corpo real, com
-  // margens e bordas circulares"*.
-  //
-  // Até a v1.7.2 quem acendia era a BARRA (`.coll-bar` está na lista do
-  // `--press`), e uma barra é um retângulo DENTRO de um bloco arredondado: o
-  // que acendia era a faixa do título, com as margens e os cantos do card
-  // ficando escuros em volta. O bloco de RAIZ COLAPSADO era a única exceção
-  // (v1.5.17), e era ela que fazia o MESMO gesto colorir o card inteiro num
-  // caso e só a faixa no outro.
-  //
-  // POR QUE ABERTO, e não colapsado: colapsado já passava desde a v1.5.17 —
-  // medi-lo aprovaria a versão anterior. O estado ABERTO é o que faltava, e é o
-  // que o operador nomeia ("ao ABRIR coleções e álbuns").
-  //
-  // O TOQUE É NA BARRA, que é onde o dedo de fato pousa para fechar o bloco. A
-  // luz do bloco vem de `:active` casar nos ANCESTRAIS — não há `:has()` no
-  // caminho, e é isso que a asserção prova ao medir os DOIS elementos de uma vez.
-  await pg.evaluate(async () => {
-    const b = document.querySelector('#hymnResults > .hymnal-card');
-    b.classList.add('expanded');
-    await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
-  });
-  const barraBox = await pg.locator('#hymnResults > .hymnal-card > .coll-bar').first().boundingBox();
-  await pg.mouse.move(barraBox.x + barraBox.width / 2, barraBox.y + barraBox.height / 2);
-  await pg.mouse.down();
-  const aberto = await pg.evaluate(() => {
-    const b = document.querySelector('#hymnResults > .hymnal-card');
-    const barra = b.querySelector('.coll-bar');
-    return {
-      expandido: b.classList.contains('expanded'),
-      bloco: getComputedStyle(b).transform, blocoLuz: getComputedStyle(b).filter,
-      barra: getComputedStyle(barra).transform, barraLuz: getComputedStyle(barra).filter,
-    };
-  });
-  await pg.mouse.up();
-  await pg.evaluate(() => {
-    document.querySelector('#hymnResults > .hymnal-card').classList.remove('expanded');
-  });
-  checar(aberto.expandido && aberto.blocoLuz !== 'none' && aberto.barraLuz === 'none',
-    'D6d · com o card ABERTO, o toque na barra acende o BLOCO (o corpo inteiro, '
-    + 'com as margens e os cantos que ele já tem) e não a faixa do título', aberto);
-  checar(aberto.bloco === 'none' && aberto.barra === 'none',
-    'D6d2 · e o bloco aberto também não se desloca', aberto);
+    'D6c · com a BARRA calada dentro dele — uma resposta por dedo, e é ela que '
+    + 'não pode responder: transparente, o `filter` acenderia só o texto',
+    resp);
 
   // ======================================================================
   // E · OS TRÊS RELATOS DA v1.5.18
