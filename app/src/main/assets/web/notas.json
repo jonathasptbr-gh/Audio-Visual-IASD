@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.7.3",
+    "itens": [
+      "O progresso da exportação passou a aparecer no próprio botão que a começou.",
+      "E o botão diz quanto o arquivo pesou quando ela termina.",
+      "Tocar nele durante a exportação agora para o trabalho.",
+      "A folha de escolha ganhou uma linha para marcar ou limpar tudo de uma vez.",
+      "As coleções aparecem nas mesmas seções da Biblioteca.",
+      "E dá para marcar uma seção inteira num toque só."
+    ]
+  },
+  {
     "versao": "1.7.2",
     "itens": [
       "As Configurações ficaram mais limpas: cada botão mostra só o nome, e o ícone diz o estado.",

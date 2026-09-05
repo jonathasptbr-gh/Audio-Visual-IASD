@@ -148,7 +148,9 @@ checar(orfaos.length === 0,
 //     mesmo aro) — o que este recorte segue é a DECLARAÇÃO, e é por isso que ele
 //     continua sendo um nome escrito à mão e não uma segunda entrada na lista;
 //   · o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que
-//     falta no subset da fonte de ícones.
+//     falta no subset da fonte de ícones. Desde a v1.7.3 ele tem um irmão, o
+//     TRAÇO da marca PARCIAL de um grupo: o mesmo desenho com uma borda em vez
+//     de duas, e um nome próprio nesta lista pelo mesmo motivo.
 //
 // ## E A ÚNICA BORDA QUE É BORDA (v1.5.5)
 //
@@ -226,14 +228,18 @@ checar(orfaos.length === 0,
     // O aro tem DOIS consumidores desde a v1.7.2 (o `.dl-ring` e o tile de
     // Configurações que está exportando), e UMA declaração — o recorte segue a
     // declaração, não o consumidor.
-    .replace(/\.dl-ring::before,\s*\.qs-tile\.qs-trabalhando::after\s*\{[^}]*\}/g, '')
+    .replace(/\.dl-ring::before,\s*\.qs-tile\.qs-trabalhando:not\(\.btn-pulso\)::after\s*\{[^}]*\}/g, '')
     .replace(/\.song-menu-check\.on::after\s*\{[^}]*\}/g, '')
+    // A MARCA PARCIAL (v1.7.3) é o MESMO desenho visto de outro jeito: o ✓ são
+    // duas bordas em L, o traço é uma só. Entra pelo mesmo mecanismo — um nome
+    // escrito à mão —, e é o nome que mantém a lista curta.
+    .replace(/\.song-menu-check\.parcial::after\s*\{[^}]*\}/g, '')
     .replace(/#hymnSearchInput\s*\{[^}]*\}/g, '')
     // (O RECORTE POR ESCOPO `.acervo` saiu na v1.5.14, com a moldura. Ele era a
     // única exceção deste oráculo que não nomeava uma peça — e uma exceção por
     // escopo é a que mais barato se alarga: bastava um seletor novo começar com
     // `.acervo` para uma borda entrar sem ninguém decidir nada.)
-    .replace(/@media[^{]*\{\s*\.dl-ring::before,\s*\.qs-tile\.qs-trabalhando::after[^}]*\}/g, '');
+    .replace(/@media[^{]*\{\s*\.dl-ring::before,\s*\.qs-tile\.qs-trabalhando:not\(\.btn-pulso\)::after[^}]*\}/g, '');
   const contornos = [];
   for (const f of arquivos) {
     const s = recortar(semComentarios(fonte.get(f) || ''));

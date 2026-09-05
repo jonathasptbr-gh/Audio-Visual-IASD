@@ -1061,7 +1061,7 @@ As três regras do tile, escritas por inteiro no `index.html`:
    | wallpaper | `Padrão` · `Própria` | o par NOVO: o rolo vazio × o rolo cheio |
    | girar | `0°` … `270°` | o próprio ícone, GIRADO pelo `data-estado` |
    | histórico, compartilhar | `Abrir`, `O app` | nada — eles não tinham estado |
-   | exportar, importar | `42%` | o ARO no lugar do ícone; o NÚMERO foi para o cartão da preview e para a notificação |
+   | exportar, importar | `42%` | o ARO no lugar do ícone; o NÚMERO voltou para o PRÓPRIO TÍTULO na v1.7.3 (ver abaixo) |
 
    O GIRO não ganhou quatro desenhos — a v1.4.38 mediu que quatro desenhos que
    só diferem pelo ângulo não se distinguem a 22px, e isso continua verdade. O
@@ -1081,6 +1081,20 @@ As três regras do tile, escritas por inteiro no `index.html`:
    num desenho não cabe nesta grade. Não há mais onde escrever a palavra, e
    devolvê-la para um só devolve a segunda linha a todos — a grade tem altura
    comum.
+
+   **E O TÍTULO EMPRESTA A SI MESMO** (`falarNoTile`, v1.7.3), que é outra
+   coisa: a segunda linha era PERMANENTE e descrevia o repouso; esta é o próprio
+   título, por alguns segundos, e volta. É a mecânica do `#otaRow`
+   (`falarNoOta`) e do "Guardar como pacote" (`falarNoPacote`), e a regra dela
+   está na lista de canais de resposta do `controle.js` desde a v5.207 — *"o
+   rótulo do controle empresta a si mesmo por alguns segundos e volta"*. Foi por
+   ela que o cartão sobre a preview saiu do caminho da exportação: aquele canal
+   é o do que ACONTECERIA NA PREVIEW, e uma exportação acontece no botão.
+
+   O rótulo de origem mora no **`data-nome` do nó**, e não num `WeakMap` de
+   módulo: `pacoteRenderTiles()` roda no topo do arquivo, na carga, e o
+   `pintarTile` leria a constante antes da linha que a declara — zona morta
+   temporal, e o app não abre.
 3. **ACESO (`qs-on`) = A FUNÇÃO ESTÁ LIGADA — e num tile sem "desligado",
    SEMPRE** (v1.4.40). `--btn-accent` + `--accent`, a gramática de INTERRUPTOR
    LIGADO da paleta, nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS.

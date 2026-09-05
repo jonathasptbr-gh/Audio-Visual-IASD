@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.7.3** — A RESPOSTA NASCE ONDE O TOQUE NASCEU, E A FOLHA DE ESCOLHA GANHOU AS SEÇÕES DA BIBLIOTECA. Dois pedidos. (1) *"o feedback da ui sobre a preparação da exportação, que hoje está sendo exibida sobre o preview, para que seja exibida sobre o próprio botão de exportar. já que a ação acontece ali e não na tela ou controle. o mesmo vale para feedbacks visuais das ações das configurações"*. **O app já tinha a mecânica**, em dois lugares — o `#otaRow` (`falarNoOta`) e o "Guardar como pacote" (`falarNoPacote`) —, e a regra está na lista de canais de resposta do `controle.js` desde a v5.207: *o rótulo do controle empresta a si mesmo por alguns segundos e volta*. O cartão sobre a preview é o canal do que ACONTECERIA NELA, e uma exportação não acontece na preview. `falarNoTile` troca o `.qs-titulo` e o devolve: "Medindo…", o percentual, o tamanho do arquivo, e de volta a "Exportar". **Isso não reabre a segunda linha que a v1.7.2 removeu** — aquela era permanente e descrevia o repouso. O CANCELAR voltou para o mesmo lugar (o toque no botão que trabalha), e a importação não o tem por natureza: ela só ACRESCENTA, e parar no meio deixaria metade do acervo sem nada para apagar a outra metade. A ETAPA foi para a notificação, que é a superfície com espaço e a que existe com o app minimizado; no botão cabe o número. E o desfecho fala nos DOIS lugares sem repetir: o botão diz que deu certo e quanto pesou, o diálogo diz o NOME do arquivo e o que fazer com ele. **O `data-nome` guarda o rótulo de origem, e não um `WeakMap` de módulo** — foi a primeira escrita e não durou um teste: `pacoteRenderTiles()` roda no topo do arquivo, na carga, e o `pintarTile` leria a constante antes da linha que a declara (zona morta temporal, `ReferenceError`, app parado). (2) *"durante a seleção da exportação, haja uma opção de selecionar todos, e opções de agrupamentos das coleções da mesma forma que já existe na biblioteca, podendo marcar um grupo inteiro de uma vez só"*. "Tudo" é um ALTERNADOR na primeira linha (com tudo marcado ele limpa, e o rótulo diz qual das duas o toque faz); o agrupamento sai da MESMA fonte que a Biblioteca desenha — as coletâneas do `AVColetanea.aplicar`, com os hinários e as séries na raiz e os álbuns sem categoria em "Outros álbuns" —, porque uma segunda leitura do catálogo divergiria da tela em que o operador aprendeu onde cada coleção mora. A BARRA do grupo MARCA e a SETA ABRE (na Biblioteca a barra abre, porque lá o que se vem fazer é olhar dentro; aqui é incluir e excluir), a seção nasce FECHADA, e a marca do grupo tem TRÊS estados — com metade escolhida, cheia e vazia mentem as duas. `plano.grupos` continua plano (é ele que o laço de escrita consome) e `plano.folha` é a árvore; uma varredura no fim recolhe o que a árvore não alcançou, porque uma coleção que não apareça na folha nunca é marcada. O `pacote-por-grupos.test.mjs` cresceu com as duas metades, com reversão em cada asserção nova. Lote **só de base web**.
 - **v1.7.2** — AS CONFIGURAÇÕES MAIS QUIETAS, A CORTINA COM PISO, E O 0% DA EXPORTAÇÃO. Três pedidos, e o terceiro é um defeito com relato. (1) **AS CONFIGURAÇÕES**: o rótulo solto "Modo do app" saiu e a palavra desceu para dentro das duas metades ("Modo simples"/"Modo avançado"); o rótulo "Este aparelho" saiu e os três tiles dele entraram na grade única, que passou a ter NOVE em três fileiras exatas; e a `.qs-estado` — a segunda linha de cada tile — saiu de todos: *"todo tipo de informação além do nome deve ser representada pelo ícone"*. **A informação não foi removida, mudou de canal**: tema, preenchimento e fundo da letra já tinham o par de desenhos; o WALLPAPER ganhou o par agora (rolo vazio × rolo cheio — a razão de ele não ter é o que decidiu a FORMA: um desenho de "foto" viraria o `icoImagem` de outro tile da mesma grade); o GIRO passou a girar o próprio ícone (não quatro desenhos, que a v1.4.38 mediu não se distinguirem a 22px, mas o MESMO desenho na posição que ele descreve, com transição — é vendo o ícone virar que se lê o toque); histórico e compartilhar não tinham estado; exportar e importar trocaram o "42%" pelo ARO, com o número indo para o cartão da preview e para a notificação. O estado continua dito no `aria-label`. **A consequência para o próximo tile está escrita**: um tile cujo estado não caiba num desenho não cabe nesta grade. O rodapé passou a dizer *"Áudio Visual IASD vX.Y.Z"*; as badges do cabeçalho continuam secas. (2) **A CORTINA GANHOU UM PISO** de 1,8 s: *"está muito rápido, deixe por padrão um tempo mínimo se possível mais longo"*. Com o acervo em cache o `init()` terminava em centenas de milissegundos e o que se via era um LAMPEJO. O piso é contado do INÍCIO da página (um `init()` de 5 s já o pagou), e o teto de 12 s chama a saída DIRETO, sem passar por ele — ele é a rede de segurança de um app que não subiu. **Ele cobrou os oráculos**: 6 dos 63 reprovaram, e os 6 por hit-test (`pg.click` espera a actionability e retenta; quem vê a cortina é quem MEDE). Daí o `esperarCortina` do arnês, e a regra de esperar por ela depois de CADA carga — inclusive depois de um `reload` no meio do arquivo, que foi como ela apareceu no `smoke.mjs`. (3) **A EXPORTAÇÃO PARADA EM 0%**, relatada como *"ou está absurdamente lento, ou não está funcionando"*: as duas leituras estavam certas e a causa é a mesma. A Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e cada registro custava DUAS idas e voltas pelo canal — ~7.200 viagens para escrever poucos megabytes —, e nenhum registro de `state` reportava bytes nem entrava no total do plano. O escritor passou a JUNTAR os pequenos num bloco (os mesmos megabytes viram ~20 blocos; um corpo ≥ um bloco continua indo direto, e o FORMATO não muda), o plano passou a somá-los, e `bgTaskBytes` passou a forçar a troca de RÉGUA pelo freio de 700 ms (a barra anunciava "0 de 1" por quase um segundo). Mais a SEGMENTAÇÃO pedida: uma folha com os grupos — ajustes, cada coleção pelo nome, itens importados, outros —, com o peso de cada um e o do total no confirmar. *"Ajustes e catálogos"* é a única linha que não se desmarca: as listas do app moram em `state`, e mídia sem a lista que a referencia é ÓRFÃ no destino — o `gcOrfaos` da abertura seguinte a apaga. O catálogo segue os bytes pela MESMA função (um registro de `files` sem o arquivo é uma faixa que não toca), o `info` diz que grupos o arquivo traz, e a exportação passou a poder ser CANCELADA. Oráculos novos: `configuracoes-sem-subtitulo.test.mjs` e `pacote-por-grupos.test.mjs`, com reversão em todas as asserções. Lote **só de base web**.
 - **v1.7.1** — A LINHA DE UMA PREPARAÇÃO DEIXOU DE SE PARECER COM A DE UM DOWNLOAD. Dois ajustes pedidos com a apresentação preparando na tela: *"na notificação temos barra de progresso e informações como quantas páginas já foram preparadas… ajuste a ilustração da representação do progresso no item do cronograma, atualmente ele só tem a porcentagem, mas gostaria que usasse a posição do texto secundário para uma barra de progresso, e a fração das páginas já preparadas"* e *"para essas preparações, não downloads, [troque] o ícone da thumbnail que ainda fica um ícone de seta de download… deixe sem ícone, só o spinner"*. (1) **A FAIXA** ocupa a posição do SUBTÍTULO (`.dl-prog` dentro da `.row-text`, depois do `.row-name` — a pergunta é de ÁRVORE, e é ela que mantém a altura da linha), com a legenda por extenso e um trilho que **só existe quando há proporção**: uma barra parada em zero durante o preparo se lê como travada. **E a fração não custou parâmetro nenhum** — a linha já RECEBIA a legenda (`Preparando página 4 de 8…`, a mesma que a notificação do sistema mostra, escrita por quem tem os números) e a descartava, desenhando só o percentual solto; consumi-la entrega a fração de graça, sem ninguém parsear frase nenhuma. O `.dl-pct` saiu da linha do Cronograma e da Biblioteca (fica na lista de resultados do YouTube, que não tem subtítulo a ceder): onde a barra e a legenda já dizem o número, um terceiro lugar dizendo o mesmo é o que este app tira de cena em toda passada. (2) **A SETA** virou condicional na LINHA, como já era no cartão — o operador reconheceu o próprio precedente (*"acho que já temos um desses que também não vai ícone"*): a v1.4.19 estabeleceu que o `.dl-ring` são DOIS desenhos (o aro diz *espere*, a seta diz *bytes chegando*) e a linha ficou com a seta incondicional por três lotes, prometendo um download que não estava acontecendo. `legendaEhDownload` passou a ser a fonte ÚNICA dos dois, então eles não têm como discordar, e o `atualizar` repinta o ícone junto com a faixa — senão o desenho ficaria preso na primeira legenda. **A cor do trilho é `--surface`** e não um `-soft`: alfa numa superfície de controle é o que o `tokens.test.mjs` reprova, e MEDIDO o `--btn-accent` ali dá 1,07:1 contra o fundo da linha (some), contra 1,20–1,38:1 do `--surface` nos quatro pares de base × tema. **E o oráculo novo cobrou a si mesmo na campanha:** 1 reprovação em 8 rodadas a 3× de carga, porque as duas metades montam uma linha cada e o `querySelector` da de baixo pegava a linha da de cima — três asserções vermelhas descrevendo um app correto. A linha passou a ser endereçada pelo NOME; 12/12 depois disso. Oráculo: `tools/linha-da-preparacao.test.mjs`, com REVERSÃO nas duas metades. Lote **só de base web**.
 - **v1.7.0** — A ABERTURA POR TRÁS DOS PANOS, A BADGE DE VERSÃO, O COMPARTILHAR E O PACOTE DE TRANSFERÊNCIA. Quatro pedidos do operador num lote, e o que os une é serem tudo o que o app tinha DE FORA do culto. (1) **A CORTINA**: *"é comum abrir o app e telas piscarem até que fique no lugar correto… o tema escuro aparece antes de se ajustar para o tema correto"*. O lado NATIVO já estava certo (o `windowBackground`, a raiz da Activity e o WebView nascem na cor guardada); quem piscava era o DOCUMENTO, entre o primeiro quadro e a última linha do `init()` — o `controle.js` é o ÚLTIMO dos catorze scripts do `<body>`, e até ele rodar quem pinta é o `:root` sem atributo. O tema ganhou conserto próprio (um script inline no `<head>`, que é agora a ÚNICA leitura de `av.tema`: o `storedTema()` passou a ler o ATRIBUTO que sai dali); o resto — o modo, a lista vazia, a preview sem wallpaper — ganhou a cortina. **O PRAZO É ARMADO NO `<head>`, e é a decisão do bloco**: uma cortina que não levanta é um app inutilizável, e o caminho provável disso é justamente o que o watchdog do OTA existe para pegar — um bundle cujo `controle.js` nem é parseado. Armado lá, o prazo roda mesmo aí, e o desfecho ruim volta a ser o app quebrado À VISTA. (2) **A BADGE**: *"coloque uma nova badge de versão na tela principal, após o título áudio visual iasd (no modo simples) e no canto superior esquerdo (no modo avançado)"* · *"remova da ui a informação nas configurações do shell… coloque apenas ela, e apenas um número, sem o 'web'"*. As três casas passam a ter um escritor só, e o índice do shell continua no REGISTRO — tirá-lo dos dois lugares seria o conserto largo demais, e o oráculo o afirma. A casa do avançado já estava vaga desde a v1.5.0 (o `#backBtn` perdeu o dono quando a Bíblia virou folha); as duas trilhas laterais da faixa passaram a repartir a sobra em partes iguais, e é isso que mantém o título no eixo. (3) **O COMPARTILHAR**: até aqui não havia, de dentro do app, NENHUMA forma de passar o link da página adiante — e é o operador quem conversa com as outras igrejas. `compartilharTexto` (`ACTION_SEND` + `createChooser`); `navigator.share` não existe no WebView do Android, e `openExternal` faz o oposto do pedido (abre a página no próprio aparelho). (4) **O PACOTE**: *"a biblioteca e o resto são pesados… permitir copiar e compartilhar o arquivo diretamente de um smartphone para o outro é extremamente útil"*. Formato `.avpkg` SEQUENCIAL e não zip (um zip pede o diretório central no fim, e o acervo passa de gigabytes); a regra é pura, no `controle/pacote.js`, e os bytes vão pelo `PacoteCanal.kt` — o SEGUNDO canal de `ArrayBuffer` do shell, irmão do `EspelhoMidiaCanal`. **A importação não precisou de método nenhum**: `pickDoc` já devolve uma `/saf/` servível, e o lado web a lê por `Blob.slice()`, como o `pptxzip.js` faz com um `.pptx` de 570 MB. A promessa é *"importar só ACRESCENTA"* (`add` e não `put`; união nas listas, mescla nos mapas, local vencendo em tudo o mais), e ela tem oráculo de IDA E VOLTA em dois contextos de navegador. A varredura do OPFS é do DISCO e não do catálogo — as imagens de fundo da letra não viram registro, e um pacote montado pelo catálogo chegaria com o hinário e as estrofes sobre preto. **E a integração com a `main` cobrou um achado:** o `pptx-video-na-pagina.test.mjs` (v1.6.6) esperava pelo `currentId` e afirmava sobre o que vem DEPOIS dele — `send()` escreve aquele campo no COMEÇO e só emite o `load` no fim. MEDIDO: 2 reprovações em 8 rodadas a 3x de carga com este lote, 0 em 8 sem ele — a janela já existia, e o lote a alargou. A espera passou a ser pelo `load` daquele id, e a correção só pode reprovar MAIS: 0 em 10 rodadas depois dela. Lote **com Release** (`SHELL_VERSION` 63, `shellTag: "v1.7.0"`).
@@ -351,6 +352,104 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.7.3 — a resposta nasce onde o toque nasceu
+
+Dois pedidos, e o primeiro é uma regra que este app já tinha escrita e não
+estava cumprindo neste caminho.
+
+### 1 · O feedback fala no próprio botão
+
+> *"também ajuste o feedback da ui sobre a preparação da exportação, que hoje
+> está sendo exibida sobre o preview, para que seja exibida sobre o próprio
+> botão de exportar. já que a ação acontece ali e não na tela ou controle. o
+> mesmo vale para feedbacks visuais das ações das configurações, eles devem
+> notificar ali mesmo."*
+
+**O APP JÁ TINHA A MECÂNICA, em dois lugares**, e a regra está na lista de
+canais de resposta do `controle.js` desde a v5.207:
+
+> · `falarNoOta` / `falarNoPacote` / `#otaRow` — o rótulo do controle empresta a
+> si mesmo por alguns segundos e volta.
+> · `previewBusy(...).falhar(motivo)` — o cartão sobre a preview, para o que
+> **aconteceria nela** e não aconteceu.
+
+Uma exportação não acontece na preview. `falarNoTile(el, texto, ms)` troca o
+`.qs-titulo` e o devolve: **"Medindo…"**, o percentual, o tamanho do arquivo, e
+de volta a **"Exportar"**.
+
+- **ISSO NÃO REABRE A SEGUNDA LINHA que a v1.7.2 removeu.** Aquela era
+  PERMANENTE e descrevia o estado em repouso; esta é o próprio TÍTULO, por
+  alguns segundos. O tile continua com uma linha de texto — o que muda é o que
+  ela diz enquanto o trabalho corre.
+- **O CANCELAR VOLTOU PARA O MESMO LUGAR:** o toque no botão que está
+  trabalhando. É o gesto que quem opera tenta primeiro, e é seguro porque
+  exportar é refazível — o parcial é apagado e o arquivo escolhido some. A
+  IMPORTAÇÃO não tem isso, e a diferença é de natureza: ela só ACRESCENTA, e
+  parar no meio deixaria metade do acervo dentro sem nada para apagar a outra
+  metade.
+- **A ETAPA vai para a NOTIFICAÇÃO** (`bgItemOnly`), que é a superfície com
+  espaço e a que existe com o app minimizado — que é onde uma exportação de
+  gigabytes de fato acontece. No botão cabe o número.
+- **O DESFECHO FALA NOS DOIS LUGARES, e não é repetição:** o botão diz que deu
+  certo e quanto pesou — a resposta ao toque, onde o toque foi dado —, e o
+  DIÁLOGO diz o que o botão não tem como dizer: o NOME do arquivo e o que fazer
+  com ele. Sem o nome, "exportado" não responde *"qual arquivo eu copio?"* numa
+  pasta de Downloads com meia dúzia deles.
+
+**E O `data-nome` GUARDA O RÓTULO DE ORIGEM, não um `WeakMap` de módulo.** Foi a
+primeira escrita e não durou um teste: `pacoteRenderTiles()` roda no TOPO do
+arquivo, na carga, e o `pintarTile` leria a constante antes da linha que a
+declara — zona morta temporal, `ReferenceError`, e o app inteiro parado. É a
+armadilha que o `cifraAdotarVelocidade` documenta, e o atributo a fecha por
+construção: não há ordem de declaração a respeitar.
+
+### 2 · A folha de escolha: tudo, e as seções da Biblioteca
+
+> *"ajustes para que durante a seleção da exportação, haja uma opção de
+> selecionar todos, e opções de agrupamentos das coleções da mesma forma que já
+> existe na biblioteca, podendo marcar um grupo inteiro de uma vez só."*
+
+- **"TUDO" É UM ALTERNADOR**, na primeira linha: com tudo marcado ele LIMPA, com
+  qualquer coisa fora ele MARCA TUDO, e o rótulo diz qual das duas o toque vai
+  fazer. Dois botões seriam um deles sempre inútil.
+- **O AGRUPAMENTO SAI DA MESMA FONTE que a Biblioteca desenha** — as coletâneas
+  do `AVColetanea.aplicar`, com os hinários e as séries na raiz e os álbuns sem
+  categoria em "Outros álbuns". Uma segunda leitura do catálogo divergiria da
+  tela em que o operador aprendeu onde cada coleção mora, que é justamente o
+  que ele pediu para não acontecer.
+- **A BARRA DO GRUPO MARCA; A SETA ABRE.** Na Biblioteca a barra abre, porque lá
+  o que se vem fazer é olhar dentro; aqui o que se vem fazer é incluir e
+  excluir. São dois alvos e duas coisas, e é por isso que a barra é uma `<div
+  role="button">` com um `<button>` dentro — botão dentro de botão é HTML
+  inválido, a mesma solução da `.coll-group-bar`.
+- **A SEÇÃO NASCE FECHADA:** a folha abre com tudo marcado, e o que se faz nela
+  é TIRAR — a barra do grupo resolve o caso comum sem abrir nada.
+- **A MARCA DE UM GRUPO TEM TRÊS ESTADOS.** Com dois de cinco álbuns marcados,
+  uma caixa de duas posições mente das duas formas: vazia diz que nada vai,
+  cheia diz que tudo vai. O traço da `parcial` é o mesmo desenho do ✓ com uma
+  borda em vez de duas, e entra na lista de desenhos do `tokens.test.mjs` pelo
+  mesmo mecanismo — um nome escrito à mão. E **parcial vai para CHEIO**: o toque
+  numa marca parcial é *"quero este grupo"*, e o contrário desfaria o que o
+  operador acabou de marcar à mão.
+- **`plano.grupos` CONTINUA PLANO** — é ele que o laço de escrita e o
+  `pacoteBytesDe` consomem, e nenhum dos dois tem o que fazer com uma árvore.
+  `plano.folha` é a árvore, e existe só para a folha desenhar. **Uma varredura
+  no fim recolhe o que a árvore não alcançou:** uma coleção que não apareça na
+  folha nunca é marcada, isto é, não entra no arquivo — e sairia sem aviso.
+- **O RECUO DE QUEM ESTÁ DENTRO é a coluna do ícone**, e não um número: com ela
+  o ícone de quem está dentro nasce onde começa o nome de quem está fora.
+  MEDIDO, o primeiro corte dava 10px — dois níveis a dez pixels um do outro se
+  leem como desalinhamento, não como hierarquia. E a caixa da SETA mede
+  `--icon-lg`, com o alvo de `--hit` saindo de um `::before` esticado: uma seta
+  do tamanho do alvo empurrava o nome da seção 5px para a direita, e o que se
+  via era a seção fora de coluna com as irmãs.
+
+Oráculo: o `pacote-por-grupos.test.mjs` cresceu com as duas metades — o
+percentual lido do `.qs-titulo` por um `MutationObserver` (um estado final não
+distingue *"andou de 0 a 100"* de *"pulou para o fim"*), o rótulo VOLTANDO, o
+cartão da preview NÃO entrando em cena, e a folha agrupada com os três estados
+da marca. Reversão em cada asserção nova. Lote **só de base web**.
 
 ## v1.7.2 — as Configurações mais quietas, a cortina com piso, e o 0% da exportação
 

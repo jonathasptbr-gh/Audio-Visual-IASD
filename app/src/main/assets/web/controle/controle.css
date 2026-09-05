@@ -1608,7 +1608,7 @@ body {
    e a primeira a divergir seria a que ninguém relê. Cada consumidor põe só a
    GEOMETRIA dele; a tinta é esta. */
 .dl-ring::before,
-.qs-tile.qs-trabalhando::after {
+.qs-tile.qs-trabalhando:not(.btn-pulso)::after {
   content: ''; position: absolute; inset: 0;
   border-radius: 50%;
   border: 2px solid var(--accent-soft);
@@ -1625,7 +1625,7 @@ body {
    o estado sozinha. */
 @media (prefers-reduced-motion: reduce) {
   .dl-ring::before,
-  .qs-tile.qs-trabalhando::after { animation: none; border-color: var(--accent); }
+  .qs-tile.qs-trabalhando:not(.btn-pulso)::after { animation: none; border-color: var(--accent); }
   .mic-btn.live, .pv-fab--mute.blocked, .simple-key--big.blocked { animation: none; }
   /* A gaveta aparece no lugar: o que ela comunica está no conteúdo, não no
      movimento. */
@@ -7150,6 +7150,82 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    de alvo que não responde ao toque é pior que uma linha que nunca prometeu
    responder. O `sub` diz por extenso que ela vai junto. */
 .song-menu-fixo { cursor: default; }
+
+/* ---------- A FOLHA DE ESCOLHA DA EXPORTAÇÃO, AGRUPADA (v1.7.3) ----------
+   Pedido do operador: *"opções de agrupamentos das coleções da mesma forma que
+   já existe na biblioteca, podendo marcar um grupo inteiro de uma vez só"*.
+
+   AS PEÇAS SÃO AS QUE JÁ EXISTEM — `.song-menu-btn`, `.song-menu-check`, o
+   `--sel-fill` de marcado —, e o que este bloco acrescenta são três coisas: a
+   marca PARCIAL, o recuo de quem está dentro de uma seção, e a seta que abre.
+   Um segundo desenho de lista dentro da mesma folha seria a divergência que a
+   v5.252 gastou um lote para tirar do app. */
+
+/* A MARCA PARCIAL — o traço no lugar do ✓.
+   Ela existe porque uma caixa de duas posições MENTE sobre um grupo: com dois
+   de cinco álbuns marcados, vazia diz que nada vai e cheia diz que tudo vai. O
+   traço é o mesmo DESENHO do ✓ visto de outro jeito (uma borda em vez de duas),
+   e por isso vive no mesmo `::after` e na mesma família de tinta. */
+.song-menu-check.parcial::before { background: var(--accent); }
+.song-menu-check.parcial::after {
+  content: ''; position: absolute;
+  width: 11px; height: 0;
+  border-bottom: 2.4px solid var(--bg);
+}
+/* O PREENCHIMENTO DE MARCADO vale para o parcial também: o grupo tem alguma
+   coisa dentro, e a linha inteira precisa dizer isso de relance — é a mesma
+   razão do `:has(.song-menu-check.on)` acima, e sem esta linha uma seção com
+   metade escolhida se leria como vazia. */
+.song-menu-btn.song-menu-sel:has(.song-menu-check.parcial) {
+  background: var(--sel-fill);
+}
+
+/* A BARRA DE UMA SEÇÃO. Ela MARCA o grupo (é uma folha de escolha: o que se vem
+   fazer aqui é incluir e excluir), e quem ABRE é a seta — dois alvos, duas
+   coisas. Na Biblioteca a barra abre, porque lá o que se vem fazer é olhar
+   dentro; a peça é a mesma e o verbo é o do lugar. */
+.song-menu-grupo { cursor: pointer; }
+/* A SETA é um `<button>` DENTRO da barra, e por isso a barra é uma `<div>`:
+   botão dentro de botão é HTML inválido — a mesma solução da `.coll-group-bar`.
+   Ela ocupa a coluna do ícone, então a seção e a linha comum começam no mesmo
+   x, e o que as separa é o recuo do CONTEÚDO de dentro (abaixo). */
+.song-menu-seta {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  /* A CAIXA É `--icon-lg`, A MESMA do `.song-menu-icon` — é isso que põe o nome
+     de uma seção na MESMA coluna do nome de uma linha comum. O alvo continua
+     sendo `--hit`, e ele sai por um `::before` esticado, não pela caixa: um
+     alvo que ocupasse a largura toda empurraria o texto 5px para a direita, e o
+     que se veria era a seção desalinhada das irmãs (MEDIDO). */
+  position: relative;
+  width: var(--icon-lg); height: var(--icon-lg);
+  background: none; color: var(--accent); cursor: pointer;
+  transition: transform var(--dur-media) ease;
+}
+.song-menu-seta::before {
+  content: ''; position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: var(--hit); height: var(--hit);
+}
+.song-menu-seta.aberta { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .song-menu-seta { transition: none; } }
+/* O RECUO DE QUEM ESTÁ DENTRO. Ele é a única coisa que diz "esta coleção
+   pertence àquela seção" depois que a barra rolou para fora da tela — e é por
+   isso que ele é do CONTEÚDO e não uma margem do `<li>`: a linha inteira
+   continua sendo o alvo, de ponta a ponta, e o que anda é o texto.
+
+   A MEDIDA É A COLUNA DO ÍCONE (`--icon-lg` mais o `gap`), e não um número:
+   com ela o ÍCONE de quem está dentro nasce onde começa o NOME de quem está
+   fora, que é o degrau que se lê sem contar pixels. MEDIDO, o primeiro corte
+   (`--sp-5`) dava 10px de recuo — dois níveis a dez pixels um do outro se leem
+   como desalinhamento, não como hierarquia. */
+.song-menu-dentro {
+  padding-left: calc(var(--opcao-recuo-h) + var(--icon-lg) + var(--sp-5));
+}
+
+/* "TUDO" — a primeira linha, e um ALTERNADOR: com tudo marcado ela LIMPA, com
+   qualquer coisa fora ela MARCA TUDO. Dois botões seriam um deles sempre
+   inútil, e a caixa já diz qual dos dois o toque vai fazer. */
+.song-menu-tudo { cursor: pointer; }
 /* O quadrado é um `::before` para o ALVO (acima) e o DESENHO (aqui) serem
    independentes — a mesma separação do `.pv-fab`.
    DESMARCADO ELE É UM RECESSO, não um contorno: o buraco escuro diz "aqui cabe
@@ -7537,11 +7613,18 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    de tamanho — que é o que impede a grade de pular quando o trabalho começa. */
 .qs-tile.qs-trabalhando svg { visibility: hidden; }
 .qs-tile.qs-trabalhando { position: relative; }
+
 /* SÓ A GEOMETRIA — a tinta do aro mora na declaração do `.dl-ring::before`, que
    este seletor divide com ele. `inset: auto` desfaz o `inset: 0` de lá: aqui o
    aro não é do tamanho da caixa, é do tamanho do ícone que ele substitui, e no
    lugar dele — é isso que impede a grade de pular quando o trabalho começa. */
-.qs-tile.qs-trabalhando::after {
+/* O `:not(.btn-pulso)` é GUARDA DE PRECEDÊNCIA, não estilo: o pulso do desfecho
+   (`.btn-pulso::after`, o ✓ ou o ✕) mora no MESMO pseudo-elemento, e este
+   seletor é mais específico — (0,2,1) contra (0,1,1). Sem ele, um tile pulsado
+   sem passar pelo `pacoteRenderTiles` mostraria o aro no lugar da marca, e o
+   desfecho de uma exportação se leria como "ainda trabalhando". Hoje os
+   caminhos limpam a classe antes; a guarda é o que protege o próximo. */
+.qs-tile.qs-trabalhando:not(.btn-pulso)::after {
   inset: auto;
   top: .55rem; left: 50%; margin-left: calc(var(--icon-md) / -2);
   width: var(--icon-md); height: var(--icon-md);

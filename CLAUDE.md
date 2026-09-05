@@ -2971,6 +2971,29 @@ de grupos para a exportação"*.
   múltipla escolha seria a divergência que a v5.252 gastou um lote para tirar.
 - **TUDO NASCE MARCADO:** o caso normal é levar o acervo inteiro, e a folha
   existe para PODER tirar.
+- **"TUDO" É UM ALTERNADOR** (v1.7.3), na primeira linha: com tudo marcado ele
+  LIMPA, com qualquer coisa fora ele MARCA TUDO, e o rótulo diz qual das duas o
+  toque vai fazer. Dois botões seriam um deles sempre inútil.
+- **AS COLEÇÕES VÊM AGRUPADAS PELAS SEÇÕES DA BIBLIOTECA** (v1.7.3), e da mesma
+  FONTE que ela desenha — as coletâneas do `AVColetanea.aplicar`, com os
+  hinários e as séries na raiz e os álbuns sem categoria em "Outros álbuns".
+  Uma segunda leitura do catálogo divergiria da tela em que o operador aprendeu
+  onde cada coleção mora, que é justamente o que ele pediu para não acontecer.
+  `plano.grupos` continua PLANO (é ele que o laço de escrita consome);
+  `plano.folha` é a árvore, e existe só para a folha desenhar. **Uma varredura
+  no fim recolhe o que a árvore não alcançou** — uma coleção que não apareça na
+  folha nunca é marcada, isto é, não entra no arquivo.
+- **A BARRA DO GRUPO MARCA; a SETA ABRE.** Na Biblioteca a barra abre, porque
+  lá o que se vem fazer é olhar dentro; aqui o que se vem fazer é incluir e
+  excluir. São dois alvos e duas coisas, e é por isso que a barra é uma `<div
+  role="button">` com um `<button>` dentro — botão dentro de botão é HTML
+  inválido, a mesma solução da `.coll-group-bar`.
+- **A MARCA DE UM GRUPO TEM TRÊS ESTADOS.** Com dois de cinco álbuns marcados,
+  uma caixa de duas posições mente das duas formas: vazia diz que nada vai,
+  cheia diz que tudo vai. O traço da `parcial` é o mesmo desenho do ✓ com uma
+  borda em vez de duas. E **parcial vai para CHEIO**: o toque numa marca
+  parcial é *"quero este grupo"*, e o contrário desfaria o que o operador
+  acabou de marcar à mão.
 - **"Ajustes e catálogos" NÃO É OPCIONAL**, e a razão é o coletor de lixo do
   destino: as listas do app (`imports`, `playlist`, `favs`) moram em `state`, e
   um item de mídia que chega sem a lista que o referencia é ÓRFÃO — o
@@ -2987,17 +3010,49 @@ de grupos para a exportação"*.
   arquivo não viaja é uma faixa que aparece na Biblioteca do destino e não toca.
 - **O `info` DIZ QUE GRUPOS O ARQUIVO TRAZ.** Um pacote parcial é o caso normal
   agora, e *"o que tem aqui dentro?"* passou a ser uma pergunta com resposta.
-- **E ELA PODE SER CANCELADA** — o ✕ do cartão sobre a preview, lido pelo
-  escritor a cada bloco (a anatomia do `ytCancel`: o laço está ocupado
-  justamente com o que se quer parar). Até aqui, começar era ficar preso até o
-  fim ou até uma falha; desistir apaga o parcial pelo caminho de saída que toda
-  falha já usava, e não abre diálogo de erro — o operador acabou de tocar no ✕.
+- **E ELA PODE SER CANCELADA** — o toque no PRÓPRIO BOTÃO que está trabalhando
+  (v1.7.3; era o ✕ do cartão sobre a preview), lido pelo escritor a cada bloco:
+  a anatomia do `ytCancel`, e pelo mesmo motivo — o laço está ocupado
+  justamente com o que se quer parar. Até a v1.7.2, começar era ficar preso até
+  o fim ou até uma falha; desistir apaga o parcial pelo caminho de saída que
+  toda falha já usava, e não abre diálogo de erro — o operador acabou de tocar
+  no botão e o botão responde.
+
+### O feedback mora no botão que começou a ação (v1.7.3)
+
+Pedido do operador: *"o feedback da ui sobre a preparação da exportação … que
+seja exibida sobre o próprio botão de exportar, já que a ação acontece ali e não
+na tela ou controle"*.
+
+**O APP JÁ TINHA A MECÂNICA, em dois lugares** — o `#otaRow` (`falarNoOta`) e o
+"Guardar como pacote" (`falarNoPacote`) —, e a regra está na lista de canais de
+resposta do `controle.js` desde a v5.207: *"o rótulo do controle empresta a si
+mesmo por alguns segundos e volta"*. O cartão sobre a preview é o canal do que
+ACONTECERIA NELA; uma exportação não acontece na preview.
+
+- **`falarNoTile(el, texto, ms)`** troca o `.qs-titulo` e o devolve. `0` = fica
+  até alguém reescrever ou calar, o mesmo contrato do `falarNoOta`.
+- **ISSO NÃO REABRE A SEGUNDA LINHA que a v1.7.2 removeu.** Aquela era
+  PERMANENTE e descrevia o estado em repouso; esta é o próprio TÍTULO, por
+  alguns segundos. O tile continua com uma linha de texto.
+- **O RÓTULO DE ORIGEM MORA NO NÓ** (`data-nome`), e não num `WeakMap` de
+  módulo: `pacoteRenderTiles()` roda no TOPO do arquivo, na carga, e o
+  `pintarTile` leria a constante antes da linha que a declara — zona morta
+  temporal, `ReferenceError`, app parado. É a armadilha que o
+  `cifraAdotarVelocidade` documenta, e o atributo a fecha por construção.
+- **A ETAPA vai para a NOTIFICAÇÃO**, que é a superfície com espaço e a que
+  existe com o app minimizado — que é onde uma exportação de gigabytes de fato
+  acontece. No botão cabe o número.
+- **O DESFECHO FALA NOS DOIS LUGARES, e não é repetição:** o botão diz que deu
+  certo e quanto pesou (a resposta ao toque, onde o toque foi dado), e o
+  diálogo diz o que o botão não tem como dizer — o NOME do arquivo e o que
+  fazer com ele.
 
 Oráculos: **`pacote.test.mjs`** (a REGRA — assinatura, cursor, recusas,
 saneamento, e o grupo de um caminho), **`pacote-ida-e-volta.test.mjs`** (a
 LIGAÇÃO — dois contextos de navegador, como dois celulares) e
-**`pacote-por-grupos.test.mjs`** (o LOTE, o PROGRESSO e a ESCOLHA cortando
-bytes). Os dois primeiros são dois porque *ler cada lado isolado aprova os
+**`pacote-por-grupos.test.mjs`** (o LOTE, o PROGRESSO no próprio botão, o
+AGRUPAMENTO da folha e a ESCOLHA cortando bytes). Os dois primeiros são dois porque *ler cada lado isolado aprova os
 dois*; o terceiro existe porque o que ele mede não tem sintoma — uma exportação
 lenta e muda continua produzindo o arquivo certo.
 
@@ -4289,7 +4344,7 @@ mundo anterior por outro caminho.
 | `pacote-ida-e-volta.test.mjs` | **o pacote de um aparelho para o outro**, em DOIS contextos de navegador com armazenamentos separados — o `pacote.test.mjs` prende a regra, este prende a LIGAÇÃO, que falha com a regra certa e o acervo não chegando. Nada é comparado contra o que a exportação achou que escreveu: afirma-se o que o SEGUNDO aparelho tem depois. Cobre a imagem de fundo da estrofe (que NENHUM registro do catálogo nomeia — é ela que prova que a varredura é do DISCO), o `stream` que não atravessa, a pasta do aparelho que fica para trás, e a promessa inteira: importar DE NOVO, com o local já diferente, não apaga o renomeado nem a preferência de quem importou — e a lista de ids se SOMA |
 | `linha-da-preparacao.test.mjs` | **a linha de uma PREPARAÇÃO não é a de um download** (v1.7.1), e as duas metades falham CALADAS. A ilustração: a faixa de progresso ocupa a POSIÇÃO DO SUBTÍTULO — a pergunta é de ÁRVORE (dentro da coluna de texto e DEPOIS do nome), porque um `.dl-prog` solto na `.row` passa num teste de presença e aparece noutro lugar da linha —, o trilho só existe quando há proporção (uma barra parada em zero se lê como travada) e o PREENCHIMENTO é medido em PIXELS RENDERIZADOS: sem a regra de CSS o `style` inline fica de pé sobre um elemento sem caixa nenhuma, e um teste do `style` aprova isso. O ícone: preparar uma apresentação não baixa byte nenhum, e a seta prometia bytes — a regra de v1.4.19 (*o ícone segue a LEGENDA*) num lugar novo, com a REVERSÃO ao lado, porque a seta ACENDE num download de verdade e APAGA de volta quando a legenda deixa de prometê-los. A legenda vem de quem TEM os números (nem a linha nem o oráculo parseiam frase nenhuma), e o percentual solto saiu: a barra e a fração já o dizem. **A linha é endereçada pelo NOME** — MEDIDO, 1 reprovação em 8 rodadas a 3× de carga com `querySelector`: as duas metades montam uma linha cada, e sob carga a de baixo media a seta da de cima |
 | `configuracoes-sem-subtitulo.test.mjs` | **as Configurações sem a palavra do estado** (v1.7.2). A segunda linha de cada tile saiu a pedido do operador, e a razão de ela existir era real — *um ícone sozinho responde por CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por semana* —, então o que este oráculo prende não é a remoção: é a informação ter MUDADO DE CANAL. Um tile cujo estado não vira desenho fica idêntico nos dois estados, sem erro e sem sintoma. Mede o giro pela matriz COMPUTADA do ícone (uma regra de CSS ausente deixa o `data-estado` certo e o desenho parado), o wallpaper pelo `display` de cada `<use>` do par novo — **com o tile continuando ACESO nos dois estados**, senão o conserto barato é apagá-lo, e apagado neste app quer dizer INDISPONÍVEL —, e o rótulo do modo em DUAS larguras, pelo número de retângulos de cliente ("Modo avançado" quebrado em duas linhas tem dois, e `scrollWidth` de um inline que quebra não denuncia nada). **Assentar é `getAnimations()` + `finished`**: o ícone GIRA, e uma leitura por relógio mede a transição no meio (MEDIDO: `matrix(0.80, 0.59, …)` a 60 ms, que não é ângulo nenhum) |
-| `pacote-por-grupos.test.mjs` | **a exportação por grupos, e o 0%** (v1.7.2). Três coisas falham CALADAS. (1) O **LOTE**: cada bloco do canal é uma ida e volta, e ela custa o mesmo para 50 bytes e para 512 kB — a Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e a versão anterior mandava um bloco por cabeçalho e um por corpo. A semente imita isso (400 chaves e nada mais) e a asserção é o número de blocos. (2) O **PROGRESSO** naquela fase, que não era reportado nem somado no plano — a régua é o percentual do CARTÃO no fim, e não o `done` da notificação: `> 0` passa só com o cabeçalho humano (MEDIDO ao escrever o arquivo), e o `done` emitido mede o freio de 700 ms, não o app. (3) A **ESCOLHA** cortar bytes de verdade, com o catálogo seguindo os bytes — um registro de `files` sem o arquivo dele é uma faixa que aparece na Biblioteca do destino e não toca. Cinco reversões nomeadas |
+| `pacote-por-grupos.test.mjs` | **a exportação por grupos, e o 0%** (v1.7.2; a folha AGRUPADA e o feedback no BOTÃO entraram na v1.7.3 — o percentual é lido do `.qs-titulo` por um `MutationObserver`, porque um estado final não distingue "andou de 0 a 100" de "pulou para o fim", e há asserção para o rótulo VOLTAR e para o cartão da preview NÃO entrar em cena). Três coisas falham CALADAS. (1) O **LOTE**: cada bloco do canal é uma ida e volta, e ela custa o mesmo para 50 bytes e para 512 kB — a Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e a versão anterior mandava um bloco por cabeçalho e um por corpo. A semente imita isso (400 chaves e nada mais) e a asserção é o número de blocos. (2) O **PROGRESSO** naquela fase, que não era reportado nem somado no plano — a régua é o percentual do CARTÃO no fim, e não o `done` da notificação: `> 0` passa só com o cabeçalho humano (MEDIDO ao escrever o arquivo), e o `done` emitido mede o freio de 700 ms, não o app. (3) A **ESCOLHA** cortar bytes de verdade, com o catálogo seguindo os bytes — um registro de `files` sem o arquivo dele é uma faixa que aparece na Biblioteca do destino e não toca. Cinco reversões nomeadas |
 | `abertura-e-transferencia.test.mjs` | **a CORTINA que não pode ficar no ar**, no cenário catastrófico: o `controle.js` abortado pela rota, o tema guardado já no `<html>` (quem o escreveu foi o script do `<head>`) e a cortina levantando pelo PRAZO — sem isso o app fica trancado, e não há erro em lugar nenhum. Mais a saída por REMOÇÃO DO NÓ, medida por hit-test (uma camada `opacity: 0` sobre a tela inteira continua recebendo o toque). E a BADGE: as TRÊS casas dizem o mesmo número, nenhuma escreve "Web"/"Shell" — **e o REGISTRO continua trazendo o índice do shell**, que é a metade que impede o conserto largo demais. Mais o bloco "Este aparelho", com a reversão (sem ponte ele não existe) |
 | `boot-nativo.test.mjs` | **A GAVETA DE DETALHE DE UM VÍDEO** (v1.5.21), nas duas metades que só juntas dizem a regra: com o dado, o card ABRE pela identidade e as quatro linhas saem na ORDEM DO DOM (uma asserção do tipo *"o texto contém o canal?"* aprovaria o canal desenhado embaixo do estado no aparelho); sem ele — um ÍNDICE ANTIGO, a janela real entre o OTA chegar e a varredura refazer a lista —, a linha ausente SOME e não sobra "undefined" em lugar nenhum. Provado por reversão: desenhando SEMPRE, o card sai com `Título: undefined`. E o `serie.test.mjs` não cobre isto — ele prende a REGRA, este prende a LIGAÇÃO, que falha com a regra certa e o card mudo. Mais **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? **E a LIGAÇÃO da regra das coletâneas** (v1.5.16): o `coletanea.test.mjs` prende a REGRA, este prende o fio até a tela, que falha de outro jeito — a regra continua certa e o recurso não faz nada. São DOIS consumidores do mesmo resultado (o laço que desenha as seções e o `claimed` dos órfãos), e ligar só um devolve *"Outros álbuns"*. **Os nomes das seções do fixture de rolagem viraram neutros no mesmo lote**: três eram os nomes REAIS do banco, e com a regra no ar aquele cenário montava CINCO seções onde o texto diz seis — MEDIDO, com a asserção VERDE, medindo outra coisa |
 | `display-smoke.mjs` | **o TELÃO** — a metade que roda na frente da congregação, e a que menos rede de segurança tem (o watchdog do OTA não a valida). Viewport fixo em 961×540, explicitamente. Trava o endereçamento do reenvio de cena |
@@ -4783,7 +4838,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.7.2 · APK v1.7.0** · `SHELL_VERSION` **63** ·
+**Versão atual: base web v1.7.3 · APK v1.7.0** · `SHELL_VERSION` **63** ·
 bundle com `minShell: 63` e **sem `shellTag`** — o shell 63 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -4793,7 +4848,55 @@ não foram tocados, e nenhum método da ponte entrou ou mudou de forma. Daí o
 Release que não vai sair, em silêncio, e a única pista seria a linha no resumo
 do run.
 
-**O QUE O LOTE TRAZ — três pedidos, e o terceiro é um defeito com relato:**
+**O QUE O LOTE TRAZ — a resposta de uma ação nasce ONDE ela foi pedida:**
+
+| peça | onde |
+|---|---|
+| o progresso da exportação/importação no PRÓPRIO botão, e o toque nele cancelando | `falarNoTile`/`calarTile` + `pacoteTrabalhando` |
+| a folha de escolha com "tudo" e com as coleções AGRUPADAS como na Biblioteca | `plano.folha` + `renderPacoteGrupos` |
+
+> **O CARTÃO SOBRE A PREVIEW SAIU DO CAMINHO DO PACOTE** (v1.7.3). Pedido do
+> operador: *"o feedback da ui sobre a preparação da exportação … que seja
+> exibida sobre o próprio botão de exportar, já que a ação acontece ali e não na
+> tela ou controle. o mesmo vale para feedbacks visuais das ações das
+> configurações"*.
+>
+> **Ele está certo e o app já tinha a mecânica**, em dois lugares: o `#otaRow`
+> (`falarNoOta`) e o "Guardar como pacote" (`falarNoPacote`). A regra está na
+> lista de canais de resposta do `controle.js` desde a v5.207 — *"o rótulo do
+> controle empresta a si mesmo por alguns segundos e volta"* —, e o cartão da
+> preview é o canal do que ACONTECERIA NELA. Uma exportação não acontece na
+> preview: ela acontece no botão. O tile diz "Medindo…", depois o percentual,
+> depois o tamanho do arquivo, e volta a ser "Exportar".
+>
+> **E ISSO NÃO REABRE A SEGUNDA LINHA que a v1.7.2 removeu**: aquela era
+> PERMANENTE e descrevia o estado em repouso; esta é o próprio TÍTULO, por
+> alguns segundos.
+>
+> **O CANCELAR VOLTOU PARA O MESMO LUGAR:** o toque no botão que trabalha para
+> a exportação. É o gesto que quem opera tenta primeiro, e é seguro porque
+> exportar é refazível. A IMPORTAÇÃO não tem isso, e a diferença é de natureza:
+> ela só ACRESCENTA, e parar no meio deixaria metade do acervo dentro sem nada
+> para apagar a outra metade.
+>
+> **O `data-nome` guarda o rótulo de origem, e não um `WeakMap` de módulo** —
+> foi a primeira escrita e não durou um teste: `pacoteRenderTiles()` roda no
+> TOPO do arquivo, na carga, e leria a constante antes da linha que a declara.
+> Zona morta temporal, `ReferenceError`, app parado.
+
+> **E A FOLHA DE ESCOLHA GANHOU "TUDO" E AS SEÇÕES DA BIBLIOTECA** (v1.7.3):
+> *"haja uma opção de selecionar todos, e opções de agrupamentos das coleções da
+> mesma forma que já existe na biblioteca, podendo marcar um grupo inteiro de
+> uma vez só"*. O agrupamento sai da MESMA fonte que a Biblioteca desenha (as
+> coletâneas do `AVColetanea.aplicar`, com os hinários e as séries na raiz);
+> uma segunda leitura do catálogo divergiria da tela em que o operador aprendeu
+> onde cada coleção mora. A **barra do grupo MARCA** e a **seta ABRE** — na
+> Biblioteca a barra abre, porque lá o que se vem fazer é olhar dentro; aqui o
+> que se vem fazer é incluir e excluir. E a marca do grupo tem TRÊS estados: com
+> metade escolhida, cheia e vazia mentem as duas.
+
+> **O LOTE ANTERIOR (v1.7.2) — três pedidos, e o terceiro é um defeito com
+> relato:**
 
 | peça | onde |
 |---|---|

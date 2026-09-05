@@ -131,26 +131,50 @@ async function aparelho() {
   return { ctx, pg };
 }
 
-// A folha de escolha, respondida pelo BOTÃO — como quem opera. `desmarcar` é a
-// lista de rótulos a tocar antes de confirmar.
-async function escolher(pg, desmarcar) {
-  const abriu = await esperar(pg, () => {
-    const d = document.getElementById('songMenuPopup');
-    return !!d && d.classList.contains('open') && !!d.querySelector('.song-menu-go');
-  }, null, 60000);
+// A folha de escolha, respondida pelos CONTROLES — como quem opera.
+const abriuFolha = (pg) => esperar(pg, () => {
+  const d = document.getElementById('songMenuPopup');
+  return !!d && d.classList.contains('open') && !!d.querySelector('.song-menu-go');
+}, null, 60000);
+
+// O que a folha mostra AGORA: cada linha com o rótulo, o estado da caixa e se
+// ela está dentro de uma seção.
+const lerFolha = (pg) => pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
+  .map((li) => {
+    const b = li.firstElementChild;
+    const cx = li.querySelector('.song-menu-check');
+    return {
+      rotulo: (li.querySelector('.song-menu-label') || {}).textContent || '',
+      sub: (li.querySelector('.song-menu-sub') || {}).textContent || '',
+      marca: !cx ? '' : cx.classList.contains('on') ? 'todas'
+        : cx.classList.contains('parcial') ? 'parte' : 'nenhuma',
+      grupo: !!(b && b.classList.contains('song-menu-grupo')),
+      dentro: !!(b && b.classList.contains('song-menu-dentro')),
+      seta: !!li.querySelector('.song-menu-seta'),
+    };
+  }));
+
+// Toca no CORPO de uma linha (marca/desmarca) ou na SETA dela (abre a seção) —
+// pelo rótulo, que é como o operador a encontra.
+const tocar = (pg, rotulo, alvo) => pg.evaluate(([r, a]) => {
+  const li = [...document.querySelectorAll('#songMenuList li')]
+    .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === r);
+  if (!li) throw new Error('linha não encontrada: ' + r);
+  (a === 'seta' ? li.querySelector('.song-menu-seta') : li.firstElementChild).click();
+}, [rotulo, alvo || 'corpo']);
+
+async function escolher(pg, passos) {
+  const abriu = await abriuFolha(pg);
   if (abriu !== true) return abriu;
-  for (const rotulo of (desmarcar || [])) {
-    await pg.evaluate((r) => {
-      const li = [...document.querySelectorAll('#songMenuList li')]
-        .find((x) => (x.querySelector('.song-menu-label') || {}).textContent === r);
-      if (li) li.querySelector('.song-menu-btn').click();
-    }, rotulo);
-  }
+  for (const [rotulo, alvo] of (passos || [])) await tocar(pg, rotulo, alvo);
   const linhas = await pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
     .map((li) => (li.textContent || '').replace(/\s+/g, ' ').trim()));
   await pg.click('#songMenuList .song-menu-go');
   return linhas;
 }
+
+const pg2linhas = (pg) => pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
+  .map((li) => (li.textContent || '').replace(/\s+/g, ' ').trim()));
 
 async function responderDialogo(pg) {
   const abriu = await esperar(pg, () => {
@@ -183,6 +207,18 @@ try {
       await AVDB.setState('bible:tst_gn_' + i, versiculos);
     }
   });
+  // O ESPIÃO DO RÓTULO. O tile EMPRESTA o próprio título (v1.7.3), e o que
+  // interessa é a SEQUÊNCIA — um estado final não distingue "andou de 0 a 100"
+  // de "pulou direto para o fim". Um `MutationObserver` pega todas as escritas
+  // sem depender de quando o oráculo olha, que é o que um `waitForTimeout`
+  // faria.
+  await a.pg.evaluate(() => {
+    window.__rotulos = [];
+    const alvo = document.querySelector('#pacoteExportarTile .qs-titulo');
+    window.__rotulos.push(alvo.textContent);
+    new MutationObserver(() => window.__rotulos.push(alvo.textContent))
+      .observe(alvo, { childList: true, characterData: true, subtree: true });
+  });
   await a.pg.evaluate(() => { window.__fim = exportarPacote(); });
   const listaA = await escolher(a.pg, []);
   checar(Array.isArray(listaA), 'A · a folha de escolha abre', porque(listaA));
@@ -204,9 +240,8 @@ try {
       // do freio, e o que o oráculo mediria seria o freio, não o app.
       total: prog.reduce((m, p) => Math.max(m, p.total || 0), 0),
       bytesNaFaixa: prog.some((p) => p.bytes === true),
-      // O PERCENTUAL DO CARTÃO é a outra ponta do mesmo `andou`, e essa não
-      // passa por freio nenhum: ele é reescrito a cada bloco.
-      cartao: (document.getElementById('pvBusyLabel') || {}).textContent || '',
+      // A SEQUÊNCIA de rótulos que o botão mostrou, do espião acima.
+      rotulos: window.__rotulos || [],
     };
   });
   // 400 chaves são 400 cabeçalhos + 400 corpos = 800 registros. Sem o lote,
@@ -226,10 +261,34 @@ try {
   // cabeçalho humano (`info`) é um corpo como outro qualquer e sozinho já leva o
   // contador acima de zero. A régua é o percentual do FIM — com só chaves de
   // `state` no aparelho, ao terminar o cartão tem de estar em 100%.
-  checar(/·\s*100%$/.test(medida.cartao),
-    'A · e o progresso ANDOU durante a fase das chaves de `state` — era ela que '
-    + 'ficava em 0%, porque nenhum registro dali reportava bytes',
-    JSON.stringify(medida));
+  // O PROGRESSO É A OUTRA METADE, e sem ela a de cima não bastaria: uma
+  // exportação rápida que continue dizendo 0% ainda é uma exportação que parece
+  // travada. Com SÓ chaves de `state` no aparelho, um percentual acima de zero
+  // só pode ter vindo delas.
+  const pcts = medida.rotulos.filter((t) => /^\d+%$/.test(t)).map((t) => parseInt(t, 10));
+  checar(pcts.length >= 2 && Math.max(...pcts) === 100,
+    'A · e o progresso ANDOU durante a fase das chaves de `state`, NO PRÓPRIO '
+    + 'BOTÃO — era ela que ficava em 0%, porque nenhum registro dali reportava '
+    + 'bytes', JSON.stringify(medida.rotulos));
+  // O BOTÃO É A INTERFACE INTEIRA DESTA AÇÃO (v1.7.3): ele diz que está
+  // medindo, quanto já foi, e quanto pesou o arquivo. O cartão sobre a preview
+  // saiu daqui — a exportação não acontece na preview.
+  checar(medida.rotulos.includes('Medindo…'),
+    'A · e a MEDIÇÃO também fala nele: ela leva segundos num acervo grande e '
+    + 'acontecia em silêncio', JSON.stringify(medida.rotulos));
+  checar(/^\d/.test(medida.rotulos[medida.rotulos.length - 1] || ''),
+    'A · e o desfecho é o TAMANHO do arquivo, no mesmo lugar',
+    JSON.stringify(medida.rotulos.slice(-3)));
+  // E O EMPRÉSTIMO É DEVOLVIDO. Um rótulo que não volta deixa "193 KB" no lugar
+  // de "Exportar" para sempre — sem erro, e sem nada que o explique.
+  const devolveu = await esperar(a.pg,
+    () => document.querySelector('#pacoteExportarTile .qs-titulo').textContent === 'Exportar',
+    null, 12000);
+  checar(devolveu === true,
+    'A · e o botão VOLTA a ser "Exportar" — ele empresta o rótulo, não o troca',
+    porque(devolveu));
+  checar(await a.pg.evaluate(() => !document.getElementById('pvBusy').classList.contains('on')),
+    'A · e o cartão sobre a preview não entrou em cena: a ação não acontece lá');
   checar(medida.total > 1000,
     'A · com um total que inclui essas chaves (o plano não as somava, e a barra '
     + 'nascia contra "1")',
@@ -270,10 +329,71 @@ try {
     });
   });
   await b.pg.evaluate(() => { window.__fim = exportarPacote(); });
-  const listaB = await escolher(b.pg, ['Álbum Dois']);
-  checar(Array.isArray(listaB) && listaB.some((t) => /Álbum Um/.test(t))
-    && listaB.some((t) => /Álbum Dois/.test(t)),
+  const abriuB = await abriuFolha(b.pg);
+  checar(abriuB === true, 'B · a folha de escolha abre', porque(abriuB));
+
+  // ===== A FOLHA É A ÁRVORE DA BIBLIOTECA (v1.7.3) =====
+  // Os dois álbuns não têm categoria, então a Biblioteca os põe em "Álbuns" — e
+  // a folha os põe no mesmo lugar. A seção nasce FECHADA: com tudo marcado, a
+  // barra do grupo resolve o caso comum sem abrir nada.
+  const fechada = await lerFolha(b.pg);
+  const secao = fechada.find((l) => l.grupo);
+  checar(!!secao && secao.rotulo === 'Álbuns' && secao.marca === 'todas' && secao.seta,
+    'B · as coleções vêm AGRUPADAS pelas mesmas seções da Biblioteca, com a '
+    + 'marca do grupo e a seta', JSON.stringify(secao));
+  checar(!fechada.some((l) => l.dentro),
+    'B · e a seção nasce FECHADA — a folha abre com tudo marcado, e o que se faz '
+    + 'nela é TIRAR', JSON.stringify(fechada.map((l) => l.rotulo)));
+  checar(/2 de 2/.test((secao && secao.sub) || ''),
+    'B · com a conta do que está marcado dentro dela', secao && secao.sub);
+
+  // ===== "SELECIONAR TUDO" É UM ALTERNADOR =====
+  //
+  // Com tudo marcado — que é como a folha nasce — ele LIMPA, e o rótulo diz
+  // isso. Dois botões seriam um deles sempre inútil, e a ordem deste bloco é a
+  // prova: a primeira linha da folha aberta já se chama "Limpar a seleção".
+  checar(fechada[0].rotulo === 'Limpar a seleção' && fechada[0].marca === 'todas',
+    'B · com tudo marcado, a primeira linha da folha LIMPA — o rótulo dela diz '
+    + 'qual das duas coisas o toque vai fazer',
+    JSON.stringify([fechada[0].rotulo, fechada[0].marca]));
+  await tocar(b.pg, 'Limpar a seleção');
+  const vazia = await lerFolha(b.pg);
+  checar(vazia[0].rotulo === 'Selecionar tudo' && vazia[0].marca === 'nenhuma'
+    && !vazia.some((l) => l.marca === 'todas' && !l.sub.includes('sempre vai junto')),
+    'B · e limpar tira a marca de TODAS as linhas de uma vez — menos a fixa, que '
+    + 'não se desmarca', JSON.stringify(vazia.map((l) => [l.rotulo, l.marca])));
+  await tocar(b.pg, 'Selecionar tudo');
+  const cheia = await lerFolha(b.pg);
+  checar(cheia[0].rotulo === 'Limpar a seleção' && cheia[0].marca === 'todas',
+    'B · e marcar de volta também é um toque só',
+    JSON.stringify(cheia.map((l) => [l.rotulo, l.marca])));
+
+  // ===== A BARRA DO GRUPO MARCA O GRUPO INTEIRO =====
+  await tocar(b.pg, 'Álbuns');
+  const semGrupo = await lerFolha(b.pg);
+  checar((semGrupo.find((l) => l.grupo) || {}).marca === 'nenhuma',
+    'B · a barra de uma seção marcada DESMARCA o grupo inteiro de uma vez',
+    JSON.stringify(semGrupo.find((l) => l.grupo)));
+  await tocar(b.pg, 'Álbuns');
+
+  // ===== E A MARCA PARCIAL EXISTE =====
+  // Uma caixa de duas posições MENTE sobre um grupo com metade escolhida.
+  await tocar(b.pg, 'Álbuns', 'seta');
+  const aberta = await lerFolha(b.pg);
+  checar(aberta.filter((l) => l.dentro).length === 2,
+    'B · a seta ABRE a seção, e as coleções dela aparecem recuadas',
+    JSON.stringify(aberta.map((l) => [l.rotulo, l.dentro])));
+  await tocar(b.pg, 'Álbum Dois');
+  const parcial = await lerFolha(b.pg);
+  checar((parcial.find((l) => l.grupo) || {}).marca === 'parte',
+    'B · e com metade escolhida a marca do grupo fica PARCIAL — cheia ou vazia '
+    + 'mentiria sobre o que vai no arquivo',
+    JSON.stringify(parcial.find((l) => l.grupo)));
+
+  const listaB = await pg2linhas(b.pg);
+  checar(listaB.some((t) => /Álbum Um/.test(t)) && listaB.some((t) => /Álbum Dois/.test(t)),
     'B · a folha nomeia cada coleção do aparelho', JSON.stringify(listaB));
+  await b.pg.click('#songMenuList .song-menu-go');
   const fimB = await responderDialogo(b.pg);
   checar(typeof fimB === 'string', 'B · e a exportação termina', fimB);
 
