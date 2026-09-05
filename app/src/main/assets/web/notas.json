@@ -1,6 +1,6 @@
 [
   {
-    "versao": "1.7.3",
+    "versao": "1.7.4",
     "itens": [
       "Durante um preparo ou download, o botão de opções do item vira um botão de cancelar.",
       "Cancelar tira da lista o item que estava sendo preparado.",
@@ -12,6 +12,17 @@
       "E ele acende o card inteiro, não só o texto do cabeçalho.",
       "A velocidade da rolagem da cifra abre uma lista, em vez de girar uma a uma.",
       "A barra de progresso saiu da linha: fica a frase com o que está sendo feito."
+    ]
+  },
+  {
+    "versao": "1.7.3",
+    "itens": [
+      "O progresso da exportação passou a aparecer no próprio botão que a começou.",
+      "E o botão diz quanto o arquivo pesou quando ela termina.",
+      "Tocar nele durante a exportação agora para o trabalho.",
+      "A folha de escolha ganhou uma linha para marcar ou limpar tudo de uma vez.",
+      "As coleções aparecem nas mesmas seções da Biblioteca.",
+      "E dá para marcar uma seção inteira num toque só."
     ]
   },
   {

@@ -518,7 +518,7 @@
    * A biblioteca entra por `import()` DINÂMICO: é 1,5 MB que só interessa a
    * quem importar um `.pptx`, e carregá-la no boot custaria isso a todo culto.
    *
-   * ===== `cancelado()` — A DESISTÊNCIA, POR PÁGINA (v1.7.3) =====
+   * ===== `cancelado()` — A DESISTÊNCIA, POR PÁGINA (v1.7.4) =====
    *
    * Preparar uma apresentação leva MINUTOS (dezenas de páginas rasterizadas uma
    * a uma), e até aqui não havia como parar: o botão que o operador pediu na

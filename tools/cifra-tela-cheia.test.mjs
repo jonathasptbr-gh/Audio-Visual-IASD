@@ -387,7 +387,7 @@ try {
     // Percorrida com `click()`, como no retrato: a promessa é sobre o CICLO, e
     // um botão medido parado prova só o rótulo que calhou de estar em cena.
     const velBtn = lyricsPopupEl.querySelector('.lv-cifra-vel');
-    // A ESCADA É PERCORRIDA PELA GAVETA desde a v1.7.3 (o toque no botão a ABRE
+    // A ESCADA É PERCORRIDA PELA GAVETA desde a v1.7.4 (o toque no botão a ABRE
     // em vez de avançar um degrau): abrir, escolher o degrau `i`, medir o botão
     // já FECHADO. A pergunta é a mesma de sempre — a caixa não depende do rótulo
     // em cena — e ela vale numa coluna flex, que é o ponto deste arquivo.
@@ -521,7 +521,7 @@ try {
     'e ele mede o MESMO que o A+ ao lado: uma coluna com um botão mais largo que '
     + 'os outros é o que o pedido nomeia',
     { vel: controles.velCaixas[0], irmao: controles.velIrmao });
-  // ===== E A GAVETA É UMA COLUNA, COMO A FILA (v1.7.3) =====
+  // ===== E A GAVETA É UMA COLUNA, COMO A FILA (v1.7.4) =====
   //
   // O invólucro é `display: contents`, então os cinco botões viram filhos DE
   // FATO da fila e herdam o `flex-direction: column` do modo deitado. Sem ele

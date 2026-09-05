@@ -286,7 +286,7 @@ try {
   // abre: ler `CIFRA_VELOCIDADES` provaria que a constante concorda consigo
   // mesma, e o que o operador lê é o `textContent` de quem está na tela.
   //
-  // ===== A GAVETA SUBSTITUIU O CARROSSEL (v1.7.3) =====
+  // ===== A GAVETA SUBSTITUIU O CARROSSEL (v1.7.4) =====
   //
   // Pedido do operador: *"faça com que o botão de velocidade abra uma gaveta,
   // substituindo seus botões vizinhos, pela lista de botões com as variações de
@@ -377,7 +377,7 @@ try {
     const ctl = () => +lyricsPopupEl.querySelector('.lv-cifra-ctl')
       .getBoundingClientRect().width.toFixed(2);
     const ctlAntes = ctl();
-    // A CAIXA, degrau a degrau. A escada é percorrida pela GAVETA agora (v1.7.3)
+    // A CAIXA, degrau a degrau. A escada é percorrida pela GAVETA agora (v1.7.4)
     // — abrir, escolher, medir o botão fechado —, e é a mesma pergunta de antes:
     // a largura do botão não pode depender do rótulo em cena.
     const caixas = [];
@@ -437,7 +437,7 @@ try {
   checar(escada.distintos === escada.ciclo.length,
     'e nenhum rótulo se repete: dois botões escritos "1×" seriam a escolha do '
     + 'operador dizendo duas coisas', escada);
-  // ===== O PEDIDO DA v1.7.3, nas duas metades =====
+  // ===== O PEDIDO DA v1.7.4, nas duas metades =====
   checar(escada.abriu.rolarSumiu && escada.abriu.velSumiu && escada.abriu.transporSumiu
     && escada.abriu.saidaFicou
     && escada.abriu.opsAVista === escada.ciclo.length,
@@ -508,7 +508,7 @@ try {
     'e a fila de controles não muda de largura ao percorrer a escada inteira: um '
     + 'botão que se desloca sob o dedo erra o alvo na segunda batida',
     { antes: escada.ctlAntes, depois: escada.ctlDepois });
-  // ===== E A GAVETA ABERTA CABE NA MESMA FILA (v1.7.3) =====
+  // ===== E A GAVETA ABERTA CABE NA MESMA FILA (v1.7.4) =====
   //
   // Ela troca quatro botões por cinco, e o ⛶ fica: a fila é UM botão mais larga
   // com a gaveta aberta. O que não pode acontecer é os botões dela mudarem de

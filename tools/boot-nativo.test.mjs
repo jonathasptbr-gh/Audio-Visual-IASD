@@ -2694,7 +2694,7 @@ try {
     && pressPasta.item.filter !== 'none',
     'e pressionar um arquivo NÃO acende a pasta inteira — quem responde ao '
     + 'toque é a peça tocada', JSON.stringify(pressPasta));
-  // ===== E A PEÇA TOCADA RESPONDE POR LUZ, NÃO POR GEOMETRIA (v1.7.3) =====
+  // ===== E A PEÇA TOCADA RESPONDE POR LUZ, NÃO POR GEOMETRIA (v1.7.4) =====
   //
   // Pedido do operador: *"Há um efeito de encolhimento que distorce os
   // elementos, remova esse efeito, deixe apenas um efeito de
@@ -4622,10 +4622,10 @@ try {
       // 1. A PERGUNTA ESTÁ NA FAIXA, e o modal do app NÃO abriu.
       perguntouNaFaixa: !!li.querySelector('.fav-acoes.confirmando > .linha-confirma'),
       semModal: !dlg || !dlg.classList.contains('open'),
-      // 2. A LIXEIRA ENTRA NA FAIXA, E A CAPA FICA À VISTA (v1.7.3).
+      // 2. A LIXEIRA ENTRA NA FAIXA, E A CAPA FICA À VISTA (v1.7.4).
       //    ESTE É O CAMINHO B DO SÍMBOLO: no Cronograma e na fila ele mora na
       //    COLUNA DO `⋮` (v1.4.27); aqui não há `⋮` — a gaveta abre pelo corpo
-      //    da linha e a faixa fica ABAIXO dela —, e desde a v1.7.3 ele entra na
+      //    da linha e a faixa fica ABAIXO dela —, e desde a v1.7.4 ele entra na
       //    própria faixa, do mesmo jeito que o ✓ do renomear.
       //    A CAPA É A OUTRA METADE, e é o pedido do operador: *"pode deixar
       //    visivel a thumbnail do item durante essa confirmação"*. Ela morava
@@ -4651,7 +4651,7 @@ try {
     li.querySelector('.row-excluir').click();
     await new Promise((f) => setTimeout(f, 200));
     li.querySelector('.linha-sim').click();
-    // ESPERA PELO FATO, e não por um relógio (v1.7.3): desde este lote a linha
+    // ESPERA PELO FATO, e não por um relógio (v1.7.4): desde este lote a linha
     // SAI DE CENA antes de o item ser apagado — 200 ms de saída mais o que o
     // banco levar —, e um prazo fixo aqui não mede a exclusão: mede o
     // agendador, e deixa o `load()` dela cair dentro do bloco SEGUINTE.
@@ -4678,11 +4678,11 @@ try {
     + 'o item era respondida de memória', JSON.stringify(saiu));
   checar(saiu.semMais === true && saiu.lixeiraNaFaixa && saiu.opcoesEscondidas,
     'e a lixeira entra na PRÓPRIA FAIXA — o CAMINHO B do símbolo: esta gaveta '
-    + 'não tem `⋮` para o processo tomar emprestado, e desde a v1.7.3 ele é o '
+    + 'não tem `⋮` para o processo tomar emprestado, e desde a v1.7.4 ele é o '
     + 'mesmo caminho do ✓ do renomear, ao lado dos dois rótulos',
     JSON.stringify(saiu));
   checar(saiu.capaAVista,
-    'e A CAPA FICA À VISTA durante a pergunta (v1.7.3) — pedido do operador: ela '
+    'e A CAPA FICA À VISTA durante a pergunta (v1.7.4) — pedido do operador: ela '
     + 'é a única parte da linha que ainda diz de QUAL item é a confirmação, e '
     + 'até aqui a lixeira desenhava por cima dela um símbolo igual em toda linha',
     JSON.stringify(saiu));

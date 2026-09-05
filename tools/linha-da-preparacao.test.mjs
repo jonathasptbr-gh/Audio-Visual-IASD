@@ -22,7 +22,7 @@
 //     desenhada em toda espera, inclusive numa preparação, que não baixa byte
 //     nenhum.
 //
-// ## E o que a v1.7.3 acrescentou
+// ## E o que a v1.7.4 acrescentou
 //
 //  3. **A BARRA SAIU** — *"O subtitulo com as informações ficou muito bom, mas
 //     a barra de progresso ficou ruim, tire ela."* A asserção passou a ser
@@ -228,7 +228,7 @@ try {
   }, primeira, 15000);
   checar(andou === true, 'A3 · e ela ANDA, página a página', porque(andou));
 
-  // ── A4. NENHUM DESENHO DO NÚMERO NA LINHA (v1.7.3) ──────────────────────
+  // ── A4. NENHUM DESENHO DO NÚMERO NA LINHA (v1.7.4) ──────────────────────
   //
   // Relato do operador: *"O subtitulo com as informações ficou muito bom, mas a
   // barra de progresso ficou ruim, tire ela."* A asserção é NEGATIVA e cobre as
@@ -241,7 +241,7 @@ try {
     + 'app tira de cena em toda passada',
     { pct: a.temPct, trilho: a.temTrilho });
 
-  // ── A5. O `⋮` CEDEU A COLUNA (v1.7.3) ───────────────────────────────────
+  // ── A5. O `⋮` CEDEU A COLUNA (v1.7.4) ───────────────────────────────────
   //
   // A caixa é comparada com a do `⋮` de uma linha SEM trabalho — não com um
   // número escrito aqui: o `.row-btn` mede `--thumb` no Cronograma e `--hit` na

@@ -1144,7 +1144,7 @@ try {
   checar(resp.blocoLuz !== 'none',
     'D6b · e a RESPOSTA é do BLOCO crescido: a pastilha inteira acende, em vez '
     + 'de uma menor e descentrada dentro dela', resp);
-  // ===== E ELE NÃO SE MEXE (v1.7.3) =====
+  // ===== E ELE NÃO SE MEXE (v1.7.4) =====
   //
   // Pedido do operador: *"Há um efeito de encolhimento que distorce os
   // elementos, remova esse efeito, deixe apenas um efeito de

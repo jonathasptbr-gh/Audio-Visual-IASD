@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.7.3';
+const WEB_VERSION = '1.7.4';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -665,7 +665,7 @@ let repeat = 'all';
 let bibliaNoAr = false;
 let selectionMode = false;
 const selected = new Set();
-// ===== A `object-URL` DE UMA MINIATURA É DO BLOB, NÃO DO RENDER (v1.7.3) =====
+// ===== A `object-URL` DE UMA MINIATURA É DO BLOB, NÃO DO RENDER (v1.7.4) =====
 //
 // Relato do operador: *"Os itens da lista de favoritos têm suas thumbnails
 // piscando durante processos de download na biblioteca e afins, veja se pode
@@ -6930,7 +6930,7 @@ function fecharBiblia() {
 // mesma pergunta dos outros cinco provedores de Camada de Texto.
 function msgProjecting() { return !!(msgSession && msgSession.projecting); }
 
-// ELE PASSA PELO MESMO BALDE QUE A OUTRA CASA (v1.7.3). Antes ele trocava o
+// ELE PASSA PELO MESMO BALDE QUE A OUTRA CASA (v1.7.4). Antes ele trocava o
 // balde à mão, ANTES de desenhar — e com a varredura pela união isso publicaria
 // um host vazio no meio da própria passada dele. O `comBaldeDeMiniaturas` já
 // fazia a coisa certa para o segundo host; o que muda é este passar por ele.
@@ -7110,7 +7110,7 @@ function renderLibraryCorpo() {
     // barra do rodapé. (Antes a alça de arrastar continuava na linha; arrastar
     // com meia lista marcada nunca foi uma operação que alguém quisesse.)
     //
-    // E COM UM TRABALHO EM CURSO A COLUNA É DELE (v1.7.3) — ver
+    // E COM UM TRABALHO EM CURSO A COLUNA É DELE (v1.7.4) — ver
     // `botaoCancelarDoTrabalho`. A fileira inteira sai de cena junto: ela abre
     // o que fazer com um item que está sendo ESCRITO neste instante, e o
     // "baixar o vídeo" desta linha em particular oferece a ação que já está em
@@ -7158,7 +7158,7 @@ function renderLibraryCorpo() {
         // O "baixar o vídeo" de uma linha de LINK não está na ordem pedida — ele
         // só existe nessa linha. Entra DEPOIS dela, para não partir ao meio a
         // sequência que o operador ditou.
-        // (O `&& !dl` saiu na v1.7.3: com um trabalho em curso a fileira
+        // (O `&& !dl` saiu na v1.7.4: com um trabalho em curso a fileira
         // inteira não é desenhada, então a guarda passou a ser sempre
         // verdadeira — e uma condição que nunca é falsa afirma uma regra que
         // outra pessoa já garante.)
@@ -7683,7 +7683,7 @@ function pedirConfirmacaoNaLinha(botao, opts) {
     marca: 'excluindo',
     simbolo: lixo,
     // CAMINHO B — a gaveta dos FAVORITOS, que não tem `⋮` a ceder. Ele é hoje o
-    // MESMO do ✓ do renomear (v1.7.3): a lixeira entra na própria faixa, ao
+    // MESMO do ✓ do renomear (v1.7.4): a lixeira entra na própria faixa, ao
     // lado dos dois rótulos.
     //
     // ELA MOROU NA CAPA da v1.4.27 até aqui, e saiu de lá porque a capa deixou
@@ -7731,7 +7731,7 @@ function pedirConfirmacaoNaLinha(botao, opts) {
     // segundo cairia sobre uma lista já redesenhada.
     if (sim.disabled) return;
     sim.disabled = true;
-    // ===== A LINHA NÃO VOLTA AO ESTADO INICIAL PARA SUMIR (v1.7.3) =====
+    // ===== A LINHA NÃO VOLTA AO ESTADO INICIAL PARA SUMIR (v1.7.4) =====
     //
     // Relato do operador: *"ao tocar em excluir, na confirmação, o item se
     // transforma ao seu estado inicial sem os botões antes de desaparecer, isso
@@ -7767,7 +7767,7 @@ function pedirConfirmacaoNaLinha(botao, opts) {
 }
 
 /**
- * A SAÍDA DE UMA LINHA QUE VAI SER APAGADA (v1.7.3).
+ * A SAÍDA DE UMA LINHA QUE VAI SER APAGADA (v1.7.4).
  *
  * Ela existe para que o desaparecimento seja o FIM de um gesto e não um evento
  * solto: o item encolhe e apaga no lugar em que está, e a lista se fecha por
@@ -7851,7 +7851,7 @@ function pedirRenomearNaLinha(botao, item, aoGravar) {
   ok.innerHTML = checkIconSvg();
   const cx = abrirNaFaixaDaLinha(botao, {
     classe: 'linha-renome',
-    // A MARCA DO PROCESSO, no `li` (v1.7.3). Ela existe pelo motivo pelo qual a
+    // A MARCA DO PROCESSO, no `li` (v1.7.4). Ela existe pelo motivo pelo qual a
     // da exclusão sempre existiu — o CSS precisa saber QUAL processo está no ar
     // —, e passou a ser necessária quando os dois deixaram de esconder a capa:
     // aqui ela sai (o campo quer a faixa inteira), lá ela fica.
@@ -7859,7 +7859,7 @@ function pedirRenomearNaLinha(botao, item, aoGravar) {
     simbolo: ok,
     // CAMINHO B (a gaveta dos Favoritos, sem `⋮`): ele volta para DENTRO da
     // faixa, ao lado do campo, que é onde morou até a v1.4.27. Ele é o mesmo da
-    // lixeira desde a v1.7.3 — o que os separava era a capa, e ela deixou de
+    // lixeira desde a v1.7.4 — o que os separava era a capa, e ela deixou de
     // estar livre —, com uma diferença que fica: o ✓ DECIDE, então ele entra
     // sempre que a faixa existir; a lixeira ILUSTRA, e não entra numa faixa que
     // não fala de um item (ver `pedirConfirmacaoNaLinha`). Um botão que
@@ -8075,7 +8075,7 @@ async function moverNaLista(listName, id, delta) {
 // no código: ele fecha a pergunta SOZINHO, depois de ler o campo, e o inverso
 // perderia o nome digitado.)
 //
-// E O `linha-sim` ENTROU NA v1.7.3, pelo motivo OPOSTO ao de todos os outros.
+// E O `linha-sim` ENTROU NA v1.7.4, pelo motivo OPOSTO ao de todos os outros.
 // Relato do operador: *"ao tocar em excluir, na confirmação, o item se
 // transforma ao seu estado inicial sem os botões antes de desaparecer, isso
 // causa estranheza"*.
@@ -9699,7 +9699,7 @@ let favHost = null;
 function favAlvo() { return favHost; }
 
 /**
- * O BALDE DE MINIATURAS DE UM RENDER — hoje um conjunto de BLOBS (v1.7.3).
+ * O BALDE DE MINIATURAS DE UM RENDER — hoje um conjunto de BLOBS (v1.7.4).
  *
  * `thumbEl` pede a URL de cada capa a `thumbUrlDoBlob`, que a registra no balde
  * do render EM CURSO. Cada host tem o seu, e a varredura no fim recolhe o que
@@ -9834,7 +9834,7 @@ function renderFolderList() {
       // sincronizados"). Um excluir por linha ainda seria desfeito pela
       // sincronização seguinte, que é o mesmo argumento que mantém o renomear
       // fora daqui (v5.288).
-      // ===== O TERCEIRO BALDE DE MINIATURAS, e ele é OBRIGATÓRIO (v1.7.3) =====
+      // ===== O TERCEIRO BALDE DE MINIATURAS, e ele é OBRIGATÓRIO (v1.7.4) =====
       //
       // `montarCorpo` é ASSÍNCRONA (o `filesByFolder` acima), então este laço
       // roda DEPOIS de o `comBaldeDeMiniaturas('fav-biblioteca', …)` já ter
@@ -13378,7 +13378,7 @@ function cifraVelRotulo() {
  * "consertar" o rótulo.
  */
 function cifraVelTitulo() {
-  // O QUE O TOQUE FAZ mudou na v1.7.3 — ele ABRE A LISTA em vez de avançar um
+  // O QUE O TOQUE FAZ mudou na v1.7.4 — ele ABRE A LISTA em vez de avançar um
   // degrau —, e as três frases dizem isso porque elas são a única superfície que
   // responde por extenso: num WebView Android não há hover, então este texto
   // vive para o leitor de tela.
@@ -13614,7 +13614,7 @@ function cifraAdotarVelocidade(v) {
 }
 
 /**
- * ===== A ESCADA VIROU UMA GAVETA, E NÃO UM CARROSSEL (v1.7.3) =====
+ * ===== A ESCADA VIROU UMA GAVETA, E NÃO UM CARROSSEL (v1.7.4) =====
  *
  * Pedido do operador: *"ajuste também a forma de seleção da velocidade do
  * scroll automático da seção de cifras… faça com que o botão de velocidade abra
@@ -13896,7 +13896,7 @@ function lvBuildCifra(el) {
   // mantém UM ponto de anexo para a saída — dois `append` do mesmo nó em ramos
   // diferentes é a divergência que este arquivo evita por construção.
   //
-  // A GAVETA NASCE JUNTO e nasce FECHADA (v1.7.3): ela é `display: none` até a
+  // A GAVETA NASCE JUNTO e nasce FECHADA (v1.7.4): ela é `display: none` até a
   // classe da fila mudar, então construí-la aqui não custa layout nenhum — e
   // custaria uma segunda porta de montagem se fosse criada no toque, num nó que
   // `renderLyricsView` refaz a cada transposição.
@@ -20177,7 +20177,7 @@ function libBusyRow(chave, reg) {
   // da busca não cobria: um download que foi para o Cronograma e cuja busca já
   // está fechada não tinha mais nenhuma superfície onde ser parado.
   //
-  // ELE É O MESMO BOTÃO DA LINHA DE UM ITEM DE VERDADE desde a v1.7.3 (ver
+  // ELE É O MESMO BOTÃO DA LINHA DE UM ITEM DE VERDADE desde a v1.7.4 (ver
   // `botaoCancelarDoTrabalho`): era um `.dl-cancel` de 34px encostado na borda,
   // e a linha ao lado — o mesmo trabalho, num item que já existe — tinha o `⋮`
   // de 40px na mesma coluna. Duas caixas diferentes para a mesma ação na mesma
@@ -20249,7 +20249,7 @@ function pintarSetaDoCartao(acao) {
 }
 
 /**
- * ===== O `⋮` CEDE A COLUNA AO TRABALHO EM CURSO (v1.7.3) =====
+ * ===== O `⋮` CEDE A COLUNA AO TRABALHO EM CURSO (v1.7.4) =====
  *
  * Pedido do operador: *"por um botão, na mesma posição do botão de opções do
  * item do cronograma, para manter o design igual. A diferença é que esse botão
@@ -20331,7 +20331,7 @@ function aroDeTrabalho(acao) {
 // escrito por quem tem os números. Ele fica onde continua sendo a única
 // resposta — a lista de resultados do YouTube, que não tem subtítulo.
 //
-// ===== E A BARRA SAIU (v1.7.3) =====
+// ===== E A BARRA SAIU (v1.7.4) =====
 //
 // Relato do operador: *"O subtitulo com as informações ficou muito bom, mas a
 // barra de progresso ficou ruim, tire ela."*
@@ -22985,6 +22985,10 @@ let pacoteEmCurso = false;
 // quer parar). Uma exportação de gigabytes sem saída era um app travado por dez
 // minutos.
 let pacoteCancelar = false;
+// QUAL dos dois trabalhos está em curso. `pacoteEmCurso` responde "a ponte está
+// ocupada?" (e trava os dois tiles); este responde "o que está acontecendo?", e
+// é ele que decide qual tile fala e qual aceita o toque de cancelar.
+let pacoteExportando = false;
 let pacoteResposta = null;
 
 // Detecção por PRESENÇA, nunca por versão de shell — a mesma regra do
@@ -23230,16 +23234,19 @@ async function pacotePlano() {
     bytes: bytesEstado,
     fixo: true,
   }];
+  const porColecao = new Map();
   for (const c of cols) {
     const g = porGrupo.get(AVPacote.GRUPO_COL + c.id);
     if (!g || !g.arquivos.length) continue;
-    grupos.push({
+    const item = {
       chave: AVPacote.GRUPO_COL + c.id,
       rotulo: c.name || c.id,
       sub: g.arquivos.length + (g.arquivos.length === 1 ? ' arquivo' : ' arquivos'),
       bytes: g.bytes,
       fixo: false,
-    });
+    };
+    grupos.push(item);
+    porColecao.set(c.id, item);
   }
   if (bytesMidia || midia.length) {
     grupos.push({
@@ -23254,14 +23261,72 @@ async function pacotePlano() {
   if (soltos && soltos.arquivos.length) {
     grupos.push({
       chave: AVPacote.GRUPO_OUTROS,
-      rotulo: 'Outros arquivos',
+      // "OUTROS ARQUIVOS" seria o nome de duas coisas nesta mesma folha: a
+      // Biblioteca já chama de "Outros álbuns" a seção dos álbuns sem
+      // categoria, e ela também aparece aqui. Este é o outro caso — bytes no
+      // disco cuja coleção saiu do catálogo —, e o nome diz isso.
+      rotulo: 'Arquivos sem coleção',
       sub: soltos.arquivos.length + ' de coleções que saíram do catálogo',
       bytes: soltos.bytes,
       fixo: false,
     });
   }
 
-  return { estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos };
+  // ===== A FOLHA É A ÁRVORE DA BIBLIOTECA (v1.7.3) =====
+  //
+  // Pedido do operador: *"opções de agrupamentos das coleções da mesma forma que
+  // já existe na biblioteca, podendo marcar um grupo inteiro de uma vez só"*.
+  //
+  // A ORDEM E O AGRUPAMENTO SAEM DA MESMA FONTE que a Biblioteca desenha — as
+  // coletâneas do `AVColetanea.aplicar`, com os hinários e as séries na RAIZ e
+  // os álbuns sem categoria em "Outros álbuns". Uma segunda leitura do catálogo
+  // aqui divergiria da tela em que o operador aprendeu onde cada coleção mora,
+  // que é justamente o que ele pediu para NÃO acontecer.
+  //
+  // `plano.grupos` continua PLANO — é ele que o laço de escrita e o
+  // `pacoteBytesDe` consomem, e nenhum dos dois tem o que fazer com uma árvore.
+  // `plano.folha` é a árvore, e ela existe só para a folha desenhar.
+  const naFolha = new Set();
+  const folha = [{ tipo: 'fixo', chave: AVPacote.GRUPO_AJUSTES }];
+  const linha = (chave) => {
+    if (!chave || naFolha.has(chave) || !porGrupo.has(chave)) return;
+    naFolha.add(chave);
+    folha.push({ tipo: 'linha', chave });
+  };
+  // A RAIZ, na ordem da Biblioteca: as séries (o material datado do sábado que
+  // vem) e depois os hinários (o acervo permanente).
+  for (const c of [...serieCollections(), ...FIXED_COLLECTIONS]) {
+    const item = porColecao.get(c.id);
+    if (item) { naFolha.add(item.chave); folha.push({ tipo: 'linha', chave: item.chave }); }
+  }
+  const secao = (nome, chaves) => {
+    const dentro = chaves.filter((k) => k && !naFolha.has(k));
+    if (!dentro.length) return;
+    for (const k of dentro) naFolha.add(k);
+    folha.push({ tipo: 'secao', nome, chaves: dentro });
+  };
+  const coletaneas = AVColetanea.aplicar(albumCatalog.categories);
+  const reivindicados = new Set();
+  for (const cat of coletaneas.categorias) {
+    for (const a of cat.albums) reivindicados.add('album-' + a.id_album);
+    secao(cat.name, cat.albums
+      .map((a) => porColecao.get('album-' + a.id_album))
+      .filter(Boolean).map((x) => x.chave));
+  }
+  const orfaos = albumCatalog.albums
+    .map((a) => porColecao.get('album-' + a.id_album))
+    .filter((x) => x && !reivindicados.has(AVPacote.colecaoDoGrupo(x.chave)));
+  secao(coletaneas.categorias.length ? 'Outros álbuns' : 'Álbuns', orfaos.map((x) => x.chave));
+  // O QUE SOBROU entra como linha, e essa varredura é a rede de segurança: uma
+  // coleção que o catálogo conheça e a árvore não alcance (um hinário fora do
+  // `FIXED_COLLECTIONS`, uma categoria que a coletânea dissolveu para um
+  // destino ausente) sairia da folha sem aparecer em lista nenhuma — e sem
+  // aparecer na folha ela nunca é marcada, isto é, não entra no arquivo.
+  for (const g of grupos) if (!g.fixo && g.chave.indexOf(AVPacote.GRUPO_COL) === 0) linha(g.chave);
+  linha('midia');
+  linha(AVPacote.GRUPO_OUTROS);
+
+  return { estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos, folha };
 }
 
 /** Os bytes que os grupos escolhidos vão escrever — o total da barra. */
@@ -23288,6 +23353,12 @@ function pacoteBytesDe(plano, sel) {
 // `<div>` com a mesma roupa e a marca já acesa, e o `sub` diz por que ela está
 // ali sem ser escolha.
 let pacoteGruposResolve = null;
+// UMA seção aberta por vez, como na Biblioteca (`grupoAberto`): com todas
+// abertas a folha vira a lista inteira de álbuns, que é o que a seção existe
+// para não ser. Ela nasce vazia — TUDO colapsado —, porque a folha abre com
+// tudo marcado e o que se faz nela é TIRAR: a barra do grupo resolve o caso
+// comum sem abrir nada.
+let pacoteSecaoAberta = '';
 
 function fecharPacoteGrupos(valor) {
   const r = pacoteGruposResolve;
@@ -23302,6 +23373,7 @@ function escolherGruposDoPacote(plano) {
   return new Promise((resolve) => {
     pacoteGruposResolve = resolve;
     destLimpar();
+    pacoteSecaoAberta = '';
     // TUDO MARCADO por padrão: o caso normal é levar o acervo inteiro, e a
     // folha existe para PODER tirar, não para obrigar a montar.
     for (const g of plano.grupos) if (!g.fixo) destMarcados.add(g.chave);
@@ -23310,6 +23382,43 @@ function escolherGruposDoPacote(plano) {
     renderPacoteGrupos(plano);
     songMenuPopupEl.classList.add('open');
   });
+}
+
+/** O que está marcado, MAIS o que é fixo. */
+function pacoteSelecao(plano) {
+  const sel = new Set(destMarcados);
+  for (const g of plano.grupos) if (g.fixo) sel.add(g.chave);
+  return sel;
+}
+
+/** As chaves que o operador PODE marcar — tudo menos o fixo. */
+function pacoteChavesLivres(plano) {
+  return plano.grupos.filter((g) => !g.fixo).map((g) => g.chave);
+}
+
+/**
+ * `todas` · `nenhuma` · `parte` — o estado de uma marca de GRUPO.
+ *
+ * Ele existe porque uma caixa de duas posições MENTE sobre um grupo: com dois
+ * de cinco álbuns marcados, "vazia" diz que nada vai e "cheia" diz que tudo
+ * vai. O terceiro estado é o único honesto, e é ele que dá o traço no lugar do
+ * ✓ (ver `.song-menu-check.parcial`).
+ */
+function pacoteEstadoDe(chaves) {
+  let marcadas = 0;
+  for (const k of chaves) if (destMarcados.has(k)) marcadas++;
+  if (!marcadas) return 'nenhuma';
+  return marcadas === chaves.length ? 'todas' : 'parte';
+}
+
+/** A caixa de um grupo, nos três estados. */
+function pacoteCheckGrupo(estado) {
+  const cx = document.createElement('span');
+  cx.className = 'song-menu-check'
+    + (estado === 'todas' ? ' on' : estado === 'parte' ? ' parcial' : '');
+  cx.setAttribute('role', 'checkbox');
+  cx.setAttribute('aria-checked', estado === 'todas' ? 'true' : estado === 'parte' ? 'mixed' : 'false');
+  return cx;
 }
 
 // O ÍCONE DE UM GRUPO sai do sprite, e não da fonte: o `ICON` é o subset de 31
@@ -23322,14 +23431,64 @@ function pacoteIconeSvg(id) {
     + 'stroke-linejoin="round" aria-hidden="true"><use href="#' + id + '"/></svg>';
 }
 
+/** O peso de um conjunto de chaves, para o resumo de uma seção. */
+function pacotePesoDe(plano, chaves) {
+  let t = 0;
+  for (const g of plano.grupos) if (chaves.indexOf(g.chave) >= 0) t += g.bytes;
+  return t;
+}
+
 function renderPacoteGrupos(plano) {
   songMenuListEl.innerHTML = '';
   const remontar = () => renderPacoteGrupos(plano);
   destRemontar = remontar;
-  for (const g of plano.grupos) {
+  const porChave = new Map(plano.grupos.map((g) => [g.chave, g]));
+  const livres = pacoteChavesLivres(plano);
+
+  // ===== "TUDO", A PRIMEIRA LINHA (v1.7.3) =====
+  //
+  // Pedido do operador: *"haja uma opção de selecionar todos"*. Ela é um
+  // ALTERNADOR e não dois botões: com tudo marcado ela LIMPA, com qualquer
+  // coisa desmarcada ela MARCA TUDO. Dois botões ("marcar" / "limpar") seriam
+  // um deles sempre inútil, e o estado da caixa já diz qual dos dois o toque
+  // vai fazer.
+  const geral = pacoteEstadoDe(livres);
+  const liTudo = document.createElement('li');
+  const btnTudo = document.createElement('button');
+  btnTudo.type = 'button';
+  btnTudo.className = 'song-menu-btn song-menu-sel song-menu-tudo';
+  const icTudo = document.createElement('span');
+  icTudo.className = 'song-menu-icon';
+  icTudo.innerHTML = pacoteIconeSvg('icoExportar');
+  const txTudo = document.createElement('span'); txTudo.className = 'song-menu-text';
+  const rotTudo = document.createElement('span'); rotTudo.className = 'song-menu-label';
+  rotTudo.textContent = geral === 'todas' ? 'Limpar a seleção' : 'Selecionar tudo';
+  const subTudo = document.createElement('span'); subTudo.className = 'song-menu-sub';
+  subTudo.textContent = livres.filter((k) => destMarcados.has(k)).length
+    + ' de ' + livres.length + ' · ' + fmtBytes(pacoteBytesDe(plano, pacoteSelecao(plano)));
+  txTudo.append(rotTudo, subTudo);
+  btnTudo.append(icTudo, txTudo, pacoteCheckGrupo(geral));
+  btnTudo.addEventListener('click', () => {
+    if (geral === 'todas') for (const k of livres) destMarcados.delete(k);
+    else for (const k of livres) destMarcados.add(k);
+    remontar();
+  });
+  liTudo.appendChild(btnTudo);
+  songMenuListEl.appendChild(liTudo);
+
+  const linhaDeGrupo = (g, dentro) => {
     const peso = fmtBytes(g.bytes);
-    const sub = g.sub ? g.sub + ' · ' + peso : peso;
-    if (g.fixo) {
+    const li = songMenuItem(
+      g.chave === 'midia' ? msym(ICON.import) : msym(ICON.music),
+      g.rotulo, (g.sub ? g.sub + ' · ' : '') + peso, () => {}, g.chave, remontar);
+    if (dentro) li.firstChild.classList.add('song-menu-dentro');
+    return li;
+  };
+
+  for (const item of plano.folha) {
+    if (item.tipo === 'fixo') {
+      const g = porChave.get(item.chave);
+      if (!g) continue;
       const li = document.createElement('li');
       const caixa = document.createElement('div');
       caixa.className = 'song-menu-btn song-menu-sel song-menu-fixo';
@@ -23341,7 +23500,7 @@ function renderPacoteGrupos(plano) {
       const t = document.createElement('span'); t.className = 'song-menu-label';
       t.textContent = g.rotulo;
       const d = document.createElement('span'); d.className = 'song-menu-sub';
-      d.textContent = sub + ' · sempre vai junto';
+      d.textContent = (g.sub ? g.sub + ' · ' : '') + fmtBytes(g.bytes) + ' · sempre vai junto';
       txt.append(t, d);
       caixa.appendChild(txt);
       const marca = document.createElement('span');
@@ -23353,12 +23512,68 @@ function renderPacoteGrupos(plano) {
       songMenuListEl.appendChild(li);
       continue;
     }
-    // A MÍDIA leva a pasta (ela é o que ENTROU no aparelho por fora); uma
-    // coleção e o grupo de escape levam a nota, que é o que eles guardam.
-    songMenuListEl.appendChild(songMenuItem(
-      g.chave === 'midia' ? msym(ICON.import) : msym(ICON.music),
-      g.rotulo, sub, () => {}, g.chave, remontar));
+    if (item.tipo === 'linha') {
+      const g = porChave.get(item.chave);
+      if (g) songMenuListEl.appendChild(linhaDeGrupo(g, false));
+      continue;
+    }
+    // ===== UMA SEÇÃO =====
+    //
+    // A BARRA MARCA O GRUPO INTEIRO e a SETA abre — dois alvos, duas coisas, e
+    // é por isso que a barra é uma `<div role="button">` com um `<button>`
+    // dentro: botão dentro de botão é HTML inválido, e é a mesma solução da
+    // `.coll-group-bar` da Biblioteca.
+    //
+    // A BARRA é a que marca porque esta é uma folha de ESCOLHA: o que se vem
+    // fazer aqui é incluir e excluir, e abrir é o gesto de refinar. Na
+    // Biblioteca a barra abre porque lá o que se vem fazer é olhar dentro.
+    const estado = pacoteEstadoDe(item.chaves);
+    const aberta = pacoteSecaoAberta === item.nome;
+    const li = document.createElement('li');
+    const bar = document.createElement('div');
+    bar.className = 'song-menu-btn song-menu-sel song-menu-grupo';
+    bar.setAttribute('role', 'button');
+    bar.setAttribute('tabindex', '0');
+    const seta = document.createElement('button');
+    seta.type = 'button';
+    seta.className = 'song-menu-seta' + (aberta ? ' aberta' : '');
+    seta.innerHTML = pacoteIconeSvg('icoSlideNext');
+    seta.setAttribute('aria-label', (aberta ? 'Fechar ' : 'Abrir ') + item.nome);
+    seta.setAttribute('aria-expanded', aberta ? 'true' : 'false');
+    seta.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      pacoteSecaoAberta = aberta ? '' : item.nome;
+      remontar();
+    });
+    const txt = document.createElement('span'); txt.className = 'song-menu-text';
+    const t = document.createElement('span'); t.className = 'song-menu-label';
+    t.textContent = item.nome;
+    const d = document.createElement('span'); d.className = 'song-menu-sub';
+    d.textContent = item.chaves.filter((k) => destMarcados.has(k)).length
+      + ' de ' + item.chaves.length + ' · ' + fmtBytes(pacotePesoDe(plano, item.chaves));
+    txt.append(t, d);
+    bar.append(seta, txt, pacoteCheckGrupo(estado));
+    const marcarGrupo = () => {
+      // PARCIAL VAI PARA CHEIO, e não para vazio: o toque numa marca parcial é
+      // "quero este grupo", e quem quer tirar toca de novo. O contrário faria o
+      // primeiro toque DESFAZER o que o operador acabou de marcar à mão.
+      if (estado === 'todas') for (const k of item.chaves) destMarcados.delete(k);
+      else for (const k of item.chaves) destMarcados.add(k);
+      remontar();
+    };
+    bar.addEventListener('click', marcarGrupo);
+    bar.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); marcarGrupo(); }
+    });
+    li.appendChild(bar);
+    songMenuListEl.appendChild(li);
+    if (!aberta) continue;
+    for (const k of item.chaves) {
+      const g = porChave.get(k);
+      if (g) songMenuListEl.appendChild(linhaDeGrupo(g, true));
+    }
   }
+
   const li = document.createElement('li');
   li.className = 'song-menu-go-row';
   const go = document.createElement('button');
@@ -23376,13 +23591,6 @@ function renderPacoteGrupos(plano) {
   songMenuListEl.appendChild(li);
 }
 
-/** O que está marcado, MAIS o que é fixo. */
-function pacoteSelecao(plano) {
-  const sel = new Set(destMarcados);
-  for (const g of plano.grupos) if (g.fixo) sel.add(g.chave);
-  return sel;
-}
-
 const PACOTE_CANCELADO = 'cancelado';
 
 async function exportarPacote() {
@@ -23390,28 +23598,26 @@ async function exportarPacote() {
   if (!c || pacoteEmCurso) return;
   pacoteOuvirCanal(c);
 
-  // ===== A MEDIÇÃO VEM ANTES DE TUDO, E ELA APARECE =====
+  // ===== A MEDIÇÃO VEM ANTES DE TUDO, E ELA APARECE NO PRÓPRIO BOTÃO =====
   // Ela varre o OPFS inteiro, percorre a store de mídia e lê as chaves de
   // `state` — segundos num acervo grande. Até a v1.7.2 ela acontecia DEPOIS do
-  // "Salvar como", em silêncio absoluto: nem cartão, nem notificação, nem
-  // palavra no tile. Somada à escrita das milhares de chaves de `state` (que
-  // também não reportava nada), era isso que o operador via como "não sai de
-  // 0%".
+  // "Salvar como", em silêncio absoluto; a v1.7.2 a mostrou no cartão sobre a
+  // PREVIEW, e a v1.7.3 a trouxe para cá: a ação acontece no botão, e é nele
+  // que ela responde (ver `falarNoTile`).
   let plano = null;
-  const medindo = previewBusy('Preparando a exportação', 'Medindo o acervo');
+  falarNoTile(pacoteExportarTileEl, 'Medindo…', 0);
+  pacoteExportarTileEl.classList.add('qs-trabalhando');
   try {
     plano = await pacotePlano();
   } catch (e) {
     plano = null;
   } finally {
-    medindo.soltar();
+    pacoteExportarTileEl.classList.remove('qs-trabalhando');
+    calarTile(pacoteExportarTileEl);
   }
   if (!plano) {
-    await openAppDialog({
-      title: 'Não deu para exportar',
-      message: 'Não foi possível ler o acervo deste aparelho.',
-      okText: 'Entendi', cancelText: null,
-    });
+    pulsar(pacoteExportarTileEl, 'erro');
+    falarNoTile(pacoteExportarTileEl, 'Não deu', 4000);
     return;
   }
   pacotePlanoAtual = plano;
@@ -23426,30 +23632,29 @@ async function exportarPacote() {
   // `salvarTexto` do Registro.
   if (!nome) { pacotePlanoAtual = null; return; }
   pacoteEmCurso = true;
+  pacoteExportando = true;
   pacoteCancelar = false;
   pacoteRenderTiles();
+  falarNoTile(pacoteExportarTileEl, '0%', 0);
   let erro = '';
   let gravados = -1;
   const total = Math.max(pacoteBytesDe(plano, sel), 1);
-  // O CARTÃO SOBRE A PREVIEW é onde o número mora agora (a palavra do estado do
-  // tile saiu na v1.7.2), e ele traz o CANCELAR — que esta exportação não
-  // tinha: até aqui, começar era ficar preso até o fim ou até uma falha.
-  const cartao = previewBusy('Exportando o acervo', nome, () => { pacoteCancelar = true; });
   try {
     await withBgWork(async () => {
       const tarefa = bgTaskStart('Exportando o acervo', 1);
       bgItemOnly(tarefa, nome);
       let feitos = 0;
       let etapa = '';
-      // O NÚMERO VAI NO TEXTO, e não num terceiro parâmetro: o cartão da preview
-      // não tem casa para um percentual (o 3º argumento do `atualizar` existe só
-      // para a assinatura bater com a do `libBusy`), e quem o mostra é a própria
-      // legenda — a mesma forma do "Baixando vídeo · 34%".
+      // O NÚMERO VAI NO RÓTULO DO BOTÃO (v1.7.3), e é a única coisa que cabe
+      // lá: o tile tem uma linha de texto, e a ETAPA — o nome do grupo que está
+      // sendo escrito — é longa demais para ela. A etapa continua indo para a
+      // NOTIFICAÇÃO, que é a superfície com espaço e a que existe com o app
+      // minimizado, que é onde uma exportação de gigabytes de fato acontece.
       const andou = (n) => {
         feitos += n;
         bgTaskBytes(tarefa, feitos, total);
-        const pct = Math.min(100, Math.round((feitos / total) * 100));
-        cartao.atualizar('Exportando o acervo', (etapa || nome) + ' · ' + pct + '%');
+        falarNoTile(pacoteExportarTileEl,
+          Math.min(100, Math.round((feitos / total) * 100)) + '%', 0);
       };
       const esc = pacoteEscritor(c, andou, () => pacoteCancelar);
       try {
@@ -23476,6 +23681,7 @@ async function exportarPacote() {
         // gravaria um wallpaper vazio por cima do padrão — o modo de falhar
         // mudo que este arquivo inteiro evita.
         etapa = 'Ajustes e catálogos';
+        bgItemOnly(tarefa, etapa);
         for (const e of plano.estado) {
           if (e.blob) {
             await esc.registro({
@@ -23491,6 +23697,7 @@ async function exportarPacote() {
         // páginas de um item vêm coladas nele.
         if (sel.has('midia')) {
           etapa = 'Itens importados e vídeos';
+          bgItemOnly(tarefa, etapa);
           for (const m of plano.midia) {
             let rec = null;
             try { rec = await AVDB.getMedia(m.id); } catch (_) { continue; }
@@ -23520,6 +23727,7 @@ async function exportarPacote() {
         // registro de catálogo cujo arquivo não viaja é uma faixa que não toca
         // do outro lado.
         etapa = 'Catálogo';
+        bgItemOnly(tarefa, etapa);
         for (const rec of await AVDB.filesAll()) {
           if (!rec || !rec.id) continue;
           if (rec.opfsPath && !plano.caminhoViaja(rec.opfsPath)) continue;
@@ -23537,6 +23745,7 @@ async function exportarPacote() {
           const pacote = plano.porGrupo.get(g.chave);
           if (!pacote) continue;
           etapa = g.rotulo;
+          bgItemOnly(tarefa, etapa);
           for (const a of pacote.arquivos) {
             let f = null;
             try { f = await AVDB.opfsGetFile(a.caminho); } catch (_) { continue; }
@@ -23568,20 +23777,32 @@ async function exportarPacote() {
     // em que os bytes acabam. Inofensivo depois de um `pacoteFechar` bem
     // sucedido — ali já não há nada aberto.
     if (erro) { try { AVNative.pacoteCancelar(); } catch (_) { /* ponte */ } }
-    cartao.soltar();
     pacoteEmCurso = false;
+    pacoteExportando = false;
     pacoteCancelar = false;
     pacotePlanoAtual = null;
+    calarTile(pacoteExportarTileEl);
     pacoteRenderTiles();
   }
   // DESISTIR NÃO É FALHAR, e por isso não abre diálogo de erro: o operador
-  // acabou de tocar no ✕ e sabe o que aconteceu. O parcial já foi apagado pelo
-  // caminho acima.
-  if (erro === PACOTE_CANCELADO) return;
+  // acabou de tocar no botão e sabe o que aconteceu. O parcial já foi apagado
+  // pelo caminho acima — e o BOTÃO confirma, que é onde ele tocou.
+  if (erro === PACOTE_CANCELADO) {
+    falarNoTile(pacoteExportarTileEl, 'Cancelado', 3000);
+    return;
+  }
   if (erro) {
+    pulsar(pacoteExportarTileEl, 'erro');
     await openAppDialog({ title: 'Não deu para exportar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
+  // O DESFECHO FALA NOS DOIS LUGARES, e não é repetição: o BOTÃO diz que deu
+  // certo e quanto pesou — a resposta ao toque, onde o toque foi dado —, e o
+  // DIÁLOGO diz o que o botão não tem como dizer: o NOME do arquivo e o que
+  // fazer com ele. Sem o nome, "exportado" não responde *"qual arquivo eu
+  // copio?"* numa pasta de Downloads com meia dúzia deles.
+  pulsar(pacoteExportarTileEl, 'ok');
+  falarNoTile(pacoteExportarTileEl, fmtBytes(gravados), 5000);
   await openAppDialog({
     title: 'Acervo exportado',
     message: 'O arquivo "' + nome + '" tem ' + fmtBytes(gravados) + '. '
@@ -23712,6 +23933,10 @@ async function importarPacote() {
   if (!alvo || !alvo.url) return;
   pacoteEmCurso = true;
   pacoteRenderTiles();
+  // A CONFERÊNCIA vem antes do primeiro byte gravado e lê o arquivo inteiro
+  // pelos cabeçalhos: num pacote de gigabytes ela leva segundos, e sem esta
+  // linha o botão fica parado enquanto ela roda.
+  falarNoTile(pacoteImportarTileEl, 'Conferindo…', 0);
   let erro = '';
   const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0 };
   try {
@@ -23729,13 +23954,13 @@ async function importarPacote() {
     await withBgWork(async () => {
       const tarefa = bgTaskStart('Importando o acervo', 1);
       bgItemOnly(tarefa, alvo.name || 'pacote');
-      // O CARTÃO SOBRE A PREVIEW carrega o número desde a v1.7.2, aqui como na
-      // exportação: era a palavra do estado do tile que o mostrava, e ela saiu.
+      // O NÚMERO MORA NO PRÓPRIO BOTÃO (v1.7.3), aqui como na exportação: a
+      // ação nasceu nele. O NOME do arquivo vai para a notificação, que é a
+      // superfície com espaço.
       // Sem CANCELAR, e a diferença é de natureza: parar uma importação no meio
       // deixaria metade do acervo no aparelho e nada apagaria a outra metade —
       // ela só ACRESCENTA, então o que já entrou está certo, e desfazê-lo seria
       // apagar o que o operador foi buscar.
-      const cartao = previewBusy('Importando o acervo', alvo.name || 'pacote');
       try {
         const cursor = pacoteCursor(blob);
         // O ITEM EM MONTAGEM. A miniatura e as páginas de uma mídia chegam
@@ -23768,8 +23993,8 @@ async function importarPacote() {
           const { cab, corpo } = r;
           bgTaskBytes(tarefa, cursor.pos, blob.size);
           if (blob.size) {
-            cartao.atualizar('Importando o acervo', (alvo.name || 'pacote')
-              + ' · ' + Math.min(100, Math.round((cursor.pos / blob.size) * 100)) + '%');
+            falarNoTile(pacoteImportarTileEl,
+              Math.min(100, Math.round((cursor.pos / blob.size) * 100)) + '%', 0);
           }
           if (cab.t === 'media-thumb' && pendente && pendente.tipo === 'media') {
             pendente.rec.thumb = corpo; continue;
@@ -23835,19 +24060,21 @@ async function importarPacote() {
         }
       } finally {
         bgTaskEnd(tarefa);
-        cartao.soltar();
       }
     });
   } catch (e) {
     erro = (e && e.message) || 'A importação falhou.';
   } finally {
     pacoteEmCurso = false;
+    calarTile(pacoteImportarTileEl);
     pacoteRenderTiles();
   }
   if (erro) {
+    pulsar(pacoteImportarTileEl, 'erro');
     await openAppDialog({ title: 'Não deu para importar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
+  pulsar(pacoteImportarTileEl, 'ok');
   await openAppDialog({
     title: 'Acervo importado',
     message: contagem.media + ' item(ns), ' + contagem.opfs + ' arquivo(s) e '
@@ -23905,10 +24132,24 @@ const pacoteImportarTileEl = document.getElementById('pacoteImportarTile');
  * A LUZ NÃO MUDA com o trabalho: aceso, neste painel, responde *"a função está
  * ligada?"*, e apagar um tile em curso diria INDISPONÍVEL, que é o oposto.
  */
-function pacoteTrabalhando(el, ligado, rotulo) {
+/**
+ * `podeParar` mantém o tile TOCÁVEL enquanto trabalha, e o toque CANCELA.
+ *
+ * A exportação perdeu o cartão sobre a preview na v1.7.3, e com ele o ✕ que era
+ * a única saída de um trabalho de minutos. A saída volta para o mesmo lugar em
+ * que a ação nasceu: o botão. É o gesto que quem opera tenta primeiro — tocar
+ * de novo no botão que está trabalhando —, e ele é seguro porque exportar é
+ * refazível: o parcial é apagado e o arquivo escolhido some.
+ *
+ * A IMPORTAÇÃO NÃO TEM ISSO, e a diferença é de natureza: ela só ACRESCENTA, e
+ * parar no meio deixaria metade do acervo dentro sem nada para apagar a outra
+ * metade. O que já entrou está certo; desfazê-lo seria apagar o que o operador
+ * foi buscar. Lá o tile fica `disabled` mesmo.
+ */
+function pacoteTrabalhando(el, ligado, rotulo, podeParar) {
   if (!el) return;
   el.classList.toggle('qs-trabalhando', !!ligado);
-  el.disabled = !!ligado;
+  el.disabled = !!ligado && !podeParar;
   pintarTile(el, ligado ? 'ocupado' : 'pronto', rotulo, true, false);
 }
 
@@ -23918,8 +24159,13 @@ function pacoteRenderTiles() {
     if (el) el.hidden = fora;
   }
   if (shareAppTileEl) pintarTile(shareAppTileEl, 'app', 'O app', true, false);
-  pacoteTrabalhando(pacoteExportarTileEl, pacoteEmCurso, pacoteEmCurso ? 'em curso' : 'o acervo');
-  pacoteTrabalhando(pacoteImportarTileEl, pacoteEmCurso, pacoteEmCurso ? 'em curso' : 'o acervo');
+  // QUEM ESTÁ TRABALHANDO É UM SÓ, e é ele que fica tocável: o outro é o
+  // IRMÃO — desabilitado porque a ponte só sustenta um destino aberto por vez,
+  // e não porque haja o que cancelar nele.
+  pacoteTrabalhando(pacoteExportarTileEl, pacoteEmCurso,
+    pacoteEmCurso ? 'em curso' : 'o acervo', pacoteExportando);
+  pacoteTrabalhando(pacoteImportarTileEl, pacoteEmCurso,
+    pacoteEmCurso ? 'em curso' : 'o acervo', false);
 }
 
 if (shareAppTileEl) {
@@ -23933,7 +24179,22 @@ if (shareAppTileEl) {
     );
   });
 }
-if (pacoteExportarTileEl) pacoteExportarTileEl.addEventListener('click', () => { exportarPacote(); });
+if (pacoteExportarTileEl) {
+  pacoteExportarTileEl.addEventListener('click', () => {
+    // O TOQUE NO BOTÃO QUE TRABALHA É O CANCELAR (v1.7.3). Ele é o gesto que
+    // quem opera tenta primeiro, e é seguro porque exportar é refazível: o
+    // parcial é apagado e o arquivo escolhido some. `qs-trabalhando` sem
+    // `pacoteExportando` é a fase de MEDIÇÃO, que não tem o que cancelar —
+    // ela não escreveu byte nenhum e acaba sozinha em segundos.
+    if (pacoteExportando) {
+      pacoteCancelar = true;
+      falarNoTile(pacoteExportarTileEl, 'Parando…', 0);
+      return;
+    }
+    if (pacoteEmCurso) return;
+    exportarPacote();
+  });
+}
 if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => { importarPacote(); });
 // Na CARGA, e não só ao abrir a folha: é este toque que revela (ou esconde) o
 // bloco inteiro, e uma folha aberta antes dele mostraria um rótulo sozinho.
@@ -23962,11 +24223,68 @@ function pintarTile(el, estado, rotulo, aceso, alt) {
   // tinha o título sozinho ("Tema"), que não responde nada. É o mesmo par do
   // botão da cortina na notificação — o desenho mostra o ESTADO, e o texto que
   // acompanha diz o que ele é por extenso.
+  //
+  // O NOME VEM DO `data-nome`, e não do texto que está na tela (v1.7.3): com o
+  // tile FALANDO (ver `falarNoTile`) o título é a frase emprestada, e lê-la
+  // aqui faria o `aria-label` virar "42%: em curso".
   const titulo = el.querySelector('.qs-titulo');
-  const nome = (titulo && titulo.textContent) || '';
+  const nome = el.dataset.nome || (titulo && titulo.textContent) || '';
   el.setAttribute('aria-label', rotulo ? nome + ': ' + rotulo : nome);
   el.classList.toggle('qs-on', !!aceso);
   el.classList.toggle('qs-alt', !!alt);
+}
+
+// ===== O TILE EMPRESTA O PRÓPRIO RÓTULO (v1.7.3) =====
+//
+// Pedido do operador: *"ajuste o feedback da ui sobre a preparação da
+// exportação, que hoje está sendo exibida sobre o preview, para que seja
+// exibida sobre o próprio botão de exportar. já que a ação acontece ali e não
+// na tela ou controle. o mesmo vale para feedbacks visuais das ações das
+// configurações, eles devem notificar ali mesmo"*.
+//
+// ELE ESTÁ CERTO E O APP JÁ TINHA A MECÂNICA, em dois lugares: o `#otaRow`
+// (`falarNoOta`) e o "Guardar como pacote" (`falarNoPacote`). A regra está
+// escrita desde a v5.207 na lista de canais de resposta deste arquivo — *"o
+// rótulo do controle empresta a si mesmo por alguns segundos e volta"* —, e o
+// cartão sobre a preview é o canal do que ACONTECERIA NELA. Uma exportação não
+// acontece na preview: ela acontece no botão.
+//
+// E ISSO NÃO REABRE A SEGUNDA LINHA que a v1.7.2 removeu. Aquela era PERMANENTE
+// e descrevia o estado em repouso; esta é o próprio TÍTULO, por alguns
+// segundos, e volta. O tile continua com uma linha de texto — a diferença é o
+// que ela diz enquanto o trabalho corre.
+//
+// O RÓTULO DE ORIGEM MORA NO PRÓPRIO NÓ (`data-nome`), guardado na PRIMEIRA
+// fala — lê-lo do HTML a cada vez pegaria a frase emprestada de uma fala
+// anterior que ainda não voltou.
+//
+// E ELE NÃO É UM `WeakMap` DE MÓDULO, que foi a primeira escrita e não durou um
+// teste: `pacoteRenderTiles()` roda no TOPO deste arquivo, na carga, e chama o
+// `pintarTile` — que leria a constante ANTES da linha que a declara. Zona morta
+// temporal, `ReferenceError` na carga, e o app inteiro parado. É a mesma
+// armadilha que o `cifraAdotarVelocidade` documenta, e o atributo a fecha por
+// construção: não há ordem de declaração a respeitar. O prazo continua num
+// campo do nó pelo mesmo motivo.
+function falarNoTile(el, texto, ms) {
+  if (!el) return;
+  const titulo = el.querySelector('.qs-titulo');
+  if (!titulo) return;
+  if (el.dataset.nome == null) el.dataset.nome = titulo.textContent;
+  clearTimeout(el._tileFala);
+  titulo.textContent = texto;
+  el.dataset.falando = '1';
+  // `0` = fica até alguém reescrever ou calar. É o desfecho de um trabalho em
+  // curso, e é o mesmo contrato do `falarNoOta`.
+  if (ms) el._tileFala = setTimeout(() => calarTile(el), ms);
+}
+
+function calarTile(el) {
+  if (!el) return;
+  clearTimeout(el._tileFala);
+  el._tileFala = null;
+  const titulo = el.querySelector('.qs-titulo');
+  if (titulo && el.dataset.nome != null) titulo.textContent = el.dataset.nome;
+  delete el.dataset.falando;
 }
 
 // SEMPRE ACESO: escolher "Ajustar" não desliga nada — é a outra metade de um
@@ -24724,7 +25042,7 @@ async function deckVideoVoltar(passo) {
 // `legendaEhDownload`.
 const LEGENDA_DECK = 'Preparando apresentação';
 
-// ===== DESISTIR DE UMA PREPARAÇÃO (v1.7.3) =====
+// ===== DESISTIR DE UMA PREPARAÇÃO (v1.7.4) =====
 //
 // Pedido do operador, sobre o botão que passou a ocupar a coluna do `⋮`: *"esse
 // botão só tem uma função durante um preparo ou download. Esse botão cancela o
@@ -25310,7 +25628,7 @@ async function importShare(pending) {
     // um número parado em 0% mente mais do que o aro girando. O que o operador
     // precisa saber aqui é que HÁ trabalho em curso e sobre QUAL arquivo.
     const rotulo = nomeSemExtensao((item && item.name) || 'Arquivo');
-    // A DESISTÊNCIA (v1.7.3), pela mesma alça do deck e do download. Aqui o
+    // A DESISTÊNCIA (v1.7.4), pela mesma alça do deck e do download. Aqui o
     // trabalho é UMA cópia — o `/saf/` de um vídeo do aparelho passa de
     // gigabytes —, e ela é um `await` só: quem a interrompe é o `AbortController`
     // do próprio `fetch`, que é o único ponto de parada que existe neste caminho.

@@ -263,7 +263,7 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   que ela move é o halo ESCURO, desbotando o contorno. Os `1,86:1` medidos na
   v1.3.14 são de um glifo colorido sem fundo, não de um traço branco.
 
-  **E O RECUO É DO CONTROLE FOLHA: UM BLOCO RESPONDE SÓ COM A LUZ** (v1.7.3).
+  **E O RECUO É DO CONTROLE FOLHA: UM BLOCO RESPONDE SÓ COM A LUZ** (v1.7.4).
   Pedido do operador sobre a Biblioteca: *"Há um efeito de encolhimento que
   distorce os elementos, remova esse efeito, deixe apenas um efeito de
   coloração/sombreamento ao toque sem encolhimento. Também aproveite para

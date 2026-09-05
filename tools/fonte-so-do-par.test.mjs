@@ -143,7 +143,7 @@ const testemunha = () => pg.evaluate(() => {
   };
   // O TOM DESCEU PARA DENTRO DA CAIXA na v1.6.3 (`.lv-cifra-cab-tom`), junto do
   // título da obra: a barra que o hospedava saiu, e com ela o `.lv-cifra-tom`.
-  // A GAVETA DA VELOCIDADE entrou na testemunha na v1.7.3: o toque no botão de
+  // A GAVETA DA VELOCIDADE entrou na testemunha na v1.7.4: o toque no botão de
   // velocidade deixou de trocar o rótulo (ele ABRE a lista), e sem este termo o
   // botão passaria a contar como MUDO — a guarda de "todos agiram" reprovaria um
   // app correto, e o oráculo perderia justamente o alvo que ele veio vigiar.
@@ -157,7 +157,7 @@ const testemunha = () => pg.evaluate(() => {
 // seletor é a definição da propriedade — *tudo que veste `.lv-fonte-btn` sem
 // ser o par* —, e o `nth(i)` resolve na ORDEM DO DOM, que é a mesma a cada
 // remontagem.
-// `:not(.lv-cifra-vel-op)` exclui os botões da GAVETA da velocidade (v1.7.3), e
+// `:not(.lv-cifra-vel-op)` exclui os botões da GAVETA da velocidade (v1.7.4), e
 // não porque a propriedade não vale para eles — vale, e o bloco 1-B a cobre. É
 // que eles nascem ESCONDIDOS (a gaveta fechada é `display: none`), e dois dos
 // três caminhos daqui exigem uma caixa: `boundingBox()` devolve `null` e o
@@ -276,7 +276,7 @@ try {
       // no `scrollTop` a cada quadro, e o alvo seguinte é medido com a folha
       // andando por baixo. (Não muda o que se afirma; muda o que se depura.)
       //
-      // E A GAVETA DA VELOCIDADE TAMPOUCO (v1.7.3), e esta metade não é
+      // E A GAVETA DA VELOCIDADE TAMPOUCO (v1.7.4), e esta metade não é
       // cosmética: com ela aberta os botões da fila são `display: none`, e o
       // alvo seguinte não tem caixa — `boundingBox()` devolve `null` e o
       // caminho do dedo morre com um TypeError, não com uma reprovação.
@@ -295,7 +295,7 @@ try {
   }
 
   // ========================================================================
-  // BLOCO 1-B — E OS BOTÕES DA GAVETA DA VELOCIDADE (v1.7.3)
+  // BLOCO 1-B — E OS BOTÕES DA GAVETA DA VELOCIDADE (v1.7.4)
   // ========================================================================
   //
   // Eles são `.lv-fonte-btn` como os outros — é a PINTURA de um passo numa

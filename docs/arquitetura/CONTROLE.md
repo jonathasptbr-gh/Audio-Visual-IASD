@@ -1061,7 +1061,7 @@ As três regras do tile, escritas por inteiro no `index.html`:
    | wallpaper | `Padrão` · `Própria` | o par NOVO: o rolo vazio × o rolo cheio |
    | girar | `0°` … `270°` | o próprio ícone, GIRADO pelo `data-estado` |
    | histórico, compartilhar | `Abrir`, `O app` | nada — eles não tinham estado |
-   | exportar, importar | `42%` | o ARO no lugar do ícone; o NÚMERO foi para o cartão da preview e para a notificação |
+   | exportar, importar | `42%` | o ARO no lugar do ícone; o NÚMERO voltou para o PRÓPRIO TÍTULO na v1.7.3 (ver abaixo) |
 
    O GIRO não ganhou quatro desenhos — a v1.4.38 mediu que quatro desenhos que
    só diferem pelo ângulo não se distinguem a 22px, e isso continua verdade. O
@@ -1081,6 +1081,20 @@ As três regras do tile, escritas por inteiro no `index.html`:
    num desenho não cabe nesta grade. Não há mais onde escrever a palavra, e
    devolvê-la para um só devolve a segunda linha a todos — a grade tem altura
    comum.
+
+   **E O TÍTULO EMPRESTA A SI MESMO** (`falarNoTile`, v1.7.3), que é outra
+   coisa: a segunda linha era PERMANENTE e descrevia o repouso; esta é o próprio
+   título, por alguns segundos, e volta. É a mecânica do `#otaRow`
+   (`falarNoOta`) e do "Guardar como pacote" (`falarNoPacote`), e a regra dela
+   está na lista de canais de resposta do `controle.js` desde a v5.207 — *"o
+   rótulo do controle empresta a si mesmo por alguns segundos e volta"*. Foi por
+   ela que o cartão sobre a preview saiu do caminho da exportação: aquele canal
+   é o do que ACONTECERIA NA PREVIEW, e uma exportação acontece no botão.
+
+   O rótulo de origem mora no **`data-nome` do nó**, e não num `WeakMap` de
+   módulo: `pacoteRenderTiles()` roda no topo do arquivo, na carga, e o
+   `pintarTile` leria a constante antes da linha que a declara — zona morta
+   temporal, e o app não abre.
 3. **ACESO (`qs-on`) = A FUNÇÃO ESTÁ LIGADA — e num tile sem "desligado",
    SEMPRE** (v1.4.40). `--btn-accent` + `--accent`, a gramática de INTERRUPTOR
    LIGADO da paleta, nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS.
@@ -2206,7 +2220,7 @@ e ler *"Nada em exibição"*.
   dentro, os controles rolavam com o texto e o pausar saía de cena em segundos.
   Ela existe só na cifra e é limpa em `renderLyricsView`, num ponto só.
 
-  **A VELOCIDADE ABRE UMA GAVETA, e não cicla** (v1.7.3). Pedido do operador:
+  **A VELOCIDADE ABRE UMA GAVETA, e não cicla** (v1.7.4). Pedido do operador:
   *"faça com que o botão de velocidade abra uma gaveta, substituindo seus botões
   vizinhos, pela lista de botões com as variações de velocidade… sem passar por
   cada uma delas em carrocel"*. O ciclo era um preço escrito desde a v1.1.20
@@ -3807,7 +3821,7 @@ em dois lugares, e é a legenda que decide o desenho nos dois.
   a descartava. Consumi-la entrega a fração de graça, e sem ninguém parsear
   frase nenhuma; um segundo lugar contando páginas divergiria no primeiro
   ajuste.
-- **E A LINHA NÃO DESENHA O NÚMERO** (v1.7.3). Ela teve DUAS formas de desenhá-lo
+- **E A LINHA NÃO DESENHA O NÚMERO** (v1.7.4). Ela teve DUAS formas de desenhá-lo
   e as duas saíram: o `.dl-pct` solto (até a v1.7.1) e o trilho com preenchimento
   (só a v1.7.1). Pedido do operador: *"O subtitulo com as informações ficou muito
   bom, mas a barra de progresso ficou ruim, tire ela."* A legenda já diz o número
@@ -3819,7 +3833,7 @@ em dois lugares, e é a legenda que decide o desenho nos dois.
   NOTIFICAÇÃO do sistema (`bgTaskStep`), a única janela do trabalho com o app
   minimizado. A barra saiu da LINHA, não do app.
 
-##### E O `⋮` CEDE A COLUNA AO TRABALHO (v1.7.3)
+##### E O `⋮` CEDE A COLUNA AO TRABALHO (v1.7.4)
 
 Pedido do operador: *"por um botão, na mesma posição do botão de opções do item
 do cronograma, para manter o design igual. A diferença é que esse botão só tem
@@ -4910,12 +4924,12 @@ nasce com a confirmação certa.
 - **O símbolo da pergunta é a LIXEIRA** (`.row-slot--del`), e desde a v1.4.27 ela
   mora na COLUNA DO `⋮` — ver "O `⋮` cede a coluna ao processo". Onde não há `⋮`
   (a gaveta dos Favoritos) ela entra na própria faixa, ao lado dos dois rótulos,
-  pelo mesmo caminho do ✓ do renomear. **A CAPA FICA À VISTA** (v1.7.3, pedido do
+  pelo mesmo caminho do ✓ do renomear. **A CAPA FICA À VISTA** (v1.7.4, pedido do
   operador): com o símbolo fora dela, ela volta a ser a única parte da linha que
   diz de QUAL item é a pergunta. Numa linha NO AR o "Tirar do ar" cede o
   quadrado, pela razão com que o `⋮` saiu: é uma terceira ação num momento que já
   tem duas.
-- **E A LINHA SAI DE CENA quando o "sim" é tocado** (v1.7.3). Relato: *"ao tocar
+- **E A LINHA SAI DE CENA quando o "sim" é tocado** (v1.7.4). Relato: *"ao tocar
   em excluir, na confirmação, o item se transforma ao seu estado inicial sem os
   botões antes de desaparecer, isso causa extranhesa"*. Era a ORDEM —
   `fecharConfirmacaoNaLinha()` corria ANTES do `aoConfirmar`, e o que se via era
@@ -4959,7 +4973,7 @@ nasce com a confirmação certa.
   fila inteira. Um gesto que PARECE reversível e não é custa, num episódio de
   série, ~300 MB baixados em rede de celular.
 
-#### O `⋮` cede a coluna ao processo (v1.4.27; a capa voltou na v1.7.3)
+#### O `⋮` cede a coluna ao processo (v1.4.27; a capa voltou na v1.7.4)
 
 Pedido do operador: durante os dois processos o `⋮` *"contradiz o fluxo dos
 botões, pois o processo de exclusão e o de renomear já devem ter métodos de
@@ -4972,7 +4986,7 @@ terceira saída para uma pergunta que já tem duas — e as três fazem coisas
 diferentes: uma cancela, uma executa, e a terceira cancela **por acidente**,
 porque fechar a gaveta desfaz a pergunta.
 
-**A capa saiu na v1.4.27 e VOLTOU na v1.7.3, e as duas decisões estão certas** —
+**A capa saiu na v1.4.27 e VOLTOU na v1.7.4, e as duas decisões estão certas** —
 o que mudou entre elas foi a premissa. O argumento de então (*"com o nome
 coberto, ela é a única coisa que ainda diz de QUAL linha é este menu"*) foi dado
 por vencido porque na exclusão a capa VIRAVA UMA LIXEIRA, isto é, parava de
@@ -4992,7 +5006,7 @@ sumiço do símbolo é a coluna continuar ocupada. MEDIDO a 430px: a faixa vai d
 
 | processo | símbolo na coluna | o que ele é | a capa |
 |---|---|---|---|
-| exclusão | a LIXEIRA (`.row-slot--del`) | `<span>` inerte, `pointer-events: none` — ilustra, não decide; quem decide são os dois rótulos | **fica** (v1.7.3) |
+| exclusão | a LIXEIRA (`.row-slot--del`) | `<span>` inerte, `pointer-events: none` — ilustra, não decide; quem decide são os dois rótulos | **fica** (v1.7.4) |
 | renomear | o ✓ (`.row-slot--ok`) | botão de verdade, que grava de onde está | sai — o campo quer a faixa |
 
 - **Quem esconde o `⋮` é o CSS** (`:has(> .row-acoes.confirmando)`), e não o JS:
@@ -5017,7 +5031,7 @@ sumiço do símbolo é a coluna continuar ocupada. MEDIDO a 430px: a faixa vai d
 
 **O CAMINHO B, e é o que este desenho pode quebrar sem sintoma.** A gaveta dos
 **Favoritos não tem `⋮`** — ela abre pelo corpo da linha e a faixa fica ABAIXO
-dela, sem cobrir nada. Lá não há coluna a tomar emprestada, e **desde a v1.7.3 os
+dela, sem cobrir nada. Lá não há coluna a tomar emprestada, e **desde a v1.7.4 os
 dois símbolos voltam para dentro da faixa**: o ✓ à direita do campo, a lixeira ao
 lado dos dois rótulos. Ela morou na CAPA da v1.4.27 até ali, e saiu de lá porque
 a capa deixou de estar livre.
@@ -5527,7 +5541,7 @@ de referência de verdade), a **estrela em toda linha** e as **cenas de roteiro*
 > `comBaldeDeMiniaturas('fav-biblioteca', …)`. O `__avBack` perdeu o degrau da
 > gaveta junto.
 
-> **E A `object-URL` DE UMA MINIATURA É DO BLOB, NÃO DO RENDER** (v1.7.3).
+> **E A `object-URL` DE UMA MINIATURA É DO BLOB, NÃO DO RENDER** (v1.7.4).
 > Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante
 > processos de download na biblioteca"*. A Biblioteca é redesenhada a cada 400 ms
 > enquanto um download corre, e cada passada REVOGAVA as URLs da anterior para

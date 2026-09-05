@@ -3017,7 +3017,7 @@ try {
   checar(pressLinha.respondeu !== 'none' && pressLinha.cartao.w > 0,
     'e o cartão RESPONDE de verdade: a luz do toque ficou, o feedback não sumiu',
     JSON.stringify(pressLinha));
-  // ===== E O BLOCO NÃO SE MEXE (v1.7.3) =====
+  // ===== E O BLOCO NÃO SE MEXE (v1.7.4) =====
   //
   // Pedido do operador: *"Há um efeito de encolhimento que distorce os
   // elementos, remova esse efeito, deixe apenas um efeito de
@@ -4560,7 +4560,7 @@ try {
     'O `⋮` SAI DE CENA durante os dois processos (v1.4.27) — ele é uma terceira '
     + 'saída para uma pergunta que já tem duas. Com a gaveta COMUM aberta ele '
     + 'continua lá', JSON.stringify(slot));
-  // ===== E A CAPA SÓ SAI NA RENOMEAÇÃO (v1.7.3) =====
+  // ===== E A CAPA SÓ SAI NA RENOMEAÇÃO (v1.7.4) =====
   //
   // Pedido do operador: *"pode deixar visivel a thumbnail do item durante essa
   // confirmação. Ela tinha sido tirada desse momento do layout, mas julguei
@@ -4575,7 +4575,7 @@ try {
   // O PAR é o que diz a regra: no RENOMEAR ela continua saindo, porque ali o
   // campo quer a faixa inteira. Sem essa metade, "mostrar sempre" passaria.
   checar(!slot.erro && slot.delCapa === true && slot.renCapa === false,
-    'e A CAPA FICA na pergunta da exclusão e SAI na renomeação (v1.7.3) — o par '
+    'e A CAPA FICA na pergunta da exclusão e SAI na renomeação (v1.7.4) — o par '
     + 'é a regra: ali ela identifica o item, aqui ela é a largura de que o campo '
     + 'precisa', JSON.stringify(slot));
   checar(!slot.erro && slot.delFaixa === slot.faixaAntes && slot.renFaixa > slot.faixaAntes,
