@@ -545,6 +545,7 @@ jobs:
           rodar tools/plataforma.test.mjs
           rodar tools/lista-da-biblioteca.test.mjs
           rodar tools/geometria.test.mjs
+          rodar tools/deslize-nao-vaza.test.mjs
           # A v1.8.0 escreveu este oráculo e não o registrou. Pela regra do
           # próprio repositório — *"teste que não está no workflow é
           # documentação, não rede de segurança"* — ele não estava guardando

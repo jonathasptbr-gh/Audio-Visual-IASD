@@ -1309,10 +1309,10 @@ rótulo foi de 6,46:1 para **15,31:1**.
    cujo glifo não pode mudar** (o `repeat` cicla) → superfície, nunca só cor de
    texto.
 5b. O botão **manda algo para a projeção**? Acrescente-o ao `ECO_SELETOR`.
-6. **Caixa nova que hospede texto ou controles?** Passe pelas cinco regras de
+6. **Caixa nova que hospede texto ou controles?** Passe pelas seis regras de
    GEOMETRIA (seção própria, abaixo): piso de toque que não dependa da fonte,
-   corte declarado onde houver corte, e rolagem — nunca `overflow` — quando não
-   couber. A régua é `node tools/varredura-geometrica.mjs`, e o portão é o
+   corte declarado onde houver corte, rolagem — nunca `overflow` — quando não
+   couber, e recorte quando a caixa ANIMAR o conteúdo dela. A régua é `node tools/varredura-geometrica.mjs`, e o portão é o
    `geometria.test.mjs`.
 7. Atualizar esta seção e incrementar a versão (os três lugares — ver "Regras
    de desenvolvimento").
@@ -1381,7 +1381,7 @@ decidido está tudo certo — que é por que os dois relatos do operador sobre a
 folha da Bíblia (v1.7.10) e este lote descrevem o mesmo defeito em quatro
 lugares diferentes.
 
-### As cinco regras
+### As seis regras
 
 **G1 · A altura de uma folha é ORÇAMENTO, não sobra.** Onde o conteúdo pode não
 caber, quem decide o que sai é uma `@container`, nunca o `overflow`. O
@@ -1416,6 +1416,15 @@ que desenhava.
 o corte de volta um nível acima: a grade fica maior que a caixa e o `overflow`
 come o resto. Quem ganha piso ganha `overflow-y: auto` no mesmo lote.
 
+**G6 · Uma caixa que ANIMA o conteúdo dela recorta.** Um `translateX(±100%)`
+num filho é conteúdo passando por fora da caixa por definição; sem
+`overflow: hidden` no pai, o que se vê durante o movimento é o conteúdo pintando
+sobre o que estiver ao redor. MEDIDO na `.tools-sheet` (v1.8.3): **47,7px** de
+grade de livros por cima do Cronograma, durante os 220ms do deslize da Bíblia.
+**E o recorte é da caixa a que o conteúdo pertence**, não de um ancestral
+distante — o `<main>` já recortava na largura da TELA, e a moldura entre ele e a
+folha era exatamente onde o defeito aparecia.
+
 **E o corolário que amarra as cinco: numa folha, o CROMO é o que cede — nunca o
 miolo.** Cabeçalho, seletor e rodapé crescem com a fonte dentro de uma caixa que
 encolhe com a tela; quando os dois se cruzam, quem fica com zero é o conteúdo,
@@ -1448,6 +1457,21 @@ nova entra na lista de `tools/geometria.mjs` no mesmo lote em que nasce — uma
 que não é aberta não tem achado nenhum, e um placar limpo sobre uma tela que
 não montou é indistinguível de um app correto (por isso o portão também afirma
 que toda superfície ABRIU e mostrou nós).
+
+### O que a régua NÃO alcança: o MOVIMENTO
+
+Ela assenta as animações antes de medir (`getAnimations()` + `finished`), e tem
+de assentar — uma folha medida no meio do movimento devolve uma caixa que não
+existe. **Um defeito que só existe DURANTE uma animação nasce, por construção,
+fora do alcance dela** (foi o caso da G6).
+
+E há um segundo limite, que é sobre a RÉGUA e não sobre a janela de tempo:
+**geometria não vê recorte de pintura.** `overflow: hidden` clipa o que se
+desenha, não o layout — um filho recortado continua devolvendo a caixa inteira
+no `getBoundingClientRect`. Onde a pergunta é *"isto está aparecendo onde não
+devia?"*, a régua é o PIXEL, não a caixa. O oráculo que faz isso é o
+`tools/deslize-nao-vaza.test.mjs`, e ele mede cores distintas numa faixa que em
+repouso é lisa.
 
 ### A régua: `tools/varredura-geometrica.mjs`
 

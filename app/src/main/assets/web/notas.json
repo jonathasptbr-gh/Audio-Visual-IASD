@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.3",
+    "itens": [
+      "Ao trocar de tela na Bíblia, os livros deixaram de escapar para fora da folha."
+    ]
+  },
+  {
     "versao": "1.8.1",
     "itens": [
       "As abreviações dos livros da Bíblia pararam de sair cortadas em telas menores.",
