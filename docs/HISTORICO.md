@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.7.10** — A FOLHA DE LEITURA DA BÍBLIA NÃO CABIA, E OS DOIS SINTOMAS ESTAVAM NA MESMA CAPTURA. (1) **O VERSÍCULO EM DESTAQUE**: *"verifique a disposição do tamanho da fonte no texto em destaque da bíblia, que será exibido, está cortando texto em certas telas"*. A fonte era FIXA (`--fs-2xl`) e a caixa é VARIÁVEL — ela é o que sobra da seção, que divide por `flex` a altura da folha. MEDIDO na seção central, com o versículo da própria captura: **0,79 linha** a 360×640, 2,44 a 360×740, 2,87 a 393×786, 4,37 a 430×900, **1,23** a 393×786 com a fonte do sistema em 1,3× e **ZERO** a 360×640 com a mesma escala. E o `-webkit-line-clamp: 6` **nunca engatava** — a caixa jamais chegou a seis linhas —, então quem cortava era o `overflow: hidden` da seção, no MEIO da linha: a altura sobrava de 7 a 26px sobre um múltiplo da altura de linha nos oito cenários, isto é, a última linha era sempre uma fileira de meias letras, **sem reticências**. A fonte passou a seguir a altura da caixa (`clamp(.88rem, 14.3cqh, var(--fs-2xl))`, com a seção virando container de tamanho), com o **teto no tamanho de sempre** — a 430×900 nada muda — e o piso em `rem`, porque quem aumenta a fonte do sistema quer letra maior mesmo vendo menos texto. O que ainda não couber **esmaece** (`mask-image`) em vez de ser serrado: reticências exigiriam que o clamp fosse sempre ≤ as linhas que cabem, um inteiro que o CSS não calcula a partir de uma altura, e um clamp maior que isso é exatamente o defeito de origem — a máscara não precisa dele, e é o vocabulário que a Biblioteca já usa (o véu do scroll, v1.5.16). **E quantas seções de contexto cabem virou uma CONTA**: são quatro por decisão da v5.267, com a razão escrita *"sobrava espaço na tela"* — verdade na tela em que aquilo foi decidido e falsa nas outras. Três faixas de `@container` tiram primeiro o segundo versículo à frente, depois o anterior, e no extremo deixam só o central; a ordem é a do próprio argumento de lá (*ler adiante é o que o operador faz*), e as faixas (18em · 14em · 11em) foram calibradas medindo — cada uma é a altura em que a MENOR seção deixa de mostrar uma linha inteira. Depois: 2,75 · 2,48 · 3,42 · 4,37 · 2,18 · 2,24 linhas, sem uma regressão. (2) **A BARRA DA REFERÊNCIA**: *"na base, onde tem o livro capítulo e versículo selecionado, está sobrepondo os elementos na sua direita, por falta de espaço e ajuste de dimensão"*. MEDIDO com as QUATRO pílulas: ela pede 238px com a fonte padrão e 308px com a do sistema em 1,3×, contra 200–286px de linha livre depois dos dois botões de guardar — só cabia ao lado deles em 2 dos 10 cenários. Três pílulas eram `flex-shrink: 0`, então, batido o `min-width` da do livro, o conteúdo saía da caixa; e **o que sai de uma caixa flex pinta por cima do irmão**, com os dois botões continuando tocáveis por baixo. Todas encolhem agora (a do livro três vezes mais, porque é o único valor que vira reticências sem perder o sentido), o aperto é pago no RÓTULO — que é quem dimensiona as três pílulas de número, já que "CAPÍTULO" e "VERSÍCULO" são muito mais largos que os valores —, **e quando não cabe a barra QUEBRA**: `flex-wrap` decide as linhas pelo tamanho ideal antes de encolher qualquer item, então onde a referência cabe ao lado dos botões nada muda e onde não cabe eles descem. A altura que isso custa sai da leitura, que era o argumento da v5.109 para juntar as duas faixas — ele continua valendo e deixou de decidir, porque uma barra pintando sobre um botão tocável é pior que uma linha a mais. **O extremo está dito**: a 360×640 com fonte 1,3× nem a linha sozinha basta (308 contra 298px) e ali o rótulo vira reticências; apertar o respiro das pílulas para ganhar os 10px foi medido e não resolveu. **A primeira calibração deste lote saiu 50px otimista** porque o oráculo media TRÊS pílulas: a da versão só existe com a lista de versões carregada, e sem rede ela vem vazia. Oráculo novo: `tools/biblia-leitura-cabe.test.mjs`, em sete telas × escala de fonte, com cinco reversões medidas. Lote **só de base web**.
 - **v1.7.9** — A IMPORTAÇÃO NÃO ERA LENTA: ELA NÃO CABIA. Relato do operador: *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo estivesse corrompido. Verifique se é problema no leitor, ou é algum problema tamanho do arquivo."* **São os dois, um em cada camada.** (1) **O LEITOR** fazia `resp.blob()` — o arquivo INTEIRO materializado antes do primeiro byte: quinze gigabytes não cabem nem na memória nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da primeira num aparelho que já está cheio. (2) **O TAMANHO**, e este é estrutural: o caminho `/saf/` tem **teto de 2 GB**, porque o Chromium dimensiona toda resposta interceptada pelo `available()` do `InputStream` — um `int`. É a invariante 8 pelo lado que ninguém tinha olhado: acima de `Integer.MAX_VALUE` o web recebe o arquivo CORTADO, sem erro nenhum, e o cursor tropeça no meio de um registro. **A forma do conserto é a do `StreamProxy`, e não uma invenção**: `/saf/<token>?r=<ini>-<fim>`, com a faixa na QUERY e nunca num cabeçalho `Range` — com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que já é uma fatia. Sem cabeçalho não há `ParseRange` nem `ComputeBounds`, e o `available()` passa a ser o da JANELA: o teto some porque nenhuma resposta chega perto dele. O `SafJanela` faz SEEK de verdade (`openFileDescriptor` + `FileChannel.position`; `skip` só como plano B para provedor sem descritor posicionável — pular quatorze gigabytes lendo-os seria quadrático) e usa `AutoCloseInputStream`, porque `FileInputStream(pfd.fileDescriptor)` não é dono do descritor e vazaria um por janela. Do lado web, `pacoteFonteDaUrl` entrega FATIAS: `bytes()` para cabeçalhos e `blob()` para corpos, montado de pedaços de 8 MB. **A leitura antecipada CRESCE E ENCOLHE, e foi o oráculo que pegou isso** — com 4 MB fixos a conferência de um acervo lia 4 MB para aproveitar duzentos bytes, uma vez por registro; a regra virou o próprio percurso (sequência dobra até 1 MB, salto volta a 8 kB). `pickDoc` passou a devolver `size` (`-1` = o provedor não disse, que NÃO é `0`). **E mais um pedido:** a linha de "tudo" saiu da folha de exportação (*"está inútil agora que temos o agrupamento"*). Lote **com Release** (`SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.9"`).
 - **v1.7.8** — UM `load()` RELÊ O BANCO, E UM BLOB RELIDO É OUTRO OBJETO. Relato: *"Os mesmos problemas de miniaturas piscando da biblioteca, temos nas miniaturas piscando no cronograma ao excluir outro item."* **É a porta que a v1.7.4 deixou aberta, e o oráculo dela a nomeava por extenso**: aquele lote keou a `object-URL` de cada capa pelo BLOB, o que resolve o redesenho de 400 ms de um download — ali o blob é o mesmo OBJETO, porque quem o segura são as listas em MEMÓRIA (`libItems`, `favItems`). Mas `load()` as relê do IndexedDB, e a releitura devolve blobs novos para TODAS as capas de uma vez; e `load()` não é raro — ele roda em toda escrita no banco, e excluir um item é uma. A chave passou a ser **`id|tamanho|tipo`**, e cada pedaço responde a uma coisa: o `id` é o que atravessa a releitura, e o par `size`/`type` é a impressão digital que impede uma capa TROCADA de ser servida da memória (hoje nenhum caminho substitui a miniatura de um registro existente, e o dia em que um existir ele mudará o tamanho). Sem `id` a chave continua sendo o blob, que é o comportamento da v1.7.4: no pior caso, o de antes. **De quebra, o MESMO item em duas listas passa a ter UMA url** — `listItems('imports')` e `listItems('favs')` são duas leituras, então a mesma capa vinha como dois blobs e ocupava a memória duas vezes. O `miniaturas-estaveis.test.mjs` ganhou o bloco E (o Cronograma, excluindo outro item) e uma asserção nova no C (a mesma propriedade na Biblioteca, que é a outra metade da frase do relato): são dois hosts porque um tem balde próprio e o outro não. Duas reversões medidas — com a chave de volta no blob os dois reprovam, e com a varredura em no-op reprovam as duas que cobram a revogação. Lote **só de base web**.
 - **v1.7.6** — A GRADE DE CONFIGURAÇÕES TEM UMA COR SÓ, E O QUE GIRA É UM QUADRO. Três pedidos, e os dois primeiros são a mesma regra. (1) **NENHUM TILE APAGA**: *"O botão do girar no telão, está apagado no modo sem giro, mas todos os botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda diferença de estado é pelo icone, não pela cor."* A v1.4.40 acendeu os tiles que não têm "desligado" e deixou DOIS apagando — o fundo da letra e o giro —, e os dois **já tinham o estado no DESENHO** (a imagem riscada; o quadro na posição em que a mídia está): a luz era a segunda cópia da mesma resposta, gasta na única propriedade que este app já usa para outra coisa. **Apagado aqui quer dizer INDISPONÍVEL**, que é a queixa da v1.4.25, e enquanto a mesma tinta dizia *"você está no padrão"* as duas frases se confundiam na mesma grade. `qs-on` e o parâmetro `aceso` FICAM — morreu a política de usá-los para dizer estado, não a capacidade de apagar um tile de fato indisponível. **A consequência para o próximo tile é a soma de duas remoções** (a palavra saiu na v1.7.2, a cor sai agora): um estado que não caiba num desenho não cabe nesta grade. (2) **O QUE GIRA É UM QUADRO DE PAISAGEM**: *"troque o icone dele, use um icone de picture, paisagem. O próprio quadro vai girar e vai ser mais intuitivo que um seta circular rodando, pois vai literalmente representar em qual posição está a paisagem."* **O mecanismo não mudou uma linha** — o `#rotBtn` já desenhava o ícone na posição que ele descreve desde a v1.7.2; mudou o que ele vira. Uma seta girada é a AÇÃO desenhada duas vezes (ela já significa *"gire"*), e a 90° é só uma seta apontando para outro lado; um quadro girado é o ESTADO. O desenho é **assimétrico nos dois eixos, de propósito**, e é exigência dura: sem isso 0° e 180° ficam idênticos, e 90° e 270° também — quatro estados em dois desenhos (o sol no alto e o morro embaixo resolvem o vertical; o sol à direita e o morro à esquerda, o horizontal). **E O MORRO NÃO ATRAVESSA O QUADRO, o que foi MEDIDO**: um pico que toca as duas paredes com pouco céu acima é a ABA DE UM ENVELOPE, e a 180° vira o glifo universal de e-mail — quatro candidatos renderizados a 22px e a 58px, e os três que atravessavam liam-se assim. Ele **não é o `#icoImagem` do tile vizinho**, que é a armadilha que o `#icoWallpaper` já pagou nesta grade: quadro bem mais largo (21×13 contra 17×14), o SOL À DIREITA (lá está à esquerda) e um pico só, na metade esquerda, contra o recorte que atravessa o outro inteiro. O `#icoGirar` saiu do sprite junto (a regra deste repositório: um `<symbol>` sem consumidor viaja em todo aparelho sem desenhar nada), e a seta circular do desfazer sobre a PREVIEW fica: ela é INLINE desde a v1.4.45 exatamente para este dia, e responde outra pergunta. (3) **A ORDEM PASSOU A SER POR ASSUNTO**: *"reordene os botões: compartilhar, exportar e importar devem ser os tres itens da base"*. Ela era por NATUREZA (os sempre-acesos no topo, v1.4.40) e **essa ordem deixou de existir no mesmo lote** — nenhum tile apaga mais, então não há duas naturezas de LUZ para ordenar. Sobram as seis preferências da PROJEÇÃO em cima e as três coisas que se fazem com o APP fora dela embaixo, numa fileira inteira. E o `glifos.test.mjs` ganhou a OUTRA fonte de ícone do bundle: um `<use href="#ico…">` sem `<symbol>` falha igual a um glifo fora do subset — sem erro, só um vão —, e a operação que produz isso é a RENOMEAÇÃO deste lote. Varre nos dois sentidos, com as duas reversões provadas. Lote **só de base web**.
@@ -355,6 +356,113 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.7.10 — a folha de leitura da Bíblia não cabia
+
+Dois relatos do operador, **na mesma captura** — e os dois são a mesma classe de
+defeito: um desenho decidido numa tela, medido em nenhuma.
+
+### 1. O versículo em destaque
+
+> *"verifique a disposição do tamanho da fonte no texto em destaque da bíblia,
+> que será exibido, está cortando texto em certas telas"*
+
+**A fonte era FIXA e a caixa é VARIÁVEL.** A caixa do texto é o que sobra da
+seção, que por sua vez divide por `flex` a altura da folha — que depende da tela
+e da escala de fonte do sistema. MEDIDO na seção central, com o versículo da
+própria captura (Naum 3:3):
+
+| tela | linhas que cabiam | depois |
+|---|---|---|
+| 360×640 | **0,79** | 2,75 |
+| 360×740 | 2,44 | 2,48 |
+| 393×786 | 2,87 | **3,42** |
+| 430×900 | 4,37 | 4,37 |
+| 360×740 · fonte 1,15× | 1,57 | 2,57 |
+| 393×786 · fonte 1,3× | **1,23** | 2,18 |
+| 360×640 · fonte 1,3× | **zero** | 2,24 |
+
+Menos de UMA LINHA no pior caso realista, para o versículo que vai ao telão.
+
+**E o corte não era um corte, era uma serra.** O `-webkit-line-clamp: 6` nunca
+engatava — a caixa jamais chegou a seis linhas —, então quem cortava era o
+`overflow: hidden` da seção: MEDIDO, a altura da caixa sobrava de 7 a 26px sobre
+um múltiplo da altura de linha nos oito cenários, isto é, **a última linha era
+sempre uma fileira de meias letras, sem reticências**. Era isso na captura.
+
+Três peças:
+
+- **A FONTE SEGUE A ALTURA DA CAIXA.** A seção virou container de tamanho e a
+  fonte é `clamp(.88rem, 14.3cqh, var(--fs-2xl))`. O **teto é o tamanho de
+  sempre** (a 430×900 nada muda) e o piso é em `rem` de propósito: quem aumenta
+  a fonte do sistema quer letra maior, mesmo vendo menos texto.
+- **O QUE SOBRA ESMAECE**, em vez de ser serrado. Reticências exigiriam que o
+  clamp fosse sempre ≤ as linhas que cabem — um inteiro que o CSS não tem como
+  calcular a partir de uma altura, e um clamp maior que isso é exatamente o
+  defeito de origem. A máscara não precisa desse inteiro, e é o vocabulário que
+  a Biblioteca já usa (o véu do scroll, v1.5.16).
+- **QUANTAS SEÇÕES CABEM É UMA CONTA.** São quatro por decisão da v5.267, com a
+  razão escrita: *"sobrava espaço na tela"*. Isso é verdade na tela em que aquilo
+  foi decidido e falso nas outras. Três faixas de `@container` na `.bible-read`
+  tiram primeiro o **segundo versículo à frente** (o mais distante do que está no
+  ar), depois o **anterior**, e no extremo deixam só o central — a ordem é a do
+  próprio argumento da v5.267 (*ler adiante é o que o operador faz*). As faixas
+  (18em · 14em · 11em) foram CALIBRADAS medindo: cada uma é a altura de folha em
+  que a MENOR seção deixa de mostrar uma linha inteira, e estão em `em` porque a
+  régua tem de acompanhar a escala de fonte do sistema.
+
+### 2. A barra de livro · capítulo · versículo
+
+> *"na base, onde tem o livro capítulo e versículo selecionado, está sobrepondo
+> os elementos na sua direita, por falta de espaço e ajuste de dimensão"*
+
+MEDIDO, com as **quatro** pílulas: a referência pede **238px** com a fonte padrão
+e **308px** com a do sistema em 1,3×, contra **200–286px** de linha livre depois
+dos dois botões de guardar. Ela só cabia ao lado deles em **2 dos 10** cenários.
+
+Três pílulas eram `flex-shrink: 0` e só a do livro cedia; batido o `min-width`
+dela, o conteúdo saía da caixa — e a `.bible-ref-nav` não tem `overflow`.
+**O que sai de uma caixa flex pinta por cima do irmão**, e os dois botões
+continuam tocáveis por baixo: um toque ali faz outra coisa.
+
+- **TODAS as pílulas encolhem**, e a ordem de ceder é explícita: a do livro cede
+  três vezes mais, porque é o único campo de largura imprevisível e o único cujo
+  VALOR vira reticências sem perder o sentido.
+- **O APERTO É PAGO NO RÓTULO.** Quem dimensiona as três pílulas de número é o
+  rótulo, não o valor: "CAPÍTULO" e "VERSÍCULO" em caixa alta são muito mais
+  largos que "3". Menos `letter-spacing`, menos respiro lateral.
+- **E QUANDO NÃO CABE, A BARRA QUEBRA** (`flex-wrap`). O algoritmo decide as
+  LINHAS pelo tamanho ideal antes de encolher qualquer item: onde a referência
+  cabe ao lado dos botões nada muda (o desenho da v5.109, e o das telas largas);
+  onde não cabe, ela toma a linha e os botões descem. Com a linha inteira ela
+  cabe em 8 dos 10 cenários. **A altura que isso custa sai da leitura**, e era
+  esse o argumento da v5.109 para juntar as duas faixas — ele continua valendo e
+  deixou de decidir.
+- **O EXTREMO ESTÁ DITO:** a 360×640 com fonte 1,3× nem a linha sozinha basta
+  (308px pedidos contra 298px de folha), e ali o rótulo vira reticências — a
+  última barreira, e a única coisa que não pode acontecer é pintar sobre um
+  botão. Apertar o respiro das pílulas para ganhar os 10px foi MEDIDO e não
+  resolveu, e cobraria o aperto em todas as telas.
+
+### O que a medição do próprio oráculo ensinou
+
+**A primeira calibração saiu 50px otimista** porque a barra medida tinha TRÊS
+pílulas, não quatro: a da Versão só é desenhada com a lista de versões
+carregada (`if (bibleVersions.length)`), e sem rede — que é como todo oráculo
+deste repositório roda — ela vem vazia. O arquivo semeia as versões antes de
+medir, e há uma asserção só para isso: *a barra tem as quatro pílulas*.
+
+`tools/biblia-leitura-cabe.test.mjs` mede sete telas × escala de fonte, e as
+metades são quatro: o destaque com ao menos duas linhas (contra a `lineHeight`
+COMPUTADA, nunca em pixels — que mediria a fonte da máquina junto), a barra
+nunca pintando sobre os botões (uma desigualdade geométrica), a barra **não
+truncando** rótulo nem valor (que é OUTRA pergunta: com as pílulas podendo
+encolher, ela deixa de sobrepor virando reticências — verde na asserção anterior
+e ilegível na tela) e o corte com máscara no computado. Mais duas reversões que
+impedem o conserto largo demais: a 430×900 a fonte continua no teto e a barra
+continua em UMA linha. Cinco reversões medidas.
 
 ---
 

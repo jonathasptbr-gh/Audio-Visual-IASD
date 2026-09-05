@@ -4320,6 +4320,7 @@ mundo anterior por outro caminho.
 | `pacote-ida-e-volta.test.mjs` | **o pacote de um aparelho para o outro**, em DOIS contextos de navegador com armazenamentos separados — o `pacote.test.mjs` prende a regra, este prende a LIGAÇÃO, que falha com a regra certa e o acervo não chegando. Nada é comparado contra o que a exportação achou que escreveu: afirma-se o que o SEGUNDO aparelho tem depois. Cobre a imagem de fundo da estrofe (que NENHUM registro do catálogo nomeia — é ela que prova que a varredura é do DISCO), o `stream` que não atravessa, a pasta do aparelho que fica para trás, e a promessa inteira: importar DE NOVO, com o local já diferente, não apaga o renomeado nem a preferência de quem importou — e a lista de ids se SOMA. **E COMO ELE É LIDO** (v1.7.9), que é o que não tem sintoma num arquivo pequeno — o percurso inteiro dos outros blocos passava com o leitor que não cabia: o arquivo é pedido por JANELAS e NUNCA de uma vez (um pedido sem faixa é o `resp.blob()` de volta, e é ele que não cabe em quinze gigabytes), nenhuma janela passa do PEDAÇO (acima do teto do `SafJanela` o aparelho devolve o arquivo CORTADO, sem erro nenhum) e a CONFERÊNCIA não lê os corpos — o total lido fica perto do tamanho do arquivo, não perto do dobro; foi esta que pegou a leitura antecipada fixa. A rota do próprio oráculo fala o MESMO contrato do `SafJanela.kt`: um `blob:` — que era o que ele entregava — não tem query nenhuma, e por ele o leitor novo nem sairia do lugar |
 | `linha-da-preparacao.test.mjs` | **a linha de uma PREPARAÇÃO não é a de um download** (v1.7.1), e as metades falham CALADAS. A LEGENDA ocupa a POSIÇÃO DO SUBTÍTULO — a pergunta é de ÁRVORE (dentro da coluna de texto e DEPOIS do nome), porque um `.dl-prog` solto na `.row` passa num teste de presença e aparece noutro lugar da linha — e ela ANDA, página a página, vinda de quem TEM os números (nem a linha nem o oráculo parseiam frase nenhuma). O ícone: preparar uma apresentação não baixa byte nenhum, e a seta prometia bytes — a regra de v1.4.19 (*o ícone segue a LEGENDA*) num lugar novo, com a REVERSÃO ao lado, porque a seta ACENDE num download de verdade e APAGA de volta quando a legenda deixa de prometê-los. **E o que a v1.7.4 acrescentou:** a asserção NEGATIVA do DESENHO DO NÚMERO — nem percentual solto (até a v1.7.1) nem trilho (só a v1.7.1) —, que é o par exato da que o lote anterior escreveu; e o `⋮` cedendo a COLUNA, em três metades que nenhuma basta sozinha (o cancelar está lá com a caixa EXATA do `⋮` de uma linha vizinha sem trabalho — nunca um número escrito no teste —, a fileira de opções NÃO está, e o toque CANCELA de verdade: a linha sai e nenhuma apresentação nasce). Mais a AUSÊNCIA em asserção própria: sem alça de cancelamento não há botão. **A linha é endereçada pelo NOME** — MEDIDO, 1 reprovação em 8 rodadas a 3× de carga com `querySelector`: as duas metades montam uma linha cada, e sob carga a de baixo media a seta da de cima |
 | `miniaturas-estaveis.test.mjs` | **a `object-URL` de uma capa é do ITEM, não do render** (v1.7.4, com a chave corrigida na v1.7.8). Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante processos de download"*. Um teste de "a capa aparece" passa nas DUAS versões — ela aparece, só que um quadro depois, três vezes por segundo —, então o que se afirma é a IDENTIDADE da URL entre dois renders. Cinco metades: a URL sobrevive ao redesenho de 400 ms, ela continua VÁLIDA (uma igual e revogada seria o defeito piorado), o que SAI de cena é recolhido (sem isto "nunca revogar" passaria — e uma object-URL viva segura o blob inteiro), a PASTA DO APARELHO, que é o que o desenho pode quebrar sem sintoma (o corpo dela é montado por uma função ASSÍNCRONA, isto é, DEPOIS de o balde do render ter sido devolvido, e sem um balde próprio a varredura seguinte apaga aquelas capas da tela) e — **desde a v1.7.8** — a EXCLUSÃO, que é o caso que a chave por BLOB deixava passar: excluir escreve no banco, o `load()` relê, e um blob relido é outro objeto. Esta última é medida nos DOIS hosts do relato (a Biblioteca no bloco C, o Cronograma no E), porque um tem balde próprio e o outro não. Cada asserção nova tem a reversão nomeada e reexecutada |
+| `biblia-leitura-cabe.test.mjs` | **a folha de leitura da Bíblia cabe** (v1.7.10), em sete telas × escala de fonte do sistema. Os dois relatos falham CALADOS e os dois dependem da TELA — na tela em que o desenho foi decidido está tudo certo, e é isso que só um oráculo pega. MEDIDO antes de mexer: o versículo em DESTAQUE mostrava **0,79 linha** a 360×640 e **zero** a 360×640 com fonte 1,3×; e o `-webkit-line-clamp: 6` nunca engatava (a caixa jamais chegou a seis linhas), então quem cortava era o `overflow` da seção, no MEIO da linha. Quatro metades: o destaque com ao menos duas linhas — contra a `lineHeight` COMPUTADA, nunca em pixels, que mediria a fonte instalada na máquina junto —, a barra NUNCA pintando sobre os dois botões de guardar (uma desigualdade geométrica, que vale seja qual for a métrica da fonte), a barra **não TRUNCANDO** rótulo nem valor (OUTRA pergunta: com as pílulas podendo encolher, ela deixa de sobrepor virando reticências — verde na asserção anterior e ilegível na tela) e o corte com MÁSCARA no computado. Mais as duas que impedem o conserto largo demais: a 430×900 a fonte continua no TETO de sempre e a barra continua em UMA linha. **A calibração saiu 50px otimista na primeira tentativa** porque a pílula da Versão só existe com a lista de versões carregada, e sem rede ela vem vazia — daí a asserção própria de que a barra tem as QUATRO |
 | `configuracoes-sem-subtitulo.test.mjs` | **as Configurações sem a palavra do estado** (v1.7.2). A segunda linha de cada tile saiu a pedido do operador, e a razão de ela existir era real — *um ícone sozinho responde por CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por semana* —, então o que este oráculo prende não é a remoção: é a informação ter MUDADO DE CANAL. Um tile cujo estado não vira desenho fica idêntico nos dois estados, sem erro e sem sintoma. Mede o giro pela matriz COMPUTADA do ícone (uma regra de CSS ausente deixa o `data-estado` certo e o desenho parado), o wallpaper pelo `display` de cada `<use>` do par novo — **com o tile continuando ACESO nos dois estados**, senão o conserto barato é apagá-lo, e apagado neste app quer dizer INDISPONÍVEL —, e o rótulo do modo em DUAS larguras, pelo número de retângulos de cliente ("Modo avançado" quebrado em duas linhas tem dois, e `scrollWidth` de um inline que quebra não denuncia nada). **Assentar é `getAnimations()` + `finished`**: o ícone GIRA, e uma leitura por relógio mede a transição no meio (MEDIDO: `matrix(0.80, 0.59, …)` a 60 ms, que não é ângulo nenhum). **E o que a v1.7.7 acrescentou ao bloco do giro**: a COR igual nas três posições que ele já tinha na mão (a 0° ele era o único tile apagado da grade, e as outras duas provam que a igualdade não veio de ele ter apagado em todas), e o SÍMBOLO ser o `#icoPaisagem` — a asserção da matriz passa com qualquer desenho, inclusive a seta circular que saiu |
 | `pacote-por-grupos.test.mjs` | **a exportação por grupos, e o 0%** (v1.7.2; a folha AGRUPADA e o feedback no BOTÃO entraram na v1.7.3 — o percentual é lido do `.qs-titulo` por um `MutationObserver`, porque um estado final não distingue "andou de 0 a 100" de "pulou para o fim", e há asserção para o rótulo VOLTAR e para o cartão da preview NÃO entrar em cena). Três coisas falham CALADAS. (1) O **LOTE**: cada bloco do canal é uma ida e volta, e ela custa o mesmo para 50 bytes e para 512 kB — a Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e a versão anterior mandava um bloco por cabeçalho e um por corpo. A semente imita isso (400 chaves e nada mais) e a asserção é o número de blocos. (2) O **PROGRESSO** naquela fase, que não era reportado nem somado no plano — a régua é o percentual do CARTÃO no fim, e não o `done` da notificação: `> 0` passa só com o cabeçalho humano (MEDIDO ao escrever o arquivo), e o `done` emitido mede o freio de 700 ms, não o app. (3) A **ESCOLHA** cortar bytes de verdade, com o catálogo seguindo os bytes — um registro de `files` sem o arquivo dele é uma faixa que aparece na Biblioteca do destino e não toca. Cinco reversões nomeadas |
 | `abertura-e-transferencia.test.mjs` | **a CORTINA que não pode ficar no ar**, no cenário catastrófico: o `controle.js` abortado pela rota, o tema guardado já no `<html>` (quem o escreveu foi o script do `<head>`) e a cortina levantando pelo PRAZO — sem isso o app fica trancado, e não há erro em lugar nenhum. Mais a saída por REMOÇÃO DO NÓ, medida por hit-test (uma camada `opacity: 0` sobre a tela inteira continua recebendo o toque). E a BADGE: as TRÊS casas dizem o mesmo número, nenhuma escreve "Web"/"Shell" — **e o REGISTRO continua trazendo o índice do shell**, que é a metade que impede o conserto largo demais. Mais o bloco "Este aparelho", com a reversão (sem ponte ele não existe) |
@@ -4816,19 +4817,73 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.7.9 · APK v1.7.9** · `SHELL_VERSION` **64** ·
-bundle com `minShell: 64` e **`shellTag: v1.7.9`** — o shell 64 é o **PISO**:
+**Versão atual: base web v1.7.10 · APK v1.7.9** · `SHELL_VERSION` **64** ·
+bundle com `minShell: 64` e **sem `shellTag`** — o shell 64 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
-**E ESTE LOTE PEDE RELEASE.** A ponte mudou de FORMA (`pickDoc` passou a
-devolver `size`) e o contrato do `/saf/` ganhou a JANELA — as duas coisas só
-chegam instalando um APK. O `shellTag` segura o bundle até a Release existir, e
-sem ele a metade web chegaria sozinha à frota: `alvo.size` viria `undefined`, o
-leitor pararia em *"não foi possível ler o tamanho"* e a importação ficaria
-IMPOSSÍVEL num aparelho em que ela já não funcionava — o defeito trocado por
-outro, que é o pior desfecho de publicar meio lote.
+**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só web: `java/`, `res/` e o manifesto
+não foram tocados, e nenhum método da ponte entrou ou mudou de forma. O
+`minShell: 64` FICA — é o piso que a v1.7.9 estabeleceu, e a Release dela já
+saiu —, e o `shellTag` sai: declarado, ele seguraria o bundle esperando uma
+Release que não vai existir, em silêncio, e a única pista seria a linha no
+resumo do run.
 
-**O QUE O LOTE TRAZ — a importação de um acervo de verdade:**
+**O QUE O LOTE TRAZ — dois relatos do operador, na mesma captura:**
+
+| peça | onde |
+|---|---|
+| a fonte do versículo em DESTAQUE segue a altura da caixa, e o corte esmaece | `.bible-vsec` (container) + `.bible-vsec-text` |
+| quantas seções de contexto cabem é uma CONTA de altura | as três faixas de `@container` na `.bible-read` |
+| a barra de livro/capítulo/versículo QUEBRA em vez de pintar por cima | `.bible-read-foot` (`flex-wrap`) + `.bible-ref-part` |
+
+> **A FONTE ERA FIXA E A CAIXA É VARIÁVEL** (v1.7.10). Relato: *"verifique a
+> disposição do tamanho da fonte no texto em destaque da bíblia, que será
+> exibido, está cortando texto em certas telas"*.
+>
+> A caixa do texto é o que sobra da seção, que divide por `flex` a altura da
+> folha. MEDIDO na seção central, com o versículo da captura: **0,79 linha** a
+> 360×640, 2,87 a 393×786, e **ZERO** a 360×640 com a fonte do sistema em 1,3×.
+> E o `-webkit-line-clamp: 6` **nunca engatava** — a caixa jamais chegou a seis
+> linhas —, então quem cortava era o `overflow` da seção, no MEIO da linha: a
+> altura sobrava de 7 a 26px sobre um múltiplo da linha nos oito cenários, isto
+> é, **a última linha era sempre uma fileira de meias letras, sem reticências**.
+>
+> A fonte passou a seguir a altura por `cqh`, com **teto no tamanho de sempre**
+> (a 430×900 nada muda) e piso em `rem` — quem aumenta a fonte do sistema quer
+> letra maior, mesmo vendo menos texto. O que sobra **esmaece** (`mask-image`),
+> porque reticências exigiriam que o clamp fosse sempre ≤ as linhas que cabem, e
+> esse inteiro o CSS não calcula a partir de uma altura.
+>
+> **E QUANTAS SEÇÕES CABEM VIROU UMA CONTA.** São quatro por decisão da v5.267,
+> com a razão escrita *"sobrava espaço na tela"* — verdade na tela em que aquilo
+> foi decidido. Três faixas de `@container` tiram primeiro o segundo versículo à
+> frente, depois o anterior, e no extremo deixam só o central; a ordem é a do
+> próprio argumento de lá (*ler adiante é o que o operador faz*).
+
+> **O QUE SAI DE UMA CAIXA FLEX PINTA POR CIMA DO IRMÃO** (v1.7.10). Relato:
+> *"na base, onde tem o livro capítulo e versículo selecionado, está sobrepondo
+> os elementos na sua direita, por falta de espaço e ajuste de dimensão"*.
+>
+> MEDIDO, com as QUATRO pílulas: a referência pede 238px com a fonte padrão e
+> 308px com a do sistema em 1,3×, contra 200–286px de linha livre depois dos
+> dois botões de guardar — ela só cabia ao lado deles em 2 dos 10 cenários. Três
+> pílulas eram `flex-shrink: 0`, então, batido o `min-width` da do livro, o
+> conteúdo saía da caixa e a nav não tem `overflow`.
+>
+> Todas encolhem agora (a do livro **três vezes** mais, porque é o único valor
+> que vira reticências sem perder o sentido), o aperto é pago no RÓTULO — que é
+> quem dimensiona as três pílulas de número —, **e quando não cabe a barra
+> QUEBRA**: `flex-wrap` decide as linhas pelo tamanho ideal antes de encolher
+> qualquer item, então onde a referência cabe ao lado dos botões nada muda, e
+> onde não cabe eles descem. A altura que isso custa sai da leitura, que era o
+> argumento da v5.109 para juntar as duas faixas — ele continua valendo e deixou
+> de decidir.
+>
+> **O extremo está dito**: a 360×640 com fonte 1,3× nem a linha sozinha basta
+> (308 contra 298px), e ali o rótulo vira reticências. Apertar o respiro das
+> pílulas para ganhar os 10px foi MEDIDO e não resolveu.
+
+**O LOTE ANTERIOR (v1.7.9) — a importação de um acervo de verdade:**
 
 | peça | onde |
 |---|---|
@@ -4874,7 +4929,7 @@ outro, que é o pior desfecho de publicar meio lote.
 > É o pedido da v1.7.3 chegando ao fim — "marcar tudo" já é o estado em que a
 > folha NASCE, e a barra de um grupo cobre o caso de massa que sobrava.
 
-**O LOTE ANTERIOR (v1.7.8) — um relato do operador:**
+**E O ANTERIOR A ELE (v1.7.8) — um relato do operador:**
 
 | peça | onde |
 |---|---|
@@ -4902,7 +4957,7 @@ outro, que é o pior desfecho de publicar meio lote.
 > `listItems('imports')` e `listItems('favs')` são duas leituras, então a mesma
 > capa vinha como dois blobs e ocupava a memória duas vezes.
 
-**O LOTE ANTERIOR (v1.7.7) — dois relatos do operador, e o segundo revoga um
+**E A v1.7.7 — dois relatos do operador, e o segundo revoga um
 recurso:**
 
 | peça | onde |
@@ -4926,7 +4981,7 @@ recurso:**
 > padrão para ele"* —, e o argumento contra vale menos do que parecia: quem
 > escolhe 480p uma vez o faz por uma razão que não muda de sábado para sábado.
 
-**E O ANTERIOR A ELE (v1.7.6) — três pedidos sobre a GRADE de Configurações:**
+**E A v1.7.6 — três pedidos sobre a GRADE de Configurações:**
 
 | peça | onde |
 |---|---|

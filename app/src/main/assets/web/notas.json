@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.7.10",
+    "itens": [
+      "O versículo em destaque da Bíblia deixou de sair cortado no meio da linha.",
+      "A letra dele acompanha o espaço da tela, e o fim do texto esmaece.",
+      "A barra de livro, capítulo e versículo parou de cobrir os botões ao lado."
+    ]
+  },
+  {
     "versao": "1.7.9",
     "itens": [
       "A importação do acervo voltou a funcionar em arquivos grandes.",

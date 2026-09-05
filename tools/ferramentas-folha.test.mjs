@@ -122,9 +122,24 @@ try {
     'a porta das Ferramentas está NA LINHA da importação, à DIREITA dela', porta);
   checar(porta.mesmaAltura, 'e com a mesma caixa do irmão', porta);
 
+  // ASSENTAR É `getAnimations()` + `finished`, NUNCA UM PRAZO. As duas folhas
+  // entram animadas (`tools-sobe`), e os dois blocos abaixo medem a CAIXA delas:
+  // uma leitura no meio do deslize devolve um retângulo que ainda não chegou, e
+  // a asserção reprova falando do app. MEDIDO: com o `waitForTimeout(400)` que
+  // estava aqui, 1 reprovação em 4 rodadas da suíte em PARALELO — e ZERO em 14
+  // execuções isoladas a 4× de carga, porque a janela é a do AGENDADOR e não a
+  // da CPU. É a primeira classe da tabela do CLAUDE.md: prazo lido como
+  // veredito.
+  const assentar = (pg2, sel) => pg2.evaluate(async (s2) => {
+    const el = document.querySelector(s2);
+    if (!el) return false;
+    await Promise.all(el.getAnimations().map((a) => a.finished.catch(() => {})));
+    return true;
+  }, sel);
+
   // ── 3. A FOLHA SOBE DENTRO DO CRONOGRAMA, NÃO SOBRE A TELA ──────────────
   await pg.click('#toolsBtn');
-  await pg.waitForTimeout(400);   // a entrada é uma animação de 220 ms
+  await assentar(pg, '#toolsSheet');
   const dentro = await pg.evaluate(() => {
     const f = document.getElementById('toolsSheet');
     const cab = document.querySelector('.list-header').getBoundingClientRect();
@@ -231,6 +246,9 @@ try {
   await pg.waitForFunction(
     () => !!document.querySelector('.bible-grid--books .bible-cell'), null, { timeout: 8000 },
   ).catch(() => {});
+  // A grade de livros pode aparecer ANTES de a folha terminar de subir — o
+  // conteúdo e a animação são duas coisas —, e o que se mede aqui é a CAIXA.
+  await assentar(pg, '#bibleSheet');
   const bib = await pg.evaluate(() => {
     const f = document.getElementById('bibleSheet');
     if (!f || f.hidden) return { erro: 'a folha da Bíblia não abriu' };
