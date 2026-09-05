@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.6.4",
+    "itens": [
+      "Os botões de Letra e Cifra voltaram a respirar da caixa de texto logo abaixo.",
+      "E deixaram de ter espaço demais acima deles.",
+      "O tamanho da letra e o fechar voltaram para o canto direito na aba de cifra."
+    ]
+  },
+  {
     "versao": "1.6.3",
     "itens": [
       "A cifra agora abre com o nome da música e o tom dentro da folha, antes dos acordes.",
