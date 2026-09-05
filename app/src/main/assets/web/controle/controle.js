@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.4';
+const WEB_VERSION = '1.8.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -24426,6 +24426,12 @@ async function cloneLigarCessao() {
   falarNoTile(cloneCederTileEl, 'Ligando…', 0);
   const r = await AVNative.acervoCeder('');
   if (!r || r.erro) {
+    // O DIÁRIO COBRE OS DOIS DESFECHOS DESTA PORTA (v1.8.4). Ele só era escrito
+    // quando a lista chegava a ser publicada, e o caminho mais provável de
+    // falhar é justamente este — o servidor não subiu (sem rede servível, porta
+    // ocupada). Sem a linha, o Registro fica IDÊNTICO ao de um aparelho em que
+    // ninguém tocou em "Ceder", e as duas coisas pedem conferências opostas.
+    await cloneAnotar('ceder', (r && r.erro) || 'não foi possível abrir a rede deste aparelho', '');
     calarTile(cloneCederTileEl);
     pulsar(cloneCederTileEl, 'erro');
     await openAppDialog({

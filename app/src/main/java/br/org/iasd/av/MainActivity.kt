@@ -248,7 +248,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
         val (texto, cb) = pend
         if (uri == null) { cb(""); return@registerForActivityResult }
         val nome = try {
-            contentResolver.openOutputStream(uri)?.use { it.write(texto.toByteArray(Charsets.UTF_8)) }
+            // "wt" E NUNCA "w" — o `t` é TRUNCAR, e sem ele o provedor de
+            // documentos escreve POR CIMA do começo e deixa a cauda do arquivo
+            // antigo. Salvar um Registro sobre o da vez anterior devolvia o
+            // texto novo grudado num pedaço do velho, no meio de uma linha.
+            //
+            // O DEFEITO É PIOR DO QUE PARECE, e é por isso que ele não é um
+            // detalhe de escrita: o Registro existe para ser lido A DISTÂNCIA
+            // por quem não pode conferir nada no aparelho, e o resto do arquivo
+            // antigo é conteúdo PLAUSÍVEL — blocos inteiros, bem formatados,
+            // descrevendo um estado que já não existe. É a definição de um log
+            // que discorda do aparelho.
+            //
+            // O caminho do PACOTE já usava "wt" desde a v1.7.0; este ficou para
+            // trás. Ver `pacoteCriar`.
+            contentResolver.openOutputStream(uri, "wt")
+                ?.use { it.write(texto.toByteArray(Charsets.UTF_8)) }
+                ?: throw java.io.IOException("provedor não abriu o documento")
             uri.lastPathSegment?.substringAfterLast('/') ?: "registro.txt"
         } catch (e: Exception) {
             // Falhar aqui é o operador ficar sem o arquivo, não o app quebrar —
