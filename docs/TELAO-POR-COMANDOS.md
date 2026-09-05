@@ -18,6 +18,15 @@
 >
 > A fonte de verdade é o `CLAUDE.md` ("Telão por comandos") mais o código.
 >
+> **E O SERVIDOR DESTE DOCUMENTO TEM UM SEGUNDO INQUILINO desde a v1.8.0:** o
+> CLONE da biblioteca celular a celular (`/acervo/par`, `/acervo/indice`,
+> `/acervo/item/…`). Ele NÃO herda nada do contrato daqui — em especial, **não
+> herda a porta aberta**: o que autoriza lá é uma pessoa tocando em Permitir no
+> aparelho que cede, porque o que vaza por ele não são os comandos e as mídias
+> em cena, é o acervo inteiro. E o `EspelhoServidor` passou a ter DUAS razões
+> de viver, como o `SessionService`: ligar ou desligar a transmissão não liga
+> nem desliga a cessão. Ver `CLAUDE.md`, "O clone celular a celular".
+>
 > Os fatos de código citados vêm da varredura E0 (9 leitores paralelos, 229
 > fatos com arquivo:linha) — o bruto está em
 > `docs/anexo-varredura-command-stream.json`, que será apagado na E7. As linhas
