@@ -9,7 +9,7 @@
 // passo que não tem `continue-on-error`, e o sintoma seria o canal OTA parado
 // por um `ERR_MODULE_NOT_FOUND` que nada no arquivo explica.
 //
-// Por isso `checar` mora num módulo SEM dependência: os 15 de Node puro podem
+// Por isso `checar` mora num módulo SEM dependência: os 16 de Node puro podem
 // usá-lo, e o `arnes.mjs` o reexporta para os de Chromium não precisarem de
 // dois imports.
 //

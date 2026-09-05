@@ -22,7 +22,7 @@
 //
 // ## O que ele cobre
 //
-//  1. as três coisas que o `foreignObject` perde (mídia `blob:`, pixels de
+//  1. TRÊS das QUATRO coisas que o `foreignObject` perde (mídia `blob:`, pixels de
 //     `<canvas>`, fonte de símbolo) — cada uma com a reversão;
 //  2. o FORMATO por página (o PNG da página chapada, o WebP da fotográfica) —
 //     a regra que impede a correção de (1) multiplicar por dez o que uma
@@ -271,7 +271,11 @@ const medido = await pg.evaluate(async (CORES) => {
 
 const perto = (a, b) => Array.isArray(a) && a.every((v, i) => Math.abs(v - b[i]) <= 24);
 
-// ---- 1. as três coisas que o `foreignObject` perde ----
+// ---- 1. três das QUATRO coisas que o `foreignObject` perde ----
+//
+// A quarta é o `<video>` de um slide, e ela não cabe aqui: quem a resolve é o
+// `pptxzip.js`, tirando a mídia do arquivo ANTES de o renderizador abri-lo —
+// oráculos `pptxzip.test.mjs` e `pptx-video-na-pagina.test.mjs`.
 checar(!!medido.bom && medido.bom.w === 400 && medido.bom.h === 200,
   'a página sai no tamanho pedido', medido.bom && [medido.bom.w, medido.bom.h]);
 

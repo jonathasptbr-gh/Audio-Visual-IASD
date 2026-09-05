@@ -226,7 +226,7 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**29 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**30 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -1682,8 +1682,8 @@ sintoma é "a atualização não chega".
 `window.AVDB` no `load` não bastava: a ordem dos scripts do Controle é
 `native.js` → `db.js` → `mse.js` → `stage.js` → `louvorja.js` → `bible.js` →
 `serie.js` → `cifra.js` → `sorteio.js` → `hinario.js` → `coletanea.js` →
-`deck.js` → `controle.js`, e um erro
-em qualquer um dos **doze** últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
+`pptxzip.js` → `deck.js` → `controle.js`, e um erro
+em qualquer um dos **treze** últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
 bundle quebrado era carimbado como bom **para sempre**. As cinco condições,
 cada uma cobrindo o que a anterior não cobre:
 
@@ -1701,7 +1701,7 @@ cada uma cobrindo o que a anterior não cobre:
    `loadCollections()`. Prova que a inicialização terminou.
 
 5. **`Louvorja` · `Bible` · `AVSerie` · `AVSorteio` · `AVCifra` · `AVHinario` ·
-   `AVDeck` · `AVColetanea`** — os oito
+   `AVDeck` · `AVColetanea` · `AVPptxZip`** — os nove
    scripts do Controle, cada um publicando seu global na ÚLTIMA linha do arquivo. Eram o
    buraco declarado deste watchdog até a v5.315: todo uso de `AVSerie`/`AVSorteio`
    no `controle.js` está DENTRO de função, então um erro de topo num deles **não**
@@ -3869,7 +3869,7 @@ herdados por cópia em vez de escolhidos.
   oráculo pedi-la.
 - **`checar` mora em `tools/checar.mjs`, SEM uma linha de `import`**, e a
   separação NÃO é organização: o `arnes.mjs` importa o Playwright, e no workflow
-  os 15 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
+  os 16 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
   **antes** do `npm ci`. Um deles importando o arnês passaria na máquina de quem
   escreve (onde `node_modules/` existe) e falharia só no runner, no passo sem
   `continue-on-error` — "a atualização não chega", por um
@@ -3903,7 +3903,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os 57 de Chromium somavam **~8 min em série**, e o custo não é o que parece:
+Os 59 de Chromium somavam **~8 min em série**, e o custo não é o que parece:
 lançar o navegador são **~110 ms** e subir o `/controle/` inteiro é **~1 s** —
 compartilhar um navegador entre oráculos, a otimização óbvia, economizaria 2% e
 custaria o isolamento. O que sobra é espera, com os quatro núcleos ociosos.
@@ -3931,6 +3931,7 @@ o código de saída não pode entrar no placar como quem passou.
 | `hinario.test.mjs` | as **seções temáticas do Hinário 2022**: a cobertura é CONTÍGUA de 1 a 600, sem lacuna e sem sobreposição. É a única propriedade que pega um limite digitado errado — e esse erro é MUDO: a lista continua completa, na ordem certa, com um cabeçalho mentindo no meio. Confere também a faixa infantil contra o `sorteio.js` |
 | `coletanea.test.mjs` | **a leitura EDITORIAL das coletâneas**: qual coletânea se DISSOLVE em qual, e o que acontece quando a tabela deixa de bater com o banco. Os três modos de errar são silenciosos e apagam conteúdo da tela — dissolver sem destino (a origem some com os álbuns dentro), casar por `includes` ("Diversas" pegando "Diversas Antigas") e movidos DUPLICADOS quando o mesmo álbum já está no destino. Entradas VERBATIM da tela do aparelho (`site/telas/biblioteca.webp`): o operador escreveu *"diversos"* e a seção chama-se **"Diversas"**, e nenhuma normalização une as duas |
 | `cifra.test.mjs` | o que o app entende de uma página de cifra: slug, gramática do acorde, e a transposição PRESERVANDO A COLUNA. É a peça mais frágil do projeto — lê a marcação de um servidor que não é nosso. Fixtures **SINTÉTICAS** de propósito: nenhum conteúdo de terceiro entra neste repositório. Elas provam a GRAMÁTICA, não que ela case com o HTML de hoje — essa metade se conserta por OTA, e o Registro diz quando quebrou |
+| `pptxzip.test.mjs` | **o ZIP de um `.pptx` lido por FATIAS** — o caminho que faz uma apresentação de 570 MB caber. Os três modos de errar são SILENCIOSOS: o início dos bytes sai do cabeçalho LOCAL (deduzi-lo do índice entrega bytes DESLOCADOS, não um erro), a ORDEM dos slides sai do `sldIdLst` e nunca dos nomes (numa apresentação REORDENADA o vídeo tocaria no slide errado) e a remontagem tem de ZERAR o bit do descritor de dados. Fixture escrita à mão — um zip produzido pela mesma biblioteca que o lê prova só que ela concorda consigo mesma —, com REVERSÃO nas duas primeiras |
 | `sorteio.test.mjs` | quais faixas a **playlist automática** pode mandar ao telão. O operador toca UM botão e a faixa entra em cena, sem tela intermediária: os quatro modos de errar (série no lugar do louvor · faixa que casa e não aparece · PLAYBACK onde se esperava a voz · fila cheia do que falta baixar) são todos silenciosos |
 | `glifos.test.mjs` | **todo ícone de fonte existe na fonte.** O `.woff2` é um SUBSET de 31 codepoints, e um `.msym` fora dele não desenha NADA — sem erro, sem requisição falhando, só um vão: o botão existe, é tocável, faz o que promete e é invisível. Lê o `cmap` do próprio arquivo (`zlib.brotliDecompressSync`, zero dependência) |
 | `sidx.test.mjs` | o parser `sidx` |
@@ -4035,6 +4036,7 @@ mundo anterior por outro caminho.
 | `telao-no-chao.test.mjs` | **a tela conectada com o telão NO CHÃO** — "há tela" nunca foi "há telão", e o estado em que as duas divergem calava a preview sem ninguém tocando do outro lado: SILÊNCIO NOS DOIS LADOS, sem erro no console e com o Registro dizendo "conectado". Mede as três metades, e nenhuma basta: o som que fica neste aparelho, o estado ser DIZÍVEL (um filtro que escondesse a tela diria "não há TV", que é falso) e a RECUPERAÇÃO sendo absorvida sem passar por uma desconexão — sem esta última, a escada do Kotlin seria só um jeito novo de ficar parado |
 | `enquadramento-da-camada.test.mjs` | **o preenchimento e o giro valem para a mídia NOS DOIS CAMINHOS** (v1.4.41). MEDIDO: não era "só fotos" — era "só quando a mídia É a cena". A MESMA foto e a MESMA página de apresentação chegam ao telão como CENA (`#img`) e como CAMADA por cima de um louvor (`#textImg`, v5.312/v1.4.28), e a segunda ficava presa no `contain` da folha, sem giro. É o pior formato de defeito daquele painel: o mesmo controle, o mesmo conteúdo, e funciona ou não conforme haja uma música tocando por baixo. Mede as DUAS pontas que pintam (o telão e a PREVIEW — *ler cada lado isolado aprova os dois*), tem a REVERSÃO (a cena continua seguindo) e a metade que impede o conserto largo demais: o FUNDO DA ESTROFE fica de fora, porque ele não é a mídia. E o alvo é o palco DAQUELE elemento, nunca um número fixo: o telão mede a janela e a preview mede a caixinha dela |
 | `imagem-sobre-audio.test.mjs` | a IMAGEM projetada por cima do áudio. A regra é uma AUSÊNCIA — nenhum `load` sai daquele caminho —, e ausência não tem sintoma de tela nem erro de console: quem a prova é o `currentTime` do `<video>` medido em DOIS instantes ("não pausou" é fraco; "andou" prova que é o mesmo áudio). Nas duas metades: o Controle que decide sobrepor e o telão que pinta |
+| `pptx-video-na-pagina.test.mjs` | **o VÍDEO que estava dentro da apresentação.** O `pptxzip.test.mjs` prende a REGRA; este prende a LIGAÇÃO, que falha de outro jeito — a regra continua certa e o recurso não faz nada. Cobre o ⏮/⏭ reconhecendo o vídeo como PÁGINA (com ele em cena `currentItem` é o vídeo, e o par nascia desabilitado), a ÂNCORA do ⏭ de mídia (o vídeo não está em lista, o `findIndex` devolvia −1 e o `idx === -1` caía no PRIMEIRO item da fila — a apresentação voltando ao começo), o LAÇO do vídeo na última página, a volta levando a página DENTRO do `load` (dois comandos pintavam a capa entre eles) e o autoplay da primeira página. Mais o COLETOR: a apresentação é detentora dos vídeos dela. **As duas armadilhas que a escrita dele pagou**: montar a cena com um ÁUDIO no ar mede o caso da CAMADA (ali o deck SOBREPÕE e a automação nem arma), e um "vídeo" curto ACABA sozinho no meio das asserções — a prova de que o BOTÃO pulava o vídeo passava por CORRIDA, e a reversão não reprovava |
 | `slides-sobre-audio.test.mjs` | **a APRESENTAÇÃO como CAMADA** (v1.4.28): uma música toca por trás dos slides, e a regra é a mesma AUSÊNCIA do irmão acima — nenhum `load` sai deste caminho. O que ele mede a mais é o que só um deck tem: **PÁGINAS**. O eixo do ⏮/⏭ que volta (onde a imagem devolve `null`, porque não tem para onde ir); a página andando por um caminho DIFERENTE — na camada ela reenvia o `text`, e um `page` não acharia deck nenhum no motor e **não faria NADA**, sem erro, com o operador apertando o botão; e as TRÊS metades que pintam (telão, PREVIEW e a coluna do auxiliar), cada uma escolhendo o blob por sua conta — sem a da preview ela ficaria na página 1 para sempre enquanto o telão passa slides, e **sem TV a preview É a projeção**. A prova de qual página está na tela é a **COR do pixel**: com páginas idênticas, "pintou a 4" e "continuou na 1" são o mesmo resultado. Trava também a ordem das ABAS seguindo a pilha, e a reversão que fecha o lote — sem áudio no ar a apresentação continua entrando como MÍDIA, sem a qual "sobrepor sempre" passaria em tudo o mais |
 | `modo-facil-slides.test.mjs` | **o MODO FÁCIL opera uma apresentação** (v1.4.30). MEDIDO antes de mexer: com uma apresentação em cena aquele modo não a operava de jeito NENHUM — a zona de leitura dizia "A letra da música aparece aqui" (a projeção no ar negada pela única superfície que deveria descrevê-la) e não havia tecla que virasse página, então uma apresentação compartilhada ficava presa na página 1 até o operador ir ao modo avançado, que é o modo que este existe para não exigir. Três metades falham CALADAS: o LIMITE das teclas (elas ESPELHAM o `disabled` das âncoras do avançado, e uma segunda conta divergiria sem sintoma — a tecla acesa no fim da apresentação), as MINIATURAS revogadas pela outra coluna (dois desenhistas de páginas; uma `<img>` com `src` revogado não pinta e não reclama) e a PÁGINA entrando na assinatura, que remontaria dezenas de miniaturas a cada ⏭. Cobre também a pilha (com a apresentação sobre um louvor a zona mostra as PÁGINAS) e o par soltar-ao-sair × redesenhar-ao-voltar, que só juntos provam que a limpeza não apagou o recurso |
 | `modo-facil-um-elemento.test.mjs` | **no MODO FÁCIL só há um elemento no ar** (v1.4.32). A sobreposição é uma CENA COMPOSTA, e operá-la exige saber qual das duas coisas cada controle governa — o ▶ é do áudio de baixo, o ⏭ é da apresentação de cima, o Parar tira uma só. Esse é o vocabulário do modo AVANÇADO, e é o que aquele modo existe para não pedir. A metade que fecha o lote é a REVERSÃO: o avançado CONTINUA sobrepondo — sem ela, apagar a sobreposição do app inteiro passaria em tudo o mais e o recurso da v1.4.28 morreria em silêncio, num modo que o pedido nem nomeia. Cobre as DUAS portas do cartão (imagem e apresentação), o Modo Fácil destravado por "Tocar neste celular" (a guarda é do MODO, não da conexão) e o COMPARTILHAMENTO, que é por onde uma apresentação de fato entra ali e o que uma guarda escrita nas telas deixaria de fora |
@@ -4524,7 +4526,8 @@ NÃO sobe neste lote**: a superfície da ponte não mudou.
 **E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — os três defeitos da
 automação do vídeo de slide (o ⏮/⏭ que não o reconhecia como página, o ⏭ de
 mídia que mandava a apresentação ao início, e o laço do vídeo na última
-página). Nada em `java/`, `res/` ou no manifesto foi tocado.
+página), mais a volta que pintava a CAPA entre dois comandos e o autoplay do
+vídeo na primeira página. Nada em `java/`, `res/` ou no manifesto foi tocado.
 
 > **O LOTE ANTERIOR (v1.6.4)** trouxe o VÍDEO EMBUTIDO num
 `.pptx` (o `pptxzip.js` novo, a separação em `deck.js`, a automação no

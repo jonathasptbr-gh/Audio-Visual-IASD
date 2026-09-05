@@ -36,9 +36,10 @@
   //
   // `window.AVDB` no `load` NÃO basta. A ordem dos scripts do Controle é
   // native.js → db.js → mse.js → stage.js → louvorja.js → bible.js → serie.js →
-  // cifra.js → sorteio.js → hinario.js → controle.js, e um erro em qualquer um
-  // dos DEZ últimos aborta só AQUELE script: o `load` dispara, `AVDB` continua
-  // lá, e o bundle quebrado é carimbado como bom PARA SEMPRE.
+  // cifra.js → sorteio.js → hinario.js → coletanea.js → pptxzip.js → deck.js →
+  // controle.js, e um erro em qualquer um dos TREZE últimos aborta só AQUELE
+  // script: o `load` dispara, `AVDB` continua lá, e o bundle quebrado é
+  // carimbado como bom PARA SEMPRE.
   //
   // O sinal é "o app está DE PÉ", e cada peça cobre o que a anterior não cobre:
   //
@@ -49,8 +50,9 @@
   //      três módulos compartilhados, cada um publicando seu global no fim do
   //      arquivo (o `AVStream` existe mesmo sem MediaSource; só o `suportado()`
   //      responde false).
-  //   3. os seis módulos do Controle (`Louvorja`, `Bible`, `AVSerie`,
-  //      `AVSorteio`, `AVCifra`, `AVHinario`) — todo uso deles no `controle.js`
+  //   3. os nove módulos do Controle (`Louvorja`, `Bible`, `AVSerie`,
+  //      `AVSorteio`, `AVCifra`, `AVHinario`, `AVColetanea`, `AVPptxZip`,
+  //      `AVDeck`) — todo uso deles no `controle.js`
   //      está DENTRO de função, então um erro de topo num deles NÃO aborta o
   //      `controle.js`: sem esta condição o app sobe, o watchdog confirma e o
   //      recurso daquele arquivo fica morto (ver docs/shell/OTA.md).
@@ -74,8 +76,8 @@
   function otaAppIsUp() {
     if (global.__AV_ROLE__ !== 'controle') return false;
     if (!global.AVDB || !global.AVStream || !global.createStage) return false;
-    // OS CINCO DO CONTROLE, e eles eram o buraco declarado deste watchdog.
-    // Um erro de topo em `louvorja.js`/`bible.js`/`serie.js`/`sorteio.js`/`cifra.js`/`hinario.js` aborta
+    // OS MÓDULOS DO CONTROLE, e eles eram o buraco declarado deste watchdog.
+    // Um erro de topo em qualquer um deles aborta
     // só AQUELE script: o `controle.js` continua inteiro (todo uso de
     // `AVSerie`/`AVSorteio` lá está DENTRO de função), `__avBack` existe, a
     // playlist renderiza — e o bundle era carimbado como bom PARA SEMPRE, com a

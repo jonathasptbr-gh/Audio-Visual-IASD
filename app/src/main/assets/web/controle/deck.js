@@ -15,7 +15,7 @@
 // A rasterização é `<foreignObject>`: o slide vai para dentro de um SVG que o
 // navegador desenha como imagem. Esse SVG é um DOCUMENTO À PARTE, e é isso que
 // governa tudo aqui — dele não se alcança NADA que dependa do documento de
-// origem. Três coisas somem em silêncio, e cada uma tem uma função abaixo:
+// origem. QUATRO coisas somem em silêncio, e cada uma tem uma função abaixo:
 //
 //  1. **As URLs `blob:` da biblioteca** (`embutirRecursos`). O renderizador
 //     entrega toda mídia do `.pptx` como `URL.createObjectURL`, e uma `blob:`
@@ -27,7 +27,12 @@
 //     erro em lugar nenhum.
 //  2. **Os pixels de um `<canvas>`** (`trocarCanvas`). `cloneNode` copia o
 //     elemento e não o bitmap — um GRÁFICO do PowerPoint sairia em branco.
-//  3. **A fonte que o aparelho não tem** (`trocarSimbolos`). Marcador de
+//  3. **O `<video>` de um slide** (`separarVideos`, sobre o `pptxzip.js`). O
+//     renderizador o desenha como `<video preload="none">` sobre fundo PRETO, e
+//     o `embutirRecursos` abaixo não o alcança — a página sairia com um
+//     retângulo preto no lugar do vídeo. Ele é tirado do arquivo ANTES de o
+//     renderizador abri-lo, e vira mídia presa à PÁGINA em que estava.
+//  4. **A fonte que o aparelho não tem** (`trocarSimbolos`). Marcador de
 //     tópico em PowerPoint é TEXTO numa fonte de símbolos, e nenhum Android tem
 //     Wingdings: o `v` do material do operador é ❖, e o `` do Symbol é •.
 //     Sem tradução o telão mostra a letra `v` — ou, no caso do Symbol, o

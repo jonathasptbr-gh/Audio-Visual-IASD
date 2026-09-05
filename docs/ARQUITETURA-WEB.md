@@ -206,6 +206,16 @@ app/src/main/assets/web/
 │   │                           # oráculo em Node: qual coletânea não tem
 │   │                           # independência e se DISSOLVE em outra. Aplicada
 │   │                           # no DESENHO: o catálogo do banco continua cru
+│   ├── pptxzip.js              # O ZIP de um `.pptx` lido por FATIAS — PURO, com
+│   │                           # oráculo em Node: lê o índice por `Blob.slice()`
+│   │                           # (sem materializar o arquivo), separa os VÍDEOS
+│   │                           # embutidos e remonta um `.pptx` enxuto. Nada é
+│   │                           # recomprimido. É ele que faz uma apresentação de
+│   │                           # centenas de MB caber
+│   ├── deck.js                 # A APRESENTAÇÃO EM IMAGENS: o `.pptx` desenhado
+│   │                           # dentro do WebView, com oráculo em Chromium. As
+│   │                           # QUATRO coisas que o `<foreignObject>` não
+│   │                           # alcança, e o FORMATO de cada página
 │   └── bible.js                # Cliente da parte bíblica do banco LouvorJA (livros/versões/capítulos — ver seção "Bíblia")
 ├── espelho/                    # o papel `tela` (telão nas telas da rede)
 │   ├── tela.js                 # a casca: SSE, dreno de subida, entrada, relógio
