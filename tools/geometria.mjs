@@ -25,6 +25,23 @@
 // | T5 | um DOM à mão: uma camada `fixed` que começa a 520px numa tela de 640 → **80px** |
 // ============================================================================
 
+/**
+ * AS EXCEÇÕES AO PISO DE TOQUE — uma linha por peça, com o seletor exato, o
+ * piso que ela AINDA cumpre, e a razão. Nenhuma delas dispensa piso: elas
+ * TROCAM de piso.
+ *
+ * Ela mora aqui, e não no portão, porque a RÉGUA também precisa dela: sem isso
+ * ela repete 66 vezes um achado que já foi decidido, e um relatório em que o
+ * ruído esconde o sinal é um relatório que ninguém lê inteiro.
+ */
+export const PISOS = [
+  {
+    sel: '.bible-grid--books .bible-cell', piso: 28,
+    porque: 'a grade de 66 livros — 66 alvos de 34px pedem 414px de altura e a '
+      + 'folha mede 280,5px a 360×640. Ver `--hit-denso` em controle.css.',
+  },
+];
+
 /** O rótulo de cada sonda, para o relatório e para a frase da reprovação. */
 export const ROTULO = {
   T1: 'FORA DA JANELA', T2: 'IRMÃOS SOBREPOSTOS', T3: 'CORTE SERRADO',

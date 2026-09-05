@@ -519,6 +519,17 @@ célula — **só passou a ser cobrada depois de a escala 1,5× entrar na matriz
 zero" não é uma correção, é sorte. A conta que define a tela é `20 × escala >
 26`, isto é, o corte começa logo acima de 1,3×; 1,5× é o "Ampliar" do Android.
 
+**A campanha de determinismo**, que é o que autoriza um portão a barrar o
+build: a suíte inteira, 4 rodadas, com a máquina a 2× de carga — **268/268** —,
+mais o oráculo novo sozinho a 4× de carga, **10/10**. Nenhuma reprovação.
+
+**E o estado final, medido pela régua nas nove telas: as 16 superfícies limpas
+e as cinco sondas em ZERO** (contra 13 limpas e 145 ocorrências na primeira
+passada). A única exceção de piso de toque que resta está DECLARADA e por isso
+não é achado — e ela é COMPARTILHADA entre a régua e o portão, senão a régua
+repetiria 66 vezes um achado já decidido, e um relatório em que o ruído esconde
+o sinal é um relatório que ninguém lê inteiro.
+
 Lote **só de base web** — nada em `java/`, `res/` ou no manifesto, e nenhum
 método da ponte entrou ou mudou de forma.
 

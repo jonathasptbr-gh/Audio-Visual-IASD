@@ -54,7 +54,7 @@
 import { semRedeExterna } from './sem-rede.mjs';
 import { servirEstatico, abrirNavegador, esperar, esperarCortina, checar, falhas, porque, RAIZ_WEB }
   from './arnes.mjs';
-import { SUPERFICIES, SONDA, SEMENTE, ROTULO } from './geometria.mjs';
+import { SUPERFICIES, SONDA, SEMENTE, ROTULO, PISOS } from './geometria.mjs';
 
 // AS QUATRO TELAS DO PORTÃO, e por que não as oito da régua: cada combinação a
 // mais é o app inteiro montado outra vez, e o que se ganha depois destas é
@@ -72,17 +72,6 @@ const TELAS = [
   // 20px × a escala, então o corte começa em 1,3× e um pouco — a 1,3× a letra
   // cabe por ZERO, e "cabe por zero" não é uma correção, é sorte.
   { w: 360, h: 740, fonte: 1.50, nome: '360×740 · 1,5×' },
-];
-
-// AS EXCEÇÕES AO PISO DE TOQUE — uma linha por peça, com o seletor exato, o
-// piso que ela AINDA cumpre, e a razão. Nenhuma delas dispensa piso: elas
-// TROCAM de piso.
-const PISOS = [
-  {
-    sel: '.bible-grid--books .bible-cell', piso: 28,
-    porque: 'a grade de 66 livros — 66 alvos de 34px pedem 414px de altura e a '
-      + 'folha mede 280,5px a 360×640. Ver `--hit-denso` em controle.css.',
-  },
 ];
 
 const servidor = servirEstatico(RAIZ_WEB);

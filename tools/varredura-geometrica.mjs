@@ -57,7 +57,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
 import { servirEstatico, abrirNavegador, esperar, esperarCortina } from './arnes.mjs';
-import { TELAS, SUPERFICIES, SONDA, SEMENTE, ROTULO } from './geometria.mjs';
+import { TELAS, SUPERFICIES, SONDA, SEMENTE, ROTULO, PISOS } from './geometria.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)),
   '..', 'app', 'src', 'main', 'assets', 'web');
@@ -118,7 +118,7 @@ for (const t of TELAS) {
       continue;
     }
     await pg.waitForFunction(() => document.fonts.status === 'loaded').catch(() => {});
-    const r = await pg.evaluate(SONDA, { pisos: [] });
+    const r = await pg.evaluate(SONDA, { pisos: PISOS });
     relatorio.push({ tela: t.nome, sup: s.nome, achados: r.achados, nos: r.nos, erros });
     await pg.close();
   }
@@ -167,6 +167,12 @@ for (const l of relatorio) {
 console.log('\n════════ VARREDURA GEOMÉTRICA ════════');
 console.log(TELAS.length + ' telas × ' + SUPERFICIES.length + ' superfícies · '
   + total + ' ocorrências, ' + porChave.size + ' distintas\n');
+
+if (PISOS.length) {
+  console.log('── EXCEÇÕES AO PISO DE TOQUE (declaradas) ' + '─'.repeat(16));
+  for (const p of PISOS) console.log('  ' + p.sel + ' → ' + p.piso + 'px\n    ' + p.porque);
+  console.log('');
+}
 
 console.log('── O QUE CADA SUPERFÍCIE MOSTROU ' + '─'.repeat(25));
 for (const s of SUPERFICIES) {

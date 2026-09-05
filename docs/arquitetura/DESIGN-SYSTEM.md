@@ -1435,6 +1435,20 @@ HONESTO: o que rola sozinho lá dentro contribui zero, então o que sobra na con
   mede a caixa e não a janela. `display.css` já é assim inteiro (27 unidades
   `cq`, zero media queries) — ele projeta em qualquer TV, e é o mesmo problema.
 
+### Onde o app está hoje
+
+Depois das correções da v1.7.11, a varredura completa (16 superfícies × 9
+combinações de tela e fonte, da 360×640 à 430×900 e da fonte padrão ao 1,5× do
+"Ampliar" do Android) devolve **as 16 limpas e as cinco sondas em ZERO** —
+inclusive a única exceção de piso de toque que existe, que está DECLARADA
+(`--hit-denso`, a grade de 66 livros) e por isso não é um achado.
+
+Isso é o estado, não uma garantia: a varredura mede o que ela abre. Superfície
+nova entra na lista de `tools/geometria.mjs` no mesmo lote em que nasce — uma
+que não é aberta não tem achado nenhum, e um placar limpo sobre uma tela que
+não montou é indistinguível de um app correto (por isso o portão também afirma
+que toda superfície ABRIU e mostrou nós).
+
 ### A régua: `tools/varredura-geometrica.mjs`
 
 Ele abre cada superfície do app em cada combinação de tela × escala de fonte e
