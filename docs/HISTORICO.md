@@ -364,6 +364,49 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.8.6 — o diário respondeu, e a resposta era outra pergunta
+
+O `clone-diario` da v1.8.5 chegou ao campo e fez o trabalho dele. Duas linhas,
+no aparelho que RECEBE:
+
+```
+05/09/2026, 18:47:53  cedi: cedendo 4 item(ns) — 6,0 MB
+05/09/2026, 18:47:34  copiei: Não deu para falar com o outro aparelho. — parou em:
+```
+
+**O `parou em:` VAZIO é o achado.** `cloneOnde` é escrito na primeira linha do
+`cloneSincronizar`; vazio significa que a cópia **nunca chegou a pedir a lista**
+— ela parou no PAREAMENTO. E a frase sem parêntese é a segunda metade: o ramo
+de erro cita `r.erro` quando ele existe, então uma frase nua significa que `r`
+era **`null`** — os 60 s do `CALL_TIMEOUT_MS` vencendo.
+
+Isso é um desfecho que o app tratava como se fosse outro. Todo caminho do
+Kotlin preenche o `erro` (inclusive o `catch`), e os prazos do `pedirPar` somam
+16 s: um `null` de ponte ali significa que alguma coisa passou de 60 s **dentro
+de uma função que promete 16**. A frase que saía — *"Não deu para falar com o
+outro aparelho"* — manda procurar defeito na REDE quando o que venceu foi o
+prazo DA PONTE.
+
+Três correções, e nenhuma delas adivinha a causa:
+
+- **O `null` da ponte tem frase própria**, e ela nomeia a saída — o PONTO DE
+  ACESSO do celular, que é o que contorna uma Wi-Fi com `AP isolation` (a falha
+  muda deste recurso: servidor de pé, porta escutando, nenhum SYN chegando). É o
+  molde do ensino da recusa de transmissão, num lugar novo.
+- **O vigia do pedido** (`relogioDoPar`): passados 20 s o shell responde com
+  frase em vez de deixar a ponte vencer calada. Resolver duas vezes é
+  inofensivo (o `call()` apaga a entrada pendente na primeira), então o vigia
+  pode ser burro — quem os separa é um `AtomicBoolean`.
+- **O erro diz QUANTO demorou** (`quanto()`): 8 s de connect e 60 s de ponte
+  pedem consertos opostos, e sem o número não há como escolher.
+
+E o **pareamento entra no `cloneOnde`**: sem isso o `parou em:` sai vazio
+justamente na etapa que mais falha. A ausência daquele campo foi o que provou o
+achado desta vez — mas ela provou por acidente, e um diagnóstico não pode
+depender de um campo vazio significar alguma coisa.
+
+**Lote COM Release:** o vigia é Kotlin — `shellTag: "v1.8.6"`.
+
 ## v1.8.5 — o Registro salvo por cima do antigo, e a porta de ceder que não anotava
 
 Dois achados do Registro que o operador mandou dizendo *"persiste o mesmo
