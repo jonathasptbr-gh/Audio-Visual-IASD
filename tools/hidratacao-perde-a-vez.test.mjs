@@ -177,6 +177,96 @@ try {
   checar(corrida.repeat === 'one',
     'e durante a MESMA corrida a configuração foi aplicada (a senha vale só para a seleção)',
     corrida.repeat);
+  // ── 5. O TERCEIRO PAR: load × recarregarFavoritos (v1.8.0) ────────────────
+  //
+  // `recarregarFavoritos` e a UNICA funcao fora do `load()` que escreve
+  // `favSet` e `favItems`, e escrevia-os sem senha nenhuma. O `loadSeqCtl` nao
+  // a alcanca — ele resolve load x load, e ninguem a incrementava —, entao um
+  // `load()` que leu os favoritos ANTES de um `listRemove` voltava e aplicava a
+  // lista velha: o favorito excluido VOLTA para a tela, e fica, porque so quem
+  // mexe nos favoritos redesenha aquela secao.
+  //
+  // MEDIDO no `boot-nativo.test.mjs` sob carga, antes da correcao:
+  // `nosFavs: false` com `naLista: true` oito segundos depois da exclusao.
+  //
+  // A ORDEM E FORCADA A MAO, e nao esperada da maquina: o oraculo espera o
+  // `load()` PASSAR pela leitura dos favoritos e so entao exclui. Sem isso o
+  // percurso as vezes le depois da exclusao, acerta por acaso, e a reversao nao
+  // reprova — que e a definicao de um oraculo que mede o runner.
+  const semear = async () => pg.evaluate(async ({ a, b }) => {
+    for (const id of [a, b]) {
+      if (!(await AVDB.listIds('favs')).includes(id)) await AVDB.listAdd('favs', id);
+    }
+    await recarregarFavoritos();
+  }, ids);
+
+  // 5a. O HAZARD: a forma SEM senha perde a exclusao que chegou no meio.
+  await semear();
+  checar(await pg.evaluate(async ({ a }) => {
+    // A forma ANTIGA de `recarregarFavoritos`/da FASE 2: ler e aplicar sem
+    // perguntar se ainda e a vez de quem leu.
+    // OS DOIS PORTOES SAO O QUE TORNA O HAZARD DETERMINISTICO. Sem eles a
+    // ordem de conclusao decide, e MEDIDO ela cai quase sempre do lado bom: a
+    // hidratacao aplica ANTES do `recarregarFavoritos`, o certo escreve por
+    // ultimo, e o defeito nao aparece. O que se quer medir e a ordem RUIM —
+    // ler antes da exclusao e aplicar depois dela —, que e a que a maquina
+    // lenta produz sozinha.
+    let leu; let liberar;
+    const jaLeu = new Promise((pronto) => { leu = pronto; });
+    const portao = new Promise((pronto) => { liberar = pronto; });
+    const hidratarSemSenha = async () => {
+      const idsV = await AVDB.listIds('favs');
+      const itensV = await AVDB.listItems('favs');
+      leu();                               // leu com o item AINDA nos favoritos
+      await portao;                        // e so aplica depois da exclusao
+      favSet = new Set(idsV);
+      favItems = itensV;
+    };
+    const emVoo = hidratarSemSenha();
+    await jaLeu;
+    await AVDB.listRemove('favs', a);      // o operador exclui na frente dela
+    await recarregarFavoritos();
+    liberar();
+    await emVoo;                           // e ela termina DEPOIS
+    return favSet.has(a);                  // o excluido VOLTOU: o defeito
+  }, ids), 'aplicar os favoritos sem senha faz o item EXCLUIDO voltar (o defeito)',
+  String(await pg.evaluate(() => favItems.length)));
+
+  // 5b. O `load()` DE VERDADE, com a leitura dos favoritos ja passada.
+  await semear();
+  const favCorrida = await pg.evaluate(async ({ a }) => {
+    // O SINAL: `load()` avisa quando terminou de ler os favoritos, e o metodo
+    // volta ao original no mesmo instante — `recarregarFavoritos` logo abaixo
+    // chama o mesmo `listItems` e nao pode cair no espiao.
+    const orig = AVDB.listItems.bind(AVDB);
+    const passou = new Promise((pronto) => {
+      AVDB.listItems = async (lista) => {
+        const saida = await orig(lista);
+        if (lista === 'favs') { AVDB.listItems = orig; pronto(); }
+        return saida;
+      };
+    });
+    const emVoo = load();
+    await passou;                          // o load() JA leu os favoritos
+    await AVDB.listRemove('favs', a);      // e so entao a exclusao acontece
+    await recarregarFavoritos();
+    await emVoo;
+    return { noSet: favSet.has(a), naLista: favItems.some((m) => m.id === a) };
+  }, ids);
+  checar(favCorrida.noSet === false && favCorrida.naLista === false,
+    'com um load() em voo, a EXCLUSAO vence: o favorito nao volta para `favSet` nem para `favItems`',
+    JSON.stringify(favCorrida));
+
+  // 5c. E SEM exclusao concorrente a hidratacao CONTINUA trazendo os favoritos
+  //     — senao "nunca aplicar" passaria na metade acima.
+  await semear();
+  const favSozinho = await pg.evaluate(async ({ b }) => {
+    favSet = new Set(); favItems = [];     // a memoria de uma pagina recem-carregada
+    await load();
+    return { noSet: favSet.has(b), naLista: favItems.some((m) => m.id === b) };
+  }, ids);
+  checar(favSozinho.noSet === true && favSozinho.naLista === true,
+    'e sem exclusao nenhuma o load() RESTAURA os favoritos do banco', JSON.stringify(favSozinho));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

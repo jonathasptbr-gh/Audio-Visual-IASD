@@ -3004,6 +3004,23 @@ async function prepararMidia(file, kind) {
 // ordem e a mais antiga sobrescreveria o estado/render da mais nova. Só o
 // último load() aplica seu resultado (mesmo padrão do loadSeq do stage.js).
 let loadSeqCtl = 0;
+// ===== O TERCEIRO PAR DA HIDRATAÇÃO (v1.8.0) =====
+//
+// `loadSeqCtl` resolve load × load e `senhaDaCena` resolve load × send (v1.6.0).
+// O par que ficou sem guarda é **load × `recarregarFavoritos`**: aquela função
+// é a ÚNICA fora do `load()` que escreve `favSet` e `favItems`, e escrevia-os
+// sem participar de sequência nenhuma. Um `load()` que começou ANTES de um
+// `listRemove('favs')` volta com `myseq === loadSeqCtl` — nada o invalidou — e
+// aplica na FASE 2 a lista que leu ANTES da exclusão: *lost update*, a mesma
+// classe, pela terceira vez.
+//
+// O DESFECHO É VISÍVEL E PERMANENTE: o favorito excluído VOLTA para a tela
+// (o banco está certo, `favItems` é que não), e nada mais redesenha aquela
+// seção — `redesenharFavoritosNaBiblioteca` só é chamado por quem mexe nos
+// favoritos. A linha fica lá até o operador fechar e reabrir a Biblioteca.
+// MEDIDO no `boot-nativo.test.mjs` sob carga: `nosFavs: false` (saiu do banco)
+// com `naLista: true` (continua na tela) oito segundos depois.
+let favSeq = 0;
 /**
  * Redesenha a lista da aba atual.
  *
@@ -3067,6 +3084,9 @@ async function load(opts) {
   // a um toque na lista; a alternativa — uma segunda contagem só para o `send`
   // — é a divergência que o parágrafo acima recusa.
   const senhaDaCena = projecaoSeq;
+  // A senha dos FAVORITOS, pela mesma razão e no mesmo lugar: quem relê a lista
+  // enquanto esta função lê o banco chegou DEPOIS, e o que ela leu é velho.
+  const senhaDosFavoritos = favSeq;
 
   // ---- FASE 1: só leituras do IDB, em locais (nada de estado/DOM ainda) ----
   const cur = await AVDB.getState('current');
@@ -3119,8 +3139,13 @@ async function load(opts) {
   repeat = repeatV;
   plItems = plItemsV;
   opfsFolders = opfsFoldersV;
-  favSet = new Set(favIdsV);
-  favItems = favItemsV;
+  // OS FAVORITOS SÓ SÃO APLICADOS SE NINGUÉM OS RELEU (ver `favSeq`). Os dois
+  // andam JUNTOS: aplicar um e não o outro é a divergência que o KDoc de
+  // `recarregarFavoritos` existe para impedir.
+  if (favSeq === senhaDosFavoritos) {
+    favSet = new Set(favIdsV);
+    favItems = favItemsV;
+  }
   cronoSet = new Set(cronoIdsV);
   messages = messagesV;
   applyChronoPrefs(chronoPrefsV);
@@ -10399,9 +10424,23 @@ async function toggleFav(id, nome, btn) {
 // confirmar o que aconteceu. É o mesmo raciocínio (e o mesmo prazo) do
 // `renderLibrary` adiado em `toggleFav`.
 async function recarregarFavoritos(atrasoMs) {
+  // ===== ELA TAMBÉM LÊ TUDO ANTES DE ESCREVER QUALQUER COISA (v1.8.0) =====
+  //
+  // A senha é a de `favSeq`, e ela sobe AQUI — antes do primeiro `await` —,
+  // como o `++loadSeqCtl` do `load()`: é isto que faz um `load()` em voo
+  // descartar a lista que leu antes desta releitura. Sem ela o favorito
+  // excluído voltava para a tela e ficava.
+  //
+  // E OS DOIS ESCRITOS PASSARAM PARA DEPOIS DAS DUAS LEITURAS. `favSet` era
+  // escrito ENTRE os dois `await` — quem lesse os dois nesse vão via o conjunto
+  // já sem o item e a lista ainda com ele, que é o mesmo *lost update* em
+  // miniatura, dentro de uma função só.
+  const minhaVez = ++favSeq;
   const ids = await AVDB.listIds('favs');
+  const items = await AVDB.listItems('favs');
+  if (minhaVez !== favSeq) return;
   favSet = new Set(ids);
-  favItems = await AVDB.listItems('favs');
+  favItems = items;
   // AS ESTRELAS QUE ESTÃO À VISTA (v1.4.25) — ver `marcarFavoritos`. Aqui, e não
   // em cada porta que favorita: este é o único ponto que reconstrói `favSet`, e
   // o `renderLibrary` adiado do `toggleFav` só alcança a lista de baixo.

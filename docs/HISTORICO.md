@@ -460,6 +460,38 @@ faixa na query — cinco reversões nomeadas), as três regras PURAS no
 pareamento decide quem pode copiar o acervo inteiro, e por isso o `AcervoCessao`
 ficou sem Android no caminho que ela percorre.
 
+### E O TERCEIRO PAR DA HIDRATAÇÃO, achado pela campanha
+
+A campanha de determinismo deste lote reprovou o `boot-nativo.test.mjs` sob
+carga, e o vermelho intermitente era o ACHADO que a regra deste repositório
+promete: o bloco dos Favoritos saía com `nosFavs: false` e `naLista: true` —
+o item fora do banco e ainda na tela oito segundos depois.
+
+**A causa é PRÉ-EXISTENTE e é a terceira ocorrência da mesma classe.** O
+`load()` lê o banco por uma dezena de `await`s e só então escreve as variáveis
+do módulo: `loadSeqCtl` resolve load × load (v5.x) e `senhaDaCena` resolve
+load × send (v1.6.0). Faltava **load × `recarregarFavoritos`** — a única função
+fora do `load()` que escreve `favSet` e `favItems`, e que os escrevia sem
+participar de sequência nenhuma. Um `load()` que leu os favoritos ANTES de um
+`listRemove('favs')` volta com `myseq === loadSeqCtl` (nada o invalidou) e
+aplica a lista velha: *lost update*.
+
+**O desfecho é visível e PERMANENTE**, e é o que faz dele um defeito e não uma
+instabilidade de oráculo: o favorito excluído VOLTA para a tela, e fica — só
+quem mexe nos favoritos chama `redesenharFavoritosNaBiblioteca`, então nada
+mais redesenha aquela seção até o operador fechar e reabrir a Biblioteca.
+
+A correção é a senha `favSeq`, no molde do `cenaEhNossa` duas linhas acima, mais
+o `recarregarFavoritos` lendo as DUAS listas antes de escrever qualquer uma —
+`favSet` era escrito ENTRE os dois `await`, o mesmo defeito em miniatura dentro
+de uma função só.
+
+**O oráculo é o `hidratacao-perde-a-vez.test.mjs`, e o hazard é FORÇADO À MÃO**
+pelo motivo escrito lá desde a v1.6.0: um oráculo que depende da carga da
+máquina não guarda portão. Sem os portões a ordem de conclusão cai quase sempre
+do lado bom (MEDIDO) e a reversão não reprova. Três metades, a do meio provada
+por reversão: `{"noSet":true,"naLista":true}` — o excluído de volta.
+
 **Lote COM Release:** `SHELL_VERSION` 65, `minShell: 65`, `shellTag: "v1.8.0"`.
 ## v1.7.10 — a folha de leitura da Bíblia não cabia
 
