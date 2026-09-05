@@ -524,6 +524,44 @@ de outra sessão. E o `onRendererGone` da Activity chama `descartarPacote()`: o
 destino do SAF sobreviveria à morte do renderer, e o que ficaria no cartão do
 operador é meio acervo com nome de acervo inteiro.
 
+### Os OITO do CLONE celular a celular (shell 65)
+
+A biblioteca pela REDE, sem arquivo — ver a seção do recurso no `CLAUDE.md`.
+Aqui só o que este capítulo existe para dizer: **a divisão de trabalho**, e ela
+segue a regra geral do bloco acima (*o que espera uma PESSOA, ou precisa de um
+VEREDITO, entra pela ponte; BYTES entram pelo canal*).
+
+| entra por | o quê | por quê |
+|---|---|---|
+| **ponte** | `acervoCeder(rotulo)` · `acervoPararCessao()` | sobem e derrubam o servidor e o anúncio mDNS. Privilégio do Controle (invariante 9) |
+| **ponte** | `acervoPublicar(sessao, indice)` | o ÍNDICE inteiro como STRING — e é a **exceção declarada** ao princípio dos bytes: ele é uma lista de chaves e tamanhos (MEDIDO na ordem de centenas de kB para milhares de entradas), não os dados |
+| **canal** | `__avTelaMidia` | os BYTES de cada item — o MESMO canal do telão, sem uma linha nova. A rota `/acervo/item/` pede pelo barramento e serve o que for empurrado |
+| **ponte** | `acervoResponder(sim)` | o veredito de uma PESSOA |
+| **ponte** | `acervoProcurar(bool)` · `acervoEstado()` | ligar a varredura, e ler o que ela achou |
+| **ponte** | `acervoParear(endereco, porta, rotulo)` | o `POST /acervo/par` sai do SHELL, e não de um `fetch` da página — ver abaixo |
+| **ponte** | `acervoSoltar()` | solta o pareamento deste lado |
+
+**O PEDIDO DE PAREAMENTO NÃO PODE SAIR DA PÁGINA, e isso não é escolha:** ela
+roda em `https://` (invariante 1) e o outro celular serve `http://` — o
+navegador bloqueia a requisição antes de ela sair, e não há cabeçalho que a
+autorize. Pelo mesmo motivo existe o `AcervoProxy`, que traduz
+`…/clone/<resto>` em `http://<host>:<porta>/acervo/<resto>`.
+
+**A SESSÃO É CUNHADA PELO WEB**, e é ele quem a manda: quem monta a lista é o
+`controle.js`, e uma recarga da página monta OUTRA. O shell só valida a FORMA
+(ela entra numa rota) e recusa com 409 o pedido de uma sessão que não é a
+publicada — sem isso, uma recarga no meio de uma transferência de gigabytes
+escreveria o arquivo de uma coleção sob o caminho de outra, sem erro nenhum.
+
+**O TOKEN DO PAREAMENTO NÃO VOLTA PARA O WEB.** Ele é a credencial do outro
+aparelho e quem precisa dele é o proxy, que já o tem: mandá-lo à página seria
+pô-lo num lugar onde ele não faz falta — a mesma disciplina do `/saf/`, em que a
+ponte entrega o que SERVE e nunca o segredo.
+
+**A CONTAGEM DO ÍNDICE É PARSEADA NA PONTE**, e não no `AcervoCessao`: é o que
+mantém aquele arquivo sem uma linha de Android no caminho que o JUnit percorre —
+e o que ele decide é quem pode copiar o acervo inteiro.
+
 ### `compartilharTexto(txt)` — e por que ele não é o `openExternal` (shell 63)
 
 `ACTION_SEND` + `createChooser`. **`openExternal` faz o oposto do pedido**: ele

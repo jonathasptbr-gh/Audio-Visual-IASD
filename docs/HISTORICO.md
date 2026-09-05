@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.8.0** — O ARQUIVO ÚNICO ERA TUDO-OU-NADA, E ISSO ERA O DEFEITO. Pedido do operador, depois de o `.avpkg` falhar em 15 GB e de novo em 3,5 GB: *"vamos planejar um método mais gradual, algo que possa ser interrompido e continuado a qualquer momento sem risco de perder todo o trabalho … um método direto de comunicação … que se comunique diretamente com o outro app que vai clonar a biblioteca"*, e em seguida *"tente fazer um sistema de comunicação entre eles, para que eu não tenha de digitar um endereço, quanto mais automatizado melhor"*. **O NÚCLEO JÁ EXISTIA, e foi ele quem o nomeou**: *"já temos um sistema que busca online para saber se tem algo faltando, a biblioteca é a mesma, só muda a fonte"* — é o `songVariantsNeeded`/`syncCollection`, cuja lista do que falta é DERIVADA do disco a cada passada e nunca guardada. Daí a propriedade que o arquivo único nunca teve: *nenhum progresso pode ser perdido, porque nenhum progresso é anotado*. O CLONE celular a celular: mDNS para os dois se acharem sem ninguém digitar endereço (`AcervoDescoberta.kt`), pareamento COM confirmação do operador — o acervo NÃO herda a porta aberta do telão (`AcervoCessao.kt`) —, as rotas `/acervo/` no servidor que já existia (agora com DUAS razões de viver, como o `SessionService`), e o `AcervoProxy` porque a página é `https` e o outro celular serve `http`. O FORMATO não mudou: cada item é um fluxo dos MESMOS registros do `.avpkg`, e o aplicador virou UM só para as duas fontes. Ponte: oito métodos, `SHELL_VERSION` 65. Lote COM Release.
 - **v1.7.9** — A IMPORTAÇÃO NÃO ERA LENTA: ELA NÃO CABIA. Relato do operador: *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo estivesse corrompido. Verifique se é problema no leitor, ou é algum problema tamanho do arquivo."* **São os dois, um em cada camada.** (1) **O LEITOR** fazia `resp.blob()` — o arquivo INTEIRO materializado antes do primeiro byte: quinze gigabytes não cabem nem na memória nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da primeira num aparelho que já está cheio. (2) **O TAMANHO**, e este é estrutural: o caminho `/saf/` tem **teto de 2 GB**, porque o Chromium dimensiona toda resposta interceptada pelo `available()` do `InputStream` — um `int`. É a invariante 8 pelo lado que ninguém tinha olhado: acima de `Integer.MAX_VALUE` o web recebe o arquivo CORTADO, sem erro nenhum, e o cursor tropeça no meio de um registro. **A forma do conserto é a do `StreamProxy`, e não uma invenção**: `/saf/<token>?r=<ini>-<fim>`, com a faixa na QUERY e nunca num cabeçalho `Range` — com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que já é uma fatia. Sem cabeçalho não há `ParseRange` nem `ComputeBounds`, e o `available()` passa a ser o da JANELA: o teto some porque nenhuma resposta chega perto dele. O `SafJanela` faz SEEK de verdade (`openFileDescriptor` + `FileChannel.position`; `skip` só como plano B para provedor sem descritor posicionável — pular quatorze gigabytes lendo-os seria quadrático) e usa `AutoCloseInputStream`, porque `FileInputStream(pfd.fileDescriptor)` não é dono do descritor e vazaria um por janela. Do lado web, `pacoteFonteDaUrl` entrega FATIAS: `bytes()` para cabeçalhos e `blob()` para corpos, montado de pedaços de 8 MB. **A leitura antecipada CRESCE E ENCOLHE, e foi o oráculo que pegou isso** — com 4 MB fixos a conferência de um acervo lia 4 MB para aproveitar duzentos bytes, uma vez por registro; a regra virou o próprio percurso (sequência dobra até 1 MB, salto volta a 8 kB). `pickDoc` passou a devolver `size` (`-1` = o provedor não disse, que NÃO é `0`). **E mais um pedido:** a linha de "tudo" saiu da folha de exportação (*"está inútil agora que temos o agrupamento"*). Lote **com Release** (`SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.9"`).
 - **v1.7.8** — UM `load()` RELÊ O BANCO, E UM BLOB RELIDO É OUTRO OBJETO. Relato: *"Os mesmos problemas de miniaturas piscando da biblioteca, temos nas miniaturas piscando no cronograma ao excluir outro item."* **É a porta que a v1.7.4 deixou aberta, e o oráculo dela a nomeava por extenso**: aquele lote keou a `object-URL` de cada capa pelo BLOB, o que resolve o redesenho de 400 ms de um download — ali o blob é o mesmo OBJETO, porque quem o segura são as listas em MEMÓRIA (`libItems`, `favItems`). Mas `load()` as relê do IndexedDB, e a releitura devolve blobs novos para TODAS as capas de uma vez; e `load()` não é raro — ele roda em toda escrita no banco, e excluir um item é uma. A chave passou a ser **`id|tamanho|tipo`**, e cada pedaço responde a uma coisa: o `id` é o que atravessa a releitura, e o par `size`/`type` é a impressão digital que impede uma capa TROCADA de ser servida da memória (hoje nenhum caminho substitui a miniatura de um registro existente, e o dia em que um existir ele mudará o tamanho). Sem `id` a chave continua sendo o blob, que é o comportamento da v1.7.4: no pior caso, o de antes. **De quebra, o MESMO item em duas listas passa a ter UMA url** — `listItems('imports')` e `listItems('favs')` são duas leituras, então a mesma capa vinha como dois blobs e ocupava a memória duas vezes. O `miniaturas-estaveis.test.mjs` ganhou o bloco E (o Cronograma, excluindo outro item) e uma asserção nova no C (a mesma propriedade na Biblioteca, que é a outra metade da frase do relato): são dois hosts porque um tem balde próprio e o outro não. Duas reversões medidas — com a chave de volta no blob os dois reprovam, e com a varredura em no-op reprovam as duas que cobram a revogação. Lote **só de base web**.
 - **v1.7.6** — A GRADE DE CONFIGURAÇÕES TEM UMA COR SÓ, E O QUE GIRA É UM QUADRO. Três pedidos, e os dois primeiros são a mesma regra. (1) **NENHUM TILE APAGA**: *"O botão do girar no telão, está apagado no modo sem giro, mas todos os botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda diferença de estado é pelo icone, não pela cor."* A v1.4.40 acendeu os tiles que não têm "desligado" e deixou DOIS apagando — o fundo da letra e o giro —, e os dois **já tinham o estado no DESENHO** (a imagem riscada; o quadro na posição em que a mídia está): a luz era a segunda cópia da mesma resposta, gasta na única propriedade que este app já usa para outra coisa. **Apagado aqui quer dizer INDISPONÍVEL**, que é a queixa da v1.4.25, e enquanto a mesma tinta dizia *"você está no padrão"* as duas frases se confundiam na mesma grade. `qs-on` e o parâmetro `aceso` FICAM — morreu a política de usá-los para dizer estado, não a capacidade de apagar um tile de fato indisponível. **A consequência para o próximo tile é a soma de duas remoções** (a palavra saiu na v1.7.2, a cor sai agora): um estado que não caiba num desenho não cabe nesta grade. (2) **O QUE GIRA É UM QUADRO DE PAISAGEM**: *"troque o icone dele, use um icone de picture, paisagem. O próprio quadro vai girar e vai ser mais intuitivo que um seta circular rodando, pois vai literalmente representar em qual posição está a paisagem."* **O mecanismo não mudou uma linha** — o `#rotBtn` já desenhava o ícone na posição que ele descreve desde a v1.7.2; mudou o que ele vira. Uma seta girada é a AÇÃO desenhada duas vezes (ela já significa *"gire"*), e a 90° é só uma seta apontando para outro lado; um quadro girado é o ESTADO. O desenho é **assimétrico nos dois eixos, de propósito**, e é exigência dura: sem isso 0° e 180° ficam idênticos, e 90° e 270° também — quatro estados em dois desenhos (o sol no alto e o morro embaixo resolvem o vertical; o sol à direita e o morro à esquerda, o horizontal). **E O MORRO NÃO ATRAVESSA O QUADRO, o que foi MEDIDO**: um pico que toca as duas paredes com pouco céu acima é a ABA DE UM ENVELOPE, e a 180° vira o glifo universal de e-mail — quatro candidatos renderizados a 22px e a 58px, e os três que atravessavam liam-se assim. Ele **não é o `#icoImagem` do tile vizinho**, que é a armadilha que o `#icoWallpaper` já pagou nesta grade: quadro bem mais largo (21×13 contra 17×14), o SOL À DIREITA (lá está à esquerda) e um pico só, na metade esquerda, contra o recorte que atravessa o outro inteiro. O `#icoGirar` saiu do sprite junto (a regra deste repositório: um `<symbol>` sem consumidor viaja em todo aparelho sem desenhar nada), e a seta circular do desfazer sobre a PREVIEW fica: ela é INLINE desde a v1.4.45 exatamente para este dia, e responde outra pergunta. (3) **A ORDEM PASSOU A SER POR ASSUNTO**: *"reordene os botões: compartilhar, exportar e importar devem ser os tres itens da base"*. Ela era por NATUREZA (os sempre-acesos no topo, v1.4.40) e **essa ordem deixou de existir no mesmo lote** — nenhum tile apaga mais, então não há duas naturezas de LUZ para ordenar. Sobram as seis preferências da PROJEÇÃO em cima e as três coisas que se fazem com o APP fora dela embaixo, numa fileira inteira. E o `glifos.test.mjs` ganhou a OUTRA fonte de ícone do bundle: um `<use href="#ico…">` sem `<symbol>` falha igual a um glifo fora do subset — sem erro, só um vão —, e a operação que produz isso é a RENOMEAÇÃO deste lote. Varre nos dois sentidos, com as duas reversões provadas. Lote **só de base web**.
@@ -355,6 +356,110 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.8.0 — o arquivo único era tudo-ou-nada, e isso era o defeito
+
+**Pedido do operador**, depois de a importação do `.avpkg` falhar em 15 GB e, já
+com o leitor por janelas da v1.7.9 instalado, de novo em 3,5 GB (*"O pacote está
+danificado, o app não reconhece o conteúdo dele"*):
+
+> *"estamos tendo problemas com esse método, me parece que lidar com arquivos
+> grandes é um problema. vamos planejar um método mais gradual, algo que possa
+> ser interrompido e continuado a qualquer momento sem risco de perder todo o
+> trabalho. planeje duas opções: prosseguir com um modelo de arquivo de
+> exportação (zip ou uma simples pasta com vários Arquivos menores), ou um
+> método direto de comunicação, como usar uma conexão tipo quick share ou algo
+> do gênero, mas que se comunique diretamente com o outro app que vai clonar a
+> biblioteca... há uma forma de fazer essa transmissão direta?"*
+
+E, escolhida a segunda: *"Verifique se já não temos algo que possa ser o núcleo
+de índice e retomada, pois já temos um sistema que busca online para saber se tem
+algo faltando, a biblioteca é a mesma, só muda a fonte, mas os arquivos a serem
+checados é o mesmo. Além disso, pode seguir já diretamente para o sistema de
+celular para celular. Mas tente fazer um sistema de comunicação entre eles, para
+que eu não tenha de digitar um endereço, quanto mais automatizado melhor."*
+
+### O núcleo já existia, e quem o nomeou foi ele
+
+`songVariantsNeeded`/`syncCollection`: a lista do que falta é **derivada do disco
+a cada passada, nunca guardada**. Daí a propriedade que o arquivo único não tinha
+— *nenhum progresso pode ser perdido, porque nenhum progresso é anotado*.
+Interromper é fechar o app; continuar é abrir e mandar sincronizar de novo, e a
+lista sai menor.
+
+**E o FORMATO não mudou:** cada item do clone é um fluxo dos MESMOS registros que
+o `.avpkg` escreve. O aplicador virou **um só para duas fontes**
+(`pacoteAplicarFluxo`) — duas escritas da mesma regra divergiriam no primeiro
+ajuste, e aqui a divergência seria silenciosa (um caminho gravando a miniatura e
+o outro não, com os dois "funcionando"). O arquivo FICA: ele é o caminho de quem
+não tem rede em comum.
+
+### As decisões
+
+- **O ACERVO NÃO HERDA A PORTA ABERTA DO TELÃO.** Aquele servidor nasce sem
+  código de entrada de propósito, e a decisão continua certa: o que vaza por ele
+  são os comandos e as mídias carregadas durante a transmissão — o que a
+  congregação já está vendo. O acervo é o aparelho inteiro. Daí o
+  `POST /acervo/par` ficar AGUARDANDO e quem cede ver na tela quem pediu: não há
+  código a digitar (o pedido é *"quanto mais automatizado melhor"*) e também não
+  há porta aberta.
+- **O SERVIDOR PASSOU A TER DUAS RAZÕES DE VIVER** (telão · cessão), e só cai
+  quando as duas caem — o padrão do `SessionService`.
+- **O SHELL NÃO LÊ O ACERVO** (IndexedDB e OPFS moram dentro do WebView), então
+  a rota que não acha um item no cache **injeta um pedido no barramento** e serve
+  o que o Controle empurrar, pelo canal `__avTelaMidia` que a rota `/m/` já usa
+  toda semana. **Mas ela espera o item ficar COMPLETO**, ao contrário do `/m/`:
+  ali o crescimento sai por chunked para o `<video>` começar a tocar; aqui o
+  destino pede FAIXAS, e `servirMidia` só honra `Range` num item completo. O
+  prazo é de PARADA e não de duração.
+- **A SESSÃO DO ÍNDICE impede a corrupção silenciosa.** O item é pedido por
+  POSIÇÃO (um caminho de OPFS numa rota é a armadilha do `SafRegistry`), e
+  posição só vale enquanto a lista for a mesma — a página do Controle pode
+  recarregar no meio. Sessão diferente ⇒ 409, e o destino busca o índice de novo.
+  A página que volta REPUBLICA (`cloneRetomar`), porque o servidor sobrevive ao
+  documento e as receitas não.
+- **`NsdManager`, e não um QR nem um código.** É da plataforma e não pede
+  permissão nova (`CHANGE_WIFI_MULTICAST_STATE` já está declarada). Um QR
+  precisaria da CÂMERA, que este app nega sempre; o Wi-Fi Direct é redundante com
+  o ponto de acesso; e o **Quick Share não é aberto a um app para dirigir** — o
+  máximo é entregar um arquivo ao seletor do sistema, que é exatamente o arquivo
+  único que este lote existe para abandonar. Três armadilhas do `NsdManager`
+  fechadas: o resolve SERIALIZADO (dois de uma vez dão `FAILURE_ALREADY_ACTIVE` e
+  o aparelho não aparece na lista, sem erro), o próprio anúncio FILTRADO (o
+  Android renomeia sozinho em colisão) e só IPv4 privado.
+- **CONTEÚDO MISTO obriga o proxy:** a página roda em `https://` e o outro
+  celular serve `http://`. Host, porta e token ficam no shell — se o alvo viesse
+  por parâmetro, qualquer script neste origin ganharia um proxy de saída para a
+  rede local. **A faixa vai na QUERY** e um cabeçalho `Range` é recusado com 400
+  em voz alta (invariante 8).
+- **O `l` (os registros leves em lote) é SEMPRE buscado**, porque importar
+  `state` MESCLA: *"já tenho a chave"* não responde *"já tenho o conteúdo dela"*.
+  O lote existe porque a Bíblia mora em `state` com uma chave por capítulo —
+  mandar 3.600 chaves como 3.600 pedidos HTTP trocaria megabytes por horas.
+- **O tipo que o app não conhece é PULADO e CONTADO:** recusar o índice inteiro
+  deixaria o operador sem clone nenhum, e não contá-lo faria a tela anunciar
+  "tudo copiado" sobre uma cópia incompleta.
+
+### A grade de Configurações
+
+Ela passou de 9 para 11 tiles, e a asserção geométrica dos três oráculos que a
+mediam passou a medir a PROPRIEDADE que ela protegia: **a costura entre as duas
+naturezas cai numa borda de fileira**. A v1.7.6 media a última fileira CHEIA — um
+atalho verdadeiro enquanto o grupo do aparelho tinha exatamente três tiles (com
+6 + 3 as duas perguntas dão a mesma resposta), e que se separou dela agora.
+
+### Oráculos
+
+`clone-de-outro-celular.test.mjs` (a LIGAÇÃO, em dois contextos de navegador como
+dois celulares: o que falta, a RETOMADA medida em número de PEDIDOS, o 409 e a
+faixa na query — cinco reversões nomeadas), as três regras PURAS no
+`pacote.test.mjs`, e `AcervoCessaoTest` em JUnit — a máquina de estados do
+pareamento decide quem pode copiar o acervo inteiro, e por isso o `AcervoCessao`
+ficou sem Android no caminho que ela percorre.
+
+**Lote COM Release:** `SHELL_VERSION` 65, `minShell: 65`, `shellTag: "v1.8.0"`.
 
 ---
 

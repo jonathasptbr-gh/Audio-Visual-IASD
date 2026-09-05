@@ -28,12 +28,13 @@ espelhar o celular.
 | 9 | [Telão por comandos](#telão-por-comandos-o-telão-nas-telas-da-rede-local) | as telas da rede local |
 | 10 | [Séries do YouTube](#séries-do-youtube-o-álbum-provai-e-vede-2026) | os álbuns oficiais da Biblioteca |
 | 11 | [A aba de cifra](#a-aba-de-cifra-acordes-ao-lado-da-letra) | acordes sobre a letra, sob demanda |
-| 12 | [O pacote de transferência](#o-pacote-de-transferência-o-acervo-num-arquivo) | levar a biblioteca para outro aparelho |
-| 13 | [A abertura por trás dos panos](#a-abertura-por-trás-dos-panos) | a cortina, o tema no primeiro quadro |
-| 14 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** |
-| 15 | [Divergências web × nativo](#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
-| 16 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
-| 17 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
+| 12 | [O pacote de transferência](#o-pacote-de-transferência-o-acervo-num-arquivo) | levar a biblioteca para outro aparelho, num arquivo |
+| 13 | [O clone celular a celular](#o-clone-celular-a-celular-a-biblioteca-pela-rede) | levá-la pela REDE, sem arquivo e retomável |
+| 14 | [A abertura por trás dos panos](#a-abertura-por-trás-dos-panos) | a cortina, o tema no primeiro quadro |
+| 15 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** |
+| 16 | [Divergências web × nativo](#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
+| 17 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
+| 18 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
 
 **Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
 corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
@@ -42,7 +43,7 @@ sai a escada da transmissão, e a faixa de álbum que nunca é marcada como NO A
 —, e é arquivo para esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
-subsistema do shell, mais a tabela que diz onde cada um dos 29 arquivos é
+subsistema do shell, mais a tabela que diz onde cada um dos 34 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede — inclusive o celular como PONTO DE ACESSO, que
@@ -206,7 +207,23 @@ app/src/main/
 │   │                            #   que não é um `Network` e não aparece no
 │   │                            #   ConnectivityManager
 │   ├── EspelhoCert.kt           # o .p12 do TLS opcional (sem UI desde a v5.196)
-│   └── EspelhoDiag.kt           # o DIÁRIO da transmissão — devolve JSON, não frase
+│   ├── EspelhoDiag.kt           # o DIÁRIO da transmissão — devolve JSON, não frase
+│   │                            # ↓ CLONE CELULAR A CELULAR (ver a seção)
+│   ├── AcervoDescoberta.kt      # os dois celulares se acham sozinhos (mDNS,
+│   │                            #   `NsdManager`). Sem dependência e sem
+│   │                            #   permissão nova. Três armadilhas fechadas: o
+│   │                            #   resolve SERIALIZADO (dois de uma vez dão
+│   │                            #   `FAILURE_ALREADY_ACTIVE` e o aparelho
+│   │                            #   simplesmente não aparece), o próprio
+│   │                            #   anúncio FILTRADO, e só IPv4 privado
+│   ├── AcervoCessao.kt          # quem CEDE: o pareamento COM confirmação do
+│   │                            #   operador — o acervo NÃO herda a porta
+│   │                            #   aberta do telão — e o índice publicado pelo
+│   │                            #   Controle. PURO (relógio injetado), com JUnit
+│   └── AcervoProxy.kt           # quem CLONA: a página é `https` e o outro
+│                                #   celular serve `http`. A faixa vai na QUERY
+│                                #   e a resposta é um 200 seco (invariante 8) —
+│                                #   o molde do StreamProxy
 └── res/
     ├── drawable/                # ic_image{,_off} — a cortina, na notificação
     │                            #  + ic_stop — PARAR (o sistema não tem um)
@@ -241,7 +258,7 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**31 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**34 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -647,6 +664,33 @@ window.AVNative = {
                        //   sem erro, sem arquivo. Sem prazo: quem responde é
                        //   uma pessoa no seletor
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
+  // ---- O CLONE DA BIBLIOTECA, celular a celular — ver a seção do recurso ----
+  acervoCeder(rotulo), // LIGA a cessão: sobe o servidor (o MESMO do telão, que
+                       //   agora tem DUAS razões de viver) e anuncia este
+                       //   aparelho por mDNS. → o mesmo objeto do
+                       //   `acervoEstado`, com `erro` quando não deu
+  acervoPararCessao(), // síncrono e sem resposta, como o `espelhoDesligar`.
+                       //   NÃO derruba o telão
+  acervoPublicar(sessao, indice), // → bool: a LISTA DE DECISÃO, como string.
+                       //   É a única coisa deste recurso que atravessa a ponte
+                       //   como texto — os BYTES vão pelo `__avTelaMidia`, o
+                       //   mesmo canal do telão. A `sessao` é cunhada pelo WEB
+                       //   (é ele que monta a lista): uma recarga da página
+                       //   monta OUTRA, e é ela que faz o pedido de um item
+                       //   antigo levar 409 em vez de entregar o arquivo errado
+  acervoResponder(sim),// o operador PERMITIU ou RECUSOU. Síncrono
+  acervoProcurar(bool),// procura (ou para de procurar) aparelhos cedendo. A
+                       //   lista chega pelo `acervoEstado` — o mDNS responde
+                       //   quando responde, e uma Promise aqui prometeria uma
+                       //   resposta que não existe
+  acervoParear(endereco, porta, rotulo), // → { estado }: `aguardando`,
+                       //   `pareado`, `recusado`, `ocupado`, `nao-cede`, `erro`.
+                       //   O pedido sai do SHELL e não de um `fetch` da página:
+                       //   o outro celular serve `http://` e esta página roda em
+                       //   `https://`. O TOKEN não volta — ele fica no proxy
+  acervoSoltar(),      // solta o pareamento deste lado
+  acervoEstado(),      // → { cessao, achados, descoberta, pareado, proxy,
+                       //     endereco, porta } — os dois papéis numa leitura só
   // ---- A MEDIÇÃO DE ALCANCE — ver `docs/MEDICAO-DE-ALCANCE.md` ----
   farolEstado(),       // → { conta, ultimo, diag }: SÓ LEITURA, e o consumidor
                        //   é a linha "Alcance:" do Registro, que responde "o
@@ -656,7 +700,7 @@ window.AVNative = {
                        //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
-São **55 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **63 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -724,7 +768,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **64**, e ele é o **PISO**: o bundle declara `minShell: 64`, então
+Hoje vale **65**, e ele é o **PISO**: o bundle declara `minShell: 65`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -737,7 +781,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 63 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 65 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -799,7 +843,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 64`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 65`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -3002,6 +3046,143 @@ lenta e muda continua produzindo o arquivo certo.
 
 ---
 
+## O clone celular a celular (a biblioteca pela rede)
+
+O acervo de um aparelho copiado para outro **pela rede local**, sem arquivo
+nenhum, e **retomável a qualquer momento**. Pedido do operador depois de o
+`.avpkg` falhar em 15 GB e de novo em 3,5 GB: *"vamos planejar um método mais
+gradual, algo que possa ser interrompido e continuado a qualquer momento sem
+risco de perder todo o trabalho … um método direto de comunicação … que se
+comunique diretamente com o outro app que vai clonar a biblioteca"*, e em
+seguida *"tente fazer um sistema de comunicação entre eles, para que eu não
+tenha de digitar um endereço, quanto mais automatizado melhor"*.
+
+```
+ ┌──────── celular A (CEDE) ────────┐        ┌──── celular B (CLONA) ────┐
+ │ mDNS: "Galaxy A54 · 612 · 14 GB" │◄──────►│ acha na lista, sem digitar│
+ │ POST /acervo/par → o operador    │        │  ↓ "Permitir?" na tela de A│
+ │   toca em PERMITIR               │        │ GET /clone/indice          │
+ │ GET /acervo/indice ──────────────┼───────►│  ↓ o que FALTA no disco    │
+ │ GET /acervo/item/<sessao>/<n>    │        │ GET /clone/item/…?r=a-b    │
+ │   ↑ o shell PEDE ao Controle     │        │  ↓ pacoteAplicarFluxo      │
+ │     e serve o que for empurrado  │        │    (o MESMO do .avpkg)     │
+ └──────────────────────────────────┘        └────────────────────────────┘
+```
+
+### O núcleo já existia, e quem o nomeou foi o operador
+
+*"Já temos um sistema que busca online para saber se tem algo faltando, a
+biblioteca é a mesma, só muda a fonte, mas os arquivos a serem checados é o
+mesmo."* É o `songVariantsNeeded`/`syncCollection`: **a lista do que falta é
+DERIVADA do disco a cada passada, nunca guardada.** Daí a propriedade que o
+arquivo único nunca teve — *nenhum progresso pode ser perdido, porque nenhum
+progresso é anotado*. Interromper é fechar o app; continuar é abrir e mandar
+sincronizar de novo, e a lista sai menor.
+
+**O FORMATO NÃO MUDOU:** cada item é um fluxo dos MESMOS registros que o
+`.avpkg` escreve, e quem os aplica é o MESMO `pacoteAplicarFluxo` — um aplicador
+para duas fontes. O arquivo FICA, porque ele é o caminho de quem não tem rede em
+comum (o cartão, o cabo).
+
+### As decisões que precisam estar ditas
+
+- **O ACERVO NÃO HERDA A PORTA ABERTA DO TELÃO.** O servidor das telas nasce sem
+  código de entrada de propósito, e a decisão continua certa: o que vaza por ele
+  são os comandos e as mídias **carregadas durante a transmissão** — o que a
+  congregação já está vendo. O acervo é o aparelho inteiro: todo arquivo
+  importado, o Cronograma, o histórico, as preferências. Daí o `POST /acervo/par`
+  ficar **AGUARDANDO** e quem cede ver na tela quem pediu. Não há código a
+  digitar (o pedido é *"quanto mais automatizado melhor"*) e também não há porta
+  aberta: o que autoriza é uma pessoa tocando em Permitir.
+- **O SERVIDOR TEM DUAS RAZÕES DE VIVER** — o telão e a cessão —, e só cai
+  quando as duas caem. É o padrão do `SessionService` (cena · transmissão), e
+  existe pelo mesmo motivo: desligar uma não pode derrubar a outra, e num culto
+  as duas podem estar no ar.
+- **O SHELL NÃO LÊ O ACERVO**, e é isso que desenha o resto. Ele mora no
+  IndexedDB e no OPFS, dentro do WebView — alcançá-lo seria mexer no
+  armazenamento privado do Chromium. Então o ÍNDICE chega inteiro pela ponte
+  (`acervoPublicar`, uma string de centenas de kB: é uma lista de chaves e
+  tamanhos, nunca os dados) e cada ITEM chega pelo canal `__avTelaMidia`, o
+  MESMO que a rota `/m/` usa em produção toda semana. A rota que não acha o item
+  no cache **injeta um pedido no barramento** e espera o empurrão.
+- **MAS ELA ESPERA O ITEM FICAR COMPLETO**, e é a única diferença com o `/m/`.
+  Lá o item em crescimento sai por chunked de propósito (o `<video>` começa a
+  tocar sem esperar o fim); aqui não há nada tocando, o destino pede FAIXAS, e
+  `servirMidia` só honra `Range` num item completo. O prazo é de **parada** e
+  não de duração: enquanto os bytes andam, a espera continua — um teto absoluto
+  mataria justamente os arquivos que mais custam a refazer.
+- **A SESSÃO DO ÍNDICE É O QUE IMPEDE A CORRUPÇÃO SILENCIOSA.** O item é pedido
+  por POSIÇÃO (caminhos de OPFS e chaves de `state` têm barras e dois-pontos, e
+  um id cru numa rota é a armadilha que o `SafRegistry` já documenta), e posição
+  só vale enquanto a lista for a MESMA. A página do Controle pode recarregar no
+  meio (OTA, morte do renderer) e montar outra. Sessão diferente ⇒ **409**, e o
+  destino busca o índice de novo e continua de onde estava. Sem isso, uma
+  recarga no meio de uma transferência de gigabytes escreveria o arquivo de uma
+  coleção sob o caminho de outra — sem erro em lugar nenhum.
+  - **E A PÁGINA QUE VOLTA REPUBLICA** (`cloneRetomar`, na carga): o servidor
+    sobrevive ao documento, mas as receitas do índice não. Sem ela o outro
+    celular pediria itens de uma sessão que ninguém sabe mais montar.
+- **A DESCOBERTA É `NsdManager`, e não um QR nem um código.** Ele é da
+  PLATAFORMA (nenhuma dependência) e **não pede permissão nova** — o app já
+  declara `CHANGE_WIFI_MULTICAST_STATE`, que o serviço da transmissão exige. Um
+  QR precisaria da CÂMERA, que este app NEGA sempre; o Wi-Fi Direct é redundante
+  com o ponto de acesso que já roda; e o **Quick Share não é aberto a um app
+  para DIRIGIR** — o máximo é entregar um arquivo ao seletor do sistema, que é
+  o arquivo único tudo-ou-nada que este recurso existe para abandonar.
+  - **NENHUM CONTEÚDO DO ACERVO VAI NO ANÚNCIO.** Ele é multicast: todo aparelho
+    da rede o recebe sem pedir nada. O TXT leva o rótulo, a contagem e o peso —
+    o bastante para reconhecer o celular certo (*"Galaxy A54 · 612 itens ·
+    14,2 GB"*) e nada além.
+  - **O RESOLVE É SERIALIZADO.** `resolveService` não aceita dois pedidos ao
+    mesmo tempo em boa parte das versões do Android: o segundo volta em
+    `FAILURE_ALREADY_ACTIVE` e o aparelho **simplesmente não aparece na lista**,
+    sem erro em lugar nenhum.
+- **CONTEÚDO MISTO OBRIGA O PROXY.** A página roda em `https://` (invariante 1)
+  e o outro celular serve `http://` — o `fetch` morre antes de sair, e não há
+  cabeçalho que o autorize (subir o outro lado em TLS exigiria o `.p12` que ele
+  não tem). Daí o `AcervoProxy`: `…/clone/<resto>` sai como
+  `http://<host>:<porta>/acervo/<resto>`, com a credencial. **Host, porta e
+  token ficam no shell** — se o alvo viesse por parâmetro, qualquer script neste
+  origin ganharia um proxy de saída para a rede local.
+- **A FAIXA VAI NA QUERY, e um cabeçalho `Range` é recusado com 400 em voz
+  alta.** É a invariante 8: o `InputStream` de um `shouldInterceptRequest` é o
+  recurso INTEIRO a partir do byte 0, e quem aplica o `Range` é o WebView, por
+  cima do que o app entregou. Atender seria entregar bytes deslocados sem erro
+  em lugar nenhum.
+- **TRÊS TIPOS DE ITEM, e a pergunta de cada um** (`AVPacote`, PURO com
+  oráculo):
+
+  | tipo | o que é | "eu já tenho?" |
+  |---|---|---|
+  | `l` | os registros LEVES em lote (as chaves de `state`, o catálogo) | **nunca** |
+  | `m` | uma mídia inteira (registro + bytes + miniatura + páginas) | `getMedia(id)` |
+  | `o` | um arquivo do OPFS, com o registro de catálogo dele junto | o caminho ABRE |
+
+  **O `l` é sempre buscado, e isso é decisão:** importar `state` MESCLA, então
+  *"já tenho a chave"* não responde *"já tenho o conteúdo dela"* — um Cronograma
+  com dois itens e um com duzentos têm a mesma chave. O preço é medido e pequeno
+  (a Bíblia, o maior morador de `state`, são ~2 MB por versão), e o LOTE existe
+  para isso: mandar 3.600 chaves como 3.600 pedidos HTTP trocaria megabytes por
+  horas.
+- **O QUE O APP NÃO CONHECE É PULADO E CONTADO.** Um tipo vindo de um aparelho
+  mais atualizado não pode recusar o índice inteiro (o operador ficaria sem
+  clone nenhum) nem passar em silêncio (a tela anunciaria "tudo copiado" sobre
+  uma cópia incompleta). Ele vira uma frase no fim, mandando atualizar.
+- **A PERGUNTA AO DISCO É UMA VARREDURA SÓ**, nunca um `getMedia` por item: um
+  acervo tem milhares de entradas, e seriam milhares de transações em fila. É a
+  mesma economia do `AVDB.mediaResumo`.
+- **UM CLONE POR VEZ.** Não é limite de recurso: é o pareamento ter um DONO, e o
+  operador saber quem está copiando.
+
+Oráculos: **`pacote.test.mjs`** (as três regras PURAS), **`clone-de-outro-celular.test.mjs`**
+(a LIGAÇÃO, em dois contextos de navegador como dois celulares — o que falta, a
+retomada medida em PEDIDOS, o 409 e a faixa na query) e **`AcervoCessaoTest`**
+(a máquina de estados do pareamento, em JUnit: ela decide quem pode copiar o
+acervo inteiro, e nasceu com oráculo pelo mesmo argumento que criou o
+`EspelhoParesTest`).
+
+---
+
 ## A abertura por trás dos panos
 
 O app piscava ao abrir: o tema escuro aparecia antes do claro, o Modo Fácil
@@ -3876,6 +4057,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
 | Download minimizado | a aba continua baixando | **foreground service + wake lock**; sem isso o processo é congelado |
 | **Levar a biblioteca para outro aparelho** | **não existe** (não há SAF nem canal de bytes: um `<a download>` sobre um Blob de gigabytes não é caminho) | **um arquivo `.avpkg`** (shell 63) — ver a seção do recurso. Exportar abre o "Salvar como" do sistema e empurra os bytes pelo canal `__avPacote`; importar entra por `pickDoc` e lê o arquivo por JANELAS (`/saf/<token>?r=<ini>-<fim>`, shell 64) — nunca inteiro, porque o caminho `/saf/` tem teto de 2 GB e um `resp.blob()` de quinze gigabytes não cabe em lugar nenhum. **Só ACRESCENTA**: nada que já esteja no aparelho é substituído |
+| **Clonar a biblioteca de outro celular** | **não existe** (navegador não abre `ServerSocket`, e um `fetch` de `http://` a partir de `https://` é bloqueado) | **pela REDE, sem arquivo** (shell 65) — ver a seção do recurso. Os dois aparelhos se acham por mDNS; quem cede AUTORIZA na tela; o destino pergunta ao PRÓPRIO disco o que falta e busca só isso, em pedaços. Retomável por construção: nada do progresso é anotado |
 | **Compartilhar o link do app** | `navigator.share`, onde o navegador o tiver | **`compartilharTexto`** (shell 63) → `ACTION_SEND` + `createChooser`. O WebView do Android **não** implementa a Web Share API, então este era o único caminho — e sem ele não havia, de dentro do app, forma nenhuma de passá-lo adiante |
 | Abertura do app | a página pisca igual, e ninguém tem o que fazer a respeito | **a CORTINA** (`#splash`) mais o `data-tema` escrito no `<head>` antes do primeiro quadro. O prazo que a levanta mora no mesmo script inline, e não no `controle.js`: um bundle que nem chega a ser parseado tem de terminar com o app À VISTA |
 | Atualização da base web | recarregar a página | **OTA** |
@@ -4317,6 +4499,7 @@ mundo anterior por outro caminho.
 | oráculo | o que cobre, e por que existe |
 |---|---|
 | `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E A PERNA DA RAIZ** (v1.5.15), que a v1.5.14 não media e por isso deixou passar dois defeitos: a PLACA de uma coleção da raiz tem degrau de verdade contra o poço em volta **e vale o MESMO que o card de álbum de dentro de uma seção** — sem essa segunda metade a faixa continua pousando em duas cores conforme onde a coleção mora, que é o relato; o `top` da tampa da raiz é ZERO, medido ao lado do da tampa aninhada na mesma passada (um `top` escrito por TIPO passa numa das duas e reprova na outra); e o primeiro bloco começa NO TOPO do scrollport, porque `padding` de um scroller é scrollport e a lista rola por ele à vista. A régua desta última é a GEOMETRIA, nunca `paddingTop` lido de volta: o vão pode voltar por qualquer caminho. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40 → v1.7.6): a grade tem UMA COR SÓ e todo tile é aceso — apagado, neste app, quer dizer INDISPONÍVEL —, **e o estado mora no DESENHO**: `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. **A GUARDA MUDOU DE LUGAR, não de força**: ela era *"algum tile ainda apaga"* (a metade que impedia o conserto preguiçoso de acender tudo), e o pedido do operador revogou a política — hoje é o CANAL que ficou sozinho, medido no `display` computado de cada `<use>`: o fundo da letra fica aceso nos DOIS estados **e troca o desenho pintado**, o que reprova quem apagar a regra de CSS do par e ficar com a classe certa sobre dois desenhos empilhados. Mais o GIRO aceso a 0°, que é o tile que o pedido nomeia, e a ORDEM por ASSUNTO (compartilhar/exportar/importar são a fileira da base) fechando em fileiras EXATAS — um décimo tile põe a costura entre as duas naturezas no meio de uma linha. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
+| `clone-de-outro-celular.test.mjs` | **o clone CELULAR A CELULAR**, em dois contextos de navegador como dois celulares. O `pacote.test.mjs` prende a REGRA; este prende a LIGAÇÃO, que falha de outro jeito — a regra continua certa e o acervo não chega. As três promessas que ele mede são MUDAS: o item que fica para trás (a cópia termina sem erro e o operador descobre no sábado), a RETOMADA — medida em número de PEDIDOS, porque uma segunda passada que rebaixe tudo de novo *funciona*, só leva horas — e a FAIXA NA QUERY, que é a invariante 8 (com um cabeçalho `Range` o WebView aplicaria o deslocamento duas vezes, e o que chegaria ao acervo seriam bytes deslocados). Mais o 409 do índice remontado, que NÃO é retentável. Cinco reversões nomeadas |
 | `pacote-ida-e-volta.test.mjs` | **o pacote de um aparelho para o outro**, em DOIS contextos de navegador com armazenamentos separados — o `pacote.test.mjs` prende a regra, este prende a LIGAÇÃO, que falha com a regra certa e o acervo não chegando. Nada é comparado contra o que a exportação achou que escreveu: afirma-se o que o SEGUNDO aparelho tem depois. Cobre a imagem de fundo da estrofe (que NENHUM registro do catálogo nomeia — é ela que prova que a varredura é do DISCO), o `stream` que não atravessa, a pasta do aparelho que fica para trás, e a promessa inteira: importar DE NOVO, com o local já diferente, não apaga o renomeado nem a preferência de quem importou — e a lista de ids se SOMA. **E COMO ELE É LIDO** (v1.7.9), que é o que não tem sintoma num arquivo pequeno — o percurso inteiro dos outros blocos passava com o leitor que não cabia: o arquivo é pedido por JANELAS e NUNCA de uma vez (um pedido sem faixa é o `resp.blob()` de volta, e é ele que não cabe em quinze gigabytes), nenhuma janela passa do PEDAÇO (acima do teto do `SafJanela` o aparelho devolve o arquivo CORTADO, sem erro nenhum) e a CONFERÊNCIA não lê os corpos — o total lido fica perto do tamanho do arquivo, não perto do dobro; foi esta que pegou a leitura antecipada fixa. A rota do próprio oráculo fala o MESMO contrato do `SafJanela.kt`: um `blob:` — que era o que ele entregava — não tem query nenhuma, e por ele o leitor novo nem sairia do lugar |
 | `linha-da-preparacao.test.mjs` | **a linha de uma PREPARAÇÃO não é a de um download** (v1.7.1), e as metades falham CALADAS. A LEGENDA ocupa a POSIÇÃO DO SUBTÍTULO — a pergunta é de ÁRVORE (dentro da coluna de texto e DEPOIS do nome), porque um `.dl-prog` solto na `.row` passa num teste de presença e aparece noutro lugar da linha — e ela ANDA, página a página, vinda de quem TEM os números (nem a linha nem o oráculo parseiam frase nenhuma). O ícone: preparar uma apresentação não baixa byte nenhum, e a seta prometia bytes — a regra de v1.4.19 (*o ícone segue a LEGENDA*) num lugar novo, com a REVERSÃO ao lado, porque a seta ACENDE num download de verdade e APAGA de volta quando a legenda deixa de prometê-los. **E o que a v1.7.4 acrescentou:** a asserção NEGATIVA do DESENHO DO NÚMERO — nem percentual solto (até a v1.7.1) nem trilho (só a v1.7.1) —, que é o par exato da que o lote anterior escreveu; e o `⋮` cedendo a COLUNA, em três metades que nenhuma basta sozinha (o cancelar está lá com a caixa EXATA do `⋮` de uma linha vizinha sem trabalho — nunca um número escrito no teste —, a fileira de opções NÃO está, e o toque CANCELA de verdade: a linha sai e nenhuma apresentação nasce). Mais a AUSÊNCIA em asserção própria: sem alça de cancelamento não há botão. **A linha é endereçada pelo NOME** — MEDIDO, 1 reprovação em 8 rodadas a 3× de carga com `querySelector`: as duas metades montam uma linha cada, e sob carga a de baixo media a seta da de cima |
 | `miniaturas-estaveis.test.mjs` | **a `object-URL` de uma capa é do ITEM, não do render** (v1.7.4, com a chave corrigida na v1.7.8). Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante processos de download"*. Um teste de "a capa aparece" passa nas DUAS versões — ela aparece, só que um quadro depois, três vezes por segundo —, então o que se afirma é a IDENTIDADE da URL entre dois renders. Cinco metades: a URL sobrevive ao redesenho de 400 ms, ela continua VÁLIDA (uma igual e revogada seria o defeito piorado), o que SAI de cena é recolhido (sem isto "nunca revogar" passaria — e uma object-URL viva segura o blob inteiro), a PASTA DO APARELHO, que é o que o desenho pode quebrar sem sintoma (o corpo dela é montado por uma função ASSÍNCRONA, isto é, DEPOIS de o balde do render ter sido devolvido, e sem um balde próprio a varredura seguinte apaga aquelas capas da tela) e — **desde a v1.7.8** — a EXCLUSÃO, que é o caso que a chave por BLOB deixava passar: excluir escreve no banco, o `load()` relê, e um blob relido é outro objeto. Esta última é medida nos DOIS hosts do relato (a Biblioteca no bloco C, o Cronograma no E), porque um tem balde próprio e o outro não. Cada asserção nova tem a reversão nomeada e reexecutada |
@@ -4416,11 +4599,14 @@ adivinhado; é a **inversão da invariante 8** escrita como código),
 `EspelhoInterfacesTest` (EM QUE INTERFACE o socket abre — em PARES, e o par que
 carrega o arquivo é o `p2p-wlan0-0`/`192.168.49.1` do Wi-Fi Direct: privado, no
 ar, sem `Network` que o reivindique, a forma EXATA que a regra procura, e no ar
-durante todo culto com Miracast) e `TrilhaAudioTest`
+durante todo culto com Miracast), `TrilhaAudioTest`
 (qual trilha de áudio vai ao telão — o defeito mais silencioso deste caminho:
 tudo funciona, e o testemunho está em inglês na frente da congregação; doze casos
 **em pares**, o que a regra passou a recusar e o que ela não pode ter recusado
-junto).
+junto) e `AcervoCessaoTest` (a máquina de estados do PAREAMENTO DO CLONE, que
+decide quem pode copiar o acervo inteiro deste aparelho — daí o `AcervoCessao`
+ter sido mantido sem Android no caminho que ela percorre: relógio injetado,
+base64 escrito à mão, parse do índice na ponte).
 
 **Duas regras de método que ficam:**
 
@@ -4816,19 +5002,54 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.7.9 · APK v1.7.9** · `SHELL_VERSION` **64** ·
-bundle com `minShell: 64` e **`shellTag: v1.7.9`** — o shell 64 é o **PISO**:
+**Versão atual: base web v1.8.0 · APK v1.8.0** · `SHELL_VERSION` **65** ·
+bundle com `minShell: 65` e **`shellTag: v1.8.0`** — o shell 65 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
-**E ESTE LOTE PEDE RELEASE.** A ponte mudou de FORMA (`pickDoc` passou a
-devolver `size`) e o contrato do `/saf/` ganhou a JANELA — as duas coisas só
-chegam instalando um APK. O `shellTag` segura o bundle até a Release existir, e
-sem ele a metade web chegaria sozinha à frota: `alvo.size` viria `undefined`, o
-leitor pararia em *"não foi possível ler o tamanho"* e a importação ficaria
-IMPOSSÍVEL num aparelho em que ela já não funcionava — o defeito trocado por
-outro, que é o pior desfecho de publicar meio lote.
+**E ESTE LOTE PEDE RELEASE.** A ponte ganhou OITO métodos e o shell ganhou três
+arquivos (`AcervoCessao`, `AcervoProxy`, `AcervoDescoberta`) — nada disso chega
+por OTA. O `shellTag` segura o bundle até a Release existir; sem ele os dois
+tiles novos chegariam sozinhos à frota, chamariam métodos que o APK instalado
+não tem, o `call()` venceria os 60 s e resolveria `null`, e o que o operador
+teria seriam dois botões tocáveis que não fazem nada.
 
-**O QUE O LOTE TRAZ — a importação de um acervo de verdade:**
+**O QUE O LOTE TRAZ — a biblioteca de um celular para outro, sem arquivo:**
+
+| peça | onde |
+|---|---|
+| os dois aparelhos se acham sozinhos (mDNS) | `AcervoDescoberta.kt` |
+| quem cede AUTORIZA, e a porta não nasce aberta | `AcervoCessao.kt` + `POST /acervo/par` |
+| o índice e os itens | `GET /acervo/indice` · `GET /acervo/item/<sessao>/<n>` |
+| o destino é `https` e o outro celular serve `http` | `AcervoProxy.kt` (`/clone/…`) |
+| o aplicador virou UM SÓ para as duas fontes | `pacoteAplicarFluxo` |
+| a regra do que falta | `AVPacote.itensQueFaltam` (PURA, com oráculo) |
+
+> **O ARQUIVO ÚNICO ERA TUDO-OU-NADA, E ISSO ERA O DEFEITO** (v1.8.0). Relato
+> do operador, depois de o `.avpkg` falhar em 15 GB e de novo em 3,5 GB:
+> *"estamos tendo problemas com esse método, me parece que lidar com arquivos
+> grandes é um problema. vamos planejar um método mais gradual, algo que possa
+> ser interrompido e continuado a qualquer momento sem risco de perder todo o
+> trabalho … um método direto de comunicação … que se comunique diretamente com
+> o outro app que vai clonar a biblioteca"*, e em seguida *"tente fazer um
+> sistema de comunicação entre eles, para que eu não tenha de digitar um
+> endereço, quanto mais automatizado melhor"*.
+>
+> **O NÚCLEO JÁ EXISTIA, e foi o operador quem o nomeou:** *"já temos um sistema
+> que busca online para saber se tem algo faltando, a biblioteca é a mesma, só
+> muda a fonte, mas os arquivos a serem checados é o mesmo."* É o
+> `songVariantsNeeded`/`syncCollection` — **a lista do que falta é DERIVADA do
+> disco a cada passada, nunca guardada**. Daí a propriedade que o arquivo único
+> nunca teve: *nenhum progresso pode ser perdido, porque nenhum progresso é
+> anotado*. Interromper é fechar o app; continuar é abrir e mandar sincronizar
+> de novo.
+>
+> **E O FORMATO NÃO MUDOU:** cada item é um fluxo dos MESMOS registros que o
+> `.avpkg` escreve, e quem os aplica é o MESMO `pacoteAplicarFluxo`. O arquivo
+> FICA — ele é o caminho de quem não tem rede em comum (o cartão de memória, o
+> cabo) —, e os dois passam a ser duas fontes do mesmo leitor. Ver "O clone
+> celular a celular".
+
+**O LOTE ANTERIOR (v1.7.9) — a importação de um acervo de verdade:**
 
 | peça | onde |
 |---|---|
@@ -4839,8 +5060,7 @@ outro, que é o pior desfecho de publicar meio lote.
 > **A IMPORTAÇÃO NÃO ERA LENTA: ELA NÃO CABIA** (v1.7.9). Relato do operador:
 > *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de
 > 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo
-> estivesse corrompido. Verifique se é problema no leitor, ou é algum problema
-> tamanho do arquivo."* **São os dois, um em cada camada:**
+> estivesse corrompido."* **São os dois, um em cada camada:**
 >
 > - **o leitor** fazia `resp.blob()` — o arquivo INTEIRO materializado antes do
 >   primeiro byte. Quinze gigabytes não cabem nem na memória nem no
@@ -4850,29 +5070,25 @@ outro, que é o pior desfecho de publicar meio lote.
 >   porque o Chromium dimensiona toda resposta interceptada pelo `available()`
 >   do `InputStream` — um `int` (a invariante 8, pelo lado que ninguém tinha
 >   olhado). Acima de `Integer.MAX_VALUE` o web recebe o arquivo CORTADO, sem
->   erro nenhum, e o cursor tropeça no meio de um registro. É o segundo relato.
+>   erro nenhum, e o cursor tropeça no meio de um registro.
 >
-> **A FORMA DO CONSERTO É A DO `StreamProxy`, e não uma invenção:** a faixa vai
-> na QUERY e nunca num cabeçalho `Range` — com o cabeçalho, o `ParseRange` do
-> WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que já é uma fatia.
-> Sem cabeçalho não há `ParseRange`, não há `ComputeBounds`, e o `available()`
-> passa a ser o da JANELA e não o do arquivo. **O teto de 2 GB deixa de existir
-> porque nenhuma resposta chega perto dele.**
+> **A FORMA DO CONSERTO É A DO `StreamProxy`:** a faixa vai na QUERY e nunca num
+> cabeçalho `Range` — com o cabeçalho, o `ParseRange` do WebView aplicaria o
+> deslocamento uma SEGUNDA vez sobre o que já é uma fatia. Sem cabeçalho não há
+> `ParseRange`, não há `ComputeBounds`, e o `available()` passa a ser o da
+> JANELA. **O teto de 2 GB deixa de existir porque nenhuma resposta chega perto
+> dele.**
 >
 > **E A LEITURA ANTECIPADA CRESCE E ENCOLHE**, porque uma janela fixa erra nos
-> dois regimes do formato — e foi o oráculo que pegou isso, não a leitura: com
-> 4 MB fixos, a conferência de um acervo (cabeçalhos separados por corpos de
-> centenas de MB) lia 4 MB para aproveitar duzentos bytes, uma vez por registro.
-> A regra é o próprio percurso: pedido que começa onde o buffer acabou é uma
-> CORRIDA de cabeçalhos (dobra, até 1 MB); pedido que salta é um corpo pulado
-> (volta a 8 kB). A Bíblia mora em `state` com uma chave por capítulo — 1189 por
-> versão —, e é ela o regime de cima.
+> dois regimes do formato — e foi o oráculo que pegou isso: com 4 MB fixos, a
+> conferência de um acervo lia 4 MB para aproveitar duzentos bytes, uma vez por
+> registro. A regra é o próprio percurso: pedido que começa onde o buffer acabou
+> é uma CORRIDA de cabeçalhos (dobra, até 1 MB); pedido que salta é um corpo
+> pulado (volta a 8 kB).
 
 > **E A LINHA DE "TUDO" SAIU DA FOLHA DE EXPORTAÇÃO** (v1.7.9), a pedido: *"o
 > seletor de 'tudo' … está inútil agora que temos o agrupamento … deixe tudo
 > selecionado por padrão e o usuário seleciona/desseleciona os poucos itens"*.
-> É o pedido da v1.7.3 chegando ao fim — "marcar tudo" já é o estado em que a
-> folha NASCE, e a barra de um grupo cobre o caso de massa que sobrava.
 
 **O LOTE ANTERIOR (v1.7.8) — um relato do operador:**
 
