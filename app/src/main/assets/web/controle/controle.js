@@ -10822,7 +10822,10 @@ async function send(id, daFila, retomarEm) {
   // A apresentação entra sempre pela PRIMEIRA página: quem manda o operador
   // para outra é o par de botões do transporte, e uma cena nova que começasse
   // no meio do deck anterior seria um slide aleatório no telão.
-  deckPagina = 0;
+  deckPagina = Math.max(0, deckAbrirNaPagina);
+  deckAbrirNaPagina = -1;
+  if (isDeck(alvo)) deckPagina = Math.min(deckPagina, alvo.pages.length - 1);
+  else deckPagina = 0;
   // O ESQUELETO DA LINHA DO TEMPO. Todo caminho que projeta passa por aqui — o
   // toque na lista, o avanço da playlist, o ⏮/⏭ do transporte, a notificação
   // nativa —, e é a linha à qual todas as outras se penduram: "o telão parou"
@@ -10841,7 +10844,7 @@ async function send(id, daFila, retomarEm) {
   // opfsGetFile → mediaReady, mais o fade de saída), e um comando que chegasse
   // em seguida agiria sobre o `<video>` ANTERIOR. É o mesmo contrato que a
   // reconexão do telão usa; quem o alimenta aqui é a volta do RECADO.
-  const carga = { type: 'load', mediaId: id, view, muted, volume, page: 0 };
+  const carga = { type: 'load', mediaId: id, view, muted, volume, page: deckPagina };
   if (retomarEm && retomarEm.t > 0) carga.time = retomarEm.t;
   if (retomarEm && retomarEm.playing === false) carga.playing = false;
   cmd(carga);
@@ -10868,6 +10871,16 @@ async function send(id, daFila, retomarEm) {
   // funcionavam; vindo de uma imagem, não. Só uma importação consertava, e por
   // acidente: ela termina em `load()`, que chama isto.
   renderSlideNav();
+  // E O VÍDEO DA PÁGINA EM QUE A APRESENTAÇÃO ABRIU TOCA, pedido do operador:
+  // *"no caso do primeiro slide ser um vídeo, pode fazer um autoplay para ele"*.
+  // Isto REVOGA a decisão da v1.6.4, que separava "abrir" de "chegar na página"
+  // para deixar sempre uma ação deliberada antes de o telão mudar — quem opera
+  // decidiu que abrir uma apresentação JÁ é essa ação.
+  //
+  // É também o que faz a VOLTA encadear: ela pousa por aqui agora (pela dica
+  // acima), e a página seguinte com vídeo toca sozinha. O laço da última página
+  // continua fechado pelo `deckVideoSemGatilho`.
+  if (isDeck(currentItem)) deckVideoTalvezTocar(currentItem, deckPagina);
   if (currentItem && currentItem.kind === 'youtube') {
     // Zera a UI de transporte; o display-status remoto assume em seguida.
     seekEl.value = 0; seekEl.max = 0; seekEl.disabled = true;
@@ -23021,6 +23034,19 @@ function deckStep(delta) {
 // desabilitado por uma volta do agendador — que é o tempo de um toque.
 let deckVideoVolta = null;
 
+// EM QUE PÁGINA UMA APRESENTAÇÃO DEVE ABRIR, quando não é a primeira. −1 é
+// "na primeira", que é a regra de sempre e continua sendo o padrão.
+//
+// Ela existe para a VOLTA de um vídeo de slide, e o que ela conserta é o relato
+// do operador: *"ao voltar de um vídeo, estou vendo o mesmo slide inicial da
+// apresentação"*. A volta ia ao ar por DOIS comandos — um `load` com `page: 0`
+// (a regra do `send`) e um `page` logo depois —, e o telão pintava a CAPA entre
+// os dois. Nada saía de ordem e nenhuma página era consumida; o que havia era um
+// piscar, na frente da congregação. Com a dica, a página certa viaja DENTRO do
+// `load`, que é o mesmo contrato que a posição de uma mídia já usa e pela mesma
+// razão: o `onCommand` do Display não serializa.
+let deckAbrirNaPagina = -1;
+
 // A VOLTA NÃO PODE REDISPARAR O VÍDEO DA PÁGINA EM QUE ELA POUSA. O caso é o
 // vídeo na ÚLTIMA página: `deckIr(pagina + 1)` é limitado ao fim, a volta pousa
 // na MESMA página, a chegada dispara o vídeo outra vez — e o culto fica preso
@@ -23118,12 +23144,15 @@ async function deckVideoVoltar(passo) {
   const alvo = Math.min(Math.max(v.pagina + delta, 0), Math.max(0, total - 1));
   try {
     deckVideoSemGatilho = (alvo === v.pagina);
+    // UM COMANDO SÓ: a página certa viaja dentro do `load`, e o telão não pinta
+    // a capa no meio do caminho.
+    deckAbrirNaPagina = alvo;
     await send(v.deckId, true);
-    deckIr(alvo);
   } catch (e) {
     console.warn('[pptx] não deu para voltar à apresentação:', e && e.message);
   } finally {
     deckVideoSemGatilho = false;
+    deckAbrirNaPagina = -1;
   }
 }
 

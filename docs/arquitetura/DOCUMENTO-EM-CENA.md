@@ -131,10 +131,17 @@ rede, barra e notificação vêm de graça, e nenhuma linha nova roda no telão.
   o vídeo para sempre. `deckVideoVoltar` calcula o pouso ANTES de sair e só
   suprime o gatilho quando ele é a página de origem — numa volta que ANDA de
   verdade, a página seguinte com vídeo toca, que é o encadeamento pedido.
-- **Abrir a apresentação NÃO conta como chegar na página.** Ali o operador
-  acabou de escolher projetar os SLIDES, e entregar-lhe um vídeo no mesmo toque
-  tira dele a única ação deliberada antes de o telão mudar. Um vídeo na primeira
-  página continua alcançável pelo par de botões.
+- **ABRIR A APRESENTAÇÃO TAMBÉM TOCA O VÍDEO DA PÁGINA EM QUE ELA ABRE**
+  (v1.6.6). A v1.6.4 separava "abrir" de "chegar na página", para deixar sempre
+  uma ação deliberada antes de o telão mudar; quem opera decidiu que abrir uma
+  apresentação JÁ é essa ação — *"no caso do primeiro slide ser um vídeo, pode
+  fazer um autoplay para ele"*.
+- **A VOLTA NÃO PISCA A CAPA.** Ela ia ao ar por DOIS comandos — um `load` com
+  `page: 0` (a regra do `send`) e um `page` logo depois —, e o telão pintava a
+  capa entre os dois. Nada saía de ordem e nenhuma página era consumida; o que
+  havia era um piscar. `deckAbrirNaPagina` faz a página certa viajar DENTRO do
+  `load`, que é o mesmo contrato que a posição de uma mídia já usa e pela mesma
+  razão: o `onCommand` do Display não serializa.
 - **Só quando a apresentação é a MÍDIA.** Como CAMADA ela está sobre um louvor
   que segue tocando, e trocar a cena ali mataria o louvor.
 - **Projetar qualquer outra coisa DESARMA a volta** (`send` limpa na entrada),

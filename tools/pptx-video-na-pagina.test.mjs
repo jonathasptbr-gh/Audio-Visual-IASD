@@ -94,6 +94,17 @@ const SEMEAR = `
   const outro = await AVDB.addMedia(new Blob([buf], { type: 'audio/wav' }), {
     name: 'Louvor do pos-sermao', type: 'audio/wav', kind: 'audio', list: 'imports',
   });
+  // UM SEGUNDO DECK, com video na PRIMEIRA pagina: e o autoplay ao ABRIR, e ele
+  // mora a parte de proposito — po-lo na capa do deck principal mudaria o que
+  // todos os blocos anteriores medem.
+  const vidCapa = await AVDB.addMedia(new Blob([buf], { type: 'audio/wav' }), {
+    name: 'Capa · pagina 1', type: 'audio/wav', kind: 'video', list: 'avulsos',
+  });
+  const dCapa = await AVDB.addDeck(pages.slice(0, 2), {
+    name: 'Abre com video', list: 'imports', videos: { 0: vidCapa.id },
+  });
+  await AVDB.listRemove('avulsos', vidCapa.id);
+
   // E A FILA DE VERDADE, com a apresentacao em PRIMEIRO: e essa a forma do
   // relato. O plItems sai da lista 'playlist', e com ela vazia o step() retorna
   // na primeira linha — um oraculo sobre o proximo de MIDIA mediria nada.
@@ -126,7 +137,7 @@ try {
 
   const ids = await pg.evaluate(new Function('return (async () => {'
     + 'setAppMode("full");' + SEMEAR
-    + 'await load(); return { vid: vid.id, vidFim: vidFim.id, deck: d.id, outro: outro.id }; })()'));
+    + 'await load(); return { vid: vid.id, vidFim: vidFim.id, vidCapa: vidCapa.id, deck: d.id, deckCapa: dCapa.id, outro: outro.id }; })()'));
 
   // O BARRAMENTO, gravado. É o que prova a automação: um teste da tela não
   // distingue "projetou o vídeo" de "ficou no slide e por acaso pintou preto".
@@ -151,7 +162,8 @@ try {
   checar(r === true, 'a apresentação entra em cena', porque(r));
   let st = await estado();
   checar(st.pagina === 0, 'a apresentação abre na página 0', st.pagina);
-  checar(st.armado === false, 'e abrir NÃO arma a volta (o vídeo não é da página 0)', st.armado);
+  checar(st.armado === false,
+    'e sem vídeo na capa a abertura não arma nada', st.armado);
 
   // ======================================================================
   // 2. CHEGAR na página com vídeo projeta o vídeo — a metade 1
@@ -298,6 +310,60 @@ try {
   await pg.evaluate(() => step(1));
   r = await esperar(pg, (id) => currentId === id, ids.outro, 10000);
   checar(r === true, 'REVERSÃO: o ⏭ de mídia sem vídeo de slide segue a fila', porque(r));
+
+  // ======================================================================
+  // 5-C. O QUE O OPERADOR PEDIU DEPOIS (v1.6.6)
+  //
+  //   *"ao voltar de um vídeo, estou vendo o mesmo slide inicial da
+  //   apresentação"* · *"no caso do primeiro slide ser um vídeo, pode fazer um
+  //   autoplay para ele"*
+  // ======================================================================
+
+  // 5-C.1 — A VOLTA NÃO PISCA A CAPA
+  //
+  // Ela ia ao ar por DOIS comandos: um `load` com `page: 0` (a regra do `send`)
+  // e um `page` logo depois. Nada saía de ordem — o que havia era a CAPA pintada
+  // entre os dois, na frente da congregação. A prova é o `page` que viaja DENTRO
+  // do `load`: um teste do estado final passa nas duas versões.
+  await pg.evaluate(() => stopClear());
+  await pg.evaluate((id) => send(id), ids.deck);
+  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  checar(r === true, 'a apresentação no ar para o bloco 5-C', porque(r));
+  await pg.evaluate(() => deckIr(1));
+  r = await esperar(pg, (id) => currentId === id, ids.vid, 10000);
+  checar(r === true, 'o vídeo da página 1 entra', porque(r));
+  await zerar();
+  await pg.evaluate(() => autoAdvance());
+  r = await esperar(pg, (id) => currentId === id, ids.deck, 10000);
+  checar(r === true, 'e o fim dele devolve a apresentação', porque(r));
+
+  const cmds = await pg.evaluate(() => window.__cmds.map((c) => ({ t: c.type, p: c.page })));
+  const loadDaVolta = cmds.find((c) => c.t === 'load');
+  checar(loadDaVolta && loadDaVolta.p === 2,
+    'o `load` da volta JÁ leva a página certa — a capa não é pintada',
+    loadDaVolta ? loadDaVolta.p : '(nenhum load)');
+  checar(!cmds.some((c) => c.t === 'load' && c.p === 0),
+    'REVERSÃO: nenhum load com a página 0 sai na volta',
+    JSON.stringify(cmds.filter((c) => c.t === 'load')));
+  checar(cmds.filter((c) => c.t === 'page').length === 0,
+    'e nenhum comando `page` é preciso depois dele', cmds.filter((c) => c.t === 'page').length);
+
+  // 5-C.2 — O VÍDEO DA PRIMEIRA PÁGINA TOCA AO ABRIR
+  //
+  // Isto REVOGA a decisão da v1.6.4 (abrir não contava como chegar na página).
+  await pg.evaluate(() => stopClear());
+  await zerar();
+  await pg.evaluate((id) => send(id), ids.deckCapa);
+  r = await esperar(pg, (id) => currentId === id, ids.vidCapa, 10000);
+  checar(r === true, 'abrir uma apresentação que começa com vídeo já o projeta', porque(r));
+  checar((await estado()).armado === true, 'e a volta fica armada', true);
+
+  // E a volta dele anda: página 0 → 1.
+  await pg.evaluate(() => autoAdvance());
+  r = await esperar(pg, (id) => currentId === id, ids.deckCapa, 10000);
+  checar(r === true, 'o fim dele devolve a apresentação', porque(r));
+  r = await esperar(pg, () => deckPagina === 1, null, 10000);
+  checar(r === true, 'na página SEGUINTE, e sem repetir o vídeo da capa', porque(r));
 
   // ======================================================================
   // 6. O COLETOR — a metade 4, e a única que só aparece na abertura SEGUINTE
