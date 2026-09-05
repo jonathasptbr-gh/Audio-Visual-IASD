@@ -43,7 +43,7 @@ const servidor = servirEstatico(RAIZ);
 // medir o arnês.
 const PONTE = `(function () {
   window.__ponte = { compartilhado: [], pacoteCriado: [], cancelado: 0 };
-  const vazio = { displays: [], listFolder: [], pickDoc: [], otaPending: '', otaDiag: '',
+  const vazio = { acervoEstado: { cessao: { cedendo: false }, achados: [], descoberta: {} }, displays: [], listFolder: [], pickDoc: [], otaPending: '', otaDiag: '',
     espelhoEstado: { ligado: false, telas: [], redes: [] }, espelhoDiag: {},
     castTarget: { label: '' }, apkProcurar: {}, ytDiag: '', cifraDiag: '',
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
@@ -51,7 +51,8 @@ const PONTE = `(function () {
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
-    'ytDetalhes','micDiag','areaTransferencia','salvarTexto','pacoteCriar','pacoteFechar']);
+    'ytDetalhes','micDiag','areaTransferencia','salvarTexto','pacoteCriar','pacoteFechar',
+    'acervoEstado','acervoCeder','acervoPublicar','acervoParear']);
   const B = {
     shellVersion: () => 63,
     role: () => 'controle',
@@ -69,7 +70,15 @@ const PONTE = `(function () {
     'otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','micDiag','cifraHtml',
-    'cifraDiag','areaTransferencia','salvarTexto','ytDetalhes','pacoteCriar','pacoteFechar'];
+    'cifraDiag','areaTransferencia','salvarTexto','ytDetalhes','pacoteCriar','pacoteFechar',
+    // OS OITO DO CLONE (shell 65). Eles entram aqui porque o cloneRetomar
+    // roda na abertura de TODO oráculo que sobe o Controle com a ponte: sem o
+    // nome, a chamada lança dentro do native.js. Uma ponte de mentira que não
+    // conhece um método que o app chama é a divergência que este repositório já
+    // pagou uma vez.
+    'acervoCeder','acervoPararCessao','acervoPublicar','acervoResponder',
+    'acervoProcurar','acervoParear','acervoSoltar','acervoEstado',
+  ];
   for (const n of nomes) {
     if (B[n]) continue;
     B[n] = (...args) => {

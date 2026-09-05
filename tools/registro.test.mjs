@@ -87,7 +87,7 @@ const ESTADO = {
 
 // A ponte de mentira, no mesmo molde do `boot-nativo.test.mjs`.
 const PONTE = `(() => {
-  const vazio = { displays: [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320, telao: true }],
+  const vazio = { acervoEstado: { cessao: { cedendo: false }, achados: [], descoberta: {} }, displays: [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320, telao: true }],
     listFolder: [], pickDoc: [], ytSearch: [],
     espelhoEstado: ${JSON.stringify(ESTADO)}, espelhoDiag: ${JSON.stringify(DIAG)},
     espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' },
@@ -95,7 +95,8 @@ const PONTE = `(() => {
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
-    'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag']);
+    'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag',
+    'acervoEstado','acervoCeder','acervoPublicar','acervoParear']);
   const B = {
     shellVersion: () => 46,
     role: () => 'controle',
@@ -110,7 +111,15 @@ const PONTE = `(() => {
     'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
     'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
     'temaClaro','ytCancel','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio','ytSearch',
-    'ytStream'];
+    'ytStream',
+    // OS OITO DO CLONE (shell 65). Eles entram aqui porque o cloneRetomar
+    // roda na abertura de TODO oráculo que sobe o Controle com a ponte: sem o
+    // nome, a chamada lança dentro do native.js. Uma ponte de mentira que não
+    // conhece um método que o app chama é a divergência que este repositório já
+    // pagou uma vez.
+    'acervoCeder','acervoPararCessao','acervoPublicar','acervoResponder',
+    'acervoProcurar','acervoParear','acervoSoltar','acervoEstado',
+  ];
   for (const n of nomes) {
     if (B[n]) continue;
     B[n] = (...args) => {
