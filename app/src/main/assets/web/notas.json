@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.6.3",
+    "itens": [
+      "A cifra agora abre com o nome da música e o tom dentro da folha, antes dos acordes.",
+      "Isso dá um respiro no topo, e a introdução deixou de ser cortada assim que a rolagem começa.",
+      "Os botões da cifra subiram para o topo, na linha onde ficava o nome.",
+      "E saiu o aviso sobre a rolagem: a folha andando devagar já diz que ela começou."
+    ]
+  },
+  {
     "versao": "1.6.2",
     "itens": [
       "A rolagem da cifra não fica mais parada no começo: ela arranca bem devagar.",

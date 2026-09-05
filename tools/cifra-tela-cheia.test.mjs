@@ -236,7 +236,7 @@ try {
       janela: window.innerWidth,
       // A COLUNA: os dois blocos que moram nela.
       cabecalho: r(lyricsPopupEl.querySelector('.popup-header')),
-      barra: lyricsViewBarEl.hidden ? null : r(lyricsViewBarEl),
+      fila: lyricsCifraCtlEl.hidden ? null : r(lyricsCifraCtlEl),
       abas: getComputedStyle(lyricsViewSegEl).display,
       fechar: getComputedStyle(lyricsPopupEl.querySelector('.popup-close')).display,
       // O ⛶ MUDOU DE CASA (v1.6.1): ele NASCE no cabeçalho e MORA na
@@ -245,8 +245,9 @@ try {
       // barra é esvaziada em todo render), e a pergunta do pedido é a POSIÇÃO
       // na fila: *"coloque ele no fim da lista à direita"*.
       cheiaBtn: !!lyricsPopupEl.querySelector('.lv-cifra-ctl > #cifraCheiaBtn:last-child'),
-      tom: (folha.parentElement.querySelector('.lv-cifra-tom')
-        || lyricsViewBarEl.querySelector('.lv-cifra-tom') || { textContent: '' }).textContent,
+      // O TOM DESCEU PARA DENTRO DA CAIXA (v1.6.3): ele é a segunda linha do
+      // cabeçalho da obra, e não mais um rótulo na barra — que saiu junto.
+      tom: (lyricsViewBodyEl.querySelector('.lv-cifra-cab-tom') || { textContent: '' }).textContent,
       varEscopada: lyricsPopupEl.style.getPropertyValue('--lv-fonte'),
     };
   });
@@ -353,7 +354,7 @@ try {
     const nomes = {
       sair: '#cifraCheiaBtn',
       menor: '.lv-fonte-menos', maior: '.lv-fonte-mais',
-      tom: '.lv-cifra-tom', rolar: '.lv-cifra-rolar', velocidade: '.lv-cifra-vel',
+      rolar: '.lv-cifra-rolar', velocidade: '.lv-cifra-vel',
     };
     const fora = [];
     const ausentes = [];
@@ -381,7 +382,6 @@ try {
       const el = lyricsPopupEl.querySelector(sel);
       return el ? el.getBoundingClientRect().top : -1;
     };
-    const nota = lyricsPopupEl.querySelector('.lv-cifra-nota');
     // ===== A CAIXA DO BOTÃO DE VELOCIDADE, NA COLUNA DEITADA (v1.6.2) =====
     //
     // Percorrida com `click()`, como no retrato: a promessa é sobre o CICLO, e
@@ -401,21 +401,23 @@ try {
       ausentes, fora, meiosTons, icoW,
       hit: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')),
       velCaixas,
-      trilha: +lyricsViewBarEl.getBoundingClientRect().width.toFixed(2),
+      trilha: +lyricsCifraCtlEl.getBoundingClientRect().width.toFixed(2),
       velIrmao: +lyricsPopupEl.querySelector('.lv-fonte-mais')
         .getBoundingClientRect().width.toFixed(2),
       saidaY: cx('#cifraCheiaBtn'), maisY: cx('.lv-fonte-mais'),
       transporY: [...lyricsPopupEl.querySelectorAll('.lv-cifra-ctl .lv-fonte-btn')]
         .filter((b) => b.textContent.trim() === '+½')
         .map((b) => b.getBoundingClientRect().top)[0],
-      notaDisplay: nota ? getComputedStyle(nota).display : '(ausente)',
-      notaAltura: nota ? nota.getBoundingClientRect().height : -1,
-      quebra: getComputedStyle(lyricsViewBarEl).flexWrap,
+      // A NOTA SAIU DE VEZ (v1.6.3): o operador mandou remover a frase, e o que
+      // responde "a rolagem começou" é a própria folha andando devagar.
+      nota: !!lyricsPopupEl.querySelector('.lv-cifra-nota'),
+      quebra: getComputedStyle(lyricsPopupEl.querySelector('.popup-header')).flexWrap,
     };
   });
   checar(controles.ausentes.length === 0,
-    'a coluna tem tom, rolagem automática, velocidade, tamanho da fonte e a '
-    + 'saída — todos desenhados', controles.ausentes);
+    'a coluna tem rolagem automática, velocidade, tamanho da fonte e a saída — '
+    + 'todos desenhados (o TOM desceu para dentro da caixa na v1.6.3)',
+    controles.ausentes);
   checar(controles.fora.length === 0,
     'e todos eles moram NA COLUNA (à direita da folha), nenhum por cima do texto',
     controles.fora);
@@ -424,14 +426,28 @@ try {
   checar(controles.icoW > 10 && controles.icoW < 30,
     'e o ícone do ⛶ tem a escala dos irmãos só-de-ícone (o SVG é reescrito por '
     + '`innerHTML` e não carrega dimensão própria)', controles.icoW);
-  // O FIM DA FILA NO RETRATO É O PÉ DA COLUNA EM PAISAGEM (v1.6.1). O pedido é
-  // uma FILA, e deitado o fim dela é o ponto mais baixo — o outro extremo do
-  // alcance do polegar de quem segura o aparelho, que é o argumento escrito da
-  // `.pv-fsctl`. REVERSÃO: trocar o `ctl.prepend(...)` do `lvBuildCifra` por
-  // `ctl.append(...)` põe o ⛶ no TOPO da coluna e reprova aqui.
-  checar(controles.saidaY > controles.transporY && controles.saidaY > controles.maisY,
-    'e o ⛶ é o controle mais BAIXO da coluna — a saída no fim da fila, abaixo '
-    + 'da transposição e do A+/A−', controles);
+  // A COLUNA TEM DOIS BLOCOS, E O ⛶ É O FIM DO DE CIMA (v1.6.3). A fila mudou
+  // de casa — ela mora no CABEÇALHO desde que o tom desceu para dentro da caixa
+  // e a barra deixou de existir —, e o cabeçalho ocupa a coluna inteira com
+  // `space-between`: a fila no topo, o A+/A− no pé. Os dois extremos são o
+  // alcance do polegar de quem segura o aparelho deitado, que é o argumento
+  // escrito da `.pv-fsctl`.
+  //
+  // O QUE SOBREVIVE DO PEDIDO DA v1.6.1 é a ORDEM DENTRO DA FILA: *"coloque ele
+  // no fim da lista à direita"* — e deitada, "fim da lista" é abaixo da
+  // transposição. REVERSÃO: trocar o `ctl.prepend(...)` do `lvBuildCifra` por
+  // `ctl.append(...)` põe o ⛶ acima dos outros quatro e reprova aqui.
+  checar(controles.saidaY > controles.transporY,
+    'e o ⛶ é o ÚLTIMO da fila também deitado — abaixo da transposição, que é o '
+    + 'que "no fim da lista" quer dizer numa coluna', controles);
+  // E O A+/A− FICA NO PÉ DA COLUNA, sozinho no outro extremo: é ele que prova
+  // que o `space-between` do cabeçalho sobreviveu à mudança de casa. Sem esta,
+  // um cabeçalho que empilhasse tudo no topo passaria na de cima.
+  // REVERSÃO: tirar o `justify-content: space-between` do `.popup-header` em
+  // `:fullscreen` junta os dois blocos e reprova aqui.
+  checar(controles.maisY > controles.saidaY,
+    'e o A+/A− fica no PÉ da coluna, no outro extremo do alcance do polegar',
+    controles);
   // A NOTA NÃO É DESENHADA AQUI, pelo MESMO número que já tirou as abas: a
   // trilha tem 66px e ~56 úteis, a `--fs-sm` mede ~6,3px por caractere, e a
   // frase viraria oito linhas roubando o lugar dos controles que este modo
@@ -445,11 +461,11 @@ try {
   // folha PARADA, se perde a de uma folha que anda devagar, e o toque continua
   // reconhecido pelo glifo do pause mais a folha se mexendo.
   //
-  // REVERSÃO: tirar `.lv-cifra-nota` da lista de supressão do bloco
-  // `:fullscreen` a devolve à coluna, com altura medível.
-  checar(controles.notaDisplay === 'none' && controles.notaAltura === 0,
-    'e a mensagem da barra NÃO é desenhada em tela cheia: numa trilha de 66px '
-    + 'ela viraria oito linhas de oito caracteres', controles);
+  // REVERSÃO: recriar o `<small class="lv-cifra-nota">` no `lvBuildCifra`.
+  checar(!controles.nota,
+    'e a mensagem da rolagem não existe mais em lugar nenhum (v1.6.3) — o '
+    + 'operador mandou removê-la, e a folha andando devagar já diz que começou',
+    controles);
   // ── 6-B. O BOTÃO DE VELOCIDADE É QUADRADO TAMBÉM DEITADO (v1.6.2) ───────
   //
   // Pedido do operador: *"diminua a fonte do botão de 1x para que ele seja um
@@ -509,8 +525,35 @@ try {
   const tomDepois = await pg.evaluate(() => {
     [...lyricsPopupEl.querySelectorAll('.lv-cifra-ctl .lv-fonte-btn')]
       .find((b) => b.textContent.trim() === '+½').click();
-    return lyricsPopupEl.querySelector('.lv-cifra-tom').textContent;
+    return lyricsViewBodyEl.querySelector('.lv-cifra-cab-tom').textContent;
   });
+  // ===== OS ESPAÇOS DO CABEÇALHO SÃO A LINHA DA FOLHA (v1.6.3) =====
+  //
+  // Pedido do operador, ao pé da letra: *"um abaixo do outro com uma linha entre
+  // eles e duas entre o início da intro/cifras"*. A régua não é um número
+  // escrito aqui — é a altura de linha RENDERIZADA da folha, que é o que faz
+  // "uma linha" significar uma linha para quem lê.
+  //
+  // REVERSÃO: trocar `--cifra-linha` por um `--sp-*` qualquer no CSS reprova as
+  // duas, porque nenhum deles coincide com o `line-height` da folha.
+  const espacos = await pg.evaluate(() => {
+    const linha = parseFloat(getComputedStyle(
+      lyricsViewBodyEl.querySelector('.lv-cifra-folha')).lineHeight);
+    const tom = lyricsViewBodyEl.querySelector('.lv-cifra-cab-tom');
+    const cab = lyricsViewBodyEl.querySelector('.lv-cifra-cab');
+    return {
+      linha,
+      entreTituloETom: parseFloat(getComputedStyle(tom).marginTop) / linha,
+      antesDaCifra: parseFloat(getComputedStyle(cab).marginBottom) / linha,
+    };
+  });
+  checar(Math.abs(espacos.entreTituloETom - 1) < 0.02,
+    'entre o título e o tom há UMA linha da folha — a régua é o `line-height` '
+    + 'dela, não um espaçamento inventado', espacos);
+  checar(Math.abs(espacos.antesDaCifra - 2) < 0.02,
+    'e entre o tom e o início da cifra há DUAS — é essa margem que impede a '
+    + 'rolagem de cortar a intro logo no começo', espacos);
+
   checar(tomDepois !== cheia.tom && /#|D/.test(tomDepois),
     'e transpor meio tom DENTRO da tela cheia muda o tom mostrado — os '
     + 'controles são os de verdade, não uma segunda implementação',

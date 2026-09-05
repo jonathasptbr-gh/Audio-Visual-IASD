@@ -7693,12 +7693,22 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    estilo: um acorde vale pela COLUNA em que está — é ela que diz em que sílaba
    a harmonia troca. Fonte proporcional ou espaço colapsado desalinham a folha
    inteira, e ela passa a ensinar a coisa errada sem parecer quebrada. */
+/* A LINHA DA FOLHA, EM UMA ESCRITA SÓ (v1.6.3). `--cifra-linha` é a altura de
+   linha que estas duas declarações produzem, e é dela que o cabeçalho da obra
+   tira "uma linha" e "duas linhas" — o pedido do operador só significa o que diz
+   se a régua for a mesma. Ela mora no `.lyricsview-body` para o cabeçalho e a
+   folha herdarem a MESMA conta; escrita duas vezes, ela divergiria no primeiro
+   ajuste do A+/A−, que mexe em `--lv-fonte` e portanto nas duas. */
+.lyricsview-body {
+  --cifra-corpo: calc(var(--lv-fonte) * .74);
+  --cifra-linha: calc(var(--cifra-corpo) * 1.7);
+}
 .lv-cifra-folha {
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   /* Um degrau abaixo da letra: o monoespaçado ocupa mais largura por caractere,
      e no MESMO corpo a folha começaria a rolar de lado em tela de celular. O
      A+/A− continua governando os dois — é o mesmo token. */
-  font-size: calc(var(--lv-fonte) * .74);
+  font-size: var(--cifra-corpo);
   line-height: 1.7;
   padding-bottom: .2rem;
 }
@@ -7750,71 +7760,57 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    que põe a estrofe acima do respiro entre pares, em vez de empatar com ele. */
 .lv-cifra-vazio { height: .9em; }
 
-/* Tom à esquerda, controles à direita. Os QUATRO da escada reusam
-   `.lv-fonte-btn` porque é o mesmo gesto (um passo por toque numa escada) e
-   duas aparências para o mesmo gesto seria ruído; o ⛶ do fim da fila continua
-   `.lv-cheia-btn` e SÓ ela — ele não é um passo numa escada, e a classe já
-   entra nas três listas compartilhadas (o esqueleto só-de-ícone, o `--press` e
-   a escala do SVG), que é tudo o que a outra daria. Desde a v1.6.1 o ouvinte do
-   par casa `.lv-fonte-menos, .lv-fonte-mais` e não a família, então a distinção
-   deixou de ser uma armadilha e virou só o que ela sempre foi: nomenclatura.
+/* A FILA DE CONTROLES DA CIFRA, HOJE NO CABEÇALHO (v1.6.3). Os QUATRO da escada
+   reusam `.lv-fonte-btn` porque é o mesmo gesto (um passo por toque numa escada)
+   e duas aparências para o mesmo gesto seria ruído.
 
-   FORA DA CAIXA QUE ROLA (v1.1.22). Ela morava dentro do corpo e rolava com o
-   texto: com a rolagem automática ligada, o pausar saía de cena em segundos, e
-   alcançá-lo exigia rolar de volta ao topo — brigando com a rolagem que se
-   queria parar. O alinhamento horizontal é o MESMO da caixa (`.9rem`), senão a
-   barra e o texto passariam a ser duas colunas diferentes. */
-/* E ELA PRECISA RESPIRAR NOS DOIS LADOS (v1.3.1). Com `margin-top: 0` ela
-   encostava no seletor Letra/Bíblia/Cifra: MEDIDO em 430px, 3,2px acima (só o
-   `padding-bottom` do seletor) contra 8px abaixo — apertada, e assimétrica ao
-   lado de vizinhos que respiram ~11px. O tom e os botões de rolagem são a
-   linha que se olha durante a música inteira; ficar espremida entre duas
-   fileiras de botões é o que faz o dedo errar o alvo.
-   Agora: 10,4px acima (3,2 do seletor + 7,2 daqui) e 9,6px abaixo. */
-.lyricsview-bar { margin: .45rem .9rem .6rem; }
-.lyricsview-bar[hidden] { display: none; }
-/* A BARRA PODE QUEBRAR EM DUAS LINHAS (v1.6.1): a nota é uma LINHA INTEIRA. Um
-   `flex-wrap` e não um wrapper em volta de [tom][ctl] — o wrapper faria dos dois
-   um único filho flex e mataria o `space-between`, que é o mesmo que a coluna
-   deitada reusa para empurrar a transposição ao pé. `row-gap` PRÓPRIO
-   (`--sp-2`) e não o `--sp-5` herdado: 9,6px entre um controle e a legenda dele
-   é vão de BLOCO, e isto é uma legenda colada. */
-.lv-cifra-topo {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-5);
-  flex-wrap: wrap; row-gap: var(--sp-2);
-}
-.lv-cifra-tom {
+   ELA MOROU NUMA BARRA PRÓPRIA da v1.1.22 à v1.6.2, e a razão da barra SOBREVIVE
+   à mudança de casa: os controles ficavam DENTRO da caixa que rola e saíam de
+   cena em segundos com a rolagem ligada — *"um controle que some é um controle
+   que não existe no momento em que ele importa"*. O cabeçalho também está fora
+   do scroller, então a propriedade continua valendo. O que deixou de existir foi
+   a BARRA, quando o tom desceu para dentro da caixa e ela ficou só com botões. */
+.lv-cifra-ctl { display: flex; gap: var(--sp-2); flex: none; }
+.lv-cifra-ctl[hidden] { display: none; }
+/* NA ABA DE CIFRA O CABEÇALHO É A FILA, e o título e o ícone se escondem para
+   ela caber. MEDIDO: a fila mede 195,6px e a caixa de conteúdo do cabeçalho tem
+   328px numa tela de 360 — com o título no lugar seriam 343,6px, que estoura por
+   15,6. O ícone acompanhava o título e não sobrevive sozinho a ele.
+
+   O `#lyricsPopupTitle` continua ESCRITO — é o que o leitor de tela anuncia ao
+   abrir a folha; quem o tira da vista é esta regra, não um `textContent` vazio. */
+#lyricsPopup.lv-cifra-cabecalho .popup-title,
+#lyricsPopup.lv-cifra-cabecalho .popup-header-icon { display: none; }
+
+/* ===== O CABEÇALHO DA OBRA, DENTRO DA CAIXA QUE ROLA (v1.6.3) =====
+
+   Pedido do operador: *"antes do início do texto, coloque o título da obra, e o
+   tom. tudo dentro da caixa do texto, um abaixo do outro com uma linha entre
+   eles e duas entre o início da intro/cifras"*.
+
+   A RAZÃO É A MARGEM, e ela está dita no `controle.js`: a intro estava colada no
+   topo, e a rolagem a cortava logo no começo. Este bloco a empurra para baixo e
+   ROLA JUNTO — fixo, ele cobraria altura e não resolveria nada.
+
+   OS ESPAÇOS SÃO A LINHA DA FOLHA, não números novos: `--cifra-linha` é a altura
+   de linha renderizada de `.lv-cifra-folha` (o corpo dela vezes o `line-height`),
+   e é ela que faz "uma linha" e "duas linhas" significarem o que dizem. Ela mora
+   no `.lyricsview-body` para os dois filhos herdarem a MESMA conta — duas
+   escritas do mesmo número divergiriam no primeiro ajuste do A+/A−. */
+.lv-cifra-cab { color: var(--text); margin-bottom: calc(var(--cifra-linha) * 2); }
+.lv-cifra-cab-titulo { font-size: var(--fs-xl); font-weight: var(--fw-forte); }
+/* O TOM veste o que vestia na barra — corpo, peso e tom de rótulo —, porque é o
+   mesmo dado no mesmo papel: um NÚMERO sobre a folha, não um título. */
+.lv-cifra-cab-tom {
+  margin-top: var(--cifra-linha);
   font-size: var(--fs-lg); font-weight: var(--fw-forte); color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.lv-cifra-ctl { display: flex; gap: var(--sp-2); flex: none; }
 /* A ROLAGEM AUTOMÁTICA (v1.1.20). Dois controles, e os dois com a aparência do
    A+/A− pelo mesmo motivo de sempre: é um passo por toque numa escada.
    O de velocidade CICLA (a escada volta ao começo), como o botão de girar a
    mídia — com CINCO degraus, dar a volta custa menos que um segundo botão. */
 .lv-cifra-rolar.ativa { color: var(--accent); }
-/* A NOTA DA BARRA (v1.6.1) — o que o play vai fazer, e por que a folha rola
-   devagar logo depois dele (v1.6.2: a espera parada virou uma rampa, e a nota
-   trocou de fato junto). Ela substituiu o anel `.dl-ring` que ficava sobre o
-   ícone de pause: o operador pediu a mensagem *"na própria ui e não em pop up"*,
-   e o molde é o da `.sorteio-nota` — `--muted`, `--fs-sm`, sem caixa e sem
-   ícone, porque é uma AFIRMAÇÃO e não um controle, e o olho tem de cair nos
-   botões primeiro. `width: 100%` é o que a põe na linha de baixo sozinha.
-   Contraste MEDIDO: `--muted` sobre o `--panel` da folha dá 6,66:1, e é o mesmo
-   par que o `.lv-cifra-tom` ao lado já pinta.
-
-   E ELA NÃO PRECISA DE UMA REGRA `[hidden]` PRÓPRIA, ao contrário das duas
-   vizinhas: `.lv-cheia-btn` e `.lyricsview-bar` têm uma porque um seletor de
-   AUTOR lhes escreve `display` (o esqueleto só-de-ícone numa, a
-   `.lv-cifra-topo` na outra — a barra RECEBE essa classe), e regra de autor
-   vence o `[hidden]` do agente do usuário em qualquer especificidade. Aqui
-   nenhuma escreve — MEDIDO, varrendo as folhas em busca de quem case a nota e
-   declare `display`: zero —, e o `hidden` do JS resolve sozinho. Quem der um
-   `display` a esta regra traz junto a necessidade de uma `[hidden]`. */
-.lv-cifra-nota {
-  width: 100%;
-  font-size: var(--fs-sm); line-height: 1.35; color: var(--muted);
-}
 /* O ⛶ É A SAÍDA, e ela não pode encostar no `+½`: o erro é ASSIMÉTRICO — errar
    o `+½` e pegar a saída desfaz o modo inteiro e gira a Activity ida e volta na
    frente de quem está tocando; errar a saída e pegar o `+½` custa um meio tom,
@@ -7931,39 +7927,30 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   grid-template-columns: 1fr var(--cifra-coluna);
   grid-template-rows: auto 1fr;
 }
-/* A COLUNA, de cima para baixo: o cabeçalho na linha 1 (auto) e a barra na
-   linha 2 (`1fr`), com o `space-between` de dentro dela empurrando os controles
-   para o pé, e a SAÍDA como a última linha deles — o alcance do polegar de quem
-   segura o aparelho deitado, a mesma distribuição por altura inteira da coluna
-   da preview. */
+/* A COLUNA É O CABEÇALHO INTEIRO (v1.6.3): a barra saiu, e com ela a linha 2 do
+   grid — o cabeçalho passou a ocupar as duas. O `space-between` de dentro dele
+   distribui pela altura toda, com a fila da cifra no topo (a SAÍDA como último
+   botão dela) e o A+/A− no pé — os dois extremos são o alcance do polegar de
+   quem segura o aparelho deitado, a mesma distribuição da coluna da preview. */
 #lyricsPopup:fullscreen .popup-header,
 #lyricsPopup:-webkit-full-screen .popup-header {
-  grid-area: 1 / 2;
+  grid-area: 1 / 2 / 3 / 3;
   flex-direction: column;
-  padding: max(var(--sp-4), env(safe-area-inset-top)) max(var(--sp-3), env(safe-area-inset-right)) 0 var(--sp-2);
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  padding: max(var(--sp-4), env(safe-area-inset-top)) max(var(--sp-3), env(safe-area-inset-right))
+           max(var(--sp-4), env(safe-area-inset-bottom)) var(--sp-2);
 }
 #lyricsPopup:fullscreen .lv-fonte-ctl,
 #lyricsPopup:-webkit-full-screen .lv-fonte-ctl { flex-direction: column; }
-#lyricsPopup:fullscreen .lyricsview-bar,
-#lyricsPopup:-webkit-full-screen .lyricsview-bar {
-  grid-area: 2 / 2;
-  margin: 0;
-  padding: var(--sp-4) max(var(--sp-3), env(safe-area-inset-right)) max(var(--sp-4), env(safe-area-inset-bottom)) var(--sp-2);
-}
 /* `flex-wrap: nowrap` DESFAZ o wrap do retrato: numa COLUNA o wrap não quebra
    linha, ele abre uma SEGUNDA COLUNA dentro de uma trilha de 66px, e faria isso
    calado no dia em que um sexto controle não coubesse. */
-#lyricsPopup:fullscreen .lv-cifra-topo,
-#lyricsPopup:-webkit-full-screen .lv-cifra-topo {
-  height: 100%; flex-direction: column; gap: var(--sp-4); flex-wrap: nowrap;
-}
 /* O respiro da saída troca de eixo com a fila (ver `.lv-cifra-ctl .lv-cheia-btn`). */
 #lyricsPopup:fullscreen .lv-cifra-ctl .lv-cheia-btn,
 #lyricsPopup:-webkit-full-screen .lv-cifra-ctl .lv-cheia-btn {
   margin-left: 0; margin-top: var(--sp-5);
 }
-#lyricsPopup:fullscreen .lv-cifra-tom,
-#lyricsPopup:-webkit-full-screen .lv-cifra-tom { text-align: center; }
 /* `align-items: center` para os botões ficarem na largura DELES em vez de
    esticar para a trilha inteira: cinco botões, uma largura só (`--hit`). Sem
    ele o `stretch` padrão de uma coluna flex os levaria aos 56,4px úteis. */
@@ -7996,8 +7983,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    recusadas: um segundo texto curto só para a coluna (duas escritas do mesmo
    fato) e manter o anel só aqui (dois mecanismos para um fato, e o operador
    mandou remover o anel). */
-#lyricsPopup:fullscreen :is(.popup-header-icon, .popup-title, .popup-close, .lyricsview-seg, .lv-cifra-nota),
-#lyricsPopup:-webkit-full-screen :is(.popup-header-icon, .popup-title, .popup-close, .lyricsview-seg, .lv-cifra-nota) {
+#lyricsPopup:fullscreen :is(.popup-header-icon, .popup-title, .popup-close, .lyricsview-seg),
+#lyricsPopup:-webkit-full-screen :is(.popup-header-icon, .popup-title, .popup-close, .lyricsview-seg) {
   display: none;
 }
 
