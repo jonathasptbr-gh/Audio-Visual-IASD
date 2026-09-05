@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.2",
+    "itens": [
+      "O outro celular deixou de ficar preso em “medindo” na lista de aparelhos.",
+      "Ele só aparece na lista quando já tem a biblioteca pronta para copiar.",
+      "O Registro passou a dizer por que a transmissão ou a cessão caiu."
+    ]
+  },
+  {
     "versao": "1.8.1",
     "itens": [
       "As abreviações dos livros da Bíblia pararam de sair cortadas em telas menores.",

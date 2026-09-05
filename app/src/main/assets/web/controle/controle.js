@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.1';
+const WEB_VERSION = '1.8.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -24606,8 +24606,20 @@ function cloneRenderAchados(lista) {
     return;
   }
   for (const a of lista) {
-    const sub = (a.itens ? a.itens + (a.itens === 1 ? ' item' : ' itens') : 'medindo')
-      + (a.bytes ? ' · ' + fmtBytes(a.bytes) : '');
+    // O SUBTÍTULO NUNCA DIZ "MEDINDO", e a palavra saiu porque ela era uma
+    // promessa que este lado não tem como cumprir: o que chega aqui é o TXT do
+    // anúncio, e "zero itens" não distingue *"ainda estou contando"* de *"a
+    // biblioteca está vazia"*. Contra um shell 1.8.0 — que anuncia zero e nunca
+    // se corrige (ver `AcervoDescoberta.preparar`) — ela ficava na tela para
+    // sempre, e o operador esperava por um número que não vinha.
+    //
+    // Sem os números, o que se mostra é o ENDEREÇO: é verdade, é o que
+    // identifica o aparelho quando há dois iguais na sala, e é exatamente o
+    // que a saída à mão pede se a lista não servir.
+    const sub = a.itens
+      ? a.itens + (a.itens === 1 ? ' item' : ' itens')
+        + (a.bytes ? ' · ' + fmtBytes(a.bytes) : '')
+      : (a.host ? a.host + ':' + a.porta : '');
     songMenuListEl.appendChild(songMenuItem(
       pacoteIconeSvg('icoCelular'),
       a.rotulo || a.nome,

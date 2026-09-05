@@ -3133,6 +3133,16 @@ comum (o cartão, o cabo).
     da rede o recebe sem pedir nada. O TXT leva o rótulo, a contagem e o peso —
     o bastante para reconhecer o celular certo (*"Galaxy A54 · 612 itens ·
     14,2 GB"*) e nada além.
+  - **O ANÚNCIO SÓ SAI COM OS NÚMEROS, e nunca antes** (v1.8.2). Ele saía ao
+    LIGAR a cessão, com zero itens, e o `acervoPublicar` o refazia — mas
+    reanunciar é desanunciar e anunciar com o MESMO nome de serviço, e quem
+    procura ignorava um nome já achado: o TXT novo nunca chegava e a lista do
+    outro celular ficava em *"medindo"* para sempre. O segundo defeito no mesmo
+    ponto era mais caro que o rótulo: o aparelho era OFERECIDO PARA TOQUE antes
+    de ter índice para servir. Hoje `preparar` guarda porta e rótulo, o
+    `acervoPublicar` anuncia, e um nome já achado volta à fila de resolve
+    passada uma janela (`REVER_MS`) — sem ela o `reanunciar` não teria como
+    pousar do outro lado.
   - **O RESOLVE É SERIALIZADO.** `resolveService` não aceita dois pedidos ao
     mesmo tempo em boa parte das versões do Android: o segundo volta em
     `FAILURE_ALREADY_ACTIVE` e o aparelho **simplesmente não aparece na lista**,
@@ -4861,6 +4871,12 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   Um arquivo Kotlin que formata parágrafos é UI escrita do lado errado.
   Corolário: **toda linha do bloco é opcional** — o que o shell não souber
   responder não aparece, nunca "undefined" num log que vai ser repassado.
+- **DESLIGAR DIZ POR QUÊ.** `desmontarEspelho(motivo)` exige a frase, e os
+  quatro chamadores a escrevem (o operador, o app fechado, a cessão parando, o
+  serviço encerrado pelo Android). Ele era mudo, e o Registro saía com a última
+  linha em *"cessao da biblioteca ligada"* sobre um estado *"servidor:
+  desligado"* — as causas pedem ações OPOSTAS e nenhuma era dizível a
+  distância. Caminho novo que derrube um recurso de rede nasce com a frase.
 - **O diagnóstico é UM só, e mora no "Registro" de Configurações.** Diagnóstico
   novo entra como mais um BLOCO ali, nunca como faixa nova em outro canto.
   **NÃO HÁ VISOR:** o `<pre>` saiu na v5.207, e desde então o Registro existe só
