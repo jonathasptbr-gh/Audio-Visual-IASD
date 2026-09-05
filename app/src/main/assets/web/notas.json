@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.3",
+    "itens": [
+      "Ao trocar de tela na Bíblia, os livros deixaram de escapar para fora da folha."
+    ]
+  },
+  {
     "versao": "1.8.2",
     "itens": [
       "O outro celular deixou de ficar preso em “medindo” na lista de aparelhos.",
