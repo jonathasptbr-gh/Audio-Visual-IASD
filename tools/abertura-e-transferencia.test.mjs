@@ -290,18 +290,18 @@ try {
       const grade = document.querySelector('.qs-grade');
       return {
         escondidos: ids.filter((id) => (document.getElementById(id) || {}).hidden !== false),
-        // A ORDEM DENTRO DA GRADE, e não a existência: eles são sempre-acesos e
-        // por isso ficam ANTES dos dois que apagam (a ordem por natureza da
-        // v1.4.40). Ler a grade inteira é o que prova que eles não voltaram a
-        // morar num bloco à parte.
+        // A ORDEM DENTRO DA GRADE, e não a existência: eles são a ÚLTIMA
+        // FILEIRA (v1.7.5) — as seis preferências da PROJEÇÃO em cima, o que se
+        // faz com o APP fora dela embaixo. Ler a grade inteira é o que prova
+        // que eles não voltaram a morar num bloco à parte.
         grade: grade ? [...grade.children].map((e) => e.id) : [],
       };
     });
     checar(bloco.escondidos.length === 0,
       'C · no APP os três tiles deste aparelho estão à vista', bloco);
     checar(bloco.grade.join(',') === 'temaTile,fitTile,wallTile,histOpenRow,'
-      + 'shareAppTile,pacoteExportarTile,pacoteImportarTile,lyricsBgTile,rotBtn',
-      'C · na MESMA grade dos outros, entre o histórico e os dois que apagam',
+      + 'lyricsBgTile,rotBtn,shareAppTile,pacoteExportarTile,pacoteImportarTile',
+      'C · na MESMA grade dos outros, e na fileira da BASE',
       bloco.grade);
 
     // O COMPARTILHAR CHEGA À PONTE COM O ENDEREÇO DENTRO. A asserção é sobre o

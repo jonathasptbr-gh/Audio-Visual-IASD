@@ -224,6 +224,87 @@ checar(ARQUIVOS.length >= 6,
 checar(!!bloco && [...pedidos.values()].some((v) => v.some((o) => o.startsWith('controle.js'))),
   'e a tabela ICON do controle.js também foi lida');
 
+// ============================================================================
+// A OUTRA FONTE DE ÍCONE DO BUNDLE: O SPRITE (v1.7.5)
+//
+// O `.msym` é metade do desenho deste app; a outra é o sprite `<symbol id="ico…">`
+// do `controle/index.html`, consumido por `<use href="#ico…">`. **O modo de
+// falhar é o MESMO deste arquivo, palavra por palavra**: um `<use>` que aponta
+// para um símbolo inexistente não desenha NADA — sem erro no console, sem
+// requisição falhando —, e o botão continua existindo, tocável, fazendo o que
+// promete e invisível.
+//
+// A operação que o produz é a RENOMEAÇÃO, e ela acabou de acontecer: a v1.7.5
+// trocou o `#icoGirar` do tile do giro pelo `#icoPaisagem`. Um `<use>` esquecido
+// ali sai no bundle do OTA e chega à frota.
+//
+// E O CONTRÁRIO TAMBÉM É VARRIDO: um `<symbol>` sem consumidor não erra alto —
+// ele só viaja em todo aparelho sem desenhar nada em lugar nenhum —, e a regra
+// deste repositório é apagar o desenho junto com o recurso (foi assim que os
+// `icoMedicao*` saíram na v1.4.42). Sem oráculo, "renomeei o consumidor" e
+// "renomeei os dois" passam iguais.
+//
+// SÃO DUAS ENTRADAS, e as duas são literais: o `<use href="#…">` do HTML e as
+// chamadas de `pacoteIconeSvg('ico…')` do `controle.js`, que montam o mesmo
+// `<use>` por string.
+// ============================================================================
+const html = readFileSync(join(WEB, 'controle/index.html'), 'utf8');
+
+const definidos = new Map();
+{
+  const re = /<symbol id="(ico[A-Za-z0-9_]*)"/g;
+  for (let m; (m = re.exec(html));) {
+    definidos.set(m[1], html.slice(0, m.index).split('\n').length);
+  }
+}
+
+const usados = new Map();
+const anotarUso = (nome, onde) => {
+  if (!usados.has(nome)) usados.set(nome, []);
+  usados.get(nome).push(onde);
+};
+{
+  const re = /href="#(ico[A-Za-z0-9_]*)"/g;
+  for (let m; (m = re.exec(html));) {
+    anotarUso(m[1], 'controle/index.html:' + html.slice(0, m.index).split('\n').length);
+  }
+  // O `<use>` montado por string no JS — mesma árvore, mesmo modo de falhar.
+  const re2 = /(?:href="#|pacoteIconeSvg\(')(ico[A-Za-z0-9_]*)/g;
+  for (let m; (m = re2.exec(js));) {
+    anotarUso(m[1], 'controle.js:' + js.slice(0, m.index).split('\n').length);
+  }
+}
+
+checar(definidos.size >= 20,
+  'o sprite foi lido (' + definidos.size + ' símbolo(s))', definidos.size);
+checar(usados.size >= 20,
+  'e os consumidores também (' + usados.size + ' nome(s) pedidos)', usados.size);
+// A PROVA DE QUE AS DUAS ENTRADAS FORAM LIDAS, e não só a do HTML: sem ela um
+// regex quebrado do lado do JS deixaria a varredura passar medindo metade.
+checar([...usados.values()].some((v) => v.some((o) => o.startsWith('controle.js'))),
+  'e o `<use>` que o `controle.js` monta por string entrou na conta');
+
+const semSimbolo = [...usados.entries()].filter(([n]) => !definidos.has(n));
+for (const [nome, onde] of semSimbolo) {
+  console.log('FALHOU  <use href="#' + nome + '"> não tem `<symbol>` no sprite'
+    + ' — sai como um VÃO, sem erro nenhum'
+    + '\n        pedido em: ' + [...new Set(onde)].join(', ')
+    + '\n        conserto: desenhe o `<symbol id="' + nome + '">` no'
+    + ' index.html, ou aponte o `<use>` para o nome que existe');
+  falhas.push('#' + nome + ' sem símbolo');
+}
+const semUso = [...definidos.keys()].filter((n) => !usados.has(n));
+for (const nome of semUso) {
+  console.log('FALHOU  <symbol id="' + nome + '"> não tem consumidor'
+    + ' — ele viaja no bundle do OTA em todo aparelho sem desenhar nada'
+    + '\n        conserto: apague o desenho junto com o recurso que o usava');
+  falhas.push('#' + nome + ' órfão');
+}
+if (!semSimbolo.length && !semUso.length) {
+  console.log('ok      os ' + definidos.size + ' símbolos do sprite e os '
+    + usados.size + ' nomes pedidos batem, nos dois sentidos');
+}
+
 // ---- O VEREDITO -----------------------------------------------------------
 const ausentes = [...pedidos.entries()].filter(([cp]) => !cobertos.has(cp));
 for (const [cp, onde] of ausentes) {

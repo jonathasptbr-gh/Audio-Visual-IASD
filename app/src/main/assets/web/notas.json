@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.7.5",
+    "itens": [
+      "Nenhum botão das Configurações fica apagado: o estado é dito pelo ícone.",
+      "O botão de girar mostra um quadro de paisagem, que vira junto com a mídia.",
+      "Compartilhar, exportar e importar passaram a ser a última fileira da grade."
+    ]
+  },
+  {
     "versao": "1.7.4",
     "itens": [
       "Durante um preparo ou download, o botão de opções do item vira um botão de cancelar.",

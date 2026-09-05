@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.7.5** — A GRADE DE CONFIGURAÇÕES TEM UMA COR SÓ, E O QUE GIRA É UM QUADRO. Três pedidos, e os dois primeiros são a mesma regra. (1) **NENHUM TILE APAGA**: *"O botão do girar no telão, está apagado no modo sem giro, mas todos os botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda diferença de estado é pelo icone, não pela cor."* A v1.4.40 acendeu os tiles que não têm "desligado" e deixou DOIS apagando — o fundo da letra e o giro —, e os dois **já tinham o estado no DESENHO** (a imagem riscada; o quadro na posição em que a mídia está): a luz era a segunda cópia da mesma resposta, gasta na única propriedade que este app já usa para outra coisa. **Apagado aqui quer dizer INDISPONÍVEL**, que é a queixa da v1.4.25, e enquanto a mesma tinta dizia *"você está no padrão"* as duas frases se confundiam na mesma grade. `qs-on` e o parâmetro `aceso` FICAM — morreu a política de usá-los para dizer estado, não a capacidade de apagar um tile de fato indisponível. **A consequência para o próximo tile é a soma de duas remoções** (a palavra saiu na v1.7.2, a cor sai agora): um estado que não caiba num desenho não cabe nesta grade. (2) **O QUE GIRA É UM QUADRO DE PAISAGEM**: *"troque o icone dele, use um icone de picture, paisagem. O próprio quadro vai girar e vai ser mais intuitivo que um seta circular rodando, pois vai literalmente representar em qual posição está a paisagem."* **O mecanismo não mudou uma linha** — o `#rotBtn` já desenhava o ícone na posição que ele descreve desde a v1.7.2; mudou o que ele vira. Uma seta girada é a AÇÃO desenhada duas vezes (ela já significa *"gire"*), e a 90° é só uma seta apontando para outro lado; um quadro girado é o ESTADO. O desenho é **assimétrico nos dois eixos, de propósito**, e é exigência dura: sem isso 0° e 180° ficam idênticos, e 90° e 270° também — quatro estados em dois desenhos (o sol no alto e o morro embaixo resolvem o vertical; o sol à direita e o morro à esquerda, o horizontal). **E O MORRO NÃO ATRAVESSA O QUADRO, o que foi MEDIDO**: um pico que toca as duas paredes com pouco céu acima é a ABA DE UM ENVELOPE, e a 180° vira o glifo universal de e-mail — quatro candidatos renderizados a 22px e a 58px, e os três que atravessavam liam-se assim. Ele **não é o `#icoImagem` do tile vizinho**, que é a armadilha que o `#icoWallpaper` já pagou nesta grade: quadro bem mais largo (21×13 contra 17×14), o SOL À DIREITA (lá está à esquerda) e um pico só, na metade esquerda, contra o recorte que atravessa o outro inteiro. O `#icoGirar` saiu do sprite junto (a regra deste repositório: um `<symbol>` sem consumidor viaja em todo aparelho sem desenhar nada), e a seta circular do desfazer sobre a PREVIEW fica: ela é INLINE desde a v1.4.45 exatamente para este dia, e responde outra pergunta. (3) **A ORDEM PASSOU A SER POR ASSUNTO**: *"reordene os botões: compartilhar, exportar e importar devem ser os tres itens da base"*. Ela era por NATUREZA (os sempre-acesos no topo, v1.4.40) e **essa ordem deixou de existir no mesmo lote** — nenhum tile apaga mais, então não há duas naturezas de LUZ para ordenar. Sobram as seis preferências da PROJEÇÃO em cima e as três coisas que se fazem com o APP fora dela embaixo, numa fileira inteira. E o `glifos.test.mjs` ganhou a OUTRA fonte de ícone do bundle: um `<use href="#ico…">` sem `<symbol>` falha igual a um glifo fora do subset — sem erro, só um vão —, e a operação que produz isso é a RENOMEAÇÃO deste lote. Varre nos dois sentidos, com as duas reversões provadas. Lote **só de base web**.
 - **v1.7.4** — SEIS PEDIDOS DO OPERADOR NUMA PASSADA, E TRÊS DELES SÃO A MESMA REGRA. (1) **A BARRA DE PROGRESSO SAIU DA LINHA**: *"O subtitulo com as informações ficou muito bom, mas a barra de progresso ficou ruim, tire ela."* Ele aprovou a metade que ACRESCENTOU informação (a fração por extenso na posição do subtítulo) e reprovou a que só desenhava, num filete de 4px, o mesmo número que a frase ao lado diz — numa lista de trinta linhas isso é peso por repetição. O `pct` continua no registro: quem desenha barra é a NOTIFICAÇÃO, que é a janela do trabalho com o app minimizado. (2) **O `⋮` CEDE A COLUNA AO TRABALHO EM CURSO**: *"por um botão, na mesma posição do botão de opções do item do cronograma… esse botão só tem uma função durante um preparo ou download. Esse botão cancela o processo e apaga o item."* É o movimento que a v1.4.27 já fez para a exclusão e a renomeação, agora para o trabalho — e ele obrigou a tornar CANCELÁVEIS as duas esperas que não sabiam parar: a preparação de apresentação (o laço de páginas do `.pptx` lê a desistência; no PDF quem rasteriza é o shell e o que se cancela é o DESFECHO, com o `deckDiscard` que já existia) e a importação de arquivo (um `AbortController` no `fetch` do `/saf/`). **O limite está escrito porque é uma decisão**: "apaga o item" vale para o item que só existe POR CAUSA do processo; um item que já estava no Cronograma (converter um link do YouTube) FICA — apagá-lo seria destruir o que ninguém mandou destruir. E o `.dl-cancel` de 34px virou um `.row-btn`, que mede o `⋮` por construção. (3) **A LINHA NÃO VOLTA AO ESTADO INICIAL PARA SUMIR**: *"ao tocar em excluir, na confirmação, o item se transforma ao seu estado inicial sem os botões antes de desaparecer, isso causa estranheza"*. Era a ORDEM: `fecharConfirmacaoNaLinha()` corria ANTES do `aoConfirmar`, e o comentário que a justificava falava do DOM (um cuidado que não custa nada — `desfazer()` sobre um nó órfão é no-op). O que ele custava era o que se via. Hoje a linha SAI (200 ms de altura mais opacidade, a curva do acordeão, com a margem negativa do `gap` para o vão sair junto) e só então o item é apagado. **E A INVERSÃO COBROU UM DEFEITO NOVO, achado pelo oráculo**: `fecharConfirmacaoNaLinha` fecha *a que estiver aberta*, e com o `aoConfirmar` rodando antes dela há uma janela em que OUTRA pergunta já nasceu — MEDIDO pelo `boot-nativo`, a exclusão de um favorito fechava o campo de RENOMEAR aberto logo depois. A guarda é a mesma regra do botão de cancelar do cartão da preview: *ele sai com o DONO dele*. (4) **A CAPA FICA À VISTA NA PERGUNTA DA EXCLUSÃO**: *"Ela tinha sido tirada desse momento do layout, mas julguei melhor ter ela ali."* O argumento da v1.4.27 valia enquanto a capa VIRAVA UMA LIXEIRA (um desenho igual em toda linha); com o símbolo morando na coluna do `⋮`, ela volta a ser a única parte da linha que diz de QUAL item é a pergunta. Ela continua saindo no RENOMEAR, que precisa da largura — e o par é a regra. Com ela, o `.row-lixo` saiu e o caminho B da lixeira virou o mesmo do ✓ (dentro da faixa), com a exceção nomeada: a lixeira ILUSTRA e não entra numa faixa que não fala de um item (limpar a playlist, o histórico), onde os dois rótulos dividem a caixa ao meio. (5) **AS MINIATURAS DOS FAVORITOS PARARAM DE PISCAR**: *"veja se pode deixar isso mais estável visualmente, sem piscar"*. A causa é aritmética — a Biblioteca é redesenhada a cada 400 ms enquanto um download corre, e cada passada REVOGAVA as URLs do render anterior e criava outras para os MESMOS blobs; uma `<img>` com `src` inédito não tem decodificação em cache. A chave passou a ser o BLOB (mesmo blob, mesma URL) e a varredura passou a ser pela UNIÃO dos baldes, o que fecha POR CONSTRUÇÃO a classe de defeito que o balde por host existia para tratar. (6) **O TOQUE NUM BLOCO DEIXOU DE ENCOLHER**: *"Há um efeito de encolhimento que distorce os elementos… deixe apenas um efeito de coloração/sombreamento ao toque sem encolhimento. Também aproveite para verificar se está colorindo o corpo do card corretamente e não apenas o arrangment do texto ou cabeçalho."* As duas metades são o mesmo defeito por dois lados, e a regra que as resolve **já estava escrita na `.coll-bar` desde a v5.288** (*"`--press` é para CONTROLE FOLHA. Um contêiner que hospeda um controle nunca escala"*) — a v1.3.14 a contrariou ao pôr as duas barras na lista do `--press`: a barra é TRANSPARENTE, então o `filter` acendia só o texto, e o `translateY(2px)` deslizava a tampa dentro de um card parado. Hoje **um CONTROLE responde por RECUO; um BLOCO responde por LUZ, e o bloco inteiro** — vale para os cards, as seções e a `.lib-item`, em qualquer profundidade e nos dois estados. (7) **E A VELOCIDADE DA CIFRA VIROU GAVETA**: *"faça com que o botão de velocidade abra uma gaveta, substituindo seus botões vizinhos, pela lista de botões com as variações de velocidade… sem passar por cada uma delas em carrocel"*. O ciclo era um preço escrito desde a v1.1.20 (*"com CINCO degraus, dar a volta custa menos que um segundo botão"*), e a conta muda quando o alvo é ESPECÍFICO: os degraus do meio ACONTECEM, com a música no ar. É o mecanismo da faixa da linha na fila da cifra — a fila troca de CONTEÚDO, não de lugar —, com `display: contents` no invólucro para os cinco seguirem a direção dela (linha no retrato, coluna deitada) sem uma segunda regra de layout. O ⛶ é a exceção nomeada: *a fila da cifra sempre tem a saída*. Lote **só de base web**.
 - **v1.7.3** — A RESPOSTA NASCE ONDE O TOQUE NASCEU, E A FOLHA DE ESCOLHA GANHOU AS SEÇÕES DA BIBLIOTECA. Dois pedidos. (1) *"o feedback da ui sobre a preparação da exportação, que hoje está sendo exibida sobre o preview, para que seja exibida sobre o próprio botão de exportar. já que a ação acontece ali e não na tela ou controle. o mesmo vale para feedbacks visuais das ações das configurações"*. **O app já tinha a mecânica**, em dois lugares — o `#otaRow` (`falarNoOta`) e o "Guardar como pacote" (`falarNoPacote`) —, e a regra está na lista de canais de resposta do `controle.js` desde a v5.207: *o rótulo do controle empresta a si mesmo por alguns segundos e volta*. O cartão sobre a preview é o canal do que ACONTECERIA NELA, e uma exportação não acontece na preview. `falarNoTile` troca o `.qs-titulo` e o devolve: "Medindo…", o percentual, o tamanho do arquivo, e de volta a "Exportar". **Isso não reabre a segunda linha que a v1.7.2 removeu** — aquela era permanente e descrevia o repouso. O CANCELAR voltou para o mesmo lugar (o toque no botão que trabalha), e a importação não o tem por natureza: ela só ACRESCENTA, e parar no meio deixaria metade do acervo sem nada para apagar a outra metade. A ETAPA foi para a notificação, que é a superfície com espaço e a que existe com o app minimizado; no botão cabe o número. E o desfecho fala nos DOIS lugares sem repetir: o botão diz que deu certo e quanto pesou, o diálogo diz o NOME do arquivo e o que fazer com ele. **O `data-nome` guarda o rótulo de origem, e não um `WeakMap` de módulo** — foi a primeira escrita e não durou um teste: `pacoteRenderTiles()` roda no topo do arquivo, na carga, e o `pintarTile` leria a constante antes da linha que a declara (zona morta temporal, `ReferenceError`, app parado). (2) *"durante a seleção da exportação, haja uma opção de selecionar todos, e opções de agrupamentos das coleções da mesma forma que já existe na biblioteca, podendo marcar um grupo inteiro de uma vez só"*. "Tudo" é um ALTERNADOR na primeira linha (com tudo marcado ele limpa, e o rótulo diz qual das duas o toque faz); o agrupamento sai da MESMA fonte que a Biblioteca desenha — as coletâneas do `AVColetanea.aplicar`, com os hinários e as séries na raiz e os álbuns sem categoria em "Outros álbuns" —, porque uma segunda leitura do catálogo divergiria da tela em que o operador aprendeu onde cada coleção mora. A BARRA do grupo MARCA e a SETA ABRE (na Biblioteca a barra abre, porque lá o que se vem fazer é olhar dentro; aqui é incluir e excluir), a seção nasce FECHADA, e a marca do grupo tem TRÊS estados — com metade escolhida, cheia e vazia mentem as duas. `plano.grupos` continua plano (é ele que o laço de escrita consome) e `plano.folha` é a árvore; uma varredura no fim recolhe o que a árvore não alcançou, porque uma coleção que não apareça na folha nunca é marcada. O `pacote-por-grupos.test.mjs` cresceu com as duas metades, com reversão em cada asserção nova. Lote **só de base web**.
 - **v1.7.2** — AS CONFIGURAÇÕES MAIS QUIETAS, A CORTINA COM PISO, E O 0% DA EXPORTAÇÃO. Três pedidos, e o terceiro é um defeito com relato. (1) **AS CONFIGURAÇÕES**: o rótulo solto "Modo do app" saiu e a palavra desceu para dentro das duas metades ("Modo simples"/"Modo avançado"); o rótulo "Este aparelho" saiu e os três tiles dele entraram na grade única, que passou a ter NOVE em três fileiras exatas; e a `.qs-estado` — a segunda linha de cada tile — saiu de todos: *"todo tipo de informação além do nome deve ser representada pelo ícone"*. **A informação não foi removida, mudou de canal**: tema, preenchimento e fundo da letra já tinham o par de desenhos; o WALLPAPER ganhou o par agora (rolo vazio × rolo cheio — a razão de ele não ter é o que decidiu a FORMA: um desenho de "foto" viraria o `icoImagem` de outro tile da mesma grade); o GIRO passou a girar o próprio ícone (não quatro desenhos, que a v1.4.38 mediu não se distinguirem a 22px, mas o MESMO desenho na posição que ele descreve, com transição — é vendo o ícone virar que se lê o toque); histórico e compartilhar não tinham estado; exportar e importar trocaram o "42%" pelo ARO, com o número indo para o cartão da preview e para a notificação. O estado continua dito no `aria-label`. **A consequência para o próximo tile está escrita**: um tile cujo estado não caiba num desenho não cabe nesta grade. O rodapé passou a dizer *"Áudio Visual IASD vX.Y.Z"*; as badges do cabeçalho continuam secas. (2) **A CORTINA GANHOU UM PISO** de 1,8 s: *"está muito rápido, deixe por padrão um tempo mínimo se possível mais longo"*. Com o acervo em cache o `init()` terminava em centenas de milissegundos e o que se via era um LAMPEJO. O piso é contado do INÍCIO da página (um `init()` de 5 s já o pagou), e o teto de 12 s chama a saída DIRETO, sem passar por ele — ele é a rede de segurança de um app que não subiu. **Ele cobrou os oráculos**: 6 dos 63 reprovaram, e os 6 por hit-test (`pg.click` espera a actionability e retenta; quem vê a cortina é quem MEDE). Daí o `esperarCortina` do arnês, e a regra de esperar por ela depois de CADA carga — inclusive depois de um `reload` no meio do arquivo, que foi como ela apareceu no `smoke.mjs`. (3) **A EXPORTAÇÃO PARADA EM 0%**, relatada como *"ou está absurdamente lento, ou não está funcionando"*: as duas leituras estavam certas e a causa é a mesma. A Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e cada registro custava DUAS idas e voltas pelo canal — ~7.200 viagens para escrever poucos megabytes —, e nenhum registro de `state` reportava bytes nem entrava no total do plano. O escritor passou a JUNTAR os pequenos num bloco (os mesmos megabytes viram ~20 blocos; um corpo ≥ um bloco continua indo direto, e o FORMATO não muda), o plano passou a somá-los, e `bgTaskBytes` passou a forçar a troca de RÉGUA pelo freio de 700 ms (a barra anunciava "0 de 1" por quase um segundo). Mais a SEGMENTAÇÃO pedida: uma folha com os grupos — ajustes, cada coleção pelo nome, itens importados, outros —, com o peso de cada um e o do total no confirmar. *"Ajustes e catálogos"* é a única linha que não se desmarca: as listas do app moram em `state`, e mídia sem a lista que a referencia é ÓRFÃ no destino — o `gcOrfaos` da abertura seguinte a apaga. O catálogo segue os bytes pela MESMA função (um registro de `files` sem o arquivo é uma faixa que não toca), o `info` diz que grupos o arquivo traz, e a exportação passou a poder ser CANCELADA. Oráculos novos: `configuracoes-sem-subtitulo.test.mjs` e `pacote-por-grupos.test.mjs`, com reversão em todas as asserções. Lote **só de base web**.
@@ -351,6 +352,138 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.7.5 — a grade tem uma cor só, e o que gira é um quadro
+
+Três pedidos sobre a mesma tela — a grade de Configurações —, e **os dois
+primeiros são a mesma regra**: quem responde *"qual é o estado?"* naquele painel
+é o DESENHO, e mais nada.
+
+### 1. Nenhum tile apaga
+
+> *"O botão do girar no telão, está apagado no modo sem giro, mas todos os
+> botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda
+> diferença de estado é pelo icone, não pela cor."*
+
+A v1.4.38 leu o aceso como *"o estado não é o padrão"*. A v1.4.40 corrigiu
+metade disso — acendeu os tiles que **não têm "desligado"**, a pedido do
+operador (*"pode deixar eles no estado azul de 'sempre ativo' o tempo todo"*) —
+e deixou DOIS apagando: o fundo da letra e o giro. O argumento então era que
+esses dois TÊM desligado, logo a luz dizia algo verdadeiro.
+
+**O que faltava era notar que ela dizia algo que já estava dito.** Os dois
+tinham o estado no DESENHO — a imagem inteira × a imagem riscada, e o quadro na
+posição em que a mídia está —, então a luz era a segunda cópia da mesma
+resposta. E ela é cara: **apagado, neste app, quer dizer INDISPONÍVEL**. É a
+queixa da v1.4.25 por extenso (*"foi simplesmente ofuscado o botão inteiro, o
+que dá a impressão de que não está disponível"*), e o app tem uma linguagem
+própria para isso (`opacity: .3` + `disabled`). Enquanto a mesma tinta dizia
+*"você está no padrão"*, as duas frases se confundiam na mesma grade.
+
+- **`qs-on` e o parâmetro `aceso` FICAM.** O que morreu foi a POLÍTICA de
+  usá-los para dizer estado, não a capacidade de apagar um tile que de fato
+  esteja indisponível — quem passar `false` ali está dizendo isso, e é assim que
+  se lê.
+- **A consequência para o próximo tile é a soma de duas remoções.** A palavra do
+  estado saiu na v1.7.2, a cor sai agora: *um estado que não caiba num desenho
+  não cabe nesta grade.*
+- **A GUARDA DO ORÁCULO MUDOU DE LUGAR, não de força.** O `smoke.mjs` prendia
+  este resto com o argumento certo para o desenho da época — *"a metade que
+  impede o conserto preguiçoso: acender TUDO, sempre"*. Revogada a política,
+  sobra o CANAL que ficou sozinho: o fundo da letra fica aceso nos dois estados
+  **e troca o desenho PINTADO**, medido no `display` computado de cada `<use>`.
+  É a asserção que reprova quem apagar a regra de CSS do par e ficar com a
+  classe certa sobre dois desenhos empilhados.
+
+### 2. O que gira é um quadro de paisagem
+
+> *"Além disso, troque o icone dele, use um icone de picture, paisagem. O
+> próprio quadro vai girar e vai ser mais intuitivo que um seta circular
+> rodando, pois vai literalmente representar em qual posição está a paisagem."*
+
+**O mecanismo não mudou uma linha.** O `#rotBtn` já desenhava o ícone na posição
+que ele descreve desde a v1.7.2 — `transform` por `data-estado`, com transição,
+porque é vendo o ícone VIRAR sob o dedo que se lê o que o toque fez. O que mudou
+é **o que ele vira**:
+
+| | |
+|---|---|
+| uma SETA girada | a AÇÃO desenhada duas vezes — ela já significa *"gire"* —, e a 90° é só uma seta apontando para outro lado |
+| um QUADRO girado | o ESTADO: ele não diz *"gire"*, diz *"a mídia está assim"*, que é a única coisa que este tile tem para mostrar |
+
+- **O desenho é ASSIMÉTRICO NOS DOIS EIXOS, de propósito**, e essa é a exigência
+  dura: sem isso 0° e 180° ficam idênticos, e 90° e 270° também — quatro estados
+  em dois desenhos. O sol no ALTO e o morro EMBAIXO resolvem o vertical; o sol à
+  DIREITA e o morro à ESQUERDA resolvem o horizontal, e a proporção o reforça.
+- **O MORRO NÃO ATRAVESSA O QUADRO DE PAREDE A PAREDE, e isso foi MEDIDO** — é a
+  diferença entre um ícone e outro ícone. A primeira escrita tinha um pico único
+  de canto a canto com pouco céu acima, e ela é a **ABA DE UM ENVELOPE**: a 180°
+  o desenho vira o glifo universal de e-mail. Quatro candidatos renderizados a
+  22px e a 58px, e os TRÊS que atravessavam liam-se assim; o que ficou ocupa a
+  metade esquerda e a metade de baixo, e sobra CÉU — é o céu que faz um quadro
+  ser uma paisagem.
+- **Ele NÃO é o `#icoImagem` do tile vizinho**, e a distância é deliberada: é a
+  armadilha que o `#icoWallpaper` já pagou nesta mesma grade (*"dois desenhos
+  gêmeos prometendo coisas diferentes"*), e o "Fundo da letra" fica ao lado dele
+  na fileira. Três diferenças, e as três sobrevivem a 22px: o quadro é bem mais
+  LARGO (21×13 contra 17×14), o SOL está à DIREITA (lá ele está à esquerda) e a
+  serra é um PICO SÓ, na metade esquerda, contra o recorte irregular que
+  atravessa o outro inteiro.
+- **O centro do quadro é o centro do `viewBox`** (12,12): sem isso o giro do CSS
+  o faria orbitar em vez de VIRAR no lugar.
+- **O `#icoGirar` saiu do sprite junto.** É a regra deste repositório — um
+  `<symbol>` sem consumidor não erra alto, só viaja no bundle do OTA em todo
+  aparelho sem desenhar nada —, a mesma pela qual os `icoMedicao*` saíram na
+  v1.4.42.
+- **A seta circular do desfazer sobre a PREVIEW fica**, e a v1.4.45 previu
+  exatamente este dia: ela é INLINE e não um `<use>`, com o argumento escrito
+  então (*"o dia em que um dos dois mudar de forma o outro não pode ir junto"*).
+  Nada ali teve de mudar. O que os separa é a pergunta de cada um — o tile mostra
+  o ESTADO, aquele botão é a AÇÃO (*desfaça*), com o estado ao lado, no número.
+
+### 3. A ordem da grade passou a ser por assunto
+
+> *"Aproveite para reordenar os botões: compartilhar, exportar e importar devem
+> ser os tres itens da base."*
+
+Ela era **por NATUREZA** (v1.4.40): primeiro os sempre-acesos, depois os que
+ligam e desligam — e os três de ação, sendo sempre-acesos, ficavam entre o
+histórico e os dois que apagavam.
+
+**Essa ordem deixou de existir no mesmo lote.** Sem tile que apague, não há duas
+naturezas de LUZ para ordenar. O que sobra é o ASSUNTO, que é o que o pedido
+nomeia: as **seis preferências da PROJEÇÃO** em cima (tema, preenchimento,
+wallpaper, histórico, fundo da letra, giro) e as **três coisas que se fazem com
+o APP fora dela** embaixo (compartilhar, exportar, importar), numa fileira
+inteira e sozinha.
+
+A grade fecha em três fileiras exatas **nos dois arranjos** — o que muda é onde
+a costura cai, e agora ela cai entre as duas naturezas. Daí a asserção
+geométrica no `smoke.mjs`: um décimo tile acrescentado no fim empurraria um
+deles para a fileira de cima e a costura cairia no meio de uma linha.
+
+### O sprite ganhou oráculo
+
+`glifos.test.mjs` existia para uma pergunta — *"este codepoint está no subset da
+fonte?"* — cujo modo de falhar é o mais silencioso do desenho: um vão do tamanho
+de um ícone, sem erro no console e sem requisição falhando, num botão que
+continua existindo e funcionando. **O sprite falha exatamente igual**, e a
+operação que o produz é a RENOMEAÇÃO — que é o que este lote fez.
+
+Ele varre nos DOIS sentidos:
+
+- **`<use href="#ico…">` sem `<symbol>`** — o vão.
+- **`<symbol>` sem consumidor** — a regra escrita deste repositório, que até aqui
+  só existia como prosa. Sem ela, *"renomeei o consumidor"* e *"renomeei os
+  dois"* passavam iguais.
+
+As duas entradas são literais (o `href` do HTML e o `pacoteIconeSvg('ico…')` do
+`controle.js`), com asserção própria para provar que a segunda foi lida — senão
+um regex quebrado deixaria a varredura passar medindo metade. As duas reversões
+foram executadas: apontar o tile de volta para o `#icoGirar` reprova nos dois
+sentidos de uma vez, e um símbolo órfão acrescentado à mão reprova no segundo.
 
 ---
 

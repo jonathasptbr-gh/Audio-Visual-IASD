@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.7.4';
+const WEB_VERSION = '1.7.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2132,13 +2132,17 @@ async function setLyricsBg(mode) {
   await AVDB.setState('lyricsBg', lyricsBg);
   cmd({ type: 'lyricsbg', mode: lyricsBg });
 }
-// ESTE LIGA E DESLIGA, e a v1.4.40 INVERTEU o aceso dele: as imagens MOSTRADAS
-// são a função ligada, e antes o aceso marcava "Remover" (o que não é o padrão).
-// Com a inversão o desenho e a luz passam a concordar — imagem inteira e aceso,
-// imagem riscada e apagado —, em vez de dizerem coisas opostas no mesmo botão.
+// ESTE LIGA E DESLIGA, E MESMO ASSIM NÃO APAGA (v1.7.5). Pedido do operador:
+// *"todos os botões devem ter o mesmo azul de ativo, não temos mais essa
+// diferença, toda diferença de estado é pelo icone, não pela cor"*. Ele era o
+// ÚLTIMO tile da grade a escurecer junto com o giro, e o par de desenhos
+// (imagem inteira × imagem riscada) já dizia o estado inteiro sozinho — a luz
+// era a segunda cópia da mesma resposta, na única propriedade que este app já
+// gastou com outro significado (apagado = INDISPONÍVEL, a queixa da v1.4.25).
+// O `alt` continua sendo o canal, e é ele que os oráculos leem.
 function renderLyricsBgTile() {
   const mostra = lyricsBg === 'image';
-  pintarTile(lyricsBgTileEl, lyricsBg, mostra ? 'Mostrar' : 'Remover', mostra, !mostra);
+  pintarTile(lyricsBgTileEl, lyricsBg, mostra ? 'Mostrar' : 'Remover', true, !mostra);
 }
 
 // Envia o comando ao display E aplica na preview. YouTube usa o player pequeno
@@ -24207,13 +24211,19 @@ pacoteRenderTiles();
 // oráculos perguntam, e nunca pela classe, que é aparência), a palavra do
 // estado, o desenho e o aceso.
 //
-// `aceso` E `alt` SÃO DUAS PERGUNTAS, e não uma (v1.4.40). `aceso` é *"a função
-// está ligada?"* — e num tile que não tem "desligado" (tema, preenchimento,
-// wallpaper, histórico) ele é SEMPRE verdadeiro, porque apagado ali quer dizer
-// INDISPONÍVEL, que é a queixa da v1.4.25 aplicada a este painel. `alt` é
-// *"qual dos dois desenhos?"*. Enquanto as duas foram a mesma classe, um tile
-// sempre aceso ficava preso no desenho alternativo para sempre.
-// Ver as três regras do tile no `index.html`.
+// `aceso` E `alt` SÃO DUAS PERGUNTAS, e não uma (v1.4.40). `alt` é *"qual dos
+// dois desenhos?"*; `aceso` é *"a função está ligada?"*. Enquanto as duas foram
+// a mesma classe, um tile sempre aceso ficava preso no desenho alternativo para
+// sempre. Ver as três regras do tile no `index.html`.
+//
+// E HOJE TODO TILE PASSA `aceso: true` (v1.7.5) — o parâmetro sobrevive porque
+// a distinção acima é real e porque ele é o que escreve a classe; o que morreu
+// foi a POLÍTICA de usá-lo para dizer estado. Pedido do operador: *"todos os
+// botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda
+// diferença de estado é pelo icone, não pela cor"*. A grade tem UMA cor, e o
+// estado mora no desenho — o que sobra da luz é a única coisa que ela já
+// significava sem ambiguidade: apagado é INDISPONÍVEL (v1.4.25).
+// Quem passar `false` aqui está dizendo isso, e é assim que se lê.
 function pintarTile(el, estado, rotulo, aceso, alt) {
   if (!el) return;
   el.dataset.estado = String(estado);
@@ -24327,14 +24337,18 @@ async function applyFit(mode) {
 const ROTACOES = [0, 90, 180, 270];
 let mediaRot = 0;
 function renderRotBtn() {
-  // O ÍCONE GIRA COM A MÍDIA (v1.7.2). O ângulo era a palavra do estado deste
-  // tile, e ela saiu com as outras; a resposta não é um par de desenhos — a
-  // v1.4.38 mediu que quatro desenhos parecidos não se distinguem a 22px —, é o
-  // MESMO desenho na posição que ele descreve. Quem o gira é o CSS, pelo
-  // `data-estado` que o `pintarTile` acabou de escrever: a seta aponta para
-  // cima, para a direita, para baixo e para a esquerda, e o operador vê o ícone
-  // VIRAR sob o dedo, que é o que o toque faz com o telão.
-  pintarTile(rotBtnEl, mediaRot, mediaRot + '°', mediaRot !== 0, false);
+  // O ÍCONE GIRA COM A MÍDIA (v1.7.2), e desde a v1.7.5 ele é O QUADRO
+  // (`#icoPaisagem`). O ângulo era a palavra do estado deste tile e saiu com as
+  // outras; a resposta não é um par de desenhos — a v1.4.38 mediu que quatro
+  // desenhos parecidos não se distinguem a 22px —, é o MESMO desenho na posição
+  // que ele descreve. Quem o gira é o CSS, pelo `data-estado` que o
+  // `pintarTile` acabou de escrever, e o que vira sob o dedo é a própria
+  // paisagem: deitada, de pé, de cabeça para baixo, de pé do outro lado.
+  // ACESO SEMPRE, inclusive a 0° (v1.7.5). Ele era o único tile em que o
+  // apagado ainda tentava dizer "esta função está no padrão", e o operador
+  // encerrou a distinção: *"toda diferença de estado é pelo icone, não pela
+  // cor"*. Aqui o ícone É o estado — o quadro na posição em que a mídia está.
+  pintarTile(rotBtnEl, mediaRot, mediaRot + '°', true, false);
   if (rotBtnEl) {
     // A FRASE DIZ ONDE, nas duas pontas: o rótulo do tile já diz "no telão", e
     // o `title` fecha pela negativa — é o app inteiro que NÃO gira.
