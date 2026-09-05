@@ -388,7 +388,7 @@
     // COM prazo, como o gêmeo `ytSearch` — e ao contrário do `ytFetch`: aqui
     // há uma EXTRAÇÃO no meio (segundos), não um download de minutos. Sem o
     // prazo, um resolve perdido (exceção no Kotlin depois de entrar no método,
-    // renderer trocado no meio) deixava o `tentarTransmitir` num await para
+    // renderer trocado no meio) deixava a chamada num await para
     // SEMPRE — o "Tocar agora" nem transmitia nem caía no download, o pior
     // desfecho possível. O null do timeout é o mesmo null da falha normal:
     // quem chamou cai no download, como sempre.

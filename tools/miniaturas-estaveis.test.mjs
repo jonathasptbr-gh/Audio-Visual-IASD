@@ -21,12 +21,10 @@
 // URL entre dois renders, e é isso que a metade A afirma.
 //
 //  · **A · a URL SOBREVIVE ao redesenho**, e é a mesma string. É a propriedade
-//    inteira: mesmo blob, mesma URL, e a `<img>` nova nasce com um `src` que o
-//    navegador já decodificou. **O redesenho medido é o do RELATO** —
+//    inteira: mesma capa, mesma URL, e a `<img>` nova nasce com um `src` que o
+//    navegador já decodificou. O redesenho medido aqui é o do relato ORIGINAL —
 //    `renderCollectionsNow`, o que o progresso de um download dispara a cada
-//    400 ms —, e não um `load()`: aquele RELÊ o acervo do banco, e um `Blob`
-//    relido é outro objeto. A promessa deste lote é sobre o redesenho que NÃO
-//    relê, que é justamente o que roda três vezes por segundo.
+//    400 ms.
 //  · **B · e ela continua VÁLIDA.** Uma URL igual e revogada seria o defeito
 //    piorado — a capa não voltaria nunca. A prova é um `fetch` nela: uma
 //    object-URL revogada rejeita.
@@ -40,6 +38,12 @@
 //    nenhum host publica, e a varredura seguinte — que revoga o que ninguém
 //    desenha — as apaga da tela. É o modo de falhar do balde por host com a
 //    chave a menos, e foi encontrado relendo o próprio diff.
+//  · **E · o CRONOGRAMA, excluindo OUTRO item** (v1.7.7). É a porta que a
+//    v1.7.4 deixou aberta e que ESTE ARQUIVO nomeava por extenso: keada pelo
+//    BLOB, a URL sobrevivia ao redesenho que não relê — e um `load()` relê,
+//    devolvendo blobs novos para todas as capas de uma vez. `load()` roda em
+//    TODA escrita no banco, e excluir um item é uma. A chave passou a ser
+//    `id|tamanho|tipo`, que é o que atravessa a releitura.
 //
 //   node tools/miniaturas-estaveis.test.mjs
 // ============================================================================
@@ -91,16 +95,10 @@ try {
       ids.push(rec.id);
       await AVDB.listAdd('favs', rec.id);
     }
-    // A TERCEIRA é só do CRONOGRAMA: é ela que o bloco E exclui, e pô-la nos
-    // Favoritos mudaria o que o bloco C conta.
-    const terceira = await AVDB.addMedia(bytes, {
-      name: 'Capa C', type: 'audio/mpeg', kind: 'audio', thumb: png, list: 'imports',
-    });
-    ids.push(terceira.id);
     await load();
     return ids;
   });
-  checar(semeou.length === 3, 'três itens com capa entraram (dois deles nos Favoritos)', semeou);
+  checar(semeou.length === 2, 'dois itens com capa entraram no Cronograma e nos Favoritos', semeou);
 
   // A CASA DO RELATO é a seção de Favoritos DENTRO da Biblioteca: é ela que o
   // `renderCollectionsNow` do progresso redesenha a cada 400 ms.
@@ -148,60 +146,6 @@ try {
     + 'a capa não voltaria nunca', viva);
 
   // =========================================================================
-  // E · E ELA SOBREVIVE A UM `load()` — o CRONOGRAMA, ao excluir OUTRO item
-  // =========================================================================
-  //
-  // Relato do operador: *"os mesmos problemas de miniaturas piscando da
-  // biblioteca, temos nas miniaturas piscando no cronograma ao excluir outro
-  // item."*
-  //
-  // A v1.7.4 prometeu o redesenho que NÃO relê, e disse isso por extenso no
-  // bloco A. Excluir É uma releitura: o `getAll` do IndexedDB devolve BLOBS
-  // NOVOS para as mesmas capas, a chave por OBJETO não os reconhece, e a lista
-  // inteira ganha URLs inéditas — todas as capas piscando por causa da linha
-  // que saiu.
-  //
-  // O QUE SE MEDE É A IDENTIDADE, e não a validade: o bloco C já afirma que a
-  // capa que ficou continua VÁLIDA, e ela continuava — numa URL nova. É por
-  // isso que aquela metade passava com o defeito em cena.
-  //
-  // O CAMINHO É O DA EXCLUSÃO de verdade (`listRemove` + `load()`), que é o que
-  // o `aoConfirmar` da lixeira executa.
-  const srcNoCronograma = (nome) => pg.evaluate((alvo) => {
-    const li = [...document.querySelectorAll('#library > .lib-item')]
-      .find((x) => ((x.querySelector('.row-name') || {}).textContent || '') === alvo);
-    const im = li && li.querySelector('.thumb img');
-    return im ? im.getAttribute('src') : null;
-  }, nome);
-
-  const antesDoExcluir = await srcNoCronograma('Capa A');
-  checar(!!antesDoExcluir && antesDoExcluir.startsWith('blob:'),
-    'E · a capa da primeira linha do Cronograma nasce com uma object-URL',
-    antesDoExcluir);
-  const excluiu = await pg.evaluate(async (id) => {
-    await AVDB.listRemove('imports', id);
-    await load();
-    return !document.querySelector('#library > .lib-item .row-name[data-nada]');
-  }, semeou[2]);
-  const sumiu = await pg.evaluate(() => ![...document.querySelectorAll('#library > .lib-item')]
-    .some((x) => ((x.querySelector('.row-name') || {}).textContent || '') === 'Capa C'));
-  checar(excluiu === true && sumiu === true,
-    'E · o cenário está montado: OUTRO item foi excluído e saiu da lista',
-    { excluiu, sumiu });
-  const depoisDoExcluir = await srcNoCronograma('Capa A');
-  checar(!!depoisDoExcluir && depoisDoExcluir === antesDoExcluir,
-    'E · e a capa de quem FICOU não muda de URL — a chave de uma miniatura é o '
-    + 'ITEM, não o objeto Blob, e um `load()` devolve blobs novos para as mesmas '
-    + 'capas', { antes: antesDoExcluir, depois: depoisDoExcluir });
-  const vivaNoCronograma = await pg.evaluate(async (url) => {
-    try { const r = await fetch(url); return r.ok && (await r.blob()).size > 0; }
-    catch (_) { return false; }
-  }, depoisDoExcluir);
-  checar(vivaNoCronograma === true,
-    'E · e ela continua VÁLIDA: uma URL estável e revogada seria o defeito '
-    + 'piorado', vivaNoCronograma);
-
-  // =========================================================================
   // C · O QUE SAI DA LISTA É RECOLHIDO
   // =========================================================================
   //
@@ -231,12 +175,24 @@ try {
     const li = [...document.querySelectorAll('[data-fav-corpo] .fav-itens > .lib-item')]
       .find((x) => ((x.querySelector('.row-name') || {}).textContent || '') === 'Capa A');
     const im = li && li.querySelector('.thumb img');
-    if (!im) return false;
-    try { const r = await fetch(im.getAttribute('src')); return r.ok; } catch (_) { return false; }
+    if (!im) return { vive: false, url: null };
+    try {
+      const r = await fetch(im.getAttribute('src'));
+      return { vive: r.ok, url: im.getAttribute('src') };
+    } catch (_) { return { vive: false, url: im.getAttribute('src') }; }
   });
-  checar(aindaViva === true,
+  checar(aindaViva.vive === true,
     'C · e a capa que FICOU continua válida depois da mesma varredura',
     aindaViva);
+  // E ELA É A MESMA STRING (v1.7.7). O bloco acima passou por um `load()`, que
+  // é onde a chave por BLOB perdia: esta é a metade do relato que fala da
+  // BIBLIOTECA, e o bloco E é a que fala do Cronograma. Elas medem a mesma
+  // propriedade em dois hosts, porque foi assim que o operador as encontrou —
+  // e porque um host tem balde próprio e o outro não.
+  checar(aindaViva.url === antes,
+    'C · e é a MESMA URL de antes da exclusão — o `load()` da varredura relê o '
+    + 'banco, e é aí que a chave por blob trocava a capa de todo mundo',
+    { antes, depois: aindaViva.url });
 
   // =========================================================================
   // D · A PASTA DO APARELHO — o balde que o `await` deixa para trás
@@ -287,6 +243,98 @@ try {
     + 'depois de o balde do host ter sido devolvido, e sem um balde próprio a '
     + 'varredura seguinte apagaria a capa da tela',
     { url: daPasta, sobreviveu });
+
+  // =========================================================================
+  // E · O CRONOGRAMA, EXCLUINDO OUTRO ITEM (v1.7.7)
+  // =========================================================================
+  //
+  // Relato do operador: *"Os mesmos problemas de miniaturas piscando da
+  // biblioteca, temos nas miniaturas piscando no cronograma ao excluir outro
+  // item."*
+  //
+  // É a porta que a v1.7.4 deixou aberta, e **o cabeçalho deste arquivo a
+  // nomeava por extenso**: a chave era o BLOB, e o blob é o mesmo objeto entre
+  // dois redesenhos só porque quem o segura é uma lista em MEMÓRIA. Um `load()`
+  // relê o IndexedDB, e um blob relido é OUTRO objeto — toda capa da tela ganha
+  // URL nova de uma vez. E `load()` roda em toda escrita no banco: excluir um
+  // item é exatamente isso.
+  //
+  // O QUE MEDE: a URL da capa de quem FICOU, antes e depois. Um teste de "a
+  // capa aparece" passa nas duas versões — a diferença é o quadro vazio.
+  const cronoSrc = (nome) => pg.evaluate((alvo) => {
+    const li = [...document.querySelectorAll('#library > .lib-item')]
+      .find((x) => ((x.querySelector('.row-name') || {}).textContent || '') === alvo);
+    const im = li && li.querySelector('.thumb img');
+    return im ? im.getAttribute('src') : null;
+  }, nome);
+
+  const cron = await pg.evaluate(async () => {
+    // A Biblioteca sai da frente: o alvo aqui é a lista de baixo.
+    closeHymnSearch();
+    const png = await new Promise((r) => {
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 8;
+      const c = cv.getContext('2d');
+      c.fillStyle = '#8c4'; c.fillRect(0, 0, 8, 8);
+      cv.toBlob(r, 'image/png');
+    });
+    const bytes = new Blob([new Uint8Array(64)], { type: 'audio/mpeg' });
+    const ids = [];
+    for (const nome of ['Crono A', 'Crono B']) {
+      const rec = await AVDB.addMedia(bytes, {
+        name: nome, type: 'audio/mpeg', kind: 'audio', thumb: png, list: 'imports',
+      });
+      ids.push(rec.id);
+    }
+    await load();
+    return ids;
+  });
+  checar(cron.length === 2, 'E · dois itens com capa entraram no Cronograma', cron);
+
+  const cronAntes = await cronoSrc('Crono A');
+  const cronBAntes = await cronoSrc('Crono B');
+  checar(!!cronAntes && cronAntes.startsWith('blob:'),
+    'E · a capa do Cronograma nasce com uma object-URL', cronAntes);
+
+  // O CAMINHO REAL do relato: excluir OUTRO item. Quem o faz de verdade é a
+  // gaveta da linha, e ela termina em `listRemove` + `load()` — que é o par
+  // medido aqui, porque é ele que relê o banco.
+  await pg.evaluate(async (id) => {
+    await AVDB.listRemove('imports', id);
+    await load();
+  }, cron[1]);
+
+  const cronDepois = await cronoSrc('Crono A');
+  checar(cronDepois === cronAntes,
+    'E · e a capa de quem FICOU mantém a MESMA URL depois de o outro item ser '
+    + 'excluído — um `load()` relê o banco, e keada pelo BLOB toda capa da tela '
+    + 'ganhava URL nova de uma vez',
+    { antes: cronAntes, depois: cronDepois });
+  const cronViva = await pg.evaluate(async (url) => {
+    try { const r = await fetch(url); return r.ok && (await r.blob()).size > 0; }
+    catch (_) { return false; }
+  }, cronDepois);
+  checar(cronViva === true,
+    'E · e ela continua VÁLIDA — a mesma string revogada seria o defeito piorado',
+    cronViva);
+
+  // A OUTRA METADE, e sem ela "nunca revogar" passa nas duas acima: a capa de
+  // quem SAIU é recolhida. Ela é a mesma IMAGEM da que ficou (o mesmo `png`),
+  // e é por isso que a asserção é sobre a URL DELA e não sobre os bytes: a
+  // chave é `id|tamanho|tipo`, então dois itens com a mesma capa têm chaves
+  // diferentes e morrem separados — que é o que mantém a varredura honesta.
+  const cronRecolhida = await pg.evaluate(async ({ url, atual }) => {
+    if (url === atual) return { erro: 'as duas linhas dividiam a mesma URL' };
+    let vive = true;
+    try { const r = await fetch(url); vive = r.ok; } catch (_) { vive = false; }
+    const naTela = [...document.querySelectorAll('#library > .lib-item')]
+      .some((x) => ((x.querySelector('.row-name') || {}).textContent || '') === 'Crono B');
+    return { url, vive, naTela };
+  }, { url: cronBAntes, atual: cronDepois });
+  checar(!cronRecolhida.erro && cronRecolhida.naTela === false
+    && cronRecolhida.vive === false,
+    'E · e a de quem SAIU é revogada na mesma passada',
+    cronRecolhida);
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 } finally {

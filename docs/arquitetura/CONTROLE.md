@@ -17,7 +17,7 @@
 | [O download vira estado da tela](#o-download-vira-estado-da-tela) | espera na preview, anel na linha, letra sincronizada |
 | [Séries do YouTube](#séries-do-youtube--coleções-que-não-vêm-do-louvorja-v5228) | Provai e Vede, Informativo |
 | [Playlist automática](#playlist-automática-o-sorteio-temático-v5303) | sortear por tema: uma só ou uma fila |
-| [Buscar no YouTube](#pesquisar-texto-no-youtube-no-fim-da-busca) | busca, download, transmissão direta |
+| [Buscar no YouTube](#pesquisar-texto-no-youtube-no-fim-da-busca) | busca e download (a transmissão direta saiu na v1.7.7) |
 | [Favoritos](#favoritos-uma-lista-só-marcados--pastas-do-aparelho) | lista única, pastas do aparelho |
 | [A saída de áudio](#a-saída-de-áudio-os-displays-ou-este-aparelho-v5215) | quando o som sai do celular |
 | [Leitura auxiliar](#leitura-auxiliar-letra-completa--capítulo-inteiro) · [a cifra em tela cheia](#a-cifra-em-tela-cheia-deitada-v160) | letra, Bíblia, cifra, páginas — e o modo deitado |
@@ -818,11 +818,14 @@ tocar três vezes — olhando para a folha, não para a projeção.
 - **O ÂNGULO é o estado**, e é ele que separa este botão do tile. Com o número
   ao lado a frase fecha: *está a 90°* (estado) + *toque volta ao padrão* (`title`)
   — e, com a cor igual à do vizinho, é ele que diz o que ESTE ✕ destrói.
-- **A seta é INLINE, não o `#icoGirar` do sprite** (v1.4.45). Ela é o mesmo
-  desenho a 0,75 em torno de (10,10), ocupando 4→16 — o canto inferior direito,
-  de 16,4 a 21,5, é do ✕. O símbolo do sprite é o do TILE de Configurações, e o
-  dia em que um dos dois mudar de forma o outro não pode ir junto. O vizinho é
-  inline pela mesma razão.
+- **A seta é INLINE, e não um símbolo do sprite** (v1.4.45). Arco de raio 6 em
+  torno de (10,10), ocupando 4→16 — o canto inferior direito, de 16,4 a 21,5, é
+  do ✕. A razão escrita então era *"o dia em que um dos dois mudar de forma o
+  outro não pode ir junto"*, e a v1.7.6 cobrou: o tile trocou a seta circular
+  pelo QUADRO DE PAISAGEM e nada aqui teve de mudar. **A seta fica**, porque as
+  duas peças respondem perguntas diferentes — o tile mostra o ESTADO (a paisagem
+  na posição em que ela está) e este botão é a AÇÃO (*desfaça*), com o estado ao
+  lado, no número. O vizinho é inline pela mesma razão.
 - **É o único `.pv-fab` mais largo que `--hit`** (`width: auto` +
   `min-width`), e a exceção é o número: mantido o `width` fixo dos irmãos,
   "180°" sai cortado sem erro nenhum. A altura não muda — o alvo continua no
@@ -997,16 +1000,23 @@ state `fade`).
 Ela era uma pilha de sete **faixas** de largura inteira — rótulo por extenso à
 esquerda, segmentado de duas opções à direita, ~64px cada. Uma opção por faixa
 levava o corpo a passar dos 480px, e a folha rolava num aparelho de 640px de
-altura. Hoje é uma **grade de três colunas** de tiles: **ícone, título curto e a
-palavra do estado**, e o toque **alterna** — o painel rápido de um celular.
-As mesmas sete opções ocupam ~230px.
+altura. Hoje é uma **grade de três colunas** de tiles: **ícone e título curto**,
+e o toque **alterna** — o painel rápido de um celular. (A palavra do estado, que
+era uma segunda linha em cada tile, saiu na v1.7.2; ver a regra 2 abaixo.)
 
-**A ORDEM DA GRADE É POR NATUREZA** (v1.4.40), e ela é a tabela abaixo, de cima
-para baixo: primeiro os tiles que **não têm "desligado"** — sempre acesos —,
-depois os que **ligam e desligam**. Numa grade só, e não em duas com um respiro
-entre elas: o primeiro grupo tem QUATRO itens em três colunas, e uma grade
-própria para ele deixaria dois buracos no meio do painel. Quem desenha o grupo é
-a própria cor.
+**A ORDEM DA GRADE É POR ASSUNTO** (v1.7.6), e ela é a tabela abaixo, de cima
+para baixo: as **seis preferências da PROJEÇÃO**, e depois as **três coisas que
+se fazem com o APP fora dela**, numa fileira inteira e sozinha. Pedido do
+operador: *"reordene os botões: compartilhar, exportar e importar devem ser os
+tres itens da base"*.
+
+**A ordem anterior era por NATUREZA** (v1.4.40: primeiro os que não têm
+"desligado", depois os que ligam e desligam), e ela **deixou de existir no mesmo
+lote** — nenhum tile apaga mais, então não há duas naturezas de LUZ para
+ordenar. A grade fecha em três fileiras exatas nos dois arranjos; o que muda é
+onde a costura cai, e agora ela cai entre as duas naturezas. Numa grade só, e
+não em duas com um respiro entre elas: o respiro seria uma segunda maneira de
+dizer o que a fileira já diz.
 
 | tile | id | estado (`data-estado`) | aceso | ícone |
 |---|---|---|---|---|
@@ -1014,19 +1024,32 @@ a própria cor.
 | Preenchimento | `#fitTile` | `contain` · `cover` (ver `stage.setFit()`) | **sempre** | `#icoAjustar` / `#icoPreencher` |
 | Wallpaper | `#wallTile` | `padrao` · `propria` | **sempre** | `#icoWallpaper` / `#icoWallpaperProprio` |
 | Histórico | `#histOpenRow` | — (abre a folha) | **sempre** (classe no HTML) | `#icoHistorico` |
+| Fundo da letra | `#lyricsBgTile` | `image` · `black` (ver "Fundo preto vs. imagens dos slides") | **sempre** | `#icoImagem` / `#icoImagemOff` |
+| Girar no telão | `#rotBtn` | `0` `90` `180` `270` | **sempre** | `#icoPaisagem`, GIRADO pelo `data-estado` |
 | Compartilhar | `#shareAppTile` | `app` | **sempre** | `#icoCompartilhar` |
 | Exportar | `#pacoteExportarTile` | `pronto` · `ocupado` | **sempre** | `#icoExportar` (o ARO no lugar dele em curso) |
 | Importar | `#pacoteImportarTile` | `pronto` · `ocupado` | **sempre** | `#icoImportar` (idem) |
-| Fundo da letra | `#lyricsBgTile` | `image` · `black` (ver "Fundo preto vs. imagens dos slides") | em `image` | `#icoImagem` / `#icoImagemOff` |
-| Girar no telão | `#rotBtn` | `0` `90` `180` `270` | ≠ `0` | `#icoGirar`, GIRADO pelo `data-estado` |
+
+**A COLUNA "ACESO" DIZ "SEMPRE" NAS NOVE LINHAS, e é assim que ela fica**
+(v1.7.6). Pedido do operador: *"todos os botões devem ter o mesmo azul de ativo,
+não temos mais essa diferença, toda diferença de estado é pelo icone, não pela
+cor"*. A v1.4.40 acendeu os tiles sem "desligado" e deixou dois apagando (o
+fundo da letra e o giro); os dois já tinham o estado no DESENHO, então a luz era
+a segunda cópia da mesma resposta — dita na única tinta que este app já reserva
+para outra coisa. **Apagado aqui quer dizer INDISPONÍVEL** (`opacity: .3` +
+`disabled`), e é a queixa da v1.4.25.
+
+**A consequência para o próximo tile é dura, e é a soma das duas remoções:** a
+palavra do estado saiu na v1.7.2, a cor saiu agora, e o desenho é o único canal
+que sobrou. *Um estado que não caiba num desenho não cabe nesta grade.*
 
 **NOVE TILES desde a v1.7.2** — a grade fecha em três fileiras exatas. As três
 AÇÕES DESTE APARELHO moravam num bloco à parte, sob o rótulo "Este aparelho", e
 ele saiu a pedido do operador: *"remova também o texto 'este aparelho' que divide
 as configurações. Todos os blocos ficam em uma grade só"*. A separação era de
 ASSUNTO e custava uma linha de texto e um vão para dizer o que a POSIÇÃO já diz —
-a grade é lida de cima para baixo, e o que não é preferência de projeção está no
-fim dela. **Elas são `hidden` uma a uma fora do app** (`pacoteRenderTiles`), e
+e hoje a posição diz exatamente isso, porque elas são a fileira da base.
+**Elas são `hidden` uma a uma fora do app** (`pacoteRenderTiles`), e
 não mais por um bloco: as três dependem da ponte. A **contagem de uso** saiu
 daqui na v1.4.41 e, uma versão depois, saiu do app inteiro: ver "A contagem de
 uso" abaixo.
@@ -1059,7 +1082,7 @@ As três regras do tile, escritas por inteiro no `index.html`:
    |---|---|---|
    | tema, preenchimento, fundo da letra | `Escuro`, `Ajustar`, `Mostrar` | o par de desenhos, que eles JÁ tinham |
    | wallpaper | `Padrão` · `Própria` | o par NOVO: o rolo vazio × o rolo cheio |
-   | girar | `0°` … `270°` | o próprio ícone, GIRADO pelo `data-estado` |
+   | girar | `0°` … `270°` | o próprio ícone, GIRADO pelo `data-estado` (e desde a v1.7.6 ele é um QUADRO DE PAISAGEM) |
    | histórico, compartilhar | `Abrir`, `O app` | nada — eles não tinham estado |
    | exportar, importar | `42%` | o ARO no lugar do ícone; o NÚMERO voltou para o PRÓPRIO TÍTULO na v1.7.3 (ver abaixo) |
 
@@ -1067,6 +1090,33 @@ As três regras do tile, escritas por inteiro no `index.html`:
    só diferem pelo ângulo não se distinguem a 22px, e isso continua verdade. O
    que ele ganhou foi o MESMO desenho na posição que ele descreve, com
    `transition`: é vendo o ícone VIRAR sob o dedo que se lê o que o toque fez.
+
+   **E na v1.7.6 esse desenho passou a ser um QUADRO DE PAISAGEM**
+   (`#icoPaisagem`), a pedido: *"use um icone de picture, paisagem. O próprio
+   quadro vai girar e vai ser mais intuitivo que um seta circular rodando, pois
+   vai literalmente representar em qual posição está a paisagem"*. **O mecanismo
+   não mudou uma linha; mudou o que ele vira.** Uma seta girada é a AÇÃO
+   desenhada duas vezes (ela já significa *"gire"*), e a 90° é só uma seta
+   apontando para outro lado; um quadro girado é o ESTADO.
+
+   O desenho é **assimétrico nos dois eixos, de propósito**, e essa é a
+   exigência dura: sem isso 0° e 180° ficam idênticos, e 90° e 270° também —
+   quatro estados em dois desenhos. O sol no ALTO e o morro EMBAIXO resolvem o
+   vertical; o sol à DIREITA e o morro à ESQUERDA resolvem o horizontal, e a
+   proporção o reforça.
+
+   **O MORRO NÃO ATRAVESSA O QUADRO DE PAREDE A PAREDE, e isso foi MEDIDO:** um
+   pico que toca as duas paredes com pouco céu acima é a ABA DE UM ENVELOPE, e a
+   180° o desenho vira o glifo universal de e-mail — quatro candidatos
+   renderizados a 22px e a 58px, e os três que atravessavam liam-se assim. Aqui
+   ele ocupa a metade esquerda e a de baixo, e sobra CÉU: é o céu que faz um
+   quadro ser uma paisagem.
+
+   E ele **não é o `#icoImagem` do tile vizinho**, que é a armadilha que o
+   `#icoWallpaper` já pagou nesta mesma grade — as três diferenças sobrevivem a
+   22px: quadro bem mais LARGO (21×13 contra 17×14), o SOL À DIREITA (lá ele
+   está à esquerda) e um PICO SÓ, na metade esquerda, contra o recorte irregular
+   que atravessa o outro inteiro.
 
    O WALLPAPER ganhou o par porque era o único de dois estados sem nenhum. A
    razão de não ter também continua válida, e é ela que decidiu a FORMA do par:
@@ -1095,19 +1145,30 @@ As três regras do tile, escritas por inteiro no `index.html`:
    módulo: `pacoteRenderTiles()` roda no topo do arquivo, na carga, e o
    `pintarTile` leria a constante antes da linha que a declara — zona morta
    temporal, e o app não abre.
-3. **ACESO (`qs-on`) = A FUNÇÃO ESTÁ LIGADA — e num tile sem "desligado",
-   SEMPRE** (v1.4.40). `--btn-accent` + `--accent`, a gramática de INTERRUPTOR
-   LIGADO da paleta, nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS.
+3. **A COR NÃO DIZ ESTADO NENHUM: TODO TILE É ACESO** (v1.7.6). `qs-on` é
+   `--btn-accent` + `--accent`, a gramática de INTERRUPTOR LIGADO da paleta,
+   nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS.
 
-   A v1.4.38 lia o aceso como *"o estado não é o padrão"*, e o operador
-   desmentiu: *"a maioria dos botões das configurações não tem estado de ativo e
-   inativo… então pode deixar eles no estado azul de 'sempre ativo' o tempo
-   todo"*. Escolher "Ajustar" não desliga nada, e apagado ali dizia
-   INDISPONÍVEL — a queixa exata da v1.4.25, com o app já tendo uma linguagem
-   para isso (`opacity: .3` + `disabled`). **O que se perde está dito:** a grade
-   não responde *"o que eu deixei mexido aqui?"* de relance; quem respondia isso
-   era a palavra do estado, e desde a v1.7.2 quem responde é o DESENHO de cada
-   tile, um a um.
+   A v1.4.38 lia o aceso como *"o estado não é o padrão"*; a v1.4.40 acendeu os
+   tiles sem "desligado" e deixou DOIS apagando (o fundo da letra e o giro); e a
+   v1.7.6 encerrou a distinção, a pedido do operador: *"todos os botões devem
+   ter o mesmo azul de ativo, não temos mais essa diferença, toda diferença de
+   estado é pelo icone, não pela cor"*.
+
+   **Os dois que apagavam já tinham o estado no DESENHO** — a imagem riscada, e
+   o quadro na posição em que a mídia está —, então a luz era a segunda cópia da
+   mesma resposta, gasta na única propriedade que este app já usa para outra
+   coisa: **apagado quer dizer INDISPONÍVEL** (`opacity: .3` + `disabled`), a
+   queixa exata da v1.4.25.
+
+   **`qs-on` e o parâmetro `aceso` FICAM.** O que morreu foi a política de
+   usá-los para dizer estado, não a capacidade de apagar um tile que de fato
+   esteja indisponível — quem passar `false` ali está dizendo isso, e é assim
+   que se lê.
+
+   **O que se perde está dito:** a grade não responde *"o que eu deixei mexido
+   aqui?"* de relance. Quem respondia era a palavra do estado (fora na v1.7.2) e
+   depois a luz (fora agora); hoje responde o DESENHO de cada tile, um a um.
 
    **Um tile EM CURSO não apaga** (v1.7.2, `.qs-trabalhando`): exportar e
    importar ficam `disabled` enquanto trabalham, e a folha do agente esmaece um
@@ -1117,11 +1178,10 @@ As três regras do tile, escritas por inteiro no `index.html`:
    desenho, dois consumidores), com o tile pondo só a geometria; escrevê-lo de
    novo seria uma segunda opinião sobre o mesmo anel.
 
-   No mesmo lote o aceso do **fundo da letra** e o da **medição** foram
-   INVERTIDOS: eles marcavam o estado que não é o padrão (`Remover`,
-   `De fora`), e agora marcam a função ligada (`Mostrar`, `Entra`) — com isso o
-   desenho e a luz passam a dizer a mesma coisa, em vez de coisas opostas no
-   mesmo botão.
+   (A v1.4.40 tinha INVERTIDO o aceso do **fundo da letra**, que marcava o
+   estado fora do padrão e passou a marcar a função ligada. A inversão morreu
+   com a política na v1.7.6 — hoje ele é aceso nos dois estados, e quem responde
+   é o par de desenhos que ele já tinha.)
 
 **Quem pinta é `pintarTile(el, estado, rotulo, aceso, alt)`, e é um ponto só** —
 o `data-estado`, o `aria-label`, o aceso e o desenho saem da mesma chamada, e é
@@ -1706,6 +1766,12 @@ custa nada; e para o quadro congelado aparecer de fato, a cena pausada agora
 
 ### O preto de vários segundos da transmissão direta (v5.142)
 
+> **NADA NO APP CRIA UM STREAM DESDE A v1.7.7** — a transmissão direta saiu a
+> pedido do operador (ver o CLAUDE.md). Esta seção descreve o que o `stage.js`
+> faz ao RECEBER um registro com manifesto, e ele continua sendo capaz disso: um
+> registro gravado antes daquele lote pode existir no aparelho até o manifesto
+> expirar (horas).
+
 Um stream leva segundos entre o comando e o primeiro quadro — init, índice e o
 primeiro fragmento vêm da **rede**. Metade desse caso já estava resolvida: quando
 a cena anterior era o wallpaper, a cortina fica de pé até haver quadro (o
@@ -1779,7 +1845,7 @@ estrangulado justamente enquanto o app está minimizado.
 ### O toque responde no instante, não quando os bytes chegam (v1.4.6)
 
 **"Tocar agora" num vídeo do YouTube começa por uma EXTRAÇÃO DE REDE** — o
-`ytStream` do `tentarTransmitir` — e só depois dela vem o `send` que muda alguma
+do link — e só depois dela vem o `send` que muda alguma
 coisa na tela. Nesse intervalo de segundos o app não dizia nada: o único sinal
 era o `setYtEstado`, que acende uma linha da Biblioteca que o `closeHymnSearch`
 acabara de fechar. E o caminho do DOWNLOAD já tinha o cartão de espera
@@ -1844,7 +1910,7 @@ exclusivo"*. Na v1.4.8 o aro saiu inteiro, e com ele a folha `shared/stage.css`.
 - **A SAÍDA DO CARTÃO GANHOU UMA CARÊNCIA** (`PV_BUSY_SAIDA_MS`, 700 ms), e ela
   é o que faz a promessa acima ser verdade. A espera tem DOIS donos em sequência
   — o toque (`cederOPalco`, que cobre a extração de rede) e a carga do stream (o
-  `onEspera`) —, e o primeiro solta no `finally` assim que `tentarTransmitir`
+  `onEspera`) —, e o primeiro solta no `finally` assim que a ação
   volta, enquanto o segundo só acende lá dentro do `load`, depois do fade de
   saída e do `getMedia`: **entre os dois o contador passa por ZERO**. Sem a
   carência o cartão sai e volta no meio da MESMA espera, que é o "dois modelos
@@ -3470,9 +3536,10 @@ marcado: o estado ficava certo e só o desenho não acompanhava.
 
 Casos particulares:
 
-- **Combinado com um destino de guarda, a transmissão direta fica de fora:** ela
-  não produz arquivo (é um manifesto que expira em horas), e quem marcou
-  "Cronograma" pediu justamente o que sobra depois do domingo.
+- **(A transmissão direta SAIU na v1.7.7.** Ela ficava de fora quando havia um
+  destino de guarda marcado — não produz arquivo, é um manifesto que expira em
+  horas —, e hoje esse caso não existe: toda ação baixa, e "Tocar agora"
+  combinado com "Cronograma" é UM download que também entra na lista.)
 - **Um download só** (`ytAcao`): o arquivo nasce na PRIMEIRA lista escolhida e é
   espalhado por `listAdd` (idempotente). "Já estava lá" é sobre o CONJUNTO — um
   vídeo no Cronograma e fora dos Favoritos não é duplicata.
@@ -5592,35 +5659,36 @@ de referência de verdade), a **estrela em toda linha** e as **cenas de roteiro*
 > `comBaldeDeMiniaturas('fav-biblioteca', …)`. O `__avBack` perdeu o degrau da
 > gaveta junto.
 
-> **E A `object-URL` DE UMA MINIATURA É DO BLOB, NÃO DO RENDER** (v1.7.4).
-> Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante
-> processos de download na biblioteca"*. A Biblioteca é redesenhada a cada 400 ms
-> enquanto um download corre, e cada passada REVOGAVA as URLs da anterior para
-> criar outras dos MESMOS blobs — uma `<img>` com `src` inédito não tem
-> decodificação em cache: ela nasce vazia e pinta no quadro seguinte, três vezes
-> por segundo, em toda linha com capa.
+> **E A `object-URL` DE UMA MINIATURA É DO ITEM, NÃO DO RENDER** (v1.7.4, com a
+> chave corrigida na v1.7.8). Relato: *"Os itens da lista de favoritos, tem suas
+> thumbnails piscando durante processos de download na biblioteca"*. A Biblioteca
+> é redesenhada a cada 400 ms enquanto um download corre, e cada passada REVOGAVA
+> as URLs da anterior para criar outras da MESMA capa — uma `<img>` com `src`
+> inédito não tem decodificação em cache: ela nasce vazia e pinta no quadro
+> seguinte, três vezes por segundo, em toda linha com capa.
 >
 > `thumbUrlDaCapa` guarda uma URL por CAPA (mais `decoding="sync"`, que é a outra
 > metade: com a decodificação assíncrona o elemento novo ainda esperava um
 > quadro).
 >
-> **E A CHAVE DEIXOU DE SER O OBJETO (v1.7.6).** A v1.7.4 prometeu o redesenho
-> que NÃO relê e disse isso por extenso; o que ela deixou de fora estava na
-> própria nota — *"quem as relê é o `load()`"*. Relato do operador: *"os mesmos
-> problemas de miniaturas piscando da biblioteca, temos nas miniaturas piscando
-> no cronograma ao excluir outro item."* **Excluir É um `load()`**: o `getAll`
-> do IndexedDB devolve blobs NOVOS para as mesmas capas, a chave por objeto não
-> os reconhece, e a lista inteira ganha URLs inéditas — todas as capas piscando
-> por causa da linha que saiu.
+> **A CHAVE É `id|tamanho|tipo`, e não o objeto Blob** (v1.7.8). A v1.7.4 keou
+> pelo BLOB, e aquilo cobria o relato original e só ele: o blob é o mesmo OBJETO
+> entre dois redesenhos porque quem o segura são as listas em MEMÓRIA. Mas um
+> `load()` as relê do IndexedDB, e **um blob relido é outro objeto** — toda capa
+> da tela ganhava URL nova de uma vez. E `load()` roda em TODA escrita no banco:
+> o relato seguinte foi *"as mesmas miniaturas piscando no cronograma ao excluir
+> outro item"*, que é exatamente isso.
 >
-> `chaveDaCapa` é `id + tamanho + tipo`: sobrevive à releitura e continua
-> distinguindo uma capa que MUDOU. **O preço está dito** — duas capas do mesmo
-> id com exatamente os mesmos bytes seriam confundidas, e a antiga ficaria na
-> tela. É aceitável porque a capa de um id é, na prática, imutável (`mediaAdd`
-> usa `add` e não `put`: o que muda de capa muda de id), e porque errar custa
-> uma miniatura velha, não um app quebrado. **Sem `id` a chave volta a ser o
-> OBJETO** — sem ele não há como reencontrar a capa depois da releitura, e uma
-> chave que colidisse entre itens diferentes seria pior que o pisca-pisca.
+> Cada pedaço da chave responde a uma coisa: o **`id`** é o que sobrevive à
+> releitura, e o par **`size`/`type`** é a impressão digital que impede uma capa
+> TROCADA de ser servida da memória — hoje nenhum caminho substitui a miniatura
+> de um registro existente, e o dia em que um existir ele mudará o tamanho. Sem
+> `id` a chave é o próprio blob, que é o comportamento da v1.7.4: pior caso, o
+> de antes.
+>
+> **De quebra, o MESMO item em duas listas passa a ter UMA url.**
+> `listItems('imports')` e `listItems('favs')` são duas leituras, então a mesma
+> capa vinha como dois blobs e ocupava a memória duas vezes.
 >
 > **E a varredura passou a ser pela UNIÃO dos baldes** (`varrerMiniaturas`), não
 > pela diferença: uma URL só morre quando nenhum host a desenha. Isso fecha POR
@@ -5636,10 +5704,9 @@ de referência de verdade), a **estrela em toda linha** e as **cenas de roteiro*
 > varredura seguinte as apaga da tela. UMA chave, e não uma por pasta: só há uma
 > aberta por vez, então abrir outra substitui o balde; uma chave por id deixaria
 > de pé, para sempre, os blobs de toda pasta já visitada. Oráculo:
-> `tools/miniaturas-estaveis.test.mjs`, cujo bloco E mede a IDENTIDADE da URL no
-> CRONOGRAMA depois de excluir OUTRO item — e ela é outra pergunta que a
-> VALIDADE que o bloco C já media: a capa continuava válida, numa URL nova, e é
-> por isso que aquela metade passava com o defeito em cena.
+> `tools/miniaturas-estaveis.test.mjs`, que mede a estabilidade nos DOIS hosts do
+> relato — a Biblioteca (bloco C) e o Cronograma (bloco E) — porque um tem balde
+> próprio e o outro não.
 
 O mecanismo por baixo continua usando as MESMAS chaves de state (renomear a
 leitura não pode custar a biblioteca de ninguém) — o que mudou é o
@@ -6975,7 +7042,7 @@ resultados e eles entram **na mesma lista**, abaixo do acervo, com miniatura
   (`AVDB.mediaByYoutube`). Só vale para quem tem **blob** — um item de LINK
   carrega o mesmo `youtubeId` e é o que o download existe para substituir.
 - **O NOME DO APP VENCE O TÍTULO DO YOUTUBE** (v1.4.10), nos DOIS caminhos —
-  `tentarTransmitir` (`r.name || man.name`) e `ytBaixarNativo`
+  o caminho da transmissão (`r.name || man.name`, removido na v1.7.7) e `ytBaixarNativo`
   (`nome || r.name || rotulo`, com o `r.name` do SHELL no meio). A ordem era a
   inversa, e o título extraído chega **segundos depois do toque**: nesse instante
   ele trocava o nome debaixo de tudo — o cartão de espera, a barra do que está
@@ -7757,7 +7824,8 @@ pede permissão e exige gesto, que é o oposto do que este caminho quer ser.
 área de transferência pode estar ali por qualquer razão. Daí a PERGUNTA antes:
 só o "sim" entrega o link ao `importShare`, que dali em diante é literalmente o
 mesmo código desta seção. E é a pergunta que torna o recurso seguro no **Modo
-Fácil**, onde um link compartilhado vira transmissão direta sem perguntar nada.
+Fácil**, onde um link compartilhado é baixado e projetado sem perguntar nada
+(era transmissão direta até a v1.7.2).
 
 **O custo é o aviso de área de transferência do Android 12+, e ele é pago uma vez
 por link copiado — nunca por retomada.** Quem garante isso é o CARIMBO,
@@ -7866,7 +7934,7 @@ sábado é visto uma vez. Então:
 | O que | Onde | Como |
 |---|---|---|
 | toque no item | `openSongMenu` → `openYtMenu(serieComoYoutube(coll, s))` | a folha do YouTube, com `semSoAudio: true` (o seletor Vídeo × Só áudio some) |
-| "Tocar agora" | `ytAcao(…, ['tocar'])` | **TRANSMISSÃO DIRETA** — `ytStream` → `shared/mse.js`, sem baixar |
+| "Tocar agora" | `ytAcao(…, ['tocar'])` | **BAIXA e projeta** — `ytArquivo`, no teto padrão do operador (720p). Era TRANSMISSÃO DIRETA até a v1.7.2 |
 | Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
 | guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
 | card | `renderCollectionCard` | **card da RAIZ** do índice (v1.0.1), acima dos hinários. **UM botão só** (v1.1.21): "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), puro e sem texto, na direita da barra — sem baixar em lote e sem lixeira, porque o álbum não retém arquivo. A barra diz quantos EPISÓDIOS a lista tem, não peso, e o do sábado desta semana fica DESTACADO no topo (`blocoDestaque`). A série sai de "Baixar toda a biblioteca" |

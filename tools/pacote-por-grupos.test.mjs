@@ -347,7 +347,7 @@ try {
   checar(/2 de 2/.test((secao && secao.sub) || ''),
     'B · com a conta do que está marcado dentro dela', secao && secao.sub);
 
-  // ===== NÃO HÁ LINHA DE "TUDO", E TUDO NASCE MARCADO (v1.7.6) =====
+  // ===== NÃO HÁ LINHA DE "TUDO", E TUDO NASCE MARCADO (v1.7.9) =====
   //
   // Ela existiu da v1.7.3 à v1.7.5 e saiu a pedido: *"o seletor de 'tudo' …
   // está inútil agora que temos o agrupamento … deixe tudo selecionado por

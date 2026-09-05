@@ -1,11 +1,34 @@
 [
   {
-    "versao": "1.7.6",
+    "versao": "1.7.9",
     "itens": [
       "A importação do acervo voltou a funcionar em arquivos grandes.",
       "Antes o app tentava abrir o arquivo inteiro de uma vez e desistia.",
-      "As miniaturas do Cronograma pararam de piscar ao excluir outro item.",
       "A folha de exportação perdeu a linha de marcar tudo: ela já abre com tudo marcado."
+    ]
+  },
+  {
+    "versao": "1.7.8",
+    "itens": [
+      "As miniaturas do Cronograma pararam de piscar ao excluir outro item."
+    ]
+  },
+  {
+    "versao": "1.7.7",
+    "itens": [
+      "A prévia voltou a mostrar o papel de parede quando a música acaba, em vez de ficar preta.",
+      "Os vídeos do YouTube deixaram de tocar direto da internet — agora eles são baixados antes.",
+      "Isso acaba com os travamentos durante a projeção.",
+      "A qualidade padrão passou a ser 720p.",
+      "E a qualidade que você escolher fica guardada como a sua padrão."
+    ]
+  },
+  {
+    "versao": "1.7.6",
+    "itens": [
+      "Nenhum botão das Configurações fica apagado: o estado é dito pelo ícone.",
+      "O botão de girar mostra um quadro de paisagem, que vira junto com a mídia.",
+      "Compartilhar, exportar e importar passaram a ser a última fileira da grade."
     ]
   },
   {

@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.7.6';
+const WEB_VERSION = '1.7.9';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -677,63 +677,54 @@ const selected = new Set();
 // não tem decodificação em cache — ela nasce vazia e pinta no quadro seguinte.
 // Vezes três por segundo, em toda linha com capa: a lista piscando.
 //
-// A CHAVE PASSA A SER O BLOB. Mesmo blob, mesma URL, para sempre: a `<img>` que
-// o redesenho monta nasce com um `src` que o navegador já decodificou, e não há
-// quadro vazio nenhum. O blob é o mesmo OBJETO entre um render e outro porque
-// quem o segura são as listas em memória (`libItems`, `favItems`) — quem as
-// relê é o `load()`, e um `load()` é exatamente o momento em que a miniatura
-// PODE mudar.
+// A CHAVE É O ITEM, E NÃO O OBJETO BLOB (v1.7.7). A v1.7.4 keou pelo BLOB, e
+// aquilo resolvia o relato original e só ele: o blob é o mesmo OBJETO entre dois
+// redesenhos porque quem o segura são as listas em memória (`libItems`,
+// `favItems`). **Mas um `load()` as RELÊ do IndexedDB, e um blob relido é outro
+// objeto** — toda capa da tela ganhava URL nova de uma vez.
 //
-// E A VARREDURA SUBSTITUI A REVOGAÇÃO POR HOST. O balde de cada host passa a
-// guardar BLOBS, e o que se revoga é o que não está em balde nenhum — isto é,
-// a união, e não a diferença. Isso fecha por CONSTRUÇÃO a classe de defeito que
-// o balde por host existia para tratar (um host revogando o que o outro tem em
-// cena): uma URL só morre quando ninguém mais a desenha.
+// E `load()` não é raro: ele roda em TODA escrita no banco. Excluir um item do
+// Cronograma reescreve a lista, chama `load()`, e as capas de todos os OUTROS
+// piscam — o mesmo defeito, pela porta que a v1.7.4 deixou aberta (o oráculo
+// dela dizia isso por extenso, e o relato seguinte foi exatamente ele).
 //
-// ===== E O OBJETO NÃO ATRAVESSA UM `load()` (v1.7.6) =====
+// A CHAVE É `id|bytes|tipo`, e cada pedaço responde a uma coisa: o `id` é o que
+// sobrevive à releitura, e o par `size`/`type` é a impressão digital que impede
+// uma capa TROCADA de ser servida da memória — hoje nenhum caminho substitui a
+// miniatura de um registro existente, e quando um existir ele mudará o tamanho.
+// Sem `id` (nunca observado) a chave é o próprio blob, que é o comportamento da
+// v1.7.4: pior caso, o de antes.
 //
-// Relato do operador: *"os mesmos problemas de miniaturas piscando da
-// biblioteca, temos nas miniaturas piscando no cronograma ao excluir outro
-// item."*
+// DE QUEBRA, o MESMO item em duas listas passa a ter UMA url. `listItems`
+// ('imports') e `listItems('favs')` são duas leituras, então a mesma capa vinha
+// como dois blobs e ocupava a memória duas vezes.
 //
-// A v1.7.4 fechou o caso do REDESENHO e deixou aberto o da RELEITURA, e a nota
-// dela já dizia por quê sem tirar a conclusão: *"o blob é o mesmo OBJETO entre
-// um render e outro porque quem o segura são as listas em memória — quem as
-// relê é o `load()`"*. Excluir um item É um `load()`: o `getAll` do IndexedDB
-// devolve BLOBS NOVOS para as mesmas capas, a chave por objeto não os
-// reconhece, e a lista inteira ganha URLs inéditas — todas as capas piscando,
-// por causa da linha que saiu.
-//
-// A CHAVE PASSA A SER O ITEM: `id` + o tamanho e o tipo da capa. Ela sobrevive
-// a uma releitura (é o que o defeito pede) e continua distinguindo uma capa que
-// MUDOU (outro tamanho, outra URL).
-//
-// O PREÇO, dito: duas capas do MESMO id com exatamente o mesmo número de bytes
-// e o mesmo tipo seriam confundidas, e a antiga continuaria na tela. Ele é
-// aceitável porque a capa de um id é, na prática, imutável — `mediaAdd` usa
-// `add` e não `put`, então um registro não é substituído; o que muda de capa
-// muda de id. E o desfecho de errar é uma miniatura velha, não um app quebrado.
-//
-// SEM `id` a chave volta a ser o OBJETO, que é o comportamento da v1.7.4: sem
-// ele não há como reencontrar a capa depois da releitura, e uma chave que
-// colide entre itens diferentes seria pior que o pisca-pisca.
+// E A VARREDURA SUBSTITUI A REVOGAÇÃO POR HOST. O balde de cada host guarda
+// CHAVES, e o que se revoga é o que não está em balde nenhum — isto é, a união,
+// e não a diferença. Isso fecha por CONSTRUÇÃO a classe de defeito que o balde
+// por host existia para tratar (um host revogando o que o outro tem em cena):
+// uma URL só morre quando ninguém mais a desenha.
 const thumbUrlPorChave = new Map();   // chave -> object URL (uma por capa, viva)
 const thumbChavesPorHost = new Map(); // host -> Set(chave) do último render dele
 let thumbChavesAtual = new Set();     // o balde do render em curso
 
-// A CHAVE de uma capa. String quando o item tem id; o próprio Blob quando não
-// tem — um `Map` aceita os dois, e o segundo caso é o da v1.7.4.
-function chaveDaCapa(item) {
-  const b = item && item.thumb;
-  if (!b) return '';
-  if (!item.id) return b;
-  return item.id + ':' + b.size + ':' + (b.type || '');
+// A chave de uma capa. String quando há `id`; o PRÓPRIO blob quando não há —
+// os dois servem de chave de `Map`, e o segundo é a degradação para a v1.7.4.
+function thumbChaveDe(item) {
+  const b = item.thumb;
+  return item.id ? item.id + '|' + b.size + '|' + (b.type || '') : b;
 }
 
 // A URL desta miniatura, criada UMA vez. O `add` é o que a mantém viva: a
 // varredura recolhe o que este render não pediu.
+//
+// SÓ COM `item.thumb` SENDO UM BLOB — quem separa os três casos (blob, string,
+// nada) é o `thumbEl`, e uma segunda guarda aqui seria uma segunda opinião:
+// devolver `''` daria um `src` vazio, que o navegador resolve para o próprio
+// documento e busca. É melhor lançar do que desenhar a página dentro de uma
+// miniatura.
 function thumbUrlDaCapa(item) {
-  const chave = chaveDaCapa(item);
+  const chave = thumbChaveDe(item);
   thumbChavesAtual.add(chave);
   let url = thumbUrlPorChave.get(chave);
   if (!url) { url = URL.createObjectURL(item.thumb); thumbUrlPorChave.set(chave, url); }
@@ -745,10 +736,10 @@ function thumbUrlDaCapa(item) {
 // então o vazamento seria de memória de verdade, não de um punhado de strings.
 function varrerMiniaturas() {
   if (!thumbUrlPorChave.size) return;
-  const vivos = new Set();
-  thumbChavesPorHost.forEach((baldes) => baldes.forEach((k) => vivos.add(k)));
+  const vivas = new Set();
+  thumbChavesPorHost.forEach((baldes) => baldes.forEach((c) => vivas.add(c)));
   thumbUrlPorChave.forEach((url, chave) => {
-    if (vivos.has(chave)) return;
+    if (vivas.has(chave)) return;
     URL.revokeObjectURL(url);
     thumbUrlPorChave.delete(chave);
   });
@@ -1035,7 +1026,7 @@ let projecaoSeq = 0;
 // vem sobre a música que tocou na hora"*.
 //
 // Resolver um link é a espera mais longa do app — uma extração de rede de
-// SEGUNDOS (`ytStream`) e, falhando ela, um download de MINUTOS. Nesse intervalo
+// SEGUNDOS (a extração) e, depois dela, um download de MINUTOS. Nesse intervalo
 // o operador projeta outra coisa, e o desfecho da resolução chegava sem perguntar
 // a ninguém se ainda era esperado: `send` no fim, cena trocada, louvor cortado.
 //
@@ -1049,17 +1040,26 @@ let projecaoSeq = 0;
 // "Preparando <link>" fica sobre a preview enquanto a música nova já toca — a
 // tela dizendo que prepara uma coisa e tocando outra. MEDIDO em arnês antes da
 // correção.
-let palcoEmVoo = null;   // { senha, cartao } — a resolução de link que espera a rede
+let palcoEmVoo = null;   // { senha, cartoes[] } — a projeção que espera a rede
 
-// O DESFECHO de quem perdeu a vez. TRUTHY de propósito: para quem chamou,
-// "outra coisa está no ar" e "projetei" pedem a mesma resposta — parar. O que
-// ele acrescenta é a distinção que só o `resolverLinkInterno` precisa fazer —
-// abandonado NÃO cai no download, porque ninguém está mais esperando por ele.
-const PROJECAO_PERDIDA = 'perdeu-a-vez';
-
+// SÃO VÁRIOS CARTÕES, E NÃO UM (v1.7.7). A mesma tentativa de projeção abre
+// DOIS em sequência: o do toque (`cederOPalco`, "Preparando <nome>") e o do
+// download (`ytBaixarNativo` com `aviso: 'preview'`), que antes deste lote era
+// inalcançável neste caminho — a transmissão direta resolvia a cena antes de
+// chegar nele. Guardando um só, quem ganhava a vez derrubava o primeiro e o
+// SEGUNDO ficava sobre a música nova pelos MINUTOS do download: a tela dizendo
+// que prepara uma coisa e tocando outra, que é exatamente o relato que este
+// mecanismo existe para não deixar acontecer.
+//
+// A SENHA CONTINUA SENDO UMA: os cartões de uma tentativa são da MESMA senha
+// (nada entre eles chama `send`). Uma senha nova ZERA a lista — os cartões da
+// tentativa anterior já foram derrubados por quem tomou a vez.
 function registrarPalcoEmVoo(cartao) {
-  palcoEmVoo = { senha: projecaoSeq, cartao };
-  return palcoEmVoo;
+  if (!palcoEmVoo || palcoEmVoo.senha !== projecaoSeq) {
+    palcoEmVoo = { senha: projecaoSeq, cartoes: [] };
+  }
+  palcoEmVoo.cartoes.push(cartao);
+  return cartao;   // devolve o CARTÃO, para poder embrulhar a criação dele
 }
 // Chamada por `send`, logo depois do `++projecaoSeq`: quem ganha a vez derruba o
 // cartão de quem a perdeu. `soltar()` é idempotente (o `solto` do `previewBusy`),
@@ -1068,7 +1068,9 @@ function derrubarPalcoEmVoo() {
   const v = palcoEmVoo;
   if (!v) return;
   palcoEmVoo = null;
-  try { v.cartao.soltar(); } catch (_) { /* o cartão é aviso; falhar nele não derruba nada */ }
+  for (const c of v.cartoes) {
+    try { c.soltar(); } catch (_) { /* o cartão é aviso; falhar nele não derruba nada */ }
+  }
 }
 // id_bible_book real do livro no índice `idx` de Bible.BOOKS: usa o id da lista
 // online (mesma ordem canônica) quando baixada; senão cai no índice+1.
@@ -1526,27 +1528,6 @@ let midiaNoAr = false;
 // Sem este campo, o realce de "no ar" mudaria de linha sozinho.
 let midiaNoArId = '';
 
-// QUAL LINHA DA LISTA pôs esta mídia no ar, quando ela não é a própria mídia.
-//
-// Um item `kind: 'youtube'` é um LINK sem bytes, e desde a v5.212 ele não vai
-// ao telão como link: o toque o RESOLVE (`resolverLinkYoutube`) e quem projeta
-// é o registro que sair daí. Pelo caminho do DOWNLOAD isso não se nota, porque
-// o arquivo toma o lugar do link em posição e a linha passa a ter o id novo.
-// Pela TRANSMISSÃO DIRETA, não: a mídia é um avulso com id próprio (o id do
-// vídeo), o link continua na lista com o id dele, e `midiaNoArId` aponta para
-// um registro que não está em lista nenhuma.
-//
-// O efeito era o relato do operador: *"um arquivo do tipo YouTube… pode ser
-// tocado diretamente online no player, mas o respectivo elemento da lista do
-// cronograma ou favorito não entra no modo 'no ar'"*. E não era só o realce —
-// `noArAgora` responde pela MESMA pergunta, então o SEGUNDO TOQUE (que retira
-// do ar) também não alcançava aquela linha: ela reprojetava em vez de retirar,
-// que é o defeito que a v5.165 existiu para consertar, aqui por outra porta.
-//
-// É o mesmo formato do `cueNoArId`, e pela mesma razão: quem está no ar e quem
-// PÔS no ar podem ser dois registros diferentes, e a lista fala do segundo.
-let midiaNoArOrigem = '';
-
 // QUAL cena de roteiro está no ar — e por que isto NÃO pode ser o `currentId`.
 //
 // A Camada de Texto (versículo, mensagem, letra, cronômetro, sorteio) é uma
@@ -1693,11 +1674,6 @@ const preview = createStage({
     preview.handle({ type: 'play' });
     diagC('som local RECUSADO (autoplay) — a preview volta a tocar muda');
   },
-  // A PREVIEW É A CANÁRIA da transmissão direta: ela toca o mesmo registro que
-  // o telão, na mesma hora, e é aqui — na tela do operador — que uma URL
-  // expirada aparece primeiro. Quem recupera é o Controle, porque é ele que
-  // tem a ponte (o Display recebe `host = null`) e é ele que manda a cena.
-  onStreamErro: (rec, porque) => { recuperarStream(rec, porque); },
   // Display presente é a fonte de verdade do avanço automático: quando ele
   // está ativo, quem avança é o `media-ended` remoto (com guarda de mediaId).
   // Sem este early-return, se o Display chegar ao fim antes da preview (drift
@@ -1852,6 +1828,20 @@ const SYNC_DRIFT = 0.5;
 // poupar, há um desvio conhecido e possivelmente enorme. `RESYNC_EXATO` é só a
 // margem que evita um seek inútil quando por sorte já estava alinhado.
 const RESYNC_EXATO = 0.15;
+// A PROJEÇÃO PARADA A MENOS DISTO DO FIM ESTÁ NO FIM (v1.7.7).
+//
+// A rede de segurança do `marcarFim` — o caminho EXATO é o `media-ended`, e ele
+// não cobre tudo: as telas da rede o perdem no DRENO de propósito (N telas
+// dariam N avanços de playlist), e o `mediaId` dele tem uma guarda que pode
+// recusar um par que não bata. Sem TV a tela da rede É a projeção, e a preview
+// ficaria com o mesmo quadro preto pelo mesmo motivo.
+//
+// APERTADO de propósito. O falso positivo é o operador PAUSAR nos últimos 250 ms
+// de uma faixa: ali a preview cobriria com o wallpaper enquanto a projeção
+// mostra o quadro congelado. É uma janela em que "pausar" e "acabar" já não se
+// distinguem para quem assiste, e o preço do outro lado — a preview presa no
+// preto pelo resto do culto — é o relato que existe.
+const FIM_DA_PROJECAO_S = 0.25;
 // Por quanto tempo depois de retomar o próximo status vale como reposicionamento
 // forçado. Ele precisa sobreviver ao intervalo entre a retomada e o status
 // seguinte — que, num telão parado, é o compasso do `display-status`.
@@ -1939,6 +1929,17 @@ function resyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
   if (!preverPodeMexer()) return;   // ver `preverPodeMexer`
   const tol = typeof tolerancia === 'number' ? tolerancia : SYNC_DRIFT;
   try {
+    // O FIM DA PROJEÇÃO NÃO É UMA PAUSA, e é aqui que a diferença aparece: o
+    // `preview.pause()` lá embaixo é o que impede o `<video>` da preview de
+    // chegar ao `ended` DELE (ver `marcarFim`, em `shared/stage.js`). Marcar o
+    // fim ANTES do seek é o que evita parkear a preview em `currentTime ===
+    // duration`, que é onde não há quadro decodificável — o PRETO do relato.
+    const dur = preview.getDuration();
+    if (!isPlaying && typeof currentTime === 'number' && isFinite(currentTime)
+        && isFinite(dur) && dur > 0 && currentTime >= dur - FIM_DA_PROJECAO_S) {
+      preview.marcarFim();
+      return;
+    }
     if (typeof currentTime === 'number' && isFinite(currentTime)) {
       const alvo = alvoDaPreview(currentTime);
       const pt = preview.getTime() || 0;
@@ -2170,13 +2171,17 @@ async function setLyricsBg(mode) {
   await AVDB.setState('lyricsBg', lyricsBg);
   cmd({ type: 'lyricsbg', mode: lyricsBg });
 }
-// ESTE LIGA E DESLIGA, e a v1.4.40 INVERTEU o aceso dele: as imagens MOSTRADAS
-// são a função ligada, e antes o aceso marcava "Remover" (o que não é o padrão).
-// Com a inversão o desenho e a luz passam a concordar — imagem inteira e aceso,
-// imagem riscada e apagado —, em vez de dizerem coisas opostas no mesmo botão.
+// ESTE LIGA E DESLIGA, E MESMO ASSIM NÃO APAGA (v1.7.6). Pedido do operador:
+// *"todos os botões devem ter o mesmo azul de ativo, não temos mais essa
+// diferença, toda diferença de estado é pelo icone, não pela cor"*. Ele era o
+// ÚLTIMO tile da grade a escurecer junto com o giro, e o par de desenhos
+// (imagem inteira × imagem riscada) já dizia o estado inteiro sozinho — a luz
+// era a segunda cópia da mesma resposta, na única propriedade que este app já
+// gastou com outro significado (apagado = INDISPONÍVEL, a queixa da v1.4.25).
+// O `alt` continua sendo o canal, e é ele que os oráculos leem.
 function renderLyricsBgTile() {
   const mostra = lyricsBg === 'image';
-  pintarTile(lyricsBgTileEl, lyricsBg, mostra ? 'Mostrar' : 'Remover', mostra, !mostra);
+  pintarTile(lyricsBgTileEl, lyricsBg, mostra ? 'Mostrar' : 'Remover', true, !mostra);
 }
 
 // Envia o comando ao display E aplica na preview. YouTube usa o player pequeno
@@ -3088,6 +3093,7 @@ async function load(opts) {
   const cifraFonteCheiaV = await AVDB.getState('cifraFonteCheia');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
+  const ytAlturaV = await AVDB.getState('ytAltura');
   // A LISTA DA TELA É SEMPRE O CRONOGRAMA (v1.5.0). Ela era `listItems(activeTab)`
   // dentro de uma guarda, porque a aba podia ser a Bíblia — e ali a leitura
   // tinha de ser pulada: `'bible'` não é lista de mídia, e passá-la por
@@ -3137,6 +3143,10 @@ async function load(opts) {
   aplicarTamanhoDaLetra();
   lyricsBg = lyricsBgV;
   downloadConsent = downloadOkV;
+  // A QUALIDADE DO YOUTUBE guardada — a mesma regra do `mediaRot` e do
+  // `lvTamanho` logo acima: valor fora da escada cai no padrão, e não numa
+  // altura que ninguém escolheu.
+  ytAlturaPreferida = YT_ALTURAS.includes(ytAlturaV | 0) ? (ytAlturaV | 0) : YT_ALTURA_PADRAO;
   libItems = libItemsV;
   // O PAR do `currentId` acima, e pela mesma senha: `currentItemV` foi lido com
   // o id de ANTES do toque, então aplicá-lo deixaria a linha "no ar", o título
@@ -9737,8 +9747,8 @@ let favHost = null;
 function favAlvo() { return favHost; }
 
 /**
- * O BALDE DE MINIATURAS DE UM RENDER — um conjunto de CHAVES DE CAPA (v1.7.6;
- * eram os Blobs desde a v1.7.4 — ver `chaveDaCapa`).
+ * O BALDE DE MINIATURAS DE UM RENDER — um conjunto de CHAVES (v1.7.7; eram os
+ * BLOBS na v1.7.4, e é essa troca que faz a capa sobreviver a um `load()`).
  *
  * `thumbEl` pede a URL de cada capa a `thumbUrlDaCapa`, que a registra no balde
  * do render EM CURSO. Cada host tem o seu, e a varredura no fim recolhe o que
@@ -9762,13 +9772,13 @@ function favAlvo() { return favHost; }
  */
 function comBaldeDeMiniaturas(chave, fn) {
   const anterior = thumbChavesAtual;
-  const usados = new Set();
-  thumbChavesAtual = usados;
+  const usadas = new Set();
+  thumbChavesAtual = usadas;
   try {
     fn();
   } finally {
     thumbChavesAtual = anterior;
-    thumbChavesPorHost.set(chave, usados);
+    thumbChavesPorHost.set(chave, usadas);
     varrerMiniaturas();
   }
 }
@@ -11152,7 +11162,6 @@ async function send(id, daFila, retomarEm) {
   // uma origem que sobrevivesse a um play normal deixaria a linha do link
   // marcada como "no ar" enquanto outra mídia toca. Quem a repõe é o único
   // caminho que precisa dela (`resolverLinkYoutube`), DEPOIS de projetar.
-  midiaNoArOrigem = '';
   // re-render leve de estados ativos
   marcarNoAr();
   renderNowPlaying();
@@ -14327,7 +14336,6 @@ function resetAfterEnd() {
   // o "ele tenta exibir a primeira tela/thumbnail" do relato.
   midiaNoAr = false;
   midiaNoArId = '';
-  midiaNoArOrigem = '';
   // E O BANCO PRECISA SABER: é este `noAr` que solta o detentor da cena (ver
   // `persistCurrent`). Sem ele o item que acabou de tocar ficaria protegido do
   // coletor até o operador escolher outro.
@@ -14470,7 +14478,6 @@ async function pararMidia(tipo) {
   // durante todo o esmaecimento do `clearFaded` (ver `midiaNoAr`).
   midiaNoAr = false;
   midiaNoArId = '';
-  midiaNoArOrigem = '';
   await persistCurrent();   // solta o detentor da cena — ver `persistCurrent`
   setPlaying(false);
   // Item de LINK: o `clear` derruba a cena, e o próximo ▶ precisa passar pelo
@@ -14536,7 +14543,7 @@ async function stopClear() {
  * ===== O PALCO SAI DE CENA NO INSTANTE DO TOQUE (v1.4.6) =====
  *
  * "Tocar agora" num vídeo do YouTube leva SEGUNDOS até a primeira mudança na
- * tela (a extração de rede do `ytStream`), e nesse intervalo o app não dizia
+ * tela (a extração de rede do link), e nesse intervalo o app não dizia
  * nada. **A interrupção é o reconhecimento do toque**: o comando não tem
  * ambiguidade — a cena atual vai sair de qualquer jeito —, então tirá-la no ato
  * não antecipa nada, apenas para de esconder o que já foi decidido.
@@ -14835,7 +14842,7 @@ function marcarNoAr() {
 function linhaNoAr(id) {
   if (!id) return false;
   if (visualSobreNaLinha(id)) return true;
-  if (midiaNoAr && (id === midiaNoArId || id === midiaNoArOrigem)) return true;
+  if (midiaNoAr && id === midiaNoArId) return true;
   return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
 }
 
@@ -14931,10 +14938,6 @@ function linhaAtiva(id) {
   if (!id) return false;
   if (visualSobreNaLinha(id)) return true;
   if (id === currentId) return true;
-  // A linha que RESOLVEU um link é a atual enquanto a mídia dela estiver no ar
-  // (ver `midiaNoArOrigem`). Sem isto ela alternaria entre "no ar" e nada,
-  // porque as duas marcas saem de campos diferentes.
-  if (midiaNoAr && id === midiaNoArOrigem) return true;
   return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
 }
 
@@ -14951,11 +14954,6 @@ function noArAgora(item) {
   if (!item) return false;
   if (visualSobreNaLinha(item.id)) return true;
   if (isCue(item)) return !!cueNoArId && item.id === cueNoArId && cenaDeRoteiroNoAr();
-  // A ORIGEM entra aqui pelo mesmo motivo que entra no `linhaNoAr`: sem ela a
-  // linha do link ganhava o selo "● No ar" e o segundo toque continuava
-  // reprojetando — o realce dizendo uma coisa e o gesto fazendo outra, que é
-  // pior que o defeito inteiro.
-  if (midiaNoAr && item.id === midiaNoArOrigem) return true;
   return item.id === currentId && midiaNoAr;
 }
 
@@ -17742,29 +17740,48 @@ function pintarYtLinha(li, reg) {
 // por sete versões. Acima de 1080p também não: o telão não mostra a diferença e
 // o aparelho ainda guarda hinário e Bíblia.
 const YT_ALTURAS = [1080, 720, 480];
-// ===== "ONLINE": A QUALIDADE QUE NÃO BAIXA (v5.249) =====
+// ===== A QUALIDADE PADRÃO É 720p, E ELA É DO OPERADOR (v1.7.7) =====
 //
-// Pedido do operador: *"adicione a opção nas qualidades de opções do download,
-// para que tenha o 'Online' que mesmo ao levar para o cronograma, levaria
-// apenas o link, ao invés de obrigar a baixar."*
+// Pedido do operador: *"sobre os travamentos do YouTube, vamos abandonar o modo
+// online direto, ele é muito instável, vamos manter o download em 720p como
+// padrão, e caso o usuário selecione outra, aquele se torna o padrão para
+// ele."*
 //
-// Até aqui, os três destinos que GUARDAM (playlist · Cronograma · Favoritos)
-// obrigavam o download, e a razão estava escrita no `ytAcao`: eles guardam o
-// item para depois, e um manifesto de transmissão expira em horas. O que ela
-// não considerava é que **o LINK não expira** — e é ele, não o manifesto, que o
-// item de `kind: 'youtube'` guarda desde sempre. Um vídeo que só vai ser visto
-// uma vez, num culto com internet, não precisa dos ~300 MB no aparelho para
-// entrar no roteiro de sábado.
+// SÃO DUAS REVOGAÇÕES, e as duas estavam escritas como decisão deste projeto.
 //
-// Ela mora no MESMO seletor das resoluções porque é a mesma pergunta ("quanto
-// deste vídeo eu quero no aparelho?"), com "nada" na ponta da escala — e um
-// segundo seletor para uma escolha de uma linha seria a cerimônia que a folha
-// de destinos existe para não ter.
+// 1. O PADRÃO ERA `YT_ALTURAS[0]` (1080p) e passa a ser 720p. 1080p obriga o
+//    shell a montar as DUAS faixas adaptativas e juntá-las com o `MediaMuxer`
+//    (acima de 720p o YouTube não entrega vídeo com som), e é o degrau que mais
+//    pesa em disco, em rede e no decodificador — num aparelho que, com
+//    espelhamento no ar, já está encodando a tela inteira em tempo real.
 //
-// O sentinela é negativo de propósito: `0` já significa "sem teto, o padrão do
-// shell" em `ytFetch`/`ytAcao`, e reusá-lo faria "Online" e "melhor qualidade"
-// serem o mesmo valor.
-const YT_ONLINE = -1;
+// 2. O TETO NASCIA NO PADRÃO A CADA ITEM, e a razão escrita era *"um teto que
+//    grudasse daria 480p no vídeo do domingo sem aviso"*. O operador pediu o
+//    oposto por extenso, e o argumento contra vale menos do que parecia: quem
+//    escolhe 480p uma vez o faz por uma razão que não muda de sábado para
+//    sábado (o aparelho, a rede da igreja, o espaço no cartão). A escolha vira
+//    a preferência DELE e sobrevive à sessão; o seletor continua na folha, a um
+//    toque, mostrando qual é.
+const YT_ALTURA_PADRAO = 720;
+let ytAlturaPreferida = YT_ALTURA_PADRAO;
+
+// A ALTURA QUE VALE AGORA — a preferida, se ela ainda estiver na escada.
+// A escada pode encolher numa versão futura, e o que estava salvo continua
+// sendo lido: a guarda é a mesma do `mediaRot` e do `lvTamanho`.
+function ytAlturaPadrao() {
+  const a = ytAlturaPreferida | 0;
+  return YT_ALTURAS.includes(a) ? a : YT_ALTURA_PADRAO;
+}
+
+// E ESCOLHER É ESCOLHER O PADRÃO. Gravada na hora do toque no seletor, e não na
+// hora da ação: o operador pode abrir a folha, trocar a qualidade e desistir do
+// download — a preferência dele já mudou, e é essa a promessa do pedido.
+function adotarAlturaPreferida(h) {
+  const a = h | 0;
+  if (!YT_ALTURAS.includes(a) || a === ytAlturaPreferida) return;
+  ytAlturaPreferida = a;
+  AVDB.setState('ytAltura', a).catch(() => {});
+}
 
 // ===== O AVISO DE RESOLUÇÃO LIMITADA (v1.4.11) =====
 //
@@ -17806,8 +17823,7 @@ const YT_ALTURA_BAIXA = 720;
 // e nenhuma delas contava. A leitura que saiu disso — *"é sempre"* — foi uma
 // generalização de duas amostras, e ela estava errada.
 //
-// É o mesmo problema que o `AVStream.fome` já resolve para os travamentos, e a
-// forma é a mesma: CONTADORES de sessão, sem log e sem disco. Um log
+// A forma é a de um CONTADOR de sessão, sem log e sem disco. Um log
 // responderia mais e custaria o que este projeto não paga (tamanho, privacidade
 // do que se copia, uma segunda fonte de verdade); dois números respondem a
 // pergunta que o operador faz.
@@ -17815,18 +17831,16 @@ const YT_ALTURA_BAIXA = 720;
 // MORRE COM A PÁGINA, de propósito — "nesta sessão" é o que a linha diz, e é o
 // que ela pode honrar sem gravar nada.
 const ytCenso = {
-  pedidos: 0,      // quantas vezes pedimos um manifesto ao shell
-  transmitiu: 0,   // …e quantas de fato viraram transmissão
   limitadas: 0,    // quantas projeções saíram abaixo do pedido (ver `avisarResolucaoLimitada`)
   menor: 0,        // a MENOR altura que chegou a ir ao ar limitada
 };
 
-// O TETO EFETIVO de um pedido. `0` e o `YT_ONLINE` significam "o padrão do
-// shell" (ver `ytBaixarNativo`), que é o primeiro da escada — só um teto
-// EXPLÍCITO vale por si, e é ele que o operador escolheu na folha.
+// O TETO EFETIVO de um pedido. `0` significa "o padrão", e desde a v1.7.7 o
+// padrão é o do OPERADOR (`ytAlturaPadrao`), não o primeiro da escada — só um
+// teto EXPLÍCITO vale por si, e é ele que ele escolheu na folha.
 function tetoEfetivo(altura) {
   const a = altura | 0;
-  return YT_ALTURAS.includes(a) ? a : YT_ALTURAS[0];
+  return YT_ALTURAS.includes(a) ? a : ytAlturaPadrao();
 }
 
 // O aviso propriamente, e ele é do CARTÃO DA PREVIEW — o mesmo que acabou de
@@ -17901,7 +17915,7 @@ function openYtMenu(r, alvoDado) {
   // em 480p no telão. O atrito de dois toques é visível; a regressão silenciosa
   // não seria.
   if (!songMenuFor || songMenuFor.yt !== r) {
-    songMenuFor = { yt: r, variant: 'full', audio: false, alt: YT_ALTURAS[0], alvo: alvoDado || null };
+    songMenuFor = { yt: r, variant: 'full', audio: false, alt: ytAlturaPadrao(), alvo: alvoDado || null };
     // Item novo, folha nova: os destinos marcados são da FOLHA ABERTA e não
     // atravessam de um vídeo para o outro. (Os toques nos seletores de forma e
     // qualidade remontam a folha para o MESMO `r` e passam por aqui sem zerar
@@ -17926,11 +17940,7 @@ function openYtMenu(r, alvoDado) {
   // **E ele NÃO existe para um episódio de série** (`semSoAudio`, v5.230): um
   // testemunho em vídeo não tem versão de áudio que faça sentido projetar, e
   // uma escolha que não muda nada é pior que escolha nenhuma.
-  // **E ele some com "Online" escolhido**: ali nada é baixado, e a forma da
-  // faixa é decidida na hora de tocar, pelo `resolverLinkYoutube` — oferecer a
-  // escolha aqui seria oferecer uma que não muda nada.
-  if (window.__NATIVE__ && !r.semSoAudio
-      && (songMenuFor.alt | 0) !== YT_ONLINE) {
+  if (window.__NATIVE__ && !r.semSoAudio) {
     alvo.appendChild(ytSegRow(
       [[false, 'Vídeo'], [true, 'Só áudio']],
       !!songMenuFor.audio,
@@ -17945,20 +17955,23 @@ function openYtMenu(r, alvoDado) {
   // Shell ≥ 25, pelo método `ytFetchAte` da ponte. Num anterior a linha não
   // aparece e o download sai no padrão de sempre — que é exatamente o que este
   // app fazia até agora, então nada regride.
-  // "ONLINE" é o primeiro degrau da escala: nada no aparelho. Ele NÃO depende do
-  // shell 25 (não há teto a pedir — o item guardado é o link), mas a linha
-  // inteira só existe a partir dele; num shell anterior o operador continua com
-  // o download de sempre, que é o que este app fazia até agora.
+  // O DEGRAU "ONLINE" SAIU na v1.7.7, junto com a transmissão direta que ele
+  // existia para alimentar: um item guardado só como link é um item que, ao
+  // tocar, teria de vir da internet ao vivo — e é exatamente isso que o
+  // operador mandou abandonar. Toda qualidade daqui BAIXA bytes.
+  //
+  // E ESCOLHER AQUI É ESCOLHER O PADRÃO (`adotarAlturaPreferida`): a escolha
+  // sobrevive à sessão e passa a valer para o próximo vídeo, que é o pedido ao
+  // pé da letra.
   if (window.__NATIVE__ && !songMenuFor.audio) {
     alvo.appendChild(ytSegRow(
-      [[YT_ONLINE, 'Online']].concat(YT_ALTURAS.map((h) => [h, h + 'p'])),
+      YT_ALTURAS.map((h) => [h, h + 'p']),
       songMenuFor.alt | 0,
-      (v) => { songMenuFor.alt = v; openYtMenu(r); },
-      // TETO, e não escolha fixa: desde o shell 60 o app MEDE a rede nos
-      // primeiros bytes e desce sozinho o que não couber. O que o operador
-      // escolhe aqui é o limite de cima, e ele vale para o "Tocar agora"
-      // também — que é justamente o que a escala não dizia.
-      'Teto de qualidade — vale para o "Tocar agora" também',
+      (v) => { songMenuFor.alt = v; adotarAlturaPreferida(v); openYtMenu(r); },
+      // TETO, e não escolha fixa: o shell entrega a melhor faixa ABAIXO dele.
+      // Vale para o "Tocar agora" também — que é justamente o que a escala não
+      // dizia — e fica guardado como o padrão deste aparelho.
+      'Teto de qualidade — vale para o "Tocar agora" e fica como padrão',
     ));
   }
   // O subtítulo do "Tocar agora" DIZ que o Cronograma fica de fora: é a
@@ -18001,18 +18014,10 @@ function openYtMenu(r, alvoDado) {
   // substitui "Sem entrar em lista nenhuma" em vez de somar-se a ela: com
   // "Online" nada é guardado de qualquer forma (o item é o link), então aquela
   // frase deixa de ser a informação que falta.
-  const subTocar = soAudio
-    ? 'Sem mexer no telão'
-    : (altura === YT_ONLINE
-      ? 'Toca direto da internet — a qualidade varia bastante conforme a conexão'
-      : 'Sem entrar em lista nenhuma');
+  const subTocar = soAudio ? 'Sem mexer no telão' : 'Sem entrar em lista nenhuma';
   alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora', subTocar,
     (vr, btn, alvos) => ytAcao(r, alvos, null, soAudio, altura), 'tocar', remontar));
-  // COM "ONLINE" os três destinos guardam o LINK, e isso precisa estar dito:
-  // eles são as três linhas que, em toda outra qualidade, significam "espere o
-  // download". O subtítulo é o mesmo nos três porque a diferença entre eles
-  // continua sendo só a lista.
-  const subGuardar = (songMenuFor.alt | 0) === YT_ONLINE ? 'Só o link, sem baixar' : '';
+  const subGuardar = '';
   alvo.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', subGuardar,
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'playlist', remontar));
   alvo.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', subGuardar,
@@ -18025,148 +18030,16 @@ function openYtMenu(r, alvoDado) {
   if (!songMenuFor.alvo) songMenuPopupEl.classList.add('open');
 }
 
-// Baixa e faz o que foi escolhido.
-//
-// "Tocar agora" FECHA o acervo — mesma regra de `playSongVariant`: o cartão de
-// progresso mora na preview, e a preview está atrás desta bandeja. As duas
-// opções de "adicionar" MANTÊM o acervo aberto, porque o operador está no meio
-// de uma busca e provavelmente vai pegar mais de um; ali o aviso é a própria
-// linha, que fica marcada como concluída em vez de voltar ao estado inicial —
-// era essa volta silenciosa que fazia parecer que nada tinha acontecido.
-//
-// Cada escolha vai para O SEU lugar, e só para ele. Até a v5.86 as três caíam
-// no Cronograma, porque `addMedia` era quem escolhia a lista e ela era sempre
-// "imports": pedir "Tocar agora" enchia a lista do culto de vídeo que o
-// operador só quis ver uma vez. A lista de destino agora é decidida AQUI e
-// entregue ao `addMedia`, que continua gravando registro e lista na mesma
-// transação.
-// (`YT_LISTA` e `YT_DESTINO_NOME` saíram na v5.141: eram uma segunda tabela de
-// destinos, só para o YouTube, com os mesmos três nomes e as mesmas três listas
-// da `DESTINOS`/`LISTA_ROTULO`. Duas tabelas divergiriam no primeiro destino que
-// alguém acrescentasse a uma só — e o multi-destino precisava justamente de uma
-// fonte única para montar a frase "adicionado à playlist e ao Cronograma".)
-
-// Projeta um vídeo do YouTube SEM baixá-lo antes: o shell monta o manifesto das
-// duas faixas adaptativas e o `MediaSource` do lado web as transforma num
-// `<video>` comum (ver shared/mse.js).
-//
-// Devolve `true` quando assumiu a projeção. `false` significa "não deu" e o
-// chamador segue para o download — não há nenhum aviso ao operador nesse
-// caminho, de propósito: ele pediu o louvor, não o método, e um cartão dizendo
-// "não deu para transmitir, vou baixar" seria ruído sobre uma decisão que não
-// é dele.
-// POR QUE a última tentativa de transmitir não entrou. Lido pelo Registro.
-//
-// Ele existe porque `tentarTransmitir` desiste em CINCO pontos e todos eram
-// mudos: do lado do operador, "Tocar agora" simplesmente baixava, como sempre
-// fizera, sem nada dizendo que uma transmissão tinha sido tentada. E o
-// diagnóstico do shell não cobria estes casos — três deles acontecem ANTES de a
-// ponte ser chamada.
-let motivoStream = '';
-
-async function tentarTransmitir(r, altura, somenteAudio) {
-  // A SENHA DESTA PROJEÇÃO (ver `palcoEmVoo`), lida na entrada e conferida
-  // depois da extração — o único await longo desta função.
-  const senha = projecaoSeq;
-  const soAudio = !!somenteAudio;
-  motivoStream = '';
-  if (window.AVStream) window.AVStream.ultimoErro = '';
-  if (!window.__NATIVE__) { motivoStream = 'navegador (sem ponte)'; return false; }
-  if (!window.AVStream) { motivoStream = 'shared/mse.js não carregou'; return false; }
-  if (!r || !r.url) { motivoStream = 'resultado sem URL'; return false; }
-  let man = null;
-  // O PEDIDO conta AQUI, e não na entrada da função: acima dela há quatro
-  // recusas (sem ponte, sem `mse.js`, sem URL) que nunca chegam a perguntar
-  // nada ao shell. Contá-las inflaria o denominador com o que não é extração.
-  ytCenso.pedidos++;
-  try {
-    man = await AVNative.ytStream(r.url, altura | 0);
-  } catch (e) {
-    motivoStream = 'a ponte falhou: ' + ((e && e.message) || '?');
-    return false;
-  }
-  if (!man) { motivoStream = 'o shell não montou o manifesto (ver a linha "transmissão" abaixo)'; return false; }
-  // PERDEU A VEZ? A extração leva segundos, e nesse intervalo o operador pode
-  // ter projetado outra coisa. Aqui, e não mais adiante: este é o ponto mais
-  // cedo em que a espera acabou, e daqui para baixo tudo tem efeito — o
-  // registro no banco, o aviso de resolução limitada, o censo e o `send`.
-  if (projecaoSeq !== senha) {
-    motivoStream = 'outra projeção assumiu enquanto a extração corria';
-    return PROJECAO_PERDIDA;
-  }
-  // SÓ ÁUDIO: a faixa de vídeo é DESCARTADA aqui, no lado web, e o shell não
-  // precisa saber de nada. Ele já monta o par no mesmo manifesto, então pedir
-  // "só o áudio" é jogar fora um descritor — não um segundo pedido, não uma
-  // segunda extração, e sobretudo nenhum byte de 1080p baixado para nada. É por
-  // isso que este recurso chega por OTA, sem APK novo.
-  if (soAudio) man = Object.assign({}, man, { video: null, height: null });
-  // O `suportado` é do APARELHO, não do manifesto: um WebView sem o codec
-  // precisa cair no download em vez de projetar preto. E quando ele recusa, o
-  // que interessa é QUAL string foi recusada — sem ela a informação é "não
-  // deu", que não leva a lugar nenhum.
-  if (!AVStream.suportado(man)) {
-    const testar = (t) => {
-      if (!t) return 'ausente';
-      try { return MediaSource.isTypeSupported(t) ? 'ok' : 'RECUSADO'; } catch (_) { return 'erro'; }
-    };
-    const parte = (rotulo, faixa) => rotulo + ' [' + ((faixa && faixa.mime) || '—') + '] '
-      + testar(faixa && faixa.mime);
-    motivoStream = !window.MediaSource ? 'este WebView não tem MediaSource'
-      : 'codecs recusados — ' + (soAudio ? '' : parte('vídeo', man.video) + ' · ')
-        + parte('áudio', man.audio);
-    return false;
-  }
-  const rec = await AVDB.addStreamMedia(man, {
-    // ===== O NOME DO APP VENCE O TÍTULO DO YOUTUBE (v1.4.10) =====
-    //
-    // Relato do operador: *"o nome no card de preparação está se alterando na
-    // segunda metade do processo… deixe apenas o primeiro nome, que ao que
-    // parece é o nome do item ou renomeação que temos já no app"*.
-    //
-    // A ordem era `man.name || r.name`, e `man.name` é o título que o shell
-    // extraiu do YouTube. Ele chega SEGUNDOS depois do toque, e nesse instante
-    // trocava o nome debaixo de tudo: o cartão de espera (que abre com
-    // `r.name`), a barra do que está tocando, a notificação de mídia, a linha
-    // da lista. Pior no caminho que mais importa — um item de link do
-    // Cronograma ou dos Favoritos leva o nome que o OPERADOR deu, e o título do
-    // canal o apagava.
-    //
-    // `r.name` é o que o app já tem: o resultado da busca (já com o
-    // `tituloLimpo` do shell) ou o nome guardado do item, rename incluído.
-    // `man.name` fica como o que ele sempre deveria ter sido — a resposta para
-    // quando NÃO temos nome, e não uma correção do nosso.
-    name: r.name || man.name || 'Vídeo',
-    youtubeId: r.id || null,
-    height: man.height || null,
-    seconds: man.seconds || null,
-    somenteAudio: soAudio,
-    list: 'avulsos',
-  });
-  if (!rec) { motivoStream = 'o registro da mídia não foi criado'; return false; }
-  motivoStream = soAudio ? 'transmitindo só o áudio' : 'transmitindo ' + (man.height || '?') + 'p';
-  // SÓ NO VÍDEO: num "só áudio" a resolução não existe, e avisar sobre ela ali
-  // seria o app falando de uma coisa que o operador acabou de dispensar.
-  if (!soAudio) avisarResolucaoLimitada(man.height, altura);
-  ytCenso.transmitiu++;
-  setYtEstado(r.id, null);
-  await fixarAvulso(rec.id);
-  await load();
-  await send(rec.id);
-  return true;
-}
-
 // ============================================================================
 // O ITEM DE LINK RESOLVE ANTES DE IR AO TELÃO
 // ============================================================================
 //
 // Um registro `kind: 'youtube'` é o LINK sem bytes — a última carta de quando
-// transmissão e download falharam. Sem o embed (removido na v5.212) ele deixa
-// de ser tocável como link e é RESOLVIDO no toque:
-//   1. transmissão direta (`tentarTransmitir`), que já projeta sozinha;
-//   2. download (`ytArquivo`).
-// É a MESMA escada do "Tocar agora" e do `recuperarStream`.
+// o download falhou. Sem o embed (removido na v5.212) ele deixa de ser tocável
+// como link e é RESOLVIDO no toque, por DOWNLOAD (`ytArquivo`). Era uma escada
+// de dois degraus até a v1.7.7, e o primeiro (a transmissão direta) saiu do app.
 //
-// O DOWNLOAD TROCA O ITEM NA LISTA; A TRANSMISSÃO NÃO. O arquivo é durável e
+// O DOWNLOAD TROCA O ITEM NA LISTA. O arquivo é durável e
 // toma o lugar do link EM POSIÇÃO — `listSet` com função é read-modify-write
 // atômico, e `listAdd`+`listRemove` mandaria o item para o fim de um Cronograma
 // que alguém montou à mão. O manifesto de uma transmissão expira em horas.
@@ -18204,8 +18077,8 @@ async function trocarLinkPeloArquivo(velhoId, novoId) {
 //
 // A v1.4.6 pôs o reconhecimento do toque no `ytAcao` — a folha da BUSCA —, e
 // deixou de fora a outra porta do mesmo trabalho: um item `kind: 'youtube'` já
-// guardado numa lista. Ele é a MESMA espera (o `tentarTransmitir` abaixo começa
-// pela mesma extração de rede de segundos) e não tinha sinal nenhum.
+// guardado numa lista. Ele é a MESMA espera (o download abaixo começa pela
+// mesma extração de rede de segundos) e não tinha sinal nenhum.
 //
 // A guarda mora AQUI, e não no `send`, pelo motivo que este arquivo já aplica
 // duas vezes: `resolverLinkYoutube` é o ponto por onde TODOS os caminhos do link
@@ -18278,8 +18151,7 @@ function recusarLink(rec, frase, senha) {
 // Lê o diagnóstico do shell e procura a MARCA. É acoplamento a uma string do
 // Kotlin, e por isso ele só ESPECIALIZA: não achando a marca, a frase genérica
 // vale como sempre. O dia em que o nome da exceção mudar, isto volta ao
-// comportamento de hoje — nunca a uma afirmação errada. (Mesmo raciocínio do
-// `recuperarStream`, que reconhece a URL expirada pela mensagem.)
+// comportamento de hoje — nunca a uma afirmação errada.
 const YT_INDISPONIVEL = /ContentNotAvailable/i;
 async function motivoDaRecusa(padrao) {
   if (!window.__NATIVE__) return padrao;
@@ -18309,28 +18181,15 @@ async function resolverLinkInterno(rec) {
   // de volta. (Um item de link nasce como `youtube`; a leitura fica dita para o
   // dia em que houver um link só de áudio.)
   const soAudio = rec.kind === 'audio';
-  const transmitiu = await tentarTransmitir(alvo, 0, soAudio);
-  // PERDEU A VEZ: nem projeta, nem CAI NO DOWNLOAD. Baixar aqui seria começar
-  // minutos de rede por um toque que o operador já substituiu — e terminar
-  // projetando por cima, que é o defeito inteiro por outro caminho.
-  if (transmitiu === PROJECAO_PERDIDA) return false;
-  if (transmitiu) {
-    // A LINHA QUE RESOLVEU O LINK É A QUE ESTÁ NO AR (v5.269, pedido do
-    // operador). `tentarTransmitir` termina em `send(<id do avulso>)`, e é ele
-    // que zera a origem — então ela é escrita AQUI, depois, e não antes: um
-    // `send` no meio do caminho apagaria a marca que ela existe para pôr.
-    //
-    // O caminho do DOWNLOAD, logo abaixo, não precisa disto: o arquivo toma o
-    // lugar do link EM POSIÇÃO (`trocarLinkPeloArquivo`), então a linha passa a
-    // ser a mídia e o `midiaNoArId` de sempre já a alcança.
-    midiaNoArOrigem = rec.id;
-    marcarNoAr();
-    renderNowPlaying();
-    return true;
-  }
+  // SEM TRANSMISSÃO (v1.7.7): o link vira ARQUIVO, e só. Este era o segundo
+  // caminho que projetava direto da rede, e ele cai junto com o primeiro (ver o
+  // bloco do "Tocar agora" em `ytAcaoInterno`). O arquivo toma o lugar do link
+  // EM POSIÇÃO (`trocarLinkPeloArquivo`), então a linha passa a ser a mídia e o
+  // `midiaNoArId` de sempre já a alcança — a marca de origem que a transmissão
+  // precisava escrever à mão aqui deixou de ser necessária com ela.
   const novo = await ytArquivo(alvo, { lista: 'avulsos', aviso: 'preview', somenteAudio: soAudio });
   if (!novo) {
-    return recusarLink(rec, await motivoDaRecusa('Não foi possível transmitir nem baixar este vídeo.'), senha);
+    return recusarLink(rec, await motivoDaRecusa('Não foi possível baixar este vídeo.'), senha);
   }
   await fixarAvulso(novo.id);
   await trocarLinkPeloArquivo(rec.id, novo.id);
@@ -18378,55 +18237,6 @@ async function resolverLinkInterno(rec) {
 // qualquer intervalo real entre um ensaio e um culto.
 const STREAM_RETENTAR_MS = 5 * 60 * 1000;
 const streamRetentado = new Map();   // id → carimbo da última re-extração
-async function recuperarStream(rec, porque) {
-  console.warn('[stream] falhou:', porque);
-  if (!rec || !rec.youtubeId) {
-    // Sem o vídeo de origem não há para onde cair, e insistir numa cena morta é
-    // pior que assumir. Tira do telão e diz por quê.
-    stopClear();
-    return;
-  }
-  const link = 'https://www.youtube.com/watch?v=' + rec.youtubeId;
-  // RE-EXTRAIR SÓ QUANDO A CAUSA É EXPIRAÇÃO, que é a única coisa que um
-  // manifesto novo conserta — e ela se manifesta como 401/403 do googlevideo.
-  // O discriminador já existia na mensagem desde a v5.124 (`HTTP n` × `a
-  // requisição não completou`) e não era usado: qualquer falha pagava ~2 s de
-  // extração para projetar uma SEGUNDA cena morta antes de baixar. São os dois
-  // pares "play 0s / PAUSA ESPONTÂNEA 0s" da linha do tempo.
-  const expirou = /HTTP 40[13]\b/.test(String(porque || ''));
-  // A FORMA do registro manda em tudo o que vem abaixo: quem pediu só o áudio
-  // não pode receber o vídeo de volta — nem no manifesto novo, nem no download
-  // do fim da linha. É o mesmo reaproveitamento por forma do `ytArquivo`, e o
-  // `kind` é o que separa as duas.
-  const soAudio = rec.kind === 'audio';
-  const ultima = streamRetentado.get(rec.id) || 0;
-  if (expirou && Date.now() - ultima > STREAM_RETENTAR_MS) {
-    streamRetentado.set(rec.id, Date.now());
-    let man = null;
-    try { man = await AVNative.ytStream(link, rec.height | 0); } catch (_) {}
-    if (man && soAudio) man = Object.assign({}, man, { video: null, height: null });
-    if (man && window.AVStream && AVStream.suportado(man)) {
-      await AVDB.setMediaStream(rec.id, man);
-      if (currentId === rec.id) await send(rec.id);
-      return;
-    }
-  }
-  // O TELÃO SAI DA CENA MORTA ANTES DO DOWNLOAD, que leva minutos. Sem isto a
-  // projeção fica no preto o tempo todo, com o operador sem saber se o app
-  // ainda está fazendo alguma coisa — o wallpaper diz "nada em cena", que é a
-  // verdade, e o aviso do download aparece na preview.
-  if (currentId === rec.id) stopClear();
-  // Fim da linha da transmissão: o vídeo vira ARQUIVO, que é o caminho de sempre.
-  const novo = await ytArquivo(
-    { id: rec.youtubeId, url: link, name: rec.name },
-    { lista: 'avulsos', aviso: 'preview', somenteAudio: soAudio },
-  );
-  if (!novo) return;
-  await fixarAvulso(novo.id);
-  await AVDB.listRemove('avulsos', rec.id);
-  await load();
-  if (currentId === rec.id || !currentId) await send(novo.id);
-}
 // `destinos` é a LISTA de escolhas da folha — uma ou várias chaves de
 // `DESTINOS`, mais o `tocar`, que não é lista nenhuma (v5.141). Uma string
 // solta continua valendo: os chamadores de fora da folha (o link já no
@@ -18438,13 +18248,15 @@ async function recuperarStream(rec, porque) {
 // sequer aparecer o spinner do carregamento do vídeo… nem que tenha mais tempo
 // de carregamento, mas o feedback deve ser instantâneo"*.
 //
-// A janela era real e longa: `tentarTransmitir` começa por um `ytStream`, que é
-// uma EXTRAÇÃO DE REDE de segundos, e só depois dela vem o `send` que muda
-// alguma coisa na tela. No meio-tempo o único sinal era o `setYtEstado` — que
-// acende uma LINHA da Biblioteca que o `closeHymnSearch` acabou de fechar. Do
-// lado do operador: nada. E o caminho do DOWNLOAD já tinha o cartão (`ytArquivo`
-// chama `previewBusy`); o da TRANSMISSÃO nunca teve. **A assimetria era o
-// defeito.**
+// A janela era real e longa: a ação começa por uma EXTRAÇÃO DE REDE de
+// segundos, e só depois dela vem o `send` que muda alguma coisa na tela. No
+// meio-tempo o único sinal era o `setYtEstado` — que acende uma LINHA da
+// Biblioteca que o `closeHymnSearch` acabou de fechar. Do lado do operador:
+// nada.
+//
+// O CARTÃO CONTINUA VALENDO, e desde a v1.7.7 ele vale MAIS: sem a transmissão
+// direta, "Tocar agora" espera o download inteiro, e essa espera é de minutos —
+// é ele e a barra de progresso que a tornam legível.
 //
 // ESTE INVÓLUCRO EXISTE PELA SAÍDA ÚNICA. `ytAcaoInterno` tem meia dúzia de
 // `return` — transmitiu, guardou o link, já estava na lista, o download falhou
@@ -18506,101 +18318,17 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
   // reaproveitamento do arquivo e o download.
   const soAudio = !!somenteAudio;
 
-  // TRANSMISSÃO DIRETA, e só em "Tocar agora". As outras três ações GUARDAM o
-  // item, e um manifesto de stream expira em algumas horas — guardar um seria
-  // guardar algo que não abre no domingo. Combinada com um destino de guarda, a
-  // transmissão fica de fora e o download é obrigatório.
+  // A TRANSMISSÃO DIRETA SAIU DAQUI (v1.7.7). Ela era o caminho do "Tocar
+  // agora": o shell montava o manifesto, o `mse.js` o virava um `<video>` e a
+  // cena entrava com o primeiro fragmento, na casa dos kB — sem esperar
+  // centenas de MB.
   //
-  // Falhando qualquer coisa (shell antigo, vídeo sem par adaptativo, WebView
-  // sem o codec) o caminho segue para o download. Nada aqui é caminho único.
-  //
-  // VALE PARA "SÓ ÁUDIO" também: o pedido não é "rápido", é NÃO ESPERAR — a
-  // transmissão começa a tocar com o primeiro fragmento, na casa dos kB.
-  //
-  // E VALE COM AS TELAS DA REDE NO AR. Houve aqui um `pularTransmissao` que
-  // mandava tudo ao download com a transmissão ligada e sem TV — e como esse é
-  // o estado NORMAL do operador, o recurso inteiro parou de acontecer. A saída
-  // não foi relaxar a guarda: o shell serve as mesmas faixas em `/s/<token>` e
-  // o `telaEnriquecer` reescreve o manifesto.
-  if (tocar && !guardar.length && await tentarTransmitir(r, altura, soAudio)) return;
-
-  // ===== "ONLINE": GUARDA O LINK, NÃO O ARQUIVO (v5.249) =====
-  //
-  // Ele entra DEPOIS da transmissão e ANTES do download, e a ordem é o desenho
-  // inteiro: com "Tocar agora" sozinho não há o que guardar e o caminho de
-  // sempre já resolveu; daqui para baixo mora o download, que é justamente o
-  // que esta qualidade existe para não fazer.
-  //
-  // O item é o `kind: 'youtube'` que este app já conhece — o link sem bytes. Ele
-  // não é uma novidade nem um caso à parte: é o que o compartilhamento cria
-  // quando a transmissão e o download falham, e desde a v5.212 tocá-lo RESOLVE
-  // no toque (`resolverLinkYoutube`), transmitindo. **Transmitir não troca o
-  // item**, então o link continua link no domingo seguinte — que é o que
-  // "Online" promete.
-  //
-  // O que o operador paga por isso está dito na folha e é uma coisa só: sem
-  // internet no culto, não há o que projetar. O caminho de recuperação já
-  // existe e não precisou de linha nenhuma — falhando a transmissão,
-  // `resolverLinkYoutube` baixa e troca o item na posição em que ele está.
-  if (altura === YT_ONLINE) {
-    // Um link do MESMO vídeo já guardado é reaproveitado: dois registros para o
-    // mesmo endereço seriam duas linhas iguais na lista, e o segundo não
-    // acrescenta nada (não há bytes que os distingam).
-    let rec = r && r.id ? await AVDB.mediaByYoutube(r.id, 'youtube') : null;
-    if (!rec) {
-      const thumb = (await thumbYoutube(r.id)) || ('https://img.youtube.com/vi/' + r.id + '/hqdefault.jpg');
-      rec = await AVDB.addUrlMedia(r.url || ('https://www.youtube.com/watch?v=' + r.id), {
-        kind: 'youtube',
-        type: 'video/youtube',
-        name: r.name || ('YouTube: ' + r.id),
-        thumb,
-        youtubeId: r.id,
-        // O QUE O LINK LEVA CONSIGO (v1.5.21). Os dois já estavam na mão de quem
-        // cria — a busca do YouTube devolve `seconds`/`author`, e um episódio de
-        // série chega por `serieComoYoutube` com os mesmos — e eram descartados
-        // aqui. É a única chance de gravá-los: um link não tem bytes de onde
-        // medir, então o que não entrar agora não existe mais offline.
-        seconds: r.seconds || null,
-        canal: r.author || null,
-        list: lista,
-      });
-    }
-    if (!rec) { setYtEstado(r.id, 'erro'); pulsar(btn, 'erro'); return; }
-    const novas = [];
-    for (const l of listas) {
-      if (!(await AVDB.listHas(l, rec.id))) novas.push(l);
-      await AVDB.listAdd(l, rec.id);
-    }
-    // Promovido a lista de verdade, sai do slot avulso — a mesma ordem do
-    // caminho do arquivo: primeiro entra, depois sai, senão o `listRemove`
-    // coletaria o registro.
-    if (guardar.length) await AVDB.listRemove('avulsos', rec.id);
-    setYtEstado(r.id, 'pronto');
-    pulsar(btn, novas.length ? 'ok' : 'dup');
-    if (!guardar.length) await fixarAvulso(rec.id);
-    if (listas.includes('playlist')) {
-      plItems = await AVDB.listItems('playlist');
-      renderPlaylist();
-    }
-    if (listas.includes('favs')) await recarregarFavoritos();
-    await load();
-    if (tocar) {
-      // `resolverLinkYoutube` TRANSMITE, e transmitir não troca o item — o link
-      // continua link depois de tocado, que é a promessa desta qualidade.
-      await send(rec.id);
-      return;
-    }
-    // Sem linha na tela e sem botão visível (o link compartilhado), os dois
-    // canais de sempre estão mudos — e aqui não há download que se anuncie na
-    // miniatura. A nota vai para a LINHA do item, como no caminho do arquivo.
-    if (!ytLinhaVisivel(r.id)) {
-      const onde = juntarFrases((novas.length ? novas : listas)
-        .map((l) => (LISTA_ROTULO[l] || ROTULO_PADRAO).em));
-      notaNoItem(rec.id, (novas.length ? 'link ' : 'já estava ') + onde,
-        novas.length ? 'ok' : 'dup');
-    }
-    return;
-  }
+  // Pedido do operador: *"vamos abandonar o modo online direto, ele é muito
+  // instável"*, depois de relatar travamentos a cada um ou dois segundos com o
+  // espelhamento no ar. O preço está aceito e é o que ela existia para evitar:
+  // "Tocar agora" agora ESPERA o download. O cartão sobre a preview e a barra
+  // de progresso já cobrem essa espera — é o mesmo caminho do `ytArquivo`, que
+  // nunca deixou de existir.
 
   const existente = r && r.id ? await AVDB.mediaByYoutube(r.id, soAudio ? 'audio' : 'video') : null;
   // "Já estava lá" é sobre o CONJUNTO: com mais de um destino, o que interessa
@@ -18770,11 +18498,11 @@ function ytResultRow(r) {
     // toque nesta linha era inerte até ontem: quem tocar por reflexo não pode
     // perder um download de dez minutos por isso.
     if (li.classList.contains('baixando')) { cancelarDownloadYt(r); return; }
-    // O teto vai EXPLÍCITO (`YT_ALTURAS[0]`, o padrão), como no share do
+    // O teto vai EXPLÍCITO (`ytAlturaPadrao()`, a preferência do operador), como no share do
     // simplificado — deixá-lo implícito (undefined) fazia o mesmo "tocar"
     // viajar ora com altura, ora sem, e a diferença só aparecia em quem lê o
     // parâmetro lá na frente.
-    if (appMode === 'simple') { ytAcao(r, 'tocar', null, false, YT_ALTURAS[0]); return; }
+    if (appMode === 'simple') { ytAcao(r, 'tocar', null, false, ytAlturaPadrao()); return; }
     openYtMenu(r);
   });
   return li;
@@ -20098,13 +19826,13 @@ const PV_FALHA_MS = 5000;
 // mesmo problema na outra ponta, e ele nasceu quando o aro do palco saiu e as
 // DUAS metades da mesma espera viraram o MESMO cartão.
 //
-// Uma espera de transmissão tem dois donos em sequência: o toque (`cederOPalco`,
-// que cobre a extração de rede) e a carga do stream (o `onEspera` do palco). O
-// primeiro solta no `finally`, assim que `tentarTransmitir` volta; o segundo só
-// acende lá dentro do `load`, depois do fade de saída e do `getMedia`. Entre os
-// dois o contador passa por ZERO — e sem esta carência o cartão sai e volta no
-// meio da mesma espera, que é exatamente o "dois modelos de carregamento" que
-// este lote existe para acabar, com outra roupa.
+// Uma espera tem dois donos em sequência: o toque (`cederOPalco`, que cobre a
+// extração de rede) e a carga da mídia (o `onEspera` do palco). O primeiro
+// solta no `finally`, assim que a ação volta; o segundo só acende lá dentro do
+// `load`, depois do fade de saída e do `getMedia`. Entre os dois o contador
+// passa por ZERO — e sem esta carência o cartão sai e volta no meio da mesma
+// espera, que é exatamente o "dois modelos de carregamento" que este lote
+// existe para acabar, com outra roupa.
 //
 // **A carência cobre o pior caso do vão**, que é o `FADE.time` (0,6 s) mais a
 // leitura do IndexedDB. **O preço está dito:** um cartão que de fato acabou fica
@@ -22720,66 +22448,31 @@ async function renderDiag() {
     }
 
   }
-  // O lado WEB da última tentativa de transmitir. Ele vem à parte do
-  // diagnóstico do shell porque três dos cinco pontos de desistência acontecem
-  // antes de a ponte ser chamada — ali o Kotlin não tem o que dizer.
-  if (motivoStream) {
-    // O erro de REPRODUÇÃO entra junto, e é o que faltava: a v5.123 mostrava
-    // "transmitindo 1080p" — a decisão — e nada sobre o vídeo ter morrido no
-    // segundo zero logo depois. Decidir e conseguir são duas coisas.
-    const falha = (window.AVStream && window.AVStream.ultimoErro) || '';
-    // E QUANTAS VEZES ELA FICOU SEM DADOS. Relato do operador: *"veio som, porém
-    // ficou travando e qualidade de vídeo baixa"* — e a resposta possível era um
-    // palpite ("deve ser a estabilidade da internet"), porque um `<video>` que
-    // trava por rede e um app quebrado produzem a MESMA tela. O censo é do
-    // `stage.js`, e vem em DOIS números: episódios e segundos parados. Dois
-    // travamentos de meio segundo é uma rede que oscila; dez de cinco segundos é
-    // uma rede que não sustenta a faixa escolhida — e a segunda tem resposta
-    // (baixar em vez de transmitir), a primeira não.
-    //
-    // SÓ APARECE DEPOIS DE ACONTECER: a ausência da linha é "não travou", e uma
-    // linha com zeros seria mais uma para o operador ler em toda cópia.
-    // O DEGRAU, quando a medição desceu um. Sem esta linha o Registro diria
-    // "transmitindo 1080p" (a decisão do shell) sobre uma cena que está em 720p
-    // — a divergência que este projeto chama de log que discorda do aparelho.
-    const deg = (window.AVStream && window.AVStream.degrau) || '';
-    const banda = (window.AVStream && window.AVStream.banda) || 0;
-    const linhaDeg = deg
-      ? '\na rede mediu ' + Math.round(banda / 1000) + ' kbps e o app DESCEU para ' + deg
-      : (banda ? '\na rede mediu ' + Math.round(banda / 1000) + ' kbps (coube no teto)' : '');
-    const fome = (window.AVStream && window.AVStream.fome) || null;
-    // "NESTA SESSÃO" está escrito porque o censo é CUMULATIVO e o título do
-    // bloco diz "último Tocar agora": sem a palavra, um número de cinco
-    // travamentos seria lido como cinco naquele vídeo.
-    const parou = fome && fome.quantas
-      ? '\nficou sem dados ' + fome.quantas + '\u00d7 nesta sessão ('
-        + fome.segundos + 's parada no total)'
-      : '';
-    // O CENSO DA SESSÃO, e ele responde a pergunta que as linhas acima não
-    // respondem: elas descrevem a ÚLTIMA vez, e numa falha intermitente o que
-    // importa é a proporção. Só sai quando houve pedido — num Registro tirado
-    // antes de tocar qualquer coisa, "0 de 0" é ruído.
-    //
-    // Os dois moram DENTRO do `if (motivoStream)`, e isso não deixa contagem
-    // órfã: todo caminho que pode avisar qualidade limitada passa antes por
-    // `tentarTransmitir` (o "Tocar agora", o item de link e o share), e ele
-    // escreve o `motivoStream` em toda saída. O download que NÃO passa por ali
-    // é o que guarda numa lista, e esse não avisa (ver `aviso === 'preview'`).
-    const censo = ytCenso.pedidos
-      ? '\nnesta sessão: ' + ytCenso.pedidos + ' pedido(s) de transmissão · '
-        + ytCenso.transmitiu + ' transmitiu(ram) · '
-        + (ytCenso.pedidos - ytCenso.transmitiu) + ' caiu(ram) no download'
-      : '';
-    // A qualidade limitada é contada à parte porque ela NÃO é a mesma pergunta:
-    // um pedido pode transmitir e ainda assim sair abaixo do pedido. O MENOR
-    // valor vai junto — é ele que diz se foi um degrau ou o fundo do poço.
+  // A QUALIDADE QUE DE FATO FOI AO AR (v1.7.7).
+  //
+  // Este bloco descrevia a TRANSMISSÃO DIRETA e morava atrás de um
+  // `if (motivoStream)`. Com ela fora do app, o que sobrou é a pergunta que
+  // continua tendo resposta e continua importando: *"a projeção saiu pior do
+  // que se pediu?"* — que vale para o DOWNLOAD do mesmo jeito, porque quem
+  // escreve o censo é `avisarResolucaoLimitada`, e os dois caminhos passavam
+  // por ela.
+  //
+  // A CONTAGEM ESTAVA PRESA À TRANSMISSÃO SEM PRECISAR: gateada pelo
+  // `motivoStream`, ela sumiria do Registro justamente agora que todo "Tocar
+  // agora" baixa. O teto preferido entra ao lado porque desde este lote ele
+  // SOBREVIVE À SESSÃO — e um teto de 480p esquecido é a explicação mais
+  // provável para "a imagem está ruim" num aparelho que ninguém mexeu.
+  //
+  // SÓ SAI DEPOIS DE ACONTECER: a ausência da linha é "nada saiu limitado", e
+  // uma linha de zeros é mais uma para o operador ler em toda cópia.
+  if (window.__NATIVE__) {
     const limitadas = ytCenso.limitadas
-      ? '\ne ' + ytCenso.limitadas + '\u00d7 a projeção saiu em qualidade limitada'
+      ? '\n' + ytCenso.limitadas + '\u00d7 a projeção saiu em qualidade limitada'
         + (ytCenso.menor ? ' (a menor: ' + ytCenso.menor + 'p)' : '')
       : '';
-    blocos.push('Transmissão direta (último "Tocar agora")\n' + motivoStream
-      + linhaDeg + parou + censo + limitadas
-      + (falha ? '\nfalhou ao tocar: ' + falha : ''));
+    if (limitadas) {
+      blocos.push('Qualidade do YouTube\nteto escolhido: ' + ytAlturaPadrao() + 'p' + limitadas);
+    }
   }
   // A TRANSMISSÃO PARA NAVEGADOR: mais um BLOCO desta caixa, nunca uma faixa
   // nova em outro canto (regra do projeto). É o único lugar em que o estado do
@@ -23479,7 +23172,7 @@ function renderPacoteGrupos(plano) {
   destRemontar = remontar;
   const porChave = new Map(plano.grupos.map((g) => [g.chave, g]));
 
-  // ===== NÃO HÁ LINHA DE "TUDO", E ELA EXISTIU (v1.7.3 → v1.7.6) =====
+  // ===== NÃO HÁ LINHA DE "TUDO", E ELA EXISTIU (v1.7.3 → v1.7.9) =====
   //
   // Ela era um ALTERNADOR na primeira linha ("Selecionar tudo" / "Limpar a
   // seleção"), e saiu a pedido do operador: *"O seletor de 'tudo' no processo
@@ -23845,7 +23538,7 @@ async function exportarPacote() {
  * `ArrayBuffer`. É a mesma técnica com que o `pptxzip.js` abre um `.pptx` de
  * 570 MB.
  */
-// ===== A FONTE DE UM PACOTE, E POR QUE ELA NÃO É UM `Blob` (v1.7.6) =====
+// ===== A FONTE DE UM PACOTE, E POR QUE ELA NÃO É UM `Blob` (v1.7.9) =====
 //
 // Relato do operador: *"Não estou conseguindo importar os dados, 'failed to
 // fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro
@@ -24076,7 +23769,7 @@ async function importarPacote() {
   let erro = '';
   const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0 };
   try {
-    // ===== NADA DE `resp.blob()` (v1.7.6) =====
+    // ===== NADA DE `resp.blob()` (v1.7.9) =====
     //
     // Ele materializava o arquivo INTEIRO antes do primeiro byte ser lido, e é
     // metade do relato do operador: quinze gigabytes não cabem em lugar nenhum.
@@ -24355,13 +24048,19 @@ pacoteRenderTiles();
 // oráculos perguntam, e nunca pela classe, que é aparência), a palavra do
 // estado, o desenho e o aceso.
 //
-// `aceso` E `alt` SÃO DUAS PERGUNTAS, e não uma (v1.4.40). `aceso` é *"a função
-// está ligada?"* — e num tile que não tem "desligado" (tema, preenchimento,
-// wallpaper, histórico) ele é SEMPRE verdadeiro, porque apagado ali quer dizer
-// INDISPONÍVEL, que é a queixa da v1.4.25 aplicada a este painel. `alt` é
-// *"qual dos dois desenhos?"*. Enquanto as duas foram a mesma classe, um tile
-// sempre aceso ficava preso no desenho alternativo para sempre.
-// Ver as três regras do tile no `index.html`.
+// `aceso` E `alt` SÃO DUAS PERGUNTAS, e não uma (v1.4.40). `alt` é *"qual dos
+// dois desenhos?"*; `aceso` é *"a função está ligada?"*. Enquanto as duas foram
+// a mesma classe, um tile sempre aceso ficava preso no desenho alternativo para
+// sempre. Ver as três regras do tile no `index.html`.
+//
+// E HOJE TODO TILE PASSA `aceso: true` (v1.7.6) — o parâmetro sobrevive porque
+// a distinção acima é real e porque ele é o que escreve a classe; o que morreu
+// foi a POLÍTICA de usá-lo para dizer estado. Pedido do operador: *"todos os
+// botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda
+// diferença de estado é pelo icone, não pela cor"*. A grade tem UMA cor, e o
+// estado mora no desenho — o que sobra da luz é a única coisa que ela já
+// significava sem ambiguidade: apagado é INDISPONÍVEL (v1.4.25).
+// Quem passar `false` aqui está dizendo isso, e é assim que se lê.
 function pintarTile(el, estado, rotulo, aceso, alt) {
   if (!el) return;
   el.dataset.estado = String(estado);
@@ -24475,14 +24174,18 @@ async function applyFit(mode) {
 const ROTACOES = [0, 90, 180, 270];
 let mediaRot = 0;
 function renderRotBtn() {
-  // O ÍCONE GIRA COM A MÍDIA (v1.7.2). O ângulo era a palavra do estado deste
-  // tile, e ela saiu com as outras; a resposta não é um par de desenhos — a
-  // v1.4.38 mediu que quatro desenhos parecidos não se distinguem a 22px —, é o
-  // MESMO desenho na posição que ele descreve. Quem o gira é o CSS, pelo
-  // `data-estado` que o `pintarTile` acabou de escrever: a seta aponta para
-  // cima, para a direita, para baixo e para a esquerda, e o operador vê o ícone
-  // VIRAR sob o dedo, que é o que o toque faz com o telão.
-  pintarTile(rotBtnEl, mediaRot, mediaRot + '°', mediaRot !== 0, false);
+  // O ÍCONE GIRA COM A MÍDIA (v1.7.2), e desde a v1.7.6 ele é O QUADRO
+  // (`#icoPaisagem`). O ângulo era a palavra do estado deste tile e saiu com as
+  // outras; a resposta não é um par de desenhos — a v1.4.38 mediu que quatro
+  // desenhos parecidos não se distinguem a 22px —, é o MESMO desenho na posição
+  // que ele descreve. Quem o gira é o CSS, pelo `data-estado` que o
+  // `pintarTile` acabou de escrever, e o que vira sob o dedo é a própria
+  // paisagem: deitada, de pé, de cabeça para baixo, de pé do outro lado.
+  // ACESO SEMPRE, inclusive a 0° (v1.7.6). Ele era o único tile em que o
+  // apagado ainda tentava dizer "esta função está no padrão", e o operador
+  // encerrou a distinção: *"toda diferença de estado é pelo icone, não pela
+  // cor"*. Aqui o ícone É o estado — o quadro na posição em que a mídia está.
+  pintarTile(rotBtnEl, mediaRot, mediaRot + '°', true, false);
   if (rotBtnEl) {
     // A FRASE DIZ ONDE, nas duas pontas: o rótulo do tile já diz "no telão", e
     // o `title` fecha pela negativa — é o app inteiro que NÃO gira.
@@ -24626,8 +24329,12 @@ async function ytBaixarNativo(link, nome, opts) {
     });
     if (parou) { cancelado = true; bg.soltar(); }
   };
+  // O CARTÃO DA PREVIEW É DE UMA TENTATIVA DE PROJEÇÃO, e por isso ele entra no
+  // `palcoEmVoo` (v1.7.7): quem ganhar a vez o derruba junto com o do toque. Só
+  // o da preview — o `libBusy` mora na LINHA da Biblioteca, que é onde ele deve
+  // ficar mesmo com outra coisa no ar.
   const bg = aviso === 'preview'
-    ? previewBusy(LEGENDA_PREPARANDO, rotulo, cancelar)
+    ? registrarPalcoEmVoo(previewBusy(LEGENDA_PREPARANDO, rotulo, cancelar))
     : aviso === 'lib' ? libBusy(LEGENDA_PREPARANDO, rotulo, opts && opts.chave, cancelar)
       : { visivel: false, atualizar() {}, soltar() {} };
   const notif = bgTaskStart(rotuloBaixando, 1);
@@ -24708,9 +24415,7 @@ async function ytBaixarNativo(link, nome, opts) {
           // O sufixo é a MESMA convenção das músicas do acervo, que já se
           // chamam "(Cantado)"/"(Playback)": sem ele, o vídeo e o áudio do
           // mesmo link viram duas linhas com o nome idêntico na lista.
-          // O NOME DO APP VENCE O TÍTULO DO YOUTUBE — a mesma regra do
-          // `tentarTransmitir`, e os dois caminhos têm de concordar: o mesmo
-          // link renomearia o item ou não conforme desse para transmitir.
+          // O NOME DO APP VENCE O TÍTULO DO YOUTUBE.
           // `r.name` aqui é o do SHELL (o `ytFetch` devolve o título extraído);
           // `nome` é o que o app já tem, e é ele que manda. O genérico do
           // `rotulo` fica por último, senão ele venceria o título de verdade
@@ -25540,22 +25245,11 @@ async function handleSharedUrl(url, title) {
       openYtMenu({ id: ytId, url, name: rotulo });
       return SHARE_TRATADO;
     }
-    // NO SIMPLIFICADO, TOCA DIRETO DA REDE (v5.138) — o mesmo que o "Tocar
-    // agora" do avançado já faz. Ali o link compartilhado É um "tocar agora":
+    // NO SIMPLIFICADO O LINK COMPARTILHADO CONTINUA SENDO UM "TOCAR AGORA" —
     // ele vai direto ao telão, não entra em lista visível nenhuma e ninguém
-    // pediu para GUARDAR nada. Esperar centenas de MB baixarem para começar a
-    // projetar era exatamente a espera que a transmissão direta existe para
-    // acabar, e ela estava disponível o tempo todo — só não era tentada por
-    // esta porta.
-    //
-    // `tentarTransmitir` já faz tudo quando dá certo: grava o registro em
-    // `avulsos` (o mesmo destino que o share do simplificado usa), redesenha e
-    // projeta. Falhando qualquer coisa — shell antigo, vídeo sem par
-    // adaptativo, WebView sem o codec — ela devolve `false` e a linha abaixo
-    // segue para o download de sempre, calado: o operador pediu o louvor, não
-    // o método.
-    const alvoStream = { id: ytId, url, name: title || ('YouTube: ' + ytId) };
-    if (await tentarTransmitir(alvoStream, YT_ALTURAS[0], false)) return SHARE_TRATADO;
+    // pediu para guardar nada. O que mudou na v1.7.7 é o MEIO: era a
+    // transmissão direta (v5.138), e ela saiu do app; hoje é o download de
+    // sempre, logo abaixo, que projeta quando os bytes chegam.
     // O link vira ARQUIVO — é a via que toca em segundo plano e não depende da
     // rede durante o culto. Falhando (vídeo restrito, shell antigo), cai no
     // item de player de sempre: um link compartilhado nunca se perde.
@@ -30016,6 +29710,22 @@ AVDB.onCommand((msg) => {
     // a letra esmaece e trava, para o slide de capa não piscar no replay.
     pvLyricsEnded = true;
     if (pvLyrics) pvLayerOut(pvLyricsEl);
+    // E A PREVIEW VOLTA AO WALLPAPER (v1.7.7). Relato do operador: *"ao
+    // encerrar o tempo de uma música, a imagem no telão se encerra normalmente,
+    // e volta para o wallpaper, mas na preview, ele está parando em uma tela
+    // preta"* — com espelhamento para a TV.
+    //
+    // O `<video>` da preview NÃO chega a emitir o `ended` dele: o telão termina,
+    // dispara `pause` antes de `ended`, e o `display-status` que sai daí faz o
+    // `resyncPreviewToDisplay` PAUSAR a preview a milissegundos do fim. Pausado,
+    // o elemento não emite `ended`; sem `ended`, a cortina do palco nunca fecha
+    // e o que fica é o quadro de `currentTime === duration`, que é PRETO.
+    //
+    // ANTES do `autoAdvance`, e a ordem é o que impede a cortina de piscar entre
+    // dois itens de playlist: `marcarFim` bumpa o `loadSeq` e espera o fade, o
+    // `load` do avanço bumpa de novo, e o `seq !== loadSeq` de lá desiste de
+    // cobrir — exatamente o que o fim natural já fazia sozinho.
+    preview.marcarFim();
     autoAdvance();
   }
 });

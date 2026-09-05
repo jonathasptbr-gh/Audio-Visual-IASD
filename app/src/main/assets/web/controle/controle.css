@@ -7665,9 +7665,14 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    O ângulo era a palavra do estado deste tile e saiu com as outras. O que o
    substitui não é um par de desenhos — a v1.4.38 mediu que quatro desenhos que
    só diferem pelo ângulo não se distinguem a 22px —, é o MESMO desenho na
-   posição que ele descreve: a seta aponta para cima, para a direita, para baixo
-   e para a esquerda, e as quatro se distinguem porque são a mesma forma em
-   quatro orientações, não quatro formas parecidas.
+   posição que ele descreve, e as quatro se distinguem porque são a mesma forma
+   em quatro orientações, não quatro formas parecidas.
+
+   E DESDE A v1.7.6 O QUE GIRA É UM QUADRO DE PAISAGEM (`#icoPaisagem`), a
+   pedido do operador: *"o próprio quadro vai girar … vai literalmente
+   representar em qual posição está a paisagem"*. Uma seta girada é a AÇÃO
+   desenhada duas vezes; um quadro girado é o ESTADO. O mecanismo desta regra
+   não mudou uma linha — mudou o que ela vira.
 
    `transform` E NÃO um atributo no SVG: o giro precisa ser ANIMÁVEL. É vendo o
    ícone virar sob o dedo que o operador lê o que o toque fez — o mesmo
@@ -7716,26 +7721,35 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    app, quer dizer INDISPONÍVEL — e o que está acontecendo é o contrário, o
    botão está trabalhando. */
 .qs-tile.qs-trabalhando:disabled { opacity: 1; }
-/* ACESO = A FUNÇÃO ESTÁ LIGADA (v1.4.40) — e num tile que não tem "desligado",
-   SEMPRE. `--btn-accent` + `--accent` é a gramática de INTERRUPTOR LIGADO da
-   paleta, e não o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS: um tile é um
-   botão que alterna, e o seletor de modo logo acima é que é o par de
-   alternativas.
+/* A GRADE TEM UMA COR SÓ, E O ESTADO MORA NO DESENHO (v1.7.6).
+   `--btn-accent` + `--accent` é a gramática de INTERRUPTOR LIGADO da paleta, e
+   não o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS: um tile é um botão que
+   alterna, e o seletor de modo logo acima é que é o par de alternativas.
 
-   A v1.4.38 leu o aceso como *"o estado não é o padrão"*, e o operador
-   desmentiu: *"a maioria dos botões das configurações não tem estado de ativo e
-   inativo… então pode deixar eles no estado azul de 'sempre ativo' o tempo
-   todo"*. Tema, preenchimento, wallpaper e histórico não têm função para
-   ligar — escolher "Ajustar" não é desligar coisa nenhuma —, e apagados eles
-   diziam INDISPONÍVEL, que é a queixa exata da v1.4.25 (*"foi simplesmente
-   ofuscado o botão inteiro, o que dá a impressão de que não está disponível"*).
-   O app já tem uma linguagem para indisponível (`opacity: .3` + `disabled`), e
-   ela não pode ser a mesma de "você está no padrão".
+   A v1.4.40 acendeu os tiles que não têm "desligado" e deixou dois apagando (o
+   fundo da letra e o giro). O operador encerrou a distinção: *"todos os botões
+   devem ter o mesmo azul de ativo, não temos mais essa diferença, toda
+   diferença de estado é pelo icone, não pela cor"*. Os dois que apagavam já
+   tinham o estado no desenho — a imagem riscada, e o quadro na posição em que a
+   mídia está —, então a luz era a segunda cópia da mesma resposta, gasta na
+   única propriedade que este app já usa para outra coisa.
+
+   PORQUE APAGADO AQUI QUER DIZER INDISPONÍVEL, e isso não é opinião: é a queixa
+   da v1.4.25 (*"foi simplesmente ofuscado o botão inteiro, o que dá a impressão
+   de que não está disponível"*). O app tem uma linguagem para indisponível
+   (`opacity: .3` + `disabled`), e enquanto a mesma tinta dizia "você está no
+   padrão" as duas frases se confundiam na mesma grade.
 
    O que se perde está dito: a grade não responde *"o que eu deixei mexido
    aqui?"* de relance. Quem respondia isso era a palavra do estado, e ela saiu
    na v1.7.2 — hoje quem responde é o DESENHO de cada tile, um a um (a lua ou o
-   sol, o rolo vazio ou cheio, a seta na posição do giro).
+   sol, o rolo vazio ou cheio, a imagem inteira ou riscada, o quadro deitado ou
+   de pé). **A consequência para o próximo tile é dura: um estado que não caiba
+   num desenho não cabe nesta grade** — não há mais palavra e não há mais luz.
+
+   `.qs-on` FICA como regra e como classe, e o `aceso` fica como parâmetro do
+   `pintarTile`: o que morreu foi a política de usá-los para dizer estado, não a
+   capacidade de apagar um tile que de fato esteja indisponível.
 
    O TÍTULO VAI JUNTO: `color` no botão não alcança um filho que declara a
    própria cor, e um título em `--text` sobre o denim claro do tema claro

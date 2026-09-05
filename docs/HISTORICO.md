@@ -24,7 +24,9 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.7.6** — A IMPORTAÇÃO NÃO ERA LENTA: ELA NÃO CABIA. Relato do operador: *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo estivesse corrompido. Verifique se é problema no leitor, ou é algum problema tamanho do arquivo."* **São os dois, um em cada camada.** (1) **O LEITOR** fazia `resp.blob()` — o arquivo INTEIRO materializado antes do primeiro byte: quinze gigabytes não cabem nem na memória nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da primeira num aparelho que já está cheio. (2) **O TAMANHO**, e este é estrutural: o caminho `/saf/` tem **teto de 2 GB**, porque o Chromium dimensiona toda resposta interceptada pelo `available()` do `InputStream` — um `int`. É a invariante 8 pelo lado que ninguém tinha olhado: acima de `Integer.MAX_VALUE` o web recebe o arquivo CORTADO, sem erro nenhum, e o cursor tropeça no meio de um registro. **A forma do conserto é a do `StreamProxy`, e não uma invenção**: `/saf/<token>?r=<ini>-<fim>`, com a faixa na QUERY e nunca num cabeçalho `Range` — com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que já é uma fatia. Sem cabeçalho não há `ParseRange` nem `ComputeBounds`, e o `available()` passa a ser o da JANELA: o teto some porque nenhuma resposta chega perto dele. O `SafJanela` faz SEEK de verdade (`openFileDescriptor` + `FileChannel.position`; `skip` só como plano B para provedor sem descritor posicionável — pular quatorze gigabytes lendo-os seria quadrático) e usa `AutoCloseInputStream`, porque `FileInputStream(pfd.fileDescriptor)` não é dono do descritor e vazaria um por janela. Do lado web, `pacoteFonteDaUrl` entrega FATIAS: `bytes()` para cabeçalhos e `blob()` para corpos, montado de pedaços de 8 MB. **A leitura antecipada CRESCE E ENCOLHE, e foi o oráculo que pegou isso** — com 4 MB fixos a conferência de um acervo lia 4 MB para aproveitar duzentos bytes, uma vez por registro; a regra virou o próprio percurso (sequência dobra até 1 MB, salto volta a 8 kB). `pickDoc` passou a devolver `size` (`-1` = o provedor não disse, que NÃO é `0`). **Mais dois pedidos:** as MINIATURAS do Cronograma pararam de piscar ao excluir outro item — a v1.7.4 fechou o REDESENHO e deixou a RELEITURA, e excluir É um `load()`, que devolve blobs NOVOS para as mesmas capas; a chave passou a ser `id + tamanho + tipo` —, e a linha de "tudo" saiu da folha de exportação (*"está inútil agora que temos o agrupamento"*). Lote **com Release** (`SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.6"`).
+- **v1.7.9** — A IMPORTAÇÃO NÃO ERA LENTA: ELA NÃO CABIA. Relato do operador: *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo estivesse corrompido. Verifique se é problema no leitor, ou é algum problema tamanho do arquivo."* **São os dois, um em cada camada.** (1) **O LEITOR** fazia `resp.blob()` — o arquivo INTEIRO materializado antes do primeiro byte: quinze gigabytes não cabem nem na memória nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da primeira num aparelho que já está cheio. (2) **O TAMANHO**, e este é estrutural: o caminho `/saf/` tem **teto de 2 GB**, porque o Chromium dimensiona toda resposta interceptada pelo `available()` do `InputStream` — um `int`. É a invariante 8 pelo lado que ninguém tinha olhado: acima de `Integer.MAX_VALUE` o web recebe o arquivo CORTADO, sem erro nenhum, e o cursor tropeça no meio de um registro. **A forma do conserto é a do `StreamProxy`, e não uma invenção**: `/saf/<token>?r=<ini>-<fim>`, com a faixa na QUERY e nunca num cabeçalho `Range` — com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que já é uma fatia. Sem cabeçalho não há `ParseRange` nem `ComputeBounds`, e o `available()` passa a ser o da JANELA: o teto some porque nenhuma resposta chega perto dele. O `SafJanela` faz SEEK de verdade (`openFileDescriptor` + `FileChannel.position`; `skip` só como plano B para provedor sem descritor posicionável — pular quatorze gigabytes lendo-os seria quadrático) e usa `AutoCloseInputStream`, porque `FileInputStream(pfd.fileDescriptor)` não é dono do descritor e vazaria um por janela. Do lado web, `pacoteFonteDaUrl` entrega FATIAS: `bytes()` para cabeçalhos e `blob()` para corpos, montado de pedaços de 8 MB. **A leitura antecipada CRESCE E ENCOLHE, e foi o oráculo que pegou isso** — com 4 MB fixos a conferência de um acervo lia 4 MB para aproveitar duzentos bytes, uma vez por registro; a regra virou o próprio percurso (sequência dobra até 1 MB, salto volta a 8 kB). `pickDoc` passou a devolver `size` (`-1` = o provedor não disse, que NÃO é `0`). **E mais um pedido:** a linha de "tudo" saiu da folha de exportação (*"está inútil agora que temos o agrupamento"*). Lote **com Release** (`SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.9"`).
+- **v1.7.8** — UM `load()` RELÊ O BANCO, E UM BLOB RELIDO É OUTRO OBJETO. Relato: *"Os mesmos problemas de miniaturas piscando da biblioteca, temos nas miniaturas piscando no cronograma ao excluir outro item."* **É a porta que a v1.7.4 deixou aberta, e o oráculo dela a nomeava por extenso**: aquele lote keou a `object-URL` de cada capa pelo BLOB, o que resolve o redesenho de 400 ms de um download — ali o blob é o mesmo OBJETO, porque quem o segura são as listas em MEMÓRIA (`libItems`, `favItems`). Mas `load()` as relê do IndexedDB, e a releitura devolve blobs novos para TODAS as capas de uma vez; e `load()` não é raro — ele roda em toda escrita no banco, e excluir um item é uma. A chave passou a ser **`id|tamanho|tipo`**, e cada pedaço responde a uma coisa: o `id` é o que atravessa a releitura, e o par `size`/`type` é a impressão digital que impede uma capa TROCADA de ser servida da memória (hoje nenhum caminho substitui a miniatura de um registro existente, e o dia em que um existir ele mudará o tamanho). Sem `id` a chave continua sendo o blob, que é o comportamento da v1.7.4: no pior caso, o de antes. **De quebra, o MESMO item em duas listas passa a ter UMA url** — `listItems('imports')` e `listItems('favs')` são duas leituras, então a mesma capa vinha como dois blobs e ocupava a memória duas vezes. O `miniaturas-estaveis.test.mjs` ganhou o bloco E (o Cronograma, excluindo outro item) e uma asserção nova no C (a mesma propriedade na Biblioteca, que é a outra metade da frase do relato): são dois hosts porque um tem balde próprio e o outro não. Duas reversões medidas — com a chave de volta no blob os dois reprovam, e com a varredura em no-op reprovam as duas que cobram a revogação. Lote **só de base web**.
+- **v1.7.6** — A GRADE DE CONFIGURAÇÕES TEM UMA COR SÓ, E O QUE GIRA É UM QUADRO. Três pedidos, e os dois primeiros são a mesma regra. (1) **NENHUM TILE APAGA**: *"O botão do girar no telão, está apagado no modo sem giro, mas todos os botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda diferença de estado é pelo icone, não pela cor."* A v1.4.40 acendeu os tiles que não têm "desligado" e deixou DOIS apagando — o fundo da letra e o giro —, e os dois **já tinham o estado no DESENHO** (a imagem riscada; o quadro na posição em que a mídia está): a luz era a segunda cópia da mesma resposta, gasta na única propriedade que este app já usa para outra coisa. **Apagado aqui quer dizer INDISPONÍVEL**, que é a queixa da v1.4.25, e enquanto a mesma tinta dizia *"você está no padrão"* as duas frases se confundiam na mesma grade. `qs-on` e o parâmetro `aceso` FICAM — morreu a política de usá-los para dizer estado, não a capacidade de apagar um tile de fato indisponível. **A consequência para o próximo tile é a soma de duas remoções** (a palavra saiu na v1.7.2, a cor sai agora): um estado que não caiba num desenho não cabe nesta grade. (2) **O QUE GIRA É UM QUADRO DE PAISAGEM**: *"troque o icone dele, use um icone de picture, paisagem. O próprio quadro vai girar e vai ser mais intuitivo que um seta circular rodando, pois vai literalmente representar em qual posição está a paisagem."* **O mecanismo não mudou uma linha** — o `#rotBtn` já desenhava o ícone na posição que ele descreve desde a v1.7.2; mudou o que ele vira. Uma seta girada é a AÇÃO desenhada duas vezes (ela já significa *"gire"*), e a 90° é só uma seta apontando para outro lado; um quadro girado é o ESTADO. O desenho é **assimétrico nos dois eixos, de propósito**, e é exigência dura: sem isso 0° e 180° ficam idênticos, e 90° e 270° também — quatro estados em dois desenhos (o sol no alto e o morro embaixo resolvem o vertical; o sol à direita e o morro à esquerda, o horizontal). **E O MORRO NÃO ATRAVESSA O QUADRO, o que foi MEDIDO**: um pico que toca as duas paredes com pouco céu acima é a ABA DE UM ENVELOPE, e a 180° vira o glifo universal de e-mail — quatro candidatos renderizados a 22px e a 58px, e os três que atravessavam liam-se assim. Ele **não é o `#icoImagem` do tile vizinho**, que é a armadilha que o `#icoWallpaper` já pagou nesta grade: quadro bem mais largo (21×13 contra 17×14), o SOL À DIREITA (lá está à esquerda) e um pico só, na metade esquerda, contra o recorte que atravessa o outro inteiro. O `#icoGirar` saiu do sprite junto (a regra deste repositório: um `<symbol>` sem consumidor viaja em todo aparelho sem desenhar nada), e a seta circular do desfazer sobre a PREVIEW fica: ela é INLINE desde a v1.4.45 exatamente para este dia, e responde outra pergunta. (3) **A ORDEM PASSOU A SER POR ASSUNTO**: *"reordene os botões: compartilhar, exportar e importar devem ser os tres itens da base"*. Ela era por NATUREZA (os sempre-acesos no topo, v1.4.40) e **essa ordem deixou de existir no mesmo lote** — nenhum tile apaga mais, então não há duas naturezas de LUZ para ordenar. Sobram as seis preferências da PROJEÇÃO em cima e as três coisas que se fazem com o APP fora dela embaixo, numa fileira inteira. E o `glifos.test.mjs` ganhou a OUTRA fonte de ícone do bundle: um `<use href="#ico…">` sem `<symbol>` falha igual a um glifo fora do subset — sem erro, só um vão —, e a operação que produz isso é a RENOMEAÇÃO deste lote. Varre nos dois sentidos, com as duas reversões provadas. Lote **só de base web**.
 - **v1.7.5** — O DIA VIROU UM BLOCO, E A SUBLISTA GANHOU CORPO. Relato: *"No histórico, nas configurações, ajuste os cards que separam os dias, para que tenham uma coloração diferente dos cards de itens exibidos naquela seção. Atualmente a lista está confusa, pois está difícil distinguir as sublistas dentro desse histórico"* — e, em seguida, *"caso ache mais correto, utilize o design de corpo e lista que já temos na biblioteca..."*. **MEDIDO, e era literal:** o cabeçalho pintava `--camada` e a `.row` de cada linha pinta `--linha`, que dentro daquela folha resolve para `--camada` também — `rgb(48, 66, 84)` no escuro e `rgb(212, 218, 226)` no claro, os DOIS. **1,00:1**, o mesmo número que a Biblioteca mediu na v1.5.14 entre a tampa de um álbum e as faixas dele. A resposta é a de lá, INTEIRA, e ela tem duas metades — o degrau de tom sozinho não resolve o relato, porque dois tons alternados numa lista PLANA continuam sendo uma corrida de irmãos. **A FILIAÇÃO:** o `<li>` do dia deixou de ser a barra e virou o BLOCO, com a `.hist-sessao-bar` e uma `ul.hist-corpo` dentro dele — a anatomia da `.coll-group`. O `<li>` continua sendo da MESMA `<ul>` pela razão da v1.4.31 (a folha rola inteira, e um cabeçalho fora dela ficaria parado sobre o conteúdo errado); aninhar muda só de quem cada linha é filha. **A ALTERNÂNCIA:** papel (a folha) → poço (o bloco do dia) → papel (a linha), com quem RESERVA o tom sendo o contêiner — a `.hist-corpo` declara `--camada: var(--panel)` e a `.row-item` a lê em `--linha`. MEDIDO no par novo: **1,43:1** no escuro e **1,35:1** no claro. O TEMA CLARO é quem fecha a conta: nele `--panel` é branco e todo o resto se agrupa perto de L≈0,70, então o único tom que passa o piso de 1,28:1 contra o poço é o próprio papel — logo um dos dois tem de ser o papel, e a escolha sai do que cada um É. A barra NÃO gruda (a da Biblioteca é `sticky`): aqui não há tampa de nível acima a que se colar, e um cabeçalho grudado num popup que já rola inteiro flutuaria sobre a lista de OUTRO dia. O `historico.test.mjs` ganhou as duas metades — o degrau medido na cor RENDERIZADA nos dois temas (um teste de token ou de classe aprovava o defeito: os dois nomes eram diferentes e resolviam para o mesmo valor) e a filiação de cada linha —, com as três reversões medidas: sem a camada reservada o passo cai a 1,08:1 e 1,04:1, sem o poço do bloco a 1,00:1, e com a lista plana o arquivo reprova já na primeira leitura. **E os seletores do próprio oráculo mudaram junto**, porque a leitura por IRMÃOS descrevia o desenho anterior: `#histList > li` devolveria blocos VAZIOS e um `.find()` por texto casaria o BLOCO antes da linha. Lote **só de base web**.
 - **v1.7.4** — SEIS PEDIDOS DO OPERADOR NUMA PASSADA, E TRÊS DELES SÃO A MESMA REGRA. (1) **A BARRA DE PROGRESSO SAIU DA LINHA**: *"O subtitulo com as informações ficou muito bom, mas a barra de progresso ficou ruim, tire ela."* Ele aprovou a metade que ACRESCENTOU informação (a fração por extenso na posição do subtítulo) e reprovou a que só desenhava, num filete de 4px, o mesmo número que a frase ao lado diz — numa lista de trinta linhas isso é peso por repetição. O `pct` continua no registro: quem desenha barra é a NOTIFICAÇÃO, que é a janela do trabalho com o app minimizado. (2) **O `⋮` CEDE A COLUNA AO TRABALHO EM CURSO**: *"por um botão, na mesma posição do botão de opções do item do cronograma… esse botão só tem uma função durante um preparo ou download. Esse botão cancela o processo e apaga o item."* É o movimento que a v1.4.27 já fez para a exclusão e a renomeação, agora para o trabalho — e ele obrigou a tornar CANCELÁVEIS as duas esperas que não sabiam parar: a preparação de apresentação (o laço de páginas do `.pptx` lê a desistência; no PDF quem rasteriza é o shell e o que se cancela é o DESFECHO, com o `deckDiscard` que já existia) e a importação de arquivo (um `AbortController` no `fetch` do `/saf/`). **O limite está escrito porque é uma decisão**: "apaga o item" vale para o item que só existe POR CAUSA do processo; um item que já estava no Cronograma (converter um link do YouTube) FICA — apagá-lo seria destruir o que ninguém mandou destruir. E o `.dl-cancel` de 34px virou um `.row-btn`, que mede o `⋮` por construção. (3) **A LINHA NÃO VOLTA AO ESTADO INICIAL PARA SUMIR**: *"ao tocar em excluir, na confirmação, o item se transforma ao seu estado inicial sem os botões antes de desaparecer, isso causa estranheza"*. Era a ORDEM: `fecharConfirmacaoNaLinha()` corria ANTES do `aoConfirmar`, e o comentário que a justificava falava do DOM (um cuidado que não custa nada — `desfazer()` sobre um nó órfão é no-op). O que ele custava era o que se via. Hoje a linha SAI (200 ms de altura mais opacidade, a curva do acordeão, com a margem negativa do `gap` para o vão sair junto) e só então o item é apagado. **E A INVERSÃO COBROU UM DEFEITO NOVO, achado pelo oráculo**: `fecharConfirmacaoNaLinha` fecha *a que estiver aberta*, e com o `aoConfirmar` rodando antes dela há uma janela em que OUTRA pergunta já nasceu — MEDIDO pelo `boot-nativo`, a exclusão de um favorito fechava o campo de RENOMEAR aberto logo depois. A guarda é a mesma regra do botão de cancelar do cartão da preview: *ele sai com o DONO dele*. (4) **A CAPA FICA À VISTA NA PERGUNTA DA EXCLUSÃO**: *"Ela tinha sido tirada desse momento do layout, mas julguei melhor ter ela ali."* O argumento da v1.4.27 valia enquanto a capa VIRAVA UMA LIXEIRA (um desenho igual em toda linha); com o símbolo morando na coluna do `⋮`, ela volta a ser a única parte da linha que diz de QUAL item é a pergunta. Ela continua saindo no RENOMEAR, que precisa da largura — e o par é a regra. Com ela, o `.row-lixo` saiu e o caminho B da lixeira virou o mesmo do ✓ (dentro da faixa), com a exceção nomeada: a lixeira ILUSTRA e não entra numa faixa que não fala de um item (limpar a playlist, o histórico), onde os dois rótulos dividem a caixa ao meio. (5) **AS MINIATURAS DOS FAVORITOS PARARAM DE PISCAR**: *"veja se pode deixar isso mais estável visualmente, sem piscar"*. A causa é aritmética — a Biblioteca é redesenhada a cada 400 ms enquanto um download corre, e cada passada REVOGAVA as URLs do render anterior e criava outras para os MESMOS blobs; uma `<img>` com `src` inédito não tem decodificação em cache. A chave passou a ser o BLOB (mesmo blob, mesma URL) e a varredura passou a ser pela UNIÃO dos baldes, o que fecha POR CONSTRUÇÃO a classe de defeito que o balde por host existia para tratar. (6) **O TOQUE NUM BLOCO DEIXOU DE ENCOLHER**: *"Há um efeito de encolhimento que distorce os elementos… deixe apenas um efeito de coloração/sombreamento ao toque sem encolhimento. Também aproveite para verificar se está colorindo o corpo do card corretamente e não apenas o arrangment do texto ou cabeçalho."* As duas metades são o mesmo defeito por dois lados, e a regra que as resolve **já estava escrita na `.coll-bar` desde a v5.288** (*"`--press` é para CONTROLE FOLHA. Um contêiner que hospeda um controle nunca escala"*) — a v1.3.14 a contrariou ao pôr as duas barras na lista do `--press`: a barra é TRANSPARENTE, então o `filter` acendia só o texto, e o `translateY(2px)` deslizava a tampa dentro de um card parado. Hoje **um CONTROLE responde por RECUO; um BLOCO responde por LUZ, e o bloco inteiro** — vale para os cards, as seções e a `.lib-item`, em qualquer profundidade e nos dois estados. (7) **E A VELOCIDADE DA CIFRA VIROU GAVETA**: *"faça com que o botão de velocidade abra uma gaveta, substituindo seus botões vizinhos, pela lista de botões com as variações de velocidade… sem passar por cada uma delas em carrocel"*. O ciclo era um preço escrito desde a v1.1.20 (*"com CINCO degraus, dar a volta custa menos que um segundo botão"*), e a conta muda quando o alvo é ESPECÍFICO: os degraus do meio ACONTECEM, com a música no ar. É o mecanismo da faixa da linha na fila da cifra — a fila troca de CONTEÚDO, não de lugar —, com `display: contents` no invólucro para os cinco seguirem a direção dela (linha no retrato, coluna deitada) sem uma segunda regra de layout. O ⛶ é a exceção nomeada: *a fila da cifra sempre tem a saída*. Lote **só de base web**.
 - **v1.7.3** — A RESPOSTA NASCE ONDE O TOQUE NASCEU, E A FOLHA DE ESCOLHA GANHOU AS SEÇÕES DA BIBLIOTECA. Dois pedidos. (1) *"o feedback da ui sobre a preparação da exportação, que hoje está sendo exibida sobre o preview, para que seja exibida sobre o próprio botão de exportar. já que a ação acontece ali e não na tela ou controle. o mesmo vale para feedbacks visuais das ações das configurações"*. **O app já tinha a mecânica**, em dois lugares — o `#otaRow` (`falarNoOta`) e o "Guardar como pacote" (`falarNoPacote`) —, e a regra está na lista de canais de resposta do `controle.js` desde a v5.207: *o rótulo do controle empresta a si mesmo por alguns segundos e volta*. O cartão sobre a preview é o canal do que ACONTECERIA NELA, e uma exportação não acontece na preview. `falarNoTile` troca o `.qs-titulo` e o devolve: "Medindo…", o percentual, o tamanho do arquivo, e de volta a "Exportar". **Isso não reabre a segunda linha que a v1.7.2 removeu** — aquela era permanente e descrevia o repouso. O CANCELAR voltou para o mesmo lugar (o toque no botão que trabalha), e a importação não o tem por natureza: ela só ACRESCENTA, e parar no meio deixaria metade do acervo sem nada para apagar a outra metade. A ETAPA foi para a notificação, que é a superfície com espaço e a que existe com o app minimizado; no botão cabe o número. E o desfecho fala nos DOIS lugares sem repetir: o botão diz que deu certo e quanto pesou, o diálogo diz o NOME do arquivo e o que fazer com ele. **O `data-nome` guarda o rótulo de origem, e não um `WeakMap` de módulo** — foi a primeira escrita e não durou um teste: `pacoteRenderTiles()` roda no topo do arquivo, na carga, e o `pintarTile` leria a constante antes da linha que a declara (zona morta temporal, `ReferenceError`, app parado). (2) *"durante a seleção da exportação, haja uma opção de selecionar todos, e opções de agrupamentos das coleções da mesma forma que já existe na biblioteca, podendo marcar um grupo inteiro de uma vez só"*. "Tudo" é um ALTERNADOR na primeira linha (com tudo marcado ele limpa, e o rótulo diz qual das duas o toque faz); o agrupamento sai da MESMA fonte que a Biblioteca desenha — as coletâneas do `AVColetanea.aplicar`, com os hinários e as séries na raiz e os álbuns sem categoria em "Outros álbuns" —, porque uma segunda leitura do catálogo divergiria da tela em que o operador aprendeu onde cada coleção mora. A BARRA do grupo MARCA e a SETA ABRE (na Biblioteca a barra abre, porque lá o que se vem fazer é olhar dentro; aqui é incluir e excluir), a seção nasce FECHADA, e a marca do grupo tem TRÊS estados — com metade escolhida, cheia e vazia mentem as duas. `plano.grupos` continua plano (é ele que o laço de escrita consome) e `plano.folha` é a árvore; uma varredura no fim recolhe o que a árvore não alcançou, porque uma coleção que não apareça na folha nunca é marcada. O `pacote-por-grupos.test.mjs` cresceu com as duas metades, com reversão em cada asserção nova. Lote **só de base web**.
@@ -356,7 +358,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v1.7.6 — a importação não era lenta: ela não cabia
+## v1.7.9 — a importação não era lenta: ela não cabia
 
 > *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de
 > 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo
@@ -430,18 +432,7 @@ arquivo e não perto do dobro. A rota do próprio oráculo fala o MESMO contrato
 `SafJanela.kt` — um `blob:`, que era o que ele entregava, não tem query nenhuma,
 e por ele o leitor novo nem sairia do lugar.
 
-### E mais dois pedidos
-
-> *"os mesmos problemas de miniaturas piscando da biblioteca, temos nas
-> miniaturas piscando no cronograma ao excluir outro item."*
-
-A v1.7.4 fechou o REDESENHO e deixou a RELEITURA — e a nota dela já dizia por
-quê sem tirar a conclusão: *"quem as relê é o `load()`"*. **Excluir É um
-`load()`**: o `getAll` devolve blobs NOVOS para as mesmas capas, a chave por
-objeto não os reconhece, e a lista inteira ganha URLs inéditas. `chaveDaCapa`
-passou a ser `id + tamanho + tipo`. O preço está dito: duas capas do mesmo id
-com exatamente os mesmos bytes seriam confundidas — e a capa de um id é, na
-prática, imutável (`mediaAdd` usa `add`, não `put`).
+### E mais um pedido
 
 > *"O seletor de 'tudo' no processo de seleção de exportação está inútil agora
 > que temos o agrupamento, então não precisa dele, deixe tudo selecionado por
@@ -452,10 +443,195 @@ NASCE, e a barra de um grupo cobre o caso de massa que sobrava. O peso do que
 está marcado continua no botão de confirmar, que é onde a pergunta ("cabe no
 cartão?") é feita.
 
-Lote **com Release**: `SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.6"`.
+Lote **com Release**: `SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.9"`.
 
 ---
 
+## v1.7.8 — um `load()` relê o banco, e um blob relido é outro objeto
+
+> *"Os mesmos problemas de miniaturas piscando da biblioteca, temos nas
+> miniaturas piscando no cronograma ao excluir outro item."*
+
+**É a porta que a v1.7.4 deixou aberta — e o oráculo daquele lote a nomeava por
+extenso**, no próprio cabeçalho: *"o redesenho medido é o do RELATO —
+`renderCollectionsNow` —, e não um `load()`: aquele RELÊ o acervo, e um `Blob`
+relido é outro objeto. A promessa deste lote é sobre o redesenho que NÃO relê."*
+
+A promessa estava certa e era ESTREITA demais. Ela cobre o caso que o operador
+tinha relatado (a lista redesenhada a cada 400 ms enquanto um download corre, em
+que o blob é o mesmo OBJETO porque quem o segura são as listas em memória) e não
+cobre o caso vizinho: **`load()` roda em TODA escrita no banco**, a releitura
+devolve blobs novos para todas as capas de uma vez, e excluir um item é uma
+escrita.
+
+MEDIDO antes de mexer, no Cronograma com dois itens: a URL da capa de quem FICOU
+mudava quando o outro era excluído.
+
+### A chave é `id|tamanho|tipo`
+
+Cada pedaço responde a uma coisa:
+
+| pedaço | o que ele resolve |
+|---|---|
+| `id` | é o que **atravessa a releitura** — o objeto Blob não |
+| `size` + `type` | a impressão digital que impede uma capa **TROCADA** de ser servida da memória |
+
+Hoje nenhum caminho substitui a miniatura de um registro existente (ela é
+escrita na criação — download, importação, pacote), e o dia em que um existir
+ele mudará o tamanho. **Sem `id` a chave continua sendo o próprio blob**, que é
+o comportamento da v1.7.4: no pior caso, o de antes.
+
+**De quebra, o MESMO item em duas listas passa a ter UMA url.**
+`listItems('imports')` e `listItems('favs')` são duas leituras do banco, então a
+mesma capa vinha como dois blobs e ocupava a memória duas vezes.
+
+### O que o oráculo ganhou
+
+`miniaturas-estaveis.test.mjs` ganhou o **bloco E** — o Cronograma, excluindo
+outro item, pelo caminho real (`listRemove` + `load()`) — e uma asserção nova no
+**bloco C**, que mede a mesma propriedade na Biblioteca. **São dois hosts porque
+o relato é sobre os dois** (*"os mesmos problemas da biblioteca… temos no
+cronograma"*), e porque um deles tem balde próprio e o outro não.
+
+O bloco E também cobra a outra metade: a capa de quem SAIU é revogada na mesma
+passada. Sem ela, *"nunca revogar"* passaria em tudo — e uma object-URL viva
+segura o blob inteiro.
+
+Duas reversões medidas: com a chave de volta no BLOB, o bloco C e o bloco E
+reprovam; com a varredura em no-op, reprovam as duas asserções que cobram a
+revogação.
+
+---
+
+## v1.7.6 — a grade tem uma cor só, e o que gira é um quadro
+
+Três pedidos sobre a mesma tela — a grade de Configurações —, e **os dois
+primeiros são a mesma regra**: quem responde *"qual é o estado?"* naquele painel
+é o DESENHO, e mais nada.
+
+### 1. Nenhum tile apaga
+
+> *"O botão do girar no telão, está apagado no modo sem giro, mas todos os
+> botões devem ter o mesmo azul de ativo, não temos mais essa diferença, toda
+> diferença de estado é pelo icone, não pela cor."*
+
+A v1.4.38 leu o aceso como *"o estado não é o padrão"*. A v1.4.40 corrigiu
+metade disso — acendeu os tiles que **não têm "desligado"**, a pedido do
+operador (*"pode deixar eles no estado azul de 'sempre ativo' o tempo todo"*) —
+e deixou DOIS apagando: o fundo da letra e o giro. O argumento então era que
+esses dois TÊM desligado, logo a luz dizia algo verdadeiro.
+
+**O que faltava era notar que ela dizia algo que já estava dito.** Os dois
+tinham o estado no DESENHO — a imagem inteira × a imagem riscada, e o quadro na
+posição em que a mídia está —, então a luz era a segunda cópia da mesma
+resposta. E ela é cara: **apagado, neste app, quer dizer INDISPONÍVEL**. É a
+queixa da v1.4.25 por extenso (*"foi simplesmente ofuscado o botão inteiro, o
+que dá a impressão de que não está disponível"*), e o app tem uma linguagem
+própria para isso (`opacity: .3` + `disabled`). Enquanto a mesma tinta dizia
+*"você está no padrão"*, as duas frases se confundiam na mesma grade.
+
+- **`qs-on` e o parâmetro `aceso` FICAM.** O que morreu foi a POLÍTICA de
+  usá-los para dizer estado, não a capacidade de apagar um tile que de fato
+  esteja indisponível — quem passar `false` ali está dizendo isso, e é assim que
+  se lê.
+- **A consequência para o próximo tile é a soma de duas remoções.** A palavra do
+  estado saiu na v1.7.2, a cor sai agora: *um estado que não caiba num desenho
+  não cabe nesta grade.*
+- **A GUARDA DO ORÁCULO MUDOU DE LUGAR, não de força.** O `smoke.mjs` prendia
+  este resto com o argumento certo para o desenho da época — *"a metade que
+  impede o conserto preguiçoso: acender TUDO, sempre"*. Revogada a política,
+  sobra o CANAL que ficou sozinho: o fundo da letra fica aceso nos dois estados
+  **e troca o desenho PINTADO**, medido no `display` computado de cada `<use>`.
+  É a asserção que reprova quem apagar a regra de CSS do par e ficar com a
+  classe certa sobre dois desenhos empilhados.
+
+### 2. O que gira é um quadro de paisagem
+
+> *"Além disso, troque o icone dele, use um icone de picture, paisagem. O
+> próprio quadro vai girar e vai ser mais intuitivo que um seta circular
+> rodando, pois vai literalmente representar em qual posição está a paisagem."*
+
+**O mecanismo não mudou uma linha.** O `#rotBtn` já desenhava o ícone na posição
+que ele descreve desde a v1.7.2 — `transform` por `data-estado`, com transição,
+porque é vendo o ícone VIRAR sob o dedo que se lê o que o toque fez. O que mudou
+é **o que ele vira**:
+
+| | |
+|---|---|
+| uma SETA girada | a AÇÃO desenhada duas vezes — ela já significa *"gire"* —, e a 90° é só uma seta apontando para outro lado |
+| um QUADRO girado | o ESTADO: ele não diz *"gire"*, diz *"a mídia está assim"*, que é a única coisa que este tile tem para mostrar |
+
+- **O desenho é ASSIMÉTRICO NOS DOIS EIXOS, de propósito**, e essa é a exigência
+  dura: sem isso 0° e 180° ficam idênticos, e 90° e 270° também — quatro estados
+  em dois desenhos. O sol no ALTO e o morro EMBAIXO resolvem o vertical; o sol à
+  DIREITA e o morro à ESQUERDA resolvem o horizontal, e a proporção o reforça.
+- **O MORRO NÃO ATRAVESSA O QUADRO DE PAREDE A PAREDE, e isso foi MEDIDO** — é a
+  diferença entre um ícone e outro ícone. A primeira escrita tinha um pico único
+  de canto a canto com pouco céu acima, e ela é a **ABA DE UM ENVELOPE**: a 180°
+  o desenho vira o glifo universal de e-mail. Quatro candidatos renderizados a
+  22px e a 58px, e os TRÊS que atravessavam liam-se assim; o que ficou ocupa a
+  metade esquerda e a metade de baixo, e sobra CÉU — é o céu que faz um quadro
+  ser uma paisagem.
+- **Ele NÃO é o `#icoImagem` do tile vizinho**, e a distância é deliberada: é a
+  armadilha que o `#icoWallpaper` já pagou nesta mesma grade (*"dois desenhos
+  gêmeos prometendo coisas diferentes"*), e o "Fundo da letra" fica ao lado dele
+  na fileira. Três diferenças, e as três sobrevivem a 22px: o quadro é bem mais
+  LARGO (21×13 contra 17×14), o SOL está à DIREITA (lá ele está à esquerda) e a
+  serra é um PICO SÓ, na metade esquerda, contra o recorte irregular que
+  atravessa o outro inteiro.
+- **O centro do quadro é o centro do `viewBox`** (12,12): sem isso o giro do CSS
+  o faria orbitar em vez de VIRAR no lugar.
+- **O `#icoGirar` saiu do sprite junto.** É a regra deste repositório — um
+  `<symbol>` sem consumidor não erra alto, só viaja no bundle do OTA em todo
+  aparelho sem desenhar nada —, a mesma pela qual os `icoMedicao*` saíram na
+  v1.4.42.
+- **A seta circular do desfazer sobre a PREVIEW fica**, e a v1.4.45 previu
+  exatamente este dia: ela é INLINE e não um `<use>`, com o argumento escrito
+  então (*"o dia em que um dos dois mudar de forma o outro não pode ir junto"*).
+  Nada ali teve de mudar. O que os separa é a pergunta de cada um — o tile mostra
+  o ESTADO, aquele botão é a AÇÃO (*desfaça*), com o estado ao lado, no número.
+
+### 3. A ordem da grade passou a ser por assunto
+
+> *"Aproveite para reordenar os botões: compartilhar, exportar e importar devem
+> ser os tres itens da base."*
+
+Ela era **por NATUREZA** (v1.4.40): primeiro os sempre-acesos, depois os que
+ligam e desligam — e os três de ação, sendo sempre-acesos, ficavam entre o
+histórico e os dois que apagavam.
+
+**Essa ordem deixou de existir no mesmo lote.** Sem tile que apague, não há duas
+naturezas de LUZ para ordenar. O que sobra é o ASSUNTO, que é o que o pedido
+nomeia: as **seis preferências da PROJEÇÃO** em cima (tema, preenchimento,
+wallpaper, histórico, fundo da letra, giro) e as **três coisas que se fazem com
+o APP fora dela** embaixo (compartilhar, exportar, importar), numa fileira
+inteira e sozinha.
+
+A grade fecha em três fileiras exatas **nos dois arranjos** — o que muda é onde
+a costura cai, e agora ela cai entre as duas naturezas. Daí a asserção
+geométrica no `smoke.mjs`: um décimo tile acrescentado no fim empurraria um
+deles para a fileira de cima e a costura cairia no meio de uma linha.
+
+### O sprite ganhou oráculo
+
+`glifos.test.mjs` existia para uma pergunta — *"este codepoint está no subset da
+fonte?"* — cujo modo de falhar é o mais silencioso do desenho: um vão do tamanho
+de um ícone, sem erro no console e sem requisição falhando, num botão que
+continua existindo e funcionando. **O sprite falha exatamente igual**, e a
+operação que o produz é a RENOMEAÇÃO — que é o que este lote fez.
+
+Ele varre nos DOIS sentidos:
+
+- **`<use href="#ico…">` sem `<symbol>`** — o vão.
+- **`<symbol>` sem consumidor** — a regra escrita deste repositório, que até aqui
+  só existia como prosa. Sem ela, *"renomeei o consumidor"* e *"renomeei os
+  dois"* passavam iguais.
+
+As duas entradas são literais (o `href` do HTML e o `pacoteIconeSvg('ico…')` do
+`controle.js`), com asserção própria para provar que a segunda foi lida — senão
+um regex quebrado deixaria a varredura passar medindo metade. As duas reversões
+foram executadas: apontar o tile de volta para o `#icoGirar` reprova nos dois
+sentidos de uma vez, e um símbolo órfão acrescentado à mão reprova no segundo.
 ## v1.7.5 — o dia virou um bloco, e a sublista ganhou corpo
 
 > *"No histórico, nas configurações, ajuste os cards que separam os dias, para

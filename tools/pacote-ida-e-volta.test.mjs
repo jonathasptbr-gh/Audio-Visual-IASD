@@ -35,7 +35,7 @@ import { servirEstatico, abrirNavegador, esperar, esperarDb, checar, falhas } fr
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
-// ===== O ARQUIVO ESCOLHIDO É SERVIDO POR JANELA (v1.7.6) =====
+// ===== O ARQUIVO ESCOLHIDO É SERVIDO POR JANELA (v1.7.9) =====
 //
 // No aparelho o `.avpkg` chega como uma `/saf/<token>` e o lado web o lê em
 // FATIAS (`?r=<ini>-<fim>`), porque o caminho antigo — `resp.blob()` — não
@@ -362,7 +362,7 @@ try {
     { arquivo: chegou.pastaDoCelular, catalogo: chegou.pastas });
 
   // =========================================================================
-  // 5 · O ARQUIVO É LIDO POR JANELAS, E A CONFERÊNCIA NÃO LÊ OS CORPOS (v1.7.6)
+  // 5 · O ARQUIVO É LIDO POR JANELAS, E A CONFERÊNCIA NÃO LÊ OS CORPOS (v1.7.9)
   // =========================================================================
   //
   // Relato do operador: *"Não estou conseguindo importar os dados, 'failed to
@@ -461,7 +461,7 @@ try {
   }
 
   // =========================================================================
-  // 6 · SEM O TAMANHO, A IMPORTAÇÃO PARA E DIZ (v1.7.6)
+  // 6 · SEM O TAMANHO, A IMPORTAÇÃO PARA E DIZ (v1.7.9)
   // =========================================================================
   //
   // O `size` do `pickDoc` entrou no shell 64 e é o que diz ao leitor onde o
