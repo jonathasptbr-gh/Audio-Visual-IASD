@@ -259,6 +259,7 @@ jobs:
           node tools/webview-range.test.mjs
           node tools/contexto-seguro.test.mjs
           node tools/sombra.test.mjs
+          node tools/kotlin-simbolo-importado.test.mjs
 
           node tools/tipos-que-sobem.test.mjs
 

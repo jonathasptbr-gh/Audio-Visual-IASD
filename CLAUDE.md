@@ -1488,8 +1488,8 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
   - **NOMEIA, não explica.** *"O som deixou de sumir ao conectar numa smart
     TV."* — e ponto. O mecanismo, a causa e a medição vão para
     `docs/HISTORICO.md`, que é onde alguém os procura.
-  - **Uma linha curta** (teto de 120 caracteres no CI; MEDIDO, os 80 tópicos de
-    hoje têm 55 em média e 79 no maior). A régua não é o arquivo — é o cartão:
+  - **Uma linha curta** (teto de 120 caracteres no CI; MEDIDO, os 75 tópicos de
+    hoje têm 67 em média e 90 no maior). A régua não é o arquivo — é o cartão:
     a lista do diálogo tem `.88rem` numa caixa estreita, e MEDIDO um tópico de
     ~55 chars já ocupa 2 linhas a 430px e 3 a 320px. Um parágrafo ali vira sete.
   - **Sem CAIXA ALTA de ênfase** (o CI aceita no máximo uma palavra de três
@@ -1501,7 +1501,7 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
   6,8 kB — e ele viaja em TODO bundle do OTA.
 - **O ARQUIVO GUARDA A SÉRIE ATUAL E A ANTERIOR, e nada mais** (v1.4.3). Ele
   chegou a 87 entradas — 51 kB em TODO bundle, com linhas descrevendo a v1.0.1.
-  A regra de poda é `MAIOR.INCREMENTAL`: hoje 1.5.x e 1.4.x (a v1.3.x saiu
+  A regra de poda é `MAIOR.INCREMENTAL`: hoje 1.8.x e 1.7.x (a v1.3.x saiu
   na v1.5.4, que deixou o arquivo em 50 entradas e 13,4 kB — a série tinha
   virado e a poda ficara para trás). **O preço está dito e é pequeno:** o "E mais N mudanças" do rodapé
   conta o que está NA LISTA, então um aparelho parado há meses vê um N
@@ -4545,6 +4545,7 @@ mundo anterior por outro caminho.
 |---|---|
 | `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno). **E A HIERARQUIA DA BIBLIOTECA** (v1.5.14): ele foi escrito para proteger o desenho da v1.5.9 e por isso APROVAVA o defeito — exigia que seção e card dividissem o tom (1,00:1), exigia a moldura nos dois níveis, e nunca comparava tampa × faixa, o par que valia 1,00:1 no escuro. Hoje afirma a ALTERNÂNCIA (degrau real contra o pai, e o card VOLTANDO ao tom da janela — sem essa segunda metade um terceiro tom passaria e a escada de quatro voltaria pela porta dos fundos), a AUSÊNCIA de moldura nos três níveis, e os DOIS cabeçalhos grudentos empilhados, com a folga do de dentro medida na altura RENDERIZADA do de fora. **E A PERNA DA RAIZ** (v1.5.15), que a v1.5.14 não media e por isso deixou passar dois defeitos: a PLACA de uma coleção da raiz tem degrau de verdade contra o poço em volta **e vale o MESMO que o card de álbum de dentro de uma seção** — sem essa segunda metade a faixa continua pousando em duas cores conforme onde a coleção mora, que é o relato; o `top` da tampa da raiz é ZERO, medido ao lado do da tampa aninhada na mesma passada (um `top` escrito por TIPO passa numa das duas e reprova na outra); e o primeiro bloco começa NO TOPO do scrollport, porque `padding` de um scroller é scrollport e a lista rola por ele à vista. A régua desta última é a GEOMETRIA, nunca `paddingTop` lido de volta: o vão pode voltar por qualquer caminho. **E o PAINEL RÁPIDO de Configurações** (v1.4.38): que o CORPO dela não rola — a asserção antiga media a FOLHA, e a folha nunca rolou (quem tem `overflow-y: auto` é o `.fade-opts`), então ela aprovava as duas versões —, que a grade tem três colunas, e que o tile ALTERNA e volta. **E o que o AZUL quer dizer** (v1.4.40 → v1.7.6): a grade tem UMA COR SÓ e todo tile é aceso — apagado, neste app, quer dizer INDISPONÍVEL —, **e o estado mora no DESENHO**: `qs-alt` responde "qual desenho?" e `qs-on` responde "está ligado?", e enquanto foram a mesma classe um tile sempre aceso ficava preso no desenho alternativo. **A GUARDA MUDOU DE LUGAR, não de força**: ela era *"algum tile ainda apaga"* (a metade que impedia o conserto preguiçoso de acender tudo), e o pedido do operador revogou a política — hoje é o CANAL que ficou sozinho, medido no `display` computado de cada `<use>`: o fundo da letra fica aceso nos DOIS estados **e troca o desenho pintado**, o que reprova quem apagar a regra de CSS do par e ficar com a classe certa sobre dois desenhos empilhados. Mais o GIRO aceso a 0°, que é o tile que o pedido nomeia, e a ORDEM por ASSUNTO (compartilhar/exportar/importar são a fileira da base) fechando em fileiras EXATAS — um décimo tile põe a costura entre as duas naturezas no meio de uma linha. **E o MODO DO APP como interruptor que desliza** (v1.4.43): o polegar ANDA, medido na `transform` RENDERIZADA do `::before` do trilho — uma troca de classe passa num teste de classe e continua imóvel na tela, e ler a posição do BOTÃO não serviria porque o botão nunca se mexe; os dois botões SEM fundo próprio (sem esta, acrescentar o polegar por cima do desenho antigo deixaria a pilha de quatro tons de pé, com uma camada A MAIS); e o `data-modo` seguindo o modo, que é por onde o CSS decide o lado. Mais a folha que **FICA ABERTA e IMÓVEL** ao trocar de modo — duas asserções e não uma, porque a primeira responde ao `closeFadePopup` que saiu do ouvinte e a segunda responde ao `<main>`: a caixa é `fixed` e mora FORA dele, e movê-la para dentro mantém a classe `open` e apaga a folha da tela. **Assentar é `getAnimations()` + `finished`**, nunca duas amostras iguais em quadros seguidos (MEDIDO: `top: -449`, a folha ainda no teto, aprovada como assentada) nem o primeiro `transitionend` (MEDIDO: `top: -7`, a `transform` a sete pixels do fim com a opacidade já pronta). **E o que a v1.4.44 corrigiu nele**: o trilho medindo EXATAMENTE a grade de tiles (um `.fade-row` pintando `--panel` sobre uma folha que já é `--panel` é um CARTÃO INVISÍVEL — não se via, mas o `padding` dele recuava o trilho 12,8px de cada lado, e o relato foi o desalinhamento), o TÍTULO centrado medido no texto PINTADO por um `Range` (a caixa do `<span>` é `stretch` e ocupa a linha inteira nas duas versões, então medi-la aprova o rótulo colado à esquerda), e o RODAPÉ como UMA barra — a asserção é o número de SUPERFÍCIES pintadas dentro dele, porque a v1.4.43 já tinha dois blocos com o mesmo tom e o que se via eram duas caixas |
 | `clone-de-outro-celular.test.mjs` | **o clone CELULAR A CELULAR**, em dois contextos de navegador como dois celulares. O `pacote.test.mjs` prende a REGRA; este prende a LIGAÇÃO, que falha de outro jeito — a regra continua certa e o acervo não chega. As três promessas que ele mede são MUDAS: o item que fica para trás (a cópia termina sem erro e o operador descobre no sábado), a RETOMADA — medida em número de PEDIDOS, porque uma segunda passada que rebaixe tudo de novo *funciona*, só leva horas — e a FAIXA NA QUERY, que é a invariante 8 (com um cabeçalho `Range` o WebView aplicaria o deslocamento duas vezes, e o que chegaria ao acervo seriam bytes deslocados). Mais o 409 do índice remontado, que NÃO é retentável. Cinco reversões nomeadas |
+| `clone-lista-de-aparelhos.test.mjs` | **a LISTA de aparelhos cedendo** — a outra metade do clone, e a que o irmão acima não alcança: aquele começa com os dois já pareados, este mede o caminho até lá. Rodava no CI desde a v1.8.2 **sem linha em tabela nenhuma**, achado pela varredura nos dois sentidos (ver "Duas regras de método") |
 | `pacote-ida-e-volta.test.mjs` | **o pacote de um aparelho para o outro**, em DOIS contextos de navegador com armazenamentos separados — o `pacote.test.mjs` prende a regra, este prende a LIGAÇÃO, que falha com a regra certa e o acervo não chegando. Nada é comparado contra o que a exportação achou que escreveu: afirma-se o que o SEGUNDO aparelho tem depois. Cobre a imagem de fundo da estrofe (que NENHUM registro do catálogo nomeia — é ela que prova que a varredura é do DISCO), o `stream` que não atravessa, a pasta do aparelho que fica para trás, e a promessa inteira: importar DE NOVO, com o local já diferente, não apaga o renomeado nem a preferência de quem importou — e a lista de ids se SOMA. **E COMO ELE É LIDO** (v1.7.9), que é o que não tem sintoma num arquivo pequeno — o percurso inteiro dos outros blocos passava com o leitor que não cabia: o arquivo é pedido por JANELAS e NUNCA de uma vez (um pedido sem faixa é o `resp.blob()` de volta, e é ele que não cabe em quinze gigabytes), nenhuma janela passa do PEDAÇO (acima do teto do `SafJanela` o aparelho devolve o arquivo CORTADO, sem erro nenhum) e a CONFERÊNCIA não lê os corpos — o total lido fica perto do tamanho do arquivo, não perto do dobro; foi esta que pegou a leitura antecipada fixa. A rota do próprio oráculo fala o MESMO contrato do `SafJanela.kt`: um `blob:` — que era o que ele entregava — não tem query nenhuma, e por ele o leitor novo nem sairia do lugar |
 | `linha-da-preparacao.test.mjs` | **a linha de uma PREPARAÇÃO não é a de um download** (v1.7.1), e as metades falham CALADAS. A LEGENDA ocupa a POSIÇÃO DO SUBTÍTULO — a pergunta é de ÁRVORE (dentro da coluna de texto e DEPOIS do nome), porque um `.dl-prog` solto na `.row` passa num teste de presença e aparece noutro lugar da linha — e ela ANDA, página a página, vinda de quem TEM os números (nem a linha nem o oráculo parseiam frase nenhuma). O ícone: preparar uma apresentação não baixa byte nenhum, e a seta prometia bytes — a regra de v1.4.19 (*o ícone segue a LEGENDA*) num lugar novo, com a REVERSÃO ao lado, porque a seta ACENDE num download de verdade e APAGA de volta quando a legenda deixa de prometê-los. **E o que a v1.7.4 acrescentou:** a asserção NEGATIVA do DESENHO DO NÚMERO — nem percentual solto (até a v1.7.1) nem trilho (só a v1.7.1) —, que é o par exato da que o lote anterior escreveu; e o `⋮` cedendo a COLUNA, em três metades que nenhuma basta sozinha (o cancelar está lá com a caixa EXATA do `⋮` de uma linha vizinha sem trabalho — nunca um número escrito no teste —, a fileira de opções NÃO está, e o toque CANCELA de verdade: a linha sai e nenhuma apresentação nasce). Mais a AUSÊNCIA em asserção própria: sem alça de cancelamento não há botão. **A linha é endereçada pelo NOME** — MEDIDO, 1 reprovação em 8 rodadas a 3× de carga com `querySelector`: as duas metades montam uma linha cada, e sob carga a de baixo media a seta da de cima |
 | `miniaturas-estaveis.test.mjs` | **a `object-URL` de uma capa é do ITEM, não do render** (v1.7.4, com a chave corrigida na v1.7.8). Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante processos de download"*. Um teste de "a capa aparece" passa nas DUAS versões — ela aparece, só que um quadro depois, três vezes por segundo —, então o que se afirma é a IDENTIDADE da URL entre dois renders. Cinco metades: a URL sobrevive ao redesenho de 400 ms, ela continua VÁLIDA (uma igual e revogada seria o defeito piorado), o que SAI de cena é recolhido (sem isto "nunca revogar" passaria — e uma object-URL viva segura o blob inteiro), a PASTA DO APARELHO, que é o que o desenho pode quebrar sem sintoma (o corpo dela é montado por uma função ASSÍNCRONA, isto é, DEPOIS de o balde do render ter sido devolvido, e sem um balde próprio a varredura seguinte apaga aquelas capas da tela) e — **desde a v1.7.8** — a EXCLUSÃO, que é o caso que a chave por BLOB deixava passar: excluir escreve no banco, o `load()` relê, e um blob relido é outro objeto. Esta última é medida nos DOIS hosts do relato (a Biblioteca no bloco C, o Cronograma no E), porque um tem balde próprio e o outro não. Cada asserção nova tem a reversão nomeada e reexecutada |
@@ -4660,14 +4661,26 @@ base64 escrito à mão, parse do índice na ponte).
 
 - **Teste que não está no workflow é documentação, não rede de segurança** — e
   a linha do `rodar` entra no MESMO lote que o arquivo. Isto deixou de ser
-  higiene e virou passo do rito: aconteceu DUAS vezes em três lotes (a v1.8.0
-  com o `clone-de-outro-celular.test.mjs`, a v1.8.2 com o
-  `clone-lista-de-aparelhos.test.mjs`), e o modo de falhar é sempre o mesmo — o
-  run fica verde porque ninguém o roda, e o oráculo novo passa a existir só no
-  repositório. **A v1.8.4 varreu os três** (a comparação é `tools/*.test.mjs`
-  contra o workflow, arquivo a arquivo, e ela achou um terceiro de meses atrás:
-  o `preview-volta-ao-wallpaper.test.mjs`). Hoje não sobra nenhum — e é essa
-  varredura, não a memória, que responde à pergunta.
+  higiene e virou passo do rito: **quatro vezes em nove lotes** — a v1.8.0 com o
+  `clone-de-outro-celular.test.mjs`, a v1.8.2 com o
+  `clone-lista-de-aparelhos.test.mjs`, um terceiro de meses atrás que a
+  varredura da v1.8.4 achou (`preview-volta-ao-wallpaper.test.mjs`) e, o mais
+  caro deles, a v1.8.8 com o `kotlin-simbolo-importado.test.mjs`. O modo de
+  falhar é sempre o mesmo — o run fica verde porque ninguém o roda, e o oráculo
+  novo passa a existir só no repositório.
+
+  **O QUARTO É O QUE MOSTRA O CUSTO.** Ele foi escrito para impedir que um
+  símbolo sem `import` derrubasse a `main` — que é o que a v1.8.6 tinha acabado
+  de fazer —, ficou fora do workflow, e por um lote inteiro o repositório teve
+  a linha na tabela, o arquivo no disco, e **nenhuma proteção**. *Um oráculo que
+  não roda é pior que oráculo nenhum: ele responde a pergunta "isso está
+  coberto?" com um sim que não existe.*
+
+  A comparação é `tools/*.test.mjs` contra o workflow, arquivo a arquivo, **nos
+  dois sentidos** — a segunda direção achou o `clone-lista-de-aparelhos`, que
+  rodava no CI sem linha em tabela nenhuma. É essa varredura, não a memória, que
+  responde à pergunta, e ela é uma linha:
+  `comm -3 <(ls tools/*.test.mjs | sort) <(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' .github/workflows/apk.yml | sort -u)`
 - `node --check` prova que o arquivo é PARSEÁVEL, não que o app funciona — a
   v5.121 saiu com um botão chamando função apagada, sintaxe perfeita e CI verde.
   O canal OTA publica direto para a frota e o watchdog **não evita o primeiro
@@ -5098,7 +5111,7 @@ todo método da ponte existe, e não há guarda de versão no lado web.
 > confere o `apk`**); o mecanismo é este, e está escrito no comentário do
 > próprio `web-ota`, vinte linhas acima do `if:`.
 
-> **O LOTE ANTERIOR (v1.8.0) PEDIU RELEASE**, e a razão fica registrada porque
+> **UM LOTE QUE PEDIU RELEASE (v1.8.0)**, e a razão fica registrada porque
 > ela é o caso normal: a ponte ganhou OITO métodos e o shell três arquivos
 > (`AcervoCessao`, `AcervoProxy`, `AcervoDescoberta`) — nada disso chega por
 > OTA. Sem o `shellTag` os dois tiles novos chegariam sozinhos à frota,
@@ -5147,7 +5160,15 @@ todo método da ponte existe, e não há guarda de versão no lado web.
 > que mude o `pauseAt` devolve tudo ao regime antigo e o vermelho volta a chegar
 > como veredito sobre o app.
 
-**O LOTE ANTERIOR (v1.8.4) — o deslize da Bíblia deixou de vazar da folha:**
+> **OS BLOCOS ABAIXO SÃO UMA SELEÇÃO, NÃO UMA SEQUÊNCIA.** Eles guardam os
+> lotes cuja DECISÃO ainda governa o código, na ordem em que foram escritos —
+> e por isso pulam lotes (hoje: v1.8.2, v1.8.3 e v1.8.5 a v1.8.8). O rótulo
+> "lote anterior" é RELATIVO e envelhece a cada publicação, que é a mesma
+> armadilha do bloco "Versão atual" logo acima; o registro COMPLETO e em ordem
+> é o `docs/HISTORICO.md`, consultado por `grep`. Bloco novo entra no topo
+> desta lista, não renumera os de baixo.
+
+**UM LOTE ANTERIOR (v1.8.4) — o deslize da Bíblia deixou de vazar da folha:**
 
 | peça | onde |
 |---|---|
@@ -5174,7 +5195,7 @@ todo método da ponte existe, e não há guarda de versão no lado web.
 > PIXEL — cores distintas na moldura entre a folha e o `<main>`: **9** em
 > repouso e com a correção, **59** sem ela.
 
-**O LOTE ANTERIOR (v1.8.1) — a varredura geométrica pedida pelo operador:**
+**UM LOTE ANTERIOR (v1.8.1) — a varredura geométrica pedida pelo operador:**
 
 | peça | onde |
 |---|---|
@@ -5218,7 +5239,7 @@ todo método da ponte existe, e não há guarda de versão no lado web.
 > regra escrita aqui, um teste fora do workflow é documentação, não rede de
 > segurança. Conferido verde e registrado neste lote.
 
-**O LOTE ANTERIOR (v1.8.0) — a biblioteca de um celular para outro, sem arquivo:**
+**UM LOTE ANTERIOR (v1.8.0) — a biblioteca de um celular para outro, sem arquivo:**
 
 | peça | onde |
 |---|---|
@@ -5254,7 +5275,7 @@ todo método da ponte existe, e não há guarda de versão no lado web.
 > cabo) —, e os dois passam a ser duas fontes do mesmo leitor. Ver "O clone
 > celular a celular".
 
-**O LOTE ANTERIOR (v1.7.10) — só de base web.** `java/`, `res/` e o manifesto
+**UM LOTE ANTERIOR (v1.7.10) — só de base web.** `java/`, `res/` e o manifesto
 não foram tocados, e nenhum método da ponte entrou ou mudou de forma; ele saiu
 sem `shellTag`, que é o certo para um lote que não precisa de Release.
 
@@ -5313,7 +5334,7 @@ sem `shellTag`, que é o certo para um lote que não precisa de Release.
 > (308 contra 298px), e ali o rótulo vira reticências. Apertar o respiro das
 > pílulas para ganhar os 10px foi MEDIDO e não resolveu.
 
-**O LOTE ANTERIOR (v1.7.9) — a importação de um acervo de verdade:**
+**UM LOTE ANTERIOR (v1.7.9) — a importação de um acervo de verdade:**
 
 | peça | onde |
 |---|---|
@@ -5623,7 +5644,7 @@ recurso:**
 > escolhe 480p uma vez o faz por uma razão que não muda de sábado para sábado.
 > O seletor continua na folha, a um toque, mostrando qual é.
 
-> **O LOTE ANTERIOR (v1.7.2) — o 0% NÃO ERA LENTIDÃO DE DISCO.** A Bíblia mora em `state` com uma
+> **UM LOTE ANTERIOR (v1.7.2) — o 0% NÃO ERA LENTIDÃO DE DISCO.** A Bíblia mora em `state` com uma
 > chave POR CAPÍTULO — 1189 por versão —, e cada registro custava DUAS idas e
 > voltas pelo canal (uma pelo cabeçalho, outra pelo corpo): ~7.200 viagens para
 > escrever poucos megabytes, e nenhuma delas reportava byte nenhum. O escritor
