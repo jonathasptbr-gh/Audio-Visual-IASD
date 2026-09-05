@@ -2135,6 +2135,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
     /** O operador ligou a CESSÃO da biblioteca. */
     private var acervoPedido = false
 
+    /** O relógio do vigia do [acervoParear]. Um só, na main looper: o pedido é
+     *  um por vez (o clone tem um DONO), e criar um Handler por chamada seria
+     *  um objeto novo a cada 1,5 s da enquete de pareamento. */
+    private val relogioDoPar = android.os.Handler(android.os.Looper.getMainLooper())
+
     override fun acervoCeder(rotulo: String, onResult: (JSONObject) -> Unit) {
         runOnUiThread {
             // O SERVIDOR PRIMEIRO, e o estado só liga se ele subiu: `ligar` a
@@ -2201,8 +2206,30 @@ class MainActivity : ComponentActivity(), BridgeHost {
         rotulo: String,
         onResult: (JSONObject) -> Unit,
     ) {
+        // O VIGIA DO PEDIDO (v1.8.6). Os prazos do [pedirPar] somam 16 s, e mesmo
+        // assim o que chegou ao campo foi um `null` de PONTE — os 60 s do
+        // `CALL_TIMEOUT_MS` vencendo, isto é, alguma coisa aqui passou dos 16 s
+        // que esta função promete. Um `connectTimeout` não cobre tudo o que
+        // pode travar antes do primeiro byte, e o desfecho de não cobrir era o
+        // pior possível: a página esperava um minuto e recebia NADA, sem uma
+        // palavra sobre onde parou.
+        //
+        // Resolver duas vezes é inofensivo — o `call()` do `native.js` apaga a
+        // entrada pendente na primeira —, então o vigia pode ser burro.
+        val respondido = java.util.concurrent.atomic.AtomicBoolean(false)
+        relogioDoPar.postDelayed({
+            if (respondido.compareAndSet(false, true)) {
+                runOnUiThread {
+                    onResult(
+                        JSONObject().put("estado", "erro")
+                            .put("erro", "o pedido a $endereco:$porta travou sem resposta (20s)"),
+                    )
+                }
+            }
+        }, 20_000)
         thread(name = "av-acervo-par", isDaemon = true) {
             val r = pedirPar(endereco, porta, rotulo)
+            if (!respondido.compareAndSet(false, true)) return@thread
             if (r.optString("estado") == "pareado") {
                 AcervoProxy.apontar(endereco, porta, r.optString("token"))
                 espelhoDiag.registrar("clone: pareado com $endereco:$porta")
@@ -2235,6 +2262,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
             return JSONObject().put("estado", "erro").put("erro", "endereco invalido")
         }
         var conn: java.net.HttpURLConnection? = null
+        // QUANTO DEMOROU ENTRA NA FRASE. O prazo da PONTE são 60 s, e os desta
+        // requisição somam 16 — mas foi um `null` de ponte que chegou ao campo,
+        // isto é, alguma coisa aqui passou de 60 s. Sem o número não há como
+        // separar "o connect estourou os 8 s" de "ficou preso muito além do que
+        // estes timeouts prometem", e as duas pedem consertos opostos.
+        val comecou = SystemClock.elapsedRealtime()
+        fun quanto() = " após " + ((SystemClock.elapsedRealtime() - comecou) / 1000.0) + "s"
         return try {
             val corpo = JSONObject()
                 .put("rotulo", rotulo.ifBlank { nomeDesteAparelho() })
@@ -2259,12 +2293,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // então tocar num aparelho que acabou de parar é o caso comum.
             if (!json.has("estado")) {
                 json.put("estado", if (codigo == 404) "nao-cede" else "erro")
-                if (codigo != 404) json.put("erro", "HTTP $codigo")
+                if (codigo != 404) json.put("erro", "HTTP $codigo" + quanto())
             }
             json
         } catch (e: Exception) {
             JSONObject().put("estado", "erro")
-                .put("erro", e.javaClass.simpleName + ": " + (e.message ?: ""))
+                .put("erro", e.javaClass.simpleName + ": " + (e.message ?: "") + quanto())
         } finally {
             conn?.disconnect()
         }

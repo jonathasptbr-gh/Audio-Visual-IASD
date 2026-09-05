@@ -1,8 +1,15 @@
 [
   {
-    "versao": "1.8.6",
+    "versao": "1.8.7",
     "itens": [
       "Ajustes internos de verificação — nada muda na tela."
+    ]
+  },
+  {
+    "versao": "1.8.6",
+    "itens": [
+      "A cópia entre celulares passou a dizer o que fazer quando o outro não responde.",
+      "O registro passou a mostrar em que etapa a cópia parou, e quanto ela esperou."
     ]
   },
   {

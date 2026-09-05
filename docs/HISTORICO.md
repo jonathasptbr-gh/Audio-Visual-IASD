@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v1.8.6** — O ORÁCULO DA CORTINA MEDIA O RUNNER, E ISSO CALOU O CANAL OTA. O merge da v1.8.4 ficou VERMELHO na `main`: o `verificar` reprovou em `abertura-e-transferencia.test.mjs` (70/71) e, como ele é `needs` do `web-ota`, **o job de publicação foi PULADO — o bundle da v1.8.4 não chegou a aparelho nenhum**. O oráculo passava 10/10 aqui sob 3× de carga, que é a assinatura da classe. A causa, MEDIDA: o relógio instalado do Playwright **também anda com o tempo real** (`fastForward(2000)` deixa o relógio da página 2012 ms à frente), e o PISO da cortina é contado do INÍCIO DA PÁGINA — `falta = 1800 − (Date.now() − nasceu)`. Num runner com três Chromiums em paralelo o boot come esses 1800 ms de tempo real, e o par de asserções deixava de medir o piso e passava a medir quanto o runner demorou para abrir o app. **Qual das duas pontas quebra depende de ONDE o tempo de boot cai**: simulando 2,2 s de boot, reprova a PRIMEIRA; no runner reprovou a SEGUNDA. O conserto é `pauseAt` ANTES do `goto` — o relógio da página congela de verdade (MEDIDO: 0 ms de avanço em 1,5 s reais), `nasceu` É o instante congelado e `falta` vale exatamente 1800 seja qual for a carga; e o app sobe com ele congelado (`__avBack` em 180 ms), porque o boot espera microtarefas e o IndexedDB, não temporizadores. `runFor` no lugar de `fastForward` pela razão que as fatias de 500 ms contornavam: ele processa o temporizador agendado DENTRO do avanço, que é o encadeamento piso → esmaecimento → remoção do nó. **E entrou uma guarda que faltava**: o oráculo AFIRMA que o relógio está parado antes de medir — sem ela, um Playwright que mude o `pauseAt` devolve as duas asserções ao regime antigo e o vermelho volta a chegar como veredito sobre o app. Provado LADO A LADO com o mesmo boot lento: antes reprova, depois passa. Lote **só de oráculo** — nada do app mudou.
+- **v1.8.7** — O ORÁCULO DA CORTINA MEDIA O RUNNER, E ISSO CALOU O CANAL OTA. O merge da v1.8.4 ficou VERMELHO na `main`: o `verificar` reprovou em `abertura-e-transferencia.test.mjs` (70/71) e, como ele é `needs` do `web-ota`, **o job de publicação foi PULADO — o bundle da v1.8.4 não chegou a aparelho nenhum**. O oráculo passava 10/10 aqui sob 3× de carga, que é a assinatura da classe. A causa, MEDIDA: o relógio instalado do Playwright **também anda com o tempo real** (`fastForward(2000)` deixa o relógio da página 2012 ms à frente), e o PISO da cortina é contado do INÍCIO DA PÁGINA — `falta = 1800 − (Date.now() − nasceu)`. Num runner com três Chromiums em paralelo o boot come esses 1800 ms de tempo real, e o par de asserções deixava de medir o piso e passava a medir quanto o runner demorou para abrir o app. **Qual das duas pontas quebra depende de ONDE o tempo de boot cai**: simulando 2,2 s de boot, reprova a PRIMEIRA; no runner reprovou a SEGUNDA. O conserto é `pauseAt` ANTES do `goto` — o relógio da página congela de verdade (MEDIDO: 0 ms de avanço em 1,5 s reais), `nasceu` É o instante congelado e `falta` vale exatamente 1800 seja qual for a carga; e o app sobe com ele congelado (`__avBack` em 180 ms), porque o boot espera microtarefas e o IndexedDB, não temporizadores. `runFor` no lugar de `fastForward` pela razão que as fatias de 500 ms contornavam: ele processa o temporizador agendado DENTRO do avanço, que é o encadeamento piso → esmaecimento → remoção do nó. **E entrou uma guarda que faltava**: o oráculo AFIRMA que o relógio está parado antes de medir — sem ela, um Playwright que mude o `pauseAt` devolve as duas asserções ao regime antigo e o vermelho volta a chegar como veredito sobre o app. Provado LADO A LADO com o mesmo boot lento: antes reprova, depois passa. Lote **só de oráculo** — nada do app mudou.
+- **v1.8.6** — O DIÁRIO RESPONDEU, E A RESPOSTA ERA OUTRA PERGUNTA. O `clone-diario` da v1.8.5 chegou ao campo e fez o trabalho dele: duas linhas no aparelho que RECEBE, e o `parou em:` **VAZIO** é o achado — `cloneOnde` é escrito na primeira linha do `cloneSincronizar`, então vazio significa que a cópia **nunca chegou a pedir a lista**: ela parou no PAREAMENTO. E a frase sem parêntese é a segunda metade: o ramo de erro cita `r.erro` quando ele existe, logo uma frase nua significa que `r` era **`null`** — os 60 s do `CALL_TIMEOUT_MS` vencendo. Todo caminho do Kotlin preenche o `erro` (inclusive o `catch`) e os prazos do `pedirPar` somam 16 s, então um `null` de ponte ali é alguma coisa passando de 60 s DENTRO do shell. Lote COM Release (`shellTag: v1.8.6`) — o conserto é `MainActivity.kt`. *(Linha de índice escrita no lote seguinte — ver o corpo, que é o registro do lote.)*
 - **v1.8.5** — O REGISTRO SALVO POR CIMA DO ANTIGO, E A PORTA DE CEDER QUE NÃO ANOTAVA. Dois achados do Registro que o operador mandou dizendo *"persiste o mesmo problema"* — e o primeiro estava DENTRO do próprio arquivo. `salvarTexto` abria o documento com `openOutputStream(uri)`, modo `"w"`, que **não trunca**: salvando sobre o Registro da vez anterior, o texto novo cobria o começo e a CAUDA do antigo ficava, entrando no meio de uma linha. MEDIDO no arquivo de campo: o bloco das Coletâneas aparecia duas vezes, a segunda com um pedaço da lista das séries colado antes. **O defeito é pior do que parece**: o que sobra é conteúdo PLAUSÍVEL — blocos inteiros, bem formatados, descrevendo um estado que já não existe —, e o Registro existe para ser lido A DISTÂNCIA por quem não confere nada no aparelho. O caminho do PACOTE já usava `"wt"` desde a v1.7.0; este ficou para trás. E o `clone-diario` da v1.8.3 só era escrito depois de a lista existir, então o Registro de quem tentou ceder e não conseguiu era IDÊNTICO ao de quem nunca tocou no botão. Lote COM Release (`shellTag: v1.8.5`). *(Linha de índice escrita no lote seguinte — ver o corpo, que é o registro do lote.)*
 - **v1.8.4** — O DESLIZE DA BÍBLIA VAZAVA DA FOLHA. Relato do operador: *"um bugs visual de animação, os itens dentro das seções da bíblia estão aparecendo horizontalmente em sua animação de entrada e saída, saindo da caixa a qual pertecem."* A navegação DENTRO da Bíblia desliza (`deslizarNaFolha`): um `translateX(±100%)` no `#bibleBody`, 220ms. A `.tools-sheet` é um CARTÃO — fundo, raio e sombra — e **não recortava nada**, então durante o movimento a grade de livros, os ladrilhos e o cabeçalho pintavam FORA dela, por cima do Cronograma em volta. MEDIDO a 393×786: **47,7px** de vazamento e 25 nós fora da caixa numa das transições. Quem já recortava era o `<main>`, e só na LARGURA DA TELA — era o que segurava o deslize da faixa de abas de antes da v1.5.0, uma camada acima; entre a borda da folha e a da tela sobra justamente a moldura em que o vazamento aparecia. **DEFEITO PRÉ-EXISTENTE, e isso foi conferido antes de consertar**: a mesma sonda contra o `controle.css` da v1.8.0 devolve os mesmos 47,6px. `overflow: hidden` na folha, e ele não custa nada — os dois corpos (`#bibleBody` e `#toolsBody`) já têm `min-height: 0` e rolagem própria, e o que transbordasse viraria um corte, que o `geometria.test.mjs` reprova. **O ORÁCULO NOVO NÃO CABIA NO DE GEOMETRIA, por duas razões de método**: aquele ASSENTA as animações antes de medir (e tem de assentar — uma folha medida no meio do movimento devolve uma caixa que não existe), então um defeito que só existe DURANTE o movimento nasce fora do alcance dele; e **geometria não responde a esta pergunta** — `overflow: hidden` recorta a PINTURA, não o layout, e com a correção aplicada o `getBoundingClientRect` de cada ladrilho continua devolvendo a caixa inteira, 47,6px fora da folha. Medido por geometria, antes e depois são IDÊNTICOS, e foi assim que a primeira tentativa do arquivo "reprovou" a correção certa. A régua virou o PIXEL: quantas cores distintas aparecem na moldura entre a folha e o `<main>` — **9 em repouso e com a correção, 59 sem ela**. Lote **só de base web**.
 - **v1.8.3** — O ITEM INTEIRO NO HEAP, E UM DIÁRIO QUE SOBREVIVE AO PROCESSO. O "medindo" saiu com a v1.8.2 (*"agora ele achou e deu a medição correta"*) e a cópia continuou falhando, com o Registro do aparelho que RECEBE sem uma linha sobre ela — o bloco é montado do estado do SHELL, que nasce limpo num processo novo, e é justamente reabrindo o app que o operador vai copiar o Registro. **O ITEM INTEIRO NO HEAP:** `cloneBaixarItem` empilhava o `arrayBuffer()` de cada pedaço, então um episódio de ~300 MB eram 300 MB no renderer que hospeda os dois WebViews e a `Presentation` — e o desfecho é o renderer morrendo, a cópia parando e nada explicando por quê. **É o defeito que a v1.7.9 corrigiu no caminho do ARQUIVO, deixado de pé no da REDE**: hoje cada pedaço vira Blob na hora e o pico passa a ser UM pedaço. A asserção do oráculo é ESTRUTURAL de propósito — medir pico de memória num navegador é medir a máquina, e o que se afirma sem ambiguidade é a forma (blobs, nunca `ArrayBuffer` acumulado). **E O DIÁRIO DO CLONE MORA NO BANCO**, para sobreviver ao processo. Lote SÓ WEB. *(Linha de índice escrita no lote seguinte — ver o corpo, que é o registro do lote.)*
@@ -366,8 +367,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-<<<<<<< Updated upstream
-## v1.8.6 — o oráculo da cortina media o runner, e isso calou o canal OTA
+## v1.8.7 — o oráculo da cortina media o runner, e isso calou o canal OTA
 
 O merge da v1.8.4 ficou **vermelho na `main`**. O `verificar` reprovou em
 `tools/abertura-e-transferencia.test.mjs` (70/71) e, como ele é `needs` do
@@ -438,11 +438,12 @@ a frase diz "PRAZO, não veredito" em vez de acusar a ordem. A asserção não
 enfraquece — uma ordem de fato errada continua produzindo três aberturas na
 sequência errada.
 
-**E o vão do ÍNDICE pela QUARTA vez:** a v1.8.5 também entrou com a seção no
-corpo e sem linha no índice (as v1.8.2 e v1.8.3 foram restauradas no lote
-anterior). A linha foi escrita a partir do corpo dela, e diz que foi escrita
-depois. Quatro ocorrências em cinco lotes: o índice deixou de ser algo que se
-lembra e virou parte do rito, ao lado da linha do `rodar` no workflow.
+**E o vão do ÍNDICE pela QUARTA e QUINTA vez:** a v1.8.5 e a v1.8.6 também
+entraram com a seção no corpo e sem linha no índice (as v1.8.2 e v1.8.3 foram
+restauradas no lote anterior). As linhas foram escritas a partir do corpo de
+cada uma, e dizem que foram escritas depois. Cinco ocorrências em seis lotes: o
+índice deixou de ser algo que se lembra e virou parte do rito, ao lado da linha
+do `rodar` no workflow.
 
 Lote **só de oráculo** — nada do app mudou, e é por isso que a nota da linha do
 tempo diz que nada muda na tela. **A correção do deslize da v1.8.4 já chegou aos
@@ -451,6 +452,49 @@ aparelhos**: o `web-ota` da v1.8.5 publicou com ela dentro, porque ela estava na
 motivo errado.
 
 ---
+## v1.8.6 — o diário respondeu, e a resposta era outra pergunta
+
+O `clone-diario` da v1.8.5 chegou ao campo e fez o trabalho dele. Duas linhas,
+no aparelho que RECEBE:
+
+```
+05/09/2026, 18:47:53  cedi: cedendo 4 item(ns) — 6,0 MB
+05/09/2026, 18:47:34  copiei: Não deu para falar com o outro aparelho. — parou em:
+```
+
+**O `parou em:` VAZIO é o achado.** `cloneOnde` é escrito na primeira linha do
+`cloneSincronizar`; vazio significa que a cópia **nunca chegou a pedir a lista**
+— ela parou no PAREAMENTO. E a frase sem parêntese é a segunda metade: o ramo
+de erro cita `r.erro` quando ele existe, então uma frase nua significa que `r`
+era **`null`** — os 60 s do `CALL_TIMEOUT_MS` vencendo.
+
+Isso é um desfecho que o app tratava como se fosse outro. Todo caminho do
+Kotlin preenche o `erro` (inclusive o `catch`), e os prazos do `pedirPar` somam
+16 s: um `null` de ponte ali significa que alguma coisa passou de 60 s **dentro
+de uma função que promete 16**. A frase que saía — *"Não deu para falar com o
+outro aparelho"* — manda procurar defeito na REDE quando o que venceu foi o
+prazo DA PONTE.
+
+Três correções, e nenhuma delas adivinha a causa:
+
+- **O `null` da ponte tem frase própria**, e ela nomeia a saída — o PONTO DE
+  ACESSO do celular, que é o que contorna uma Wi-Fi com `AP isolation` (a falha
+  muda deste recurso: servidor de pé, porta escutando, nenhum SYN chegando). É o
+  molde do ensino da recusa de transmissão, num lugar novo.
+- **O vigia do pedido** (`relogioDoPar`): passados 20 s o shell responde com
+  frase em vez de deixar a ponte vencer calada. Resolver duas vezes é
+  inofensivo (o `call()` apaga a entrada pendente na primeira), então o vigia
+  pode ser burro — quem os separa é um `AtomicBoolean`.
+- **O erro diz QUANTO demorou** (`quanto()`): 8 s de connect e 60 s de ponte
+  pedem consertos opostos, e sem o número não há como escolher.
+
+E o **pareamento entra no `cloneOnde`**: sem isso o `parou em:` sai vazio
+justamente na etapa que mais falha. A ausência daquele campo foi o que provou o
+achado desta vez — mas ela provou por acidente, e um diagnóstico não pode
+depender de um campo vazio significar alguma coisa.
+
+**Lote COM Release:** o vigia é Kotlin — `shellTag: "v1.8.6"`.
+
 ## v1.8.5 — o Registro salvo por cima do antigo, e a porta de ceder que não anotava
 
 Dois achados do Registro que o operador mandou dizendo *"persiste o mesmo

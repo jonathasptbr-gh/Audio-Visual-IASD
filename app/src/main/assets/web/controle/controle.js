@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.6';
+const WEB_VERSION = '1.8.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -24712,16 +24712,40 @@ function cloneEndereco(txt) {
  * aparelho na mão.
  */
 async function clonePedirPar(a) {
+  // O PASSO ENTRA NO DIÁRIO. Sem esta linha o `parou em:` sai VAZIO quando a
+  // falha é do pareamento — que é justamente o caso mais frequente —, e o
+  // Registro de campo saiu assim: a ausência do passo foi o que provou que a
+  // cópia nem chegou a pedir a lista, mas ela devia ter dito isso por escrito.
+  cloneOnde = 'pareando com ' + a.host + ':' + a.porta;
   const ate = Date.now() + 120000;
   for (;;) {
     let r = null;
     try { r = await AVNative.acervoParear(a.host, a.porta, cloneMeuRotulo()); } catch (_) { r = null; }
-    const estado = (r && r.estado) || 'erro';
+    // A PONTE NÃO RESPONDER É UM DESFECHO PRÓPRIO, e não "erro" (v1.8.6).
+    //
+    // `call()` resolve NULL quando os 60 s do `CALL_TIMEOUT_MS` vencem, e todo
+    // `null` caía no ramo de erro — que, sem `r.erro` para citar, escrevia
+    // *"Não deu para falar com o outro aparelho"*. MEDIDO no Registro de campo:
+    // era exatamente essa frase, sem parêntese nenhum, e ela mandou procurar
+    // defeito na rede quando o que venceu foi o prazo DA PONTE.
+    //
+    // A frase nomeia o que fazer, no molde do ensino da recusa de transmissão:
+    // o pedido sai deste aparelho e trava sem resposta, e o caminho que
+    // contorna uma Wi-Fi que não deixa dois clientes se falarem (o `AP
+    // isolation`, a falha muda deste recurso) é o PONTO DE ACESSO do celular.
+    if (!r) {
+      return 'O outro aparelho não respondeu em 60 s. Se a Wi-Fi da igreja não '
+        + 'deixa um celular falar com o outro, ligue o ponto de acesso de um '
+        + 'deles e conecte o outro nele — não precisa de internet.';
+    }
+    const estado = r.estado || 'erro';
     if (estado === 'pareado') return '';
     if (estado === 'recusado') return 'O outro aparelho recusou a cópia.';
     if (estado === 'ocupado') return 'O outro aparelho já está copiando para alguém.';
     if (estado === 'nao-cede') return 'Aquele aparelho parou de ceder a biblioteca.';
-    if (estado === 'erro') return (r && r.erro) ? ('Não deu para falar com o outro aparelho (' + r.erro + ').') : 'Não deu para falar com o outro aparelho.';
+    if (estado === 'erro') return (r.erro ? ('Não deu para falar com o outro aparelho (' + r.erro + ').') : 'Não deu para falar com o outro aparelho.')
+      + ' Se a Wi-Fi não deixa um celular falar com o outro, ligue o ponto de '
+      + 'acesso de um deles e conecte o outro nele.';
     if (Date.now() > ate) return 'Ninguém respondeu no outro aparelho.';
     falarNoTile(cloneReceberTileEl, 'Aguardando…', 0);
     await new Promise((x) => setTimeout(x, CLONE_ENQUETE_MS));

@@ -5069,16 +5069,18 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.6 · APK v1.8.5** · `SHELL_VERSION` **65** ·
-bundle com `minShell: 65` e **sem `shellTag`** — o shell 65 é o **PISO**:
+**Versão atual: base web v1.8.7 · APK v1.8.5** · `SHELL_VERSION` **65** ·
+bundle com `minShell: 65` e **`shellTag: v1.8.6`** — o shell 65 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
-**E ESTE LOTE NÃO PEDE RELEASE — ele não toca nem no app.** O que mudou é um
-ORÁCULO (`tools/`), que não entra no bundle: `assets/web/` só muda nos três
-lugares da versão e no `notas.json`. O `minShell: 65` FICA — é o piso que a
-v1.8.0 estabeleceu, e a Release dela já saiu —, e o `shellTag` sai: declarado,
-ele seguraria o bundle esperando uma Release que não vai existir, em silêncio, e
-a única pista seria a linha no resumo do run.
+**ESTE LOTE NÃO TOCA NO APP — mas o `shellTag` FICA, e essa é a decisão.** O que
+mudou aqui são ORÁCULOS (`tools/`), que não entram no bundle. Só que o bundle
+carrega TAMBÉM a metade web da v1.8.6, cujo conserto é `MainActivity.kt`: a
+Release `v1.8.6` ainda não existe (conferido na API), e o `shellTag` é o que
+segura a publicação até ela sair. **Tirá-lo aqui atropelaria a retenção do outro
+lote** — o bundle sairia com a metade web de um conserto cuja metade nativa não
+está em aparelho nenhum, que é exatamente o desfecho silencioso que o `shellTag`
+existe para impedir.
 
 > **O LOTE ANTERIOR (v1.8.0) PEDIU RELEASE**, e a razão fica registrada porque
 > ela é o caso normal: a ponte ganhou OITO métodos e o shell três arquivos
@@ -5094,7 +5096,7 @@ a única pista seria a linha no resumo do run.
 |---|---|
 | o relógio da página CONGELADO antes de a página nascer | `tools/abertura-e-transferencia.test.mjs`, bloco A3 |
 
-> **O `verificar` REPROVOU E O `web-ota` FOI PULADO** (v1.8.6) — o bundle da
+> **O `verificar` REPROVOU E O `web-ota` FOI PULADO** (v1.8.7) — o bundle da
 > v1.8.4 não chegou a aparelho nenhum. É o modo de falhar que este arquivo já
 > nomeia (*"o `verificar` é `needs` do `web-ota`"*) acontecendo.
 >
