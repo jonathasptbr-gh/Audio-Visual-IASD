@@ -89,9 +89,15 @@ simpleModeEl.classList.toggle('open', appMode === 'simple');
 // arquivo, mas a PREVIEW roda aqui dentro: sem a separação, o tema claro faria
 // a preview parar de espelhar o telão, que é o que ela existe para fazer.
 const TEMA_KEY = 'av.tema';
+// QUEM LÊ A GAVETA É O SCRIPT INLINE DO `<head>` (v1.7.0), e esta função lê o
+// que ELE decidiu. Não é indireção: aquele script precisa responder antes de
+// existir primeiro quadro — este arquivo é o ÚLTIMO dos treze do fim do
+// `<body>`, e até ele rodar quem pinta é o `:root` sem atributo, isto é, o tema
+// escuro (foi o exemplo do relato que abriu este lote). Uma SEGUNDA leitura de
+// `av.tema` aqui seria a mesma regra escrita duas vezes, com duas chances de
+// divergir; o atributo é o carrier, e a ausência dele já é o padrão certo.
 function storedTema() {
-  try { return localStorage.getItem(TEMA_KEY) === 'claro' ? 'claro' : 'escuro'; }
-  catch (_) { return 'escuro'; }
+  return document.documentElement.dataset.tema === 'claro' ? 'claro' : 'escuro';
 }
 let tema = storedTema();
 const temaMetaEl = document.getElementById('temaMeta');
@@ -316,13 +322,21 @@ const toolsCloseEl = document.getElementById('toolsClose');
 // sincronizados" da própria linha.
 const listTitleEl = document.getElementById('listTitle');
 const appVersionEl = document.getElementById('appVersion');
+// AS DUAS BADGES DE VERSÃO (v1.7.0) — uma por modo, e as duas escritas pelo
+// MESMO `renderVersionLabel` que escreve o rodapé de Configurações. Elas nascem
+// AQUI, ao lado do `appVersionEl`, porque aquela função roda na CARGA do módulo:
+// declaradas junto do resto do cromo, centenas de linhas abaixo, seriam zona
+// morta temporal — o `ReferenceError` aborta o `controle.js` inteiro e o
+// watchdog do OTA descarta o bundle sem nada na tela dizer por quê.
+const simpleVersionEl = document.getElementById('simpleVersion');
+const listVersionEl = document.getElementById('listVersion');
 
 // ===== Índices de versão (base web × shell nativo) =====
 // Os dois atualizam por caminhos INDEPENDENTES — a base por OTA, o shell só
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.6.6';
+const WEB_VERSION = '1.7.0';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -359,22 +373,36 @@ let apkBaixando = false;
 // pergunta de voltar na abertura seguinte, que é o comportamento pedido.
 const otaAdiadas = new Set();
 
-// Escrita UMA vez, na carga. `__SHELL_NAME__` é publicada por `native.js`, que
-// roda antes deste arquivo.
+// ===== UM NÚMERO SÓ, EM TRÊS CASAS (v1.7.0) =====
+//
+// Escrita UMA vez, na carga, e ela é o ESCRITOR ÚNICO das três superfícies que
+// dizem a versão: a badge do Modo Fácil, a badge do avançado e o rodapé de
+// Configurações. Três escritores seriam três chances de o app afirmar duas
+// versões diferentes na mesma sessão.
+//
+// O ÍNDICE DO SHELL SAIU DA TELA, a pedido do operador: *"remova da ui a
+// informação nas configurações do shell, essa numeração é interna, pode estar
+// nos registros, mas em 99% dos casos a outra versão é a numeração correta"* ·
+// *"coloque apenas ela, e apenas um número, sem o 'web'"*.
+//
+// O QUE ISSO CUSTA, dito: "Web v1.6.6 · Shell v1.5.21" respondia, de graça e na
+// tela, à pergunta *"o OTA chegou e o APK ainda não?"* — e essa pergunta é real,
+// porque os dois canais são independentes por construção. O que a resposta valia
+// não pagava o preço: o operador via DOIS números onde há UM app, e o que ele
+// repete ao pedir ajuda é o primeiro que ler. A pergunta continua respondida no
+// REGISTRO, que é o artefato feito para ser copiado e lido por quem sabe o que
+// os dois números significam (ver o cabeçalho de `renderDiag`), e o `__SHELL_NAME__`
+// segue publicado pela ponte para quem precisar dele.
 function renderVersionLabel() {
-  // __SHELL_NAME__ = versionName do APK. Vazio no navegador e em shells
-  // anteriores ao `appVersion()` — aí sai só a versão da base web.
-  const shell = window.__SHELL_NAME__;
-  // É SÓ UM INDICADOR: quem diz "há atualização esperando" é o botão logo
-  // abaixo, por extenso. Um ponto discreto a dois centímetros dele seria a mesma
-  // informação dita duas vezes, e um segundo controle escondido para a mesma
-  // decisão é a forma mais direta de os dois discordarem.
-  appVersionEl.textContent = shell
-    ? 'Web v' + WEB_VERSION + ' · Shell v' + shell
-    : 'Controle v' + WEB_VERSION;
-  appVersionEl.title = shell
-    ? 'Base web v' + WEB_VERSION + ' (atualiza por OTA) · shell nativo v' + shell + ' (atualiza instalando o APK)'
-    : 'Base web v' + WEB_VERSION;
+  const rotulo = 'v' + WEB_VERSION;
+  // O `title` NÃO repete o rótulo: ele nomeia o que o número é. Numa badge de
+  // 40px o texto é o único contexto que existe, e "1.7.0" sozinho não diz de
+  // que coisa é a versão.
+  for (const el of [appVersionEl, simpleVersionEl, listVersionEl]) {
+    if (!el) continue;
+    el.textContent = rotulo;
+    el.title = 'Versão do aplicativo';
+  }
 }
 
 renderVersionLabel();
@@ -22409,6 +22437,646 @@ if (diagSaveEl) {
   });
 }
 
+// =============================================================================
+// O PACOTE DE TRANSFERÊNCIA — o lado que mexe em bytes (v1.7.0)
+//
+// A REGRA do formato mora em `controle/pacote.js` (`AVPacote`, pura, com
+// oráculo em Node). Aqui está o que ela não pode ter: o banco, o OPFS, a ponte
+// e o canal de `ArrayBuffer` do shell. É a mesma divisão do `pptxzip.js` × do
+// `deck.js`, e pelo mesmo motivo — a regra é o que erra, e a regra se conserta
+// por OTA em minutos.
+//
+// ===== A PROMESSA, e ela é o que torna o recurso seguro de usar =====
+//
+//   **IMPORTAR SÓ ACRESCENTA. Nada que já esteja neste aparelho é substituído.**
+//
+// Um item cujo id já existe é PULADO; um arquivo do OPFS cujo caminho já existe
+// é pulado; uma chave de `state` que já existe só ganha o que ela ainda não
+// tinha (união nas listas de ids, mescla nos mapas, e o LOCAL vence em tudo o
+// mais). É a promessa que faz "importar de novo" ser inofensivo — e importar
+// duas vezes é o que de fato acontece quando alguém não tem certeza se deu
+// certo da primeira.
+//
+// O PREÇO, dito: num aparelho que JÁ TEM biblioteca, as preferências do pacote
+// não entram. O caso de uso é o aparelho NOVO, onde nenhuma chave existe e tudo
+// atravessa; num aparelho usado, a alternativa seria o pacote apagar a escolha
+// de quem importa, e nenhum recurso deste app pode fazer isso sem perguntar.
+//
+// ===== O QUE FICA DE FORA, e por quê =====
+//
+//   · as PASTAS DO APARELHO (`opfs-folders` e os arquivos delas) — elas guardam
+//     concessões do SAF que não significam nada no outro celular, e uma pasta
+//     que não pode ser relida é lida pelo app como "sumiu do aparelho";
+//   · a CENA no ar e o HISTÓRICO do culto — descrevem aquele aparelho;
+//   · as INTENÇÕES pendentes (atualização, download) — elas fariam o aparelho de
+//     destino AGIR sozinho na primeira abertura.
+//
+// A lista mora em `AVPacote.FORA`, com o motivo de cada uma escrito ao lado.
+// =============================================================================
+
+// O bloco do empurrão. O MESMO tamanho do `telaEmpurrarAgora`, e não é
+// coincidência: os dois atravessam o mesmo `postMessage` de `ArrayBuffer`, com
+// o mesmo teto de 1 MiB do outro lado e o mesmo ack por bloco.
+const PACOTE_BLOCO = 512 * 1024;
+// Prazo de UM bloco. Generoso porque do outro lado há um `content://` que pode
+// ser um cartão SD lento; curto o bastante para uma exportação abandonada não
+// ficar pendurada para sempre. Vencido, o `pacotePedir` resolve null e o
+// chamador aborta com frase — nunca em silêncio.
+const PACOTE_PRAZO_MS = 30000;
+
+let pacoteEmCurso = false;
+let pacoteResposta = null;
+
+// Detecção por PRESENÇA, nunca por versão de shell — a mesma regra do
+// `__avTelaMidia`: o objeto só existe onde o Kotlin o instalou, que é a mesma
+// pergunta que `__AVBridge` sempre respondeu.
+function pacoteCanal() { return (window.__NATIVE__ && window.__avPacote) || null; }
+
+function pacoteOuvirCanal(c) {
+  if (c.__avOuvindo) return;
+  c.__avOuvindo = true;
+  c.onmessage = (ev) => {
+    let r = null;
+    try { r = JSON.parse(String((ev && ev.data) || '')); } catch (_) { return; }
+    const p = pacoteResposta;
+    if (!p) return;
+    pacoteResposta = null;
+    p.resolve(r);
+  };
+}
+
+// Um pedido por vez — o empurrão é serializado por construção (um laço com
+// `await` por bloco), então não há dois em voo para se confundirem. É por isso
+// que aqui não há o `telaRespostaCombina` do canal da tela: lá o pedido tem
+// TIPOS diferentes e um vencido podia resolver o seguinte; aqui todo pedido é
+// um bloco, e o único que pode chegar atrasado resolve `null` por prazo antes
+// de o próximo existir.
+function pacotePedir(c, msg) {
+  return new Promise((resolve) => {
+    const p = { resolve };
+    pacoteResposta = p;
+    setTimeout(() => {
+      if (pacoteResposta === p) { pacoteResposta = null; resolve(null); }
+    }, PACOTE_PRAZO_MS);
+    try { c.postMessage(msg); } catch (_) {
+      if (pacoteResposta === p) { pacoteResposta = null; resolve(null); }
+    }
+  });
+}
+
+// UM bloco, com a retentativa de "fila cheia" — o único erro RETENTÁVEL do
+// canal (o disco engasgou; o mesmo bloco vai de novo, sem descartar byte).
+// Qualquer outro desfecho vira exceção com FRASE: quem chama transforma isso
+// no diálogo que o operador lê.
+async function pacoteBloco(c, ab) {
+  for (;;) {
+    const r = await pacotePedir(c, ab);
+    if (!r) throw new Error('O aparelho parou de responder no meio da gravação.');
+    if (r.erro === 'fila cheia') { await new Promise((x) => setTimeout(x, 200)); continue; }
+    if (typeof r.r !== 'number' || r.r < 0) {
+      throw new Error('Não foi possível gravar no arquivo escolhido.');
+    }
+    return r.r;
+  }
+}
+
+/** Empurra um `Uint8Array` (cabeçalho) — sempre pequeno, um bloco só. */
+function pacoteEnviarBytes(c, u8) {
+  // `slice()` e não o buffer cru: o `Uint8Array` de um cabeçalho pode ser uma
+  // VISTA sobre um buffer maior, e `postMessage` mandaria o buffer inteiro.
+  return pacoteBloco(c, u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength));
+}
+
+/** Empurra um Blob em fatias. Nada é materializado: `slice` é preguiçoso, e o
+ *  que entra na memória por vez é UM bloco. */
+async function pacoteEnviarBlob(c, blob, aoAndar) {
+  let pos = 0;
+  while (pos < blob.size) {
+    const fim = Math.min(pos + PACOTE_BLOCO, blob.size);
+    const ab = await blob.slice(pos, fim).arrayBuffer();
+    await pacoteBloco(c, ab);
+    if (aoAndar) aoAndar(fim - pos);
+    pos = fim;
+  }
+}
+
+/** Um registro inteiro: cabeçalho + corpo (opcional). */
+async function pacoteRegistro(c, cab, corpo, aoAndar) {
+  await pacoteEnviarBytes(c, AVPacote.cabecalhoParaBytes(cab));
+  if (corpo && corpo.size) await pacoteEnviarBlob(c, corpo, aoAndar);
+}
+
+// ---------------------------------------------------------------------------
+// EXPORTAR
+// ---------------------------------------------------------------------------
+
+/**
+ * O PLANO, montado antes de o primeiro byte sair.
+ *
+ * Ele guarda IDs e TAMANHOS, nunca registros: um acervo tem milhares de
+ * entradas, cada uma com a letra inteira e uma miniatura, e segurá-las todas
+ * enquanto gigabytes atravessam o canal é a receita de um OOM num processo que
+ * hospeda dois WebViews e a `Presentation`. O passo de escrita relê cada
+ * registro na hora — ler um registro NÃO lê os bytes do Blob (o IndexedDB o
+ * guarda por referência), então o custo é o do metadado.
+ *
+ * O TOTAL EM BYTES existe para a notificação: com o app minimizado ela é a
+ * única janela, e uma barra que não anda por dez minutos é indistinguível de
+ * um travamento.
+ */
+async function pacotePlano() {
+  const pastas = await AVDB.getState('opfs-folders');
+  const caminhoViaja = AVPacote.pastasDoAparelho(pastas);
+  const chaves = (await AVDB.stateKeys('')).filter(AVPacote.chaveViaja);
+  const ids = await AVDB.mediaChaves();
+  const arquivos = (await AVDB.opfsTodosOsArquivos()).filter((a) => caminhoViaja(a.caminho));
+  let bytes = 0;
+  for (const a of arquivos) bytes += a.tamanho;
+  for (const id of ids) {
+    let rec = null;
+    try { rec = await AVDB.getMedia(id); } catch (_) { continue; }
+    if (!rec) continue;
+    if (rec.blob) bytes += rec.blob.size;
+    if (rec.thumb) bytes += rec.thumb.size;
+    if (Array.isArray(rec.pages)) for (const p of rec.pages) if (p) bytes += p.size;
+  }
+  return { chaves, ids, arquivos, bytes, caminhoViaja };
+}
+
+async function exportarPacote() {
+  const c = pacoteCanal();
+  if (!c || pacoteEmCurso) return;
+  pacoteOuvirCanal(c);
+  const nome = await AVNative.pacoteCriar(AVPacote.nomeDoArquivo(new Date()));
+  // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
+  // nos dois casos não há arquivo, e o botão continua ali. Mesma regra do
+  // `salvarTexto` do Registro.
+  if (!nome) return;
+  pacoteEmCurso = true;
+  pacoteRenderTiles();
+  let erro = '';
+  let gravados = -1;
+  try {
+    await withBgWork(async () => {
+      const plano = await pacotePlano();
+      const tarefa = bgTaskStart('Exportando o acervo', 1);
+      bgItemOnly(tarefa, nome);
+      let feitos = 0;
+      const andou = (n) => {
+        feitos += n;
+        bgTaskBytes(tarefa, feitos, Math.max(plano.bytes, 1));
+        pacoteRenderTiles(plano.bytes ? feitos / plano.bytes : 0);
+      };
+      try {
+        await pacoteEnviarBytes(c, AVPacote.assinatura());
+        // O CABEÇALHO HUMANO. Ele não é lido para decidir nada — quem decide é
+        // a assinatura —, e existe para o pacote poder ser inspecionado por
+        // fora e para a tela de importação dizer de onde ele veio.
+        const info = new Blob([JSON.stringify({
+          app: 'audio-visual-iasd',
+          web: WEB_VERSION,
+          criadoEm: Date.now(),
+          itens: { media: plano.ids.length, arquivos: plano.arquivos.length, chaves: plano.chaves.length },
+          bytes: plano.bytes,
+        })], { type: 'application/json' });
+        await pacoteRegistro(c, { t: 'info', bytes: info.size }, info);
+
+        // AS PREFERÊNCIAS E OS CATÁLOGOS. Um Blob (o wallpaper) sai por um tipo
+        // PRÓPRIO em vez de virar um JSON impossível: `JSON.stringify` de um
+        // Blob devolve `{}`, e o destino gravaria um wallpaper vazio por cima
+        // do padrão — o modo de falhar mudo que este arquivo inteiro evita.
+        for (const chave of plano.chaves) {
+          let valor;
+          try { valor = await AVDB.getState(chave); } catch (_) { continue; }
+          if (valor === undefined) continue;
+          if (valor instanceof Blob) {
+            await pacoteRegistro(c, { t: 'state-blob', chave, tipo: valor.type || '', bytes: valor.size }, valor, andou);
+            continue;
+          }
+          let corpo;
+          try { corpo = new Blob([JSON.stringify(valor)], { type: 'application/json' }); } catch (_) { continue; }
+          await pacoteRegistro(c, { t: 'state', chave, bytes: corpo.size }, corpo);
+        }
+
+        // O ACERVO. A ordem — registro, miniatura, páginas — é CONTRATO com o
+        // importador: ele monta o item enquanto lê, e por isso a miniatura e as
+        // páginas de um item vêm coladas nele.
+        for (const id of plano.ids) {
+          let rec = null;
+          try { rec = await AVDB.getMedia(id); } catch (_) { continue; }
+          if (!rec) continue;
+          const corpo = rec.blob || null;
+          await pacoteRegistro(c, {
+            t: 'media', rec: AVPacote.sanearMedia(rec), bytes: corpo ? corpo.size : 0,
+          }, corpo, andou);
+          if (rec.thumb) {
+            await pacoteRegistro(c, { t: 'media-thumb', bytes: rec.thumb.size }, rec.thumb, andou);
+          }
+          if (Array.isArray(rec.pages)) {
+            for (let i = 0; i < rec.pages.length; i++) {
+              const p = rec.pages[i];
+              if (!p) continue;
+              await pacoteRegistro(c, { t: 'media-pagina', i, tipo: p.type || '', bytes: p.size }, p, andou);
+            }
+          }
+        }
+
+        // O CATÁLOGO DO OPFS. Os registros vêm ANTES dos bytes de propósito:
+        // eles são pequenos, e um pacote cortado no meio deixa o destino com
+        // catálogo sem arquivo — que o app já sabe tratar (a faixa não toca) —,
+        // em vez de arquivo sem catálogo, que é espaço ocupado que nada aponta.
+        // (Cortado, aliás, ele não importa: falta o registro `fim`.)
+        for (const rec of await AVDB.filesAll()) {
+          if (!rec || !rec.id) continue;
+          // O catálogo segue o MESMO corte dos bytes: um registro de uma pasta
+          // do aparelho viajaria como uma faixa que não toca do outro lado.
+          if (rec.opfsPath && !plano.caminhoViaja(rec.opfsPath)) continue;
+          await pacoteRegistro(c, { t: 'arquivo', rec: AVPacote.sanearArquivo(rec), bytes: 0 });
+          if (rec.thumb) {
+            await pacoteRegistro(c, { t: 'arquivo-thumb', bytes: rec.thumb.size }, rec.thumb, andou);
+          }
+        }
+
+        // OS BYTES DO OPFS — a maior parte do pacote. A varredura é do DISCO e
+        // não do catálogo: as imagens de fundo da letra nunca viram registro, e
+        // um pacote montado pelo catálogo chegaria com o hinário inteiro e as
+        // estrofes sobre preto (ver `AVDB.opfsTodosOsArquivos`).
+        for (const a of plano.arquivos) {
+          let f = null;
+          try { f = await AVDB.opfsGetFile(a.caminho); } catch (_) { continue; }
+          await pacoteRegistro(c, {
+            t: 'opfs', caminho: a.caminho, tipo: f.type || '', bytes: f.size,
+          }, f, andou);
+        }
+
+        await pacoteRegistro(c, { t: 'fim', bytes: 0 });
+        // O `fim` do CANAL descarrega o buffer do outro lado; o `pacoteFechar`
+        // confirma o que chegou ao disco. São duas perguntas, e é a segunda que
+        // descobre o cartão cheio.
+        await pacotePedir(c, JSON.stringify({ fim: true }));
+      } finally {
+        bgTaskEnd(tarefa);
+      }
+    });
+    gravados = await AVNative.pacoteFechar();
+    if (gravados < 0) erro = 'O arquivo não pôde ser fechado — pode ter faltado espaço.';
+  } catch (e) {
+    erro = (e && e.message) || 'A exportação falhou.';
+  } finally {
+    // O CANCELAR É O CAMINHO DE SAÍDA DE TODA FALHA, e ele APAGA o parcial:
+    // meio acervo com nome de acervo inteiro importa em silêncio até o registro
+    // em que os bytes acabam. Inofensivo depois de um `pacoteFechar` bem
+    // sucedido — ali já não há nada aberto.
+    if (erro) { try { AVNative.pacoteCancelar(); } catch (_) { /* ponte */ } }
+    pacoteEmCurso = false;
+    pacoteRenderTiles();
+  }
+  if (erro) {
+    await openAppDialog({ title: 'Não deu para exportar', message: erro, okText: 'Entendi', cancelText: null });
+    return;
+  }
+  await openAppDialog({
+    title: 'Acervo exportado',
+    message: 'O arquivo "' + nome + '" tem ' + fmtBytes(gravados) + '. '
+      + 'Copie-o para o outro aparelho e use "Importar" lá.',
+    okText: 'Entendi',
+    cancelText: null,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// IMPORTAR
+// ---------------------------------------------------------------------------
+
+/**
+ * O CURSOR sobre o pacote — leitura por FATIA, nunca por materialização.
+ *
+ * O arquivo chega como um `Blob` de uma `/saf/<token>`, e `Blob.slice()` é
+ * preguiçoso: o que entra na memória por vez é um cabeçalho (kB) ou um corpo,
+ * e o corpo vai DIRETO para o IndexedDB ou para o OPFS sem passar por um
+ * `ArrayBuffer`. É a mesma técnica com que o `pptxzip.js` abre um `.pptx` de
+ * 570 MB.
+ */
+function pacoteCursor(blob) {
+  let pos = AVPacote.ASSINATURA_BYTES;
+  return {
+    get pos() { return pos; },
+    async proximo() {
+      if (pos >= blob.size) return null;
+      const p = AVPacote.PREFIXO_BYTES;
+      const n = AVPacote.tamanhoDoCabecalho(
+        new Uint8Array(await blob.slice(pos, pos + p).arrayBuffer()),
+      );
+      const cabIni = pos + p;
+      if (cabIni + n > blob.size) throw new Error('pacote: acabou no meio de um registro');
+      const cab = AVPacote.cabecalhoDeBytes(
+        new Uint8Array(await blob.slice(cabIni, cabIni + n).arrayBuffer()),
+      );
+      const corpoIni = cabIni + n;
+      if (corpoIni + cab.bytes > blob.size) throw new Error('pacote: acabou no meio de um registro');
+      const corpo = cab.bytes ? blob.slice(corpoIni, corpoIni + cab.bytes, cab.tipo || '') : null;
+      pos = corpoIni + cab.bytes;
+      return { cab, corpo };
+    },
+  };
+}
+
+/**
+ * A MESCLA DE UMA CHAVE DE `state`, e ela é a promessa do recurso escrita em
+ * quatro linhas: **o local nunca perde**.
+ *
+ *  1. a chave não existe aqui → entra inteira (é o caso do aparelho NOVO, que é
+ *     o caso de uso);
+ *  2. as duas são listas de ids (`imports`, `playlist`, `favs`, `folder_<id>`)
+ *     → UNIÃO, na ordem local primeiro — a playlist de quem importa não é
+ *     reordenada por um arquivo;
+ *  3. as duas são mapas (as cifras de uma coleção, o cache de letras) → mescla,
+ *     com o LOCAL vencendo cada chave em disputa;
+ *  4. qualquer outra coisa (um número, um texto, um Blob, uma lista de objetos)
+ *     → nada muda.
+ *
+ * A regra é por FORMA e não por nome de chave, e isso é escolha: uma tabela de
+ * nomes envelheceria em silêncio a cada chave nova, e o modo de falhar dela
+ * seria justamente o pior — uma chave desconhecida caindo no ramo errado e
+ * apagando o que o operador tem.
+ */
+function pacoteMesclarValor(local, vindo) {
+  if (local === undefined || local === null) return vindo;
+  const listaDeIds = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string');
+  if (listaDeIds(local) && listaDeIds(vindo)) {
+    const tem = new Set(local);
+    return local.concat(vindo.filter((x) => !tem.has(x)));
+  }
+  const mapa = (v) => !!v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Blob);
+  if (mapa(local) && mapa(vindo)) return Object.assign({}, vindo, local);
+  return local;
+}
+
+/**
+ * A CONFERÊNCIA, ANTES DE ESCREVER O PRIMEIRO BYTE.
+ *
+ * Ela percorre o pacote inteiro lendo SÓ os cabeçalhos — os corpos são
+ * PULADOS pelo `bytes` que cada um declara, então nenhum byte de mídia é lido
+ * aqui — e só devolve quando alcança o registro `fim`.
+ *
+ * **Por que ela existe:** sem ela, um pacote cortado no meio (cartão cheio, o
+ * app fechado no meio da exportação, uma cópia interrompida entre os dois
+ * aparelhos) seria APLICADO até o ponto em que os bytes acabam, e a recusa
+ * chegaria depois — com meia biblioteca já dentro e a tela dizendo "não deu
+ * para importar". Um pacote é ou não é: com a conferência à frente, ele é
+ * recusado INTEIRO, e o aparelho fica exatamente como estava.
+ *
+ * **E ela é barata**, que é o que a torna aceitável: `Blob.slice()` é
+ * preguiçoso, e o que se lê são alguns milhares de fatias de duzentos bytes —
+ * não os gigabytes que vêm depois.
+ */
+// AS DUAS FRASES DE UM PACOTE QUE NÃO ABRE, e elas pedem ações opostas:
+// "incompleto" manda copiar o arquivo de novo (a cópia entre os dois aparelhos
+// foi interrompida, ou a exportação foi); "danificado" diz que o conteúdo não é
+// reconhecível, e copiar de novo não vai adiantar. Achatar as duas numa só é a
+// mesma classe de erro que o `AVCifra` documenta em cinco motivos e cinco
+// frases — quem lê uma mensagem genérica repete a tentativa que já falhou.
+const PACOTE_INCOMPLETO = 'O pacote está incompleto — ele acabou antes do fim. '
+  + 'Copie o arquivo de novo e tente outra vez.';
+const PACOTE_DANIFICADO = 'O pacote está danificado — o app não reconhece o conteúdo dele.';
+
+async function pacoteConferir(blob) {
+  const cursor = pacoteCursor(blob);
+  try {
+    for (;;) {
+      const r = await cursor.proximo();
+      if (!r) break;               // os bytes acabaram sem o registro `fim`
+      if (r.cab.t === 'fim') return;
+    }
+  } catch (e) {
+    // A MENSAGEM CRUA vai para o console, e só ela sabe QUAL registro não abriu
+    // — a frase da tela é para quem opera, e o console é para quem conserta.
+    const m = (e && e.message) || '';
+    console.warn('[pacote]', m);
+    throw new Error(/acabou no meio/.test(m) ? PACOTE_INCOMPLETO : PACOTE_DANIFICADO);
+  }
+  throw new Error(PACOTE_INCOMPLETO);
+}
+
+async function importarPacote() {
+  if (!window.__NATIVE__ || pacoteEmCurso) return;
+  const escolhidos = await AVNative.pickDoc(['*/*']);
+  const alvo = (escolhidos && escolhidos[0]) || null;
+  if (!alvo || !alvo.url) return;
+  pacoteEmCurso = true;
+  pacoteRenderTiles();
+  let erro = '';
+  const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0 };
+  try {
+    const resp = await fetch(alvo.url);
+    if (!resp.ok) throw new Error('Não foi possível ler o arquivo escolhido.');
+    const blob = await resp.blob();
+    const assinatura = AVPacote.conferirAssinatura(
+      new Uint8Array(await blob.slice(0, AVPacote.ASSINATURA_BYTES).arrayBuffer()),
+    );
+    if (!assinatura.ok) throw new Error(assinatura.erro);
+    // O PACOTE INTEIRO É CONFERIDO ANTES DE UMA LINHA SER GRAVADA. Ver
+    // `pacoteConferir`: é o que faz um arquivo cortado no meio ser recusado
+    // inteiro, em vez de entrar pela metade.
+    await pacoteConferir(blob);
+    await withBgWork(async () => {
+      const tarefa = bgTaskStart('Importando o acervo', 1);
+      bgItemOnly(tarefa, alvo.name || 'pacote');
+      try {
+        const cursor = pacoteCursor(blob);
+        // O ITEM EM MONTAGEM. A miniatura e as páginas de uma mídia chegam
+        // DEPOIS do registro dela (é o contrato do exportador), então ele fica
+        // pendente até o registro seguinte que não é dele. Os Blobs guardados
+        // aqui são FATIAS do pacote — referências, não bytes —, então segurar
+        // um deck de cem páginas custa cem ponteiros.
+        let pendente = null;
+        const fechar = async () => {
+          const p = pendente;
+          pendente = null;
+          if (!p) return;
+          if (p.tipo === 'media') {
+            try { await AVDB.mediaAdd(p.rec); contagem.media++; } catch (_) { contagem.repetidos++; }
+          } else {
+            try {
+              if (await AVDB.fileGet(p.rec.id)) { contagem.repetidos++; } else {
+                await AVDB.fileAdd(p.rec); contagem.arquivos++;
+              }
+            } catch (_) { contagem.repetidos++; }
+          }
+        };
+        for (;;) {
+          // O `null` daqui é inalcançável: `pacoteConferir` já provou que o
+          // arquivo chega ao `fim`. A guarda fica porque um laço sem saída
+          // sobre um cursor é a forma de travar o app para sempre no dia em
+          // que alguém mexer na conferência.
+          const r = await cursor.proximo();
+          if (!r) throw new Error('O pacote está incompleto — ele acabou antes do fim.');
+          const { cab, corpo } = r;
+          bgTaskBytes(tarefa, cursor.pos, blob.size);
+          pacoteRenderTiles(blob.size ? cursor.pos / blob.size : 0);
+          if (cab.t === 'media-thumb' && pendente && pendente.tipo === 'media') {
+            pendente.rec.thumb = corpo; continue;
+          }
+          if (cab.t === 'media-pagina' && pendente && pendente.tipo === 'media') {
+            if (!Array.isArray(pendente.rec.pages)) pendente.rec.pages = [];
+            pendente.rec.pages[cab.i | 0] = corpo; continue;
+          }
+          if (cab.t === 'arquivo-thumb' && pendente && pendente.tipo === 'arquivo') {
+            pendente.rec.thumb = corpo; continue;
+          }
+          await fechar();
+          if (cab.t === 'fim') break;
+          if (cab.t === 'info') continue;   // o cabeçalho humano; nada a aplicar
+          if (cab.t === 'media') {
+            // O `blob` volta do CORPO, e os campos que o exportador tirou
+            // continuam ausentes de propósito: `stream` é o manifesto de uma
+            // transmissão que expirou horas atrás, e o item sem ele é o LINK
+            // que ele sempre foi — resolvido no primeiro toque, pelo caminho
+            // que já existe.
+            const rec = Object.assign({}, cab.rec, { blob: corpo, thumb: null, pages: null });
+            pendente = { tipo: 'media', rec };
+            continue;
+          }
+          if (cab.t === 'arquivo') {
+            pendente = { tipo: 'arquivo', rec: Object.assign({}, cab.rec, { thumb: null }) };
+            continue;
+          }
+          if (cab.t === 'opfs') {
+            // JÁ EXISTE = PULA, e a pergunta é feita ao DISCO: um caminho que
+            // abre é um arquivo que este aparelho já tem, e sobrescrevê-lo
+            // seria a única forma de uma importação destruir alguma coisa.
+            let tem = false;
+            try { await AVDB.opfsGetFile(cab.caminho); tem = true; } catch (_) { tem = false; }
+            if (tem) { contagem.repetidos++; continue; }
+            try { await AVDB.opfsWriteFile(cab.caminho, corpo); contagem.opfs++; } catch (_) {
+              throw new Error('Não deu para gravar o acervo — o aparelho pode estar sem espaço.');
+            }
+            continue;
+          }
+          if (cab.t === 'state' || cab.t === 'state-blob') {
+            let valor;
+            if (cab.t === 'state-blob') {
+              valor = corpo;
+            } else {
+              try { valor = JSON.parse(await corpo.text()); } catch (_) { continue; }
+            }
+            const antes = await AVDB.getState(cab.chave);
+            const depois = pacoteMesclarValor(antes, valor);
+            // `updateState` e não `setState`: é a regra do arquivo inteiro para
+            // um read-modify-write de `state` — uma transação só, e o commit
+            // confirmado antes de seguir. A `fn` é SÍNCRONA (um `await` lá
+            // dentro deixaria a transação fechar sozinha).
+            // `depois === antes` é a regra 4 devolvendo o LOCAL por
+            // identidade: nada mudou, e contá-lo faria a tela anunciar
+            // ajustes que não entraram.
+            if (depois !== antes) {
+              await AVDB.updateState(cab.chave, (atual) => pacoteMesclarValor(atual, valor));
+              contagem.chaves++;
+            }
+            continue;
+          }
+        }
+      } finally {
+        bgTaskEnd(tarefa);
+      }
+    });
+  } catch (e) {
+    erro = (e && e.message) || 'A importação falhou.';
+  } finally {
+    pacoteEmCurso = false;
+    pacoteRenderTiles();
+  }
+  if (erro) {
+    await openAppDialog({ title: 'Não deu para importar', message: erro, okText: 'Entendi', cancelText: null });
+    return;
+  }
+  await openAppDialog({
+    title: 'Acervo importado',
+    message: contagem.media + ' item(ns), ' + contagem.opfs + ' arquivo(s) e '
+      + contagem.chaves + ' ajuste(s) entraram neste aparelho. '
+      + (contagem.repetidos ? contagem.repetidos + ' já estavam aqui e foram mantidos como estavam. ' : '')
+      + 'O app vai recarregar para a biblioteca aparecer.',
+    okText: 'Recarregar',
+    cancelText: null,
+    fixo: true,
+  });
+  // A RECARGA É PARTE DO RECURSO, não uma preguiça. O `controle.js` lê o acervo
+  // UMA vez, no `init()`, e guarda listas e catálogos em variáveis de módulo
+  // (`plItems`, `libItems`, `collections`…). Depois de uma importação, TODAS
+  // elas estão desatualizadas, e não há um caminho de invalidação que alcance
+  // as dezenas de lugares que dependem delas — reabrir o documento é o único
+  // ponto do app que reconstrói tudo por construção.
+  location.reload();
+}
+
+// ---------------------------------------------------------------------------
+// OS TRÊS TILES DE "ESTE APARELHO"
+// ---------------------------------------------------------------------------
+
+/**
+ * O ENDEREÇO DA PÁGINA DO APP.
+ *
+ * Ele é digitado aqui à mão, como o `WebUpdater.REPO` do lado Kotlin e pelo
+ * mesmo motivo: não há de onde perguntá-lo em tempo de execução (o app não fala
+ * com a página, e o manifesto do OTA carrega a versão, não o endereço público).
+ * Renomear o repositório muda esta linha — e o modo de falhar é discreto: o
+ * link compartilhado deixa de abrir, e é uma pessoa do outro lado que descobre.
+ */
+const AV_PAGINA = 'https://jonathasptbr-gh.github.io/Audio-Visual-IASD/';
+
+const aparelhoRowEl = document.getElementById('aparelhoRow');
+const shareAppTileEl = document.getElementById('shareAppTile');
+const pacoteExportarTileEl = document.getElementById('pacoteExportarTile');
+const pacoteImportarTileEl = document.getElementById('pacoteImportarTile');
+
+/**
+ * Os três tiles, num escritor só (a regra do `pintarTile`).
+ *
+ * `fracao` é o andamento do trabalho em curso, quando há um — e é a PALAVRA DO
+ * ESTADO que a mostra, nunca a luz: aceso, neste painel, responde *"a função
+ * está ligada?"*, e apagar um tile em curso diria INDISPONÍVEL, que é o oposto.
+ *
+ * O BLOCO INTEIRO É `hidden` FORA DO APP, e não os botões um a um: os três
+ * dependem da ponte, e um rótulo "Este aparelho" sozinho sobre nada é a mesma
+ * coisa que o rótulo do Registro sem o botão ao lado — um controle que não
+ * existe.
+ */
+function pacoteRenderTiles(fracao) {
+  if (!aparelhoRowEl) return;
+  aparelhoRowEl.hidden = !window.__NATIVE__;
+  const pct = (typeof fracao === 'number' && fracao > 0)
+    ? Math.min(99, Math.round(fracao * 100)) + '%' : '';
+  const ocupado = pacoteEmCurso;
+  if (shareAppTileEl) pintarTile(shareAppTileEl, 'app', 'O app', true, false);
+  if (pacoteExportarTileEl) {
+    pintarTile(pacoteExportarTileEl, ocupado ? 'ocupado' : 'pronto',
+      ocupado ? (pct || 'Aguarde') : 'Acervo', true, false);
+    pacoteExportarTileEl.disabled = ocupado;
+  }
+  if (pacoteImportarTileEl) {
+    pintarTile(pacoteImportarTileEl, ocupado ? 'ocupado' : 'pronto',
+      ocupado ? (pct || 'Aguarde') : 'Acervo', true, false);
+    pacoteImportarTileEl.disabled = ocupado;
+  }
+}
+
+if (shareAppTileEl) {
+  shareAppTileEl.addEventListener('click', () => {
+    if (!window.__NATIVE__) return;
+    // O TEXTO acompanha o link, e não é enfeite: um endereço solto numa
+    // conversa não diz o que é, e o que faz alguém tocar nele é a frase ao
+    // lado. Fica em UMA linha de propósito — quem recebe vai reencaminhá-la.
+    AVNative.compartilharTexto(
+      'Áudio Visual IASD — o app de projeção para o culto. Baixe em: ' + AV_PAGINA,
+    );
+  });
+}
+if (pacoteExportarTileEl) pacoteExportarTileEl.addEventListener('click', () => { exportarPacote(); });
+if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => { importarPacote(); });
+// Na CARGA, e não só ao abrir a folha: é este toque que revela (ou esconde) o
+// bloco inteiro, e uma folha aberta antes dele mostraria um rótulo sozinho.
+pacoteRenderTiles();
+
 // ===== PINTAR UM TILE DO PAINEL RÁPIDO (v1.4.38) =====
 //
 // Um ponto só escreve as QUATRO coisas que um tile mostra, e é isso que impede
@@ -27985,6 +28653,23 @@ document.addEventListener('visibilitychange', () => {
   setAppMode(appMode);
   // Wallpaper escolhido pelo operador (a preview espelha o telão).
   await applyPvWallpaper();
+  // ===== A CORTINA LEVANTA AQUI (v1.7.0) =====
+  //
+  // Este é o ÚLTIMO ponto do `init()` que muda o que se vê: depois dele só
+  // sobram trabalhos de fundo (índices, Bíblia, faxina, procura de atualização),
+  // que por construção não redesenham a tela debaixo do dedo — é justamente por
+  // eles serem fire-and-forget que a cortina não pode esperá-los, ou ela ficaria
+  // no ar enquanto o acervo inteiro é varrido.
+  //
+  // Está DEPOIS do `applyPvWallpaper` porque a preview sem wallpaper é um
+  // retângulo vazio no meio da tela — mais um dos "diversos outros
+  // carregamentos" do relato.
+  //
+  // Não há guarda de `try`: o script do `<head>` publica `__avSplash` antes de
+  // qualquer coisa e o `pronto()` dele é idempotente (some o nó, some a função
+  // de fazer alguma coisa). O que cobre a falha CATASTRÓFICA — este arquivo
+  // nunca chegar aqui — é o prazo armado lá, e não uma guarda aqui.
+  if (window.__avSplash) window.__avSplash.pronto();
   // registra a chegada de compartilhamentos (intent nativo; no navegador é no-op)
   registrarShareNativo();
   // E O LINK QUE JÁ ESTAVA COPIADO. Fire-and-forget, como os três abaixo: a

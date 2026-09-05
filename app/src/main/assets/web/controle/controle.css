@@ -1993,17 +1993,62 @@ main {
 
    A REGRA, então, é uma só nos dois eixos: **a caixa da faixa não pode depender
    de quem está dentro dela.** */
+/* ---------- AS TRILHAS LATERAIS REPARTEM A SOBRA (v1.7.0) ----------
+   Elas eram duas caixas FIXAS de `--hit`, e isso bastava enquanto as duas
+   hospedavam botões só-de-ícone da mesma largura. A BADGE DE VERSÃO mudou a
+   conta: ela é texto, mede mais que 34px, e com uma trilha fixa o título saía
+   do eixo da faixa — que é justamente o que a trilha reservada da v5.309 existia
+   para impedir.
+
+   `minmax(var(--hit), 1fr)` nos DOIS lados devolve a promessa sem número
+   nenhum escrito à mão: as duas repartem a sobra em partes iguais, então o
+   título fica no centro da FAIXA seja qual for a largura do que mora nos lados,
+   e nenhuma delas encolhe abaixo do alvo de toque de um botão. A trilha do meio
+   fica `auto` (o título é uma palavra e não disputa espaço), com `min-width: 0`
+   e reticências do outro lado para o caso de uma tela estreita. */
 .list-header {
   flex-shrink: 0; display: grid; align-items: center; gap: var(--sp-2);
-  grid-template-columns: var(--hit) minmax(0, 1fr) var(--hit);
+  grid-template-columns: minmax(var(--hit), 1fr) minmax(0, auto) minmax(var(--hit), 1fr);
   grid-template-rows: var(--hit);
 }
 .list-header > .back-btn { grid-column: 1; }
+/* A BADGE mora na MESMA trilha do voltar — que está vago desde a v1.5.0 e é
+   escondido em toda passada do `renderListTitle`. `justify-self: start` porque
+   a trilha agora é elástica: sem ele a badge flutuaria no meio da sobra. */
+.list-header > .ver-badge { grid-column: 1; justify-self: start; }
 .list-header > .list-title { grid-column: 2; }
+/* ---------- A BADGE DE VERSÃO (v1.7.0) ----------
+   Duas casas, UMA regra: o canto superior esquerdo do avançado e o lugar logo
+   depois da marca no Modo Fácil. Escrever a mesma pastilha duas vezes seria
+   dar-lhes duas chances de divergir no primeiro ajuste — e é a mesma razão do
+   esqueleto de `--hit` logo abaixo.
+
+   É UM CHIP, o que `--surface-2` nomeia por extenso em `tokens.css` ("chip /
+   campo / badge SOBRE o fundo do app") — e é o token certo porque as duas casas
+   pintam `--bg`: a faixa do avançado e o `.simple`, que também é `--bg`.
+
+   MEDIDO nos dois temas, sobre a composição de verdade: `--muted` sobre
+   `--surface-2` dá **5,83:1** no escuro e **6,53:1** no claro (AA com folga), e o
+   degrau da pastilha contra o fundo é 1,71:1 / 1,27:1 — ela se vê sem pedir
+   contorno nenhum. `--muted` e não `--text` porque isto é NÚMERO, que é
+   exatamente o papel que a paleta reserva a ele.
+
+   `--fs-2xs` e `tabular-nums`: ela é metadado, não um rótulo de navegação, e
+   não pode disputar com o nome da tela ao lado — nem mudar de largura quando o
+   número virar de 1.9.9 para 1.10.0. */
+.ver-badge {
+  flex: 0 0 auto;
+  padding: .1rem .35rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2); color: var(--muted);
+  font-size: var(--fs-2xs); font-weight: var(--fw-forte);
+  font-variant-numeric: tabular-nums; letter-spacing: .02em;
+  white-space: nowrap;
+}
 /* A TRILHA 3 era um VÃO reservado (v5.309, para o título não sair do eixo
    quando o voltar aparece) e virou a casa da ENGRENAGEM na v1.2.0 — o vão
    previa isto por escrito. A trilha já mede `--hit`, que é a caixa do botão. */
-.list-header > .settings-btn { grid-column: 3; }
+.list-header > .settings-btn { grid-column: 3; justify-self: end; }
 /* O nome da tela. Subiu de .72rem para .84rem na v5.51: com a versão fora do
    cabeçalho e o botão de troca de modo ancorado à direita, a faixa passou a ter
    espaço — e em .72rem o único texto que responde "onde eu estou" era menor que
@@ -6223,9 +6268,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* `--text` E NÃO `--muted`, e é MEDIDO: a faixa afunda `--surface-2` dentro da
    folha, e no tema CLARO isso é preto a 20% sobre branco (204,204,204) —
    `--muted` ali dá **4,15:1**, abaixo do piso de 4,5. Com `--text`: **5,52:1**
-   no claro e 10,55:1 no escuro. Esta linha em particular não pode ser difícil
-   de ler: é ela que responde "o OTA chegou e o APK ainda não?" (ver
-   `renderVersionLabel`), lida de relance por quem está diagnosticando. */
+   no claro e 10,55:1 no escuro. Esta linha é a versão do app lida de relance por
+   quem está diagnosticando — desde a v1.7.0 ela é UM número, o mesmo das duas
+   badges do cabeçalho (ver `renderVersionLabel`); quem separa base web de shell
+   é o Registro, ao lado. */
 .footer-diag > .app-version { flex: 0 0 auto; color: var(--text); }
 /* O rótulo empurra a si mesmo e ao botão para a outra ponta. Ele é `hidden`
    junto com o botão (ver o HTML): uma palavra sozinha, sem alvo ao lado, é um
@@ -8200,8 +8246,17 @@ body.mode-simple .bottombar { display: none; }
 }
 .simple.open { display: flex; }
 .simple-head { display: flex; align-items: center; gap: var(--sp-4); flex: none; }
-.simple-brand { flex: 1; min-width: 0; font-size: var(--fs-lg); font-weight: var(--fw-max); letter-spacing: .03em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* `flex: 0 1 auto` desde a v1.7.0 (era `1`): a marca deixou de comer a sobra
+   para a BADGE DE VERSÃO poder ficar COLADA nela — que é o pedido, *"após o
+   título áudio visual iasd"*. Quem empurra a engrenagem para a outra ponta
+   passou a ser o `margin-right: auto` da badge, logo abaixo. O encolher (o `1`
+   do meio) e o `min-width: 0` ficam: são as duas metades das reticências, e num
+   aparelho estreito é a marca que cede, nunca o número. */
+.simple-brand { flex: 0 1 auto; min-width: 0; font-size: var(--fs-lg); font-weight: var(--fw-max); letter-spacing: .03em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .simple-brand b { color: var(--brand); }
+/* A BADGE encosta na marca e joga a engrenagem para a outra ponta. O desenho
+   dela mora numa regra só, ao lado da `.list-header` — ver `.ver-badge`. */
+.simple-head .ver-badge { margin-right: auto; }
 
 /* Tecla: a peça única deste modo. Fundo próprio e alvo grande o bastante para
    o polegar sem mirar.
@@ -8933,3 +8988,59 @@ body.mode-simple .bottombar { display: none; }
 .cast-tela-fora:disabled { opacity: .5; cursor: default; }
 /* O acesso aos ajustes que sobraram — um link, não um cartão: ele não é o
    caminho de ninguém que só quer conectar uma tela. */
+
+/* ===================== A CORTINA DE ABERTURA (v1.7.0) =====================
+   O porquê está no `<head>` do index.html. Aqui só o desenho, e ele tem três
+   regras que valem a pena estar ditas:
+
+   1. **`--bg`, e nada mais.** A cortina existe para o app não piscar de cor, e
+      pintá-la com qualquer outro token seria trocar um piscar por outro. O tema
+      já está decidido quando esta regra é aplicada — quem o decide é o script
+      inline do `<head>`, antes do primeiro quadro.
+   2. **`z-index` acima de TUDO, inclusive da tela cheia.** A pilha deste app
+      vai até 205 (`#lyricsPopup`); a preview em tela cheia é 90. A cortina é o
+      único elemento que precisa estar acima de todos eles, porque ela some
+      antes de qualquer um deles poder existir.
+   3. **Ela some por REMOÇÃO DO NÓ**, não por opacidade — o script do `<head>`
+      tira o elemento depois do esmaecimento. Uma camada `opacity: 0` sobre a
+      tela inteira continua recebendo o toque, e o app abriria intocável.
+
+   `prefers-reduced-motion` não ganha regra própria: o único movimento aqui é
+   um esmaecimento de 240 ms e uma linha que respira, e as duas são
+   deliberadamente discretas — o resto do app segue a mesma régua. */
+#splash {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--sp-6);
+  background: var(--bg);
+  transition: opacity .24s ease;
+}
+#splash.saindo { opacity: 0; pointer-events: none; }
+/* O ÍCONE DO APP, com os tokens no lugar dos hexadecimais do vetor do Android.
+   As duas cores são as MESMAS do ícone da gaveta no tema escuro (`--text` na
+   trilha, `--accent` no cabo do fader); no tema claro elas seguem a paleta, que
+   é o que o recurso de Android não consegue fazer. */
+.splash-trilhas { fill: var(--text); }
+.splash-cabos { fill: var(--accent); }
+/* A MARCA, com o mesmo desenho do cabeçalho do Modo Fácil (`.simple-brand`) —
+   mesma família, mesmo peso, mesmo `IASD` em `--brand`. Ela é o que diz QUAL
+   app está abrindo, e repetir aqui um estilo próprio faria a abertura parecer
+   de outro programa. */
+.splash-nome {
+  font-size: var(--fs-3xl); font-weight: var(--fw-max);
+  letter-spacing: .03em; color: var(--text);
+}
+.splash-nome b { color: var(--brand); }
+/* A LINHA DE ESPERA: 2px, largura de um dedo, e ela RESPIRA em vez de girar —
+   um giro é a linguagem que este app já usa para "há bytes chegando"
+   (`.dl-ring`), e aqui não há download nenhum. Nasce transparente e só ganha
+   corpo depois de 700 ms: numa abertura rápida ela nunca chega a ser vista. */
+.splash-espera {
+  width: 96px; height: 2px; border-radius: var(--radius-pill);
+  background: var(--accent); opacity: 0;
+  animation: splash-respira 1.1s ease-in-out .7s infinite;
+}
+@keyframes splash-respira {
+  0%, 100% { opacity: .18; transform: scaleX(.35); }
+  50% { opacity: .8; transform: scaleX(1); }
+}

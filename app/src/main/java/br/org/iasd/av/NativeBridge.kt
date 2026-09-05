@@ -58,6 +58,40 @@ interface BridgeHost {
      */
     fun openExternalUrl(url: String)
 
+    /**
+     * Abre o SELETOR DE COMPARTILHAMENTO do Android com um texto
+     * (`ACTION_SEND` + `createChooser`) — ver [NativeBridge.compartilharTexto].
+     *
+     * É irmão do [openExternalUrl] e não uma variante dele: aquele MANDA o
+     * aparelho abrir um endereço, este OFERECE um texto a quem o operador
+     * escolher. Um link aberto no navegador não chega a ninguém.
+     */
+    fun shareText(texto: String)
+
+    /**
+     * Abre o "Salvar como" do sistema para um arquivo BINÁRIO e deixa o destino
+     * ABERTO para escrita — ver [PacoteCanal], que é quem escreve nele.
+     *
+     * Devolve o nome escolhido, ou `""` se o operador desistir (ou se nada
+     * pôde ser aberto). É o gêmeo do [requestTextSave] para o caso em que os
+     * bytes não cabem numa string: o pacote de transferência do acervo passa
+     * de gigabytes, e é por isso que ele não pode entrar por aqui de uma vez.
+     */
+    fun requestPacoteCreate(nome: String, onResult: (String) -> Unit)
+
+    /**
+     * Fecha o destino aberto por [requestPacoteCreate] e devolve quantos bytes
+     * foram gravados (`-1` se nada estava aberto ou se o fecho falhou).
+     */
+    fun pacoteFinish(onResult: (Long) -> Unit)
+
+    /**
+     * Desiste do pacote em curso: fecha o destino e APAGA o documento parcial.
+     * Meio acervo num arquivo é pior que arquivo nenhum — ele importa como se
+     * estivesse inteiro até o registro em que os bytes acabam.
+     */
+    fun pacoteCancel()
+
     /** Interceptar os botões físicos de volume e mandá-los para o app. */
     fun setCaptureVolumeKeys(on: Boolean)
 
@@ -217,7 +251,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 62
+        const val SHELL_VERSION = 63
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -885,6 +919,37 @@ class NativeBridge(
         val u = try { Uri.parse(url) } catch (_: Exception) { return }
         if (!u.scheme.equals("https", ignoreCase = true) || u.host.isNullOrBlank()) return
         host?.openExternalUrl(u.toString())
+    }
+
+    /**
+     * O SELETOR DE COMPARTILHAMENTO DO ANDROID, com um texto (shell 63).
+     *
+     * Nasceu para o link da página de download: até a v1.7.0 não havia, DE
+     * DENTRO DO APP, nenhuma forma de o operador passar o app adiante — e é ele
+     * quem conversa com as outras igrejas. `openExternal` não resolve isso:
+     * abrir a página no navegador do PRÓPRIO aparelho é o oposto de mandá-la
+     * para outro.
+     *
+     * **Não é `navigator.share`**: o WebView do Android não implementa a Web
+     * Share API (nem com `WebChromeClient` nenhum), então a chamada
+     * simplesmente não existe do lado da página — sem erro, sem chooser.
+     *
+     * SÍNCRONO E SEM RESPOSTA, como o [openCast] e o `ytCancel`: o desfecho de
+     * um chooser é uma pessoa escolhendo (ou não) um app, e não há nada que o
+     * lado web pudesse fazer com esse veredito — nem existe API que o entregue.
+     *
+     * TETO DE 4 kB: isto é um link, e um `Intent` grande demais lança
+     * `TransactionTooLargeException` no `startActivity` — que derrubaria o app
+     * com a projeção junto. O corte é mudo de propósito; o único chamador manda
+     * ~60 caracteres.
+     *
+     * O WebView do telão recebe a ponte com `host = null` e não chega aqui.
+     */
+    @JavascriptInterface
+    fun compartilharTexto(texto: String) {
+        val t = texto.trim()
+        if (t.isEmpty() || t.length > 4096) return
+        host?.shareText(t)
     }
 
     // ---------- telão nas telas da rede local ----------
@@ -1702,6 +1767,75 @@ class NativeBridge(
         val h = host
         if (h == null) { resolve(callId, JSONObject.quote("")); return }
         h.requestTextSave(nome, texto) { salvo -> resolve(callId, JSONObject.quote(salvo)) }
+    }
+
+    // ---------- O PACOTE DE TRANSFERÊNCIA (shell 63) ----------
+    //
+    // Três métodos e um canal, e a divisão entre eles é a mesma que separa
+    // `pickFolder` de `listFolder`: **o que espera uma PESSOA entra pela ponte;
+    // o que carrega BYTES entra pelo canal de `ArrayBuffer`.**
+    //
+    //   pacoteCriar(nome)  → o "Salvar como" do sistema. SEM PRAZO no lado web:
+    //                        quem responde é alguém navegando no SAF.
+    //   __avPacote         → os blocos, com ack por bloco ([PacoteCanal]).
+    //   pacoteFechar()     → fecha e diz quantos bytes foram gravados.
+    //   pacoteCancelar()   → fecha e APAGA o parcial.
+    //
+    // POR QUE OS BYTES NÃO PASSAM PELA PONTE: um `@JavascriptInterface` troca
+    // STRINGS, e o acervo de uma igreja passa de gigabytes — base64 sobre isso
+    // é exatamente o que o princípio da ponte proíbe ("URLs servíveis, nunca
+    // bytes"). E por que não um `<a download>` sobre um Blob: o WebView deste
+    // app não tem `DownloadListener`, e ali um clique desses não faz NADA (é a
+    // mesma razão que criou o `salvarTexto`, um degrau acima).
+    //
+    // A IMPORTAÇÃO NÃO PRECISOU DE MÉTODO NENHUM, e isso é o princípio da ponte
+    // pagando: `pickDoc` já devolve uma `/saf/<token>` servível, e o lado web a
+    // lê por `fetch` + `Blob.slice()` — a mesma técnica com que o `pptxzip.js`
+    // abre um `.pptx` de 570 MB sem materializar um byte a mais do que precisa.
+
+    /**
+     * Abre o "Salvar como" para o pacote e deixa o destino ABERTO.
+     *
+     * Devolve o NOME gravado ou `""` (desistiu, ou nada pôde ser aberto) —
+     * mesma forma do [salvarTexto], e pela mesma razão: o vazio é a resposta
+     * que a tela sabe explicar.
+     *
+     * SEM PRAZO no `native.js`, como `pickFolder`: um timeout resolveria `null`
+     * com o operador ainda escolhendo a pasta, e o destino ficaria aberto sem
+     * ninguém para fechá-lo.
+     */
+    @JavascriptInterface
+    fun pacoteCriar(callId: String, nome: String) {
+        val h = host
+        if (h == null) { resolve(callId, JSONObject.quote("")); return }
+        h.requestPacoteCreate(nome) { salvo -> resolve(callId, JSONObject.quote(salvo)) }
+    }
+
+    /**
+     * Fecha o pacote e devolve os bytes gravados (`-1` = não havia nada aberto,
+     * ou o fecho falhou).
+     *
+     * O NÚMERO NÃO É ENFEITE: é a única confirmação que o lado web tem de que
+     * os blocos que ele empurrou chegaram ao disco. Um `flush`/`close` que falha
+     * — cartão cheio, o provedor do documento morrendo — é justamente o caso em
+     * que os acks por bloco já disseram "recebi" e o arquivo está incompleto.
+     */
+    @JavascriptInterface
+    fun pacoteFechar(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, "-1"); return }
+        h.pacoteFinish { bytes -> resolve(callId, bytes.toString()) }
+    }
+
+    /**
+     * Desiste do pacote em curso. SÍNCRONO E SEM RESPOSTA, como o `ytCancel` e
+     * pelo mesmo motivo: quem chama isto é um cancelamento (ou um `finally`), e
+     * uma promessa a mais no caminho de saída é uma promessa a mais para ficar
+     * pendurada.
+     */
+    @JavascriptInterface
+    fun pacoteCancelar() {
+        host?.pacoteCancel()
     }
 
     /** O nome de exibição do documento, ou "Apresentação" se o provedor não o der. */

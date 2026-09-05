@@ -268,6 +268,7 @@ jobs:
           node tools/hinario.test.mjs
           node tools/coletanea.test.mjs
           node tools/pptxzip.test.mjs
+          node tools/pacote.test.mjs
           node tools/glifos.test.mjs
           node tools/cifra.test.mjs
 
@@ -470,6 +471,8 @@ jobs:
           # CLAUDE.md, em "Os oráculos".
           rodar tools/smoke.mjs
           rodar tools/boot-nativo.test.mjs
+          rodar tools/abertura-e-transferencia.test.mjs
+          rodar tools/pacote-ida-e-volta.test.mjs
           rodar tools/mse.test.mjs
           rodar tools/stage-fade.test.mjs
           rodar tools/aba-sem-estalo.test.mjs

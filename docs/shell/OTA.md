@@ -162,12 +162,20 @@ não confirme é descartado no lançamento seguinte e o app volta ao embutido.
 #### O sinal de boot (`otaAppIsUp`)
 
 Ordem dos scripts do Controle: `native.js` → `db.js` → `mse.js` → `stage.js` →
-`louvorja.js` → `bible.js` → `serie.js` → `sorteio.js` → `controle.js`.
+`louvorja.js` → `bible.js` → `serie.js` → `cifra.js` → `sorteio.js` →
+`hinario.js` → `coletanea.js` → `pptxzip.js` → `deck.js` → `pacote.js` →
+`controle.js`.
 
 As CINCO condições: papel `controle` · `AVDB`/`AVStream`/`createStage` ·
-`__avBack` · um `<li>` em `#playlist` · `Louvorja`/`Bible`/`AVSerie`/`AVSorteio`.
-Por **polling** (250 ms, desistindo em 30 s), porque o `init()` é assíncrono e
-termina DEPOIS do `load`.
+`__avBack` · um `<li>` em `#playlist` · **os dez módulos do Controle**
+(`Louvorja`, `Bible`, `AVSerie`, `AVSorteio`, `AVCifra`, `AVHinario`,
+`AVColetanea`, `AVPptxZip`, `AVDeck`, `AVPacote`). Por **polling** (250 ms,
+desistindo em 30 s), porque o `init()` é assíncrono e termina DEPOIS do `load`.
+
+> **A LISTA CRESCE COM O DIRETÓRIO, e no MESMO lote.** Cada módulo novo do
+> Controle é um buraco novo neste watchdog no dia em que ele nasce — o uso dele
+> mora dentro de uma função, então um erro de topo não aborta o `controle.js` e
+> o bundle é carimbado como bom para sempre, com aquele recurso morto.
 
 > **A quinta fechou o buraco (v5.315).** Os quatro scripts do Controle não
 > tinham condição nenhuma, e todo uso de `AVSerie`/`AVSorteio` no `controle.js`

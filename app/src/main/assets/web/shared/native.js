@@ -115,6 +115,13 @@
     // de pé e tira do ar a única porta de apresentação com vídeo — que é o
     // material do culto, descoberto no sábado.
     if (!global.AVPptxZip) return false;
+    // `AVPacote` (v1.7.0) fecha a lista, e o caso dele é o do `AVPptxZip` com
+    // um preço maior: a regra do pacote de transferência só é lida dentro de
+    // `exportarPacote`/`importarPacote`, então um erro de topo em `pacote.js`
+    // deixa o app inteiro de pé — e o que morre é o ÚNICO caminho de levar a
+    // biblioteca para outro aparelho, descoberto por quem estava justamente
+    // trocando de celular.
+    if (!global.AVPacote) return false;
     if (typeof global.__avBack !== 'function') return false;
     return !!document.querySelector('#playlist > li');
   }
@@ -471,6 +478,43 @@
     // mesma regra do `pickFolder` e do `requestMic`.
     salvarTexto: (nome, texto) => call((id) => B.salvarTexto(id, String(nome), String(texto))),
 
+    // ---- O PACOTE DE TRANSFERÊNCIA (shell 63) ----
+    //
+    // Três métodos e um canal, e a divisão é a mesma que separa `pickFolder` de
+    // `listFolder`: **o que espera uma PESSOA entra pela ponte; os BYTES entram
+    // pelo canal de `ArrayBuffer`** (`window.__avPacote`, instalado pelo shell —
+    // detectado por PRESENÇA, nunca por versão, como o `__avTelaMidia`).
+    //
+    // A IMPORTAÇÃO NÃO TEM MÉTODO NENHUM aqui, e isso é o princípio da ponte
+    // pagando: `pickDoc` já devolve uma `/saf/<token>` servível, e o lado web a
+    // lê por `fetch` + `Blob.slice()` — a mesma técnica do `pptxzip.js`.
+
+    // Abre o "Salvar como" para o pacote e DEIXA O DESTINO ABERTO. Resolve o
+    // NOME gravado, ou `''` (desistiu, ou não deu para abrir).
+    //
+    // SEM PRAZO, como o `salvarTexto` logo acima e pelo mesmo motivo: quem
+    // responde é uma pessoa navegando no seletor do sistema. Um timeout aqui
+    // resolveria vazio com o destino ABERTO e ninguém para fechá-lo.
+    pacoteCriar: (nome) => call((id) => B.pacoteCriar(id, String(nome)))
+      .then((r) => String(r || '')),
+
+    // Fecha o pacote e resolve os BYTES gravados — `-1` = não havia nada aberto,
+    // ou o fecho falhou. O número é a única confirmação de que os blocos
+    // chegaram ao disco: os acks por bloco já disseram "recebi", e é o
+    // `flush`/`close` que descobre o cartão cheio. COM prazo (o fecho é
+    // trabalho de máquina), e o `null` do prazo vencido vira `-1`, que é o
+    // mesmo desfecho de falha — o chamador trata um caso só.
+    pacoteFechar: () => call((id) => B.pacoteFechar(id), CALL_TIMEOUT_MS)
+      .then((r) => (typeof r === 'number' ? r : -1)),
+
+    // Desiste do pacote em curso: fecha e APAGA o parcial. Síncrono e sem
+    // resposta, como o `ytCancel` — quem chama isto é um cancelamento ou um
+    // `finally`, e uma promessa a mais no caminho de saída é uma promessa a
+    // mais para ficar pendurada.
+    pacoteCancelar() {
+      try { B.pacoteCancelar(); } catch (_) { /* ponte indisponível */ }
+    },
+
     // ---- CIFRA — ver `controle/cifra.js` ----
     // TRANSPORTE, e só. Devolve `{ status, html }` com o corpo CRU da página:
     // quem sabe ler aquele HTML é o `cifra.js`, do lado web (invariante 5), e
@@ -680,6 +724,26 @@
         const u = String(url || '');
         if (!/^https:\/\//i.test(u)) return;
         B.openExternal(u);
+      } catch (_) { /* ponte indisponível */ }
+    },
+
+    // O SELETOR DE COMPARTILHAMENTO do Android, com um texto (shell 63).
+    //
+    // Ele NÃO é uma variante do `openExternal`: aquele MANDA este aparelho abrir
+    // um endereço, este OFERECE um texto a quem o operador escolher. Um link
+    // aberto no navegador do próprio celular não chega a ninguém.
+    //
+    // E não é `navigator.share`: o WebView do Android não implementa a Web Share
+    // API, então aquela chamada não existe aqui — sem erro, sem chooser.
+    //
+    // Síncrono e sem resposta, como o `openCast`: o desfecho de um chooser é uma
+    // pessoa escolhendo (ou não) um app, e não há API que entregue esse
+    // veredito nem nada que o lado web faria com ele.
+    compartilharTexto(texto) {
+      try {
+        const t = String(texto || '').trim();
+        if (!t) return;
+        B.compartilharTexto(t);
       } catch (_) { /* ponte indisponível */ }
     },
 

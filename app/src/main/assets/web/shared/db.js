@@ -504,6 +504,73 @@
     return txDone(ftx);
   }
 
+  // ===== O QUE O PACOTE DE TRANSFERÊNCIA PRECISA (v1.7.0) =====
+  //
+  // Três primitivas que nenhum caminho de culto usa e que o `controle.js` não
+  // teria como escrever de fora: elas mexem nos stores DIRETO. Estão aqui, e
+  // não lá, porque este arquivo é o único dono do esquema — a regra vale desde
+  // o primeiro dia e é o que impede uma segunda opinião sobre o que é um
+  // registro válido.
+
+  /** Os ids de "media", sem trazer registro nenhum. É a lista do que o pacote
+   *  vai percorrer, e ela precisa ser BARATA: o `getAll` traria a letra inteira
+   *  e a miniatura de cada faixa do acervo só para contar. */
+  async function mediaChaves() {
+    const s = await store(STORE_MEDIA, 'readonly');
+    return asPromise(s.getAllKeys());
+  }
+
+  /**
+   * Grava um registro de "media" COMO ELE VEIO, preservando o `id`.
+   *
+   * É o oposto do `addMedia`, que CUNHA um id — e é por isso que ele existe: um
+   * pacote importado precisa manter os ids, senão nenhuma lista (`imports`,
+   * `playlist`, `favs`) do outro aparelho encontraria o que aponta.
+   *
+   * `add` e não `put`: ele FALHA quando o id já existe, e é essa falha que o
+   * importador lê como "este item já está aqui". A alternativa — `put` — passaria
+   * por cima do registro local em silêncio, e a promessa do recurso é que
+   * importar só ACRESCENTA.
+   */
+  async function mediaAdd(record) {
+    const s = await store(STORE_MEDIA, 'readwrite');
+    return asPromise(s.add(record));
+  }
+
+  /**
+   * TODOS os arquivos do OPFS, com caminho e tamanho — a varredura recursiva.
+   *
+   * O catálogo (`files`) NÃO responde isso, e a diferença não é teórica: o
+   * download de uma coleção grava dois tipos de arquivo na mesma pasta — os
+   * áudios, que viram registro no catálogo, e as IMAGENS DE FUNDO DA LETRA, que
+   * não viram (elas são referenciadas de dentro dos slides). Um pacote montado
+   * pelo catálogo chegaria ao outro aparelho com o hinário inteiro e as estrofes
+   * sobre preto — o mesmo argumento que já obrigou o `opfsFolderSize` a somar o
+   * DISCO em vez do catálogo.
+   *
+   * Um arquivo que suma no meio da varredura é PULADO, não fatal: o operador
+   * pode estar sincronizando uma coleção enquanto exporta.
+   */
+  async function opfsTodosOsArquivos() {
+    if (!opfsSupported()) return [];
+    const out = [];
+    async function andar(dir, prefixo) {
+      for await (const [nome, handle] of dir.entries()) {
+        const caminho = prefixo ? prefixo + '/' + nome : nome;
+        if (handle.kind === 'directory') {
+          try { await andar(handle, caminho); } catch (_) { /* pasta que sumiu */ }
+          continue;
+        }
+        try {
+          const f = await handle.getFile();
+          out.push({ caminho, tamanho: f.size || 0, tipo: f.type || '' });
+        } catch (_) { /* arquivo que sumiu no meio */ }
+      }
+    }
+    try { await andar(await navigator.storage.getDirectory(), ''); } catch (_) { return out; }
+    return out;
+  }
+
   // ---- catálogo OPFS (store "files") ----
   async function fileAdd(record) {
     const s = await store(STORE_FILES, 'readwrite');
@@ -1017,6 +1084,7 @@
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll,
     opfsSupported, opfsGetFile, opfsWriteFile, opfsDeleteFile, opfsDeleteDir, opfsFolderSize,
+    mediaChaves, mediaAdd, opfsTodosOsArquivos,
     kindFromType, sendCommand, onCommand,
   };
 })(this);
