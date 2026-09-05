@@ -1,9 +1,15 @@
 [
   {
-    "versao": "1.8.4",
+    "versao": "1.8.5",
     "itens": [
       "Salvar o registro por cima de um antigo deixou de misturar os dois arquivos.",
       "A tentativa de ceder a biblioteca passou a ficar registrada mesmo quando falha."
+    ]
+  },
+  {
+    "versao": "1.8.4",
+    "itens": [
+      "Ao trocar de tela na Bíblia, os livros deixaram de escapar para fora da folha."
     ]
   },
   {

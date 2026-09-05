@@ -2589,8 +2589,30 @@ main {
    pinta um nível é o PAI, nunca quem é pintado. Sem fundo escurecido e sem
    `.popup-backdrop`: aquilo é uma camada sobre a tela toda, e esta é uma
    extensão do Cronograma — ela cobre a lista, não o app. */
+/* ===== ELA RECORTA O QUE É DELA (v1.8.4) =====
+   Relato do operador: *"os itens dentro das seções da bíblia estão aparecendo
+   horizontalmente em sua animação de entrada e saída, saindo da caixa a qual
+   pertecem"*.
+
+   A navegação DENTRO da Bíblia desliza (`deslizarNaFolha`): um
+   `translateX(±100%)` no `#bibleBody`. A folha é um CARTÃO — tem fundo, raio e
+   sombra —, e não recortava nada: durante os 220ms do deslize a grade de
+   livros, os ladrilhos e o cabeçalho pintavam FORA dela, por cima do
+   Cronograma em volta. MEDIDO a 393×786: **47,7px** de vazamento, com 25 nós
+   fora da caixa numa das transições.
+
+   Quem já recortava era o `<main>`, e só na LARGURA DA TELA — o que segurava
+   o deslize da faixa de abas de antes da v1.5.0, uma camada acima. Entre a
+   borda da folha e a da tela sobra justamente a moldura em que o vazamento
+   aparecia.
+
+   `overflow: hidden` é o recorte certo aqui e não custa nada: os dois corpos
+   (`#bibleBody` e `#toolsBody`) já têm `min-height: 0` e rolagem própria, então
+   nada legítimo transborda — e o que transbordasse virava um corte, que é o
+   que o `geometria.test.mjs` reprova. De quebra o conteúdo passa a respeitar o
+   `--radius-card` da folha. */
 .tools-sheet {
-  position: absolute; inset: 0; z-index: 8;
+  position: absolute; inset: 0; z-index: 8; overflow: hidden;
   --camada: var(--panel-2);
   background: var(--panel); border-radius: var(--radius-card);
   display: flex; flex-direction: column;
