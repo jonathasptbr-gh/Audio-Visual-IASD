@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.8';
+const WEB_VERSION = '1.8.9';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -24711,6 +24711,28 @@ function cloneEndereco(txt) {
  * frase própria porque cada um pede uma ação diferente de quem está com o
  * aparelho na mão.
  */
+/**
+ * O RÓTULO DESTE APARELHO PARA O OUTRO LADO — e ele delega ao shell.
+ *
+ * Esta função era CHAMADA e nunca foi DEFINIDA (v1.8.0 → v1.8.8). O
+ * `clonePedirPar` fazia `AVNative.acervoParear(a.host, a.porta,
+ * cloneMeuRotulo())`, o identificador ausente lançava `ReferenceError` de forma
+ * SÍNCRONA dentro do `try`, e o `catch (_) { r = null }` o transformava no mesmo
+ * `null` que a ponte devolve ao vencer o prazo. Desfecho: **o clone nunca
+ * pareou, nem uma vez**, e a frase que saía mandava investigar a rede.
+ *
+ * O `node --check` aprova isto (a sintaxe está certa) e nenhum oráculo o
+ * exercitava, porque o pareamento mora no Kotlin e o
+ * `clone-de-outro-celular.test.mjs` diz por escrito que não o cobre.
+ *
+ * VAZIO É A RESPOSTA CERTA, e não um nome inventado aqui: quem sabe o modelo é
+ * o shell (`Build.MODEL`), e o `pedirPar` já faz `rotulo.ifBlank {
+ * nomeDesteAparelho() }`. É o mesmo que o `acervoCeder('')` já fazia — um ponto
+ * ÚNICO para o nome, que é o que impede dois celulares de chegarem ao outro
+ * lado como "Celular".
+ */
+function cloneMeuRotulo() { return ''; }
+
 async function clonePedirPar(a) {
   // O PASSO ENTRA NO DIÁRIO. Sem esta linha o `parou em:` sai VAZIO quando a
   // falha é do pareamento — que é justamente o caso mais frequente —, e o

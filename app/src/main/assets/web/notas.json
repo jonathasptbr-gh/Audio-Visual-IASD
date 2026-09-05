@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.9",
+    "itens": [
+      "A cópia da biblioteca entre celulares volta a funcionar: ela nunca chegou a parear.",
+      "O app passou a poder falar com o outro celular pela rede local."
+    ]
+  },
+  {
     "versao": "1.8.8",
     "itens": [
       "Correção do app que impedia a versão anterior de ser publicada."

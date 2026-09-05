@@ -131,8 +131,26 @@
          aparelho-a-aparelho da biblioteca, que é útil e não tem essa cota. Os
          dois arquivos abaixo (formatos novo e antigo) escolhem item a item —
          ver os comentários lá. -->
+    <!-- O CLONE E O UNICO TRAFEGO HTTP DE SAIDA DESTE APP, e sem a linha
+         `usesCleartextTraffic` abaixo ele nao sai (v1.8.9). Do `targetSdk` 28
+         em diante o padrao do Android e PROIBIR texto em claro: o
+         `POST /acervo/par` e o `AcervoProxy` falham antes do primeiro byte, em
+         qualquer rede.
+
+         O TELAO NUNCA SOFREU DISSO PORQUE ELE SERVE — quem conecta e o
+         navegador da tela, e trafego de ENTRADA nao passa por esta politica.
+         Foi exatamente por isso que um funcionava e o outro nao, o que tornou
+         o defeito invisivel: a mesma porta, o mesmo servidor, dois desfechos.
+
+         O ALVO E SEMPRE A REDE LOCAL (o outro celular, em RFC1918), e nao ha
+         como declarar isso mais estreito: o `networkSecurityConfig` aceita
+         DOMINIO, e o endereco do outro aparelho vem do DHCP. Todo trafego de
+         saida para a INTERNET deste app ja e `https` (OTA, YouTube, cifra) e
+         continua sendo — esta linha nao os afrouxa, ela abre o que hoje esta
+         fechado para a LAN. -->
     <application
         android:allowBackup="true"
+        android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:hardwareAccelerated="true"

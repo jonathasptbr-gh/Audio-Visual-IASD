@@ -367,6 +367,48 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.8.9 — o clone nunca pareou, e por duas razões independentes
+
+Relato: *"ainda não funcionou"*, com o Registro. O `clone-diario` da v1.8.5
+tinha, das duas vezes, a mesma linha: `copiei: Não deu para falar com o outro
+aparelho. — parou em:` **com o campo vazio**. Vazio prova que a cópia nunca
+chegou a pedir a lista; a frase sem parêntese prova que `r` era `null`.
+
+A premissa que tirei disso — *"algo passou de 60 s"* — estava ERRADA, e uma
+auditoria em paralelo (oito lentes, com refutação) mostrou por quê: `call()`
+resolve `null` em três situações, e duas são INSTANTÂNEAS. A que valia aqui é a
+segunda.
+
+### 1. `cloneMeuRotulo()` era chamada e nunca foi definida
+
+Desde a v1.8.0. `clonePedirPar` fazia
+`AVNative.acervoParear(a.host, a.porta, cloneMeuRotulo())`, o identificador
+ausente lançava `ReferenceError` de forma SÍNCRONA dentro do `try`, e o
+`catch (_) { r = null }` o achatava no mesmo `null` da ponte vencida. **O clone
+nunca pareou uma vez sequer**, em nenhum aparelho, e a frase que saía mandava
+investigar a rede.
+
+Nada o pegava, e cada camada tinha um bom motivo: `node --check` aprova (a
+sintaxe está certa), o `sombra.test.mjs` procura redeclaração e não ausência, e
+o `clone-de-outro-celular.test.mjs` **diz por escrito** que o PAREAMENTO fica de
+fora dele — ele mora no Kotlin. A chamada quebrada estava na única linha que o
+oráculo do clone não exercita.
+
+### 2. E o Android bloqueia o `http://` de saída
+
+`targetSdk = 35` e o manifesto sem `usesCleartextTraffic`: da API 28 em diante o
+padrão é PROIBIR texto em claro. O `POST /acervo/par` e o `AcervoProxy` falham
+antes do primeiro byte, em qualquer rede.
+
+**O telão nunca sofreu disso porque ele SERVE** — quem conecta é o navegador da
+tela, e tráfego de ENTRADA não passa por essa política. Foi isso que tornou o
+defeito invisível: o mesmo servidor, a mesma porta, dois desfechos.
+
+Os dois consertos são independentes: sem o primeiro nem se pede; sem o segundo o
+pedido não sai. Levantar só um deixaria o sintoma idêntico.
+
+**Lote COM Release:** o manifesto é do APK — `shellTag: "v1.8.9"`.
+
 ## v1.8.8 — um símbolo sem import derrubou a main, e agora há um guarda
 
 **A v1.8.6 não chegou a existir.** O `MainActivity.kt` dela usou
