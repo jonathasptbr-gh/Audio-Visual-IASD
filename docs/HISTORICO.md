@@ -361,6 +361,40 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
+## v1.8.4 — o Registro salvo por cima do antigo, e a porta de ceder que não anotava
+
+Dois achados do Registro que o operador mandou dizendo *"persiste o mesmo
+problema"* — e o primeiro estava DENTRO do próprio arquivo.
+
+### O Registro saía grudado na cauda do anterior
+
+`salvarTexto` abria o documento com `openOutputStream(uri)` — modo `"w"`, que
+**não trunca**. Salvando sobre o Registro da vez anterior, o texto novo (mais
+curto) cobria o começo e a CAUDA do antigo ficava, entrando no meio de uma
+linha. MEDIDO no arquivo de campo: o bloco das Coletâneas aparecia duas vezes, a
+segunda com um pedaço da lista das séries colado antes.
+
+**O defeito é pior do que parece**, e é por isso que ele não é um detalhe de
+escrita: o Registro existe para ser lido A DISTÂNCIA por quem não tem como
+conferir nada no aparelho, e o que sobra do arquivo antigo é conteúdo PLAUSÍVEL
+— blocos inteiros, bem formatados, descrevendo um estado que já não existe. É a
+definição do artefato que este projeto mais teme: um log que discorda do
+aparelho.
+
+O caminho do PACOTE já usava `"wt"` desde a v1.7.0; este ficou para trás. O
+oráculo cobra os dois: o modo certo em `salvarTexto` e nenhum
+`openOutputStream(uri)` sem modo sobrando no shell.
+
+### E a porta de ceder só anotava quando dava certo
+
+O `clone-diario` da v1.8.3 era escrito no `clonePublicarIndice` — isto é, depois
+de a lista existir. O caminho mais provável de falhar é o ANTERIOR: o servidor
+não subir (sem rede servível, porta ocupada). Sem a linha, o Registro de quem
+tentou ceder e não conseguiu é IDÊNTICO ao de quem nunca tocou no botão, e as
+duas pedem conferências opostas.
+
+**Lote COM Release:** o `salvarTexto` é Kotlin — `shellTag: "v1.8.4"`.
+
 ## v1.8.3 — o item inteiro no heap, e um diário que sobrevive ao processo
 
 O "medindo" saiu com a v1.8.2 (*"agora ele achou e deu a medição correta"*), e a

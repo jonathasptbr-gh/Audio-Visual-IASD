@@ -4941,6 +4941,11 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   mais completo e acaba por ele ficar longo de mais para compartilhar via chat
   de texto"*. A área de transferência é o caminho que **corta o texto no meio
   sem avisar**, e foi esse relato que criou o salvar em arquivo na v1.2.16.
+  **E o arquivo é aberto com `"wt"`, nunca `"w"`** (v1.8.4): sem o `t` o provedor
+  de documentos escreve por cima do começo e deixa a CAUDA do arquivo antigo —
+  e o que sobra é conteúdo PLAUSÍVEL, blocos inteiros descrevendo um estado que
+  já não existe. Num artefato lido A DISTÂNCIA por quem não confere nada, isso é
+  o log que discorda do aparelho.
 
 ### Documentação
 

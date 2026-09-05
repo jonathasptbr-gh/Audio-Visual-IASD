@@ -59,6 +59,18 @@ checar(/private const val REVER_MS/.test(KT_DESC)
   'e um nome JÁ ACHADO pode ser resolvido de novo passada a janela — sem isso o '
   + '`reanunciar` não tem como pousar do outro lado');
 
+// O REGISTRO É SALVO TRUNCANDO (v1.8.4). "w" sem o "t" escreve por cima do
+// começo e deixa a CAUDA do arquivo antigo — e o resto que sobra é conteúdo
+// plausível, blocos inteiros bem formatados descrevendo um estado que já não
+// existe. Num artefato cujo consumidor é um humano A DISTÂNCIA, isso é a
+// definição de um log que discorda do aparelho. MEDIDO num Registro de campo: a
+// cauda do arquivo anterior entrou no meio de uma linha.
+checar(/openOutputStream\(uri, "wt"\)[\s\S]{0,200}?texto\.toByteArray/.test(KT_ACT),
+  'o `salvarTexto` abre o documento com "wt" (TRUNCA) — sem o `t`, o Registro '
+  + 'novo sai grudado na cauda do antigo');
+checar(!/openOutputStream\(uri\)/.test(KT_ACT),
+  'e não sobrou nenhum `openOutputStream` sem modo no shell');
+
 // O DESMONTE DIZ POR QUÊ (o outro achado do mesmo Registro): a última linha era
 // "cessao da biblioteca ligada" com o estado em "servidor: desligado", e nada
 // entre as duas. As causas possíveis pedem ações opostas.
@@ -197,6 +209,14 @@ try {
     'e quem nunca clonou nem cedeu continua sem bloco nenhum — uma linha de zeros '
     + 'é mais uma para ler em toda cópia do Registro',
     JSON.stringify([b.semNada, b.semNadaComShell]));
+
+  // A PORTA DE CEDER ANOTA OS DOIS DESFECHOS (v1.8.4). O diário só era escrito
+  // quando a lista chegava a ser publicada, e o caminho mais provável de falhar
+  // é o outro — o servidor não subir. Sem a linha, o Registro de quem tentou
+  // ceder e não conseguiu é IDÊNTICO ao de quem nunca tocou no botão.
+  const ligar = JS.match(/^async function cloneLigarCessao\([\s\S]*?^}/m);
+  checar(!!ligar && /cloneAnotar\('ceder'/.test(ligar[0]),
+    'a falha ao LIGAR a cessão entra no diário — não só a publicação da lista');
 
   // O ITEM NUNCA É MATERIALIZADO NO HEAP (v1.8.3). A asserção é ESTRUTURAL de
   // propósito: o que se quer garantir é o PICO de memória, e medir pico num

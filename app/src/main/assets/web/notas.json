@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.4",
+    "itens": [
+      "Salvar o registro por cima de um antigo deixou de misturar os dois arquivos.",
+      "A tentativa de ceder a biblioteca passou a ficar registrada mesmo quando falha."
+    ]
+  },
+  {
     "versao": "1.8.3",
     "itens": [
       "A cópia entre celulares deixou de travar em itens grandes, como os vídeos.",
