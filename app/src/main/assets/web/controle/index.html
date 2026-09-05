@@ -434,20 +434,47 @@
       <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
       <path d="M6.4 4.5v15"/><path d="M17.6 4.5v15"/>
     </symbol>
-    <!-- GIRAR: a seta circular aberta com a ponta em L, o mesmo desenho que
-         morava solto dentro do `#rotBtn` até a v1.4.38. Ela virou símbolo quando
-         o botão virou tile — não porque haja dois consumidores hoje, mas porque
-         o corpo do tile é markup repetido sete vezes e um `<path>` de 200
-         caracteres no meio dele esconde a estrutura da grade.
-         NÃO tem par, e continua não tendo: o estado do giro é um NÚMERO (0°,
-         90°, 180°, 270°), e quatro DESENHOS que só diferem pelo ângulo não se
-         distinguem a 22px. O que a v1.7.2 mudou é outra coisa — o mesmo desenho
-         passou a ser DESENHADO na posição que ele descreve (`.qs-tile` com
-         `data-estado`, no CSS). Um desenho parado a 90° é indistinguível de um
-         a 0°; um que VIRA sob o dedo não é, e é o giro que o toque faz no
-         telão. -->
-    <symbol id="icoGirar" viewBox="0 0 24 24">
-      <path d="M4 12a8 8 0 1 1 2.3 5.6"/><polyline points="4 7 4 12 9 12"/>
+    <!-- O GIRO É UM QUADRO DE PAISAGEM (v1.7.6), e não mais a seta circular.
+         Pedido do operador: *"troque o icone dele, use um icone de picture,
+         paisagem. O próprio quadro vai girar e vai ser mais intuitivo que um
+         seta circular rodando, pois vai literalmente representar em qual
+         posição está a paisagem"*.
+
+         O MECANISMO NÃO MUDOU — o `#rotBtn` já desenhava o ícone na posição que
+         ele descreve desde a v1.7.2 (`data-estado`, no CSS). O que muda é o que
+         está sendo girado: uma seta girada é a AÇÃO desenhada duas vezes (ela
+         já significa "gire"), e a 90° ela é só uma seta apontando para outro
+         lado. Um QUADRO girado é o ESTADO — ele não diz "gire", diz *"a mídia
+         está assim"*, que é a única coisa que este tile tem para mostrar.
+
+         O DESENHO É ASSIMÉTRICO NOS DOIS EIXOS, DE PROPÓSITO, e é exigência
+         dura: sem isso 0° e 180° ficam idênticos, e 90° e 270° também — quatro
+         estados em dois desenhos. O sol no ALTO e o morro EMBAIXO resolvem o
+         eixo vertical; o sol à DIREITA e o morro à ESQUERDA resolvem o
+         horizontal (e a proporção o reforça: deitado × de pé).
+
+         O MORRO NÃO ATRAVESSA O QUADRO DE PAREDE A PAREDE, e isto foi MEDIDO —
+         é a diferença entre um ícone e outro ícone. Um pico que toca as duas
+         paredes com pouco céu acima é a ABA DE UM ENVELOPE, e a 180° o desenho
+         vira o glifo universal de e-mail: quatro candidatos renderizados a 22px
+         e a 58px, e os três que atravessavam liam-se como envelope. Aqui ele
+         ocupa a METADE ESQUERDA e a metade de baixo — sobra CÉU, que é o que
+         faz um quadro ser uma paisagem.
+
+         ELE NÃO É O `#icoImagem` DO TILE VIZINHO, e a distância é deliberada —
+         é a armadilha que o `#icoWallpaper` já pagou nesta mesma grade (*"dois
+         desenhos gêmeos prometendo coisas diferentes"*), e o "Fundo da letra"
+         fica ao lado dele na fileira. Três diferenças, e as três sobrevivem a
+         22px: o quadro é bem mais LARGO (21×13 contra 17×14), o sol está à
+         DIREITA (lá ele está à esquerda) e a serra é um PICO SÓ, na metade
+         esquerda, contra o recorte irregular que atravessa o outro inteiro.
+
+         O centro do quadro é o centro do `viewBox` (12,12) — sem isso o giro
+         do CSS o faria orbitar em vez de VIRAR no lugar. -->
+    <symbol id="icoPaisagem" viewBox="0 0 24 24">
+      <rect x="1.5" y="5.5" width="21" height="13" rx="2.4"/>
+      <circle cx="18" cy="9.5" r="1.7"/>
+      <path d="M2.6 18.4 8.4 10.8l5.8 7.6"/>
     </symbol>
     <!-- WALLPAPER: o ROLO DE PINTURA, e desde a v1.7.2 ele TEM par.
          A razão de não ter continua válida e é o que decidiu a forma do par:
@@ -1198,13 +1225,15 @@
                  destruição, e um ✕ redesenhado dois pixels adiante é uma segunda
                  opinião sobre a mesma coisa.
 
-                 A SETA ENCOLHEU para o ✕ caber. Ela era o `#icoGirar` do tile de
-                 Configurações (arco de raio 8 no centro da caixa, ocupando 4→20);
-                 aqui ela é o mesmo desenho a 0,75 em torno de (10,10), ocupando
-                 4→16 — o canto inferior direito, de 16,4 a 21,5, é do ✕. Por
-                 isso ela é INLINE e não um `<use>`: o símbolo do sprite é o do
-                 tile, e o dia em que um deles mudar de forma o outro não pode ir
-                 junto. O vizinho é inline pela mesma razão.
+                 A SETA ENCOLHEU para o ✕ caber: arco de raio 6 em torno de
+                 (10,10), ocupando 4→16 — o canto inferior direito, de 16,4 a
+                 21,5, é do ✕. Ela é INLINE e não um `<use>`, e a v1.7.6 cobrou
+                 essa decisão: o tile de Configurações trocou a seta circular
+                 pelo QUADRO de paisagem, e nada aqui teve de mudar. **A seta
+                 fica**, porque as duas peças respondem perguntas diferentes — o
+                 tile mostra o ESTADO (a paisagem na posição em que ela está) e
+                 este botão é a AÇÃO (*desfaça*), com o estado ao lado, no
+                 número. O vizinho é inline pela mesma razão.
 
                  E O NÚMERO FICA. Ele é o ESTADO (*está a 90°*), o ✕ é a AÇÃO, e
                  sem ele a faixa teria duas marcas vermelhas de destruição sem
@@ -1628,13 +1657,20 @@
               estado não caiba num desenho não cabe nesta grade.** Não há mais
               onde escrever a palavra, e acrescentá-la de volta para um só
               devolve a segunda linha a todos (a grade tem altura comum).
-           3. **ACESO = A FUNÇÃO ESTÁ LIGADA** (v1.4.40). `qs-on` é
-              `--btn-accent` + `--accent` (a gramática de INTERRUPTOR LIGADO da
-              paleta, nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS —
-              este é um botão que alterna, não um segmento de um par). Quem não
-              tem "desligado" fica aceso o tempo TODO, porque apagado, neste
-              app, quer dizer INDISPONÍVEL — ver a regra `.qs-tile.qs-on` no
-              CSS, que carrega o pedido do operador que a fixou.
+           3. **A COR NÃO DIZ ESTADO NENHUM** (v1.7.6). Todo tile é aceso, o
+              tempo todo: `qs-on` é `--btn-accent` + `--accent` (a gramática de
+              INTERRUPTOR LIGADO da paleta, nunca o `--accent-fill` de ESCOLHA
+              ENTRE ALTERNATIVAS — este é um botão que alterna, não um segmento
+              de um par). A v1.4.40 acendeu os que não tinham "desligado" e
+              deixou dois apagando; o operador encerrou a distinção — *"todos os
+              botões devem ter o mesmo azul de ativo … toda diferença de estado
+              é pelo icone, não pela cor"*. Apagado, neste app, quer dizer
+              INDISPONÍVEL, e com a regra 1 valendo para todos a luz era a
+              segunda cópia da mesma resposta. Ver a regra `.qs-tile.qs-on` no
+              CSS, que carrega o pedido inteiro.
+
+              **Isto reforça a regra 2:** com a palavra fora e a cor fora, o
+              desenho é o único canal que sobrou.
 
            O HISTÓRICO, o COMPARTILHAR, o EXPORTAR e o IMPORTAR não alternam
            nada — eles ABREM uma coisa. Ficam na grade mesmo assim porque o
@@ -1710,25 +1746,29 @@
              Quem pinta cada tile é `pintarTile()` — o `data-estado` é escrito
              lá e é por ele que os oráculos perguntam, nunca pela classe.
 
-             A ORDEM É POR NATUREZA (v1.4.40), e foi pedida: *"ajuste para que
-             esses itens que não se ativam fiquem no topo da listagem e deixe os
-             outros mais em baixo"*. Primeiro os que NÃO têm desligado — tema,
-             preenchimento, wallpaper, histórico —, sempre acesos; depois os que
-             LIGAM E DESLIGAM — fundo da letra e girar —, que apagam quando a
-             função está desligada.
+             A ORDEM É POR ASSUNTO (v1.7.6), e foi pedida: *"reordene os
+             botões: compartilhar, exportar e importar devem ser os tres itens
+             da base"*. As SEIS preferências da PROJEÇÃO em cima — tema,
+             preenchimento, wallpaper, histórico, fundo da letra, girar —, e as
+             TRÊS coisas que se fazem com o APP fora dela embaixo, numa fileira
+             inteira e sozinha.
 
-             UMA GRADE SÓ, e não duas com um respiro entre elas: uma grade
-             própria para o primeiro grupo deixaria buracos no meio do painel —
-             que se leem como defeito, não como separação. Numa grade só a ordem
-             já responde ao pedido, e quem desenha o grupo é a própria COR: os
-             primeiros são azuis, e o bloco azul se lê mesmo virando a linha.
+             ELA ERA POR NATUREZA (v1.4.40: primeiro os que não têm desligado,
+             depois os que ligam e desligam), e essa ordem deixou de existir no
+             MESMO lote — nenhum tile apaga mais, então não há duas naturezas de
+             LUZ para ordenar.
+
+             UMA GRADE SÓ, e não duas com um respiro entre elas: um respiro
+             seria uma segunda maneira de dizer o que a fileira já diz, e uma
+             grade própria para um dos grupos deixaria buracos no meio do painel
+             — que se leem como defeito, não como separação.
 
              NOVE TILES desde a v1.7.2, e é por isso que a grade fecha em TRÊS
-             fileiras exatas: as três ações DESTE APARELHO (compartilhar,
-             exportar, importar) desceram para cá quando o rótulo "Este
-             aparelho" saiu, a pedido do operador. Elas são a mesma peça — ícone
-             e título, o mesmo gesto — e entram na ordem por natureza: antes dos
-             dois que apagam.
+             fileiras exatas: as três ações DESTE APARELHO desceram para cá
+             quando o rótulo "Este aparelho" saiu, a pedido do operador. Elas
+             são a mesma peça — ícone e título, o mesmo gesto. **A costura entre
+             as duas naturezas cai exatamente entre duas fileiras**, e é isso
+             que um décimo tile quebraria: o `smoke.mjs` cobra a divisão exata.
 
              SEM A PALAVRA DO ESTADO (v1.7.2), a pedido: *"remova o subtítulo dos
              botões das configurações, todo tipo de informação além do nome deve
@@ -1812,12 +1852,51 @@
                eu já toquei?", "o que tocamos no sábado passado?"). Quem herdou
                a célula foi o auxiliar de leitura (ver `#lyricsViewBtn`).
 
-               É O ÚNICO TILE COM `qs-on` ESCRITO NO HTML, e o motivo é que ele
-               é o único que nenhuma função pinta: ele não tem estado nenhum —
-               abre uma folha e pronto. -->
+               O `qs-on` DELE ESTÁ NO HTML porque nenhuma função o pinta: ele
+               não tem estado nenhum — abre uma folha e pronto. Os outros oito
+               passam pelo `pintarTile`, que escreve a classe na carga (e desde
+               a v1.7.6 sempre a escreve: a grade tem uma cor só). -->
           <button type="button" class="qs-tile qs-on" id="histOpenRow" title="O que já foi ao telão">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoHistorico"/></svg>
             <span class="qs-titulo">Histórico</span>
+          </button>
+          <!-- IMAGENS DOS SLIDES DA MÚSICA: cada estrofe do hino traz uma
+               imagem de fundo baixada com ele. Removê-las deixa a letra sobre
+               preto.
+               QUEM DIZ O ESTADO É O DESENHO — imagem inteira × imagem riscada.
+               Ele foi o último tile a apagar junto com a função (v1.7.6): com o
+               par de desenhos à vista, a luz era a segunda cópia da mesma
+               resposta, dita na tinta que este app reserva para INDISPONÍVEL. -->
+          <button type="button" class="qs-tile" id="lyricsBgTile" title="Mostrar ou remover a imagem de fundo das estrofes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoImagem"/><use class="ico-alt" href="#icoImagemOff"/>
+            </svg>
+            <span class="qs-titulo">Fundo da letra</span>
+          </button>
+          <!-- GIRAR: a mesma AÇÃO de sempre, que avança 90° por toque e dá a
+               volta. Ninguém pensa em "270°", pensa em "gira mais uma vez até
+               ficar de pé".
+
+               O ÍCONE GIRA COM A MÍDIA (v1.7.2), e desde a v1.7.6 ele é o
+               QUADRO DE PAISAGEM. O rótulo dizia o ângulo e ele saiu com a
+               palavra do estado; a resposta não é um desenho novo — a v1.4.38
+               já tinha medido que quatro desenhos parecidos não se distinguem a
+               22px — mas o MESMO desenho na posição que ele descreve, e ela
+               chega pelo movimento: o quadro VIRA sob o dedo, que é o que o
+               toque faz com o telão. Ver o `#icoPaisagem` no sprite.
+
+               ELE NÃO APAGA A 0°, como nenhum outro (v1.7.6). O apagado
+               tentava dizer "no padrão" na única tinta que este app já usa para
+               INDISPONÍVEL, e aqui era ainda mais barato perdê-lo: o ângulo já
+               está no desenho, e o desfazer mora sobre a preview, com a
+               projeção à vista.
+
+               O TÍTULO DIZ ONDE (v1.4.41), a pedido do operador: *"adicione no
+               título 'girar' algo que deixe claro que está girando a
+               visualização do telão e não o aplicativo ou a tela do celular"*. -->
+          <button type="button" class="qs-tile" id="rotBtn" title="Girar a mídia no telão — não gira o app nem a tela do celular">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoPaisagem"/></svg>
+            <span class="qs-titulo">Girar no telão</span>
           </button>
           <!-- ===== AS TRÊS AÇÕES DESTE APARELHO — na MESMA grade (v1.7.2) =====
                Elas moravam num bloco à parte, sob o rótulo "Este aparelho", e o
@@ -1838,10 +1917,19 @@
                SAF e o canal de bytes —, e um botão que só sabe não funcionar é
                pior que botão nenhum.
 
-               ELES FICAM ANTES dos dois que APAGAM, e é a ordem por natureza da
-               v1.4.40 aplicada com nove tiles: primeiro os que estão sempre
-               acesos, depois os que ligam e desligam. Trocar isso deixaria dois
-               apagados no meio de um bloco azul. -->
+               ELES SÃO A ÚLTIMA FILEIRA (v1.7.6), a pedido: *"reordene os
+               botões: compartilhar, exportar e importar devem ser os tres itens
+               da base"*. Eles estavam ANTES dos dois que então apagavam, pela
+               ordem por natureza da v1.4.40 (primeiro os sempre acesos, depois
+               os que ligam e desligam) — e essa ordem deixou de existir no mesmo
+               lote, porque nenhum tile apaga mais. Sem ela sobra a ordem por
+               ASSUNTO, que é a que o pedido nomeia: as seis preferências da
+               PROJEÇÃO em cima, o que se faz com o APP fora dela embaixo, numa
+               fileira inteira e sozinha.
+
+               A grade fecha em TRÊS fileiras exatas nos dois arranjos — o que
+               muda é onde a costura cai, e agora ela cai entre as duas
+               naturezas. -->
           <button type="button" class="qs-tile qs-on" id="shareAppTile" title="Compartilhar o link para baixar o app">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCompartilhar"/></svg>
             <span class="qs-titulo">Compartilhar</span>
@@ -1865,41 +1953,6 @@
           <button type="button" class="qs-tile qs-on" id="pacoteImportarTile" title="Trazer a biblioteca e os ajustes de um arquivo">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoImportar"/></svg>
             <span class="qs-titulo">Importar</span>
-          </button>
-          <!-- ===== DAQUI PARA BAIXO, OS QUE LIGAM E DESLIGAM =====
-               IMAGENS DOS SLIDES DA MÚSICA: cada estrofe do hino traz uma
-               imagem de fundo baixada com ele. Removê-las deixa a letra sobre
-               preto.
-               ACESO É "Mostrar": a função ligada é a imagem aparecer, e é assim
-               que o desenho (imagem inteira × imagem riscada) e a luz dizem a
-               mesma coisa. -->
-          <button type="button" class="qs-tile" id="lyricsBgTile" title="Mostrar ou remover a imagem de fundo das estrofes">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoImagem"/><use class="ico-alt" href="#icoImagemOff"/>
-            </svg>
-            <span class="qs-titulo">Fundo da letra</span>
-          </button>
-          <!-- GIRAR: a mesma AÇÃO de sempre, que avança 90° por toque e dá a
-               volta. Ninguém pensa em "270°", pensa em "gira mais uma vez até
-               ficar de pé".
-               É dos que APAGAM: `0°` é o giro desligado, e essa é a única
-               posição em que a mídia sai como veio.
-
-               O ÍCONE GIRA COM A MÍDIA (v1.7.2). O rótulo dizia o ângulo e ele
-               saiu com a palavra do estado; a resposta não é um desenho novo —
-               a v1.4.38 já tinha medido que quatro desenhos parecidos não se
-               distinguem a 22px — mas o MESMO desenho na posição que ele
-               descreve. Uma seta que aponta para cima, para a direita, para
-               baixo e para a esquerda é a informação inteira, e ela chega pelo
-               movimento: o ícone VIRA sob o dedo, que é o que o toque faz com o
-               telão.
-
-               O TÍTULO DIZ ONDE (v1.4.41), a pedido do operador: *"adicione no
-               título 'girar' algo que deixe claro que está girando a
-               visualização do telão e não o aplicativo ou a tela do celular"*. -->
-          <button type="button" class="qs-tile" id="rotBtn" title="Girar a mídia no telão — não gira o app nem a tela do celular">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGirar"/></svg>
-            <span class="qs-titulo">Girar no telão</span>
           </button>
         </div>
         <!-- O REGISTRO, e é UM só (v5.121). Ele nasceu como a caixa-preta do
@@ -1988,7 +2041,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">Áudio Visual IASD v1.7.5</span>
+          <span id="appVersion" class="app-version">Áudio Visual IASD v1.7.6</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o

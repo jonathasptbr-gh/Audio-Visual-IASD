@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.7.6",
+    "itens": [
+      "Nenhum botão das Configurações fica apagado: o estado é dito pelo ícone.",
+      "O botão de girar mostra um quadro de paisagem, que vira junto com a mídia.",
+      "Compartilhar, exportar e importar passaram a ser a última fileira da grade."
+    ]
+  },
+  {
     "versao": "1.7.5",
     "itens": [
       "No histórico, cada dia virou um bloco com a lista dele dentro.",
