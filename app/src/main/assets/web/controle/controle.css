@@ -7418,7 +7418,42 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    em cena, com scroll. O telão mostra uma estrofe/um versículo por vez; aqui o
    operador vê o todo e sabe o que vem depois. A linha no ar fica destacada e a
    lista a acompanha sozinha até o operador rolar com o dedo (ver lvFollow). */
-.lyricsview-seg { padding: .6rem .9rem .2rem; flex-shrink: 0; }
+/* O SELETOR DE FONTES RESPIRA DOS DOIS LADOS, e nenhum dos dois vinha de graça
+   (v1.6.4).
+
+   ACIMA ele era uma margem DUPLICADA: o `.popup-header` já fecha com
+   `padding-bottom: .7rem` (11,2px) e o seletor abria com `.6rem` (9,6px) — 20,8px
+   entre duas fileiras de controles, contra os ~10px que o resto da folha usa. O
+   recuo de cima vai a ZERO e quem separa passa a ser o do cabeçalho, que é de
+   quem a decisão é: o cabeçalho é que sabe quanto quer respirar do que vem
+   abaixo, e ele é o mesmo nas quatro fontes.
+
+   ABAIXO o vão era da BARRA, que saiu na v1.6.3 — ela deixava 9,6px entre si e o
+   corpo (`margin-bottom: .6rem`), e sem ela o seletor ficou a 3,2px da caixa de
+   texto, encostado. O `.6rem` daqui devolve exatamente os 9,6px que a barra
+   dava: o número não é novo, é o que estava lá antes de a barra sair. */
+.lyricsview-seg { padding: 0 .9rem .6rem; flex-shrink: 0; }
+/* ===== A JANELA DO AUXILIAR TEM TAMANHO PRÓPRIO (v1.6.4) =====
+
+   Relato do operador: *"a janela do auxiliar de leitura é encolhida quando não
+   há cifra, isso muda a posição do botão de navegação dessa janela"*.
+
+   A `.popup-sheet` é dimensionada pelo CONTEÚDO até o teto de `80vh`, e é a
+   regra certa para uma gaveta que responde a um toque — a de Configurações não
+   tem por que ocupar a tela inteira. Aqui ela erra: esta folha é um LEITOR, e
+   quem a abre alterna entre fontes com o dedo no seletor. Uma cifra que não foi
+   encontrada tem uma frase de conteúdo e encolhe a janela, e o seletor sobe
+   junto — o alvo se move debaixo do dedo de quem ia tocar em "Letra" para sair
+   dali. É a mesma razão pela qual o botão de velocidade ganhou largura fixa na
+   v1.6.2: *um controle que se desloca sob o dedo erra o alvo na segunda batida*.
+
+   `height` no lugar de `max-height`, com o MESMO valor: a janela deixa de
+   depender do que coube dentro dela, e a sobra vai para a caixa de texto
+   (`.lyricsview-body` é `flex: 1`), que é onde ela não atrapalha ninguém.
+
+   A TELA CHEIA CONTINUA MANDANDO: `#lyricsPopup:fullscreen .popup-sheet` é
+   (1,1,1) contra os (1,0,1) daqui, e lá a folha é `height: 100%`. */
+#lyricsPopup .popup-sheet { height: 80vh; }
 /* O CORPO É UMA CAIXA, e a caixa é o que diz "há mais texto aqui dentro"
    (v1.1.11). Sem ela o texto terminava no ar contra o fundo da folha, e não
    havia como distinguir "acabou" de "está cortado" — a rolagem só se descobria
@@ -7781,6 +7816,16 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    abrir a folha; quem o tira da vista é esta regra, não um `textContent` vazio. */
 #lyricsPopup.lv-cifra-cabecalho .popup-title,
 #lyricsPopup.lv-cifra-cabecalho .popup-header-icon { display: none; }
+/* E QUEM EMPURRAVA O A+/A− E O ✕ PARA A DIREITA ERA O TÍTULO (v1.6.4): ele é
+   `flex: 1`, isto é, o ESPAÇADOR da linha. Escondê-lo juntou os três blocos à
+   esquerda — MEDIDO, o último terminava em x=331,6 numa caixa que vai até 414,
+   com 82,4px de sobra à direita, e o ✕ saía do canto em que ele mora nas outras
+   três fontes.
+
+   O `margin-right: auto` devolve a folga ao MESMO lugar em que o título a punha,
+   sem dar ao contêiner da fila uma caixa que cresce: os botões continuam com a
+   largura deles, e o que estica é o vão. */
+#lyricsPopup.lv-cifra-cabecalho .lv-cifra-ctl { margin-right: auto; }
 
 /* ===== O CABEÇALHO DA OBRA, DENTRO DA CAIXA QUE ROLA (v1.6.3) =====
 

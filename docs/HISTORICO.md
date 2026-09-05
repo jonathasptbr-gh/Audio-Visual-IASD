@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.6.5** — OS TRÊS VÃOS QUE A BARRA DEIXOU, E O ESPAÇADOR QUE ERA O TÍTULO. Relatos do operador: o seletor Letra/Cifra *"está sem margem"* contra a caixa de texto, tem *"margem em excesso acima… me parece uma margem duplicada"*, e o A+/A− com o ✕ *"ficaram puxados para a esquerda, colados nos outros botões, se movendo de sua posição original correta"*. **Os três são de LAYOUT e falham calados** — nada lança, nada some, e um teste de comportamento passa por cima deles. (1) O vão ABAIXO era da BARRA: ela deixava 9,6px entre si e o corpo, e ao sair na v1.6.3 levou isso junto — MEDIDO, sobraram 3,2px e o seletor ficou encostado. O `.6rem` que volta é o MESMO número que a barra dava, não um novo. (2) O vão ACIMA era mesmo DUPLICADO, e é anterior a estes lotes: o `.popup-header` fecha com 11,2px e o seletor abria com mais 9,6 — 20,8px entre duas fileiras de controles, contra os ~10px do resto da folha. O recuo de cima vai a ZERO e quem separa passa a ser o do cabeçalho, que é de quem a decisão é (ele é o mesmo nas quatro fontes). (3) O terceiro é DEFEITO DA v1.6.3: `.popup-title` é `flex: 1` — ele era o ESPAÇADOR da linha —, e escondê-lo na aba de cifra colapsou os três blocos à esquerda. MEDIDO: o último terminava em x=331,6 numa caixa que vai até 414, com 82,4px de sobra. `margin-right: auto` na fila devolve a folga ao mesmo lugar, sem dar ao contêiner uma caixa que cresce. **A ASSERÇÃO DO TERCEIRO É UMA COMPARAÇÃO, e de propósito:** não há x absoluto certo, há o lugar que as quatro abas compartilham — o ✕ e o A+/A− têm de cair no MESMO x na cifra e na letra. Um número fixo no oráculo envelheceria no primeiro ajuste do cabeçalho. Lote **só de base web**.
 - **v1.6.4** — O VÍDEO EMBUTIDO NUMA APRESENTAÇÃO, E O TETO QUE A RECUSAVA. Relato do operador, com captura: um `.pptx` recusado com *"não pôde ser lido"* e o detalhe `PPTX zip limit exceeded: ppt/media/media3.mp4 is 82733397 bytes > maxEntryUncompressedBytes 33554432`. **A causa não era o arquivo:** o app passava ao renderizador o `RECOMMENDED_ZIP_LIMITS` da própria biblioteca (`deck.js:422`), cujo teto por ENTRADA é 32 MiB, e a recusa acontece na varredura do DIRETÓRIO CENTRAL do zip — antes de descomprimir um byte. O absurdo do caso está medido: o vídeo de 78,9 MiB nunca viraria pixel, porque `embutirRecursos` não alcança `<video>` (a QUARTA coisa que o `<foreignObject>` perde, e a única que faltava na lista) e o renderizador o desenha como `<video preload="none">` sobre fundo preto. **E o arquivo real tem 570 MB**, o que derruba a correção óbvia: `Ow` (no buildado) sempre materializa o ArrayBuffer, então subir o teto poria 570 MB no heap de um processo que hospeda os dois WebViews e a `Presentation`. **A saída é `controle/pptxzip.js`** (`AVPptxZip`, PURO, oráculo próprio): ele lê o índice do zip por `Blob.slice()` — preguiçoso, sem copiar byte nenhum —, separa os vídeos e remonta um `.pptx` enxuto com os bytes COMPRIMIDOS copiados verbatim, com o CRC e os tamanhos que o índice já declara: nada é recomprimido, e descompressão só acontece nos `.rels`, para saber qual vídeo é de qual slide. No enxuto o renderizador não acha a mídia e cai no ramo do PÔSTER, que desenha o quadro de capa como `<img>` — a única forma que o `embutirRecursos` sabe embutir. **As duas armadilhas do formato estão no oráculo com REVERSÃO:** o cabeçalho LOCAL tem campos de nome e extra PRÓPRIOS (deduzir o início dos bytes do índice entrega bytes DESLOCADOS, não um erro — MEDIDO, 16 bytes numa fixture que imita o PowerPoint), e a ORDEM dos slides sai do `sldIdLst` e nunca dos nomes dos arquivos (numa apresentação REORDENADA as duas divergem, e o vídeo tocaria no slide errado, sem sintoma). **A AUTOMAÇÃO é o pedido do operador ao pé da letra** — *"faça as interações de forma automática, como iniciar e voltar para a apresentação prosseguindo para o próximo slide"*. Ela mora no `controle.js` e NÃO no `stage.js`: o motor de projeção é o caminho que desenha na frente da congregação, e tudo o que este recurso precisa já existe como comando — chegar na página manda um `load` do vídeo (`deckIr` → `deckVideoTalvezTocar`), o fim dele manda um `load` da apresentação na página SEGUINTE (`autoAdvance` → `deckVideoVoltar`, e é o `autoAdvance` porque ele é o ponto único por onde o `media-ended` do telão e o `onEnded` da preview passam). Fade, cortina, telas da rede, barra e notificação vêm de graça, e nenhuma linha nova roda no telão. **Três decisões declaradas:** abrir a apresentação NÃO conta como chegar na página (ali o operador acabou de escolher projetar os SLIDES, e entregar-lhe um vídeo no mesmo toque tira dele a única ação deliberada antes de o telão mudar); a automação só vale com a apresentação como MÍDIA, nunca como CAMADA (ali há um louvor tocando por baixo, e trocar a cena o mataria); e projetar qualquer outra coisa DESARMA a volta, senão a apresentação voltaria por cima do que o operador escolheu. **Os vídeos não entram em lista nenhuma**, e quem os segura é a própria apresentação: `lerDetentores` desce no `videos` de um registro `deck`, como já descia nos `data.ids` de um `cue` — o percurso da morte é o mesmo, tirar a apresentação da última lista a mata na hora e o `gcOrfaos` da abertura seguinte recolhe os vídeos. **O que a escrita do oráculo achou e corrigiu:** a primeira versão dele afirmava que `listRemove` cascateia (não cascateia — o comentário do `db.js` foi reescrito), e a primeira campanha usava `waitForFunction` cru, cuja exceção MATA o processo — as reversões saíam como crash em vez de reprovação atribuível, que é o anti-padrão *"prazo lido como veredito"* deste repositório; hoje as esperas passam por `esperar()`/`porque()`. **E A MENSAGEM PASSOU A SEGUIR O MOTIVO:** o diálogo mandava procurar SENHA num arquivo que não tinha e salvar como `.pptx` um arquivo que já era `.pptx` — duas instruções que não resolvem nada, num sábado de manhã, com o app SABENDO o motivo e não o usando. Oráculos novos: `tools/pptxzip.test.mjs` (26 asserções, com reversão no deslocamento e na ordem) e `tools/pptx-video-na-pagina.test.mjs` (reversão em QUATRO eixos). Lote **só de base web**.
 - **v1.6.3** — O TÍTULO E O TOM PARA DENTRO DA CAIXA, E A MARGEM QUE A INTRO NÃO TINHA. Pedido do operador: *"antes do início do texto, coloque o título da obra, e o tom. tudo dentro da caixa do texto, um abaixo do outro com uma linha entre eles e duas entre o início da intro/cifras"* — e a razão, que é o que decide o desenho: *"percebi que mesmo o texto rolando devagar, pelo fato da intro estar colada no topo, ele acaba sempre cortando ela no início, então vamos criar uma 'margem natural' para esse início da informação"*. **A RAMPA DA v1.6.2 NÃO BASTAVA, e o motivo é aritmético:** ela fez a folha andar POUCO, mas a primeira linha começa no pixel ZERO — qualquer deslocamento já a corta. MEDIDO com a margem: a cifra passa a começar a **94px** do topo (15,6% da caixa), e aos **12s** de rolagem a primeira linha de acorde continua INTEIRA na tela. **OS ESPAÇOS SÃO A LINHA DA FOLHA, não números novos:** `--cifra-linha` é a altura de linha renderizada de `.lv-cifra-folha`, e é dela que saem "uma linha" e "duas linhas" — MEDIDO, 28,18px e 56,36px (2,00 linhas exatas). O bloco é IRMÃO da folha e nunca filho: `cifraColunas` mede uma amostra dentro de `.lv-cifra-folha` para a quebra por caractere, e um filho de outra fonte ali contamina a medida — a folha quebraria errado PARECENDO certa. E ele ROLA JUNTO: fixo, seria mais um rótulo cobrando altura, e a intro continuaria colada. **O TOM SAIU DA BARRA e a barra saiu com ele** — ficara só com botões —, e a fila subiu para o cabeçalho, *"onde fica atualmente o nome da música"*, que pôde recebê-la porque o nome desceu. MEDIDO: a fila tem 195,6px e a caixa de conteúdo do cabeçalho tem 328px a 360px de tela, então com o título no lugar seriam 343,6px — estoura por 15,6; o ícone, que acompanhava o título, se esconde junto. O `#lyricsPopupTitle` continua ESCRITO (é o que o leitor de tela anuncia); quem o tira da vista é o CSS. **A COLUNA DEITADA mudou de forma:** sem a barra, o cabeçalho ocupa as duas linhas do grid, com `space-between` pondo a fila no topo e o A+/A− no pé — os dois extremos do alcance do polegar. O ⛶ segue sendo o ÚLTIMO da fila e deixou de ser o controle mais baixo da coluna; a asserção do oráculo foi reescrita para dizer isso, com o par que prova que a distribuição sobreviveu. **A NOTA DA ROLAGEM SAIU INTEIRA**, a pedido. **E O LOTE QUEBROU O APP NO MEIO DO CAMINHO, de um jeito que fica registrado:** ao remover a nota, o corte pegou do MEIO de um bloco de comentário, e o `/**` órfão passou a engolir a função seguinte. O `node --check` APROVOU — é sintaticamente válido —, e o sintoma na tela foi *"Sem resposta da internet"*, porque o `.catch` do caminho da cifra traduz QUALQUER exceção em `MOTIVO_SEM_REDE`. Um erro de comentário chegando como falha de rede é o argumento inteiro da regra de que **poda de comentário se PROVA, não se confere de olho**. Lote **só de base web**.
 - **v1.6.2** — A ESPERA PARADA VIROU RAMPA, E O BOTÃO DE VELOCIDADE VIROU QUADRADO. Pedido do operador: *"revise o sistema da mensagem sobre o autoscroll, infelizmente não achei o sistema responsivo… ao invés de ficar parado esperando para se mover, faça com que haja nesse início, uma velocidade extremamente lenta por um tempo, mas ainda perceptível, para que o usuário entenda que começou, mas que no fim das contas, o texto inicial onde fica a introdução da música, fique realmente visível por um bom tempo"* — e *"diminua a fonte do botão de 1x para que ele seja um botão exatamente do mesmo tamanho e quadrado como os seus vizinhos"*. **A ESPERA PARADA DA v1.5.20 ESTÁ REVOGADA:** ela prometia deixar ler a introdução e cumpria ficando IMÓVEL, e imobilidade não se distingue de um botão quebrado — foi o que o operador leu como falta de resposta. No lugar, `AVCifra.rampaInicialDaRolagem` e `AVCifra.ritmoDaRampa` (PURAS, com oráculo): a folha arranca no primeiro quadro e acelera até o compasso cheio. MEDIDO em Chromium: o primeiro pixel anda em **253ms** — o toque tem resposta —, e mesmo assim aos 3s ela consumiu 2,3% da caixa, aos 8s 9,2% e aos 12s **25%**: a introdução continua na tela. **O EXPOENTE É 3, e a régua que o escolhe é quanto da folha a rampa consome** — a quadrática leva meia tela embora antes de a rampa acabar, e a quártica roda a maior parte do tempo abaixo de 6 px/s, que é a espera de volta com outro nome. **E O FECHO DA JANELA FOI RESOLVIDO POR CONSTRUÇÃO, não aceito como perda:** a rampa deixa a folha `T·k` segundos atrás, e a duração é escolhida para que todo marco além dela seja atingido no MESMO instante de relógio de antes — a rampa custa exatamente o que a espera custava, e nunca fica atrás dela (as duas posições coincidem em `t = T` e a da rampa é maior antes disso, porque a outra é zero). **A NOTA FICOU, REESCRITA:** ela deixou de explicar uma imobilidade e passou a descrever o arranque — *"Ao tocar, rola devagar na introdução e depois no ritmo da música"* —, e continua dizendo o ritmo da música só onde isso é verdade. A frase tem 65 caracteres de propósito: MEDIDO, uma de 99 vira DUAS linhas e leva a barra de 53,98 a 69,97px — dezesseis pixels tirados da folha em toda música. **O BOTÃO QUADRADO custou o corpo**, e as outras duas alavancas mediram ZERO: `tabular-nums` dá 31,72px com e sem, e o peso muda 2,31px em `system-ui` e nada em Arial (lá o negrito é sintético). `--fs-2xs` (9,6px) é o único degrau que cabe em 34px com o rótulo mais largo (`0,75×`, 31,72px), contra 13,12px dos vizinhos — o preço está dito, e o degrau `0,75` NÃO foi removido porque ninguém pediu. E a largura FIXA é mais forte que o `min-width` que ela substitui: aquele era um piso sobre `width: auto`, e sob a família larga a caixa crescia, empurrava os vizinhos e transbordava a coluna deitada. Lote **só de base web**.
@@ -346,6 +347,80 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.6.5 — os três vãos que a barra deixou
+
+Três relatos de LAYOUT, e os três falham calados: nada lança, nada some, e um
+teste de comportamento passa por cima deles.
+
+| relato | antes | depois |
+|---|---|---|
+| sem margem abaixo do seletor | 3,2px | 9,6px |
+| margem duplicada acima | 20,8px | 11,2px |
+| A+/A− e ✕ puxados à esquerda | x=219,6 / 297,6 | x=302 / 380 |
+
+### O vão de baixo era da barra
+
+Ela deixava 9,6px entre si e o corpo (`margin-bottom: .6rem`), e ao sair na
+v1.6.3 levou isso junto — sobraram os 3,2px do próprio seletor. O `.6rem` que
+volta é o MESMO número que a barra dava; não é um espaçamento novo escolhido
+agora.
+
+### O vão de cima era mesmo duplicado, e é anterior a estes lotes
+
+O `.popup-header` fecha com `padding-bottom: .7rem` (11,2px) e o seletor abria
+com `.6rem` (9,6px): 20,8px entre duas fileiras de controles, contra os ~10px
+que o resto da folha usa. O recuo de cima vai a ZERO, e quem separa passa a ser
+o do cabeçalho — que é de quem a decisão é, porque ele é o mesmo nas quatro
+fontes e sabe quanto quer respirar do que vem abaixo.
+
+### O terceiro é defeito da v1.6.3, e a causa é uma linha de CSS alheia
+
+`.popup-title` é `flex: 1`. Ele não era só um rótulo — **era o ESPAÇADOR da
+linha**, e escondê-lo na aba de cifra colapsou os três blocos à esquerda.
+MEDIDO: o último terminava em x=331,6 numa caixa que vai até 414, com 82,4px de
+sobra à direita, e o ✕ saía do canto em que mora nas outras três fontes.
+
+`margin-right: auto` na fila devolve a folga ao mesmo lugar em que o título a
+punha, sem dar ao contêiner dela uma caixa que cresce: os botões mantêm a
+largura, e o que estica é o vão.
+
+### E a janela encolhia quando não havia cifra
+
+Quarto relato do mesmo lote: *"a janela do auxiliar de leitura é encolhida
+quando não há cifra, isso muda a posição do botão de navegação dessa janela"*.
+
+A `.popup-sheet` é dimensionada pelo CONTEÚDO até o teto de `80vh` — regra certa
+para uma gaveta que responde a um toque, errada para um LEITOR em que se alterna
+entre fontes com o dedo no seletor. Uma cifra não encontrada tem uma frase por
+conteúdo, e a folha inteira encolhia.
+
+MEDIDO por reversão, com a animação assentada:
+
+| | altura | seletor |
+|---|---|---|
+| cifra encontrada | 720px | y=238 |
+| cifra não encontrada, sem o conserto | **178,9px** | y=**779** |
+| com o conserto | 720px nos dois | y=238 nos dois |
+
+O seletor saltava **541px** — e ele é justamente o botão que se usa para SAIR da
+cifra. É o princípio que deu largura fixa ao botão de velocidade na v1.6.2: *um
+controle que se desloca sob o dedo erra o alvo na segunda batida*.
+
+`height` no lugar de `max-height`, com o MESMO valor: a sobra vai para a caixa de
+texto, que já é a que cresce. A tela cheia continua mandando — lá a regra é mais
+específica e a folha é `height: 100%`.
+
+### A asserção é uma COMPARAÇÃO, e isso é a decisão
+
+Não existe x absoluto certo para o ✕ — existe o lugar que as quatro abas
+compartilham. Por isso o oráculo mede a cifra CONTRA a letra: um número fixo
+escrito no teste envelheceria no primeiro ajuste do cabeçalho, e o que ele
+guardaria seria a memória de um layout, não a regra. Vale igual para a altura:
+`80vh` depende da tela, e o oráculo compara a aba de cifra com a de letra em vez
+de fixar um número.
+
+Lote **só de base web**: `version.json` sem `shellTag`.
 
 ## v1.6.4 — o vídeo embutido numa apresentação
 

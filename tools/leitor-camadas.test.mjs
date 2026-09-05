@@ -339,6 +339,101 @@ try {
   checar(abertaFica.ativa === 'cifra' && abertaFica.fontes[0] === 'bible',
     'com a folha ABERTA a frente que muda NÃO troca a aba embaixo do dedo de '
     + 'quem está lendo — a Bíblia entra na lista e espera o toque', abertaFica);
+
+  // ── 12. A GEOMETRIA DO CABEÇALHO NÃO MUDA COM A ABA (v1.6.4) ──────────────
+  //
+  // Relatos do operador: o seletor de fontes *"está sem margem"* contra a caixa
+  // de texto, tinha *"margem em excesso acima… me parece uma margem duplicada"*,
+  // e o A+/A− com o ✕ *"ficaram puxados para a esquerda, colados nos outros
+  // botões, se movendo de sua posição original correta"*.
+  //
+  // Os três são de LAYOUT e falham CALADOS: nada lança, nada some, e um teste de
+  // comportamento passa em cima deles. O terceiro é o mais insidioso porque não
+  // tem valor absoluto CERTO — o que existe é uma posição que as quatro abas
+  // compartilham, e a régua é a COMPARAÇÃO entre elas.
+  await pg.evaluate(() => window.__cena(window.__musica(), null));
+  await abrir();
+  // A FOLHA ENTRA POR `transform`, e medir no meio da animação mede o agendador
+  // e não o layout — foi o que aconteceu na primeira escrita deste bloco. Quem
+  // responde "já assentou?" é a própria animação, nunca um prazo.
+  const assentar = () => pg.evaluate(() => Promise.all(
+    lyricsPopupEl.querySelector('.popup-sheet').getAnimations()
+      .map((a) => a.finished.catch(() => {})),
+  ));
+  const geo = async () => { await assentar(); return pg.evaluate(() => {
+    const h = lyricsPopupEl.querySelector('.popup-header');
+    const seg = lyricsPopupEl.querySelector('.lyricsview-seg');
+    const px = (e, p) => parseFloat(getComputedStyle(e)[p]);
+    return {
+      fonte: lvActiveSource(),
+      // O vão é a SOMA dos recuos que se encostam — as caixas ficam coladas, e
+      // medir a distância entre elas daria zero nas duas versões.
+      acima: +(px(h, 'paddingBottom') + px(seg, 'paddingTop')).toFixed(1),
+      abaixo: +(lyricsViewBodyEl.getBoundingClientRect().top
+        - seg.getBoundingClientRect().bottom + px(seg, 'paddingBottom')).toFixed(1),
+      altura: +lyricsPopupEl.querySelector('.popup-sheet')
+        .getBoundingClientRect().height.toFixed(1),
+      segY: +seg.getBoundingClientRect().top.toFixed(1),
+      fecharX: +lyricsPopupEl.querySelector('.popup-close')
+        .getBoundingClientRect().left.toFixed(1),
+      fonteX: +lyricsPopupEl.querySelector('.lv-fonte-ctl')
+        .getBoundingClientRect().left.toFixed(1),
+    };
+  }); };
+  // A FONTE É POSTA À MÃO: os blocos acima deixam a folha onde a cena os levou,
+  // e comparar "a letra" com "a cifra" exige que a primeira SEJA a letra.
+  await pg.evaluate(() => { lvSource = 'lyrics'; renderLyricsView(); });
+  const naLetra = await geo();
+  await pg.evaluate(() => { lvSource = 'cifra'; renderLyricsView(); });
+  // Espera pelo FATO que a geometria depende — a fila revelada no cabeçalho —,
+  // nunca pela folha: a ponte de mentira deste oráculo não serve cifra, e o
+  // cabeçalho é montado ANTES dos retornos cedo justamente para não depender
+  // dela (é a invariante da saída, do `lvBuildCifra`).
+  await pg.waitForSelector('#lyricsCifraCtl:not([hidden])', { timeout: 15000 });
+  const naCifra = await geo();
+
+  // REVERSÃO: devolver `padding-top: .6rem` ao `.lyricsview-seg` reprova aqui.
+  checar(naLetra.acima < 14 && naCifra.acima < 14,
+    'o seletor de fontes NÃO acumula o recuo do cabeçalho com o próprio: quem '
+    + 'separa é um só, e 20,8px entre duas fileiras de controles era a margem '
+    + 'duplicada que o operador viu', { naLetra, naCifra });
+  // REVERSÃO: devolver `padding-bottom: .2rem` reprova aqui — era o que sobrou
+  // quando a barra da cifra saiu e levou junto o vão que ela dava.
+  checar(naLetra.abaixo >= 8 && naCifra.abaixo >= 8,
+    'e ele RESPIRA da caixa de texto logo abaixo: sem isso o seletor fica '
+    + 'encostado nela, que foi o relato', { naLetra, naCifra });
+  // ← A QUE CARREGA O TERCEIRO RELATO, e ela é uma COMPARAÇÃO de propósito: não
+  // há x absoluto certo, há o lugar que as abas compartilham. REVERSÃO: tirar o
+  // `margin-right: auto` da `.lv-cifra-ctl` puxa os dois para a esquerda na
+  // cifra e só nela — exatamente o que o operador descreveu.
+  checar(naCifra.fecharX === naLetra.fecharX && naCifra.fonteX === naLetra.fonteX,
+    'e o ✕ e o A+/A− ficam no MESMO lugar na cifra e na letra — o título era o '
+    + 'espaçador da linha, e escondê-lo na cifra não pode mover o que mora à '
+    + 'direita dele', { naLetra, naCifra });
+
+  // ── 13. A JANELA NÃO ENCOLHE QUANDO NÃO HÁ CIFRA (v1.6.4) ────────────────
+  //
+  // Relato do operador: *"a janela do auxiliar de leitura é encolhida quando não
+  // há cifra, isso muda a posição do botão de navegação dessa janela"*.
+  //
+  // A ponte de mentira DESTE oráculo não serve cifra — a aba cai em erro, com
+  // uma frase por conteúdo —, e é exatamente o cenário do relato. A folha era
+  // dimensionada pelo conteúdo até `80vh`, então ela encolhia e levava o seletor
+  // junto: MEDIDO na reversão, 720px viram 178,9 e o seletor salta 541px, do
+  // y=238 para o y=779. O alvo se move debaixo do dedo de quem ia tocar em
+  // "Letra" para sair dali.
+  //
+  // A régua é a COMPARAÇÃO com a aba que TEM conteúdo, não um número: `80vh`
+  // depende da tela, e escrevê-lo aqui seria guardar a altura de um viewport.
+  //
+  // REVERSÃO: trocar o `height: 80vh` de `#lyricsPopup .popup-sheet` de volta
+  // por nada (o `max-height` herdado) reprova as duas.
+  checar(naCifra.altura === naLetra.altura,
+    'a janela do auxiliar mantém a MESMA altura sem cifra e com letra — ela '
+    + 'deixou de ser dimensionada pelo que coube dentro', { naLetra, naCifra });
+  checar(naCifra.segY === naLetra.segY,
+    'e por isso o seletor de fontes não muda de lugar ao trocar de aba: o botão '
+    + 'que se usa para SAIR da cifra não pode fugir do dedo', { naLetra, naCifra });
 } finally {
   await ctx.close();
   await navegador.close();
