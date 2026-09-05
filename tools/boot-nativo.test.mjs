@@ -2620,10 +2620,12 @@ try {
     });
     await pg.mouse.move(pt.x, pt.y);
     await pg.mouse.down();
-    const dur = await pg.evaluate(() => ({
-      pasta: getComputedStyle(document.querySelector('[data-fav-corpo] .folder-opfs')).transform,
-      item: getComputedStyle(document.querySelector('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item')).transform,
-    }));
+    const dur = await pg.evaluate(() => {
+      const est = (sel) => getComputedStyle(document.querySelector(sel));
+      const p = est('[data-fav-corpo] .folder-opfs');
+      const i = est('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item');
+      return { pasta: p.transform, item: i.transform, pastaLuz: p.filter, itemLuz: i.filter };
+    });
     await pg.mouse.up();
     await pg.waitForTimeout(500);
     return dur;
@@ -2684,9 +2686,20 @@ try {
     + 'faixa preta embaixo de cada item era `.lib-item.expanded .hymn-gaveta` '
     + 'casando com a PASTA, que também é uma `.lib-item`',
     JSON.stringify(nin.fechadas));
-  checar(pressPasta.pasta === 'none' && pressPasta.item !== 'none',
-    'e pressionar um arquivo NÃO encolhe a pasta inteira — quem responde ao '
+  // A RESPOSTA MUDOU DE PROPRIEDADE na v1.7.3, e a PROPRIEDADE medida aqui não:
+  // *quem responde ao toque é a peça tocada*. O que respondia era o `transform`
+  // (`--press`, um `translateY(2px)`), e ele saiu da Biblioteca inteira a pedido
+  // do operador — *"remova esse efeito … deixe apenas um efeito de coloração/
+  // sombreamento ao toque sem encolhimento ou deslocamento visual"*. Hoje quem
+  // responde é a LUZ (`--press-luz`), e é nela que a guarda
+  // `.lib-item:has(.lib-item:active)` precisa continuar valendo.
+  checar(pressPasta.pastaLuz === 'none' && pressPasta.itemLuz !== 'none',
+    'e pressionar um arquivo NÃO acende a pasta inteira — quem responde ao '
     + 'toque é a peça tocada', JSON.stringify(pressPasta));
+  checar(pressPasta.pasta === 'none' && pressPasta.item === 'none',
+    'e NADA se desloca na Biblioteca (v1.7.3): a resposta ao toque é só cor. '
+    + 'O `--press` continua valendo no resto do app — quem o guarda é o '
+    + '`smoke.mjs`', JSON.stringify(pressPasta));
   checar(fechou.abriu && !fechou.classe && fechou.disp === 'none' && fechou.h === 0,
     'e o segundo toque FECHA as opções de verdade: era a pasta que as mantinha '
     + 'visíveis, então tirar a classe do item não escondia nada',
@@ -3439,68 +3452,84 @@ try {
     'e a lista vazia diz uma frase só — "Nenhum favorito ainda"',
     JSON.stringify(favs.vazioTexto));
 
-  // ── "ONLINE": A QUALIDADE QUE NÃO BAIXA (v5.249) ───────────────────────
-  // Pedido do operador: uma qualidade "Online" que, mesmo levando ao Cronograma,
-  // guarda só o LINK em vez de obrigar o download.
+  // ── A QUALIDADE PADRÃO É 720p, E ELA GRUDA (v1.7.3) ────────────────────
   //
-  // As duas metades: ela está no MESMO seletor das resoluções (é a mesma
-  // pergunta, com "nada" na ponta da escala) **e** o item que ela guarda é o
-  // link — sem bytes, sem download. Sem a segunda, acrescentar o rótulo teria
-  // passado.
-  const online = await pg.evaluate(async () => {
-    // O modo é GLOBAL: deixá-lo trocado quebra os casos seguintes (a lição que
-    // este arquivo já aprendeu duas vezes).
+  // Pedido do operador: *"vamos abandonar o modo online direto, ele é muito
+  // instável, vamos manter o download em 720p como padrão, e caso o usuário
+  // selecione outra, aquele se torna o padrão para ele."*
+  //
+  // Este bloco SUBSTITUI o da qualidade "ONLINE" (v5.249), que media o degrau
+  // que guardava só o link — ele saiu junto com a transmissão direta que
+  // alimentava.
+  //
+  // TRÊS METADES, e nenhuma basta sozinha:
+  //
+  //   1. **"Online" não está mais lá**, e os três degraus estão. Uma remoção
+  //      pela metade deixaria o rótulo na tela sobre um caminho que já não
+  //      existe — pior que não remover.
+  //   2. **A folha ABRE em 720p.** O padrão era `YT_ALTURAS[0]` (1080p), e
+  //      trocar a ordem da lista seria o conserto errado: ela é a ORDEM DO
+  //      SELETOR, e o operador lê de cima para baixo.
+  //   3. **A escolha GRUDA** — no banco e no próximo vídeo. É a metade que
+  //      revoga uma decisão escrita ("nasce no padrão A CADA ITEM"), e a única
+  //      que falha CALADA: sem ela tudo continua funcionando, e o operador só
+  //      descobre no sábado seguinte que escolheu de novo.
+  //
+  // REVERSÃO: devolvendo `alt: YT_ALTURAS[0]`, a 2 e a 3 reprovam; tirando o
+  // `adotarAlturaPreferida` do seletor, só a 3.
+  const qual = await pg.evaluate(async () => {
     const modoAntes = document.body.classList.contains('mode-simple') ? 'simple' : 'full';
     setAppMode('full');
-    const r = { id: 'zzzzzzzzzz9', url: 'https://www.youtube.com/watch?v=zzzzzzzzzz9',
-      name: 'Louvor de teste' };
-    openYtMenu(r);
+    const out = {};
+    // O PADRÃO DE FÁBRICA, e não o que uma passada anterior deixou: a
+    // preferência é global e sobrevive dentro da página.
+    ytAlturaPreferida = 720;
+    await AVDB.setState('ytAltura', null);
+    openYtMenu({ id: 'zzzzzzzzzz9', url: 'https://www.youtube.com/watch?v=zzzzzzzzzz9',
+      name: 'Louvor de teste' });
     const pop = document.getElementById('songMenuPopup');
-    const segs = [...pop.querySelectorAll('.song-menu-seg')].map((s) =>
-      [...s.querySelectorAll('button')].map((b) => b.textContent.trim()));
-    const qualidade = segs.find((g) => g.some((t) => /1080p/.test(t))) || [];
-    // Escolhe "Online" e mede o que a folha passa a dizer.
-    const btnOnline = [...pop.querySelectorAll('.song-menu-seg button')]
-      .find((b) => /^Online$/.test(b.textContent.trim()));
-    btnOnline.click();
-    const depois = {
-      subs: [...pop.querySelectorAll('.song-menu-sub')].map((e) => e.textContent.trim()),
-      // Com Online não há forma a escolher: a faixa Vídeo × Só áudio sai.
-      temForma: [...pop.querySelectorAll('.song-menu-seg button')].some((b) => /Só áudio/.test(b.textContent)),
-    };
-    // E o CRONOGRAMA guarda o link. Desde a v5.252 a linha MARCA e quem executa
-    // é o confirmar — a folha virou uma lista de opções com um botão só.
-    const linha = [...pop.querySelectorAll('.song-menu-btn')]
-      .find((b) => /Adicionar ao Cronograma/.test(b.textContent));
-    linha.click();
-    pop.querySelector('.song-menu-go').click();
-    for (let i = 0; i < 60; i++) {
-      const it = await AVDB.listItems('imports');
-      const achou = it.find((x) => x.youtubeId === 'zzzzzzzzzz9');
-      if (achou) {
-        await AVDB.listRemove('imports', achou.id);
-        setAppMode(modoAntes);
-        return { qualidade, depois,
-          guardou: { kind: achou.kind, temBlob: !!achou.blob, url: achou.url } };
-      }
-      await new Promise((res) => setTimeout(res, 50));
-    }
+    const segs = [...pop.querySelectorAll('.song-menu-seg')].map((g) =>
+      [...g.querySelectorAll('button')].map((b) => b.textContent.trim()));
+    out.qualidade = segs.find((g) => g.some((t) => /1080p/.test(t))) || [];
+    out.todosOsRotulos = segs.flat();
+    out.padrao = songMenuFor.alt | 0;
+    // ESCOLHER 480p — pelo botão de verdade, que é quem chama o
+    // `adotarAlturaPreferida`. Escrever `songMenuFor.alt` à mão pularia
+    // justamente a linha que se quer medir.
+    const b480 = [...pop.querySelectorAll('.song-menu-seg button')]
+      .find((b) => /^480p$/.test(b.textContent.trim()));
+    if (b480) b480.click();
+    out.aposEscolha = songMenuFor.alt | 0;
+    out.gravado = await AVDB.getState('ytAltura');
     closeSongMenu();
+    // E O PRÓXIMO VÍDEO NASCE NELA. É o pedido ao pé da letra, e é outro item:
+    // reabrir o mesmo poderia passar por memória de folha.
+    openYtMenu({ id: 'yyyyyyyyyy8', url: 'https://www.youtube.com/watch?v=yyyyyyyyyy8',
+      name: 'Outro louvor' });
+    out.proximo = songMenuFor.alt | 0;
+    closeSongMenu();
+    // Limpeza: a preferência é global e os casos seguintes não são deste lote.
+    ytAlturaPreferida = 720;
+    await AVDB.setState('ytAltura', null);
     setAppMode(modoAntes);
-    return { qualidade, depois, guardou: null };
+    return out;
   });
-  checar(online.qualidade[0] === 'Online' && online.qualidade.includes('1080p'),
-    '"ONLINE" é o primeiro degrau do MESMO seletor de qualidade',
-    JSON.stringify(online.qualidade));
-  checar(!online.depois.temForma,
-    'e com ela escolhida a forma (Vídeo × Só áudio) sai — nada é baixado, então '
-    + 'a escolha não mudaria coisa nenhuma');
-  checar(online.depois.subs.some((t) => /só o link/i.test(t)),
-    'os destinos que GUARDAM dizem o que mudou: "Só o link, sem baixar"',
-    JSON.stringify(online.depois.subs));
-  checar(!!online.guardou && online.guardou.kind === 'youtube' && !online.guardou.temBlob,
-    'e o Cronograma recebe o LINK, sem bytes — era isto que obrigava o download',
-    JSON.stringify(online.guardou));
+  checar(!qual.todosOsRotulos.some((t) => /online/i.test(t))
+    && ['1080p', '720p', '480p'].every((h) => qual.qualidade.includes(h)),
+    'o seletor de qualidade tem os TRÊS degraus e nenhum "Online" — ele saiu '
+    + 'junto com a transmissão direta que alimentava',
+    JSON.stringify(qual.todosOsRotulos));
+  checar(qual.padrao === 720,
+    'e a folha abre em 720p, o padrão novo — era `YT_ALTURAS[0]` (1080p), e a '
+    + 'ordem do seletor continua sendo do maior para o menor',
+    JSON.stringify(qual.padrao));
+  checar(qual.aposEscolha === 480 && (qual.gravado | 0) === 480,
+    'escolher 480p GRAVA a escolha no banco — sem isso ela morre com a folha',
+    JSON.stringify({ alt: qual.aposEscolha, gravado: qual.gravado }));
+  checar(qual.proximo === 480,
+    'e o PRÓXIMO vídeo nasce nela: a escolha virou o padrão deste aparelho, que '
+    + 'é o pedido — e revoga o "nasce no padrão A CADA ITEM"',
+    JSON.stringify(qual.proximo));
 
   // ── A FILA DE LETRAS NÃO PERGUNTA POR UM VÍDEO (v5.236) ────────────────
   // `syncLyrics` varria TODA coleção com itens e pedia `music_<id>` ao LouvorJA
@@ -4367,112 +4396,14 @@ try {
   checar(false, 'o percurso da Bíblia base terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ── O LINK DO YOUTUBE ENTRA NO AR COMO QUALQUER OUTRO ITEM (v5.269) ──────
-// Relato do operador: *"um arquivo do tipo YouTube, que seria apenas um link,
-// quando está no cronograma ou favoritos, pode ser tocado diretamente online no
-// player, mas o respectivo elemento da lista não entra no modo 'no ar'."*
+// (O LINK DO YOUTUBE E A ORIGEM DA CENA — v5.269, removido na v1.7.3.)
 //
-// A causa é uma assimetria entre os dois caminhos de `resolverLinkYoutube`
-// (v5.212). Pelo DOWNLOAD o arquivo toma o lugar do link EM POSIÇÃO, então a
-// linha passa a ter o id da mídia e o `midiaNoArId` de sempre a alcança. Pela
-// TRANSMISSÃO DIRETA, não: a mídia é um avulso com id próprio, o link continua
-// na lista com o id dele, e nada ligava os dois.
-//
-// E não era só o realce: `noArAgora` responde pela MESMA pergunta, então o
-// SEGUNDO TOQUE (que retira do ar) também não alcançava aquela linha — ela
-// reprojetava em vez de retirar, que é o defeito que a v5.165 existiu para
-// consertar, reaberto por outra porta. Por isso as duas metades são medidas.
-//
-// Este caso mora AQUI, e não no `cena.test.mjs`, por uma razão dura:
-// `resolverLinkYoutube` devolve na primeira linha quando não há ponte
-// (`window.__NATIVE__`), e o `cena` sobe a base sem ela.
-//
-// O `tentarTransmitir` é SUBSTITUÍDO por um que faz o que o de verdade faz no
-// fim — `send(<id do avulso>)` —, porque é justamente essa chamada que zera a
-// origem: um teste que pulasse o `send` aprovaria uma ordem de atribuição
-// errada, que é o único jeito de errar isto.
-try {
-  const pg5 = await ctx.newPage();
-  await pg5.addInitScript(PONTE);
-  await pg5.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
-  await pg5.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function',
-    null, { timeout: 20000 });
-  await pg5.evaluate(() => setAppMode('full'));
-
-  const r = await pg5.evaluate(async () => {
-    // O AVULSO que a transmissão criaria, e o LINK que fica na lista.
-    const avulso = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'video/mp4' }),
-      { name: 'Vídeo transmitido', type: 'video/mp4', kind: 'video', list: 'avulsos' });
-    // O link é criado como o app o cria (`addUrlMedia`, ver `ytAcao` com
-    // `YT_ONLINE`): um registro SEM bytes. Foi essa a primeira versão errada
-    // deste caso — `addMedia(null, …)` lê `blob.type` e estoura.
-    const link = await AVDB.addUrlMedia('https://www.youtube.com/watch?v=abc12345678', {
-      kind: 'youtube', type: 'video/youtube', name: 'Link do YouTube',
-      youtubeId: 'abc12345678', list: 'imports',
-    });
-    await load();
-    // eslint-disable-next-line no-func-assign
-    window.tentarTransmitir = async () => { await send(avulso.id); return true; };
-    const rec = await AVDB.getMedia(link.id);
-    await resolverLinkYoutube(rec);
-    await new Promise((x) => setTimeout(x, 250));
-    const li = document.querySelector('.lib-item[data-id="' + link.id + '"]');
-    return {
-      linkId: link.id, avulsoId: avulso.id,
-      // A mídia no ar é o AVULSO — a origem não pode ter trocado isso.
-      noArId: midiaNoArId,
-      realce: linhaNoAr(link.id),
-      // O segundo toque: ele decide entre projetar e retirar.
-      segundoToque: noArAgora(rec),
-      classe: !!li && li.classList.contains('no-ar'),
-      selo: !!li && !!li.querySelector('.row-live'),
-      // E o AVULSO continua sendo o que está no ar de fato.
-      avulsoTambem: linhaNoAr(avulso.id),
-    };
-  });
-  checar(r.noArId === r.avulsoId,
-    'a mídia no ar continua sendo o AVULSO da transmissão — a origem não troca '
-    + 'quem está no telão', r.noArId);
-  checar(r.realce && r.classe,
-    'e a LINHA DO LINK entra em "no ar", como qualquer outro item que foi ao '
-    + 'telão', JSON.stringify({ realce: r.realce, classe: r.classe }));
-  checar(r.selo,
-    'com o selo "● No ar" junto — o estado que se LÊ, não só a cor');
-  checar(r.segundoToque,
-    'e o SEGUNDO TOQUE nela retira do ar em vez de reprojetar — sem esta metade '
-    + 'o realce diria uma coisa e o gesto faria outra');
-
-  // ---- E A ORIGEM CAI COM A MÍDIA -------------------------------------
-  // Sem isto a linha do link ficaria marcada para sempre: `midiaNoArOrigem` só
-  // é escrita neste caminho, e quem a limparia é justamente quem tira do ar.
-  const depois = await pg5.evaluate(async (x) => {
-    await pararMidia('media-clear');
-    marcarNoAr();
-    const li = document.querySelector('.lib-item[data-id="' + x + '"]');
-    return { realce: linhaNoAr(x), classe: !!li && li.classList.contains('no-ar') };
-  }, r.linkId);
-  checar(!depois.realce && !depois.classe,
-    'e ela SAI do ar quando a mídia sai — a marca não sobrevive ao Parar',
-    JSON.stringify(depois));
-
-  // ---- E UM PLAY NORMAL NÃO A HERDA -----------------------------------
-  // `send` zera a origem, e é ele que todo play atravessa. Sem essa linha, uma
-  // música tocada depois deixaria a linha do link marcada como "no ar".
-  const outro = await pg5.evaluate(async (x) => {
-    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
-      { name: 'Outra música', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
-    await load();
-    await send(m.id);
-    await new Promise((r2) => setTimeout(r2, 150));
-    return { link: linhaNoAr(x), nova: linhaNoAr(m.id) };
-  }, r.linkId);
-  checar(!outro.link && outro.nova,
-    'e um play NORMAL depois dela não herda a origem — quem está no ar é a '
-    + 'mídia nova', JSON.stringify(outro));
-  await pg5.close();
-} catch (e) {
-  checar(false, 'o percurso do link do YouTube terminou sem exceção (' + (e && e.message) + ')');
-}
+// Ele media o `midiaNoArOrigem`: pela TRANSMISSÃO DIRETA o link continuava na
+// lista com o id dele e a mídia no ar era um AVULSO com id próprio, então nada
+// ligava os dois e a linha não entrava em "no ar". Sem a transmissão, o único
+// caminho de `resolverLinkYoutube` é o DOWNLOAD — e ali o arquivo toma o lugar
+// do link EM POSIÇÃO (`trocarLinkPeloArquivo`), então a linha PASSA A SER a
+// mídia e o `midiaNoArId` de sempre a alcança. O campo saiu junto com o caso.
 
 // ── OS FAVORITOS: EXCLUIR NA LINHA, GUIA NO LUGAR, SEM MULTISSELEÇÃO ─────
 // Três relatos do operador, e os três moram nesta lista:

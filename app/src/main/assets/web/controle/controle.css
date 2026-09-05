@@ -675,9 +675,25 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 .lib-item:has(.lib-item:active) { transform: none; filter: none; }
 /* A BARRA de um card ou de uma seção hospeda os botões da coluna da direita
    (baixar, remover, atualizar) e a seta do acordeão: o dedo pousa num deles e
-   é ELE que responde, não a linha inteira por baixo. */
-.coll-bar:has(:is(.coll-bar-dl, .coll-bar-icon, .coll-bar-fechar):active),
-.coll-group-bar:has(:is(.coll-group-btn, .coll-group-acao, .coll-group-icon):active) {
+   é ELE que responde, não a linha inteira por baixo.
+
+   A GUARDA É DO BLOCO desde a v1.7.3, e não mais da barra: é o BLOCO que acende
+   agora (ver "NA BIBLIOTECA O TOQUE COLORE O CORPO"), então zerar a barra
+   deixaria o card inteiro respondendo por um toque de 40px — o mesmo defeito
+   que esta lista existe para impedir, um nível acima. O `#hymnResults` está aí
+   pela ESPECIFICIDADE: sem ele a guarda perde para a regra que acende o bloco,
+   que é escopada com id. */
+#hymnResults :is(.hymnal-card, .coll-group--drop):has(
+  :is(.coll-bar-dl, .coll-bar-icon, .coll-bar-fechar,
+      .coll-group-btn, .coll-group-acao, .coll-group-icon):active) {
+  transform: none; filter: none;
+}
+/* E UM BLOCO NÃO RESPONDE PELO BLOCO QUE ELE HOSPEDA (v1.7.3) — o irmão exato
+   do `.lib-item:has(.lib-item:active)` acima, agora que a árvore da Biblioteca
+   tem três níveis que acendem: uma SEÇÃO contém CARDS, um card contém FAIXAS, e
+   sem esta linha um toque numa faixa acenderia os três de uma vez. */
+#hymnResults :is(.hymnal-card, .coll-group--drop):has(
+  :is(.hymnal-card, .coll-group--drop, .lib-item):active) {
   transform: none; filter: none;
 }
 /* ---------- E A REGRA VALE PARA A `.row` DELE TAMBÉM (v1.2.27) ----------
@@ -4816,27 +4832,59 @@ main {
 
    A CORREÇÃO É A DO CARD, generalizada: o ALVO é o bloco (o ouvinte da seção
    mudou para o `li`, em `controle.js`) e a RESPOSTA também. A barra deixa de
-   respondê-la aqui dentro — uma resposta por dedo, que é a regra escrita lá em
-   cima —, e os botões que ela hospeda continuam sendo quem responde ao toque
-   deles.
+   respondê-la, e os botões que ela hospeda continuam sendo quem responde ao
+   toque deles.
 
-   REGRA SEPARADA e não mais um nome na lista do `--press`: `:is()` toma a
-   especificidade do argumento MAIS específico, e um seletor com id ali dentro
-   levaria as ~40 classes da lista para (1,x,0) de uma vez. */
-#hymnResults.acervo > .coll-group--drop:not(.aberto):active,
-#hymnResults.acervo > .hymnal-card:not(.expanded):active {
-  transform: var(--press); filter: var(--press-luz);
+   ESTA METADE VALIA SÓ PARA O BLOCO DE RAIZ COLAPSADO até a v1.7.3, e era essa
+   exceção que o operador leu como incoerência — ver o bloco logo abaixo, que a
+   estende a todos os níveis e aos dois estados e tira daqui o `--press`. */
+/* ---------- NA BIBLIOTECA O TOQUE COLORE O CORPO, E NÃO DESLOCA (v1.7.3) ----
+   Relato do operador: *"ao abrir coleções e álbuns na biblioteca, assim como os
+   favoritos… há um efeito de encolhimento ou deslocamento que distorce os
+   elementos, remova esse efeito … deixe apenas um efeito de coloração/
+   sombreamento ao toque sem encolhimento ou deslocamento visual. Também
+   aproveite para verificar se está colorindo o corpo do card corretamente e não
+   apenas o arrangment/card do texto ou cabeçalho. Pois tem de considerar
+   colorir as zonas que formam o corpo real, com margens e bordas circulares."*
+
+   SÃO DUAS COISAS, e as duas moram aqui.
+
+   1. O DESLOCAMENTO. `--press` é `translateY(2px)`, e na Biblioteca ele
+      recuava o BLOCO inteiro: o card e tudo dentro dele andavam 2px a cada
+      toque, num acordeão que já se move sozinho ao abrir. A resposta de toque
+      do resto do app não muda — a regra do "recuo ABSOLUTO" segue intacta lá
+      —, e aqui o que sobra é a METADE QUE COLORE, que é o que o pedido nomeia.
+
+   2. O CORPO, E NÃO O CABEÇALHO. A luz era da BARRA (`.coll-bar` /
+      `.coll-group-bar` estão na lista `:is()` do `--press`), e uma barra é um
+      retângulo DENTRO de um bloco arredondado: o que acendia era a faixa do
+      título, com as margens do card e os cantos ficando escuros em volta. Só o
+      bloco de RAIZ colapsado escapava, porque a v1.5.17 tinha movido a resposta
+      dele para o `li` — e era essa exceção que fazia o mesmo gesto colorir o
+      card inteiro numa coleção da raiz e só a faixa num álbum dentro de uma
+      seção, ou em qualquer bloco ABERTO.
+
+      Agora quem acende é sempre o BLOCO, em todos os níveis e nos dois estados.
+      `:active` já casa nos ANCESTRAIS, então o toque na barra acende o bloco por
+      construção — não é preciso `:has()` para isso, só tirar a luz da barra.
+      O bloco já tem `border-radius` e as margens dele, então a mancha sai com a
+      forma do corpo real, que é literalmente o pedido.
+
+   MEDIDO em Chromium: um `filter` no bloco NÃO quebra o `position: sticky` da
+   barra que ele contém (a barra continua colada no topo do scrollport, offset
+   idêntico) — a preocupação legítima ao mover a luz de uma caixa interna para
+   uma caixa que envolve um sticky.
+
+   O `#hymnResults` está em TODAS as três regras pela ESPECIFICIDADE: a lista
+   `:is()` do `--press` é (0,2,0) e precisa perder aqui, e as guardas de "uma
+   resposta por dedo" (lá em cima) precisam ganhar desta — elas são (1,3,0)
+   contra os (1,2,0) daqui. */
+#hymnResults :is(.lib-item, .hymnal-card, .coll-group--drop,
+                 .coll-bar, .coll-group-bar):active {
+  transform: none;
 }
-#hymnResults.acervo > .coll-group--drop:not(.aberto) > .coll-group-bar:active,
-#hymnResults.acervo > .hymnal-card:not(.expanded) > .coll-bar:active {
-  transform: none; filter: none;
-}
-#hymnResults.acervo > .coll-group--drop:not(.aberto):has(
-  :is(.coll-group-btn, .coll-group-acao, .coll-group-icon):active),
-#hymnResults.acervo > .hymnal-card:not(.expanded):has(
-  :is(.coll-bar-dl, .coll-bar-icon, .coll-bar-fechar):active) {
-  transform: none; filter: none;
-}
+#hymnResults :is(.coll-bar, .coll-group-bar):active { filter: none; }
+#hymnResults :is(.hymnal-card, .coll-group--drop):active { filter: var(--press-luz); }
 /* NÍVEL 2 — dentro de uma seção, o bloco volta ao PAPEL. É a alternância, e é
    ela que dispensa um quarto tom: o neto tem a cor do avô, e isso não confunde
    porque entre eles há sempre o poço, que é a caixa do meio. */

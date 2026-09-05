@@ -42,7 +42,6 @@ import { servirEstatico, abrirNavegador, checar, falhas, esperar, esperarDb, por
 // `ytFetch` (o download). Sem elas as duas resolveriam no mesmo tique e não
 // haveria janela nenhuma para medir.
 const PONTE = `(() => {
-  window.__streamPedido = 0;
   window.__fetchPedido = 0;
   const segurar = (id, bandeira, valor) => {
     const espera = () => {
@@ -59,22 +58,24 @@ const PONTE = `(() => {
     busPost: () => {},
     otaConfirm: () => {},
     ytDiag: (id) => { setTimeout(() => { try { window.__avResolve(id, ''); } catch (_) {} }, 0); },
-    ytStream: (id) => {
-      window.__streamPedido++;
-      segurar(id, '__soltarStream', () => window.__manifesto || null);
-    },
-    ytFetch: (id) => {
+  };
+  // OS TRES DESTINOS DO DOWNLOAD, e nao so o ytFetch (v1.7.3): o teto padrao
+  // passou a ser 720p, e um teto MENOR que 1080p vai pelo ytFetchAte. Segurar
+  // so um deixava o caminho normal cair no generico, que resolve null na hora —
+  // o download falhava instantaneamente e nao havia janela nenhuma a medir.
+  for (const n of ['ytFetch', 'ytFetchAte', 'ytFetchAudio']) {
+    B[n] = (id) => {
       window.__fetchPedido++;
       segurar(id, '__soltarFetch', () => window.__arquivo || null);
-    },
-  };
+    };
+  }
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget',
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolEstado','keepAlive',
     'listFolder','micDiag','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
     'otaPending','pickDoc','pickFolder','requestMic','salvarTexto','systemVolume','temaClaro',
-    'ytCancel','ytCanalPlaylists','ytDiscard','ytFetchAte','ytFetchAudio',
+    'ytCancel','ytCanalPlaylists','ytDiscard',
     'ytPlaylist','ytSearch','areaTransferencia','atualizacaoEstado'];
   for (const n of nomes) {
     if (B[n]) continue;
@@ -234,8 +235,8 @@ try {
   await pg.evaluate((id) => { send(id); }, ids.l1);   // sem await: ele fica preso na extração
   await pg.waitForTimeout(600);
   const carregando = await estado();
-  checar((await pg.evaluate(() => window.__streamPedido)) === 1 && /Preparando/.test(carregando.cartao || ''),
-    'o toque no LINK começa a extração e anuncia "Preparando" (o cenário)', carregando);
+  checar((await pg.evaluate(() => window.__fetchPedido)) === 1 && /Preparando/.test(carregando.cartao || ''),
+    'o toque no LINK começa o download e anuncia "Preparando" (o cenário)', carregando);
 
   // ---- "CARREGANDO" NA PRÓPRIA LINHA (v1.4.21) ---------------------------
   //
@@ -303,7 +304,7 @@ try {
     '[relato] e o cartão "Preparando" do link SAI no mesmo toque — ele não fica '
     + 'sobre a música que já está no ar', comMusica.cartao);
 
-  await pg.evaluate(() => { window.__soltarStream = true; });
+  await pg.evaluate(() => { window.__soltarFetch = true; });
   const andou1 = await andou(comMusica.tempo);
   const depois = await estado();
   checar(depois.currentId === comMusica.currentId && depois.kind === 'audio',
@@ -327,17 +328,13 @@ try {
     'e a linha marcada como "no ar" é a da MÚSICA — o link abandonado não se '
     + 'declara em cena', { noAr: depois.noAr, musica: ids.audio, link: ids.l1 });
 
-  // ======================================================================
-  // METADE 2 — E ELE NÃO CAI NO DOWNLOAD
-  // ======================================================================
+  // (METADE 2 — "E ELE NÃO CAI NO DOWNLOAD" — removida na v1.7.3.)
   //
-  // A transmissão que perde a vez não pode escorregar para o passo seguinte da
-  // escada: seriam MINUTOS de rede (e o serviço em primeiro plano, e o wake
-  // lock) por um toque que o operador já substituiu — e terminaria projetando
-  // por cima, que é o defeito inteiro por outra porta.
-  checar((await pg.evaluate(() => window.__fetchPedido)) === 0,
-    'a transmissão abandonada NÃO escorrega para o download: nenhum byte pedido',
-    await pg.evaluate(() => window.__fetchPedido));
+  // Ela media a escada de dois degraus do `resolverLinkYoutube`: a transmissão
+  // que perdia a vez não podia escorregar para o download, porque seriam MINUTOS
+  // de rede por um toque que o operador já tinha substituído. Sem a transmissão
+  // a escada tem um degrau só — a resolução JÁ É o download —, e o que sobrava
+  // da regra virou a metade 4: o arquivo FICA, mas não sobe ao palco.
 
   // ======================================================================
   // METADE 3 — SEM INTERRUPÇÃO, O LINK PROJETA
@@ -345,10 +342,10 @@ try {
   //
   // Sem ela, "nunca projetar um link" passaria nas duas primeiras — e o recurso
   // inteiro teria sido apagado em nome da correção.
-  await pg.evaluate(() => { window.__soltarStream = false; });
+  await pg.evaluate(() => { window.__soltarFetch = false; });
   await pg.evaluate((id) => { send(id); }, ids.l2);
   await pg.waitForTimeout(500);
-  await pg.evaluate(() => { window.__soltarStream = true; });
+  await pg.evaluate(() => { window.__soltarFetch = true; });
   await pg.waitForTimeout(2500);
   const feliz = await estado();
   checar(feliz.kind === 'video' && feliz.currentId !== comMusica.currentId,
@@ -362,7 +359,10 @@ try {
   // dois. E o desfecho é ASSIMÉTRICO de propósito: o arquivo já foi baixado e já
   // tomou o lugar do link na lista do operador (`trocarLinkPeloArquivo`), que é
   // valor durável e foi o que o toque pediu. O que ele não pode é subir ao palco.
-  await pg.evaluate(() => { window.__manifesto = null; window.__soltarStream = true; });
+  // O CONTADOR ZERA aqui: desde a v1.7.3 as metades acima já pedem download (a
+  // resolução de um link É o download), então esperar por `> 0` em absoluto
+  // passaria no ato, com o pedido DESTA metade ainda por sair.
+  await pg.evaluate(() => { window.__soltarFetch = false; window.__fetchPedido = 0; });
   await pg.evaluate((id) => { send(id); }, ids.l3);
   await pg.waitForFunction(() => window.__fetchPedido > 0, null, { timeout: 15000 });
   await pg.evaluate((id) => send(id), ids.audio);

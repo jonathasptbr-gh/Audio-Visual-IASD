@@ -194,6 +194,23 @@ fadeTime)` roda **depois** de `play()` (que restaura o volume alvo e limpa o
   considerar `ended` (além do `kind`): sem isso, o `currentTime=0` do fim
   natural (preparando o replay) mostraria um salto pro primeiro frame antes
   do preto/cortina cobrir.
+- **E ESSA SEQUÊNCIA É CHAMÁVEL DE FORA** (`stage.marcarFim()`, v1.7.3), porque
+  nem sempre é ESTE `<video>` que sabe que a mídia acabou. Com telão no ar a
+  preview do Controle é ILUSTRAÇÃO e segue o `display-status`: o telão termina,
+  dispara `pause` ANTES de `ended` (a ordem do HTML), e o status que sai daí faz
+  o `resyncPreviewToDisplay` **pausar** a preview a milissegundos do fim dela.
+  Pausado, o elemento nunca emite `ended` — e sem `ended` o `computeCover()`
+  responde `false`, a cortina não fecha, e o que fica na tela é o quadro de
+  `currentTime === duration`: **preto, e permanente**. Sem TV o caso não existe
+  (a preview É a projeção e ninguém a pausa), que é a armadilha do *"ler cada
+  lado isolado aprova os dois"*.
+  **É a MESMA função do evento, não uma segunda** — duas escritas do par
+  fade/cortina divergiriam no primeiro ajuste. Ela é idempotente (`if (ended)
+  return`), respeita a guarda de `loadsEmVoo` do avanço de playlist, e **PAUSA
+  o elemento** antes de zerar o `currentTime`: no caminho do evento ele já
+  parou sozinho, mas quem avisa de fora o pega TOCANDO, e sem a pausa o
+  `currentTime = 0` rebobina em vez de encerrar. Oráculo:
+  `tools/preview-volta-ao-wallpaper.test.mjs`.
 - `setVolume` do operador cancela qualquer rampa em curso (de conteúdo ou de
   cortina — ambas usam o mesmo `rampTimer` do `<video>`, mutuamente exclusivas
   no tempo); `play`/`stop` restauram o volume alvo (evita ficar preso em
@@ -224,6 +241,9 @@ stage.fadeOutToBlack()  // esmaece até o preto e reseta (current=null) sem toca
 stage.getCurrent()     // → registro atual ou null
 stage.getView()        // → 'visual' | 'wallpaper'
 stage.isPlaying()      // → bool
+stage.marcarFim()      // marca o fim SEM esperar o evento `ended` do <video>:
+                       //   quem sabe que a PROJEÇÃO acabou nem sempre é este
+                       //   elemento (ver "Fim natural", acima)
 stage.hasEnded()       // → bool (fim natural, aguardando replay — as camadas
                        //   paralelas usam isso para não re-renderizar com o
                        //   currentTime já zerado; ver "Fim natural" na Camada de Texto)

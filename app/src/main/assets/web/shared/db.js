@@ -346,6 +346,14 @@
   // que ela tem é o manifesto das faixas. Não passa por `addMedia`, que deriva
   // tipo e kind de um blob que aqui não existe.
   //
+  // SEM CHAMADOR DESDE A v1.7.3, e isto está dito para não ser lido como
+  // contrato vivo: a transmissão direta saiu do `controle.js` a pedido do
+  // operador, e nada no app cria um registro de stream. Elas ficam porque o
+  // banco continua LENDO registros gravados antes daquele lote (o `stage.js` os
+  // reconhece pelo campo `stream`), e uma store que sabe ler e não sabe
+  // escrever é mais fácil de entender inteira. Ver o cabeçalho de
+  // `shared/mse.js`, que é o leitor.
+  //
   // `kind: 'video'` de propósito, e não um kind novo: para todo o resto do app
   // isto É um vídeo — a cortina, o fade, o transporte, a barra de progresso e a
   // sessão de mídia não têm por que saber de onde vêm os bytes. Um kind próprio

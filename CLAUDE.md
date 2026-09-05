@@ -1041,143 +1041,46 @@ memória caminho → URL), um parcial do 137 seria "retomado" por um download do
 136 — dois vídeos emendados, sem erro, aparecendo só na hora de projetar. O mapa
 morre com o processo de propósito.
 
-### A TRANSMISSÃO DIRETA é a única mídia que precisa de JS enquanto toca
+### A TRANSMISSÃO DIRETA SAIU DO APP (v1.7.3)
 
-Um arquivo baixado toca sozinho: o `<video>` consome bytes do disco e nenhuma
-linha de JavaScript participa. Um stream não — quem repõe o buffer é o
-`shared/mse.js`, e por isso ele é a única cena do app que o segundo plano
-consegue interromper. Duas regras, e as duas nasceram do mesmo relato
-(*"vídeos tocando direto do YouTube sem baixar são interrompidos quando o app
-está em segundo plano"*):
+Da v5.212 à v1.7.2 o "Tocar agora" de um vídeo do YouTube **projetava sem
+baixar**: o `ytStream` montava o manifesto das duas faixas adaptativas, o
+`StreamProxy` as servia pelo NOSSO origin, e o `shared/mse.js` as virava um
+`<video>` comum — a cena entrava com o primeiro fragmento, na casa dos kB, em
+vez de esperar centenas de MB.
 
-- **O compasso do abastecimento NÃO pode depender só de um `setInterval`.** Com
-  o buffer cheio (`ALVO_S`, 20 s) nada mais é appendado e nenhum `updateend`
-  sai — quem reacorda o player é o tique. E um `setInterval` de página em
-  segundo plano é estrangulado pelo Chromium (1×/s, e 1×/min depois de alguns
-  minutos escondida): 20 s de buffer contra um compasso de até um minuto dá
-  projeção parando sozinha, sem erro em lugar nenhum. O compasso sai também dos
-  eventos do próprio `<video>` (`EVENTOS_DO_COMPASSO`), que nascem do pipeline
-  de mídia e não do agendador. O intervalo fica como PISO — é ele que cobre a
-  cena pausada, onde não há `timeupdate`.
-- **Uma falha de rede não é o fim da transmissão.** Qualquer tropeço matava o
-  player e a cena caía no download — 300 MB começando a baixar por causa de um
-  pacote perdido, e justamente em segundo plano, que é quando o Wi-Fi entra em
-  economia de energia. `pegar()` retenta 4 vezes (0,4 s → 1,2 s → 3 s) com a
-  MESMA divisão do download: passa o acidente, **não** retenta 4xx (a URL
-  expirada é conserto do `recuperarStream`, que a reconhece pela mensagem).
+**Ela foi abandonada a pedido do operador**, depois do relato de *"travamentos a
+cada um ou dois segundos durante a exibição de um vídeo do YouTube transmitido
+diretamente para a tv"*, com espelhamento no ar: *"vamos abandonar o modo online
+direto, ele é muito instável, vamos manter o download em 720p como padrão"*.
 
-- **NENHUM PEDIDO ESPERA PARA SEMPRE** (v1.4.19). Era o único ponto da cadeia
-  sem prazo NENHUM, e o desfecho que ele deixava passar é o pior desta projeção:
-  **a transmissão congelada sem nada acontecer** — sem erro, sem queda para o
-  download, com o cartão de espera aceso. O cenário não é uma queda, é uma
-  entrega que não termina; e o `readTimeout` do `StreamProxy` é **POR LEITURA**,
-  então um byte a cada 29 s nunca o dispara. Três camadas, e as três são
-  necessárias: o **prazo de parede por fragmento** no `mse.js` (`prazoDoPedido`
-  — PROPORCIONAL ao que foi pedido, porque um init de 800 B e um fragmento de
-  2,5 MB não têm o mesmo pior caso honesto; o erro nasce `retentavel` e alimenta
-  a escada de 4 tentativas que já existia), o **prazo TOTAL** no
-  `StreamProxy.readBytes`, e o **watchdog de fome** do `stage.js`
-  (`FOME_TETO_MS`, 25 s — maior que `ALVO_S` de propósito), que é a última
-  linha: passado ele, o que estava para chegar já não chega, e a cena vai para o
-  `onStreamErro` de sempre. **UMA vez por cena**: a queda para o download leva
-  segundos, e um segundo aviso no meio dela derrubaria a própria recuperação.
-  **O watchdog ATROPELA a escada de retentativas de propósito** — as duas medem
-  coisas diferentes: a escada mede a esperança da REDE, o teto mede o que a
-  congregação está VENDO, e 25 s de quadro congelado já é o desfecho ruim.
-  Durante a CARGA ele não arma (`streamComecou`): ali não há quadro congelado, e
-  a escada tem a paciência inteira dela.
-- **O DEGRAU ESCOLHIDO TEM DE SER DECODIFICÁVEL** (v1.4.19). `suportado` valida
-  o TOPO da escada e o áudio; os degraus não passavam por conferência nenhuma, e
-  o filtro do shell é "mp4 e não webm" — **mp4 hoje carrega AV1**.
-  `degrausUsaveis` pergunta `isTypeSupported` de cada um, com a pergunta
-  INJETADA (a função continua testável fora de um navegador com MediaSource) e
-  **falhando ABERTO**: uma pergunta que lança devolve a escada crua, que é o
-  comportamento de antes da regra.
-- **UM TRAVAMENTO NO MEIO TEM DE APARECER, e ser CONTADO.** O indicador de
-  espera só existia na CARGA — do comando ao primeiro quadro —, e uma parada por
-  falta de buffer no meio do louvor congelava o quadro sem nada na tela: **um
-  app quebrado e uma rede ruim produzem a mesma imagem**, e a leitura possível é
-  a pior das duas. Hoje a espera tem **duas razões** (`esperaCarga` ·
-  `esperaBuffer`) que não se apagam uma à outra, e a fome vira número no Registro
-  (`AVStream.fome`: episódios **e** segundos parados — dois travamentos de meio
-  segundo e dez de cinco pedem respostas opostas, e só a segunda tem conserto:
-  baixar em vez de transmitir).
-  - **A vigília só abre no primeiro `playing`.** MEDIDO: um `MediaSource` nasce
-    vazio e dispara `waiting` em TODA transmissão, então contar a carga faria o
-    número dizer *"≥1 sempre"* — o mesmo que não dizer nada.
-  - **Atraso de 600 ms antes de anunciar**, e **só no stream**: um arquivo local
-    não fica sem dados, e um cartão piscando a cada seek é pior que cartão
-    nenhum. Oráculo: `tools/espera-do-stream.test.mjs`.
-  - **O PALCO NÃO DESENHA ESPERA; ELE A ANUNCIA** (`opts.onEspera(ligado)`,
-    v1.4.8). Havia DOIS indicadores para o mesmo fato — o cartão "Preparando…"
-    sobre a preview e um aro dentro do palco —, e o segundo aparecia também na
-    PROJEÇÃO. O aro saiu inteiro, e com ele a folha `shared/stage.css`: o telão
-    fica com DOIS estados e nenhum intermediário — o wallpaper em repouso, ou o
-    conteúdo de fato no ar. Maquinaria de carregamento é assunto de quem OPERA;
-    na projeção ela é o app contando como funciona a quem não perguntou.
-    **Quem desenha é o DONO do palco** — invariante 5 aplicada ao motor: ele diz
-    o FATO, não a forma. O Controle liga o anúncio ao cartão que já existe (uma
-    espera só, do toque ao primeiro quadro); o telão e as telas da rede não
-    passam a função, e por isso não têm o que mostrar. **É opção do dono, e não
-    `__AV_ROLE__` lido dentro do `stage.js`**: a pergunta é *"este palco é uma
-    ILUSTRAÇÃO?"*, e a tela da rede é papel `tela` e é PROJEÇÃO — uma leitura de
-    papel acertaria por acidente.
-  - **E A SAÍDA DO CARTÃO TEM CARÊNCIA** (`PV_BUSY_SAIDA_MS`, 700 ms). A espera
-    tem DOIS donos em sequência — o toque (`cederOPalco`) e a carga do stream (o
-    `onEspera`) — e **entre eles o contador passa por ZERO**: o primeiro solta no
-    `finally`, o segundo só acende depois do fade de saída e do `getMedia`. Sem
-    a carência o cartão sai e volta no meio da MESMA espera. Um dono novo dentro
-    dela CANCELA a saída; o botão de cancelar, esse, sai na hora — uma ação sem
-    dono não pode ficar tocável. Oráculo: a passagem de bastão no
-    `gaveta-e-cartao.test.mjs`, amostrada a cada quadro (um teste do estado
-    FINAL passa nas duas versões).
-  - **SEM QUADRO, A CORTINA FICA.** `mediaReady` passou a devolver se houve
-    dado, e num stream o prazo deixou de REVELAR: ele socorria a transição de
-    pendurar, mas o que revelava era o PRETO. O wallpaper é a resposta certa a
-    "não há o que mostrar".
-- **A RESOLUÇÃO É MEDIDA, e não adivinhada (shell 60).** O player continua sem
-  ABR — a escolha é feita UMA vez e vale o louvor inteiro —, e é justamente por
-  isso que ela não pode ser cega. O shell entrega a ESCADA (`man.videos`); o
-  `mse.js` mede **bytes ÷ tempo do que já é buscado** (init, índice e primeiro
-  fragmento: zero requisição a mais, pelo caminho real do CDN) e
-  `AVStream.escolherDegrau` — PURA, com oráculo — devolve o degrau que a banda
-  sustenta, contando o ÁUDIO junto.
-  - **A troca só acontece ANTES DO PRIMEIRO QUADRO**, e é isso que a dispensa de
-    qualquer alinhamento de tempo: nada foi mostrado (o aro de espera cobre até
-    `PRONTO_STREAM_MS`), o `currentTime` é zero, e trocar é recomeçar. Depois
-    disso a bandeira fecha para sempre — uma troca com o louvor no ar é
-    gagueira, e este projeto já decidiu que gagueira é pior que uma escolha
-    imperfeita.
-  - **QUALQUER FALHA NA TROCA MANTÉM O DEGRAU ATUAL** (inclusive repondo o init
-    antigo, se o novo já tinha sido appendado). É a propriedade que torna a
-    otimização aceitável num culto: no pior caso a transmissão segue como
-    seguiria sem ela.
-  - **A margem existe porque a medida SUBESTIMA**: ela sai dos primeiros bytes,
-    durante o slow start do TCP. Daí a regra só poder DESCER — uma medida que
-    subestima nunca justifica um degrau mais alto.
-  - **A banda medida sobrevive ao item** (`AVStream.banda`): o segundo louvor do
-    culto começa sabendo o que o primeiro descobriu.
-  - O seletor da folha virou **TETO** e diz isso na tela. Ele sempre valeu para
-    o "Tocar agora" e nada dizia — a escala começa em "Online", que é
-    armazenamento, e o resto lia como "qualidade do download".
-- **A REDE NUNCA BAIXA A RESOLUÇÃO NO MEIO, e isso inverte a intuição vinda do
-  app do YouTube.** Não há ABR: escolhido o degrau, ele vale até o fim. Uma rede
-  que piora DEPOIS do primeiro quadro produz **travamento**, nunca imagem menor
-  — e quem os conta é o `AVStream.fome`. A janela de decisão é a carga, e só
-  ela; passada, o desfecho de uma rede insuficiente é a fome, que o Registro
-  reporta para o degrau da PRÓXIMA vez sair certo.
-  - **A ordem do shell continua sendo por CLIENTE antes de altura**
-    (`ordemCliente`, visionOS na frente — é dele que vêm as URLs que o CDN
-    serve). A escada herda essa ordem, então ela é a escada DAQUELE cliente. Se
-    um dia um vídeo tiver faixa alta só em outro, a nota `HAVIA Zp transmissível`
-    do Registro é quem vai dizer.
-  - **O Registro separa as três causas de uma imagem ruim**: `teto Xp` (o que o
-    operador pediu), `transmitindo Yp` (o que foi escolhido) e a nota
-    `HAVIA Zp transmissível (outro cliente)`, que só sai quando deixamos
-    resolução na mesa — o único dos três que seria defeito nosso. MEDIDO em
-    aparelho (v5.127): o caso normal é `137@VISIONOS`, que É 1080p. Sobra o
-    encoder do Miracast, que fica fora do alcance do app. Ver
-    `docs/ACHADOS-EM-ABERTO.md` §3.
+**O que saiu do `controle.js`:** `tentarTransmitir`, `recuperarStream`, o
+`onStreamErro` da preview, o degrau **"Online"** do seletor de qualidade
+(`YT_ONLINE`), o `motivoStream` e o bloco de Registro que o lia. Os TRÊS
+caminhos que produziam uma cena de transmissão — o "Tocar agora", o item de link
+(`resolverLinkYoutube`) e o share do modo simplificado — passaram todos a baixar.
+
+**O que FICA, e por quê:**
+
+- **`shared/mse.js` e o ramo `rec.stream` do `stage.js`.** Eles são o LEITOR. Um
+  registro gravado ANTES deste lote pode carregar um `stream` no IndexedDB de um
+  aparelho, e sem o motor aquela cena viraria palco vazio em vez de tocar até o
+  manifesto expirar (horas). **Nada no app cria um manifesto novo** — não
+  reintroduzir uma chamada a `AVStream.criar` no Controle sem o operador pedir.
+- **`ytStream` na ponte, e o `StreamProxy.kt`.** Tirá-los é um degrau de
+  `SHELL_VERSION` e uma Release; este lote é só web, e um método de ponte sem
+  chamador não custa nada ao aparelho.
+- **A rota `/s/<token>` das telas da rede.** Ela repassa a faixa do googlevideo
+  para uma tela da LAN, e o que a alimentava era o mesmo manifesto — hoje ela
+  não tem o que servir, e cai junto por construção.
+- **`AVStream.fome`, `AVStream.banda` e os oráculos do motor**
+  (`mse.test.mjs`, `degrau-de-banda`, `degrau-e-prazo`, `espera-do-stream`,
+  `fome-que-desiste`, `stream-so-audio`). Eles medem o LEITOR, que continua de pé.
+
+**O preço, dito:** "Tocar agora" agora ESPERA o download — minutos, num vídeo de
+~300 MB. É exatamente o que a transmissão existia para evitar, e o operador
+aceitou a troca por extenso. O cartão sobre a preview e a barra de progresso já
+cobrem essa espera; o caminho é o `ytArquivo`, que nunca deixou de existir.
 
 > **A TRANSMISSÃO viaja no serviço da sessão de mídia** (não tem serviço
 > próprio): o `SessionService` tem **duas razões independentes de viver** (cena ·
@@ -3345,6 +3248,27 @@ nada na tela dizer por quê. **Um oráculo de COMPORTAMENTO não pega isto** —
 mede um seletor que sobreviveu. Quem pega é o `tokens.test.mjs`, que varre o
 arquivo CRU: nenhuma folha nem HTML da base carrega marca de conflito.
 
+**E A BIBLIOTECA INTEIRA SAIU DO RECUO (v1.7.3).** Pedido do operador: *"ao
+abrir coleções e álbuns na biblioteca, assim como os favoritos… há um efeito de
+encolhimento ou deslocamento que distorce os elementos, remova esse efeito …
+deixe apenas um efeito de coloração/sombreamento ao toque sem encolhimento ou
+deslocamento visual"*. Dentro de `#hymnResults` a `transform` é zerada para
+`.lib-item`, `.hymnal-card`, `.coll-group--drop` e as duas barras; o que fica é
+a METADE QUE COLORE (`--press-luz`). **A regra do recuo ABSOLUTO segue intacta
+no resto do app** — quem a guarda é o `smoke.mjs`, e é por isso que a exceção é
+por ESCOPO nomeado e não por apagar o token.
+
+**E A LUZ PASSOU A SER DO BLOCO, e não da barra.** Ela era da `.coll-bar` /
+`.coll-group-bar` — um retângulo DENTRO de um bloco arredondado —, então o que
+acendia era a faixa do título com as margens e os cantos do card escuros em
+volta. Só o bloco de RAIZ colapsado escapava (v1.5.17), e era essa exceção que
+fazia o mesmo gesto colorir o card inteiro numa coleção da raiz e só a faixa num
+álbum dentro de uma seção, ou em qualquer bloco ABERTO. `:active` já casa nos
+ANCESTRAIS, então tirar a luz da barra basta para o bloco acender — não há
+`:has()` no caminho. MEDIDO em Chromium: um `filter` no bloco **não** quebra o
+`position: sticky` da barra que ele contém. Oráculo: o bloco `D6` do
+`lista-da-biblioteca.test.mjs`, com as duas reversões.
+
 **E A LISTA DE GUARDAS É O QUE ENVELHECE**, não a regra: a `.row-acoes` — a
 faixa de opções da linha, que é onde o operador de fato toca — ficou de fora
 dela até a v1.4.25, e o cartão do Cronograma balançava 2px a cada toque no
@@ -3816,7 +3740,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Pastas do dispositivo | `showDirectoryPicker()` | **SAF** — a File System Access API não existe no Android |
 | Compartilhamento | **não existe** (vinha do `share_target` + SW, ambos removidos) | **`intent-filter`** (`ShareIntake.kt`), só `content://` — ver abaixo |
 | Link do YouTube COPIADO | **não existe** (`navigator.clipboard.readText()` pede permissão e exige gesto — o oposto do que este caminho é) | **oferecido na abertura e na retomada** (`areaTransferencia`, shell 48). COPIAR NÃO É UM PEDIDO, então há uma PERGUNTA antes e só o "sim" entrega o link ao `importShare` — que dali em diante é o mesmo código do share. A pergunta é o que torna isto seguro no Modo Fácil, onde um link compartilhado vira transmissão SEM perguntar. O aviso do sistema do Android 12+ é pago **uma vez por link copiado**, nunca por retomada: o shell compara o CARIMBO da descrição antes de ler |
-| Link do YouTube compartilhado | vira item de LINK, que só o app resolve | avançado: as MESMAS quatro escolhas da busca (tocar · playlist · Cronograma · Favoritos + vídeo/só-áudio + teto). Simplificado: sem pergunta, **transmissão direta** (`tentarTransmitir`) — ali o link É um "tocar agora". Falhando: download; falhando ele: item de LINK, resolvido no toque seguinte (`resolverLinkYoutube`) — um link compartilhado nunca se perde |
+| Link do YouTube compartilhado | vira item de LINK, que só o app resolve | avançado: as MESMAS quatro escolhas da busca (tocar · playlist · Cronograma · Favoritos + vídeo/só-áudio + teto). Simplificado: sem pergunta, **download e projeta** — ali o link É um "tocar agora" (era transmissão direta até a v1.7.2). Falhando: item de LINK, resolvido no toque seguinte (`resolverLinkYoutube`, que também baixa) — um link compartilhado nunca se perde |
 | Destino de um item | uma escolha por vez | **VÁRIOS destinos de uma vez**, método único: toda opção da folha (as três listas **e** o "Tocar agora") é selecionável de corpo inteiro, e um confirmar sempre visível executa. Um vídeo do YouTube é baixado UMA vez para dois destinos. Importação e share abrem a mesma folha com o Cronograma já marcado; desistir entra no Cronograma. Ver `docs/ARQUITETURA-WEB.md`, "UM item, VÁRIOS destinos" |
 | Onde o share aterrissa | idem (mesmo `importShare`) | **`focarImportado`**: fecha popups e seleção; projeta na hora no simplificado (item vai para a prateleira `avulsos`, que não tem lista visível) ou vai ao Cronograma no avançado. A preview em tela cheia só é encerrada se houver telão |
 | Estado do telão (Configurações) | atalho `window.open('../display/')` | **indicador ao vivo**, desabilitado como botão |
@@ -3825,12 +3749,12 @@ que ela é desenvolvida e testada fora do aparelho.
 | Girar a mídia | idem (comando `rotate`) | tile **"Girar no telão"** em Configurações, 90° por toque — o nome diz ONDE, porque "Girar" sozinho se lê como o giro da INTERFACE (v1.4.41). O motor TROCA O EIXO da caixa antes de girar, para o `object-fit` medir o retângulo em que a mídia vai de fato aparecer |
 | Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão |
 | PDF · `.pptx` · Google Apresentações | **PDF não existe**; `.pptx` funciona pelo mesmo caminho do app | **uma IMAGEM POR PÁGINA**. PDF pelo `PdfRenderer` da plataforma (`SlideDeck.kt` + `deckPages`); `.pptx` pelo renderizador de `assets/web/vendor/` (`controle/deck.js`, `import()` dinâmico + `<foreignObject>`/canvas). Daí é mídia comum, com ⏮/⏭ passando página — **e uma CAMADA desde a v1.4.28**: com um áudio no ar, o toque na apresentação a sobrepõe em vez de substituir, pela mesma porta da imagem (`mode:'image'` com um `page`), e o louvor de fundo continua tocando por baixo dos slides. **O FORMATO de cada página é decidido por ela**, nos dois caminhos e pelo mesmo número (`PAGINA_LEVE`, 512 kB): PNG na página chapada, WebP na fotográfica — MEDIDO, uma apresentação de fundo fotográfico dá 100,4 MB em PNG contra 12,3 MB. **Não há botão de "apresentação"** — entra por "Importar arquivos" (`pickDoc`: o PDF precisa que o shell abra o ARQUIVO, e `<input type=file>` só devolve bytes) ou pelo share. `.ppt` legado e `.odp` ficam de fora: ninguém sabe desenhá-los **E O VÍDEO EMBUTIDO TOCA** (v1.6.2): o `pptxzip.js` o tira do zip ANTES de abrir o arquivo — sem isso um `.pptx` com vídeo é RECUSADO (teto de entrada da biblioteca) e, passando, sairia como retângulo PRETO (o `embutirRecursos` não alcança `<video>`). Ele vira mídia presa à PÁGINA em que estava: chegar nela projeta o vídeo, e o fim dele devolve a apresentação no slide SEGUINTE |
-| **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **TRANSMISSÃO DIRETA** (shell 26; só funciona do 27 em diante): `ytStream` monta o manifesto das duas adaptativas, `StreamProxy` as serve pelo NOSSO origin com o UA que combina, e `shared/mse.js` as vira um `<video>` comum — fade, cortina, `MediaSession` e barra de graça, zero pixel de YouTube no telão. Faixa de bytes na QUERY (`?r=ini-fim`), **nunca** em `Range` (invariante 8). Só em "Tocar agora": as outras ações GUARDAM, e manifesto expira em horas. Falhando qualquer coisa, cai no download, calado. **É o único tipo de mídia que precisa de JS rodando enquanto toca** — ver abaixo |
+| **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **BAIXA E PROJETA** (v1.7.3): o mesmo `ytArquivo` dos outros destinos, com o cartão sobre a preview e a barra de progresso cobrindo a espera. Foi TRANSMISSÃO DIRETA da v5.212 à v1.7.2 — o `ytStream` montava o manifesto e o `mse.js` o virava um `<video>` —, e ela saiu a pedido do operador: *"vamos abandonar o modo online direto, ele é muito instável"*, depois de travamentos a cada um ou dois segundos com o espelhamento no ar. **O preço está aceito e é o que ela existia para evitar: "Tocar agora" agora ESPERA o download** |
 | **Cifra do hino** | **não existe** — sem ponte não há como buscar a página (CORS), e a aba nem é oferecida | **aba CIFRA no visualizador de letras** (shell 49): `cifraHtml` traz o HTML cru, `controle/cifra.js` o lê, e a folha aparece com transposição por meio tom. **SOB DEMANDA:** nada é baixado em lote, nada entra no bundle, nada é gravado em disco — o cache é um `Map` que morre com o app |
 | Vídeo do YouTube | **não toca** | **baixado PELO APARELHO** (`YoutubeGrab.kt` + `ytFetch`) — a extração sai do IP do chip, que é o que o YouTube não bloqueia. Falhando, vira item de LINK, retentado no toque seguinte |
-| Qualidade do download | — | teto escolhido pelo operador: **Online · 1080p · 720p · 480p**, no mesmo seletor de Vídeo/Só áudio. Nasce no padrão A CADA ITEM (um teto que grudasse daria 480p no vídeo do domingo sem aviso). 1080p usa o `ytFetch` de sempre; só teto MENOR usa `ytFetchAte`. "Online" (`-1`, e não `0`, que já significa "sem teto") guarda **só o link** |
+| Qualidade do download | — | teto escolhido pelo operador: **1080p · 720p · 480p**, no mesmo seletor de Vídeo/Só áudio. **O padrão é 720p e ele é DO OPERADOR** (v1.7.3): escolher um teto o GRAVA (`state` `ytAltura`) e ele vale para o próximo vídeo. As duas metades revogam decisões escritas — o padrão era `YT_ALTURAS[0]` (1080p) e o teto nascia no padrão A CADA ITEM —, e as duas foram pedidas por extenso. 1080p usa o `ytFetch` de sempre; só teto MENOR usa `ytFetchAte`. O degrau **"Online"** (`-1`, que guardava só o link) SAIU junto com a transmissão direta que ele alimentava |
 | Resolução do download | — | **até 1080p, montando as duas faixas** — acima de 720p o YouTube entrega vídeo sem som. `MuxMp4.kt` junta com `MediaMuxer` (cópia de amostras, sem recodificar). Pares do MESMO contêiner (mp4+m4a, webm+webm na API 29+): "a melhor de cada lado" daria VP9 em MP4, que o muxer recusa **depois de tudo baixado**. Falhando, o progressivo é o piso. Requer o extrator ≥ v0.26.4 (cliente **visionOS**, que entrega adaptativas sem PO Token); as listas chegam misturadas, daí a **fila de candidatos** — ver `docs/ARQUITETURA-WEB.md` |
-| **Só o ÁUDIO** em "Tocar agora" | **não toca** | transmitido também: o manifesto já traz o par e o lado web DESCARTA o vídeo (`man.video = null`) — nenhum método novo, nenhum byte de 1080p baixado à toa. Entra como `kind:'audio'` (o telão mantém o wallpaper) |
+| **Só o ÁUDIO** em "Tocar agora" | **não toca** | baixado pelo `ytFetchAudio`, como nos destinos que guardam — a transmissão dele saiu na v1.7.3 junto com a do vídeo. Entra como `kind:'audio'` (o telão mantém o wallpaper) |
 | **Só o ÁUDIO** guardado | — | **`ytFetchAudio`** (shell ≥ 23), pelo mesmo seletor Cantada/Playback. `kind:'audio'` e sem miniatura — é o *kind*, não o contêiner, que faz o telão manter o wallpaper. Único caminho sem o teto de 720p do progressivo. Fila de três candidatos na ordem do cliente que funciona, progressivo no fim |
 | **Séries do YouTube** | **não existe** | **um álbum por SÉRIE** (shell 41) — ver a seção do recurso. O ITEM é um vídeo do YouTube, não faixa de hinário: mesma folha (sem "Só áudio"), "Tocar agora" transmite, download só nos destinos que guardam. Não há "baixar o álbum" (~300 MB/episódio) |
 | Buscar no YouTube | não existe: abre o YouTube numa aba | **busca dentro da Biblioteca** (`ytSearch` → `YoutubeGrab.pesquisar`), resultados na mesma lista e mesma folha de destinos. Em **português**: passar localização ao `NewPipe.init` NÃO resolve (o serviço filtra por uma lista que só tem `en-GB`) — quem resolve é o `forceLocalization` do próprio `Extractor`. Iframe é recusado pelo `X-Frame-Options`; a API oficial exigiria chave com cota |
@@ -4312,6 +4236,7 @@ mundo anterior por outro caminho.
 | `cifra-tela-cheia.test.mjs` | **a cifra DEITADA, em tela cheia** (v1.6.0) — e a asserção que carrega o arquivo é ARITMÉTICA, não de layout: em tela cheia a folha não pode ter MENOS colunas que no retrato. A folha quebra por CARACTERE (`AVCifra.quebrarPares`), então um corpo maior sem REMEDIR é a mesma linha partida com letra grande — o recurso virando regressão, e um teste de "a fonte cresceu" aprova isso. Ele monta o cenário como ele chega no aparelho: tela cheia por CLIQUE de verdade e a rotação como um `setViewportSize` DEPOIS dela, porque a largura e o corpo chegam em instantes diferentes (o `requestFullscreen` resolve ainda em retrato; quem deita é a Activity, depois e sem promise). Mede o RENDERIZADO — a coluna começando onde a folha acaba, o hit-test de cada controle, e o x de um caractere por `Range`, nunca a `font-size` declarada. Mais a POSIÇÃO DE LEITURA sobrevivendo nos quatro pontos que trocam a fonte, em fração do CONTEÚDO: a do percurso muda sozinha quando só a ALTURA da caixa muda, que é o que a rotação faz sem tocar no texto, e o que saía era a folha andando 19% do arquivo ao deitar. E as TRÊS saídas mais a automática (a tela cheia cai quando a cifra deixa de ser a fonte), porque tirar `.open` só muda opacidade e `pointer-events` — o elemento continuaria na top layer com a Activity deitada. **E o ⛶ na BARRA** (v1.6.1): "ele está à vista?" deixou de ser o `hidden` e passou a ser a ÁRVORE — a barra é esvaziada em todo render, e perguntar `.hidden` fora da aba de cifra é ler propriedade de `null` —, então a pergunta é a POSIÇÃO na fila, medida por GEOMETRIA (a ordem do DOM provaria o `prepend`, não onde o dedo encontra o botão depois de a coluna se formar). Mais o bloco 7-C, que é a invariante de ESTRUTURA: com a cifra em `buscando` ou em `falha` **e a tela cheia no ar** a saída continua desenhada, na coluna e tocável — os dois `return` cedo do `lvBuildCifra` são alcançáveis ali, e a barra construída depois deles deixava uma paisagem deitada com uma frase de erro e nenhuma saída à vista |
 | `leitor-do-transporte.test.mjs` | **o BOTÃO que abre o auxiliar de leitura.** `openLyricsPopup` ganhou `(item, fonte)` e o ouvinte continuou registrado por REFERÊNCIA — `addEventListener` chama com o EVENTO, o `PointerEvent` virou o `lvAlvo`, e as três fontes (letra, cifra e a reserva da Bíblia) sumiam de uma vez: a folha abria dizendo "Nada em exibição" para TODA música, com o console limpo. Os três oráculos que já abriam esta folha chamam `openLyricsPopup()` direto — o único caminho que continuava funcionando —, e é por isso que este CLICA. A segunda metade (a Biblioteca continua desviando o alvo) impede que apagar os parâmetros "conserte" a primeira. **E A BADGE** (v1.4.31): apagada sem nada em exibição, acesa com o que ler, pintada de verdade (uma classe sem a regra de CSS passa num teste de classe e continua invisível), e acesa pelo caminho REAL (`renderNowPlaying`) — o defeito provável não é ela calcular errado, é ninguém a chamar quando a cena muda |
 | `controles-layout.test.mjs` | **o DECK dos controles** (v1.3.5) — e o FEEDBACK DE TOQUE sobre a preview (v1.4.33), em três metades que só juntas dizem a regra: a caixa do `.pv-fab` NÃO anda (era o relato), ele RESPONDE mesmo assim no RENDERIZADO (uma regra que só trocasse classe passaria num teste de classe e continuaria muda na tela) e o botão DA BARRA continua afundando os 2px (sem esta, apagar o `--press` do app inteiro passaria nas outras duas): os dois botões de slide que voltaram a flanquear a preview, a coluna de operação que subiu para cima dela, e o ⏮/⏭ do transporte que perdeu o eixo de estrofe. As quatro mudanças falham CALADAS, e a mais cara é a última — se a troca não pegar, "próxima mídia" continua passando ESTROFE com uma letra no ar, no meio de um louvor, sem nada no console; a prova é o COMANDO que sai no barramento (`seek` é a estrofe andando). Trava também a **ARMADILHA DO `<use>`**: a folha do documento NÃO atravessa a árvore-sombra de um `<use>`, então um `<symbol>` único com os dois desenhos dentro carrega, não erra e desenha os DOIS empilhados para sempre. As duas asserções mais óbvias contra ela — contar nós visíveis e fotografar o botão — **aprovam a armadilha** (medido), e por isso ele pergunta qual SÍMBOLO está no ar. Cobre também a COLUNA DA TELA CHEIA (v1.3.10): ela nasce ACESA e o toque é INTERRUPTOR. Ele espera pelo EVENTO `fullscreenchange`, nunca por `document.fullscreenElement` — MEDIDO, o Chromium publica a propriedade ANTES de despachar o evento e a enquete do Playwright cai no vão, reprovando um app que está certo. **E A BASE DA PREVIEW como REGIÃO DO QUE ESTÁ FORA DO PADRÃO** (v1.4.43), nas sete metades do desfazer do giro: ele aparece pelo caminho REAL (`applyRotate`, não um `hidden` escrito à mão — um render próprio deixaria o botão de pé depois de o giro voltar a zero), diz o ÂNGULO, o `title` diz a AÇÃO, o toque manda um `rotate: 0` ao BARRAMENTO (repintar só o tile deixaria a projeção girada), ele SOME depois, a COR é a MESMA do selo (v1.4.45 — os dois moradores da faixa fazem a mesma promessa, *"o toque daqui TIRA alguma coisa"*, e o que os separa é o DESENHO) e NÃO é o branco dos botões de player — e a régua do branco é um vizinho RENDERIZADO, nunca o token: `--stage-text` sai como `#fff` e a cor computada como `rgb(255, 255, 255)`, duas escritas da mesma cor que nunca são iguais como string, e a comparação passa SEMPRE (provado por reversão) —, o ✕ é o do vizinho VERBATIM (uma marca de destruição redesenhada dois pixels adiante é uma segunda opinião sobre a mesma coisa) com o resto do desenho PRÓPRIO de cada um, e o número CABE, porque ele é o único `.pv-fab` mais largo que `--hit` e com o `width` fixo dos irmãos "180°" sai cortado sem erro nenhum. **E O TOM DO CARTÃO DA LINHA DO TEMPO** (v1.5.13, refeito na v1.5.15): ele veste o cinza de um controle INATIVO, medido contra o botão de slide APAGADO com o véu de `--op-inativo` composto — os dois lados saem do MESMO caminho de medição, então um véu que mude num lugar só reprova aqui em vez de sair na tela. Com a REVERSÃO ao lado (o botão ACESO é outro tom): sem ela, um véu apagado por engano devolveria a v1.5.13 e a asserção passaria, porque os dois lados voltariam a ser a mesma superfície cheia. O parse de cor é por CANVAS e não por regex (`color-mix` computa como `color(srgb 1 1 1 / .04)`, e uma regex de números lê (1,1,1) — o oráculo reprova com um número plausível e quem lê o log conclui que o app quebrou) |
+| `preview-volta-ao-wallpaper.test.mjs` | **a preview volta ao WALLPAPER quando a mídia acaba, COM TELÃO NO AR.** O `<video>` dela nunca chegava a ouvir o `ended` dele: o telão termina, dispara `pause` ANTES de `ended` (a ordem do HTML), e o `display-status` que sai daí faz o `resyncPreviewToDisplay` PAUSAR a preview a milissegundos do fim — e um elemento pausado não emite `ended`. Sem `ended`, `computeCover()` responde `false` e a cortina nunca fecha: o que fica é o quadro de `currentTime === duration`, que é PRETO, e é PERMANENTE. Sem TV o caso não existe (a preview É a projeção e ninguém a pausa), que é a armadilha do *"ler cada lado isolado aprova os dois"*. TRÊS metades: o `media-ended` cobre (o caminho exato), o STATUS parado no fim cobre sozinho (a rede de segurança das telas da rede, onde o `media-ended` morre no dreno), e uma pausa NO MEIO **não** cobre — a REGRESSÃO que as duas primeiras introduzem se a régua for só "não está tocando", e sem a qual "cobrir sempre que pausar" passaria nas duas |
 | `fundo-da-letra.test.mjs` | **o fundo da estrofe na PREVIEW**, que sumia ao trocar de música. A `<img>` é filha da camada da letra, então o desmonte é ADIADO — e quando a letra volta antes do prazo (todo `load` de música faz isso) alguém precisa CANCELAR o desmonte. A guarda de sequência não cancela: ela não anda quando a estrofe que volta usa a MESMA imagem, que é o caso NORMAL (o fallback grudento do sync dá uma imagem por hino). O telão tinha as três proteções e a preview não tinha — **e a documentação já as descrevia como se fossem de ambos**: é a armadilha do `__tela`, em que ler cada lado isolado aprova os dois. Sem TV a preview É a projeção |
 | `excluir-em-cena.test.mjs` | **excluir de uma lista não pode derrubar a cena**, e eram DOIS defeitos. O primeiro tem sintoma (o louvor parava, por um `retirarDoAr` no caminho de excluir); o SEGUNDO não tem nenhum — o coletor só conhecia LISTAS, então sair da última apagava os bytes por baixo de uma projeção que seguia tocando, e só uma queda de dongle revelaria. Mede que a cena continua ANDANDO (não só "não pausou") **e** que o registro sobrevive. A terceira metade impede a correção de virar outro defeito: um item que JÁ TOCOU e não está mais em cena tem de morrer de verdade |
 | `aviso-de-importacao.test.mjs` | **o aviso de que um arquivo está entrando.** A ausência dele NÃO É UM ERRO: nada quebra, nada aparece no console, e o item chega ao fim — só chega em silêncio, e "importei e não aconteceu nada" é indistinguível de travar. Um teste do desfecho passa nas duas versões, então ele mede o MEIO, com o arquivo servido AOS PEDAÇOS para a janela existir |
@@ -4783,7 +4708,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.7.2 · APK v1.7.0** · `SHELL_VERSION` **63** ·
+**Versão atual: base web v1.7.3 · APK v1.7.0** · `SHELL_VERSION` **63** ·
 bundle com `minShell: 63` e **sem `shellTag`** — o shell 63 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -4793,15 +4718,32 @@ não foram tocados, e nenhum método da ponte entrou ou mudou de forma. Daí o
 Release que não vai sair, em silêncio, e a única pista seria a linha no resumo
 do run.
 
-**O QUE O LOTE TRAZ — três pedidos, e o terceiro é um defeito com relato:**
+**O QUE O LOTE TRAZ — três relatos do operador, e o segundo revoga um recurso:**
 
 | peça | onde |
 |---|---|
-| CONFIGURAÇÕES sem a palavra do estado, numa grade só, com o modo dentro dos botões | `index.html` + `pintarTile`/`renderRotBtn`/`renderWallTile` |
-| a CORTINA com um PISO de 1,8 s — ela era um lampejo | o script inline do `<head>` |
-| a EXPORTAÇÃO que ficava em 0%: o LOTE de blocos, o progresso na fase das chaves, e a folha de GRUPOS | `pacoteEscritor`/`pacotePlano`/`escolherGruposDoPacote` + `AVPacote.grupoDoCaminho` |
+| a PREVIEW volta ao wallpaper no fim da mídia, com telão no ar | `marcarFim` (`shared/stage.js`) + o `media-ended` e o `resyncPreviewToDisplay` do `controle.js` |
+| a TRANSMISSÃO DIRETA sai do app; todo "Tocar agora" BAIXA, com 720p de padrão e a escolha grudando | `ytAcaoInterno`, `resolverLinkYoutube`, o share do simplificado, `ytAlturaPadrao`/`adotarAlturaPreferida` |
+| na BIBLIOTECA o toque colore o corpo do bloco e não desloca nada | a lista `:is()` do `--press` e as regras escopadas em `#hymnResults` (`controle.css`) |
 
-> **O 0% NÃO ERA LENTIDÃO DE DISCO** (v1.7.2). A Bíblia mora em `state` com uma
+> **O FIM DA PROJEÇÃO É UM FIM, E NÃO UMA PAUSA** (v1.7.3). O `<video>` da
+> preview nunca chegava a ouvir o `ended` dele: com telão no ar ela é ILUSTRAÇÃO
+> e segue o `display-status`, o telão dispara `pause` ANTES de `ended`, e o
+> status que sai daí a PAUSA a milissegundos do fim. Pausado, o elemento não
+> emite `ended`; sem `ended`, `computeCover()` responde `false` e a cortina
+> nunca fecha. O que fica é o quadro de `currentTime === duration` — PRETO, e
+> permanente. `marcarFim` é a MESMA sequência do evento, chamável de fora: uma
+> implementação, dois chamadores.
+
+> **A ESCOLHA DE QUALIDADE PASSOU A GRUDAR, e isso REVOGA uma decisão escrita.**
+> O teto nascia no padrão A CADA ITEM, com o argumento de que *"um teto que
+> grudasse daria 480p no vídeo do domingo sem aviso"*. O operador pediu o
+> oposto por extenso — *"caso o usuário selecione outra, aquele se torna o
+> padrão para ele"* —, e o argumento contra vale menos do que parecia: quem
+> escolhe 480p uma vez o faz por uma razão que não muda de sábado para sábado.
+> O seletor continua na folha, a um toque, mostrando qual é.
+
+> **O LOTE ANTERIOR (v1.7.2) — o 0% NÃO ERA LENTIDÃO DE DISCO.** A Bíblia mora em `state` com uma
 > chave POR CAPÍTULO — 1189 por versão —, e cada registro custava DUAS idas e
 > voltas pelo canal (uma pelo cabeçalho, outra pelo corpo): ~7.200 viagens para
 > escrever poucos megabytes, e nenhuma delas reportava byte nenhum. O escritor

@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.7.3",
+    "itens": [
+      "A prévia voltou a mostrar o papel de parede quando a música acaba, em vez de ficar preta.",
+      "Os vídeos do YouTube deixaram de tocar direto da internet — agora eles são baixados antes.",
+      "Isso acaba com os travamentos durante a projeção.",
+      "A qualidade padrão passou a ser 720p.",
+      "E a qualidade que você escolher fica guardada como a sua padrão.",
+      "Na Biblioteca, tocar num álbum ou coleção não desloca mais o card.",
+      "O toque agora colore o card inteiro, e não só a faixa do título."
+    ]
+  },
+  {
     "versao": "1.7.2",
     "itens": [
       "As Configurações ficaram mais limpas: cada botão mostra só o nome, e o ícone diz o estado.",
