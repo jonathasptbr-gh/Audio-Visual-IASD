@@ -4505,18 +4505,25 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.6.1 · APK v1.5.21** · `SHELL_VERSION` **62** ·
+**Versão atual: base web v1.6.2 · APK v1.5.21** · `SHELL_VERSION` **62** ·
 bundle com `minShell: 62` e **SEM `shellTag`** — o shell 62 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. **`SHELL_VERSION`
 NÃO sobe neste lote**: a superfície da ponte não mudou.
 
-**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — os três ajustes da BARRA
-DA CIFRA (o ⛶ no fim da fila, o anel da espera virando NOTA, e o `Auto` virando
-`1×`) mais o defeito que eles desenterraram: o ouvinte do par A+/A− casava
-`.lv-fonte-btn`, a classe de APARÊNCIA que veste também os botões da barra, e
-transpor meio tom ENCOLHIA a letra —, e nada em `java/`, `res/` ou no manifesto
-foi tocado. O `minShell` fica em 62: o piso não desce, e a Release `v1.5.21` já
-o entregou.
+**E ESTE LOTE NÃO PEDE RELEASE.** Ele é só base web — a ESPERA PARADA da rolagem
+da cifra virando RAMPA (a folha arranca no primeiro quadro, muito devagar, em vez
+de ficar imóvel) e o botão de velocidade virando QUADRADO como os vizinhos —, e
+nada em `java/`, `res/` ou no manifesto foi tocado. O `minShell` fica em 62: o
+piso não desce, e a Release `v1.5.21` já o entregou.
+
+> **IMOBILIDADE NÃO É ESPERA, É UM BOTÃO QUEBRADO** (v1.6.2). A espera parada da
+> v1.5.20 tinha o objetivo certo — deixar ler a introdução — e o meio errado: ela
+> ficava IMÓVEL, e foi por isso que a v1.6.1 precisou de uma NOTA para explicá-la.
+> O operador leu o conjunto como falta de resposta. Hoje a folha ANDA desde o
+> primeiro quadro (MEDIDO: o primeiro pixel em 253ms) e acelera até o compasso
+> cheio, e a introdução continua na tela (25% da caixa consumidos em 12s). **O
+> fecho da janela não foi sacrificado:** a duração da rampa é escolhida para todo
+> marco além dela cair no mesmo instante de relógio de antes.
 
 > **A ESCADA DA CIFRA FOI RENOMEADA, NÃO REDESENHADA** (v1.6.1), e a distinção é
 > do operador: *"não mude o comportamento da escala, o comportamento estava

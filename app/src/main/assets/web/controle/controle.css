@@ -186,11 +186,15 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      mesma medida — escritos em dois lugares, o botão mais largo da família
      começaria a encostar na borda no primeiro ajuste.
 
-     O PISO é o `.lv-cifra-vel`, o único botão que não é quadrado: ele pede
-     `--hit + 1.2rem` (53,2px), a largura do rótulo mais largo da escada
-     (`0,75×`, MEDIDO em 49,2px de caixa) mais folga. `--hit + 2rem` (66px)
-     deixa 56,4px de conteúdo depois do recuo dos dois lados — 3,2px de sobra
-     sobre o maior deles.
+     O PISO é `--hit`: desde a v1.6.2 os cinco botões da fila são quadrados de
+     34px (o de velocidade foi o último a virar um — ver `.lv-cifra-vel`). Com o
+     recuo interno da barra (`--sp-2` à esquerda, `--sp-3` à direita, 9,6px
+     somados) o mínimo estrito seria 43,6px; `--hit + 2rem` (66px) deixa 56,4px
+     de conteúdo e 11,2px de cada lado do botão. A sobra é DELIBERADA e não
+     resíduo: esta é a coluna que o polegar percorre com o aparelho deitado, e um
+     alvo de 34px encostado na borda da tela é o alvo que se erra. Encolher a
+     trilha devolveria ~18px de largura à folha (~2,5% de colunas de cifra) e
+     custaria essa margem.
 
      E ela é uma FAIXA DE GRID, não um overlay: a coluna da preview
      (`.pv-fsctl`) é absoluta e translúcida porque lá o que está por baixo é a
@@ -7789,8 +7793,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    O de velocidade CICLA (a escada volta ao começo), como o botão de girar a
    mídia — com CINCO degraus, dar a volta custa menos que um segundo botão. */
 .lv-cifra-rolar.ativa { color: var(--accent); }
-/* A NOTA DA BARRA (v1.6.1) — o que o play vai fazer, e por que a folha fica
-   parada logo depois dele. Ela substituiu o anel `.dl-ring` que ficava sobre o
+/* A NOTA DA BARRA (v1.6.1) — o que o play vai fazer, e por que a folha rola
+   devagar logo depois dele (v1.6.2: a espera parada virou uma rampa, e a nota
+   trocou de fato junto). Ela substituiu o anel `.dl-ring` que ficava sobre o
    ícone de pause: o operador pediu a mensagem *"na própria ui e não em pop up"*,
    e o molde é o da `.sorteio-nota` — `--muted`, `--fs-sm`, sem caixa e sem
    ícone, porque é uma AFIRMAÇÃO e não um controle, e o olho tem de cair nos
@@ -7817,22 +7822,42 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `+½`; com o `gap` de 4px da fila, ficaria a 4. O respiro é o mesmo nos dois
    eixos, e vem em duas declarações porque a fila vira COLUNA em tela cheia. */
 .lv-cifra-ctl .lv-cheia-btn { margin-left: var(--sp-5); }
-/* O ÚNICO botão da família que não é quadrado: o rótulo tem até CINCO
-   caracteres (`0,75×`), não um par deles. `min-width` guarda a largura do MAIOR rótulo
-   para o ciclo não empurrar os vizinhos a cada toque — um botão que se desloca
-   sob o dedo é um botão que erra o alvo na segunda batida.
+/* O QUINTO BOTÃO DA FILA É QUADRADO COMO OS OUTROS QUATRO (v1.6.2), e o que o
+   faz caber é o CORPO. Pedido do operador: *"diminua a fonte do botão de 1x
+   para que ele seja um botão exatamente do mesmo tamanho e quadrado como os
+   seus vizinhos"* — ele nomeou o mecanismo, e é o único que sobrou.
 
-   O VALOR SUBIU NA v1.6.1, e ele já estava curto ANTES do lote: MEDIDO, o
-   `0,75×` pede 49,17px de caixa contra os 48,39 do `--hit + .9rem`, então ele
-   crescia 0,78px e empurrava os vizinhos — a proteção que este `min-width`
-   existe para dar. `--hit + 1.2rem` (53,19px) leva os cinco rótulos à mesma
-   caixa, com 4,02px de folga sobre o maior; e cabe na coluna deitada, que tem
-   56,4px úteis (ver `--cifra-coluna`). A folga importa: a base pede
-   `system-ui`, e quem mede o texto é a fonte instalada no aparelho. */
-.lv-cifra-vel {
-  width: auto; min-width: calc(var(--hit) + 1.2rem); padding: 0 .5rem;
-  font-variant-numeric: tabular-nums;
-}
+   AS OUTRAS DUAS ALAVANCAS ESTÃO MORTAS, e ficam ditas para não serem tentadas
+   de novo: `tabular-nums` não muda largura nenhuma (MEDIDO, 31,72px com e sem,
+   nas duas famílias) e já vinha do `.lv-fonte-btn`; o PESO muda 2,31px em
+   `system-ui` e ZERO em Arial (lá o negrito é sintético, engrossa o traço sem
+   mexer no avanço) — e 2,31px é menos que a folga que falta.
+
+   O CORPO É `--fs-2xs` PORQUE É O ÚNICO DEGRAU QUE CABE. O rótulo tem até CINCO
+   caracteres (`0,75×`), não um par deles, e a régua é a fonte MAIS LARGA que
+   este botão pode calhar de pegar: um `<button>` não herda família (o
+   `.lv-fonte-btn` não declara nenhuma — a armadilha escrita no `.import-btn`),
+   então ele computa a do agente do usuário. MEDIDO em `system-ui`, numa caixa
+   de `--hit` (34px): `--fs-md` pede 43,34px (estoura 9,34), `--fs-sm` 39,11
+   (estoura 5,11), `--fs-xs` 35,95 (estoura 1,95) e `--fs-2xs` 31,72 — folga
+   2,28px. É o menor degrau da escala, e é o de baixo ou nada.
+
+   E A LARGURA FIXA É MAIS FORTE QUE O `min-width` QUE ELA SUBSTITUI. Aquele era
+   um PISO sobre `width: auto`: a caixa crescia quando o rótulo passava dele, e
+   sob a família larga ela passava — `0,75×` pedia 59,34px contra os 53,19 do
+   piso, empurrava os vizinhos a cada toque (a proteção que o `min-width` existia
+   para dar) e ainda transbordava 1,48px da coluna deitada (a promessa que ele
+   fazia ao `--cifra-coluna`). Com `width` fixo o ciclo não pode mover nada:
+   MEDIDO, um rótulo de onze caracteres deixa a caixa em 34,00px e transborda
+   por fora, sem mexer no layout.
+
+   O PREÇO, DITO: o rótulo cai TRÊS degraus abaixo dos vizinhos (9,6 contra
+   13,12), e é o primeiro `--fs-2xs` dentro de um ALVO DE TOQUE deste app — os
+   sete usos de hoje são legenda, selo ou nome de ladrilho. Em tela cheia a
+   folha cresce e os controles não, então é ali que ele é o texto menor da tela;
+   não há conserto que preserve o quadrado, porque a caixa continua sendo
+   `--hit`. */
+.lv-cifra-vel { font-size: var(--fs-2xs); }
 
 /* ===== A CIFRA EM TELA CHEIA, DEITADA (v1.6.0) =====
    Pedido do operador: *"gostaria que criasse um sistema para visualização das
@@ -7939,8 +7964,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 #lyricsPopup:fullscreen .lv-cifra-tom,
 #lyricsPopup:-webkit-full-screen .lv-cifra-tom { text-align: center; }
-/* `align-items: center` para o `.lv-cifra-vel` ficar no `min-width` dele em vez
-   de esticar para a trilha inteira: quatro botões, uma largura só. */
+/* `align-items: center` para os botões ficarem na largura DELES em vez de
+   esticar para a trilha inteira: cinco botões, uma largura só (`--hit`). Sem
+   ele o `stretch` padrão de uma coluna flex os levaria aos 56,4px úteis. */
 #lyricsPopup:fullscreen .lv-cifra-ctl,
 #lyricsPopup:-webkit-full-screen .lv-cifra-ctl {
   flex-direction: column; align-items: center;
@@ -7963,9 +7989,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `space-between`, e um terceiro filho invisível MAS PRESENTE seria distribuído
    — o tom no topo, um vão no meio e os controles no pé.
 
-   O QUE SE PERDE, DITO: em tela cheia a espera de 2 a 8s fica sem legenda. O
+   O QUE SE PERDE, DITO: em tela cheia a rampa de arranque fica sem legenda. O
    que NÃO se perde é o reconhecimento do toque — `cifraPintarRolar` troca o
-   glifo para o pause e acende o `.ativa` no mesmo quadro. As duas saídas
+   glifo para o pause e acende o `.ativa` no mesmo quadro, e desde a v1.6.2 a
+   folha JÁ SE MEXE, o que é mais do que a legenda dizia. As duas saídas
    recusadas: um segundo texto curto só para a coluna (duas escritas do mesmo
    fato) e manter o anel só aqui (dois mecanismos para um fato, e o operador
    mandou remover o anel). */

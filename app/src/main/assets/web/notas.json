@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.6.2",
+    "itens": [
+      "A rolagem da cifra não fica mais parada no começo: ela arranca bem devagar.",
+      "Assim dá para ver que ela começou, e a introdução continua na tela por um bom tempo.",
+      "E o botão de velocidade ficou quadrado, do tamanho dos outros da barra."
+    ]
+  },
+  {
     "versao": "1.6.1",
     "itens": [
       "Transpor o tom ou trocar a velocidade deixou de encolher a letra da cifra.",
