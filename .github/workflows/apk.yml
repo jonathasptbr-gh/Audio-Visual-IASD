@@ -544,6 +544,7 @@ jobs:
 
           rodar tools/plataforma.test.mjs
           rodar tools/lista-da-biblioteca.test.mjs
+          rodar tools/geometria.test.mjs
           rodar tools/enquadramento-da-camada.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que

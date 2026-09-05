@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.7.11** — A VARREDURA GEOMÉTRICA, E O PADRÃO SEGURO DE DESIGN. Pedido do operador: *"faça a varredura completa no layout do app para que ele se torne responsivo geometricamente. vamos criar um padrão seguro de design."* **Primeiro a RÉGUA, depois a correção, e só então o portão** — escrever a asserção antes de medir é como o desenho da Bíblia nasceu. `tools/varredura-geometrica.mjs` abre as 16 superfícies do app (a tela nos dois modos, os dez popups da tabela `POPUPS`, as duas folhas, as duas gavetas) em 9 combinações de tela × escala de fonte do sistema, e mede cinco coisas: **T1** elemento fora da janela, **T2** irmãos sobrepostos numa linha `flex`, **T3** corte serrado (`overflow` cortando texto sem clamp ENGATADO e sem máscara), **T4** alvo abaixo de `--hit`, **T5** camada `fixed` fora da tela. **As cinco foram vistas DISPARANDO antes de a régua valer** — duas por reversão do `controle.css` de antes da v1.7.10 (a pílula "Versão" a 22px fora da tela, o versículo com 210px de excesso e `cabem 0ln, clamp 6`), duas por um DOM montado à mão, uma pela varredura de verdade: uma sonda que nunca dispara é indistinguível de um app sem defeito e aprova tudo em silêncio. **O RESULTADO É A NOTÍCIA BOA:** 13 das 16 superfícies saíram limpas nas oito telas da primeira passada, e as 145 ocorrências colapsaram em **seis defeitos**, todos com a MESMA anatomia — *a caixa é da TELA e encolhe, o conteúdo é da FONTE e cresce, e nada apresenta os dois*. (1) **A GRADE DE 66 LIVROS DA BÍBLIA** era `repeat(11, 1fr)` sem piso: MEDIDO, fileira de **16,4px com letra de 20px** a 360×640 e de **12,8px com letra de 26px** com a fonte do sistema em 1,3× — a abreviação cortada ao meio, e um alvo de toque intocável. Três mudanças, nenhuma suficiente sozinha: piso `--hit-denso` (28px, o número que a `.bible-half` já usava, exceção NOMEADA ao `--hit` porque 66 alvos de 34px pedem 414px numa folha que mede 280,5px), **rolagem** (um piso sem rolagem é o corte de volta um nível acima) e a letra seguindo a célula (`min(var(--fs-4xl), 76cqh)`, com a porcentagem CALIBRADA — 20/26 — para a tela folgada desenhar exatamente o que desenhava). Depois: `corta: 0` nas cinco telas medidas, letra de 19,76 a 20px, e só a 360×640 a grade passa a rolar. (2) **A FOLHA DE FERRAMENTAS** espremia o miolo: a 360×640 com fonte 1,3× o corpo tem 181,2px, o seletor come 53,3 e o rodapé do microfone 73,7, sobrando **42,9px** para um painel cujo botão "+ Nova mensagem" mede 51,1 — a lista sumia inteira e o botão saía cortado numa caixa que não rolava. `min-height: min-content` é o piso HONESTO (a lista rola sozinha e contribui zero), e a `.lib-misc` passou a rolar em vez de esconder: 42,9 → **143,4px**. (3–6) Quatro controles abaixo do piso de toque, e nenhum era um número escolhido — os quatro eram um `padding` em `rem` caindo onde caiu: `.misc-tab` a 32,6px, `.fit-opt` a 31, `.misc-chip` a 29,5 e o `.cue-save-btn` da leitura a **20px**, este último uma regressão da própria v1.7.10 (`height: auto` para esticar junto das pílulas, sem piso para quando a barra QUEBRA). **O padrão ficou escrito** em `docs/arquitetura/DESIGN-SYSTEM.md` — cinco regras (orçamento em vez de sobra · corte declarado · piso que não depende da fonte · caixa por largura não hospeda texto por fonte · rolar nunca esconder) mais o corolário *numa folha, o cromo é o que cede, nunca o miolo* —, e com ele o que NÃO é regra: `px` não é o vilão (o `--hit` é `px` de propósito, porque alvo de toque é FÍSICO), e media query de largura não faz falta, porque o que o fluxo não resolve é a ALTURA. Portão novo: `tools/geometria.test.mjs`, 16 superfícies × 5 telas em **29s**, com as sondas se autoprovando a cada execução e **oito reversões medidas** — a oitava só passou a ser cobrada depois de a escala **1,5×** (o "Ampliar" do Android) entrar na matriz, porque a 1,3× a letra cabia por ZERO, e "cabe por zero" não é uma correção. Lote **só de base web**.
 - **v1.7.10** — A FOLHA DE LEITURA DA BÍBLIA NÃO CABIA, E OS DOIS SINTOMAS ESTAVAM NA MESMA CAPTURA. (1) **O VERSÍCULO EM DESTAQUE**: *"verifique a disposição do tamanho da fonte no texto em destaque da bíblia, que será exibido, está cortando texto em certas telas"*. A fonte era FIXA (`--fs-2xl`) e a caixa é VARIÁVEL — ela é o que sobra da seção, que divide por `flex` a altura da folha. MEDIDO na seção central, com o versículo da própria captura: **0,79 linha** a 360×640, 2,44 a 360×740, 2,87 a 393×786, 4,37 a 430×900, **1,23** a 393×786 com a fonte do sistema em 1,3× e **ZERO** a 360×640 com a mesma escala. E o `-webkit-line-clamp: 6` **nunca engatava** — a caixa jamais chegou a seis linhas —, então quem cortava era o `overflow: hidden` da seção, no MEIO da linha: a altura sobrava de 7 a 26px sobre um múltiplo da altura de linha nos oito cenários, isto é, a última linha era sempre uma fileira de meias letras, **sem reticências**. A fonte passou a seguir a altura da caixa (`clamp(.88rem, 14.3cqh, var(--fs-2xl))`, com a seção virando container de tamanho), com o **teto no tamanho de sempre** — a 430×900 nada muda — e o piso em `rem`, porque quem aumenta a fonte do sistema quer letra maior mesmo vendo menos texto. O que ainda não couber **esmaece** (`mask-image`) em vez de ser serrado: reticências exigiriam que o clamp fosse sempre ≤ as linhas que cabem, um inteiro que o CSS não calcula a partir de uma altura, e um clamp maior que isso é exatamente o defeito de origem — a máscara não precisa dele, e é o vocabulário que a Biblioteca já usa (o véu do scroll, v1.5.16). **E quantas seções de contexto cabem virou uma CONTA**: são quatro por decisão da v5.267, com a razão escrita *"sobrava espaço na tela"* — verdade na tela em que aquilo foi decidido e falsa nas outras. Três faixas de `@container` tiram primeiro o segundo versículo à frente, depois o anterior, e no extremo deixam só o central; a ordem é a do próprio argumento de lá (*ler adiante é o que o operador faz*), e as faixas (18em · 14em · 11em) foram calibradas medindo — cada uma é a altura em que a MENOR seção deixa de mostrar uma linha inteira. Depois: 2,75 · 2,48 · 3,42 · 4,37 · 2,18 · 2,24 linhas, sem uma regressão. (2) **A BARRA DA REFERÊNCIA**: *"na base, onde tem o livro capítulo e versículo selecionado, está sobrepondo os elementos na sua direita, por falta de espaço e ajuste de dimensão"*. MEDIDO com as QUATRO pílulas: ela pede 238px com a fonte padrão e 308px com a do sistema em 1,3×, contra 200–286px de linha livre depois dos dois botões de guardar — só cabia ao lado deles em 2 dos 10 cenários. Três pílulas eram `flex-shrink: 0`, então, batido o `min-width` da do livro, o conteúdo saía da caixa; e **o que sai de uma caixa flex pinta por cima do irmão**, com os dois botões continuando tocáveis por baixo. Todas encolhem agora (a do livro três vezes mais, porque é o único valor que vira reticências sem perder o sentido), o aperto é pago no RÓTULO — que é quem dimensiona as três pílulas de número, já que "CAPÍTULO" e "VERSÍCULO" são muito mais largos que os valores —, **e quando não cabe a barra QUEBRA**: `flex-wrap` decide as linhas pelo tamanho ideal antes de encolher qualquer item, então onde a referência cabe ao lado dos botões nada muda e onde não cabe eles descem. A altura que isso custa sai da leitura, que era o argumento da v5.109 para juntar as duas faixas — ele continua valendo e deixou de decidir, porque uma barra pintando sobre um botão tocável é pior que uma linha a mais. **O extremo está dito**: a 360×640 com fonte 1,3× nem a linha sozinha basta (308 contra 298px) e ali o rótulo vira reticências; apertar o respiro das pílulas para ganhar os 10px foi medido e não resolveu. **A primeira calibração deste lote saiu 50px otimista** porque o oráculo media TRÊS pílulas: a da versão só existe com a lista de versões carregada, e sem rede ela vem vazia. Oráculo novo: `tools/biblia-leitura-cabe.test.mjs`, em sete telas × escala de fonte, com cinco reversões medidas. Lote **só de base web**.
 - **v1.7.9** — A IMPORTAÇÃO NÃO ERA LENTA: ELA NÃO CABIA. Relato do operador: *"Não estou conseguindo importar os dados, 'failed to fetch' era um arquivo de 15GB. Tentei em um arquivo de 3,52GB e ele deu erro como se o arquivo estivesse corrompido. Verifique se é problema no leitor, ou é algum problema tamanho do arquivo."* **São os dois, um em cada camada.** (1) **O LEITOR** fazia `resp.blob()` — o arquivo INTEIRO materializado antes do primeiro byte: quinze gigabytes não cabem nem na memória nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da primeira num aparelho que já está cheio. (2) **O TAMANHO**, e este é estrutural: o caminho `/saf/` tem **teto de 2 GB**, porque o Chromium dimensiona toda resposta interceptada pelo `available()` do `InputStream` — um `int`. É a invariante 8 pelo lado que ninguém tinha olhado: acima de `Integer.MAX_VALUE` o web recebe o arquivo CORTADO, sem erro nenhum, e o cursor tropeça no meio de um registro. **A forma do conserto é a do `StreamProxy`, e não uma invenção**: `/saf/<token>?r=<ini>-<fim>`, com a faixa na QUERY e nunca num cabeçalho `Range` — com o cabeçalho, o `ParseRange` do WebView aplicaria o deslocamento uma SEGUNDA vez sobre o que já é uma fatia. Sem cabeçalho não há `ParseRange` nem `ComputeBounds`, e o `available()` passa a ser o da JANELA: o teto some porque nenhuma resposta chega perto dele. O `SafJanela` faz SEEK de verdade (`openFileDescriptor` + `FileChannel.position`; `skip` só como plano B para provedor sem descritor posicionável — pular quatorze gigabytes lendo-os seria quadrático) e usa `AutoCloseInputStream`, porque `FileInputStream(pfd.fileDescriptor)` não é dono do descritor e vazaria um por janela. Do lado web, `pacoteFonteDaUrl` entrega FATIAS: `bytes()` para cabeçalhos e `blob()` para corpos, montado de pedaços de 8 MB. **A leitura antecipada CRESCE E ENCOLHE, e foi o oráculo que pegou isso** — com 4 MB fixos a conferência de um acervo lia 4 MB para aproveitar duzentos bytes, uma vez por registro; a regra virou o próprio percurso (sequência dobra até 1 MB, salto volta a 8 kB). `pickDoc` passou a devolver `size` (`-1` = o provedor não disse, que NÃO é `0`). **E mais um pedido:** a linha de "tudo" saiu da folha de exportação (*"está inútil agora que temos o agrupamento"*). Lote **com Release** (`SHELL_VERSION` 64, `minShell: 64`, `shellTag: "v1.7.9"`).
 - **v1.7.8** — UM `load()` RELÊ O BANCO, E UM BLOB RELIDO É OUTRO OBJETO. Relato: *"Os mesmos problemas de miniaturas piscando da biblioteca, temos nas miniaturas piscando no cronograma ao excluir outro item."* **É a porta que a v1.7.4 deixou aberta, e o oráculo dela a nomeava por extenso**: aquele lote keou a `object-URL` de cada capa pelo BLOB, o que resolve o redesenho de 400 ms de um download — ali o blob é o mesmo OBJETO, porque quem o segura são as listas em MEMÓRIA (`libItems`, `favItems`). Mas `load()` as relê do IndexedDB, e a releitura devolve blobs novos para TODAS as capas de uma vez; e `load()` não é raro — ele roda em toda escrita no banco, e excluir um item é uma. A chave passou a ser **`id|tamanho|tipo`**, e cada pedaço responde a uma coisa: o `id` é o que atravessa a releitura, e o par `size`/`type` é a impressão digital que impede uma capa TROCADA de ser servida da memória (hoje nenhum caminho substitui a miniatura de um registro existente, e o dia em que um existir ele mudará o tamanho). Sem `id` a chave continua sendo o blob, que é o comportamento da v1.7.4: no pior caso, o de antes. **De quebra, o MESMO item em duas listas passa a ter UMA url** — `listItems('imports')` e `listItems('favs')` são duas leituras, então a mesma capa vinha como dois blobs e ocupava a memória duas vezes. O `miniaturas-estaveis.test.mjs` ganhou o bloco E (o Cronograma, excluindo outro item) e uma asserção nova no C (a mesma propriedade na Biblioteca, que é a outra metade da frase do relato): são dois hosts porque um tem balde próprio e o outro não. Duas reversões medidas — com a chave de volta no blob os dois reprovam, e com a varredura em no-op reprovam as duas que cobram a revogação. Lote **só de base web**.
@@ -356,6 +357,170 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.7.11 — a varredura geométrica, e o padrão seguro de design
+
+Pedido do operador: *"faça a varredura completa no layout do app para que ele se
+torne responsivo geometricamente. vamos criar um padrão seguro de design."*
+
+Ele vem depois de uma pergunta dele mesmo, na mensagem anterior: se o app tinha
+sistemas de responsividade para o retrato — densidades de pixel e ligeiras
+variações de proporção —, de modo a ficar apresentável e **sem cortar nada** em
+qualquer tela planejada. A resposta medida foi que o app não tem **uma** media
+query de largura ou de altura, e que o que o segura é o fluxo do CSS.
+
+### A ordem foi RÉGUA → CORREÇÃO → PORTÃO, e ela é a decisão do lote
+
+Escrever a asserção antes de medir é exatamente como o desenho da folha da
+Bíblia nasceu: decidido numa tela, medido em nenhuma. `tools/varredura-geometrica.mjs`
+não reprova nada — abre e IMPRIME. Só depois de ler o que ela mostrou é que
+`tools/geometria.test.mjs` passou a existir, e ele afirma o que a régua provou
+ser verdade.
+
+**As 16 superfícies** são a tela principal nos dois modos, os dez popups da
+tabela `POPUPS`, as duas folhas (Ferramentas e Bíblia), a leitura da Bíblia e as
+duas gavetas de linha — a do favorito (`linhaDeItem`, a anatomia da Biblioteca)
+e a faixa de opções do Cronograma (`.row-acoes`), que são anatomias diferentes e
+falham diferente.
+
+**As cinco sondas:** T1 elemento fora da janela; T2 irmãos sobrepostos num
+contêiner `flex-direction: row`; T3 corte serrado — `overflow` cortando texto
+sem `-webkit-line-clamp` ENGATADO (o clamp maior que as linhas que cabem não
+engata) e sem máscara; T4 alvo abaixo de `--hit`; T5 camada `fixed` fora da tela.
+
+**E elas foram vistas DISPARANDO antes de a régua valer.** Uma sonda que nunca
+dispara é indistinguível de um app sem defeito, e aprova tudo em silêncio — o
+mesmo formato de mentira que ela existe para pegar. T1 e T3 por REVERSÃO do
+`controle.css` de antes da v1.7.10 (a pílula "Versão" saindo **22px** da tela a
+360×640 · 1,3×; o versículo em destaque com **210px** de excesso e `cabem 0ln,
+clamp 6`, que é a v1.7.10 diagnosticada de novo, sozinha, pela máquina); T2 e T5
+por um DOM montado à mão; T4 pela varredura de verdade.
+
+### O resultado é a notícia boa
+
+**13 das 16 superfícies saíram limpas nas oito telas** da primeira passada. As
+145 ocorrências colapsaram em **seis defeitos**, e os seis têm a mesma anatomia:
+*a caixa é da TELA e encolhe, o conteúdo é da FONTE e cresce, e nada apresenta
+os dois um ao outro.*
+
+### 1 · A grade de 66 livros da Bíblia
+
+`repeat(11, 1fr)` dentro de um `flex: 1`: onze fileiras dividindo o que sobrasse,
+sem piso. MEDIDO:
+
+| tela | célula | a abreviação |
+|---|---|---|
+| 360×640 | 48,7×**16,4** | 20px — cortada ao meio |
+| 393×786 | 54,2×30,0 | 20px, raspando |
+| 430×900 | 60,3×39,8 | 20px, folgada |
+| 360×640 · 1,3× | 46,3×**12,8** | 26px — sobra um filete |
+
+**Três mudanças, e nenhuma resolve sozinha.** O PISO (`--hit-denso`, 28px)
+devolve o alvo de toque; a ROLAGEM impede o piso de virar um corte novo um nível
+acima (uma grade maior que a caixa dentro de um `overflow` escondido é o defeito
+de volta); e a LETRA QUE SEGUE A CÉLULA (`min(var(--fs-4xl), 76cqh)`, com a
+célula virando `container-type: size`) faz a fileira curta encolher o texto em
+vez de cortá-lo.
+
+**`--hit-denso` é EXCEÇÃO NOMEADA, e não um piso mais frouxo.** 66 alvos de 34px
+pedem 414px de altura e a folha inteira mede 280,5px a 360×640 — a escolha não é
+entre 34 e 28, é entre 28 e o que havia. 28px é o número que a `.bible-half` já
+usava, pelo mesmo motivo. Uma exceção por ESCOPO ("dentro da Bíblia pode") é a
+que mais barato se alarga; esta tem seletor e número.
+
+**A porcentagem do `cqh` é CALIBRADA, não escolhida:** `cqh` resolve contra a
+caixa de conteúdo, que na fileira do piso mede 26px, e `--fs-4xl` são 20px —
+20/26 = 76,9%. Com `76cqh` a fileira de 30px devolve 21,3 e o `min()` a devolve
+aos 20 de sempre; a primeira tentativa (`66cqh`) caía para 18,5px, que era o
+recurso cobrando de uma tela em que nada estava cortado.
+
+Depois: `corta: 0` nas cinco telas medidas, letra entre 19,76 e 20px, e só a
+360×640 a grade passa a rolar (o piso pede 348px e ali há 220,9 — cerca de seis
+fileiras e meia à vista). A 393×786 e acima nada muda. É a mesma disciplina que
+as grades de CAPÍTULO e VERSÍCULO já tinham (`minmax(46px, 1fr)` mais o
+`aspect-ratio: 1`): a de livros era a única que escapava dela.
+
+### 2 · A folha de Ferramentas espremia o miolo
+
+MEDIDO a 360×640 com a fonte do sistema em 1,3×: o corpo da folha tem 181,2px, o
+seletor de ferramentas come 53,3 e o rodapé do microfone 73,7 — sobravam
+**42,9px** para um painel cujo botão "+ Nova mensagem" mede 51,1. A lista de
+mensagens sumia inteira e o botão saía CORTADO, dentro de uma caixa que não
+rolava.
+
+`min-height: 0` deixava o painel ir a qualquer altura e o `overflow: hidden` da
+`.lib-misc` cortava o resto — os dois eram par. `min-height: min-content` é o
+piso HONESTO: a lista tem `min-height: 0` e rola sozinha, então contribui ZERO,
+e o que sobra na conta é exatamente o que não pode encolher. E o corpo da folha
+passou a ROLAR: 42,9 → **143,4px**, com a lista de volta (71,5) e o botão inteiro.
+
+### 3 a 6 · Quatro controles abaixo do piso de toque
+
+`.misc-tab` a **32,6px** (1,4px do alvo), `.fit-opt` a **31**, `.misc-chip` a
+**29,5** e o `.cue-save-btn` do rodapé da leitura a **20px**. Nenhum era um
+número escolhido: os quatro eram um `padding` em `rem` caindo onde caiu — *um
+recuo que acerta o piso numa fonte só é um piso que não existe*.
+
+O último é uma **regressão da própria v1.7.10**: o `height: auto` existia para
+o botão ESTICAR junto das pílulas (`align-items: stretch`), e quando a barra
+QUEBRA em duas linhas as ações ficam sozinhas na sua, param de esticar e caem.
+Ele foi achado pela varredura, que é o que ela existe para fazer.
+
+### O padrão ficou escrito
+
+`docs/arquitetura/DESIGN-SYSTEM.md` ganhou a seção **"Geometria — o padrão
+seguro para qualquer tela"**, com cinco regras: **G1** a altura de uma folha é
+ORÇAMENTO e quem decide o que sai é uma `@container`, nunca o `overflow`; **G2**
+toda caixa que corta texto declara COMO corta (clamp que ENGATA, ou máscara);
+**G3** `--hit` é piso e piso não pode depender da métrica da fonte; **G4** caixa
+dirigida pela LARGURA não hospeda texto dirigido pela FONTE sem uma das duas
+ceder; **G5** a resposta a "não cabe" é ROLAR, nunca ESCONDER. Mais o corolário
+que as amarra: **numa folha, o CROMO é o que cede — nunca o miolo.**
+
+E o que NÃO é regra, que é a metade que impede o conserto largo demais: **`px`
+não é o vilão** (dos 166 valores em `px` do `controle.css` os que carregam
+geometria são ícones, pontos e o `--hit`, e este é `px` DE PROPÓSITO, porque um
+alvo de toque é físico e não pode encolher quando alguém aumenta a fonte — quem
+quebra são os 185 em `rem` presos dentro de caixas que não são `rem`); e **media
+query de largura não faz falta**, porque o fluxo resolve a largura e o que ele
+não resolve é a ALTURA, para a qual a ferramenta é a `@container`. O
+`display.css` já é assim inteiro — 27 unidades `cq` e zero media queries — e ele
+projeta em qualquer TV, que é o mesmo problema.
+
+### O portão
+
+`tools/geometria.test.mjs`: as mesmas sondas, 16 superfícies × 5 telas, em
+**29s**. As sondas e o cenário moram em `tools/geometria.mjs`, compartilhado com
+a régua — duas cópias divergiriam no primeiro ajuste, e a divergência seria muda
+nos dois sentidos.
+
+Ele carrega três guardas que não são sobre o app:
+
+- **UMA PÁGINA POR TELA**, com o reset feito pelo `__avBack()` do PRÓPRIO app —
+  a mesma fila que o botão voltar do Android percorre, e não uma lista de
+  closers escrita no oráculo, que envelheceria à parte. Montar o app inteiro
+  custa ~10s (a cortina tem piso de 1,8s), e 16 × 5 páginas seriam 13 minutos de
+  portão.
+- **O reset esvazia a lista da Biblioteca**, e isso está dito porque é o preço
+  do reuso: a janela dela é a única camada que existe SEMPRE, então fechada ela
+  continua no documento com o acervo renderizado dentro e recortado — que é o
+  que "fechada" quer dizer. Numa página nova aquela lista nem chegou a ser
+  montada. Não é defeito do app: uma gaveta fechada recorta o que guardou.
+- **TODA SUPERFÍCIE ABRIU E MOSTROU NÓS.** Sem essa asserção o oráculo tem um
+  jeito silencioso de passar — uma superfície que não montou não tem achado
+  nenhum, e um placar limpo sobre uma tela vazia é indistinguível de um app
+  correto.
+
+**Oito reversões medidas**, uma por correção. A oitava — a letra que segue a
+célula — **só passou a ser cobrada depois de a escala 1,5× entrar na matriz**: a
+1,3× a letra de 26px cabe numa caixa de conteúdo de 26px por ZERO, e "cabe por
+zero" não é uma correção, é sorte. A conta que define a tela é `20 × escala >
+26`, isto é, o corte começa logo acima de 1,3×; 1,5× é o "Ampliar" do Android.
+
+Lote **só de base web** — nada em `java/`, `res/` ou no manifesto, e nenhum
+método da ponte entrou ou mudou de forma.
 
 ---
 

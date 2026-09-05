@@ -4321,6 +4321,7 @@ mundo anterior por outro caminho.
 | `linha-da-preparacao.test.mjs` | **a linha de uma PREPARAÇÃO não é a de um download** (v1.7.1), e as metades falham CALADAS. A LEGENDA ocupa a POSIÇÃO DO SUBTÍTULO — a pergunta é de ÁRVORE (dentro da coluna de texto e DEPOIS do nome), porque um `.dl-prog` solto na `.row` passa num teste de presença e aparece noutro lugar da linha — e ela ANDA, página a página, vinda de quem TEM os números (nem a linha nem o oráculo parseiam frase nenhuma). O ícone: preparar uma apresentação não baixa byte nenhum, e a seta prometia bytes — a regra de v1.4.19 (*o ícone segue a LEGENDA*) num lugar novo, com a REVERSÃO ao lado, porque a seta ACENDE num download de verdade e APAGA de volta quando a legenda deixa de prometê-los. **E o que a v1.7.4 acrescentou:** a asserção NEGATIVA do DESENHO DO NÚMERO — nem percentual solto (até a v1.7.1) nem trilho (só a v1.7.1) —, que é o par exato da que o lote anterior escreveu; e o `⋮` cedendo a COLUNA, em três metades que nenhuma basta sozinha (o cancelar está lá com a caixa EXATA do `⋮` de uma linha vizinha sem trabalho — nunca um número escrito no teste —, a fileira de opções NÃO está, e o toque CANCELA de verdade: a linha sai e nenhuma apresentação nasce). Mais a AUSÊNCIA em asserção própria: sem alça de cancelamento não há botão. **A linha é endereçada pelo NOME** — MEDIDO, 1 reprovação em 8 rodadas a 3× de carga com `querySelector`: as duas metades montam uma linha cada, e sob carga a de baixo media a seta da de cima |
 | `miniaturas-estaveis.test.mjs` | **a `object-URL` de uma capa é do ITEM, não do render** (v1.7.4, com a chave corrigida na v1.7.8). Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante processos de download"*. Um teste de "a capa aparece" passa nas DUAS versões — ela aparece, só que um quadro depois, três vezes por segundo —, então o que se afirma é a IDENTIDADE da URL entre dois renders. Cinco metades: a URL sobrevive ao redesenho de 400 ms, ela continua VÁLIDA (uma igual e revogada seria o defeito piorado), o que SAI de cena é recolhido (sem isto "nunca revogar" passaria — e uma object-URL viva segura o blob inteiro), a PASTA DO APARELHO, que é o que o desenho pode quebrar sem sintoma (o corpo dela é montado por uma função ASSÍNCRONA, isto é, DEPOIS de o balde do render ter sido devolvido, e sem um balde próprio a varredura seguinte apaga aquelas capas da tela) e — **desde a v1.7.8** — a EXCLUSÃO, que é o caso que a chave por BLOB deixava passar: excluir escreve no banco, o `load()` relê, e um blob relido é outro objeto. Esta última é medida nos DOIS hosts do relato (a Biblioteca no bloco C, o Cronograma no E), porque um tem balde próprio e o outro não. Cada asserção nova tem a reversão nomeada e reexecutada |
 | `biblia-leitura-cabe.test.mjs` | **a folha de leitura da Bíblia cabe** (v1.7.10), em sete telas × escala de fonte do sistema. Os dois relatos falham CALADOS e os dois dependem da TELA — na tela em que o desenho foi decidido está tudo certo, e é isso que só um oráculo pega. MEDIDO antes de mexer: o versículo em DESTAQUE mostrava **0,79 linha** a 360×640 e **zero** a 360×640 com fonte 1,3×; e o `-webkit-line-clamp: 6` nunca engatava (a caixa jamais chegou a seis linhas), então quem cortava era o `overflow` da seção, no MEIO da linha. Quatro metades: o destaque com ao menos duas linhas — contra a `lineHeight` COMPUTADA, nunca em pixels, que mediria a fonte instalada na máquina junto —, a barra NUNCA pintando sobre os dois botões de guardar (uma desigualdade geométrica, que vale seja qual for a métrica da fonte), a barra **não TRUNCANDO** rótulo nem valor (OUTRA pergunta: com as pílulas podendo encolher, ela deixa de sobrepor virando reticências — verde na asserção anterior e ilegível na tela) e o corte com MÁSCARA no computado. Mais as duas que impedem o conserto largo demais: a 430×900 a fonte continua no TETO de sempre e a barra continua em UMA linha. **A calibração saiu 50px otimista na primeira tentativa** porque a pílula da Versão só existe com a lista de versões carregada, e sem rede ela vem vazia — daí a asserção própria de que a barra tem as QUATRO |
+| `geometria.test.mjs` | **A GEOMETRIA DO APP CABE, em toda tela e em toda escala de fonte** (v1.7.11). Ele é o PORTÃO de uma dupla: a RÉGUA (`tools/varredura-geometrica.mjs`) abre as 16 superfícies em 9 combinações de tela × fonte e IMPRIME; este roda as MESMAS sondas em 5 telas, em 29s, e reprova. As duas partilham `tools/geometria.mjs` — duas cópias divergiriam no primeiro ajuste, e a divergência seria muda nos dois sentidos. **Cinco sondas**: fora da janela · irmãos sobrepostos numa linha `flex` · corte serrado (`overflow` cortando texto sem clamp ENGATADO — um clamp maior que as linhas que cabem NÃO engata — e sem máscara) · alvo abaixo de `--hit` · camada `fixed` fora da tela. **T1, T2, T3 e T5 são zero**; T4 tem exceções NOMEADAS, com seletor e piso (hoje uma: a grade de 66 livros, que TROCA de piso e não o dispensa). Três guardas que não são sobre o app: uma PÁGINA por tela com o reset feito pelo `__avBack()` do próprio app (16 × 5 páginas novas seriam 13 min de portão), o reset esvaziando a lista da Biblioteca — o preço do reuso, porque a janela dela é a única camada que existe SEMPRE e fechada continua no documento com o acervo recortado dentro, que é o que "fechada" quer dizer —, e **toda superfície tendo ABERTO e mostrado nós**, sem a qual um placar limpo sobre uma tela que não montou é indistinguível de um app correto. **E AS SONDAS SE AUTOPROVAM a cada execução**: a última asserção injeta um defeito de cada tipo e exige que a sonda o nomeie — sem ela, um `return` cedo no caminho de varredura deixaria tudo verde para sempre. Oito reversões medidas, e a oitava só passou a ser cobrada depois de a escala **1,5×** entrar na matriz: a 1,3× a letra do livro cabe na célula por ZERO, e "cabe por zero" não é uma correção |
 | `configuracoes-sem-subtitulo.test.mjs` | **as Configurações sem a palavra do estado** (v1.7.2). A segunda linha de cada tile saiu a pedido do operador, e a razão de ela existir era real — *um ícone sozinho responde por CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por semana* —, então o que este oráculo prende não é a remoção: é a informação ter MUDADO DE CANAL. Um tile cujo estado não vira desenho fica idêntico nos dois estados, sem erro e sem sintoma. Mede o giro pela matriz COMPUTADA do ícone (uma regra de CSS ausente deixa o `data-estado` certo e o desenho parado), o wallpaper pelo `display` de cada `<use>` do par novo — **com o tile continuando ACESO nos dois estados**, senão o conserto barato é apagá-lo, e apagado neste app quer dizer INDISPONÍVEL —, e o rótulo do modo em DUAS larguras, pelo número de retângulos de cliente ("Modo avançado" quebrado em duas linhas tem dois, e `scrollWidth` de um inline que quebra não denuncia nada). **Assentar é `getAnimations()` + `finished`**: o ícone GIRA, e uma leitura por relógio mede a transição no meio (MEDIDO: `matrix(0.80, 0.59, …)` a 60 ms, que não é ângulo nenhum). **E o que a v1.7.7 acrescentou ao bloco do giro**: a COR igual nas três posições que ele já tinha na mão (a 0° ele era o único tile apagado da grade, e as outras duas provam que a igualdade não veio de ele ter apagado em todas), e o SÍMBOLO ser o `#icoPaisagem` — a asserção da matriz passa com qualquer desenho, inclusive a seta circular que saiu |
 | `pacote-por-grupos.test.mjs` | **a exportação por grupos, e o 0%** (v1.7.2; a folha AGRUPADA e o feedback no BOTÃO entraram na v1.7.3 — o percentual é lido do `.qs-titulo` por um `MutationObserver`, porque um estado final não distingue "andou de 0 a 100" de "pulou para o fim", e há asserção para o rótulo VOLTAR e para o cartão da preview NÃO entrar em cena). Três coisas falham CALADAS. (1) O **LOTE**: cada bloco do canal é uma ida e volta, e ela custa o mesmo para 50 bytes e para 512 kB — a Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e a versão anterior mandava um bloco por cabeçalho e um por corpo. A semente imita isso (400 chaves e nada mais) e a asserção é o número de blocos. (2) O **PROGRESSO** naquela fase, que não era reportado nem somado no plano — a régua é o percentual do CARTÃO no fim, e não o `done` da notificação: `> 0` passa só com o cabeçalho humano (MEDIDO ao escrever o arquivo), e o `done` emitido mede o freio de 700 ms, não o app. (3) A **ESCOLHA** cortar bytes de verdade, com o catálogo seguindo os bytes — um registro de `files` sem o arquivo dele é uma faixa que aparece na Biblioteca do destino e não toca. Cinco reversões nomeadas |
 | `abertura-e-transferencia.test.mjs` | **a CORTINA que não pode ficar no ar**, no cenário catastrófico: o `controle.js` abortado pela rota, o tema guardado já no `<html>` (quem o escreveu foi o script do `<head>`) e a cortina levantando pelo PRAZO — sem isso o app fica trancado, e não há erro em lugar nenhum. Mais a saída por REMOÇÃO DO NÓ, medida por hit-test (uma camada `opacity: 0` sobre a tela inteira continua recebendo o toque). E a BADGE: as TRÊS casas dizem o mesmo número, nenhuma escreve "Web"/"Shell" — **e o REGISTRO continua trazendo o índice do shell**, que é a metade que impede o conserto largo demais. Mais o bloco "Este aparelho", com a reversão (sem ponte ele não existe) |
@@ -4817,7 +4818,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.7.10 · APK v1.7.9** · `SHELL_VERSION` **64** ·
+**Versão atual: base web v1.7.11 · APK v1.7.9** · `SHELL_VERSION` **64** ·
 bundle com `minShell: 64` e **sem `shellTag`** — o shell 64 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -4828,7 +4829,46 @@ saiu —, e o `shellTag` sai: declarado, ele seguraria o bundle esperando uma
 Release que não vai existir, em silêncio, e a única pista seria a linha no
 resumo do run.
 
-**O QUE O LOTE TRAZ — dois relatos do operador, na mesma captura:**
+**O QUE O LOTE TRAZ — a varredura geométrica pedida pelo operador:**
+
+| peça | onde |
+|---|---|
+| a RÉGUA: 16 superfícies × 9 telas, cinco sondas, que IMPRIME em vez de reprovar | `tools/varredura-geometrica.mjs` |
+| as sondas, as superfícies e o cenário, compartilhados régua × portão | `tools/geometria.mjs` |
+| o PORTÃO, 16 × 5 em 29s, com as sondas se autoprovando | `tools/geometria.test.mjs` |
+| a grade de livros da Bíblia com PISO, ROLAGEM e letra que segue a célula | `--hit-denso` + `.bible-grid--books` |
+| o miolo de uma folha que não encolhe até sumir | `.misc-panel` (`min-height: min-content`) + `.lib-misc` |
+| quatro controles que voltaram ao piso de toque | `.misc-tab` · `.fit-opt` · `.misc-chip` · `.bible-read-acoes .cue-save-btn` |
+| o PADRÃO escrito: cinco regras de geometria | `docs/arquitetura/DESIGN-SYSTEM.md` |
+
+> **A CAIXA É DA TELA E ENCOLHE; O CONTEÚDO É DA FONTE E CRESCE** (v1.7.11).
+> Pedido do operador: *"faça a varredura completa no layout do app para que ele
+> se torne responsivo geometricamente. vamos criar um padrão seguro de
+> design."*
+>
+> **A ordem foi RÉGUA → CORREÇÃO → PORTÃO**, e ela é a decisão do lote: a régua
+> não reprova nada, ela abre tudo e imprime. Escrever a asserção antes de medir
+> é como o desenho da folha da Bíblia nasceu.
+>
+> **O resultado é a notícia boa: 13 das 16 superfícies saíram limpas nas oito
+> telas**, e as 145 ocorrências colapsaram em SEIS defeitos com a mesma
+> anatomia. O app não tem uma media query de largura ou de altura e não precisa
+> ter — o fluxo resolve a largura; o que ele não resolve é a ALTURA, e para isso
+> a ferramenta é a `@container`, que mede a CAIXA e não a janela.
+>
+> **`px` não é o vilão, e isso precisa estar dito** porque é a conclusão errada
+> mais fácil: dos 166 valores em `px` do `controle.css` os que carregam
+> geometria são ícones, pontos e o `--hit` — e `--hit` é `px` DE PROPÓSITO,
+> porque um alvo de toque é FÍSICO e não pode encolher quando alguém aumenta a
+> fonte do sistema. Quem quebra são os 185 em `rem` presos dentro de caixas que
+> não são `rem`.
+>
+> As cinco regras (G1 a G5) e o corolário — *numa folha, o CROMO é o que cede,
+> nunca o miolo* — moram em `docs/arquitetura/DESIGN-SYSTEM.md`. **Caixa nova
+> que hospede texto ou controles passa por elas**, e a régua é
+> `node tools/varredura-geometrica.mjs`.
+
+**O LOTE ANTERIOR (v1.7.10) — dois relatos do operador, na mesma captura:**
 
 | peça | onde |
 |---|---|
