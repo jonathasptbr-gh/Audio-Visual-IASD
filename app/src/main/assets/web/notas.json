@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.7.4",
+    "itens": [
+      "No histórico, cada dia virou um bloco com a lista dele dentro.",
+      "Ficou fácil ver onde uma sessão acaba e a outra começa."
+    ]
+  },
+  {
     "versao": "1.7.3",
     "itens": [
       "O progresso da exportação passou a aparecer no próprio botão que a começou.",

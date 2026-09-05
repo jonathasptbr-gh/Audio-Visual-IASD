@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.7.3';
+const WEB_VERSION = '1.7.4';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -26578,9 +26578,11 @@ async function histResolver(h, destino) {
  *    de que ele tocou.
  *  - **mais a HORA**, que é a coluna pela qual esta lista se lê.
  *
- * OS CABEÇALHOS DE SESSÃO SÃO `<li>` DA MESMA LISTA (v1.4.31), e não um bloco
- * por fora: a folha rola inteira, e um cabeçalho fora do `<ul>` ficaria parado
- * sobre o conteúdo errado.
+ * CADA SESSÃO É UM `<li>` DA MESMA LISTA (v1.4.31), e não um bloco FORA dela:
+ * a folha rola inteira, e um cabeçalho fora do `<ul>` ficaria parado sobre o
+ * conteúdo errado. Desde a v1.7.4 esse `<li>` é o BLOCO do dia, com a barra e
+ * o corpo dele dentro — o que muda é de quem cada linha é filha, não onde a
+ * lista rola.
  */
 function renderHistorico() {
   histListEl.innerHTML = '';
@@ -26594,10 +26596,28 @@ function renderHistorico() {
       + ' fica guardado, separado por sessão.</li>';
     return;
   }
+  // ===== UMA SESSÃO É UM BLOCO, COM BARRA E CORPO (v1.7.4) =====
+  //
+  // É a anatomia de uma SEÇÃO da Biblioteca (`.coll-group` = a barra mais o
+  // `.coll-group-corpo`), e ela veio inteira a pedido do operador: *"caso ache
+  // mais correto, utilize o design de corpo e lista que já temos na
+  // biblioteca"*. O que ela resolve é o relato — *"está difícil distinguir as
+  // sublistas"* —, e resolve porque a sublista passa a ter CORPO: as linhas de
+  // um dia moram DENTRO do bloco daquele dia, e não soltas entre dois
+  // cabeçalhos.
+  //
+  // O `<ul>` ANINHADO CONTINUA NO MESMO SCROLLER, que era a razão de o
+  // cabeçalho ser um `<li>` da lista de fora: um cabeçalho fora dela ficaria
+  // parado sobre o conteúdo errado. Aninhar não muda isso — muda só de quem
+  // cada linha é filha.
   historico.forEach((ses) => {
     const atual = ses === histSessao;
-    histListEl.appendChild(histCabecalho(ses, atual));
-    ses.itens.forEach((h) => histListEl.appendChild(histLinha(h, atual)));
+    const bloco = histCabecalho(ses, atual);
+    const corpo = document.createElement('ul');
+    corpo.className = 'hist-corpo';
+    ses.itens.forEach((h) => corpo.appendChild(histLinha(h, atual)));
+    bloco.appendChild(corpo);
+    histListEl.appendChild(bloco);
   });
   // E A CONFERÊNCIA DE TODAS AS LINHAS VEM DEPOIS DO DESENHO, nunca antes: a
   // folha abre com a lista JÁ na tela e as linhas mortas esmaecem no quadro
@@ -26618,6 +26638,11 @@ function histCabecalho(ses, atual) {
   const li = document.createElement('li');
   li.className = 'hist-sessao';
   li.dataset.histSessao = String(ses.inicio);
+  // A BARRA é a primeira faixa do bloco, e o corpo vem depois dela — a anatomia
+  // da `.coll-group` da Biblioteca. O `<li>` deixou de ser a barra e passou a
+  // ser o BLOCO: é ele que pinta o poço, e é dentro dele que a sublista mora.
+  const bar = document.createElement('div');
+  bar.className = 'hist-sessao-bar';
 
   const txt = document.createElement('div');
   txt.className = 'hist-sessao-txt';
@@ -26653,7 +26678,8 @@ function histCabecalho(ses, atual) {
   });
   acoes.appendChild(limpar);
 
-  li.append(txt, acoes);
+  bar.append(txt, acoes);
+  li.appendChild(bar);
   return li;
 }
 
@@ -26807,10 +26833,11 @@ async function histConferirVivos() {
   const cab = histListEl.querySelector('.hist-sessao');
   const atual = histSessao && cab && cab.dataset.histSessao === String(histSessao.inicio);
   if (!atual) return;
-  const linhas = [];
-  for (let no = cab.nextElementSibling; no && !no.classList.contains('hist-sessao'); no = no.nextElementSibling) {
-    if (no.dataset.histId) linhas.push(no);
-  }
+  // AS LINHAS SÃO FILHAS DO BLOCO desde a v1.7.4 (antes eram irmãs dele, e o
+  // percurso era um passeio por `nextElementSibling` até o cabeçalho seguinte).
+  // Com o corpo aninhado a pergunta é direta — e continua sendo só a PRIMEIRA
+  // sessão, que é a atual.
+  const linhas = [...cab.querySelectorAll('[data-hist-id]')];
   await Promise.all(linhas.map(async (li) => {
     const vivo = await AVDB.getMedia(li.dataset.histId);
     // A FOLHA PODE TER SIDO REDESENHADA no meio (outra abertura): mexer num
