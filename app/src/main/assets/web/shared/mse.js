@@ -32,6 +32,23 @@
 // não fala com o `googlevideo` (é o `StreamProxy`, no origin do app, com o UA
 // que combina com a URL). Aqui só entram bytes que já chegaram.
 // ============================================================================
+// ===== NADA NESTE APP CRIA UM MANIFESTO NOVO (v1.7.7) =====
+//
+// Pedido do operador: *"vamos abandonar o modo online direto, ele é muito
+// instável"*. Os TRÊS caminhos que produziam uma cena de transmissão saíram do
+// `controle.js` no mesmo lote — o "Tocar agora", o item de link e o share do
+// modo simplificado —, e com eles o `tentarTransmitir` e o `recuperarStream`.
+//
+// ESTE ARQUIVO FICA, e o motivo é um só: ele é o LEITOR. Um registro gravado
+// ANTES deste lote pode carregar um `stream` no IndexedDB de um aparelho, e o
+// `stage.js` o reconhece — sem este motor aquela cena viraria palco vazio em
+// vez de tocar até o manifesto expirar (horas). O que some é a produção, não a
+// leitura.
+//
+// NÃO REINTRODUZIR UMA CHAMADA A `AVStream.criar` NO CONTROLE sem o operador
+// pedir: a instabilidade que motivou a saída é a de um culto com espelhamento
+// no ar, e ela não se conserta deste lado.
+
 (function (global) {
   'use strict';
 
@@ -328,7 +345,8 @@
   // viaja no objeto e não numa tabela de mensagens porque quem SABE se o
   // tropeço foi acidente é quem o produziu — casar strings de erro depois é a
   // forma de errar que este arquivo já paga em outro lugar (ver o
-  // `/HTTP 40[13]/` do `recuperarStream`, que é contrato justamente por isso).
+  // `/HTTP 40[13]/` que o Controle reconhecia pela mensagem — o `recuperarStream`
+// saiu com a transmissão, na v1.7.7, e a forma do texto fica pelo Registro).
   function marcar(erro, sim) {
     erro.retentavel = !!sim;
     return erro;
@@ -424,7 +442,7 @@
     //
     // Até aqui QUALQUER tropeço matava o player: um `fetch` que não completa
     // sobe pelo `alimentar` até o `morrer`, o Controle recebe `onStreamErro` e
-    // `recuperarStream` derruba a cena e cai no download. Um vídeo de 300 MB
+    // o Controle derrubava a cena e caía no download. Um vídeo de 300 MB
     // começando a baixar por causa de um pacote perdido.
     //
     // E é justamente em SEGUNDO PLANO que o tropeço acontece: o Wi-Fi do
@@ -436,7 +454,7 @@
     //
     // **A DIVISÃO É A MESMA DO DOWNLOAD, e ela não é preciosismo:** 401/403 é a
     // URL do googlevideo EXPIRADA, e insistir nela é gastar segundos para
-    // receber o mesmo 403 — quem conserta isso é `recuperarStream`, que
+    // receber o mesmo 403 — o que consertava isso era o `recuperarStream`, que
     // re-extrai o manifesto, e ele reconhece o caso pela MENSAGEM (`HTTP 403`).
     // Retentar aqui atrasaria a única resposta que funciona. O que se retenta é
     // o que pode ter sido um acidente: a requisição que não completou e o 5xx.
@@ -525,7 +543,7 @@
           // um 404 do proxy e um 404 do asset loader se leem igual — apontando
           // para lugares opostos.
           // 5xx e 429 são do SERVIDOR e passam; 4xx é a URL expirada ou negada,
-          // e a resposta certa a ela mora no `recuperarStream` do Controle.
+          // e a resposta certa a ela morava no `recuperarStream` do Controle.
           throw marcar(new Error(passo + ': HTTP ' + r.status
             + (r.statusText ? ' (' + r.statusText + ')' : '')
             + ' pedindo bytes ' + ini + '-' + fim), r.status >= 500 || r.status === 429);

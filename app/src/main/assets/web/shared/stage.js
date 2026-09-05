@@ -1341,7 +1341,37 @@
     // automático de playlist. O 'load' do avanço automático (disparado por
     // onEnded, logo abaixo) chega quase junto e assume via loadSeq antes
     // desse prazo — a cortina não pisca entre os itens da playlist.
-    video.addEventListener('ended', async () => {
+    //
+    // ELE É CHAMÁVEL DE FORA (`marcarFim`), e essa é a metade que faltava
+    // (v1.7.7). Relato do operador: *"ao encerrar o tempo de uma música, a
+    // imagem no telão se encerra normalmente, e volta para o wallpaper, mas na
+    // preview, ele está parando em uma tela preta e não volta para o
+    // wallpaper"* — COM espelhamento para a TV.
+    //
+    // A PREVIEW NUNCA CHEGAVA A OUVIR O PRÓPRIO `ended`. Com telão no ar ela é
+    // ILUSTRAÇÃO e segue o `display-status`: o telão termina, dispara `pause`
+    // ANTES de `ended` (é a ordem do HTML), e o status que sai daí faz o
+    // `resyncPreviewToDisplay` do Controle chamar `preview.pause()` — no
+    // instante em que o `<video>` da preview estava a milissegundos do fim dele.
+    // Pausado, ele não emite `ended`; sem `ended`, `computeCover()` responde
+    // `false` e a cortina nunca fecha. O que fica na tela é o quadro parado em
+    // `currentTime === duration`, isto é, PRETO — não há quadro decodificável
+    // ali. Sem TV o caso não existe: a preview É a projeção, ninguém a pausa, e
+    // o `ended` dela chega sozinho.
+    //
+    // UMA IMPLEMENTAÇÃO, DOIS CHAMADORES — o evento do próprio `<video>` e o
+    // dono do palco, que sabe pelo barramento que a PROJEÇÃO acabou. Duas
+    // escritas da mesma sequência (fade, `ended`, `applyMedia`, cortina)
+    // divergiriam no primeiro ajuste, e a metade que divergisse seria
+    // justamente a que ninguém vê acontecer.
+    async function marcarFimNatural() {
+      // JÁ MARCADO: o evento do `<video>` e o aviso de fora podem chegar os
+      // dois (a preview termina sozinha logo depois de o telão avisar). O
+      // segundo não pode bumpar o `loadSeq` de novo — isso cancelaria a
+      // cortina que o primeiro agendou, e o desfecho seria o defeito de volta
+      // por um caminho novo. `load` zera esta bandeira, então uma faixa
+      // recarregada volta a poder terminar.
+      if (ended) return;
       // UM LOAD EM VOO GANHA DO FIM NATURAL. O `++loadSeq` abaixo é uma AÇÃO
       // EXCLUSIVA, e o contrato do loadSeq (ver setViewFaded) é que só ações do
       // OPERADOR (load/clear) cancelam um load em curso. O `ended` não é uma:
@@ -1359,6 +1389,14 @@
       await runFadeOut(false);
       if (seq !== loadSeq) return;
       ended = true;
+      // PAUSA EXPLÍCITA, e ela só importa para o chamador DE FORA (v1.7.7): no
+      // caminho do evento o `<video>` já parou sozinho — `ended` implica
+      // `paused` —, mas quem avisa que a PROJEÇÃO acabou pega este elemento
+      // ainda TOCANDO, a milissegundos do fim dele. Sem ela o `currentTime = 0`
+      // logo abaixo não encerra nada: rebobina, e a faixa recomeça do zero por
+      // baixo de uma cortina que está descendo. MEDIDO: `currentTime` em 0,18 s
+      // e subindo, com `ended` já verdadeiro.
+      try { video.pause(); } catch (_) {}
       video.currentTime = 0;
       clearFadeStyle(video);
       applyMedia();
@@ -1370,7 +1408,8 @@
         // cartão, e nada a devolvia.
         if (seq === loadSeq && ended) instantCover(computeCover());
       }, 400);
-    });
+    }
+    video.addEventListener('ended', marcarFimNatural);
 
     // O PÔSTER VAZIO FICA. PARA SEMPRE. (v5.142)
     //
@@ -1426,6 +1465,12 @@
       reporGiro: () => { if (rot) aplicarGiroTudo(); },
       setForceMuted,
       coverIn, coverOut, instantCover, fadeOutToBlack, setOverlay,
+      // O FIM DA PROJEÇÃO É UM FIM, E NÃO UMA PAUSA (v1.7.7). Quem sabe que a
+      // mídia acabou nem sempre é este `<video>`: com telão no ar a preview é
+      // ilustração e é PAUSADA pelo `resyncPreviewToDisplay` antes de chegar ao
+      // fim dela, e um `<video>` pausado nunca emite `ended`. Ver
+      // `marcarFimNatural` — é a MESMA sequência do evento, não uma segunda.
+      marcarFim: marcarFimNatural,
       getCurrent: () => current,
       getView: () => view,
       isPlaying: isPlayingNow,

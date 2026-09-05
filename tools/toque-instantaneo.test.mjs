@@ -50,11 +50,18 @@ import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
 import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 
-// A ponte de mentira, com o `ytStream` SEGURO: ele só resolve quando o oráculo
-// escreve `window.__soltarStream`. É o que cria a janela que este arquivo mede
-// — sem ela, a extração resolveria no mesmo tique e não haveria "antes".
+// A ponte de mentira, com o DOWNLOAD SEGURO: `ytFetch`/`ytFetchAte`/
+// `ytFetchAudio` só resolvem quando o oráculo escreve `window.__soltarBaixa`. É
+// o que cria a janela que este arquivo mede — sem ela, o fluxo resolveria no
+// mesmo tique e não haveria "antes".
+//
+// ERA O `ytStream` ATÉ A v1.7.2, e a troca é o recurso mudando de meio, não o
+// oráculo mudando de assunto: a transmissão direta saiu do app, e o passo lento
+// entre o toque e a cena passou a ser o download. A pergunta deste arquivo — *o
+// toque responde no instante do toque?* — vale MAIS agora, porque a espera
+// deixou de ser de segundos e passou a ser de minutos.
 const PONTE = `(() => {
-  window.__streamPedido = 0;
+  window.__baixaPedida = 0;
   const B = {
     shellVersion: () => 60,
     role: () => 'controle',
@@ -67,28 +74,33 @@ const PONTE = `(() => {
     ytDiag: (id) => {
       setTimeout(() => { try { window.__avResolve(id, window.__ytDiag || ''); } catch (_) {} }, 0);
     },
-    ytStream: (id) => {
-      window.__streamPedido++;
+  };
+  // OS TRES DESTINOS DO DOWNLOAD sao o mesmo passo lento, e o app escolhe entre
+  // eles pelo teto e pela forma: ytFetchAte num teto MENOR que 1080p (o padrao
+  // desde a v1.7.7 e 720p, entao e este o caminho normal), ytFetch sem teto e
+  // ytFetchAudio no "So audio". Segurar um so deixaria o caso passar reto pelos
+  // outros dois.
+  for (const n of ['ytFetch', 'ytFetchAte', 'ytFetchAudio']) {
+    B[n] = (id) => {
+      window.__baixaPedida++;
       const espera = () => {
-        if (window.__soltarStream) {
-          // window.__manifesto e opcional e existe para UM caso: o do NOME.
-          // Sem ele o ytStream devolve null e o fluxo cai no download, que e o
-          // que as outras metades deste arquivo medem.
-          try { window.__avResolve(id, window.__manifesto || null); } catch (_) {}
+        if (window.__soltarBaixa) {
+          // window.__arquivo e opcional e existe para UM caso: o do NOME.
+          try { window.__avResolve(id, window.__arquivo || null); } catch (_) {}
           return;
         }
         setTimeout(espera, 20);
       };
       espera();
-    },
-  };
+    };
+  }
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget',
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolEstado','keepAlive',
     'listFolder','micDiag','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
     'otaPending','pickDoc','pickFolder','requestMic','salvarTexto','systemVolume','temaClaro',
-    'ytCancel','ytCanalPlaylists','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
+    'ytCancel','ytCanalPlaylists','ytDiscard','ytStream',
     'ytPlaylist','ytSearch','areaTransferencia','atualizacaoEstado'];
   for (const n of nomes) {
     if (B[n]) continue;
@@ -151,7 +163,7 @@ try {
 
   // ── 1 a 3. O TOQUE, e o que acontece ANTES de o manifesto existir ────────
   await porNoAr();
-  const antes = await pg.evaluate(() => ({ midia: midiaNoAr, pedidos: window.__streamPedido }));
+  const antes = await pg.evaluate(() => ({ midia: midiaNoAr, pedidos: window.__baixaPedida }));
   checar(antes.midia === true && antes.pedidos === 0,
     'o cenário começa com um louvor NO AR e nenhuma extração pedida', antes);
 
@@ -180,7 +192,7 @@ try {
     cartao: !!document.getElementById('pvBusy'),
     // O `ytStream` continua PENDENTE: é isso que prova que a interrupção não
     // esperou a rede.
-    soltou: !!window.__soltarStream,
+    soltou: !!window.__soltarBaixa,
   }));
   checar(meio.midia === false,
     'a CENA ATUAL SAI no instante do toque — a interrupção é o reconhecimento do '
@@ -207,7 +219,7 @@ try {
 
   // Solta a extração e deixa o fluxo terminar: o cartão tem de SAIR, senão a
   // correção troca um silêncio por um cartaz preso.
-  await pg.evaluate(() => { window.__soltarStream = true; });
+  await pg.evaluate(() => { window.__soltarBaixa = true; });
   await pg.evaluate(() => window.__acao.catch(() => {}));
   await pg.waitForFunction(() => {
     const el = document.getElementById('pvBusy');
@@ -221,7 +233,7 @@ try {
   // Sem esta metade a correção viraria um defeito maior que o que conserta.
   await porNoAr();
   await pg.evaluate(() => {
-    window.__soltarStream = true;
+    window.__soltarBaixa = true;
     window.__acao2 = ytAcao({ id: 'vid2', url: 'https://www.youtube.com/watch?v=vid2', name: 'Outro' },
       ['cronograma'], null, false, -1);
   });
@@ -238,7 +250,7 @@ try {
   // mora lá dentro, e não no invólucro da folha de busca.
   await porNoAr();
   await pg.evaluate(async () => {
-    window.__soltarStream = false;
+    window.__soltarBaixa = false;
     const link = await AVDB.addUrlMedia('https://www.youtube.com/watch?v=vidL', {
       kind: 'youtube', type: 'video/youtube', name: 'Link Guardado', youtubeId: 'vidL',
     });
@@ -247,7 +259,7 @@ try {
     window.__linkAcao = send(link.id);
   });
   await pg.waitForFunction(() => midiaNoAr === false, null, { timeout: 5000 });
-  const doLink = await pg.evaluate(() => ({ midia: midiaNoAr, soltou: !!window.__soltarStream }));
+  const doLink = await pg.evaluate(() => ({ midia: midiaNoAr, soltou: !!window.__soltarBaixa }));
   checar(doLink.midia === false && doLink.soltou === false,
     'tocar num ITEM DE LINK do Cronograma interrompe a cena no ato, com a extração '
     + 'ainda pendente — a mesma reação da folha de busca, por um caminho que a '
@@ -259,7 +271,7 @@ try {
   checar(/Link Guardado/.test(await pg.evaluate(() =>
     (document.getElementById('pvBusyLabel') || {}).textContent || '')),
     'e o cartão traz o nome do item da LISTA, não o de um resultado de busca');
-  await pg.evaluate(() => { window.__soltarStream = true; });
+  await pg.evaluate(() => { window.__soltarBaixa = true; });
   await pg.evaluate(() => window.__linkAcao.catch(() => {}));
   await pg.waitForFunction(() => {
     const el = document.getElementById('pvBusy');
@@ -267,30 +279,15 @@ try {
   }, null, { timeout: 15000 });
   checar(true, 'e ele sai no fim — o `finally` do `resolverLinkYoutube` cobre os quatro `return`');
 
-  // ── 6. O SUBTEXTO do "Tocar agora" com "Online" ─────────────────────────
-  const subs = await pg.evaluate(() => {
-    const ler = () => {
-      const it = [...songMenuListEl.querySelectorAll('.song-menu-btn')]
-        .find((b) => /Tocar agora/.test(b.textContent));
-      return it ? (it.querySelector('.song-menu-sub') || {}).textContent || '' : null;
-    };
-    const r = { id: 'vidX', url: 'https://www.youtube.com/watch?v=vidX', name: 'Louvor' };
-    openYtMenu(r);
-    songMenuFor.alt = -1;            // Online
-    openYtMenu(r);
-    const online = ler();
-    songMenuFor.alt = 1080;
-    openYtMenu(r);
-    const mil = ler();
-    closeSongMenu();
-    return { online, mil };
-  });
-  checar(/qualidade varia/i.test(subs.online) && /conex/i.test(subs.online),
-    'com "Online" o "Tocar agora" DIZ que toca direto da internet e que a '
-    + 'qualidade varia conforme a conexão', subs.online);
-  checar(subs.mil !== subs.online && !!subs.mil,
-    'e nos tetos fixos ele volta a dizer o que aquela linha não guarda — a frase '
-    + 'é da situação, não do botão', subs);
+  // (6. O SUBTEXTO do "Tocar agora" com "Online" — removido na v1.7.7.)
+  //
+  // Ele media a frase que aquele degrau punha na linha: *"toca direto da
+  // internet — a qualidade varia bastante conforme a conexão"*. O degrau saiu
+  // junto com a transmissão direta que ele alimentava, e com ele a frase: hoje
+  // toda qualidade BAIXA, e o subtexto do "Tocar agora" é o de sempre ("sem
+  // entrar em lista nenhuma"). O contrato do seletor que sobrou — três degraus,
+  // 720p de padrão, a escolha grudando — é medido no `boot-nativo.test.mjs`.
+
   // ── 7. O CONFIRMAR É SEMPRE O ÚLTIMO DA FAIXA ───────────────────────────
   // Relato do operador: *"nos favoritos o botão de confirmar play está na
   // direita, mas no resto da biblioteca está na esquerda; pode padronizar na
@@ -348,16 +345,20 @@ try {
   // TROCA. Espionar o `previewBusy` colhe todo nome que chega ao cartão, venha
   // de que dono vier — inclusive de um terceiro que alguém acrescente depois.
   const nomeDoCartao = await pg.evaluate(async () => {
-    window.__soltarStream = false;
-    window.__manifesto = {
+    window.__soltarBaixa = false;
+    window.__arquivo = {
       name: 'TITULO CRU DO YOUTUBE',
       // 1080p de propósito: com o teto padrão ele NÃO dispara o aviso de
       // resolução limitada (metade 9), e assim as duas metades não interferem
       // uma na outra — um aviso abriria um `previewBusy` com outra legenda, e a
       // asserção de NOME leria isso como a troca que ela existe para proibir.
-      seconds: 100, height: 1080,
-      video: { url: 'https://x/v', mime: 'video/webm; codecs="vp9"', size: 10 },
-      videos: [], audio: { url: 'https://x/a', mime: 'audio/webm; codecs="opus"', size: 10 },
+      seconds: 100, height: 1080, size: 10, type: 'video/mp4',
+      // OS BYTES VÊM DE UMA `data:` URL porque o `ytBaixarNativo` faz
+      // `fetch(r.url)` no que o shell devolve — no aparelho é uma
+      // `/saf/<token>`. O conteúdo não importa (nada o decodifica neste caso);
+      // o que importa é ele não ser VAZIO, que é a única coisa que aquele
+      // caminho confere antes de registrar.
+      url: 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDE=',
     };
     // O ESPIÃO: `previewBusy` é uma declaração de topo, logo uma propriedade do
     // objeto global — e é por ela que `cederOPalco` e o `onEspera` resolvem a
@@ -369,9 +370,13 @@ try {
     // depois: o `recuperarStream` troca o registro quando as URLs de mentira
     // falham, e o coletor apaga o que ficou sem lista. Procurá-lo no fim mede o
     // desfecho do arnês, não a regra.
+    // O ESPIÃO DO REGISTRO É O DO DOWNLOAD (v1.7.7): era o `addStreamMedia`, e
+    // a transmissão que o chamava saiu do app. A regra medida não mudou — o
+    // nome que o app já tem VENCE o título que o shell extraiu —, mudou o
+    // ponto em que ela é aplicada.
     const batizados = [];
-    const origAdd = AVDB.addStreamMedia;
-    AVDB.addStreamMedia = (man, meta) => { batizados.push(meta && meta.name); return origAdd(man, meta); };
+    const origAdd = AVDB.addMedia;
+    AVDB.addMedia = (blob, meta) => { batizados.push(meta && meta.name); return origAdd(blob, meta); };
     const link = await AVDB.addUrlMedia('https://www.youtube.com/watch?v=vidN', {
       kind: 'youtube', type: 'video/youtube', name: 'O NOME QUE O OPERADOR DEU', youtubeId: 'vidN',
     });
@@ -379,11 +384,11 @@ try {
     await load();
     const acao = send(link.id);
     await new Promise((r) => setTimeout(r, 300));   // a extração ainda pendente
-    window.__soltarStream = true;
+    window.__soltarBaixa = true;
     await acao.catch(() => {});
     window.previewBusy = orig;
-    AVDB.addStreamMedia = origAdd;
-    window.__manifesto = null;
+    AVDB.addMedia = origAdd;
+    window.__arquivo = null;
     return { vistos, batizados };
   });
   const distintos = [...new Set(nomeDoCartao.vistos)];
@@ -472,71 +477,57 @@ try {
     'e um teto BAIXO com entrega ainda menor avisa — é o caso que uma regra de '
     + 'uma condição só ("abaixo do piso") deixaria passar calada',
     aviso.abaixoDoTetoBaixo);
-  // ── 10. O CENSO DA SESSÃO (v1.4.13) ─────────────────────────────────────
+  // ── 10. O CENSO DA SESSÃO (v1.4.13, encolhido na v1.7.3) ───────────────
   //
   // O Registro guardava a ÚLTIMA extração e só ela, e a pergunta de uma falha
   // INTERMITENTE é outra — MEDIDO em campo: três Registros, três respostas
-  // diferentes, nenhuma contando. A leitura que saiu disso ("é sempre") foi uma
-  // generalização de duas amostras, e estava errada.
+  // diferentes, nenhuma contando.
+  //
+  // DUAS DAS QUATRO CONTAGENS SAÍRAM com a transmissão direta: `pedidos` e
+  // `transmitiu` respondiam *"com que frequência a projeção cai no download?"*,
+  // e hoje ela cai SEMPRE — a pergunta deixou de existir. O que fica é a
+  // qualidade LIMITADA, que nunca foi sobre transmitir: um download entrega
+  // abaixo do pedido do mesmo jeito, e é ele que hoje entrega tudo.
+  //
+  // E ELA SAIU DE TRÁS DO `motivoStream` no mesmo lote. Era esse gate que a
+  // fazia sumir do Registro — a contagem continuava certa e ninguém a lia.
   //
   // Medido por DELTA, e não em absoluto: as metades acima já rodaram fluxos que
-  // mexem nos mesmos contadores, e uma asserção sobre o total amarraria esta
-  // metade à ordem do arquivo — que é exatamente o tipo de acoplamento que faz
-  // um oráculo reprovar por um motivo que não é o dele.
+  // mexem no mesmo contador, e uma asserção sobre o total amarraria esta metade
+  // à ordem do arquivo.
   const censo = await pg.evaluate(async () => {
     const ler = () => Object.assign({}, ytCenso);
     const antes = ler();
-    // 1) um pedido que TRANSMITE.
-    window.__soltarStream = true;
-    window.__manifesto = {
-      name: 'Com manifesto', seconds: 100, height: 1080,
-      video: { url: 'https://x/v', mime: 'video/webm; codecs="vp9"', size: 10 },
-      videos: [], audio: { url: 'https://x/a', mime: 'audio/webm; codecs="opus"', size: 10 },
-    };
-    await tentarTransmitir({ id: 'cen1', url: 'https://www.youtube.com/watch?v=cen1', name: 'Um' }, 0, false);
-    const comManifesto = ler();
-    // 2) um pedido que NÃO transmite: o shell não monta o manifesto, e o fluxo
-    //    real cairia no download.
-    window.__manifesto = null;
-    await tentarTransmitir({ id: 'cen2', url: 'https://www.youtube.com/watch?v=cen2', name: 'Dois' }, 0, false);
-    const semManifesto = ler();
-    // 3) uma recusa que acontece ANTES de perguntar ao shell (aqui, um alvo sem
-    //    URL). Ela não é extração nenhuma, e contá-la inflaria o denominador —
-    //    a proporção passaria a incluir o que nunca chegou a ser tentado.
-    await tentarTransmitir({ id: 'cen3', name: 'Sem URL' }, 0, false);
-    const semUrl = ler();
-    // 4) a qualidade limitada é OUTRA pergunta: um pedido pode transmitir e
-    //    ainda assim sair abaixo do pedido.
     avisarResolucaoLimitada(360, 0);
     avisarResolucaoLimitada(480, 0);
-    const comLimitadas = ler();
-    return { antes, comManifesto, semManifesto, semUrl, comLimitadas };
+    const depois = ler();
+    // E O BLOCO DO REGISTRO, que é o consumidor: sem ele a contagem é um número
+    // que ninguém lê — que foi exatamente o estado dela até este lote.
+    //
+    // `renderDiag()` MONTA e escreve em `diagTexto`, que é o que o botão de
+    // copiar leva. Ler a variável é ler o artefato que chega a quem diagnostica
+    // a distância — que é o único consumidor que este bloco tem.
+    await renderDiag();
+    return { antes, depois, texto: String(diagTexto || '') };
   });
-  const d = (a, b) => ({
-    pedidos: b.pedidos - a.pedidos,
-    transmitiu: b.transmitiu - a.transmitiu,
-    limitadas: b.limitadas - a.limitadas,
-  });
-  const t = d(censo.antes, censo.comManifesto);
-  checar(t.pedidos === 1 && t.transmitiu === 1,
-    'um pedido que TRANSMITE conta nos dois: pedido e transmissão', t);
-  const f = d(censo.comManifesto, censo.semManifesto);
-  checar(f.pedidos === 1 && f.transmitiu === 0,
-    'e um que NÃO monta o manifesto conta só como pedido — é a diferença entre '
-    + 'os dois que responde "com que frequência a projeção cai no download?"', f);
-  const g = d(censo.semManifesto, censo.semUrl);
-  checar(g.pedidos === 0 && g.transmitiu === 0,
-    'uma recusa ANTERIOR à pergunta ao shell (alvo sem URL) NÃO conta como '
-    + 'pedido — contá-la inflaria o denominador com o que nunca foi tentado, e '
-    + 'a proporção deixaria de responder o que ela promete', g);
-  const l = d(censo.semUrl, censo.comLimitadas);
-  checar(l.limitadas === 2 && l.pedidos === 0,
-    'a qualidade limitada é contada À PARTE: um pedido pode transmitir e ainda '
-    + 'assim sair abaixo do pedido, então somá-la aos outros dois responderia '
-    + 'uma pergunta que ninguém fez', l);
-  checar(censo.comLimitadas.menor === 360,
+  checar((censo.depois.limitadas - censo.antes.limitadas) === 2,
+    'a qualidade limitada é contada: um download entrega abaixo do pedido do '
+    + 'mesmo jeito, e ele é hoje o único caminho que entrega',
+    JSON.stringify({ antes: censo.antes, depois: censo.depois }));
+  checar(censo.depois.menor === 360,
     'e o MENOR valor é guardado, não o último: é ele que diz se foi um degrau '
-    + 'ou o fundo do poço', censo.comLimitadas.menor);
+    + 'ou o fundo do poço', censo.depois.menor);
+  checar(/Qualidade do YouTube/.test(censo.texto)
+    && /qualidade limitada/i.test(censo.texto) && /360p/.test(censo.texto),
+    'e o REGISTRO a IMPRIME, com o menor valor junto — ela morava atrás do '
+    + '`motivoStream`, que a transmissão escrevia, e sumiria do diagnóstico '
+    + 'justamente agora que todo "Tocar agora" baixa',
+    censo.texto.split('\n').filter((l) => /Qualidade|limitada/i.test(l)).join(' | '));
+  checar(!/Transmiss..o direta/i.test(censo.texto),
+    'e o bloco da TRANSMISSÃO DIRETA não aparece mais — um Registro que fala de '
+    + 'um recurso removido é o log que discorda do aparelho',
+    censo.texto.split('\n').filter((l) => /ransmiss/i.test(l)).join(' | '));
+
   // ── 11. A RECUSA DE UM ITEM DE LINK FALA (v1.4.14) ──────────────────────
   //
   // Relato do operador: *"ele carrega um tempo, mas ele não toca nada e nem dá
@@ -550,8 +541,8 @@ try {
   // duas asserções abaixo são as duas metades: fala, e diz a CAUSA quando o
   // shell a nomeia.
   const recusa = await pg.evaluate(async () => {
-    window.__soltarStream = true;
-    window.__manifesto = null;
+    window.__soltarBaixa = true;
+    window.__arquivo = null;
     const rodar = async (diag, nome, id) => {
       window.__ytDiag = diag;
       pvBusyEl.classList.remove('on', 'falhou', 'avisou');

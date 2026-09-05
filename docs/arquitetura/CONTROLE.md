@@ -17,7 +17,7 @@
 | [O download vira estado da tela](#o-download-vira-estado-da-tela) | espera na preview, anel na linha, letra sincronizada |
 | [Séries do YouTube](#séries-do-youtube--coleções-que-não-vêm-do-louvorja-v5228) | Provai e Vede, Informativo |
 | [Playlist automática](#playlist-automática-o-sorteio-temático-v5303) | sortear por tema: uma só ou uma fila |
-| [Buscar no YouTube](#pesquisar-texto-no-youtube-no-fim-da-busca) | busca, download, transmissão direta |
+| [Buscar no YouTube](#pesquisar-texto-no-youtube-no-fim-da-busca) | busca e download (a transmissão direta saiu na v1.7.7) |
 | [Favoritos](#favoritos-uma-lista-só-marcados--pastas-do-aparelho) | lista única, pastas do aparelho |
 | [A saída de áudio](#a-saída-de-áudio-os-displays-ou-este-aparelho-v5215) | quando o som sai do celular |
 | [Leitura auxiliar](#leitura-auxiliar-letra-completa--capítulo-inteiro) · [a cifra em tela cheia](#a-cifra-em-tela-cheia-deitada-v160) | letra, Bíblia, cifra, páginas — e o modo deitado |
@@ -1766,6 +1766,12 @@ custa nada; e para o quadro congelado aparecer de fato, a cena pausada agora
 
 ### O preto de vários segundos da transmissão direta (v5.142)
 
+> **NADA NO APP CRIA UM STREAM DESDE A v1.7.7** — a transmissão direta saiu a
+> pedido do operador (ver o CLAUDE.md). Esta seção descreve o que o `stage.js`
+> faz ao RECEBER um registro com manifesto, e ele continua sendo capaz disso: um
+> registro gravado antes daquele lote pode existir no aparelho até o manifesto
+> expirar (horas).
+
 Um stream leva segundos entre o comando e o primeiro quadro — init, índice e o
 primeiro fragmento vêm da **rede**. Metade desse caso já estava resolvida: quando
 a cena anterior era o wallpaper, a cortina fica de pé até haver quadro (o
@@ -1839,7 +1845,7 @@ estrangulado justamente enquanto o app está minimizado.
 ### O toque responde no instante, não quando os bytes chegam (v1.4.6)
 
 **"Tocar agora" num vídeo do YouTube começa por uma EXTRAÇÃO DE REDE** — o
-`ytStream` do `tentarTransmitir` — e só depois dela vem o `send` que muda alguma
+do link — e só depois dela vem o `send` que muda alguma
 coisa na tela. Nesse intervalo de segundos o app não dizia nada: o único sinal
 era o `setYtEstado`, que acende uma linha da Biblioteca que o `closeHymnSearch`
 acabara de fechar. E o caminho do DOWNLOAD já tinha o cartão de espera
@@ -1904,7 +1910,7 @@ exclusivo"*. Na v1.4.8 o aro saiu inteiro, e com ele a folha `shared/stage.css`.
 - **A SAÍDA DO CARTÃO GANHOU UMA CARÊNCIA** (`PV_BUSY_SAIDA_MS`, 700 ms), e ela
   é o que faz a promessa acima ser verdade. A espera tem DOIS donos em sequência
   — o toque (`cederOPalco`, que cobre a extração de rede) e a carga do stream (o
-  `onEspera`) —, e o primeiro solta no `finally` assim que `tentarTransmitir`
+  `onEspera`) —, e o primeiro solta no `finally` assim que a ação
   volta, enquanto o segundo só acende lá dentro do `load`, depois do fade de
   saída e do `getMedia`: **entre os dois o contador passa por ZERO**. Sem a
   carência o cartão sai e volta no meio da MESMA espera, que é o "dois modelos
@@ -3530,9 +3536,10 @@ marcado: o estado ficava certo e só o desenho não acompanhava.
 
 Casos particulares:
 
-- **Combinado com um destino de guarda, a transmissão direta fica de fora:** ela
-  não produz arquivo (é um manifesto que expira em horas), e quem marcou
-  "Cronograma" pediu justamente o que sobra depois do domingo.
+- **(A transmissão direta SAIU na v1.7.7.** Ela ficava de fora quando havia um
+  destino de guarda marcado — não produz arquivo, é um manifesto que expira em
+  horas —, e hoje esse caso não existe: toda ação baixa, e "Tocar agora"
+  combinado com "Cronograma" é UM download que também entra na lista.)
 - **Um download só** (`ytAcao`): o arquivo nasce na PRIMEIRA lista escolhida e é
   espalhado por `listAdd` (idempotente). "Já estava lá" é sobre o CONJUNTO — um
   vídeo no Cronograma e fora dos Favoritos não é duplicata.
@@ -7016,7 +7023,7 @@ resultados e eles entram **na mesma lista**, abaixo do acervo, com miniatura
   (`AVDB.mediaByYoutube`). Só vale para quem tem **blob** — um item de LINK
   carrega o mesmo `youtubeId` e é o que o download existe para substituir.
 - **O NOME DO APP VENCE O TÍTULO DO YOUTUBE** (v1.4.10), nos DOIS caminhos —
-  `tentarTransmitir` (`r.name || man.name`) e `ytBaixarNativo`
+  o caminho da transmissão (`r.name || man.name`, removido na v1.7.7) e `ytBaixarNativo`
   (`nome || r.name || rotulo`, com o `r.name` do SHELL no meio). A ordem era a
   inversa, e o título extraído chega **segundos depois do toque**: nesse instante
   ele trocava o nome debaixo de tudo — o cartão de espera, a barra do que está
@@ -7798,7 +7805,8 @@ pede permissão e exige gesto, que é o oposto do que este caminho quer ser.
 área de transferência pode estar ali por qualquer razão. Daí a PERGUNTA antes:
 só o "sim" entrega o link ao `importShare`, que dali em diante é literalmente o
 mesmo código desta seção. E é a pergunta que torna o recurso seguro no **Modo
-Fácil**, onde um link compartilhado vira transmissão direta sem perguntar nada.
+Fácil**, onde um link compartilhado é baixado e projetado sem perguntar nada
+(era transmissão direta até a v1.7.2).
 
 **O custo é o aviso de área de transferência do Android 12+, e ele é pago uma vez
 por link copiado — nunca por retomada.** Quem garante isso é o CARIMBO,
@@ -7907,7 +7915,7 @@ sábado é visto uma vez. Então:
 | O que | Onde | Como |
 |---|---|---|
 | toque no item | `openSongMenu` → `openYtMenu(serieComoYoutube(coll, s))` | a folha do YouTube, com `semSoAudio: true` (o seletor Vídeo × Só áudio some) |
-| "Tocar agora" | `ytAcao(…, ['tocar'])` | **TRANSMISSÃO DIRETA** — `ytStream` → `shared/mse.js`, sem baixar |
+| "Tocar agora" | `ytAcao(…, ['tocar'])` | **BAIXA e projeta** — `ytArquivo`, no teto padrão do operador (720p). Era TRANSMISSÃO DIRETA até a v1.7.2 |
 | Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
 | guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
 | card | `renderCollectionCard` | **card da RAIZ** do índice (v1.0.1), acima dos hinários. **UM botão só** (v1.1.21): "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), puro e sem texto, na direita da barra — sem baixar em lote e sem lixeira, porque o álbum não retém arquivo. A barra diz quantos EPISÓDIOS a lista tem, não peso, e o do sábado desta semana fica DESTACADO no topo (`blocoDestaque`). A série sai de "Baixar toda a biblioteca" |
