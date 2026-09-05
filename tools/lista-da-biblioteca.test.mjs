@@ -1075,8 +1075,8 @@ try {
   // A régua é a doutrina da própria folha (v5.288): *"o recuo é da barra … é o
   // que faz a faixa em volta dela ser ALVO em vez de margem morta"*.
   //
-  // REVERSÃO: devolvendo o ouvinte da seção à barra, D6a reprova; tirando as
-  // regras de `--press` do bloco, D6b reprova.
+  // REVERSÃO: devolvendo o ouvinte da seção à barra, D6a reprova; tirando a
+  // resposta do bloco, D6b reprova; devolvendo o `--press` a ele, D6b2.
   // O cenário deste arquivo tem uma seção e dois cards ABERTOS (é o que os
   // casos A e B precisam). A faixa em volta da barra só existe num bloco
   // COLAPSADO — que é o estado em que a Biblioteca abre —, então este caso
@@ -1141,12 +1141,26 @@ try {
     };
   });
   await pg.mouse.up();
-  checar(resp.bloco !== 'none' && resp.blocoLuz !== 'none',
-    'D6b · e o `--press` é do BLOCO crescido: a pastilha inteira afunda e '
-    + 'acende, em vez de uma menor e descentrada dentro dela', resp);
+  checar(resp.blocoLuz !== 'none',
+    'D6b · e a RESPOSTA é do BLOCO crescido: a pastilha inteira acende, em vez '
+    + 'de uma menor e descentrada dentro dela', resp);
+  // ===== E ELE NÃO SE MEXE (v1.7.3) =====
+  //
+  // Pedido do operador: *"Há um efeito de encolhimento que distorce os
+  // elementos, remova esse efeito, deixe apenas um efeito de
+  // coloração/sombreamento ao toque sem encolhimento."*
+  //
+  // A metade de cima (a luz) é o que impede isto de virar "o feedback sumiu"; a
+  // de baixo é o pedido. Uma pastilha que anda 2px a cada dedo, numa lista de
+  // dezenas, é movimento sem informação — e na TAMPA de um card ela deslizava o
+  // conteúdo dentro de uma caixa parada, que foi a "distorção" relatada.
+  checar(resp.bloco === 'none',
+    'D6b2 · e ele NÃO se mexe: um bloco responde por LUZ, e o recuo fica para o '
+    + 'controle folha', resp);
   checar(resp.barra === 'none' && resp.barraLuz === 'none',
-    'D6c · com a BARRA calada dentro dele — uma resposta por dedo, que é a '
-    + 'regra escrita na lista do `--press`', resp);
+    'D6c · com a BARRA calada dentro dele — uma resposta por dedo, e é ela que '
+    + 'não pode responder: transparente, o `filter` acenderia só o texto',
+    resp);
 
   // ======================================================================
   // E · OS TRÊS RELATOS DA v1.5.18

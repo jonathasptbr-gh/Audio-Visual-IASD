@@ -2193,19 +2193,37 @@ e ler *"Nada em exibição"*.
   coleção, quantas foram achadas, quantas o site tem sem cifra e quantas não têm
   página, com exemplos nomeados e o endereço tentado.
 
-  A barra do topo da folha carrega **quatro** controles, e a ordem é a de uso:
-  a rolagem automática e a velocidade (usadas durante a música inteira) antes do
-  par de transposição (usado uma vez, antes dela). Os quatro são `.lv-fonte-btn`
-  porque são o mesmo gesto — um passo por toque numa escada —, e duas aparências
-  para o mesmo gesto seria ruído. O de velocidade é o único **não quadrado** da
-  família: o rótulo dele é uma palavra (`Auto`), e o `min-width` guarda a largura
-  do maior rótulo para o ciclo não empurrar os vizinhos a cada toque — um botão
-  que se desloca sob o dedo erra o alvo na segunda batida.
+  A fila de controles carrega **cinco** botões, e a ordem é a de uso: a rolagem
+  automática e a velocidade (usadas durante a música inteira) antes do par de
+  transposição (usado uma vez, antes dela), com o ⛶ da tela cheia no fim. Os
+  quatro primeiros são `.lv-fonte-btn` porque são o mesmo gesto — um passo por
+  toque numa escada —, e duas aparências para o mesmo gesto seria ruído. Todos
+  são QUADRADOS e medem `--hit` desde a v1.6.2: o de velocidade era o único fora
+  da família, e o que o faz caber é o CORPO (`--fs-2xs`), não uma largura própria.
 
-  **A barra fica FORA da caixa que rola** (`#lyricsViewBar`, entre o seletor e o
-  corpo, com o mesmo alinhamento horizontal dele): dentro, os controles rolavam
-  com o texto e o pausar saía de cena em segundos. Ela existe só na cifra e é
-  limpa em `renderLyricsView`, num ponto só.
+  **A fila fica FORA da caixa que rola** (ela subiu para o cabeçalho na v1.6.3,
+  quando o tom desceu para dentro da caixa e a barra ficou só com botões):
+  dentro, os controles rolavam com o texto e o pausar saía de cena em segundos.
+  Ela existe só na cifra e é limpa em `renderLyricsView`, num ponto só.
+
+  **A VELOCIDADE ABRE UMA GAVETA, e não cicla** (v1.7.3). Pedido do operador:
+  *"faça com que o botão de velocidade abra uma gaveta, substituindo seus botões
+  vizinhos, pela lista de botões com as variações de velocidade… sem passar por
+  cada uma delas em carrocel"*. O ciclo era um preço escrito desde a v1.1.20
+  (*"com CINCO degraus, dar a volta custa menos que um segundo botão"*), e a
+  conta muda quando o alvo é ESPECÍFICO: ir do `2×` ao `0,5×` custa um toque na
+  gaveta e quatro no ciclo, e os três do meio ACONTECEM — a folha muda de ritmo
+  em cada um deles, com a música no ar.
+
+  É **o mecanismo da faixa da linha aplicado à fila**: ela troca de CONTEÚDO, não
+  de lugar. Nada é criado por cima da folha, nada a empurra, e a caixa fica com a
+  mesma altura. O invólucro é `display: contents`, e é ele que dispensa uma
+  segunda regra de layout — os cinco viram filhos DE FATO da fila e seguem a
+  direção dela (linha no retrato, coluna em tela cheia). **O ⛶ é a exceção
+  nomeada à palavra "vizinhos"**: *a fila da cifra sempre tem a saída*, e
+  escondê-lo deixaria uma gaveta aberta em paisagem sem saída à vista. Todo botão
+  da gaveta a fecha — inclusive o do degrau já escolhido, que é o "cancelar"
+  natural.
 
   **A rolagem anda no tempo da MÚSICA** (`Auto`, o padrão), com o começo parado
   alguns segundos e o fim alcançado bem antes de a música acabar; sem relógio
@@ -3766,7 +3784,7 @@ diferentes. **O que muda são duas coisas:**
 | a seta do `.dl-ring` | **conforme a LEGENDA** (v1.7.1) — ver abaixo | **não** (a regra da v1.4.20: o desenho segue o que está acontecendo) |
 | a linha esmaece | **sim** — ali ela é PROVISÓRIA, o item ainda não existe | **não** — aqui ela é o item de verdade, prestes a entrar no ar |
 
-#### A LINHA PROVISÓRIA: o ícone segue a LEGENDA, e a barra ocupa o SUBTÍTULO
+#### A LINHA PROVISÓRIA: o ícone segue a LEGENDA, e ela ocupa o SUBTÍTULO
 
 `libBusy(acao, nome, chaveExistente, aoCancelar)` — a assinatura ESPELHA a do
 `previewBusy`, e isso não é simetria de enfeite: os dois desenham a MESMA espera
@@ -3781,30 +3799,60 @@ em dois lugares, e é a legenda que decide o desenho nos dois.
   ACENDE quando a legenda passa a dizer "Baixando" e APAGA de volta quando
   deixa de dizê-lo: o `atualizar` repinta o ícone junto com a faixa, senão o
   desenho ficaria preso na primeira legenda.
-- **A FAIXA DE PROGRESSO ocupa a posição do SUBTÍTULO** (`.dl-prog`, dentro da
-  `.row-text` e DEPOIS do `.row-name` — a pergunta é de ÁRVORE, e é ela que
-  mantém a altura da linha). São duas peças: a LEGENDA por extenso
-  (*"Preparando página 4 de 8…"*) e o trilho.
+- **A LEGENDA ocupa a posição do SUBTÍTULO** (`.dl-prog`, dentro da `.row-text`
+  e DEPOIS do `.row-name` — a pergunta é de ÁRVORE, e é ela que mantém a altura
+  da linha). Ela vem por extenso, com a fração: *"Preparando página 4 de 8…"*.
 - **A fração não custa parâmetro nenhum.** A linha já RECEBIA essa legenda — a
   mesma que a notificação do sistema mostra, escrita por quem TEM os números — e
   a descartava. Consumi-la entrega a fração de graça, e sem ninguém parsear
   frase nenhuma; um segundo lugar contando páginas divergiria no primeiro
   ajuste.
-- **O trilho só existe quando há proporção** (`pct < 0` o esconde): uma barra
-  parada em zero durante o preparo se lê como TRAVADA, que é o oposto do que ela
-  veio dizer.
-- **A cor do trilho é `--surface`**, o mesmo token da `.simple-time-bar` — e não
-  um `-soft`, que é tinta com alfa e a regra dos tokens proíbe numa superfície de
-  controle. MEDIDO: `--btn-accent` ali dá 1,07:1 contra o fundo da linha (some);
-  `--surface` dá 1,20–1,38:1, com o preenchimento a 4,01–7,15:1 contra ele nos
-  quatro pares de base × tema.
-- **O `.dl-pct` solto SAIU da linha** do Cronograma e da Biblioteca. Ele fica na
-  lista de resultados do YouTube, que não tem subtítulo para ceder; onde a barra
-  e a legenda já dizem o número, um terceiro lugar dizendo o mesmo é o que este
-  app tira de cena em toda passada.
+- **E A LINHA NÃO DESENHA O NÚMERO** (v1.7.3). Ela teve DUAS formas de desenhá-lo
+  e as duas saíram: o `.dl-pct` solto (até a v1.7.1) e o trilho com preenchimento
+  (só a v1.7.1). Pedido do operador: *"O subtitulo com as informações ficou muito
+  bom, mas a barra de progresso ficou ruim, tire ela."* A legenda já diz o número
+  por extenso, e um segundo lugar dizendo o mesmo — num filete de 4px, vezes
+  trinta linhas — é o que este app tira de cena em toda passada. O `.dl-pct` fica
+  onde ele continua sendo a única resposta: a lista de resultados do YouTube, que
+  não tem subtítulo para ceder.
+- **O `pct` continua no registro**, e não ficou órfão: quem desenha barra é a
+  NOTIFICAÇÃO do sistema (`bgTaskStep`), a única janela do trabalho com o app
+  minimizado. A barra saiu da LINHA, não do app.
 
-Oráculo: `tools/linha-da-preparacao.test.mjs`, com a REVERSÃO nas duas metades
-(seta incondicional reprova a preparação; legenda descartada reprova a fração).
+##### E O `⋮` CEDE A COLUNA AO TRABALHO (v1.7.3)
+
+Pedido do operador: *"por um botão, na mesma posição do botão de opções do item
+do cronograma, para manter o design igual. A diferença é que esse botão só tem
+uma função durante um preparo ou download. Esse botão cancela o processo e apaga
+o item."*
+
+É o movimento da v1.4.27 (a exclusão e a renomeação tomando a coluna emprestada)
+aplicado ao trabalho: o `⋮` abre opções para um item que ainda não existe, ou que
+está sendo escrito neste instante, e o toque numa delas cai no meio dele. Com o
+trabalho no ar a fileira inteira sai de cena e o que fica é `.row-cancel` — um
+`.row-btn`, para a caixa vir da mesma regra dos vizinhos em vez de um número
+repetido (era um `.dl-cancel` de 34px ao lado de um `⋮` de 40).
+
+- **"Apaga o item" tem LIMITE, e ele é uma decisão.** O toque cancela o
+  PROCESSO, e o item que só existe por causa dele some junto — a linha provisória
+  É a mídia que estava sendo preparada. Um item que JÁ ESTAVA no Cronograma (o
+  único caso é o `ytDl`, converter um link do YouTube em arquivo) FICA: ali o
+  operador pediu para parar o download, não para perder o item que ele tinha.
+- **Sem alça de cancelamento não há botão** — e por isso as duas esperas que não
+  sabiam parar ganharam uma (`alcaDeCancelamento`): a preparação de apresentação
+  e a importação de arquivo. Um botão que às vezes não está lá é pior que botão
+  nenhum.
+- **A desistência é lida onde o laço é NOSSO.** No `.pptx`, `AVDeck.paginasDoPptx`
+  recebe um predicado e para na página seguinte; no PDF quem rasteriza é o SHELL
+  (`deckPages` não tem cancelamento), então o que se cancela é o DESFECHO — nada
+  é criado, e o `deckDiscard` que já existia devolve as páginas ao lixo. A linha
+  sai na hora nos dois casos, e o preço do segundo está dito: o shell termina de
+  desenhar para o lixo. Na importação o ponto de parada é o `AbortController` do
+  `fetch` do `/saf/`, que é o único que aquele caminho tem.
+
+Oráculo: `tools/linha-da-preparacao.test.mjs`, com a REVERSÃO nas metades (seta
+incondicional reprova a preparação; legenda descartada reprova a fração; sem alça
+o botão não nasce).
 
 **O estado vive num `Set`, não na classe do nó** (`linhasCarregando`) — a lista é
 reconstruída no meio da espera (o `load()` do caminho do download), e uma classe
@@ -4859,13 +4907,29 @@ nasce com a confirmação certa.
 - **O par entra no COMEÇO da faixa**, nunca no fim: a `.row-acoes` escalona a
   entrada dos botões por `nth-last-child`, que conta a partir do FIM, e um irmão
   acrescentado depois deles deslocaria o índice de todos.
-- **A miniatura vira uma LIXEIRA** (`.row-lixo`), pelo mesmo mecanismo do "Tirar
-  do ar": o conteúdo da capa é escondido por CSS e o desenho novo entra por cima,
-  na mesma caixa. Ele VENCE o `.row-stop` — uma linha no ar também pode ser
-  excluída. **Desde a v1.4.27 isto é o CAMINHO B**: onde a linha tem `⋮` o
-  símbolo mora na coluna dele e a capa sai de cena — ver "O `⋮` cede a coluna ao
-  processo". A capa continua sendo a casa do símbolo onde não há `⋮`: a gaveta
-  dos Favoritos.
+- **O símbolo da pergunta é a LIXEIRA** (`.row-slot--del`), e desde a v1.4.27 ela
+  mora na COLUNA DO `⋮` — ver "O `⋮` cede a coluna ao processo". Onde não há `⋮`
+  (a gaveta dos Favoritos) ela entra na própria faixa, ao lado dos dois rótulos,
+  pelo mesmo caminho do ✓ do renomear. **A CAPA FICA À VISTA** (v1.7.3, pedido do
+  operador): com o símbolo fora dela, ela volta a ser a única parte da linha que
+  diz de QUAL item é a pergunta. Numa linha NO AR o "Tirar do ar" cede o
+  quadrado, pela razão com que o `⋮` saiu: é uma terceira ação num momento que já
+  tem duas.
+- **E A LINHA SAI DE CENA quando o "sim" é tocado** (v1.7.3). Relato: *"ao tocar
+  em excluir, na confirmação, o item se transforma ao seu estado inicial sem os
+  botões antes de desaparecer, isso causa extranhesa"*. Era a ORDEM —
+  `fecharConfirmacaoNaLinha()` corria ANTES do `aoConfirmar`, e o que se via era
+  a linha voltando ao normal durante a ida ao banco. Hoje `aoSair` a encolhe e
+  apaga (200 ms, a curva do acordeão, com a margem negativa do `gap` para o vão
+  sair junto) e SÓ ENTÃO o item é apagado. Daí o `linha-sim` estar em
+  `ACOES_QUE_NAO_FECHAM`, pelo motivo OPOSTO ao dos outros nomes de lá: eles
+  ficam porque a conversa com o item continua; ele fica porque ela ACABOU.
+- **E A INVERSÃO PEDE UMA GUARDA:** `fecharConfirmacaoNaLinha` fecha *a que
+  estiver aberta*, e com o `aoConfirmar` rodando antes dela há uma janela em que
+  OUTRA pergunta já nasceu — MEDIDO, a exclusão de um favorito fechava o campo de
+  RENOMEAR aberto logo depois, e o campo não aparecia. O `finally` só fecha a
+  SUA: é a regra do botão de cancelar do cartão da preview, *ele sai com o DONO
+  dele*.
 - **UMA por vez**, como a gaveta. E **tudo que fecha a gaveta CANCELA**: o `⋮`
   outra vez, o toque fora, o redesenho da lista (todos passam por
   `fecharAcoesDaLinha`) e o fechamento da gaveta de um favorito. O erro possível
@@ -4895,7 +4959,7 @@ nasce com a confirmação certa.
   fila inteira. Um gesto que PARECE reversível e não é custa, num episódio de
   série, ~300 MB baixados em rede de celular.
 
-#### O `⋮` cede a coluna ao processo, e a capa sai junto (v1.4.27)
+#### O `⋮` cede a coluna ao processo (v1.4.27; a capa voltou na v1.7.3)
 
 Pedido do operador: durante os dois processos o `⋮` *"contradiz o fluxo dos
 botões, pois o processo de exclusão e o de renomear já devem ter métodos de
@@ -4908,26 +4972,35 @@ terceira saída para uma pergunta que já tem duas — e as três fazem coisas
 diferentes: uma cancela, uma executa, e a terceira cancela **por acidente**,
 porque fechar a gaveta desfaz a pergunta.
 
-**A capa saiu pelo argumento que já estava vencido por dentro.** O que a mantinha
-fora da faixa (*"com o nome coberto, ela é a única coisa que ainda diz de QUAL
-linha é este menu"*) não valia DENTRO de um processo: na exclusão ela virava uma
-lixeira, isto é, parava de identificar o item. Fora do processo o argumento
-continua inteiro, e a gaveta comum segue com a capa e o `⋮` na tela.
+**A capa saiu na v1.4.27 e VOLTOU na v1.7.3, e as duas decisões estão certas** —
+o que mudou entre elas foi a premissa. O argumento de então (*"com o nome
+coberto, ela é a única coisa que ainda diz de QUAL linha é este menu"*) foi dado
+por vencido porque na exclusão a capa VIRAVA UMA LIXEIRA, isto é, parava de
+identificar o item. Com o símbolo morando na coluna do `⋮`, ela deixou de virar
+coisa nenhuma — e o operador pediu de volta o que o argumento original protegia:
+*"pode deixar visivel a thumbnail do item durante essa confirmação"*.
+
+**Ela continua saindo na RENOMEAÇÃO**, e o par é a regra: ali o campo quer a
+faixa inteira (a capa mais o vão dela são ~96px), enquanto o par Cancelar/Excluir
+cabe onde a fileira de botões cabia. Quem separa os dois processos é a marca no
+`li` — `excluindo` e `renomeando` —, e é ela que o CSS lê.
 
 **E a terceira parte amarra as outras duas.** Esconder duas colunas é fácil; o
 que o operador pediu foi o ESPAÇO, e o que impede que ele seja comprado com o
 sumiço do símbolo é a coluna continuar ocupada. MEDIDO a 430px: a faixa vai de
 **292px a 340px**, e a coluna passa a hospedar o símbolo do processo.
 
-| processo | símbolo na coluna | o que ele é |
-|---|---|---|
-| exclusão | a LIXEIRA (`.row-slot--del`) | `<span>` inerte, `pointer-events: none` — ilustra, não decide; quem decide são os dois rótulos |
-| renomear | o ✓ (`.row-slot--ok`) | botão de verdade, que grava de onde está |
+| processo | símbolo na coluna | o que ele é | a capa |
+|---|---|---|---|
+| exclusão | a LIXEIRA (`.row-slot--del`) | `<span>` inerte, `pointer-events: none` — ilustra, não decide; quem decide são os dois rótulos | **fica** (v1.7.3) |
+| renomear | o ✓ (`.row-slot--ok`) | botão de verdade, que grava de onde está | sai — o campo quer a faixa |
 
-- **Quem esconde as duas colunas é o CSS** (`:has(> .row-acoes.confirmando)`), e
-  não o JS: o estado já está no DOM, e uma segunda escrita divergiria dele.
-- **O `right` da faixa NÃO muda** — a coluna da direita continua ocupada. Só o
-  `left` desce para a borda do conteúdo.
+- **Quem esconde o `⋮` é o CSS** (`:has(> .row-acoes.confirmando)`), e não o JS:
+  o estado já está no DOM, e uma segunda escrita divergiria dele. A CAPA sai por
+  uma regra própria, keyada na marca `renomeando`.
+- **O `right` da faixa NÃO muda** — a coluna da direita continua ocupada. O
+  `left` desce para a borda do conteúdo só na RENOMEAÇÃO; na exclusão a faixa
+  mantém a geometria de sempre, porque a capa continua lá.
 - **O slot mede o `⋮` por CONSTRUÇÃO**: ele entra nas MESMAS regras de caixa e de
   escala de ícone que o `.row-btn`, então segue `--hit` na fila e `--thumb` no
   Cronograma sem um segundo número para alguém esquecer.
@@ -4944,12 +5017,17 @@ sumiço do símbolo é a coluna continuar ocupada. MEDIDO a 430px: a faixa vai d
 
 **O CAMINHO B, e é o que este desenho pode quebrar sem sintoma.** A gaveta dos
 **Favoritos não tem `⋮`** — ela abre pelo corpo da linha e a faixa fica ABAIXO
-dela, sem cobrir nada. Lá não há coluna a tomar emprestada, e cada símbolo volta
-para a casa de onde saiu: o ✓ para dentro da faixa (à direita do campo), a
-lixeira para a capa. **Os dois destinos são diferentes de propósito** — o ✓
-DECIDE e precisa continuar alcançável (um botão que some por não achar coluna
-deixa o renomear dos Favoritos sem confirmação); a lixeira ILUSTRA, e ali a capa
-continua visível o tempo todo.
+dela, sem cobrir nada. Lá não há coluna a tomar emprestada, e **desde a v1.7.3 os
+dois símbolos voltam para dentro da faixa**: o ✓ à direita do campo, a lixeira ao
+lado dos dois rótulos. Ela morou na CAPA da v1.4.27 até ali, e saiu de lá porque
+a capa deixou de estar livre.
+
+**O que ainda os separa, e é o que fica**: o ✓ DECIDE, então ele entra sempre que
+a faixa existir (um botão que some por não achar coluna deixa o renomear dos
+Favoritos sem confirmação); a lixeira ILUSTRA, e por isso não entra numa faixa
+que não fala de UM item — limpar a playlist, limpar o histórico, limpar uma
+sessão. Ali o par de rótulos DIVIDE A CAIXA AO MEIO desde a v5.309, e um terceiro
+filho a encolhe. (Esta metade custou uma reprovação do `smoke` para aparecer.)
 
 > **A ordem importa no caminho B**: o `semSlot` roda DENTRO do
 > `abrirNaFaixaDaLinha`, antes de o campo ser anexado — daí o `prepend` do campo
@@ -5235,8 +5313,10 @@ da linha. O que ela não tem: **seletor de variante** (o registro já existe) e
 terminam num `listRemove('favs', id)`, e: (1) aqui a estrela é alternador de UMA
 direção — todo item já é favorito, ela nasce acesa, e o único toque possível é o
 que apaga; (2) a lixeira PERGUNTA — e desde a v5.301 a pergunta nasce na PRÓPRIA
-faixa, com o par Cancelar/Excluir no lugar dos botões e a miniatura virando
-lixeira; (3) ela solta a prateleira invisível (`soltarAvulso`), que é a diferença
+faixa, com o par Cancelar/Excluir no lugar dos botões e o símbolo da lixeira ao
+lado deles (ele morou na CAPA da v1.4.27 à v1.7.1, e saiu de lá quando o operador
+pediu a miniatura à vista durante a confirmação); (3) ela solta a prateleira
+invisível (`soltarAvulso`), que é a diferença
 entre "a linha sumiu" e "os bytes saíram". Nas outras listas a estrela fica, e
 ali ela alterna de verdade.
 
@@ -5446,6 +5526,36 @@ de referência de verdade), a **estrela em toda linha** e as **cenas de roteiro*
 > `renderFolderList` via `favHost`/`favAlvo()`, dentro de
 > `comBaldeDeMiniaturas('fav-biblioteca', …)`. O `__avBack` perdeu o degrau da
 > gaveta junto.
+
+> **E A `object-URL` DE UMA MINIATURA É DO BLOB, NÃO DO RENDER** (v1.7.3).
+> Relato: *"Os itens da lista de favoritos, tem suas thumbnails piscando durante
+> processos de download na biblioteca"*. A Biblioteca é redesenhada a cada 400 ms
+> enquanto um download corre, e cada passada REVOGAVA as URLs da anterior para
+> criar outras dos MESMOS blobs — uma `<img>` com `src` inédito não tem
+> decodificação em cache: ela nasce vazia e pinta no quadro seguinte, três vezes
+> por segundo, em toda linha com capa.
+>
+> `thumbUrlDoBlob` guarda uma URL por BLOB (mais `decoding="sync"`, que é a outra
+> metade: com a decodificação assíncrona o elemento novo ainda esperava um
+> quadro). O blob é o MESMO objeto entre um render e outro porque quem o segura
+> são as listas em memória, e quem as relê é o `load()` — que é exatamente o
+> momento em que a miniatura PODE mudar.
+>
+> **E a varredura passou a ser pela UNIÃO dos baldes** (`varrerMiniaturas`), não
+> pela diferença: uma URL só morre quando nenhum host a desenha. Isso fecha POR
+> CONSTRUÇÃO a classe de defeito que o balde por host existia para tratar — um
+> host revogando o que o outro tem em cena. O `renderLibrary` passou a publicar
+> o balde dele no `finally`, como a outra casa já fazia: publicá-lo ANTES do
+> render deixaria a varredura ver este host vazio no meio da própria passada.
+>
+> **E há um TERCEIRO balde, que é o que este desenho pode quebrar sem sintoma:**
+> o corpo de uma PASTA DO APARELHO é montado por uma função ASSÍNCRONA
+> (`filesByFolder`), depois de o balde do render ter sido devolvido — sem
+> `'pasta-aberta'`, aquelas capas caem num conjunto que nenhum host publica e a
+> varredura seguinte as apaga da tela. UMA chave, e não uma por pasta: só há uma
+> aberta por vez, então abrir outra substitui o balde; uma chave por id deixaria
+> de pé, para sempre, os blobs de toda pasta já visitada. Oráculo:
+> `tools/miniaturas-estaveis.test.mjs`.
 
 O mecanismo por baixo continua usando as MESMAS chaves de state (renomear a
 leitura não pode custar a biblioteca de ninguém) — o que mudou é o

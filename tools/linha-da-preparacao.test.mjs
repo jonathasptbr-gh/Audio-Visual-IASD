@@ -22,10 +22,29 @@
 //     desenhada em toda espera, inclusive numa preparação, que não baixa byte
 //     nenhum.
 //
+// ## E o que a v1.7.3 acrescentou
+//
+//  3. **A BARRA SAIU** — *"O subtitulo com as informações ficou muito bom, mas
+//     a barra de progresso ficou ruim, tire ela."* A asserção passou a ser
+//     NEGATIVA e vale para a linha inteira: nenhum trilho, nenhum
+//     preenchimento, nenhum percentual solto. Ela é o par exato da que o lote
+//     anterior escreveu, e as duas juntas dizem a regra — a legenda FICA, o
+//     desenho do número SAI.
+//  4. **O `⋮` CEDE A COLUNA AO TRABALHO.** *"esse botão só tem uma função
+//     durante um preparo ou download. Esse botão cancela o processo e apaga o
+//     item."* Três metades, e nenhuma basta: o cancelar está NA COLUNA (mesma
+//     caixa do `⋮`, medida no renderizado — um botão com outra caixa é o
+//     defeito que a v5.259 já tirou desta lista), a fileira de opções NÃO está
+//     lá (era o pedido: uma função só), e ele CANCELA de verdade.
+//  5. **E A PREPARAÇÃO PASSOU A SABER PARAR.** Sem isto o botão existiria e não
+//     teria o que fazer no caso mais longo que este app tem — dezenas de
+//     páginas rasterizadas uma a uma. A asserção é o desfecho que o operador
+//     vê: a linha sai da lista, e nenhum item nasce.
+//
 // Um teste do DESFECHO passa nas duas versões (o item nasce igual), e um teste
 // de CLASSE passaria com a regra de CSS ausente. Por isso as asserções daqui
-// medem o RENDERIZADO (a largura do preenchimento em pixels) e a ÁRVORE (a
-// posição da faixa dentro da coluna de texto, o `<svg>` dentro do aro).
+// medem o RENDERIZADO (a caixa do botão em pixels) e a ÁRVORE (a posição da
+// legenda dentro da coluna de texto, o `<svg>` dentro do aro).
 //
 //   node tools/linha-da-preparacao.test.mjs
 // ============================================================================
@@ -121,30 +140,39 @@ try {
       : busy[0];
     if (!li) return null;
     const prog = li.querySelector('.dl-prog');
-    const trilho = li.querySelector('.dl-prog-trilho');
-    const fill = li.querySelector('.dl-prog-fill');
     const anel = li.querySelector('.thumb .dl-ring');
     const texto = li.querySelector('.row-text');
+    const cancelar = li.querySelector('.row-cancel');
+    const caixa = (el) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { w: Math.round(r.width * 100) / 100, h: Math.round(r.height * 100) / 100 };
+    };
     return {
       nome: (li.querySelector('.row-name') || {}).textContent || '',
-      // A FAIXA ESTÁ NA POSIÇÃO DO SUBTÍTULO? A pergunta é de ÁRVORE: dentro da
-      // coluna de texto e DEPOIS do nome — que é onde mora o `.row-sub` de uma
-      // linha normal. Um `.dl-prog` solto na `.row` passaria num teste de
+      // A LEGENDA ESTÁ NA POSIÇÃO DO SUBTÍTULO? A pergunta é de ÁRVORE: dentro
+      // da coluna de texto e DEPOIS do nome — que é onde mora o `.row-sub` de
+      // uma linha normal. Um `.dl-prog` solto na `.row` passaria num teste de
       // presença e apareceria noutro lugar da linha.
       naColuna: !!(prog && texto && prog.parentElement === texto
         && texto.children[0] && texto.children[0].classList.contains('row-name')
         && texto.children[1] === prog),
-      legenda: prog ? (prog.querySelector('.dl-prog-txt') || {}).textContent || '' : '',
-      trilhoVisivel: !!(trilho && !trilho.hidden),
-      // A LARGURA RENDERIZADA, não o `style.width`: uma regra de CSS ausente
-      // deixaria o inline style de pé e o elemento sem caixa nenhuma.
-      fill: fill ? Math.round(fill.getBoundingClientRect().width * 100) / 100 : -1,
-      trilho: trilho ? Math.round(trilho.getBoundingClientRect().width * 100) / 100 : -1,
+      legenda: prog ? prog.textContent || '' : '',
       // A SETA é um `<svg>` DENTRO do aro; o aro é o `::before`, que não é nó.
       temAro: !!anel,
       temSeta: !!(anel && anel.querySelector('svg')),
-      // O percentual solto, que saiu daqui na v1.7.1.
+      // O DESENHO DO NÚMERO, nas três formas que a linha já teve: o percentual
+      // solto (até a v1.7.1) e o par trilho/preenchimento (só a v1.7.1).
       temPct: !!li.querySelector('.dl-pct'),
+      temTrilho: !!li.querySelector('.dl-prog-trilho, .dl-prog-fill'),
+      // O CANCELAR e a caixa dele, para a comparação com a do `⋮` de uma linha
+      // sem trabalho nenhum.
+      temCancelar: !!cancelar,
+      cancelar: caixa(cancelar),
+      // A FILEIRA DE OPÇÕES não pode estar no ar junto: o pedido é *"esse botão
+      // só tem uma função"*.
+      temMais: !!li.querySelector('.row-mais'),
+      temAcoes: !!li.querySelector('.row-acoes'),
     };
   }, nome || null);
 
@@ -171,9 +199,6 @@ try {
     antes);
   checar(antes && antes.legenda === 'Preparando apresentação',
     'A1 · a legenda de abertura é a MESMA do cartão da preview', antes && antes.legenda);
-  checar(antes && antes.trilhoVisivel === false,
-    'A1 · e ainda NÃO há trilho: sem total não há proporção, e uma barra em zero '
-    + 'se lê como travada', antes && antes.trilhoVisivel);
 
   // ── A2. A SETA NÃO É DESENHADA ──────────────────────────────────────────
   checar(antes && antes.temAro && !antes.temSeta,
@@ -181,42 +206,70 @@ try {
     + 'e era essa seta que o operador viu prometer o que não estava acontecendo',
     antes && { aro: antes.temAro, seta: antes.temSeta });
 
-  // ── A3. A BARRA ANDA, E A FRAÇÃO APARECE ────────────────────────────────
-  const comBarra = await esperar(pg, () => {
-    const t = document.querySelector('.lib-item.baixando .dl-prog-trilho');
-    return !!t && !t.hidden;
+  // ── A3. A FRAÇÃO APARECE, E ELA É TODO O PROGRESSO QUE A LINHA MOSTRA ───
+  const comFracao = await esperar(pg, () => {
+    const t = document.querySelector('.lib-item.baixando .dl-prog');
+    return !!t && /de 8/.test(t.textContent || '');
   }, null, 15000);
-  checar(comBarra === true, 'A3 · o trilho aparece no primeiro progresso', porque(comBarra));
+  checar(comFracao === true, 'A3 · a fração chega no primeiro progresso', porque(comFracao));
 
   const a = await linha();
   checar(/^Preparando página \d+ de 8…$/.test(a.legenda),
-    'A3 · e a legenda passa a trazer a FRAÇÃO das páginas já preparadas — ela vem '
-    + 'de quem TEM os números, sem o oráculo (nem a linha) parsear frase nenhuma',
+    'A3 · e a legenda traz a FRAÇÃO das páginas já preparadas — ela vem de quem '
+    + 'TEM os números, sem o oráculo (nem a linha) parsear frase nenhuma',
     a.legenda);
-  checar(a.trilho > 40, 'A3 · o trilho tem caixa de verdade no renderizado', a.trilho);
 
-  // ANDAR é a asserção: uma barra que aparece e fica parada é o defeito que
-  // esta faixa existe para não ser. Espera pelo FATO (a largura crescer), com
-  // prazo que cobre duas páginas.
-  const largura0 = a.fill;
-  const andou = await esperar(pg, (w) => {
-    const f = document.querySelector('.lib-item.baixando .dl-prog-fill');
-    return !!f && f.getBoundingClientRect().width > w + 0.5;
-  }, largura0, 15000);
-  checar(andou === true,
-    'A3 · e o PREENCHIMENTO cresce — medido em pixels renderizados, não no `style`: '
-    + 'sem a regra de CSS o inline ficaria de pé sobre um elemento sem caixa',
-    porque(andou));
+  // A legenda ANDA: uma frase que aparece e congela é o defeito que ela existe
+  // para não ser. Espera pelo FATO (o texto mudar), com prazo para duas páginas.
+  const primeira = a.legenda;
+  const andou = await esperar(pg, (txt) => {
+    const t = document.querySelector('.lib-item.baixando .dl-prog');
+    return !!t && (t.textContent || '') !== txt && /de 8/.test(t.textContent || '');
+  }, primeira, 15000);
+  checar(andou === true, 'A3 · e ela ANDA, página a página', porque(andou));
 
-  // ── A4. O PERCENTUAL SOLTO SAIU ─────────────────────────────────────────
+  // ── A4. NENHUM DESENHO DO NÚMERO NA LINHA (v1.7.3) ──────────────────────
   //
-  // A barra diz o número e a legenda o repete por extenso; um terceiro lugar
-  // dizendo o mesmo é o que este app tira de cena em toda passada.
-  checar(a.temPct === false,
-    'A4 · e não há mais o percentual solto na linha: a barra e a fração já o dizem',
-    a.temPct);
+  // Relato do operador: *"O subtitulo com as informações ficou muito bom, mas a
+  // barra de progresso ficou ruim, tire ela."* A asserção é NEGATIVA e cobre as
+  // DUAS formas que a linha já teve — o percentual solto (até a v1.7.1) e o par
+  // trilho/preenchimento (só a v1.7.1) —, porque as duas dizem o mesmo número
+  // que a legenda acabou de dizer por extenso.
+  checar(a.temPct === false && a.temTrilho === false,
+    'A4 · e a linha NÃO desenha o número: nem percentual solto, nem barra — a '
+    + 'legenda já o diz, e três formas do mesmo fato na mesma linha é o que este '
+    + 'app tira de cena em toda passada',
+    { pct: a.temPct, trilho: a.temTrilho });
 
-  await importar;
+  // ── A5. O `⋮` CEDEU A COLUNA (v1.7.3) ───────────────────────────────────
+  //
+  // A caixa é comparada com a do `⋮` de uma linha SEM trabalho — não com um
+  // número escrito aqui: o `.row-btn` mede `--thumb` no Cronograma e `--hit` na
+  // fila, e um literal aprovaria a lista errada.
+  checar(a.temCancelar && !a.temMais && !a.temAcoes,
+    'A5 · a coluna do `⋮` é do CANCELAR enquanto o trabalho corre, e a fileira de '
+    + 'opções não está no ar: o pedido é uma função só',
+    { cancelar: a.temCancelar, mais: a.temMais, acoes: a.temAcoes });
+
+  // ── A6. E O CANCELAR PARA A PREPARAÇÃO ──────────────────────────────────
+  //
+  // O desfecho que o operador vê: a linha sai da lista, e nenhum item nasce.
+  // Sem a alça de cancelamento no `pptxImportar` este toque seria um no-op —
+  // um botão à vista que não faz nada é o defeito que ele existe para não ser.
+  await pg.evaluate(() => {
+    const li = [...document.querySelectorAll('.lib-item.baixando')]
+      .find((x) => ((x.querySelector('.row-name') || {}).textContent || '') === 'Semana da Familia');
+    li.querySelector('.row-cancel').click();
+  });
+  const sumiu = await esperar(pg, () => !document.querySelector('.lib-item.baixando'), null, 10000);
+  checar(sumiu === true, 'A6 · o toque no cancelar tira a linha da lista NA HORA', porque(sumiu));
+  const criado = await importar;
+  checar(criado === null,
+    'A6 · e nenhuma apresentação nasce: o laço de páginas lê a desistência e sai',
+    criado);
+  const noBanco = await pg.evaluate(async () => (await AVDB.listItems('imports'))
+    .filter((r) => r.name === 'Semana da Familia').length);
+  checar(noBanco === 0, 'A6 · nem no Cronograma', noBanco);
 
   // =========================================================================
   // B · A REVERSÃO — num DOWNLOAD a seta continua, e ela acende NA HORA CERTA
@@ -230,7 +283,11 @@ try {
   // por isso o cenário é o `libBusy` direto: o caminho de download de verdade
   // depende do shell, e o que se afirma aqui não é o download — é a regra.
   await pg.evaluate(() => {
-    window.__bgTeste = libBusy('Preparando vídeo', 'O Louvor', null, null);
+    window.__cancelou = 0;
+    // COM alça de cancelamento: sem ela não há botão, e é do botão que o bloco
+    // B2 tira a caixa. (A ausência tem asserção própria — ver B3.)
+    window.__bgTeste = libBusy('Preparando vídeo', 'O Louvor', null,
+      () => { window.__cancelou++; });
   });
   const nasceu = await esperar(pg, () => [...document.querySelectorAll('.lib-item.baixando')]
     .some((x) => ((x.querySelector('.row-name') || {}).textContent || '') === 'O Louvor'),
@@ -248,16 +305,72 @@ try {
     'B · e ela ACENDE no primeiro progresso, quando a legenda passa a dizer '
     + '"Baixando" — o ícone segue a LEGENDA, e os dois nunca discordam',
     b1 && b1.temSeta);
-  checar(b1 && b1.legenda === 'Baixando vídeo · 12%' && b1.fill > 0,
-    'B · com a mesma faixa dizendo o resto', b1 && { legenda: b1.legenda, fill: b1.fill });
+  checar(b1 && b1.legenda === 'Baixando vídeo · 12%',
+    'B · com a mesma legenda dizendo o resto', b1 && b1.legenda);
 
   // E ELA APAGA DE VOLTA, que é a outra metade da condicional: uma legenda que
   // deixa de prometer bytes não pode manter a promessa desenhada.
   await pg.evaluate(() => window.__bgTeste.atualizar('Guardando as páginas…', null, -1));
   const b2 = await linha('O Louvor');
-  checar(b2 && !b2.temSeta && b2.trilhoVisivel === false,
-    'B · e APAGA quando a legenda deixa de prometer bytes, junto com o trilho',
-    b2 && { seta: b2.temSeta, trilho: b2.trilhoVisivel });
+  checar(b2 && !b2.temSeta,
+    'B · e APAGA quando a legenda deixa de prometer bytes',
+    b2 && b2.temSeta);
+
+  // ── B2. A CAIXA DO CANCELAR É A DO `⋮` ──────────────────────────────────
+  //
+  // A régua é o VIZINHO, nunca um literal: o `.row-btn` mede `--thumb` no
+  // Cronograma e `--hit` na fila, e um número escrito aqui aprovaria a lista
+  // errada. Um item de verdade é semeado ao lado, sem trabalho nenhum, só para
+  // emprestar a caixa do `⋮` dele.
+  const caixas = await (async () => {
+    await pg.evaluate(async () => {
+      const b = new Blob([new Uint8Array([0, 1, 2, 3])], { type: 'audio/mp4' });
+      await AVDB.addMedia(b, { name: 'Régua', kind: 'audio', type: 'audio/mp4', list: 'imports' });
+      await load();
+    });
+    return pg.evaluate(() => {
+      const cx = (el) => {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { w: Math.round(r.width * 100) / 100, h: Math.round(r.height * 100) / 100 };
+      };
+      const comum = [...document.querySelectorAll('.lib-item:not(.baixando)')]
+        .find((x) => ((x.querySelector('.row-name') || {}).textContent || '') === 'Régua');
+      const trabalho = [...document.querySelectorAll('.lib-item.baixando')]
+        .find((x) => ((x.querySelector('.row-name') || {}).textContent || '') === 'O Louvor');
+      return {
+        mais: cx(comum && comum.querySelector('.row-mais')),
+        cancelar: cx(trabalho && trabalho.querySelector('.row-cancel')),
+      };
+    });
+  })();
+  checar(!!caixas.mais && !!caixas.cancelar
+    && caixas.mais.w === caixas.cancelar.w && caixas.mais.h === caixas.cancelar.h
+    && caixas.mais.w > 0,
+    'B2 · o cancelar mede EXATAMENTE o `⋮` da linha vizinha — ele é um `.row-btn`, '
+    + 'e a caixa vem da mesma regra em vez de um número repetido',
+    JSON.stringify(caixas));
+
+  // ── B3. SEM ALÇA NÃO HÁ BOTÃO ──────────────────────────────────────────
+  //
+  // A outra metade de B2, e ela é o que impede o conserto largo demais: um
+  // cancelar desenhado sempre seria um botão morto nas esperas que não sabem
+  // parar. (Hoje as três que desenham a linha sabem — ver `alcaDeCancelamento`
+  // —, e é justamente por isso que a regra precisa de asserção: um caminho novo
+  // sem alça tem de nascer sem botão, não com um inerte.)
+  await pg.evaluate(() => {
+    window.__semAlca = libBusy('Preparando vídeo', 'Sem alça', null, null);
+  });
+  const nasceuSemAlca = await esperar(pg, () => [...document.querySelectorAll('.lib-item.baixando')]
+    .some((x) => ((x.querySelector('.row-name') || {}).textContent || '') === 'Sem alça'),
+  null, 10000);
+  checar(nasceuSemAlca === true, 'B3 · a linha sem alça nasce', porque(nasceuSemAlca));
+  const semAlca = await linha('Sem alça');
+  checar(semAlca && !semAlca.temCancelar,
+    'B3 · e ela NÃO desenha o cancelar: um botão que não tem o que fazer é pior '
+    + 'que botão nenhum', semAlca && semAlca.temCancelar);
+  await pg.evaluate(() => window.__semAlca.soltar());
+
   await pg.evaluate(() => window.__bgTeste.soltar());
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
