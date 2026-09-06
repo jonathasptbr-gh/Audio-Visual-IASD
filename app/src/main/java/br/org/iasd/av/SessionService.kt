@@ -697,7 +697,7 @@ class SessionService : Service() {
 
         /** O servidor das telas subiu: o cartão passa a existir mesmo sem cena. */
         fun transmissaoLigada(ctx: Context, endereco: String) {
-            synchronized(trava) { transmissao = Transmissao(endereco, 0) }
+            synchronized(trava) { transmissao = Transmissao(endereco = endereco, telas = 0) }
             val inst = instance
             if (running && inst != null) inst.publish() else iniciar(ctx)
         }
