@@ -946,6 +946,12 @@
           // Há quanto tempo nada acontece: é o que faz a notificação
           // distinguir TRAVADO de lento.
           idleMs: inteiro(p && p.idleMs),
+          // ESTE TRABALHO TRAZ BYTES DA REDE? É o que escolhe o ÍCONE da barra
+          // de notificação: exportar, importar e preparar uma apresentação não
+          // baixam nada, e a seta de download mentia sobre os três. O Kotlin lê
+          // ausente como `true` — o comportamento de sempre para um bundle mais
+          // antigo que a ponte.
+          baixando: !(p && p.baixando === false),
         }));
       } catch (_) { /* ignorado */ }
     },
