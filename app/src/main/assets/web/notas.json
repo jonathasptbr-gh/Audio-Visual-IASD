@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.12",
+    "itens": [
+      "A cópia entre celulares acha o endereço certo sozinha, sem ninguém digitar nada.",
+      "O aparelho que cede passou a dizer na rede em que endereço ele atende."
+    ]
+  },
+  {
     "versao": "1.8.11",
     "itens": [
       "Copiar a biblioteca pela Wi-Fi: dá para digitar o endereço mesmo com o outro celular na lista.",

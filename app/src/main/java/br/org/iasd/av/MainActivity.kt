@@ -2176,7 +2176,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // nunca se corrigia (ver [AcervoDescoberta.preparar]). Quem o põe na
         // rede é o `acervoPublicar`, já com a contagem e o peso — e, com isso,
         // este aparelho só aparece na lista do outro quando tem o que servir.
-        AcervoDescoberta.preparar(this, porta, rotulo)
+        // O ENDEREÇO SERVIDO VAI NO ANÚNCIO (v1.8.12). Quem abriu o socket sabe
+        // onde abriu; sem dizê-lo, o outro celular dialava o que a resolução do
+        // mDNS calhasse de devolver, e num aparelho com dois IPv4 privados isso
+        // é uma moeda ao alto.
+        val ipServido = espelhoSrv?.estado()?.optString("ip", "").orEmpty()
+        AcervoDescoberta.preparar(this, porta, rotulo, ipServido)
         espelhoDiag.registrar("cessao da biblioteca ligada (o anuncio espera a contagem)")
     }
 
@@ -2222,17 +2227,21 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 runOnUiThread {
                     onResult(
                         JSONObject().put("estado", "erro")
-                            .put("erro", "o pedido a $endereco:$porta travou sem resposta (20s)"),
+                            .put("erro", "o pedido a $endereco:$porta travou sem resposta (40s)"),
                     )
                 }
             }
-        }, 20_000)
+        }, 40_000)
         thread(name = "av-acervo-par", isDaemon = true) {
             val r = pedirPar(endereco, porta, rotulo)
             if (!respondido.compareAndSet(false, true)) return@thread
             if (r.optString("estado") == "pareado") {
-                AcervoProxy.apontar(endereco, porta, r.optString("token"))
-                espelhoDiag.registrar("clone: pareado com $endereco:$porta")
+                // O VENCEDOR, e não o pedido: ver o `put("host", alvo)` do
+                // [pedirPar]. Ausente (um shell que não o preencheu), cai no
+                // que foi pedido, que é o comportamento de antes.
+                val vencedor = r.optString("host").ifBlank { endereco }
+                AcervoProxy.apontar(vencedor, porta, r.optString("token"))
+                espelhoDiag.registrar("clone: pareado com $vencedor:$porta")
             }
             // O TOKEN NÃO VOLTA PARA O WEB. Ele é a credencial do outro
             // aparelho e o proxy já o tem — mandá-lo à página seria pô-lo num
@@ -2257,10 +2266,80 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
+    /**
+     * O PEDIDO TENTA TODOS OS ENDEREÇOS DO APARELHO, e não só um (v1.8.12).
+     *
+     * O anúncio mDNS carrega os endereços por onde o aparelho RESPONDE; o
+     * servidor abre em UM, escolhido por ele. Quando os dois não coincidem — um
+     * celular com Wi-Fi e ponto de acesso ao mesmo tempo, uma VPN — o pedido
+     * chega a um endereço que existe e não escuta, e volta em ~2 s com
+     * `ConnectException`. MEDIDO em campo, em duas rodadas, com o aparelho
+     * LISTADO e o operador sem saída dentro do app.
+     *
+     * A fila vem do [AcervoDescoberta.enderecosDe]: o pedido na frente, os
+     * outros como reserva. **Só falha de CONEXÃO passa para o seguinte** —
+     * qualquer resposta HTTP (404, 409, o `aguardando`) é a resposta daquele
+     * aparelho e encerra a busca, senão um "recusado" viraria três pedidos e o
+     * operador veria a pergunta três vezes. Um endereço digitado à mão não está
+     * em achado nenhum e volta sozinho: uma tentativa, como sempre.
+     *
+     * O connect por tentativa cai de 8 s para [CONNECT_MS] justamente porque
+     * agora são várias: numa rede local um connect que vai dar certo leva
+     * milissegundos, e o que os segundos cobrem é o pacote sendo engolido.
+     * Pior caso: 3 × 5 s de connect mais um read de 8 s = 23 s, dentro do vigia
+     * de 40 s e dos 60 s da ponte.
+     */
     private fun pedirPar(endereco: String, porta: Int, rotulo: String): JSONObject {
         if (endereco.isBlank() || porta <= 0) {
             return JSONObject().put("estado", "erro").put("erro", "endereco invalido")
         }
+        val fila = try {
+            AcervoDescoberta.enderecosDe(endereco).take(TETO_ENDERECOS)
+        } catch (e: Exception) {
+            listOf(endereco)
+        }
+        var ultimo: JSONObject? = null
+        val tentados = StringBuilder()
+        for (alvo in fila) {
+            val r = pedirParEm(alvo, porta, rotulo)
+            // QUALQUER RESPOSTA ENCERRA — só a falha de conexão (o endereço que
+            // não escuta, o pacote engolido) autoriza o próximo da fila — E O
+            // ENDEREÇO QUE VENCEU VIAJA NA RESPOSTA. Sem a segunda metade a fila seria
+            // pior que endereço nenhum: pareando pelo SEGUNDO, o proxy seria
+            // apontado para o PRIMEIRO — o que não escuta — e tudo depois do
+            // "pareado" morreria no mesmo lugar que a v1.8.10 acabou de tirar.
+            if (r.optString("estado") != "erro" || !ehFalhaDeConexao(r.optString("erro"))) {
+                return r.put("host", alvo)
+            }
+            if (tentados.isNotEmpty()) tentados.append(" · ")
+            tentados.append(alvo).append(" ").append(r.optString("erro").take(48))
+            ultimo = r
+        }
+        // A FRASE NOMEIA O QUE FOI TENTADO, porque o operador NÃO LÊ O REGISTRO
+        // — o que ele vê é esta frase. Sem os endereços ela não distingue "não
+        // achei ninguém" de "achei, e nenhum dos endereços dele escuta".
+        val base = ultimo ?: JSONObject().put("estado", "erro").put("erro", "sem endereco")
+        if (fila.size > 1) base.put("erro", "tentei " + fila.size + " endereços — " + tentados)
+        return base
+    }
+
+    /** Quantos endereços de um mesmo aparelho valem a pena tentar. Teto e não a
+     *  lista inteira: o prazo da ponte são 60 s, e cada tentativa custa até
+     *  [CONNECT_MS] de connect mais o read. */
+    private val TETO_ENDERECOS = 3
+
+    /** O connect de UMA tentativa. Numa rede local o que vai dar certo leva
+     *  milissegundos; estes segundos cobrem o pacote engolido. */
+    private val CONNECT_MS = 5_000
+
+    /** A falha que autoriza tentar o PRÓXIMO endereço: nada respondeu, ou
+     *  respondeu recusando. Uma resposta HTTP nunca passa por aqui. */
+    private fun ehFalhaDeConexao(erro: String): Boolean =
+        erro.startsWith("ConnectException") || erro.startsWith("SocketTimeoutException") ||
+            erro.startsWith("NoRouteToHostException") || erro.startsWith("UnknownHostException") ||
+            erro.startsWith("SocketException")
+
+    private fun pedirParEm(endereco: String, porta: Int, rotulo: String): JSONObject {
         var conn: java.net.HttpURLConnection? = null
         // QUANTO DEMOROU ENTRA NA FRASE. O prazo da PONTE são 60 s, e os desta
         // requisição somam 16 — mas foi um `null` de ponte que chegou ao campo,
@@ -2277,7 +2356,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             conn = (java.net.URL("http://$endereco:$porta/acervo/par").openConnection()
                 as java.net.HttpURLConnection).apply {
                 requestMethod = "POST"
-                connectTimeout = 8_000
+                connectTimeout = CONNECT_MS
                 readTimeout = 8_000
                 doOutput = true
                 instanceFollowRedirects = false

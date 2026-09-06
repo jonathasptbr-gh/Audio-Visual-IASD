@@ -690,7 +690,11 @@ window.AVNative = {
                        //   `https://`. O TOKEN não volta — ele fica no proxy
   acervoSoltar(),      // solta o pareamento deste lado
   acervoEstado(),      // → { cessao, achados, descoberta, pareado, proxy,
-                       //     endereco, porta } — os dois papéis numa leitura só
+                       //     endereco, porta } — os dois papéis numa leitura só.
+                       //   Cada achado leva `host` (o MELHOR endereço) e
+                       //   `hosts` (a fila inteira, do declarado no anúncio ao
+                       //   resolvido) — shell 66. Quem lia um endereço só
+                       //   continua lendo o melhor
   // ---- A MEDIÇÃO DE ALCANCE — ver `docs/MEDICAO-DE-ALCANCE.md` ----
   farolEstado(),       // → { conta, ultimo, diag }: SÓ LEITURA, e o consumidor
                        //   é a linha "Alcance:" do Registro, que responde "o
@@ -768,7 +772,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **65**, e ele é o **PISO**: o bundle declara `minShell: 65`, então
+Hoje vale **66**, e ele é o **PISO**: o bundle declara `minShell: 66`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -781,7 +785,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 65 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 66 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -843,7 +847,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 65`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 66`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -3211,6 +3215,28 @@ comum (o cartão, o cabo).
   CEDE A VEZ E SAI — e sair é de graça, porque o `abrir` do outro lado devolve
   `recebido` e o item volta de onde parou; é a mesma retomada que um empurrão
   interrompido por morte de renderer já usava.
+- **O ANÚNCIO DIZ EM QUE ENDEREÇO O SERVIDOR ESCUTA, e o pareamento tenta
+  TODOS** (v1.8.12). O `NsdServiceInfo.host` é UM endereço — o que a resolução
+  do mDNS calhar de devolver —, e o responder anuncia todos os que a interface
+  tem; o servidor abre em UM, escolhido por ele (`EspelhoInterfaces`). Num
+  aparelho com dois IPv4 privados (Wi-Fi mais ponto de acesso, uma VPN) os dois
+  não coincidem, e o pedido chega a um endereço que existe e não escuta. Três
+  peças, e a terceira é a que torna as outras duas seguras:
+  - **quem cede DECLARA** o endereço servido no TXT (`a`, de
+    `EspelhoServidor.estado().ip`). É a única fonte que sabe a resposta, e a
+    única que funciona em toda versão do Android — `getHostAddresses()` é da
+    API 34;
+  - **quem clona tenta a FILA** (`AcervoDescoberta.enderecosDe`): o declarado, o
+    resolvido, o resto. **Só falha de CONEXÃO passa para o seguinte** — uma
+    resposta HTTP é a resposta daquele aparelho, e insistir faria a pergunta do
+    operador aparecer três vezes;
+  - **o PROXY aponta para o endereço que VENCEU** (`put("host", alvo)`). Sem
+    isto a fila é PIOR que endereço nenhum: pareando pelo segundo, tudo depois
+    do "pareado" iria para o primeiro — o que não escuta —, agora com o
+    pareamento verde na tela.
+
+  O vigia do pedido subiu para 40 s e o connect por tentativa caiu para 5 s: o
+  pior caso da fila são 3 × 5 s mais um read de 8 s, dentro dos 60 s da ponte.
 - **UMA RECUSA NÃO É UM PACOTE ENGOLIDO, e o conselho é o OPOSTO** (v1.8.11).
   A frase da falha do pareamento era uma só e mandava sempre para o PONTO DE
   ACESSO — o contorno da Wi-Fi que bloqueia cliente↔cliente. Esse conselho só
@@ -5115,9 +5141,9 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.11 · APK v1.8.9** · `SHELL_VERSION` **65** ·
-bundle com `minShell: 65` e **sem `shellTag`** (lote só de web) — o shell 65 é o
-**PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
+**Versão atual: base web v1.8.12 · APK v1.8.12** · `SHELL_VERSION` **66** ·
+bundle com `minShell: 66` e **`shellTag: v1.8.12`** — o shell 66 é o **PISO**:
+todo método da ponte existe, e não há guarda de versão no lado web.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
 > oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no

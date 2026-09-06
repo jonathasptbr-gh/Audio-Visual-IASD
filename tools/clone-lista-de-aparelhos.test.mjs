@@ -40,6 +40,7 @@ const WEB = path.join(RAIZ, 'app/src/main/assets/web');
 const JS = fs.readFileSync(path.join(WEB, 'controle/controle.js'), 'utf8');
 const KT_DESC = fs.readFileSync(path.join(RAIZ, 'app/src/main/java/br/org/iasd/av/AcervoDescoberta.kt'), 'utf8');
 const KT_ACT = fs.readFileSync(path.join(RAIZ, 'app/src/main/java/br/org/iasd/av/MainActivity.kt'), 'utf8');
+const KT_PONTE = fs.readFileSync(path.join(RAIZ, 'app/src/main/java/br/org/iasd/av/NativeBridge.kt'), 'utf8');
 
 // ---------------------------------------------------------------------------
 // METADE 1 — o MECANISMO, lido do Kotlin
@@ -296,6 +297,45 @@ try {
     'e o PAREAMENTO entra no `cloneOnde` — sem isso o "parou em:" do diário sai '
     + 'vazio justamente na etapa que mais falha (foi o que o Registro mostrou)');
 
+  // -------------------------------------------------------------------------
+  // O ENDEREÇO CERTO, SEM NINGUÉM DIGITAR NADA (v1.8.12)
+  // -------------------------------------------------------------------------
+  // Pedido do operador: *"não tenho como testar essa situação, não consigo ler
+  // os registros. pode fazer o sistema para automaticamente testar esse método"*.
+  //
+  // As quatro metades falham CALADAS, e a última é a que torna as outras três
+  // PIORES que não fazer nada.
+  checar(/setAttribute\("a", ultimoEndereco\)/.test(KT_DESC),
+    'quem cede DECLARA no anúncio o endereço em que abriu — as outras duas fontes '
+    + 'dizem por onde ele responde, não onde o `ServerSocket` está');
+  checar(/fun preparar\([^)]*endereco: String/.test(KT_DESC)
+    && /AcervoDescoberta\.preparar\(this, porta, rotulo, ipServido\)/.test(KT_ACT),
+    'e o endereço servido chega até lá — `estado().ip` é quem sabe a resposta');
+  checar(/fun enderecosDe\(endereco: String\): List<String>/.test(KT_DESC)
+    && /AcervoDescoberta\.enderecosDe\(endereco\)/.test(KT_ACT),
+    'o pareamento tenta a FILA de endereços do aparelho, e não um só — escolher '
+    + 'um e desistir era uma moeda ao alto num celular com dois IPv4 privados');
+  checar(/!ehFalhaDeConexao\(r\.optString\("erro"\)\)/.test(KT_ACT),
+    'e só falha de CONEXÃO passa para o seguinte: uma resposta HTTP é a resposta '
+    + 'daquele aparelho, e insistir faria a pergunta do operador aparecer três vezes');
+  // A METADE QUE DECIDE. Pareando pelo SEGUNDO endereço, um proxy apontado para
+  // o PRIMEIRO devolve tudo depois do "pareado" ao mesmo lugar em que a v1.8.10
+  // acabou de tirar a cópia — e desta vez com o pareamento verde na tela.
+  checar(/return r\.put\("host", alvo\)/.test(KT_ACT)
+    && /AcervoProxy\.apontar\(vencedor, porta/.test(KT_ACT),
+    'e o PROXY aponta para o endereço que VENCEU, nunca para o que foi pedido — '
+    + 'sem isto a fila seria pior que endereço nenhum');
+  // O prazo do vigia tem de caber a fila: 3 × connect + um read.
+  checar(/private val TETO_ENDERECOS = 3/.test(KT_ACT)
+    && /private val CONNECT_MS = 5_000/.test(KT_ACT)
+    && /\}, 40_000\)/.test(KT_ACT),
+    'e o vigia cabe o pior caso da fila (3 × 5 s de connect + 8 s de read = 23 s), '
+    + 'dentro dos 60 s da ponte — um vigia curto demais mataria a fila que ele vigia');
+  // A superfície mudou de comportamento: o degrau é PRÉ-REQUISITO, não higiene.
+  checar(/const val SHELL_VERSION = 66/.test(KT_PONTE),
+    'e o `SHELL_VERSION` subiu — o `acervoParear` passou a fazer outra coisa, e '
+    + 'o piso do bundle é o que impede a metade web de chegar sozinha à frota');
+
   // O ENSINO SEGUE A CLASSE DA FALHA (v1.8.11). A frase era UMA e mandava
   // sempre para o ponto de acesso — o contorno da Wi-Fi que engole o pacote.
   // MEDIDO em campo, o que voltou foi `ConnectException` em 2,3 s contra um
@@ -339,12 +379,12 @@ try {
   // O VIGIA DO PEDIDO, no shell: os prazos do `pedirPar` somam 16 s e ainda
   // assim o que chegou ao campo foi um `null` de ponte (60 s).
   checar(/relogioDoPar\.postDelayed/.test(KT_ACT) && /travou sem resposta/.test(KT_ACT),
-    'o `acervoParear` tem vigia: um pedido que passa dos 20 s responde com frase, '
+    'o `acervoParear` tem vigia: um pedido que trava responde com frase, '
     + 'em vez de deixar a ponte vencer em silêncio');
   checar(/AtomicBoolean\(false\)[\s\S]{0,900}?compareAndSet\(false, true\)[\s\S]{0,900}?compareAndSet\(false, true\)/.test(KT_ACT),
     'e só um dos dois responde — o vigia e o pedido disputam o mesmo `AtomicBoolean`');
   checar(/quanto\(\)/.test(KT_ACT),
-    'e a frase do erro diz QUANTO demorou: 8 s de connect e 60 s de ponte pedem '
+    'e a frase do erro diz QUANTO demorou: o connect e os 60 s de ponte pedem '
     + 'consertos opostos');
 
   // O DIÁRIO NÃO VIAJA NO PACOTE, pela mesma razão do histórico: ele descreve

@@ -94,6 +94,22 @@ object AcervoDescoberta {
     /** O que o [reanunciar] repete. Ver o porquê do `applicationContext` lá. */
     @Volatile private var ultimoContexto: Context? = null
     @Volatile private var ultimaPorta: Int = 0
+
+    /**
+     * O ENDEREÇO EM QUE O SERVIDOR DE FATO ESCUTA, e ele viaja no TXT (v1.8.12).
+     *
+     * O anúncio nunca disse isto, e o outro celular dialava o que a RESOLUÇÃO
+     * do mDNS calhasse de devolver — `NsdServiceInfo.host` é UM endereço, e o
+     * responder anuncia todos os que a interface tem. Num aparelho com mais de
+     * um IPv4 privado (Wi-Fi mais ponto de acesso, uma VPN) os dois podem não
+     * ser o mesmo, e aí o pedido chega a um endereço que existe e não escuta:
+     * `ConnectException` em ~2 s, com o aparelho listado e o operador sem saída.
+     *
+     * Quem serve SABE onde abriu (`EspelhoServidor.estado().ip`). Dizer isso no
+     * TXT é a única forma que funciona em toda versão do Android — o
+     * `getHostAddresses()`, que devolveria a lista inteira, é da API 34.
+     */
+    @Volatile private var ultimoEndereco: String = ""
     @Volatile private var ultimoRotulo: String = ""
     @Volatile private var ultimosItens: Int = -1
     @Volatile private var ultimosBytes: Long = -1L
@@ -109,6 +125,16 @@ object AcervoDescoberta {
     data class Achado(
         val nome: String,
         val host: String,
+        /**
+         * TODOS os endereços por onde este aparelho pode ser alcançado, em
+         * ordem de confiança: o que ele DECLAROU servir (o TXT `a`) primeiro, o
+         * que a resolução trouxe depois, e o resto do que ela conhece.
+         *
+         * O [host] é o primeiro deles — quem lia um endereço só continua lendo
+         * o melhor. Existe porque o pareamento tenta TODOS: escolher um e
+         * desistir era uma moeda ao alto num aparelho com dois IPv4 privados.
+         */
+        val hosts: List<String>,
         val porta: Int,
         val rotulo: String,
         val itens: Int,
@@ -158,10 +184,11 @@ object AcervoDescoberta {
      * dentro. Enquanto ele não sai, quem procura vê "Procurando na rede…", que
      * é a verdade.
      */
-    fun preparar(ctx: Context, porta: Int, rotulo: String) {
+    fun preparar(ctx: Context, porta: Int, rotulo: String, endereco: String = "") {
         ultimoContexto = ctx.applicationContext
         ultimaPorta = porta
         ultimoRotulo = rotulo
+        ultimoEndereco = if (ehPrivadoV4(endereco)) endereco else ""
         ultimosItens = -1
         ultimosBytes = -1L
         querAnunciar = true
@@ -192,6 +219,11 @@ object AcervoDescoberta {
                 setAttribute("n", sanear(rotulo).take(60))
                 setAttribute("i", itens.toString())
                 setAttribute("b", bytes.toString())
+                // O ENDEREÇO SERVIDO. Quinze bytes contra os 255 do teto por
+                // valor, e é ele que tira a escolha do endereço das mãos da
+                // resolução do mDNS. Vazio quando não se sabe: o outro lado cai
+                // no que a resolução trouxer, que é o comportamento de antes.
+                if (ultimoEndereco.isNotEmpty()) setAttribute("a", ultimoEndereco)
             } catch (e: Exception) {
                 // Um TXT recusado não derruba o anúncio: sem os atributos a
                 // lista mostra só o nome, que já basta para escolher.
@@ -398,25 +430,73 @@ object AcervoDescoberta {
 
     private fun guardar(info: NsdServiceInfo) {
         val nome = info.serviceName ?: return
-        @Suppress("DEPRECATION")
-        val host = info.host?.hostAddress ?: return
         val porta = info.port
         if (porta <= 0) return
+        val candidatos = enderecosDoAnuncio(info)
         // SÓ IPv4 PRIVADO, e é a mesma régua do `EspelhoInterfaces`: o servidor
         // do outro lado só abre em RFC1918, então um endereço fora disso é um
         // anúncio que não leva a lugar nenhum — ou não é nosso.
-        if (!ehPrivadoV4(host)) return
+        val host = candidatos.firstOrNull() ?: return
         if (achados.size >= TETO_ACHADOS && !achados.containsKey(nome)) return
         achados[nome] = Achado(
             nome = nome,
             host = host,
+            hosts = candidatos,
             porta = porta,
             rotulo = txt(info, "n").ifBlank { nome },
             itens = txt(info, "i").toIntOrNull() ?: 0,
             bytes = txt(info, "b").toLongOrNull() ?: 0L,
             achadoEm = System.currentTimeMillis(),
         )
-        diario = "achou \"$nome\" em $host:$porta"
+        diario = "achou \"$nome\" em " + candidatos.joinToString("|") + ":$porta"
+    }
+
+    /**
+     * OS ENDEREÇOS DE UM ANÚNCIO, em ordem de confiança e sem repetição.
+     *
+     * 1. **O TXT `a`** — o endereço que quem serve DECLAROU ter aberto. É a
+     *    única fonte que sabe a resposta: as outras duas dizem por onde o
+     *    aparelho responde, não onde o `ServerSocket` está.
+     * 2. **`info.host`** — o que a resolução escolheu. É o que existia antes, e
+     *    fica como primeira reserva.
+     * 3. **`info.hostAddresses`** (API 34+) — o resto do que a resolução
+     *    conhece. Aditivo: onde ele não existe, nada muda.
+     *
+     * Fora de IPv4 privado nada entra, pelo motivo da régua do
+     * [EspelhoInterfaces]: o servidor do outro lado só abre em RFC1918.
+     */
+    private fun enderecosDoAnuncio(info: NsdServiceInfo): List<String> {
+        val fora = LinkedHashSet<String>()
+        txt(info, "a").takeIf { ehPrivadoV4(it) }?.let { fora.add(it) }
+        @Suppress("DEPRECATION")
+        info.host?.hostAddress?.takeIf { ehPrivadoV4(it) }?.let { fora.add(it) }
+        if (Build.VERSION.SDK_INT >= 34) {
+            try {
+                for (e in info.hostAddresses) {
+                    val ip = e?.hostAddress ?: continue
+                    if (ehPrivadoV4(ip)) fora.add(ip)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "hostAddresses recusado", e)
+            }
+        }
+        return fora.toList()
+    }
+
+    /**
+     * OS OUTROS ENDEREÇOS do aparelho a que [endereco] pertence.
+     *
+     * É por aqui que o pareamento tenta mais de um sem que a ponte precise
+     * carregar a lista: quem chama passa o endereço que o web escolheu, e esta
+     * função devolve a fila inteira daquele achado. Um endereço DIGITADO à mão
+     * não está em achado nenhum e volta sozinho — uma tentativa, como sempre.
+     */
+    fun enderecosDe(endereco: String): List<String> {
+        val a = achados.values.firstOrNull { it.hosts.contains(endereco) }
+            ?: return listOf(endereco)
+        // O PEDIDO NA FRENTE: o operador (ou o web) escolheu aquele, e a fila é
+        // reserva — nunca uma troca do que foi pedido.
+        return (listOf(endereco) + a.hosts).distinct()
     }
 
     private fun txt(info: NsdServiceInfo, chave: String): String = try {
@@ -459,6 +539,7 @@ object AcervoDescoberta {
                 JSONObject()
                     .put("nome", a.nome)
                     .put("host", a.host)
+                    .put("hosts", JSONArray().also { arr -> a.hosts.forEach { h -> arr.put(h) } })
                     .put("porta", a.porta)
                     .put("rotulo", a.rotulo)
                     .put("itens", a.itens)
