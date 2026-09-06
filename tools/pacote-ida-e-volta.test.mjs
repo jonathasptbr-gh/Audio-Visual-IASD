@@ -101,6 +101,7 @@ const servidor = servirEstatico(RAIZ, (req, res) => {
 // mediria o próprio arnês.
 // ---------------------------------------------------------------------------
 const PONTE = `(function () {
+  window.__progresso = [];
   window.__saida = [];
   const canal = {
     postMessage(m) {
@@ -133,6 +134,25 @@ const PONTE = `(function () {
     appVersion: () => '9.99-teste',
     takeShare: () => '',
     busPost: () => {},
+    // O QUE A NOTIFICAÇÃO DO SISTEMA RECEBEU — a mesma sonda do
+    // pacote-por-grupos. É por ela que o bloco 13 lê a ETAPA e a LISTA.
+    //
+    // SEM CRASE EM COMENTÁRIO NENHUM DAQUI PARA BAIXO: esta ponte inteira é um
+    // template literal, e uma crase dentro dele o TERMINA — o que sai é um
+    // SyntaxError a dezenas de linhas de distância.
+    bgProgress: (s) => {
+      try {
+        const p = JSON.parse(s);
+        window.__progresso.push(p);
+        // E TAMBÉM NO sessionStorage, porque a importação termina num
+        // location.reload() — que é parte do recurso — e leva a variável de
+        // módulo junto. Ler antes da recarga seria uma corrida contra ela.
+        const k = 'progresso-do-teste';
+        const a = JSON.parse(sessionStorage.getItem(k) || '[]');
+        a.push({ label: p.label || '', item: (p.items || [])[0] || '' });
+        sessionStorage.setItem(k, JSON.stringify(a));
+      } catch (e) {}
+    },
     otaConfirm: () => {},
     compartilharTexto: () => {},
     pacoteCancelar: () => { window.__cancelado = (window.__cancelado || 0) + 1; },
@@ -310,6 +330,14 @@ try {
     // dois seriam indistinguíveis do ruído dos cabeçalhos.
     await AVDB.opfsWriteFile('folders/colecao/002-grande.m4a',
       new Blob([new Uint8Array(512 * 1024).fill(11)], { type: 'audio/mp4' }));
+    // O ÍNDICE DA COLEÇÃO, que é onde mora o PONTEIRO de cada faixa para o
+    // arquivo dela (`fileIdFull`). Ele é uma chave de `state` como as outras, e
+    // é por isso que o defeito da v1.8.22 passou despercebido por seis lotes: o
+    // que falha não é o transporte, é a MESCLA no destino — ver o bloco 8.
+    await AVDB.setState('coll:colecao', {
+      indexSyncedAt: 111,
+      songs: [{ id_music: '001', name: '001 — Faixa', fileIdFull: 'arq-de-teste', fileIdPlayback: null }],
+    });
     await AVDB.setState('lyricsFont', 'grande-de-teste');
     await AVDB.setState('favs', ['item-de-teste']);
     // A PASTA DO APARELHO, com um arquivo dentro. Ela é o corte declarado do
@@ -749,6 +777,122 @@ try {
     checar(r.texto === 'minha',
       '11 · e o LOCAL continua vencendo o que colide — a promessa do recurso', r.texto);
     await k.ctx.close();
+  }
+
+  // =========================================================================
+  // 12 · O ÍNDICE DA COLEÇÃO CHEGA COM OS PONTEIROS (v1.8.23)
+  // =========================================================================
+  //
+  // É o defeito que o operador relatou em campo: *"testei importar o hinário
+  // 2022, mas mesmo após todo o processo de importação, não consegui reproduzir
+  // nenhum hino, ele sempre dá falha por não ter internet"*.
+  //
+  // O ponteiro de uma faixa para o arquivo dela (`fileIdFull`) mora DENTRO do
+  // índice da coleção, que é uma chave de `state`:
+  //
+  //     coll:<id> = { indexSyncedAt, songs: [ { id_music, …, fileIdFull } ] }
+  //
+  // O destino JÁ TEM esse índice — todo celular que abriu o app com internet o
+  // tem, porque o `autoRefreshCollections` o busca sozinho —, com `fileIdFull`
+  // vazio em tudo. A mescla de mapas era RASA (`Object.assign({}, vindo,
+  // local)`), então `songs` era decidido inteiro pelo lado de cá: os bytes e os
+  // registros do catálogo chegavam, e o índice que apontava para eles ia fora.
+  //
+  // ISTO NÃO TEM SINTOMA NENHUM NA IMPORTAÇÃO. Ela termina, anuncia os milhares
+  // de itens que entraram, e o hino APARECE na Biblioteca — tocar nele é que vai
+  // à rede. Um teste do desfecho da importação passa nas duas versões; o que se
+  // afirma aqui é o PONTEIRO, que é a única coisa que separa as duas.
+  //
+  // O cenário é montado como o campo o montou: o destino recebe o índice ANTES
+  // de importar, com os mesmos hinos e nenhum ponteiro.
+  {
+    const l = await aparelho(saida);
+    await l.pg.evaluate(async () => {
+      await AVDB.setState('coll:colecao', {
+        indexSyncedAt: 222,
+        songs: [{ id_music: '001', name: '001 — Faixa', fileIdFull: null, fileIdPlayback: null }],
+      });
+    });
+    const recarregou3 = l.pg.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await l.pg.evaluate(() => { window.__fim = importarPacote(); });
+    await responderDialogo(l.pg);
+    await recarregou3;
+    await esperar(l.pg, () => !document.getElementById('splash'), null, 30000);
+
+    const r = await l.pg.evaluate(async () => {
+      const idx = await AVDB.getState('coll:colecao');
+      const faixa = (idx && idx.songs || [])[0] || {};
+      const arq = faixa.fileIdFull ? await AVDB.fileGet(faixa.fileIdFull) : null;
+      let bytes = -1;
+      try { bytes = (await AVDB.opfsGetFile(arq.opfsPath)).size; } catch (_) { bytes = -1; }
+      return { ponteiro: faixa.fileIdFull || '', nome: faixa.name || '', bytes,
+        carimbo: idx && idx.indexSyncedAt };
+    });
+    checar(r.ponteiro === 'arq-de-teste',
+      '12 · o PONTEIRO do índice chegou, mesmo com o destino já tendo a coleção — '
+      + 'sem ele o hino aparece na Biblioteca e tocar nele vai à rede', r.ponteiro);
+    // A METADE QUE IMPEDE O CONSERTO LARGO DEMAIS: o local não pode ter sido
+    // substituído pelo de fora. "O local nunca perde" continua valendo — ele só
+    // deixa de vencer com um BURACO.
+    checar(r.carimbo === 222,
+      '12 · e o que o local TINHA continua sendo dele: a mescla preenche o vazio, '
+      + 'não substitui o preenchido', r.carimbo);
+    // E O PONTEIRO TEM DE LEVAR A ALGUM LUGAR. Um id que não abre arquivo nenhum
+    // é o mesmo silêncio por outro caminho.
+    checar(r.bytes === 1200,
+      '12 · e ele leva ao arquivo de verdade, que está no disco deste aparelho', r);
+    await l.ctx.close();
+  }
+
+  // =========================================================================
+  // 13 · A NOTIFICAÇÃO MOSTRA A ETAPA E OS ITENS QUE ENTRAM (v1.8.23)
+  // =========================================================================
+  //
+  // Relato do operador: *"o processo de importação está parecendo parado … evite
+  // classificar a importação como 'importando um acervo', pois isso deixa o
+  // usuário com uma notificação de importação de progresso de um item só. o que
+  // eu quero é … ver os itens serem adicionados na biblioteca"*.
+  //
+  // Eram três coisas na mesma notificação: o rótulo era o TRABALHO INTEIRO
+  // ("Importando o acervo"), o item único era o NOME DO ARQUIVO — a única coisa
+  // ali que nunca muda —, e a CONFERÊNCIA, que percorre o pacote inteiro pelos
+  // cabeçalhos, não reportava nada.
+  //
+  // Nada disto falha alto: a importação termina certa nas duas versões, e o que
+  // muda é só o que o operador vê enquanto ela corre. Por isso a régua é o que
+  // a PONTE recebeu — a mesma string que o SyncService lê.
+  {
+    const m = await aparelho(saida);
+    const recarregou4 = m.pg.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await m.pg.evaluate(() => { window.__fim = importarPacote(); });
+    await responderDialogo(m.pg);
+    await recarregou4;
+    await esperar(m.pg, () => !document.getElementById('splash'), null, 30000);
+    const log = await m.pg.evaluate(() => {
+      try { return JSON.parse(sessionStorage.getItem('progresso-do-teste') || '[]'); }
+      catch (_) { return []; }
+    });
+    const rotulos = [...new Set(log.map((x) => x.label).filter(Boolean))];
+    const itens = [...new Set(log.map((x) => x.item).filter(Boolean))];
+    checar(log.length > 0, '13 · a notificação recebeu alguma coisa', log.length);
+    // AS DUAS ETAPAS SÃO DIZÍVEIS. A conferência é a metade que ficava muda, e
+    // é ela que dura minutos num acervo grande.
+    checar(rotulos.some((r) => /Conferindo/.test(r)),
+      '13 · a CONFERÊNCIA anuncia que é ela que está correndo — era ela que ficava '
+      + 'muda, e é ela que dura minutos', JSON.stringify(rotulos));
+    checar(rotulos.some((r) => /Importando para a Biblioteca/.test(r)),
+      '13 · e a etapa seguinte diz para ONDE as coisas estão indo', JSON.stringify(rotulos));
+    checar(!rotulos.some((r) => /Importando o acervo/.test(r)),
+      '13 · e a frase que o operador recusou não aparece', JSON.stringify(rotulos));
+    // A LISTA MOSTRA O QUE ENTRA, e é isto que dá a sensação de progresso.
+    checar(itens.includes('Louvor de teste') || itens.includes('001 — Faixa'),
+      '13 · a lista mostra o NOME de um item que entrou na Biblioteca', JSON.stringify(itens));
+    // A METADE QUE IMPEDE O CONSERTO PELA METADE: o nome do arquivo escolhido
+    // não é um item da biblioteca, e era ele que ocupava a linha o tempo todo.
+    checar(!itens.includes('acervo-de-teste.avpkg'),
+      '13 · e o NOME DO ARQUIVO saiu da linha — quem escolheu o pacote acabou de '
+      + 'vê-lo no seletor, e ele é o único ali que nunca muda', JSON.stringify(itens));
+    await m.ctx.close();
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));

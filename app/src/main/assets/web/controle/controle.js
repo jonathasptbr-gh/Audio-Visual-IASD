@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.22';
+const WEB_VERSION = '1.8.23';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23937,15 +23937,39 @@ function pacoteCursor(fonte, inicio) {
  *  2. as duas são listas de ids (`imports`, `playlist`, `favs`, `folder_<id>`)
  *     → UNIÃO, na ordem local primeiro — a playlist de quem importa não é
  *     reordenada por um arquivo;
- *  3. as duas são mapas (as cifras de uma coleção, o cache de letras) → mescla,
- *     com o LOCAL vencendo cada chave em disputa;
- *  4. qualquer outra coisa (um número, um texto, um Blob, uma lista de objetos)
- *     → nada muda.
+ *  3. as duas são mapas (as cifras de uma coleção, o cache de letras) → mescla
+ *     RECURSIVA: cada chave em disputa volta para esta função, e é nas FOLHAS
+ *     que o local vence;
+ *  4. qualquer outra coisa (um número, um texto, um Blob) → nada muda.
  *
  * A regra é por FORMA e não por nome de chave, e isso é escolha: uma tabela de
  * nomes envelheceria em silêncio a cada chave nova, e o modo de falhar dela
  * seria justamente o pior — uma chave desconhecida caindo no ramo errado e
  * apagando o que o operador tem.
+ *
+ * ## A RECURSÃO É O RECURSO (v1.8.23), e a falta dela apagava o acervo inteiro
+ *
+ * A regra 3 era `Object.assign({}, vindo, local)` — RASA. Numa chave cujo
+ * conteúdo todo mora sob UMA chave aninhada, "mesclar" degenera em "o local
+ * vence inteiro", e foi exatamente o que aconteceu com o índice de uma coleção:
+ *
+ *     coll:hymnal-2022 = { indexSyncedAt, songs: [ … , fileIdFull, … ] }
+ *
+ * `songs` é o único lugar onde mora o PONTEIRO de cada hino para o arquivo dele.
+ * O aparelho de destino já tinha esse índice — todo celular que abriu o app com
+ * internet o tem, porque o `autoRefreshCollections` o busca sozinho —, com
+ * `fileIdFull: null` em tudo. Os registros de `files` e os bytes do OPFS
+ * chegavam; o índice que apontava para eles era descartado no `Object.assign`.
+ *
+ * O desfecho é o pior formato que este recurso sabe produzir: a importação
+ * termina, anuncia os milhares de itens que entraram, o hino APARECE na
+ * Biblioteca — e tocar nele vai à rede, porque para o app não há arquivo. Sem
+ * internet, "falha por não ter internet" sobre um acervo que está no disco.
+ *
+ * A recursão conserta isso sem uma linha sobre `coll:`, `songs` ou
+ * `fileIdFull`: descendo até as folhas, `fileIdFull: null` cai na REGRA 1 — o
+ * local não tem valor, então o de fora entra. **O local continua nunca
+ * perdendo**; ele só deixa de vencer com um buraco.
  */
 /**
  * O APARELHO FICOU SEM ESPAÇO — e ele precisa de resposta PRÓPRIA (v1.8.15).
@@ -23966,12 +23990,36 @@ function pacoteSemEspaco(e) {
 const PACOTE_SEM_ESPACO = 'O aparelho ficou sem espaço no meio da importação. '
   + 'O que já entrou ficou; libere espaço e importe de novo para continuar.';
 
+// OS CAMPOS QUE DÃO IDENTIDADE A UM ITEM DE LISTA — os DOIS que esta base usa,
+// e nenhum a mais. É pergunta de FORMA como as outras ("esta lista é chaveada?"),
+// e o que a mantém honesta é não inventar candidatos: um campo especulativo
+// nesta lista faz uma lista comum passar a ser mesclada por engano.
+const PACOTE_IDENT = ['id', 'id_music'];
+
+// Qual campo dá identidade a esta lista, ou '' se ela não é uma lista chaveada.
+// Aceita número além de string: `id_music` vem do banco do LouvorJA, e um id
+// numérico ali não muda a natureza da lista — a chave do Set é normalizada.
+function pacoteIdentDaLista(v) {
+  if (!Array.isArray(v) || !v.length) return '';
+  const objeto = (x) => !!x && typeof x === 'object' && !Array.isArray(x) && !(x instanceof Blob);
+  if (!v.every(objeto)) return '';
+  for (const campo of PACOTE_IDENT) {
+    if (v.every((x) => {
+      const k = x[campo];
+      return (typeof k === 'string' && k !== '') || typeof k === 'number';
+    })) return campo;
+  }
+  return '';
+}
+
 function pacoteMesclarValor(local, vindo) {
   if (local === undefined || local === null) return vindo;
+  if (vindo === undefined || vindo === null) return local;
   const listaDeIds = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string');
   if (listaDeIds(local) && listaDeIds(vindo)) {
     const tem = new Set(local);
-    return local.concat(vindo.filter((x) => !tem.has(x)));
+    const novos = vindo.filter((x) => !tem.has(x));
+    return novos.length ? local.concat(novos) : local;
   }
   // LISTA DE OBJETOS COM `id` — e ela é a metade que faltava (v1.8.15).
   //
@@ -23983,15 +24031,51 @@ function pacoteMesclarValor(local, vindo) {
   //
   // A união é POR `id`, e o local continua vencendo: o que já existe aqui não é
   // tocado, e o que vem de fora só acrescenta o que não colide.
-  const listaComId = (v) => Array.isArray(v)
-    && v.length > 0
-    && v.every((x) => !!x && typeof x === 'object' && !Array.isArray(x) && typeof x.id === 'string');
-  if (listaComId(local) && listaComId(vindo)) {
-    const tem = new Set(local.map((x) => x.id));
-    return local.concat(vindo.filter((x) => !tem.has(x.id)));
+  const identL = pacoteIdentDaLista(local);
+  if (identL && identL === pacoteIdentDaLista(vindo)) {
+    // O QUE COLIDE É MESCLADO, não descartado (v1.8.23). Até aqui o item local
+    // vencia INTEIRO, e é essa linha que segurava o índice de uma coleção: cada
+    // hino existia dos dois lados, então o de fora — o único com o ponteiro para
+    // o arquivo — era jogado fora por já haver um homônimo. A recursão faz o
+    // local continuar vencendo campo a campo, e preencher só o que está vazio.
+    const chave = (x) => String(x[identL]);
+    const porId = new Map(vindo.map((x) => [chave(x), x]));
+    const usados = new Set();
+    let mudou = false;
+    const saida = local.map((x) => {
+      const k = chave(x);
+      usados.add(k);
+      const par = porId.get(k);
+      if (par === undefined) return x;
+      const m = pacoteMesclarValor(x, par);
+      if (m !== x) mudou = true;
+      return m;
+    });
+    const novos = vindo.filter((x) => !usados.has(chave(x)));
+    return (mudou || novos.length) ? saida.concat(novos) : local;
   }
   const mapa = (v) => !!v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Blob);
-  if (mapa(local) && mapa(vindo)) return Object.assign({}, vindo, local);
+  if (mapa(local) && mapa(vindo)) {
+    // RECURSIVA, e não `Object.assign({}, vindo, local)`. A rasa decide a chave
+    // inteira pelo lado de cá, então tudo que mora ANINHADO sob uma chave que
+    // existe dos dois lados nunca era mesclado — ver o KDoc acima.
+    const tem = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+    const saida = Object.assign({}, vindo);
+    // "NADA MUDOU" TEM DE SER DIZÍVEL POR IDENTIDADE (v1.8.23), e não é
+    // cosmética: o chamador conta a chave e DECIDE SE ESCREVE por
+    // `depois !== antes`. Enquanto a mescla devolvia sempre um objeto novo,
+    // toda chave de mapa era reescrita e contada — e a Bíblia mora em `state`
+    // com UMA CHAVE POR CAPÍTULO (1189 por versão). Num aparelho que já tem a
+    // mesma versão, são milhares de transações para gravar exatamente o que já
+    // estava lá, e milhares de "ajustes" anunciados que ninguém ajustou.
+    let mudou = Object.keys(vindo).some((k) => !tem(local, k));
+    for (const k of Object.keys(local)) {
+      const v = tem(vindo, k) ? pacoteMesclarValor(local[k], vindo[k]) : local[k];
+      if (v !== local[k]) mudou = true;
+      saida[k] = v;
+    }
+    return mudou ? saida : local;
+  }
   return local;
 }
 
@@ -24046,7 +24130,14 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
     // reprova é o chamador, pelo valor devolvido.
     if (!r) break;
     const { cab, corpo } = r;
-    if (aoAndar) aoAndar(cursor.pos);
+    // O NOME DE QUEM ESTÁ ENTRANDO, para a notificação (v1.8.23). Só `media` e
+    // `arquivo` têm nome de gente — um caminho de OPFS e uma chave de `state`
+    // são endereços, e escrevê-los ali trocaria "005. Jubilosos Te Adoramos"
+    // por "folders/hymnal-2022/5-cantado.mp3". Quem não tem nome passa vazio, e
+    // a linha da notificação continua no último que teve.
+    const nome = (cab.t === 'media' || cab.t === 'arquivo')
+      ? ((cab.rec && cab.rec.name) || '') : '';
+    if (aoAndar) aoAndar(cursor.pos, nome);
     if (cab.t === 'media-thumb' && pendente && pendente.tipo === 'media') {
       pendente.rec.thumb = corpo; continue;
     }
@@ -24107,18 +24198,32 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
       } else {
         try { valor = JSON.parse(await corpo.text()); } catch (_) { continue; }
       }
-      const antes = await AVDB.getState(cab.chave);
-      const depois = pacoteMesclarValor(antes, valor);
-      // `updateState` e não `setState`: é a regra do arquivo inteiro para um
-      // read-modify-write de `state` — uma transação só, e o commit confirmado
-      // antes de seguir. A `fn` é SÍNCRONA (um `await` lá dentro deixaria a
-      // transação fechar sozinha).
-      // `depois === antes` é a regra 4 devolvendo o LOCAL por identidade: nada
-      // mudou, e contá-lo faria a tela anunciar ajustes que não entraram.
-      if (depois !== antes) {
-        await AVDB.updateState(cab.chave, (atual) => pacoteMesclarValor(atual, valor));
-        contagem.chaves++;
+      // UMA TRANSAÇÃO POR CHAVE, e não duas (v1.8.23). Havia um `getState`
+      // antes do `updateState` só para decidir se contava — dois `await` no
+      // IndexedDB e a mescla calculada DUAS vezes, por chave. A Bíblia sozinha
+      // são 1189 chaves por versão, então isso eram milhares de transações a
+      // mais numa importação. Quem responde "mudou?" agora é a própria `fn`,
+      // que já tem o antes e o depois na mão.
+      //
+      // `updateState` e não `setState`: read-modify-write de `state` numa
+      // transação só, com o commit confirmado antes de seguir. A `fn` é
+      // SÍNCRONA — um `await` lá dentro deixa a transação fechar sozinha.
+      //
+      // `depois === atual` é a mescla devolvendo o LOCAL por IDENTIDADE: nada
+      // mudou. Contá-lo faria a tela anunciar ajustes que não entraram, e
+      // gravá-lo seria reescrever no disco exatamente o que já estava lá.
+      let mudou = false;
+      try {
+        await AVDB.updateState(cab.chave, (atual) => {
+          const depois = pacoteMesclarValor(atual, valor);
+          mudou = depois !== atual;
+          return depois;
+        });
+      } catch (e) {
+        if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
+        throw e;
       }
+      if (mudou) contagem.chaves++;
       continue;
     }
   }
@@ -24173,7 +24278,27 @@ function pacoteDanificadoEm(pos) {
   return PACOTE_DANIFICADO + ' (a leitura parou no byte ' + fmtBytes(pos) + ')';
 }
 
-async function pacoteConferir(fonte) {
+/**
+ * O PERCENTUAL NO PRÓPRIO BOTÃO — as duas etapas da importação falam por ele.
+ *
+ * Existe porque as duas o escreviam com a mesma conta copiada, e a conferência
+ * não escrevia nada: uma delas ficava muda, que é a metade do "parecendo
+ * parado". Fonte sem tamanho não escreve nada em vez de escrever `NaN%`.
+ */
+let pacotePercentualDito = -1;
+function pacoteFalarPercentual(el, pos, total) {
+  if (!(total > 0)) return;
+  const pct = Math.min(100, Math.round((pos / total) * 100));
+  // SÓ QUANDO O NÚMERO MUDA. Ela é chamada por REGISTRO — milhares de vezes num
+  // acervo —, e escrever o mesmo "37%" no `.qs-titulo` a cada um é uma escrita
+  // de DOM (com o layout que vem atrás) para não mudar nada na tela. É o irmão
+  // do freio de 700 ms da notificação, na superfície que não tem freio nenhum.
+  if (pct === pacotePercentualDito) return;
+  pacotePercentualDito = pct;
+  falarNoTile(el, pct + '%', 0);
+}
+
+async function pacoteConferir(fonte, aoAndar) {
   const cursor = pacoteCursor(fonte);
   try {
     for (;;) {
@@ -24183,6 +24308,11 @@ async function pacoteConferir(fonte) {
       // inteiro duas vezes.
       const r = await cursor.proximo(false);
       if (!r) break;               // os bytes acabaram sem o registro `fim`
+      // ELA ANDA (v1.8.23). A conferência percorre o arquivo INTEIRO pelos
+      // cabeçalhos — minutos num acervo grande — e não reportava nada: o
+      // operador via a palavra "Conferindo…" parada, que é indistinguível de
+      // travado. Ela é a primeira metade do "processo parecendo parado".
+      if (aoAndar) aoAndar(cursor.pos);
       if (r.cab.t === 'fim') return;
     }
   } catch (e) {
@@ -24242,12 +24372,30 @@ async function importarPacote() {
     // A tarefa é a MESMA do laço de aplicação, e não uma segunda: o operador vê
     // uma importação só, em duas etapas, e a notificação não pisca entre elas.
     await withBgWork(async () => {
-      const tarefa = bgTaskStart('Importando o acervo', 1);
-      bgItemOnly(tarefa, alvo.name || 'pacote');
+      // A ETAPA É O RÓTULO, E OS ITENS SÃO A LISTA (v1.8.23).
+      //
+      // Era `bgTaskStart('Importando o acervo', 1)` com o NOME DO ARQUIVO como
+      // item único: a notificação anunciava uma importação de UM item, com uma
+      // barra em bytes e uma linha que nunca trocava. Relato do operador —
+      // *"evite classificar a importação como 'importando um acervo' … o que eu
+      // quero é ver os itens serem adicionados na biblioteca"*.
+      //
+      // O rótulo passa a dizer a ETAPA (conferir, importar), e a linha de baixo
+      // passa a mostrar cada item que entra, pelo nome com que ele aparece na
+      // Biblioteca. O nome do arquivo sai: quem escolheu o pacote acabou de
+      // vê-lo no seletor, e ele é a única coisa ali que não muda.
+      const tarefa = bgTaskStart('Conferindo o pacote', 1);
+      // Zerado na porta de CADA etapa: as duas percorrem o arquivo de 0 a 100%,
+      // e sem isto a segunda ficaria muda até passar do ponto em que a primeira
+      // parou (isto é, muda até o fim).
+      pacotePercentualDito = -1;
       // O PACOTE INTEIRO É CONFERIDO ANTES DE UMA LINHA SER GRAVADA. Ver
       // `pacoteConferir`: é o que faz um arquivo cortado no meio ser recusado
       // inteiro, em vez de entrar pela metade.
-      await pacoteConferir(fonte);
+      await pacoteConferir(fonte, (pos) => {
+        bgTaskBytes(tarefa, pos, fonte.size);
+        pacoteFalarPercentual(pacoteImportarTileEl, pos, fonte.size);
+      });
       // O NÚMERO MORA NO PRÓPRIO BOTÃO (v1.7.3), aqui como na exportação: a
       // ação nasceu nele. O NOME do arquivo vai para a notificação, que é a
       // superfície com espaço.
@@ -24256,12 +24404,18 @@ async function importarPacote() {
       // ela só ACRESCENTA, então o que já entrou está certo, e desfazê-lo seria
       // apagar o que o operador foi buscar.
       try {
-        const viuFim = await pacoteAplicarFluxo(pacoteCursor(fonte), contagem, (pos) => {
+        // A RÉGUA CONTINUA EM BYTES, e isso é resposta a metade do pedido: o
+        // acervo tem 600 hinos de megabytes ao lado de milhares de chaves
+        // minúsculas da Bíblia, então CONTAR ITENS faria a barra saltar para
+        // 85% nas chaves e rastejar nos hinos — um número que anda mais rápido
+        // e mente. O que o pedido quer ("sentir um progresso real", "ver os
+        // hinos serem importados") é a LISTA, e é ela que passa a andar.
+        bgTaskStep(tarefa, 0, 'Importando para a Biblioteca');
+        pacotePercentualDito = -1;
+        const viuFim = await pacoteAplicarFluxo(pacoteCursor(fonte), contagem, (pos, nome) => {
           bgTaskBytes(tarefa, pos, fonte.size);
-          if (fonte.size) {
-            falarNoTile(pacoteImportarTileEl,
-              Math.min(100, Math.round((pos / fonte.size) * 100)) + '%', 0);
-          }
+          if (nome) bgItemStart(tarefa, nome);
+          pacoteFalarPercentual(pacoteImportarTileEl, pos, fonte.size);
         });
         // O `false` daqui é inalcançável: `pacoteConferir` já provou que o
         // arquivo chega ao `fim`. A guarda fica porque ela é a diferença entre
@@ -26643,6 +26797,18 @@ const BG_SPIN_MIN = 400;       // abaixo disso ninguém consegue ler
 const BG_SPIN_MAX = 5000;      // acima disso parece parado
 const BG_SPIN_PADRAO = 1200;   // antes do 1º item concluído não há média
 const BG_FILA_FOLGA = 3;       // itens em espera tolerados sem acelerar
+// TETO DA FILA DE EXIBIÇÃO (v1.8.23). Ela nasceu para um DOWNLOAD, em que os 6
+// trabalhadores entregam um item a cada poucos segundos e o compasso escoa no
+// mesmo ritmo. Uma IMPORTAÇÃO produz milhares de nomes em minutos, e o
+// compasso mostra no máximo um a cada BG_SPIN_MIN: sem teto, a fila guarda
+// milhares de nomes e a linha da notificação passa a mostrar o que entrou
+// MINUTOS atrás — a lista descolada da realidade, que é a sensação oposta à
+// que ela existe para dar.
+//
+// Quando a produção passa a exibição, o que se descarta é o PASSADO: a lista é
+// declaradamente ILUSTRATIVA (o contador, a barra e a estimativa continuam
+// reais), e o nome mais recente é o mais verdadeiro dos dois.
+const BG_FILA_MAX = 12;
 const BG_REENVIO_MS = 2000;    // reenvio mínimo (faz o idleMs crescer na tela)
 const BG_STALL_MS = 90000;     // mesmo limiar do lado nativo (SyncService)
 
@@ -26697,12 +26863,23 @@ function bgTaskStep(id, done, label, total) {
   if (!window.__NATIVE__) return;
   const t = bgTasks.get(id);
   if (!t) return;
+  // TROCAR DE ETAPA RECOMEÇA A MÉDIA, E CHEGA NA HORA (v1.8.23).
+  //
+  // O rótulo é o que diz QUAL trabalho está correndo, e ele é a mesma classe
+  // do primeiro nome e da troca de régua: passar pelo freio de 700 ms deixaria
+  // a notificação dizendo "Conferindo o pacote" enquanto o app já importa.
+  //
+  // E a estimativa é uma MÉDIA desde o primeiro passo: carregar o tempo da
+  // etapa anterior faria a segunda nascer com o dobro do tempo restante e ir
+  // caindo — o número certo, pela conta errada. Etapa nova, relógio novo.
+  const trocouEtapa = !!label && label !== t.label;
+  if (trocouEtapa) { t.firstStepAt = 0; t.shownEta = 0; t.etaAt = 0; }
   if (!t.firstStepAt) t.firstStepAt = Date.now();
   if (total > 1) t.total = total;
   t.done = done;
   t.lastEventAt = Date.now();
   if (label) t.label = label;
-  bgTaskSend(false);
+  bgTaskSend(trocouEtapa);
 }
 
 // Progresso em BYTES — a tarefa passa a ser medida em bytes transferidos, não
@@ -26770,6 +26947,8 @@ function bgItemStart(id, nome) {
     bgTaskSend(true);
     return;
   }
+  // O TETO DESCARTA O MAIS ANTIGO — ver BG_FILA_MAX.
+  if (t.fila.length >= BG_FILA_MAX) t.fila.splice(0, t.fila.length - BG_FILA_MAX + 1);
   t.fila.push(nome);
 }
 
