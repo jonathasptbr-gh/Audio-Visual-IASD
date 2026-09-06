@@ -150,6 +150,10 @@
     'repeat',            // a repetição
     'ytAltura',          // o teto de resolução do download
     'downloadOk',        // "já avisei sobre dados móveis" neste aparelho
+    // A MARCA DA CURA DOS PONTEIROS. Ela descreve uma migração DESTE aparelho,
+    // e viajar faria um celular quebrado receber "já foi consertado" — a cura
+    // nunca rodaria nele. Mesmo motivo do `historico` e do `current`.
+    'ponteiros-conferidos',
   ];
 
   /** A assinatura do arquivo, pronta para ser o primeiro bloco escrito. */

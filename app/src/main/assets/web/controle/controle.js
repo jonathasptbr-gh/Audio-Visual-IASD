@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.25';
+const WEB_VERSION = '1.8.26';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23096,6 +23096,91 @@ async function pacotePlano() {
     porGrupo.set(g, atual);
   }
 
+  const { grupos, folha } = pacoteMontarFolha({ cols, porGrupo, bytesEstado, midia, bytesMidia });
+
+  return { estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos, folha };
+}
+
+/**
+ * A FOLHA SEM MEDIR NADA — o que a Biblioteca já sabe, na hora.
+ *
+ * Pedido do operador: *"você não pode simplesmente usar a medição superficial
+ * que já temos na biblioteca? essa medição dos arquivos e peso total da
+ * exportação não é importante, apenas arredonde para cima e chame de
+ * aproximadamente … dessa forma não atrasa o processo, e os processos reais
+ * necessários acontecem após o pedido confirmado"*.
+ *
+ * O peso de cada coleção já está em MEMÓRIA (`ui(id).bytes`, guardado em
+ * `state` e reconferido uma vez por sessão pelo `conferirPesoSeFaltar`), e o
+ * catálogo também. Então a folha abre no toque, e a varredura do disco — que é
+ * O(arquivos) e não tem como deixar de ser — corre DEPOIS da escolha, onde já
+ * existe barra de progresso.
+ *
+ * O QUE ELA NÃO SABE é o grupo "Arquivos sem coleção": ele só existe depois da
+ * varredura, porque é definido por AUSÊNCIA (bytes no disco de uma coleção que
+ * saiu do catálogo). Quem resolve isso é o `exportarPacote`, marcando por
+ * padrão todo grupo que a folha não chegou a oferecer — errar para o lado de
+ * levar demais é recuperável; para o lado de deixar bytes para trás, não.
+ */
+async function pacotePlanoAproximado() {
+  const cols = allCollections();
+  const porGrupo = new Map();
+  // QUAIS COLEÇÕES TÊM ALGO NO APARELHO — e a pergunta é feita ao CATÁLOGO, que
+  // é o que mais se parece com o que o pacote carrega. O peso guardado
+  // (`collUI[id].bytes`) entra quando existe, porque ele soma o DISCO e por isso
+  // conhece as imagens de fundo da letra, que não são registro de catálogo; sem
+  // ele, a soma dos `size` do catálogo é a aproximação — e ela SUBESTIMA, que é
+  // por isso que o número é arredondado para cima e sai com a palavra "aprox."
+  // (o número que decide se o pacote CABE no aparelho é o do plano exato, mais
+  // adiante, e não este).
+  let porPasta = [];
+  try { porPasta = await AVDB.filesResumo(); } catch (_) { porPasta = []; }
+  const doCatalogo = new Map();
+  for (const f of porPasta) {
+    if (!f.folder) continue;
+    doCatalogo.set(f.folder, (doCatalogo.get(f.folder) || 0) + f.bytes);
+  }
+  const conhecidas = new Set(cols.map((c) => c.id));
+  for (const c of cols) {
+    const guardado = (collUI[c.id] && collUI[c.id].bytes) || 0;
+    const bytes = guardado || doCatalogo.get(c.id) || 0;
+    if (bytes > 0) porGrupo.set(AVPacote.GRUPO_COL + c.id, { arquivos: [], bytes });
+  }
+  // "ARQUIVOS SEM COLEÇÃO" TAMBÉM SAI DO CATÁLOGO. Ele é definido por AUSÊNCIA
+  // — bytes de uma coleção que saiu do catálogo —, e a varredura do disco é a
+  // única que o conhece por inteiro; mas a parte dele que TEM registro de
+  // catálogo é sabida aqui, e é ela que faz a linha existir na folha em vez de
+  // o grupo aparecer só depois, já marcado e sem chance de ser tirado.
+  let soltos = 0;
+  for (const [pasta, bytes] of doCatalogo) if (!conhecidas.has(pasta)) soltos += bytes;
+  if (soltos > 0) porGrupo.set(AVPacote.GRUPO_OUTROS, { arquivos: [], bytes: soltos });
+  // A MÍDIA é um cursor sobre a store do Cronograma — dezenas de itens, não
+  // milhares —, e sem ela o grupo não teria peso nenhum para mostrar.
+  let midia = [];
+  try { midia = await AVDB.mediaResumo(); } catch (_) { midia = []; }
+  let bytesMidia = 0;
+  for (const m of midia) bytesMidia += m.bytes;
+  const { grupos, folha } = pacoteMontarFolha({ cols, porGrupo, bytesEstado: 0, midia, bytesMidia });
+  // A MARCA VALE PARA TODO GRUPO, e é escrita num lugar só: por item ela se
+  // perderia no próximo grupo que alguém acrescentasse à montagem, e o que sai
+  // disso é um número estimado sem a palavra que diz que ele é estimado.
+  for (const g of grupos) g.aprox = true;
+  return { grupos, folha, aprox: true };
+}
+
+/**
+ * A MONTAGEM DA FOLHA — a mesma para a medida APROXIMADA e para a EXATA.
+ *
+ * Ela existe porque a folha passou a ser desenhada ANTES da medição (v1.8.26):
+ * duas montagens divergiriam no primeiro ajuste, e a divergência apareceria
+ * como um grupo que existe na tela e não no arquivo (ou o contrário).
+ *
+ * `porGrupo` pode vir com a lista de arquivos VAZIA e só o peso — é assim que a
+ * versão aproximada chega aqui, com o peso que a Biblioteca já tem em memória.
+ * Quem marca os grupos como aproximados é ela, DEPOIS: uma marca por item se
+ * perde no próximo grupo que alguém acrescentar aqui.
+ */
+function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midia, bytesMidia }) {
   // A LISTA DA FOLHA. As coleções na ordem do catálogo (a mesma da Biblioteca —
   // o operador as procura ali), a mídia, e "outros" por último, que é o grupo
   // de escape.
@@ -23122,11 +23207,15 @@ async function pacotePlano() {
   const porColecao = new Map();
   for (const c of cols) {
     const g = porGrupo.get(AVPacote.GRUPO_COL + c.id);
-    if (!g || !g.arquivos.length) continue;
+    // SEM LISTA DE ARQUIVOS mas COM PESO é a versão aproximada: ela sai do que
+    // a Biblioteca já tem em memória, e não da varredura do disco.
+    if (!g || (!g.arquivos.length && !g.bytes)) continue;
     const item = {
       chave: AVPacote.GRUPO_COL + c.id,
       rotulo: c.name || c.id,
-      sub: g.arquivos.length + (g.arquivos.length === 1 ? ' arquivo' : ' arquivos'),
+      sub: g.arquivos.length
+        ? g.arquivos.length + (g.arquivos.length === 1 ? ' arquivo' : ' arquivos')
+        : '',
       bytes: g.bytes,
       fixo: false,
     };
@@ -23143,7 +23232,7 @@ async function pacotePlano() {
     });
   }
   const soltos = porGrupo.get(AVPacote.GRUPO_OUTROS);
-  if (soltos && soltos.arquivos.length) {
+  if (soltos && (soltos.arquivos.length || soltos.bytes)) {
     grupos.push({
       chave: AVPacote.GRUPO_OUTROS,
       // "OUTROS ARQUIVOS" seria o nome de duas coisas nesta mesma folha: a
@@ -23211,7 +23300,32 @@ async function pacotePlano() {
   linha('midia');
   linha(AVPacote.GRUPO_OUTROS);
 
-  return { estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos, folha };
+  return { grupos, folha };
+}
+
+/**
+ * O PESO NA FOLHA, e ele DIZ quando é estimativa.
+ *
+ * Pedido do operador: *"essa medição dos arquivos e peso total da exportação
+ * não é importante, apenas arredonde para cima e chame de aproximadamente"*.
+ *
+ * ARREDONDA PARA CIMA na própria unidade em que vai ser mostrado: 1,21 GB vira
+ * "aprox. 1,3 GB". É o lado certo do erro numa tela cujo consumidor é a
+ * pergunta *"cabe no cartão?"* — prometer menos do que se vai escrever é o
+ * único jeito de essa resposta enganar.
+ *
+ * A PALAVRA É OBRIGATÓRIA quando o número é estimado. Sem ela o operador leria
+ * um valor exato e o compararia com o arquivo que sai, que é outro.
+ */
+function pacotePeso(bytes, aprox) {
+  if (!aprox) return fmtBytes(bytes);
+  const K = 1024;
+  let u = 0;
+  let v = Math.max(0, bytes);
+  while (v >= K && u < 3) { v /= K; u++; }
+  // Uma casa decimal, para cima — a mesma resolução que o `fmtBytes` mostra.
+  const arred = Math.ceil(v * 10) / 10;
+  return 'aprox. ' + fmtBytes(arred * Math.pow(K, u));
 }
 
 /** Os bytes que os grupos escolhidos vão escrever — o total da barra. */
@@ -23343,7 +23457,7 @@ function renderPacoteGrupos(plano) {
   // botão de confirmar, que é onde a pergunta ("cabe no cartão?") é feita.
 
   const linhaDeGrupo = (g, dentro) => {
-    const peso = fmtBytes(g.bytes);
+    const peso = pacotePeso(g.bytes, g.aprox);
     const li = songMenuItem(
       g.chave === 'midia' ? msym(ICON.import) : msym(ICON.music),
       g.rotulo, (g.sub ? g.sub + ' · ' : '') + peso, () => {}, g.chave, remontar);
@@ -23423,7 +23537,7 @@ function renderPacoteGrupos(plano) {
   const sel = pacoteSelecao(plano);
   // O PESO DO QUE FOI ESCOLHIDO, no próprio botão: é a única pergunta que o
   // operador tem depois de marcar ("cabe no cartão?"), e ela muda a cada toque.
-  t.textContent = 'Salvar ' + fmtBytes(pacoteBytesDe(plano, sel));
+  t.textContent = 'Salvar ' + pacotePeso(pacoteBytesDe(plano, sel), plano.aprox);
   txt.appendChild(t);
   go.appendChild(txt);
   go.addEventListener('click', () => fecharPacoteGrupos(pacoteSelecao(plano)));
@@ -23529,6 +23643,29 @@ async function exportarPacote() {
   // "Salvar como", em silêncio absoluto; a v1.7.2 a mostrou no cartão sobre a
   // PREVIEW, e a v1.7.3 a trouxe para cá: a ação acontece no botão, e é nele
   // que ela responde (ver `falarNoTile`).
+  // A FOLHA ABRE NA HORA, com o peso que a Biblioteca já tem (v1.8.26). A
+  // varredura do disco corre DEPOIS da escolha — ver `pacotePlanoAproximado`.
+  let esboco = null;
+  try { esboco = await pacotePlanoAproximado(); } catch (_) { esboco = null; }
+  if (!esboco) {
+    pacoteEmCurso = false;
+    pacoteRenderTiles();
+    pulsar(pacoteExportarTileEl, 'erro');
+    falarNoTile(pacoteExportarTileEl, 'Não deu', 4000);
+    return;
+  }
+  pacotePlanoAtual = esboco;
+
+  const sel = await escolherGruposDoPacote(esboco);
+  // Desistir na folha é desistir: nada foi aberto, nada foi escrito.
+  if (!sel) { pacotePlanoAtual = null; pacoteEmCurso = false; pacoteRenderTiles(); return; }
+
+  // ===== AGORA A MEDIÇÃO DE VERDADE =====
+  // Ela varre o OPFS inteiro, percorre a store de mídia e lê as chaves de
+  // `state` — segundos num acervo grande. Até a v1.8.25 ela acontecia ANTES da
+  // folha, e era o operador esperando para poder escolher; hoje ela roda com a
+  // escolha já feita, que é onde o trabalho de verdade começa. O número aparece
+  // no PRÓPRIO BOTÃO, como todo o resto deste caminho (ver `falarNoTile`).
   let plano = null;
   falarNoTile(pacoteExportarTileEl, 'Medindo…', 0);
   pacoteExportarTileEl.classList.add('qs-trabalhando');
@@ -23541,6 +23678,7 @@ async function exportarPacote() {
     calarTile(pacoteExportarTileEl);
   }
   if (!plano) {
+    pacotePlanoAtual = null;
     pacoteEmCurso = false;
     pacoteRenderTiles();
     pulsar(pacoteExportarTileEl, 'erro');
@@ -23548,10 +23686,13 @@ async function exportarPacote() {
     return;
   }
   pacotePlanoAtual = plano;
-
-  const sel = await escolherGruposDoPacote(plano);
-  // Desistir na folha é desistir: nada foi aberto, nada foi escrito.
-  if (!sel) { pacotePlanoAtual = null; pacoteEmCurso = false; pacoteRenderTiles(); return; }
+  // O QUE A FOLHA NÃO CHEGOU A OFERECER ENTRA MARCADO. O grupo "Arquivos sem
+  // coleção" só existe depois da varredura (ele é definido por AUSÊNCIA), e uma
+  // coleção com bytes no disco cujo peso ainda não estava em memória cai no
+  // mesmo caso. Sem esta linha, os bytes deles ficariam para trás EM SILÊNCIO —
+  // e deixar bytes para trás é o único erro deste caminho que não se recupera.
+  const ofertados = new Set(esboco.grupos.map((g) => g.chave));
+  for (const g of plano.grupos) if (!ofertados.has(g.chave)) sel.add(g.chave);
 
   // ===== O DESTINO: COMPARTILHAR, OU O SELETOR DE ARQUIVOS =====
   //
@@ -24407,6 +24548,76 @@ async function pacoteConferir(fonte, aoAndar) {
  * vai conferir. Ela é lida do BANCO e não do `collState` em memória, que foi
  * carregado no `init()` e está desatualizado por definição depois de importar.
  */
+/**
+ * O PONTEIRO QUE NÃO LEVA A LUGAR NENHUM É APAGADO — e é o destino que decide.
+ *
+ * O ÍNDICE de uma coleção (`coll:<id>`) é uma chave de `state`, e por isso ele
+ * viaja INTEIRO. Os ARQUIVOS não: a folha de escolha os corta por grupo. Então
+ * um pacote só do hinário leva, junto, o índice de todos os OUTROS álbuns —
+ * com o `fileIdFull` que o aparelho de ORIGEM tinha.
+ *
+ * Enquanto a mescla era rasa (até a v1.8.22) isso não aparecia: o índice de
+ * fora era descartado inteiro. A v1.8.23 passou a preencher os buracos, e com
+ * eles passou a preencher ponteiros para arquivos que nunca chegaram —
+ * `colecaoCompleta` conta `fileIdFull`, então o álbum passava a parecer
+ * baixado e **o botão de baixar sumia**. Relato do operador: *"ele importa o
+ * hinário, mas as outras coleções por algum motivo, perdem seus botões de
+ * download, mesmo elas não estando baixadas"*.
+ *
+ * **QUEM CONSERTA É O DESTINO, e não o exportador.** O exportador só saberia
+ * adivinhar o que vai chegar; o destino sabe as duas coisas que importam — o
+ * que chegou E o que ele já tinha. É a mesma regra do `AVDB.opfsTodosOsArquivos`
+ * num lugar novo: **pergunta-se ao disco, não ao catálogo**.
+ *
+ * E é isso que a torna capaz de CURAR um aparelho já quebrado, que é o estado
+ * em que a v1.8.23 deixou quem importou entre ela e esta versão — daí ela
+ * rodar também uma vez na abertura (ver `PACOTE_PONTEIROS_MARCA`).
+ *
+ * Devolve quantos ponteiros caíram.
+ */
+const PACOTE_PONTEIROS_MARCA = 'ponteiros-conferidos';
+
+async function curarPonteirosUmaVez() {
+  try {
+    if (await AVDB.getState(PACOTE_PONTEIROS_MARCA)) return;
+    const limpos = await pacoteAcertarPonteiros();
+    await AVDB.setState(PACOTE_PONTEIROS_MARCA, 1);
+    if (limpos) console.info('[pacote] ' + limpos + ' ponteiro(s) sem arquivo foram limpos');
+  } catch (_) { /* a abertura não pode falhar por causa disto */ }
+}
+
+async function pacoteAcertarPonteiros() {
+  let ids;
+  try { ids = new Set(await AVDB.filesChaves()); } catch (_) { return 0; }
+  let chaves;
+  try { chaves = await AVDB.stateKeys('coll:'); } catch (_) { return 0; }
+  let limpos = 0;
+  for (const chave of chaves) {
+    try {
+      await AVDB.updateState(chave, (atual) => {
+        if (!atual || !Array.isArray(atual.songs)) return atual;
+        let mudou = false;
+        const songs = atual.songs.map((s) => {
+          if (!s) return s;
+          let novo = s;
+          for (const campo of ['fileIdFull', 'fileIdPlayback']) {
+            if (!novo[campo] || ids.has(novo[campo])) continue;
+            if (novo === s) novo = Object.assign({}, s);
+            novo[campo] = null;
+            mudou = true;
+            limpos++;
+          }
+          return novo;
+        });
+        // IDENTIDADE quando nada mudou: é ela que impede a varredura de
+        // reescrever dezenas de índices no disco em toda abertura.
+        return mudou ? Object.assign({}, atual, { songs }) : atual;
+      });
+    } catch (_) { /* um índice ruim não para a varredura */ }
+  }
+  return limpos;
+}
+
 async function pacoteRelatorio(contagem) {
   const partes = [];
   const nomes = new Map(allCollections().map((c) => [c.id, c.name || c.id]));
@@ -24524,6 +24735,10 @@ async function importarPacote() {
         // um pacote inteiro e um cortado no meio, e é o dia em que alguém
         // mexer na conferência que ela existe para cobrir.
         if (!viuFim) throw new Error('O pacote está incompleto — ele acabou antes do fim.');
+        // O ÍNDICE VIAJA INTEIRO; OS ARQUIVOS, NÃO. Ver `pacoteAcertarPonteiros`:
+        // sem esta linha, um pacote só do hinário deixa os outros álbuns
+        // parecendo baixados, e o botão de baixar deles some.
+        await pacoteAcertarPonteiros();
       } finally {
         bgTaskEnd(tarefa);
       }
@@ -30648,6 +30863,18 @@ document.addEventListener('visibilitychange', () => {
   // mesmo motivo do `autoRefreshCollections` logo acima: não atrasa a abertura
   // do app. Ver `garantirBibliaBase`.
   garantirBibliaBase();
+  // OS PONTEIROS QUEBRADOS QUE A v1.8.23 DEIXOU, uma vez por aparelho. Ela
+  // passou a preencher os buracos do índice de uma coleção com os ponteiros do
+  // pacote, e o índice viaja INTEIRO enquanto os arquivos são cortados pela
+  // folha de escolha: quem importou entre ela e a v1.8.25 ficou com álbuns
+  // parecendo baixados e sem o botão de baixar. Ver `pacoteAcertarPonteiros`.
+  //
+  // UMA VEZ, e a marca é o que a torna barata: sem ela seriam uma leitura das
+  // chaves do catálogo e uma varredura dos índices em TODA abertura, para não
+  // achar nada — e este arquivo acabou de recusar, por medição, pôr trabalho de
+  // acervo na porta do app. A marca mora no `FORA` do `pacote.js`, senão ela
+  // viajaria e diria a um aparelho quebrado que ele já foi consertado.
+  curarPonteirosUmaVez();
   // A FAXINA DOS RESTOS, por último e sem segurar nada (v5.131). Ver
   // `AVDB.gcOrfaos`: registros que nenhuma lista aponta e que nenhum caminho
   // normal alcançava — o `listSet` os criava a cada troca de playlist. Aqui é

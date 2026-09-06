@@ -708,6 +708,41 @@
     const s = await store(STORE_FILES, 'readonly');
     return asPromise(s.getAll());
   }
+  /**
+   * SÓ OS IDS do catálogo, numa transação e sem desserializar valor nenhum.
+   *
+   * O irmão [filesAll] materializa TODO registro — inclusive a miniatura de
+   * cada faixa —, e há usos que só precisam saber quais ids existem. Num
+   * hinário inteiro isso é a diferença entre ler alguns milhares de chaves e
+   * ler os megabytes de capa que vêm com elas.
+   */
+  /**
+   * PASTA E TAMANHO de cada registro do catálogo, num cursor só.
+   *
+   * É o irmão do [mediaResumo] para a store `files`, e existe pela mesma razão:
+   * quem quer o PESO de cada coleção não quer a miniatura de cada faixa, e o
+   * [filesAll] traz as duas coisas. Aqui o cursor lê o registro, guarda dois
+   * campos e segue — o que passa pelo heap é um registro por vez.
+   */
+  async function filesResumo() {
+    const s = await store(STORE_FILES, 'readonly');
+    return new Promise((resolve, reject) => {
+      const out = [];
+      const req = s.openCursor();
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) { resolve(out); return; }
+        const r = c.value || {};
+        out.push({ folder: r.folder || '', bytes: r.size || 0 });
+        c.continue();
+      };
+    });
+  }
+  async function filesChaves() {
+    const s = await store(STORE_FILES, 'readonly');
+    return asPromise(s.getAllKeys());
+  }
 
   // ---- OPFS (Origin Private File System) ----
   // Os bytes dos arquivos sincronizados moram aqui; nunca pedem permissão e
@@ -1198,7 +1233,7 @@
     addMedia, addUrlMedia, addStreamMedia, setMediaStream, addDeck, addCue,
     getMedia, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
-    fileAdd, fileGet, fileDelete, filesByFolder, filesAll,
+    fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves, filesResumo,
     opfsSupported, opfsGetFile, opfsWriteFile, opfsDeleteFile, opfsDeleteDir, opfsFolderSize,
     mediaChaves,
     mediaResumo, mediaAdd, opfsTodosOsArquivos,
