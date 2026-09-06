@@ -3215,6 +3215,15 @@ comum (o cartão, o cabo).
   CEDE A VEZ E SAI — e sair é de graça, porque o `abrir` do outro lado devolve
   `recebido` e o item volta de onde parou; é a mesma retomada que um empurrão
   interrompido por morte de renderer já usava.
+- **O `bytes` DO CABEÇALHO SAI DO CORPO, e nunca do chamador** (`tamanhoDe`,
+  v1.8.14). Os dois escritores do formato — o do ARQUIVO (`pacoteEscritor`) e o
+  da REDE (`cloneCorpoDoItem`) — tomavam o tamanho de um campo (`bytes:
+  rec.thumb.size`) enquanto o corpo perguntava `x.size` por conta própria. Sobre
+  uma miniatura que não é um `Blob` os dois discordam: o cabeçalho sai
+  `undefined` e nenhum corpo é escrito. **O fluxo sai QUEBRADO e só o leitor
+  descobre** — MEDIDO em campo, duas cópias seguidas parando no MESMO item com
+  *"pacote: registro sem tamanho"*. Uma função responde pelos dois, e o zero é o
+  único número que os mantém de acordo: nada escrito, cabeçalho dizendo zero.
 - **CEDER É TRABALHO DE SEGUNDO PLANO, e este lado não pedia proteção nenhuma**
   (v1.8.13). Quem RECEBE roda dentro de um `withBgWork` desde o primeiro lote;
   quem CEDE monta cada item no WebView do Controle (`cloneAtenderPedido` →
@@ -5162,7 +5171,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.13 · APK v1.8.12** · `SHELL_VERSION` **66** ·
+**Versão atual: base web v1.8.14 · APK v1.8.12** · `SHELL_VERSION` **66** ·
 bundle com `minShell: 66` e **sem `shellTag`** (lote só de web) — o shell 66 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
