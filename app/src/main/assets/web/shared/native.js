@@ -517,6 +517,37 @@
       try { B.pacoteCancelar(); } catch (_) { /* ponte indisponível */ }
     },
 
+    // ---- EXPORTAR DIRETO PARA O COMPARTILHAR (shell 67) ----
+    //
+    // O trio acima continua de pé: ele é o caminho do SAF, e é o certo para um
+    // acervo que não caiba no armazenamento próprio do app. Este é o caminho
+    // NORMAL — o pacote é escrito no diretório do app e vai direto ao seletor
+    // de compartilhamento, que é por onde ele de fato atravessa (Quick Share).
+
+    // Bytes livres no armazenamento PRÓPRIO do app. NÚMERO e não veredito
+    // (invariante 5): quanta folga um pacote precisa é regra do `controle.js`,
+    // que sabe o tamanho medido e a frase a escrever. `0` = não deu para medir,
+    // e zero manda o fluxo para o SAF — falhar para o lado que funciona.
+    pacoteEspaco: () => call((id) => B.pacoteEspaco(id), CALL_TIMEOUT_MS)
+      .then((r) => (typeof r === 'number' && r > 0 ? r : 0)),
+
+    // Abre o pacote num arquivo do PRÓPRIO app. Resolve o NOME ou `''`, a
+    // mesma forma do `pacoteCriar` — mas COM prazo, e essa é a diferença que
+    // importa: aqui não há seletor e ninguém está esperando uma pessoa.
+    pacoteCriarLocal: (nome) => call((id) => B.pacoteCriarLocal(id, String(nome)), CALL_TIMEOUT_MS)
+      .then((r) => String(r || '')),
+
+    // Fecha o pacote local e o OFERECE pelo seletor. Resolve os BYTES, como o
+    // `pacoteFechar` e com o mesmo `-1`.
+    //
+    // O NÚMERO VOLTA ANTES DE O SELETOR RESPONDER, de propósito: o desfecho de
+    // um seletor de compartilhamento é uma pessoa escolhendo um app, e não há
+    // API que o entregue (a mesma razão pela qual `compartilharTexto` é
+    // síncrono). O que este método promete é o que ele sabe — os bytes que
+    // chegaram ao disco.
+    pacoteCompartilhar: () => call((id) => B.pacoteCompartilhar(id), CALL_TIMEOUT_MS)
+      .then((r) => (typeof r === 'number' ? r : -1)),
+
     // ---- CIFRA — ver `controle/cifra.js` ----
     // TRANSPORTE, e só. Devolve `{ status, html }` com o corpo CRU da página:
     // quem sabe ler aquele HTML é o `cifra.js`, do lado web (invariante 5), e

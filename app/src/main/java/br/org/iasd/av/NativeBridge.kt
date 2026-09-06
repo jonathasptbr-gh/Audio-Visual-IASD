@@ -209,24 +209,17 @@ interface BridgeHost {
     /** Apaga o certificado: o espelho volta a HTTP claro no próximo ligar. */
     fun mirrorCertRemove(onResult: () -> Unit)
 
-    /**
-     * LIGA A CESSÃO DA BIBLIOTECA — sobe o servidor (se ainda não estiver de
-     * pé) e anuncia este aparelho na rede. Ver [AcervoCessao].
-     */
-    fun acervoCeder(rotulo: String, onResult: (JSONObject) -> Unit)
+    /** Bytes livres no armazenamento PRÓPRIO do app — é lá que o pacote a
+     *  compartilhar é escrito, e ele não tem como pedir o cartão do operador. */
+    fun pacoteEspacoLivre(): Long
 
-    /** Desliga a cessão. Não derruba o telão: o servidor tem duas razões de
-     *  viver, e só cai quando as duas caem. */
-    fun acervoPararCessao()
+    /** Abre o pacote num arquivo do PRÓPRIO app, sem seletor. Devolve o nome
+     *  gravado, ou `""` quando não deu (sem espaço, sem permissão de escrita). */
+    fun pacoteCreateLocal(nome: String, onResult: (String) -> Unit)
 
-    /**
-     * Pede pareamento ao aparelho escolhido. Sai do SHELL porque a página é
-     * `https` e o outro celular serve `http` — ver [AcervoProxy].
-     */
-    fun acervoParear(endereco: String, porta: Int, rotulo: String, onResult: (JSONObject) -> Unit)
-
-    /** O estado dos dois papéis do clone, para a folha e para o Registro. */
-    fun acervoEstado(onResult: (JSONObject) -> Unit)
+    /** Fecha o pacote local e o OFERECE pelo seletor de compartilhamento.
+     *  Devolve os bytes gravados, ou `-1` (o fecho falhou, ou nada aberto). */
+    fun pacoteShare(onResult: (Long) -> Unit)
 }
 
 /**
@@ -270,7 +263,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 66
+        const val SHELL_VERSION = 67
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1151,161 +1144,6 @@ class NativeBridge(
         h.mirrorCertRemove { resolve(callId, "true") }
     }
 
-    // ---------- o CLONE da biblioteca, celular a celular (shell 65) ----------
-    //
-    // OITO métodos, e todos com a guarda `host != null` da invariante 9: quatro
-    // deles abrem um servidor na rede da igreja ou uma saída para ela, e os
-    // outros quatro leem ou escrevem o estado desse mesmo caminho. No papel
-    // `display` nada disto existe.
-    //
-    // A DIVISÃO É POR PAPEL, e não por conveniência: quem CEDE usa `acervoCeder`
-    // / `acervoPublicar` / `acervoResponder`; quem CLONA usa `acervoProcurar` /
-    // `acervoParear` / `acervoSoltar`. `acervoEstado` responde aos dois — é uma
-    // leitura, e a folha de cada lado desenha o que lhe interessa.
-
-    /**
-     * LIGA A CESSÃO — este aparelho passa a oferecer a biblioteca na rede.
-     *
-     * Sobe o servidor (o MESMO do telão: ele agora tem duas razões de viver, e
-     * ligar aqui não liga a transmissão do telão nem o contrário) e anuncia o
-     * aparelho por mDNS, para o outro celular achá-lo sem ninguém digitar
-     * endereço.
-     *
-     * Devolve o mesmo objeto do [acervoEstado], com `erro` preenchido quando
-     * não deu — a folha desenha os dois casos com o mesmo código, e a FRASE da
-     * falha vem de quem sabe o motivo (sem Wi-Fi, porta ocupada).
-     */
-    @JavascriptInterface
-    fun acervoCeder(callId: String, rotulo: String) {
-        val h = host
-        if (h == null) { resolve(callId, "null"); return }
-        h.acervoCeder(rotulo) { estado -> resolve(callId, estado.toString()) }
-    }
-
-    /**
-     * DESLIGA a cessão. Síncrono e sem resposta, como o [espelhoDesligar] e
-     * pelo mesmo motivo: do outro lado isto solta estado e volta, e segurar a
-     * Promise daria um botão travado justamente no caminho de desistir.
-     *
-     * **Não derruba o telão**: o servidor só cai se ninguém mais o quiser.
-     */
-    @JavascriptInterface
-    fun acervoPararCessao() {
-        host?.acervoPararCessao()
-    }
-
-    /**
-     * PUBLICA O ÍNDICE — a lista de decisão que o outro celular vai diferenciar
-     * contra o próprio disco.
-     *
-     * Ele atravessa a ponte como STRING, e é a única coisa deste recurso que
-     * atravessa assim: o índice é uma lista de chaves e tamanhos (MEDIDO na
-     * ordem de centenas de kB para milhares de entradas), não os dados. Os
-     * BYTES do acervo passam pelo canal `__avTelaMidia`, como os do telão.
-     *
-     * A `sessao` é cunhada pelo WEB, porque é ele que monta a lista: uma
-     * recarga da página monta OUTRA, e é a sessão que faz o pedido de um item
-     * antigo ser recusado com 409 em vez de entregar o arquivo errado.
-     */
-    @JavascriptInterface
-    fun acervoPublicar(callId: String, sessao: String, indice: String) {
-        if (host == null) { resolve(callId, "false"); return }
-        io.execute {
-            // O PARSE MORA AQUI, e não no [AcervoCessao]: é ele que mantém
-            // aquele arquivo sem Android no caminho da máquina de estados, que
-            // é o que o JUnit percorre. `-1` é "não deu para ler", e lá isso é
-            // recusa.
-            val quantos: Int
-            var peso = 0L
-            try {
-                val o = JSONObject(indice)
-                quantos = o.optJSONArray("itens")?.length() ?: 0
-                peso = o.optLong("bytes", 0L)
-            } catch (e: Exception) {
-                resolve(callId, "false")
-                return@execute
-            }
-            val ok = try {
-                AcervoCessao.publicar(sessao, indice, quantos, peso)
-            } catch (e: Exception) {
-                false
-            }
-            // O ANÚNCIO GANHA OS NÚMEROS DE VERDADE. A cessão liga antes de o
-            // índice existir, então o primeiro anúncio sai com zero — e "zero
-            // itens" na lista do outro celular se lê como "não tem nada".
-            if (ok) {
-                try {
-                    AcervoDescoberta.reanunciar(AcervoCessao.itensPublicados, AcervoCessao.bytesPublicados)
-                } catch (e: Exception) {
-                    // Um anúncio que não se refaz não impede o clone: quem já
-                    // achou o aparelho continua com o endereço na mão.
-                }
-            }
-            resolve(callId, if (ok) "true" else "false")
-        }
-    }
-
-    /**
-     * O OPERADOR RESPONDEU ao pedido de clone. Síncrono: é uma escrita de
-     * estado, e a folha relê pelo [acervoEstado] seguinte.
-     */
-    @JavascriptInterface
-    fun acervoResponder(sim: Boolean) {
-        if (host == null) return
-        AcervoCessao.responder(sim)
-    }
-
-    /**
-     * PROCURA (ou para de procurar) aparelhos cedendo na rede. Síncrono, e a
-     * lista chega pelo [acervoEstado] — a descoberta é assíncrona por natureza
-     * (o mDNS responde quando responde), então uma Promise aqui prometeria uma
-     * resposta que não existe.
-     */
-    @JavascriptInterface
-    fun acervoProcurar(ligado: Boolean) {
-        if (host == null) return
-        if (ligado) AcervoDescoberta.procurar(ctx) else AcervoDescoberta.pararProcura()
-    }
-
-    /**
-     * PEDE PAREAMENTO ao aparelho escolhido — e o pedido sai DAQUI, não do
-     * `fetch` da página: o outro celular serve em `http://` e a página roda em
-     * `https://`, então o navegador bloquearia a requisição antes de ela sair
-     * (ver o KDoc do [AcervoProxy]).
-     *
-     * Devolve `{ estado }`, com `estado` em `aguardando` (o operador de lá
-     * ainda não respondeu), `pareado`, `recusado`, `ocupado` ou `erro`. Quem
-     * insiste é o lado web, que é quem tem a tela para dizer o que está
-     * acontecendo.
-     */
-    @JavascriptInterface
-    fun acervoParear(callId: String, endereco: String, porta: Int, rotulo: String) {
-        val h = host
-        if (h == null) { resolve(callId, "null"); return }
-        h.acervoParear(endereco, porta, rotulo) { r -> resolve(callId, r.toString()) }
-    }
-
-    /** SOLTA o pareamento deste lado: o proxy deixa de ter para onde apontar. */
-    @JavascriptInterface
-    fun acervoSoltar() {
-        if (host == null) return
-        AcervoProxy.soltar()
-    }
-
-    /**
-     * O ESTADO DOS DOIS PAPÉIS numa leitura só — `{ cessao, achados, par,
-     * proxy, endereco }`.
-     *
-     * DADO, não frase: o Kotlin devolve JSON e quem escreve o texto é o
-     * `controle.js` (invariante 5), como no [espelhoEstado].
-     */
-    @JavascriptInterface
-    fun acervoEstado(callId: String) {
-        val h = host
-        if (h == null) { resolve(callId, "null"); return }
-        h.acervoEstado { estado -> resolve(callId, estado.toString()) }
-    }
-
     // ---------- vídeo do YouTube como ARQUIVO ----------
 
     /**
@@ -2019,6 +1857,69 @@ class NativeBridge(
     @JavascriptInterface
     fun pacoteCancelar() {
         host?.pacoteCancel()
+    }
+
+    // ---------- EXPORTAR DIRETO PARA O COMPARTILHAR (shell 67) ----------
+    //
+    // O caminho do SAF acima continua de pé e continua sendo o certo para um
+    // acervo que não caiba no armazenamento próprio (é o operador quem escolhe
+    // o cartão). O que estes três acrescentam é o caminho NORMAL: o pacote é
+    // escrito no diretório do app e vai direto ao seletor de compartilhamento.
+    //
+    // POR QUE ELE É O NORMAL: o `.avpkg` existe para atravessar de um celular
+    // para o outro, e quem o atravessa é o Quick Share. Pelo SAF isso são
+    // quatro passos (salvar → abrir o gerenciador de arquivos → achar o
+    // arquivo → compartilhar); aqui é um.
+    //
+    // O PREÇO ESTÁ NOS TRÊS MÉTODOS, e é por isso que o primeiro existe: o
+    // arquivo ocupa espaço no PRÓPRIO app, e um acervo de quinze gigabytes não
+    // cabe. Quem pergunta é o web, DEPOIS da medição e ANTES de escrever um
+    // byte — e a resposta escolhe entre este caminho e o do SAF.
+
+    /**
+     * Bytes livres no armazenamento próprio do app.
+     *
+     * NÚMERO E NÃO VEREDITO (invariante 5): quanta folga um pacote precisa é
+     * decisão do `controle.js`, que sabe o tamanho medido e a frase a escrever.
+     * Um `podeCompartilhar(bytes)` em Kotlin envelheceria à parte da regra.
+     */
+    @JavascriptInterface
+    fun pacoteEspaco(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, "0"); return }
+        io.execute { resolve(callId, h.pacoteEspacoLivre().toString()) }
+    }
+
+    /**
+     * Abre o pacote num arquivo do próprio app. SEM SELETOR e, portanto, sem a
+     * espera por uma pessoa — ao contrário do [pacoteCriar], este responde em
+     * milissegundos.
+     *
+     * Devolve o NOME ou `""`, a mesma forma do irmão: o vazio é a resposta que
+     * a tela sabe explicar.
+     */
+    @JavascriptInterface
+    fun pacoteCriarLocal(callId: String, nome: String) {
+        val h = host
+        if (h == null) { resolve(callId, JSONObject.quote("")); return }
+        h.pacoteCreateLocal(nome) { salvo -> resolve(callId, JSONObject.quote(salvo)) }
+    }
+
+    /**
+     * Fecha o pacote local e abre o seletor de compartilhamento.
+     *
+     * O NÚMERO VOLTA ANTES DO SELETOR RESPONDER, e é de propósito: o desfecho
+     * de um `createChooser` é uma pessoa escolhendo um app, e não há API que o
+     * entregue (é a razão pela qual o [compartilharTexto] é síncrono e sem
+     * resposta). O que este método promete é o que ele sabe — os bytes que
+     * chegaram ao disco —, e o `-1` continua sendo o cartão cheio descoberto
+     * no `close`, exatamente como no [pacoteFechar].
+     */
+    @JavascriptInterface
+    fun pacoteCompartilhar(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, "-1"); return }
+        h.pacoteShare { bytes -> resolve(callId, bytes.toString()) }
     }
 
     /** O nome de exibição do documento, ou "Apresentação" se o provedor não o der. */

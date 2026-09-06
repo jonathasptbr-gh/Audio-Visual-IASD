@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.8.17",
+    "itens": [
+      "Exportar a biblioteca agora abre direto o compartilhamento do aparelho.",
+      "O envio pelo Quick Share deixou de exigir procurar o arquivo depois.",
+      "Sem espaço para a cópia, o app volta a oferecer salvar num cartão.",
+      "As peças do modo de copiar pela rede saíram também do aplicativo."
+    ]
+  },
+  {
     "versao": "1.8.16",
     "itens": [
       "O modo de copiar a biblioteca pela rede saiu: ele era lento demais para servir.",

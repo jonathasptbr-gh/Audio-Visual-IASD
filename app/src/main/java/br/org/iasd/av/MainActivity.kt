@@ -32,6 +32,9 @@ import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import java.io.File
+import java.io.FileOutputStream
 import kotlin.concurrent.thread
 import org.json.JSONArray
 import org.json.JSONObject
@@ -366,6 +369,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // watchdog do OTA armar uma única vez).
         WebUpdater.beginSession(this)
 
+        // O PACOTE ESQUECIDO SAI NO LANÇAMENTO, e esta é a rede de segurança do
+        // caminho de compartilhar: a faxina da PORTA da exportação seguinte só
+        // roda em quem exporta de novo, e um acervo de gigabytes deixado ali
+        // por uma exportação única ficaria para sempre. Aqui, sem seletor
+        // pendente e sem nada em curso, apagar é seguro por construção.
+        try { limparPacotesLocais(pastaDoPacote()) } catch (e: Exception) {
+            Log.w(TAG, "faxina do pacote não rodou", e)
+        }
+
         root = FrameLayout(this)
         // A raiz é o que se vê no INTERVALO entre a janela existir e o WebView
         // pintar o primeiro quadro. Ela era `Color.BLACK` desde sempre, e com
@@ -496,12 +508,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
         EspelhoEnergia.onDesligar = { stopMirror() }
         EspelhoEnergia.onGone = {
             runOnUiThread {
-                // O ANDROID ENCERROU O SERVIÇO. Nada disto sobrevive a isso, e
-                // as duas bandeiras caem junto: deixá-las de pé faria o
-                // `stopMirror` seguinte devolver cedo (`if (acervoPedido)
-                // return`) sobre um servidor que já não existe.
+                // O ANDROID ENCERROU O SERVIÇO. A bandeira cai junto: deixá-la
+                // de pé faria a folha continuar dizendo "ligado" sobre um
+                // servidor que já não existe.
                 telaoPedido = false
-                acervoPedido = false
                 desmontarEspelho("o Android encerrou o servico em primeiro plano")
             }
         }
@@ -802,22 +812,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
         if (!isChangingConfigurations) {
             try {
                 telaoPedido = false
-                acervoPedido = false
                 desmontarEspelho("o app foi fechado")
             } catch (e: Exception) {
                 Log.w(TAG, "espelho não desligou", e)
-            }
-            // O CLONE MORRE COM A ACTIVITY pelo mesmo motivo da transmissão, e
-            // com uma razão a mais: o anúncio mDNS é a única coisa deste app
-            // que fica VISÍVEL na rede sem nenhuma tela dizendo que está — um
-            // aparelho continuar se oferecendo com o app fechado é a falha
-            // silenciosa que este recurso não pode ter.
-            try {
-                AcervoCessao.desligar()
-                AcervoDescoberta.tudoAbaixo()
-                AcervoProxy.soltar()
-            } catch (e: Exception) {
-                Log.w(TAG, "clone não desligou", e)
             }
         }
         // Os hooks saem SEMPRE, inclusive numa recriação: eles capturam ESTA
@@ -1133,6 +1130,122 @@ class MainActivity : ComponentActivity(), BridgeHost {
         runOnUiThread { descartarPacote() }
     }
 
+    // ---------- EXPORTAR DIRETO PARA O COMPARTILHAR (shell 67) ----------
+
+    override fun pacoteEspacoLivre(): Long = try {
+        pastaDoPacote().usableSpace
+    } catch (e: Exception) {
+        // Um `usableSpace` que lança (armazenamento desmontado, política do
+        // fabricante) responde ZERO, e zero manda o web para o caminho do SAF.
+        // Falhar para o lado que ainda funciona é a regra deste app.
+        Log.w(TAG, "não consegui medir o espaço livre", e)
+        0L
+    }
+
+    override fun pacoteCreateLocal(nome: String, onResult: (String) -> Unit) {
+        runOnUiThread {
+            // O PENDENTE DO SAF RESOLVE VAZIO, como em toda troca de destino:
+            // o operador pode ter começado por um caminho e o web escolhido o
+            // outro, e uma Promise sem prazo pendurada é o pior desfecho.
+            pendingPacoteCreate?.invoke("")
+            pendingPacoteCreate = null
+            try {
+                val pasta = pastaDoPacote()
+                // A FAXINA VEM ANTES DE ESCREVER, e não depois de compartilhar:
+                // o arquivo tem de SOBREVIVER ao seletor (quem o lê é outro
+                // app, depois e no tempo dele), então apagá-lo ali quebraria o
+                // recurso. Aqui ele já cumpriu o papel dele.
+                limparPacotesLocais(pasta)
+                val alvo = File(pasta, nomeDeArquivoSeguro(nome))
+                pacoteLocal = alvo
+                pacoteCanal.adotar(FileOutputStream(alvo), Uri.fromFile(alvo))
+                onResult(alvo.name)
+            } catch (e: Exception) {
+                Log.w(TAG, "não consegui abrir o pacote local", e)
+                pacoteLocal = null
+                onResult("")
+            }
+        }
+    }
+
+    override fun pacoteShare(onResult: (Long) -> Unit) {
+        runOnUiThread {
+            val alvo = pacoteLocal
+            val bytes = pacoteCanal.fechar()
+            pacoteLocal = null
+            if (alvo == null || bytes <= 0L) { onResult(bytes); return@runOnUiThread }
+            try {
+                val uri = FileProvider.getUriForFile(this, "$packageName.pacote", alvo)
+                val envio = Intent(Intent.ACTION_SEND)
+                    // `application/octet-stream` e não um tipo inventado: o
+                    // `.avpkg` não tem tipo registrado, e um MIME que ninguém
+                    // conhece esvazia o seletor. Quem identifica o arquivo são
+                    // os oito bytes de assinatura, nunca o rótulo.
+                    .setType("application/octet-stream")
+                    .putExtra(Intent.EXTRA_STREAM, uri)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                startActivity(
+                    Intent.createChooser(envio, getString(R.string.pacote_share_titulo))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            } catch (e: Exception) {
+                // O ARQUIVO FICA, e é isso que salva o lote: os bytes estão no
+                // disco e o número volta certo, então a tela pode dizer que o
+                // pacote existe mesmo com o seletor recusado.
+                Log.w(TAG, "nada recebeu o pacote compartilhado", e)
+            }
+            onResult(bytes)
+        }
+    }
+
+    /**
+     * O diretório do pacote a compartilhar, criado sob demanda.
+     *
+     * `filesDir` e não `cacheDir`: o sistema esvazia o cache quando quer, e o
+     * arquivo precisa sobreviver ao intervalo entre o seletor abrir e o outro
+     * app terminar de lê-lo. Ele está fora do backup (ver `backup_rules.xml`) e
+     * é exposto por um `FileProvider` PRÓPRIO, com autoridade separada da do
+     * APK: uma raiz por assunto, e nada mais legível por engano.
+     */
+    private fun pastaDoPacote(): File = File(filesDir, "pacote").also { it.mkdirs() }
+
+    /**
+     * Apaga o que sobrou de uma exportação anterior.
+     *
+     * ELA É A CONTRAPARTIDA DO RECURSO: o pacote fica no armazenamento próprio
+     * até alguém apagá-lo, e um acervo de gigabytes esquecido ali é o app
+     * ocupando o aparelho sem nada na tela dizendo por quê. Roda na PORTA da
+     * exportação seguinte, que é o instante em que o espaço vai fazer falta —
+     * e também num `onCreate`, para o caso de o app nunca mais exportar.
+     */
+    private fun limparPacotesLocais(pasta: File) {
+        try {
+            pasta.listFiles()?.forEach { f ->
+                if (f.isFile && !f.delete()) Log.w(TAG, "pacote antigo não saiu: " + f.name)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "não consegui limpar os pacotes antigos", e)
+        }
+    }
+
+    /**
+     * O nome do web virando nome de ARQUIVO.
+     *
+     * Ele vem de `AVPacote.nomeDoArquivo` e já é seguro hoje; a higiene existe
+     * porque este nome deixou de atravessar o SAF (que sanea por conta) e passa
+     * a ser um caminho de verdade — uma barra aqui escreveria fora da pasta.
+     */
+    private fun nomeDeArquivoSeguro(nome: String): String {
+        val limpo = nome.trim().replace(Regex("[^A-Za-z0-9._-]"), "_").trimStart('.')
+        return if (limpo.isEmpty()) "acervo.avpkg" else limpo.take(120)
+    }
+
+    /** O arquivo do pacote LOCAL em curso — nulo quando o destino é o SAF.
+     *  De instância e não do companion (ao contrário do [pacoteCanal]): quem o
+     *  apaga é o `descartarPacote` desta Activity, e um pacote local que
+     *  sobreviva a uma morte de renderer é recolhido pela faxina da porta. */
+    private var pacoteLocal: File? = null
+
     /**
      * Fecha o pacote em curso e APAGA o documento parcial.
      *
@@ -1153,7 +1266,18 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private fun descartarPacote() {
         val alvo = pacoteCanal.uriEmCurso()
+        val local = pacoteLocal
+        pacoteLocal = null
         pacoteCanal.fechar()
+        // O CAMINHO LOCAL É UM `File`, e não um documento do SAF: apagá-lo com
+        // `DocumentsContract` lançaria, e o `catch` abaixo transformaria isso
+        // num parcial esquecido no armazenamento próprio.
+        if (local != null) {
+            try { local.delete() } catch (e: Exception) {
+                Log.w(TAG, "não consegui apagar o pacote local parcial", e)
+            }
+            return
+        }
         if (alvo == null) return
         try {
             DocumentsContract.deleteDocument(contentResolver, alvo)
@@ -1911,10 +2035,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     override fun stopMirror() {
         telaoPedido = false
-        // O SERVIDOR SÓ CAI SE NINGUÉM MAIS O QUISER — ver os dois booleanos
-        // no bloco do clone. Desligar o telão no meio de uma cópia de
-        // gigabytes derrubaria a cópia sem nada dizendo por quê.
-        if (acervoPedido) return
         desmontarEspelho("o operador desligou a transmissao")
     }
 
@@ -1943,12 +2063,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private fun desmontarEspelho(motivo: String) {
         if (espelhoSrv != null) espelhoDiag.registrar("transmissao desligada: " + motivo)
-        // O ANÚNCIO SAI COM O SERVIDOR, sempre. Um anúncio mDNS de pé sobre uma
-        // porta fechada é pior que anúncio nenhum: o outro celular acha o
-        // aparelho, toca nele e recebe uma falha de conexão sem causa.
-        try { AcervoDescoberta.pararAnuncio() } catch (e: Exception) {
-            Log.w(TAG, "anúncio do clone não parou", e)
-        }
         NativeBridge.tapLan = null
         espelhoSrv?.desligar()
         espelhoSrv = null
@@ -2121,288 +2235,17 @@ class MainActivity : ComponentActivity(), BridgeHost {
     // ---------- o CLONE da biblioteca (shell 65) ----------
     //
     // O SERVIDOR PASSOU A TER DUAS RAZÕES DE VIVER: a transmissão do telão e a
-    // cessão da biblioteca. É o padrão do [SessionService], que só para quando
-    // cena E transmissão caem — e ele existe pelo mesmo motivo: ligar uma das
-    // duas não pode desligar a outra, e num culto as duas podem estar no ar.
-    //
-    // Os dois booleanos abaixo são a memória de QUEM PEDIU. Sem eles, desligar
-    // a cessão derrubaria o telão no meio da projeção — e o desfecho seria
-    // indistinguível de uma queda de rede.
-
-    /** O operador ligou a TRANSMISSÃO (o telão nas telas da rede). */
+    /**
+     * O operador ligou a TRANSMISSÃO (o telão nas telas da rede).
+     *
+     * ELE FICA COM UM DONO SÓ desde a v1.8.17, e isso é uma simplificação e
+     * não uma perda: enquanto o clone pela rede existiu, o servidor tinha DUAS
+     * razões de viver e o par de bandeiras é que impedia uma de derrubar a
+     * outra. Com o clone fora, quem liga e desliga é o mesmo operador pelo
+     * mesmo botão. O padrão do [SessionService] (cena E transmissão) segue de
+     * pé — lá as duas razões continuam existindo.
+     */
     private var telaoPedido = false
-
-    /** O operador ligou a CESSÃO da biblioteca. */
-    private var acervoPedido = false
-
-    /** O relógio do vigia do [acervoParear]. Um só, na main looper: o pedido é
-     *  um por vez (o clone tem um DONO), e criar um Handler por chamada seria
-     *  um objeto novo a cada 1,5 s da enquete de pareamento. */
-    private val relogioDoPar = android.os.Handler(android.os.Looper.getMainLooper())
-
-    override fun acervoCeder(rotulo: String, onResult: (JSONObject) -> Unit) {
-        runOnUiThread {
-            // O SERVIDOR PRIMEIRO, e o estado só liga se ele subiu: `ligar` a
-            // cessão sobre um servidor que não existe deixaria o anúncio no ar
-            // apontando para uma porta fechada, que é a falha muda deste
-            // caminho — o outro celular acha o aparelho e não conecta.
-            if (espelhoSrv?.ligado != true) {
-                subirServidor("") { estado ->
-                    if (estado.optBoolean("ligado", false)) {
-                        acervoPedido = true
-                        ligarCessao(rotulo)
-                    }
-                    onResult(acervoJson(estado.optString("erro", "")))
-                }
-                return@runOnUiThread
-            }
-            acervoPedido = true
-            ligarCessao(rotulo)
-            onResult(acervoJson())
-        }
-    }
-
-    private fun ligarCessao(rotuloPedido: String) {
-        // O NOME DESTE APARELHO É RESOLVIDO AQUI, num ponto só. O web não tem
-        // como saber o modelo (`Build` é do shell), e cada lugar que
-        // improvisasse um nome genérico faria dois celulares chegarem ao outro
-        // lado como "Celular" — justamente na tela em que uma pessoa decide se
-        // autoriza a cópia.
-        val rotulo = rotuloPedido.ifBlank { nomeDesteAparelho() }
-        AcervoCessao.ligar(rotulo)
-        val porta = espelhoSrv?.estado()?.optInt("porta", 0) ?: 0
-        // O ANÚNCIO NÃO SAI AINDA, e esta é a correção do "medindo eterno": o
-        // índice varre o OPFS e leva segundos, e um anúncio com ZERO itens
-        // nunca se corrigia (ver [AcervoDescoberta.preparar]). Quem o põe na
-        // rede é o `acervoPublicar`, já com a contagem e o peso — e, com isso,
-        // este aparelho só aparece na lista do outro quando tem o que servir.
-        // O ENDEREÇO SERVIDO VAI NO ANÚNCIO (v1.8.12). Quem abriu o socket sabe
-        // onde abriu; sem dizê-lo, o outro celular dialava o que a resolução do
-        // mDNS calhasse de devolver, e num aparelho com dois IPv4 privados isso
-        // é uma moeda ao alto.
-        val ipServido = espelhoSrv?.estado()?.optString("ip", "").orEmpty()
-        AcervoDescoberta.preparar(this, porta, rotulo, ipServido)
-        espelhoDiag.registrar("cessao da biblioteca ligada (o anuncio espera a contagem)")
-    }
-
-    override fun acervoPararCessao() {
-        runOnUiThread {
-            acervoPedido = false
-            AcervoCessao.desligar()
-            AcervoDescoberta.pararAnuncio()
-            espelhoDiag.registrar("cessao da biblioteca desligada")
-            // O SERVIDOR SÓ CAI SE NINGUÉM MAIS O QUISER.
-            if (!telaoPedido) desmontarEspelho("o operador parou de ceder a biblioteca")
-        }
-    }
-
-    /**
-     * O `POST /acervo/par` do lado de quem CLONA — e ele sai do shell porque a
-     * página é `https` e o outro celular serve `http`: o navegador bloquearia a
-     * requisição antes de ela sair (ver [AcervoProxy]).
-     *
-     * Numa thread própria, e não numa das filas da ponte: é rede, e a fila de
-     * `io` é justamente onde uma requisição de rede não pode entrar (ver o
-     * KDoc das filas em [NativeBridge]).
-     */
-    override fun acervoParear(
-        endereco: String,
-        porta: Int,
-        rotulo: String,
-        onResult: (JSONObject) -> Unit,
-    ) {
-        // O VIGIA DO PEDIDO (v1.8.6). Os prazos do [pedirPar] somam 16 s, e mesmo
-        // assim o que chegou ao campo foi um `null` de PONTE — os 60 s do
-        // `CALL_TIMEOUT_MS` vencendo, isto é, alguma coisa aqui passou dos 16 s
-        // que esta função promete. Um `connectTimeout` não cobre tudo o que
-        // pode travar antes do primeiro byte, e o desfecho de não cobrir era o
-        // pior possível: a página esperava um minuto e recebia NADA, sem uma
-        // palavra sobre onde parou.
-        //
-        // Resolver duas vezes é inofensivo — o `call()` do `native.js` apaga a
-        // entrada pendente na primeira —, então o vigia pode ser burro.
-        val respondido = java.util.concurrent.atomic.AtomicBoolean(false)
-        relogioDoPar.postDelayed({
-            if (respondido.compareAndSet(false, true)) {
-                runOnUiThread {
-                    onResult(
-                        JSONObject().put("estado", "erro")
-                            .put("erro", "o pedido a $endereco:$porta travou sem resposta (40s)"),
-                    )
-                }
-            }
-        }, 40_000)
-        thread(name = "av-acervo-par", isDaemon = true) {
-            val r = pedirPar(endereco, porta, rotulo)
-            if (!respondido.compareAndSet(false, true)) return@thread
-            if (r.optString("estado") == "pareado") {
-                // O VENCEDOR, e não o pedido: ver o `put("host", alvo)` do
-                // [pedirPar]. Ausente (um shell que não o preencheu), cai no
-                // que foi pedido, que é o comportamento de antes.
-                val vencedor = r.optString("host").ifBlank { endereco }
-                AcervoProxy.apontar(vencedor, porta, r.optString("token"))
-                espelhoDiag.registrar("clone: pareado com $vencedor:$porta")
-            }
-            // O TOKEN NÃO VOLTA PARA O WEB. Ele é a credencial do outro
-            // aparelho e o proxy já o tem — mandá-lo à página seria pô-lo num
-            // lugar onde ele não precisa estar (a mesma regra do `/saf/`: a
-            // ponte entrega o que serve, não o segredo).
-            r.remove("token")
-            runOnUiThread { onResult(r) }
-        }
-    }
-
-    /** O nome deste aparelho, para o outro lado. Ponto ÚNICO — ver
-     *  [ligarCessao]. */
-    private fun nomeDesteAparelho(): String {
-        val marca = (android.os.Build.MANUFACTURER ?: "").trim()
-        val modelo = (android.os.Build.MODEL ?: "").trim()
-        return when {
-            modelo.isEmpty() -> marca.ifEmpty { "Celular" }
-            // "Samsung SM-A546E" e não "samsung samsung SM-A546E": vários
-            // fabricantes já põem a marca no modelo.
-            marca.isEmpty() || modelo.startsWith(marca, ignoreCase = true) -> modelo
-            else -> marca.replaceFirstChar { it.uppercase() } + " " + modelo
-        }
-    }
-
-    /**
-     * O PEDIDO TENTA TODOS OS ENDEREÇOS DO APARELHO, e não só um (v1.8.12).
-     *
-     * O anúncio mDNS carrega os endereços por onde o aparelho RESPONDE; o
-     * servidor abre em UM, escolhido por ele. Quando os dois não coincidem — um
-     * celular com Wi-Fi e ponto de acesso ao mesmo tempo, uma VPN — o pedido
-     * chega a um endereço que existe e não escuta, e volta em ~2 s com
-     * `ConnectException`. MEDIDO em campo, em duas rodadas, com o aparelho
-     * LISTADO e o operador sem saída dentro do app.
-     *
-     * A fila vem do [AcervoDescoberta.enderecosDe]: o pedido na frente, os
-     * outros como reserva. **Só falha de CONEXÃO passa para o seguinte** —
-     * qualquer resposta HTTP (404, 409, o `aguardando`) é a resposta daquele
-     * aparelho e encerra a busca, senão um "recusado" viraria três pedidos e o
-     * operador veria a pergunta três vezes. Um endereço digitado à mão não está
-     * em achado nenhum e volta sozinho: uma tentativa, como sempre.
-     *
-     * O connect por tentativa cai de 8 s para [CONNECT_MS] justamente porque
-     * agora são várias: numa rede local um connect que vai dar certo leva
-     * milissegundos, e o que os segundos cobrem é o pacote sendo engolido.
-     * Pior caso: 3 × 5 s de connect mais um read de 8 s = 23 s, dentro do vigia
-     * de 40 s e dos 60 s da ponte.
-     */
-    private fun pedirPar(endereco: String, porta: Int, rotulo: String): JSONObject {
-        if (endereco.isBlank() || porta <= 0) {
-            return JSONObject().put("estado", "erro").put("erro", "endereco invalido")
-        }
-        val fila = try {
-            AcervoDescoberta.enderecosDe(endereco).take(TETO_ENDERECOS)
-        } catch (e: Exception) {
-            listOf(endereco)
-        }
-        var ultimo: JSONObject? = null
-        val tentados = StringBuilder()
-        for (alvo in fila) {
-            val r = pedirParEm(alvo, porta, rotulo)
-            // QUALQUER RESPOSTA ENCERRA — só a falha de conexão (o endereço que
-            // não escuta, o pacote engolido) autoriza o próximo da fila — E O
-            // ENDEREÇO QUE VENCEU VIAJA NA RESPOSTA. Sem a segunda metade a fila seria
-            // pior que endereço nenhum: pareando pelo SEGUNDO, o proxy seria
-            // apontado para o PRIMEIRO — o que não escuta — e tudo depois do
-            // "pareado" morreria no mesmo lugar que a v1.8.10 acabou de tirar.
-            if (r.optString("estado") != "erro" || !ehFalhaDeConexao(r.optString("erro"))) {
-                return r.put("host", alvo)
-            }
-            if (tentados.isNotEmpty()) tentados.append(" · ")
-            tentados.append(alvo).append(" ").append(r.optString("erro").take(48))
-            ultimo = r
-        }
-        // A FRASE NOMEIA O QUE FOI TENTADO, porque o operador NÃO LÊ O REGISTRO
-        // — o que ele vê é esta frase. Sem os endereços ela não distingue "não
-        // achei ninguém" de "achei, e nenhum dos endereços dele escuta".
-        val base = ultimo ?: JSONObject().put("estado", "erro").put("erro", "sem endereco")
-        if (fila.size > 1) base.put("erro", "tentei " + fila.size + " endereços — " + tentados)
-        return base
-    }
-
-    /** Quantos endereços de um mesmo aparelho valem a pena tentar. Teto e não a
-     *  lista inteira: o prazo da ponte são 60 s, e cada tentativa custa até
-     *  [CONNECT_MS] de connect mais o read. */
-    private val TETO_ENDERECOS = 3
-
-    /** O connect de UMA tentativa. Numa rede local o que vai dar certo leva
-     *  milissegundos; estes segundos cobrem o pacote engolido. */
-    private val CONNECT_MS = 5_000
-
-    /** A falha que autoriza tentar o PRÓXIMO endereço: nada respondeu, ou
-     *  respondeu recusando. Uma resposta HTTP nunca passa por aqui. */
-    private fun ehFalhaDeConexao(erro: String): Boolean =
-        erro.startsWith("ConnectException") || erro.startsWith("SocketTimeoutException") ||
-            erro.startsWith("NoRouteToHostException") || erro.startsWith("UnknownHostException") ||
-            erro.startsWith("SocketException")
-
-    private fun pedirParEm(endereco: String, porta: Int, rotulo: String): JSONObject {
-        var conn: java.net.HttpURLConnection? = null
-        // QUANTO DEMOROU ENTRA NA FRASE. O prazo da PONTE são 60 s, e os desta
-        // requisição somam 16 — mas foi um `null` de ponte que chegou ao campo,
-        // isto é, alguma coisa aqui passou de 60 s. Sem o número não há como
-        // separar "o connect estourou os 8 s" de "ficou preso muito além do que
-        // estes timeouts prometem", e as duas pedem consertos opostos.
-        val comecou = android.os.SystemClock.elapsedRealtime()
-        fun quanto() =
-            " após " + ((android.os.SystemClock.elapsedRealtime() - comecou) / 1000.0) + "s"
-        return try {
-            val corpo = JSONObject()
-                .put("rotulo", rotulo.ifBlank { nomeDesteAparelho() })
-                .toString().toByteArray(Charsets.UTF_8)
-            conn = (java.net.URL("http://$endereco:$porta/acervo/par").openConnection()
-                as java.net.HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = CONNECT_MS
-                readTimeout = 8_000
-                doOutput = true
-                instanceFollowRedirects = false
-                setRequestProperty("Content-Type", "application/json")
-                setFixedLengthStreamingMode(corpo.size)
-            }
-            conn.outputStream.use { it.write(corpo) }
-            val codigo = conn.responseCode
-            val texto = (if (codigo >= 400) conn.errorStream else conn.inputStream)
-                ?.use { String(it.readBytes(), Charsets.UTF_8) }.orEmpty()
-            val json = try { JSONObject(texto) } catch (e: Exception) { JSONObject() }
-            // O 404 É "ESTE APARELHO NAO ESTA CEDENDO", e ele merece frase
-            // própria: o anúncio mDNS sobrevive alguns segundos ao desligar,
-            // então tocar num aparelho que acabou de parar é o caso comum.
-            if (!json.has("estado")) {
-                json.put("estado", if (codigo == 404) "nao-cede" else "erro")
-                if (codigo != 404) json.put("erro", "HTTP $codigo" + quanto())
-            }
-            json
-        } catch (e: Exception) {
-            JSONObject().put("estado", "erro")
-                .put("erro", e.javaClass.simpleName + ": " + (e.message ?: "") + quanto())
-        } finally {
-            conn?.disconnect()
-        }
-    }
-
-    override fun acervoEstado(onResult: (JSONObject) -> Unit) {
-        runOnUiThread {
-            val o = JSONObject()
-                .put("cessao", AcervoCessao.estadoJson())
-                .put("endereco", espelhoSrv?.estado()?.optString("url") ?: "")
-                .put("porta", espelhoSrv?.estado()?.optInt("porta", 0) ?: 0)
-                .put("pareado", AcervoProxy.apontado)
-                .put("proxy", AcervoProxy.diario)
-                .put("descoberta", AcervoDescoberta.estadoJson())
-                .put("achados", AcervoDescoberta.achados())
-            onResult(o)
-        }
-    }
-
-    private fun acervoJson(erro: String = ""): JSONObject = JSONObject()
-        .put("cedendo", AcervoCessao.cedendo)
-        .put("endereco", espelhoSrv?.estado()?.optString("url") ?: "")
-        .put("porta", espelhoSrv?.estado()?.optInt("porta", 0) ?: 0)
-        .put("erro", erro)
 
     // ---------- fullscreen HTML5 ----------
 

@@ -42,7 +42,7 @@ sai a escada da transmissão, e a faixa de álbum que nunca é marcada como NO A
 —, e é arquivo para esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
-subsistema do shell, mais a tabela que diz onde cada um dos 34 arquivos é
+subsistema do shell, mais a tabela que diz onde cada um dos 31 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede — inclusive o celular como PONTO DE ACESSO, que
@@ -206,25 +206,7 @@ app/src/main/
 │   │                            #   que não é um `Network` e não aparece no
 │   │                            #   ConnectivityManager
 │   ├── EspelhoCert.kt           # o .p12 do TLS opcional (sem UI desde a v5.196)
-│   ├── EspelhoDiag.kt           # o DIÁRIO da transmissão — devolve JSON, não frase
-│   │                            # ↓ O CLONE PELA REDE, REMOVIDO NO WEB (v1.8.16):
-│   │                            #   estes três esperam o lote do SHELL, que é
-│   │                            #   o que pede Release. Nada os chama hoje
-│   ├── AcervoDescoberta.kt      # os dois celulares se acham sozinhos (mDNS,
-│   │                            #   `NsdManager`). Sem dependência e sem
-│   │                            #   permissão nova. Três armadilhas fechadas: o
-│   │                            #   resolve SERIALIZADO (dois de uma vez dão
-│   │                            #   `FAILURE_ALREADY_ACTIVE` e o aparelho
-│   │                            #   simplesmente não aparece), o próprio
-│   │                            #   anúncio FILTRADO, e só IPv4 privado
-│   ├── AcervoCessao.kt          # quem CEDE: o pareamento COM confirmação do
-│   │                            #   operador — o acervo NÃO herda a porta
-│   │                            #   aberta do telão — e o índice publicado pelo
-│   │                            #   Controle. PURO (relógio injetado), com JUnit
-│   └── AcervoProxy.kt           # quem CLONA: a página é `https` e o outro
-│                                #   celular serve `http`. A faixa vai na QUERY
-│                                #   e a resposta é um 200 seco (invariante 8) —
-│                                #   o molde do StreamProxy
+│   └── EspelhoDiag.kt           # o DIÁRIO da transmissão — devolve JSON, não frase
 └── res/
     ├── drawable/                # ic_image{,_off} — a cortina, na notificação
     │                            #  + ic_stop — PARAR (o sistema não tem um)
@@ -259,7 +241,7 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**34 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**31 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -657,6 +639,22 @@ window.AVNative = {
                        //   falhou). Os acks por bloco já disseram "recebi"; é o
                        //   `flush`/`close` que descobre o cartão cheio
   pacoteCancelar(),    // fecha e APAGA o parcial. Síncrono, como o `ytCancel`
+  pacoteEspaco(),      // → bytes livres no armazenamento PRÓPRIO do app.
+                       //   NÚMERO, nunca veredito (invariante 5): quanta folga
+                       //   um pacote precisa é regra do `controle.js`, que sabe
+                       //   o tamanho medido e a frase a escrever. `0` = não deu
+                       //   para medir, e zero manda o fluxo para o SAF
+  pacoteCriarLocal(nome), // → o NOME, ou '': abre o pacote num arquivo do
+                       //   PRÓPRIO app. Mesma forma do `pacoteCriar` e COM
+                       //   prazo — aqui não há seletor, e ninguém está
+                       //   esperando uma pessoa
+  pacoteCompartilhar(),// → os BYTES gravados, ou -1: fecha o pacote local e o
+                       //   OFERECE pelo seletor de compartilhamento. O número
+                       //   volta ANTES de o seletor responder, e é de propósito
+                       //   — o desfecho de um chooser é uma pessoa escolhendo
+                       //   um app, e não há API que o entregue (a razão de o
+                       //   `compartilharTexto` ser síncrono). O que ele promete
+                       //   é o que sabe: os bytes que chegaram ao disco
   salvarTexto(nome, texto), // → o NOME gravado, ou '' (desistiu ou falhou): o
                        //   "Salvar como" do sistema (SAF `CREATE_DOCUMENT`),
                        //   com o shell ESCREVENDO o texto. Existe porque o
@@ -674,7 +672,7 @@ window.AVNative = {
                        //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
-São **55 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **58 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -742,7 +740,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **66**, e ele é o **PISO**: o bundle declara `minShell: 66`, então
+Hoje vale **67**, e ele é o **PISO**: o bundle declara `minShell: 67`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -755,7 +753,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 66 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 67 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -817,7 +815,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 66`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 67`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -2784,6 +2782,43 @@ arquivo diretamente de um smartphone para o outro é extremamente útil"*.
  └────────────────────────────┘                 └───────────────────────┘
 ```
 
+**E EXPORTAR ABRE O COMPARTILHAMENTO, NÃO O SELETOR DE ARQUIVOS** (v1.8.17).
+Pedido do operador: *"Ajuste para que o processo de exportar e importar seja o
+mais automático possível: como esportar direto para o compartilhar."* O pacote
+existe para atravessar de um celular para o outro, e quem o atravessa é o Quick
+Share — pelo seletor de arquivos isso são QUATRO passos (salvar → abrir o
+gerenciador → achar o arquivo → compartilhar); direto, é UM.
+
+- **O QUE DECIDE É O ESPAÇO, e a decisão é do WEB.** Compartilhar escreve uma
+  SEGUNDA cópia do acervo em `files/pacote/`, e um acervo de quinze gigabytes
+  não cabe. O shell responde `pacoteEspaco()` — um NÚMERO — e mais nada; quem
+  compara com o tamanho MEDIDO e escolhe é o `controle.js`. Um
+  `podeCompartilhar(bytes)` em Kotlin envelheceria à parte da regra.
+- **A FOLGA É DO APARELHO, não do pacote** (`PACOTE_FOLGA_BYTES`, 512 MB). Um
+  Android sem espaço não devolve um erro claro: ele quebra o IndexedDB, o
+  WebView e a projeção, cada um do seu jeito. Encher o aparelho para exportar
+  uma biblioteca é o oposto do que o botão promete.
+- **O CAMINHO DO SAF CONTINUA DE PÉ**, e é ele que atende justamente o aparelho
+  que MAIS precisa exportar — o do acervo grande, que não tem espaço para a
+  segunda cópia. Lá o operador escolhe o cartão. É a reversão que o oráculo
+  cobra: sem ela, apagar o caminho antigo passaria em tudo o mais.
+- **A FRASE SEGUE O CAMINHO**, porque as duas pedem ações diferentes: no
+  compartilhar o seletor JÁ ESTÁ na frente do operador e o que falta é o que
+  fazer do outro lado; no SAF o que falta é ACHAR o arquivo, e aí o NOME dele é
+  o que importa.
+- **A FAXINA RODA NA PORTA da exportação seguinte E no `onCreate`**, nunca
+  depois de compartilhar: o arquivo tem de SOBREVIVER ao seletor (quem o lê é
+  outro app, no tempo dele). Os dois pontos existem porque um só não basta — a
+  porta não alcança quem exporta uma vez, e o lançamento não alcança quem
+  exporta duas vezes seguidas.
+- **`files/` e não `cache/`**: o sistema esvazia o cache quando quer, e o
+  arquivo precisa durar entre o seletor abrir e o outro app terminar de lê-lo.
+  Ele sai do backup nos DOIS arquivos de regra, e é exposto por um
+  `FileProvider` com autoridade PRÓPRIA (`${applicationId}.pacote`) — a do APK
+  é outra, e juntá-las faria um `<paths>` só expor as duas raízes de uma vez.
+
+Oráculo: `tools/pacote-compartilhar.test.mjs`, com as quatro reversões medidas.
+
 **E O LEITOR NUNCA TEM O ARQUIVO NA MÃO** (v1.7.9). Ele teve, da v1.7.0 até
 aqui — `resp.blob()` —, e não sobreviveu ao tamanho: quinze gigabytes não cabem
 nem na memória nem no armazenamento de blobs, que é uma SEGUNDA cópia ao lado da
@@ -3932,7 +3967,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
 | Download minimizado | a aba continua baixando | **foreground service + wake lock**; sem isso o processo é congelado |
-| **Levar a biblioteca para outro aparelho** | **não existe** (não há SAF nem canal de bytes: um `<a download>` sobre um Blob de gigabytes não é caminho) | **um arquivo `.avpkg`** (shell 63) — ver a seção do recurso. Exportar abre o "Salvar como" do sistema e empurra os bytes pelo canal `__avPacote`; importar entra por `pickDoc` e lê o arquivo por JANELAS (`/saf/<token>?r=<ini>-<fim>`, shell 64) — nunca inteiro, porque o caminho `/saf/` tem teto de 2 GB e um `resp.blob()` de quinze gigabytes não cabe em lugar nenhum. **Só ACRESCENTA**: nada que já esteja no aparelho é substituído |
+| **Levar a biblioteca para outro aparelho** | **não existe** (não há SAF nem canal de bytes: um `<a download>` sobre um Blob de gigabytes não é caminho) | **um arquivo `.avpkg`** (shell 63) — ver a seção do recurso. Exportar abre direto o SELETOR DE COMPARTILHAMENTO (shell 67), que é por onde ele de fato atravessa (Quick Share): o pacote é escrito no armazenamento próprio e oferecido ali. Não cabendo — a conta é `espaco − bytes > 512 MB`, feita pelo WEB —, ele volta ao "Salvar como" do sistema, que é o caminho do cartão. Nos dois, os bytes vão pelo canal `__avPacote`; importar entra por `pickDoc` e lê o arquivo por JANELAS (`/saf/<token>?r=<ini>-<fim>`, shell 64) — nunca inteiro, porque o caminho `/saf/` tem teto de 2 GB e um `resp.blob()` de quinze gigabytes não cabe em lugar nenhum. **Só ACRESCENTA**: nada que já esteja no aparelho é substituído |
 | **Compartilhar o link do app** | `navigator.share`, onde o navegador o tiver | **`compartilharTexto`** (shell 63) → `ACTION_SEND` + `createChooser`. O WebView do Android **não** implementa a Web Share API, então este era o único caminho — e sem ele não havia, de dentro do app, forma nenhuma de passá-lo adiante |
 | Abertura do app | a página pisca igual, e ninguém tem o que fazer a respeito | **a CORTINA** (`#splash`) mais o `data-tema` escrito no `<head>` antes do primeiro quadro. O prazo que a levanta mora no mesmo script inline, e não no `controle.js`: um bundle que nem chega a ser parseado tem de terminar com o app À VISTA |
 | Atualização da base web | recarregar a página | **OTA** |
@@ -4386,6 +4421,7 @@ mundo anterior por outro caminho.
 | `deslize-nao-vaza.test.mjs` | **O DESLIZE DA BÍBLIA NÃO VAZA DA FOLHA** (v1.8.4). A navegação dentro da Bíblia é um `translateX(±100%)` no `#bibleBody`, e a `.tools-sheet` — um cartão com fundo, raio e sombra — não recortava nada: MEDIDO, **47,7px** de grade e ladrilhos pintando por cima do Cronograma em volta. **Ele existe à parte do `geometria.test.mjs` por duas razões de método, e as duas valem para o próximo oráculo de animação**: aquele ASSENTA o movimento antes de medir (e tem de assentar — uma folha medida no meio devolve uma caixa que não existe), então um defeito que só existe DURANTE o movimento nasce fora do alcance dele; e **geometria não responde a esta pergunta**, porque `overflow: hidden` recorta a PINTURA e não o layout — com a correção aplicada o `getBoundingClientRect` de cada ladrilho continua 47,6px fora da folha, e antes e depois medem IDÊNTICO (foi assim que a primeira tentativa do arquivo "reprovou" a correção certa). A régua é o PIXEL: cores distintas na moldura entre a folha e o `<main>` — **9** em repouso e com a correção, **59** sem ela. A espera é de RELÓGIO e não tem como não ser (o alvo é o meio de uma animação), mas ela só erra para o LADO SEGURO: amostra fora do movimento devolve o resultado do repouso, isto é, passa. Cobre os dois sentidos, com a prova viva NOMEADA (a volta), mais a metade que impede o conserto largo demais — os 66 livros continuam desenhados e dentro da folha |
 | `configuracoes-sem-subtitulo.test.mjs` | **as Configurações sem a palavra do estado** (v1.7.2). A segunda linha de cada tile saiu a pedido do operador, e a razão de ela existir era real — *um ícone sozinho responde por CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por semana* —, então o que este oráculo prende não é a remoção: é a informação ter MUDADO DE CANAL. Um tile cujo estado não vira desenho fica idêntico nos dois estados, sem erro e sem sintoma. Mede o giro pela matriz COMPUTADA do ícone (uma regra de CSS ausente deixa o `data-estado` certo e o desenho parado), o wallpaper pelo `display` de cada `<use>` do par novo — **com o tile continuando ACESO nos dois estados**, senão o conserto barato é apagá-lo, e apagado neste app quer dizer INDISPONÍVEL —, e o rótulo do modo em DUAS larguras, pelo número de retângulos de cliente ("Modo avançado" quebrado em duas linhas tem dois, e `scrollWidth` de um inline que quebra não denuncia nada). **Assentar é `getAnimations()` + `finished`**: o ícone GIRA, e uma leitura por relógio mede a transição no meio (MEDIDO: `matrix(0.80, 0.59, …)` a 60 ms, que não é ângulo nenhum). **E o que a v1.7.7 acrescentou ao bloco do giro**: a COR igual nas três posições que ele já tinha na mão (a 0° ele era o único tile apagado da grade, e as outras duas provam que a igualdade não veio de ele ter apagado em todas), e o SÍMBOLO ser o `#icoPaisagem` — a asserção da matriz passa com qualquer desenho, inclusive a seta circular que saiu |
 | `pacote-por-grupos.test.mjs` | **a exportação por grupos, e o 0%** (v1.7.2; a folha AGRUPADA e o feedback no BOTÃO entraram na v1.7.3 — o percentual é lido do `.qs-titulo` por um `MutationObserver`, porque um estado final não distingue "andou de 0 a 100" de "pulou para o fim", e há asserção para o rótulo VOLTAR e para o cartão da preview NÃO entrar em cena). Três coisas falham CALADAS. (1) O **LOTE**: cada bloco do canal é uma ida e volta, e ela custa o mesmo para 50 bytes e para 512 kB — a Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e a versão anterior mandava um bloco por cabeçalho e um por corpo. A semente imita isso (400 chaves e nada mais) e a asserção é o número de blocos. (2) O **PROGRESSO** naquela fase, que não era reportado nem somado no plano — a régua é o percentual do CARTÃO no fim, e não o `done` da notificação: `> 0` passa só com o cabeçalho humano (MEDIDO ao escrever o arquivo), e o `done` emitido mede o freio de 700 ms, não o app. (3) A **ESCOLHA** cortar bytes de verdade, com o catálogo seguindo os bytes — um registro de `files` sem o arquivo dele é uma faixa que aparece na Biblioteca do destino e não toca. Cinco reversões nomeadas |
+| `pacote-compartilhar.test.mjs` | **exportar direto para o compartilhar** (v1.8.17), e as três metades falham CALADAS. A ESCOLHA DO DESTINO é uma conta (espaço livre × tamanho medido), e errá-la não produz erro nenhum: caindo sempre no SAF o recurso não existe e ninguém sabe por quê; caindo sempre no local o app tenta escrever quinze gigabytes num aparelho que não os tem, e o Android não devolve uma falha clara — ele quebra o IndexedDB, o WebView e a projeção, cada um do seu jeito. O FECHO é a metade que um teste de *"exportou?"* aprova nas duas versões: `pacoteFechar` e `pacoteCompartilhar` devolvem o MESMO número, então o método errado produz o mesmo diálogo, o mesmo tamanho e o mesmo tile — e o arquivo local nunca chega ao seletor; só a CHAMADA distingue. E a FRASE, porque as duas pontas pedem ações opostas (o seletor já na frente × achar o arquivo depois). A quarta é a REVERSÃO que fecha o lote: **o SAF continua de pé** — sem ela, apagar o caminho antigo passaria em tudo o mais, e o aparelho que MAIS precisa exportar é exatamente o que não tem espaço para a segunda cópia. Quatro reversões medidas |
 | `abertura-e-transferencia.test.mjs` | **a CORTINA que não pode ficar no ar**, no cenário catastrófico: o `controle.js` abortado pela rota, o tema guardado já no `<html>` (quem o escreveu foi o script do `<head>`) e a cortina levantando pelo PRAZO — sem isso o app fica trancado, e não há erro em lugar nenhum. Mais a saída por REMOÇÃO DO NÓ, medida por hit-test (uma camada `opacity: 0` sobre a tela inteira continua recebendo o toque). E a BADGE: as TRÊS casas dizem o mesmo número, nenhuma escreve "Web"/"Shell" — **e o REGISTRO continua trazendo o índice do shell**, que é a metade que impede o conserto largo demais. Mais o bloco "Este aparelho", com a reversão (sem ponte ele não existe) |
 | `boot-nativo.test.mjs` | **A GAVETA DE DETALHE DE UM VÍDEO** (v1.5.21), nas duas metades que só juntas dizem a regra: com o dado, o card ABRE pela identidade e as quatro linhas saem na ORDEM DO DOM (uma asserção do tipo *"o texto contém o canal?"* aprovaria o canal desenhado embaixo do estado no aparelho); sem ele — um ÍNDICE ANTIGO, a janela real entre o OTA chegar e a varredura refazer a lista —, a linha ausente SOME e não sobra "undefined" em lugar nenhum. Provado por reversão: desenhando SEMPRE, o card sai com `Título: undefined`. E o `serie.test.mjs` não cobre isto — ele prende a REGRA, este prende a LIGAÇÃO, que falha com a regra certa e o card mudo. Mais **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? **E a LIGAÇÃO da regra das coletâneas** (v1.5.16): o `coletanea.test.mjs` prende a REGRA, este prende o fio até a tela, que falha de outro jeito — a regra continua certa e o recurso não faz nada. São DOIS consumidores do mesmo resultado (o laço que desenha as seções e o `claimed` dos órfãos), e ligar só um devolve *"Outros álbuns"*. **Os nomes das seções do fixture de rolagem viraram neutros no mesmo lote**: três eram os nomes REAIS do banco, e com a regra no ar aquele cenário montava CINCO seções onde o texto diz seis — MEDIDO, com a asserção VERDE, medindo outra coisa |
 | `display-smoke.mjs` | **o TELÃO** — a metade que roda na frente da congregação, e a que menos rede de segurança tem (o watchdog do OTA não a valida). Viewport fixo em 961×540, explicitamente. Trava o endereçamento do reenvio de cena |
@@ -4484,10 +4520,7 @@ durante todo culto com Miracast), `TrilhaAudioTest`
 (qual trilha de áudio vai ao telão — o defeito mais silencioso deste caminho:
 tudo funciona, e o testemunho está em inglês na frente da congregação; doze casos
 **em pares**, o que a regra passou a recusar e o que ela não pode ter recusado
-junto) e `AcervoCessaoTest` (a máquina de estados do PAREAMENTO DO CLONE, que
-decide quem pode copiar o acervo inteiro deste aparelho — daí o `AcervoCessao`
-ter sido mantido sem Android no caminho que ela percorre: relógio injetado,
-base64 escrito à mão, parse do índice na ponte).
+junto).
 
 **Duas regras de método que ficam:**
 
@@ -4915,9 +4948,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.16 · APK v1.8.12** · `SHELL_VERSION` **66** ·
-bundle com `minShell: 66` e **sem `shellTag`** (lote só de web) — o shell 66 é o **PISO**:
-todo método da ponte existe, e não há guarda de versão no lado web.
+**Versão atual: base web v1.8.17 · APK v1.8.17** · `SHELL_VERSION` **67** ·
+bundle com `minShell: 67` e **`shellTag: "v1.8.17"`** (lote COM Release) — o
+shell 67 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
+lado web.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
 > oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
@@ -4956,18 +4990,37 @@ todo método da ponte existe, e não há guarda de versão no lado web.
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
 
-**O QUE O LOTE TRAZ — o clone pela rede saiu, e o que o derrubou foi uma
-MEDIÇÃO e não um defeito:**
+**O QUE O LOTE TRAZ — o corte do SHELL, e exportar direto para o
+compartilhar:**
 
 | peça | onde |
 |---|---|
-| ~1.140 linhas do clone, e o bloco dele no Registro | `controle/controle.js` |
-| os dois tiles e os dois símbolos | `controle/index.html` |
-| os oito métodos `acervo*` | `shared/native.js` |
-| a regra pura (`itensQueFaltam`, `CLONE_TIPOS`) | `controle/pacote.js` |
-| os dois oráculos de ligação e as duas linhas do workflow | `tools/` · `.github/workflows/apk.yml` |
+| os três arquivos do clone e o JUnit dele | `AcervoCessao.kt` · `AcervoProxy.kt` · `AcervoDescoberta.kt` · `AcervoCessaoTest.kt` |
+| os oito métodos da ponte, as rotas `/acervo/` e o proxy | `NativeBridge.kt` · `MainActivity.kt` · `EspelhoServidor.kt` · `WebViewFactory.kt` |
+| o `usesCleartextTraffic`, que tinha UM consumidor | `AndroidManifest.xml` |
+| exportar abre o COMPARTILHAMENTO, e o SAF fica para quando não couber | `pacoteEspaco` · `pacoteCriarLocal` · `pacoteCompartilhar` (shell 67) |
+| o `FileProvider` próprio, a faxina e as exclusões de backup | `${applicationId}.pacote` · `pacote_paths.xml` · os DOIS xml de regra |
 
-> **~210 KB/s É O TETO, E ELE É ARQUITETURAL.** Decisão do operador: *"remova
+> **EXPORTAR DIRETO PARA O COMPARTILHAR** (v1.8.17). Pedido do operador, no
+> mesmo pedido que tirou o clone: *"Ajuste para que o processo de exportar e
+> importar seja o mais automático possível: como esportar direto para o
+> compartilhar."* O pacote existe para atravessar de um celular para o outro, e
+> quem o atravessa é o Quick Share — pelo seletor de arquivos isso são QUATRO
+> passos, e direto é UM. Ver "O pacote de transferência" para as decisões (a
+> conta do espaço, a folga de 512 MB, os dois pontos de faxina, e por que o SAF
+> continua de pé).
+
+> **O `usesCleartextTraffic` SAIU, e a ausência dele é uma decisão.** Ele
+> existiu da v1.8.9 à v1.8.16 por UM consumidor: o clone, que PEDIA a outro
+> celular em `http://`. Sem ele, este app não tem mais nenhum tráfego HTTP de
+> SAÍDA — OTA, YouTube e cifra são todos `https`. **A transmissão não precisa
+> dele porque ela SERVE**, e tráfego de ENTRADA não passa por essa política: foi
+> essa assimetria que manteve o defeito da v1.8.9 invisível por nove lotes, e é
+> ela que torna a remoção segura. Reintroduzi-lo exige um consumidor NOMEADO —
+> ele afrouxa a política do app INTEIRO.
+
+> **UM LOTE ANTERIOR (v1.8.16) — ~210 KB/s É O TETO, E ELE É ARQUITETURAL.**
+> Decisão do operador: *"remova
 > todas as funções do modo de conectar e ceder a biblioteca. esse modo ficou
 > inviável e ineficaz. Vamos nos focar nos métodos de exportar e importar."*
 > Os seis lotes de conserto (v1.8.10 a v1.8.15) pegaram causas de VERDADE e a
@@ -4982,12 +5035,10 @@ MEDIÇÃO e não um defeito:**
 > app pelo seletor de compartilhamento — isto é, pelo Quick Share, exatamente a
 > tecnologia contra a qual o clone mediu centenas de vezes pior.
 >
-> **O CORTE DO WEB VEM PRIMEIRO, e a ordem é de propósito.** Um APK que ainda
-> serve oito métodos que ninguém chama é inofensivo; o contrário — a base web
-> nova contra um APK sem eles — seria o `call()` vencendo os 60 s. Este lote é
-> só web e não precisa de `shellTag`; o do SHELL (`AcervoCessao.kt`,
-> `AcervoProxy.kt`, `AcervoDescoberta.kt`, as rotas `/acervo/` e o
-> `usesCleartextTraffic`) é o seguinte, e é o que pede Release.
+> **O CORTE DO WEB VEIO PRIMEIRO, e a ordem foi de propósito.** Um APK que
+> ainda serve oito métodos que ninguém chama é inofensivo; o contrário — a base
+> web nova contra um APK sem eles — seria o `call()` vencendo os 60 s. Aquele
+> lote foi só web e sem `shellTag`; o do SHELL é a v1.8.17, com Release.
 
 > **UM LOTE ANTERIOR (v1.8.9) — o `cloneMeuRotulo` que nunca existiu, e o
 > `usesCleartextTraffic`.** O TELÃO SERVE; O CLONE PEDIA — e só o segundo

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  O ÚNICO caminho exposto é o do pacote a compartilhar, e ele mora em
+  `files/pacote/`.
+
+  `<files-path>` e não `<cache-path>`: o sistema esvazia o cache quando quer, e
+  o arquivo precisa sobreviver ao intervalo entre o seletor abrir e o outro app
+  terminar de lê-lo. Um `path` de raiz exporia o diretório do bundle OTA, que é
+  CÓDIGO rodando no origin privilegiado — daí o subdiretório, criado e limpo
+  pela própria MainActivity.
+-->
+<paths>
+  <files-path name="pacote" path="pacote/" />
+</paths>

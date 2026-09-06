@@ -475,6 +475,7 @@ jobs:
           rodar tools/abertura-e-transferencia.test.mjs
           rodar tools/pacote-ida-e-volta.test.mjs
           rodar tools/pacote-por-grupos.test.mjs
+          rodar tools/pacote-compartilhar.test.mjs
           rodar tools/configuracoes-sem-subtitulo.test.mjs
           rodar tools/linha-da-preparacao.test.mjs
           rodar tools/miniaturas-estaveis.test.mjs

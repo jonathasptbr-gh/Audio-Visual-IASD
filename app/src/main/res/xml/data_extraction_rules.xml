@@ -18,7 +18,12 @@
         não tem como ser reconstruída sozinha. Perdê-la ao trocar de aparelho
         custa reemitir e reimportar, que é exatamente o custo certo: ela sai dos
         DOIS destinos, inclusive da transferência direta.
-     3. `app_webview/` é IndexedDB/OPFS — a biblioteca do app (Cronograma,
+     3. `files/pacote/` é o `.avpkg` que espera o seletor de compartilhamento
+        (shell 67). Ele é uma CÓPIA do que os itens 3 e 4 já cobrem, com o
+        tamanho do acervo inteiro, e existe por minutos — restaurá-lo noutro
+        aparelho seria carregar gigabytes de um arquivo temporário que ninguém
+        vai importar. A faxina do próprio app o apaga no lançamento seguinte.
+     4. `app_webview/` é IndexedDB/OPFS — a biblioteca do app (Cronograma,
         pastas sincronizadas, hinos do LouvorJA, Bíblia baixada), que passa
         facilmente de gigabytes.
 
@@ -35,6 +40,7 @@
         <exclude domain="sharedpref" path="web-ota.xml" />
         <exclude domain="file" path="espelho-tls" />
         <exclude domain="sharedpref" path="espelho-tls.xml" />
+        <exclude domain="file" path="pacote" />
         <exclude domain="root" path="app_webview" />
     </cloud-backup>
     <device-transfer>
@@ -42,5 +48,6 @@
         <exclude domain="sharedpref" path="web-ota.xml" />
         <exclude domain="file" path="espelho-tls" />
         <exclude domain="sharedpref" path="espelho-tls.xml" />
+        <exclude domain="file" path="pacote" />
     </device-transfer>
 </data-extraction-rules>
