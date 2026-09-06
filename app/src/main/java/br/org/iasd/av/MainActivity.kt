@@ -1251,8 +1251,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 // O ARQUIVO FICA, e é isso que salva o lote: ele continua
                 // PRONTO, e o toque seguinte tenta de novo.
                 Log.w(TAG, "nada recebeu o pacote compartilhado", e)
-                pacoteUltimoEnvio = "o seletor recusou: "
-                    + (e.javaClass.simpleName) + " — " + (e.message ?: "sem mensagem")
+                pacoteUltimoEnvio = "o seletor recusou: " +
+                    e.javaClass.simpleName + " — " + (e.message ?: "sem mensagem")
                 onResult(-1L)
                 return@runOnUiThread
             }
@@ -1280,8 +1280,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
         val onde = if (alvo == null) "nenhum pacote pronto no shell" else {
             val existe = try { alvo.exists() } catch (e: Exception) { false }
             val tam = try { alvo.length() } catch (e: Exception) { -1L }
-            "pronto: " + alvo.name + " · no disco: " + (if (existe) "sim" else "NÃO")
-                + " · " + tam + " byte(s)"
+            "pronto: " + alvo.name + " · no disco: " + (if (existe) "sim" else "NÃO") +
+                " · " + tam + " byte(s)"
         }
         val prov = try {
             if (alvo == null) "" else
@@ -1289,9 +1289,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
         } catch (e: Exception) {
             " · uri: FALHOU (" + e.javaClass.simpleName + ": " + (e.message ?: "") + ")"
         }
-        return onde + prov
-            + "\n  fecho: " + (pacoteUltimoFecho.ifBlank { "nenhum nesta sessão" })
-            + "\n  envio: " + (pacoteUltimoEnvio.ifBlank { "nenhum nesta sessão" })
+        return onde + prov +
+            "\n  fecho: " + pacoteUltimoFecho.ifBlank { "nenhum nesta sessão" } +
+            "\n  envio: " + pacoteUltimoEnvio.ifBlank { "nenhum nesta sessão" }
     }
 
     override fun pacoteDescartarPronto() {
