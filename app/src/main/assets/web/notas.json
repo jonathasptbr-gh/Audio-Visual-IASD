@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.20",
+    "itens": [
+      "Tocar no botão pronto voltou a abrir o compartilhamento.",
+      "Refazer o pacote passou a perguntar antes de descartar o que estava pronto.",
+      "O Registro passou a contar o que a exportação preparou e o que o envio deu."
+    ]
+  },
+  {
     "versao": "1.8.19",
     "itens": [
       "O aviso de \"acervo exportado\" saiu: quem responde agora é o próprio botão.",
