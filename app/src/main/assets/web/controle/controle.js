@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.13';
+const WEB_VERSION = '1.8.14';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -22955,6 +22955,20 @@ async function pacoteBloco(c, ab) {
  * MESMO escritor nos dois — um segundo seria um segundo lugar para errar o
  * formato, e o formato é o que o outro aparelho vai ler.
  */
+/**
+ * QUANTOS BYTES UM CORPO TEM, e ele é a fonte ÚNICA dos dois escritores.
+ *
+ * `Uint8Array` responde `length`, `Blob` responde `size`, e qualquer outra
+ * coisa — um `undefined`, uma string, um valor antigo do banco — responde ZERO,
+ * que é o único número que mantém cabeçalho e corpo de acordo: nada é escrito,
+ * e o cabeçalho diz que nada foi escrito.
+ */
+function tamanhoDe(x) {
+  if (!x) return 0;
+  if (x instanceof Uint8Array) return x.length;
+  return Number.isInteger(x.size) && x.size > 0 ? x.size : 0;
+}
+
 function pacoteEscritor(enviar, aoAndar, parou) {
   const buf = new Uint8Array(PACOTE_BLOCO);
   let n = 0;
@@ -23007,10 +23021,22 @@ function pacoteEscritor(enviar, aoAndar, parou) {
       pos = fim;
     }
   }
-  /** Um registro inteiro: cabeçalho + corpo (opcional). */
+  /**
+   * Um registro inteiro: cabeçalho + corpo (opcional).
+   *
+   * O `bytes` DO CABEÇALHO SAI DO CORPO, sempre (v1.8.14). Ele vinha do
+   * chamador, e chamador e corpo decidiam por caminhos separados: `bytes:
+   * rec.thumb.size` sobre uma miniatura que não é um `Blob` dá `undefined`, e o
+   * corpo — que pergunta `x.size` — não escreve nada. O arquivo sai com um
+   * cabeçalho sem tamanho e o leitor para com "registro sem tamanho", que foi
+   * exatamente o que o campo mostrou. Aqui os dois não têm como discordar:
+   * quem responde é o mesmo `tamanhoDe`.
+   */
   async function registro(cab, body) {
     conferirParada();
-    await bytes(AVPacote.cabecalhoParaBytes(cab));
+    await bytes(AVPacote.cabecalhoParaBytes(
+      Object.assign({}, cab, { bytes: tamanhoDe(body) }),
+    ));
     await corpo(body);
   }
   return { registro, bytes, descarregar };
@@ -24319,9 +24345,15 @@ async function cloneCorpoDoItem(n) {
   const r = cloneReceitas[n];
   if (!r) return null;
   const partes = [];
+  // O TAMANHO SAI DO CORPO, pelo `tamanhoDe` que o escritor do pacote usa —
+  // uma resposta só para os dois caminhos. Ver o KDoc de `registro`: com o
+  // `bytes` vindo do chamador, um `rec.thumb` que não é `Blob` escrevia um
+  // cabeçalho `undefined` e nenhum corpo, e a cópia parava no item nº 7 com
+  // "registro sem tamanho" — MEDIDO em campo, duas vezes seguidas.
   const reg = (cab, corpo) => {
-    partes.push(AVPacote.cabecalhoParaBytes(cab));
-    if (corpo && corpo.size) partes.push(corpo);
+    const b = tamanhoDe(corpo);
+    partes.push(AVPacote.cabecalhoParaBytes(Object.assign({}, cab, { bytes: b })));
+    if (b) partes.push(corpo);
   };
   if (r.t === 'l') {
     const codificador = new TextEncoder();

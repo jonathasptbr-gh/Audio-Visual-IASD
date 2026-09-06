@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.14",
+    "itens": [
+      "A cópia entre celulares não para mais em itens com miniatura fora do padrão."
+    ]
+  },
+  {
     "versao": "1.8.13",
     "itens": [
       "A cópia entre celulares não para mais quando o aparelho que cede fica na mesa.",

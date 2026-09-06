@@ -318,6 +318,43 @@ try {
 
   // -------------------------------------------------------------------------
   // -------------------------------------------------------------------------
+  // O TAMANHO DO CABEÇALHO SAI DO CORPO (v1.8.14)
+  // -------------------------------------------------------------------------
+  // MEDIDO em campo, duas vezes seguidas e no MESMO item: a cópia parava com
+  // "pacote: registro sem tamanho" no nº 7. O `bytes` vinha do chamador
+  // (`bytes: rec.thumb.size`) e o corpo perguntava `x.size` por conta própria —
+  // sobre uma miniatura que não é um `Blob`, um escreve `undefined` e o outro
+  // não escreve nada. **O fluxo sai QUEBRADO e só o leitor descobre.**
+  const trechoTam = JS.match(/^function tamanhoDe\(x\)[\s\S]*?^}/m);
+  checar(!!trechoTam, 'consegui isolar o `tamanhoDe`');
+  const tam = await pg.evaluate(({ fonte }) => {
+    // eslint-disable-next-line no-new-func
+    const f = new Function(fonte + '\nreturn tamanhoDe;')();
+    return {
+      blob: f(new Blob([new Uint8Array(7)])),
+      u8: f(new Uint8Array(5)),
+      // O CASO DE CAMPO: um valor que não é corpo nenhum. Ele tem de dar ZERO,
+      // que é o único número que mantém cabeçalho e corpo de acordo.
+      texto: f('nao sou um blob'),
+      indefinido: f(undefined),
+      nulo: f(null),
+      objeto: f({ size: 'x' }),
+    };
+  }, { fonte: trechoTam ? trechoTam[0] : '' });
+  checar(tam.blob === 7 && tam.u8 === 5,
+    'um corpo de verdade responde o tamanho dele', JSON.stringify(tam));
+  checar(tam.texto === 0 && tam.indefinido === 0 && tam.nulo === 0 && tam.objeto === 0,
+    'e o que NÃO é corpo responde ZERO — nunca `undefined`, que é o cabeçalho '
+    + 'que o leitor recusa com "registro sem tamanho"', JSON.stringify(tam));
+  // AS DUAS PONTAS USAM A MESMA RESPOSTA. Ler cada lado isolado aprova os dois:
+  // o arquivo e a rede escrevem o mesmo formato, e um deles ficar para trás é o
+  // defeito de volta pela outra porta.
+  checar(/bytes: tamanhoDe\(body\)/.test(JS),
+    'o escritor do ARQUIVO tira o `bytes` do corpo');
+  checar(/const b = tamanhoDe\(corpo\);/.test(JS),
+    'e o da REDE também — um formato, uma resposta');
+
+  // -------------------------------------------------------------------------
   // CEDER É TRABALHO DE SEGUNDO PLANO (v1.8.13)
   // -------------------------------------------------------------------------
   // Quem RECEBE roda dentro de um `withBgWork` desde o primeiro lote; quem CEDE
