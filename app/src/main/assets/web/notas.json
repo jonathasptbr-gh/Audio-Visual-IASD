@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.13",
+    "itens": [
+      "A cópia entre celulares não para mais quando o aparelho que cede fica na mesa.",
+      "Uma cópia interrompida passou a dizer onde parou, na tela e no Registro."
+    ]
+  },
+  {
     "versao": "1.8.12",
     "itens": [
       "A cópia entre celulares acha o endereço certo sozinha, sem ninguém digitar nada.",

@@ -118,6 +118,9 @@
     // log que discorda do aparelho, lido a distância por quem não tem como
     // conferir.
     'clone-diario',
+    // E O RASTRO DA CÓPIA EM CURSO, pela mesma razão e um grau acima: ele
+    // descreve uma cópia DESTE aparelho que pode nem ter terminado.
+    'clone-parcial',
   ];
 
   /** A assinatura do arquivo, pronta para ser o primeiro bloco escrito. */
