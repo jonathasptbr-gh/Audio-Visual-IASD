@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.16",
+    "itens": [
+      "O modo de copiar a biblioteca pela rede saiu: ele era lento demais para servir.",
+      "Levar a biblioteca para outro celular passou a ser só pelo arquivo de pacote."
+    ]
+  },
+  {
     "versao": "1.8.15",
     "itens": [
       "A importação passou a recusar um arquivo que ainda estava sendo copiado.",

@@ -359,28 +359,18 @@ try {
     (g) => [...g.children].map((e) => e.id));
   const projecao = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow',
     'lyricsBgTile', 'rotBtn'];
-  // OS DOIS DO CLONE entraram nesta metade na v1.8.0: eles são o que se faz com
-  // o APP fora da projeção, exatamente como os três acima — e são a MESMA
-  // pergunta que exportar/importar ("como a biblioteca vai daqui para lá?")
-  // com a outra resposta.
-  const aparelho = ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile',
-    'cloneCederTile', 'cloneReceberTile'];
+  const aparelho = ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile'];
   checar(JSON.stringify(ordem) === JSON.stringify(projecao.concat(aparelho)),
     'as ações do APARELHO são as ÚLTIMAS da grade, e as da PROJEÇÃO as primeiras',
     JSON.stringify(ordem));
   // A COSTURA ENTRE AS DUAS NATUREZAS CAI NUMA BORDA DE FILEIRA, e é ISSO que a
-  // metade geométrica do pedido protege. A v1.7.6 media `ordem.length %
-  // cols === 0` — a última fileira CHEIA —, que era um atalho verdadeiro
-  // enquanto o grupo do aparelho tinha exatamente três tiles: com 6 + 3 as duas
-  // perguntas dão a mesma resposta.
-  //
-  // Elas se separaram na v1.8.0, quando o clone entrou com dois tiles. O que
-  // não pode acontecer continua não acontecendo: nenhuma fileira mistura uma
-  // preferência da projeção com uma ação do aparelho. O que passou a ser
-  // possível é a ÚLTIMA fileira ter um vão no fim, que é o que toda grade faz
-  // quando a lista não fecha — e ela não pode ser a costura, porque a costura
-  // está duas fileiras acima.
-  checar(projecao.length % grade.cols === 0,
+  // metade geométrica do pedido protege. São DUAS perguntas, e com 6 + 3 elas
+  // dão a mesma resposta — a v1.8.0 as separou ao entrar com dois tiles do
+  // clone, e a v1.8.16 as juntou de volta ao removê-lo. As duas ficam
+  // escritas: a de cima é a que o pedido faz (nenhuma fileira mistura uma
+  // preferência da projeção com uma ação do aparelho), a de baixo é a que o
+  // desenho de hoje também cumpre.
+  checar(projecao.length % grade.cols === 0 && ordem.length % grade.cols === 0,
     'e a costura entre as duas naturezas cai numa BORDA DE FILEIRA — um tile a '
     + 'mais na metade de cima a jogaria para o meio de uma linha',
     'tiles: ' + ordem.length + ' · colunas: ' + grade.cols);

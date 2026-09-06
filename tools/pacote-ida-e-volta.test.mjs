@@ -117,7 +117,7 @@ const PONTE = `(function () {
   };
   window.__avPacote = canal;
 
-  const vazio = { acervoEstado: { cessao: { cedendo: false }, achados: [], descoberta: {} }, displays: [], listFolder: [], otaPending: '', otaDiag: '',
+  const vazio = { displays: [], listFolder: [], otaPending: '', otaDiag: '',
     espelhoEstado: { ligado: false, telas: [], redes: [] }, espelhoDiag: {},
     castTarget: { label: '' }, apkProcurar: {}, ytDiag: '', cifraDiag: '',
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
@@ -126,7 +126,7 @@ const PONTE = `(function () {
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
     'ytDetalhes','micDiag','areaTransferencia','salvarTexto',
-    'acervoEstado','acervoCeder','acervoPublicar','acervoParear']);
+    ]);
   const B = {
     shellVersion: () => 63,
     role: () => 'controle',
@@ -172,8 +172,6 @@ const PONTE = `(function () {
     // nome, a chamada lança dentro do native.js. Uma ponte de mentira que não
     // conhece um método que o app chama é a divergência que este repositório já
     // pagou uma vez.
-    'acervoCeder','acervoPararCessao','acervoPublicar','acervoResponder',
-    'acervoProcurar','acervoParear','acervoSoltar','acervoEstado',
   ];
   for (const n of nomes) {
     if (B[n]) continue;
