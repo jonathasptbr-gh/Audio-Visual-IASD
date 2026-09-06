@@ -2964,16 +2964,35 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   id que já existe é pulado (`AVDB.mediaAdd` usa `add`, não `put`, e é a FALHA
   dele que vira "já está aqui"); um caminho de OPFS que já abre é pulado; uma
   chave de `state` que já existe só ganha o que não tinha — **união** nas listas
-  de ids, **mescla** nos mapas, e o LOCAL vence em tudo o mais. É essa promessa
-  que faz "importar de novo" ser inofensivo, que é o que de fato acontece quando
-  alguém não tem certeza se deu certo da primeira vez.
+  de ids, **mescla RECURSIVA** nos mapas, e o LOCAL vence nas FOLHAS. É essa
+  promessa que faz "importar de novo" ser inofensivo, que é o que de fato
+  acontece quando alguém não tem certeza se deu certo da primeira vez.
   - **A regra é por FORMA e não por nome de chave**: uma tabela de nomes
     envelheceria em silêncio a cada chave nova, e o modo de falhar dela seria o
     pior — uma chave desconhecida caindo no ramo errado e apagando o que o
     operador tem.
-  - **O preço, dito:** num aparelho que JÁ TEM biblioteca, as preferências do
-    pacote não entram. O caso de uso é o aparelho NOVO, em que nenhuma chave
-    existe e tudo atravessa.
+  - **A MESCLA DE MAPAS É RECURSIVA, e a rasa apagava o acervo inteiro**
+    (v1.8.23). `Object.assign({}, vindo, local)` decide a chave INTEIRA pelo
+    lado de cá: numa chave cujo conteúdo todo mora sob uma chave aninhada,
+    "mesclar" degenera em "o local vence inteiro". O caso é o índice de uma
+    coleção — `coll:<id> = { indexSyncedAt, songs: [{ …, fileIdFull }] }` —,
+    onde `songs` guarda o único PONTEIRO de cada faixa para o arquivo dela. O
+    destino já tem esse índice (o `autoRefreshCollections` o busca sozinho em
+    todo celular com internet) com `fileIdFull` vazio, então os bytes e os
+    registros do catálogo chegavam e **o que apontava para eles ia fora**: a
+    importação termina, o hino aparece na Biblioteca, e tocar nele vai à rede.
+    Descendo às folhas, `fileIdFull: null` cai na REGRA 1 e o de fora entra —
+    **o local não deixa de vencer, ele deixa de vencer com um BURACO.**
+  - **Uma lista de objetos é chaveada por `id` OU `id_music`**, e essa lista de
+    dois nomes é fechada de propósito: um campo especulativo ali faz uma lista
+    comum passar a ser mesclada por engano.
+  - **"NADA MUDOU" É DIZÍVEL POR IDENTIDADE**, e não é cosmética: quem decide se
+    ESCREVE é `depois !== antes`. Enquanto a mescla devolvia sempre um objeto
+    novo, toda chave de mapa era reescrita e contada — e a Bíblia mora em
+    `state` com uma chave POR CAPÍTULO (1189 por versão).
+  - **O preço, dito:** num aparelho que JÁ TEM biblioteca, uma preferência que
+    ele já escolheu não é trocada pela do pacote. O que a recursão acrescenta é
+    o VAZIO sendo preenchido, não o preenchido sendo substituído.
 - **A VARREDURA DO OPFS É DO DISCO, nunca do catálogo** (`AVDB.opfsTodosOsArquivos`).
   O download de uma coleção grava dois tipos de arquivo na mesma pasta: os
   áudios, que viram registro em `files`, e as IMAGENS DE FUNDO DA LETRA, que
@@ -3010,6 +3029,35 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   - **E o `size` vem do `pickDoc`** (shell 64). Sem ele não há como saber onde o
     arquivo acaba — e `-1` ("o provedor não disse") para a importação com frase
     própria, em vez de virar um zero que recusaria um pacote bom como vazio.
+- **A NOTIFICAÇÃO DA IMPORTAÇÃO MOSTRA A ETAPA E OS ITENS** (v1.8.23). Ela era
+  `bgTaskStart('Importando o acervo', 1)` com o NOME DO ARQUIVO como item único:
+  um trabalho de UM item, com uma linha que nunca trocava, e a CONFERÊNCIA — que
+  percorre o pacote inteiro pelos cabeçalhos e dura minutos — sem reportar nada.
+  Hoje o rótulo diz a ETAPA (*"Conferindo o pacote"* → *"Importando para a
+  Biblioteca"*), a conferência anda, e cada `media`/`arquivo` que entra passa o
+  NOME para a linha de baixo — que é o que o operador reconhece.
+  - **A RÉGUA CONTINUA EM BYTES**, e isso é decisão: o acervo tem 600 hinos de
+    megabytes ao lado de milhares de chaves minúsculas da Bíblia, então CONTAR
+    ITENS faria a barra saltar para 85% nas chaves e rastejar nos hinos — um
+    número que anda mais rápido e mente. O que o pedido quer é a LISTA.
+  - **Só `media` e `arquivo` têm nome de gente.** Um caminho de OPFS e uma chave
+    de `state` são endereços, e escrevê-los ali trocaria "005. Jubilosos Te
+    Adoramos" por "folders/hymnal-2022/5-cantado.mp3".
+  - **A FILA DE NOMES TEM TETO** (`BG_FILA_MAX`). Ela nasceu para um DOWNLOAD, em
+    que 6 trabalhadores entregam um item a cada segundos; uma importação produz
+    milhares de nomes em minutos contra um mostrado a cada `BG_SPIN_MIN`. Sem
+    teto a linha passa a mostrar o que entrou MINUTOS atrás — a sensação oposta
+    à que ela existe para dar. Quando a produção passa a exibição, o que se
+    descarta é o PASSADO.
+  - **Trocar de ETAPA recomeça a média e chega na hora** (`bgTaskStep`): o
+    rótulo é a mesma classe do primeiro nome e da troca de régua, e carregar o
+    tempo da etapa anterior faria a segunda nascer com o dobro do tempo restante.
+- **O QUE ERA PURO CUSTO SAIU DO CAMINHO** (v1.8.23) — e o que sobra é trabalho
+  real: copiar os bytes para o OPFS. Uma transação por chave de `state` em vez
+  de duas (havia um `getState` antes do `updateState` só para decidir se
+  contava, com a mescla calculada duas vezes); chave idêntica dos dois lados
+  deixa de ser reescrita; e o percentual do botão só toca o DOM quando o inteiro
+  muda — ele é chamado por REGISTRO, milhares de vezes num acervo.
 - **A importação termina em `location.reload()`, e isso é parte do recurso.** O
   `controle.js` lê o acervo UMA vez, no `init()`, e guarda listas e catálogos em
   variáveis de módulo; depois de uma importação todas estão desatualizadas, e
@@ -3195,7 +3243,11 @@ palavra "Conferindo…" parada — o achado da v1.8.13 repetido do outro lado.
 
 Oráculos: **`pacote.test.mjs`** (a REGRA — assinatura, cursor, recusas,
 saneamento, e o grupo de um caminho), **`pacote-ida-e-volta.test.mjs`** (a
-LIGAÇÃO — dois contextos de navegador, como dois celulares) e
+LIGAÇÃO — dois contextos de navegador, como dois celulares; é dele o bloco 12,
+que prende o PONTEIRO do índice de uma coleção chegando ao destino que JÁ TEM a
+coleção — o defeito da v1.8.23, que não tem sintoma nenhum na importação: ela
+termina, anuncia os itens, e o hino só falha ao TOCAR —, e o bloco 13, que
+prende a ETAPA e os NOMES na notificação) e
 **`pacote-por-grupos.test.mjs`** (o LOTE, o PROGRESSO no próprio botão, o
 AGRUPAMENTO da folha e a ESCOLHA cortando bytes). Os dois primeiros são dois porque *ler cada lado isolado aprova os
 dois*; o terceiro existe porque o que ele mede não tem sintoma — uma exportação
@@ -5058,8 +5110,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.22 · APK v1.8.22** · `SHELL_VERSION` **69** ·
-bundle com `minShell: 69` e **`shellTag: "v1.8.22"`** (lote COM Release) — o
+**Versão atual: base web v1.8.23 · APK v1.8.22** · `SHELL_VERSION` **69** ·
+bundle com `minShell: 69` e **SEM `shellTag`** (lote SÓ DE BASE WEB) — o
 shell 69 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
 

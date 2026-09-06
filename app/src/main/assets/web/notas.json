@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.8.23",
+    "itens": [
+      "O acervo importado voltou a tocar sem internet — os hinos deixaram de chegar sem o arquivo.",
+      "A importação mostra os itens entrando na Biblioteca, um a um, na notificação.",
+      "A conferência do pacote deixou de parecer parada: ela agora anuncia o progresso.",
+      "A importação ficou mais rápida na parte que grava ajustes e catálogos."
+    ]
+  },
+  {
     "versao": "1.8.22",
     "itens": [
       "O acervo exportado deixou de chegar com 0 KB no aplicativo que o recebe.",
