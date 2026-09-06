@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.16';
+const WEB_VERSION = '1.8.17';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23382,6 +23382,17 @@ function renderPacoteGrupos(plano) {
 
 const PACOTE_CANCELADO = 'cancelado';
 
+// A FOLGA que o caminho de COMPARTILHAR exige no armazenamento próprio, além do
+// tamanho medido do pacote (shell 67).
+//
+// 512 MB, e o número é do APARELHO e não do pacote: compartilhar escreve uma
+// SEGUNDA cópia do acervo em `files/pacote/`, e um Android que fica sem espaço
+// não devolve um erro claro — ele quebra o IndexedDB, o WebView e a projeção
+// junto, cada um do seu jeito. Encher o aparelho para exportar uma biblioteca é
+// o oposto do que este botão promete, e o caminho do SAF (que grava no cartão
+// escolhido pelo operador) continua ali para quando não couber.
+const PACOTE_FOLGA_BYTES = 512 * 1024 * 1024;
+
 async function exportarPacote() {
   const c = pacoteCanal();
   if (!c || pacoteEmCurso) return;
@@ -23432,7 +23443,28 @@ async function exportarPacote() {
   // Desistir na folha é desistir: nada foi aberto, nada foi escrito.
   if (!sel) { pacotePlanoAtual = null; pacoteEmCurso = false; pacoteRenderTiles(); return; }
 
-  const nome = await AVNative.pacoteCriar(AVPacote.nomeDoArquivo(new Date()));
+  // ===== O DESTINO: COMPARTILHAR, OU O SELETOR DE ARQUIVOS =====
+  //
+  // O pacote existe para atravessar de um celular para o outro, e quem o
+  // atravessa é o Quick Share. Pelo seletor de arquivos isso são QUATRO passos
+  // (salvar → abrir o gerenciador → achar o arquivo → compartilhar); direto
+  // para o compartilhar é UM.
+  //
+  // O QUE DECIDE É O ESPAÇO, e a decisão é do web porque só ele tem os dois
+  // números: o tamanho MEDIDO (que acabou de sair do plano) e a folga que este
+  // app quer deixar no aparelho. O shell responde `pacoteEspaco()` e mais nada
+  // — um `podeCompartilhar(bytes)` em Kotlin envelheceria à parte da regra.
+  //
+  // A FOLGA NÃO É ENFEITE: compartilhar escreve uma SEGUNDA cópia do acervo no
+  // armazenamento próprio, e encher o aparelho até o último byte quebra o
+  // WebView, o IndexedDB e a projeção junto. Encher o aparelho para exportar
+  // uma biblioteca é o oposto do que este botão promete.
+  const bytesDoPacote = pacoteBytesDe(plano, sel);
+  const espaco = await AVNative.pacoteEspaco();
+  const cabeLocal = espaco > 0 && espaco - bytesDoPacote > PACOTE_FOLGA_BYTES;
+  const nome = cabeLocal
+    ? await AVNative.pacoteCriarLocal(AVPacote.nomeDoArquivo(new Date()))
+    : await AVNative.pacoteCriar(AVPacote.nomeDoArquivo(new Date()));
   // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
   // nos dois casos não há arquivo, e o botão continua ali. Mesma regra do
   // `salvarTexto` do Registro.
@@ -23572,7 +23604,11 @@ async function exportarPacote() {
         bgTaskEnd(tarefa);
       }
     });
-    gravados = await AVNative.pacoteFechar();
+    // FECHAR E COMPARTILHAR SÃO O MESMO MOMENTO no caminho local: os dois
+    // devolvem os bytes que chegaram ao disco, e é esse número — não o seletor
+    // — que descobre o cartão cheio. O seletor abre depois e não tem desfecho
+    // observável (ver `pacoteCompartilhar` no `native.js`).
+    gravados = cabeLocal ? await AVNative.pacoteCompartilhar() : await AVNative.pacoteFechar();
     if (gravados < 0) erro = 'O arquivo não pôde ser fechado — pode ter faltado espaço.';
   } catch (e) {
     erro = (e && e.message) || 'A exportação falhou.';
@@ -23610,8 +23646,15 @@ async function exportarPacote() {
   falarNoTile(pacoteExportarTileEl, fmtBytes(gravados), 5000);
   await openAppDialog({
     title: 'Acervo exportado',
-    message: 'O arquivo "' + nome + '" tem ' + fmtBytes(gravados) + '. '
-      + 'Copie-o para o outro aparelho e use "Importar" lá.',
+    // A FRASE SEGUE O CAMINHO, porque as duas pedem ações diferentes: no
+    // compartilhar o seletor JÁ ESTÁ na frente do operador e o que falta é
+    // saber o que fazer do outro lado; no seletor de arquivos o que falta é
+    // achar o arquivo, e por isso o NOME dele é o que importa.
+    message: cabeLocal
+      ? 'A biblioteca tem ' + fmtBytes(gravados) + '. Escolha por onde enviá-la '
+        + '(o Quick Share é o mais rápido) e use "Importar" no outro aparelho.'
+      : 'O arquivo "' + nome + '" tem ' + fmtBytes(gravados) + '. '
+        + 'Copie-o para o outro aparelho e use "Importar" lá.',
     okText: 'Entendi',
     cancelText: null,
   });

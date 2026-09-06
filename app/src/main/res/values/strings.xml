@@ -6,4 +6,5 @@
          que não passa por `res/`. Ela vive aqui porque quem desenha o chooser é
          o SISTEMA, e o `createChooser` só aceita um texto. -->
     <string name="share_app_titulo">Compartilhar o app</string>
+    <string name="pacote_share_titulo">Enviar a biblioteca</string>
 </resources>

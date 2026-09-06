@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.8.17** — O CORTE DO SHELL, E EXPORTAR DIRETO PARA O COMPARTILHAR. A outra metade do pedido que tirou o clone: *"Ajuste para que o processo de exportar e importar seja o mais automático possível: como esportar direto para o compartilhar."* Saem do shell os três arquivos do clone (`AcervoCessao.kt`, `AcervoProxy.kt`, `AcervoDescoberta.kt`), o JUnit deles, os oito métodos da ponte, as rotas `/acervo/` do `EspelhoServidor`, o gancho do proxy no `WebViewFactory` e — a peça com consequência — o **`usesCleartextTraffic`**, que tinha UM consumidor: o clone, que PEDIA a outro celular em `http://`. Sem ele este app não tem mais nenhum tráfego HTTP de SAÍDA; **a transmissão não precisa dele porque ela SERVE**, e tráfego de ENTRADA não passa por essa política — a mesma assimetria que manteve o defeito da v1.8.9 invisível por nove lotes é a que torna a remoção segura. E entra o caminho novo: o pacote é escrito no armazenamento PRÓPRIO do app e vai direto ao seletor de compartilhamento (Quick Share), que é por onde ele de fato atravessa — pelo seletor de arquivos isso eram QUATRO passos. **O QUE DECIDE É O ESPAÇO, e a decisão é do WEB**: o shell responde `pacoteEspaco()` (um NÚMERO) e o `controle.js` compara com o tamanho MEDIDO mais uma folga de 512 MB, porque compartilhar escreve uma SEGUNDA cópia do acervo e um Android sem espaço não devolve erro claro — ele quebra o IndexedDB, o WebView e a projeção, cada um do seu jeito. **O SAF CONTINUA DE PÉ** e atende justamente o aparelho que mais precisa exportar (o do acervo grande), e é a reversão que o oráculo cobra. A faxina roda em DOIS pontos (a porta da exportação seguinte e o `onCreate`) e nunca depois de compartilhar — o arquivo tem de sobreviver ao seletor, porque quem o lê é outro app, no tempo dele. Oráculo novo: `tools/pacote-compartilhar.test.mjs`, com quatro reversões medidas. Lote **com Release** (`SHELL_VERSION` 67, `minShell: 67`, `shellTag: "v1.8.17"`).
 - **v1.8.16** — O CLONE PELA REDE SAIU, E O QUE O DERRUBOU FOI UMA MEDIÇÃO, NÃO UM DEFEITO. Decisão do operador depois de seis lotes de conserto (v1.8.10 a v1.8.15, que este bloco também registra): *"remova todas as funções do modo de conectar e ceder a biblioteca. esse modo ficou inviável e ineficaz. Vamos nos focar nos métodos de exportar e importar."* Os seis consertos eram REAIS e cada um pegou uma causa de verdade — o token do item sobrescrito no empurrão (v1.8.10), a fila de endereços porque o `NsdServiceInfo.host` é UM só e o servidor abre em OUTRO (v1.8.12), a cessão sem proteção de segundo plano (v1.8.13), o `bytes` do cabeçalho divergindo do corpo (v1.8.14) —, e a cópia passou a andar. **O que a derrubou foi a VELOCIDADE: ~210 KB/s medidos em campo**, contra os 15 a 500× disso que o mesmo enlace entrega por Wi-Fi Direct ou Quick Share, e o teto é ARQUITETURAL — um item por requisição HTTP, cada um montado no WebView do Controle e empurrado pelo canal de `ArrayBuffer` antes de o socket poder servi-lo. Um acervo de 15 GB dava estimativa de vinte horas. **E ele se sobrepõe quase inteiro ao caminho do ARQUIVO, que ganha**: os dois levam o MESMO formato e são aplicados pelo MESMO `pacoteAplicarFluxo`, e o `.avpkg` sai do app pelo Quick Share, que é justamente a tecnologia que mede centenas de vezes mais. Saem do web ~1.140 linhas do `controle.js`, o bloco do Registro, os dois tiles de Configurações e os oito métodos `acervo*` do `native.js`; a regra pura (`itensQueFaltam`, `CLONE_TIPOS`) e os dois oráculos de ligação vão junto. **O que FICA, e por quê:** as chaves `clone-diario` e `clone-parcial` continuam na lista `FORA` do pacote — elas são órfãs nos aparelhos que usaram o recurso, ninguém as lê, e tirá-las da lista faria um pacote antigo carregá-las para um aparelho novo. O corte do SHELL (`AcervoCessao.kt`, `AcervoProxy.kt`, `AcervoDescoberta.kt`, as rotas `/acervo/` e o `usesCleartextTraffic`) fica para o lote seguinte, que é o que pede Release. Lote **só de base web**.
 - **v1.8.9** — O CLONE NUNCA PAREOU, E POR DUAS RAZÕES INDEPENDENTES. `cloneMeuRotulo()` era CHAMADA e nunca foi DEFINIDA, desde a v1.8.0: o `ReferenceError` síncrono caía no `catch` do `clonePedirPar` e virava o MESMO `null` que a ponte devolve ao vencer o prazo — e a frase que saía mandava investigar a rede. Nada o pegava: `node --check` aprova (a sintaxe está certa) e o `sombra.test.mjs` procura redeclaração, não ausência. **E o Android bloqueia o `http` de SAÍDA** (`targetSdk` 35 sem `usesCleartextTraffic`): o telão nunca sofreu disso porque ele SERVE — tráfego de ENTRADA não passa por essa política, e foi isso que tornou o defeito invisível por nove lotes. Os dois consertos são independentes: sem o primeiro nem se pede, sem o segundo o pedido não sai. *(Linha de índice escrita no lote seguinte — ver o corpo.)*
 - **v1.8.8** — UM SÍMBOLO SEM IMPORT DERRUBOU A MAIN. O `MainActivity.kt` da v1.8.6 usou `SystemClock.elapsedRealtime()` sem `import android.os.SystemClock`: o Kotlin não compilou, a Release não nasceu, e o HOLD do `shellTag` segurou o bundle — levando junto o lote SEGUINTE, de outra sessão, que não tinha nada com aquilo. **O erro não é interessante; ONDE ele apareceu é**: ninguém compila Kotlin fora do CI (o `./gradlew` exige o Android SDK) e a suíte inteira é de JavaScript, então o primeiro sinal era o build falhando DEPOIS do merge, no ponto mais caro possível. Daí o `kotlin-simbolo-importado.test.mjs` — o `node --check` do lado Kotlin, na única pergunta que dá para responder sem compilador: *este nome tem de onde vir?* **E a primeira versão dele foi um placebo**: tirava comentários com regex, e comentário de bloco em Kotlin ANINHA — MEDIDO, ela aprovava o próprio defeito que veio pegar. E o `version.json` estava com `version: 1.8.7` e `shellTag: v1.8.6`, um SEGUNDO motivo de falha esperando atrás do primeiro. *(Linha de índice escrita no lote seguinte — ver o corpo.)*
@@ -367,6 +368,122 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.8.17 — o corte do shell, e exportar direto para o compartilhar
+
+A outra metade do pedido que tirou o clone (v1.8.16):
+
+> *"Ajuste para que o processo de exportar e importar seja o mais automático
+> possível: como esportar direto para o compartilhar. a importação pode ser por
+> busca de arquivo normalmente, pois geralmente se envia via wifi direct e o
+> arquivo fica fácil de achar nos recentes na busca de arquivos."*
+
+### O corte do shell
+
+| onde | o quê |
+|---|---|
+| removidos | `AcervoCessao.kt`, `AcervoProxy.kt`, `AcervoDescoberta.kt`, `AcervoCessaoTest.kt` |
+| `NativeBridge.kt` | os oito `@JavascriptInterface` e os quatro métodos da `interface Host` |
+| `MainActivity.kt` | a implementação inteira, o `acervoPedido` e os quatro pontos de desligamento |
+| `EspelhoServidor.kt` | as três rotas `/acervo/`, mais o `bearerDe` e o `jsonSimples` que ficaram órfãos |
+| `WebViewFactory.kt` | o gancho `AcervoProxy.tryHandle` do `shouldInterceptRequest` |
+| `AndroidManifest.xml` | o `usesCleartextTraffic` |
+
+**O `usesCleartextTraffic` é a peça com consequência.** Ele existiu da v1.8.9 à
+v1.8.16 por UM consumidor: o clone, que PEDIA a outro celular em `http://`. Com
+o clone fora, este app não tem mais nenhum tráfego HTTP de SAÍDA — OTA, YouTube
+e cifra são todos `https`.
+
+**A transmissão não precisa dele porque ela SERVE**, e tráfego de ENTRADA não
+passa por essa política. Foi exatamente essa assimetria que manteve o defeito da
+v1.8.9 invisível por nove lotes (a mesma porta, o mesmo servidor, dois
+desfechos), e é ela que torna a remoção segura: o telão continua em texto claro
+na LAN, como sempre esteve, sem uma linha no manifesto.
+
+Reintroduzi-lo exige um consumidor NOMEADO — ele afrouxa a política do app
+INTEIRO, e o `networkSecurityConfig` aceita DOMÍNIO, o que não serve para um
+endereço que vem do DHCP.
+
+**E o `stopMirror` ficou com um DONO só.** Enquanto o clone existiu, o servidor
+tinha duas razões de viver e o par `telaoPedido`/`acervoPedido` é que impedia
+uma de derrubar a outra. Com uma razão só, quem liga e desliga é o mesmo
+operador pelo mesmo botão. O padrão do `SessionService` (cena E transmissão)
+segue de pé — lá as duas razões continuam existindo.
+
+### Exportar direto para o compartilhar
+
+O pacote existe para atravessar de um celular para o outro, e quem o atravessa é
+o **Quick Share**. Pelo seletor de arquivos isso são quatro passos: salvar →
+abrir o gerenciador → achar o arquivo → compartilhar. Direto, é um.
+
+Três métodos, todos ADITIVOS (`SHELL_VERSION` 67):
+
+| método | o quê |
+|---|---|
+| `pacoteEspaco()` | bytes livres no armazenamento próprio. NÚMERO, nunca veredito |
+| `pacoteCriarLocal(nome)` | abre o pacote num arquivo do app, sem seletor — e por isso COM prazo |
+| `pacoteCompartilhar()` | fecha e oferece pelo `ACTION_SEND` + `createChooser` |
+
+- **O QUE DECIDE É O ESPAÇO, e a decisão é do WEB** (invariante 5). O shell
+  responde um número; quem o compara com o tamanho MEDIDO e escolhe o caminho é
+  o `controle.js`. Um `podeCompartilhar(bytes)` em Kotlin envelheceria à parte
+  da regra que ele serve.
+- **A FOLGA É DO APARELHO, não do pacote** (`PACOTE_FOLGA_BYTES`, 512 MB).
+  Compartilhar escreve uma SEGUNDA cópia do acervo em `files/pacote/`, e um
+  Android sem espaço não devolve um erro claro — ele quebra o IndexedDB, o
+  WebView e a projeção, cada um do seu jeito. Encher o aparelho para exportar
+  uma biblioteca é o oposto do que o botão promete.
+- **O CAMINHO DO SAF CONTINUA DE PÉ**, e não por conservadorismo: ele atende
+  justamente o aparelho que MAIS precisa exportar — o do acervo grande, que não
+  tem espaço para a segunda cópia. Lá o operador escolhe o cartão. É a reversão
+  que o oráculo cobra, e sem ela apagar o caminho antigo passaria em tudo o
+  mais.
+- **O NÚMERO VOLTA ANTES DO SELETOR RESPONDER**, de propósito: o desfecho de um
+  `createChooser` é uma pessoa escolhendo um app, e não há API que o entregue —
+  é a mesma razão pela qual o `compartilharTexto` é síncrono e sem resposta. O
+  que `pacoteCompartilhar` promete é o que ele sabe: os bytes que chegaram ao
+  disco. O `-1` continua sendo o cartão cheio descoberto no `close`.
+- **A FRASE SEGUE O CAMINHO.** As duas pontas pedem ações diferentes: no
+  compartilhar o seletor JÁ ESTÁ na frente do operador e o que falta é o que
+  fazer do outro lado; no SAF o que falta é ACHAR o arquivo, e aí o NOME dele é
+  o que importa.
+- **A FAXINA RODA EM DOIS PONTOS**, e nunca depois de compartilhar: o arquivo
+  tem de SOBREVIVER ao seletor, porque quem o lê é outro app, no tempo dele.
+  Os dois pontos existem porque um só não basta — a PORTA da exportação
+  seguinte não alcança quem exporta uma vez, e o `onCreate` não alcança quem
+  exporta duas vezes na mesma sessão.
+- **`files/` e não `cache/`**: o sistema esvazia o cache quando quer, e o
+  arquivo precisa durar entre o seletor abrir e o outro app terminar de lê-lo.
+  Ele sai do backup nos DOIS arquivos de regra (a exclusão nova entra sempre nos
+  dois), e é exposto por um `FileProvider` com autoridade PRÓPRIA
+  (`${applicationId}.pacote`) — a do APK é outra, e juntá-las faria um `<paths>`
+  só expor as duas raízes de uma vez.
+- **`application/octet-stream`** e não um MIME inventado: o `.avpkg` não tem
+  tipo registrado, e um MIME que ninguém conhece esvazia o seletor. Quem
+  identifica o arquivo continua sendo os oito bytes de assinatura, nunca o
+  rótulo — a mesma disciplina do `SafRegistry`.
+
+### O oráculo
+
+`tools/pacote-compartilhar.test.mjs`, e as três metades que ele mede falham
+CALADAS por motivos diferentes:
+
+1. **A ESCOLHA DO DESTINO** é uma conta, e errá-la não produz erro nenhum:
+   caindo sempre no SAF o recurso não existe e ninguém sabe por quê; caindo
+   sempre no local o app tenta escrever quinze gigabytes num aparelho que não os
+   tem.
+2. **O FECHO** é a metade que um teste de *"exportou?"* aprova nas duas versões:
+   `pacoteFechar` e `pacoteCompartilhar` devolvem o MESMO número, então o método
+   errado produz o mesmo diálogo, o mesmo tamanho e o mesmo tile — e o arquivo
+   local nunca chega ao seletor. Só a CHAMADA distingue.
+3. **A FRASE**, porque as duas pontas pedem ações opostas.
+
+Mais a quarta, que é a reversão que fecha o lote: **o SAF continua de pé**.
+
+Quatro reversões medidas: `cabeLocal` sempre falso (3 falhas), sempre verdadeiro
+(4), a folga zerada (1) e o fecho sempre pelo `pacoteFechar` (1).
 
 ---
 

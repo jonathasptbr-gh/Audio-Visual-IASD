@@ -131,26 +131,24 @@
          aparelho-a-aparelho da biblioteca, que é útil e não tem essa cota. Os
          dois arquivos abaixo (formatos novo e antigo) escolhem item a item —
          ver os comentários lá. -->
-    <!-- O CLONE E O UNICO TRAFEGO HTTP DE SAIDA DESTE APP, e sem a linha
-         `usesCleartextTraffic` abaixo ele nao sai (v1.8.9). Do `targetSdk` 28
-         em diante o padrao do Android e PROIBIR texto em claro: o
-         `POST /acervo/par` e o `AcervoProxy` falham antes do primeiro byte, em
-         qualquer rede.
+    <!-- NAO HA `usesCleartextTraffic`, e a ausencia dele e uma decisao.
 
-         O TELAO NUNCA SOFREU DISSO PORQUE ELE SERVE — quem conecta e o
-         navegador da tela, e trafego de ENTRADA nao passa por esta politica.
-         Foi exatamente por isso que um funcionava e o outro nao, o que tornou
-         o defeito invisivel: a mesma porta, o mesmo servidor, dois desfechos.
+         Ele existiu da v1.8.9 a v1.8.16, por UM consumidor: o clone pela rede,
+         que PEDIA a outro celular em `http://`. Com o clone fora (v1.8.16 no
+         web, v1.8.17 no shell), este app nao tem mais nenhum trafego HTTP de
+         SAIDA — OTA, YouTube e cifra sao todos `https`.
 
-         O ALVO E SEMPRE A REDE LOCAL (o outro celular, em RFC1918), e nao ha
-         como declarar isso mais estreito: o `networkSecurityConfig` aceita
-         DOMINIO, e o endereco do outro aparelho vem do DHCP. Todo trafego de
-         saida para a INTERNET deste app ja e `https` (OTA, YouTube, cifra) e
-         continua sendo — esta linha nao os afrouxa, ela abre o que hoje esta
-         fechado para a LAN. -->
+         O TELAO NAO PRECISA DELE PORQUE ELE SERVE: quem conecta e o navegador
+         da tela, e trafego de ENTRADA nao passa por esta politica. Foi essa
+         assimetria que manteve o defeito da v1.8.9 invisivel por nove lotes, e
+         e ela que faz a remocao ser segura — a transmissao continua em texto
+         claro na LAN, como sempre esteve, sem uma linha aqui.
+
+         Reintroduzi-lo exige um consumidor NOMEADO: ele afrouxa a politica do
+         app INTEIRO, e o `networkSecurityConfig` aceita DOMINIO, o que nao
+         serve para um endereco que vem do DHCP. -->
     <application
         android:allowBackup="true"
-        android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:hardwareAccelerated="true"
@@ -277,6 +275,21 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/apk_paths" />
+        </provider>
+
+        <!-- O caminho do PACOTE até quem vai recebê-lo (shell 67). Autoridade
+             PRÓPRIA, separada da do APK: são duas raízes com assuntos
+             diferentes, e juntá-las faria um `<paths>` só expor as duas de uma
+             vez. `exported=false` + `grantUriPermissions`: o acesso nasce com o
+             Intent e morre com ele. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.pacote"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/pacote_paths" />
         </provider>
     </application>
 </manifest>

@@ -71,11 +71,6 @@ const PONTE = `(function () {
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','micDiag','cifraHtml',
     'cifraDiag','areaTransferencia','salvarTexto','ytDetalhes','pacoteCriar','pacoteFechar',
-    // OS OITO DO CLONE (shell 65). Eles entram aqui porque o cloneRetomar
-    // roda na abertura de TODO oráculo que sobe o Controle com a ponte: sem o
-    // nome, a chamada lança dentro do native.js. Uma ponte de mentira que não
-    // conhece um método que o app chama é a divergência que este repositório já
-    // pagou uma vez.
   ];
   for (const n of nomes) {
     if (B[n]) continue;
