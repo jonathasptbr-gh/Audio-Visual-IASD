@@ -2817,7 +2817,29 @@ gerenciador → achar o arquivo → compartilhar); direto, é UM.
   `FileProvider` com autoridade PRÓPRIA (`${applicationId}.pacote`) — a do APK
   é outra, e juntá-las faria um `<paths>` só expor as duas raízes de uma vez.
 
-Oráculo: `tools/pacote-compartilhar.test.mjs`, com as quatro reversões medidas.
+- **A CONCESSÃO DE URI VIAJA NO `ClipData`, E O SELETOR NÃO PEDE TAREFA NOVA**
+  (v1.8.18). As duas metades produzem o MESMO sintoma e foi ele que chegou do
+  campo: *"o arquivo tem 0kb, e portanto falha no compartilhamento"*. O
+  `EXTRA_STREAM` é um extra como outro qualquer — quem carrega a permissão de
+  leitura é o `ClipData`, e a migração que o sistema faz sozinho é melhor
+  esforço, não contrato; e `FLAG_ACTIVITY_NEW_TASK` no chooser (copiado do
+  `shareText`, onde é inofensivo porque texto não precisa de concessão) QUEBRA a
+  corrente, porque a concessão é amarrada à tarefa de quem a dá. Sem permissão,
+  quem abre a folha não consegue nem o tamanho, e a Samsung desenha **0 KB**.
+- **E O QUE O CANAL CONTOU NÃO É O QUE O OUTRO APP VAI LER.** `bytes` é o que o
+  `PacoteCanal` escreveu; `length()` é o que existe NO CAMINHO agora. Enquanto
+  só o primeiro foi conferido, um arquivo vazio saía anunciado como pacote
+  inteiro — o diálogo com o tamanho certo e o seletor com zero. Hoje o vazio
+  devolve `-1`, que é o desfecho que a tela já sabe explicar.
+- **O LANÇAMENTO POUPA O PACOTE RECENTE** (`PACOTE_RECENTE_MS`, 20 min): quem
+  recebe lê o arquivo no tempo DELE, com o app já em segundo plano, e voltar ao
+  app no meio disso o apagaria debaixo de quem o lê. A PORTA da exportação
+  seguinte não tem essa dúvida e leva tudo.
+
+Oráculo: `tools/pacote-compartilhar.test.mjs`, com as quatro reversões medidas —
+**e ele cobre a ESCOLHA do destino, não o Intent**. As flags de concessão e o
+`length()` do arquivo são Kotlin, e o que os provaria é um aparelho: está dito
+aqui porque a metade sem oráculo é a que voltou do campo.
 
 **E O LEITOR NUNCA TEM O ARQUIVO NA MÃO** (v1.7.9). Ele teve, da v1.7.0 até
 aqui — `resp.blob()` —, e não sobreviveu ao tamanho: quinze gigabytes não cabem
@@ -4948,8 +4970,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.17 · APK v1.8.17** · `SHELL_VERSION` **67** ·
-bundle com `minShell: 67` e **`shellTag: "v1.8.17"`** (lote COM Release) — o
+**Versão atual: base web v1.8.18 · APK v1.8.18** · `SHELL_VERSION` **67** ·
+bundle com `minShell: 67` e **`shellTag: "v1.8.18"`** (lote COM Release) — o
 shell 67 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
 

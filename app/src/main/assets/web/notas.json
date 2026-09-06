@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.18",
+    "itens": [
+      "O arquivo enviado pelo compartilhamento chegava vazio — corrigido.",
+      "Um pacote que sai vazio agora avisa, em vez de dizer que deu certo.",
+      "Voltar ao app durante um envio deixou de apagar o arquivo em trânsito."
+    ]
+  },
+  {
     "versao": "1.8.17",
     "itens": [
       "Exportar a biblioteca agora abre direto o compartilhamento do aparelho.",
