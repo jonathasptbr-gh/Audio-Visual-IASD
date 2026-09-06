@@ -281,9 +281,18 @@
              PRÓPRIA, separada da do APK: são duas raízes com assuntos
              diferentes, e juntá-las faria um `<paths>` só expor as duas de uma
              vez. `exported=false` + `grantUriPermissions`: o acesso nasce com o
-             Intent e morre com ele. -->
+             Intent e morre com ele.
+
+             E A CLASSE É PRÓPRIA TAMBÉM (v1.8.22), o que aqui não é estilo:
+             `ActivityThread` guarda o provedor local por
+             `ComponentName(pacote, CLASSE)`, então duas autoridades sobre
+             `androidx.core.content.FileProvider` COMPARTILHAM a instância — e
+             a tabela de caminhos — da primeira. Era o "0 KB" no seletor: a URI
+             saía certa (o `getUriForFile` é estático e resolve por
+             AUTORIDADE), e quem servia só conhecia `cache/apk/`. Ver o KDoc de
+             `PacoteProvider.kt`. -->
         <provider
-            android:name="androidx.core.content.FileProvider"
+            android:name=".PacoteProvider"
             android:authorities="${applicationId}.pacote"
             android:exported="false"
             android:grantUriPermissions="true">

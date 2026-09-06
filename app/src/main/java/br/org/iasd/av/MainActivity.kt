@@ -1283,15 +1283,58 @@ class MainActivity : ComponentActivity(), BridgeHost {
             "pronto: " + alvo.name + " · no disco: " + (if (existe) "sim" else "NÃO") +
                 " · " + tam + " byte(s)"
         }
-        val prov = try {
-            if (alvo == null) "" else
-                " · uri: " + FileProvider.getUriForFile(this, "$packageName.pacote", alvo)
+        val uri = try {
+            if (alvo == null) null else
+                FileProvider.getUriForFile(this, "$packageName.pacote", alvo)
         } catch (e: Exception) {
-            " · uri: FALHOU (" + e.javaClass.simpleName + ": " + (e.message ?: "") + ")"
+            pacoteFalhaDeUri = e
+            null
         }
-        return onde + prov +
+        val prov = when {
+            alvo == null -> ""
+            uri == null -> " · uri: FALHOU (" + nomeDaFalha(pacoteFalhaDeUri) + ")"
+            else -> " · uri: " + uri
+        }
+        return onde + prov + servidoPeloProvedor(uri) +
             "\n  fecho: " + pacoteUltimoFecho.ifBlank { "nenhum nesta sessão" } +
             "\n  envio: " + pacoteUltimoEnvio.ifBlank { "nenhum nesta sessão" }
+    }
+
+    /**
+     * O QUE O PROVEDOR SERVE para a própria URI — a MESMA pergunta que o app
+     * receptor faz, feita daqui.
+     *
+     * É ela que separa *"o arquivo tem N bytes no disco"* de *"o outro app
+     * consegue lê-los"*, e essas duas divergiram por cinco lotes: o "0 KB" da
+     * v1.8.17 era o provedor recusando a própria URI enquanto o `length()`
+     * respondia certo (ver `PacoteProvider.kt`). Sem esta linha, a única forma
+     * de notar é o relato de quem está do outro lado.
+     *
+     * LEITURA PURA, e ela **não** vira veredito: quem falha aqui não impede o
+     * envio. Um `query` que lançasse por um motivo benigno bloquearia um
+     * compartilhamento que ia funcionar, e a regra deste app é falhar para o
+     * lado que ainda funciona — o diagnóstico responde, a tela não muda.
+     */
+    private fun servidoPeloProvedor(uri: Uri?): String {
+        if (uri == null) return ""
+        return try {
+            contentResolver.query(uri, null, null, null, null).use { c ->
+                if (c == null) return " · o provedor NÃO respondeu (query nula)"
+                if (!c.moveToFirst()) return " · o provedor devolveu ZERO linhas"
+                val col = c.getColumnIndex(OpenableColumns.SIZE)
+                if (col < 0) " · o provedor não declara SIZE"
+                else " · o provedor serve " + c.getLong(col) + " byte(s)"
+            }
+        } catch (e: Exception) {
+            // O CASO QUE ESTE DIAGNÓSTICO EXISTE PARA PEGAR: a tabela de
+            // caminhos da instância que serve não conhece esta raiz.
+            " · o provedor RECUSOU a própria URI (" + nomeDaFalha(e) + ")"
+        }
+    }
+
+    private fun nomeDaFalha(e: Exception?): String {
+        if (e == null) return "sem exceção"
+        return e.javaClass.simpleName + ": " + (e.message ?: "sem mensagem")
     }
 
     override fun pacoteDescartarPronto() {
@@ -1362,6 +1405,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
      *  apaga é o `descartarPacote` desta Activity, e um pacote local que
      *  sobreviva a uma morte de renderer é recolhido pela faxina da porta. */
     private var pacoteLocal: File? = null
+
+    /** A exceção do último `getUriForFile` que falhou — só o [pacoteDiag] a lê.
+     *  Guardada em vez de formatada na hora porque o `catch` que a produz está
+     *  numa expressão que precisa devolver `null`, e uma string montada ali
+     *  seria a formatação escrita num lugar e o resto dela noutro. */
+    private var pacoteFalhaDeUri: Exception? = null
 
     /**
      * Fecha o pacote em curso e APAGA o documento parcial.

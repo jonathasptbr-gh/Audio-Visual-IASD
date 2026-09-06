@@ -52,6 +52,7 @@ para a TV com `android.app.Presentation`.
 | `StagePresentation.kt` | 188 | `CLAUDE.md` — "Reconexão e morte do renderer" |
 | `MicChromeClient.kt` | 81 | `CLAUDE.md` — "Microfone ao vivo" |
 | `MicDiag.kt` | 181 | `CLAUDE.md` — "Microfone ao vivo" (o `micDiag` da ponte: POR QUE ele não abre — leitura PURA, não pede nada) |
+| `PacoteProvider.kt` | 39 | `CLAUDE.md` — "O pacote de transferência" (subclasse VAZIA do `FileProvider`, e ela É a correção do "0 KB": duas autoridades sobre a MESMA classe compartilham a instância — e a tabela de caminhos — da primeira, porque o `ActivityThread` as guarda por `ComponentName`. Oráculo: `manifest-provedores.test.mjs`) |
 | `PacoteCanal.kt` | 265 | `CLAUDE.md` — "O pacote de transferência" (o SEGUNDO canal de `ArrayBuffer` do shell; abrir e fechar o destino entram pela ponte, porque envolvem uma PESSOA) |
 | `MessageBus.kt` | 54 | `CLAUDE.md` — "Barramento de comandos" |
 | `ShareIntake.kt` | 143 | `CLAUDE.md` — "Compartilhamento" |
