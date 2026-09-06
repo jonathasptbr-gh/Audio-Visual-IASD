@@ -32,7 +32,6 @@ import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import android.content.ClipData
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
@@ -1142,6 +1141,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // pacote inteiro (v1.8.18).
             val noDisco = try { local.length() } catch (e: Exception) { 0L }
             if (bytes <= 0L || noDisco <= 0L) {
+                pacoteUltimoFecho = "recusado: canal " + bytes + " byte(s), disco " + noDisco
                 Log.w(TAG, "o pacote fechou com " + bytes + " byte(s) e o arquivo tem " + noDisco)
                 try { local.delete() } catch (e: Exception) {
                     Log.w(TAG, "o pacote vazio não saiu", e)
@@ -1150,6 +1150,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 return@runOnUiThread
             }
             pacotePronto = local
+            pacoteUltimoFecho = "pronto: " + noDisco + " byte(s) em " + local.name
             onResult(noDisco)
         }
     }
@@ -1203,13 +1204,17 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // envia para um aparelho, e depois para outro, sem refazer o
             // pacote de gigabytes.
             val alvo = pacotePronto
-            if (alvo == null) { onResult(-1L); return@runOnUiThread }
+            if (alvo == null) {
+                pacoteUltimoEnvio = "nao ha pacote pronto no shell"
+                onResult(-1L); return@runOnUiThread
+            }
             val noDisco = try { alvo.length() } catch (e: Exception) { 0L }
             // O ARQUIVO PODE TER SUMIDO entre um envio e o seguinte — a faxina
             // de um lançamento, o operador limpando o armazenamento do app. O
             // `-1` faz a tela voltar a oferecer "Exportar", que é a verdade.
             if (noDisco <= 0L) {
                 Log.w(TAG, "o pacote pronto não está mais no disco")
+                pacoteUltimoEnvio = "o arquivo pronto sumiu do disco (" + alvo.name + ")"
                 pacotePronto = null
                 onResult(-1L)
                 return@runOnUiThread
@@ -1224,35 +1229,69 @@ class MainActivity : ComponentActivity(), BridgeHost {
                     .setType("application/octet-stream")
                     .putExtra(Intent.EXTRA_STREAM, uri)
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                // A CONCESSÃO VIAJA NO `ClipData`, e não só no `EXTRA_STREAM`
-                // (v1.8.18). O `EXTRA_STREAM` é um extra como outro qualquer: o
-                // que de fato carrega a permissão de leitura é o `ClipData`, e
-                // o `migrateExtraStreamToClipData` que o sistema faz por conta
-                // é o melhor esforço dele, não um contrato. Sem ele, quem abre
-                // o seletor lê o provedor SEM permissão e não consegue nem o
-                // tamanho — o que a folha da Samsung desenha como **0 KB**.
-                envio.clipData = ClipData.newUri(contentResolver, alvo.name, uri)
-                startActivity(
-                    // SEM `FLAG_ACTIVITY_NEW_TASK`, e a ausência é o conserto.
-                    // Ele veio copiado do [shareText], onde é inofensivo porque
-                    // texto não precisa de concessão nenhuma. Aqui é o oposto:
-                    // a concessão de URI é amarrada à TAREFA de quem a dá, e um
-                    // seletor aberto numa tarefa NOVA quebra essa corrente — o
-                    // alvo recebe um `content://` que ele não tem direito de
-                    // abrir. Esta Activity é uma Activity: não há por que pedir
-                    // tarefa nova.
-                    Intent.createChooser(envio, getString(R.string.pacote_share_titulo))
-                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                )
+                // NÃO SE ESCREVE O `ClipData` À MÃO AQUI, e isso é o oposto do
+                // que a v1.8.18 fez (v1.8.21). O `Intent.migrateExtraStreamToClipData`
+                // que o sistema roda ao sair do processo **desiste quando o
+                // Intent JÁ TEM `ClipData`** — e, para um `ACTION_CHOOSER`, ele
+                // só copia o `ClipData` e as flags de concessão para o CHOOSER
+                // *se o alvo tiver migrado*. Escrevendo o `ClipData` no alvo,
+                // desliga-se exatamente a propagação que se queria garantir: o
+                // chooser fica sem concessão nenhuma.
+                //
+                // O caminho canônico é entregar só o `EXTRA_STREAM` com a flag
+                // e deixar o sistema migrar — foi o que a v1.8.17 fazia, e é a
+                // única forma que já foi VISTA abrindo o seletor neste
+                // aparelho. O que sai junto é o `FLAG_ACTIVITY_NEW_TASK`, que
+                // continua sendo o suspeito do "0 KB": a concessão é amarrada à
+                // TAREFA de quem a dá, e um seletor em tarefa nova quebra a
+                // corrente. Esta Activity é uma Activity — não há por que pedir
+                // tarefa nova.
+                startActivity(Intent.createChooser(envio, getString(R.string.pacote_share_titulo)))
             } catch (e: Exception) {
                 // O ARQUIVO FICA, e é isso que salva o lote: ele continua
                 // PRONTO, e o toque seguinte tenta de novo.
                 Log.w(TAG, "nada recebeu o pacote compartilhado", e)
+                pacoteUltimoEnvio = "o seletor recusou: "
+                    + (e.javaClass.simpleName) + " — " + (e.message ?: "sem mensagem")
                 onResult(-1L)
                 return@runOnUiThread
             }
+            pacoteUltimoEnvio = "seletor aberto com " + noDisco + " byte(s)"
             onResult(noDisco)
         }
+    }
+
+    /**
+     * O QUE O SHELL SABE do pacote, em texto, para o Registro.
+     *
+     * Ele existe porque este caminho já gastou TRÊS rodadas de campo — *"o
+     * arquivo tem 0kb"*, *"não faz nada"* e *"engatilha um Refaça"* — em que a
+     * única informação que sairia do aparelho era o desfecho visível, e o `-1`
+     * do [pacoteShare] colapsa TRÊS causas distintas: não há pronto, o arquivo
+     * sumiu, ou o seletor recusou. Separá-las por dedução sobre o código é o
+     * que essas rodadas foram.
+     *
+     * TEXTO E NÃO JSON, ao contrário do [espelhoDiag]: aqui não há frase a
+     * montar do lado web — o consumidor é uma pessoa lendo o Registro, e o que
+     * ela precisa é do nome da exceção.
+     */
+    override fun pacoteDiag(): String {
+        val alvo = pacotePronto
+        val onde = if (alvo == null) "nenhum pacote pronto no shell" else {
+            val existe = try { alvo.exists() } catch (e: Exception) { false }
+            val tam = try { alvo.length() } catch (e: Exception) { -1L }
+            "pronto: " + alvo.name + " · no disco: " + (if (existe) "sim" else "NÃO")
+                + " · " + tam + " byte(s)"
+        }
+        val prov = try {
+            if (alvo == null) "" else
+                " · uri: " + FileProvider.getUriForFile(this, "$packageName.pacote", alvo)
+        } catch (e: Exception) {
+            " · uri: FALHOU (" + e.javaClass.simpleName + ": " + (e.message ?: "") + ")"
+        }
+        return onde + prov
+            + "\n  fecho: " + (pacoteUltimoFecho.ifBlank { "nenhum nesta sessão" })
+            + "\n  envio: " + (pacoteUltimoEnvio.ifBlank { "nenhum nesta sessão" })
     }
 
     override fun pacoteDescartarPronto() {
@@ -2605,6 +2644,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
          */
         @Volatile
         var pacotePronto: File? = null
+
+        /** O desfecho do último fecho e do último envio, para o [pacoteDiag].
+         *  No companion junto do [pacotePronto], porque descrevem o mesmo
+         *  arquivo e têm de sobreviver às mesmas coisas que ele. */
+        @Volatile
+        var pacoteUltimoFecho = ""
+
+        @Volatile
+        var pacoteUltimoEnvio = ""
 
         /** O canal __avPacote (shell 63) — UM por processo, pela mesma razão do
          *  irmão acima: o listener é por-instância de WebView e é reinstalado a

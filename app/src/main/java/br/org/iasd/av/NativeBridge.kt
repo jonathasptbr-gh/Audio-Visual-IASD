@@ -224,6 +224,9 @@ interface BridgeHost {
 
     /** Joga fora o pacote pronto — o operador quer fazer outro. */
     fun pacoteDescartarPronto()
+
+    /** O que o shell sabe do pacote, em texto, para o Registro. */
+    fun pacoteDiag(): String
 }
 
 /**
@@ -267,7 +270,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 68
+        const val SHELL_VERSION = 69
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1947,6 +1950,23 @@ class NativeBridge(
     @JavascriptInterface
     fun pacoteDescartarPronto() {
         host?.pacoteDescartarPronto()
+    }
+
+    /**
+     * O DIÁRIO DO PACOTE do lado do SHELL, para a linha do Registro.
+     *
+     * Ele existe porque o `-1` do [pacoteCompartilhar] colapsa TRÊS causas —
+     * não há pronto, o arquivo sumiu, o seletor recusou —, e o lado web não tem
+     * como separá-las. Três rodadas de campo se gastaram nessa distinção.
+     *
+     * SÓ LEITURA e SÍNCRONO: é um `toString` de estado, e mora na fila [io]
+     * como o `otaDiag` e o `ytDiag` — os irmãos dele.
+     */
+    @JavascriptInterface
+    fun pacoteDiag(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, JSONObject.quote("")); return }
+        io.execute { resolve(callId, JSONObject.quote(h.pacoteDiag())) }
     }
 
     /** O nome de exibição do documento, ou "Apresentação" se o provedor não o der. */

@@ -558,6 +558,16 @@
       try { B.pacoteDescartarPronto(); } catch (_) { /* ponte indisponível */ }
     },
 
+    // → string: o que o SHELL sabe do pacote (há pronto? no disco? o desfecho
+    // do último fecho e do último envio, com o nome da exceção quando houve).
+    //
+    // Ele existe porque o `-1` do `pacoteCompartilhar` colapsa TRÊS causas, e
+    // este lado não tem como separá-las — três rodadas de campo se gastaram
+    // nisso. Irmão do `otaDiag` e do `ytDiag`, e com o mesmo consumidor: a
+    // pessoa que lê o Registro.
+    pacoteDiag: () => call((id) => B.pacoteDiag(id), CALL_TIMEOUT_MS)
+      .then((r) => String(r || '')),
+
     // ---- CIFRA — ver `controle/cifra.js` ----
     // TRANSPORTE, e só. Devolve `{ status, html }` com o corpo CRU da página:
     // quem sabe ler aquele HTML é o `cifra.js`, do lado web (invariante 5), e

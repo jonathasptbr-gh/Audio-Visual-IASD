@@ -113,6 +113,18 @@ const ponte = (espaco) => `(function () {
       setTimeout(() => window.__avResolve(id, window.__semArquivo ? -1 : bytesEscritos()), 0);
     },
     pacoteDescartarPronto: () => { window.__chamadas.push('descartarPronto'); },
+    // O LADO DO SHELL do diário (shell 69). Ele é a metade que o web NÃO tem
+    // como saber: o menos-um do envio colapsa três causas, e só o shell as
+    // separa. SEM CRASE NESTE COMENTÁRIO — ele mora dentro do template literal
+    // da ponte, e uma crase aqui o encerra no meio (o erro sai como
+    // "1 is not a function", que não aponta nada).
+    pacoteDiag: (id) => {
+      window.__chamadas.push('diag');
+      setTimeout(() => window.__avResolve(id,
+        'pronto: acervo-local.avpkg · no disco: sim · 4096 byte(s)'
+        + '\\n  fecho: pronto: 4096 byte(s) em acervo-local.avpkg'
+        + '\\n  envio: seletor aberto com 4096 byte(s)'), 0);
+    },
     pickDoc: (id) => { setTimeout(() => window.__avResolve(id, []), 0); },
   };
   const nomes = ['apkInstalar','apkProcurar','captureVolumeKeys','castTarget',
@@ -122,7 +134,7 @@ const ponte = (espaco) => `(function () {
     'otaDiag','otaPending','pickFolder','requestMic','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','micDiag','cifraHtml',
-    'cifraDiag','areaTransferencia','salvarTexto','ytDetalhes',
+    'cifraDiag','areaTransferencia','salvarTexto','pacoteDiag','ytDetalhes',
   ];
   for (const n of nomes) {
     if (B[n]) continue;
@@ -366,11 +378,22 @@ try {
     await renderDiag();
     return diagTexto;
   });
+  const cheioChamou = await cheio.pg.evaluate(() => window.__chamadas.slice());
   checar(/Pacote de transferência/.test(reg) && /envio:/.test(reg)
     && /seletor aberto/.test(reg),
     'A · e o Registro conta a preparação E o envio — a metade que faltava '
     + 'quando o relato foi "não faz nada"',
     (reg.match(/Pacote de transferência[\s\S]{0,240}/) || [''])[0]);
+  // E O LADO DO SHELL (v1.8.21), que é a metade que o web NÃO tem como saber:
+  // o `-1` do envio colapsa TRÊS causas — não há pronto, o arquivo sumiu, o
+  // seletor recusou — e três rodadas de campo se gastaram nessa distinção,
+  // feita por dedução sobre o código em vez de leitura do aparelho.
+  checar(cheioChamou.includes('diag'),
+    'A · o Registro PERGUNTA ao shell — sem isso ele conta o que o web pediu, '
+    + 'não o que o aparelho respondeu', JSON.stringify(cheioChamou));
+  checar(/shell:/.test(reg) && /no disco: sim/.test(reg),
+    'A · e a resposta do shell entra no bloco, com o arquivo no disco',
+    (reg.match(/shell:[\s\S]{0,200}/) || [''])[0]);
   await cheio.ctx.close();
 
   // =========================================================================
