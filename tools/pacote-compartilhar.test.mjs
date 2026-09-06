@@ -110,8 +110,9 @@ const ponte = (espaco) => `(function () {
     },
     pacoteCompartilhar: (id) => {
       window.__chamadas.push('compartilhar');
-      setTimeout(() => window.__avResolve(id, bytesEscritos()), 0);
+      setTimeout(() => window.__avResolve(id, window.__semArquivo ? -1 : bytesEscritos()), 0);
     },
+    pacoteDescartarPronto: () => { window.__chamadas.push('descartarPronto'); },
     pickDoc: (id) => { setTimeout(() => window.__avResolve(id, []), 0); },
   };
   const nomes = ['apkInstalar','apkProcurar','captureVolumeKeys','castTarget',
@@ -157,6 +158,16 @@ async function aparelho(espaco) {
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await esperar(pg, () => !document.getElementById('splash'), null, 30000);
   await pg.evaluate(() => setAppMode('full'));
+  // A FOLHA DE CONFIGURAÇÕES ABERTA, porque este oráculo TOCA no tile — e um
+  // tile de folha fechada está fora da viewport, onde o `click` do Playwright
+  // retenta até vencer o prazo. A versão anterior chamava `exportarPacote()`
+  // por dentro e nunca precisou dela; o que a v1.8.19 acrescentou acontece no
+  // DEDO, e é o dedo que ela mede.
+  await pg.evaluate(() => { document.getElementById('simpleSettingsBtn').click(); });
+  await esperar(pg, () => {
+    const d = document.getElementById('fadePopup');
+    return !!d && d.classList.contains('open');
+  }, null, 10000);
   return { ctx, pg };
 }
 
@@ -176,9 +187,33 @@ async function responderDialogo(pg) {
   return texto;
 }
 
-// Uma exportação inteira, do toque ao diálogo. O acervo é pequeno de propósito
-// — o que se mede aqui é a ESCOLHA, não a escrita, e a escrita já tem dois
-// oráculos próprios.
+// O ESTADO DO TILE como a tela o mostra. O `use` é lido pelo `display`
+// COMPUTADO, e não pela classe: uma classe sem a regra de CSS do par passa num
+// teste de classe e continua desenhando o ícone antigo (a armadilha do `<use>`
+// que o `controles-layout` já pagou).
+const lerTile = (pg) => pg.evaluate(() => {
+  const el = document.getElementById('pacoteExportarTile');
+  const visivel = [...el.querySelectorAll('use')]
+    .filter((u) => getComputedStyle(u).display !== 'none')
+    .map((u) => u.getAttribute('href'));
+  const d = document.getElementById('appDialog');
+  return {
+    titulo: (el.querySelector('.qs-titulo') || {}).textContent || '',
+    alt: el.classList.contains('qs-alt'),
+    aceso: el.classList.contains('qs-on'),
+    travado: !!el.disabled,
+    desenho: visivel,
+    aria: el.getAttribute('aria-label') || '',
+    dialogoAberto: !!d && d.classList.contains('open'),
+  };
+});
+
+// Uma exportação inteira, do toque ao fim da escrita. A página FICA ABERTA: o
+// que este arquivo mede acontece DEPOIS do fim, e é justamente o que a v1.8.19
+// acrescentou.
+//
+// O acervo é pequeno de propósito — o que se mede aqui é a ESCOLHA e o
+// desfecho, não a escrita, e a escrita já tem dois oráculos próprios.
 async function exportar(espaco) {
   const a = await aparelho(espaco);
   await a.pg.evaluate(async () => {
@@ -188,21 +223,29 @@ async function exportar(espaco) {
   const abriu = await abriuFolha(a.pg);
   if (abriu !== true) { await a.ctx.close(); return { erro: porque(abriu) }; }
   await a.pg.click('#songMenuList .song-menu-go');
-  const frase = await responderDialogo(a.pg);
+  // ESPERA PELO FECHO, e não pela promessa da exportação — e a diferença é a
+  // asserção do diálogo lá embaixo. Com um `openAppDialog` de volta no fim do
+  // caminho a promessa NUNCA resolve (ela espera um toque), e um
+  // `await window.__fim` transformaria essa reversão num PRAZO ESTOURADO em vez
+  // de uma reprovação. Prazo não é veredito, e uma reversão que TRAVA não prova
+  // o que veio provar — foi assim que ela apareceu, medida.
+  const fechou = await esperar(a.pg, () => window.__chamadas.includes('fechar'), null, 60000);
+  if (fechou !== true) { await a.ctx.close(); return { erro: porque(fechou) }; }
+  // E UM RESPIRO, para o desfecho ter acontecido: o `fechar` é a última chamada
+  // de ponte do percurso, e o que vem depois dele (o tile pronto, ou o diálogo)
+  // é a continuação de uma promessa.
+  await a.pg.evaluate(() => new Promise((r) => setTimeout(r, 60)));
   const chamadas = await a.pg.evaluate(() => window.__chamadas.slice());
-  await a.ctx.close();
-  return { frase, chamadas };
+  return { pg: a.pg, ctx: a.ctx, chamadas, tile: await lerTile(a.pg) };
 }
 
 try {
   // =========================================================================
-  // A · COM ESPAÇO, O PACOTE VAI DIRETO PARA O COMPARTILHAR
+  // A · COM ESPAÇO, O PACOTE É PREPARADO E FICA PRONTO — SEM ENVIAR NADA
   // =========================================================================
   //
   // O acervo semeado tem alguns kB e o espaço declarado são 4 GB: a conta
-  // (`espaco - bytes > PACOTE_FOLGA_BYTES`) só pode dar o caminho local. A
-  // asserção é a SEQUÊNCIA de métodos, e não o desfecho — os dois caminhos
-  // terminam num diálogo de sucesso com o mesmo número.
+  // (`espaco - bytes > PACOTE_FOLGA_BYTES`) só pode dar o caminho local.
   const cheio = await exportar(4 * 1024 * 1024 * 1024);
   checar(!cheio.erro, 'A · a exportação com espaço termina', cheio.erro);
   checar(cheio.chamadas.includes('espaco'),
@@ -211,17 +254,78 @@ try {
   checar(cheio.chamadas.includes('criarLocal') && !cheio.chamadas.includes('criar'),
     'A · e abre o arquivo LOCAL, nunca o seletor do sistema — o seletor é o '
     + 'caminho de quatro passos que o pedido veio encurtar', JSON.stringify(cheio.chamadas));
-  // A METADE QUE UM TESTE DE "EXPORTOU?" NÃO PEGA. `pacoteFechar` e
-  // `pacoteCompartilhar` devolvem o MESMO número, então fechar pelo método
-  // errado produz o mesmo diálogo, o mesmo tamanho e o mesmo tile — e o
-  // arquivo local nunca chega ao seletor. Só a chamada distingue.
-  checar(cheio.chamadas.includes('compartilhar') && !cheio.chamadas.includes('fechar'),
-    'A · e FECHA pelo compartilhar: é ele que abre o seletor, e o outro '
-    + 'devolveria o mesmo número sem oferecer o arquivo a ninguém',
-    JSON.stringify(cheio.chamadas));
-  checar(/Quick Share|enviá-la|Escolha por onde/i.test(cheio.frase || ''),
-    'A · e a frase diz o que fazer com o seletor que já está na frente do '
-    + 'operador, não onde achar um arquivo', cheio.frase);
+  // FECHAR NÃO É ENVIAR (v1.8.19). Enquanto os dois foram o mesmo instante, o
+  // envio acontecia sozinho no fim da escrita e valia UMA vez. Esta asserção é
+  // o par exato da que o lote anterior escreveu, invertida.
+  checar(cheio.chamadas.includes('fechar') && !cheio.chamadas.includes('compartilhar'),
+    'A · e FECHA sem enviar: quem decide quando o pacote sai é o operador, no '
+    + 'toque seguinte', JSON.stringify(cheio.chamadas));
+  checar(cheio.tile.dialogoAberto === false,
+    'A · e NENHUM diálogo aparece — o "Acervo exportado" era um passo a mais no '
+    + 'meio de uma ação que já tinha acabado', JSON.stringify(cheio.tile));
+
+  // ---- O BOTÃO PARA EM 100% E VIRA O ENVIAR ----
+  //
+  // As três metades falham por motivos diferentes: o TÍTULO parado em 100% é o
+  // que diz que acabou (era a barra que o operador estava lendo); o DESENHO é
+  // onde o estado mora neste app desde a v1.7.6, e sem ele o botão fica
+  // idêntico ao de antes com um significado novo; e ACESO E TOCÁVEL, porque
+  // apagado aqui quer dizer INDISPONÍVEL.
+  checar(cheio.tile.titulo === '100%',
+    'A · o botão para em 100%, que é onde a barra da exportação parou',
+    cheio.tile.titulo);
+  checar(cheio.tile.desenho.length === 1 && cheio.tile.desenho[0] === '#icoCompartilhar',
+    'A · e o DESENHO vira o de compartilhar — medido no `display` computado, '
+    + 'porque a folha do documento não atravessa a árvore-sombra de um `<use>` '
+    + 'e os dois empilhados passariam num teste de classe',
+    JSON.stringify(cheio.tile.desenho));
+  checar(cheio.tile.aceso === true && cheio.tile.travado === false,
+    'A · e ele fica ACESO e tocável: apagado, neste app, quer dizer '
+    + 'INDISPONÍVEL', JSON.stringify(cheio.tile));
+  checar(/toque para enviar/i.test(cheio.tile.aria) && /\d/.test(cheio.tile.aria),
+    'A · e o `aria-label` diz o tamanho e o que o toque faz — a informação que '
+    + 'saiu do diálogo não saiu do app', cheio.tile.aria);
+
+  // ---- E O MESMO ARQUIVO SAI QUANTAS VEZES O OPERADOR PEDIR ----
+  //
+  // É O PEDIDO INTEIRO, e um teste de "enviou?" com um toque só passa nas duas
+  // versões: o que distingue é o botão CONTINUAR pronto depois do envio.
+  await cheio.pg.click('#pacoteExportarTile');
+  await esperar(cheio.pg, () => window.__chamadas.includes('compartilhar'), null, 20000);
+  const depoisDoPrimeiro = await lerTile(cheio.pg);
+  checar(depoisDoPrimeiro.titulo === '100%' && depoisDoPrimeiro.desenho[0] === '#icoCompartilhar',
+    'A · depois de enviar, o botão CONTINUA pronto — mandar de novo é tocar de '
+    + 'novo, sem refazer um pacote de gigabytes', JSON.stringify(depoisDoPrimeiro));
+  await cheio.pg.click('#pacoteExportarTile');
+  const duas = await esperar(cheio.pg,
+    () => window.__chamadas.filter((c) => c === 'compartilhar').length >= 2, null, 20000);
+  checar(duas === true,
+    'A · e o SEGUNDO toque manda o MESMO arquivo: dois `compartilhar` e nenhum '
+    + '`criarLocal` a mais', porque(duas));
+  const semRefazer = await cheio.pg.evaluate(
+    () => window.__chamadas.filter((c) => c === 'criarLocal').length);
+  checar(semRefazer === 1,
+    'A · e o pacote foi preparado UMA vez só — sem esta metade, "reexportar a '
+    + 'cada envio" passaria na de cima', semRefazer);
+
+  // ---- O TOQUE LONGO REFAZ, E É A SAÍDA QUE IMPEDE A ARMADILHA ----
+  //
+  // Sem ela o botão fica preso no pacote velho: com um pronto na mão, o toque
+  // curto envia, e não haveria gesto nenhum para pedir outro na mesma sessão.
+  await cheio.pg.evaluate(() => { window.__chamadas.length = 0; });
+  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerdown');
+  const refez = await esperar(cheio.pg, () => window.__chamadas.includes('descartarPronto'),
+    null, 20000);
+  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerup');
+  checar(refez === true,
+    'A · o toque LONGO joga o pronto fora e começa outro — sem ele, quem '
+    + 'quisesse exportar de novo na mesma sessão ficaria preso com o arquivo '
+    + 'velho e nenhuma porta', porque(refez));
+  const voltou = await abriuFolha(cheio.pg);
+  checar(voltou === true,
+    'A · e a folha de grupos volta a abrir, que é a exportação recomeçando',
+    porque(voltou));
+  await cheio.ctx.close();
 
   // =========================================================================
   // B · SEM ESPAÇO, O SELETOR DE ARQUIVOS CONTINUA DE PÉ
@@ -242,10 +346,13 @@ try {
   checar(semEspaco.chamadas.includes('fechar') && !semEspaco.chamadas.includes('compartilhar'),
     'B · e fecha pelo `pacoteFechar`, que é o par do seletor',
     JSON.stringify(semEspaco.chamadas));
-  checar(/acervo-pelo-saf\.avpkg/.test(semEspaco.frase || ''),
-    'B · e a frase traz o NOME do arquivo, que é o que falta saber quando ele '
-    + 'foi parar numa pasta de Downloads com meia dúzia de outros',
-    semEspaco.frase);
+  // E ALI NÃO HÁ O QUE ENVIAR: o arquivo já é do operador, na pasta que ELE
+  // escolheu. Um botão de enviar sobre ele ofereceria um arquivo que este app
+  // não tem mais na mão.
+  checar(semEspaco.tile.desenho[0] === '#icoExportar' && semEspaco.tile.titulo !== '100%',
+    'B · e o botão VOLTA a ser o de exportar — o pronto é só do caminho local',
+    JSON.stringify(semEspaco.tile));
+  await semEspaco.ctx.close();
 
   // =========================================================================
   // C · A FOLGA É DO APARELHO, e não uma margem simbólica
@@ -265,6 +372,32 @@ try {
     'C · com espaço que só dá para o pacote, o caminho continua sendo o SAF — '
     + 'a folga existe para o app não encher o aparelho ao exportar',
     JSON.stringify(apertado.chamadas));
+  await apertado.ctx.close();
+
+  // =========================================================================
+  // D · O ARQUIVO QUE SUMIU DEVOLVE O BOTÃO À VERDADE
+  // =========================================================================
+  //
+  // O pronto vive em MEMÓRIA e o arquivo vive no DISCO, e as duas coisas podem
+  // discordar: a faxina de um lançamento, o operador limpando o armazenamento
+  // do app. O shell confere o `length()` e devolve `-1`; sem esta metade, o
+  // botão continuaria oferecendo o envio de um arquivo que não existe, e o
+  // toque não faria nada — a falha muda que este repositório recusa.
+  const sumiu = await exportar(4 * 1024 * 1024 * 1024);
+  checar(!sumiu.erro, 'D · a exportação termina', sumiu.erro);
+  await sumiu.pg.evaluate(() => { window.__semArquivo = true; });
+  await sumiu.pg.click('#pacoteExportarTile');
+  const desistiu = await esperar(sumiu.pg, () => {
+    const el = document.getElementById('pacoteExportarTile');
+    return [...el.querySelectorAll('use')]
+      .filter((u) => getComputedStyle(u).display !== 'none')
+      .some((u) => u.getAttribute('href') === '#icoExportar');
+  }, null, 20000);
+  checar(desistiu === true,
+    'D · o `-1` devolve o botão a "Exportar" — o pronto sumiu do disco, e '
+    + 'continuar oferecendo o envio seria um toque que não faz nada',
+    porque(desistiu));
+  await sumiu.ctx.close();
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));
 } finally {

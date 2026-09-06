@@ -635,9 +635,14 @@ window.AVNative = {
                        //   TRANSFERÊNCIA, que DEIXA O DESTINO ABERTO. SEM
                        //   prazo (espera uma pessoa no seletor). Os bytes vão
                        //   pelo canal `__avPacote`, nunca por aqui
-  pacoteFechar(),      // → os BYTES gravados, ou -1 (nada aberto, ou o fecho
-                       //   falhou). Os acks por bloco já disseram "recebi"; é o
-                       //   `flush`/`close` que descobre o cartão cheio
+  pacoteFechar(),      // → os BYTES gravados, ou -1 (nada aberto, o fecho
+                       //   falhou, ou o arquivo saiu VAZIO). Os acks por bloco
+                       //   já disseram "recebi"; é o `flush`/`close` que
+                       //   descobre o cartão cheio. E no caminho LOCAL ele
+                       //   PROMOVE (shell 68): o arquivo vira o pacote PRONTO,
+                       //   e o número que volta é o `length()` do DISCO, não o
+                       //   que o canal contou — são duas perguntas, e é a
+                       //   segunda que o outro app vai ler
   pacoteCancelar(),    // fecha e APAGA o parcial. Síncrono, como o `ytCancel`
   pacoteEspaco(),      // → bytes livres no armazenamento PRÓPRIO do app.
                        //   NÚMERO, nunca veredito (invariante 5): quanta folga
@@ -648,13 +653,19 @@ window.AVNative = {
                        //   PRÓPRIO app. Mesma forma do `pacoteCriar` e COM
                        //   prazo — aqui não há seletor, e ninguém está
                        //   esperando uma pessoa
-  pacoteCompartilhar(),// → os BYTES gravados, ou -1: fecha o pacote local e o
-                       //   OFERECE pelo seletor de compartilhamento. O número
-                       //   volta ANTES de o seletor responder, e é de propósito
-                       //   — o desfecho de um chooser é uma pessoa escolhendo
-                       //   um app, e não há API que o entregue (a razão de o
-                       //   `compartilharTexto` ser síncrono). O que ele promete
-                       //   é o que sabe: os bytes que chegaram ao disco
+  pacoteCompartilhar(),// → os BYTES do arquivo, ou -1: oferece o pacote JÁ
+                       //   PRONTO pelo seletor. ELE NÃO FECHA NADA (shell 68)
+                       //   — quem fecha é o `pacoteFechar`, que PROMOVE o
+                       //   arquivo local a pronto. É isso que o torna
+                       //   REPETÍVEL: um aparelho, depois outro, sem refazer um
+                       //   pacote de gigabytes. O número volta ANTES de o
+                       //   seletor responder, e é de propósito — o desfecho de
+                       //   um chooser é uma pessoa escolhendo um app, e não há
+                       //   API que o entregue (a razão de o `compartilharTexto`
+                       //   ser síncrono). `-1` = não há pronto, ele sumiu do
+                       //   disco, ou nada o recebeu
+  pacoteDescartarPronto(), // joga fora o pronto — o operador quer fazer OUTRO.
+                       //   Síncrono, como o `pacoteCancelar`
   salvarTexto(nome, texto), // → o NOME gravado, ou '' (desistiu ou falhou): o
                        //   "Salvar como" do sistema (SAF `CREATE_DOCUMENT`),
                        //   com o shell ESCREVENDO o texto. Existe porque o
@@ -672,7 +683,7 @@ window.AVNative = {
                        //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
-São **58 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **59 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -740,7 +751,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **67**, e ele é o **PISO**: o bundle declara `minShell: 67`, então
+Hoje vale **68**, e ele é o **PISO**: o bundle declara `minShell: 68`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -753,7 +764,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 67 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 68 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -815,7 +826,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 67`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 68`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -2836,10 +2847,35 @@ gerenciador → achar o arquivo → compartilhar); direto, é UM.
   app no meio disso o apagaria debaixo de quem o lê. A PORTA da exportação
   seguinte não tem essa dúvida e leva tudo.
 
-Oráculo: `tools/pacote-compartilhar.test.mjs`, com as quatro reversões medidas —
-**e ele cobre a ESCOLHA do destino, não o Intent**. As flags de concessão e o
-`length()` do arquivo são Kotlin, e o que os provaria é um aparelho: está dito
-aqui porque a metade sem oráculo é a que voltou do campo.
+- **FECHAR NÃO É ENVIAR** (v1.8.19). Pedido do operador: *"pode remover o popup
+  de 'acervo exportado'. faça com que após a conclusão da preparação do arquivo,
+  o botão de exportar fica 100% e permita tocar nele para compartilhar … e
+  também permitindo compartilhar o mesmo arquivo pronto, quantas vezes
+  quiser"*. Até o shell 67 os dois eram o MESMO instante: o seletor abria
+  sozinho no fim da escrita, e o envio valia UMA vez. Hoje `pacoteFechar`
+  PROMOVE o arquivo a PRONTO e `pacoteCompartilhar` só abre o seletor — o
+  operador manda quando quiser, e quantas vezes quiser.
+- **O DIÁLOGO SAIU, E A INFORMAÇÃO DELE NÃO.** Ele dizia duas coisas: o
+  tamanho e o que fazer em seguida. O tamanho está no `aria-label` do tile; o
+  "o que fazer" virou o PRÓPRIO botão — ele para em **100%** (onde a barra
+  parou) e o desenho vira o de compartilhar, que é onde o estado mora neste app
+  desde a v1.7.6.
+- **O TOQUE LONGO REFAZ, e ele existe para o botão não virar uma armadilha.**
+  Com um pronto na mão o toque curto ENVIA; sem uma saída, quem quisesse
+  exportar de novo na mesma sessão ficaria preso com o arquivo velho e nenhuma
+  porta. O eixo duplo é o que o app já usa quando um controle tem duas ações e
+  só cabe um alvo (`attachTransportStep`), e o `title` diz as duas.
+- **O PRONTO VIVE EM MEMÓRIA; O ARQUIVO VIVE NO DISCO**, e os dois podem
+  discordar (a faxina de um lançamento, o operador limpando o armazenamento).
+  Quem tem a verdade é o shell, que confere o `length()` a cada envio e devolve
+  `-1` — e aí o botão volta a oferecer "Exportar". Continuar oferecendo o envio
+  de um arquivo que não existe seria um toque que não faz nada.
+
+Oráculo: `tools/pacote-compartilhar.test.mjs`, com as reversões medidas — **e
+ele cobre a ESCOLHA do destino e o percurso do dedo, não o Intent**. As flags de
+concessão e o `length()` do arquivo são Kotlin, e o que os provaria é um
+aparelho: está dito aqui porque a metade sem oráculo foi a que voltou do campo
+na v1.8.18.
 
 **E O LEITOR NUNCA TEM O ARQUIVO NA MÃO** (v1.7.9). Ele teve, da v1.7.0 até
 aqui — `resp.blob()` —, e não sobreviveu ao tamanho: quinze gigabytes não cabem
@@ -4970,9 +5006,9 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.18 · APK v1.8.18** · `SHELL_VERSION` **67** ·
-bundle com `minShell: 67` e **`shellTag: "v1.8.18"`** (lote COM Release) — o
-shell 67 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
+**Versão atual: base web v1.8.19 · APK v1.8.19** · `SHELL_VERSION` **68** ·
+bundle com `minShell: 68` e **`shellTag: "v1.8.19"`** (lote COM Release) — o
+shell 68 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três

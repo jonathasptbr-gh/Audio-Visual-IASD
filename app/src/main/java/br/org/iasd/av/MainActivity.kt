@@ -1124,7 +1124,34 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     override fun pacoteFinish(onResult: (Long) -> Unit) {
-        runOnUiThread { onResult(pacoteCanal.fechar()) }
+        runOnUiThread {
+            val bytes = pacoteCanal.fechar()
+            val local = pacoteLocal
+            pacoteLocal = null
+            // O CAMINHO DO SAF acaba aqui, como sempre: o documento é do
+            // operador, e o que ele faz com ele depois não é assunto do app.
+            if (local == null) { onResult(bytes); return@runOnUiThread }
+            // O CAMINHO LOCAL NÃO ACABA NO FECHO (v1.8.19) — ele PROMOVE o
+            // arquivo a PRONTO, e é o operador que decide quando enviá-lo, e
+            // quantas vezes. Antes, fechar e abrir o seletor eram o mesmo
+            // instante: o envio acontecia sozinho e valia uma vez só.
+            //
+            // O QUE O CANAL CONTOU NÃO É O QUE O OUTRO APP VAI LER: `bytes` é o
+            // que foi escrito, `length()` é o que existe no caminho agora.
+            // Conferir só o primeiro fazia um arquivo vazio sair anunciado como
+            // pacote inteiro (v1.8.18).
+            val noDisco = try { local.length() } catch (e: Exception) { 0L }
+            if (bytes <= 0L || noDisco <= 0L) {
+                Log.w(TAG, "o pacote fechou com " + bytes + " byte(s) e o arquivo tem " + noDisco)
+                try { local.delete() } catch (e: Exception) {
+                    Log.w(TAG, "o pacote vazio não saiu", e)
+                }
+                onResult(-1L)
+                return@runOnUiThread
+            }
+            pacotePronto = local
+            onResult(noDisco)
+        }
     }
 
     override fun pacoteCancel() {
@@ -1171,19 +1198,19 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
     override fun pacoteShare(onResult: (Long) -> Unit) {
         runOnUiThread {
-            val alvo = pacoteLocal
-            val bytes = pacoteCanal.fechar()
-            pacoteLocal = null
-            if (alvo == null || bytes <= 0L) { onResult(bytes); return@runOnUiThread }
-            // O QUE O CANAL CONTOU NÃO É O QUE O OUTRO APP VAI LER, e essa é a
-            // única pergunta que importa aqui (v1.8.18). `bytes` é o que o
-            // [PacoteCanal] escreveu; `length()` é o que existe NO CAMINHO
-            // agora. Enquanto só o primeiro foi conferido, um arquivo vazio saía
-            // anunciado como pacote inteiro — o diálogo dizia o tamanho certo e
-            // o seletor mostrava 0 KB.
+            // ELE NÃO FECHA NADA (v1.8.19): o arquivo já está pronto, e este
+            // método é só o seletor. É o que o torna REPETÍVEL — o operador
+            // envia para um aparelho, e depois para outro, sem refazer o
+            // pacote de gigabytes.
+            val alvo = pacotePronto
+            if (alvo == null) { onResult(-1L); return@runOnUiThread }
             val noDisco = try { alvo.length() } catch (e: Exception) { 0L }
+            // O ARQUIVO PODE TER SUMIDO entre um envio e o seguinte — a faxina
+            // de um lançamento, o operador limpando o armazenamento do app. O
+            // `-1` faz a tela voltar a oferecer "Exportar", que é a verdade.
             if (noDisco <= 0L) {
-                Log.w(TAG, "o pacote fechou com " + bytes + " byte(s) e o arquivo está vazio")
+                Log.w(TAG, "o pacote pronto não está mais no disco")
+                pacotePronto = null
                 onResult(-1L)
                 return@runOnUiThread
             }
@@ -1218,12 +1245,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
                         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
                 )
             } catch (e: Exception) {
-                // O ARQUIVO FICA, e é isso que salva o lote: os bytes estão no
-                // disco e o número volta certo, então a tela pode dizer que o
-                // pacote existe mesmo com o seletor recusado.
+                // O ARQUIVO FICA, e é isso que salva o lote: ele continua
+                // PRONTO, e o toque seguinte tenta de novo.
                 Log.w(TAG, "nada recebeu o pacote compartilhado", e)
+                onResult(-1L)
+                return@runOnUiThread
             }
-            onResult(bytes)
+            onResult(noDisco)
+        }
+    }
+
+    override fun pacoteDescartarPronto() {
+        runOnUiThread {
+            val alvo = pacotePronto ?: return@runOnUiThread
+            pacotePronto = null
+            try { alvo.delete() } catch (e: Exception) {
+                Log.w(TAG, "o pacote pronto não saiu", e)
+            }
         }
     }
 
@@ -2553,6 +2591,20 @@ class MainActivity : ComponentActivity(), BridgeHost {
          * recolhe — o teto de disco é adiado, nunca dispensado.
          */
         private const val PACOTE_RECENTE_MS = 20 * 60 * 1000L
+
+        /**
+         * O pacote FECHADO que espera o operador mandar (v1.8.19).
+         *
+         * NO COMPANION, e pelo mesmo motivo do [pacoteCanal] logo abaixo: ele é
+         * um arquivo no disco, sem documento nenhum atrás — e tem de sobreviver
+         * a uma recriação de Activity, senão o tile voltaria a oferecer
+         * "Exportar" com gigabytes prontos que ninguém mais alcança.
+         *
+         * É o par do `pacoteLocal`, que é de INSTÂNCIA de propósito: aquele é o
+         * parcial EM CURSO, e quem o alimentava morre com a Activity.
+         */
+        @Volatile
+        var pacotePronto: File? = null
 
         /** O canal __avPacote (shell 63) — UM por processo, pela mesma razão do
          *  irmão acima: o listener é por-instância de WebView e é reinstalado a

@@ -217,9 +217,13 @@ interface BridgeHost {
      *  gravado, ou `""` quando não deu (sem espaço, sem permissão de escrita). */
     fun pacoteCreateLocal(nome: String, onResult: (String) -> Unit)
 
-    /** Fecha o pacote local e o OFERECE pelo seletor de compartilhamento.
-     *  Devolve os bytes gravados, ou `-1` (o fecho falhou, ou nada aberto). */
+    /** Oferece o pacote JÁ PRONTO pelo seletor de compartilhamento. Devolve os
+     *  bytes do arquivo, ou `-1` (não há pronto, ou ele sumiu do disco). Não
+     *  fecha nada: é isso que o torna repetível. */
     fun pacoteShare(onResult: (Long) -> Unit)
+
+    /** Joga fora o pacote pronto — o operador quer fazer outro. */
+    fun pacoteDescartarPronto()
 }
 
 /**
@@ -263,7 +267,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 67
+        const val SHELL_VERSION = 68
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1834,7 +1838,12 @@ class NativeBridge(
 
     /**
      * Fecha o pacote e devolve os bytes gravados (`-1` = não havia nada aberto,
-     * ou o fecho falhou).
+     * o fecho falhou, ou o arquivo saiu VAZIO).
+     *
+     * E NO CAMINHO LOCAL ELE PROMOVE (shell 68): o arquivo passa a ser o pacote
+     * PRONTO, que o [pacoteCompartilhar] oferece quantas vezes o operador
+     * pedir. O número que volta é o `length()` do disco, e não o que o canal
+     * contou — são duas perguntas, e é a segunda que o outro app vai ler.
      *
      * O NÚMERO NÃO É ENFEITE: é a única confirmação que o lado web tem de que
      * os blocos que ele empurrou chegaram ao disco. Um `flush`/`close` que falha
@@ -1906,20 +1915,38 @@ class NativeBridge(
     }
 
     /**
-     * Fecha o pacote local e abre o seletor de compartilhamento.
+     * Abre o seletor de compartilhamento sobre o pacote JÁ PRONTO.
+     *
+     * ELE NÃO FECHA NADA (shell 68), e essa é a mudança que o torna repetível:
+     * quem fecha é o [pacoteFechar], que PROMOVE o arquivo local a pronto. Até
+     * o shell 67 os dois eram o mesmo instante — o envio acontecia sozinho, no
+     * fim da escrita, e valia uma vez só. Hoje o operador decide QUANDO manda,
+     * e manda quantas vezes quiser (um aparelho, depois outro) sem refazer um
+     * pacote de gigabytes.
      *
      * O NÚMERO VOLTA ANTES DO SELETOR RESPONDER, e é de propósito: o desfecho
      * de um `createChooser` é uma pessoa escolhendo um app, e não há API que o
      * entregue (é a razão pela qual o [compartilharTexto] é síncrono e sem
-     * resposta). O que este método promete é o que ele sabe — os bytes que
-     * chegaram ao disco —, e o `-1` continua sendo o cartão cheio descoberto
-     * no `close`, exatamente como no [pacoteFechar].
+     * resposta). O que este método promete é o que ele sabe — o tamanho do
+     * arquivo no disco AGORA. `-1` = não há pronto, ele sumiu, ou nada recebeu.
      */
     @JavascriptInterface
     fun pacoteCompartilhar(callId: String) {
         val h = host
         if (h == null) { resolve(callId, "-1"); return }
         h.pacoteShare { bytes -> resolve(callId, bytes.toString()) }
+    }
+
+    /**
+     * Joga fora o pacote pronto — o operador quer fazer OUTRO.
+     *
+     * Síncrono e sem resposta, como o [pacoteCancelar] e pelo mesmo motivo:
+     * quem chama isto é o começo de uma exportação nova, e uma promessa a mais
+     * no caminho é uma promessa a mais para ficar pendurada.
+     */
+    @JavascriptInterface
+    fun pacoteDescartarPronto() {
+        host?.pacoteDescartarPronto()
     }
 
     /** O nome de exibição do documento, ou "Apresentação" se o provedor não o der. */
