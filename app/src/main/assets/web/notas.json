@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.8.19",
+    "itens": [
+      "O aviso de \"acervo exportado\" saiu: quem responde agora é o próprio botão.",
+      "Terminada a preparação, o botão para em 100% e o toque envia o arquivo.",
+      "O mesmo pacote pode ser enviado quantas vezes for preciso.",
+      "Toque e segure no botão pronto para preparar um pacote novo."
+    ]
+  },
+  {
     "versao": "1.8.18",
     "itens": [
       "O arquivo enviado pelo compartilhamento chegava vazio — corrigido.",

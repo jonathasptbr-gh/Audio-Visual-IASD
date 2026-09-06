@@ -537,16 +537,26 @@
     pacoteCriarLocal: (nome) => call((id) => B.pacoteCriarLocal(id, String(nome)), CALL_TIMEOUT_MS)
       .then((r) => String(r || '')),
 
-    // Fecha o pacote local e o OFERECE pelo seletor. Resolve os BYTES, como o
-    // `pacoteFechar` e com o mesmo `-1`.
+    // Oferece o pacote JÁ PRONTO pelo seletor. Resolve os BYTES do arquivo, ou
+    // `-1` (não há pronto, ele sumiu do disco, ou nada o recebeu).
+    //
+    // ELE NÃO FECHA NADA (shell 68): quem fecha é o `pacoteFechar`, que promove
+    // o arquivo local a pronto. É isso que o torna REPETÍVEL — um aparelho,
+    // depois outro, sem refazer um pacote de gigabytes.
     //
     // O NÚMERO VOLTA ANTES DE O SELETOR RESPONDER, de propósito: o desfecho de
     // um seletor de compartilhamento é uma pessoa escolhendo um app, e não há
     // API que o entregue (a mesma razão pela qual `compartilharTexto` é
-    // síncrono). O que este método promete é o que ele sabe — os bytes que
-    // chegaram ao disco.
+    // síncrono). O que este método promete é o que ele sabe — o tamanho do
+    // arquivo no disco agora.
     pacoteCompartilhar: () => call((id) => B.pacoteCompartilhar(id), CALL_TIMEOUT_MS)
       .then((r) => (typeof r === 'number' ? r : -1)),
+
+    // Joga fora o pacote pronto — o operador quer fazer OUTRO. Síncrono e sem
+    // resposta, como o `pacoteCancelar`.
+    pacoteDescartarPronto() {
+      try { B.pacoteDescartarPronto(); } catch (_) { /* ponte indisponível */ }
+    },
 
     // ---- CIFRA — ver `controle/cifra.js` ----
     // TRANSPORTE, e só. Devolve `{ status, html }` com o corpo CRU da página:

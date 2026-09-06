@@ -1950,7 +1950,16 @@
                onde ele serve com o app minimizado: o cartão sobre a preview e a
                notificação do sistema. -->
           <button type="button" class="qs-tile qs-on" id="pacoteExportarTile" title="Salvar a biblioteca e os ajustes num arquivo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoExportar"/></svg>
+            <!-- DOIS DESENHOS (v1.8.19): a seta de exportar, e a de
+                 COMPARTILHAR quando o pacote está pronto. O estado mora no
+                 desenho — é a regra da v1.7.6, e é o que faz o botão dizer que
+                 o toque mudou de significado. O símbolo é o MESMO do tile de
+                 compartilhar o app, de propósito: os dois abrem o seletor do
+                 sistema, e um segundo desenho para a mesma coisa seria uma
+                 segunda opinião. -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoExportar"/><use class="ico-alt" href="#icoCompartilhar"/>
+            </svg>
             <span class="qs-titulo">Exportar</span>
           </button>
           <button type="button" class="qs-tile qs-on" id="pacoteImportarTile" title="Trazer a biblioteca e os ajustes de um arquivo">
@@ -2044,7 +2053,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">Áudio Visual IASD v1.8.18</span>
+          <span id="appVersion" class="app-version">Áudio Visual IASD v1.8.19</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o

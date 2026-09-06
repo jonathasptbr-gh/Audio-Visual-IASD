@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.18';
+const WEB_VERSION = '1.8.19';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23393,6 +23393,31 @@ const PACOTE_CANCELADO = 'cancelado';
 // escolhido pelo operador) continua ali para quando não couber.
 const PACOTE_FOLGA_BYTES = 512 * 1024 * 1024;
 
+// O TEMPO DO TOQUE LONGO no tile de exportar pronto (v1.8.19). Meio segundo, o
+// mesmo compasso do eixo duplo do transporte — o mesmo gesto pedindo tempos
+// diferentes em duas superfícies do mesmo app é o que ele evita.
+//
+// DECLARADO AQUI, e não ao lado do ouvinte que o usa: o `pacoteRenderTiles()`
+// da carga roda no TOPO do arquivo, e um `const` alcançado de cima é uma zona
+// morta esperando a ordem de chamada mudar (a armadilha do
+// `cifraAdotarVelocidade`).
+const PACOTE_TOQUE_LONGO_MS = 500;
+
+// O PACOTE FECHADO QUE ESPERA SER MANDADO (v1.8.19) — `{ nome, bytes }`, ou
+// `null`.
+//
+// Ele é o que faz o tile de exportar virar um botão de ENVIAR: a exportação
+// para em 100% e o operador decide quando manda, e quantas vezes. Só existe no
+// caminho LOCAL — no do SAF o arquivo já é do operador, na pasta que ele
+// escolheu, e não há o que este app ofereça.
+//
+// EM MEMÓRIA, e não no `state`: o arquivo mora no armazenamento próprio e a
+// faxina do lançamento seguinte o recolhe (`PACOTE_RECENTE_MS`, no shell), então
+// uma lembrança que sobrevivesse à sessão apontaria para um arquivo que já não
+// existe. O shell confere o `length()` a cada envio e devolve `-1` quando ele
+// sumiu — é ele, e não esta variável, quem tem a verdade.
+let pacotePronto = null;
+
 async function exportarPacote() {
   const c = pacoteCanal();
   if (!c || pacoteEmCurso) return;
@@ -23604,11 +23629,11 @@ async function exportarPacote() {
         bgTaskEnd(tarefa);
       }
     });
-    // FECHAR E COMPARTILHAR SÃO O MESMO MOMENTO no caminho local: os dois
-    // devolvem os bytes que chegaram ao disco, e é esse número — não o seletor
-    // — que descobre o cartão cheio. O seletor abre depois e não tem desfecho
-    // observável (ver `pacoteCompartilhar` no `native.js`).
-    gravados = cabeLocal ? await AVNative.pacoteCompartilhar() : await AVNative.pacoteFechar();
+    // FECHAR NÃO É ENVIAR (v1.8.19). Os dois caminhos fecham pelo MESMO
+    // método; o que muda é o que vem depois — no local o arquivo fica PRONTO e
+    // o operador manda quando quiser, no SAF ele já é do operador. O número é
+    // o `length()` do disco, e é ele que descobre o cartão cheio.
+    gravados = await AVNative.pacoteFechar();
     if (gravados < 0) erro = 'O arquivo não pôde ser fechado — pode ter faltado espaço.';
   } catch (e) {
     erro = (e && e.message) || 'A exportação falhou.';
@@ -23637,27 +23662,31 @@ async function exportarPacote() {
     await openAppDialog({ title: 'Não deu para exportar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
-  // O DESFECHO FALA NOS DOIS LUGARES, e não é repetição: o BOTÃO diz que deu
-  // certo e quanto pesou — a resposta ao toque, onde o toque foi dado —, e o
-  // DIÁLOGO diz o que o botão não tem como dizer: o NOME do arquivo e o que
-  // fazer com ele. Sem o nome, "exportado" não responde *"qual arquivo eu
-  // copio?"* numa pasta de Downloads com meia dúzia deles.
+  // ===== O DESFECHO MORA NO BOTÃO, E SÓ NELE (v1.8.19) =====
+  //
+  // Pedido do operador: *"pode remover o popup de 'acervo exportado'. faça com
+  // que após a conclusão da preparação do arquivo, o botão de exportar fica
+  // 100% e permita tocar nele para compartilhar o arquivo de exportação, no
+  // caso permitindo controlar quando vai exportar, após terminar os processos,
+  // e também permitindo compartilhar o mesmo arquivo pronto, quantas vezes
+  // quiser"*.
+  //
+  // O DIÁLOGO ERA UM PASSO A MAIS NO MEIO DE UMA AÇÃO QUE JÁ TINHA ACABADO, e
+  // ele existia para dizer duas coisas: o tamanho e o que fazer em seguida. O
+  // tamanho continua no botão; o "o que fazer" virou o PRÓPRIO BOTÃO — ele
+  // para em 100% e o toque manda.
   pulsar(pacoteExportarTileEl, 'ok');
+  if (cabeLocal) {
+    // O PRONTO É POR ARQUIVO, e o `nome` entra junto porque é o que o SAF
+    // deixaria numa pasta — aqui ele só aparece no `aria-label`, mas a
+    // simetria entre os dois caminhos é o que impede o de baixo de mentir.
+    pacotePronto = { nome, bytes: gravados };
+    pacoteRenderTiles();
+    return;
+  }
+  // NO CAMINHO DO SAF NÃO HÁ O QUE MANDAR: o arquivo já é do operador, na
+  // pasta que ELE escolheu. O botão diz quanto pesou e volta ao que era.
   falarNoTile(pacoteExportarTileEl, fmtBytes(gravados), 5000);
-  await openAppDialog({
-    title: 'Acervo exportado',
-    // A FRASE SEGUE O CAMINHO, porque as duas pedem ações diferentes: no
-    // compartilhar o seletor JÁ ESTÁ na frente do operador e o que falta é
-    // saber o que fazer do outro lado; no seletor de arquivos o que falta é
-    // achar o arquivo, e por isso o NOME dele é o que importa.
-    message: cabeLocal
-      ? 'A biblioteca tem ' + fmtBytes(gravados) + '. Escolha por onde enviá-la '
-        + '(o Quick Share é o mais rápido) e use "Importar" no outro aparelho.'
-      : 'O arquivo "' + nome + '" tem ' + fmtBytes(gravados) + '. '
-        + 'Copie-o para o outro aparelho e use "Importar" lá.',
-    okText: 'Entendi',
-    cancelText: null,
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -24274,8 +24303,24 @@ function pacoteRenderTiles() {
   // QUEM ESTÁ TRABALHANDO É UM SÓ, e é ele que fica tocável: o outro é o
   // IRMÃO — desabilitado porque a ponte só sustenta um destino aberto por vez,
   // e não porque haja o que cancelar nele.
-  pacoteTrabalhando(pacoteExportarTileEl, pacoteEmCurso,
-    pacoteEmCurso ? 'em curso' : 'o acervo', pacoteExportando);
+  // O TILE PRONTO É OUTRO BOTÃO, e o estado mora no DESENHO (a regra da
+  // v1.7.6): o ícone vira o de compartilhar e o título para em "100%", que é
+  // onde a barra da exportação parou. Nada apaga — apagado, neste app, quer
+  // dizer INDISPONÍVEL.
+  if (pacotePronto && !pacoteEmCurso) {
+    pacoteExportarTileEl.classList.remove('qs-trabalhando');
+    pacoteExportarTileEl.disabled = false;
+    falarNoTile(pacoteExportarTileEl, '100%', 0);
+    pintarTile(pacoteExportarTileEl, 'pronto-para-enviar',
+      'pronto, ' + fmtBytes(pacotePronto.bytes) + ' — toque para enviar', true, true);
+    pacoteExportarTileEl.title = 'Pronto (' + fmtBytes(pacotePronto.bytes)
+      + '). Toque para enviar; toque e segure para exportar de novo.';
+  } else {
+    if (!pacoteEmCurso) calarTile(pacoteExportarTileEl);
+    pacoteExportarTileEl.title = '';
+    pacoteTrabalhando(pacoteExportarTileEl, pacoteEmCurso,
+      pacoteEmCurso ? 'em curso' : 'o acervo', pacoteExportando);
+  }
   pacoteTrabalhando(pacoteImportarTileEl, pacoteEmCurso,
     pacoteEmCurso ? 'em curso' : 'o acervo', false);
 }
@@ -24292,6 +24337,43 @@ if (shareAppTileEl) {
   });
 }
 if (pacoteExportarTileEl) {
+  // ===== O TOQUE LONGO REFAZ O PACOTE (v1.8.19) =====
+  //
+  // Com um pacote PRONTO o toque curto ENVIA — é o pedido, e é o que se faz
+  // muitas vezes seguidas (um aparelho, depois outro). Mas o botão não pode
+  // virar uma armadilha: sem uma saída, quem quisesse exportar de novo na mesma
+  // sessão ficaria preso com um arquivo velho e nenhuma porta.
+  //
+  // O toque longo é o eixo que este app já usa quando um controle tem duas
+  // ações e só cabe um alvo (`attachTransportStep`, na coluna da tela cheia e
+  // na notificação). Ele só existe no estado PRONTO, e o `title` diz os dois.
+  let pacoteSegurou = null;
+  let pacoteFoiLongo = false;
+  const pacoteSoltar = () => {
+    if (pacoteSegurou) { clearTimeout(pacoteSegurou); pacoteSegurou = null; }
+  };
+  pacoteExportarTileEl.addEventListener('pointerdown', () => {
+    // A BANDEIRA ZERA EM TODO TOQUE, e ANTES da guarda: depois de um toque
+    // longo o `pacotePronto` já foi descartado e a exportação nova está em
+    // curso, então o `click` que vem atrás cai no `pacoteEmCurso` e NÃO a
+    // consome. Zerada só dentro da guarda, ela sobreviveria até o pacote
+    // seguinte ficar pronto e engoliria o primeiro toque de envio.
+    pacoteFoiLongo = false;
+    pacoteSoltar();
+    if (!pacotePronto || pacoteEmCurso) return;
+    pacoteSegurou = setTimeout(() => {
+      pacoteSegurou = null;
+      pacoteFoiLongo = true;
+      pacoteDescartarPronto();
+      exportarPacote();
+    }, PACOTE_TOQUE_LONGO_MS);
+  });
+  // `pointercancel` junto do `pointerup` pela razão da rolagem da cifra: um
+  // toque que vira gesto do sistema não emite o segundo, e sem ele o
+  // temporizador dispararia com o dedo já fora do botão.
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+    pacoteExportarTileEl.addEventListener(ev, pacoteSoltar);
+  }
   pacoteExportarTileEl.addEventListener('click', () => {
     // O TOQUE NO BOTÃO QUE TRABALHA É O CANCELAR (v1.7.3). Ele é o gesto que
     // quem opera tenta primeiro, e é seguro porque exportar é refazível: o
@@ -24304,8 +24386,45 @@ if (pacoteExportarTileEl) {
       return;
     }
     if (pacoteEmCurso) return;
+    // O `click` chega DEPOIS do toque longo ter agido: sem esta guarda, segurar
+    // o botão refaria o pacote E abriria o seletor do que acabou de ser
+    // descartado.
+    if (pacoteFoiLongo) { pacoteFoiLongo = false; return; }
+    if (pacotePronto) { enviarPacotePronto(); return; }
     exportarPacote();
   });
+}
+
+// Manda o pacote pronto, quantas vezes o operador pedir.
+//
+// O `-1` NÃO É UM ERRO A EXPLICAR EM DIÁLOGO: ele quer dizer que o arquivo não
+// está mais lá (a faxina de um lançamento, o operador limpando o armazenamento
+// do app) ou que nada o recebeu. Nos dois casos a resposta é a mesma — o botão
+// volta a oferecer "Exportar", que é a verdade, e diz por quê no próprio
+// rótulo.
+async function enviarPacotePronto() {
+  if (!pacotePronto || pacoteEmCurso) return;
+  const bytes = await AVNative.pacoteCompartilhar();
+  if (bytes < 0) {
+    pacotePronto = null;
+    pacoteRenderTiles();
+    pulsar(pacoteExportarTileEl, 'erro');
+    falarNoTile(pacoteExportarTileEl, 'Refaça', 4000);
+    return;
+  }
+  // NADA MAIS A DIZER: o seletor do sistema está na frente do operador, e ele
+  // é a resposta ao toque. O tile continua PRONTO — mandar de novo é tocar de
+  // novo.
+  pacotePronto = { nome: pacotePronto.nome, bytes };
+  pacoteRenderTiles();
+}
+
+// Joga fora o pacote pronto — o começo de uma exportação nova.
+function pacoteDescartarPronto() {
+  if (!pacotePronto) return;
+  pacotePronto = null;
+  try { AVNative.pacoteDescartarPronto(); } catch (_) { /* ponte */ }
+  pacoteRenderTiles();
 }
 if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => { importarPacote(); });
 // Na CARGA, e não só ao abrir a folha: é este toque que revela (ou esconde) o
