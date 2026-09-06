@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.22",
+    "itens": [
+      "O acervo exportado deixou de chegar com 0 KB no aplicativo que o recebe.",
+      "O Registro passou a dizer quantos bytes o aparelho serve do pacote, e não só quantos ele gravou."
+    ]
+  },
+  {
     "versao": "1.8.21",
     "itens": [
       "A tela de compartilhamento voltou a abrir ao enviar o acervo.",

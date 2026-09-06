@@ -42,7 +42,7 @@ sai a escada da transmissão, e a faixa de álbum que nunca é marcada como NO A
 —, e é arquivo para esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
-subsistema do shell, mais a tabela que diz onde cada um dos 31 arquivos é
+subsistema do shell, mais a tabela que diz onde cada um dos 32 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede — inclusive o celular como PONTO DE ACESSO, que
@@ -187,6 +187,10 @@ app/src/main/
 │   ├── MicDiag.kt               # POR QUE o microfone não abre — o que só o SHELL
 │   │                            #   sabe (permissão, AppOps, modo, entradas).
 │   │                            #   LEITURA PURA: não abre nada, não pede nada
+│   ├── PacoteProvider.kt        # o FileProvider do PACOTE — subclasse VAZIA, e
+│   │                            #   ela É a correção do "0 KB": duas autoridades
+│   │                            #   sobre a MESMA classe compartilham a instância
+│   │                            #   (e a tabela de caminhos) da primeira
 │   ├── PacoteCanal.kt           # o canal de ArrayBuffer web→SAF do PACOTE DE
 │   │                            #   TRANSFERÊNCIA — o SEGUNDO do shell, irmão
 │   │                            #   do EspelhoMidiaCanal e com as mesmas três
@@ -241,7 +245,7 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**31 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**32 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -2846,12 +2850,30 @@ gerenciador → achar o arquivo → compartilhar); direto, é UM.
   inofensivo porque texto não precisa de concessão, ele quebra a corrente aqui,
   porque a concessão é amarrada à TAREFA de quem a dá; é o suspeito do **0 KB**
   da v1.8.17.
+- **O PROVEDOR É DE CLASSE PRÓPRIA, e isso não é estilo** (`PacoteProvider.kt`,
+  v1.8.22). `ActivityThread` guarda o provedor local num mapa chaveado por
+  `ComponentName(pacote, CLASSE)`, **não por autoridade**: duas autoridades
+  sobre `androidx.core.content.FileProvider` compartilham a instância — e a
+  tabela de caminhos — da PRIMEIRA. Era o "0 KB" no seletor, e ele durou cinco
+  lotes porque falha ASSIMÉTRICO e MUDO deste lado: o `getUriForFile` é
+  ESTÁTICO e resolve pela AUTORIDADE (a URI sai certa, o seletor abre), o nosso
+  lado reporta o tamanho certo (ele lê o `File.length()`, que nunca passa pelo
+  provedor), e quem RECUSA é a instância que serve, **no processo do outro
+  app**. A autoridade do APK continua funcionando por ser a PRIMEIRA — a metade
+  que funciona é a que fazia o defeito parecer impossível. **Autoridade nova =
+  classe nova**, e o `manifest-provedores.test.mjs` cobra isso.
 - **E O `-1` DIZ POR QUÊ** (`pacoteDiag`, shell 69). Ele colapsa TRÊS causas —
   não há pronto · o arquivo sumiu do disco · o seletor recusou — e o lado web
   não separa nenhuma: TRÊS rodadas de campo se gastaram nessa distinção, feita
   por dedução sobre o código em vez de leitura do aparelho. O diag diz o estado
   do pronto, se ele existe, a URI do provedor (ou a exceção de montá-la) e o
-  desfecho do último fecho e do último envio, com o NOME da exceção.
+  desfecho do último fecho e do último envio, com o NOME da exceção. **E, desde
+  a v1.8.22, quantos bytes o PROVEDOR serve** para a própria URI — um `query`
+  daqui, a MESMA chamada que o app receptor faz: é essa linha que separa *"o
+  arquivo tem N bytes no disco"* de *"o outro app consegue lê-los"*, e foram
+  essas duas que divergiram no "0 KB". LEITURA PURA, e ela não vira veredito —
+  um `query` que lançasse por um motivo benigno bloquearia um compartilhamento
+  que ia funcionar.
 - **E O QUE O CANAL CONTOU NÃO É O QUE O OUTRO APP VAI LER.** `bytes` é o que o
   `PacoteCanal` escreveu; `length()` é o que existe NO CAMINHO agora. Enquanto
   só o primeiro foi conferido, um arquivo vazio saía anunciado como pacote
@@ -4395,6 +4417,7 @@ o código de saída não pode entrar no placar como quem passou.
 |---|---|
 | `webview-range.test.mjs` | a **invariante 8**: o `InputStream` de `shouldInterceptRequest` é o recurso INTEIRO |
 | `kotlin-simbolo-importado.test.mjs` | **todo símbolo do Kotlin tem de onde vir.** NINGUÉM COMPILA KOTLIN FORA DO CI — o `./gradlew` exige o Android SDK —, e a suíte inteira é de JavaScript: o primeiro sinal de um `SystemClock` sem `import` é o build da Release falhando DEPOIS do merge em `main`, levando junto o lote seguinte (foi a v1.8.6). Ele responde a única pergunta que dá para responder sem compilador: um nome Maiúsculo seguido de ponto está importado, é do pacote, é membro do arquivo, vem qualificado, ou é do que a linguagem dá de graça? **O varredor de comentários é de ESTADO e não regex, e isso é o arquivo inteiro**: comentário de bloco em Kotlin ANINHA, e a primeira versão (`/\*[\s\S]*?\*/`) deslocava os pares e tirava regiões de código da varredura — MEDIDO, ela aprovava o próprio defeito que veio pegar. Um `import a.b.*` desliga a conferência daquele arquivo: sem resolver o classpath não dá para saber o que ele traz, e reprovar por não saber seria acusar código correto **E DESDE A v1.8.21 A SEGUNDA CLASSE QUE O COMPILADOR PEGA E A SUÍTE NÃO: o `+` NO COMEÇO DA LINHA.** Em Kotlin ele é o operador UNÁRIO — a concatenação vai no FIM da linha anterior —, e escrito à moda do JavaScript o build morre em `Unresolved reference 'unaryPlus'`, com o mesmo desfecho da v1.8.6 (Release que não nasce, HOLD do `shellTag` segurando o bundle). A varredura lê a linha CRUA para achar o `+` e a LIMPA para contar parêntese: dentro de parênteses abertos ele é legítimo, e há dois casos assim no repositório |
+| `manifest-provedores.test.mjs` | **duas autoridades sobre a MESMA CLASSE de provedor compartilham uma instância — e com ela a tabela de caminhos da primeira.** `ActivityThread.installProvider` guarda o provedor local num mapa chaveado por `ComponentName(pacote, CLASSE)`, não por autoridade. Foi o "0 KB" que custou CINCO lotes de campo, e o modo de falhar é ASSIMÉTRICO e MUDO deste lado: o `getUriForFile` é ESTÁTICO e resolve pela AUTORIDADE, então a URI sai certa e o seletor abre; o nosso lado reporta o tamanho certo, porque lê o `File.length()`, que nunca passa pelo provedor; quem RECUSA é a instância que serve, **no processo do OUTRO app**. E a PRIMEIRA autoridade continua funcionando — neste app é a do APK, exercitada em toda atualização, e a metade que funciona é a que faz o defeito parecer impossível. Nada no build detecta a colisão (o XML é válido, o merger não reclama, o app instala) e nenhum oráculo de COMPORTAMENTO alcança um defeito que roda noutro aplicativo: sobra a leitura ESTÁTICA do manifesto, que é a resposta do `kotlin-simbolo-importado` num lugar novo. Confere também que o `<paths>` e a classe apontados EXISTEM — um `@xml/` com nome errado não é erro de build, o recurso some e o provedor sobe sem raiz nenhuma. Duas reversões medidas, e a primeira nomeia o manifesto da v1.8.21 |
 | `sombra.test.mjs` | nenhuma função da base pode redeclarar um nome de módulo — `node --check` APROVA um `const ms` que sombreia a `ms` do módulo, e o que sai é `ReferenceError` por zona morta temporal |
 | `tokens.test.mjs` | **`colors.xml` × `tokens.css`** (v1.5.14): `--bg` é a única cor que existe em dois lugares por necessidade (um recurso de Android não enxerga custom property), e nada verificava a igualdade — o comentário do próprio arquivo o admitia, e é o OTA que torna a divergência provável, porque a base web chega em minutos e o `res/` só por APK. Mais: nenhum `var(--x)` **sem fallback** aponta para token inexistente (um `var()` inválido computa para o valor INICIAL, sem aviso); nenhum token só no tema claro; **nenhuma regra desenha contorno** e — desde a v1.5.16 — **nenhum TRAÇO PINTADO** além da divisória nomeada: a varredura de contorno casa a palavra `border`, e um filete escrito como bloco de 1px com fundo passava por ela sem ninguém decidir nada, deixando no repositório o precedente *"filete pode, desde que não se chame border"*. O par da negativa é POSITIVO — `--divisoria` tem de ter UM consumidor, e ser o seletor da exceção —, senão o token viraria a porta larga. `var(--x, fallback)` é legítimo (valores que o JS entrega em runtime). **E nenhuma marca de conflito de merge** (v1.4.31): `:is()` é FORGIVING, descarta o inválido e aplica o resto — a v1.4.27 perdeu dois seletores do `--press` assim, com o CI verde por três lotes |
 | `serie.test.mjs` | quais playlists e vídeos entram no álbum. **Entradas VERBATIM do canal** — nomenclatura imaginada prova só que o código concorda com quem o escreveu. **E o que a regra CARREGA além do rótulo** (v1.5.21): o `canal` e o TÍTULO CRU sobrevivem a ela, e o canal ausente vira string VAZIA e nunca `undefined` — a diferença entre a gaveta não desenhar a linha e a gaveta escrever "undefined". O caso do canal é a ARMADILHA 5 pelos dois lados na mesma fixture: a string que não pode virar filtro é a que o card mostra |
@@ -5035,8 +5058,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.21 · APK v1.8.21** · `SHELL_VERSION` **69** ·
-bundle com `minShell: 69` e **`shellTag: "v1.8.21"`** (lote COM Release) — o
+**Versão atual: base web v1.8.22 · APK v1.8.22** · `SHELL_VERSION` **69** ·
+bundle com `minShell: 69` e **`shellTag: "v1.8.22"`** (lote COM Release) — o
 shell 69 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
 
