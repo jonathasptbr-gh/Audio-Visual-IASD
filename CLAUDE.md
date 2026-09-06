@@ -3072,6 +3072,19 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   metadado. **A exceção são as chaves de `state`**, que o plano lê e CODIFICA
   uma vez e a escrita reusa: elas são milhares e minúsculas, e o
   `JSON.stringify` delas é o único jeito de saber quanto pesam — ver abaixo.
+- **AS CHAVES DE `state` TAMBÉM SÃO UM CURSOR** (`AVDB.stateVarrer`, v1.8.24), e
+  pelo mesmo motivo do irmão logo abaixo: o plano fazia um `getState` por chave,
+  e a Bíblia mora aqui com uma chave POR CAPÍTULO. MEDIDO em Chromium sobre
+  3.600 chaves de tamanho real (11,8 MB de JSON): **525 ms por chave contra
+  275 ms por cursor**, com o piso irredutível (só serializar) em **64 ms**.
+  **MEDIR NA ABERTURA foi considerado e recusado**: o custo não some, muda para o
+  pior instante — o app abre minutos antes do culto, e a regra das rotinas de
+  acervo é CEDER a vez ao que está no ar. Um REGISTRO mantido de tamanhos é pior:
+  ele é uma segunda fonte de verdade sobre o DISCO, e a varredura é do disco
+  justamente porque o catálogo não conhece as imagens de fundo da letra — se as
+  duas derivarem, arquivos deixam de viajar em silêncio. O que sobra é a
+  varredura do OPFS (**455 ms** para 1.800 arquivos), que é O(arquivos) por
+  construção.
 - **O RESUMO DO ACERVO É UM CURSOR, não N leituras** (`AVDB.mediaResumo`). O
   plano precisa do peso de cada item; pedi-lo com um `getMedia` por id é uma
   transação por registro, milhares delas em fila. Um cursor percorre a store
@@ -5110,7 +5123,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.23 · APK v1.8.22** · `SHELL_VERSION` **69** ·
+**Versão atual: base web v1.8.24 · APK v1.8.22** · `SHELL_VERSION` **69** ·
 bundle com `minShell: 69` e **SEM `shellTag`** (lote SÓ DE BASE WEB) — o
 shell 69 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
