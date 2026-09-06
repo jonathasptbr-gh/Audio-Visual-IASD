@@ -303,12 +303,27 @@ try {
     'A · e o progresso ANDOU durante a fase das chaves de `state`, NO PRÓPRIO '
     + 'BOTÃO — era ela que ficava em 0%, porque nenhum registro dali reportava '
     + 'bytes', JSON.stringify(medida.rotulos));
-  // O BOTÃO É A INTERFACE INTEIRA DESTA AÇÃO (v1.7.3): ele diz que está
-  // medindo, quanto já foi, e quanto pesou o arquivo. O cartão sobre a preview
-  // saiu daqui — a exportação não acontece na preview.
-  checar(medida.rotulos.includes('Medindo…'),
-    'A · e a MEDIÇÃO também fala nele: ela leva segundos num acervo grande e '
-    + 'acontecia em silêncio', JSON.stringify(medida.rotulos));
+  // O BOTÃO É A INTERFACE INTEIRA DESTA AÇÃO (v1.7.3): ele diz quanto já foi e
+  // quanto pesou o arquivo. O cartão sobre a preview saiu daqui — a exportação
+  // não acontece na preview.
+  //
+  // A PALAVRA "Medindo…" SAIU (v1.8.27), a pedido: *"não precisa usar 'medindo'
+  // após a seleção, apenas inclua isso na contagem de porcentagem do processo.
+  // afinal, isso é só parte do processo como um todo"*. A medição não deixou de
+  // ser reportada — ela virou a primeira FATIA da mesma barra.
+  checar(!medida.rotulos.includes('Medindo…'),
+    'A · a palavra "Medindo…" não aparece — a medição é uma fatia da barra, não '
+    + 'uma etapa à parte', JSON.stringify(medida.rotulos));
+  // E A BARRA É UMA SÓ: ela não pode voltar atrás nem fechar antes do fim, que
+  // é o que duas contagens de 0 a 100 em sequência fazem.
+  let voltou = 0;
+  for (let i = 1; i < pcts.length; i++) if (pcts[i] < pcts[i - 1]) voltou++;
+  checar(voltou === 0,
+    'A · e a contagem nunca VOLTA ATRÁS — medir e escrever dividem uma régua só',
+    voltou + ' recuo(s) em ' + JSON.stringify(pcts));
+  checar(pcts.indexOf(100) === pcts.length - 1,
+    'A · e ela só chega a 100% no FIM — fechar antes é a falsa sensação de '
+    + 'conclusão', JSON.stringify(pcts));
   checar(/^\d/.test(medida.rotulos[medida.rotulos.length - 1] || ''),
     'A · e o desfecho é o TAMANHO do arquivo, no mesmo lugar',
     JSON.stringify(medida.rotulos.slice(-3)));

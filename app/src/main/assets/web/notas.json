@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.27",
+    "itens": [
+      "Exportar e importar passaram a ter uma barra só, de ponta a ponta.",
+      "O resumo da importação ficou curto: um total, e o nome do que faltou.",
+      "O botão parado virou o cancelar do que está em curso, em vez de girar à toa.",
+      "A importação passou a poder ser interrompida.",
+      "A notificação deixou de usar a seta de download no que não é download."
+    ]
+  },
+  {
     "versao": "1.8.26",
     "itens": [
       "Os álbuns não baixados voltaram a ter o botão de baixar depois de importar.",

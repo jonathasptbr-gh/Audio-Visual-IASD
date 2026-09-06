@@ -3038,6 +3038,31 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   escreve ANTES dos corpos por contrato. E a varredura do OPFS é ORDENADA com
   comparação NUMÉRICA — ela devolve o que o sistema de arquivos entrega, e como
   texto cru "100" vem antes de "010": sem ordenar, um hinário parece um sorteio.
+- **UMA CONTAGEM ENGLOBA O PROCESSO INTEIRO** (v1.8.27). Exportar tinha "medir"
+  e "escrever" como duas barras de 0 a 100 em sequência; importar tinha
+  "conferir" e "aplicar". A primeira sempre MENTIA ao fechar. Hoje cada etapa
+  ocupa uma FATIA da barra única (`PACOTE_FATIA_MEDIDA` 5%,
+  `PACOTE_FATIA_CONFERE` 15%), e a palavra "Medindo…" saiu — ela era uma etapa
+  à parte, e a medição é parte do trabalho. **As fatias são fixas, e as duas
+  alternativas estão ditas:** por BYTES LIDOS a conferência valeria ~1% e
+  ficaria parada o tempo que leva; MEIO A MEIO a barra correria até 50% e depois
+  rastejaria. A fatia não precisa ser exata — precisa ser MONOTÔNICA e nunca
+  voltar a zero. Corolário: `bgTaskStep` **não reinicia mais a média** ao trocar
+  de etapa (a razão daquilo era cada etapa ter a própria barra).
+- **O TILE OCIOSO É O CANCELAR DO IRMÃO** (v1.8.27). O aro é o desenho do
+  TRABALHO EM CURSO, e pintá-lo no botão que não está fazendo nada é a tela
+  afirmando o que não é. Quem trabalha mostra o aro e o número; o outro oferece
+  a saída, com o ✕ no lugar do ícone da função. **Isso revoga a decisão da
+  v1.7.3** de a importação não poder ser interrompida: aquele texto provava que
+  não dá para DESFAZER, e o que faltava era PARAR — seguro exatamente pela razão
+  que ele dá (*o que já entrou está certo*), com a reimportação continuando de
+  onde ficou.
+- **O ÍCONE DA NOTIFICAÇÃO SEGUE O TRABALHO** (v1.8.27). `bgProgress` leva
+  `baixando`, e o `SyncService` escolhe entre a seta de download e as setas de
+  sincronização: exportar, importar e preparar uma apresentação não trazem byte
+  nenhum da rede. É a regra da v1.4.19 (*o ícone segue a legenda*) na única
+  superfície que faltava. **Padrão `true`** — um bundle mais antigo que a ponte
+  não manda o campo, e ausente é "é download", o comportamento de sempre.
 - **O RELATÓRIO DO FIM CONTA MÚSICAS, não unidades internas** (v1.8.25). Ele
   dizia *"4 item(ns), 2228 arquivo(s) e 172 ajuste(s)"* — a store de mídia, os
   arquivos do OPFS (um hino tem áudio, playback e as imagens de fundo da letra,
@@ -3046,6 +3071,13 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   depois de uma queda tem de responder "601 de 601", e um delta diria "0
   entraram" sobre um hinário completo. A conta sai de `countDownloaded`, a MESMA
   que a Biblioteca usa: uma segunda conta divergiria da tela onde se confere.
+  - **E ELE É RESUMO, NÃO LISTAGEM** (v1.8.27). Uma frase por coleção, coladas
+    num parágrafo, deram um MURO com vinte e três álbuns. A forma é a de todo
+    bloco de diagnóstico deste repositório: **o TOTAL responde, e só a EXCEÇÃO é
+    nomeada** — *"23 coleções · 312 de 312 músicas"*, com uma linha
+    "Incompletas:" só quando há. Vinte linhas de "10 de 10" não são auditoria: a
+    informação inteira delas é o total. Uma coleção SOZINHA ganha o nome dela,
+    porque ali o nome é a confirmação.
 - **OS AJUSTES INDIVIDUAIS NÃO VIAJAM** (v1.8.25). Decisão do operador: *"o
   propósito da exportação não é copiar o app de um usuário … o propósito é para
   dados massivos da biblioteca"*. Doze chaves de preferência entraram no `FORA`,
@@ -5181,8 +5213,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.26 · APK v1.8.22** · `SHELL_VERSION` **69** ·
-bundle com `minShell: 69` e **SEM `shellTag`** (lote SÓ DE BASE WEB) — o
+**Versão atual: base web v1.8.27 · APK v1.8.27** · `SHELL_VERSION` **69** ·
+bundle com `minShell: 69` e **`shellTag: "v1.8.27"`** (lote COM Release) — o
 shell 69 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
 

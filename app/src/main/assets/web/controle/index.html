@@ -536,6 +536,14 @@
       <path d="M4.5 14.5v3.2a2.3 2.3 0 0 0 2.3 2.3h10.4a2.3 2.3 0 0 0 2.3-2.3v-3.2"/>
       <path d="M12 15.4V3.8"/><path d="m8.2 7.6 3.8-3.8 3.8 3.8"/>
     </symbol>
+    <!-- O ✕ DO CANCELAR (v1.8.27). Ele é o MESMO desenho do "Desligar
+         transmissão" e do desfazer do giro sobre a preview: neste app o ✕ quer
+         dizer "isto sai", e um segundo traço para a mesma promessa seria uma
+         segunda opinião. Ele veste o tile OCIOSO enquanto o irmão trabalha —
+         ver `pacoteTrabalhando`. -->
+    <symbol id="icoCancelar" viewBox="0 0 24 24">
+      <path d="M6 6l12 12M18 6L6 18"/>
+    </symbol>
     <symbol id="icoImportar" viewBox="0 0 24 24">
       <path d="M4.5 14.5v3.2a2.3 2.3 0 0 0 2.3 2.3h10.4a2.3 2.3 0 0 0 2.3-2.3v-3.2"/>
       <path d="M12 3.8v11.6"/><path d="m8.2 11.6 3.8 3.8 3.8-3.8"/>
@@ -1958,12 +1966,14 @@
                  sistema, e um segundo desenho para a mesma coisa seria uma
                  segunda opinião. -->
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoExportar"/><use class="ico-alt" href="#icoCompartilhar"/>
+              <use class="ico-base" href="#icoExportar"/><use class="ico-alt" href="#icoCompartilhar"/><use class="ico-irmao" href="#icoCancelar"/>
             </svg>
             <span class="qs-titulo">Exportar</span>
           </button>
           <button type="button" class="qs-tile qs-on" id="pacoteImportarTile" title="Trazer a biblioteca e os ajustes de um arquivo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoImportar"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoImportar"/><use class="ico-irmao" href="#icoCancelar"/>
+            </svg>
             <span class="qs-titulo">Importar</span>
           </button>
         </div>
@@ -2053,7 +2063,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">Áudio Visual IASD v1.8.26</span>
+          <span id="appVersion" class="app-version">Áudio Visual IASD v1.8.27</span>
           <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                Registro passa de setenta linhas só na seção de cifras, e copiar e
                colar é o caminho que corta o texto no meio SEM AVISAR — foi o

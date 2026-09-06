@@ -850,6 +850,11 @@ class NativeBridge(
             // folgadamente dos 2 GB que o `Int` comporta, e o estouro sairia
             // como uma barra andando para trás.
             bytes = o.optBoolean("bytes"),
+            // `optBoolean(nome, true)` — o PADRÃO é "é download", que é o
+            // comportamento de sempre. Um bundle mais antigo que a ponte não
+            // manda o campo, e ler ausente como `false` trocaria o ícone de
+            // TODO download por engano. Falhar para o lado que já existia.
+            baixando = o.optBoolean("baixando", true),
         )
     }
 

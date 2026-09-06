@@ -149,7 +149,8 @@ const PONTE = `(function () {
         // módulo junto. Ler antes da recarga seria uma corrida contra ela.
         const k = 'progresso-do-teste';
         const a = JSON.parse(sessionStorage.getItem(k) || '[]');
-        a.push({ label: p.label || '', item: (p.items || [])[0] || '' });
+        a.push({ label: p.label || '', item: (p.items || [])[0] || '',
+          done: p.done || 0, total: p.total || 0 });
         sessionStorage.setItem(k, JSON.stringify(a));
       } catch (e) {}
     },
@@ -425,6 +426,18 @@ try {
   checar(typeof conta === 'string' && !/ajuste/.test(conta) && !/arquivo\(s\)/.test(conta),
     '2 · e não fala em "ajustes" nem em "arquivos" — são unidades internas, não '
     + 'o que o operador foi conferir', conta);
+  // ELE É UM RESUMO, E CADA ASSUNTO É UMA LINHA (v1.8.27). A v1.8.25 dava uma
+  // frase por coleção, coladas num parágrafo: com vinte e três álbuns o que
+  // saiu foi um muro de texto. Relato: *"ele tem de ser mais sucinto, números
+  // auditáveis e organizados"*.
+  const linhas = String(conta).split('\n').filter((x) => x.trim());
+  checar(linhas.length <= 3,
+    '2 · e ele cabe em poucas LINHAS — uma por assunto, nunca uma por coleção',
+    JSON.stringify(linhas));
+  // UMA COLEÇÃO SÓ GANHA O NOME DELA: ali o nome é a confirmação, não ruído.
+  checar(/colecao/.test(String(conta)),
+    '2 · com UMA coleção, ela é nomeada — é o caso de quem exportou um hinário '
+    + 'para conferir se chegou inteiro', conta);
   await recarregou;
   await esperar(b.pg, () => !document.getElementById('splash'), null, 30000);
 
@@ -928,6 +941,27 @@ try {
     checar(!itens.includes('acervo-de-teste.avpkg'),
       '13 · e o NOME DO ARQUIVO saiu da linha — quem escolheu o pacote acabou de '
       + 'vê-lo no seletor, e ele é o único ali que nunca muda', JSON.stringify(itens));
+    // ---- UMA BARRA SÓ PARA AS DUAS ETAPAS (v1.8.27) ----------------------
+    //
+    // Relato do operador: *"de nada adianta um 100% apenas da verificação do
+    // pacote, isso dá a falsa sensação de conclusão. unifique tudo em um único
+    // progresso"*. Eram duas barras de 0 a 100 em sequência, e a primeira
+    // MENTIA ao fechar.
+    //
+    // A régua é a SEQUÊNCIA de frações que a ponte recebeu: ela não pode
+    // fechar antes do fim, e não pode voltar atrás.
+    const fracoes = log.filter((x) => x.total > 0).map((x) => x.done / x.total);
+    const naConferencia = log.filter((x) => /Conferindo/.test(x.label) && x.total > 0)
+      .map((x) => x.done / x.total);
+    checar(naConferencia.length > 0 && Math.max(...naConferencia) < 0.99,
+      '13 · a CONFERÊNCIA não chega a 100% — ela é uma fatia do processo, e '
+      + 'fechar ali é a falsa sensação de conclusão',
+      'máximo na conferência: ' + Math.round(Math.max(...naConferencia, 0) * 100) + '%');
+    let recuou = 0;
+    for (let i = 1; i < fracoes.length; i++) if (fracoes[i] < fracoes[i - 1] - 0.001) recuou++;
+    checar(recuou === 0,
+      '13 · e a barra nunca ANDA PARA TRÁS — as duas etapas dividem uma régua só',
+      recuou + ' recuo(s) em ' + fracoes.length + ' amostras');
     await m.ctx.close();
   }
 

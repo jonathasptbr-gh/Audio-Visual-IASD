@@ -61,7 +61,12 @@ const ponte = (espaco) => `(function () {
       window.__saida.push(new Uint8Array(m));
       let total = 0;
       for (const p of window.__saida) total += p.length;
-      setTimeout(() => canal.onmessage({ data: JSON.stringify({ r: total }) }), 0);
+      // O ACK PODE SER SEGURADO — é o que permite medir a tela COM a exportação
+      // em curso. Sem isto o escritor termina antes de qualquer leitura, e o
+      // estado que se quer ver não existe em quadro nenhum.
+      const responder = () => canal.onmessage({ data: JSON.stringify({ r: total }) });
+      if (window.__segurar) { (window.__presos = window.__presos || []).push(responder); return; }
+      setTimeout(responder, 0);
     },
     onmessage: null,
   };
@@ -467,6 +472,92 @@ try {
     + 'continuar oferecendo o envio seria um toque que não faz nada',
     porque(desistiu));
   await sumiu.ctx.close();
+
+// ===========================================================================
+// E · O TILE OCIOSO É O CANCELAR DO IRMÃO (v1.8.27)
+// ===========================================================================
+//
+// Relato do operador: *"quando exportando, o botão de importação fica com um
+// spinner, o que está certo no conceito de deixar ele inutilizado, mas errado
+// no visual, pois ele indica um trabalho, trabalho esse que não é
+// importação … talvez se transforme em um botão auxiliar de 'cancelar' … dessa
+// forma os dois botões são irmãos e se completam nas ações"*.
+//
+// O ARO É O DESENHO DO TRABALHO, e pintá-lo num botão parado é a tela
+// afirmando o que não é. A régua é o RENDERIZADO: uma troca de classe passa num
+// teste de classe e continua com o aro girando na tela.
+{
+  const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
+  await semRedeExterna(ctx);
+  const pg = await ctx.newPage();
+  await pg.addInitScript(ponte(50 * 1024 * 1024 * 1024));
+  await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  await esperar(pg, () => !document.getElementById('splash'), null, 30000);
+  // A EXPORTAÇÃO DE VERDADE, SEGURADA NO PRIMEIRO BLOCO. As bandeiras são de
+  // módulo — escrevê-las de fora não existe —, então o estado é montado pelo
+  // caminho que o dedo percorre.
+  await pg.evaluate(async () => {
+    await AVDB.opfsWriteFile('folders/x/a.m4a',
+      new Blob([new Uint8Array(400000).fill(7)], { type: 'audio/mp4' }));
+    window.__segurar = true;
+    window.__fim = exportarPacote();
+  });
+  await esperar(pg, () => {
+    const d = document.getElementById('songMenuPopup');
+    return !!d && d.classList.contains('open') && !!d.querySelector('.song-menu-go');
+  }, null, 60000);
+  await pg.click('#songMenuList .song-menu-go');
+  await esperar(pg, () => (window.__presos || []).length > 0, null, 30000);
+
+  const r = await pg.evaluate(() => {
+    const exp = document.getElementById('pacoteExportarTile');
+    const imp = document.getElementById('pacoteImportarTile');
+    const visto = (el) => {
+      const svgs = [...el.querySelectorAll('use')]
+        .filter((u) => getComputedStyle(u).display !== 'none')
+        .map((u) => u.getAttribute('href'));
+      return {
+        estado: el.dataset.estado || '',
+        titulo: (el.querySelector('.qs-titulo') || {}).textContent || '',
+        aro: getComputedStyle(el, '::after').content,
+        simbolos: svgs,
+        travado: !!el.disabled,
+      };
+    };
+    return { exp: visto(exp), imp: visto(imp) };
+  });
+  checar(r.imp.estado === 'cancelar',
+    'E · com a exportação em curso, o tile ocioso vira o CANCELAR', JSON.stringify(r.imp));
+  checar(r.imp.simbolos.length === 1 && /icoCancelar/.test(r.imp.simbolos[0] || ''),
+    'E · e o desenho dele é o ✕, no lugar do ícone da função — o estado mora no '
+    + 'DESENHO', JSON.stringify(r.imp.simbolos));
+  checar(/Cancelar/.test(r.imp.titulo),
+    'E · com o rótulo dizendo o que o toque faz', r.imp.titulo);
+  // A ASSERÇÃO QUE CARREGA O BLOCO: o aro NÃO é dele. Sem ela, trocar só o
+  // ícone deixaria o spinner girando por baixo — que é o relato.
+  checar(r.imp.aro === 'none' || r.imp.aro === 'normal',
+    'E · e o ARO do trabalho não é dele — era ele que dizia que o botão estava '
+    + 'trabalhando', r.imp.aro);
+  checar(!r.imp.travado,
+    'E · e ele é TOCÁVEL: um cancelar que não responde é pior que um botão cinza',
+    r.imp.travado);
+  // O IRMÃO QUE TRABALHA CONTINUA MOSTRANDO O ARO — sem esta, apagar o aro dos
+  // dois passaria em tudo o mais.
+  checar(r.exp.estado === 'ocupado',
+    'E · enquanto o que TRABALHA continua sendo o que trabalha', JSON.stringify(r.exp));
+  // O TOQUE NELE PARA DE VERDADE — sem esta, o botão é um desenho.
+  const parou = await pg.evaluate(async () => {
+    document.getElementById('pacoteImportarTile').click();
+    window.__segurar = false;
+    for (const f of (window.__presos || [])) f();
+    window.__presos = [];
+    try { await window.__fim; } catch (_) {}
+    return (document.getElementById('pacoteExportarTile').dataset.estado || '');
+  });
+  checar(parou !== 'cancelar' && parou !== 'ocupado',
+    'E · e o toque nele PARA a exportação', parou);
+  await ctx.close();
+}
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));
 } finally {

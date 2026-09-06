@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.26';
+const WEB_VERSION = '1.8.27';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21065,7 +21065,7 @@ async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
   const total = escolhidos.length;
   const bg = previewBusy('Preparando', total + ' para o Cronograma',
     () => { sorteioCancelado = true; });
-  const tarefa = bgTaskStart('Playlist automática', total);
+  const tarefa = bgTaskStart('Playlist automática', total, false);
   const ids = [];
   const nomes = [];
   try {
@@ -21182,7 +21182,7 @@ async function montarFilaSorteada(escolhidos) {
     () => { sorteioCancelado = true; });
   // A notificação do sistema, para o app minimizado: UMA tarefa para o lote —
   // uma por faixa faria a barra reiniciar do zero a cada download.
-  const tarefa = bgTaskStart('Playlist automática', total);
+  const tarefa = bgTaskStart('Playlist automática', total, false);
   const ids = [];
   try {
     await withBgWork(async () => {
@@ -23025,7 +23025,13 @@ function pacoteEscritor(enviar, aoAndar, parou) {
  */
 let pacotePlanoAtual = null;
 
-async function pacotePlano() {
+async function pacotePlano(aoAndar) {
+  // OS PASSOS DA MEDIÇÃO. Ela não tem progresso interno de granularidade fina —
+  // cada um destes é uma varredura inteira —, e são eles que fazem os primeiros
+  // por cento da barra ANDAREM em vez de ficarem parados numa palavra.
+  let passo = 0;
+  const PASSOS = 4;
+  const andou = () => { passo++; if (aoAndar) aoAndar(passo / PASSOS); };
   const pastas = await AVDB.getState('opfs-folders');
   const caminhoViaja = AVPacote.pastasDoAparelho(pastas);
 
@@ -23063,9 +23069,11 @@ async function pacotePlano() {
     bytesEstado += bytes.length;
   });
 
+  andou();
   const midia = await AVDB.mediaResumo();
   let bytesMidia = 0;
   for (const m of midia) bytesMidia += m.bytes;
+  andou();
 
   // O CONJUNTO DE COLEÇÕES vem do catálogo em memória, e é ele que decide o que
   // ganha nome próprio na folha e o que cai em "outros arquivos".
@@ -23096,7 +23104,9 @@ async function pacotePlano() {
     porGrupo.set(g, atual);
   }
 
+  andou();
   const { grupos, folha } = pacoteMontarFolha({ cols, porGrupo, bytesEstado, midia, bytesMidia });
+  andou();
 
   return { estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos, folha };
 }
@@ -23667,19 +23677,31 @@ async function exportarPacote() {
   // escolha já feita, que é onde o trabalho de verdade começa. O número aparece
   // no PRÓPRIO BOTÃO, como todo o resto deste caminho (ver `falarNoTile`).
   let plano = null;
-  falarNoTile(pacoteExportarTileEl, 'Medindo…', 0);
+  // SEM A PALAVRA "Medindo…" (v1.8.27). Pedido do operador: *"não precisa usar
+  // 'medindo' após a seleção, apenas inclua isso na contagem de porcentagem do
+  // processo. afinal, isso é só parte do processo como um todo"*. Ele está
+  // certo, e é o que ela é: a medição ocupa a primeira FATIA da barra do
+  // processo inteiro (ver `PACOTE_FATIA_MEDIDA`), e a escrita continua dali.
+  // A BANDEIRA DE "dá para parar" NÃO sobe aqui, e é de propósito: durante a
+  // medição não há escrita para interromper — o `pacoteCancelar` só é lido pelo
+  // escritor. Um cancelar aceito agora ficaria pendurado até o seletor de
+  // destino responder, e só então faria efeito.
+  pacoteCancelar = false;
+  pacotePercentualDito = -1;
   pacoteExportarTileEl.classList.add('qs-trabalhando');
+  pacoteFalarPercentual(pacoteExportarTileEl, 0);
   try {
-    plano = await pacotePlano();
+    plano = await pacotePlano((f) => {
+      pacoteFalarPercentual(pacoteExportarTileEl, pacoteFatia(0, PACOTE_FATIA_MEDIDA, f, 1));
+    });
   } catch (e) {
     plano = null;
-  } finally {
-    pacoteExportarTileEl.classList.remove('qs-trabalhando');
-    calarTile(pacoteExportarTileEl);
   }
   if (!plano) {
     pacotePlanoAtual = null;
+    pacoteExportarTileEl.classList.remove('qs-trabalhando');
     pacoteEmCurso = false;
+    calarTile(pacoteExportarTileEl);
     pacoteRenderTiles();
     pulsar(pacoteExportarTileEl, 'erro');
     falarNoTile(pacoteExportarTileEl, 'Não deu', 4000);
@@ -23719,17 +23741,22 @@ async function exportarPacote() {
   // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
   // nos dois casos não há arquivo, e o botão continua ali. Mesma regra do
   // `salvarTexto` do Registro.
-  if (!nome) { pacotePlanoAtual = null; pacoteEmCurso = false; pacoteRenderTiles(); return; }
+  if (!nome) {
+    pacotePlanoAtual = null;
+    pacoteExportarTileEl.classList.remove('qs-trabalhando');
+    pacoteEmCurso = false;
+    calarTile(pacoteExportarTileEl);
+    pacoteRenderTiles();
+    return;
+  }
   pacoteExportando = true;
-  pacoteCancelar = false;
   pacoteRenderTiles();
-  falarNoTile(pacoteExportarTileEl, '0%', 0);
   let erro = '';
   let gravados = -1;
   const total = Math.max(pacoteBytesDe(plano, sel), 1);
   try {
     await withBgWork(async () => {
-      const tarefa = bgTaskStart('Exportando o acervo', 1);
+      const tarefa = bgTaskStart('Exportando o acervo', 1, false);
       bgItemOnly(tarefa, nome);
       let feitos = 0;
       let etapa = '';
@@ -23738,11 +23765,15 @@ async function exportarPacote() {
       // sendo escrito — é longa demais para ela. A etapa continua indo para a
       // NOTIFICAÇÃO, que é a superfície com espaço e a que existe com o app
       // minimizado, que é onde uma exportação de gigabytes de fato acontece.
+      // A ESCRITA CONTINUA DE ONDE A MEDIÇÃO PAROU — ver `PACOTE_FATIA_MEDIDA`.
+      // A notificação só existe daqui em diante (é ela que segura o processo em
+      // primeiro plano), então o `done` dela é o da escrita; quem carrega a
+      // barra do processo INTEIRO é o botão, que é onde o operador está olhando.
       const andou = (n) => {
         feitos += n;
         bgTaskBytes(tarefa, feitos, total);
-        falarNoTile(pacoteExportarTileEl,
-          Math.min(100, Math.round((feitos / total) * 100)) + '%', 0);
+        pacoteFalarPercentual(pacoteExportarTileEl,
+          pacoteFatia(PACOTE_FATIA_MEDIDA, 1 - PACOTE_FATIA_MEDIDA, feitos, total));
       };
       const esc = pacoteEscritor((ab) => pacoteBloco(c, ab), andou, () => pacoteCancelar);
       try {
@@ -24312,6 +24343,9 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
     }
   };
   for (;;) {
+    // O CANCELAR É LIDO A CADA REGISTRO, como no laço do `YoutubeGrab` e no do
+    // escritor: o que se quer parar é justamente o laço que está ocupado.
+    if (pacoteCancelarImport) break;
     const r = await cursor.proximo();
     // FIM DOS BYTES SEM O REGISTRO `fim` — o pacote acabou no meio. Quem
     // reprova é o chamador, pelo valor devolvido.
@@ -24480,10 +24514,53 @@ function pacoteDanificadoEm(pos) {
  * não escrevia nada: uma delas ficava muda, que é a metade do "parecendo
  * parado". Fonte sem tamanho não escreve nada em vez de escrever `NaN%`.
  */
+// ===== UMA CONTAGEM SÓ PARA O PROCESSO INTEIRO (v1.8.27) =====
+//
+// Pedido do operador, sobre a exportação: *"não precisa usar 'medindo' após a
+// seleção, apenas inclua isso na contagem de porcentagem do processo … mas
+// coloque ela sendo a mesma porcentagem do trabalho completo e não um 0 a 100,
+// anterior e depois outro 0 a 100 para a exportação de verdade"*. E sobre a
+// importação: *"de nada adianta um 100% apenas da verificação do pacote, isso
+// dá a falsa sensação de conclusão"*.
+//
+// As duas tinham DUAS barras de 0 a 100 em sequência, e a primeira mentia ao
+// fechar. Agora cada etapa ocupa uma FATIA da única barra.
+//
+// AS FATIAS SÃO FIXAS, e as duas alternativas foram consideradas:
+//
+//  · **por bytes lidos** — a conferência só lê cabeçalhos, então ela valeria
+//    ~1% e ficaria parada durante todo o tempo que leva. É a queixa original;
+//  · **meio a meio** — as duas passadas percorrem o arquivo inteiro, mas a
+//    segunda copia os bytes e leva muito mais tempo. A barra correria até 50%
+//    e depois rastejaria: a mesma falsa sensação, num número menor.
+//
+// O que sobra é uma fatia escolhida pelo CUSTO aproximado de cada etapa. Ela
+// não precisa ser exata — precisa ser MONOTÔNICA e nunca voltar a zero, que é
+// o que o pedido nomeia.
+const PACOTE_FATIA_MEDIDA = 0.05;    // exportação: medir o acervo
+const PACOTE_FATIA_CONFERE = 0.15;   // importação: conferir o pacote
+
+/** A fração (0..1) de UMA etapa dentro da barra do processo inteiro. */
+function pacoteFatia(inicio, tamanho, pos, total) {
+  if (!(total > 0)) return inicio;
+  return inicio + tamanho * Math.min(1, Math.max(0, pos / total));
+}
+
+// A IMPORTAÇÃO PASSOU A SABER PARAR (v1.8.27), e isso REVOGA a decisão da
+// v1.7.3 — *"sem cancelar, e a diferença é de natureza: parar uma importação no
+// meio deixaria metade do acervo no aparelho e nada apagaria a outra metade"*.
+//
+// O argumento de lá provava outra coisa: que não dá para DESFAZER. Ninguém
+// pediu desfazer — o que faltava era PARAR, e parar é seguro exatamente pela
+// razão que aquele texto dá: **o que já entrou está certo**, e importar de novo
+// continua de onde ficou (o que já existe é pulado). Um trabalho de minutos sem
+// saída é o que não se justifica, e é o que fazia o tile irmão existir só para
+// ficar cinza.
+let pacoteImportando = false;
+let pacoteCancelarImport = false;
 let pacotePercentualDito = -1;
-function pacoteFalarPercentual(el, pos, total) {
-  if (!(total > 0)) return;
-  const pct = Math.min(100, Math.round((pos / total) * 100));
+function pacoteFalarPercentual(el, fracao) {
+  const pct = Math.min(100, Math.max(0, Math.round(fracao * 100)));
   // SÓ QUANDO O NÚMERO MUDA. Ela é chamada por REGISTRO — milhares de vezes num
   // acervo —, e escrever o mesmo "37%" no `.qs-titulo` a cada um é uma escrita
   // de DOM (com o layout que vem atrás) para não mudar nada na tela. É o irmão
@@ -24501,6 +24578,7 @@ async function pacoteConferir(fonte, aoAndar) {
       // `Blob` isso já era de graça (o `slice` é preguiçoso); sobre uma fonte
       // lida por JANELAS, buscar um corpo que ninguém vai usar leria o pacote
       // inteiro duas vezes.
+      if (pacoteCancelarImport) return;
       const r = await cursor.proximo(false);
       if (!r) break;               // os bytes acabaram sem o registro `fim`
       // ELA ANDA (v1.8.23). A conferência percorre o arquivo INTEIRO pelos
@@ -24522,6 +24600,9 @@ async function pacoteConferir(fonte, aoAndar) {
   throw new Error(PACOTE_INCOMPLETO);
 }
 
+/** Quantas coleções INCOMPLETAS são nomeadas no relatório antes do "e mais N". */
+const PACOTE_FALTANDO_MAX = 4;
+
 /**
  * O RELATÓRIO DO FIM — e ele responde UMA pergunta: *chegou tudo?*
  *
@@ -24537,11 +24618,32 @@ async function pacoteConferir(fonte, aoAndar) {
  * de fundo da letra — daí 2228 para 601 hinos) e "ajustes" eram chaves de
  * `state`, que desde a v1.8.25 nem são mais escolha do operador.
  *
- * O QUE ELE DIZ AGORA É O ESTADO, não o delta: *"Hinário Adventista 2022:
- * 601 de 601 músicas"*. É de propósito — a pergunta do operador é sobre o
- * ACERVO, não sobre a passada: importar de novo depois de uma queda tem de
- * responder "601 de 601", e um relatório de delta diria "0 entraram" sobre um
- * hinário completo.
+ * O QUE ELE DIZ É O ESTADO, não o delta: *"Hinário Adventista 2022: 601 de 601
+ * músicas"*. É de propósito — a pergunta do operador é sobre o ACERVO, não
+ * sobre a passada: importar de novo depois de uma queda tem de responder
+ * "601 de 601", e um relatório de delta diria "0 entraram" sobre um hinário
+ * completo.
+ *
+ * ## E ELE É UM RESUMO, NÃO UMA LISTAGEM (v1.8.27)
+ *
+ * A v1.8.25 dava UMA FRASE POR COLEÇÃO, coladas num parágrafo só: com vinte e
+ * três álbuns o que saiu na tela foi um muro de texto que ninguém audita.
+ * Relato do operador: *"o resumo da importação não está ok, ele tem de ser mais
+ * sucinto, números auditáveis e organizados … eu preciso de dados
+ * simplificados, para entender se a importação deu certo, e não para saber se
+ * uma música específica está no sistema"*.
+ *
+ * A forma é a que este repositório já usa para todo bloco de diagnóstico: **o
+ * TOTAL responde, e só a EXCEÇÃO é nomeada**. Vinte linhas de "10 de 10" não
+ * são auditoria — a informação inteira delas é o total. O que precisa de nome é
+ * o que ficou incompleto, que é onde a resposta "deu certo?" muda.
+ *
+ * E UMA COLEÇÃO SÓ GANHA O NOME DELA, pela outra metade do pedido: *"talvez
+ * pode fazer o relatório separado dos álbuns quando a importação é de apenas
+ * uma coleção"*. Ali o nome não é ruído — é a confirmação.
+ *
+ * UMA LINHA POR ASSUNTO, e não um parágrafo: o `\n` é o que separa números
+ * auditáveis de um muro.
  *
  * A CONTA SAI DE `countDownloaded`, a MESMA que a Biblioteca usa para dizer o
  * que está no aparelho — uma segunda conta divergiria da tela em que o operador
@@ -24619,25 +24721,45 @@ async function pacoteAcertarPonteiros() {
 }
 
 async function pacoteRelatorio(contagem) {
-  const partes = [];
   const nomes = new Map(allCollections().map((c) => [c.id, c.name || c.id]));
+  const linhas = [];
+  let colecoes = 0;
+  let tem = 0;
+  let total = 0;
+  const faltando = [];
   for (const id of (contagem.colecoes || [])) {
     let idx = null;
     try { idx = await AVDB.getState('coll:' + id); } catch (_) { idx = null; }
     const songs = (idx && Array.isArray(idx.songs)) ? idx.songs : [];
     if (!songs.length) continue;
-    const tem = songs.filter((x) => x && x.fileIdFull).length;
-    partes.push((nomes.get(id) || id) + ': ' + tem + ' de ' + songs.length + ' músicas');
+    const n = songs.filter((x) => x && x.fileIdFull).length;
+    colecoes++; tem += n; total += songs.length;
+    if (n < songs.length) faltando.push({ nome: nomes.get(id) || id, n, de: songs.length });
   }
-  partes.sort();
-  // A MÍDIA AVULSA continua contada, e continua sendo outra coisa: são os itens
-  // do Cronograma e dos Favoritos (vídeos, imagens, apresentações), que não
-  // pertencem a coleção nenhuma. Ela só aparece quando existe.
-  if (contagem.media) partes.push(contagem.media + ' mídia(s) no Cronograma e nos Favoritos');
-  // NENHUMA COLEÇÃO E NENHUMA MÍDIA é um desfecho legítimo (um pacote só de
-  // listas e catálogos), e calar sobre ele deixaria o diálogo sem assunto.
-  if (!partes.length) partes.push('O acervo do arquivo já estava todo aqui');
-  return partes.join('. ') + '.\n\nO app vai recarregar para a biblioteca aparecer.';
+
+  if (colecoes === 1) {
+    // UMA COLEÇÃO SÓ: ela tem nome, e o nome é a resposta. É o caso do
+    // operador que exportou um hinário para conferir se ele chegou inteiro.
+    const so = [...(contagem.colecoes || [])][0];
+    linhas.push((nomes.get(so) || so) + ': ' + tem + ' de ' + total + ' músicas');
+  } else if (colecoes > 1) {
+    // VÁRIAS: o TOTAL responde "deu certo?", e só o que está INCOMPLETO precisa
+    // de nome. Vinte linhas de "10 de 10" não são auditoria, são um muro.
+    linhas.push(colecoes + ' coleções · ' + tem + ' de ' + total + ' músicas');
+    if (faltando.length) {
+      faltando.sort((a, b) => (a.de - a.n) - (b.de - b.n));
+      const mostra = faltando.slice(0, PACOTE_FALTANDO_MAX)
+        .map((f) => f.nome + ' (' + f.n + '/' + f.de + ')');
+      linhas.push('Incompletas: ' + mostra.join(' · ')
+        + (faltando.length > PACOTE_FALTANDO_MAX
+          ? ' … e mais ' + (faltando.length - PACOTE_FALTANDO_MAX) : ''));
+    }
+  }
+  if (contagem.media) {
+    linhas.push(contagem.media + ' mídia(s) no Cronograma e nos Favoritos');
+  }
+  if (!linhas.length) linhas.push('O acervo do arquivo já estava todo aqui');
+  return linhas.join('\n') + '\n\nO app vai recarregar para a biblioteca aparecer.';
 }
 
 async function importarPacote() {
@@ -24646,6 +24768,8 @@ async function importarPacote() {
   const alvo = (escolhidos && escolhidos[0]) || null;
   if (!alvo || !alvo.url) return;
   pacoteEmCurso = true;
+  pacoteImportando = true;
+  pacoteCancelarImport = false;
   pacoteRenderTiles();
   // A CONFERÊNCIA vem antes do primeiro byte gravado e lê o arquivo inteiro
   // pelos cabeçalhos: num pacote de gigabytes ela leva segundos, e sem esta
@@ -24697,17 +24821,22 @@ async function importarPacote() {
       // passa a mostrar cada item que entra, pelo nome com que ele aparece na
       // Biblioteca. O nome do arquivo sai: quem escolheu o pacote acabou de
       // vê-lo no seletor, e ele é a única coisa ali que não muda.
-      const tarefa = bgTaskStart('Conferindo o pacote', 1);
-      // Zerado na porta de CADA etapa: as duas percorrem o arquivo de 0 a 100%,
-      // e sem isto a segunda ficaria muda até passar do ponto em que a primeira
-      // parou (isto é, muda até o fim).
+      const tarefa = bgTaskStart('Conferindo o pacote', 1, false);
       pacotePercentualDito = -1;
+      // UMA BARRA SÓ PARA AS DUAS ETAPAS (v1.8.27) — ver `PACOTE_FATIA_CONFERE`.
+      // O `done` continua em BYTES DO PACOTE, e a fração é a do processo
+      // INTEIRO: durante a conferência ele não diz "copiei tantos bytes", diz
+      // "andei tanto do trabalho, medido no tamanho do arquivo". É monotônico e
+      // nunca volta a zero, que é o que o pedido nomeia.
+      const andarNaBarra = (fracao) => {
+        bgTaskBytes(tarefa, Math.round(fracao * fonte.size), fonte.size);
+        pacoteFalarPercentual(pacoteImportarTileEl, fracao);
+      };
       // O PACOTE INTEIRO É CONFERIDO ANTES DE UMA LINHA SER GRAVADA. Ver
       // `pacoteConferir`: é o que faz um arquivo cortado no meio ser recusado
       // inteiro, em vez de entrar pela metade.
       await pacoteConferir(fonte, (pos) => {
-        bgTaskBytes(tarefa, pos, fonte.size);
-        pacoteFalarPercentual(pacoteImportarTileEl, pos, fonte.size);
+        andarNaBarra(pacoteFatia(0, PACOTE_FATIA_CONFERE, pos, fonte.size));
       });
       // O NÚMERO MORA NO PRÓPRIO BOTÃO (v1.7.3), aqui como na exportação: a
       // ação nasceu nele. O NOME do arquivo vai para a notificação, que é a
@@ -24723,18 +24852,25 @@ async function importarPacote() {
         // 85% nas chaves e rastejar nos hinos — um número que anda mais rápido
         // e mente. O que o pedido quer ("sentir um progresso real", "ver os
         // hinos serem importados") é a LISTA, e é ela que passa a andar.
-        bgTaskStep(tarefa, 0, 'Importando para a Biblioteca');
-        pacotePercentualDito = -1;
+        // A ETAPA MUDA O RÓTULO E NÃO A BARRA: o `done` que o `bgTaskStep`
+        // escreve é o ponto em que a conferência parou, e não zero — é isso que
+        // faz a segunda etapa CONTINUAR de onde a primeira ficou.
+        bgTaskStep(tarefa, Math.round(PACOTE_FATIA_CONFERE * fonte.size),
+          'Importando para a Biblioteca');
         const viuFim = await pacoteAplicarFluxo(pacoteCursor(fonte), contagem, (pos, nome) => {
-          bgTaskBytes(tarefa, pos, fonte.size);
           if (nome) bgItemStart(tarefa, nome);
-          pacoteFalarPercentual(pacoteImportarTileEl, pos, fonte.size);
+          andarNaBarra(pacoteFatia(PACOTE_FATIA_CONFERE, 1 - PACOTE_FATIA_CONFERE,
+            pos, fonte.size));
         });
         // O `false` daqui é inalcançável: `pacoteConferir` já provou que o
         // arquivo chega ao `fim`. A guarda fica porque ela é a diferença entre
         // um pacote inteiro e um cortado no meio, e é o dia em que alguém
         // mexer na conferência que ela existe para cobrir.
-        if (!viuFim) throw new Error('O pacote está incompleto — ele acabou antes do fim.');
+        // CANCELADO NÃO É "PACOTE INCOMPLETO". O `viuFim` fica `false` nos dois
+        // casos, e a frase de um seria uma acusação falsa ao arquivo do outro.
+        if (!viuFim && !pacoteCancelarImport) {
+          throw new Error('O pacote está incompleto — ele acabou antes do fim.');
+        }
         // O ÍNDICE VIAJA INTEIRO; OS ARQUIVOS, NÃO. Ver `pacoteAcertarPonteiros`:
         // sem esta linha, um pacote só do hinário deixa os outros álbuns
         // parecendo baixados, e o botão de baixar deles some.
@@ -24747,8 +24883,22 @@ async function importarPacote() {
     erro = (e && e.message) || 'A importação falhou.';
   } finally {
     pacoteEmCurso = false;
+    pacoteImportando = false;
     calarTile(pacoteImportarTileEl);
     pacoteRenderTiles();
+  }
+  if (pacoteCancelarImport) {
+    pacoteCancelarImport = false;
+    // PARAR NÃO É FALHAR, e o app não recarrega: o que entrou está certo e
+    // continua no lugar, e importar de novo continua de onde ficou.
+    await openAppDialog({
+      title: 'Importação interrompida',
+      message: 'O que já tinha entrado ficou no aparelho. Importar o mesmo '
+        + 'arquivo de novo continua de onde parou.',
+      okText: 'Entendi',
+      cancelText: null,
+    });
+    return;
   }
   if (erro) {
     pulsar(pacoteImportarTileEl, 'erro');
@@ -24831,6 +24981,30 @@ function pacoteTrabalhando(el, ligado, rotulo, podeParar) {
   pintarTile(el, ligado ? 'ocupado' : 'pronto', rotulo, true, false);
 }
 
+/**
+ * O TILE OCIOSO VIRA O CANCELAR DO IRMÃO (v1.8.27).
+ *
+ * Relato do operador: *"quando exportando, o botão de importação fica com um
+ * spinner, o que está certo no conceito de deixar ele inutilizado, mas errado
+ * no visual, pois ele indica um trabalho, trabalho esse que não é
+ * importação … talvez se transforme em um botão auxiliar de 'cancelar' … dessa
+ * forma os dois botões são irmãos e se completam nas ações"*.
+ *
+ * O aro é o desenho do TRABALHO EM CURSO, e pintá-lo num botão que não está
+ * fazendo nada é a tela afirmando o que não é. Agora o que trabalha mostra o
+ * aro e o número; o outro oferece a SAÍDA, com o ✕ no lugar do ícone da função
+ * e o rótulo dizendo o que o toque faz — o estado no DESENHO, que é a regra
+ * desta grade desde a v1.7.6.
+ */
+function pacoteIrmaoCancela(el, parar) {
+  if (!el) return;
+  el.classList.remove('qs-trabalhando');
+  el.disabled = false;
+  falarNoTile(el, 'Cancelar', 0);
+  pintarTile(el, 'cancelar', 'parar o que está em curso', true, false);
+  el.onclick = (ev) => { ev.preventDefault(); parar(); };
+}
+
 function pacoteRenderTiles() {
   const fora = !window.__NATIVE__;
   for (const el of [shareAppTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
@@ -24858,8 +25032,25 @@ function pacoteRenderTiles() {
     pacoteTrabalhando(pacoteExportarTileEl, pacoteEmCurso,
       pacoteEmCurso ? 'em curso' : 'o acervo', pacoteExportando);
   }
-  pacoteTrabalhando(pacoteImportarTileEl, pacoteEmCurso,
-    pacoteEmCurso ? 'em curso' : 'o acervo', false);
+  // O IRMÃO. Quem está ocioso enquanto o outro trabalha oferece o CANCELAR; e o
+  // `onclick` é reatribuído em vez de somado, senão cada render empilharia mais
+  // um ouvinte no mesmo botão.
+  if (pacoteExportando) {
+    pacoteIrmaoCancela(pacoteImportarTileEl, () => {
+      pacoteCancelar = true;
+      falarNoTile(pacoteExportarTileEl, 'Parando…', 0);
+    });
+  } else if (pacoteImportando) {
+    pacoteIrmaoCancela(pacoteExportarTileEl, () => {
+      pacoteCancelarImport = true;
+      falarNoTile(pacoteImportarTileEl, 'Parando…', 0);
+    });
+  } else {
+    pacoteImportarTileEl.onclick = null;
+    pacoteExportarTileEl.onclick = null;
+    pacoteTrabalhando(pacoteImportarTileEl, pacoteEmCurso,
+      pacoteEmCurso ? 'em curso' : 'o acervo', false);
+  }
 }
 
 if (shareAppTileEl) {
@@ -25911,7 +26102,7 @@ async function pptxImportar(file, nome, opts) {
   const bg = naPreview
     ? previewBusy(LEGENDA_DECK, rotulo, alca.cancelar)
     : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave, alca.cancelar);
-  const notif = bgTaskStart('Preparando apresentação', 1);
+  const notif = bgTaskStart('Preparando apresentação', 1, false);
   // O NOME DA APRESENTAÇÃO na linha da notificação, pela mesma razão do vídeo
   // (ver `ytArquivo`): "Preparando apresentação" sozinho não diz QUAL, e com o
   // app minimizado esta é a única tela que existe.
@@ -26008,7 +26199,7 @@ async function deckImportar(origem, nome, opts) {
   const bg = naPreview
     ? previewBusy(LEGENDA_DECK, rotulo, alca.cancelar)
     : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave, alca.cancelar);
-  const notif = bgTaskStart('Preparando apresentação', 1);
+  const notif = bgTaskStart('Preparando apresentação', 1, false);
   bgItemOnly(notif, rotulo);
   let primeira = null;   // uma página basta para o descarte: ele apaga a pasta
   try {
@@ -27052,11 +27243,29 @@ async function withBgRotina(fn) {
 const bgTasks = new Map();
 let bgTaskSeq = 0;
 
-function bgTaskStart(label, total) {
+/**
+ * `baixando` diz se este trabalho TRAZ BYTES DA REDE, e o consumidor é o ÍCONE
+ * da barra de notificação (v1.8.27).
+ *
+ * Relato do operador: *"revise o ícone que aparece na barra de notificação em
+ * processos que não são downloads. diversos processos e preparações não são
+ * downloads, mas usa o ícone de seta de baixando"*.
+ *
+ * É a regra da v1.4.19 — *o ícone segue a LEGENDA* — no terceiro lugar em que
+ * ela vale: já valia para a seta do cartão sobre a preview e para a da linha do
+ * item, e faltava na única superfície que existe com o app minimizado. Exportar,
+ * importar e preparar uma apresentação não baixam byte nenhum.
+ *
+ * O PADRÃO É `true`, e não é comodidade: um bundle mais antigo que a ponte não
+ * manda o campo, e o Kotlin lê ausente como "é download" — o comportamento de
+ * sempre. Falhar para o lado que já existia é a regra deste app.
+ */
+function bgTaskStart(label, total, baixando) {
   if (!window.__NATIVE__) return 0;
   const id = ++bgTaskSeq;
   bgTasks.set(id, {
     label, total: Math.max(1, total), done: 0,
+    baixando: baixando !== false,
     // FILA de exibição: nomes que entraram em download e ainda não passaram
     // pela linha da notificação. É um buffer, não o conjunto do que está no ar
     // — cada nome sai daqui UMA vez, o que torna a lista fluida e sem repetir.
@@ -27172,17 +27381,20 @@ function bgTaskStep(id, done, label, total) {
   if (!window.__NATIVE__) return;
   const t = bgTasks.get(id);
   if (!t) return;
-  // TROCAR DE ETAPA RECOMEÇA A MÉDIA, E CHEGA NA HORA (v1.8.23).
+  // TROCAR DE ETAPA CHEGA NA HORA, E **NÃO** RECOMEÇA A MÉDIA (v1.8.27).
   //
-  // O rótulo é o que diz QUAL trabalho está correndo, e ele é a mesma classe
-  // do primeiro nome e da troca de régua: passar pelo freio de 700 ms deixaria
-  // a notificação dizendo "Conferindo o pacote" enquanto o app já importa.
+  // O rótulo é o que diz QUAL trabalho está correndo, e ele é a mesma classe do
+  // primeiro nome e da troca de régua: passar pelo freio de 700 ms deixaria a
+  // notificação dizendo "Conferindo o pacote" enquanto o app já importa.
   //
-  // E a estimativa é uma MÉDIA desde o primeiro passo: carregar o tempo da
-  // etapa anterior faria a segunda nascer com o dobro do tempo restante e ir
-  // caindo — o número certo, pela conta errada. Etapa nova, relógio novo.
+  // O RECOMEÇO DA MÉDIA SAIU, e a razão dele morreu junto. Ele foi escrito na
+  // v1.8.23, quando cada etapa tinha a PRÓPRIA barra de 0 a 100: ali carregar o
+  // tempo da anterior fazia a seguinte nascer com o dobro do tempo restante.
+  // Desde a v1.8.27 as etapas dividem UMA barra — o `done` da segunda começa
+  // onde a primeira parou —, e zerar o relógio com o `done` já adiantado daria
+  // o defeito oposto: uma estimativa pequena demais, subindo. E uma contagem
+  // regressiva que AUMENTA parece quebrada, que é a regra deste arquivo.
   const trocouEtapa = !!label && label !== t.label;
-  if (trocouEtapa) { t.firstStepAt = 0; t.shownEta = 0; t.etaAt = 0; }
   if (!t.firstStepAt) t.firstStepAt = Date.now();
   if (total > 1) t.total = total;
   t.done = done;
@@ -27361,6 +27573,7 @@ function bgTaskSend(force) {
       etaMs: Math.max(0, Math.round(etaAlvo)),
       items: item ? [item] : [],
       bytes: !!alvo.bytes,
+      baixando: alvo.baixando !== false,
       // Há quanto tempo NADA acontece nesta tarefa. É o que separa "travado" de
       // "esta faixa é grande" — sem isso os dois casos são a mesma tela parada.
       idleMs: alvo.lastEventAt ? Math.max(0, now - alvo.lastEventAt) : 0,
