@@ -455,20 +455,20 @@ object EspelhoHttp {
                 val n = numero(bTxt) ?: return Alcance.Inteiro
                 if (n == 0L || tamanho <= 0L) return Alcance.Insatisfazivel
                 val ini = maxOf(0L, tamanho - n)
-                Alcance.Parcial(Faixa(ini, tamanho - 1))
+                Alcance.Parcial(Faixa(ini = ini, fim = tamanho - 1))
             }
             // Aberta: `bytes=a-`, de a até o fim.
             bTxt.isEmpty() -> {
                 val a = numero(aTxt) ?: return Alcance.Inteiro
                 if (a >= tamanho) return Alcance.Insatisfazivel
-                Alcance.Parcial(Faixa(a, tamanho - 1))
+                Alcance.Parcial(Faixa(ini = a, fim = tamanho - 1))
             }
             else -> {
                 val a = numero(aTxt) ?: return Alcance.Inteiro
                 val b = numero(bTxt) ?: return Alcance.Inteiro
                 if (a > b) return Alcance.Inteiro
                 if (a >= tamanho) return Alcance.Insatisfazivel
-                Alcance.Parcial(Faixa(a, minOf(b, tamanho - 1)))
+                Alcance.Parcial(Faixa(ini = a, fim = minOf(b, tamanho - 1)))
             }
         }
     }
@@ -723,7 +723,20 @@ object EspelhoHttp {
         val o = origem
         if (o != null && !origemAceita(o, hostsAceitos)) throw Erro.OrigemEstranha
 
-        return Req(metodo, caminho, query, h, o, autorizacao, corpo, intervalo)
+        // POR NOME. Cinco dos oito campos são `String`/`String?` vizinhos, então
+        // um campo acrescentado no MEIO da `data class` desloca os seguintes
+        // SEM erro de compilação — e aqui o deslocamento põe a `Origin` onde o
+        // `Host` é conferido (invariante 2). Ver `kotlin-argumento-nomeado`.
+        return Req(
+            metodo = metodo,
+            caminho = caminho,
+            query = query,
+            host = h,
+            origem = o,
+            autorizacao = autorizacao,
+            corpo = corpo,
+            intervalo = intervalo,
+        )
     }
 
     private fun origemAceita(origem: String, hostsAceitos: Set<String>): Boolean {
