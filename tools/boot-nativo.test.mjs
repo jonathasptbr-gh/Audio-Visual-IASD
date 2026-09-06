@@ -5019,7 +5019,28 @@ try {
     await load();
     const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
     if (!li) return { erro: 'a linha não foi desenhada no Cronograma' };
-    li.querySelector('.row-mais').click();
+    // O `⋮` PODE NÃO ESTAR LÁ, e um `.click()` em `null` não diz por quê.
+    //
+    // Ele tem TRÊS ausências legítimas, e as três são estado do app: a seleção
+    // múltipla (ali o alvo é o conjunto), um TRABALHO EM CURSO naquele item (a
+    // coluna é do cancelar, v1.7.4) e a faixa de ações já aberta. Uma delas
+    // reprovou este bloco UMA vez no runner (v1.8.17) com um `Cannot read
+    // properties of null`, que é a mensagem que manda investigar tudo e não
+    // aponta nada — 4 rodadas sob carga não a reproduziram.
+    //
+    // ISTO NÃO ENFRAQUECE A ASSERÇÃO: continua sendo obrigatório que o `⋮`
+    // esteja lá. O que muda é que a próxima ocorrência chega com a CAUSA junto,
+    // que é a diferença entre um lote e uma sessão de adivinhação.
+    const btnMais = li.querySelector('.row-mais');
+    if (!btnMais) {
+      return { erro: 'o `⋮` não foi desenhado na linha',
+        selecao: !!document.body.classList.contains('sel-mode'),
+        dl: li.dataset.dl || '',
+        classes: li.className,
+        temCancelar: !!li.querySelector('.dl-cancel, .row-cancelar'),
+        html: (li.querySelector('.row') || {}).innerHTML ? 'row presente' : 'sem .row' };
+    }
+    btnMais.click();
     await new Promise((r) => setTimeout(r, 200));
     const lapis = li.querySelector('.row-renomear');
     const temLapis = !!lapis;
