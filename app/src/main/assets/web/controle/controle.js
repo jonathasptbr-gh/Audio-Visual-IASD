@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.9';
+const WEB_VERSION = '1.8.10';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -31831,7 +31831,21 @@ function telaGarantirEnvio(it) {
   if (!it || !it.id) return;
   // O TOKEN É CARIMBADO AGORA, no item que entra na fila. O `__wp` é o único id
   // MUTÁVEL do acervo — cada troca de wallpaper descarta o token e cunha outro.
-  const token = telaTokenDe(it.id);
+  //
+  // MAS UM CHAMADOR QUE JÁ TEM O TOKEN MANDA NELE (v1.8.10). `telaTokenDe`
+  // CUNHA um token quando não conhece o id, e é isso que ele deve fazer para a
+  // mídia do telão — o id é do acervo e o token é nosso. No CLONE a relação se
+  // inverte: quem cunha é o SHELL (`AcervoCessao.tokenDoItem`, `<sessao>n<n>`),
+  // o outro celular já está esperando naquele token, e o id do item nunca
+  // esteve no mapa. Carimbar aqui trocava o token do pedido por um recém-nascido
+  // e o item inteiro era empurrado para o cache sob um nome que ninguém ia
+  // pedir: a rota `/acervo/item/` esperava os 60 s de PARADA e respondia 503,
+  // com o destino em 0% e sem erro em lugar nenhum dos dois lados.
+  const token = it.token || telaTokenDe(it.id);
+  // SEM TOKEN NÃO HÁ EMPURRÃO, e ele morria calado uma função adiante
+  // (`telaEmpurrarAgora` volta no `if (!token) return`) depois de já ocupar a
+  // fila. `telaTokenDe` devolve null sem `crypto.randomUUID`.
+  if (!token) return;
   const mesmo = (x) => x.id === it.id && x.token === token;
   // A DEDUPLICAÇÃO QUE FICA é só a da fila em curso — dois `load` do mesmo item
   // em sequência não podem virar dois empurrões concorrentes. "Já está no cache

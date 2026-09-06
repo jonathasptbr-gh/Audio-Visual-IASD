@@ -147,7 +147,8 @@ const PONTE = `(function () {
           // \`recebido\` daqui é a mesma resposta, e é ela que o bloco 6 mede.
           window.__porToken = window.__porToken || {};
           window.__aberto = j.abrir.token;
-          window.__abertos.push({ id: j.abrir.id, recebido: window.__porToken[j.abrir.token] || 0 });
+          window.__abertos.push({ id: j.abrir.id, token: j.abrir.token,
+            recebido: window.__porToken[j.abrir.token] || 0 });
           window.__recebido = window.__porToken[j.abrir.token] || 0;
           setTimeout(() => canal.onmessage({
             data: JSON.stringify({ ok: true, recebido: window.__recebido, completo: false }),
@@ -603,6 +604,61 @@ try {
       && ordemCanal.abertos[2].recebido > 0,
     '6 · e ele RETOMA de onde parou — zero aqui seriam os megabytes já enviados '
     + 'atravessando o canal de novo', prazoDoCanal);
+
+  // =========================================================================
+  // 7 · O TOKEN DE UM ITEM DO CLONE É O DO SHELL, e não um recém-nascido
+  // =========================================================================
+  // Quem cunha o token de uma mídia do TELÃO é o web (`telaTokenDe`, que CUNHA
+  // quando não conhece o id) — e está certo: o id é do acervo, o token é nosso.
+  // No CLONE a relação se inverte: quem cunha é o SHELL
+  // (`AcervoCessao.tokenDoItem`, `<sessao>n<n>`), o outro celular já está
+  // esperando naquele token, e o id do item nunca esteve no mapa.
+  //
+  // O DEFEITO NÃO TEM SINTOMA DE NENHUM DOS DOIS LADOS: o item inteiro é
+  // montado, atravessa o canal e entra no cache — sob um nome que ninguém vai
+  // pedir. A rota `/acervo/item/` espera os 60 s de PARADA e responde 503, com
+  // o destino em 0% e o console limpo. **E o bloco 6 passa assim**, porque ele
+  // chama o `telaGarantirEnvio` direto e sem token; o resto deste arquivo
+  // também, porque o servidor de mentira pede o corpo ao `cloneCorpoDoItem` sem
+  // passar pelo empurrão. Este é o único ponto que exercita a ligação inteira,
+  // do pedido do shell até o `abrir` do canal.
+  const tokenDoPedido = await a.pg.evaluate(async () => {
+    window.__abertos = [];
+    window.__porToken = {};
+    window.__recebido = 0;
+    window.__aberto = null;
+    mirrorEstado = { ligado: true, telas: [], redes: [] };
+    // A cessão de verdade sobe o servidor no aparelho; aqui basta o que o
+    // `cloneAtenderPedido` pergunta antes de montar o corpo.
+    cloneCedendo = true;
+    // O TOKEN É O QUE O SHELL CUNHA, escrito como ele o escreve — copiar a
+    // FORMA é o ponto: um token nosso aqui provaria que a função concorda
+    // consigo mesma.
+    const esperado = cloneSessao + 'n0';
+    await cloneAtenderPedido({ type: 'acervo-pedido', sessao: cloneSessao, n: 0, token: esperado });
+    // A ESPERA É PELOS BYTES, não pelo `abrir` — ele sai ANTES do primeiro
+    // bloco, e parar nele mede o app cedo demais (a segunda asserção reprovaria
+    // com zero, descrevendo um empurrão que ainda não tinha acontecido).
+    for (let i = 0; i < 1200 && !window.__porToken[esperado]; i++) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    return {
+      esperado,
+      abertos: window.__abertos.slice(),
+      bytes: window.__porToken[esperado] || 0,
+    };
+  });
+  const prazoDoToken = tokenDoPedido.abertos.length
+    ? JSON.stringify(tokenDoPedido)
+    : 'nenhum `abrir` foi observado em 30 s (PRAZO, não veredito)';
+  checar(tokenDoPedido.abertos.length === 1
+      && tokenDoPedido.abertos[0].token === tokenDoPedido.esperado,
+    '7 · o `abrir` do item pedido carrega o token que o SHELL cunhou — um token '
+    + 'recém-nascido aqui é o item inteiro no cache sob um nome que ninguém pede',
+    prazoDoToken);
+  // A OUTRA METADE: honrar o token não pode ser honrá-lo e não empurrar nada.
+  checar(tokenDoPedido.bytes > 0,
+    '7 · e os bytes do item chegam SOB ele', prazoDoToken);
 
   // =========================================================================
   // 5 · A FAIXA — nenhum pedido acima do pedaço combinado

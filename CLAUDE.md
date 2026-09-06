@@ -3211,6 +3211,21 @@ comum (o cartão, o cabo).
   CEDE A VEZ E SAI — e sair é de graça, porque o `abrir` do outro lado devolve
   `recebido` e o item volta de onde parou; é a mesma retomada que um empurrão
   interrompido por morte de renderer já usava.
+- **O TOKEN DE UM ITEM DO CLONE É DO SHELL, e essa é a inversão que morde**
+  (v1.8.10). Numa mídia do TELÃO quem cunha é o web (`telaTokenDe`, que CUNHA
+  quando não conhece o id): o id é do acervo, o token é nosso. Aqui quem cunha é
+  o shell (`AcervoCessao.tokenDoItem`, `<sessao>n<n>`) — o outro celular já está
+  esperando naquele token, e o id do item **nunca esteve no mapa**. O
+  `telaGarantirEnvio` carimbava por cima, e o item inteiro atravessava o canal
+  para o cache **sob um nome que ninguém ia pedir**: a rota `/acervo/item/`
+  esperava os 60 s de PARADA e respondia 503, com o destino em 0%, o console
+  limpo dos dois lados e o Registro do CEDENTE dizendo que o item não ficou
+  pronto. Hoje um chamador que já tem o token manda nele. Oráculo: o bloco 7 do
+  `clone-de-outro-celular.test.mjs` — e ele é o ÚNICO ponto que exercita a
+  ligação inteira, do pedido do shell até o `abrir` do canal: o bloco 6 chama o
+  `telaGarantirEnvio` direto e o resto do arquivo pede o corpo ao
+  `cloneCorpoDoItem` sem passar pelo empurrão, e por isso **os dois aprovavam o
+  defeito**.
 - **UM CLONE POR VEZ.** Não é limite de recurso: é o pareamento ter um DONO, e o
   operador saber quem está copiando.
 
@@ -5083,9 +5098,9 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.9 · APK v1.8.9** · `SHELL_VERSION` **65** ·
-bundle com `minShell: 65` e **`shellTag: v1.8.9`** — o shell 65 é o **PISO**:
-todo método da ponte existe, e não há guarda de versão no lado web.
+**Versão atual: base web v1.8.10 · APK v1.8.9** · `SHELL_VERSION` **65** ·
+bundle com `minShell: 65` e **sem `shellTag`** (lote só de web) — o shell 65 é o
+**PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
 > oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
