@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.10",
+    "itens": [
+      "A cópia da biblioteca entre celulares volta a funcionar: os arquivos nunca chegavam ao outro aparelho."
+    ]
+  },
+  {
     "versao": "1.8.9",
     "itens": [
       "A cópia da biblioteca entre celulares volta a funcionar: ela nunca chegou a parear.",
