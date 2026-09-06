@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.8.25",
+    "itens": [
+      "Ao importar, os hinos aparecem na notificação em ordem e no ritmo da cópia.",
+      "O aviso do fim da importação diz quantas músicas a coleção tem no aparelho.",
+      "O pacote deixou de levar ajustes pessoais — ele carrega o acervo, não o app.",
+      "A gravação da Bíblia na importação ficou cerca de quatro vezes mais rápida."
+    ]
+  },
+  {
     "versao": "1.8.24",
     "itens": [
       "A medição do acervo antes de exportar ficou cerca de duas vezes mais rápida."

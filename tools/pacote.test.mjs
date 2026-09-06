@@ -190,8 +190,26 @@ checar(!!P, 'o módulo publica `AVPacote`');
 // 5. AS CHAVES QUE NÃO VIAJAM — cada uma faz o destino AGIR ou MENTIR
 // ---------------------------------------------------------------------------
 {
-  checar(P.chaveViaja('fit') && P.chaveViaja('cifras:hymnal-2022') && P.chaveViaja('imports'),
-    'as preferências e os catálogos atravessam');
+  // O QUE A BIBLIOTECA PRECISA PARA FUNCIONAR ATRAVESSA, e é ele que não
+  // aparece em lista nenhuma da tela: não há o que decidir sobre ele.
+  checar(P.chaveViaja('coll:hymnal-2022') && P.chaveViaja('cifras:hymnal-2022')
+    && P.chaveViaja('imports') && P.chaveViaja('albumCatalog')
+    && P.chaveViaja('bible:nvi_1_1') && P.chaveViaja('favs'),
+    'os dados da BIBLIOTECA atravessam — índices, listas, catálogo, Bíblia e cifras');
+  // E OS AJUSTES INDIVIDUAIS NÃO (v1.8.25). Decisão do operador: o pacote é
+  // para dados massivos da biblioteca, não para copiar o app de uma pessoa.
+  for (const chave of ['fit', 'rotate', 'repeat', 'lyricsFont', 'lyricsBg',
+    'cifraVelocidade', 'cifraFonteCheia', 'chronoPrefs', 'drawPrefs',
+    'sorteioPrefs', 'ytAltura', 'downloadOk']) {
+    checar(!P.chaveViaja(chave),
+      'o ajuste individual `' + chave + '` NÃO atravessa — o pacote não copia o app de uma pessoa');
+  }
+  // A LISTA É UMA NEGATIVA, e isto é a metade que a protege: uma chave NOVA
+  // viaja por padrão. Uma lista de PERMISSÃO deixaria um dado de acervo novo
+  // para trás em silêncio, que é o defeito que a v1.8.23 acabou de pagar.
+  checar(P.chaveViaja('uma-chave-de-acervo-que-ainda-nao-existe'),
+    'uma chave desconhecida VIAJA — a lista é de exclusão, e é o dado de '
+    + 'biblioteca que não pode ficar para trás em silêncio');
   for (const [chave, porque] of [
     ['ota-intencao', 'reabriria o instalador do APK no aparelho de destino'],
     ['yt-intencoes', 'faria o destino reclamar downloads que nunca começaram nele'],

@@ -316,6 +316,18 @@ try {
       createdAt: 1,
     });
     await AVDB.opfsWriteFile('folders/colecao/001.m4a', bytes(1200, 3));
+    // TRÊS FAIXAS FORA DE ORDEM, semeadas com os números que separam a
+    // comparação numérica da alfabética: como texto, "10" vem antes de "2".
+    // Sem elas o bloco 14 não teria o que ordenar.
+    for (const [n2, id] of [[10, 'arq-10'], [2, 'arq-02'], [100, 'arq-100']]) {
+      const cam = 'folders/colecao/' + n2 + '-extra.m4a';
+      await AVDB.opfsWriteFile(cam, bytes(300, 4));
+      await AVDB.fileAdd({
+        id, folder: 'colecao', opfsPath: cam, srcName: String(n2),
+        name: String(n2).padStart(3, '0') + ' — Faixa', type: 'audio/mp4', kind: 'audio',
+        size: 300, thumb: null, blob: null, url: null, addedAt: 1,
+      });
+    }
     await AVDB.fileAdd({
       id: 'arq-de-teste', folder: 'colecao', opfsPath: 'folders/colecao/001.m4a',
       srcName: '001', name: '001 — Faixa', type: 'audio/mp4', kind: 'audio',
@@ -338,6 +350,11 @@ try {
       indexSyncedAt: 111,
       songs: [{ id_music: '001', name: '001 — Faixa', fileIdFull: 'arq-de-teste', fileIdPlayback: null }],
     });
+    // DUAS chaves de `state`, e elas provam lados opostos da regra: `bibleVersion`
+    // é dado da BIBLIOTECA e atravessa; `lyricsFont` é ajuste individual e NÃO
+    // atravessa (v1.8.25) — o pacote é para o acervo, não para copiar o app de
+    // uma pessoa.
+    await AVDB.setState('bibleVersion', 'versao-de-teste');
     await AVDB.setState('lyricsFont', 'grande-de-teste');
     await AVDB.setState('favs', ['item-de-teste']);
     // A PASTA DO APARELHO, com um arquivo dentro. Ela é o corte declarado do
@@ -352,13 +369,14 @@ try {
   const grupos = await confirmarGrupos(a.pg);
   checar(Array.isArray(grupos) && grupos.length >= 2,
     '1 · a folha de escolha abre com os grupos e o confirmar', JSON.stringify(grupos));
-  // O GRUPO FIXO ESTÁ NA LISTA E DIZ POR QUÊ. As listas do app moram em
-  // `state`, e mídia sem a lista que a referencia é órfã no destino — o
-  // coletor a apaga na abertura seguinte. É a única linha que não se desmarca,
-  // e sem a frase ela seria uma caixa que não responde ao toque.
-  checar(Array.isArray(grupos) && grupos.some((t) => /Ajustes e catálogos/.test(t)
-    && /sempre vai junto/.test(t)),
-    '1 · com "Ajustes e catálogos" fixo e dizendo que vai junto', JSON.stringify(grupos));
+  // A LINHA "Ajustes e catálogos" SAIU DA FOLHA (v1.8.25) e o que ela carregava
+  // CONTINUA no pacote — as duas metades, porque uma sem a outra é um defeito.
+  // Ela nunca foi escolha: nasceu marcada e sem ouvinte, porque desmarcá-la
+  // faria a mídia chegar ÓRFÃ ao destino. Uma linha que não decide nada numa
+  // folha cujo trabalho INTEIRO é decidir é ruído.
+  checar(Array.isArray(grupos) && !grupos.some((t) => /Ajustes e catálogos/.test(t)),
+    '1 · a linha "Ajustes e catálogos" não aparece mais — ela não decidia nada',
+    JSON.stringify(grupos));
   const resumo = await fimDaExportacao(a.pg);
   checar(resumo && resumo.dialogo === false && /\d/.test(resumo.titulo),
     '1 · a exportação termina no PRÓPRIO BOTÃO, com o tamanho e sem diálogo '
@@ -391,8 +409,14 @@ try {
   zerarDiario();
   await b.pg.evaluate(() => { window.__fim = importarPacote(); });
   const conta = await responderDialogo(b.pg);
-  checar(typeof conta === 'string' && /entraram neste aparelho/.test(conta),
-    '2 · a importação termina contando o que entrou', conta);
+  // O RELATÓRIO FALA EM MÚSICAS E MÍDIAS, e não em "itens/arquivos/ajustes"
+  // (v1.8.25). Relato do operador: *"quero saber se todos os 600 hinos foram
+  // importados, e não sobre milhares de itens sem nome"*.
+  checar(typeof conta === 'string' && /m\u00fasicas/.test(conta) && /de 1 m/.test(conta),
+    '2 · o relatório diz quantas MÚSICAS a coleção tem no aparelho', conta);
+  checar(typeof conta === 'string' && !/ajuste/.test(conta) && !/arquivo\(s\)/.test(conta),
+    '2 · e não fala em "ajustes" nem em "arquivos" — são unidades internas, não '
+    + 'o que o operador foi conferir', conta);
   await recarregou;
   await esperar(b.pg, () => !document.getElementById('splash'), null, 30000);
 
@@ -411,6 +435,7 @@ try {
       pastaDoCelular: await lerOpfs('folders/pasta-do-celular/culto.mp4'),
       catalogo: (await AVDB.fileGet('arq-de-teste'))?.name || '',
       pref: await AVDB.getState('lyricsFont'),
+      dadoDaBiblioteca: await AVDB.getState('bibleVersion'),
       favs: await AVDB.getState('favs'),
       pastas: await AVDB.getState('opfs-folders'),
     };
@@ -427,8 +452,11 @@ try {
   // erraria, em lugar nenhum.
   checar(chegou.fundo === 500,
     '2 · e a IMAGEM DE FUNDO da estrofe também, que NENHUM registro do catálogo nomeia', chegou.fundo);
-  checar(chegou.pref === 'grande-de-teste' && String(chegou.favs) === 'item-de-teste',
-    '2 · a preferência e a lista de favoritos vieram junto', chegou);
+  checar(chegou.dadoDaBiblioteca === 'versao-de-teste' && String(chegou.favs) === 'item-de-teste',
+    '2 · o dado de BIBLIOTECA e a lista de favoritos vieram junto', chegou);
+  checar(chegou.pref === undefined || chegou.pref === null,
+    '2 · e o AJUSTE INDIVIDUAL não veio — o pacote é para o acervo, não para '
+    + 'copiar o app de uma pessoa', chegou.pref);
 
   // ── E O QUE NÃO PODE CHEGAR, NÃO CHEGOU ────────────────────────────────
   checar(chegou.stream === 'ausente',
@@ -486,7 +514,7 @@ try {
   // que estão no arquivo — em silêncio.
   await b.pg.evaluate(async () => {
     await AVDB.renameMedia('item-de-teste', 'Nome que o operador deu');
-    await AVDB.setState('lyricsFont', 'escolha-de-quem-importou');
+    await AVDB.setState('bibleVersion', 'escolha-de-quem-importou');
     await AVDB.setState('favs', ['outro-item']);
   });
   const recarregou2 = b.pg.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -497,7 +525,7 @@ try {
 
   const depois = await b.pg.evaluate(async () => ({
     nome: (await AVDB.getMedia('item-de-teste')).name,
-    pref: await AVDB.getState('lyricsFont'),
+    pref: await AVDB.getState('bibleVersion'),
     favs: await AVDB.getState('favs'),
     quantos: (await AVDB.mediaChaves()).length,
   }));
@@ -531,7 +559,7 @@ try {
       '4 · um pacote cortado no meio é RECUSADO, e a frase diz por quê', frase);
     const entrou = await c.pg.evaluate(async () => ({
       media: (await AVDB.mediaChaves()).length,
-      pref: await AVDB.getState('lyricsFont'),
+      pref: await AVDB.getState('bibleVersion'),
     }));
     checar(entrou.media === 0 && entrou.pref === undefined,
       '4 · e NADA entrou — a conferência roda antes de a primeira linha ser gravada', entrou);
@@ -718,7 +746,7 @@ try {
         if (corpo && corpo.length) partes.push(corpo);
       };
       const v1 = enc.encode(JSON.stringify('valor-que-viaja'));
-      reg({ t: 'state', chave: 'lyricsFont', bytes: v1.length }, v1);
+      reg({ t: 'state', chave: 'bibleVersion', bytes: v1.length }, v1);
       const v2 = enc.encode(JSON.stringify({ id: 'forjado' }));
       reg({ t: 'state', chave: 'current', bytes: v2.length }, v2);
       reg({ t: 'fim', bytes: 0 });
@@ -736,7 +764,7 @@ try {
       await pacoteAplicarFluxo(pacoteCursor(fonte), contagem, null);
       return {
         contagem,
-        viajou: await AVDB.getState('lyricsFont'),
+        viajou: await AVDB.getState('bibleVersion'),
         forjada: await AVDB.getState('current'),
       };
     });
@@ -893,6 +921,64 @@ try {
       '13 · e o NOME DO ARQUIVO saiu da linha — quem escolheu o pacote acabou de '
       + 'vê-lo no seletor, e ele é o único ali que nunca muda', JSON.stringify(itens));
     await m.ctx.close();
+  }
+
+  // =========================================================================
+  // 14 · OS NOMES SEGUEM OS BYTES, E EM ORDEM (v1.8.25)
+  // =========================================================================
+  //
+  // Relato do operador sobre a v1.8.23: *"ele mostrou vários nomes rapidamente e
+  // após um tempo, parou em um nome e não mudou mais … ele passou nomes bem mais
+  // rápido do que o progresso parecia ir, minha suposição é que ele rodou a
+  // lista de nomes de forma independente ao progresso real"*. A suposição estava
+  // certa, e a causa é estrutural: a v1.8.23 nomeava os registros de CATÁLOGO,
+  // que têm `bytes: 0`. Os 1200 nomes de um hinário passavam na fração de
+  // segundo dos metadados, e a linha congelava no último durante a cópia dos
+  // gigabytes — o trabalho inteiro.
+  //
+  // E a ORDEM era a do sistema de arquivos, isto é, nenhuma: *"o hinário vai de
+  // 0 a 600 e é muito incoerente os hinos terem uma ordem aleatória … parece que
+  // está sorteando"*.
+  //
+  // A RÉGUA NÃO É O QUE A NOTIFICAÇÃO EXIBIU, e não pode ser: o compasso mostra
+  // no máximo um nome a cada BG_SPIN_MIN, e um pacote de teste importa em menos
+  // que isso — a linha ficaria no primeiro nome com qualquer implementação. O
+  // que se mede é o que o aplicador OFERECE, e ONDE no arquivo ele oferece.
+  {
+    const n = await aparelho(saida);
+    const r = await n.pg.evaluate(async (bytes) => {
+      const u8 = new Uint8Array(bytes);
+      const fonte = {
+        size: u8.length,
+        async bytes(a, b) { return u8.subarray(a, b); },
+        async blob(a, b, t) { return new Blob([u8.subarray(a, b)], { type: t || '' }); },
+      };
+      const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0, recusadas: 0 };
+      const marcas = [];
+      await pacoteAplicarFluxo(pacoteCursor(fonte), contagem,
+        (pos, nome) => { if (nome) marcas.push({ pos, nome }); });
+      return { marcas, tamanho: u8.length };
+    }, Array.from(saida));
+
+    const faixas = r.marcas.filter((m) => / — Faixa$/.test(m.nome));
+    checar(faixas.length >= 3,
+      '14 · as faixas do acervo são NOMEADAS enquanto entram', JSON.stringify(r.marcas));
+    // ONDE NO ARQUIVO o último nome aparece. Com os nomes presos ao CATÁLOGO
+    // (v1.8.23) eles acabam antes dos corpos, que são a maior parte do pacote —
+    // e a linha congela dali até o fim. Presos aos BYTES, o último nome sai
+    // junto com os últimos bytes.
+    const fim = faixas[faixas.length - 1].pos / r.tamanho;
+    checar(fim > 0.9,
+      '14 · e o ÚLTIMO nome sai junto com os ÚLTIMOS bytes — era aqui que a '
+      + 'linha congelava, porque o catálogo acaba antes dos corpos',
+      'último nome em ' + Math.round(fim * 100) + '% do arquivo');
+    // A ORDEM É NUMÉRICA: 002 antes de 010 antes de 100. Como texto cru, "10"
+    // viria antes de "2" — é essa a diferença que a asserção prende.
+    const nomes = faixas.map((m) => m.nome);
+    checar(JSON.stringify(nomes) === JSON.stringify(nomes.slice().sort()),
+      '14 · e em ORDEM — a varredura do OPFS não tem ordem nenhuma, e sem ordenar '
+      + 'o hinário parece um sorteio', JSON.stringify(nomes));
+    await n.ctx.close();
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));

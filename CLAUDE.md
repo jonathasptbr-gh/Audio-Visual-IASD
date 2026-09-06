@@ -3029,6 +3029,39 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   - **E o `size` vem do `pickDoc`** (shell 64). Sem ele não há como saber onde o
     arquivo acaba — e `-1` ("o provedor não disse") para a importação com frase
     própria, em vez de virar um zero que recusaria um pacote bom como vazio.
+- **O NOME SAI DE QUEM CARREGA OS BYTES, E EM ORDEM** (v1.8.25). A v1.8.23
+  nomeava os registros de CATÁLOGO, que têm `bytes: 0`: MEDIDO por reversão, o
+  ÚLTIMO nome saía em **1% do arquivo** — os 1200 nomes de um hinário passavam
+  na fração de segundo dos metadados, e a linha CONGELAVA no último durante a
+  cópia dos gigabytes, que é o trabalho inteiro. Hoje quem nomeia é o registro
+  `opfs`, que É o byte; o nome vem do catálogo pelo `opfsPath`, que o exportador
+  escreve ANTES dos corpos por contrato. E a varredura do OPFS é ORDENADA com
+  comparação NUMÉRICA — ela devolve o que o sistema de arquivos entrega, e como
+  texto cru "100" vem antes de "010": sem ordenar, um hinário parece um sorteio.
+- **O RELATÓRIO DO FIM CONTA MÚSICAS, não unidades internas** (v1.8.25). Ele
+  dizia *"4 item(ns), 2228 arquivo(s) e 172 ajuste(s)"* — a store de mídia, os
+  arquivos do OPFS (um hino tem áudio, playback e as imagens de fundo da letra,
+  daí 2228 para 601 hinos) e chaves de `state`. Hoje: *"Hinário Adventista 2022:
+  601 de 601 músicas"*. É o ESTADO e não o delta de propósito — importar de novo
+  depois de uma queda tem de responder "601 de 601", e um delta diria "0
+  entraram" sobre um hinário completo. A conta sai de `countDownloaded`, a MESMA
+  que a Biblioteca usa: uma segunda conta divergiria da tela onde se confere.
+- **OS AJUSTES INDIVIDUAIS NÃO VIAJAM** (v1.8.25). Decisão do operador: *"o
+  propósito da exportação não é copiar o app de um usuário … o propósito é para
+  dados massivos da biblioteca"*. Doze chaves de preferência entraram no `FORA`,
+  a linha "Ajustes e catálogos" saiu da folha (ela nunca foi escolha — nascia
+  marcada e sem ouvinte) e a palavra "ajustes" saiu do relatório. **A lista
+  continua sendo uma NEGATIVA**, e isso tem asserção própria: uma chave nova
+  viaja por padrão, porque uma lista de PERMISSÃO deixaria um dado de acervo
+  novo para trás em silêncio — o defeito que a v1.8.23 pagou.
+- **A BÍBLIA CONTINUA POR CAPÍTULO, e a medição é a razão** (v1.8.25). Dividi-la
+  por LIVRO reduziria as chaves de 1189 para 66, e foi pedido — mas MEDIDO em
+  Chromium, ler UM capítulo passaria de **0,19 ms para 4,59 ms** (Salmos),
+  porque a leitura teria de desserializar o livro inteiro. A leitura é o caminho
+  do CULTO, a cada virada de capítulo no sermão. O ganho que o pedido procura
+  estava no outro lado e saiu por LOTE (`AVDB.updateStateLote`): gravar 1189
+  capítulos passou de **596 ms para 153 ms**, sem migração e sem tocar na
+  leitura.
 - **A NOTIFICAÇÃO DA IMPORTAÇÃO MOSTRA A ETAPA E OS ITENS** (v1.8.23). Ela era
   `bgTaskStart('Importando o acervo', 1)` com o NOME DO ARQUIVO como item único:
   um trabalho de UM item, com uma linha que nunca trocava, e a CONFERÊNCIA — que
@@ -5123,7 +5156,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.24 · APK v1.8.22** · `SHELL_VERSION` **69** ·
+**Versão atual: base web v1.8.25 · APK v1.8.22** · `SHELL_VERSION` **69** ·
 bundle com `minShell: 69` e **SEM `shellTag`** (lote SÓ DE BASE WEB) — o
 shell 69 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
