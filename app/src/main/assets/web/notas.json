@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.11",
+    "itens": [
+      "Copiar a biblioteca pela Wi-Fi: dá para digitar o endereço mesmo com o outro celular na lista.",
+      "A mensagem de falha da cópia passou a dizer o que fazer em cada caso."
+    ]
+  },
+  {
     "versao": "1.8.10",
     "itens": [
       "A cópia da biblioteca entre celulares volta a funcionar: os arquivos nunca chegavam ao outro aparelho."

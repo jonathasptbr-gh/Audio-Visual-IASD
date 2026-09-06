@@ -102,6 +102,10 @@ try {
   // um teste que fala de um subtítulo.
   const trecho = JS.match(/^function cloneRenderAchados\(lista\)[\s\S]*?^}/m);
   checar(!!trecho, 'consegui isolar o `cloneRenderAchados` do controle.js');
+  // ELA CHAMA UMA IRMÃ, e a irmã vai junto: sem ela o `new Function` monta e
+  // lança na primeira chamada, e o que se leria no log seria "não isolei".
+  const trechoTalvez = JS.match(/^function cloneTalvezManual\(\)[\s\S]*?^}/m);
+  checar(!!trechoTalvez, 'consegui isolar o `cloneTalvezManual` do controle.js');
 
   await pg.setContent('<!doctype html><html><body><ul id="lista"></ul></body></html>');
 
@@ -119,9 +123,14 @@ try {
     };
     const pacoteIconeSvg = () => '';
     const fmtBytes = (n) => n + ' B';
+    // O PRAZO É INJETADO COMO DADO, e não esperado: `cloneProcurandoDesde` no
+    // passado é o mesmo estado que dez segundos de relógio produzem, sem pôr
+    // uma espera de dez segundos dentro de um oráculo.
     const cloneProcurandoDesde = Date.now();
     const CLONE_MANUAL_MS = 10000;
-    const cloneLinhaManual = () => {};
+    // O ALVO DA METADE NOVA: quantas vezes a saída à mão foi oferecida.
+    const chamadas = { manual: 0 };
+    const cloneLinhaManual = () => { chamadas.manual++; };
     const closeSongMenu = () => {};
     const cloneComecar = () => {};
     // eslint-disable-next-line no-new-func
@@ -144,8 +153,30 @@ try {
     saida.semNumeros = ler();
     render([]);
     saida.vazia = ler();
+
+    // ---- a saída à mão, nas três combinações que decidem a regra ----
+    //
+    // O `cloneProcurandoDesde` entra no `new Function` como PARÂMETRO, então
+    // reatribuir a variável de fora não muda o que a função vê: cada cenário
+    // remonta o par com o instante que ele quer medir. (A primeira versão
+    // reatribuía, e as duas asserções reprovaram com zero — o oráculo medindo
+    // a si mesmo.)
+    const comDesde = (desde) => montar(songMenuListEl, songMenuFor, songMenuItem,
+      pacoteIconeSvg, fmtBytes, desde, CLONE_MANUAL_MS, cloneLinhaManual,
+      closeSongMenu, cloneComecar);
+    const agora = Date.now();
+    const cedo = comDesde(agora);
+    const tarde = comDesde(agora - CLONE_MANUAL_MS - 1);
+    const um = [{ nome: 'C', rotulo: 'Galaxy S24', host: '192.168.3.34', porta: 8787, itens: 612, bytes: 14200 }];
+
+    chamadas.manual = 0; tarde(um);
+    saida.manualComLista = chamadas.manual;
+    chamadas.manual = 0; cedo(um);
+    saida.manualComListaCedo = chamadas.manual;
+    chamadas.manual = 0; tarde([]);
+    saida.manualComVazia = chamadas.manual;
     return saida;
-  }, { fonte: trecho ? trecho[0] : '' });
+  }, { fonte: (trecho ? trecho[0] : '') + '\n' + (trechoTalvez ? trechoTalvez[0] : '') });
 
   checar(r.comNumeros.subs[0] === '612 itens · 14200 B',
     'com os números, a linha diz quantos itens e quanto pesa — que é o que faz '
@@ -165,6 +196,23 @@ try {
   checar(/Procurando na rede/.test(r.vazia.texto),
     'e a lista VAZIA continua dizendo que está procurando — é ela que cobre os '
     + 'segundos em que o outro celular monta o índice', r.vazia.texto);
+  // A SAÍDA À MÃO COM A LISTA CHEIA (v1.8.11). Ela morava dentro do ramo da
+  // lista VAZIA, e o caso de campo é o oposto: o aparelho aparece, o endereço
+  // que o anúncio trouxe não é o que o servidor escuta, e a única saída do app
+  // ficava escondida atrás de uma lista que não está vazia.
+  checar(r.manualComLista === 1,
+    'passado o prazo, a saída à mão é oferecida MESMO com a lista cheia — é o '
+    + 'caso em que o aparelho aparece e o endereço dele não responde',
+    r.manualComLista);
+  // A METADE QUE MANTÉM O PRAZO DE PÉ: oferecer as duas de saída ensinaria a
+  // digitar o endereço sempre, e é por isso que ela espera a procura ter a vez.
+  checar(r.manualComListaCedo === 0,
+    'e ANTES do prazo ela não aparece — a procura tem a vez dela primeiro',
+    r.manualComListaCedo);
+  checar(r.manualComVazia === 1,
+    'e o caso original continua valendo: lista vazia, passado o prazo, ela aparece',
+    r.manualComVazia);
+
   // -------------------------------------------------------------------------
   // METADE 3 — O DIÁRIO SOBREVIVE AO QUE APAGOU AS DUAS PROVAS DE CAMPO
   // -------------------------------------------------------------------------
@@ -247,6 +295,46 @@ try {
   checar(/cloneOnde = 'pareando com/.test(pj),
     'e o PAREAMENTO entra no `cloneOnde` — sem isso o "parou em:" do diário sai '
     + 'vazio justamente na etapa que mais falha (foi o que o Registro mostrou)');
+
+  // O ENSINO SEGUE A CLASSE DA FALHA (v1.8.11). A frase era UMA e mandava
+  // sempre para o ponto de acesso — o contorno da Wi-Fi que engole o pacote.
+  // MEDIDO em campo, o que voltou foi `ConnectException` em 2,3 s contra um
+  // `connectTimeout` de 8 s: o outro lado RESPONDEU, e o conselho mandava
+  // consertar o que não estava quebrado.
+  const trechoEnsino = JS.match(/^function cloneEnsinoDaFalha\(erro\)[\s\S]*?^}/m);
+  checar(!!trechoEnsino, 'consegui isolar o `cloneEnsinoDaFalha`');
+  const ensino = await pg.evaluate(({ fonte }) => {
+    // eslint-disable-next-line no-new-func
+    const f = new Function(fonte + '\nreturn cloneEnsinoDaFalha;')();
+    return {
+      recusou: f('ConnectException: Failed to connect to /192.168.3.34:8787 após 2.32s'),
+      engoliu: f('SocketTimeoutException: failed to connect após 8.01s'),
+      semRota: f('NoRouteToHostException: sem rota após 1.2s'),
+      outro: f('IOException: unexpected end of stream'),
+      vazio: f(''),
+    };
+  }, { fonte: trechoEnsino ? trechoEnsino[0] : '' });
+
+  checar(!/ponto de acesso/.test(ensino.recusou),
+    'uma RECUSA não manda ligar o ponto de acesso — o pacote atravessou a rede e '
+    + 'voltou, e mandar trocar de rede ali é mandar consertar o que está certo',
+    ensino.recusou);
+  checar(/Digitar o endereço/.test(ensino.recusou),
+    'ela manda para a saída que resolve a recusa: digitar o endereço que o outro '
+    + 'aparelho de fato está escutando', ensino.recusou);
+  // A METADE QUE IMPEDE O CONSERTO LARGO DEMAIS: apagar o conselho do ponto de
+  // acesso passaria na primeira asserção, e o caso que ele existe para cobrir —
+  // a Wi-Fi que ENGOLE o pacote — voltaria a não ter resposta na tela.
+  checar(/ponto de acesso/.test(ensino.engoliu) && /ponto de acesso/.test(ensino.semRota),
+    'um prazo estourado (ou sem rota) CONTINUA mandando para o ponto de acesso — '
+    + 'ali o pacote foi engolido, e o contorno é o celular virar a rede',
+    ensino.engoliu + ' | ' + ensino.semRota);
+  checar(ensino.recusou !== ensino.engoliu,
+    'e as duas frases são DIFERENTES — uma frase só para as duas causas é o '
+    + 'defeito que este bloco existe para travar');
+  checar(!!ensino.outro && !!ensino.vazio,
+    'uma exceção que não se reconhece ainda diz o que fazer, em vez de sair vazia',
+    ensino.outro + ' | ' + ensino.vazio);
 
   // O VIGIA DO PEDIDO, no shell: os prazos do `pedirPar` somam 16 s e ainda
   // assim o que chegou ao campo foi um `null` de ponte (60 s).
