@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.12';
+const WEB_VERSION = '1.8.13';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21493,19 +21493,29 @@ const MIRROR_TERMICA = ['NONE', 'LIGHT', 'MODERATE', 'SEVERE', 'CRITICAL', 'EMER
  * bloco: uma linha de zeros é mais uma para ler em toda cópia do Registro, e é
  * a regra que o `AVStream.fome` e o `ytCenso` já seguem.
  */
-function blocoClone(e, diario) {
+function blocoClone(e, diario, parcial) {
   const hist = Array.isArray(diario) ? diario : [];
+  const p = (parcial && parcial.onde) ? parcial : null;
   // O BLOCO EXISTE COM O DIÁRIO SOZINHO, e é este o ponto do lote: o estado do
   // shell nasce limpo num processo novo, e o operador reabre o app justamente
   // para copiar o Registro. Enquanto `usou` dependia só dele, a cópia que
   // falhou saía do Registro sem deixar uma linha.
-  if (!e && !hist.length) return '';
+  if (!e && !hist.length && !p) return '';
   const c = (e && e.cessao) || {};
   const d = (e && e.descoberta) || {};
-  const usou = hist.length || c.cedendo || d.procurando || (e && e.pareado)
+  const usou = hist.length || p || c.cedendo || d.procurando || (e && e.pareado)
     || (d.diag && d.diag !== 'sem uso') || (e && e.proxy && e.proxy !== 'sem uso');
   if (!usou) return '';
   const L = ['Clone da biblioteca (celular a celular)'];
+  // ONDE ELA ESTAVA, e ele vem PRIMEIRO. Esta linha é a única que sobrevive a
+  // uma cópia que a página não terminou de contar — o `finally` do
+  // `cloneComecar` nunca rodou, e sem ela o Registro fica idêntico ao de um
+  // aparelho em que ninguém tocou. MEDIDO num Registro de campo: uma cópia que
+  // transferiu arquivos e parou não deixou UMA linha.
+  if (p) {
+    L.push('· uma cópia ficou pelo caminho (' + (p.papel === 'ceder' ? 'cedendo' : 'trazendo') + ')');
+    L.push('  ' + new Date(p.em || 0).toLocaleString() + ' — ' + p.onde);
+  }
   if (c.cedendo) {
     L.push('· cedendo como "' + (c.rotulo || '?') + '" em ' + (e.endereco || '?'));
     L.push('  lista: ' + (c.itens || 0) + ' item(ns), ' + fmtBytes(c.bytes || 0)
@@ -22603,8 +22613,10 @@ async function renderDiag() {
     try { ac = await AVNative.acervoEstado(); } catch (_) { ac = null; }
     let hist = [];
     try { hist = (await AVDB.getState('clone-diario')) || []; } catch (_) { hist = []; }
+    let parcial = null;
+    try { parcial = (await AVDB.getState('clone-parcial')) || null; } catch (_) { parcial = null; }
     if (meu !== diagSeq) return;
-    const bcl = blocoClone(ac, hist);
+    const bcl = blocoClone(ac, hist, parcial);
     if (bcl) blocos.push(bcl);
   }
   // O ÁUDIO DO APARELHO — logo depois do estado da transmissão, porque responde
@@ -24228,6 +24240,9 @@ let cloneSessao = '';
 let cloneReceitas = [];
 let cloneRelogio = 0;
 let clonePerguntando = false;
+/** A cessão está segurando o trabalho de segundo plano? Ver `cloneLigarCessao`.
+ *  Bandeira e não contagem: a cessão é uma só por aparelho. */
+let cloneCessaoProtegida = false;
 
 const cloneCederTileEl = document.getElementById('cloneCederTile');
 const cloneReceberTileEl = document.getElementById('cloneReceberTile');
@@ -24381,6 +24396,7 @@ async function cloneAtenderPedido(msg) {
   const n = msg.n | 0;
   const token = String(msg.token || '');
   if (!token || n < 0 || n >= cloneReceitas.length) return;
+  await cloneMarcar('ceder', 'montando o item ' + n + ' de ' + cloneReceitas.length);
   let corpo = null;
   try { corpo = await cloneCorpoDoItem(n); } catch (e) {
     diagC('clone: não deu para montar o item ' + n + ' (' + ((e && e.message) || e) + ')');
@@ -24443,6 +24459,19 @@ async function cloneLigarCessao() {
     return;
   }
   cloneCedendo = true;
+  // CEDER É TRABALHO DE SEGUNDO PLANO, e este lado não pedia proteção nenhuma
+  // (v1.8.13). Quem RECEBE já roda dentro de um `withBgWork` desde o primeiro
+  // lote; quem CEDE monta cada item no WebView do Controle — `cloneAtenderPedido`
+  // → `cloneCorpoDoItem` → o empurrão —, e é justamente este o celular que o
+  // operador deixa na mesa e vai olhar o outro. Congelado o processo, o item
+  // nunca fica pronto, o servidor espera os 60 s de PARADA e responde 503: a
+  // cópia para "logo em seguida", com o outro lado sem nada a dizer.
+  //
+  // `bgWorkBegin` direto, e não `withBgWork`: a cessão é um ESTADO que dura até
+  // o operador desligá-la, não uma função que termina. O par é o
+  // `cloneDesligarCessao`, e a bandeira é o que o mantém balanceado — ligar duas
+  // vezes deixaria o serviço de pé para sempre.
+  if (!cloneCessaoProtegida) { cloneCessaoProtegida = true; bgWorkBegin(); }
   cloneRenderTiles();
   // O CACHE DO ESPELHO PRECISA SER RELIDO AGORA, e isto não é zelo: o empurrão
   // dos itens é o do telão, e o laço dele pergunta `telaAtiva()` — que lê o
@@ -24463,6 +24492,7 @@ async function cloneLigarCessao() {
 
 async function cloneDesligarCessao() {
   cloneCedendo = false;
+  if (cloneCessaoProtegida) { cloneCessaoProtegida = false; bgWorkEnd(); }
   cloneSessao = '';
   cloneReceitas = [];
   try { AVNative.acervoPararCessao(); } catch (_) { /* ponte */ }
@@ -24489,6 +24519,11 @@ async function cloneRetomar() {
   try { e = await AVNative.acervoEstado(); } catch (_) { return; }
   if (!e || !e.cessao || !e.cessao.cedendo) return;
   cloneCedendo = true;
+  // A PROTEÇÃO ATRAVESSA A MORTE DA PÁGINA, como o índice. O `bgWorkCount` é
+  // zerado ao remontar o WebView (`buildControleWebView`), então a cessão que
+  // sobreviveu ao OTA ou ao renderer voltaria SEM proteção nenhuma — e é o
+  // aparelho que cede que fica minimizado.
+  if (!cloneCessaoProtegida) { cloneCessaoProtegida = true; bgWorkBegin(); }
   cloneRenderTiles();
   // Pelo mesmo motivo do `cloneLigarCessao`: sem o `mirrorEstado` fresco o
   // empurrão de cada item se cancela sozinho.
@@ -24849,6 +24884,10 @@ async function cloneComecar(a) {
     const trouxe = contagem.media + contagem.arquivos + contagem.chaves + contagem.opfs;
     await cloneAnotar('levar', erro || 'copiou ' + trouxe + ' item(ns)',
       erro ? ('parou em: ' + cloneOnde) : '');
+    // O RASTRO SAI DEPOIS DO DIÁRIO, e não antes: entre uma escrita e a outra o
+    // app pode morrer, e perder o rastro sem ter gravado o diário é voltar ao
+    // Registro mudo que este lote veio consertar.
+    await cloneApagarMarca();
     try { AVNative.acervoSoltar(); } catch (_) { /* ponte */ }
     calarTile(cloneReceberTileEl);
     cloneRenderTiles();
@@ -24860,7 +24899,11 @@ async function cloneComecar(a) {
       // O QUE JÁ ENTROU FICA, e a frase diz isso: a lista do que falta é
       // derivada do disco, então tocar de novo continua de onde parou. Sem
       // esta linha o operador conclui que perdeu o que já tinha copiado.
-      message: erro + '\n\nO que já foi copiado ficou no aparelho. '
+      // ONDE PAROU ENTRA NA FRASE. O operador não abre o Registro — e a
+      // diferença entre parar no primeiro item e parar no milésimo é a
+      // diferença entre "não funcionou" e "funcionou e foi interrompido".
+      message: erro + (cloneOnde ? '\n\nParou em: ' + cloneOnde + '.' : '')
+        + '\n\nO que já foi copiado ficou no aparelho. '
         + 'Toque em "Clonar" de novo para continuar de onde parou.',
       okText: 'Entendi',
       cancelText: null,
@@ -24946,6 +24989,31 @@ async function cloneAnotar(papel, desfecho, detalhe) {
  *  de "parou no meio" — as duas pedem conferências opostas. */
 let cloneOnde = '';
 
+/**
+ * ONDE A CÓPIA ESTAVA, GRAVADO ENQUANTO ELA ANDA (v1.8.13).
+ *
+ * O diário só era escrito no `finally` do `cloneComecar`, e isso não cobre o
+ * caso que mais importa: a página morrer no meio (OOM do renderer, o operador
+ * fechando o app, o Android matando o processo). MEDIDO num Registro de campo —
+ * uma cópia que de fato transferiu arquivos e parou não deixou UMA linha, e a
+ * última tentativa registrada era de duas horas antes.
+ *
+ * Aqui a posição é gravada A CADA ITEM, numa chave que se SOBRESCREVE — não é
+ * histórico, é "onde eu estava". Uma escrita por item é barata perto de um item
+ * do acervo, e `updateState` já espera o commit.
+ */
+async function cloneMarcar(papel, onde) {
+  try {
+    await AVDB.updateState('clone-parcial', () => ({ em: Date.now(), papel, onde: String(onde || '').slice(0, 160) }));
+  } catch (_) { /* o rastro nunca pode custar a cópia */ }
+}
+
+/** A cópia terminou (bem ou mal) e o diário já a descreveu: o rastro sai, senão
+ *  o Registro passaria a mostrar para sempre a posição de uma cópia encerrada. */
+async function cloneApagarMarca() {
+  try { await AVDB.updateState('clone-parcial', () => null); } catch (_) { /* idem */ }
+}
+
 async function cloneSincronizar(contagem) {
   cloneOnde = 'pedindo a lista';
   falarNoTile(cloneReceberTileEl, 'Lendo a lista…', 0);
@@ -24981,6 +25049,10 @@ async function cloneSincronizar(contagem) {
       let quantos = 0;
       for (const { n, item } of falta) {
         cloneOnde = 'item ' + (quantos + 1) + ' de ' + falta.length + ' (nº ' + n + ')';
+        // O RASTRO É GRAVADO ANTES DE PEDIR, não depois: o item que MATA a
+        // cópia é justamente o que não termina, e marcá-lo no fim deixaria de
+        // fora o único que interessa.
+        await cloneMarcar('levar', cloneOnde);
         const corpo = await cloneBaixarItem(ind.sessao, n);
         // CORPO VAZIO NÃO É FALHA: é o item que sumiu do outro aparelho entre
         // a montagem do índice e o pedido (o operador apagou uma coleção). Ele

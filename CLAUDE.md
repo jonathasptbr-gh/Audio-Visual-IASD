@@ -3215,6 +3215,27 @@ comum (o cartão, o cabo).
   CEDE A VEZ E SAI — e sair é de graça, porque o `abrir` do outro lado devolve
   `recebido` e o item volta de onde parou; é a mesma retomada que um empurrão
   interrompido por morte de renderer já usava.
+- **CEDER É TRABALHO DE SEGUNDO PLANO, e este lado não pedia proteção nenhuma**
+  (v1.8.13). Quem RECEBE roda dentro de um `withBgWork` desde o primeiro lote;
+  quem CEDE monta cada item no WebView do Controle (`cloneAtenderPedido` →
+  `cloneCorpoDoItem` → o empurrão), e é **justamente este** o celular que o
+  operador deixa na mesa para ir olhar o outro. Congelado o processo, o item
+  nunca fica pronto, o servidor espera os 60 s de PARADA e responde 503 — a
+  cópia para "logo em seguida", com o outro lado sem nada a dizer. `bgWorkBegin`
+  DIRETO e não `withBgWork`: a cessão é um ESTADO que dura até o operador
+  desligá-la. **A retomada protege também** — o `bgWorkCount` zera ao remontar o
+  WebView, então a cessão que sobreviveu ao OTA voltaria desprotegida.
+- **E A CÓPIA DEIXA RASTRO ENQUANTO ANDA** (`clone-parcial`, v1.8.13). O diário
+  só era escrito no `finally` do `cloneComecar`, e isso não cobre o caso que
+  mais importa: a página morrer no meio. MEDIDO num Registro de campo — uma
+  cópia que de fato transferiu arquivos e parou não deixou UMA linha, e a última
+  tentativa registrada era de duas horas antes. A chave se SOBRESCREVE (é "onde
+  eu estava", não histórico), é gravada ANTES de pedir cada item (o item que
+  mata a cópia é o que não termina) e sai DEPOIS do diário. Ela está na lista
+  `FORA` do pacote, pela razão do `clone-diario`. E **a frase do diálogo diz
+  onde parou**: o operador não abre o Registro, e a diferença entre parar no
+  primeiro item e no milésimo é a diferença entre "não funcionou" e "funcionou e
+  foi interrompido".
 - **O ANÚNCIO DIZ EM QUE ENDEREÇO O SERVIDOR ESCUTA, e o pareamento tenta
   TODOS** (v1.8.12). O `NsdServiceInfo.host` é UM endereço — o que a resolução
   do mDNS calhar de devolver —, e o responder anuncia todos os que a interface
@@ -5141,8 +5162,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.12 · APK v1.8.12** · `SHELL_VERSION` **66** ·
-bundle com `minShell: 66` e **`shellTag: v1.8.12`** — o shell 66 é o **PISO**:
+**Versão atual: base web v1.8.13 · APK v1.8.12** · `SHELL_VERSION` **66** ·
+bundle com `minShell: 66` e **sem `shellTag`** (lote só de web) — o shell 66 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três

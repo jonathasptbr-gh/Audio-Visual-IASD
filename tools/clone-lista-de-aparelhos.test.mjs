@@ -226,7 +226,7 @@ try {
   // A asserção é sobre a PROPRIEDADE que faltava: o bloco existe a partir do
   // DIÁRIO SOZINHO, sem estado de shell nenhum. Um teste que passasse o estado
   // junto aprovaria a versão antiga.
-  const trechoBloco = JS.match(/^function blocoClone\(e, diario\)[\s\S]*?^}/m);
+  const trechoBloco = JS.match(/^function blocoClone\(e, diario, parcial\)[\s\S]*?^}/m);
   checar(!!trechoBloco, 'consegui isolar o `blocoClone` do controle.js');
 
   const b = await pg.evaluate(({ fonte }) => {
@@ -244,7 +244,13 @@ try {
       // E o silêncio continua sendo silêncio: um aparelho que nunca clonou nem
       // cedeu não ganha bloco (a regra do `ytCenso`).
       semNada: blocoClone(null, []),
-      semNadaComShell: blocoClone({ cessao: {}, descoberta: { diag: 'sem uso' }, proxy: 'sem uso' }, []),
+      semNadaComShell: blocoClone({ cessao: {}, descoberta: { diag: 'sem uso' }, proxy: 'sem uso' }, [], null),
+      // O CASO DE CAMPO DA v1.8.13: a cópia transferiu arquivos e MORREU no
+      // meio — o `finally` do `cloneComecar` nunca rodou, então não há diário
+      // nenhum. Só o rastro sobrevive.
+      soParcial: blocoClone(null, [], { em: Date.parse('2026-09-05T22:40:00'), papel: 'levar', onde: 'item 431 de 6828 (nº 812)' }),
+      parcialCedendo: blocoClone(null, [], { em: Date.parse('2026-09-05T22:40:00'), papel: 'ceder', onde: 'montando o item 812 de 6828' }),
+      parcialVazio: blocoClone(null, [], { em: 1, papel: 'levar', onde: '' }),
     };
   }, { fonte: trechoBloco ? trechoBloco[0] : '' });
 
@@ -254,6 +260,19 @@ try {
   checar(/item 7 de 900/.test(b.soDiario),
     'e ele diz ONDE parou: "não começou" e "parou no meio" pedem conferências opostas',
     b.soDiario);
+  // O RASTRO DA CÓPIA QUE NÃO CHEGOU A SER CONTADA (v1.8.13).
+  checar(/Clone da biblioteca/.test(b.soParcial) && /item 431 de 6828/.test(b.soParcial),
+    'o bloco existe a partir do RASTRO sozinho — sem diário nenhum, que é o que '
+    + 'sobra quando a página morre no meio da cópia', b.soParcial);
+  checar(/trazendo/.test(b.soParcial) && /cedendo/.test(b.parcialCedendo),
+    'e ele diz de que LADO a cópia parou: as duas pedem conferências opostas',
+    b.soParcial + ' | ' + b.parcialCedendo);
+  // A METADE QUE IMPEDE O BLOCO DE NASCER SOBRE NADA: um rastro sem posição é
+  // um rastro que não diz nada, e ele não pode ressuscitar o bloco vazio.
+  checar(b.parcialVazio === '',
+    'e um rastro SEM posição não cria bloco nenhum — silêncio continua sendo silêncio',
+    b.parcialVazio);
+
   checar(b.semNada === '' && b.semNadaComShell === '',
     'e quem nunca clonou nem cedeu continua sem bloco nenhum — uma linha de zeros '
     + 'é mais uma para ler em toda cópia do Registro',
@@ -298,6 +317,26 @@ try {
     + 'vazio justamente na etapa que mais falha (foi o que o Registro mostrou)');
 
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // CEDER É TRABALHO DE SEGUNDO PLANO (v1.8.13)
+  // -------------------------------------------------------------------------
+  // Quem RECEBE roda dentro de um `withBgWork` desde o primeiro lote; quem CEDE
+  // monta cada item no WebView do Controle e não pedia proteção nenhuma — e é
+  // justamente o celular que o operador deixa na mesa. Congelado o processo, o
+  // item nunca fica pronto e o servidor responde 503.
+  checar(/cloneCessaoProtegida = true; bgWorkBegin\(\);/.test(JS),
+    'ceder segura o trabalho de segundo plano — sem isto o Android congela o '
+    + 'aparelho que cede, e a cópia para "logo em seguida"');
+  checar(/cloneCessaoProtegida = false; bgWorkEnd\(\);/.test(JS),
+    'e ele solta ao desligar — a bandeira é o que mantém o par balanceado');
+  checar((JS.match(/cloneCessaoProtegida = true; bgWorkBegin\(\);/g) || []).length === 2,
+    'e a RETOMADA protege também: o `bgWorkCount` zera ao remontar o WebView, '
+    + 'então a cessão que sobreviveu ao OTA voltaria sem proteção nenhuma',
+    (JS.match(/cloneCessaoProtegida = true; bgWorkBegin\(\);/g) || []).length);
+  checar(/await cloneMarcar\('levar', cloneOnde\);\n\s*const corpo = await cloneBaixarItem/.test(JS),
+    'e o rastro é gravado ANTES de pedir o item — o item que mata a cópia é o '
+    + 'que não termina, e marcá-lo no fim deixaria de fora o único que interessa');
+
   // O ENDEREÇO CERTO, SEM NINGUÉM DIGITAR NADA (v1.8.12)
   // -------------------------------------------------------------------------
   // Pedido do operador: *"não tenho como testar essa situação, não consigo ler
