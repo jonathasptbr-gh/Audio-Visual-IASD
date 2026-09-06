@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.19';
+const WEB_VERSION = '1.8.20';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21920,6 +21920,25 @@ function blocoSorteio() {
 // E ELE IMPRIME AS CATEGORIAS VISTAS. É essa lista que permite consertar uma
 // grafia por OTA sem pedir captura ao operador — sem ela, "não dissolveu" e
 // "dissolveu e você não viu" chegam com a mesma cara.
+// O PACOTE DE TRANSFERÊNCIA — o que esta sessão preparou e enviou.
+//
+// SÓ SAI DEPOIS DE ACONTECER: uma linha de zeros seria mais uma para ler em
+// toda cópia do Registro, e este caminho não é usado num culto comum.
+function blocoPacote() {
+  if (!window.__NATIVE__) return '';
+  if (!pacoteDiario.preparou && !pacoteDiario.enviou) return '';
+  const linhas = [];
+  if (pacoteDiario.preparou) linhas.push('  preparação: ' + pacoteDiario.preparou);
+  // O ESTADO AGORA, ao lado do que aconteceu: "preparou às 13:20" e "não há
+  // pronto" contam uma história que nenhuma das duas conta sozinha.
+  linhas.push('  agora: ' + (pacotePronto
+    ? 'há um pacote pronto (' + fmtBytes(pacotePronto.bytes) + '), esperando o envio'
+    : 'nenhum pacote pronto'));
+  linhas.push('  envio: ' + (pacoteDiario.enviou || 'nenhum toque de envio nesta sessão'));
+  if (pacoteDiario.refez) linhas.push('  refeito ' + pacoteDiario.refez + '× nesta sessão');
+  return 'Pacote de transferência\n' + linhas.join('\n');
+}
+
 function blocoColetaneas() {
   if (!window.AVColetanea) return '';
   const cats = (albumCatalog && albumCatalog.categories) || [];
@@ -22555,6 +22574,8 @@ async function renderDiag() {
   // um bloco curto, e não no meio de oitenta linhas de playlist.
   const bcol = blocoColetaneas();
   if (bcol) blocos.push(bcol);
+  const bpac = blocoPacote();
+  if (bpac) blocos.push(bpac);
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   // O TEXTO MORA NA VARIÁVEL, e não num nó do DOM (v5.207). O visor `<pre>`
   // saiu de Configurações — ver o comentário do bloco no `index.html`: ele
@@ -23393,15 +23414,27 @@ const PACOTE_CANCELADO = 'cancelado';
 // escolhido pelo operador) continua ali para quando não couber.
 const PACOTE_FOLGA_BYTES = 512 * 1024 * 1024;
 
-// O TEMPO DO TOQUE LONGO no tile de exportar pronto (v1.8.19). Meio segundo, o
-// mesmo compasso do eixo duplo do transporte — o mesmo gesto pedindo tempos
-// diferentes em duas superfícies do mesmo app é o que ele evita.
+// O TEMPO DO TOQUE LONGO no tile de exportar pronto.
+//
+// 900ms, e NÃO os 500 do eixo duplo do transporte (v1.8.20). Lá o pior caso de
+// um falso positivo é passar uma mídia em vez de uma estrofe — aqui é DESTRUIR
+// um pacote que levou minutos para ficar pronto, e o relato do operador foi
+// exatamente esse: *"tocar nele não me oferece nada … e depois volta ao estado
+// do botão de exportar, medindo novamente, como se tudo tivesse sido
+// desfeito"*. Um toque deliberado num tile pequeno passa de meio segundo com
+// facilidade.
+//
+// E O TEMPO SOZINHO NÃO BASTA, por uma razão que não é de calibração: num
+// TOQUE o navegador dá CAPTURA IMPLÍCITA do ponteiro ao elemento, então
+// arrastar o dedo para fora NÃO emite `pointerleave` — não existe como abortar
+// um toque longo que já começou. É por isso que ele passou a PERGUNTAR em vez
+// de agir (ver o ouvinte).
 //
 // DECLARADO AQUI, e não ao lado do ouvinte que o usa: o `pacoteRenderTiles()`
 // da carga roda no TOPO do arquivo, e um `const` alcançado de cima é uma zona
 // morta esperando a ordem de chamada mudar (a armadilha do
 // `cifraAdotarVelocidade`).
-const PACOTE_TOQUE_LONGO_MS = 500;
+const PACOTE_TOQUE_LONGO_MS = 900;
 
 // O PACOTE FECHADO QUE ESPERA SER MANDADO (v1.8.19) — `{ nome, bytes }`, ou
 // `null`.
@@ -23417,6 +23450,23 @@ const PACOTE_TOQUE_LONGO_MS = 500;
 // existe. O shell confere o `length()` a cada envio e devolve `-1` quando ele
 // sumiu — é ele, e não esta variável, quem tem a verdade.
 let pacotePronto = null;
+
+// O DIÁRIO DO PACOTE — o que aconteceu na última exportação e no último envio.
+//
+// Ele existe porque este caminho já produziu DUAS falhas cujo relato foi
+// indistinguível a distância: *"o arquivo tem 0kb"* (v1.8.18) e *"tocar nele
+// não faz nada"* (v1.8.20). Nos dois, a pergunta que resolveria em um minuto —
+// **o toque chegou a pedir o envio, e o que o shell respondeu?** — não tinha
+// resposta em lugar nenhum, e a investigação virou dedução sobre o código.
+//
+// EM MEMÓRIA e sem carimbo de disco, como o resto do estado do pacote: ele
+// descreve ESTA sessão, que é o que o operador acabou de fazer antes de copiar
+// o Registro.
+const pacoteDiario = { preparou: '', enviou: '', refez: 0 };
+function pacoteAnotar(campo, texto) {
+  const h = new Date().toLocaleTimeString('pt-BR');
+  pacoteDiario[campo] = h + ' · ' + texto;
+}
 
 async function exportarPacote() {
   const c = pacoteCanal();
@@ -23681,6 +23731,8 @@ async function exportarPacote() {
     // deixaria numa pasta — aqui ele só aparece no `aria-label`, mas a
     // simetria entre os dois caminhos é o que impede o de baixo de mentir.
     pacotePronto = { nome, bytes: gravados };
+    pacoteAnotar('preparou', 'pronto para enviar, ' + fmtBytes(gravados)
+      + ' (arquivo do app: "' + nome + '")');
     pacoteRenderTiles();
     return;
   }
@@ -24364,13 +24416,17 @@ if (pacoteExportarTileEl) {
     pacoteSegurou = setTimeout(() => {
       pacoteSegurou = null;
       pacoteFoiLongo = true;
-      pacoteDescartarPronto();
-      exportarPacote();
+      refazerOPacote();
     }, PACOTE_TOQUE_LONGO_MS);
   });
   // `pointercancel` junto do `pointerup` pela razão da rolagem da cifra: um
   // toque que vira gesto do sistema não emite o segundo, e sem ele o
   // temporizador dispararia com o dedo já fora do botão.
+  //
+  // `pointerleave` está aqui e NÃO SALVA NUM TOQUE: a captura implícita do
+  // ponteiro mantém os eventos no elemento até a soltura, então arrastar o dedo
+  // para fora não o emite. Ele cobre o mouse, e é por isso que a guarda de
+  // verdade é a PERGUNTA, não este ouvinte.
   for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
     pacoteExportarTileEl.addEventListener(ev, pacoteSoltar);
   }
@@ -24406,12 +24462,18 @@ async function enviarPacotePronto() {
   if (!pacotePronto || pacoteEmCurso) return;
   const bytes = await AVNative.pacoteCompartilhar();
   if (bytes < 0) {
+    // `-1` TEM TRÊS CAUSAS e o web não distingue nenhuma (não há pronto, ele
+    // sumiu do disco, ou nada o recebeu) — quem as separa é o `logcat`. O que
+    // o Registro pode dizer, e diz, é que o toque CHEGOU a pedir o envio: é
+    // essa a metade que faltava quando o relato foi "não faz nada".
+    pacoteAnotar('enviou', 'o shell recusou o envio (-1) — o pronto foi descartado');
     pacotePronto = null;
     pacoteRenderTiles();
     pulsar(pacoteExportarTileEl, 'erro');
     falarNoTile(pacoteExportarTileEl, 'Refaça', 4000);
     return;
   }
+  pacoteAnotar('enviou', 'seletor aberto com ' + fmtBytes(bytes));
   // NADA MAIS A DIZER: o seletor do sistema está na frente do operador, e ele
   // é a resposta ao toque. O tile continua PRONTO — mandar de novo é tocar de
   // novo.
@@ -24419,9 +24481,39 @@ async function enviarPacotePronto() {
   pacoteRenderTiles();
 }
 
+// REFAZER O PACOTE — e ele PERGUNTA antes (v1.8.20).
+//
+// O toque longo agia direto até aqui, e o relato do operador é o que essa
+// escolha custa: um toque um pouco mais demorado no botão destruía um pacote de
+// minutos e recomeçava a medição, sem nada perguntar e sem nada explicar.
+//
+// PERGUNTAR NÃO CONTRADIZ O PEDIDO QUE TIROU O DIÁLOGO. Aquele era um AVISO de
+// sucesso, com nada a decidir, no fim de uma ação que já tinha acabado — puro
+// passo a mais. Este é uma DECISÃO, e destrutiva: é a mesma pergunta que o app
+// faz para excluir uma pasta ou o que foi baixado de uma coleção.
+//
+// E ela é a única guarda que funciona num TOQUE: com a captura implícita do
+// ponteiro não existe abortar um toque longo já começado, então a saída tem de
+// vir DEPOIS dele.
+async function refazerOPacote() {
+  if (!pacotePronto || pacoteEmCurso) return;
+  const bytes = pacotePronto.bytes;
+  if (!(await appConfirm({
+    title: 'Exportar de novo',
+    message: 'O pacote pronto (' + fmtBytes(bytes) + ') será descartado e a '
+      + 'biblioteca preparada outra vez. Continuar?',
+    okText: 'Exportar de novo',
+    perigo: true,
+  }))) return;
+  pacoteDescartarPronto();
+  exportarPacote();
+}
+
 // Joga fora o pacote pronto — o começo de uma exportação nova.
 function pacoteDescartarPronto() {
   if (!pacotePronto) return;
+  pacoteDiario.refez++;
+  pacoteAnotar('preparou', 'o pronto foi descartado a pedido (refazer)');
   pacotePronto = null;
   try { AVNative.pacoteDescartarPronto(); } catch (_) { /* ponte */ }
   pacoteRenderTiles();

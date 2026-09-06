@@ -2860,11 +2860,25 @@ gerenciador → achar o arquivo → compartilhar); direto, é UM.
   "o que fazer" virou o PRÓPRIO botão — ele para em **100%** (onde a barra
   parou) e o desenho vira o de compartilhar, que é onde o estado mora neste app
   desde a v1.7.6.
-- **O TOQUE LONGO REFAZ, e ele existe para o botão não virar uma armadilha.**
-  Com um pronto na mão o toque curto ENVIA; sem uma saída, quem quisesse
-  exportar de novo na mesma sessão ficaria preso com o arquivo velho e nenhuma
-  porta. O eixo duplo é o que o app já usa quando um controle tem duas ações e
-  só cabe um alvo (`attachTransportStep`), e o `title` diz as duas.
+- **O TOQUE LONGO REFAZ, E ELE PERGUNTA** (v1.8.20). Com um pronto na mão o
+  toque curto ENVIA; sem uma saída, quem quisesse exportar de novo na mesma
+  sessão ficaria preso com o arquivo velho e nenhuma porta.
+  - **900 ms, e NÃO os 500 do transporte.** Lá o pior caso de um falso positivo
+    é passar uma mídia em vez de uma estrofe; aqui é DESTRUIR um pacote de
+    minutos — e foi o que aconteceu no campo, num toque normal.
+  - **E O TEMPO SOZINHO NÃO BASTA**: num TOQUE a captura implícita do ponteiro
+    mantém os eventos no elemento até a soltura, então arrastar o dedo para fora
+    **não emite `pointerleave`** e não existe abortar um toque longo já
+    começado. A guarda de verdade é a PERGUNTA, que vem DEPOIS do gesto.
+  - **Perguntar não contradiz o pedido que tirou o diálogo:** aquele era um
+    AVISO de sucesso, com nada a decidir; este é uma DECISÃO destrutiva, e usa o
+    mesmo `appConfirm({ perigo: true })` de excluir uma pasta.
+- **O REGISTRO TEM O DIÁRIO DO PACOTE** (`blocoPacote`, v1.8.20). Este caminho
+  já produziu duas falhas cujo relato era indistinguível a distância — *"o
+  arquivo tem 0kb"* e *"não faz nada"* —, e a pergunta que resolveria as duas
+  (*o toque chegou a pedir o envio, e o que o shell respondeu?*) não tinha
+  resposta em lugar nenhum. Ele diz o que a sessão preparou, o estado AGORA e o
+  desfecho do último envio, e **só sai depois de acontecer**.
 - **O PRONTO VIVE EM MEMÓRIA; O ARQUIVO VIVE NO DISCO**, e os dois podem
   discordar (a faxina de um lançamento, o operador limpando o armazenamento).
   Quem tem a verdade é o shell, que confere o `length()` a cada envio e devolve
@@ -5006,8 +5020,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.19 · APK v1.8.19** · `SHELL_VERSION` **68** ·
-bundle com `minShell: 68` e **`shellTag: "v1.8.19"`** (lote COM Release) — o
+**Versão atual: base web v1.8.20 · APK v1.8.19** · `SHELL_VERSION` **68** ·
+bundle com `minShell: 68` e **sem `shellTag`** (lote SÓ WEB) — o
 shell 68 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
 

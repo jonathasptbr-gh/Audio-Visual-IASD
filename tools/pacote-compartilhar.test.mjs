@@ -314,17 +314,63 @@ try {
   // curto envia, e não haveria gesto nenhum para pedir outro na mesma sessão.
   await cheio.pg.evaluate(() => { window.__chamadas.length = 0; });
   await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerdown');
+  // ELE PERGUNTA ANTES (v1.8.20), e essa é a asserção que carrega o bloco.
+  // Agindo direto, um toque um pouco mais demorado no botão DESTRUÍA um pacote
+  // de minutos e recomeçava a medição — foi o relato do operador —, e num
+  // TOQUE não existe abortar: a captura implícita do ponteiro não emite
+  // `pointerleave`, então a saída tem de vir DEPOIS do gesto.
+  const perguntou = await esperar(cheio.pg, () => {
+    const d = document.getElementById('appDialog');
+    return !!d && d.classList.contains('open');
+  }, null, 20000);
+  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerup');
+  checar(perguntou === true,
+    'A · o toque LONGO PERGUNTA antes de jogar o pronto fora — agir direto '
+    + 'destrói minutos de trabalho num gesto que não tem como ser abortado',
+    porque(perguntou));
+  // E O CANCELAR NÃO DESTRÓI NADA: é a metade que separa "pergunta" de
+  // "pergunta e faz assim mesmo".
+  await cheio.pg.click('#appDialogCancel');
+  const intacto = await lerTile(cheio.pg);
+  const semDescarte = await cheio.pg.evaluate(
+    () => window.__chamadas.includes('descartarPronto'));
+  checar(intacto.titulo === '100%' && semDescarte === false,
+    'A · e recusar deixa o pacote INTACTO — nenhum `descartarPronto` foi pedido',
+    JSON.stringify([intacto.titulo, semDescarte]));
+  // ACEITANDO, ele refaz: sem esta metade, "nunca refazer" passaria na de cima
+  // e a armadilha do botão preso no pacote velho voltaria.
+  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerdown');
+  await esperar(cheio.pg, () => {
+    const d = document.getElementById('appDialog');
+    return !!d && d.classList.contains('open');
+  }, null, 20000);
+  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerup');
+  await cheio.pg.click('#appDialogOk');
   const refez = await esperar(cheio.pg, () => window.__chamadas.includes('descartarPronto'),
     null, 20000);
-  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerup');
   checar(refez === true,
-    'A · o toque LONGO joga o pronto fora e começa outro — sem ele, quem '
-    + 'quisesse exportar de novo na mesma sessão ficaria preso com o arquivo '
-    + 'velho e nenhuma porta', porque(refez));
+    'A · e aceitando ele joga o pronto fora e começa outro — sem essa porta, '
+    + 'quem quisesse exportar de novo na mesma sessão ficaria preso com o '
+    + 'arquivo velho', porque(refez));
   const voltou = await abriuFolha(cheio.pg);
   checar(voltou === true,
     'A · e a folha de grupos volta a abrir, que é a exportação recomeçando',
     porque(voltou));
+  // ---- E O REGISTRO SABE O QUE ACONTECEU (v1.8.20) ----
+  //
+  // Este caminho já produziu DUAS falhas cujo relato era indistinguível a
+  // distância — "o arquivo tem 0kb" e "tocar nele não faz nada" —, e a pergunta
+  // que resolveria as duas (*o toque chegou a pedir o envio, e o que o shell
+  // respondeu?*) não tinha resposta em lugar nenhum.
+  const reg = await cheio.pg.evaluate(async () => {
+    await renderDiag();
+    return diagTexto;
+  });
+  checar(/Pacote de transferência/.test(reg) && /envio:/.test(reg)
+    && /seletor aberto/.test(reg),
+    'A · e o Registro conta a preparação E o envio — a metade que faltava '
+    + 'quando o relato foi "não faz nada"',
+    (reg.match(/Pacote de transferência[\s\S]{0,240}/) || [''])[0]);
   await cheio.ctx.close();
 
   // =========================================================================
