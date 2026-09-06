@@ -32,6 +32,7 @@ import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import android.content.ClipData
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
@@ -374,7 +375,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // roda em quem exporta de novo, e um acervo de gigabytes deixado ali
         // por uma exportação única ficaria para sempre. Aqui, sem seletor
         // pendente e sem nada em curso, apagar é seguro por construção.
-        try { limparPacotesLocais(pastaDoPacote()) } catch (e: Exception) {
+        try { limparPacotesLocais(pastaDoPacote(), pouparRecentes = true) } catch (e: Exception) {
             Log.w(TAG, "faxina do pacote não rodou", e)
         }
 
@@ -1174,6 +1175,18 @@ class MainActivity : ComponentActivity(), BridgeHost {
             val bytes = pacoteCanal.fechar()
             pacoteLocal = null
             if (alvo == null || bytes <= 0L) { onResult(bytes); return@runOnUiThread }
+            // O QUE O CANAL CONTOU NÃO É O QUE O OUTRO APP VAI LER, e essa é a
+            // única pergunta que importa aqui (v1.8.18). `bytes` é o que o
+            // [PacoteCanal] escreveu; `length()` é o que existe NO CAMINHO
+            // agora. Enquanto só o primeiro foi conferido, um arquivo vazio saía
+            // anunciado como pacote inteiro — o diálogo dizia o tamanho certo e
+            // o seletor mostrava 0 KB.
+            val noDisco = try { alvo.length() } catch (e: Exception) { 0L }
+            if (noDisco <= 0L) {
+                Log.w(TAG, "o pacote fechou com " + bytes + " byte(s) e o arquivo está vazio")
+                onResult(-1L)
+                return@runOnUiThread
+            }
             try {
                 val uri = FileProvider.getUriForFile(this, "$packageName.pacote", alvo)
                 val envio = Intent(Intent.ACTION_SEND)
@@ -1184,9 +1197,25 @@ class MainActivity : ComponentActivity(), BridgeHost {
                     .setType("application/octet-stream")
                     .putExtra(Intent.EXTRA_STREAM, uri)
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                // A CONCESSÃO VIAJA NO `ClipData`, e não só no `EXTRA_STREAM`
+                // (v1.8.18). O `EXTRA_STREAM` é um extra como outro qualquer: o
+                // que de fato carrega a permissão de leitura é o `ClipData`, e
+                // o `migrateExtraStreamToClipData` que o sistema faz por conta
+                // é o melhor esforço dele, não um contrato. Sem ele, quem abre
+                // o seletor lê o provedor SEM permissão e não consegue nem o
+                // tamanho — o que a folha da Samsung desenha como **0 KB**.
+                envio.clipData = ClipData.newUri(contentResolver, alvo.name, uri)
                 startActivity(
+                    // SEM `FLAG_ACTIVITY_NEW_TASK`, e a ausência é o conserto.
+                    // Ele veio copiado do [shareText], onde é inofensivo porque
+                    // texto não precisa de concessão nenhuma. Aqui é o oposto:
+                    // a concessão de URI é amarrada à TAREFA de quem a dá, e um
+                    // seletor aberto numa tarefa NOVA quebra essa corrente — o
+                    // alvo recebe um `content://` que ele não tem direito de
+                    // abrir. Esta Activity é uma Activity: não há por que pedir
+                    // tarefa nova.
                     Intent.createChooser(envio, getString(R.string.pacote_share_titulo))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
                 )
             } catch (e: Exception) {
                 // O ARQUIVO FICA, e é isso que salva o lote: os bytes estão no
@@ -1218,10 +1247,21 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * exportação seguinte, que é o instante em que o espaço vai fazer falta —
      * e também num `onCreate`, para o caso de o app nunca mais exportar.
      */
-    private fun limparPacotesLocais(pasta: File) {
+    private fun limparPacotesLocais(pasta: File, pouparRecentes: Boolean = false) {
         try {
+            val corte = System.currentTimeMillis() - PACOTE_RECENTE_MS
             pasta.listFiles()?.forEach { f ->
-                if (f.isFile && !f.delete()) Log.w(TAG, "pacote antigo não saiu: " + f.name)
+                if (!f.isFile) return@forEach
+                // O LANÇAMENTO NÃO SABE SE HÁ ENVIO EM CURSO, e por isso poupa
+                // o recente (v1.8.18). Quem recebe um `.avpkg` pelo Quick Share
+                // lê o arquivo no tempo DELE, com o app já em segundo plano —
+                // e voltar ao app no meio disso apagaria o arquivo debaixo de
+                // quem o estava lendo. A PORTA da exportação seguinte não tem
+                // essa dúvida: ali o operador acabou de pedir outro, e leva
+                // tudo. O teto de disco continua garantido, um lançamento
+                // depois.
+                if (pouparRecentes && f.lastModified() > corte) return@forEach
+                if (!f.delete()) Log.w(TAG, "pacote antigo não saiu: " + f.name)
             }
         } catch (e: Exception) {
             Log.w(TAG, "não consegui limpar os pacotes antigos", e)
@@ -2503,6 +2543,16 @@ class MainActivity : ComponentActivity(), BridgeHost {
             cache = { espelhoMidia },
             registrar = { linha -> espelhoDiag.registrar(linha) },
         )
+
+        /**
+         * Quanto tempo um pacote no armazenamento próprio conta como RECENTE.
+         *
+         * Vinte minutos, e o número sai do único caso que ele protege: um
+         * `.avpkg` de gigabytes atravessando por Quick Share enquanto o app já
+         * está em segundo plano. Passado o prazo, o lançamento seguinte o
+         * recolhe — o teto de disco é adiado, nunca dispensado.
+         */
+        private const val PACOTE_RECENTE_MS = 20 * 60 * 1000L
 
         /** O canal __avPacote (shell 63) — UM por processo, pela mesma razão do
          *  irmão acima: o listener é por-instância de WebView e é reinstalado a
