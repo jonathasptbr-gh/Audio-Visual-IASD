@@ -365,8 +365,25 @@ class SyncService : Service() {
             items: List<String> = emptyList(),
             idleMs: Long = 0,
             bytes: Boolean = false,
+            baixando: Boolean = true,
         ) {
-            progress = Progress(label, done, total, etaMs, items, idleMs, bytes)
+            // POR NOME, e não por posição. A chamada era posicional, e um campo
+            // acrescentado no MEIO da `data class` empurraria todos os
+            // seguintes uma casa — o `bytes` cairia no `baixando` e a
+            // notificação voltaria a mostrar bytes como se fossem ITENS, sem
+            // erro em lugar nenhum. Foi o que quase aconteceu ao escrever o
+            // `baixando` (v1.8.27), e o compilador só pegou porque ESTA
+            // assinatura ainda não tinha o parâmetro.
+            progress = Progress(
+                label = label,
+                done = done,
+                total = total,
+                etaMs = etaMs,
+                items = items,
+                idleMs = idleMs,
+                bytes = bytes,
+                baixando = baixando,
+            )
             val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
             try {
                 if (!running) {
