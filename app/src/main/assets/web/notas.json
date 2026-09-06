@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.21",
+    "itens": [
+      "A tela de compartilhamento voltou a abrir ao enviar o acervo.",
+      "O Registro passou a dizer o que o aparelho respondeu no envio, e não só o que o app pediu."
+    ]
+  },
+  {
     "versao": "1.8.20",
     "itens": [
       "Tocar no botão pronto voltou a abrir o compartilhamento.",

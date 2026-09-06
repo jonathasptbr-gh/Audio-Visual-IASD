@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.20';
+const WEB_VERSION = '1.8.21';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21926,7 +21926,7 @@ function blocoSorteio() {
 // toda cópia do Registro, e este caminho não é usado num culto comum.
 function blocoPacote() {
   if (!window.__NATIVE__) return '';
-  if (!pacoteDiario.preparou && !pacoteDiario.enviou) return '';
+  if (!pacoteDiario.preparou && !pacoteDiario.enviou && !pacoteDiagShell) return '';
   const linhas = [];
   if (pacoteDiario.preparou) linhas.push('  preparação: ' + pacoteDiario.preparou);
   // O ESTADO AGORA, ao lado do que aconteceu: "preparou às 13:20" e "não há
@@ -21936,6 +21936,11 @@ function blocoPacote() {
     : 'nenhum pacote pronto'));
   linhas.push('  envio: ' + (pacoteDiario.enviou || 'nenhum toque de envio nesta sessão'));
   if (pacoteDiario.refez) linhas.push('  refeito ' + pacoteDiario.refez + '× nesta sessão');
+  // E O LADO DO SHELL, que é o único que separa as três causas do `-1` (não há
+  // pronto · o arquivo sumiu · o seletor recusou, com o nome da exceção). Sem
+  // ele, este bloco diz o que o WEB pediu e não o que o aparelho respondeu — e
+  // foi essa metade que faltou nas três rodadas de campo deste caminho.
+  if (pacoteDiagShell) linhas.push('  shell: ' + pacoteDiagShell.replace(/\n/g, '\n  '));
   return 'Pacote de transferência\n' + linhas.join('\n');
 }
 
@@ -22574,6 +22579,18 @@ async function renderDiag() {
   // um bloco curto, e não no meio de oitenta linhas de playlist.
   const bcol = blocoColetaneas();
   if (bcol) blocos.push(bcol);
+  // O LADO DO SHELL vem ANTES de montar o bloco, e é `await` como as outras
+  // leituras de ponte deste render. Ele é o único que sabe se há um pronto no
+  // disco e o que o seletor respondeu.
+  // O `try` embrulha a CHAMADA e não só a promessa: num shell anterior ao 69 o
+  // método não existe, e o `native.js` lança ANTES de devolver promessa alguma
+  // — um `.catch()` sozinho não alcançaria isso. É a mesma razão pela qual todo
+  // caminho da ponte deste arquivo é defensivo.
+  pacoteDiagShell = '';
+  if (window.__NATIVE__) {
+    try { pacoteDiagShell = await AVNative.pacoteDiag(); } catch (_) { pacoteDiagShell = ''; }
+  }
+  if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   const bpac = blocoPacote();
   if (bpac) blocos.push(bpac);
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
@@ -23463,6 +23480,11 @@ let pacotePronto = null;
 // descreve ESTA sessão, que é o que o operador acabou de fazer antes de copiar
 // o Registro.
 const pacoteDiario = { preparou: '', enviou: '', refez: 0 };
+
+// O QUE O SHELL RESPONDEU na última montagem do Registro. Lido ali e não no
+// toque: ele descreve o estado AGORA, e quem o quer é quem está copiando o
+// Registro.
+let pacoteDiagShell = '';
 function pacoteAnotar(campo, texto) {
   const h = new Date().toLocaleTimeString('pt-BR');
   pacoteDiario[campo] = h + ' · ' + texto;

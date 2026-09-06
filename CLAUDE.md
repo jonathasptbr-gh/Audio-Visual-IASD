@@ -666,6 +666,13 @@ window.AVNative = {
                        //   disco, ou nada o recebeu
   pacoteDescartarPronto(), // joga fora o pronto — o operador quer fazer OUTRO.
                        //   Síncrono, como o `pacoteCancelar`
+  pacoteDiag(),        // → string: o que o SHELL sabe do pacote (há pronto? no
+                       //   disco? o desfecho do último fecho e do último envio,
+                       //   com o NOME da exceção quando houve). Ele existe
+                       //   porque o `-1` do `pacoteCompartilhar` colapsa TRÊS
+                       //   causas e o web não separa nenhuma — três rodadas de
+                       //   campo se gastaram nisso. Irmão do `otaDiag` e do
+                       //   `ytDiag`, com o mesmo consumidor: quem lê o Registro
   salvarTexto(nome, texto), // → o NOME gravado, ou '' (desistiu ou falhou): o
                        //   "Salvar como" do sistema (SAF `CREATE_DOCUMENT`),
                        //   com o shell ESCREVENDO o texto. Existe porque o
@@ -683,7 +690,7 @@ window.AVNative = {
                        //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
-São **59 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **60 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -751,7 +758,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **68**, e ele é o **PISO**: o bundle declara `minShell: 68`, então
+Hoje vale **69**, e ele é o **PISO**: o bundle declara `minShell: 69`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -764,7 +771,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 68 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 69 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -826,7 +833,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 68`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 69`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -2828,15 +2835,23 @@ gerenciador → achar o arquivo → compartilhar); direto, é UM.
   `FileProvider` com autoridade PRÓPRIA (`${applicationId}.pacote`) — a do APK
   é outra, e juntá-las faria um `<paths>` só expor as duas raízes de uma vez.
 
-- **A CONCESSÃO DE URI VIAJA NO `ClipData`, E O SELETOR NÃO PEDE TAREFA NOVA**
-  (v1.8.18). As duas metades produzem o MESMO sintoma e foi ele que chegou do
-  campo: *"o arquivo tem 0kb, e portanto falha no compartilhamento"*. O
-  `EXTRA_STREAM` é um extra como outro qualquer — quem carrega a permissão de
-  leitura é o `ClipData`, e a migração que o sistema faz sozinho é melhor
-  esforço, não contrato; e `FLAG_ACTIVITY_NEW_TASK` no chooser (copiado do
-  `shareText`, onde é inofensivo porque texto não precisa de concessão) QUEBRA a
-  corrente, porque a concessão é amarrada à tarefa de quem a dá. Sem permissão,
-  quem abre a folha não consegue nem o tamanho, e a Samsung desenha **0 KB**.
+- **O `ClipData` NÃO SE ESCREVE À MÃO, e o seletor não pede tarefa nova**
+  (v1.8.21). O `migrateExtraStreamToClipData` que o sistema roda ao sair do
+  processo **desiste quando o Intent JÁ TEM `ClipData`** — e, num
+  `ACTION_CHOOSER`, ele só copia o `ClipData` e as flags para o CHOOSER *se o
+  alvo tiver migrado*. Escrever o `ClipData` no alvo (v1.8.18) desligava
+  exatamente a propagação que se queria garantir, e o desfecho foi o seletor não
+  abrir. O caminho é o canônico: só o `EXTRA_STREAM` com a flag, e o sistema
+  migra. O `FLAG_ACTIVITY_NEW_TASK` fica FORA — copiado do `shareText`, onde é
+  inofensivo porque texto não precisa de concessão, ele quebra a corrente aqui,
+  porque a concessão é amarrada à TAREFA de quem a dá; é o suspeito do **0 KB**
+  da v1.8.17.
+- **E O `-1` DIZ POR QUÊ** (`pacoteDiag`, shell 69). Ele colapsa TRÊS causas —
+  não há pronto · o arquivo sumiu do disco · o seletor recusou — e o lado web
+  não separa nenhuma: TRÊS rodadas de campo se gastaram nessa distinção, feita
+  por dedução sobre o código em vez de leitura do aparelho. O diag diz o estado
+  do pronto, se ele existe, a URI do provedor (ou a exceção de montá-la) e o
+  desfecho do último fecho e do último envio, com o NOME da exceção.
 - **E O QUE O CANAL CONTOU NÃO É O QUE O OUTRO APP VAI LER.** `bytes` é o que o
   `PacoteCanal` escreveu; `length()` é o que existe NO CAMINHO agora. Enquanto
   só o primeiro foi conferido, um arquivo vazio saía anunciado como pacote
@@ -5020,9 +5035,9 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.20 · APK v1.8.19** · `SHELL_VERSION` **68** ·
-bundle com `minShell: 68` e **sem `shellTag`** (lote SÓ WEB) — o
-shell 68 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
+**Versão atual: base web v1.8.21 · APK v1.8.21** · `SHELL_VERSION` **69** ·
+bundle com `minShell: 69` e **`shellTag: "v1.8.21"`** (lote COM Release) — o
+shell 69 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três

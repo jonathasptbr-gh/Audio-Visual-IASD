@@ -96,7 +96,7 @@ const PONTE = `(function () {
     'otaDiag','otaPending','pickFolder','requestMic','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','micDiag','cifraHtml',
-    'cifraDiag','areaTransferencia','salvarTexto','ytDetalhes',
+    'cifraDiag','areaTransferencia','salvarTexto','pacoteDiag','ytDetalhes',
   ];
   for (const n of nomes) {
     if (B[n]) continue;
