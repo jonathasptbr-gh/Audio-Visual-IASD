@@ -119,6 +119,37 @@
     // `historico` logo acima —, e continuam descrevendo.
     'clone-diario',
     'clone-parcial',
+    // ===== OS AJUSTES INDIVIDUAIS (v1.8.25) =====
+    //
+    // Decisão do operador: *"o propósito da exportação não é copiar o app de um
+    // usuário, pois não temos tantas configurações, o propósito é para dados
+    // massivos da biblioteca … mantenha incluído no pacote apenas ajustes
+    // obrigatórios"*.
+    //
+    // O QUE CONTINUA VIAJANDO é o que a BIBLIOTECA precisa para funcionar, e
+    // ele não aparece em lista nenhuma da tela porque não há o que decidir
+    // sobre ele: os índices das coleções (`coll:`, onde moram os ponteiros para
+    // os arquivos), as listas (`imports`, `playlist`, `favs`), o catálogo de
+    // álbuns, a Bíblia, as cifras e as letras guardadas, as mensagens. Sem eles
+    // a mídia chega ÓRFÃ e o coletor da abertura seguinte a apaga.
+    //
+    // O QUE SAI é preferência de quem opera AQUELE aparelho — e a lista é uma
+    // NEGATIVA de propósito: assim uma chave nova de biblioteca viaja por
+    // padrão, e o pior que uma preferência nova pode fazer é viajar junto. O
+    // contrário — uma lista de permissão — faria uma chave de acervo nova ficar
+    // para trás em silêncio, que é o defeito que a v1.8.23 acabou de pagar.
+    'lyricsFont',        // corpo da letra no leitor
+    'lyricsBg',          // o fundo da letra
+    'cifraFonteCheia',   // corpo da cifra em tela cheia
+    'cifraVelocidade',   // o degrau da rolagem automática
+    'chronoPrefs',       // o cronômetro
+    'drawPrefs',         // a Camada de Texto
+    'sorteioPrefs',      // os filtros da playlist automática
+    'fit',               // preenchimento da mídia no telão
+    'rotate',            // o giro
+    'repeat',            // a repetição
+    'ytAltura',          // o teto de resolução do download
+    'downloadOk',        // "já avisei sobre dados móveis" neste aparelho
   ];
 
   /** A assinatura do arquivo, pronta para ser o primeiro bloco escrito. */

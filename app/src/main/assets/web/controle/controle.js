@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.24';
+const WEB_VERSION = '1.8.25';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23073,7 +23073,20 @@ async function pacotePlano() {
   const nomes = new Map(cols.map((c) => [c.id, c.name || c.id]));
   const ids = new Set(cols.map((c) => c.id));
 
-  const arquivos = (await AVDB.opfsTodosOsArquivos()).filter((a) => caminhoViaja(a.caminho));
+  // EM ORDEM (v1.8.25). A varredura do OPFS devolve o que o sistema de arquivos
+  // entrega, que não tem ordem nenhuma — e é essa lista que decide a ordem em
+  // que os bytes são escritos, e portanto a ordem em que os nomes aparecem na
+  // notificação de quem importa. Relato do operador: *"o hinário vai de 0 a 600
+  // e é muito incoerente os hinos terem uma ordem aleatória … como não há uma
+  // ordem, ele parece que está sorteando"*.
+  //
+  // A comparação é NUMÉRICA (`numeric: true`), e não alfabética crua: os
+  // caminhos são `folders/<coleção>/<número>-<variante>.<ext>`, e como texto o
+  // 100 vem antes do 2. Com ela, um hinário sai na ordem dos hinos.
+  const arquivos = (await AVDB.opfsTodosOsArquivos())
+    .filter((a) => caminhoViaja(a.caminho))
+    .sort((x, y) => String(x.caminho).localeCompare(String(y.caminho), 'pt-BR',
+      { numeric: true, sensitivity: 'base' }));
   const porGrupo = new Map();
   for (const a of arquivos) {
     const g = AVPacote.grupoDoCaminho(a.caminho, ids);
@@ -23083,9 +23096,22 @@ async function pacotePlano() {
     porGrupo.set(g, atual);
   }
 
-  // A LISTA DA FOLHA. `ajustes` primeiro (é o que sempre vai), as coleções na
-  // ordem do catálogo (a mesma da Biblioteca — o operador as procura ali), a
-  // mídia, e "outros" por último, que é o grupo de escape.
+  // A LISTA DA FOLHA. As coleções na ordem do catálogo (a mesma da Biblioteca —
+  // o operador as procura ali), a mídia, e "outros" por último, que é o grupo
+  // de escape.
+  //
+  // A LINHA "Ajustes e catálogos" SAIU DA FOLHA (v1.8.25), e o que ela
+  // carregava CONTINUA no pacote. Decisão do operador: *"elementos essenciais
+  // para uso da biblioteca, como listas atualizadas, e dados de base, coloque
+  // eles no pacote de importação, mas não precisa citar eles, são bases para o
+  // funcionamento da importação"*.
+  //
+  // Ela nunca foi escolha — nasceu marcada e sem ouvinte, porque desmarcá-la
+  // faria a mídia chegar ÓRFÃ ao destino e o coletor da abertura seguinte a
+  // apagaria. Uma linha que não decide nada numa folha cujo trabalho INTEIRO é
+  // decidir é ruído; o que ela explicava agora está no `FORA` do `pacote.js`,
+  // que é onde a regra mora. O grupo continua existindo em `plano.grupos`
+  // porque é dele que sai o peso do estado no total.
   const grupos = [{
     chave: AVPacote.GRUPO_AJUSTES,
     rotulo: 'Ajustes e catálogos',
@@ -23146,7 +23172,7 @@ async function pacotePlano() {
   // `pacoteBytesDe` consomem, e nenhum dos dois tem o que fazer com uma árvore.
   // `plano.folha` é a árvore, e ela existe só para a folha desenhar.
   const naFolha = new Set();
-  const folha = [{ tipo: 'fixo', chave: AVPacote.GRUPO_AJUSTES }];
+  const folha = [];
   const linha = (chave) => {
     if (!chave || naFolha.has(chave) || !porGrupo.has(chave)) return;
     naFolha.add(chave);
@@ -23326,32 +23352,6 @@ function renderPacoteGrupos(plano) {
   };
 
   for (const item of plano.folha) {
-    if (item.tipo === 'fixo') {
-      const g = porChave.get(item.chave);
-      if (!g) continue;
-      const li = document.createElement('li');
-      const caixa = document.createElement('div');
-      caixa.className = 'song-menu-btn song-menu-sel song-menu-fixo';
-      const ic = document.createElement('span');
-      ic.className = 'song-menu-icon';
-      ic.innerHTML = pacoteIconeSvg('icoGear');
-      caixa.appendChild(ic);
-      const txt = document.createElement('span'); txt.className = 'song-menu-text';
-      const t = document.createElement('span'); t.className = 'song-menu-label';
-      t.textContent = g.rotulo;
-      const d = document.createElement('span'); d.className = 'song-menu-sub';
-      d.textContent = (g.sub ? g.sub + ' · ' : '') + fmtBytes(g.bytes) + ' · sempre vai junto';
-      txt.append(t, d);
-      caixa.appendChild(txt);
-      const marca = document.createElement('span');
-      marca.className = 'song-menu-check on';
-      marca.setAttribute('role', 'img');
-      marca.setAttribute('aria-label', 'sempre incluído');
-      caixa.appendChild(marca);
-      li.appendChild(caixa);
-      songMenuListEl.appendChild(li);
-      continue;
-    }
     if (item.tipo === 'linha') {
       const g = porChave.get(item.chave);
       if (g) songMenuListEl.appendChild(linhaDeGrupo(g, false));
@@ -23824,6 +23824,11 @@ async function exportarPacote() {
 
 // A leitura antecipada dos CABEÇALHOS e o PEDAÇO de um corpo. Os dois abaixo do
 // teto de 24 MB do `SafJanela`, que é a trava do outro lado.
+// QUANTAS CHAVES DE `state` VÃO NUMA TRANSAÇÃO SÓ, na importação. O teto existe
+// porque a transação segura tudo até o commit: 250 capítulos da Bíblia são
+// poucos MB, e a Bíblia inteira numa transação só seriam dezenas — num processo
+// que hospeda dois WebViews e a Presentation.
+const PACOTE_LOTE_ESTADO = 250;
 const PACOTE_JANELA_MIN = 8 * 1024;
 const PACOTE_JANELA_MAX = 1024 * 1024;
 const PACOTE_PEDACO = 8 * 1024 * 1024;
@@ -24104,6 +24109,34 @@ function pacoteMesclarValor(local, vindo) {
  */
 async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
   let viuFim = false;
+  // AS CHAVES DE `state` VÃO EM LOTE (v1.8.25). Uma transação por chave era o
+  // que a Bíblia cobrava caro: ela mora aqui com uma chave POR CAPÍTULO, e
+  // MEDIDO em Chromium sobre 1189 capítulos de tamanho real são 596 ms uma a
+  // uma contra 153 ms em lote. É a mesma correção do `pacoteEscritor` do outro
+  // lado — lá o que se junta são blocos do canal, aqui são transações.
+  //
+  // O teto do lote existe porque a transação segura tudo em memória até o
+  // commit: 250 capítulos são poucos MB, e a Bíblia inteira seriam dezenas.
+  const loteEstado = [];
+  const escoarEstado = async () => {
+    if (!loteEstado.length) return;
+    const pendentes = loteEstado.splice(0, loteEstado.length);
+    let mudadas;
+    try {
+      mudadas = await AVDB.updateStateLote(pendentes,
+        (atual, valor) => pacoteMesclarValor(atual, valor));
+    } catch (e) {
+      if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
+      throw e;
+    }
+    contagem.chaves += mudadas.length;
+  };
+  // O NOME DE UM ARQUIVO DO OPFS vem do registro de CATÁLOGO dele, que o
+  // exportador escreve ANTES dos bytes. Ver o porquê em `nomeDoRegistro`.
+  const nomePorCaminho = new Map();
+  // AS COLEÇÕES QUE O PACOTE TOCOU. É delas que sai o relatório do fim — ver
+  // `pacoteResumoDasColecoes`.
+  if (!(contagem.colecoes instanceof Set)) contagem.colecoes = new Set();
   // O ITEM EM MONTAGEM. A miniatura e as páginas de uma mídia chegam DEPOIS do
   // registro dela (é o contrato do exportador), então ele fica pendente até o
   // registro seguinte que não é dele. Os Blobs guardados aqui são FATIAS da
@@ -24143,13 +24176,27 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
     // reprova é o chamador, pelo valor devolvido.
     if (!r) break;
     const { cab, corpo } = r;
-    // O NOME DE QUEM ESTÁ ENTRANDO, para a notificação (v1.8.23). Só `media` e
-    // `arquivo` têm nome de gente — um caminho de OPFS e uma chave de `state`
-    // são endereços, e escrevê-los ali trocaria "005. Jubilosos Te Adoramos"
-    // por "folders/hymnal-2022/5-cantado.mp3". Quem não tem nome passa vazio, e
-    // a linha da notificação continua no último que teve.
-    const nome = (cab.t === 'media' || cab.t === 'arquivo')
-      ? ((cab.rec && cab.rec.name) || '') : '';
+    // O NOME SAI DE QUEM CARREGA OS BYTES (v1.8.25), e é aqui que a v1.8.23
+    // errou. Ela nomeava os registros de CATÁLOGO — que têm `bytes: 0` —, então
+    // os 1200 nomes de um hinário passavam num piscar, durante a fração de
+    // segundo em que os metadados são lidos, e a linha CONGELAVA no último
+    // durante a cópia dos gigabytes, que é o trabalho inteiro. Relato do
+    // operador: *"mostrou vários nomes rapidamente e após um tempo, parou em um
+    // nome e não mudou mais … ele passou nomes bem mais rápido do que o
+    // progresso parecia ir"*, com a suposição certa ao lado — a lista rodava
+    // independente do progresso real.
+    //
+    // Hoje quem nomeia é o registro `opfs`, que É o byte. O nome dele vem do
+    // catálogo pelo `opfsPath` — o registro de catálogo vem ANTES dos bytes,
+    // por contrato do exportador —, e por isso o mapa está pronto quando os
+    // corpos chegam.
+    if (cab.t === 'arquivo' && cab.rec && cab.rec.opfsPath && cab.rec.name) {
+      nomePorCaminho.set(cab.rec.opfsPath, cab.rec.name);
+    }
+    if (cab.t === 'arquivo' && cab.rec && cab.rec.folder) contagem.colecoes.add(cab.rec.folder);
+    const nome = cab.t === 'media' ? ((cab.rec && cab.rec.name) || '')
+      : cab.t === 'opfs' ? (nomePorCaminho.get(cab.caminho) || '')
+      : '';
     if (aoAndar) aoAndar(cursor.pos, nome);
     if (cab.t === 'media-thumb' && pendente && pendente.tipo === 'media') {
       pendente.rec.thumb = corpo; continue;
@@ -24225,18 +24272,8 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
       // `depois === atual` é a mescla devolvendo o LOCAL por IDENTIDADE: nada
       // mudou. Contá-lo faria a tela anunciar ajustes que não entraram, e
       // gravá-lo seria reescrever no disco exatamente o que já estava lá.
-      let mudou = false;
-      try {
-        await AVDB.updateState(cab.chave, (atual) => {
-          const depois = pacoteMesclarValor(atual, valor);
-          mudou = depois !== atual;
-          return depois;
-        });
-      } catch (e) {
-        if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
-        throw e;
-      }
-      if (mudou) contagem.chaves++;
+      loteEstado.push({ chave: cab.chave, valor });
+      if (loteEstado.length >= PACOTE_LOTE_ESTADO) await escoarEstado();
       continue;
     }
   }
@@ -24244,6 +24281,10 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
   // normal; esta linha cobre o fluxo que acaba sem ele, para a mídia do último
   // registro não ser montada e jogada fora.
   await fechar();
+  // O QUE SOBROU NO LOTE. Sem esta linha, as últimas chaves do pacote nunca
+  // seriam gravadas — e o desfecho seria mudo, porque a importação termina
+  // anunciando sucesso.
+  await escoarEstado();
   return viuFim;
 }
 
@@ -24338,6 +24379,54 @@ async function pacoteConferir(fonte, aoAndar) {
       : pacoteDanificadoEm(cursor.pos));
   }
   throw new Error(PACOTE_INCOMPLETO);
+}
+
+/**
+ * O RELATÓRIO DO FIM — e ele responde UMA pergunta: *chegou tudo?*
+ *
+ * Ele dizia *"4 item(ns), 2228 arquivo(s) e 172 ajuste(s)"*, e nenhum dos três
+ * números é o que se quer saber ao importar um hinário. Relato do operador:
+ * *"o que quero saber é o número de músicas ou mídias reais que foram
+ * importados … quero saber se todos os 600 hinos foram importados, e não sobre
+ * milhares de itens sem nome e que eu esperava 600. milhares não é um número
+ * esperado para poder se confirmar o sucesso"*.
+ *
+ * Os três eram unidades INTERNAS: "itens" era a store de mídia (o Cronograma),
+ * "arquivos" eram os arquivos do OPFS (um hino tem áudio, playback e as imagens
+ * de fundo da letra — daí 2228 para 601 hinos) e "ajustes" eram chaves de
+ * `state`, que desde a v1.8.25 nem são mais escolha do operador.
+ *
+ * O QUE ELE DIZ AGORA É O ESTADO, não o delta: *"Hinário Adventista 2022:
+ * 601 de 601 músicas"*. É de propósito — a pergunta do operador é sobre o
+ * ACERVO, não sobre a passada: importar de novo depois de uma queda tem de
+ * responder "601 de 601", e um relatório de delta diria "0 entraram" sobre um
+ * hinário completo.
+ *
+ * A CONTA SAI DE `countDownloaded`, a MESMA que a Biblioteca usa para dizer o
+ * que está no aparelho — uma segunda conta divergiria da tela em que o operador
+ * vai conferir. Ela é lida do BANCO e não do `collState` em memória, que foi
+ * carregado no `init()` e está desatualizado por definição depois de importar.
+ */
+async function pacoteRelatorio(contagem) {
+  const partes = [];
+  const nomes = new Map(allCollections().map((c) => [c.id, c.name || c.id]));
+  for (const id of (contagem.colecoes || [])) {
+    let idx = null;
+    try { idx = await AVDB.getState('coll:' + id); } catch (_) { idx = null; }
+    const songs = (idx && Array.isArray(idx.songs)) ? idx.songs : [];
+    if (!songs.length) continue;
+    const tem = songs.filter((x) => x && x.fileIdFull).length;
+    partes.push((nomes.get(id) || id) + ': ' + tem + ' de ' + songs.length + ' músicas');
+  }
+  partes.sort();
+  // A MÍDIA AVULSA continua contada, e continua sendo outra coisa: são os itens
+  // do Cronograma e dos Favoritos (vídeos, imagens, apresentações), que não
+  // pertencem a coleção nenhuma. Ela só aparece quando existe.
+  if (contagem.media) partes.push(contagem.media + ' mídia(s) no Cronograma e nos Favoritos');
+  // NENHUMA COLEÇÃO E NENHUMA MÍDIA é um desfecho legítimo (um pacote só de
+  // listas e catálogos), e calar sobre ele deixaria o diálogo sem assunto.
+  if (!partes.length) partes.push('O acervo do arquivo já estava todo aqui');
+  return partes.join('. ') + '.\n\nO app vai recarregar para a biblioteca aparecer.';
 }
 
 async function importarPacote() {
@@ -24454,15 +24543,7 @@ async function importarPacote() {
   pulsar(pacoteImportarTileEl, 'ok');
   await openAppDialog({
     title: 'Acervo importado',
-    message: contagem.media + ' item(ns), ' + contagem.opfs + ' arquivo(s) e '
-      + contagem.chaves + ' ajuste(s) entraram neste aparelho. '
-      + (contagem.repetidos ? contagem.repetidos + ' já estavam aqui e foram mantidos como estavam. ' : '')
-      // A RECUSA APARECE. Contar e calar é o defeito do G2 por outro caminho: o
-      // pacote trazia ajustes que descrevem OUTRO aparelho, eles não entraram, e
-      // o operador tem direito de saber que o arquivo tinha mais do que chegou.
-      + (contagem.recusadas ? contagem.recusadas + ' ajuste(s) descreviam o outro '
-        + 'aparelho e ficaram de fora. ' : '')
-      + 'O app vai recarregar para a biblioteca aparecer.',
+    message: await pacoteRelatorio(contagem),
     okText: 'Recarregar',
     cancelText: null,
     fixo: true,
