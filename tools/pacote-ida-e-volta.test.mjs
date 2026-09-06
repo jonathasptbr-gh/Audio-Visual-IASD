@@ -55,6 +55,17 @@ let janelas = [];
 let semFaixa = 0;
 const zerarDiario = () => { janelas = []; semFaixa = 0; };
 const bytesLidos = () => janelas.reduce((t, j) => t + (j.fim - j.ini + 1), 0);
+/**
+ * A fonte devolve janelas CURTAS nas leituras de CORPO. `false` desliga.
+ *
+ * O corte é por TAMANHO PEDIDO, e isso é o que isola a guarda que se quer
+ * medir: a CONFERÊNCIA lê só cabeçalhos, em janelas de 8 kB (`bytes()`), e ela
+ * tem a guarda desde sempre — encurtar tudo faz ela pegar o defeito primeiro e
+ * o oráculo passa a medir o percurso errado (MEDIDO: a reversão não reprovava).
+ * Os corpos vêm por `blob()`, em pedaços grandes, e é essa a leitura que não
+ * conferia nada.
+ */
+let curtoNosCorpos = false;
 
 const servidor = servirEstatico(RAIZ, (req, res) => {
   const u = new URL(req.url, 'http://x');
@@ -66,7 +77,16 @@ const servidor = servirEstatico(RAIZ, (req, res) => {
   const fim = Number(m[2]);
   if (fim < ini) { res.writeHead(416).end('faixa invertida'); return true; }
   janelas.push({ ini, fim });
-  const fatia = pacoteServido.subarray(ini, Math.min(pacoteServido.length, fim + 1));
+  // A FONTE QUE DEVOLVE MENOS DO QUE SE PEDIU (v1.8.15).
+  //
+  // Não é um servidor inventado: é o `SafJanela.ler`, que corta no que
+  // conseguiu (`buf.copyOf(lidos)`), e o caso que o torna provável é o novo
+  // caminho de uso — o arquivo chega por Quick Share e APARECE em Downloads
+  // antes de terminar de ser escrito. O `size` já responde o valor final.
+  let fatia = pacoteServido.subarray(ini, Math.min(pacoteServido.length, fim + 1));
+  if (curtoNosCorpos && fim - ini > 65536 && fatia.length > 1) {
+    fatia = fatia.subarray(0, fatia.length - 1);
+  }
   res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' });
   res.end(Buffer.from(fatia));
   return true;
@@ -546,6 +566,168 @@ try {
       '7 · e a frase diz em QUE BYTE a leitura parou — zero constante seria o '
       + 'número lido do lugar errado', frase);
     await e.ctx.close();
+  }
+
+  // =========================================================================
+  // 8 · UMA JANELA CURTA NÃO VIRA ARQUIVO TRUNCADO (v1.8.15)
+  // =========================================================================
+  //
+  // O `bytes()` do cursor sempre teve a guarda (`acabou no meio de um
+  // registro`); o `blob()` — o que traz os CORPOS — não tinha. A fonte devolve
+  // menos, o cursor avança pelo `bytes` DECLARADO no cabeçalho, e um vídeo de
+  // 300 MB era gravado TRUNCADO: sem erro nos dois lados, e o defeito só
+  // aparecia ao projetar, no sábado.
+  //
+  // Um teste do DESFECHO passa nas duas versões — o item entra nas duas. O que
+  // se afirma é que a importação RECUSA, e que nada chegou ao banco.
+  {
+    curtoNosCorpos = true;
+    const h = await aparelho(saida);
+    await h.pg.evaluate(() => { window.__fim = importarPacote(); });
+    const frase = await responderDialogo(h.pg);
+    curtoNosCorpos = false;
+    checar(typeof frase === 'string' && /meio de um registro|incompleto|danificado/i.test(frase),
+      '8 · uma fonte que devolve MENOS do que se pediu é recusada — e é o caso '
+      + 'do arquivo que o Quick Share ainda está escrevendo', frase);
+    // O QUE SE AFIRMA É QUE NADA TRUNCADO ENTROU, e não que nada entrou.
+    //
+    // A conferência prova o ARQUIVO — e o arquivo está inteiro; quem mente é a
+    // FONTE, no meio da leitura, e isso não tem como ser pré-detectado. Os itens
+    // anteriores ao corte entraram, e está certo que tenham entrado: a
+    // importação só ACRESCENTA, e o que já entrou está correto. A guarda existe
+    // para o item CORTADO não ser um deles.
+    const entrou = await h.pg.evaluate(async () => {
+      const ids = await AVDB.mediaChaves();
+      const tamanhos = [];
+      for (const id of ids) {
+        const r = await AVDB.getMedia(id);
+        tamanhos.push(r && r.blob ? r.blob.size : 0);
+      }
+      return { ids: ids.length, tamanhos };
+    });
+    checar(entrou.tamanhos.every((t) => t === 3000 || t === 0),
+      '8 · e nenhum blob TRUNCADO chegou ao banco — o que entrou entrou inteiro',
+      JSON.stringify(entrou));
+    await h.ctx.close();
+  }
+
+  // =========================================================================
+  // 9 · DISCO CHEIO NÃO É "JÁ ESTAVA AQUI" (v1.8.15)
+  // =========================================================================
+  //
+  // O `mediaAdd` usa `add`, e a FALHA dele virava "já está aqui" — mas ele
+  // falha por DOIS motivos. Um `QuotaExceededError` no meio de um pacote grande
+  // fazia todo o resto cair em `repetidos`, e o diálogo saía VERDE dizendo
+  // *"0 entraram, N já estavam aqui e foram mantidos"*: a frase mais
+  // tranquilizadora possível sobre a falha mais destrutiva possível.
+  //
+  // A RÉGUA É A FRASE DO DIÁLOGO, e não a contagem: contar certo e dizer
+  // "importado" é o mesmo defeito com números melhores.
+  {
+    const i = await aparelho(saida);
+    await i.pg.evaluate(() => {
+      // O disco enche no PRIMEIRO item de mídia. `QuotaExceededError` é o nome
+      // que o IndexedDB usa, e é pelo NOME que o app pergunta — a mensagem é
+      // traduzida e muda de versão.
+      const real = AVDB.mediaAdd;
+      AVDB.mediaAdd = async () => {
+        const e = new Error('quota');
+        e.name = 'QuotaExceededError';
+        throw e;
+      };
+      window.__real = real;
+      window.__fim = importarPacote();
+    });
+    const frase = await responderDialogo(i.pg);
+    checar(typeof frase === 'string' && /espa\u00e7o/i.test(frase),
+      '9 · disco cheio PARA a importação e diz isso — nunca "já estavam aqui"', frase);
+    checar(typeof frase === 'string' && !/j\u00e1 estavam aqui/i.test(frase),
+      '9 · e a frase tranquilizadora não aparece', frase);
+    await i.ctx.close();
+  }
+
+  // =========================================================================
+  // 10 · UMA CHAVE QUE NÃO VIAJA É RECUSADA NA ENTRADA (v1.8.15)
+  // =========================================================================
+  //
+  // `AVPacote.chaveViaja` tinha UM chamador — o plano da EXPORTAÇÃO. As seis
+  // chaves que a saída recusa entravam pela porta da frente, e enquanto o
+  // arquivo veio do cartão do próprio operador isso era teórico. Com o
+  // compartilhamento ele passa a vir do aparelho de OUTRA pessoa.
+  //
+  // A metade que impede o conserto largo demais está junto: uma chave legítima
+  // do MESMO pacote continua entrando.
+  {
+    const j = await aparelho(saida);
+    const r = await j.pg.evaluate(async () => {
+      // Um pacote forjado: a assinatura e o `fim` de verdade, com duas chaves
+      // de `state` no meio — uma que viaja e uma que a lista `FORA` recusa.
+      const enc = new TextEncoder();
+      const partes = [AVPacote.assinatura()];
+      const reg = (cab, corpo) => {
+        partes.push(AVPacote.cabecalhoParaBytes(cab));
+        if (corpo && corpo.length) partes.push(corpo);
+      };
+      const v1 = enc.encode(JSON.stringify('valor-que-viaja'));
+      reg({ t: 'state', chave: 'lyricsFont', bytes: v1.length }, v1);
+      const v2 = enc.encode(JSON.stringify({ id: 'forjado' }));
+      reg({ t: 'state', chave: 'current', bytes: v2.length }, v2);
+      reg({ t: 'fim', bytes: 0 });
+      let n = 0;
+      for (const p of partes) n += p.length;
+      const u8 = new Uint8Array(n);
+      let o = 0;
+      for (const p of partes) { u8.set(p, o); o += p.length; }
+      const fonte = {
+        size: u8.length,
+        async bytes(a, b) { return u8.subarray(a, b); },
+        async blob(a, b, t) { return new Blob([u8.subarray(a, b)], { type: t || '' }); },
+      };
+      const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0, recusadas: 0 };
+      await pacoteAplicarFluxo(pacoteCursor(fonte), contagem, null);
+      return {
+        contagem,
+        viajou: await AVDB.getState('lyricsFont'),
+        forjada: await AVDB.getState('current'),
+      };
+    });
+    checar(r.forjada === undefined || r.forjada === null,
+      '10 · uma chave que a lista FORA recusa NÃO entra — ela descreve o outro '
+      + 'aparelho, e um `current` forjado prende mídia contra o coletor', r.forjada);
+    checar(r.contagem.recusadas === 1,
+      '10 · e ela é CONTADA — recusar em silêncio é o defeito do bloco 9 por '
+      + 'outro caminho', r.contagem.recusadas);
+    checar(r.viajou === 'valor-que-viaja',
+      '10 · a chave legítima do MESMO pacote continua entrando', r.viajou);
+    await j.ctx.close();
+  }
+
+  // =========================================================================
+  // 11 · A MESCLA RECONHECE LISTA DE OBJETOS (v1.8.15)
+  // =========================================================================
+  //
+  // `messages` é `[{id, text}]`: não é lista de strings nem mapa, então caía na
+  // regra 4 e **o local vencia inteiro**. Num aparelho que já salvou uma
+  // mensagem, as do pacote eram descartadas em silêncio — o recurso só
+  // funcionava no aparelho VIRGEM, que é justamente onde nenhuma regra de
+  // mescla é exercitada.
+  {
+    const k = await aparelho(null);
+    const r = await k.pg.evaluate(() => {
+      const local = [{ id: 'a', text: 'minha' }];
+      const vindo = [{ id: 'a', text: 'a do pacote' }, { id: 'b', text: 'nova' }];
+      const fim = pacoteMesclarValor(local, vindo);
+      return {
+        ids: fim.map((x) => x.id).join(','),
+        // O LOCAL VENCE cada id em disputa — a promessa do recurso inteiro.
+        texto: fim.find((x) => x.id === 'a').text,
+      };
+    });
+    checar(r.ids === 'a,b',
+      '11 · a lista de objetos com id se UNE, em vez de o local vencer inteiro', r.ids);
+    checar(r.texto === 'minha',
+      '11 · e o LOCAL continua vencendo o que colide — a promessa do recurso', r.texto);
+    await k.ctx.close();
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));

@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.8.15",
+    "itens": [
+      "A importação passou a recusar um arquivo que ainda estava sendo copiado.",
+      "Disco cheio no meio de uma importação parou de ser lido como \"já estava aqui\".",
+      "Um pacote de outro aparelho não traz mais ajustes que descrevem aquele celular.",
+      "As mensagens salvas passaram a viajar para um aparelho que já tem as suas."
+    ]
+  },
+  {
     "versao": "1.8.14",
     "itens": [
       "A cópia entre celulares não para mais em itens com miniatura fora do padrão."

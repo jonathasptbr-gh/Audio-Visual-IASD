@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.14';
+const WEB_VERSION = '1.8.15';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23478,6 +23478,21 @@ async function exportarPacote() {
   const c = pacoteCanal();
   if (!c || pacoteEmCurso) return;
   pacoteOuvirCanal(c);
+  // A BANDEIRA SOBE AQUI, e não depois do "Salvar como" (v1.8.15).
+  //
+  // Entre o toque e o `pacoteCriar` correm a MEDIÇÃO (segundos num acervo
+  // grande) e a folha de grupos, e nesse vão o guarda de cima não guardava
+  // nada: um segundo toque chegava ao SAF, o `PacoteCanal.adotar` chamava
+  // `fechar()` no stream VIVO da primeira exportação e trocava a `uri` — daí
+  // em diante o `descartarPacote` apagava o arquivo NOVO, **o parcial da
+  // primeira ficava para sempre**, e os blocos que ela ainda empurrava caíam no
+  // documento da segunda. O mesmo valia para tocar em Importar no meio da
+  // medição: o `finally` de lá zerava a bandeira com a exportação escrevendo.
+  //
+  // Ela desce em TODA saída — as três de baixo (medição falhou, desistiu na
+  // folha, desistiu no seletor) e o `finally` da escrita.
+  pacoteEmCurso = true;
+  pacoteRenderTiles();
 
   // ===== A MEDIÇÃO VEM ANTES DE TUDO, E ELA APARECE NO PRÓPRIO BOTÃO =====
   // Ela varre o OPFS inteiro, percorre a store de mídia e lê as chaves de
@@ -23497,6 +23512,8 @@ async function exportarPacote() {
     calarTile(pacoteExportarTileEl);
   }
   if (!plano) {
+    pacoteEmCurso = false;
+    pacoteRenderTiles();
     pulsar(pacoteExportarTileEl, 'erro');
     falarNoTile(pacoteExportarTileEl, 'Não deu', 4000);
     return;
@@ -23505,14 +23522,13 @@ async function exportarPacote() {
 
   const sel = await escolherGruposDoPacote(plano);
   // Desistir na folha é desistir: nada foi aberto, nada foi escrito.
-  if (!sel) { pacotePlanoAtual = null; return; }
+  if (!sel) { pacotePlanoAtual = null; pacoteEmCurso = false; pacoteRenderTiles(); return; }
 
   const nome = await AVNative.pacoteCriar(AVPacote.nomeDoArquivo(new Date()));
   // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
   // nos dois casos não há arquivo, e o botão continua ali. Mesma regra do
   // `salvarTexto` do Registro.
-  if (!nome) { pacotePlanoAtual = null; return; }
-  pacoteEmCurso = true;
+  if (!nome) { pacotePlanoAtual = null; pacoteEmCurso = false; pacoteRenderTiles(); return; }
   pacoteExportando = true;
   pacoteCancelar = false;
   pacoteRenderTiles();
@@ -23802,9 +23818,23 @@ function pacoteFonteDaUrl(url, size) {
       // tamanho do pedaço: o `Blob` mora no armazenamento do navegador (que
       // pagina para o disco), e o que passa pelo heap é um pedaço por vez.
       const partes = [];
+      let lidos = 0;
       for (let p = ini; p < fim; p += PACOTE_PEDACO) {
-        partes.push(await janela(p, Math.min(fim, p + PACOTE_PEDACO)));
+        const parte = await janela(p, Math.min(fim, p + PACOTE_PEDACO));
+        lidos += parte.length;
+        partes.push(parte);
       }
+      // A GUARDA QUE O IRMÃO `bytes()` SEMPRE TEVE, e que faltava aqui — no
+      // caminho que traz os CORPOS (v1.8.15).
+      //
+      // Uma janela pode devolver MENOS do que se pediu: o `SafJanela.ler` corta
+      // no que conseguiu (`buf.copyOf(lidos)`), e o caso que torna isso provável
+      // é o novo caminho de uso — o arquivo chega por Quick Share e APARECE em
+      // Downloads antes de terminar de ser escrito. O `size` já responde o valor
+      // final, as janelas do fim voltam curtas, e o cursor avança pelo `bytes`
+      // DECLARADO no cabeçalho: um vídeo de 300 MB era gravado TRUNCADO, sem
+      // erro em lugar nenhum dos dois lados, e o defeito só aparecia ao projetar.
+      if (lidos !== fim - ini) throw new Error('pacote: acabou no meio de um registro');
       return new Blob(partes, { type: tipo || '' });
     },
   };
@@ -23863,12 +23893,48 @@ function pacoteCursor(fonte, inicio) {
  * seria justamente o pior — uma chave desconhecida caindo no ramo errado e
  * apagando o que o operador tem.
  */
+/**
+ * O APARELHO FICOU SEM ESPAÇO — e ele precisa de resposta PRÓPRIA (v1.8.15).
+ *
+ * O IndexedDB recusa uma escrita que não cabe com `QuotaExceededError`; alguns
+ * navegadores usam o nome legado `NS_ERROR_DOM_QUOTA_REACHED`. A pergunta é
+ * pelo NOME e não pela mensagem: a mensagem é traduzida e muda de versão.
+ *
+ * `ConstraintError` é o OUTRO motivo de o `add` falhar — a chave já existe —, e
+ * ele é justamente o "já estava aqui" que a importação promete. Os dois não
+ * podem cair no mesmo ramo.
+ */
+function pacoteSemEspaco(e) {
+  const n = (e && e.name) || '';
+  return n === 'QuotaExceededError' || n === 'NS_ERROR_DOM_QUOTA_REACHED';
+}
+
+const PACOTE_SEM_ESPACO = 'O aparelho ficou sem espaço no meio da importação. '
+  + 'O que já entrou ficou; libere espaço e importe de novo para continuar.';
+
 function pacoteMesclarValor(local, vindo) {
   if (local === undefined || local === null) return vindo;
   const listaDeIds = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string');
   if (listaDeIds(local) && listaDeIds(vindo)) {
     const tem = new Set(local);
     return local.concat(vindo.filter((x) => !tem.has(x)));
+  }
+  // LISTA DE OBJETOS COM `id` — e ela é a metade que faltava (v1.8.15).
+  //
+  // `messages` é `[{id, text}]` e `folders` tem a mesma forma: não são lista de
+  // strings (regra 2) nem mapa (regra 3), então caíam na regra 4 e **o local
+  // vencia inteiro**. Num aparelho que já salvou uma mensagem, as mensagens do
+  // pacote eram descartadas em silêncio — o recurso só funcionava no aparelho
+  // virgem, que é justamente onde nenhuma regra de mescla é exercitada.
+  //
+  // A união é POR `id`, e o local continua vencendo: o que já existe aqui não é
+  // tocado, e o que vem de fora só acrescenta o que não colide.
+  const listaComId = (v) => Array.isArray(v)
+    && v.length > 0
+    && v.every((x) => !!x && typeof x === 'object' && !Array.isArray(x) && typeof x.id === 'string');
+  if (listaComId(local) && listaComId(vindo)) {
+    const tem = new Set(local.map((x) => x.id));
+    return local.concat(vindo.filter((x) => !tem.has(x.id)));
   }
   const mapa = (v) => !!v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Blob);
   if (mapa(local) && mapa(vindo)) return Object.assign({}, vindo, local);
@@ -23905,14 +23971,27 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
     const p = pendente;
     pendente = null;
     if (!p) return;
+    // DISCO CHEIO NÃO É "JÁ ESTAVA AQUI" (v1.8.15). O `mediaAdd` usa `add`, e é
+    // a FALHA dele que vira "já está aqui" — mas ele falha por DOIS motivos, e
+    // só um deles é esse. Um `QuotaExceededError` no item 900 de um pacote de
+    // 12 GB fazia os 3.000 seguintes caírem em `repetidos`, e o diálogo final
+    // saía verde dizendo *"0 entraram, 4.000 já estavam aqui e foram mantidos"* —
+    // a frase mais tranquilizadora possível sobre a falha mais destrutiva
+    // possível. O ramo do OPFS, dez linhas abaixo, já fazia o certo.
     if (p.tipo === 'media') {
-      try { await AVDB.mediaAdd(p.rec); contagem.media++; } catch (_) { contagem.repetidos++; }
+      try { await AVDB.mediaAdd(p.rec); contagem.media++; } catch (e) {
+        if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
+        contagem.repetidos++;
+      }
     } else {
       try {
         if (await AVDB.fileGet(p.rec.id)) { contagem.repetidos++; } else {
           await AVDB.fileAdd(p.rec); contagem.arquivos++;
         }
-      } catch (_) { contagem.repetidos++; }
+      } catch (e) {
+        if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
+        contagem.repetidos++;
+      }
     }
   };
   for (;;) {
@@ -23962,6 +24041,21 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
       continue;
     }
     if (cab.t === 'state' || cab.t === 'state-blob') {
+      // A CHAVE É CONFERIDA NA ENTRADA TAMBÉM (v1.8.15).
+      //
+      // `AVPacote.chaveViaja` tinha UM chamador — o plano da EXPORTAÇÃO —, e a
+      // lista `FORA` valia só na saída. Enquanto o arquivo veio do cartão do
+      // próprio operador isso era teórico; **com o compartilhamento ele passa a
+      // vir do aparelho de outra pessoa**, por um canal que qualquer um na sala
+      // oferece. As seis chaves que a saída recusa entravam pela porta da
+      // frente: um `current` forjado é lido pelo `lerDetentores` e prende mídia
+      // contra o coletor; um `historico` mistura dois cultos num diário só.
+      //
+      // É a regra que o próprio `pacote.js` já tinha escrito para o TIPO — *"um
+      // `t` desconhecido tem de ser recusado em vez de cair num `default` que
+      // ninguém escreveu"* — aplicada à CHAVE, que é o outro campo que o
+      // arquivo controla.
+      if (!AVPacote.chaveViaja(cab.chave)) { contagem.recusadas++; continue; }
       let valor;
       if (cab.t === 'state-blob') {
         valor = corpo;
@@ -24070,7 +24164,7 @@ async function importarPacote() {
   // linha o botão fica parado enquanto ela roda.
   falarNoTile(pacoteImportarTileEl, 'Conferindo…', 0);
   let erro = '';
-  const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0 };
+  const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0, recusadas: 0 };
   try {
     // ===== NADA DE `resp.blob()` (v1.7.9) =====
     //
@@ -24091,13 +24185,24 @@ async function importarPacote() {
       await fonte.bytes(0, AVPacote.ASSINATURA_BYTES),
     );
     if (!assinatura.ok) throw new Error(assinatura.erro);
-    // O PACOTE INTEIRO É CONFERIDO ANTES DE UMA LINHA SER GRAVADA. Ver
-    // `pacoteConferir`: é o que faz um arquivo cortado no meio ser recusado
-    // inteiro, em vez de entrar pela metade.
-    await pacoteConferir(fonte);
+    // A CONFERÊNCIA ENTROU NA PROTEÇÃO DE SEGUNDO PLANO (v1.8.15).
+    //
+    // Ela percorre o arquivo INTEIRO pelos cabeçalhos — milhares de janelas
+    // sobre gigabytes, minutos num acervo grande — e rodava FORA do
+    // `withBgWork`: sem serviço em primeiro plano, sem wake lock, sem
+    // notificação e sem percentual, com a palavra "Conferindo…" parada no botão.
+    // É exatamente o instante em que o operador minimiza o app, e é o achado da
+    // v1.8.13 (o lado que CEDE não pedia proteção) repetido do outro lado.
+    //
+    // A tarefa é a MESMA do laço de aplicação, e não uma segunda: o operador vê
+    // uma importação só, em duas etapas, e a notificação não pisca entre elas.
     await withBgWork(async () => {
       const tarefa = bgTaskStart('Importando o acervo', 1);
       bgItemOnly(tarefa, alvo.name || 'pacote');
+      // O PACOTE INTEIRO É CONFERIDO ANTES DE UMA LINHA SER GRAVADA. Ver
+      // `pacoteConferir`: é o que faz um arquivo cortado no meio ser recusado
+      // inteiro, em vez de entrar pela metade.
+      await pacoteConferir(fonte);
       // O NÚMERO MORA NO PRÓPRIO BOTÃO (v1.7.3), aqui como na exportação: a
       // ação nasceu nele. O NOME do arquivo vai para a notificação, que é a
       // superfície com espaço.
@@ -24140,6 +24245,11 @@ async function importarPacote() {
     message: contagem.media + ' item(ns), ' + contagem.opfs + ' arquivo(s) e '
       + contagem.chaves + ' ajuste(s) entraram neste aparelho. '
       + (contagem.repetidos ? contagem.repetidos + ' já estavam aqui e foram mantidos como estavam. ' : '')
+      // A RECUSA APARECE. Contar e calar é o defeito do G2 por outro caminho: o
+      // pacote trazia ajustes que descrevem OUTRO aparelho, eles não entraram, e
+      // o operador tem direito de saber que o arquivo tinha mais do que chegou.
+      + (contagem.recusadas ? contagem.recusadas + ' ajuste(s) descreviam o outro '
+        + 'aparelho e ficaram de fora. ' : '')
       + 'O app vai recarregar para a biblioteca aparecer.',
     okText: 'Recarregar',
     cancelText: null,
@@ -24901,7 +25011,7 @@ async function cloneComecar(a) {
   cloneCopiando = true;
   cloneRenderTiles();
   let erro = '';
-  const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0, desconhecidos: 0 };
+  const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0, desconhecidos: 0, recusadas: 0 };
   try {
     falarNoTile(cloneReceberTileEl, 'Pareando…', 0);
     erro = await clonePedirPar(a);

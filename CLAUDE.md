@@ -3040,6 +3040,45 @@ ACONTECERIA NELA; uma exportação não acontece na preview.
   diálogo diz o que o botão não tem como dizer — o NOME do arquivo e o que
   fazer com ele.
 
+**AS QUATRO GUARDAS DA IMPORTAÇÃO (v1.8.15).** Todas nasceram da mesma
+pergunta — *"o app distingue esta falha de um sucesso?"* — e a resposta era não
+nas quatro:
+
+- **A FONTE PODE DEVOLVER MENOS DO QUE SE PEDIU, e o `blob()` não conferia.** O
+  irmão `bytes()` sempre conferiu; o caminho que traz os CORPOS, não. O
+  `SafJanela.ler` corta no que conseguiu, e o caso que torna isso provável é o
+  arquivo chegando por compartilhamento: ele APARECE em Downloads antes de
+  terminar de ser escrito, o `size` já responde o valor final, e o cursor avança
+  pelo `bytes` DECLARADO — um vídeo de 300 MB gravado truncado, sem erro nos dois
+  lados. **A conferência não cobre isto**: ela prova o ARQUIVO, e quem mente é a
+  FONTE, no meio da leitura. O que a guarda garante é que o item CORTADO não
+  entre; os anteriores entraram e está certo que tenham entrado.
+- **DISCO CHEIO NÃO É "JÁ ESTAVA AQUI".** O `mediaAdd` usa `add`, e a FALHA dele
+  virava o "já está aqui" — mas ele falha por DOIS motivos, e um
+  `QuotaExceededError` fazia todo o resto do pacote cair em `repetidos`. O
+  diálogo saía VERDE: *"0 entraram, N já estavam aqui e foram mantidos"* — a
+  frase mais tranquilizadora possível sobre a falha mais destrutiva possível. A
+  pergunta é pelo NOME da exceção (a mensagem é traduzida), e `ConstraintError`
+  continua sendo o duplicado de verdade.
+- **`chaveViaja` VALE NAS DUAS PONTAS.** Ela tinha um chamador — o plano da
+  EXPORTAÇÃO —, e a lista `FORA` valia só na saída. Enquanto o arquivo veio do
+  cartão do próprio operador isso era teórico; com o compartilhamento ele passa
+  a vir do aparelho de OUTRA pessoa. Um `current` forjado é lido pelo
+  `lerDetentores` e prende mídia contra o coletor. **A recusa é CONTADA e sai na
+  frase** — recusar em silêncio é o defeito de cima por outro caminho.
+- **A MESCLA RECONHECE LISTA DE OBJETOS COM `id`.** `messages` e `folders` são
+  `[{id,…}]`: não são lista de strings nem mapa, então caíam na regra 4 e o
+  LOCAL vencia inteiro. O recurso só funcionava no aparelho VIRGEM — que é
+  justamente onde nenhuma regra de mescla é exercitada.
+
+E duas de fluxo, no mesmo lote: a bandeira `pacoteEmCurso` sobe **antes da
+MEDIÇÃO** (entre o toque e o "Salvar como" correm segundos, e um segundo toque
+ali fazia o `adotar` fechar o stream VIVO da primeira exportação e trocar o
+destino — o parcial dela ficava para sempre); e a **CONFERÊNCIA entrou no
+`withBgWork`**, com a mesma tarefa da aplicação: ela percorre o arquivo inteiro
+pelos cabeçalhos, e rodava sem serviço, sem wake lock e sem notificação, com a
+palavra "Conferindo…" parada — o achado da v1.8.13 repetido do outro lado.
+
 Oráculos: **`pacote.test.mjs`** (a REGRA — assinatura, cursor, recusas,
 saneamento, e o grupo de um caminho), **`pacote-ida-e-volta.test.mjs`** (a
 LIGAÇÃO — dois contextos de navegador, como dois celulares) e
@@ -5171,7 +5210,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.14 · APK v1.8.12** · `SHELL_VERSION` **66** ·
+**Versão atual: base web v1.8.15 · APK v1.8.12** · `SHELL_VERSION` **66** ·
 bundle com `minShell: 66` e **sem `shellTag`** (lote só de web) — o shell 66 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
