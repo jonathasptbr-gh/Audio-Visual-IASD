@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v1.8.16** — O CLONE PELA REDE SAIU, E O QUE O DERRUBOU FOI UMA MEDIÇÃO, NÃO UM DEFEITO. Decisão do operador depois de seis lotes de conserto (v1.8.10 a v1.8.15, que este bloco também registra): *"remova todas as funções do modo de conectar e ceder a biblioteca. esse modo ficou inviável e ineficaz. Vamos nos focar nos métodos de exportar e importar."* Os seis consertos eram REAIS e cada um pegou uma causa de verdade — o token do item sobrescrito no empurrão (v1.8.10), a fila de endereços porque o `NsdServiceInfo.host` é UM só e o servidor abre em OUTRO (v1.8.12), a cessão sem proteção de segundo plano (v1.8.13), o `bytes` do cabeçalho divergindo do corpo (v1.8.14) —, e a cópia passou a andar. **O que a derrubou foi a VELOCIDADE: ~210 KB/s medidos em campo**, contra os 15 a 500× disso que o mesmo enlace entrega por Wi-Fi Direct ou Quick Share, e o teto é ARQUITETURAL — um item por requisição HTTP, cada um montado no WebView do Controle e empurrado pelo canal de `ArrayBuffer` antes de o socket poder servi-lo. Um acervo de 15 GB dava estimativa de vinte horas. **E ele se sobrepõe quase inteiro ao caminho do ARQUIVO, que ganha**: os dois levam o MESMO formato e são aplicados pelo MESMO `pacoteAplicarFluxo`, e o `.avpkg` sai do app pelo Quick Share, que é justamente a tecnologia que mede centenas de vezes mais. Saem do web ~1.140 linhas do `controle.js`, o bloco do Registro, os dois tiles de Configurações e os oito métodos `acervo*` do `native.js`; a regra pura (`itensQueFaltam`, `CLONE_TIPOS`) e os dois oráculos de ligação vão junto. **O que FICA, e por quê:** as chaves `clone-diario` e `clone-parcial` continuam na lista `FORA` do pacote — elas são órfãs nos aparelhos que usaram o recurso, ninguém as lê, e tirá-las da lista faria um pacote antigo carregá-las para um aparelho novo. O corte do SHELL (`AcervoCessao.kt`, `AcervoProxy.kt`, `AcervoDescoberta.kt`, as rotas `/acervo/` e o `usesCleartextTraffic`) fica para o lote seguinte, que é o que pede Release. Lote **só de base web**.
 - **v1.8.9** — O CLONE NUNCA PAREOU, E POR DUAS RAZÕES INDEPENDENTES. `cloneMeuRotulo()` era CHAMADA e nunca foi DEFINIDA, desde a v1.8.0: o `ReferenceError` síncrono caía no `catch` do `clonePedirPar` e virava o MESMO `null` que a ponte devolve ao vencer o prazo — e a frase que saía mandava investigar a rede. Nada o pegava: `node --check` aprova (a sintaxe está certa) e o `sombra.test.mjs` procura redeclaração, não ausência. **E o Android bloqueia o `http` de SAÍDA** (`targetSdk` 35 sem `usesCleartextTraffic`): o telão nunca sofreu disso porque ele SERVE — tráfego de ENTRADA não passa por essa política, e foi isso que tornou o defeito invisível por nove lotes. Os dois consertos são independentes: sem o primeiro nem se pede, sem o segundo o pedido não sai. *(Linha de índice escrita no lote seguinte — ver o corpo.)*
 - **v1.8.8** — UM SÍMBOLO SEM IMPORT DERRUBOU A MAIN. O `MainActivity.kt` da v1.8.6 usou `SystemClock.elapsedRealtime()` sem `import android.os.SystemClock`: o Kotlin não compilou, a Release não nasceu, e o HOLD do `shellTag` segurou o bundle — levando junto o lote SEGUINTE, de outra sessão, que não tinha nada com aquilo. **O erro não é interessante; ONDE ele apareceu é**: ninguém compila Kotlin fora do CI (o `./gradlew` exige o Android SDK) e a suíte inteira é de JavaScript, então o primeiro sinal era o build falhando DEPOIS do merge, no ponto mais caro possível. Daí o `kotlin-simbolo-importado.test.mjs` — o `node --check` do lado Kotlin, na única pergunta que dá para responder sem compilador: *este nome tem de onde vir?* **E a primeira versão dele foi um placebo**: tirava comentários com regex, e comentário de bloco em Kotlin ANINHA — MEDIDO, ela aprovava o próprio defeito que veio pegar. E o `version.json` estava com `version: 1.8.7` e `shellTag: v1.8.6`, um SEGUNDO motivo de falha esperando atrás do primeiro. *(Linha de índice escrita no lote seguinte — ver o corpo.)*
 - **v1.8.7** — O ORÁCULO DA CORTINA MEDIA O RUNNER, E ISSO CALOU O CANAL OTA. O merge da v1.8.4 ficou VERMELHO na `main`: o `verificar` reprovou em `abertura-e-transferencia.test.mjs` (70/71) e, como ele é `needs` do `web-ota`, **o job de publicação foi PULADO — o bundle da v1.8.4 não chegou a aparelho nenhum**. O oráculo passava 10/10 aqui sob 3× de carga, que é a assinatura da classe. A causa, MEDIDA: o relógio instalado do Playwright **também anda com o tempo real** (`fastForward(2000)` deixa o relógio da página 2012 ms à frente), e o PISO da cortina é contado do INÍCIO DA PÁGINA — `falta = 1800 − (Date.now() − nasceu)`. Num runner com três Chromiums em paralelo o boot come esses 1800 ms de tempo real, e o par de asserções deixava de medir o piso e passava a medir quanto o runner demorou para abrir o app. **Qual das duas pontas quebra depende de ONDE o tempo de boot cai**: simulando 2,2 s de boot, reprova a PRIMEIRA; no runner reprovou a SEGUNDA. O conserto é `pauseAt` ANTES do `goto` — o relógio da página congela de verdade (MEDIDO: 0 ms de avanço em 1,5 s reais), `nasceu` É o instante congelado e `falta` vale exatamente 1800 seja qual for a carga; e o app sobe com ele congelado (`__avBack` em 180 ms), porque o boot espera microtarefas e o IndexedDB, não temporizadores. `runFor` no lugar de `fastForward` pela razão que as fatias de 500 ms contornavam: ele processa o temporizador agendado DENTRO do avanço, que é o encadeamento piso → esmaecimento → remoção do nó. **E entrou uma guarda que faltava**: o oráculo AFIRMA que o relógio está parado antes de medir — sem ela, um Playwright que mude o `pauseAt` devolve as duas asserções ao regime antigo e o vermelho volta a chegar como veredito sobre o app. Provado LADO A LADO com o mesmo boot lento: antes reprova, depois passa. Lote **só de oráculo** — nada do app mudou.
@@ -366,6 +367,89 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.8.16 — o clone pela rede saiu, e o que o derrubou foi uma medição
+
+Decisão do operador, depois de seis lotes de conserto:
+
+> *"remova todas as funções do modo de conectar e ceder a biblioteca. esse modo
+> ficou inviável e ineficaz. Vamos nos focar nos métodos de exportar e importar.
+> Ajuste para que o processo de exportar e importar seja o mais automático
+> possível: como esportar direto para o compartilhar. a importação pode ser por
+> busca de arquivo normalmente… limpe o sistema antigo de ceder e receber, e
+> trabalhe no sistema de exportar e importar, fazendo uma revisão geral nele
+> antes de continuar, para garantir que não deixou falhas de conceito no plano."*
+
+**Os seis consertos anteriores eram reais, e é isso que torna a conclusão
+interessante.** A v1.8.10 achou o token do item sendo sobrescrito no empurrão
+(o `telaGarantirEnvio` carimbava por cima do `<sessao>n<n>` que o shell tinha
+cunhado, e o item inteiro atravessava o canal sob um nome que ninguém ia pedir);
+a v1.8.11 separou `ConnectException` de prazo estourado, porque o conselho de
+cada um é o OPOSTO — MEDIDO em campo, 2,3 s contra um `connectTimeout` de 8 s
+significa que o pacote atravessou e voltou RECUSADO, e mandar trocar de rede ali
+custou duas rodadas procurando defeito numa Wi-Fi que estava certa; a v1.8.12
+descobriu que o `NsdServiceInfo.host` é UM endereço e o servidor abre em OUTRO
+(o anúncio passou a DECLARAR o servido, e o pareamento a tentar a fila inteira);
+a v1.8.13 protegeu quem CEDE, que montava cada item no WebView do Controle sem
+uma linha de `bgWorkBegin` — congelado o processo, o item nunca ficava pronto e
+o servidor respondia 503 depois de 60 s; a v1.8.14 fez o `bytes` do cabeçalho
+sair do CORPO nos dois escritores, porque sobre uma miniatura que não é `Blob`
+eles discordavam e o fluxo saía QUEBRADO, com só o leitor descobrindo.
+
+Depois deles a cópia ANDAVA. **O que a derrubou foi a velocidade.**
+
+### A medição
+
+**~210 KB/s**, medidos em campo pelo próprio operador — estimativa de quase
+vinte horas para um acervo de 15 GB. O mesmo enlace entrega de 15 a 500× isso
+por Wi-Fi Direct ou Quick Share, e a diferença **não é ajustável**: cada item é
+uma requisição HTTP própria, montada no WebView do Controle e empurrada pelo
+canal de `ArrayBuffer` (uma ida e volta por bloco, com ack) antes de o socket
+ter o que servir. O teto é da forma, não de um parâmetro.
+
+### E ele se sobrepõe ao caminho do arquivo, que ganha
+
+Os dois levam o **mesmo formato** e são aplicados pelo **mesmo**
+`pacoteAplicarFluxo` — a v1.8.0 escreveu isso de propósito, e é o que torna a
+remoção barata. O `.avpkg` sai do app pelo seletor de compartilhamento, isto é,
+**pelo Quick Share** — exatamente a tecnologia contra a qual o clone mediu 15 a
+500× pior. O que o clone tinha de próprio era a retomada, e o arquivo a tem por
+outro caminho: importar de novo só ACRESCENTA, e o que já está no aparelho é
+pulado.
+
+### O que saiu
+
+| onde | o quê |
+|---|---|
+| `controle/controle.js` | ~1.140 linhas: o bloco inteiro do clone, o `blocoClone` do Registro e os pontos de chamada |
+| `controle/index.html` | os dois tiles (`cloneCederTile`, `cloneReceberTile`) e os símbolos `#icoCeder`/`#icoClonar` |
+| `shared/native.js` | os oito métodos `acervo*` da ponte |
+| `controle/pacote.js` | `CLONE_V`, `chaveDoItem`, `sessaoValida`, `indiceValido`, `itensQueFaltam`, `CLONE_TIPOS` |
+| `tools/` | os dois oráculos de ligação, o bloco do `pacote.test.mjs`, e as duas linhas do workflow |
+
+### O que FICA, e por quê
+
+- **`clone-diario` e `clone-parcial` continuam na lista `FORA` do pacote.** Elas
+  são chaves ÓRFÃS nos aparelhos que usaram o recurso: ninguém as lê, não custam
+  nada, e apagá-las exigiria uma migração. Tirá-las da lista `FORA`, porém, faria
+  um pacote exportado de um aparelho antigo CARREGÁ-LAS para um novo — que é o
+  oposto do que a lista existe para impedir.
+- **Quatro termos novos no `PROIBIDOS` do `registro.test.mjs`.** É a regra deste
+  repositório aplicada a uma remoção: um bloco de Registro que sobrevivesse à
+  função continuaria RESPONDENDO a distância, e um Registro que discorda do
+  aparelho é o pior artefato que este projeto sabe produzir.
+- **O corte do SHELL fica para o lote seguinte** — `AcervoCessao.kt`,
+  `AcervoProxy.kt`, `AcervoDescoberta.kt`, `AcervoCessaoTest.kt`, as rotas
+  `/acervo/` do `EspelhoServidor` e o `usesCleartextTraffic` do manifesto. Esse
+  é o lote que pede Release; este é só web, e chega por OTA em minutos.
+
+**A ordem é essa de propósito.** Um APK que ainda tem os oito métodos servindo
+uma base web que não os chama é inofensivo (método de ponte sem chamador não
+custa nada ao aparelho); o contrário — a base web nova contra um APK sem eles —
+seria o `call()` vencendo os 60 s. Cortar o web primeiro é o lado que **não**
+precisa de `shellTag`.
 
 ---
 

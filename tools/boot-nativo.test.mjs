@@ -114,7 +114,7 @@ const esperarVarredura = (pagina) => pagina.waitForFunction((ids) => (
 // quem chama espera `window.__avResolve(id, json)`, então os métodos com
 // `callId` resolvem sozinhos no próximo tique.
 const ponteCom = (espelho, telas) => `(() => {
-  const vazio = { acervoEstado: { cessao: { cedendo: false }, achados: [], descoberta: {} }, displays: ${JSON.stringify(telas || [])}, listFolder: [], pickDoc: [], ytSearch: [],
+  const vazio = { displays: ${JSON.stringify(telas || [])}, listFolder: [], pickDoc: [], ytSearch: [],
     espelhoEstado: ${JSON.stringify(espelho)}, espelhoDiag: {},
     espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' },
     // O FAROL. Ele é SÓ LEITURA desde o shell 61 (a chave saiu na v1.4.42), e
@@ -127,7 +127,7 @@ const ponteCom = (espelho, telas) => `(() => {
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag',
     'farolEstado',
-    'acervoEstado','acervoCeder','acervoPublicar','acervoParear']);
+    ]);
   const B = {
     shellVersion: () => 46,
     role: () => 'controle',
@@ -285,8 +285,6 @@ const ponteCom = (espelho, telas) => `(() => {
     // nome, a chamada lança dentro do native.js. Uma ponte de mentira que não
     // conhece um método que o app chama é a divergência que este repositório já
     // pagou uma vez.
-    'acervoCeder','acervoPararCessao','acervoPublicar','acervoResponder',
-    'acervoProcurar','acervoParear','acervoSoltar','acervoEstado',
   ];
   for (const n of nomes) {
     if (B[n]) continue;

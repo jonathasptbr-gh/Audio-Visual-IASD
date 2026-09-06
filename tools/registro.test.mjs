@@ -87,7 +87,7 @@ const ESTADO = {
 
 // A ponte de mentira, no mesmo molde do `boot-nativo.test.mjs`.
 const PONTE = `(() => {
-  const vazio = { acervoEstado: { cessao: { cedendo: false }, achados: [], descoberta: {} }, displays: [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320, telao: true }],
+  const vazio = { displays: [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320, telao: true }],
     listFolder: [], pickDoc: [], ytSearch: [],
     espelhoEstado: ${JSON.stringify(ESTADO)}, espelhoDiag: ${JSON.stringify(DIAG)},
     espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' },
@@ -96,7 +96,7 @@ const PONTE = `(() => {
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag',
-    'acervoEstado','acervoCeder','acervoPublicar','acervoParear']);
+    ]);
   const B = {
     shellVersion: () => 46,
     role: () => 'controle',
@@ -117,8 +117,6 @@ const PONTE = `(() => {
     // nome, a chamada lança dentro do native.js. Uma ponte de mentira que não
     // conhece um método que o app chama é a divergência que este repositório já
     // pagou uma vez.
-    'acervoCeder','acervoPararCessao','acervoPublicar','acervoResponder',
-    'acervoProcurar','acervoParear','acervoSoltar','acervoEstado',
   ];
   for (const n of nomes) {
     if (B[n]) continue;
@@ -187,6 +185,13 @@ try {
     ['MSE:', 'o autorrelato do `espelho/cliente.js`'],
     ['pendente(s)', 'a fila de aprovação, removida na v5.185'],
     ['blocos de PCM', 'o `AudioWorklet` do áudio do espelho'],
+    // O CLONE PELA REDE, removido na v1.8.16. O bloco dele imprimia o
+    // pareamento, a lista de aparelhos e o diário da cópia — quatro coisas que
+    // hoje não existem, e cuja frase continuaria RESPONDENDO a distância.
+    ['Clonar a biblioteca', 'o bloco do clone celular a celular (v1.8.16)'],
+    ['Cedendo o acervo', 'a linha da cessão'],
+    ['aparelho(s) cedendo', 'a lista da descoberta por mDNS'],
+    ['Cópia da biblioteca', 'o diário do clone'],
   ];
   for (const [termo, oque] of PROIBIDOS) {
     checar(!texto.includes(termo), `o Registro não fala de ${oque} ("${termo}")`);

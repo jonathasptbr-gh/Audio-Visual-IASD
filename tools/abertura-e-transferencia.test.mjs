@@ -43,7 +43,7 @@ const servidor = servirEstatico(RAIZ);
 // medir o arnês.
 const PONTE = `(function () {
   window.__ponte = { compartilhado: [], pacoteCriado: [], cancelado: 0 };
-  const vazio = { acervoEstado: { cessao: { cedendo: false }, achados: [], descoberta: {} }, displays: [], listFolder: [], pickDoc: [], otaPending: '', otaDiag: '',
+  const vazio = { displays: [], listFolder: [], pickDoc: [], otaPending: '', otaDiag: '',
     espelhoEstado: { ligado: false, telas: [], redes: [] }, espelhoDiag: {},
     castTarget: { label: '' }, apkProcurar: {}, ytDiag: '', cifraDiag: '',
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
@@ -52,7 +52,7 @@ const PONTE = `(function () {
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
     'ytDetalhes','micDiag','areaTransferencia','salvarTexto','pacoteCriar','pacoteFechar',
-    'acervoEstado','acervoCeder','acervoPublicar','acervoParear']);
+    ]);
   const B = {
     shellVersion: () => 63,
     role: () => 'controle',
@@ -76,8 +76,6 @@ const PONTE = `(function () {
     // nome, a chamada lança dentro do native.js. Uma ponte de mentira que não
     // conhece um método que o app chama é a divergência que este repositório já
     // pagou uma vez.
-    'acervoCeder','acervoPararCessao','acervoPublicar','acervoResponder',
-    'acervoProcurar','acervoParear','acervoSoltar','acervoEstado',
   ];
   for (const n of nomes) {
     if (B[n]) continue;
@@ -341,10 +339,9 @@ try {
     checar(bloco.escondidos.length === 0,
       'C · no APP os três tiles deste aparelho estão à vista', bloco);
     checar(bloco.grade.join(',') === 'temaTile,fitTile,wallTile,histOpenRow,'
-      + 'lyricsBgTile,rotBtn,shareAppTile,pacoteExportarTile,pacoteImportarTile,'
-      + 'cloneCederTile,cloneReceberTile',
-      'C · na MESMA grade dos outros, e na metade de BAIXO — com os dois do '
-      + 'CLONE (v1.8.0) ao lado deles, que é a mesma natureza',
+      + 'lyricsBgTile,rotBtn,shareAppTile,pacoteExportarTile,pacoteImportarTile',
+      'C · na MESMA grade dos outros, e na metade de BAIXO — a fileira das '
+      + 'três coisas que se fazem com o APP fora da projeção',
       bloco.grade);
 
     // O COMPARTILHAR CHEGA À PONTE COM O ENDEREÇO DENTRO. A asserção é sobre o

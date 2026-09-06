@@ -77,8 +77,6 @@ const PONTE = `(() => {
     // nome, a chamada lança dentro do native.js. Uma ponte de mentira que não
     // conhece um método que o app chama é a divergência que este repositório já
     // pagou uma vez.
-    'acervoCeder','acervoPararCessao','acervoPublicar','acervoResponder',
-    'acervoProcurar','acervoParear','acervoSoltar','acervoEstado',
   ];
   for (const n of nomes) {
     if (B[n]) continue;
