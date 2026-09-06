@@ -81,6 +81,10 @@ const PONTE = `(function () {
     pacoteFechar: (id) => {
       let total = 0;
       for (const p of (window.__saida || [])) total += p.length;
+      // O SINAL DE QUE A ESCRITA ACABOU (v1.8.19). O desfecho da exportação
+      // deixou de ser um diálogo, e é por este ponto — a última chamada de
+      // ponte do percurso — que o oráculo sabe que pode medir o botão.
+      window.__fechou = true;
       setTimeout(() => window.__avResolve(id, total), 0);
     },
     pickDoc: (id) => { setTimeout(() => window.__avResolve(id, []), 0); },
@@ -178,6 +182,29 @@ async function escolher(pg, passos) {
 const pg2linhas = (pg) => pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
   .map((li) => (li.textContent || '').replace(/\s+/g, ' ').trim()));
 
+// O FIM DA EXPORTAÇÃO, e ele deixou de ser um DIÁLOGO (v1.8.19). O popup
+// "Acervo exportado" saiu a pedido do operador, e quem responde agora é o
+// próprio botão: no caminho do SAF — que é o destes cenários, porque a ponte
+// de mentira não tem `pacoteEspaco` e a conta cai no zero — ele empresta o
+// título para o TAMANHO gravado e volta.
+//
+// Esperar pela PROMESSA da exportação seria frágil pelo motivo do irmão
+// `pacote-compartilhar`: um desfecho que abrisse diálogo nunca a resolveria, e
+// o que sairia seria prazo, não veredito. Espera-se pelo `fechar`.
+async function fimDaExportacao(pg) {
+  const fechou = await esperar(pg, () => window.__chamadas
+    ? window.__chamadas.includes('fechar')
+    : window.__fechou === true, null, 60000);
+  if (fechou !== true) return porque(fechou);
+  await pg.evaluate(() => new Promise((r) => setTimeout(r, 60)));
+  return pg.evaluate(() => {
+    const t = document.querySelector('#pacoteExportarTile .qs-titulo');
+    const d = document.getElementById('appDialog');
+    return { titulo: (t || {}).textContent || '',
+      dialogo: !!d && d.classList.contains('open') };
+  });
+}
+
 async function responderDialogo(pg) {
   const abriu = await esperar(pg, () => {
     const d = document.getElementById('appDialog');
@@ -224,9 +251,13 @@ try {
   await a.pg.evaluate(() => { window.__fim = exportarPacote(); });
   const listaA = await escolher(a.pg, []);
   checar(Array.isArray(listaA), 'A · a folha de escolha abre', porque(listaA));
-  const fimA = await responderDialogo(a.pg);
-  checar(typeof fimA === 'string' && /acervo-de-teste\.avpkg/.test(fimA),
-    'A · e a exportação termina', fimA);
+  const fimA = await fimDaExportacao(a.pg);
+  checar(fimA && fimA.dialogo === false,
+    'A · e a exportação termina SEM diálogo — o "Acervo exportado" saiu na '
+    + 'v1.8.19, e quem responde é o próprio botão', JSON.stringify(fimA));
+  checar(fimA && /\d/.test(fimA.titulo),
+    'A · com o TAMANHO no título do tile, que é onde o toque foi dado',
+    JSON.stringify(fimA));
 
   const medida = await a.pg.evaluate(() => {
     const partes = window.__saida;
@@ -393,8 +424,10 @@ try {
   checar(listaB.some((t) => /Álbum Um/.test(t)) && listaB.some((t) => /Álbum Dois/.test(t)),
     'B · a folha nomeia cada coleção do aparelho', JSON.stringify(listaB));
   await b.pg.click('#songMenuList .song-menu-go');
-  const fimB = await responderDialogo(b.pg);
-  checar(typeof fimB === 'string', 'B · e a exportação termina', fimB);
+  const fimB = await fimDaExportacao(b.pg);
+  checar(fimB && fimB.dialogo === false && /\d/.test(fimB.titulo),
+    'B · e a exportação termina no próprio botão, sem diálogo',
+    JSON.stringify(fimB));
 
   const conteudo = await b.pg.evaluate(() => {
     const partes = window.__saida;

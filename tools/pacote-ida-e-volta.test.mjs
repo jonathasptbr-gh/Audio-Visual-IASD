@@ -142,6 +142,10 @@ const PONTE = `(function () {
     pacoteFechar: (id) => {
       let total = 0;
       for (const p of (window.__saida || [])) total += p.length;
+      // O SINAL DE QUE A ESCRITA ACABOU (v1.8.19). O desfecho da exportação
+      // deixou de ser um diálogo, e é por este ponto — a última chamada de
+      // ponte do percurso — que o oráculo sabe que pode medir o botão.
+      window.__fechou = true;
       setTimeout(() => window.__avResolve(id, total), 0);
     },
     // O ARQUIVO ESCOLHIDO na importação. No aparelho ele é uma
@@ -213,6 +217,29 @@ async function aparelho(entrada) {
 
 // O diálogo do fim é MODAL e a Promise dele só resolve num toque. Quem opera
 // aperta "Entendi"; aqui o oráculo faz o mesmo, pelo botão de verdade.
+// O FIM DA EXPORTAÇÃO, e ele deixou de ser um DIÁLOGO (v1.8.19). O popup
+// "Acervo exportado" saiu a pedido do operador, e quem responde agora é o
+// próprio botão: no caminho do SAF — que é o destes cenários, porque a ponte
+// de mentira não tem `pacoteEspaco` e a conta cai no zero — ele empresta o
+// título para o TAMANHO gravado e volta.
+//
+// Esperar pela PROMESSA da exportação seria frágil pelo motivo do irmão
+// `pacote-compartilhar`: um desfecho que abrisse diálogo nunca a resolveria, e
+// o que sairia seria prazo, não veredito. Espera-se pelo `fechar`.
+async function fimDaExportacao(pg) {
+  const fechou = await esperar(pg, () => window.__chamadas
+    ? window.__chamadas.includes('fechar')
+    : window.__fechou === true, null, 60000);
+  if (fechou !== true) return porque(fechou);
+  await pg.evaluate(() => new Promise((r) => setTimeout(r, 60)));
+  return pg.evaluate(() => {
+    const t = document.querySelector('#pacoteExportarTile .qs-titulo');
+    const d = document.getElementById('appDialog');
+    return { titulo: (t || {}).textContent || '',
+      dialogo: !!d && d.classList.contains('open') };
+  });
+}
+
 async function responderDialogo(pg) {
   const abriu = await esperar(pg, () => {
     const d = document.getElementById('appDialog');
@@ -304,9 +331,10 @@ try {
   checar(Array.isArray(grupos) && grupos.some((t) => /Ajustes e catálogos/.test(t)
     && /sempre vai junto/.test(t)),
     '1 · com "Ajustes e catálogos" fixo e dizendo que vai junto', JSON.stringify(grupos));
-  const resumo = await responderDialogo(a.pg);
-  checar(typeof resumo === 'string' && /acervo-de-teste\.avpkg/.test(resumo),
-    '1 · a exportação termina dizendo o NOME e o tamanho do arquivo', resumo);
+  const resumo = await fimDaExportacao(a.pg);
+  checar(resumo && resumo.dialogo === false && /\d/.test(resumo.titulo),
+    '1 · a exportação termina no PRÓPRIO BOTÃO, com o tamanho e sem diálogo '
+    + '(v1.8.19)', JSON.stringify(resumo));
 
   const saida = await a.pg.evaluate(() => {
     const partes = window.__saida;
