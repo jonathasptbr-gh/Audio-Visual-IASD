@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.26",
+    "itens": [
+      "Os álbuns não baixados voltaram a ter o botão de baixar depois de importar.",
+      "A folha de exportação abre na hora, com o peso aproximado de cada coleção.",
+      "A medição do acervo passou para depois da escolha, onde já há barra de progresso."
+    ]
+  },
+  {
     "versao": "1.8.25",
     "itens": [
       "Ao importar, os hinos aparecem na notificação em ordem e no ritmo da cópia.",

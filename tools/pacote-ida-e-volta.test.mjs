@@ -369,6 +369,14 @@ try {
   const grupos = await confirmarGrupos(a.pg);
   checar(Array.isArray(grupos) && grupos.length >= 2,
     '1 · a folha de escolha abre com os grupos e o confirmar', JSON.stringify(grupos));
+  // O PESO DA FOLHA É APROXIMADO E DIZ ISSO (v1.8.26). Ela abre antes da
+  // varredura do disco, com o que a Biblioteca e o catálogo já sabem — e um
+  // número estimado sem a palavra que o diz seria comparado com o arquivo que
+  // sai, que é outro.
+  checar(Array.isArray(grupos) && grupos.every((t) => !/\d\s*(B|KB|MB|GB)/.test(t)
+    || /aprox\./.test(t)),
+    '1 · e todo peso da folha vem com "aprox." — ela abre ANTES de medir',
+    JSON.stringify(grupos));
   // A LINHA "Ajustes e catálogos" SAIU DA FOLHA (v1.8.25) e o que ela carregava
   // CONTINUA no pacote — as duas metades, porque uma sem a outra é um defeito.
   // Ela nunca foi escolha: nasceu marcada e sem ouvinte, porque desmarcá-la
@@ -979,6 +987,59 @@ try {
       '14 · e em ORDEM — a varredura do OPFS não tem ordem nenhuma, e sem ordenar '
       + 'o hinário parece um sorteio', JSON.stringify(nomes));
     await n.ctx.close();
+  }
+
+  // =========================================================================
+  // 15 · O ÍNDICE VIAJA INTEIRO; OS ARQUIVOS, NÃO (v1.8.26)
+  // =========================================================================
+  //
+  // Relato do operador: *"ele importa o hinário, mas as outras coleções por
+  // algum motivo, perdem seus botões de download, mesmo elas não estando
+  // baixadas"*.
+  //
+  // O índice de uma coleção é uma chave de `state`, e chaves de `state` viajam
+  // INTEIRAS; os arquivos são cortados pela folha de escolha. Um pacote só do
+  // hinário leva, junto, o índice de todos os OUTROS álbuns — com o
+  // `fileIdFull` que a ORIGEM tinha. Enquanto a mescla era rasa isso não
+  // aparecia (o índice de fora era descartado); a v1.8.23 passou a preencher os
+  // buracos, e `colecaoCompleta` conta `fileIdFull`: o álbum passava a parecer
+  // baixado e o botão de baixar sumia.
+  //
+  // NÃO HÁ SINTOMA NA IMPORTAÇÃO. Ela termina certa, e o defeito aparece na
+  // Biblioteca, depois — num álbum que o pacote nem pretendia levar.
+  {
+    const o = await aparelho(saida);
+    // O DESTINO recebe o índice de um álbum que o pacote NÃO carrega arquivo
+    // nenhum — é a forma exata do relato, com o ponteiro apontando para um id
+    // que nunca vai chegar.
+    await o.pg.evaluate(async () => {
+      await AVDB.setState('coll:album-fantasma', {
+        indexSyncedAt: 1,
+        songs: [{ id_music: 'x1', name: 'Faixa de outro álbum',
+          fileIdFull: 'id-que-nunca-chega', fileIdPlayback: null }],
+      });
+    });
+    const recarregou6 = o.pg.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await o.pg.evaluate(() => { window.__fim = importarPacote(); });
+    await responderDialogo(o.pg);
+    await recarregou6;
+    await esperar(o.pg, () => !document.getElementById('splash'), null, 30000);
+
+    const r = await o.pg.evaluate(async () => {
+      const idx = await AVDB.getState('coll:album-fantasma');
+      const faixa = ((idx && idx.songs) || [])[0] || {};
+      const bom = await AVDB.getState('coll:colecao');
+      const boa = ((bom && bom.songs) || [])[0] || {};
+      return { fantasma: faixa.fileIdFull, real: boa.fileIdFull };
+    });
+    checar(r.fantasma === null || r.fantasma === undefined,
+      '15 · o ponteiro para um arquivo que NÃO chegou é apagado — sem isso o '
+      + 'álbum parece baixado e o botão de baixar dele some', r.fantasma);
+    // A METADE QUE IMPEDE O CONSERTO LARGO DEMAIS: o ponteiro que LEVA a um
+    // arquivo de verdade continua lá. Apagar todos passaria na primeira.
+    checar(r.real === 'arq-de-teste',
+      '15 · e o ponteiro que leva a um arquivo REAL continua de pé', r.real);
+    await o.ctx.close();
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));

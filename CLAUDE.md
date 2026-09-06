@@ -3062,6 +3062,31 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   estava no outro lado e saiu por LOTE (`AVDB.updateStateLote`): gravar 1189
   capítulos passou de **596 ms para 153 ms**, sem migração e sem tocar na
   leitura.
+- **O PONTEIRO QUE NÃO LEVA A LUGAR NENHUM É APAGADO, E QUEM DECIDE É O DESTINO**
+  (v1.8.26). O índice de uma coleção é uma chave de `state` e viaja INTEIRO; os
+  arquivos são cortados pela folha de escolha. Um pacote só do hinário leva
+  junto o índice de todos os OUTROS álbuns, com o `fileIdFull` da origem — e
+  `colecaoCompleta` conta `fileIdFull`, então o álbum passa a parecer baixado e
+  **o botão de baixar dele some**. Enquanto a mescla era rasa isso não aparecia;
+  a v1.8.23 passou a preencher os buracos e o defeito veio junto.
+  `pacoteAcertarPonteiros` roda no fim de toda importação **e uma vez na
+  abertura** (a marca mora no `FORA`, senão diria a um aparelho quebrado que ele
+  já foi consertado). O destino é o único que sabe as duas coisas que importam —
+  o que chegou E o que ele já tinha —, e é a regra do `opfsTodosOsArquivos` num
+  lugar novo: pergunta-se ao DISCO, não ao catálogo.
+- **A FOLHA DE ESCOLHA ABRE ANTES DE MEDIR** (v1.8.26). O esboço
+  (`pacotePlanoAproximado`) sai do que já está em memória mais um cursor sobre o
+  catálogo (`AVDB.filesResumo`); a varredura do disco corre DEPOIS da escolha,
+  onde já existe barra de progresso. O peso arredonda PARA CIMA e leva a palavra
+  **"aprox."** (`pacotePeso`) — é o lado certo do erro numa tela cujo consumidor
+  é *"cabe no cartão?"*, e quem de fato decide isso é o plano exato, mais
+  adiante.
+  - **O QUE A FOLHA NÃO CHEGOU A OFERECER ENTRA MARCADO.** Uma coleção que só a
+    varredura conhece ficaria de fora EM SILÊNCIO, e deixar bytes para trás é o
+    único erro deste caminho que não se recupera.
+  - **A MONTAGEM É UMA SÓ** (`pacoteMontarFolha`) para o esboço e para o plano
+    exato: duas divergiriam no primeiro ajuste, e a divergência apareceria como
+    um grupo que existe na tela e não no arquivo.
 - **A NOTIFICAÇÃO DA IMPORTAÇÃO MOSTRA A ETAPA E OS ITENS** (v1.8.23). Ela era
   `bgTaskStart('Importando o acervo', 1)` com o NOME DO ARQUIVO como item único:
   um trabalho de UM item, com uma linha que nunca trocava, e a CONFERÊNCIA — que
@@ -5156,7 +5181,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.25 · APK v1.8.22** · `SHELL_VERSION` **69** ·
+**Versão atual: base web v1.8.26 · APK v1.8.22** · `SHELL_VERSION` **69** ·
 bundle com `minShell: 69` e **SEM `shellTag`** (lote SÓ DE BASE WEB) — o
 shell 69 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
