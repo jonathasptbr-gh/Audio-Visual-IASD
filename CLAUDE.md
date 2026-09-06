@@ -3211,6 +3211,23 @@ comum (o cartão, o cabo).
   CEDE A VEZ E SAI — e sair é de graça, porque o `abrir` do outro lado devolve
   `recebido` e o item volta de onde parou; é a mesma retomada que um empurrão
   interrompido por morte de renderer já usava.
+- **UMA RECUSA NÃO É UM PACOTE ENGOLIDO, e o conselho é o OPOSTO** (v1.8.11).
+  A frase da falha do pareamento era uma só e mandava sempre para o PONTO DE
+  ACESSO — o contorno da Wi-Fi que bloqueia cliente↔cliente. Esse conselho só
+  vale quando o pacote é ENGOLIDO, e aí o que volta é um prazo estourado.
+  MEDIDO em campo: `ConnectException` em **2,3 s** contra um `connectTimeout` de
+  **8 s** — o pacote atravessou a rede e voltou RECUSADO, isto é, o endereço
+  existe e não há nada escutando nele. Mandar trocar de rede ali é mandar
+  consertar o que está certo, e foram duas rodadas de campo procurando defeito
+  na Wi-Fi. Quem separa é a CLASSE da exceção (`cloneEnsinoDaFalha`, PURA, com
+  oráculo): recusa manda conferir a cessão e digitar o endereço; prazo estourado
+  (ou sem rota) continua mandando para o ponto de acesso.
+- **E A SAÍDA À MÃO NÃO DEPENDE DE A LISTA ESTAR VAZIA** (v1.8.11). Ela nasceu
+  para *"os dois não se acham"* e por isso morava dentro do ramo da lista vazia;
+  o caso de campo é o OPOSTO — o aparelho APARECE, o endereço que o anúncio
+  trouxe não é o que o servidor escuta, e a única saída do app ficava escondida
+  atrás de uma lista cheia. O prazo de 10 s fica, e pelo motivo dele: oferecer
+  as duas de saída ensinaria a digitar o endereço sempre.
 - **O TOKEN DE UM ITEM DO CLONE É DO SHELL, e essa é a inversão que morde**
   (v1.8.10). Numa mídia do TELÃO quem cunha é o web (`telaTokenDe`, que CUNHA
   quando não conhece o id): o id é do acervo, o token é nosso. Aqui quem cunha é
@@ -5098,7 +5115,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.10 · APK v1.8.9** · `SHELL_VERSION` **65** ·
+**Versão atual: base web v1.8.11 · APK v1.8.9** · `SHELL_VERSION` **65** ·
 bundle com `minShell: 65` e **sem `shellTag`** (lote só de web) — o shell 65 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 

@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.10';
+const WEB_VERSION = '1.8.11';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -24629,7 +24629,7 @@ function cloneRenderAchados(lista) {
     caixa.append(ic, txt);
     li.appendChild(caixa);
     songMenuListEl.appendChild(li);
-    if (Date.now() - cloneProcurandoDesde > CLONE_MANUAL_MS) cloneLinhaManual();
+    cloneTalvezManual();
     return;
   }
   for (const a of lista) {
@@ -24654,6 +24654,24 @@ function cloneRenderAchados(lista) {
       () => { closeSongMenu(); cloneComecar(a); },
     ));
   }
+  cloneTalvezManual();
+}
+
+/**
+ * A SAÍDA À MÃO NÃO DEPENDE DE A LISTA ESTAR VAZIA (v1.8.11).
+ *
+ * Ela nasceu para o caso em que os dois aparelhos não se acham — e por isso
+ * morava dentro do ramo da lista vazia. MEDIDO em campo, o caso que sobra é o
+ * OPOSTO e ela não alcançava: o aparelho aparece na lista, o endereço que o
+ * anúncio trouxe não é o que o servidor está escutando, e o toque devolve
+ * `ConnectException` em 2,3 s — com a única saída do app escondida atrás de uma
+ * lista que não está vazia.
+ *
+ * O prazo continua sendo o mesmo, e pelo mesmo motivo: oferecer as duas de
+ * saída ensinaria a digitar o endereço sempre.
+ */
+function cloneTalvezManual() {
+  if (Date.now() - cloneProcurandoDesde > CLONE_MANUAL_MS) cloneLinhaManual();
 }
 
 /**
@@ -24733,6 +24751,42 @@ function cloneEndereco(txt) {
  */
 function cloneMeuRotulo() { return ''; }
 
+/**
+ * O QUE FAZER DEPENDE DE QUEM RECUSOU, e as duas respostas são OPOSTAS
+ * (v1.8.11).
+ *
+ * A frase era uma só e mandava sempre para o PONTO DE ACESSO — o contorno da
+ * Wi-Fi que não deixa dois clientes se falarem. Mas esse conselho só vale
+ * quando o pacote é ENGOLIDO, e aí o que volta é um prazo estourado. MEDIDO em
+ * campo: `ConnectException` em 2,3 s contra um `connectTimeout` de 8 s, isto é,
+ * **o outro lado respondeu** — o pacote atravessou a rede e voltou recusado.
+ * Mandar ligar o ponto de acesso ali é mandar consertar o que não está
+ * quebrado, e foi o que fez duas rodadas de campo procurarem defeito na rede.
+ *
+ * A classe da exceção vem no começo do `erro` (o `javaClass.simpleName` do
+ * `pedirPar`), e é ela que separa os dois casos. PURA de propósito: é a única
+ * coisa deste caminho que tem como ser exercitada sem dois aparelhos.
+ */
+function cloneEnsinoDaFalha(erro) {
+  const e = String(erro || '');
+  // RECUSADO: o endereço existe na rede e não há nada escutando nele. As duas
+  // causas reais são o anúncio ter envelhecido (o outro celular trocou de IP)
+  // e a cessão ter sido desligada — e as duas se resolvem AQUI, sem tocar na
+  // rede.
+  if (/ConnectException/.test(e)) {
+    return 'O outro celular respondeu, mas não há nada escutando nesse endereço: '
+      + 'confira se ele ainda está cedendo e, na lista, use "Digitar o endereço" '
+      + 'com o que aparece no Registro dele.';
+  }
+  // ENGOLIDO: nada respondeu no prazo. É a falha muda deste recurso — a Wi-Fi
+  // que bloqueia cliente↔cliente —, e o contorno é o celular VIRAR a rede.
+  if (/SocketTimeoutException|NoRouteToHost|Unreachable/i.test(e)) {
+    return 'Se a Wi-Fi não deixa um celular falar com o outro, ligue o ponto de '
+      + 'acesso de um deles e conecte o outro nele — não precisa de internet.';
+  }
+  return 'Confira se o outro celular ainda está cedendo, e tente de novo.';
+}
+
 async function clonePedirPar(a) {
   // O PASSO ENTRA NO DIÁRIO. Sem esta linha o `parou em:` sai VAZIO quando a
   // falha é do pareamento — que é justamente o caso mais frequente —, e o
@@ -24765,9 +24819,10 @@ async function clonePedirPar(a) {
     if (estado === 'recusado') return 'O outro aparelho recusou a cópia.';
     if (estado === 'ocupado') return 'O outro aparelho já está copiando para alguém.';
     if (estado === 'nao-cede') return 'Aquele aparelho parou de ceder a biblioteca.';
-    if (estado === 'erro') return (r.erro ? ('Não deu para falar com o outro aparelho (' + r.erro + ').') : 'Não deu para falar com o outro aparelho.')
-      + ' Se a Wi-Fi não deixa um celular falar com o outro, ligue o ponto de '
-      + 'acesso de um deles e conecte o outro nele.';
+    if (estado === 'erro') {
+      return (r.erro ? ('Não deu para falar com o outro aparelho (' + r.erro + ').') : 'Não deu para falar com o outro aparelho.')
+        + ' ' + cloneEnsinoDaFalha(r.erro);
+    }
     if (Date.now() > ate) return 'Ninguém respondeu no outro aparelho.';
     falarNoTile(cloneReceberTileEl, 'Aguardando…', 0);
     await new Promise((x) => setTimeout(x, CLONE_ENQUETE_MS));
