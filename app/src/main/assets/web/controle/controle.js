@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.23';
+const WEB_VERSION = '1.8.24';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23032,23 +23032,36 @@ async function pacotePlano() {
   // AS CHAVES DE `state`, lidas e codificadas de uma vez. Uma chave que não
   // possa ser lida ou serializada é PULADA aqui — e some do plano inteiro, o
   // que é o certo: ela não vai ser escrita depois.
+  // UM CURSOR, e não um `getState` por chave (v1.8.24). É a mesma correção que o
+  // `mediaResumo` já era para a store de mídia, e pelo mesmo motivo: a Bíblia
+  // mora em `state` com uma chave POR CAPÍTULO (1189 por versão), então pedir os
+  // valores um a um são milhares de transações em fila — na PORTA da folha, com
+  // o operador olhando "Medindo o acervo".
+  //
+  // MEDIDO em Chromium, sobre 3.600 chaves de tamanho real (11,8 MB de JSON):
+  // 525 ms por chave contra 275 ms por cursor; só serializar, sem tocar no
+  // banco, são 64 ms — o piso irredutível.
+  //
+  // A CODIFICAÇÃO CONTINUA ACONTECENDO AQUI, dentro da varredura, e continua
+  // sendo guardada: é a exceção declarada do plano (as chaves de `state` são
+  // milhares e minúsculas, e o `JSON.stringify` delas é o único jeito de saber
+  // quanto pesam). Adiá-la para a escrita não pouparia nada — devolveria as
+  // milhares de transações, um pouco mais tarde.
   const codificador = new TextEncoder();
   const estado = [];
   let bytesEstado = 0;
-  for (const chave of (await AVDB.stateKeys('')).filter(AVPacote.chaveViaja)) {
-    let valor;
-    try { valor = await AVDB.getState(chave); } catch (_) { continue; }
-    if (valor === undefined) continue;
+  await AVDB.stateVarrer((chave, valor) => {
+    if (!AVPacote.chaveViaja(chave) || valor === undefined) return;
     if (valor instanceof Blob) {
       estado.push({ chave, blob: valor });
       bytesEstado += valor.size;
-      continue;
+      return;
     }
     let bytes;
-    try { bytes = codificador.encode(JSON.stringify(valor)); } catch (_) { continue; }
+    try { bytes = codificador.encode(JSON.stringify(valor)); } catch (_) { return; }
     estado.push({ chave, bytes });
     bytesEstado += bytes.length;
-  }
+  });
 
   const midia = await AVDB.mediaResumo();
   let bytesMidia = 0;

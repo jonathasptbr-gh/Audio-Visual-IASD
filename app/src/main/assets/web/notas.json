@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.24",
+    "itens": [
+      "A medição do acervo antes de exportar ficou cerca de duas vezes mais rápida."
+    ]
+  },
+  {
     "versao": "1.8.23",
     "itens": [
       "O acervo importado voltou a tocar sem internet — os hinos deixaram de chegar sem o arquivo.",
