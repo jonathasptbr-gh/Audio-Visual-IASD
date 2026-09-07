@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.32';
+const WEB_VERSION = '1.8.33';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -14142,7 +14142,13 @@ function lvBuildSong(el, cur) {
     // da música — é ela que fica destacada durante a introdução, e ocultá-la
     // faria o destaque sumir justo aí.
     const row = document.createElement('div');
-    row.className = 'lv-row' + (slide.cover ? ' lv-row--cover' : '');
+    // `lv-row--letra` é o MODIFICADOR que faltava (v1.8.33), irmão de
+    // `--verse` e `--slide`: a letra era a única espécie de linha SEM nome
+    // próprio, e por isso o desenho dela morava na classe BASE — que as outras
+    // duas tinham de desfazer uma a uma. Com ele, o que é da letra (o texto
+    // centrado) e o que é do versículo (a barra na margem) ficam cada um na sua
+    // classe, e uma espécie nova não herda nenhum dos dois por engano.
+    row.className = 'lv-row lv-row--letra' + (slide.cover ? ' lv-row--cover' : '');
     row.dataset.i = String(i);
     if (slide.cover) {
       row.textContent = 'Início';

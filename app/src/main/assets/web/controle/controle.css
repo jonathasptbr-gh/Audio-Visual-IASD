@@ -8115,13 +8115,25 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    texto não se desloque quando a estrofe muda. */
 .lv-row {
   flex-shrink: 0;
-  /* A barra é uma FAIXA PINTADA (v5.267), e o `padding-left` fixo continua
-     garantindo que o texto não se desloque quando a estrofe muda — a faixa
-     nasce transparente e só ganha cor no `.current`. */
-  background: linear-gradient(to right, transparent 0 2px, transparent 2px);
-  padding-left: .55rem;
   font-size: var(--lv-fonte); line-height: 1.5; color: var(--text);
 }
+/* ===== A LETRA É CENTRADA, E O DESTAQUE É SÓ A COR (v1.8.33) =====
+
+   Pedido do operador: *"faça o texto ser centralizado horizontalmente, remova o
+   indicador de posição atual que temos de 'barra lateral' use apenas a coloração
+   do texto atual como indicador"* — na letra, e não na cifra, **nos dois modos**.
+
+   Vale para os dois de graça porque o construtor é UM (`lvBuildSong`, chamado
+   pela folha do avançado e pela zona do Modo Fácil): uma classe, duas casas.
+
+   E A BARRA MUDOU DE CLASSE EM VEZ DE GANHAR UMA EXCEÇÃO. Ela morava na base
+   com a faixa transparente reservada em toda linha, e as espécies que não a
+   queriam a desfaziam uma a uma — a letra seria a SEGUNDA a fazer isso, e uma
+   base que dois de três filhos desfazem é a lista de exceções que envelhece
+   sozinha. Hoje ela é do VERSÍCULO, que é quem a usa; a letra não precisa
+   desfazer nada, e o `padding-left` que existia só para reservá-la saiu junto —
+   com ele a caixa ficaria 8,8px fora do centro, que é metade do pedido. */
+.lv-row--letra { text-align: center; }
 /* ===== A LETRA DOBROU DE TAMANHO (v1.1.4) =====
    Pedido do operador: *"pode dobrar o tamanho da fonte nos campos de leitura de
    letra das músicas que estão sendo transmitidas. Atual está muito pequeno e só
@@ -8249,6 +8261,19 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    isso ele é o que mais fica abaixo do corpo: ali dentro ele é a marca, não o
    texto. */
 .lv-row--verse .lv-num { font-size: var(--fs-3xl); font-weight: var(--fw-forte); color: var(--accent); margin-right: .3rem; }
+/* A BARRA NA MARGEM É DAQUI (v1.8.33, vinda da classe base). Ela é uma FAIXA
+   PINTADA (v5.267) e o `padding-left` fixo é o que a reserva: a faixa nasce
+   transparente e só ganha cor no `.current`, então o texto não se desloca quando
+   o versículo no ar muda. Num capítulo inteiro de linhas parecidas, a marca na
+   margem responde "onde eu estou?" de relance — que é outra pergunta da que a
+   letra faz, onde a estrofe em acento já se separa das vizinhas. */
+.lv-row--verse {
+  background: linear-gradient(to right, transparent 0 2px, transparent 2px);
+  padding-left: .55rem;
+}
+.lv-row--verse.current {
+  background: linear-gradient(to right, var(--accent) 0 2px, transparent 2px);
+}
 /* ===== A PÁGINA DA APRESENTAÇÃO (v1.4.24) ===== */
 /* O molde vertical do versículo — mas com o RÓTULO SOBRE a imagem (v1.4.35), a
    pedido do operador: *"coloque o número da página sobreposto ao slide, para o
@@ -8256,13 +8281,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    (MEDIDO: 27px de 408), e era ela que tirava a miniatura do centro da linha.
    Fora do fluxo, a miniatura ocupa a largura inteira e uma página 4:3 aparece
    centrada pelo `object-fit`, sem nada a compensar. */
-/* `padding-left: 0` desfaz o recuo que a `.lv-row` reserva para a FAIXA do
-   versículo no ar. Numa linha de slide ele fazia duas coisas erradas de uma vez:
-   deslocava a miniatura ~9px para a direita (ela não estava centrada na linha, e
-   centrar é metade do pedido) e tirava o selo de cima da imagem — ele é absoluto
-   contra a linha, e a imagem começava depois do recuo. A faixa não é desenhada
-   aqui de qualquer forma: quem marca a página no ar é o selo. */
-.lv-row--slide { position: relative; display: block; padding-left: 0; }
+/* O `padding-left: 0` que morava aqui SAIU na v1.8.33, junto com a razão dele: a
+   classe base deixou de reservar a faixa do versículo, então não há mais recuo a
+   desfazer. O que ele evitava continua valendo como fato — a miniatura fora do
+   centro e o selo empurrado para dentro da imagem —, e hoje sai de graça. Quem
+   marca a página no ar aqui é o SELO, nunca uma barra. */
+.lv-row--slide { position: relative; display: block; }
 /* O respiro é FIXO e não o `--lv-estrofe-gap`: aquele é uma LINHA da letra, e
    com o corpo grande ele abria um vão maior que a própria miniatura. Aqui o que
    separa duas páginas é a borda da imagem, que já é um limite duro.
@@ -8328,17 +8352,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: var(--live-fill); color: var(--live-strong);
 }
 .lv-row--slide.current .row-live { display: inline; }
-/* E A BARRA DE ACENTO DA `.lv-row.current` NÃO VALE AQUI. Ela marca o versículo
-   no ar, e numa linha de slide ficaria atrás da imagem — visível só pela faixa
-   TRANSPARENTE que o `object-fit: contain` deixa numa página 4:3. O que sairia é
-   um traço de acento ao lado de um selo vermelho: duas cores dizendo a mesma
-   coisa na mesma linha, que é o que a paleta deste app proíbe. */
-.lv-row--slide.current { background: none; }
+/* A DESFEITA DA BARRA DE ACENTO TAMBÉM SAIU na v1.8.33: ela é do
+   `.lv-row--verse.current` agora, e nunca chegou a uma linha de slide. O motivo
+   fica registrado porque ele volta a valer se alguém a devolver à base — numa
+   linha de slide o traço ficaria atrás da imagem, visível só pela faixa que o
+   `object-fit: contain` deixa numa página 4:3, e o que sairia é um acento ao
+   lado de um selo vermelho: duas cores dizendo a mesma coisa na mesma linha. */
 
-/* No ar agora: barra na margem + texto em acento. Sem cartão, o contraste da
-   cor é o que separa — e continua legível de relance. */
+/* No ar agora: o texto em acento. Sem cartão, o contraste da cor é o que separa
+   — e continua legível de relance. A BARRA na margem é do VERSÍCULO (v1.8.33):
+   ver `.lv-row--verse`, logo acima do bloco da apresentação. */
 .lv-row.current {
-  background: linear-gradient(to right, var(--accent) 0 2px, transparent 2px);
   color: var(--accent); font-weight: var(--fw-medio);
 }
 .lv-row.current .lv-aux { color: var(--accent); }
