@@ -1,5 +1,76 @@
 [
   {
+    "versao": "1.8.28",
+    "itens": [
+      "A aba de cifra só aparece quando há mesmo uma cifra para ler.",
+      "O aviso do auxiliar de leitura deixou de acender por uma cifra que não existe."
+    ]
+  },
+  {
+    "versao": "1.8.27",
+    "itens": [
+      "Exportar e importar passaram a ter uma barra só, de ponta a ponta.",
+      "O resumo da importação ficou curto: um total, e o nome do que faltou.",
+      "O botão parado virou o cancelar do que está em curso, em vez de girar à toa.",
+      "A importação passou a poder ser interrompida.",
+      "A notificação deixou de usar a seta de download no que não é download."
+    ]
+  },
+  {
+    "versao": "1.8.26",
+    "itens": [
+      "Os álbuns não baixados voltaram a ter o botão de baixar depois de importar.",
+      "A folha de exportação abre na hora, com o peso aproximado de cada coleção.",
+      "A medição do acervo passou para depois da escolha, onde já há barra de progresso."
+    ]
+  },
+  {
+    "versao": "1.8.25",
+    "itens": [
+      "Ao importar, os hinos aparecem na notificação em ordem e no ritmo da cópia.",
+      "O aviso do fim da importação diz quantas músicas a coleção tem no aparelho.",
+      "O pacote deixou de levar ajustes pessoais — ele carrega o acervo, não o app.",
+      "A gravação da Bíblia na importação ficou cerca de quatro vezes mais rápida."
+    ]
+  },
+  {
+    "versao": "1.8.24",
+    "itens": [
+      "A medição do acervo antes de exportar ficou cerca de duas vezes mais rápida."
+    ]
+  },
+  {
+    "versao": "1.8.23",
+    "itens": [
+      "O acervo importado voltou a tocar sem internet — os hinos deixaram de chegar sem o arquivo.",
+      "A importação mostra os itens entrando na Biblioteca, um a um, na notificação.",
+      "A conferência do pacote deixou de parecer parada: ela agora anuncia o progresso.",
+      "A importação ficou mais rápida na parte que grava ajustes e catálogos."
+    ]
+  },
+  {
+    "versao": "1.8.22",
+    "itens": [
+      "O acervo exportado deixou de chegar com 0 KB no aplicativo que o recebe.",
+      "O Registro passou a dizer quantos bytes o aparelho serve do pacote, e não só quantos ele gravou."
+    ]
+  },
+  {
+    "versao": "1.8.21",
+    "itens": [
+      "A tela de compartilhamento voltou a abrir ao enviar o acervo.",
+      "O Registro passou a dizer o que o aparelho respondeu no envio, e não só o que o app pediu."
+    ]
+  },
+  {
+    "versao": "1.8.20",
+    "itens": [
+      "Tocar no botão pronto voltou a abrir o compartilhamento.",
+      "Refazer o pacote passou a perguntar antes de descartar o que estava pronto.",
+      "O Registro passou a contar o que a exportação preparou e o que o envio deu."
+    ]
+  },
+  {
     "versao": "1.8.19",
     "itens": [
       "O aviso de \"acervo exportado\" saiu: quem responde agora é o próprio botão.",

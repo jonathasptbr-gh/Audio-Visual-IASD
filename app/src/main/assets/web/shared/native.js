@@ -558,6 +558,16 @@
       try { B.pacoteDescartarPronto(); } catch (_) { /* ponte indisponível */ }
     },
 
+    // → string: o que o SHELL sabe do pacote (há pronto? no disco? o desfecho
+    // do último fecho e do último envio, com o nome da exceção quando houve).
+    //
+    // Ele existe porque o `-1` do `pacoteCompartilhar` colapsa TRÊS causas, e
+    // este lado não tem como separá-las — três rodadas de campo se gastaram
+    // nisso. Irmão do `otaDiag` e do `ytDiag`, e com o mesmo consumidor: a
+    // pessoa que lê o Registro.
+    pacoteDiag: () => call((id) => B.pacoteDiag(id), CALL_TIMEOUT_MS)
+      .then((r) => String(r || '')),
+
     // ---- CIFRA — ver `controle/cifra.js` ----
     // TRANSPORTE, e só. Devolve `{ status, html }` com o corpo CRU da página:
     // quem sabe ler aquele HTML é o `cifra.js`, do lado web (invariante 5), e
@@ -936,6 +946,12 @@
           // Há quanto tempo nada acontece: é o que faz a notificação
           // distinguir TRAVADO de lento.
           idleMs: inteiro(p && p.idleMs),
+          // ESTE TRABALHO TRAZ BYTES DA REDE? É o que escolhe o ÍCONE da barra
+          // de notificação: exportar, importar e preparar uma apresentação não
+          // baixam nada, e a seta de download mentia sobre os três. O Kotlin lê
+          // ausente como `true` — o comportamento de sempre para um bundle mais
+          // antigo que a ponte.
+          baixando: !(p && p.baixando === false),
         }));
       } catch (_) { /* ignorado */ }
     },

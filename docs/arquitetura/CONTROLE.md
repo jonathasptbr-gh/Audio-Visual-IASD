@@ -2261,19 +2261,36 @@ e ler *"Nada em exibição"*.
   precisa da ponte — CORS) e **nunca vai ao telão**: é para quem toca, e o que a
   congregação vê continua sendo a letra.
 
+  **E ELA SÓ ENTRA NA LISTA COM FOLHA NA MÃO** (v1.8.28, pedido do operador:
+  *"não quero acesso a essa seção se não tem esse conteúdo"*). São duas
+  perguntas: `cifraCabe` decide se vale PROCURAR (por conteúdo musical, e é ela
+  que o `send` consulta), `cifraTemFolha` decide se há o que MOSTRAR (pelo
+  desfecho, no cache). Enquanto houve só a primeira, a aba aparecia para toda
+  faixa de áudio do acervo — MEDIDO, dois terços dos álbuns não estão sob
+  endereço deduzível nenhum — e o toque abria a frase de "não encontrei". A
+  ESPERA (`buscando`) fica de pé só para quem ESCOLHEU a aba, senão ela sairia
+  de baixo do dedo do músico a cada troca de faixa. A BADGE do transporte segue
+  junto por sair da MESMA lista, e as cinco frases de falha saíram da folha — o
+  diagnóstico é do Registro.
+
   Ela é lida **sob demanda** — com uma exceção: **o Hinário 2022 fica guardado no
   aparelho** (v1.1.28), baixado junto com o hinário, porque é o único acervo cujo
   endereço no site é deduzível do nome. Fora dele o cache é um `Map` que morre
   com o app. A busca começa quando a música **entra em cena** — não quando a aba
   abre (v1.1.17): assim a folha costuma estar pronta antes de alguém pedir por
-  ela. Quem decide se cabe cifra para um item é `cifraCabe`, a MESMA função que
-  a aba usa para se oferecer. **Ela é SÓ AUTOMÁTICA** (v1.3.3): houve uma busca à
+  ela — e desde a v1.8.28 ela começa **também na abertura da folha**, porque o
+  alvo da Biblioteca (o ensaio) nunca passa pela cena. Quem decide se vale
+  PROCURAR é `cifraCabe`, nos três pontos; quem decide se a aba se OFERECE é
+  `cifraTemFolha`, sobre o desfecho. **Ela é SÓ AUTOMÁTICA** (v1.3.3): houve uma busca à
   mão — lista de resultados, prévia e endereço fixado por música —, e ela saiu a
   pedido do operador. Achando a cifra errada, a saída é o link "Ver no Cifra
-  Club"; não achando nenhuma, o que aparece é a frase do motivo. O desenho
+  Club"; não achando nenhuma, **a aba não é desenhada** (v1.8.28) e o motivo é
+  lido no Registro. O desenho
   completo — as tentativas (o que está guardado no aparelho, catálogo,
-  álbum-como-artista, artistas padrão, busca), os cinco motivos de falha, a transposição que preserva a
-  COLUNA do acorde e por que o parser mora no web e não no Kotlin — está em
+  álbum-como-artista, artistas padrão, busca), os cinco motivos de falha (que
+  desde a v1.8.28 são lidos no Registro, não na folha), a transposição que
+  preserva a COLUNA do acorde e por que o parser mora no web e não no Kotlin —
+  está em
   **"A aba de cifra"** no `CLAUDE.md`; a regra em si, em `controle/cifra.js`,
   com oráculo em `tools/cifra.test.mjs`.
 

@@ -2261,7 +2261,7 @@ class EspelhoServidor(
                     if (a.tipo != EspelhoInterfaces.Tipo.PONTO_DE_ACESSO) continue
                     if (fora.any { it.ip.hostAddress == a.ip }) continue
                     val ip = ipv4Literal(a.ip) ?: continue
-                    fora.add(Rede(ip, a.nome, Via.PONTO_DE_ACESSO))
+                    fora.add(Rede(ip = ip, iface = a.nome, via = Via.PONTO_DE_ACESSO))
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "não foi possível ler as interfaces", e)
@@ -2309,7 +2309,7 @@ class EspelhoServidor(
         fun lerInterfaces(ctx: Context): EspelhoInterfaces.Leitura {
             val brutas = ArrayList<EspelhoInterfaces.Bruta>()
             val e = NetworkInterface.getNetworkInterfaces()
-                ?: return EspelhoInterfaces.Leitura(emptyList(), emptyList())
+                ?: return EspelhoInterfaces.Leitura(achados = emptyList(), recusadas = emptyList())
             while (e.hasMoreElements()) {
                 val ni = e.nextElement() ?: continue
                 try {

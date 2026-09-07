@@ -49,16 +49,36 @@ import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)),
   '..', 'app', 'src', 'main', 'assets', 'web');
 
-// A ponte de mentira existe por UMA razão aqui: `cifraCabe` exige
-// `window.__NATIVE__`. Sem ela a cifra nunca entra na lista, e o oráculo
-// aprovaria uma regra que esqueceu a metade que o operador nomeou primeiro.
+// A ponte de mentira existe por DUAS razões aqui, e a segunda entrou na
+// v1.8.28. A primeira: `cifraCabe` exige `window.__NATIVE__`, e sem ela a cifra
+// nunca entra na lista — o oráculo aprovaria uma regra que esqueceu a metade
+// que o operador nomeou primeiro. A segunda: a aba passou a depender de haver
+// FOLHA, e não só de caber uma. Enquanto o `cifraHtml` caiu no coringa que
+// resolve `null`, TODA música deste oráculo era uma música sem cifra — a
+// disponibilidade que ele mede seria a de um cenário que o app já não produz.
+//
+// O NOME DA MÚSICA DECIDE, e é isso que dá ao arquivo os dois cenários no mesmo
+// lugar: a URL carrega o slug (`AVCifra.urlDoHino`), então uma música cujo nome
+// normalizado contenha `sem-cifra` recebe 404 em todo endereço tentado, e
+// qualquer outra recebe a folha.
 const PONTE = `(() => {
+  const FOLHA = '<pre><b>C</b>      <b>G</b>\\nprimeira linha da cifra\\n'
+    + '<b>Am</b>     <b>F</b>\\nsegunda linha da cifra</pre>';
   const B = {
     shellVersion: () => 60, role: () => 'controle', appVersion: () => '1.99-teste',
     takeShare: () => '', busPost: () => {}, otaConfirm: () => {},
+    cifraHtml: (id, url) => {
+      const nada = String(url || '').includes('sem-cifra');
+      setTimeout(() => {
+        try {
+          window.__avResolve(id, nada ? { status: 404, html: '' }
+            : { status: 200, html: FOLHA });
+        } catch (_) {}
+      }, 0);
+    },
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal',
-    'castTarget','cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',
+    'castTarget','cifraDiag','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag',
     'espelhoEstado','espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolEstado',
     'keepAlive','listFolder','micDiag','nowPlaying','openCast','openExternal','otaApply','otaCheck',
@@ -137,27 +157,116 @@ try {
     };
   });
 
-  const abrir = () => pg.evaluate(() => {
-    openLyricsPopup();
-    const seg = document.getElementById('lyricsViewSeg');
-    return {
-      fontes: lyricsViewSources(),
-      ativa: lvActiveSource(),
-      linhas: document.querySelectorAll('#lyricsViewBody .lv-row').length,
-      // NA ORDEM DO DOM, que é a que o operador vê. A lista de fontes já estava
-      // certa quando a tela estava errada — é por isso que ela não prova nada
-      // sobre a ordem, e que este campo existe separado dela.
-      botoes: [...seg.querySelectorAll('.fit-opt')].filter((b) => !b.hidden)
-        .map((b) => b.dataset.lvsrc),
-      segEscondido: seg.hidden,
-    };
-  });
+  // ===== A PROCURA DA CIFRA É ASSÍNCRONA, E A ABA ESPERA POR ELA (v1.8.28) ==
+  //
+  // A aba só entra na lista quando há folha, e a folha chega por uma Promise —
+  // ler as fontes no mesmo `evaluate` da abertura mede o app um quadro ANTES da
+  // resposta, e reprovaria um app correto. A espera é pelo FATO (o desfecho no
+  // cache), nunca por um prazo, e o predicado é SÍNCRONO: um `async` aqui
+  // devolve uma Promise, que é *truthy*, e a espera passaria no primeiro quadro
+  // aprovando justamente o que veio verificar.
+  const assentarCifra = () => pg.waitForFunction(
+    () => !cifraCabe(lvItem())
+      || (cifraEstado(lvItem()) || {}).estado !== 'buscando',
+    null, { timeout: 15000 },
+  );
+
+  const abrir = async () => {
+    await pg.evaluate(() => { openLyricsPopup(); });
+    await assentarCifra();
+    return pg.evaluate(() => {
+      const seg = document.getElementById('lyricsViewSeg');
+      return {
+        fontes: lyricsViewSources(),
+        ativa: lvActiveSource(),
+        linhas: document.querySelectorAll('#lyricsViewBody .lv-row').length,
+        // NA ORDEM DO DOM, que é a que o operador vê. A lista de fontes já
+        // estava certa quando a tela estava errada — é por isso que ela não
+        // prova nada sobre a ordem, e que este campo existe separado dela.
+        botoes: [...seg.querySelectorAll('.fit-opt')].filter((b) => !b.hidden)
+          .map((b) => b.dataset.lvsrc),
+        segEscondido: seg.hidden,
+        cifra: (cifraEstado(lvItem()) || {}).estado || 'novo',
+      };
+    });
+  };
 
   // ── 1. A MÚSICA SOZINHA — o ponto de partida, e o que não pode regredir ────
   await pg.evaluate(() => window.__cena(window.__musica(), null));
   const so = await abrir();
   checar(so.fontes.join(',') === 'lyrics,cifra' && so.ativa === 'lyrics',
     'uma MÚSICA sozinha no ar oferece letra e cifra, e abre na letra', so);
+
+  // ── 1-B. SEM CIFRA DE VERDADE, SEM ABA (v1.8.28) ──────────────────────────
+  //
+  // Pedido do operador: *"que ele não apresente o botão da aba de cifra se não
+  // houver uma cifra de verdade para ser apresentada. não quero acesso a essa
+  // seção se não tem esse conteúdo."*
+  //
+  // Enquanto a aba saiu de `cifraCabe` sozinho, ela aparecia para TODA faixa de
+  // áudio do acervo — e MEDIDO, cerca de dois terços dos álbuns não estão sob
+  // endereço deduzível nenhum: o que o toque abria era a frase de "não
+  // encontrei". As duas metades falham caladas e em direções opostas, e por
+  // isso são medidas em PAR, na mesma cena e com a mesma montagem:
+  //
+  //  - **de MAIS** (a aba de sempre): a regra não pegou, e nada na tela diz
+  //    isso — a aba abre e explica que não achou, que é o estado de antes;
+  //  - **de MENOS** (a aba nunca): o conserto barato é apagar a cifra da lista,
+  //    e ele passa na primeira metade sozinha. É a mesma armadilha do
+  //    `--press`: uma asserção negativa aprova quem removeu o recurso.
+  //
+  // A BADGE entra junto porque ela sai da MESMA lista (`renderLeitorBadge`), e
+  // é a que ninguém confere: uma faixa de áudio SEM LETRA tem a cifra como
+  // única fonte possível, e sem a regra o botão do transporte fica aceso sobre
+  // uma folha que só sabe dizer que não achou.
+  //
+  // REVERSÃO: devolver `if (cifraCabe(alvo)) list.push('cifra')` a
+  // `lyricsViewSources` reprova as duas primeiras asserções abaixo.
+  await pg.evaluate(() => window.__cena({
+    id: 'nada', name: 'Louvor Sem Cifra', kind: 'audio', seconds: 200,
+    lyrics: [{ text: 'primeira estrofe' }],
+  }, null));
+  const semCifra = await abrir();
+  // O ESTADO VIAJA JUNTO em toda asserção deste bloco: sem ele, "a aba não
+  // está lá" passa também no mundo em que a PROCURA nunca aconteceu — que é o
+  // defeito de MENOS por outro caminho, e o mais fácil de introduzir sem
+  // querer (a v1.8.28 teve de acrescentar o gatilho da abertura por causa
+  // dele).
+  checar(semCifra.cifra === 'falha' && semCifra.fontes.join(',') === 'lyrics'
+      && semCifra.ativa === 'lyrics',
+    'uma música cuja cifra NÃO existe não oferece a aba: "não quero acesso a '
+    + 'essa seção se não tem esse conteúdo"', semCifra);
+  checar(semCifra.botoes.join(',') === 'lyrics' && semCifra.segEscondido,
+    '  ↳ e o botão não é DESENHADO — com uma fonte só o seletor inteiro sai, '
+    + 'que é a regra de sempre', semCifra);
+  // Uma faixa de ÁUDIO SEM LETRA: a cifra é a única fonte que ela poderia ter,
+  // então a badge responde por ela sozinha. A folha é ABERTA e fechada porque é
+  // a abertura que dispara a procura de um item que não passou pelo `send`.
+  await pg.evaluate(() => {
+    closeLyricsPopup();
+    window.__cena({ id: 'nada2', name: 'Playback Sem Cifra', kind: 'audio', seconds: 200 }, null);
+    openLyricsPopup();
+  });
+  await assentarCifra();
+  const badgeSemCifra = await pg.evaluate(() => {
+    closeLyricsPopup();
+    return {
+      fontes: lyricsViewSources(),
+      badge: !document.getElementById('lvBadge').hidden,
+      cifra: (cifraEstado(currentItem) || {}).estado || 'novo',
+    };
+  });
+  checar(badgeSemCifra.cifra === 'falha' && !badgeSemCifra.fontes.length
+      && !badgeSemCifra.badge,
+    '  ↳ e a BADGE do transporte apaga junto: ela sai da mesma lista, e um '
+    + 'áudio sem letra não tem outra fonte para acendê-la', badgeSemCifra);
+  // A METADE QUE IMPEDE O CONSERTO LARGO DEMAIS: a mesma montagem, com a cifra
+  // existindo, continua oferecendo as duas.
+  await pg.evaluate(() => { closeLyricsPopup(); window.__cena(window.__musica(), null); });
+  const comCifra = await abrir();
+  checar(comCifra.fontes.join(',') === 'lyrics,cifra',
+    '  ↳ e a música QUE TEM cifra continua oferecendo as duas — sem esta, '
+    + 'apagar a cifra da lista passaria nas asserções acima', comCifra);
 
   // ── 2. O PEDIDO, AO PÉ DA LETRA ───────────────────────────────────────────
   // "se houver uma música de fundo e a bíblia por cima, então a bíblia aparece
@@ -251,15 +360,19 @@ try {
   // folha de uma música pediu AQUELA música — o versículo no telão roubando a
   // aba de um ensaio é o mesmo defeito do relógio da cena governando a rolagem
   // de outra música.
-  const comAlvo = await pg.evaluate(() => {
+  await pg.evaluate(() => {
     window.__cena(window.__musica(), window.__biblia(true));
     closeLyricsPopup();
     openLyricsPopup({
       id: 'outra', name: 'Outro Louvor', kind: 'audio',
       lyrics: [{ text: 'estrofe do ensaio' }],
     });
-    return { fontes: lyricsViewSources(), ativa: lvActiveSource() };
   });
+  // O ALVO É UMA MÚSICA NOVA, e a procura dela só começa NA ABERTURA (v1.8.28):
+  // ele nunca passa pelo `send`, que é o gatilho da cena.
+  await assentarCifra();
+  const comAlvo = await pg.evaluate(
+    () => ({ fontes: lyricsViewSources(), ativa: lvActiveSource() }));
   checar(comAlvo.fontes.join(',') === 'lyrics,cifra' && comAlvo.ativa === 'lyrics',
     'com um ALVO da Biblioteca a cena não entra: a Bíblia no ar não rouba a '
     + 'folha de um ensaio', comAlvo);
@@ -386,10 +499,10 @@ try {
   await pg.evaluate(() => { lvSource = 'lyrics'; renderLyricsView(); });
   const naLetra = await geo();
   await pg.evaluate(() => { lvSource = 'cifra'; renderLyricsView(); });
-  // Espera pelo FATO que a geometria depende — a fila revelada no cabeçalho —,
-  // nunca pela folha: a ponte de mentira deste oráculo não serve cifra, e o
-  // cabeçalho é montado ANTES dos retornos cedo justamente para não depender
-  // dela (é a invariante da saída, do `lvBuildCifra`).
+  // Espera pelo FATO de que a geometria depende — a fila revelada no cabeçalho
+  // —, nunca por um prazo. Ela é montada ANTES dos retornos cedo do
+  // `lvBuildCifra` (a invariante da saída), então este seletor responde tanto
+  // para a folha desenhada quanto para a espera.
   await pg.waitForSelector('#lyricsCifraCtl:not([hidden])', { timeout: 15000 });
   const naCifra = await geo();
 

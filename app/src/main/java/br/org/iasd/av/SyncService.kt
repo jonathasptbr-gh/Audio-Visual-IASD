@@ -239,6 +239,20 @@ class SyncService : Service() {
             val items: List<String> = emptyList(),
             val idleMs: Long = 0,
             /**
+             * ESTE TRABALHO TRAZ BYTES DA REDE?
+             *
+             * O ÍCONE da barra de notificação era sempre a seta de download, e
+             * vários trabalhos deste app não baixam nada — exportar o acervo,
+             * importar um pacote, preparar uma apresentação. É a regra que o
+             * lado web já aplicava à seta do cartão sobre a preview e à da
+             * linha do item (v1.4.19), na única superfície que faltava.
+             *
+             * PADRÃO `true`: um bundle mais antigo que a ponte não manda o
+             * campo, e ler ausente como "é download" é o comportamento de
+             * sempre. Falhar para o lado que já existia.
+             */
+            val baixando: Boolean = true,
+            /**
              * `done`/`total` são BYTES, e não uma contagem de itens.
              *
              * O registro de tarefas do lado web nasceu contando ITENS (54
@@ -351,8 +365,25 @@ class SyncService : Service() {
             items: List<String> = emptyList(),
             idleMs: Long = 0,
             bytes: Boolean = false,
+            baixando: Boolean = true,
         ) {
-            progress = Progress(label, done, total, etaMs, items, idleMs, bytes)
+            // POR NOME, e não por posição. A chamada era posicional, e um campo
+            // acrescentado no MEIO da `data class` empurraria todos os
+            // seguintes uma casa — o `bytes` cairia no `baixando` e a
+            // notificação voltaria a mostrar bytes como se fossem ITENS, sem
+            // erro em lugar nenhum. Foi o que quase aconteceu ao escrever o
+            // `baixando` (v1.8.27), e o compilador só pegou porque ESTA
+            // assinatura ainda não tinha o parâmetro.
+            progress = Progress(
+                label = label,
+                done = done,
+                total = total,
+                etaMs = etaMs,
+                items = items,
+                idleMs = idleMs,
+                bytes = bytes,
+                baixando = baixando,
+            )
             val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
             try {
                 if (!running) {
@@ -447,7 +478,16 @@ class SyncService : Service() {
                 android.app.PendingIntent.FLAG_IMMUTABLE,
             )
             val b = NotificationCompat.Builder(ctx, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_sys_download)
+                // O ÍCONE SEGUE O TRABALHO (v1.8.27) — ver `Progress.baixando`.
+                // `stat_notify_sync` são as duas setas em círculo do sistema, e
+                // é o desenho que este app já usa para "está processando" em
+                // todo lugar; um recurso próprio no `res/` para dois estados de
+                // uma notificação não se paga (a regra dos ícones do
+                // `SessionService`).
+                .setSmallIcon(
+                    if (p?.baixando != false) android.R.drawable.stat_sys_download
+                    else android.R.drawable.stat_notify_sync,
+                )
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)

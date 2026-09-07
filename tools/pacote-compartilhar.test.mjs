@@ -61,7 +61,12 @@ const ponte = (espaco) => `(function () {
       window.__saida.push(new Uint8Array(m));
       let total = 0;
       for (const p of window.__saida) total += p.length;
-      setTimeout(() => canal.onmessage({ data: JSON.stringify({ r: total }) }), 0);
+      // O ACK PODE SER SEGURADO — é o que permite medir a tela COM a exportação
+      // em curso. Sem isto o escritor termina antes de qualquer leitura, e o
+      // estado que se quer ver não existe em quadro nenhum.
+      const responder = () => canal.onmessage({ data: JSON.stringify({ r: total }) });
+      if (window.__segurar) { (window.__presos = window.__presos || []).push(responder); return; }
+      setTimeout(responder, 0);
     },
     onmessage: null,
   };
@@ -113,6 +118,18 @@ const ponte = (espaco) => `(function () {
       setTimeout(() => window.__avResolve(id, window.__semArquivo ? -1 : bytesEscritos()), 0);
     },
     pacoteDescartarPronto: () => { window.__chamadas.push('descartarPronto'); },
+    // O LADO DO SHELL do diário (shell 69). Ele é a metade que o web NÃO tem
+    // como saber: o menos-um do envio colapsa três causas, e só o shell as
+    // separa. SEM CRASE NESTE COMENTÁRIO — ele mora dentro do template literal
+    // da ponte, e uma crase aqui o encerra no meio (o erro sai como
+    // "1 is not a function", que não aponta nada).
+    pacoteDiag: (id) => {
+      window.__chamadas.push('diag');
+      setTimeout(() => window.__avResolve(id,
+        'pronto: acervo-local.avpkg · no disco: sim · 4096 byte(s)'
+        + '\\n  fecho: pronto: 4096 byte(s) em acervo-local.avpkg'
+        + '\\n  envio: seletor aberto com 4096 byte(s)'), 0);
+    },
     pickDoc: (id) => { setTimeout(() => window.__avResolve(id, []), 0); },
   };
   const nomes = ['apkInstalar','apkProcurar','captureVolumeKeys','castTarget',
@@ -122,7 +139,7 @@ const ponte = (espaco) => `(function () {
     'otaDiag','otaPending','pickFolder','requestMic','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','micDiag','cifraHtml',
-    'cifraDiag','areaTransferencia','salvarTexto','ytDetalhes',
+    'cifraDiag','areaTransferencia','salvarTexto','pacoteDiag','ytDetalhes',
   ];
   for (const n of nomes) {
     if (B[n]) continue;
@@ -314,17 +331,74 @@ try {
   // curto envia, e não haveria gesto nenhum para pedir outro na mesma sessão.
   await cheio.pg.evaluate(() => { window.__chamadas.length = 0; });
   await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerdown');
+  // ELE PERGUNTA ANTES (v1.8.20), e essa é a asserção que carrega o bloco.
+  // Agindo direto, um toque um pouco mais demorado no botão DESTRUÍA um pacote
+  // de minutos e recomeçava a medição — foi o relato do operador —, e num
+  // TOQUE não existe abortar: a captura implícita do ponteiro não emite
+  // `pointerleave`, então a saída tem de vir DEPOIS do gesto.
+  const perguntou = await esperar(cheio.pg, () => {
+    const d = document.getElementById('appDialog');
+    return !!d && d.classList.contains('open');
+  }, null, 20000);
+  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerup');
+  checar(perguntou === true,
+    'A · o toque LONGO PERGUNTA antes de jogar o pronto fora — agir direto '
+    + 'destrói minutos de trabalho num gesto que não tem como ser abortado',
+    porque(perguntou));
+  // E O CANCELAR NÃO DESTRÓI NADA: é a metade que separa "pergunta" de
+  // "pergunta e faz assim mesmo".
+  await cheio.pg.click('#appDialogCancel');
+  const intacto = await lerTile(cheio.pg);
+  const semDescarte = await cheio.pg.evaluate(
+    () => window.__chamadas.includes('descartarPronto'));
+  checar(intacto.titulo === '100%' && semDescarte === false,
+    'A · e recusar deixa o pacote INTACTO — nenhum `descartarPronto` foi pedido',
+    JSON.stringify([intacto.titulo, semDescarte]));
+  // ACEITANDO, ele refaz: sem esta metade, "nunca refazer" passaria na de cima
+  // e a armadilha do botão preso no pacote velho voltaria.
+  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerdown');
+  await esperar(cheio.pg, () => {
+    const d = document.getElementById('appDialog');
+    return !!d && d.classList.contains('open');
+  }, null, 20000);
+  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerup');
+  await cheio.pg.click('#appDialogOk');
   const refez = await esperar(cheio.pg, () => window.__chamadas.includes('descartarPronto'),
     null, 20000);
-  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerup');
   checar(refez === true,
-    'A · o toque LONGO joga o pronto fora e começa outro — sem ele, quem '
-    + 'quisesse exportar de novo na mesma sessão ficaria preso com o arquivo '
-    + 'velho e nenhuma porta', porque(refez));
+    'A · e aceitando ele joga o pronto fora e começa outro — sem essa porta, '
+    + 'quem quisesse exportar de novo na mesma sessão ficaria preso com o '
+    + 'arquivo velho', porque(refez));
   const voltou = await abriuFolha(cheio.pg);
   checar(voltou === true,
     'A · e a folha de grupos volta a abrir, que é a exportação recomeçando',
     porque(voltou));
+  // ---- E O REGISTRO SABE O QUE ACONTECEU (v1.8.20) ----
+  //
+  // Este caminho já produziu DUAS falhas cujo relato era indistinguível a
+  // distância — "o arquivo tem 0kb" e "tocar nele não faz nada" —, e a pergunta
+  // que resolveria as duas (*o toque chegou a pedir o envio, e o que o shell
+  // respondeu?*) não tinha resposta em lugar nenhum.
+  const reg = await cheio.pg.evaluate(async () => {
+    await renderDiag();
+    return diagTexto;
+  });
+  const cheioChamou = await cheio.pg.evaluate(() => window.__chamadas.slice());
+  checar(/Pacote de transferência/.test(reg) && /envio:/.test(reg)
+    && /seletor aberto/.test(reg),
+    'A · e o Registro conta a preparação E o envio — a metade que faltava '
+    + 'quando o relato foi "não faz nada"',
+    (reg.match(/Pacote de transferência[\s\S]{0,240}/) || [''])[0]);
+  // E O LADO DO SHELL (v1.8.21), que é a metade que o web NÃO tem como saber:
+  // o `-1` do envio colapsa TRÊS causas — não há pronto, o arquivo sumiu, o
+  // seletor recusou — e três rodadas de campo se gastaram nessa distinção,
+  // feita por dedução sobre o código em vez de leitura do aparelho.
+  checar(cheioChamou.includes('diag'),
+    'A · o Registro PERGUNTA ao shell — sem isso ele conta o que o web pediu, '
+    + 'não o que o aparelho respondeu', JSON.stringify(cheioChamou));
+  checar(/shell:/.test(reg) && /no disco: sim/.test(reg),
+    'A · e a resposta do shell entra no bloco, com o arquivo no disco',
+    (reg.match(/shell:[\s\S]{0,200}/) || [''])[0]);
   await cheio.ctx.close();
 
   // =========================================================================
@@ -398,6 +472,92 @@ try {
     + 'continuar oferecendo o envio seria um toque que não faz nada',
     porque(desistiu));
   await sumiu.ctx.close();
+
+// ===========================================================================
+// E · O TILE OCIOSO É O CANCELAR DO IRMÃO (v1.8.27)
+// ===========================================================================
+//
+// Relato do operador: *"quando exportando, o botão de importação fica com um
+// spinner, o que está certo no conceito de deixar ele inutilizado, mas errado
+// no visual, pois ele indica um trabalho, trabalho esse que não é
+// importação … talvez se transforme em um botão auxiliar de 'cancelar' … dessa
+// forma os dois botões são irmãos e se completam nas ações"*.
+//
+// O ARO É O DESENHO DO TRABALHO, e pintá-lo num botão parado é a tela
+// afirmando o que não é. A régua é o RENDERIZADO: uma troca de classe passa num
+// teste de classe e continua com o aro girando na tela.
+{
+  const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
+  await semRedeExterna(ctx);
+  const pg = await ctx.newPage();
+  await pg.addInitScript(ponte(50 * 1024 * 1024 * 1024));
+  await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  await esperar(pg, () => !document.getElementById('splash'), null, 30000);
+  // A EXPORTAÇÃO DE VERDADE, SEGURADA NO PRIMEIRO BLOCO. As bandeiras são de
+  // módulo — escrevê-las de fora não existe —, então o estado é montado pelo
+  // caminho que o dedo percorre.
+  await pg.evaluate(async () => {
+    await AVDB.opfsWriteFile('folders/x/a.m4a',
+      new Blob([new Uint8Array(400000).fill(7)], { type: 'audio/mp4' }));
+    window.__segurar = true;
+    window.__fim = exportarPacote();
+  });
+  await esperar(pg, () => {
+    const d = document.getElementById('songMenuPopup');
+    return !!d && d.classList.contains('open') && !!d.querySelector('.song-menu-go');
+  }, null, 60000);
+  await pg.click('#songMenuList .song-menu-go');
+  await esperar(pg, () => (window.__presos || []).length > 0, null, 30000);
+
+  const r = await pg.evaluate(() => {
+    const exp = document.getElementById('pacoteExportarTile');
+    const imp = document.getElementById('pacoteImportarTile');
+    const visto = (el) => {
+      const svgs = [...el.querySelectorAll('use')]
+        .filter((u) => getComputedStyle(u).display !== 'none')
+        .map((u) => u.getAttribute('href'));
+      return {
+        estado: el.dataset.estado || '',
+        titulo: (el.querySelector('.qs-titulo') || {}).textContent || '',
+        aro: getComputedStyle(el, '::after').content,
+        simbolos: svgs,
+        travado: !!el.disabled,
+      };
+    };
+    return { exp: visto(exp), imp: visto(imp) };
+  });
+  checar(r.imp.estado === 'cancelar',
+    'E · com a exportação em curso, o tile ocioso vira o CANCELAR', JSON.stringify(r.imp));
+  checar(r.imp.simbolos.length === 1 && /icoCancelar/.test(r.imp.simbolos[0] || ''),
+    'E · e o desenho dele é o ✕, no lugar do ícone da função — o estado mora no '
+    + 'DESENHO', JSON.stringify(r.imp.simbolos));
+  checar(/Cancelar/.test(r.imp.titulo),
+    'E · com o rótulo dizendo o que o toque faz', r.imp.titulo);
+  // A ASSERÇÃO QUE CARREGA O BLOCO: o aro NÃO é dele. Sem ela, trocar só o
+  // ícone deixaria o spinner girando por baixo — que é o relato.
+  checar(r.imp.aro === 'none' || r.imp.aro === 'normal',
+    'E · e o ARO do trabalho não é dele — era ele que dizia que o botão estava '
+    + 'trabalhando', r.imp.aro);
+  checar(!r.imp.travado,
+    'E · e ele é TOCÁVEL: um cancelar que não responde é pior que um botão cinza',
+    r.imp.travado);
+  // O IRMÃO QUE TRABALHA CONTINUA MOSTRANDO O ARO — sem esta, apagar o aro dos
+  // dois passaria em tudo o mais.
+  checar(r.exp.estado === 'ocupado',
+    'E · enquanto o que TRABALHA continua sendo o que trabalha', JSON.stringify(r.exp));
+  // O TOQUE NELE PARA DE VERDADE — sem esta, o botão é um desenho.
+  const parou = await pg.evaluate(async () => {
+    document.getElementById('pacoteImportarTile').click();
+    window.__segurar = false;
+    for (const f of (window.__presos || [])) f();
+    window.__presos = [];
+    try { await window.__fim; } catch (_) {}
+    return (document.getElementById('pacoteExportarTile').dataset.estado || '');
+  });
+  checar(parou !== 'cancelar' && parou !== 'ocupado',
+    'E · e o toque nele PARA a exportação', parou);
+  await ctx.close();
+}
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));
 } finally {

@@ -683,59 +683,106 @@ try {
     (antes) => cifraColunasAtual > antes, retrato.colunas, { timeout: 10000 },
   ).catch(() => {});
 
-  // ── 7-C. A BARRA SEMPRE TEM A SAÍDA, INCLUSIVE SEM CIFRA (v1.6.1) ───────
+  // ── 7-C. A BARRA SEMPRE TEM A SAÍDA, DURANTE A ESPERA (v1.6.1) ──────────
   //
-  // `lvBuildCifra` tem DOIS `return` cedo — "procurando" e o erro —, e os dois
-  // são alcançáveis COM A TELA CHEIA NO AR: `cifraCabe` não olha o estado,
-  // então `lvActiveSource()` continua devolvendo `'cifra'` e a saída automática
-  // do bloco 7-B acima não dispara. Basta a cena virar de faixa para a entrada
-  // nova nascer em `buscando`; e num `falha` isso é PERMANENTE na sessão,
-  // porque `cifraGarantir` volta cedo pelo `has` e nunca mais pergunta.
+  // `lvBuildCifra` tem um `return` cedo — a ESPERA —, e ele é alcançável COM A
+  // TELA CHEIA NO AR: basta a cena virar de faixa para a entrada nova nascer em
+  // `buscando`, e com a cifra ESCOLHIDA (`lvSource`, que é o caso deste
+  // oráculo) ela continua na lista, então `lvActiveSource()` segue devolvendo
+  // `'cifra'` e a saída automática do bloco 7-B acima não dispara.
   //
-  // Construída DEPOIS dos retornos — que é onde ela nasceu, na v1.6.0 —, a
-  // barra some e o que sobra é uma paisagem deitada com uma frase de erro e
-  // NENHUMA saída à vista: o ✕, as abas e o toque no fundo já saem em tela
-  // cheia por regra escrita, e Esc/F11 não existem num aparelho. Sobraria só o
-  // voltar do Android, que é a saída que ninguém vê.
+  // Construída DEPOIS do retorno — que é onde ela nasceu, na v1.6.0 —, a barra
+  // some e o que sobra é uma paisagem deitada com um anel girando e NENHUMA
+  // saída à vista: o ✕, as abas e o toque no fundo já saem em tela cheia por
+  // regra escrita, e Esc/F11 não existem num aparelho. Sobraria só o voltar do
+  // Android, que é a saída que ninguém vê.
   //
   // O ESTADO É MEXIDO NO CACHE, e o desenho é o do app: `renderLyricsView` é o
-  // mesmo caminho que o operador percorre quando a procura falha de verdade.
+  // mesmo caminho que o operador percorre quando a procura ainda está em voo.
   //
-  // REVERSÃO: devolver a construção da barra para depois dos dois `return`
-  // (a montagem `topo`/`tom`/`ctl` de volta ao ramo `ok`) reprova os dois
-  // estados abaixo.
-  for (const estado of ['buscando', 'falha']) {
-    const semCifra = await pg.evaluate((est) => {
-      const chave = cifraChave(lvItem());
-      const entrada = cifraCache.get(chave);
-      const antes = entrada.estado;
-      entrada.estado = est;
-      entrada.motivo = AVCifra.MOTIVO_NAO_TEM;
-      renderLyricsView();
-      const btn = lyricsPopupEl.querySelector('.lv-cifra-ctl > #cifraCheiaBtn:last-child');
-      const b = btn ? btn.getBoundingClientRect() : null;
-      const corpo = lyricsViewBodyEl.getBoundingClientRect();
-      const alvo = b
-        ? document.elementFromPoint(Math.round(b.left + b.width / 2),
-          Math.round(b.top + b.height / 2))
-        : null;
-      const r = {
-        cheia: document.fullscreenElement === lyricsPopupEl,
-        naFila: !!btn,
-        desenhado: !!(b && b.width > 0 && b.height > 0),
-        naColuna: !!(b && b.left >= corpo.right - 0.5),
-        recebeOToque: !!(alvo && alvo.closest('#cifraCheiaBtn')),
-      };
-      entrada.estado = antes;
-      renderLyricsView();
-      return r;
-    }, estado);
-    checar(semCifra.cheia && semCifra.naFila && semCifra.desenhado
-      && semCifra.naColuna && semCifra.recebeOToque,
-      'com a cifra em `' + estado + '` e a tela cheia no ar, a saída continua '
-      + 'na fila, desenhada, na coluna e TOCÁVEL — a barra nasce com o ⛶ antes '
-      + 'de qualquer retorno cedo', semCifra);
-  }
+  // REVERSÃO: devolver a construção da barra para depois do `return`
+  // (a montagem `topo`/`tom`/`ctl` de volta ao ramo `ok`) reprova aqui.
+  const naEspera = await pg.evaluate(() => {
+    const entrada = cifraCache.get(cifraChave(lvItem()));
+    const antes = entrada.estado;
+    entrada.estado = 'buscando';
+    renderLyricsView();
+    const btn = lyricsPopupEl.querySelector('.lv-cifra-ctl > #cifraCheiaBtn:last-child');
+    const b = btn ? btn.getBoundingClientRect() : null;
+    const corpo = lyricsViewBodyEl.getBoundingClientRect();
+    const alvo = b
+      ? document.elementFromPoint(Math.round(b.left + b.width / 2),
+        Math.round(b.top + b.height / 2))
+      : null;
+    const r = {
+      cheia: document.fullscreenElement === lyricsPopupEl,
+      fonte: lvActiveSource(),
+      naFila: !!btn,
+      desenhado: !!(b && b.width > 0 && b.height > 0),
+      naColuna: !!(b && b.left >= corpo.right - 0.5),
+      recebeOToque: !!(alvo && alvo.closest('#cifraCheiaBtn')),
+    };
+    entrada.estado = antes;
+    renderLyricsView();
+    return r;
+  });
+  checar(naEspera.cheia && naEspera.fonte === 'cifra' && naEspera.naFila
+    && naEspera.desenhado && naEspera.naColuna && naEspera.recebeOToque,
+    'com a cifra em `buscando` e a tela cheia no ar, a saída continua na fila, '
+    + 'desenhada, na coluna e TOCÁVEL — a barra nasce com o ⛶ antes do retorno '
+    + 'cedo, e a espera fica de pé para quem ESCOLHEU a aba', naEspera);
+
+  // ── 7-D. E O DESFECHO SEM FOLHA NÃO CHEGA MAIS À BARRA (v1.8.28) ─────────
+  //
+  // Este é o outro `return` cedo que 7-C media até a v1.8.27: a frase de erro
+  // deitada. Ele deixou de ser alcançável, e não por acidente — a aba sai da
+  // lista quando a procura termina sem folha ("não quero acesso a essa seção se
+  // não tem esse conteúdo"), e quem devolve o retrato é o `cifraCheiaSair` do
+  // `renderLyricsView`, o mesmo caminho do bloco 7-B.
+  //
+  // A ASSERÇÃO MUDOU DE FORMA, NÃO DE ASSUNTO: o perigo continua sendo uma
+  // paisagem deitada sem saída à vista, e a resposta nova é mais forte — em vez
+  // de garantir o botão dentro daquela tela, o app não deixa a tela existir.
+  //
+  // A SAÍDA DA TELA CHEIA É ASSÍNCRONA (`exitFullscreen` resolve depois), então
+  // quem responde é o EVENTO, nunca a leitura no mesmo `evaluate` — foi assim
+  // que a primeira escrita deste bloco "reprovou" a correção certa.
+  await pg.evaluate(() => { window.__fsEventos = 0; });
+  const semFolha = await pg.evaluate(() => {
+    const entrada = cifraCache.get(cifraChave(lvItem()));
+    entrada.estado = 'falha';
+    entrada.motivo = AVCifra.MOTIVO_NAO_TEM;
+    renderLyricsView();
+    return { fontes: lyricsViewSources(), fonte: lvActiveSource() };
+  });
+  await esperarEvento(1);
+  const semFolhaDepois = await pg.evaluate(() => ({
+    cheia: !!document.fullscreenElement,
+    aberta: lyricsPopupEl.classList.contains('open'),
+    botao: !!lyricsPopupEl.querySelector('#cifraCheiaBtn'),
+  }));
+  checar(!semFolha.fontes.includes('cifra') && semFolha.fonte === 'lyrics'
+    && !semFolhaDepois.cheia && semFolhaDepois.aberta && !semFolhaDepois.botao,
+    'e a procura que termina SEM FOLHA tira a aba da lista e devolve o retrato '
+    + 'sozinha, com a folha aberta na letra — a paisagem sem saída deixa de '
+    + 'poder existir em vez de ganhar mais um botão',
+    { semFolha, semFolhaDepois });
+
+  // Volta ao estado do bloco: a entrada em `ok` e a tela cheia no ar, que é o
+  // que os blocos seguintes medem.
+  await pg.evaluate(() => {
+    const entrada = cifraCache.get(cifraChave(lvItem()));
+    entrada.estado = 'ok';
+    entrada.motivo = AVCifra.OK;
+    lvSource = 'cifra';
+    renderLyricsView();
+    window.__fsEventos = 0;
+  });
+  await pg.click('#cifraCheiaBtn');
+  await esperarEvento(1);
+  await pg.waitForFunction(
+    (antes) => cifraColunasAtual > antes, retrato.colunas, { timeout: 10000 },
+  ).catch(() => {});
 
   // ── 7. A ROLAGEM ATRAVESSA A ENTRADA E A SAÍDA ───────────────────────────
   //

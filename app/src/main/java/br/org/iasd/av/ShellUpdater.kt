@@ -130,7 +130,7 @@ object ShellUpdater {
         }
         val anterior = achado
         if (anterior?.versao == v && anterior.url == url) return
-        achado = Achado(v, url, bytes, "", doManifesto = true)
+        achado = Achado(versao = v, url = url, bytes = bytes, notas = "", doManifesto = true)
         Log.i(TAG, "APK v$v anunciado pelo manifesto (instalado: ${versaoInstalada(app)})")
     }
 
@@ -208,7 +208,7 @@ object ShellUpdater {
             // canal do APK volta a dizer que não há nada. O `versao` do JSON
             // continua cru de propósito: ali é RÓTULO de tela, não domínio de
             // comparação.
-            achado = Achado(v, url, bytes, o.optString("body").take(600))
+            achado = Achado(versao = v, url = url, bytes = bytes, notas = o.optString("body").take(600))
             return fora
                 .put("versao", tag)
                 .put("bytes", bytes)

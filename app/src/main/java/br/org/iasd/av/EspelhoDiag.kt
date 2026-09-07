@@ -66,7 +66,7 @@ class EspelhoDiag {
         val txt = sanear(linha)
         if (txt.isEmpty()) return
         synchronized(trava) {
-            linhas.addLast(Linha(System.currentTimeMillis(), txt))
+            linhas.addLast(Linha(em = System.currentTimeMillis(), txt = txt))
             while (linhas.size > TETO_LINHAS) linhas.removeFirst()
         }
     }

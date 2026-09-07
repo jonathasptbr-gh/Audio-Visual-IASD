@@ -42,7 +42,7 @@ sai a escada da transmissão, e a faixa de álbum que nunca é marcada como NO A
 —, e é arquivo para esvaziar, não para crescer),
 `docs/shell/README.md`
 (o HUB do **Kotlin**: um capítulo por
-subsistema do shell, mais a tabela que diz onde cada um dos 31 arquivos é
+subsistema do shell, mais a tabela que diz onde cada um dos 32 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede — inclusive o celular como PONTO DE ACESSO, que
@@ -187,6 +187,10 @@ app/src/main/
 │   ├── MicDiag.kt               # POR QUE o microfone não abre — o que só o SHELL
 │   │                            #   sabe (permissão, AppOps, modo, entradas).
 │   │                            #   LEITURA PURA: não abre nada, não pede nada
+│   ├── PacoteProvider.kt        # o FileProvider do PACOTE — subclasse VAZIA, e
+│   │                            #   ela É a correção do "0 KB": duas autoridades
+│   │                            #   sobre a MESMA classe compartilham a instância
+│   │                            #   (e a tabela de caminhos) da primeira
 │   ├── PacoteCanal.kt           # o canal de ArrayBuffer web→SAF do PACOTE DE
 │   │                            #   TRANSFERÊNCIA — o SEGUNDO do shell, irmão
 │   │                            #   do EspelhoMidiaCanal e com as mesmas três
@@ -241,7 +245,7 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**31 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**32 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -666,6 +670,13 @@ window.AVNative = {
                        //   disco, ou nada o recebeu
   pacoteDescartarPronto(), // joga fora o pronto — o operador quer fazer OUTRO.
                        //   Síncrono, como o `pacoteCancelar`
+  pacoteDiag(),        // → string: o que o SHELL sabe do pacote (há pronto? no
+                       //   disco? o desfecho do último fecho e do último envio,
+                       //   com o NOME da exceção quando houve). Ele existe
+                       //   porque o `-1` do `pacoteCompartilhar` colapsa TRÊS
+                       //   causas e o web não separa nenhuma — três rodadas de
+                       //   campo se gastaram nisso. Irmão do `otaDiag` e do
+                       //   `ytDiag`, com o mesmo consumidor: quem lê o Registro
   salvarTexto(nome, texto), // → o NOME gravado, ou '' (desistiu ou falhou): o
                        //   "Salvar como" do sistema (SAF `CREATE_DOCUMENT`),
                        //   com o shell ESCREVENDO o texto. Existe porque o
@@ -683,7 +694,7 @@ window.AVNative = {
                        //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
-São **59 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **60 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -751,7 +762,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **68**, e ele é o **PISO**: o bundle declara `minShell: 68`, então
+Hoje vale **69**, e ele é o **PISO**: o bundle declara `minShell: 69`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -764,7 +775,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 68 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 69 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -826,7 +837,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 68`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 69`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -2244,6 +2255,43 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
 
 ### As decisões que precisam estar ditas
 
+- **A ABA SÓ EXISTE COM FOLHA NA MÃO** (v1.8.28). Pedido do operador: *"que ele
+  não apresente o botão da aba de cifra se não houver uma cifra de verdade para
+  ser apresentada. não quero acesso a essa seção se não tem esse conteúdo."*
+  São DUAS perguntas, e enquanto houve só a primeira a aba aparecia para TODA
+  faixa de áudio do acervo: `cifraCabe` responde *"vale a pena PROCURAR?"* (por
+  conteúdo musical), `cifraTemFolha` responde *"há o que MOSTRAR?"* (pelo
+  desfecho, no cache). MEDIDO: cerca de dois terços dos álbuns não estão sob
+  endereço deduzível nenhum, e o que o toque abria era a frase de "não
+  encontrei". É o MICROFONE SEM TV (v1.2.20/v1.2.21) pela terceira vez:
+  **não oferecer é melhor que explicar.**
+  - **A LISTA É UMA, e é ela que governa as três coisas:** a aba, a badge do
+    transporte (`renderLeitorBadge`) e a precedência de abertura saem todas de
+    `lyricsViewSources`. O caso que a badge cobre sozinha é a faixa de ÁUDIO SEM
+    LETRA, cuja única fonte possível é a cifra: com a folha FECHADA nada
+    redesenha a folha, e por isso o desfecho da procura chama as duas
+    superfícies (`cifraDesfechoNaTela`).
+  - **A ESPERA SÓ APARECE PARA QUEM JÁ ESTÁ NA ABA.** `buscando` é o estado em
+    que a resposta ainda não existe, e ele dura de milissegundos (cifra lida do
+    disco) a segundos (a cadeia inteira). Escondê-lo de todo mundo é o certo — a
+    aba nasce quando há folha —, mas escondê-lo de quem ESCOLHEU a cifra tiraria
+    a aba de baixo do dedo do músico a cada troca de faixa, para devolvê-la um
+    segundo depois. `lvSource` é o que separa os dois.
+  - **E A PROCURA PASSOU A COMEÇAR TAMBÉM NA ABERTURA DA FOLHA.** O gatilho é a
+    música entrar em cena (v1.1.17), e o ALVO DA BIBLIOTECA não tem cena: até a
+    v1.8.27 quem o cobria era o `cifraGarantir` de dentro do `lvBuildCifra`, e
+    com a aba dependendo do desfecho aquele ponto deixou de ser alcançável antes
+    de haver desfecho. Sem a linha nova em `openLyricsPopup` a aba nunca
+    apareceria num ensaio — a procura que a faria aparecer só rodava depois de
+    ela aparecer.
+  - **AS CINCO FRASES DE FALHA SAÍRAM** do `lvBuildCifra`: sem cifra não há aba,
+    logo não há superfície onde elas caibam. O diagnóstico continua inteiro no
+    bloco "Cifra (última busca)" do Registro, que é onde este projeto o guarda.
+    O que sobra ali é a ESPERA e uma frase curta para o estado impossível — um
+    `return` mudo deixaria uma caixa vazia com a fila de controles em cima.
+  - **O preço, dito:** quem quiser saber POR QUE um hino não tem aba de cifra
+    não descobre pela tela; descobre pelo Registro. Foi a troca que o pedido
+    fez, e é a mesma da v1.2.21.
 - **SOB DEMANDA é o contrato, não uma otimização.** Nada é baixado em lote,
   **nada entra no bundle do OTA e nada é gravado em disco**. O cache é um `Map`
   em memória, morto ao fechar o app. Trocá-lo por IndexedDB mudaria o recurso de
@@ -2381,10 +2429,11 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     vai no `?q=`, o que o PARENTESCO compara e o DESEMPATE. Eles seguem distintos
     porque o segundo tento cola o álbum na consulta e o parentesco continua sendo
     contra o nome da música — juntá-los foi um defeito real, e volta a ser um.
-  - **Falhar continua sendo CINCO motivos e cinco frases**, e agora a frase é a
-    resposta INTEIRA: não há mais uma tela de correção atrás dela. Foi por isso
-    que a do `sem-cifra` parou de mandar "escolha na lista abaixo" — uma
-    instrução que nomeia um controle ausente é pior que instrução nenhuma.
+  - **Os cinco motivos continuam existindo; as cinco FRASES não** (v1.8.28).
+    Elas foram a resposta inteira desta aba da v1.3.3 até lá — sem tela de
+    correção atrás delas —, e saíram quando a aba deixou de existir sem cifra.
+    Quem separa os motivos hoje é o Registro, e é lá que a distinção continua
+    valendo: `sem-rede` e `nao-tem` pedem ações opostas de quem lê.
   - **A guarda de TECLADO saiu junto, e é a única baixa que pode voltar a doer.**
     Ela existia porque o teclado do sistema é um `resize`, o `resize` remede a
     folha (`cifraRemedir` → `renderLyricsView`), o redesenho destrói o `<input>`
@@ -2496,8 +2545,9 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   não entendi"*, e isso é diferente de *"não tem"*. Achatar os dois numa frase só
   faz uma mudança de marcação do site ficar indistinguível de uma música ausente
   — e ninguém investigaria. São **cinco motivos** (`sem-rede`, `nao-tem`,
-  `recusou`, `ilegivel`, `sem-cifra`) e cinco frases, porque cada um pede uma
-  ação diferente.
+  `recusou`, `ilegivel`, `sem-cifra`), porque cada um pede uma ação diferente de
+  quem lê. Desde a v1.8.28 quem os separa é o REGISTRO: a aba não existe sem
+  cifra, então não há mais cinco frases na folha.
 - **`sem-cifra` É A METADE QUE FALTAVA DO `ilegivel`** (`AVCifra.varianteSemCifra`,
   v1.2.12, generalizado na v1.2.20). MEDIDO numa varredura: ~12 das 85 falhas eram endereços que EXISTEM,
   respondendo 200 com centenas de kB e nenhum `<pre>` — o site tem a LETRA
@@ -2828,15 +2878,41 @@ gerenciador → achar o arquivo → compartilhar); direto, é UM.
   `FileProvider` com autoridade PRÓPRIA (`${applicationId}.pacote`) — a do APK
   é outra, e juntá-las faria um `<paths>` só expor as duas raízes de uma vez.
 
-- **A CONCESSÃO DE URI VIAJA NO `ClipData`, E O SELETOR NÃO PEDE TAREFA NOVA**
-  (v1.8.18). As duas metades produzem o MESMO sintoma e foi ele que chegou do
-  campo: *"o arquivo tem 0kb, e portanto falha no compartilhamento"*. O
-  `EXTRA_STREAM` é um extra como outro qualquer — quem carrega a permissão de
-  leitura é o `ClipData`, e a migração que o sistema faz sozinho é melhor
-  esforço, não contrato; e `FLAG_ACTIVITY_NEW_TASK` no chooser (copiado do
-  `shareText`, onde é inofensivo porque texto não precisa de concessão) QUEBRA a
-  corrente, porque a concessão é amarrada à tarefa de quem a dá. Sem permissão,
-  quem abre a folha não consegue nem o tamanho, e a Samsung desenha **0 KB**.
+- **O `ClipData` NÃO SE ESCREVE À MÃO, e o seletor não pede tarefa nova**
+  (v1.8.21). O `migrateExtraStreamToClipData` que o sistema roda ao sair do
+  processo **desiste quando o Intent JÁ TEM `ClipData`** — e, num
+  `ACTION_CHOOSER`, ele só copia o `ClipData` e as flags para o CHOOSER *se o
+  alvo tiver migrado*. Escrever o `ClipData` no alvo (v1.8.18) desligava
+  exatamente a propagação que se queria garantir, e o desfecho foi o seletor não
+  abrir. O caminho é o canônico: só o `EXTRA_STREAM` com a flag, e o sistema
+  migra. O `FLAG_ACTIVITY_NEW_TASK` fica FORA — copiado do `shareText`, onde é
+  inofensivo porque texto não precisa de concessão, ele quebra a corrente aqui,
+  porque a concessão é amarrada à TAREFA de quem a dá; é o suspeito do **0 KB**
+  da v1.8.17.
+- **O PROVEDOR É DE CLASSE PRÓPRIA, e isso não é estilo** (`PacoteProvider.kt`,
+  v1.8.22). `ActivityThread` guarda o provedor local num mapa chaveado por
+  `ComponentName(pacote, CLASSE)`, **não por autoridade**: duas autoridades
+  sobre `androidx.core.content.FileProvider` compartilham a instância — e a
+  tabela de caminhos — da PRIMEIRA. Era o "0 KB" no seletor, e ele durou cinco
+  lotes porque falha ASSIMÉTRICO e MUDO deste lado: o `getUriForFile` é
+  ESTÁTICO e resolve pela AUTORIDADE (a URI sai certa, o seletor abre), o nosso
+  lado reporta o tamanho certo (ele lê o `File.length()`, que nunca passa pelo
+  provedor), e quem RECUSA é a instância que serve, **no processo do outro
+  app**. A autoridade do APK continua funcionando por ser a PRIMEIRA — a metade
+  que funciona é a que fazia o defeito parecer impossível. **Autoridade nova =
+  classe nova**, e o `manifest-provedores.test.mjs` cobra isso.
+- **E O `-1` DIZ POR QUÊ** (`pacoteDiag`, shell 69). Ele colapsa TRÊS causas —
+  não há pronto · o arquivo sumiu do disco · o seletor recusou — e o lado web
+  não separa nenhuma: TRÊS rodadas de campo se gastaram nessa distinção, feita
+  por dedução sobre o código em vez de leitura do aparelho. O diag diz o estado
+  do pronto, se ele existe, a URI do provedor (ou a exceção de montá-la) e o
+  desfecho do último fecho e do último envio, com o NOME da exceção. **E, desde
+  a v1.8.22, quantos bytes o PROVEDOR serve** para a própria URI — um `query`
+  daqui, a MESMA chamada que o app receptor faz: é essa linha que separa *"o
+  arquivo tem N bytes no disco"* de *"o outro app consegue lê-los"*, e foram
+  essas duas que divergiram no "0 KB". LEITURA PURA, e ela não vira veredito —
+  um `query` que lançasse por um motivo benigno bloquearia um compartilhamento
+  que ia funcionar.
 - **E O QUE O CANAL CONTOU NÃO É O QUE O OUTRO APP VAI LER.** `bytes` é o que o
   `PacoteCanal` escreveu; `length()` é o que existe NO CAMINHO agora. Enquanto
   só o primeiro foi conferido, um arquivo vazio saía anunciado como pacote
@@ -2860,11 +2936,25 @@ gerenciador → achar o arquivo → compartilhar); direto, é UM.
   "o que fazer" virou o PRÓPRIO botão — ele para em **100%** (onde a barra
   parou) e o desenho vira o de compartilhar, que é onde o estado mora neste app
   desde a v1.7.6.
-- **O TOQUE LONGO REFAZ, e ele existe para o botão não virar uma armadilha.**
-  Com um pronto na mão o toque curto ENVIA; sem uma saída, quem quisesse
-  exportar de novo na mesma sessão ficaria preso com o arquivo velho e nenhuma
-  porta. O eixo duplo é o que o app já usa quando um controle tem duas ações e
-  só cabe um alvo (`attachTransportStep`), e o `title` diz as duas.
+- **O TOQUE LONGO REFAZ, E ELE PERGUNTA** (v1.8.20). Com um pronto na mão o
+  toque curto ENVIA; sem uma saída, quem quisesse exportar de novo na mesma
+  sessão ficaria preso com o arquivo velho e nenhuma porta.
+  - **900 ms, e NÃO os 500 do transporte.** Lá o pior caso de um falso positivo
+    é passar uma mídia em vez de uma estrofe; aqui é DESTRUIR um pacote de
+    minutos — e foi o que aconteceu no campo, num toque normal.
+  - **E O TEMPO SOZINHO NÃO BASTA**: num TOQUE a captura implícita do ponteiro
+    mantém os eventos no elemento até a soltura, então arrastar o dedo para fora
+    **não emite `pointerleave`** e não existe abortar um toque longo já
+    começado. A guarda de verdade é a PERGUNTA, que vem DEPOIS do gesto.
+  - **Perguntar não contradiz o pedido que tirou o diálogo:** aquele era um
+    AVISO de sucesso, com nada a decidir; este é uma DECISÃO destrutiva, e usa o
+    mesmo `appConfirm({ perigo: true })` de excluir uma pasta.
+- **O REGISTRO TEM O DIÁRIO DO PACOTE** (`blocoPacote`, v1.8.20). Este caminho
+  já produziu duas falhas cujo relato era indistinguível a distância — *"o
+  arquivo tem 0kb"* e *"não faz nada"* —, e a pergunta que resolveria as duas
+  (*o toque chegou a pedir o envio, e o que o shell respondeu?*) não tinha
+  resposta em lugar nenhum. Ele diz o que a sessão preparou, o estado AGORA e o
+  desfecho do último envio, e **só sai depois de acontecer**.
 - **O PRONTO VIVE EM MEMÓRIA; O ARQUIVO VIVE NO DISCO**, e os dois podem
   discordar (a faxina de um lançamento, o operador limpando o armazenamento).
   Quem tem a verdade é o shell, que confere o `length()` a cada envio e devolve
@@ -2913,16 +3003,35 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   id que já existe é pulado (`AVDB.mediaAdd` usa `add`, não `put`, e é a FALHA
   dele que vira "já está aqui"); um caminho de OPFS que já abre é pulado; uma
   chave de `state` que já existe só ganha o que não tinha — **união** nas listas
-  de ids, **mescla** nos mapas, e o LOCAL vence em tudo o mais. É essa promessa
-  que faz "importar de novo" ser inofensivo, que é o que de fato acontece quando
-  alguém não tem certeza se deu certo da primeira vez.
+  de ids, **mescla RECURSIVA** nos mapas, e o LOCAL vence nas FOLHAS. É essa
+  promessa que faz "importar de novo" ser inofensivo, que é o que de fato
+  acontece quando alguém não tem certeza se deu certo da primeira vez.
   - **A regra é por FORMA e não por nome de chave**: uma tabela de nomes
     envelheceria em silêncio a cada chave nova, e o modo de falhar dela seria o
     pior — uma chave desconhecida caindo no ramo errado e apagando o que o
     operador tem.
-  - **O preço, dito:** num aparelho que JÁ TEM biblioteca, as preferências do
-    pacote não entram. O caso de uso é o aparelho NOVO, em que nenhuma chave
-    existe e tudo atravessa.
+  - **A MESCLA DE MAPAS É RECURSIVA, e a rasa apagava o acervo inteiro**
+    (v1.8.23). `Object.assign({}, vindo, local)` decide a chave INTEIRA pelo
+    lado de cá: numa chave cujo conteúdo todo mora sob uma chave aninhada,
+    "mesclar" degenera em "o local vence inteiro". O caso é o índice de uma
+    coleção — `coll:<id> = { indexSyncedAt, songs: [{ …, fileIdFull }] }` —,
+    onde `songs` guarda o único PONTEIRO de cada faixa para o arquivo dela. O
+    destino já tem esse índice (o `autoRefreshCollections` o busca sozinho em
+    todo celular com internet) com `fileIdFull` vazio, então os bytes e os
+    registros do catálogo chegavam e **o que apontava para eles ia fora**: a
+    importação termina, o hino aparece na Biblioteca, e tocar nele vai à rede.
+    Descendo às folhas, `fileIdFull: null` cai na REGRA 1 e o de fora entra —
+    **o local não deixa de vencer, ele deixa de vencer com um BURACO.**
+  - **Uma lista de objetos é chaveada por `id` OU `id_music`**, e essa lista de
+    dois nomes é fechada de propósito: um campo especulativo ali faz uma lista
+    comum passar a ser mesclada por engano.
+  - **"NADA MUDOU" É DIZÍVEL POR IDENTIDADE**, e não é cosmética: quem decide se
+    ESCREVE é `depois !== antes`. Enquanto a mescla devolvia sempre um objeto
+    novo, toda chave de mapa era reescrita e contada — e a Bíblia mora em
+    `state` com uma chave POR CAPÍTULO (1189 por versão).
+  - **O preço, dito:** num aparelho que JÁ TEM biblioteca, uma preferência que
+    ele já escolheu não é trocada pela do pacote. O que a recursão acrescenta é
+    o VAZIO sendo preenchido, não o preenchido sendo substituído.
 - **A VARREDURA DO OPFS É DO DISCO, nunca do catálogo** (`AVDB.opfsTodosOsArquivos`).
   O download de uma coleção grava dois tipos de arquivo na mesma pasta: os
   áudios, que viram registro em `files`, e as IMAGENS DE FUNDO DA LETRA, que
@@ -2959,6 +3068,125 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   - **E o `size` vem do `pickDoc`** (shell 64). Sem ele não há como saber onde o
     arquivo acaba — e `-1` ("o provedor não disse") para a importação com frase
     própria, em vez de virar um zero que recusaria um pacote bom como vazio.
+- **O NOME SAI DE QUEM CARREGA OS BYTES, E EM ORDEM** (v1.8.25). A v1.8.23
+  nomeava os registros de CATÁLOGO, que têm `bytes: 0`: MEDIDO por reversão, o
+  ÚLTIMO nome saía em **1% do arquivo** — os 1200 nomes de um hinário passavam
+  na fração de segundo dos metadados, e a linha CONGELAVA no último durante a
+  cópia dos gigabytes, que é o trabalho inteiro. Hoje quem nomeia é o registro
+  `opfs`, que É o byte; o nome vem do catálogo pelo `opfsPath`, que o exportador
+  escreve ANTES dos corpos por contrato. E a varredura do OPFS é ORDENADA com
+  comparação NUMÉRICA — ela devolve o que o sistema de arquivos entrega, e como
+  texto cru "100" vem antes de "010": sem ordenar, um hinário parece um sorteio.
+- **UMA CONTAGEM ENGLOBA O PROCESSO INTEIRO** (v1.8.27). Exportar tinha "medir"
+  e "escrever" como duas barras de 0 a 100 em sequência; importar tinha
+  "conferir" e "aplicar". A primeira sempre MENTIA ao fechar. Hoje cada etapa
+  ocupa uma FATIA da barra única (`PACOTE_FATIA_MEDIDA` 5%,
+  `PACOTE_FATIA_CONFERE` 15%), e a palavra "Medindo…" saiu — ela era uma etapa
+  à parte, e a medição é parte do trabalho. **As fatias são fixas, e as duas
+  alternativas estão ditas:** por BYTES LIDOS a conferência valeria ~1% e
+  ficaria parada o tempo que leva; MEIO A MEIO a barra correria até 50% e depois
+  rastejaria. A fatia não precisa ser exata — precisa ser MONOTÔNICA e nunca
+  voltar a zero. Corolário: `bgTaskStep` **não reinicia mais a média** ao trocar
+  de etapa (a razão daquilo era cada etapa ter a própria barra).
+- **O TILE OCIOSO É O CANCELAR DO IRMÃO** (v1.8.27). O aro é o desenho do
+  TRABALHO EM CURSO, e pintá-lo no botão que não está fazendo nada é a tela
+  afirmando o que não é. Quem trabalha mostra o aro e o número; o outro oferece
+  a saída, com o ✕ no lugar do ícone da função. **Isso revoga a decisão da
+  v1.7.3** de a importação não poder ser interrompida: aquele texto provava que
+  não dá para DESFAZER, e o que faltava era PARAR — seguro exatamente pela razão
+  que ele dá (*o que já entrou está certo*), com a reimportação continuando de
+  onde ficou.
+- **O ÍCONE DA NOTIFICAÇÃO SEGUE O TRABALHO** (v1.8.27). `bgProgress` leva
+  `baixando`, e o `SyncService` escolhe entre a seta de download e as setas de
+  sincronização: exportar, importar e preparar uma apresentação não trazem byte
+  nenhum da rede. É a regra da v1.4.19 (*o ícone segue a legenda*) na única
+  superfície que faltava. **Padrão `true`** — um bundle mais antigo que a ponte
+  não manda o campo, e ausente é "é download", o comportamento de sempre.
+- **O RELATÓRIO DO FIM CONTA MÚSICAS, não unidades internas** (v1.8.25). Ele
+  dizia *"4 item(ns), 2228 arquivo(s) e 172 ajuste(s)"* — a store de mídia, os
+  arquivos do OPFS (um hino tem áudio, playback e as imagens de fundo da letra,
+  daí 2228 para 601 hinos) e chaves de `state`. Hoje: *"Hinário Adventista 2022:
+  601 de 601 músicas"*. É o ESTADO e não o delta de propósito — importar de novo
+  depois de uma queda tem de responder "601 de 601", e um delta diria "0
+  entraram" sobre um hinário completo. A conta sai de `countDownloaded`, a MESMA
+  que a Biblioteca usa: uma segunda conta divergiria da tela onde se confere.
+  - **E ELE É RESUMO, NÃO LISTAGEM** (v1.8.27). Uma frase por coleção, coladas
+    num parágrafo, deram um MURO com vinte e três álbuns. A forma é a de todo
+    bloco de diagnóstico deste repositório: **o TOTAL responde, e só a EXCEÇÃO é
+    nomeada** — *"23 coleções · 312 de 312 músicas"*, com uma linha
+    "Incompletas:" só quando há. Vinte linhas de "10 de 10" não são auditoria: a
+    informação inteira delas é o total. Uma coleção SOZINHA ganha o nome dela,
+    porque ali o nome é a confirmação.
+- **OS AJUSTES INDIVIDUAIS NÃO VIAJAM** (v1.8.25). Decisão do operador: *"o
+  propósito da exportação não é copiar o app de um usuário … o propósito é para
+  dados massivos da biblioteca"*. Doze chaves de preferência entraram no `FORA`,
+  a linha "Ajustes e catálogos" saiu da folha (ela nunca foi escolha — nascia
+  marcada e sem ouvinte) e a palavra "ajustes" saiu do relatório. **A lista
+  continua sendo uma NEGATIVA**, e isso tem asserção própria: uma chave nova
+  viaja por padrão, porque uma lista de PERMISSÃO deixaria um dado de acervo
+  novo para trás em silêncio — o defeito que a v1.8.23 pagou.
+- **A BÍBLIA CONTINUA POR CAPÍTULO, e a medição é a razão** (v1.8.25). Dividi-la
+  por LIVRO reduziria as chaves de 1189 para 66, e foi pedido — mas MEDIDO em
+  Chromium, ler UM capítulo passaria de **0,19 ms para 4,59 ms** (Salmos),
+  porque a leitura teria de desserializar o livro inteiro. A leitura é o caminho
+  do CULTO, a cada virada de capítulo no sermão. O ganho que o pedido procura
+  estava no outro lado e saiu por LOTE (`AVDB.updateStateLote`): gravar 1189
+  capítulos passou de **596 ms para 153 ms**, sem migração e sem tocar na
+  leitura.
+- **O PONTEIRO QUE NÃO LEVA A LUGAR NENHUM É APAGADO, E QUEM DECIDE É O DESTINO**
+  (v1.8.26). O índice de uma coleção é uma chave de `state` e viaja INTEIRO; os
+  arquivos são cortados pela folha de escolha. Um pacote só do hinário leva
+  junto o índice de todos os OUTROS álbuns, com o `fileIdFull` da origem — e
+  `colecaoCompleta` conta `fileIdFull`, então o álbum passa a parecer baixado e
+  **o botão de baixar dele some**. Enquanto a mescla era rasa isso não aparecia;
+  a v1.8.23 passou a preencher os buracos e o defeito veio junto.
+  `pacoteAcertarPonteiros` roda no fim de toda importação **e uma vez na
+  abertura** (a marca mora no `FORA`, senão diria a um aparelho quebrado que ele
+  já foi consertado). O destino é o único que sabe as duas coisas que importam —
+  o que chegou E o que ele já tinha —, e é a regra do `opfsTodosOsArquivos` num
+  lugar novo: pergunta-se ao DISCO, não ao catálogo.
+- **A FOLHA DE ESCOLHA ABRE ANTES DE MEDIR** (v1.8.26). O esboço
+  (`pacotePlanoAproximado`) sai do que já está em memória mais um cursor sobre o
+  catálogo (`AVDB.filesResumo`); a varredura do disco corre DEPOIS da escolha,
+  onde já existe barra de progresso. O peso arredonda PARA CIMA e leva a palavra
+  **"aprox."** (`pacotePeso`) — é o lado certo do erro numa tela cujo consumidor
+  é *"cabe no cartão?"*, e quem de fato decide isso é o plano exato, mais
+  adiante.
+  - **O QUE A FOLHA NÃO CHEGOU A OFERECER ENTRA MARCADO.** Uma coleção que só a
+    varredura conhece ficaria de fora EM SILÊNCIO, e deixar bytes para trás é o
+    único erro deste caminho que não se recupera.
+  - **A MONTAGEM É UMA SÓ** (`pacoteMontarFolha`) para o esboço e para o plano
+    exato: duas divergiriam no primeiro ajuste, e a divergência apareceria como
+    um grupo que existe na tela e não no arquivo.
+- **A NOTIFICAÇÃO DA IMPORTAÇÃO MOSTRA A ETAPA E OS ITENS** (v1.8.23). Ela era
+  `bgTaskStart('Importando o acervo', 1)` com o NOME DO ARQUIVO como item único:
+  um trabalho de UM item, com uma linha que nunca trocava, e a CONFERÊNCIA — que
+  percorre o pacote inteiro pelos cabeçalhos e dura minutos — sem reportar nada.
+  Hoje o rótulo diz a ETAPA (*"Conferindo o pacote"* → *"Importando para a
+  Biblioteca"*), a conferência anda, e cada `media`/`arquivo` que entra passa o
+  NOME para a linha de baixo — que é o que o operador reconhece.
+  - **A RÉGUA CONTINUA EM BYTES**, e isso é decisão: o acervo tem 600 hinos de
+    megabytes ao lado de milhares de chaves minúsculas da Bíblia, então CONTAR
+    ITENS faria a barra saltar para 85% nas chaves e rastejar nos hinos — um
+    número que anda mais rápido e mente. O que o pedido quer é a LISTA.
+  - **Só `media` e `arquivo` têm nome de gente.** Um caminho de OPFS e uma chave
+    de `state` são endereços, e escrevê-los ali trocaria "005. Jubilosos Te
+    Adoramos" por "folders/hymnal-2022/5-cantado.mp3".
+  - **A FILA DE NOMES TEM TETO** (`BG_FILA_MAX`). Ela nasceu para um DOWNLOAD, em
+    que 6 trabalhadores entregam um item a cada segundos; uma importação produz
+    milhares de nomes em minutos contra um mostrado a cada `BG_SPIN_MIN`. Sem
+    teto a linha passa a mostrar o que entrou MINUTOS atrás — a sensação oposta
+    à que ela existe para dar. Quando a produção passa a exibição, o que se
+    descarta é o PASSADO.
+  - **Trocar de ETAPA recomeça a média e chega na hora** (`bgTaskStep`): o
+    rótulo é a mesma classe do primeiro nome e da troca de régua, e carregar o
+    tempo da etapa anterior faria a segunda nascer com o dobro do tempo restante.
+- **O QUE ERA PURO CUSTO SAIU DO CAMINHO** (v1.8.23) — e o que sobra é trabalho
+  real: copiar os bytes para o OPFS. Uma transação por chave de `state` em vez
+  de duas (havia um `getState` antes do `updateState` só para decidir se
+  contava, com a mescla calculada duas vezes); chave idêntica dos dois lados
+  deixa de ser reescrita; e o percentual do botão só toca o DOM quando o inteiro
+  muda — ele é chamado por REGISTRO, milhares de vezes num acervo.
 - **A importação termina em `location.reload()`, e isso é parte do recurso.** O
   `controle.js` lê o acervo UMA vez, no `init()`, e guarda listas e catálogos em
   variáveis de módulo; depois de uma importação todas estão desatualizadas, e
@@ -2973,6 +3201,19 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   metadado. **A exceção são as chaves de `state`**, que o plano lê e CODIFICA
   uma vez e a escrita reusa: elas são milhares e minúsculas, e o
   `JSON.stringify` delas é o único jeito de saber quanto pesam — ver abaixo.
+- **AS CHAVES DE `state` TAMBÉM SÃO UM CURSOR** (`AVDB.stateVarrer`, v1.8.24), e
+  pelo mesmo motivo do irmão logo abaixo: o plano fazia um `getState` por chave,
+  e a Bíblia mora aqui com uma chave POR CAPÍTULO. MEDIDO em Chromium sobre
+  3.600 chaves de tamanho real (11,8 MB de JSON): **525 ms por chave contra
+  275 ms por cursor**, com o piso irredutível (só serializar) em **64 ms**.
+  **MEDIR NA ABERTURA foi considerado e recusado**: o custo não some, muda para o
+  pior instante — o app abre minutos antes do culto, e a regra das rotinas de
+  acervo é CEDER a vez ao que está no ar. Um REGISTRO mantido de tamanhos é pior:
+  ele é uma segunda fonte de verdade sobre o DISCO, e a varredura é do disco
+  justamente porque o catálogo não conhece as imagens de fundo da letra — se as
+  duas derivarem, arquivos deixam de viajar em silêncio. O que sobra é a
+  varredura do OPFS (**455 ms** para 1.800 arquivos), que é O(arquivos) por
+  construção.
 - **O RESUMO DO ACERVO É UM CURSOR, não N leituras** (`AVDB.mediaResumo`). O
   plano precisa do peso de cada item; pedi-lo com um `getMedia` por id é uma
   transação por registro, milhares delas em fila. Um cursor percorre a store
@@ -3144,7 +3385,11 @@ palavra "Conferindo…" parada — o achado da v1.8.13 repetido do outro lado.
 
 Oráculos: **`pacote.test.mjs`** (a REGRA — assinatura, cursor, recusas,
 saneamento, e o grupo de um caminho), **`pacote-ida-e-volta.test.mjs`** (a
-LIGAÇÃO — dois contextos de navegador, como dois celulares) e
+LIGAÇÃO — dois contextos de navegador, como dois celulares; é dele o bloco 12,
+que prende o PONTEIRO do índice de uma coleção chegando ao destino que JÁ TEM a
+coleção — o defeito da v1.8.23, que não tem sintoma nenhum na importação: ela
+termina, anuncia os itens, e o hino só falha ao TOCAR —, e o bloco 13, que
+prende a ETAPA e os NOMES na notificação) e
 **`pacote-por-grupos.test.mjs`** (o LOTE, o PROGRESSO no próprio botão, o
 AGRUPAMENTO da folha e a ESCOLHA cortando bytes). Os dois primeiros são dois porque *ler cada lado isolado aprova os
 dois*; o terceiro existe porque o que ele mede não tem sintoma — uma exportação
@@ -4007,7 +4252,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão |
 | PDF · `.pptx` · Google Apresentações | **PDF não existe**; `.pptx` funciona pelo mesmo caminho do app | **uma IMAGEM POR PÁGINA**. PDF pelo `PdfRenderer` da plataforma (`SlideDeck.kt` + `deckPages`); `.pptx` pelo renderizador de `assets/web/vendor/` (`controle/deck.js`, `import()` dinâmico + `<foreignObject>`/canvas). Daí é mídia comum, com ⏮/⏭ passando página — **e uma CAMADA desde a v1.4.28**: com um áudio no ar, o toque na apresentação a sobrepõe em vez de substituir, pela mesma porta da imagem (`mode:'image'` com um `page`), e o louvor de fundo continua tocando por baixo dos slides. **O FORMATO de cada página é decidido por ela**, nos dois caminhos e pelo mesmo número (`PAGINA_LEVE`, 512 kB): PNG na página chapada, WebP na fotográfica — MEDIDO, uma apresentação de fundo fotográfico dá 100,4 MB em PNG contra 12,3 MB. **Não há botão de "apresentação"** — entra por "Importar arquivos" (`pickDoc`: o PDF precisa que o shell abra o ARQUIVO, e `<input type=file>` só devolve bytes) ou pelo share. `.ppt` legado e `.odp` ficam de fora: ninguém sabe desenhá-los **E O VÍDEO EMBUTIDO TOCA** (v1.6.2): o `pptxzip.js` o tira do zip ANTES de abrir o arquivo — sem isso um `.pptx` com vídeo é RECUSADO (teto de entrada da biblioteca) e, passando, sairia como retângulo PRETO (o `embutirRecursos` não alcança `<video>`). Ele vira mídia presa à PÁGINA em que estava: chegar nela projeta o vídeo, e o fim dele devolve a apresentação no slide SEGUINTE |
 | **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **BAIXA E PROJETA** (v1.7.7): o mesmo `ytArquivo` dos outros destinos, com o cartão sobre a preview e a barra de progresso cobrindo a espera. Foi TRANSMISSÃO DIRETA da v5.212 à v1.7.2 — o `ytStream` montava o manifesto e o `mse.js` o virava um `<video>` —, e ela saiu a pedido do operador: *"vamos abandonar o modo online direto, ele é muito instável"*, depois de travamentos a cada um ou dois segundos com o espelhamento no ar. **O preço está aceito e é o que ela existia para evitar: "Tocar agora" agora ESPERA o download** |
-| **Cifra do hino** | **não existe** — sem ponte não há como buscar a página (CORS), e a aba nem é oferecida | **aba CIFRA no visualizador de letras** (shell 49): `cifraHtml` traz o HTML cru, `controle/cifra.js` o lê, e a folha aparece com transposição por meio tom. **SOB DEMANDA:** nada é baixado em lote, nada entra no bundle, nada é gravado em disco — o cache é um `Map` que morre com o app |
+| **Cifra do hino** | **não existe** — sem ponte não há como buscar a página (CORS), e a aba nem é oferecida | **aba CIFRA no visualizador de letras** (shell 49): `cifraHtml` traz o HTML cru, `controle/cifra.js` o lê, e a folha aparece com transposição por meio tom. **SÓ COM FOLHA NA MÃO** (v1.8.28): sem cifra achada o botão não é desenhado — `cifraCabe` decide se vale PROCURAR, `cifraTemFolha` decide se há o que MOSTRAR. **SOB DEMANDA:** nada é baixado em lote, nada entra no bundle, e fora do acervo guardado o cache é um `Map` que morre com o app |
 | Vídeo do YouTube | **não toca** | **baixado PELO APARELHO** (`YoutubeGrab.kt` + `ytFetch`) — a extração sai do IP do chip, que é o que o YouTube não bloqueia. Falhando, vira item de LINK, retentado no toque seguinte |
 | Qualidade do download | — | teto escolhido pelo operador: **1080p · 720p · 480p**, no mesmo seletor de Vídeo/Só áudio. **O padrão é 720p e ele é DO OPERADOR** (v1.7.7): escolher um teto o GRAVA (`state` `ytAltura`) e ele vale para o próximo vídeo. As duas metades revogam decisões escritas — o padrão era `YT_ALTURAS[0]` (1080p) e o teto nascia no padrão A CADA ITEM —, e as duas foram pedidas por extenso. 1080p usa o `ytFetch` de sempre; só teto MENOR usa `ytFetchAte`. O degrau **"Online"** (`-1`, que guardava só o link) SAIU junto com a transmissão direta que ele alimentava |
 | Resolução do download | — | **até 1080p, montando as duas faixas** — acima de 720p o YouTube entrega vídeo sem som. `MuxMp4.kt` junta com `MediaMuxer` (cópia de amostras, sem recodificar). Pares do MESMO contêiner (mp4+m4a, webm+webm na API 29+): "a melhor de cada lado" daria VP9 em MP4, que o muxer recusa **depois de tudo baixado**. Falhando, o progressivo é o piso. Requer o extrator ≥ v0.26.4 (cliente **visionOS**, que entrega adaptativas sem PO Token); as listas chegam misturadas, daí a **fila de candidatos** — ver `docs/ARQUITETURA-WEB.md` |
@@ -4365,7 +4610,9 @@ o código de saída não pode entrar no placar como quem passou.
 | oráculo | o que trava |
 |---|---|
 | `webview-range.test.mjs` | a **invariante 8**: o `InputStream` de `shouldInterceptRequest` é o recurso INTEIRO |
-| `kotlin-simbolo-importado.test.mjs` | **todo símbolo do Kotlin tem de onde vir.** NINGUÉM COMPILA KOTLIN FORA DO CI — o `./gradlew` exige o Android SDK —, e a suíte inteira é de JavaScript: o primeiro sinal de um `SystemClock` sem `import` é o build da Release falhando DEPOIS do merge em `main`, levando junto o lote seguinte (foi a v1.8.6). Ele responde a única pergunta que dá para responder sem compilador: um nome Maiúsculo seguido de ponto está importado, é do pacote, é membro do arquivo, vem qualificado, ou é do que a linguagem dá de graça? **O varredor de comentários é de ESTADO e não regex, e isso é o arquivo inteiro**: comentário de bloco em Kotlin ANINHA, e a primeira versão (`/\*[\s\S]*?\*/`) deslocava os pares e tirava regiões de código da varredura — MEDIDO, ela aprovava o próprio defeito que veio pegar. Um `import a.b.*` desliga a conferência daquele arquivo: sem resolver o classpath não dá para saber o que ele traz, e reprovar por não saber seria acusar código correto |
+| `kotlin-simbolo-importado.test.mjs` | **todo símbolo do Kotlin tem de onde vir.** NINGUÉM COMPILA KOTLIN FORA DO CI — o `./gradlew` exige o Android SDK —, e a suíte inteira é de JavaScript: o primeiro sinal de um `SystemClock` sem `import` é o build da Release falhando DEPOIS do merge em `main`, levando junto o lote seguinte (foi a v1.8.6). Ele responde a única pergunta que dá para responder sem compilador: um nome Maiúsculo seguido de ponto está importado, é do pacote, é membro do arquivo, vem qualificado, ou é do que a linguagem dá de graça? **O varredor de comentários é de ESTADO e não regex, e isso é o arquivo inteiro**: comentário de bloco em Kotlin ANINHA, e a primeira versão (`/\*[\s\S]*?\*/`) deslocava os pares e tirava regiões de código da varredura — MEDIDO, ela aprovava o próprio defeito que veio pegar. Um `import a.b.*` desliga a conferência daquele arquivo: sem resolver o classpath não dá para saber o que ele traz, e reprovar por não saber seria acusar código correto **E DESDE A v1.8.21 A SEGUNDA CLASSE QUE O COMPILADOR PEGA E A SUÍTE NÃO: o `+` NO COMEÇO DA LINHA.** Em Kotlin ele é o operador UNÁRIO — a concatenação vai no FIM da linha anterior —, e escrito à moda do JavaScript o build morre em `Unresolved reference 'unaryPlus'`, com o mesmo desfecho da v1.8.6 (Release que não nasce, HOLD do `shellTag` segurando o bundle). A varredura lê a linha CRUA para achar o `+` e a LIMPA para contar parêntese: dentro de parênteses abertos ele é legítimo, e há dois casos assim no repositório |
+| `kotlin-argumento-nomeado.test.mjs` | **toda `data class` do shell é construída por NOME.** A TERCEIRA classe que o compilador não pega e a suíte não pegava: construída por POSIÇÃO, um campo acrescentado no MEIO da declaração empurra os seguintes uma casa, e quando dois campos vizinhos têm o mesmo tipo **isso compila**. Foi a v1.8.27 — o `baixando` entrou antes do `bytes` na `SyncService.Progress`, e o compilador só reprovou porque a assinatura da `updateProgress` ainda não tinha o parâmetro; tivesse tido, o `bytes` cairia no `baixando` e a notificação voltaria a mostrar BYTES como se fossem ITENS (o defeito da v5.118), com o lote verde. A regra é **dois ou mais argumentos ⇒ todos por nome**, sem exceção nomeada: uma regra por TIPO seria mais precisa e foi recusada porque muda de veredito quando a CLASSE muda — um lote que só acrescenta um campo faria o CI reprovar uma chamada que ninguém tocou. `src/test` fica de fora, e é decisão: ali o valor esperado é escrito ao lado da entrada (`assertEquals(Faixa(0, 499), alcanceDe("bytes=0-499", …))`) e é essa justaposição que prova a ordem — nomear apagaria a testemunha. A segunda asserção cobre o erro que a conversão INTRODUZ (o nome digitado errado), pelo motivo do irmão acima: ninguém compila Kotlin fora do CI. **NOME DE CLASSE NÃO É ÚNICO** — há duas `Achado` e uma `Faixa` que é `data class` num arquivo e classe comum noutro —, e a primeira versão, com o mapa chaveado pelo nome cru, reprovou dezoito argumentos CORRETOS; a resolução é por arquivo, e nome ambíguo é PULADO. Quatro sondas se autoprovam a cada execução |
+| `manifest-provedores.test.mjs` | **duas autoridades sobre a MESMA CLASSE de provedor compartilham uma instância — e com ela a tabela de caminhos da primeira.** `ActivityThread.installProvider` guarda o provedor local num mapa chaveado por `ComponentName(pacote, CLASSE)`, não por autoridade. Foi o "0 KB" que custou CINCO lotes de campo, e o modo de falhar é ASSIMÉTRICO e MUDO deste lado: o `getUriForFile` é ESTÁTICO e resolve pela AUTORIDADE, então a URI sai certa e o seletor abre; o nosso lado reporta o tamanho certo, porque lê o `File.length()`, que nunca passa pelo provedor; quem RECUSA é a instância que serve, **no processo do OUTRO app**. E a PRIMEIRA autoridade continua funcionando — neste app é a do APK, exercitada em toda atualização, e a metade que funciona é a que faz o defeito parecer impossível. Nada no build detecta a colisão (o XML é válido, o merger não reclama, o app instala) e nenhum oráculo de COMPORTAMENTO alcança um defeito que roda noutro aplicativo: sobra a leitura ESTÁTICA do manifesto, que é a resposta do `kotlin-simbolo-importado` num lugar novo. Confere também que o `<paths>` e a classe apontados EXISTEM — um `@xml/` com nome errado não é erro de build, o recurso some e o provedor sobe sem raiz nenhuma. Duas reversões medidas, e a primeira nomeia o manifesto da v1.8.21 |
 | `sombra.test.mjs` | nenhuma função da base pode redeclarar um nome de módulo — `node --check` APROVA um `const ms` que sombreia a `ms` do módulo, e o que sai é `ReferenceError` por zona morta temporal |
 | `tokens.test.mjs` | **`colors.xml` × `tokens.css`** (v1.5.14): `--bg` é a única cor que existe em dois lugares por necessidade (um recurso de Android não enxerga custom property), e nada verificava a igualdade — o comentário do próprio arquivo o admitia, e é o OTA que torna a divergência provável, porque a base web chega em minutos e o `res/` só por APK. Mais: nenhum `var(--x)` **sem fallback** aponta para token inexistente (um `var()` inválido computa para o valor INICIAL, sem aviso); nenhum token só no tema claro; **nenhuma regra desenha contorno** e — desde a v1.5.16 — **nenhum TRAÇO PINTADO** além da divisória nomeada: a varredura de contorno casa a palavra `border`, e um filete escrito como bloco de 1px com fundo passava por ela sem ninguém decidir nada, deixando no repositório o precedente *"filete pode, desde que não se chame border"*. O par da negativa é POSITIVO — `--divisoria` tem de ter UM consumidor, e ser o seletor da exceção —, senão o token viraria a porta larga. `var(--x, fallback)` é legítimo (valores que o JS entrega em runtime). **E nenhuma marca de conflito de merge** (v1.4.31): `:is()` é FORGIVING, descarta o inválido e aplica o resto — a v1.4.27 perdeu dois seletores do `--press` assim, com o CI verde por três lotes |
 | `serie.test.mjs` | quais playlists e vídeos entram no álbum. **Entradas VERBATIM do canal** — nomenclatura imaginada prova só que o código concorda com quem o escreveu. **E o que a regra CARREGA além do rótulo** (v1.5.21): o `canal` e o TÍTULO CRU sobrevivem a ela, e o canal ausente vira string VAZIA e nunca `undefined` — a diferença entre a gaveta não desenhar a linha e a gaveta escrever "undefined". O caso do canal é a ARMADILHA 5 pelos dois lados na mesma fixture: a string que não pode virar filtro é a que o card mostra |
@@ -4499,7 +4746,7 @@ mundo anterior por outro caminho.
 | `parar-por-camada.test.mjs` | **o Parar do transporte, que fala de UMA camada só.** A regra é CONDICIONAL (mídia + Camada de Texto → sai só a mídia; uma das duas sozinha → sai a cena inteira), e uma condicional errada é muda nos DOIS sentidos: ou a Camada de Texto fica presa no telão sem saída no transporte, ou o louvor de fundo volta a levar o versículo junto. Mede as TRÊS cenas, e a prova é o `currentTime` do `<video>` mais o TIPO do comando — `clear` e `media-clear` apagam o mesmo vídeo da preview |
 | `fonte-so-do-par.test.mjs` | **só o par A+/A− mexe no tamanho da letra** (v1.6.1) — um defeito que estava EM PRODUÇÃO. O ouvinte do par é UM, delegado no documento, e casava `.lv-fonte-btn`, que é APARÊNCIA e veste também os quatro botões da barra da cifra: o `-1` era um `else` sobre um conjunto ABERTO. MEDIDO, transpor meio tom levava `--lv-fonte` de 1,4 para 1,2rem, e em tela cheia levava a escada DAQUELE modo de 2 para 1,7rem **e a GRAVAVA**, no modo cujo objetivo declarado é ler de longe; o botão de rolar escapava por ACIDENTE (o `innerHTML` trocado no próprio handler), e o acidente cobria 62,7% da caixa e NADA do teclado. Ele mede a PROPRIEDADE e não os quatro nomes — varre os `.lv-fonte-btn` VIVOS e exercita um criado na hora —, por TRÊS caminhos (o `click()`, o dedo na BORDA e o Enter), e cada ausência vem em par com a TESTEMUNHA de o botão ter agido, senão um seletor errado no próprio teste aprovaria tudo. A escada é reposta no MEIO antes de cada ativação (no PISO o passo do defeito é um no-op e o token não anda), a espera é pelo ESTADO DO APP e não por `document.fullscreenElement` (o Chromium publica a propriedade antes de despachar o `fullscreenchange`, e quem lê a propriedade mede `idxCheia: -1`) e o toque é por LOCALIZADOR, que só clica com a caixa estável — uma coordenada lida num `evaluate` e usada no seguinte é uma aposta na máquina, e MEDIDO sob carga o ponto chegava a cair na FOLHA. A reversão que fecha o lote é o par CONTINUAR andando nas duas casas e nas duas escadas: sem ela, APAGAR o ouvinte passaria em tudo o mais. **E os botões da GAVETA da velocidade têm bloco próprio** (v1.7.4): eles vestem a MESMA classe pela qual o defeito passava, então a propriedade vale para eles — o que os separa do laço principal é nascerem escondidos, e dois dos três caminhos exigem uma caixa |
 | `cifra-rolagem.test.mjs` | **a rolagem `auto` da cifra precisa de um relógio ANDANDO.** A barra de progresso responde "este ITEM tem linha do tempo?", e `currentItem` sobrevive ao Parar, ao fim da faixa e a uma letra avulsa — a barra ficava habilitada sobre um telão vazio, e o `auto` ancorava a folha em `fracaoDaRolagem(0, dur)`. O desfecho não é um erro, é uma folha PARADA. TRÊS metades: sem mídia no ar ela anda (o livre assumiu), com mídia no ar ela não anda sozinha — "cair sempre no livre" apagaria o recurso —, e a folha de uma música da BIBLIOTECA (`lvAlvo`) continua rolando depois de um redesenho. Esta terceira trava a divergência que a v1.2.14 abriu: `cifraRolarAlternar` gravava a chave de `currentItem` e a guarda de `lvBuildCifra` compara com `lvItem()`, então no ensaio a rolagem morria no primeiro `renderLyricsView` (transpor, A+/A−, girar). A terceira asserção prova que a guarda "música nova é folha nova" não foi apagada para as outras duas passarem. **E a ESCADA DE VELOCIDADE, que na v1.6.1 mudou de NOME e na v1.7.2 mudou de MECANISMO**: os rótulos são lidos dos botões de verdade, na GAVETA que o toque abre (uma leitura de `CIFRA_VELOCIDADES` provaria que a constante concorda consigo mesma), nenhum se repete — contra o COMPRIMENTO da lista, nunca contra o número 5, porque com o `1` numérico de volta são SEIS rótulos e cinco distintos —, e a palavra `Auto` sumiu da tela inteira, `title` e `aria-label` incluídos. **As duas que só existem com a gaveta são o pedido**: abrir SUBSTITUI os vizinhos (com o ⛶ FICANDO, porque *a fila da cifra sempre tem a saída*) e o degrau em cena vem MARCADO; e escolher leva DIRETO ao degrau, sem os do meio ACONTECEREM — que era o preço do carrossel, com a música no ar. A que carrega o lote é a de DESLOCAMENTO: com duração no ar, um degrau NUMÉRICO anda no fixo vezes o fator e nunca no ritmo do relógio — é ela que reprova quem "consertar" a conta transformando os degraus em multiplicadores do `1×`, que é a leitura que o rótulo convida e que o operador recusou por extenso. **E a NOTA no lugar do anel**, em três metades: ela ANUNCIA antes do toque (a promessa que o `.dl-ring` nunca teve), é a RAZÃO da imobilidade durante a espera, e SOME quando o movimento começa — sem esta terceira, uma nota permanente passa nas duas primeiras |
-| `cifra-tela-cheia.test.mjs` | **a cifra DEITADA, em tela cheia** (v1.6.0) — e a asserção que carrega o arquivo é ARITMÉTICA, não de layout: em tela cheia a folha não pode ter MENOS colunas que no retrato. A folha quebra por CARACTERE (`AVCifra.quebrarPares`), então um corpo maior sem REMEDIR é a mesma linha partida com letra grande — o recurso virando regressão, e um teste de "a fonte cresceu" aprova isso. Ele monta o cenário como ele chega no aparelho: tela cheia por CLIQUE de verdade e a rotação como um `setViewportSize` DEPOIS dela, porque a largura e o corpo chegam em instantes diferentes (o `requestFullscreen` resolve ainda em retrato; quem deita é a Activity, depois e sem promise). Mede o RENDERIZADO — a coluna começando onde a folha acaba, o hit-test de cada controle, e o x de um caractere por `Range`, nunca a `font-size` declarada. Mais a POSIÇÃO DE LEITURA sobrevivendo nos quatro pontos que trocam a fonte, em fração do CONTEÚDO: a do percurso muda sozinha quando só a ALTURA da caixa muda, que é o que a rotação faz sem tocar no texto, e o que saía era a folha andando 19% do arquivo ao deitar. E as TRÊS saídas mais a automática (a tela cheia cai quando a cifra deixa de ser a fonte), porque tirar `.open` só muda opacidade e `pointer-events` — o elemento continuaria na top layer com a Activity deitada. **E o ⛶ na BARRA** (v1.6.1): "ele está à vista?" deixou de ser o `hidden` e passou a ser a ÁRVORE — a barra é esvaziada em todo render, e perguntar `.hidden` fora da aba de cifra é ler propriedade de `null` —, então a pergunta é a POSIÇÃO na fila, medida por GEOMETRIA (a ordem do DOM provaria o `prepend`, não onde o dedo encontra o botão depois de a coluna se formar). Mais o bloco 7-C, que é a invariante de ESTRUTURA: com a cifra em `buscando` ou em `falha` **e a tela cheia no ar** a saída continua desenhada, na coluna e tocável — os dois `return` cedo do `lvBuildCifra` são alcançáveis ali, e a barra construída depois deles deixava uma paisagem deitada com uma frase de erro e nenhuma saída à vista. **E a GAVETA da velocidade EMPILHA na coluna** (v1.7.4): o invólucro é `display: contents`, e a asserção é o empilhamento (mesmo x, y crescente) porque é a única coisa que distingue as duas montagens — as caixas medem o mesmo nas duas, e sem ele os cinco sairiam numa linha horizontal dentro de uma trilha de 66px |
+| `cifra-tela-cheia.test.mjs` | **a cifra DEITADA, em tela cheia** (v1.6.0) — e a asserção que carrega o arquivo é ARITMÉTICA, não de layout: em tela cheia a folha não pode ter MENOS colunas que no retrato. A folha quebra por CARACTERE (`AVCifra.quebrarPares`), então um corpo maior sem REMEDIR é a mesma linha partida com letra grande — o recurso virando regressão, e um teste de "a fonte cresceu" aprova isso. Ele monta o cenário como ele chega no aparelho: tela cheia por CLIQUE de verdade e a rotação como um `setViewportSize` DEPOIS dela, porque a largura e o corpo chegam em instantes diferentes (o `requestFullscreen` resolve ainda em retrato; quem deita é a Activity, depois e sem promise). Mede o RENDERIZADO — a coluna começando onde a folha acaba, o hit-test de cada controle, e o x de um caractere por `Range`, nunca a `font-size` declarada. Mais a POSIÇÃO DE LEITURA sobrevivendo nos quatro pontos que trocam a fonte, em fração do CONTEÚDO: a do percurso muda sozinha quando só a ALTURA da caixa muda, que é o que a rotação faz sem tocar no texto, e o que saía era a folha andando 19% do arquivo ao deitar. E as TRÊS saídas mais a automática (a tela cheia cai quando a cifra deixa de ser a fonte), porque tirar `.open` só muda opacidade e `pointer-events` — o elemento continuaria na top layer com a Activity deitada. **E o ⛶ na BARRA** (v1.6.1): "ele está à vista?" deixou de ser o `hidden` e passou a ser a ÁRVORE — a barra é esvaziada em todo render, e perguntar `.hidden` fora da aba de cifra é ler propriedade de `null` —, então a pergunta é a POSIÇÃO na fila, medida por GEOMETRIA (a ordem do DOM provaria o `prepend`, não onde o dedo encontra o botão depois de a coluna se formar). Mais o bloco 7-C, que é a invariante de ESTRUTURA: com a cifra em `buscando` **e a tela cheia no ar** a saída continua desenhada, na coluna e tocável — o `return` cedo do `lvBuildCifra` é alcançável ali (a espera fica de pé para quem ESCOLHEU a aba), e a barra construída depois dele deixava uma paisagem deitada com um anel girando e nenhuma saída à vista. **E o 7-D, que é a mesma pergunta com a resposta da v1.8.28**: o desfecho SEM FOLHA deixou de chegar à barra — ele tira a aba da lista e o `renderLyricsView` devolve o retrato sozinho. A asserção mudou de FORMA e não de assunto (o perigo continua sendo a paisagem sem saída), e a resposta nova é mais forte: em vez de garantir o botão dentro daquela tela, o app não deixa a tela existir. A saída é ASSÍNCRONA, então quem responde é o EVENTO — foi assim que a primeira escrita do bloco "reprovou" a correção certa. **E a GAVETA da velocidade EMPILHA na coluna** (v1.7.4): o invólucro é `display: contents`, e a asserção é o empilhamento (mesmo x, y crescente) porque é a única coisa que distingue as duas montagens — as caixas medem o mesmo nas duas, e sem ele os cinco sairiam numa linha horizontal dentro de uma trilha de 66px |
 | `leitor-do-transporte.test.mjs` | **o BOTÃO que abre o auxiliar de leitura.** `openLyricsPopup` ganhou `(item, fonte)` e o ouvinte continuou registrado por REFERÊNCIA — `addEventListener` chama com o EVENTO, o `PointerEvent` virou o `lvAlvo`, e as três fontes (letra, cifra e a reserva da Bíblia) sumiam de uma vez: a folha abria dizendo "Nada em exibição" para TODA música, com o console limpo. Os três oráculos que já abriam esta folha chamam `openLyricsPopup()` direto — o único caminho que continuava funcionando —, e é por isso que este CLICA. A segunda metade (a Biblioteca continua desviando o alvo) impede que apagar os parâmetros "conserte" a primeira. **E A BADGE** (v1.4.31): apagada sem nada em exibição, acesa com o que ler, pintada de verdade (uma classe sem a regra de CSS passa num teste de classe e continua invisível), e acesa pelo caminho REAL (`renderNowPlaying`) — o defeito provável não é ela calcular errado, é ninguém a chamar quando a cena muda |
 | `controles-layout.test.mjs` | **o DECK dos controles** (v1.3.5) — e o FEEDBACK DE TOQUE sobre a preview (v1.4.33), em três metades que só juntas dizem a regra: a caixa do `.pv-fab` NÃO anda (era o relato), ele RESPONDE mesmo assim no RENDERIZADO (uma regra que só trocasse classe passaria num teste de classe e continuaria muda na tela) e o botão DA BARRA continua afundando os 2px (sem esta, apagar o `--press` do app inteiro passaria nas outras duas): os dois botões de slide que voltaram a flanquear a preview, a coluna de operação que subiu para cima dela, e o ⏮/⏭ do transporte que perdeu o eixo de estrofe. As quatro mudanças falham CALADAS, e a mais cara é a última — se a troca não pegar, "próxima mídia" continua passando ESTROFE com uma letra no ar, no meio de um louvor, sem nada no console; a prova é o COMANDO que sai no barramento (`seek` é a estrofe andando). Trava também a **ARMADILHA DO `<use>`**: a folha do documento NÃO atravessa a árvore-sombra de um `<use>`, então um `<symbol>` único com os dois desenhos dentro carrega, não erra e desenha os DOIS empilhados para sempre. As duas asserções mais óbvias contra ela — contar nós visíveis e fotografar o botão — **aprovam a armadilha** (medido), e por isso ele pergunta qual SÍMBOLO está no ar. Cobre também a COLUNA DA TELA CHEIA (v1.3.10): ela nasce ACESA e o toque é INTERRUPTOR. Ele espera pelo EVENTO `fullscreenchange`, nunca por `document.fullscreenElement` — MEDIDO, o Chromium publica a propriedade ANTES de despachar o evento e a enquete do Playwright cai no vão, reprovando um app que está certo. **E A BASE DA PREVIEW como REGIÃO DO QUE ESTÁ FORA DO PADRÃO** (v1.4.43), nas sete metades do desfazer do giro: ele aparece pelo caminho REAL (`applyRotate`, não um `hidden` escrito à mão — um render próprio deixaria o botão de pé depois de o giro voltar a zero), diz o ÂNGULO, o `title` diz a AÇÃO, o toque manda um `rotate: 0` ao BARRAMENTO (repintar só o tile deixaria a projeção girada), ele SOME depois, a COR é a MESMA do selo (v1.4.45 — os dois moradores da faixa fazem a mesma promessa, *"o toque daqui TIRA alguma coisa"*, e o que os separa é o DESENHO) e NÃO é o branco dos botões de player — e a régua do branco é um vizinho RENDERIZADO, nunca o token: `--stage-text` sai como `#fff` e a cor computada como `rgb(255, 255, 255)`, duas escritas da mesma cor que nunca são iguais como string, e a comparação passa SEMPRE (provado por reversão) —, o ✕ é o do vizinho VERBATIM (uma marca de destruição redesenhada dois pixels adiante é uma segunda opinião sobre a mesma coisa) com o resto do desenho PRÓPRIO de cada um, e o número CABE, porque ele é o único `.pv-fab` mais largo que `--hit` e com o `width` fixo dos irmãos "180°" sai cortado sem erro nenhum. **E O TOM DO CARTÃO DA LINHA DO TEMPO** (v1.5.13, refeito na v1.5.15): ele veste o cinza de um controle INATIVO, medido contra o botão de slide APAGADO com o véu de `--op-inativo` composto — os dois lados saem do MESMO caminho de medição, então um véu que mude num lugar só reprova aqui em vez de sair na tela. Com a REVERSÃO ao lado (o botão ACESO é outro tom): sem ela, um véu apagado por engano devolveria a v1.5.13 e a asserção passaria, porque os dois lados voltariam a ser a mesma superfície cheia. O parse de cor é por CANVAS e não por regex (`color-mix` computa como `color(srgb 1 1 1 / .04)`, e uma regex de números lê (1,1,1) — o oráculo reprova com um número plausível e quem lê o log conclui que o app quebrou) |
 | `preview-volta-ao-wallpaper.test.mjs` | **a preview volta ao WALLPAPER quando a mídia acaba, COM TELÃO NO AR.** O `<video>` dela nunca chegava a ouvir o `ended` dele: o telão termina, dispara `pause` ANTES de `ended` (a ordem do HTML), e o `display-status` que sai daí faz o `resyncPreviewToDisplay` PAUSAR a preview a milissegundos do fim — e um elemento pausado não emite `ended`. Sem `ended`, `computeCover()` responde `false` e a cortina nunca fecha: o que fica é o quadro de `currentTime === duration`, que é PRETO, e é PERMANENTE. Sem TV o caso não existe (a preview É a projeção e ninguém a pausa), que é a armadilha do *"ler cada lado isolado aprova os dois"*. TRÊS metades: o `media-ended` cobre (o caminho exato), o STATUS parado no fim cobre sozinho (a rede de segurança das telas da rede, onde o `media-ended` morre no dreno), e uma pausa NO MEIO **não** cobre — a REGRESSÃO que as duas primeiras introduzem se a régua for só "não está tocando", e sem a qual "cobrir sempre que pausar" passaria nas duas |
@@ -4509,7 +4756,7 @@ mundo anterior por outro caminho.
 | `apresentacao.test.mjs` | **a apresentação que vira imagem** (`controle/deck.js`). A rasterização do `.pptx` é `<foreignObject>`, e um SVG é um DOCUMENTO À PARTE: **tudo que ele não alcança some sem erro nenhum** — o que sai é uma apresentação completa, com o número de páginas certo, e BRANCA. Foi o que chegou ao telão: o material do operador não tem UM `<img>` (todo fundo é `background-image: url(blob:)`) e a versão anterior só convertia `<img>`. Um teste do DESFECHO aprova as duas versões, então ele mede PIXEL, e cada asserção de conteúdo tem a REVERSÃO ao lado. Cobre as três perdas (mídia `blob:`, pixels de `<canvas>`, fonte de símbolo), o FORMATO por página — sem ele o conserto das imagens multiplicava por dez o que uma apresentação ocupa (MEDIDO: 100,4 MB em PNG contra 12,3 MB) — e o PALCO não mexer no layout do documento, que é o relato do operador: o app encolhendo no meio da importação |
 | `notificacao-apresentacao.test.mjs` | **a notificação da importação de apresentação tem de ANDAR.** `pptxImportar`/`deckImportar` abriam a tarefa com `bgTaskStart(…, 1)` e nunca chamavam `bgTaskStep`: o `onProgresso` alimentava só o cartão da tela, e a notificação ficava em `0 de 1` do começo ao fim, com a estimativa em ZERO. É o defeito que o download de vídeo teve até a v5.117, sobrevivendo neste caminho — e MUDO: nada lança, e a apresentação fica correta no fim. O que falha é a única janela que existe com o app minimizado, no caso longo, que é quando ninguém olha a tela. Ele mede o que a PONTE recebeu (a string do `bgProgress`, a mesma que o `SyncService` lê), com a REVERSÃO ao lado, e cobre a fase de CÓPIA do PDF — que era silenciosa, e silêncio ali faz `idleMs` crescer até a notificação anunciar "sem resposta" no trecho em que tudo vai bem |
 | `leitor-apresentacao.test.mjs` | **o auxiliar de leitura de uma apresentação** — a coluna de páginas e a EXCLUSIVIDADE dela. A segunda metade falha CALADA: a folha abre, mostra as páginas, e um botão "Letra" sobrando abre a leitura de OUTRA mídia — nada quebra, e o operador lê o hino de antes durante o sermão. Daí medir a exclusividade na TRANSIÇÃO (música em cena → apresentação), e não no estado final. Mede também o que um teste de comportamento não pega: a ALTURA da miniatura no RENDERIZADO (as imagens são `lazy`, e uma sem altura faz o `lvScroll` mirar o lugar errado), a URL da primeira miniatura sobrevivendo à troca de página (a prova de que a lista não remontou) e o `fetch` de uma URL REVOGADA rejeitando depois de fechar. As duas metades de volta — a letra e o A+/A− retornando — impedem que "esconder tudo" passe |
-| `leitor-camadas.test.mjs` | **o auxiliar oferece TUDO o que está em exibição** (v1.4.26), e a lista é a PILHA das camadas: uma música de fundo com a Bíblia por cima dá as três abas e ABRE na Bíblia. O pedido revoga duas exclusividades que este arquivo defendeu (a da Bíblia, v1.1.11, e a da apresentação, v1.4.24) — elas acertavam a PRECEDÊNCIA e erravam em tirar as outras da mesa. As metades falham CALADAS e em direções opostas: de MENOS a aba não está lá e o operador conclui que o recurso não existe; de MAIS — o caro — a lista certa com a ABERTURA errada mostra a letra do louvor de fundo com o versículo no telão, e **parece certo**. A terceira é a ESCOLHA GUARDADA, que com a pilha passa a poder contradizer o pedido: quem tocou "Cifra" com o louvor sozinho no ar não pediu cifra para quando o versículo subir. A regra é *mudou a frente, mudou a pergunta*, e ela só está certa com as duas metades medidas — zerar sempre passa numa, apagar o recurso passa na outra |
+| `leitor-camadas.test.mjs` | **A ABA DE CIFRA SÓ EXISTE COM CIFRA** (v1.8.28), em PAR e na mesma cena, porque as duas metades falham caladas em direções opostas: de MAIS a aba de sempre (a regra não pegou, e o toque abre a frase de "não encontrei"), de MENOS o conserto barato de apagar a cifra da lista — que passa na asserção negativa sozinha, a armadilha do `--press`. A BADGE entra junto porque sai da MESMA lista e é a que ninguém confere: uma faixa de áudio SEM LETRA tem a cifra como única fonte possível. E o ESTADO da procura viaja em toda asserção — sem ele, "a aba não está lá" passa também no mundo em que a procura NUNCA ACONTECEU, que é o defeito de menos por outro caminho e o que obrigou a v1.8.28 a acrescentar o gatilho da abertura. A ponte de mentira dele passou a SERVIR uma cifra (o nome da música decide: `sem-cifra` no slug devolve 404), senão toda música do arquivo seria uma música sem cifra e a disponibilidade medida seria a de um cenário que o app já não produz. Mais **o auxiliar oferecendo TUDO o que está em exibição** (v1.4.26), e a lista é a PILHA das camadas: uma música de fundo com a Bíblia por cima dá as três abas e ABRE na Bíblia. O pedido revoga duas exclusividades que este arquivo defendeu (a da Bíblia, v1.1.11, e a da apresentação, v1.4.24) — elas acertavam a PRECEDÊNCIA e erravam em tirar as outras da mesa. As metades falham CALADAS e em direções opostas: de MENOS a aba não está lá e o operador conclui que o recurso não existe; de MAIS — o caro — a lista certa com a ABERTURA errada mostra a letra do louvor de fundo com o versículo no telão, e **parece certo**. A terceira é a ESCOLHA GUARDADA, que com a pilha passa a poder contradizer o pedido: quem tocou "Cifra" com o louvor sozinho no ar não pediu cifra para quando o versículo subir. A regra é *mudou a frente, mudou a pergunta*, e ela só está certa com as duas metades medidas — zerar sempre passa numa, apagar o recurso passa na outra |
 | `toque-instantaneo.test.mjs` | **o "Tocar agora" de um vídeo responde no INSTANTE do toque.** Ele começa por uma extração de rede de SEGUNDOS, e até a v1.4.6 nada mudava na tela nesse intervalo — nem o aro de carregamento; o único sinal acendia uma linha da Biblioteca que o `closeHymnSearch` acabara de fechar. Mede o MEIO (a ponte de mentira SEGURA o `ytStream`), porque um teste do desfecho passa nas duas versões. Sete metades: as quatro do toque (a cena sai, o comando vai ao BARRAMENTO, o cartão aparece, e guardar no Cronograma NÃO interrompe — a que impede a correção de virar um defeito maior), o ITEM DE LINK de uma lista (a outra porta do mesmo trabalho, que a v1.4.6 deixou de fora), o subtexto do "Online", e o CONFIRMAR sempre último da faixa |
 | `ferramentas-folha.test.mjs` | **A NAVEGAÇÃO DO APP: uma tela e duas folhas** (v1.3.10 → v1.5.0). Ele nasceu para as Ferramentas virando folha e cresceu no lote em que a faixa de abas saiu inteira — as três coisas se medem juntas porque são UMA decisão. Trava que a faixa e a máquina dela (`TAB_ORDER`, `SWIPE_TABS`, `switchTab`) não existem, que o rodapé tem as TRÊS portas na ordem do pedido, que a folha da Bíblia é o MESMO molde da de Ferramentas (não invade cabeçalho nem controles, cobre a lista, e tem host PRÓPRIO — ela disputava o `<ul>` do Cronograma), que as duas folhas não se empilham, que o alternador da Biblioteca troca de DESENHO (seta × ✕, medido no renderizado: a folha do documento não atravessa a árvore-sombra de um `<use>`) e que o voltar do Android SOBE dentro da Bíblia antes de fechá-la. A asserção que carrega o lote é GEOMÉTRICA — a caixa da folha contra o cabeçalho e a caixa de controles —, porque uma folha de corpo inteiro continua funcionando e continua bonita: o que ela perde é o transporte e a preview à vista, e isso não aparece em teste de comportamento nenhum. Trava também que `activeTab` continua em `'imports'` com a folha aberta (se ela trocasse a aba, o rodapé onde mora a porta dela deixaria de ser desenhado). **E AS TRÊS PORTAS FICAM QUIETAS E BAIXAS** (v1.5.19), com dez asserções cujo tema é *"padronize"*: as três iguais em cor COMPOSTA (parse por CANVAS — `color-mix` computa como `color(srgb 1 1 1 / .49)` e uma regex de números lê (1,1,1)), altura, raio, ícone e família de fonte; a superfície mais quieta que o `--btn-accent` era **e acima do tom do `--op-inativo`**, que é a linguagem do INDISPONÍVEL neste app e o piso duro; o rodapé **não pulando** ao entrar na seleção múltipla — um defeito LATENTE de 7,77px que o lote corrigiu, contra a promessa escrita do próprio `--hit-foot` —; **a fatia SEGUINDO o token**, que é outra pergunta e sem a qual um patch que engorde as duas inquilinas por igual passa o bloco inteiro (provado: com o `padding` de volta E o token em 51,77px, tudo verde); a `.selbar` NÃO ficando discreta, porque os `.sel-btn` em cima dela cairiam a ΔE 2,11 no tema claro e o app perderia a distinção entre disponível e indisponível na barra que hospeda o EXCLUIR; o raio continuando UM SÓ para as quatro peças; a FAIXA não transbordando (a do `<span>` sozinha é uma TAUTOLOGIA — na pilha ele nunca é clampado, e ela passa com o rótulo a 403px dentro de um botão de 93); e as duas que só falham NO APP ou por acidente — a `font-family` da porta do meio (lá ela é `<button>` e não `<label>`) e o ícone das três saindo do MESMO token, cuja divergência a altura nunca denuncia porque a `.import-row` é `align-items: stretch` |
 | `historico.test.mjs` | **o histórico do culto**, uma lista que se preenche sozinha no ponto mais quente do app (`send`) e cujos três modos de errar são mudos: não registrar (a folha abre vazia depois de um culto inteiro), registrar demais (`repeat: 'one'` enterrando o culto em cópias do mesmo nome) e oferecer ao Cronograma um id que o coletor já recolheu — este só aparece no sábado seguinte. **E as SESSÕES** (v1.4.31): que ele atravessa a carga da página, que a carga nova NÃO abre sessão antes da primeira projeção, e a régua do pedido — numa sessão antiga o que dependia de um ARQUIVO fica só como registro (e DIZ isso) enquanto texto e link continuam usáveis, remontados pela RECEITA a partir de um id que já não existe. Mais as duas saídas (por sessão · tudo). **E O DIA COMO BLOCO** (v1.7.4), nas duas metades que só juntas dizem a regra: o DEGRAU DE TOM entre o cabeçalho do dia e a linha do item, medido na cor RENDERIZADA e nos DOIS temas — um teste de token ou de classe aprovava o defeito, porque os dois nomes eram diferentes (`--camada` e `--linha`) e resolviam para o MESMO valor, e é o tema claro que fecha a conta —, e a FILIAÇÃO de cada linha ao bloco do dia dela, sem a qual dois tons alternados numa lista PLANA continuam sendo uma corrida de irmãos. Três reversões medidas (1,08:1 · 1,00:1 · a lista plana reprovando na primeira leitura). O `waitForFunction` do Playwright **não espera a promise de um predicado `async`** — ela é truthy e a espera passa no primeiro quadro, aprovando o que veio verificar —, então quem pergunta ao IndexedDB usa o laço do lado do Node |
@@ -5006,10 +5253,9 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.19 · APK v1.8.19** · `SHELL_VERSION` **68** ·
-bundle com `minShell: 68` e **`shellTag: "v1.8.19"`** (lote COM Release) — o
-shell 68 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
-lado web.
+**Versão atual: base web v1.8.28 · APK v1.8.27** · `SHELL_VERSION` **69** ·
+bundle com `minShell: 69` e **SEM `shellTag`** (lote SÓ WEB) — o shell 69 é o
+**PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
 > oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
@@ -5048,8 +5294,24 @@ lado web.
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
 
-**O QUE O LOTE TRAZ — o corte do SHELL, e exportar direto para o
-compartilhar:**
+**O QUE O LOTE TRAZ (v1.8.28) — a aba de cifra que só existe com cifra:**
+
+| peça | onde |
+|---|---|
+| a segunda pergunta: *há o que MOSTRAR?* | `cifraTemFolha` + a lista de fontes (`lyricsViewSources`) |
+| a procura começando também na abertura da folha | `openLyricsPopup` (o alvo da Biblioteca não passa pelo `send`) |
+| o desfecho falando nas DUAS superfícies | `cifraDesfechoNaTela` (a folha e a badge do transporte) |
+| as cinco frases de falha, que saíram | `lvBuildCifra` (sobram a espera e o estado impossível) |
+| o par medido, com as duas reversões | `leitor-camadas.test.mjs` · `cifra-tela-cheia.test.mjs` (7-C e 7-D) |
+
+> **LOTE SÓ WEB.** `java/`, `res/` e o manifesto não foram tocados e nenhum
+> método da ponte entrou ou mudou de forma — daí o `version.json` sair SEM
+> `shellTag`. Deixá-lo apontando para a v1.8.27 (a tag do lote anterior) é o
+> modo de falhar mudo deste campo: o CI exige `shellTag == 'v' + version`, e um
+> `v1.8.28` declarado sem Release seguraria o bundle para sempre.
+
+**O QUE UM LOTE ANTERIOR TROUXE (v1.8.17) — o corte do SHELL, e exportar direto
+para o compartilhar:**
 
 | peça | onde |
 |---|---|

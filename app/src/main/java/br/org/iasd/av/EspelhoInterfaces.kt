@@ -123,36 +123,39 @@ object EspelhoInterfaces {
             // A ORDEM É CONTRATO: ela decide qual motivo o Registro imprime
             // quando mais de um se aplica, e é o motivo que diz a quem lê a
             // distância se o defeito é nosso ou do aparelho.
-            if (!b.noAr) { recusadas.add(Recusada(b.nome, "fora do ar")); continue }
-            if (b.loopback) { recusadas.add(Recusada(b.nome, "loopback")); continue }
-            if (b.pontoAPonto) { recusadas.add(Recusada(b.nome, "ponto-a-ponto")); continue }
+            if (!b.noAr) { recusadas.add(Recusada(nome = b.nome, motivo = "fora do ar")); continue }
+            if (b.loopback) { recusadas.add(Recusada(nome = b.nome, motivo = "loopback")); continue }
+            if (b.pontoAPonto) { recusadas.add(Recusada(nome = b.nome, motivo = "ponto-a-ponto")); continue }
 
             val familia = FAMILIAS_RECUSADAS.firstOrNull { nome.startsWith(it) }
             if (familia != null) {
-                recusadas.add(Recusada(b.nome, "familia $familia nunca e ponto de acesso"))
+                recusadas.add(Recusada(nome = b.nome, motivo = "familia $familia nunca e ponto de acesso"))
                 continue
             }
 
             val dono = reivindicadas[b.nome] ?: reivindicadas[nome]
             if (dono != null) {
-                recusadas.add(Recusada(b.nome, "reivindicada por $dono"))
+                recusadas.add(Recusada(nome = b.nome, motivo = "reivindicada por $dono"))
                 continue
             }
 
-            if (b.ipv4.isEmpty()) { recusadas.add(Recusada(b.nome, "sem IPv4")); continue }
+            if (b.ipv4.isEmpty()) { recusadas.add(Recusada(nome = b.nome, motivo = "sem IPv4")); continue }
             val privados = b.ipv4.filter { ehPrivado(it) }
             if (privados.isEmpty()) {
-                recusadas.add(Recusada(b.nome, "IPv4 fora de RFC1918"))
+                recusadas.add(Recusada(nome = b.nome, motivo = "IPv4 fora de RFC1918"))
                 continue
             }
 
             val tipo = classificar(nome)
-            for (ip in privados) achados.add(Achado(b.nome, ip, tipo))
+            for (ip in privados) achados.add(Achado(nome = b.nome, ip = ip, tipo = tipo))
         }
 
         // PONTO DE ACESSO PRIMEIRO. `sortedBy` é estável em Kotlin, então a
         // ordem de enumeração do sistema sobrevive dentro de cada tipo.
-        return Leitura(achados.sortedBy { it.tipo.ordinal }, recusadas)
+        return Leitura(
+            achados = achados.sortedBy { it.tipo.ordinal },
+            recusadas = recusadas,
+        )
     }
 
     /**

@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.19';
+const WEB_VERSION = '1.8.28';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11514,7 +11514,15 @@ function lyricsViewSources() {
   // SÓ NO APP. No navegador não há ponte, e sem ela não há como buscar a página
   // (CORS — ver `AVNative.cifraHtml`). Oferecer uma aba que só sabe explicar por
   // que não funciona é pior que não oferecê-la.
-  if (cifraCabe(alvo)) list.push('cifra');
+  //
+  // E SÓ COM FOLHA NA MÃO (v1.8.28). São DUAS perguntas, e enquanto houve só a
+  // primeira a aba aparecia para toda faixa de áudio do acervo — MEDIDO, dois
+  // terços dos álbuns não têm cifra sob endereço deduzível nenhum, e o que o
+  // toque abria era a frase de "não encontrei". `cifraCabe` decide se vale
+  // PROCURAR; `cifraTemFolha` decide se há o que MOSTRAR, e é esta que governa
+  // a aba, a badge do transporte e a precedência de abertura, porque as três
+  // saem desta lista.
+  if (cifraCabe(alvo) && cifraTemFolha(alvo)) list.push('cifra');
   // A RESERVA: sem NADA em exibição, um capítulo aberto (mesmo fora do ar) ainda
   // é o que o operador tem para ler — e é o que ele foi buscar ao abrir esta
   // folha. Ela sobrevive à revogação acima porque responde a outra pergunta: as
@@ -11660,6 +11668,20 @@ function openLyricsPopup(item, fonte) {
   // `lvItem()`, e com o alvo antigo ainda de pé ela responderia sobre a folha
   // anterior.
   lvAlvo = novo;
+  // ===== A PROCURA COMEÇA AQUI PARA QUEM NUNCA PASSOU PELO `send` (v1.8.28) ==
+  //
+  // O gatilho normal é a música ENTRAR EM CENA (v1.1.17), e ele tira a rede do
+  // caminho crítico: quem abre a folha no meio do culto costuma achar a resposta
+  // pronta. O ALVO DA BIBLIOTECA não tem esse gatilho — ele é o ensaio, e nada
+  // ali projeta —, e até a v1.8.27 quem o cobria era o `cifraGarantir` de dentro
+  // do `lvBuildCifra`. Com a aba dependendo do DESFECHO, aquele ponto deixou de
+  // ser alcançável antes de haver desfecho: sem esta linha a aba nunca
+  // apareceria para uma música aberta da Biblioteca, porque a procura que a
+  // faria aparecer só rodava depois de ela aparecer.
+  //
+  // IDEMPOTENTE, como no `send`: repetir a mesma música não repete a rede, e o
+  // desfecho redesenha a folha sozinho.
+  if (cifraCabe(lvItem())) cifraGarantir(lvItem());
   const frente = lyricsViewSources()[0] || null;
   // A ABA ESCOLHIDA SOBREVIVE À REABERTURA, e só não sobrevive à TROCA DE
   // ALVO. São duas coisas diferentes: quem escolheu "cifra" no transporte quer
@@ -11942,13 +11964,20 @@ function cifraNomeDoItem(item) {
 }
 
 /**
- * CABE CIFRA PARA ESTE ITEM? — e a resposta é UMA, para os dois consumidores.
+ * VALE A PENA PROCURAR CIFRA PARA ESTE ITEM? — e a resposta é UMA, para os três
+ * consumidores.
  *
- * A mesma pergunta é feita em dois lugares (a aba, que decide se se oferece, e
- * o pré-carregamento do `send`, que decide se busca). Duas escritas dela
+ * A mesma pergunta é feita no `send` (a música entrando em cena), na abertura
+ * da folha (o alvo da Biblioteca) e na lista de fontes. Duas escritas dela
  * divergiriam no primeiro ajuste — e a divergência entre "o que conta como
  * acorde" e "o que é transposto" foi exatamente o que produziu o defeito da
- * v1.1.15. Uma função, dois chamadores.
+ * v1.1.15. Uma função, três chamadores.
+ *
+ * **ELA NÃO DECIDE A ABA SOZINHA desde a v1.8.28.** Quem responde *"há o que
+ * MOSTRAR?"* é `cifraTemFolha`, sobre o desfecho da procura; esta responde
+ * *"vale gastar a rede?"*, e as duas são feitas em sequência na lista de
+ * fontes. Enquanto foram uma só, a aba aparecia para toda faixa do acervo e
+ * abria na frase de "não encontrei".
  *
  * O corte é por CONTEÚDO MUSICAL, não por nome: um episódio de série é um
  * testemunho em vídeo, e procurar cifra dele é uma requisição garantidamente
@@ -12273,16 +12302,29 @@ function cifraGarantir(item) {
     entrada.motivo = r.motivo;
     entrada.url = r.url;
     if (seq === lvCifraSeq) cifraUltimoDiag = r.tentativas.join('\n');
-    // O desfecho REDESENHA — sem isto a aba fica em "Procurando…" até o próximo
-    // pulso do `refreshLyricsView`, que num áudio pausado nunca vem.
-    if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
+    cifraDesfechoNaTela();
   }).catch(() => {
     entrada.estado = 'falha';
     entrada.motivo = AVCifra.MOTIVO_SEM_REDE;
-    if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
+    cifraDesfechoNaTela();
   });
 
   return entrada;
+}
+
+/**
+ * O DESFECHO DA PROCURA CHEGOU: quem o mostra são DUAS superfícies.
+ *
+ * A FOLHA, porque sem isto a aba fica em "Procurando…" até o próximo pulso do
+ * `refreshLyricsView`, que num áudio pausado nunca vem. E a BADGE do
+ * transporte, que desde a v1.8.28 depende deste desfecho: com a folha FECHADA
+ * o `renderLyricsView` nem roda, e uma faixa de áudio SEM LETRA tem a cifra
+ * como única fonte possível — a badge ficaria acesa (ou apagada) pelo estado de
+ * antes da resposta, sobre um botão que abre uma folha vazia.
+ */
+function cifraDesfechoNaTela() {
+  if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
+  renderLeitorBadge();
 }
 
 // ===== A CIFRA DO HINÁRIO, GUARDADA NO APARELHO (v1.1.28) =====
@@ -12841,6 +12883,40 @@ function cifraGuardarEstrutura(rotulo, html) {
 function cifraEstado(item) {
   const chave = cifraChave(item);
   return (chave && cifraCache.get(chave)) || null;
+}
+
+/**
+ * ===== HÁ CIFRA DE VERDADE PARA MOSTRAR? (v1.8.28) =====
+ *
+ * Pedido do operador: *"que ele não apresente o botão da aba de cifra se não
+ * houver uma cifra de verdade para ser apresentada. não quero acesso a essa
+ * seção se não tem esse conteúdo."*
+ *
+ * `cifraCabe` responde outra pergunta — *"vale a pena PROCURAR?"* —, e ela é
+ * por CONTEÚDO MUSICAL: todo `kind: 'audio'` do acervo passa. MEDIDO, cerca de
+ * dois terços dos álbuns não estão sob endereço deduzível nenhum, então a aba
+ * era oferecida para a maioria das faixas só para dizer que não achou. É o
+ * precedente do MICROFONE SEM TV (v1.2.20/v1.2.21) na terceira vez: explicar é
+ * melhor que mentir, e **não oferecer é melhor que explicar**.
+ *
+ * O veredito é o do CACHE, e ele não dispara busca nenhuma — quem a dispara é
+ * `cifraGarantir`, no `send` (a música entrando em cena) e na abertura da folha
+ * (o alvo da Biblioteca, que nunca passa pelo `send`).
+ *
+ * **A ESPERA SÓ APARECE PARA QUEM JÁ ESTÁ NA ABA.** `buscando` é o único estado
+ * em que o app ainda não sabe a resposta, e ele dura de milissegundos (a cifra
+ * lida do disco) a segundos (a cadeia inteira de endereços). Escondê-lo para
+ * todo mundo é o certo — a aba nasce quando há folha; mas escondê-lo de quem
+ * ESCOLHEU a cifra tira a aba de baixo do dedo do músico a cada troca de faixa
+ * do louvor, para devolvê-la um segundo depois. A escolha manual (`lvSource`) é
+ * o que separa os dois: para ela a aba fica, com o "Procurando a cifra…" que
+ * `lvBuildCifra` desenha, e some se a procura terminar sem folha.
+ */
+function cifraTemFolha(item) {
+  const e = cifraEstado(item);
+  if (!e) return false;
+  if (e.estado === 'ok') return !!e.pagina;
+  return e.estado === 'buscando' && lvSource === 'cifra';
 }
 
 // Transpõe a folha em cena. O passo é guardado NA ENTRADA do cache, e não numa
@@ -13877,16 +13953,19 @@ function lvBuildCifra(el) {
   // ===== A FILA NASCE COM A SAÍDA, ANTES DE QUALQUER RETORNO CEDO (v1.6.1) ==
   //
   // ISTO É UMA INVARIANTE DE ESTRUTURA, NÃO DE ESTADO: *a fila da cifra sempre
-  // tem a saída*. Os dois `return` abaixo ("procurando" e o erro) são
-  // alcançáveis COM A TELA CHEIA NO AR — `cifraCabe` não olha o estado, então
-  // `lvActiveSource()` continua devolvendo `'cifra'` e a saída automática do
-  // `renderLyricsView` não dispara. Basta a cena virar de faixa para a entrada
-  // nova nascer em "buscando"; e num `falha` isso é PERMANENTE, porque
-  // `cifraGarantir` não reconsulta na sessão. Construída depois dos retornos, a
-  // fila fica vazia e o que sobra é uma paisagem deitada com uma frase de erro e
-  // NENHUMA saída à vista — o ✕ e o toque no fundo já saem em tela cheia por
-  // regra escrita, e Esc/F11 não existem num aparelho. Sobraria só o voltar do
-  // Android, que é a saída que ninguém vê.
+  // tem a saída*. O `return` da ESPERA é alcançável COM A TELA CHEIA NO AR —
+  // basta a cena virar de faixa para a entrada nova nascer em "buscando", e com
+  // a cifra ESCOLHIDA (`lvSource`) a aba fica, então `lvActiveSource()` continua
+  // devolvendo `'cifra'` e a saída automática do `renderLyricsView` não dispara.
+  // Construída depois do retorno, a fila fica vazia e o que sobra é uma paisagem
+  // deitada com um anel girando e NENHUMA saída à vista — o ✕ e o toque no fundo
+  // já saem em tela cheia por regra escrita, e Esc/F11 não existem num aparelho.
+  // Sobraria só o voltar do Android, que é a saída que ninguém vê.
+  //
+  // O DESFECHO SEM FOLHA deixou de chegar aqui na v1.8.28: ele tira a cifra da
+  // lista, e é o `renderLyricsView` que devolve o retrato (`cifraCheiaSair`).
+  // A invariante não fica mais barata por isso — quem paga a espera é o mesmo
+  // músico, na mesma paisagem.
   //
   // A CASA MUDOU NA v1.6.3 e a invariante ficou MAIS BARATA: a fila é um nó
   // ESTÁTICO do `index.html`, então ela não precisa ser construída para existir
@@ -13903,39 +13982,34 @@ function lvBuildCifra(el) {
   cifraCheiaBtnEl.hidden = false;
   ctl.appendChild(cifraCheiaBtnEl);
 
+  // ===== OS DOIS RETORNOS CEDO, E O QUE SOBROU DELES (v1.8.28) ==============
+  //
+  // A ESPERA é o único desfecho que ainda se desenha aqui, e ela só chega para
+  // quem ESCOLHEU a aba de cifra: desde a v1.8.28 a aba sai da lista enquanto
+  // não há folha (`cifraTemFolha`), e a exceção do `buscando` existe para não
+  // tirá-la de baixo do dedo do músico a cada troca de faixa.
+  //
+  // AS CINCO FRASES DE FALHA SAÍRAM. Elas eram a resposta inteira desta aba
+  // desde a v1.3.3, e o operador pediu o contrário: *"não quero acesso a essa
+  // seção se não tem esse conteúdo"*. Sem cifra a aba não existe mais, então
+  // não há mais superfície onde a frase caiba — é o MICROFONE SEM TV (v1.2.21)
+  // outra vez, e o diagnóstico continua inteiro no bloco "Cifra (última busca)"
+  // do Registro, que é onde este projeto guarda diagnóstico.
+  //
+  // O `estado !== 'ok'` que sobrevive ao filtro é ESTADO IMPOSSÍVEL — a lista e
+  // este desenho discordando. Ele não pode cair num `return` mudo: uma caixa
+  // vazia com a fila de controles em cima é o desfecho que ninguém consegue
+  // relatar, e a frase curta abaixo custa uma linha.
   if (!entrada || entrada.estado === 'buscando') {
     el.appendChild(cifraEspera('Procurando a cifra…'));
     return;
   }
 
-  if (entrada.estado !== 'ok') {
-    // CADA MOTIVO PEDE UMA AÇÃO DIFERENTE, e por isso são frases diferentes.
-    // Um "não foi possível carregar" genérico é o que faz o operador tentar de
-    // novo quando o certo era desistir, e desistir quando o certo era tentar.
-    const frases = {
-      [AVCifra.MOTIVO_SEM_REDE]: 'Sem resposta da internet. A cifra é lida na hora — sem rede, não há como buscá-la.',
-      [AVCifra.MOTIVO_NAO_TEM]: 'Não encontrei a cifra de “' + nome + '”.',
-      [AVCifra.MOTIVO_RECUSOU]: 'O site respondeu, mas recusou a página. Tente de novo daqui a pouco.',
-      // A FRASE DIZ O QUE FOI OBSERVADO, não o que se conclui dele (v1.2.21).
-      // Ela afirmava "o site não tem os acordes desta música" — e MEDIDO: o
-      // Cifra Club serve VARIANTES no mesmo endereço (cifra, letra, partituras
-      // para teclado), e a página de letra chegando não prova ausência de cifra
-      // nenhuma. Afirmar a conclusão errada é pior que descrever o fato.
-      [AVCifra.MOTIVO_SEM_CIFRA]: 'O Cifra Club tem “' + nome + '”, mas não a cifra dela '
-        + '— só a letra ou a partitura.',
-      [AVCifra.MOTIVO_ILEGIVEL]: 'Achei a página e não consegui lê-la — o site mudou de formato. '
-        + 'Isso se corrige numa atualização da base; o Registro em Configurações tem o detalhe.',
-    };
+  if (entrada.estado !== 'ok' || !entrada.pagina) {
     const box = document.createElement('div');
     box.className = 'lv-cifra-estado lv-cifra-erro';
-    box.textContent = frases[entrada.motivo] || 'Não foi possível carregar a cifra.';
+    box.textContent = 'Não há cifra de “' + nome + '” para mostrar.';
     el.appendChild(box);
-
-    // A BUSCA MANUAL SAIU (v1.3.3), a pedido do operador — com ela saíram a
-    // lista de resultados, a prévia, o campo de consulta e a escolha fixada.
-    // O que fica é a FRASE do motivo: são cinco, e cada uma pede uma ação
-    // diferente de quem lê (ver `cifraPedir`). Por isso a frase é a resposta
-    // inteira agora, e não a introdução de uma tela de correção.
     return;
   }
 
@@ -21065,7 +21139,7 @@ async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
   const total = escolhidos.length;
   const bg = previewBusy('Preparando', total + ' para o Cronograma',
     () => { sorteioCancelado = true; });
-  const tarefa = bgTaskStart('Playlist automática', total);
+  const tarefa = bgTaskStart('Playlist automática', total, false);
   const ids = [];
   const nomes = [];
   try {
@@ -21182,7 +21256,7 @@ async function montarFilaSorteada(escolhidos) {
     () => { sorteioCancelado = true; });
   // A notificação do sistema, para o app minimizado: UMA tarefa para o lote —
   // uma por faixa faria a barra reiniciar do zero a cada download.
-  const tarefa = bgTaskStart('Playlist automática', total);
+  const tarefa = bgTaskStart('Playlist automática', total, false);
   const ids = [];
   try {
     await withBgWork(async () => {
@@ -21920,6 +21994,30 @@ function blocoSorteio() {
 // E ELE IMPRIME AS CATEGORIAS VISTAS. É essa lista que permite consertar uma
 // grafia por OTA sem pedir captura ao operador — sem ela, "não dissolveu" e
 // "dissolveu e você não viu" chegam com a mesma cara.
+// O PACOTE DE TRANSFERÊNCIA — o que esta sessão preparou e enviou.
+//
+// SÓ SAI DEPOIS DE ACONTECER: uma linha de zeros seria mais uma para ler em
+// toda cópia do Registro, e este caminho não é usado num culto comum.
+function blocoPacote() {
+  if (!window.__NATIVE__) return '';
+  if (!pacoteDiario.preparou && !pacoteDiario.enviou && !pacoteDiagShell) return '';
+  const linhas = [];
+  if (pacoteDiario.preparou) linhas.push('  preparação: ' + pacoteDiario.preparou);
+  // O ESTADO AGORA, ao lado do que aconteceu: "preparou às 13:20" e "não há
+  // pronto" contam uma história que nenhuma das duas conta sozinha.
+  linhas.push('  agora: ' + (pacotePronto
+    ? 'há um pacote pronto (' + fmtBytes(pacotePronto.bytes) + '), esperando o envio'
+    : 'nenhum pacote pronto'));
+  linhas.push('  envio: ' + (pacoteDiario.enviou || 'nenhum toque de envio nesta sessão'));
+  if (pacoteDiario.refez) linhas.push('  refeito ' + pacoteDiario.refez + '× nesta sessão');
+  // E O LADO DO SHELL, que é o único que separa as três causas do `-1` (não há
+  // pronto · o arquivo sumiu · o seletor recusou, com o nome da exceção). Sem
+  // ele, este bloco diz o que o WEB pediu e não o que o aparelho respondeu — e
+  // foi essa metade que faltou nas três rodadas de campo deste caminho.
+  if (pacoteDiagShell) linhas.push('  shell: ' + pacoteDiagShell.replace(/\n/g, '\n  '));
+  return 'Pacote de transferência\n' + linhas.join('\n');
+}
+
 function blocoColetaneas() {
   if (!window.AVColetanea) return '';
   const cats = (albumCatalog && albumCatalog.categories) || [];
@@ -22555,6 +22653,20 @@ async function renderDiag() {
   // um bloco curto, e não no meio de oitenta linhas de playlist.
   const bcol = blocoColetaneas();
   if (bcol) blocos.push(bcol);
+  // O LADO DO SHELL vem ANTES de montar o bloco, e é `await` como as outras
+  // leituras de ponte deste render. Ele é o único que sabe se há um pronto no
+  // disco e o que o seletor respondeu.
+  // O `try` embrulha a CHAMADA e não só a promessa: num shell anterior ao 69 o
+  // método não existe, e o `native.js` lança ANTES de devolver promessa alguma
+  // — um `.catch()` sozinho não alcançaria isso. É a mesma razão pela qual todo
+  // caminho da ponte deste arquivo é defensivo.
+  pacoteDiagShell = '';
+  if (window.__NATIVE__) {
+    try { pacoteDiagShell = await AVNative.pacoteDiag(); } catch (_) { pacoteDiagShell = ''; }
+  }
+  if (meu !== diagSeq) return;   // outro render assumiu durante a espera
+  const bpac = blocoPacote();
+  if (bpac) blocos.push(bpac);
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   // O TEXTO MORA NA VARIÁVEL, e não num nó do DOM (v5.207). O visor `<pre>`
   // saiu de Configurações — ver o comentário do bloco no `index.html`: ele
@@ -22987,34 +23099,55 @@ function pacoteEscritor(enviar, aoAndar, parou) {
  */
 let pacotePlanoAtual = null;
 
-async function pacotePlano() {
+async function pacotePlano(aoAndar) {
+  // OS PASSOS DA MEDIÇÃO. Ela não tem progresso interno de granularidade fina —
+  // cada um destes é uma varredura inteira —, e são eles que fazem os primeiros
+  // por cento da barra ANDAREM em vez de ficarem parados numa palavra.
+  let passo = 0;
+  const PASSOS = 4;
+  const andou = () => { passo++; if (aoAndar) aoAndar(passo / PASSOS); };
   const pastas = await AVDB.getState('opfs-folders');
   const caminhoViaja = AVPacote.pastasDoAparelho(pastas);
 
   // AS CHAVES DE `state`, lidas e codificadas de uma vez. Uma chave que não
   // possa ser lida ou serializada é PULADA aqui — e some do plano inteiro, o
   // que é o certo: ela não vai ser escrita depois.
+  // UM CURSOR, e não um `getState` por chave (v1.8.24). É a mesma correção que o
+  // `mediaResumo` já era para a store de mídia, e pelo mesmo motivo: a Bíblia
+  // mora em `state` com uma chave POR CAPÍTULO (1189 por versão), então pedir os
+  // valores um a um são milhares de transações em fila — na PORTA da folha, com
+  // o operador olhando "Medindo o acervo".
+  //
+  // MEDIDO em Chromium, sobre 3.600 chaves de tamanho real (11,8 MB de JSON):
+  // 525 ms por chave contra 275 ms por cursor; só serializar, sem tocar no
+  // banco, são 64 ms — o piso irredutível.
+  //
+  // A CODIFICAÇÃO CONTINUA ACONTECENDO AQUI, dentro da varredura, e continua
+  // sendo guardada: é a exceção declarada do plano (as chaves de `state` são
+  // milhares e minúsculas, e o `JSON.stringify` delas é o único jeito de saber
+  // quanto pesam). Adiá-la para a escrita não pouparia nada — devolveria as
+  // milhares de transações, um pouco mais tarde.
   const codificador = new TextEncoder();
   const estado = [];
   let bytesEstado = 0;
-  for (const chave of (await AVDB.stateKeys('')).filter(AVPacote.chaveViaja)) {
-    let valor;
-    try { valor = await AVDB.getState(chave); } catch (_) { continue; }
-    if (valor === undefined) continue;
+  await AVDB.stateVarrer((chave, valor) => {
+    if (!AVPacote.chaveViaja(chave) || valor === undefined) return;
     if (valor instanceof Blob) {
       estado.push({ chave, blob: valor });
       bytesEstado += valor.size;
-      continue;
+      return;
     }
     let bytes;
-    try { bytes = codificador.encode(JSON.stringify(valor)); } catch (_) { continue; }
+    try { bytes = codificador.encode(JSON.stringify(valor)); } catch (_) { return; }
     estado.push({ chave, bytes });
     bytesEstado += bytes.length;
-  }
+  });
 
+  andou();
   const midia = await AVDB.mediaResumo();
   let bytesMidia = 0;
   for (const m of midia) bytesMidia += m.bytes;
+  andou();
 
   // O CONJUNTO DE COLEÇÕES vem do catálogo em memória, e é ele que decide o que
   // ganha nome próprio na folha e o que cai em "outros arquivos".
@@ -23022,7 +23155,20 @@ async function pacotePlano() {
   const nomes = new Map(cols.map((c) => [c.id, c.name || c.id]));
   const ids = new Set(cols.map((c) => c.id));
 
-  const arquivos = (await AVDB.opfsTodosOsArquivos()).filter((a) => caminhoViaja(a.caminho));
+  // EM ORDEM (v1.8.25). A varredura do OPFS devolve o que o sistema de arquivos
+  // entrega, que não tem ordem nenhuma — e é essa lista que decide a ordem em
+  // que os bytes são escritos, e portanto a ordem em que os nomes aparecem na
+  // notificação de quem importa. Relato do operador: *"o hinário vai de 0 a 600
+  // e é muito incoerente os hinos terem uma ordem aleatória … como não há uma
+  // ordem, ele parece que está sorteando"*.
+  //
+  // A comparação é NUMÉRICA (`numeric: true`), e não alfabética crua: os
+  // caminhos são `folders/<coleção>/<número>-<variante>.<ext>`, e como texto o
+  // 100 vem antes do 2. Com ela, um hinário sai na ordem dos hinos.
+  const arquivos = (await AVDB.opfsTodosOsArquivos())
+    .filter((a) => caminhoViaja(a.caminho))
+    .sort((x, y) => String(x.caminho).localeCompare(String(y.caminho), 'pt-BR',
+      { numeric: true, sensitivity: 'base' }));
   const porGrupo = new Map();
   for (const a of arquivos) {
     const g = AVPacote.grupoDoCaminho(a.caminho, ids);
@@ -23032,9 +23178,109 @@ async function pacotePlano() {
     porGrupo.set(g, atual);
   }
 
-  // A LISTA DA FOLHA. `ajustes` primeiro (é o que sempre vai), as coleções na
-  // ordem do catálogo (a mesma da Biblioteca — o operador as procura ali), a
-  // mídia, e "outros" por último, que é o grupo de escape.
+  andou();
+  const { grupos, folha } = pacoteMontarFolha({ cols, porGrupo, bytesEstado, midia, bytesMidia });
+  andou();
+
+  return { estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos, folha };
+}
+
+/**
+ * A FOLHA SEM MEDIR NADA — o que a Biblioteca já sabe, na hora.
+ *
+ * Pedido do operador: *"você não pode simplesmente usar a medição superficial
+ * que já temos na biblioteca? essa medição dos arquivos e peso total da
+ * exportação não é importante, apenas arredonde para cima e chame de
+ * aproximadamente … dessa forma não atrasa o processo, e os processos reais
+ * necessários acontecem após o pedido confirmado"*.
+ *
+ * O peso de cada coleção já está em MEMÓRIA (`ui(id).bytes`, guardado em
+ * `state` e reconferido uma vez por sessão pelo `conferirPesoSeFaltar`), e o
+ * catálogo também. Então a folha abre no toque, e a varredura do disco — que é
+ * O(arquivos) e não tem como deixar de ser — corre DEPOIS da escolha, onde já
+ * existe barra de progresso.
+ *
+ * O QUE ELA NÃO SABE é o grupo "Arquivos sem coleção": ele só existe depois da
+ * varredura, porque é definido por AUSÊNCIA (bytes no disco de uma coleção que
+ * saiu do catálogo). Quem resolve isso é o `exportarPacote`, marcando por
+ * padrão todo grupo que a folha não chegou a oferecer — errar para o lado de
+ * levar demais é recuperável; para o lado de deixar bytes para trás, não.
+ */
+async function pacotePlanoAproximado() {
+  const cols = allCollections();
+  const porGrupo = new Map();
+  // QUAIS COLEÇÕES TÊM ALGO NO APARELHO — e a pergunta é feita ao CATÁLOGO, que
+  // é o que mais se parece com o que o pacote carrega. O peso guardado
+  // (`collUI[id].bytes`) entra quando existe, porque ele soma o DISCO e por isso
+  // conhece as imagens de fundo da letra, que não são registro de catálogo; sem
+  // ele, a soma dos `size` do catálogo é a aproximação — e ela SUBESTIMA, que é
+  // por isso que o número é arredondado para cima e sai com a palavra "aprox."
+  // (o número que decide se o pacote CABE no aparelho é o do plano exato, mais
+  // adiante, e não este).
+  let porPasta = [];
+  try { porPasta = await AVDB.filesResumo(); } catch (_) { porPasta = []; }
+  const doCatalogo = new Map();
+  for (const f of porPasta) {
+    if (!f.folder) continue;
+    doCatalogo.set(f.folder, (doCatalogo.get(f.folder) || 0) + f.bytes);
+  }
+  const conhecidas = new Set(cols.map((c) => c.id));
+  for (const c of cols) {
+    const guardado = (collUI[c.id] && collUI[c.id].bytes) || 0;
+    const bytes = guardado || doCatalogo.get(c.id) || 0;
+    if (bytes > 0) porGrupo.set(AVPacote.GRUPO_COL + c.id, { arquivos: [], bytes });
+  }
+  // "ARQUIVOS SEM COLEÇÃO" TAMBÉM SAI DO CATÁLOGO. Ele é definido por AUSÊNCIA
+  // — bytes de uma coleção que saiu do catálogo —, e a varredura do disco é a
+  // única que o conhece por inteiro; mas a parte dele que TEM registro de
+  // catálogo é sabida aqui, e é ela que faz a linha existir na folha em vez de
+  // o grupo aparecer só depois, já marcado e sem chance de ser tirado.
+  let soltos = 0;
+  for (const [pasta, bytes] of doCatalogo) if (!conhecidas.has(pasta)) soltos += bytes;
+  if (soltos > 0) porGrupo.set(AVPacote.GRUPO_OUTROS, { arquivos: [], bytes: soltos });
+  // A MÍDIA é um cursor sobre a store do Cronograma — dezenas de itens, não
+  // milhares —, e sem ela o grupo não teria peso nenhum para mostrar.
+  let midia = [];
+  try { midia = await AVDB.mediaResumo(); } catch (_) { midia = []; }
+  let bytesMidia = 0;
+  for (const m of midia) bytesMidia += m.bytes;
+  const { grupos, folha } = pacoteMontarFolha({ cols, porGrupo, bytesEstado: 0, midia, bytesMidia });
+  // A MARCA VALE PARA TODO GRUPO, e é escrita num lugar só: por item ela se
+  // perderia no próximo grupo que alguém acrescentasse à montagem, e o que sai
+  // disso é um número estimado sem a palavra que diz que ele é estimado.
+  for (const g of grupos) g.aprox = true;
+  return { grupos, folha, aprox: true };
+}
+
+/**
+ * A MONTAGEM DA FOLHA — a mesma para a medida APROXIMADA e para a EXATA.
+ *
+ * Ela existe porque a folha passou a ser desenhada ANTES da medição (v1.8.26):
+ * duas montagens divergiriam no primeiro ajuste, e a divergência apareceria
+ * como um grupo que existe na tela e não no arquivo (ou o contrário).
+ *
+ * `porGrupo` pode vir com a lista de arquivos VAZIA e só o peso — é assim que a
+ * versão aproximada chega aqui, com o peso que a Biblioteca já tem em memória.
+ * Quem marca os grupos como aproximados é ela, DEPOIS: uma marca por item se
+ * perde no próximo grupo que alguém acrescentar aqui.
+ */
+function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midia, bytesMidia }) {
+  // A LISTA DA FOLHA. As coleções na ordem do catálogo (a mesma da Biblioteca —
+  // o operador as procura ali), a mídia, e "outros" por último, que é o grupo
+  // de escape.
+  //
+  // A LINHA "Ajustes e catálogos" SAIU DA FOLHA (v1.8.25), e o que ela
+  // carregava CONTINUA no pacote. Decisão do operador: *"elementos essenciais
+  // para uso da biblioteca, como listas atualizadas, e dados de base, coloque
+  // eles no pacote de importação, mas não precisa citar eles, são bases para o
+  // funcionamento da importação"*.
+  //
+  // Ela nunca foi escolha — nasceu marcada e sem ouvinte, porque desmarcá-la
+  // faria a mídia chegar ÓRFÃ ao destino e o coletor da abertura seguinte a
+  // apagaria. Uma linha que não decide nada numa folha cujo trabalho INTEIRO é
+  // decidir é ruído; o que ela explicava agora está no `FORA` do `pacote.js`,
+  // que é onde a regra mora. O grupo continua existindo em `plano.grupos`
+  // porque é dele que sai o peso do estado no total.
   const grupos = [{
     chave: AVPacote.GRUPO_AJUSTES,
     rotulo: 'Ajustes e catálogos',
@@ -23045,11 +23291,15 @@ async function pacotePlano() {
   const porColecao = new Map();
   for (const c of cols) {
     const g = porGrupo.get(AVPacote.GRUPO_COL + c.id);
-    if (!g || !g.arquivos.length) continue;
+    // SEM LISTA DE ARQUIVOS mas COM PESO é a versão aproximada: ela sai do que
+    // a Biblioteca já tem em memória, e não da varredura do disco.
+    if (!g || (!g.arquivos.length && !g.bytes)) continue;
     const item = {
       chave: AVPacote.GRUPO_COL + c.id,
       rotulo: c.name || c.id,
-      sub: g.arquivos.length + (g.arquivos.length === 1 ? ' arquivo' : ' arquivos'),
+      sub: g.arquivos.length
+        ? g.arquivos.length + (g.arquivos.length === 1 ? ' arquivo' : ' arquivos')
+        : '',
       bytes: g.bytes,
       fixo: false,
     };
@@ -23066,7 +23316,7 @@ async function pacotePlano() {
     });
   }
   const soltos = porGrupo.get(AVPacote.GRUPO_OUTROS);
-  if (soltos && soltos.arquivos.length) {
+  if (soltos && (soltos.arquivos.length || soltos.bytes)) {
     grupos.push({
       chave: AVPacote.GRUPO_OUTROS,
       // "OUTROS ARQUIVOS" seria o nome de duas coisas nesta mesma folha: a
@@ -23095,7 +23345,7 @@ async function pacotePlano() {
   // `pacoteBytesDe` consomem, e nenhum dos dois tem o que fazer com uma árvore.
   // `plano.folha` é a árvore, e ela existe só para a folha desenhar.
   const naFolha = new Set();
-  const folha = [{ tipo: 'fixo', chave: AVPacote.GRUPO_AJUSTES }];
+  const folha = [];
   const linha = (chave) => {
     if (!chave || naFolha.has(chave) || !porGrupo.has(chave)) return;
     naFolha.add(chave);
@@ -23134,7 +23384,32 @@ async function pacotePlano() {
   linha('midia');
   linha(AVPacote.GRUPO_OUTROS);
 
-  return { estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos, folha };
+  return { grupos, folha };
+}
+
+/**
+ * O PESO NA FOLHA, e ele DIZ quando é estimativa.
+ *
+ * Pedido do operador: *"essa medição dos arquivos e peso total da exportação
+ * não é importante, apenas arredonde para cima e chame de aproximadamente"*.
+ *
+ * ARREDONDA PARA CIMA na própria unidade em que vai ser mostrado: 1,21 GB vira
+ * "aprox. 1,3 GB". É o lado certo do erro numa tela cujo consumidor é a
+ * pergunta *"cabe no cartão?"* — prometer menos do que se vai escrever é o
+ * único jeito de essa resposta enganar.
+ *
+ * A PALAVRA É OBRIGATÓRIA quando o número é estimado. Sem ela o operador leria
+ * um valor exato e o compararia com o arquivo que sai, que é outro.
+ */
+function pacotePeso(bytes, aprox) {
+  if (!aprox) return fmtBytes(bytes);
+  const K = 1024;
+  let u = 0;
+  let v = Math.max(0, bytes);
+  while (v >= K && u < 3) { v /= K; u++; }
+  // Uma casa decimal, para cima — a mesma resolução que o `fmtBytes` mostra.
+  const arred = Math.ceil(v * 10) / 10;
+  return 'aprox. ' + fmtBytes(arred * Math.pow(K, u));
 }
 
 /** Os bytes que os grupos escolhidos vão escrever — o total da barra. */
@@ -23266,7 +23541,7 @@ function renderPacoteGrupos(plano) {
   // botão de confirmar, que é onde a pergunta ("cabe no cartão?") é feita.
 
   const linhaDeGrupo = (g, dentro) => {
-    const peso = fmtBytes(g.bytes);
+    const peso = pacotePeso(g.bytes, g.aprox);
     const li = songMenuItem(
       g.chave === 'midia' ? msym(ICON.import) : msym(ICON.music),
       g.rotulo, (g.sub ? g.sub + ' · ' : '') + peso, () => {}, g.chave, remontar);
@@ -23275,32 +23550,6 @@ function renderPacoteGrupos(plano) {
   };
 
   for (const item of plano.folha) {
-    if (item.tipo === 'fixo') {
-      const g = porChave.get(item.chave);
-      if (!g) continue;
-      const li = document.createElement('li');
-      const caixa = document.createElement('div');
-      caixa.className = 'song-menu-btn song-menu-sel song-menu-fixo';
-      const ic = document.createElement('span');
-      ic.className = 'song-menu-icon';
-      ic.innerHTML = pacoteIconeSvg('icoGear');
-      caixa.appendChild(ic);
-      const txt = document.createElement('span'); txt.className = 'song-menu-text';
-      const t = document.createElement('span'); t.className = 'song-menu-label';
-      t.textContent = g.rotulo;
-      const d = document.createElement('span'); d.className = 'song-menu-sub';
-      d.textContent = (g.sub ? g.sub + ' · ' : '') + fmtBytes(g.bytes) + ' · sempre vai junto';
-      txt.append(t, d);
-      caixa.appendChild(txt);
-      const marca = document.createElement('span');
-      marca.className = 'song-menu-check on';
-      marca.setAttribute('role', 'img');
-      marca.setAttribute('aria-label', 'sempre incluído');
-      caixa.appendChild(marca);
-      li.appendChild(caixa);
-      songMenuListEl.appendChild(li);
-      continue;
-    }
     if (item.tipo === 'linha') {
       const g = porChave.get(item.chave);
       if (g) songMenuListEl.appendChild(linhaDeGrupo(g, false));
@@ -23372,7 +23621,7 @@ function renderPacoteGrupos(plano) {
   const sel = pacoteSelecao(plano);
   // O PESO DO QUE FOI ESCOLHIDO, no próprio botão: é a única pergunta que o
   // operador tem depois de marcar ("cabe no cartão?"), e ela muda a cada toque.
-  t.textContent = 'Salvar ' + fmtBytes(pacoteBytesDe(plano, sel));
+  t.textContent = 'Salvar ' + pacotePeso(pacoteBytesDe(plano, sel), plano.aprox);
   txt.appendChild(t);
   go.appendChild(txt);
   go.addEventListener('click', () => fecharPacoteGrupos(pacoteSelecao(plano)));
@@ -23393,15 +23642,27 @@ const PACOTE_CANCELADO = 'cancelado';
 // escolhido pelo operador) continua ali para quando não couber.
 const PACOTE_FOLGA_BYTES = 512 * 1024 * 1024;
 
-// O TEMPO DO TOQUE LONGO no tile de exportar pronto (v1.8.19). Meio segundo, o
-// mesmo compasso do eixo duplo do transporte — o mesmo gesto pedindo tempos
-// diferentes em duas superfícies do mesmo app é o que ele evita.
+// O TEMPO DO TOQUE LONGO no tile de exportar pronto.
+//
+// 900ms, e NÃO os 500 do eixo duplo do transporte (v1.8.20). Lá o pior caso de
+// um falso positivo é passar uma mídia em vez de uma estrofe — aqui é DESTRUIR
+// um pacote que levou minutos para ficar pronto, e o relato do operador foi
+// exatamente esse: *"tocar nele não me oferece nada … e depois volta ao estado
+// do botão de exportar, medindo novamente, como se tudo tivesse sido
+// desfeito"*. Um toque deliberado num tile pequeno passa de meio segundo com
+// facilidade.
+//
+// E O TEMPO SOZINHO NÃO BASTA, por uma razão que não é de calibração: num
+// TOQUE o navegador dá CAPTURA IMPLÍCITA do ponteiro ao elemento, então
+// arrastar o dedo para fora NÃO emite `pointerleave` — não existe como abortar
+// um toque longo que já começou. É por isso que ele passou a PERGUNTAR em vez
+// de agir (ver o ouvinte).
 //
 // DECLARADO AQUI, e não ao lado do ouvinte que o usa: o `pacoteRenderTiles()`
 // da carga roda no TOPO do arquivo, e um `const` alcançado de cima é uma zona
 // morta esperando a ordem de chamada mudar (a armadilha do
 // `cifraAdotarVelocidade`).
-const PACOTE_TOQUE_LONGO_MS = 500;
+const PACOTE_TOQUE_LONGO_MS = 900;
 
 // O PACOTE FECHADO QUE ESPERA SER MANDADO (v1.8.19) — `{ nome, bytes }`, ou
 // `null`.
@@ -23417,6 +23678,28 @@ const PACOTE_TOQUE_LONGO_MS = 500;
 // existe. O shell confere o `length()` a cada envio e devolve `-1` quando ele
 // sumiu — é ele, e não esta variável, quem tem a verdade.
 let pacotePronto = null;
+
+// O DIÁRIO DO PACOTE — o que aconteceu na última exportação e no último envio.
+//
+// Ele existe porque este caminho já produziu DUAS falhas cujo relato foi
+// indistinguível a distância: *"o arquivo tem 0kb"* (v1.8.18) e *"tocar nele
+// não faz nada"* (v1.8.20). Nos dois, a pergunta que resolveria em um minuto —
+// **o toque chegou a pedir o envio, e o que o shell respondeu?** — não tinha
+// resposta em lugar nenhum, e a investigação virou dedução sobre o código.
+//
+// EM MEMÓRIA e sem carimbo de disco, como o resto do estado do pacote: ele
+// descreve ESTA sessão, que é o que o operador acabou de fazer antes de copiar
+// o Registro.
+const pacoteDiario = { preparou: '', enviou: '', refez: 0 };
+
+// O QUE O SHELL RESPONDEU na última montagem do Registro. Lido ali e não no
+// toque: ele descreve o estado AGORA, e quem o quer é quem está copiando o
+// Registro.
+let pacoteDiagShell = '';
+function pacoteAnotar(campo, texto) {
+  const h = new Date().toLocaleTimeString('pt-BR');
+  pacoteDiario[campo] = h + ' · ' + texto;
+}
 
 async function exportarPacote() {
   const c = pacoteCanal();
@@ -23444,29 +23727,68 @@ async function exportarPacote() {
   // "Salvar como", em silêncio absoluto; a v1.7.2 a mostrou no cartão sobre a
   // PREVIEW, e a v1.7.3 a trouxe para cá: a ação acontece no botão, e é nele
   // que ela responde (ver `falarNoTile`).
-  let plano = null;
-  falarNoTile(pacoteExportarTileEl, 'Medindo…', 0);
-  pacoteExportarTileEl.classList.add('qs-trabalhando');
-  try {
-    plano = await pacotePlano();
-  } catch (e) {
-    plano = null;
-  } finally {
-    pacoteExportarTileEl.classList.remove('qs-trabalhando');
-    calarTile(pacoteExportarTileEl);
-  }
-  if (!plano) {
+  // A FOLHA ABRE NA HORA, com o peso que a Biblioteca já tem (v1.8.26). A
+  // varredura do disco corre DEPOIS da escolha — ver `pacotePlanoAproximado`.
+  let esboco = null;
+  try { esboco = await pacotePlanoAproximado(); } catch (_) { esboco = null; }
+  if (!esboco) {
     pacoteEmCurso = false;
     pacoteRenderTiles();
     pulsar(pacoteExportarTileEl, 'erro');
     falarNoTile(pacoteExportarTileEl, 'Não deu', 4000);
     return;
   }
-  pacotePlanoAtual = plano;
+  pacotePlanoAtual = esboco;
 
-  const sel = await escolherGruposDoPacote(plano);
+  const sel = await escolherGruposDoPacote(esboco);
   // Desistir na folha é desistir: nada foi aberto, nada foi escrito.
   if (!sel) { pacotePlanoAtual = null; pacoteEmCurso = false; pacoteRenderTiles(); return; }
+
+  // ===== AGORA A MEDIÇÃO DE VERDADE =====
+  // Ela varre o OPFS inteiro, percorre a store de mídia e lê as chaves de
+  // `state` — segundos num acervo grande. Até a v1.8.25 ela acontecia ANTES da
+  // folha, e era o operador esperando para poder escolher; hoje ela roda com a
+  // escolha já feita, que é onde o trabalho de verdade começa. O número aparece
+  // no PRÓPRIO BOTÃO, como todo o resto deste caminho (ver `falarNoTile`).
+  let plano = null;
+  // SEM A PALAVRA "Medindo…" (v1.8.27). Pedido do operador: *"não precisa usar
+  // 'medindo' após a seleção, apenas inclua isso na contagem de porcentagem do
+  // processo. afinal, isso é só parte do processo como um todo"*. Ele está
+  // certo, e é o que ela é: a medição ocupa a primeira FATIA da barra do
+  // processo inteiro (ver `PACOTE_FATIA_MEDIDA`), e a escrita continua dali.
+  // A BANDEIRA DE "dá para parar" NÃO sobe aqui, e é de propósito: durante a
+  // medição não há escrita para interromper — o `pacoteCancelar` só é lido pelo
+  // escritor. Um cancelar aceito agora ficaria pendurado até o seletor de
+  // destino responder, e só então faria efeito.
+  pacoteCancelar = false;
+  pacotePercentualDito = -1;
+  pacoteExportarTileEl.classList.add('qs-trabalhando');
+  pacoteFalarPercentual(pacoteExportarTileEl, 0);
+  try {
+    plano = await pacotePlano((f) => {
+      pacoteFalarPercentual(pacoteExportarTileEl, pacoteFatia(0, PACOTE_FATIA_MEDIDA, f, 1));
+    });
+  } catch (e) {
+    plano = null;
+  }
+  if (!plano) {
+    pacotePlanoAtual = null;
+    pacoteExportarTileEl.classList.remove('qs-trabalhando');
+    pacoteEmCurso = false;
+    calarTile(pacoteExportarTileEl);
+    pacoteRenderTiles();
+    pulsar(pacoteExportarTileEl, 'erro');
+    falarNoTile(pacoteExportarTileEl, 'Não deu', 4000);
+    return;
+  }
+  pacotePlanoAtual = plano;
+  // O QUE A FOLHA NÃO CHEGOU A OFERECER ENTRA MARCADO. O grupo "Arquivos sem
+  // coleção" só existe depois da varredura (ele é definido por AUSÊNCIA), e uma
+  // coleção com bytes no disco cujo peso ainda não estava em memória cai no
+  // mesmo caso. Sem esta linha, os bytes deles ficariam para trás EM SILÊNCIO —
+  // e deixar bytes para trás é o único erro deste caminho que não se recupera.
+  const ofertados = new Set(esboco.grupos.map((g) => g.chave));
+  for (const g of plano.grupos) if (!ofertados.has(g.chave)) sel.add(g.chave);
 
   // ===== O DESTINO: COMPARTILHAR, OU O SELETOR DE ARQUIVOS =====
   //
@@ -23493,17 +23815,22 @@ async function exportarPacote() {
   // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
   // nos dois casos não há arquivo, e o botão continua ali. Mesma regra do
   // `salvarTexto` do Registro.
-  if (!nome) { pacotePlanoAtual = null; pacoteEmCurso = false; pacoteRenderTiles(); return; }
+  if (!nome) {
+    pacotePlanoAtual = null;
+    pacoteExportarTileEl.classList.remove('qs-trabalhando');
+    pacoteEmCurso = false;
+    calarTile(pacoteExportarTileEl);
+    pacoteRenderTiles();
+    return;
+  }
   pacoteExportando = true;
-  pacoteCancelar = false;
   pacoteRenderTiles();
-  falarNoTile(pacoteExportarTileEl, '0%', 0);
   let erro = '';
   let gravados = -1;
   const total = Math.max(pacoteBytesDe(plano, sel), 1);
   try {
     await withBgWork(async () => {
-      const tarefa = bgTaskStart('Exportando o acervo', 1);
+      const tarefa = bgTaskStart('Exportando o acervo', 1, false);
       bgItemOnly(tarefa, nome);
       let feitos = 0;
       let etapa = '';
@@ -23512,11 +23839,15 @@ async function exportarPacote() {
       // sendo escrito — é longa demais para ela. A etapa continua indo para a
       // NOTIFICAÇÃO, que é a superfície com espaço e a que existe com o app
       // minimizado, que é onde uma exportação de gigabytes de fato acontece.
+      // A ESCRITA CONTINUA DE ONDE A MEDIÇÃO PAROU — ver `PACOTE_FATIA_MEDIDA`.
+      // A notificação só existe daqui em diante (é ela que segura o processo em
+      // primeiro plano), então o `done` dela é o da escrita; quem carrega a
+      // barra do processo INTEIRO é o botão, que é onde o operador está olhando.
       const andou = (n) => {
         feitos += n;
         bgTaskBytes(tarefa, feitos, total);
-        falarNoTile(pacoteExportarTileEl,
-          Math.min(100, Math.round((feitos / total) * 100)) + '%', 0);
+        pacoteFalarPercentual(pacoteExportarTileEl,
+          pacoteFatia(PACOTE_FATIA_MEDIDA, 1 - PACOTE_FATIA_MEDIDA, feitos, total));
       };
       const esc = pacoteEscritor((ab) => pacoteBloco(c, ab), andou, () => pacoteCancelar);
       try {
@@ -23681,6 +24012,8 @@ async function exportarPacote() {
     // deixaria numa pasta — aqui ele só aparece no `aria-label`, mas a
     // simetria entre os dois caminhos é o que impede o de baixo de mentir.
     pacotePronto = { nome, bytes: gravados };
+    pacoteAnotar('preparou', 'pronto para enviar, ' + fmtBytes(gravados)
+      + ' (arquivo do app: "' + nome + '")');
     pacoteRenderTiles();
     return;
   }
@@ -23737,6 +24070,11 @@ async function exportarPacote() {
 
 // A leitura antecipada dos CABEÇALHOS e o PEDAÇO de um corpo. Os dois abaixo do
 // teto de 24 MB do `SafJanela`, que é a trava do outro lado.
+// QUANTAS CHAVES DE `state` VÃO NUMA TRANSAÇÃO SÓ, na importação. O teto existe
+// porque a transação segura tudo até o commit: 250 capítulos da Bíblia são
+// poucos MB, e a Bíblia inteira numa transação só seriam dezenas — num processo
+// que hospeda dois WebViews e a Presentation.
+const PACOTE_LOTE_ESTADO = 250;
 const PACOTE_JANELA_MIN = 8 * 1024;
 const PACOTE_JANELA_MAX = 1024 * 1024;
 const PACOTE_PEDACO = 8 * 1024 * 1024;
@@ -23863,15 +24201,39 @@ function pacoteCursor(fonte, inicio) {
  *  2. as duas são listas de ids (`imports`, `playlist`, `favs`, `folder_<id>`)
  *     → UNIÃO, na ordem local primeiro — a playlist de quem importa não é
  *     reordenada por um arquivo;
- *  3. as duas são mapas (as cifras de uma coleção, o cache de letras) → mescla,
- *     com o LOCAL vencendo cada chave em disputa;
- *  4. qualquer outra coisa (um número, um texto, um Blob, uma lista de objetos)
- *     → nada muda.
+ *  3. as duas são mapas (as cifras de uma coleção, o cache de letras) → mescla
+ *     RECURSIVA: cada chave em disputa volta para esta função, e é nas FOLHAS
+ *     que o local vence;
+ *  4. qualquer outra coisa (um número, um texto, um Blob) → nada muda.
  *
  * A regra é por FORMA e não por nome de chave, e isso é escolha: uma tabela de
  * nomes envelheceria em silêncio a cada chave nova, e o modo de falhar dela
  * seria justamente o pior — uma chave desconhecida caindo no ramo errado e
  * apagando o que o operador tem.
+ *
+ * ## A RECURSÃO É O RECURSO (v1.8.23), e a falta dela apagava o acervo inteiro
+ *
+ * A regra 3 era `Object.assign({}, vindo, local)` — RASA. Numa chave cujo
+ * conteúdo todo mora sob UMA chave aninhada, "mesclar" degenera em "o local
+ * vence inteiro", e foi exatamente o que aconteceu com o índice de uma coleção:
+ *
+ *     coll:hymnal-2022 = { indexSyncedAt, songs: [ … , fileIdFull, … ] }
+ *
+ * `songs` é o único lugar onde mora o PONTEIRO de cada hino para o arquivo dele.
+ * O aparelho de destino já tinha esse índice — todo celular que abriu o app com
+ * internet o tem, porque o `autoRefreshCollections` o busca sozinho —, com
+ * `fileIdFull: null` em tudo. Os registros de `files` e os bytes do OPFS
+ * chegavam; o índice que apontava para eles era descartado no `Object.assign`.
+ *
+ * O desfecho é o pior formato que este recurso sabe produzir: a importação
+ * termina, anuncia os milhares de itens que entraram, o hino APARECE na
+ * Biblioteca — e tocar nele vai à rede, porque para o app não há arquivo. Sem
+ * internet, "falha por não ter internet" sobre um acervo que está no disco.
+ *
+ * A recursão conserta isso sem uma linha sobre `coll:`, `songs` ou
+ * `fileIdFull`: descendo até as folhas, `fileIdFull: null` cai na REGRA 1 — o
+ * local não tem valor, então o de fora entra. **O local continua nunca
+ * perdendo**; ele só deixa de vencer com um buraco.
  */
 /**
  * O APARELHO FICOU SEM ESPAÇO — e ele precisa de resposta PRÓPRIA (v1.8.15).
@@ -23892,12 +24254,36 @@ function pacoteSemEspaco(e) {
 const PACOTE_SEM_ESPACO = 'O aparelho ficou sem espaço no meio da importação. '
   + 'O que já entrou ficou; libere espaço e importe de novo para continuar.';
 
+// OS CAMPOS QUE DÃO IDENTIDADE A UM ITEM DE LISTA — os DOIS que esta base usa,
+// e nenhum a mais. É pergunta de FORMA como as outras ("esta lista é chaveada?"),
+// e o que a mantém honesta é não inventar candidatos: um campo especulativo
+// nesta lista faz uma lista comum passar a ser mesclada por engano.
+const PACOTE_IDENT = ['id', 'id_music'];
+
+// Qual campo dá identidade a esta lista, ou '' se ela não é uma lista chaveada.
+// Aceita número além de string: `id_music` vem do banco do LouvorJA, e um id
+// numérico ali não muda a natureza da lista — a chave do Set é normalizada.
+function pacoteIdentDaLista(v) {
+  if (!Array.isArray(v) || !v.length) return '';
+  const objeto = (x) => !!x && typeof x === 'object' && !Array.isArray(x) && !(x instanceof Blob);
+  if (!v.every(objeto)) return '';
+  for (const campo of PACOTE_IDENT) {
+    if (v.every((x) => {
+      const k = x[campo];
+      return (typeof k === 'string' && k !== '') || typeof k === 'number';
+    })) return campo;
+  }
+  return '';
+}
+
 function pacoteMesclarValor(local, vindo) {
   if (local === undefined || local === null) return vindo;
+  if (vindo === undefined || vindo === null) return local;
   const listaDeIds = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string');
   if (listaDeIds(local) && listaDeIds(vindo)) {
     const tem = new Set(local);
-    return local.concat(vindo.filter((x) => !tem.has(x)));
+    const novos = vindo.filter((x) => !tem.has(x));
+    return novos.length ? local.concat(novos) : local;
   }
   // LISTA DE OBJETOS COM `id` — e ela é a metade que faltava (v1.8.15).
   //
@@ -23909,15 +24295,51 @@ function pacoteMesclarValor(local, vindo) {
   //
   // A união é POR `id`, e o local continua vencendo: o que já existe aqui não é
   // tocado, e o que vem de fora só acrescenta o que não colide.
-  const listaComId = (v) => Array.isArray(v)
-    && v.length > 0
-    && v.every((x) => !!x && typeof x === 'object' && !Array.isArray(x) && typeof x.id === 'string');
-  if (listaComId(local) && listaComId(vindo)) {
-    const tem = new Set(local.map((x) => x.id));
-    return local.concat(vindo.filter((x) => !tem.has(x.id)));
+  const identL = pacoteIdentDaLista(local);
+  if (identL && identL === pacoteIdentDaLista(vindo)) {
+    // O QUE COLIDE É MESCLADO, não descartado (v1.8.23). Até aqui o item local
+    // vencia INTEIRO, e é essa linha que segurava o índice de uma coleção: cada
+    // hino existia dos dois lados, então o de fora — o único com o ponteiro para
+    // o arquivo — era jogado fora por já haver um homônimo. A recursão faz o
+    // local continuar vencendo campo a campo, e preencher só o que está vazio.
+    const chave = (x) => String(x[identL]);
+    const porId = new Map(vindo.map((x) => [chave(x), x]));
+    const usados = new Set();
+    let mudou = false;
+    const saida = local.map((x) => {
+      const k = chave(x);
+      usados.add(k);
+      const par = porId.get(k);
+      if (par === undefined) return x;
+      const m = pacoteMesclarValor(x, par);
+      if (m !== x) mudou = true;
+      return m;
+    });
+    const novos = vindo.filter((x) => !usados.has(chave(x)));
+    return (mudou || novos.length) ? saida.concat(novos) : local;
   }
   const mapa = (v) => !!v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Blob);
-  if (mapa(local) && mapa(vindo)) return Object.assign({}, vindo, local);
+  if (mapa(local) && mapa(vindo)) {
+    // RECURSIVA, e não `Object.assign({}, vindo, local)`. A rasa decide a chave
+    // inteira pelo lado de cá, então tudo que mora ANINHADO sob uma chave que
+    // existe dos dois lados nunca era mesclado — ver o KDoc acima.
+    const tem = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+    const saida = Object.assign({}, vindo);
+    // "NADA MUDOU" TEM DE SER DIZÍVEL POR IDENTIDADE (v1.8.23), e não é
+    // cosmética: o chamador conta a chave e DECIDE SE ESCREVE por
+    // `depois !== antes`. Enquanto a mescla devolvia sempre um objeto novo,
+    // toda chave de mapa era reescrita e contada — e a Bíblia mora em `state`
+    // com UMA CHAVE POR CAPÍTULO (1189 por versão). Num aparelho que já tem a
+    // mesma versão, são milhares de transações para gravar exatamente o que já
+    // estava lá, e milhares de "ajustes" anunciados que ninguém ajustou.
+    let mudou = Object.keys(vindo).some((k) => !tem(local, k));
+    for (const k of Object.keys(local)) {
+      const v = tem(vindo, k) ? pacoteMesclarValor(local[k], vindo[k]) : local[k];
+      if (v !== local[k]) mudou = true;
+      saida[k] = v;
+    }
+    return mudou ? saida : local;
+  }
   return local;
 }
 
@@ -23933,6 +24355,34 @@ function pacoteMesclarValor(local, vindo) {
  */
 async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
   let viuFim = false;
+  // AS CHAVES DE `state` VÃO EM LOTE (v1.8.25). Uma transação por chave era o
+  // que a Bíblia cobrava caro: ela mora aqui com uma chave POR CAPÍTULO, e
+  // MEDIDO em Chromium sobre 1189 capítulos de tamanho real são 596 ms uma a
+  // uma contra 153 ms em lote. É a mesma correção do `pacoteEscritor` do outro
+  // lado — lá o que se junta são blocos do canal, aqui são transações.
+  //
+  // O teto do lote existe porque a transação segura tudo em memória até o
+  // commit: 250 capítulos são poucos MB, e a Bíblia inteira seriam dezenas.
+  const loteEstado = [];
+  const escoarEstado = async () => {
+    if (!loteEstado.length) return;
+    const pendentes = loteEstado.splice(0, loteEstado.length);
+    let mudadas;
+    try {
+      mudadas = await AVDB.updateStateLote(pendentes,
+        (atual, valor) => pacoteMesclarValor(atual, valor));
+    } catch (e) {
+      if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
+      throw e;
+    }
+    contagem.chaves += mudadas.length;
+  };
+  // O NOME DE UM ARQUIVO DO OPFS vem do registro de CATÁLOGO dele, que o
+  // exportador escreve ANTES dos bytes. Ver o porquê em `nomeDoRegistro`.
+  const nomePorCaminho = new Map();
+  // AS COLEÇÕES QUE O PACOTE TOCOU. É delas que sai o relatório do fim — ver
+  // `pacoteResumoDasColecoes`.
+  if (!(contagem.colecoes instanceof Set)) contagem.colecoes = new Set();
   // O ITEM EM MONTAGEM. A miniatura e as páginas de uma mídia chegam DEPOIS do
   // registro dela (é o contrato do exportador), então ele fica pendente até o
   // registro seguinte que não é dele. Os Blobs guardados aqui são FATIAS da
@@ -23967,12 +24417,36 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
     }
   };
   for (;;) {
+    // O CANCELAR É LIDO A CADA REGISTRO, como no laço do `YoutubeGrab` e no do
+    // escritor: o que se quer parar é justamente o laço que está ocupado.
+    if (pacoteCancelarImport) break;
     const r = await cursor.proximo();
     // FIM DOS BYTES SEM O REGISTRO `fim` — o pacote acabou no meio. Quem
     // reprova é o chamador, pelo valor devolvido.
     if (!r) break;
     const { cab, corpo } = r;
-    if (aoAndar) aoAndar(cursor.pos);
+    // O NOME SAI DE QUEM CARREGA OS BYTES (v1.8.25), e é aqui que a v1.8.23
+    // errou. Ela nomeava os registros de CATÁLOGO — que têm `bytes: 0` —, então
+    // os 1200 nomes de um hinário passavam num piscar, durante a fração de
+    // segundo em que os metadados são lidos, e a linha CONGELAVA no último
+    // durante a cópia dos gigabytes, que é o trabalho inteiro. Relato do
+    // operador: *"mostrou vários nomes rapidamente e após um tempo, parou em um
+    // nome e não mudou mais … ele passou nomes bem mais rápido do que o
+    // progresso parecia ir"*, com a suposição certa ao lado — a lista rodava
+    // independente do progresso real.
+    //
+    // Hoje quem nomeia é o registro `opfs`, que É o byte. O nome dele vem do
+    // catálogo pelo `opfsPath` — o registro de catálogo vem ANTES dos bytes,
+    // por contrato do exportador —, e por isso o mapa está pronto quando os
+    // corpos chegam.
+    if (cab.t === 'arquivo' && cab.rec && cab.rec.opfsPath && cab.rec.name) {
+      nomePorCaminho.set(cab.rec.opfsPath, cab.rec.name);
+    }
+    if (cab.t === 'arquivo' && cab.rec && cab.rec.folder) contagem.colecoes.add(cab.rec.folder);
+    const nome = cab.t === 'media' ? ((cab.rec && cab.rec.name) || '')
+      : cab.t === 'opfs' ? (nomePorCaminho.get(cab.caminho) || '')
+      : '';
+    if (aoAndar) aoAndar(cursor.pos, nome);
     if (cab.t === 'media-thumb' && pendente && pendente.tipo === 'media') {
       pendente.rec.thumb = corpo; continue;
     }
@@ -24033,18 +24507,22 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
       } else {
         try { valor = JSON.parse(await corpo.text()); } catch (_) { continue; }
       }
-      const antes = await AVDB.getState(cab.chave);
-      const depois = pacoteMesclarValor(antes, valor);
-      // `updateState` e não `setState`: é a regra do arquivo inteiro para um
-      // read-modify-write de `state` — uma transação só, e o commit confirmado
-      // antes de seguir. A `fn` é SÍNCRONA (um `await` lá dentro deixaria a
-      // transação fechar sozinha).
-      // `depois === antes` é a regra 4 devolvendo o LOCAL por identidade: nada
-      // mudou, e contá-lo faria a tela anunciar ajustes que não entraram.
-      if (depois !== antes) {
-        await AVDB.updateState(cab.chave, (atual) => pacoteMesclarValor(atual, valor));
-        contagem.chaves++;
-      }
+      // UMA TRANSAÇÃO POR CHAVE, e não duas (v1.8.23). Havia um `getState`
+      // antes do `updateState` só para decidir se contava — dois `await` no
+      // IndexedDB e a mescla calculada DUAS vezes, por chave. A Bíblia sozinha
+      // são 1189 chaves por versão, então isso eram milhares de transações a
+      // mais numa importação. Quem responde "mudou?" agora é a própria `fn`,
+      // que já tem o antes e o depois na mão.
+      //
+      // `updateState` e não `setState`: read-modify-write de `state` numa
+      // transação só, com o commit confirmado antes de seguir. A `fn` é
+      // SÍNCRONA — um `await` lá dentro deixa a transação fechar sozinha.
+      //
+      // `depois === atual` é a mescla devolvendo o LOCAL por IDENTIDADE: nada
+      // mudou. Contá-lo faria a tela anunciar ajustes que não entraram, e
+      // gravá-lo seria reescrever no disco exatamente o que já estava lá.
+      loteEstado.push({ chave: cab.chave, valor });
+      if (loteEstado.length >= PACOTE_LOTE_ESTADO) await escoarEstado();
       continue;
     }
   }
@@ -24052,6 +24530,10 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
   // normal; esta linha cobre o fluxo que acaba sem ele, para a mídia do último
   // registro não ser montada e jogada fora.
   await fechar();
+  // O QUE SOBROU NO LOTE. Sem esta linha, as últimas chaves do pacote nunca
+  // seriam gravadas — e o desfecho seria mudo, porque a importação termina
+  // anunciando sucesso.
+  await escoarEstado();
   return viuFim;
 }
 
@@ -24099,7 +24581,70 @@ function pacoteDanificadoEm(pos) {
   return PACOTE_DANIFICADO + ' (a leitura parou no byte ' + fmtBytes(pos) + ')';
 }
 
-async function pacoteConferir(fonte) {
+/**
+ * O PERCENTUAL NO PRÓPRIO BOTÃO — as duas etapas da importação falam por ele.
+ *
+ * Existe porque as duas o escreviam com a mesma conta copiada, e a conferência
+ * não escrevia nada: uma delas ficava muda, que é a metade do "parecendo
+ * parado". Fonte sem tamanho não escreve nada em vez de escrever `NaN%`.
+ */
+// ===== UMA CONTAGEM SÓ PARA O PROCESSO INTEIRO (v1.8.27) =====
+//
+// Pedido do operador, sobre a exportação: *"não precisa usar 'medindo' após a
+// seleção, apenas inclua isso na contagem de porcentagem do processo … mas
+// coloque ela sendo a mesma porcentagem do trabalho completo e não um 0 a 100,
+// anterior e depois outro 0 a 100 para a exportação de verdade"*. E sobre a
+// importação: *"de nada adianta um 100% apenas da verificação do pacote, isso
+// dá a falsa sensação de conclusão"*.
+//
+// As duas tinham DUAS barras de 0 a 100 em sequência, e a primeira mentia ao
+// fechar. Agora cada etapa ocupa uma FATIA da única barra.
+//
+// AS FATIAS SÃO FIXAS, e as duas alternativas foram consideradas:
+//
+//  · **por bytes lidos** — a conferência só lê cabeçalhos, então ela valeria
+//    ~1% e ficaria parada durante todo o tempo que leva. É a queixa original;
+//  · **meio a meio** — as duas passadas percorrem o arquivo inteiro, mas a
+//    segunda copia os bytes e leva muito mais tempo. A barra correria até 50%
+//    e depois rastejaria: a mesma falsa sensação, num número menor.
+//
+// O que sobra é uma fatia escolhida pelo CUSTO aproximado de cada etapa. Ela
+// não precisa ser exata — precisa ser MONOTÔNICA e nunca voltar a zero, que é
+// o que o pedido nomeia.
+const PACOTE_FATIA_MEDIDA = 0.05;    // exportação: medir o acervo
+const PACOTE_FATIA_CONFERE = 0.15;   // importação: conferir o pacote
+
+/** A fração (0..1) de UMA etapa dentro da barra do processo inteiro. */
+function pacoteFatia(inicio, tamanho, pos, total) {
+  if (!(total > 0)) return inicio;
+  return inicio + tamanho * Math.min(1, Math.max(0, pos / total));
+}
+
+// A IMPORTAÇÃO PASSOU A SABER PARAR (v1.8.27), e isso REVOGA a decisão da
+// v1.7.3 — *"sem cancelar, e a diferença é de natureza: parar uma importação no
+// meio deixaria metade do acervo no aparelho e nada apagaria a outra metade"*.
+//
+// O argumento de lá provava outra coisa: que não dá para DESFAZER. Ninguém
+// pediu desfazer — o que faltava era PARAR, e parar é seguro exatamente pela
+// razão que aquele texto dá: **o que já entrou está certo**, e importar de novo
+// continua de onde ficou (o que já existe é pulado). Um trabalho de minutos sem
+// saída é o que não se justifica, e é o que fazia o tile irmão existir só para
+// ficar cinza.
+let pacoteImportando = false;
+let pacoteCancelarImport = false;
+let pacotePercentualDito = -1;
+function pacoteFalarPercentual(el, fracao) {
+  const pct = Math.min(100, Math.max(0, Math.round(fracao * 100)));
+  // SÓ QUANDO O NÚMERO MUDA. Ela é chamada por REGISTRO — milhares de vezes num
+  // acervo —, e escrever o mesmo "37%" no `.qs-titulo` a cada um é uma escrita
+  // de DOM (com o layout que vem atrás) para não mudar nada na tela. É o irmão
+  // do freio de 700 ms da notificação, na superfície que não tem freio nenhum.
+  if (pct === pacotePercentualDito) return;
+  pacotePercentualDito = pct;
+  falarNoTile(el, pct + '%', 0);
+}
+
+async function pacoteConferir(fonte, aoAndar) {
   const cursor = pacoteCursor(fonte);
   try {
     for (;;) {
@@ -24107,8 +24652,14 @@ async function pacoteConferir(fonte) {
       // `Blob` isso já era de graça (o `slice` é preguiçoso); sobre uma fonte
       // lida por JANELAS, buscar um corpo que ninguém vai usar leria o pacote
       // inteiro duas vezes.
+      if (pacoteCancelarImport) return;
       const r = await cursor.proximo(false);
       if (!r) break;               // os bytes acabaram sem o registro `fim`
+      // ELA ANDA (v1.8.23). A conferência percorre o arquivo INTEIRO pelos
+      // cabeçalhos — minutos num acervo grande — e não reportava nada: o
+      // operador via a palavra "Conferindo…" parada, que é indistinguível de
+      // travado. Ela é a primeira metade do "processo parecendo parado".
+      if (aoAndar) aoAndar(cursor.pos);
       if (r.cab.t === 'fim') return;
     }
   } catch (e) {
@@ -24123,12 +24674,176 @@ async function pacoteConferir(fonte) {
   throw new Error(PACOTE_INCOMPLETO);
 }
 
+/** Quantas coleções INCOMPLETAS são nomeadas no relatório antes do "e mais N". */
+const PACOTE_FALTANDO_MAX = 4;
+
+/**
+ * O RELATÓRIO DO FIM — e ele responde UMA pergunta: *chegou tudo?*
+ *
+ * Ele dizia *"4 item(ns), 2228 arquivo(s) e 172 ajuste(s)"*, e nenhum dos três
+ * números é o que se quer saber ao importar um hinário. Relato do operador:
+ * *"o que quero saber é o número de músicas ou mídias reais que foram
+ * importados … quero saber se todos os 600 hinos foram importados, e não sobre
+ * milhares de itens sem nome e que eu esperava 600. milhares não é um número
+ * esperado para poder se confirmar o sucesso"*.
+ *
+ * Os três eram unidades INTERNAS: "itens" era a store de mídia (o Cronograma),
+ * "arquivos" eram os arquivos do OPFS (um hino tem áudio, playback e as imagens
+ * de fundo da letra — daí 2228 para 601 hinos) e "ajustes" eram chaves de
+ * `state`, que desde a v1.8.25 nem são mais escolha do operador.
+ *
+ * O QUE ELE DIZ É O ESTADO, não o delta: *"Hinário Adventista 2022: 601 de 601
+ * músicas"*. É de propósito — a pergunta do operador é sobre o ACERVO, não
+ * sobre a passada: importar de novo depois de uma queda tem de responder
+ * "601 de 601", e um relatório de delta diria "0 entraram" sobre um hinário
+ * completo.
+ *
+ * ## E ELE É UM RESUMO, NÃO UMA LISTAGEM (v1.8.27)
+ *
+ * A v1.8.25 dava UMA FRASE POR COLEÇÃO, coladas num parágrafo só: com vinte e
+ * três álbuns o que saiu na tela foi um muro de texto que ninguém audita.
+ * Relato do operador: *"o resumo da importação não está ok, ele tem de ser mais
+ * sucinto, números auditáveis e organizados … eu preciso de dados
+ * simplificados, para entender se a importação deu certo, e não para saber se
+ * uma música específica está no sistema"*.
+ *
+ * A forma é a que este repositório já usa para todo bloco de diagnóstico: **o
+ * TOTAL responde, e só a EXCEÇÃO é nomeada**. Vinte linhas de "10 de 10" não
+ * são auditoria — a informação inteira delas é o total. O que precisa de nome é
+ * o que ficou incompleto, que é onde a resposta "deu certo?" muda.
+ *
+ * E UMA COLEÇÃO SÓ GANHA O NOME DELA, pela outra metade do pedido: *"talvez
+ * pode fazer o relatório separado dos álbuns quando a importação é de apenas
+ * uma coleção"*. Ali o nome não é ruído — é a confirmação.
+ *
+ * UMA LINHA POR ASSUNTO, e não um parágrafo: o `\n` é o que separa números
+ * auditáveis de um muro.
+ *
+ * A CONTA SAI DE `countDownloaded`, a MESMA que a Biblioteca usa para dizer o
+ * que está no aparelho — uma segunda conta divergiria da tela em que o operador
+ * vai conferir. Ela é lida do BANCO e não do `collState` em memória, que foi
+ * carregado no `init()` e está desatualizado por definição depois de importar.
+ */
+/**
+ * O PONTEIRO QUE NÃO LEVA A LUGAR NENHUM É APAGADO — e é o destino que decide.
+ *
+ * O ÍNDICE de uma coleção (`coll:<id>`) é uma chave de `state`, e por isso ele
+ * viaja INTEIRO. Os ARQUIVOS não: a folha de escolha os corta por grupo. Então
+ * um pacote só do hinário leva, junto, o índice de todos os OUTROS álbuns —
+ * com o `fileIdFull` que o aparelho de ORIGEM tinha.
+ *
+ * Enquanto a mescla era rasa (até a v1.8.22) isso não aparecia: o índice de
+ * fora era descartado inteiro. A v1.8.23 passou a preencher os buracos, e com
+ * eles passou a preencher ponteiros para arquivos que nunca chegaram —
+ * `colecaoCompleta` conta `fileIdFull`, então o álbum passava a parecer
+ * baixado e **o botão de baixar sumia**. Relato do operador: *"ele importa o
+ * hinário, mas as outras coleções por algum motivo, perdem seus botões de
+ * download, mesmo elas não estando baixadas"*.
+ *
+ * **QUEM CONSERTA É O DESTINO, e não o exportador.** O exportador só saberia
+ * adivinhar o que vai chegar; o destino sabe as duas coisas que importam — o
+ * que chegou E o que ele já tinha. É a mesma regra do `AVDB.opfsTodosOsArquivos`
+ * num lugar novo: **pergunta-se ao disco, não ao catálogo**.
+ *
+ * E é isso que a torna capaz de CURAR um aparelho já quebrado, que é o estado
+ * em que a v1.8.23 deixou quem importou entre ela e esta versão — daí ela
+ * rodar também uma vez na abertura (ver `PACOTE_PONTEIROS_MARCA`).
+ *
+ * Devolve quantos ponteiros caíram.
+ */
+const PACOTE_PONTEIROS_MARCA = 'ponteiros-conferidos';
+
+async function curarPonteirosUmaVez() {
+  try {
+    if (await AVDB.getState(PACOTE_PONTEIROS_MARCA)) return;
+    const limpos = await pacoteAcertarPonteiros();
+    await AVDB.setState(PACOTE_PONTEIROS_MARCA, 1);
+    if (limpos) console.info('[pacote] ' + limpos + ' ponteiro(s) sem arquivo foram limpos');
+  } catch (_) { /* a abertura não pode falhar por causa disto */ }
+}
+
+async function pacoteAcertarPonteiros() {
+  let ids;
+  try { ids = new Set(await AVDB.filesChaves()); } catch (_) { return 0; }
+  let chaves;
+  try { chaves = await AVDB.stateKeys('coll:'); } catch (_) { return 0; }
+  let limpos = 0;
+  for (const chave of chaves) {
+    try {
+      await AVDB.updateState(chave, (atual) => {
+        if (!atual || !Array.isArray(atual.songs)) return atual;
+        let mudou = false;
+        const songs = atual.songs.map((s) => {
+          if (!s) return s;
+          let novo = s;
+          for (const campo of ['fileIdFull', 'fileIdPlayback']) {
+            if (!novo[campo] || ids.has(novo[campo])) continue;
+            if (novo === s) novo = Object.assign({}, s);
+            novo[campo] = null;
+            mudou = true;
+            limpos++;
+          }
+          return novo;
+        });
+        // IDENTIDADE quando nada mudou: é ela que impede a varredura de
+        // reescrever dezenas de índices no disco em toda abertura.
+        return mudou ? Object.assign({}, atual, { songs }) : atual;
+      });
+    } catch (_) { /* um índice ruim não para a varredura */ }
+  }
+  return limpos;
+}
+
+async function pacoteRelatorio(contagem) {
+  const nomes = new Map(allCollections().map((c) => [c.id, c.name || c.id]));
+  const linhas = [];
+  let colecoes = 0;
+  let tem = 0;
+  let total = 0;
+  const faltando = [];
+  for (const id of (contagem.colecoes || [])) {
+    let idx = null;
+    try { idx = await AVDB.getState('coll:' + id); } catch (_) { idx = null; }
+    const songs = (idx && Array.isArray(idx.songs)) ? idx.songs : [];
+    if (!songs.length) continue;
+    const n = songs.filter((x) => x && x.fileIdFull).length;
+    colecoes++; tem += n; total += songs.length;
+    if (n < songs.length) faltando.push({ nome: nomes.get(id) || id, n, de: songs.length });
+  }
+
+  if (colecoes === 1) {
+    // UMA COLEÇÃO SÓ: ela tem nome, e o nome é a resposta. É o caso do
+    // operador que exportou um hinário para conferir se ele chegou inteiro.
+    const so = [...(contagem.colecoes || [])][0];
+    linhas.push((nomes.get(so) || so) + ': ' + tem + ' de ' + total + ' músicas');
+  } else if (colecoes > 1) {
+    // VÁRIAS: o TOTAL responde "deu certo?", e só o que está INCOMPLETO precisa
+    // de nome. Vinte linhas de "10 de 10" não são auditoria, são um muro.
+    linhas.push(colecoes + ' coleções · ' + tem + ' de ' + total + ' músicas');
+    if (faltando.length) {
+      faltando.sort((a, b) => (a.de - a.n) - (b.de - b.n));
+      const mostra = faltando.slice(0, PACOTE_FALTANDO_MAX)
+        .map((f) => f.nome + ' (' + f.n + '/' + f.de + ')');
+      linhas.push('Incompletas: ' + mostra.join(' · ')
+        + (faltando.length > PACOTE_FALTANDO_MAX
+          ? ' … e mais ' + (faltando.length - PACOTE_FALTANDO_MAX) : ''));
+    }
+  }
+  if (contagem.media) {
+    linhas.push(contagem.media + ' mídia(s) no Cronograma e nos Favoritos');
+  }
+  if (!linhas.length) linhas.push('O acervo do arquivo já estava todo aqui');
+  return linhas.join('\n') + '\n\nO app vai recarregar para a biblioteca aparecer.';
+}
+
 async function importarPacote() {
   if (!window.__NATIVE__ || pacoteEmCurso) return;
   const escolhidos = await AVNative.pickDoc(['*/*']);
   const alvo = (escolhidos && escolhidos[0]) || null;
   if (!alvo || !alvo.url) return;
   pacoteEmCurso = true;
+  pacoteImportando = true;
+  pacoteCancelarImport = false;
   pacoteRenderTiles();
   // A CONFERÊNCIA vem antes do primeiro byte gravado e lê o arquivo inteiro
   // pelos cabeçalhos: num pacote de gigabytes ela leva segundos, e sem esta
@@ -24168,12 +24883,35 @@ async function importarPacote() {
     // A tarefa é a MESMA do laço de aplicação, e não uma segunda: o operador vê
     // uma importação só, em duas etapas, e a notificação não pisca entre elas.
     await withBgWork(async () => {
-      const tarefa = bgTaskStart('Importando o acervo', 1);
-      bgItemOnly(tarefa, alvo.name || 'pacote');
+      // A ETAPA É O RÓTULO, E OS ITENS SÃO A LISTA (v1.8.23).
+      //
+      // Era `bgTaskStart('Importando o acervo', 1)` com o NOME DO ARQUIVO como
+      // item único: a notificação anunciava uma importação de UM item, com uma
+      // barra em bytes e uma linha que nunca trocava. Relato do operador —
+      // *"evite classificar a importação como 'importando um acervo' … o que eu
+      // quero é ver os itens serem adicionados na biblioteca"*.
+      //
+      // O rótulo passa a dizer a ETAPA (conferir, importar), e a linha de baixo
+      // passa a mostrar cada item que entra, pelo nome com que ele aparece na
+      // Biblioteca. O nome do arquivo sai: quem escolheu o pacote acabou de
+      // vê-lo no seletor, e ele é a única coisa ali que não muda.
+      const tarefa = bgTaskStart('Conferindo o pacote', 1, false);
+      pacotePercentualDito = -1;
+      // UMA BARRA SÓ PARA AS DUAS ETAPAS (v1.8.27) — ver `PACOTE_FATIA_CONFERE`.
+      // O `done` continua em BYTES DO PACOTE, e a fração é a do processo
+      // INTEIRO: durante a conferência ele não diz "copiei tantos bytes", diz
+      // "andei tanto do trabalho, medido no tamanho do arquivo". É monotônico e
+      // nunca volta a zero, que é o que o pedido nomeia.
+      const andarNaBarra = (fracao) => {
+        bgTaskBytes(tarefa, Math.round(fracao * fonte.size), fonte.size);
+        pacoteFalarPercentual(pacoteImportarTileEl, fracao);
+      };
       // O PACOTE INTEIRO É CONFERIDO ANTES DE UMA LINHA SER GRAVADA. Ver
       // `pacoteConferir`: é o que faz um arquivo cortado no meio ser recusado
       // inteiro, em vez de entrar pela metade.
-      await pacoteConferir(fonte);
+      await pacoteConferir(fonte, (pos) => {
+        andarNaBarra(pacoteFatia(0, PACOTE_FATIA_CONFERE, pos, fonte.size));
+      });
       // O NÚMERO MORA NO PRÓPRIO BOTÃO (v1.7.3), aqui como na exportação: a
       // ação nasceu nele. O NOME do arquivo vai para a notificação, que é a
       // superfície com espaço.
@@ -24182,18 +24920,35 @@ async function importarPacote() {
       // ela só ACRESCENTA, então o que já entrou está certo, e desfazê-lo seria
       // apagar o que o operador foi buscar.
       try {
-        const viuFim = await pacoteAplicarFluxo(pacoteCursor(fonte), contagem, (pos) => {
-          bgTaskBytes(tarefa, pos, fonte.size);
-          if (fonte.size) {
-            falarNoTile(pacoteImportarTileEl,
-              Math.min(100, Math.round((pos / fonte.size) * 100)) + '%', 0);
-          }
+        // A RÉGUA CONTINUA EM BYTES, e isso é resposta a metade do pedido: o
+        // acervo tem 600 hinos de megabytes ao lado de milhares de chaves
+        // minúsculas da Bíblia, então CONTAR ITENS faria a barra saltar para
+        // 85% nas chaves e rastejar nos hinos — um número que anda mais rápido
+        // e mente. O que o pedido quer ("sentir um progresso real", "ver os
+        // hinos serem importados") é a LISTA, e é ela que passa a andar.
+        // A ETAPA MUDA O RÓTULO E NÃO A BARRA: o `done` que o `bgTaskStep`
+        // escreve é o ponto em que a conferência parou, e não zero — é isso que
+        // faz a segunda etapa CONTINUAR de onde a primeira ficou.
+        bgTaskStep(tarefa, Math.round(PACOTE_FATIA_CONFERE * fonte.size),
+          'Importando para a Biblioteca');
+        const viuFim = await pacoteAplicarFluxo(pacoteCursor(fonte), contagem, (pos, nome) => {
+          if (nome) bgItemStart(tarefa, nome);
+          andarNaBarra(pacoteFatia(PACOTE_FATIA_CONFERE, 1 - PACOTE_FATIA_CONFERE,
+            pos, fonte.size));
         });
         // O `false` daqui é inalcançável: `pacoteConferir` já provou que o
         // arquivo chega ao `fim`. A guarda fica porque ela é a diferença entre
         // um pacote inteiro e um cortado no meio, e é o dia em que alguém
         // mexer na conferência que ela existe para cobrir.
-        if (!viuFim) throw new Error('O pacote está incompleto — ele acabou antes do fim.');
+        // CANCELADO NÃO É "PACOTE INCOMPLETO". O `viuFim` fica `false` nos dois
+        // casos, e a frase de um seria uma acusação falsa ao arquivo do outro.
+        if (!viuFim && !pacoteCancelarImport) {
+          throw new Error('O pacote está incompleto — ele acabou antes do fim.');
+        }
+        // O ÍNDICE VIAJA INTEIRO; OS ARQUIVOS, NÃO. Ver `pacoteAcertarPonteiros`:
+        // sem esta linha, um pacote só do hinário deixa os outros álbuns
+        // parecendo baixados, e o botão de baixar deles some.
+        await pacoteAcertarPonteiros();
       } finally {
         bgTaskEnd(tarefa);
       }
@@ -24202,8 +24957,22 @@ async function importarPacote() {
     erro = (e && e.message) || 'A importação falhou.';
   } finally {
     pacoteEmCurso = false;
+    pacoteImportando = false;
     calarTile(pacoteImportarTileEl);
     pacoteRenderTiles();
+  }
+  if (pacoteCancelarImport) {
+    pacoteCancelarImport = false;
+    // PARAR NÃO É FALHAR, e o app não recarrega: o que entrou está certo e
+    // continua no lugar, e importar de novo continua de onde ficou.
+    await openAppDialog({
+      title: 'Importação interrompida',
+      message: 'O que já tinha entrado ficou no aparelho. Importar o mesmo '
+        + 'arquivo de novo continua de onde parou.',
+      okText: 'Entendi',
+      cancelText: null,
+    });
+    return;
   }
   if (erro) {
     pulsar(pacoteImportarTileEl, 'erro');
@@ -24213,15 +24982,7 @@ async function importarPacote() {
   pulsar(pacoteImportarTileEl, 'ok');
   await openAppDialog({
     title: 'Acervo importado',
-    message: contagem.media + ' item(ns), ' + contagem.opfs + ' arquivo(s) e '
-      + contagem.chaves + ' ajuste(s) entraram neste aparelho. '
-      + (contagem.repetidos ? contagem.repetidos + ' já estavam aqui e foram mantidos como estavam. ' : '')
-      // A RECUSA APARECE. Contar e calar é o defeito do G2 por outro caminho: o
-      // pacote trazia ajustes que descrevem OUTRO aparelho, eles não entraram, e
-      // o operador tem direito de saber que o arquivo tinha mais do que chegou.
-      + (contagem.recusadas ? contagem.recusadas + ' ajuste(s) descreviam o outro '
-        + 'aparelho e ficaram de fora. ' : '')
-      + 'O app vai recarregar para a biblioteca aparecer.',
+    message: await pacoteRelatorio(contagem),
     okText: 'Recarregar',
     cancelText: null,
     fixo: true,
@@ -24294,6 +25055,30 @@ function pacoteTrabalhando(el, ligado, rotulo, podeParar) {
   pintarTile(el, ligado ? 'ocupado' : 'pronto', rotulo, true, false);
 }
 
+/**
+ * O TILE OCIOSO VIRA O CANCELAR DO IRMÃO (v1.8.27).
+ *
+ * Relato do operador: *"quando exportando, o botão de importação fica com um
+ * spinner, o que está certo no conceito de deixar ele inutilizado, mas errado
+ * no visual, pois ele indica um trabalho, trabalho esse que não é
+ * importação … talvez se transforme em um botão auxiliar de 'cancelar' … dessa
+ * forma os dois botões são irmãos e se completam nas ações"*.
+ *
+ * O aro é o desenho do TRABALHO EM CURSO, e pintá-lo num botão que não está
+ * fazendo nada é a tela afirmando o que não é. Agora o que trabalha mostra o
+ * aro e o número; o outro oferece a SAÍDA, com o ✕ no lugar do ícone da função
+ * e o rótulo dizendo o que o toque faz — o estado no DESENHO, que é a regra
+ * desta grade desde a v1.7.6.
+ */
+function pacoteIrmaoCancela(el, parar) {
+  if (!el) return;
+  el.classList.remove('qs-trabalhando');
+  el.disabled = false;
+  falarNoTile(el, 'Cancelar', 0);
+  pintarTile(el, 'cancelar', 'parar o que está em curso', true, false);
+  el.onclick = (ev) => { ev.preventDefault(); parar(); };
+}
+
 function pacoteRenderTiles() {
   const fora = !window.__NATIVE__;
   for (const el of [shareAppTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
@@ -24321,8 +25106,25 @@ function pacoteRenderTiles() {
     pacoteTrabalhando(pacoteExportarTileEl, pacoteEmCurso,
       pacoteEmCurso ? 'em curso' : 'o acervo', pacoteExportando);
   }
-  pacoteTrabalhando(pacoteImportarTileEl, pacoteEmCurso,
-    pacoteEmCurso ? 'em curso' : 'o acervo', false);
+  // O IRMÃO. Quem está ocioso enquanto o outro trabalha oferece o CANCELAR; e o
+  // `onclick` é reatribuído em vez de somado, senão cada render empilharia mais
+  // um ouvinte no mesmo botão.
+  if (pacoteExportando) {
+    pacoteIrmaoCancela(pacoteImportarTileEl, () => {
+      pacoteCancelar = true;
+      falarNoTile(pacoteExportarTileEl, 'Parando…', 0);
+    });
+  } else if (pacoteImportando) {
+    pacoteIrmaoCancela(pacoteExportarTileEl, () => {
+      pacoteCancelarImport = true;
+      falarNoTile(pacoteImportarTileEl, 'Parando…', 0);
+    });
+  } else {
+    pacoteImportarTileEl.onclick = null;
+    pacoteExportarTileEl.onclick = null;
+    pacoteTrabalhando(pacoteImportarTileEl, pacoteEmCurso,
+      pacoteEmCurso ? 'em curso' : 'o acervo', false);
+  }
 }
 
 if (shareAppTileEl) {
@@ -24364,13 +25166,17 @@ if (pacoteExportarTileEl) {
     pacoteSegurou = setTimeout(() => {
       pacoteSegurou = null;
       pacoteFoiLongo = true;
-      pacoteDescartarPronto();
-      exportarPacote();
+      refazerOPacote();
     }, PACOTE_TOQUE_LONGO_MS);
   });
   // `pointercancel` junto do `pointerup` pela razão da rolagem da cifra: um
   // toque que vira gesto do sistema não emite o segundo, e sem ele o
   // temporizador dispararia com o dedo já fora do botão.
+  //
+  // `pointerleave` está aqui e NÃO SALVA NUM TOQUE: a captura implícita do
+  // ponteiro mantém os eventos no elemento até a soltura, então arrastar o dedo
+  // para fora não o emite. Ele cobre o mouse, e é por isso que a guarda de
+  // verdade é a PERGUNTA, não este ouvinte.
   for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
     pacoteExportarTileEl.addEventListener(ev, pacoteSoltar);
   }
@@ -24406,12 +25212,18 @@ async function enviarPacotePronto() {
   if (!pacotePronto || pacoteEmCurso) return;
   const bytes = await AVNative.pacoteCompartilhar();
   if (bytes < 0) {
+    // `-1` TEM TRÊS CAUSAS e o web não distingue nenhuma (não há pronto, ele
+    // sumiu do disco, ou nada o recebeu) — quem as separa é o `logcat`. O que
+    // o Registro pode dizer, e diz, é que o toque CHEGOU a pedir o envio: é
+    // essa a metade que faltava quando o relato foi "não faz nada".
+    pacoteAnotar('enviou', 'o shell recusou o envio (-1) — o pronto foi descartado');
     pacotePronto = null;
     pacoteRenderTiles();
     pulsar(pacoteExportarTileEl, 'erro');
     falarNoTile(pacoteExportarTileEl, 'Refaça', 4000);
     return;
   }
+  pacoteAnotar('enviou', 'seletor aberto com ' + fmtBytes(bytes));
   // NADA MAIS A DIZER: o seletor do sistema está na frente do operador, e ele
   // é a resposta ao toque. O tile continua PRONTO — mandar de novo é tocar de
   // novo.
@@ -24419,9 +25231,39 @@ async function enviarPacotePronto() {
   pacoteRenderTiles();
 }
 
+// REFAZER O PACOTE — e ele PERGUNTA antes (v1.8.20).
+//
+// O toque longo agia direto até aqui, e o relato do operador é o que essa
+// escolha custa: um toque um pouco mais demorado no botão destruía um pacote de
+// minutos e recomeçava a medição, sem nada perguntar e sem nada explicar.
+//
+// PERGUNTAR NÃO CONTRADIZ O PEDIDO QUE TIROU O DIÁLOGO. Aquele era um AVISO de
+// sucesso, com nada a decidir, no fim de uma ação que já tinha acabado — puro
+// passo a mais. Este é uma DECISÃO, e destrutiva: é a mesma pergunta que o app
+// faz para excluir uma pasta ou o que foi baixado de uma coleção.
+//
+// E ela é a única guarda que funciona num TOQUE: com a captura implícita do
+// ponteiro não existe abortar um toque longo já começado, então a saída tem de
+// vir DEPOIS dele.
+async function refazerOPacote() {
+  if (!pacotePronto || pacoteEmCurso) return;
+  const bytes = pacotePronto.bytes;
+  if (!(await appConfirm({
+    title: 'Exportar de novo',
+    message: 'O pacote pronto (' + fmtBytes(bytes) + ') será descartado e a '
+      + 'biblioteca preparada outra vez. Continuar?',
+    okText: 'Exportar de novo',
+    perigo: true,
+  }))) return;
+  pacoteDescartarPronto();
+  exportarPacote();
+}
+
 // Joga fora o pacote pronto — o começo de uma exportação nova.
 function pacoteDescartarPronto() {
   if (!pacotePronto) return;
+  pacoteDiario.refez++;
+  pacoteAnotar('preparou', 'o pronto foi descartado a pedido (refazer)');
   pacotePronto = null;
   try { AVNative.pacoteDescartarPronto(); } catch (_) { /* ponte */ }
   pacoteRenderTiles();
@@ -25334,7 +26176,7 @@ async function pptxImportar(file, nome, opts) {
   const bg = naPreview
     ? previewBusy(LEGENDA_DECK, rotulo, alca.cancelar)
     : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave, alca.cancelar);
-  const notif = bgTaskStart('Preparando apresentação', 1);
+  const notif = bgTaskStart('Preparando apresentação', 1, false);
   // O NOME DA APRESENTAÇÃO na linha da notificação, pela mesma razão do vídeo
   // (ver `ytArquivo`): "Preparando apresentação" sozinho não diz QUAL, e com o
   // app minimizado esta é a única tela que existe.
@@ -25431,7 +26273,7 @@ async function deckImportar(origem, nome, opts) {
   const bg = naPreview
     ? previewBusy(LEGENDA_DECK, rotulo, alca.cancelar)
     : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave, alca.cancelar);
-  const notif = bgTaskStart('Preparando apresentação', 1);
+  const notif = bgTaskStart('Preparando apresentação', 1, false);
   bgItemOnly(notif, rotulo);
   let primeira = null;   // uma página basta para o descarte: ele apaga a pasta
   try {
@@ -26475,11 +27317,29 @@ async function withBgRotina(fn) {
 const bgTasks = new Map();
 let bgTaskSeq = 0;
 
-function bgTaskStart(label, total) {
+/**
+ * `baixando` diz se este trabalho TRAZ BYTES DA REDE, e o consumidor é o ÍCONE
+ * da barra de notificação (v1.8.27).
+ *
+ * Relato do operador: *"revise o ícone que aparece na barra de notificação em
+ * processos que não são downloads. diversos processos e preparações não são
+ * downloads, mas usa o ícone de seta de baixando"*.
+ *
+ * É a regra da v1.4.19 — *o ícone segue a LEGENDA* — no terceiro lugar em que
+ * ela vale: já valia para a seta do cartão sobre a preview e para a da linha do
+ * item, e faltava na única superfície que existe com o app minimizado. Exportar,
+ * importar e preparar uma apresentação não baixam byte nenhum.
+ *
+ * O PADRÃO É `true`, e não é comodidade: um bundle mais antigo que a ponte não
+ * manda o campo, e o Kotlin lê ausente como "é download" — o comportamento de
+ * sempre. Falhar para o lado que já existia é a regra deste app.
+ */
+function bgTaskStart(label, total, baixando) {
   if (!window.__NATIVE__) return 0;
   const id = ++bgTaskSeq;
   bgTasks.set(id, {
     label, total: Math.max(1, total), done: 0,
+    baixando: baixando !== false,
     // FILA de exibição: nomes que entraram em download e ainda não passaram
     // pela linha da notificação. É um buffer, não o conjunto do que está no ar
     // — cada nome sai daqui UMA vez, o que torna a lista fluida e sem repetir.
@@ -26529,6 +27389,18 @@ const BG_SPIN_MIN = 400;       // abaixo disso ninguém consegue ler
 const BG_SPIN_MAX = 5000;      // acima disso parece parado
 const BG_SPIN_PADRAO = 1200;   // antes do 1º item concluído não há média
 const BG_FILA_FOLGA = 3;       // itens em espera tolerados sem acelerar
+// TETO DA FILA DE EXIBIÇÃO (v1.8.23). Ela nasceu para um DOWNLOAD, em que os 6
+// trabalhadores entregam um item a cada poucos segundos e o compasso escoa no
+// mesmo ritmo. Uma IMPORTAÇÃO produz milhares de nomes em minutos, e o
+// compasso mostra no máximo um a cada BG_SPIN_MIN: sem teto, a fila guarda
+// milhares de nomes e a linha da notificação passa a mostrar o que entrou
+// MINUTOS atrás — a lista descolada da realidade, que é a sensação oposta à
+// que ela existe para dar.
+//
+// Quando a produção passa a exibição, o que se descarta é o PASSADO: a lista é
+// declaradamente ILUSTRATIVA (o contador, a barra e a estimativa continuam
+// reais), e o nome mais recente é o mais verdadeiro dos dois.
+const BG_FILA_MAX = 12;
 const BG_REENVIO_MS = 2000;    // reenvio mínimo (faz o idleMs crescer na tela)
 const BG_STALL_MS = 90000;     // mesmo limiar do lado nativo (SyncService)
 
@@ -26583,12 +27455,26 @@ function bgTaskStep(id, done, label, total) {
   if (!window.__NATIVE__) return;
   const t = bgTasks.get(id);
   if (!t) return;
+  // TROCAR DE ETAPA CHEGA NA HORA, E **NÃO** RECOMEÇA A MÉDIA (v1.8.27).
+  //
+  // O rótulo é o que diz QUAL trabalho está correndo, e ele é a mesma classe do
+  // primeiro nome e da troca de régua: passar pelo freio de 700 ms deixaria a
+  // notificação dizendo "Conferindo o pacote" enquanto o app já importa.
+  //
+  // O RECOMEÇO DA MÉDIA SAIU, e a razão dele morreu junto. Ele foi escrito na
+  // v1.8.23, quando cada etapa tinha a PRÓPRIA barra de 0 a 100: ali carregar o
+  // tempo da anterior fazia a seguinte nascer com o dobro do tempo restante.
+  // Desde a v1.8.27 as etapas dividem UMA barra — o `done` da segunda começa
+  // onde a primeira parou —, e zerar o relógio com o `done` já adiantado daria
+  // o defeito oposto: uma estimativa pequena demais, subindo. E uma contagem
+  // regressiva que AUMENTA parece quebrada, que é a regra deste arquivo.
+  const trocouEtapa = !!label && label !== t.label;
   if (!t.firstStepAt) t.firstStepAt = Date.now();
   if (total > 1) t.total = total;
   t.done = done;
   t.lastEventAt = Date.now();
   if (label) t.label = label;
-  bgTaskSend(false);
+  bgTaskSend(trocouEtapa);
 }
 
 // Progresso em BYTES — a tarefa passa a ser medida em bytes transferidos, não
@@ -26656,6 +27542,8 @@ function bgItemStart(id, nome) {
     bgTaskSend(true);
     return;
   }
+  // O TETO DESCARTA O MAIS ANTIGO — ver BG_FILA_MAX.
+  if (t.fila.length >= BG_FILA_MAX) t.fila.splice(0, t.fila.length - BG_FILA_MAX + 1);
   t.fila.push(nome);
 }
 
@@ -26759,6 +27647,7 @@ function bgTaskSend(force) {
       etaMs: Math.max(0, Math.round(etaAlvo)),
       items: item ? [item] : [],
       bytes: !!alvo.bytes,
+      baixando: alvo.baixando !== false,
       // Há quanto tempo NADA acontece nesta tarefa. É o que separa "travado" de
       // "esta faixa é grande" — sem isso os dois casos são a mesma tela parada.
       idleMs: alvo.lastEventAt ? Math.max(0, now - alvo.lastEventAt) : 0,
@@ -30261,6 +31150,18 @@ document.addEventListener('visibilitychange', () => {
   // mesmo motivo do `autoRefreshCollections` logo acima: não atrasa a abertura
   // do app. Ver `garantirBibliaBase`.
   garantirBibliaBase();
+  // OS PONTEIROS QUEBRADOS QUE A v1.8.23 DEIXOU, uma vez por aparelho. Ela
+  // passou a preencher os buracos do índice de uma coleção com os ponteiros do
+  // pacote, e o índice viaja INTEIRO enquanto os arquivos são cortados pela
+  // folha de escolha: quem importou entre ela e a v1.8.25 ficou com álbuns
+  // parecendo baixados e sem o botão de baixar. Ver `pacoteAcertarPonteiros`.
+  //
+  // UMA VEZ, e a marca é o que a torna barata: sem ela seriam uma leitura das
+  // chaves do catálogo e uma varredura dos índices em TODA abertura, para não
+  // achar nada — e este arquivo acabou de recusar, por medição, pôr trabalho de
+  // acervo na porta do app. A marca mora no `FORA` do `pacote.js`, senão ela
+  // viajaria e diria a um aparelho quebrado que ele já foi consertado.
+  curarPonteirosUmaVez();
   // A FAXINA DOS RESTOS, por último e sem segurar nada (v5.131). Ver
   // `AVDB.gcOrfaos`: registros que nenhuma lista aponta e que nenhum caminho
   // normal alcançava — o `listSet` os criava a cada troca de playlist. Aqui é

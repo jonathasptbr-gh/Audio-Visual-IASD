@@ -70,7 +70,7 @@ const PONTE = `(function () {
     'otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','micDiag','cifraHtml',
-    'cifraDiag','areaTransferencia','salvarTexto','ytDetalhes','pacoteCriar','pacoteFechar',
+    'cifraDiag','areaTransferencia','salvarTexto','pacoteDiag','ytDetalhes','pacoteCriar','pacoteFechar',
   ];
   for (const n of nomes) {
     if (B[n]) continue;

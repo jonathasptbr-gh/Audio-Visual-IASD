@@ -83,6 +83,31 @@ try {
   checar(p.label === 'Baixando vídeo' && p.items[0] === 'Hino 471' && p.etaMs === 90_000,
     'com rótulo, item e estimativa');
 
+  // ---- baixando: o ÍCONE da barra de notificação (v1.8.27) ----------------
+  //
+  // Exportar, importar e preparar uma apresentação não trazem byte nenhum da
+  // rede, e a seta de download mentia sobre os três. O campo é remontado como
+  // todos os outros — e um campo esquecido no `native.js` some em SILÊNCIO,
+  // que é a razão de este oráculo existir.
+  checar(p.baixando === true,
+    'bgProgress leva a bandeira `baixando` — é ela que escolhe o ícone da '
+    + 'notificação', JSON.stringify(p));
+  const nb = await pg.evaluate(() => {
+    AVNative.bgProgress({ label: 'Exportando o acervo', done: 1, total: 2, baixando: false });
+    return JSON.parse(window.__recebido.bgProgress);
+  });
+  checar(nb.baixando === false,
+    'e o `false` de um trabalho que NÃO baixa atravessa', JSON.stringify(nb));
+  // O PADRÃO É `true`, e é ele que protege o caso de sempre: quem não diz nada
+  // é download, que é o que TODO chamador antigo é.
+  const semCampo = await pg.evaluate(() => {
+    AVNative.bgProgress({ label: 'Letras das músicas', done: 3, total: 9 });
+    return JSON.parse(window.__recebido.bgProgress);
+  });
+  checar(semCampo.baixando === true,
+    'e quem não diz nada continua sendo download — o padrão falha para o lado '
+    + 'que já existia', JSON.stringify(semCampo));
+
   // Um vídeo de 1080p passa dos 2 GB: é ONDE o `| 0` quebrava.
   const g = await pg.evaluate(() => {
     AVNative.bgProgress({ label: 'x', done: 2_600_000_000, total: 3_100_000_000, bytes: true });

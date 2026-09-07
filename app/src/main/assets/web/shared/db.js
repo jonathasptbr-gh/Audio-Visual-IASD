@@ -290,6 +290,79 @@
   // precisa saber quais dos 1189 capítulos já estão em cache, e fazer isso com
   // 1189 `getState` significava 1189 transações lendo o capítulo inteiro (~30
   // versículos de texto) só para descartar o conteúdo.
+  /**
+   * ESCREVE VÁRIAS CHAVES DE `state` NUMA TRANSAÇÃO SÓ, com a mesma mescla.
+   *
+   * É o [updateState] em LOTE, e existe pela razão que a Bíblia impõe: ela mora
+   * aqui com uma chave POR CAPÍTULO (1189 por versão), e uma importação fazia
+   * uma transação por chave. MEDIDO em Chromium sobre 1189 capítulos de tamanho
+   * real: **596 ms uma a uma contra 153 ms em lote** — quase quatro vezes.
+   *
+   * ISTO É O QUE RESPONDE À PERGUNTA "por que a Bíblia não é dividida por
+   * LIVRO?". Dividi-la reduziria as chaves de 1189 para 66, mas MEDIDO, ler um
+   * capítulo passaria de 0,19 ms para 4,59 ms (Salmos), porque a leitura teria
+   * de desserializar o livro inteiro — e a leitura é o caminho do CULTO, que
+   * acontece a cada virada de capítulo no sermão. O lote entrega o mesmo ganho
+   * no lado que estava caro, sem tocar no lado que está barato e sem uma
+   * migração que pode perder a Bíblia de quem já a tem.
+   *
+   * `fn(atual, valor)` é SÍNCRONA — um `await` lá dentro deixa a transação
+   * fechar sozinha e o resto do lote falha em silêncio. Mesma regra do
+   * [updateState].
+   *
+   * Devolve as chaves que de fato MUDARAM: `novo === atual` (a mescla
+   * devolvendo o local por identidade) não escreve e não conta.
+   *
+   * TUDO OU NADA por lote, e isso é melhor que o parcial: se a transação falhar
+   * (o disco encheu), nenhuma chave dele entra pela metade.
+   */
+  async function updateStateLote(entradas, fn) {
+    if (!entradas || !entradas.length) return [];
+    const [s, tx] = await storeTx(STORE_STATE, 'readwrite');
+    const mudadas = [];
+    for (const e of entradas) {
+      const atual = await asPromise(s.get(e.chave));
+      const novo = fn(atual, e.valor);
+      if (novo === atual) continue;
+      await asPromise(s.put(novo, e.chave));
+      mudadas.push(e.chave);
+    }
+    await txDone(tx);
+    return mudadas;
+  }
+
+  /**
+   * PERCORRE `state` INTEIRO numa transação só, chamando `fn(chave, valor)`.
+   *
+   * É o irmão do [mediaResumo] para a outra store, e existe pelo mesmo motivo:
+   * pedir os valores com um `getState` por chave é UMA TRANSAÇÃO POR CHAVE, e a
+   * Bíblia mora aqui com uma chave POR CAPÍTULO (1189 por versão). MEDIDO em
+   * Chromium, sobre 3.600 chaves de tamanho real: **525 ms por chave contra
+   * 275 ms por cursor**, com o piso irredutível (só serializar, sem tocar no
+   * banco) em 64 ms.
+   *
+   * `fn` é SÍNCRONA, e não é escolha de estilo: um `await` lá dentro deixa a
+   * transação fechar sozinha, e o resto da varredura falha. É a mesma regra do
+   * [updateState].
+   *
+   * ELA NÃO ACUMULA NADA — quem decide o que guardar é o chamador. Devolver a
+   * lista pronta materializaria o `state` inteiro desserializado antes de o
+   * chamador poder descartar o que não interessa.
+   */
+  async function stateVarrer(fn) {
+    const s = await store(STORE_STATE, 'readonly');
+    return new Promise((resolve, reject) => {
+      const req = s.openCursor();
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) { resolve(); return; }
+        try { fn(c.key, c.value); } catch (_) { /* uma chave ruim não para a varredura */ }
+        c.continue();
+      };
+    });
+  }
+
   async function stateKeys(prefix) {
     const s = await store(STORE_STATE, 'readonly');
     // '￿' é maior que qualquer caractere possível no sufixo, então o
@@ -634,6 +707,41 @@
   async function filesAll() {
     const s = await store(STORE_FILES, 'readonly');
     return asPromise(s.getAll());
+  }
+  /**
+   * SÓ OS IDS do catálogo, numa transação e sem desserializar valor nenhum.
+   *
+   * O irmão [filesAll] materializa TODO registro — inclusive a miniatura de
+   * cada faixa —, e há usos que só precisam saber quais ids existem. Num
+   * hinário inteiro isso é a diferença entre ler alguns milhares de chaves e
+   * ler os megabytes de capa que vêm com elas.
+   */
+  /**
+   * PASTA E TAMANHO de cada registro do catálogo, num cursor só.
+   *
+   * É o irmão do [mediaResumo] para a store `files`, e existe pela mesma razão:
+   * quem quer o PESO de cada coleção não quer a miniatura de cada faixa, e o
+   * [filesAll] traz as duas coisas. Aqui o cursor lê o registro, guarda dois
+   * campos e segue — o que passa pelo heap é um registro por vez.
+   */
+  async function filesResumo() {
+    const s = await store(STORE_FILES, 'readonly');
+    return new Promise((resolve, reject) => {
+      const out = [];
+      const req = s.openCursor();
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) { resolve(out); return; }
+        const r = c.value || {};
+        out.push({ folder: r.folder || '', bytes: r.size || 0 });
+        c.continue();
+      };
+    });
+  }
+  async function filesChaves() {
+    const s = await store(STORE_FILES, 'readonly');
+    return asPromise(s.getAllKeys());
   }
 
   // ---- OPFS (Origin Private File System) ----
@@ -1121,11 +1229,11 @@
   // daqui, e expor a conexão crua convida a montar transações por fora dos
   // helpers — que é exatamente onde mora a atomicidade deste arquivo.
   global.AVDB = {
-    setState, getState, updateState, stateKeys,
+    setState, getState, updateState, updateStateLote, stateKeys, stateVarrer,
     addMedia, addUrlMedia, addStreamMedia, setMediaStream, addDeck, addCue,
     getMedia, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
-    fileAdd, fileGet, fileDelete, filesByFolder, filesAll,
+    fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves, filesResumo,
     opfsSupported, opfsGetFile, opfsWriteFile, opfsDeleteFile, opfsDeleteDir, opfsFolderSize,
     mediaChaves,
     mediaResumo, mediaAdd, opfsTodosOsArquivos,

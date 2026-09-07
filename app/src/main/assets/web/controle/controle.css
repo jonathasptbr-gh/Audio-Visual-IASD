@@ -7473,18 +7473,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .song-menu-btn.song-menu-sel:has(.song-menu-check.on) {
   background: var(--sel-fill);
 }
-/* A LINHA QUE NÃO SE DESMARCA (v1.7.2) — hoje só "Ajustes e catálogos", na
-   folha de escolha da exportação. Ela veste a mesma roupa das irmãs (é o mesmo
-   assunto: o que vai no arquivo) e a marca já acesa, e é uma `<div>` sem
-   ouvinte: as listas do app moram nas chaves de `state`, e mídia que chega sem
-   a lista que a referencia é órfã — o coletor do destino a apaga na abertura
-   seguinte.
-
-   `cursor: default` é o que separa isto de um ponto morto: uma linha com cara
-   de alvo que não responde ao toque é pior que uma linha que nunca prometeu
-   responder. O `sub` diz por extenso que ela vai junto. */
-.song-menu-fixo { cursor: default; }
-
 /* ---------- A FOLHA DE ESCOLHA DA EXPORTAÇÃO, AGRUPADA (v1.7.3) ----------
    Pedido do operador: *"opções de agrupamentos das coleções da mesma forma que
    já existe na biblioteca, podendo marcar um grupo inteiro de uma vez só"*.
@@ -8022,6 +8010,28 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .qs-tile .ico-alt { display: none; }
 .qs-tile.qs-alt .ico-base { display: none; }
 .qs-tile.qs-alt .ico-alt { display: block; }
+
+/* ---------- O TILE OCIOSO VIRA O CANCELAR DO IRMÃO (v1.8.27) ----------
+   Relato do operador: *"quando exportando, o botão de importação fica com um
+   spinner, o que está certo no conceito de deixar ele inutilizado, mas errado
+   no visual, pois ele indica um trabalho, trabalho esse que não é
+   importação"*.
+
+   Ele estava certo: o aro é o desenho do TRABALHO EM CURSO, e pintá-lo num
+   botão que não está fazendo nada é a tela afirmando o que não é. A proposta
+   dele é a que ficou — *"talvez se transforme em um botão auxiliar de
+   'cancelar' … dessa forma os dois botões são irmãos e se completam nas
+   ações"*: o que trabalha mostra o aro e o número, o outro oferece a saída.
+
+   O ESTADO MORA NO DESENHO, que é a regra desta grade desde a v1.7.6: o `✕`
+   entra no lugar do ícone da função, e o rótulo diz o que o toque faz. */
+.qs-tile .ico-irmao { display: none; }
+.qs-tile[data-estado="cancelar"] .ico-base,
+.qs-tile[data-estado="cancelar"] .ico-alt { display: none; }
+.qs-tile[data-estado="cancelar"] .ico-irmao { display: block; }
+/* O aro do trabalho é do IRMÃO que trabalha, nunca deste. */
+.qs-tile[data-estado="cancelar"].qs-trabalhando::after { content: none; }
+.qs-tile[data-estado="cancelar"].qs-trabalhando svg { visibility: visible; }
 
 /* ---------- Leitura auxiliar (letra completa / capítulo inteiro) ---------- */
 /* Bottom-sheet de LEITURA, aberto pelo botão do mixer: a íntegra do que está

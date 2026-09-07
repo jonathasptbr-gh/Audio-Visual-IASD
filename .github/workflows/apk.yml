@@ -260,6 +260,8 @@ jobs:
           node tools/contexto-seguro.test.mjs
           node tools/sombra.test.mjs
           node tools/kotlin-simbolo-importado.test.mjs
+          node tools/kotlin-argumento-nomeado.test.mjs
+          node tools/manifest-provedores.test.mjs
 
           node tools/tipos-que-sobem.test.mjs
 
