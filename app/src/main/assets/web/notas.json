@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.33",
+    "itens": [
+      "A seta do progresso voltou a se mexer na barra de notificação.",
+      "O percentual continua na notificação aberta e no próprio botão."
+    ]
+  },
+  {
     "versao": "1.8.32",
     "itens": [
       "O título e o tom da cifra passaram a crescer junto com o A+ da folha."
@@ -9,7 +16,6 @@
     "versao": "1.8.31",
     "itens": [
       "A folha de exportação abre no toque, sem a espera que havia antes dela.",
-      "A barra de notificação passou a mostrar a porcentagem no próprio ícone.",
       "Ao terminar, o ícone vira um check em vez de simplesmente sumir."
     ]
   },
