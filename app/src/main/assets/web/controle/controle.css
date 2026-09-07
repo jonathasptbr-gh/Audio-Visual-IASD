@@ -2001,10 +2001,10 @@ body {
 /* ---------- Conteúdo principal ---------- */
 main {
   flex: 1; min-height: 0; overflow: hidden;
-  /* offsetParent do fantasma da troca de aba (`.lib-ghost`) e o que o RECORTA:
-     as duas telas atravessam a largura inteira durante o deslize, e é o
-     `overflow: hidden` daqui que impede as duas de aparecerem fora da área da
-     lista. */
+  /* `position: relative` porque o `<main>` é o offsetParent das camadas que
+     medem em coordenadas dele, e o `overflow: hidden` é o que as RECORTA — a
+     folha da Bíblia desliza na horizontal aqui dentro (v1.8.4), e sem o recorte
+     a grade dela pinta por cima do Cronograma em volta. */
   position: relative;
   /* padding-top inclui a safe-area (notch/status bar) já que não há mais appbar.
      Embaixo sobrou pouco de propósito: o que fechava a tela ali era a faixa de
@@ -2548,28 +2548,13 @@ main {
 .sel-btn.danger { color: var(--danger-strong); }
 .sel-btn .msym { font-size: var(--icon-sm); }
 
-/* A tela que SAI durante a troca de aba: os nós antigos são movidos para cá
-   (`makeTabGhost`) sobre a mesma área da lista, enquanto a `#library` recebe os
-   novos. Não rola e não recebe toque. As medidas vêm inline, do JS, porque a
-   lista é um item flex e só ela sabe onde parou.
-
-   ARMADILHA: o seletor precisa das DUAS classes (`.lib-list.lib-ghost`,
-   0-2-0) porque o fantasma também é uma `.lib-list`, e aquela regra — que vem
-   DEPOIS nesta folha — declara `position: relative`. Com uma classe só o empate
-   era decidido pela ordem, o `relative` vencia, o fantasma continuava no fluxo e
-   DIVIDIA a altura com a lista de verdade (medido: 478px em repouso, 233px no
-   meio da animação), corrigindo-se sozinho quando ele era removido. */
-.lib-list.lib-ghost {
-  position: absolute; z-index: 2;
-  overflow: hidden; pointer-events: none;
-}
-
 /* ---------- Itens (biblioteca) ---------- */
 /* `touch-action: pan-y` em TODA lista de conteúdo: ela só rola na vertical,
    então declarar isso entrega o eixo horizontal ao app. Sem a declaração o
-   navegador acha que o gesto é dele (`manipulation`, do `*` no topo) e engole o
-   deslize do carrossel com um `pointercancel` ao primeiro movimento — muito
-   antes dos 60px que a troca de aba exige.
+   navegador acha que o gesto é dele (`manipulation`, do `*` no topo) e engole
+   qualquer arrasto horizontal com um `pointercancel` ao primeiro movimento.
+   (A regra nasceu para o carrossel de abas, que saiu na v1.5.0; ela FICA pelo
+   parágrafo abaixo, que é o consumidor que sobrou.)
 
    INCLUSIVE na Ferramentas, apesar do histórico do sorteio (`.draw-hist`), que
    rola na HORIZONTAL. `touch-action` intersecta o valor do alvo com o dos
@@ -8862,10 +8847,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .lv-cifra-erro { display: block; }
 
 /* (O SELETOR DE CIFRA saiu na v1.3.3, e com ele estas classes: `.lv-cifra-usar`,
-   `.lv-cifra-busca`, `.lv-cifra-campo`, `.lv-cifra-chips`/`-chip`, `.lv-cifra-cab`,
+   `.lv-cifra-busca`, `.lv-cifra-campo`, `.lv-cifra-chips`/`-chip`,
    `.lv-cifra-res`/`-nome`/`-art` e `.lv-cifra-previa`/`-nome`. Eram a lista de
    resultados dentro do app, o campo de consulta, os atalhos e a prévia. A aba de
-   cifra é só automática agora — ver "A CIFRA É SÓ AUTOMÁTICA" no `controle.js`.) */
+   cifra é só automática agora — ver "A CIFRA É SÓ AUTOMÁTICA" no `controle.js`.
+
+   `.lv-cifra-cab` ESTAVA nesta lista e NÃO pode estar: o NOME voltou na v1.6.3,
+   e hoje ele é o CABEÇALHO DA OBRA — a margem natural que impede a rolagem de
+   cortar a intro, com regra viva vinte linhas acima e asserção própria no
+   `cifra-rolagem.test.mjs`. Uma lápide que nomeia código VIVO é o pior formato
+   de comentário errado que este repositório sabe produzir: quem procurasse a
+   regra encontraria esta linha, concluiria que é resto, e apagaria a margem.) */
 
 /* A ORIGEM, no rodapé da folha e à DIREITA — texto, não botão. Ela é a ação
    menos principal desta aba (quem a abre quer LER a cifra), e com corpo de

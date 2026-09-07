@@ -192,6 +192,53 @@ else nao('nenhuma função existe só para o oráculo chamar',
   }
 }
 
+// ============================================================================
+// UMA CONSTANTE SEM LEITOR (v1.8.47)
+//
+// A mesma pergunta do bloco de cima, na outra metade do que a base declara — e
+// a que a revisão de 2026-09-07 achou à mão depois de o oráculo já existir:
+//
+//  - `STREAM_RETENTAR_MS` e `streamRetentado` — a TRANSMISSÃO DIRETA saiu do
+//    app na v1.7.7, e com ela `tentarTransmitir`, `recuperarStream` e
+//    `onStreamErro`. O par que media a retentativa ficou, e com ele TRINTA E TRÊS
+//    linhas de comentário afirmando que o app re-extrai o manifesto quando um
+//    stream falha em cena — um mecanismo que ele não tem mais, descrito com o
+//    cenário do sábado inteiro. Nenhum oráculo alcança isso: não há
+//    comportamento a medir.
+//  - `listBodyEl` — a v1.5.0 tirou a faixa de abas e o fantasma que ela
+//    animava; o handle ficou, e o comentário dele seguia dizendo que o
+//    `.list-body` é o offsetParent de um fantasma que não existe.
+//
+// A REGEX PEGA O RECUO 0-2, e por isso ela alcança também variáveis LOCAIS de
+// uma função de topo. Isso não é ruído: um local que aparece UMA vez no
+// repositório inteiro foi declarado e nunca lido, que é o mesmo defeito um
+// escopo abaixo. MEDIDO na entrada deste bloco: com a base limpa, ZERO.
+// ============================================================================
+{
+  const mortasC = [];
+  const soOraculoC = [];
+  let vistasC = 0;
+  for (const [f, txt] of corpo) {
+    if (!f.endsWith('.js')) continue;
+    const rel = f.slice(RAIZ.length + 1);
+    for (const m of txt.matchAll(/^[ \t]{0,2}(?:const|let) ([A-Za-z_$][\w$]{2,}) *=/gm)) {
+      const nome = m[1];
+      vistasC++;
+      if (VIVAS_POR_FORA.has(nome) || MORTAS_DE_PROPOSITO.has(nome)) continue;
+      const re = new RegExp('\\b' + nome + '\\b', 'g');
+      if ((app.match(re) || []).length > 1) continue;
+      ((oraculos.match(re) || []).length ? soOraculoC : mortasC).push(nome + ' (' + rel + ')');
+    }
+  }
+  if (vistasC >= 300) ok('a base foi varrida por constantes (' + vistasC + ')');
+  else nao('a base foi varrida por constantes', 'só ' + vistasC + ' — a varredura não achou o código');
+  if (!mortasC.length) ok('nenhuma constante ou variável de módulo sem leitor');
+  else nao('nenhuma constante ou variável de módulo sem leitor',
+    mortasC.join('\n\t') + '\n\tconserto: apague o símbolo E o comentário dele, no mesmo lote');
+  if (!soOraculoC.length) ok('nenhuma constante existe só para o oráculo ler');
+  else nao('nenhuma constante existe só para o oráculo ler', soOraculoC.join('\n\t'));
+}
+
 console.log('');
 if (falhas.length) { console.log(falhas.length + ' FALHA(S).'); process.exit(1); }
 console.log('Toda função da base tem chamador no app.');

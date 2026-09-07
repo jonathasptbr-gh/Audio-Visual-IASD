@@ -307,11 +307,9 @@ const libraryEl = document.getElementById('library');
 // vista. Hospeda "Importar arquivos" e, durante a seleção múltipla, a `#selbar`
 // (ver `renderListFoot` e `hostSelbar`) — nunca os dois ao mesmo tempo.
 const listFootEl = document.getElementById('listFoot');
-// A FOLHA DE FERRAMENTAS (v1.3.10) — ver `abrirFerramentas`.
-// O CORPO DA LISTA (v1.3.10): `#library` + `#listFoot` + a folha. Ele é o
-// offsetParent do fantasma da troca de aba E da folha de Ferramentas — as duas
-// coisas medidas em coordenadas DELE, e não do `<main>`.
-const listBodyEl = document.querySelector('.list-body');
+// A FOLHA DE FERRAMENTAS (v1.3.10) — ver `abrirFerramentas`. Quem a ancora é o
+// `.list-body`, e ele não tem handle aqui: nada no JS o mede. A razão de ele
+// existir está na folha, sobre a regra que o desenha.
 const toolsSheetEl = document.getElementById('toolsSheet');
 const toolsBodyEl = document.getElementById('toolsBody');
 const toolsCloseEl = document.getElementById('toolsClose');
@@ -336,7 +334,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.46';
+const WEB_VERSION = '1.8.47';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7318,8 +7316,9 @@ function botaoDoRodape(id, cls, titulo, rotulo, desenho) {
 function renderListFoot() {
   const antiga = listFootEl.querySelector('.import-row');
   // O seletor de arquivos mora DENTRO da linha antiga; tirá-lo antes de
-  // descartá-la é o que preserva o listener de `change` (mesmo cuidado do
-  // fantasma da troca de aba).
+  // descartá-la é o que preserva o listener de `change` — descartar o nó com o
+  // `<input>` dentro leva o ouvinte junto, e o toque em "Importar" deixa de
+  // fazer qualquer coisa, sem erro nenhum.
   if (fileEl.parentElement && fileEl.parentElement.closest('.import-row')) mainEl.appendChild(fileEl);
   if (antiga) antiga.remove();
   // O rodapé some quando não tem inquilino nenhum. Não dá para deixar isso com
@@ -15410,8 +15409,9 @@ function navigateBack() {
   // de trás é a Biblioteca, com a seção de onde o operador veio. Subir para uma
   // "raiz" que ninguém mais alcança seria devolvê-lo a uma tela sem porta.
   rememberScroll();
-  // A seleção pertence à lista que está sendo deixada — mesmo motivo do
-  // `exitSelection` que `switchTab` faz ao trocar de aba.
+  // A seleção pertence à lista que está sendo DEIXADA: sair de uma pasta com
+  // itens marcados levaria as marcas para a lista de trás, onde a barra de
+  // seleção passaria a agir sobre ids que não estão à vista.
   if (selectionMode) exitSelection();
   load({ restaurarScroll: true });
 }
@@ -18461,39 +18461,6 @@ async function resolverLinkInterno(rec) {
   return true;
 }
 
-// A RECUPERAÇÃO quando um stream falha em cena.
-//
-// A causa esperada é a URL expirada: o manifesto vale algumas horas, e o
-// registro pode ficar na prateleira mais que isso. Pedir um manifesto NOVO para
-// o mesmo vídeo é barato (uma extração) e resolve o caso comum sem o operador
-// saber que houve algo.
-//
-// Uma tentativa só: se a segunda também falhar, o problema não é a validade — é
-// rede, codec ou um vídeo que ficou restrito —, e insistir num laço em cima de
-// uma projeção morta é pior que parar. Aí a mídia é substituída pelo DOWNLOAD,
-// que é o caminho que sempre funcionou.
-// ===== A RETENTATIVA É POR EPISÓDIO, NÃO POR SESSÃO (v1.4.19) =====
-//
-// Isto era um `Set` que nunca era limpo. A intenção escrita é *"uma tentativa
-// só"* por episódio de falha; o que o código fazia era *"uma tentativa por item,
-// para o resto da sessão"* — e a sessão é o PROCESSO, que neste app quase nunca
-// morre (os serviços em primeiro plano o mantêm vivo).
-//
-// **O cenário que morde é o do sábado.** Ensaio de manhã: o vídeo é transmitido,
-// a URL expira no meio, isto re-extrai e conserta — invisível, como deve ser.
-// Culto: o MESMO vídeo, o mesmo `rec.id`, a URL guardada expirada de novo. O
-// conjunto já tinha o id, então NÃO havia re-extração: a cena saía do telão e o
-// app começava a baixar centenas de MB na frente da congregação, por um conserto
-// de dois segundos que ele sabe fazer e se proibiu de tentar.
-//
-// A JANELA é o que mantém as duas propriedades ao mesmo tempo: uma falha
-// SEGUIDA (o manifesto novo que também não presta) continua caindo no download,
-// porque ela chega em segundos; e um episódio NOVO horas depois volta a ter
-// direito à sua tentativa. Cinco minutos é folgadamente mais que a duração de um
-// laço de falha (cada volta custa uma extração, ~2 s) e folgadamente menos que
-// qualquer intervalo real entre um ensaio e um culto.
-const STREAM_RETENTAR_MS = 5 * 60 * 1000;
-const streamRetentado = new Map();   // id → carimbo da última re-extração
 // `destinos` é a LISTA de escolhas da folha — uma ou várias chaves de
 // `DESTINOS`, mais o `tocar`, que não é lista nenhuma (v5.141). Uma string
 // solta continua valendo: os chamadores de fora da folha (o link já no
