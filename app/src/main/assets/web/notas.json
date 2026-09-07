@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.42",
+    "itens": [
+      "O vídeo de dentro de uma apresentação deixou de sumir no modo simplificado.",
+      "Importar um pacote deixou de descartar a lista de uma coleção apagada antes.",
+      "O botão de descartar um pacote pronto não abre mais o seletor de arquivos.",
+      "A busca de acervo cede a vez para o que está no ar, como as outras rotinas.",
+      "O registro deixou de acusar telão ausente quando há um no ar."
+    ]
+  },
+  {
     "versao": "1.8.41",
     "itens": [
       "A seta que abre um grupo na exportação é a mesma da biblioteca.",

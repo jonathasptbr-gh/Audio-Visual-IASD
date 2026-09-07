@@ -3732,7 +3732,20 @@ try {
     // E o resto do que a função faz não interessa aqui — só a ESCOLHA.
     const origCat = window.fetchAlbumCatalog; window.fetchAlbumCatalog = () => Promise.resolve();
     const origLet = window.syncLyrics; window.syncLyrics = () => Promise.resolve();
+    // E A CENA SAI DO AR PARA A MEDIÇÃO (v1.8.42). Desde este lote o
+    // `autoRefreshCollections` CEDE A VEZ ao que está projetando — a regra que
+    // a v1.4.19 deu às rotinas irmãs —, e blocos anteriores deste oráculo
+    // deixam mídia no ar. Sem zerar aqui, a função volta na PORTA, `vistos`
+    // sai vazio, e o que reprova é só a asserção POSITIVA: as três negativas
+    // continuam verdes por vacuidade, que é o jeito mais fácil de este bloco
+    // deixar de medir o que ele diz medir.
+    //
+    // Quem prova o gate é o `rotina-cede-a-vez.test.mjs`; o que se mede AQUI é
+    // a ESCOLHA — quais coleções entram na releitura —, e ela só existe depois
+    // que a rotina passa da porta.
+    const midiaAntes = midiaNoAr;
     try {
+      midiaNoAr = false;
       indicesForcados.clear();
       await autoRefreshCollections();
       const abertura = vistos.slice();
@@ -3754,6 +3767,7 @@ try {
         if (guardado[id]) collState[id] = guardado[id]; else delete collState[id];
       }
       indicesForcados.clear();
+      midiaNoAr = midiaAntes;
       albumCatalog.categories = catAntes;
       albumCatalog.albums = albAntes;
     }

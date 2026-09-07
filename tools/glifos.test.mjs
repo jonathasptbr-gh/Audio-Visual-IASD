@@ -244,9 +244,18 @@ checar(!!bloco && [...pedidos.values()].some((v) => v.some((o) => o.startsWith('
 // `icoMedicao*` saíram na v1.4.42). Sem oráculo, "renomeei o consumidor" e
 // "renomeei os dois" passam iguais.
 //
-// SÃO DUAS ENTRADAS, e as duas são literais: o `<use href="#…">` do HTML e as
-// chamadas de `pacoteIconeSvg('ico…')` do `controle.js`, que montam o mesmo
-// `<use>` por string.
+// SÃO DUAS ENTRADAS, e as duas são literais: o `<use href="#…">` do HTML e o
+// `<use href="#…">` que o `controle.js` monta por STRING, na mesma árvore e com
+// o mesmo modo de falhar.
+//
+// A SEGUNDA ALTERNATIVA DO REGEX SAIU NA v1.8.42, e a razão é o que ela virou:
+// ela casava `pacoteIconeSvg('ico…')`, e a v1.8.41 tirou os DOIS chamadores
+// daquela função (o ícone de um grupo passou a vestir `.coll-bar-icon` e a seta,
+// o `chevronUpIconSvg`) sem apagar a função. Com zero chamadas, a alternativa
+// deixou de casar qualquer coisa — e a asserção logo abaixo, cuja única razão
+// de existir é provar que a entrada do JS foi lida, passou a ser satisfeita
+// pela OUTRA alternativa (os `href="#icoLupa"` do próprio `controle.js`). A
+// guarda continuava verde afirmando o que já não podia afirmar.
 // ============================================================================
 const html = readFileSync(join(WEB, 'controle/index.html'), 'utf8');
 
@@ -269,7 +278,7 @@ const anotarUso = (nome, onde) => {
     anotarUso(m[1], 'controle/index.html:' + html.slice(0, m.index).split('\n').length);
   }
   // O `<use>` montado por string no JS — mesma árvore, mesmo modo de falhar.
-  const re2 = /(?:href="#|pacoteIconeSvg\(')(ico[A-Za-z0-9_]*)/g;
+  const re2 = /href="#(ico[A-Za-z0-9_]*)/g;
   for (let m; (m = re2.exec(js));) {
     anotarUso(m[1], 'controle.js:' + js.slice(0, m.index).split('\n').length);
   }

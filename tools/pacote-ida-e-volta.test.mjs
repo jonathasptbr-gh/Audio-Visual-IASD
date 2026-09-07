@@ -866,6 +866,59 @@ try {
   }
 
   // =========================================================================
+  // 11-B · E UMA LISTA LOCAL **VAZIA** NÃO VENCE (v1.8.42)
+  // =========================================================================
+  //
+  // O bloco 11 monta o local SEMPRE NÃO VAZIO, e é por isso que ele nunca
+  // alcançou este caso. Um `[]` satisfaz `listaDeIds` por VACUIDADE, mas o PAR
+  // falha quando o que chega é lista de objetos; `pacoteIdentDaLista([])`
+  // devolve `''` pelo `!v.length`; e `mapa([])` é falso por ser Array — sobrava
+  // o `return local` do fim, e o vazio comia a lista que chegou.
+  //
+  // O caminho é o USO NORMAL do recurso: `deleteCollection` grava
+  // `{indexSyncedAt: 0, songs: []}` no `state`, então "apago a coleção para
+  // liberar espaço, depois importo o pacote" entrava os bytes e descartava o
+  // índice — a coleção aparecia VAZIA e nada tocava, sem erro em lugar nenhum.
+  //
+  // A REVERSÃO (tirar a guarda de vazio do `pacoteMesclarValor`) faz as três
+  // primeiras asserções reprovarem; as duas últimas são o que impede o
+  // conserto largo demais — o local NÃO vazio tem de continuar vencendo, e os
+  // dois vazios têm de devolver o MESMO objeto, porque é a identidade que diz
+  // "nada mudou" a quem decide se escreve.
+  {
+    const k = await aparelho(null);
+    const r = await k.pg.evaluate(() => {
+      const vazio = [];
+      const doisVazios = pacoteMesclarValor(vazio, []);
+      const indice = pacoteMesclarValor(
+        { indexSyncedAt: 0, songs: [] },
+        { indexSyncedAt: 2, songs: [{ id_music: '1', fileIdFull: 'f' }] },
+      );
+      return {
+        songs: indice.songs.length,
+        ponteiro: (indice.songs[0] || {}).fileIdFull || '',
+        msgs: pacoteMesclarValor([], [{ id: 'a', text: 'do pacote' }]).length,
+        pastas: pacoteMesclarValor([], [{ id: 'f1', name: 'X' }]).length,
+        localVence: pacoteMesclarValor([{ id: 'a', text: 'minha' }],
+          [{ id: 'a', text: 'outra' }]).find((x) => x.id === 'a').text,
+        identidade: doisVazios === vazio,
+      };
+    });
+    checar(r.songs === 1 && r.ponteiro === 'f',
+      '11-B · `songs: []` no destino recebe o índice do pacote, com o ponteiro',
+      r.songs + '/' + r.ponteiro);
+    checar(r.msgs === 1, '11-B · `messages` vazio no destino recebe as do pacote', r.msgs);
+    checar(r.pastas === 1, '11-B · `folders` vazio no destino recebe as do pacote', r.pastas);
+    checar(r.localVence === 'minha',
+      '11-B · e o local NÃO vazio continua vencendo — a promessa não mudou',
+      r.localVence);
+    checar(r.identidade === true,
+      '11-B · dois vazios devolvem o MESMO objeto: "nada mudou" continua dizível',
+      r.identidade);
+    await k.ctx.close();
+  }
+
+  // =========================================================================
   // 12 · O ÍNDICE DA COLEÇÃO CHEGA COM OS PONTEIROS (v1.8.23)
   // =========================================================================
   //

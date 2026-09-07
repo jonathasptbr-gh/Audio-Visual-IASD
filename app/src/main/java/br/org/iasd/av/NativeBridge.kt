@@ -300,8 +300,17 @@ class NativeBridge(
          * Por quanto tempo um `display-status` do TELÃO cala o `tela-status`
          * — ver [snoopDisplayStatus]. Folga sobre o compasso do status (~4 Hz)
          * para uma batida perdida não devolver a palavra às telas da rede.
+         *
+         * ESPELHA O `DISPLAY_TIMEOUT` DO `controle.js` (2500), e o valor tem de
+         * bater: lá é o `telaoAtivo()` que decide a MESMA precedência, no
+         * `if (!doTelao && telaoAtivo()) return`. Valeu 3.000 até a v1.8.42 —
+         * meio segundo em que o web já tinha passado a referência à tela da
+         * rede e este lado ainda suprimia o `tela-status`, congelando a posição
+         * na notificação e na tela de bloqueio. Duas contas com réguas
+         * diferentes elegem telas diferentes; é o mesmo argumento que já
+         * mantém o [TELA_REF_SILENCIO_MS] abaixo colado no do `controle.js`.
          */
-        private const val PRECEDENCIA_TELAO_MS = 3_000L
+        private const val PRECEDENCIA_TELAO_MS = 2_500L
 
         /**
          * Quando o TELÃO de verdade falou pela última vez. NO COMPANION, e a

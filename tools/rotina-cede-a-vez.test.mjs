@@ -106,12 +106,42 @@ try {
     await syncLyrics().catch(() => {});
     await syncCifrasAcervo().catch(() => {});
     const r = { letras: lyricSyncRunning, cifras: cifraSyncRodando };
+    // E O `autoRefreshCollections` TAMBÉM (v1.8.42). A bandeira dele é
+    // `collectionsRefreshing`, levantada na linha seguinte à guarda: se ela
+    // continua BAIXA depois do `await`, a função voltou na porta. Ela é o
+    // caso mais frequente dos três — roda em TODO `visibilitychange` que traz
+    // o app para a frente, isto é, toda vez que o operador volta ao app
+    // durante o culto.
+    // A ABERTURA dispara esta função sem `await`, então a bandeira pode estar
+    // de pé por uma chamada EM VOO — e aí o `if (collectionsRefreshing) return`
+    // devolveria antes do gate e a asserção mediria a corrida, não a regra.
+    collectionsRefreshing = false;
+    // E A RÉGUA É O QUE FOI À REDE, nunca a bandeira: ela é levantada e baixada
+    // DENTRO da chamada, então lê-la depois do `await` devolve `false` no mundo
+    // certo E no mundo com o defeito — uma tautologia, que foi o que a reversão
+    // deste bloco pegou. Quem responde é o espião: `fetchAlbumCatalog` e
+    // `fetchCollectionIndex` são declarações de função de um script clássico,
+    // logo moram no `window` e o chamador as resolve pelo global.
+    const catalogo = window.fetchAlbumCatalog;
+    const indice = window.fetchCollectionIndex;
+    let idas = 0;
+    window.fetchAlbumCatalog = () => { idas++; return Promise.resolve(); };
+    window.fetchCollectionIndex = () => { idas++; return Promise.resolve(); };
+    try { await autoRefreshCollections(); } finally {
+      window.fetchAlbumCatalog = catalogo;
+      window.fetchCollectionIndex = indice;
+    }
+    r.colecoes = idas;
     midiaNoAr = false;
     return r;
   });
   checar(comCena.letras === false && comCena.cifras === false,
     'com cena no ar as duas rotinas voltam SEM abrir tarefa — nem notificação, '
     + 'nem fila de rede', comCena);
+  checar(comCena.colecoes === 0,
+    'e o `autoRefreshCollections` volta na PORTA sem UMA ida à rede — nem os '
+    + 'hinários, nem o catálogo, nem as séries disputam a Wi-Fi com a cena no ar',
+    comCena);
 
   // ── 3. A FORMA: o gate está nos CINCO pontos ────────────────────────────
   // Ver o cabeçalho. O ponto de dentro do `runLimited` é o que cobre o caso
@@ -123,6 +153,7 @@ try {
       lyrics: conta(syncLyrics),
       cifrasColecao: conta(syncCifrasColecao),
       cifrasAcervo: conta(syncCifrasAcervo),
+      colecoes: conta(autoRefreshCollections),
     };
   });
   checar(forma.lyrics >= 2,
@@ -133,6 +164,26 @@ try {
     'e o `syncCifrasColecao` também, pelos mesmos dois motivos', forma);
   checar(forma.cifrasAcervo >= 1,
     'e o laço de coleções para entre uma coleção e a seguinte', forma);
+  // A GUARDA DE PORTA DELE VEM ANTES DE `collectionsRefreshing = true`, e a
+  // ordem é a asserção: a atribuição está FORA do `try`, então um `return`
+  // depois dela deixaria a bandeira presa em `true` e desligaria a função pelo
+  // resto da sessão — em silêncio. Era a armadilha da receita original.
+  //
+  // E A MEDIÇÃO É SOBRE O CÓDIGO, NUNCA SOBRE O TEXTO: os comentários desta
+  // função CITAM os dois símbolos, e um `indexOf` cru casa a citação primeiro —
+  // foi assim que a primeira escrita deste bloco reprovou a correção certa.
+  const ordem = await pg.evaluate(() => {
+    const f = String(autoRefreshCollections)
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    return { gate: f.indexOf('if (!rotinaDeAcervoPodeCorrer()) return;'),
+      bandeira: f.indexOf('collectionsRefreshing = true') };
+  });
+  checar(forma.colecoes >= 2,
+    'e o `autoRefreshCollections` consulta o gate na PORTA e DENTRO do laço de '
+    + 'índices — as duas fases que vão à rede', forma);
+  checar(ordem.gate >= 0 && ordem.gate < ordem.bandeira,
+    'e a guarda de porta dele vem ANTES de `collectionsRefreshing = true`, senão '
+    + 'a bandeira fica presa e a função morre pelo resto da sessão', ordem);
 } finally {
   await navegador.close();
   servidor.close();
