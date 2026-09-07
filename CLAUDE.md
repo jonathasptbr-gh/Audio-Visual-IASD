@@ -5337,8 +5337,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.34 · APK v1.8.34** · `SHELL_VERSION` **71** ·
-bundle com `minShell: 71` e **`shellTag: "v1.8.34"`** (lote COM Release) — o
+**Versão atual: base web v1.8.35 · APK v1.8.34** · `SHELL_VERSION` **71** ·
+bundle com `minShell: 71` e **SEM `shellTag`** (lote SÓ WEB) — o
 shell 71 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
 
@@ -5378,6 +5378,40 @@ lado web.
 > Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+**O QUE O LOTE TRAZ (v1.8.35) — a notificação e o botão contam o mesmo
+trabalho:**
+
+| peça | onde |
+|---|---|
+| uma conta só, dois consumidores | o `andou` de `exportarPacote` (`pacoteFatia`) |
+| o freio ADIA em vez de descartar | `bgTaskSend` (`bgReenvioAdiado`) |
+| o 100% é estado final, e estado final passa `force` | `bgTaskBytes` |
+
+> **NÃO ERA ATRASO DE RELÓGIO, ERAM DUAS CONTAS** (v1.8.35). Relato do
+> operador: *"o número do progresso na notificação não está se atualizando
+> corretamente, há muito atraso em relação à realidade, ao menos 5%"*.
+>
+> **MEDIDO:** o botão recebia a fração do processo INTEIRO (a medição é a
+> primeira fatia — `PACOTE_FATIA_MEDIDA`, 5%) e a notificação recebia a fração
+> da ESCRITA CRUA. O desvio é `5% × (1 − f)`: os **5% inteiros** no começo,
+> fechando em zero só no fim. Os "ao menos 5%" são exatamente isso.
+>
+> **O argumento que sustentava a divergência respondia outra pergunta.** Ele
+> dizia que a notificação só EXISTE a partir da escrita (é ela que segura o
+> processo em primeiro plano) — verdade, e daí NÃO segue que o número dela
+> comece ali: *quando uma superfície nasce não decide o que ela mede*. A
+> IMPORTAÇÃO já fazia o certo e já dizia a regra por escrito.
+>
+> **O PREÇO, DITO** — e é o que a importação já paga: a linha "X de Y" conta os
+> bytes da BARRA, não os bytes escritos, e abre em 5% do total. Um número que
+> discorda do botão ao lado é pior: os dois estão na mesma tela.
+>
+> **E DUAS COISAS MENORES QUE SAÍRAM NA MESMA INVESTIGAÇÃO:** o freio de 700 ms
+> era um `return` seco — o último passo antes de uma quietação ficava para trás
+> até o batimento de 2 s —, e o **100% nunca chegava**, porque o passo final
+> caía no freio e a tarefa acabava logo depois (MEDIDO pelo oráculo: num pacote
+> pequeno a exportação inteira cabe DENTRO da janela).
 
 **O QUE O LOTE TRAZ (v1.8.34) — a seta volta a se mexer:**
 

@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.34';
+const WEB_VERSION = '1.8.35';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23873,14 +23873,36 @@ async function exportarPacote() {
       // NOTIFICAÇÃO, que é a superfície com espaço e a que existe com o app
       // minimizado, que é onde uma exportação de gigabytes de fato acontece.
       // A ESCRITA CONTINUA DE ONDE A MEDIÇÃO PAROU — ver `PACOTE_FATIA_MEDIDA`.
-      // A notificação só existe daqui em diante (é ela que segura o processo em
-      // primeiro plano), então o `done` dela é o da escrita; quem carrega a
-      // barra do processo INTEIRO é o botão, que é onde o operador está olhando.
+      //
+      // AS DUAS SUPERFÍCIES DIZEM O MESMO NÚMERO, E POR CONSTRUÇÃO (v1.8.35).
+      // Até aqui a fração era calculada DUAS vezes: o botão recebia a do
+      // processo inteiro (a medição mais a escrita) e a notificação recebia a
+      // da ESCRITA CRUA — um desvio SISTEMÁTICO de `PACOTE_FATIA_MEDIDA × (1 −
+      // f)`, isto é, os 5% inteiros no começo, fechando em zero só no fim. Era
+      // o relato do operador: *"o número do progresso na notificação não está
+      // se atualizando corretamente, há muito atraso em relação à realidade, ao
+      // menos 5%"* — e ele não estava vendo atraso de RELÓGIO, estava vendo
+      // duas contas diferentes sobre o mesmo trabalho.
+      //
+      // O argumento que sustentava a divergência respondia outra pergunta: a
+      // notificação de fato só EXISTE a partir daqui (é ela que segura o
+      // processo em primeiro plano), e daí se concluiu que o número dela
+      // começa aqui. Não segue: QUANDO uma superfície nasce não decide O QUE
+      // ela mede. A IMPORTAÇÃO já fazia o certo e já dizia a regra por escrito
+      // (*"o `done` continua em BYTES DO PACOTE, e a fração é a do processo
+      // INTEIRO"*); isto é a mesma regra do outro lado.
+      //
+      // O PREÇO ESTÁ DITO e é o mesmo que a importação já paga: a linha "X de
+      // Y" da notificação passa a contar os bytes da BARRA, não os bytes
+      // escritos — ela abre em 5% do total. Um número que discorda do botão
+      // ao lado é pior: o operador olha os dois na mesma tela.
       const andou = (n) => {
         feitos += n;
-        bgTaskBytes(tarefa, feitos, total);
-        pacoteFalarPercentual(pacoteExportarTileEl,
-          pacoteFatia(PACOTE_FATIA_MEDIDA, 1 - PACOTE_FATIA_MEDIDA, feitos, total));
+        // UMA conta, DOIS consumidores. Duas chamadas ao `pacoteFatia` com os
+        // mesmos argumentos seriam a divergência esperando o primeiro ajuste.
+        const fracao = pacoteFatia(PACOTE_FATIA_MEDIDA, 1 - PACOTE_FATIA_MEDIDA, feitos, total);
+        bgTaskBytes(tarefa, Math.round(fracao * total), total);
+        pacoteFalarPercentual(pacoteExportarTileEl, fracao);
       };
       const esc = pacoteEscritor((ab) => pacoteBloco(c, ab), andou, () => pacoteCancelar);
       try {
@@ -27674,7 +27696,13 @@ function bgTaskBytes(id, lidos, total) {
   if (!t.firstStepAt) t.firstStepAt = Date.now();
   t.done = Math.min(lidos, total);
   t.lastEventAt = Date.now();
-  bgTaskSend(regua);
+  // O 100% É ESTADO FINAL, e estado final passa `force` — a mesma classe do
+  // primeiro nome e da troca de régua. Sem isto o último passo caía no freio e
+  // a tarefa acabava logo depois: a notificação era recolhida mostrando o
+  // penúltimo número, e o que o operador via como último era, por exemplo, 87%
+  // num trabalho que terminou. (MEDIDO pelo oráculo: num pacote pequeno a
+  // exportação inteira cabe DENTRO da janela de 700 ms, e nem o 100% saía.)
+  bgTaskSend(regua || t.done >= t.total);
 }
 
 // Um item concreto entrou em download: entra na FILA de exibição. É isto que
@@ -27773,6 +27801,16 @@ function bgTaskEta(t) {
 // ficaria retido até o batimento de 2 s.
 const BG_NOTIF_MIN_MS = 700;        // rotina: só o contador andou
 let bgLastSentAt = 0;
+// O FREIO ADIA, NUNCA DESCARTA (v1.8.35).
+//
+// Ele era um `return` seco: um passo que caísse dentro da janela de 700 ms era
+// PERDIDO, e nada o reenviava. Num laço apertado isso custa pouco (o passo
+// seguinte chega logo), mas o ÚLTIMO passo antes de uma quietação ficava para
+// trás até o batimento de `BG_REENVIO_MS` — 2 s de número velho na única
+// superfície que existe com o app minimizado. Com o adiamento a defasagem tem
+// TETO de 700 ms, e a taxa de envio não muda: o temporizador é UM só, marcado
+// para o instante em que a janela fecha.
+let bgReenvioAdiado = null;
 function bgTaskSend(force) {
   const now = Date.now();
 
@@ -27794,7 +27832,17 @@ function bgTaskSend(force) {
   // UM nome por vez (ver bgItemStart): `items` continua sendo lista só porque
   // é o formato da ponte — quem escolhe qual mostrar é o rodízio, não o Kotlin.
   const item = alvo.spot || null;
-  if (!force && now - bgLastSentAt < BG_NOTIF_MIN_MS) return;
+  if (!force && now - bgLastSentAt < BG_NOTIF_MIN_MS) {
+    if (bgReenvioAdiado === null) {
+      bgReenvioAdiado = setTimeout(() => {
+        bgReenvioAdiado = null;
+        // `true`: a janela já fechou, e este envio É o que foi adiado.
+        bgTaskSend(true);
+      }, BG_NOTIF_MIN_MS - (now - bgLastSentAt));
+    }
+    return;
+  }
+  if (bgReenvioAdiado !== null) { clearTimeout(bgReenvioAdiado); bgReenvioAdiado = null; }
   bgLastSentAt = now;
   try {
     AVNative.bgProgress({
