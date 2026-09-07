@@ -591,6 +591,90 @@ try {
     await a.ctx.close();
   }
 
+  // =========================================================================
+  // D · FAVORITOS É UM GRUPO, E OS GRUPOS DE MÍDIA SE SOBREPÕEM (v1.8.38)
+  //
+  // Pedido do operador: *"analise para termos um dos seletores de coleção para
+  // a exportação, o item favoritos, pois em alguns casos, ele pode conter
+  // vários arquivos com peso"*. E a semântica é escolha dele: *"o item viaja se
+  // QUALQUER grupo que o contém estiver marcado"*.
+  //
+  // TRÊS coisas falham CALADAS aqui, e nenhuma das três aparece na tela:
+  //  1. o grupo não ser DESENHADO — era o estado anterior, e por um guarda que
+  //     consultava o mapa dos arquivos do DISCO: `linha('midia')` era um no-op,
+  //     o grupo existia no plano, era marcado por padrão e viajava sempre;
+  //  2. a seleção ser INTERSEÇÃO em vez de união — desmarcar Favoritos levaria
+  //     junto um item que o Cronograma pede, e o pacote chega menor sem erro;
+  //  3. o total ser a SOMA — os grupos se sobrepõem, então ele passaria do
+  //     tamanho do arquivo, e é esse número que decide "cabe no cartão?".
+  // =========================================================================
+  {
+    const d = await aparelho();
+    await d.pg.evaluate(async () => {
+      const bytes = (n, v) => new Blob([new Uint8Array(n).fill(v)], { type: 'audio/mp4' });
+      const add = async (id, nome, n, v) => {
+        await AVDB.mediaAdd({
+          id, name: nome, type: 'audio/mp4', kind: 'audio',
+          blob: bytes(n, v), thumb: null, addedAt: 1,
+        });
+      };
+      // SÓ nos favoritos; nos DOIS; só no Cronograma.
+      await add('so-fav', 'Alfa', 9000, 1);
+      await add('nos-dois', 'Beta', 9000, 2);
+      await add('so-cron', 'Gama', 9000, 3);
+      await AVDB.listAdd('favs', 'so-fav');
+      await AVDB.listAdd('favs', 'nos-dois');
+      await AVDB.listAdd('imports', 'nos-dois');
+      await AVDB.listAdd('imports', 'so-cron');
+    });
+    await d.pg.evaluate(() => { window.__fim = exportarPacote(); });
+    const linhas = await abriuFolha(d.pg);
+    checar(linhas === true, 'D · a folha abre', porque(linhas));
+    const rotulos = (await lerFolha(d.pg)).map((x) => x.rotulo);
+    checar(rotulos.includes('Favoritos'),
+      'D · e FAVORITOS é uma linha da folha — antes o grupo da store de mídia '
+      + 'existia no plano e nunca era desenhado, então viajava sempre',
+      JSON.stringify(rotulos));
+    checar(rotulos.includes('Cronograma'),
+      'D · e o Cronograma também', JSON.stringify(rotulos));
+    // A SOBREPOSIÇÃO É DITA na própria linha: os dois pesos contam o
+    // `nos-dois`, e uma folha que mostra dois números que não somam sem
+    // explicar por quê é pior que uma que não os separa.
+    const favLinha = (await lerFolha(d.pg)).find((x) => x.rotulo === 'Favoritos');
+    checar(favLinha && /outro grupo/.test(favLinha.sub || ''),
+      'D · e a linha DIZ que o peso pode contar em outro grupo',
+      JSON.stringify(favLinha));
+    // A UNIÃO: desmarcar Favoritos NÃO pode tirar o item que o Cronograma pede.
+    await tocar(d.pg, 'Favoritos');
+    await d.pg.click('#songMenuList .song-menu-go');
+    const fim = await fimDaExportacao(d.pg);
+    checar(fim && fim.dialogo === false, 'D · a exportação termina', JSON.stringify(fim));
+    const dentro = await d.pg.evaluate(() => {
+      const partes = window.__saida;
+      let total = 0;
+      for (const p of partes) total += p.length;
+      // PELO NOME do registro, e nunca pelo id: o id viaja TAMBÉM dentro da
+      // lista `favs`, que é chave de `state` e vai sempre — procurar por ele
+      // acharia o item mesmo com o registro dele fora do pacote (medido: foi
+      // assim que esta asserção reprovou o app estando certo).
+      const junto = new Uint8Array(total);
+      let o = 0;
+      for (const p of partes) { junto.set(p, o); o += p.length; }
+      const texto = new TextDecoder().decode(junto);
+      const tem = (n) => texto.indexOf('"name":"' + n + '"') !== -1;
+      return { total, temSoFav: tem('Alfa'), temNosDois: tem('Beta'), temSoCron: tem('Gama') };
+    });
+    checar(dentro.temNosDois === true,
+      'D · o item que está nos DOIS grupos viaja mesmo com Favoritos desmarcado '
+      + '— é a UNIÃO, e é o que o operador escolheu', JSON.stringify(dentro));
+    checar(dentro.temSoCron === true,
+      'D · e o que só o Cronograma tem, também', JSON.stringify(dentro));
+    checar(dentro.temSoFav === false,
+      'D · e o que SÓ os favoritos tinham fica de fora — sem esta, "levar tudo '
+      + 'sempre" passaria nas duas de cima', JSON.stringify(dentro));
+    await d.ctx.close();
+  }
+
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));
 } finally {
   await navegador.close();

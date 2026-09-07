@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.37';
+const WEB_VERSION = '1.8.38';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23130,6 +23130,64 @@ function pacoteEscritor(enviar, aoAndar, parou) {
  */
 let pacotePlanoAtual = null;
 
+// AS LISTAS QUE VIRAM GRUPO NA FOLHA (v1.8.38).
+//
+// Pedido do operador: *"analise para termos um dos seletores de coleção para a
+// exportação, o item favoritos, pois em alguns casos, ele pode conter vários
+// arquivos com peso para serem exportados"*.
+//
+// Até aqui a store de mídia era UM grupo só ("Itens importados e vídeos"), e o
+// peso dos favoritos — que num acervo real são vídeos do YouTube guardados um a
+// um — não tinha como ser visto nem tirado sem levar o resto junto.
+//
+// A ordem é a da folha; os rótulos são os das listas que o operador conhece.
+// `avulsos` é a prateleira do Modo Fácil, que não tem lista visível — o nome
+// diz o que ela é para quem lê a folha, e não o identificador interno.
+const PACOTE_LISTAS = [
+  { lista: 'favs', rotulo: 'Favoritos' },
+  { lista: 'imports', rotulo: 'Cronograma' },
+  { lista: 'playlist', rotulo: 'Playlist' },
+  { lista: 'avulsos', rotulo: 'Itens avulsos' },
+];
+
+/**
+ * OS GRUPOS DE MÍDIA, POR LISTA — E ELES SE SOBREPÕEM DE PROPÓSITO.
+ *
+ * Um item pode estar nos Favoritos E no Cronograma ao mesmo tempo, então isto
+ * NÃO é uma partição, e a decisão de como tratar isso é do operador: *"o item
+ * viaja se QUALQUER grupo que o contém estiver marcado"*.
+ *
+ * O que essa escolha compra é que nada se perde por engano — desmarcar
+ * Favoritos nunca tira do pacote um item que o Cronograma também pede. O que
+ * ela custa está DITO na folha: os pesos se sobrepõem, a soma dos grupos passa
+ * do total, e desmarcar "Favoritos: 8 GB" pode liberar menos que 8 GB. Por isso
+ * o total do confirmar é a UNIÃO e não a soma (ver `pacoteBytesDe`): o número
+ * que decide "cabe no cartão?" tem de ser o do arquivo, não o da aritmética.
+ *
+ * Devolve `porGrupo` (chave → Set de ids) e `bytes` (id → tamanho). O item que
+ * não está em lista nenhuma cai no grupo de escape, que mantém a chave antiga
+ * (`midia`) porque é ela que o resto do código já conhece.
+ */
+async function pacoteGruposDeMidia(midia) {
+  const bytes = new Map();
+  for (const m of midia) bytes.set(m.id, m.bytes || 0);
+  const porGrupo = new Map();
+  const cobertos = new Set();
+  for (const L of PACOTE_LISTAS) {
+    let ids = [];
+    try { ids = await AVDB.listIds(L.lista); } catch (_) { ids = []; }
+    const s = new Set();
+    // SÓ O QUE TEM REGISTRO. Uma lista pode carregar id de item já recolhido
+    // pelo coletor, e um grupo com peso zero e nenhum item é ruído na folha.
+    for (const id of ids) if (bytes.has(id)) { s.add(id); cobertos.add(id); }
+    if (s.size) porGrupo.set(AVPacote.GRUPO_LISTA + L.lista, s);
+  }
+  const sobra = new Set();
+  for (const m of midia) if (!cobertos.has(m.id)) sobra.add(m.id);
+  if (sobra.size) porGrupo.set('midia', sobra);
+  return { porGrupo, bytes };
+}
+
 async function pacotePlano(aoAndar) {
   // OS PASSOS DA MEDIÇÃO. Ela não tem progresso interno de granularidade fina —
   // cada um destes é uma varredura inteira —, e são eles que fazem os primeiros
@@ -23210,10 +23268,16 @@ async function pacotePlano(aoAndar) {
   }
 
   andou();
-  const { grupos, folha } = pacoteMontarFolha({ cols, porGrupo, bytesEstado, midia, bytesMidia });
+  const { porGrupo: midiaPorGrupo, bytes: midiaBytes } = await pacoteGruposDeMidia(midia);
+  const { grupos, folha } = pacoteMontarFolha({
+    cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBytes,
+  });
   andou();
 
-  return { estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos, folha };
+  return {
+    estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos, folha,
+    midiaPorGrupo, midiaBytes,
+  };
 }
 
 /**
@@ -23321,9 +23385,10 @@ async function pacotePlanoAproximado() {
   // milhares —, e sem ela o grupo não teria peso nenhum para mostrar.
   let midia = [];
   try { midia = await AVDB.mediaResumo(); } catch (_) { midia = []; }
-  let bytesMidia = 0;
-  for (const m of midia) bytesMidia += m.bytes;
-  const { grupos, folha } = pacoteMontarFolha({ cols, porGrupo, bytesEstado: 0, midia, bytesMidia });
+  const { porGrupo: midiaPorGrupo, bytes: midiaBytes } = await pacoteGruposDeMidia(midia);
+  const { grupos, folha } = pacoteMontarFolha({
+    cols, porGrupo, bytesEstado: 0, midiaPorGrupo, midiaBytes,
+  });
   // A MARCA VALE PARA TODO GRUPO, e é escrita num lugar só: por item ela se
   // perderia no próximo grupo que alguém acrescentasse à montagem, e o que sai
   // disso é um número estimado sem a palavra que diz que ele é estimado.
@@ -23343,7 +23408,7 @@ async function pacotePlanoAproximado() {
  * Quem marca os grupos como aproximados é ela, DEPOIS: uma marca por item se
  * perde no próximo grupo que alguém acrescentar aqui.
  */
-function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midia, bytesMidia }) {
+function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBytes }) {
   // A LISTA DA FOLHA. As coleções na ordem do catálogo (a mesma da Biblioteca —
   // o operador as procura ali), a mídia, e "outros" por último, que é o grupo
   // de escape.
@@ -23385,12 +23450,39 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midia, bytesMidia }) {
     grupos.push(item);
     porColecao.set(c.id, item);
   }
-  if (bytesMidia || midia.length) {
+  // A STORE DE MÍDIA, UM GRUPO POR LISTA (v1.8.38) — ver `pacoteGruposDeMidia`.
+  // Eles SE SOBREPÕEM: um item nos Favoritos e no Cronograma conta nos dois, e
+  // o `sub` diz isso, porque a soma dos pesos passa do total e quem olha a
+  // folha precisa saber por quê.
+  for (const L of PACOTE_LISTAS) {
+    const chave = AVPacote.GRUPO_LISTA + L.lista;
+    const ids = midiaPorGrupo && midiaPorGrupo.get(chave);
+    if (!ids || !ids.size) continue;
+    let bytes = 0;
+    for (const id of ids) bytes += (midiaBytes && midiaBytes.get(id)) || 0;
+    grupos.push({
+      chave,
+      rotulo: L.rotulo,
+      sub: ids.size + (ids.size === 1 ? ' item' : ' itens'),
+      bytes,
+      fixo: false,
+      // A MARCA DE SOBREPOSIÇÃO é do GRUPO e não da folha: é ela que o
+      // desenho lê para dizer que aquele peso pode contar duas vezes.
+      sobreposto: true,
+    });
+  }
+  const soltosMidia = midiaPorGrupo && midiaPorGrupo.get('midia');
+  if (soltosMidia && soltosMidia.size) {
+    let bytes = 0;
+    for (const id of soltosMidia) bytes += (midiaBytes && midiaBytes.get(id)) || 0;
     grupos.push({
       chave: 'midia',
-      rotulo: 'Itens importados e vídeos',
-      sub: midia.length + (midia.length === 1 ? ' item' : ' itens'),
-      bytes: bytesMidia,
+      // O QUE SOBRA são os itens que não estão em lista nenhuma — a cena
+      // projetada agora, e o que o coletor ainda não recolheu. "Itens
+      // importados e vídeos" era o nome de TUDO isto quando era um grupo só.
+      rotulo: 'Outros itens',
+      sub: soltosMidia.size + (soltosMidia.size === 1 ? ' item' : ' itens'),
+      bytes,
       fixo: false,
     });
   }
@@ -23425,8 +23517,17 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midia, bytesMidia }) {
   // `plano.folha` é a árvore, e ela existe só para a folha desenhar.
   const naFolha = new Set();
   const folha = [];
+  // A PERGUNTA É "ESTE GRUPO EXISTE?", E NÃO "ELE TEM ARQUIVOS NO OPFS"
+  // (v1.8.38). O guarda consultava o `porGrupo`, que é o mapa dos arquivos do
+  // DISCO — as chaves dele são `col:<id>` e `outros`, e mais nada. O grupo da
+  // store de mídia nunca esteve ali, então `linha('midia')` era um no-op: o
+  // grupo existia em `plano.grupos` (contava no total, e o `exportarPacote`
+  // marcava por padrão todo grupo que a folha não ofereceu), e **nunca aparecia
+  // na folha**. Os itens importados e os vídeos viajavam sempre, sem chance de
+  // serem desmarcados — que é o pedido do operador visto pelo outro lado.
+  const existe = new Set(grupos.map((g) => g.chave));
   const linha = (chave) => {
-    if (!chave || naFolha.has(chave) || !porGrupo.has(chave)) return;
+    if (!chave || naFolha.has(chave) || !existe.has(chave)) return;
     naFolha.add(chave);
     folha.push({ tipo: 'linha', chave });
   };
@@ -23460,6 +23561,11 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midia, bytesMidia }) {
   // destino ausente) sairia da folha sem aparecer em lista nenhuma — e sem
   // aparecer na folha ela nunca é marcada, isto é, não entra no arquivo.
   for (const g of grupos) if (!g.fixo && g.chave.indexOf(AVPacote.GRUPO_COL) === 0) linha(g.chave);
+  // OS GRUPOS POR LISTA (v1.8.38), na ordem do `PACOTE_LISTAS`. Eles entram
+  // como LINHA de raiz e não dentro de uma seção: não são coleções da
+  // Biblioteca, são as listas do app, e amontoá-los sob "Álbuns" faria o
+  // operador procurar Favoritos onde ele não está.
+  for (const L of PACOTE_LISTAS) linha(AVPacote.GRUPO_LISTA + L.lista);
   linha('midia');
   linha(AVPacote.GRUPO_OUTROS);
 
@@ -23492,10 +23598,40 @@ function pacotePeso(bytes, aprox) {
 }
 
 /** Os bytes que os grupos escolhidos vão escrever — o total da barra. */
+// O TOTAL É A UNIÃO, E NÃO A SOMA (v1.8.38).
+//
+// Os grupos de mídia SE SOBREPÕEM por decisão do operador (ver
+// `pacoteGruposDeMidia`): um item nos Favoritos e no Cronograma conta nos dois.
+// Somar os pesos dos grupos marcados daria um número maior que o arquivo — e
+// este número é justamente o que responde *"cabe no cartão?"*, tanto no
+// confirmar da folha quanto na conta do `pacoteEspaco` que decide entre
+// compartilhar e o "Salvar como". Um total inflado manda o fluxo para o
+// caminho errado sem nada na tela dizendo por quê.
 function pacoteBytesDe(plano, sel) {
   let t = 0;
-  for (const g of plano.grupos) if (sel.has(g.chave)) t += g.bytes;
+  const vistos = new Set();
+  for (const g of plano.grupos) {
+    if (!sel.has(g.chave)) continue;
+    const ids = plano.midiaPorGrupo && plano.midiaPorGrupo.get(g.chave);
+    if (!ids) { t += g.bytes; continue; }
+    for (const id of ids) {
+      if (vistos.has(id)) continue;
+      vistos.add(id);
+      t += (plano.midiaBytes && plano.midiaBytes.get(id)) || 0;
+    }
+  }
   return t;
+}
+
+/** Os ids de mídia que a seleção cobre — a UNIÃO dos grupos marcados. */
+function pacoteMidiaSelecionada(plano, sel) {
+  const ids = new Set();
+  if (!plano.midiaPorGrupo) return ids;
+  for (const [chave, conjunto] of plano.midiaPorGrupo) {
+    if (!sel.has(chave)) continue;
+    for (const id of conjunto) ids.add(id);
+  }
+  return ids;
 }
 
 // ===== A FOLHA DE ESCOLHA (v1.7.2) =====
@@ -23621,9 +23757,15 @@ function renderPacoteGrupos(plano) {
 
   const linhaDeGrupo = (g, dentro) => {
     const peso = pacotePeso(g.bytes, g.aprox);
+    // O AVISO DA SOBREPOSIÇÃO (v1.8.38). Os grupos por lista se sobrepõem, e o
+    // peso deles pode contar o mesmo item duas vezes — o que a folha NÃO pode
+    // fazer é mostrar dois números que não somam e calar sobre isso. O total do
+    // confirmar continua sendo a UNIÃO, e é ele que responde "cabe no cartão?".
+    const sub = (g.sub ? g.sub + ' · ' : '') + peso
+      + (g.sobreposto ? ' · pode estar em outro grupo' : '');
     const li = songMenuItem(
-      g.chave === 'midia' ? msym(ICON.import) : msym(ICON.music),
-      g.rotulo, (g.sub ? g.sub + ' · ' : '') + peso, () => {}, g.chave, remontar);
+      (g.chave === 'midia' || g.sobreposto) ? msym(ICON.import) : msym(ICON.music),
+      g.rotulo, sub, () => {}, g.chave, remontar);
     if (dentro) li.firstChild.classList.add('song-menu-dentro');
     return li;
   };
@@ -23968,10 +24110,15 @@ async function exportarPacote() {
         // O ACERVO. A ordem — registro, miniatura, páginas — é CONTRATO com o
         // importador: ele monta o item enquanto lê, e por isso a miniatura e as
         // páginas de um item vêm coladas nele.
-        if (sel.has('midia')) {
+        // A UNIÃO DOS GRUPOS MARCADOS, e não `sel.has('midia')`: desde a
+        // v1.8.38 a store de mídia é vários grupos que se sobrepõem, e o item
+        // viaja se QUALQUER um deles estiver marcado.
+        const idsMidia = pacoteMidiaSelecionada(plano, sel);
+        if (idsMidia.size) {
           etapa = 'Itens importados e vídeos';
           bgItemOnly(tarefa, etapa);
           for (const m of plano.midia) {
+            if (!idsMidia.has(m.id)) continue;
             let rec = null;
             try { rec = await AVDB.getMedia(m.id); } catch (_) { continue; }
             if (!rec) continue;
@@ -24014,7 +24161,12 @@ async function exportarPacote() {
         // grupo que a etapa mostra, e é isso que faz uma exportação de dez
         // minutos dizer o que está acontecendo em vez de contar bytes.
         for (const g of plano.grupos) {
-          if (g.fixo || g.chave === 'midia' || !sel.has(g.chave)) continue;
+          // OS GRUPOS DE MÍDIA JÁ FORAM ESCRITOS acima, pela união: eles não
+          // têm arquivos no OPFS. O `porGrupo` não os conhece, então o `continue`
+          // abaixo bastaria — a guarda é explícita porque desde a v1.8.38 são
+          // VÁRIOS, e "o `midia` é a exceção" deixou de ser verdade.
+          if (g.fixo || !sel.has(g.chave)) continue;
+          if (plano.midiaPorGrupo && plano.midiaPorGrupo.has(g.chave)) continue;
           const pacote = plano.porGrupo.get(g.chave);
           if (!pacote) continue;
           etapa = g.rotulo;
@@ -24219,7 +24371,7 @@ function pacoteFonteDaUrl(url, size) {
       if (fim - ini > buf.length) throw new Error('pacote: acabou no meio de um registro');
       return buf.subarray(0, fim - ini);
     },
-    async blob(ini, fim, tipo) {
+    async blob(ini, fim, tipo, aoLer) {
       // AS PARTES VIRAM UM `Blob` DE UMA VEZ, e é isso que mantém a memória no
       // tamanho do pedaço: o `Blob` mora no armazenamento do navegador (que
       // pagina para o disco), e o que passa pelo heap é um pedaço por vez.
@@ -24229,6 +24381,9 @@ function pacoteFonteDaUrl(url, size) {
         const parte = await janela(p, Math.min(fim, p + PACOTE_PEDACO));
         lidos += parte.length;
         partes.push(parte);
+        // UM CORPO GRANDE É UM REGISTRO SÓ, e é aqui que ele deixa de ser um
+        // silêncio de minutos na barra — ver o `aoLer` do cursor.
+        if (aoLer) aoLer(lidos);
       }
       // A GUARDA QUE O IRMÃO `bytes()` SEMPRE TEVE, e que faltava aqui — no
       // caminho que traz os CORPOS (v1.8.15).
@@ -24262,7 +24417,7 @@ function pacoteCursor(fonte, inicio) {
   let pos = inicio == null ? AVPacote.ASSINATURA_BYTES : (inicio | 0);
   return {
     get pos() { return pos; },
-    async proximo(comCorpo) {
+    async proximo(comCorpo, aoLer) {
       if (pos >= fonte.size) return null;
       const p = AVPacote.PREFIXO_BYTES;
       const n = AVPacote.tamanhoDoCabecalho(await fonte.bytes(pos, pos + p));
@@ -24272,7 +24427,7 @@ function pacoteCursor(fonte, inicio) {
       const corpoIni = cabIni + n;
       if (corpoIni + cab.bytes > fonte.size) throw new Error('pacote: acabou no meio de um registro');
       const corpo = (comCorpo !== false && cab.bytes)
-        ? await fonte.blob(corpoIni, corpoIni + cab.bytes, cab.tipo || '')
+        ? await fonte.blob(corpoIni, corpoIni + cab.bytes, cab.tipo || '', aoLer)
         : null;
       pos = corpoIni + cab.bytes;
       return { cab, corpo };
@@ -24508,7 +24663,30 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
     // O CANCELAR É LIDO A CADA REGISTRO, como no laço do `YoutubeGrab` e no do
     // escritor: o que se quer parar é justamente o laço que está ocupado.
     if (pacoteCancelarImport) break;
-    const r = await cursor.proximo();
+    // A BARRA ANDA DENTRO DE UM REGISTRO GRANDE (v1.8.38).
+    //
+    // `aoAndar` era chamado UMA vez por registro, depois de o corpo inteiro ter
+    // sido lido e gravado — e um vídeo de 300 MB é UM registro. Num pacote de
+    // 16 GB o número ficava imóvel por minutos, logo depois da conferência,
+    // parado nos 15% que são o fim dela (`PACOTE_FATIA_CONFERE`). Relato do
+    // operador: *"ele ficou travado por muito tempo em 15%, e agora está
+    // progredindo"* — não estava travado, estava lendo um vídeo.
+    //
+    // O que vem ANTES dos vídeos são as milhares de chaves de `state`, que
+    // somam pouco: MEDIDO neste repositório, 3.600 chaves de tamanho real são
+    // 11,8 MB, ou 0,07% de um pacote de 16 GB. Elas levam tempo e não movem a
+    // barra por construção — a régua é BYTES DO PACOTE, e essa escolha está
+    // certa pelo motivo de sempre (contar ITENS faria a barra saltar nas chaves
+    // e rastejar nos hinos). O que faltava era a barra andar DURANTE o corpo.
+    //
+    // A base é a posição do começo do registro: o `aoLer` conta os bytes do
+    // CORPO, e o cabeçalho — dezenas de bytes — fica de fora sem que isso
+    // apareça. Sem NOME, de propósito: quem nomeia é o fim do registro, e
+    // inventar um nome a meio caminho mostraria o item errado.
+    const base = cursor.pos;
+    const r = await cursor.proximo(true, (lidos) => {
+      if (aoAndar) aoAndar(base + lidos, null);
+    });
     // FIM DOS BYTES SEM O REGISTRO `fim` — o pacote acabou no meio. Quem
     // reprova é o chamador, pelo valor devolvido.
     if (!r) break;

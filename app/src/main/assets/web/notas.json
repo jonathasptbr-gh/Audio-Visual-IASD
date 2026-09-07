@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.38",
+    "itens": [
+      "Os favoritos viraram um grupo próprio na folha de exportação.",
+      "O Cronograma, a playlist e os avulsos também podem ser escolhidos.",
+      "A barra da importação deixou de ficar parada num vídeo grande."
+    ]
+  },
+  {
     "versao": "1.8.37",
     "itens": [
       "O giro deixou de se perder quando a imagem entra por cima de um louvor."
