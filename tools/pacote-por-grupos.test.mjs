@@ -993,6 +993,77 @@ try {
     await tocar(e.pg, 'Diversas');
     await tocar(e.pg, 'Favoritos');
 
+    // ===== ABRIR E FECHAR ANIMA, COMO NA BIBLIOTECA (v1.8.42) =====
+    //
+    // Pedido do operador: *"na biblioteca temos animações de abertura e
+    // fechamento das listas e grupos, faça essa animação ali no exportar
+    // também"*.
+    //
+    // A RÉGUA É A `Animation` EM CURSO, e não o desfecho: o corpo aparece nas
+    // duas versões, e "a seção abriu" passa com e sem animação. Quem separa as
+    // duas é haver uma animação RODANDO no quadro seguinte ao toque.
+    //
+    // E O FECHAR É A METADE QUE FALHA CALADA: ali o redesenho APAGA o nó, e um
+    // nó apagado não desliza — é a assimetria da `alternar` da Biblioteca (anima
+    // ANTES de remontar). Sem ela o corpo simplesmente some, e nada na tela diz
+    // que faltou alguma coisa.
+    {
+      const abrir = await e.pg.evaluate(async () => {
+        const li = [...document.querySelectorAll('#songMenuList li')]
+          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
+        li.querySelector('.pacote-seta').click();
+        await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+        const novo = [...document.querySelectorAll('#songMenuList li')]
+          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
+        const corpo = novo && novo.querySelector('.pacote-grupo-corpo');
+        const anims = corpo ? corpo.getAnimations().filter((a) => a.playState === 'running') : [];
+        return {
+          temCorpo: !!corpo,
+          rodando: anims.length,
+          // A ALTURA é o que a animação percorre: uma que anime só a opacidade
+          // faria a lista PULAR e depois desbotar, que é o que a Biblioteca não
+          // faz. A propriedade é lida do próprio `KeyframeEffect`.
+          altura: anims.some((a) => {
+            const k = a.effect && a.effect.getKeyframes ? a.effect.getKeyframes() : [];
+            return k.some((q) => 'height' in q);
+          }),
+        };
+      });
+      checar(abrir.temCorpo === true, 'E · a seção abre e o corpo dela existe',
+        JSON.stringify(abrir));
+      checar(abrir.rodando > 0 && abrir.altura === true,
+        'E · e ela DESLIZA: há uma animação de ALTURA em curso no corpo, a mesma '
+        + 'do acordeão da Biblioteca — "a seção abriu" passa com e sem animação, '
+        + 'e é por isso que a régua é a `Animation`', JSON.stringify(abrir));
+      // FECHAR: o corpo tem de CONTINUAR no documento logo depois do toque, e
+      // animando. Sem a metade que anima ANTES de remontar, o redesenho o apaga
+      // no mesmo quadro e o que se mede é a ausência.
+      const fechar = await e.pg.evaluate(async () => {
+        const li = [...document.querySelectorAll('#songMenuList li')]
+          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
+        const corpo = li.querySelector('.pacote-grupo-corpo');
+        li.querySelector('.pacote-seta').click();
+        await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+        const anims = corpo.isConnected
+          ? corpo.getAnimations().filter((a) => a.playState === 'running') : [];
+        return { vivo: corpo.isConnected, rodando: anims.length };
+      });
+      checar(fechar.vivo === true && fechar.rodando > 0,
+        'E · e FECHAR anima ANTES de remontar — o redesenho apaga o nó, e um nó '
+        + 'apagado não tem como sair deslizando: é a assimetria da `alternar` '
+        + 'da Biblioteca', JSON.stringify(fechar));
+      // E ELE SOME NO FIM: sem esta, "nunca remontar" passaria na de cima e a
+      // seção ficaria aberta para sempre.
+      const sumiu = await esperar(e.pg, () => {
+        const li = [...document.querySelectorAll('#songMenuList li')]
+          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
+        return !!li && !li.querySelector('.pacote-grupo-corpo');
+      }, null, 4000);
+      checar(sumiu === true,
+        'E · e o corpo SOME quando a animação termina — sem esta, "nunca '
+        + 'remontar" passaria na de cima', porque(sumiu));
+    }
+
     // ===== A ALFABÉTICA, NAS DUAS COLETÂNEAS =====
     // `Diversas` está na lista do `ehAlfabetica` e `Adoradores` não: as duas
     // foram semeadas fora de ordem, e só uma delas se conserta. Sem o par, uma

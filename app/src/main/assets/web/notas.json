@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.42",
+    "itens": [
+      "Os grupos da exportação abrem e fecham deslizando, como na biblioteca.",
+      "Ao abrir as opções de play, a lista rola sozinha para mostrá-las."
+    ]
+  },
+  {
     "versao": "1.8.41",
     "itens": [
       "A seta que abre um grupo na exportação é a mesma da biblioteca.",
