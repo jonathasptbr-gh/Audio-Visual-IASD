@@ -83,28 +83,42 @@ try {
   checar(p.label === 'Baixando vídeo' && p.items[0] === 'Hino 471' && p.etaMs === 90_000,
     'com rótulo, item e estimativa');
 
-  // ---- baixando: o ÍCONE da barra de notificação (v1.8.27) ----------------
+  // ---- icone: O DESENHO da barra de notificação (v1.8.28) -----------------
   //
-  // Exportar, importar e preparar uma apresentação não trazem byte nenhum da
-  // rede, e a seta de download mentia sobre os três. O campo é remontado como
-  // todos os outros — e um campo esquecido no `native.js` some em SILÊNCIO,
-  // que é a razão de este oráculo existir.
-  checar(p.baixando === true,
-    'bgProgress leva a bandeira `baixando` — é ela que escolhe o ícone da '
-    + 'notificação', JSON.stringify(p));
-  const nb = await pg.evaluate(() => {
-    AVNative.bgProgress({ label: 'Exportando o acervo', done: 1, total: 2, baixando: false });
+  // Ele nasceu booleano na v1.8.27 ("isto baixa?") e virou um NOME de três
+  // valores a pedido do operador: *"exportar é uma seta pra cima e importar é
+  // uma seta para baixo… em movimento"*. A seta é DIREÇÃO DE BYTES, não
+  // procedência deles — importar traz o acervo PARA o aparelho, e o fato de os
+  // bytes virem de um arquivo local em vez da rede não muda o sentido do
+  // movimento para quem olha.
+  //
+  // O campo é remontado campo a campo como todos os outros, e um esquecido no
+  // `native.js` some em SILÊNCIO — é a razão de este oráculo existir.
+  checar(p.icone === 'baixar',
+    'bgProgress leva o `icone` — é ele que escolhe o desenho da notificação',
+    JSON.stringify(p));
+  const enviando = await pg.evaluate(() => {
+    AVNative.bgProgress({ label: 'Exportando o acervo', done: 1, total: 2, icone: 'enviar' });
     return JSON.parse(window.__recebido.bgProgress);
   });
-  checar(nb.baixando === false,
-    'e o `false` de um trabalho que NÃO baixa atravessa', JSON.stringify(nb));
-  // O PADRÃO É `true`, e é ele que protege o caso de sempre: quem não diz nada
-  // é download, que é o que TODO chamador antigo é.
+  checar(enviando.icone === 'enviar',
+    'e a seta PARA CIMA da exportação atravessa', JSON.stringify(enviando));
+  const processando = await pg.evaluate(() => {
+    AVNative.bgProgress({ label: 'Preparando apresentação', done: 1, total: 2, icone: 'processar' });
+    return JSON.parse(window.__recebido.bgProgress);
+  });
+  checar(processando.icone === 'processar',
+    'e o trabalho que não move byte nenhum pede o círculo, não uma seta',
+    JSON.stringify(processando));
+  // O PADRÃO É `baixar`, e é ele que protege o caso de sempre: quem não diz
+  // nada é download, que é o que TODO chamador antigo é. O Kotlin repete a
+  // regra do lado dele (`Icone.de`), porque a ponte é a fronteira com um bundle
+  // que pode ser mais novo OU mais velho que o APK.
   const semCampo = await pg.evaluate(() => {
     AVNative.bgProgress({ label: 'Letras das músicas', done: 3, total: 9 });
     return JSON.parse(window.__recebido.bgProgress);
   });
-  checar(semCampo.baixando === true,
+  checar(semCampo.icone === 'baixar',
     'e quem não diz nada continua sendo download — o padrão falha para o lado '
     + 'que já existia', JSON.stringify(semCampo));
 

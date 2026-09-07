@@ -330,20 +330,36 @@ try {
   // Sem ela o botão fica preso no pacote velho: com um pronto na mão, o toque
   // curto envia, e não haveria gesto nenhum para pedir outro na mesma sessão.
   await cheio.pg.evaluate(() => { window.__chamadas.length = 0; });
-  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerdown');
-  // ELE PERGUNTA ANTES (v1.8.20), e essa é a asserção que carrega o bloco.
-  // Agindo direto, um toque um pouco mais demorado no botão DESTRUÍA um pacote
-  // de minutos e recomeçava a medição — foi o relato do operador —, e num
-  // TOQUE não existe abortar: a captura implícita do ponteiro não emite
-  // `pointerleave`, então a saída tem de vir DEPOIS do gesto.
+
+  // ===== COM UM PRONTO NA MÃO, O IRMÃO É O DESCARTAR (v1.8.28) =====
+  //
+  // Relato do operador: *"verifique o botão de importar quando um arquivo de
+  // exportação está pronto, ele tem nome de cancelar, mas está agindo como
+  // importador normal"*. As duas metades eram verdade e nenhuma sozinha é o
+  // defeito: o rótulo emprestado com prazo `0` ficava até alguém o calar (e só
+  // o tile de EXPORTAR era calado), enquanto o `onclick` voltava a `null`,
+  // isto é, ao importador de sempre.
+  //
+  // ISTO APOSENTOU O TOQUE LONGO, que era a única porta do "quero fazer outro"
+  // desde a v1.8.20. A asserção que carrega o bloco continua sendo a PERGUNTA
+  // — ela é o que protege minutos de trabalho, e não o tempo do dedo.
+  const rotuloIrmao = await cheio.pg.evaluate(() => {
+    const t = document.querySelector('#pacoteImportarTile .qs-titulo');
+    return t ? t.textContent.trim() : '';
+  });
+  checar(rotuloIrmao === 'Descartar',
+    'A · com um pacote pronto o tile de IMPORTAR diz "Descartar" — um botão '
+    + 'que anuncia uma coisa e faz outra é pior que qualquer uma das duas',
+    rotuloIrmao);
+
+  await cheio.pg.click('#pacoteImportarTile');
   const perguntou = await esperar(cheio.pg, () => {
     const d = document.getElementById('appDialog');
     return !!d && d.classList.contains('open');
   }, null, 20000);
-  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerup');
   checar(perguntou === true,
-    'A · o toque LONGO PERGUNTA antes de jogar o pronto fora — agir direto '
-    + 'destrói minutos de trabalho num gesto que não tem como ser abortado',
+    'A · e ele PERGUNTA antes de jogar o pronto fora — destruir o resultado de '
+    + 'minutos é a mesma classe de decisão que excluir uma pasta',
     porque(perguntou));
   // E O CANCELAR NÃO DESTRÓI NADA: é a metade que separa "pergunta" de
   // "pergunta e faz assim mesmo".
@@ -354,25 +370,41 @@ try {
   checar(intacto.titulo === '100%' && semDescarte === false,
     'A · e recusar deixa o pacote INTACTO — nenhum `descartarPronto` foi pedido',
     JSON.stringify([intacto.titulo, semDescarte]));
-  // ACEITANDO, ele refaz: sem esta metade, "nunca refazer" passaria na de cima
-  // e a armadilha do botão preso no pacote velho voltaria.
-  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerdown');
+  // ACEITANDO, ele descarta — e SÓ descarta. Encadear a exportação nova no
+  // mesmo toque (o que o toque longo fazia) tira do operador a folha de
+  // escolha, que é onde ele decide O QUE levar.
+  await cheio.pg.click('#pacoteImportarTile');
   await esperar(cheio.pg, () => {
     const d = document.getElementById('appDialog');
     return !!d && d.classList.contains('open');
   }, null, 20000);
-  await cheio.pg.dispatchEvent('#pacoteExportarTile', 'pointerup');
   await cheio.pg.click('#appDialogOk');
-  const refez = await esperar(cheio.pg, () => window.__chamadas.includes('descartarPronto'),
-    null, 20000);
-  checar(refez === true,
-    'A · e aceitando ele joga o pronto fora e começa outro — sem essa porta, '
-    + 'quem quisesse exportar de novo na mesma sessão ficaria preso com o '
-    + 'arquivo velho', porque(refez));
-  const voltou = await abriuFolha(cheio.pg);
-  checar(voltou === true,
-    'A · e a folha de grupos volta a abrir, que é a exportação recomeçando',
-    porque(voltou));
+  const descartou = await esperar(cheio.pg,
+    () => window.__chamadas.includes('descartarPronto'), null, 20000);
+  checar(descartou === true,
+    'A · e aceitando ele joga o pronto fora — sem essa porta, quem quisesse '
+    + 'exportar de novo na mesma sessão ficaria preso com o arquivo velho',
+    porque(descartou));
+  const voltouAoRepouso = await esperar(cheio.pg, () => {
+    const t = document.querySelector('#pacoteExportarTile .qs-titulo');
+    const i = document.querySelector('#pacoteImportarTile .qs-titulo');
+    return !!t && t.textContent.trim() !== '100%'
+      && !!i && i.textContent.trim() !== 'Descartar';
+  }, null, 20000);
+  checar(voltouAoRepouso === true,
+    'A · e o PAR volta ao repouso: o exportar deixa de dizer 100% e o importar '
+    + 'volta a ser o importar — sem esta metade o botão continuaria oferecendo '
+    + 'o descarte de um pacote que já não existe',
+    porque(voltouAoRepouso));
+  // E A FOLHA DE GRUPOS **NÃO** ABRE: descartar não é reexportar. Sem esta
+  // asserção, encadear as duas coisas passaria em tudo o mais.
+  const naoRecomecou = await cheio.pg.evaluate(
+    () => !document.querySelector('#songMenu.open'));
+  checar(naoRecomecou === true,
+    'A · e ele NÃO recomeça a exportação sozinho — quem escolhe o que levar é '
+    + 'a folha, e ela é do próximo toque em Exportar',
+    String(naoRecomecou));
+
   // ---- E O REGISTRO SABE O QUE ACONTECEU (v1.8.20) ----
   //
   // Este caminho já produziu DUAS falhas cujo relato era indistinguível a
