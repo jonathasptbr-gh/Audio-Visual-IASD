@@ -343,6 +343,82 @@ try {
     JSON.stringify(medida));
   checar(medida.bytesNaFaixa === true,
     'A · e a notificação sabe que a unidade é BYTES', medida.bytesNaFaixa);
+
+  // -------------------------------------------------------------------------
+  // A NOTIFICAÇÃO E O BOTÃO CONTAM O MESMO TRABALHO (v1.8.35)
+  //
+  // Relato do operador: *"o número do progresso na notificação não está se
+  // atualizando corretamente, há muito atraso em relação à realidade, ao menos
+  // 5%"*. Não era atraso de RELÓGIO: eram DUAS CONTAS. O botão recebia a fração
+  // do processo INTEIRO (a medição é a primeira fatia — `PACOTE_FATIA_MEDIDA`,
+  // 5%) e a notificação recebia a fração da ESCRITA CRUA. O desvio é
+  // `5% × (1 − f)`: os 5% inteiros no começo, fechando em zero só no fim.
+  //
+  // A RÉGUA NÃO PODE SER O RELÓGIO. Comparar as duas superfícies AO VIVO mediria
+  // o freio de 700 ms (que descarta envios) e a ordem das duas escritas dentro
+  // do mesmo passo — as duas coisas dependem da máquina, e é assim que um
+  // oráculo passa a reprovar por carga do runner. O que se afirma é a
+  // PROPRIEDADE do número que a notificação manda: se ele é a fração do
+  // processo inteiro, ele NASCE em 5% e não em zero, porque a medição já
+  // aconteceu quando a escrita começa.
+  const faixa = await a.pg.evaluate(() => {
+    const p = (window.__progresso || []).filter((x) => x.bytes === true && x.total > 1);
+    if (!p.length) return null;
+    const f = p.map((x) => x.done / x.total);
+    let voltou = 0;
+    for (let i = 1; i < f.length; i++) if (f[i] < f[i - 1] - 1e-9) voltou++;
+    return { n: f.length, min: Math.min(...f), max: Math.max(...f), voltou };
+  });
+  checar(faixa && faixa.n > 0,
+    'A · a notificação reportou a fase da escrita', JSON.stringify(faixa));
+  // O 0.049 (e não 0.05) é o arredondamento do `Math.round(fracao * total)`
+  // sobre um pacote de teste pequeno, não uma folga de política.
+  checar(faixa && faixa.min >= 0.049,
+    'A · e o número dela nasce na FATIA da medição, como o do botão — era este '
+    + 'o desvio de 5% que o operador via entre as duas telas',
+    faixa && faixa.min);
+  // A METADE QUE IMPEDE O CONSERTO LARGO DEMAIS: somar 5% a tudo, ou mandar
+  // 100% sempre, passaria na asserção de cima.
+  checar(faixa && Math.abs(faixa.max - 1) < 1e-6,
+    'A · e ela ainda FECHA em 100% — o mapeamento é uma faixa, não um degrau '
+    + 'somado', faixa && faixa.max);
+  checar(faixa && faixa.voltou === 0,
+    'A · e nunca volta atrás', faixa && faixa.voltou);
+
+  // O FREIO ADIA, NUNCA DESCARTA. Ele era um `return` seco: o último passo
+  // antes de uma quietação ficava para trás até o batimento de 2 s. Aqui a
+  // espera é pelo FATO (a entrada nova no espião), nunca por um prazo fixo —
+  // o estouro devolve a FRASE e não um veredito sobre o app.
+  //
+  // E ELE PRECISA DE UMA TAREFA VIVA. Sem nenhuma, `bgTaskSend` cai no ramo do
+  // "nada em curso", que envia SEM passar pelo freio — o teste passaria pelo
+  // motivo errado (medido: foi o que ele fez na primeira escrita).
+  //
+  // E O COMPASSO PRECISA SAIR DE CAMPO. Ele reenvia com `force` a cada
+  // `BG_REENVIO_MS` (2 s), então um prazo maior que isso mede O COMPASSO e
+  // aprova as duas versões — MEDIDO: a reversão passou. Encurtar o prazo para
+  // caber entre os 700 ms e os 2 s seria pior ainda: aí o veredito passaria a
+  // depender da carga do runner, que é a regra que este repositório escreve
+  // em primeiro lugar. Desligado o compasso, a versão que DESCARTA não envia
+  // nunca — o estouro vira um negativo de verdade, e o prazo pode ser folgado.
+  const adiou = await a.pg.evaluate(() => {
+    const t = bgTaskStart('freio', 1, 'baixar');
+    clearInterval(bgPacer); bgPacer = null;
+    bgTaskBytes(t, 1, 1000);          // troca de RÉGUA: sai na hora (`force`)
+    const antes = window.__progresso.length;
+    bgTaskBytes(t, 2, 1000);          // dentro da janela: na versão antiga, morria aqui
+    return { tarefa: t, antes, depois: window.__progresso.length };
+  });
+  checar(adiou.depois === adiou.antes,
+    'A · o freio de fato reteve o passo (senão o resto não mede nada)',
+    JSON.stringify(adiou));
+  const chegou = await esperar(a.pg,
+    (d) => window.__progresso.length > d, adiou.depois, 8000);
+  checar(chegou === true,
+    'A · e o envio retido pelo freio CHEGA quando a janela fecha, em vez de se '
+    + 'perder até o batimento de 2 s', porque(chegou));
+  await a.pg.evaluate((id) => bgTaskEnd(id), adiou.tarefa);
+
   await a.ctx.close();
 
   // =========================================================================

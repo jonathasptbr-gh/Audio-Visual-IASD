@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.35",
+    "itens": [
+      "O número da notificação passou a bater com o do botão de exportar.",
+      "Ele também deixou de ficar para trás quando o trabalho dá uma pausa."
+    ]
+  },
+  {
     "versao": "1.8.34",
     "itens": [
       "A seta do progresso voltou a se mexer na barra de notificação.",
