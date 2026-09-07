@@ -4808,7 +4808,7 @@ mundo anterior por outro caminho.
 | `geometria.test.mjs` | **A GEOMETRIA DO APP CABE, em toda tela e em toda escala de fonte** (v1.8.1). Ele é o PORTÃO de uma dupla: a RÉGUA (`tools/varredura-geometrica.mjs`) abre as 16 superfícies em 9 combinações de tela × fonte e IMPRIME; este roda as MESMAS sondas em 5 telas, em 29s, e reprova. As duas partilham `tools/geometria.mjs` — duas cópias divergiriam no primeiro ajuste, e a divergência seria muda nos dois sentidos. **Cinco sondas**: fora da janela · irmãos sobrepostos numa linha `flex` · corte serrado (`overflow` cortando texto sem clamp ENGATADO — um clamp maior que as linhas que cabem NÃO engata — e sem máscara) · alvo abaixo de `--hit` · camada `fixed` fora da tela. **T1, T2, T3 e T5 são zero**; T4 tem exceções NOMEADAS, com seletor e piso (hoje uma: a grade de 66 livros, que TROCA de piso e não o dispensa). Três guardas que não são sobre o app: uma PÁGINA por tela com o reset feito pelo `__avBack()` do próprio app (16 × 5 páginas novas seriam 13 min de portão), o reset esvaziando a lista da Biblioteca — o preço do reuso, porque a janela dela é a única camada que existe SEMPRE e fechada continua no documento com o acervo recortado dentro, que é o que "fechada" quer dizer —, e **toda superfície tendo ABERTO e mostrado nós**, sem a qual um placar limpo sobre uma tela que não montou é indistinguível de um app correto. **E AS SONDAS SE AUTOPROVAM a cada execução**: a última asserção injeta um defeito de cada tipo e exige que a sonda o nomeie — sem ela, um `return` cedo no caminho de varredura deixaria tudo verde para sempre. Oito reversões medidas, e a oitava só passou a ser cobrada depois de a escala **1,5×** entrar na matriz: a 1,3× a letra do livro cabe na célula por ZERO, e "cabe por zero" não é uma correção. Campanha de determinismo: a suíte inteira 4× a 2× de carga (**268/268**) mais ele sozinho 10× a 4× (**10/10**) |
 | `deslize-nao-vaza.test.mjs` | **O DESLIZE DA BÍBLIA NÃO VAZA DA FOLHA** (v1.8.4). A navegação dentro da Bíblia é um `translateX(±100%)` no `#bibleBody`, e a `.tools-sheet` — um cartão com fundo, raio e sombra — não recortava nada: MEDIDO, **47,7px** de grade e ladrilhos pintando por cima do Cronograma em volta. **Ele existe à parte do `geometria.test.mjs` por duas razões de método, e as duas valem para o próximo oráculo de animação**: aquele ASSENTA o movimento antes de medir (e tem de assentar — uma folha medida no meio devolve uma caixa que não existe), então um defeito que só existe DURANTE o movimento nasce fora do alcance dele; e **geometria não responde a esta pergunta**, porque `overflow: hidden` recorta a PINTURA e não o layout — com a correção aplicada o `getBoundingClientRect` de cada ladrilho continua 47,6px fora da folha, e antes e depois medem IDÊNTICO (foi assim que a primeira tentativa do arquivo "reprovou" a correção certa). A régua é o PIXEL: cores distintas na moldura entre a folha e o `<main>` — **9** em repouso e com a correção, **59** sem ela. A espera é de RELÓGIO e não tem como não ser (o alvo é o meio de uma animação), mas ela só erra para o LADO SEGURO: amostra fora do movimento devolve o resultado do repouso, isto é, passa. Cobre os dois sentidos, com a prova viva NOMEADA (a volta), mais a metade que impede o conserto largo demais — os 66 livros continuam desenhados e dentro da folha |
 | `configuracoes-sem-subtitulo.test.mjs` | **as Configurações sem a palavra do estado** (v1.7.2). A segunda linha de cada tile saiu a pedido do operador, e a razão de ela existir era real — *um ícone sozinho responde por CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por semana* —, então o que este oráculo prende não é a remoção: é a informação ter MUDADO DE CANAL. Um tile cujo estado não vira desenho fica idêntico nos dois estados, sem erro e sem sintoma. Mede o giro pela matriz COMPUTADA do ícone (uma regra de CSS ausente deixa o `data-estado` certo e o desenho parado), o wallpaper pelo `display` de cada `<use>` do par novo — **com o tile continuando ACESO nos dois estados**, senão o conserto barato é apagá-lo, e apagado neste app quer dizer INDISPONÍVEL —, e o rótulo do modo em DUAS larguras, pelo número de retângulos de cliente ("Modo avançado" quebrado em duas linhas tem dois, e `scrollWidth` de um inline que quebra não denuncia nada). **Assentar é `getAnimations()` + `finished`**: o ícone GIRA, e uma leitura por relógio mede a transição no meio (MEDIDO: `matrix(0.80, 0.59, …)` a 60 ms, que não é ângulo nenhum). **E o que a v1.7.7 acrescentou ao bloco do giro**: a COR igual nas três posições que ele já tinha na mão (a 0° ele era o único tile apagado da grade, e as outras duas provam que a igualdade não veio de ele ter apagado em todas), e o SÍMBOLO ser o `#icoPaisagem` — a asserção da matriz passa com qualquer desenho, inclusive a seta circular que saiu |
-| `pacote-por-grupos.test.mjs` | **a exportação por grupos, e o 0%** (v1.7.2; a folha AGRUPADA e o feedback no BOTÃO entraram na v1.7.3 — o percentual é lido do `.qs-titulo` por um `MutationObserver`, porque um estado final não distingue "andou de 0 a 100" de "pulou para o fim", e há asserção para o rótulo VOLTAR e para o cartão da preview NÃO entrar em cena). Três coisas falham CALADAS. (1) O **LOTE**: cada bloco do canal é uma ida e volta, e ela custa o mesmo para 50 bytes e para 512 kB — a Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e a versão anterior mandava um bloco por cabeçalho e um por corpo. A semente imita isso (400 chaves e nada mais) e a asserção é o número de blocos. (2) O **PROGRESSO** naquela fase, que não era reportado nem somado no plano — a régua é o percentual do CARTÃO no fim, e não o `done` da notificação: `> 0` passa só com o cabeçalho humano (MEDIDO ao escrever o arquivo), e o `done` emitido mede o freio de 700 ms, não o app. (3) A **ESCOLHA** cortar bytes de verdade, com o catálogo seguindo os bytes — um registro de `files` sem o arquivo dele é uma faixa que aparece na Biblioteca do destino e não toca. Cinco reversões nomeadas |
+| `pacote-por-grupos.test.mjs` | **a exportação por grupos, e o 0%** (v1.7.2; a folha AGRUPADA e o feedback no BOTÃO entraram na v1.7.3 — o percentual é lido do `.qs-titulo` por um `MutationObserver`, porque um estado final não distingue "andou de 0 a 100" de "pulou para o fim", e há asserção para o rótulo VOLTAR e para o cartão da preview NÃO entrar em cena). Três coisas falham CALADAS. (1) O **LOTE**: cada bloco do canal é uma ida e volta, e ela custa o mesmo para 50 bytes e para 512 kB — a Bíblia mora em `state` com UMA CHAVE POR CAPÍTULO (1189 por versão), e a versão anterior mandava um bloco por cabeçalho e um por corpo. A semente imita isso (400 chaves e nada mais) e a asserção é o número de blocos. (2) O **PROGRESSO** naquela fase, que não era reportado nem somado no plano — a régua é o percentual do CARTÃO no fim, e não o `done` da notificação: `> 0` passa só com o cabeçalho humano (MEDIDO ao escrever o arquivo), e o `done` emitido mede o freio de 700 ms, não o app. (3) A **ESCOLHA** cortar bytes de verdade, com o catálogo seguindo os bytes — um registro de `files` sem o arquivo dele é uma faixa que aparece na Biblioteca do destino e não toca. Cinco reversões nomeadas. **E o bloco E (v1.8.40)**, com as quatro coisas do lote que falham CALADAS — a folha continua abrindo e a exportação continua produzindo o arquivo certo: o DESENHO (o degrau entre o bloco e a linha de dentro, medido na cor RENDERIZADA e não no nome do token, porque dois nomes podem resolver para o mesmo valor — foi o defeito da Biblioteca na v1.5.14 —, com a linha de RAIZ vestindo o tom do BLOCO, senão um terceiro tom passaria e a escada de três degraus voltaria, e com a linha MARCADA continuando no preenchimento de ESCOLHIDO, que é o `:where()` pagando); a ORDEM da folha inteira, com as duas pontas SEMEADAS (sem um favorito e um item solto ela sai só com as coletâneas no meio e qualquer ordem passa); a ALFABÉTICA em PAR (uma coletânea que é e uma que não é, senão ordenar TUDO passaria); o RELATÓRIO nomeando as coletâneas e NÃO os álbuns; e o PESO como DESIGUALDADE contra o que o arquivo pesou, com a outra ponta ao lado. Os tons são medidos com as linhas DESMARCADAS, e é obrigatório: a folha nasce toda marcada e o `--sel-fill` cobre o tom em todas elas (MEDIDO: as três asserções liam a mesma cor de estado). Oito reversões medidas |
 | `pacote-compartilhar.test.mjs` | **exportar direto para o compartilhar** (v1.8.17), e as três metades falham CALADAS. A ESCOLHA DO DESTINO é uma conta (espaço livre × tamanho medido), e errá-la não produz erro nenhum: caindo sempre no SAF o recurso não existe e ninguém sabe por quê; caindo sempre no local o app tenta escrever quinze gigabytes num aparelho que não os tem, e o Android não devolve uma falha clara — ele quebra o IndexedDB, o WebView e a projeção, cada um do seu jeito. O FECHO é a metade que um teste de *"exportou?"* aprova nas duas versões: `pacoteFechar` e `pacoteCompartilhar` devolvem o MESMO número, então o método errado produz o mesmo diálogo, o mesmo tamanho e o mesmo tile — e o arquivo local nunca chega ao seletor; só a CHAMADA distingue. E a FRASE, porque as duas pontas pedem ações opostas (o seletor já na frente × achar o arquivo depois). A quarta é a REVERSÃO que fecha o lote: **o SAF continua de pé** — sem ela, apagar o caminho antigo passaria em tudo o mais, e o aparelho que MAIS precisa exportar é exatamente o que não tem espaço para a segunda cópia. Quatro reversões medidas |
 | `abertura-e-transferencia.test.mjs` | **a CORTINA que não pode ficar no ar**, no cenário catastrófico: o `controle.js` abortado pela rota, o tema guardado já no `<html>` (quem o escreveu foi o script do `<head>`) e a cortina levantando pelo PRAZO — sem isso o app fica trancado, e não há erro em lugar nenhum. Mais a saída por REMOÇÃO DO NÓ, medida por hit-test (uma camada `opacity: 0` sobre a tela inteira continua recebendo o toque). E a BADGE: as TRÊS casas dizem o mesmo número, nenhuma escreve "Web"/"Shell" — **e o REGISTRO continua trazendo o índice do shell**, que é a metade que impede o conserto largo demais. Mais o bloco "Este aparelho", com a reversão (sem ponte ele não existe) |
 | `boot-nativo.test.mjs` | **A GAVETA DE DETALHE DE UM VÍDEO** (v1.5.21), nas duas metades que só juntas dizem a regra: com o dado, o card ABRE pela identidade e as quatro linhas saem na ORDEM DO DOM (uma asserção do tipo *"o texto contém o canal?"* aprovaria o canal desenhado embaixo do estado no aparelho); sem ele — um ÍNDICE ANTIGO, a janela real entre o OTA chegar e a varredura refazer a lista —, a linha ausente SOME e não sobra "undefined" em lugar nenhum. Provado por reversão: desenhando SEMPRE, o card sai com `Título: undefined`. E o `serie.test.mjs` não cobre isto — ele prende a REGRA, este prende a LIGAÇÃO, que falha com a regra certa e o card mudo. Mais **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? **E a LIGAÇÃO da regra das coletâneas** (v1.5.16): o `coletanea.test.mjs` prende a REGRA, este prende o fio até a tela, que falha de outro jeito — a regra continua certa e o recurso não faz nada. São DOIS consumidores do mesmo resultado (o laço que desenha as seções e o `claimed` dos órfãos), e ligar só um devolve *"Outros álbuns"*. **Os nomes das seções do fixture de rolagem viraram neutros no mesmo lote**: três eram os nomes REAIS do banco, e com a regra no ar aquele cenário montava CINCO seções onde o texto diz seis — MEDIDO, com a asserção VERDE, medindo outra coisa |
@@ -5337,10 +5337,9 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.39 · APK v1.8.39** · `SHELL_VERSION` **71** ·
-bundle com `minShell: 71` e **`shellTag: "v1.8.39"`** (lote COM Release) — o
-shell 71 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
-lado web.
+**Versão atual: base web v1.8.40 · APK v1.8.39** · `SHELL_VERSION` **71** ·
+bundle com `minShell: 71` e **SEM `shellTag`** (lote SÓ WEB) — o shell 71 é o
+**PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
 > oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
@@ -5378,6 +5377,97 @@ lado web.
 > Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+**O QUE O LOTE TRAZ (v1.8.40) — a folha de exportação com o desenho da
+Biblioteca, e o peso que erra para cima:**
+
+| peça | onde |
+|---|---|
+| a folha veste a ALTERNÂNCIA da Biblioteca (poço → papel) | `.pacote-grupo`/`.pacote-grupo-corpo` (`controle.css`) |
+| o Cronograma e a Playlist saíram das opções | `PACOTE_LISTAS` |
+| a ordem da folha é a da Biblioteca, de ponta a ponta | `pacoteMontarFolha` (os Favoritos na frente) |
+| os álbuns de `Diversas` e `Cantores` saem por NOME, nas DUAS telas | `AVColetanea.ehAlfabetica` + `categoryCards` |
+| o relatório da importação fala nas NOSSAS coletâneas | `pacoteBaldesDoAcervo` + `pacoteRelatorio` |
+| o peso estimado erra para CIMA, e a palavra é "até" | `PACOTE_ESTADO_POR_CHAVE` · `PACOTE_MARGEM` · `pacotePeso` |
+
+> **UM DEGRAU DE TOM É O QUE SEPARA TOPO DE ITEM** (v1.8.40). Relato do
+> operador: *"os grupos estão iguais às listas de itens dentro deles, não
+> deixando identificar o que é topo e o que é item … use o mesmo design que já
+> temos na biblioteca, para cores e modelos de coleções e álbuns"*. MEDIDO no
+> renderizado: **1,00:1** entre a barra de uma seção e as linhas dela — o mesmo
+> número da Biblioteca antes da v1.5.14 e do histórico antes da v1.7.5.
+>
+> A resposta é a de lá, e ela tem DUAS metades. A **FILIAÇÃO**: o corpo passou a
+> morar DENTRO do bloco (as linhas eram irmãs da barra, e sem "dentro" o CSS não
+> tem onde pousar o degrau). E a **ALTERNÂNCIA**, que é a hierarquia deste app
+> desde a v1.5.14 — o que está na RAIZ é agrupamento e veste o POÇO, o que está
+> DENTRO volta ao PAPEL. MEDIDO no par novo: **1,43:1**, a mesma ordem da
+> Biblioteca.
+>
+> **TUDO PASSA POR `:where()`, E É ELE QUE MANTÉM O ESTADO VENCENDO.** O escopo
+> é por id (`#songMenuList`) porque aquela lista é a MESMA da folha de destinos
+> e do menu de uma música — mas um seletor com id vale (1,x,0) e a linha MARCADA
+> vale (0,3,0): escrito direto, o tom apagaria o preenchimento de ESCOLHIDO
+> numa folha cujo trabalho INTEIRO é marcar. Provado por reversão.
+
+> **O CRONOGRAMA E A PLAYLIST NÃO SÃO ACERVO** (v1.8.40). Pedido do operador:
+> *"pode remover a playlist como sendo uma das opções de exportação, o
+> cronograma também"*. Elas são listas de TRABALHO — se esvaziam e se refazem
+> toda semana —, e escolher se elas viajam não é uma decisão sobre o que o outro
+> aparelho vai TER. Os itens delas continuam viajando, pelo grupo de escape
+> ("Outros itens"): o que sai é a LINHA, nunca os bytes.
+
+> **A ORDEM ALFABÉTICA MORA NUM PONTO SÓ, E É POR ISSO QUE ELA VALE NAS DUAS
+> TELAS** (v1.8.40). Pedido: *"os grupos de 'diversos' e 'cantores' devem ter
+> seus álbuns listados em ordem alfabética tanto na biblioteca como ali no
+> exportar"*. Quem decide QUAIS coletâneas é o `AVColetanea.ehAlfabetica` —
+> decisão EDITORIAL sobre o catálogo, ao lado da tabela que dissolve coletânea —
+> e quem ORDENA é o `categoryCards`, a função que a Biblioteca já usava.
+> **A folha passou a montar as seções por ela** (antes lia `cat.albums` por
+> conta própria, reescrevendo as duas regras): duas ordenações sobre a mesma
+> lista divergiriam no primeiro ajuste, e a divergência apareceria como as duas
+> telas discordando sobre onde um álbum está.
+>
+> **NOMEADAS, e não "todas"** — uma coletânea cujo `order` seja curado perderia
+> a curadoria em silêncio. A asserção do par (uma alfabética e uma que não é) é
+> o que impede o conserto largo demais.
+
+> **O RELATÓRIO FALA DOS GRUPOS QUE O OPERADOR VÊ** (v1.8.40). Pedido: *"os
+> resultados devem vir sobre os itens que o usuário conhece, em uma ordem que
+> ele já vê dos grupos maiores"*. Ele listava as COLEÇÕES do banco; passou a
+> somá-las nas NOSSAS coletâneas (`pacoteBaldesDoAcervo`, a mesma leitura que a
+> Biblioteca e a folha fazem), na ordem da Biblioteca. **A ordem por
+> incompletude saiu**: agrupado, o relatório tem um punhado de linhas em vez de
+> vinte e três, e pôr o que pede ação no topo deixou de valer o preço de o
+> operador procurar um grupo onde ele não está — o que estiver incompleto
+> continua visível pelo próprio número.
+
+> **O PESO ERRA PARA CIMA, E O `bytesEstado: 0` ERA A MAIOR PARTE DO ERRO**
+> (v1.8.40). Relato: *"mesmo com o arredondamento para cima ele está
+> apresentando um número bem menor que a realidade … se ele fosse errar, que
+> erre para cima. Questão de espaço deve ser algo que tem certeza de caber"*.
+>
+> MEDIDO num acervo sintético com mil capítulos de Bíblia: a folha mostrava
+> **14,7%** da realidade, porque as milhares de chaves de `state` (a Bíblia mora
+> aqui com uma POR CAPÍTULO) entravam como ZERO. **Medi-las está fora de
+> questão** no caminho do toque — `stateVarrer` custou **144,6 ms** para 1.003
+> chaves contra 12,2 ms da folha inteira, e num acervo real isso é meio segundo:
+> exatamente o atraso que a v1.8.30 tirou dali. O que resta é ESTIMAR pelo que é
+> barato: a CONTAGEM (`stateKeys`, sem desserializar valor nenhum) vezes um
+> tamanho médio, e o número adotado é o MAIOR de duas medições independentes
+> deste repositório (4,2 kB contra 3,3 kB), porque o pedido é explícito.
+>
+> Mais uma **margem de 10%** sobre o que a folha somou — ela cobre o que a
+> versão aproximada sabidamente não vê (uma coleção com bytes no disco e sem
+> peso guardado, o cabeçalho de cada registro) — e a palavra mudou de "aprox."
+> para **"até"**: *"aprox." descreve um número que erra para os dois lados;
+> este erra só para cima, e dizer isso é o que o torna utilizável para decidir
+> se cabe*. MEDIDO depois: **155%** da realidade no mesmo cenário.
+>
+> **O ORÁCULO É UMA DESIGUALDADE, e não um valor** (`pacote-por-grupos`, bloco
+> E): o que a folha prometeu nunca é menor que o que o arquivo pesou. Com a
+> outra ponta ao lado — ele continua na ORDEM DE GRANDEZA —, senão "prometa
+> sempre o dobro" passaria e a folha deixaria de informar qualquer coisa.
 
 **O QUE O LOTE TRAZ (v1.8.39) — o check que colidia, o botão que mentia e o
 canto comido:**

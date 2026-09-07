@@ -3393,11 +3393,28 @@ try {
     'e NÃO nasce um bloco de órfãos no lugar dela: dissolver é FUNDIR, e um '
     + '"Outros álbuns" com os mesmos álbuns devolveria o bloco pela porta dos '
     + 'fundos', JSON.stringify(dissolve.secoes));
-  // A POSIÇÃO NO DOM, e não a contagem: os dois álbuns da coletânea dissolvida
-  // estão DENTRO do corpo do destino, no fim, na ordem que tinham.
-  checar(dissolve.noDestino.join(',') === '50,51,40,41',
-    'e OS CARDS DELA SÃO FILHOS DO CORPO DO DESTINO, no fim e na ordem que '
-    + 'tinham — a régua é onde eles estão na árvore, nunca quantos são',
+  // A POSIÇÃO NO DOM, e não a contagem: os quatro álbuns — os dois do destino e
+  // os dois que a coletânea dissolvida trouxe — são FILHOS do corpo do destino.
+  // A régua é ONDE eles estão na árvore, e é ela que separa FUNDIR de dropar.
+  //
+  // A ORDEM saiu desta asserção na v1.8.40 e virou a de baixo: `Diversas` é uma
+  // das coletâneas alfabéticas, então quem a decide passou a ser
+  // `AVColetanea.ehAlfabetica` e não mais a ordem de chegada. Afirmar as duas
+  // coisas numa asserção só faria a MOVE reprovar por um ajuste de ordenação.
+  checar([...dissolve.noDestino].sort((a, b) => a - b).join(',') === '40,41,50,51',
+    'e OS CARDS DELA SÃO FILHOS DO CORPO DO DESTINO — a régua é onde eles '
+    + 'estão na árvore, nunca quantos são',
+    JSON.stringify(dissolve.noDestino));
+  // E A ORDEM DENTRO DELE É ALFABÉTICA (v1.8.40), porque `Diversas` está na
+  // lista do `ehAlfabetica`. Os nomes do fixture são "Álbum <id>", então o
+  // alfabético e o numérico coincidem — é de propósito: assim a asserção lê
+  // como o operador lê a tela. REVERSÃO: sem a ordenação do `categoryCards` o
+  // que sai é `50,51,40,41` (o destino primeiro, os movidos no fim), que era
+  // exatamente o que esta linha afirmava até aqui.
+  checar(dissolve.noDestino.join(',') === '40,41,50,51',
+    'e ELES SAEM EM ORDEM ALFABÉTICA, misturados aos do destino: numa '
+    + 'coletânea que o operador percorre por NOME, "os que já estavam" e "os '
+    + 'que chegaram" não são duas listas',
     JSON.stringify(dissolve.noDestino));
   // CONJUNTOS, não contagem: contar aprova uma troca.
   {

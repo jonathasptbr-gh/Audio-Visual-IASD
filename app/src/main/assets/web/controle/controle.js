@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.39';
+const WEB_VERSION = '1.8.40';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8426,6 +8426,21 @@ function categoryCards(cat) {
   for (const a of cat.albums) {
     const coll = byId.get('album-' + a.id_album);
     if (coll && !isHymnalAlbum(coll)) out.push({ coll, ctx: a });
+  }
+  // ORDEM ALFABÉTICA NAS COLETÂNEAS QUE PEDEM (v1.8.40) — quem decide QUAIS é o
+  // `AVColetanea.ehAlfabetica`, porque é decisão editorial sobre o catálogo.
+  //
+  // E É AQUI, num ponto só, que ela vale para as DUAS telas: a folha de
+  // exportação passou a montar as seções por esta mesma função (antes ela lia
+  // `cat.albums` por conta própria). Duas ordenações sobre a mesma lista
+  // divergiriam no primeiro ajuste, e a divergência apareceria como a
+  // Biblioteca e a exportação discordando sobre onde um álbum está.
+  //
+  // `localeCompare` com `pt-BR` e `sensitivity: 'base'`: acento e caixa não
+  // podem decidir posição numa lista que se percorre com o olho.
+  if (AVColetanea.ehAlfabetica(cat && cat.name)) {
+    out.sort((x, y) => String(x.coll.name || '').localeCompare(
+      String(y.coll.name || ''), 'pt-BR', { numeric: true, sensitivity: 'base' }));
   }
   return out;
 }
@@ -23143,11 +23158,22 @@ let pacotePlanoAtual = null;
 // A ordem é a da folha; os rótulos são os das listas que o operador conhece.
 // `avulsos` é a prateleira do Modo Fácil, que não tem lista visível — o nome
 // diz o que ela é para quem lê a folha, e não o identificador interno.
+// SÓ OS FAVORITOS (v1.8.40). A v1.8.38 abriu um grupo por lista; o operador
+// pediu de volta *"remover a playlist, como sendo uma das opções de exportação,
+// o cronograma também"*.
+//
+// O QUE ELES ERAM: listas de TRABALHO, não de acervo. O Cronograma é o que vai
+// ser projetado neste culto e a playlist é a fila da vez — as duas se esvaziam
+// e se refazem toda semana, e escolher se elas viajam não é uma decisão sobre o
+// que o outro aparelho vai TER, é sobre um estado que não sobrevive ao sábado.
+// Os Favoritos são o contrário: é ali que um vídeo pesado fica guardado de
+// propósito, e é essa a pergunta que o operador de fato faz.
+//
+// OS ITENS DELES CONTINUAM VIAJANDO: sem grupo próprio eles caem no de escape
+// ("Outros itens"), que segue marcado por padrão como todo o resto. O que sai é
+// a LINHA na folha, não os bytes.
 const PACOTE_LISTAS = [
   { lista: 'favs', rotulo: 'Favoritos' },
-  { lista: 'imports', rotulo: 'Cronograma' },
-  { lista: 'playlist', rotulo: 'Playlist' },
-  { lista: 'avulsos', rotulo: 'Itens avulsos' },
 ];
 
 /**
@@ -23386,8 +23412,33 @@ async function pacotePlanoAproximado() {
   let midia = [];
   try { midia = await AVDB.mediaResumo(); } catch (_) { midia = []; }
   const { porGrupo: midiaPorGrupo, bytes: midiaBytes } = await pacoteGruposDeMidia(midia);
+  // ===== O ESTADO DEIXOU DE VALER ZERO (v1.8.40) =====
+  //
+  // Relato do operador: *"verifique o sistema de peso dos arquivos para
+  // exportação … mesmo com o arredondamento para cima, ele está apresentando um
+  // número bem menor que a realidade … se ele fosse errar, que erre para cima"*.
+  //
+  // O `bytesEstado: 0` era a maior parte do erro, e ele não é pequeno: MEDIDO
+  // num acervo sintético com mil capítulos de Bíblia, a folha mostrava
+  // **14,7%** da realidade — 700 kB contra 4,77 MB —, porque as milhares de
+  // chaves de `state` (a Bíblia mora aqui com uma POR CAPÍTULO) não entravam.
+  //
+  // MEDI-LAS DE VERDADE ESTÁ FORA DE QUESTÃO no caminho do toque: `stateVarrer`
+  // custou **144,6 ms** para 1.003 chaves contra 12,2 ms da folha inteira, e
+  // num acervo real (3.600 chaves) isso é meio segundo — exatamente o atraso
+  // que a v1.8.30 tirou daqui, de volta.
+  //
+  // O que resta é ESTIMAR pelo que é barato: a CONTAGEM das chaves
+  // (`getAllKeys`, sem desserializar valor nenhum). O tamanho médio por chave
+  // vem de duas medições independentes deste repositório — 11,8 MB para 3.600
+  // chaves reais (3,3 kB) e 4,07 MB para 1.003 sintéticas (4,1 kB) —, e o
+  // número adotado é o MAIOR dos dois, arredondado para cima, porque o pedido é
+  // explícito: entre errar para baixo e errar para cima, erra para cima.
+  let chavesEstado = 0;
+  try { chavesEstado = (await AVDB.stateKeys('')).length; } catch (_) { chavesEstado = 0; }
   const { grupos, folha } = pacoteMontarFolha({
-    cols, porGrupo, bytesEstado: 0, midiaPorGrupo, midiaBytes,
+    cols, porGrupo, bytesEstado: chavesEstado * PACOTE_ESTADO_POR_CHAVE,
+    midiaPorGrupo, midiaBytes,
   });
   // A MARCA VALE PARA TODO GRUPO, e é escrita num lugar só: por item ela se
   // perderia no próximo grupo que alguém acrescentasse à montagem, e o que sai
@@ -23531,6 +23582,14 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
     naFolha.add(chave);
     folha.push({ tipo: 'linha', chave });
   };
+  // A ORDEM É A DA BIBLIOTECA, DE PONTA A PONTA (v1.8.40). Pedido do operador:
+  // *"cuide para que a ordem dos elementos dessa lista para exportação esteja na
+  // mesma ordem que temos na biblioteca"*. Lá o `renderCollectionsList` monta,
+  // nesta sequência: FAVORITOS, as séries e os hinários da raiz, as coletâneas,
+  // e "Outros álbuns" no fim. O que esta folha tem a mais — os itens que não
+  // estão em lista nenhuma e os arquivos sem coleção — não existe na
+  // Biblioteca, e por isso vai depois de tudo que existe.
+  for (const L of PACOTE_LISTAS) linha(AVPacote.GRUPO_LISTA + L.lista);
   // A RAIZ, na ordem da Biblioteca: as séries (o material datado do sábado que
   // vem) e depois os hinários (o acervo permanente).
   for (const c of [...serieCollections(), ...FIXED_COLLECTIONS]) {
@@ -23547,8 +23606,13 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
   const reivindicados = new Set();
   for (const cat of coletaneas.categorias) {
     for (const a of cat.albums) reivindicados.add('album-' + a.id_album);
-    secao(cat.name, cat.albums
-      .map((a) => porColecao.get('album-' + a.id_album))
+    // PELA MESMA FUNÇÃO DA BIBLIOTECA (v1.8.40): é ela que decide a ORDEM (a
+    // alfabética das coletâneas nomeadas) e o que fica de fora (um álbum de
+    // hinário não é card de coletânea). Lendo `cat.albums` por conta própria,
+    // esta folha reescrevia as duas regras e divergia da tela em que o
+    // operador aprendeu onde cada álbum mora.
+    secao(cat.name, categoryCards(cat)
+      .map((x) => porColecao.get(x.coll.id))
       .filter(Boolean).map((x) => x.chave));
   }
   const orfaos = albumCatalog.albums
@@ -23561,11 +23625,6 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
   // destino ausente) sairia da folha sem aparecer em lista nenhuma — e sem
   // aparecer na folha ela nunca é marcada, isto é, não entra no arquivo.
   for (const g of grupos) if (!g.fixo && g.chave.indexOf(AVPacote.GRUPO_COL) === 0) linha(g.chave);
-  // OS GRUPOS POR LISTA (v1.8.38), na ordem do `PACOTE_LISTAS`. Eles entram
-  // como LINHA de raiz e não dentro de uma seção: não são coleções da
-  // Biblioteca, são as listas do app, e amontoá-los sob "Álbuns" faria o
-  // operador procurar Favoritos onde ele não está.
-  for (const L of PACOTE_LISTAS) linha(AVPacote.GRUPO_LISTA + L.lista);
   linha('midia');
   linha(AVPacote.GRUPO_OUTROS);
 
@@ -23573,28 +23632,39 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
 }
 
 /**
- * O PESO NA FOLHA, e ele DIZ quando é estimativa.
+ * O PESO NA FOLHA, e ele DIZ que é um TETO.
  *
- * Pedido do operador: *"essa medição dos arquivos e peso total da exportação
- * não é importante, apenas arredonde para cima e chame de aproximadamente"*.
+ * Pedido do operador, na v1.8.40: *"se ele fosse errar, que erre para cima.
+ * Questão de espaço deve ser algo que tem certeza de caber"*.
  *
- * ARREDONDA PARA CIMA na própria unidade em que vai ser mostrado: 1,21 GB vira
- * "aprox. 1,3 GB". É o lado certo do erro numa tela cujo consumidor é a
- * pergunta *"cabe no cartão?"* — prometer menos do que se vai escrever é o
- * único jeito de essa resposta enganar.
+ * ARREDONDA PARA CIMA na própria unidade em que vai ser mostrado, depois da
+ * margem: 1,21 GB vira "até 1,4 GB". É o lado certo do erro numa tela cujo
+ * consumidor é a pergunta *"cabe no cartão?"* — prometer menos do que se vai
+ * escrever é o único jeito de essa resposta enganar.
  *
  * A PALAVRA É OBRIGATÓRIA quando o número é estimado. Sem ela o operador leria
  * um valor exato e o compararia com o arquivo que sai, que é outro.
  */
+// A MARGEM DO NÚMERO ESTIMADO (v1.8.40): 10% sobre o que a folha conseguiu
+// somar. Ela cobre o que a versão aproximada sabidamente NÃO vê — uma coleção
+// com bytes no disco e sem peso guardado, os arquivos de uma pasta que saiu do
+// catálogo, e o cabeçalho de cada registro do pacote — e cobre para o lado que
+// o operador pediu. Um erro para cima custa uma exportação que ele acha que não
+// cabe e cabia; para baixo custa um cartão que enche no meio do trabalho.
+const PACOTE_MARGEM = 1.1;
 function pacotePeso(bytes, aprox) {
   if (!aprox) return fmtBytes(bytes);
   const K = 1024;
   let u = 0;
-  let v = Math.max(0, bytes);
+  let v = Math.max(0, bytes) * PACOTE_MARGEM;
   while (v >= K && u < 3) { v /= K; u++; }
   // Uma casa decimal, para cima — a mesma resolução que o `fmtBytes` mostra.
   const arred = Math.ceil(v * 10) / 10;
-  return 'aprox. ' + fmtBytes(arred * Math.pow(K, u));
+  // "ATÉ" E NÃO "APROX.", e a palavra é o pedido: *"questão de espaço deve ser
+  // algo que tem certeza de caber"*. "aprox." descreve um número que erra para
+  // os dois lados; este erra só para cima, e dizer isso é o que o torna
+  // utilizável para decidir se cabe.
+  return 'até ' + fmtBytes(arred * Math.pow(K, u));
 }
 
 /** Os bytes que os grupos escolhidos vão escrever — o total da barra. */
@@ -23766,7 +23836,15 @@ function renderPacoteGrupos(plano) {
     const li = songMenuItem(
       (g.chave === 'midia' || g.sobreposto) ? msym(ICON.import) : msym(ICON.music),
       g.rotulo, sub, () => {}, g.chave, remontar);
-    if (dentro) li.firstChild.classList.add('song-menu-dentro');
+    // AS CLASSES QUE LEVAM O DESENHO DA BIBLIOTECA (v1.8.40) — ver o CSS. Elas
+    // são PRÓPRIAS desta folha (a `#songMenuList` é a mesma da folha de
+    // destinos e do menu de uma música), e é isso que escopa o tom novo sem uma
+    // bandeira global que alguém possa esquecer de limpar.
+    li.classList.add('pacote-linha');
+    if (dentro) {
+      li.classList.add('pacote-linha--dentro');
+      li.firstChild.classList.add('song-menu-dentro');
+    }
     return li;
   };
 
@@ -23824,13 +23902,27 @@ function renderPacoteGrupos(plano) {
     bar.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); marcarGrupo(); }
     });
+    // O CORPO MORA DENTRO DO BLOCO (v1.8.40), e não como irmão dele.
+    //
+    // Pedido do operador: *"os grupos estão iguais às listas de itens dentro
+    // deles, não deixando identificar o que é topo e o que é item … use o mesmo
+    // design que já temos na biblioteca"*. A alternância da Biblioteca é
+    // POÇO → PAPEL (v1.5.14), e ela só pode ser escrita se o bloco CONTIVER o
+    // que é dele: com as linhas soltas como irmãs, "dentro" não existe para o
+    // CSS, e o degrau de tom não tem onde pousar. É a mesma forma da
+    // `.coll-group--drop` mais a `.coll-group-corpo`.
+    li.className = 'pacote-grupo' + (aberta ? ' aberto' : '');
     li.appendChild(bar);
-    songMenuListEl.appendChild(li);
-    if (!aberta) continue;
-    for (const k of item.chaves) {
-      const g = porChave.get(k);
-      if (g) songMenuListEl.appendChild(linhaDeGrupo(g, true));
+    if (aberta) {
+      const corpo = document.createElement('ul');
+      corpo.className = 'pacote-grupo-corpo';
+      for (const k of item.chaves) {
+        const g = porChave.get(k);
+        if (g) corpo.appendChild(linhaDeGrupo(g, true));
+      }
+      li.appendChild(corpo);
     }
+    songMenuListEl.appendChild(li);
   }
 
   const li = document.createElement('li');
@@ -24879,6 +24971,10 @@ function pacoteDanificadoEm(pos) {
 // o que o pedido nomeia.
 const PACOTE_FATIA_MEDIDA = 0.05;    // exportação: medir o acervo
 const PACOTE_FATIA_CONFERE = 0.15;   // importação: conferir o pacote
+// O TAMANHO MÉDIO DE UMA CHAVE DE `state`, para a folha estimar sem medir.
+// MEDIDO duas vezes: 3,3 kB por chave num acervo real de 3.600 e 4,1 kB num
+// sintético de 1.003. Fica o MAIOR — ver `pacotePlanoAproximado`.
+const PACOTE_ESTADO_POR_CHAVE = 4200;
 
 /** A fração (0..1) de UMA etapa dentro da barra do processo inteiro. */
 function pacoteFatia(inicio, tamanho, pos, total) {
@@ -25068,12 +25164,53 @@ async function pacoteAcertarPonteiros() {
   return limpos;
 }
 
+/**
+ * OS BALDES DO RELATÓRIO — a classificação que o operador VÊ (v1.8.40).
+ *
+ * Pedido do operador: *"gostaria que você apenas se preocupasse em apresentar
+ * os resultados agrupados, no caso dos grupos de classificação que temos na
+ * biblioteca, não exatamente o que o LouvorJA já classificou como 'coleções',
+ * mas a nossa classificação … em uma ordem que ele já vê dos grupos maiores"*.
+ *
+ * A ORDEM É A DO `renderCollectionsList`, e a divisão também: as séries e os
+ * hinários são cards de RAIZ e por isso cada um é um balde próprio (é assim que
+ * aparecem na Biblioteca); os álbuns rolam para dentro da coletânea deles.
+ *
+ * O ÚLTIMO BALDE É DE ESCAPE e não tem nome de coletânea: uma coleção que
+ * nenhuma categoria reivindique continua saindo com o nome dela, porque sumir
+ * do relatório é o único desfecho que o operador não teria como notar.
+ */
+function pacoteBaldesDoAcervo() {
+  const baldes = [];
+  const dono = new Map();
+  const pôr = (rotulo, ids) => {
+    if (!ids.length) return;
+    const i = baldes.length;
+    baldes.push({ rotulo, n: 0, de: 0 });
+    for (const id of ids) if (!dono.has(id)) dono.set(id, i);
+  };
+  for (const c of [...serieCollections(), ...FIXED_COLLECTIONS]) pôr(c.name || c.id, [c.id]);
+  const coletaneas = AVColetanea.aplicar(albumCatalog.categories);
+  const reivindicados = new Set();
+  for (const cat of coletaneas.categorias) {
+    const ids = categoryCards(cat).map((x) => x.coll.id);
+    for (const id of ids) reivindicados.add(id);
+    pôr(cat.name, ids);
+  }
+  const orfaos = (albumCatalog.albums || [])
+    .map((a) => 'album-' + a.id_album)
+    .filter((id) => !reivindicados.has(id));
+  pôr(coletaneas.categorias.length ? 'Outros álbuns' : 'Álbuns', orfaos);
+  return { baldes, dono };
+}
+
 async function pacoteRelatorio(contagem, consumo) {
   const nomes = new Map(allCollections().map((c) => [c.id, c.name || c.id]));
   const linhas = [];
-  const vistas = [];
   let tem = 0;
   let total = 0;
+  const { baldes, dono } = pacoteBaldesDoAcervo();
+  const soltas = [];
   for (const id of (contagem.colecoes || [])) {
     let idx = null;
     try { idx = await AVDB.getState('coll:' + id); } catch (_) { idx = null; }
@@ -25081,8 +25218,13 @@ async function pacoteRelatorio(contagem, consumo) {
     if (!songs.length) continue;
     const n = songs.filter((x) => x && x.fileIdFull).length;
     tem += n; total += songs.length;
-    vistas.push({ nome: nomes.get(id) || id, n, de: songs.length });
+    const i = dono.get(id);
+    if (i === undefined) soltas.push({ rotulo: nomes.get(id) || id, n, de: songs.length });
+    else { baldes[i].n += n; baldes[i].de += songs.length; }
   }
+  // NA ORDEM DA BIBLIOTECA, e só os que o pacote tocou: um balde vazio é uma
+  // coletânea que este arquivo não trouxe, e listá-la seria ruído.
+  const vistas = baldes.filter((b) => b.de > 0).concat(soltas);
 
   // ===== A COLEÇÃO TEM NOME, E O NOME É O QUE SE CONFERE (v1.8.28) =====
   //
@@ -25101,16 +25243,19 @@ async function pacoteRelatorio(contagem, consumo) {
   // NOMEADAS, o resto CONTADO, e o que está incompleto sempre entre as
   // nomeadas — é ele que pede ação.
   if (vistas.length) {
-    // INCOMPLETAS PRIMEIRO: são as que pedem alguma coisa de quem lê. Dentro
-    // de cada metade a ordem é a do arquivo, que é a que o operador escolheu.
-    const ordenadas = vistas.slice().sort((a, b) => (a.n - a.de) - (b.n - b.de));
+    // A ORDEM É A DA BIBLIOTECA (v1.8.40) e não mais "incompletas primeiro":
+    // agrupado, o relatório tem um punhado de linhas em vez de vinte e três, e
+    // o que a ordem por incompletude comprava — pôr o que pede ação no topo —
+    // deixou de valer o preço de o operador procurar um grupo onde ele não
+    // está. O que estiver incompleto continua visível pelo próprio número.
+    const ordenadas = vistas;
     const mostra = ordenadas.slice(0, PACOTE_COLECOES_MAX);
-    for (const c of mostra) linhas.push(c.nome + ': ' + c.n + ' de ' + c.de + ' músicas');
+    for (const c of mostra) linhas.push(c.rotulo + ': ' + c.n + ' de ' + c.de + ' músicas');
     const resto = ordenadas.length - mostra.length;
     if (resto > 0) {
       const restoTem = ordenadas.slice(mostra.length).reduce((a, c) => a + c.n, 0);
       const restoDe = ordenadas.slice(mostra.length).reduce((a, c) => a + c.de, 0);
-      linhas.push('E mais ' + resto + ' coleções: ' + restoTem + ' de ' + restoDe + ' músicas');
+      linhas.push('E mais ' + resto + ' grupos: ' + restoTem + ' de ' + restoDe + ' músicas');
     }
     if (ordenadas.length > 1) linhas.push('Total: ' + tem + ' de ' + total + ' músicas');
   }

@@ -403,13 +403,19 @@ try {
   const grupos = await confirmarGrupos(a.pg);
   checar(Array.isArray(grupos) && grupos.length >= 2,
     '1 · a folha de escolha abre com os grupos e o confirmar', JSON.stringify(grupos));
-  // O PESO DA FOLHA É APROXIMADO E DIZ ISSO (v1.8.26). Ela abre antes da
-  // varredura do disco, com o que a Biblioteca e o catálogo já sabem — e um
-  // número estimado sem a palavra que o diz seria comparado com o arquivo que
-  // sai, que é outro.
+  // O PESO DA FOLHA É APROXIMADO E DIZ ISSO. Ela abre antes da varredura do
+  // disco, com o que a Biblioteca e o catálogo já sabem — e um número estimado
+  // sem a palavra que o diz seria comparado com o arquivo que sai, que é outro.
+  //
+  // A PALAVRA MUDOU DE "aprox." PARA "até" NA v1.8.40, e não é sinônimo: o
+  // pedido do operador foi que o erro fosse SEMPRE PARA CIMA (*"questão de
+  // espaço deve ser algo que tem certeza de caber"*). "aprox." não promete
+  // lado nenhum; "até" promete o teto, que é a única leitura que serve a quem
+  // pergunta se cabe no cartão.
   checar(Array.isArray(grupos) && grupos.every((t) => !/\d\s*(B|KB|MB|GB)/.test(t)
-    || /aprox\./.test(t)),
-    '1 · e todo peso da folha vem com "aprox." — ela abre ANTES de medir',
+    || /at\u00e9\s/.test(t)),
+    '1 · e todo peso da folha vem com "at\u00e9" — ela abre ANTES de medir, e o '
+    + 'erro dela tem de ser para CIMA',
     JSON.stringify(grupos));
   // A LINHA "Ajustes e catálogos" SAIU DA FOLHA (v1.8.25) e o que ela carregava
   // CONTINUA no pacote — as duas metades, porque uma sem a outra é um defeito.

@@ -232,8 +232,36 @@
     return { categorias: out, diario };
   }
 
+  // ---- AS COLETÂNEAS QUE SAEM EM ORDEM ALFABÉTICA (v1.8.40) ----------------
+  //
+  // Pedido do operador: *"os grupos de 'diversos' e 'cantores' devem ter seus
+  // álbuns listados em ordem alfabética tanto na biblioteca, como ali no
+  // exportar. Atualmente estão sem uma ordem específica"*.
+  //
+  // A ordem que o catálogo entrega é o `order` do banco — de insersão, e sem
+  // significado para quem opera; nestas duas o operador procura por NOME. A
+  // decisão é EDITORIAL, e por isso mora aqui, ao lado da tabela que dissolve
+  // coletânea: é o mesmo tipo de leitura do catálogo, e tem o mesmo oráculo.
+  //
+  // NOMEADAS, e não "todas": uma coletânea cujo `order` seja curado perderia a
+  // curadoria em silêncio, e nada na tela diria por quê. Acrescentar uma é uma
+  // linha — e é uma linha que alguém escreve de propósito.
+  //
+  // AS DUAS GRAFIAS de "Diversas"/"Diversos" entram pelo motivo da `DISSOLVER`:
+  // o operador escreve uma e a tela mostra a outra, e nenhuma normalização une
+  // as duas. A comparação é por IGUALDADE sobre o `normalizar`, nunca
+  // `includes` — que casaria "Diversas Antigas".
+  const ALFABETICAS = ['Diversas', 'Diversos', 'Cantores'];
+
+  /** Esta coletânea lista os álbuns dela em ordem alfabética? */
+  function ehAlfabetica(nome) {
+    const n = normalizar(nome);
+    return ALFABETICAS.some((x) => normalizar(x) === n);
+  }
+
   global.AVColetanea = {
     DISSOLVER, MOTIVO_MOVIDA, MOTIVO_SEM_ORIGEM, MOTIVO_SEM_DESTINO,
+    ALFABETICAS, ehAlfabetica,
     normalizar, casa, aplicar,
   };
 })(this);
