@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.30",
+    "itens": [
+      "Os botões da cifra em tela cheia deitada voltaram a ficar alinhados na coluna."
+    ]
+  },
+  {
     "versao": "1.8.29",
     "itens": [
       "O arquivo do pacote é apagado depois de importado, liberando o espaço.",
