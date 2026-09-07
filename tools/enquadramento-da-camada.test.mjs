@@ -183,6 +183,59 @@ try {
     + 'reposta no instante em que a camada deixou de estar escondida',
     pv.pvTextImg);
 
+  // ---- A ORDEM QUE A MÁQUINA DECIDIA, AGORA DETERMINÍSTICA (v1.8.36) ------
+  //
+  // A asserção acima reprovou NO RUNNER passando doze vezes seguidas aqui
+  // (três sozinha, seis a 4× de carga, três com dois oráculos ao lado). Ela não
+  // estava medindo o runner: estava pegando uma ORDEM DE EVENTOS em que o app
+  // erra — que é exatamente o que este repositório manda perguntar diante de um
+  // vermelho intermitente.
+  //
+  // `aplicarGiro` desiste quando o pai mede 0, e quem revela a camada chama
+  // `reporGiro()` no mesmo passo: se o ANCESTRAL (`#pvText`, `hidden` = 
+  // `display:none`) ainda não foi revelado, a medida é ZERO, a função volta sem
+  // girar, e o observador não repunha nada porque vigiava a caixa do `<video>`
+  // — outra caixa, que não muda de tamanho quando a camada aparece. O desfecho
+  // é PERMANENTE, e sem TV a preview É a projeção.
+  //
+  // Aqui a ordem ruim é FORÇADA, então o oráculo não depende mais de carga.
+  const forcado = await pg.evaluate(async () => {
+    const camada = document.getElementById('pvText');
+    const img = document.getElementById('pvTextImg');
+    const eixoTrocado = () => camada.clientWidth > 0
+      && img.offsetWidth === camada.clientHeight
+      && img.offsetHeight === camada.clientWidth;
+    camada.hidden = true;
+    // ZERAR PRIMEIRO, E ISTO É O PONTO DO CENÁRIO: os estilos em linha da
+    // passada que DEU CERTO continuam no elemento, e esconder e revelar não os
+    // tira. Sem este passo a asserção seguinte é uma TAUTOLOGIA — ela passa com
+    // o conserto revertido (medido, foi a primeira escrita deste bloco).
+    await applyRotate(0);
+    // Agora a ordem ruim: o giro é pedido com o ancestral escondido, e o
+    // `aplicarGiro` desiste porque o pai mede zero.
+    await applyRotate(90);
+    const durante = { w: camada.clientWidth, girado: eixoTrocado() };
+    camada.hidden = false;
+    // Dois quadros para o observador reagir à caixa que acabou de nascer.
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return {
+      medidaEraZero: durante.w === 0,
+      naoGirouEscondido: durante.girado === false,
+      girado: eixoTrocado(),
+      caixa: img.offsetWidth + 'x' + img.offsetHeight
+        + ' (camada ' + camada.clientWidth + 'x' + camada.clientHeight + ')',
+    };
+  });
+  checar(forcado.medidaEraZero === true && forcado.naoGirouEscondido === true,
+    '  ↳ (o cenário de fato reproduz a medida ZERO e o giro NÃO aplicado — sem '
+    + 'as duas coisas a asserção seguinte é uma tautologia sobre os estilos que '
+    + 'a passada anterior deixou)', JSON.stringify(forcado));
+  checar(forcado.girado === true,
+    '  ↳ e o giro é REPOSTO quando a camada ganha caixa, mesmo que o `reporGiro` '
+    + 'tenha caído com o ancestral escondido — a promessa que o comentário do '
+    + '`aplicarGiro` já fazia e que só valia para o `<video>`',
+    JSON.stringify(forcado));
+
   // ---- O FUNDO DA ESTROFE FICA DE FORA (o conserto largo demais) ----------
   const letra = await pg.evaluate(new Function('return (' + SONDA + ')(["pvLyricsBgImg"])'));
   const bgPreview = await pg.$eval('.pv-lyrics-bg img', (el) => {

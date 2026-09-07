@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.37",
+    "itens": [
+      "O giro deixou de se perder quando a imagem entra por cima de um louvor."
+    ]
+  },
+  {
     "versao": "1.8.36",
     "itens": [
       "O botão do auxiliar de leitura fica apagado quando não há o que ler.",
