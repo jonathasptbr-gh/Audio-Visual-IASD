@@ -5337,7 +5337,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.37 · APK v1.8.34** · `SHELL_VERSION` **71** ·
+**Versão atual: base web v1.8.38 · APK v1.8.34** · `SHELL_VERSION` **71** ·
 bundle com `minShell: 71` e **SEM `shellTag`** (lote SÓ WEB) — o
 shell 71 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
@@ -5378,6 +5378,58 @@ lado web.
 > Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+**O QUE O LOTE TRAZ (v1.8.38) — os favoritos escolhíveis, e a barra que anda
+dentro de um vídeo:**
+
+| peça | onde |
+|---|---|
+| um grupo por LISTA, sobrepostos | `PACOTE_LISTAS` + `pacoteGruposDeMidia` |
+| o total do confirmar é a UNIÃO, nunca a soma | `pacoteBytesDe` · `pacoteMidiaSelecionada` |
+| o grupo de mídia passa a APARECER na folha | o guarda de `linha()` em `pacoteMontarFolha` |
+| a barra anda DENTRO de um registro grande | `blob(…, aoLer)` → `proximo(…, aoLer)` → `pacoteAplicarFluxo` |
+
+> **O GRUPO DA STORE DE MÍDIA NUNCA APARECEU NA FOLHA** (v1.8.38), e é isso que
+> o pedido do operador nomeia por fora: *"analise para termos um dos seletores
+> de coleção para a exportação, o item favoritos"*. O guarda de `linha()`
+> perguntava ao `porGrupo` — o mapa dos arquivos do **disco**, cujas chaves são
+> `col:<id>` e `outros` —, então `linha('midia')` era um no-op. O grupo existia
+> em `plano.grupos` (contava no total), e o `exportarPacote` marca por padrão
+> todo grupo que a folha não ofereceu: os itens importados e os vídeos
+> **viajavam sempre**, sem chance de serem desmarcados. A pergunta certa é
+> *"este grupo existe?"*.
+>
+> **ELES SE SOBREPÕEM, POR DECISÃO DO OPERADOR.** Um item pode estar nos
+> Favoritos E no Cronograma, então grupos por lista não são uma partição, e a
+> escolha foi *"o item viaja se QUALQUER grupo que o contém estiver marcado"*.
+> O que isso compra: desmarcar Favoritos nunca tira do pacote um item que o
+> Cronograma pede. **O preço está na linha da folha** (*"pode estar em outro
+> grupo"*): os pesos se sobrepõem e desmarcar "Favoritos: 8 GB" pode liberar
+> menos que isso. Por isso o total do confirmar é a UNIÃO — é ele que responde
+> *"cabe no cartão?"*, e é dele que sai a conta do `pacoteEspaco` que escolhe
+> entre compartilhar e o "Salvar como".
+>
+> **E A IMPORTAÇÃO NÃO SUBSTITUI FAVORITO NENHUM** — isso já era verdade e não
+> mudou: `favs` é lista de ids, e a REGRA 2 da mescla faz união com o local na
+> frente. O que entra é o que faltava.
+
+> **O 15% NÃO ERA TRAVAMENTO** (v1.8.38). Relato do operador: *"ele ficou
+> travado por muito tempo em 15%, e agora está progredindo"*, num pacote de
+> 15,99 GB. Os 15% são exatamente `PACOTE_FATIA_CONFERE` — onde a conferência
+> acaba —, e o que vem depois é, nesta ordem, as milhares de chaves de `state`
+> (MEDIDO: 3.600 chaves de tamanho real são 11,8 MB, ou **0,07%** de 16 GB) e
+> os ITENS DE MÍDIA, que são os vídeos.
+>
+> **A barra andava por REGISTRO:** `aoAndar(cursor.pos)` só era chamado depois
+> de `cursor.proximo()` ter lido o corpo inteiro, e um vídeo de 300 MB é UM
+> registro. Hoje o `blob()` reporta a cada pedaço lido e o laço soma isso à
+> posição de início. **A régua continua em BYTES** pelo motivo de sempre —
+> contar ITENS faria a barra saltar nas chaves e rastejar nos hinos.
+>
+> **De quebra, isso explica o NOME que aparece na notificação naquele trecho:**
+> os itens de mídia são escritos ANTES dos arquivos do OPFS, então os primeiros
+> nomes são os do Cronograma e dos favoritos — um episódio guardado de um link
+> é exatamente um deles.
 
 **O QUE O LOTE TRAZ (v1.8.37) — o giro que se perdia na camada:**
 

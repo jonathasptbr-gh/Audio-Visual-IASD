@@ -326,6 +326,11 @@
   const GRUPO_AJUSTES = 'ajustes';
   const GRUPO_OUTROS = 'outros';
   const GRUPO_COL = 'col:';
+  // O PREFIXO DOS GRUPOS POR LISTA (v1.8.38) — `lst:favs`, `lst:imports`…
+  // Ele é irmão do `GRUPO_COL` e existe pelo mesmo motivo: a chave precisa
+  // dizer de que EIXO ela é, senão um id de coleção e um nome de lista podem
+  // colidir na mesma folha.
+  const GRUPO_LISTA = 'lst:';
 
   /**
    * O grupo de um caminho do OPFS. `colecoes` é o conjunto de ids que este
@@ -395,6 +400,7 @@
     GRUPO_AJUSTES,
     GRUPO_OUTROS,
     GRUPO_COL,
+    GRUPO_LISTA,
     grupoDoCaminho,
     colecaoDoGrupo,
     pastasDoAparelho,
