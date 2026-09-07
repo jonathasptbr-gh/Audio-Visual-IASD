@@ -245,17 +245,10 @@ checar(!!bloco && [...pedidos.values()].some((v) => v.some((o) => o.startsWith('
 // "renomeei os dois" passam iguais.
 //
 // SÃO DUAS ENTRADAS, e as duas são literais: o `<use href="#…">` do HTML e o
-// `<use href="#…">` que o `controle.js` monta por STRING, na mesma árvore e com
-// o mesmo modo de falhar.
-//
-// A SEGUNDA ALTERNATIVA DO REGEX SAIU NA v1.8.42, e a razão é o que ela virou:
-// ela casava `pacoteIconeSvg('ico…')`, e a v1.8.41 tirou os DOIS chamadores
-// daquela função (o ícone de um grupo passou a vestir `.coll-bar-icon` e a seta,
-// o `chevronUpIconSvg`) sem apagar a função. Com zero chamadas, a alternativa
-// deixou de casar qualquer coisa — e a asserção logo abaixo, cuja única razão
-// de existir é provar que a entrada do JS foi lida, passou a ser satisfeita
-// pela OUTRA alternativa (os `href="#icoLupa"` do próprio `controle.js`). A
-// guarda continuava verde afirmando o que já não podia afirmar.
+// mesmo `<use>` montado POR STRING no `controle.js` (hoje o `#icoLupa`, em dois
+// pontos). A segunda tem asserção própria mais abaixo, porque um regex quebrado
+// do lado do JS deixaria a varredura passar medindo metade — e ela é REAL:
+// provado por reversão, um regex que não case nada ali reprova só aquela linha.
 // ============================================================================
 const html = readFileSync(join(WEB, 'controle/index.html'), 'utf8');
 

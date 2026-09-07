@@ -1,6 +1,6 @@
 [
   {
-    "versao": "1.8.43",
+    "versao": "1.8.44",
     "itens": [
       "O vídeo de dentro de uma apresentação deixou de sumir no modo simplificado.",
       "Importar um pacote deixou de descartar a lista de uma coleção apagada antes.",
@@ -9,6 +9,12 @@
       "O registro deixou de acusar telão ausente quando há um no ar.",
       "O relatório da importação voltou a nomear as coleções em vez do código delas.",
       "Uma exportação que falha no cartão não deixa mais o arquivo pela metade."
+    ]
+  },
+  {
+    "versao": "1.8.43",
+    "itens": [
+      "Limpeza interna: saiu código que tinha ficado sem uso."
     ]
   },
   {

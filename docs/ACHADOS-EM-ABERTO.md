@@ -18,7 +18,7 @@ lotes em que foram achados; a nota de cada um está em
 
 ---
 
-## 0. O pacote PRONTO é esquecido em toda recarga da página (CONFIRMADO, v1.8.43)
+## 0. O pacote PRONTO é esquecido em toda recarga da página (CONFIRMADO, v1.8.44)
 
 **Cenário.** O operador exporta o acervo pelo caminho local (minutos de medição
 e escrita, gigabytes no disco). O tile diz *"pronto, 15 GB — toque para
@@ -53,7 +53,7 @@ mais uma constante, e não havia como validar Kotlin novo sem compilar.
 **Ressalva do cético:** a recriação de Activity ficou RARA desde que a v1.4.19
 encheu o `android:configChanges` — mas as outras duas portas (o OTA aplicado e a
 morte do renderer) não dependem dela, e o OTA é rotina. O KDoc do campo já foi
-corrigido na v1.8.43 para parar de afirmar que a colocação no companion impede
+corrigido na v1.8.44 para parar de afirmar que a colocação no companion impede
 isto; o que falta é o conserto.
 
 ---

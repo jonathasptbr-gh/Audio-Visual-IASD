@@ -5339,27 +5339,30 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.43 · APK v1.8.39** · `SHELL_VERSION` **71** ·
+**Versão atual: base web v1.8.44 · APK v1.8.39** · `SHELL_VERSION` **71** ·
 bundle com `minShell: 71` e **SEM `shellTag`** — o shell 71 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.43 TOCA `java/` E MESMO ASSIM NÃO DECLARA `shellTag`, e a razão é o
+> **A v1.8.44 TOCA `java/` E MESMO ASSIM NÃO DECLARA `shellTag`, e a razão é o
 > ACOPLAMENTO — que é a pergunta que aquele campo faz.** A metade Kotlin do lote
-> é UMA constante (`PRECEDENCIA_TELAO_MS`, 3.000 → 2.500), e nada na metade web
-> depende dela: as duas são independentes, então segurar o bundle não protegeria
-> nada e atrasaria correções que apagam acervo em silêncio (a mescla que
-> descartava o índice de uma coleção, o coletor que apagava o vídeo de uma
-> apresentação). **A Release continua sendo devida** — `java/` só chega
-> instalando um APK —, e enquanto ela não sai o aparelho fica com a metade web,
-> que é o modo de falhar barato deste campo.
-> **PEDE RELEASE `v1.8.43`, sem hold.**
+> é uma constante (`PRECEDENCIA_TELAO_MS`, 3.000 → 2.500), a limpeza do
+> `telaoPedido`, três KDocs recolocados e a limpeza do parcial do SAF — e nada
+> na metade web depende de nenhum deles. Segurar o bundle não protegeria nada e
+> atrasaria correções que apagam acervo em silêncio (a mescla que descartava o
+> índice de uma coleção, o coletor que apagava o vídeo de uma apresentação).
+> **A Release continua sendo devida** — `java/` só chega instalando um APK —, e
+> enquanto ela não sai o aparelho fica com a metade web, que é o modo de falhar
+> barato deste campo. **PEDE RELEASE `v1.8.44`, sem hold.**
 
-> **ELA NASCEU v1.8.42 E FOI RENUMERADA NO MERGE, e o motivo vale escrito: uma
-> segunda sessão publicou uma v1.8.42 em `main` enquanto esta corria.** Dois
-> bundles com o MESMO número não são um empate — são o segundo ficando
-> INVISÍVEL, porque `compareVersions` só aceita o que for MAIOR que o instalado.
-> É a armadilha do `1.1` × `1.1.0` por outro caminho: o degrau não é opcional
-> nem quando o número "já parece novo".
+> **ELA NASCEU v1.8.42, VIROU v1.8.43 E SÓ ENTÃO v1.8.44 — duas colisões no
+> mesmo dia, e o motivo vale escrito: outras sessões publicaram em `main`
+> enquanto esta corria.** Dois bundles com o MESMO número não são um empate:
+> são o segundo ficando INVISÍVEL, porque `compareVersions` só aceita o que for
+> MAIOR que o instalado. É a armadilha do `1.1` × `1.1.0` por outro caminho — o
+> degrau não é opcional nem quando o número "já parece novo". **Corolário para
+> quem trabalhar em paralelo: renumerar é passo do MERGE, não da escrita**, e a
+> conferência é `git show origin/main:app/src/main/assets/web/version.json`
+> antes de fechar o lote.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
 > oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
@@ -5397,6 +5400,30 @@ método da ponte existe, e não há guarda de versão no lado web.
 > Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+**O QUE O LOTE TRAZ (v1.8.43) — a varredura de fechamento da sessão:**
+
+| o que saiu | por quê |
+|---|---|
+| o parâmetro `dentro` do `linhaDeGrupo` | ficou sem leitor quando o recuo de texto saiu (v1.8.41) |
+| o `pacoteIconeSvg` | ficou sem chamador quando a seta virou a `.coll-group-icon` |
+
+> **UM RESTO SÓ APARECE NA VARREDURA, e é por isso que ela existe** (v1.8.43).
+> Os dois vieram de remoções CERTAS do mesmo dia: o recuo de texto saiu porque o
+> bloco passou a dizer "dentro" por conter, e a seta da folha virou a da
+> Biblioteca. Nenhum dos dois quebra nada — e é justamente esse o problema: um
+> parâmetro que ninguém lê e um helper sem chamador viajam no bundle do OTA e
+> respondem *"isto ainda é usado?"* com um sim que não existe. **A regra deste
+> repositório é apagar o código junto com o que o descreve, no MESMO lote**; a
+> varredura é o que a torna verificável, e ela é uma linha por símbolo
+> (`grep -ro <nome> app/src/main/assets/web tools | wc -l`).
+>
+> **E O ORÁCULO ANDOU JUNTO.** O `glifos.test.mjs` lia os consumidores do sprite
+> por DUAS entradas, e uma delas era `pacoteIconeSvg('ico…')` — com a função
+> fora, aquela alternativa do regex viraria letra morta e a asserção que prova
+> que o lado do JS foi lido passaria a medir só a outra. Hoje ela nomeia o que
+> de fato existe (o `#icoLupa`, montado por string em dois pontos), e a
+> reversão está medida: um regex que não case nada ali reprova só aquela linha.
 
 **O QUE O LOTE TRAZ (v1.8.42) — o acordeão na folha de exportação, e a gaveta
 de opções que aparece sozinha:**
