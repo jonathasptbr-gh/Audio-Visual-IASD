@@ -289,6 +289,37 @@ const docs = [];
 }
 
 // ============================================================================
+// 5b · A QUARTA CASA DA VERSÃO — o bloco "Versão atual" do `CLAUDE.md`
+//
+// A versão mora em TRÊS lugares que o `verificar` já compara entre si
+// (`version.json`, `WEB_VERSION`, `#appVersion`) e num QUARTO que ninguém
+// comparava: a linha "**Versão atual: base web vX**" do `CLAUDE.md`. MEDIDO,
+// ela ficou para trás TRÊS vezes — a v1.8.8, a v1.8.9 e a v1.8.49 —, e o modo
+// de falhar é o pior que este repositório sabe produzir: um arquivo lido a cada
+// sessão, ANTES do trabalho, afirmando um estado que o repositório já não tem.
+// Quem o lê não confere, porque é justamente para não conferir que ele existe.
+//
+// A ASSERÇÃO É CONTRA O `version.json`, e não contra o `notas.json`: aquele é o
+// campo que o OTA compara, isto é, o número que de fato chega ao aparelho.
+// ============================================================================
+{
+  const claude = ler('CLAUDE.md');
+  const ver = JSON.parse(ler('app/src/main/assets/web/version.json')).version;
+  const m = claude.match(/\*\*Vers[ãa]o atual: base web v([0-9.]+)/);
+  if (!m) {
+    nao('o bloco "Versão atual" existe no CLAUDE.md',
+      'a linha `**Versão atual: base web vX**` não foi encontrada');
+  } else if (m[1] === ver) {
+    ok('a "Versão atual" do CLAUDE.md bate com o `version.json` (' + ver + ')');
+  } else {
+    nao('a "Versão atual" do CLAUDE.md bate com o `version.json`',
+      'CLAUDE.md diz ' + m[1] + ', version.json diz ' + ver
+      + '\n\tconserto: renumerar o lote inclui ESTA linha, ao lado das três'
+      + '\n\toficiais e do `shellTag`.');
+  }
+}
+
+// ============================================================================
 // 6 · AS ÂNCORAS INTERNAS APONTAM PARA SEÇÕES QUE EXISTEM
 //
 // O índice do `CLAUDE.md` e os dos capítulos navegam por âncora. Uma seção

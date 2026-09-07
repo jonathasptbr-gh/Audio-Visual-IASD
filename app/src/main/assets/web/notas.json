@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.8.50",
+    "itens": [
+      "Desconectar a tela com uma música tocando agora PAUSA a mídia, para o som não sair no celular sem querer.",
+      "O título das coleções na Biblioteca não se mexe mais ao abrir a lista.",
+      "Com a mídia parada, os botões de slide ficam apagados — antes eles aceitavam toques que reapareciam na música seguinte.",
+      "Botões sem função ficam apagados: anterior/próximo com a fila vazia, e o Parar sem nada no ar.",
+      "A lixeira da confirmação perdeu o vermelho, que agora é só do botão que apaga.",
+      "Na fila, o confirmar diz \u0022Remover\u0022 em vez de \u0022Tirar\u0022."
+    ]
+  },
+  {
     "versao": "1.8.49",
     "itens": [
       "O tema passou a seguir o do seu aparelho; tocar no tile fixa claro ou escuro.",

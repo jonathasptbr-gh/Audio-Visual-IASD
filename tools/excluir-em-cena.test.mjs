@@ -122,6 +122,93 @@ try {
   checar(!a.pausado && a.tempo > 0 && a.atual === ids.emCena,
     'o louvor está tocando (ponto de partida)', a);
 
+  // ── 0b. A LIXEIRA É O SÍMBOLO DA PERGUNTA, NÃO A RESPOSTA (v1.8.50) ─────
+  //
+  // Relato do operador: *"verifique a coloração do ícone de lixeira durante as
+  // confirmações de exclusão no cronograma, favoritos, playlist e etc… Ele está
+  // um ícone vermelho, ao lado de um botão de 'excluir' também vermelho. Deixe
+  // esse ícone de lixeira na coloração natural dos botões que já ocupavam a
+  // posição dele antes do momento de confirmar exclusão."*
+  //
+  // O par de tokens é `--btn-danger`/`--danger-strong` nos DOIS, então a
+  // asserção tem de ser a COR RENDERIZADA — comparar nomes de token aprovaria
+  // um `--surface` que por acaso fosse vermelho, e não veria a regressão de
+  // alguém "uniformizar" a faixa de volta.
+  //
+  // AS DUAS METADES: a lixeira veste o MESMO que o `.row-btn` que ocupava aquele
+  // lugar um instante antes, E o `.linha-sim` ao lado continua vermelho. Sem a
+  // segunda, apagar o vermelho de tudo passaria — e o botão que apaga bytes
+  // ficaria indistinguível do que cancela.
+  const tintas = await pg.evaluate(() => {
+    const li = [...document.querySelectorAll('.lib-item')]
+      .find((e) => (e.textContent || '').includes('Louvor Parado'));
+    li.querySelector('.row-mais').click();
+    const antesDoPedido = getComputedStyle(li.querySelector('.row-excluir')).backgroundColor;
+    li.querySelector('.row-excluir').click();
+    const lixo = li.querySelector('.row-slot--del');
+    const sim = li.querySelector('.linha-confirma-btn.linha-sim');
+    const nao = li.querySelector('.linha-confirma-btn.linha-nao');
+    const r = {
+      antesDoPedido,
+      lixo: lixo ? getComputedStyle(lixo).backgroundColor : null,
+      lixoTexto: lixo ? getComputedStyle(lixo).color : null,
+      sim: sim ? getComputedStyle(sim).backgroundColor : null,
+      rotulo: sim ? (sim.textContent || '').trim() : null,
+    };
+    if (nao) nao.click();   // a faixa volta ao `⋮`, para os blocos seguintes
+    return r;
+  });
+  checar(tintas.lixo === tintas.antesDoPedido,
+    'A LIXEIRA DA CONFIRMAÇÃO veste a MESMA tinta do botão que ocupava aquele '
+    + 'lugar um instante antes: a faixa troca de conteúdo sem trocar de cor',
+    tintas);
+  checar(tintas.sim !== tintas.lixo,
+    'e o botão que APAGA continua sendo o único vermelho da cena — a linguagem '
+    + 'do perigo é para o ALVO da ação, não para o cartaz ao lado dele', tintas);
+
+  // ── 0c. UM VERBO SÓ PARA O MESMO GESTO ──────────────────────────────────
+  // Relato do operador: *"verifique o nome do botão de confirmar exclusão do
+  // item da playlist, pois ele está 'tirar', use 'remover'"*. "Tirar" era a
+  // única palavra própria daquela fila, e um verbo por lista faz reler o botão
+  // antes de tocar num alvo que apaga bytes.
+  const naFila = await pg.evaluate(async () => {
+    // UMA FAIXA SÓ PARA A FILA, e ela não entra em `imports`: os blocos 1 a 3
+    // medem quem SEGURA um item contra o coletor, e um terceiro nome nas listas
+    // deles mudaria o que eles verificam.
+    const sr = 8000, n = sr * 2;
+    const buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf);
+    const wr = (o, t) => { for (let i = 0; i < t.length; i++) dv.setUint8(o + i, t.charCodeAt(i)); };
+    wr(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); wr(8, 'WAVEfmt ');
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, sr, true); dv.setUint32(28, sr * 2, true);
+    dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    wr(36, 'data'); dv.setUint32(40, n * 2, true);
+    await AVDB.addMedia(new Blob([buf], { type: 'audio/wav' }),
+      { name: 'Só Na Fila', type: 'audio/wav', kind: 'audio', list: 'playlist' });
+    await load();
+    const li = [...document.querySelectorAll('#playlist li')]
+      .find((e) => (e.textContent || '').includes('Só Na Fila'));
+    if (!li) return { erro: 'a fila está vazia' };
+    const mais = li.querySelector('.row-mais');
+    if (mais) mais.click();
+    const rm = li.querySelector('.row-excluir');
+    if (!rm) return { erro: 'a linha da fila não tem lixeira' };
+    const dica = rm.title;
+    rm.click();
+    const sim = li.querySelector('.linha-confirma-btn.linha-sim');
+    const rotulo = sim ? (sim.textContent || '').trim() : null;
+    const nao = li.querySelector('.linha-confirma-btn.linha-nao');
+    if (nao) nao.click();
+    return { dica, rotulo };
+  });
+  checar(naFila.rotulo === 'Remover' && /^Remover da playlist$/.test(naFila.dica || ''),
+    'e a confirmação da FILA diz "Remover", como as outras listas — nunca '
+    + '"Tirar"', naFila);
+  checar(tintas.rotulo === 'Excluir',
+    'enquanto o Cronograma continua dizendo "Excluir": os dois gestos são '
+    + 'diferentes (um tira da fila, o outro apaga da lista), e o que se '
+    + 'uniformizou foi a palavra da REMOÇÃO, não as duas ações', tintas.rotulo);
+
   // ── 1. EXCLUIR DO CRONOGRAMA NÃO INTERROMPE A CENA ──────────────────────
   const erro1 = await excluirPelaLinha('Louvor Em Cena');
   checar(erro1 === '', 'o caminho do operador existe: `⋮` → lixeira → Excluir', erro1);

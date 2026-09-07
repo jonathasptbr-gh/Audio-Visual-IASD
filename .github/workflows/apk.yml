@@ -508,6 +508,7 @@ jobs:
           rodar tools/cena.test.mjs
           rodar tools/hidratacao-perde-a-vez.test.mjs
           rodar tools/telao-no-chao.test.mjs
+          rodar tools/som-nao-vaza-ao-perder-a-tela.test.mjs
           rodar tools/imagem-sobre-audio.test.mjs
           rodar tools/slides-sobre-audio.test.mjs
           rodar tools/pptx-video-na-pagina.test.mjs
@@ -524,6 +525,7 @@ jobs:
           rodar tools/cifra-rolagem.test.mjs
           rodar tools/leitor-do-transporte.test.mjs
           rodar tools/controles-layout.test.mjs
+          rodar tools/transporte-sem-cena.test.mjs
 
           rodar tools/fundo-da-letra.test.mjs
 
@@ -532,6 +534,7 @@ jobs:
           rodar tools/barra-em-qualquer-tela.test.mjs
 
           rodar tools/biblioteca-camadas.test.mjs
+          rodar tools/titulo-da-colecao-nao-anda.test.mjs
 
           rodar tools/aviso-de-importacao.test.mjs
           rodar tools/apresentacao.test.mjs

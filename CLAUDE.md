@@ -1290,6 +1290,19 @@ nenhum**, e por isso ficam aqui.
   `--accent`; SELECIONADO numa lista = `--sel-fill`; ABERTO **não é cor**.
   **Cor de texto nunca carrega estado sozinha**, e **apagado quer dizer
   INDISPONÍVEL** (`opacity: .3` + `disabled`), nunca "desligado".
+- **E O QUE NÃO TEM FUNÇÃO AGORA É APAGADO, não deixado inerte** (v1.8.50).
+  Inerte e apagado não são a mesma coisa: um botão aceso que não faz nada é
+  indistinguível de um quebrado, e o que se faz diante dele é tocar de novo — a
+  mesma troca de EXPLICAR por NÃO OFERECER que o microfone sem TV e a aba de
+  cifra sem cifra já fazem. É `disabled` e não uma classe (é ele que veste o
+  `--op-inativo`, tira o nó da tabulação e faz o navegador engolir o toque), com
+  o `title` dizendo POR QUÊ. **A pergunta é a MESMA que a de quem executa** —
+  reescrevê-la faz as duas divergirem no primeiro ajuste —, e ela pede cuidado:
+  `cenaNoAr()` parece "há algo no ar" e começa por `!!currentId`, que sobrevive
+  ao stop de propósito. **E o que NÃO se apaga entra na lista escrita ao lado**,
+  senão o lote seguinte "completa" a varredura e leva um recurso junto (o ▶
+  parado repete a faixa; a folha vazia é a resposta da playlist; a repetição é
+  um modo).
 - **O feedback de toque é `translateY(2px)` — recuo ABSOLUTO, nunca uma
   fração.** Uma fração aplicada a alvos de 34px a 408px não é um valor, são
   doze. **E um BLOCO que hospeda controles responde só com a LUZ**, nunca com
@@ -1355,7 +1368,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Botão de cast da preview | oculto | `AVNative.openCast()` → seletor de espelhamento (ver abaixo) |
 | Retomada do telão ao reconectar | idem (`resendSceneToDisplay`) | **só reenvia o que ESTAVA no ar** — a pergunta é `midiaNoAr`, nunca `currentId` (que sobrevive ao stop de propósito, para o ▶ repetir a faixa). Telão vazio também é estado: restaurá-lo é não mandar nada |
 | Girar a mídia | idem (comando `rotate`) | tile **"Girar no telão"** em Configurações, 90° por toque — o nome diz ONDE, porque "Girar" sozinho se lê como o giro da INTERFACE (v1.4.41). O motor TROCA O EIXO da caixa antes de girar, para o `object-fit` medir o retângulo em que a mídia vai de fato aparecer |
-| Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão |
+| Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão. **E PERDER a projeção com mídia no ar PAUSA a mídia** (v1.8.50): a promessa acima vale para quem ABRE o app sem tela, não para quem PERDE a tela com o louvor no ar — o estado final é o mesmo, a intenção não. A régua é a PERDA (escrita como estado, ela pausaria o ensaio de quem nunca conectou nada) e é a perda de um DESTINO — `haDestinoDeProjecao()`, que lê a tela LISTADA e as SESSÕES de tela da rede, e **não** `algumaTelaConectada()`, que responde pela `Presentation`: com aquela, a oscilação do dongle pausaria o louvor a cada piscada do Miracast, que é uma interrupção de culto no lugar de um vazamento de segundos |
 | PDF · `.pptx` · Google Apresentações | **PDF não existe**; `.pptx` funciona pelo mesmo caminho do app | **uma IMAGEM POR PÁGINA**. PDF pelo `PdfRenderer` da plataforma (`SlideDeck.kt` + `deckPages`); `.pptx` pelo renderizador de `assets/web/vendor/` (`controle/deck.js`, `import()` dinâmico + `<foreignObject>`/canvas). Daí é mídia comum, com ⏮/⏭ passando página — **e uma CAMADA desde a v1.4.28**: com um áudio no ar, o toque na apresentação a sobrepõe em vez de substituir, pela mesma porta da imagem (`mode:'image'` com um `page`), e o louvor de fundo continua tocando por baixo dos slides. **O FORMATO de cada página é decidido por ela**, nos dois caminhos e pelo mesmo número (`PAGINA_LEVE`, 512 kB): PNG na página chapada, WebP na fotográfica — MEDIDO, uma apresentação de fundo fotográfico dá 100,4 MB em PNG contra 12,3 MB. **Não há botão de "apresentação"** — entra por "Importar arquivos" (`pickDoc`: o PDF precisa que o shell abra o ARQUIVO, e `<input type=file>` só devolve bytes) ou pelo share. `.ppt` legado e `.odp` ficam de fora: ninguém sabe desenhá-los **E O VÍDEO EMBUTIDO TOCA** (v1.6.2): o `pptxzip.js` o tira do zip ANTES de abrir o arquivo — sem isso um `.pptx` com vídeo é RECUSADO (teto de entrada da biblioteca) e, passando, sairia como retângulo PRETO (o `embutirRecursos` não alcança `<video>`). Ele vira mídia presa à PÁGINA em que estava: chegar nela projeta o vídeo, e o fim dele devolve a apresentação no slide SEGUINTE |
 | **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **BAIXA E PROJETA** (v1.7.7): o mesmo `ytArquivo` dos outros destinos, com o cartão sobre a preview e a barra de progresso cobrindo a espera. Foi TRANSMISSÃO DIRETA da v5.212 à v1.7.2 — o `ytStream` montava o manifesto e o `mse.js` o virava um `<video>` —, e ela saiu a pedido do operador: *"vamos abandonar o modo online direto, ele é muito instável"*, depois de travamentos a cada um ou dois segundos com o espelhamento no ar. **O preço está aceito e é o que ela existia para evitar: "Tocar agora" agora ESPERA o download** |
 | **Cifra do hino** | **não existe** — sem ponte não há como buscar a página (CORS), e a aba nem é oferecida | **aba CIFRA no visualizador de letras** (shell 49): `cifraHtml` traz o HTML cru, `controle/cifra.js` o lê, e a folha aparece com transposição por meio tom. **SÓ COM FOLHA NA MÃO** (v1.8.28): sem cifra achada o botão não é desenhado — `cifraCabe` decide se vale PROCURAR, `cifraTemFolha` decide se há o que MOSTRAR. **SOB DEMANDA:** nada é baixado em lote, nada entra no bundle, e fora do acervo guardado o cache é um `Map` que morre com o app |
@@ -2247,35 +2260,37 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.48 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.50 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.48 NÃO declara `shellTag`, e a v1.8.45 declarou — a diferença é o
+> **A v1.8.50 NÃO declara `shellTag`, e a v1.8.45 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela acrescentou um
 > método à ponte (`pacoteProntoEstado`) e o `controle.js` o CHAMA na abertura:
 > contra um APK sem ele, o `native.js` cai no `catch`, o `call()` vence os 60 s
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (As v1.8.46 e v1.8.47 são o mesmo caso, pela mesma razão.)
+> (As v1.8.46 a v1.8.49 são o mesmo caso, pela mesma razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A v1.8.48 NÃO pede Release.**
+> **A v1.8.50 NÃO pede Release.**
 
-> **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
-> oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
-> `verificar` e por isso nunca divergem; esta não tem, e MEDIDO ela ficou para
-> trás **duas vezes em vinte minutos** (a v1.8.8 a deixou em v1.8.7; corrigida,
-> a v1.8.9 a deixou em v1.8.8). O modo de falhar é o desta seção inteira: um
-> arquivo lido a cada sessão, ANTES do trabalho, afirmando um estado que o
-> repositório já não tem — e quem o lê não confere, porque é justamente para
-> não conferir que ele existe. **Renumerar o lote inclui esta linha**, ao lado
-> das três e do `shellTag`. Fechá-la por oráculo é barato (o mesmo bloco que
-> compara as três, lendo esta linha) e está por fazer.
+> **ESTE BLOCO É A QUARTA CASA DA VERSÃO, e desde a v1.8.50 ela TEM ORÁCULO.**
+> As três oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção
+> no `verificar` e por isso nunca divergem; esta não tinha, e MEDIDO ela ficou
+> para trás **três vezes** — duas em vinte minutos (a v1.8.8 a deixou em v1.8.7;
+> corrigida, a v1.8.9 a deixou em v1.8.8) e de novo na v1.8.49, que a deixou em
+> v1.8.48. O modo de falhar é o desta seção inteira: um arquivo lido a cada
+> sessão, ANTES do trabalho, afirmando um estado que o repositório já não tem —
+> e quem o lê não confere, porque é justamente para não conferir que ele existe.
+> Quem a fecha é o `docs-coerentes.test.mjs`, que lê esta linha e a compara com
+> o `version.json`. **Renumerar o lote continua incluindo esta linha**, ao lado
+> das três e do `shellTag`; o que mudou é que esquecê-la passou a reprovar o
+> build em vez de sobreviver até alguém reparar.
 
 > **UM `apk` REPROVADO NÃO PULA O `web-ota` — QUEM SEGURA É O HOLD.** A
 > confusão é fácil e custou um lote inteiro de raciocínio errado: o `web-ota`

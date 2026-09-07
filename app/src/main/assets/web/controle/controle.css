@@ -2989,7 +2989,25 @@ main {
    que se está perguntando se apaga. Quem o neutraliza é a guarda dos gestos da
    linha (`.row-slot` entrou nela junto com este bloco): o span RECEBE o toque e
    ninguém faz nada com ele. O `cursor` diz a mesma coisa para quem usa mouse. */
-.row-slot--del { background: var(--btn-danger); color: var(--danger-strong); cursor: default; }
+/* ===== A LIXEIRA É O SÍMBOLO DA PERGUNTA, NÃO A RESPOSTA (v1.8.50) =====
+
+   Relato do operador: *"verifique a coloração do ícone de lixeira durante as
+   confirmações de exclusão… Ele está um ícone vermelho, ao lado de um botão de
+   'excluir' também vermelho. Deixe esse ícone de lixeira na coloração natural
+   dos botões que já ocupavam a posição dele antes do momento de confirmar"*.
+
+   Ele vestia `--btn-danger`/`--danger-strong` — a MESMA tinta do `.linha-sim`
+   ao lado. Duas superfícies vermelhas coladas, e só uma delas é tocável: o
+   vermelho deixou de dizer *"isto apaga"* e passou a dizer *"esta região é a
+   exclusão"*, que é ruído. É a regra da paleta escrita neste repositório —
+   **cor de texto nunca carrega estado sozinha**, e a linguagem do PERIGO existe
+   para o ALVO da ação, não para o cartaz ao lado dele.
+
+   Ele veste agora o `.row-btn`, que é literalmente o que ocupava aquele lugar
+   um instante antes (o `⋮`, ou o próprio botão de excluir da linha): a faixa
+   troca de conteúdo sem trocar de cor, e o único vermelho da cena é o botão que
+   apaga. */
+.row-slot--del { background: var(--surface); color: var(--text); cursor: default; }
 .row-slot--del .msym { font-size: var(--icon-sm); }
 .row-slot--ok { background: var(--btn-accent); color: var(--accent); }
 /* O CAMINHO B do ✓ (a gaveta dos Favoritos, que não tem `⋮`): dentro da faixa
@@ -4871,11 +4889,51 @@ main {
   display: flex; flex-direction: column; justify-content: center;
   align-items: stretch; gap: 0;
 }
+/* ===== O TÍTULO NÃO SE MEXE AO ABRIR (v1.8.50) =====
+   Relato do operador: *"o título das coleções se move ao abrir a lista de
+   álbuns e itens… uma vez medido, os itens fiquem alinhados durante as
+   interações"*.
+
+   O bloco fechado tem `height: --tampa-h` e CENTRA a barra dentro dela: o vão
+   acima é `(tampa − barra) / 2`. Aberto, a compensação era o vão INTEIRO
+   (`--tampa-h − --bar-secao-h`) num respiro só, em cima — a barra descia a
+   diferença toda, e com ela o título. MEDIDO a 430×900 com três blocos de raiz
+   (`--tampa-h` no teto de 66px): o título do card que abria pulava 24,0 → 34,4
+   do topo do próprio card, no instante do toque e no único elemento que o olho
+   estava seguindo.
+
+   E A COMPENSAÇÃO INTEIRA NÃO ERA GRATUITA — ela mantinha a OUTRA invariante,
+   a da v1.5.19, que o `lista-da-biblioteca.test.mjs` cobra: **a TAMPA de um
+   bloco (do topo dele até onde o corpo começa) mede o mesmo fechada e aberta.**
+   Mover metade daquele vão para cima sem pôr a outra metade embaixo encolhe a
+   tampa em `(tampa − barra) / 2` — MEDIDO, −4,74px, que é o defeito que aquela
+   versão corrigiu. **As duas só se resolvem juntas**, e a solução é o bloco
+   aberto REPRODUZIR a caixa fechada: `topo + barra + topo = --tampa-h`, com a
+   barra centrada nela. Aí o título está onde estava E o corpo começa onde
+   começava.
+
+   `--tampa-topo` é aquele `(tampa − barra) / 2`, escrito pelo `medirTampa` — que
+   já mede a barra para decidir o piso da tampa — e escrito **por bloco**, porque
+   a barra de uma seção e a de um card não medem o mesmo (0,86px de diferença,
+   medidos).
+
+   OS `.35rem` DA SEÇÃO são um vão que o corpo dela já traz por dentro, e que o
+   card não tem: descontá-los é o que faz as duas somarem o mesmo. A subtração é
+   deliberadamente SEM piso em zero — o vão de dentro pode ser MAIOR que o
+   `topo`, e aí a margem negativa é o que puxa o corpo de volta para a linha. O
+   fallback é `.35rem` e não `0px` justamente por isso: numa lista ainda não
+   medida ele computa `0`, em vez de subir o corpo por cima da barra. */
 #hymnResults.acervo > .hymnal-card.expanded {
-  padding-top: max(0px, calc(var(--tampa-h, var(--bar-secao-h)) - var(--bar-secao-h)));
+  padding-top: var(--tampa-topo, 0px);
+}
+#hymnResults.acervo > .hymnal-card.expanded > .coll-bar {
+  margin-bottom: var(--tampa-topo, 0px);
 }
 #hymnResults.acervo > .coll-group--drop.aberto {
-  padding-top: max(0px, calc(var(--tampa-h, var(--bar-secao-h)) - var(--bar-secao-h) - .35rem));
+  padding-top: var(--tampa-topo, 0px);
+}
+#hymnResults.acervo > .coll-group--drop.aberto > .coll-group-bar {
+  margin-bottom: calc(var(--tampa-topo, .35rem) - .35rem);
 }
 /* ---------- O BLOCO RESPONDE POR LUZ, E RESPONDE INTEIRO ----------
    (v1.5.17, generalizado e desencolhido na v1.7.4.)
