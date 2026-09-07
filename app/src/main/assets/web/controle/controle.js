@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.40';
+const WEB_VERSION = '1.8.41';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23841,10 +23841,23 @@ function renderPacoteGrupos(plano) {
     // destinos e do menu de uma música), e é isso que escopa o tom novo sem uma
     // bandeira global que alguém possa esquecer de limpar.
     li.classList.add('pacote-linha');
-    if (dentro) {
-      li.classList.add('pacote-linha--dentro');
-      li.firstChild.classList.add('song-menu-dentro');
-    }
+    // O QUADRADO DO ÍCONE É O DA BIBLIOTECA (v1.8.41), pela classe e não por
+    // cópia — o mesmo `.coll-bar-icon` que a barra de um álbum veste lá. Na
+    // Biblioteca os DOIS níveis têm o quadrado de `--hit`, e é isso que põe o
+    // nome de uma seção e o de um álbum na mesma coluna; aqui a seção já ganhou
+    // o dela (a `.coll-group-icon` da seta), e sem este a linha ficava com um
+    // glifo solto de 24px numa coluna de 34.
+    const ic = li.querySelector('.song-menu-icon');
+    if (ic) ic.classList.add('coll-bar-icon');
+    // QUEM DIZ "ESTÁ DENTRO" É O BLOCO QUE A CONTÉM (v1.8.41), e mais nada.
+    // Até aqui havia um RECUO DE TEXTO (`.song-menu-dentro`, v1.7.3) e uma
+    // classe no `<li>`, e os dois existiam porque não havia bloco: a linha era
+    // irmã da barra, e o recuo era a única coisa que dizia a quem ela
+    // pertencia. Com o corpo DENTRO do bloco isso é a segunda cópia da mesma
+    // resposta — e uma que custa caro: MEDIDO, o nome de uma linha ficava
+    // 39,2px à direita do nome da seção, contra 6,4px na Biblioteca. O que
+    // sobra é o recuo do CORPO, que é o mesmo inset que a `.coll-group-corpo`
+    // reserva a um card de lá (MEDIDO depois: 5,59px contra 6,39px).
     return li;
   };
 
@@ -23871,10 +23884,24 @@ function renderPacoteGrupos(plano) {
     bar.className = 'song-menu-btn song-menu-sel song-menu-grupo';
     bar.setAttribute('role', 'button');
     bar.setAttribute('tabindex', '0');
+    // A SETA É A DA BIBLIOTECA, E É LITERALMENTE A DELA (v1.8.41).
+    //
+    // Pedido do operador: *"a seta de abertura do acordeão está diferente … eu
+    // quero o mesmo design da biblioteca, cores e ícones — o padrão da
+    // biblioteca já temos, não precisamos de algo diferente"*. MEDIDO no
+    // renderizado, os dois desenhos não tinham nada em comum: lá um quadrado de
+    // `--hit` em `--btn-accent` com raio de 8px e um chevron de traço 2,4; aqui
+    // um chevron de traço 2 solto numa caixa de 24px, transparente.
+    //
+    // A CLASSE É A `.coll-group-icon`, e não uma cópia dela: uma segunda
+    // descrição do mesmo objeto divergiria no primeiro ajuste da Biblioteca, e
+    // a divergência apareceria como as duas telas discordando sobre o que é uma
+    // seta de abrir. O `chevronUpIconSvg` é a MESMA função que a barra de seção
+    // de lá chama.
     const seta = document.createElement('button');
     seta.type = 'button';
-    seta.className = 'song-menu-seta' + (aberta ? ' aberta' : '');
-    seta.innerHTML = pacoteIconeSvg('icoSlideNext');
+    seta.className = 'coll-group-icon pacote-seta' + (aberta ? ' aberta' : '');
+    seta.innerHTML = chevronUpIconSvg();
     seta.setAttribute('aria-label', (aberta ? 'Fechar ' : 'Abrir ') + item.nome);
     seta.setAttribute('aria-expanded', aberta ? 'true' : 'false');
     seta.addEventListener('click', (ev) => {

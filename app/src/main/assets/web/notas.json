@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.41",
+    "itens": [
+      "A seta que abre um grupo na exportação é a mesma da biblioteca.",
+      "As cores da lista de exportação passaram a ser as da biblioteca.",
+      "A marca de escolhido deixou de cobrir a cor de cada linha."
+    ]
+  },
+  {
     "versao": "1.8.40",
     "itens": [
       "A lista de exportação separa os grupos dos álbuns, como na biblioteca.",
