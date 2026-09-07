@@ -7079,6 +7079,30 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .lib-item.expanded:not(.no-ar):not(.active):not(.selected) > .row {
   background: var(--gaveta-bg);
 }
+/* ---------- E A CAIXA PINTA JUNTO, SENÃO O TOPO FICA CORTADO (v1.8.39) ------
+   Relato do operador: *"o primeiro item da lista de cada álbum está ficando com
+   sua borda superior cortada durante seu modo de opções de play … comendo parte
+   da caixa, visível pelas bordas arredondadas que ficam cortadas"*.
+
+   MEDIDO em Chromium: a `.row` começa **2px abaixo** do topo da `.lib-item`.
+   Esses 2px são a METADE DO VÃO que mora dentro da caixa desde a v1.5.17 (o
+   `padding-top` que centraliza a divisória), e a `.lib-item` é
+   `overflow: hidden` com `border-radius: 8px`. Com a gaveta ABERTA a `.row`
+   pinta `--gaveta-bg` e a caixa não pinta nada: sobra uma faixa transparente de
+   2px sob os cantos arredondados, e o que se vê é o canto comido.
+
+   POR QUE O PRIMEIRO. Nos outros a divisória (`::before`, `top: 0`) ocupa parte
+   da faixa e o item de cima encosta ali, então o olho lê o vão como espaçamento;
+   no primeiro não há nem traço nem vizinho, e a falha fica contra a placa.
+
+   PINTAR A CAIXA e não mexer no `padding`: o recuo é o que mantém a divisória no
+   MEIO do vão (v1.5.17) e a altura da lista igual (v1.5.16) — tirá-lo devolveria
+   os dois defeitos. A cor é a MESMA da `.row` e da gaveta, então nada mais muda
+   de tom; o que muda é a tinta alcançar o topo. Os três `:not()` são os mesmos,
+   pela mesma razão: uma linha NO AR que o operador abra continua vermelha. */
+.lib-item.expanded:not(.no-ar):not(.active):not(.selected) {
+  background: var(--gaveta-bg);
+}
 /* Letra completa, abaixo da linha aberta. Rola por DENTRO, com teto de altura:
    um hino tem 20-40 linhas e, solto, empurraria os resultados seguintes para
    fora da tela — o operador perderia de vista a lista que ele estava justamente

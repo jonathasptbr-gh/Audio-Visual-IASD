@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.39",
+    "itens": [
+      "O ícone da barra vira um check quando exportar ou importar termina.",
+      "O botão do fim da importação virou um OK — ele não abria a biblioteca.",
+      "O canto de cima do item deixou de parecer cortado com as opções abertas."
+    ]
+  },
+  {
     "versao": "1.8.38",
     "itens": [
       "Os favoritos viraram um grupo próprio na folha de exportação.",

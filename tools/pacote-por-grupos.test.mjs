@@ -42,6 +42,7 @@ const servidor = servirEstatico(RAIZ);
 const PONTE = `(function () {
   window.__saida = [];
   window.__progresso = [];
+  window.__concluido = [];
   const canal = {
     postMessage(m) {
       if (typeof m === 'string') {
@@ -76,6 +77,12 @@ const PONTE = `(function () {
     otaConfirm: () => {},
     compartilharTexto: () => {},
     bgProgress: (s) => { try { window.__progresso.push(JSON.parse(s)); } catch (e) {} },
+    // O CARTÃO DE CONCLUSÃO. Ele existia com oráculo só de FORMA (o
+    // ponte.test.mjs chamava o método à mão) — nada afirmava que a exportação
+    // de verdade o chama, e é essa fresta que deixa o check sumir da barra
+    // sem nada acusar. SEM CRASE neste comentário: a ponte de mentira é
+    // montada dentro de um template literal, e uma crase aqui o fecha.
+    bgConcluido: (s) => { try { window.__concluido.push(JSON.parse(s)); } catch (e) {} },
     pacoteCancelar: () => { window.__cancelado = (window.__cancelado || 0) + 1; },
     pacoteCriar: (id) => { setTimeout(() => window.__avResolve(id, 'acervo-de-teste.avpkg'), 0); },
     pacoteFechar: (id) => {
@@ -343,6 +350,14 @@ try {
     JSON.stringify(medida));
   checar(medida.bytesNaFaixa === true,
     'A · e a notificação sabe que a unidade é BYTES', medida.bytesNaFaixa);
+  // O CHECK NA BARRA, pelo caminho REAL. Relato do operador: *"após conclusão
+  // da exportação ou importação, o ícone na barra de notificação não se torna
+  // em um check"*.
+  const cartao = await a.pg.evaluate(() => window.__concluido || []);
+  checar(cartao.length === 1 && /\S/.test(cartao[0].titulo || ''),
+    'A · e ao TERMINAR a exportação chama `bgConcluido` — o cartão do check é '
+    + 'postado sob id próprio, e sem esta asserção só a FORMA do método tinha '
+    + 'oráculo', JSON.stringify(cartao));
 
   // -------------------------------------------------------------------------
   // A NOTIFICAÇÃO E O BOTÃO CONTAM O MESMO TRABALHO (v1.8.35)

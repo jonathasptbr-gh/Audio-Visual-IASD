@@ -201,10 +201,23 @@ class SyncService : Service() {
         private const val NOTIF_ID = 1
 
         /**
-         * O cartão de CONCLUSÃO, num id próprio — ver [concluir]. Sob o mesmo
-         * id do trabalho ele seria apagado pela limpeza do `onDestroy`.
+         * O CARTÃO DE CONCLUSÃO — id PRÓPRIO, e ele é **3** (v1.8.39).
+         *
+         * Ele nasceu como 2 (v1.8.31) e isso era uma COLISÃO: o 2 é a
+         * notificação do [SessionService], que é um serviço em PRIMEIRO PLANO.
+         * O comentário de lá já dizia por extenso *"1 é do SyncService — as
+         * duas coexistem"*, e a numeração é um espaço COMPARTILHADO por todo o
+         * app, não uma contagem por arquivo.
+         *
+         * O desfecho era o relato do operador — *"após conclusão da exportação
+         * ou importação, o ícone na barra de notificação não se torna em um
+         * check"* —, e ele acontecia por dois caminhos: com cena no ar, este
+         * `notify` SUBSTITUÍA o cartão da sessão de mídia (que é `ongoing` e de
+         * um FGS) e o `publish()` seguinte dela o substituía de volta; sem cena,
+         * o `cancel(NOTIF_ID)` do `SessionService.stop` o apagava. Nos dois o
+         * check some sem erro em lugar nenhum.
          */
-        private const val NOTIF_FIM_ID = 2
+        private const val NOTIF_FIM_ID = 3
         private const val WAKELOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L // 2 h
         /** Piso entre renovações do wake lock (ver [renewWakeLock]). */
         private const val WAKELOCK_RENEW_MIN_MS = 10 * 60 * 1000L // 10 min
