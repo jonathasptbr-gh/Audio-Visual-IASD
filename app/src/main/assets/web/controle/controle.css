@@ -8463,12 +8463,31 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    no `.lyricsview-body` para os dois filhos herdarem a MESMA conta — duas
    escritas do mesmo número divergiriam no primeiro ajuste do A+/A−. */
 .lv-cifra-cab { color: var(--text); margin-bottom: calc(var(--cifra-linha) * 2); }
-.lv-cifra-cab-titulo { font-size: var(--fs-xl); font-weight: var(--fw-forte); }
+/* ===== E O CORPO DELES SEGUE O A+/A− TAMBÉM (v1.8.31) =====
+
+   Os dois vestiam `--fs-xl`/`--fs-lg`, a escala tipográfica FIXA do app, e só
+   os ESPAÇOS em volta escalavam (eles saem de `--cifra-linha`). MEDIDO nos seis
+   degraus e nas duas casas (retrato e tela cheia): título 15,2px e tom 14,4px
+   PARADOS enquanto a folha ia de 11,84 a 28,42 — do terceiro degrau em diante o
+   cabeçalho fica MENOR que o texto que ele encabeça, e no topo da escada ele é
+   0,53× a folha. Quem sobe a fonte faz isso para ler de longe, que é justamente
+   quando o título e o tom somem.
+
+   OS FATORES REPRODUZEM O DESENHO ATUAL NO DEGRAU BASE, ao PIXEL: `--lv-fonte`
+   vale 1rem ali, e `--fs-xl`/`--fs-lg` são 0.95rem/0.9rem — os mesmos 15,2 e
+   14,4px. O que muda é que agora eles ANDAM, e a razão contra a folha (1,28× e
+   1,22×) fica constante em todo degrau, que é o rank que o desenho já tinha.
+
+   Continua sendo o MESMO token dos espaços: uma segunda fonte de verdade para o
+   corpo do cabeçalho divergiria no primeiro ajuste do par. */
+.lv-cifra-cab-titulo {
+  font-size: calc(var(--lv-fonte) * .95); font-weight: var(--fw-forte);
+}
 /* O TOM veste o que vestia na barra — corpo, peso e tom de rótulo —, porque é o
    mesmo dado no mesmo papel: um NÚMERO sobre a folha, não um título. */
 .lv-cifra-cab-tom {
   margin-top: var(--cifra-linha);
-  font-size: var(--fs-lg); font-weight: var(--fw-forte); color: var(--muted);
+  font-size: calc(var(--lv-fonte) * .9); font-weight: var(--fw-forte); color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 /* A ROLAGEM AUTOMÁTICA (v1.1.20). Dois controles, e os dois com a aparência do

@@ -483,6 +483,57 @@ try {
     + 'de ele ser delegado', duasCasas);
 
   // ========================================================================
+  // BLOCO 3-B — E O QUE ELE MOVE É TODO O TEXTO DA FOLHA (v1.8.31)
+  // ========================================================================
+  //
+  // Os blocos acima medem QUEM escreve na escada; este mede O QUE ela alcança.
+  // O cabeçalho da obra (o título e o tom, que desceram para dentro da caixa na
+  // v1.6.3) vestia `--fs-xl`/`--fs-lg` — a escala tipográfica FIXA do app —
+  // enquanto só os ESPAÇOS em volta escalavam, porque eles saem de
+  // `--cifra-linha`.
+  //
+  // O DEFEITO NÃO LANÇA E NÃO SOME: o texto está lá, legível, só não cresce.
+  // MEDIDO nos seis degraus e nas duas casas: título 15,2px e tom 14,4px
+  // PARADOS enquanto a folha ia de 11,84 a 28,42px — do terceiro degrau em
+  // diante o cabeçalho fica MENOR que o texto que ele encabeça, e no topo da
+  // escada ele é 0,53× a folha. Quem sobe a fonte faz isso para ler de longe,
+  // que é exatamente quando o título e o tom saem de alcance.
+  //
+  // AS DUAS METADES, e nenhuma basta sozinha:
+  //  - OS TRÊS ANDAM é o defeito medido — mas passa também com os três no
+  //    MESMO corpo, que é o conserto barato (dar `--cifra-corpo` aos três);
+  //  - O RANK SE PRESERVA fecha essa porta: título > tom > folha em todo
+  //    degrau. A régua é a RAZÃO e não o pixel, porque é ela que não pode
+  //    mudar de degrau para degrau.
+  //
+  // REVERSÃO: devolver `font-size: var(--fs-xl)` ao `.lv-cifra-cab-titulo` e
+  // `var(--fs-lg)` ao `.lv-cifra-cab-tom` reprova a primeira — MEDIDO, os dois
+  // ficam parados enquanto a folha anda.
+  await armar();
+  const corpos = () => pg.evaluate(() => {
+    const px = (sel) => { const e = lyricsPopupEl.querySelector(sel);
+      return e ? +parseFloat(getComputedStyle(e).fontSize).toFixed(2) : null; };
+    return { titulo: px('.lv-cifra-cab-titulo'), tom: px('.lv-cifra-cab-tom'),
+      folha: px('.lv-cifra-folha') };
+  });
+  const antesDoPasso = await corpos();
+  await pg.evaluate(() => passoTamanhoDaLetra(1));
+  await pg.waitForSelector('.lv-cifra-acordes', { timeout: 15000 });
+  const depoisDoPasso = await corpos();
+  const andaram = ['titulo', 'tom', 'folha']
+    .filter((k) => depoisDoPasso[k] > antesDoPasso[k]);
+  checar(andaram.length === 3,
+    'e um degrau do A+ move o TÍTULO e o TOM junto com a folha: o cabeçalho da '
+    + 'obra é texto da folha, e a escada existe para ler de longe',
+    { antes: antesDoPasso, depois: depoisDoPasso, andaram });
+  const rank = [antesDoPasso, depoisDoPasso]
+    .every((c) => c.titulo > c.tom && c.tom > c.folha);
+  checar(rank,
+    '  ↳ e o RANK se preserva nos dois degraus (título > tom > folha) — sem '
+    + 'esta, dar o mesmo corpo aos três passaria na de cima',
+    { antes: antesDoPasso, depois: depoisDoPasso });
+
+  // ========================================================================
   // BLOCO 4 — A PROPRIEDADE, E NÃO A LISTA DE QUATRO
   // ========================================================================
   //
