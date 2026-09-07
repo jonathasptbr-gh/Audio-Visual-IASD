@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.38';
+const WEB_VERSION = '1.8.39';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -25300,7 +25300,14 @@ async function importarPacote() {
   await openAppDialog({
     title: 'Acervo importado',
     message: await pacoteRelatorio(contagem, consumo),
-    okText: 'Ver a biblioteca',
+    // "OK", E NÃO "Ver a biblioteca" (v1.8.39). Relato do operador: *"o botão
+    // de 'ver na biblioteca' não faz nada após a conclusão da importação"*. Ele
+    // estava certo — este é o `okText` de um `appConfirm`, e o desfecho dele é
+    // FECHAR o diálogo; nunca houve nada atrás dele que abrisse a Biblioteca.
+    // Um rótulo que promete uma navegação e entrega um fechar é pior que um
+    // rótulo neutro: o operador toca, nada acontece, e ele conclui que o app
+    // travou no fim de um trabalho de minutos.
+    okText: 'OK',
     cancelText: null,
     fixo: true,
   });

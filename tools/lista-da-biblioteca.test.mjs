@@ -925,6 +925,11 @@ try {
       overlay: getComputedStyle(li).backgroundImage,
       row: cor(row),
       item: cor(li),
+      // O VÃO ENTRE O TOPO DA CAIXA E O DA `.row` — a metade do espaço que mora
+      // DENTRO da caixa desde a v1.5.17, e que fica sem tinta se só a `.row`
+      // pintar (v1.8.39).
+      vaoAcimaDaRow: +(row.getBoundingClientRect().top
+        - li.getBoundingClientRect().top).toFixed(2),
       gaveta: gav ? cor(gav) : null,
       botao: (() => {
         const b = gav && gav.querySelector('.song-menu-btn:not(.song-menu-go):not(.song-menu-sel)')
@@ -961,6 +966,26 @@ try {
     'D3b · e a gaveta CONTINUA sendo um poço COM BLOCOS: os botões dela pousam '
     + 'num papel que não é o do poço — sem esta metade, pintar tudo de uma cor '
     + 'só passaria na de cima', aberta);
+
+  // ---- D3c · O TOPO ARREDONDADO NÃO FICA CORTADO (v1.8.39) ------------
+  //
+  // Relato do operador: *"o primeiro item da lista de cada álbum está ficando
+  // com sua borda superior cortada durante seu modo de opções de play … visível
+  // pelas bordas arredondadas que ficam cortadas"*. MEDIDO: a `.row` começa 2px
+  // abaixo do topo da `.lib-item` — a metade do vão que mora dentro da caixa
+  // desde a v1.5.17 —, e com só a `.row` pintando sobra uma faixa transparente
+  // sob os cantos arredondados de uma caixa `overflow: hidden`.
+  //
+  // A PRIMEIRA ASSERÇÃO É A GEOMETRIA QUE TORNA A SEGUNDA NECESSÁRIA: sem ela,
+  // alguém "consertaria" tirando o `padding-top` — e devolveria os dois
+  // defeitos que ele existe para impedir (a divisória fora do meio do vão e a
+  // lista mudando de altura).
+  checar(aberta.vaoAcimaDaRow > 0,
+    'D3c · há vão entre o topo da caixa e o da `.row` — é ele que fica sem '
+    + 'tinta', aberta.vaoAcimaDaRow);
+  checar(!!aberta.item && aberta.item === aberta.row,
+    'D3c · e a CAIXA pinta a mesma superfície da `.row`, então a tinta alcança '
+    + 'o topo arredondado em vez de deixar o canto comido', aberta);
 
   // ---- D4 · A DENSIDADE DA GAVETA É A DA LISTA ------------------------
   //

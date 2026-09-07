@@ -5337,8 +5337,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.38 · APK v1.8.34** · `SHELL_VERSION` **71** ·
-bundle com `minShell: 71` e **SEM `shellTag`** (lote SÓ WEB) — o
+**Versão atual: base web v1.8.39 · APK v1.8.39** · `SHELL_VERSION` **71** ·
+bundle com `minShell: 71` e **`shellTag: "v1.8.39"`** (lote COM Release) — o
 shell 71 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
 
@@ -5378,6 +5378,53 @@ lado web.
 > Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+**O QUE O LOTE TRAZ (v1.8.39) — o check que colidia, o botão que mentia e o
+canto comido:**
+
+| peça | onde |
+|---|---|
+| o cartão de conclusão ganha id PRÓPRIO (3) | `SyncService.NOTIF_FIM_ID` |
+| ninguém mais pode repetir um id de notificação | `tools/notificacao-ids.test.mjs` |
+| o fim da importação diz "OK" | o `okText` de `pacoteImportar` |
+| a caixa do item aberto pinta junto com a `.row` | `.lib-item.expanded…` (`controle.css`) |
+
+> **DOIS SERVIÇOS NÃO PODEM DIVIDIR UM ID DE NOTIFICAÇÃO** (v1.8.39). Relato do
+> operador: *"após conclusão da exportação ou importação, o ícone na barra de
+> notificação não se torna em um check"*.
+>
+> O cartão nasceu (v1.8.31) com `NOTIF_FIM_ID = 2` — e **2 é o id do
+> `SessionService`**, a notificação da SESSÃO DE MÍDIA, de um serviço em
+> primeiro plano. O comentário de lá já dizia *"1 é do SyncService — as duas
+> coexistem"*: a numeração é um espaço COMPARTILHADO pelo app inteiro, não uma
+> contagem por arquivo. Com cena no ar o `notify` substituía o cartão da sessão
+> e o `publish()` seguinte dela o substituía de volta; sem cena, o
+> `cancel(NOTIF_ID)` do `stop()` dela o apagava. Nos dois o check some sem erro.
+>
+> **NENHUM ORÁCULO DE COMPORTAMENTO ALCANÇA ISTO** — o web chama a ponte certo
+> (o `pacote-por-grupos` passou a provar isso pelo caminho REAL, que era outra
+> fresta: só a FORMA do método tinha oráculo), o Kotlin monta a notificação
+> certo, e o que colide é um NÚMERO que só existe no aparelho. Sobra a leitura
+> estática, que é a resposta do `kotlin-simbolo-importado` num lugar novo.
+
+> **UM RÓTULO QUE PROMETE NAVEGAÇÃO E ENTREGA UM FECHAR** (v1.8.39). O diálogo
+> do fim da importação dizia *"Ver a biblioteca"*, e o desfecho de um `okText` é
+> FECHAR — nunca houve nada atrás dele. Relato: *"não faz nada"*. Vale como
+> regra: o `okText` de um `appConfirm` só pode nomear uma ação se alguém a
+> executar.
+
+> **O CANTO COMIDO ERA O VÃO QUE MORA DENTRO DA CAIXA** (v1.8.39). Relato:
+> *"o primeiro item da lista de cada álbum está ficando com sua borda superior
+> cortada durante seu modo de opções de play"*. MEDIDO: a `.row` começa **2px**
+> abaixo do topo da `.lib-item` — a metade do vão que a v1.5.17 pôs dentro da
+> caixa para centralizar a divisória —, e a caixa é `overflow: hidden` com
+> `border-radius`. Com a gaveta aberta só a `.row` pintava: sobrava uma faixa
+> transparente sob os cantos arredondados. **No primeiro item ela fica contra a
+> placa** (não há divisória nem vizinho acima para o olho ler como espaçamento),
+> e é por isso que o relato o nomeia. O conserto é a CAIXA pintar a mesma
+> superfície; **mexer no `padding` seria devolver os dois defeitos** que ele
+> existe para impedir — a divisória fora do meio do vão e a lista mudando de
+> altura.
 
 **O QUE O LOTE TRAZ (v1.8.38) — os favoritos escolhíveis, e a barra que anda
 dentro de um vídeo:**
