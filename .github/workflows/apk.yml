@@ -535,6 +535,7 @@ jobs:
           rodar tools/notificacao-apresentacao.test.mjs
           rodar tools/leitor-apresentacao.test.mjs
           rodar tools/leitor-camadas.test.mjs
+          rodar tools/letra-centrada.test.mjs
           rodar tools/toque-instantaneo.test.mjs
 
           rodar tools/excluir-em-cena.test.mjs

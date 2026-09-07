@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.33",
+    "itens": [
+      "A letra na leitura ficou centralizada, nos dois modos.",
+      "A barra lateral saiu: quem marca a estrofe no ar agora é só a cor do texto."
+    ]
+  },
+  {
     "versao": "1.8.32",
     "itens": [
       "O título e o tom da cifra passaram a crescer junto com o A+ da folha."

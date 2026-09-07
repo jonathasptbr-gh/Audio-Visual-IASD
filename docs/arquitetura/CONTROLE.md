@@ -2186,10 +2186,13 @@ e ler *"Nada em exibição"*.
   diversos elementos no app"*.
 
   - **O número ocupava uma COLUNA à esquerda** (MEDIDO: 27px de 408), e com ela
-    o `padding-left` da `.lv-row` — o recuo que existe para a FAIXA do versículo
-    no ar. Os dois juntos tiravam a miniatura do centro da linha. Fora do fluxo,
-    ela ocupa a largura inteira e uma página 4:3 aparece centrada pelo
-    `object-fit`, sem nada a compensar.
+    o `padding-left` que a `.lv-row` então reservava para a FAIXA do versículo no
+    ar. Os dois juntos tiravam a miniatura do centro da linha. Fora do fluxo, ela
+    ocupa a largura inteira e uma página 4:3 aparece centrada pelo `object-fit`,
+    sem nada a compensar. **Desde a v1.8.33 o recuo já não existe na classe
+    base** — ele desceu para o `.lv-row--verse`, seu único consumidor —, e o
+    `padding-left: 0` que a página usava para desfazê-lo saiu por redundante
+    (MEDIDO idêntico antes e depois).
   - **O selo pousa SOBRE a imagem, então precisa de fundo OPACO** — o que está
     atrás é um pixel de apresentação, que pode ser qualquer cor. É `--panel`, e é
     o único tom opaco em que o número passa AA (MEDIDO em `tokens.css`: `--muted`
@@ -2200,10 +2203,11 @@ e ler *"Nada em exibição"*.
     de `.row-item.no-ar`, e ganha o **`● No ar`** ao lado do número. Ele
     substituiu o `--accent-fill` da v1.4.24, e a troca de matiz é a regra da
     paleta: acento é ESCOLHA entre alternativas, vermelho saturado é *está no ar
-    agora* — e uma página projetada é o segundo caso. A barra de acento da
-    `.lv-row.current` é suprimida aqui, senão ela apareceria pela faixa
-    transparente de uma página 4:3: duas cores dizendo a mesma coisa na mesma
-    linha.
+    agora* — e uma página projetada é o segundo caso. A barra de acento **nunca
+    chega a uma página desde a v1.8.33** (ela é do `.lv-row--verse`); antes disso
+    era preciso suprimi-la aqui, senão ela apareceria pela faixa transparente de
+    uma página 4:3 — duas cores dizendo a mesma coisa na mesma linha, que é a
+    razão que volta a valer se alguém a devolver à classe base.
   - **O `● No ar` nasce em TODA linha e quem o revela é o CSS.** `lvMarkCurrent`
     move a classe `.current` SEM redesenhar (é o que mantém as URLs de objeto
     vivas a cada troca de página); criá-lo no JS obrigaria aquela função a mover
@@ -2253,6 +2257,20 @@ e ler *"Nada em exibição"*.
   "está cortado" — a rolagem só se descobria tentando. O tom vem de `--surface`,
   que dentro da `.popup-sheet` já resolve para o afundado; preenchimento, nunca
   contorno.
+- **A LETRA É CENTRADA, E O DESTAQUE É SÓ A COR** (v1.8.33). Pedido do operador:
+  *"faça o texto ser centralizado horizontalmente, remova o indicador de posição
+  atual que temos de 'barra lateral' use apenas a coloração do texto atual como
+  indicador"* — na letra, e **nos dois modos**. Vale para os dois de graça porque
+  o construtor é UM (`lvBuildSong`, chamado pela folha do avançado e pela zona do
+  Modo Fácil): uma classe, duas casas. A letra ganhou o modificador que faltava
+  (`lv-row--letra`, irmão de `--verse` e `--slide`) — ela era a única espécie de
+  linha SEM nome próprio, e por isso o desenho dela morava na classe BASE, que as
+  outras duas desfaziam uma a uma. **A barra mudou de classe em vez de ganhar uma
+  exceção:** ela é do `.lv-row--verse` agora, onde responde *"onde eu estou?"*
+  num capítulo de linhas parecidas — outra pergunta da que a letra faz, onde a
+  estrofe em acento já se separa das vizinhas. O `padding-left` que existia só
+  para reservá-la saiu junto: com ele a caixa fica 8,8px fora do centro, que é
+  metade do pedido feita pela metade. Oráculo: `letra-centrada.test.mjs`.
 - **A CIFRA é a ÚLTIMA da lista** (`lyricsViewSources`), e isso é a precedência
   inteira: sem escolha do operador, `lvActiveSource` devolve a primeira — que é
   a camada mais à frente do que está sendo VISTO. A cifra nunca abre sozinha
