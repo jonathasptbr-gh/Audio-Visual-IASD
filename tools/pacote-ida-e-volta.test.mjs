@@ -47,6 +47,9 @@ const RAIZ = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
 // um leitor que o aparelho recusa. Um `blob:` — que era o que este oráculo
 // entregava — não tem query nenhuma, e por ele o leitor novo nem sairia do
 // lugar.
+// O `AVPacote.ASSINATURA_BYTES`, repetido aqui porque o bloco 5-B monta um
+// pacote SINTÉTICO em Node, fora da página que tem o módulo.
+const AVPACOTE_ASSINATURA = 8;
 let pacoteServido = null;   // Uint8Array — o arquivo que o "aparelho B" escolhe
 // O DIÁRIO DA LEITURA. É por ele que o bloco 5 mede o que não tem sintoma:
 // quantas janelas foram pedidas, de que tamanho, e se alguém pediu o arquivo
@@ -447,7 +450,7 @@ try {
   // =========================================================================
   const b = await aparelho(saida);
 
-  const antes = await b.pg.evaluate(async () => (await AVDB.mediaChaves()).length);
+  const antes = await b.pg.evaluate(async () => (await AVDB.mediaResumo()).length);
   checar(antes === 0, '2 · o aparelho de destino começa VAZIO — contextos separados são celulares separados', antes);
 
   // A IMPORTAÇÃO NÃO RECARREGA MAIS O APP (v1.8.28). Ela terminava num
@@ -564,6 +567,78 @@ try {
     { lidos: bytesLidos(), arquivo: saida.length });
 
   // =========================================================================
+  // 5-B · A LEITURA ANTECIPADA CRESCE NA CORRIDA, E NÃO CRESCE NO SALTO
+  // =========================================================================
+  //
+  // O KDoc de `pacoteFonteDaUrl` promete uma janela que CRESCE E ENCOLHE, e da
+  // v1.7.9 até a v1.8.46 ela nunca cresceu: a pergunta era uma IGUALDADE
+  // (`ini === bufIni + buf.length`), e a borda do buffer quase nunca coincide
+  // com o INÍCIO de uma leitura — as do cursor são contíguas mas de tamanhos
+  // irregulares (4 bytes de prefixo, o cabeçalho, um corpo pulado). MEDIDO
+  // sobre o percurso verbatim: **zero** crescimentos em todos os regimes, a
+  // janela travada no piso de 8 kB e o teto de 1 MB inalcançável.
+  //
+  // **ELE NÃO TEM SINTOMA**, e é por isso que passou seis lotes: o conteúdo
+  // entregue é o mesmo, byte a byte. O que muda é o número de janelas — 1.200
+  // requisições para percorrer 3.600 chaves de `state` contra 17 —, e cada uma
+  // é um `fetch` interceptado mais um `openFileDescriptor` no `SafJanela`.
+  //
+  // SÃO DUAS METADES E NENHUMA BASTA: a primeira sozinha é satisfeita por
+  // "cresça sempre", que devolve o defeito oposto e mais caro (ler 1 MB para
+  // aproveitar 200 bytes de cabeçalho, uma vez por vídeo); a segunda sozinha é
+  // satisfeita pela igualdade de ontem. O percurso é o de VERDADE — o
+  // `pacoteCursor` sobre o `pacoteFonteDaUrl`, com os cabeçalhos no formato do
+  // `AVPacote` —, porque uma segunda escrita da leitura provaria só que o
+  // oráculo concorda consigo mesmo.
+  const guardado = pacoteServido;
+  const sintetico = (n, corpo, t) => {
+    const partes = [Buffer.alloc(AVPACOTE_ASSINATURA)];
+    for (let i = 0; i < n; i++) {
+      const json = Buffer.from(JSON.stringify({ t, chave: 'sintetico-' + i, bytes: corpo }), 'utf8');
+      const pre = Buffer.alloc(4);
+      pre.writeUInt32LE(json.length, 0);
+      partes.push(pre, json, Buffer.alloc(corpo));
+    }
+    return Uint8Array.from(Buffer.concat(partes));
+  };
+  const percorrer = async (arquivo) => {
+    pacoteServido = arquivo;
+    zerarDiario();
+    const lidos = await b.pg.evaluate(async (size) => {
+      const cur = pacoteCursor(pacoteFonteDaUrl('/pacote-de-teste', size));
+      let n = 0;
+      for (;;) { const r = await cur.proximo(false); if (!r) break; n++; }
+      return n;
+    }, arquivo.length);
+    return { lidos, req: janelas.length, maior: janelas.reduce((m, j) => Math.max(m, j.fim - j.ini + 1), 0) };
+  };
+
+  // A CORRIDA: 600 chaves de `state` de 200 bytes — o regime da Bíblia, que
+  // mora aqui com uma chave POR CAPÍTULO (1189 por versão).
+  const corrida = await percorrer(sintetico(600, 200, 'state'));
+  // O TETO É LOGARÍTMICO, e não uma fração: com a janela crescendo, o número de
+  // janelas é `log2(arquivo / piso)`; com ela travada no piso, é `arquivo /
+  // piso`. MEDIDO neste arquivo de ~152 kB: **5** com o conserto e **19** com a
+  // igualdade de ontem — o 8 é o meio dos dois, com margem para os dois lados.
+  checar(corrida.lidos === 600 && corrida.req > 0 && corrida.req <= 8,
+    '5-B · a janela CRESCE na corrida de cabeçalhos: 600 registros contíguos são '
+    + 'percorridos em um punhado de janelas, não em uma por registro',
+    corrida);
+  checar(corrida.maior > 8 * 1024,
+    '5-B · e ela cresce de verdade — a maior janela passa do piso de 8 kB, que é '
+    + 'onde a pergunta por IGUALDADE a deixava para sempre',
+    corrida);
+
+  // O SALTO: 40 registros com corpos de 64 kB — o regime da mídia, em que
+  // antecipar seria ler o corpo que a conferência não quer.
+  const salto = await percorrer(sintetico(40, 64 * 1024, 'arquivo'));
+  checar(salto.lidos === 40 && salto.req === 40 && salto.maior === 8 * 1024,
+    '5-B · e NÃO cresce no salto: com um corpo entre dois cabeçalhos ela volta ao '
+    + 'piso, e a conferência lê 8 kB por registro em vez de 1 MB',
+    salto);
+  pacoteServido = guardado;
+
+  // =========================================================================
   // 3 · IMPORTAR DE NOVO NÃO PODE APAGAR NADA
   // =========================================================================
   //
@@ -585,7 +660,7 @@ try {
     nome: (await AVDB.getMedia('item-de-teste')).name,
     pref: await AVDB.getState('bibleVersion'),
     favs: await AVDB.getState('favs'),
-    quantos: (await AVDB.mediaChaves()).length,
+    quantos: (await AVDB.mediaResumo()).length,
   }));
   checar(depois.nome === 'Nome que o operador deu',
     '3 · o registro RENOMEADO no destino sobrevive a uma segunda importação — `add`, nunca `put`',
@@ -616,7 +691,7 @@ try {
     checar(typeof frase === 'string' && /incompleto/.test(frase),
       '4 · um pacote cortado no meio é RECUSADO, e a frase diz por quê', frase);
     const entrou = await c.pg.evaluate(async () => ({
-      media: (await AVDB.mediaChaves()).length,
+      media: (await AVDB.mediaResumo()).length,
       pref: await AVDB.getState('bibleVersion'),
     }));
     checar(entrou.media === 0 && entrou.pref === undefined,
@@ -643,7 +718,7 @@ try {
     checar(typeof frase === 'string' && /tamanho/.test(frase),
       '6 · sem o tamanho do arquivo a importação PARA, e a frase nomeia o que '
       + 'faltou', frase);
-    const entrou = await d.pg.evaluate(async () => (await AVDB.mediaChaves()).length);
+    const entrou = await d.pg.evaluate(async () => (await AVDB.mediaResumo()).length);
     checar(entrou === 0, '6 · e nada entrou', entrou);
     await d.ctx.close();
   }
@@ -732,7 +807,7 @@ try {
     // importação só ACRESCENTA, e o que já entrou está correto. A guarda existe
     // para o item CORTADO não ser um deles.
     const entrou = await h.pg.evaluate(async () => {
-      const ids = await AVDB.mediaChaves();
+      const ids = (await AVDB.mediaResumo()).map((x) => x.id);
       const tamanhos = [];
       for (const id of ids) {
         const r = await AVDB.getMedia(id);
@@ -824,6 +899,10 @@ try {
         contagem,
         viajou: await AVDB.getState('bibleVersion'),
         forjada: await AVDB.getState('current'),
+        // A FRASE, e não o contador: é ela que o operador lê. Sem esta linha o
+        // bloco mede uma variável em memória e passa nas duas versões.
+        frase: await pacoteRelatorio(contagem, null),
+        semRecusa: await pacoteRelatorio({ ...contagem, recusadas: 0 }, null),
       };
     });
     checar(r.forjada === undefined || r.forjada === null,
@@ -832,6 +911,17 @@ try {
     checar(r.contagem.recusadas === 1,
       '10 · e ela é CONTADA — recusar em silêncio é o defeito do bloco 9 por '
       + 'outro caminho', r.contagem.recusadas);
+    // O CONTADOR NÃO É A FRASE, e por seis lotes só ele existiu: as reescritas
+    // do relatório (v1.8.25 → v1.8.28 → v1.8.40) levaram a linha embora e este
+    // bloco continuou verde, porque ele media a variável em memória. A metade
+    // de baixo é o que impede o conserto largo demais — a linha não pode virar
+    // ruído num pacote limpo, que é o caso NORMAL.
+    checar(/recusad/i.test(r.frase),
+      '10 · e a RECUSA SAI NA FRASE, que é o que o operador lê — um contador '
+      + 'que ninguém lê é recusar em silêncio com um número ao lado', r.frase);
+    checar(!/recusad/i.test(r.semRecusa),
+      '10 · e ela NÃO aparece sem recusa nenhuma: um pacote deste app nunca traz '
+      + 'chave do FORA, e a linha seria ruído em toda importação', r.semRecusa);
     checar(r.viajou === 'valor-que-viaja',
       '10 · a chave legítima do MESMO pacote continua entrando', r.viajou);
     await j.ctx.close();

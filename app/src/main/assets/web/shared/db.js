@@ -593,14 +593,6 @@
   // o primeiro dia e é o que impede uma segunda opinião sobre o que é um
   // registro válido.
 
-  /** Os ids de "media", sem trazer registro nenhum. É a lista do que o pacote
-   *  vai percorrer, e ela precisa ser BARATA: o `getAll` traria a letra inteira
-   *  e a miniatura de cada faixa do acervo só para contar. */
-  async function mediaChaves() {
-    const s = await store(STORE_MEDIA, 'readonly');
-    return asPromise(s.getAllKeys());
-  }
-
   /**
    * O RESUMO DO ACERVO — id e TAMANHO de cada registro, numa transação só.
    *
@@ -708,51 +700,6 @@
     const s = await store(STORE_FILES, 'readonly');
     return asPromise(s.getAll());
   }
-  /**
-   * SÓ OS IDS do catálogo, numa transação e sem desserializar valor nenhum.
-   *
-   * O irmão [filesAll] materializa TODO registro — inclusive a miniatura de
-   * cada faixa —, e há usos que só precisam saber quais ids existem. Num
-   * hinário inteiro isso é a diferença entre ler alguns milhares de chaves e
-   * ler os megabytes de capa que vêm com elas.
-   */
-  /**
-   * PASTA E TAMANHO de cada registro do catálogo, num cursor só.
-   *
-   * É o irmão do [mediaResumo] para a store `files`, e existe pela mesma razão:
-   * quem quer o PESO de cada coleção não quer a miniatura de cada faixa, e o
-   * [filesAll] traz as duas coisas. Aqui o cursor lê o registro, guarda dois
-   * campos e segue — o que passa pelo heap é um registro por vez.
-   */
-  async function filesResumo() {
-    const s = await store(STORE_FILES, 'readonly');
-    return new Promise((resolve, reject) => {
-      const out = [];
-      const req = s.openCursor();
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => {
-        const c = req.result;
-        if (!c) { resolve(out); return; }
-        const r = c.value || {};
-        out.push({ folder: r.folder || '', bytes: r.size || 0 });
-        c.continue();
-      };
-    });
-  }
-  /**
-   * AS PASTAS QUE EXISTEM no catálogo — uma entrada por pasta distinta.
-   *
-   * O irmão [filesResumo] percorre a store INTEIRA e DESSERIALIZA cada
-   * registro (com a miniatura e a letra dentro): MEDIDO em Chromium com 2.228
-   * registros, **135 ms**, e era isso que a folha de exportação pagava entre o
-   * toque e a tela. Aqui o cursor é de CHAVE (`openKeyCursor`) sobre o índice
-   * `folder` e em modo `nextunique`, então ele salta de pasta em pasta sem ler
-   * valor nenhum — o custo é o número de PASTAS, não o de arquivos.
-   *
-   * Quem quer o peso de UMA delas usa o [filesByFolder], que também vai pelo
-   * índice. Os dois juntos respondem "o que existe e quanto pesa" por um custo
-   * proporcional ao que se pergunta.
-   */
   async function filesPastas() {
     const s = await store(STORE_FILES, 'readonly');
     return new Promise((resolve, reject) => {
@@ -767,6 +714,14 @@
       };
     });
   }
+  /**
+   * SÓ OS IDS do catálogo, numa transação e sem desserializar valor nenhum.
+   *
+   * O irmão [filesAll] materializa TODO registro — inclusive a miniatura de
+   * cada faixa —, e há usos que só precisam saber quais ids existem. Num
+   * hinário inteiro isso é a diferença entre ler alguns milhares de chaves e
+   * ler os megabytes de capa que vêm com elas.
+   */
   async function filesChaves() {
     const s = await store(STORE_FILES, 'readonly');
     return asPromise(s.getAllKeys());
@@ -801,14 +756,6 @@
     const w = await fh.createWritable();
     await w.write(blob);
     await w.close();
-  }
-  async function opfsDeleteFile(path) {
-    const parts = splitPath(path);
-    const name = parts.pop();
-    try {
-      const dir = await opfsDir(parts, false);
-      await dir.removeEntry(name);
-    } catch (_) {}
   }
   /**
    * Quanto uma pasta OCUPA de verdade, em bytes — somando o que está NO DISCO.
@@ -1276,10 +1223,9 @@
     addMedia, addUrlMedia, addStreamMedia, setMediaStream, addDeck, addCue,
     getMedia, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
-    fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves, filesResumo,
+    fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,
     filesPastas,
-    opfsSupported, opfsGetFile, opfsWriteFile, opfsDeleteFile, opfsDeleteDir, opfsFolderSize,
-    mediaChaves,
+    opfsSupported, opfsGetFile, opfsWriteFile, opfsDeleteDir, opfsFolderSize,
     mediaResumo, mediaAdd, opfsTodosOsArquivos,
     kindFromType, sendCommand, onCommand,
   };
