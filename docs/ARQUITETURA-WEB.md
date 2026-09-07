@@ -205,6 +205,14 @@ app/src/main/assets/web/
 │   │                           # capacidades INJETADAS (normalizar, casar letra,
 │   │                           # "está no aparelho?") e oráculo em Node: decide
 │   │                           # o que pode ser sorteado para o telão
+│   ├── hinario.js              # As SEÇÕES do Hinário 2022 — PURA, com oráculo em
+│   │                           # Node: traduz NÚMERO em SEÇÃO (35 faixas, 8
+│   │                           # blocos). O banco NÃO tem esse campo — o que
+│   │                           # identifica a seção é a POSIÇÃO do hino
+│   ├── cifra.js                # A CIFRA — PURA, com oráculo em Node: lê uma
+│   │                           # página do Cifra Club (slug, folha, transposição)
+│   │                           # e a RAMPA da rolagem. Quem faz o GET é o shell
+│   │                           # (`CifraFonte.kt`); aqui não há rede nem DOM
 │   ├── coletanea.js            # A LEITURA EDITORIAL das coletâneas — PURA, com
 │   │                           # oráculo em Node: qual coletânea não tem
 │   │                           # independência e se DISSOLVE em outra. Aplicada

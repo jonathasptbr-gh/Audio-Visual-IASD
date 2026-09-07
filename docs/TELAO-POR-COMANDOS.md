@@ -28,7 +28,8 @@
 >
 > Os fatos de código citados vêm da varredura E0 (9 leitores paralelos, 229
 > fatos com arquivo:linha) — o bruto está em
-> `docs/anexo-varredura-command-stream.json`, que será apagado na E7. As linhas
+> `docs/anexo-varredura-command-stream.json` — que FOI apagado, como estava
+> previsto; o que sobrou dele é o que está escrito aqui. As linhas
 > citadas valem para o commit da varredura (2026-08-13) e envelhecem.
 >
 > **RECONCILIADO COM A v5.186 (v1.85)**, que entrou em `main` depois da

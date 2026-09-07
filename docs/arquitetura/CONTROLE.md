@@ -5842,7 +5842,7 @@ de mídia offline, sem copiar nenhum código do app-ja (Vue/Vuex) — só o
 `controle/louvorja.js` (`window.Louvorja`, JS puro, sem dependências).
 
 > 📄 **Referência completa da fonte de dados:**
-> [`docs/FONTE-DE-DADOS-LOUVORJA.md`](docs/FONTE-DE-DADOS-LOUVORJA.md) documenta
+> [`docs/FONTE-DE-DADOS-LOUVORJA.md`](../FONTE-DE-DADOS-LOUVORJA.md) documenta
 > **toda** a estrutura técnica classificatória do banco compartilhado (endpoints,
 > token, convenção de nomes dos arquivos `json_db` e o schema de cada tipo —
 > `music_{id}`, `album_{id}`, listas de músicas/hinários/coletâneas/bíblia,
