@@ -276,7 +276,7 @@ O shell entrega o botão voltar do Android a `window.__avBack()`; devolver `true
 significa "consumi o toque", `false` faz a Activity minimizar (a projeção segue
 viva — sair do app por engano num culto derrubaria o telão). A escada completa,
 o prazo de resposta e o porquê de a decisão ser do lado web estão em
-[`CLAUDE.md`](../CLAUDE.md), seção "Botão voltar: fecha antes de minimizar".
+[`CLAUDE.md`](../../CLAUDE.md), seção "Botão voltar: fecha antes de minimizar".
 
 Do lado web importam duas coisas:
 

@@ -5,7 +5,7 @@ para a TV com `android.app.Presentation`.
 
 > **Este diretório é o irmão de [`../arquitetura/`](../arquitetura/).** Aquele
 > cobre a base web (`assets/web/`); este cobre o Kotlin
-> (`app/src/main/java/br/org/iasd/av/`, 34 arquivos). As regras que valem para
+> (`app/src/main/java/br/org/iasd/av/`, 32 arquivos). As regras que valem para
 > o app inteiro — invariantes, paleta, entrega, divergências web × nativo —
 > ficam em [`../../CLAUDE.md`](../../CLAUDE.md), que continua sendo a **leitura
 > obrigatória**; aqui está o detalhe que ela aponta.
@@ -45,6 +45,7 @@ para a TV com `android.app.Presentation`.
 | `YoutubeGrab.kt` | 1.996 | `CLAUDE.md` — "Trabalho em segundo plano" e "Divergências" |
 | `StreamProxy.kt` | 511 | `CLAUDE.md` — invariante 8 |
 | `MuxMp4.kt` | 190 | `CLAUDE.md` — "Resolução do download" |
+| `MuxMp4.kt` | 191 | `CLAUDE.md` — "Divergências" (acima de 720p o YouTube entrega vídeo sem som; o `MediaMuxer` junta as duas faixas por CÓPIA de amostras, sem recodificar, e pares de contêineres diferentes o muxer recusa DEPOIS de tudo baixado) |
 | `TrilhaAudio.kt` | 138 | `CLAUDE.md` — "Séries do YouTube" |
 | `SessionService.kt` | 916 | `CLAUDE.md` — "Notificação de controles" |
 | `SyncService.kt` | 550 | `CLAUDE.md` — "Trabalho em segundo plano" |

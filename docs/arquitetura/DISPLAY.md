@@ -107,7 +107,7 @@ reproduz tem de ser quem captura. O caminho é `getUserMedia →
 MediaStreamSource → GainNode → destination`, com rampa curta na entrada e na
 saída (cortar no meio de uma palavra estala na caixa de som). A parte nativa
 (permissão `RECORD_AUDIO`, `onPermissionRequest` do WebView) está em
-[`CLAUDE.md`](../CLAUDE.md).
+[`CLAUDE.md`](../../CLAUDE.md).
 
 **A captura em voo tem um token (`micSeq`), e `micStream` não servia como
 guarda.** Ele só existe DEPOIS de o `getUserMedia` resolver, e o primeiro

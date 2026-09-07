@@ -67,6 +67,37 @@ nunca. Hoje as duas custam o mesmo, em toda sessão.
 e armadilhas ativas, meta de **80 kB**. O resto desce para `docs/`, alcançável
 por `grep`. Arquivar inteiro o que descreve recurso removido.
 
+> **DESFECHO PARCIAL — a faxina de 2026-09-07.** A projeção desta auditoria estava
+> otimista: em 04/set o arquivo tinha 381 kB e 4.567 linhas; em 07/set chegou a
+> **562 kB e 6.726 linhas** — **+47% em três dias**, quatro vezes a taxa medida
+> aqui.
+>
+> A causa foi ISOLADA e é exatamente a que o achado nomeia: **25 blocos
+> *"O QUE O LOTE TRAZ (vX)"***, da v1.7.4 à v1.8.48, somando **1.294 linhas
+> (19% do arquivo)** — justificativa pura, num arquivo lido inteiro antes de
+> qualquer trabalho, contra a regra que o próprio arquivo escreve duas seções
+> acima (*"Aqui entra o que VALE HOJE; em `docs/HISTORICO.md`, o que explica
+> POR QUÊ"*).
+>
+> Saíram todos, depois de MEDIDO que cada um tem entrada no `HISTORICO.md` — as
+> seis que faltavam foram escritas no mesmo lote — e que a regra permanente de
+> cada um já vive na seção canônica ou na TABELA DE ORÁCULOS. As duas exceções
+> encontradas foram enxertadas ANTES da remoção (as linhas de tabela do
+> `funcao-sem-chamador` e do `notificacao-ids`, que existiam só nos blocos), mais
+> o avanço da playlist sem TV, na linha do `preview-volta-ao-wallpaper`.
+>
+> **Hoje: 475 kB e 5464 linhas.** A meta de 80 kB continua distante — o que
+> sobra é a seção canônica, e encolhê-la é outro trabalho, com outro risco: ali a
+> justificativa e a regra estão TRANÇADAS parágrafo a parágrafo, e separá-las é
+> leitura linha a linha, não uma varredura.
+>
+> **E o `ESPELHO-DE-PIXELS.md` deste mesmo achado foi CONFERIDO e NÃO mexido:**
+> ele é quase inteiro uma seção só (o apêndice §10-A, 822 de 922 linhas), o
+> índice já declara que é arquivo morto, ninguém o carrega a menos que o abra, e
+> o `HISTORICO.md` e o `TELAO-POR-COMANDOS.md` referenciam subseções dele por
+> número. Apagá-lo quebraria referências vivas para poupar bytes que ninguém
+> paga. *Medir antes evitou a faxina errada.*
+
 ### 2 · ALTA — Doze versões para uma tela: o operador é o arnês de teste visual
 
 `v1.5.7` → `v1.5.19`: 12 versões, 2 dias, a mesma área. Três desenhos completos
