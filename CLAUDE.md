@@ -5370,23 +5370,24 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.46 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.47 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.46 NÃO declara `shellTag`, e a v1.8.45 declarou — a diferença é o
+> **A v1.8.47 NÃO declara `shellTag`, e a v1.8.45 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela acrescentou um
 > método à ponte (`pacoteProntoEstado`) e o `controle.js` o CHAMA na abertura:
 > contra um APK sem ele, o `native.js` cai no `catch`, o `call()` vence os 60 s
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
+> (A v1.8.46 é o mesmo caso, pela mesma razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A v1.8.46 NÃO pede Release.**
+> **A v1.8.47 NÃO pede Release.**
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
 > oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
@@ -5424,6 +5425,40 @@ bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 > Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+**O QUE O LOTE TRAZ (v1.8.47) — o que a lente de CÓDIGO MORTO achou, e o
+oráculo que a fecha:**
+
+| o que saiu | por quê |
+|---|---|
+| `STREAM_RETENTAR_MS` + `streamRetentado` + 33 linhas | a TRANSMISSÃO DIRETA saiu na v1.7.7 e levou os chamadores |
+| `listBodyEl` | a v1.5.0 tirou a faixa de abas e o fantasma que ele ancorava |
+| a regra `.lib-list.lib-ghost` e as três notas dela | o mesmo fantasma, do lado do CSS |
+| a lápide que nomeava `.lv-cifra-cab` como removida | ele VOLTOU na v1.6.3 e é a margem que protege a intro |
+| **um oráculo novo**: constante de módulo sem leitor | `funcao-sem-chamador.test.mjs`, terceiro bloco |
+
+> **UMA LÁPIDE QUE NOMEIA CÓDIGO VIVO É O PIOR COMENTÁRIO ERRADO QUE ESTE
+> REPOSITÓRIO SABE PRODUZIR** (v1.8.47). A nota do `controle.css` listava
+> `.lv-cifra-cab` entre as classes que saíram com o SELETOR DE CIFRA da v1.3.3 —
+> e o nome voltou na v1.6.3, hoje é o CABEÇALHO DA OBRA, tem regra viva vinte
+> linhas acima e asserção própria no `cifra-rolagem.test.mjs`. Quem procurasse a
+> regra encontraria a lápide, concluiria que é resto, e apagaria a margem que
+> impede a rolagem de cortar a intro — o relato que criou o recurso.
+>
+> **E OS OUTROS TRÊS SÃO A MESMA CLASSE PELO LADO DO SÍMBOLO:** a transmissão
+> direta saiu do app na v1.7.7 (com `tentarTransmitir`, `recuperarStream` e
+> `onStreamErro`), e o par que media a retentativa ficou — com trinta e três
+> linhas descrevendo, no presente, um app que re-extrai o manifesto quando um
+> stream falha em cena. Ele não faz isso desde a v1.7.7.
+
+> **A CONSTANTE SEM LEITOR PASSOU A TER ORÁCULO** (v1.8.47). O
+> `funcao-sem-chamador.test.mjs` cobria FUNÇÕES e a superfície do `AVDB`; a
+> outra metade do que a base declara ficava de fora, e é onde estavam os três
+> achados deste lote. A regex pega o recuo 0-2, então ela alcança também
+> variáveis LOCAIS de uma função de topo — e isso não é ruído: um local que
+> aparece UMA vez no repositório inteiro foi declarado e nunca lido, o mesmo
+> defeito um escopo abaixo. MEDIDO na entrada: **1.976 símbolos varridos, zero
+> órfãos**, com as duas reversões (a constante morta e a que só o oráculo lê).
 
 **O QUE O LOTE TRAZ (v1.8.46) — a leitura antecipada que nunca cresceu, e a
 recusa que ninguém lia:**

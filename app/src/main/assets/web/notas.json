@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.47",
+    "itens": [
+      "Limpeza interna: saiu código que tinha ficado sem uso."
+    ]
+  },
+  {
     "versao": "1.8.46",
     "itens": [
       "A importação de um acervo grande ficou mais rápida na leitura do arquivo.",
