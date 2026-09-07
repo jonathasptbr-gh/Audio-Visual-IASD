@@ -7560,69 +7560,106 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    preenchimento de escolhido, que é a linguagem de estado do app inteiro. O
    `:where()` zera a contribuição do que está dentro dele, então estas regras
    entram abaixo do estado de propósito. */
-:where(#songMenuList) > .pacote-grupo,
-:where(#songMenuList) > .pacote-linha > .song-menu-btn {
+/* ---------- A FOLHA DE EXPORTAÇÃO VESTE O DESENHO DA BIBLIOTECA (v1.8.40) ----
+   Pedido do operador: *"os grupos estão iguais às listas de itens dentro deles,
+   não deixando identificar o que é topo e o que é item. Ajuste o design para
+   usar o mesmo design que já temos na biblioteca, para cores e modelos de
+   coleções e álbuns … até as setas de abertura"*.
+
+   A hierarquia da Biblioteca não é uma escada de tons — é uma ALTERNÂNCIA
+   (v1.5.14): o que está na RAIZ é um agrupamento e veste o POÇO; o que está
+   DENTRO dele é conteúdo e volta ao PAPEL. Aqui é a mesma regra, com os mesmos
+   tokens, e por isso as duas telas se leem como um sistema só. O raio é o do
+   CARTÃO (`--radius-card`), como o dos blocos de lá, e não o do botão.
+
+   AS CLASSES SÃO PRÓPRIAS DESTA FOLHA: a `#songMenuList` é a mesma da folha de
+   destinos e do menu de uma música, e escopar por classe é o que impede o tom
+   novo de vazar para elas — uma bandeira global no popup seria uma que alguém
+   esquece de limpar.
+
+   ---------- E O PREENCHIMENTO DE ESCOLHIDO NÃO VALE AQUI (v1.8.41) ----------
+   Relato do operador: *"as cores entre o dono e os itens de sua lista também
+   estão diferentes do que temos na biblioteca … eu quero o mesmo design da
+   biblioteca"*. MEDIDO no renderizado, no estado em que a folha de fato abre: a
+   barra de uma seção e as linhas dentro dela em `rgb(46, 66, 98)` — **a mesma
+   cor**, 1,00:1 —, contra `rgb(52, 71, 91)` e `rgb(33, 47, 61)` na Biblioteca.
+   O tom da alternância existia e nunca era visto.
+
+   A causa é o `--sel-fill` de `.song-menu-btn.song-menu-sel:has(…on)`, e ele
+   está CERTO onde nasceu: na folha de DESTINOS nada começa marcado, e ali o
+   preenchimento É a resposta. **Aqui tudo nasce marcado** — o trabalho desta
+   folha é TIRAR —, então ele pinta 100% das linhas, não distingue nenhuma, e o
+   que apaga é a única coisa que responde *"o que é topo e o que é item?"*. É a
+   regra da v5.151 num lugar novo: *uma condição quase sempre verdadeira não
+   ADIA a pergunta, ela a APAGA*.
+
+   O QUE CARREGA A MARCA É O ✓, e ele já está em toda linha: quadrado cheio em
+   `--accent` com o traço por cima (`.song-menu-check.on`), o mesmo desenho da
+   folha de destinos. Nada se perde — o que sai é a segunda cópia da resposta,
+   justamente a que custa a hierarquia. */
+:where(#songMenuList) > .pacote-grupo {
   background: var(--poco);
   border-radius: var(--radius-card);
+  overflow: hidden;
 }
-:where(#songMenuList) > .pacote-grupo { overflow: hidden; }
-/* O que está DENTRO de um bloco volta ao papel — e o `--camada` acompanha, como
-   na `.coll-group-corpo`, para o que a linha desenhar por dentro (a caixa de
-   marcação) pousar no tom certo. */
+/* O que está DENTRO de um bloco volta ao papel. `--pacote-superficie` é o token
+   local que o BLOCO reserva para os filhos — a mesma ideia da `--camada` da
+   Biblioteca, e é ela que faz a regra da linha (abaixo) ser UMA só para os dois
+   níveis. `--camada` acompanha para o que a linha desenhar por dentro (a caixa
+   de marcação) pousar no tom certo. */
 .pacote-grupo-corpo {
   list-style: none; margin: 0; padding: 0 var(--sp-3) var(--sp-3);
   display: flex; flex-direction: column; gap: var(--sp-3);
+  --pacote-superficie: var(--panel);
   --camada: var(--poco);
 }
-:where(.pacote-grupo-corpo) > :where(.pacote-linha) > .song-menu-btn {
-  background: var(--panel);
+/* A SUPERFÍCIE DE UMA LINHA, nos dois níveis e numa descrição só. O padrão do
+   `var()` é o POÇO: uma linha de RAIZ é um agrupamento, como um hinário na raiz
+   da Biblioteca — e a barra de um bloco cai aqui também, vestindo o tom do
+   próprio bloco, que é o mesmo que não pintar nada.
+
+   OS DOIS SELETORES SÃO DELIBERADOS, e a razão é ARITMÉTICA: o `--sel-fill`
+   vale (0,5,0) (`.song-menu-btn.song-menu-sel` mais o `:has(.song-menu-check
+   .on)`, que contribui com a especificidade do argumento). O segundo seletor
+   daqui vale (0,2,0) e perde para ele — que é o certo para as OUTRAS folhas —;
+   o primeiro empata em (0,5,0) e vence por vir depois. Escrever um só, alto,
+   funcionaria e diria menos: assim está dito que a regra existe para vencer
+   AQUELE estado, e só nesta folha. */
+/* E A COLUNA DO ÍCONE É A MESMA NOS DOIS NÍVEIS, como na Biblioteca. A
+   `.coll-bar-icon` que o `linhaDeGrupo` acrescenta traz a tinta e o raio; a
+   LARGURA precisa desta linha porque `.song-menu-icon` declara `--icon-lg` e
+   vale o mesmo (0,1,0), com a folha de destinos mais abaixo no arquivo —
+   escopar pela `.pacote-linha` é (0,2,0) e não toca nas outras folhas. Sem ela
+   o que sai é um quadrado de 24px sob uma seta de 34, e os nomes fora de prumo. */
+.pacote-linha .song-menu-icon { width: var(--hit); height: var(--hit); }
+:is(.pacote-grupo, .pacote-linha) > .song-menu-btn.song-menu-sel:is(
+  :has(.song-menu-check.on), :has(.song-menu-check.parcial)
+),
+:is(.pacote-grupo, .pacote-linha) > .song-menu-btn {
+  background: var(--pacote-superficie, var(--poco));
   border-radius: var(--radius-card);
-}
-/* A BARRA DO BLOCO não tem tom próprio: quem pinta é o bloco, e ela aparece por
-   transparência — a mesma decisão da `.coll-group-bar` e da `.hist-sessao-bar`.
-   Sem isto o bloco teria dois tons dentro de si e a alternância viraria escada
-   outra vez. */
-:where(#songMenuList) > .pacote-grupo > :where(.song-menu-grupo) {
-  background: none;
 }
 
 /* A SETA é um `<button>` DENTRO da barra, e por isso a barra é uma `<div>`:
    botão dentro de botão é HTML inválido — a mesma solução da `.coll-group-bar`.
-   Ela ocupa a coluna do ícone, então a seção e a linha comum começam no mesmo
-   x, e o que as separa é o recuo do CONTEÚDO de dentro (abaixo). */
-.song-menu-seta {
-  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  /* A CAIXA É `--icon-lg`, A MESMA do `.song-menu-icon` — é isso que põe o nome
-     de uma seção na MESMA coluna do nome de uma linha comum. O alvo continua
-     sendo `--hit`, e ele sai por um `::before` esticado, não pela caixa: um
-     alvo que ocupasse a largura toda empurraria o texto 5px para a direita, e o
-     que se veria era a seção desalinhada das irmãs (MEDIDO). */
-  position: relative;
-  width: var(--icon-lg); height: var(--icon-lg);
-  background: none; color: var(--accent); cursor: pointer;
-  transition: transform var(--dur-media) ease;
-}
-.song-menu-seta::before {
-  content: ''; position: absolute;
-  top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: var(--hit); height: var(--hit);
-}
-.song-menu-seta.aberta { transform: rotate(90deg); }
-@media (prefers-reduced-motion: reduce) { .song-menu-seta { transition: none; } }
-/* O RECUO DE QUEM ESTÁ DENTRO. Ele é a única coisa que diz "esta coleção
-   pertence àquela seção" depois que a barra rolou para fora da tela — e é por
-   isso que ele é do CONTEÚDO e não uma margem do `<li>`: a linha inteira
-   continua sendo o alvo, de ponta a ponta, e o que anda é o texto.
 
-   A MEDIDA É A COLUNA DO ÍCONE (`--icon-lg` mais o `gap`), e não um número:
-   com ela o ÍCONE de quem está dentro nasce onde começa o NOME de quem está
-   fora, que é o degrau que se lê sem contar pixels. MEDIDO, o primeiro corte
-   (`--sp-5`) dava 10px de recuo — dois níveis a dez pixels um do outro se leem
-   como desalinhamento, não como hierarquia. */
-.song-menu-dentro {
-  padding-left: calc(var(--opcao-recuo-h) + var(--icon-lg) + var(--sp-5));
-}
+   A CAIXA DELA É A `.coll-group-icon` DA BIBLIOTECA (v1.8.41), pela classe e
+   não por cópia — o quadrado de `--hit` em `--btn-accent`, o raio de botão e o
+   chevron em `--accent`. O que sobra aqui é só o que ESTA folha tem de próprio:
+   qual estado gira. Lá o giro mora num seletor que fala da árvore da Biblioteca
+   (`.coll-group--drop:not(.aberto) > …`), e aqui a marca de aberto é uma classe
+   da própria seta.
 
+   FECHADA ELA APONTA PARA BAIXO, como a de lá: o chevron é desenhado para cima
+   e o estado fechado o vira. O giro é da CAIXA e não do SVG — ela é quadrada e
+   centrada, então girá-la não desloca um pixel. */
+.pacote-seta:not(.aberta) { transform: rotate(180deg); }
+/* E O RECUO DO TOQUE TEM DE COMPOR COM O GIRO — `transform` é UMA propriedade,
+   e a lista do `--press` escreve `translateY(2px)`: sem esta linha a seta
+   fechada daria um pulo de 180° ao ser tocada. É a mesma composição que a
+   `.coll-group-icon` já faz do outro lado, e a ORDEM importa (o recuo antes do
+   giro: uma `transform` é aplicada da direita para a esquerda). */
+.pacote-seta:not(.aberta):active { transform: var(--press) rotate(180deg); }
 /* O quadrado é um `::before` para o ALVO (acima) e o DESENHO (aqui) serem
    independentes — a mesma separação do `.pv-fab`.
    DESMARCADO ELE É UM RECESSO, não um contorno: o buraco escuro diz "aqui cabe

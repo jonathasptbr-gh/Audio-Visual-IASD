@@ -162,8 +162,8 @@ const lerFolha = (pg) => pg.evaluate(() => [...document.querySelectorAll('#songM
       marca: !cx ? '' : cx.classList.contains('on') ? 'todas'
         : cx.classList.contains('parcial') ? 'parte' : 'nenhuma',
       grupo: !!(b && b.classList.contains('song-menu-grupo')),
-      dentro: !!(b && b.classList.contains('song-menu-dentro')),
-      seta: !!li.querySelector('.song-menu-seta'),
+      dentro: !!li.closest('.pacote-grupo-corpo'),
+      seta: !!li.querySelector('.pacote-seta'),
     };
   }));
 
@@ -173,7 +173,7 @@ const tocar = (pg, rotulo, alvo) => pg.evaluate(([r, a]) => {
   const li = [...document.querySelectorAll('#songMenuList li')]
     .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === r);
   if (!li) throw new Error('linha não encontrada: ' + r);
-  (a === 'seta' ? li.querySelector('.song-menu-seta') : li.firstElementChild).click();
+  (a === 'seta' ? li.querySelector('.pacote-seta') : li.firstElementChild).click();
 }, [rotulo, alvo || 'corpo']);
 
 async function escolher(pg, passos) {
@@ -812,88 +812,181 @@ try {
       + 'ela NÃO tem no fim — a folha inteira na ordem em que o operador '
       + 'aprendeu a procurar', JSON.stringify(ordem));
 
-    // ===== O DESENHO É O DA BIBLIOTECA: ALTERNÂNCIA, NÃO ESCADA =====
+    // ===== O DESENHO É O DA BIBLIOTECA, E A RÉGUA É A BIBLIOTECA =====
     //
-    // Pedido do operador: *"os grupos estão iguais às listas de itens dentro
-    // deles, não deixando identificar o que é topo e o que é item. Ajuste o
-    // design para usar o mesmo design que já temos na biblioteca"*. Ele estava
-    // descrevendo um 1,00:1 — bloco e linha pintavam a MESMA superfície.
+    // Pedido do operador, em duas rodadas. A primeira (v1.8.40): *"os grupos
+    // estão iguais às listas de itens dentro deles, não deixando identificar o
+    // que é topo e o que é item"* — um 1,00:1 medido. A segunda (v1.8.41), com
+    // o degrau já no lugar: *"a seta de abertura do acordeão está diferente, as
+    // cores entre o dono e os itens de sua lista também … eu quero o mesmo
+    // design da biblioteca, cores e ícones — o padrão da biblioteca já temos"*.
     //
-    // A régua é a COR RENDERIZADA e o DEGRAU entre ela e a de dentro, nunca o
-    // nome do token: dois nomes diferentes podem resolver para o mesmo valor, e
-    // foi esse o defeito da Biblioteca na v1.5.14 e do histórico na v1.7.5.
+    // A RÉGUA MUDOU POR CAUSA DA SEGUNDA, e é ela que carrega este bloco: um
+    // degrau MEDIDO contra um piso prova que a folha tem hierarquia, e não que
+    // ela tem A hierarquia da Biblioteca. Aqui os dois desenhos são medidos NA
+    // MESMA PÁGINA e comparados um com o outro — bloco × seção, linha × card,
+    // seta × seta. Um número escrito no oráculo envelheceria à parte do app na
+    // primeira vez que a Biblioteca mudasse de tom, e a divergência voltaria
+    // sem nada reprovar.
     //
     // MEDIDO COM AS LINHAS DESMARCADAS, e é obrigatório: a folha nasce com tudo
-    // marcado, e o preenchimento de ESCOLHIDO (`--sel-fill`) cobre o tom em
-    // todas elas — medindo assim, as três asserções leem a mesma cor de estado
-    // e não dizem nada sobre a hierarquia (medido: `rgb(46, 66, 98)` nos três).
-    // O tom só é a resposta onde ele é o que se vê.
-    const corDe = (rotulo) => e.pg.evaluate((r) => {
+    // marcado, e ATÉ A v1.8.40 o preenchimento de escolhido (`--sel-fill`)
+    // cobria o tom em todas elas — medindo assim, as três asserções liam a
+    // mesma cor de estado (`rgb(46, 66, 98)` nas três) e não diziam nada sobre
+    // a hierarquia. Ele saiu nesta folha (ver o bloco de baixo); a medição
+    // continua sendo feita desmarcada porque é ali que o tom é o que se vê.
+    const marcada = await e.pg.evaluate(() => {
       const li = [...document.querySelectorAll('#songMenuList li')]
-        .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === r);
-      const b = li && li.querySelector('.song-menu-btn, .song-menu-grupo');
-      return b && getComputedStyle(b).backgroundColor;
-    }, rotulo);
-    const marcada = await corDe('Favoritos');
+        .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Favoritos');
+      return getComputedStyle(li.querySelector('.song-menu-btn')).backgroundColor;
+    });
     await tocar(e.pg, 'Diversas');
     await tocar(e.pg, 'Favoritos');
     await tocar(e.pg, 'Diversas', 'seta');
-    const tons = await e.pg.evaluate(() => {
-      const cor = (el) => el && getComputedStyle(el).backgroundColor;
-      const lum = (c) => {
-        const m = /rgba?\(([^)]+)\)/.exec(c || '');
-        if (!m) return -1;
-        const [r, g, b] = m[1].split(',').map((x) => Number(x) / 255);
-        const f = (v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
-        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-      };
-      const li = [...document.querySelectorAll('#songMenuList li')];
+    const par = await e.pg.evaluate(() => {
+      const cs = (el) => el && getComputedStyle(el);
+      const cor = (el) => (cs(el) || {}).backgroundColor;
       const rot = (x) => ((x.querySelector('.song-menu-label') || {}).textContent || '');
+      // ---- A FOLHA ----
+      const li = [...document.querySelectorAll('#songMenuList li')];
       // PELO RÓTULO, e nunca "o primeiro `.pacote-grupo`": a folha tem duas
       // seções e a aberta é a segunda (medido: com o índice, o oráculo lia o
-      // bloco FECHADO e `dentro` vinha nulo).
+      // bloco FECHADO e a linha de dentro vinha nula).
       const bloco = li.find((x) => x.classList.contains('pacote-grupo') && rot(x).indexOf('Diversas') === 0);
+      const barra = bloco && bloco.querySelector('.song-menu-grupo');
       const dentro = bloco && bloco.querySelector('.pacote-grupo-corpo .song-menu-btn');
       const raiz = li.find((x) => x.classList.contains('pacote-linha') && rot(x) === 'Favoritos');
-      const raizBtn = raiz && raiz.querySelector('.song-menu-btn');
-      const razao = (a, b) => {
-        const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
-        return (x + 0.05) / (y + 0.05);
+      const seta = bloco && bloco.querySelector('.pacote-seta');
+      // ---- A BIBLIOTECA, MONTADA NA MESMA PÁGINA ----
+      // Ela é desenhada num `<ul>` fora da tela pelo caminho de verdade
+      // (`renderCollectionsList`), que é o mesmo que a janela usa: um desenho
+      // reconstruído à mão aqui provaria que o oráculo concorda consigo mesmo.
+      const ul = document.createElement('ul');
+      ul.className = 'hymnal-list';
+      ul.style.cssText = 'width:390px;position:absolute;left:-9999px;top:0';
+      document.body.appendChild(ul);
+      const des = () => { ul.innerHTML = ''; renderCollectionsList(ul, des, { semTotal: true }); };
+      const antes = grupoAberto;
+      grupoAberto = 'Adoradores'; des();
+      const sec = [...ul.querySelectorAll('[data-grupo]')].find((n) => n.dataset.grupo === 'Adoradores');
+      const secBar = sec && sec.querySelector('.coll-group-bar');
+      const card = sec && sec.querySelector('.coll-group-corpo .hymnal-card');
+      const secIcone = sec && sec.querySelector('.coll-group-icon');
+      const cardIcone = card && card.querySelector('.coll-bar-icon');
+      const caixa = (el) => {
+        if (!el) return null;
+        const c = cs(el);
+        return {
+          w: Math.round(el.getBoundingClientRect().width),
+          bg: c.backgroundColor, cor: c.color, raio: c.borderRadius,
+        };
       };
-      return {
-        bloco: cor(bloco), dentro: cor(dentro), raiz: cor(raizBtn),
-        degrau: razao(cor(bloco), cor(dentro)),
-        // A BARRA do bloco não tem tom PRÓPRIO: quem pinta é o bloco, e ela
-        // aparece por transparência. Dois tons dentro do mesmo bloco seriam a
-        // escada de volta um nível abaixo.
-        barra: cor(bloco && bloco.querySelector('.song-menu-grupo')),
+      const r = {
+        folha: {
+          bloco: cor(bloco), barra: cor(barra), dentro: cor(dentro), raiz: cor(raiz.querySelector('.song-menu-btn')),
+          seta: caixa(seta),
+          icone: caixa(dentro && dentro.querySelector('.song-menu-icon')),
+          // O RECUO de quem está dentro, contra o nome da seção — a distância
+          // que o bloco cobrava por conter, e que a v1.8.41 devolveu.
+          recuo: bloco.querySelector('.pacote-grupo-corpo .song-menu-label').getBoundingClientRect().x
+            - barra.querySelector('.song-menu-label').getBoundingClientRect().x,
+        },
+        lib: {
+          bloco: cor(sec), barra: cor(secBar), dentro: cor(card),
+          seta: caixa(secIcone),
+          icone: caixa(cardIcone),
+          recuo: card.querySelector('.coll-bar-name').getBoundingClientRect().x
+            - secBar.querySelector('.coll-group-name').getBoundingClientRect().x,
+        },
       };
+      ul.remove(); grupoAberto = antes;
+      return r;
     });
-    checar(tons.degrau > 1.25,
-      'E · o BLOCO e a linha DE DENTRO dele são superfícies diferentes — era '
-      + '1,00:1, que é o relato do operador ("não dá para identificar o que é '
-      + 'topo e o que é item")', JSON.stringify(tons));
-    checar(!!tons.bloco && tons.raiz === tons.bloco,
+    checar(par.folha.bloco === par.lib.bloco && par.folha.dentro === par.lib.dentro
+      && par.folha.bloco !== par.folha.dentro,
+      'E · o BLOCO e a linha DE DENTRO vestem AS MESMAS superfícies que a seção '
+      + 'e o card da Biblioteca — e são duas, que é o relato do operador ("não '
+      + 'dá para identificar o que é topo e o que é item")', JSON.stringify(par));
+    checar(par.folha.barra === par.folha.bloco,
+      'E · a BARRA veste o tom do próprio BLOCO, como a `.coll-group-bar` de '
+      + 'lá: um tom PRÓPRIO ali seria um segundo degrau DENTRO do bloco, e a '
+      + 'escada voltaria um nível abaixo', JSON.stringify(par));
+    checar(par.folha.raiz === par.folha.bloco,
       'E · e uma linha da RAIZ veste o MESMO tom do bloco: a hierarquia é uma '
       + 'ALTERNÂNCIA (o que está na raiz é agrupamento), nunca uma escada de '
       + 'três degraus — sem esta metade um terceiro tom passaria',
-      JSON.stringify(tons));
-    checar(/rgba\(0, 0, 0, 0\)|transparent/.test(tons.barra || ''),
-      'E · e a BARRA do bloco não pinta nada — quem pinta é o bloco, e ela '
-      + 'aparece por transparência (a decisão da `.coll-group-bar`); com tom '
-      + 'próprio o bloco teria dois dentro de si e a escada voltaria',
-      JSON.stringify(tons));
-    // ===== E O ESTADO CONTINUA VENCENDO O TOM =====
-    // O tom novo é escopado com id (`#songMenuList`), que vale (1,x,0) — e a
-    // linha MARCADA é `.song-menu-btn.song-menu-sel:has(…)`, que vale (0,3,0).
-    // Escrito sem `:where()`, o tom apagaria o preenchimento de ESCOLHIDO, que
-    // é a linguagem de estado do app inteiro: a folha inteira ficaria com a
-    // mesma cara marcada e desmarcada, numa tela cujo trabalho é marcar. É a
-    // metade que impede o conserto largo demais.
-    checar(!!marcada && marcada !== tons.raiz,
-      'E · e uma linha MARCADA continua vestindo o preenchimento de ESCOLHIDO, '
-      + 'e não o tom da hierarquia — o `:where()` é o que mantém o estado '
-      + 'vencendo', JSON.stringify({ marcada, desmarcada: tons.raiz }));
+      JSON.stringify(par));
+    // ===== A SETA É A DA BIBLIOTECA, MEDIDA CONTRA A DA BIBLIOTECA =====
+    // MEDIDO antes: 24px transparente, raio 0 e traço 2 aqui; 34px em
+    // `--btn-accent`, raio 8px e traço 2,4 lá. Nenhum eixo em comum.
+    checar(JSON.stringify(par.folha.seta) === JSON.stringify(par.lib.seta),
+      'E · e a SETA do acordeão é a MESMA da Biblioteca em tamanho, tinta, cor '
+      + 'e raio — não uma parecida: a classe é a `.coll-group-icon` dela, e uma '
+      + 'segunda descrição do mesmo objeto divergiria no primeiro ajuste',
+      JSON.stringify({ folha: par.folha.seta, lib: par.lib.seta }));
+    // ===== E O QUADRADO DO ÍCONE TAMBÉM =====
+    // Na Biblioteca os DOIS níveis têm o quadrado de `--hit` em `--btn-accent`
+    // — é ele que põe o nome de uma seção e o de um álbum na mesma coluna. Aqui
+    // a seção já ganhou o dela (a seta); sem este, a linha ficava com um glifo
+    // solto de 24px transparente sob uma seta de 34 (MEDIDO), e os nomes fora
+    // de prumo. A régua é a caixa DE LÁ, pelo motivo do bloco inteiro. A COR do
+    // traço fica de fora: o desenho de dentro é outro (um chevron contra um
+    // glifo de mídia), e o que se compara é a CAIXA.
+    checar(!!par.folha.icone && par.folha.icone.w === par.lib.icone.w
+      && par.folha.icone.bg === par.lib.icone.bg
+      && par.folha.icone.raio === par.lib.icone.raio,
+      'E · e o QUADRADO do ícone de uma linha é o do card da Biblioteca — '
+      + 'tamanho, tinta e raio', JSON.stringify({ folha: par.folha.icone, lib: par.lib.icone }));
+
+    // ===== O RECUO DE QUEM ESTÁ DENTRO É O DE LÁ =====
+    // Ele era 39,2px contra 6,4px: o bloco passou a dizer "dentro" por CONTER,
+    // e o recuo de texto que dizia isso antes virou a segunda cópia da resposta.
+    checar(Math.abs(par.folha.recuo - par.lib.recuo) < 4,
+      'E · e o RECUO de quem está dentro é o da Biblioteca — o bloco diz '
+      + '"dentro" por CONTER, e o recuo de texto que dizia isso antes empurrava '
+      + 'o nome seis vezes mais longe',
+      JSON.stringify({ folha: par.folha.recuo, lib: par.lib.recuo }));
+
+    // ===== A MARCA É O ✓, E ELA NÃO TROCA A SUPERFÍCIE (v1.8.41) =====
+    //
+    // O `--sel-fill` está CERTO onde nasceu: na folha de DESTINOS nada começa
+    // marcado, e ali o preenchimento É a resposta. Aqui tudo nasce marcado — o
+    // trabalho desta folha é TIRAR —, então ele pintava 100% das linhas e o que
+    // apagava era a hierarquia inteira. É a regra da v5.151 num lugar novo:
+    // *uma condição quase sempre verdadeira não ADIA a pergunta, ela a APAGA*.
+    checar(!!marcada && marcada === par.folha.raiz,
+      'E · uma linha MARCADA veste a MESMA superfície de uma desmarcada — quem '
+      + 'carrega a marca é o ✓, e o preenchimento de escolhido pintava 100% '
+      + 'das linhas desta folha', JSON.stringify({ marcada, desmarcada: par.folha.raiz }));
+    const check = await e.pg.evaluate(() => {
+      const li = [...document.querySelectorAll('#songMenuList li')]
+        .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Favoritos');
+      const c = li.querySelector('.song-menu-check');
+      return { on: c.classList.contains('on'), tinta: getComputedStyle(c, '::before').backgroundColor };
+    });
+    // A METADE QUE IMPEDE O CONSERTO LARGO DEMAIS, e são duas. (1) O ✓ tem de
+    // continuar RESPONDENDO: sem ela, apagar a marca inteira passa na de cima.
+    checar(check.on === false,
+      'E · e o ✓ responde: desmarcada, ele está apagado', JSON.stringify(check));
+    // (2) A FOLHA DE DESTINOS NÃO PERDEU O PREENCHIMENTO. A regra que o tira é
+    // escopada pelas classes desta folha, e a prova é uma linha CRUA — sem
+    // `.pacote-*` — montada na mesma lista: ali o `--sel-fill` continua sendo a
+    // resposta, porque lá nada começa marcado.
+    const outraFolha = await e.pg.evaluate(() => {
+      const ul = document.getElementById('songMenuList');
+      const li = document.createElement('li');
+      li.innerHTML = '<button class="song-menu-btn song-menu-sel">'
+        + '<span class="song-menu-check on"></span></button>';
+      ul.appendChild(li);
+      const c = getComputedStyle(li.firstElementChild).backgroundColor;
+      li.remove();
+      return c;
+    });
+    checar(outraFolha !== par.folha.raiz,
+      'E · e a folha de DESTINOS continua com o preenchimento de escolhido — a '
+      + 'regra é escopada pelas classes desta folha, e sem esta metade apagar o '
+      + '`--sel-fill` do app inteiro passaria em tudo o mais',
+      JSON.stringify({ destinos: outraFolha, exportacao: par.folha.raiz }));
     // DE VOLTA AO ESTADO EM QUE A FOLHA NASCEU: as asserções de baixo exportam,
     // e o que elas medem é o pacote INTEIRO.
     await tocar(e.pg, 'Diversas', 'seta');
