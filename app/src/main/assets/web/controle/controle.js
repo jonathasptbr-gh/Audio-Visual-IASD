@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.41';
+const WEB_VERSION = '1.8.42';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10203,6 +10203,11 @@ function linhaDeItem(item, opts) {
     renderItemMenu(item, opcoes, cfg.destinos, aoLado);
     li.classList.add('expanded');
     expandAccordion(gaveta);
+    // DEPOIS DA ANIMAÇÃO, pelo motivo do `alinharGrupoNoTopo`: durante os
+    // 220 ms o corpo ainda está crescendo de zero, e medir agora daria a
+    // geometria da linha FECHADA — a rolagem sairia curta, para um lugar que
+    // não é onde a gaveta vai estar.
+    setTimeout(() => revelarNaLista(li), ACC_MS + 30);
   }
 
   row.addEventListener('click', (e) => {
@@ -10547,6 +10552,60 @@ function sincronizarFavoritosNaBiblioteca() {
 // Rola `lista` até o topo da seção `nome` ficar no topo da área visível dela.
 // O `li` é reencontrado pelo `data-grupo` porque o redesenho que acabou de
 // rodar apagou o nó que o chamador tinha na mão.
+// ===== E O QUE ABRE DENTRO DE UMA LISTA PRECISA APARECER (v1.8.42) =====
+//
+// Relato do operador: *"na tela que temos para as coleções e álbuns [há
+// rolagem], mas que não temos para as opções de play … constantemente a
+// visualização das opções de play depende de rolar a tela manualmente para ver
+// elas"*.
+//
+// O `alinharGrupoNoTopo` (acima) responde a uma pergunta DIFERENTE, e é por
+// isso que ele não serve aqui: uma coleção que abre VIRA o assunto da tela, e
+// alinhá-la ao topo é o pedido da v5.277 ao pé da letra. Uma FAIXA continua
+// sendo uma de muitas — o que falta não é pô-la no topo, é a gaveta dela caber
+// na tela. Alinhar uma faixa do meio de um hinário ao topo jogaria fora o
+// contexto que o operador estava percorrendo, e para uma faixa que já está no
+// alto não haveria movimento nenhum a fazer.
+//
+// A REGRA É UMA SÓ, e ela cobre os dois casos:
+//  · o par (linha + gaveta) transborda EMBAIXO → rola o MÍNIMO para ele caber;
+//  · o par é mais alto que a própria caixa → alinha o TOPO da linha, que é o
+//    melhor que existe: as opções começam no alto e rolam a partir dali.
+//
+// O SCROLLER É PROCURADO, e não recebido: a mesma linha é montada em quatro
+// telas (o acervo, os favoritos, a busca e a pasta do aparelho) e cada uma rola
+// numa caixa diferente — a janela da Biblioteca, o corpo do Cronograma. Um
+// parâmetro obrigaria os quatro chamadores a saber uma coisa que a árvore já
+// responde, e o quinto nasceria sem ele.
+function scrollerDe(el) {
+  for (let p = el && el.parentElement; p; p = p.parentElement) {
+    const cs = getComputedStyle(p);
+    if (/(auto|scroll)/.test(cs.overflowY) && p.scrollHeight > p.clientHeight + 1) return p;
+  }
+  return null;
+}
+
+/** Rola o MÍNIMO para `el` caber na caixa que o rola. Sem caixa, no-op. */
+function revelarNaLista(el) {
+  if (!el || !el.isConnected) return;
+  const sc = scrollerDe(el);
+  if (!sc) return;
+  const cs = getComputedStyle(sc);
+  const caixa = sc.getBoundingClientRect();
+  const topo = caixa.top + (parseFloat(cs.paddingTop) || 0);
+  const base = caixa.bottom - (parseFloat(cs.paddingBottom) || 0);
+  const r = el.getBoundingClientRect();
+  let dy = 0;
+  if (r.bottom > base) dy = r.bottom - base;
+  // NÃO COUBE: o topo da linha passaria acima da caixa, e aí o que se perde é o
+  // começo das opções. Alinhar o topo é o teto do que a rolagem pode fazer.
+  if (r.top - dy < topo) dy = r.top - topo;
+  // Um pixel de folga, pela razão do `alinharGrupoNoTopo`: o arredondamento do
+  // layout produz sobras minúsculas, e meio pixel é um tranco sem destino.
+  if (Math.abs(dy) <= 1) return;
+  sc.scrollTo({ top: sc.scrollTop + dy, behavior: semMovimento() ? 'auto' : 'smooth' });
+}
+
 function alinharGrupoNoTopo(lista, nome) {
   if (!lista || !lista.isConnected) return;
   const el = [...lista.children].find((n) => n.dataset && n.dataset.grupo === nome);
@@ -19272,6 +19331,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       }
       li.classList.add('expanded');
       expandAccordion(gaveta);
+      setTimeout(() => revelarNaLista(li), ACC_MS + 30);
     } finally {
       // No `finally` porque um montador que lance não pode deixar a marca
       // presa: ela seguraria o redesenho do acervo até a linha sair da tela.
@@ -23727,6 +23787,12 @@ let pacoteGruposResolve = null;
 // tudo marcado e o que se faz nela é TIRAR: a barra do grupo resolve o caso
 // comum sem abrir nada.
 let pacoteSecaoAberta = '';
+// A SEÇÃO QUE ACABOU DE SER ABERTA, para o redesenho seguinte animá-la — o
+// irmão do `gruposAnimar` da Biblioteca, e ele existe pela mesma razão: quem
+// abre é o TOQUE, quem desenha é o `renderPacoteGrupos`, e sem esta marca todo
+// redesenho reanimaria a seção aberta (marcar um álbum lá dentro remonta a
+// folha inteira). Uma variável e não um `Set`: aqui só há uma aberta por vez.
+let pacoteAnimarSecao = '';
 
 function fecharPacoteGrupos(valor) {
   const r = pacoteGruposResolve;
@@ -23904,10 +23970,31 @@ function renderPacoteGrupos(plano) {
     seta.innerHTML = chevronUpIconSvg();
     seta.setAttribute('aria-label', (aberta ? 'Fechar ' : 'Abrir ') + item.nome);
     seta.setAttribute('aria-expanded', aberta ? 'true' : 'false');
+    // ===== ABRIR E FECHAR ANIMA, COMO NA BIBLIOTECA (v1.8.42) =====
+    //
+    // Pedido do operador: *"na biblioteca temos animações de abertura e
+    // fechamento das listas e grupos, faça essa animação ali no exportar
+    // também"*. São as MESMAS funções (`expandAccordion`/`collapseAccordion`) e
+    // o mesmo desenho da `alternar` da Biblioteca — inclusive a assimetria, que
+    // é o ponto: FECHANDO anima ANTES de remontar, porque o redesenho apaga o
+    // nó e um nó apagado não tem como sair deslizando; ABRINDO remonta
+    // primeiro, e a animação espera o quadro seguinte (o corpo novo ainda não
+    // está no documento quando `remontar()` devolve, e fora da árvore toda
+    // medida é zero).
     seta.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      pacoteSecaoAberta = aberta ? '' : item.nome;
-      remontar();
+      const abrindo = !aberta;
+      const aplicar = () => {
+        pacoteSecaoAberta = abrindo ? item.nome : '';
+        if (abrindo) pacoteAnimarSecao = item.nome;
+        remontar();
+      };
+      if (!abrindo) {
+        const corpo = li.querySelector('.pacote-grupo-corpo');
+        collapseAccordion(corpo, aplicar);
+        return;
+      }
+      aplicar();
     });
     const txt = document.createElement('span'); txt.className = 'song-menu-text';
     const t = document.createElement('span'); t.className = 'song-menu-label';
@@ -23948,6 +24035,10 @@ function renderPacoteGrupos(plano) {
         if (g) corpo.appendChild(linhaDeGrupo(g, true));
       }
       li.appendChild(corpo);
+      if (pacoteAnimarSecao === item.nome) {
+        pacoteAnimarSecao = '';
+        requestAnimationFrame(() => expandAccordion(corpo));
+      }
     }
     songMenuListEl.appendChild(li);
   }

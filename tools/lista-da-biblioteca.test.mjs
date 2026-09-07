@@ -1673,6 +1673,123 @@ try {
     await cF.close();
   }
 
+  // ======================================================================
+  // G · A GAVETA DE OPÇÕES DE PLAY APARECE SOZINHA (v1.8.42)
+  //
+  // Relato do operador: *"na tela que temos para as coleções e álbuns [há
+  // rolagem], mas que não temos para as opções de play … constantemente a
+  // visualização das opções de play depende de rolar a tela manualmente para
+  // ver elas"*.
+  //
+  // ELE FALHA CALADO: a gaveta ABRE, ela é montada certo, e o que acontece é
+  // que ela nasce abaixo da borda da lista. Um teste de *"a gaveta abriu?"*
+  // passa nas duas versões — a régua tem de ser a GEOMETRIA depois da
+  // animação, contra a caixa que rola.
+  //
+  // E A REGRA NÃO É A DAS COLEÇÕES, de propósito: `alinharGrupoNoTopo` põe o
+  // que abriu no TOPO, e isso é o pedido da v5.277 para uma coleção, que VIRA o
+  // assunto da tela. Uma faixa continua sendo uma de muitas: o que falta é a
+  // gaveta CABER, e alinhar uma faixa do meio de um hinário ao topo jogaria
+  // fora o contexto que o operador estava percorrendo. Daí as duas metades
+  // abaixo, e a segunda é a que impede o conserto largo demais.
+  // ======================================================================
+  {
+    const g = await pg.evaluate(async (secao) => {
+      // O CENÁRIO É REMONTADO AQUI: os blocos acima abrem e fecham blocos, e
+      // este precisa de uma LISTA LONGA no ar. Reabrir pelo caminho de verdade
+      // (o estado do módulo mais o `renderCollectionsList`) é o que a fixture
+      // já faz — herdar o que sobrou dos vizinhos seria medir o resíduo deles.
+      grupoAberto = ''; favAberto = false;
+      // O HINÁRIO, e não o álbum de teste: a régua da segunda metade exige que
+      // ALINHAR AO TOPO seja POSSÍVEL, e num álbum de cinco faixas não há
+      // conteúdo abaixo para isso — o navegador satura a rolagem e a reversão
+      // "alinha ao topo" passa por acidente (MEDIDO). Com trinta faixas o topo
+      // é alcançável, e as duas metades passam a dizer coisas diferentes.
+      ui('hymnal-2022').expanded = true; ui('hymnal-2022').shown = 1000;
+      hymnResultsEl.innerHTML = '';
+      renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+      await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+      const sc = document.getElementById('hymnResults');
+      const dentroDaCaixa = (el) => {
+        const cs = getComputedStyle(sc);
+        const c = sc.getBoundingClientRect();
+        const r = el.getBoundingClientRect();
+        return {
+          acima: (c.top + (parseFloat(cs.paddingTop) || 0)) - r.top,
+          abaixo: r.bottom - (c.bottom - (parseFloat(cs.paddingBottom) || 0)),
+        };
+      };
+      // UMA FAIXA DO MEIO, trazida para a BORDA DE BAIXO — e não a última.
+      // Ela é o caso do relato (a gaveta nasce fora da tela) E o único em que a
+      // segunda metade é falsificável: alinhar a ÚLTIMA faixa ao topo é
+      // impossível (não há conteúdo abaixo para rolar, o navegador satura), e a
+      // saturação satisfaz as duas asserções por acidente — MEDIDO, a reversão
+      // "alinha ao topo" passava inteira com a última.
+      const faixas = [...document.querySelectorAll('#hymnResults .coll-songs .hymn-result')];
+      const alvo = faixas[Math.floor(faixas.length / 2)];
+      if (faixas.length < 10) return { curta: faixas.length };
+      alvo.scrollIntoView({ block: 'end' });
+      await new Promise((f) => setTimeout(f, 60));
+      const antes = dentroDaCaixa(alvo);
+      alvo.querySelector('.row').click();
+      // A ESPERA É PELO FATO, e ela tem um PISO. A CARÊNCIA é declarada pelo
+      // app — o `revelarNaLista` sai `ACC_MS + 30` depois do toque, porque
+      // durante o acordeão o corpo ainda está crescendo de zero —, e sem o piso
+      // a estabilidade do `scrollTop` é verdadeira no primeiro instante, ANTES
+      // de a rolagem sequer ter sido pedida: MEDIDO, o oráculo lia 237,6px de
+      // transbordo com o app fazendo o certo. Esperar pela geometria que se vai
+      // afirmar seria a tautologia; o que se espera é o FIM DO MOVIMENTO.
+      const t0 = Date.now();
+      let antesTop = -1;
+      let quietos = 0;
+      let parou = false;
+      while (Date.now() - t0 < 5000) {
+        await new Promise((f) => setTimeout(f, 50));
+        const rodando = sc.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
+        quietos = (!rodando && sc.scrollTop === antesTop) ? quietos + 1 : 0;
+        antesTop = sc.scrollTop;
+        if (Date.now() - t0 > 300 && alvo.classList.contains('expanded') && quietos >= 3) {
+          parou = true; break;
+        }
+      }
+      const depois = dentroDaCaixa(alvo);
+      return {
+        parou,
+        abriu: alvo.classList.contains('expanded'),
+        antes, depois,
+        alturaDaCaixa: sc.clientHeight,
+        alturaDoPar: alvo.getBoundingClientRect().height,
+      };
+    }, SECAO);
+    // A GUARDA DO CENÁRIO: sem uma gaveta que de fato transborde, tudo abaixo
+    // passa por vacuidade. `antes.abaixo` é o quanto a LINHA FECHADA já
+    // encostava na borda; o que interessa é que a gaveta ABERTA não coubesse
+    // sem rolagem — e isso é o par ser mais alto que a folga que havia.
+    checar(g.abriu === true, 'G · a gaveta de opções abre pelo toque na linha',
+      JSON.stringify(g));
+    checar(g.alturaDoPar > 40 && g.alturaDoPar < g.alturaDaCaixa && !g.curta,
+      'G · o cenário está de pé: uma lista LONGA, e o par linha+gaveta com '
+      + 'altura de verdade que CABE na caixa — é o caso em que a rolagem '
+      + 'mínima resolve, e é ele que torna a segunda metade falsificável',
+      JSON.stringify({ par: g.alturaDoPar, caixa: g.alturaDaCaixa, curta: g.curta }));
+    // A PRIMEIRA METADE: ela CABE depois de abrir. REVERSÃO: sem o
+    // `revelarNaLista` a gaveta nasce abaixo da borda e `depois.abaixo` fica
+    // positivo — é literalmente o relato.
+    checar(g.depois.abaixo <= 1,
+      'G · e depois de abrir ela está INTEIRA dentro da caixa que rola — sem '
+      + 'isso o operador toca na faixa e tem de rolar à mão para ver as opções '
+      + 'que ele acabou de pedir', JSON.stringify(g));
+    // A SEGUNDA: a regra é REVELAR, não ALINHAR AO TOPO. Alinhar poria a linha
+    // em `acima === 0`, e isso é o desenho de uma COLEÇÃO — para uma faixa é
+    // jogar fora o contexto. Aqui a rolagem é a MÍNIMA: como o par cabia com
+    // uma folga, a linha para ANTES do topo.
+    checar(g.depois.acima < -1,
+      'G · e ela para onde COUBE, não no topo: rolar uma faixa do meio de um '
+      + 'hinário até o alto da lista jogaria fora o contexto que o operador '
+      + 'estava percorrendo — a regra da coleção responde outra pergunta',
+      JSON.stringify(g));
+  }
+
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 5));
 } catch (e) {
   checar(false, 'o oráculo rodou até o fim', String(e && e.stack ? e.stack : e));
