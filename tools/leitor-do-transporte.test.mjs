@@ -131,11 +131,24 @@ try {
     setAppMode('full');
     currentItem = null;
     renderNowPlaying();
+    // O VIZINHO ACESO é a régua do tom: o número do `--op-inativo` pode mudar,
+    // a DISTÂNCIA entre disponível e indisponível é que não pode sumir.
+    const viz = [...document.querySelectorAll('.t-btn')].find((b) => !b.disabled);
     return {
       escondida: lvBadgeEl.hidden,
       desenhada: getComputedStyle(lvBadgeEl).display,
       titulo: lyricsViewBtnEl.title,
       fontes: lyricsViewSources(),
+      desabilitado: lyricsViewBtnEl.disabled,
+      opacidade: +getComputedStyle(lyricsViewBtnEl).opacity,
+      opacidadeVizinho: viz ? +getComputedStyle(viz).opacity : null,
+      // A ORDEM DE TABULAÇÃO responde à TENTATIVA, nunca ao `tabIndex`: um
+      // `<button disabled>` mantém a propriedade em 0 e mesmo assim não recebe
+      // foco, então ler o número aprovaria as duas versões.
+      focavel: (() => { lyricsViewBtnEl.focus();
+        const ok = document.activeElement === lyricsViewBtnEl;
+        lyricsViewBtnEl.blur(); return ok; })(),
+      caixa: +lyricsViewBtnEl.getBoundingClientRect().width.toFixed(1),
     };
   });
   checar(badgeVazia.escondida && badgeVazia.desenhada === 'none' && !badgeVazia.fontes.length,
@@ -144,6 +157,55 @@ try {
   checar(/nada em exibição/i.test(badgeVazia.titulo),
     'e o rótulo diz por quê: a badge responde SE há, o `title` responde O QUE há',
     badgeVazia.titulo);
+  // ===== E O BOTÃO FICA INDISPONÍVEL (v1.8.36) =============================
+  //
+  // Pedido do operador: *"desative o botão (modo cinza mais claro, sem toque)
+  // de auxiliar de leitura quando não há nenhum conteúdo a ser exibido nele,
+  // como na abertura do app"*. A badge já dizia SE há — mas um ponto apagado
+  // sobre um botão ACESO continua sendo um botão aceso, e o toque abria a folha
+  // para ler "Nada em exibição".
+  //
+  // A CAIXA ENTRA NA ASSERÇÃO, e não é zelo: o app abre no MODO FÁCIL, onde
+  // este botão existe no documento e mede 0×0 — todo hit-test ali responde
+  // sobre o véu daquele modo. MEDIDO na escrita deste bloco: sem o
+  // `setAppMode('full')` acima, um `elementFromPoint` no centro do botão
+  // devolvia `#simpleVeil`, e a asserção mediria outra tela.
+  //
+  // REVERSÃO: tirar o `lyricsViewBtnEl.disabled = !fontes.length` do
+  // `renderLeitorBadge` reprova as três abaixo.
+  checar(badgeVazia.caixa > 0 && badgeVazia.desabilitado,
+    '  ↳ e o BOTÃO fica indisponível: sem o que ler, o toque abria a folha só '
+    + 'para dizer que não há nada — não oferecer é melhor que explicar',
+    badgeVazia);
+  checar(badgeVazia.opacidade < badgeVazia.opacidadeVizinho,
+    '  ↳ e ele fica mais claro que um irmão ACESO da mesma barra — a régua é a '
+    + 'distância entre disponível e indisponível, não o número do token',
+    badgeVazia);
+  checar(badgeVazia.focavel === false,
+    '  ↳ e sai da ordem de tabulação: `disabled` e não uma classe, para o nó '
+    + 'não continuar alcançável por quem navega sem tocar na tela',
+    badgeVazia);
+  // E O TOQUE NÃO ABRE A FOLHA. É a asserção que carrega o pedido — "sem
+  // toque" —, e ela não pode ser um hit-test: o Chromium hit-testa um botão
+  // desabilitado (MEDIDO: `elementFromPoint` devolve o `<use>` de dentro dele),
+  // e quem engole o evento é o navegador, no despacho. Só o DESFECHO distingue.
+  // E ELA LIMPA O QUE MEDIU: na REVERSÃO o clique ABRE a folha, e uma folha
+  // aberta esquecida aqui derruba os blocos de baixo por uma razão que não é a
+  // deles — o que sai é um `TimeoutError` no lugar de um placar, e quem
+  // reexecutar a reversão lê "o oráculo quebrou" em vez de "estas quatro
+  // reprovaram".
+  const toqueVazio = await pg.evaluate(async () => {
+    const antes = lyricsPopupEl.classList.contains('open');
+    lyricsViewBtnEl.click();
+    await new Promise((r) => setTimeout(r, 150));
+    const depois = lyricsPopupEl.classList.contains('open');
+    if (depois) closeLyricsPopup();
+    return { antes, depois };
+  });
+  checar(toqueVazio.antes === false && toqueVazio.depois === false,
+    '  ↳ e o toque nele NÃO abre a folha — é o "sem toque" do pedido, e o '
+    + 'desfecho é a única régua: o nó continua no hit-test, quem engole o '
+    + 'evento é o navegador', toqueVazio);
 
   // ── 1. O BOTÃO DO TRANSPORTE ────────────────────────────────────────────
   // SEM `window.`: `currentItem` e `lvSource` são `let` no topo de um script
@@ -172,6 +234,8 @@ try {
       cor: getComputedStyle(lvBadgeEl).backgroundColor,
       titulo: lyricsViewBtnEl.title,
       fontes: lyricsViewSources(),
+      desabilitado: lyricsViewBtnEl.disabled,
+      opacidade: +getComputedStyle(lyricsViewBtnEl).opacity,
     };
   });
   checar(!badgeCheia.escondida && badgeCheia.desenhada !== 'none',
@@ -185,6 +249,13 @@ try {
     .test(badgeCheia.titulo)),
     'o rótulo NOMEIA o que há, e os nomes saem das próprias abas (`data-lvsrc`) '
     + '— uma tabela de nomes aqui seria a terceira lista da mesma pergunta',
+    badgeCheia);
+  // A METADE QUE IMPEDE O CONSERTO LARGO DEMAIS (v1.8.36): desabilitar o botão
+  // para sempre passa em todas as asserções da cena VAZIA, e o recurso morre.
+  // O clique logo abaixo é a prova viva — sem ele, o resto do arquivo não roda.
+  checar(badgeCheia.desabilitado === false && badgeCheia.opacidade === 1,
+    'e com uma cena no ar o botão VOLTA a ficar disponível, no tom cheio — sem '
+    + 'esta, desabilitá-lo para sempre passaria nas asserções da cena vazia',
     badgeCheia);
 
   await pg.click('#lyricsViewBtn');

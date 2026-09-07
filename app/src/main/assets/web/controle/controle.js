@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.35';
+const WEB_VERSION = '1.8.36';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3346,17 +3346,42 @@ function renderRepeat() {
  * `closeLyricsPopup` a reescreve ao sair.
  */
 function renderLeitorBadge() {
-  if (!lvBadgeEl) return;
   const fontes = lyricsViewSources();
-  lvBadgeEl.hidden = !fontes.length;
+  // ===== SEM O QUE LER, O BOTÃO FICA INDISPONÍVEL (v1.8.36) =================
+  //
+  // Pedido do operador: *"desative o botão (modo cinza mais claro, sem toque)
+  // de auxiliar de leitura quando não há nenhum conteúdo a ser exibido nele,
+  // como na abertura do app"*.
+  //
+  // A badge já dizia SE há (v1.4.31) — mas um ponto apagado sobre um botão
+  // aceso continua sendo um botão aceso, e o toque nele abria a folha para ler
+  // *"Nada em exibição com letra ou texto bíblico"*. É a terceira vez que este
+  // app troca EXPLICAR por NÃO OFERECER (o microfone sem TV na v1.2.21, a aba
+  // de cifra sem cifra na v1.8.28), e aqui a troca é mais barata que as duas:
+  // o botão continua no lugar, na mesma célula, e volta sozinho.
+  //
+  // `disabled` E NÃO UMA CLASSE: é o atributo que o `.t-btn:disabled` já veste
+  // com `--op-inativo` — a linguagem do INDISPONÍVEL deste app, a mesma dos
+  // dois botões de slide ao lado —, que tira o nó da ordem de tabulação e que
+  // faz o navegador engolir o toque sem um `pointer-events` nosso. O `title`
+  // logo abaixo continua dizendo POR QUÊ, que é o que um botão apagado deve a
+  // quem o encontra.
+  //
+  // A GUARDA É POR NÓ, e não uma só no topo: a badge e o botão são elementos
+  // diferentes, e um `return` cedo por causa da primeira deixaria o segundo
+  // aceso para sempre num bundle em que só ela faltasse.
   const nomes = fontes.map((f) => {
     const btn = lyricsViewSegEl.querySelector('.fit-opt[data-lvsrc="' + f + '"]');
     return btn ? (btn.textContent || '').trim().toLowerCase() : f;
   }).join(', ');
-  lyricsViewBtnEl.title = nomes
-    ? 'Auxiliar de leitura: ' + nomes
-    : 'Auxiliar de leitura — nada em exibição';
-  lyricsViewBtnEl.setAttribute('aria-label', lyricsViewBtnEl.title);
+  if (lyricsViewBtnEl) {
+    lyricsViewBtnEl.disabled = !fontes.length;
+    lyricsViewBtnEl.title = nomes
+      ? 'Auxiliar de leitura: ' + nomes
+      : 'Auxiliar de leitura — nada em exibição';
+    lyricsViewBtnEl.setAttribute('aria-label', lyricsViewBtnEl.title);
+  }
+  if (lvBadgeEl) lvBadgeEl.hidden = !fontes.length;
 }
 
 function renderNowPlaying() {
