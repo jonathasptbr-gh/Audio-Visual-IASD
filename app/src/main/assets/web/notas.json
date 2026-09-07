@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.8.29",
+    "itens": [
+      "O arquivo do pacote é apagado depois de importado, liberando o espaço.",
+      "Importar deixou de recarregar o app — a biblioteca já abre com o que chegou.",
+      "O resumo da importação passou a nomear as coleções que entraram.",
+      "Exportar mostra seta para cima na notificação; importar, para baixo.",
+      "Com um pacote pronto, o botão ao lado descarta em vez de agir como importar.",
+      "Os botões pararam de girar enquanto se escolhe o que exportar."
+    ]
+  },
+  {
     "versao": "1.8.28",
     "itens": [
       "A aba de cifra só aparece quando há mesmo uma cifra para ler.",

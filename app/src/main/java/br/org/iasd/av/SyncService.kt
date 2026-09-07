@@ -231,6 +231,47 @@ class SyncService : Service() {
          *
          * `idleMs` é há quanto tempo nada acontece.
          */
+        /**
+         * O DESENHO da barra de notificação. Três, e não um booleano, porque
+         * são três coisas diferentes: bytes ENTRANDO (baixar da rede, importar
+         * um pacote), bytes SAINDO (exportar) e trabalho que não move byte
+         * nenhum para lugar nenhum (preparar uma apresentação).
+         *
+         * Os três são do sistema (`android.R.drawable`), que é a regra dos
+         * ícones deste app: um conjunto próprio no `res/` para três estados de
+         * uma notificação não se paga. Os dois primeiros são ANIMADOS pelo
+         * Android — a seta em movimento —, e é isso que o operador pediu.
+         */
+        enum class Icone {
+            BAIXAR,
+            ENVIAR,
+            PROCESSAR,
+            ;
+
+            /** O `smallIcon` correspondente. */
+            fun drawable(): Int = when (this) {
+                BAIXAR -> android.R.drawable.stat_sys_download
+                ENVIAR -> android.R.drawable.stat_sys_upload
+                // As duas setas em círculo: o desenho que este app já usa para
+                // "está processando" em todo lugar.
+                PROCESSAR -> android.R.drawable.stat_notify_sync
+            }
+
+            companion object {
+                /**
+                 * O nome vindo do lado web. Desconhecido cai em [BAIXAR], que é
+                 * o comportamento de sempre — a ponte é a fronteira com um
+                 * bundle que pode ser mais novo OU mais velho que este APK.
+                 */
+                @JvmStatic
+                fun de(nome: String): Icone = when (nome) {
+                    "enviar" -> ENVIAR
+                    "processar" -> PROCESSAR
+                    else -> BAIXAR
+                }
+            }
+        }
+
         data class Progress(
             val label: String,
             val done: Long,
@@ -239,19 +280,27 @@ class SyncService : Service() {
             val items: List<String> = emptyList(),
             val idleMs: Long = 0,
             /**
-             * ESTE TRABALHO TRAZ BYTES DA REDE?
+             * QUE DESENHO A BARRA DE NOTIFICAÇÃO MOSTRA — `Icone.BAIXAR`,
+             * `Icone.ENVIAR` ou `Icone.PROCESSAR`.
              *
-             * O ÍCONE da barra de notificação era sempre a seta de download, e
-             * vários trabalhos deste app não baixam nada — exportar o acervo,
-             * importar um pacote, preparar uma apresentação. É a regra que o
-             * lado web já aplicava à seta do cartão sobre a preview e à da
-             * linha do item (v1.4.19), na única superfície que faltava.
+             * O ícone era sempre a seta de download, e vários trabalhos deste
+             * app não baixam nada. A v1.8.27 separou "baixa" de "não baixa" com
+             * um booleano; o operador pediu o degrau seguinte: *"exportar é uma
+             * seta pra cima e importar é uma seta para baixo… em movimento. me
+             * parece mais condizente, mesmo que a importação em si não seja um
+             * download"*.
              *
-             * PADRÃO `true`: um bundle mais antigo que a ponte não manda o
-             * campo, e ler ausente como "é download" é o comportamento de
-             * sempre. Falhar para o lado que já existia.
+             * E ele está certo sobre o que o desenho comunica: a seta em
+             * movimento é DIREÇÃO DE BYTES, não procedência deles. Importar um
+             * pacote traz o acervo PARA o aparelho, e é isso que a seta para
+             * baixo diz — o fato de os bytes virem de um arquivo local em vez
+             * da rede não muda o sentido do movimento para quem olha.
+             *
+             * PADRÃO [Icone.BAIXAR]: um bundle mais antigo que a ponte não
+             * manda o campo, e ler ausente como "é download" é o comportamento
+             * de sempre. Falhar para o lado que já existia.
              */
-            val baixando: Boolean = true,
+            val icone: Icone = Icone.BAIXAR,
             /**
              * `done`/`total` são BYTES, e não uma contagem de itens.
              *
@@ -365,7 +414,7 @@ class SyncService : Service() {
             items: List<String> = emptyList(),
             idleMs: Long = 0,
             bytes: Boolean = false,
-            baixando: Boolean = true,
+            icone: Icone = Icone.BAIXAR,
         ) {
             // POR NOME, e não por posição. A chamada era posicional, e um campo
             // acrescentado no MEIO da `data class` empurraria todos os
@@ -382,7 +431,7 @@ class SyncService : Service() {
                 items = items,
                 idleMs = idleMs,
                 bytes = bytes,
-                baixando = baixando,
+                icone = icone,
             )
             val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
             try {
@@ -478,16 +527,9 @@ class SyncService : Service() {
                 android.app.PendingIntent.FLAG_IMMUTABLE,
             )
             val b = NotificationCompat.Builder(ctx, CHANNEL_ID)
-                // O ÍCONE SEGUE O TRABALHO (v1.8.27) — ver `Progress.baixando`.
-                // `stat_notify_sync` são as duas setas em círculo do sistema, e
-                // é o desenho que este app já usa para "está processando" em
-                // todo lugar; um recurso próprio no `res/` para dois estados de
-                // uma notificação não se paga (a regra dos ícones do
-                // `SessionService`).
-                .setSmallIcon(
-                    if (p?.baixando != false) android.R.drawable.stat_sys_download
-                    else android.R.drawable.stat_notify_sync,
-                )
+                // O ÍCONE SEGUE O TRABALHO — ver `Progress.icone`, que é
+                // quem escolhe entre as duas setas animadas e o círculo.
+                .setSmallIcon((p?.icone ?: Icone.BAIXAR).drawable())
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)

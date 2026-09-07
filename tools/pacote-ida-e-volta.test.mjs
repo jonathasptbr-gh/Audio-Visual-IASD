@@ -126,7 +126,7 @@ const PONTE = `(function () {
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
-    'ytDetalhes','micDiag','areaTransferencia','salvarTexto',
+    'ytDetalhes','micDiag','areaTransferencia','salvarTexto','pacoteConsumirOrigem',
     ]);
   const B = {
     shellVersion: () => 63,
@@ -157,6 +157,13 @@ const PONTE = `(function () {
     otaConfirm: () => {},
     compartilharTexto: () => {},
     pacoteCancelar: () => { window.__cancelado = (window.__cancelado || 0) + 1; },
+    // O CONSUMO DO ARQUIVO IMPORTADO (v1.8.28). Ele guarda a URL pedida, e o
+    // desfecho vem do teste: \`window.__consumoErro\` vazio = apagou.
+    pacoteConsumirOrigem: (id, url) => {
+      window.__consumiu = (window.__consumiu || []);
+      window.__consumiu.push(url);
+      setTimeout(() => window.__avResolve(id, window.__consumoErro || ''), 0);
+    },
     pacoteCriar: (id) => {
       setTimeout(() => window.__avResolve(id, 'acervo-de-teste.avpkg'), 0);
     },
@@ -259,6 +266,32 @@ async function fimDaExportacao(pg) {
     return { titulo: (t || {}).textContent || '',
       dialogo: !!d && d.classList.contains('open') };
   });
+}
+
+// O FIM DA IMPORTAÇÃO. Ela deixou de terminar em `location.reload()` (v1.8.28),
+// e o que se espera é a Promise que o `importarPacote` devolve — ela só resolve
+// depois da REHIDRATAÇÃO (`loadCollections` + `load`).
+//
+// O `catch` NÃO é frouxidão: é o que faz a REVERSÃO ser limpa. Com o
+// `location.reload()` de volta, a página navega no meio deste `evaluate` e o
+// Playwright lança — sem o catch o oráculo MORRE aqui, num bloco que não é o
+// dele, e quem lê o log vê um `ReferenceError` em vez da asserção que reprovou.
+// Engolindo a navegação, o percurso segue e quem acusa é o bloco 16, que é de
+// quem essa regra é.
+async function fimDaImportacao(pg) {
+  try {
+    await pg.evaluate(() => window.__fim);
+  } catch (_) {
+    // NAVEGOU — é a REVERSÃO (o `location.reload()` de volta). Espera-se o
+    // documento novo assentar, senão o `evaluate` seguinte cai no vão entre as
+    // duas páginas e o oráculo morre num bloco que não é o dele.
+    await pg.waitForLoadState('domcontentloaded').catch(() => {});
+  }
+  // O APP DE PÉ, e não só o DOM: a régua é o `AVDB`, que é o que os blocos
+  // consultam. Sem ela a espera passa no vão em que o documento existe e o
+  // script ainda não rodou.
+  await esperar(pg, () => !document.getElementById('splash') && !!window.AVDB,
+    null, 30000);
 }
 
 async function responderDialogo(pg) {
@@ -411,10 +444,11 @@ try {
   const antes = await b.pg.evaluate(async () => (await AVDB.mediaChaves()).length);
   checar(antes === 0, '2 · o aparelho de destino começa VAZIO — contextos separados são celulares separados', antes);
 
-  // A importação termina num `location.reload()`, e ele é parte do recurso (as
-  // listas do módulo foram lidas uma vez, no `init()`). O oráculo espera pela
-  // NAVEGAÇÃO, não por um prazo.
-  const recarregou = b.pg.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
+  // A IMPORTAÇÃO NÃO RECARREGA MAIS O APP (v1.8.28). Ela terminava num
+  // `location.reload()`, e o pedido do operador foi tirá-lo: *"idealmente eu
+  // não quero o app todo sendo reiniciado e o usuário se perdendo no fluxo"*.
+  // O que espera-se agora é a REHIDRATAÇÃO — a Promise que o `importarPacote`
+  // devolve, que só resolve depois de `loadCollections()` e `load()`.
   zerarDiario();
   await b.pg.evaluate(() => { window.__fim = importarPacote(); });
   const conta = await responderDialogo(b.pg);
@@ -438,8 +472,7 @@ try {
   checar(/colecao/.test(String(conta)),
     '2 · com UMA coleção, ela é nomeada — é o caso de quem exportou um hinário '
     + 'para conferir se chegou inteiro', conta);
-  await recarregou;
-  await esperar(b.pg, () => !document.getElementById('splash'), null, 30000);
+  await fimDaImportacao(b.pg);
 
   // ── O ACERVO CHEGOU ────────────────────────────────────────────────────
   const chegou = await b.pg.evaluate(async () => {
@@ -538,11 +571,9 @@ try {
     await AVDB.setState('bibleVersion', 'escolha-de-quem-importou');
     await AVDB.setState('favs', ['outro-item']);
   });
-  const recarregou2 = b.pg.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
   await b.pg.evaluate(() => { window.__fim = importarPacote(); });
   await responderDialogo(b.pg);
-  await recarregou2;
-  await esperar(b.pg, () => !document.getElementById('splash'), null, 30000);
+  await fimDaImportacao(b.pg);
 
   const depois = await b.pg.evaluate(async () => ({
     nome: (await AVDB.getMedia('item-de-teste')).name,
@@ -862,11 +893,9 @@ try {
         songs: [{ id_music: '001', name: '001 — Faixa', fileIdFull: null, fileIdPlayback: null }],
       });
     });
-    const recarregou3 = l.pg.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
     await l.pg.evaluate(() => { window.__fim = importarPacote(); });
     await responderDialogo(l.pg);
-    await recarregou3;
-    await esperar(l.pg, () => !document.getElementById('splash'), null, 30000);
+    await fimDaImportacao(l.pg);
 
     const r = await l.pg.evaluate(async () => {
       const idx = await AVDB.getState('coll:colecao');
@@ -912,11 +941,9 @@ try {
   // a PONTE recebeu — a mesma string que o SyncService lê.
   {
     const m = await aparelho(saida);
-    const recarregou4 = m.pg.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
     await m.pg.evaluate(() => { window.__fim = importarPacote(); });
     await responderDialogo(m.pg);
-    await recarregou4;
-    await esperar(m.pg, () => !document.getElementById('splash'), null, 30000);
+    await fimDaImportacao(m.pg);
     const log = await m.pg.evaluate(() => {
       try { return JSON.parse(sessionStorage.getItem('progresso-do-teste') || '[]'); }
       catch (_) { return []; }
@@ -1053,11 +1080,9 @@ try {
           fileIdFull: 'id-que-nunca-chega', fileIdPlayback: null }],
       });
     });
-    const recarregou6 = o.pg.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 });
     await o.pg.evaluate(() => { window.__fim = importarPacote(); });
     await responderDialogo(o.pg);
-    await recarregou6;
-    await esperar(o.pg, () => !document.getElementById('splash'), null, 30000);
+    await fimDaImportacao(o.pg);
 
     const r = await o.pg.evaluate(async () => {
       const idx = await AVDB.getState('coll:album-fantasma');
@@ -1073,6 +1098,94 @@ try {
     // arquivo de verdade continua lá. Apagar todos passaria na primeira.
     checar(r.real === 'arq-de-teste',
       '15 · e o ponteiro que leva a um arquivo REAL continua de pé', r.real);
+    await o.ctx.close();
+  }
+
+  // =========================================================================
+  // 16 · O ARQUIVO É CONSUMIDO, E O APP NÃO RECARREGA (v1.8.28)
+  // =========================================================================
+  //
+  // Dois pedidos do operador no mesmo lote, e os dois falham CALADOS.
+  //
+  // *"você consegue apagar/consumir o arquivo original da importação? não
+  // precisamos dele após esse processo, isso evita ficar ocupando espaço no
+  // aparelho do usuário"*. Um pacote é o acervo INTEIRO: não apagá-lo dobra o
+  // que a biblioteca ocupa, e quem mais recebe pacote é o aparelho apertado.
+  // Um teste de *"importou?"* passa nas duas versões.
+  //
+  // *"idealmente eu não quero o app todo sendo reiniciado e o usuário se
+  // perdendo no fluxo"*. A recarga funcionava — e derrubava a projeção junto,
+  // que é o que a torna pior do que parecia: importar durante um culto apagava
+  // o telão. A régua aqui é a AUSÊNCIA de navegação, medida pelo `Date` da
+  // própria página: uma recarga zera tudo que a página tinha em memória.
+  {
+    const o = await aparelho(saida);
+    await o.pg.evaluate(() => { window.__marcaDaSessao = 'antes-da-importacao'; });
+    await o.pg.evaluate(() => { window.__fim = importarPacote(); });
+    const texto = await responderDialogo(o.pg);
+    await fimDaImportacao(o.pg);
+
+    // ── O ARQUIVO FOI CONSUMIDO ───────────────────────────────────────────
+    const pediu = await o.pg.evaluate(() => window.__consumiu || []);
+    checar(pediu.length === 1 && pediu[0] === '/pacote-de-teste',
+      '16 · a importação PEDE o consumo do arquivo que ela leu, uma vez só',
+      JSON.stringify(pediu));
+    checar(typeof texto === 'string' && /apagado/.test(texto),
+      '16 · e o relatório DIZ que ele foi apagado — o operador pediu o espaço '
+      + 'de volta, e calar deixaria a pergunta sem resposta', String(texto));
+
+    // ── E O APP NÃO RECARREGOU ────────────────────────────────────────────
+    //
+    // A marca é uma variável de MÓDULO da página: ela não sobrevive a uma
+    // navegação, e sobrevive a tudo o mais. `location.reload()` de volta faz
+    // esta asserção reprovar e nenhuma outra.
+    const marca = await o.pg.evaluate(() => window.__marcaDaSessao || '');
+    checar(marca === 'antes-da-importacao',
+      '16 · e a página NÃO recarrega — a recarga levava a projeção junto, e '
+      + 'importar durante um culto apagava o telão', marca);
+
+    // ── E A TELA JÁ MOSTRA O QUE CHEGOU ───────────────────────────────────
+    //
+    // A metade que impede o conserto barato de só APAGAR a recarga. As listas
+    // do Cronograma e dos Favoritos são variáveis de MÓDULO lidas no `init()`;
+    // sem a rehidratação elas continuam com o acervo de ANTES, e o operador
+    // fecha o diálogo "Acervo importado" numa tela que não tem o acervo.
+    //
+    // A régua é o `favItems` do MÓDULO — a lista que o `load()` reconstrói a
+    // partir do banco. Ela é a que a fixture alimenta (o item entra em `favs`,
+    // não no Cronograma), e é uma asserção sobre a REHIDRATAÇÃO e não sobre a
+    // importação: o item já está no banco desde o bloco 2, e o que se mede
+    // aqui é ele ter chegado ao ESTADO DE TELA sem a página recarregar.
+    const naLista = await o.pg.evaluate(() => ({
+      favs: favItems.map((x) => x && x.id),
+      cron: (document.getElementById('library') || {}).textContent || '',
+    }));
+    checar(naLista.favs.includes('item-de-teste'),
+      '16 · e a lista de FAVORITOS do módulo já tem o que chegou, sem recarga — '
+      + 'sem a rehidratação o operador fecha o diálogo numa biblioteca que '
+      + 'ainda é a de antes', JSON.stringify(naLista.favs));
+    await o.ctx.close();
+  }
+
+  // =========================================================================
+  // 17 · CANCELAR NÃO CONSOME O ARQUIVO (v1.8.28)
+  // =========================================================================
+  //
+  // A metade que protege o recurso de virar destruição: parar no meio deixa o
+  // arquivo INTACTO, porque ele é a única forma de continuar de onde parou.
+  // Consumir no `finally` — o lugar óbvio — passaria no bloco 16 e apagaria o
+  // pacote de quem desistiu.
+  {
+    const o = await aparelho(saida);
+    await o.pg.evaluate(() => { window.__fim = importarPacote(); });
+    await esperar(o.pg, () => (window.__progresso || []).length > 0, null, 60000);
+    await o.pg.evaluate(() => { pacoteCancelarImport = true; });
+    await responderDialogo(o.pg);
+    await fimDaImportacao(o.pg);
+    const pediu = await o.pg.evaluate(() => window.__consumiu || []);
+    checar(pediu.length === 0,
+      '17 · a importação INTERROMPIDA não apaga o arquivo — ele é o que faz a '
+      + 'próxima tentativa continuar de onde parou', JSON.stringify(pediu));
     await o.ctx.close();
   }
 

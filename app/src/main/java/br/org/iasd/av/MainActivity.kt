@@ -226,11 +226,39 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * exatamente o que o [SlideDeck] faz.
      */
     private val docPicker = registerForActivityResult(
-        ActivityResultContracts.OpenMultipleDocuments(),
+        AbrirDocumentosComEscrita(),
     ) { uris ->
         val cb = pendingDocPick
         pendingDocPick = null
         cb?.invoke(uris ?: emptyList())
+    }
+
+    /**
+     * O SELETOR DE ARQUIVOS, PEDINDO ESCRITA JUNTO COM A LEITURA.
+     *
+     * `OpenMultipleDocuments` só marca `FLAG_GRANT_READ_URI_PERMISSION`, e com
+     * leitura apenas o `DocumentsContract.deleteDocument` devolve
+     * `SecurityException` — o app não teria como CONSUMIR o pacote que acabou
+     * de importar (`NativeBridge.pacoteConsumirOrigem`).
+     *
+     * A escrita é pedida no MESMO seletor, e não num segundo diálogo: o SAF
+     * concede o que o `Intent` marcar no instante em que a pessoa escolhe o
+     * arquivo, e não há como pedir mais depois sem abrir o seletor de novo.
+     *
+     * ISTO NÃO ALARGA O ALCANCE DO APP. A concessão é por DOCUMENTO e só sobre
+     * o que a pessoa escolheu naquele toque; ela não persiste (nada aqui chama
+     * `takePersistableUriPermission` para estes URIs) e morre com o processo.
+     * O que ela permite é exatamente uma coisa: apagar o arquivo que o operador
+     * acabou de mandar importar.
+     *
+     * **Provedor que não conceda escrita continua funcionando**: a leitura é o
+     * que a importação precisa, e é ela que o contrato original já pedia. O que
+     * se perde é o consumo do arquivo, e ele degrada em silêncio.
+     */
+    private class AbrirDocumentosComEscrita : ActivityResultContracts.OpenMultipleDocuments() {
+        override fun createIntent(context: Context, input: Array<String>): Intent =
+            super.createIntent(context, input)
+                .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
     }
 
     /** Callback do `AVNative.salvarTexto()` em andamento, com o texto a gravar. */
@@ -1275,6 +1303,47 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * montar do lado web — o consumidor é uma pessoa lendo o Registro, e o que
      * ela precisa é do nome da exceção.
      */
+    /**
+     * APAGA O ARQUIVO QUE A IMPORTAÇÃO ACABOU DE LER.
+     *
+     * O pacote é o acervo inteiro: deixá-lo em Downloads dobra o espaço que a
+     * biblioteca ocupa no aparelho, e é justamente o aparelho apertado que
+     * recebe pacote. Pedido do operador, e ele decide QUANDO — o web só chama
+     * isto depois de uma importação completa.
+     *
+     * DEVOLVE A FRASE DO MOTIVO, e nunca lança. Falhar aqui é ordinário: o
+     * provedor pode não permitir apagar (`FLAG_SUPPORTS_DELETE` ausente), o
+     * arquivo pode já ter saído, e a concessão de escrita do seletor pode não
+     * ter vindo. Nenhum desses casos pode derrubar uma importação que
+     * TERMINOU — o acervo já está dentro, e o arquivo sobrando é um
+     * inconveniente, não um defeito.
+     *
+     * `deleteDocument` devolve `false` em vez de lançar quando o provedor
+     * simplesmente recusa, e a distinção importa para quem lê o Registro: o
+     * `false` é "o provedor disse não", a exceção é "nem chegamos a pedir".
+     */
+    override fun pacoteConsumirOrigem(url: String, onResult: (String) -> Unit) {
+        val token = url.substringAfterLast("/saf/", "").substringBefore('?')
+        val uri = if (token.isEmpty()) null else SafRegistry.get(token)
+        if (uri == null) { onResult("o arquivo escolhido já não é conhecido pelo app"); return }
+        val motivo = try {
+            if (DocumentsContract.deleteDocument(contentResolver, uri)) {
+                pacoteUltimoConsumo = "apagado"
+                ""
+            } else {
+                pacoteUltimoConsumo = "o provedor recusou"
+                "o app que guarda o arquivo não permitiu apagá-lo"
+            }
+        } catch (e: Exception) {
+            pacoteUltimoConsumo = "falhou: " + nomeDaFalha(e)
+            "não foi possível apagar o arquivo (" + nomeDaFalha(e) + ")"
+        }
+        onResult(motivo)
+    }
+
+    /** O desfecho do último consumo, para a linha do Registro. */
+    private var pacoteUltimoConsumo: String = ""
+
     override fun pacoteDiag(): String {
         val alvo = pacotePronto
         val onde = if (alvo == null) "nenhum pacote pronto no shell" else {
@@ -1297,7 +1366,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
         return onde + prov + servidoPeloProvedor(uri) +
             "\n  fecho: " + pacoteUltimoFecho.ifBlank { "nenhum nesta sessão" } +
-            "\n  envio: " + pacoteUltimoEnvio.ifBlank { "nenhum nesta sessão" }
+            "\n  envio: " + pacoteUltimoEnvio.ifBlank { "nenhum nesta sessão" } +
+            "\n  consumo do importado: " + pacoteUltimoConsumo.ifBlank { "nenhum nesta sessão" }
     }
 
     /**
