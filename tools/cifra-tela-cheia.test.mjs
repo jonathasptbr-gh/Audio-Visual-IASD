@@ -432,6 +432,22 @@ try {
       // responde "a rolagem começou" é a própria folha andando devagar.
       nota: !!lyricsPopupEl.querySelector('.lv-cifra-nota'),
       quebra: getComputedStyle(lyricsPopupEl.querySelector('.popup-header')).flexWrap,
+      // OS CENTROS HORIZONTAIS DOS DOIS BLOCOS, e o meio da caixa em que eles
+      // vivem — ver a asserção do alinhamento, logo abaixo.
+      centros: (() => {
+        const meio = (e) => { const r = e.getBoundingClientRect();
+          return +(r.left + r.width / 2).toFixed(2); };
+        const cab = lyricsPopupEl.querySelector('.popup-header');
+        const cs = getComputedStyle(cab);
+        const r = cab.getBoundingClientRect();
+        const dentro = +(r.left + parseFloat(cs.paddingLeft)
+          + (r.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) / 2).toFixed(2);
+        const botoes = [
+          ...lyricsPopupEl.querySelectorAll('.lv-cifra-ctl > *'),
+          ...lyricsPopupEl.querySelectorAll('.lv-fonte-ctl > *'),
+        ].filter((b) => b.getBoundingClientRect().width > 0);
+        return { dentro, meios: botoes.map(meio), quantos: botoes.length };
+      })(),
     };
   });
   checar(controles.ausentes.length === 0,
@@ -468,6 +484,44 @@ try {
   checar(controles.maisY > controles.saidaY,
     'e o A+/A− fica no PÉ da coluna, no outro extremo do alcance do polegar',
     controles);
+  // ===== E OS DOIS BLOCOS PARTILHAM UM CENTRO (v1.8.30) ====================
+  //
+  // As duas asserções acima medem o EIXO Y — quem está acima de quem —, e é
+  // por aí que o defeito passou: no X, a fila dos cinco controles ficava
+  // 11,2px à esquerda do A+/A−, numa trilha de 66px. Nada lança, todo botão
+  // responde ao toque, e um teste de comportamento aprova as duas versões.
+  //
+  // A CAUSA era uma margem do RETRATO atravessando para a coluna:
+  // `.lv-cifra-cabecalho .lv-cifra-ctl { margin-right: auto }` empurra a fila
+  // para a esquerda numa LINHA, que é o trabalho dela ali. Numa COLUNA a mesma
+  // margem age no eixo TRANSVERSAL, e margem `auto` no transversal VENCE o
+  // `align-items` do pai: ela absorve a folga inteira (22,4px) de um lado só.
+  // É o mesmo cuidado que a regra do `.lv-cheia-btn` já tomava — *o respiro da
+  // saída troca de eixo com a fila* —, que faltou para a própria fila.
+  //
+  // AS DUAS METADES, e nenhuma basta sozinha:
+  //  - UM CENTRO SÓ é o defeito medido, e ele passa também com tudo encostado
+  //    à ESQUERDA (`align-items: flex-start` no cabeçalho seria o conserto
+  //    barato, e deixaria a coluna torta para o outro lado);
+  //  - ESSE CENTRO É O MEIO DA CAIXA fecha essa porta. A régua é a caixa de
+  //    CONTEÚDO do cabeçalho e não a trilha: o recuo de área segura da
+  //    paisagem é assimétrico de propósito (`-right` maior que o `-left`), e
+  //    medir contra a trilha reprovaria o desenho por cumprir a área segura.
+  //
+  // REVERSÃO: tirar o `margin-right: 0` do bloco `:fullscreen .lv-cifra-ctl`
+  // devolve os 11,2px e reprova a primeira. MEDIDO em três paisagens
+  // (800×390, 892×412, 740×360) e com a gaveta de velocidade aberta e fechada:
+  // o desvio é o mesmo nas seis, isto é, estrutural e não sub-pixel.
+  const espalho = controles.centros.meios.length
+    ? +(Math.max(...controles.centros.meios) - Math.min(...controles.centros.meios)).toFixed(2)
+    : -1;
+  checar(controles.centros.quantos >= 6 && espalho < 0.5,
+    'e TODOS os controles da coluna partilham UM centro horizontal: a fila dos '
+    + 'cinco e o A+/A− do pé, num eixo só', { espalho, ...controles.centros });
+  checar(Math.abs(controles.centros.meios[0] - controles.centros.dentro) < 0.5,
+    '  ↳ e esse centro é o MEIO da caixa do cabeçalho — sem esta, encostar '
+    + 'tudo à esquerda passaria na de cima',
+    { centro: controles.centros.meios[0], caixa: controles.centros.dentro });
   // A NOTA NÃO É DESENHADA AQUI, pelo MESMO número que já tirou as abas: a
   // trilha tem 66px e ~56 úteis, a `--fs-sm` mede ~6,3px por caractere, e a
   // frase viraria oito linhas roubando o lugar dos controles que este modo

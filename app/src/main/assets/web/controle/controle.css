@@ -8649,10 +8649,22 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 /* `align-items: center` para os botões ficarem na largura DELES em vez de
    esticar para a trilha inteira: cinco botões, uma largura só (`--hit`). Sem
-   ele o `stretch` padrão de uma coluna flex os levaria aos 56,4px úteis. */
+   ele o `stretch` padrão de uma coluna flex os levaria aos 56,4px úteis.
+
+   E `margin-right: 0` PORQUE O RETRATO DEIXOU UM `auto` ALI. A regra
+   `.lv-cifra-cabecalho .lv-cifra-ctl { margin-right: auto }` existe para a
+   LINHA do retrato, onde ela empurra a fila para a esquerda e o A+/A− e o ✕
+   para a direita. Numa COLUNA a mesma margem age no eixo TRANSVERSAL — e
+   margem `auto` no transversal VENCE o `align-items` do pai: ela absorve a
+   folga inteira daquele lado e encosta a fila na borda esquerda, enquanto o
+   A+/A− continua centrado. MEDIDO em três paisagens (800×390, 892×412,
+   740×360), com a gaveta de velocidade aberta e fechada: 22,4px de folga toda
+   de um lado, os dois grupos a 11,2px um do outro. É o MESMO cuidado que a
+   regra do `.lv-cheia-btn` logo acima já toma — *o respiro da saída troca de
+   eixo com a fila* —, que faltou para a própria fila. */
 #lyricsPopup:fullscreen .lv-cifra-ctl,
 #lyricsPopup:-webkit-full-screen .lv-cifra-ctl {
-  flex-direction: column; align-items: center;
+  flex-direction: column; align-items: center; margin-right: 0;
 }
 /* A FOLHA ocupa as duas linhas da primeira trilha — é ela que ganha a largura
    que a coluna não usa (~740px numa paisagem de 800, contra os ~375 do
