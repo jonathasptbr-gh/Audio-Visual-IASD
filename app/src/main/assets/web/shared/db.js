@@ -739,6 +739,34 @@
       };
     });
   }
+  /**
+   * AS PASTAS QUE EXISTEM no catálogo — uma entrada por pasta distinta.
+   *
+   * O irmão [filesResumo] percorre a store INTEIRA e DESSERIALIZA cada
+   * registro (com a miniatura e a letra dentro): MEDIDO em Chromium com 2.228
+   * registros, **135 ms**, e era isso que a folha de exportação pagava entre o
+   * toque e a tela. Aqui o cursor é de CHAVE (`openKeyCursor`) sobre o índice
+   * `folder` e em modo `nextunique`, então ele salta de pasta em pasta sem ler
+   * valor nenhum — o custo é o número de PASTAS, não o de arquivos.
+   *
+   * Quem quer o peso de UMA delas usa o [filesByFolder], que também vai pelo
+   * índice. Os dois juntos respondem "o que existe e quanto pesa" por um custo
+   * proporcional ao que se pergunta.
+   */
+  async function filesPastas() {
+    const s = await store(STORE_FILES, 'readonly');
+    return new Promise((resolve, reject) => {
+      const out = [];
+      const req = s.index('folder').openKeyCursor(null, 'nextunique');
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) { resolve(out); return; }
+        if (c.key) out.push(String(c.key));
+        c.continue();
+      };
+    });
+  }
   async function filesChaves() {
     const s = await store(STORE_FILES, 'readonly');
     return asPromise(s.getAllKeys());
@@ -1234,6 +1262,7 @@
     getMedia, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves, filesResumo,
+    filesPastas,
     opfsSupported, opfsGetFile, opfsWriteFile, opfsDeleteFile, opfsDeleteDir, opfsFolderSize,
     mediaChaves,
     mediaResumo, mediaAdd, opfsTodosOsArquivos,

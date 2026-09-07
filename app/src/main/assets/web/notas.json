@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.31",
+    "itens": [
+      "A folha de exportação abre no toque, sem a espera que havia antes dela.",
+      "A barra de notificação passou a mostrar a porcentagem no próprio ícone.",
+      "Ao terminar, o ícone vira um check em vez de simplesmente sumir."
+    ]
+  },
+  {
     "versao": "1.8.30",
     "itens": [
       "Os botões da cifra em tela cheia deitada voltaram a ficar alinhados na coluna."

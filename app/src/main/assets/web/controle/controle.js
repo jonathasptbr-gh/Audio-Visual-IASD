@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.30';
+const WEB_VERSION = '1.8.31';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23205,6 +23205,29 @@ async function pacotePlano(aoAndar) {
  * saiu do catálogo). Quem resolve isso é o `exportarPacote`, marcando por
  * padrão todo grupo que a folha não chegou a oferecer — errar para o lado de
  * levar demais é recuperável; para o lado de deixar bytes para trás, não.
+ *
+ * ===== E ELA NÃO TOCA NO CATÁLOGO (v1.8.30) =====
+ *
+ * Relato do operador: *"ele está tendo um delay para abrir o popup das opções,
+ * verifique esse delay, ele não deve existir"*.
+ *
+ * A v1.8.26 tirou a VARREDURA DO DISCO do caminho do toque e deixou para trás
+ * um `AVDB.filesResumo()` — um cursor sobre a store `files` inteira, usado como
+ * plano B do peso e como única fonte do grupo "sem coleção". MEDIDO em Chromium
+ * com 2.228 registros (um hinário completo mais álbuns, o número que o oráculo
+ * de ida e volta viu num aparelho): **135 ms**, contra 2,3 ms do `mediaResumo`
+ * e 6 ms de um `getAllKeys` — o custo é DESSERIALIZAR cada registro, com a
+ * miniatura e a letra dentro. Num aparelho isso é o atraso que se vê.
+ *
+ * O plano B não era necessário: `collUI[id].bytes` sobe a cada arquivo baixado
+ * e PERSISTE em `state` (`coll-bytes`), então toda coleção que já foi baixada
+ * tem peso em memória desde o `carregarPesos()` da abertura.
+ *
+ * **O PREÇO, DITO:** uma coleção com bytes no disco e sem peso guardado — e o
+ * grupo "sem coleção" — deixam de aparecer na folha. Os bytes continuam indo,
+ * porque o `exportarPacote` marca por padrão todo grupo que a folha não
+ * ofereceu; o que se perde é a chance de DESMARCÁ-LOS. É a troca que o pedido
+ * faz, e ela erra para o lado recuperável.
  */
 async function pacotePlanoAproximado() {
   const cols = allCollections();
@@ -23217,26 +23240,51 @@ async function pacotePlanoAproximado() {
   // por isso que o número é arredondado para cima e sai com a palavra "aprox."
   // (o número que decide se o pacote CABE no aparelho é o do plano exato, mais
   // adiante, e não este).
-  let porPasta = [];
-  try { porPasta = await AVDB.filesResumo(); } catch (_) { porPasta = []; }
-  const doCatalogo = new Map();
-  for (const f of porPasta) {
-    if (!f.folder) continue;
-    doCatalogo.set(f.folder, (doCatalogo.get(f.folder) || 0) + f.bytes);
-  }
-  const conhecidas = new Set(cols.map((c) => c.id));
+  // NADA DE CURSOR SOBRE A STORE INTEIRA — ver o bloco acima. O peso de cada
+  // coleção já está em memória desde o `carregarPesos()` da abertura.
+  const semPeso = [];
   for (const c of cols) {
-    const guardado = (collUI[c.id] && collUI[c.id].bytes) || 0;
-    const bytes = guardado || doCatalogo.get(c.id) || 0;
+    const bytes = (collUI[c.id] && collUI[c.id].bytes) || 0;
     if (bytes > 0) porGrupo.set(AVPacote.GRUPO_COL + c.id, { arquivos: [], bytes });
+    else semPeso.push(c.id);
   }
-  // "ARQUIVOS SEM COLEÇÃO" TAMBÉM SAI DO CATÁLOGO. Ele é definido por AUSÊNCIA
-  // — bytes de uma coleção que saiu do catálogo —, e a varredura do disco é a
-  // única que o conhece por inteiro; mas a parte dele que TEM registro de
-  // catálogo é sabida aqui, e é ela que faz a linha existir na folha em vez de
-  // o grupo aparecer só depois, já marcado e sem chance de ser tirado.
+  // ===== O PLANO B CUSTA O QUE FALTA, E NÃO O ACERVO INTEIRO =====
+  //
+  // Uma coleção sem peso guardado ainda pode ter bytes no disco (o mapa
+  // `coll-bytes` nasceu na v5.x, e um acervo antigo ou uma gravação que não
+  // chegou a coalescer deixam o buraco). Perguntar por ela é legítimo; o que
+  // não se pode é PERCORRER A STORE INTEIRA para descobrir isso.
+  //
+  // O índice `folder` responde por coleção, então o custo é proporcional ao que
+  // FALTA: no caso normal — toda coleção baixada tem peso — são ZERO consultas,
+  // e a folha abre em 2 ms MEDIDOS. Só o aparelho com o buraco paga, e paga
+  // pelo buraco dele.
+  // AS PASTAS QUE EXISTEM saem de um cursor de CHAVE sobre o índice `folder`,
+  // em modo `nextunique`: ele salta de pasta em pasta sem desserializar
+  // registro nenhum, então custa o número de PASTAS (dezenas) e não o de
+  // arquivos (milhares). É ele que sabe as duas coisas que a memória não sabe:
+  // a coleção sem peso guardado, e a pasta que saiu do catálogo.
+  let pastas = [];
+  try { pastas = await AVDB.filesPastas(); } catch (_) { pastas = []; }
+  const conhecidas = new Set(cols.map((c) => c.id));
+  const pesar = async (pasta) => {
+    let bytes = 0;
+    try {
+      for (const r of await AVDB.filesByFolder(pasta)) bytes += (r && r.size) || 0;
+    } catch (_) { bytes = 0; }
+    return bytes;
+  };
+  for (const id of semPeso) {
+    if (!pastas.includes(id)) continue;
+    const bytes = await pesar(id);
+    if (bytes > 0) porGrupo.set(AVPacote.GRUPO_COL + id, { arquivos: [], bytes });
+  }
+  // "ARQUIVOS SEM COLEÇÃO" — definido por AUSÊNCIA: bytes de uma pasta que
+  // saiu do catálogo. Sem esta linha o grupo só apareceria depois da varredura,
+  // já marcado e sem chance de ser tirado — e num acervo cujas coleções todas
+  // saíram do catálogo a folha abriria VAZIA, que foi o que o oráculo pegou.
   let soltos = 0;
-  for (const [pasta, bytes] of doCatalogo) if (!conhecidas.has(pasta)) soltos += bytes;
+  for (const pasta of pastas) if (pasta && !conhecidas.has(pasta)) soltos += await pesar(pasta);
   if (soltos > 0) porGrupo.set(AVPacote.GRUPO_OUTROS, { arquivos: [], bytes: soltos });
   // A MÍDIA é um cursor sobre a store do Cronograma — dezenas de itens, não
   // milhares —, e sem ela o grupo não teria peso nenhum para mostrar.
@@ -23986,6 +24034,14 @@ async function exportarPacote() {
   // tamanho continua no botão; o "o que fazer" virou o PRÓPRIO BOTÃO — ele
   // para em 100% e o toque manda.
   pulsar(pacoteExportarTileEl, 'ok');
+  // ===== O CARTÃO DE CONCLUSÃO, COM O CHECK (v1.8.31) =====
+  //
+  // Pedido do operador: *"ao terminar o processo de exportar ou importar, o
+  // ícone não desapareça na barra, mas vire um ícone de check, para não ter a
+  // impressão de falha ou erro"*. SÓ NO SUCESSO — quem cancelou ou falhou já
+  // tem o diálogo que diz o que houve, e um check ali seria a barra
+  // contradizendo a tela.
+  bgConcluido('Acervo exportado', fmtBytes(gravados));
   if (cabeLocal) {
     // O PRONTO É POR ARQUIVO, e o `nome` entra junto porque é o que o SAF
     // deixaria numa pasta — aqui ele só aparece no `aria-label`, mas a
@@ -25009,6 +25065,7 @@ async function importarPacote() {
   }
 
   pulsar(pacoteImportarTileEl, 'ok');
+  bgConcluido('Acervo importado', 'A biblioteca já está no aparelho.');
   await openAppDialog({
     title: 'Acervo importado',
     message: await pacoteRelatorio(contagem, consumo),
@@ -27406,6 +27463,21 @@ let bgTaskSeq = 0;
  * manda o campo, e o Kotlin lê ausente como "é download" — o comportamento de
  * sempre. Falhar para o lado que já existia é a regra deste app.
  */
+/**
+ * O CARTÃO QUE FICA NA BARRA quando um trabalho longo termina bem.
+ *
+ * A notificação de progresso é do SERVIÇO em primeiro plano e sai com ele; o
+ * que sobrava era o ícone sumindo, que é a mesma coisa que a barra mostra
+ * quando o processo MORRE. Este cartão é a diferença entre as duas — ver
+ * `SyncService.concluir`, que o posta sob um id próprio.
+ *
+ * No navegador é no-op, como todo o resto deste caminho.
+ */
+function bgConcluido(titulo, texto) {
+  if (!window.__NATIVE__) return;
+  try { AVNative.bgConcluido({ titulo, texto }); } catch (_) { /* shell antigo */ }
+}
+
 function bgTaskStart(label, total, icone) {
   if (!window.__NATIVE__) return 0;
   const id = ++bgTaskSeq;

@@ -565,6 +565,16 @@ window.AVNative = {
   temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
   requestMic(),        // → bool: permissão RECORD_AUDIO (push-to-talk)
   keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
+  bgConcluido({titulo, texto}), // O CARTÃO QUE FICA quando um trabalho longo
+                       //   termina BEM. A notificação de progresso é do SERVIÇO
+                       //   e sai com ele; o que sobrava era o ícone sumindo —
+                       //   a mesma coisa que a barra mostra quando o processo
+                       //   MORRE. Este posta um cartão PRÓPRIO (id separado, e
+                       //   é isso que o salva da limpeza do `onDestroy`), não
+                       //   `ongoing` e com `autoCancel`, com o check do
+                       //   sistema. MÉTODO e não campo do `bgProgress`: aquele
+                       //   descreve trabalho EM CURSO e é chamado dezenas de
+                       //   vezes por minuto; este é terminal e vale uma vez
   bgProgress({label, done, total, etaMs, items, idleMs, bytes, icone}), // progresso
                        //   na notificação. `icone` é o DESENHO da barra:
                        //   `baixar` (seta para baixo animada — o padrão),
@@ -573,7 +583,14 @@ window.AVNative = {
                        //   procedência deles: importar traz o acervo PARA o
                        //   aparelho, e vir de um arquivo local em vez da
                        //   rede não muda o sentido do movimento para quem
-                       //   olha. Nome ausente ou desconhecido = `baixar`
+                       //   olha. Nome ausente ou desconhecido = `baixar`.
+                       //   E O PERCENTUAL VAI DENTRO DELE: a barra de status
+                       //   mostra só o ÍCONE, então o número é DESENHADO nele
+                       //   (`SyncService.iconeComPercentual`, um bitmap por
+                       //   atualização) com a seta ao lado — o desenho do
+                       //   `res/` é fixo, e o número muda. Só com percentual de
+                       //   VERDADE: sem total conhecido fica o ícone do sistema,
+                       //   porque um "0%" parado se lê como travado
   nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs, actions}),
                        //   `actions`: os BOTÕES do cartão, na ordem, escolhidos
                        //   pelo lado web. Vazio = os cinco de sempre
@@ -715,7 +732,7 @@ window.AVNative = {
                        //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
-São **61 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **62 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -783,7 +800,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **70**, e ele é o **PISO**: o bundle declara `minShell: 70`, então
+Hoje vale **71**, e ele é o **PISO**: o bundle declara `minShell: 71`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -796,7 +813,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 70 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 71 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -858,7 +875,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 70`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 71`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -5298,9 +5315,9 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.30 · APK v1.8.29** · `SHELL_VERSION` **70** ·
-bundle com `minShell: 70` e **SEM `shellTag`** (lote SÓ WEB) — o
-shell 70 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
+**Versão atual: base web v1.8.31 · APK v1.8.31** · `SHELL_VERSION` **71** ·
+bundle com `minShell: 71` e **`shellTag: "v1.8.31"`** (lote COM Release) — o
+shell 71 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
@@ -5339,6 +5356,25 @@ lado web.
 > Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+**O QUE O LOTE TRAZ (v1.8.31) — a folha sem espera, o número na barra e o
+check quando acaba:**
+
+| peça | onde |
+|---|---|
+| a folha de exportação sem a varredura da store inteira | `pacotePlanoAproximado` + `AVDB.filesPastas` |
+| o percentual DESENHADO no ícone da barra de status | `SyncService.iconeComPercentual` (`IconCompat.createWithBitmap`) |
+| o check quando o trabalho acaba, sob id PRÓPRIO | `SyncService.concluir` (`NOTIF_FIM_ID`) + `bgConcluido` (shell 71) |
+
+> **LOTE COM RELEASE.** A ponte ganhou `bgConcluido` — daí o `shellTag`. Sem
+> ele a metade web chegaria sozinha, o `call()` venceria os 60 s e o check
+> simplesmente não apareceria, sem nada dizendo por quê.
+>
+> **O ÍCONE DA BARRA É UM BITMAP, e a razão é o número:** um `drawable` do
+> `res/` cabe UM desenho fixo, e o percentual muda a cada atualização. O que o
+> Android desenha ali é a FORMA (ele tinge com a cor do tema), então só o alfa
+> importa — a SETA fica à esquerda e o número ocupa o resto. Sem total
+> conhecido, o ícone do sistema: um "0%" parado se lê como travado.
 
 **O QUE O LOTE TRAZ (v1.8.30) — a coluna da cifra deitada, alinhada:**
 
