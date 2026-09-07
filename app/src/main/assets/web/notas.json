@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.32",
+    "itens": [
+      "O título e o tom da cifra passaram a crescer junto com o A+ da folha."
+    ]
+  },
+  {
     "versao": "1.8.31",
     "itens": [
       "A folha de exportação abre no toque, sem a espera que havia antes dela.",
