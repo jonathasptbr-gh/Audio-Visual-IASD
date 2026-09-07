@@ -1608,3 +1608,790 @@ que substituiu o microfone quando a aba deixou de ter uma ferramenta só.
 > (`type="search"`).
 
 ---
+
+---
+
+<!-- Extraído do `CLAUDE.md` na faxina de 2026-09-07. -->
+
+> **Este bloco saiu do `CLAUDE.md`**, que é lido INTEIRO em toda sessão: eram
+> 772 linhas — 14% daquele arquivo — cobradas de toda tarefa, inclusive das que
+> nunca escrevem uma cor. **As REGRAS DURAS ficaram lá** (cor nova em
+> `tokens.css`, não há contorno, o palco não tem tema, nunca branco literal, o
+> recuo absoluto, a escada de camadas, o `colors.xml`), porque quebrá-las é
+> possível sem abrir capítulo nenhum. **Aqui está o raciocínio: cada par medido,
+> os pisos, o que foi tentado e revogado.**
+>
+> Ele NÃO sobrepõe o que já estava neste arquivo — MEDIDO na entrada da faxina:
+> 6% de coincidência. Os dois foram escritos para dizer coisas diferentes.
+
+## A paleta — o raciocínio inteiro
+
+Mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos dois
+`index.html` **antes** da folha do app. Ela é a **identidade oficial da IASD**,
+em **DOIS TEMAS**, com o denim `#2F557F` (PMS 302) como núcleo. O raciocínio
+completo (cada par medido, os pisos, os ladrilhos da Bíblia) está na seção de
+paleta de `docs/arquitetura/DESIGN-SYSTEM.md`.
+
+**NÃO HÁ CONTORNO EM LUGAR NENHUM — E QUATRO EXCEÇÕES NOMEADAS, DUAS DELAS
+PEDIDAS.** Nenhuma regra separa caixas com `border`/`outline`; sobrevivem dois
+DESENHOS (o aro que gira — `.dl-ring` — e o ✓ do seletor de destinos) e duas
+peças que o operador pediu: **o CAMPO DE BUSCA da Biblioteca** e, mais abaixo, a
+**DIVISÓRIA entre faixas irmãs** (v1.5.16), que nem sequer é uma `border`. O
+campo de busca entrou na v1.5.5 (*"abra uma única exceção ao conceito de
+sem bordas do app, para poder fazer a caixa de texto da busca … branca com a
+borda em cinza"*), e o que o autoriza é aritmético: no tema CLARO `--bar` é BRANCO
+e o campo é branco — **1,00:1** —, e sem contorno a caixa de texto não existe na
+tela; foi a mesma conta que criou a faixa `--field-bar` na v5.270, e a borda a
+resolve sem trazer a faixa de volta. A COR sai de `var(--surface)` (v1.5.8, pedido do
+operador: *"ele deve ser o mesmo cinza dos botões a sua volta"*) — o MESMO token
+que os dois quadrados ao lado pintam, composto sobre a MESMA base por um
+`background-clip: padding-box`; sem ele a tinta comporia sobre o branco do campo
+e sumiria no tema escuro. **Isto revoga o piso de 3:1 da v1.5.5**, que vinha de um
+valor calculado (`--field-borda`, hoje removido): no claro esse cinza dá 1,38:1
+contra o campo, que é o MESMO degrau em que os botões vivem contra a mesma barra
+— a borda não ficou menos visível que eles, ficou igual a eles. **É o NOME que
+segura a lista** — ela não tem regra que a próxima borda possa alegar cumprir,
+e é por isso que cada exceção entra escrita à mão no oráculo.
+
+**E A EXCEÇÃO DA BIBLIOTECA SAIU (v1.5.14).** Ela existiu da v1.5.9 à v1.5.13,
+por autoridade explícita do operador: *"vou lhe dar autoridade para usar sistemas
+visuais de design e organização usando bordas, mas apenas para a biblioteca. pois
+temos 3 niveis de listagens na biblioteca e o sistema de separação apenas por cor
+sólida de cards está limitando nossas opções"*.
+
+**A autorização era para o PROBLEMA, e o problema tinha causa aritmética.** São
+QUATRO níveis (janela → seção → álbum → faixa) sobre uma escada de três degraus,
+com a janela tendo gastado o de cima na v1.5.7. MEDIDO no renderizado, o desenho
+que a moldura sustentava não cumpria o piso de 1,28:1 em **nenhum** par de
+superfícies — sete de sete reprovavam no tema escuro — e três pares valiam
+**1,00:1** (no escuro, a tampa de um álbum e as faixas dentro dele eram
+pixel-idênticas: `--item-fill` **é** `var(--surface-sunk)`, o mesmo token da
+tampa sobre a mesma base). O traço de 1px era a única coisa daquela tela com
+contraste de verdade, e era por isso que ele parecia funcionar.
+
+A v1.5.14 troca a **escada** pela **alternância** (ver "A hierarquia da
+Biblioteca", abaixo): sem escassez de degrau não há o que a borda resolva, e o
+pedido de então — *"poucas bordas, sem traços finos, ou designs visualmente
+poluídos"* — a dispensa. Com ela saiu o token `--line`, que tinha ficado com zero
+consumidores e cujo próprio comentário dizia que ele *"NÃO pode voltar a ser um
+filete"* enquanto era o único filete do app.
+
+**E A DIVISÓRIA ENTRE FAIXAS IRMÃS ENTROU (v1.5.16) — a segunda PEDIDA, e a
+única que é um TRAÇO.** Pedido do operador: *"Verifique a criação de um elemento
+de linha divisória (não borda inteira), na listagem do itens propriamente dos
+álbuns, para melhor distinção entre os itens."*
+
+**Ela não é a moldura voltando, e a distinção é de OBJETO — não de espessura.**
+A moldura era um retângulo por nível, quatro arestas, em TRÊS níveis ao mesmo
+tempo, e carregava a HIERARQUIA, que é o trabalho que a alternância faz hoje com
+degrau de verdade. Esta é UMA aresta, num nível só, entre IRMÃS, e faz o que a
+alternância por construção não faz: **separar vizinhas do MESMO nível**. As três
+palavras que decidem estão no pedido — *"não borda inteira"*: o operador já sabe
+que o app aboliu contorno, e está nomeando a diferença.
+
+**E ela é ARITMÉTICA pela terceira vez nesta seção.** Desde a v1.5.14 a faixa é
+transparente e a placa atrás dela é `--panel`: o vão de 4px entre duas faixas
+mede **1,00:1** contra os dois lados. Não é pouca separação — é separação
+nenhuma. `--divisoria` dá **1,88:1** no escuro e **1,99:1** no claro sobre essa
+placa (contra os 1,78:1 e 2,51:1 da moldura removida): mesma ordem de grandeza,
+um vigésimo da tinta.
+
+**E ELA NÃO É UMA `border`, o que aqui é a parte perigosa.** `border-bottom`
+pinta a caixa inteira e não tem como ser RECUADA, que é literalmente o *"não
+borda inteira"* do pedido — a divisória começa na coluna do NOME
+(`--faixa-coluna-texto`), nunca sob a miniatura. **A forma sai do pedido; o
+precedente é que não podia sair de graça:** um traço pintado como bloco de 1px
+passaria pela varredura de contorno sem ninguém decidir nada, e o que entraria no
+repositório seria *"filete pode, desde que não se chame border"*. Daí o oráculo
+ter ganhado o PAR — uma asserção NEGATIVA que varre a base por qualquer bloco de
+1px com fundo e reprova todos os outros, e uma POSITIVA que exige que
+`--divisoria` tenha **um** consumidor e que ele seja o seletor nomeado. As duas
+provadas por reversão.
+
+**E ELA VALE NAS DUAS LISTAS DE FAIXAS, não numa (v1.5.18).** Relato: *"nessa
+lista de favoritos também não há a linha divisória que temos nas outras listas na
+biblioteca"*. A v1.5.16 desenhou o traço para a faixa de um ÁLBUM, e os favoritos
+são outra `<ul>`. **Continua sendo UM consumidor** — a mesma declaração, com os
+dois seletores —, e é isso que mantém a asserção POSITIVA de pé: uma segunda
+regra pintando o mesmo token seria a porta larga que ela existe para fechar.
+**Os dois números que mudam entram por TOKEN, nunca copiados:** a coluna do nome
+(aqui a miniatura é `--thumb`, 40px, contra os 38 da `.hymn-play-thumb`) sai de
+um `--faixa-coluna-texto` sobrescrito na `.fav-itens`, e a metade do vão que a
+caixa reabsorve sai do `gap` DESTA lista (`--sp-3` contra `--sp-2`) — copiar o
+número do álbum descentraria o traço, que é exatamente o defeito que a v1.5.17
+tinha acabado de corrigir do outro lado.
+
+Os quatro nomes são cobrados um a um no oráculo
+(`tools/tokens.test.mjs`, sem `continue-on-error`), e **não há mais recorte por
+escopo** — ele era a única exceção que não nomeava uma peça, e uma exceção por
+escopo é a que mais barato se alarga. É ele que faz a regra durar:
+uma borda é a coisa mais fácil de acrescentar quando duas caixas não estão se
+separando o bastante, e ela não quebra nada, não erra alto e não aparece em teste
+de comportamento nenhum.
+
+Fora dessa aresta, **o degrau de tom continua sendo a ÚNICA coisa que separa duas
+caixas** — daí o resto desta seção.
+
+### As regras
+
+- **Só COR entra em `tokens.css`.** Raio, escala de ícone, curva de toque e
+  medidas de layout ficam no `:root` de `controle.css`: são decisões da UI densa
+  do Controle, e o Display não teria o que fazer com elas.
+- **Três blocos, nesta ordem:** `:root` com o que NÃO muda, `:root` com o tema
+  ESCURO (o padrão, sem atributo) e `:root[data-tema="claro"]` (0,2,0 vence
+  0,1,0). O claro é um **DELTA**. **Um token que exista SÓ no claro não está
+  definido no tema padrão** — o `var()` computa para o valor inicial da
+  propriedade, sem aviso, e quem escreveu acabou de ver a cor certa porque estava
+  com o claro ligado. `tokens.test.mjs` trava isso.
+- **O PALCO NÃO TEM TEMA**, e é isso que faz o recurso valer. `--stage-*`,
+  `--wallpaper`, `--lyrics-frame-bg`, as sombras e o `--scrim` moram no bloco
+  compartilhado. O Display ficaria escuro por omissão (ele nunca escreve o
+  atributo); o que a separação garante é a **PREVIEW do Controle**, que roda no
+  documento que TEM tema e existe para ESPELHAR o telão.
+- **E a regra vale para as REGRAS, não só para os tokens.** Nada pintado no palco
+  pode ler um token redeclarado em `[data-tema]` — as folhas do palco liam
+  `--brand`, `--live-strong`, `--bg` e `--accent-glow`, e com o tema CLARO ligado
+  o título do slide de capa saía em denim sobre o preto do palco: **2,73:1**. Daí
+  `--stage-accent`, `--stage-accent-glow`, `--stage-on-accent` e `--stage-alert`.
+  O `smoke.mjs` compara a COR COMPUTADA de cada camada nos dois temas — a versão
+  que comparava NOMES de token deixava o defeito passar por baixo.
+- **Três matizes, com papéis que não se misturam.**
+  - **Azul denim** é a marca **e** o accent: `--brand` e `--accent` têm o mesmo
+    valor de propósito, e os dois nomes existem para distinguir na folha "isto é
+    marca" de "isto é navegação".
+  - **Vermelho** (`scarlett`) é atenção, em dois papéis separados pela
+    INTENSIDADE do preenchimento: saturado (`--live`) = está no ar agora, e não
+    pode ter concorrente na tela; suave (`--live-fill` numa linha, `--btn-danger`
+    num botão) = ação destrutiva — inclusive o botão que CONFIRMA uma exclusão
+    (`openAppDialog({ perigo: true })`), que vestia o azul primário até a v1.4.0.
+  - **Verde** (`--ok`, do `treefrog`) é **só** concluído/conectado. Ele já disse
+    "está no ar" em dois lugares enquanto outros quatro diziam o mesmo em
+    vermelho — duas cores opostas para a mesma mensagem na mesma tela.
+- **Os fundos de estado são OPACOS** (`--sel-fill`, `--live-fill`, `--ok-fill`), e
+  isso é medido: `--accent-soft` a 16% sobre o painel compõe `#3d4959`, que é o
+  `--panel-2` desta paleta — uma linha SELECIONADA ficava com a cor exata do
+  nível de baixo da árvore. Opacos, valem o mesmo em qualquer nível: **um estado
+  SAI da escada em vez de ocupar um degrau dela**.
+- **E A SUPERFÍCIE DE UMA AÇÃO TAMBÉM É OPACA** (`--btn-accent`, `--btn-danger`,
+  `--btn-warn`, `--btn-ok`). Os `-soft` são tinta com ALFA, e alfa EMPILHA:
+  MEDIDO no escuro, o mesmo botão derivava **1,97:1** entre a base mais escura e
+  a mais clara em que ele pousa — mais que o degrau `--bg` × `--panel` (1,49:1).
+  O chevron de uma SEÇÃO compunha `#3d4959` e o de um CARD, `#4a596d`: um
+  controle, duas cores. Os `-soft` ficam para o que é wash de verdade (a sombra
+  do pulso, o trilho do `.dl-ring`); **fundo de botão ou de chip usa `--btn-*`**,
+  e `tokens.test.mjs` trava isso.
+- **UMA LINGUAGEM DE ESTADO SÓ, e ela responde a quatro perguntas.** O app
+  tinha três maneiras de dizer "isto está ativo" (preenchido, `--sel-fill`, e
+  **só cor de texto** — a fraca, de que o operador reclamou no botão de
+  repetição). Hoje: **ESCOLHIDO** entre alternativas = `--accent-fill` +
+  `--on-accent`; **LIGADO** (interruptor) = `--btn-accent` + `--accent`;
+  **SELECIONADO** numa lista = `--sel-fill`; **ABERTO** = não é cor (a seta que
+  gira, o corpo à vista, a tampa que gruda e o nome em accent da pasta já
+  dizem). **Cor de texto nunca carrega estado sozinha.**
+  **E A LINHA COM GAVETA É A EXCEÇÃO NOMEADA, por decisão do operador**
+  (v1.5.17 → v1.5.18). O `.lib-item.expanded` pintava um overlay de
+  `--surface-sunk`, escrito na v5.271 quando a faixa FECHADA já vinha recuada —
+  ele era MAIS UM degrau sobre um degrau que existia. A v1.5.14 tirou o
+  preenchimento do nível 3 e ele virou o ÚNICO tom da faixa aberta, num lugar
+  que a alternância não tem: MEDIDO, **1,15:1** no escuro e **1,39:1** no claro
+  entre o título e o corpo do MESMO item — o relato (*"a zona do título e
+  thumbnail está ficando diferente da cor do corpo desse item"*). O achado foi
+  que a MESMA gaveta já media **1,00:1** na lista de BUSCA, onde `--linha` é
+  opaco e a `.row` escondia o overlay: **o app tinha duas leituras do mesmo
+  objeto**, e ninguém tinha escolhido entre elas.
+
+  **A v1.5.17 escolheu a de cima (a tampa vira o papel do item) e o operador
+  escolheu a de baixo:** *"as opções de play não estão colorindo o card dono
+  daquelas opções … o card titular do item não ganhou a cor de seleção/cor do
+  corpo da caixa de opções"*. Para quem opera, o corpo de um item aberto é o
+  POÇO — a superfície grande que a gaveta abre —, e não o papel dos blocos que
+  descansam nele. Hoje a TAMPA veste `--gaveta-bg`, tampa e corpo são uma
+  superfície só, e os botões flutuam dentro dela. Isto vale nas QUATRO listas
+  (acervo, favoritos, busca e pasta do aparelho), por `background` na `.row` e
+  não por `--linha`: as quatro resolvem esse token de jeitos diferentes, e uma
+  delas é escopada com id. Os três `:not()` são a precedência do estado — uma
+  linha NO AR que o operador abra continua vermelha. E a divisória acima dela
+  SOME, de propósito: o traço mora sob a `.row`, e ali quem separa é o
+  preenchimento.
+  E quando AÇÃO e ESCOLHA dividem a MESMA faixa — o trilho de navegação é o
+  único caso — a ação desce para `--btn-accent` e a ESCOLHA é marcada **sem
+  área**: uma barra de 3px em `--accent` na borda de cima da aba, mais o glifo
+  na mesma cor (v1.3.15). Duas manchas cheias na mesma faixa disputam, e a que
+  menos deve disputar é a que só diz "você está aqui".
+  **E UM INTERRUPTOR APAGADO É UM BOTÃO NORMAL** (v1.4.25): a estrela e o
+  "à playlist" vestiam `--line` — a cor de LINHA, que já então quase ninguém
+  usava e que saiu de vez na v1.5.14 —, e o operador os lia como indisponíveis (*"foi simplesmente
+  ofuscado o botão inteiro"*). Apagado é o `.row-btn` de sempre; quem carrega o
+  estado é o ÍCONE (vazado × cheio, `+` × `✓`), com a superfície `--btn-accent`
+  como reforço. **Ofuscar não é dizer "desligado": é dizer "indisponível", e o
+  app já tem uma linguagem para isso** (`opacity: .3` + `disabled`).
+  **E NA GRADE DE CONFIGURAÇÕES A REGRA VIROU ABSOLUTA** (v1.7.6): nenhum tile
+  apaga, nunca. Pedido do operador — *"todos os botões devem ter o mesmo azul de
+  ativo, não temos mais essa diferença, toda diferença de estado é pelo icone,
+  não pela cor"*. Os dois que ainda escureciam (o fundo da letra e o giro) já
+  tinham o estado no DESENHO, então a luz era a segunda cópia da mesma resposta.
+  **A consequência para o próximo tile é a soma de duas remoções** — a palavra
+  do estado saiu na v1.7.2, a cor saiu agora: *um estado que não caiba num
+  desenho não cabe naquela grade*.
+- **E O TEXTO DO TEMA CLARO É PRETO — o ÚNICO desvio declarado da paleta**
+  (v1.5.12). Pedido do operador, na terceira rodada sobre a legibilidade da
+  Biblioteca: *"use a cor preta pra os textos e não cinza como me parece ser
+  hoje"*. `--text` era `#4a4a4a`, o **`night` OFICIAL** — não um cinza escolhido,
+  mas A cor de texto da identidade. O operador o leu como cinza duas vezes, e a
+  leitura está certa: `night` É um cinza escuro, e sob a luz de um salão ele se
+  lê como texto apagado. MEDIDO: 6,87:1 → **16,28:1** sobre a página, 8,86:1 →
+  **21:1** sobre o painel branco, 5,33:1 → **12,62:1** sobre a tampa azul da
+  Biblioteca. **`--muted` NÃO acompanha** — é ele que mantém a regra NOME ×
+  NÚMERO da v1.5.11, e o par abriu de 1,33:1 para 3,15:1. Os ladrilhos da Bíblia
+  não foram retocados e não podiam precisar: escurecer o texto só afasta o
+  rótulo do ladrilho (pior caso, 6,46:1 → 15,31:1). `smoke.mjs` guarda o desvio
+  com um LITERAL, de propósito: quem conferir a paleta contra a marca encontra o
+  preto, conclui que é um deslize e o desfaz de boa-fé.
+- **Nem todo token é valor oficial, e os derivados estão marcados.** Os dezoito
+  oficiais foram desenhados para fundo BRANCO — todos passam AA sobre branco, e
+  **nenhum** passa AA como texto sobre o quase-preto do tema escuro (bluejay dá
+  3,97:1). Onde clarear/escurecer foi preciso, o comentário de `tokens.css` diz
+  de qual oficial o valor saiu, e a matiz é preservada. Nos ladrilhos da Bíblia a
+  identidade tem sete famílias de matiz e a tela precisa de DEZ grupos separáveis
+  por ≥20°: cinco são oficiais, cinco preenchem os vãos.
+
+### O feedback de toque é um RECUO ABSOLUTO, nunca uma fração
+
+`--press` foi `scale(.96)`, e **uma FRAÇÃO aplicada a alvos de 34px a 408px não
+é um valor: são doze**. MEDIDO, o recuo por lado que ela produzia:
+
+| alvo | caixa | recuo |
+|---|---|---|
+| `.back-btn` · `.popup-close` | 34×34 | **0,7px** — imperceptível |
+| `.t-btn` | 53×36 | 1,1 lateral · 0,7 vertical |
+| `.tab` | 143×38 | 2,9 lateral · 0,8 vertical |
+| `.dialog-btn` | 157×33 | **3,1 lateral · 0,7 vertical** |
+| `.lib-item` | 408 | **8,2px** — exagerado |
+
+São as DUAS queixas do operador de uma vez, e o `.dialog-btn` é literalmente o
+botão de confirmar exclusão: um aperto de LADO, que não se lê como "apertei".
+
+Hoje **`--press: translateY(2px)`** — o mesmo recuo em qualquer alvo, a metáfora
+da tecla que afunda — mais **`--press-luz`**, um `filter: brightness()` (1.35 no
+escuro, .88 no claro) que responde até no que não tem fundo, acendendo o próprio
+traço. `filter` e não overlay de fundo porque não disputa propriedade com quem
+já usa `background-image` (a faixa da célula da Bíblia, a pílula do livro, o
+vazado da aba).
+
+**E O RECUO É DO CONTROLE FOLHA; UM BLOCO RESPONDE SÓ COM A LUZ** (v1.7.4).
+Pedido do operador sobre a Biblioteca: *"Há um efeito de encolhimento que
+distorce os elementos, remova esse efeito, deixe apenas um efeito de
+coloração/sombreamento ao toque sem encolhimento. Também aproveite para
+verificar se está colorindo o corpo do card corretamente e não apenas o
+arrangment/card do texto ou cabeçalho."*
+
+A regra **já estava escrita na `.coll-bar` desde a v5.288** (*"um contêiner que
+hospeda um controle nunca escala — ele responde por PREENCHIMENTO, que não move
+nada"*), e a v1.3.14 a contrariou ao pôr as duas barras que abrem um bloco na
+lista do `--press`. As duas metades do relato são o mesmo defeito:
+
+- **a barra é TRANSPARENTE**, então o `filter` acendia só o TEXTO e os ícones — o
+  corpo do card, com as margens e os cantos, ficava intocado;
+- **e ela DESLIZA dentro de um bloco parado**: o `translateY(2px)` move o
+  conteúdo da tampa enquanto a pílula fica onde está, e o que se vê é a tampa
+  escorregando e sendo recortada.
+
+Hoje quem responde é o BLOCO, com a luz e por inteiro — `.hymnal-card`,
+`.coll-group--drop` e a `.lib-item` (a linha de lista, que é o outro contêiner
+que hospeda controles) —, em qualquer profundidade e nos dois estados. A pergunta
+é `:has(> tampa:active)` e não `:active` no bloco: com o card ABERTO o corpo dele
+é a lista inteira, e `:active` casa em ancestral.
+
+**E ELE PEDE UMA TECLA — sobre a PREVIEW não há nenhuma** (v1.4.33). Relato do
+operador: os botões de mudo e da cortina *"ainda estão erroneamente com o
+feedback tátil de quando ainda estavam na barra"*. O `.pv-fab` não tem pastilha:
+ele É o traço branco sobre o que estiver projetado, e um recuo ali não se lê
+como "apertei" — lê-se como o ícone PULANDO por cima da imagem no ar (sem TV,
+essa imagem é a projeção). A LUZ também não salva: MEDIDO no `#muteToggle`, o
+`brightness(1.35)` leva o traço de **240,6 a 238,3** (branco já está no teto,
+então ela só DESBOTA o halo escuro) e o fundo de 14,3 a 14,5 — os dois
+invisíveis, e o que sobrava era só o deslocamento. Por isso o `.pv-fab` saiu da
+lista e tem resposta PRÓPRIA: a **pena do traço** (mais o halo, que engrossa
+junto). É o que responde sobre um fundo DESCONHECIDO — MEDIDO, +21% de
+luminância média sobre o wallpaper escuro e −10% com +67px de contorno sobre um
+slide branco. Não é escala: a caixa não muda de tamanho e a regra do recuo
+absoluto segue intacta para quem TEM tecla.
+
+**As duas armadilhas que a escala criava morreram com ela:**
+
+- **O HIT-TEST.** A `.coll-bar` do card tem 408px: 4% recuavam a borda direita
+  ~8px, e o botão de baixar está colado nela — **MEDIDO, 6 de 11 toques no botão
+  de fato baixavam**, e os 5 que erravam eram todos à direita. 2px na VERTICAL
+  não tiram dedo nenhum de um alvo de 34px.
+- **A FRESTA do aninhamento** (v1.2.27). `:active` casa também nos ANCESTRAIS:
+  0,96 × 0,96 deixava o filho 7px mais estreito de cada lado que os irmãos, com
+  o fundo do cartão aparecendo nela. Dois recuos são 4px na MESMA direção, sem
+  mudar de largura.
+
+**O que fica: um ANCESTRAL não responde ao toque que foi para um filho** — e as
+guardas suprimem as DUAS partes (`transform` e `filter`), senão o bloco inteiro
+acende por um toque de 40px, que é o mesmo defeito por outra propriedade. Antes
+de pôr uma classe na lista, pergunte se um ancestral dela já está lá.
+
+**E A LISTA É UM `:is()`, QUE É FORGIVING — um seletor inválido ali some em
+SILÊNCIO** (v1.4.31). A v1.4.27 subiu com uma marca de conflito de merge por
+resolver DENTRO desse `:is()`; o navegador descartou os componentes inválidos e
+aplicou o resto, então as ~40 classes seguiram recuando ao toque, o CI seguiu
+verde por três lotes, e o que se perdeu foram só os DOIS seletores em disputa
+(`.row-slot--ok` e `.lv-row--tocavel`), que pararam de responder ao dedo sem
+nada na tela dizer por quê. **Um oráculo de COMPORTAMENTO não pega isto** — ele
+mede um seletor que sobreviveu. Quem pega é o `tokens.test.mjs`, que varre o
+arquivo CRU: nenhuma folha nem HTML da base carrega marca de conflito.
+
+**E A LISTA DE GUARDAS É O QUE ENVELHECE**, não a regra: a `.row-acoes` — a
+faixa de opções da linha, que é onde o operador de fato toca — ficou de fora
+dela até a v1.4.25, e o cartão do Cronograma balançava 2px a cada toque no
+excluir. A dos FAVORITOS já estava coberta (ela mora numa `.hymn-gaveta`), e era
+só isso que fazia o defeito aparecer numa lista e não na outra. **Bloco novo que
+hospede controles entra na lista no MESMO lote em que nasce**; a régua é a do
+parágrafo acima, e ali a resposta ao toque nem é o botão afundando — é a faixa
+TROCANDO DE CONTEÚDO (a pergunta do excluir, o campo do renomear). Oráculo:
+`smoke.mjs`, medindo `transform` E `filter` do cartão durante uma pressão de
+verdade. O `controles-layout.test.mjs` guarda a exceção da
+preview, nas três metades: a caixa não anda, o traço responde no RENDERIZADO, e
+o botão da BARRA continua afundando.
+
+**E ELA FOI COBRADA UMA VERSÃO DEPOIS DE ESCRITA:** o `.row-slot` da v1.4.27 (o
+✓ do renomear, que mora na coluna do `⋮`) vive FORA da `.row-acoes`, e a guarda
+acima cobre a FAIXA — sem acrescentá-lo, o balanço voltava pelo botão novo.
+
+### A escada de camadas
+
+- **A superfície AFUNDA dentro de um cartão** (regra no topo de `controle.css`).
+  `--surface`/`--surface-2` são branco com alfa, então EMPILHAM: o mesmo token
+  sobre `--panel` produz base bem mais clara do que sobre `--bg` — era a causa
+  raiz do pior contraste do app. Não existe alfa que resolva os dois casos, então
+  dentro do cartão o sinal se INVERTE (o overlay passa a ser preto), que também é
+  a convenção certa de UI escura: o cartão já está elevado, logo o controle
+  dentro dele é recesso, e emite menos luz num salão escuro. Custom properties
+  HERDAM, então a regra só marca os elementos que de fato pintam `--panel`. **O
+  SINAL é o mesmo nos dois temas** (flutua sobre a página, afunda dentro do
+  cartão); só a intensidade muda, daí `--surface-sunk` ser token. O par FLUTUANTE
+  tem nome próprio (`--surface-alta`/`--surface-2-alta`) porque há um caminho de
+  VOLTA — a folha da Biblioteca é nível 0 e um controle lá dentro flutua de novo,
+  coisa que um override do mesmo nome não daria (`--surface: var(--surface)` é um
+  ciclo que o CSS descarta).
+- **E A JANELA DA BIBLIOTECA GASTOU O DEGRAU DE CIMA** (v1.5.7). Ela pintava
+  `--bg` e passou a pintar `--panel`, a pedido do operador (*"bordas curvas e tom
+  branco como base"*) — e com isso sobraram DOIS degraus para TRÊS níveis de
+  lista. Qualquer arranjo deixava dois com o mesmo tom: MEDIDO, seção e card a
+  **1,00:1**, que é o defeito da v5.241 de volta.
+
+  **A v1.5.7 e a v1.5.8 responderam com COR e o operador reprovou** (três
+  capturas): oito matizes por coleção, em ordem de espectro, com três famílias de
+  tom cada. *Cor sólida não diz o que está dentro do quê* — e a razão é que cor é
+  um encode **nominal** (categoria), não **ordinal** (profundidade). É por isso
+  que ela funciona nos ladrilhos da Bíblia, que são uma GRADE PLANA de irmãos
+  onde a cor diz *"que grupo de livros"*. A v1.5.9 respondeu com MOLDURA e durou
+  cinco lotes.
+
+  **E A v1.5.14 TROCOU A PREMISSA: papel → poço → papel.** A prova de que nenhuma
+  das nove tentativas podia fechar é aritmética — quatro degraus no piso de
+  1,28:1 partindo do branco dão `#ffffff → #e3e3e3 → #cacaca → #b3b3b3`, e o
+  nível 3, onde mora TODO o texto da lista, cairia no cinza médio que o operador
+  recusou na v1.5.10. **Não existe escada de TOM que resolva quatro níveis sobre
+  base branca.**
+
+  Uma escada ACUMULA e acaba; uma alternância não:
+
+```
+janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
+  ├ seção           POÇO   (--poco)    cabeçalho GRUDENTO, top 0
+  │   └ álbum       PAPEL  (--panel)   cabeçalho GRUDENTO, top --bar-secao-h
+  │       └ faixa   —                  sem fundo: preenchimento é ESTADO
+  │                                    (irmãs separadas por `--divisoria`)
+  └ hinário/série   POÇO   (--poco)    cabeçalho GRUDENTO, top 0
+      └ a PLACA     PAPEL  (--panel)   o `.coll-open`, o nível 2 desta perna
+          └ faixa   —                  a MESMA base da faixa de álbum
+```
+
+  Duas superfícies e profundidade ilimitada. MEDIDO no renderizado: **1,43:1**
+  em cada degrau no escuro e **1,35:1** no claro, contra 7/7 e 4/7 reprovando o
+  piso antes. O único traço da tela é a divisória entre faixas IRMÃS (v1.5.16),
+  e ela é ortogonal a esta escada: a alternância separa NÍVEIS e por construção
+  não separa vizinhas do mesmo. **A regra é por PROFUNDIDADE, nunca por tipo de
+  bloco**: as coleções fixas e as pastas nascem na RAIZ, são nível 1 e vestem o
+  poço; o mesmo `.hymnal-card` dentro de uma seção é nível 2 e veste papel.
+  Escrevê-la por tipo (`.hymnal-card { papel }`) foi o primeiro corte do lote e
+  MEDIU 1,00:1 — os hinários da raiz sumiam sobre a janela branca.
+
+  **E A ÁRVORE NÃO TEM PROFUNDIDADE UNIFORME — daí a PLACA** (v1.5.15). Uma
+  seção contém CARDS; uma coleção da raiz contém FAIXAS. Sem fundo próprio a
+  faixa pousa no que o bloco pinta, então a MESMA `.hymn-result` saía em duas
+  cores conforme onde a coleção calha de morar — papel dentro de uma seção,
+  AZUL num hinário ou numa série da raiz. Relato do operador: *"isso era pra ser
+  assim? fundo azul nos itens do provai e vede? e etc...?"*.
+
+  A alternância não estava errada: faltava o degrau de baixo dela. A regra
+  completa é **o poço é a MOLDURA de um agrupamento; o papel é onde o conteúdo
+  pousa** — e o `.coll-open` de uma coleção da raiz é o nível 2 daquela perna, a
+  irmã exata da placa dos Favoritos (`.fav-itens`), que já fazia isto no mesmo
+  lote. A GEOMETRIA copia a da seção número por número (a `margin` da placa é o
+  que o `.coll-group-corpo` reserva a um card), então a faixa continua onde
+  estava.
+
+  **A placa é o CORPO ABERTO INTEIRO, e não só a lista.** O DESTAQUE do sábado e
+  o ÍNDICE de temas são os dois únicos blocos do acervo que só existem na raiz, e
+  os dois pintam contando com papel embaixo: MEDIDO, `--sel-fill` (o bloco do
+  destaque) dá **1,31:1** sobre o papel — o par para que ele foi desenhado — e
+  **1,03:1** sobre o poço no tema claro. Deixá-los fora da placa consertaria a
+  lista e deixaria o "ESTE SÁBADO" invisível, que é o mesmo defeito um bloco
+  acima.
+
+  **E A PROFUNDIDADE É DITA POR TRÊS MECANISMOS NÃO-TONAIS**, que é o que os
+  torna ilimitados:
+  1. **CABEÇALHO GRUDENTO NOS DOIS NÍVEIS.** É o único que continua respondendo
+     DEPOIS de a lista rolar — tom, cor e borda só falam enquanto o topo do grupo
+     está à vista, e a queixa do operador (*"dificultando discernir se estou em
+     uma camada ou subcamada"*, v5.267) é sobre estar no MEIO de uma lista longa.
+     O `.coll-bar` do álbum já grudava desde a v5.242, com o argumento escrito
+     lá: *"a outra metade da pergunta 'onde eu estou?'"*. Faltava no nível 1,
+     justamente o que ele não distinguia. A altura da barra da seção é token
+     (`--bar-secao-h`) porque DUAS regras precisam do mesmo número, e é
+     determinística (nome `nowrap` + recuo fixo) — nada de medição em JS, que a
+     v1.5.3 ensinou a desconfiar. **O valor é `calc(var(--hit) + .7rem)` desde a
+     v1.5.16** (era `+ 1.1rem`), e quem o mudou foi o ORÇAMENTO da lista
+     colapsada, não o desenho da barra — ver abaixo.
+
+     **E O `top` DE UMA TAMPA É A PROFUNDIDADE DELA, nunca o tipo do bloco**
+     (v1.5.15). A v1.5.14 deu a TODO `.hymnal-card.expanded` o `top` do segundo
+     degrau, hinários e séries da RAIZ inclusive — que não têm barra nenhuma
+     acima. **O vão que sobrava não é neutro: ele É o scrollport**, e a lista
+     rolava por ali À VISTA. Os dois relatos do operador saem dele: *"a lista
+     está vazando acima"* (as faixas do próprio card por cima da barra que as
+     encabeça) e *"essa sobreposição também permanece, mesmo após terminar a
+     lista de um álbum… parecendo que um álbum está pertencendo a outro"* — a
+     barra DESGRUDANDO, que sobe do slot dela até sumir e nesse trecho continua
+     inteira no topo, pintada por cima das coleções seguintes.
+
+     **E O SCROLLER NÃO PODE TER `padding-top`, pela mesma razão** — padding de
+     um scroller é scrollport. Era a metade FINA do mesmo relato (.5rem de
+     faixas à mostra acima de QUALQUER tampa colada). Ele foi a zero e não virou
+     margem: a caixa da lista tem de começar exatamente onde a barra de busca
+     acaba, que é o contrato geométrico da janela e tem oráculo.
+  2. **RECUO**, sem traço na coluna vazia.
+  3. **RANK TIPOGRÁFICO**: seção `--fs-xl`, card `--fs-lg`, faixa `--fs-md`. Eram
+     `.9`/`.88`/`.82` — dois centésimos entre os dois primeiros, que é ruído e
+     não hierarquia. A migração para a escala achatou os dois no mesmo degrau e o
+     `smoke` pegou; com a moldura fora, o rank virou um dos três mecanismos e
+     tinha de ser um degrau de verdade.
+
+  **E OS NOMES SE ESCREVEM TODOS IGUAL** (v1.5.11): a barra da seção perdeu a
+  caixa alta e o tracking. Pedido do operador: *"Nessas coleções, padronize em
+  caixa alta, ou em formatação normal"* · *"aproveite para pôr o texto em branco
+  no tema claro para os textos sobre o azul"*. **Branco era impossível sobre a
+  tampa da época** (`#bdcada` no claro dá 1,66:1 contra os 4,5:1 de AA), e o que
+  o pedido alcança é o outro lado: escurecer. **`--muted` fica no que é NÚMERO** —
+  o contador da seção, o peso do card. A caixa alta podia sair porque o
+  ranqueamento que ela carregava passou para o desenho; e devia sair porque caixa
+  alta a 14px é mais larga e mais lenta de ler.
+
+  **E O ORÇAMENTO DA LISTA COLAPSADA É UMA CONTA, não uma sensação** (v1.5.16).
+  Pedido do operador: *"todas as coleções caibam na tela enquanto estiverem
+  colapsadas, sem a necessidade de rolar … reajustar o tamanho dos cards das
+  coletâneas e espaços, para que eles aproveitem exatamente esse espaço"*. Duas
+  metades, e a primeira é EDITORIAL (uma coletânea a menos — ver
+  `controle/coletanea.js`); a segunda é geométrica. MEDIDO a 430×900, com
+  **582px** de caixa de lista: antes, 9 blocos davam 553,9px (cabiam) e 10 davam
+  615,1px (rolava). Apertar as DUAS barras (`padding` de `.55rem` para `.35rem`,
+  e o `--bar-secao-h` acima) leva 10 blocos a 551,1px e 11 a 605,9px.
+  - **APERTAR e não ESTICAR, e a razão é o vão dos FAVORITOS.** Esticar até o
+    encaixe exato o levaria de 131px a 55px, e a seção passaria a rolar quando
+    aberta — desfazendo a v5.273/v5.277, que o operador pediu duas vezes.
+  - **O SEGUNDO PREÇO ERA A SOBRA, e ele foi pago na v1.5.17.** Apertar AFASTA
+    do enchimento exato em vez de aproximar: com os 9 blocos do acervo
+    dissolvido a lista ocupava 496,3 dos 582px e sobravam **~86**, contra os ~28
+    que sobrariam sem o aperto. O operador viu a faixa vazia e pediu o oposto —
+    *"o aproveitamento da altura não está correto, está sobrando … o tamanho
+    deve ser ajustável para se encaixar a altura da tela"*.
+  - **E a promessa vale de 430px para cima.** MEDIDO: a 393×786 (entalhe de
+    39px, caixa de 436px) cabem 7 blocos nos DOIS desenhos — ali o aperto não
+    compra bloco nenhum; a 360×740 (24px, 420px) ele vai de 6 para 7. Com 9
+    blocos, os dois continuam rolando.
+
+  **E A SOBRA VIROU CRESCIMENTO (v1.5.17), sem uma linha de JS.** `#hymnResults`
+  é uma `.popup-list` — coluna flex — e os blocos de raiz caíam em
+  `.popup-list > li { flex-shrink: 0 }` **sem `flex-grow`**: o excedente inteiro
+  se acumulava no fim da coluna. `flex-grow: 1` nos blocos de raiz COLAPSADOS é
+  a resposta inteira ao pedido, e é ela que torna a altura *ajustável por
+  construção* — o navegador reparte a sobra quando o conteúdo cabe e o
+  crescimento é **inerte** quando ele transborda. MEDIDO: a 430×900 o bloco vai
+  de 45,19px a **54,70px** e a sobra a **zero**; a 360×740 nada muda (45,19px,
+  rolando). **Os dois mecanismos convivem e resolvem pontas diferentes:** o
+  aperto decide QUANTOS blocos cabem (vale na tela pequena, onde não há sobra a
+  repartir), o crescimento decide o que fazer com a sobra (vale na grande).
+  - **O seletor nomeia os DOIS blocos que existem na raiz, nunca `> li`**:
+    `.acervo` está sempre no `#hymnResults`, e as linhas da BUSCA são filhas
+    diretas dele — MEDIDO, com `> li` elas iam de 97,3 para 306,4px. A pasta do
+    aparelho fica de fora: ela não é bloco de raiz, e o ouvinte de abrir dela é
+    da `.row` — crescer sem mover o alvo devolveria a margem morta.
+  - **A BARRA NÃO CRESCE JUNTO**, e isto é invariante e não estética:
+    `medirVaoDosFavoritos` soma as BARRAS das vizinhas para escrever
+    `--fav-vao`, e uma barra que cresce realimenta a conta até o vão deixar de
+    ser dos Favoritos — quem REPROVA essa variante é o `boot-nativo.test.mjs`,
+    o único oráculo que lê `--fav-vao`. O bloco cresce, a barra fica em
+    `--bar-secao-h` e o rótulo é CENTRADO nela.
+  - **E O BLOCO É O ALVO E A RESPOSTA** — senão a faixa de ~4,8px em volta da
+    barra vira MARGEM MORTA, que é o que o recuo da `.coll-bar` existe para
+    impedir desde a v5.288. Ela falhava de DOIS jeitos: numa SEÇÃO o ouvinte
+    morava na barra e o toque ali não fazia NADA (9,5px por bloco); num
+    `.hymnal-card` o ouvinte já é do `li`, o toque ABRIA e nada respondia,
+    porque quem estava na lista do `--press` era a barra. Hoje o ouvinte da
+    seção mora no `li` — com guarda POSITIVA (o `li` ou a barra), senão um toque
+    num favorito fecha a seção debaixo do dedo — e o `--press` é do bloco, com a
+    barra calada dentro dele. **Regra separada e não mais um nome na lista do
+    `--press`:** `:is()` toma a especificidade do argumento mais específico, e um
+    seletor com id ali levaria as ~40 classes da lista para (1,x,0) de uma vez.
+  - **`--bar-raiz-max` é o TETO** (`--hit + 2rem` = 66px), porque a lista pode
+    ter POUCOS blocos: sem teto, três coleções dão 183,28px cada — barras do
+    tamanho de um cartão, o defeito oposto. Ele anda com `min-height:
+    min-content`, senão um card com subtítulo é RECORTADO (MEDIDO, 45,19 →
+    40,00 com um teto de 40).
+  - **A lista passa a RESPIRAR ao abrir uma seção** (uma irmã colapsada desce de
+    54,28 para 48,64px acompanhando a curva do acordeão). É o recurso, não um
+    defeito: evitá-lo com um `:has()` faria a lista PULAR num quadro.
+  - **E A TAMPA PASSOU A SER MEDIDA, PARA NÃO ENCOLHER AO ABRIR** (v1.5.19).
+    Relato: *"o card do titulo … está encolhendo ou modificando seu tamanho ao
+    abrir sua listagem"*. É este crescimento visto pelo outro lado: colapsado o
+    bloco cresce até a altura de encaixe com a barra CENTRADA dentro; ao abrir
+    ele sai de `:not(.expanded)`, perde a repartição, e a tampa cai para a barra
+    nua. MEDIDO na captura do operador: **−11,2%** (51,00 → 45,01), em DOIS
+    quadros, enquanto o corpo desliza por 220 ms.
+    **O TEOREMA QUE FECHA AS SAÍDAS EM CSS PURO:** a tampa só pode ser CONSTANTE
+    no valor MÍNIMO dela — qualquer altura maior tem de caber em toda tela e em
+    todo número de blocos, e a "altura de encaixe" é função da TELA e do NÚMERO
+    de blocos. Ela **não existe como valor em CSS**. Logo, ou a pílula emagrece
+    para 45,19 sempre (e a sobra vai para os vãos, que sobem de 10 para 16–21px),
+    ou o número é MEDIDO. **O operador escolheu manter a pílula gorda**, e daí o
+    `--tampa-h`: a irmã exata do `--fav-vao` (`medirTampa`, no `controle.js`),
+    lida pelo CSS nos DOIS estados — `height` no fechado, `padding-top` acima da
+    barra no aberto. MEDIDO: Δ ≤ 0,02px em 24 cenários (4 telas × 2 temas ×
+    3/9/20 blocos).
+    - **A CLÁUSULA DOS FAVORITOS É OBRIGATÓRIA**, e sem ela o lote não sai: a
+      seção deles ABERTA nunca veste `--tampa-h` (ela tem
+      `min-height: var(--fav-vao)` e come a folga sozinha, v5.273), e contá-la na
+      divisão dá a cada irmã uma fatia da folga que ela já gastou — MEDIDO,
+      **81,5px** de transbordo a 430×900 e o `smoke.mjs` reprovando em *"as
+      fechadas ficam EMPILHADAS NA BASE"*. Como o `verificar` é `needs` do
+      `web-ota`, isso seria o bundle não chegando à frota.
+    - **E É SÓ A DELES.** Descontar TODO bloco aberto é a variante óbvia e está
+      ERRADA (MEDIDO): ela leva `--tampa-h` ao piso assim que alguém abre um
+      hinário, devolvendo o defeito original. Um bloco que o operador abriu
+      continua contando como FECHADO — é a hipótese "tudo fechado" que dá a
+      altura que a tampa dele tem de manter.
+    - **A ORDEM entre as duas medições é obrigatória**: `--tampa-h` lê a altura
+      RENDERIZADA dos Favoritos, governada por `--fav-vao`. Não há
+      realimentação (o `--fav-vao` soma BARRAS, que `--tampa-h` nunca muda —
+      MEDIDO, 1769px antes e depois), mas há ORDEM, e ela sai de graça do
+      agendamento: `acertarVaoDosFavoritos` registra o `rAF` DENTRO da passada e
+      `acertarTampa` no `finally` dela.
+    - **O `max-height` FICA**, inerte no regime normal (o JS já limita pelo mesmo
+      teto): é ele que segura o QUADRO PRÉ-MEDIDA — MEDIDO, sem ele três
+      coleções dão 184,34px por bloco antes de a medida chegar.
+    - **O QUE SAI JUNTO, dito:** a lista deixa de "RESPIRAR" ao abrir uma seção.
+      Aquele respiro nasceu como argumento para não combatê-lo com `:has()`,
+      nunca como pedido — e é a mesma repartição que produz o salto: em CSS puro
+      os dois não são separáveis.
+    - **O RESÍDUO, nomeado:** onde a lista JÁ transborda (393×786 e 360×740 com
+      9 blocos), abrir uma SEÇÃO ainda aumenta a tampa em **5,59px (+12,4%)**.
+      Não é regressão — é o número da própria base —, e a causa é assimétrica e
+      está na folha: o `box-shadow` existe na `.coll-bar` de um card aberto e
+      **não** na `.coll-group-bar`.
+  - **E O QUE SOBROU DEPOIS DELE ERA O RECUO DE BAIXO** (v1.5.18). Relato, já
+    com os blocos crescendo: *"há uma margem maior na parte de baixo … o ajuste
+    ainda não ficou correto"*. Não havia mais sobra por repartir — o que restava
+    era o `padding-bottom` do scroller, `.8rem` MAIS `env(safe-area-inset-bottom)`.
+    **A ÁREA SEGURA SÓ VALE ONDE A JANELA ENCOSTA NA BASE**, e desde a v1.5.4 ela
+    para na linha dos controles: o recuo reservava lugar para uma barra de gestos
+    que não é vizinha dela. Ele volta a valer nos DOIS casos em que a janela vai
+    mesmo até o fim (Modo Fácil e teclado no ar). E o valor é **`--sp-5`, o mesmo
+    `gap` que separa dois blocos de raiz** — com o crescimento preenchendo o
+    resto, qualquer outro número põe o último bloco a uma distância da borda que
+    nenhum par de vizinhos tem, que é literalmente o que o relato descreve.
+
+  **E A BORDA DO SCROLL DIZ QUE HÁ MAIS** (v1.5.16, o véu). Pedido do operador:
+  *"que o scroll da biblioteca tenha um efeito de blur na borda interna superior
+  ou inferior, quando algum elemento da tela ir para debaixo dessa borda"*. São
+  dois `::before`/`::after` `position: sticky` DENTRO do scroller, com
+  `backdrop-filter: blur(5px)` e `mask-image` esmaecendo para transparente.
+  - **BLUR e não gradiente, porque não existe cor certa para o véu.** A
+    alternância papel → poço → papel põe DUAS superfícies sob a mesma borda, e
+    um gradiente teria de escolher uma. Blur é agnóstico de cor: MEDIDO,
+    −60% de nitidez nos dois temas.
+  - **DENTRO do scroller, a `z-index: 2`, é o que o faz sumir sozinho sob uma
+    tampa grudada** — a tampa é opaca e mora acima (z 3 e 4). Medido em 131/131
+    amostras com uma coleção aberta.
+  - **Ele só existe quando MENTIRIA ao não existir**: `.tem-acima`/`.tem-abaixo`
+    saem de um ouvinte de `scroll` com `requestAnimationFrame`, e as regras de
+    desligar REPETEM `.popup-backdrop--lib.open` — sem isso a especificidade
+    (1,1,0 contra 1,2,0) deixava o véu aceso no topo da lista, onde ele mente.
+  - **Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a
+    máscara sem o borrão — seria uma sombra sem causa.
+
+  **E O RECUO DE CIMA DA PLACA ESCAPAVA (v1.5.17).** Relato: *"os cards que
+  ficam no topo das listas … estão se sobrepondo de forma errada ao espaço em
+  que deveriam ficar, ficando para cima do correto, sem margem no topo"*.
+  **COLAPSO DE MARGEM:** o `.coll-open` não tem `padding-top` nem borda de cima,
+  então a `margin-top` de `.4rem` do primeiro filho — o destaque do sábado, o
+  índice de temas ou a própria lista — é ADJACENTE à dele e sai para FORA.
+  Enquanto a placa era transparente ninguém via; a v1.5.15 deu a ela FUNDO e
+  RAIO, e o recuo passou a cair fora: MEDIDO, o primeiro filho começava a
+  **0,00px** do topo da placa (contra os 6,39px da placa irmã dos Favoritos),
+  cobrindo por inteiro os cantos arredondados.
+  - **`display: flow-root` e não `padding-top`.** Um recuo declarado ali impede
+    o colapso e ainda SOMA à margem do filho (5,6 + 6,4 = 12px); e zerar a
+    margem dos três filhos mudaria o vão ENTRE eles. O BFC não inventa número
+    nenhum — mantém dentro o `.4rem` que o filho já pede, e dá 6,39px, o MESMO
+    inset da placa irmã.
+  - **Ele já era o desenho certo por 220ms:** `expandAccordion` escreve
+    `overflow: hidden`, que É um BFC. De quebra o acordeão passa a medir a
+    altura de verdade — `offsetHeight` era lido ANTES do `overflow`, e a
+    animação levava a 321px uma caixa que dentro do BFC pede 327.
+  - **E o salto do índice mira ABAIXO da tampa** (`.hino-secao { scroll-margin-top:
+    var(--bar-secao-h) }`): `scrollIntoView({block:'start'})` mira o topo do
+    SCROLLPORT, e o scrollport começa debaixo da tampa grudada — MEDIDO, o
+    cabeçalho pousava em 0,39px com a tampa ocupando até 45,19, isto é,
+    desaparecia inteiro. `scroll-margin-top` **não é `padding`** e não cria
+    scrollport nenhum: o `padding-top` do scroller continua ZERO.
+
+  **E A COLETÂNEA A MENOS É UMA REGRA, não uma linha apagada do catálogo**
+  (`controle/coletanea.js`, PURA, com oráculo Node). Pedido do operador: *"os
+  albuns do celebra SP, serão individualmente colocados na coleção de
+  'diversos'. Não identifiquei independência suficiente para que ele tenha uma
+  coleção só para ele."*
+  - **DISSOLVER, não remover.** MEDIDO: descartar a categoria deixa os álbuns
+    ÓRFÃOS, e o `controle.js` os recolhe em "Outros álbuns" — dez blocos de
+    novo, com um nome pior. A regra FUNDE: ela move os álbuns para o destino e
+    só então a origem deixa de existir.
+  - **Roda no DESENHO, nunca no `fetchAlbumCatalog`.** O catálogo fica no
+    IndexedDB por semanas; aplicada na busca, uma correção por OTA só valeria
+    depois da próxima sincronização com rede. Aplicada no render, ela vale na
+    próxima abertura, inclusive offline. E precisa ser aplicada nos DOIS
+    consumidores — o laço das categorias **e** o `claimed` dos órfãos: chamar só
+    num deles devolve "Outros álbuns" pela porta dos fundos.
+  - **Destino ausente é IDENTIDADE, e a origem FICA na tela.** É a única regra
+    do arquivo que decide contra o pedido, e de propósito: um destino renomeado
+    no banco faria a origem sumir com os álbuns dentro, e o desfecho seguro é o
+    de antes da regra.
+  - **A tabela aceita "Diversas" E "Diversos".** O operador escreveu *"diversos"*
+    e a seção no aparelho chama-se **"Diversas"** (conferido em
+    `site/telas/biblioteca.webp`); nenhuma normalização une as duas, então as
+    duas grafias entram na lista de aceitos — a comparação é por IGUALDADE sobre
+    o `normalizar` do `serie.js`, nunca `includes`, que casaria "Diversas" com
+    "Diversas Antigas".
+  - **O Registro tem o bloco** (`blocoColetaneas`), com o motivo de cada
+    movimento: uma coletânea que some da tela sem explicação é indistinguível de
+    um catálogo que veio menor.
+- **A ESCADA TEM TRÊS DEGRAUS, E O QUARTO É O ESPAÇO.** Um quarto tom levaria o
+  nível mais interno a ~`#4c5865` no escuro, onde `--muted` mede 3,59:1 e
+  `--accent` 3,37:1 — os dois reprovam AA para texto pequeno, que é o tamanho do
+  texto de uma linha de lista. Quem carrega o quarto nível é o ESPAÇO: uma faixa
+  dentro de um álbum não tem caixa própria.
+  **E ONDE A ÁRVORE É MAIS FUNDA QUE TRÊS, NÃO SE ACRESCENTA DEGRAU: ALTERNA-SE**
+  (v1.5.14, a Biblioteca). O limite acima é real e não tem conserto por ajuste
+  fino — a saída é não empilhar.
+  **MAS O ESPAÇO SOZINHO NÃO SEPARA IRMÃS, e desde a v1.5.14 isso é medível.**
+  Enquanto a faixa teve fundo próprio, o que aparecia no vão era o tom do álbum,
+  e o vão era um degrau; com a faixa transparente ele passou a ser a MESMA placa
+  dos dois lados — **1,00:1**, separação nenhuma. Daí o QUARTO DEGRAU ser hoje
+  espaço **mais** um traço recuado (`--divisoria`, v1.5.16, a quarta exceção
+  nomeada da regra de contorno). A alternância separa NÍVEIS; ela não tem como
+  separar VIZINHAS do mesmo nível, e nenhum ajuste de tom nela resolveria isso.
+  **E O TRAÇO PRECISA FICAR NO MEIO DO VÃO** (v1.5.17). Ele mora em `top: 0` da
+  faixa DE BAIXO — `.lib-item` é `overflow: hidden` e um traço desenhado no
+  `gap` é RECORTADO —, então com o vão inteiro fora da caixa ele pousava no
+  limite INFERIOR: MEDIDO, 6,42px de branco acima e 1,37px abaixo, que foi o
+  relato. **Não se move o traço, move-se a CAIXA:** metade do `gap` entra como
+  `padding-top` e um `margin-top` negativo da mesma medida devolve o conteúdo ao
+  lugar (`N·(h+2) + (N−1)·4 − 2N` é `N·h + (N−1)·4` para qualquer N — a lista
+  não muda de altura e o passo entre faixas não muda). A caixa vai de 42,78 a
+  44,78px, ainda abaixo da barra do álbum que a contém.
+- **No tema CLARO a escada NÃO é monotônica**, e isso é aritmética: a página é
+  cinza e o nível 1 é branco (convenção de toda UI clara), então o primeiro
+  degrau sobe e os seguintes só podem descer. Folha e card ficam a 1,09:1 e isso
+  não se lê como ambiguidade porque **nunca se encostam** (entre eles há sempre o
+  poço da seção). O oráculo mede pares **ADJACENTES** e exige só que
+  nenhum par coincida — a primeira versão exigia monotonia e reprovava um desenho
+  correto.
+- **O TOM DE UM BLOCO É DECISÃO DO PAI** (`--camada`): o mesmo componente ocupa
+  níveis diferentes conforme a tela (uma `.lib-item` está sobre `--bg` na tela
+  principal e sobre `--panel` dentro de uma folha). `--camada` tem um significado
+  só: *o tom que um bloco filho DESTE contêiner deve vestir*. **Quem a declara é
+  o contêiner, nunca quem pinta** — uma propriedade escrita no próprio elemento
+  vence na hora de ELE resolver `var(--camada)`, e o bloco passaria a vestir o
+  tom que reservou para os filhos.
+- **Nunca escrever branco literal.** Nenhum `#fff` como valor de cor em
+  `controle.css`/`display.css` — o branco pleno era a maior fonte isolada de luz
+  emitida do app, e o off-white (`--text`) é o que se usa. **Duas exceções, as
+  duas declaradas em `tokens.css`:** o palco (`--stage-text: #fff`, porque num
+  telão a legibilidade vem de luminância máxima) e o campo da folha da playlist
+  automática (`--field-bg` — pequeno, só existe com a folha aberta, escolha
+  explícita de quem opera; num salão escuro é o retângulo mais luminoso da
+  tela). No tema CLARO o `--panel` é branco pleno e a regra não se aplica pelo
+  motivo dela.
+  **E o campo da BARRA DE BUSCA é a terceira** — ele saiu da lista na v1.5.2 e
+  VOLTOU na v1.5.5, a pedido do operador, agora com a borda que o torna possível
+  no tema claro. O preço da v1.5.2 continua dito e continua sendo pago: ao
+  contrário do campo do sorteio, este fica à vista o culto inteiro na base do
+  app. **O que muda a conta é a BORDA:** com ela o branco deixa de ser a única
+  coisa que separa o campo da barra, então a escolha passou a ser sobre o que se
+  quer ver, não sobre o que é legível. As três cores de dentro voltam aos
+  `--field-*` junto com o fundo — ver a regra logo abaixo.
+- **Uma superfície sem tema arrasta o que vive DENTRO dela** — a regra do palco
+  num lugar novo. `--field-bg` vem com `--field-text`, `--field-muted` **e
+  `--field-accent`**, no bloco compartilhado: no tema escuro `--text` sobre
+  branco dá **1,17:1** e `--accent` dá **2,06:1** (ele é o azul CLARO desenhado
+  para o fundo quase-preto do app). Trocar só o fundo apaga o que se digita, e é
+  o meio-conserto que o `smoke.mjs` reprova. O terceiro token nasceu quando um
+  botão de AÇÃO passou a morar sobre o campo — cada consumidor novo da superfície
+  refaz a pergunta, e o nome `--field-*` é o que impede a resposta errada.
+
+### O que vive FORA do CSS e tem de andar junto
+
+- **`res/values/colors.xml` espelha `--bg` à mão, em DOIS valores** (`app_bg`,
+  `app_bg_claro`): é o fundo das barras e o `windowBackground` (o que aparece
+  ANTES de o WebView carregar). Nada no build detecta divergência, e o OTA troca
+  a base sem trocar o APK — mudou o token, muda aqui. **É o único lugar fora de
+  `tokens.css` que carrega cor de fundo, e não tem escapatória:** recurso de
+  Android não enxerga custom property. Quem escolhe entre os dois é a
+  `MainActivity` em runtime (`temaClaro` → `setTemaClaro`), a partir de uma CÓPIA
+  guardada em `SharedPreferences` — XML é resolvido antes de existir JavaScript,
+  então o primeiro quadro só pode vir de preferência guardada. **Preço: trocar de
+  tema tem um lançamento de atraso no fundo do splash, e só nele.** A mesma
+  chamada vira `APPEARANCE_LIGHT_STATUS_BARS`, que o Android 15+ **não** ignora
+  (ele ignora as CORES das barras, não a aparência dos ícones) — sem ela o tema
+  claro fica com relógio e botões brancos sobre branco.
+- **O `theme-color` do `<meta>` NÃO é um segundo lugar:** `pintarTema()` o LÊ do
+  `--bg` já resolvido (a folha entra no `<head>` e o script no fim do `<body>`),
+  e o literal do HTML cobre só o instante anterior a esse script.
+- **O ÍCONE DO APP é a paleta** — a mesa de som DE PÉ: três trilhas verticais em
+  `--text` e três cabos de fader em `--accent` (retângulos arredondados, a forma
+  do cabo real) sobre `--bg`. Ele **não segue o tema claro**, e não tem
+  como: é desenhado pela gaveta do sistema com o app fechado. É **VETOR**
+  (`res/drawable/ic_launcher_foreground.xml`) porque com `minSdk` 26 o adaptativo
+  é o único ícone que chega a ser desenhado — PNGs por densidade eram peso morto
+  e mais lugares para a cor divergir. A camada `monochrome` (ícone temático do
+  Android 13+) tem vetor próprio: apontada para o PNG de primeiro plano, que tem
+  fundo opaco, ela vira um quadrado cheio.
+
+### O que o CI trava, e o que ele NÃO trava
+
+**Não há teste de contraste ABSOLUTO.** Os números nos comentários de
+`tokens.css` são medições à mão, e os pares abaixo do piso estão declarados como
+tais ali mesmo. **Ao mexer num token, meça — e são DOIS temas.**
+
+O CI trava outra coisa: `tokens.test.mjs` (todo `var(--x)` sem fallback aponta
+para token que EXISTE; nenhum token só no claro; nenhum contorno; **nenhuma
+superfície de controle é tinta com alfa**; **todo bloco que pinta `--panel`
+afunda a superfície dos filhos** — as duas últimas provadas por REVERSÃO) e
+`smoke.mjs` (o efeito RENDERIZADO nos dois temas, o palco que não os segue, a
+escolha que sobrevive à recarga, a ESCADA DE CAMADAS medindo o degrau ENTRE
+níveis — a única parte do contraste que tem oráculo — e a resposta ao
+toque, que num BLOCO é a LUZ e nunca a geometria — v1.7.2).
+
+---

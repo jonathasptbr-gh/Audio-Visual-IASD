@@ -602,3 +602,330 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 4. **Mudou o shell? A base web sozinha não chega ao aparelho.** Declare a
    `shellTag` no `version.json` **antes** do merge e publique a Release — ver
    `CLAUDE.md`, "Regras de desenvolvimento".
+
+---
+
+## O CATÁLOGO COMPLETO — os 63 métodos, um a um
+
+<!-- Extraído do `CLAUDE.md` na faxina de 2026-09-07. -->
+
+> **Isto é REFERÊNCIA: abra por método, nunca inteiro.** Ele vivia no
+> `CLAUDE.md`, que é lido INTEIRO em toda sessão — e um catálogo é justamente o
+> que ninguém lê inteiro. O que ficou lá são as REGRAS que governam a ponte (o
+> `SHELL_VERSION` como piso, as quatro filas, o privilégio do Controle, a época
+> das Promises), porque essas mudam o próximo diff.
+>
+> **Método novo entra AQUI e no `native.js` no mesmo lote**, e o `SHELL_VERSION`
+> sobe junto — *"superfície" inclui forma de retorno e comportamento, não só
+> assinatura*.
+
+Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
+`NativeBridge.kt`). **Só existe quando `window.__AVBridge` existe** — no
+navegador a IIFE retorna na entrada e nada é definido, nem `__NATIVE__`.
+
+```js
+window.AVNative = {
+  pickFolder(),        // → { id, name, uri }   (SAF ACTION_OPEN_DOCUMENT_TREE)
+  pickDoc(mimes),      // → [{ url, name, type, size }]: o SELETOR DE ARQUIVOS
+                       //   do aparelho. `size` entrou no shell 64 e é o que
+                       //   torna a leitura por JANELA possível — quem lê um
+                       //   pacote de gigabytes precisa saber onde o arquivo
+                       //   acaba, e o caminho antigo só sabia a resposta depois
+                       //   de materializar o arquivo inteiro. `-1` = o provedor
+                       //   não disse, e NÃO é `0` (arquivo vazio): achatar os
+                       //   dois faz um pacote bom ser recusado como vazio.
+                       //   ELE É O ÚNICO MÉTODO QUE NÃO É REMONTADO campo a
+                       //   campo no `native.js` (o irmão do `micDiag`), e aqui
+                       //   é de propósito pelo motivo OPOSTO: a lista vem do
+                       //   Kotlin já na forma final, e o remonte só poderia
+                       //   perder o campo de amanhã
+  listFolder(uri),     // → [{ name, size, mtime, type, url }]   (só no Controle)
+  onShare(cb),         // cb({ files:[{name,type,size,url}], url, title })
+  areaTransferencia(desde), // → { texto, carimbo } ou null: o LINK COPIADO, e
+                       //   só quando é NOVO. `desde` é o carimbo do último
+                       //   conteúdo já examinado, em TEXTO (o carimbo é um
+                       //   `long` em ms), e quem compara é o Kotlin ANTES de
+                       //   ler — do Android 12 em diante LER a área de
+                       //   transferência de outro app mostra um aviso do
+                       //   sistema, e consultar a DESCRIÇÃO não mostra nada.
+                       //   Só texto simples que COMEÇA com http(s), teto de
+                       //   2 kB: privacidade, não classificação — quem decide
+                       //   se é do YouTube é o `controle.js`
+  displays(),          // → [{ id, name, w, h, density, telao }]
+                       //   `telao` é a `Presentation` DE FATO no ar naquela
+                       //   tela — "há TELA" nunca foi "há TELÃO". A lista
+                       //   responde pelo DisplayManager; a projeção é a janela,
+                       //   e as duas divergem numa negociação de Miracast (o
+                       //   `show()` que lança, o dismiss que o sistema faz
+                       //   sozinho). É por ele que o web decide QUEM TOCA O SOM,
+                       //   se o microfone é oferecido e se o Modo Fácil
+                       //   destrava — as três perguntas cuja resposta honesta é
+                       //   a janela, não a tela. A tela CONTINUA na lista com o
+                       //   telão no chão: "não há TV" e "a TV está aí e o telão
+                       //   não subiu" pedem frases diferentes
+  onDisplayChange(cb),
+  openCast(),          // seletor de ESPELHAMENTO DE TELA do Android (≠ Google Cast)
+  castTarget(),        // → string: rótulo do alvo de espelhamento deste aparelho
+  openExternal(url),   // abre uma URL https FORA do app (só o Controle)
+  ytFetch(url, onProg, soAudio, altura), // → { url, name, size, type, height, seconds }
+                       //   `soAudio` traz só a faixa de áudio (m4a)
+                       //   `altura` é o TETO de resolução
+  ytDiscard(url),      //   e apaga o arquivo depois que os bytes foram copiados
+  ytCancel(url),       // PARA o download em curso deste link
+  otaPending(),        // → versão da base web já baixada que espera (ou '')
+  otaApply(),          // APLICA-a agora: as duas páginas recarregam
+  otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell
+  otaDiag(),           // → string: quando foi a última busca e o que ela deu
+  atualizacaoEstado(), // → { web, webAtual, shell, shellBytes, shellAtual,
+                       //     webNotas, diag }
+                       //   OS DOIS CANAIS numa leitura só — ele não
+                       //   acrescenta poder: acrescenta COERÊNCIA DE INSTANTE
+                       //   (ver a seção do OTA). `webNotas` é a LINHA DO TEMPO
+                       //   do que vem: `[{versao, itens:[…]}]`, mais nova
+                       //   primeiro, JÁ FILTRADA pelo shell para o que este
+                       //   aparelho não tem. Lida do `notas.json` do PRÓPRIO
+                       //   bundle baixado, nunca do manifesto
+  apkProcurar(),       // → {} · { versao, bytes, notas } · { erro }
+                       //   `bytes` é o TAMANHO do .apk; NÃO há campo `url` (quem
+                       //   guarda a URL é o `ShellUpdater`) e o vazio é `{}`,
+                       //   nunca `null`
+  apkInstalar(),       // baixa e abre o diálogo de instalação do sistema
+                       //   (sem URL: quem a escolhe é o `ShellUpdater`, do
+                       //    achado da última `apkProcurar`)
+  ytDiag(),            // → string: o que o extrator recebeu na última extração
+                       //   (diagnóstico do rodapé de Configurações)
+  ytStream(url, altura), // → manifesto DASH ou null: TRANSMITIR sem baixar
+                       //   `{ video, videos, audio, seconds, height }`.
+                       //   `videos` é a ESCADA (shell 60): as faixas mp4
+                       //   transmissíveis sob o teto, UMA POR ALTURA, da mais
+                       //   alta para a mais baixa. `video` continua sendo o
+                       //   TOPO — a mudança é ADITIVA de propósito, e tudo que
+                       //   já lia `man.video` segue lendo o mesmo. Quem ESCOLHE
+                       //   é o web (`AVStream.escolherDegrau`), porque a escolha
+                       //   depende da BANDA MEDIDA, que só existe depois dos
+                       //   primeiros bytes — e porque uma regra de escolha erra,
+                       //   e no web ela se conserta por OTA
+  ytSearch(termo),     // → [{ id, url, name, author, seconds, thumb }] do YouTube
+  ytCanalPlaylists(canalUrl), // → [{ name, url, count }] da ABA do canal
+  ytPlaylist(url),     // → { name, author, items:[{id,url,name,seconds,thumb}] }
+                       //   os dois são as SÉRIES da Biblioteca. TRANSPORTE puro:
+                       //   o `name` do item é o título CRU (sem `tituloLimpo`),
+                       //   e quem lê os nomes é `controle/serie.js`
+  ytDetalhes(url),     // → { titulo, canal, seconds, descricao } ou `null`: os
+                       //   dados de UM vídeo, para o card de detalhe (shell 62).
+                       //   Título, canal e duração a listagem de playlist já
+                       //   entrega e o índice da série os GUARDA (valem
+                       //   offline); a DESCRIÇÃO só existe extraindo o vídeo —
+                       //   uma requisição por vídeo —, e por isso o método é
+                       //   SOB DEMANDA: quem o chama é o toque em "Ver os
+                       //   detalhes", com cache em MEMÓRIA do outro lado (o
+                       //   precedente é o da CIFRA: nada vai ao disco).
+                       //   `descricao` é SEMPRE texto simples, achatado no
+                       //   Kotlin — o YouTube a entrega em HTML quando ela tem
+                       //   links, e este lado roda no origin que injeta
+                       //   `__AVBridge`. O `null` NÃO é achatado num objeto
+                       //   vazio: ele é "não houve resposta" (o chamador não
+                       //   guarda nada e tenta de novo) contra `descricao: ''`,
+                       //   que é "respondeu, e não há descrição" — a mesma
+                       //   distinção do `status 0` × `404` do `cifraHtml`.
+                       //   Mora na fila `extracao` porque é UM TOQUE: uma
+                       //   varredura aqui empurraria todo "Tocar agora" para
+                       //   além dos 60 s do `call()`
+  deckPages(origem, nome, onProg), // → { name, pages:[url] } ou { erro }: PDF em imagens
+  deckExportUrl(link), // → URL de exportação PDF de um link do Google Apresentações
+  deckDiscard(url),    //   e apaga as páginas depois da cópia
+  captureVolumeKeys(bool), // botões físicos de volume vão para o app
+  projecaoLocal(bool), // A PREVIEW É A PROJEÇÃO: não há tela conectada e há
+                       //   cena no ar. O shell responde impedindo que o WebView
+                       //   do CONTROLE seja suspenso (o `manterVisivel` + a
+                       //   prioridade do renderer que o telão já tem). Sem tela
+                       //   quem toca é o `<video>` da preview, e o Chromium
+                       //   pausa o de uma página oculta — com o app minimizado o
+                       //   louvor calava. CONDICIONAL de propósito: com telão no
+                       //   ar o Controle DEVE ser estrangulado em segundo plano
+  systemVolume(step),  // devolve um passo ao volume do sistema (fader no limite)
+  temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
+  requestMic(),        // → bool: permissão RECORD_AUDIO (push-to-talk)
+  keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
+  bgConcluido({titulo, texto}), // O CARTÃO QUE FICA quando um trabalho longo
+                       //   termina BEM. A notificação de progresso é do SERVIÇO
+                       //   e sai com ele; o que sobrava era o ícone sumindo —
+                       //   a mesma coisa que a barra mostra quando o processo
+                       //   MORRE. Este posta um cartão PRÓPRIO (id separado, e
+                       //   é isso que o salva da limpeza do `onDestroy`), não
+                       //   `ongoing` e com `autoCancel`, com o check do
+                       //   sistema. MÉTODO e não campo do `bgProgress`: aquele
+                       //   descreve trabalho EM CURSO e é chamado dezenas de
+                       //   vezes por minuto; este é terminal e vale uma vez
+  bgProgress({label, done, total, etaMs, items, idleMs, bytes, icone}), // progresso
+                       //   na notificação. `icone` é o DESENHO da barra:
+                       //   `baixar` (seta para baixo animada — o padrão),
+                       //   `enviar` (para cima) ou `processar` (o círculo
+                       //   de duas setas). A seta é DIREÇÃO DE BYTES e não
+                       //   procedência deles: importar traz o acervo PARA o
+                       //   aparelho, e vir de um arquivo local em vez da
+                       //   rede não muda o sentido do movimento para quem
+                       //   olha. Nome ausente ou desconhecido = `baixar`.
+                       //   E O PERCENTUAL NÃO CABE NELE — a v1.8.31 tentou
+                       //   (um bitmap desenhado por atualização) e a v1.8.34
+                       //   desfez: o número apareceu e a SETA PAROU. As duas
+                       //   coisas são EXCLUDENTES, porque o sistema só anima um
+                       //   `AnimationDrawable`, e ele só chega por ID DE
+                       //   RECURSO — desenho dinâmico é necessariamente um
+                       //   quadro só. O número mora na notificação ABERTA e no
+                       //   botão que começou o trabalho
+  nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs, actions}),
+                       //   `actions`: os BOTÕES do cartão, na ordem, escolhidos
+                       //   pelo lado web. Vazio = os cinco de sempre
+  onRemote(cb),        // cb('play'|'pause'|'playpause'|'prev'|'next'|'stop'|'view')
+  // ---- TELÃO POR COMANDOS — ver a seção ----
+  espelhoLigar(ip),    // liga a transmissão. `ip` VAZIO = "escolha você" (a
+                       //   primeira da lista, ponto de acesso na frente); com
+                       //   ip vai pelo `espelhoLigarEm`, método PRÓPRIO do
+                       //   Kotlin — ADITIVO, nunca uma assinatura trocada
+  espelhoDesligar(),   // síncrono e sem resposta, como o `ytCancel`
+  espelhoEstado(),     // → { ligado, endereco, erro, via, redes:[…], telas:[…] }
+                       //   (sem `codigo` desde a v5.189: a porta é o ENDEREÇO)
+                       //   `via` é `WIFI`|`PONTO_DE_ACESSO`; `redes` são as
+                       //   servíveis AGORA ({ip, via, iface}) e vem VAZIA com a
+                       //   transmissão no ar — montá-la enumera interfaces na
+                       //   main thread, e a folha não a desenha ligada
+                       //   cada tela: { rotulo, comando:true, conectadaMs,
+                       //   telaAcesaMin, aviso, eventos, pronta, fila }
+  espelhoDiag(),       // → JSON do Registro (servidor, sessões, cache de
+                       //   mídia, telas por comando)
+  espelhoDerrubar(rotulo), // tira ESTA tela do ar (o "Desconectar" da folha)
+  espelhoCertImportar(url, senha), // → '' ou a FRASE do erro: o .p12 do TLS
+  espelhoCertEstado(), // → { temCert, host, ate, nome, noAr, servindoTls }
+  espelhoCertApagar(), // a chave privada sai do aparelho
+                       //   OS TRÊS ESTÃO SEM UI DESDE A v5.196: a folha de
+                       //   "Ajustes avançados" era a única porta deles e saiu.
+                       //   Ficam na ponte de propósito — voltar atrás é
+                       //   desenhar uma folha, não publicar uma Release.
+  // ---- CIFRA — ver a seção do recurso ----
+  cifraHtml(url),      // → { status, html }: o corpo CRU de uma página de
+                       //   CIFRA **ou da busca do site**. O buscador externo
+                       //   saiu no shell 52 e o host dele com ele — a forma não
+                       //   mudou, o COMPORTAMENTO sim, e é por isso que o
+                       //   degrau subiu nas duas pontas (51 ao entrar, 52 ao
+                       //   sair). Host TRAVADO (`CifraFonte.kt`). TRANSPORTE:
+                       //   quem lê o HTML é `controle/cifra.js`. Os dois campos
+                       //   respondem perguntas diferentes — `status 0` é "não
+                       //   houve resposta", `404` é "o site não tem"
+  micDiag(),           // → { permissao, modAudio, appops, mudo, modo, gravando,
+                       //     entradas:[{tipo,nome}] }: POR QUE o microfone não
+                       //     abre — o que só o SHELL sabe. `modAudio` é
+                       //     `MODIFY_AUDIO_SETTINGS`, e é ela que O CHROMIUM DO
+                       //     WEBVIEW exige do app HOSPEDEIRO para abrir QUALQUER
+                       //     captura: sem ela `setCommunicationDevice()` devolve
+                       //     `false` e `MakeLowLatencyInputStream` devolve
+                       //     `nullptr` — `NotReadableError` em toda configuração,
+                       //     antes de qualquer restrição ser negociada. Foi o
+                       //     defeito da v1.2.11 para trás. `AppOps` responde outra
+                       //     coisa: ele pode RECUSAR `RECORD_AUDIO` com
+                       //     `checkSelfPermission` devolvendo concedida (o
+                       //     interruptor de privacidade, o Auto Blocker da Samsung
+                       //     sobre app fora da loja, o mudo global). ATENÇÃO ao
+                       //     valor `primeiro plano` (`MODE_FOREGROUND`): é o
+                       //     ESTADO NORMAL do Android 10+ com a permissão no
+                       //     padrão, e lê-lo como bloqueio acusa o sistema no caso
+                       //     mais comum que existe.
+                       //     LEITURA PURA: não abre o microfone, não pede nada
+                       //     ESTE É O ÚNICO MÉTODO QUE NÃO É REMONTADO campo a
+                       //     campo no `native.js` — ele passa o objeto inteiro, de
+                       //     propósito, para um diagnóstico ganhar campo sem
+                       //     mexer na ponte. O degrau do `SHELL_VERSION` continua
+                       //     obrigatório: a FORMA de retorno mudou
+  compartilharTexto(txt), // o SELETOR DE COMPARTILHAMENTO do Android
+                       //   (ACTION_SEND + createChooser). Síncrono e sem
+                       //   resposta, como o `openCast`: o desfecho é uma pessoa
+                       //   escolhendo um app, e não há API que o entregue. NÃO
+                       //   é `openExternal` — aquele MANDA este aparelho abrir
+                       //   um endereço, este OFERECE um texto a outro. E não é
+                       //   `navigator.share`, que o WebView do Android não tem
+  pacoteCriar(nome),   // → o NOME gravado, ou '': o "Salvar como" do PACOTE DE
+                       //   TRANSFERÊNCIA, que DEIXA O DESTINO ABERTO. SEM
+                       //   prazo (espera uma pessoa no seletor). Os bytes vão
+                       //   pelo canal `__avPacote`, nunca por aqui
+  pacoteFechar(),      // → os BYTES gravados, ou -1 (nada aberto, o fecho
+                       //   falhou, ou o arquivo saiu VAZIO). Os acks por bloco
+                       //   já disseram "recebi"; é o `flush`/`close` que
+                       //   descobre o cartão cheio. E no caminho LOCAL ele
+                       //   PROMOVE (shell 68): o arquivo vira o pacote PRONTO,
+                       //   e o número que volta é o `length()` do DISCO, não o
+                       //   que o canal contou — são duas perguntas, e é a
+                       //   segunda que o outro app vai ler
+  pacoteCancelar(),    // fecha e APAGA o parcial. Síncrono, como o `ytCancel`
+  pacoteEspaco(),      // → bytes livres no armazenamento PRÓPRIO do app.
+                       //   NÚMERO, nunca veredito (invariante 5): quanta folga
+                       //   um pacote precisa é regra do `controle.js`, que sabe
+                       //   o tamanho medido e a frase a escrever. `0` = não deu
+                       //   para medir, e zero manda o fluxo para o SAF
+  pacoteCriarLocal(nome), // → o NOME, ou '': abre o pacote num arquivo do
+                       //   PRÓPRIO app. Mesma forma do `pacoteCriar` e COM
+                       //   prazo — aqui não há seletor, e ninguém está
+                       //   esperando uma pessoa
+  pacoteCompartilhar(),// → os BYTES do arquivo, ou -1: oferece o pacote JÁ
+                       //   PRONTO pelo seletor. ELE NÃO FECHA NADA (shell 68)
+                       //   — quem fecha é o `pacoteFechar`, que PROMOVE o
+                       //   arquivo local a pronto. É isso que o torna
+                       //   REPETÍVEL: um aparelho, depois outro, sem refazer um
+                       //   pacote de gigabytes. O número volta ANTES de o
+                       //   seletor responder, e é de propósito — o desfecho de
+                       //   um chooser é uma pessoa escolhendo um app, e não há
+                       //   API que o entregue (a razão de o `compartilharTexto`
+                       //   ser síncrono). `-1` = não há pronto, ele sumiu do
+                       //   disco, ou nada o recebeu
+  pacoteDescartarPronto(), // joga fora o pronto — o operador quer fazer OUTRO.
+                       //   Síncrono, como o `pacoteCancelar`
+  pacoteProntoEstado(), // → { nome, bytes } ou `null`: o pacote PRONTO que
+                       //   espera o envio. É a SEMENTE do lado web, e o irmão
+                       //   exato do `lerEspelho()` do `init()` — pelo mesmo
+                       //   motivo escrito lá: o pronto vive no SHELL e
+                       //   sobrevive ao documento, e `pacotePronto` no
+                       //   `controle.js` é um `let` de PÁGINA que um OTA
+                       //   aplicado, a morte do renderer ou uma recriação de
+                       //   Activity zeram. O tile voltava a oferecer
+                       //   "Exportar" com gigabytes prontos em `files/pacote/`.
+                       //   Os `bytes` saem do `length()` do DISCO, nunca de
+                       //   memória (a distinção da v1.8.22), e um pronto cujo
+                       //   arquivo sumiu responde `null` — oferecer o envio de
+                       //   um arquivo que não existe é o `-1` que o
+                       //   `pacoteCompartilhar` já colapsa em três causas
+  pacoteDiag(),        // → string: o que o SHELL sabe do pacote (há pronto? no
+                       //   disco? o desfecho do último fecho e do último envio,
+                       //   com o NOME da exceção quando houve). Ele existe
+                       //   porque o `-1` do `pacoteCompartilhar` colapsa TRÊS
+                       //   causas e o web não separa nenhuma — três rodadas de
+                       //   campo se gastaram nisso. Irmão do `otaDiag` e do
+                       //   `ytDiag`, com o mesmo consumidor: quem lê o Registro
+  pacoteConsumirOrigem(url), // → '' (apagou) ou a FRASE do motivo: APAGA o
+                       //   arquivo do SAF que uma `/saf/<token>` serve — o
+                       //   `.avpkg` que a importação acabou de ler. Um pacote é
+                       //   o acervo INTEIRO, e deixá-lo em Downloads dobra o
+                       //   que a biblioteca ocupa no aparelho que menos tem
+                       //   espaço. QUEM DECIDE É O WEB, e só depois de uma
+                       //   importação COMPLETA: o shell não sabe se ela
+                       //   terminou. Cancelou ou falhou, o arquivo FICA — ele é
+                       //   o que faz a próxima tentativa continuar de onde
+                       //   parou. Duas respostas e não um booleano, como o
+                       //   `espelhoCertImportar`: "não apagou" tem causas que
+                       //   pedem coisas diferentes (o provedor recusou, o
+                       //   arquivo sumiu, o token não é mais conhecido)
+  salvarTexto(nome, texto), // → o NOME gravado, ou '' (desistiu ou falhou): o
+                       //   "Salvar como" do sistema (SAF `CREATE_DOCUMENT`),
+                       //   com o shell ESCREVENDO o texto. Existe porque o
+                       //   WebView do app não tem `DownloadListener`: um
+                       //   `<a download>` sobre um `blob:` não faz NADA ali —
+                       //   sem erro, sem arquivo. Sem prazo: quem responde é
+                       //   uma pessoa no seletor
+  cifraDiag(),         // → string: o que a última busca de cifra recebeu
+  // ---- A MEDIÇÃO DE ALCANCE — ver `docs/MEDICAO-DE-ALCANCE.md` ----
+  farolEstado(),       // → { conta, ultimo, diag }: SÓ LEITURA, e o consumidor
+                       //   é a linha "Alcance:" do Registro, que responde "o
+                       //   farol chegou a acender?". `conta` é o VEREDITO e não
+                       //   uma chave — desde o shell 61 o único motivo dele é o
+                       //   build debuggável. `ultimo` é epoch em ms (0 = nunca)
+                       //   (`farolContar` SAIU no shell 61 — ver abaixo)
+}
+```

@@ -31,7 +31,7 @@ ia tocar.
 | 6 | [OTA da base web](#ota-da-base-web-atualização-sem-apk) | publicar, watchdog de boot, detecção |
 | 7 | [Telão por comandos](#telão-por-comandos-o-telão-nas-telas-da-rede-local) | as telas da rede local |
 | 8 | [A abertura por trás dos panos](#a-abertura-por-trás-dos-panos) | a cortina, o tema no primeiro quadro |
-| 9 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** |
+| 9 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** (as regras duras; o raciocínio está no capítulo) |
 | 10 | [Divergências web × nativo](#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
 | 11 | [Build e distribuição](#build-e-distribuição) | CI, o portão, assinatura, backup |
 | 12 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
@@ -46,6 +46,10 @@ tem o que se pode quebrar sem abrir o capítulo, e o capítulo tem o resto:
 | os álbuns oficiais da Biblioteca | [§](#séries-do-youtube-os-álbuns-oficiais-da-biblioteca) | [`docs/recursos/SERIES.md`](docs/recursos/SERIES.md) |
 | acordes sobre a letra, sob demanda | [§](#a-aba-de-cifra-acordes-ao-lado-da-letra) | [`docs/recursos/CIFRA.md`](docs/recursos/CIFRA.md) |
 | o acervo num arquivo `.avpkg` | [§](#o-pacote-de-transferência-o-acervo-num-arquivo) | [`docs/recursos/PACOTE.md`](docs/recursos/PACOTE.md) |
+| cada par de cor medido, os pisos, o que foi revogado | [§](#a-paleta) | [`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md) |
+| o catálogo dos 63 métodos da ponte, um a um | [§](#a-ponte-windowavnative) | [`docs/shell/PONTE.md`](docs/shell/PONTE.md) |
+| os dois canais, a detecção, o watchdog, a pergunta | [§](#ota-da-base-web-atualização-sem-apk) | [`docs/shell/OTA.md`](docs/shell/OTA.md) |
+| o que cada oráculo trava | (o MÉTODO fica em [Build](#build-e-distribuição)) | [`docs/ORACULOS.md`](docs/ORACULOS.md) |
 
 **Os CAPÍTULOS** (o detalhe que o resumo aponta): `docs/recursos/CIFRA.md`,
 `docs/recursos/PACOTE.md`, `docs/recursos/SERIES.md`,
@@ -467,312 +471,47 @@ Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
 `NativeBridge.kt`). **Só existe quando `window.__AVBridge` existe** — no
 navegador a IIFE retorna na entrada e nada é definido, nem `__NATIVE__`.
 
-```js
-window.AVNative = {
-  pickFolder(),        // → { id, name, uri }   (SAF ACTION_OPEN_DOCUMENT_TREE)
-  pickDoc(mimes),      // → [{ url, name, type, size }]: o SELETOR DE ARQUIVOS
-                       //   do aparelho. `size` entrou no shell 64 e é o que
-                       //   torna a leitura por JANELA possível — quem lê um
-                       //   pacote de gigabytes precisa saber onde o arquivo
-                       //   acaba, e o caminho antigo só sabia a resposta depois
-                       //   de materializar o arquivo inteiro. `-1` = o provedor
-                       //   não disse, e NÃO é `0` (arquivo vazio): achatar os
-                       //   dois faz um pacote bom ser recusado como vazio.
-                       //   ELE É O ÚNICO MÉTODO QUE NÃO É REMONTADO campo a
-                       //   campo no `native.js` (o irmão do `micDiag`), e aqui
-                       //   é de propósito pelo motivo OPOSTO: a lista vem do
-                       //   Kotlin já na forma final, e o remonte só poderia
-                       //   perder o campo de amanhã
-  listFolder(uri),     // → [{ name, size, mtime, type, url }]   (só no Controle)
-  onShare(cb),         // cb({ files:[{name,type,size,url}], url, title })
-  areaTransferencia(desde), // → { texto, carimbo } ou null: o LINK COPIADO, e
-                       //   só quando é NOVO. `desde` é o carimbo do último
-                       //   conteúdo já examinado, em TEXTO (o carimbo é um
-                       //   `long` em ms), e quem compara é o Kotlin ANTES de
-                       //   ler — do Android 12 em diante LER a área de
-                       //   transferência de outro app mostra um aviso do
-                       //   sistema, e consultar a DESCRIÇÃO não mostra nada.
-                       //   Só texto simples que COMEÇA com http(s), teto de
-                       //   2 kB: privacidade, não classificação — quem decide
-                       //   se é do YouTube é o `controle.js`
-  displays(),          // → [{ id, name, w, h, density, telao }]
-                       //   `telao` é a `Presentation` DE FATO no ar naquela
-                       //   tela — "há TELA" nunca foi "há TELÃO". A lista
-                       //   responde pelo DisplayManager; a projeção é a janela,
-                       //   e as duas divergem numa negociação de Miracast (o
-                       //   `show()` que lança, o dismiss que o sistema faz
-                       //   sozinho). É por ele que o web decide QUEM TOCA O SOM,
-                       //   se o microfone é oferecido e se o Modo Fácil
-                       //   destrava — as três perguntas cuja resposta honesta é
-                       //   a janela, não a tela. A tela CONTINUA na lista com o
-                       //   telão no chão: "não há TV" e "a TV está aí e o telão
-                       //   não subiu" pedem frases diferentes
-  onDisplayChange(cb),
-  openCast(),          // seletor de ESPELHAMENTO DE TELA do Android (≠ Google Cast)
-  castTarget(),        // → string: rótulo do alvo de espelhamento deste aparelho
-  openExternal(url),   // abre uma URL https FORA do app (só o Controle)
-  ytFetch(url, onProg, soAudio, altura), // → { url, name, size, type, height, seconds }
-                       //   `soAudio` traz só a faixa de áudio (m4a)
-                       //   `altura` é o TETO de resolução
-  ytDiscard(url),      //   e apaga o arquivo depois que os bytes foram copiados
-  ytCancel(url),       // PARA o download em curso deste link
-  otaPending(),        // → versão da base web já baixada que espera (ou '')
-  otaApply(),          // APLICA-a agora: as duas páginas recarregam
-  otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell
-  otaDiag(),           // → string: quando foi a última busca e o que ela deu
-  atualizacaoEstado(), // → { web, webAtual, shell, shellBytes, shellAtual,
-                       //     webNotas, diag }
-                       //   OS DOIS CANAIS numa leitura só — ele não
-                       //   acrescenta poder: acrescenta COERÊNCIA DE INSTANTE
-                       //   (ver a seção do OTA). `webNotas` é a LINHA DO TEMPO
-                       //   do que vem: `[{versao, itens:[…]}]`, mais nova
-                       //   primeiro, JÁ FILTRADA pelo shell para o que este
-                       //   aparelho não tem. Lida do `notas.json` do PRÓPRIO
-                       //   bundle baixado, nunca do manifesto
-  apkProcurar(),       // → {} · { versao, bytes, notas } · { erro }
-                       //   `bytes` é o TAMANHO do .apk; NÃO há campo `url` (quem
-                       //   guarda a URL é o `ShellUpdater`) e o vazio é `{}`,
-                       //   nunca `null`
-  apkInstalar(),       // baixa e abre o diálogo de instalação do sistema
-                       //   (sem URL: quem a escolhe é o `ShellUpdater`, do
-                       //    achado da última `apkProcurar`)
-  ytDiag(),            // → string: o que o extrator recebeu na última extração
-                       //   (diagnóstico do rodapé de Configurações)
-  ytStream(url, altura), // → manifesto DASH ou null: TRANSMITIR sem baixar
-                       //   `{ video, videos, audio, seconds, height }`.
-                       //   `videos` é a ESCADA (shell 60): as faixas mp4
-                       //   transmissíveis sob o teto, UMA POR ALTURA, da mais
-                       //   alta para a mais baixa. `video` continua sendo o
-                       //   TOPO — a mudança é ADITIVA de propósito, e tudo que
-                       //   já lia `man.video` segue lendo o mesmo. Quem ESCOLHE
-                       //   é o web (`AVStream.escolherDegrau`), porque a escolha
-                       //   depende da BANDA MEDIDA, que só existe depois dos
-                       //   primeiros bytes — e porque uma regra de escolha erra,
-                       //   e no web ela se conserta por OTA
-  ytSearch(termo),     // → [{ id, url, name, author, seconds, thumb }] do YouTube
-  ytCanalPlaylists(canalUrl), // → [{ name, url, count }] da ABA do canal
-  ytPlaylist(url),     // → { name, author, items:[{id,url,name,seconds,thumb}] }
-                       //   os dois são as SÉRIES da Biblioteca. TRANSPORTE puro:
-                       //   o `name` do item é o título CRU (sem `tituloLimpo`),
-                       //   e quem lê os nomes é `controle/serie.js`
-  ytDetalhes(url),     // → { titulo, canal, seconds, descricao } ou `null`: os
-                       //   dados de UM vídeo, para o card de detalhe (shell 62).
-                       //   Título, canal e duração a listagem de playlist já
-                       //   entrega e o índice da série os GUARDA (valem
-                       //   offline); a DESCRIÇÃO só existe extraindo o vídeo —
-                       //   uma requisição por vídeo —, e por isso o método é
-                       //   SOB DEMANDA: quem o chama é o toque em "Ver os
-                       //   detalhes", com cache em MEMÓRIA do outro lado (o
-                       //   precedente é o da CIFRA: nada vai ao disco).
-                       //   `descricao` é SEMPRE texto simples, achatado no
-                       //   Kotlin — o YouTube a entrega em HTML quando ela tem
-                       //   links, e este lado roda no origin que injeta
-                       //   `__AVBridge`. O `null` NÃO é achatado num objeto
-                       //   vazio: ele é "não houve resposta" (o chamador não
-                       //   guarda nada e tenta de novo) contra `descricao: ''`,
-                       //   que é "respondeu, e não há descrição" — a mesma
-                       //   distinção do `status 0` × `404` do `cifraHtml`.
-                       //   Mora na fila `extracao` porque é UM TOQUE: uma
-                       //   varredura aqui empurraria todo "Tocar agora" para
-                       //   além dos 60 s do `call()`
-  deckPages(origem, nome, onProg), // → { name, pages:[url] } ou { erro }: PDF em imagens
-  deckExportUrl(link), // → URL de exportação PDF de um link do Google Apresentações
-  deckDiscard(url),    //   e apaga as páginas depois da cópia
-  captureVolumeKeys(bool), // botões físicos de volume vão para o app
-  projecaoLocal(bool), // A PREVIEW É A PROJEÇÃO: não há tela conectada e há
-                       //   cena no ar. O shell responde impedindo que o WebView
-                       //   do CONTROLE seja suspenso (o `manterVisivel` + a
-                       //   prioridade do renderer que o telão já tem). Sem tela
-                       //   quem toca é o `<video>` da preview, e o Chromium
-                       //   pausa o de uma página oculta — com o app minimizado o
-                       //   louvor calava. CONDICIONAL de propósito: com telão no
-                       //   ar o Controle DEVE ser estrangulado em segundo plano
-  systemVolume(step),  // devolve um passo ao volume do sistema (fader no limite)
-  temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
-  requestMic(),        // → bool: permissão RECORD_AUDIO (push-to-talk)
-  keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
-  bgConcluido({titulo, texto}), // O CARTÃO QUE FICA quando um trabalho longo
-                       //   termina BEM. A notificação de progresso é do SERVIÇO
-                       //   e sai com ele; o que sobrava era o ícone sumindo —
-                       //   a mesma coisa que a barra mostra quando o processo
-                       //   MORRE. Este posta um cartão PRÓPRIO (id separado, e
-                       //   é isso que o salva da limpeza do `onDestroy`), não
-                       //   `ongoing` e com `autoCancel`, com o check do
-                       //   sistema. MÉTODO e não campo do `bgProgress`: aquele
-                       //   descreve trabalho EM CURSO e é chamado dezenas de
-                       //   vezes por minuto; este é terminal e vale uma vez
-  bgProgress({label, done, total, etaMs, items, idleMs, bytes, icone}), // progresso
-                       //   na notificação. `icone` é o DESENHO da barra:
-                       //   `baixar` (seta para baixo animada — o padrão),
-                       //   `enviar` (para cima) ou `processar` (o círculo
-                       //   de duas setas). A seta é DIREÇÃO DE BYTES e não
-                       //   procedência deles: importar traz o acervo PARA o
-                       //   aparelho, e vir de um arquivo local em vez da
-                       //   rede não muda o sentido do movimento para quem
-                       //   olha. Nome ausente ou desconhecido = `baixar`.
-                       //   E O PERCENTUAL NÃO CABE NELE — a v1.8.31 tentou
-                       //   (um bitmap desenhado por atualização) e a v1.8.34
-                       //   desfez: o número apareceu e a SETA PAROU. As duas
-                       //   coisas são EXCLUDENTES, porque o sistema só anima um
-                       //   `AnimationDrawable`, e ele só chega por ID DE
-                       //   RECURSO — desenho dinâmico é necessariamente um
-                       //   quadro só. O número mora na notificação ABERTA e no
-                       //   botão que começou o trabalho
-  nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs, actions}),
-                       //   `actions`: os BOTÕES do cartão, na ordem, escolhidos
-                       //   pelo lado web. Vazio = os cinco de sempre
-  onRemote(cb),        // cb('play'|'pause'|'playpause'|'prev'|'next'|'stop'|'view')
-  // ---- TELÃO POR COMANDOS — ver a seção ----
-  espelhoLigar(ip),    // liga a transmissão. `ip` VAZIO = "escolha você" (a
-                       //   primeira da lista, ponto de acesso na frente); com
-                       //   ip vai pelo `espelhoLigarEm`, método PRÓPRIO do
-                       //   Kotlin — ADITIVO, nunca uma assinatura trocada
-  espelhoDesligar(),   // síncrono e sem resposta, como o `ytCancel`
-  espelhoEstado(),     // → { ligado, endereco, erro, via, redes:[…], telas:[…] }
-                       //   (sem `codigo` desde a v5.189: a porta é o ENDEREÇO)
-                       //   `via` é `WIFI`|`PONTO_DE_ACESSO`; `redes` são as
-                       //   servíveis AGORA ({ip, via, iface}) e vem VAZIA com a
-                       //   transmissão no ar — montá-la enumera interfaces na
-                       //   main thread, e a folha não a desenha ligada
-                       //   cada tela: { rotulo, comando:true, conectadaMs,
-                       //   telaAcesaMin, aviso, eventos, pronta, fila }
-  espelhoDiag(),       // → JSON do Registro (servidor, sessões, cache de
-                       //   mídia, telas por comando)
-  espelhoDerrubar(rotulo), // tira ESTA tela do ar (o "Desconectar" da folha)
-  espelhoCertImportar(url, senha), // → '' ou a FRASE do erro: o .p12 do TLS
-  espelhoCertEstado(), // → { temCert, host, ate, nome, noAr, servindoTls }
-  espelhoCertApagar(), // a chave privada sai do aparelho
-                       //   OS TRÊS ESTÃO SEM UI DESDE A v5.196: a folha de
-                       //   "Ajustes avançados" era a única porta deles e saiu.
-                       //   Ficam na ponte de propósito — voltar atrás é
-                       //   desenhar uma folha, não publicar uma Release.
-  // ---- CIFRA — ver a seção do recurso ----
-  cifraHtml(url),      // → { status, html }: o corpo CRU de uma página de
-                       //   CIFRA **ou da busca do site**. O buscador externo
-                       //   saiu no shell 52 e o host dele com ele — a forma não
-                       //   mudou, o COMPORTAMENTO sim, e é por isso que o
-                       //   degrau subiu nas duas pontas (51 ao entrar, 52 ao
-                       //   sair). Host TRAVADO (`CifraFonte.kt`). TRANSPORTE:
-                       //   quem lê o HTML é `controle/cifra.js`. Os dois campos
-                       //   respondem perguntas diferentes — `status 0` é "não
-                       //   houve resposta", `404` é "o site não tem"
-  micDiag(),           // → { permissao, modAudio, appops, mudo, modo, gravando,
-                       //     entradas:[{tipo,nome}] }: POR QUE o microfone não
-                       //     abre — o que só o SHELL sabe. `modAudio` é
-                       //     `MODIFY_AUDIO_SETTINGS`, e é ela que O CHROMIUM DO
-                       //     WEBVIEW exige do app HOSPEDEIRO para abrir QUALQUER
-                       //     captura: sem ela `setCommunicationDevice()` devolve
-                       //     `false` e `MakeLowLatencyInputStream` devolve
-                       //     `nullptr` — `NotReadableError` em toda configuração,
-                       //     antes de qualquer restrição ser negociada. Foi o
-                       //     defeito da v1.2.11 para trás. `AppOps` responde outra
-                       //     coisa: ele pode RECUSAR `RECORD_AUDIO` com
-                       //     `checkSelfPermission` devolvendo concedida (o
-                       //     interruptor de privacidade, o Auto Blocker da Samsung
-                       //     sobre app fora da loja, o mudo global). ATENÇÃO ao
-                       //     valor `primeiro plano` (`MODE_FOREGROUND`): é o
-                       //     ESTADO NORMAL do Android 10+ com a permissão no
-                       //     padrão, e lê-lo como bloqueio acusa o sistema no caso
-                       //     mais comum que existe.
-                       //     LEITURA PURA: não abre o microfone, não pede nada
-                       //     ESTE É O ÚNICO MÉTODO QUE NÃO É REMONTADO campo a
-                       //     campo no `native.js` — ele passa o objeto inteiro, de
-                       //     propósito, para um diagnóstico ganhar campo sem
-                       //     mexer na ponte. O degrau do `SHELL_VERSION` continua
-                       //     obrigatório: a FORMA de retorno mudou
-  compartilharTexto(txt), // o SELETOR DE COMPARTILHAMENTO do Android
-                       //   (ACTION_SEND + createChooser). Síncrono e sem
-                       //   resposta, como o `openCast`: o desfecho é uma pessoa
-                       //   escolhendo um app, e não há API que o entregue. NÃO
-                       //   é `openExternal` — aquele MANDA este aparelho abrir
-                       //   um endereço, este OFERECE um texto a outro. E não é
-                       //   `navigator.share`, que o WebView do Android não tem
-  pacoteCriar(nome),   // → o NOME gravado, ou '': o "Salvar como" do PACOTE DE
-                       //   TRANSFERÊNCIA, que DEIXA O DESTINO ABERTO. SEM
-                       //   prazo (espera uma pessoa no seletor). Os bytes vão
-                       //   pelo canal `__avPacote`, nunca por aqui
-  pacoteFechar(),      // → os BYTES gravados, ou -1 (nada aberto, o fecho
-                       //   falhou, ou o arquivo saiu VAZIO). Os acks por bloco
-                       //   já disseram "recebi"; é o `flush`/`close` que
-                       //   descobre o cartão cheio. E no caminho LOCAL ele
-                       //   PROMOVE (shell 68): o arquivo vira o pacote PRONTO,
-                       //   e o número que volta é o `length()` do DISCO, não o
-                       //   que o canal contou — são duas perguntas, e é a
-                       //   segunda que o outro app vai ler
-  pacoteCancelar(),    // fecha e APAGA o parcial. Síncrono, como o `ytCancel`
-  pacoteEspaco(),      // → bytes livres no armazenamento PRÓPRIO do app.
-                       //   NÚMERO, nunca veredito (invariante 5): quanta folga
-                       //   um pacote precisa é regra do `controle.js`, que sabe
-                       //   o tamanho medido e a frase a escrever. `0` = não deu
-                       //   para medir, e zero manda o fluxo para o SAF
-  pacoteCriarLocal(nome), // → o NOME, ou '': abre o pacote num arquivo do
-                       //   PRÓPRIO app. Mesma forma do `pacoteCriar` e COM
-                       //   prazo — aqui não há seletor, e ninguém está
-                       //   esperando uma pessoa
-  pacoteCompartilhar(),// → os BYTES do arquivo, ou -1: oferece o pacote JÁ
-                       //   PRONTO pelo seletor. ELE NÃO FECHA NADA (shell 68)
-                       //   — quem fecha é o `pacoteFechar`, que PROMOVE o
-                       //   arquivo local a pronto. É isso que o torna
-                       //   REPETÍVEL: um aparelho, depois outro, sem refazer um
-                       //   pacote de gigabytes. O número volta ANTES de o
-                       //   seletor responder, e é de propósito — o desfecho de
-                       //   um chooser é uma pessoa escolhendo um app, e não há
-                       //   API que o entregue (a razão de o `compartilharTexto`
-                       //   ser síncrono). `-1` = não há pronto, ele sumiu do
-                       //   disco, ou nada o recebeu
-  pacoteDescartarPronto(), // joga fora o pronto — o operador quer fazer OUTRO.
-                       //   Síncrono, como o `pacoteCancelar`
-  pacoteProntoEstado(), // → { nome, bytes } ou `null`: o pacote PRONTO que
-                       //   espera o envio. É a SEMENTE do lado web, e o irmão
-                       //   exato do `lerEspelho()` do `init()` — pelo mesmo
-                       //   motivo escrito lá: o pronto vive no SHELL e
-                       //   sobrevive ao documento, e `pacotePronto` no
-                       //   `controle.js` é um `let` de PÁGINA que um OTA
-                       //   aplicado, a morte do renderer ou uma recriação de
-                       //   Activity zeram. O tile voltava a oferecer
-                       //   "Exportar" com gigabytes prontos em `files/pacote/`.
-                       //   Os `bytes` saem do `length()` do DISCO, nunca de
-                       //   memória (a distinção da v1.8.22), e um pronto cujo
-                       //   arquivo sumiu responde `null` — oferecer o envio de
-                       //   um arquivo que não existe é o `-1` que o
-                       //   `pacoteCompartilhar` já colapsa em três causas
-  pacoteDiag(),        // → string: o que o SHELL sabe do pacote (há pronto? no
-                       //   disco? o desfecho do último fecho e do último envio,
-                       //   com o NOME da exceção quando houve). Ele existe
-                       //   porque o `-1` do `pacoteCompartilhar` colapsa TRÊS
-                       //   causas e o web não separa nenhuma — três rodadas de
-                       //   campo se gastaram nisso. Irmão do `otaDiag` e do
-                       //   `ytDiag`, com o mesmo consumidor: quem lê o Registro
-  pacoteConsumirOrigem(url), // → '' (apagou) ou a FRASE do motivo: APAGA o
-                       //   arquivo do SAF que uma `/saf/<token>` serve — o
-                       //   `.avpkg` que a importação acabou de ler. Um pacote é
-                       //   o acervo INTEIRO, e deixá-lo em Downloads dobra o
-                       //   que a biblioteca ocupa no aparelho que menos tem
-                       //   espaço. QUEM DECIDE É O WEB, e só depois de uma
-                       //   importação COMPLETA: o shell não sabe se ela
-                       //   terminou. Cancelou ou falhou, o arquivo FICA — ele é
-                       //   o que faz a próxima tentativa continuar de onde
-                       //   parou. Duas respostas e não um booleano, como o
-                       //   `espelhoCertImportar`: "não apagou" tem causas que
-                       //   pedem coisas diferentes (o provedor recusou, o
-                       //   arquivo sumiu, o token não é mais conhecido)
-  salvarTexto(nome, texto), // → o NOME gravado, ou '' (desistiu ou falhou): o
-                       //   "Salvar como" do sistema (SAF `CREATE_DOCUMENT`),
-                       //   com o shell ESCREVENDO o texto. Existe porque o
-                       //   WebView do app não tem `DownloadListener`: um
-                       //   `<a download>` sobre um `blob:` não faz NADA ali —
-                       //   sem erro, sem arquivo. Sem prazo: quem responde é
-                       //   uma pessoa no seletor
-  cifraDiag(),         // → string: o que a última busca de cifra recebeu
-  // ---- A MEDIÇÃO DE ALCANCE — ver `docs/MEDICAO-DE-ALCANCE.md` ----
-  farolEstado(),       // → { conta, ultimo, diag }: SÓ LEITURA, e o consumidor
-                       //   é a linha "Alcance:" do Registro, que responde "o
-                       //   farol chegou a acender?". `conta` é o VEREDITO e não
-                       //   uma chave — desde o shell 61 o único motivo dele é o
-                       //   build debuggável. `ultimo` é epoch em ms (0 = nunca)
-                       //   (`farolContar` SAIU no shell 61 — ver abaixo)
-}
-```
+**O CATÁLOGO dos 63 métodos, um a um, está em
+[`docs/shell/PONTE.md`](docs/shell/PONTE.md)** — é referência, aberta por
+método. Aqui ficam as REGRAS, que valem para todos eles.
+
+**Quatro globais lidas direto, sem Promise:** `window.__NATIVE__`, `__AV_ROLE__`
+(`'controle'`/`'display'`; o terceiro valor, `'tela'`, é escrito por
+`espelho/tela.js`, não pela ponte), `__SHELL_VERSION__` (o inteiro do contrato) e
+`__SHELL_NAME__` (o `versionName` do APK, que **não** se confunde com o
+anterior: base web e shell atualizam por caminhos independentes). Desde a v1.7.0
+o `__SHELL_NAME__` não aparece na tela — quem o mostra é o REGISTRO.
+
+**Princípio: a ponte entrega URLs SERVÍVEIS, não bytes.** Arquivos do aparelho e
+compartilhamentos chegam como `https://appassets.androidplatform.net/saf/<token>`
+e o web usa `fetch()` + `Blob` como já faz com o OPFS — nenhuma função de
+importação precisou ser reescrita, e **um vídeo de 2 GB nunca passa por base64**.
+
+O token (`SafRegistry`, em `SafPathHandler.kt`) é **opaco** (não o URI
+codificado: um `content://` com barras viraria segmentos de rota),
+**aleatório** (128 bits, `SecureRandom` — as entradas nunca expiram) e **é uma
+URL `https://` do MESMO origin da base**: quem recebe uma delas e pergunta
+`origem.startsWith("https://")` para decidir "é da rede ou é local?" manda
+**todo arquivo do aparelho** para o caminho de download — foi o que deixou o PDF
+quebrado da v5.97 à v5.99, indistinguível de "PDF com senha". A pergunta certa é
+pelo **host** (invariante 2). **O mesmo URI devolve sempre o mesmo token**, senão
+cada `listFolder` de uma pasta de 500 arquivos acrescentaria 500 entradas a cada
+re-sincronização, num processo mantido vivo durante todo o culto.
+
+**Superfície nativa é privilégio do Controle.** O WebView do telão recebe a
+ponte com `host = null` e o loader dele é montado **sem** o handler `/saf/` —
+ver a invariante 9. `listFolder` honra a mesma regra e devolve lista vazia sem
+host: era a exceção, porque lê o `ContentResolver` direto, e sem a guarda
+qualquer script no documento do Display lia o índice inteiro de toda pasta
+concedida.
+
+**As Promises têm época por carregamento.** O id é `EPOCH + ':' + seq`, com
+`EPOCH` aleatório a cada carga: o renderer pode morrer com uma chamada em voo, a
+página recarrega, o contador volta a zero — e com ids "1", "2", "3" a resposta
+atrasada da página velha resolvia a promise homônima da NOVA. Chamadas que
+dependem de **máquina** têm prazo de 60 s; `pickFolder` e `requestMic` esperam
+uma **pessoa** e ficam sem prazo.
+
 São **63 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
@@ -1136,349 +875,42 @@ O que vale sem abrir o capítulo:
 O job `web-ota` (todo push em `main`) empacota `assets/web/` num
 `web-<versão>.zip` e publica, com um `version.json`, na release de tag fixa
 **`web-latest`** — URL estável porque está compilada no shell. O app consulta o
-`version.json`, baixa quando há versão nova e passa a servi-la.
+manifesto, baixa quando há versão nova e passa a servi-la.
 
-### Os DOIS canais são UM evento
+**O mecanismo inteiro — os dois canais como UM evento, a detecção por quatro
+gatilhos, a pergunta que DIZ o que vem, o watchdog de boot e as defesas do
+download — está em [`docs/shell/OTA.md`](docs/shell/OTA.md).** Abra-o antes de
+mexer no `WebUpdater.kt` ou no fluxo da atualização.
 
-```
- push em main            Release v2.0 publicada         aparelho
- ┌─────────────┐ shellTag ┌──────────────────┐         ┌──────────────────┐
- │ version.json│ ───────► │ audio-visual….apk│ ──────► │ ronda de 15 s    │
- │ "shellTag": │  SEGURA  └──────────────────┘ gatilho │ lê o MANIFESTO   │
- │   "v2.0"    │  o OTA     o MESMO run                │ web + shell      │
- └─────────────┘                                       │ → UMA pergunta   │
-                                                       └──────────────────┘
-```
+**O que vale sem abrir o capítulo:**
 
-- **`shellTag` no `version.json` é o acoplamento.** Declarado, o `web-ota`
-  **segura a publicação do bundle** até a Release existir (o job termina verde e
-  diz no resumo que está segurando — é o estado normal entre o merge e a
-  Release). Quando ela sai, o bundle é republicado com o bloco **`shell`**
-  (versão, URL do `.apk`, tamanho) dentro do manifesto. Sem `shellTag` o
-  manifesto anuncia a Release mais recente que existir — `shellTag` responde
-  *"este lote PRECISA de uma Release?"*.
-
-  **QUEM SOLTA O HOLD É O PRÓPRIO RUN QUE PUBLICA, não o gatilho `release`.** A
-  Release nasce do `action-gh-release` com o GITHUB_TOKEN padrão, e evento
-  originado nesse token **não cria execução nova de workflow** — medido: em 136
-  execuções do `apk.yml`, `release` disparou **zero** vezes. O que funciona é
-  ORDEM DE JOB: o `web-ota` tem o `apk` no `needs` e consulta a Release já
-  publicada, no mesmo run. O `on: release: [published]` fica para a Release que
-  nasce de outra mão (a interface do GitHub, ou um PAT).
-
-  **E a PÁGINA sofre do mesmo mal, por outro caminho** (v1.0.1): ela é outro
-  workflow, e `needs` não atravessa arquivo. O `pages.yml` passou a encadear por
-  `workflow_run` no "Build APK" — o mecanismo do próprio GitHub para isto, e o
-  único que o guarda de recursão não suprime. Sem ele, o botão "Baixar grátis"
-  serve o `.apk` da Release ANTERIOR até alguém reconstruir à mão.
-
-  **E a VERSÃO que a página anuncia sai do MANIFESTO, não da tag da Release.** A
-  tag é a versão do APK, e ela fica parada em todo lote que sai só por OTA — o
-  aparelho mostrava 1.0.2 e a página dizia 1.0.1, com o mecanismo inteiro
-  funcionando. O manifesto responde *"quão novo é este app?"* e é o que está de
-  fato PUBLICADO (o `version.json` do repositório pode estar segurado pelo
-  `shellTag`). Tamanho e URL continuam vindo do APK, que é o que se baixa.
-- **É o manifesto que permite a detecção ser rápida.** A API do GitHub não
-  autenticada dá **60 req/hora por IP**; a ronda de 15 s são 240. Perguntar o APK
-  à API esgotaria o limite em quinze minutos e passaria a falhar com 403 pelo
-  resto da hora. O manifesto é asset de release e **não consome limite nenhum**:
-  uma requisição responde as duas perguntas, e no MESMO instante.
-- **O zip tem nome versionado**, e isso fecha uma classe inteira: com
-  `web-assets.zip` substituído no lugar, duas execuções intercaladas deixavam o
-  zip de uma com o `sha256` da outra — e a partir daí todo aparelho baixa,
-  reprova o hash e o **OTA fica INERTE até o próximo push**, sem sinal. O único
-  arquivo substituído no lugar passa a ser o manifesto, escrito por último. O job
-  recolhe os antigos deixando os **três mais novos** (apagar o que alguém está
-  baixando devolveria 404 no meio do download).
-- **`sha256` reprovado é FALHA, não desfecho.** Devolver `null` carimbava a
-  tentativa como bem-sucedida (`ultimoOk` renovado, `falhasSeguidas` zerado, sem
-  espera crescente), e a ronda seguinte rebaixava o mesmo zip, para sempre.
-
-### A atualização PERGUNTA
-
-- **Uma pergunta, sobre o lote — e ela DIZ O QUE VEM.** Três blocos, nesta
-  ordem, porque é a ordem da leitura: a IDENTIDADE (*"Base v1.0.6."* · *"Base
-  v1.0.6 e app v1.0.2 (4,2 MB)."*), a LINHA DO TEMPO das mudanças, e a
-  CONSEQUÊNCIA do toque (*"as duas telas recarregam…"* · *"o Android vai pedir
-  para confirmar a instalação"*) — que é a única das três que a lista nunca
-  responde, e a razão de haver pergunta em vez de a atualização entrar sozinha.
-  Desfechos: **Atualizar agora** · **Deixar para depois**.
-- **As notas viajam DENTRO do bundle** (`assets/web/notas.json`, uma entrada por
-  versão), lidas pelo shell do diretório do bundle BAIXADO
-  (`WebUpdater.notasPendentes`) e entregues já filtradas para o que o aparelho
-  ainda não tem. **Não no manifesto**, por três razões independentes: ele é
-  buscado 240 vezes por hora e essas linhas importam uma vez por semana; dentro
-  do zip elas não têm como divergir do que descrevem; e nada de novo entra no
-  caminho de rede, logo nada de novo pode falhar nele. **O preço, dito: um lote
-  SÓ de APK não tem linha do tempo** — não há bundle novo de onde lê-la, e o
-  desfecho é a pergunta sem a lista, nunca uma lista errada.
-- **CADA ITEM É UM TÓPICO, e o padrão é esse** (v1.4.12). Pedido do operador:
-  *"está muito texto e muito agressivo. Use apenas tópicos e não precisa entrar
-  em detalhes… a intenção desses textos não é explicar os problemas, mas nomear
-  eles o suficiente para o usuário entender o que foi atacado naquela
-  atualização, e não exatamente o COMO."* Três regras, e o CI cobra as duas que
-  são mecânicas:
-  - **NOMEIA, não explica.** *"O som deixou de sumir ao conectar numa smart
-    TV."* — e ponto. O mecanismo, a causa e a medição vão para
-    `docs/HISTORICO.md`, que é onde alguém os procura.
-  - **Uma linha curta** (teto de 120 caracteres no CI; MEDIDO, os 75 tópicos de
-    hoje têm 67 em média e 90 no maior). A régua não é o arquivo — é o cartão:
-    a lista do diálogo tem `.88rem` numa caixa estreita, e MEDIDO um tópico de
-    ~55 chars já ocupa 2 linhas a 430px e 3 a 320px. Um parágrafo ali vira sete.
-  - **Sem CAIXA ALTA de ênfase** (o CI aceita no máximo uma palavra de três
-    letras ou mais). Era o abre de todo item — *"O APP AGORA AVISA QUE…"* — e
-    numa lista de seis isso é a tela gritando. Ela continua servindo no
-    `HISTORICO.md` e nos comentários, onde há prosa em volta para contrastar.
-
-  **A conta do que isso vale:** o arquivo caiu de 99 itens e 24,3 kB para 80 e
-  6,8 kB — e ele viaja em TODO bundle do OTA.
-- **O ARQUIVO GUARDA A SÉRIE ATUAL E A ANTERIOR, e nada mais** (v1.4.3). Ele
-  chegou a 87 entradas — 51 kB em TODO bundle, com linhas descrevendo a v1.0.1.
-  A regra de poda é `MAIOR.INCREMENTAL`: hoje 1.8.x e 1.7.x (a v1.3.x saiu
-  na v1.5.4, que deixou o arquivo em 50 entradas e 13,4 kB — a série tinha
-  virado e a poda ficara para trás). **O preço está dito e é pequeno:** o "E mais N mudanças" do rodapé
-  conta o que está NA LISTA, então um aparelho parado há meses vê um N
-  subestimado. A lista visível tem seis linhas de qualquer jeito
-  (`OTA_MAX_LINHAS`), e as podadas descrevem versões que não rodam em aparelho
-  nenhum. Podar de novo quando a série virar — o histórico completo de cada
-  lote continua em `docs/HISTORICO.md`, que é onde ele é consultado por `grep`.
-- **O teto de linhas é o que a mantém uma linha do tempo.** Seis
-  (`OTA_MAX_LINHAS`); o que sobra vira *"E mais N mudanças."* **no rodapé, que
-  não rola** — na lista, que rola, esse aviso era o primeiro item a ser cortado,
-  e o que sobrava era uma lista truncada afirmando ser tudo. O teto de ALTURA
-  mora no `.dialog-card`, não na lista: `40vh` na lista a cortava com o cartão
-  ocupando 477px de 640 — ela não sabe quanto os irmãos estão gastando.
-- **Ordem base → APK.** A base é rápida e não depende de confirmação; o APK exige
-  um diálogo do sistema que pode ser recusado. Invertido, uma recusa ali deixaria
-  o lote inteiro por aplicar.
-- **A INTENÇÃO sobrevive à recarga.** `otaApply` substitui o documento, então
-  nada em memória atravessa: a intenção é gravada no `state` do banco ANTES de
-  aplicar (mesmo lugar e motivo da intenção de download do YouTube) e relida na
-  abertura seguinte. Descartada quando o `versionName` instalado alcança a versão
-  pedida — sem isso o instalador reabriria oferecendo o que já está rodando — e
-  depois de 6 h.
-
-  **E ela é gravada por `AVDB.updateState`, nunca por `setState` — este é o
-  ponto do recurso, não um detalhe.** `setState` resolve na aceitação do
-  REQUEST, com a transação ainda em voo; a linha seguinte é o `otaApply()` que
-  recarrega as duas páginas, e conexão derrubada ABORTA transação em voo. A
-  intenção some, a abertura seguinte não acha nada, e a metade nativa do lote
-  desaparece **com tudo parecendo ter funcionado** — o desfecho exato que a
-  intenção existe para impedir. `updateState` espera o commit (`txDone`). Os
-  quatro pontos que mexem em `ota-intencao` seguem a mesma regra, e o
-  `apagar` de `instalarApk` pelo motivo espelhado: o diálogo do Android pode
-  derrubar o app no instante seguinte, e uma limpeza não commitada reabre o
-  instalador na abertura seguinte.
-- **A pergunta espera só o que ACABA: cena projetando e download em curso.** O
-  **espelho não segura**: ele fica ligado o culto inteiro, e incluí-lo tornava a
-  supressão permanente (foi por isso que a v5.151 desistiu de perguntar).
-  **Instalar o APK espera os três** (`horaRuimParaAtualizar`), porque derruba o
-  app e leva o servidor da rede junto.
-- **"Depois" cala o diálogo, não o FATO** — e cala só ESTA sessão. `otaAdiadas`
-  é um `Set` em memória que morre com a página: minimizar mantém o adiamento (é
-  a mesma sessão), FECHAR e reabrir o desfaz, porque o `onCreate` reconstrói o
-  WebView e a página nasce limpa. A pergunta volta na abertura seguinte.
-- **O botão `#otaRow` de Configurações SÓ EXISTE depois do "depois"** — ele diz
-  por extenso o que espera ("Atualizar: base v5.245 e app v2.2") e aplica no
-  toque. Antes ele era visível sempre e, sem nada esperando, dizia "Procurar
-  atualização": um botão de procurar numa tela onde não há o que procurar sugere
-  que cabe ao operador conferir, e não cabe — a ronda bate a cada 15 s. Com a
-  pergunta AINDA na tela ele também não existe: ali quem oferece é o diálogo.
-- **Toque fora do diálogo NÃO responde por ele** (`appDialogFixo`). Esta pergunta
-  aparece sozinha, no meio de outra coisa, e um toque em qualquer lugar a
-  resolvia como "depois", silenciando-a pela sessão. "Deixar para depois" e
-  Esc/voltar continuam valendo — o que deixa de existir é a recusa por acidente.
-- **O Registro diz POR QUE está esperando**: ninguém foi perguntado, o operador
-  adiou, espera a cena sair, ou o shell recusou o bundle. As quatro pedem ações
-  opostas.
-
-Oráculo: **`tools/ota.test.mjs`** (Chromium + ponte de mentira), incluindo a
-intenção atravessando a MORTE DO DOCUMENTO — semeada numa página que só carrega
-`shared/db.js`, e não no Controle: ali `retomarAtualizacao()` roda na abertura e
-CONSOME a semente antes de a navegação acontecer, o que é o app fazendo o certo
-e o oráculo medindo a si mesmo.
-
-### A detecção: quatro gatilhos
-
-1. **abertura**;
-2. **ronda de 15 s** na frente (120 s em segundo plano), enquanto o processo viver;
-3. **`onResume`** — com `forcar`, a única exceção ao piso: é o instante em que a
-   resposta pode virar uma pergunta na tela;
-4. **a rede voltando** (`registerDefaultNetworkCallback`, com
-   `onCapabilitiesChanged`/`NET_CAPABILITY_VALIDATED` — o Wi-Fi da igreja associa
-   **antes** de ter saída, e `onAvailable` sozinho dispara cedo demais).
-
-- **Falha retenta sozinha**, 5 s → 10 → 20 → 30 s. O teto era 90 s e era o pior
-  lugar para ser generoso: acima de meio minuto a espera dura MAIS que a ronda, e
-  uma falha transitória sai punindo a detecção.
-- **O piso entre consultas (5 s) é MENOR que a ronda (15 s).** Com os dois
-  iguais, uma batida um milissegundo cedo era descartada e a seguinte só viria
-  15 s depois — a ronda valendo 15 s ou 30 s conforme o jitter do agendador. É a
-  receita exata da "detecção inconstante e quase aleatória".
-- **E por isso o piso é POR CHAMADOR.** A enquete do lado web bate a cada 10 s e
-  passava livre pelos 5 s: a rotina que se anuncia como "lê o disco" virava uma
-  consulta à rede a cada dez segundos, para sempre. Subir o piso comum acima de
-  10 s é o reflexo errado — aí a enquete ROUBA o passo da ronda, e a detecção
-  fica mais lenta do que sem ela. O cutucão da tela leva o piso da PRÓPRIA ronda
-  (`WebUpdater.cutucaoDaTela`): ele só vira requisição quando a ronda não
-  entregou uma passada inteira, que é o papel dele — rede de segurança, não
-  segunda ronda.
-- **A ronda é blindada contra exceção.** `scheduleWithFixedDelay` CANCELA todas
-  as execuções seguintes quando o `Runnable` lança — sem log e sem `Future` que
-  alguém consulte. Errar aqui é a detecção parar para sempre naquele aparelho.
-- **Nada de cópia guardada.** O asset de `web-latest` é substituído no lugar
-  (mesma URL, conteúdo novo), que é exatamente quando um cache devolve o de
-  ontem com toda a razão — e isso não atrasa a atualização, torna-a INVISÍVEL.
-  Daí `no-cache` **e** `?t=` na URL (caches que ignoram o cabeçalho existem).
-- **O shell EMPURRA** (`window.__avAtualizacao`) quando o estado muda —
-  inclusive **quando só o APK mudou**, senão uma Release sem base web nova
-  ficaria muda. A enquete de 10 s é o piso, para o caso de o empurrão se
-  perder.
-- **A comparação é contra o que o aparelho JÁ TEM** (`versaoJaTemos`), não contra
-  o que ele SERVE: um bundle baixado espera o próximo lançamento e
-  `currentVersion` continua sendo o da sessão — comparar por ele rebaixaria o
-  mesmo zip a cada ronda, apagando com `deleteRecursively` um diretório que o
-  operador pode ter acabado de mandar aplicar ao vivo.
-- **`#otaRow` tem dois estados**: "Procurar atualização" (pula o piso do shell,
-  ao lado do `onResume` — são os dois que o fazem) e "Atualizar: …". Os dois
-  desfazem a recusa da sessão. `otaDiag` alimenta a linha **"Procura:"** do Registro: "não apareceu
-  aviso nenhum" tem quatro causas indistinguíveis da tela.
-- **Sem `WorkManager` nem alarme**, de propósito: atualizar a base de um app
-  FECHADO não serve para nada (ela entra ao abrir, e ao abrir a procura acontece).
-
-> **O nome do repositório aparece nos DOIS lados e eles têm de bater**: o workflow
-> usa `$GITHUB_REPOSITORY`, e `WebUpdater.REPO` é digitado à mão. Renomear o
-> repositório exige mexer nessa constante **e** publicar um APK (a URL está
-> compilada no shell). O modo de falhar é mudo: o `check()` engole tudo em
-> `Log.i`.
-
-**A identidade do bundle é `assets/web/version.json`** (`version` + `minShell` +
-`shellTag` opcional), versionado no repositório — o bundle carrega a própria
-versão, seja o embutido ou o baixado. O workflow acrescenta `sha256`, a URL e,
-havendo Release, o bloco `shell`. A forma de `shellTag` é validada no CI
-(`v` + números): malformado devolve 404, o job segura o OTA **para sempre**, e o
-sintoma é "a atualização não chega".
-
-**O OTA não muda o acesso ao nativo:** a ponte é injetada pelo Kotlin
-(`addJavascriptInterface`), não vem nos arquivos web — bundle baixado enxerga
-`__AVBridge` como o embutido, servido pelo mesmo origin.
-
-### As três garantias (isto roda em culto)
-
-1. ~~**Nunca troca a base no meio de uma sessão.**~~ **REVOGADA** (v1.68/v5.151),
-   depois **substituída pela pergunta** (v5.234). Ela prometia "entra no próximo
-   lançamento", e `beginSession()` decide uma vez por **PROCESSO** — que quase
-   nunca morre (os serviços em primeiro plano o mantêm vivo, e fechar pelo
-   Recentes derruba a Activity, não o processo). O que sobrevive dela:
-
-   - **A faxina roda só em `beginSession()`** (`sessionStarted`), e preserva o
-     alvo novo **e o `sessionRoot` em uso**: ela APAGA diretório, e o `cleanup`
-     rodando numa recriação de Activity apagaria o que os dois WebViews estão
-     servindo — todo recurso ainda não carregado cairia no fallback do APK, no
-     meio da projeção.
-   - **Nada é apagado ao aplicar**: o diretório antigo pode ter requisições em
-     voo durante a recarga; quem recolhe é o `beginSession()` seguinte.
-   - **HÁ UM CAMINHO DE APLICAÇÃO, e ele passa pela PERGUNTA.** O shell só
-     AVISA (`WebUpdater.onEstado` → `window.__avAtualizacao`); quem aplica é o
-     web, no "Atualizar agora" do diálogo (`otaApply`). O `aplicarSozinho` que
-     trocava a base sem perguntar saiu na v5.234 — o `grep` por ele em
-     `app/src/main/java/` devolve só as duas linhas que dizem que ele saiu. O
-     que existe em DUPLICATA é a DETECÇÃO, não a aplicação: o empurrão do shell
-     e a enquete de 10 s do web, esta para o caso de aquele se perder.
-   - **`otaRecusadas` mudou de significado**: era "o operador disse depois", hoje
-     é "**já tentamos e o shell não aceitou**" — sem ela, um bundle reprovado
-     faria a enquete pedir aplicação a cada 20 s, para sempre.
-
-   O que a substitui é o **watchdog de boot** (garantia 3).
-2. **Válvula `minShell`.** Bundle que exija ponte mais nova que
-   `NativeBridge.SHELL_VERSION` é recusado; o app segue no que tinha. **É por
-   isso que `SHELL_VERSION` sobe a cada mudança de superfície da ponte** — sem
-   isso a válvula não protege nada.
-3. **Watchdog de boot.** Servir um bundle arma um `pending`; o web o desarma
-   (`otaConfirm`). Bundle que não confirme é descartado no lançamento seguinte e
-   o app volta ao embutido. O `pending` guarda o **NOME do subdiretório**, não um
-   booleano — com booleano a confirmação de um bundle perdoava outro. A chave é
-   nova de propósito: ler um `Boolean` como `String` em `SharedPreferences` lança
-   `ClassCastException` dentro do `onCreate`, e o app não abriria depois de
-   atualizar o APK.
-
-#### O sinal de boot é "o app está DE PÉ" (`otaAppIsUp`)
-
-`window.AVDB` no `load` não bastava: a ordem dos scripts do Controle é
-`native.js` → `db.js` → `mse.js` → `stage.js` → `louvorja.js` → `bible.js` →
-`serie.js` → `cifra.js` → `sorteio.js` → `hinario.js` → `coletanea.js` →
-`pptxzip.js` → `deck.js` → `pacote.js` → `controle.js`, e um erro
-em qualquer um dos **catorze** últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
-bundle quebrado era carimbado como bom **para sempre**. As cinco condições,
-cada uma cobrindo o que a anterior não cobre:
-
-1. **papel `controle`** — o Display não carrega `controle.js` nem `louvorja.js`,
-   e é o caso NORMAL de culto: confirmaria quase sempre no lugar do outro. Regra
-   imposta **nos dois lados** (o laço nem começa no Display, e `otaConfirm`
-   recusa `role != "controle"`).
-2. **`AVDB` · `AVStream` · `createStage`** — os três módulos compartilhados, cada
-   um publicando seu global no fim do arquivo.
-3. **`__avBack`** (perto do fim do `controle.js`) — só existe se o arquivo foi
-   parseado inteiro. É a mesma função que `handleBack()` consulta: contrato que
-   já existe, não marcador inventado.
-4. **um `<li>` dentro de `#playlist`** — o HTML entrega o `<ul>` VAZIO; quem o
-   preenche é `renderPlaylist()`, dentro do `init()` assíncrono, que começa por
-   `loadCollections()`. Prova que a inicialização terminou.
-
-5. **`Louvorja` · `Bible` · `AVSerie` · `AVSorteio` · `AVCifra` · `AVHinario` ·
-   `AVDeck` · `AVColetanea` · `AVPptxZip` · `AVPacote`** — os dez
-   scripts do Controle, cada um publicando seu global na ÚLTIMA linha do arquivo. Eram o
-   buraco declarado deste watchdog até a v5.315: todo uso de `AVSerie`/`AVSorteio`
-   no `controle.js` está DENTRO de função, então um erro de topo num deles **não**
-   aborta o `controle.js` — `__avBack` existe, a playlist renderiza, `otaConfirm()`
-   desarma o watchdog, e o bundle ficava adotado PARA SEMPRE com a Playlist
-   automática (ou a Biblioteca de séries, ou a Bíblia, ou o hinário) morta, sem
-   erro na tela e sem recuo no lançamento seguinte.
-
-**Por polling** (250 ms, desistindo em 30 s, em silêncio), e não checagem única
-no `load`: o `init()` é assíncrono e termina DEPOIS do `load` — uma checagem
-única rejeitaria todo bundle bom. **O erro possível aqui é o SEGURO**: fechar o
-app antes da confirmação descarta um bundle bom (custo: baixa de novo); carimbar
-um quebrado não tem volta sem publicar outra versão. `native.js` viaja DENTRO do
-bundle que valida, então não há descompasso.
-
-#### Trocar a base servida OBRIGA a limpar o cache do WebView
-
-As URLs não mudam de nome entre versões e o WebView roda com
-`cacheMode = LOAD_DEFAULT` — servir um bundle diferente do anterior faz a página
-nascer **com metade de cada bundle**, e o modo de falhar **se realimenta**: uma
-página remendada não satisfaz o `otaAppIsUp`, o bundle seguinte também é
-descartado, e o aparelho fica preso entre duas versões.
-
-A regra já existia em `StagePresentation.recarregar` e `MainActivity.applyWebUpdate`;
-faltava no **lançamento** — os caminhos de recuo do `beginSession` (watchdog
-descartando um bundle, APK novo atropelando um OTA mais antigo).
-`WebUpdater.baseTrocou` responde contra **`KEY_SERVIDO`** (o que a sessão
-anterior de fato serviu), **não** contra `KEY_ACTIVE` (que diz o que o OTA
-*quer* servir), e `buildControleWebView` limpa o cache antes do primeiro
-`loadUrl`. O cache é **por aplicação**, então limpar no primeiro WebView cobre a
-`Presentation`. Ausente não conta como troca. `beginSession` tem **saída única**
-(`fixarBase`) por causa disto: eram quatro `return` espalhados, e um quinto
-acrescentado sem a anotação passaria despercebido.
-
-#### As outras defesas do caminho de download
-
-- **Uma verificação por vez** (`checking`, `AtomicBoolean`). `checkAsync` roda em
-  todo `onCreate`, e uma recriação de Activity continua possível (a v1.4.19
-  encheu o `android:configChanges`, o que a torna RARA — não impossível): uma
-  recriação durante um download disparava um segundo `check()` escrevendo nos
-  MESMOS temporários — podia ativar um diretório INCOMPLETO. Os temporários
-  levam sufixo único por execução.
-- **Host travado** (`github.com`, `objects.githubusercontent.com`) e **`https`
-  obrigatório**. Não dá autenticidade, mas impede que um campo alterado aponte o
-  download para outro servidor — e esse JS rodaria no origin privilegiado.
-- **`sha256` obrigatório**; **zip slip** e teto de tamanho na extração;
-  **reprovação antes de ativar** (sem `web/controle/index.html`, descarta).
-- APK novo com base mais recente descarta um OTA antigo. Comparação **numérica
-  por componente** (`compareVersions`), não lexical — `4.9` < `4.82` como string.
-- O fallback é **por arquivo**: o que faltar no bundle baixado vem do APK.
-
----
+- **AS TRÊS GARANTIAS (isto roda em culto).** (1) A base NÃO troca sozinha: o
+  shell só AVISA, e quem aplica é o web, no "Atualizar agora" do diálogo.
+  (2) **A válvula `minShell`:** um bundle que exija ponte mais nova que o
+  `SHELL_VERSION` instalado é recusado INTEIRO, no shell, e não em runtime no
+  meio de um culto. (3) **O watchdog de boot:** servir um bundle arma um
+  `pending` que o web desarma (`otaConfirm`); bundle que não confirme é
+  descartado no lançamento seguinte e o app volta ao embutido.
+- **`shellTag` no `version.json` é o ACOPLAMENTO com a Release.** Declarado, o
+  `web-ota` **segura a publicação do bundle** até a Release existir, e então
+  republica o manifesto com o link do `.apk` dentro — o app pergunta UMA vez
+  sobre o lote inteiro. **O modo de falhar é o caro:** uma tag declarada cuja
+  Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é
+  a linha no resumo do run. Sem `shellTag` o bundle sai na hora, que é o certo
+  para um lote só de web.
+- **TROCAR A BASE SERVIDA OBRIGA A LIMPAR O CACHE DO WEBVIEW.** As URLs não
+  mudam de nome entre versões e o WebView roda com `cacheMode = LOAD_DEFAULT`:
+  servir um bundle diferente do anterior faz a página nascer **com metade de
+  cada bundle** — e o modo de falhar SE REALIMENTA, porque uma página remendada
+  não satisfaz o `otaAppIsUp` e o bundle seguinte também é descartado.
+- **O `otaAppIsUp` é "o app está DE PÉ", e a lista de globais dele é o
+  contrato:** um script novo do Controle sem global na lista faz um bundle
+  quebrado ser carimbado como bom **para sempre**.
+- **Guarda de versão no lado web é PROIBIDA:** o que separa navegador de app é
+  `if (!window.__NATIVE__)`, e nada mais. Quem protege é o `minShell`.
+- **O nome do repositório aparece nos DOIS lados e eles têm de bater** — o
+  workflow usa `$GITHUB_REPOSITORY`, e `WebUpdater.REPO` é digitado à mão.
+  Renomear o repositório exige mexer nessa constante **e** publicar um APK.
 
 ## Telão por comandos (o telão nas telas da rede local)
 
@@ -1821,773 +1253,69 @@ que a segunda asserção chegou a passar pelo motivo errado).
 
 Mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos dois
 `index.html` **antes** da folha do app. Ela é a **identidade oficial da IASD**,
-em **DOIS TEMAS**, com o denim `#2F557F` (PMS 302) como núcleo. O raciocínio
-completo (cada par medido, os pisos, os ladrilhos da Bíblia) está na seção de
-paleta de `docs/arquitetura/DESIGN-SYSTEM.md`.
+em **DOIS TEMAS**, com o denim `#2F557F` (PMS 302) como núcleo.
 
-**NÃO HÁ CONTORNO EM LUGAR NENHUM — E QUATRO EXCEÇÕES NOMEADAS, DUAS DELAS
-PEDIDAS.** Nenhuma regra separa caixas com `border`/`outline`; sobrevivem dois
-DESENHOS (o aro que gira — `.dl-ring` — e o ✓ do seletor de destinos) e duas
-peças que o operador pediu: **o CAMPO DE BUSCA da Biblioteca** e, mais abaixo, a
-**DIVISÓRIA entre faixas irmãs** (v1.5.16), que nem sequer é uma `border`. O
-campo de busca entrou na v1.5.5 (*"abra uma única exceção ao conceito de
-sem bordas do app, para poder fazer a caixa de texto da busca … branca com a
-borda em cinza"*), e o que o autoriza é aritmético: no tema CLARO `--bar` é BRANCO
-e o campo é branco — **1,00:1** —, e sem contorno a caixa de texto não existe na
-tela; foi a mesma conta que criou a faixa `--field-bar` na v5.270, e a borda a
-resolve sem trazer a faixa de volta. A COR sai de `var(--surface)` (v1.5.8, pedido do
-operador: *"ele deve ser o mesmo cinza dos botões a sua volta"*) — o MESMO token
-que os dois quadrados ao lado pintam, composto sobre a MESMA base por um
-`background-clip: padding-box`; sem ele a tinta comporia sobre o branco do campo
-e sumiria no tema escuro. **Isto revoga o piso de 3:1 da v1.5.5**, que vinha de um
-valor calculado (`--field-borda`, hoje removido): no claro esse cinza dá 1,38:1
-contra o campo, que é o MESMO degrau em que os botões vivem contra a mesma barra
-— a borda não ficou menos visível que eles, ficou igual a eles. **É o NOME que
-segura a lista** — ela não tem regra que a próxima borda possa alegar cumprir,
-e é por isso que cada exceção entra escrita à mão no oráculo.
-
-**E A EXCEÇÃO DA BIBLIOTECA SAIU (v1.5.14).** Ela existiu da v1.5.9 à v1.5.13,
-por autoridade explícita do operador: *"vou lhe dar autoridade para usar sistemas
-visuais de design e organização usando bordas, mas apenas para a biblioteca. pois
-temos 3 niveis de listagens na biblioteca e o sistema de separação apenas por cor
-sólida de cards está limitando nossas opções"*.
-
-**A autorização era para o PROBLEMA, e o problema tinha causa aritmética.** São
-QUATRO níveis (janela → seção → álbum → faixa) sobre uma escada de três degraus,
-com a janela tendo gastado o de cima na v1.5.7. MEDIDO no renderizado, o desenho
-que a moldura sustentava não cumpria o piso de 1,28:1 em **nenhum** par de
-superfícies — sete de sete reprovavam no tema escuro — e três pares valiam
-**1,00:1** (no escuro, a tampa de um álbum e as faixas dentro dele eram
-pixel-idênticas: `--item-fill` **é** `var(--surface-sunk)`, o mesmo token da
-tampa sobre a mesma base). O traço de 1px era a única coisa daquela tela com
-contraste de verdade, e era por isso que ele parecia funcionar.
-
-A v1.5.14 troca a **escada** pela **alternância** (ver "A hierarquia da
-Biblioteca", abaixo): sem escassez de degrau não há o que a borda resolva, e o
-pedido de então — *"poucas bordas, sem traços finos, ou designs visualmente
-poluídos"* — a dispensa. Com ela saiu o token `--line`, que tinha ficado com zero
-consumidores e cujo próprio comentário dizia que ele *"NÃO pode voltar a ser um
-filete"* enquanto era o único filete do app.
-
-**E A DIVISÓRIA ENTRE FAIXAS IRMÃS ENTROU (v1.5.16) — a segunda PEDIDA, e a
-única que é um TRAÇO.** Pedido do operador: *"Verifique a criação de um elemento
-de linha divisória (não borda inteira), na listagem do itens propriamente dos
-álbuns, para melhor distinção entre os itens."*
-
-**Ela não é a moldura voltando, e a distinção é de OBJETO — não de espessura.**
-A moldura era um retângulo por nível, quatro arestas, em TRÊS níveis ao mesmo
-tempo, e carregava a HIERARQUIA, que é o trabalho que a alternância faz hoje com
-degrau de verdade. Esta é UMA aresta, num nível só, entre IRMÃS, e faz o que a
-alternância por construção não faz: **separar vizinhas do MESMO nível**. As três
-palavras que decidem estão no pedido — *"não borda inteira"*: o operador já sabe
-que o app aboliu contorno, e está nomeando a diferença.
-
-**E ela é ARITMÉTICA pela terceira vez nesta seção.** Desde a v1.5.14 a faixa é
-transparente e a placa atrás dela é `--panel`: o vão de 4px entre duas faixas
-mede **1,00:1** contra os dois lados. Não é pouca separação — é separação
-nenhuma. `--divisoria` dá **1,88:1** no escuro e **1,99:1** no claro sobre essa
-placa (contra os 1,78:1 e 2,51:1 da moldura removida): mesma ordem de grandeza,
-um vigésimo da tinta.
-
-**E ELA NÃO É UMA `border`, o que aqui é a parte perigosa.** `border-bottom`
-pinta a caixa inteira e não tem como ser RECUADA, que é literalmente o *"não
-borda inteira"* do pedido — a divisória começa na coluna do NOME
-(`--faixa-coluna-texto`), nunca sob a miniatura. **A forma sai do pedido; o
-precedente é que não podia sair de graça:** um traço pintado como bloco de 1px
-passaria pela varredura de contorno sem ninguém decidir nada, e o que entraria no
-repositório seria *"filete pode, desde que não se chame border"*. Daí o oráculo
-ter ganhado o PAR — uma asserção NEGATIVA que varre a base por qualquer bloco de
-1px com fundo e reprova todos os outros, e uma POSITIVA que exige que
-`--divisoria` tenha **um** consumidor e que ele seja o seletor nomeado. As duas
-provadas por reversão.
-
-**E ELA VALE NAS DUAS LISTAS DE FAIXAS, não numa (v1.5.18).** Relato: *"nessa
-lista de favoritos também não há a linha divisória que temos nas outras listas na
-biblioteca"*. A v1.5.16 desenhou o traço para a faixa de um ÁLBUM, e os favoritos
-são outra `<ul>`. **Continua sendo UM consumidor** — a mesma declaração, com os
-dois seletores —, e é isso que mantém a asserção POSITIVA de pé: uma segunda
-regra pintando o mesmo token seria a porta larga que ela existe para fechar.
-**Os dois números que mudam entram por TOKEN, nunca copiados:** a coluna do nome
-(aqui a miniatura é `--thumb`, 40px, contra os 38 da `.hymn-play-thumb`) sai de
-um `--faixa-coluna-texto` sobrescrito na `.fav-itens`, e a metade do vão que a
-caixa reabsorve sai do `gap` DESTA lista (`--sp-3` contra `--sp-2`) — copiar o
-número do álbum descentraria o traço, que é exatamente o defeito que a v1.5.17
-tinha acabado de corrigir do outro lado.
-
-Os quatro nomes são cobrados um a um no oráculo
-(`tools/tokens.test.mjs`, sem `continue-on-error`), e **não há mais recorte por
-escopo** — ele era a única exceção que não nomeava uma peça, e uma exceção por
-escopo é a que mais barato se alarga. É ele que faz a regra durar:
-uma borda é a coisa mais fácil de acrescentar quando duas caixas não estão se
-separando o bastante, e ela não quebra nada, não erra alto e não aparece em teste
-de comportamento nenhum.
-
-Fora dessa aresta, **o degrau de tom continua sendo a ÚNICA coisa que separa duas
-caixas** — daí o resto desta seção.
-
-### As regras
+**O raciocínio inteiro — cada par medido, os pisos, o que foi tentado e
+revogado — está em
+[`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md).**
+Abra-o antes de mexer na hierarquia da Biblioteca, no feedback de toque ou na
+escada de camadas. **As regras abaixo são as que se quebram sem abrir capítulo
+nenhum**, e por isso ficam aqui.
 
 - **Só COR entra em `tokens.css`.** Raio, escala de ícone, curva de toque e
-  medidas de layout ficam no `:root` de `controle.css`: são decisões da UI densa
-  do Controle, e o Display não teria o que fazer com elas.
+  medidas de layout ficam no `:root` de `controle.css`.
 - **Três blocos, nesta ordem:** `:root` com o que NÃO muda, `:root` com o tema
-  ESCURO (o padrão, sem atributo) e `:root[data-tema="claro"]` (0,2,0 vence
-  0,1,0). O claro é um **DELTA**. **Um token que exista SÓ no claro não está
-  definido no tema padrão** — o `var()` computa para o valor inicial da
-  propriedade, sem aviso, e quem escreveu acabou de ver a cor certa porque estava
-  com o claro ligado. `tokens.test.mjs` trava isso.
-- **O PALCO NÃO TEM TEMA**, e é isso que faz o recurso valer. `--stage-*`,
-  `--wallpaper`, `--lyrics-frame-bg`, as sombras e o `--scrim` moram no bloco
-  compartilhado. O Display ficaria escuro por omissão (ele nunca escreve o
-  atributo); o que a separação garante é a **PREVIEW do Controle**, que roda no
-  documento que TEM tema e existe para ESPELHAR o telão.
-- **E a regra vale para as REGRAS, não só para os tokens.** Nada pintado no palco
-  pode ler um token redeclarado em `[data-tema]` — as folhas do palco liam
-  `--brand`, `--live-strong`, `--bg` e `--accent-glow`, e com o tema CLARO ligado
-  o título do slide de capa saía em denim sobre o preto do palco: **2,73:1**. Daí
-  `--stage-accent`, `--stage-accent-glow`, `--stage-on-accent` e `--stage-alert`.
-  O `smoke.mjs` compara a COR COMPUTADA de cada camada nos dois temas — a versão
-  que comparava NOMES de token deixava o defeito passar por baixo.
-- **Três matizes, com papéis que não se misturam.**
-  - **Azul denim** é a marca **e** o accent: `--brand` e `--accent` têm o mesmo
-    valor de propósito, e os dois nomes existem para distinguir na folha "isto é
-    marca" de "isto é navegação".
-  - **Vermelho** (`scarlett`) é atenção, em dois papéis separados pela
-    INTENSIDADE do preenchimento: saturado (`--live`) = está no ar agora, e não
-    pode ter concorrente na tela; suave (`--live-fill` numa linha, `--btn-danger`
-    num botão) = ação destrutiva — inclusive o botão que CONFIRMA uma exclusão
-    (`openAppDialog({ perigo: true })`), que vestia o azul primário até a v1.4.0.
-  - **Verde** (`--ok`, do `treefrog`) é **só** concluído/conectado. Ele já disse
-    "está no ar" em dois lugares enquanto outros quatro diziam o mesmo em
-    vermelho — duas cores opostas para a mesma mensagem na mesma tela.
-- **Os fundos de estado são OPACOS** (`--sel-fill`, `--live-fill`, `--ok-fill`), e
-  isso é medido: `--accent-soft` a 16% sobre o painel compõe `#3d4959`, que é o
-  `--panel-2` desta paleta — uma linha SELECIONADA ficava com a cor exata do
-  nível de baixo da árvore. Opacos, valem o mesmo em qualquer nível: **um estado
-  SAI da escada em vez de ocupar um degrau dela**.
-- **E A SUPERFÍCIE DE UMA AÇÃO TAMBÉM É OPACA** (`--btn-accent`, `--btn-danger`,
-  `--btn-warn`, `--btn-ok`). Os `-soft` são tinta com ALFA, e alfa EMPILHA:
-  MEDIDO no escuro, o mesmo botão derivava **1,97:1** entre a base mais escura e
-  a mais clara em que ele pousa — mais que o degrau `--bg` × `--panel` (1,49:1).
-  O chevron de uma SEÇÃO compunha `#3d4959` e o de um CARD, `#4a596d`: um
-  controle, duas cores. Os `-soft` ficam para o que é wash de verdade (a sombra
-  do pulso, o trilho do `.dl-ring`); **fundo de botão ou de chip usa `--btn-*`**,
-  e `tokens.test.mjs` trava isso.
-- **UMA LINGUAGEM DE ESTADO SÓ, e ela responde a quatro perguntas.** O app
-  tinha três maneiras de dizer "isto está ativo" (preenchido, `--sel-fill`, e
-  **só cor de texto** — a fraca, de que o operador reclamou no botão de
-  repetição). Hoje: **ESCOLHIDO** entre alternativas = `--accent-fill` +
-  `--on-accent`; **LIGADO** (interruptor) = `--btn-accent` + `--accent`;
-  **SELECIONADO** numa lista = `--sel-fill`; **ABERTO** = não é cor (a seta que
-  gira, o corpo à vista, a tampa que gruda e o nome em accent da pasta já
-  dizem). **Cor de texto nunca carrega estado sozinha.**
-  **E A LINHA COM GAVETA É A EXCEÇÃO NOMEADA, por decisão do operador**
-  (v1.5.17 → v1.5.18). O `.lib-item.expanded` pintava um overlay de
-  `--surface-sunk`, escrito na v5.271 quando a faixa FECHADA já vinha recuada —
-  ele era MAIS UM degrau sobre um degrau que existia. A v1.5.14 tirou o
-  preenchimento do nível 3 e ele virou o ÚNICO tom da faixa aberta, num lugar
-  que a alternância não tem: MEDIDO, **1,15:1** no escuro e **1,39:1** no claro
-  entre o título e o corpo do MESMO item — o relato (*"a zona do título e
-  thumbnail está ficando diferente da cor do corpo desse item"*). O achado foi
-  que a MESMA gaveta já media **1,00:1** na lista de BUSCA, onde `--linha` é
-  opaco e a `.row` escondia o overlay: **o app tinha duas leituras do mesmo
-  objeto**, e ninguém tinha escolhido entre elas.
-
-  **A v1.5.17 escolheu a de cima (a tampa vira o papel do item) e o operador
-  escolheu a de baixo:** *"as opções de play não estão colorindo o card dono
-  daquelas opções … o card titular do item não ganhou a cor de seleção/cor do
-  corpo da caixa de opções"*. Para quem opera, o corpo de um item aberto é o
-  POÇO — a superfície grande que a gaveta abre —, e não o papel dos blocos que
-  descansam nele. Hoje a TAMPA veste `--gaveta-bg`, tampa e corpo são uma
-  superfície só, e os botões flutuam dentro dela. Isto vale nas QUATRO listas
-  (acervo, favoritos, busca e pasta do aparelho), por `background` na `.row` e
-  não por `--linha`: as quatro resolvem esse token de jeitos diferentes, e uma
-  delas é escopada com id. Os três `:not()` são a precedência do estado — uma
-  linha NO AR que o operador abra continua vermelha. E a divisória acima dela
-  SOME, de propósito: o traço mora sob a `.row`, e ali quem separa é o
-  preenchimento.
-  E quando AÇÃO e ESCOLHA dividem a MESMA faixa — o trilho de navegação é o
-  único caso — a ação desce para `--btn-accent` e a ESCOLHA é marcada **sem
-  área**: uma barra de 3px em `--accent` na borda de cima da aba, mais o glifo
-  na mesma cor (v1.3.15). Duas manchas cheias na mesma faixa disputam, e a que
-  menos deve disputar é a que só diz "você está aqui".
-  **E UM INTERRUPTOR APAGADO É UM BOTÃO NORMAL** (v1.4.25): a estrela e o
-  "à playlist" vestiam `--line` — a cor de LINHA, que já então quase ninguém
-  usava e que saiu de vez na v1.5.14 —, e o operador os lia como indisponíveis (*"foi simplesmente
-  ofuscado o botão inteiro"*). Apagado é o `.row-btn` de sempre; quem carrega o
-  estado é o ÍCONE (vazado × cheio, `+` × `✓`), com a superfície `--btn-accent`
-  como reforço. **Ofuscar não é dizer "desligado": é dizer "indisponível", e o
-  app já tem uma linguagem para isso** (`opacity: .3` + `disabled`).
-  **E NA GRADE DE CONFIGURAÇÕES A REGRA VIROU ABSOLUTA** (v1.7.6): nenhum tile
-  apaga, nunca. Pedido do operador — *"todos os botões devem ter o mesmo azul de
-  ativo, não temos mais essa diferença, toda diferença de estado é pelo icone,
-  não pela cor"*. Os dois que ainda escureciam (o fundo da letra e o giro) já
-  tinham o estado no DESENHO, então a luz era a segunda cópia da mesma resposta.
-  **A consequência para o próximo tile é a soma de duas remoções** — a palavra
-  do estado saiu na v1.7.2, a cor saiu agora: *um estado que não caiba num
-  desenho não cabe naquela grade*.
-- **E O TEXTO DO TEMA CLARO É PRETO — o ÚNICO desvio declarado da paleta**
-  (v1.5.12). Pedido do operador, na terceira rodada sobre a legibilidade da
-  Biblioteca: *"use a cor preta pra os textos e não cinza como me parece ser
-  hoje"*. `--text` era `#4a4a4a`, o **`night` OFICIAL** — não um cinza escolhido,
-  mas A cor de texto da identidade. O operador o leu como cinza duas vezes, e a
-  leitura está certa: `night` É um cinza escuro, e sob a luz de um salão ele se
-  lê como texto apagado. MEDIDO: 6,87:1 → **16,28:1** sobre a página, 8,86:1 →
-  **21:1** sobre o painel branco, 5,33:1 → **12,62:1** sobre a tampa azul da
-  Biblioteca. **`--muted` NÃO acompanha** — é ele que mantém a regra NOME ×
-  NÚMERO da v1.5.11, e o par abriu de 1,33:1 para 3,15:1. Os ladrilhos da Bíblia
-  não foram retocados e não podiam precisar: escurecer o texto só afasta o
-  rótulo do ladrilho (pior caso, 6,46:1 → 15,31:1). `smoke.mjs` guarda o desvio
-  com um LITERAL, de propósito: quem conferir a paleta contra a marca encontra o
-  preto, conclui que é um deslize e o desfaz de boa-fé.
-- **Nem todo token é valor oficial, e os derivados estão marcados.** Os dezoito
-  oficiais foram desenhados para fundo BRANCO — todos passam AA sobre branco, e
-  **nenhum** passa AA como texto sobre o quase-preto do tema escuro (bluejay dá
-  3,97:1). Onde clarear/escurecer foi preciso, o comentário de `tokens.css` diz
-  de qual oficial o valor saiu, e a matiz é preservada. Nos ladrilhos da Bíblia a
-  identidade tem sete famílias de matiz e a tela precisa de DEZ grupos separáveis
-  por ≥20°: cinco são oficiais, cinco preenchem os vãos.
-
-### O feedback de toque é um RECUO ABSOLUTO, nunca uma fração
-
-`--press` foi `scale(.96)`, e **uma FRAÇÃO aplicada a alvos de 34px a 408px não
-é um valor: são doze**. MEDIDO, o recuo por lado que ela produzia:
-
-| alvo | caixa | recuo |
-|---|---|---|
-| `.back-btn` · `.popup-close` | 34×34 | **0,7px** — imperceptível |
-| `.t-btn` | 53×36 | 1,1 lateral · 0,7 vertical |
-| `.tab` | 143×38 | 2,9 lateral · 0,8 vertical |
-| `.dialog-btn` | 157×33 | **3,1 lateral · 0,7 vertical** |
-| `.lib-item` | 408 | **8,2px** — exagerado |
-
-São as DUAS queixas do operador de uma vez, e o `.dialog-btn` é literalmente o
-botão de confirmar exclusão: um aperto de LADO, que não se lê como "apertei".
-
-Hoje **`--press: translateY(2px)`** — o mesmo recuo em qualquer alvo, a metáfora
-da tecla que afunda — mais **`--press-luz`**, um `filter: brightness()` (1.35 no
-escuro, .88 no claro) que responde até no que não tem fundo, acendendo o próprio
-traço. `filter` e não overlay de fundo porque não disputa propriedade com quem
-já usa `background-image` (a faixa da célula da Bíblia, a pílula do livro, o
-vazado da aba).
-
-**E O RECUO É DO CONTROLE FOLHA; UM BLOCO RESPONDE SÓ COM A LUZ** (v1.7.4).
-Pedido do operador sobre a Biblioteca: *"Há um efeito de encolhimento que
-distorce os elementos, remova esse efeito, deixe apenas um efeito de
-coloração/sombreamento ao toque sem encolhimento. Também aproveite para
-verificar se está colorindo o corpo do card corretamente e não apenas o
-arrangment/card do texto ou cabeçalho."*
-
-A regra **já estava escrita na `.coll-bar` desde a v5.288** (*"um contêiner que
-hospeda um controle nunca escala — ele responde por PREENCHIMENTO, que não move
-nada"*), e a v1.3.14 a contrariou ao pôr as duas barras que abrem um bloco na
-lista do `--press`. As duas metades do relato são o mesmo defeito:
-
-- **a barra é TRANSPARENTE**, então o `filter` acendia só o TEXTO e os ícones — o
-  corpo do card, com as margens e os cantos, ficava intocado;
-- **e ela DESLIZA dentro de um bloco parado**: o `translateY(2px)` move o
-  conteúdo da tampa enquanto a pílula fica onde está, e o que se vê é a tampa
-  escorregando e sendo recortada.
-
-Hoje quem responde é o BLOCO, com a luz e por inteiro — `.hymnal-card`,
-`.coll-group--drop` e a `.lib-item` (a linha de lista, que é o outro contêiner
-que hospeda controles) —, em qualquer profundidade e nos dois estados. A pergunta
-é `:has(> tampa:active)` e não `:active` no bloco: com o card ABERTO o corpo dele
-é a lista inteira, e `:active` casa em ancestral.
-
-**E ELE PEDE UMA TECLA — sobre a PREVIEW não há nenhuma** (v1.4.33). Relato do
-operador: os botões de mudo e da cortina *"ainda estão erroneamente com o
-feedback tátil de quando ainda estavam na barra"*. O `.pv-fab` não tem pastilha:
-ele É o traço branco sobre o que estiver projetado, e um recuo ali não se lê
-como "apertei" — lê-se como o ícone PULANDO por cima da imagem no ar (sem TV,
-essa imagem é a projeção). A LUZ também não salva: MEDIDO no `#muteToggle`, o
-`brightness(1.35)` leva o traço de **240,6 a 238,3** (branco já está no teto,
-então ela só DESBOTA o halo escuro) e o fundo de 14,3 a 14,5 — os dois
-invisíveis, e o que sobrava era só o deslocamento. Por isso o `.pv-fab` saiu da
-lista e tem resposta PRÓPRIA: a **pena do traço** (mais o halo, que engrossa
-junto). É o que responde sobre um fundo DESCONHECIDO — MEDIDO, +21% de
-luminância média sobre o wallpaper escuro e −10% com +67px de contorno sobre um
-slide branco. Não é escala: a caixa não muda de tamanho e a regra do recuo
-absoluto segue intacta para quem TEM tecla.
-
-**As duas armadilhas que a escala criava morreram com ela:**
-
-- **O HIT-TEST.** A `.coll-bar` do card tem 408px: 4% recuavam a borda direita
-  ~8px, e o botão de baixar está colado nela — **MEDIDO, 6 de 11 toques no botão
-  de fato baixavam**, e os 5 que erravam eram todos à direita. 2px na VERTICAL
-  não tiram dedo nenhum de um alvo de 34px.
-- **A FRESTA do aninhamento** (v1.2.27). `:active` casa também nos ANCESTRAIS:
-  0,96 × 0,96 deixava o filho 7px mais estreito de cada lado que os irmãos, com
-  o fundo do cartão aparecendo nela. Dois recuos são 4px na MESMA direção, sem
-  mudar de largura.
-
-**O que fica: um ANCESTRAL não responde ao toque que foi para um filho** — e as
-guardas suprimem as DUAS partes (`transform` e `filter`), senão o bloco inteiro
-acende por um toque de 40px, que é o mesmo defeito por outra propriedade. Antes
-de pôr uma classe na lista, pergunte se um ancestral dela já está lá.
-
-**E A LISTA É UM `:is()`, QUE É FORGIVING — um seletor inválido ali some em
-SILÊNCIO** (v1.4.31). A v1.4.27 subiu com uma marca de conflito de merge por
-resolver DENTRO desse `:is()`; o navegador descartou os componentes inválidos e
-aplicou o resto, então as ~40 classes seguiram recuando ao toque, o CI seguiu
-verde por três lotes, e o que se perdeu foram só os DOIS seletores em disputa
-(`.row-slot--ok` e `.lv-row--tocavel`), que pararam de responder ao dedo sem
-nada na tela dizer por quê. **Um oráculo de COMPORTAMENTO não pega isto** — ele
-mede um seletor que sobreviveu. Quem pega é o `tokens.test.mjs`, que varre o
-arquivo CRU: nenhuma folha nem HTML da base carrega marca de conflito.
-
-**E A LISTA DE GUARDAS É O QUE ENVELHECE**, não a regra: a `.row-acoes` — a
-faixa de opções da linha, que é onde o operador de fato toca — ficou de fora
-dela até a v1.4.25, e o cartão do Cronograma balançava 2px a cada toque no
-excluir. A dos FAVORITOS já estava coberta (ela mora numa `.hymn-gaveta`), e era
-só isso que fazia o defeito aparecer numa lista e não na outra. **Bloco novo que
-hospede controles entra na lista no MESMO lote em que nasce**; a régua é a do
-parágrafo acima, e ali a resposta ao toque nem é o botão afundando — é a faixa
-TROCANDO DE CONTEÚDO (a pergunta do excluir, o campo do renomear). Oráculo:
-`smoke.mjs`, medindo `transform` E `filter` do cartão durante uma pressão de
-verdade. O `controles-layout.test.mjs` guarda a exceção da
-preview, nas três metades: a caixa não anda, o traço responde no RENDERIZADO, e
-o botão da BARRA continua afundando.
-
-**E ELA FOI COBRADA UMA VERSÃO DEPOIS DE ESCRITA:** o `.row-slot` da v1.4.27 (o
-✓ do renomear, que mora na coluna do `⋮`) vive FORA da `.row-acoes`, e a guarda
-acima cobre a FAIXA — sem acrescentá-lo, o balanço voltava pelo botão novo.
-
-### A escada de camadas
-
-- **A superfície AFUNDA dentro de um cartão** (regra no topo de `controle.css`).
-  `--surface`/`--surface-2` são branco com alfa, então EMPILHAM: o mesmo token
-  sobre `--panel` produz base bem mais clara do que sobre `--bg` — era a causa
-  raiz do pior contraste do app. Não existe alfa que resolva os dois casos, então
-  dentro do cartão o sinal se INVERTE (o overlay passa a ser preto), que também é
-  a convenção certa de UI escura: o cartão já está elevado, logo o controle
-  dentro dele é recesso, e emite menos luz num salão escuro. Custom properties
-  HERDAM, então a regra só marca os elementos que de fato pintam `--panel`. **O
-  SINAL é o mesmo nos dois temas** (flutua sobre a página, afunda dentro do
-  cartão); só a intensidade muda, daí `--surface-sunk` ser token. O par FLUTUANTE
-  tem nome próprio (`--surface-alta`/`--surface-2-alta`) porque há um caminho de
-  VOLTA — a folha da Biblioteca é nível 0 e um controle lá dentro flutua de novo,
-  coisa que um override do mesmo nome não daria (`--surface: var(--surface)` é um
-  ciclo que o CSS descarta).
-- **E A JANELA DA BIBLIOTECA GASTOU O DEGRAU DE CIMA** (v1.5.7). Ela pintava
-  `--bg` e passou a pintar `--panel`, a pedido do operador (*"bordas curvas e tom
-  branco como base"*) — e com isso sobraram DOIS degraus para TRÊS níveis de
-  lista. Qualquer arranjo deixava dois com o mesmo tom: MEDIDO, seção e card a
-  **1,00:1**, que é o defeito da v5.241 de volta.
-
-  **A v1.5.7 e a v1.5.8 responderam com COR e o operador reprovou** (três
-  capturas): oito matizes por coleção, em ordem de espectro, com três famílias de
-  tom cada. *Cor sólida não diz o que está dentro do quê* — e a razão é que cor é
-  um encode **nominal** (categoria), não **ordinal** (profundidade). É por isso
-  que ela funciona nos ladrilhos da Bíblia, que são uma GRADE PLANA de irmãos
-  onde a cor diz *"que grupo de livros"*. A v1.5.9 respondeu com MOLDURA e durou
-  cinco lotes.
-
-  **E A v1.5.14 TROCOU A PREMISSA: papel → poço → papel.** A prova de que nenhuma
-  das nove tentativas podia fechar é aritmética — quatro degraus no piso de
-  1,28:1 partindo do branco dão `#ffffff → #e3e3e3 → #cacaca → #b3b3b3`, e o
-  nível 3, onde mora TODO o texto da lista, cairia no cinza médio que o operador
-  recusou na v1.5.10. **Não existe escada de TOM que resolva quatro níveis sobre
-  base branca.**
-
-  Uma escada ACUMULA e acaba; uma alternância não:
-
-```
-janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
-  ├ seção           POÇO   (--poco)    cabeçalho GRUDENTO, top 0
-  │   └ álbum       PAPEL  (--panel)   cabeçalho GRUDENTO, top --bar-secao-h
-  │       └ faixa   —                  sem fundo: preenchimento é ESTADO
-  │                                    (irmãs separadas por `--divisoria`)
-  └ hinário/série   POÇO   (--poco)    cabeçalho GRUDENTO, top 0
-      └ a PLACA     PAPEL  (--panel)   o `.coll-open`, o nível 2 desta perna
-          └ faixa   —                  a MESMA base da faixa de álbum
-```
-
-  Duas superfícies e profundidade ilimitada. MEDIDO no renderizado: **1,43:1**
-  em cada degrau no escuro e **1,35:1** no claro, contra 7/7 e 4/7 reprovando o
-  piso antes. O único traço da tela é a divisória entre faixas IRMÃS (v1.5.16),
-  e ela é ortogonal a esta escada: a alternância separa NÍVEIS e por construção
-  não separa vizinhas do mesmo. **A regra é por PROFUNDIDADE, nunca por tipo de
-  bloco**: as coleções fixas e as pastas nascem na RAIZ, são nível 1 e vestem o
-  poço; o mesmo `.hymnal-card` dentro de uma seção é nível 2 e veste papel.
-  Escrevê-la por tipo (`.hymnal-card { papel }`) foi o primeiro corte do lote e
-  MEDIU 1,00:1 — os hinários da raiz sumiam sobre a janela branca.
-
-  **E A ÁRVORE NÃO TEM PROFUNDIDADE UNIFORME — daí a PLACA** (v1.5.15). Uma
-  seção contém CARDS; uma coleção da raiz contém FAIXAS. Sem fundo próprio a
-  faixa pousa no que o bloco pinta, então a MESMA `.hymn-result` saía em duas
-  cores conforme onde a coleção calha de morar — papel dentro de uma seção,
-  AZUL num hinário ou numa série da raiz. Relato do operador: *"isso era pra ser
-  assim? fundo azul nos itens do provai e vede? e etc...?"*.
-
-  A alternância não estava errada: faltava o degrau de baixo dela. A regra
-  completa é **o poço é a MOLDURA de um agrupamento; o papel é onde o conteúdo
-  pousa** — e o `.coll-open` de uma coleção da raiz é o nível 2 daquela perna, a
-  irmã exata da placa dos Favoritos (`.fav-itens`), que já fazia isto no mesmo
-  lote. A GEOMETRIA copia a da seção número por número (a `margin` da placa é o
-  que o `.coll-group-corpo` reserva a um card), então a faixa continua onde
-  estava.
-
-  **A placa é o CORPO ABERTO INTEIRO, e não só a lista.** O DESTAQUE do sábado e
-  o ÍNDICE de temas são os dois únicos blocos do acervo que só existem na raiz, e
-  os dois pintam contando com papel embaixo: MEDIDO, `--sel-fill` (o bloco do
-  destaque) dá **1,31:1** sobre o papel — o par para que ele foi desenhado — e
-  **1,03:1** sobre o poço no tema claro. Deixá-los fora da placa consertaria a
-  lista e deixaria o "ESTE SÁBADO" invisível, que é o mesmo defeito um bloco
-  acima.
-
-  **E A PROFUNDIDADE É DITA POR TRÊS MECANISMOS NÃO-TONAIS**, que é o que os
-  torna ilimitados:
-  1. **CABEÇALHO GRUDENTO NOS DOIS NÍVEIS.** É o único que continua respondendo
-     DEPOIS de a lista rolar — tom, cor e borda só falam enquanto o topo do grupo
-     está à vista, e a queixa do operador (*"dificultando discernir se estou em
-     uma camada ou subcamada"*, v5.267) é sobre estar no MEIO de uma lista longa.
-     O `.coll-bar` do álbum já grudava desde a v5.242, com o argumento escrito
-     lá: *"a outra metade da pergunta 'onde eu estou?'"*. Faltava no nível 1,
-     justamente o que ele não distinguia. A altura da barra da seção é token
-     (`--bar-secao-h`) porque DUAS regras precisam do mesmo número, e é
-     determinística (nome `nowrap` + recuo fixo) — nada de medição em JS, que a
-     v1.5.3 ensinou a desconfiar. **O valor é `calc(var(--hit) + .7rem)` desde a
-     v1.5.16** (era `+ 1.1rem`), e quem o mudou foi o ORÇAMENTO da lista
-     colapsada, não o desenho da barra — ver abaixo.
-
-     **E O `top` DE UMA TAMPA É A PROFUNDIDADE DELA, nunca o tipo do bloco**
-     (v1.5.15). A v1.5.14 deu a TODO `.hymnal-card.expanded` o `top` do segundo
-     degrau, hinários e séries da RAIZ inclusive — que não têm barra nenhuma
-     acima. **O vão que sobrava não é neutro: ele É o scrollport**, e a lista
-     rolava por ali À VISTA. Os dois relatos do operador saem dele: *"a lista
-     está vazando acima"* (as faixas do próprio card por cima da barra que as
-     encabeça) e *"essa sobreposição também permanece, mesmo após terminar a
-     lista de um álbum… parecendo que um álbum está pertencendo a outro"* — a
-     barra DESGRUDANDO, que sobe do slot dela até sumir e nesse trecho continua
-     inteira no topo, pintada por cima das coleções seguintes.
-
-     **E O SCROLLER NÃO PODE TER `padding-top`, pela mesma razão** — padding de
-     um scroller é scrollport. Era a metade FINA do mesmo relato (.5rem de
-     faixas à mostra acima de QUALQUER tampa colada). Ele foi a zero e não virou
-     margem: a caixa da lista tem de começar exatamente onde a barra de busca
-     acaba, que é o contrato geométrico da janela e tem oráculo.
-  2. **RECUO**, sem traço na coluna vazia.
-  3. **RANK TIPOGRÁFICO**: seção `--fs-xl`, card `--fs-lg`, faixa `--fs-md`. Eram
-     `.9`/`.88`/`.82` — dois centésimos entre os dois primeiros, que é ruído e
-     não hierarquia. A migração para a escala achatou os dois no mesmo degrau e o
-     `smoke` pegou; com a moldura fora, o rank virou um dos três mecanismos e
-     tinha de ser um degrau de verdade.
-
-  **E OS NOMES SE ESCREVEM TODOS IGUAL** (v1.5.11): a barra da seção perdeu a
-  caixa alta e o tracking. Pedido do operador: *"Nessas coleções, padronize em
-  caixa alta, ou em formatação normal"* · *"aproveite para pôr o texto em branco
-  no tema claro para os textos sobre o azul"*. **Branco era impossível sobre a
-  tampa da época** (`#bdcada` no claro dá 1,66:1 contra os 4,5:1 de AA), e o que
-  o pedido alcança é o outro lado: escurecer. **`--muted` fica no que é NÚMERO** —
-  o contador da seção, o peso do card. A caixa alta podia sair porque o
-  ranqueamento que ela carregava passou para o desenho; e devia sair porque caixa
-  alta a 14px é mais larga e mais lenta de ler.
-
-  **E O ORÇAMENTO DA LISTA COLAPSADA É UMA CONTA, não uma sensação** (v1.5.16).
-  Pedido do operador: *"todas as coleções caibam na tela enquanto estiverem
-  colapsadas, sem a necessidade de rolar … reajustar o tamanho dos cards das
-  coletâneas e espaços, para que eles aproveitem exatamente esse espaço"*. Duas
-  metades, e a primeira é EDITORIAL (uma coletânea a menos — ver
-  `controle/coletanea.js`); a segunda é geométrica. MEDIDO a 430×900, com
-  **582px** de caixa de lista: antes, 9 blocos davam 553,9px (cabiam) e 10 davam
-  615,1px (rolava). Apertar as DUAS barras (`padding` de `.55rem` para `.35rem`,
-  e o `--bar-secao-h` acima) leva 10 blocos a 551,1px e 11 a 605,9px.
-  - **APERTAR e não ESTICAR, e a razão é o vão dos FAVORITOS.** Esticar até o
-    encaixe exato o levaria de 131px a 55px, e a seção passaria a rolar quando
-    aberta — desfazendo a v5.273/v5.277, que o operador pediu duas vezes.
-  - **O SEGUNDO PREÇO ERA A SOBRA, e ele foi pago na v1.5.17.** Apertar AFASTA
-    do enchimento exato em vez de aproximar: com os 9 blocos do acervo
-    dissolvido a lista ocupava 496,3 dos 582px e sobravam **~86**, contra os ~28
-    que sobrariam sem o aperto. O operador viu a faixa vazia e pediu o oposto —
-    *"o aproveitamento da altura não está correto, está sobrando … o tamanho
-    deve ser ajustável para se encaixar a altura da tela"*.
-  - **E a promessa vale de 430px para cima.** MEDIDO: a 393×786 (entalhe de
-    39px, caixa de 436px) cabem 7 blocos nos DOIS desenhos — ali o aperto não
-    compra bloco nenhum; a 360×740 (24px, 420px) ele vai de 6 para 7. Com 9
-    blocos, os dois continuam rolando.
-
-  **E A SOBRA VIROU CRESCIMENTO (v1.5.17), sem uma linha de JS.** `#hymnResults`
-  é uma `.popup-list` — coluna flex — e os blocos de raiz caíam em
-  `.popup-list > li { flex-shrink: 0 }` **sem `flex-grow`**: o excedente inteiro
-  se acumulava no fim da coluna. `flex-grow: 1` nos blocos de raiz COLAPSADOS é
-  a resposta inteira ao pedido, e é ela que torna a altura *ajustável por
-  construção* — o navegador reparte a sobra quando o conteúdo cabe e o
-  crescimento é **inerte** quando ele transborda. MEDIDO: a 430×900 o bloco vai
-  de 45,19px a **54,70px** e a sobra a **zero**; a 360×740 nada muda (45,19px,
-  rolando). **Os dois mecanismos convivem e resolvem pontas diferentes:** o
-  aperto decide QUANTOS blocos cabem (vale na tela pequena, onde não há sobra a
-  repartir), o crescimento decide o que fazer com a sobra (vale na grande).
-  - **O seletor nomeia os DOIS blocos que existem na raiz, nunca `> li`**:
-    `.acervo` está sempre no `#hymnResults`, e as linhas da BUSCA são filhas
-    diretas dele — MEDIDO, com `> li` elas iam de 97,3 para 306,4px. A pasta do
-    aparelho fica de fora: ela não é bloco de raiz, e o ouvinte de abrir dela é
-    da `.row` — crescer sem mover o alvo devolveria a margem morta.
-  - **A BARRA NÃO CRESCE JUNTO**, e isto é invariante e não estética:
-    `medirVaoDosFavoritos` soma as BARRAS das vizinhas para escrever
-    `--fav-vao`, e uma barra que cresce realimenta a conta até o vão deixar de
-    ser dos Favoritos — quem REPROVA essa variante é o `boot-nativo.test.mjs`,
-    o único oráculo que lê `--fav-vao`. O bloco cresce, a barra fica em
-    `--bar-secao-h` e o rótulo é CENTRADO nela.
-  - **E O BLOCO É O ALVO E A RESPOSTA** — senão a faixa de ~4,8px em volta da
-    barra vira MARGEM MORTA, que é o que o recuo da `.coll-bar` existe para
-    impedir desde a v5.288. Ela falhava de DOIS jeitos: numa SEÇÃO o ouvinte
-    morava na barra e o toque ali não fazia NADA (9,5px por bloco); num
-    `.hymnal-card` o ouvinte já é do `li`, o toque ABRIA e nada respondia,
-    porque quem estava na lista do `--press` era a barra. Hoje o ouvinte da
-    seção mora no `li` — com guarda POSITIVA (o `li` ou a barra), senão um toque
-    num favorito fecha a seção debaixo do dedo — e o `--press` é do bloco, com a
-    barra calada dentro dele. **Regra separada e não mais um nome na lista do
-    `--press`:** `:is()` toma a especificidade do argumento mais específico, e um
-    seletor com id ali levaria as ~40 classes da lista para (1,x,0) de uma vez.
-  - **`--bar-raiz-max` é o TETO** (`--hit + 2rem` = 66px), porque a lista pode
-    ter POUCOS blocos: sem teto, três coleções dão 183,28px cada — barras do
-    tamanho de um cartão, o defeito oposto. Ele anda com `min-height:
-    min-content`, senão um card com subtítulo é RECORTADO (MEDIDO, 45,19 →
-    40,00 com um teto de 40).
-  - **A lista passa a RESPIRAR ao abrir uma seção** (uma irmã colapsada desce de
-    54,28 para 48,64px acompanhando a curva do acordeão). É o recurso, não um
-    defeito: evitá-lo com um `:has()` faria a lista PULAR num quadro.
-  - **E A TAMPA PASSOU A SER MEDIDA, PARA NÃO ENCOLHER AO ABRIR** (v1.5.19).
-    Relato: *"o card do titulo … está encolhendo ou modificando seu tamanho ao
-    abrir sua listagem"*. É este crescimento visto pelo outro lado: colapsado o
-    bloco cresce até a altura de encaixe com a barra CENTRADA dentro; ao abrir
-    ele sai de `:not(.expanded)`, perde a repartição, e a tampa cai para a barra
-    nua. MEDIDO na captura do operador: **−11,2%** (51,00 → 45,01), em DOIS
-    quadros, enquanto o corpo desliza por 220 ms.
-    **O TEOREMA QUE FECHA AS SAÍDAS EM CSS PURO:** a tampa só pode ser CONSTANTE
-    no valor MÍNIMO dela — qualquer altura maior tem de caber em toda tela e em
-    todo número de blocos, e a "altura de encaixe" é função da TELA e do NÚMERO
-    de blocos. Ela **não existe como valor em CSS**. Logo, ou a pílula emagrece
-    para 45,19 sempre (e a sobra vai para os vãos, que sobem de 10 para 16–21px),
-    ou o número é MEDIDO. **O operador escolheu manter a pílula gorda**, e daí o
-    `--tampa-h`: a irmã exata do `--fav-vao` (`medirTampa`, no `controle.js`),
-    lida pelo CSS nos DOIS estados — `height` no fechado, `padding-top` acima da
-    barra no aberto. MEDIDO: Δ ≤ 0,02px em 24 cenários (4 telas × 2 temas ×
-    3/9/20 blocos).
-    - **A CLÁUSULA DOS FAVORITOS É OBRIGATÓRIA**, e sem ela o lote não sai: a
-      seção deles ABERTA nunca veste `--tampa-h` (ela tem
-      `min-height: var(--fav-vao)` e come a folga sozinha, v5.273), e contá-la na
-      divisão dá a cada irmã uma fatia da folga que ela já gastou — MEDIDO,
-      **81,5px** de transbordo a 430×900 e o `smoke.mjs` reprovando em *"as
-      fechadas ficam EMPILHADAS NA BASE"*. Como o `verificar` é `needs` do
-      `web-ota`, isso seria o bundle não chegando à frota.
-    - **E É SÓ A DELES.** Descontar TODO bloco aberto é a variante óbvia e está
-      ERRADA (MEDIDO): ela leva `--tampa-h` ao piso assim que alguém abre um
-      hinário, devolvendo o defeito original. Um bloco que o operador abriu
-      continua contando como FECHADO — é a hipótese "tudo fechado" que dá a
-      altura que a tampa dele tem de manter.
-    - **A ORDEM entre as duas medições é obrigatória**: `--tampa-h` lê a altura
-      RENDERIZADA dos Favoritos, governada por `--fav-vao`. Não há
-      realimentação (o `--fav-vao` soma BARRAS, que `--tampa-h` nunca muda —
-      MEDIDO, 1769px antes e depois), mas há ORDEM, e ela sai de graça do
-      agendamento: `acertarVaoDosFavoritos` registra o `rAF` DENTRO da passada e
-      `acertarTampa` no `finally` dela.
-    - **O `max-height` FICA**, inerte no regime normal (o JS já limita pelo mesmo
-      teto): é ele que segura o QUADRO PRÉ-MEDIDA — MEDIDO, sem ele três
-      coleções dão 184,34px por bloco antes de a medida chegar.
-    - **O QUE SAI JUNTO, dito:** a lista deixa de "RESPIRAR" ao abrir uma seção.
-      Aquele respiro nasceu como argumento para não combatê-lo com `:has()`,
-      nunca como pedido — e é a mesma repartição que produz o salto: em CSS puro
-      os dois não são separáveis.
-    - **O RESÍDUO, nomeado:** onde a lista JÁ transborda (393×786 e 360×740 com
-      9 blocos), abrir uma SEÇÃO ainda aumenta a tampa em **5,59px (+12,4%)**.
-      Não é regressão — é o número da própria base —, e a causa é assimétrica e
-      está na folha: o `box-shadow` existe na `.coll-bar` de um card aberto e
-      **não** na `.coll-group-bar`.
-  - **E O QUE SOBROU DEPOIS DELE ERA O RECUO DE BAIXO** (v1.5.18). Relato, já
-    com os blocos crescendo: *"há uma margem maior na parte de baixo … o ajuste
-    ainda não ficou correto"*. Não havia mais sobra por repartir — o que restava
-    era o `padding-bottom` do scroller, `.8rem` MAIS `env(safe-area-inset-bottom)`.
-    **A ÁREA SEGURA SÓ VALE ONDE A JANELA ENCOSTA NA BASE**, e desde a v1.5.4 ela
-    para na linha dos controles: o recuo reservava lugar para uma barra de gestos
-    que não é vizinha dela. Ele volta a valer nos DOIS casos em que a janela vai
-    mesmo até o fim (Modo Fácil e teclado no ar). E o valor é **`--sp-5`, o mesmo
-    `gap` que separa dois blocos de raiz** — com o crescimento preenchendo o
-    resto, qualquer outro número põe o último bloco a uma distância da borda que
-    nenhum par de vizinhos tem, que é literalmente o que o relato descreve.
-
-  **E A BORDA DO SCROLL DIZ QUE HÁ MAIS** (v1.5.16, o véu). Pedido do operador:
-  *"que o scroll da biblioteca tenha um efeito de blur na borda interna superior
-  ou inferior, quando algum elemento da tela ir para debaixo dessa borda"*. São
-  dois `::before`/`::after` `position: sticky` DENTRO do scroller, com
-  `backdrop-filter: blur(5px)` e `mask-image` esmaecendo para transparente.
-  - **BLUR e não gradiente, porque não existe cor certa para o véu.** A
-    alternância papel → poço → papel põe DUAS superfícies sob a mesma borda, e
-    um gradiente teria de escolher uma. Blur é agnóstico de cor: MEDIDO,
-    −60% de nitidez nos dois temas.
-  - **DENTRO do scroller, a `z-index: 2`, é o que o faz sumir sozinho sob uma
-    tampa grudada** — a tampa é opaca e mora acima (z 3 e 4). Medido em 131/131
-    amostras com uma coleção aberta.
-  - **Ele só existe quando MENTIRIA ao não existir**: `.tem-acima`/`.tem-abaixo`
-    saem de um ouvinte de `scroll` com `requestAnimationFrame`, e as regras de
-    desligar REPETEM `.popup-backdrop--lib.open` — sem isso a especificidade
-    (1,1,0 contra 1,2,0) deixava o véu aceso no topo da lista, onde ele mente.
-  - **Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a
-    máscara sem o borrão — seria uma sombra sem causa.
-
-  **E O RECUO DE CIMA DA PLACA ESCAPAVA (v1.5.17).** Relato: *"os cards que
-  ficam no topo das listas … estão se sobrepondo de forma errada ao espaço em
-  que deveriam ficar, ficando para cima do correto, sem margem no topo"*.
-  **COLAPSO DE MARGEM:** o `.coll-open` não tem `padding-top` nem borda de cima,
-  então a `margin-top` de `.4rem` do primeiro filho — o destaque do sábado, o
-  índice de temas ou a própria lista — é ADJACENTE à dele e sai para FORA.
-  Enquanto a placa era transparente ninguém via; a v1.5.15 deu a ela FUNDO e
-  RAIO, e o recuo passou a cair fora: MEDIDO, o primeiro filho começava a
-  **0,00px** do topo da placa (contra os 6,39px da placa irmã dos Favoritos),
-  cobrindo por inteiro os cantos arredondados.
-  - **`display: flow-root` e não `padding-top`.** Um recuo declarado ali impede
-    o colapso e ainda SOMA à margem do filho (5,6 + 6,4 = 12px); e zerar a
-    margem dos três filhos mudaria o vão ENTRE eles. O BFC não inventa número
-    nenhum — mantém dentro o `.4rem` que o filho já pede, e dá 6,39px, o MESMO
-    inset da placa irmã.
-  - **Ele já era o desenho certo por 220ms:** `expandAccordion` escreve
-    `overflow: hidden`, que É um BFC. De quebra o acordeão passa a medir a
-    altura de verdade — `offsetHeight` era lido ANTES do `overflow`, e a
-    animação levava a 321px uma caixa que dentro do BFC pede 327.
-  - **E o salto do índice mira ABAIXO da tampa** (`.hino-secao { scroll-margin-top:
-    var(--bar-secao-h) }`): `scrollIntoView({block:'start'})` mira o topo do
-    SCROLLPORT, e o scrollport começa debaixo da tampa grudada — MEDIDO, o
-    cabeçalho pousava em 0,39px com a tampa ocupando até 45,19, isto é,
-    desaparecia inteiro. `scroll-margin-top` **não é `padding`** e não cria
-    scrollport nenhum: o `padding-top` do scroller continua ZERO.
-
-  **E A COLETÂNEA A MENOS É UMA REGRA, não uma linha apagada do catálogo**
-  (`controle/coletanea.js`, PURA, com oráculo Node). Pedido do operador: *"os
-  albuns do celebra SP, serão individualmente colocados na coleção de
-  'diversos'. Não identifiquei independência suficiente para que ele tenha uma
-  coleção só para ele."*
-  - **DISSOLVER, não remover.** MEDIDO: descartar a categoria deixa os álbuns
-    ÓRFÃOS, e o `controle.js` os recolhe em "Outros álbuns" — dez blocos de
-    novo, com um nome pior. A regra FUNDE: ela move os álbuns para o destino e
-    só então a origem deixa de existir.
-  - **Roda no DESENHO, nunca no `fetchAlbumCatalog`.** O catálogo fica no
-    IndexedDB por semanas; aplicada na busca, uma correção por OTA só valeria
-    depois da próxima sincronização com rede. Aplicada no render, ela vale na
-    próxima abertura, inclusive offline. E precisa ser aplicada nos DOIS
-    consumidores — o laço das categorias **e** o `claimed` dos órfãos: chamar só
-    num deles devolve "Outros álbuns" pela porta dos fundos.
-  - **Destino ausente é IDENTIDADE, e a origem FICA na tela.** É a única regra
-    do arquivo que decide contra o pedido, e de propósito: um destino renomeado
-    no banco faria a origem sumir com os álbuns dentro, e o desfecho seguro é o
-    de antes da regra.
-  - **A tabela aceita "Diversas" E "Diversos".** O operador escreveu *"diversos"*
-    e a seção no aparelho chama-se **"Diversas"** (conferido em
-    `site/telas/biblioteca.webp`); nenhuma normalização une as duas, então as
-    duas grafias entram na lista de aceitos — a comparação é por IGUALDADE sobre
-    o `normalizar` do `serie.js`, nunca `includes`, que casaria "Diversas" com
-    "Diversas Antigas".
-  - **O Registro tem o bloco** (`blocoColetaneas`), com o motivo de cada
-    movimento: uma coletânea que some da tela sem explicação é indistinguível de
-    um catálogo que veio menor.
-- **A ESCADA TEM TRÊS DEGRAUS, E O QUARTO É O ESPAÇO.** Um quarto tom levaria o
-  nível mais interno a ~`#4c5865` no escuro, onde `--muted` mede 3,59:1 e
-  `--accent` 3,37:1 — os dois reprovam AA para texto pequeno, que é o tamanho do
-  texto de uma linha de lista. Quem carrega o quarto nível é o ESPAÇO: uma faixa
-  dentro de um álbum não tem caixa própria.
-  **E ONDE A ÁRVORE É MAIS FUNDA QUE TRÊS, NÃO SE ACRESCENTA DEGRAU: ALTERNA-SE**
-  (v1.5.14, a Biblioteca). O limite acima é real e não tem conserto por ajuste
-  fino — a saída é não empilhar.
-  **MAS O ESPAÇO SOZINHO NÃO SEPARA IRMÃS, e desde a v1.5.14 isso é medível.**
-  Enquanto a faixa teve fundo próprio, o que aparecia no vão era o tom do álbum,
-  e o vão era um degrau; com a faixa transparente ele passou a ser a MESMA placa
-  dos dois lados — **1,00:1**, separação nenhuma. Daí o QUARTO DEGRAU ser hoje
-  espaço **mais** um traço recuado (`--divisoria`, v1.5.16, a quarta exceção
-  nomeada da regra de contorno). A alternância separa NÍVEIS; ela não tem como
-  separar VIZINHAS do mesmo nível, e nenhum ajuste de tom nela resolveria isso.
-  **E O TRAÇO PRECISA FICAR NO MEIO DO VÃO** (v1.5.17). Ele mora em `top: 0` da
-  faixa DE BAIXO — `.lib-item` é `overflow: hidden` e um traço desenhado no
-  `gap` é RECORTADO —, então com o vão inteiro fora da caixa ele pousava no
-  limite INFERIOR: MEDIDO, 6,42px de branco acima e 1,37px abaixo, que foi o
-  relato. **Não se move o traço, move-se a CAIXA:** metade do `gap` entra como
-  `padding-top` e um `margin-top` negativo da mesma medida devolve o conteúdo ao
-  lugar (`N·(h+2) + (N−1)·4 − 2N` é `N·h + (N−1)·4` para qualquer N — a lista
-  não muda de altura e o passo entre faixas não muda). A caixa vai de 42,78 a
-  44,78px, ainda abaixo da barra do álbum que a contém.
-- **No tema CLARO a escada NÃO é monotônica**, e isso é aritmética: a página é
-  cinza e o nível 1 é branco (convenção de toda UI clara), então o primeiro
-  degrau sobe e os seguintes só podem descer. Folha e card ficam a 1,09:1 e isso
-  não se lê como ambiguidade porque **nunca se encostam** (entre eles há sempre o
-  poço da seção). O oráculo mede pares **ADJACENTES** e exige só que
-  nenhum par coincida — a primeira versão exigia monotonia e reprovava um desenho
-  correto.
-- **O TOM DE UM BLOCO É DECISÃO DO PAI** (`--camada`): o mesmo componente ocupa
-  níveis diferentes conforme a tela (uma `.lib-item` está sobre `--bg` na tela
-  principal e sobre `--panel` dentro de uma folha). `--camada` tem um significado
-  só: *o tom que um bloco filho DESTE contêiner deve vestir*. **Quem a declara é
-  o contêiner, nunca quem pinta** — uma propriedade escrita no próprio elemento
-  vence na hora de ELE resolver `var(--camada)`, e o bloco passaria a vestir o
-  tom que reservou para os filhos.
+  ESCURO (o padrão, sem atributo) e `:root[data-tema="claro"]`. O claro é um
+  **DELTA** — **um token que exista SÓ no claro não está definido no tema
+  padrão**, e o `var()` computa para o valor inicial da propriedade, sem aviso.
+  `tokens.test.mjs` trava isso.
+- **O PALCO NÃO TEM TEMA.** `--stage-*`, `--wallpaper`, `--lyrics-frame-bg`, as
+  sombras e o `--scrim` moram no bloco compartilhado — e a regra vale para as
+  REGRAS, não só para os tokens: **nada pintado no palco pode ler um token
+  redeclarado em `[data-tema]`**. O que a separação garante é a PREVIEW do
+  Controle, que roda no documento que TEM tema e existe para ESPELHAR o telão.
+- **NÃO HÁ CONTORNO EM LUGAR NENHUM**, e as quatro exceções são NOMEADAS uma a
+  uma no oráculo (o aro que gira, o ✓ do seletor de destinos, o campo de busca
+  da Biblioteca e a divisória entre faixas irmãs). **É o NOME que segura a
+  lista** — ela não tem regra que a próxima borda possa alegar cumprir.
 - **Nunca escrever branco literal.** Nenhum `#fff` como valor de cor em
-  `controle.css`/`display.css` — o branco pleno era a maior fonte isolada de luz
-  emitida do app, e o off-white (`--text`) é o que se usa. **Duas exceções, as
-  duas declaradas em `tokens.css`:** o palco (`--stage-text: #fff`, porque num
-  telão a legibilidade vem de luminância máxima) e o campo da folha da playlist
-  automática (`--field-bg` — pequeno, só existe com a folha aberta, escolha
-  explícita de quem opera; num salão escuro é o retângulo mais luminoso da
-  tela). No tema CLARO o `--panel` é branco pleno e a regra não se aplica pelo
-  motivo dela.
-  **E o campo da BARRA DE BUSCA é a terceira** — ele saiu da lista na v1.5.2 e
-  VOLTOU na v1.5.5, a pedido do operador, agora com a borda que o torna possível
-  no tema claro. O preço da v1.5.2 continua dito e continua sendo pago: ao
-  contrário do campo do sorteio, este fica à vista o culto inteiro na base do
-  app. **O que muda a conta é a BORDA:** com ela o branco deixa de ser a única
-  coisa que separa o campo da barra, então a escolha passou a ser sobre o que se
-  quer ver, não sobre o que é legível. As três cores de dentro voltam aos
-  `--field-*` junto com o fundo — ver a regra logo abaixo.
-- **Uma superfície sem tema arrasta o que vive DENTRO dela** — a regra do palco
-  num lugar novo. `--field-bg` vem com `--field-text`, `--field-muted` **e
-  `--field-accent`**, no bloco compartilhado: no tema escuro `--text` sobre
-  branco dá **1,17:1** e `--accent` dá **2,06:1** (ele é o azul CLARO desenhado
-  para o fundo quase-preto do app). Trocar só o fundo apaga o que se digita, e é
-  o meio-conserto que o `smoke.mjs` reprova. O terceiro token nasceu quando um
-  botão de AÇÃO passou a morar sobre o campo — cada consumidor novo da superfície
-  refaz a pergunta, e o nome `--field-*` é o que impede a resposta errada.
+  `controle.css`/`display.css`; as três exceções estão declaradas em
+  `tokens.css` (o palco, o campo da playlist automática, o campo da busca).
+- **Os fundos de ESTADO e as superfícies de AÇÃO são OPACOS** (`--sel-fill`,
+  `--live-fill`, `--btn-accent`, `--btn-danger`…). Tinta com alfa EMPILHA: o
+  mesmo botão derivava **1,97:1** entre a base mais escura e a mais clara em que
+  pousa. Os `-soft` ficam para o que é wash de verdade.
+- **UMA LINGUAGEM DE ESTADO SÓ:** ESCOLHIDO entre alternativas =
+  `--accent-fill` + `--on-accent`; LIGADO (interruptor) = `--btn-accent` +
+  `--accent`; SELECIONADO numa lista = `--sel-fill`; ABERTO **não é cor**.
+  **Cor de texto nunca carrega estado sozinha**, e **apagado quer dizer
+  INDISPONÍVEL** (`opacity: .3` + `disabled`), nunca "desligado".
+- **O feedback de toque é `translateY(2px)` — recuo ABSOLUTO, nunca uma
+  fração.** Uma fração aplicada a alvos de 34px a 408px não é um valor, são
+  doze. **E um BLOCO que hospeda controles responde só com a LUZ**, nunca com
+  geometria: um ancestral não responde ao toque que foi para um filho, e as
+  guardas suprimem as DUAS partes (`transform` e `filter`). **Bloco novo que
+  hospede controles entra na lista de guardas no MESMO lote em que nasce.**
+- **A escada de camadas tem TRÊS degraus, e o quarto é o ESPAÇO.** A superfície
+  AFUNDA dentro de um cartão (o overlay inverte de sinal), e **o tom de um bloco
+  é decisão do PAI** (`--camada`) — quem a declara é o contêiner, nunca quem
+  pinta. **Onde a árvore é mais funda que três, não se acrescenta degrau:
+  ALTERNA-SE** (papel → poço → papel, a Biblioteca).
+- **`res/values/colors.xml` espelha `--bg` à mão, em DOIS valores.** É o único
+  lugar fora de `tokens.css` que carrega cor de fundo, e não tem escapatória:
+  recurso de Android não enxerga custom property. O OTA troca a base sem trocar
+  o APK — mudou o token, muda aqui. Desde a v1.8.32 a igualdade tem oráculo.
+- **O ÍCONE DO APP é a paleta** e é VETOR (`minSdk` 26: o adaptativo é o único
+  ícone que chega a ser desenhado). Ele **não segue o tema claro** — é desenhado
+  pela gaveta do sistema com o app fechado.
 
-### O que vive FORA do CSS e tem de andar junto
-
-- **`res/values/colors.xml` espelha `--bg` à mão, em DOIS valores** (`app_bg`,
-  `app_bg_claro`): é o fundo das barras e o `windowBackground` (o que aparece
-  ANTES de o WebView carregar). Nada no build detecta divergência, e o OTA troca
-  a base sem trocar o APK — mudou o token, muda aqui. **É o único lugar fora de
-  `tokens.css` que carrega cor de fundo, e não tem escapatória:** recurso de
-  Android não enxerga custom property. Quem escolhe entre os dois é a
-  `MainActivity` em runtime (`temaClaro` → `setTemaClaro`), a partir de uma CÓPIA
-  guardada em `SharedPreferences` — XML é resolvido antes de existir JavaScript,
-  então o primeiro quadro só pode vir de preferência guardada. **Preço: trocar de
-  tema tem um lançamento de atraso no fundo do splash, e só nele.** A mesma
-  chamada vira `APPEARANCE_LIGHT_STATUS_BARS`, que o Android 15+ **não** ignora
-  (ele ignora as CORES das barras, não a aparência dos ícones) — sem ela o tema
-  claro fica com relógio e botões brancos sobre branco.
-- **O `theme-color` do `<meta>` NÃO é um segundo lugar:** `pintarTema()` o LÊ do
-  `--bg` já resolvido (a folha entra no `<head>` e o script no fim do `<body>`),
-  e o literal do HTML cobre só o instante anterior a esse script.
-- **O ÍCONE DO APP é a paleta** — a mesa de som DE PÉ: três trilhas verticais em
-  `--text` e três cabos de fader em `--accent` (retângulos arredondados, a forma
-  do cabo real) sobre `--bg`. Ele **não segue o tema claro**, e não tem
-  como: é desenhado pela gaveta do sistema com o app fechado. É **VETOR**
-  (`res/drawable/ic_launcher_foreground.xml`) porque com `minSdk` 26 o adaptativo
-  é o único ícone que chega a ser desenhado — PNGs por densidade eram peso morto
-  e mais lugares para a cor divergir. A camada `monochrome` (ícone temático do
-  Android 13+) tem vetor próprio: apontada para o PNG de primeiro plano, que tem
-  fundo opaco, ela vira um quadrado cheio.
-
-### O que o CI trava, e o que ele NÃO trava
-
-**Não há teste de contraste ABSOLUTO.** Os números nos comentários de
-`tokens.css` são medições à mão, e os pares abaixo do piso estão declarados como
-tais ali mesmo. **Ao mexer num token, meça — e são DOIS temas.**
-
-O CI trava outra coisa: `tokens.test.mjs` (todo `var(--x)` sem fallback aponta
-para token que EXISTE; nenhum token só no claro; nenhum contorno; **nenhuma
-superfície de controle é tinta com alfa**; **todo bloco que pinta `--panel`
-afunda a superfície dos filhos** — as duas últimas provadas por REVERSÃO) e
-`smoke.mjs` (o efeito RENDERIZADO nos dois temas, o palco que não os segue, a
-escolha que sobrevive à recarga, a ESCADA DE CAMADAS medindo o degrau ENTRE
-níveis — a única parte do contraste que tem oráculo — e a resposta ao
-toque, que num BLOCO é a LUZ e nunca a geometria — v1.7.2).
-
----
+> **NÃO HÁ TESTE DE CONTRASTE ABSOLUTO.** Os números nos comentários de
+> `tokens.css` são medições à mão, e os pares abaixo do piso estão declarados
+> como tais ali mesmo. **Ao mexer num token, meça — e são DOIS temas.** O que o
+> CI trava é outra coisa: `tokens.test.mjs` (o `var()` que aponta para token
+> inexistente, o token só no claro, o contorno, a superfície com alfa, o
+> `colors.xml` × `tokens.css`) e `smoke.mjs` (o efeito RENDERIZADO nos dois
+> temas, o palco que não os segue, o degrau ENTRE níveis e a resposta ao toque).
 
 ## Divergências entre o caminho web e o nativo
 
@@ -3055,6 +1783,18 @@ junto).
   rodava no CI sem linha em tabela nenhuma. É essa varredura, não a memória, que
   responde à pergunta, e ela é uma linha:
   `comm -3 <(ls tools/*.test.mjs | sort) <(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' .github/workflows/apk.yml | sort -u)`
+- **A REVERSÃO É UM PASSO, NÃO UMA BOA PRÁTICA.** Toda asserção nova roda
+  **duas vezes** antes do commit: com o conserto, e com ele desfeito. Sem isso a
+  asserção pode ser uma TAUTOLOGIA — passar nas duas versões —, e isso não é
+  hipótese: aconteceu DUAS vezes na revisão de 2026-09-07, e uma delas passou
+  porque o prazo de 8 s era maior que a duração da faixa do cenário, então a
+  preview chegava ao fim sozinha e o app avançava pelo caminho de sempre. **Uma
+  asserção que não pode reprovar o defeito que ela nomeia é pior que asserção
+  nenhuma:** ela responde *"isso está coberto?"* com um sim que não existe.
+- **A REVERSÃO SE DESFAZ COM UMA CÓPIA, NUNCA COM O GIT.** `git checkout
+  <arquivo>` restaura do HEAD e **apaga o trabalho não commitado do lote inteiro
+  naquele arquivo** — aconteceu, e custou refazer quatro edições. `cp` de um
+  backup feito antes da reversão, e pronto.
 - `node --check` prova que o arquivo é PARSEÁVEL, não que o app funciona — a
   v5.121 saiu com um botão chamando função apagada, sintaxe perfeita e CI verde.
   O canal OTA publica direto para a frota e o watchdog **não evita o primeiro
@@ -3168,6 +1908,24 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   a metade web sozinha). **`shellTag` apontando para uma tag que nunca sai é
   pior:** o canal fica segurando para sempre, em silêncio, e a única pista é a
   linha no resumo do run.
+
+- **A NOTA DO LOTE SE ESCREVE UMA VEZ, e ela mora no `docs/HISTORICO.md`.**
+  Ela chegou a ser escrita QUATRO vezes — mensagem de commit, entrada no
+  histórico, bloco no `CLAUDE.md` e `notas.json` —, e o bloco do `CLAUDE.md`
+  saiu na faxina de 2026-09-07. Das três que sobram, duas são **o mesmo texto**:
+  a mensagem de commit e a entrada do histórico.
+
+  **A ordem que resolve:** escreva a entrada do `HISTORICO.md` PRIMEIRO — ela é
+  a versão longa, é o que se lê por `grep` meses depois, e é a que o oráculo
+  cobra. A **mensagem de commit fica curta** (o que mudou e por quê, em algumas
+  linhas) e não repete a narrativa. O `notas.json` é outra coisa e continua
+  sendo escrito à parte: ele fala com o OPERADOR, num tópico por linha.
+
+  Foi a fricção de escrever duas vezes que produziu o defeito real: **doze
+  versões publicadas ficaram sem nota nenhuma no apêndice**, entre elas a v1.7.7
+  — o lote que removeu a transmissão direta. Hoje o
+  `tools/docs-coerentes.test.mjs` reprova o build quando uma versão do
+  `notas.json` não tem entrada lá.
 
 - **SEMPRE deixar a PÁGINA anunciando a versão que acabou de sair.** Ela é a
   única coisa deste projeto que fala com quem **ainda não instalou** — e o modo
