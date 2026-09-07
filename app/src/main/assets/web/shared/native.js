@@ -964,6 +964,22 @@
       } catch (_) { /* ignorado */ }
     },
 
+    // O TRABALHO ACABOU: o cartão de conclusão, com o CHECK, que FICA na barra
+    // depois de a notificação de progresso sair. Sem ele o fim de uma
+    // exportação e a morte do processo produzem a mesma coisa — o ícone
+    // sumindo —, e com o app minimizado não há como distinguir as duas.
+    //
+    // O `try` engole, como o do `bgProgress`: um aviso que não sobe não pode
+    // derrubar o trabalho que ele descreve.
+    bgConcluido(c) {
+      try {
+        B.bgConcluido(JSON.stringify({
+          titulo: String((c && c.titulo) || ''),
+          texto: String((c && c.texto) || ''),
+        }));
+      } catch (_) { /* shell antigo: sem cartão de conclusão */ }
+    },
+
     // O que está no ar, para a notificação de controles e a sessão de mídia
     // (SessionService.kt). `active:false` = nada em cena: a notificação some.
     // O `try` engole: uma falha ao publicar o cartão não pode derrubar a cena

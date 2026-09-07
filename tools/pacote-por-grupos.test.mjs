@@ -466,6 +466,55 @@ try {
     'B · e o do desmarcado NÃO — catálogo sem arquivo é uma faixa que não toca');
   await b.ctx.close();
 
+  // =========================================================================
+  // A FOLHA ABRE SEM LER O CATÁLOGO (v1.8.30)
+  // =========================================================================
+  //
+  // Relato do operador: *"ele está tendo um delay para abrir o popup das
+  // opções, verifique esse delay, ele não deve existir"*.
+  //
+  // A v1.8.26 tirou a VARREDURA DO DISCO do caminho do toque e deixou para trás
+  // um `AVDB.filesResumo()` — um cursor sobre a store `files` INTEIRA. MEDIDO
+  // em Chromium com 2.228 registros: **135 ms** (contra 2,3 ms do
+  // `mediaResumo`), porque o cursor desserializa cada registro com a miniatura
+  // e a letra dentro. Num aparelho é o atraso que se vê entre o dedo e a folha.
+  //
+  // A RÉGUA É A AUSÊNCIA DA CHAMADA, e não o relógio: um limite em
+  // milissegundos mede a MÁQUINA, e reprovaria por carga do runner num app que
+  // está certo — a regra deste repositório. Aqui a asserção é a mesma do
+  // `cifra-offline.test.mjs`: a função que custa caro não foi chamada.
+  {
+    const a = await aparelho();
+    await a.pg.evaluate(async () => {
+      // O ESPIÃO fica sobre o `AVDB`, que é por onde o `controle.js` fala com o
+      // banco — envolver o IndexedDB seria medir o mecanismo, não o contrato.
+      window.__leuCatalogo = 0;
+      const real = AVDB.filesResumo;
+      AVDB.filesResumo = function (...args) {
+        window.__leuCatalogo++;
+        return real.apply(this, args);
+      };
+      // UM ACERVO com peso guardado, que é como toda coleção baixada chega à
+      // abertura seguinte (`carregarPesos` lê a chave `coll-bytes`).
+      await AVDB.setState('coll-bytes', { 'album-um': 300000000 });
+    });
+    await a.pg.evaluate(() => { window.__folha = pacotePlanoAproximado(); });
+    const plano = await a.pg.evaluate(() => window.__folha.then((p) => ({
+      grupos: (p.grupos || []).length, aprox: !!p.aprox,
+    })));
+    const leu = await a.pg.evaluate(() => window.__leuCatalogo);
+    checar(leu === 0,
+      'a folha de exportação abre SEM percorrer a store `files` — o cursor '
+      + 'custava 135 ms medidos entre o toque e a folha, e o peso de cada '
+      + 'coleção já está em memória desde a abertura', String(leu));
+    // A METADE QUE IMPEDE O CONSERTO LARGO DEMAIS: tirar o cursor não pode
+    // tirar a folha. Sem ela, um `return { grupos: [] }` passaria na de cima.
+    checar(plano.grupos > 0 && plano.aprox === true,
+      'e ela continua saindo com os grupos e com a marca de APROXIMADO — o '
+      + 'peso vem do que a Biblioteca já sabe', JSON.stringify(plano));
+    await a.ctx.close();
+  }
+
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));
 } finally {
   await navegador.close();

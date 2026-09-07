@@ -60,6 +60,7 @@ try {
       role: () => 'controle',
       appVersion: () => 'v9.9',
       bgProgress: (json) => { window.__recebido.bgProgress = json; },
+      bgConcluido: (json) => { window.__recebido.bgConcluido = json; },
       nowPlaying: (json) => { window.__recebido.nowPlaying = json; },
       otaConfirm: () => {},
     };
@@ -121,6 +122,34 @@ try {
   checar(semCampo.icone === 'baixar',
     'e quem não diz nada continua sendo download — o padrão falha para o lado '
     + 'que já existia', JSON.stringify(semCampo));
+
+  // ---- bgConcluido: o cartão que FICA quando o trabalho acaba -------------
+  //
+  // Pedido do operador: *"ao terminar o processo de exportar ou importar, o
+  // ícone não desapareça na barra, mas vire um ícone de check, para não ter a
+  // impressão de falha ou erro"*. Sem ele o fim de uma exportação e a MORTE do
+  // processo produzem a mesma coisa na barra, e com o app minimizado não há
+  // como distinguir as duas.
+  //
+  // Ele é remontado campo a campo como todo o resto, e um campo esquecido some
+  // em silêncio — a razão deste arquivo.
+  const fim = await pg.evaluate(() => {
+    AVNative.bgConcluido({ titulo: 'Acervo exportado', texto: '4,2 GB' });
+    return JSON.parse(window.__recebido.bgConcluido);
+  });
+  checar(fim.titulo === 'Acervo exportado' && fim.texto === '4,2 GB',
+    'bgConcluido leva o título e o texto do cartão de conclusão',
+    JSON.stringify(fim));
+  // OS DOIS CAMPOS SÃO STRING SEMPRE: o Kotlin recusa um cartão sem título
+  // (`isBlank`), e `undefined` virando a string "undefined" seria um cartão
+  // que diz "undefined" na barra em vez de não existir.
+  const vazio = await pg.evaluate(() => {
+    AVNative.bgConcluido({});
+    return JSON.parse(window.__recebido.bgConcluido);
+  });
+  checar(vazio.titulo === '' && vazio.texto === '',
+    'e um objeto vazio vira duas strings VAZIAS, nunca "undefined"',
+    JSON.stringify(vazio));
 
   // Um vídeo de 1080p passa dos 2 GB: é ONDE o `| 0` quebrava.
   const g = await pg.evaluate(() => {

@@ -7,12 +7,17 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.core.graphics.drawable.IconCompat
 import java.util.Locale
 
 /**
@@ -191,22 +196,7 @@ class SyncService : Service() {
         wakeLock = null
     }
 
-    private fun ensureChannel() {
-        val nm = getSystemService(NotificationManager::class.java)
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
-        // IMPORTANCE_LOW: a notificação precisa existir (exigência do sistema
-        // para um serviço em primeiro plano), mas não deve tocar som nem
-        // aparecer como alerta — é só um indicador discreto.
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Sincronização",
-            NotificationManager.IMPORTANCE_LOW,
-        ).apply {
-            description = "Mantém os downloads ativos com o app minimizado"
-            setShowBadge(false)
-        }
-        nm.createNotificationChannel(channel)
-    }
+    private fun ensureChannel() = criarCanal(this)
 
     private fun buildNotification(): Notification = buildNotification(this, progress)
 
@@ -214,6 +204,12 @@ class SyncService : Service() {
         private const val TAG = "SyncService"
         private const val CHANNEL_ID = "sync"
         private const val NOTIF_ID = 1
+
+        /**
+         * O cartão de CONCLUSÃO, num id próprio — ver [concluir]. Sob o mesmo
+         * id do trabalho ele seria apagado pela limpeza do `onDestroy`.
+         */
+        private const val NOTIF_FIM_ID = 2
         private const val WAKELOCK_TIMEOUT_MS = 2 * 60 * 60 * 1000L // 2 h
         /** Piso entre renovações do wake lock (ver [renewWakeLock]). */
         private const val WAKELOCK_RENEW_MIN_MS = 10 * 60 * 1000L // 10 min
@@ -255,6 +251,13 @@ class SyncService : Service() {
                 // As duas setas em círculo: o desenho que este app já usa para
                 // "está processando" em todo lugar.
                 PROCESSAR -> android.R.drawable.stat_notify_sync
+            }
+
+            /** A seta que acompanha o número: para cima, para baixo, ou nenhuma. */
+            fun seta(): Int = when (this) {
+                BAIXAR -> 1
+                ENVIAR -> -1
+                PROCESSAR -> 0
             }
 
             companion object {
@@ -516,6 +519,76 @@ class SyncService : Service() {
             }
         }
 
+        /**
+         * O PERCENTUAL DESENHADO NO ÍCONE DA BARRA DE STATUS.
+         *
+         * Pedido do operador: *"não foi possível deixar visível a porcentagem
+         * do progresso na barra de notificação no modo compacto (que
+         * normalmente só aparece o ícone durante os processos de exportar e
+         * importar)?"*. Dá — mas não com um `drawable` do `res/`: ali cabe UM
+         * desenho fixo, e o número muda a cada atualização. O caminho é um
+         * BITMAP desenhado na hora e entregue como `smallIcon`
+         * (`IconCompat.createWithBitmap`, que o `setSmallIcon` aceita).
+         *
+         * A SETA CONTINUA LÁ, e isso é o que torna isto uma soma e não uma
+         * troca: o operador acabou de pedir que exportar suba e importar desça
+         * (v1.8.29), e um número sozinho apagaria a direção que ele pediu. O
+         * triângulo fica à esquerda, o número ocupa o resto.
+         *
+         * SÓ COM PERCENTUAL DE VERDADE. Antes do primeiro passo, e num
+         * trabalho sem total conhecido, não há número — e inventar "0%" é pior
+         * que a seta sozinha, porque um número parado se lê como travado. Aí
+         * o [Icone.drawable] do sistema responde, que é o comportamento de
+         * sempre.
+         *
+         * ALFA É O QUE IMPORTA: o Android TINGE o ícone da barra com a cor do
+         * tema (branco no escuro, escuro no claro), então o que se desenha é a
+         * FORMA — branco pleno sobre transparente — e não a cor final.
+         */
+        private fun iconeComPercentual(pct: Int, icone: Icone): IconCompat? {
+            if (pct < 0 || pct > 100) return null
+            return try {
+                val lado = 96
+                val bmp = Bitmap.createBitmap(lado, lado, Bitmap.Config.ARGB_8888)
+                val c = Canvas(bmp)
+                val tinta = Paint(Paint.ANTI_ALIAS_FLAG)
+                tinta.color = android.graphics.Color.WHITE
+                val seta = icone.seta()
+                // A SETA, quando há direção: um triângulo na faixa esquerda.
+                if (seta != 0) {
+                    val p = Path()
+                    val x = lado * 0.16f
+                    val meio = lado * 0.5f
+                    val alt = lado * 0.20f
+                    if (seta < 0) {
+                        p.moveTo(x, meio - alt); p.lineTo(x - alt * 0.8f, meio + alt * 0.4f)
+                        p.lineTo(x + alt * 0.8f, meio + alt * 0.4f)
+                    } else {
+                        p.moveTo(x, meio + alt); p.lineTo(x - alt * 0.8f, meio - alt * 0.4f)
+                        p.lineTo(x + alt * 0.8f, meio - alt * 0.4f)
+                    }
+                    p.close()
+                    c.drawPath(p, tinta)
+                }
+                // O NÚMERO, sem o "%": a 24dp o símbolo rouba a largura de um
+                // dígito e não acrescenta nada — quem olha a barra durante uma
+                // exportação sabe que aquilo é o progresso dela.
+                tinta.textAlign = Paint.Align.CENTER
+                tinta.isFakeBoldText = true
+                tinta.textSize = if (pct >= 100) lado * 0.46f else lado * 0.62f
+                val cx = if (seta == 0) lado * 0.5f else lado * 0.62f
+                val fm = tinta.fontMetrics
+                c.drawText(pct.toString(), cx, lado * 0.5f - (fm.ascent + fm.descent) / 2f, tinta)
+                IconCompat.createWithBitmap(bmp)
+            } catch (e: Exception) {
+                // Sem ícone desenhado a notificação continua saindo com o do
+                // sistema: um percentual é um luxo, e a barra não pode sumir
+                // por causa dele.
+                Log.w(TAG, "não foi possível desenhar o percentual no ícone", e)
+                null
+            }
+        }
+
         private fun buildNotification(ctx: Context, p: Progress?): Notification {
             val open = Intent(ctx, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
@@ -528,7 +601,11 @@ class SyncService : Service() {
             )
             val b = NotificationCompat.Builder(ctx, CHANNEL_ID)
                 // O ÍCONE SEGUE O TRABALHO — ver `Progress.icone`, que é
-                // quem escolhe entre as duas setas animadas e o círculo.
+                // quem escolhe entre as duas setas animadas e o círculo. Ele é
+                // o de sempre aqui, e o `setSmallIcon` do PERCENTUAL vem
+                // depois: o do sistema é o que fica quando não há número (o
+                // trabalho sem total conhecido, e o instante antes do primeiro
+                // passo).
                 .setSmallIcon((p?.icone ?: Icone.BAIXAR).drawable())
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
@@ -587,7 +664,90 @@ class SyncService : Service() {
                 // o estouro faria a barra andar para trás. A resolução de 1/1000
                 // é muito além do que uma barra de notificação distingue.
                 .setProgress(1000, ((feito * 1000) / p.total).toInt(), false)
+            // O NÚMERO NA BARRA DE STATUS, por cima do ícone do sistema — ver
+            // [iconeComPercentual]. Devolvendo `null` (o desenho falhou), o
+            // `setSmallIcon` de cima permanece: um percentual é um luxo, e a
+            // notificação não pode sumir por causa dele.
+            iconeComPercentual(pct, p.icone)?.let { b.setSmallIcon(it) }
             return b.build()
+        }
+
+        /**
+         * O CARTÃO QUE FICA QUANDO O TRABALHO ACABA.
+         *
+         * Pedido do operador: *"ao terminar o processo de exportar ou importar,
+         * o ícone não desapareça na barra, mas vire um ícone de check, para não
+         * ter a impressão de falha ou erro. deixe a notificação de conclusão"*.
+         *
+         * E ele está descrevendo uma ambiguidade real: até aqui o fim de uma
+         * exportação e a MORTE do processo produziam a mesma coisa na barra —
+         * o ícone sumindo. Quem estava com o app minimizado não tinha como
+         * saber qual das duas aconteceu.
+         *
+         * ID PRÓPRIO, e é o que faz isto funcionar. O cartão do trabalho é o do
+         * serviço em primeiro plano, e o `onDestroy` o cancela explicitamente
+         * (ele foi postado por `notify`, não por `startForeground`, e não está
+         * amarrado ao ciclo de vida). Um cartão final sob o MESMO id seria
+         * apagado por essa limpeza — e a ordem entre as duas coisas dependeria
+         * do agendador. Sob outro id, o fim do serviço não o alcança.
+         *
+         * NÃO É `ongoing`, e é `autoCancel`: ele é um AVISO, não um trabalho —
+         * o operador o dispensa com um gesto, e ele sai sozinho ao ser tocado.
+         */
+        /**
+         * O CANAL, criado do lado do COMPANION — é daqui que os dois
+         * chamadores o alcançam: o serviço, ao subir, e o [concluir], que
+         * posta um cartão SEM serviço nenhum de pé.
+         *
+         * Era um método de INSTÂNCIA, e chamá-lo do companion não compila: o
+         * `getSystemService` sem receptor é do `Service`. É a mesma armadilha
+         * que já custou dois ciclos de build neste repositório, e por isso o
+         * método de instância agora delega neste em vez de haver dois.
+         */
+        private fun criarCanal(ctx: Context) {
+            val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
+            if (nm.getNotificationChannel(CHANNEL_ID) != null) return
+            // IMPORTANCE_LOW: a notificação precisa existir (exigência do
+            // sistema para um serviço em primeiro plano), mas não deve tocar
+            // som nem aparecer como alerta — é só um indicador discreto.
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Sincronização",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = "Mantém os downloads ativos com o app minimizado"
+                setShowBadge(false)
+            }
+            nm.createNotificationChannel(channel)
+        }
+
+        @JvmStatic
+        fun concluir(ctx: Context, titulo: String, texto: String) {
+            val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
+            try {
+                criarCanal(ctx)
+                val open = Intent(ctx, MainActivity::class.java)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                val pending = android.app.PendingIntent.getActivity(
+                    ctx, 0, open, android.app.PendingIntent.FLAG_IMMUTABLE,
+                )
+                val b = NotificationCompat.Builder(ctx, CHANNEL_ID)
+                    // O CHECK DO SISTEMA. `stat_sys_download_done` é o desenho
+                    // que o Android já usa para "acabou, deu certo", e a regra
+                    // dos ícones deste app é essa: um recurso próprio no `res/`
+                    // só quando o símbolo certo não existe lá.
+                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .setOngoing(false)
+                    .setAutoCancel(true)
+                    .setOnlyAlertOnce(true)
+                    .setContentIntent(pending)
+                    .setContentTitle(titulo)
+                    .setContentText(texto)
+                nm.notify(NOTIF_FIM_ID, b.build())
+            } catch (e: Exception) {
+                Log.w(TAG, "não foi possível anunciar a conclusão", e)
+            }
         }
 
         fun start(ctx: Context) {

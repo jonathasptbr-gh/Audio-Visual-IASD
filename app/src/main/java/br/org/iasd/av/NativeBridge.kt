@@ -282,7 +282,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 70
+        const val SHELL_VERSION = 71
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -870,6 +870,35 @@ class NativeBridge(
             // para o lado que já existia é a regra desta fronteira.
             icone = SyncService.Progress.Icone.de(o.optString("icone")),
         )
+    }
+
+    /**
+     * O TRABALHO ACABOU — o cartão de conclusão, com o CHECK.
+     *
+     * Pedido do operador: *"ao terminar o processo de exportar ou importar, o
+     * ícone não desapareça na barra, mas vire um ícone de check, para não ter a
+     * impressão de falha ou erro"*. Até aqui o fim de um trabalho e a MORTE do
+     * processo produziam a mesma coisa na barra — o ícone sumindo —, e com o
+     * app minimizado não havia como distinguir as duas.
+     *
+     * MÉTODO PRÓPRIO, e não um campo do [bgProgress]: aquele descreve trabalho
+     * EM CURSO e é chamado dezenas de vezes por minuto; este é um evento
+     * terminal, chamado uma vez. Achatá-los faria toda atualização de progresso
+     * carregar um campo que só interessa na última.
+     *
+     * Quem decide QUANDO e com que texto é o lado web — é ele que sabe se a
+     * importação terminou, foi interrompida ou falhou, e só a primeira merece
+     * um check (invariante 5).
+     */
+    @JavascriptInterface
+    fun bgConcluido(json: String) {
+        // Só o Controle, como os irmãos que recusam com `host == null`: um
+        // cartão de conclusão vindo do WebView do telão seria falsificável.
+        if (host == null) return
+        val o = try { JSONObject(json) } catch (e: Exception) { return }
+        val titulo = o.optString("titulo")
+        if (titulo.isBlank()) return
+        SyncService.concluir(ctx, titulo, o.optString("texto"))
     }
 
     /**
