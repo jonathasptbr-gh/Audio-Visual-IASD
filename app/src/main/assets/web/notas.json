@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.43",
+    "itens": [
+      "Limpeza interna: saiu código que tinha ficado sem uso."
+    ]
+  },
+  {
     "versao": "1.8.42",
     "itens": [
       "Os grupos da exportação abrem e fecham deslizando, como na biblioteca.",

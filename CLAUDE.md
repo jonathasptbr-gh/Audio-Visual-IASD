@@ -5337,7 +5337,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.42 · APK v1.8.39** · `SHELL_VERSION` **71** ·
+**Versão atual: base web v1.8.43 · APK v1.8.39** · `SHELL_VERSION` **71** ·
 bundle com `minShell: 71` e **SEM `shellTag`** (lote SÓ WEB) — o shell 71 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -5377,6 +5377,30 @@ bundle com `minShell: 71` e **SEM `shellTag`** (lote SÓ WEB) — o shell 71 é 
 > Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+**O QUE O LOTE TRAZ (v1.8.43) — a varredura de fechamento da sessão:**
+
+| o que saiu | por quê |
+|---|---|
+| o parâmetro `dentro` do `linhaDeGrupo` | ficou sem leitor quando o recuo de texto saiu (v1.8.41) |
+| o `pacoteIconeSvg` | ficou sem chamador quando a seta virou a `.coll-group-icon` |
+
+> **UM RESTO SÓ APARECE NA VARREDURA, e é por isso que ela existe** (v1.8.43).
+> Os dois vieram de remoções CERTAS do mesmo dia: o recuo de texto saiu porque o
+> bloco passou a dizer "dentro" por conter, e a seta da folha virou a da
+> Biblioteca. Nenhum dos dois quebra nada — e é justamente esse o problema: um
+> parâmetro que ninguém lê e um helper sem chamador viajam no bundle do OTA e
+> respondem *"isto ainda é usado?"* com um sim que não existe. **A regra deste
+> repositório é apagar o código junto com o que o descreve, no MESMO lote**; a
+> varredura é o que a torna verificável, e ela é uma linha por símbolo
+> (`grep -ro <nome> app/src/main/assets/web tools | wc -l`).
+>
+> **E O ORÁCULO ANDOU JUNTO.** O `glifos.test.mjs` lia os consumidores do sprite
+> por DUAS entradas, e uma delas era `pacoteIconeSvg('ico…')` — com a função
+> fora, aquela alternativa do regex viraria letra morta e a asserção que prova
+> que o lado do JS foi lido passaria a medir só a outra. Hoje ela nomeia o que
+> de fato existe (o `#icoLupa`, montado por string em dois pontos), e a
+> reversão está medida: um regex que não case nada ali reprova só aquela linha.
 
 **O QUE O LOTE TRAZ (v1.8.42) — o acordeão na folha de exportação, e a gaveta
 de opções que aparece sozinha:**
