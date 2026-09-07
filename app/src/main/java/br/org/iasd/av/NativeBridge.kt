@@ -868,7 +868,16 @@ class NativeBridge(
             // desconhecido cai em "baixar", que é o comportamento de sempre —
             // um bundle mais antigo que a ponte não manda o campo, e falhar
             // para o lado que já existia é a regra desta fronteira.
-            icone = SyncService.Progress.Icone.de(o.optString("icone")),
+            // `Companion.Icone` E NÃO `Progress.Icone`: os dois são
+            // classificadores IRMÃOS dentro do `companion object` do
+            // `SyncService`, e um classificador aninhado num companion só é
+            // alcançável de fora por `Outer.Companion.Nome` — `Outer.Nome`
+            // não resolve. Foi o `Unresolved reference 'Progress'` que
+            // derrubou a `main` na v1.8.29, e o
+            // `kotlin-simbolo-importado` não o pega: `SyncService` é do
+            // pacote, então a conferência de IMPORT passa e o que falha é a
+            // QUALIFICAÇÃO, um nível abaixo do que ele sabe olhar.
+            icone = SyncService.Companion.Icone.de(o.optString("icone")),
         )
     }
 
