@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.36",
+    "itens": [
+      "O botão do auxiliar de leitura fica apagado quando não há o que ler.",
+      "Ele volta sozinho assim que uma letra, um versículo ou uma cifra entra em cena."
+    ]
+  },
+  {
     "versao": "1.8.35",
     "itens": [
       "O número da notificação passou a bater com o do botão de exportar.",

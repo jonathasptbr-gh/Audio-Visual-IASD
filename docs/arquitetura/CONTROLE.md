@@ -2097,6 +2097,28 @@ e ler *"Nada em exibição"*.
 - **Quem a acende é `renderNowPlaying`**, ao lado do selo de camadas e pela mesma
   razão que ele: aquela função tem um `return` por ramo de cena, e qualquer linha
   no fim dela só rodaria para o último caso.
+- **E SEM FONTE NENHUMA O BOTÃO FICA INDISPONÍVEL** (v1.8.36). Pedido do
+  operador: *"desative o botão (modo cinza mais claro, sem toque) de auxiliar de
+  leitura quando não há nenhum conteúdo a ser exibido nele, como na abertura do
+  app ou etc..."*. A badge já dizia SE há — mas um ponto apagado sobre um botão
+  ACESO continua sendo um botão aceso, e o toque abria a folha para ler *"Nada em
+  exibição com letra ou texto bíblico"*. É a terceira vez que este app troca
+  EXPLICAR por NÃO OFERECER (o microfone sem TV na v1.2.21, a aba de cifra sem
+  cifra na v1.8.28), e aqui a troca é a mais barata das três: o botão fica na
+  mesma célula e volta sozinho na cena seguinte.
+  - **`disabled`, e não uma classe.** É o atributo que o `.t-btn:disabled` já
+    veste com `--op-inativo` — a linguagem do INDISPONÍVEL deste app, a mesma
+    dos dois botões de slide ao lado —, que tira o nó da ordem de tabulação e
+    que faz o navegador engolir o toque **sem um `pointer-events` nosso**. O
+    `title` continua dizendo POR QUÊ, que é o que um botão apagado deve a quem o
+    encontra.
+  - **A guarda é POR NÓ**, e não um `return` cedo no topo: a badge e o botão são
+    elementos diferentes, e desistir por causa da primeira deixaria o segundo
+    aceso para sempre num bundle em que só ela faltasse.
+  - **O toque não se prova por hit-test.** O Chromium HIT-TESTA um botão
+    desabilitado (MEDIDO: `elementFromPoint` devolve o `<use>` de dentro dele) —
+    quem engole o evento é o despacho, não a geometria. A única régua é o
+    DESFECHO: a folha não abriu.
 
 - **Quatro fontes possíveis**: a **letra** da música em cena
   (`currentItem.lyrics`, os mesmos slides que o Display projeta — o slide de
