@@ -220,6 +220,121 @@ try {
     '3 · mas uma pausa NO MEIO não cobre nada: a cena pausada continua na tela. '
     + '"Cobrir sempre que pausar" passaria nos dois casos acima e apagaria o '
     + 'louvor pausado para a oração', JSON.stringify(fim3));
+
+  // ---- 4 · SEM TV, O STATUS DE UMA TELA DA REDE AVANÇA A PLAYLIST -------
+  //
+  // O `media-ended` é o caminho EXATO do avanço, e ele NÃO CHEGA de uma tela da
+  // rede: o dreno do papel `tela` é lista de PERMISSÃO de dois tipos, e o
+  // `media-ended` morre ali de propósito (N telas dariam N avanços). Sem TV a
+  // tela da rede É a projeção — e o `onEnded` da PREVIEW não cobre o buraco por
+  // dois motivos independentes: ele volta cedo em `displayActive()`, que o
+  // `tela-status` mantém aceso, e o `<video>` dela nem chega a emitir `ended`,
+  // porque o ramo de `FIM_DA_PROJECAO_S` (o bloco 2 acima) o PAUSA e REBOBINA.
+  //
+  // O DESFECHO É O CULTO PARANDO: a playlist não anda, a linha fica presa em
+  // "● No ar" sobre um telão que já voltou ao wallpaper, e nada erra. Só numa
+  // igreja SEM TV — que é a armadilha do *"ler cada lado isolado aprova os
+  // dois"*, e a razão de este bloco existir ao lado dos três de cima.
+  //
+  // A SEGUNDA METADE É A QUE IMPEDE O CONSERTO LARGO DEMAIS, e ela já está
+  // escrita: o bloco 2 manda um `display-status` parado no fim e o bloco 1
+  // manda o `media-ended`. Se o avanço saísse também do `display-status`, o
+  // caminho com TV avançaria DUAS vezes e a playlist pularia uma faixa — por
+  // isso a asserção de baixo mede o `currentId` DEPOIS do bloco 2, onde ele tem
+  // de estar parado.
+  await pg.evaluate(() => stopClear());
+  await pg.evaluate(async () => {
+    await AVDB.fileAdd({
+      id: 'faixa-2', folder: 'teste', opfsPath: 'folders/teste/faixa-curta.wav',
+      srcName: 'faixa-2', name: 'SEGUNDA FAIXA', type: 'audio/wav', kind: 'video',
+      size: 1, mtime: 1, thumb: null, blob: null, url: null, addedAt: 1, lyrics: null,
+    });
+    await AVDB.listSet('playlist', ['faixa-curta', 'faixa-2']);
+    // `repeat: 'off'` é o padrão, e nele o fim da faixa CHAMA `resetAfterEnd` em
+    // vez de avançar — a fila só anda em 'all'/'one'/'shuffle'. Sem esta linha o
+    // bloco mede o gatilho e não o avanço.
+    await AVDB.setState('repeat', 'all');
+    await load();
+  });
+  await projetar();
+  // SEM TV: o relógio do telão é zerado à mão porque os blocos de cima o
+  // acenderam. `telaoAtivo()` falso é o que faz o `espelho-status` ser a
+  // referência — com ele aceso, o handler devolve na primeira linha.
+  await pg.evaluate(async () => {
+    telaoStatusAt = 0;
+    window.__telao({ type: 'espelho-status', mediaId: 'faixa-curta', playing: true, currentTime: 1, duration: 4 });
+    await new Promise((f) => setTimeout(f, 200));
+  });
+  const antes4 = await pg.evaluate(() => currentId);
+  await pg.evaluate(async () => {
+    telaoStatusAt = 0;
+    const d = document.getElementById('pvVideo').duration || 4;
+    window.__telao({ type: 'espelho-status', mediaId: 'faixa-curta', playing: false, currentTime: d, duration: d });
+    window.__telao({ type: 'espelho-status', mediaId: 'faixa-curta', playing: false, currentTime: d, duration: d });
+  });
+  // O PRAZO É CURTO DE PROPÓSITO, e sem isso o bloco era uma TAUTOLOGIA — MEDIDO
+  // na escrita: com 8 s, a reversão PASSAVA. A preview está em ~0,4 s de uma
+  // faixa de 4 s e continua andando em tempo real; passados 2,5 s sem status
+  // (`DISPLAY_TIMEOUT`) o `displayActive()` cai, o `<video>` dela chega ao fim
+  // sozinho e o `onEnded` DELA avança a playlist — pelo caminho que existe SEM
+  // tela nenhuma. A janela tem de fechar antes disso: com a rede de segurança o
+  // avanço é síncrono com o status; sem ela, não há avanço nenhum aqui dentro.
+  try {
+    await pg.waitForFunction(() => currentId === 'faixa-2', null, { timeout: 1200 });
+  } catch (_) { /* o `checar` abaixo relata o estado real */ }
+  const depois4 = await pg.evaluate(() => currentId);
+  checar(antes4 === 'faixa-curta' && depois4 === 'faixa-2',
+    '4 · sem TV, o status parado no fim de uma TELA DA REDE avança a playlist — '
+    + 'o `media-ended` morre no dreno, e sem esta rede de segurança o culto para '
+    + 'em cada faixa', 'antes: ' + antes4 + ' · depois: ' + depois4);
+
+
+  // ---- 5 · COM TV, O AVANÇO CONTINUA SENDO **UM** ----------------------
+  //
+  // A metade que impede o conserto largo demais, e ela precisa de TRÊS faixas:
+  // com duas, avançar uma vez e avançar duas dão o MESMO item, e a asserção não
+  // distingue nada.
+  //
+  // O QUE ELE PROVA, DITO: que o caminho com TV continua entregando UM avanço,
+  // com a rede de segurança no lugar. Ele NÃO reprova a remoção da guarda
+  // `!doTelao` — MEDIDO: sem ela sai um avanço a mais, mas `send` zera
+  // `fimJaTratado` e o `media-ended` que vem atrás é recusado pela guarda de
+  // `mediaId` dele (o id que terminou já não é o `currentId`), então o desfecho
+  // volta a ser um. A guarda fica porque com TV o sinal EXATO é o `media-ended`
+  // e esta é só a rede para a ausência dele — e porque com `repeat: 'one'` os
+  // dois passam a casar de novo. Isto está escrito para ninguém apagá-la
+  // achando que o verde daqui a cobre.
+  await pg.evaluate(async () => {
+    await AVDB.fileAdd({
+      id: 'faixa-3', folder: 'teste', opfsPath: 'folders/teste/faixa-curta.wav',
+      srcName: 'faixa-3', name: 'TERCEIRA FAIXA', type: 'audio/wav', kind: 'video',
+      size: 1, mtime: 1, thumb: null, blob: null, url: null, addedAt: 1, lyrics: null,
+    });
+    await AVDB.listSet('playlist', ['faixa-curta', 'faixa-2', 'faixa-3']);
+    await load();
+    await send('faixa-2');
+    await new Promise((f) => setTimeout(f, 400));
+  });
+  await pg.evaluate(async () => {
+    const d = 4;
+    // O TELÃO NO AR: é o `display-status` que acende `telaoStatusAt`, e é ele
+    // que faz `doTelao` verdadeiro no handler.
+    window.__telao({ type: 'display-status', mediaId: 'faixa-2', playing: true, currentTime: 1, duration: d });
+    await new Promise((f) => setTimeout(f, 100));
+    window.__telao({ type: 'display-status', mediaId: 'faixa-2', playing: false, currentTime: d, duration: d });
+    window.__telao({ type: 'display-status', mediaId: 'faixa-2', playing: false, currentTime: d, duration: d });
+    await new Promise((f) => setTimeout(f, 150));
+    window.__telao({ type: 'media-ended', mediaId: 'faixa-2' });
+  });
+  try {
+    await pg.waitForFunction(() => currentId === 'faixa-3', null, { timeout: 1200 });
+  } catch (_) { /* o `checar` abaixo relata o estado real */ }
+  const depois5 = await pg.evaluate(() => currentId);
+  checar(depois5 === 'faixa-3',
+    '5 · e com TV o avanço continua sendo UM: o `display-status` parado no fim '
+    + 'não avança por conta própria — quem avança é o `media-ended`, e dois '
+    + 'avanços pulariam uma faixa', 'currentId: ' + depois5);
+
 } finally {
   await navegador.close();
   servidor.close();
