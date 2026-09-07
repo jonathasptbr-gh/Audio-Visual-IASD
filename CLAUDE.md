@@ -5337,7 +5337,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.35 · APK v1.8.34** · `SHELL_VERSION` **71** ·
+**Versão atual: base web v1.8.36 · APK v1.8.34** · `SHELL_VERSION` **71** ·
 bundle com `minShell: 71` e **SEM `shellTag`** (lote SÓ WEB) — o
 shell 71 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
@@ -5378,6 +5378,36 @@ lado web.
 > Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+**O QUE O LOTE TRAZ (v1.8.36) — o giro que se perdia na camada:**
+
+| peça | onde |
+|---|---|
+| quem não pôde ser medido é tentado no quadro seguinte | `aplicarGiroTudo` (`GIRO_TENTATIVAS`) |
+| a ordem ruim, forçada em vez de esperada da carga | `enquadramento-da-camada.test.mjs` |
+
+> **O `ResizeObserver` NÃO REPÕE NADA AQUI, e isto foi MEDIDO** (v1.8.36). O
+> comentário do `aplicarGiro` prometia que *"o observer abaixo repõe assim que
+> houver"* — e para o `<video>` isso vale, porque ele mora na caixa do palco. A
+> CAMADA não: o `camadaImg` mora dentro de `#pvText`, que é `hidden` (logo
+> `clientWidth` ZERO) até ser revelada, e quem revela chama `reporGiro()` no
+> MESMO passo. Com o ancestral ainda escondido a medida dá 0, `aplicarGiro`
+> volta sem girar, e **nada repõe**: um `ResizeObserver` sobre `#pvText` dispara
+> UMA vez ao registrar (0×0) e não dispara nem ao esconder nem ao revelar.
+>
+> O desfecho é PERMANENTE e não erra alto: a foto entra sobreposta ao louvor,
+> com o preenchimento certo e **sem o giro que o operador escolheu** — e sem TV
+> a preview É a projeção. Hoje quem repõe é uma retentativa no quadro seguinte,
+> com teto (uma camada que fique escondida não deixa um `requestAnimationFrame`
+> girando para sempre) e com a contagem zerada a cada `reporGiro`/`setRotate`,
+> para que cada revelação ganhe uma janela nova.
+>
+> **ELE VEIO DE UM VERMELHO INTERMITENTE**, que é a regra deste repositório
+> funcionando: o oráculo reprovou no runner e passou DOZE vezes aqui (três
+> sozinho, seis a 4× de carga, três com dois oráculos ao lado). A pergunta certa
+> era *"o que este teste pegou?"*, e o que ele pegou foi uma ORDEM DE EVENTOS em
+> que o app erra. Hoje essa ordem é FORÇADA no oráculo, e o vermelho deixou de
+> depender da máquina.
 
 **O QUE O LOTE TRAZ (v1.8.35) — a notificação e o botão contam o mesmo
 trabalho:**

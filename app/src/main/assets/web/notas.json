@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.36",
+    "itens": [
+      "O giro deixou de se perder quando a imagem entra por cima de um louvor."
+    ]
+  },
+  {
     "versao": "1.8.35",
     "itens": [
       "O número da notificação passou a bater com o do botão de exportar.",

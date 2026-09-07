@@ -782,37 +782,79 @@
     // Sem ele o giro ficaria certo até a primeira mudança de tamanho.
     let rot = 0;
     function aplicarGiro(el) {
-      if (!el) return;
+      if (!el) return true;
       if (!rot) {
         el.style.inset = '';
         el.style.width = ''; el.style.height = '';
         el.style.left = ''; el.style.top = '';
         el.style.transform = '';
-        return;
+        return true;
       }
       if (rot === 180) {
         el.style.inset = ''; el.style.width = ''; el.style.height = '';
         el.style.left = ''; el.style.top = '';
         el.style.transform = 'rotate(180deg)';
-        return;
+        return true;
       }
       const caixa = el.parentElement || el.offsetParent;
       const w = caixa ? caixa.clientWidth : 0;
       const h = caixa ? caixa.clientHeight : 0;
-      // Sem medida (elemento ainda fora do documento) não há giro possível: o
-      // observer abaixo repõe assim que houver.
-      if (!w || !h) return;
+      // SEM MEDIDA NÃO HÁ GIRO POSSÍVEL — e quem tenta de novo é o
+      // [aplicarGiroTudo], no quadro seguinte. Ver o comentário de lá.
+      if (!w || !h) return false;
       el.style.inset = 'auto';
       el.style.width = h + 'px';
       el.style.height = w + 'px';
       el.style.left = '50%';
       el.style.top = '50%';
       el.style.transform = 'translate(-50%, -50%) rotate(' + rot + 'deg)';
+      return true;
     }
-    function aplicarGiroTudo() { aplicarGiro(img); aplicarGiro(video); aplicarGiro(camadaImg); }
+    // QUEM NÃO PÔDE SER MEDIDO É TENTADO DE NOVO NO QUADRO SEGUINTE (v1.8.36).
+    //
+    // `aplicarGiro` desiste quando o pai mede 0, e o comentário dele prometia
+    // que "o observer abaixo repõe assim que houver". A promessa era FALSA para
+    // a CAMADA: o `camadaImg` não mora na caixa do palco, mora dentro da camada
+    // de texto (`#pvText` na preview), que é `hidden` — `display:none`, logo
+    // `clientWidth` ZERO — até ser revelada. Quem revela chama `reporGiro()` no
+    // mesmo passo, e nesse instante o ANCESTRAL ainda pode estar escondido: a
+    // medida dá 0, a função volta sem girar, e nada repõe.
+    //
+    // O OBSERVADOR NÃO RESOLVE, e isto foi MEDIDO em vez de suposto: um
+    // `ResizeObserver` sobre `#pvText` dispara UMA vez ao registrar (0x0) e
+    // **não dispara** nem ao esconder nem ao revelar. Vigiar mais caixas seria
+    // código morto com um comentário afirmando o contrário.
+    //
+    // O desfecho do defeito é PERMANENTE e não erra alto: a foto entra
+    // sobreposta ao louvor, com o preenchimento certo e SEM O GIRO que o
+    // operador escolheu — e sem TV a preview É a projeção. Foi assim que o
+    // `enquadramento-da-camada` reprovou no runner passando doze vezes aqui: a
+    // ordem entre revelar a camada e repor o giro depende da máquina.
+    //
+    // O TETO existe para uma camada que fique escondida não deixar um
+    // `requestAnimationFrame` girando para sempre. Ele não custa nada a quem
+    // revela depois: `reporGiro` e `setRotate` zeram a contagem, então cada
+    // revelação ganha uma janela nova.
+    const GIRO_TENTATIVAS = 60;   // ~1 s a 60 Hz
+    let giroTentativa = 0;
+    let giroAgendado = false;
+    function aplicarGiroTudo() {
+      const faltou = [aplicarGiro(img), aplicarGiro(video), aplicarGiro(camadaImg)]
+        .indexOf(false) !== -1;
+      if (!rot || !faltou) { giroTentativa = 0; return; }
+      if (giroAgendado || giroTentativa >= GIRO_TENTATIVAS) return;
+      if (!global.requestAnimationFrame) return;
+      giroAgendado = true;
+      global.requestAnimationFrame(() => {
+        giroAgendado = false;
+        giroTentativa++;
+        aplicarGiroTudo();
+      });
+    }
     function setRotate(v) {
       const n = ((v | 0) % 360 + 360) % 360;
       rot = (n === 90 || n === 180 || n === 270) ? n : 0;
+      giroTentativa = 0;
       aplicarGiroTudo();
     }
     if (global.ResizeObserver) {
@@ -1462,7 +1504,7 @@
       // resolveria sozinho, e foi descartado porque `aplicarGiro` MEXE na caixa
       // que ele observaria — um laço que converge, mas cujo aviso do Chromium
       // ("ResizeObserver loop") o `smoke.mjs` lê como erro de console.
-      reporGiro: () => { if (rot) aplicarGiroTudo(); },
+      reporGiro: () => { if (rot) { giroTentativa = 0; aplicarGiroTudo(); } },
       setForceMuted,
       coverIn, coverOut, instantCover, fadeOutToBlack, setOverlay,
       // O FIM DA PROJEÇÃO É UM FIM, E NÃO UMA PAUSA (v1.7.7). Quem sabe que a
