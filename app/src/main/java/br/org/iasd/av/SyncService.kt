@@ -223,19 +223,6 @@ class SyncService : Service() {
         private const val WAKELOCK_RENEW_MIN_MS = 10 * 60 * 1000L // 10 min
 
         /**
-         * O que está baixando agora, reportado pelo lado web. `items` traz UM
-         * nome em destaque: são 6 downloads simultâneos, mas o lado web os
-         * serializa numa FILA (FIFO) — cada nome sai uma única vez, na ordem em
-         * que entrou em download, escoado no ritmo MÉDIO medido por item (ver
-         * `bgItemStart`/`bgSpinMs` em controle.js). Não é rodízio: um nome
-         * nunca reaparece, e a lista não espelha o que está no ar agora.
-         * Quando a tarefa passa de 90 s sem evento real (o mesmo [STALL_MS]
-         * daqui) a fila CONGELA de propósito — animar durante uma queda de rede
-         * esconderia justamente o que precisa ser visto.
-         *
-         * `idleMs` é há quanto tempo nada acontece.
-         */
-        /**
          * O DESENHO da barra de notificação. Três, e não um booleano, porque
          * são três coisas diferentes: bytes ENTRANDO (baixar da rede, importar
          * um pacote), bytes SAINDO (exportar) e trabalho que não move byte
@@ -293,6 +280,19 @@ class SyncService : Service() {
             }
         }
 
+        /**
+         * O que está baixando agora, reportado pelo lado web. `items` traz UM
+         * nome em destaque: são 6 downloads simultâneos, mas o lado web os
+         * serializa numa FILA (FIFO) — cada nome sai uma única vez, na ordem em
+         * que entrou em download, escoado no ritmo MÉDIO medido por item (ver
+         * `bgItemStart`/`bgSpinMs` em controle.js). Não é rodízio: um nome
+         * nunca reaparece, e a lista não espelha o que está no ar agora.
+         * Quando a tarefa passa de 90 s sem evento real (o mesmo [STALL_MS]
+         * daqui) a fila CONGELA de propósito — animar durante uma queda de rede
+         * esconderia justamente o que precisa ser visto.
+         *
+         * `idleMs` é há quanto tempo nada acontece.
+         */
         data class Progress(
             val label: String,
             val done: Long,

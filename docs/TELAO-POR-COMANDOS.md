@@ -18,14 +18,13 @@
 >
 > A fonte de verdade é o `CLAUDE.md` ("Telão por comandos") mais o código.
 >
-> **E O SERVIDOR DESTE DOCUMENTO TEM UM SEGUNDO INQUILINO desde a v1.8.0:** o
-> CLONE da biblioteca celular a celular (`/acervo/par`, `/acervo/indice`,
-> `/acervo/item/…`). Ele NÃO herda nada do contrato daqui — em especial, **não
-> herda a porta aberta**: o que autoriza lá é uma pessoa tocando em Permitir no
-> aparelho que cede, porque o que vaza por ele não são os comandos e as mídias
-> em cena, é o acervo inteiro. E o `EspelhoServidor` passou a ter DUAS razões
-> de viver, como o `SessionService`: ligar ou desligar a transmissão não liga
-> nem desliga a cessão. Ver `CLAUDE.md`, "O clone celular a celular".
+> **O SEGUNDO INQUILINO DESTE SERVIDOR SAIU (v1.8.16).** Da v1.8.0 até lá ele
+> hospedou o CLONE da biblioteca celular a celular (`/acervo/*`), que foi
+> abandonado a pedido do operador — ~210 kB/s eram 15 a 500× menos que o mesmo
+> enlace entrega por Quick Share, e o caminho do ARQUIVO (o `.avpkg`) leva o
+> MESMO formato pelo transporte que funciona. Hoje o `EspelhoServidor` tem um
+> inquilino só, e a porta volta a nascer aberta pela razão escrita aqui: o que
+> passa por ela é conteúdo público por definição.
 >
 > Os fatos de código citados vêm da varredura E0 (9 leitores paralelos, 229
 > fatos com arquivo:linha) — o bruto está em

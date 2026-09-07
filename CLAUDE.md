@@ -890,7 +890,8 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 71`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell` IGUAL ao `SHELL_VERSION`, e é a VÁLVULA que
+resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -3196,12 +3197,15 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   não dá para DESFAZER, e o que faltava era PARAR — seguro exatamente pela razão
   que ele dá (*o que já entrou está certo*), com a reimportação continuando de
   onde ficou.
-- **O ÍCONE DA NOTIFICAÇÃO SEGUE O TRABALHO** (v1.8.27). `bgProgress` leva
-  `baixando`, e o `SyncService` escolhe entre a seta de download e as setas de
-  sincronização: exportar, importar e preparar uma apresentação não trazem byte
-  nenhum da rede. É a regra da v1.4.19 (*o ícone segue a legenda*) na única
-  superfície que faltava. **Padrão `true`** — um bundle mais antigo que a ponte
-  não manda o campo, e ausente é "é download", o comportamento de sempre.
+- **O ÍCONE DA NOTIFICAÇÃO SEGUE O TRABALHO** (v1.8.27, redesenhado na v1.8.29).
+  `bgProgress` leva `icone` — `baixar`, `enviar` ou `processar` —, e o
+  `SyncService` desenha a seta para baixo, a seta para cima ou o círculo de duas
+  setas. É a regra da v1.4.19 (*o ícone segue a legenda*) na única superfície que
+  faltava. **Nome ausente ou desconhecido = `baixar`** — um bundle mais antigo
+  que a ponte não manda o campo, e falhar para o lado que já existia é a regra
+  deste app. (O booleano `baixando` da v1.8.27 SAIU na v1.8.29: a pergunta era
+  "traz bytes da rede?", e a certa é a DIREÇÃO do movimento — importar traz o
+  acervo PARA o aparelho venha ele de onde vier.)
 - **O RELATÓRIO DO FIM CONTA MÚSICAS, não unidades internas** (v1.8.25). Ele
   dizia *"4 item(ns), 2228 arquivo(s) e 172 ajuste(s)"* — a store de mídia, os
   arquivos do OPFS (um hino tem áudio, playback e as imagens de fundo da letra,
@@ -5370,24 +5374,24 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.47 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.48 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.47 NÃO declara `shellTag`, e a v1.8.45 declarou — a diferença é o
+> **A v1.8.48 NÃO declara `shellTag`, e a v1.8.45 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela acrescentou um
 > método à ponte (`pacoteProntoEstado`) e o `controle.js` o CHAMA na abertura:
 > contra um APK sem ele, o `native.js` cai no `catch`, o `call()` vence os 60 s
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (A v1.8.46 é o mesmo caso, pela mesma razão.)
+> (As v1.8.46 e v1.8.47 são o mesmo caso, pela mesma razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A v1.8.47 NÃO pede Release.**
+> **A v1.8.48 NÃO pede Release.**
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
 > oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
@@ -5425,6 +5429,43 @@ bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 > Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+**O QUE O LOTE TRAZ (v1.8.48) — as lentes do FLUXO DO CULTO, do DECK, da
+NOTIFICAÇÃO e dos CONTRATOS:**
+
+| peça | onde |
+|---|---|
+| sem TV, o status de uma tela da rede AVANÇA a playlist | o handler de `espelho-status` (`fimJaTratado`) |
+| a faxina desce DOIS níveis: pacote → apresentação → vídeo | `lerDetentores` (`for … of donos`, sem a cópia) |
+| o `it.token \|\|` inalcançável do `telaGarantirEnvio` | o CLONE saiu na v1.8.16 e levou o único produtor |
+| quatro comentários que descreviam máquinas removidas | o CLONE no `onCommand`, o `baixando`, o KDoc do `Progress`, os OITO da `PONTE.md` |
+| dois que descreviam a regra que a v1.6.6 revogou | `deckVideoTalvezTocar` e a página de entrada de um deck |
+
+> **O `media-ended` NÃO CHEGA DE UMA TELA DA REDE, e o avanço da playlist
+> dependia só dele** (v1.8.48). O dreno do papel `tela` é lista de PERMISSÃO de
+> dois tipos e o `media-ended` morre ali de propósito — N telas dariam N
+> avanços. Sem TV a tela da rede É a projeção, e o `onEnded` da PREVIEW não
+> cobre o buraco por dois motivos independentes: ele volta cedo em
+> `displayActive()`, que o `tela-status` mantém aceso, e o `<video>` dela nem
+> chega a emitir `ended`, porque o ramo de `FIM_DA_PROJECAO_S` o PAUSA e
+> REBOBINA. **A playlist parava em cada faixa**, com a linha presa em "● No ar"
+> sobre um telão que já voltou ao wallpaper.
+>
+> O comentário de `FIM_DA_PROJECAO_S` já admitia a ausência do `media-ended` e
+> consertou só a metade VISUAL; esta é a outra. **Aqui não há o problema das N
+> telas**: quem chega ao ponto já passou pela ELEIÇÃO (`telaRefId`), então a
+> fonte é UMA por construção. Oráculo: blocos 4 e 5 do
+> `preview-volta-ao-wallpaper.test.mjs` — e o 4 nasceu TAUTOLÓGICO (com 8 s de
+> prazo a preview chegava ao fim sozinha e avançava pelo caminho de sempre; a
+> reversão passava). O prazo curto é o que lhe deu dente.
+
+> **UMA CÓPIA CORTA UM PERCURSO DE DOIS NÍVEIS** (v1.8.48). `lerDetentores`
+> iterava `Array.from(donos)` — uma FOTO —, então o que era acrescentado dentro
+> do laço entrava no conjunto e nunca era VISITADO. Uma apresentação guardada num
+> PACOTE é alcançada pelo ramo do `cue` e para ali: o ramo `deck` não roda para
+> ela, os vídeos de dentro do `.pptx` nascem órfãos, e o `gcOrfaos` da abertura
+> seguinte os apaga — o desfecho que o KDoc daquela mesma função diz estar
+> impedido. Iterar o `Set` direto visita o que entra durante o percurso.
 
 **O QUE O LOTE TRAZ (v1.8.47) — o que a lente de CÓDIGO MORTO achou, e o
 oráculo que a fecha:**

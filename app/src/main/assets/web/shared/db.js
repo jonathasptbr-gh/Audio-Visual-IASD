@@ -991,7 +991,20 @@
     // ÓRFÃOS — quem os recolhe é o `gcOrfaos` da abertura seguinte. Ninguém
     // precisa lembrar de apagá-los, e nada fica para sempre.
     const midias = stateStore.transaction.objectStore(STORE_MEDIA);
-    for (const id of Array.from(donos)) {
+    // O PERCURSO É DE DOIS NÍVEIS, E A CÓPIA O CORTAVA NO PRIMEIRO (v1.8.48).
+    //
+    // `Array.from(donos)` tira uma FOTO antes do laço, então o que é acrescentado
+    // aqui dentro entra no conjunto e nunca é VISITADO. Uma apresentação guardada
+    // num PACOTE (o `cue` de tipo `group`, que o Cronograma cria) é alcançada
+    // pelo ramo de cima e para ali: o ramo `deck` nunca roda para ela, os vídeos
+    // de dentro do `.pptx` nascem órfãos, e o `gcOrfaos` da abertura seguinte os
+    // apaga. A apresentação continua na lista, as páginas continuam desenhando, e
+    // o vídeo simplesmente não toca mais — que é, palavra por palavra, o desfecho
+    // que o parágrafo acima diz estar impedido.
+    //
+    // Iterar o `Set` DIRETO visita o que entra durante o percurso. Não há laço
+    // infinito: `add` de um id já presente não o reenfileira, e o grafo é finito.
+    for (const id of donos) {
       const rec = await asPromise(midias.get(id));
       if (!rec) continue;
       if (rec.kind === 'cue' && rec.data && Array.isArray(rec.data.ids)) {

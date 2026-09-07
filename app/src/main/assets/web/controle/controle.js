@@ -334,7 +334,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.47';
+const WEB_VERSION = '1.8.48';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1495,6 +1495,10 @@ function isConfirmedWifi() {
 }
 let mediaFit = 'contain'; // preenchimento da mídia (persistido em state 'fit')
 let ytEnded = false;       // YouTube terminou/parou sem player tocando: ▶ recarrega
+// O FIM DA PROJEÇÃO JÁ FOI TRATADO NESTA CENA (v1.8.48). Sem TV, quem avisa que
+// a faixa acabou é o STATUS parado no fim, e ele chega a ~4 Hz: sem a bandeira
+// o avanço sairia repetido, e com `repeat: 'one'` a faixa recarregaria em laço.
+let fimJaTratado = false;
 // HÁ MÍDIA EM CENA NO TELÃO? (v5.142)
 //
 // Não é "existe uma mídia selecionada" — isso é o `currentId`, que sobrevive de
@@ -11262,11 +11266,19 @@ async function send(id, daFila, retomarEm) {
   if (!(cenaDeRoteiroNoAr() && currentItem && currentItem.kind === 'audio')) clearManualText();
   await persistCurrent();
   ytEnded = false;
+  fimJaTratado = false;
   displayStatusAt = 0; // até o Display confirmar o novo item, a preview dirige
   lastDisplayTime = 0;
-  // A apresentação entra sempre pela PRIMEIRA página: quem manda o operador
+  // A apresentação entra pela PRIMEIRA página POR PADRÃO: quem manda o operador
   // para outra é o par de botões do transporte, e uma cena nova que começasse
   // no meio do deck anterior seria um slide aleatório no telão.
+  //
+  // A EXCEÇÃO É A DICA `deckAbrirNaPagina` (v1.6.6), e ela existe pelo motivo
+  // da posição de uma mídia: o `onCommand` do Display NÃO serializa, então a
+  // página em que a volta de um vídeo de slide tem de pousar precisa viajar
+  // DENTRO do `load` — um comando de página logo depois agiria sobre o deck
+  // anterior. Ela é de UMA vez (`-1` logo abaixo), e as duas linhas seguintes
+  // continuam sendo a guarda contra uma dica fora da faixa.
   deckPagina = Math.max(0, deckAbrirNaPagina);
   deckAbrirNaPagina = -1;
   if (isDeck(alvo)) deckPagina = Math.min(deckPagina, alvo.pages.length - 1);
@@ -26806,13 +26818,16 @@ function paginaDoSlide() {
  * ambíguo e a escolha é a conservadora: sobreposta, a página com vídeo mostra
  * o pôster e mais nada.
  *
- * E SÓ POR NAVEGAÇÃO — quem chama é o `deckIr`, nunca o `send`. ABRIR a
- * apresentação não conta como chegar na página: ali o operador acabou de
- * escolher projetar os SLIDES, e entregar-lhe um vídeo no mesmo toque é tirar
- * da mão dele a única ação deliberada que existe antes de o telão mudar. Um
- * vídeo na primeira página continua alcançável pelo par de botões (⏭ e ⏮), e a
- * volta a uma página já vista REPROJETA o vídeo dela, que é a leitura direta de
- * "chegou na página".
+ * SÃO DOIS CHAMADORES, e a regra de "só por navegação" foi REVOGADA na v1.6.6.
+ * Ela dizia que só o `deckIr` chamava — abrir a apresentação não contaria como
+ * chegar na página —, e o operador pediu o contrário por extenso: *"no caso do
+ * primeiro slide ser um vídeo, pode fazer um autoplay para ele"*. Hoje o `send`
+ * também chama, no fim do `load` da apresentação, e é esse segundo chamador que
+ * faz a VOLTA de um vídeo de slide encadear: `deckVideoVoltar` pousa pelo `send`
+ * com a dica `deckAbrirNaPagina`.
+ *
+ * O que continua valendo é o `deckVideoSemGatilho`: a volta de um vídeo NÃO
+ * pode reprojetá-lo na mesma página, senão ele toca em laço para sempre.
  */
 function deckVideoTalvezTocar(d, n) {
   if (deckSobreProjetando() || deckVideoSemGatilho) return;
@@ -28081,23 +28096,6 @@ async function withBgRotina(fn) {
 const bgTasks = new Map();
 let bgTaskSeq = 0;
 
-/**
- * `baixando` diz se este trabalho TRAZ BYTES DA REDE, e o consumidor é o ÍCONE
- * da barra de notificação (v1.8.27).
- *
- * Relato do operador: *"revise o ícone que aparece na barra de notificação em
- * processos que não são downloads. diversos processos e preparações não são
- * downloads, mas usa o ícone de seta de baixando"*.
- *
- * É a regra da v1.4.19 — *o ícone segue a LEGENDA* — no terceiro lugar em que
- * ela vale: já valia para a seta do cartão sobre a preview e para a da linha do
- * item, e faltava na única superfície que existe com o app minimizado. Exportar,
- * importar e preparar uma apresentação não baixam byte nenhum.
- *
- * O PADRÃO É `true`, e não é comodidade: um bundle mais antigo que a ponte não
- * manda o campo, e o Kotlin lê ausente como "é download" — o comportamento de
- * sempre. Falhar para o lado que já existia é a regra deste app.
- */
 /**
  * O CARTÃO QUE FICA NA BARRA quando um trabalho longo termina bem.
  *
@@ -31655,9 +31653,6 @@ function resendSceneToDisplay(para) {
 // diferentes nos dois lados.
 AVDB.onCommand((msg) => {
   if (!msg) return;
-  // O PEDIDO DE UM ITEM DO CLONE. Ele vem do SHELL (`MessageBus.post(null,…)`,
-  // que não passa pelo `busPost` e por isso não ecoa para as telas da rede), e
-  // não do outro celular: a rota `/acervo/item/` de cá não achou o item no
   // Reenvia SÓ para quem se anunciou (ver `resendSceneToDisplay`). Um telão
   // com bundle antigo não manda `__de`, e aí o reenvio volta a ser broadcast —
   // exatamente o comportamento de antes desta versão.
@@ -31797,6 +31792,35 @@ AVDB.onCommand((msg) => {
       updatePvLyricSlide(tempoDaPreview());
       renderSlideNav();
       resyncPreviewToDisplay(playing, msg.currentTime, tol);
+      // ===== A REDE DE SEGURANÇA DO AVANÇO, sem TV (v1.8.48) =====
+      //
+      // O `media-ended` é o caminho EXATO do avanço, e ele NÃO CHEGA de uma tela
+      // da rede: o dreno do papel `tela` é lista de PERMISSÃO de dois tipos, e
+      // ele morre ali de propósito (N telas dariam N avanços). Sem TV a tela da
+      // rede É a projeção — e o `onEnded` da PREVIEW não cobre o buraco por dois
+      // motivos independentes: ele volta cedo em `displayActive()` (o
+      // `tela-status` mantém o relógio aceso) e o `<video>` dela nem chega a
+      // emitir `ended`, porque o ramo de `FIM_DA_PROJECAO_S` logo acima o PAUSA e
+      // REBOBINA. Resultado: a playlist parava em cada faixa, com a linha presa
+      // em "● No ar" sobre um telão que já voltou ao wallpaper — sem erro em
+      // lugar nenhum, e só numa igreja SEM TV.
+      //
+      // AQUI NÃO HÁ O PROBLEMA DAS N TELAS: quem chega neste ponto já passou
+      // pela ELEIÇÃO (`telaRefId`), então a fonte é UMA por construção — a mesma
+      // que o `snoopStatusDeFora` do Kotlin elege.
+      //
+      // As três guardas, cada uma fechando um modo de falhar: `!doTelao` (com o
+      // telão no ar o `media-ended` dele já avança, e daqui sairia DOBRADO — a
+      // playlist pulando uma faixa); a bandeira `fimJaTratado` (o status repete
+      // o mesmo fim a ~4 Hz); e o `mediaId`, a MESMA guarda do `media-ended` e
+      // pelo mesmo motivo — um status atrasado do item anterior não pode avançar
+      // por cima do que o operador acabou de escolher.
+      if (!doTelao && !fimJaTratado && !playing && dur > 0
+          && (msg.currentTime || 0) >= dur - FIM_DA_PROJECAO_S
+          && (!msg.mediaId || !currentId || msg.mediaId === currentId)) {
+        fimJaTratado = true;
+        autoAdvance();
+      }
     }
   } else if (msg.type === 'media-ended') {
     // A GUARDA DE mediaId que o comentário da preview (`onEnded`) sempre
@@ -32798,19 +32822,20 @@ async function telaEmpurrarAgora(it) {
 
 function telaGarantirEnvio(it) {
   if (!it || !it.id) return;
-  // O TOKEN É CARIMBADO AGORA, no item que entra na fila. O `__wp` é o único id
-  // MUTÁVEL do acervo — cada troca de wallpaper descarta o token e cunha outro.
+  // O TOKEN É CARIMBADO AQUI, no item que entra na fila. O `__wp` é o único id
+  // MUTÁVEL do acervo — cada troca de wallpaper descarta o token e cunha outro —,
+  // e é por isso que a deduplicação logo abaixo é por id + TOKEN.
   //
-  // MAS UM CHAMADOR QUE JÁ TEM O TOKEN MANDA NELE (v1.8.10). `telaTokenDe`
-  // CUNHA um token quando não conhece o id, e é isso que ele deve fazer para a
-  // mídia do telão — o id é do acervo e o token é nosso. No CLONE a relação se
-  // inverte: quem cunha é o SHELL (`AcervoCessao.tokenDoItem`, `<sessao>n<n>`),
-  // o outro celular já está esperando naquele token, e o id do item nunca
-  // esteve no mapa. Carimbar aqui trocava o token do pedido por um recém-nascido
-  // e o item inteiro era empurrado para o cache sob um nome que ninguém ia
-  // pedir: a rota `/acervo/item/` esperava os 60 s de PARADA e respondia 503,
-  // com o destino em 0% e sem erro em lugar nenhum dos dois lados.
-  const token = it.token || telaTokenDe(it.id);
+  // O RAMO `it.token ||` SAIU (v1.8.48): ele tinha UM produtor, o CLONE celular
+  // a celular, em que quem cunhava era o SHELL e o outro aparelho já esperava
+  // naquele token. O clone foi cortado na v1.8.16 e nenhum dos seis chamadores
+  // desta função passa `token` — o ramo era inalcançável, e as onze linhas que o
+  // explicavam descreviam uma classe Kotlin (`AcervoCessao`) e uma rota
+  // (`/acervo/item/`) que não existem mais.
+  //
+  // O IRMÃO DELE, no `telaEmpurrarAgora`, CONTINUA VIVO e não é este caso: lá o
+  // `it` já saiu da fila com o token que ESTA função carimbou.
+  const token = telaTokenDe(it.id);
   // SEM TOKEN NÃO HÁ EMPURRÃO, e ele morria calado uma função adiante
   // (`telaEmpurrarAgora` volta no `if (!token) return`) depois de já ocupar a
   // fila. `telaTokenDe` devolve null sem `crypto.randomUUID`.

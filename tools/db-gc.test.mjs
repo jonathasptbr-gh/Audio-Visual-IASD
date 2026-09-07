@@ -172,6 +172,55 @@ checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 2,
   'e a faxina seguinte recolhe as mídias que só ele segurava');
 checar(!(await existe(pa)) && !(await existe(pb)), 'que somem do banco');
 
+// --- O DETENTOR DE SEGUNDO NÍVEL (v1.8.48) ---------------------------------
+// Uma APRESENTAÇÃO é detentora dos vídeos que saíram de dentro do `.pptx`
+// (v1.6.2): eles não entram em lista nenhuma de propósito — tocam sozinhos na
+// página em que estavam. E um PACOTE pode carregar a apresentação, que é o caso
+// normal de quem guarda a fila do culto no Cronograma.
+//
+// São DOIS NÍVEIS, e a varredura os cortava no primeiro: ela iterava uma CÓPIA
+// do conjunto (`Array.from(donos)`), então o deck alcançado pelo pacote entrava
+// em `donos` e nunca era VISITADO — o ramo que desce nos vídeos dele não rodava,
+// eles ficavam órfãos, e a faxina da abertura seguinte os apagava. A
+// apresentação continua na lista, as páginas continuam desenhando, e o vídeo não
+// toca mais: sem erro em lugar nenhum, e só no sábado.
+//
+// A REVERSÃO ESTÁ MEDIDA: com `Array.from(donos)` de volta, a faxina recolhe 1 e
+// o vídeo some do banco.
+// O VÍDEO NASCE FORA DE QUALQUER LISTA, e isso é obrigatório: `semear` acrescenta
+// à lista que recebe, e um vídeo com lista PRÓPRIA é segurado por ela — a
+// asserção abaixo passaria com o defeito no lugar (MEDIDO na escrita deste
+// bloco). É o `.pptx` de verdade: os vídeos de dentro dele não entram em lista
+// nenhuma, e quem os segura é a apresentação.
+const vid = 'video-da-pagina';
+await pg.evaluate((v) => window.AVDB.mediaAdd({
+  id: v, name: 'Vídeo do slide', kind: 'video', type: 'video/mp4',
+  blob: new Blob(['x'], { type: 'video/mp4' }), thumb: null, url: null,
+  pages: null, videos: null, cue: null, data: null, youtubeId: null,
+  height: null, seconds: null, canal: null, lyrics: null, createdAt: 1,
+}), vid);
+const deck = 'deck-de-teste';
+await pg.evaluate(async ([d, v]) => window.AVDB.mediaAdd({
+  id: d, name: 'Apresentação', kind: 'deck', type: null,
+  blob: null, thumb: null, url: null, pages: ['p1'], videos: { 2: v },
+  cue: null, data: null, youtubeId: null, height: null, seconds: null,
+  canal: null, lyrics: null, createdAt: 1,
+}), [deck, vid]);
+const pacDeck = await pg.evaluate(async (d) => (await window.AVDB.addCue(
+  'group', { ids: [d] }, { name: 'Pacote com deck', list: 'imports' },
+)).id, deck);
+checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 0,
+  'a faxina desce DOIS níveis: pacote → apresentação → vídeo de dentro do .pptx');
+checar((await existe(vid)) && (await existe(deck)),
+  'e o vídeo da página continua no banco — sem isto ele some e a página fica muda');
+
+// A OUTRA METADE: morto o pacote, os dois níveis voltam a ser órfãos.
+await pg.evaluate((id) => window.AVDB.listRemove('imports', id), pacDeck);
+checar((await pg.evaluate(() => window.AVDB.gcOrfaos())) === 2,
+  'e excluído o pacote, a apresentação E o vídeo dela são recolhidos');
+checar(!(await existe(vid)) && !(await existe(deck)),
+  'os dois somem — descer não pode virar vazamento');
+
 await navegador.close();
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');
 process.exit(falhas.length ? 1 : 0);

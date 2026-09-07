@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.48",
+    "itens": [
+      "Sem TV, a playlist voltou a avançar sozinha quando a faixa acaba.",
+      "O vídeo de dentro de uma apresentação guardada deixou de ser apagado na abertura."
+    ]
+  },
+  {
     "versao": "1.8.47",
     "itens": [
       "Limpeza interna: saiu código que tinha ficado sem uso."

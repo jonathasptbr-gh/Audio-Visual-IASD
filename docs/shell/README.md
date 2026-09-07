@@ -57,9 +57,6 @@ para a TV com `android.app.Presentation`.
 | `MessageBus.kt` | 54 | `CLAUDE.md` — "Barramento de comandos" |
 | `ShareIntake.kt` | 143 | `CLAUDE.md` — "Compartilhamento" |
 | `SlideDeck.kt` | 321 | [`../arquitetura/DOCUMENTO-EM-CENA.md`](../arquitetura/DOCUMENTO-EM-CENA.md) |
-| `AcervoDescoberta.kt` | 413 | `CLAUDE.md` — "O clone celular a celular" (mDNS: os dois aparelhos se acham sem ninguém digitar endereço) |
-| `AcervoCessao.kt` | 330 | idem — quem CEDE. **PURO**, com JUnit: relógio injetado, base64 à mão, parse do índice na ponte — ele decide quem pode copiar o acervo inteiro |
-| `AcervoProxy.kt` | 251 | idem — quem CLONA. A página é `https` e o outro celular serve `http`; a faixa vai na QUERY (invariante 8) |
 | `Farol.kt` | 244 | [`../MEDICAO-DE-ALCANCE.md`](../MEDICAO-DE-ALCANCE.md) — uma busca por dia, agregada, sem id nenhum |
 | `CifraFonte.kt` | 178 | `CLAUDE.md` — "A aba de cifra" (transporte só; quem lê o HTML é `controle/cifra.js`) |
 
