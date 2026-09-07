@@ -236,18 +236,23 @@ const docs = [];
 {
   const wf = ler('.github/workflows/apk.yml');
   const noCi = new Set([...wf.matchAll(/tools\/([a-z0-9.-]+\.(?:test\.)?mjs)/g)].map((m) => m[1]));
-  const claude = ler('CLAUDE.md');
+  // A TABELA MUDOU DE CASA na faxina de 2026-09-07 (ela é REFERÊNCIA, e o
+  // `CLAUDE.md` é lido inteiro em toda sessão), mas o MÉTODO ficou lá — então a
+  // pergunta é pela UNIÃO dos dois. Escrita assim, ela sobrevive à tabela mudar
+  // de arquivo de novo: o que ela afere é "existe linha em algum lugar
+  // canônico?", não "está naquele arquivo".
+  const canon = ler('docs/ORACULOS.md') + '\n' + ler('CLAUDE.md');
   // O ARNÊS não é oráculo: ele tem seção própria, e não trava defeito nenhum.
   const ARNES = new Set(['arnes.mjs', 'checar.mjs']);
-  const semLinha = [...noCi].filter((o) => !ARNES.has(o) && !claude.includes(o)).sort();
+  const semLinha = [...noCi].filter((o) => !ARNES.has(o) && !canon.includes(o)).sort();
   const noDisco = new Set(readdirSync(join(RAIZ, 'tools')).filter((f) => f.endsWith('.test.mjs')));
   const foraDoCi = [...noDisco].filter((o) => !noCi.has(o)).sort();
 
   if (noCi.size >= 60) ok('o workflow foi lido (' + noCi.size + ' oráculos no CI)');
   else nao('o workflow foi lido', 'só ' + noCi.size + ' — o padrão do `rodar` mudou?');
-  if (!semLinha.length) ok('e todo oráculo do CI é citado no `CLAUDE.md`');
-  else nao('todo oráculo do CI é citado no CLAUDE.md',
-    semLinha.join(', ') + '\n\tconserto: acrescente a linha na TABELA DE ORÁCULOS, dizendo o que ele trava');
+  if (!semLinha.length) ok('e todo oráculo do CI tem linha em `docs/ORACULOS.md`');
+  else nao('todo oráculo do CI tem linha na tabela de oráculos',
+    semLinha.join(', ') + '\n\tconserto: acrescente a linha em `docs/ORACULOS.md`, dizendo o que ele trava');
   // *"Teste que não está no workflow é documentação, não rede de segurança"* — a
   // regra do repositório, cobrada aqui em vez de por uma linha de `comm`.
   if (!foraDoCi.length) ok('e todo oráculo de `tools/` roda no CI');
