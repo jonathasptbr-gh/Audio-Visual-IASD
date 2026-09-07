@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.28",
+    "itens": [
+      "A aba de cifra só aparece quando há mesmo uma cifra para ler.",
+      "O aviso do auxiliar de leitura deixou de acender por uma cifra que não existe."
+    ]
+  },
+  {
     "versao": "1.8.27",
     "itens": [
       "Exportar e importar passaram a ter uma barra só, de ponta a ponta.",

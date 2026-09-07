@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.27';
+const WEB_VERSION = '1.8.28';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11514,7 +11514,15 @@ function lyricsViewSources() {
   // SÓ NO APP. No navegador não há ponte, e sem ela não há como buscar a página
   // (CORS — ver `AVNative.cifraHtml`). Oferecer uma aba que só sabe explicar por
   // que não funciona é pior que não oferecê-la.
-  if (cifraCabe(alvo)) list.push('cifra');
+  //
+  // E SÓ COM FOLHA NA MÃO (v1.8.28). São DUAS perguntas, e enquanto houve só a
+  // primeira a aba aparecia para toda faixa de áudio do acervo — MEDIDO, dois
+  // terços dos álbuns não têm cifra sob endereço deduzível nenhum, e o que o
+  // toque abria era a frase de "não encontrei". `cifraCabe` decide se vale
+  // PROCURAR; `cifraTemFolha` decide se há o que MOSTRAR, e é esta que governa
+  // a aba, a badge do transporte e a precedência de abertura, porque as três
+  // saem desta lista.
+  if (cifraCabe(alvo) && cifraTemFolha(alvo)) list.push('cifra');
   // A RESERVA: sem NADA em exibição, um capítulo aberto (mesmo fora do ar) ainda
   // é o que o operador tem para ler — e é o que ele foi buscar ao abrir esta
   // folha. Ela sobrevive à revogação acima porque responde a outra pergunta: as
@@ -11660,6 +11668,20 @@ function openLyricsPopup(item, fonte) {
   // `lvItem()`, e com o alvo antigo ainda de pé ela responderia sobre a folha
   // anterior.
   lvAlvo = novo;
+  // ===== A PROCURA COMEÇA AQUI PARA QUEM NUNCA PASSOU PELO `send` (v1.8.28) ==
+  //
+  // O gatilho normal é a música ENTRAR EM CENA (v1.1.17), e ele tira a rede do
+  // caminho crítico: quem abre a folha no meio do culto costuma achar a resposta
+  // pronta. O ALVO DA BIBLIOTECA não tem esse gatilho — ele é o ensaio, e nada
+  // ali projeta —, e até a v1.8.27 quem o cobria era o `cifraGarantir` de dentro
+  // do `lvBuildCifra`. Com a aba dependendo do DESFECHO, aquele ponto deixou de
+  // ser alcançável antes de haver desfecho: sem esta linha a aba nunca
+  // apareceria para uma música aberta da Biblioteca, porque a procura que a
+  // faria aparecer só rodava depois de ela aparecer.
+  //
+  // IDEMPOTENTE, como no `send`: repetir a mesma música não repete a rede, e o
+  // desfecho redesenha a folha sozinho.
+  if (cifraCabe(lvItem())) cifraGarantir(lvItem());
   const frente = lyricsViewSources()[0] || null;
   // A ABA ESCOLHIDA SOBREVIVE À REABERTURA, e só não sobrevive à TROCA DE
   // ALVO. São duas coisas diferentes: quem escolheu "cifra" no transporte quer
@@ -11942,13 +11964,20 @@ function cifraNomeDoItem(item) {
 }
 
 /**
- * CABE CIFRA PARA ESTE ITEM? — e a resposta é UMA, para os dois consumidores.
+ * VALE A PENA PROCURAR CIFRA PARA ESTE ITEM? — e a resposta é UMA, para os três
+ * consumidores.
  *
- * A mesma pergunta é feita em dois lugares (a aba, que decide se se oferece, e
- * o pré-carregamento do `send`, que decide se busca). Duas escritas dela
+ * A mesma pergunta é feita no `send` (a música entrando em cena), na abertura
+ * da folha (o alvo da Biblioteca) e na lista de fontes. Duas escritas dela
  * divergiriam no primeiro ajuste — e a divergência entre "o que conta como
  * acorde" e "o que é transposto" foi exatamente o que produziu o defeito da
- * v1.1.15. Uma função, dois chamadores.
+ * v1.1.15. Uma função, três chamadores.
+ *
+ * **ELA NÃO DECIDE A ABA SOZINHA desde a v1.8.28.** Quem responde *"há o que
+ * MOSTRAR?"* é `cifraTemFolha`, sobre o desfecho da procura; esta responde
+ * *"vale gastar a rede?"*, e as duas são feitas em sequência na lista de
+ * fontes. Enquanto foram uma só, a aba aparecia para toda faixa do acervo e
+ * abria na frase de "não encontrei".
  *
  * O corte é por CONTEÚDO MUSICAL, não por nome: um episódio de série é um
  * testemunho em vídeo, e procurar cifra dele é uma requisição garantidamente
@@ -12273,16 +12302,29 @@ function cifraGarantir(item) {
     entrada.motivo = r.motivo;
     entrada.url = r.url;
     if (seq === lvCifraSeq) cifraUltimoDiag = r.tentativas.join('\n');
-    // O desfecho REDESENHA — sem isto a aba fica em "Procurando…" até o próximo
-    // pulso do `refreshLyricsView`, que num áudio pausado nunca vem.
-    if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
+    cifraDesfechoNaTela();
   }).catch(() => {
     entrada.estado = 'falha';
     entrada.motivo = AVCifra.MOTIVO_SEM_REDE;
-    if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
+    cifraDesfechoNaTela();
   });
 
   return entrada;
+}
+
+/**
+ * O DESFECHO DA PROCURA CHEGOU: quem o mostra são DUAS superfícies.
+ *
+ * A FOLHA, porque sem isto a aba fica em "Procurando…" até o próximo pulso do
+ * `refreshLyricsView`, que num áudio pausado nunca vem. E a BADGE do
+ * transporte, que desde a v1.8.28 depende deste desfecho: com a folha FECHADA
+ * o `renderLyricsView` nem roda, e uma faixa de áudio SEM LETRA tem a cifra
+ * como única fonte possível — a badge ficaria acesa (ou apagada) pelo estado de
+ * antes da resposta, sobre um botão que abre uma folha vazia.
+ */
+function cifraDesfechoNaTela() {
+  if (lyricsPopupEl.classList.contains('open')) renderLyricsView();
+  renderLeitorBadge();
 }
 
 // ===== A CIFRA DO HINÁRIO, GUARDADA NO APARELHO (v1.1.28) =====
@@ -12841,6 +12883,40 @@ function cifraGuardarEstrutura(rotulo, html) {
 function cifraEstado(item) {
   const chave = cifraChave(item);
   return (chave && cifraCache.get(chave)) || null;
+}
+
+/**
+ * ===== HÁ CIFRA DE VERDADE PARA MOSTRAR? (v1.8.28) =====
+ *
+ * Pedido do operador: *"que ele não apresente o botão da aba de cifra se não
+ * houver uma cifra de verdade para ser apresentada. não quero acesso a essa
+ * seção se não tem esse conteúdo."*
+ *
+ * `cifraCabe` responde outra pergunta — *"vale a pena PROCURAR?"* —, e ela é
+ * por CONTEÚDO MUSICAL: todo `kind: 'audio'` do acervo passa. MEDIDO, cerca de
+ * dois terços dos álbuns não estão sob endereço deduzível nenhum, então a aba
+ * era oferecida para a maioria das faixas só para dizer que não achou. É o
+ * precedente do MICROFONE SEM TV (v1.2.20/v1.2.21) na terceira vez: explicar é
+ * melhor que mentir, e **não oferecer é melhor que explicar**.
+ *
+ * O veredito é o do CACHE, e ele não dispara busca nenhuma — quem a dispara é
+ * `cifraGarantir`, no `send` (a música entrando em cena) e na abertura da folha
+ * (o alvo da Biblioteca, que nunca passa pelo `send`).
+ *
+ * **A ESPERA SÓ APARECE PARA QUEM JÁ ESTÁ NA ABA.** `buscando` é o único estado
+ * em que o app ainda não sabe a resposta, e ele dura de milissegundos (a cifra
+ * lida do disco) a segundos (a cadeia inteira de endereços). Escondê-lo para
+ * todo mundo é o certo — a aba nasce quando há folha; mas escondê-lo de quem
+ * ESCOLHEU a cifra tira a aba de baixo do dedo do músico a cada troca de faixa
+ * do louvor, para devolvê-la um segundo depois. A escolha manual (`lvSource`) é
+ * o que separa os dois: para ela a aba fica, com o "Procurando a cifra…" que
+ * `lvBuildCifra` desenha, e some se a procura terminar sem folha.
+ */
+function cifraTemFolha(item) {
+  const e = cifraEstado(item);
+  if (!e) return false;
+  if (e.estado === 'ok') return !!e.pagina;
+  return e.estado === 'buscando' && lvSource === 'cifra';
 }
 
 // Transpõe a folha em cena. O passo é guardado NA ENTRADA do cache, e não numa
@@ -13877,16 +13953,19 @@ function lvBuildCifra(el) {
   // ===== A FILA NASCE COM A SAÍDA, ANTES DE QUALQUER RETORNO CEDO (v1.6.1) ==
   //
   // ISTO É UMA INVARIANTE DE ESTRUTURA, NÃO DE ESTADO: *a fila da cifra sempre
-  // tem a saída*. Os dois `return` abaixo ("procurando" e o erro) são
-  // alcançáveis COM A TELA CHEIA NO AR — `cifraCabe` não olha o estado, então
-  // `lvActiveSource()` continua devolvendo `'cifra'` e a saída automática do
-  // `renderLyricsView` não dispara. Basta a cena virar de faixa para a entrada
-  // nova nascer em "buscando"; e num `falha` isso é PERMANENTE, porque
-  // `cifraGarantir` não reconsulta na sessão. Construída depois dos retornos, a
-  // fila fica vazia e o que sobra é uma paisagem deitada com uma frase de erro e
-  // NENHUMA saída à vista — o ✕ e o toque no fundo já saem em tela cheia por
-  // regra escrita, e Esc/F11 não existem num aparelho. Sobraria só o voltar do
-  // Android, que é a saída que ninguém vê.
+  // tem a saída*. O `return` da ESPERA é alcançável COM A TELA CHEIA NO AR —
+  // basta a cena virar de faixa para a entrada nova nascer em "buscando", e com
+  // a cifra ESCOLHIDA (`lvSource`) a aba fica, então `lvActiveSource()` continua
+  // devolvendo `'cifra'` e a saída automática do `renderLyricsView` não dispara.
+  // Construída depois do retorno, a fila fica vazia e o que sobra é uma paisagem
+  // deitada com um anel girando e NENHUMA saída à vista — o ✕ e o toque no fundo
+  // já saem em tela cheia por regra escrita, e Esc/F11 não existem num aparelho.
+  // Sobraria só o voltar do Android, que é a saída que ninguém vê.
+  //
+  // O DESFECHO SEM FOLHA deixou de chegar aqui na v1.8.28: ele tira a cifra da
+  // lista, e é o `renderLyricsView` que devolve o retrato (`cifraCheiaSair`).
+  // A invariante não fica mais barata por isso — quem paga a espera é o mesmo
+  // músico, na mesma paisagem.
   //
   // A CASA MUDOU NA v1.6.3 e a invariante ficou MAIS BARATA: a fila é um nó
   // ESTÁTICO do `index.html`, então ela não precisa ser construída para existir
@@ -13903,39 +13982,34 @@ function lvBuildCifra(el) {
   cifraCheiaBtnEl.hidden = false;
   ctl.appendChild(cifraCheiaBtnEl);
 
+  // ===== OS DOIS RETORNOS CEDO, E O QUE SOBROU DELES (v1.8.28) ==============
+  //
+  // A ESPERA é o único desfecho que ainda se desenha aqui, e ela só chega para
+  // quem ESCOLHEU a aba de cifra: desde a v1.8.28 a aba sai da lista enquanto
+  // não há folha (`cifraTemFolha`), e a exceção do `buscando` existe para não
+  // tirá-la de baixo do dedo do músico a cada troca de faixa.
+  //
+  // AS CINCO FRASES DE FALHA SAÍRAM. Elas eram a resposta inteira desta aba
+  // desde a v1.3.3, e o operador pediu o contrário: *"não quero acesso a essa
+  // seção se não tem esse conteúdo"*. Sem cifra a aba não existe mais, então
+  // não há mais superfície onde a frase caiba — é o MICROFONE SEM TV (v1.2.21)
+  // outra vez, e o diagnóstico continua inteiro no bloco "Cifra (última busca)"
+  // do Registro, que é onde este projeto guarda diagnóstico.
+  //
+  // O `estado !== 'ok'` que sobrevive ao filtro é ESTADO IMPOSSÍVEL — a lista e
+  // este desenho discordando. Ele não pode cair num `return` mudo: uma caixa
+  // vazia com a fila de controles em cima é o desfecho que ninguém consegue
+  // relatar, e a frase curta abaixo custa uma linha.
   if (!entrada || entrada.estado === 'buscando') {
     el.appendChild(cifraEspera('Procurando a cifra…'));
     return;
   }
 
-  if (entrada.estado !== 'ok') {
-    // CADA MOTIVO PEDE UMA AÇÃO DIFERENTE, e por isso são frases diferentes.
-    // Um "não foi possível carregar" genérico é o que faz o operador tentar de
-    // novo quando o certo era desistir, e desistir quando o certo era tentar.
-    const frases = {
-      [AVCifra.MOTIVO_SEM_REDE]: 'Sem resposta da internet. A cifra é lida na hora — sem rede, não há como buscá-la.',
-      [AVCifra.MOTIVO_NAO_TEM]: 'Não encontrei a cifra de “' + nome + '”.',
-      [AVCifra.MOTIVO_RECUSOU]: 'O site respondeu, mas recusou a página. Tente de novo daqui a pouco.',
-      // A FRASE DIZ O QUE FOI OBSERVADO, não o que se conclui dele (v1.2.21).
-      // Ela afirmava "o site não tem os acordes desta música" — e MEDIDO: o
-      // Cifra Club serve VARIANTES no mesmo endereço (cifra, letra, partituras
-      // para teclado), e a página de letra chegando não prova ausência de cifra
-      // nenhuma. Afirmar a conclusão errada é pior que descrever o fato.
-      [AVCifra.MOTIVO_SEM_CIFRA]: 'O Cifra Club tem “' + nome + '”, mas não a cifra dela '
-        + '— só a letra ou a partitura.',
-      [AVCifra.MOTIVO_ILEGIVEL]: 'Achei a página e não consegui lê-la — o site mudou de formato. '
-        + 'Isso se corrige numa atualização da base; o Registro em Configurações tem o detalhe.',
-    };
+  if (entrada.estado !== 'ok' || !entrada.pagina) {
     const box = document.createElement('div');
     box.className = 'lv-cifra-estado lv-cifra-erro';
-    box.textContent = frases[entrada.motivo] || 'Não foi possível carregar a cifra.';
+    box.textContent = 'Não há cifra de “' + nome + '” para mostrar.';
     el.appendChild(box);
-
-    // A BUSCA MANUAL SAIU (v1.3.3), a pedido do operador — com ela saíram a
-    // lista de resultados, a prévia, o campo de consulta e a escolha fixada.
-    // O que fica é a FRASE do motivo: são cinco, e cada uma pede uma ação
-    // diferente de quem lê (ver `cifraPedir`). Por isso a frase é a resposta
-    // inteira agora, e não a introdução de uma tela de correção.
     return;
   }
 
