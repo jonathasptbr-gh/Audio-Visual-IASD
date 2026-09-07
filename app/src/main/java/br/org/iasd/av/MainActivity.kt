@@ -536,10 +536,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         EspelhoEnergia.onDesligar = { stopMirror() }
         EspelhoEnergia.onGone = {
             runOnUiThread {
-                // O ANDROID ENCERROU O SERVIÇO. A bandeira cai junto: deixá-la
-                // de pé faria a folha continuar dizendo "ligado" sobre um
-                // servidor que já não existe.
-                telaoPedido = false
                 desmontarEspelho("o Android encerrou o servico em primeiro plano")
             }
         }
@@ -839,7 +835,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // valer para o `SessionService`, logo acima.
         if (!isChangingConfigurations) {
             try {
-                telaoPedido = false
                 desmontarEspelho("o app foi fechado")
             } catch (e: Exception) {
                 Log.w(TAG, "espelho não desligou", e)
@@ -1152,12 +1147,38 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
     override fun pacoteFinish(onResult: (Long) -> Unit) {
         runOnUiThread {
+            // O DOCUMENTO É CAPTURADO ANTES DO FECHO (v1.8.43), e é isso que
+            // torna a limpeza abaixo possível: [PacoteCanal.fechar] zera a
+            // `uri` ANTES do `try` que pode lançar, então depois dele
+            // `uriEmCurso()` já devolve `null` — e o `pacoteCancelar` que o web
+            // dispara na falha chegava sem nada para apagar.
+            val doc = pacoteCanal.uriEmCurso()
             val bytes = pacoteCanal.fechar()
             val local = pacoteLocal
             pacoteLocal = null
             // O CAMINHO DO SAF acaba aqui, como sempre: o documento é do
             // operador, e o que ele faz com ele depois não é assunto do app.
-            if (local == null) { onResult(bytes); return@runOnUiThread }
+            //
+            // MENOS QUANDO O FECHO FALHOU. `pacoteFechar` existe justamente
+            // para descobrir o cartão cheio — os acks por bloco já disseram
+            // "recebi", e é o `flush`/`close` que reprova. Sem esta limpeza
+            // ficava no cartão do operador um `.avpkg` TRUNCADO com nome de
+            // acervo inteiro, enquanto a tela dizia que o parcial fora apagado.
+            // O `fim` ausente impede o estrago maior (a importação recusa o
+            // pacote), mas não devolve os gigabytes nem desfaz a frase falsa.
+            if (local == null) {
+                if (bytes < 0L && doc != null) {
+                    try {
+                        DocumentsContract.deleteDocument(contentResolver, doc)
+                    } catch (e: Exception) {
+                        // O provedor pode recusar (nuvem, somente-leitura) — a
+                        // mesma ressalva do [descartarPacote].
+                        Log.w(TAG, "o pacote parcial do SAF nao saiu", e)
+                    }
+                }
+                onResult(bytes)
+                return@runOnUiThread
+            }
             // O CAMINHO LOCAL NÃO ACABA NO FECHO (v1.8.19) — ele PROMOVE o
             // arquivo a PRONTO, e é o operador que decide quando enviá-lo, e
             // quantas vezes. Antes, fechar e abrir o seletor eram o mesmo
@@ -1290,20 +1311,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * O QUE O SHELL SABE do pacote, em texto, para o Registro.
-     *
-     * Ele existe porque este caminho já gastou TRÊS rodadas de campo — *"o
-     * arquivo tem 0kb"*, *"não faz nada"* e *"engatilha um Refaça"* — em que a
-     * única informação que sairia do aparelho era o desfecho visível, e o `-1`
-     * do [pacoteShare] colapsa TRÊS causas distintas: não há pronto, o arquivo
-     * sumiu, ou o seletor recusou. Separá-las por dedução sobre o código é o
-     * que essas rodadas foram.
-     *
-     * TEXTO E NÃO JSON, ao contrário do [espelhoDiag]: aqui não há frase a
-     * montar do lado web — o consumidor é uma pessoa lendo o Registro, e o que
-     * ela precisa é do nome da exceção.
-     */
-    /**
      * APAGA O ARQUIVO QUE A IMPORTAÇÃO ACABOU DE LER.
      *
      * O pacote é o acervo inteiro: deixá-lo em Downloads dobra o espaço que a
@@ -1344,6 +1351,20 @@ class MainActivity : ComponentActivity(), BridgeHost {
     /** O desfecho do último consumo, para a linha do Registro. */
     private var pacoteUltimoConsumo: String = ""
 
+    /**
+     * O QUE O SHELL SABE do pacote, em texto, para o Registro.
+     *
+     * Ele existe porque este caminho já gastou TRÊS rodadas de campo — *"o
+     * arquivo tem 0kb"*, *"não faz nada"* e *"engatilha um Refaça"* — em que a
+     * única informação que sairia do aparelho era o desfecho visível, e o `-1`
+     * do [pacoteShare] colapsa TRÊS causas distintas: não há pronto, o arquivo
+     * sumiu, ou o seletor recusou. Separá-las por dedução sobre o código é o
+     * que essas rodadas foram.
+     *
+     * TEXTO E NÃO JSON, ao contrário do [espelhoDiag]: aqui não há frase a
+     * montar do lado web — o consumidor é uma pessoa lendo o Registro, e o que
+     * ela precisa é do nome da exceção.
+     */
     override fun pacoteDiag(): String {
         val alvo = pacotePronto
         val onde = if (alvo == null) "nenhum pacote pronto no shell" else {
@@ -2150,11 +2171,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * especificação proíbe degradar calado em todos os pontos deste caminho.
      */
     override fun startMirror(ip: String, onResult: (JSONObject) -> Unit) {
-        // O PEDIDO É DO OPERADOR, e é ele que o `stopMirror` desfaz. A CESSÃO
-        // sobe o mesmo servidor por outra porta de entrada (`subirServidor`) e
-        // **não** marca esta bandeira: se marcasse, desligar a cessão deixaria
-        // o servidor de pé para sempre, servindo um telão que ninguém pediu.
-        telaoPedido = true
         subirServidor(ip, onResult)
     }
 
@@ -2270,7 +2286,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * parar é o oposto de parar — a mesma lição do `ytCancel`.
      */
     override fun stopMirror() {
-        telaoPedido = false
         desmontarEspelho("o operador desligou a transmissao")
     }
 
@@ -2467,21 +2482,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
             runOnUiThread { onResult() }
         }
     }
-
-    // ---------- o CLONE da biblioteca (shell 65) ----------
-    //
-    // O SERVIDOR PASSOU A TER DUAS RAZÕES DE VIVER: a transmissão do telão e a
-    /**
-     * O operador ligou a TRANSMISSÃO (o telão nas telas da rede).
-     *
-     * ELE FICA COM UM DONO SÓ desde a v1.8.17, e isso é uma simplificação e
-     * não uma perda: enquanto o clone pela rede existiu, o servidor tinha DUAS
-     * razões de viver e o par de bandeiras é que impedia uma de derrubar a
-     * outra. Com o clone fora, quem liga e desliga é o mesmo operador pelo
-     * mesmo botão. O padrão do [SessionService] (cena E transmissão) segue de
-     * pé — lá as duas razões continuam existindo.
-     */
-    private var telaoPedido = false
 
     // ---------- fullscreen HTML5 ----------
 
@@ -2754,9 +2754,26 @@ class MainActivity : ComponentActivity(), BridgeHost {
          * O pacote FECHADO que espera o operador mandar (v1.8.19).
          *
          * NO COMPANION, e pelo mesmo motivo do [pacoteCanal] logo abaixo: ele é
-         * um arquivo no disco, sem documento nenhum atrás — e tem de sobreviver
-         * a uma recriação de Activity, senão o tile voltaria a oferecer
-         * "Exportar" com gigabytes prontos que ninguém mais alcança.
+         * um arquivo no disco, sem documento nenhum atrás, e sobrevive a uma
+         * recriação de Activity — [pacoteShare], [pacoteDiag] e a faxina do
+         * lançamento continuam enxergando o arquivo depois dela.
+         *
+         * O QUE ELE **NÃO** IMPEDE, e o KDoc afirmava que sim até a v1.8.43:
+         * o tile voltar a oferecer "Exportar" com gigabytes prontos no disco.
+         * Quem decide o que o tile oferece é o LADO WEB, e lá `pacotePronto` é
+         * estado de PÁGINA (`let`, em `controle.js`) que nada semeia a partir
+         * daqui — não há método de ponte que responda "há pronto?"
+         * ([pacoteDiag] devolve TEXTO para uma pessoa ler no Registro, não um
+         * estado consumível). Um OTA aplicado, a morte do renderer ou uma
+         * recriação de Activity recarregam a página, ela nasce com `null`, e o
+         * arquivo fica em `files/pacote/` até a faxina do lançamento seguinte.
+         *
+         * O CONSERTO É O DO `mirrorEstado` (ver `lerEspelho()` no `init()` do
+         * `controle.js`, que existe por este MESMO motivo — "o servidor vive no
+         * SHELL e sobrevive ao documento"): um método de ponte que devolva nome
+         * e `length()` do disco, semeado na abertura. Custa `SHELL_VERSION`,
+         * `minShell`, `shellTag` e Release, e por isso está em
+         * `docs/ACHADOS-EM-ABERTO.md` em vez de aqui.
          *
          * É o par do `pacoteLocal`, que é de INSTÂNCIA de propósito: aquele é o
          * parcial EM CURSO, e quem o alimentava morre com a Activity.

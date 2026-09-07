@@ -1678,11 +1678,13 @@ sintoma é "a atualização não chega".
      meio da projeção.
    - **Nada é apagado ao aplicar**: o diretório antigo pode ter requisições em
      voo durante a recarga; quem recolhe é o `beginSession()` seguinte.
-   - **Dois caminhos de aplicação, independentes de propósito** (um chega por
-     APK, o outro por OTA): no shell, `check()` → `aplicarSozinho` →
-     `applyWebUpdate` (robusto: não depende de o WebView do Controle estar vivo);
-     no web, a enquete + o gatilho de retomada, para o caso de o empurrão se
-     perder.
+   - **HÁ UM CAMINHO DE APLICAÇÃO, e ele passa pela PERGUNTA.** O shell só
+     AVISA (`WebUpdater.onEstado` → `window.__avAtualizacao`); quem aplica é o
+     web, no "Atualizar agora" do diálogo (`otaApply`). O `aplicarSozinho` que
+     trocava a base sem perguntar saiu na v5.234 — o `grep` por ele em
+     `app/src/main/java/` devolve só as duas linhas que dizem que ele saiu. O
+     que existe em DUPLICATA é a DETECÇÃO, não a aplicação: o empurrão do shell
+     e a enquete de 10 s do web, esta para o caso de aquele se perder.
    - **`otaRecusadas` mudou de significado**: era "o operador disse depois", hoje
      é "**já tentamos e o shell não aceitou**" — sem ela, um bundle reprovado
      faria a enquete pedir aplicação a cada 20 s, para sempre.
@@ -5337,9 +5339,27 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.42 · APK v1.8.39** · `SHELL_VERSION` **71** ·
-bundle com `minShell: 71` e **SEM `shellTag`** (lote SÓ WEB) — o shell 71 é o
-**PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
+**Versão atual: base web v1.8.43 · APK v1.8.39** · `SHELL_VERSION` **71** ·
+bundle com `minShell: 71` e **SEM `shellTag`** — o shell 71 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web.
+
+> **A v1.8.43 TOCA `java/` E MESMO ASSIM NÃO DECLARA `shellTag`, e a razão é o
+> ACOPLAMENTO — que é a pergunta que aquele campo faz.** A metade Kotlin do lote
+> é UMA constante (`PRECEDENCIA_TELAO_MS`, 3.000 → 2.500), e nada na metade web
+> depende dela: as duas são independentes, então segurar o bundle não protegeria
+> nada e atrasaria correções que apagam acervo em silêncio (a mescla que
+> descartava o índice de uma coleção, o coletor que apagava o vídeo de uma
+> apresentação). **A Release continua sendo devida** — `java/` só chega
+> instalando um APK —, e enquanto ela não sai o aparelho fica com a metade web,
+> que é o modo de falhar barato deste campo.
+> **PEDE RELEASE `v1.8.43`, sem hold.**
+
+> **ELA NASCEU v1.8.42 E FOI RENUMERADA NO MERGE, e o motivo vale escrito: uma
+> segunda sessão publicou uma v1.8.42 em `main` enquanto esta corria.** Dois
+> bundles com o MESMO número não são um empate — são o segundo ficando
+> INVISÍVEL, porque `compareVersions` só aceita o que for MAIOR que o instalado.
+> É a armadilha do `1.1` × `1.1.0` por outro caminho: o degrau não é opcional
+> nem quando o número "já parece novo".
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
 > oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no

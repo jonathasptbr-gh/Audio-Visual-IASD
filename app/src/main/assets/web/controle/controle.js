@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.42';
+const WEB_VERSION = '1.8.43';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -913,7 +913,10 @@ function collSongs(id) { return (collState[id] && collState[id].songs) || []; }
 // O tipo é decidido UMA vez, num lugar só, e cada afordância pergunta pela
 // CAPACIDADE de que depende — NUNCA por "é série?". É isso que abre lugar para
 // o terceiro modelo (materiais de evento, vídeos avulsos, apresentações) sem
-// mais um `if (ehSerie)` espalhado por funções que não se conhecem.
+// mais um `if (coll.kind === 'serie')` espalhado por funções que não se
+// conhecem. Houve aqui um atalho `ehSerie(coll)` para essa pergunta, e ele saiu
+// na v1.8.42 SEM NUNCA TER SIDO CHAMADO: um predicado que nomeia exatamente o
+// que este bloco proíbe é um convite, não uma conveniência.
 //
 // REGRA GERAL, aprendida duas vezes aqui: desviar as PORTAS de um recurso não
 // desvia o que estava atrás delas. As folhas foram desviadas para o caminho do
@@ -930,7 +933,6 @@ const TIPO_VIDEO = 'video';     // vídeo do YouTube: um LINK, sem letra e sem v
 function tipoDaColecao(coll) {
   return coll && coll.kind === 'serie' ? TIPO_VIDEO : TIPO_MUSICA;
 }
-function ehSerie(coll) { return !!coll && coll.kind === 'serie'; }
 
 // ----- As CAPACIDADES, que é o que os chamadores devem perguntar -----
 //
@@ -16339,6 +16341,26 @@ const indicesForcados = new Set();
 
 async function autoRefreshCollections() {
   if (collectionsRefreshing) return;
+  // ELA CEDE A VEZ AO QUE ESTÁ NO AR (v1.8.42) — a regra da v1.4.19, que
+  // nasceu para as rotinas IRMÃS (`syncLyrics`, `syncCifrasAcervo`) e nunca
+  // chegou aqui. Esta função é chamada na abertura E em todo `visibilitychange`
+  // que traz o app para a frente, isto é, TODA VEZ que o operador volta ao app
+  // durante o culto: a fase 1 relê os dois hinários e o catálogo em
+  // `Promise.all`, e a fase 2 varre álbuns e séries com `NET_CONCURRENCY` (6)
+  // requisições concorrentes — e o índice de uma SÉRIE custa uma extração do
+  // YouTube. Tudo isso disputando a Wi-Fi da igreja com a mídia no ar.
+  //
+  // A GUARDA VEM ANTES DE `collectionsRefreshing = true`, e isso não é
+  // arrumação: a atribuição está FORA do `try`, então um `return` depois dela
+  // deixaria a bandeira presa em `true` e desligaria a função pelo resto da
+  // sessão — silenciosamente.
+  //
+  // CEDE A VEZ E SAI, não espera: é a mesma troca já aceita por escrito para as
+  // irmãs, e é retomável por construção — quem rearma já existe (a abertura e
+  // todo `visibilitychange`). O preço, dito: com mídia no ar o índice dos
+  // hinários, o catálogo e a lista das séries deixam de se atualizar até a cena
+  // sair.
+  if (!rotinaDeAcervoPodeCorrer()) return;
   collectionsRefreshing = true;
   try {
     // Coleção sincronizando agora não é atualizada por aqui: o download em
@@ -16379,7 +16401,11 @@ async function autoRefreshCollections() {
     // função, e é ele que produziria a rajada. Desarmado AQUI, e não no
     // `indiceVencido`, porque aquele é um predicado dentro de um `filter`.
     serieProcuraDaAbertura = false;
-    await runLimited(stale, NET_CONCURRENCY, (c) => fetchCollectionIndex(c).catch(() => {}));
+    // E DENTRO DO LAÇO, pelo mesmo motivo da porta: o caso NORMAL é o app abrir
+    // vazio, a varredura partir, e só então o operador tocar no primeiro item.
+    await runLimited(stale, NET_CONCURRENCY, (c) => (rotinaDeAcervoPodeCorrer()
+      ? fetchCollectionIndex(c).catch(() => {})
+      : Promise.resolve()));
     // Fase 3: as LETRAS dos hinários, como informação padrão do acervo — o
     // índice sozinho não responde "qual hino fala em…". Fire-and-forget: é
     // longa (uma requisição por música) e nada na tela espera por ela; o
@@ -19469,7 +19495,6 @@ function serieComoYoutube(coll, s) {
   }
   return r;
 }
-// (`ehSerie` mora com o resto do modelo de coleção, junto de `tipoDaColecao`.)
 
 // (`openSongMenu` — a FOLHA de um item do acervo — saiu na v5.285: os dois
 // botões que a abriam deixaram de existir, e a mesma lista passa a ser montada
@@ -23851,16 +23876,6 @@ function pacoteCheckGrupo(estado) {
   return cx;
 }
 
-// O ÍCONE DE UM GRUPO sai do sprite, e não da fonte: o `ICON` é o subset de 31
-// codepoints do `.msym`, e nem engrenagem nem pasta estão nele — um glifo fora
-// do subset não desenha NADA, sem erro e sem requisição falhando (é o que o
-// `glifos.test.mjs` existe para pegar). O sprite tem os dois desenhos.
-function pacoteIconeSvg(id) {
-  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" '
-    + 'stroke="currentColor" stroke-width="2" stroke-linecap="round" '
-    + 'stroke-linejoin="round" aria-hidden="true"><use href="#' + id + '"/></svg>';
-}
-
 /** O peso de um conjunto de chaves, para o resumo de uma seção. */
 function pacotePesoDe(plano, chaves) {
   let t = 0;
@@ -24732,6 +24747,28 @@ function pacoteIdentDaLista(v) {
 function pacoteMesclarValor(local, vindo) {
   if (local === undefined || local === null) return vindo;
   if (vindo === undefined || vindo === null) return local;
+  // LISTA LOCAL VAZIA NÃO É UM LADO A PRESERVAR (v1.8.42), e sem esta linha o
+  // vazio VENCIA. A promessa desta função é "o local nunca perde"; uma lista
+  // vazia não tem o que perder, e as três regras abaixo não a alcançam: um
+  // `[]` satisfaz `listaDeIds` por VACUIDADE (`[].every()` é `true`), mas o
+  // PAR falha quando o que chega é lista de objetos; `pacoteIdentDaLista([])`
+  // devolve `''` pelo `!v.length`; e `mapa([])` é falso por ser Array. Sobrava
+  // o `return local` do fim — o vazio comendo a lista que chegou.
+  //
+  // MEDIDO, e o caminho é o uso normal do recurso: `deleteCollection` grava
+  // `{indexSyncedAt: 0, songs: []}` no `state`, então "apago a coleção para
+  // liberar espaço, depois importo o pacote" fazia entrar os BYTES e os
+  // registros e descartar o ÍNDICE. A coleção aparecia VAZIA na Biblioteca,
+  // nada tocava, o `gcOrfaos` da abertura seguinte recolhia os gigabytes, e o
+  // relatório nem a mencionava (`if (!songs.length) continue`). Zero erro.
+  // Vale igual para `messages` e `folders`, que também são gravados vazios.
+  //
+  // Devolve `local` quando os DOIS estão vazios: a identidade é o que diz
+  // "nada mudou" ao chamador, e um objeto novo faria a chave ser reescrita e
+  // contada — a Bíblia mora em `state` com uma chave por capítulo.
+  if (Array.isArray(local) && !local.length && Array.isArray(vindo)) {
+    return vindo.length ? vindo : local;
+  }
   const listaDeIds = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string');
   if (listaDeIds(local) && listaDeIds(vindo)) {
     const tem = new Set(local);
@@ -25390,7 +25427,25 @@ async function pacoteRelatorio(contagem, consumo) {
 }
 
 async function importarPacote() {
-  if (!window.__NATIVE__ || pacoteEmCurso) return;
+  // `pacotePronto` ENTRA NA GUARDA (v1.8.42), e sem ele um toque fazia DUAS
+  // coisas. O tile de importar tem um ouvinte PERMANENTE (`addEventListener`,
+  // no fim deste arquivo) e, no estado "pronto para enviar", `pacoteIrmaoCancela`
+  // acrescenta um `onclick` que o transforma no DESCARTAR — os dois são
+  // registros independentes, e o `preventDefault()` de lá não é
+  // `stopImmediatePropagation()`: MEDIDO em Chromium, um clique roda os dois, e
+  // o do `addEventListener` roda PRIMEIRO (foi registrado antes).
+  //
+  // Nos outros dois estados isso era inofensivo porque `pacoteEmCurso` é `true`
+  // e esta linha já barrava. No estado da v1.8.29 ele é FALSE — o `finally` de
+  // `exportarPacote` o zera ANTES de `pacotePronto` ser atribuído —, então
+  // tocar em "Descartar" abria o seletor de documentos do Android POR CIMA do
+  // diálogo de confirmação, e escolher um `.avpkg` ali começava uma importação
+  // de gigabytes que ninguém pediu. É a regressão da própria v1.8.28, que
+  // tornou o rótulo honesto e deixou o ouvinte antigo disparando.
+  //
+  // A guarda é a leitura literal do desenho: com um pacote pronto na mão,
+  // aquele botão NÃO é o importador — ele é a saída para fazer outro.
+  if (!window.__NATIVE__ || pacoteEmCurso || pacotePronto) return;
   const escolhidos = await AVNative.pickDoc(['*/*']);
   const alvo = (escolhidos && escolhidos[0]) || null;
   if (!alvo || !alvo.url) return;
@@ -25560,6 +25615,21 @@ async function importarPacote() {
 
   pulsar(pacoteImportarTileEl, 'ok');
   bgConcluido('Acervo importado', 'A biblioteca já está no aparelho.');
+  // A REHIDRATAÇÃO VEM ANTES DO RELATÓRIO (v1.8.43), e a ordem é o que o
+  // relatório diz. Ele nomeia as coleções por `allCollections()`, que lê o
+  // `albumCatalog` do MÓDULO; quem o repõe do banco é o `loadCollections()`
+  // daqui de baixo. Montado antes, ele lia o catálogo VELHO — e no caso de uso
+  // declarado do recurso (aparelho novo, sem internet, que é o motivo de o
+  // pacote existir) esse catálogo está VAZIO: `pacoteBaldesDoAcervo` não monta
+  // coletânea nenhuma, todo álbum cai em "soltas", e o diálogo escreve
+  // `album-57: 10 de 10 músicas` em vez de `Missão: …`, sem agrupamento e fora
+  // da ordem da Biblioteca. Justo o que a v1.8.40 arrumou, desfeito pela ordem.
+  //
+  // O preço, dito: a rehidratação tem `location.reload()` como saída de falha,
+  // e agora ela roda ANTES do diálogo — numa falha o relatório se perde junto.
+  // É a troca certa: aquele caminho é a emergência, e o relatório errado é o
+  // caso NORMAL do aparelho que o recurso existe para servir.
+  await reidratarDepoisDaImportacao();
   await openAppDialog({
     title: 'Acervo importado',
     message: await pacoteRelatorio(contagem, consumo),
@@ -25574,7 +25644,6 @@ async function importarPacote() {
     cancelText: null,
     fixo: true,
   });
-  await reidratarDepoisDaImportacao();
 }
 
 // ===== A IMPORTAÇÃO NÃO RECARREGA MAIS O APP (v1.8.28) =====
@@ -30528,7 +30597,16 @@ function descreverTelao() {
   // de aparecer: um Registro que diz "conectado" sobre uma TV sem
   // `Presentation` no ar manda investigar o app enquanto o que falhou foi a
   // janela — e é justamente esse o estado de "conectei e não veio nada".
-  const est = tv.telao ? '' : ' — SEM TELÃO NO AR (a Presentation não subiu)';
+  //
+  // QUEM RESPONDE É `telaoNoChao()`, e não um `tv.telao` escrito aqui (v1.8.42).
+  // Eram duas escritas da MESMA pergunta, e elas já divergiam: aquela olhava só
+  // `lastDisplays[0]`, esta varre a lista por `telaoNoAr()` — com duas telas
+  // listadas e o telão na segunda, o Registro acusava "SEM TELÃO NO AR" sobre um
+  // telão que estava no ar. Uma segunda opinião envelhece à parte, e num
+  // artefato que é LIDO A DISTÂNCIA por quem não pode conferir isso é o pior
+  // defeito que este projeto sabe produzir. De quebra a função deixa de existir
+  // só para o oráculo: até aqui `telaoNoChao` não tinha um chamador no app.
+  const est = telaoNoChao() ? ' — SEM TELÃO NO AR (a Presentation não subiu)' : '';
   return 'conectado: ' + (tv.name || 'TV') + ' (' + tv.w + '\u00d7' + tv.h + ')' + est;
 }
 

@@ -617,28 +617,6 @@ class SyncService : Service() {
         }
 
         /**
-         * O CARTÃO QUE FICA QUANDO O TRABALHO ACABA.
-         *
-         * Pedido do operador: *"ao terminar o processo de exportar ou importar,
-         * o ícone não desapareça na barra, mas vire um ícone de check, para não
-         * ter a impressão de falha ou erro. deixe a notificação de conclusão"*.
-         *
-         * E ele está descrevendo uma ambiguidade real: até aqui o fim de uma
-         * exportação e a MORTE do processo produziam a mesma coisa na barra —
-         * o ícone sumindo. Quem estava com o app minimizado não tinha como
-         * saber qual das duas aconteceu.
-         *
-         * ID PRÓPRIO, e é o que faz isto funcionar. O cartão do trabalho é o do
-         * serviço em primeiro plano, e o `onDestroy` o cancela explicitamente
-         * (ele foi postado por `notify`, não por `startForeground`, e não está
-         * amarrado ao ciclo de vida). Um cartão final sob o MESMO id seria
-         * apagado por essa limpeza — e a ordem entre as duas coisas dependeria
-         * do agendador. Sob outro id, o fim do serviço não o alcança.
-         *
-         * NÃO É `ongoing`, e é `autoCancel`: ele é um AVISO, não um trabalho —
-         * o operador o dispensa com um gesto, e ele sai sozinho ao ser tocado.
-         */
-        /**
          * O CANAL, criado do lado do COMPANION — é daqui que os dois
          * chamadores o alcançam: o serviço, ao subir, e o [concluir], que
          * posta um cartão SEM serviço nenhum de pé.
@@ -665,6 +643,28 @@ class SyncService : Service() {
             nm.createNotificationChannel(channel)
         }
 
+        /**
+         * O CARTÃO QUE FICA QUANDO O TRABALHO ACABA.
+         *
+         * Pedido do operador: *"ao terminar o processo de exportar ou importar,
+         * o ícone não desapareça na barra, mas vire um ícone de check, para não
+         * ter a impressão de falha ou erro. deixe a notificação de conclusão"*.
+         *
+         * E ele está descrevendo uma ambiguidade real: até aqui o fim de uma
+         * exportação e a MORTE do processo produziam a mesma coisa na barra —
+         * o ícone sumindo. Quem estava com o app minimizado não tinha como
+         * saber qual das duas aconteceu.
+         *
+         * ID PRÓPRIO, e é o que faz isto funcionar. O cartão do trabalho é o do
+         * serviço em primeiro plano, e o `onDestroy` o cancela explicitamente
+         * (ele foi postado por `notify`, não por `startForeground`, e não está
+         * amarrado ao ciclo de vida). Um cartão final sob o MESMO id seria
+         * apagado por essa limpeza — e a ordem entre as duas coisas dependeria
+         * do agendador. Sob outro id, o fim do serviço não o alcança.
+         *
+         * NÃO É `ongoing`, e é `autoCancel`: ele é um AVISO, não um trabalho —
+         * o operador o dispensa com um gesto, e ele sai sozinho ao ser tocado.
+         */
         @JvmStatic
         fun concluir(ctx: Context, titulo: String, texto: String) {
             val nm = ctx.getSystemService(NotificationManager::class.java) ?: return

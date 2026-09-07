@@ -94,6 +94,48 @@ if (!mKt) {
   }
 }
 
+// ============================================================================
+// E OS DOIS RELÓGIOS DA PRECEDÊNCIA (v1.8.42)
+//
+// `NativeBridge.snoopStatusDeFora` faz a MESMA conta que o `controle.js`: com
+// um telão de verdade emitindo, `tela-status` é ruído. O hub afirma por escrito
+// que "o silêncio que troca a eleita é o mesmo dos dois lados, porque duas
+// contas com réguas diferentes elegeriam telas diferentes" — e MEDIDO, elas
+// divergiam: 3.000 ms no Kotlin contra 2.500 no web, meio segundo em que o web
+// já passara a referência à tela da rede e o Kotlin ainda suprimia o status,
+// congelando a posição na notificação e na tela de bloqueio.
+//
+// O par IRMÃO (`TELA_REF_SILENCIO_MS`, a ELEIÇÃO entre telas) sempre bateu, e
+// o KDoc de lá diz que espelha — é a prova de que a divergência era descuido, e
+// não decisão. As duas entram aqui pelo mesmo motivo do dreno acima: um número
+// que mora em dois arquivos e não tem oráculo diverge no primeiro ajuste.
+// ============================================================================
+{
+  const bridge = readFileSync(join(RAIZ, 'app/src/main/java/br/org/iasd/av/NativeBridge.kt'), 'utf8');
+  const controle = readFileSync(join(RAIZ, 'app/src/main/assets/web/controle/controle.js'), 'utf8');
+  const num = (txt, re, nome) => {
+    const m = txt.match(re);
+    if (!m) { nao('achei o `' + nome + '`', 'sem ele este bloco não mede nada'); return null; }
+    return Number(m[1].replace(/_/g, ''));
+  };
+  const pares = [
+    ['precedência do telão',
+      num(bridge, /PRECEDENCIA_TELAO_MS\s*=\s*([\d_]+)L/, 'PRECEDENCIA_TELAO_MS'),
+      num(controle, /const DISPLAY_TIMEOUT\s*=\s*(\d+)/, 'DISPLAY_TIMEOUT'),
+      'PRECEDENCIA_TELAO_MS × DISPLAY_TIMEOUT'],
+    ['eleição entre telas',
+      num(bridge, /TELA_REF_SILENCIO_MS\s*=\s*([\d_]+)L/, 'TELA_REF_SILENCIO_MS (kt)'),
+      num(controle, /const TELA_REF_SILENCIO_MS\s*=\s*(\d+)/, 'TELA_REF_SILENCIO_MS (js)'),
+      'TELA_REF_SILENCIO_MS nos dois lados'],
+  ];
+  for (const [nome, kt2, js2, rotulo] of pares) {
+    if (kt2 === null || js2 === null) continue;
+    if (kt2 === js2) ok(`a ${nome} vale ${kt2} ms nos dois lados (${rotulo})`);
+    else nao(`a ${nome} vale o mesmo nos dois lados`,
+      `${rotulo}: Kotlin ${kt2} ms × web ${js2} ms — duas réguas elegem telas diferentes`);
+  }
+}
+
 console.log('');
 if (falhas.length) {
   console.log(`${falhas.length} FALHA(S) — as duas listas do dreno divergiram.`);

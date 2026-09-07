@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.8.43",
+    "itens": [
+      "O vídeo de dentro de uma apresentação deixou de sumir no modo simplificado.",
+      "Importar um pacote deixou de descartar a lista de uma coleção apagada antes.",
+      "O botão de descartar um pacote pronto não abre mais o seletor de arquivos.",
+      "A busca de acervo cede a vez para o que está no ar, como as outras rotinas.",
+      "O registro deixou de acusar telão ausente quando há um no ar.",
+      "O relatório da importação voltou a nomear as coleções em vez do código delas.",
+      "Uma exportação que falha no cartão não deixa mais o arquivo pela metade."
+    ]
+  },
+  {
     "versao": "1.8.42",
     "itens": [
       "Os grupos da exportação abrem e fecham deslizando, como na biblioteca.",

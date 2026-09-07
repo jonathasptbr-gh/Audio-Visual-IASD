@@ -903,9 +903,9 @@
     const ms = tx.objectStore(STORE_MEDIA);
     // Detentores lidos UMA vez para o lote inteiro (ver lerDetentores) —
     // depois do put, então a própria lista nova já conta como detentora do
-    // que ficou (irrelevante aqui porque `depois` é pulado pelo continue,
-    // mas é o mesmo instante que o isReferenced por id enxergava).
-    const donos = await lerDetentores(st, name);
+    // que ficou — inofensivo, porque o laço abaixo pula por `continue` tudo
+    // que está em `depois`.
+    const donos = await lerDetentores(st);
     for (const id of antes) {
       if (depois.includes(id)) continue;
       if (!donos.has(id)) await asPromise(ms.delete(id));
@@ -958,10 +958,24 @@
   // CADA mídia varrida: O(mídias × detentores) numa transação só, e o gcOrfaos
   // varre o banco inteiro. Ler uma vez vale o mesmo (a transação readwrite é
   // exclusiva) e vira passada linear.
-  async function lerDetentores(stateStore, exceptList) {
+  // NENHUMA LISTA É PULADA, e isso é correção (v1.8.42). Havia aqui um
+  // `exceptList` que saltava a lista INTEIRA de quem estava removendo — e o
+  // laço que desce em `rec.videos`/`rec.data.ids` (abaixo) percorre `donos`,
+  // então um DECK ou um CUE que morasse na lista pulada nunca entrava no
+  // instantâneo e não segurava o que ele carrega. MEDIDO: no Modo Fácil o
+  // `destinoDoShare()` devolve `avulsos`, a MESMA prateleira provisória dos
+  // vídeos de um `.pptx`, e o `listRemove('avulsos', …)` do `pptxImportar`
+  // apagava os vídeos NO INSTANTE em que a apresentação nascia — a página
+  // ficava sem tocar nada, sem erro, descoberto no culto.
+  //
+  // Ele nunca foi necessário: os dois chamadores que o passavam (`listSet` e
+  // `listRemove`) gravam a lista nova com `st.put(...)` ANTES de perguntar, e
+  // `readListIn` lê do store — logo ler a própria lista já devolve a resposta
+  // certa, sem o id que acabou de sair. O comentário do `listSet` abaixo já
+  // dizia isso por extenso.
+  async function lerDetentores(stateStore) {
     const donos = new Set();
     for (const l of LISTS) {
-      if (l === exceptList) continue;
       for (const id of await readListIn(stateStore, l)) donos.add(id);
     }
     const folders = await asPromise(stateStore.get('folders'));
@@ -981,8 +995,8 @@
     // (o telão já tem os bytes) e nada avisa; a queda do dongle ou um OTA faz o
     // `resendSceneToDisplay` pedir um `getMedia` que não existe mais.
     //
-    // NÃO é lista, e é isso que faz a regra valer: `exceptList` nunca a exclui,
-    // então sair da ÚLTIMA lista continua segurando o blob. O item fica órfão
+    // NÃO é lista, e é isso que faz a regra valer: sair da ÚLTIMA lista
+    // continua segurando o blob enquanto a cena for essa. O item fica órfão
     // ATÉ A CENA MUDAR — daí é órfão comum, e o `gcOrfaos` da abertura seguinte
     // o recolhe (`clearCurrentSelection` zera esta chave ANTES de `varrerRestos`).
     // `noAr` e não `mediaId` sozinho: a seleção SOBREVIVE ao fim da mídia (é o
@@ -1045,8 +1059,8 @@
 
   // A pergunta de UM id só (listRemove, gc): mesma varredura, mesmo ponto
   // único de detentores — só muda a forma da resposta.
-  async function isReferenced(stateStore, id, exceptList) {
-    return (await lerDetentores(stateStore, exceptList)).has(id);
+  async function isReferenced(stateStore, id) {
+    return (await lerDetentores(stateStore)).has(id);
   }
   // Remoção + gc na MESMA transação (state + media): sem isso, um listAdd
   // concorrente entre a remoção e a checagem do gc poderia re-referenciar o
@@ -1059,9 +1073,10 @@
     const after = before.filter((x) => x !== id);
     if (after.length === before.length) return; // não estava na lista
     await asPromise(st.put(after, name));
-    // gc: o id ainda está referenciado em algum outro lugar (outra lista ou um
-    // Favorito)? `name` é excluído da varredura porque acabou de sair dela.
-    if (!(await isReferenced(st, id, name))) await asPromise(tx.objectStore(STORE_MEDIA).delete(id));
+    // gc: o id ainda está referenciado em algum outro lugar (outra lista, um
+    // Favorito, a cena, um cue ou uma apresentação)? A lista de onde ele saiu
+    // ENTRA na varredura — o `put` acima já a gravou sem ele.
+    if (!(await isReferenced(st, id))) await asPromise(tx.objectStore(STORE_MEDIA).delete(id));
     await txDone(tx);
   }
   // Apaga um ATALHO inteiro (`folders` + `folder_<id>`), coletando o que ficar
@@ -1092,7 +1107,7 @@
     // ordem que o comentário do cabeçalho exige: o atalho já saiu de
     // `folders`, então lerDetentores não o encontra no índice e ele não
     // segura os próprios ids. Uma vez para o lote inteiro (ver lerDetentores).
-    const donos = await lerDetentores(st, null);
+    const donos = await lerDetentores(st);
     for (const id of ids) {
       if (!donos.has(id)) await asPromise(ms.delete(id));
     }
@@ -1130,7 +1145,7 @@
     // lerDetentores): reperguntar por id relia todas as listas para CADA
     // mídia do banco — quadrático justamente na função que varre tudo. Mesma
     // transação, mesma semântica: nada escreve nas listas no meio.
-    const donos = await lerDetentores(st, null);
+    const donos = await lerDetentores(st);
     let apagados = 0;
     for (const id of (ids || [])) {
       if (donos.has(id)) continue;
@@ -1151,7 +1166,7 @@
     const db = await openDB();
     const tx = db.transaction([STORE_STATE, STORE_MEDIA], 'readwrite');
     const st = tx.objectStore(STORE_STATE);
-    if (await isReferenced(st, id, null)) return; // referenciado — não apaga
+    if (await isReferenced(st, id)) return; // referenciado — não apaga
     await asPromise(tx.objectStore(STORE_MEDIA).delete(id));
     await txDone(tx);
   }

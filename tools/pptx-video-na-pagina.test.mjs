@@ -441,6 +441,44 @@ try {
   checar(vidMorto === false,
     'e a faxina seguinte leva o vídeo dela — sem bookkeeping paralelo', vidMorto);
 
+  // ======================================================================
+  // 7. O DECK NA MESMA LISTA DOS VÍDEOS — o caso do MODO FÁCIL (v1.8.42)
+  //
+  // Os blocos acima montam o deck em `imports`, isto é, numa lista DIFERENTE
+  // da prateleira de onde os vídeos são removidos — e é por isso que nenhum
+  // deles alcançava o defeito. No Modo Fácil `destinoDoShare()` devolve
+  // `avulsos`, a MESMA prateleira: o `lerDetentores` pulava a lista inteira de
+  // quem estava removendo, o deck não entrava no instantâneo `donos`, e o laço
+  // que desce em `rec.videos` nunca o lia. O vídeo era apagado NO INSTANTE em
+  // que a apresentação nascia — a página não tocava nada, sem erro, e o
+  // operador descobria no culto.
+  //
+  // A asserção reproduz o percurso do `pptxImportar` verbatim: vídeo em
+  // `avulsos`, deck na lista do destino, `listRemove('avulsos', …)`. A
+  // REVERSÃO (devolver o `exceptList` ao `lerDetentores`) faz o par abaixo
+  // divergir — `avulsos` reprova e `imports` continua passando, que é a
+  // assimetria que escondeu o defeito.
+  // ======================================================================
+  const naLista = async (lista) => pg.evaluate(async (l) => {
+    const buf = new ArrayBuffer(64);
+    const v = await AVDB.addMedia(new Blob([buf], { type: 'audio/wav' }), {
+      name: 'video do bloco 7', type: 'audio/wav', kind: 'video', list: 'avulsos',
+    });
+    const cv = document.createElement('canvas'); cv.width = 8; cv.height = 8;
+    const pag = await new Promise((r) => cv.toBlob(r, 'image/png'));
+    await AVDB.addDeck([pag, pag], { name: 'deck do bloco 7', list: l, videos: { 1: v.id } });
+    await AVDB.listRemove('avulsos', v.id);   // a linha do `pptxImportar`
+    return !!(await AVDB.getMedia(v.id));
+  }, lista);
+
+  const vivoFacil = await naLista('avulsos');
+  checar(vivoFacil === true,
+    'deck na MESMA lista dos vídeos (Modo Fácil): o vídeo sobrevive', vivoFacil);
+  const vivoAvancado = await naLista('imports');
+  checar(vivoAvancado === true,
+    'e na lista de sempre (modo avançado) também — o caminho que já funcionava',
+    vivoAvancado);
+
   checar(erros.length === 0, 'nenhum erro de console no percurso', erros.join(' | '));
 } finally {
   await navegador.close();
