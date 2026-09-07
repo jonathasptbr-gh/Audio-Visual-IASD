@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.8.40",
+    "itens": [
+      "A lista de exportação separa os grupos dos álbuns, como na biblioteca.",
+      "O cronograma e a playlist saíram das opções de exportação.",
+      "A ordem da lista de exportação é a mesma da biblioteca.",
+      "Os álbuns de Diversas e Cantores saem em ordem alfabética.",
+      "O relatório da importação fala nos grupos que você vê na biblioteca.",
+      "O peso estimado da exportação passou a errar para cima."
+    ]
+  },
+  {
     "versao": "1.8.39",
     "itens": [
       "O ícone da barra vira um check quando exportar ou importar termina.",

@@ -650,8 +650,16 @@ try {
       'D · e FAVORITOS é uma linha da folha — antes o grupo da store de mídia '
       + 'existia no plano e nunca era desenhado, então viajava sempre',
       JSON.stringify(rotulos));
-    checar(rotulos.includes('Cronograma'),
-      'D · e o Cronograma também', JSON.stringify(rotulos));
+    // O CRONOGRAMA E A PLAYLIST SAÍRAM (v1.8.40), a pedido: elas são listas de
+    // TRABALHO — se esvaziam e se refazem toda semana —, e escolher se elas
+    // viajam não é uma decisão sobre o que o outro aparelho vai TER. Os itens
+    // delas continuam viajando pelo grupo de escape.
+    checar(!rotulos.includes('Cronograma') && !rotulos.includes('Playlist'),
+      'D · e o Cronograma e a Playlist NÃO são grupos: são listas de trabalho, '
+      + 'não de acervo', JSON.stringify(rotulos));
+    checar(rotulos.includes('Outros itens'),
+      'D · o grupo de escape existe — é por ele que o que não é favorito viaja',
+      JSON.stringify(rotulos));
     // A SOBREPOSIÇÃO É DITA na própria linha: os dois pesos contam o
     // `nos-dois`, e uma folha que mostra dois números que não somam sem
     // explicar por quê é pior que uma que não os separa.
@@ -679,15 +687,304 @@ try {
       const tem = (n) => texto.indexOf('"name":"' + n + '"') !== -1;
       return { total, temSoFav: tem('Alfa'), temNosDois: tem('Beta'), temSoCron: tem('Gama') };
     });
-    checar(dentro.temNosDois === true,
-      'D · o item que está nos DOIS grupos viaja mesmo com Favoritos desmarcado '
-      + '— é a UNIÃO, e é o que o operador escolheu', JSON.stringify(dentro));
+    // A SEMÂNTICA DE UNIÃO CONTINUA (`pacoteMidiaSelecionada`), e o que mudou é
+    // quantos grupos existem: com só os Favoritos, um item favoritado tem UM
+    // grupo, e desmarcá-lo o deixa de fora — que é exatamente o que o rótulo
+    // promete. O que NÃO é favorito viaja pelo escape, marcado como o resto.
     checar(dentro.temSoCron === true,
-      'D · e o que só o Cronograma tem, também', JSON.stringify(dentro));
-    checar(dentro.temSoFav === false,
-      'D · e o que SÓ os favoritos tinham fica de fora — sem esta, "levar tudo '
-      + 'sempre" passaria nas duas de cima', JSON.stringify(dentro));
+      'D · o que não é favorito viaja pelo grupo de escape, com Favoritos '
+      + 'desmarcado', JSON.stringify(dentro));
+    checar(dentro.temSoFav === false && dentro.temNosDois === false,
+      'D · e o que é favorito fica de fora — sem esta, "levar tudo sempre" '
+      + 'passaria na de cima', JSON.stringify(dentro));
     await d.ctx.close();
+  }
+
+  // =========================================================================
+  // E · A ORDEM DA BIBLIOTECA, A ALFABÉTICA, O RELATÓRIO AGRUPADO E O PESO QUE
+  //     ERRA PARA CIMA (v1.8.40)
+  //
+  // Quatro pedidos do operador, e os quatro falham CALADOS — a folha continua
+  // abrindo, a exportação continua produzindo o arquivo certo, e o que muda é
+  // só onde o operador procura e o que ele lê:
+  //
+  //  1. **A ORDEM.** *"Cuide para que a ordem dos elementos dessa lista para
+  //     exportação esteja na mesma ordem que temos na biblioteca."* Uma folha
+  //     que agrupa certo e ordena diferente é a mesma árvore embaralhada.
+  //  2. **A ALFABÉTICA.** *"Os grupos de 'diversos' e 'cantores' devem ter seus
+  //     álbuns listados em ordem alfabética tanto na biblioteca como ali no
+  //     exportar."* Ela vale nas DUAS telas porque sai de UMA função
+  //     (`categoryCards`) — e é isso que este bloco prova do lado da folha; o
+  //     lado da Biblioteca tem oráculo próprio no `boot-nativo`.
+  //  3. **O RELATÓRIO.** *"Os resultados devem vir sobre os itens que o usuário
+  //     conhece, em uma ordem que ele já vê dos grupos maiores."* Ele listava
+  //     as COLEÇÕES do banco; passou a listar as NOSSAS coletâneas.
+  //  4. **O PESO.** *"Mesmo com o arredondamento para cima ele está
+  //     apresentando um número bem menor que a realidade … se ele fosse errar,
+  //     que erre para cima."* Um número menor que o arquivo é o único defeito
+  //     desta tela que custa uma exportação abortada no meio, e a régua não é
+  //     um valor: é a DESIGUALDADE contra o que o arquivo de fato pesou.
+  // =========================================================================
+  {
+    const e = await aparelho();
+    // O CATÁLOGO pelo caminho de verdade — o `state`, que é de onde o
+    // `allCollections()` e o `AVColetanea.aplicar` leem. Duas coletâneas: uma
+    // ALFABÉTICA pelo nome (`Diversas`) e uma que NÃO é (`Adoradores`), para a
+    // asserção da ordenação não passar por vacuidade.
+    await e.pg.evaluate(async () => {
+      await AVDB.setState('albumCatalog', {
+        categories: [
+          { id_category: 1, name: 'Adoradores', order: 1,
+            albums: [{ id_album: 'zeta', order: 1 }, { id_album: 'alfa', order: 2 }] },
+          { id_category: 2, name: 'Diversas', order: 2,
+            albums: [{ id_album: 'omega', order: 1 }, { id_album: 'beta', order: 2 }] },
+        ],
+        albums: [
+          { id_album: 'zeta', name: 'Zeta' }, { id_album: 'alfa', name: 'Alfa' },
+          { id_album: 'omega', name: 'Omega' }, { id_album: 'beta', name: 'Beta' },
+        ],
+      });
+    });
+    await e.pg.reload({ waitUntil: 'domcontentloaded' });
+    await esperar(e.pg, () => !document.getElementById('splash'), null, 30000);
+    const PESO = await e.pg.evaluate(async () => {
+      const bytes = (n, v) => new Blob([new Uint8Array(n).fill(v)], { type: 'audio/mp4' });
+      let escrito = 0;
+      for (const [id, nome] of [['zeta', 'Zeta'], ['alfa', 'Alfa'],
+        ['omega', 'Omega'], ['beta', 'Beta']]) {
+        const cam = 'folders/album-' + id + '/faixa.m4a';
+        await AVDB.opfsWriteFile(cam, bytes(9000, 1));
+        escrito += 9000;
+        await AVDB.fileAdd({
+          id: 'f-' + id, folder: 'album-' + id, opfsPath: cam,
+          name: 'Faixa de ' + nome, type: 'audio/mp4', kind: 'audio', size: 9000,
+          thumb: null, blob: null, url: null, addedAt: 1,
+        });
+        // O ÍNDICE da coleção — é dele que o relatório tira "N de M músicas".
+        await AVDB.setState('coll:album-' + id,
+          { songs: [{ id_music: 1, fileIdFull: 'f-' + id }] });
+      }
+      // AS DUAS PONTAS DA ORDEM: um FAVORITO (a primeira seção da Biblioteca) e
+      // um item em lista nenhuma (o grupo de escape, que a Biblioteca não tem).
+      // Sem eles a asserção de posição é VACUOSA — a folha sai só com as duas
+      // coletâneas no meio, e qualquer ordem passa.
+      await AVDB.mediaAdd({
+        id: 'fav-1', name: 'Um favorito', type: 'audio/mp4', kind: 'audio',
+        blob: bytes(9000, 7), thumb: null, addedAt: 1,
+      });
+      await AVDB.mediaAdd({
+        id: 'solto-1', name: 'Um solto', type: 'audio/mp4', kind: 'audio',
+        blob: bytes(9000, 8), thumb: null, addedAt: 1,
+      });
+      await AVDB.listAdd('favs', 'fav-1');
+      // CHAVES DE `state` EM QUANTIDADE, que é o caso que o peso não via: a
+      // Bíblia mora aqui com uma POR CAPÍTULO, e elas eram somadas como ZERO.
+      const lote = [];
+      for (let i = 0; i < 200; i++) {
+        lote.push({ chave: 'bible:x_' + i, valor: { t: 'x'.repeat(3000) } });
+      }
+      await AVDB.updateStateLote(lote, (_atual, novo) => novo);
+      return { escrito };
+    });
+    await e.pg.evaluate(() => { window.__fim = exportarPacote(); });
+    const abriuE = await abriuFolha(e.pg);
+    checar(abriuE === true, 'E · a folha abre', porque(abriuE));
+
+    // ===== A ORDEM =====
+    // A Biblioteca monta, nesta sequência: FAVORITOS, a raiz (séries e
+    // hinários), as coletâneas, "Outros álbuns". A folha acrescenta no fim o
+    // que não existe na Biblioteca — os itens sem lista e os arquivos sem
+    // coleção. A régua é a ordem em que as SEÇÕES aparecem, e não a lista
+    // inteira: os nomes das coleções dentro delas são do fixture.
+    const folhaE = await lerFolha(e.pg);
+    const secoes = folhaE.filter((l) => l.grupo).map((l) => l.rotulo);
+    checar(JSON.stringify(secoes) === JSON.stringify(['Adoradores', 'Diversas']),
+      'E · as seções saem na ORDEM DA BIBLIOTECA — as coletâneas na ordem do '
+      + 'catálogo, e nada entre elas', JSON.stringify(secoes));
+    // AS DUAS PONTAS, e elas dizem a regra inteira: os FAVORITOS vão na FRENTE
+    // (na Biblioteca eles são a primeira seção) e o que a Biblioteca não tem —
+    // os itens em lista nenhuma — vai DEPOIS de tudo que ela tem. A asserção é
+    // posicional, e é a ORDEM COMPLETA da folha, sem o confirmar.
+    const ordem = folhaE.filter((l) => !/^Salvar/.test(l.rotulo)).map((l) => l.rotulo);
+    checar(JSON.stringify(ordem)
+      === JSON.stringify(['Favoritos', 'Adoradores', 'Diversas', 'Outros itens']),
+      'E · com os FAVORITOS na frente (a primeira seção da Biblioteca) e o que '
+      + 'ela NÃO tem no fim — a folha inteira na ordem em que o operador '
+      + 'aprendeu a procurar', JSON.stringify(ordem));
+
+    // ===== O DESENHO É O DA BIBLIOTECA: ALTERNÂNCIA, NÃO ESCADA =====
+    //
+    // Pedido do operador: *"os grupos estão iguais às listas de itens dentro
+    // deles, não deixando identificar o que é topo e o que é item. Ajuste o
+    // design para usar o mesmo design que já temos na biblioteca"*. Ele estava
+    // descrevendo um 1,00:1 — bloco e linha pintavam a MESMA superfície.
+    //
+    // A régua é a COR RENDERIZADA e o DEGRAU entre ela e a de dentro, nunca o
+    // nome do token: dois nomes diferentes podem resolver para o mesmo valor, e
+    // foi esse o defeito da Biblioteca na v1.5.14 e do histórico na v1.7.5.
+    //
+    // MEDIDO COM AS LINHAS DESMARCADAS, e é obrigatório: a folha nasce com tudo
+    // marcado, e o preenchimento de ESCOLHIDO (`--sel-fill`) cobre o tom em
+    // todas elas — medindo assim, as três asserções leem a mesma cor de estado
+    // e não dizem nada sobre a hierarquia (medido: `rgb(46, 66, 98)` nos três).
+    // O tom só é a resposta onde ele é o que se vê.
+    const corDe = (rotulo) => e.pg.evaluate((r) => {
+      const li = [...document.querySelectorAll('#songMenuList li')]
+        .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === r);
+      const b = li && li.querySelector('.song-menu-btn, .song-menu-grupo');
+      return b && getComputedStyle(b).backgroundColor;
+    }, rotulo);
+    const marcada = await corDe('Favoritos');
+    await tocar(e.pg, 'Diversas');
+    await tocar(e.pg, 'Favoritos');
+    await tocar(e.pg, 'Diversas', 'seta');
+    const tons = await e.pg.evaluate(() => {
+      const cor = (el) => el && getComputedStyle(el).backgroundColor;
+      const lum = (c) => {
+        const m = /rgba?\(([^)]+)\)/.exec(c || '');
+        if (!m) return -1;
+        const [r, g, b] = m[1].split(',').map((x) => Number(x) / 255);
+        const f = (v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      };
+      const li = [...document.querySelectorAll('#songMenuList li')];
+      const rot = (x) => ((x.querySelector('.song-menu-label') || {}).textContent || '');
+      // PELO RÓTULO, e nunca "o primeiro `.pacote-grupo`": a folha tem duas
+      // seções e a aberta é a segunda (medido: com o índice, o oráculo lia o
+      // bloco FECHADO e `dentro` vinha nulo).
+      const bloco = li.find((x) => x.classList.contains('pacote-grupo') && rot(x).indexOf('Diversas') === 0);
+      const dentro = bloco && bloco.querySelector('.pacote-grupo-corpo .song-menu-btn');
+      const raiz = li.find((x) => x.classList.contains('pacote-linha') && rot(x) === 'Favoritos');
+      const raizBtn = raiz && raiz.querySelector('.song-menu-btn');
+      const razao = (a, b) => {
+        const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+        return (x + 0.05) / (y + 0.05);
+      };
+      return {
+        bloco: cor(bloco), dentro: cor(dentro), raiz: cor(raizBtn),
+        degrau: razao(cor(bloco), cor(dentro)),
+        // A BARRA do bloco não tem tom PRÓPRIO: quem pinta é o bloco, e ela
+        // aparece por transparência. Dois tons dentro do mesmo bloco seriam a
+        // escada de volta um nível abaixo.
+        barra: cor(bloco && bloco.querySelector('.song-menu-grupo')),
+      };
+    });
+    checar(tons.degrau > 1.25,
+      'E · o BLOCO e a linha DE DENTRO dele são superfícies diferentes — era '
+      + '1,00:1, que é o relato do operador ("não dá para identificar o que é '
+      + 'topo e o que é item")', JSON.stringify(tons));
+    checar(!!tons.bloco && tons.raiz === tons.bloco,
+      'E · e uma linha da RAIZ veste o MESMO tom do bloco: a hierarquia é uma '
+      + 'ALTERNÂNCIA (o que está na raiz é agrupamento), nunca uma escada de '
+      + 'três degraus — sem esta metade um terceiro tom passaria',
+      JSON.stringify(tons));
+    checar(/rgba\(0, 0, 0, 0\)|transparent/.test(tons.barra || ''),
+      'E · e a BARRA do bloco não pinta nada — quem pinta é o bloco, e ela '
+      + 'aparece por transparência (a decisão da `.coll-group-bar`); com tom '
+      + 'próprio o bloco teria dois dentro de si e a escada voltaria',
+      JSON.stringify(tons));
+    // ===== E O ESTADO CONTINUA VENCENDO O TOM =====
+    // O tom novo é escopado com id (`#songMenuList`), que vale (1,x,0) — e a
+    // linha MARCADA é `.song-menu-btn.song-menu-sel:has(…)`, que vale (0,3,0).
+    // Escrito sem `:where()`, o tom apagaria o preenchimento de ESCOLHIDO, que
+    // é a linguagem de estado do app inteiro: a folha inteira ficaria com a
+    // mesma cara marcada e desmarcada, numa tela cujo trabalho é marcar. É a
+    // metade que impede o conserto largo demais.
+    checar(!!marcada && marcada !== tons.raiz,
+      'E · e uma linha MARCADA continua vestindo o preenchimento de ESCOLHIDO, '
+      + 'e não o tom da hierarquia — o `:where()` é o que mantém o estado '
+      + 'vencendo', JSON.stringify({ marcada, desmarcada: tons.raiz }));
+    // DE VOLTA AO ESTADO EM QUE A FOLHA NASCEU: as asserções de baixo exportam,
+    // e o que elas medem é o pacote INTEIRO.
+    await tocar(e.pg, 'Diversas', 'seta');
+    await tocar(e.pg, 'Diversas');
+    await tocar(e.pg, 'Favoritos');
+
+    // ===== A ALFABÉTICA, NAS DUAS COLETÂNEAS =====
+    // `Diversas` está na lista do `ehAlfabetica` e `Adoradores` não: as duas
+    // foram semeadas fora de ordem, e só uma delas se conserta. Sem o par, uma
+    // ordenação aplicada a TODAS passaria na primeira metade.
+    // UMA SEÇÃO ABERTA POR VEZ — é o rodízio da Biblioteca, e a folha o herda.
+    // Ler as duas de uma passada devolveria a segunda e uma lista VAZIA para a
+    // primeira (medido: foi assim que esta asserção reprovou o app estando
+    // certo). Cada uma é aberta e lida na vez dela.
+    const dentroDe = async (nome) => {
+      await tocar(e.pg, nome, 'seta');
+      const l = await lerFolha(e.pg);
+      const i = l.findIndex((x) => x.grupo && x.rotulo === nome);
+      const out = [];
+      for (let k = i + 1; k < l.length && l[k].dentro; k++) out.push(l[k].rotulo);
+      return out;
+    };
+    const naDiversas = await dentroDe('Diversas');
+    const naAdoradores = await dentroDe('Adoradores');
+    checar(JSON.stringify(naDiversas) === JSON.stringify(['Beta', 'Omega']),
+      'E · e os álbuns de uma coletânea ALFABÉTICA saem por NOME, não pela '
+      + 'ordem do banco — semeados "Omega, Beta", a folha mostra "Beta, Omega"',
+      JSON.stringify(naDiversas));
+    checar(JSON.stringify(naAdoradores) === JSON.stringify(['Zeta', 'Alfa']),
+      'E · e uma coletânea que NÃO está na lista mantém a ordem do catálogo — '
+      + 'sem esta metade, ordenar TUDO passaria na de cima e apagaria a '
+      + 'curadoria de quem a tem', JSON.stringify(naAdoradores));
+
+    // ===== O PESO ERRA PARA CIMA =====
+    // A régua é a DESIGUALDADE contra o arquivo que sai, e não um número: o que
+    // o operador precisa é que o que ele leu na folha nunca seja menor que o
+    // que ele vai escrever. MEDIDO antes do lote: com `bytesEstado: 0` a folha
+    // mostrava 14,7% da realidade neste mesmo cenário.
+    const prometido = await e.pg.evaluate(() => {
+      const t = (document.querySelector('#songMenuList .song-menu-go') || {}).textContent || '';
+      const m = /([\d.,]+)\s*(B|KB|MB|GB)/.exec(t);
+      if (!m) return -1;
+      const u = { B: 1, KB: 1024, MB: 1024 * 1024, GB: 1024 * 1024 * 1024 }[m[2]];
+      return Number(String(m[1]).replace('.', '').replace(',', '.')) * u;
+    });
+    checar(prometido > 0,
+      'E · o confirmar da folha diz um peso', String(prometido));
+    await e.pg.click('#songMenuList .song-menu-go');
+    const fimE = await fimDaExportacao(e.pg);
+    checar(fimE && fimE.dialogo === false, 'E · a exportação termina', JSON.stringify(fimE));
+    const escreveu = await e.pg.evaluate(() => {
+      let n = 0;
+      for (const p of window.__saida) n += p.length;
+      return n;
+    });
+    checar(prometido >= escreveu,
+      'E · e o PESO PROMETIDO NUNCA É MENOR que o que o arquivo pesou — é o '
+      + 'pedido inteiro: "questão de espaço deve ser algo que tem certeza de '
+      + 'caber". REVERSÃO: com `bytesEstado: 0` (o estado valendo zero) o '
+      + 'prometido cai abaixo do escrito e esta linha reprova',
+      JSON.stringify({ prometido, escreveu, razao: (prometido / escreveu).toFixed(2) }));
+    // A METADE QUE IMPEDE O CONSERTO LARGO DEMAIS: multiplicar o número por dez
+    // também passaria na de cima. O teto é FROUXO de propósito — ele não afirma
+    // uma precisão, afirma que a estimativa continua sendo uma estimativa e não
+    // um número inventado.
+    checar(prometido <= escreveu * 3,
+      'E · e ele continua NA ORDEM DE GRANDEZA do arquivo — sem esta, "prometa '
+      + 'sempre o dobro" passaria na de cima e a folha deixaria de informar '
+      + 'qualquer coisa',
+      JSON.stringify({ prometido, escreveu }));
+
+    // ===== O RELATÓRIO DA IMPORTAÇÃO FALA EM COLETÂNEAS =====
+    // Ele é montado sobre o banco DESTE aparelho a partir da contagem que a
+    // importação devolve, e é isso que o oráculo exercita: o operador não
+    // conhece "album-omega", conhece "Diversas".
+    const rel = await e.pg.evaluate(() => pacoteRelatorio(
+      { colecoes: ['album-zeta', 'album-alfa', 'album-omega', 'album-beta'], media: 0 }, ''));
+    const linhasRel = String(rel).split('\n').filter((x) => x.trim());
+    checar(/Adoradores/.test(rel) && /Diversas/.test(rel),
+      'E · o relatório da importação NOMEIA as coletâneas — os grupos que o '
+      + 'operador vê na Biblioteca', rel);
+    checar(!/album-/.test(rel) && !/Alfa|Beta|Omega|Zeta/.test(rel),
+      'E · e NÃO nomeia os álbuns um a um: quatro coleções viraram duas linhas, '
+      + 'que é o pedido — e com vinte e três seriam duas do mesmo jeito', rel);
+    // A ORDEM DO RELATÓRIO É A DA BIBLIOTECA, pelo mesmo argumento da folha: o
+    // operador procura o grupo onde ele já sabe que ele está.
+    checar(linhasRel.findIndex((l) => /Adoradores/.test(l))
+      < linhasRel.findIndex((l) => /Diversas/.test(l)),
+      'E · e na ORDEM DA BIBLIOTECA — "incompletas primeiro" mandava o operador '
+      + 'procurar um grupo onde ele não está', JSON.stringify(linhasRel));
+    await e.ctx.close();
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));

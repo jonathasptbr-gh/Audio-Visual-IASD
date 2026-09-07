@@ -546,6 +546,12 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    aqui; quem o herdou foi a regra do tema claro em `:root[data-tema="claro"]
    .lib-bar`.) */
 .coll-group--drop,
+/* A LINHA DE DENTRO DA FOLHA DE EXPORTAÇÃO (v1.8.40). Ela veste `--panel` pela
+   alternância nova, logo é um cartão pela definição desta regra — e o que ela
+   hospeda (a caixa de marcação) tem de afundar. É o mesmo modo de falhar que a
+   `.tools-sheet` documenta logo abaixo, e a regra existe justamente para que a
+   próxima superfície opaca não seja esquecida. */
+:where(.pacote-grupo-corpo) > :where(.pacote-linha) > .song-menu-btn,
 /* A FOLHA DE FERRAMENTAS (v1.3.14). Ela pinta `--panel` desde que nasceu, na
    v1.3.10, e nunca entrou aqui — é o modo de falhar que esta regra existe para
    fechar, acontecendo de novo. MEDIDO no tema CLARO: o `.mic-btn` saía em
@@ -7531,6 +7537,55 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    coisas. Na Biblioteca a barra abre, porque lá o que se vem fazer é olhar
    dentro; a peça é a mesma e o verbo é o do lugar. */
 .song-menu-grupo { cursor: pointer; }
+/* ---------- A FOLHA DE EXPORTAÇÃO VESTE O DESENHO DA BIBLIOTECA (v1.8.40) ----
+   Pedido do operador: *"os grupos estão iguais às listas de itens dentro deles,
+   não deixando identificar o que é topo e o que é item. Ajuste o design para
+   usar o mesmo design que já temos na biblioteca, para cores e modelos de
+   coleções e álbuns … até as setas de abertura"*.
+
+   A hierarquia da Biblioteca não é uma escada de tons — é uma ALTERNÂNCIA
+   (v1.5.14): o que está na RAIZ é um agrupamento e veste o POÇO; o que está
+   DENTRO dele é conteúdo e volta ao PAPEL. Aqui é a mesma regra, com os mesmos
+   tokens, e por isso as duas telas se leem como um sistema só. O raio é o do
+   CARTÃO (`--radius-card`), como o dos blocos de lá, e não o do botão.
+
+   AS CLASSES SÃO PRÓPRIAS DESTA FOLHA: a `#songMenuList` é a mesma da folha de
+   destinos e do menu de uma música, e escopar por classe é o que impede o tom
+   novo de vazar para elas — uma bandeira global no popup seria uma que alguém
+   esquece de limpar.
+
+   E TUDO PASSA POR `:where()`, QUE É O QUE MANTÉM O ESTADO VENCENDO O TOM.
+   `.song-menu-btn.song-menu-sel:has(.song-menu-check.on)` — a linha MARCADA,
+   logo acima — vale (0,3,0); um seletor com id valeria (1,x,0) e apagaria o
+   preenchimento de escolhido, que é a linguagem de estado do app inteiro. O
+   `:where()` zera a contribuição do que está dentro dele, então estas regras
+   entram abaixo do estado de propósito. */
+:where(#songMenuList) > .pacote-grupo,
+:where(#songMenuList) > .pacote-linha > .song-menu-btn {
+  background: var(--poco);
+  border-radius: var(--radius-card);
+}
+:where(#songMenuList) > .pacote-grupo { overflow: hidden; }
+/* O que está DENTRO de um bloco volta ao papel — e o `--camada` acompanha, como
+   na `.coll-group-corpo`, para o que a linha desenhar por dentro (a caixa de
+   marcação) pousar no tom certo. */
+.pacote-grupo-corpo {
+  list-style: none; margin: 0; padding: 0 var(--sp-3) var(--sp-3);
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  --camada: var(--poco);
+}
+:where(.pacote-grupo-corpo) > :where(.pacote-linha) > .song-menu-btn {
+  background: var(--panel);
+  border-radius: var(--radius-card);
+}
+/* A BARRA DO BLOCO não tem tom próprio: quem pinta é o bloco, e ela aparece por
+   transparência — a mesma decisão da `.coll-group-bar` e da `.hist-sessao-bar`.
+   Sem isto o bloco teria dois tons dentro de si e a alternância viraria escada
+   outra vez. */
+:where(#songMenuList) > .pacote-grupo > :where(.song-menu-grupo) {
+  background: none;
+}
+
 /* A SETA é um `<button>` DENTRO da barra, e por isso a barra é uma `<div>`:
    botão dentro de botão é HTML inválido — a mesma solução da `.coll-group-bar`.
    Ela ocupa a coluna do ícone, então a seção e a linha comum começam no mesmo
