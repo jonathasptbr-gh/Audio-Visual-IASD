@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.46",
+    "itens": [
+      "A importação de um acervo grande ficou mais rápida na leitura do arquivo.",
+      "A importação avisa quando o arquivo trazia ajustes que este aparelho não aceita.",
+      "O peso de um grupo na folha de exportação passou a seguir o que está marcado."
+    ]
+  },
+  {
     "versao": "1.8.45",
     "itens": [
       "O pacote pronto continua lá depois de o app recarregar.",

@@ -88,20 +88,19 @@
 //    multiplicadores do `1×` — a leitura que o rótulo convida e que o operador
 //    recusou.
 //
-// E A NOTA DA BARRA SOBREVIVEU À RAMPA, trocando de FATO. O anel `.dl-ring`
-// saiu na v1.6.1 e no lugar dele entrou uma NOTA (*"coloque uma mensagem de
-// confirmação… na própria ui e não em pop up"*), que então explicava uma
-// IMOBILIDADE. Não há mais imobilidade — e ela fica porque o trabalho não sumiu,
-// mudou: a pergunta era *"por que está parada?"* e passou a ser *"por que está
-// tão devagar?"*. Continua respondendo a DUAS perguntas em janelas diferentes —
-// antes do toque ANUNCIA o que o play vai fazer, durante a RAMPA é a razão da
-// lentidão —, e a asserção que carrega o lote é a terceira: ela SOME quando o
-// RITMO CHEIO chega, senão uma nota permanente passaria nas duas.
+// E A NOTA DA BARRA SAIU JUNTO COM O ANEL (v1.6.3). O `.dl-ring` sobre o ícone
+// de pause saiu na v1.6.1 e no lugar dele entrou uma NOTA — que existia para
+// explicar uma IMOBILIDADE. A rampa da v1.6.2 tirou a imobilidade e a margem do
+// CABEÇALHO DA OBRA (v1.6.3) tirou o que sobrava do trabalho dela: hoje a
+// resposta ao toque é a PRÓPRIA FOLHA ANDANDO, e as duas peças estão em
+// asserção NEGATIVA no bloco da rampa (`!cab.nota && !cab.anel`).
 //
-// O PREDICADO DELA MUDOU JUNTO, e o detalhe importa: antes ela sumia no
-// primeiro quadro de MOVIMENTO, o que com a rampa a apagaria em UM quadro — a
-// janela do meio, que é a única em que ela responde alguma coisa, deixaria de
-// existir.
+// A METADE QUE IMPEDE O CONSERTO LARGO DEMAIS é o cabeçalho: ele é medido no
+// RENDERIZADO, ANTES do toque e ANTES da folha, e no meio da rampa a primeira
+// linha de acorde tem de continuar INTEIRA na caixa. Sem essa metade, apagar a
+// nota e o anel passaria na negativa e devolveria o relato que os criou —
+// *"pelo fato da intro estar colada no topo, ele acaba sempre cortando ela no
+// início"*.
 //
 // ## O BOTÃO DE VELOCIDADE FICOU QUADRADO (v1.6.2)
 //

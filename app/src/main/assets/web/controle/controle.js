@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.45';
+const WEB_VERSION = '1.8.46';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23555,7 +23555,14 @@ async function pacotePlanoAproximado() {
   // perderia no próximo grupo que alguém acrescentasse à montagem, e o que sai
   // disso é um número estimado sem a palavra que diz que ele é estimado.
   for (const g of grupos) g.aprox = true;
-  return { grupos, folha, aprox: true };
+  // `midiaPorGrupo`/`midiaBytes` VÃO JUNTO (v1.8.46), e é o que faz o total do
+  // confirmar ser a UNIÃO. Sem eles o `pacoteBytesDe` cai no ramo `t += g.bytes`
+  // — a SOMA —, e a folha é desenhada com ESTE plano, não com o exato. Hoje o
+  // número saía certo por acidente: a v1.8.40 deixou o `PACOTE_LISTAS` com uma
+  // entrada só, e `lst:favs` mais o escape formam uma partição disjunta. A
+  // segunda lista que voltar (a v1.8.38 tinha três) faz o total passar do
+  // arquivo, exatamente na tela que responde *"cabe no cartão?"*.
+  return { grupos, folha, aprox: true, midiaPorGrupo, midiaBytes };
 }
 
 /**
@@ -23902,13 +23909,6 @@ function pacoteCheckGrupo(estado) {
   return cx;
 }
 
-/** O peso de um conjunto de chaves, para o resumo de uma seção. */
-function pacotePesoDe(plano, chaves) {
-  let t = 0;
-  for (const g of plano.grupos) if (chaves.indexOf(g.chave) >= 0) t += g.bytes;
-  return t;
-}
-
 function renderPacoteGrupos(plano) {
   songMenuListEl.innerHTML = '';
   const remontar = () => renderPacoteGrupos(plano);
@@ -24032,8 +24032,17 @@ function renderPacoteGrupos(plano) {
     const t = document.createElement('span'); t.className = 'song-menu-label';
     t.textContent = item.nome;
     const d = document.createElement('span'); d.className = 'song-menu-sub';
-    d.textContent = item.chaves.filter((k) => destMarcados.has(k)).length
-      + ' de ' + item.chaves.length + ' · ' + fmtBytes(pacotePesoDe(plano, item.chaves));
+    // O PESO DA SEÇÃO SEGUE A SELEÇÃO E LEVA A PALAVRA (v1.8.46). Ele somava
+    // TODAS as chaves e saía em formato EXATO — ao lado de linhas que dizem
+    // "até X" e que mudam quando o operador desmarca. Na mesma tela, um total
+    // de seção que não soma com as partes e não responde ao dedo.
+    //
+    // Pelo `pacoteBytesDe` e não pelo `pacotePesoDe`: aquele é o que sabe a
+    // UNIÃO, e é o mesmo que o confirmar usa — dois jeitos de somar a mesma
+    // coisa divergem no primeiro grupo que se sobrepuser.
+    const marcadas = item.chaves.filter((k) => destMarcados.has(k));
+    d.textContent = marcadas.length + ' de ' + item.chaves.length
+      + ' · ' + pacotePeso(pacoteBytesDe(plano, new Set(marcadas)), plano.aprox);
     txt.append(t, d);
     bar.append(seta, txt, pacoteCheckGrupo(estado));
     const marcarGrupo = () => {
@@ -24515,15 +24524,6 @@ async function exportarPacote() {
 // IMPORTAR
 // ---------------------------------------------------------------------------
 
-/**
- * O CURSOR sobre o pacote — leitura por FATIA, nunca por materialização.
- *
- * O arquivo chega como um `Blob` de uma `/saf/<token>`, e `Blob.slice()` é
- * preguiçoso: o que entra na memória por vez é um cabeçalho (kB) ou um corpo,
- * e o corpo vai DIRETO para o IndexedDB ou para o OPFS sem passar por um
- * `ArrayBuffer`. É a mesma técnica com que o `pptxzip.js` abre um `.pptx` de
- * 570 MB.
- */
 // ===== A FONTE DE UM PACOTE, E POR QUE ELA NÃO É UM `Blob` (v1.7.9) =====
 //
 // Relato do operador: *"Não estou conseguindo importar os dados, 'failed to
@@ -24557,13 +24557,13 @@ async function exportarPacote() {
 // já na mão não teria chamador nenhum — e uma fonte sem consumidor é a
 // armadilha de quem for lê-la amanhã achando que há dois caminhos.
 
-// A leitura antecipada dos CABEÇALHOS e o PEDAÇO de um corpo. Os dois abaixo do
-// teto de 24 MB do `SafJanela`, que é a trava do outro lado.
 // QUANTAS CHAVES DE `state` VÃO NUMA TRANSAÇÃO SÓ, na importação. O teto existe
 // porque a transação segura tudo até o commit: 250 capítulos da Bíblia são
 // poucos MB, e a Bíblia inteira numa transação só seriam dezenas — num processo
 // que hospeda dois WebViews e a Presentation.
 const PACOTE_LOTE_ESTADO = 250;
+// A leitura antecipada dos CABEÇALHOS e o PEDAÇO de um corpo. Os três abaixo do
+// teto de 24 MB do `SafJanela`, que é a trava do outro lado.
 const PACOTE_JANELA_MIN = 8 * 1024;
 const PACOTE_JANELA_MAX = 1024 * 1024;
 const PACOTE_PEDACO = 8 * 1024 * 1024;
@@ -24584,9 +24584,28 @@ const PACOTE_PEDACO = 8 * 1024 * 1024;
  * uma janela pequena fixa, a corrida de chaves da Bíblia volta a ser uma
  * requisição por registro.
  *
- * A REGRA É A DO PRÓPRIO PERCURSO: pedido que começa onde o buffer acabou é uma
- * CORRIDA (dobra, até 1 MB); pedido que salta é um corpo pulado (volta ao
+ * A REGRA É A DO PRÓPRIO PERCURSO, e ela pergunta pelo TAMANHO DO SALTO: um
+ * pedido que continua a menos de uma janela do fim da anterior é a CORRIDA
+ * (dobra, até 1 MB); um salto maior que isso é um corpo pulado (volta ao
  * mínimo). Os dois regimes do formato, cada um no tamanho dele.
+ *
+ * **A PERGUNTA NÃO PODE SER UMA IGUALDADE**, e isso é MEDIDO. Da v1.7.9 até
+ * aqui ela foi `ini === bufIni + buf.length` — "começou exatamente onde o
+ * buffer acabou" —, e essa coincidência quase nunca acontece: as leituras do
+ * cursor são contíguas mas de tamanhos irregulares (4 bytes de prefixo, depois
+ * o cabeçalho, depois um corpo pulado), então a borda do buffer cai DENTRO de
+ * uma leitura ou o pedido seguinte pousa alguns bytes DEPOIS dela. Resultado
+ * MEDIDO sobre o percurso verbatim: **zero** crescimentos em todos os regimes,
+ * a janela travada no piso de 8 kB para sempre e o teto de 1 MB inalcançável —
+ * 1.200 requisições para percorrer 3.600 chaves de `state` contra as 17 que a
+ * regra de hoje faz. Trocar a igualdade por "começou DENTRO ou no fim do
+ * buffer" **não conserta** (medido: os mesmos 1.200), porque o salto típico é
+ * de alguns bytes ALÉM do fim.
+ *
+ * E o salto medido contra a janela é o que mantém o regime esparso intacto:
+ * num pacote de mídia (corpos de dezenas de MB) o salto é milhões de vezes
+ * maior que a janela, ela nunca cresce, e a conferência continua lendo 8 kB por
+ * registro em vez de 1 MB — que é o erro oposto, e o mais caro dos dois.
  */
 function pacoteFonteDaUrl(url, size) {
   let bufIni = 0;
@@ -24608,10 +24627,15 @@ function pacoteFonteDaUrl(url, size) {
       if (ini >= bufIni && fim <= bufIni + buf.length) {
         return buf.subarray(ini - bufIni, fim - bufIni);
       }
-      // SEQUÊNCIA ou SALTO — ver a nota acima. `bufIni + buf.length` é onde o
-      // buffer anterior acabou; começar exatamente ali é a corrida de
-      // cabeçalhos que vale a pena antecipar.
-      janelaAtual = (ini === bufIni + buf.length)
+      // SEQUÊNCIA ou SALTO — ver a nota acima. A régua é o TAMANHO DO SALTO
+      // contra a PRÓPRIA janela: continuar a menos de uma janela do fim da
+      // anterior é a corrida de cabeçalhos; saltar mais que isso é um corpo
+      // pulado, e antecipar ali seria ler o corpo que a conferência não quer.
+      // `buf.length` ZERO é a PRIMEIRA leitura, e não uma corrida: sem essa
+      // metade o buffer vazio em `bufIni = 0` faz toda abertura de arquivo
+      // parecer uma continuação e já dobrar a janela.
+      const fimDoBuffer = bufIni + buf.length;
+      janelaAtual = (buf.length && ini >= bufIni && ini - fimDoBuffer < janelaAtual)
         ? Math.min(PACOTE_JANELA_MAX, janelaAtual * 2)
         : PACOTE_JANELA_MIN;
       const ate = Math.min(size, Math.max(fim, ini + janelaAtual));
@@ -25456,6 +25480,24 @@ async function pacoteRelatorio(contagem, consumo) {
     linhas.push(contagem.media + ' mídia(s) no Cronograma e nos Favoritos');
   }
   if (!linhas.length) linhas.push('O acervo do arquivo já estava todo aqui');
+  // ===== A RECUSA SAI NA FRASE, e ela é a ÚNICA contagem interna que sai =====
+  //
+  // A v1.8.15 fechou o `chaveViaja` na ENTRADA com um argumento explícito —
+  // recusar em silêncio é o mesmo defeito que aceitar em silêncio —, e as
+  // reescritas do relatório (v1.8.25 → v1.8.28 → v1.8.40) levaram junto a única
+  // frase que dizia isso: o contador era incrementado e ninguém o lia. Quem
+  // importasse um pacote com `current`, `historico` ou `ota-intencao` forjados
+  // recebia um diálogo idêntico ao de um pacote limpo.
+  //
+  // OS OUTROS QUATRO CONTADORES CONTINUAM MUDOS DE PROPÓSITO (`arquivos`,
+  // `chaves`, `opfs`, `repetidos`): eles são UNIDADE INTERNA, e foi por pedido
+  // do operador que elas saíram daqui — *"o propósito da exportação não é
+  // copiar o app de um usuário … o propósito é para dados massivos da
+  // biblioteca"*. Este não é unidade: é o aviso de que o arquivo trazia coisa
+  // que este aparelho não aceita.
+  if (contagem.recusadas) {
+    linhas.push(contagem.recusadas + ' ajuste(s) do outro aparelho foram recusados');
+  }
   // O DESFECHO DO CONSUMO só aparece quando há o que dizer: apagou (a resposta
   // ao pedido) ou não deu (e aí o arquivo continua ocupando espaço, que é
   // exatamente o que o operador queria evitar — calar seria mentir por

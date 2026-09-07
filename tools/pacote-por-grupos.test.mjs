@@ -570,6 +570,13 @@ try {
   // `mediaResumo`), porque o cursor desserializa cada registro com a miniatura
   // e a letra dentro. Num aparelho é o atraso que se vê entre o dedo e a folha.
   //
+  // O ESPIÃO MUDOU DE ALVO NA v1.8.46, e por um motivo que é o próprio assunto
+  // deste arquivo: o `filesResumo` foi APAGADO — ninguém o chamava desde aquele
+  // lote, e o único consumidor dele no repositório era este espião, afirmando
+  // que ele não é chamado. Espiar uma função que não existe mais é a asserção
+  // passando por VACUIDADE. O alvo passou a ser o `filesAll`, que é o leitor de
+  // store inteira que RESTOU e tem o mesmo perfil de custo.
+  //
   // A RÉGUA É A AUSÊNCIA DA CHAMADA, e não o relógio: um limite em
   // milissegundos mede a MÁQUINA, e reprovaria por carga do runner num app que
   // está certo — a regra deste repositório. Aqui a asserção é a mesma do
@@ -580,8 +587,8 @@ try {
       // O ESPIÃO fica sobre o `AVDB`, que é por onde o `controle.js` fala com o
       // banco — envolver o IndexedDB seria medir o mecanismo, não o contrato.
       window.__leuCatalogo = 0;
-      const real = AVDB.filesResumo;
-      AVDB.filesResumo = function (...args) {
+      const real = AVDB.filesAll;
+      AVDB.filesAll = function (...args) {
         window.__leuCatalogo++;
         return real.apply(this, args);
       };

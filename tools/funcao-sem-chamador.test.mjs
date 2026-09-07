@@ -60,6 +60,23 @@ const VIVAS_POR_FORA = new Set([
   // (vazia hoje — acrescente `nome`, com o chamador no comentário ao lado)
 ]);
 
+// MORTAS DE PROPÓSITO — e a distinção importa: o que este oráculo combate é o
+// resto que ninguém DECIDIU deixar. Um símbolo sem chamador cujo comentário
+// ADMITE a ausência e diz por que ele fica não é um resto; é uma decisão, e
+// apagá-lo seria desfazê-la por conta própria.
+//
+// Cada entrada tem de apontar o comentário que a sustenta — sem isso a lista
+// vira a porta larga por onde todo achado deste oráculo passa a ser silenciado.
+const MORTAS_DE_PROPOSITO = new Set([
+  // `db.js`: *"SEM CHAMADOR DESDE A v1.7.7, e isto está dito para não ser lido
+  // como contrato vivo"*. A transmissão direta saiu do `controle.js` a pedido
+  // do operador; o banco continua LENDO registros gravados antes daquele lote,
+  // e uma store que sabe ler e não sabe escrever é mais difícil de entender
+  // inteira. Ver o cabeçalho de `shared/mse.js`, que é o leitor.
+  'addStreamMedia',
+  'setMediaStream',
+]);
+
 const falhas = [];
 const ok = (t) => console.log('ok\t' + t);
 const nao = (t, extra) => { console.log('FALHOU\t' + t + (extra ? '\n\t' + extra : '')); falhas.push(t); };
@@ -105,10 +122,15 @@ let vistas = 0;
 for (const [f, txt] of corpo) {
   if (!f.endsWith('.js')) continue;
   const rel = f.slice(RAIZ.length + 1);
-  for (const m of txt.matchAll(/^(?:async )?function ([A-Za-z_$][\w$]*)/gm)) {
+  // O RECUO ENTRA NA REGEX (v1.8.46), e sem ele a varredura via só metade da
+  // base: `db.js`, `stage.js`, `mse.js` e as outras são um IIFE, e toda função
+  // delas nasce indentada. MEDIDO: com a âncora colada no começo da linha, 918
+  // funções eram vistas — nenhuma de `shared/`, que é onde mora o banco.
+  // Foi assim que o `filesResumo` passou.
+  for (const m of txt.matchAll(/^[ \t]*(?:async )?function ([A-Za-z_$][\w$]*)/gm)) {
     const nome = m[1];
     vistas++;
-    if (VIVAS_POR_FORA.has(nome)) continue;
+    if (VIVAS_POR_FORA.has(nome) || MORTAS_DE_PROPOSITO.has(nome)) continue;
     const re = new RegExp('\\b' + nome + '\\b', 'g');
     // > 1 = a declaração mais ao menos um uso.
     if ((app.match(re) || []).length > 1) continue;
@@ -130,6 +152,45 @@ else nao('nenhuma função existe só para o oráculo chamar',
   soOraculo.join('\n\t')
   + '\n\tconserto: faça o APP usá-la (a lógica de verdade costuma estar'
   + '\n\tduplicada em outro lugar), ou apague-a junto com a asserção');
+
+// ============================================================================
+// A SUPERFÍCIE PÚBLICA DO BANCO — `global.AVDB = { … }` (v1.8.46)
+//
+// A contagem acima não alcança um nome EXPORTADO: ele aparece duas vezes (a
+// declaração e a linha da exportação), e `> 1` o aprova. Foi assim que o
+// `filesResumo` sobreviveu — o único consumidor dele no repositório era um
+// espião de oráculo afirmando que ele NÃO é chamado.
+//
+// Aqui a pergunta é a certa para uma API: **alguém acessa `AVDB.<nome>`?** A
+// lista é a do `db.js`, e os consumidores dela chegam todos por esse prefixo
+// (278 ocorrências só no `controle.js`), então não há falso positivo a temer.
+// Escopada a ELA de propósito: uma varredura genérica por `return { … }` casa
+// todo objeto devolvido por qualquer função, e foi o que produziu dois falsos
+// positivos ao escrever este bloco.
+// ============================================================================
+{
+  const db = corpo.get(join(WEB, 'shared/db.js')) || '';
+  const m = db.match(/global\.AVDB = \{([\s\S]*?)\n  \};/);
+  if (!m) {
+    nao('achei o `global.AVDB = { … }` no db.js',
+      'sem ele este bloco não mede nada — não deixe passar por ausência');
+  } else {
+    const nomes = [...semComentario(m[1]).matchAll(/([A-Za-z_$][\w$]*)\s*(?=[,\n])/g)]
+      .map((x) => x[1]).filter((n2) => !/^(true|false|null|slice)$/.test(n2));
+    const orfaos = nomes.filter((n2) => !MORTAS_DE_PROPOSITO.has(n2)
+      && !new RegExp('\\.' + n2 + '\\b').test(app.replace(m[0], '')));
+    if (nomes.length >= 40) ok('a superfície do `AVDB` foi lida (' + nomes.length + ' nomes)');
+    else nao('a superfície do `AVDB` foi lida', 'só ' + nomes.length + ' nome(s)');
+    if (!orfaos.length) ok('e todo nome exportado pelo `AVDB` é acessado no app');
+    else {
+      const soTeste = orfaos.filter((n2) => new RegExp('\\.' + n2 + '\\b').test(oraculos));
+      nao('todo nome exportado pelo `AVDB` é acessado no app',
+        orfaos.join(', ')
+        + (soTeste.length ? '\n\tdesses, SÓ O ORÁCULO usa: ' + soTeste.join(', ') : '')
+        + '\n\tconserto: apague o que ninguém chama, ou faça o app usá-lo');
+    }
+  }
+}
 
 console.log('');
 if (falhas.length) { console.log(falhas.length + ' FALHA(S).'); process.exit(1); }
