@@ -696,6 +696,20 @@ window.AVNative = {
                        //   disco, ou nada o recebeu
   pacoteDescartarPronto(), // joga fora o pronto — o operador quer fazer OUTRO.
                        //   Síncrono, como o `pacoteCancelar`
+  pacoteProntoEstado(), // → { nome, bytes } ou `null`: o pacote PRONTO que
+                       //   espera o envio. É a SEMENTE do lado web, e o irmão
+                       //   exato do `lerEspelho()` do `init()` — pelo mesmo
+                       //   motivo escrito lá: o pronto vive no SHELL e
+                       //   sobrevive ao documento, e `pacotePronto` no
+                       //   `controle.js` é um `let` de PÁGINA que um OTA
+                       //   aplicado, a morte do renderer ou uma recriação de
+                       //   Activity zeram. O tile voltava a oferecer
+                       //   "Exportar" com gigabytes prontos em `files/pacote/`.
+                       //   Os `bytes` saem do `length()` do DISCO, nunca de
+                       //   memória (a distinção da v1.8.22), e um pronto cujo
+                       //   arquivo sumiu responde `null` — oferecer o envio de
+                       //   um arquivo que não existe é o `-1` que o
+                       //   `pacoteCompartilhar` já colapsa em três causas
   pacoteDiag(),        // → string: o que o SHELL sabe do pacote (há pronto? no
                        //   disco? o desfecho do último fecho e do último envio,
                        //   com o NOME da exceção quando houve). Ele existe
@@ -733,7 +747,7 @@ window.AVNative = {
                        //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
-São **62 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **63 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -801,7 +815,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **71**, e ele é o **PISO**: o bundle declara `minShell: 71`, então
+Hoje vale **72**, e ele é o **PISO**: o bundle declara `minShell: 72`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -814,7 +828,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 71 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 72 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -5339,30 +5353,21 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.44 · APK v1.8.39** · `SHELL_VERSION` **71** ·
-bundle com `minShell: 71` e **SEM `shellTag`** — o shell 71 é o **PISO**: todo
-método da ponte existe, e não há guarda de versão no lado web.
+**Versão atual: base web v1.8.45 · APK v1.8.44** · `SHELL_VERSION` **72** ·
+bundle com `minShell: 72` e **COM `shellTag: v1.8.45`** — o shell 72 é o
+**PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.44 TOCA `java/` E MESMO ASSIM NÃO DECLARA `shellTag`, e a razão é o
-> ACOPLAMENTO — que é a pergunta que aquele campo faz.** A metade Kotlin do lote
-> é uma constante (`PRECEDENCIA_TELAO_MS`, 3.000 → 2.500), a limpeza do
-> `telaoPedido`, três KDocs recolocados e a limpeza do parcial do SAF — e nada
-> na metade web depende de nenhum deles. Segurar o bundle não protegeria nada e
-> atrasaria correções que apagam acervo em silêncio (a mescla que descartava o
-> índice de uma coleção, o coletor que apagava o vídeo de uma apresentação).
-> **A Release continua sendo devida** — `java/` só chega instalando um APK —, e
-> enquanto ela não sai o aparelho fica com a metade web, que é o modo de falhar
-> barato deste campo. **PEDE RELEASE `v1.8.44`, sem hold.**
-
-> **ELA NASCEU v1.8.42, VIROU v1.8.43 E SÓ ENTÃO v1.8.44 — duas colisões no
-> mesmo dia, e o motivo vale escrito: outras sessões publicaram em `main`
-> enquanto esta corria.** Dois bundles com o MESMO número não são um empate:
-> são o segundo ficando INVISÍVEL, porque `compareVersions` só aceita o que for
-> MAIOR que o instalado. É a armadilha do `1.1` × `1.1.0` por outro caminho — o
-> degrau não é opcional nem quando o número "já parece novo". **Corolário para
-> quem trabalhar em paralelo: renumerar é passo do MERGE, não da escrita**, e a
-> conferência é `git show origin/main:app/src/main/assets/web/version.json`
-> antes de fechar o lote.
+> **A v1.8.45 DECLARA `shellTag`, e as três anteriores não — a diferença é o
+> ACOPLAMENTO, que é a pergunta que aquele campo faz.** Ela acrescenta um método
+> à ponte (`pacoteProntoEstado`), e o `controle.js` o CHAMA na abertura: contra
+> um APK sem ele, o `native.js` cai no `catch`, o `call()` vence os 60 s e
+> resolve `null` — a semeadura simplesmente não acontece, calada. Com o
+> `shellTag`, o `web-ota` SEGURA o bundle até a Release existir e o aparelho
+> recebe as duas metades juntas.
+>
+> **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
+> Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
+> linha no resumo do run. **PEDE RELEASE `v1.8.45`, com hold.**
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
 > oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
@@ -5558,6 +5563,15 @@ Biblioteca, e o peso que erra para cima:**
 > toda semana —, e escolher se elas viajam não é uma decisão sobre o que o outro
 > aparelho vai TER. Os itens delas continuam viajando, pelo grupo de escape
 > ("Outros itens"): o que sai é a LINHA, nunca os bytes.
+>
+> **COM UMA RESSALVA que faltava aqui (v1.8.45): o item que também é FAVORITO
+> não cai no escape.** Ele entra em `cobertos` pelos Favoritos, que é o único
+> grupo que sobrou, e desmarcar aquele grupo o deixa fora do arquivo. É
+> deliberado e tem oráculo (bloco D do `pacote-por-grupos.test.mjs`: *"um item
+> favoritado tem UM grupo, e desmarcá-lo o deixa de fora — que é exatamente o
+> que o rótulo promete"*), e está escrito porque a frase acima, lida sozinha,
+> promete o contrário — e porque ela convive mal com a outra regra deste
+> capítulo, a de que deixar bytes para trás é o erro que não se recupera.
 
 > **A ORDEM ALFABÉTICA MORA NUM PONTO SÓ, E É POR ISSO QUE ELA VALE NAS DUAS
 > TELAS** (v1.8.40). Pedido: *"os grupos de 'diversos' e 'cantores' devem ter

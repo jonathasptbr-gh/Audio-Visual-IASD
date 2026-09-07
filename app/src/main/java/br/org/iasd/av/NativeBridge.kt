@@ -229,6 +229,24 @@ interface BridgeHost {
     fun pacoteDiag(): String
 
     /**
+     * O PACOTE PRONTO que espera o envio, ou `null` quando não há.
+     *
+     * `{ nome, bytes }`, com os `bytes` saindo do `length()` do DISCO e não de
+     * memória — é a distinção que a v1.8.22 pagou ("o que o canal contou não é
+     * o que o outro app vai ler"), e aqui ela decide se o tile deve sequer
+     * oferecer o envio.
+     *
+     * Ele existe porque o `pacotePronto` do companion SOBREVIVE ao documento e
+     * o do lado WEB não: lá é um `let` de página, e um OTA aplicado, a morte do
+     * renderer ou uma recriação de Activity recarregam a página com ele em
+     * `null`. O tile voltava a oferecer "Exportar" com gigabytes prontos no
+     * disco, e tocar nele refazia minutos de trabalho. É o mesmo buraco que o
+     * `lerEspelho()` do `init()` fecha para o `mirrorEstado`, e pela mesma
+     * razão escrita: *"o servidor vive no SHELL e sobrevive ao documento"*.
+     */
+    fun pacoteProntoEstado(): JSONObject?
+
+    /**
      * APAGA o documento do SAF que uma URL `/saf/<token>` serve — o arquivo do
      * pacote que a importação acabou de consumir.
      *
@@ -282,7 +300,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 71
+        const val SHELL_VERSION = 72
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -2058,6 +2076,25 @@ class NativeBridge(
         val h = host
         if (h == null) { resolve(callId, JSONObject.quote("")); return }
         io.execute { resolve(callId, JSONObject.quote(h.pacoteDiag())) }
+    }
+
+    /**
+     * O pacote PRONTO que espera o envio — `{ nome, bytes }` ou `null`.
+     *
+     * NA FILA `io` e não na `transferencia`: ele é um `length()` de um caminho
+     * conhecido, isto é, milissegundos. Pô-lo atrás de um download faria a
+     * SEMEADURA da abertura vencer os 60 s do `call()` e resolver `null` — o
+     * tile voltaria a oferecer "Exportar" justamente no aparelho que estava
+     * ocupado, que é o pior caso possível deste método.
+     */
+    @JavascriptInterface
+    fun pacoteProntoEstado(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, "null"); return }
+        io.execute {
+            val o = try { h.pacoteProntoEstado() } catch (e: Exception) { null }
+            resolve(callId, o?.toString() ?: "null")
+        }
     }
 
     /**

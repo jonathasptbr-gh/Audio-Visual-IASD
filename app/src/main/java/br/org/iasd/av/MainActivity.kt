@@ -1365,6 +1365,22 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * montar do lado web — o consumidor é uma pessoa lendo o Registro, e o que
      * ela precisa é do nome da exceção.
      */
+    /**
+     * O pronto que o lado web precisa reencontrar depois de uma recarga.
+     *
+     * OS BYTES SAEM DO DISCO, nunca de memória: é o `length()` do caminho que
+     * diz o que o outro app vai ler, e um pronto cujo arquivo sumiu (a faxina
+     * do lançamento, o operador limpando o armazenamento) tem de responder
+     * `null` — senão o tile ofereceria o envio de um arquivo que não existe, e
+     * o toque devolveria o `-1` que o [pacoteShare] já colapsa em três causas.
+     */
+    override fun pacoteProntoEstado(): JSONObject? {
+        val alvo = pacotePronto ?: return null
+        val n = try { alvo.length() } catch (e: Exception) { 0L }
+        if (n <= 0L) return null
+        return JSONObject().put("nome", alvo.name).put("bytes", n)
+    }
+
     override fun pacoteDiag(): String {
         val alvo = pacotePronto
         val onde = if (alvo == null) "nenhum pacote pronto no shell" else {

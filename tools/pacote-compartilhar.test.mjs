@@ -48,10 +48,14 @@ const servidor = servirEstatico(RAIZ);
 //
 // `__chamadas` guarda a ORDEM dos métodos de pacote pedidos. Ela é a régua das
 // asserções 1 e 2: qual caminho abriu, e qual fechou.
-const ponte = (espaco) => `(function () {
+// `opts` aceita o NÚMERO do espaço livre (a forma antiga, que os blocos A-D
+// usam) ou um objeto — hoje só com `prontoNoShell`, o pacote que um aparelho
+// com exportação terminada devolveria a uma página recém-carregada.
+const ponte = (opts) => `(function () {
   window.__saida = [];
   window.__chamadas = [];
-  window.__espaco = ${espaco};
+  window.__espaco = ${typeof opts === 'number' ? opts : (opts && opts.espaco) || 0};
+  window.__prontoNoShell = ${JSON.stringify((opts && opts.prontoNoShell) || null)};
   const canal = {
     postMessage(m) {
       if (typeof m === 'string') {
@@ -118,6 +122,14 @@ const ponte = (espaco) => `(function () {
       setTimeout(() => window.__avResolve(id, window.__semArquivo ? -1 : bytesEscritos()), 0);
     },
     pacoteDescartarPronto: () => { window.__chamadas.push('descartarPronto'); },
+    // O PRONTO QUE O SHELL GUARDA (shell 72). O __prontoNoShell e o que um
+    // aparelho com pacote esperando devolveria depois de a pagina recarregar.
+    // SEM CRASE NESTE COMENTARIO — ele mora dentro do template literal da
+    // ponte, e uma crase aqui o encerra no meio.
+    pacoteProntoEstado: (id) => {
+      window.__chamadas.push('prontoEstado');
+      setTimeout(() => window.__avResolve(id, window.__prontoNoShell || null), 0);
+    },
     // O LADO DO SHELL do diário (shell 69). Ele é a metade que o web NÃO tem
     // como saber: o menos-um do envio colapsa três causas, e só o shell as
     // separa. SEM CRASE NESTE COMENTÁRIO — ele mora dentro do template literal
@@ -160,7 +172,7 @@ const navegador = await abrirNavegador();
 const erros = [];
 const EXTERNO = /ERR_TUNNEL_CONNECTION_FAILED|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_CONNECTION_|ERR_PROXY|ERR_FAILED/;
 
-async function aparelho(espaco) {
+async function aparelho(opts) {
   const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
   await semRedeExterna(ctx);
   const pg = await ctx.newPage();
@@ -171,7 +183,7 @@ async function aparelho(espaco) {
     erros.push(t);
   });
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
-  await pg.addInitScript(ponte(espaco));
+  await pg.addInitScript(ponte(opts));
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await esperar(pg, () => !document.getElementById('splash'), null, 30000);
   await pg.evaluate(() => setAppMode('full'));
@@ -590,6 +602,51 @@ try {
     'E · e o toque nele PARA a exportação', parou);
   await ctx.close();
 }
+
+  // =========================================================================
+  // E · O PRONTO SOBREVIVE A UMA RECARGA DA PÁGINA (shell 72, v1.8.45)
+  // =========================================================================
+  //
+  // O `pacotePronto` do companion do `MainActivity` sempre sobreviveu; o do
+  // lado WEB é um `let` de PÁGINA, e quem decide o que o tile oferece é ele. Um
+  // OTA aplicado (`otaApply` recarrega as duas páginas), a morte do renderer ou
+  // uma recriação de Activity faziam a página renascer com `null`: o tile
+  // voltava a dizer "Exportar" com gigabytes prontos em `files/pacote/`, e
+  // tocar nele refazia minutos de trabalho. Era o `ACHADOS-EM-ABERTO.md` §0.
+  //
+  // Três metades. A do defeito (com pronto no shell, a página nova o encontra),
+  // a que impede o conserto largo demais (SEM pronto no shell o tile continua
+  // oferecendo "Exportar" — senão bastaria fingir que sempre há um), e a que
+  // guarda a razão de o método existir: quem responde é o SHELL, então a
+  // chamada tem de acontecer.
+  {
+    const p = await aparelho({ prontoNoShell: { nome: 'acervo-de-antes.avpkg', bytes: 4096 } });
+    await esperar(p.pg, () => window.pacotePronto !== null, null, 15000);
+    const comPronto = await p.pg.evaluate(() => ({
+      nome: pacotePronto && pacotePronto.nome,
+      bytes: pacotePronto && pacotePronto.bytes,
+      perguntou: window.__chamadas.indexOf('prontoEstado') >= 0,
+      rotulo: (document.querySelector('#pacoteExportarTile .qs-titulo') || {}).textContent || '',
+    }));
+    checar(comPronto.nome === 'acervo-de-antes.avpkg' && comPronto.bytes === 4096,
+      'E · a página nova reencontra o pacote pronto que o shell guardou',
+      JSON.stringify(comPronto));
+    checar(comPronto.perguntou === true,
+      'E · e quem respondeu foi o SHELL — a página não teria como saber sozinha',
+      JSON.stringify(comPronto));
+    await p.ctx.close();
+
+    const q = await aparelho();
+    await q.pg.evaluate(() => new Promise((r) => setTimeout(r, 400)));
+    const semPronto = await q.pg.evaluate(() => ({
+      pronto: pacotePronto,
+      perguntou: window.__chamadas.indexOf('prontoEstado') >= 0,
+    }));
+    checar(semPronto.pronto === null && semPronto.perguntou === true,
+      'E · e sem pronto no shell ela não inventa um: perguntou e o tile segue '
+      + 'oferecendo "Exportar"', JSON.stringify(semPronto));
+    await q.ctx.close();
+  }
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));
 } finally {

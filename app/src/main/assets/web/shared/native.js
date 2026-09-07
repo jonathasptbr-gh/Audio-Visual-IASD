@@ -572,6 +572,23 @@
       (id) => B.pacoteConsumirOrigem(id, String(url || '')), CALL_TIMEOUT_MS,
     ),
 
+    // O PACOTE PRONTO que espera o envio — `{ nome, bytes }` ou `null`.
+    //
+    // É a SEMENTE que faz o tile sobreviver a uma recarga da página: o pronto
+    // vive no SHELL e o `pacotePronto` do `controle.js` é um `let` de página,
+    // que um OTA aplicado ou a morte do renderer zeram. Mesmo papel do
+    // `lerEspelho()` no `init()`, e pela mesma razão escrita lá.
+    //
+    // REMONTADO campo a campo, como todo objeto desta ponte. `Number(...)` e
+    // não `| 0`: um pacote passa dos 2 GB, e o `| 0` é Int32 COM SINAL — o
+    // defeito que este arquivo já pagou duas vezes.
+    pacoteProntoEstado: () => call((id) => B.pacoteProntoEstado(id), CALL_TIMEOUT_MS)
+      .then((r) => (r ? {
+        nome: String(r.nome || ''),
+        bytes: Math.max(0, Number(r.bytes) || 0),
+      } : null))
+      .catch(() => null),
+
     pacoteDiag: () => call((id) => B.pacoteDiag(id), CALL_TIMEOUT_MS)
       .then((r) => String(r || '')),
 

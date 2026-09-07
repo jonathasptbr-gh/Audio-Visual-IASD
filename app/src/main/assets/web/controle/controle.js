@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.44';
+const WEB_VERSION = '1.8.45';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -12364,6 +12364,38 @@ async function cifraProcurar(nome, coll, opts) {
 // Garante que a cifra do item em cena está a caminho (ou já chegou). Idempotente
 // de propósito: `renderLyricsView` pode chamá-la a cada pulso, e o estado
 // `buscando` é o que impede uma segunda requisição para a mesma chave.
+/**
+ * O QUE NÃO É RESPOSTA DO SITE NÃO VIRA VEREDITO DA SESSÃO (v1.8.45).
+ *
+ * `cifraGarantir` volta cedo pelo `cifraCache.has(chave)`, e o `Map` não tinha
+ * `delete` nem `clear` em ponto nenhum: uma entrada `'falha'` era PERMANENTE
+ * até o app ser fechado. Com a Wi-Fi da igreja oscilando — o cenário normal de
+ * um sábado de manhã —, a primeira projeção de um louvor respondia `status 0`,
+ * e a cifra daquela música ficava indisponível pelo resto do culto: a rede
+ * voltava, `cifraTemFolha` continuava `false`, a aba não era desenhada, e
+ * reprojetar não ajudava porque a procura nunca mais acontecia.
+ *
+ * A REGRA JÁ EXISTIA DO OUTRO LADO, e é dela que esta sai: o cache de DISCO
+ * recusa gravar `sem-rede` e `recusou` porque *"não houve resposta do site"* —
+ * só o que o site de fato respondeu (`nao-tem`, `sem-cifra`) é memória, e
+ * mesmo essa vence em trinta dias. O cache de MEMÓRIA guardava os cinco
+ * desfechos por igual, e era a única metade das duas sem essa distinção.
+ *
+ * `ilegivel` FICA no cache de propósito: ali o site RESPONDEU e quem não
+ * entendeu foi o nosso parser — repetir a mesma requisição na mesma sessão
+ * daria o mesmo resultado, e o conserto é um lote novo do `cifra.js`, não uma
+ * segunda tentativa.
+ */
+function esquecerSeNaoFoiResposta(chave, entrada) {
+  if (entrada.estado !== 'falha') return;
+  if (entrada.motivo !== AVCifra.MOTIVO_SEM_REDE
+      && entrada.motivo !== AVCifra.MOTIVO_RECUSOU) return;
+  // Só se a entrada ainda for a NOSSA: uma procura mais nova já pode ter posto
+  // outra no lugar, e apagá-la faria a música ficar em `buscando` para sempre —
+  // o desfecho que o comentário do `then` acima nomeia.
+  if (cifraCache.get(chave) === entrada) cifraCache.delete(chave);
+}
+
 function cifraGarantir(item) {
   const chave = cifraChave(item);
   if (!chave || cifraCache.has(chave)) return cifraCache.get(chave) || null;
@@ -12403,10 +12435,12 @@ function cifraGarantir(item) {
     entrada.motivo = r.motivo;
     entrada.url = r.url;
     if (seq === lvCifraSeq) cifraUltimoDiag = r.tentativas.join('\n');
+    esquecerSeNaoFoiResposta(chave, entrada);
     cifraDesfechoNaTela();
   }).catch(() => {
     entrada.estado = 'falha';
     entrada.motivo = AVCifra.MOTIVO_SEM_REDE;
+    esquecerSeNaoFoiResposta(chave, entrada);
     cifraDesfechoNaTela();
   });
 
@@ -13471,6 +13505,22 @@ const CIFRA_DT_MAX = 250;
 
 let cifraVelIdx = CIFRA_VEL_PADRAO;
 let cifraRolando = false;
+/**
+ * A RAMPA DE ARRANQUE ESTÁ CORRENDO — o estado que diz "ainda não é o compasso
+ * pedido".
+ *
+ * ELE NÃO TEM CONSUMIDOR NA TELA, e isso é deliberado desde a v1.8.45: até a
+ * v1.6.3 ele governava a NOTA da barra (some quando o ritmo cheio chega), e a
+ * nota saiu. O que sobrou é o que os ORÁCULOS esperam — oito pontos do
+ * `cifra-rolagem.test.mjs` fazem `esperar(pg, () => cifraRampando === false)`,
+ * com a razão escrita lá: *"O FIM DA RAMPA É UM ESTADO DO APP, e é por ele que
+ * se espera — nunca pelo resto do relógio"*. Apagá-lo devolve aqueles oito à
+ * espera por prazo, que é a classe de defeito que este repositório nomeia.
+ *
+ * O que MORREU junto com a nota foi o `cifraPintarRolar()` que este bloco
+ * chamava ao virar `false`: sem nota, ele repintava o mesmo botão.
+ */
+let cifraRampando = false;
 let cifraSegurando = false;
 let cifraRaf = 0;
 let cifraQuadroT = 0;
@@ -13510,7 +13560,6 @@ let cifraRampaMs = 0;
  * nó sumiria no primeiro redesenho no meio da rampa. Quem ela governa é a NOTA
  * da barra.
  */
-let cifraRampando = false;
 /**
  * A POSIÇÃO DA FOLHA EM FRAÇÃO DE PIXEL — a nossa, não a do elemento.
  *
@@ -13663,31 +13712,6 @@ function cifraPintarRolar() {
     cifraVelBtnEl.title = t;
     cifraVelBtnEl.setAttribute('aria-label', t);
   }
-  // ===== A NOTA FICA, E MUDA DE PERGUNTA (v1.6.1 → v1.6.2) =====
-  //
-  // Pedido que a criou: *"coloque uma mensagem de confirmação… tente usar o
-  // sistema padrão do app de colocar essa mensagem na própria ui e não em pop
-  // up"*. Ela nasceu explicando uma IMOBILIDADE que a v1.6.2 revogou — e mesmo
-  // assim fica, por duas razões que a rampa não toca:
-  //
-  //  - **o trabalho não sumiu, mudou de fato.** A pergunta era *"por que está
-  //    parada?"*; passou a ser *"por que está tão devagar?"*. Uma folha que
-  //    arrasta a 4 px/s com o botão dizendo `2×` é, para quem opera, o mesmo
-  //    controle que não parece obedecer — e a rampa dura MAIS que a espera (até
-  //    25 s contra 8);
-  //  - **ela é a ÚNICA SUPERFÍCIE VISÍVEL que responde "a folha está seguindo a
-  //    música?"**. O `cifraVelTitulo` responde, mas mora num `title`/`aria-label`
-  //    e num WebView Android não há hover: ele só existe para o leitor de tela.
-  //    Desde que o degrau base deixou de se chamar `Auto` (v1.6.1) esse eixo tem
-  //    exatamente um lugar na tela, e matar a nota o apagaria sem ninguém pedir.
-  //
-  // A JANELA É A MESMA, com o predicado novo: antes do toque ela ANUNCIA (o
-  // pedido está no FUTURO, e uma frase que só nasce depois do play descreve como
-  // porvir uma coisa já em curso); durante a RAMPA ela é a razão da lentidão; e
-  // SOME quando o ritmo cheio chega (`cifraRolarQuadro`), porque daí em diante a
-  // folha andando no compasso pedido já diz tudo. Antes ela sumia no primeiro
-  // quadro de MOVIMENTO — com a rampa, isso a apagaria em um quadro e a janela
-  // do meio deixaria de existir.
   if (!cifraRolarBtnEl) return;
   cifraRolarBtnEl.classList.toggle('ativa', cifraRolando);
   cifraRolarBtnEl.innerHTML = '';
@@ -13787,20 +13811,12 @@ function cifraRolarQuadro(t) {
   }
   const pxAgora = AVCifra.ritmoDaRampa(cifraRampaMs, cifraRampaTotalMs, pxPorS);
   cifraRampaMs += dt;
-  // A NOTA SOME quando o RITMO CHEIO chega — não no primeiro quadro de
-  // movimento, que com a rampa a apagaria num quadro. Daí em diante a folha
-  // andando no compasso pedido já diz tudo, e a frase deixaria de ser verdade
-  // (ela promete "no começo", não "sempre"). É a ÚNICA saída dela: fora deste
-  // ponto o predicado do `cifraPintarRolar` a mantém à vista.
-  //
-  // O `>= 0` não é redundância: com `rolavel <= 0` o sentinel continua `-1`, e
-  // sem ele `0 >= -1` esconderia a nota por um quadro antes de o
-  // `cifraRolarParar` do fim de folha a devolver.
+  // A rampa acabou: daqui em diante o compasso é o pedido. O `>= 0` não é
+  // redundância — com `rolavel <= 0` o sentinel continua `-1`, e `0 >= -1`
+  // marcaria a rampa como terminada antes de ela ser armada.
   if (cifraRampando && cifraRampaTotalMs >= 0 && cifraRampaMs >= cifraRampaTotalMs) {
     cifraRampando = false;
-    cifraPintarRolar();
   }
-
   const antes = el.scrollTop;
   cifraPos = Math.min(rolavel, cifraPos + (pxAgora * dt) / 1000);
   cifraAplicarPos(el);
@@ -13848,11 +13864,8 @@ function cifraRolarAlternar() {
   cifraPos = lyricsViewBodyEl.scrollTop;
   cifraEscrito = -1;
   // A RAMPA nasce ARMADA-PARA-ARMAR: o sentinel `-1` diz "ainda não sei quanto
-  // tempo ela dura" (só o primeiro quadro conhece o `pxPorS`), o relógio dela
-  // parte do zero, e `cifraRampando` sobe no MESMO bloco síncrono de
-  // `cifraRolando` — a razão é a nota (v1.6.1): ela já estava na tela antes do
-  // toque, e é esta linha que impede a folha de PISCAR a legenda por um quadro
-  // enquanto o cálculo não rodou.
+  // tempo ela dura" (só o primeiro quadro conhece o `pxPorS`) e o relógio dela
+  // parte do zero.
   cifraRampaTotalMs = -1;
   cifraRampaMs = 0;
   cifraRampando = true;
@@ -14042,7 +14055,7 @@ function cifraDesenharFolha(el, pagina, semitons) {
 // controle que não existe no momento em que ele importa"*), na casa nova.
 function lvBuildCifra(el) {
   const item = lvItem();
-  // OS BOTÕES E A NOTA MORREM COM O RENDER ANTERIOR. Sem soltá-los aqui, um
+  // OS BOTÕES MORREM COM O RENDER ANTERIOR. Sem soltá-los aqui, um
   // render que caia em "procurando" ou em erro deixa `cifraPintarRolar`
   // escrevendo num nó já desligado da árvore — sem erro, e sem efeito nenhum na
   // tela. (O ⛶ é a EXCEÇÃO deliberada: ele é um nó só, reanexado abaixo.)
@@ -23268,12 +23281,25 @@ const PACOTE_LISTAS = [
  * NÃO é uma partição, e a decisão de como tratar isso é do operador: *"o item
  * viaja se QUALQUER grupo que o contém estiver marcado"*.
  *
- * O que essa escolha compra é que nada se perde por engano — desmarcar
- * Favoritos nunca tira do pacote um item que o Cronograma também pede. O que
- * ela custa está DITO na folha: os pesos se sobrepõem, a soma dos grupos passa
- * do total, e desmarcar "Favoritos: 8 GB" pode liberar menos que 8 GB. Por isso
- * o total do confirmar é a UNIÃO e não a soma (ver `pacoteBytesDe`): o número
- * que decide "cabe no cartão?" tem de ser o do arquivo, não o da aritmética.
+ * O que ela custa está DITO na folha: os pesos se sobrepõem, a soma dos grupos
+ * passa do total, e desmarcar "Favoritos: 8 GB" pode liberar menos que 8 GB. Por
+ * isso o total do confirmar é a UNIÃO e não a soma (ver `pacoteBytesDe`): o
+ * número que decide "cabe no cartão?" tem de ser o do arquivo, não o da
+ * aritmética.
+ *
+ * E DESDE A v1.8.40 SOBROU UM GRUPO SÓ, o que muda o alcance dessa promessa —
+ * o KDoc afirmava até a v1.8.45 que *"desmarcar Favoritos nunca tira do pacote
+ * um item que o Cronograma também pede"*, e isso deixou de ser verdade quando o
+ * Cronograma e a Playlist saíram do `PACOTE_LISTAS`. Um item que está nos dois
+ * entra em `cobertos` pelos Favoritos, portanto NÃO cai no grupo de escape: o
+ * único grupo dele é "Favoritos", e desmarcá-lo o deixa de fora.
+ *
+ * ISSO É DELIBERADO e tem oráculo (`pacote-por-grupos.test.mjs`, bloco D:
+ * *"com só os Favoritos, um item favoritado tem UM grupo, e desmarcá-lo o deixa
+ * de fora — que é exatamente o que o rótulo promete"*). A tensão está declarada
+ * porque ela é real: este arquivo também diz que deixar bytes para trás é o
+ * único erro deste caminho que não se recupera. Quem for mexer aqui decide
+ * entre as duas leituras com o operador — não sozinho, e não pelo comentário.
  *
  * Devolve `porGrupo` (chave → Set de ids) e `bytes` (id → tamanho). O item que
  * não está em lista nenhuma cai no grupo de escape, que mantém a chave antiga
@@ -25291,9 +25317,23 @@ async function pacoteAcertarPonteiros() {
   let chaves;
   try { chaves = await AVDB.stateKeys('coll:'); } catch (_) { return 0; }
   let limpos = 0;
-  for (const chave of chaves) {
-    try {
-      await AVDB.updateState(chave, (atual) => {
+  // PELO LOTE, E NÃO POR CHAVE (v1.8.45), e a diferença é que a promessa do
+  // comentário abaixo passa a ser CUMPRIDA.
+  //
+  // A identidade sempre esteve certa aqui — devolver `atual` quando nada mudou
+  // —, mas quem consumia era o `updateState`, e ele faz `put` INCONDICIONAL: a
+  // varredura reescrevia no disco todos os índices que examinou, inclusive os
+  // que não tinham um ponteiro quebrado sequer. Quem tem a guarda de identidade
+  // é o `updateStateLote` (*"`novo === atual` não escreve e não conta"*), que
+  // nasceu depois e para a Bíblia. De quebra ele faz UMA transação no lugar de
+  // uma por coleção.
+  //
+  // O `try` POR CHAVE virou um `try` DENTRO da `fn`: o lote é tudo-ou-nada, e
+  // uma exceção escapando pararia a varredura inteira — o oposto do que a linha
+  // que ele substitui garantia ("um índice ruim não para a varredura").
+  try {
+    await AVDB.updateStateLote(chaves.map((chave) => ({ chave, valor: null })), (atual) => {
+      try {
         if (!atual || !Array.isArray(atual.songs)) return atual;
         let mudou = false;
         const songs = atual.songs.map((s) => {
@@ -25309,11 +25349,11 @@ async function pacoteAcertarPonteiros() {
           return novo;
         });
         // IDENTIDADE quando nada mudou: é ela que impede a varredura de
-        // reescrever dezenas de índices no disco em toda abertura.
+        // reescrever no disco os índices que estavam sãos.
         return mudou ? Object.assign({}, atual, { songs }) : atual;
-      });
-    } catch (_) { /* um índice ruim não para a varredura */ }
-  }
+      } catch (_) { return atual; /* um índice ruim não para a varredura */ }
+    });
+  } catch (_) { /* o lote não entrou; a próxima abertura tenta de novo */ }
   return limpos;
 }
 
@@ -25422,6 +25462,24 @@ async function pacoteRelatorio(contagem, consumo) {
   // omissão).
   if (consumo) linhas.push('', consumo);
   return linhas.join('\n');
+}
+
+/**
+ * SEMEIA O PRONTO a partir do shell — ver a chamada no `init()`.
+ *
+ * NÃO SOBRESCREVE um pronto que esta sessão já conhece: entre a abertura e a
+ * resposta da ponte cabe uma exportação inteira num aparelho rápido, e o que o
+ * shell devolveria seria o mesmo arquivo por outro caminho — mas a ordem de
+ * chegada não é garantida, e escrever por cima é a classe "lost update" que
+ * este arquivo já pagou quatro vezes.
+ */
+async function lerPacotePronto() {
+  if (!window.__NATIVE__ || pacotePronto) return;
+  let r = null;
+  try { r = await AVNative.pacoteProntoEstado(); } catch (_) { return; }
+  if (!r || !r.bytes || pacotePronto) return;
+  pacotePronto = { nome: r.nome, bytes: r.bytes };
+  pacoteRenderTiles();
 }
 
 async function importarPacote() {
@@ -31896,6 +31954,20 @@ document.addEventListener('visibilitychange', () => {
   // transmissão. Sem transmissão custa uma chamada de ponte com um JSON pequeno
   // e nada muda — os consumidores já leem `{ligado:false}` e `null` igual.
   lerEspelho();
+  // E O PACOTE PRONTO É SEMEADO PELO MESMO MOTIVO (v1.8.45), na linha de baixo
+  // de propósito: o irmão exato do `lerEspelho` acima.
+  //
+  // O pronto vive no SHELL e sobrevive ao documento; `pacotePronto` aqui é um
+  // `let` de PÁGINA. Um OTA aplicado (o `otaApply` recarrega as duas páginas),
+  // a morte do renderer ou uma recriação de Activity faziam a página renascer
+  // com `null`: o tile voltava a dizer "Exportar" com gigabytes prontos em
+  // `files/pacote/`, e tocar nele refazia minutos de medição e escrita do zero.
+  // Era o `docs/ACHADOS-EM-ABERTO.md` §0.
+  //
+  // Fire-and-forget, e ela se sustenta sozinha: sem pronto o shell responde
+  // `null` e nada muda. `pacoteRenderTiles()` só é chamado quando há o que
+  // mostrar — redesenhar por uma resposta vazia é trabalho para não mudar nada.
+  lerPacotePronto();
   // Índices das coleções em segundo plano (fire-and-forget): não atrasa a
   // abertura do app, só deixa a busca/os cards prontos assim que a resposta chegar.
   autoRefreshCollections();

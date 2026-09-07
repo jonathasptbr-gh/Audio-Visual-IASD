@@ -174,15 +174,23 @@ try {
     };
     const antes = window.__nCifraHtml;
     cifraGarantir(item);
+    // "RESOLVEU" PASSOU A TER DUAS FORMAS (v1.8.45): a entrada sai de
+    // `buscando`, OU ela SOME — e `sem-rede` é o caso que some, porque uma
+    // falha que não é resposta do site deixou de virar veredito da sessão (ver
+    // o bloco do fim deste arquivo). Esperar só pela primeira forma faz o laço
+    // vencer e reprovar o app estando certo, que foi o que aconteceu aqui.
     for (let i = 0; i < 100; i++) {
       const e = cifraCache.get(cifraChave(item));
-      if (e && e.estado !== 'buscando') return { estado: e.estado, rede: window.__nCifraHtml - antes };
+      if (!e) return { estado: 'esquecida', rede: window.__nCifraHtml - antes };
+      if (e.estado !== 'buscando') return { estado: e.estado, rede: window.__nCifraHtml - antes };
       await new Promise((res) => setTimeout(res, 50));
     }
     return { estado: 'nunca resolveu', rede: window.__nCifraHtml - antes };
   });
   checar(r2.rede > 0, 'um hino NÃO guardado vai à rede', r2);
-  checar(r2.estado === 'falha', 'e sem rede ele falha, em vez de inventar uma folha', r2.estado);
+  checar(r2.estado === 'esquecida',
+    'e sem rede ele NÃO inventa folha — e a falha nem fica guardada, porque não '
+    + 'foi o site que respondeu', r2.estado);
 
   // ---- A GRAVAÇÃO MESCLA; ELA NUNCA SUBSTITUI (v1.2.10) -------------------
   //
@@ -441,6 +449,68 @@ try {
     album);
   checar(album.vistas.length >= 2,
     'ou seja: ela gastou a requisição seguinte de propósito', album.vistas);
+
+  // ---- UMA FALHA DE REDE NÃO É VEREDITO DA SESSÃO (v1.8.45) ---------------
+  //
+  // `cifraGarantir` volta cedo pelo `cifraCache.has(chave)`, e o `Map` não tinha
+  // `delete` em ponto nenhum: uma entrada `'falha'` por `sem-rede` ficava até o
+  // app FECHAR. Com a Wi-Fi da igreja oscilando, a primeira projeção de um
+  // louvor perdia a cifra dele pelo resto do culto — a rede voltava e nada
+  // repergunta.
+  //
+  // A REGRA SAI DO DISCO, que sempre recusou gravar `sem-rede` e `recusou`
+  // porque não são resposta do site. As três metades: a falha de rede é
+  // ESQUECIDA (o defeito), a falha que É resposta do site (`nao-tem`, um 404)
+  // FICA — senão o conserto barato é esquecer tudo e o cache deixa de existir —,
+  // e depois de esquecida a segunda tentativa acha a folha de verdade.
+  const rede = await pg.evaluate(async () => {
+    const espera = async (item) => {
+      for (let i = 0; i < 100; i++) {
+        const e = cifraCache.get(cifraChave(item));
+        if (!e || e.estado !== 'buscando') return e || null;
+        await new Promise((res) => setTimeout(res, 50));
+      }
+      return null;
+    };
+    const item = { id: 'h9', name: '009. Hino Da Rede Que Oscila', kind: 'audio',
+      hymnAlbum: (allCollections().find((c) => c.id === 'hymnal-2022') || {}).name };
+    const item404 = { id: 'h8', name: '008. Hino Que O Site Nao Tem', kind: 'audio',
+      hymnAlbum: (allCollections().find((c) => c.id === 'hymnal-2022') || {}).name };
+    cifraCache.clear();
+
+    window.__rota = () => ({ status: 0, html: '' });          // sem rede
+    // A CHAMADA É OBRIGATÓRIA, e a falta dela foi medida: sem `cifraGarantir`
+    // aqui o cache está vazio de qualquer jeito, `depoisDaQueda` sai `false` e
+    // a asserção passa SEM que a procura tenha acontecido — vacuidade, e ela
+    // sobrevive à reversão.
+    cifraGarantir(item);
+    await espera(item);
+    const depoisDaQueda = cifraCache.has(cifraChave(item));
+
+    window.__rota = () => ({ status: 404, html: '' });        // o site respondeu
+    cifraGarantir(item404);
+    const e404 = await espera(item404);
+    const ficou404 = cifraCache.has(cifraChave(item404));
+
+    // A REDE VOLTOU: a mesma música tem de perguntar de novo e achar.
+    window.__rota = () => ({ status: 200,
+      html: '<div class="cifra"><pre>[G]  [C]\nletra da folha</pre></div>' });
+    const antes = window.__nCifraHtml;
+    cifraGarantir(item);
+    const e2 = await espera(item);
+    return {
+      depoisDaQueda, ficou404,
+      motivo404: e404 && e404.motivo,
+      reperguntou: window.__nCifraHtml - antes,
+      estado2: e2 && e2.estado,
+    };
+  });
+  checar(rede.depoisDaQueda === false,
+    'a falha por SEM REDE não fica no cache da sessão', rede);
+  checar(rede.ficou404 === true && rede.motivo404 === 'nao-tem',
+    'e a que É resposta do site (404) FICA — o cache não deixou de existir', rede);
+  checar(rede.reperguntou > 0 && rede.estado2 === 'ok',
+    'com a rede de volta, a mesma música repergunta e acha a folha', rede);
 
 } finally {
   await navegador.close();

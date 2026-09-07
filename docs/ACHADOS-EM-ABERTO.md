@@ -1,8 +1,6 @@
 # Achados em aberto
 
-**CINCO** — o pacote pronto esquecido em toda recarga da página (§0, achado da
-revisão de 2026-09-07, com o conserto desenhado e o custo medido), mais os
-quatro de sempre: os dois do áudio do espelhamento, o CLIENTE de onde sai a escada
+**Quatro** — os dois do áudio do espelhamento, o CLIENTE de onde sai a escada
 da transmissão direta (v1.4.5; as outras duas hipóteses daquele relato morreram,
 uma por construção e a outra por correção), e a faixa da Biblioteca que nunca é
 marcada como no ar (v1.5.16). (Houve outro, e ele já saiu — *"mídia baixada pausa
@@ -15,46 +13,6 @@ sobrou dele é o caso que a correção não sabe distinguir — a chamada telef�
 2026-08-20 e os dois da campanha de determinismo da v5.316 foram corrigidos nos
 lotes em que foram achados; a nota de cada um está em
 [`HISTORICO.md`](HISTORICO.md).
-
----
-
-## 0. O pacote PRONTO é esquecido em toda recarga da página (CONFIRMADO, v1.8.44)
-
-**Cenário.** O operador exporta o acervo pelo caminho local (minutos de medição
-e escrita, gigabytes no disco). O tile diz *"pronto, 15 GB — toque para
-enviar"*. Antes de mandar, a página recarrega: um OTA aplicado (`otaApply()`
-recarrega as duas), a morte do renderer (dois WebViews e um vídeo grande dividem
-o processo) ou uma recriação de Activity. **A página nova nasce com
-`pacotePronto = null`**, o tile volta a dizer "Exportar", e o arquivo continua
-em `files/pacote/` ocupando o aparelho até a faxina do lançamento seguinte.
-Tocar no tile refaz o trabalho inteiro do zero.
-
-**O que já é verdade.** O `@Volatile var pacotePronto: File?` do companion de
-`MainActivity` SOBREVIVE — `pacoteShare`, `pacoteDiag` e a faxina continuam
-enxergando o arquivo. O que não sobrevive é o estado do LADO WEB, que é quem
-decide o que o tile oferece: `let pacotePronto = null` em `controle.js`, escrito
-só localmente (a exportação, o envio, o descarte) e semeado por ninguém.
-
-**Por que ninguém semeia.** Não há método de ponte que responda *"há pronto?"*.
-Os dez métodos do pacote são de AÇÃO (`pacoteCriar`, `pacoteFechar`,
-`pacoteCompartilhar`, `pacoteDescartarPronto`, …); o único que carrega estado é
-o `pacoteDiag`, e ele devolve TEXTO livre para uma pessoa ler no Registro — não
-um estado consumível, e parseá-lo violaria o contrato do próprio diagnóstico.
-
-**Correção proposta.** A do `mirrorEstado`, e o precedente está escrito: o
-`lerEspelho()` do `init()` existe por este MESMO motivo (*"o servidor vive no
-SHELL e sobrevive ao documento"*). Um método de ponte — `pacoteProntoEstado()`
-→ `{ nome, bytes }` ou `null`, com os bytes saindo do `length()` do DISCO e não
-de memória (a distinção que a v1.8.22 pagou) — semeado no `init()` ao lado do
-`lerEspelho()`. **Custa `SHELL_VERSION` 72, `minShell: 72`, `shellTag` e
-Release**, e é por isso que ficou de fora do lote que o achou: ele era só web
-mais uma constante, e não havia como validar Kotlin novo sem compilar.
-
-**Ressalva do cético:** a recriação de Activity ficou RARA desde que a v1.4.19
-encheu o `android:configChanges` — mas as outras duas portas (o OTA aplicado e a
-morte do renderer) não dependem dela, e o OTA é rotina. O KDoc do campo já foi
-corrigido na v1.8.44 para parar de afirmar que a colocação no companion impede
-isto; o que falta é o conserto.
 
 ---
 

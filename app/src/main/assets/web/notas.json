@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.45",
+    "itens": [
+      "O pacote pronto continua lá depois de o app recarregar.",
+      "A cifra volta a ser procurada quando a rede oscila e depois volta.",
+      "A varredura de ponteiros deixou de reescrever índices que estavam sãos."
+    ]
+  },
+  {
     "versao": "1.8.44",
     "itens": [
       "O vídeo de dentro de uma apresentação deixou de sumir no modo simplificado.",
