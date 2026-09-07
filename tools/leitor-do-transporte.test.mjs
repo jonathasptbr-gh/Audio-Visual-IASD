@@ -234,6 +234,28 @@ try {
   // e o RENDERIZADO (a largura, que é o que o operador vê). Sem a segunda, um
   // `flex: 1` apagado do `.fit-opt` passaria; sem a primeira, larguras
   // acertadas à mão passariam.
+  //
+  // ===== E A CONTA DE ABAS ESPERA A CIFRA CHEGAR (v1.8.28) ================
+  //
+  // A aba de cifra deixou de sair de um predicado puro: ela depende do DESFECHO
+  // da procura (`cifraTemFolha`), que chega por uma Promise — disco em
+  // milissegundos, rede em segundos. Medir no mesmo quadro da abertura conta as
+  // abas ANTES da resposta, e o que sai é `1` onde se esperava `2`.
+  //
+  // MEDIDO: passou duas vezes nesta máquina e REPROVOU no runner, que é a
+  // assinatura de um oráculo medindo o agendador. A espera é pelo FATO (o
+  // estado no cache), nunca por um prazo, e o predicado é SÍNCRONO — um `async`
+  // aqui devolve uma Promise, que é *truthy*, e a espera passaria no primeiro
+  // quadro aprovando justamente o que veio verificar.
+  //
+  // Não é tautologia: o que se espera é a INGESTÃO (a procura terminando), e o
+  // que se afirma é o PAI e a LARGURA das abas que resultam dela.
+  await pg.waitForFunction(
+    () => !cifraCabe(lvItem())
+      || (cifraEstado(lvItem()) || {}).estado !== 'buscando',
+    null, { timeout: 15000 },
+  );
+
   const abas = (n) => pg.evaluate((quantas) => {
     bibleSession = quantas >= 3
       ? { projecting: true, verses: [{ ref: 'Sl 23:1', text: 'O Senhor é o meu pastor' }], idx: 0 }
