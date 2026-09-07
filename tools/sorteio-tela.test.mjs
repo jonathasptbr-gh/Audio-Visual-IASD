@@ -288,10 +288,10 @@ try {
     };
     const fora = {};
     for (const tema of ['escuro', 'claro']) {
-      setTema(tema); await new Promise((r) => setTimeout(r, 60));
+      setTemaEscolha(tema); await new Promise((r) => setTimeout(r, 60));
       fora[tema] = medir();
     }
-    setTema('escuro');
+    setTemaEscolha('escuro');
     return fora;
   });
   checar(contraste.escuro >= 3 && contraste.claro >= 3,

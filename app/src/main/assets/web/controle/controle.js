@@ -99,6 +99,13 @@ const TEMA_KEY = 'av.tema';
 function storedTema() {
   return document.documentElement.dataset.tema === 'claro' ? 'claro' : 'escuro';
 }
+// A ESCOLHA, que é outra pergunta: `null` = AUTOMÁTICO (segue o aparelho). Ela
+// vem do mesmo script inline, num atributo PRÓPRIO — ver o comentário de lá.
+function storedTemaEscolha() {
+  const e = document.documentElement.dataset.temaEscolha;
+  return e === 'claro' || e === 'escuro' ? e : null;
+}
+let temaEscolha = storedTemaEscolha();
 let tema = storedTema();
 const temaMetaEl = document.getElementById('temaMeta');
 function pintarTema() {
@@ -114,9 +121,41 @@ function pintarTema() {
     if (bg) temaMetaEl.setAttribute('content', bg);
   }
   // O shell: ícones das barras e o windowBackground do próximo lançamento.
+  //
+  // ELE RECEBE O TEMA EFETIVO, nunca a escolha: o `windowBackground` é pintado
+  // antes de existir JS, então o que ele precisa saber é de que cor a tela vai
+  // nascer — e no automático essa cor é a que o SISTEMA respondeu na última vez
+  // que o app abriu. Um aparelho que troca de tema com o app fechado abre uma
+  // vez na cor antiga e se corrige no primeiro quadro do documento; guardar a
+  // escolha ali daria o mesmo, com uma regra a mais.
   try { window.AVNative?.temaClaro(tema === 'claro'); } catch (_) { /* shell antigo */ }
 }
 pintarTema();
+
+// ===== O AUTOMÁTICO SEGUE O APARELHO ENQUANTO O APP ESTÁ ABERTO =====
+//
+// Sem isto, "automático" seria "o tema que o aparelho tinha quando o app abriu"
+// — e o caso que morde é o do agendamento: o Android troca para o escuro ao
+// anoitecer, e o culto de sábado à noite começa com o app aberto desde a tarde,
+// aceso em branco no púlpito.
+//
+// SÓ NO AUTOMÁTICO. Uma escolha guardada é uma decisão do operador, e um app
+// que a desfaz porque o sistema mudou é um app que não obedece.
+try {
+  const mqTema = window.matchMedia('(prefers-color-scheme: light)');
+  const aoTrocarDoSistema = () => {
+    if (temaEscolha) return;
+    const novo = mqTema.matches ? 'claro' : 'escuro';
+    if (novo === tema) return;
+    tema = novo;
+    pintarTema();
+    renderTemaTile();
+  };
+  // `addEventListener` no `MediaQueryList` é o caminho de hoje; o
+  // `addListener` é o de antes e continua sendo o único em WebViews velhos.
+  if (mqTema.addEventListener) mqTema.addEventListener('change', aoTrocarDoSistema);
+  else if (mqTema.addListener) mqTema.addListener(aoTrocarDoSistema);
+} catch (_) { /* sem matchMedia: o automático vira "o que abriu" */ }
 
 const settingsBtnEl = document.getElementById('settingsBtn');
 const lyricsViewBtnEl = document.getElementById('lyricsViewBtn');
@@ -334,7 +373,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.48';
+const WEB_VERSION = '1.8.49';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -22940,6 +22979,43 @@ if (diagSaveEl) {
   });
 }
 
+// ===== FALAR COM QUEM MANTÉM O APP (v1.8.49) =====
+//
+// Pedido do operador: um atalho direto para a conversa, no rodapé onde a versão
+// e o Registro já moram. As três respostas juntas são o pedido de ajuda inteiro
+// — o número, o arquivo e a porta.
+//
+// `wa.me` E NÃO UM `intent://`. O primeiro é uma URL `https://` comum: o Android
+// a entrega ao WhatsApp quando ele está instalado (link de app verificado) e ao
+// navegador quando não está, e ali a própria página oferece instalar. Um
+// `intent://` com fallback faria a mesma coisa com uma sintaxe que só o Chrome
+// entende — e o que abre isto é o `ACTION_VIEW` do `openExternal`, não um
+// navegador.
+//
+// O NÚMERO É DDI+DDD SEM SINAIS, que é a forma que o `wa.me` exige. Ele mora
+// aqui e em mais nenhum lugar do app.
+//
+// A MENSAGEM VEM PRONTA, com a VERSÃO dentro: quem pede ajuda quase nunca sabe
+// que ela importa, e é a primeira coisa que se pergunta de volta. Ela é um
+// rascunho — o WhatsApp abre com o texto no campo, e quem escreve é o operador.
+//
+// Revelado AQUI pelo motivo do `diagSave` logo acima (a zona morta temporal do
+// `renderVersionLabel`), e `hidden` fora do app pelo mesmo argumento: quem abre
+// a porta é a ponte, e um botão que só sabe não funcionar é pior que nenhum.
+const AV_CONTATO_TEL = '5551997572650';
+const contatoBtnEl = document.getElementById('contatoBtn');
+if (contatoBtnEl) {
+  contatoBtnEl.hidden = !window.__NATIVE__;
+  contatoBtnEl.addEventListener('click', () => {
+    if (!window.__NATIVE__) return;
+    const msg = 'Olá! Falo sobre o ' + AV_NOME + ' v' + WEB_VERSION + '.\n\n';
+    const url = 'https://wa.me/' + AV_CONTATO_TEL + '?text=' + encodeURIComponent(msg);
+    try { AVNative.openExternal(url); } catch (_) {
+      responder(contatoBtnEl, 'erro', 'Não deu para abrir');
+    }
+  });
+}
+
 // =============================================================================
 // O PACOTE DE TRANSFERÊNCIA — o lado que mexe em bytes (v1.7.0)
 //
@@ -25774,7 +25850,7 @@ async function reidratarDepoisDaImportacao() {
  * Renomear o repositório muda esta linha — e o modo de falhar é discreto: o
  * link compartilhado deixa de abrir, e é uma pessoa do outro lado que descobre.
  */
-const AV_PAGINA = 'https://jonathasptbr-gh.github.io/Audio-Visual-IASD/';
+const AV_PAGINA = 'https://audiovisualiasd.com.br/';
 
 const shareAppTileEl = document.getElementById('shareAppTile');
 const pacoteExportarTileEl = document.getElementById('pacoteExportarTile');
@@ -29707,20 +29783,46 @@ function renderAppModeSeg() {
 // a tela inteira atrás dele (não há o que ver com o popup na frente), e o tema
 // troca a cor DO PRÓPRIO POPUP — é olhando para ele que o operador decide se
 // gostou. Escolher e continuar vendo é a resposta.
-function setTema(t) {
-  const novo = t === 'claro' ? 'claro' : 'escuro';
-  if (novo === tema) return;
-  tema = novo;
-  try { localStorage.setItem(TEMA_KEY, tema); } catch (_) { /* storage bloqueado */ }
+// TRÊS ESTADOS, e o do meio é a AUSÊNCIA de escolha: `null` = automático.
+// O ciclo é Automático → Claro → Escuro → Automático, e ele começa no
+// automático porque é o padrão — quem nunca tocou aqui já está nele.
+const TEMA_CICLO = [null, 'claro', 'escuro'];
+function setTemaEscolha(escolha) {
+  temaEscolha = escolha === 'claro' || escolha === 'escuro' ? escolha : null;
+  const raiz = document.documentElement;
+  try {
+    if (temaEscolha) localStorage.setItem(TEMA_KEY, temaEscolha);
+    else localStorage.removeItem(TEMA_KEY);
+  } catch (_) { /* storage bloqueado */ }
+  // O ATRIBUTO ACOMPANHA A CHAVE, sempre: ele é o que o `storedTemaEscolha()`
+  // lê, e deixá-los divergir devolveria o defeito que o carrier existe para
+  // impedir — com a diferença de que aqui ninguém releria a gaveta para notar.
+  if (temaEscolha) raiz.dataset.temaEscolha = temaEscolha;
+  else delete raiz.dataset.temaEscolha;
+  tema = temaEscolha || temaDoAparelho();
   pintarTema();
   renderTemaTile();
 }
 
+// O que o APARELHO responde agora. Sem `matchMedia` — ou num navegador que não
+// conheça a consulta — o escuro é o padrão, que é o mesmo do `:root` sem
+// atributo: uma resposta só, escrita num lugar só.
+function temaDoAparelho() {
+  try {
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'escuro';
+  } catch (_) { return 'escuro'; }
+}
+
 // SEMPRE ACESO, pelo motivo do preenchimento: escuro e claro são as duas
-// metades de um par, e nenhuma delas é "o tema desligado".
+// metades de um par, e nenhuma delas é "o tema desligado". No AUTOMÁTICO o
+// rótulo diz o que o app está seguindo, e não só que ele segue — *"Automático"*
+// sozinho não responde "então está claro ou escuro AGORA?", e é essa a pergunta
+// de quem olha o tile.
 function renderTemaTile() {
-  pintarTile(temaTileEl, tema, tema === 'claro' ? 'Claro' : 'Escuro',
-    true, tema === 'claro');
+  const rotulo = temaEscolha
+    ? (tema === 'claro' ? 'Claro' : 'Escuro')
+    : (tema === 'claro' ? 'Automático · claro' : 'Automático · escuro');
+  pintarTile(temaTileEl, tema, rotulo, true, tema === 'claro');
 }
 
 // (A CHAVE "este aparelho entra na contagem" saiu na v1.4.42, a pedido do
@@ -30229,7 +30331,10 @@ appModeSegEl.addEventListener('click', (e) => {
 });
 // O TEMA ALTERNA (v1.4.38): o par escuro/claro virou um tile, e um tile de dois
 // estados não escolhe — ele vai para o outro.
-temaTileEl.addEventListener('click', () => { setTema(tema === 'claro' ? 'escuro' : 'claro'); });
+temaTileEl.addEventListener('click', () => {
+  const i = TEMA_CICLO.indexOf(temaEscolha);
+  setTemaEscolha(TEMA_CICLO[(i + 1) % TEMA_CICLO.length]);
+});
 // SEM FOCO, e o `() =>` é o ponto: registrado por REFERÊNCIA, o ouvinte chama
 // `openHymnSearch(evento)` — e um `PointerEvent` é truthy, então a lupa do Modo
 // Fácil abria com o teclado por cima da lista. É um BOTÃO, e a regra das duas

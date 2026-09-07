@@ -414,12 +414,13 @@ se houver `url_*`, baixe via `fileUrl(path)`.
   `sessionStorage` (`db:{file}`) pra não rebaixar na mesma sessão. Réplica
   opcional aqui — o Audio Visual IASD hoje guarda o índice do hinário em
   `state.hymnal2022` (IndexedDB) e os binários no OPFS.
-- **CORS** ⚠️: a API de produção **precisa** liberar CORS para a origin do
-  Audio Visual IASD (`https://jonathasptbr-gh.github.io`). Isso **não foi
-  verificado em produção** (a rede de desenvolvimento não alcançava
-  `api.louvorja.com.br`). Se o `fetch` falhar por CORS, a sincronização e a
-  busca ao vivo param — a busca no que **já** foi baixado (OPFS/IndexedDB)
-  continua funcionando offline. Ver a "Nota de rede" no `CLAUDE.md`.
+- **CORS** ⚠️: a API de produção precisa liberar CORS para a origin de quem
+  chama — e **a origin do app não é a da página**. O que roda no aparelho é
+  servido de `https://appassets.androidplatform.net/` (a invariante 1: contexto
+  seguro, nunca `file://`); `audiovisualiasd.com.br` é só a página de download,
+  e ela não faz chamada nenhuma à LouvorJA. Se o `fetch` falhar por CORS, a
+  sincronização e a busca ao vivo param — a busca no que **já** foi baixado
+  (OPFS/IndexedDB) continua funcionando offline.
 
 ---
 

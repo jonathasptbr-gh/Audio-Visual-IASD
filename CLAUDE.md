@@ -1308,6 +1308,19 @@ nenhum**, e por isso ficam aqui.
 - **O ÍCONE DO APP é a paleta** e é VETOR (`minSdk` 26: o adaptativo é o único
   ícone que chega a ser desenhado). Ele **não segue o tema claro** — é desenhado
   pela gaveta do sistema com o app fechado.
+- **O PADRÃO É O AUTOMÁTICO, e ele segue o APARELHO** (v1.8.49). São TRÊS
+  estados — Automático → Claro → Escuro —, e o do meio é a **ausência** da chave
+  `av.tema`: sem escolha guardada o app lê `prefers-color-scheme` (que no WebView
+  responde pelo modo noturno do SISTEMA, não pelo tema desta Activity) e
+  acompanha o aparelho **ao vivo**, porque o Android troca ao anoitecer e o culto
+  de sábado à noite começa com o app aberto desde a tarde. **Uma escolha guardada
+  vence sempre** — um app que a desfaz porque o sistema mudou é um app que não
+  obedece. O tema EFETIVO viaja em `data-tema` e a ESCOLHA em `data-tema-escolha`,
+  os dois escritos pelo script inline do `<head>`: é UMA leitura de `localStorage`
+  no app inteiro, e os atributos são o carrier. Oráculo: as três metades no
+  `smoke.mjs`, com o aparelho emulado — **o Chromium responde CLARO por padrão**,
+  então um oráculo de cor que não declara de que tema partiu mede o padrão do
+  navegador, não uma decisão deste app.
 
 > **NÃO HÁ TESTE DE CONTRASTE ABSOLUTO.** Os números nos comentários de
 > `tokens.css` são medições à mão, e os pares abaixo do piso estão declarados
@@ -1369,7 +1382,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Atualização da base web | recarregar a página | **OTA** |
 | Contagem de uso | **não existe** — nada é contado num navegador, e não há chave nenhuma a desenhar | **o farol** (shell 58): uma busca por dia a um asset de contagem, agregada e sem id. Pega carona na ronda do OTA. **SEMPRE ATIVO desde a v1.4.42**: a chave de exclusão saiu (com o `farolContar` da ponte), e o que sobra é o BUILD DEBUGGÁVEL, que acende num contador separado por construção. O preço está no painel — a página de alcance avisa que os números incluem o uso próprio |
 | Atualização do APP | — | **o app baixa e instala**; o diálogo do Android é obrigatório e está certo que seja |
-| Tema claro × escuro | CSS + `localStorage`; `theme-color` tinge a barra | idem **mais o cromo do sistema**: `temaClaro` vira os ÍCONES das barras e guarda a escolha para o `windowBackground` do PRÓXIMO lançamento (recurso de APK é resolvido antes de existir JS) |
+| Tema claro × escuro | CSS + `localStorage`; `theme-color` tinge a barra | idem **mais o cromo do sistema**: `temaClaro` vira os ÍCONES das barras e guarda o tema EFETIVO para o `windowBackground` do PRÓXIMO lançamento (recurso de APK é resolvido antes de existir JS) |
 | **Telão nas telas da rede** | **não existe** (navegador não abre `ServerSocket`) | servidor HTTP no celular + SSE + `/m/<token>` — ver a seção do recurso. A rede é a Wi-Fi de que o celular é CLIENTE **ou o PONTO DE ACESSO dele mesmo** (v1.4.1): nenhuma das duas precisa de internet |
 | `__AV_ROLE__` | `'controle'` / `'display'` | **terceiro valor, `'tela'`** — o mesmo `/web/display/` num navegador da LAN. Seguro por construção: as leituras do papel comparam `!== 'controle'`, e **nenhum caminho testa `=== 'display'`** |
 
@@ -1952,12 +1965,14 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   saiu com a versão do APK — correta, velha, e indistinguível de estar tudo bem.
 
   **E TODO CAMINHO DENTRO DE `site/` É RELATIVO** (`telas/biblia.webp`, nunca
-  `/telas/biblia.webp`). O Pages serve de `jonathasptbr-gh.github.io/Audio-Visual-IASD/`,
-  com PREFIXO de caminho; um domínio próprio serviria da RAIZ. Todo link absoluto
-  funciona hoje e quebra no dia da troca — **e quebra calado**, porque quem
-  responde é o 404 do GitHub, não um erro nosso. Com tudo relativo, o mesmo build
-  serve os dois endereços sem uma linha alterada e a migração vira DNS mais um
-  `CNAME`. Hoje a regra está cumprida: não há um caminho absoluto no `site/`.
+  `/telas/biblia.webp`), e **essa regra já se pagou**. O Pages servia de
+  `jonathasptbr-gh.github.io/Audio-Visual-IASD/`, com PREFIXO de caminho; o
+  domínio próprio **[audiovisualiasd.com.br](https://audiovisualiasd.com.br/)**
+  serve da RAIZ. Todo link absoluto funcionava e teria quebrado na troca — **e
+  quebrado calado**, porque quem responde é o 404 do GitHub, não um erro nosso.
+  Com tudo relativo, o mesmo build passou a servir os dois endereços sem uma
+  linha alterada, e a migração foi o DNS mais o `site/CNAME`. A regra continua
+  valendo pelo mesmo motivo: **o endereço pode mudar de novo, o `site/` não**.
 
   **E O DOWNLOAD SÓ EXISTE NO ANDROID.** O app é um `.apk`, e um `.apk` só
   instala em Android: quem chega de iPhone, iPad ou computador não vê o guia de

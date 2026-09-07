@@ -24,7 +24,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, esperar, porque, checar, falhas } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 
@@ -42,7 +42,19 @@ const navegador = await abrirNavegador();
 // `touchstart`/`touchmove` — o carrossel de abas (o único gesto de toque que
 // este arquivo exercita) não teria como reagir, e o caso "passaria" por não
 // medir nada. É o aparelho que este teste imita; o padrão de mesa não é.
-const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
+// O APARELHO EMULADO É ESCURO, e isto passou a ser obrigatório na v1.8.49.
+//
+// O tema padrão do app virou AUTOMÁTICO: sem escolha guardada ele segue o
+// `prefers-color-scheme` do aparelho. **O Chromium responde CLARO por padrão**,
+// então sem esta linha o app abre claro aqui — e todo bloco deste arquivo que
+// mede cor renderizada passaria a medir o outro tema, silenciosamente.
+//
+// Declarar o ponto de partida é o certo por si: um oráculo de COR que não diz
+// de que tema partiu está medindo o padrão de um navegador, não uma decisão
+// deste app.
+const ctx = await navegador.newContext({
+  viewport: { width: 430, height: 900 }, hasTouch: true, colorScheme: 'dark',
+});
 await semRedeExterna(ctx);
 // ---------- O TECLADO VIRTUAL, DE MENTIRA ----------
 // Não há como abrir um teclado de sistema num Chromium headless, e o que
@@ -1101,9 +1113,18 @@ try {
     // O TEMA VIROU UM TILE que ALTERNA (v1.4.38): não há mais dois segmentos
     // para escolher um, há um botão que vai para o outro estado. O toque é o
     // mesmo do operador, e o `data-estado` é o que a pintura escreve.
+    //
+    // TRÊS ESTADOS desde a v1.8.49 (Automático → Claro → Escuro), e o percurso
+    // começa no AUTOMÁTICO — o app nasce sem escolha guardada. Com o aparelho
+    // emulado em ESCURO (ver o `emulateMedia` acima), o primeiro toque é
+    // exatamente a transição que este bloco sempre mediu: escuro → claro.
     document.getElementById('temaTile').click();
     const claro = ler();
-    return { escuro, claro, atributo: raiz.dataset.tema, guardado: localStorage.getItem('av.tema') };
+    return {
+      escuro, claro, atributo: raiz.dataset.tema,
+      guardado: localStorage.getItem('av.tema'),
+      escolha: raiz.dataset.temaEscolha || null,
+    };
   });
   checar(tema.escuro.bg !== tema.claro.bg && tema.escuro.texto !== tema.claro.texto,
     'trocar o tema troca fundo e texto (' + tema.escuro.bg + ' → ' + tema.claro.bg + ')');
@@ -1123,8 +1144,9 @@ try {
     + ' (' + tema.escuro.accent + ' / ' + tema.escuro.fill + ')');
   checar(tema.escuro.barra !== tema.claro.barra && /^#[0-9a-f]{6}$/i.test(tema.claro.barra),
     'e o `theme-color` acompanha (' + tema.escuro.barra + ' → ' + tema.claro.barra + ')');
-  checar(tema.atributo === 'claro' && tema.guardado === 'claro',
-    'a escolha vai para o `localStorage`, de onde ela é lida antes do primeiro quadro');
+  checar(tema.atributo === 'claro' && tema.guardado === 'claro' && tema.escolha === 'claro',
+    'a escolha vai para o `localStorage` e para o ATRIBUTO — o primeiro é lido '
+    + 'antes do primeiro quadro, o segundo é o carrier que o `controle.js` lê');
 
   await pg.reload({ waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(() => typeof window.__avBack === 'function', null, { timeout: 20000 });
@@ -1138,6 +1160,48 @@ try {
   }));
   checar(depois.atributo === 'claro' && depois.bg === tema.claro.bg,
     'e ela sobrevive à recarga da página (' + depois.atributo + ' · ' + depois.bg + ')');
+
+  // ---- O AUTOMÁTICO SEGUE O APARELHO (v1.8.49) ------------------------
+  //
+  // O padrão do app deixou de ser "escuro" e passou a ser "o que o aparelho
+  // responde": a pergunta *claro ou escuro?* o sistema do operador já respondeu,
+  // e um app que a ignora acende uma tela branca num salão escuro.
+  //
+  // TRÊS METADES, e nenhuma basta sozinha: sem a primeira o automático não
+  // existe; sem a SEGUNDA ele é só "o tema que o aparelho tinha quando o app
+  // abriu" — e o caso que morde é o agendamento noturno com o app aberto desde
+  // a tarde; sem a TERCEIRA, "seguir o sistema" viraria desfazer a escolha do
+  // operador, que é um app que não obedece.
+  await pg.evaluate(() => { try { localStorage.removeItem('av.tema'); } catch (_) { /* */ } });
+  await pg.emulateMedia({ colorScheme: 'light' });
+  await pg.reload({ waitUntil: 'domcontentloaded' });
+  await pg.waitForFunction(() => typeof window.__avBack === 'function', null, { timeout: 20000 });
+  await esperarCortina(pg);
+  const auto = await pg.evaluate(() => ({
+    atributo: document.documentElement.dataset.tema || 'escuro',
+    escolha: document.documentElement.dataset.temaEscolha || null,
+    guardado: localStorage.getItem('av.tema'),
+  }));
+  checar(auto.atributo === 'claro' && auto.escolha === null && auto.guardado === null,
+    'SEM escolha guardada o app segue o APARELHO: emulado em claro, ele abre claro '
+    + '— e nada foi gravado, porque automático é a AUSÊNCIA de escolha', JSON.stringify(auto));
+
+  // AO VIVO, sem recarregar: é o agendamento do Android trocando no meio do culto.
+  await pg.emulateMedia({ colorScheme: 'dark' });
+  const seguiu = await esperar(pg,
+    () => (document.documentElement.dataset.tema || 'escuro') === 'escuro', null, 4000);
+  checar(seguiu === true,
+    'e ele acompanha o aparelho AO VIVO — o Android troca para o escuro ao '
+    + 'anoitecer, e o culto de sábado à noite começa com o app já aberto', porque(seguiu));
+
+  // E A ESCOLHA VENCE: sem esta, "seguir o sistema" apagaria a decisão do operador.
+  await pg.evaluate(() => { setTemaEscolha('claro'); });
+  await pg.emulateMedia({ colorScheme: 'dark' });
+  await pg.waitForTimeout(250);
+  const venceu = await pg.evaluate(() => document.documentElement.dataset.tema);
+  checar(venceu === 'claro',
+    'mas uma escolha GUARDADA vence o aparelho: o operador que escolheu claro '
+    + 'continua no claro com o sistema no escuro', venceu);
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

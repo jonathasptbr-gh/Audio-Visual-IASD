@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.49",
+    "itens": [
+      "O tema passou a seguir o do seu aparelho; tocar no tile fixa claro ou escuro.",
+      "Um botão no rodapé das Configurações abre a conversa com quem mantém o app.",
+      "O app agora aponta para o endereço próprio: audiovisualiasd.com.br"
+    ]
+  },
+  {
     "versao": "1.8.48",
     "itens": [
       "Sem TV, a playlist voltou a avançar sozinha quando a faixa acaba.",

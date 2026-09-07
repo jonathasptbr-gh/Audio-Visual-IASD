@@ -1377,7 +1377,7 @@ possível** — fica registrado porque a pergunta volta:
 
 | | app | página de alcance |
 |---|---|---|
-| origem | `appassets.androidplatform.net` | `jonathasptbr-gh.github.io` |
+| origem | `appassets.androidplatform.net` | `audiovisualiasd.com.br` |
 | onde a chave mora | `SharedPreferences` (`Farol.kt`) | `localStorage` do navegador |
 | quem lê a do outro | ninguém | ninguém |
 
