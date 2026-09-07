@@ -264,6 +264,7 @@ jobs:
           node tools/manifest-provedores.test.mjs
           node tools/notificacao-ids.test.mjs
           node tools/funcao-sem-chamador.test.mjs
+          node tools/docs-coerentes.test.mjs
 
           node tools/tipos-que-sobem.test.mjs
 
