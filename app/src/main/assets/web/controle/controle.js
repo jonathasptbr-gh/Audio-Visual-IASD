@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.42';
+const WEB_VERSION = '1.8.43';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23851,16 +23851,6 @@ function pacoteCheckGrupo(estado) {
   return cx;
 }
 
-// O ÍCONE DE UM GRUPO sai do sprite, e não da fonte: o `ICON` é o subset de 31
-// codepoints do `.msym`, e nem engrenagem nem pasta estão nele — um glifo fora
-// do subset não desenha NADA, sem erro e sem requisição falhando (é o que o
-// `glifos.test.mjs` existe para pegar). O sprite tem os dois desenhos.
-function pacoteIconeSvg(id) {
-  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" '
-    + 'stroke="currentColor" stroke-width="2" stroke-linecap="round" '
-    + 'stroke-linejoin="round" aria-hidden="true"><use href="#' + id + '"/></svg>';
-}
-
 /** O peso de um conjunto de chaves, para o resumo de uma seção. */
 function pacotePesoDe(plano, chaves) {
   let t = 0;
@@ -23891,7 +23881,7 @@ function renderPacoteGrupos(plano) {
   // O que ela dizia e não se perdeu: o PESO do que está marcado continua no
   // botão de confirmar, que é onde a pergunta ("cabe no cartão?") é feita.
 
-  const linhaDeGrupo = (g, dentro) => {
+  const linhaDeGrupo = (g) => {
     const peso = pacotePeso(g.bytes, g.aprox);
     // O AVISO DA SOBREPOSIÇÃO (v1.8.38). Os grupos por lista se sobrepõem, e o
     // peso deles pode contar o mesmo item duas vezes — o que a folha NÃO pode
@@ -23915,22 +23905,13 @@ function renderPacoteGrupos(plano) {
     // glifo solto de 24px numa coluna de 34.
     const ic = li.querySelector('.song-menu-icon');
     if (ic) ic.classList.add('coll-bar-icon');
-    // QUEM DIZ "ESTÁ DENTRO" É O BLOCO QUE A CONTÉM (v1.8.41), e mais nada.
-    // Até aqui havia um RECUO DE TEXTO (`.song-menu-dentro`, v1.7.3) e uma
-    // classe no `<li>`, e os dois existiam porque não havia bloco: a linha era
-    // irmã da barra, e o recuo era a única coisa que dizia a quem ela
-    // pertencia. Com o corpo DENTRO do bloco isso é a segunda cópia da mesma
-    // resposta — e uma que custa caro: MEDIDO, o nome de uma linha ficava
-    // 39,2px à direita do nome da seção, contra 6,4px na Biblioteca. O que
-    // sobra é o recuo do CORPO, que é o mesmo inset que a `.coll-group-corpo`
-    // reserva a um card de lá (MEDIDO depois: 5,59px contra 6,39px).
     return li;
   };
 
   for (const item of plano.folha) {
     if (item.tipo === 'linha') {
       const g = porChave.get(item.chave);
-      if (g) songMenuListEl.appendChild(linhaDeGrupo(g, false));
+      if (g) songMenuListEl.appendChild(linhaDeGrupo(g));
       continue;
     }
     // ===== UMA SEÇÃO =====
@@ -24029,10 +24010,17 @@ function renderPacoteGrupos(plano) {
     li.appendChild(bar);
     if (aberta) {
       const corpo = document.createElement('ul');
+      // NADA MARCA UMA LINHA COMO "DE DENTRO" (v1.8.41): quem diz isso é este
+      // corpo, por CONTÊ-LA. Houve um recuo de texto (`.song-menu-dentro`) e
+      // uma classe no `<li>` enquanto as linhas eram IRMÃS da barra — sem
+      // bloco, o recuo era a única coisa que dizia a quem uma linha pertencia.
+      // Reintroduzi-lo é somar dois recuos: MEDIDO, com ele o nome de uma linha
+      // ficava 39,2px à direita do nome da seção, contra 6,4px na Biblioteca; o
+      // do corpo sozinho dá 5,59px.
       corpo.className = 'pacote-grupo-corpo';
       for (const k of item.chaves) {
         const g = porChave.get(k);
-        if (g) corpo.appendChild(linhaDeGrupo(g, true));
+        if (g) corpo.appendChild(linhaDeGrupo(g));
       }
       li.appendChild(corpo);
       if (pacoteAnimarSecao === item.nome) {

@@ -244,9 +244,11 @@ checar(!!bloco && [...pedidos.values()].some((v) => v.some((o) => o.startsWith('
 // `icoMedicao*` saíram na v1.4.42). Sem oráculo, "renomeei o consumidor" e
 // "renomeei os dois" passam iguais.
 //
-// SÃO DUAS ENTRADAS, e as duas são literais: o `<use href="#…">` do HTML e as
-// chamadas de `pacoteIconeSvg('ico…')` do `controle.js`, que montam o mesmo
-// `<use>` por string.
+// SÃO DUAS ENTRADAS, e as duas são literais: o `<use href="#…">` do HTML e o
+// mesmo `<use>` montado POR STRING no `controle.js` (hoje o `#icoLupa`, em dois
+// pontos). A segunda tem asserção própria mais abaixo, porque um regex quebrado
+// do lado do JS deixaria a varredura passar medindo metade — e ela é REAL:
+// provado por reversão, um regex que não case nada ali reprova só aquela linha.
 // ============================================================================
 const html = readFileSync(join(WEB, 'controle/index.html'), 'utf8');
 
@@ -269,7 +271,7 @@ const anotarUso = (nome, onde) => {
     anotarUso(m[1], 'controle/index.html:' + html.slice(0, m.index).split('\n').length);
   }
   // O `<use>` montado por string no JS — mesma árvore, mesmo modo de falhar.
-  const re2 = /(?:href="#|pacoteIconeSvg\(')(ico[A-Za-z0-9_]*)/g;
+  const re2 = /href="#(ico[A-Za-z0-9_]*)/g;
   for (let m; (m = re2.exec(js));) {
     anotarUso(m[1], 'controle.js:' + js.slice(0, m.index).split('\n').length);
   }
