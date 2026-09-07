@@ -565,6 +565,13 @@
     // este lado não tem como separá-las — três rodadas de campo se gastaram
     // nisso. Irmão do `otaDiag` e do `ytDiag`, e com o mesmo consumidor: a
     // pessoa que lê o Registro.
+    // APAGA o arquivo do pacote que a importação acabou de ler. Devolve `''`
+    // (apagou) ou a FRASE do motivo. Quem decide é o `controle.js`, e só depois
+    // de uma importação COMPLETA — o shell não sabe se ela terminou.
+    pacoteConsumirOrigem: (url) => call(
+      (id) => B.pacoteConsumirOrigem(id, String(url || '')), CALL_TIMEOUT_MS,
+    ),
+
     pacoteDiag: () => call((id) => B.pacoteDiag(id), CALL_TIMEOUT_MS)
       .then((r) => String(r || '')),
 
@@ -946,12 +953,13 @@
           // Há quanto tempo nada acontece: é o que faz a notificação
           // distinguir TRAVADO de lento.
           idleMs: inteiro(p && p.idleMs),
-          // ESTE TRABALHO TRAZ BYTES DA REDE? É o que escolhe o ÍCONE da barra
-          // de notificação: exportar, importar e preparar uma apresentação não
-          // baixam nada, e a seta de download mentia sobre os três. O Kotlin lê
-          // ausente como `true` — o comportamento de sempre para um bundle mais
-          // antigo que a ponte.
-          baixando: !(p && p.baixando === false),
+          // QUE DESENHO a barra de notificação mostra: `baixar` (seta para
+          // baixo animada), `enviar` (para cima) ou `processar` (o círculo de
+          // duas setas). Pedido do operador: exportar é uma seta para cima e
+          // importar é uma seta para baixo, em movimento — a seta é DIREÇÃO DE
+          // BYTES, não procedência deles. O Kotlin lê ausente ou desconhecido
+          // como `baixar`, que é o comportamento de sempre.
+          icone: String((p && p.icone) || 'baixar'),
         }));
       } catch (_) { /* ignorado */ }
     },

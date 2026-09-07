@@ -227,6 +227,18 @@ interface BridgeHost {
 
     /** O que o shell sabe do pacote, em texto, para o Registro. */
     fun pacoteDiag(): String
+
+    /**
+     * APAGA o documento do SAF que uma URL `/saf/<token>` serve — o arquivo do
+     * pacote que a importação acabou de consumir.
+     *
+     * Devolve `""` quando apagou, ou a FRASE do motivo quando não deu. Duas
+     * respostas e não um booleano, pela mesma razão do `espelhoCertImportar`:
+     * "não apagou" tem causas que pedem coisas diferentes de quem lê o
+     * Registro (o provedor não permite, o arquivo já não existe, o token não é
+     * mais conhecido).
+     */
+    fun pacoteConsumirOrigem(url: String, onResult: (String) -> Unit)
 }
 
 /**
@@ -270,7 +282,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 69
+        const val SHELL_VERSION = 70
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -850,11 +862,13 @@ class NativeBridge(
             // folgadamente dos 2 GB que o `Int` comporta, e o estouro sairia
             // como uma barra andando para trás.
             bytes = o.optBoolean("bytes"),
-            // `optBoolean(nome, true)` — o PADRÃO é "é download", que é o
-            // comportamento de sempre. Um bundle mais antigo que a ponte não
-            // manda o campo, e ler ausente como `false` trocaria o ícone de
-            // TODO download por engano. Falhar para o lado que já existia.
-            baixando = o.optBoolean("baixando", true),
+            // O DESENHO da barra de notificação, por NOME e não por
+            // booleano: são três coisas diferentes (bytes entrando, bytes
+            // saindo, e trabalho que não move byte nenhum). Nome ausente ou
+            // desconhecido cai em "baixar", que é o comportamento de sempre —
+            // um bundle mais antigo que a ponte não manda o campo, e falhar
+            // para o lado que já existia é a regra desta fronteira.
+            icone = SyncService.Progress.Icone.de(o.optString("icone")),
         )
     }
 
@@ -1955,6 +1969,31 @@ class NativeBridge(
     @JavascriptInterface
     fun pacoteDescartarPronto() {
         host?.pacoteDescartarPronto()
+    }
+
+    /**
+     * CONSOME O ARQUIVO DA IMPORTAÇÃO — o `.avpkg` que o operador escolheu.
+     *
+     * Pedido do operador: *"você consegue apagar/consumir o arquivo original
+     * da importação? não precisamos dele após esse processo, isso evita ficar
+     * ocupando espaço no aparelho do usuário"*. Um pacote é o acervo inteiro:
+     * deixá-lo em Downloads dobra o espaço que a biblioteca ocupa, e é o
+     * aparelho que MENOS tem espaço que mais recebe pacote.
+     *
+     * QUEM DECIDE APAGAR É O WEB, e só depois de uma importação COMPLETA: o
+     * shell não sabe se o arquivo foi lido inteiro nem se a aplicação terminou.
+     * Aqui só existe o transporte, como em toda esta classe.
+     *
+     * FILA `io`: é um `delete` no `ContentResolver`, na casa dos
+     * milissegundos, e a fila do trabalho pesado é a `transferencia`.
+     */
+    @JavascriptInterface
+    fun pacoteConsumirOrigem(callId: String, url: String) {
+        val h = host
+        if (h == null) { resolve(callId, JSONObject.quote("sem host")); return }
+        io.execute {
+            h.pacoteConsumirOrigem(url) { motivo -> resolve(callId, JSONObject.quote(motivo)) }
+        }
     }
 
     /**

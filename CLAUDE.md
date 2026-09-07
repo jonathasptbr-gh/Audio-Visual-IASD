@@ -565,7 +565,15 @@ window.AVNative = {
   temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
   requestMic(),        // → bool: permissão RECORD_AUDIO (push-to-talk)
   keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
-  bgProgress({label, done, total, etaMs, items, idleMs, bytes}), // progresso na notificação
+  bgProgress({label, done, total, etaMs, items, idleMs, bytes, icone}), // progresso
+                       //   na notificação. `icone` é o DESENHO da barra:
+                       //   `baixar` (seta para baixo animada — o padrão),
+                       //   `enviar` (para cima) ou `processar` (o círculo
+                       //   de duas setas). A seta é DIREÇÃO DE BYTES e não
+                       //   procedência deles: importar traz o acervo PARA o
+                       //   aparelho, e vir de um arquivo local em vez da
+                       //   rede não muda o sentido do movimento para quem
+                       //   olha. Nome ausente ou desconhecido = `baixar`
   nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs, actions}),
                        //   `actions`: os BOTÕES do cartão, na ordem, escolhidos
                        //   pelo lado web. Vazio = os cinco de sempre
@@ -677,6 +685,19 @@ window.AVNative = {
                        //   causas e o web não separa nenhuma — três rodadas de
                        //   campo se gastaram nisso. Irmão do `otaDiag` e do
                        //   `ytDiag`, com o mesmo consumidor: quem lê o Registro
+  pacoteConsumirOrigem(url), // → '' (apagou) ou a FRASE do motivo: APAGA o
+                       //   arquivo do SAF que uma `/saf/<token>` serve — o
+                       //   `.avpkg` que a importação acabou de ler. Um pacote é
+                       //   o acervo INTEIRO, e deixá-lo em Downloads dobra o
+                       //   que a biblioteca ocupa no aparelho que menos tem
+                       //   espaço. QUEM DECIDE É O WEB, e só depois de uma
+                       //   importação COMPLETA: o shell não sabe se ela
+                       //   terminou. Cancelou ou falhou, o arquivo FICA — ele é
+                       //   o que faz a próxima tentativa continuar de onde
+                       //   parou. Duas respostas e não um booleano, como o
+                       //   `espelhoCertImportar`: "não apagou" tem causas que
+                       //   pedem coisas diferentes (o provedor recusou, o
+                       //   arquivo sumiu, o token não é mais conhecido)
   salvarTexto(nome, texto), // → o NOME gravado, ou '' (desistiu ou falhou): o
                        //   "Salvar como" do sistema (SAF `CREATE_DOCUMENT`),
                        //   com o shell ESCREVENDO o texto. Existe porque o
@@ -694,7 +715,7 @@ window.AVNative = {
                        //   (`farolContar` SAIU no shell 61 — ver abaixo)
 }
 ```
-São **60 métodos**, e essa é a superfície inteira que o resto do lado web tem
+São **61 métodos**, e essa é a superfície inteira que o resto do lado web tem
 direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
@@ -762,7 +783,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **69**, e ele é o **PISO**: o bundle declara `minShell: 69`, então
+Hoje vale **70**, e ele é o **PISO**: o bundle declara `minShell: 70`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -775,7 +796,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 69 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 70 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -837,7 +858,7 @@ E duas regras que ficam de fora das filas:
   e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
   64 kB.
 
-**O bundle declara `minShell: 69`, e é a VÁLVULA que resolve.** Um bundle que
+**O bundle declara `minShell: 70`, e é a VÁLVULA que resolve.** Um bundle que
 exija ponte mais nova que o `SHELL_VERSION` instalado é recusado inteiro
 (`WebUpdater.kt`), e o app segue no que tinha — a recusa acontece no shell, e
 não em runtime no meio de um culto. **Guarda de versão no lado web é proibida:**
@@ -2936,9 +2957,17 @@ gerenciador → achar o arquivo → compartilhar); direto, é UM.
   "o que fazer" virou o PRÓPRIO botão — ele para em **100%** (onde a barra
   parou) e o desenho vira o de compartilhar, que é onde o estado mora neste app
   desde a v1.7.6.
-- **O TOQUE LONGO REFAZ, E ELE PERGUNTA** (v1.8.20). Com um pronto na mão o
-  toque curto ENVIA; sem uma saída, quem quisesse exportar de novo na mesma
-  sessão ficaria preso com o arquivo velho e nenhuma porta.
+- **O TOQUE LONGO SAIU, E O IRMÃO O SUBSTITUI** (v1.8.29). Ele existiu da
+  v1.8.20 até aqui por FALTA DE LUGAR: com um pronto na mão o toque curto
+  ENVIA, e quem quisesse fazer outro na mesma sessão ficava sem porta. Hoje o
+  botão de IMPORTAR é o DESCARTAR enquanto há um pacote pronto, e um botão
+  inteiro dispensa um gesto escondido. **A PERGUNTA fica** — ela é o que
+  protege minutos de trabalho, não o tempo do dedo —, e descartar **não
+  reexporta**: encadear as duas coisas tira do operador a folha de escolha, que
+  é onde ele decide o que levar. O relato que fechou a conta foi outro: com um
+  pacote pronto, o tile de importar dizia "Cancelar" (o rótulo emprestado com
+  prazo `0` nunca era calado) e agia como importador — um botão que anuncia uma
+  coisa e faz outra é pior que qualquer uma das duas.
   - **900 ms, e NÃO os 500 do transporte.** Lá o pior caso de um falso positivo
     é passar uma mídia em vez de uma estrofe; aqui é DESTRUIR um pacote de
     minutos — e foi o que aconteceu no campo, num toque normal.
@@ -3187,12 +3216,28 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   contava, com a mescla calculada duas vezes); chave idêntica dos dois lados
   deixa de ser reescrita; e o percentual do botão só toca o DOM quando o inteiro
   muda — ele é chamado por REGISTRO, milhares de vezes num acervo.
-- **A importação termina em `location.reload()`, e isso é parte do recurso.** O
-  `controle.js` lê o acervo UMA vez, no `init()`, e guarda listas e catálogos em
-  variáveis de módulo; depois de uma importação todas estão desatualizadas, e
-  não há caminho de invalidação que alcance as dezenas de lugares que dependem
-  delas. Reabrir o documento é o único ponto do app que reconstrói tudo por
-  construção.
+- **A IMPORTAÇÃO NÃO RECARREGA MAIS O APP** (v1.8.29). Ela terminava em
+  `location.reload()` desde a v1.7.0, com o argumento de que *"não há caminho de
+  invalidação que alcance as dezenas de lugares"* — que **nunca foi medido**. A
+  lista é curta e enumerável, e são as MESMAS chamadas do `init()`:
+  `loadCollections()` (o catálogo, o `collState`, os pesos, a letra) e `load()`
+  (as listas do módulo). As outras quatro do `init()` ficam de fora com motivo:
+  `desnumerarAlbunsBaixados`/`preencherAlbunsDosHinos` são migrações de
+  PASSAGEM ÚNICA já marcadas em estado, `migrarPastasParaFavoritos` e
+  `histCarregar` tratam de dados que não viajam (`AVPacote.FORA`), e
+  `clearCurrentSelection` **NUNCA** entra — ela esvazia a cena.
+  **É essa última que torna a rehidratação melhor e não só mais discreta:** a
+  recarga derrubava a projeção junto, então importar durante um culto apagava o
+  telão. A recarga fica como saída de FALHA da rehidratação — ali o estado é um
+  que ninguém enumerou, e reabrir o documento é o único ponto que reconstrói
+  tudo por construção.
+- **O ARQUIVO DO PACOTE É CONSUMIDO** (`pacoteConsumirOrigem`, shell 70), e só
+  no caminho de sucesso. Um pacote é o acervo INTEIRO: deixá-lo em Downloads
+  dobra o que a biblioteca ocupa, e quem mais recebe pacote é o aparelho
+  apertado. **Cancelou ou falhou, o arquivo FICA** — ele é o que faz a próxima
+  tentativa continuar de onde parou, e é por isso que o consumo não mora no
+  `finally`, que é o lugar óbvio. O desfecho é DITO no relatório nos dois
+  sentidos: quem pediu o espaço de volta precisa saber quando não deu.
 - **O plano guarda IDs e TAMANHOS, nunca registros.** Um acervo tem milhares de
   entradas, cada uma com a letra inteira e uma miniatura; segurá-las todas
   enquanto gigabytes atravessam o canal é um OOM num processo que hospeda dois
@@ -5253,9 +5298,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.28 · APK v1.8.27** · `SHELL_VERSION` **69** ·
-bundle com `minShell: 69` e **SEM `shellTag`** (lote SÓ WEB) — o shell 69 é o
-**PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
+**Versão atual: base web v1.8.29 · APK v1.8.29** · `SHELL_VERSION` **70** ·
+bundle com `minShell: 70` e **`shellTag: "v1.8.29"`** (lote COM Release) — o
+shell 70 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
+lado web.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, E É A ÚNICA SEM ORÁCULO.** As três
 > oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção no
@@ -5294,7 +5340,8 @@ bundle com `minShell: 69` e **SEM `shellTag`** (lote SÓ WEB) — o shell 69 é 
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
 
-**O QUE O LOTE TRAZ (v1.8.28) — a aba de cifra que só existe com cifra:**
+**O QUE UM LOTE ANTERIOR TROUXE (v1.8.28) — a aba de cifra que só existe com
+cifra:**
 
 | peça | onde |
 |---|---|
@@ -5304,11 +5351,18 @@ bundle com `minShell: 69` e **SEM `shellTag`** (lote SÓ WEB) — o shell 69 é 
 | as cinco frases de falha, que saíram | `lvBuildCifra` (sobram a espera e o estado impossível) |
 | o par medido, com as duas reversões | `leitor-camadas.test.mjs` · `cifra-tela-cheia.test.mjs` (7-C e 7-D) |
 
-> **LOTE SÓ WEB.** `java/`, `res/` e o manifesto não foram tocados e nenhum
-> método da ponte entrou ou mudou de forma — daí o `version.json` sair SEM
-> `shellTag`. Deixá-lo apontando para a v1.8.27 (a tag do lote anterior) é o
-> modo de falhar mudo deste campo: o CI exige `shellTag == 'v' + version`, e um
-> `v1.8.28` declarado sem Release seguraria o bundle para sempre.
+> **ELE FOI SÓ WEB** — `java/`, `res/` e o manifesto não foram tocados e nenhum
+> método da ponte entrou ou mudou de forma —, e por isso saiu SEM `shellTag`.
+> Deixá-lo apontando para a tag do lote ANTERIOR é o modo de falhar mudo deste
+> campo: o CI exige `shellTag == 'v' + version`, e uma tag declarada sem Release
+> segura o bundle para sempre. **O `shellTag` de hoje é o da v1.8.29**, que
+> mexeu no shell.
+>
+> **E ELE REPROVOU NO RUNNER com a suíte verde duas vezes fora dele**, no bloco
+> de largura das abas do `leitor-do-transporte`: a aba de cifra deixou de sair
+> de um predicado puro e passou a depender de uma Promise, e a conta media o
+> quadro anterior à resposta. `verificar` vermelho segura o `web-ota`, então
+> nem esse lote nem o seguinte chegaram à frota até a espera entrar no oráculo.
 
 **O QUE UM LOTE ANTERIOR TROUXE (v1.8.17) — o corte do SHELL, e exportar direto
 para o compartilhar:**
@@ -5391,6 +5445,31 @@ para o compartilhar:**
 > que o relógio está parado** antes de medir — sem essa guarda, um Playwright
 > que mude o `pauseAt` devolve tudo ao regime antigo e o vermelho volta a chegar
 > como veredito sobre o app.
+
+**O QUE O LOTE TRAZ (v1.8.29) — o arquivo consumido, a seta certa e o app que
+não recarrega:**
+
+| peça | onde |
+|---|---|
+| o `.avpkg` apagado depois de importado, e só no sucesso | `pacoteConsumirOrigem` (shell 70) + `AbrirDocumentosComEscrita` |
+| a seta que aponta para o lado do movimento | `SyncService.Progress.Icone` · o campo `icone` do `bgProgress` |
+| com um pronto na mão, o irmão DESCARTA (e o toque longo saiu) | `pacoteRenderTiles` · `descartarPacotePronto` |
+| o aro só onde há trabalho; na importação o tile vira o cancelar | `pacoteRenderTiles` (`pacoteExportando`/`pacoteImportando`) |
+| o relatório NOMEIA as coleções | `pacoteRelatorio` · `PACOTE_COLECOES_MAX` |
+| a rehidratação no lugar da recarga | `reidratarDepoisDaImportacao` |
+
+> **A SETA É DIREÇÃO DE BYTES, NÃO PROCEDÊNCIA DELES** (v1.8.29). Pedido do
+> operador: *"exportar é uma seta pra cima e importar é uma seta para baixo… em
+> movimento. me parece mais condizente, mesmo que a importação em si não seja um
+> download"*. A v1.8.27 tinha separado "baixa" de "não baixa" com um booleano,
+> e essa era a pergunta errada: importar traz o acervo PARA o aparelho, e o
+> fato de os bytes virem de um arquivo local em vez da rede não muda o sentido
+> do movimento para quem olha a barra de notificação.
+
+> **E A RECARGA DO FIM DA IMPORTAÇÃO SAIU** (v1.8.29), com o argumento que a
+> sustentava desde a v1.7.0 medido e desfeito — ver "O pacote de transferência".
+> O que a torna uma troca e não uma remoção é a última linha da tabela de lá: a
+> recarga derrubava a PROJEÇÃO junto.
 
 > **OS BLOCOS ABAIXO SÃO UMA SELEÇÃO, NÃO UMA SEQUÊNCIA.** Eles guardam os
 > lotes cuja DECISÃO ainda governa o código, na ordem em que foram escritos —

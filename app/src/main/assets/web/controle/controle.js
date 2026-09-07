@@ -336,7 +336,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.28';
+const WEB_VERSION = '1.8.29';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21139,7 +21139,7 @@ async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
   const total = escolhidos.length;
   const bg = previewBusy('Preparando', total + ' para o Cronograma',
     () => { sorteioCancelado = true; });
-  const tarefa = bgTaskStart('Playlist automática', total, false);
+  const tarefa = bgTaskStart('Playlist automática', total, 'processar');
   const ids = [];
   const nomes = [];
   try {
@@ -21256,7 +21256,7 @@ async function montarFilaSorteada(escolhidos) {
     () => { sorteioCancelado = true; });
   // A notificação do sistema, para o app minimizado: UMA tarefa para o lote —
   // uma por faixa faria a barra reiniciar do zero a cada download.
-  const tarefa = bgTaskStart('Playlist automática', total, false);
+  const tarefa = bgTaskStart('Playlist automática', total, 'processar');
   const ids = [];
   try {
     await withBgWork(async () => {
@@ -23642,27 +23642,6 @@ const PACOTE_CANCELADO = 'cancelado';
 // escolhido pelo operador) continua ali para quando não couber.
 const PACOTE_FOLGA_BYTES = 512 * 1024 * 1024;
 
-// O TEMPO DO TOQUE LONGO no tile de exportar pronto.
-//
-// 900ms, e NÃO os 500 do eixo duplo do transporte (v1.8.20). Lá o pior caso de
-// um falso positivo é passar uma mídia em vez de uma estrofe — aqui é DESTRUIR
-// um pacote que levou minutos para ficar pronto, e o relato do operador foi
-// exatamente esse: *"tocar nele não me oferece nada … e depois volta ao estado
-// do botão de exportar, medindo novamente, como se tudo tivesse sido
-// desfeito"*. Um toque deliberado num tile pequeno passa de meio segundo com
-// facilidade.
-//
-// E O TEMPO SOZINHO NÃO BASTA, por uma razão que não é de calibração: num
-// TOQUE o navegador dá CAPTURA IMPLÍCITA do ponteiro ao elemento, então
-// arrastar o dedo para fora NÃO emite `pointerleave` — não existe como abortar
-// um toque longo que já começou. É por isso que ele passou a PERGUNTAR em vez
-// de agir (ver o ouvinte).
-//
-// DECLARADO AQUI, e não ao lado do ouvinte que o usa: o `pacoteRenderTiles()`
-// da carga roda no TOPO do arquivo, e um `const` alcançado de cima é uma zona
-// morta esperando a ordem de chamada mudar (a armadilha do
-// `cifraAdotarVelocidade`).
-const PACOTE_TOQUE_LONGO_MS = 900;
 
 // O PACOTE FECHADO QUE ESPERA SER MANDADO (v1.8.19) — `{ nome, bytes }`, ou
 // `null`.
@@ -23830,7 +23809,7 @@ async function exportarPacote() {
   const total = Math.max(pacoteBytesDe(plano, sel), 1);
   try {
     await withBgWork(async () => {
-      const tarefa = bgTaskStart('Exportando o acervo', 1, false);
+      const tarefa = bgTaskStart('Exportando o acervo', 1, 'enviar');
       bgItemOnly(tarefa, nome);
       let feitos = 0;
       let etapa = '';
@@ -24674,8 +24653,16 @@ async function pacoteConferir(fonte, aoAndar) {
   throw new Error(PACOTE_INCOMPLETO);
 }
 
-/** Quantas coleções INCOMPLETAS são nomeadas no relatório antes do "e mais N". */
-const PACOTE_FALTANDO_MAX = 4;
+/**
+ * Quantas coleções o relatório NOMEIA antes de contar o resto.
+ *
+ * Seis, e não quatro: com quatro, o acervo de vinte e três álbuns nomeava
+ * menos de um quinto e o "e mais N" respondia pelo grosso — o oposto do
+ * pedido, que é ver o nome do que entrou. Seis linhas curtas cabem num diálogo
+ * sem virar o muro que a v1.8.27 veio desfazer, e as incompletas vêm primeiro,
+ * então o teto nunca corta justamente o que pede ação.
+ */
+const PACOTE_COLECOES_MAX = 6;
 
 /**
  * O RELATÓRIO DO FIM — e ele responde UMA pergunta: *chegou tudo?*
@@ -24794,46 +24781,62 @@ async function pacoteAcertarPonteiros() {
   return limpos;
 }
 
-async function pacoteRelatorio(contagem) {
+async function pacoteRelatorio(contagem, consumo) {
   const nomes = new Map(allCollections().map((c) => [c.id, c.name || c.id]));
   const linhas = [];
-  let colecoes = 0;
+  const vistas = [];
   let tem = 0;
   let total = 0;
-  const faltando = [];
   for (const id of (contagem.colecoes || [])) {
     let idx = null;
     try { idx = await AVDB.getState('coll:' + id); } catch (_) { idx = null; }
     const songs = (idx && Array.isArray(idx.songs)) ? idx.songs : [];
     if (!songs.length) continue;
     const n = songs.filter((x) => x && x.fileIdFull).length;
-    colecoes++; tem += n; total += songs.length;
-    if (n < songs.length) faltando.push({ nome: nomes.get(id) || id, n, de: songs.length });
+    tem += n; total += songs.length;
+    vistas.push({ nome: nomes.get(id) || id, n, de: songs.length });
   }
 
-  if (colecoes === 1) {
-    // UMA COLEÇÃO SÓ: ela tem nome, e o nome é a resposta. É o caso do
-    // operador que exportou um hinário para conferir se ele chegou inteiro.
-    const so = [...(contagem.colecoes || [])][0];
-    linhas.push((nomes.get(so) || so) + ': ' + tem + ' de ' + total + ' músicas');
-  } else if (colecoes > 1) {
-    // VÁRIAS: o TOTAL responde "deu certo?", e só o que está INCOMPLETO precisa
-    // de nome. Vinte linhas de "10 de 10" não são auditoria, são um muro.
-    linhas.push(colecoes + ' coleções · ' + tem + ' de ' + total + ' músicas');
-    if (faltando.length) {
-      faltando.sort((a, b) => (a.de - a.n) - (b.de - b.n));
-      const mostra = faltando.slice(0, PACOTE_FALTANDO_MAX)
-        .map((f) => f.nome + ' (' + f.n + '/' + f.de + ')');
-      linhas.push('Incompletas: ' + mostra.join(' · ')
-        + (faltando.length > PACOTE_FALTANDO_MAX
-          ? ' … e mais ' + (faltando.length - PACOTE_FALTANDO_MAX) : ''));
+  // ===== A COLEÇÃO TEM NOME, E O NOME É O QUE SE CONFERE (v1.8.28) =====
+  //
+  // Pedido do operador: *"verifique que ao menos eu preciso do nome da coleção
+  // importada, além dos dados fundamentais de quantos deveriam ter, quantos
+  // importaram corretamente e etc"*.
+  //
+  // A v1.8.27 tinha ido longe demais na direção certa: ela nomeava só a
+  // EXCEÇÃO, e o total respondia pelo resto. O total responde *"deu certo?"* e
+  // não responde *"deu certo COM O QUÊ?"* — quem acabou de mandar o hinário de
+  // um celular para o outro quer ler o nome dele.
+  //
+  // O TETO CONTINUA, porque a queixa que criou o resumo era um MURO de texto
+  // com vinte e três álbuns (foto do aparelho). A forma que serve às duas
+  // coisas é a de todo bloco de diagnóstico deste repositório: as primeiras
+  // NOMEADAS, o resto CONTADO, e o que está incompleto sempre entre as
+  // nomeadas — é ele que pede ação.
+  if (vistas.length) {
+    // INCOMPLETAS PRIMEIRO: são as que pedem alguma coisa de quem lê. Dentro
+    // de cada metade a ordem é a do arquivo, que é a que o operador escolheu.
+    const ordenadas = vistas.slice().sort((a, b) => (a.n - a.de) - (b.n - b.de));
+    const mostra = ordenadas.slice(0, PACOTE_COLECOES_MAX);
+    for (const c of mostra) linhas.push(c.nome + ': ' + c.n + ' de ' + c.de + ' músicas');
+    const resto = ordenadas.length - mostra.length;
+    if (resto > 0) {
+      const restoTem = ordenadas.slice(mostra.length).reduce((a, c) => a + c.n, 0);
+      const restoDe = ordenadas.slice(mostra.length).reduce((a, c) => a + c.de, 0);
+      linhas.push('E mais ' + resto + ' coleções: ' + restoTem + ' de ' + restoDe + ' músicas');
     }
+    if (ordenadas.length > 1) linhas.push('Total: ' + tem + ' de ' + total + ' músicas');
   }
   if (contagem.media) {
     linhas.push(contagem.media + ' mídia(s) no Cronograma e nos Favoritos');
   }
   if (!linhas.length) linhas.push('O acervo do arquivo já estava todo aqui');
-  return linhas.join('\n') + '\n\nO app vai recarregar para a biblioteca aparecer.';
+  // O DESFECHO DO CONSUMO só aparece quando há o que dizer: apagou (a resposta
+  // ao pedido) ou não deu (e aí o arquivo continua ocupando espaço, que é
+  // exatamente o que o operador queria evitar — calar seria mentir por
+  // omissão).
+  if (consumo) linhas.push('', consumo);
+  return linhas.join('\n');
 }
 
 async function importarPacote() {
@@ -24895,7 +24898,7 @@ async function importarPacote() {
       // passa a mostrar cada item que entra, pelo nome com que ele aparece na
       // Biblioteca. O nome do arquivo sai: quem escolheu o pacote acabou de
       // vê-lo no seletor, e ele é a única coisa ali que não muda.
-      const tarefa = bgTaskStart('Conferindo o pacote', 1, false);
+      const tarefa = bgTaskStart('Conferindo o pacote', 1, 'baixar');
       pacotePercentualDito = -1;
       // UMA BARRA SÓ PARA AS DUAS ETAPAS (v1.8.27) — ver `PACOTE_FATIA_CONFERE`.
       // O `done` continua em BYTES DO PACOTE, e a fração é a do processo
@@ -24979,21 +24982,79 @@ async function importarPacote() {
     await openAppDialog({ title: 'Não deu para importar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
+  // ===== O ARQUIVO É CONSUMIDO (v1.8.28) =====
+  //
+  // Pedido do operador: *"você consegue apagar/consumir o arquivo original da
+  // importação? não precisamos dele após esse processo, isso evita ficar
+  // ocupando espaço no aparelho do usuário"*. Um pacote é o acervo inteiro —
+  // deixá-lo em Downloads dobra o que a biblioteca ocupa, e quem mais recebe
+  // pacote é justamente o aparelho apertado.
+  //
+  // SÓ AQUI, e por isso este ponto e não o `finally`: as duas outras saídas
+  // (cancelou, falhou) voltam ANTES, e nas duas o arquivo é a única forma de
+  // continuar de onde parou. Apagá-lo ali seria destruir o que a próxima
+  // tentativa precisa.
+  //
+  // O DESFECHO É DITO no relatório, nos dois sentidos — o operador pediu o
+  // espaço de volta, e "não deu para apagar" é a resposta que ele precisa ter
+  // para ir apagar à mão.
+  let consumo = '';
+  try {
+    const motivo = await AVNative.pacoteConsumirOrigem(alvo.url);
+    consumo = motivo
+      ? 'O arquivo do pacote continua no aparelho: ' + motivo + '.'
+      : 'O arquivo do pacote foi apagado — o acervo agora está na biblioteca.';
+  } catch (_) {
+    consumo = 'O arquivo do pacote continua no aparelho.';
+  }
+
   pulsar(pacoteImportarTileEl, 'ok');
   await openAppDialog({
     title: 'Acervo importado',
-    message: await pacoteRelatorio(contagem),
-    okText: 'Recarregar',
+    message: await pacoteRelatorio(contagem, consumo),
+    okText: 'Ver a biblioteca',
     cancelText: null,
     fixo: true,
   });
-  // A RECARGA É PARTE DO RECURSO, não uma preguiça. O `controle.js` lê o acervo
-  // UMA vez, no `init()`, e guarda listas e catálogos em variáveis de módulo
-  // (`plItems`, `libItems`, `collections`…). Depois de uma importação, TODAS
-  // elas estão desatualizadas, e não há um caminho de invalidação que alcance
-  // as dezenas de lugares que dependem delas — reabrir o documento é o único
-  // ponto do app que reconstrói tudo por construção.
-  location.reload();
+  await reidratarDepoisDaImportacao();
+}
+
+// ===== A IMPORTAÇÃO NÃO RECARREGA MAIS O APP (v1.8.28) =====
+//
+// Pedido do operador: *"veja se precisa realmente um botão de recarregar o app
+// inteiro … pois idealmente eu não quero o app todo sendo reiniciado e o
+// usuário se perdendo no fluxo"*.
+//
+// A recarga estava lá desde a v1.7.0 com um argumento que ENVELHECEU: *"não há
+// um caminho de invalidação que alcance as dezenas de lugares"*. Ele nunca foi
+// medido, e a lista é curta e enumerável — são as MESMAS chamadas que o
+// `init()` faz, menos as que não têm nada com uma importação:
+//
+// | do `init()`                  | aqui | por quê |
+// |---|---|---|
+// | `loadCollections()`          | SIM  | o catálogo, o `collState`, os pesos e a letra |
+// | `load()`                     | SIM  | as listas do módulo (Cronograma, Favoritos, playlist) |
+// | `desnumerarAlbunsBaixados()` | não  | migração de PASSAGEM ÚNICA, já marcada em estado |
+// | `preencherAlbunsDosHinos()`  | não  | idem |
+// | `migrarPastasParaFavoritos()`| não  | pastas do aparelho não viajam (`AVPacote.FORA`) |
+// | `histCarregar()`             | não  | o histórico não viaja (`AVPacote.FORA`) |
+// | `clearCurrentSelection()`    | NUNCA | ela ESVAZIA a cena, e pode haver louvor no ar |
+//
+// A última linha é a que torna a rehidratação melhor que a recarga, e não só
+// mais discreta: `location.reload()` derruba a projeção junto. Importar durante
+// um culto — o caso de quem chega com o acervo num pendrive — apagava o telão.
+//
+// A RECARGA FICA COMO SAÍDA DE FALHA. Se a rehidratação lançar, o app está num
+// estado que ninguém enumerou, e aí reabrir o documento é a única coisa que
+// reconstrói tudo por construção.
+async function reidratarDepoisDaImportacao() {
+  try {
+    await loadCollections();
+    await load();
+  } catch (e) {
+    console.warn('[pacote] rehidratação falhou, recarregando', e);
+    location.reload();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -25070,13 +25131,13 @@ function pacoteTrabalhando(el, ligado, rotulo, podeParar) {
  * e o rótulo dizendo o que o toque faz — o estado no DESENHO, que é a regra
  * desta grade desde a v1.7.6.
  */
-function pacoteIrmaoCancela(el, parar) {
+function pacoteIrmaoCancela(el, acao, rotulo, descricao) {
   if (!el) return;
   el.classList.remove('qs-trabalhando');
   el.disabled = false;
-  falarNoTile(el, 'Cancelar', 0);
-  pintarTile(el, 'cancelar', 'parar o que está em curso', true, false);
-  el.onclick = (ev) => { ev.preventDefault(); parar(); };
+  falarNoTile(el, rotulo || 'Cancelar', 0);
+  pintarTile(el, 'cancelar', descricao || 'parar o que está em curso', true, false);
+  el.onclick = (ev) => { ev.preventDefault(); acao(); };
 }
 
 function pacoteRenderTiles() {
@@ -25085,46 +25146,89 @@ function pacoteRenderTiles() {
     if (el) el.hidden = fora;
   }
   if (shareAppTileEl) pintarTile(shareAppTileEl, 'app', 'O app', true, false);
-  // QUEM ESTÁ TRABALHANDO É UM SÓ, e é ele que fica tocável: o outro é o
-  // IRMÃO — desabilitado porque a ponte só sustenta um destino aberto por vez,
-  // e não porque haja o que cancelar nele.
-  // O TILE PRONTO É OUTRO BOTÃO, e o estado mora no DESENHO (a regra da
-  // v1.7.6): o ícone vira o de compartilhar e o título para em "100%", que é
-  // onde a barra da exportação parou. Nada apaga — apagado, neste app, quer
-  // dizer INDISPONÍVEL.
-  if (pacotePronto && !pacoteEmCurso) {
+
+  // ===== O ARO SÓ GIRA ONDE HÁ TRABALHO DE VERDADE (v1.8.28) =====
+  //
+  // Pedido do operador: *"ajuste os spinners dos botões de exportar e importar,
+  // durante a seleção das coleções para exportações. nesse momento ainda nada
+  // foi feito ou processado, então esses botões não devem rodar"*.
+  //
+  // `pacoteEmCurso` responde *"a ponte está ocupada?"* e sobe no PRIMEIRO toque
+  // — antes da medição e da folha de escolha —, porque é ele que impede um
+  // segundo toque de trocar o destino de uma exportação viva (v1.8.15). Ele
+  // nunca foi a pergunta que o ARO responde, que é *"há trabalho andando?"*, e
+  // usá-lo para as duas fazia a grade girar durante uma folha em que nada
+  // acontece. São duas perguntas, e agora são duas variáveis.
+  const trabalhando = pacoteExportando || pacoteImportando;
+
+  // ===== COM UM PACOTE PRONTO, O IRMÃO É O DESCARTAR (v1.8.28) =====
+  //
+  // Relato: *"verifique o botão de importar quando um arquivo de exportação
+  // está pronto, ele tem nome de cancelar, mas está agindo como importador
+  // normal"*. Os dois lados eram verdade: o rótulo emprestado com prazo `0`
+  // ficava até alguém o calar, e só o tile de EXPORTAR era calado; o `onclick`
+  // do irmão voltava a `null`, isto é, ao importador de sempre. Um botão que
+  // diz uma coisa e faz outra é pior que qualquer um dos dois.
+  //
+  // A saída não é calar o rótulo: é fazer o botão CUMPRI-LO. Com um pacote
+  // pronto o par fica coerente — o exportar ENVIA, o importar DESCARTA —, e é
+  // isso que aposenta o toque longo: ele existia porque não havia onde pôr o
+  // "quero fazer outro" (v1.8.20), e agora há um botão inteiro.
+  if (pacotePronto && !trabalhando) {
     pacoteExportarTileEl.classList.remove('qs-trabalhando');
     pacoteExportarTileEl.disabled = false;
     falarNoTile(pacoteExportarTileEl, '100%', 0);
     pintarTile(pacoteExportarTileEl, 'pronto-para-enviar',
       'pronto, ' + fmtBytes(pacotePronto.bytes) + ' — toque para enviar', true, true);
     pacoteExportarTileEl.title = 'Pronto (' + fmtBytes(pacotePronto.bytes)
-      + '). Toque para enviar; toque e segure para exportar de novo.';
-  } else {
-    if (!pacoteEmCurso) calarTile(pacoteExportarTileEl);
-    pacoteExportarTileEl.title = '';
-    pacoteTrabalhando(pacoteExportarTileEl, pacoteEmCurso,
-      pacoteEmCurso ? 'em curso' : 'o acervo', pacoteExportando);
+      + '). Toque para enviar.';
+    pacoteIrmaoCancela(pacoteImportarTileEl, descartarPacotePronto,
+      'Descartar', 'descartar o pacote pronto');
+    return;
   }
-  // O IRMÃO. Quem está ocioso enquanto o outro trabalha oferece o CANCELAR; e o
-  // `onclick` é reatribuído em vez de somado, senão cada render empilharia mais
-  // um ouvinte no mesmo botão.
+
+  // O TILE QUE TRABALHA, e o irmão que oferece a saída.
+  pacoteExportarTileEl.title = '';
   if (pacoteExportando) {
+    // Exportar MOSTRA O PROGRESSO: é o único dos dois com um número que anda
+    // no próprio botão, e o toque nele cancela.
+    pacoteTrabalhando(pacoteExportarTileEl, true, 'em curso', true);
     pacoteIrmaoCancela(pacoteImportarTileEl, () => {
       pacoteCancelar = true;
       falarNoTile(pacoteExportarTileEl, 'Parando…', 0);
     });
-  } else if (pacoteImportando) {
-    pacoteIrmaoCancela(pacoteExportarTileEl, () => {
+    return;
+  }
+  if (pacoteImportando) {
+    // ===== IMPORTAR NÃO TEM ARO: ELE VIRA O CANCELAR (v1.8.28) =====
+    //
+    // Pedido do operador: *"o botão de importar nem chega a ter um spinner no
+    // processo de importação, pois assim que inicia, ele se torna um botão de
+    // cancelar"*. E a assimetria com o exportar é honesta: importar não tem o
+    // que oferecer no próprio botão além da saída — quem já tocou nele não
+    // pode tocar de novo para importar, e o número anda na NOTIFICAÇÃO, que é
+    // a superfície que sobrevive ao app minimizado (que é onde uma importação
+    // de gigabytes de fato acontece).
+    pacoteIrmaoCancela(pacoteImportarTileEl, () => {
       pacoteCancelarImport = true;
       falarNoTile(pacoteImportarTileEl, 'Parando…', 0);
     });
-  } else {
-    pacoteImportarTileEl.onclick = null;
-    pacoteExportarTileEl.onclick = null;
-    pacoteTrabalhando(pacoteImportarTileEl, pacoteEmCurso,
-      pacoteEmCurso ? 'em curso' : 'o acervo', false);
+    pacoteTrabalhando(pacoteExportarTileEl, false, 'o acervo', false);
+    pacoteExportarTileEl.disabled = true;
+    return;
   }
+
+  // NADA ANDANDO. `pacoteEmCurso` ainda pode estar de pé (a medição, a folha de
+  // escolha, o seletor do sistema): os tiles ficam PARADOS e indisponíveis, que
+  // é a verdade — não há trabalho a mostrar e não há toque a aceitar.
+  pacoteImportarTileEl.onclick = null;
+  pacoteExportarTileEl.onclick = null;
+  calarTile(pacoteExportarTileEl);
+  calarTile(pacoteImportarTileEl);
+  pacoteTrabalhando(pacoteExportarTileEl, false, 'o acervo', false);
+  pacoteTrabalhando(pacoteImportarTileEl, false, 'o acervo', false);
+  pacoteExportarTileEl.disabled = pacoteEmCurso;
+  pacoteImportarTileEl.disabled = pacoteEmCurso;
 }
 
 if (shareAppTileEl) {
@@ -25139,63 +25243,30 @@ if (shareAppTileEl) {
   });
 }
 if (pacoteExportarTileEl) {
-  // ===== O TOQUE LONGO REFAZ O PACOTE (v1.8.19) =====
+  // ===== O TOQUE LONGO SAIU, E O IRMÃO O SUBSTITUI (v1.8.28) =====
   //
-  // Com um pacote PRONTO o toque curto ENVIA — é o pedido, e é o que se faz
-  // muitas vezes seguidas (um aparelho, depois outro). Mas o botão não pode
-  // virar uma armadilha: sem uma saída, quem quisesse exportar de novo na mesma
-  // sessão ficaria preso com um arquivo velho e nenhuma porta.
+  // Ele existiu da v1.8.20 até aqui, e existia por falta de lugar: com um
+  // pacote PRONTO o toque curto ENVIA, e quem quisesse fazer outro na mesma
+  // sessão ficava sem porta. O toque longo era a resposta cara — 900 ms para
+  // não destruir um pacote de minutos por engano, mais uma pergunta depois do
+  // gesto, porque num TOQUE não existe abortar um toque longo já começado (a
+  // captura implícita do ponteiro não emite `pointerleave`).
   //
-  // O toque longo é o eixo que este app já usa quando um controle tem duas
-  // ações e só cabe um alvo (`attachTransportStep`, na coluna da tela cheia e
-  // na notificação). Ele só existe no estado PRONTO, e o `title` diz os dois.
-  let pacoteSegurou = null;
-  let pacoteFoiLongo = false;
-  const pacoteSoltar = () => {
-    if (pacoteSegurou) { clearTimeout(pacoteSegurou); pacoteSegurou = null; }
-  };
-  pacoteExportarTileEl.addEventListener('pointerdown', () => {
-    // A BANDEIRA ZERA EM TODO TOQUE, e ANTES da guarda: depois de um toque
-    // longo o `pacotePronto` já foi descartado e a exportação nova está em
-    // curso, então o `click` que vem atrás cai no `pacoteEmCurso` e NÃO a
-    // consome. Zerada só dentro da guarda, ela sobreviveria até o pacote
-    // seguinte ficar pronto e engoliria o primeiro toque de envio.
-    pacoteFoiLongo = false;
-    pacoteSoltar();
-    if (!pacotePronto || pacoteEmCurso) return;
-    pacoteSegurou = setTimeout(() => {
-      pacoteSegurou = null;
-      pacoteFoiLongo = true;
-      refazerOPacote();
-    }, PACOTE_TOQUE_LONGO_MS);
-  });
-  // `pointercancel` junto do `pointerup` pela razão da rolagem da cifra: um
-  // toque que vira gesto do sistema não emite o segundo, e sem ele o
-  // temporizador dispararia com o dedo já fora do botão.
-  //
-  // `pointerleave` está aqui e NÃO SALVA NUM TOQUE: a captura implícita do
-  // ponteiro mantém os eventos no elemento até a soltura, então arrastar o dedo
-  // para fora não o emite. Ele cobre o mouse, e é por isso que a guarda de
-  // verdade é a PERGUNTA, não este ouvinte.
-  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
-    pacoteExportarTileEl.addEventListener(ev, pacoteSoltar);
-  }
+  // Hoje o botão de IMPORTAR é o descartar enquanto há um pacote pronto (ver
+  // `pacoteRenderTiles`), e um botão inteiro dispensa um gesto escondido. A
+  // PERGUNTA fica — ela é o que protege, não o tempo do dedo.
   pacoteExportarTileEl.addEventListener('click', () => {
     // O TOQUE NO BOTÃO QUE TRABALHA É O CANCELAR (v1.7.3). Ele é o gesto que
     // quem opera tenta primeiro, e é seguro porque exportar é refazível: o
-    // parcial é apagado e o arquivo escolhido some. `qs-trabalhando` sem
-    // `pacoteExportando` é a fase de MEDIÇÃO, que não tem o que cancelar —
-    // ela não escreveu byte nenhum e acaba sozinha em segundos.
+    // parcial é apagado e o arquivo escolhido some.
     if (pacoteExportando) {
       pacoteCancelar = true;
       falarNoTile(pacoteExportarTileEl, 'Parando…', 0);
       return;
     }
+    // A MEDIÇÃO e a folha de escolha caem aqui: não escreveram byte nenhum,
+    // não há o que cancelar, e o tile está `disabled` de qualquer forma.
     if (pacoteEmCurso) return;
-    // O `click` chega DEPOIS do toque longo ter agido: sem esta guarda, segurar
-    // o botão refaria o pacote E abriria o seletor do que acabou de ser
-    // descartado.
-    if (pacoteFoiLongo) { pacoteFoiLongo = false; return; }
     if (pacotePronto) { enviarPacotePronto(); return; }
     exportarPacote();
   });
@@ -25231,39 +25302,40 @@ async function enviarPacotePronto() {
   pacoteRenderTiles();
 }
 
-// REFAZER O PACOTE — e ele PERGUNTA antes (v1.8.20).
+// DESCARTAR O PACOTE PRONTO — e ele PERGUNTA antes.
 //
-// O toque longo agia direto até aqui, e o relato do operador é o que essa
-// escolha custa: um toque um pouco mais demorado no botão destruía um pacote de
-// minutos e recomeçava a medição, sem nada perguntar e sem nada explicar.
+// Com um pacote pronto o par de tiles fica coerente: o exportar ENVIA e o
+// importar DESCARTA (v1.8.28). Antes disso esta ação morava num TOQUE LONGO
+// sobre o exportar, e o relato do operador é o que aquela escolha custava: um
+// toque um pouco mais demorado destruía um pacote de minutos e recomeçava a
+// medição, sem nada perguntar.
 //
-// PERGUNTAR NÃO CONTRADIZ O PEDIDO QUE TIROU O DIÁLOGO. Aquele era um AVISO de
-// sucesso, com nada a decidir, no fim de uma ação que já tinha acabado — puro
-// passo a mais. Este é uma DECISÃO, e destrutiva: é a mesma pergunta que o app
-// faz para excluir uma pasta ou o que foi baixado de uma coleção.
+// A PERGUNTA FICA, e ela é a guarda de verdade — não o tempo do dedo. Destruir
+// o resultado de minutos de trabalho é a mesma classe de decisão que excluir
+// uma pasta, e usa o mesmo `appConfirm({ perigo: true })`.
 //
-// E ela é a única guarda que funciona num TOQUE: com a captura implícita do
-// ponteiro não existe abortar um toque longo já começado, então a saída tem de
-// vir DEPOIS dele.
-async function refazerOPacote() {
+// ELE NÃO REEXPORTA. Descartar deixa o par no estado de repouso, com o botão de
+// exportar oferecendo "Exportar" — que é o que ele faz. Encadear as duas coisas
+// num toque só (o que o toque longo fazia) tira do operador a chance de mudar
+// de ideia sobre O QUE levar, que é a folha inteira de escolha de coleções.
+async function descartarPacotePronto() {
   if (!pacotePronto || pacoteEmCurso) return;
   const bytes = pacotePronto.bytes;
   if (!(await appConfirm({
-    title: 'Exportar de novo',
-    message: 'O pacote pronto (' + fmtBytes(bytes) + ') será descartado e a '
-      + 'biblioteca preparada outra vez. Continuar?',
-    okText: 'Exportar de novo',
+    title: 'Descartar o pacote',
+    message: 'O pacote pronto (' + fmtBytes(bytes) + ') será apagado do '
+      + 'aparelho. Para mandá-lo a outro celular será preciso exportar de novo.',
+    okText: 'Descartar',
     perigo: true,
   }))) return;
   pacoteDescartarPronto();
-  exportarPacote();
 }
 
-// Joga fora o pacote pronto — o começo de uma exportação nova.
+// Joga fora o pacote pronto — sem perguntar nada. Quem pergunta é quem chama.
 function pacoteDescartarPronto() {
   if (!pacotePronto) return;
   pacoteDiario.refez++;
-  pacoteAnotar('preparou', 'o pronto foi descartado a pedido (refazer)');
+  pacoteAnotar('preparou', 'o pronto foi descartado a pedido');
   pacotePronto = null;
   try { AVNative.pacoteDescartarPronto(); } catch (_) { /* ponte */ }
   pacoteRenderTiles();
@@ -26176,7 +26248,7 @@ async function pptxImportar(file, nome, opts) {
   const bg = naPreview
     ? previewBusy(LEGENDA_DECK, rotulo, alca.cancelar)
     : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave, alca.cancelar);
-  const notif = bgTaskStart('Preparando apresentação', 1, false);
+  const notif = bgTaskStart('Preparando apresentação', 1, 'processar');
   // O NOME DA APRESENTAÇÃO na linha da notificação, pela mesma razão do vídeo
   // (ver `ytArquivo`): "Preparando apresentação" sozinho não diz QUAL, e com o
   // app minimizado esta é a única tela que existe.
@@ -26273,7 +26345,7 @@ async function deckImportar(origem, nome, opts) {
   const bg = naPreview
     ? previewBusy(LEGENDA_DECK, rotulo, alca.cancelar)
     : libBusy(LEGENDA_DECK, rotulo, opts && opts.chave, alca.cancelar);
-  const notif = bgTaskStart('Preparando apresentação', 1, false);
+  const notif = bgTaskStart('Preparando apresentação', 1, 'processar');
   bgItemOnly(notif, rotulo);
   let primeira = null;   // uma página basta para o descarte: ele apaga a pasta
   try {
@@ -27334,12 +27406,19 @@ let bgTaskSeq = 0;
  * manda o campo, e o Kotlin lê ausente como "é download" — o comportamento de
  * sempre. Falhar para o lado que já existia é a regra deste app.
  */
-function bgTaskStart(label, total, baixando) {
+function bgTaskStart(label, total, icone) {
   if (!window.__NATIVE__) return 0;
   const id = ++bgTaskSeq;
   bgTasks.set(id, {
     label, total: Math.max(1, total), done: 0,
-    baixando: baixando !== false,
+    // O DESENHO da barra de notificação — `baixar` (o padrão), `enviar` ou
+    // `processar`. Ele é do REGISTRO da tarefa e não do envio porque um lote de
+    // músicas pode correr ao lado de uma exportação, e cada um tem o seu.
+    //
+    // `false` continua sendo aceito e vira `processar`: era a forma da v1.8.27
+    // (um booleano "isto baixa?"), e traduzi-la aqui é o que permite ao campo
+    // ganhar um terceiro valor sem varrer todos os chamadores.
+    icone: icone === false ? 'processar' : (icone || 'baixar'),
     // FILA de exibição: nomes que entraram em download e ainda não passaram
     // pela linha da notificação. É um buffer, não o conjunto do que está no ar
     // — cada nome sai daqui UMA vez, o que torna a lista fluida e sem repetir.
@@ -27647,7 +27726,7 @@ function bgTaskSend(force) {
       etaMs: Math.max(0, Math.round(etaAlvo)),
       items: item ? [item] : [],
       bytes: !!alvo.bytes,
-      baixando: alvo.baixando !== false,
+      icone: alvo.icone || 'baixar',
       // Há quanto tempo NADA acontece nesta tarefa. É o que separa "travado" de
       // "esta faixa é grande" — sem isso os dois casos são a mesma tela parada.
       idleMs: alvo.lastEventAt ? Math.max(0, now - alvo.lastEventAt) : 0,
