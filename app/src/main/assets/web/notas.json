@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.32",
+    "itens": [
+      "A seta do progresso voltou a se mexer na barra de notificação.",
+      "O percentual continua na notificação aberta e no próprio botão."
+    ]
+  },
+  {
     "versao": "1.8.31",
     "itens": [
       "A folha de exportação abre no toque, sem a espera que havia antes dela.",

@@ -584,13 +584,14 @@ window.AVNative = {
                        //   aparelho, e vir de um arquivo local em vez da
                        //   rede não muda o sentido do movimento para quem
                        //   olha. Nome ausente ou desconhecido = `baixar`.
-                       //   E O PERCENTUAL VAI DENTRO DELE: a barra de status
-                       //   mostra só o ÍCONE, então o número é DESENHADO nele
-                       //   (`SyncService.iconeComPercentual`, um bitmap por
-                       //   atualização) com a seta ao lado — o desenho do
-                       //   `res/` é fixo, e o número muda. Só com percentual de
-                       //   VERDADE: sem total conhecido fica o ícone do sistema,
-                       //   porque um "0%" parado se lê como travado
+                       //   E O PERCENTUAL NÃO CABE NELE — a v1.8.31 tentou
+                       //   (um bitmap desenhado por atualização) e a v1.8.32
+                       //   desfez: o número apareceu e a SETA PAROU. As duas
+                       //   coisas são EXCLUDENTES, porque o sistema só anima um
+                       //   `AnimationDrawable`, e ele só chega por ID DE
+                       //   RECURSO — desenho dinâmico é necessariamente um
+                       //   quadro só. O número mora na notificação ABERTA e no
+                       //   botão que começou o trabalho
   nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs, actions}),
                        //   `actions`: os BOTÕES do cartão, na ordem, escolhidos
                        //   pelo lado web. Vazio = os cinco de sempre
@@ -5315,8 +5316,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.31 · APK v1.8.31** · `SHELL_VERSION` **71** ·
-bundle com `minShell: 71` e **`shellTag: "v1.8.31"`** (lote COM Release) — o
+**Versão atual: base web v1.8.32 · APK v1.8.32** · `SHELL_VERSION` **71** ·
+bundle com `minShell: 71` e **`shellTag: "v1.8.32"`** (lote COM Release) — o
 shell 71 é o **PISO**: todo método da ponte existe, e não há guarda de versão no
 lado web.
 
@@ -5356,6 +5357,32 @@ lado web.
 > Release** — porque encolher no WEB primeiro é o lado seguro: um APK que ainda
 > serve oito métodos que ninguém chama não custa nada ao aparelho. É a ordem
 > inversa — a base web nova contra o APK velho — que precisa do `shellTag`.
+
+**O QUE O LOTE TRAZ (v1.8.32) — a seta volta a se mexer:**
+
+| peça | onde |
+|---|---|
+| o bitmap com o número sai; o `AnimationDrawable` do sistema volta | `SyncService.buildNotification` (`Icone.drawable()`) |
+| a razão de as duas coisas não caberem juntas | o KDoc de `SyncService.Icone` |
+
+> **UM ÍCONE DE BARRA OU ANDA OU DIZ UM NÚMERO, NUNCA OS DOIS** (v1.8.32).
+> Relato do operador sobre o que a v1.8.31 entregou: *"ele tem uma seta e o
+> número, mas não tem porcentagem, e a seta também não se move… se não for
+> possível, deixe apenas a seta e o ícone de conclusão"*.
+>
+> **Não é falta de esforço, é a forma da API.** O ícone da barra é UM drawable,
+> e a única coisa que o sistema anima é um `AnimationDrawable` — que só chega
+> por ID DE RECURSO, porque o `IconCompat` transporta Bitmap, recurso, Uri e
+> dados, **nunca um Drawable montado em runtime**. Logo o desenho é fixo e
+> ANDA, ou é dinâmico e PARA. Fingir animação repostando bitmaps também não
+> serve: o freio de `BG_NOTIF_MIN_MS` são 700 ms e o Android descarta o
+> excesso — menos de dois quadros por segundo.
+>
+> **E O NÚMERO NÃO SE PERDEU:** ele está no `setSubText` da notificação aberta,
+> ao lado da barra, e no próprio botão que começou o trabalho (`falarNoTile`).
+> O que sai é a tentativa de espremê-lo em 24dp — onde ele saía **sem o "%"**,
+> porque o símbolo rouba a largura de um dígito, e um número solto ao lado de
+> uma seta parada não se lê como progresso.
 
 **O QUE O LOTE TRAZ (v1.8.31) — a folha sem espera, o número na barra e o
 check quando acaba:**
