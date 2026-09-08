@@ -648,6 +648,12 @@ try {
   // TRANSPORTE continua ecoando, e é lá que o eco não tem substituto — os ⏮/▶/⏭
   // não trocam de desenho, e com as telas da rede a resposta real está a ~1 s.
   const eco = await pg.evaluate(async () => {
+    // A FILA PRECISA EXISTIR (v1.8.50). Desde que um botão sem função fica
+    // APAGADO em vez de inerte, os ⏮/⏭ nascem `disabled` com a playlist vazia —
+    // e um botão desabilitado não ecoa, que é o certo. Medir o eco do transporte
+    // sem fila mediria o apagado, não o eco.
+    plItems = [{ id: 'a' }, { id: 'b' }];
+    renderTransporteHabilitado();
     const bater = (sel) => {
       const b = document.querySelector(sel);
       b.click();
@@ -974,21 +980,45 @@ try {
   // `#slideNextBtn`. A prova é o COMANDO que sai no barramento: um `seek` é a
   // estrofe andando, um `load` é a mídia trocando.
   const eixo = await pg.evaluate(async () => {
-    currentItem = {
+    const item = {
       id: 'cena', name: 'Louvor Em Cena', kind: 'audio', seconds: 200,
       lyrics: [{ time: 0, cover: true }, { time: 10, text: 'primeira' }, { time: 20, text: 'segunda' }],
     };
+    currentItem = item;
     currentId = 'cena';
-    renderSlideNav();
+    // O CENÁRIO É REMONTADO ANTES DE CADA MEDIÇÃO, e as duas razões são de
+    // 2026-09 (v1.8.50):
+    //
+    //  · **"NO AR" é `midiaNoAr`**, e não só `currentItem`. O item sobrevive ao
+    //    stop DE PROPÓSITO — é ele que faz o ▶ repetir a faixa —, então desde
+    //    que o eixo de slide passou a exigir cena, um cenário montado só com
+    //    `currentItem` descreve uma música PARADA, e este bloco mediria o palco
+    //    vazio.
+    //  · **A FILA precisa existir.** Sem ela os ⏮/⏭ nascem `disabled` e o
+    //    `.click()` é engolido pelo navegador: a asserção "o ⏭ do transporte NÃO
+    //    passa estrofe" passaria por o botão estar apagado, que é a TAUTOLOGIA
+    //    que este projeto reprova. Com fila, porém, o ⏭ TROCA DE MÍDIA de
+    //    verdade e leva a cena embora — daí o `montar()` a cada medição, e não
+    //    um cenário só para as duas.
+    const montar = () => {
+      midiaNoAr = true;
+      midiaNoArId = 'cena';
+      currentItem = item;
+      currentId = 'cena';
+      plItems = [{ id: 'cena' }, { id: 'outra' }];
+      renderSlideNav();
+    };
+    montar();
     const alvo = slideTarget();
     // O espião entra no ponto por onde TODO comando passa.
     const vistos = [];
     const original = window.cmd;
     window.cmd = (c) => { vistos.push(c.type); };
-    const espiar = (fn) => { vistos.length = 0; fn(); return vistos.slice(); };
+    const espiar = (fn) => { montar(); vistos.length = 0; fn(); return vistos.slice(); };
     // `step` é o que os ⏮/⏭ do transporte chamam agora — sem toque longo.
     const doTransporte = espiar(() => nextEl.click());
     const doSlide = espiar(() => slideNextBtnEl.click());
+    montar();
     window.cmd = original;
     return {
       alvo, doTransporte, doSlide,

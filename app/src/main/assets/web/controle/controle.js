@@ -373,7 +373,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.49';
+const WEB_VERSION = '1.8.50';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2090,6 +2090,44 @@ let somLocalBloqueado = false; // o navegador recusou o som (ver `onBlocked`)
 // duas de divergirem no primeiro caso de borda.
 function algumaTelaConectada() { return !!simpleDisplay(); }
 
+// HÁ A QUEM PROJETAR — a TV LISTADA, ou uma sessão de tela da rede aberta.
+//
+// É deliberadamente MAIS LARGA que `algumaTelaConectada()`, e a diferença é o
+// recurso inteiro: aquela pergunta se há projeção AGORA (a `Presentation` no
+// ar, a tela `pronta`) e decide de onde sai o som; esta pergunta se ainda
+// EXISTE um destino, e decide se a projeção foi PERDIDA.
+//
+// O que cai no vão entre as duas são os INTERVALOS, e nenhum deles é uma perda:
+// a oscilação do dongle (a tela continua listada, a `Presentation` cai e a
+// escada de retomada a devolve em 0,4 s a 8 s) e a recarga de uma tela da rede
+// (a sessão sobrevive ao F5 — é o token carregado adiante que a mantém). Ler
+// `algumaTelaConectada()` aqui pausaria o louvor a cada piscada do Miracast.
+// A ÚLTIMA CONTAGEM QUE A PONTE DE FATO RESPONDEU.
+//
+// `lerEspelho` guarda `mirrorEstado = null` em DOIS casos: antes da primeira
+// leitura, e quando a chamada da ponte falha ou vence o prazo. Ler esse `null`
+// como "não há sessão" transforma uma leitura falhada numa PERDA de destino
+// inventada — e o preço dela é pausar o louvor no meio do culto, justamente na
+// configuração em que este app mais roda: sem TV, com as telas da rede sendo a
+// projeção.
+//
+// GUARDAR O ÚLTIMO CONHECIDO é melhor que devolver "não sei", e a diferença
+// aparece na outra ponta: com "não sei" a queda da TV DURANTE a falha não seria
+// perda nenhuma, e a leitura seguinte já acharia tudo em ordem — o vazamento
+// ficaria de pé para sempre. Com um valor velho, a metade que a ponte não
+// respondeu fica parada e a metade que ela respondeu (a lista de telas) continua
+// decidindo.
+let sessoesConhecidas = 0;
+
+function haDestinoDeProjecao() {
+  if (!window.__NATIVE__) return !!(webDisplayWin && !webDisplayWin.closed);
+  if (mirrorEstado) {
+    sessoesConhecidas = (espelhoLigado() && Array.isArray(mirrorEstado.telas))
+      ? mirrorEstado.telas.length : 0;
+  }
+  return (Array.isArray(lastDisplays) && lastDisplays.length > 0) || sessoesConhecidas > 0;
+}
+
 /**
  * ===== "TOCAR NESTE CELULAR": A ESCOLHA DE NÃO CONECTAR NADA =====
  *
@@ -2137,11 +2175,56 @@ function somLocalDeveEstar() {
 // O ÚNICO ponto que mexe no mudo da preview. Chamado de onde o estado muda —
 // telas (`renderDisplayStatus`), transmissão (`lerEspelho`), modo do app
 // (`setAppMode`) e a janela do Display no navegador (`openWebDisplay`).
+// ===== O SOM NÃO VAZA PARA O CELULAR QUANDO A PROJEÇÃO SE PERDE (v1.8.50) =====
+//
+// Relato do operador: *"Ao pausar ou interromper uma transmissão ou
+// espelhamento, pause a mídia se ela estiver apenas no smartphone… Aconteceu de
+// estar tocando uma música no telão, e eu desconectei a tela, e a mídia seguiu
+// tocando no smartphone, vazando conteúdo que não era intenção de sair o som
+// nele"*.
+//
+// O app estava fazendo o que ele sempre prometeu — *"sem tela nenhuma
+// conectada, o som sai DESTE aparelho"* —, e é a PROMESSA que estava errada
+// numa borda: ela vale para quem ABRE o app sem tela, e não para quem PERDE a
+// tela com o louvor no ar. Nos dois casos o estado final é o mesmo; a intenção
+// não é, e é a intenção que decide.
+//
+// A RÉGUA É A PERDA, e não o estado: só pausa quem TINHA destino e deixou de
+// ter. Escrita como estado seria "não há tela e há mídia tocando" — e isso
+// pausaria o ensaio de quem nunca conectou nada, que é o caso de uso do "Tocar
+// neste celular".
+//
+// E A RÉGUA É O DESTINO, não a projeção (`haDestinoDeProjecao`, não
+// `algumaTelaConectada`). A distinção é o que separa a correção de uma
+// regressão pior que o defeito: a oscilação do dongle derruba a `Presentation`
+// com a TV ainda listada, e a escada de retomada a devolve em 0,4 s a 8 s —
+// pausar ali trocaria um vazamento de segundos por uma interrupção do culto a
+// cada piscada do Miracast.
+//
+// `null` até a primeira medição: no lançamento não há transição, há um começo.
+let tinhaDestinoAntes = null;
+
 function acertarSaidaDeAudio() {
   const alvo = somLocalDeveEstar();
   // A PROTEÇÃO É REAVALIADA SEMPRE, mesmo quando o mudo não muda: ela depende
   // também da CENA, e a cena muda sem passar por aqui.
   acertarProjecaoLocal();
+  // A PERDA É MEDIDA AQUI porque este é o ÚNICO ponto por onde toda mudança de
+  // destino do som passa — telas (`renderDisplayStatus`), transmissão
+  // (`lerEspelho`), modo do app e a janela do Display no navegador. Medi-la em
+  // cada chamador seria a mesma pergunta escrita quatro vezes, e a quinta
+  // nasceria sem ela.
+  const temDestino = haDestinoDeProjecao();
+  const perdeuODestino = tinhaDestinoAntes === true && !temDestino;
+  tinhaDestinoAntes = temDestino;
+  // E A PAUSA É INCONDICIONAL AO MUDO: o `return` de igualdade abaixo existe
+  // para não repetir a rampa do `setForceMuted`, e a perda pode chegar com o som
+  // já local (o Modo Fácil com "Tocar neste celular" ligado, e uma tela que
+  // cai). Ali o vazamento é o mesmo.
+  if (perdeuODestino && playing) {
+    diagC('projeção PERDIDA com mídia no ar — pausando para o som não vazar aqui');
+    cmd({ type: 'pause' });
+  }
   if (alvo === somLocal) return;
   somLocal = alvo;
   // A rampa curta mora no `stage` (ver `setForceMuted`): sem ela a troca seria
@@ -3581,6 +3664,11 @@ function acoesDaNotificacao(who, temTempo) {
 // segunda escrita da mesma pergunta envelheceria à parte, e as duas respostas
 // governam coisas que precisam concordar: o serviço em primeiro plano e o
 // WebView que não pode ser suspenso.
+//
+// ELE NÃO RESPONDE "HÁ O QUE PARAR?", e a diferença é o `!!currentId` da
+// primeira linha: o item sobrevive ao stop DE PROPÓSITO, para o ▶ repetir a
+// faixa. Quem pergunta isso é `midiaNoAr || cenaDeRoteiroNoAr()`, a leitura que
+// o próprio `stopClear` faz — ver `renderTransporteHabilitado`.
 function cenaNoAr() {
   return !!currentId
     || !!(msgSession && msgSession.projecting)
@@ -3831,14 +3919,18 @@ function renderPlaylist() {
     // num episódio de série, ~300 MB baixados em rede de celular.
     const rm = document.createElement('button');
     rm.className = 'row-btn row-excluir';
-    rm.title = 'Tirar da playlist';
-    rm.setAttribute('aria-label', 'Tirar da playlist');
+    // "REMOVER", E NÃO "TIRAR" (v1.8.50), a pedido do operador. As outras listas
+    // já dizem "Remover" no mesmo gesto; "tirar" era a única palavra própria
+    // desta fila, e um verbo por lista faz o operador reler o botão antes de
+    // tocar num alvo que apaga bytes.
+    rm.title = 'Remover da playlist';
+    rm.setAttribute('aria-label', 'Remover da playlist');
     rm.appendChild(msym(ICON.del));
     rm.addEventListener('click', (e) => {
       e.stopPropagation();
       pedirConfirmacaoNaLinha(rm, {
-        ok: 'Tirar',
-        dica: 'Tirar da fila. O arquivo só é apagado se ele não estiver '
+        ok: 'Remover',
+        dica: 'Remover da fila. O arquivo só é apagado se ele não estiver '
           + 'guardado em mais nenhuma lista.',
         aoConfirmar: async () => { await AVDB.listRemove('playlist', item.id); await load(); },
       });
@@ -8100,7 +8192,7 @@ function botaoExcluirDaLinha(item, lista, depois) {
     const nome = item.name ? '"' + item.name + '"' : 'este item';
     pedirConfirmacaoNaLinha(b, {
       ok: 'Excluir',
-      dica: 'Tirar ' + nome + ' desta lista. Os arquivos só são apagados se '
+      dica: 'Remover ' + nome + ' desta lista. Os arquivos só são apagados se '
         + 'ele não estiver em mais nenhuma.',
       aoConfirmar: async () => {
         // EXCLUIR DE UMA LISTA NÃO TIRA DO AR (v1.3.13). Havia aqui um
@@ -10770,16 +10862,29 @@ function medirVaoDosFavoritos(lista) {
 // devolvendo o defeito original. Um bloco que o operador abriu continua contando
 // como FECHADO — é justamente a hipótese "tudo fechado" que dá a altura que a
 // tampa dele tem de manter.
+// AS DUAS SAEM JUNTAS, sempre: o respiro é derivado da tampa, e um valor de
+// ontem herdado sem a altura que o justifica pinta um vão em cima de uma barra
+// que já voltou ao tamanho natural.
+function limparTampa(lista) {
+  lista.style.removeProperty('--tampa-h');
+  lista.style.removeProperty('--tampa-topo');
+  // O RESPIRO É POR BLOCO (ver abaixo), então limpá-lo na lista não basta: um
+  // valor de ontem preso num `<li>` sobrevive a todo desvio desta função.
+  for (const b of lista.children) {
+    if (b.nodeType === 1) b.style.removeProperty('--tampa-topo');
+  }
+}
+
 function medirTampa(lista) {
   if (!lista || !lista.isConnected) return;
   // Fora do acervo (a lista de BUSCA) não há bloco de raiz que cresça, e um
   // valor de ontem herdado ali pintaria altura em linha de resultado.
   if (!lista.classList.contains('acervo')) {
-    lista.style.removeProperty('--tampa-h');
+    limparTampa(lista);
     return;
   }
   const blocos = [...lista.children].filter((n) => n.nodeType === 1);
-  if (!blocos.length) { lista.style.removeProperty('--tampa-h'); return; }
+  if (!blocos.length) { limparTampa(lista); return; }
   const cs = getComputedStyle(lista);
   const gap = parseFloat(cs.rowGap) || 0;
   // A MESMA CORREÇÃO do `--fav-vao` (v1.5.20): o respiro do primeiro filho
@@ -10805,13 +10910,59 @@ function medirTampa(lista) {
     base += (barra ? barra.getBoundingClientRect().height
       : b.getBoundingClientRect().height);
   }
-  if (!n) { lista.style.removeProperty('--tampa-h'); return; }
+  if (!n) { limparTampa(lista); return; }
   // SÓ CRESCE, e nunca acima do teto de hoje: o `--bar-raiz-max` existe porque
   // a lista pode ter POUCOS blocos (três coleções dariam 183px cada).
   const teto = parseFloat(getComputedStyle(document.documentElement)
     .getPropertyValue('--bar-raiz-max')) || 66;
   const h = Math.max(base / n, Math.min(sobra / n, teto));
   lista.style.setProperty('--tampa-h', h.toFixed(2) + 'px');
+  // ===== E O RESPIRO ACIMA DA BARRA, PARA O TÍTULO NÃO SE MEXER (v1.8.50) =====
+  //
+  // Relato do operador: *"na biblioteca, o título das coleções se move ao abrir
+  // a lista de álbuns e itens… uma vez medido, os itens fiquem alinhados
+  // durante as interações"*.
+  //
+  // MEDIDO a 430×900 com três blocos de raiz (`--tampa-h` no teto de 66px):
+  // abrindo um hinário, o título DELE ia de 24,0 para 34,4px do topo do próprio
+  // card — um pulo de 10,4px no instante do toque, no único elemento que o olho
+  // estava seguindo.
+  //
+  // A CAUSA é METADE de um vão. FECHADO, o bloco tem `height: --tampa-h` e
+  // CENTRA a barra: o respiro acima dela é `(tampa − barra) / 2`. ABERTO, a
+  // folha compensava com o vão INTEIRO (`--tampa-h − --bar-secao-h`) num
+  // respiro só, em cima — a barra descia a diferença toda, e o título com ela.
+  //
+  // E O VÃO INTEIRO NÃO ERA GRATUITO: era ele que mantinha a invariante da
+  // v1.5.19 — a TAMPA de um bloco (do topo dele até onde o corpo começa) medindo
+  // o mesmo fechada e aberta. As duas só se resolvem juntas, e a solução é o
+  // bloco aberto REPRODUZIR a caixa fechada: metade do vão acima da barra,
+  // metade abaixo.
+  //
+  // SÓ O CARD USA ISTO, e a seção fica com a compensação de sempre: o corpo dela
+  // já traz `.35rem` de vão por dentro, e com ele as duas invariantes só
+  // coexistem num ponto. O relato decide qual cede — o título de uma seção
+  // andava 0,86px, o de um card andava 10,4. Ver o bloco correspondente em
+  // `controle.css`.
+  //
+  // ELE ESTÁ AQUI porque esta função JÁ mede a barra de cada bloco — é a régua
+  // que decide o piso da tampa logo acima. Escrevê-lo em CSS seria uma segunda
+  // aproximação da mesma medida (foi o que `--bar-secao-h` era ali), e num
+  // segundo ponto de JS seria a mesma conta em dois lugares.
+  // E ELE É POR BLOCO, não uma média. A conta que o CSS faz com ele é
+  // `topo + barra + topo = --tampa-h`, e ela só fecha se `barra` for a daquele
+  // bloco: a de uma seção e a de um card diferem (MEDIDO, 0,86px a 430×900), e
+  // uma média erraria nos dois. O laço já tem a barra na mão.
+  const topoDe = (b) => {
+    const barra = b.querySelector('.coll-group-bar, .coll-bar, .row');
+    const alt = barra ? barra.getBoundingClientRect().height
+      : b.getBoundingClientRect().height;
+    return Math.max(0, (h - alt) / 2);
+  };
+  for (const b of blocos) b.style.setProperty('--tampa-topo', topoDe(b).toFixed(2) + 'px');
+  // O da LISTA fica como piso herdado: um bloco acrescentado entre esta medição
+  // e a próxima nasce com um respiro plausível em vez de nenhum.
+  lista.style.setProperty('--tampa-topo', Math.max(0, (h - base / n) / 2).toFixed(2) + 'px');
 }
 
 // A MEDIÇÃO É ADIADA UM QUADRO, e não é cerimônia: quem chama isto durante a
@@ -10907,7 +11058,7 @@ function naPlaylist(id) { return !!id && plItems.some((m) => m.id === id); }
 // no toque, e duas cópias divergiriam no primeiro ajuste de texto.
 function vestirPlBtn(b, dentro) {
   b.classList.toggle('on', dentro);
-  const t = dentro ? 'Tirar da playlist' : 'Adicionar à playlist';
+  const t = dentro ? 'Remover da playlist' : 'Adicionar à playlist';
   b.title = t;
   b.setAttribute('aria-label', t);
   b.setAttribute('aria-pressed', dentro ? 'true' : 'false');
@@ -11437,6 +11588,25 @@ function slideTarget() {
   if (lyricProjecting()) return 'songlyrics';
   if (msgSession && msgSession.projecting) return 'message';
   if (bibleSession && bibleSession.projecting) return 'bible';
+  // ===== SEM MÍDIA NO AR NÃO HÁ EIXO, e a pergunta é `midiaNoAr` (v1.8.50) =====
+  //
+  // Relato do operador: *"enquanto uma música está em stop, os botões de
+  // anterior e próximo slide ficam ativos (isso está errado), e interagir com
+  // eles faz com que a próxima música pule slides já na sua abertura como se os
+  // toques anteriores fossem para ela"*.
+  //
+  // As duas linhas abaixo leem `currentItem`, e ele **sobrevive ao stop de
+  // propósito** — é o que faz o ▶ repetir a faixa. O que ele NÃO responde é se
+  // há cena: parado, o item continua sendo o último tocado, o par de botões
+  // continuava aceso, e cada toque mandava um `seek` para um palco vazio. O
+  // resto do app já tem a pergunta certa e ela é `midiaNoAr`, a bandeira que o
+  // `send` acende e o stop apaga — a MESMA que solta o detentor no coletor e
+  // que decide o que a reconexão do telão reenvia.
+  //
+  // PAUSADO CONTINUA VALENDO: `midiaNoAr` é "carregada", não "tocando" (o
+  // louvor pausado para a oração segue em cena, com a letra na tela), e passar
+  // estrofe ali é exatamente o que o operador faz.
+  if (!midiaNoAr) return null;
   // A APRESENTAÇÃO é o alvo mais literal que este par de botões já teve: cada
   // toque passa uma página. Vem antes da letra porque um deck não tem letra —
   // são caminhos que nunca coexistem.
@@ -11460,6 +11630,62 @@ function stepSlide(delta) {
   cmd({ type: 'seek', time: lyrics[target].time });
 }
 
+// ===== UM BOTÃO SEM FUNÇÃO FICA APAGADO, NÃO INERTE (v1.8.50) =====
+//
+// Pedido do operador: *"verifique botões que deveriam ter sua função inativa ao
+// toque em situações em que ele não deveria ser usado. Como é o caso de uma
+// playlist vazia… o botão de stop se não tem nada em play e etc… Isso evita
+// bugs por tentar fazer algo que não seria possível"*.
+//
+// Os três abaixo já eram INERTES — `step()` volta na primeira linha com a fila
+// vazia, `stopClear()` não tem o que parar, `togglePlay()` volta sem
+// `currentId`. Inerte e apagado não são a mesma coisa: um botão aceso que não
+// faz nada é indistinguível de um botão quebrado, e o que o operador faz diante
+// dele é tocar de novo. É a terceira vez que este app troca EXPLICAR por NÃO
+// OFERECER (o microfone sem TV na v1.2.21, a aba de cifra sem cifra na v1.8.28,
+// o auxiliar de leitura sem nada na v1.8.36) — e aqui é mais barato ainda,
+// porque não há estado novo: as três perguntas já existem e já são a régua de
+// quem executa.
+//
+// `disabled` E NÃO UMA CLASSE, pelo motivo da v1.8.36: é o atributo que o
+// `.t-btn:disabled` já veste com `--op-inativo` (a linguagem do INDISPONÍVEL
+// deste app), que tira o nó da ordem de tabulação, e que faz o navegador engolir
+// o toque sem um `pointer-events` nosso. O `title` continua dizendo POR QUÊ —
+// é o que um botão apagado deve a quem o encontra.
+//
+// O QUE **NÃO** ENTROU, e está dito para ninguém "completar" a lista:
+//  · o ▶ com a mídia PARADA fica ACESO — `currentId` sobrevive ao stop de
+//    propósito, e é ele que faz o ▶ repetir a faixa (v1.4.x). Apagá-lo tiraria
+//    um recurso;
+//  · o botão da PLAYLIST fica aceso com a fila vazia: ele abre a folha, e a
+//    folha vazia é a resposta à pergunta "o que tem na fila?";
+//  · a REPETIÇÃO fica acesa sempre: ela é um modo, e escolher o modo antes de
+//    montar a fila é o caminho normal.
+function renderTransporteHabilitado() {
+  // A MÍDIA ANTERIOR/PRÓXIMA precisa de FILA. Com um item só eles continuam
+  // valendo — recomeçam a faixa —, que é o que `step()` faz ali.
+  const semFila = plItems.length === 0;
+  for (const el of [prevEl, nextEl]) {
+    if (!el) continue;
+    el.disabled = semFila;
+    el.title = semFila ? 'A fila está vazia' : (el === prevEl ? 'Mídia anterior' : 'Próxima mídia');
+  }
+  // O PARAR precisa de CENA, e a pergunta é a MESMA que o `stopClear` faz na
+  // primeira linha dele: `midiaNoAr` ou `cenaDeRoteiroNoAr()`. Reescrevê-la
+  // aqui as faria divergir.
+  //
+  // **E NÃO É `cenaNoAr()`**, que parece a pergunta e não é: aquela começa por
+  // `!!currentId`, e o `currentId` SOBREVIVE AO STOP de propósito — é ele que
+  // faz o ▶ repetir a faixa. Lida aqui, ela deixaria o Parar aceso para sempre
+  // depois da primeira mídia do dia, que é exatamente o botão sem função que
+  // este bloco existe para apagar.
+  if (stopEl) {
+    const semCena = !midiaNoAr && !cenaDeRoteiroNoAr();
+    stopEl.disabled = semCena;
+    stopEl.title = semCena ? 'Não há nada no ar para parar' : 'Parar e limpar';
+  }
+}
+
 // Habilita/desabilita os botões de estrofe conforme o item atual tem letra
 // sincronizada e a posição dentro dela (desabilita no primeiro/último slide).
 function renderSlideNav() {
@@ -11471,6 +11697,7 @@ function renderSlideNav() {
   renderSimpleTime();
   const who = slideTarget(); // o que está NO AR — ver slideTarget()
   applySlideLimits(who);
+  renderTransporteHabilitado();
   // O eixo do transporte é escrito DEPOIS dos limites: ele lê o `disabled` das
   // âncoras para dizer quando o toque curto não tem para onde ir.
   renderTransportAxis(who);
@@ -14770,6 +14997,17 @@ async function pararMidia(tipo) {
   playPauseEl.querySelector('.msym').textContent = ICON.play;
   seekEl.value = 0; seekEl.disabled = true;
   curTimeEl.textContent = '0:00';
+  // ===== E OS BOTÕES PRECISAM SABER QUE A CENA ACABOU (v1.8.50) =====
+  //
+  // `renderSlideNav` é quem escreve o eixo de slide e o apagado do transporte,
+  // e o ÚNICO ponto que o chamava por conta própria era o fim do `previewTick`
+  // — que volta na guarda `if (!midiaNoAr) return` DUAS linhas antes de chegar
+  // lá. Parar a mídia era portanto o único evento do app capaz de mudar todas
+  // essas respostas sem que ninguém as redesenhasse: o par de slide ficava
+  // aceso, com o rótulo da cena que saiu, e o Parar ficava aceso sobre um palco
+  // vazio. É a metade do relato que a guarda do `slideTarget()` não alcança —
+  // ela corrige a RESPOSTA, e esta linha é quem vai buscá-la.
+  renderSlideNav();
 }
 
 /**
@@ -32209,17 +32447,6 @@ const OTA_INTENCAO = 'ota-intencao';
 // domingo seria abrir o instalador do sistema por cima de quem está montando o
 // culto. (Mesmo raciocínio do teto de 6 h da intenção de download.)
 const OTA_INTENCAO_MAX_MS = 6 * 60 * 60 * 1000;
-
-// Há algo projetado agora? MESMA leitura de `pushNowPlaying` — se ela mudar de
-// ideia sobre o que é "cena", esta pergunta muda junto.
-function cenaNoAr() {
-  return !!currentId
-    || !!(msgSession && msgSession.projecting)
-    || !!(bibleSession && bibleSession.projecting)
-    || lyricProjecting()
-    || chronoProjecting()
-    || drawProjecting();
-}
 
 // Momento ruim para PERGUNTAR — e ele é diferente do momento ruim para
 // INSTALAR, que é o `horaRuimParaAtualizar()` logo abaixo.

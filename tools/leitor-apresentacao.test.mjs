@@ -115,6 +115,8 @@ try {
       id: 'cena', name: 'Louvor Em Cena', kind: 'audio', seconds: 200,
       lyrics: [{ cover: true }, { text: 'primeira estrofe' }, { text: 'segunda estrofe' }],
     };
+    midiaNoAr = true;          // ver a nota do cenário da apresentação, abaixo
+    midiaNoArId = 'cena';
     lvSource = null;
     renderSlideNav();
     openLyricsPopup();
@@ -142,6 +144,13 @@ try {
     }
     closeLyricsPopup();
     currentItem = { id: 'ap', name: 'Semana da Familia', kind: 'deck', pages };
+    // "EM CENA" É `midiaNoAr`, e não só `currentItem` (v1.8.50). O item
+    // sobrevive ao stop DE PROPÓSITO — é ele que faz o ▶ repetir a faixa —,
+    // então desde que o eixo de slide passou a exigir cena, um cenário montado
+    // só com `currentItem` descreve uma apresentação PARADA: ali `slideTarget()`
+    // responde `null`, o ⏭ fica `disabled`, e o bloco 3 mediria o palco vazio.
+    midiaNoAr = true;
+    midiaNoArId = 'ap';
     deckPagina = 0;
     lvSource = null;
     renderSlideNav();
@@ -381,6 +390,8 @@ try {
       id: 'cena', name: 'Louvor Em Cena', kind: 'audio', seconds: 200,
       lyrics: [{ cover: true }, { text: 'primeira estrofe' }],
     };
+    midiaNoAr = true;
+    midiaNoArId = 'cena';
     lvSource = null;
     renderSlideNav();
     openLyricsPopup();

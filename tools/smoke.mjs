@@ -4045,7 +4045,7 @@ try {
 //
 // A faixa de acoes era revelada por `.lib-item.acoes-abertas .row-acoes`, e a
 // linha da FILA e `.row-item` — ela nunca recebe `lib-item`. Como a v5.285
-// tirou o arrasto e mudou o "Tirar da playlist" e o par ↑↓ para DENTRO dessa
+// tirou o arrasto e mudou o "Remover da playlist" e o par ↑↓ para DENTRO dessa
 // faixa, a fila do culto ficou sem como ser editada: o `⋮` respondia ao toque
 // (a classe entrava no `li`) e nada aparecia.
 //
@@ -5110,10 +5110,16 @@ try {
   checar(!pl.erro && pl.caixaSegueAberta === true,
     'a caixa NÃO fecha nele: a resposta é o ✓ no próprio botão, e `pulsar` '
     + 'pintaria um nó que a caixa fechada já tirou da tela', JSON.stringify(pl));
-  checar(!pl.erro && pl.acendeu && pl.viroucheck && /Tirar/.test(pl.tituloAceso)
+  // O VERBO É "REMOVER" DESDE A v1.8.50, a pedido do operador: *"verifique o
+  // nome do botão de confirmar exclusão do item da playlist, pois ele está
+  // 'tirar', use 'remover'"*. "Tirar" era a única palavra própria desta fila, e
+  // um verbo por lista faz reler o botão antes de tocar num alvo que apaga
+  // bytes. A asserção casa o VERBO, e não a frase inteira, porque o que ela
+  // guarda é o rótulo NOMEAR a saída — o vestido do botão é do `vestirPlBtn`.
+  checar(!pl.erro && pl.acendeu && pl.viroucheck && /Remover/.test(pl.tituloAceso)
       && pl.pressedAceso === 'true' && pl.pressedApagado === 'false',
     'e ELE DIZ O ESTADO (v5.302): aceso, com `+` virando `✓`, o rótulo virando '
-    + '"Tirar da playlist" e o `aria-pressed` acompanhando — a pergunta de quem '
+    + '"Remover da playlist" e o `aria-pressed` acompanhando — a pergunta de quem '
     + 'monta o culto é "está lá?", não "eu mandei?", e cor e símbolo não chegam '
     + 'a quem usa leitor de tela', JSON.stringify(pl));
   checar(!pl.erro && pl.saiu && pl.apagou && pl.voltouAoMais,
