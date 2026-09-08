@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.53",
+    "itens": [
+      "Os dois botões do rodapé da playlist ficaram lado a lado: \u0022Limpar\u0022 e \u0022Guardar\u0022.",
+      "Os rótulos encolheram para caber — o que cada um faz por inteiro está no toque longo e na leitura de tela.",
+      "O \u0022Guardar\u0022 agora fica apagado com menos de duas mídias na fila: não dá para empacotar uma só.",
+      "Ao perguntar \u0022limpar?\u0022, a pergunta ocupa a faixa inteira — os dois botões de resposta ficam maiores.",
+      "E o \u0022Limpar\u0022 passou a afundar ao toque, como todos os outros botões do app."
+    ]
+  },
+  {
     "versao": "1.8.52",
     "itens": [
       "Excluir o último item da fila agora encerra a cena de verdade: o controle volta para \u0022nada em exibição\u0022.",

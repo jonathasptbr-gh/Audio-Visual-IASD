@@ -4213,10 +4213,16 @@ try {
 // o botão morto; e a que sobrevive ao fechamento da folha esvaziaria a fila na
 // abertura seguinte, sem ninguém ter tocado nela.
 //
-// O "Guardar como pacote" precisa CONTINUAR EM CENA: a pergunta troca o
-// conteúdo da caixa do botão que a pediu, e só dela — no rodapé inteiro ela
-// levaria o vizinho junto, e a folha encolheria sob o dedo no exato instante em
-// que o operador mira um destrutivo.
+// A PERGUNTA OCUPA A FAIXA INTEIRA (v1.8.53), e esta asserção MUDOU DE VEREDITO
+// junto com o layout. Até a v1.8.52 ela exigia o "Guardar" EM CENA durante a
+// pergunta, e a razão era a ALTURA: os dois botões moravam em linhas
+// empilhadas, e levar o vizinho junto tirava uma linha inteira do rodapé — a
+// folha encolhia sob o dedo que mira um destrutivo. Lado a lado essa razão não
+// existe (a faixa carrega a altura), e o que sobra manda o contrário: com o
+// pacote de pé o par ficava com METADE da faixa, e MEDIDO a 320px isso é 69,6px
+// por botão com "Cancelar" TRUNCADO. Hoje mede-se o que aquela asserção
+// protegia de verdade — a altura NÃO muda — mais o que ela não sabia pedir: o
+// par não é cortado.
 try {
   const limpar = await pg.evaluate(async () => {
     setAppMode('full');
@@ -4243,6 +4249,7 @@ try {
     }
     const r = { antes: plItems.length, aVista: !faixa.hidden && faixa.getBoundingClientRect().height > 0 };
     const alturaAntes = Math.round(faixa.getBoundingClientRect().height);
+    const rodapeAntes = Math.round(document.querySelector('.pl-rodape').getBoundingClientRect().height);
     botao.click();
     if (!await ate(() => !!faixa.querySelector('.linha-confirma'))) {
       return Object.assign(r, { erro: 'a pergunta não abriu' });
@@ -4253,8 +4260,11 @@ try {
     r.rotulos = par.map((b) => b.textContent).join(' · ');
     r.aoMeio = Math.abs(cxs[0].width - cxs[1].width) <= 1
       && cxs[0].width + cxs[1].width >= faixa.getBoundingClientRect().width - 8;
-    r.pacoteFica = document.getElementById('plPack').getBoundingClientRect().height > 0;
+    r.pacoteSai = document.getElementById('plPack').getBoundingClientRect().height === 0;
     r.semPulo = Math.round(faixa.getBoundingClientRect().height) === alturaAntes;
+    // O RODAPÉ inteiro, não só a caixa: é ele que a folha empurra.
+    r.rodapeSemPulo = Math.round(document.querySelector('.pl-rodape').getBoundingClientRect().height) === rodapeAntes;
+    r.parCortou = par.some((b) => b.scrollWidth > b.clientWidth + 1);
     r.filaIntacta = plItems.length === r.antes;
     // FECHAR A FOLHA CANCELA — a mesma regra da gaveta da linha.
     closePlPopup();
@@ -4279,9 +4289,15 @@ try {
   checar(!limpar.erro && limpar.aoMeio === true && limpar.semPulo === true,
     'o par divide a caixa ao meio e ela NÃO muda de altura ao perguntar — a '
     + 'folha não pode pular sob o dedo que mira um destrutivo', JSON.stringify(limpar));
-  checar(!limpar.erro && limpar.pacoteFica === true && limpar.filaIntacta === true,
-    'e "Guardar como pacote" continua em cena: a pergunta troca o conteúdo da '
-    + 'caixa que a pediu, não o rodapé inteiro', JSON.stringify(limpar));
+  checar(!limpar.erro && limpar.pacoteSai === true && limpar.rodapeSemPulo === true
+      && limpar.filaIntacta === true,
+    'a pergunta OCUPA a faixa — o "Guardar" sai e o rodapé NÃO muda de altura: '
+    + 'lado a lado, deixá-lo de pé daria meia caixa ao par de um destrutivo '
+    + '(69,6px por botão a 320px, com "Cancelar" truncado)', JSON.stringify(limpar));
+  checar(!limpar.erro && limpar.parCortou === false,
+    'e o par não é CORTADO: `textContent` não denuncia reticências, então a '
+    + 'medida é `scrollWidth` contra `clientWidth` — "Cancela…" num destrutivo é '
+    + 'a pior linha que esta faixa saberia desenhar', JSON.stringify(limpar));
   checar(!limpar.erro && limpar.fecharCancelou === true,
     'fechar a folha CANCELA a pergunta — herdar um "sim" pendente esvaziaria a '
     + 'fila na abertura seguinte, sem ninguém ter tocado nela', JSON.stringify(limpar));

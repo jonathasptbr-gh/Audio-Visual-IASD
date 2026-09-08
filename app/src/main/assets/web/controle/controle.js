@@ -373,7 +373,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.52';
+const WEB_VERSION = '1.8.53';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3911,6 +3911,35 @@ function renderPlaylist() {
   plBtnEl.title = count === 0
     ? 'A fila está vazia — segure um item da lista para acrescentá-lo'
     : 'Playlist';
+
+  // ===== E O "GUARDAR" APAGA COM MENOS DE DOIS ITENS (v1.8.53) =====
+  //
+  // Pedido do operador: *"verifique o guardar no cronograma, pois este só deve
+  // existir se houver ao menos dois itens na Playlist, não faz sentido guardar
+  // uma playlist de um item só"*. A recusa já existia — `guardarPacote` devolve
+  // "Precisa de 2 itens ou mais" no próprio rótulo —, e o que muda é a TROCA que
+  // a v1.8.50 escreveu: explicar depois do toque é pior que não oferecer. O
+  // `title` é o que um botão apagado deve a quem o encontra.
+  //
+  // A PERGUNTA É A DE QUEM EXECUTA, LITERALMENTE, e não `plItems.length`: o
+  // executor filtra as cenas de roteiro (`!isCue`), porque um pacote é uma FILA
+  // DE REPRODUÇÃO e um pacote dentro de outro faria `abrirPacote` chamar `send`
+  // em laço. Uma fila de uma mídia mais um cue tem `length` 2 e só UM item
+  // guardável — com a pergunta larga, o botão acenderia para recusar no toque.
+  // Duas perguntas sobre a mesma coisa divergem no primeiro ajuste; esta é a
+  // mesma linha, escrita uma vez em cada lado porque uma decide o DESENHO e a
+  // outra a EXECUÇÃO (a fila pode mudar entre um e outro).
+  //
+  // A RECUSA DO EXECUTOR FICA, e não é código morto: ela é a guarda da CORRIDA,
+  // a mesma razão pela qual a guarda `sem-telao` do microfone sobreviveu ao
+  // botão que deixou de ser desenhado.
+  if (plPackEl) {
+    const guardaveis = plItems.filter((m) => !isCue(m)).length;
+    plPackEl.disabled = guardaveis < 2;
+    plPackEl.title = guardaveis < 2
+      ? 'Um pacote guarda uma fila — junte pelo menos duas mídias'
+      : 'Guardar a fila como pacote no Cronograma';
+  }
 
   playlistEl.innerHTML = '';
   if (count === 0) {
@@ -29006,7 +29035,7 @@ appDialogInputEl.addEventListener('keydown', (e) => {
 // botão volta a ser o que era. O `<span>` de texto é o segundo filho (o
 // primeiro é o glifo), e é só ele que troca.
 let pacoteFalaTimer = null;
-const PACOTE_ROTULO = 'Guardar como pacote no Cronograma';
+const PACOTE_ROTULO = 'Guardar';
 function falarNoPacote(texto, ms) {
   if (!plPackEl) return;
   const alvo = plPackEl.querySelector('span:not(.msym)');
@@ -29045,7 +29074,12 @@ async function guardarPacote() {
   });
   if (nome === null) return;
   const rec = await criarCue('group', { ids }, (nome || '').trim() || sugestao, 'imports', plPackEl);
-  if (!rec) { responder(plPackEl, 'erro', 'Não foi possível guardar'); return; }
+  // O TERCEIRO ARGUMENTO NUNCA EXISTIU (v1.8.53): `responder(btn, tipo)` é um
+  // apelido de `pulsar` e descartava a frase em silêncio — o operador via um
+  // pulso vermelho sem motivo, que é o "falhar VAZIO" que este app proíbe. Quem
+  // fala é o mecanismo que o botão já tem, e curto porque a caixa agora é meia
+  // faixa (MEDIDO: 101px de texto a 320px).
+  if (!rec) { responder(plPackEl, 'erro'); falarNoPacote('Não guardou'); return; }
   setTimeout(closePlPopup, PULSO_MS);
 }
 
