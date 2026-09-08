@@ -998,9 +998,22 @@ try {
   // conteúdo do botão — o `.btn-pulso`, que é o outro sinal do app, esconde o
   // filho para pôr um ✓ no lugar, e fazer isso com o ▶ apagaria justamente o
   // ícone que carrega o estado do transporte.
+  //
+  // O CENÁRIO PRECISA DE UMA CENA (v1.8.52), e não é conveniência do oráculo: o
+  // ▶ passou a APAGAR sem nada escolhido (a régua da v1.8.50, "o que não tem
+  // função agora é apagado"), e um botão `disabled` engole o `click()` — o eco
+  // não sairia, e o oráculo estaria medindo a guarda em vez do eco. Com a fila
+  // vazia o transporte INTEIRO está apagado por construção, que é o app sendo
+  // coerente; o eco existe para o toque que TEM resposta a esperar.
   const eco = await pg.evaluate(async () => {
     const b = document.getElementById('playpause');
     if (!b) return { achou: false };
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+      { name: 'ECO', type: 'audio/mpeg', kind: 'audio', list: 'playlist' });
+    await load();
+    await send(m.id);
+    await new Promise((r) => setTimeout(r, 300));
+    if (b.disabled) return { achou: true, apagado: true };
     b.click();
     const glifo = b.querySelector('.msym');
     const visivel = glifo ? getComputedStyle(glifo).visibility : 'sem glifo';
@@ -1010,9 +1023,20 @@ try {
     // O que se mede continua sendo "há um anel desenhado", não como ele é feito.
     const anel = tem ? getComputedStyle(b, '::before').boxShadow : '';
     await new Promise((r) => setTimeout(r, 700));
-    return { achou: true, tem, visivel, anel, sumiu: !b.classList.contains('btn-eco') };
+    const saiu = !b.classList.contains('btn-eco');
+    // A LIMPEZA É PARTE DO CENÁRIO, não higiene: este arquivo é UM oráculo com
+    // dezenas de blocos sobre a MESMA página, e uma linha a mais na fila faz o
+    // bloco do "tirar da fila", lá adiante, mirar a linha errada. MEDIDO na
+    // escrita — sem estas quatro linhas ele reprovava, e reprovava também
+    // contra o código de ontem, que é como se soube que a culpa era daqui.
+    await AVDB.listRemove('playlist', m.id);
+    if (typeof stopClear === 'function') await stopClear();
+    await load();
+    return { achou: true, tem, visivel, anel, sumiu: saiu };
   });
-  checar(eco.achou && eco.tem, 'um toque no transporte responde na hora (classe `btn-eco`)');
+  checar(eco.achou && !eco.apagado && eco.tem,
+    'um toque no transporte responde na hora (classe `btn-eco`)',
+    JSON.stringify(eco));
   checar(eco.visivel === 'visible',
     'e o eco NÃO esconde o ícone do botão — ele é anel, não ✓', eco.visivel);
   checar(!!eco.anel && eco.anel !== 'none', 'o anel do eco é de fato desenhado', eco.anel);

@@ -1,5 +1,19 @@
 [
   {
+    "versao": "1.8.52",
+    "itens": [
+      "Excluir o último item da fila agora encerra a cena de verdade: o controle volta para \u0022nada em exibição\u0022.",
+      "Com outros itens na fila nada muda — tirar um item de uma sequência que continua não para o louvor.",
+      "E nada é apagado: o arquivo continua no aparelho e volta pelo Histórico.",
+      "O \u0022Limpar\u0022 da folha da playlist responde igual, e o aviso dele passou a dizer isso.",
+      "Uma faixa que terminava sem fila voltava ao telão numa queda de conexão. Não volta mais.",
+      "No site: o carrossel dos prints começa e termina no centro da tela.",
+      "E a barra de rolagem dele saiu — quem diz onde você está são os pontos.",
+      "Os pontos passaram a levar exatamente ao print que anunciam, em qualquer largura de tela.",
+      "Saiu da página o cartão sobre levar o acervo para outro celular."
+    ]
+  },
+  {
     "versao": "1.8.51",
     "itens": [
       "O rodapé das Configurações respira, e os dois botões agora dizem o que fazem: \u0022Registro\u0022 e \u0022Pedir ajuda\u0022.",

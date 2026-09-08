@@ -373,7 +373,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.51';
+const WEB_VERSION = '1.8.52';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3971,7 +3971,18 @@ function renderPlaylist() {
         ok: 'Remover',
         dica: 'Remover da fila. O arquivo só é apagado se ele não estiver '
           + 'guardado em mais nenhuma lista.',
-        aoConfirmar: async () => { await AVDB.listRemove('playlist', item.id); await load(); },
+        aoConfirmar: async () => {
+          // "ESTAVA NO AR" É O `noArAgora`, e não `item.id === currentId`
+          // escrito à mão: é a MESMA pergunta que o clique nesta linha faz
+          // trinta linhas abaixo, e duas cópias dela divergiriam no primeiro
+          // ajuste.
+          const eraDaCena = noArAgora(item);
+          await AVDB.listRemove('playlist', item.id);
+          await load();
+          // A FILA ACABOU COM A CENA DENTRO — ver `encerrarCenaDaFila`. Com
+          // fila sobrando nada muda: a sequência não acabou, só saiu um item.
+          if (eraDaCena && plItems.length === 0) await encerrarCenaDaFila();
+        },
       });
     });
     // A GAVETA DO `⋮` CHEGOU AQUI NA v5.285, e ela é o que torna o par ↑↓
@@ -11755,6 +11766,19 @@ function renderTransporteHabilitado() {
     stopEl.disabled = semCena;
     stopEl.title = semCena ? 'Não há nada no ar para parar' : 'Parar e limpar';
   }
+  // ===== E O ▶ APAGA QUANDO NÃO HÁ O QUE TOCAR (v1.8.52) =====
+  //
+  // Ele fica aceso com a mídia PARADA — `currentId` sobrevive ao stop e é ele
+  // que faz o ▶ repetir a faixa, e essa exceção continua escrita acima. O que
+  // muda é o estado que a v1.8.52 criou: com a fila esvaziada por cima da cena,
+  // `currentId` passa a ser NULO, e aí o handler não tem ramo nenhum que aja —
+  // MEDIDO, o toque não muda nada. Um botão aceso e inerte é exatamente o que o
+  // bloco acima existe para não deixar nascer.
+  if (playPauseEl) {
+    const semNada = !currentId && !midiaNoAr && !cenaDeRoteiroNoAr();
+    playPauseEl.disabled = semNada;
+    playPauseEl.title = semNada ? 'Não há mídia escolhida' : 'Play/Pause';
+  }
 }
 
 // Habilita/desabilita os botões de estrofe conforme o item atual tem letra
@@ -14964,7 +14988,14 @@ function autoAdvance() {
   if (deckVideoVolta) { deckVideoVoltar(); return; }
   if (repeat === 'off') { resetAfterEnd(); return; }
   if (repeat === 'one') { if (currentId) send(currentId, true); return; }
-  if (plItems.length === 0) return;
+  // FILA VAZIA COM `repeat` LIGADO TAMBÉM É FIM DE CENA (v1.8.52). Este `return`
+  // era seco, e MEDIDO o estrago era permanente: a faixa acabava, o `<video>`
+  // ficava pausado, e `midiaNoAr` continuava `true` PARA O RESTO DA SESSÃO.
+  // Daí em diante `rotinaDeAcervoPodeCorrer()` respondia `false` para sempre (as
+  // rotinas de acervo nunca mais cediam a vez de volta) e — o caro —
+  // `resendSceneToDisplay` pergunta `midiaNoAr`: uma queda de dongle trazia de
+  // volta ao telão a faixa que JÁ TINHA ACABADO.
+  if (plItems.length === 0) { resetAfterEnd(); return; }
   if (repeat === 'shuffle') {
     if (plItems.length === 1) { send(plItems[0].id, true); return; }
     let i; do { i = Math.floor(Math.random() * plItems.length); } while (plItems[i].id === currentId);
@@ -29023,21 +29054,74 @@ async function guardarPacote() {
  * toda a playlist tocando agora"*. Tirar item a item era o único caminho, e uma
  * fila de culto tem oito ou dez linhas — cada uma com a própria pergunta.
  *
- * ELA NÃO MEXE NO QUE ESTÁ NO AR, e é a MESMA semântica do excluir de uma linha
- * da fila (ver `renderPlaylist`): sair da fila não é sair de uma lista de
- * acervo. O item que está projetando segue projetando, e o que estiver guardado
- * no Cronograma, nos Favoritos, numa pasta ou no slot avulso segue inteiro — o
- * `listSet` coleta só o que NENHUMA outra lista aponta, que é a mesma conta que
- * o `listRemove` faz item a item. Limpar dez de uma vez é dez remoções, não uma
- * operação nova.
+ * ELA NÃO APAGA NADA, e é a MESMA semântica do excluir de uma linha da fila
+ * (ver `renderPlaylist`): sair da fila não é sair de uma lista de acervo. O que
+ * estiver guardado no Cronograma, nos Favoritos, numa pasta ou no slot avulso
+ * segue inteiro — o `listSet` coleta só o que NENHUMA outra lista aponta, que é
+ * a mesma conta que o `listRemove` faz item a item. Limpar dez de uma vez é dez
+ * remoções, não uma operação nova.
+ *
+ * O QUE ELA MEXE É A CENA, e só quando a cena era DELA (v1.8.52): a fila é a
+ * única lista que o transporte percorre, e esvaziá-la por cima do que está no
+ * ar não é "guardei noutro lugar", é ACABOU. Ver `encerrarCenaDaFila`.
  *
  * A forma com FUNÇÃO (`() => []`), não `listSet('playlist', [])`: ela roda
  * dentro da transação que grava, e é a única que não perde um item acrescentado
  * entre a leitura e a escrita.
  */
 async function limparPlaylist() {
+  const eraDaCena = plItems.some((it) => noArAgora(it));
   await AVDB.listSet('playlist', () => []);
   await load();
+  // A MESMA RESPOSTA DA LIXEIRA DA LINHA (v1.8.52). Esvaziar a fila pelo botão
+  // "Limpar" e esvaziá-la tirando o último item são o mesmo estado; duas
+  // respostas para ele fariam o app se contradizer conforme a porta.
+  if (eraDaCena) await encerrarCenaDaFila();
+}
+
+/**
+ * ===== A FILA ACABOU COM A CENA DENTRO: A CENA ACABA JUNTO (v1.8.52) =====
+ *
+ * Pedido do operador: *"verifique se a mídia ativa nos controles é removida para
+ * o estado de 'nada em exibição' quando eu excluo o único item da playlist, no
+ * caso a midia que estava em exibição. sendo assim o método de limpar de verdade
+ * o controle atual"*.
+ *
+ * MEDIDO no que havia: removida a única faixa da fila, ela CONTINUAVA TOCANDO,
+ * com `currentId` e `midiaNoAr` intactos e o cartão anunciando o nome — a fila
+ * vazia e o controle apontando para um item que já não está em lista visível
+ * nenhuma (ele sobrevive na prateleira `avulsos`, que o operador não vê).
+ *
+ * ISTO NÃO CONTRADIZ A v1.3.13, e a distinção é a NATUREZA DA LISTA. Aquele
+ * lote nasceu de *"ao apagar um item do cronograma enquanto ele está em
+ * execução, o item interrompe sua execução"* e vale para o ACERVO: excluir do
+ * Cronograma ou dos Favoritos tira o item de onde ele fica GUARDADO, e não fala
+ * do telão. A FILA é a única lista que o TRANSPORTE governa — é ela que o ⏭
+ * percorre e que o avanço automático consome. Tirar dela o que está no ar e não
+ * sobrar nada não é "guardei noutro lugar": é ACABOU.
+ *
+ * COM FILA SOBRANDO NADA MUDA — medido: remover o item no ar de uma fila de dois
+ * mantém a faixa andando e o outro item esperando. Pausar o louvor porque o
+ * operador reorganizou a fila seria interrupção de culto.
+ *
+ * E "LIMPAR DE VERDADE" EXIGE ZERAR O `currentId`. `stopClear` o preserva de
+ * propósito (é ele que faz o ▶ repetir a faixa), e `renderNowPlaying` só
+ * escreve "Nada em exibição" com ele nulo — a frase que o operador citou é
+ * inalcançável sem isso. E precisa ser PERSISTIDO: `load()` re-hidrata
+ * `currentId` de `state.current.mediaId`, e todo `db-change` dispara um `load`.
+ *
+ * O QUE SE PERDE está dito: o ▶ deixa de repetir AQUELA faixa. É o preço certo
+ * — o operador acabou de declarar que ela saiu da fila, e com a fila vazia não
+ * há mais linha nenhuma na tela apontando para ela. Ela continua no Histórico.
+ */
+async function encerrarCenaDaFila() {
+  await pararMidia(cenaDeRoteiroNoAr() ? 'media-clear' : 'clear');
+  currentId = null;
+  currentItem = null;
+  await persistCurrent();
+  marcarNoAr();
+  renderNowPlaying();
+  renderSlideNav();
 }
 
 // ============================================================================
@@ -30789,8 +30873,8 @@ plClearEl.addEventListener('click', (e) => {
   e.stopPropagation();
   pedirConfirmacaoNaLinha(plClearEl, {
     ok: 'Limpar',
-    dica: 'Esvaziar a fila. O que está no ar segue no ar, e os arquivos só são '
-      + 'apagados se não estiverem guardados em mais nenhuma lista.',
+    dica: 'Esvaziar a fila. Se o que está no ar for dela, a cena se encerra; os '
+      + 'arquivos só são apagados se não estiverem guardados em mais nenhuma lista.',
     aoConfirmar: limparPlaylist,
   });
 });
