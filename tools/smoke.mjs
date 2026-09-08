@@ -555,6 +555,8 @@ try {
     return {
       faixaPinta: opaco(faixa),
       filhosQuePintam: [...faixa.querySelectorAll('*')].filter(opaco).map((e) => e.id || e.className),
+      // A AÇÃO PRIMÁRIA é contada à parte (v1.8.51) — ver a asserção abaixo.
+      primarios: [...faixa.querySelectorAll('.diag-btn--primario')].map((e) => e.id),
       copiar: !!document.getElementById('diagCopy'),
       // O `copiarTexto` FICA, e o consumidor dele também: o endereço da
       // transmissão é curto e existe para ser digitado noutro aparelho.
@@ -565,10 +567,37 @@ try {
       faixa: cx(faixa), grade: grade ? cx(grade) : null,
     };
   });
-  checar(rodape && rodape.faixaPinta && rodape.filhosQuePintam.length === 0,
-    'o rodapé é UMA barra: a superfície é a faixa, e nada dentro dela pinta um '
-    + 'segundo fundo — duas caixas com a mesma cor ainda se leem como dois assuntos',
-    rodape && JSON.stringify(rodape.filhosQuePintam));
+  // ===== A REGRA ENCOLHEU, E NÃO SUMIU (v1.8.51) =====
+  //
+  // Ela nasceu na v1.4.44 de um pedido do operador — *"ficou duas seções, a
+  // versão e o registro em grupos separados. pode deixar tudo em uma barra
+  // horizontal única"* — e o que ela proibia era a faixa se ler como DUAS
+  // caixas. O pedido novo revoga a proibição para UM caso, e diz por quê:
+  // *"faça ele um botão mais sólido visualmente, pois não está claro que ele
+  // serve para comunicar ou feedback"*. Um ícone sem superfície e sem rótulo,
+  // ao lado de outro igual, não se lia como a porta que ele é.
+  //
+  // O QUE FICA É O LIMITE, e ele é mais forte que a allowlist por id que o
+  // caso pedia: **no máximo UMA superfície pintada dentro da faixa, e ela é a
+  // ação primária**. É essa a linha que impede a v1.4.44 de voltar pela porta
+  // dos fundos — dois botões preenchidos lado a lado seriam duas ações
+  // primárias na mesma barra, que é o defeito original com tinta nova. O
+  // `#diagSave` fica quieto de propósito: guardar o Registro é o PASSO, falar
+  // é o DESTINO.
+  //
+  // A LEITURA É POR `getComputedStyle` E VALE COM O BOTÃO ESCONDIDO: num
+  // navegador os dois são `hidden`, e o fundo continua sendo reportado sob
+  // `display:none` (medido). A asserção não depende do cenário revelá-los.
+  checar(rodape && rodape.faixaPinta
+    && rodape.filhosQuePintam.length === rodape.primarios.length,
+    'o rodapé é UMA barra com UMA ação: a superfície é a faixa, e a única coisa '
+    + 'que pinta dentro dela é o botão primário — duas caixas com a mesma cor '
+    + 'ainda se leem como dois assuntos',
+    rodape && JSON.stringify({ pintam: rodape.filhosQuePintam, primarios: rodape.primarios }));
+  checar(rodape && rodape.primarios.length === 1 && rodape.primarios[0] === 'contatoBtn',
+    'e a ação primária é o PEDIR AJUDA, uma só: sem este teto, "deixar o botão '
+    + 'sólido" acabaria com os dois preenchidos e a barra de volta a dois assuntos',
+    rodape && JSON.stringify(rodape.primarios));
   checar(rodape && rodape.versaoDentro && rodape.salvarDentro,
     'e a versão e o salvar do Registro moram os dois nela');
   checar(rodape && rodape.faixa.l === rodape.grade.l && rodape.faixa.r === rodape.grade.r,

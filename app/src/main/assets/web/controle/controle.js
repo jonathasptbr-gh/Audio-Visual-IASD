@@ -373,7 +373,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.50';
+const WEB_VERSION = '1.8.51';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -430,11 +430,14 @@ const otaAdiadas = new Set();
 // REGISTRO, que é o artefato feito para ser copiado e lido por quem sabe o que
 // os dois números significam (ver o cabeçalho de `renderDiag`), e o `__SHELL_NAME__`
 // segue publicado pela ponte para quem precisar dele.
-// O NOME DO APP, escrito UMA vez. Ele aparece no rodapé de Configurações e no
-// texto que o `compartilharTexto` oferece — dois lugares, e é o mesmo nome, com
-// o mesmo acento e a mesma caixa. O `<title>` do documento e o `label` do APK
-// não leem daqui (um é HTML, o outro é recurso de Android), e isso está dito
-// para ninguém procurar uma fonte única que não existe.
+// O NOME DO APP, escrito UMA vez. Ele aparece em DOIS lugares, e desde a
+// v1.8.51 nenhum deles é a TELA: o rascunho que o `#contatoBtn` monta para o
+// WhatsApp e o texto que o `compartilharTexto` oferece. Os dois SAEM do app —
+// que é justamente por que precisam nomear de qual app se está falando; dentro
+// dele a marca era a palavra mais dispensável do rodapé, e ela saiu para pagar
+// o rótulo dos botões. O `<title>` do documento e o `label` do APK não leem
+// daqui (um é HTML, o outro é recurso de Android), e isso está dito para
+// ninguém procurar uma fonte única que não existe.
 const AV_NOME = 'Áudio Visual IASD';
 
 function renderVersionLabel() {
@@ -443,21 +446,27 @@ function renderVersionLabel() {
   // 40px o texto é o único contexto que existe, e "1.7.0" sozinho não diz de
   // que coisa é a versão.
   //
-  // O RODAPÉ LEVA O NOME JUNTO (v1.7.2), a pedido do operador: *"ajuste a
+  // ===== E O RODAPÉ VOLTOU AO NÚMERO SECO (v1.8.51) =====
+  //
+  // A v1.7.2 pusera o nome do app junto, a pedido do operador: *"ajuste a
   // nomenclatura da versão, para que seja 'áudio visual IASD vx.x.x' com o nome
-  // do app, para ter um melhor preenchimento do rodapé"*. É a MESMA fonte das
-  // badges — um número só, escrito num lugar só —, e o que muda é o contexto:
-  // numa badge do cabeçalho o app está todo em volta e o número basta; naquela
-  // faixa ele era três caracteres perdidos numa barra larga, ao lado de uma
-  // palavra ("Registro") que responde por outra coisa.
-  for (const el of [simpleVersionEl, listVersionEl]) {
+  // do app, **para ter um melhor preenchimento do rodapé**"*. O MOTIVO daquele
+  // pedido é o que caducou: a faixa estava larga e vazia, e a marca a enchia.
+  //
+  // O pedido de agora é o oposto pela mesma porta — *"considere abreviar a
+  // versão para dar espaço a um botão mais claro em sua função"* —, e a conta
+  // fecha: o nome mede **153,0px** e o número seco **44,6px** (medidos a 360px),
+  // então tirá-lo devolve 108,4px, que é exatamente o que os dois rótulos novos
+  // ("Registro" e "Pedir ajuda") custam. Não é economia de texto: é a troca de
+  // uma palavra que ninguém lê por duas que dizem o que os botões fazem.
+  //
+  // E NOMEAR O APP DENTRO DELE ERA A PALAVRA MAIS DISPENSÁVEL DA FAIXA. Quem
+  // ainda precisa da marca é o que SAI daqui — o rascunho do WhatsApp e o
+  // `compartilharTexto` —, e os dois continuam a escrever por conta própria.
+  for (const el of [simpleVersionEl, listVersionEl, appVersionEl]) {
     if (!el) continue;
     el.textContent = rotulo;
     el.title = 'Versão do aplicativo';
-  }
-  if (appVersionEl) {
-    appVersionEl.textContent = AV_NOME + ' ' + rotulo;
-    appVersionEl.title = 'Versão do aplicativo';
   }
 }
 
@@ -590,7 +599,6 @@ const rotBtnEl = document.getElementById('rotBtn');
 const lyricsBgTileEl = document.getElementById('lyricsBgTile');
 const wallFileEl = document.getElementById('wallFile');
 const wallTileEl = document.getElementById('wallTile');
-const diagRotEl = document.getElementById('diagRot');
 const diagSaveEl = document.getElementById('diagSave');
 // "Conectar uma tela": a linha em Configurações e a folha que ela abre.
 const castPopupEl = document.getElementById('castPopup');
@@ -21816,7 +21824,7 @@ function cabecalhoDiag() {
   const refVelha = !displayStatusAt || (Date.now() - displayStatusAt) > DISPLAY_TIMEOUT;
   l.push('Referência de tempo: ' + (refVelha
     ? 'a preview — nenhuma projeção reportando agora'
-    : (refFonte === 'telao' ? 'o telão' : 'uma tela da rede')));
+    : (refFonte === 'telao' ? 'o telão' : 'um computador conectado')));
   if (castAlvo) l.push('Espelhar abre: ' + castAlvo);
   // ONDE O SOM ESTÁ SAINDO (v5.215). "Não sai som" tem causas que a tela não
   // separa — mudo, fader em zero, tela conectada sem volume, ou este aparelho
@@ -22809,8 +22817,8 @@ function blocoAudio() {
     linhas.push('microfone: capta no telão e sai junto com a mídia, nas caixas da TV.');
   } else {
     linhas.push('microfone: INDISPONÍVEL sem TV — quem capta é o telão, e sem TV',
-      '  não há telão. As telas da rede não captam som (o navegador delas não',
-      '  entrega microfone em http://).');
+      '  não há telão. Um computador conectado não capta som (o navegador dele',
+      '  não entrega microfone em http://).');
   }
   // O PLACAR DA RETOMADA entra AQUI, e não num bloco próprio: ele responde à
   // mesma pergunta deste — o que outro app fez com o som deste aparelho. As
@@ -23199,10 +23207,9 @@ if (diagSaveEl) {
   // `controle.js` inteiro, e o watchdog do OTA rejeita o bundle sem que nada
   // na tela diga por quê. Medido: o app não subiu.
   diagSaveEl.hidden = !window.__NATIVE__;
-  // O RÓTULO VIAJA COM O BOTÃO (v1.4.44). Com o copiar fora, ele é o único
-  // alvo da faixa: uma palavra sozinha, sem nada ao lado, é um controle que
-  // não existe — e num navegador o Registro não tem como sair do rodapé.
-  if (diagRotEl) diagRotEl.hidden = !window.__NATIVE__;
+  // (O `#diagRot` saiu na v1.8.51: a palavra "Registro" era o rótulo DESTE
+  //  botão, escrito fora dele, e voltar para dentro resolveu de uma vez o
+  //  rótulo, o alvo — de 34px para 93,9px — e um filho a menos na faixa.)
   diagSaveEl.addEventListener('click', async () => {
     if (!window.__NATIVE__) return;
     const d = new Date();
@@ -32007,7 +32014,7 @@ AVDB.onCommand((msg) => {
     // recarregou a página, renderer que morreu e foi remontado. Num telão
     // estável não sai nenhuma depois da abertura — a presença destas linhas já
     // é o achado.
-    diagC('a projeção se reapresentou (' + (msg.__tela ? 'tela da rede' : 'telão') + ')');
+    diagC('a projeção se reapresentou (' + (msg.__tela ? 'um computador' : 'telão') + ')');
     if (msg.__tela) telaReenviarPreferencias(msg.__de);
     resendSceneToDisplay(msg.__de);
     return;
@@ -33243,7 +33250,7 @@ function telaEnriquecer(cmd) {
     // telas barra por construção.
     if (it.kind === 'youtube' || (it.kind === 'deck' && !telaDeckUrls(it))) {
       setTimeout(() => {
-        try { AVDB.sendCommand({ type: 'tela-aviso', texto: 'Esta cena não aparece nas telas da rede.' }); } catch (_) { /* nada */ }
+        try { AVDB.sendCommand({ type: 'tela-aviso', texto: 'Esta cena não aparece no computador conectado.' }); } catch (_) { /* nada */ }
       }, 0);
       return;
     }
@@ -33279,7 +33286,7 @@ function telaEnriquecer(cmd) {
     if (isDeck(it)) {
       if (!telaDeckUrls(it)) {
         setTimeout(() => {
-          try { AVDB.sendCommand({ type: 'tela-aviso', texto: 'Esta cena não aparece nas telas da rede.' }); } catch (_) { /* nada */ }
+          try { AVDB.sendCommand({ type: 'tela-aviso', texto: 'Esta cena não aparece no computador conectado.' }); } catch (_) { /* nada */ }
         }, 0);
         return;
       }

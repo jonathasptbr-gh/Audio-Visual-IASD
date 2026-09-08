@@ -232,8 +232,17 @@ try {
       transborda: faixa ? faixa.scrollWidth > faixa.clientWidth + 1 : null,
     };
   });
-  checar(/^Áudio Visual IASD v\d+\.\d+\.\d+$/.test(rodape.texto),
-    'D · o rodapé diz o NOME do app e a versão', rodape.texto);
+  // O NOME SAIU NA v1.8.51 (*"considere abreviar a versão para dar espaço a um
+  // botão mais claro em sua função"*). A v1.7.2 o pusera ali *"para ter um
+  // melhor preenchimento do rodapé"* — e é o MOTIVO daquele pedido que caducou:
+  // a faixa passou a hospedar dois botões com rótulo, e o que faltava nela
+  // deixou de ser enchimento e passou a ser espaço. MEDIDO: o nome custa
+  // 153,0px e o número seco 44,6px, e os 108,4px de diferença são exatamente o
+  // que "Registro" e "Pedir ajuda" ocupam.
+  checar(/^v\d+\.\d+\.\d+$/.test(rodape.texto),
+    'D · o rodapé diz a versão, seca — a marca saiu para pagar o rótulo dos '
+    + 'botões, e nomear o app dentro dele era a palavra mais dispensável da faixa',
+    rodape.texto);
   checar(/^v\d+\.\d+\.\d+$/.test(rodape.badge),
     'D · e a badge do cabeçalho continua sendo um número só', rodape.badge);
   checar(rodape.transborda === false,

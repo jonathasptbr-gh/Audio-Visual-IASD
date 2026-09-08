@@ -2092,30 +2092,59 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">Áudio Visual IASD v1.8.50</span>
-          <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
-               Registro passa de setenta linhas só na seção de cifras, e copiar e
-               colar é o caminho que corta o texto no meio SEM AVISAR — foi o
-               relato que abriu aquele lote. Um arquivo não corta. Desde a
-               v1.4.44 ele é a ÚNICA porta, e o rótulo viaja com ele. -->
-          <span class="footer-diag-rot" id="diagRot" hidden>Registro</span>
-          <button id="diagSave" class="log-copy" title="Salvar o registro num arquivo" aria-label="Salvar o registro num arquivo" hidden>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
-          </button>
-          <!-- FALAR COM QUEM MANTÉM O APP (v1.8.49). Ele mora NESTA faixa, e não
-               numa linha própria, porque é a MESMA conversa que os dois vizinhos:
-               *"que versão eu tenho, o que eu mando para quem vai me ajudar, e
-               para quem eu mando?"*. As três respostas juntas são o pedido de
-               ajuda inteiro — o número, o arquivo e a porta.
+          <span id="appVersion" class="app-version">v1.8.51</span>
+          <!-- O GRUPO DE AÇÕES (v1.8.51). Ele existe por DUAS razões, e nenhuma
+               é organização: (1) é ele que carrega o `margin-left: auto` que
+               morava no rótulo solto, e (2) é ele que a faixa quebra INTEIRO
+               para a segunda linha quando os dois botões deixam de caber ao lado
+               da versão — sem grupo, o `flex-wrap` quebraria ENTRE os dois, e
+               eles são uma SEQUÊNCIA (guardar o arquivo, depois mandá-lo). -->
+          <div class="footer-diag-acoes">
+            <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
+                 Registro passa de setenta linhas só na seção de cifras, e copiar
+                 e colar é o caminho que corta o texto no meio SEM AVISAR — foi o
+                 relato que abriu aquele lote. Um arquivo não corta. Desde a
+                 v1.4.44 ele é a ÚNICA porta.
 
-               Ele vem DEPOIS do salvar, na ordem em que se usa: primeiro se
-               guarda o Registro, depois se manda. E é `hidden` fora do app pelo
-               mesmo motivo do irmão — quem abre a porta é a ponte
-               (`openExternal`), e um botão que não faz nada é pior que botão
-               nenhum. Quem o revela é o `renderVersionLabel`. -->
-          <button id="contatoBtn" class="log-copy" title="Falar com quem mantém o app, pelo WhatsApp" aria-label="Falar com quem mantém o app, pelo WhatsApp" hidden>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoContato"/></svg>
-          </button>
+                 O RÓTULO ENTROU NO BOTÃO (v1.8.51). Ele era um `<span>` ao lado
+                 (`#diagRot`), e existia porque *"uma palavra sozinha, sem alvo
+                 ao lado, é um controle que não existe"* — o que descrevia o
+                 problema pela metade: a palavra JÁ era o rótulo deste botão,
+                 escrito fora dele. Dentro, o alvo passa de 34px a 93,9px
+                 (medido) e a faixa perde um filho.
+
+                 ELE FICA QUIETO, sem fundo próprio, e é isso que o separa do
+                 irmão: guardar o Registro é o PASSO, falar é o DESTINO. -->
+            <button id="diagSave" class="diag-btn" title="Salvar o registro num arquivo" aria-label="Salvar o registro num arquivo" hidden>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
+              <span>Registro</span>
+            </button>
+            <!-- PEDIR AJUDA (v1.8.49, refeito na v1.8.51). Ele mora NESTA faixa,
+                 e não numa linha própria, porque é a MESMA conversa que os
+                 vizinhos: *"que versão eu tenho, o que eu mando para quem vai me
+                 ajudar, e para quem eu mando?"*.
+
+                 RELATO DO OPERADOR: *"não está claro que ele serve para
+                 comunicar ou feedback. Idealmente ele deveria ter um texto, para
+                 deixar claro o contato para resolver problemas."* Um ícone sem
+                 rótulo ao lado de outro ícone sem rótulo não diz nada — e num
+                 WebView não há hover, então o `title` que explicava nunca
+                 aparecia. Agora ele diz a AÇÃO na tela ("Pedir ajuda") e o
+                 DESTINO no `aria-label`, que é onde o leitor de tela o encontra.
+
+                 "PEDIR AJUDA" e não "Suporte técnico", "Reportar problema" ou
+                 "Falar com o suporte": MEDIDO a 320px, é o único dos quatro que
+                 cabe na faixa em uma linha (folga +10,25px; os outros três a
+                 quebram).
+
+                 Ele nasce `hidden` e é revelado NO PRÓPRIO HANDLER, nunca no
+                 `renderVersionLabel` — aquela função roda no topo do arquivo e o
+                 `const` do botão só existe centenas de linhas abaixo. -->
+            <button id="contatoBtn" class="diag-btn diag-btn--primario" title="Falar com quem mantém o app, pelo WhatsApp" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoContato"/></svg>
+              <span>Pedir ajuda</span>
+            </button>
+          </div>
         </div>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais

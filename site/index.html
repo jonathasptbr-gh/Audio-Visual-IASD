@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Áudio Visual IASD — aplicativo Android de projeção para o culto</title>
-<meta name="description" content="Aplicativo Android que leva a projeção do culto para a TV: hinários e álbuns offline, Bíblia, letras e cifras, vídeos do YouTube baixados sem anúncios, e slides. A tela da igreja controlada por você.">
+<meta name="description" content="Aplicativo Android de projeção para o culto: hinários offline, Bíblia, letras, cifras, YouTube sem anúncios e slides — na TV, ou num computador pelo navegador.">
 <meta name="theme-color" content="#2f557f">
 <!-- CLARO E SÓ CLARO (v1.0.2). O par escuro existia e seguia o sistema; o site
      passou a ter UM padrão, e declará-lo aqui é o que impede o navegador de
@@ -57,7 +57,7 @@
 </script>
 <meta property="og:type" content="website">
 <meta property="og:title" content="Áudio Visual IASD — aplicativo de projeção para o culto">
-<meta property="og:description" content="A tela da sua igreja 100% controlada por você. Sem anúncios, janelas e distrações para o público.">
+<meta property="og:description" content="A tela da sua igreja 100% controlada por você — na TV, ou num computador pelo navegador. Sem anúncios nem distrações.">
 <meta property="og:locale" content="pt_BR">
 <meta property="og:url" content="https://audiovisualiasd.com.br/">
 <link rel="canonical" href="https://audiovisualiasd.com.br/">
@@ -72,6 +72,13 @@
   :root {
     --bg:#dfe3e7; --panel:#fff; --panel-2:#d4dae2;
     --text:#4a4a4a; --muted:#565d66; --accent:#2f557f; --rule:#c3cbd4;
+    /* O PONTO APAGADO DO CARROSSEL. Ele NÃO é `--rule` (#c3cbd4), e a razão é
+       medida: #c3cbd4 sobre `--bg` #dfe3e7 dá **1,27:1** — invisível, e abaixo
+       do piso de 3:1 que a WCAG 1.4.11 pede de um objeto gráfico que carrega
+       informação. #767f8a mede **3,15:1**. O aceso é o `--accent`, 5,97:1 sobre
+       o mesmo fundo; entre os dois há só 1,9:1, e é por isso que o estado NÃO
+       viaja na cor sozinha — o aceso também cresce de 8px para 12px. */
+    --ponto:#767f8a;
   }
   * { box-sizing: border-box; }
   body {
@@ -118,8 +125,16 @@
     margin:0 0 1.1rem; text-align:center;
   }
 
-  /* ── funções: ícone + rótulo, e nada mais ── */
-  .grade { display:grid; grid-template-columns:repeat(2,1fr); gap:.6rem; grid-auto-rows:1fr; }
+  /* ── funções: ícone, rótulo e uma linha de explicação ──
+     O `grid-auto-rows:1fr` SAIU (v1.8.51). Relato do operador: *"alguns tem
+     muito texto e precisam de mais espaço e outros estão sobrando em seus
+     cards"*. Ele descrevia a mesma causa pelos dois lados: sem
+     `grid-template-rows`, TODA faixa é implícita e o `1fr` dava a cada uma a
+     altura da mais alta da grade — o cartão de uma linha ficava com o vão de um
+     de sete. MEDIDO: 568px de espaço morto somados, e a grade caiu de 1700,8px
+     para 1441,7px só com esta linha fora. A igualdade DENTRO de cada faixa
+     sobrevive sozinha: `align-items:stretch` é o padrão do grid. */
+  .grade { display:grid; grid-template-columns:repeat(2,1fr); gap:.6rem; }
   @media (min-width:34rem) { .grade { grid-template-columns:repeat(4,1fr); } }
   .item {
     background:var(--panel); border-radius:14px; padding:1.1rem .7rem;
@@ -176,8 +191,41 @@
   .telas {
     display:flex; gap:.7rem; overflow-x:auto; padding-bottom:.5rem;
     scroll-snap-type:x mandatory;
+    /* O GESTO HORIZONTAL NÃO VAZA PARA O NAVEGADOR: sem isto, um arremesso de
+       trackpad que chega ao fim da faixa vira "voltar página". */
+    overscroll-behavior-inline:contain;
   }
-  .telas figure { margin:0; flex:0 0 clamp(13rem,66vw,14.5rem); scroll-snap-align:start; }
+  /* ── ELA ANDA POR ETAPAS (v1.8.51) ──
+     Pedido do operador: *"faça com que ele role por etapas, com indicador de
+     pontos aceso, não um Scroll que para em qualquer lugar"*.
+
+     O ENCAIXE JÁ EXISTIA e já funcionava — MEDIDO: com `deltaX` de trackpad a
+     faixa para em 0, 243, 486, 973, todos múltiplos exatos do passo. O que
+     faltava eram três coisas, e nenhuma é o `scroll-snap-type`:
+
+      1. **A roda do mouse não move a faixa.** MEDIDO: cursor sobre ela,
+         `wheel(deltaY 200)` deixa `scrollLeft` em **0** e move a PÁGINA 200px —
+         o Chromium não converte roda vertical em rolagem horizontal. Não há
+         conserto honesto aqui: sequestrar a roda tira do visitante a rolagem da
+         página. Quem entrega o passo no computador são os PONTOS, que são
+         alvos de verdade, e o teclado.
+      2. **Um arremesso atravessava seis itens.** `scroll-snap-align` encaixa,
+         mas não impede a passagem; `scroll-snap-stop:always` é o que transforma
+         encaixe em ETAPA. (Ele cobra a trava do `ir()` — ver o JS.)
+      3. **As últimas posições de encaixe caem FORA do alcance.** Com `start`, o
+         encaixe dos últimos itens fica ALÉM do máximo de rolagem (offsets 2918
+         e 3161 contra 2726 no computador; 3179 contra 3070 no celular). MEDIDO
+         que isso NÃO impede repousar no fim — o navegador para em `max` de
+         qualquer jeito, e um `scroll-snap-align:end` no último item não muda um
+         pixel (as duas variantes pousam em 3040 de 3040). O que ele quebra é o
+         INDICADOR: um ponto que apontasse para 3161 mandaria a faixa a um lugar
+         que ela não alcança, e nunca acenderia. Quem resolve isso é o `montar()`
+         do JS, que trunca toda posição no máximo — e é lá que está o comentário,
+         porque é lá que está a correção. */
+  .telas figure {
+    margin:0; flex:0 0 clamp(13rem,66vw,14.5rem);
+    scroll-snap-align:start; scroll-snap-stop:always;
+  }
   /* NO CELULAR ELA SANGRA ATÉ A BORDA: o print começa alinhado com o texto e a
      rolagem some pelo lado, que é o gesto que se reconhece. O `padding` devolve
      por dentro o que a margem negativa tirou, então o primeiro card não encosta
@@ -194,6 +242,10 @@
          para dentro, e aí as duas pontas medem o mesmo. */
       scroll-padding-inline:1.15rem;
     }
+    /* O ANEL POR DENTRO: aqui a faixa sangra até a borda da tela
+       (`margin-inline:-1.15rem`), e um anel desenhado 3px PARA FORA de uma caixa
+       que já mede o viewport sai recortado nos dois lados. */
+    .telas:focus-visible { outline-offset:-3px; }
   }
   /* O `background` é o `--bg` do tema ESCURO do app: é a cor que o print tem nas
      bordas, e ela cobre o instante entre o espaço reservado e a imagem chegar. */
@@ -203,6 +255,52 @@
   }
   .telas figcaption { margin-top:.5rem; font-size:.79rem; line-height:1.35; color:var(--muted); }
   .telas figcaption b { display:block; color:var(--text); font-size:.85rem; margin-bottom:.1rem; }
+
+  /* ── OS PONTOS: onde a faixa está, e para onde ela vai ──
+     A LINHA É DESENHADA PELO JAVASCRIPT, e por isso não há markup dela no HTML:
+     sem JS não existe ponto nenhum e a faixa volta a ser o rolador de hoje — a
+     mesma falha ABERTA do filtro de plataforma. Um ponto que não rola é pior
+     que ponto nenhum.
+
+     QUANTOS PONTOS: não são 14 fixos, são as POSIÇÕES DE ETAPA, contadas em
+     tempo de execução. MEDIDO: 14 a 320 e 360px (um por print), 13 a 412px, 12
+     a 768 e 1280px — no computador cabem 2,74 prints na faixa, logo há 12
+     vistas distintas. Fixar 14 poria dois pontos apontando para o mesmo lugar,
+     e um ponto que nunca acende é o indicador mentindo.
+
+     ELES NASCEM DENTRO DA `<section class="reveal">`, então sobem com ela na
+     entrada — é o certo: a linha de pontos descreve a faixa e não faria sentido
+     aparecer antes dela. */
+  .pontos { display:flex; justify-content:center; align-items:center; margin:.9rem auto 0; }
+  /* `[hidden]` PRECISA DESTA LINHA: o atributo vale por uma regra da folha do
+     NAVEGADOR (`display:none`), e `display:flex` de AUTOR vence origem de UA na
+     mesma especificidade. Sem ela, esconder a linha com `hidden` é inerte. */
+  .pontos[hidden] { display:none; }
+  /* O ALVO É O BOTÃO, O PONTO É O `::before`. Separar os dois é o que deixa o
+     desenho com 8px e o dedo com 26×32px. MEDIDO: 26×32 de 412px para cima,
+     25,7×32 a 360px e 22,9×32 a 320px — nessa última o passo entre centros fica
+     1,1px abaixo do mínimo de 24px da WCAG 2.2 SC 2.5.8, e está dito aqui
+     porque a alternativa (quebrar em duas linhas) deixa um ponto órfão. */
+  .pontos button {
+    -webkit-appearance:none; appearance:none; background:none; border:0;
+    padding:0; margin:0; color:inherit; font:inherit; cursor:pointer;
+    flex:0 1 26px; min-width:22px; height:32px;
+    display:grid; place-items:center;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .pontos button::before {
+    content:''; width:8px; height:8px; border-radius:50%;
+    background:var(--ponto); transition:background .18s, transform .18s;
+  }
+  /* DOIS CANAIS, e não só a cor: entre aceso e apagado há 1,9:1, que não separa
+     os dois sozinho. O `aria-current` é o MESMO atributo que o leitor de tela
+     anuncia — o estado tem uma fonte só. */
+  .pontos button[aria-current="true"]::before { background:var(--accent); transform:scale(1.5); }
+  .pontos button:active { transform:translateY(2px); }
+  /* A LINHA SANGRA COMO A FAIXA no celular: os 14 alvos pedem 336px, e sem a
+     sangria teriam 323,2px para dividir. */
+  @media (max-width:34rem) { .pontos { margin-inline:-1.15rem; } }
+  @media (prefers-reduced-motion: reduce) { .pontos button::before { transition:none; } }
 
   .calma {
     margin-top:.9rem; text-align:center; font-size:.86rem; color:var(--muted);
@@ -255,7 +353,12 @@
   }
   .aviso-cartao p { margin:0; font-size:.95rem; color:var(--muted); }
 
-  a:focus-visible, .baixar:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+  /* A FAIXA entra aqui porque virou FOCÁVEL (ver o `tabindex` no HTML), e os
+     PONTOS porque são controles. O `outline-offset` do ponto é NEGATIVO: o alvo
+     tem 26px e o desenho 8px, e um anel para fora encostaria no vizinho. */
+  a:focus-visible, .baixar:focus-visible,
+  .telas:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+  .pontos button:focus-visible { outline:3px solid var(--accent); outline-offset:-3px; border-radius:10px; }
 
   /* ── o movimento, e ele é discreto ── */
   .reveal { opacity:0; transform:translateY(14px); transition:opacity .5s ease, transform .5s ease; }
@@ -325,7 +428,7 @@
     <div class="grade">
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg>
-        Só a projeção na TV<small>Sem notificações, anúncios ou janelas para distrair o público.</small>
+        Só a projeção na TV<small>Vai à TV só o que você projeta — nunca o espelho do seu celular.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M9 2v4M15 2v4M8 12h8M8 16h5"/></svg>
@@ -333,11 +436,11 @@
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
-        Coletâneas offline<small>Hinário Adventista 2022, o de 1996 e os álbuns oficiais. Baixe uma vez e toque sem internet.</small>
+        Coletâneas offline<small>Hinário 2022, o de 1996 e os álbuns oficiais. Baixe uma vez, toque sem rede.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="M11 14l4 2.5-4 2.5z"/></svg>
-        Séries semanais<small>Provai e Vede e Informativo Mundial das Missões — o app acha o episódio deste sábado sozinho.</small>
+        Séries semanais<small>Provai e Vede e Informativo Mundial das Missões — o episódio do sábado, sozinho.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h13"/></svg>
@@ -349,7 +452,7 @@
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z"/></svg>
-        Textos bíblicos<small>66 livros e 1.189 capítulos. Baixam sozinhos na primeira abertura com internet; depois, sem rede.</small>
+        Textos bíblicos<small>66 livros e 1.189 capítulos, baixados uma vez com internet. Depois, sem rede.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>
@@ -357,37 +460,36 @@
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l5 3-5 3z"/></svg>
-        YouTube<small>Busque e baixe pelo próprio app, sem anúncios nem barras na tela. O vídeo fica guardado e toca sem internet — inclusive no sábado, se a rede da igreja falhar.</small>
+        YouTube<small>Busque e baixe dentro do app, sem anúncios. Fica guardado e toca sem rede.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M7 7h6M7 11h9"/><path d="M12 16v5M9 21h6"/></svg>
-        Slides<small>PDF, PowerPoint (.pptx) ou apresentação do Google compartilhada por link — a passagem de página na sua mão.</small>
+        Slides<small>PDF, PowerPoint ou Google Apresentações — a passagem de página na sua mão.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="10" rx="2"/><path d="M6 19h6M9 15v4"/><path d="M18.5 6.5a4.5 4.5 0 0 1 0 6.5M21.5 4a8 8 0 0 1 0 11.5"/></svg>
-        Telas da rede<small>A projeção também vai para o navegador de outra tela — até três, sem instalar nada. Pelo Wi-Fi do local ou pelo ponto de acesso do próprio celular.</small>
+        Conectar um computador<small>No navegador, sem instalar nada — até três. Sem Wi-Fi, o celular serve.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg>
-        Recebe de tudo<small>Fotos, vídeos, links e apresentações pelo compartilhar — do WhatsApp, do YouTube, da galeria.</small>
+        Recebe de tudo<small>Fotos, vídeos, links e slides pelo compartilhar — WhatsApp, YouTube, galeria.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.4"/><circle cx="15.5" cy="15.5" r="1.4"/><circle cx="15.5" cy="8.5" r="1.4"/><circle cx="8.5" cy="15.5" r="1.4"/></svg>
-        Playlist automática<small>Diga um tema — ou deixe em branco, para a biblioteca inteira — e o app monta a fila. Também como fundo musical, sem letra no telão.</small>
+        Playlist automática<small>Diga um tema e o app monta a fila. Também como fundo, sem letra no telão.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>
-        Histórico do culto<small>O que tocou e a que horas, sessão por sessão. Um toque devolve qualquer item ao Cronograma.</small>
+        Histórico do culto<small>O que tocou e a que horas. Um toque devolve o item ao Cronograma.</small>
       </div>
       <div class="item">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-        Leve o acervo inteiro<small>Toda a biblioteca num arquivo, para entrar noutro celular por cabo, Bluetooth ou cartão — sem baixar tudo de novo.</small>
+        Leve o acervo inteiro<small>Toda a biblioteca num arquivo, para entrar noutro celular sem baixar de novo.</small>
       </div>
     </div>
-    <p class="calma"><strong>Funciona sem internet:</strong> a projeção chega
-      direto na TV conectada — ou, pelo navegador, a outras telas. Basta o Wi-Fi
-      do local, mesmo sem internet; e se não houver Wi-Fi nenhuma, o próprio
-      celular pode ser o ponto de acesso a que o computador se conecta.</p>
+    <p class="calma"><strong>A projeção funciona sem internet:</strong> na TV,
+      pelo espelhamento; num computador, pelo navegador. Basta o Wi-Fi do local
+      — e sem nenhuma, o próprio celular vira o ponto de acesso.</p>
   </section>
 
   <section class="reveal">
@@ -396,11 +498,19 @@
          escolher o destino, projetar. `width`/`height` estão declarados para o
          texto não pular enquanto as imagens chegam, e `loading="lazy"` porque
          esta faixa nasce abaixo da dobra em qualquer tela. -->
-    <div class="telas">
+    <!-- `tabindex="0"` NO HTML, e não pelo JavaScript: assim a faixa é rolável
+         pelo teclado mesmo que o script dos pontos não rode. MEDIDO: com o foco
+         nela, `→` anda exatamente um passo (243px), pelo encaixe nativo do
+         container de rolagem. Sem o atributo, uma região rolável fica fora do
+         alcance do teclado (WCAG 2.1.1).
+
+         O `aria-label` NÃO diz "as 14": no computador há 12 posições de etapa, e
+         um número fixo aqui contradiria a contagem que os pontos anunciam. -->
+    <div class="telas" tabindex="0" role="group" aria-label="Telas do app: role de lado para ver todas">
       <figure>
         <img src="telas/conectar.webp" width="480" height="979" loading="lazy" decoding="async"
              alt="A folha de conexão do app, com três botões: conectar uma TV, conectar um computador e tocar neste celular.">
-        <figcaption><b>Conecte a tela</b>Uma TV pelo espelhamento, um computador pelo navegador — ou o próprio celular, para ensaiar.</figcaption>
+        <figcaption><b>Conecte a TV ou um computador</b>A TV pelo espelhamento, o computador pelo navegador — ou o próprio celular, para ensaiar.</figcaption>
       </figure>
       <figure>
         <img src="telas/biblioteca.webp" width="480" height="979" loading="lazy" decoding="async"
@@ -473,12 +583,10 @@
   <section class="reveal">
     <h2>Modos de uso</h2>
     <p class="calma">O app abre no <strong>Modo Fácil</strong>: teclas grandes e
-      só o essencial, para quem vai conectar a tela e tocar um louvor. Todas as
-      demais funções ficam no <strong>modo avançado</strong>, em Configurações.</p>
-    <p class="calma">Enquanto nada estiver conectado, o Modo Fácil mostra só o
-      cartão de conexão — é assim que ele abre da primeira vez. Ali há também
-      <strong>Tocar neste celular</strong>, que libera a tela e faz o som sair do
-      próprio aparelho, para ensaiar.</p>
+      só o essencial, para conectar a TV ou um computador e tocar um louvor. O
+      resto fica no <strong>modo avançado</strong>, em Configurações — e
+      <strong>Tocar neste celular</strong> libera a tela para ensaiar, sem nada
+      conectado.</p>
   </section>
 
 </main>
@@ -509,6 +617,153 @@
   } catch (_) {
     document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
   }
+
+  // ===================================================================
+  // O CARROSSEL ANDA POR ETAPAS, E OS PONTOS DIZEM ONDE ELE ESTÁ
+  // ===================================================================
+  //
+  // Pedido do operador: *"o carrocel dos prints está bem organizado, mas faça
+  // com que ele role por etapas, com indicador de pontos aceso, não um Scroll
+  // que para em qualquer lugar"*.
+  //
+  // O CSS entrega a etapa (`scroll-snap-stop:always` + o último item alinhado
+  // pelo fim); o que falta aqui é o INDICADOR — e ele é a única maneira de
+  // andar por etapas no computador, onde a roda do mouse não move a faixa
+  // (MEDIDO: `wheel(deltaY 200)` deixa `scrollLeft` em 0 e move a página).
+  //
+  // FALHA ABERTA, como o resto desta página: se este bloco não rodar, não há
+  // ponto nenhum e a faixa continua sendo o rolador de sempre.
+  try {
+    var faixa = document.querySelector('.telas');
+    var figs = faixa ? [].slice.call(faixa.children) : [];
+    if (faixa && figs.length > 1) {
+      // AS POSIÇÕES DE ETAPA, contadas em tempo de execução e não fixadas em 14:
+      // acima de 34rem cabem 2,74 prints na faixa, e há 12 vistas distintas.
+      //
+      // O `Math.min(x, max)` É A CORREÇÃO, e não arredondamento defensivo. MEDIDO:
+      // as posições de encaixe dos últimos itens caem ALÉM do máximo de rolagem
+      // (3179 contra 3070 no celular; 3161 contra 2726 no computador), porque um
+      // item alinhado por `start` no fim da faixa não tem para onde ir. Um ponto
+      // apontando para 3179 mandaria a faixa a um lugar que ela não alcança e
+      // NUNCA acenderia — o indicador mentindo justamente no último print. Com o
+      // truncamento, as posições repetidas colapsam (o `continue` abaixo) e sobra
+      // uma só, alcançável, para o fim da faixa.
+      var alvos = [], titulos = [];
+      var montar = function () {
+        var max = faixa.scrollWidth - faixa.clientWidth;
+        var base = faixa.getBoundingClientRect().left + faixa.scrollLeft;
+        alvos = []; titulos = [];
+        for (var i = 0; i < figs.length; i++) {
+          var x = Math.min(Math.round(figs[i].getBoundingClientRect().left + faixa.scrollLeft - base), max);
+          if (alvos.length && x === alvos[alvos.length - 1]) continue;
+          alvos.push(x); titulos.push(i);
+        }
+      };
+      var linha = document.createElement('div');
+      linha.className = 'pontos';
+      linha.setAttribute('role', 'tablist');
+      linha.setAttribute('aria-label', 'Ir para uma tela');
+      faixa.parentNode.insertBefore(linha, faixa.nextSibling);
+
+      // O RÓTULO SAI DO ALVO, não do índice do ponto. São coisas diferentes
+      // (12 pontos para 14 prints no computador), e derivá-lo do índice faria o
+      // leitor de tela anunciar "12 de 12" dentro de uma faixa de 14 — e mentir
+      // justamente no último, que é o que este lote existe para consertar.
+      var nomeDe = function (j) {
+        var f = (j === alvos.length - 1) ? figs.length - 1 : titulos[j];
+        var b = figs[f].querySelector('figcaption b');
+        return b ? b.textContent : 'Tela ' + (f + 1);
+      };
+
+      var travado = false, atual = -1;
+      var pintar = function (j) {
+        if (j === atual) return;
+        atual = j;
+        for (var k = 0; k < linha.children.length; k++) {
+          linha.children[k].setAttribute('aria-current', k === j ? 'true' : 'false');
+        }
+      };
+      // A TRAVA existe por causa do `scroll-snap-stop:always`, e ela resolve
+      // DOIS defeitos com um mecanismo só. (1) No WebKit aquele valor restringe
+      // também a rolagem PROGRAMÁTICA: um `scrollTo` não atravessa uma posição
+      // de encaixe, então tocar no ponto 12 andaria UM print. (2) Uma rolagem
+      // suave emite `scroll` em todas as posições do caminho, e sem trava o
+      // ponto aceso correria a faixa inteira até chegar — um piscar que é o
+      // oposto de um indicador.
+      var ir = function (j) {
+        if (!alvos.length) return;
+        j = Math.max(0, Math.min(j, alvos.length - 1));
+        travado = true;
+        var snap = faixa.style.scrollSnapType;
+        faixa.style.scrollSnapType = 'none';
+        pintar(j);
+        faixa.scrollTo({ left: alvos[j], behavior: 'smooth' });
+        var soltar = function () {
+          travado = false;
+          faixa.style.scrollSnapType = snap;
+          faixa.removeEventListener('scrollend', soltar);
+        };
+        faixa.addEventListener('scrollend', soltar);
+        // RESERVA: `scrollend` não existe em todo navegador, e sem ela a trava
+        // ficaria de pé para sempre — a faixa deixaria de acender ao gesto.
+        setTimeout(soltar, 700);
+      };
+      var acender = function () {
+        if (travado || !alvos.length) return;
+        var x = faixa.scrollLeft, melhor = 0, d = Infinity;
+        for (var j = 0; j < alvos.length; j++) {
+          var e = Math.abs(alvos[j] - x);
+          if (e < d) { d = e; melhor = j; }
+        }
+        pintar(melhor);
+      };
+      var desenhar = function () {
+        montar();
+        linha.textContent = '';
+        // UM PONTO SÓ não indica nada: com a faixa inteira à vista, esconde.
+        linha.hidden = alvos.length < 2;
+        for (var j = 0; j < alvos.length; j++) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.setAttribute('aria-label', nomeDe(j));
+          b.setAttribute('aria-current', 'false');
+          b.dataset.i = j;
+          linha.appendChild(b);
+        }
+        atual = -1;
+        acender();
+      };
+      linha.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('button') : null;
+        if (b) ir(+b.dataset.i);
+      });
+      // SÓ ←, →, Home e End. `ArrowUp`/`ArrowDown` ficam de fora de propósito:
+      // a linha é horizontal e tem uma parada de tabulação só, e quem chega
+      // nela com Tab e aperta ↓ está tentando continuar lendo a PÁGINA.
+      linha.addEventListener('keydown', function (e) {
+        var j = atual;
+        if (e.key === 'ArrowRight') j = atual + 1;
+        else if (e.key === 'ArrowLeft') j = atual - 1;
+        else if (e.key === 'Home') j = 0;
+        else if (e.key === 'End') j = alvos.length - 1;
+        else return;
+        e.preventDefault();
+        ir(j);
+        if (linha.children[Math.max(0, Math.min(j, alvos.length - 1))]) {
+          linha.children[Math.max(0, Math.min(j, alvos.length - 1))].focus();
+        }
+      });
+      faixa.addEventListener('scroll', acender, { passive: true });
+      // A LARGURA MUDA AS ETAPAS (14 no celular, 12 no computador), então girar
+      // o aparelho tem de refazer a linha — senão sobram pontos que não acendem.
+      var refaz;
+      window.addEventListener('resize', function () {
+        clearTimeout(refaz);
+        refaz = setTimeout(desenhar, 150);
+      });
+      desenhar();
+    }
+  } catch (_) { /* sem pontos: a faixa continua rolando como antes */ }
 
   // ===================================================================
   // O FAROL DE VISITA — uma por navegador por dia
