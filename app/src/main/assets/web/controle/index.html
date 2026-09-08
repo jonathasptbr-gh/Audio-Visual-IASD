@@ -1622,23 +1622,33 @@
             <span class="pl-rot">Limpar</span>
           </button>
         </div>
-        <!-- O PACOTE (v5.103): a fila montada vira UM item do Cronograma, e tocar
-             nele devolve a fila inteira. O bloco de louvores da abertura é o
-             mesmo quase toda semana, e até aqui ele era remontado item a item a
-             cada culto — a playlist é volátil por natureza (qualquer toque numa
-             mídia da biblioteca a substitui).
+        <!-- O PACOTE (v5.103): a fila montada vira UM item, e tocar nele devolve a
+             fila inteira. O bloco de louvores da abertura é o mesmo quase toda
+             semana, e até aqui ele era remontado item a item a cada culto — a
+             playlist é volátil por natureza (qualquer toque numa mídia da
+             biblioteca a substitui).
 
-             O RÓTULO É O VERBO E O DESTINO MORA NO `aria-label` (v1.8.53), o
-             mesmo desenho do `#contatoBtn` da v1.8.51 — e aqui ele é MEDIDA, não
-             gosto: lado a lado a 320px sobram 101px de texto por botão, e
-             "Guardar como pacote no Cronograma" mede 254px. O ícone é o que
-             carrega o destino na tela. -->
+             DOIS DESTINOS, DOIS BOTÕES (v1.8.54). Pedido do operador: *"sejam os
+             mesmos dois botões de salvar no cronograma ou salvar nos favoritos,
+             pois este já é o padrão do resto do sistema, ter as duas opções"*.
+             Eram um botão só, que guardava no Cronograma.
+
+             SEM RÓTULO, E POR MEDIDA: com três ações na faixa sobram 49,9px de
+             texto por botão a 320px, e só "Limpar" (51,2px) já não cabe. Os dois
+             ícones são os MESMOS da gaveta de cada item — a estrela e o relógio,
+             desenhados por `starSvg`/`cronogramaIconSvg`, que são a fonte única
+             deles. Eles entram por JS na carga, e não copiados aqui: um `path`
+             escrito duas vezes diverge no primeiro ajuste.
+
+             A ORDEM É A DA GAVETA da linha (favoritar, depois Cronograma), e o
+             `aria-label` carrega a frase inteira — que é tudo que um botão sem
+             rótulo deve a quem o encontra. -->
+        <button type="button" id="plPackFav" class="pl-pack"
+                title="Guardar a fila como pacote nos Favoritos"
+                aria-label="Guardar a fila como pacote nos Favoritos"></button>
         <button type="button" id="plPack" class="pl-pack"
                 title="Guardar a fila como pacote no Cronograma"
-                aria-label="Guardar a fila como pacote no Cronograma">
-          <span class="msym" aria-hidden="true">&#xe03b;</span>
-          <span class="pl-rot">Guardar</span>
-        </button>
+                aria-label="Guardar a fila como pacote no Cronograma"></button>
       </div>
     </div>
   </div>
@@ -2141,7 +2151,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">v1.8.53</span>
+          <span id="appVersion" class="app-version">v1.8.54</span>
           <!-- O GRUPO DE AÇÕES (v1.8.51). Ele existe por DUAS razões, e nenhuma
                é organização: (1) é ele que carrega o `margin-left: auto` que
                morava no rótulo solto, e (2) é ele que a faixa quebra INTEIRO

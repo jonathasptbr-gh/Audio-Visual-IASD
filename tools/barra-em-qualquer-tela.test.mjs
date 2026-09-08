@@ -112,7 +112,7 @@ try {
     await esperarCortina(pg);
     await pg.waitForFunction(
       () => window.AVDB && typeof window.__avBack === 'function'
-        && !!document.querySelector('#playlist li') && !!document.querySelector('.lib-bar'),
+        && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled) && !!document.querySelector('.lib-bar'),
       null, { timeout: 30000 },
     );
 

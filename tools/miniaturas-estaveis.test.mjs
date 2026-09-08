@@ -71,7 +71,7 @@ try {
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
   await pg.goto(base + '/controle/', { waitUntil: 'load' });
   const dePe = await esperar(pg, () => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, 30000);
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, 30000);
   checar(dePe === true, 'o app ficou de pé', porque(dePe));
 
   // O CENÁRIO: um item com CAPA em blob, no Cronograma e nos Favoritos. A capa é

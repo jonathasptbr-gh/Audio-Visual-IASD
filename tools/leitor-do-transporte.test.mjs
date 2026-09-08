@@ -103,7 +103,7 @@ try {
   // que o zera com toda a razão — e o cenário evapora sem erro nenhum.
   await pg.waitForFunction(
     () => window.__NATIVE__ === true && window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
 

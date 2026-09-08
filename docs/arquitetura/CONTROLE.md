@@ -1153,8 +1153,9 @@ As três regras do tile, escritas por inteiro no `index.html`:
    **E O TÍTULO EMPRESTA A SI MESMO** (`falarNoTile`, v1.7.3), que é outra
    coisa: a segunda linha era PERMANENTE e descrevia o repouso; esta é o próprio
    título, por alguns segundos, e volta. É a mecânica do `#otaRow`
-   (`falarNoOta`) e do "Guardar como pacote" (`falarNoPacote`), e a regra dela
-   está na lista de canais de resposta do `controle.js` desde a v5.207 — *"o
+   (`falarNoOta`) — e a do "Guardar como pacote" até a v1.8.53, que a perdeu ao
+   virar botão de símbolo —, e a regra dela está na lista de canais de resposta
+   do `controle.js` desde a v5.207 — *"o
    rótulo do controle empresta a si mesmo por alguns segundos e volta"*. Foi por
    ela que o cartão sobre a preview saiu do caminho da exportação: aquele canal
    é o do que ACONTECERIA NA PREVIEW, e uma exportação acontece no botão.
@@ -5484,29 +5485,71 @@ cada uma com a própria pergunta.
   do "Tirar do ar" (`--surface` + `--danger-text`); o saturado
   (`--danger-soft` + `--danger-strong`) fica para o botão que de fato limpa. Dois
   vermelhos cheios anunciariam duas ações destrutivas onde há uma.
-- **À ESQUERDA do pacote** (v1.8.53; eram duas linhas empilhadas, e ele ficava
-  ACIMA): a mesma régua que pôs o excluir no começo da fileira do `⋮` (v5.288) —
-  a folha abre pelo botão da barra de baixo, e o polegar chega pela borda
-  direita. A ordem no HTML é o que a regra `.confirmando + .pl-pack` lê, então
-  trocá-la exige trocar o combinador junto.
-- **E A PERGUNTA OCUPA A FAIXA INTEIRA** (v1.8.53): enquanto ela está aberta, o
-  pacote sai. Até aqui ele ficava, e a razão escrita era a ALTURA — empilhados,
-  levar o vizinho junto tirava uma linha do rodapé. Lado a lado essa razão não
-  existe (MEDIDO: 42px com e sem o pacote), e o que sobra manda tirar: em todo o
-  resto do app a pergunta substitui os irmãos, e com o pacote de pé o par ficava
-  com METADE da faixa — MEDIDO a 320px, 69,6px por botão, com "Cancelar"
-  truncado num destrutivo.
+- **À ESQUERDA dos dois de guardar** (v1.8.53; eram duas linhas empilhadas, e o
+  pacote ficava ACIMA): a mesma régua que pôs o excluir no começo da fileira do
+  `⋮` (v5.288) — a folha abre pelo botão da barra de baixo, e o polegar chega
+  pela borda direita. A ordem no HTML é o que a regra `.confirmando ~ .pl-pack`
+  lê, então trocá-la exige trocar o combinador junto.
+- **DOIS DESTINOS, DOIS BOTÕES DE SÍMBOLO** (v1.8.54, pedido do operador: *"sejam
+  os mesmos dois botões de salvar no cronograma ou salvar nos favoritos, pois
+  este já é o padrão do resto do sistema"*). A estrela e o relógio são os MESMOS
+  da gaveta de cada item — `starSvg` e `cronogramaIconSvg`, a fonte única deles,
+  chamadas na carga; copiar os `path` para o HTML seria a segunda cópia de um
+  desenho. Eles são QUADRADOS de `--faixa-alt` (a mesma altura da faixa, herdada
+  como propriedade personalizada) e o rótulo é do "Limpar", que fica com o resto.
+  **Sem rótulo por MEDIDA**: com três ações sobram 49,9px de texto por botão a
+  320px, e só "Limpar" já mede 51,2px. Quem diz o destino é o `aria-label`, e ele
+  anda com o `title` no apagado — dizer "guardar" a quem não pode guardar seria
+  uma promessa falsa. **A diferença entre os dois destinos é do `criarCue`**, e
+  não é técnica: Favoritos não repetem, o Cronograma pode.
+- **E A PERGUNTA OCUPA A FAIXA INTEIRA** (v1.8.53): enquanto ela está aberta, os
+  dois de guardar saem. Até aqui o pacote ficava, e a razão escrita era a ALTURA
+  — empilhados, levar o vizinho junto tirava uma linha do rodapé. Lado a lado
+  essa razão não existe (MEDIDO: 42px com e sem eles), e o que sobra manda tirar:
+  em todo o resto do app a pergunta substitui os irmãos, e com o pacote de pé o
+  par ficava com METADE da faixa — MEDIDO a 320px, 69,6px por botão, com
+  "Cancelar" truncado num destrutivo. O combinador é o irmão GERAL (`~`) desde a
+  v1.8.54: com o adjacente, só o primeiro dos dois sairia.
+- **E ela diz "Confirmar", não "Limpar" de novo** (v1.8.54, pedido do operador).
+  A régua: o botão do meio da pergunta repete o verbo só quando o botão que a
+  abriu não o diz. Aqui ele diz — e o mesmo vale para o "Limpar todo o
+  histórico"; já a lixeira de UMA sessão do Histórico não tem rótulo, e lá a
+  palavra na confirmação continua sendo a única que nomeia o dano (R9). Quem
+  nomeia o dano por extenso, nos três, é a `dica`.
 - **Com a fila vazia a caixa inteira sai**: um botão que não faz nada é pior que
-  botão nenhum, e um destrutivo inerte ensinaria que tocá-lo é inofensivo.
+  botão nenhum, e um destrutivo inerte ensinaria que tocá-lo é inofensivo. **A
+  altura, porém, mora na FAIXA** (v1.8.54): os dois de guardar a herdam por
+  `align-items: stretch`, e com a caixa do limpar escondida eles ficavam com a
+  altura do próprio conteúdo — MEDIDO pelo portão de geometria, 23px contra um
+  piso de toque de 34px.
 - **E o "Guardar" APAGA com menos de duas mídias** (v1.8.53, pedido do operador:
   *"não faz sentido guardar uma playlist de um item só"*). A recusa já existia no
   toque; o que muda é a troca da v1.8.50 — explicar depois é pior que não
   oferecer. A pergunta é a **de quem executa, literalmente** (`!isCue`, porque um
   pacote é uma fila de reprodução): uma fila de uma mídia mais um cue tem
   `length` 2 e um só item guardável, e a pergunta larga acenderia o botão para
-  recusar no toque.
+  recusar no toque. **Os dois apagam juntos**: o limiar é do PACOTE, não do
+  destino.
+- **A FOLHA FECHA QUANDO A FILA ACABA** (v1.8.54, pedido do operador: *"já que
+  não há mais nada ali"*), pelas duas portas e por uma função só
+  (`fecharFilaVazia`). Ela NÃO mora no `renderPlaylist`: ali a condição seria
+  *"a fila está vazia"*, verdade também quando a folha é ABERTA vazia — o que os
+  oráculos fazem, e o portão de geometria depende de fazer. A condição certa é
+  *"a fila ACABOU DE esvaziar"*, que é um evento com dois donos conhecidos. Com
+  item sobrando ela continua aberta: fechar no meio de uma reorganização seria
+  tirar a folha da mão de quem está usando.
+- **E O CORPO DA FOLHA VAZIA NÃO DESENHA MAIS NADA** (v1.8.54, pedido do
+  operador: *"essa mensagem não tem mais utilidade… ele não tem acesso a janela
+  se ela não tem nada"*). A premissa é verdade por construção: o botão que a abre
+  nasce apagado com a fila vazia desde a v1.8.51, e desde este lote ela fecha
+  sozinha. A frase de ensino não se perdeu — ela mudou de casa naquele lote e é o
+  `title` do botão apagado; este bloco era a segunda cópia. **DOIS ORÁCULOS
+  DEPENDIAM DAQUELE `<li>`** como prova de que o `renderPlaylist` tinha rodado, e
+  o sinal deles passou a ser o `#plBtn` apagado — que sai da mesma função e não é
+  um nó que uma decisão de interface possa apagar.
 
-Medido de ponta a ponta em `tools/smoke.mjs` ("LIMPAR A FILA INTEIRA").
+Medido de ponta a ponta em `tools/smoke.mjs` ("LIMPAR A FILA INTEIRA") e em
+`tools/rodape-da-playlist.test.mjs` (a geometria, os dois destinos e o fecho).
 
 ### Favoritos: uma lista só (marcados + pastas do aparelho)
 

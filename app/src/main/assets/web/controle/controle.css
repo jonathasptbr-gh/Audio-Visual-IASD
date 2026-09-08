@@ -6612,17 +6612,20 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    para não rolar junto com a fila: numa playlist de dez itens, o botão que a
    guarda tem de continuar à vista. */
 .pl-pack {
-  /* A BASE É METADE, NÃO ZERO (v1.8.53), e isso é MEDIDO. Com `flex: 1` a base
-     é `0%` e o Blink soma o padding do botão POR FORA dela: o pacote saía
-     152,8px contra 136,8px da caixa do limpar, e duas metades desiguais numa
-     faixa de duas ações leem como uma hierarquia que não existe. `box-sizing:
-     border-box` NÃO resolve — os dois já computam `border-box`, e a reversão
-     mostrou a mesma diferença com ele. Uma base em PORCENTAGEM resolve, porque
-     aí o padding entra dentro dela: 144,8px nos dois. Metade do gap sai do
-     token, nunca digitada. */
-  flex: 1 1 calc(50% - var(--sp-4) / 2); min-width: 0;
-  display: flex; align-items: center; justify-content: center; gap: var(--sp-4);
-  padding: 0 .5rem;
+  /* QUADRADOS, E A LARGURA SAI DA ALTURA (v1.8.54). Eles perderam o rótulo
+     quando viraram dois (ver o `index.html`), e um botão de símbolo não tem
+     largura própria a reivindicar. A medida é `--faixa-alt`, o mesmo número que
+     a faixa usa de altura, HERDADO do `.pl-rodape` — escrevê-lo de novo aqui
+     seria a segunda cópia que diverge no primeiro ajuste.
+
+     NÃO É `aspect-ratio: 1`: MEDIDO, com `flex: 0 0 auto` a base é o CONTEÚDO e
+     as duas dimensões saem dele, então a razão não tem o que resolver — os
+     botões saíam com 20px de largura (o SVG) contra 42,4px de altura, abaixo do
+     piso de toque de 34px, e o portão de geometria reprovaria. O que sobra da
+     faixa é do "Limpar", que é quem carrega rótulo. */
+  flex: 0 0 var(--faixa-alt);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
   /* A MESMA CAIXA DO IRMÃO (v1.8.53), e a COR é o que os separa: `--accent`
      aqui, `--danger-text` no limpar. Ele saiu da regra agrupada do
      `--btn-accent` — ver lá o porquê, que é o argumento da v1.5.19 caindo pela
@@ -6632,7 +6635,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   font-size: var(--fs-md); font-weight: var(--fw-medio); font-family: inherit; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-.pl-pack .msym { font-size: var(--icon-sm); }
+.pl-pack svg { width: var(--icon-sm); height: var(--icon-sm); }
 /* APAGADO É A LINGUAGEM DO INDISPONÍVEL neste app (`--op-inativo` + `disabled`,
    a mesma do `.t-btn` e do `.slide-btn`) — ver o `renderPlaylist`, que decide
    QUANDO. Não há regra global de `:disabled` neste arquivo: cada família
@@ -6663,11 +6666,15 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   flex-shrink: 0; margin: 0 .7rem .8rem;
   display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--sp-4);
 }
-/* O RÓTULO NÃO PODE MUDAR A ALTURA DA FAIXA. O botão do pacote EMPRESTA o
-   próprio rótulo para dizer o que houve (`falarNoPacote`), e as frases são mais
-   longas que ele — sem esta linha uma delas quebraria em duas linhas e a folha
-   daria um pulo sob o dedo, que é o que a receita de altura da faixa existe
-   para impedir. */
+/* O RÓTULO NÃO PODE MUDAR A ALTURA DA FAIXA — e desde a v1.8.54 ele é UM só, o
+   do "Limpar" (os dois de guardar viraram botões de símbolo). A linha fica pelo
+   caso da FONTE DO SISTEMA: a 320px com ela a 1,5× o rótulo já não cabe na
+   metade que sobra, e reticenciar é o desfecho certo — quebrar em duas linhas
+   mudaria a altura da faixa, e a folha empurra o que está acima dela.
+   (Até aqui o motivo era outro: o botão do pacote emprestava o próprio rótulo
+   para dizer o que houve, e as frases eram mais longas que ele. Esse mecanismo
+   morreu com o rótulo dele — quem fala agora é o pulso e, onde ele não basta, o
+   diálogo de aviso.) */
 .pl-rot { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- LIMPAR A FILA INTEIRA (v5.309) ----------
@@ -6699,8 +6706,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `align-items: stretch`, então ele VESTE esta caixa e o número existe uma vez
    só. */
 .pl-limpar-faixa {
-  /* A base em PORCENTAGEM é a que reparte a faixa ao meio — ver o `.pl-pack`. */
-  flex: 1 1 calc(50% - var(--sp-4) / 2); min-width: 0;
+  /* ELE FICA COM O QUE SOBRA (v1.8.54): os dois de guardar são quadrados de
+     largura fixa, e o rótulo é deste. MEDIDO a 320px: 197px, e a pergunta que
+     nasce aqui dentro precisa deles. */
+  flex: 1 1 auto; min-width: 0;
   display: flex; align-items: stretch;
 }
 /* A ALTURA É DA FAIXA **E** DA CAIXA, num número só (v1.8.53). O rodapé da
@@ -6711,7 +6720,13 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    dela por si, porque ela também é a caixa do "limpar esta sessão" no Histórico,
    onde não há `.pl-rodape` nenhum. Duas necessidades, uma declaração: escrever o
    número duas vezes é o que diverge no primeiro ajuste. */
-.pl-rodape, .pl-limpar-faixa { min-height: calc(var(--icon-sm) + 1.4rem); }
+.pl-rodape, .pl-limpar-faixa {
+  /* O NÚMERO NUM LUGAR SÓ, e ele é lido por três: a altura da faixa, a altura da
+     caixa do limpar, e a LARGURA dos dois botões de símbolo (que o herdam por
+     serem filhos do `.pl-rodape` — propriedade personalizada herda). */
+  --faixa-alt: calc(var(--icon-sm) + 1.4rem);
+  min-height: var(--faixa-alt);
+}
 .pl-clear {
   flex: 1; min-width: 0;
   display: flex; align-items: center; justify-content: center; gap: var(--sp-4);
@@ -6741,11 +6756,13 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    texto mais o padding) saía truncado num destrutivo. Um "Cancel…" ao lado de
    "Limpar" é a pior linha de texto que este app saberia desenhar.
 
-   IRMÃO ADJACENTE, e não `:has()`: a ordem no HTML é nossa (o limpar vem antes
-   do pacote) e o `+` funciona em qualquer WebView, inclusive o de um aparelho
-   que nunca atualizou o Chromium. Comentário entre os dois não quebra a
-   adjacência — comentário não é elemento. */
-.pl-limpar-faixa.confirmando + .pl-pack { display: none; }
+   IRMÃO GERAL (`~`) desde a v1.8.54, e não `:has()`: a ordem no HTML é nossa (o
+   limpar vem antes dos dois de guardar) e o combinador funciona em qualquer
+   WebView, inclusive o de um aparelho que nunca atualizou o Chromium. Era `+`
+   quando havia UM botão depois; com dois, o adjacente esconderia só o primeiro
+   e a faixa ficaria com uma estrela solta ao lado da pergunta. Comentário entre
+   eles não quebra nada — comentário não é elemento. */
+.pl-limpar-faixa.confirmando ~ .pl-pack { display: none; }
 
 /* ---------- Contador de itens de pasta ---------- */
 .folder-count {

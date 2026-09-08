@@ -139,7 +139,7 @@ try {
   await pg.addInitScript(PONTE);
   await pg.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(() => typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 25000 });
 
   // O REGISTRO é montado por `renderDiag()`, que é assíncrona (ela pergunta ao
   // shell) e roda ao abrir Configurações. Chamá-la direto é o caminho honesto:

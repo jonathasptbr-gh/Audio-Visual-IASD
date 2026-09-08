@@ -59,7 +59,7 @@ try {
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(
     () => window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
 

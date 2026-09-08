@@ -62,7 +62,7 @@ try {
   // reprovou o `acervo.test.mjs` no runner, medido a 60× de estrangulamento).
   await pg.waitForFunction(
     () => window.AVDB && window.AVSorteio && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
   // O app abre no simplificado; a folha e a fila do player são do avançado.

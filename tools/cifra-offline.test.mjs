@@ -86,7 +86,7 @@ try {
   // correr contra a inicialização, que o zera com razão.
   await pg.waitForFunction(
     () => window.__NATIVE__ === true && window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
 

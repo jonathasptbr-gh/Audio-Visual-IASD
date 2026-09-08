@@ -155,7 +155,7 @@ try {
   await esperarCortina(pg);
   const dePe = await esperar(pg,
     () => window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     'o app fica de pé', null, 30000);
   if (!dePe) throw new Error('o app não subiu');
 

@@ -312,6 +312,7 @@ const plPopupEl = document.getElementById('plPopup');
 const plPopupCountEl = document.getElementById('plPopupCount');
 const plPopupCloseEl = document.getElementById('plPopupClose');
 const plPackEl = document.getElementById('plPack');
+const plPackFavEl = document.getElementById('plPackFav');
 const plClearEl = document.getElementById('plClear');
 // A CAIXA do "Limpar a playlist", não o botão: é ela que a pergunta ocupa
 // enquanto ele está fora de cena, e é ela que some com a fila vazia.
@@ -373,7 +374,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.53';
+const WEB_VERSION = '1.8.54';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3933,24 +3934,35 @@ function renderPlaylist() {
   // A RECUSA DO EXECUTOR FICA, e não é código morto: ela é a guarda da CORRIDA,
   // a mesma razão pela qual a guarda `sem-telao` do microfone sobreviveu ao
   // botão que deixou de ser desenhado.
-  if (plPackEl) {
-    const guardaveis = plItems.filter((m) => !isCue(m)).length;
-    plPackEl.disabled = guardaveis < 2;
-    plPackEl.title = guardaveis < 2
+  // OS DOIS APAGAM JUNTOS: o limiar é do PACOTE, não do destino — o que não faz
+  // sentido é empacotar uma mídia só, e isso não muda por ela ir para o
+  // Cronograma ou para os Favoritos.
+  const guardaveis = plItems.filter((m) => !isCue(m)).length;
+  for (const [b, onde] of [[plPackEl, 'no Cronograma'], [plPackFavEl, 'nos Favoritos']]) {
+    if (!b) continue;
+    b.disabled = guardaveis < 2;
+    const frase = guardaveis < 2
       ? 'Um pacote guarda uma fila — junte pelo menos duas mídias'
-      : 'Guardar a fila como pacote no Cronograma';
+      : 'Guardar a fila como pacote ' + onde;
+    b.title = frase;
+    // O `aria-label` ANDA JUNTO, e não é redundância: ele é o rótulo destes dois
+    // botões (eles não têm texto), e um que ficasse no valor da carga diria
+    // "guardar" a quem não pode guardar.
+    b.setAttribute('aria-label', frase);
   }
 
   playlistEl.innerHTML = '';
-  if (count === 0) {
-    // O texto mandava DESLIZAR o item para a esquerda — o gesto saiu na v5.50
-    // (ver `attachRowGestures`) e a frase ficou para trás, ensinando ao
-    // operador um caminho que não existe mais. Hoje se acrescenta pela seleção
-    // múltipla ou pela folha de destinos do acervo.
-    playlistEl.innerHTML = '<li class="empty">Playlist vazia.<br>Segure um item da lista para selecioná-lo'
-      + '<br>e toque em "Acrescentar à playlist".</li>';
-    return;
-  }
+  // A FOLHA VAZIA NÃO TEM MAIS CORPO (v1.8.54), a pedido do operador: *"remova a
+  // mensagem que tem no corpo da playlist quando não há nenhum item, pois essa
+  // mensagem não tem mais utilidade… ele não tem acesso a janela se ela não tem
+  // nada"*. E a premissa dele é verdade POR CONSTRUÇÃO desde a v1.8.51, quando o
+  // botão que abre esta folha passou a nascer apagado com a fila vazia — e mais
+  // ainda desde este lote, em que ela FECHA sozinha quando o último item sai.
+  //
+  // A FRASE DE ENSINO NÃO SE PERDE: ela já tinha mudado de casa na v1.8.51 e é o
+  // `title` daquele botão apagado, que é onde ela alcança quem procura a fila e
+  // não a encontra. Este bloco era a segunda cópia dela.
+  if (count === 0) return;
   plItems.forEach((item, i) => {
     const li = document.createElement('li');
     li.className = 'row-item' + (linhaAtiva(item.id) ? ' active' : '')
@@ -4011,6 +4023,7 @@ function renderPlaylist() {
           // A FILA ACABOU COM A CENA DENTRO — ver `encerrarCenaDaFila`. Com
           // fila sobrando nada muda: a sequência não acabou, só saiu um item.
           if (eraDaCena && plItems.length === 0) await encerrarCenaDaFila();
+          fecharFilaVazia();
         },
       });
     });
@@ -26548,9 +26561,10 @@ function pintarTile(el, estado, rotulo, aceso, alt) {
 // na tela ou controle. o mesmo vale para feedbacks visuais das ações das
 // configurações, eles devem notificar ali mesmo"*.
 //
-// ELE ESTÁ CERTO E O APP JÁ TINHA A MECÂNICA, em dois lugares: o `#otaRow`
-// (`falarNoOta`) e o "Guardar como pacote" (`falarNoPacote`). A regra está
-// escrita desde a v5.207 na lista de canais de resposta deste arquivo — *"o
+// ELE ESTÁ CERTO E O APP JÁ TINHA A MECÂNICA: o `#otaRow` (`falarNoOta`) — e o
+// "Guardar como pacote", que a usou da v5.207 à v1.8.53 e a perdeu junto com o
+// próprio rótulo, quando virou um botão de símbolo. A regra está escrita desde a
+// v5.207 na lista de canais de resposta deste arquivo — *"o
 // rótulo do controle empresta a si mesmo por alguns segundos e volta"* —, e o
 // cartão sobre a preview é o canal do que ACONTECERIA NELA. Uma exportação não
 // acontece na preview: ela acontece no botão.
@@ -28199,8 +28213,10 @@ async function conferirLinkCopiado() {
 //  · `previewBusy(...).falhar(motivo)` — o cartão sobre a preview, para o que
 //    aconteceria nela e não aconteceu.
 //  · `statusPasta(id, texto)` — o contador da própria pasta.
-//  · `falarNoOta` / `falarNoPacote` / `#otaRow` — o rótulo do controle empresta
-//    a si mesmo por alguns segundos e volta.
+//  · `falarNoOta` / `#otaRow` — o rótulo do controle empresta a si mesmo por
+//    alguns segundos e volta. **Ele exige rótulo**, e é por isso que o "Guardar
+//    como pacote" saiu desta linha na v1.8.54: virou botão de símbolo, e um
+//    símbolo não tem o que emprestar.
 //  · `#castMsg` — a linha de estado da folha de conexão.
 //  · `appConfirm` — o ÚNICO caso sem interface de origem (compartilhamento que
 //    chega de fora e falha inteiro). Toma o foco e exige um toque.
@@ -29027,44 +29043,47 @@ appDialogInputEl.addEventListener('keydown', (e) => {
 });
 
 // ===== popup de playlist =====
-// A fila em cena vira um PACOTE: um item do Cronograma que, ao ser tocado,
-// devolve exatamente estes itens nesta ordem. O nome sai do primeiro item mais
-// a contagem — "Abertura · 4 itens" é o que se reconhece numa lista de culto.
-// O BOTÃO DE PACOTE EMPRESTA O PRÓPRIO RÓTULO (v5.207) — mesmo mecanismo do
-// `#otaRow` e do rótulo de versão: a resposta nasce onde o toque nasceu, e o
-// botão volta a ser o que era. O `<span>` de texto é o segundo filho (o
-// primeiro é o glifo), e é só ele que troca.
-let pacoteFalaTimer = null;
-const PACOTE_ROTULO = 'Guardar';
-function falarNoPacote(texto, ms) {
-  if (!plPackEl) return;
-  const alvo = plPackEl.querySelector('span:not(.msym)');
-  if (!alvo) return;
-  clearTimeout(pacoteFalaTimer);
-  alvo.textContent = texto;
-  pacoteFalaTimer = setTimeout(() => { alvo.textContent = PACOTE_ROTULO; }, ms || 3000);
+// A fila em cena vira um PACOTE: um item que, ao ser tocado, devolve exatamente
+// estes itens nesta ordem. O nome sai do primeiro item mais a contagem —
+// "Abertura · 4 itens" é o que se reconhece numa lista de culto.
+//
+// DOIS DESTINOS DESDE A v1.8.54 (pedido do operador: *"sejam os mesmos dois
+// botões de salvar no cronograma ou salvar nos favoritos, pois este já é o
+// padrão do resto do sistema"*). Quem sabe a diferença entre eles é o
+// `criarCue`, e ela não é técnica: **Favoritos não repetem** (favoritar é
+// marcar, e dois iguais na mesma gaveta são ruído) enquanto **o Cronograma
+// pode** (o mesmo bloco de louvores pode voltar no apelo). Escrever a regra de
+// novo aqui seria a segunda cópia que diverge no primeiro ajuste.
+//
+// O RÓTULO EMPRESTADO MORREU COM O RÓTULO (v1.8.54). Da v5.207 até aqui o botão
+// dizia o motivo trocando o próprio texto por três segundos; sem texto, o que
+// responde é o pulso — que é o que TODO botão de símbolo deste app usa — e,
+// onde o pulso não basta, o diálogo de AVISO (`cancelText: null`).
+//
+// OS ÍCONES VÊM DA FONTE ÚNICA DELES, na carga: `starSvg` e `cronogramaIconSvg`
+// são as mesmas funções que desenham a gaveta de cada item, e copiar os `path`
+// para o HTML seria a segunda cópia de um desenho. O estado é sempre o "vazio"
+// (estrela contornada, relógio com `+`): estes dois botões CRIAM um item novo a
+// cada toque, não alternam a existência de um.
+function vestirBotoesDeGuardar() {
+  if (plPackEl) plPackEl.innerHTML = cronogramaIconSvg(false);
+  if (plPackFavEl) plPackFavEl.innerHTML = starSvg(false);
 }
+vestirBotoesDeGuardar();
 
-async function guardarPacote() {
+async function guardarPacote(destino, btn) {
   // Só MÍDIA entra num pacote. Uma cena de roteiro dentro dele abriria a porta
   // para um pacote que contém outro pacote — e dois que se contenham
   // mutuamente fariam `abrirPacote` chamar `send` em laço, travando o app. Um
   // pacote é uma FILA de reprodução; cena de roteiro se põe no Cronograma.
   const midias = plItems.filter((m) => !isCue(m));
   const ids = midias.map((m) => m.id);
-  // Este é o único caso em que o pulso NÃO basta: ele diz "não deu", e aqui o
-  // que o operador precisa saber é POR QUE (a fila tem menos de dois itens).
-  // Motivo não cabe num botão — então os dois sinais saem juntos.
-  if (ids.length < 2) {
-    pulsar(plPackEl, 'erro');
-    // O MOTIVO NO PRÓPRIO BOTÃO (v5.207). O comentário acima dizia que "motivo
-    // não cabe num botão" e por isso os dois sinais saíam juntos — o pulso aqui
-    // e a frase numa faixa no topo da tela. Cabe: o botão tem rótulo, e ele
-    // empresta o rótulo por três segundos. É o mesmo mecanismo do `#otaRow` e
-    // do rótulo de versão, e mantém a resposta onde o toque aconteceu.
-    falarNoPacote('Precisa de 2 itens ou mais');
-    return;
-  }
+  // A GUARDA DA CORRIDA, e só isso: desde a v1.8.53 os dois botões nascem
+  // APAGADOS com menos de duas mídias (ver `renderPlaylist`), então este caminho
+  // só se alcança se a fila encolher entre o desenho e o dedo. Um botão
+  // `disabled` não emite `click`, logo não há como explicar aqui — e não é
+  // preciso: quem já não oferece não deve explicação.
+  if (ids.length < 2) { pulsar(btn, 'erro'); return; }
   // O nome sai do primeiro item QUE ENTRA no pacote (`midias[0]`), não de
   // `plItems[0]`: com uma cena de roteiro no topo da fila, a sugestão citava
   // um item que o filtro acabara de deixar de fora.
@@ -29073,13 +29092,21 @@ async function guardarPacote() {
     title: 'Guardar pacote', message: 'Nome do pacote:', value: sugestao, okText: 'Guardar',
   });
   if (nome === null) return;
-  const rec = await criarCue('group', { ids }, (nome || '').trim() || sugestao, 'imports', plPackEl);
-  // O TERCEIRO ARGUMENTO NUNCA EXISTIU (v1.8.53): `responder(btn, tipo)` é um
-  // apelido de `pulsar` e descartava a frase em silêncio — o operador via um
-  // pulso vermelho sem motivo, que é o "falhar VAZIO" que este app proíbe. Quem
-  // fala é o mecanismo que o botão já tem, e curto porque a caixa agora é meia
-  // faixa (MEDIDO: 101px de texto a 320px).
-  if (!rec) { responder(plPackEl, 'erro'); falarNoPacote('Não guardou'); return; }
+  const rec = await criarCue('group', { ids }, (nome || '').trim() || sugestao, destino, btn);
+  // FALHAR VAZIO É PROIBIDO, e sem rótulo para emprestar (v1.8.54) quem conta o
+  // que houve é o diálogo de AVISO — `cancelText: null`, que o próprio
+  // `openAppDialog` descreve como *"não pergunta nada, só conta o que
+  // aconteceu"*. Ele cabe aqui e não caberia numa falha corriqueira: guardar um
+  // pacote é uma decisão que o operador acabou de tomar e nomear, e um pulso
+  // vermelho sozinho o deixaria sem saber se a fila do culto foi guardada.
+  if (!rec) {
+    responder(btn, 'erro');
+    await appConfirm({
+      title: 'Não deu para guardar', okText: 'Entendi', cancelText: null,
+      message: 'O pacote não foi criado. A fila continua aqui — dá para tentar de novo.',
+    });
+    return;
+  }
   setTimeout(closePlPopup, PULSO_MS);
 }
 
@@ -29111,6 +29138,7 @@ async function limparPlaylist() {
   // "Limpar" e esvaziá-la tirando o último item são o mesmo estado; duas
   // respostas para ele fariam o app se contradizer conforme a porta.
   if (eraDaCena) await encerrarCenaDaFila();
+  fecharFilaVazia();
 }
 
 /**
@@ -29148,6 +29176,26 @@ async function limparPlaylist() {
  * — o operador acabou de declarar que ela saiu da fila, e com a fila vazia não
  * há mais linha nenhuma na tela apontando para ela. Ela continua no Histórico.
  */
+/**
+ * A FOLHA FECHA QUANDO A FILA ACABA (v1.8.54), a pedido do operador: *"ajuste
+ * também após o esvaziamento da playlist, para que a janela dela seja fechada,
+ * já que não há mais nada ali"*.
+ *
+ * ELA MORA NUMA FUNÇÃO, e não nos dois chamadores: esvaziar pela lixeira da
+ * última linha e pelo "Limpar" são o MESMO estado, e duas escritas divergem no
+ * primeiro ajuste — é a razão que criou o `encerrarCenaDaFila`, aplicada de
+ * novo.
+ *
+ * E ELA NÃO MORA NO `renderPlaylist`. Ali a condição seria *"a fila está
+ * vazia"*, e isso é verdade também quando a folha é ABERTA vazia (o que os
+ * oráculos fazem, e o portão de geometria depende de fazer, para medir os
+ * botões do rodapé). A condição certa é *"a fila ACABOU DE esvaziar"*, que é um
+ * evento e tem dois donos conhecidos.
+ */
+function fecharFilaVazia() {
+  if (plItems.length === 0) closePlPopup();
+}
+
 async function encerrarCenaDaFila() {
   await pararMidia(cenaDeRoteiroNoAr() ? 'media-clear' : 'clear');
   currentId = null;
@@ -29894,7 +29942,7 @@ histOpenRowEl.addEventListener('click', openHistPopup);
 histClearEl.addEventListener('click', (e) => {
   e.stopPropagation();
   pedirConfirmacaoNaLinha(histClearEl, {
-    ok: 'Limpar',
+    ok: 'Confirmar',
     dica: 'Apaga o registro de todas as sessões — nenhum arquivo do aparelho é tocado',
     aoConfirmar: () => histLimpar(null),
   });
@@ -30900,13 +30948,22 @@ function deslizarNaFolha(host, dir) {
 selCancelEl.addEventListener('click', exitSelection);
 selPlaylistEl.addEventListener('click', addSelectedToPlaylist);
 selFavEl.addEventListener('click', favoritarSelecionados);
-plPackEl.addEventListener('click', guardarPacote);
+plPackEl.addEventListener('click', () => guardarPacote('imports', plPackEl));
+plPackFavEl.addEventListener('click', () => guardarPacote('favs', plPackFavEl));
 // A PERGUNTA NASCE NA CAIXA DO BOTÃO (`pedirConfirmacaoNaLinha` olha o pai dele)
 // — o mesmo par de "Cancelar/Excluir" das listas, aqui sobre a fila inteira.
 plClearEl.addEventListener('click', (e) => {
   e.stopPropagation();
   pedirConfirmacaoNaLinha(plClearEl, {
-    ok: 'Limpar',
+    // "CONFIRMAR", E NÃO "LIMPAR" DE NOVO (v1.8.54, pedido do operador: *"ajuste
+    // a confirmação do limpar para 'confirmar' ao invés de um 'limpar'
+    // novamente"*). A régua que sai daí: o botão do meio da pergunta REPETE o
+    // verbo só quando o botão que a abriu não o diz. Aqui ele diz — o rótulo é
+    // "Limpar" —, e o mesmo vale para o "Limpar todo o histórico"; já a lixeira
+    // de UMA sessão do histórico não tem rótulo nenhum, e lá a palavra na
+    // confirmação continua sendo a única que nomeia o dano (R9 do
+    // DESIGN-SYSTEM). Quem nomeia o dano por extenso, nos três, é a `dica`.
+    ok: 'Confirmar',
     dica: 'Esvaziar a fila. Se o que está no ar for dela, a cena se encerra; os '
       + 'arquivos só são apagados se não estiverem guardados em mais nenhuma lista.',
     aoConfirmar: limparPlaylist,
