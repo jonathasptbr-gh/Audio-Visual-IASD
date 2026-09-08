@@ -1816,6 +1816,27 @@ junto).
   escondeu foi uma regra de CSS que subia o corpo de uma coleção por cima da
   própria barra. A lista certa é a do workflow, e ela sai daqui:
   `grep -oE 'tools/[a-z0-9._-]+\.mjs' .github/workflows/apk.yml | sort -u | grep -vE 'arnes|checar|sem-rede|pares-de-comentario'`
+- **E OS ORÁCULOS NÃO SÃO O PASSO INTEIRO.** Antes deles o `verificar` roda a
+  *"Sanidade da base web"*, que é um bloco de shell DENTRO do workflow — e o que
+  ele trava não está em `tools/` nenhum: a forma do `version.json`, o `minShell`
+  contra o `SHELL_VERSION` lido do próprio Kotlin, o `shellTag` batendo com a
+  versão, as três casas do número, e o **teto de 120 caracteres por item do
+  `notas.json`** (*"a lista do diálogo é uma linha do tempo, não um texto"*).
+  Rodar só os oráculos devolve placar cheio e reprova no CI — aconteceu na
+  v1.8.51, com 98/98 locais e o `web-ota` PULADO por um item de 127 caracteres.
+  **Rodar o mesmo texto, sem copiá-lo** (copiar seria a divergência que o arnês
+  existe para fechar):
+
+  ```bash
+  python3 - <<'PY' > /tmp/sanidade.sh
+  s = open('.github/workflows/apk.yml', encoding='utf-8').read()
+  i = s.index('      - name: Sanidade da base web (sintaxe do JS)')
+  b = s[i:s.index('\n      - name:', i + 10)]
+  c = b[b.index('        run: |\n') + len('        run: |\n'):]
+  print('\n'.join(l[10:] if l.startswith(' ' * 10) else l for l in c.split('\n')))
+  PY
+  bash /tmp/sanidade.sh
+  ```
 - **A REVERSÃO É UM PASSO, NÃO UMA BOA PRÁTICA.** Toda asserção nova roda
   **duas vezes** antes do commit: com o conserto, e com ele desfeito. Sem isso a
   asserção pode ser uma TAUTOLOGIA — passar nas duas versões —, e isso não é
