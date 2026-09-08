@@ -3880,6 +3880,37 @@ function renderPlaylist() {
   // e leva junto qualquer pergunta que estivesse aberta nela.
   if (count === 0 && plClearFaixaEl.classList.contains('confirmando')) fecharConfirmacaoNaLinha();
   plClearFaixaEl.hidden = count === 0;
+  // ===== E O BOTÃO QUE ABRE ESTA FOLHA APAGA COM ELA VAZIA (v1.8.51) =====
+  //
+  // Relato do operador: *"o botão de playlist segue ativo nos controles, mesmo
+  // quando não há nenhum item na playlist"*. Ele revoga a exceção que a v1.8.50
+  // tinha escrito — *"a folha vazia é a resposta à pergunta 'o que tem na
+  // fila?'"* —, e a revogação é justa: a folha vazia responde àquela pergunta
+  // uma vez, e depois é um destino que não leva a lugar nenhum.
+  //
+  // **SÓ COM ZERO, e a decisão é do operador.** Ele chegou a pedir o apagado
+  // com UM item também (*"um item não é uma lista"*), e desistiu ao ver o
+  // preço: com um item a folha ainda é a ÚNICA porta para cinco coisas —
+  // remover da fila, favoritar pela linha, mandar ao Cronograma pela linha (as
+  // duas que a v1.4.25 pôs ali a pedido dele), "Limpar a playlist" e "Guardar
+  // como pacote". E UM ITEM É O ESTADO DOMINANTE: todo toque numa mídia passa
+  // por `replacePlaylistWith`, que faz `listSet('playlist', [id])`. Apagar ali
+  // tiraria as cinco durante quase todo o culto.
+  //
+  // O LIMIAR NÃO É O DA BADGE, e isso é de propósito: ela some com `count > 1`
+  // (um item não merece contagem), este apaga com `count === 0` (uma fila com
+  // um item ainda é uma folha com o que fazer). São duas perguntas diferentes
+  // sobre a mesma lista, e amarrá-las faria uma responder pela outra.
+  //
+  // A FRASE DE ENSINO MUDA DE CASA junto com o botão: ela morava na folha vazia
+  // (*"Segure um item da lista…"*) e era a única explicação do app sobre como
+  // montar uma fila — com o botão apagado, ninguém mais a abriria para lê-la.
+  // Ela passa a ser o `title`, que é o que um botão apagado deve a quem o
+  // encontra.
+  plBtnEl.disabled = count === 0;
+  plBtnEl.title = count === 0
+    ? 'A fila está vazia — segure um item da lista para acrescentá-lo'
+    : 'Playlist';
 
   playlistEl.innerHTML = '';
   if (count === 0) {
@@ -11548,8 +11579,39 @@ async function send(id, daFila, retomarEm) {
 // mídia" (aqui, na notificação e na tela de bloqueio) parava de andar na fila.
 // A sobreposição continua valendo para o toque na LINHA, que é onde o operador
 // escolhe o cartão — ver a guarda de imagem sobre áudio em `send`.
+/**
+ * ===== O QUE O PAR ⏮/⏭ PODE FAZER AGORA (v1.8.51) =====
+ *
+ * Relato do operador: *"o botão de proxima midia quando não há uma lista na
+ * playlist… nesse caso apenas o botão de midia anterior fica ativo, pois ele
+ * volta ao início da midia atual"*.
+ *
+ * COM FILA, NADA MUDA. É a régua de sempre — os dois andam na lista, e mesmo
+ * com UM item eles têm função: iniciar a fila que ainda não começou (o
+ * `idx === -1` do `step` cai no primeiro) e recomeçar a faixa que está no ar.
+ * **Apagá-los ali tiraria o único caminho de começar uma fila pelo transporte**,
+ * e o pedido não fala desse caso: *"quando não há uma lista"* é a fila VAZIA.
+ *
+ * SEM FILA, só o ⏮ tem o que fazer, e o que ele faz é RECOMEÇAR o que está no
+ * ar — que é a única coisa que "mídia anterior" pode significar quando não há
+ * anterior. Sem mídia no ar, nem isso: os dois apagam.
+ *
+ * ELA É LIDA POR QUEM APAGA E POR QUEM EXECUTA (`renderTransporteHabilitado` e
+ * o `step` logo abaixo). Duas perguntas escritas à parte divergiriam no
+ * primeiro ajuste — foi a regra da v1.8.50 e continua sendo.
+ */
+function transportePode(delta) {
+  if (plItems.length > 0) return true;
+  return delta < 0 && midiaNoAr;
+}
+
 function step(delta) {
-  if (plItems.length === 0) return;
+  if (!transportePode(delta)) return;
+  // SEM FILA, O ⏮ RECOMEÇA — e é um `seek`, não um `send`. A diferença importa:
+  // `send` REABRE a cena (fade de saída, releitura do registro) e, num item de
+  // LINK do YouTube, dispararia a resolução e o download de novo. O que o
+  // operador pediu é o ponteiro voltando a zero, e é isso que o `seek` é.
+  if (plItems.length === 0) { cmd({ type: 'seek', time: 0 }); return; }
   // A ÂNCORA NA FILA É A APRESENTAÇÃO, NUNCA O VÍDEO DE SLIDE. Ele não está em
   // lista nenhuma de propósito, então `findIndex` devolvia −1 e o `idx === -1`
   // caía no PRIMEIRO item da fila — que num culto é a própria apresentação, e o
@@ -11665,18 +11727,19 @@ function stepSlide(delta) {
 //  · o ▶ com a mídia PARADA fica ACESO — `currentId` sobrevive ao stop de
 //    propósito, e é ele que faz o ▶ repetir a faixa (v1.4.x). Apagá-lo tiraria
 //    um recurso;
-//  · o botão da PLAYLIST fica aceso com a fila vazia: ele abre a folha, e a
-//    folha vazia é a resposta à pergunta "o que tem na fila?";
 //  · a REPETIÇÃO fica acesa sempre: ela é um modo, e escolher o modo antes de
 //    montar a fila é o caminho normal.
 function renderTransporteHabilitado() {
-  // A MÍDIA ANTERIOR/PRÓXIMA precisa de FILA. Com um item só eles continuam
-  // valendo — recomeçam a faixa —, que é o que `step()` faz ali.
-  const semFila = plItems.length === 0;
+  // A MÍDIA ANTERIOR/PRÓXIMA lê o `transportePode` — a MESMA pergunta que o
+  // `step` faz para decidir se executa. Sem fila só o ⏮ sobra, e o que ele faz
+  // ali é recomeçar o que está no ar.
   for (const el of [prevEl, nextEl]) {
     if (!el) continue;
-    el.disabled = semFila;
-    el.title = semFila ? 'A fila está vazia' : (el === prevEl ? 'Mídia anterior' : 'Próxima mídia');
+    const d = el === prevEl ? -1 : 1;
+    el.disabled = !transportePode(d);
+    el.title = el.disabled
+      ? (d < 0 ? 'Não há mídia para recomeçar' : 'Não há próxima mídia — a fila está vazia')
+      : (d < 0 ? (plItems.length ? 'Mídia anterior' : 'Recomeçar a mídia') : 'Próxima mídia');
   }
   // O PARAR precisa de CENA, e a pergunta é a MESMA que o `stopClear` faz na
   // primeira linha dele: `midiaNoAr` ou `cenaDeRoteiroNoAr()`. Reescrevê-la
@@ -14854,6 +14917,13 @@ function resetAfterEnd() {
   // o "ele tenta exibir a primeira tela/thumbnail" do relato.
   midiaNoAr = false;
   midiaNoArId = '';
+  // E O TRANSPORTE PRECISA SABER (v1.8.51): a régua do par ⏮/⏭
+  // (`transportePode`) lê `midiaNoAr`, e o fim natural a derruba sem que
+  // ninguém redesenhe — com a fila vazia o ⏮ ficaria ACESO sobre um palco
+  // vazio até um render vindo de outro caminho. É o irmão exato do que a
+  // v1.8.50 corrigiu no `pararMidia`, e a mesma classe de defeito: o estado
+  // muda e quem o desenha não é chamado.
+  renderSlideNav();
   // E O BANCO PRECISA SABER: é este `noAr` que solta o detentor da cena (ver
   // `persistCurrent`). Sem ele o item que acabou de tocar ficaria protegido do
   // coletor até o operador escolher outro.

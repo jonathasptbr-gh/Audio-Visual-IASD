@@ -405,18 +405,40 @@
       <path d="m16.4 9.8 5 4.4"/>
       <path d="m21.4 9.8-5 4.4"/>
     </symbol>
-    <!-- PASSAR SLIDE: a seta cheia com a BARRA, o mesmo par de ⏮/⏭ do
-         transporte — só que aqui ela é o único significado do botão, e não o
-         eixo alternativo de um botão de mídia (v1.3.5). Os dois botões de
-         slide flanqueiam a preview, e a barra é o que os separa das setas
-         soltas de qualquer outro lugar da tela. -->
+    <!-- ===== PASSAR SLIDE: CHEVRON, SEM A BARRA (v1.8.51) =====
+         Relato do operador: *"diferencie o icone desses botões de prossimo
+         slide e anterior slide, use os botões de seta simples, sem a barra,
+         para ficar diferente dos botões de passar midia"*.
+
+         ELE ESTAVA CERTO, E O COMENTÁRIO ANTIGO ERRAVA DUAS VEZES. Ele dizia
+         *"a seta cheia com a BARRA… e a barra é o que os separa das setas
+         soltas"* — mas (1) ela nunca foi CHEIA: os quatro consumidores
+         declaram `fill="none"`, então o `z` saía vazado; e (2) a barra não
+         separava nada, porque o par de MÍDIA usa o glifo `skip_previous` do
+         Material Symbols, que no subset *Outlined* deste app é exatamente o
+         mesmo desenho — triângulo vazado com barra. Os dois pares diziam a
+         mesma coisa; a separação existia só no texto.
+
+         A BARRA QUER DIZER **MÍDIA** — no transporte, na coluna da tela cheia
+         e na notificação. O chevron quer dizer o eixo de DENTRO da cena, e é o
+         que este par governa: estrofe, versículo, mensagem ou página (ver
+         `SLIDE_AXIS_PREV` e `renderTransportAxis` no controle.js, que
+         reescrevem o rótulo conforme o eixo).
+
+         E ELE NÃO É UM DESENHO NOVO: é o `chevronDirSvg` (o par ↑↓ de mover
+         na lista) com os pontos rodados para o eixo HORIZONTAL — mesma
+         primitiva, mesmas proporções. Os dois chevrons que já existiam neste
+         app são VERTICAIS (abrir/fechar e mover na lista), então o eixo
+         horizontal estava livre. Uma segunda arte para a mesma ideia é a
+         divergência que a fonte única existe para não ter.
+
+         O PESO FICA COM QUEM CONSOME (`stroke-width` no `<svg>`), como nos
+         quatro: o Modo Fácil desenha a 30px de propósito. -->
     <symbol id="icoSlidePrev" viewBox="0 0 24 24">
-      <path d="M6 6v12"/>
-      <path d="M19 6.6 9.6 12 19 17.4z"/>
+      <polyline points="15 18 9 12 15 6"/>
     </symbol>
     <symbol id="icoSlideNext" viewBox="0 0 24 24">
-      <path d="M18 6v12"/>
-      <path d="M5 6.6 14.4 12 5 17.4z"/>
+      <polyline points="9 18 15 12 9 6"/>
     </symbol>
     <!-- ===== OS ÍCONES DO PAINEL RÁPIDO DE CONFIGURAÇÕES (v1.4.38) =====
          Cada tile da grade tem UM desenho, e os que governam uma escolha de dois
@@ -1408,6 +1430,19 @@
               <use class="ico-base" href="#icoImagem"/><use class="ico-alt" href="#icoImagemOff"/>
             </svg>
           </button>
+          <!-- ===== ESTES DOIS FICAM COM A BARRA (v1.8.51) =====
+               A v1.8.51 tirou a barra do par de slide, porque **a barra quer
+               dizer MÍDIA** e os dois pares desenhavam a mesma coisa. Aqui ela
+               FICA, e pela mesma régua: este botão tem DOIS eixos — toque curto
+               passa estrofe, toque longo troca de mídia, e o `title` diz os dois
+               —, então ele acumula o eixo de mídia e a barra é verdade nele.
+
+               O `d` É COPIADO INLINE, e não um `<use href="#icoSlidePrev">`.
+               Isso é deliberado desde que os símbolos viraram chevron: um `use`
+               aqui traria o desenho SEM barra e apagaria o eixo de mídia desta
+               coluna. **Um `grep` pelo nome do símbolo não acha estes dois** —
+               é o aviso para quem for "terminar a limpeza" procurando pelas
+               coordenadas. -->
           <button type="button" id="fsPrev" class="pv-fab" title="Estrofe anterior (segurar: mídia anterior)">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6v12"/><path d="M19 6.6 9.6 12 19 17.4z"/></svg>
           </button>

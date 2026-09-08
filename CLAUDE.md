@@ -1301,8 +1301,11 @@ nenhum**, e por isso ficam aqui.
   `cenaNoAr()` parece "há algo no ar" e começa por `!!currentId`, que sobrevive
   ao stop de propósito. **E o que NÃO se apaga entra na lista escrita ao lado**,
   senão o lote seguinte "completa" a varredura e leva um recurso junto (o ▶
-  parado repete a faixa; a folha vazia é a resposta da playlist; a repetição é
-  um modo).
+  parado repete a faixa; a repetição é um modo). **E a lista se ENCOLHE quando o
+  operador revoga** — a playlist saiu dela na v1.8.51 —, mas com a MEDIDA ao
+  lado: ele pediu o apagado também com UM item (*"um item não é uma lista"*) e
+  desistiu diante do preço, porque ali a folha ainda é a única porta para cinco
+  coisas e um item é o estado que todo toque numa mídia produz.
 - **O feedback de toque é `translateY(2px)` — recuo ABSOLUTO, nunca uma
   fração.** Uma fração aplicada a alvos de 34px a 408px não é um valor, são
   doze. **E um BLOCO que hospeda controles responde só com a LUZ**, nunca com

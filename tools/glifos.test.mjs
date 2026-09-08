@@ -322,5 +322,47 @@ if (!ausentes.length) {
     + ' codepoints pedidos pelo bundle existem no subset da fonte');
 }
 
+// ============================================================================
+// O PAR DE SLIDE NÃO DESENHA "SKIP" (v1.8.51)
+//
+// Relato do operador: *"diferencie o icone desses botões de prossimo slide e
+// anterior slide, use os botões de seta simples, sem a barra, para ficar
+// diferente dos botões de passar midia"*.
+//
+// A BARRA QUER DIZER MÍDIA. Enquanto o par de slide a desenhava, os dois pares
+// da tela diziam a mesma coisa — o glifo `skip_previous` do subset *Outlined*
+// deste app é triângulo vazado com barra, e o `#icoSlide*` era o mesmo desenho
+// escrito em SVG. A separação existia só no comentário, que afirmava por sete
+// versões que *"a barra é o que os separa das setas soltas"*.
+//
+// A ASSERÇÃO É A PROPRIEDADE, NÃO AS COORDENADAS: UMA primitiva só, e ABERTA.
+// Travar o `d` travaria a arte e reprovaria qualquer ajuste de proporção; o que
+// não pode voltar é a SEGUNDA forma (a barra) e o fechamento — um triângulo
+// fechado apontando para a direita é o desenho exato do ▶ (ver `#fsPlay`), e
+// trocar uma confusão por outra não atende ao pedido.
+//
+// CONTA TODA PRIMITIVA DE DESENHO, e não só `<path>`: a barra de volta escrita
+// como `<line x1="6" y1="6" x2="6" y2="18"/>` — o idioma que este mesmo arquivo
+// já usa em `#simpleVolDown` — passaria por uma asserção que só olhasse `path`.
+{
+  const DESENHO = /<(path|line|polyline|polygon|rect|circle|ellipse)\b/g;
+  const FECHADA = /^(polygon|rect|circle|ellipse)$/;
+  for (const nome of ['icoSlidePrev', 'icoSlideNext']) {
+    const m = html.match(new RegExp('<symbol id="' + nome + '"[^>]*>([\\s\\S]*?)</symbol>'));
+    const corpo = m ? m[1] : '';
+    const prims = [...corpo.matchAll(DESENHO)].map((x) => x[1]);
+    checar(prims.length === 1,
+      nome + ' desenha UMA primitiva só — a barra era a segunda, e era ela que '
+      + 'dizia "mídia" num botão que passa estrofe, versículo, mensagem ou página',
+      JSON.stringify(prims));
+    const tipo = prims[0] || '';
+    const dFechado = /<path\b[^>]*\sd="[^"]*[zZ]/.test(corpo);
+    checar(!!tipo && !FECHADA.test(tipo) && !dFechado,
+      nome + ' é uma forma ABERTA: um triângulo fechado apontando para a direita '
+      + 'é o desenho do ▶, e trocar uma confusão por outra não atende ao pedido',
+      JSON.stringify({ tipo, dFechado }));
+  }
+}
+
 console.log('\n' + (falhas.length ? falhas.length + ' FALHA(S)' : 'tudo certo'));
 process.exit(falhas.length ? 1 : 0);
