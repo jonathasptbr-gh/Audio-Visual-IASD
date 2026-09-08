@@ -31,7 +31,12 @@
 // é o defeito exato daquela versão. **As duas só se resolvem juntas**, e a
 // solução é o bloco aberto REPRODUZIR a caixa fechada: metade do vão acima da
 // barra, metade abaixo. Os dois oráculos são as duas metades da mesma regra, e
-// mexer aqui pede rodar aquele.
+// mexer aqui pede rodar aquele — e o `smoke.mjs` junto, que foi quem reprovou a
+// tentativa de estender a regra à SEÇÃO (lá o corpo traz `.35rem` de vão por
+// dentro, e forçar a mesma conta pede margem negativa: −5px de vão dentro da
+// coleção, o corpo subindo por cima da própria barra). A seção fica com a
+// compensação de sempre, e o relato é quem decide: o título dela andava 0,86px,
+// o de um card andava 10,4.
 //
 // ## O que ele mede, e por que a segunda metade existe
 //

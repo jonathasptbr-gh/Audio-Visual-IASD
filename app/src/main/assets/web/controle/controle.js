@@ -10937,19 +10937,22 @@ function medirTampa(lista) {
   // v1.5.19 — a TAMPA de um bloco (do topo dele até onde o corpo começa) medindo
   // o mesmo fechada e aberta. As duas só se resolvem juntas, e a solução é o
   // bloco aberto REPRODUZIR a caixa fechada: metade do vão acima da barra,
-  // metade abaixo. Ver o bloco correspondente em `controle.css`.
+  // metade abaixo.
+  //
+  // SÓ O CARD USA ISTO, e a seção fica com a compensação de sempre: o corpo dela
+  // já traz `.35rem` de vão por dentro, e com ele as duas invariantes só
+  // coexistem num ponto. O relato decide qual cede — o título de uma seção
+  // andava 0,86px, o de um card andava 10,4. Ver o bloco correspondente em
+  // `controle.css`.
   //
   // ELE ESTÁ AQUI porque esta função JÁ mede a barra de cada bloco — é a régua
   // que decide o piso da tampa logo acima. Escrevê-lo em CSS seria uma segunda
   // aproximação da mesma medida (foi o que `--bar-secao-h` era ali), e num
   // segundo ponto de JS seria a mesma conta em dois lugares.
-  // E ELE É POR BLOCO, não uma média. A barra de uma SEÇÃO e a de um CARD não
-  // medem o mesmo — MEDIDO, 0,86px de diferença a 430×900 —, e com um número só
-  // para os dois a segunda invariante falha na seção: o
-  // `lista-da-biblioteca.test.mjs` cobra que a TAMPA de um bloco (do topo dele
-  // até onde o corpo começa) meça o mesmo fechada e aberta, e ela é
-  // `topo + barra + topo`. Com a média no lugar da barra DAQUELE bloco, a conta
-  // fecha para um tipo e erra para o outro. O laço já tem a barra na mão.
+  // E ELE É POR BLOCO, não uma média. A conta que o CSS faz com ele é
+  // `topo + barra + topo = --tampa-h`, e ela só fecha se `barra` for a daquele
+  // bloco: a de uma seção e a de um card diferem (MEDIDO, 0,86px a 430×900), e
+  // uma média erraria nos dois. O laço já tem a barra na mão.
   const topoDe = (b) => {
     const barra = b.querySelector('.coll-group-bar, .coll-bar, .row');
     const alt = barra ? barra.getBoundingClientRect().height

@@ -1809,6 +1809,13 @@ junto).
   rodava no CI sem linha em tabela nenhuma. É essa varredura, não a memória, que
   responde à pergunta, e ela é uma linha:
   `comm -3 <(ls tools/*.test.mjs | sort) <(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' .github/workflows/apk.yml | sort -u)`
+- **E A LISTA DO CI NÃO É `tools/*.test.mjs`.** Dois oráculos não têm esse
+  sufixo — o `smoke.mjs` e o `display-smoke.mjs` —, e são justamente os dois
+  que medem o RENDERIZADO. Um runner local que filtre por esse sufixo os pula
+  em silêncio e devolve um placar cheio: aconteceu na v1.8.50, e o que ele
+  escondeu foi uma regra de CSS que subia o corpo de uma coleção por cima da
+  própria barra. A lista certa é a do workflow, e ela sai daqui:
+  `grep -oE 'tools/[a-z0-9._-]+\.mjs' .github/workflows/apk.yml | sort -u | grep -vE 'arnes|checar|sem-rede|pares-de-comentario'`
 - **A REVERSÃO É UM PASSO, NÃO UMA BOA PRÁTICA.** Toda asserção nova roda
   **duas vezes** antes do commit: com o conserto, e com ele desfeito. Sem isso a
   asserção pode ser uma TAUTOLOGIA — passar nas duas versões —, e isso não é

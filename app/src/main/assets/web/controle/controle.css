@@ -4917,12 +4917,20 @@ main {
    a barra de uma seção e a de um card não medem o mesmo (0,86px de diferença,
    medidos).
 
-   OS `.35rem` DA SEÇÃO são um vão que o corpo dela já traz por dentro, e que o
-   card não tem: descontá-los é o que faz as duas somarem o mesmo. A subtração é
-   deliberadamente SEM piso em zero — o vão de dentro pode ser MAIOR que o
-   `topo`, e aí a margem negativa é o que puxa o corpo de volta para a linha. O
-   fallback é `.35rem` e não `0px` justamente por isso: numa lista ainda não
-   medida ele computa `0`, em vez de subir o corpo por cima da barra. */
+   E A REGRA É DO CARD, NÃO DA SEÇÃO — o que não é escopo tímido, é aritmética.
+   O corpo de uma seção já traz `.35rem` de vão POR DENTRO (o do card é zero), e
+   com ele as duas invariantes só coexistem quando `topo` vale exatamente esses
+   `.35rem`: `topo + barra + .35rem = tampa` com `topo = (tampa − barra) / 2` dá
+   `topo = .35rem`. Fora desse ponto uma das duas cede, e MEDIDO a 430×900 com
+   nove blocos a seção fica a 0,86px de fechar — enquanto o card fecha EXATO,
+   porque não tem vão interno a acomodar.
+
+   Qual cede está decidido pelo relato: o título de uma SEÇÃO andava 0,86px, que
+   ninguém vê; o de um CARD andava 10,4px, que foi o que o operador viu. A seção
+   fica com a compensação de sempre (o vão inteiro em cima, que é o que mantém a
+   tampa dela constante) e o card ganha a nova. Forçar a seção à mesma regra pede
+   margem NEGATIVA, e ela sobe o corpo por cima da própria barra assim que a
+   lista fica sem folga — o `smoke.mjs` mediu −5px de vão dentro da coleção. */
 #hymnResults.acervo > .hymnal-card.expanded {
   padding-top: var(--tampa-topo, 0px);
 }
@@ -4930,10 +4938,7 @@ main {
   margin-bottom: var(--tampa-topo, 0px);
 }
 #hymnResults.acervo > .coll-group--drop.aberto {
-  padding-top: var(--tampa-topo, 0px);
-}
-#hymnResults.acervo > .coll-group--drop.aberto > .coll-group-bar {
-  margin-bottom: calc(var(--tampa-topo, .35rem) - .35rem);
+  padding-top: max(0px, calc(var(--tampa-h, var(--bar-secao-h)) - var(--bar-secao-h) - .35rem));
 }
 /* ---------- O BLOCO RESPONDE POR LUZ, E RESPONDE INTEIRO ----------
    (v1.5.17, generalizado e desencolhido na v1.7.4.)
