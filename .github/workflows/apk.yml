@@ -554,6 +554,7 @@ jobs:
           rodar tools/registro-alcance.test.mjs
 
           rodar tools/plataforma.test.mjs
+          rodar tools/site-grade-e-carrossel.test.mjs
           rodar tools/lista-da-biblioteca.test.mjs
           rodar tools/geometria.test.mjs
           rodar tools/deslize-nao-vaza.test.mjs

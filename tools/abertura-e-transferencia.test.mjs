@@ -262,13 +262,16 @@ try {
       rodape: (document.getElementById('appVersion') || {}).textContent,
     }));
     const esperado = 'v' + VERSAO;
-    // O RODAPÉ LEVA O NOME JUNTO desde a v1.7.2 (*"para que seja 'áudio visual
-    // IASD vx.x.x' com o nome do app, para ter um melhor preenchimento do
-    // rodapé"*), e o NÚMERO continua sendo o mesmo das duas badges: é ele que
-    // esta asserção guarda. As badges do cabeçalho seguem secas — levar o nome
-    // para uma pastilha de 40px seria a mesma frase em três tamanhos.
+    // AS TRÊS CASAS DIZEM A MESMA STRING desde a v1.8.51, e é mais forte assim.
+    // O rodapé levava o nome junto desde a v1.7.2 (*"para que seja 'áudio visual
+    // IASD vx.x.x' com o nome do app, **para ter um melhor preenchimento do
+    // rodapé**"*), e o motivo daquele pedido caducou: a faixa deixou de estar
+    // larga e vazia e passou a precisar de espaço para os rótulos dos botões
+    // (*"considere abreviar a versão para dar espaço a um botão mais claro em
+    // sua função"*). O que esta asserção guarda nunca foi a marca — é o NÚMERO
+    // ser um só, escrito por um escritor só.
     checar(textos.simples === esperado && textos.avancado === esperado
-      && textos.rodape === 'Áudio Visual IASD ' + esperado,
+      && textos.rodape === esperado,
       'B · as TRÊS casas dizem o MESMO número, e ele é a versão do `version.json` (' + esperado + ') — '
       + 'um escritor só é o que impede duas telas de anunciarem versões diferentes', textos);
 

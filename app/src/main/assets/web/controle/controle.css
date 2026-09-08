@@ -747,7 +747,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      POR LUZ". Ela é a linha de lista deste app, isto é, o outro CONTÊINER que
      hospeda controles: o `⋮`, o "Tirar do ar" na capa, a gaveta inteira.) */
   .fit-opt, .dialog-btn, .coll-group-acao,
-  .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy, .hino-indice-chip,
+  .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy, .diag-btn, .hino-indice-chip,
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol,
   /* A linha de slide que PROJETA, no auxiliar de leitura (v1.4.26). */
   .lv-row--tocavel,
@@ -6725,32 +6725,104 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    precisa de folga; o `.log-copy` é um quadrado de `--hit` e a folga dele já
    está dentro do alvo — um padding à direita empurraria o botão para dentro e
    deixaria uma borda morta na faixa. */
+/* ===== O RESPIRO É DOS QUATRO LADOS DESDE QUE UM FILHO PINTA (v1.8.51) =====
+   Pedido do operador: *"ajuste o espaçamento entre os elementos do rodapé das
+   configurações. Sinto que está muito apertado o botão de entrar em contato"*.
+
+   MEDIDO no que havia: `gap` de **5,6px** (`--sp-3`, que esta folha declara como
+   *"entre linhas de uma lista"*, e não como o gap de barra que é `--sp-4`), a
+   borda direita do `#contatoBtn` a **0px** da borda da faixa, e **0px** acima e
+   abaixo — `min-height: var(--hit)` sobre um alvo de `var(--hit)`. São três
+   zeros, e não um gap apertado.
+
+   A REGRA ANTIGA SE INVERTEU, e é por isso que ela sai em vez de ser ajustada.
+   Ela dizia: *"o respiro da esquerda é padding; o da direita é o ALVO — um
+   padding à direita empurraria o botão para dentro e deixaria uma borda morta"*.
+   Isso valia enquanto o alvo era INVISÍVEL (`background: none`). Com o contato
+   preenchido, o que encosta na borda não é área de toque: é TINTA, contra um
+   canto de `--radius-btn` que a corta. A borda morta que a regra evitava virou a
+   moldura de que o botão precisa para se ler como botão.
+
+   OS DOIS LADOS SEGUEM DIFERENTES, agora por outra razão: à esquerda mora TEXTO
+   nu, que precisa do respiro de bloco (`--sp-5`); à direita mora um botão que já
+   carrega o próprio recuo interno, e o que falta ali é só a costura (`--sp-3`).
+
+   A QUEBRA NÃO É UMA MEDIA QUERY, e não poderia ser: o que estoura a faixa não é
+   a largura da tela, é o TAMANHO DE FONTE do sistema, que o operador escolhe e
+   que ponto de corte nenhum conhece. `flex-wrap` deixa o navegador medir. MEDIDO
+   com "v1.8.51" + "Registro" + "Pedir ajuda": UMA linha a 320px (folga 10,3px),
+   a 360px (50,3px) e a 360px com fonte a 1,15× (8,5px); DUAS a 360px com a fonte
+   a 1,3×, sem transbordar em nenhum dos casos. **A 320px ela cabe só na fonte
+   padrão** — um degrau já a quebra, e é para isso que o `flex-wrap` existe. */
 .footer-diag {
   --fs-diag: .74rem;
-  display: flex; align-items: center; gap: var(--sp-3);
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
   margin-top: .45rem;
-  min-height: var(--hit);
-  padding-left: .6rem;
+  min-height: calc(var(--hit) + 2 * var(--sp-2));
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-5);
   background: var(--surface-2); border-radius: var(--radius-btn);
   font-size: var(--fs-diag);
 }
 /* `--text` E NÃO `--muted`, e é MEDIDO: a faixa afunda `--surface-2` dentro da
-   folha, e no tema CLARO isso é preto a 20% sobre branco (204,204,204) —
-   `--muted` ali dá **4,15:1**, abaixo do piso de 4,5. Com `--text`: **5,52:1**
-   no claro e 10,55:1 no escuro. Esta linha é a versão do app lida de relance por
-   quem está diagnosticando — desde a v1.7.0 ela é UM número, o mesmo das duas
-   badges do cabeçalho (ver `renderVersionLabel`); quem separa base web de shell
-   é o Registro, ao lado. */
+   folha (a `.popup-sheet` está na lista de R1), e no tema CLARO isso é preto a
+   20% sobre branco (204,204,204) — `--muted` ali dá **4,15:1**, abaixo do piso
+   de 4,5. Com `--text`: **13,08:1** no claro e **11,29:1** no escuro. (O
+   comentário anterior dizia 5,52:1 no claro; aquele número foi medido antes da
+   v1.5.12, que fez o `--text` claro virar `#000000`. Errava para melhor, e por
+   isso nada quebrou — mas afirmava o que não é.)
+
+   Esta linha é a versão do app lida de relance por quem está diagnosticando —
+   desde a v1.7.0 ela é UM número, o mesmo das duas badges do cabeçalho (ver
+   `renderVersionLabel`). Desde a v1.8.51 ela é SÓ o número: a marca saiu para
+   pagar o rótulo dos dois botões, e nomear o app numa tela DELE era a palavra
+   mais dispensável da faixa. Quem ainda nomeia é o que SAI do app — o rascunho
+   do WhatsApp e o `compartilharTexto` —, e ali a marca é obrigatória. */
 .footer-diag > .app-version { flex: 0 0 auto; color: var(--text); }
-/* O rótulo empurra a si mesmo e ao botão para a outra ponta. Ele é `hidden`
-   junto com o botão (ver o HTML): uma palavra sozinha, sem alvo ao lado, é um
-   controle que não existe. */
-.footer-diag-rot { margin-left: auto; color: var(--text); }
-/* O BOTÃO PERDE O FUNDO PRÓPRIO e herda o da faixa — um fundo dentro de um
-   fundo é a camada a mais que estas duas rodadas existem para tirar. O ALVO não
-   muda: o esqueleto de `--hit` do `.log-copy` continua valendo, e é ele que
-   garante o piso de toque. */
-.footer-diag .log-copy { background: none; }
+/* O grupo empurra a si mesmo para a outra ponta — era o `margin-left: auto` do
+   `.footer-diag-rot`, que saiu com o rótulo solto (v1.8.51). E ele é a UNIDADE
+   que a faixa quebra: os dois botões são uma sequência (guardar o arquivo,
+   depois mandá-lo), e quebrar entre eles partiria a frase ao meio. */
+.footer-diag-acoes { margin-left: auto; display: flex; align-items: center; gap: var(--sp-3); }
+/* ---------- O BOTÃO DA FAIXA DE DIAGNÓSTICO: ÍCONE **E** RÓTULO (v1.8.51) ----
+   Ele NÃO é o `.log-copy`, e a diferença é o rótulo: aquele é o esqueleto de
+   `--hit` QUADRADO, e um quadrado não cresce para caber uma palavra. A altura
+   continua sendo `--hit` — o piso de toque do app não muda —; o que muda é a
+   largura, que passa a ser o conteúdo.
+
+   `--sp-1` entre o ícone e a palavra porque é literalmente o que o token diz
+   (*"dentro de uma peça (ícone e rótulo)"*), e `--sp-5` de recuo lateral, o
+   mesmo respiro de bloco que a faixa reserva à esquerda. */
+.diag-btn {
+  flex-shrink: 0; height: var(--hit); padding: 0 var(--sp-5);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
+  border: none; border-radius: var(--radius-btn); cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  font-family: inherit; font-size: var(--fs-diag); font-weight: var(--fw-medio);
+  white-space: nowrap;
+  background: none; color: var(--text);
+}
+/* ---------- E UM DELES É A AÇÃO PRIMÁRIA DA FAIXA ----------
+   Pedido do operador: *"faça ele um botão mais sólido visualmente, pois não está
+   claro que ele serve para comunicar ou feedback"*.
+
+   `--accent-fill` + `--on-accent` é o par que o `tokens.css` nomeia como *"FUNDO
+   preenchido (aba ativa, botão primário)"*, e o app já o escreve assim no
+   `.dialog-btn.primary`. Ele é OPACO nos dois temas (#2f557f), que é a regra dos
+   fundos de ação.
+
+   NÃO É `--btn-accent`, por DUAS razões independentes. (1) IDIOMA: aquele par
+   quer dizer LIGADO (interruptor), e este botão não tem estado. (2) MEDIDA:
+   `--btn-accent` contra esta faixa dá **1,35:1** no escuro e **1,33:1** no claro
+   — ele não leria como sólido, que é exatamente o que o pedido é. Com
+   `--accent-fill`: **1,94:1** no escuro e **4,80:1** no claro contra a faixa, e
+   `--on-accent` sobre ele dá **6,54:1** e **7,70:1** — os dois com folga sobre
+   AA para texto pequeno.
+
+   E SÓ UM DELES O VESTE: guardar o Registro é o PASSO, falar é o DESTINO. Dois
+   preenchidos lado a lado seriam duas ações primárias na mesma faixa, e o que o
+   operador não conseguia ver era justamente qual das duas é a porta. */
+.diag-btn--primario { background: var(--accent-fill); color: var(--on-accent); }
 
 /* (`.folder-pick-btn` saiu na v5.254, com o popup de seleção de pasta: os
    atalhos de pasta deixaram de existir, e uma pasta do APARELHO não recebe

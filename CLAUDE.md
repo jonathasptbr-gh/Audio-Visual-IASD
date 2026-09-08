@@ -1994,6 +1994,14 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   linha alterada, e a migração foi o DNS mais o `site/CNAME`. A regra continua
   valendo pelo mesmo motivo: **o endereço pode mudar de novo, o `site/` não**.
 
+  **E NA PÁGINA O RECURSO SE CHAMA "CONECTAR UM COMPUTADOR"** (v1.8.51), a
+  pedido do operador: *"use apenas termos diretos relacionados a 'conectar a um
+  computador via navegador'… não quero algo genérico como rede ou aparelho, ou
+  navegador"*. O computador é o SUJEITO que recebe a projeção e o navegador é o
+  MEIO; "telas da rede" e "outra tela" não voltam ao texto visível — e o
+  espelhamento na TV é OUTRA coisa, que não pode virar "computador". Oráculo:
+  `site-grade-e-carrossel.test.mjs`, bloco C.
+
   **E O DOWNLOAD SÓ EXISTE NO ANDROID.** O app é um `.apk`, e um `.apk` só
   instala em Android: quem chega de iPhone, iPad ou computador não vê o guia de
   instalação — vê, no MESMO ponto da página, uma frase dizendo que este é um
@@ -2267,7 +2275,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.50 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.51 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
