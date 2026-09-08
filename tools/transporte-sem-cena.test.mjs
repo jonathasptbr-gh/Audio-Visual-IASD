@@ -40,6 +40,23 @@
 //     parada (é `currentId` que faz ele repetir a faixa), e o ⏹ volta a acender
 //     assim que há cena. Sem esta metade, "apagar o que não faz nada" levaria
 //     dois recursos junto.
+//  5. **SEM FILA, SÓ O ⏮ SOBRA — e ele RECOMEÇA** (v1.8.51). Relato do
+//     operador: *"o botão de proxima midia quando não há uma lista na
+//     playlist… nesse caso apenas o botão de midia anterior fica ativo, pois
+//     ele volta ao início da midia atual"*. A régua é o `transportePode`, lido
+//     pelos DOIS lados (o que apaga e o que executa), e o recomeço é um `seek`
+//     e não um `send` — aquele reabriria a cena e, num item de LINK do YouTube,
+//     dispararia a resolução de novo.
+//  6. **COM FILA, NADA MUDA — nem com UM item.** É a REGRESSÃO que a régua
+//     larga produz: apagar o par com um item só tiraria o único caminho de
+//     INICIAR uma fila pelo transporte (o `idx === -1` do `step` cai no
+//     primeiro). O pedido fala da fila VAZIA, e é só ela que muda.
+//  7. **O BOTÃO DA FILA APAGA COM ELA VAZIA** (v1.8.51), o que REVOGA a exceção
+//     escrita no item 4 da v1.8.50. Ele apaga só com ZERO: com um item a folha
+//     ainda é a única porta para remover, favoritar, mandar ao Cronograma,
+//     limpar e empacotar — e um item é o estado que todo toque numa mídia
+//     produz. O limiar NÃO é o da badge (que some com `> 1`), e as duas
+//     perguntas ficam separadas de propósito.
 //
 //   node tools/transporte-sem-cena.test.mjs
 // ============================================================================
@@ -94,6 +111,8 @@ const botoes = () => pg.evaluate(() => {
   return {
     prev: ler('prev'), next: ler('next'), stop: ler('stop'), play: ler('playpause'),
     slidePrev: ler('slidePrevBtn'), slideNext: ler('slideNextBtn'),
+    pl: ler('plBtn'), plBadge: (document.getElementById('plCount').textContent || ''),
+    fila: plItems.length,
     alvo: slideTarget(), midia: !!midiaNoAr, id: currentId || '',
   };
 });
@@ -188,6 +207,91 @@ try {
     + '`cenaNoAr()`: esta começa por `!!currentId`, que sobrevive ao stop, e '
     + 'deixaria o botão aceso para sempre depois da primeira mídia do dia',
     parado.stop);
+
+  // ── 6. SEM FILA, SÓ O ⏮ SOBRA — E ELE RECOMEÇA (v1.8.51) ────────────────
+  // Relato do operador: *"o botão de proxima midia quando não há uma lista na
+  // playlist… nesse caso apenas o botão de midia anterior fica ativo, pois ele
+  // volta ao início da midia atual"*.
+  await pg.evaluate(async () => {
+    await AVDB.listSet('playlist', []);
+    await load();
+    await send('hino-um');
+  });
+  await esperar(pg, () => plItems.length === 0 && !!midiaNoAr, null, 8000);
+  const semFila = await botoes();
+  checar(semFila.fila === 0 && semFila.midia === true,
+    'o cenário: a fila esvaziou e a mídia continua no ar', semFila);
+  checar(semFila.next.off === true && /pr[óo]xima m[íi]dia/i.test(semFila.next.title),
+    'SEM FILA o ⏭ APAGA: não há para onde ir, e o `title` diz isso', semFila.next);
+  checar(semFila.prev.off === false && /recome[çc]ar/i.test(semFila.prev.title),
+    'e o ⏮ FICA ACESO, prometendo o que ele de fato faz ali: RECOMEÇAR — é a '
+    + 'única coisa que "mídia anterior" pode significar sem anterior nenhuma',
+    semFila.prev);
+  // O QUE SAI NO BARRAMENTO: um `seek` e nada mais. Um `send` reabriria a cena
+  // e, num item de LINK do YouTube, dispararia a resolução de novo.
+  const doRecomeco = await pg.evaluate(() => {
+    const vistos = [];
+    const original = window.cmd;
+    window.cmd = (c) => { vistos.push(c); };
+    try { step(-1); } finally { window.cmd = original; }
+    return vistos;
+  });
+  checar(doRecomeco.length === 1 && doRecomeco[0].type === 'seek' && doRecomeco[0].time === 0,
+    'e o recomeço é um `seek` para 0 — não um `send`, que reabriria a cena '
+    + 'inteira e resolveria um link do YouTube de novo', JSON.stringify(doRecomeco));
+  const doNext = await pg.evaluate(() => {
+    const vistos = [];
+    const original = window.cmd;
+    window.cmd = (c) => { vistos.push(c.type); };
+    try { step(1); } finally { window.cmd = original; }
+    return vistos;
+  });
+  checar(doNext.length === 0,
+    'e o ⏭ não emite NADA nem chamado por outra porta: a régua que apaga é a '
+    + 'MESMA que o `step` executa', JSON.stringify(doNext));
+
+  // ── 7. SEM FILA E SEM CENA, OS DOIS APAGAM ──────────────────────────────
+  await pg.evaluate(() => stopClear());
+  await esperar(pg, () => midiaNoAr === false, null, 5000);
+  const nada = await botoes();
+  checar(nada.prev.off === true && nada.next.off === true,
+    'sem fila E sem cena os DOIS apagam — não há mídia para recomeçar', nada);
+
+  // ── 8. COM UM ITEM, NADA MUDA ───────────────────────────────────────────
+  // É a REGRESSÃO que a régua larga produz: apagar o par com um item só tiraria
+  // o único caminho de INICIAR a fila pelo transporte (o `idx === -1` do `step`
+  // cai no primeiro item). O pedido fala da fila VAZIA.
+  await pg.evaluate(async () => {
+    await AVDB.listSet('playlist', ['hino-um']);
+    await load();
+    renderSlideNav();
+  });
+  const umSo = await botoes();
+  checar(umSo.fila === 1 && umSo.prev.off === false && umSo.next.off === false,
+    'COM UM ITEM os dois seguem ACESOS: com a fila parada eles a INICIAM, e '
+    + 'apagá-los tiraria o único caminho de começar uma fila pelo transporte',
+    umSo);
+
+  // ── 9. O BOTÃO DA FILA APAGA SÓ COM ELA VAZIA (v1.8.51) ─────────────────
+  // Relato do operador: *"o botão de playlist segue ativo nos controles, mesmo
+  // quando não há nenhum item na playlist"*. Revoga a exceção da v1.8.50.
+  checar(umSo.pl.off === false,
+    'COM UM ITEM o botão da fila fica ACESO: a folha ainda é a única porta para '
+    + 'remover, favoritar, mandar ao Cronograma, limpar e empacotar — e um item '
+    + 'é o estado que todo toque numa mídia produz', umSo.pl);
+  await pg.evaluate(async () => { await AVDB.listSet('playlist', []); await load(); });
+  await esperar(pg, () => plItems.length === 0, null, 5000);
+  const semNada = await botoes();
+  checar(semNada.pl.off === true && /vazia/i.test(semNada.pl.title),
+    'e com ela VAZIA ele apaga, com o `title` dizendo como se monta uma fila — '
+    + 'a frase de ensino morava na folha, e ninguém mais a abriria para lê-la',
+    semNada.pl);
+  // O LIMIAR DO BOTÃO NÃO É O DA BADGE, e a separação é deliberada: ela some
+  // com `> 1` (um item não merece contagem), ele apaga com `=== 0`.
+  checar(semNada.plBadge === '' && umSo.plBadge === '',
+    'e a badge segue muda nos dois estados — o limiar dela (`> 1`) é OUTRO, e '
+    + 'amarrá-los faria uma pergunta responder pela outra',
+    JSON.stringify({ zero: semNada.plBadge, um: umSo.plBadge }));
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));
