@@ -5307,6 +5307,15 @@ primeiro era garantir que um dos dois esquecesse uma das cinco coisas.
 > toque na linha) e não podia vir de carona. **A FILA já fazia assim**, com o
 > motivo escrito na linha dela desde a v5.309 — era este caminho que destoava.
 >
+> **E A FILA VOLTOU A DESTOAR, num caso só** (v1.8.52, relato do operador):
+> tirar dela o item que está no ar SEM SOBRAR NADA encerra a cena. Não é a regra
+> acima com exceção — é outra régua, e o que as separa é a NATUREZA da lista, não
+> a contagem de detentores: a fila é a única que o TRANSPORTE percorre, e
+> esvaziá-la por cima do que está no ar não é "guardei noutro lugar", é ACABOU.
+> Com fila sobrando nada muda (reorganizar não é motivo para parar o louvor), e
+> nada é apagado — o item segue em `avulsos`, com os bytes. Ver
+> `encerrarCenaDaFila` e os blocos 4a–4d do mesmo oráculo.
+>
 > E o que sustenta a mudança é o outro lado dela: `send()` fixa a cena na
 > prateleira `avulsos` (ver `MODELO-DE-DADOS.md`), senão o `listRemove` apagaria
 > os bytes de baixo da projeção. Isso não teria sintoma na hora — o `<video>` já
@@ -5451,13 +5460,18 @@ item a item era o único caminho, e uma fila de culto tem oito ou dez linhas —
 cada uma com a própria pergunta.
 
 - **A SEMÂNTICA é a do excluir de uma linha da fila**, não a de um excluir de
-  acervo: `AVDB.listSet('playlist', () => [])`, sem `retirarDoAr` e sem
-  `soltarAvulso`. O que está projetando segue projetando, e o que estiver no
-  Cronograma, nos Favoritos, numa pasta ou no slot avulso segue inteiro — o
-  `listSet` coleta só o que NENHUMA outra lista aponta, que é a mesma conta que
-  o `listRemove` faz item a item. Limpar dez de uma vez é dez remoções, não uma
-  operação nova. A forma com FUNÇÃO, nunca `listSet('playlist', [])`: ela roda
-  dentro da transação que grava.
+  acervo: `AVDB.listSet('playlist', () => [])`, sem `soltarAvulso`. O que
+  estiver no Cronograma, nos Favoritos, numa pasta ou no slot avulso segue
+  inteiro — o `listSet` coleta só o que NENHUMA outra lista aponta, que é a
+  mesma conta que o `listRemove` faz item a item. Limpar dez de uma vez é dez
+  remoções, não uma operação nova. A forma com FUNÇÃO, nunca
+  `listSet('playlist', [])`: ela roda dentro da transação que grava.
+- **MAS A CENA ACABA COM A FILA** (v1.8.52), e por isso este caminho chama
+  `encerrarCenaDaFila` quando o que estava no ar era dela — a mesma resposta da
+  lixeira da última linha, porque o mesmo estado por duas portas não pode ter
+  duas respostas. A `dica` do botão dizia *"o que está no ar segue no ar"*, e
+  ela é texto que o operador LÊ antes de confirmar. Oráculo: o bloco 4d do
+  `excluir-em-cena.test.mjs`.
 - **A pergunta é a mesma das listas** (`pedirConfirmacaoNaLinha`), e por isso o
   botão tem uma CAIXA só sua (`.pl-limpar-faixa`): o par substitui os IRMÃOS
   dele, e no rodapé inteiro levaria o "Guardar como pacote" junto. A altura mora
