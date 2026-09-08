@@ -747,7 +747,10 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      POR LUZ". Ela é a linha de lista deste app, isto é, o outro CONTÊINER que
      hospeda controles: o `⋮`, o "Tirar do ar" na capa, a gaveta inteira.) */
   .fit-opt, .dialog-btn, .coll-group-acao,
-  .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy, .diag-btn, .hino-indice-chip,
+  /* O `.pl-clear` entrou na v1.8.53, e a ausência dele era visível só depois do
+     lado a lado: os dois botões do rodapé da playlist são um PAR, e um recuando
+     ao toque enquanto o outro fica parado lê-se como um deles quebrado. */
+  .cue-save-btn, .pl-pack, .pl-clear, .yt-search-btn, .log-copy, .diag-btn, .hino-indice-chip,
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol,
   /* A linha de slide que PROJETA, no auxiliar de leitura (v1.4.26). */
   .lv-row--tocavel,
@@ -2460,12 +2463,20 @@ main {
   border-radius: var(--radius-btn);
 }
 /* A COR SE PARTIU POR HABITAT (v1.5.19), e não por botão. O `--btn-accent`
-   continua sendo o preenchimento de `+ Nova mensagem` e de `Guardar como
-   pacote`, que vivem sobre `--panel` (onde ele mede 1,23:1 e 1,21:1, a faixa
-   normal de um controle de folha) e são de fato a única ação do bloco delas —
-   o argumento em que ele nasceu. Quem sai é a porta do meio do RODAPÉ, que
-   vive sobre `--bg`: ver "AS TRÊS PORTAS FICAM QUIETAS". */
-.list-foot > .selbar, .msg-add-btn, .pl-pack {
+   continua sendo o preenchimento de `+ Nova mensagem`, que vive sobre `--panel`
+   (onde ele mede 1,21:1, a faixa normal de um controle de folha) e é de fato a
+   única ação do bloco dela — o argumento em que ele nasceu. Quem saiu primeiro
+   foi a porta do meio do RODAPÉ, que vive sobre `--bg`: ver "AS TRÊS PORTAS
+   FICAM QUIETAS".
+
+   E O `Guardar como pacote` SAIU NA v1.8.53, pelo MESMO argumento caindo pela
+   segunda vez: ele era pintado por ser *"a única ação do bloco dela"*, e o
+   pedido do operador pôs o `Limpar` ao lado — o bloco passou a ter duas. Some
+   a razão que decide: com menos de dois itens ele é APAGADO, e um item é o
+   estado dominante da fila (todo toque numa mídia faz `listSet('playlist',
+   [id])`), de modo que o azul cheio estaria esmaecido quase o culto inteiro.
+   Ver a `.pl-pack`. */
+.list-foot > .selbar, .msg-add-btn {
   background: var(--btn-accent);
 }
 /* `min-height: var(--hit-foot)` e não só o padding: é ele que fixa a altura da
@@ -6601,20 +6612,69 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    para não rolar junto com a fila: numa playlist de dez itens, o botão que a
    guarda tem de continuar à vista. */
 .pl-pack {
-  flex-shrink: 0; margin: 0 .7rem .8rem;
+  /* A BASE É METADE, NÃO ZERO (v1.8.53), e isso é MEDIDO. Com `flex: 1` a base
+     é `0%` e o Blink soma o padding do botão POR FORA dela: o pacote saía
+     152,8px contra 136,8px da caixa do limpar, e duas metades desiguais numa
+     faixa de duas ações leem como uma hierarquia que não existe. `box-sizing:
+     border-box` NÃO resolve — os dois já computam `border-box`, e a reversão
+     mostrou a mesma diferença com ele. Uma base em PORCENTAGEM resolve, porque
+     aí o padding entra dentro dela: 144,8px nos dois. Metade do gap sai do
+     token, nunca digitada. */
+  flex: 1 1 calc(50% - var(--sp-4) / 2); min-width: 0;
   display: flex; align-items: center; justify-content: center; gap: var(--sp-4);
-  padding: .7rem .5rem;
-  color: var(--accent);
+  padding: 0 .5rem;
+  /* A MESMA CAIXA DO IRMÃO (v1.8.53), e a COR é o que os separa: `--accent`
+     aqui, `--danger-text` no limpar. Ele saiu da regra agrupada do
+     `--btn-accent` — ver lá o porquê, que é o argumento da v1.5.19 caindo pela
+     segunda vez. O raio continua vindo da regra do `--radius-btn`, que ele
+     divide com o `.import-btn` e a `.selbar`. */
+  background: var(--surface); color: var(--accent);
   font-size: var(--fs-md); font-weight: var(--fw-medio); font-family: inherit; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 .pl-pack .msym { font-size: var(--icon-sm); }
+/* APAGADO É A LINGUAGEM DO INDISPONÍVEL neste app (`--op-inativo` + `disabled`,
+   a mesma do `.t-btn` e do `.slide-btn`) — ver o `renderPlaylist`, que decide
+   QUANDO. Não há regra global de `:disabled` neste arquivo: cada família
+   declara a sua, e uma que esquecesse esta linha teria um botão inerte com cara
+   de botão vivo. */
+.pl-pack:disabled { opacity: var(--op-inativo); cursor: default; }
+
+/* ---------- OS DOIS LADO A LADO (v1.8.53) ----------
+   Pedido do operador: *"ajuste os botões de limpar playlist inteira e guardar
+   no cronograma, para que sejam botões lado a lado… resuma os textos ou remova
+   se achar necessário, mas deixe os botões lado a lado"*.
+
+   A MARGEM SOBE PARA A FAIXA. Ela era escrita DUAS vezes, uma em cada botão
+   (`0 .7rem .8rem`), e dois números iguais em lugares diferentes divergem no
+   primeiro ajuste — agora o rodapé tem UMA margem e os filhos não têm nenhuma.
+
+   `flex: 1` NOS DOIS, e não larguras pelo conteúdo: a caixa do limpar é a que
+   hospeda a pergunta ("Cancelar / Limpar", que divide o que receber ao meio),
+   então dar-lhe só a largura do rótulo "Limpar" espremeria os dois botões do
+   destrutivo. Metade da faixa é o piso que MEDIDO cabe (a 320px: 145px de
+   caixa, 68,5px por botão do par, "Cancelar" mede 60,2px).
+
+   E ELA QUEBRA EM DUAS LINHAS quando o texto não cabe — `flex-wrap` mais um
+   `min-width` de conteúdo. O que estoura esta faixa não é a largura da tela e
+   sim o TAMANHO DE FONTE do sistema (a lição da v1.8.51): com a fonte a 1,3× os
+   dois rótulos deixam de caber lado a lado, e empilhar é melhor que truncar. */
+.pl-rodape {
+  flex-shrink: 0; margin: 0 .7rem .8rem;
+  display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--sp-4);
+}
+/* O RÓTULO NÃO PODE MUDAR A ALTURA DA FAIXA. O botão do pacote EMPRESTA o
+   próprio rótulo para dizer o que houve (`falarNoPacote`), e as frases são mais
+   longas que ele — sem esta linha uma delas quebraria em duas linhas e a folha
+   daria um pulo sob o dedo, que é o que a receita de altura da faixa existe
+   para impedir. */
+.pl-rot { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- LIMPAR A FILA INTEIRA (v5.309) ----------
    A OUTRA ação que a lista oferece sobre si mesma, e a destrutiva delas. A
-   caixa é a mesma do pacote (mesma margem, mesma receita de altura, mesma
-   largura cheia): o rodapé da folha passa a ser duas decisões sobre a FILA, não
-   um botão e um enfeite.
+   caixa é a mesma do pacote — mesma altura, mesmo raio, mesma METADE da faixa
+   desde a v1.8.53: o rodapé da folha é duas decisões sobre a FILA, não um botão
+   e um enfeite.
 
    Ele é a PORTA de um destrutivo, não a execução dele, e veste o par discreto
    que a porta do "Tirar do ar" já veste (`--surface` + `--danger-text`) — o
@@ -6627,16 +6687,31 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 
    A ALTURA MORA NA FAIXA, não nos dois conteúdos dela. A pergunta troca o
    conteúdo da caixa (o botão sai, o par entra) e os dois têm receitas de altura
-   diferentes — `--hit` no par, padding no botão. Com o número aqui em cima e
+   diferentes — `--hit` no par, o glifo no botão. Com o número aqui em cima e
    `align-items: stretch`, quem estiver dentro veste a caixa, e a folha não dá
-   pulo nenhum no instante em que o dedo mira o destrutivo. O valor é a receita
-   do `.pl-pack` escrita por extenso (o glifo mais o padding), para os dois
-   botões do rodapé terem a mesma caixa sem que um repita o número do outro. */
+   pulo nenhum no instante em que o dedo mira o destrutivo. MEDIDO em quatro
+   larguras e três tamanhos de fonte do sistema: 42px antes e 42px durante a
+   pergunta, e o mesmo número com a fonte a 1,3× (49px) e a 1,5× (54px).
+
+   E ELA É QUEM DITA A ALTURA DA FAIXA INTEIRA (v1.8.53). Antes o número era
+   *"a receita do `.pl-pack` escrita por extenso"* — o pacote tinha a altura no
+   padding próprio (`.7rem`) e este a repetia. Hoje o pacote é irmão de flex com
+   `align-items: stretch`, então ele VESTE esta caixa e o número existe uma vez
+   só. */
 .pl-limpar-faixa {
-  flex-shrink: 0; margin: 0 .7rem .8rem;
+  /* A base em PORCENTAGEM é a que reparte a faixa ao meio — ver o `.pl-pack`. */
+  flex: 1 1 calc(50% - var(--sp-4) / 2); min-width: 0;
   display: flex; align-items: stretch;
-  min-height: calc(var(--icon-sm) + 1.4rem);
 }
+/* A ALTURA É DA FAIXA **E** DA CAIXA, num número só (v1.8.53). O rodapé da
+   playlist precisa dela porque a caixa do limpar SOME com a fila vazia — e sem
+   ela o pacote, que herda a altura por `align-items: stretch`, ficava com a do
+   próprio conteúdo: MEDIDO pelo portão de geometria, **23px a 360×740 com a
+   fonte a 1,5×**, contra um piso de toque de 34px. A `.pl-limpar-faixa` precisa
+   dela por si, porque ela também é a caixa do "limpar esta sessão" no Histórico,
+   onde não há `.pl-rodape` nenhum. Duas necessidades, uma declaração: escrever o
+   número duas vezes é o que diverge no primeiro ajuste. */
+.pl-rodape, .pl-limpar-faixa { min-height: calc(var(--icon-sm) + 1.4rem); }
 .pl-clear {
   flex: 1; min-width: 0;
   display: flex; align-items: center; justify-content: center; gap: var(--sp-4);
@@ -6652,6 +6727,25 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `--thumb`, e centrar é o certo lá), e aqui isso deixaria dois botões de
    `--hit` boiando numa caixa de 42px. */
 .pl-limpar-faixa.confirmando > .linha-confirma { align-items: stretch; }
+/* ---------- A PERGUNTA OCUPA A FAIXA (v1.8.53) ----------
+   Enquanto ela está aberta, o pacote SAI. Até a v1.8.52 ele ficava, e a razão
+   escrita era a altura: os dois botões moravam em LINHAS empilhadas, e levar o
+   vizinho junto tirava uma linha inteira do rodapé — a folha encolhia sob o dedo
+   que mira um destrutivo. Lado a lado essa razão não existe mais: a faixa
+   carrega a altura (`min-height`), some quem some, e MEDIDO o rodapé fica nos
+   mesmos 42px com e sem o pacote.
+
+   O que sobra é o motivo de sempre, e ele manda tirar: em todo o resto deste app
+   a pergunta SUBSTITUI os irmãos dela. Com o pacote de pé o par ficava com
+   METADE da faixa — MEDIDO a 320px, 69,6px por botão, e "Cancelar" (60,2px de
+   texto mais o padding) saía truncado num destrutivo. Um "Cancel…" ao lado de
+   "Limpar" é a pior linha de texto que este app saberia desenhar.
+
+   IRMÃO ADJACENTE, e não `:has()`: a ordem no HTML é nossa (o limpar vem antes
+   do pacote) e o `+` funciona em qualquer WebView, inclusive o de um aparelho
+   que nunca atualizou o Chromium. Comentário entre os dois não quebra a
+   adjacência — comentário não é elemento. */
+.pl-limpar-faixa.confirmando + .pl-pack { display: none; }
 
 /* ---------- Contador de itens de pasta ---------- */
 .folder-count {

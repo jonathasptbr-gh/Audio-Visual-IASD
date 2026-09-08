@@ -5473,21 +5473,38 @@ cada uma com a própria pergunta.
   ela é texto que o operador LÊ antes de confirmar. Oráculo: o bloco 4d do
   `excluir-em-cena.test.mjs`.
 - **A pergunta é a mesma das listas** (`pedirConfirmacaoNaLinha`), e por isso o
-  botão tem uma CAIXA só sua (`.pl-limpar-faixa`): o par substitui os IRMÃOS
-  dele, e no rodapé inteiro levaria o "Guardar como pacote" junto. A altura mora
-  na faixa, não nos dois conteúdos dela — o botão e o par têm receitas
-  diferentes, e sem o número num lugar só a folha encolheria sob o dedo no exato
-  instante em que o operador mira um destrutivo. `closePlPopup` **cancela**, como
-  tudo que fecha uma gaveta.
+  botão tem uma CAIXA só sua (`.pl-limpar-faixa`), e ela é o que torna o LADO A
+  LADO possível: `pedirConfirmacaoNaLinha` usa `botao.parentElement` e esconde os
+  IRMÃOS DIRETOS, então pôr os dois botões na MESMA caixa — o que "lado a lado"
+  sugere — apagaria o pacote como efeito colateral do seletor. A altura mora na
+  faixa, não nos dois conteúdos dela, e sem o número num lugar só a folha
+  encolheria sob o dedo no exato instante em que o operador mira um destrutivo.
+  `closePlPopup` **cancela**, como tudo que fecha uma gaveta.
 - **Ele é a PORTA de um destrutivo, não a execução dele**, e veste o par discreto
   do "Tirar do ar" (`--surface` + `--danger-text`); o saturado
   (`--danger-soft` + `--danger-strong`) fica para o botão que de fato limpa. Dois
-  vermelhos cheios empilhados anunciariam duas ações destrutivas onde há uma.
-- **ACIMA do pacote**, e não abaixo: a folha abre pelo botão da barra de baixo,
-  então o dedo chega pela borda inferior — a mesma régua que pôs o excluir no
-  começo da fileira do `⋮` (v5.288).
+  vermelhos cheios anunciariam duas ações destrutivas onde há uma.
+- **À ESQUERDA do pacote** (v1.8.53; eram duas linhas empilhadas, e ele ficava
+  ACIMA): a mesma régua que pôs o excluir no começo da fileira do `⋮` (v5.288) —
+  a folha abre pelo botão da barra de baixo, e o polegar chega pela borda
+  direita. A ordem no HTML é o que a regra `.confirmando + .pl-pack` lê, então
+  trocá-la exige trocar o combinador junto.
+- **E A PERGUNTA OCUPA A FAIXA INTEIRA** (v1.8.53): enquanto ela está aberta, o
+  pacote sai. Até aqui ele ficava, e a razão escrita era a ALTURA — empilhados,
+  levar o vizinho junto tirava uma linha do rodapé. Lado a lado essa razão não
+  existe (MEDIDO: 42px com e sem o pacote), e o que sobra manda tirar: em todo o
+  resto do app a pergunta substitui os irmãos, e com o pacote de pé o par ficava
+  com METADE da faixa — MEDIDO a 320px, 69,6px por botão, com "Cancelar"
+  truncado num destrutivo.
 - **Com a fila vazia a caixa inteira sai**: um botão que não faz nada é pior que
   botão nenhum, e um destrutivo inerte ensinaria que tocá-lo é inofensivo.
+- **E o "Guardar" APAGA com menos de duas mídias** (v1.8.53, pedido do operador:
+  *"não faz sentido guardar uma playlist de um item só"*). A recusa já existia no
+  toque; o que muda é a troca da v1.8.50 — explicar depois é pior que não
+  oferecer. A pergunta é a **de quem executa, literalmente** (`!isCue`, porque um
+  pacote é uma fila de reprodução): uma fila de uma mídia mais um cue tem
+  `length` 2 e um só item guardável, e a pergunta larga acenderia o botão para
+  recusar no toque.
 
 Medido de ponta a ponta em `tools/smoke.mjs` ("LIMPAR A FILA INTEIRA").
 
