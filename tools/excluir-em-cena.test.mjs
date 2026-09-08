@@ -255,6 +255,162 @@ try {
     + 'sendo uma declaração de intenção, e ela vale para a prateleira também', morto);
 
   checar(erros.length === 0, 'nenhum erro de página', erros);
+  // ── 4. A FILA ACABOU COM A CENA DENTRO: A CENA ACABA JUNTO (v1.8.52) ────
+  //
+  // Pedido do operador: *"verifique se a mídia ativa nos controles é removida
+  // para o estado de 'nada em exibição' quando eu excluo o único item da
+  // playlist… sendo assim o método de limpar de verdade o controle atual"*.
+  //
+  // ELE MORA NESTE ARQUIVO DE PROPÓSITO. As duas regras parecem se contradizer
+  // e não se contradizem, e é aqui — ao lado das três asserções da v1.3.13 —
+  // que a distinção fica legível: excluir do ACERVO não derruba a cena; esvaziar
+  // a FILA por cima dela, sim. A natureza da lista é a régua, não a contagem de
+  // detentores: a fila é a única que o TRANSPORTE percorre.
+  const filaCena = await pg.evaluate(async () => {
+    const sr = 8000, n = sr * 20;
+    const buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf);
+    const wr = (o, t) => { for (let i = 0; i < t.length; i++) dv.setUint8(o + i, t.charCodeAt(i)); };
+    wr(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); wr(8, 'WAVEfmt ');
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, sr, true); dv.setUint32(28, sr * 2, true);
+    dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    wr(36, 'data'); dv.setUint32(40, n * 2, true);
+    const wav = () => new Blob([buf], { type: 'audio/wav' });
+    await AVDB.listSet('playlist', () => []);
+    const a = await AVDB.addMedia(wav(), { name: 'So Na Fila A', type: 'audio/wav', kind: 'audio', list: 'playlist' });
+    const b = await AVDB.addMedia(wav(), { name: 'So Na Fila B', type: 'audio/wav', kind: 'audio', list: 'playlist' });
+    await load();
+    return { a: a.id, b: b.id };
+  });
+  const remover = (nome) => pg.evaluate((n) => {
+    const li = [...document.querySelectorAll('#playlist li')].find((e) => (e.textContent || '').includes(n));
+    if (!li) return 'sem linha';
+    const m = li.querySelector('.row-mais'); if (m) m.click();
+    const rm = li.querySelector('.row-excluir'); if (!rm) return 'sem lixeira';
+    rm.click();
+    const sim = li.querySelector('.linha-confirma-btn.linha-sim'); if (!sim) return 'sem confirmar';
+    sim.click(); return '';
+  }, nome);
+  const olhar = (id) => pg.evaluate(async (id) => {
+    const v = document.querySelector('#preview video') || document.querySelector('video');
+    let rec = null; try { rec = await AVDB.getMedia(id); } catch (_) {}
+    const avulsos = await AVDB.listItems('avulsos');
+    return {
+      fila: plItems.length, currentId: currentId || '', midiaNoAr: !!midiaNoAr,
+      tocando: !!v && !v.paused,
+      rotulo: (document.getElementById('npNameInner') || document.getElementById('npName') || {}).textContent || '',
+      play: !!document.getElementById('playpause').disabled,
+      stop: !!document.getElementById('stop').disabled,
+      registro: !!rec, emAvulsos: avulsos.some((x) => x.id === id),
+    };
+  }, id);
+
+  // 4a · COM FILA SOBRANDO, NADA MUDA — é a v1.3.13 pelo outro lado.
+  await pg.evaluate((id) => send(id), filaCena.a);
+  await pg.waitForFunction(() => !!midiaNoAr, null, { timeout: 10000 }).catch(() => {});
+  await pg.waitForTimeout(400);
+  checar(await remover('So Na Fila A') === '', 'a linha da fila tem o caminho `⋮` → lixeira → Remover');
+  await pg.waitForTimeout(900);
+  const sobrando = await olhar(filaCena.a);
+  checar(sobrando.fila === 1 && sobrando.midiaNoAr === true && sobrando.tocando === true,
+    '4a · REMOVER O ITEM NO AR COM FILA SOBRANDO não muda nada: a sequência não '
+    + 'acabou, só saiu um item dela — pausar o louvor porque o operador '
+    + 'reorganizou a fila seria interrupção de culto', JSON.stringify(sobrando));
+
+  // 4b · A FILA ACABA COM A CENA DENTRO.
+  await pg.evaluate(async (id) => { await AVDB.listSet('playlist', [id]); await load(); await send(id); }, filaCena.b);
+  await pg.waitForFunction(() => !!midiaNoAr && plItems.length === 1, null, { timeout: 10000 }).catch(() => {});
+  await pg.waitForTimeout(400);
+  checar(await remover('So Na Fila B') === '', 'e o mesmo caminho na última linha da fila');
+  await pg.waitForTimeout(1200);
+  const acabou = await olhar(filaCena.b);
+  checar(acabou.fila === 0 && acabou.midiaNoAr === false && acabou.tocando === false,
+    '4b · ESVAZIAR A FILA POR CIMA DA CENA ENCERRA A CENA: a fila é a única '
+    + 'lista que o TRANSPORTE percorre, e tirar dela o que está no ar sem sobrar '
+    + 'nada não é "guardei noutro lugar", é ACABOU', JSON.stringify(acabou));
+  checar(acabou.currentId === '' && /nada em exibi/i.test(acabou.rotulo),
+    '4b · e "nada em exibição" DE VERDADE — a frase só é alcançável com o '
+    + '`currentId` nulo, e ele precisa ser PERSISTIDO: `load()` o re-hidrata de '
+    + '`state.current.mediaId` a cada `db-change`', JSON.stringify(acabou));
+  checar(acabou.play === true && acabou.stop === true,
+    '4b · e o ▶ apaga junto: sem `currentId` o handler não tem ramo que aja, e '
+    + 'um botão aceso e inerte é o que a v1.8.50 existe para não deixar nascer',
+    JSON.stringify(acabou));
+  checar(acabou.registro === true && acabou.emAvulsos === true,
+    '4b · e NADA É APAGADO: o item sobrevive na prateleira `avulsos` com os '
+    + 'bytes intactos — o que acabou foi a CENA, não o item, e ele volta pelo '
+    + 'Histórico', JSON.stringify(acabou));
+
+  // ── 4c · FILA VAZIA COM `repeat` LIGADO TAMBÉM É FIM DE CENA (v1.8.52) ──
+  //
+  // O IRMÃO DO 4b, e ele não veio de relato nenhum: apareceu ao ler o caminho
+  // que o 4b abre. Com a fila vazia, uma mídia em cena vem da PRATELEIRA — e no
+  // fim dela o `autoAdvance` tinha um `return` seco para `plItems.length === 0`,
+  // que só é o certo com `repeat: 'off'` (ali quem já respondeu foi o
+  // `resetAfterEnd` da primeira linha).
+  //
+  // O ESTRAGO ERA PERMANENTE E MUDO: `midiaNoAr` ficava `true` pelo resto da
+  // sessão. Daí `rotinaDeAcervoPodeCorrer()` respondia `false` para sempre — as
+  // rotinas de acervo nunca mais cediam a vez de volta — e, o caro,
+  // `resendSceneToDisplay` pergunta `midiaNoAr`: uma queda de dongle devolvia ao
+  // telão a faixa que JÁ TINHA ACABADO, na frente da congregação.
+  //
+  // O `media-ended` é o caminho EXATO (o telão diz o que terminou), e é por ele
+  // que o oráculo entra — esperar 20 s de wav seria medir o relógio.
+  const semFila = await pg.evaluate(async () => {
+    await AVDB.listSet('playlist', () => []);
+    await AVDB.setState('repeat', 'all');
+    repeat = 'all';
+    await load();
+    return { fila: plItems.length, repeat };
+  });
+  checar(semFila.fila === 0 && semFila.repeat === 'all',
+    '4c · o cenário está armado: fila vazia e `repeat` LIGADO — com `off` quem '
+    + 'responde é a primeira linha do `autoAdvance`, e o bloco mediria outra coisa',
+    JSON.stringify(semFila));
+  await pg.evaluate((id) => send(id), filaCena.b);
+  await pg.waitForFunction(() => !!midiaNoAr, null, { timeout: 10000 }).catch(() => {});
+  await pg.waitForTimeout(400);
+  // O TELÃO DE MENTIRA fala pelo MESMO barramento que o de verdade — um
+  // `BroadcastChannel` de outra janela (o iframe), como no
+  // `preview-volta-ao-wallpaper`. Chamar o handler daqui pularia a recepção.
+  await pg.evaluate((id) => {
+    const f = document.createElement('iframe');
+    f.style.display = 'none';
+    document.body.appendChild(f);
+    f.contentWindow.eval('new BroadcastChannel("av-iasd").postMessage('
+      + JSON.stringify({ type: 'media-ended', mediaId: id }) + ')');
+  }, filaCena.b);
+  await pg.waitForFunction(() => !midiaNoAr, null, { timeout: 4000 }).catch(() => {});
+  const fimSemFila = await olhar(filaCena.b);
+  checar(fimSemFila.midiaNoAr === false,
+    '4c · A FAIXA QUE ACABA SEM FILA BAIXA A BANDEIRA: com o `return` seco, '
+    + '`midiaNoAr` ficava `true` para o resto da sessão — as rotinas de acervo '
+    + 'nunca mais corriam, e uma queda de dongle reprojetava o que já acabou',
+    JSON.stringify(fimSemFila));
+
+  // ── 4d · A SEGUNDA PORTA PARA O MESMO ESTADO: O BOTÃO "LIMPAR" ──────────
+  //
+  // Esvaziar a fila pela lixeira da última linha e esvaziá-la pelo "Limpar" da
+  // folha produzem o MESMO estado, e duas respostas para ele fariam o app se
+  // contradizer conforme a porta. O `limparPlaylist` não tinha oráculo nenhum.
+  const limpou = await pg.evaluate(async (id) => {
+    await AVDB.listSet('playlist', [id]);
+    await load();
+    await send(id);
+    await new Promise((f) => setTimeout(f, 600));
+    const antes = { fila: plItems.length, midiaNoAr: !!midiaNoAr };
+    await limparPlaylist();
+    await new Promise((f) => setTimeout(f, 600));
+    return { antes, fila: plItems.length, midiaNoAr: !!midiaNoAr, currentId: currentId || '' };
+  }, filaCena.b);
+  checar(limpou.antes.midiaNoAr === true && limpou.fila === 0
+      && limpou.midiaNoAr === false && limpou.currentId === '',
+    '4d · o "Limpar" da folha responde COMO A LIXEIRA: o mesmo estado por duas '
+    + 'portas não pode ter duas respostas — e a `dica` do botão, que dizia "o '
+    + 'que está no ar segue no ar", é texto que o operador LÊ antes de confirmar',
+    JSON.stringify(limpou));
+
 } finally {
   await navegador.close();
   servidor.close();

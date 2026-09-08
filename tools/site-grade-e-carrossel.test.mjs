@@ -33,16 +33,14 @@
 //     diferentes têm de medir diferente.
 //  C. **O TERMO É "COMPUTADOR".** O genérico que o operador recusa não pode
 //     voltar ao texto visível.
-//  D. **OS PONTOS.** Existem, contam as posições ALCANÇÁVEIS (não os 14 prints
-//     — no computador há 12 ou 13 vistas distintas), e o ÚLTIMO leva ao fim
-//     EXATO da faixa. Esta última guarda o `Math.min(x, max)` do `montar()`:
-//     MEDIDO, as posições de encaixe dos últimos itens caem ALÉM do máximo de
-//     rolagem (3179 contra 3070 a 390px), e um ponto apontando para lá mandaria
-//     a faixa a um lugar que ela não alcança — nunca acenderia. (O que NÃO é a
-//     correção, e chegou a ser escrito como se fosse: `scroll-snap-align:end` no
-//     último item. MEDIDO nas duas variantes, a faixa pousa em 3040 de 3040 do
-//     mesmo jeito — o navegador já deixa repousar no fim. A reversão daquela
-//     linha não reprovava esta asserção, e foi assim que ela foi pega.)
+//  D. **OS PONTOS.** Um por print — 14 em toda largura desde a v1.8.52, porque
+//     os espaçadores põem a primeira posição em 0 e a última em `max` por
+//     construção — e o ÚLTIMO leva ao fim EXATO da faixa.
+//  F. **AS DUAS PONTAS SÃO CENTRO, E O PONTO j CENTRA A FIGURA j** (v1.8.52).
+//     A segunda metade é a que o oráculo NÃO tinha: medido, ele passava VERDE
+//     com o CSS centrado e o `montar()` velho, isto é, com o ponto 7 levando à
+//     figura 8 a 1280px. Um indicador que aponta para o vizinho é pior que
+//     indicador nenhum, e nada reprovava isso.
 //  E. **A FALHA É ABERTA.** Sem JavaScript não há ponto nenhum — e a faixa
 //     continua rolável. Um indicador que não rola é pior que indicador nenhum.
 //
@@ -67,7 +65,11 @@ try {
     return { rotulo: (it.childNodes[2] || {}).textContent?.trim() || '', chars: s ? s.textContent.length : 0 };
   }));
   const acima = cartoes.filter((c) => c.chars > TETO);
-  checar(cartoes.length >= 14 && acima.length === 0,
+  // O `>= 12` é folga deliberada: a contagem existe só para provar que o
+  // seletor achou os cartões — o que esta asserção guarda é o TETO DE 80
+  // CARACTERES. Presa na contagem exata, a próxima remoção reprovaria aqui
+  // falando de comprimento de texto, que é o motivo errado.
+  checar(cartoes.length >= 12 && acima.length === 0,
     'A · todo cartão da grade cabe no teto de ' + TETO + ' caracteres — o limite é a '
     + 'régua de escrita do lote, e sem asserção ela dura até a próxima frase que '
     + '"só precisa ser dita"', JSON.stringify(acima));
@@ -128,8 +130,9 @@ try {
         max: Math.round(t.scrollWidth - t.clientWidth),
         aceso: bs.findIndex((b) => b.getAttribute('aria-current') === 'true'),
         alvo: Math.round(bs[0].getBoundingClientRect().height),
-        // O RÓTULO SAI DO ALVO, não do índice: são coisas diferentes (13 pontos
-        // para 14 prints a 1280px), e derivá-lo do índice faria o último mentir.
+        // O RÓTULO SAI DO ALVO, não do índice. Com um ponto por print os dois
+        // coincidem hoje; a derivação pelo alvo é o que sobrevive ao dia em que
+        // uma posição colapsar de novo.
         ultimoRotulo: bs[bs.length - 1].getAttribute('aria-label'),
         ultimaLegenda: t.children[t.children.length - 1].querySelector('figcaption b').textContent,
       };
@@ -146,26 +149,116 @@ try {
       'D · ' + largura + 'px: o rótulo do ÚLTIMO ponto é o do ÚLTIMO print, e '
       + 'não o do print de índice igual ao dele', JSON.stringify(antes));
 
+    // O DESTINO DO ÚLTIMO PONTO É O ÚLTIMO PRINT CENTRADO, não o `max` (v1.8.52).
+    // Até a v1.8.51 os dois eram a mesma coisa: com `scroll-snap-align: start` o
+    // último encaixe caía no fim da faixa. Com o centro há o `gap` entre o
+    // último print e o espaçador, então a última posição é `max − gap` — e ir a
+    // `max` seria justamente o defeito relatado, o print encostado à direita.
+    // Por isso a asserção passou a medir o CENTRO: ele é o que o operador pediu,
+    // e é verdade nas duas eras (a `start` reprovaria aqui).
     const fim = await p.evaluate(async () => {
       const t = document.querySelector('.telas');
       const bs = [...document.querySelectorAll('.pontos button')];
       bs[bs.length - 1].click();
       await new Promise((f) => setTimeout(f, 1400));
-      const max = Math.round(t.scrollWidth - t.clientWidth);
+      const figs = [...t.querySelectorAll('figure')];
+      const r = figs[figs.length - 1].getBoundingClientRect();
+      const c = t.getBoundingClientRect();
       return {
-        pos: Math.round(t.scrollLeft), max,
+        pos: Math.round(t.scrollLeft), max: Math.round(t.scrollWidth - t.clientWidth),
+        desvio: Math.round(Math.abs((r.left + r.width / 2) - (c.left + c.width / 2)) * 10) / 10,
         aceso: bs.findIndex((b) => b.getAttribute('aria-current') === 'true'),
         n: bs.length,
       };
     });
-    checar(Math.abs(fim.pos - fim.max) <= 2 && fim.aceso === fim.n - 1,
-      'D · ' + largura + 'px: o ÚLTIMO ponto leva ao fim EXATO da faixa, e '
-      + 'continua aceso lá — é o `Math.min(x, max)` do `montar()` que esta '
-      + 'asserção guarda: sem ele o último ponto aponta para uma posição de '
-      + 'encaixe que cai FORA do alcance da faixa, e nunca acende',
+    checar(fim.desvio <= 2 && fim.aceso === fim.n - 1,
+      'D · ' + largura + 'px: o ÚLTIMO ponto CENTRA o último print e continua '
+      + 'aceso lá — mirar o `max` (o que a era `start` fazia) devolveria o print '
+      + 'encostado na direita, que é o relato que abriu este lote',
       JSON.stringify(fim));
     await c.close();
   }
+
+  // ── F. AS DUAS PONTAS SÃO CENTRO, E O PONTO j CENTRA A FIGURA j ─────────
+  //
+  // Pedido do operador (v1.8.52): *"o carrocel não está com as imagens
+  // centralizadas na tela, ele está com a imagem encostada na esquerda de início
+  // e no final encostada na direita. Faça com que comece no centro e termine no
+  // centro"*, e *"também está visível a barra de rolagem do scroll interno do
+  // carrocel, que não precisa mais já que temos a barra de pontos"*.
+  //
+  // A SEGUNDA ASSERÇÃO É A QUE FALTAVA. MEDIDO: com o CSS centrado e o
+  // `montar()` ainda mirando o COMEÇO da figura, este oráculo passava VERDE nas
+  // 16 asserções — e a 1280px o ponto 7 levava à figura 8. Um indicador que
+  // aponta para o vizinho é pior que indicador nenhum.
+  for (const largura of [390, 1280]) {
+    const c = await navegador.newContext({ viewport: { width: largura, height: 900 } });
+    const p2 = await c.newPage();
+    await p2.goto(base, { waitUntil: 'load' });
+    await esperar(p2, () => !!document.querySelector('.pontos button'), null, 8000);
+
+    const pontas = await p2.evaluate(async () => {
+      const t = document.querySelector('.telas');
+      const figs = [...t.children];
+      const cx = () => t.getBoundingClientRect();
+      t.scrollTo({ left: 0, behavior: 'auto' });
+      await new Promise((f) => setTimeout(f, 300));
+      const esq = figs[0].getBoundingClientRect().left - cx().left;
+      t.scrollTo({ left: 1e6, behavior: 'auto' });
+      await new Promise((f) => setTimeout(f, 500));
+      const dir = cx().right - figs[figs.length - 1].getBoundingClientRect().right;
+      return { esq: +esq.toFixed(1), dir: +dir.toFixed(1), barra: getComputedStyle(t).scrollbarWidth };
+    });
+    checar(Math.abs(pontas.esq - pontas.dir) <= 2 && pontas.esq > 2,
+      'F · ' + largura + 'px: a faixa COMEÇA e TERMINA no centro — as duas '
+      + 'pontas medem o mesmo e nenhuma é zero. Era o relato: com o encaixe pelo '
+      + 'COMEÇO o primeiro print encostava na borda esquerda (folga 0 a 1280px) '
+      + 'e o último na direita', JSON.stringify(pontas));
+    checar(pontas.barra === 'none',
+      'F · ' + largura + 'px: e a barra de rolagem não é desenhada — a rolagem '
+      + 'fica, o desenho sai, porque quem diz onde a faixa está são os pontos',
+      pontas.barra);
+
+    const centra = await p2.evaluate(async () => {
+      const t = document.querySelector('.telas');
+      const bs = [...document.querySelectorAll('.pontos button')];
+      const figs = [...t.children];
+      const fora = [];
+      for (const j of [0, 1, Math.floor(bs.length / 2), bs.length - 1]) {
+        bs[j].click();
+        await new Promise((f) => setTimeout(f, 900));
+        const meio = t.getBoundingClientRect().left + t.clientWidth / 2;
+        let melhor = -1, d = Infinity;
+        figs.forEach((f, i) => {
+          const r = f.getBoundingClientRect();
+          const e = Math.abs((r.left + r.width / 2) - meio);
+          if (e < d) { d = e; melhor = i; }
+        });
+        if (melhor !== j || d > 2) fora.push({ ponto: j, figura: melhor, desvio: +d.toFixed(1) });
+      }
+      return { pontos: bs.length, figuras: figs.length, fora };
+    });
+    checar(centra.pontos === centra.figuras,
+      'F · ' + largura + 'px: há UM ponto por print — com os espaçadores cada '
+      + 'print tem uma posição centrada só sua, então nenhuma colapsa na vizinha',
+      JSON.stringify(centra));
+    checar(centra.fora.length === 0,
+      'F · ' + largura + 'px: e o ponto j CENTRA a figura j. É a asserção que '
+      + 'faltava: com o CSS centrado e o `montar()` mirando o começo da figura, '
+      + 'este oráculo passava verde com o ponto 7 levando à figura 8',
+      JSON.stringify(centra.fora));
+    await c.close();
+  }
+
+  // ── G. O CARTÃO DO PACOTE SAIU ──────────────────────────────────────────
+  // Pedido do operador: *"apague o card sobre levar o acervo inteiro. Ele ficou
+  // um card impar no design e também é uma função mais interna do que algo feito
+  // para o usuário. Pode remover essa menção"*. O recurso CONTINUA no app — isto
+  // é decisão de PÁGINA.
+  checar(!/acervo inteiro|\.avpkg|noutro celular/i.test(texto.corpo + ' ' + texto.desc + ' ' + texto.og),
+    'G · a página não menciona mais levar o acervo para outro celular — o pedido '
+    + 'era "remover essa menção", não só o cartão',
+    (('' + texto.corpo).match(/acervo inteiro|\.avpkg|noutro celular/i) || [''])[0]);
 
   // ── E. A FALHA É ABERTA ─────────────────────────────────────────────────
   // Sem JavaScript não há ponto nenhum — e a faixa CONTINUA rolável. Um

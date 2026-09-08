@@ -189,12 +189,50 @@
      grade que coubesse inteira na tela do celular teria de encolher cada print
      até o ponto em que não se lê o que está nele. */
   .telas {
+    /* A LARGURA DO PRINT EM UM LUGAR SÓ: ela é lida pela figura E pelos dois
+       espaçadores, e duas escritas do mesmo número divergiriam no primeiro
+       ajuste. */
+    --print:clamp(13rem,66vw,14.5rem);
     display:flex; gap:.7rem; overflow-x:auto; padding-bottom:.5rem;
     scroll-snap-type:x mandatory;
     /* O GESTO HORIZONTAL NÃO VAZA PARA O NAVEGADOR: sem isto, um arremesso de
        trackpad que chega ao fim da faixa vira "voltar página". */
     overscroll-behavior-inline:contain;
+    /* ── A BARRA DE ROLAGEM SAI (v1.8.52) ──
+       Pedido do operador: *"também está visível a barra de rolagem do scroll
+       interno do carrocel, que não precisa mais já que temos a barra de
+       pontos"*. A rolagem FICA — o que sai é o desenho dela. MEDIDO: com a
+       regra, `scrollbar-width` computa `none`, a tecla → continua andando um
+       passo exato por toque e `scrollLeft = 1e6` continua pousando em `max`.
+       Onde a barra é CLÁSSICA (e não sobreposta) esconder devolve a altura dela
+       ao conteúdo — dito, não medido: neste Chromium ela é sobreposta em toda
+       configuração testada (`offsetHeight − clientHeight` = 0 com e sem). */
+    scrollbar-width:none;
   }
+  .telas::-webkit-scrollbar { display:none; }
+  /* ── AS DUAS PONTAS SÃO CENTRO (v1.8.52) ──
+     Pedido do operador: *"o carrocel não está com as imagens centralizadas na
+     tela, ele está com a imagem encostada na esquerda de início e no final
+     encostada na direita. Faça com que comece no centro e termine no centro"*.
+
+     MEDIDO no que havia: a 1280px o primeiro print encostava com folga ZERO à
+     esquerda e o último com zero à direita; a 390px as pontas eram simétricas
+     (18px) mas o print não ficava centrado. A causa é o `scroll-snap-align:
+     start`, que alinha pelo COMEÇO — e um item alinhado pelo começo na primeira
+     posição não tem para onde recuar.
+
+     Os dois espaçadores são o que torna o centro ALCANÇÁVEL: sem eles
+     `scrollLeft` não pode ser negativo, e o primeiro print nunca chegaria ao
+     meio. Cada um mede meia faixa menos meio print — e é o `gap` que separa o
+     espaçador do print, então a primeira posição de encaixe cai no GAP (11,2px)
+     e a última em `max − gap`, não em 0 e `max`. MEDIDO: a faixa nasce em 11 nas
+     duas larguras, porque o navegador encaixa o primeiro print já na carga.
+     Quem precisa desses dois números é a linha de pontos, e ela os MEDE em vez
+     de presumi-los (ver o `montar()`).
+
+     ELES NÃO ENTRAM EM `faixa.children`: pseudo-elementos não são nós, então a
+     contagem de figuras do script continua sendo a de prints. */
+  .telas::before, .telas::after { content:''; flex:0 0 calc(50% - var(--print) / 2); }
   /* ── ELA ANDA POR ETAPAS (v1.8.51) ──
      Pedido do operador: *"faça com que ele role por etapas, com indicador de
      pontos aceso, não um Scroll que para em qualquer lugar"*.
@@ -223,8 +261,8 @@
          do JS, que trunca toda posição no máximo — e é lá que está o comentário,
          porque é lá que está a correção. */
   .telas figure {
-    margin:0; flex:0 0 clamp(13rem,66vw,14.5rem);
-    scroll-snap-align:start; scroll-snap-stop:always;
+    margin:0; flex:0 0 var(--print);
+    scroll-snap-align:center; scroll-snap-stop:always;
   }
   /* NO CELULAR ELA SANGRA ATÉ A BORDA: o print começa alinhado com o texto e a
      rolagem some pelo lado, que é o gesto que se reconhece. O `padding` devolve
@@ -232,16 +270,15 @@
      na borda — e a faixa continua se recortando sozinha (`overflow-x`), sem
      empurrar a página para o lado. */
   @media (max-width:34rem) {
-    .telas {
-      margin-inline:-1.15rem; padding-inline:1.15rem;
-      /* `scroll-padding` E NÃO SÓ `padding`, e isto foi MEDIDO: com
-         `scroll-snap-align: start`, o encaixe encosta o item na borda do PADDING
-         BOX e COME o recuo — o primeiro card ficava colado na borda da tela
-         enquanto o último respeitava os 18px, um vão em cada ponta e nenhum dos
-         dois igual ao outro. `scroll-padding-inline` move a linha de encaixe
-         para dentro, e aí as duas pontas medem o mesmo. */
-      scroll-padding-inline:1.15rem;
-    }
+    /* A SANGRIA FICA: a faixa vai até a borda da tela, e é sobre essa largura
+       que os espaçadores centram — "centralizadas na TELA" é o pedido.
+
+       O `padding-inline` e o `scroll-padding-inline` SAÍRAM (v1.8.52), e não
+       porque atrapalhassem: com o encaixe pelo CENTRO os dois ficaram INERTES —
+       MEDIDO, com e sem eles a 390px as pontas dão {79,79} e `max` não muda. Eles
+       existiam para o `scroll-snap-align: start`, que este lote revogou; saem
+       como código morto, não como conserto. */
+    .telas { margin-inline:-1.15rem; }
     /* O ANEL POR DENTRO: aqui a faixa sangra até a borda da tela
        (`margin-inline:-1.15rem`), e um anel desenhado 3px PARA FORA de uma caixa
        que já mede o viewport sai recortado nos dois lados. */
@@ -482,10 +519,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>
         Histórico do culto<small>O que tocou e a que horas. Um toque devolve o item ao Cronograma.</small>
       </div>
-      <div class="item">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-        Leve o acervo inteiro<small>Toda a biblioteca num arquivo, para entrar noutro celular sem baixar de novo.</small>
-      </div>
     </div>
     <p class="calma"><strong>A projeção funciona sem internet:</strong> na TV,
       pelo espelhamento; num computador, pelo navegador. Basta o Wi-Fi do local
@@ -504,8 +537,9 @@
          container de rolagem. Sem o atributo, uma região rolável fica fora do
          alcance do teclado (WCAG 2.1.1).
 
-         O `aria-label` NÃO diz "as 14": no computador há 12 posições de etapa, e
-         um número fixo aqui contradiria a contagem que os pontos anunciam. -->
+         O `aria-label` NÃO cita número: a contagem é desenhada em runtime e a
+         faixa existe sem JS nenhum, então um número fixo aqui prometeria uma
+         linha de pontos que pode não estar lá. -->
     <div class="telas" tabindex="0" role="group" aria-label="Telas do app: role de lado para ver todas">
       <figure>
         <img src="telas/conectar.webp" width="480" height="979" loading="lazy" decoding="async"
@@ -637,24 +671,43 @@
     var faixa = document.querySelector('.telas');
     var figs = faixa ? [].slice.call(faixa.children) : [];
     if (faixa && figs.length > 1) {
-      // AS POSIÇÕES DE ETAPA, contadas em tempo de execução e não fixadas em 14:
-      // acima de 34rem cabem 2,74 prints na faixa, e há 12 vistas distintas.
+      // AS POSIÇÕES DE ETAPA, contadas em tempo de execução.
       //
-      // O `Math.min(x, max)` É A CORREÇÃO, e não arredondamento defensivo. MEDIDO:
-      // as posições de encaixe dos últimos itens caem ALÉM do máximo de rolagem
-      // (3179 contra 3070 no celular; 3161 contra 2726 no computador), porque um
-      // item alinhado por `start` no fim da faixa não tem para onde ir. Um ponto
-      // apontando para 3179 mandaria a faixa a um lugar que ela não alcança e
-      // NUNCA acenderia — o indicador mentindo justamente no último print. Com o
-      // truncamento, as posições repetidas colapsam (o `continue` abaixo) e sobra
-      // uma só, alcançável, para o fim da faixa.
+      // O ALVO É O CENTRO (v1.8.52), e a conta tem de ser a MESMA que o
+      // navegador faz para encaixar: com `scroll-snap-align: center` a posição
+      // de repouso de uma figura é a que põe o CENTRO dela no centro do
+      // scrollport — `esquerda − (largura da faixa − largura da figura) / 2`.
+      // Mirar o começo da figura, como antes, deixaria o ponto j levando a um
+      // lugar meia-faixa à frente do que ele anuncia. MEDIDO na variante só-CSS
+      // (o centro sem esta conta): a 1280px o ponto 7 levava à figura 8.
+      //
+      // COM OS ESPAÇADORES A CONTAGEM É UM PONTO POR PRINT, em toda largura. Não
+      // era assim com `start` — ali ela variava com a tela (MEDIDO então: 14 a
+      // 320, 360, 390 e 412; 13 a 768 e 1280).
+      //
+      // O `Math.min(x, max)` e o `continue` FICAM, e a razão deles é outra
+      // agora: eles cobrem a faixa que CABE INTEIRA (`max` 0, tudo colapsando
+      // numa posição só), onde sobra um alvo e a linha se esconde. Com 14 prints
+      // isso não acontece em largura nenhuma — a guarda existe para não presumir
+      // a contagem, e está dito para ninguém procurar o cenário.
       var alvos = [], titulos = [];
       var montar = function () {
         var max = faixa.scrollWidth - faixa.clientWidth;
-        var base = faixa.getBoundingClientRect().left + faixa.scrollLeft;
+        var c = faixa.getBoundingClientRect();
         alvos = []; titulos = [];
         for (var i = 0; i < figs.length; i++) {
-          var x = Math.min(Math.round(figs[i].getBoundingClientRect().left + faixa.scrollLeft - base), max);
+          var r = figs[i].getBoundingClientRect();
+          // O ALVO É UM DESLOCAMENTO NO CONTEÚDO, NÃO NA TELA (v1.8.52), e o
+          // `+ faixa.scrollLeft` é o que faz a conta independer de onde a faixa
+          // está parada na hora de medir. A forma anterior somava o mesmo
+          // `scrollLeft` dos dois lados da subtração e ele se CANCELAVA, o que
+          // media a posição VISÍVEL da figura — certo só com a faixa em zero.
+          // MEDIDO: com os espaçadores o navegador encaixa em 11 já na carga
+          // (o primeiro print centrado), e a tabela inteira nascia 11,2px curta;
+          // o `resize` sempre teve o mesmo defeito, com a faixa onde estivesse.
+          var dentro = r.left - c.left - faixa.clientLeft + faixa.scrollLeft;
+          var centro = (faixa.clientWidth - r.width) / 2;
+          var x = Math.max(0, Math.min(Math.round(dentro - centro), max));
           if (alvos.length && x === alvos[alvos.length - 1]) continue;
           alvos.push(x); titulos.push(i);
         }
@@ -754,8 +807,11 @@
         }
       });
       faixa.addEventListener('scroll', acender, { passive: true });
-      // A LARGURA MUDA AS ETAPAS (14 no celular, 12 no computador), então girar
-      // o aparelho tem de refazer a linha — senão sobram pontos que não acendem.
+      // A LARGURA MUDA AS POSIÇÕES: `--print` é um `clamp()` com `vw` e o
+      // espaçador é meia faixa, então girar o aparelho move TODO ponto de
+      // encaixe. A contagem em si já não muda (um ponto por print desde a
+      // v1.8.52) — o que se refaz são os alvos, e sem isso os pontos passariam a
+      // levar a lugares de outra largura.
       var refaz;
       window.addEventListener('resize', function () {
         clearTimeout(refaz);
