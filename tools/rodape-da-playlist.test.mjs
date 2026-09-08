@@ -85,37 +85,47 @@ try {
 
     const m = await pg.evaluate(() => {
       const fx = document.getElementById('plClearFaixa');
+      const fav = document.getElementById('plPackFav');
       const pk = document.getElementById('plPack');
-      const r1 = fx.getBoundingClientRect(), r2 = pk.getBoundingClientRect();
-      const rot = (el) => el.querySelector('.pl-rot');
-      const corta = (el) => rot(el).scrollWidth > rot(el).clientWidth + 1;
+      const cx = (e) => e.getBoundingClientRect();
+      const rot = document.getElementById('plClear').querySelector('.pl-rot');
+      const piso = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit'));
       return {
-        mesmaLinha: Math.abs(r1.top - r2.top) < 2,
-        larguras: [Math.round(r1.width * 10) / 10, Math.round(r2.width * 10) / 10],
-        alturas: [Math.round(r1.height), Math.round(r2.height)],
-        cortou: { limpar: corta(document.getElementById('plClear')), guardar: corta(pk) },
-        rotulos: [rot(document.getElementById('plClear')).textContent, rot(pk).textContent],
-        // O DESTINO NÃO SE PERDE: ele sai da tela e entra onde o leitor de tela
-        // o encontra — o desenho do `#contatoBtn` da v1.8.51.
-        destino: pk.getAttribute('aria-label') || '',
+        mesmaLinha: new Set([fx, fav, pk].map((e) => Math.round(cx(e).top))).size === 1,
+        larguras: [fx, fav, pk].map((e) => Math.round(cx(e).width * 10) / 10),
+        alturas: [fx, fav, pk].map((e) => Math.round(cx(e).height)),
+        quadrados: [fav, pk].every((e) => Math.abs(cx(e).width - cx(e).height) <= 1),
+        piso, alcancam: [fav, pk].every((e) => cx(e).width >= piso && cx(e).height >= piso),
+        cortouLimpar: rot.scrollWidth > rot.clientWidth + 1,
+        rotuloLimpar: rot.textContent,
+        // OS DOIS SEM RÓTULO DIZEM O DESTINO onde um botão de símbolo o diz: no
+        // `aria-label`, que é o rótulo dele para o leitor de tela.
+        destinos: [fav.getAttribute('aria-label') || '', pk.getAttribute('aria-label') || ''],
+        desenhos: [fav.querySelector('svg'), pk.querySelector('svg')].map((e) => !!e),
       };
     });
-    checar(m.mesmaLinha === true && Math.abs(m.larguras[0] - m.larguras[1]) <= 1,
-      'A · ' + largura + 'px×' + escala + ': os dois botões do rodapé estão na MESMA '
-      + 'linha e em metades IGUAIS — `flex: 1` sozinho dá 16px a mais ao pacote, '
-      + 'porque a base `0%` não conta o padding dele', JSON.stringify(m));
-    checar(m.alturas[0] === m.alturas[1] && m.alturas[0] > 0,
-      'A · ' + largura + 'px×' + escala + ': e a MESMA altura — o pacote veste a caixa '
-      + 'da faixa por `align-items: stretch`, e o número existe uma vez só',
+    checar(m.mesmaLinha === true,
+      'A · ' + largura + 'px×' + escala + ': os TRÊS botões do rodapé estão na MESMA '
+      + 'linha — o "Limpar" com rótulo e os dois destinos como símbolo',
       JSON.stringify(m));
-    checar(m.cortou.limpar === false && m.cortou.guardar === false,
-      'A · ' + largura + 'px×' + escala + ': e nenhum rótulo é CORTADO — `textContent` '
-      + 'não denuncia reticências, a medida é `scrollWidth` contra `clientWidth`',
+    checar(m.quadrados === true && m.alcancam === true,
+      'A · ' + largura + 'px×' + escala + ': os dois de guardar são QUADRADOS e alcançam '
+      + 'o piso de toque — `aspect-ratio: 1` não resolve (com `flex: 0 0 auto` as duas '
+      + 'dimensões saem do conteúdo, e eles saíam com 20px de largura)',
       JSON.stringify(m));
-    checar(/cronograma/i.test(m.destino),
-      'A · ' + largura + 'px×' + escala + ': e o DESTINO não se perde com o rótulo curto — '
-      + 'ele mora no `aria-label`, que é onde o leitor de tela o encontra',
+    checar(m.alturas[0] === m.alturas[1] && m.alturas[1] === m.alturas[2] && m.alturas[0] > 0,
+      'A · ' + largura + 'px×' + escala + ': e os três têm a MESMA altura — ela mora na '
+      + 'faixa, num número só, e é dele que sai a largura dos quadrados',
       JSON.stringify(m));
+    checar(m.cortouLimpar === false && m.rotuloLimpar === 'Limpar',
+      'A · ' + largura + 'px×' + escala + ': o rótulo do "Limpar" não é CORTADO — '
+      + '`textContent` não denuncia reticências, a medida é `scrollWidth` contra '
+      + '`clientWidth`', JSON.stringify(m));
+    checar(/favorito/i.test(m.destinos[0]) && /cronograma/i.test(m.destinos[1])
+        && m.desenhos[0] === true && m.desenhos[1] === true,
+      'A · ' + largura + 'px×' + escala + ': cada um NOMEIA o próprio destino no '
+      + '`aria-label` e desenha o ícone da gaveta da linha — sem rótulo, é tudo que '
+      + 'um botão de símbolo tem a dizer a quem o encontra', JSON.stringify(m));
     await ctx.close();
   }
 
@@ -138,12 +148,22 @@ try {
 
   const com1 = await pg.evaluate(() => {
     const pk = document.getElementById('plPack');
-    return { fila: plItems.length, disabled: pk.disabled, title: pk.title,
+    const fav = document.getElementById('plPackFav');
+    return { fila: plItems.length, disabled: pk.disabled && fav.disabled,
+      title: pk.title, tituloFav: fav.title,
+      // O `aria-label` ANDA COM O `title`: ele é o rótulo destes botões, e um
+      // que ficasse no valor da carga diria "guardar" a quem não pode guardar.
+      rotuloFav: fav.getAttribute('aria-label'),
       opacidade: getComputedStyle(pk).opacity };
   });
   checar(com1.fila === 1 && com1.disabled === true,
-    'B · com UM item o "Guardar" está APAGADO — a recusa existia no toque, e a '
-    + 'v1.8.50 já decidiu que explicar depois é pior que não oferecer',
+    'B · com UM item os DOIS de guardar estão APAGADOS — o limiar é do PACOTE, '
+    + 'não do destino: o que não faz sentido é empacotar uma mídia só, e isso '
+    + 'não muda por ela ir para o Cronograma ou para os Favoritos',
+    JSON.stringify(com1));
+  checar(com1.rotuloFav === com1.tituloFav && /duas|2/i.test(com1.tituloFav),
+    'B · e o `aria-label` acompanha o `title` no apagado — sem rótulo na tela, '
+    + 'ele é o que o leitor de tela lê, e "guardar" seria uma promessa falsa',
     JSON.stringify(com1));
   checar(/duas|2/i.test(com1.title) && parseFloat(com1.opacidade) < 1,
     'B · e ele DIZ POR QUÊ no `title`, apagado de verdade (`--op-inativo`) — um '
@@ -155,7 +175,8 @@ try {
       { name: 'Faixa z', type: 'audio/mpeg', kind: 'audio', list: 'playlist' });
     await load();
     const pk = document.getElementById('plPack');
-    return { fila: plItems.length, disabled: pk.disabled };
+    return { fila: plItems.length,
+      disabled: pk.disabled || document.getElementById('plPackFav').disabled };
   });
   checar(com2.fila === 2 && com2.disabled === false,
     'B · com DUAS ele acende — o limiar é o do executor, não um número novo',
@@ -173,7 +194,8 @@ try {
     await load();
     const pk = document.getElementById('plPack');
     return { criou: !!cue, fila: plItems.length,
-      guardaveis: plItems.filter((m) => !isCue(m)).length, disabled: pk.disabled };
+      guardaveis: plItems.filter((m) => !isCue(m)).length,
+      disabled: pk.disabled && document.getElementById('plPackFav').disabled };
   });
   checar(comCue.criou === true && comCue.fila === 2 && comCue.guardaveis === 1
       && comCue.disabled === true,
@@ -206,7 +228,7 @@ try {
   // altura da caixa e sai da tela — o `esperar` por altura passava, o
   // `mouse.down` caía no vazio, e o recuo lido era `none` nos DOIS botões, isto
   // é, a asserção reprovaria o app por um erro do arnês).
-  for (const id of ['plPack', 'plClear']) {
+  for (const id of ['plPack', 'plPackFav', 'plClear']) {
     // A FOLHA É REABERTA A CADA UM: a leitura anterior soltou o dedo fora do
     // botão para não disparar a ação, e soltar fora ACERTA o fundo, que fecha a
     // folha. Fechada ela continua com altura e sai da tela — o hit-test é o que
@@ -240,11 +262,11 @@ try {
     await pg.mouse.up();
   }
   const recua = (r) => r.transform !== 'none' && r.transform !== '';
-  checar(recua(recuo.plClear) && recua(recuo.plPack)
-      && recuo.plClear.transform === recuo.plPack.transform,
-    'C · os DOIS recuam ao toque, e pelo MESMO valor — o `.pl-clear` ficou fora '
-    + 'da lista única do `--press` até a v1.8.53, e lado a lado uma metade que '
-    + 'afunda ao lado de uma que não afunda lê-se como um botão quebrado',
+  const iguais = new Set(['plClear', 'plPack', 'plPackFav'].map((i) => recuo[i].transform));
+  checar(['plClear', 'plPack', 'plPackFav'].every((i) => recua(recuo[i])) && iguais.size === 1,
+    'C · os TRÊS recuam ao toque, e pelo MESMO valor — o `.pl-clear` ficou fora '
+    + 'da lista única do `--press` até a v1.8.53, e numa faixa só um botão que '
+    + 'afunda ao lado de um que não afunda lê-se como um botão quebrado',
     JSON.stringify(recuo));
   await ctx.close();
 
@@ -279,18 +301,20 @@ try {
     const par = [...cx.querySelectorAll('.linha-confirma-btn')];
     return {
       antes, depois: Math.round(rod.getBoundingClientRect().height),
-      pacote: Math.round(document.getElementById('plPack').getBoundingClientRect().height),
+      pacote: ['plPack', 'plPackFav']
+        .reduce((a, i) => a + Math.round(document.getElementById(i).getBoundingClientRect().height), 0),
       larguras: par.map((b) => Math.round(b.getBoundingClientRect().width * 10) / 10),
       cortou: par.some((b) => b.scrollWidth > b.clientWidth + 1),
       rotulos: par.map((b) => b.textContent).join(' · '),
     };
   });
   checar(!perg.erro && perg.pacote === 0 && perg.depois === perg.antes,
-    'D · 320px: a pergunta OCUPA a faixa — o "Guardar" sai e o rodapé fica na '
+    'D · 320px: a pergunta OCUPA a faixa — os DOIS de guardar saem (com o irmão '
+    + 'ADJACENTE só o primeiro sairia, e sobraria uma estrela solta) e o rodapé fica na '
     + 'MESMA altura. Era o inverso até a v1.8.52, e a razão de então era a '
     + 'altura: empilhados, levar o vizinho tirava uma linha do rodapé',
     JSON.stringify(perg));
-  checar(!perg.erro && perg.cortou === false && perg.rotulos === 'Cancelar · Limpar',
+  checar(!perg.erro && perg.cortou === false && perg.rotulos === 'Cancelar · Confirmar',
     'D · 320px: e o par do destrutivo não é CORTADO — em meia faixa são 69,6px '
     + 'por botão e "Cancelar" vira "Cancela…", que `textContent` não denuncia',
     JSON.stringify(perg));
@@ -329,6 +353,135 @@ try {
     'E · com a fila VAZIA o "Guardar" mantém o piso de toque — a altura mora na '
     + 'FAIXA, não no vizinho que some com ela', JSON.stringify(alt));
   await ctxVazio.close();
+
+  // ── F. OS DOIS DESTINOS GUARDAM, CADA UM NO SEU ─────────────────────────
+  //
+  // Pedido do operador: *"sejam os mesmos dois botões de salvar no cronograma ou
+  // salvar nos favoritos, pois este já é o padrão do resto do sistema"*. O que
+  // se mede é o DESFECHO em cada lista, não o clique: um botão ligado ao destino
+  // errado passaria por qualquer asserção que só olhasse a tela.
+  const ctxF = await navegador.newContext({
+    viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: 'dark',
+  });
+  await semRedeExterna(ctxF);
+  const pgF = await ctxF.newPage();
+  await pgF.goto(base, { waitUntil: 'load' });
+  await esperarCortina(pgF);
+  await pgF.evaluate(eval(SEMEAR), 3);
+  const prontoF = await esperar(pgF, () => {
+    const p = document.getElementById('plPackFav');
+    return !!p && p.getBoundingClientRect().height > 0 && !p.disabled;
+  });
+  checar(prontoF === true, 'F · a folha abriu com três itens e o guardar aceso', porque(prontoF));
+
+  const guardou = await pgF.evaluate(async () => {
+    const salvar = async (id) => {
+      openPlPopup();
+      await new Promise((f) => setTimeout(f, 250));
+      document.getElementById(id).click();
+      await new Promise((f) => setTimeout(f, 250));
+      // O nome vem do `appPrompt`, e a sugestão dele já é a que serve.
+      document.getElementById('appDialogOk').click();
+      await new Promise((f) => setTimeout(f, 700));
+    };
+    const antes = { favs: (await AVDB.listItems('favs')).length,
+      crono: (await AVDB.listItems('imports')).length };
+    await salvar('plPackFav');
+    const favs = await AVDB.listItems('favs');
+    await salvar('plPack');
+    const crono = await AVDB.listItems('imports');
+    const so = (l) => l.map((x) => ({ cue: x.cue, itens: (x.data && x.data.ids || []).length }));
+    return { antes, favs: so(favs), crono: so(crono), fila: plItems.length };
+  });
+  checar(guardou.antes.favs === 0 && guardou.favs.length === 1
+      && guardou.favs[0].cue === 'group' && guardou.favs[0].itens === 3,
+    'F · a ESTRELA guarda o pacote nos FAVORITOS, com a fila inteira dentro',
+    JSON.stringify(guardou));
+  checar(guardou.antes.crono === 0 && guardou.crono.length === 1
+      && guardou.crono[0].cue === 'group' && guardou.crono[0].itens === 3,
+    'F · e o RELÓGIO guarda no CRONOGRAMA — dois botões, dois destinos, e o que '
+    + 'se mede é a lista, não o clique', JSON.stringify(guardou));
+  checar(guardou.fila === 3,
+    'F · e guardar NÃO esvazia a fila: o pacote é uma cópia, e a fila do culto '
+    + 'segue no ar', JSON.stringify(guardou));
+  await ctxF.close();
+
+  // ── G. A FOLHA FECHA QUANDO A FILA ACABA, PELAS DUAS PORTAS ─────────────
+  //
+  // Pedido do operador: *"ajuste também após o esvaziamento da playlist, para
+  // que a janela dela seja fechada, já que não há mais nada ali"*. E a metade
+  // que ele não pediu, mas que vem junto: o CORPO da folha vazia não desenha
+  // mais a frase de ensino — ela mora no `title` do botão apagado desde a
+  // v1.8.51, e aqui era a segunda cópia.
+  const ctxG = await navegador.newContext({
+    viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: 'dark',
+  });
+  await semRedeExterna(ctxG);
+  const pgG = await ctxG.newPage();
+  await pgG.goto(base, { waitUntil: 'load' });
+  await esperarCortina(pgG);
+
+  const portas = await pgG.evaluate(async () => {
+    const aberta = () => document.getElementById('plPopup').classList.contains('open');
+    const semear = async (n) => {
+      await AVDB.listSet('playlist', () => []);
+      for (let i = 0; i < n; i++) {
+        await AVDB.addMedia(new Blob(['g' + i], { type: 'audio/mpeg' }),
+          { name: 'G' + i, type: 'audio/mpeg', kind: 'audio', list: 'playlist' });
+      }
+      await load();
+      openPlPopup();
+      await new Promise((f) => setTimeout(f, 300));
+    };
+    const r = {};
+    // PORTA 1 — o "Limpar" da folha.
+    setAppMode('full');
+    await semear(2);
+    r.abriuA = aberta();
+    await limparPlaylist();
+    await new Promise((f) => setTimeout(f, 500));
+    r.fechouPeloLimpar = !aberta() && plItems.length === 0;
+    // PORTA 2 — a lixeira da ÚLTIMA linha.
+    await semear(1);
+    r.abriuB = aberta();
+    const li = document.querySelector('#playlist li');
+    li.querySelector('.row-mais').click();
+    li.querySelector('.row-excluir').click();
+    await new Promise((f) => setTimeout(f, 200));
+    li.querySelector('.linha-confirma-btn.linha-sim').click();
+    await new Promise((f) => setTimeout(f, 800));
+    r.fechouPelaLixeira = !aberta() && plItems.length === 0;
+    // E COM ITEM SOBRANDO ELA CONTINUA ABERTA — a régua é "acabou", não "mudou".
+    await semear(2);
+    const li2 = document.querySelector('#playlist li');
+    li2.querySelector('.row-mais').click();
+    li2.querySelector('.row-excluir').click();
+    await new Promise((f) => setTimeout(f, 200));
+    li2.querySelector('.linha-confirma-btn.linha-sim').click();
+    await new Promise((f) => setTimeout(f, 800));
+    r.ficouAberta = aberta() && plItems.length === 1;
+    // O CORPO VAZIO não desenha mais nada.
+    await AVDB.listSet('playlist', () => []);
+    await load();
+    r.corpoVazio = document.getElementById('playlist').innerHTML.trim() === '';
+    r.tituloEnsina = /segure/i.test(document.getElementById('plBtn').title || '');
+    return r;
+  });
+  checar(portas.abriuA === true && portas.fechouPeloLimpar === true,
+    'G · o "Limpar" esvazia a fila e FECHA a folha — não há mais nada ali',
+    JSON.stringify(portas));
+  checar(portas.abriuB === true && portas.fechouPelaLixeira === true,
+    'G · e a lixeira da ÚLTIMA linha faz o mesmo: o estado é um só, e duas '
+    + 'portas para ele não podem ter duas respostas', JSON.stringify(portas));
+  checar(portas.ficouAberta === true,
+    'G · MAS com item sobrando ela CONTINUA aberta — a régua é "a fila acabou", '
+    + 'não "a fila mudou", e fechar no meio de uma reorganização seria tirar a '
+    + 'folha da mão de quem está usando', JSON.stringify(portas));
+  checar(portas.corpoVazio === true && portas.tituloEnsina === true,
+    'G · e o corpo da folha vazia não desenha mais a frase de ensino — ela mora '
+    + 'no `title` do botão apagado desde a v1.8.51, e aqui era a segunda cópia',
+    JSON.stringify(portas));
+  await ctxG.close();
 
 } finally {
   await navegador.close();

@@ -94,7 +94,7 @@ try {
   // DEPOIS do `load`. Plantar cena antes disso é correr contra a inicialização.
   await pg.waitForFunction(
     () => window.__NATIVE__ === true && window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
   // O modo avançado, que é onde o deck existe: o app abre no Modo Fácil e a

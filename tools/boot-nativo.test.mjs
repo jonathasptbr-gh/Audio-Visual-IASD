@@ -341,7 +341,7 @@ try {
     await pg.waitForFunction(
       () => window.AVDB && window.AVStream && window.createStage
         && typeof window.__avBack === 'function'
-        && !!document.querySelector('#playlist li'),
+        && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
       null, { timeout: 25000 },
     );
     deuPe = true;
@@ -3957,7 +3957,7 @@ try {
     await pg2.waitForFunction(
       () => window.AVDB && window.AVStream && window.createStage
         && typeof window.__avBack === 'function'
-        && !!document.querySelector('#playlist li'),
+        && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
       null, { timeout: 25000 },
     );
     deuPe2 = true;
@@ -4223,7 +4223,7 @@ try {
   // aparece depois de o tile já estar pintado.
   const dePe = () => pgP.waitForFunction(
     () => window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 25000 });
   await pgP.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await dePe();
@@ -5203,7 +5203,7 @@ try {
   // caso corre contra a abertura e é desfeito por ela — MEDIDO, e é a quarta
   // classe da tabela ("o oráculo correndo contra o app") outra vez.
   await pg7.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 25000 });
 
   const fonte = await pg7.evaluate(async () => {
     setAppMode('full');
@@ -5267,7 +5267,7 @@ try {
   await pg8.addInitScript(PONTE);
   await pg8.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
   await pg8.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 20000 });
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 20000 });
   const volta = await pg8.evaluate(() => ({
     valor: lvTamanho,
     token: getComputedStyle(document.documentElement).getPropertyValue('--lv-fonte').trim(),
@@ -5306,7 +5306,7 @@ try {
   await pg9.addInitScript(PONTE);
   await pg9.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
   await pg9.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 25000 });
 
   const clip = await pg9.evaluate(async () => {
     const r = {};
@@ -5439,7 +5439,7 @@ try {
   })();`);
   await pgM.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
   await pgM.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 25000 });
 
   const semTv = await pgM.evaluate(async () => {
     // A PORTA DAS FERRAMENTAS É O BOTÃO DO CRONOGRAMA (v1.3.10) — elas deixaram

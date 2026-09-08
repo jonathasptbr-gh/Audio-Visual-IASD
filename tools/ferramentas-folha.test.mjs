@@ -63,7 +63,7 @@ pg.on('pageerror', (e) => erros.push(e.message));
 try {
   await pg.goto('http://localhost:' + servidor.address().port + '/controle/', { waitUntil: 'load' });
   await pg.waitForFunction(
-    () => window.AVDB && typeof window.__avBack === 'function' && !!document.querySelector('#playlist li'),
+    () => window.AVDB && typeof window.__avBack === 'function' && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 25000 },
   );
   await pg.evaluate(() => setAppMode('full'));

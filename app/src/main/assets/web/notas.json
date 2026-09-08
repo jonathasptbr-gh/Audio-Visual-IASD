@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.54",
+    "itens": [
+      "A confirmação do limpar agora diz \u0022Confirmar\u0022, em vez de repetir \u0022Limpar\u0022.",
+      "Guardar a fila virou dois botões: nos Favoritos (estrela) ou no Cronograma (relógio).",
+      "São os mesmos dois ícones que cada item já tem na gaveta dele.",
+      "Esvaziar a playlist agora fecha a janela dela — não há mais nada para ver ali.",
+      "E a mensagem da lista vazia saiu: quem procura a fila e não a encontra lê o motivo no próprio botão."
+    ]
+  },
+  {
     "versao": "1.8.53",
     "itens": [
       "Os dois botões do rodapé da playlist ficaram lado a lado: \u0022Limpar\u0022 e \u0022Guardar\u0022.",

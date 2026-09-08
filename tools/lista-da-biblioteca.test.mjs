@@ -185,7 +185,7 @@ try {
   await pg.waitForFunction(() => (
     window.AVDB && window.AVStream && window.createStage && window.AVHinario
       && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li')
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled)
       && !!document.querySelector('.lib-bar')
   ), null, { timeout: 30000 });
 
@@ -1032,7 +1032,7 @@ try {
     await esperarCortina(p2);
     await p2.waitForFunction(
       () => window.AVDB && typeof window.__avBack === 'function'
-        && !!document.querySelector('#playlist li'), null, { timeout: 30000 },
+        && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 30000 },
     );
     const m = await p2.evaluate(async (tela) => {
       if (tela.sa) document.documentElement.style.setProperty('--sa-topo', tela.sa);
@@ -1417,7 +1417,7 @@ try {
     await esperarCortina(pF);
     await pF.waitForFunction(
       () => window.AVDB && typeof window.__avBack === 'function'
-        && !!document.querySelector('#playlist li'), null, { timeout: 30000 },
+        && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 30000 },
     );
     await pF.evaluate(async (tela) => {
       if (tela.sa) document.documentElement.style.setProperty('--sa-topo', tela.sa);

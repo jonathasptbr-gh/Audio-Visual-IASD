@@ -138,9 +138,25 @@ try {
   // o `init()` começa por `loadCollections()`, que faz `collState = {}` e
   // apaga o que o oráculo acabou de plantar. Foi assim que o
   // `acervo.test.mjs` reprovou no runner e passou em toda máquina rápida.
+  // ===== O SINAL DE QUE O APP ESTÁ DE PÉ, e por que ele mudou (v1.8.54) =====
+  //
+  // Era `#playlist li` — a linha da mensagem "Playlist vazia" —, e ela provava
+  // INICIALIZAÇÃO e não parse: o `init()` começa por `loadCollections()`, que
+  // faz `collState = {}` e apaga o que o oráculo acabou de plantar.
+  //
+  // O OPERADOR MANDOU REMOVER A MENSAGEM, e com ela sumiu a prova de boot de
+  // **31 oráculos** — que reprovaram por prazo em blocos sem relação nenhuma com
+  // a playlist (o tema, o arranque da Biblioteca, o acervo). Um nó de INTERFACE
+  // não é um bom sinal de boot: ele existe por decisão de desenho, e some com
+  // ela.
+  //
+  // O SINAL NOVO SAI DA MESMA FUNÇÃO e cobre as duas fixtures: quem planta itens
+  // antes da carga vê a LINHA; quem carrega com a fila vazia vê o botão que abre
+  // a folha APAGADO (v1.8.51) — e o HTML o entrega aceso, então o apagado só
+  // pode ter vindo do `renderPlaylist`.
   await pg.waitForFunction(
     () => window.AVDB && window.createStage && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
   checar(true, 'a base web inicializa (AVDB + createStage + __avBack + a playlist renderizada)');
@@ -4260,7 +4276,10 @@ try {
     r.rotulos = par.map((b) => b.textContent).join(' · ');
     r.aoMeio = Math.abs(cxs[0].width - cxs[1].width) <= 1
       && cxs[0].width + cxs[1].width >= faixa.getBoundingClientRect().width - 8;
-    r.pacoteSai = document.getElementById('plPack').getBoundingClientRect().height === 0;
+    // OS DOIS de guardar, desde a v1.8.54 — com o irmão adjacente (`+`) só o
+    // primeiro sumia, e a faixa ficava com uma estrela solta ao lado da pergunta.
+    r.pacoteSai = ['plPack', 'plPackFav']
+      .every((i) => document.getElementById(i).getBoundingClientRect().height === 0);
     r.semPulo = Math.round(faixa.getBoundingClientRect().height) === alturaAntes;
     // O RODAPÉ inteiro, não só a caixa: é ele que a folha empurra.
     r.rodapeSemPulo = Math.round(document.querySelector('.pl-rodape').getBoundingClientRect().height) === rodapeAntes;
@@ -4283,7 +4302,11 @@ try {
     closePlPopup();
     return r;
   });
-  checar(!limpar.erro && limpar.aVista === true && limpar.rotulos === 'Cancelar · Limpar',
+  // "CONFIRMAR" DESDE A v1.8.54, e o par é literal de propósito: o botão que
+  // abre a pergunta JÁ diz "Limpar", e repetir o verbo não acrescenta nada. Onde
+  // ele NÃO diz — a lixeira sem rótulo de uma sessão do Histórico — a palavra
+  // continua sendo "Limpar", porque lá ela é a única que nomeia o dano.
+  checar(!limpar.erro && limpar.aVista === true && limpar.rotulos === 'Cancelar · Confirmar',
     'o rodapé da folha da playlist tem o LIMPAR, e ele pergunta na própria caixa '
     + '(' + limpar.rotulos + ')', JSON.stringify(limpar));
   checar(!limpar.erro && limpar.aoMeio === true && limpar.semPulo === true,
@@ -5646,9 +5669,10 @@ try {
   // A CORTINA cobre a tela por 1,8 s (v1.7.2) e ela é o topo da pilha: sem esta
   // espera, todo hit-test e toda captura deste arquivo medem o `#splash`.
   await esperarCortina(pg2);
+  // Mesmo sinal do topo do arquivo, e pelo mesmo motivo — ver lá.
   await pg2.waitForFunction(
     () => window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
   const arranque = await pg2.evaluate(() => {
