@@ -483,6 +483,84 @@ try {
     JSON.stringify(portas));
   await ctxG.close();
 
+  // ── H. A LINHA DA FILA TEM MINIATURA, E ELA É GEOMETRIA ─────────────────
+  //
+  // Relato do operador: *"na playlist os itens estão sem thumbnail, fazendo a
+  // gaveta de opções ficar faltando cobertura e deixando exposto um pedaço
+  // inútil do texto do card abaixo"*.
+  //
+  // A `.row-acoes` é posicionada CONTRA a miniatura — o KDoc dela diz que a capa
+  // *"é a única coisa que fica de fora"* —, e esta lista não tinha nenhuma. O que
+  // aparecia naquela fatia era o TÍTULO, recortado no meio. A asserção mede as
+  // DUAS pontas: que a capa existe e que ela ocupa EXATAMENTE a fatia que a
+  // gaveta deixa de fora — só a primeira passaria com uma capa de outro tamanho,
+  // e aí o defeito voltaria com a capa no lugar.
+  const ctxH = await navegador.newContext({
+    viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: 'dark',
+  });
+  await semRedeExterna(ctxH);
+  const pgH = await ctxH.newPage();
+  await pgH.goto(base, { waitUntil: 'load' });
+  await esperarCortina(pgH);
+  await pgH.evaluate(eval(SEMEAR), 3);
+  const abriuH = await esperar(pgH, () => !!document.querySelector('#playlist li'));
+  checar(abriuH === true, 'H · a folha abriu com três linhas', porque(abriuH));
+
+  const linha = await pgH.evaluate(async () => {
+    const li = document.querySelector('#playlist li');
+    const th = li.querySelector('.thumb');
+    if (!th) return { temCapa: false };
+    li.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 400));
+    const g = li.querySelector('.row-acoes');
+    const rt = th.getBoundingClientRect(), rg = g.getBoundingClientRect();
+    const rl = li.getBoundingClientRect();
+    // O QUE ESTÁ SOB O TÍTULO com a gaveta aberta: tem de ser a gaveta.
+    const nome = li.querySelector('.row-name').getBoundingClientRect();
+    const sob = document.elementFromPoint(nome.left + 4, nome.top + nome.height / 2);
+    return {
+      temCapa: true,
+      capa: { w: Math.round(rt.width), h: Math.round(rt.height) },
+      quadrada: Math.abs(rt.width - rt.height) <= 1,
+      // a fatia que a gaveta deixa à esquerda termina onde a capa termina
+      folga: Math.round((rg.left - rt.right) * 10) / 10,
+      cobreAltura: Math.abs(rg.height - rl.height) <= 1,
+      sobONome: sob ? (sob.className || sob.tagName) : null,
+    };
+  });
+  checar(linha.temCapa === true && linha.quadrada === true,
+    'H · a linha da fila tem MINIATURA, quadrada como a das outras listas',
+    JSON.stringify(linha));
+  checar(linha.folga >= 0 && linha.folga <= 12 && linha.cobreAltura === true,
+    'H · e a gaveta começa logo DEPOIS dela: a fatia que ela deixa de fora é a '
+    + 'capa, não um pedaço do título — era isso que aparecia recortado',
+    JSON.stringify(linha));
+  checar(/row-acoes/.test(linha.sobONome || ''),
+    'H · com a gaveta aberta, o que está sobre o título é a GAVETA — é a metade '
+    + 'que denuncia o defeito de verdade, e ela cai com uma capa de outro tamanho',
+    JSON.stringify(linha));
+
+  // ── I. O CONTADOR VESTE A CAIXA DO ✕ ───────────────────────────────────
+  //
+  // Pedido do operador: *"faça ele ficar em formato de um botão quadrado como o
+  // botão de fechar que fica em seu lado"*. Era uma pílula de 22,6×14 ao lado de
+  // um quadrado de 34×34. A COR não entra na asserção: o pedido é de formato, e
+  // o `--accent-fill` é o que separa a informação da ação ao lado dela.
+  const cabecalho = await pgH.evaluate(() => {
+    const c = document.getElementById('plPopupCount');
+    const x = document.getElementById('plPopupClose');
+    const cx = (e) => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
+      return { w: Math.round(r.width), h: Math.round(r.height), raio: s.borderRadius }; };
+    return { conta: cx(c), fechar: cx(x) };
+  });
+  checar(cabecalho.conta.w === cabecalho.fechar.w && cabecalho.conta.h === cabecalho.fechar.h
+      && cabecalho.conta.raio === cabecalho.fechar.raio
+      && cabecalho.conta.w === cabecalho.conta.h,
+    'I · o contador da folha veste a MESMA caixa do ✕ ao lado — quadrado, mesmo '
+    + 'raio, mesmo alvo. Os dois números saem dos mesmos tokens, então mudar o '
+    + 'alvo do app move os dois juntos', JSON.stringify(cabecalho));
+  await ctxH.close();
+
 } finally {
   await navegador.close();
   servidor.close();

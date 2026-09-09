@@ -374,7 +374,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.54';
+const WEB_VERSION = '1.8.55';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3971,6 +3971,23 @@ function renderPlaylist() {
 
     const row = document.createElement('div');
     row.className = 'row';
+    // ===== A MINIATURA (v1.8.55), e ela não é enfeite: é GEOMETRIA =====
+    //
+    // Relato do operador: *"na playlist os itens estão sem thumbnail, fazendo a
+    // gaveta de opções ficar faltando cobertura e deixando exposto um pedaço
+    // inútil do texto do card abaixo"*.
+    //
+    // A `.row-acoes` é posicionada CONTRA A MINIATURA — o KDoc dela diz por
+    // extenso que a miniatura *"é a única coisa que fica de fora"* —, e essa
+    // conta não sabe que esta lista não tinha nenhuma. MEDIDO a 390px: a gaveta
+    // abria 56px dentro da linha e o que aparecia naquela fatia era o TÍTULO,
+    // recortado no meio. Toda outra lista deste app põe a capa ali.
+    //
+    // `cueThumb` PARA CENA DE ROTEIRO, a mesma linha da Biblioteca: o comentário
+    // do rodapé desta função diz que um cue nunca entra na fila, e ele não entra
+    // pelo `onTap` — mas entra pela folha de destinos, e uma linha sem capa aqui
+    // seria o mesmo defeito de volta por outra porta.
+    const thumb = isCue(item) ? cueThumb(item) : thumbEl(item);
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
     // ===== A LIXEIRA DO APP, E NÃO UMA SÓ DESTA LISTA (v5.301) =====
     //
@@ -4053,7 +4070,7 @@ function renderPlaylist() {
     // UMA CENA DE ROTEIRO NÃO GANHA O DA FILA no Cronograma (*"um versículo não
     // é uma fila de reprodução"*), e aqui a guarda não é necessária pelo motivo
     // oposto — um cue não entra na playlist, então esta linha nunca é um.
-    row.append(name, ...montarAcoesDaLinha(li, [
+    row.append(thumb, name, ...montarAcoesDaLinha(li, [
       rm,
       favBtn(item.id, item.name),
       cronoBtnDaLinha(item),
@@ -28274,8 +28291,20 @@ function pulsar(btn, tipo) {
 // que mandava toda resposta órfã para a faixa flutuante. Era cômodo e era
 // justamente o mecanismo que levava a informação para longe do alvo de foco —
 // e ele escondia a pergunta que importa, que é por que uma ação ficou sem
-// interface em que responder. O parâmetro `texto` saiu com ele; nenhum dos
-// catorze chamadores o passava.
+// interface em que responder. O parâmetro `texto` saiu com ele.
+//
+// **E A FRASE SEGUINTE ERA FALSA** (corrigida na v1.8.55). Ela dizia *"nenhum
+// dos catorze chamadores o passava"* — e hoje QUINZE passam um terceiro
+// argumento que esta função não declara (5230, 5326, 5330, 6581, 7037, 7054,
+// 10675, 15688, 15734, 20330, 21764, 23320, 23383, 23419, 29681). Eles são
+// engolidos em silêncio: quem escreveu a chamada acha que disse o motivo, e o
+// operador vê um pulso sem frase nenhuma.
+//
+// **NÃO SE CONSERTA APAGANDO OS ARGUMENTOS**, e é por isso que a linha fica
+// aqui em vez de virar uma varredura: cada uma daquelas frases é um motivo que
+// alguém quis dizer, e a pergunta certa é a mesma que derrubou o `avisar` —
+// QUAL superfície diz isto? Para uma linha de lista já existe resposta
+// (`notaNoItem`, o canal irmão do pulso); para um botão solto, não.
 function responder(btn, tipo) {
   return pulsar(btn, tipo);
 }

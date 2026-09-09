@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.55",
+    "itens": [
+      "Os itens da playlist voltaram a ter miniatura — e com ela a gaveta de opções cobre a linha inteira.",
+      "O contador de itens da playlist virou um botão quadrado, igual ao de fechar ao lado.",
+      "A confirmação de uma ação agora é sempre azul, em todo o app — nada mais em verde.",
+      "Favoritar e desfavoritar respondiam em cores diferentes; agora respondem igual.",
+      "O \u0022já estava na lista\u0022 continua em âmbar e a falha em vermelho: são outras mensagens."
+    ]
+  },
+  {
     "versao": "1.8.54",
     "itens": [
       "A confirmação do limpar agora diz \u0022Confirmar\u0022, em vez de repetir \u0022Limpar\u0022.",

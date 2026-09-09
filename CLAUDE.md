@@ -1290,6 +1290,17 @@ nenhum**, e por isso ficam aqui.
   `--accent`; SELECIONADO numa lista = `--sel-fill`; ABERTO **não é cor**.
   **Cor de texto nunca carrega estado sozinha**, e **apagado quer dizer
   INDISPONÍVEL** (`opacity: .3` + `disabled`), nunca "desligado".
+- **E O DESFECHO DE UMA AÇÃO É AZUL, NUNCA VERDE** (v1.8.55): o pulso do botão
+  (`.btn-pulso--ok`) e a nota na linha (`.row-nota--ok`) vestem `--btn-accent` +
+  `--accent`, o par do `.fav-btn.on`. **O âmbar e o vermelho FICAM** — "já estava
+  lá" e "não deu" são outras mensagens, não outra cor para a mesma. **O verde que
+  sobra é ESTADO** (a TV no ar, o ponto do Auxiliar, "Completa offline"), e a
+  lista é nomeada no oráculo: um seletor novo consumindo `--ok` reprova até
+  alguém dizer se aquilo é estado ou desfecho. **E a regra do pulso tem uma
+  armadilha de CASCATA**: as variantes são `(0,1,0)` e perdiam para
+  `.fav-btn.on`, `.row-*.on`, `.qs-tile.qs-on` e `.fav-acoes .row-btn` — daí a
+  classe DOBRADA (`.btn-pulso.btn-pulso--ok`), que as leva a `(0,2,0)` sem
+  `!important`. Botão novo que pinte por `(0,2,0)` e receba pulso entra na conta.
 - **E O QUE NÃO TEM FUNÇÃO AGORA É APAGADO, não deixado inerte** (v1.8.50).
   Inerte e apagado não são a mesma coisa: um botão aceso que não faz nada é
   indistinguível de um quebrado, e o que se faz diante dele é tocar de novo — a
@@ -2299,7 +2310,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.54 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.55 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
