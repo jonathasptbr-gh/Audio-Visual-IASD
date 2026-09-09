@@ -4453,10 +4453,17 @@ main {
 .yt-result.baixando .yt-thumb .dl-ring { display: flex; }
 .yt-result.baixando .yt-thumb img { opacity: .25; }
 .yt-result.baixando .row-name { color: var(--muted); }
+/* E ELE É AZUL (v1.8.56), pelo par `--btn-accent` + `--accent` do
+   `.fav-btn.on`. Era `--btn-ok` + `--ok`, e a régua do operador é a que
+   separa as duas famílias: *"verde é para sinal de 'ligado', nesses casos
+   são mensagem de conclusão, não de atividade"*. O ✓ aqui é o DESFECHO de
+   um download que o operador pediu — irmão do pulso do botão, não do ponto
+   que diz que a TV está no ar. MEDIDO: 5,37:1 no escuro e 6,37:1 no claro,
+   acima dos 4,89 · 5,74 do par verde que saiu. */
 .yt-result .yt-ok {
   display: none; position: absolute; inset: 0;
   align-items: center; justify-content: center;
-  background: var(--btn-ok); color: var(--ok);
+  background: var(--btn-accent); color: var(--accent);
 }
 /* A FALHA, no mesmo canto (v5.119) — o terceiro estado da miniatura, ao lado do
    anel de download e do ✓. Ela morava numa faixa flutuante no fim da tela, e
@@ -4590,7 +4597,14 @@ main {
 .bible-ver-row.selected { --linha: var(--sel-fill); color: var(--accent); }
 .bible-ver-row .row-name { font-weight: var(--fw-medio); }
 .bible-ver-status { font-size: var(--fs-xs); color: var(--muted); }
-.bible-ver-status.done { color: var(--ok); }
+/* "✓ Completa offline" é DESFECHO de um download, e desde a v1.8.56 veste o
+   mesmo azul do resto (era `--ok`). Ele divide a linha com o `.bible-ver-check`
+   — o ✓ que marca a versão ESCOLHIDA, também `--accent` —, e os dois só
+   coexistem na linha selecionada, onde quem carrega a seleção é o FILL
+   (`--sel-fill`) e não a cor: ali a linha inteira já é accent por herança, e
+   o status era a única peça fora do tom. MEDIDO: 6,63 · 7,70 sobre o painel e
+   4,92 · 5,87 sobre `--sel-fill` (escuro · claro), acima do verde que saiu. */
+.bible-ver-status.done { color: var(--accent); }
 .bible-ver-check { color: var(--accent); font-weight: var(--fw-forte); flex-shrink: 0; }
 
 /* Aviso/estado (baixando versículos, sem rede etc.) */
@@ -7655,12 +7669,19 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    O que NÃO sai é a ÊNFASE (`font-weight: var(--fw-medio)`), que distingue o resolvido do
    neutro sem pintar nada.
 
-   E A LISTA DOS SOBREVIVENTES ENCOLHEU NA v1.8.55: a linha de aviso
-   (`.row-nota--ok`) e o pulso de confirmação eram dois deles e viraram AZUIS, a
-   pedido do operador (*"sem nada verde"*). O que sobra verde é o que descreve
-   ESTADO e não desfecho de toque: a tela conectada (`.cast-acao.connected`), o
-   ponto do Auxiliar de Leitura (`.lv-badge`) e o "Completa offline" da Bíblia
-   (`.bible-ver-status.done`). Nenhum dos três é feedback de uma ação. */
+   E A LISTA DOS SOBREVIVENTES ENCOLHEU DUAS VEZES. Na v1.8.55 saíram os dois
+   canais de confirmação — o pulso do botão e a nota na linha (`.row-nota--ok`).
+   Na v1.8.56 saíram os dois que ainda pareciam estado e eram CONCLUSÃO: o ✓ do
+   download do YouTube (`.yt-result .yt-ok`) e o "Completa offline" da Bíblia
+   (`.bible-ver-status.done`). A régua é do operador, verbatim: *"verde é para
+   sinal de 'ligado', nesses casos são mensagem de conclusão, não de
+   atividade"*.
+
+   O QUE SOBRA VERDE É ATIVIDADE, e é uma lista de dois: a tela conectada
+   (`.cast-acao.connected`, mais o ícone dela) e o ponto do Auxiliar de Leitura
+   (`.lv-badge`) — os dois duram enquanto a coisa está no ar, não 1,1 s. É o
+   NOME que segura a lista, e ela é bidirecional no oráculo: um seletor novo
+   consumindo `--ok` reprova, e um destes que suma sem sair da lista também. */
 .item-detalhe-estado.done { font-weight: var(--fw-medio); }
 /* ---------- A DESCRIÇÃO DO VÍDEO (v1.5.21) ----------
    A linha inteira do card, abaixo da miniatura e dos dados — ver a nota do
@@ -8073,12 +8094,31 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    dela já carrega a ênfase — a regra abaixo existe para o caso de a frase do
    motivo passar a ter uma segunda metade um dia. */
 .sorteio-conta.vazio .sorteio-conta-forte { font-weight: var(--fw-medio); }
-/* A FAIXA DE FECHO TEM DOIS BOTÕES quando se monta a fila (v5.306): um TOCA e o
-   outro GUARDA. O primário cresce e o secundário fica com o que precisa — a
-   mesma divisão do par "Confirmar / Ver a letra" da gaveta, que é de onde as
-   duas classes vêm. Aqui o secundário também cresce, porque "Ao Cronograma" é
-   uma decisão de mesmo porte que "Tocar agora", e não uma conferência. */
-.song-menu-go-row .sorteio-acao.song-menu-letra { flex: 1; min-width: 0; }
+/* ---------- A FAIXA DE FECHO DO SORTEIO: UM PRIMÁRIO E TRÊS ÍCONES (v1.8.56)
+   Ela teve DOIS botões de rótulo da v5.306 até aqui ("Tocar agora" e "Ao
+   Cronograma", os dois crescendo). Com os três destinos do app na faixa, rótulo
+   deixou de caber: a 320px sobram ~50px de texto por botão, e só "Limpar"
+   (51,2px) já não cabia no rodapé da playlist, que é o desenho de onde este
+   veio. O primário cresce e os três destinos ficam com a largura que precisam.
+
+   `--dest-quad` É A MESMA EXPRESSÃO DO `.pl-pack` (`--icon-sm` + 1.4rem, 42,4px),
+   e ela é a razão de não haver número aqui: os dois rodapés são o mesmo desenho,
+   e um ajuste de escala de ícone tem de mover os dois juntos.
+
+   NÃO HÁ `aspect-ratio`, e a ausência está escrita porque ele é a tentativa
+   óbvia: MEDIDO nesta faixa, ele é INERTE. A altura destes botões vem do
+   ESTIRAMENTO (o primário é 53,2px por causa do recuo do `.song-menu-btn`), e
+   com `flex: 0 0 auto` a largura ainda vem do conteúdo — o botão saía com a
+   largura do `path`. É a mesma armadilha medida na v1.8.54, e a saída é a
+   mesma: a largura é declarada. Daí eles NÃO serem quadrados (42,4 × 53,2): o
+   que os alinha é a altura da faixa, que é do primário. */
+.song-menu-go-row .sorteio-acao.sorteio-dest {
+  --dest-quad: calc(var(--icon-sm) + 1.4rem);
+  flex: 0 0 var(--dest-quad); min-width: 0; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); color: var(--accent);
+}
+.sorteio-dest svg { width: var(--icon-sm); height: var(--icon-sm); }
 .sorteio-acao .song-menu-text { align-items: center; justify-content: center; min-height: var(--hit); }
 .sorteio-acao:disabled { opacity: .5; cursor: default; }
 

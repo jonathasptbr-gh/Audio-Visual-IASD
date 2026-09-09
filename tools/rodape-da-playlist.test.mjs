@@ -102,6 +102,11 @@ try {
         // `aria-label`, que é o rótulo dele para o leitor de tela.
         destinos: [fav.getAttribute('aria-label') || '', pk.getAttribute('aria-label') || ''],
         desenhos: [fav.querySelector('svg'), pk.querySelector('svg')].map((e) => !!e),
+        // A ORDEM NA TELA, lida da esquerda para a direita — e por GEOMETRIA, não
+        // pela ordem do documento: é o que se vê que está em questão, e um
+        // `flex-direction` ou um `order` faria as duas discordarem.
+        ordem: [['limpar', fx], ['favoritos', fav], ['cronograma', pk]]
+          .sort((a, b) => cx(a[1]).left - cx(b[1]).left).map((e) => e[0]),
       };
     });
     checar(m.mesmaLinha === true,
@@ -126,6 +131,15 @@ try {
       'A · ' + largura + 'px×' + escala + ': cada um NOMEIA o próprio destino no '
       + '`aria-label` e desenha o ícone da gaveta da linha — sem rótulo, é tudo que '
       + 'um botão de símbolo tem a dizer a quem o encontra', JSON.stringify(m));
+    // A ORDEM CANÔNICA DOS DESTINOS (v1.8.56), e ela INVERTEU aqui: este rodapé
+    // nasceu na v1.8.54 copiando a gaveta de então, que punha a estrela na
+    // frente. Pedido do operador: *"a esquerda o cronograma, no meio a playlist
+    // e por fim o favoritos"* — e nesta faixa a playlist não aparece, porque
+    // esta FOLHA é a playlist.
+    checar(JSON.stringify(m.ordem) === JSON.stringify(['limpar', 'cronograma', 'favoritos']),
+      'A · ' + largura + 'px×' + escala + ': e eles estão na ORDEM CANÔNICA dos '
+      + 'destinos — Cronograma antes de favoritos, a mesma da gaveta da linha, da '
+      + 'folha de destinos e da faixa de fecho do sorteio', JSON.stringify(m.ordem));
     await ctx.close();
   }
 

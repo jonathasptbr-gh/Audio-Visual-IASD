@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.56",
+    "itens": [
+      "O \u2713 de v\u00eddeo baixado e o \u0022Completa offline\u0022 da B\u00edblia agora s\u00e3o azuis, como toda conclus\u00e3o.",
+      "A playlist autom\u00e1tica ganhou os bot\u00f5es de Cronograma, playlist e favoritos.",
+      "Eles valem nos dois modos: sorteando uma m\u00fasica s\u00f3 e montando a playlist inteira.",
+      "Sortear e mandar \u00e0 playlist acrescenta no fim da fila, sem trocar o que j\u00e1 estava.",
+      "Cronograma, playlist e favoritos agora aparecem nessa ordem em todo o app."
+    ]
+  },
+  {
     "versao": "1.8.55",
     "itens": [
       "Os itens da playlist voltaram a ter miniatura — e com ela a gaveta de opções cobre a linha inteira.",

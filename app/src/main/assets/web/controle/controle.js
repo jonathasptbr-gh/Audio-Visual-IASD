@@ -374,7 +374,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.55';
+const WEB_VERSION = '1.8.56';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4061,9 +4061,13 @@ function renderPlaylist() {
     //
     // A ORDEM É A DO CRONOGRAMA (v5.302), com a ressalva de não contar com o
     // que não existe nesta lista: o que mexe no ITEM (tirar da fila), o que
-    // mexe em ONDE ele está (favoritar, Cronograma) e o que mexe na POSIÇÃO
+    // mexe em ONDE ele está (Cronograma, favoritar) e o que mexe na POSIÇÃO
     // (↑↓). Falta o botão da PLAYLIST — esta LINHA é a playlist —, e o
     // renomear, que nunca esteve aqui.
+    //
+    // E O PAR DE DESTINO SEGUE A ORDEM CANÔNICA (v1.8.56, ver `DESTINOS`):
+    // Cronograma, playlist, favoritos. Aqui a playlist não existe, então o que
+    // sobra é Cronograma antes de favoritar — o inverso do que estava.
     //
     // OS DOIS SÃO ALTERNADORES COM ESTADO À VISTA, como no Cronograma: a
     // pergunta que se faz montando o culto é "está lá?", não "eu mandei?".
@@ -4072,8 +4076,8 @@ function renderPlaylist() {
     // oposto — um cue não entra na playlist, então esta linha nunca é um.
     row.append(thumb, name, ...montarAcoesDaLinha(li, [
       rm,
-      favBtn(item.id, item.name),
       cronoBtnDaLinha(item),
+      favBtn(item.id, item.name),
       ...botoesDeOrdem('playlist', item.id, i, plItems.length),
     ], 'playlist:' + item.id));
     li.appendChild(row);
@@ -5169,11 +5173,44 @@ const ROTULO_PADRAO = { em: 'na lista', para: 'à lista' };
 // domingo. Escrever embaixo de cada um o que ele é ("A lista do culto") é
 // explicar a própria navegação para quem já está navegando nela, e era metade
 // da altura desta folha.
+//
+// ===== A ORDEM É A DA TABELA, E ELA É CANÔNICA (v1.8.56) =====
+//
+// Pedido do operador: *"há casos em que o cronograma está a esquerda, e outros
+// ele está a direita… Padronize: a esquerda o cronograma, no meio a playlist e
+// por fim o favoritos. Tente aplicar essa ordem a todo o app como padrão onde
+// houver esses botões (é claro, há lugares que só há um ou dois deles)"*.
+//
+// A DIVERGÊNCIA NÃO ERA DECISÃO DE NINGUÉM: eram QUATRO listas escritas à mão
+// com a mesma tríade em ordens diferentes — as duas folhas de destino (a do
+// acervo e a do YouTube), o mapa `LINHA` da gaveta e o `DEST_ICONE` desta
+// folha —, mais duas fileiras de botão de linha. Uma tabela que só respondia
+// "quais existem?" deixava "em que ordem?" para cada chamador, e o quinto
+// chamador ia divergir também.
+//
+// Por isso `ico` e `acao` entraram AQUI, e as quatro listas saíram: quem monta
+// uma folha de destinos percorre esta tabela, e não pode mais escolher a
+// ordem. `rotulo` é o nome do lugar ("Cronograma"); `acao` é o que se FAZ com
+// ele ("Adicionar ao Cronograma") — as folhas usam um ou outro conforme a
+// linha seja uma MARCA ou um verbo, e escrever os dois no mesmo campo torceria
+// metade das telas.
+//
+// ONDE FALTA UM DELES A ORDEM SOBREVIVE, que é a ressalva do pedido: a linha
+// do Cronograma não oferece "Cronograma" (o item já está lá) e a da fila não
+// oferece "Playlist" (a linha É a fila) — em ambas o que resta continua na
+// ordem relativa desta tabela.
 const DESTINOS = [
-  { chave: 'playlist', lista: 'playlist', rotulo: 'Playlist' },
-  { chave: 'cronograma', lista: 'imports', rotulo: 'Cronograma' },
-  { chave: 'favoritos', lista: 'favs', rotulo: 'Favoritos' },
+  { chave: 'cronograma', lista: 'imports', rotulo: 'Cronograma', acao: 'Adicionar ao Cronograma', ico: 'cronoAdd' },
+  { chave: 'playlist', lista: 'playlist', rotulo: 'Playlist', acao: 'Adicionar à playlist', ico: 'queue' },
+  { chave: 'favoritos', lista: 'favs', rotulo: 'Favoritos', acao: 'Favoritar', ico: 'star' },
 ];
+// As chaves pedidas, NA ORDEM DA TABELA. É esta função que impede um chamador
+// de reintroduzir a divergência escrevendo o array na ordem que lhe convier:
+// a lista dele passa a dizer QUAIS, nunca em que ordem.
+function destinosNaOrdem(chaves) {
+  const quer = new Set(chaves || []);
+  return DESTINOS.filter((d) => quer.has(d.chave));
+}
 function destinoPorChave(chave) { return DESTINOS.find((d) => d.chave === chave) || null; }
 function listaDoDestino(chave) {
   const d = destinoPorChave(chave);
@@ -7487,16 +7524,24 @@ function renderLibraryCorpo() {
         //
         // Ela agrupa por NATUREZA, que é o que a ordem anterior não fazia: o que
         // mexe no ITEM (excluir, renomear), o que mexe em ONDE ele está
-        // (favoritar, playlist) e o que mexe na POSIÇÃO dele (↑↓). Antes o
+        // (playlist, favoritar) e o que mexe na POSIÇÃO dele (↑↓). Antes o
         // renomear caía entre a playlist e o par de ordem, separando os dois
         // pares que se parecem.
+        //
+        // O PAR DO MEIO INVERTEU NA v1.8.56, e é a única metade daquele pedido
+        // que não sobreviveu: a ordem canônica dos destinos passou a ser
+        // Cronograma · playlist · favoritos em TODO o app (ver `DESTINOS`), a
+        // pedido do mesmo operador — *"padronize: a esquerda o cronograma, no
+        // meio a playlist e por fim o favoritos"*. Nesta lista o Cronograma não
+        // aparece (o item já está nele), então o que resta é playlist antes da
+        // estrela.
         botaoExcluirDaLinha(item, 'imports', () => load()),
         // RENOMEAR (v5.288), com a mesma guarda do excluir: na pasta do aparelho
         // o nome vem do arquivo, e um nome só no registro seria desfeito na
         // varredura seguinte.
         botaoRenomearDaLinha(item, () => load()),
-        star,
         addBtn,
+        star,
         // O "baixar o vídeo" de uma linha de LINK não está na ordem pedida — ele
         // só existe nessa linha. Entra DEPOIS dela, para não partir ao meio a
         // sequência que o operador ditou.
@@ -10567,16 +10612,12 @@ function renderItemMenu(item, alvo, destinos, aoLado) {
     alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
       'Sem entrar em lista nenhuma',
       (vr, btn, alvos) => destExecutor(alvos, btn), 'tocar', desenhar));
-    const LINHA = {
-      playlist: [ICON.queue, 'Adicionar à playlist'],
-      cronograma: [ICON.cronoAdd, 'Adicionar ao Cronograma'],
-      favoritos: [ICON.star, 'Favoritar'],
-    };
-    quais.forEach((d) => {
-      const [ico, rot] = LINHA[d] || [];
-      if (!rot) return;
-      alvo.appendChild(songMenuItem(msym(ico), rot, '',
-        (vr, btn, alvos) => destExecutor(alvos, btn), d, desenhar));
+    // O QUE A GAVETA OFERECE VEM DE `cfg.destinos`; A ORDEM VEM DA TABELA
+    // (v1.8.56). Aqui morava a quarta cópia da tríade — um mapa `LINHA` com
+    // ícone e rótulo —, e era ela que fazia a gaveta divergir da folha ao lado.
+    destinosNaOrdem(quais).forEach((d) => {
+      alvo.appendChild(songMenuItem(msym(ICON[d.ico]), d.acao, '',
+        (vr, btn, alvos) => destExecutor(alvos, btn), d.chave, desenhar));
     });
     // O IRMÃO VEM DO FECHO, nunca do global — ver a nota em `destConfirmRow`.
     const go = destConfirmRow(aoLado);
@@ -18731,13 +18772,14 @@ function openYtMenu(r, alvoDado) {
   const subTocar = soAudio ? 'Sem mexer no telão' : 'Sem entrar em lista nenhuma';
   alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora', subTocar,
     (vr, btn, alvos) => ytAcao(r, alvos, null, soAudio, altura), 'tocar', remontar));
+  // OS TRÊS DESTINOS SAEM DA TABELA, na ordem dela (v1.8.56) — ver `DESTINOS`.
+  // Escritos à mão aqui, esta folha e a do acervo divergiam da gaveta e da
+  // folha de importação, que já percorriam a tabela.
   const subGuardar = '';
-  alvo.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', subGuardar,
-    (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'playlist', remontar));
-  alvo.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', subGuardar,
-    (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'cronograma', remontar));
-  alvo.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', subGuardar,
-    (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'favoritos', remontar));
+  DESTINOS.forEach((d) => {
+    alvo.appendChild(songMenuItem(msym(ICON[d.ico]), d.acao, subGuardar,
+      (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), d.chave, remontar));
+  });
   const go = destConfirmRow();
   if (go) alvo.appendChild(go);
   // Só a FOLHA abre; no corpo da linha quem abre é o acordeão do chamador.
@@ -20194,8 +20236,6 @@ function escolherDestinos(titulo, padrao) {
   });
 }
 
-const DEST_ICONE = { playlist: 'queue', cronograma: 'cronoAdd', favoritos: 'star' };
-
 function renderDestPrompt() {
   songMenuListEl.innerHTML = '';
   const remontar = () => renderDestPrompt();
@@ -20208,7 +20248,7 @@ function renderDestPrompt() {
   // duplicada saíram com a divergência.
   DESTINOS.forEach((d) => {
     songMenuListEl.appendChild(songMenuItem(
-      msym(ICON[DEST_ICONE[d.chave]] || ICON.add), d.rotulo, '',
+      msym(ICON[d.ico] || ICON.add), d.rotulo, '',
       () => {}, d.chave, remontar));
   });
   const li = document.createElement('li');
@@ -20303,12 +20343,11 @@ function renderSongMenu() {
   alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
     'Sem entrar em lista nenhuma',
     (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'tocar', remontar));
-  alvo.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
-    (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'playlist', remontar));
-  alvo.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
-    (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'cronograma', remontar));
-  alvo.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', '',
-    (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'favoritos', remontar));
+  // OS TRÊS DESTINOS SAEM DA TABELA, na ordem dela (v1.8.56) — ver `DESTINOS`.
+  DESTINOS.forEach((d) => {
+    alvo.appendChild(songMenuItem(msym(ICON[d.ico]), d.acao, '',
+      (vr, btn, alvos) => destExecutor(alvos, btn, vr), d.chave, remontar));
+  });
   const go = destConfirmRow();
   if (go) alvo.appendChild(go);
 }
@@ -21536,16 +21575,33 @@ function renderSorteio() {
   // porquê é o padrão que esta tela já usa. Ela já sabia hospedar um IRMÃO à
   // direita (o "Ver a letra" da gaveta), então dois botões não custam CSS novo.
   //
-  // MONTANDO A FILA HÁ DOIS DESTINOS (v5.306, pedido do operador). Eles não são
-  // duas versões da mesma ação: um TOCA (substitui a fila do player e projeta
-  // agora) e o outro GUARDA (acrescenta ao Cronograma, sem tocar em nada do que
-  // está no ar). Montar o louvor da semana e projetar no domingo são dois
-  // momentos, e antes só o primeiro tinha porta.
+  // ===== TOCAR MAIS OS TRÊS DESTINOS DE SEMPRE (v1.8.56) =====
   //
-  // SORTEANDO UMA SÓ o botão continua sendo um: "sorteie uma e guarde" é o
-  // caminho que a Biblioteca já dá pela gaveta da linha, com a música escolhida
-  // à vista — aqui ele seria um destino a mais para uma decisão que o operador
-  // toma justamente por não querer decidir.
+  // Pedido do operador: *"O modo playlist automática, na seleção tocar uma só,
+  // não tem a opção de adicionar aquela música ao cronograma e nem aos
+  // favoritos. Faça assim como foi feito na aba de playlist: deixe o botão
+  // tocar agora, e os dois botões de add ao cronograma e add aos favoritos
+  // disponíveis… Isso se aplica ao modo de uma música só e ao modo de playlist
+  // montar playlist. Na verdade pode até adicionar um terceiro botão, adicionar
+  // a playlist, que simplesmente joga… no fim da playlist atual"*.
+  //
+  // O QUE ISTO REVOGA, e a razão antiga está escrita porque era defensável:
+  // sorteando UMA SÓ o botão era um, sob o argumento de que "sorteie uma e
+  // guarde" já existia na gaveta da Biblioteca. Existia — para uma música
+  // ESCOLHIDA. Quem sorteia não sabe qual vai sair, e chegar à gaveta dela
+  // custa fechar esta folha, achar a faixa numa lista de milhares e abri-la:
+  // uma busca e três toques para o que agora é um.
+  //
+  // ELES SORTEIAM, e é isso que os torna botões e não uma folha de destinos:
+  // não há resultado à vista antes do toque, e uma folha perguntaria "para
+  // onde?" antes de existir o quê.
+  //
+  // O DESENHO É O DO RODAPÉ DA PLAYLIST (v1.8.53/54) — um primário que CRESCE
+  // mais botões de símbolo de largura fixa —, e a razão é a mesma medida de lá:
+  // com quatro ações na faixa não sobra largura para quatro rótulos a 320px
+  // (MEDIDO: 156,9px para o primário e 42,4 para cada um dos três). Os ícones são os
+  // MESMOS da gaveta de cada item, pelas mesmas funções (`cronogramaIconSvg`,
+  // `playlistIconSvg`, `starSvg`), e a ORDEM é a canônica (ver `DESTINOS`).
   const liGo = document.createElement('li');
   liGo.className = 'song-menu-go-row';
   const fila = sorteioPrefs.modo === AVSorteio.MODO_PLAYLIST;
@@ -21566,20 +21622,48 @@ function renderSorteio() {
 
   // O PRIMÁRIO É O DE TOCAR, nos dois modos: é o que o recurso existe para
   // fazer, e o preenchimento em accent é o vocabulário do app para "a ação
-  // principal desta folha". O de guardar veste o recesso do irmão secundário.
+  // principal desta folha".
   liGo.appendChild(botao(fila ? 'Tocar agora' : 'Sortear e tocar', 'song-menu-go',
     (b) => executarSorteio(b, 'tocar')));
-  // O SEGUNDO DESFECHO NÃO EXISTE NO MODO FÁCIL. Ele guarda a fila sorteada no
-  // Cronograma — e o Modo Fácil não tem Cronograma: não há aba, não há lista, e
-  // o que fosse guardado ali só reapareceria para quem trocasse de modo. Um
-  // botão que promete um destino invisível é pior que um botão a menos.
-  // (Mesma razão da seção de Favoritos — ver `renderCollectionsList`.)
-  if (fila && appMode !== 'simple') {
-    liGo.appendChild(botao('Ao Cronograma', 'song-menu-letra',
-      (b) => executarSorteio(b, 'cronograma')));
+  // OS TRÊS DESTINOS NÃO EXISTEM NO MODO FÁCIL. Ele não tem Cronograma, nem
+  // Favoritos, nem fila à vista: `body.mode-simple` esconde o `main` e a barra
+  // inteiros, e o que fosse guardado ali só reapareceria para quem trocasse de
+  // modo. Um botão que promete um destino invisível é pior que um botão a
+  // menos. (Mesma razão da seção de Favoritos — ver `renderCollectionsList`.)
+  if (appMode !== 'simple') {
+    for (const d of DESTINOS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'song-menu-btn sorteio-acao sorteio-dest';
+      // QUAL destino, num atributo: sem rótulo não há texto por onde achá-lo —
+      // nem para um oráculo, nem para quem depurar a folha no console.
+      b.dataset.dest = d.chave;
+      b.innerHTML = SORTEIO_ICONE[d.chave]();
+      // A FRASE INTEIRA no `title` e no `aria-label`, que é tudo que um botão
+      // sem rótulo deve a quem o encontra — e ela diz o VERBO, não o lugar:
+      // este botão sorteia antes de guardar, e "Cronograma" sozinho leria como
+      // se houvesse algo escolhido esperando destino.
+      const frase = (fila ? 'Sortear a playlist e guardar ' : 'Sortear uma e guardar ')
+        + (LISTA_ROTULO[d.lista] || ROTULO_PADRAO).em;
+      b.title = frase;
+      b.setAttribute('aria-label', frase);
+      b.disabled = travado;
+      b.addEventListener('click', () => executarSorteio(b, d.chave));
+      liGo.appendChild(b);
+    }
   }
   alvo.appendChild(liGo);
 }
+
+// Os ícones dos três destinos, pelas MESMAS funções que desenham os botões de
+// cada linha da Biblioteca — um `path` escrito duas vezes diverge no primeiro
+// ajuste. `false` nos três: aqui nada está "dentro" de lista nenhuma, porque
+// nada foi sorteado ainda, e é a variante com `+` que diz "cabe aqui".
+const SORTEIO_ICONE = {
+  cronograma: () => cronogramaIconSvg(false),
+  playlist: () => playlistIconSvg(false),
+  favoritos: () => starSvg(false),
+};
 
 // ===== PLAYBACK SORTEADO É SOM DE FUNDO (v5.311) =====
 //
@@ -21620,9 +21704,10 @@ async function acertarCortinaDoSorteio(f) {
 
 // ---- O sorteio -------------------------------------------------------------
 
-// `desfecho` = `'tocar'` (a fila do player, projetando a primeira) ou
-// `'cronograma'` (guardar, sem mexer no que está no ar). Sorteando UMA SÓ só o
-// primeiro existe — ver a nota da faixa de fecho.
+// `desfecho` = `'tocar'` (a fila do player, projetando a primeira) ou uma CHAVE
+// de `DESTINOS` — `'cronograma'`, `'playlist'`, `'favoritos'` —, que guarda sem
+// mexer no que está no ar. Os quatro valem nos DOIS modos desde a v1.8.56; ver
+// a nota da faixa de fecho.
 async function executarSorteio(btn, desfecho) {
   if (sorteioRodando) return;
   sorteioRodando = true;
@@ -21649,14 +21734,15 @@ async function executarSorteio(btn, desfecho) {
       atualizarContaSorteio();
       return;
     }
-    // A cortina só é acertada por quem PROJETA. "Ao Cronograma" guarda e não
-    // toca em nada do que está no ar — mexer no telão ali seria o oposto do que
-    // aquele botão promete.
-    if (f.modo !== AVSorteio.MODO_PLAYLIST) {
+    // A cortina só é acertada por quem PROJETA. Os três destinos guardam e não
+    // tocam em nada do que está no ar — mexer no telão ali seria o oposto do
+    // que aqueles botões prometem. (O pacote guardado leva a cortina DENTRO
+    // dele, para aplicá-la quando for aberto — ver `cortinaDoSorteio`.)
+    if (desfecho !== 'tocar') {
+      await guardarSorteadas(escolhidos, btn, f, desfecho);
+    } else if (f.modo !== AVSorteio.MODO_PLAYLIST) {
       await acertarCortinaDoSorteio(f);
       await tocarSorteada(escolhidos[0]);
-    } else if (desfecho === 'cronograma') {
-      await guardarSorteadasNoCronograma(escolhidos, btn, f);
     } else {
       await acertarCortinaDoSorteio(f);
       await montarFilaSorteada(escolhidos);
@@ -21681,9 +21767,9 @@ async function tocarSorteada(escolha) {
   await playSongVariant(escolha.coll, escolha.s, escolha.variante);
 }
 
-// AO CRONOGRAMA. Ele guarda, e é essa a diferença que justifica o segundo botão:
-// não toca no que está no ar, não substitui a fila do player e não projeta nada.
-// O operador monta o louvor da semana numa terça e projeta no domingo.
+// GUARDAR. É essa a diferença que justifica os três botões ao lado do primário:
+// não tocam no que está no ar, não substituem a fila do player e não projetam
+// nada. O operador monta o louvor da semana numa terça e projeta no domingo.
 //
 // A FOLHA FICA ABERTA, ao contrário do "Tocar agora". É o mesmo princípio das
 // listas de destino do acervo: uma ação que GUARDA não encerra a conversa, e
@@ -21699,13 +21785,19 @@ async function tocarSorteada(escolha) {
 // de fato aconteceu. A folha continua aberta depois de guardar, então mexer
 // num controle enquanto o download corre reescreveria as preferências — e o
 // pacote sairia com o nome de uma escolha que ninguém sorteou.
-async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
+//
+// `destino` É UMA CHAVE DE `DESTINOS` (v1.8.56), e não mais só o Cronograma:
+// os três lugares recebem o MESMO sorteio, e o que muda entre eles é a FORMA
+// com que ele pousa lá — ver o fecho desta função.
+async function guardarSorteadas(escolhidos, btn, f, destino) {
+  const lista = listaDoDestino(destino);
+  const onde = LISTA_ROTULO[lista] || ROTULO_PADRAO;
   const faltam = escolhidos.filter((i) => !i.noAparelho).length;
   if (faltam && !(await ensureDownloadConsent())) return;
 
   sorteioCancelado = false;
   const total = escolhidos.length;
-  const bg = previewBusy('Preparando', total + ' para o Cronograma',
+  const bg = previewBusy('Preparando', total + ' ' + onde.para,
     () => { sorteioCancelado = true; });
   const tarefa = bgTaskStart('Playlist automática', total, 'processar');
   const ids = [];
@@ -21731,7 +21823,7 @@ async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
 
   // CANCELAR AQUI NÃO DESCARTA O QUE JÁ DESCEU, ao contrário do "Tocar agora".
   // Lá o cancelamento evita trocar a fila do culto por meia lista — uma
-  // SUBSTITUIÇÃO pela metade. Aqui a ação ACRESCENTA: três de dez no Cronograma
+  // SUBSTITUIÇÃO pela metade. Aqui a ação ACRESCENTA: três de dez no destino
   // é exatamente o que aconteceu, é reversível linha a linha, e jogar fora um
   // download que já custou rede seria o desperdício que ninguém pediu.
   if (!ids.length) {
@@ -21739,6 +21831,57 @@ async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
     return;
   }
   bg.soltar();
+  // ===== AS TRÊS FORMAS DE POUSAR, E A ESCOLHA NÃO É DE ESTILO =====
+  //
+  // **UMA SÓ É UMA MÍDIA, NUNCA UM PACOTE DE UM.** O `.avpkg` da fila já recusa
+  // guardar menos de duas (*"um pacote guarda uma fila"*, v1.8.53), e a razão
+  // vale aqui inteira: uma linha chamada "Playlist da biblioteca · 1 música"
+  // que precisa de um toque a mais para revelar o hino que está dentro é pior
+  // que a linha do hino. Este é o caminho de todo sorteio de UMA — o modo que
+  // até a v1.8.55 não tinha destino nenhum.
+  //
+  // **A FILA RECEBE AS FAIXAS, as outras duas recebem o PACOTE.** É a metade
+  // literal do pedido (*"simplesmente joga… no fim da playlist atual"*), e ela
+  // é a única leitura coerente: a playlist é uma fila de MÍDIA, e o toque num
+  // pacote a SUBSTITUI (`abrirPacote`) — guardar um pacote dentro da fila
+  // seria pôr nela o botão que a apaga.
+  if (ids.length === 1) {
+    // `adicionarNasListas` cuida da duplicata e do redesenho da lista que
+    // recebeu — é o mesmo funil de toda porta do app.
+    //
+    // **E A CONTA DIZ O NOME**, que aqui não é enfeite: guardando UMA SÓ, o
+    // pulso do botão prova que o toque valeu e não diz QUAL saiu — e a única
+    // outra superfície que responderia isso é a lista de destino, que está
+    // atrás desta folha. (No "Tocar agora" a pergunta não existe: a música vai
+    // ao telão.) A frase que `adicionarNasListas` monta viaja no terceiro
+    // argumento do `responder`, que é DESCARTADO; a folha do sorteio tem canal
+    // próprio, e é ele que fala.
+    const ja = await AVDB.listHas(lista, ids[0]);
+    await adicionarNasListas([lista], ids[0], nomes[0], btn);
+    falarNoSorteio(rotuloItem(nomes[0])
+      + (ja ? 'já estava ' + onde.em : 'adicionado ' + onde.para));
+    return;
+  }
+  if (lista === 'playlist') {
+    // NO FIM DA FILA, e `listAdd` já faz exatamente isso — ele é APPEND e é
+    // idempotente para mídia (a lista é um conjunto de ids). O que a contagem
+    // separa é o que ENTROU do que JÁ ESTAVA: sortear duas vezes o mesmo tema
+    // com o acervo pequeno repete faixas, e sem a distinção a segunda rodada
+    // pareceria não ter feito nada.
+    let novas = 0;
+    for (const id of ids) {
+      if (await AVDB.listHas('playlist', id)) continue;
+      await AVDB.listAdd('playlist', id);
+      novas++;
+    }
+    plItems = await AVDB.listItems('playlist');
+    renderPlaylist();
+    responder(btn, novas ? 'ok' : 'dup');
+    falarNoSorteio(novas
+      ? novas + (novas === 1 ? ' música acrescentada' : ' músicas acrescentadas') + ' ao fim da playlist'
+      : 'todas as ' + ids.length + ' já estavam na playlist');
+    return;
+  }
   // UM PACOTE, NÃO N LINHAS (v5.313), a pedido do operador: *"ajuste o envio ao
   // cronograma para que ele não envie um por um, mas sim um item que seja um
   // pacote de playlist"*.
@@ -21760,10 +21903,9 @@ async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
   // store `media`) não os deixa órfãos. Quem manda na vida deles é a coleção
   // que os baixou, como antes.
   const rec = await criarCue('group', { ids, view: cortinaDoSorteio(f) },
-    nomeDoPacoteSorteado(f, ids.length), 'imports', btn);
+    nomeDoPacoteSorteado(f, ids.length), lista, btn);
   if (!rec) { responder(btn, 'erro', 'Não foi possível guardar o pacote'); return; }
-  falarNoSorteio(ids.length + (ids.length === 1 ? ' música' : ' músicas')
-    + ' num pacote ' + LISTA_ROTULO.imports.em);
+  falarNoSorteio(ids.length + ' músicas num pacote ' + onde.em);
 }
 
 /**

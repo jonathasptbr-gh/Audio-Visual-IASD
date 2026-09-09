@@ -1294,13 +1294,27 @@ nenhum**, e por isso ficam aqui.
   (`.btn-pulso--ok`) e a nota na linha (`.row-nota--ok`) vestem `--btn-accent` +
   `--accent`, o par do `.fav-btn.on`. **O âmbar e o vermelho FICAM** — "já estava
   lá" e "não deu" são outras mensagens, não outra cor para a mesma. **O verde que
-  sobra é ESTADO** (a TV no ar, o ponto do Auxiliar, "Completa offline"), e a
-  lista é nomeada no oráculo: um seletor novo consumindo `--ok` reprova até
-  alguém dizer se aquilo é estado ou desfecho. **E a regra do pulso tem uma
+  sobra é ATIVIDADE, e são DOIS** — a TV no ar (`.cast-acao.connected`) e o ponto
+  do Auxiliar (`.lv-badge`). A régua é do operador (v1.8.56): *"verde é para
+  sinal de 'ligado', nesses casos são mensagem de conclusão, não de atividade"* —
+  e por ela saíram os dois que restavam, o ✓ do download do YouTube e o "Completa
+  offline" da Bíblia, que anunciam algo que ACABOU. A lista é nomeada no oráculo
+  **nos dois sentidos**: um seletor novo consumindo `--ok` reprova até alguém
+  dizer se aquilo é estado ou desfecho, e um NOME que já não descreve seletor
+  nenhum reprova também. **E a regra do pulso tem uma
   armadilha de CASCATA**: as variantes são `(0,1,0)` e perdiam para
   `.fav-btn.on`, `.row-*.on`, `.qs-tile.qs-on` e `.fav-acoes .row-btn` — daí a
   classe DOBRADA (`.btn-pulso.btn-pulso--ok`), que as leva a `(0,2,0)` sem
   `!important`. Botão novo que pinte por `(0,2,0)` e receba pulso entra na conta.
+- **E OS TRÊS DESTINOS TÊM UMA ORDEM SÓ: Cronograma · playlist · favoritos**
+  (v1.8.56, pedido do operador). Ela vale em toda superfície que ofereça mais de
+  um deles — folhas de destino, gaveta de linha, rodapé da fila, faixa de fecho
+  da playlist automática —, e **onde falta um, a ordem relativa sobrevive**. Ela
+  não é uma convenção a lembrar: **é a ordem da tabela `DESTINOS`**, que carrega
+  também o ícone e o verbo, e `destinosNaOrdem()` reordena o que um chamador
+  peça fora de ordem. O que isto fechou foram QUATRO listas escritas à mão com a
+  mesma tríade em ordens diferentes — o detalhe está em `docs/arquitetura/CONTROLE.md`,
+  "UM item, VÁRIOS destinos".
 - **E O QUE NÃO TEM FUNÇÃO AGORA É APAGADO, não deixado inerte** (v1.8.50).
   Inerte e apagado não são a mesma coisa: um botão aceso que não faz nada é
   indistinguível de um quebrado, e o que se faz diante dele é tocar de novo — a
@@ -2310,7 +2324,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.55 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.56 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
