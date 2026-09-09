@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.57",
+    "itens": [
+      "Os bot\u00f5es de adicionar ao Cronograma e aos favoritos agora s\u00e3o quadrados em todo o app.",
+      "Eles saíam em tr\u00eas alturas diferentes conforme a janela; agora t\u00eam uma medida s\u00f3.",
+      "Vale na playlist autom\u00e1tica, no rodap\u00e9 da fila, na gaveta de um item e na B\u00edblia."
+    ]
+  },
+  {
     "versao": "1.8.56",
     "itens": [
       "O \u2713 de v\u00eddeo baixado e o \u0022Completa offline\u0022 da B\u00edblia agora s\u00e3o azuis, como toda conclus\u00e3o.",
