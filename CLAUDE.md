@@ -1331,6 +1331,25 @@ nenhum**, e por isso ficam aqui.
   lado: ele pediu o apagado também com UM item (*"um item não é uma lista"*) e
   desistiu diante do preço, porque ali a folha ainda é a única porta para cinco
   coisas e um item é o estado que todo toque numa mídia produz.
+- **UM BOTÃO SEM RÓTULO É QUADRADO** (v1.8.57), e o app tem TRÊS caixas para
+  ele, as três legítimas porque respondem ao VIZINHO: `--hit` (34px) no
+  cabeçalho de uma folha, `--thumb` (40px) numa LINHA de lista (é a medida da
+  capa ao lado) e `--quad-faixa` (42,4px) numa FAIXA DE FECHO. **O que não é
+  legítimo é a mesma caixa sair de dois tamanhos por ESTICAMENTO**:
+  `align-items: stretch` é o padrão do flex, e um botão de símbolo que declara
+  só a largura recebe a altura do irmão — que numa faixa de fecho é um botão de
+  rótulo, mais alto. Foi assim que os mesmos dois destinos saíram em três
+  caixas. **As DUAS dimensões são declaradas** — e `aspect-ratio` só substitui
+  uma delas onde a CRUZADA é definida: medido INERTE duas vezes (v1.8.54,
+  v1.8.56) porque ali as duas vinham do conteúdo, e medido CERTO na Bíblia
+  (v1.8.57), onde a altura vem do esticamento contra as pílulas e a largura
+  deriva dela — que é o único jeito de o botão ficar quadrado sem engordar a
+  barra e serrar a leitura. **Duas exceções, as duas NOMEADAS e as duas com
+  asserção:** a CÉLULA da caixa de controles, cujo tamanho vem do LUGAR (o ⏮/⏭ e
+  as portas medem `--deck-col`, e o oráculo as reconhece pela largura do
+  transporte, não pelo nome); e a faixa da gaveta de um favorito, onde largura
+  da capa × altura da faixa não fecham num quadrado — ali o oráculo TROCA a
+  régua pela que vale (toda peça na mesma altura), em vez de calar.
 - **O feedback de toque é `translateY(2px)` — recuo ABSOLUTO, nunca uma
   fração.** Uma fração aplicada a alvos de 34px a 408px não é um valor, são
   doze. **E um BLOCO que hospeda controles responde só com a LUZ**, nunca com
@@ -2324,7 +2343,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.56 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.57 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 

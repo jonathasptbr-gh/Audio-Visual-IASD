@@ -192,6 +192,32 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      EXCEÇÃO e tem nome próprio — uma exceção por escopo ("dentro da Bíblia
      pode") é a que mais barato se alarga. */
   --hit-denso: 28px;
+  /* ---------- O QUADRADO DE UMA FAIXA DE FECHO (v1.8.57) ----------
+     Relato do operador: *"me parece que não há um padrão, principalmente quando
+     é relativo a botões de adicionar ao cronograma ou adicionar aos favoritos,
+     que normalmente devem ser quadrados, mas que por falta desse padrão de
+     altura desses botões, estão saindo de diversas alturas"*. Ele está certo, e
+     MEDIDO os mesmos dois destinos saíam em TRÊS caixas: 42,4×53,2 na playlist
+     automática, 42,4×42,4 no rodapé da fila e 42×36,6 na Bíblia.
+
+     ESTE NÚMERO JÁ EXISTIA DUAS VEZES, com dois nomes e a mesma expressão —
+     `--faixa-alt` (no `.pl-rodape`) e `--dest-quad` (no `.sorteio-dest`). Dois
+     nomes para um valor é a divergência esperando a primeira edição, e foi
+     assim que a faixa do sorteio saiu esticada: quem a escreveu copiou a
+     LARGURA e não a altura.
+
+     O APP TEM TRÊS CAIXAS DE BOTÃO DE ÍCONE, e as três são legítimas porque
+     respondem ao vizinho: `--hit` (34px) no cabeçalho de uma folha, `--thumb`
+     (40px) numa LINHA de lista (é a medida da capa ao lado), e este numa FAIXA
+     DE FECHO, onde o vizinho é um botão de rótulo com o recuo de uma linha de
+     opção. O que NÃO é legítimo é a mesma caixa sair de dois tamanhos por
+     esticamento — `align-items: stretch` é o padrão do flex, e um botão de
+     símbolo que estica deixa de ser quadrado sem ninguém ter decidido isso.
+
+     HÍBRIDO px+rem de propósito: ele CRESCE com a fonte do sistema (49,1px a
+     1,3×) enquanto `--hit` não cresce. Um símbolo de 20px numa caixa fixa fica
+     apertado quando o resto da folha aumenta. */
+  --quad-faixa: calc(var(--icon-sm) + 1.4rem);
   /* ---------- A COLUNA DA CIFRA EM TELA CHEIA (v1.6.0) ----------
      A largura da faixa de controles à direita da folha deitada. É TOKEN porque
      ela é a segunda TRILHA do grid e o recuo interno de quem mora nela saem da
@@ -3027,7 +3053,9 @@ main {
 .row-slot--del .msym { font-size: var(--icon-sm); }
 .row-slot--ok { background: var(--btn-accent); color: var(--accent); }
 /* O CAMINHO B do ✓ (a gaveta dos Favoritos, que não tem `⋮`): dentro da faixa
-   ele acompanha a altura dela, como todo irmão ali. */
+   ele acompanha a altura dela, como todo irmão ali. É a mesma exceção nomeada
+   do `.fav-acoes .row-btn` — ver lá —, e pela mesma razão: aqui a faixa inteira
+   mede o mesmo, e um quadrado de 40 no meio de 42 é o que a v5.309 corrigiu. */
 .linha-confirma > .row-slot { height: auto; align-self: stretch; }
 
 /* ---------- E RENOMEAR TAMBÉM MORA NA FAIXA (v1.4.25) ----------
@@ -5515,12 +5543,37 @@ main {
    dela, em vez de repetirem um número que teria de ser mantido à mão nos dois
    lugares. */
 .bible-read-acoes { display: flex; gap: var(--sp-3); flex-shrink: 0; }
-/* `height: auto` para ESTICAR junto das pílulas (é o que `align-items:
-   stretch` faz), mas com PISO: quando a barra QUEBRA em duas linhas as ações
-   ficam sozinhas na sua, param de esticar e caíam para **20px** — MEDIDO em 5
-   das 8 telas, e um alvo de 20px no rodapé da leitura é um alvo que se erra.
-   (Regressão da v1.7.10, achada pela varredura geométrica.) */
-.bible-read-acoes .cue-save-btn { width: 42px; height: auto; min-height: var(--hit); }
+/* ---------- QUADRADO SEM CUSTAR UMA LINHA DE LEITURA (v1.8.57) ----------
+   Ele foi `width: 42px` LITERAL — o único literal de largura de botão de ícone
+   do arquivo — mais `height: auto` e o esticamento contra as pílulas, e MEDIA
+   42 × 36,6 a 430×900 e 42 × 34 a 360×640 com a fonte em 1,3×: nunca quadrado,
+   e o desvio MUDAVA com a tela. São os dois destinos que o operador nomeia.
+
+   **A LARGURA DECLARADA ERA O CAMINHO ERRADO, e o portão de geometria provou:**
+   um quadrado de `--quad-faixa` (42,4) engorda a barra, e a folha de leitura
+   está no LIMITE desde a v1.7.10 — a 360×640 com fonte 1,3× o texto voltou a
+   sair SERRADO (`geometria.test.mjs`, T3). Aqui o quadrado se paga em linhas
+   de Escritura, e essa troca não se faz.
+
+   `aspect-ratio: 1` COM A ALTURA HERDADA resolve os três de uma vez: a altura
+   continua vindo do esticamento (o ganho da v5.112 — o par acompanha as pílulas
+   seja qual for a altura delas), a LARGURA passa a derivar dela, e a barra não
+   cresce um pixel. MEDIDO: 36,6 × 36,6 a 430×900 e a 390×900, 34 × 34 a 360×640
+   · 1,3× — quadrado nas três, com a barra na MESMA altura de antes.
+
+   **E ISTO NÃO CONTRADIZ AS DUAS MEDIÇÕES QUE DERAM `aspect-ratio` INERTE**
+   (v1.8.54 no `.pl-pack`, v1.8.56 no `.sorteio-dest`) — é a mesma regra pelos
+   dois lados: ele deriva uma dimensão da OUTRA, e só funciona quando a outra é
+   DEFINIDA. Lá as duas vinham do conteúdo e não havia de onde derivar; aqui a
+   cruzada vem do esticamento contra as pílulas, e há.
+
+   O piso de 20px que a v1.7.10 corrigiu fica: `min-width`/`min-height` em
+   `--hit` cobrem o caso em que a barra QUEBRA em duas linhas e as ações param
+   de esticar. */
+.bible-read-acoes .cue-save-btn {
+  width: auto; height: auto; aspect-ratio: 1;
+  min-width: var(--hit); min-height: var(--hit);
+}
 .bible-ref-part:first-child { border-radius: var(--radius-btn) 0 0 var(--radius-btn); }
 .bible-ref-part:last-child { border-radius: 0 var(--radius-btn) var(--radius-btn) 0; }
 /* Rótulo e valor herdam a cor da PÍLULA (`currentColor`), senão as quatro
@@ -6761,7 +6814,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   /* O NÚMERO NUM LUGAR SÓ, e ele é lido por três: a altura da faixa, a altura da
      caixa do limpar, e a LARGURA dos dois botões de símbolo (que o herdam por
      serem filhos do `.pl-rodape` — propriedade personalizada herda). */
-  --faixa-alt: calc(var(--icon-sm) + 1.4rem);
+  --faixa-alt: var(--quad-faixa);
   min-height: var(--faixa-alt);
 }
 .pl-clear {
@@ -7559,6 +7612,21 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   display: flex; align-items: stretch; justify-content: flex-end; gap: var(--sp-3);
   flex: none; min-width: 0;
 }
+/* ---------- A EXCEÇÃO NOMEADA DO QUADRADO (v1.8.57) ----------
+   Este botão NÃO é quadrado, e as três regras que o cercam não cabem juntas:
+   a LARGURA é a capa da própria linha (`--thumb`, 40px — a regra dos quadrados
+   de uma linha, v5.259), a ALTURA é a da faixa (42px — a v1.4.29/v5.309 exige
+   que toda peça daqui meça o mesmo, senão o botão *"boia no meio da linha"* e o
+   campo de renomear pula sob o dedo), e 40 × 42 não é quadrado. As duas foram
+   MEDIDAS e as duas têm oráculo; tentei conciliá-las nos dois sentidos e cada
+   tentativa reprovou a outra metade do `boot-nativo.test.mjs`.
+
+   **E ELE ESTÁ FORA DO PEDIDO**, que é o que decide: o relato do operador é
+   sobre *"botões de adicionar ao cronograma ou adicionar aos favoritos"*, e os
+   desta faixa são excluir, renomear e o par ↑↓ — o que mexe no ITEM e na
+   POSIÇÃO, nunca um destino. O que o `quadrado-de-icone.test.mjs` faz aqui não
+   é abrir um buraco: ele troca a asserção pela que de fato vale nesta faixa —
+   TODA peça na MESMA altura. */
 .fav-acoes .row-btn { background: var(--gaveta-btn); height: auto; align-self: stretch; }
 /* ---------- ENQUANTO A LINHA PERGUNTA, A FOLHA CALA (v5.302) ----------
    Com a faixa dentro da linha do confirmar, uma exclusão em curso punha DOIS
@@ -8099,22 +8167,30 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    Cronograma", os dois crescendo). Com os três destinos do app na faixa, rótulo
    deixou de caber: a 320px sobram ~50px de texto por botão, e só "Limpar"
    (51,2px) já não cabia no rodapé da playlist, que é o desenho de onde este
-   veio. O primário cresce e os três destinos ficam com a largura que precisam.
+   veio. O primário cresce e os três destinos são QUADRADOS de `--quad-faixa`.
 
-   `--dest-quad` É A MESMA EXPRESSÃO DO `.pl-pack` (`--icon-sm` + 1.4rem, 42,4px),
-   e ela é a razão de não haver número aqui: os dois rodapés são o mesmo desenho,
-   e um ajuste de escala de ícone tem de mover os dois juntos.
+   O NÚMERO É O MESMO DO `.pl-pack`, e desde a v1.8.57 é o MESMO TOKEN: os dois
+   rodapés são o mesmo desenho, e um ajuste de escala de ícone tem de mover os
+   dois juntos. Ele morava aqui como `--dest-quad` e lá como `--faixa-alt` — a
+   mesma expressão com dois nomes, que é a divergência esperando a primeira
+   edição.
 
    NÃO HÁ `aspect-ratio`, e a ausência está escrita porque ele é a tentativa
-   óbvia: MEDIDO nesta faixa, ele é INERTE. A altura destes botões vem do
-   ESTIRAMENTO (o primário é 53,2px por causa do recuo do `.song-menu-btn`), e
-   com `flex: 0 0 auto` a largura ainda vem do conteúdo — o botão saía com a
+   óbvia: MEDIDO nesta faixa, ele é INERTE. Com `flex: 0 0 auto` a largura vem
+   do conteúdo — o botão saía com a
    largura do `path`. É a mesma armadilha medida na v1.8.54, e a saída é a
-   mesma: a largura é declarada. Daí eles NÃO serem quadrados (42,4 × 53,2): o
-   que os alinha é a altura da faixa, que é do primário. */
+   mesma: as DUAS dimensões são declaradas.
+
+   E ELES SÃO QUADRADOS DESDE A v1.8.57. Nasceram 42,4 × 53,2 — a largura do
+   token e a altura do ESTICAMENTO contra o primário, que mede 53,2 — e o
+   comentário daqui chegou a declarar o retângulo como se fosse escolha. Não
+   era: `align-items: stretch` é o padrão do flex, e ninguém decidiu aquilo.
+   O relato do operador chegou no dia seguinte. `align-self: center` desliga o
+   esticamento e a altura passa a ser o mesmo número da largura — o botão fica
+   quadrado e CENTRADO na faixa, que continua com a altura do primário. */
 .song-menu-go-row .sorteio-acao.sorteio-dest {
-  --dest-quad: calc(var(--icon-sm) + 1.4rem);
-  flex: 0 0 var(--dest-quad); min-width: 0; padding: 0;
+  flex: 0 0 var(--quad-faixa); min-width: 0; padding: 0;
+  height: var(--quad-faixa); align-self: center;
   display: flex; align-items: center; justify-content: center;
   background: var(--surface); color: var(--accent);
 }
