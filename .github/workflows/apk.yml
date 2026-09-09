@@ -527,6 +527,7 @@ jobs:
           rodar tools/controles-layout.test.mjs
           rodar tools/transporte-sem-cena.test.mjs
           rodar tools/rodape-da-playlist.test.mjs
+          rodar tools/feedback-de-confirmacao.test.mjs
 
           rodar tools/fundo-da-letra.test.mjs
 

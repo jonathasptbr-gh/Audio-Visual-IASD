@@ -2763,10 +2763,15 @@ main {
    subtítulo NÃO é reescrito: o tipo e a duração continuam legíveis ao lado do
    motivo, e os dois pintores não disputam o mesmo nó.
 
-   Três leituras, três cores, o mesmo vocabulário do pulso do botão: verde
-   entrou, âmbar já estava, vermelho não deu. */
+   Três leituras, três cores, o mesmo vocabulário do pulso do botão: AZUL entrou,
+   âmbar já estava, vermelho não deu. O azul entrou na v1.8.55 junto com o do
+   pulso, e pelo mesmo pedido — este é o canal IRMÃO dele (existe para quando o
+   botão tocado já saiu de cena), e dois vocabulários para a mesma leitura seriam
+   duas coisas a aprender. Aqui a cor está SOZINHA (não há fundo), e é por isso
+   que ela usa `--brand` e não `--accent`: os dois têm o mesmo valor, e o nome
+   diz que o que fala é a MARCA, não o estado "escolhido" de uma lista. */
 .row-nota { font-weight: var(--fw-max); letter-spacing: .02em; }
-.row-nota--ok { color: var(--ok); }
+.row-nota--ok { color: var(--brand); }
 .row-nota--dup { color: var(--warn-text); }
 .row-nota--erro { color: var(--danger-text); }
 .lib-item.no-ar .row-sub { color: var(--live-strong); }
@@ -6470,10 +6475,28 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .popup-header-icon { font-size: var(--icon-sm); color: var(--accent); }
 .popup-title { font-size: var(--fs-xl); font-weight: var(--fw-forte); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ---------- O CONTADOR VESTE A CAIXA DO ✕ (v1.8.55) ----------
+   Pedido do operador: *"ajuste o número dentro da aba da Playlist que indica
+   quantos itens tem na playlist… faça ele ficar em formato de um botão quadrado
+   como o botão de fechar que fica em seu lado, assim ficando mais coeso com o
+   padrão"*.
+
+   Era uma pílula de 22,6×14px ao lado de um quadrado de 34×34 — MEDIDO —, e o
+   cabeçalho terminava em duas caixas de formatos diferentes encostadas uma na
+   outra. Agora é a MESMA receita do `.popup-close` (`--hit` nos dois eixos,
+   `--radius-btn`), lida dos mesmos tokens: quem mudar o tamanho do alvo do app
+   move as duas juntas.
+
+   A COR NÃO MUDA, e isso é deliberado: o pedido é de FORMATO. O `--accent-fill`
+   é o que separa a INFORMAÇÃO (quantos itens) da AÇÃO ao lado dela (fechar, em
+   `--surface-2` + `--muted`) — duas caixas iguais em tudo fariam o número parecer
+   um botão que não faz nada, que é o que a v1.8.50 existe para não deixar nascer. */
 .popup-count {
+  flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
+  display: flex; align-items: center; justify-content: center;
   background: var(--accent-fill); color: var(--on-accent);
   font-size: var(--fs-sm); font-weight: var(--fw-forte);
-  border-radius: var(--radius-pill); padding: 0 .45rem; min-width: 20px; text-align: center;
+  border-radius: var(--radius-btn);
 }
 /* O `flex-shrink: 0` (que hoje vem do esqueleto de botão de ícone, no alto da
    folha) NÃO é decoração: o cabeçalho é uma linha flex, e o ✕ é o último item
@@ -7630,8 +7653,14 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    acrescenta um bit e gasta a única cor que este app reserva para
    "concluído/conectado".
    O que NÃO sai é a ÊNFASE (`font-weight: var(--fw-medio)`), que distingue o resolvido do
-   neutro sem pintar nada. E o verde continua onde é o único sinal: a linha de
-   aviso (`.row-nota--ok`), o pulso de confirmação, a tela conectada. */
+   neutro sem pintar nada.
+
+   E A LISTA DOS SOBREVIVENTES ENCOLHEU NA v1.8.55: a linha de aviso
+   (`.row-nota--ok`) e o pulso de confirmação eram dois deles e viraram AZUIS, a
+   pedido do operador (*"sem nada verde"*). O que sobra verde é o que descreve
+   ESTADO e não desfecho de toque: a tela conectada (`.cast-acao.connected`), o
+   ponto do Auxiliar de Leitura (`.lv-badge`) e o "Completa offline" da Bíblia
+   (`.bible-ver-status.done`). Nenhum dos três é feedback de uma ação. */
 .item-detalhe-estado.done { font-weight: var(--fw-medio); }
 /* ---------- A DESCRIÇÃO DO VÍDEO (v1.5.21) ----------
    A linha inteira do card, abaixo da miniatura e dos dados — ver a nota do
@@ -9613,7 +9642,9 @@ body.mode-simple .bottombar { display: none; }
    (As irmãs `.log-line`/`.log-text` descreviam as linhas de log avulsas que o
    `#diagBox` unificou na v5.121 — nenhum JS as desenhava mais.) */
 .log-copy { background: var(--surface-2); color: var(--muted); }
-.log-copy.copiado { background: var(--btn-ok); color: var(--ok); }
+/* (A `.copiado` saiu na v1.8.55: nenhum JS escrevia a classe desde que o botão
+   passou a responder pelo `.btn-pulso` — `copiarTexto` chama `responder(btn,
+   'ok')`. Era regra morta declarando o verde de confirmação que este lote tirou.) */
 
 /* ---------- Pulso de confirmação NO BOTÃO (v5.106) ---------- */
 /* O feedback de "adicionei" mora no botão TOCADO, nunca numa faixa em outro
@@ -9640,12 +9671,41 @@ body.mode-simple .bottombar { display: none; }
   display: flex; align-items: center; justify-content: center;
   font-size: var(--icon-sm); line-height: 1;
 }
-/* As três leituras, nas cores que o app já usa para elas: verde é concluído,
-   âmbar é atenção (o "já estava lá", que é o que evita o toque repetido) e
-   vermelho é falha. */
-.btn-pulso--ok { background: var(--btn-ok); color: var(--ok); }
-.btn-pulso--dup { background: var(--btn-warn); color: var(--warn-text); }
-.btn-pulso--erro { background: var(--btn-danger); color: var(--danger-text); }
+/* ---------- AS TRÊS LEITURAS, E A CASCATA QUE AS ENGOLIA (v1.8.55) ----------
+   Pedido do operador: *"revise os elementos de feedback de confirmação… hoje tem
+   alguns com efeito verde, outros em cinza, outros em azul e etc… padronize
+   todos com o efeito de fundo azul claro e ícone em azul sólido, sem nada verde
+   (esse é o tipo de feedback que temos por exemplo no botão de favoritar nos
+   itens do cronograma)"*.
+
+   **A DIVERGÊNCIA QUE ELE VIU NÃO ERA DECISÃO DE NINGUÉM — ERA ESPECIFICIDADE.**
+   Estas três regras são (0,1,0) e não têm `!important`, então PERDIAM para quatro
+   seletores (0,2,0) que pousam nos MESMOS botões: `.fav-btn.on` (o botão que ele
+   cita como referência), `.row-playlist.on`/`.row-crono.on`, `.qs-tile.qs-on` e
+   `.fav-acoes .row-btn` (que é `--panel`, o CINZA da queixa). O desfecho, medido
+   no código: **acrescentar a uma lista pulsava AZUL e RETIRAR pulsava VERDE** —
+   a mesma ação, duas cores, conforme a direção; e nos tiles do pacote, que ficam
+   `qs-on` até ociosos, sucesso E falha saíam os dois azuis, com o glifo ✓/✕ como
+   única diferença.
+
+   A CLASSE DOBRADA (`.btn-pulso.btn-pulso--ok`) leva as três a (0,2,0), e como
+   este bloco vem DEPOIS dos quatro na folha, elas passam a vencer sem
+   `!important` — que é o que este projeto não usa. O pulso dura 1100 ms e sai; a
+   cor de ESTADO do botão volta atrás dele.
+
+   O AZUL É O PAR DO `.fav-btn.on` (`--btn-accent` + `--accent`), que é a
+   referência que o pedido nomeia. O `--brand` daquele botão e o `--accent` daqui
+   têm o mesmo valor de propósito (ver a nota da fila, acima).
+
+   **O ÂMBAR FICA, e não é desobediência ao "todos":** ele não é verde, e não é
+   uma segunda cor para a mesma mensagem — é OUTRA mensagem. "Já estava lá" é o
+   que impede o toque repetido, usa o MESMO ✓ do concluído, e sem ele o operador
+   deixa de distinguir "entrou agora" de "já estava". **O VERMELHO fica pelo
+   mesmo motivo, um degrau acima:** ele não é confirmação nenhuma, e o glifo dele
+   já é outro (✕). */
+.btn-pulso.btn-pulso--ok { background: var(--btn-accent); color: var(--accent); }
+.btn-pulso.btn-pulso--dup { background: var(--btn-warn); color: var(--warn-text); }
+.btn-pulso.btn-pulso--erro { background: var(--btn-danger); color: var(--danger-text); }
 .btn-pulso--erro::after { content: '\e14c'; }   /* close */
 
 /* ---------- O ECO: "o comando saiu" ----------
