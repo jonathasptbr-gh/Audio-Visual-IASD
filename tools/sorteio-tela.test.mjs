@@ -90,11 +90,20 @@ try {
     await arquivo('f-h2', 'Firme nas Promessas',
       [{ text: 'Sou peregrino nesta terra\nRumo à pátria celestial', auxText: 'Estrofe 1' }]);
     await arquivo('f-a1', 'A Estrela do Oriente');
+    await arquivo('f-h3', 'Castelo Forte');
+    await arquivo('p-h3', 'Castelo Forte (playback)');
     collState['hymnal-2022'] = { songs: [
       { id_music: 'h1', track: 1, name: 'Noite de Paz (Natal)', duration: '3:00',
         has_instrumental_music: true, fileIdFull: 'f-h1', fileIdPlayback: 'p-h1' },
       { id_music: 'h2', track: 2, name: 'Firme nas Promessas', duration: '3:00',
         has_instrumental_music: false, fileIdFull: 'f-h2', fileIdPlayback: null },
+      // O SEGUNDO PLAYBACK BAIXADO (v1.8.56). O pool de playback tinha UM item,
+      // e com um item só o sorteio não produz mais um pacote — desde este lote
+      // uma música sorteada entra como a LINHA dela, nunca como um pacote de
+      // um. Sem este terceiro hino a asserção do "Fundo musical" media o
+      // caminho da música solta achando que media o do pacote.
+      { id_music: 'h3', track: 3, name: 'Castelo Forte', duration: '3:00',
+        has_instrumental_music: true, fileIdFull: 'f-h3', fileIdPlayback: 'p-h3' },
     ] };
     collState['album-9'] = { songs: [
       { id_music: 'a1', name: 'A Estrela do Oriente', duration: '3:00',
@@ -148,7 +157,7 @@ try {
   checar(cap.hinarioEhHinario && !cap.albumNaoEhHinario,
     '`ehHinario` distingue o hinário do álbum — é o filtro "Sem hinário"', cap);
   checar(cap.hinarioEhMusica, '`ehMusica` aceita o acervo de música');
-  checar(cap.faixas === 2, '`faixas` devolve as faixas da coleção', cap.faixas);
+  checar(cap.faixas === 3, '`faixas` devolve as faixas da coleção', cap.faixas);
   checar(cap.normSemAcento && cap.nomeNorm,
     'o normalizador injetado é o da Biblioteca (sem acento, minúsculas)');
   checar(cap.baixada && cap.pbNaoBaixado,
@@ -348,8 +357,8 @@ try {
   // conta tem de dizer isso na primeira frase que o operador lê — pela mesma
   // régua do "sem o hinário" logo abaixo, onde "toda a biblioteca" com o
   // hinário fora seria uma frase ERRADA.
-  checar(/^Toda a biblioteca, sem os infantis — 4 músicas$/.test(conta0.forte)
-    && /3 já baixadas/.test(conta0.fraca),
+  checar(/^Toda a biblioteca, sem os infantis — 5 músicas$/.test(conta0.forte)
+    && /4 já baixadas/.test(conta0.fraca),
     'sem palavra, a conta LIDERA COM O ESCOPO — e já ressalva o filtro que nasce '
     + 'ligado', conta0);
 
@@ -507,29 +516,70 @@ try {
   checar(fila.noAr === fila.primeiro,
     'e a PRIMEIRA já está no telão (o caminho do `abrirPacote`)', fila);
 
-  // ---- MONTANDO A FILA HÁ DOIS DESFECHOS (v5.306) -------------------------
-  // Eles não são duas versões da mesma ação: um TOCA (substitui a fila do player
-  // e projeta) e o outro GUARDA (acrescenta ao Cronograma sem tocar no que está
-  // no ar). O teste separa os dois pelo EFEITO, que é o único jeito de provar
-  // que o segundo botão não é o primeiro com outro rótulo.
+  // ---- A FAIXA DE FECHO: TOCAR MAIS OS TRÊS DESTINOS (v1.8.56) -----------
+  //
+  // Ela teve DOIS botões da v5.306 até aqui, e só montando a fila. Pedido do
+  // operador: *"deixe o botão tocar agora, e os dois botões de add ao
+  // cronograma e add aos favoritos disponíveis… Isso se aplica ao modo de uma
+  // música só e ao modo de playlist montar playlist. Na verdade pode até
+  // adicionar um terceiro botão, adicionar a playlist"*.
+  //
+  // A ORDEM É A CANÔNICA (`DESTINOS`), e ela entra na asserção porque foi a
+  // outra metade do mesmo pedido: *"a esquerda o cronograma, no meio a playlist
+  // e por fim o favoritos"*. Lida do DOM, não da tabela — a tabela é travada no
+  // `destinos.test.mjs`, e o que falta provar aqui é que esta folha a segue.
   const faixa = await pg.evaluate(async () => {
     sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
     await abrirSorteio();
     const bs = [...document.querySelectorAll('#sorteioList .sorteio-acao')];
-    return bs.map((b) => b.textContent.trim());
+    return {
+      total: bs.length,
+      primeiro: bs[0].textContent.trim(),
+      dest: bs.slice(1).map((b) => b.dataset.dest),
+      // SEM RÓTULO, e é isso que faz caber a 320px — o `aria-label` é o que
+      // sobra para quem não vê o ícone.
+      mudos: bs.slice(1).every((b) => !b.textContent.trim() && !!b.getAttribute('aria-label')),
+    };
   });
-  checar(faixa.length === 2 && /Tocar agora/.test(faixa[0]) && /Cronograma/.test(faixa[1]),
-    'montando a fila a faixa de fecho tem DOIS botões: tocar e guardar', faixa);
+  checar(faixa.total === 4 && /Tocar agora/.test(faixa.primeiro)
+    && JSON.stringify(faixa.dest) === JSON.stringify(['cronograma', 'playlist', 'favoritos']),
+    'montando a fila a faixa de fecho tem QUATRO botões: tocar mais os três '
+    + 'destinos, na ordem canônica (Cronograma · playlist · favoritos)', faixa);
+  checar(faixa.mudos,
+    'e os três são MUDOS com `aria-label`: quatro rótulos não cabem a 320px, e '
+    + 'um botão sem texto deve a frase inteira a quem o encontra', faixa);
 
+  // E SORTEANDO UMA SÓ SÃO OS MESMOS QUATRO. Esta é a metade que a v5.306
+  // recusava, e a razão dela ("guardar uma música é o caminho da gaveta da
+  // Biblioteca") valia para uma música ESCOLHIDA: quem sorteia não sabe qual
+  // vai sair, e chegar à gaveta dela custa fechar a folha, achar a faixa e
+  // abri-la.
   const umaSo = await pg.evaluate(async () => {
     sorteioPrefs.modo = AVSorteio.MODO_UMA; renderSorteio();
-    const n = document.querySelectorAll('#sorteioList .sorteio-acao').length;
+    const bs = [...document.querySelectorAll('#sorteioList .sorteio-acao')];
+    const r = { total: bs.length, dest: bs.slice(1).map((b) => b.dataset.dest) };
     sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST; renderSorteio();
-    return n;
+    return r;
   });
-  checar(umaSo === 1,
-    'e sorteando UMA SÓ continua sendo um: guardar uma música é o caminho da '
-    + 'gaveta da Biblioteca, com ela à vista', umaSo);
+  checar(umaSo.total === 4
+    && JSON.stringify(umaSo.dest) === JSON.stringify(['cronograma', 'playlist', 'favoritos']),
+    'e sorteando UMA SÓ são os MESMOS quatro — o modo que até a v1.8.55 não '
+    + 'tinha destino nenhum', umaSo);
+
+  // E NENHUM DELES NO MODO FÁCIL: ele não tem Cronograma, nem Favoritos, nem
+  // fila à vista (`body.mode-simple` esconde o `main` e a barra inteiros), e um
+  // botão que promete um destino invisível é pior que um botão a menos.
+  const facil = await pg.evaluate(async () => {
+    const antes = appMode;
+    setAppMode('simple'); renderSorteio();
+    const n = document.querySelectorAll('#sorteioList .sorteio-dest').length;
+    const primario = document.querySelectorAll('#sorteioList .song-menu-go').length;
+    setAppMode(antes); renderSorteio();
+    return { n, primario };
+  });
+  checar(facil.n === 0 && facil.primario === 1,
+    'e no Modo Fácil sobra só o primário: lá não há Cronograma, nem Favoritos, '
+    + 'nem fila para onde mandar', facil);
 
   // O EFEITO do "Ao Cronograma": entra na lista `imports` e NÃO mexe no que
   // está no ar nem na fila do player. É esta a diferença que o botão promete.
@@ -538,8 +588,9 @@ try {
     const noArAntes = currentId;
     sorteioPrefs.quantos = 3; sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     renderSorteio();
-    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
-      .find((b) => /Cronograma/.test(b.textContent));
+    // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
+    // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
+    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const itens = await AVDB.listItems('imports');
@@ -593,8 +644,9 @@ try {
     sorteioPrefs.soNoAparelho = true;
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
     renderSorteio();
-    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
-      .find((b) => /Cronograma/.test(b.textContent));
+    // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
+    // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
+    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const pac = (await AVDB.listItems('imports'))
@@ -627,8 +679,9 @@ try {
     await abrirSorteio();
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; sorteioPrefs.tema = '';
     renderSorteio();
-    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
-      .find((b) => /Cronograma/.test(b.textContent));
+    // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
+    // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
+    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const pac = (await AVDB.listItems('imports'))
@@ -642,8 +695,9 @@ try {
   // REPETIR O MESMO SORTEIO tem de dizer que elas já estavam lá — senão o
   // operador repete o toque achando que não funcionou.
   const denovo = await pg.evaluate(async () => {
-    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
-      .find((b) => /Cronograma/.test(b.textContent));
+    // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
+    // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
+    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const itens = await AVDB.listItems('imports');
@@ -659,6 +713,127 @@ try {
   // continuam saindo num toque cada.
   checar(denovo.total === 2 && denovo.pacotes === 2,
     'sortear de novo cria um SEGUNDO pacote — cada sorteio é o instantâneo do que ele tirou', denovo);
+
+  // ---- AS TRÊS FORMAS DE POUSAR (v1.8.56) --------------------------------
+  //
+  // O destino não muda só a LISTA: muda a FORMA com que o sorteio pousa nela, e
+  // as três diferenças são decisões, não acaso. Cada uma tem asserção própria
+  // porque cada uma falha sozinha.
+
+  // (1) UMA SÓ É UMA MÍDIA, NUNCA UM PACOTE DE UM. Uma linha chamada "Playlist
+  //     da biblioteca · 1 música" que precisa de um toque a mais para revelar
+  //     o hino que está dentro é pior que a linha do hino — e o `.avpkg` da
+  //     fila já recusa guardar menos de duas pela mesma razão (v1.8.53).
+  const solta = await pg.evaluate(async () => {
+    await AVDB.listSet('imports', []);
+    await abrirSorteio();
+    sorteioPrefs.modo = AVSorteio.MODO_UMA;
+    sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
+    renderSorteio();
+    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
+    await executarSorteio(btn, 'cronograma');
+    await new Promise((r) => setTimeout(r, 600));
+    const itens = await AVDB.listItems('imports');
+    return {
+      total: itens.length,
+      pacotes: itens.filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
+      nome: itens[0] ? itens[0].name : '',
+      aberta: document.getElementById('sorteioPopup').classList.contains('open'),
+      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+    };
+  });
+  checar(solta.total === 1 && solta.pacotes === 0 && !/playlist/i.test(solta.nome),
+    'UMA SÓ entra como a LINHA DA MÚSICA, nunca como um pacote de um — a linha '
+    + 'diz o nome do hino, e não "Playlist da biblioteca · 1 música"', solta);
+  checar(solta.aberta,
+    'e a folha FICA ABERTA também aqui: guardar não encerra a conversa', solta);
+  // E A CONTA DIZ O NOME. Guardando UMA SÓ, o pulso prova que o toque valeu e
+  // não diz QUAL saiu — e a única outra superfície que responderia isso é a
+  // lista de destino, atrás desta folha. (No "Tocar agora" a pergunta não
+  // existe: a música vai ao telão.) A frase que `adicionarNasListas` monta
+  // viaja no terceiro argumento do `responder`, que é DESCARTADO.
+  checar(solta.fala && solta.fala.includes(solta.nome)
+    && /cronograma/i.test(solta.fala),
+    'e a conta DIZ O NOME da que saiu e para onde foi — sortear é justamente '
+    + 'não escolher, e o pulso do botão não responde "qual?"', solta);
+
+  // (2) FAVORITOS RECEBE O MESMO PACOTE, na lista dele. O destino era só o
+  //     Cronograma até a v1.8.55, e `criarCue` já sabia guardar em `favs` — o
+  //     que faltava era o botão.
+  const favs = await pg.evaluate(async () => {
+    await AVDB.listSet('favs', []);
+    await abrirSorteio();
+    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST; sorteioPrefs.quantos = 3;
+    sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
+    renderSorteio();
+    const noArAntes = currentId;
+    const filaAntes = await AVDB.listIds('playlist');
+    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="favoritos"]');
+    await executarSorteio(btn, 'favoritos');
+    await new Promise((r) => setTimeout(r, 600));
+    const itens = await AVDB.listItems('favs');
+    const pac = itens.find((r) => r && r.kind === 'cue' && r.cue === 'group');
+    return {
+      quantos: itens.length, ehPacote: !!pac,
+      dentro: pac && Array.isArray(pac.data.ids) ? pac.data.ids.length : 0,
+      noArIgual: currentId === noArAntes,
+      filaIgual: JSON.stringify(await AVDB.listIds('playlist')) === JSON.stringify(filaAntes),
+      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+    };
+  });
+  checar(favs.quantos === 1 && favs.ehPacote && favs.dentro === 3,
+    'FAVORITOS recebe o mesmo pacote, na lista dele', favs);
+  checar(favs.noArIgual && favs.filaIgual,
+    'e ele também não mexe na fila do player nem no que está no telão', favs);
+  checar(/favoritos/i.test(favs.fala || ''),
+    'e a conta NOMEIA o destino — "no Cronograma" para um pacote que foi para '
+    + 'os Favoritos é o app contando metade da verdade', favs.fala);
+
+  // (3) A PLAYLIST RECEBE AS FAIXAS, NO FIM DA FILA. É a metade literal do
+  //     pedido (*"simplesmente joga… no fim da playlist atual"*), e é a única
+  //     leitura coerente: a fila é uma fila de MÍDIA, e o toque num pacote a
+  //     SUBSTITUI (`abrirPacote`) — guardar um pacote dentro dela seria pôr
+  //     nela o botão que a apaga.
+  //
+  // A ASSERÇÃO É O ANTES E DEPOIS DA FILA, e não só o tamanho: "acrescentou"
+  // e "substituiu" dão a mesma contagem quando a fila estava vazia, e é
+  // justamente a fila CHEIA que o operador tem no meio do culto.
+  const naFila = await pg.evaluate(async () => {
+    const semente = (await AVDB.listItems('imports'))
+      .filter((r) => r && r.kind !== 'cue').map((r) => r.id).slice(0, 1);
+    await AVDB.listSet('playlist', semente);
+    plItems = await AVDB.listItems('playlist');
+    const antes = await AVDB.listIds('playlist');
+    const noArAntes = currentId;
+    await abrirSorteio();
+    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST; sorteioPrefs.quantos = 3;
+    sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
+    renderSorteio();
+    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="playlist"]');
+    await executarSorteio(btn, 'playlist');
+    await new Promise((r) => setTimeout(r, 600));
+    const depois = await AVDB.listIds('playlist');
+    return {
+      antes, depois, espelho: plItems.length,
+      pacotes: (await AVDB.listItems('playlist'))
+        .filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
+      noArIgual: currentId === noArAntes,
+      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+    };
+  });
+  checar(naFila.antes.length === 1 && naFila.depois.length > naFila.antes.length
+    && naFila.depois[0] === naFila.antes[0],
+    'A PLAYLIST recebe as faixas NO FIM: o que já estava continua NA FRENTE, e '
+    + 'a fila não é substituída — acrescentar e substituir dão a mesma contagem '
+    + 'com a fila vazia, e é a fila CHEIA que o operador tem no culto', naFila);
+  checar(naFila.pacotes === 0,
+    'e não entra um PACOTE na fila: tocar num pacote SUBSTITUI a fila, então '
+    + 'guardá-lo dentro dela seria pôr nela o botão que a apaga', naFila);
+  checar(naFila.espelho === naFila.depois.length,
+    'e `plItems` foi refeito — sem isso `step`/`autoAdvance` andariam pelo '
+    + 'array velho', naFila);
+  checar(naFila.noArIgual,
+    'e acrescentar à fila NÃO projeta nada: o "Tocar agora" é o botão ao lado', naFila);
 
   // ---- FECHAR LIMPA A CAIXA DA PALAVRA (v5.307) ---------------------------
   // Medido pelos TRÊS caminhos de fechamento, porque a tabela `POPUPS` liga os
@@ -779,8 +954,9 @@ try {
     await abrirSorteio();
     await setView('wallpaper');            // o operador cobriu o telão de propósito
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; renderSorteio();
-    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
-      .find((b) => /Cronograma/.test(b.textContent));
+    // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
+    // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
+    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 500));
     const v = view;

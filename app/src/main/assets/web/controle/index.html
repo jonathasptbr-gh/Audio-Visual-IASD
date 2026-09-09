@@ -1640,15 +1640,19 @@
              deles. Eles entram por JS na carga, e não copiados aqui: um `path`
              escrito duas vezes diverge no primeiro ajuste.
 
-             A ORDEM É A DA GAVETA da linha (favoritar, depois Cronograma), e o
-             `aria-label` carrega a frase inteira — que é tudo que um botão sem
-             rótulo deve a quem o encontra. -->
-        <button type="button" id="plPackFav" class="pl-pack"
-                title="Guardar a fila como pacote nos Favoritos"
-                aria-label="Guardar a fila como pacote nos Favoritos"></button>
+             A ORDEM É A CANÔNICA dos destinos (v1.8.56): Cronograma, depois
+             favoritos — a mesma da gaveta da linha, da folha de destinos e do
+             rodapé do sorteio, e a mesma tabela que a decide (`DESTINOS`, em
+             `controle.js`). Ela INVERTEU aqui: nasceu na v1.8.54 copiando a
+             gaveta de então, que punha a estrela na frente. O `aria-label`
+             carrega a frase inteira — que é tudo que um botão sem rótulo deve
+             a quem o encontra. -->
         <button type="button" id="plPack" class="pl-pack"
                 title="Guardar a fila como pacote no Cronograma"
                 aria-label="Guardar a fila como pacote no Cronograma"></button>
+        <button type="button" id="plPackFav" class="pl-pack"
+                title="Guardar a fila como pacote nos Favoritos"
+                aria-label="Guardar a fila como pacote nos Favoritos"></button>
       </div>
     </div>
   </div>
@@ -2151,7 +2155,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">v1.8.55</span>
+          <span id="appVersion" class="app-version">v1.8.56</span>
           <!-- O GRUPO DE AÇÕES (v1.8.51). Ele existe por DUAS razões, e nenhuma
                é organização: (1) é ele que carrega o `margin-left: auto` que
                morava no rótulo solto, e (2) é ele que a faixa quebra INTEIRO

@@ -209,21 +209,37 @@ try {
   }
   const ESPERADOS = [
     '.lv-badge',                       // "há letra ou texto para ler" — disponibilidade
-    '.yt-result .yt-ok',               // "este vídeo já está no aparelho" — lido ANTES de escolher
-    '.bible-ver-status.done',          // "versão completa offline" — estado do acervo
     '.display-status.connected',       // (regra morta: o elemento só existe no ramo do navegador)
     '.cast-acao.connected',            // "há TV no ar" — dura o culto, não 1,1 s
     '.cast-acao.connected .cast-acao-ico',  // o ícone do mesmo botão, mesmo estado
   ];
   const sobrando = consumidores.filter((c) => !ESPERADOS.includes(c));
   checar(sobrando.length === 0,
-    'E · o verde que SOBRA é estado, nunca desfecho de toque, e a lista é '
+    'E · o verde que SOBRA é ATIVIDADE, nunca desfecho de toque, e a lista é '
     + 'NOMEADA: um seletor novo consumindo `--ok` reprova aqui até alguém dizer '
     + 'se aquilo é ESTADO ou CONFIRMAÇÃO', JSON.stringify({ sobrando, consumidores }));
+  // E A LISTA VALE NOS DOIS SENTIDOS (v1.8.56). Só a direção acima é
+  // TAUTOLOGIA para a metade que interessa aqui: apagar um seletor do CSS e
+  // esquecê-lo na lista deixa o oráculo verde, e a lista passa a NOMEAR o que
+  // não existe — que é o mesmo defeito do comentário que sobrevive ao código.
+  // É a varredura `comm -3` que este repositório já exige para o workflow,
+  // aplicada a uma lista de dentro de um arquivo.
+  const faltando = ESPERADOS.filter((e) => !consumidores.includes(e));
+  checar(faltando.length === 0,
+    'E · e nenhum NOME da lista descreve um seletor que já saiu do CSS — uma '
+    + 'lista de permissão que envelhece deixa de dizer o que está permitido',
+    JSON.stringify({ faltando, consumidores }));
   checar(!consumidores.includes('.btn-pulso--ok') && !consumidores.includes('.row-nota--ok'),
     'E · e os DOIS canais de confirmação saíram do verde — o pulso do botão e a '
     + 'nota na linha, que é o irmão dele para quando o botão já saiu de cena',
     JSON.stringify(consumidores));
+  // OS DOIS QUE SAÍRAM NA v1.8.56, nomeados um a um pela mesma razão: eles
+  // pareciam estado e eram CONCLUSÃO. *"verde é para sinal de 'ligado', nesses
+  // casos são mensagem de conclusão, não de atividade"* — o operador, verbatim.
+  checar(!consumidores.includes('.yt-result .yt-ok') && !consumidores.includes('.bible-ver-status.done'),
+    'E · e os DOIS indicadores de conclusão também: o ✓ do download do YouTube '
+    + 'e o "Completa offline" da Bíblia — os dois anunciam algo que ACABOU, não '
+    + 'algo que está no ar', JSON.stringify(consumidores));
 
 } finally {
   await navegador.close();

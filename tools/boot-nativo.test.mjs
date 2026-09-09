@@ -5015,10 +5015,12 @@ try {
   });
   checar(!linkYt.erro && linkYt.n === 7
       && JSON.stringify(linkYt.ordem) === JSON.stringify(['row-excluir', 'row-renomear',
-        'fav-btn', 'row-playlist', 'baixar', 'row-ordem', 'row-ordem']),
+        'row-playlist', 'fav-btn', 'baixar', 'row-ordem', 'row-ordem']),
     'A LINHA DE LINK DO YOUTUBE tem os SETE botões, com o "baixar o vídeo" DEPOIS '
     + 'da sequência ditada — ele só existe nesta linha, e no meio dela a partiria '
-    + 'ao meio', JSON.stringify(linkYt.ordem));
+    + 'ao meio. (O par playlist/estrela INVERTEU na v1.8.56, pela ordem canônica '
+    + 'dos destinos: Cronograma · playlist · favoritos, e aqui o Cronograma não '
+    + 'aparece porque o item já está nele.)', JSON.stringify(linkYt.ordem));
   checar(!linkYt.erro && linkYt.soma <= linkYt.caixa
       && linkYt.larguras.every((w) => w === linkYt.larguras[0]) && linkYt.larguras[0] >= 34,
     'e ela CABE na caixa (' + (linkYt.soma || 0) + 'px em ' + (linkYt.caixa || 0)

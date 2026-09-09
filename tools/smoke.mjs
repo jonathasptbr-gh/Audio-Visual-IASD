@@ -4980,11 +4980,13 @@ try {
   });
   checar(!dest.erro && dest.temEstrela === true && dest.temCrono === true
     && JSON.stringify(dest.ordem.slice(0, 3))
-      === JSON.stringify(['row-excluir', 'fav-btn', 'row-crono'])
+      === JSON.stringify(['row-excluir', 'row-crono', 'fav-btn'])
     && dest.ordem.slice(3).every((c) => c === 'row-ordem'),
-    'A FILA DA PLAYLIST GANHOU OS DOIS DESTINOS (v1.4.25), na ordem do '
-    + 'Cronograma sem os que não existem nela: tirar da fila · favoritar · ao '
-    + 'Cronograma', JSON.stringify(dest.ordem));
+    'A FILA DA PLAYLIST GANHOU OS DOIS DESTINOS (v1.4.25), na ORDEM CANÔNICA dos '
+    + 'destinos sem os que não existem nela: tirar da fila · ao Cronograma · '
+    + 'favoritar. (A dupla INVERTEU na v1.8.56 — *"a esquerda o cronograma, no '
+    + 'meio a playlist e por fim o favoritos"* —, e a playlist não entra porque '
+    + 'esta LINHA é a playlist.)', JSON.stringify(dest.ordem));
   checar(!dest.erro && dest.cronoAntes === false && dest.cronoDepois === true
     && dest.noBancoCrono === true && dest.favDepois === true && dest.noBancoFav === true,
     'e eles ALTERNAM de verdade — o id entra nas listas do BANCO, não só o '
@@ -5251,10 +5253,13 @@ try {
     return r;
   });
   checar(!ordem.erro && JSON.stringify(ordem.cronograma)
-      === JSON.stringify(['row-excluir', 'row-renomear', 'fav-btn', 'row-playlist',
+      === JSON.stringify(['row-excluir', 'row-renomear', 'row-playlist', 'fav-btn',
         'row-ordem', 'row-ordem']),
-    'A ORDEM DA FILEIRA DO CRONOGRAMA é a ditada (v5.302): excluir · renomear · '
-    + 'favoritar · playlist · ↑ · ↓', JSON.stringify(ordem.cronograma));
+    'A ORDEM DA FILEIRA DO CRONOGRAMA agrupa por NATUREZA (v5.302): o que mexe '
+    + 'no ITEM (excluir, renomear), o que mexe em ONDE ele está (playlist, '
+    + 'favoritar) e o que mexe na POSIÇÃO (↑↓). O PAR DO MEIO inverteu na '
+    + 'v1.8.56, pela ordem canônica dos destinos — aqui o Cronograma não '
+    + 'aparece porque o item já está nele', JSON.stringify(ordem.cronograma));
 } catch (e) {
   checar(false, 'a medição do "à playlist" terminou sem exceção ('
     + (e && e.message) + ')');

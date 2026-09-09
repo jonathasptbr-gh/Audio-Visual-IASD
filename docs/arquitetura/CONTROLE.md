@@ -3555,9 +3555,30 @@ propósito, porque é lá que mora o roteamento por tipo.
 O item é o mesmo; o que muda é em quantas listas o mesmo id aparece, e isso nunca
 foi uma escolha exclusiva. A tabela `DESTINOS` (em `controle.js`) é a fonte
 única — `chave` é o nome como o app fala do destino, `lista` é o nome dele no
-banco (o Cronograma é a lista `imports` desde antes de se chamar Cronograma). Ela
-substituiu o `YT_LISTA`, uma SEGUNDA tabela com as mesmas três listas só para o
-YouTube; duas divergiriam no primeiro destino acrescentado a uma só.
+banco (o Cronograma é a lista `imports` desde antes de se chamar Cronograma),
+`rotulo` é o nome do LUGAR ("Cronograma"), `acao` é o que se FAZ com ele
+("Adicionar ao Cronograma") e `ico` é a chave do ícone. Ela substituiu o
+`YT_LISTA`, uma SEGUNDA tabela com as mesmas três listas só para o YouTube; duas
+divergiriam no primeiro destino acrescentado a uma só.
+
+**E A ORDEM DA TABELA É CANÔNICA — Cronograma · playlist · favoritos** (v1.8.56,
+pedido do operador: *"a esquerda o cronograma, no meio a playlist e por fim o
+favoritos… aplique essa ordem a todo o app"*). Ela vale para toda superfície que
+ofereça mais de um deles: as folhas de destino, a gaveta de uma linha, o rodapé
+da fila e a faixa de fecho da playlist automática. **Onde falta um, a ordem
+relativa sobrevive** — a linha do Cronograma não oferece "Cronograma" (o item já
+está lá) e a da fila não oferece "playlist" (a linha É a fila).
+
+**A DIVERGÊNCIA QUE ISTO FECHOU NÃO ERA DECISÃO DE NINGUÉM: eram QUATRO listas
+escritas à mão** com a mesma tríade em ordens diferentes — as duas folhas de
+destino (acervo e YouTube), o mapa `LINHA` da gaveta e o `DEST_ICONE` da folha de
+importação. Uma tabela que só respondia *"quais existem?"* deixava *"em que
+ordem?"* e *"com que cara?"* para cada chamador, e o quinto chamador ia divergir
+também. **É por isso que `ico` e `acao` moram na tabela**, e que
+`destinosNaOrdem(chaves)` existe: um chamador que peça `['playlist',
+'cronograma']` — literalmente, na ordem antiga — recebe os dois na ordem da
+tabela. A lista dele diz QUAIS, nunca em que ordem. Oráculo:
+`destinos.test.mjs`, nos dois sentidos.
 
 **A gramática é uma só, e vale para todas as folhas:** toda opção — as três
 listas E o "Tocar agora" — é SELECIONÁVEL de corpo inteiro, e um botão de
@@ -6905,9 +6926,12 @@ CANTADA precisa revelá-la — senão o louvor entra sem imagem e sem letra por
 causa de uma escolha de dois minutos atrás. **O sorteio diz o estado do telão em
 vez de herdá-lo.**
 
-**"Ao Cronograma" não mexe na cortina**: ele guarda, não projeta — e por isso o
-PACOTE a carrega no descritor (ver abaixo), para aplicá-la no dia em que for
-aberto.
+**Os três destinos não mexem na cortina**: eles guardam, não projetam — e por
+isso o PACOTE a carrega no descritor (ver abaixo), para aplicá-la no dia em que
+for aberto. **Uma música SOLTA não a carrega**, e a assimetria está dita: um id
+de mídia numa lista não tem onde guardar decisão nenhuma, e nenhum caminho deste
+app jamais guardou cortina junto com uma música avulsa — a gaveta da Biblioteca,
+mandando um `playback` ao Cronograma, faz exatamente o mesmo.
 
 A folha **anuncia** o que vai acontecer, e só com o fundo musical escolhido — que
 é quando a pergunta existe: *"Fundo musical: toca sem letra e sem nada no
@@ -6930,41 +6954,67 @@ resolve o `fileIdPlayback`. Renomear o valor junto com o rótulo trocaria a
 variante de todo mundo que já escolheu, em silêncio. `sorteio-tela.test.mjs`
 trava as duas metades: o rótulo que aparece e o valor que não muda.
 
-#### Montando a fila há DOIS desfechos (v5.306)
+#### A faixa de fecho: TOCAR mais os TRÊS destinos (v5.306, v1.8.56)
 
-Eles não são duas versões da mesma ação, e é isso que justifica o segundo botão:
+Eles não são versões da mesma ação, e é isso que justifica os botões ao lado do
+primário:
 
 | Botão | O que faz | O que NÃO faz |
 |---|---|---|
 | **Tocar agora** | `AVDB.listSet('playlist', ids)` + `send` do primeiro — o caminho do `abrirPacote` | — |
-| **Ao Cronograma** | acrescenta **UM PACOTE** à lista `imports` (v5.313) | não substitui a fila do player, não projeta, não fecha a folha |
+| **Cronograma** | acrescenta **UM PACOTE** à lista `imports` (v5.313) | não substitui a fila do player, não projeta, não fecha a folha |
+| **Playlist** | acrescenta as FAIXAS ao FIM da fila (`listAdd`, que é append e idempotente) | não substitui a fila, não projeta, não guarda pacote |
+| **Favoritos** | o mesmo pacote, na lista `favs` | idem |
 
 Pedido do operador: *"vai direto para a playlist do player, para ser tocada"*
-(v5.303) e, depois, *"coloque dois botões, um de tocar agora e outro para
-adicionar ao cronograma"*. Montar o louvor da semana numa terça e projetar no
-domingo são dois momentos, e antes só o primeiro tinha porta.
+(v5.303), depois *"coloque dois botões, um de tocar agora e outro para
+adicionar ao cronograma"* e, na v1.8.56, *"deixe o botão tocar agora, e os dois
+botões de add ao cronograma e add aos favoritos disponíveis… pode até adicionar
+um terceiro botão, adicionar a playlist, que simplesmente joga… no fim da
+playlist atual"*. Montar o louvor da semana numa terça e projetar no domingo são
+dois momentos, e antes só o primeiro tinha porta.
 
 Substituir a fila é a mesma semântica de todo "Tocar agora" do acervo, que já
-passa por `replacePlaylistWith` — não é uma classe de risco nova. **O Cronograma
-nunca é substituído:** ali a ação só ACRESCENTA.
+passa por `replacePlaylistWith` — não é uma classe de risco nova. **Os três
+destinos nunca substituem nada:** ali a ação só ACRESCENTA.
 
-Três decisões que precisam estar ditas:
+**A ORDEM é a canônica** (`DESTINOS` — ver "UM item, VÁRIOS destinos"), e os três
+são ÍCONES MUDOS com `aria-label`: a 320px quatro rótulos não cabem, e o desenho
+é o do rodapé da fila (v1.8.53), com a mesma expressão de tamanho. O `data-dest`
+de cada um é o único jeito de achá-los sem texto — inclusive para um oráculo.
 
-- **Sorteando UMA SÓ o botão continua sendo um.** "Sorteie uma e guarde" é o
-  caminho que a Biblioteca já dá pela gaveta da linha, com a música escolhida à
-  vista — aqui seria um destino a mais para uma decisão que o operador toma
-  justamente por não querer decidir.
+Decisões que precisam estar ditas:
+
+- **UMA SÓ TAMBÉM TEM OS TRÊS** (v1.8.56). Até ali o botão era um, e a razão
+  escrita era: *"sorteie uma e guarde é o caminho que a Biblioteca já dá pela
+  gaveta da linha, com a música escolhida à vista"*. Ela vale para uma música
+  ESCOLHIDA — quem sorteia não sabe qual vai sair, e chegar à gaveta dela custa
+  fechar esta folha, achar a faixa entre milhares e abri-la: uma busca e três
+  toques para o que agora é um. **Eles SORTEIAM**, e é isso que os torna botões
+  e não uma folha de destinos: não há resultado à vista antes do toque, e uma
+  folha perguntaria *"para onde?"* antes de existir o quê.
+- **UMA SÓ ENTRA COMO A LINHA DA MÚSICA, nunca como um pacote de um.** A mesma
+  régua do `.avpkg` da fila (*"um pacote guarda uma fila"*, v1.8.53): uma linha
+  chamada "Playlist da biblioteca · 1 música" que precisa de um toque a mais
+  para revelar o hino que está dentro é pior que a linha do hino.
+- **A PLAYLIST RECEBE AS FAIXAS, não o pacote.** É a metade literal do pedido, e
+  é a única leitura coerente: a fila é uma fila de MÍDIA, e o toque num pacote a
+  SUBSTITUI (`abrirPacote`) — guardá-lo dentro dela seria pôr nela o botão que a
+  apaga.
+- **NENHUM DELES NO MODO FÁCIL.** Ele não tem Cronograma, nem Favoritos, nem
+  fila à vista (`body.mode-simple` esconde o `main` e a barra inteiros), e o que
+  fosse guardado ali só reapareceria para quem trocasse de modo.
 - **Guardar NÃO fecha a folha.** É o princípio das listas de destino do acervo:
   uma ação que guarda não encerra a conversa, e o segundo sorteio é o uso normal
   (acrescenta cinco, olha a lista, acrescenta mais cinco). Fechar cobraria três
   toques por rodada.
-- **Cancelar tem sentidos OPOSTOS nos dois botões, e está certo.** No "Tocar
-  agora" ele descarta: trocar a fila do culto por meia lista é uma
-  SUBSTITUIÇÃO pela metade. No "Ao Cronograma" ele preserva o que já desceu:
-  três de dez é exatamente o que aconteceu, e jogar fora um download que já
-  custou rede seria desperdício.
+- **Cancelar tem sentidos OPOSTOS entre o primário e os destinos, e está
+  certo.** No "Tocar agora" ele descarta: trocar a fila do culto por meia lista
+  é uma SUBSTITUIÇÃO pela metade. Nos três destinos ele preserva o que já
+  desceu: três de dez é exatamente o que aconteceu, e jogar fora um download que
+  já custou rede seria desperdício.
 
-##### O Cronograma recebe UM PACOTE, não N linhas (v5.313)
+##### O Cronograma (e os Favoritos) recebem UM PACOTE, não N linhas (v5.313)
 
 Pedido do operador: *"ajuste o envio ao cronograma para que ele não envie um por
 um, mas sim um item que seja um pacote de playlist"*.
@@ -6977,6 +7027,11 @@ para um mecanismo que existe, nunca um segundo mecanismo.
 O que isso resolve é a ESCALA. Dez faixas sorteadas eram dez linhas avulsas no
 meio do roteiro — para tirá-las, dez perguntas; para saber que eram um lote,
 memória. Uma linha diz o que é, sai num toque, e abre a fila inteira na hora dela.
+
+**Vale para os Favoritos desde a v1.8.56**, pelo mesmo `criarCue` (que já sabia
+guardar em `favs`; o que faltava era o botão) — e **não vale para a fila**, que
+recebe as faixas soltas, nem para o sorteio de UMA, que entra como a linha da
+música. Ver a faixa de fecho, acima.
 
 | Decisão | Por quê |
 |---|---|
