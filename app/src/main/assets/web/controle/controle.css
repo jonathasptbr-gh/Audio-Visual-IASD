@@ -669,7 +669,13 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    escuro `--bar` é bem mais escura que os botões e o degrau claro funciona:
    inverter ali trocaria a aparência do transporte inteiro para resolver um
    problema que só existe no claro. */
-:root[data-tema="claro"] .bottombar {
+/* (O cabeçalho do Cronograma entrou aqui na v1.8.61, quando virou uma barra de
+   `--bar`: a aritmética é a MESMA — a badge de versão pinta `--surface-2`,
+   branco com alfa, e sobre a barra branca do tema claro ela media 1,00:1. Com o
+   par afundado ela volta a 1,61:1. O preço está medido e declarado: o `--muted`
+   do texto dela cai de 6,55 para 4,15:1.) */
+:root[data-tema="claro"] .bottombar,
+:root[data-tema="claro"] .list-header {
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
 }
@@ -2108,6 +2114,33 @@ main {
   flex-shrink: 0; display: grid; align-items: center; gap: var(--sp-2);
   grid-template-columns: minmax(var(--hit), 1fr) minmax(0, auto) minmax(var(--hit), 1fr);
   grid-template-rows: var(--hit);
+  /* ---------- ELA É UMA BARRA, E DA COR DA CAIXA DE CONTROLES (v1.8.61) -----
+     Pedido do operador: *"ajuste o cabeçalho do cronograma, para que ele seja
+     uma barra de mesma cor da seção dos controles. para que o corte do scroll
+     do cronograma faça sentido"*.
+
+     `--bar` é o token, e ele foi achado MEDINDO o renderizado, não lendo nome:
+     a `.deck` não pinta nada (`rgba(0,0,0,0)`) — quem carrega a cor da caixa é
+     a `.bottombar` em volta dela. `#1b2632` no escuro, `#ffffff` no claro,
+     contra um fundo que lia 1,23:1 e 1,29:1 de distância.
+
+     AS MARGENS NEGATIVAS SÃO O RECUO DO `<main>`, devolvido como `padding`: é o
+     mesmo movimento que o `#library` fez na v1.8.60, e pela mesma razão — uma
+     barra que começa 12,8px depois da borda não descreve a fronteira de uma
+     lista que vai de 0 a `w`. MEDIDO a 320/390/430: a caixa passa a 0..w, o
+     conteúdo continua em x=12,8 e o `body.scrollWidth` não se mexe.
+
+     E A DE BAIXO ANULA O VÃO até a lista, que é o que faz o *corte fazer
+     sentido*: a borda de baixo da barra passa a SER a borda do scrollport, e a
+     linha some encostada nela em vez de sumir no meio do nada. O vão virou
+     `padding-top` do `#library`, logo abaixo.
+
+     SÓ NO AVANÇADO, e isso é de graça: o Modo Fácil esconde o `<main>` inteiro
+     (`body.mode-simple`), então este cabeçalho nem é desenhado lá — conferido
+     por medição, não por leitura. */
+  background: var(--bar);
+  margin: calc(-1 * (.6rem + env(safe-area-inset-top))) -.8rem calc(-1 * var(--sp-5));
+  padding: calc(.6rem + env(safe-area-inset-top)) .8rem 0;
 }
 .list-header > .back-btn { grid-column: 1; }
 /* A BADGE mora na MESMA trilha do voltar — que está vago desde a v1.5.0 e é
@@ -2394,10 +2427,30 @@ main {
    perderia a distinção entre disponível e INDISPONÍVEL na barra que hospeda o
    excluir. Entrar em seleção É trocar de modo, e a fatia trocar de tom ali é o
    desenho, não um resíduo. */
-.tools-btn, .lib-foot-btn, .import-btn {
-  background: var(--surface);
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
-}
+/* ---------- E ELAS SÃO OPACAS DESDE QUE FLUTUAM (v1.8.61) ----------
+   Com a lista correndo POR BAIXO das portas, a tinta translúcida delas deixou
+   de ser decoração e virou um vazamento: `--surface` já tem alfa (no escuro,
+   `rgba(255,255,255,.084)`), e a 70% isso é quase vidro. MEDIDO, comparando duas
+   capturas com a lista rolada: **1343 de 3192** amostras dentro dos retângulos
+   das portas MUDAM de cor conforme se rola (maxΔ 519 de 765) — o canto da porta
+   do meio ia de [32,38,44] a [52,64,77].
+
+   O conserto é o VALOR RENDERIZADO DE SEMPRE, virado token opaco
+   (`--surface-porta`, em tokens.css): `#1f252c` no escuro e `#eff1f3` no claro,
+   medidos por pixel contra o que a v1.5.19 desenhava. Nada muda de tom — muda o
+   que está atrás. Depois: **0 de 3192** amostras mudando com a rolagem.
+
+   E ELE É TOKEN, e não um `linear-gradient` compondo a tinta sobre `--bg`. O
+   gradiente RENDERIZA igual, e foi a primeira escrita deste lote; o que o
+   derruba é que a cor deixa de estar no `background-color`, e é ele que toda
+   sonda de contraste deste repositório lê — o `ferramentas-folha.test.mjs`
+   passou a medir `--bg` contra `--bg` e a devolver razão 1,00 sobre uma tela
+   que estava certa. Um valor que o app pinta e o oráculo não enxerga é a
+   medição cega que este projeto gasta lotes inteiros fechando.
+
+   A ESCADA DE FALHA ABERTA SAIU COM O `color-mix`: o token é uma cor literal,
+   que todo motor entende. */
+.tools-btn, .lib-foot-btn, .import-btn { background: var(--surface-porta); }
 /* ===== AS TRÊS PORTAS DO CRONOGRAMA, EM PARTES IGUAIS (v1.5.0) =====
    Bíblia · Importar arquivos · Ferramentas, e as três com RÓTULO — o pedido do
    operador foi *"coloque um texto no botão de ferramentas"*, e o argumento que
@@ -2609,7 +2662,63 @@ main {
    O `gap` repete o do `<main>`, de onde os dois filhos saíram. */
 .list-body {
   flex: 1; min-height: 0; position: relative;
-  display: flex; flex-direction: column; gap: var(--sp-5);
+  /* (O `gap: var(--sp-5)` saiu na v1.8.61: com o rodapé fora do fluxo sobrou um
+     filho em fluxo só, e o número que separava os dois passou a viver dentro do
+     `padding-bottom` da lista — escrito duas vezes, ele divergiria no primeiro
+     ajuste.) */
+  display: flex; flex-direction: column;
+}
+
+/* ---------- AS TRÊS PORTAS FLUTUAM, E A LISTA CORRE POR BAIXO (v1.8.61) -----
+   Pedido do operador: *"ajuste os 3 botões de bíblia, importar e ferramentas,
+   para que sejam botões flutuantes sobre o cronograma. eles ficam nas mesmas
+   posições, mas agora a lista corre por baixo deles até a fronteira dos
+   controles/barra de buscas"*.
+
+   `position: absolute`, e a razão é o MODO DE FALHAR — não o pixel. Foram
+   medidos três desenhos (rodapé absoluto; margem negativa na lista; os dois numa
+   célula de grade) e os três dão exatamente os mesmos números. O da margem
+   negativa morre no dia em que o rodapé mudar de altura: lá o número NEGATIVO é
+   quem define até onde a lista vai, e com o rodapé em 46,59px (corpo de fonte do
+   sistema a 24px, medido) a lista para **4,59px antes** da fronteira, calada.
+   Aqui `bottom: 0` responde pela EXTENSÃO e o número só governa a FOLGA.
+
+   `z-index: 6` fica ABAIXO dos 8 das duas folhas — elas continuam cobrindo as
+   portas, medido pelo toque no centro da faixa — e ACIMA dos 5 da tira de
+   sombra, senão a sombra pintaria sobre os botões.
+
+   O QUE FICA DITO PORQUE NÃO TEM CONSERTO: sobra o vão de 8px ENTRE as portas
+   (`gap` da `.import-row`), e ali a lista aparece — 11 a 17 de 35 linhas de
+   pixel mudam com a rolagem. É a consequência honesta de "flutuante", e vale
+   para qualquer um dos três desenhos. */
+.list-body > #listFoot {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
+}
+/* A MARGEM DO FIM, e ela é o cuidado que o pedido nomeia: *"para que ao rolar a
+   lista até o fim, o último item na base não fique abaixo desses botões, mas
+   afastado para cima o suficiente para ser totalmente visível"*.
+
+   MEDIDA POR PIXEL, e não por geometria — o teste é a última `.row` comparada
+   contra a mesma captura sem as portas, contando os pixels dela que MUDAM:
+   com o recuo de hoje, **58 a 61% dela ficam cobertos**; o piso é a altura do
+   rodapé (42px → ZERO pixel coberto, folga de 0,3 a 0,7px). Este valor devolve
+   as TRÊS parcelas que existiam — o recuo original, o rodapé e o `gap` que os
+   separava — e com isso reproduz a folga de hoje (19,5 contra 18,5–19,3).
+
+   A GUARDA `:has()` não é enfeite: com o rodapé `hidden` (a seleção múltipla
+   fechada, o Modo Fácil) o recuo viraria 61,5px de nada no fim da lista, contra
+   os 9,6 de hoje. Mesmo motor do `:has()` da v1.8.60. */
+.list-body:has(> #listFoot:not([hidden])) > #library {
+  padding-bottom: calc(.6rem + var(--rodape-h, var(--hit-foot)) + var(--sp-5));
+}
+/* E A TIRA MARCA A FRONTEIRA VISUAL, NÃO A BASE DA CAIXA. `--veu-base` é o
+   `padding-bottom` LIDO do layout, e com ele a tira pousaria em 615,36 — atrás
+   das portas: MEDIDO, ZERO pixel dela no meio da tela, com dois cotos de 12,8px
+   sobrando na moldura lateral. Descontada a faixa das portas, ela volta a ser
+   uma faixa só de 22px cujo pixel de baixo é sempre `foot.top − 1` (medido a
+   320, 390 e 430, nos dois temas). */
+.list-body:has(> #listFoot:not([hidden])) > #library::after {
+  bottom: calc(var(--rodape-h, var(--hit-foot)) - var(--veu-base, 0px));
 }
 /* A FOLHA DE FERRAMENTAS (v1.3.10). Ela veste `--panel` porque é um bloco sobre
    a página, e declara `--camada` como todo contêiner que hospeda filhos: quem
@@ -2721,7 +2830,23 @@ main {
 #library {
   margin-left: -.8rem; margin-right: -.8rem;
   padding-left: .8rem; padding-right: .8rem;
+  /* O VÃO ATÉ A BARRA VIROU RECUO DA LISTA (v1.8.61). Ele era o `gap` do
+     `<main>`, isto é, `--bg` entre o cabeçalho e o scroller; com o cabeçalho
+     virando barra, a fronteira do corte tem de ser a borda de baixo DELA, e um
+     vão pintado no meio desmentia isso. Como `padding-top` do scroller o
+     espaço continua existindo — só que DENTRO da caixa, onde a primeira linha
+     desliza por baixo dele. O `acertarVeus` o lê como `--veu-topo` e a tira
+     acompanha sozinha (medido: 22px, encostada em 43,59). */
+  padding-top: var(--sp-5);
 }
+/* E AS DUAS FOLHAS RECUPERAM O DEGRAU QUE A BARRA COMEU. Elas são
+   `position: absolute; inset: 0` no `.list-body`, e subir esse contêiner 9,6px
+   encostava a borda de cima delas na barra: MEDIDO, a fronteira caía de 1,667
+   para 1,295 no claro e de 1,410 para 1,192 no escuro — a mesma métrica pela
+   qual outro candidato deste lote foi recusado. A causa é aritmética e vale
+   ficar escrita: a sombra da folha caía sobre `--bg` e passava a cair sobre
+   `--bar`, que separa menos. Devolvido o degrau, as duas voltam ao que eram. */
+.list-body > .tools-sheet { top: var(--sp-5); }
 /* E COM UMA FOLHA ABERTA A TIRA SE CALA. As folhas de Ferramentas e da Bíblia
    cobrem o Cronograma inteiro MENOS essa moldura de 12,8px, e a tira alargada
    passava a pintar justamente ali: MEDIDO com Ferramentas aberta, **1004px de
@@ -5353,39 +5478,54 @@ main {
    `elementFromPoint` devolve o scroller em vez da linha, exatamente onde o
    cabeçalho grudento vive e onde o último item repousa. Com ele, o toque chega
    na `.row` (medido nos dois extremos do Cronograma). */
-/* ---------- A BARRA DE ROLAGEM É UMA SÓ, E ELA MORA AQUI (v1.8.60) ---------
-   Relato do operador sobre a v1.8.59: *"também temos o problema de não estar
-   padronizado, tem caixas sem o scroll. como a tela principal do cronograma"*.
+/* ---------- NÃO HÁ BARRA DE ROLAGEM, E A SOMBRA É O INDICADOR (v1.8.61) -----
+   Duas perguntas do operador, e a segunda revoga a v1.8.60: *"não estou vendo
+   nenhuma barra de rolagem em nenhuma tela, isso é um bug?"* e *"a ideia era
+   colocar a barra em baixo da sombra, fazendo sombra também sobre a barra… se
+   não for possível, então simplesmente deixe sem nenhuma barra de rolagem"*.
 
-   Ele está certo, e a divergência era de TRÊS contra o resto: a metade da
-   Bíblia (v5.188), o leitor de letra (v1.4.37) e a coluna de páginas do Modo
-   Fácil declaravam a barra visível cada uma por si, e todo o resto ficava no
-   `auto` — que no Android é a barra OVERLAY, a que só aparece durante o gesto e
-   some. Duas linguagens na mesma tela, e a mais comum era a que não diz nada.
+   **NÃO ERA BUG, ERA A PLATAFORMA.** No Android a barra é SOBREPOSTA: ela
+   aparece durante o gesto e apaga sozinha — MEDIDO no modelo overlay,
+   **780 a 850 ms** depois do último evento de rolagem, com a receita da v1.8.60
+   e sem ela. (Aquele lote escreveu 440–530 ms; o número não se reproduziu, e
+   fica corrigido aqui.) Declarar `scrollbar-width: thin` NÃO a torna permanente,
+   que é justamente o que o comentário da `.bible-half` afirmava desde a v5.188.
 
-   A declaração sobe para a MARCA. Ela é a mesma que já existia nas três, com a
-   pista `transparent` (a razão é da v1.4.37: *"uma pista da cor do próprio
-   fundo não é pista nenhuma"* — e as bases aqui são cinco tons diferentes, o
-   que descarta pintar a pista de qualquer um deles).
+   **E DAVA PARA A SOMBRA PINTAR SOBRE ELA — por um caminho que não vale o
+   preço.** A prova é binária: a tira foi forçada a opaca sobre a coluna do
+   polegar e contam-se as linhas cobertas. De DENTRO do scroller ela cobre
+   **149 de 240**, e `z-index: 2147483647` não move um pixel — um filho jamais
+   pinta sobre a barra do próprio scroller, e não é ordem de pintura que decide.
+   De FORA (um irmão ou o pseudo do PAI) ela cobre **240 de 240**, escurecendo o
+   polegar exatamente pela alfa da sombra naquela linha.
 
-   ---------- OS NOVE `::-webkit-scrollbar` ERAM CÓDIGO MORTO ----------
-   As três traziam junto um trio de pseudos WebKit (`width: 7px` + pista +
-   polegar). O Chromium DESLIGA os pseudos `::-webkit-scrollbar*` quando
-   `scrollbar-width` ou `scrollbar-color` tem valor diferente de `auto`, e as
-   três declaravam os dois. MEDIDO no leitor de letra, com barra clássica: a
-   calha sai **10px** — o valor de `thin` — e não os 7px que o pseudo pedia;
-   devolvendo o par a `auto` ela cai para 7px, que é o pseudo assumindo. Nove
-   regras que não pintavam nada.
+   O preço de ir buscá-los é que mata o caminho, e ele está medido: a tira teria
+   de sair do scroller — **11 dos 15 pais** precisariam de geometria em JS
+   (contra os 0,093 ms de varredura e ZERO callbacks em 6 s que a v1.8.58 mediu)
+   —, e ela **perderia o recorte do arco**, que é o acabamento pedido por extenso
+   na v1.8.59 (12 de 12 linhas quadradas no canto, contra o perfil 6·4·2·2·1·1·1·0
+   de hoje). Tudo isso para um efeito que só existe em **1,6% das posições de
+   rolagem**, durante os 0,8 s da barra. Consertar um pedido desfazendo outro,
+   por 1,6% — o operador escolheu o outro caminho, que era o dele mesmo.
 
-   E O COMENTÁRIO DELAS CREDITAVA A ESSES NOVE o fim do modo overlay
-   (*"Declarar largura em `::-webkit-scrollbar` tira o modo overlay… é o que a
-   torna permanente"*). Ele afirmava como fato o que não se mede fora do
-   aparelho: aqui, no modelo overlay, NADA disto reserva largura e a barra some
-   entre 440 e 530 ms depois do gesto, com a receita cheia e sem ela. O que
-   este lote afirma é só o que mediu — os pseudos estão mortos, e o par
-   `scrollbar-*` é quem decide largura e cor. Se a permanência vale no WebView
-   do aparelho, ela vale pelo par, não pelos nove. */
-.rola { scrollbar-width: thin; scrollbar-color: var(--accent) transparent; }
+   **ENTÃO NÃO HÁ BARRA.** A sombra das bordas (v1.8.58) já é o indicador de
+   *"há conteúdo escondido deste lado"* e alcança **os 15 scrollers marcados** —
+   censo com `tem-acima`/`tem-abaixo` forçados: nenhum tem `sem-veu`, todos
+   computam a tira. Uma linguagem só, e ela não some depois de 0,8 s.
+
+   O QUE SE PERDE ESTÁ DITO: durante o gesto havia um polegar a **9,14:1** no
+   escuro (5,97:1 no claro) — o mesmo que o operador pediu na v1.4.37 e que ele
+   agora revoga. E o que NÃO muda, medido: `scrollHeight`/`clientHeight`
+   idênticos, todas as medidas da tira iguais bit a bit, e a rolagem por toque
+   intacta.
+
+   ---------- OS DEZ `::-webkit-scrollbar` CONTINUAM MORTOS ----------
+   Isto é da v1.8.60 e segue valendo: o Chromium DESLIGA os pseudos
+   `::-webkit-scrollbar*` quando `scrollbar-width` ou `scrollbar-color` tem valor
+   diferente de `auto`. MEDIDO no leitor de letra, com barra clássica: a calha
+   saía **10px** — o valor de `thin` — e não os 7px que o pseudo pedia. **Não
+   escrever mais nenhum**, e a razão não mudou com o valor. */
+.rola { scrollbar-width: none; }
 
 .rola::before,
 .rola::after {
@@ -5400,24 +5540,17 @@ main {
   margin-left: calc(-1 * var(--veu-esq, 0px));
   margin-right: calc(-1 * var(--veu-dir, 0px));
 }
-/* ---------- A CALHA DA BARRA DE ROLAGEM É INALCANÇÁVEL, E ISSO FICA DITO ----
-   Tentativa MEDIDA e revertida na v1.8.60. Onde a barra de rolagem RESERVA
-   largura (a clássica de mesa), ela é subtraída do padding box e a tira para na
-   borda interna dela — MEDIDO, 9,61px no leitor de letra e 9,81px no Modo
-   Fácil, e ali a pista é transparente, então o que se vê naqueles pixels é a
-   superfície do scroller sem sombra nenhuma.
+/* ---------- NÃO HÁ CALHA A ALCANÇAR, E A NOTA FICA PELO MOTIVO ----------
+   A v1.8.60 tentou levar a tira por baixo da barra de rolagem e reverteu com a
+   medição: **o retângulo de recorte de um scroller é o padding box MENOS a
+   calha**, então nada que seja filho dele pinta ali, por margem nenhuma —
+   somar a calha à margem negativa deixava o vão em 10,0px, igual.
 
-   O conserto óbvio — somar a calha à margem negativa — NÃO FUNCIONA, e o motivo
-   é o mesmo que derrubou a primeira tentativa de alargar a tira do Cronograma:
-   **o retângulo de recorte de um scroller é o padding box MENOS a calha**.
-   Nada que seja filho dele pinta ali, por margem nenhuma. MEDIDO com a barra
-   clássica ligada: com a calha somada à margem, o vão continua 10,0px.
-
-   E ELA É ZERO NO APARELHO. No Android a barra é SOBREPOSTA e não reserva um
-   pixel — medido em 18 de 18 scrollers no modelo overlay —, então a tira já vai
-   à borda lá. Um `--veu-calha` que nunca tem efeito é a regra morta que este
-   mesmo lote tirou de outros dez lugares; o que fica é esta nota, para o
-   próximo não refazer a medição. */
+   DESDE A v1.8.61 A PERGUNTA NÃO SE FAZ MAIS: a barra saiu (`scrollbar-width:
+   none`), e sem barra não há calha em motor nenhum. A nota fica porque a
+   armadilha volta com qualquer barra que volte — e porque ela é a metade
+   negativa da prova que decidiu aquele lote: de dentro do scroller a tira cobre
+   149 de 240 linhas do polegar; de fora, 240 de 240. */
 /* E O `top` NEGATIVO É O PAR DO `bottom` DA TIRA DE BAIXO. O ponto em que um
    `sticky` para NÃO é o topo do padding box: é o topo do CONTENT box, isto é,
    `padding-top` abaixo da borda — MEDIDO, 11,0px de faixa clara sobre a sombra
@@ -5917,6 +6050,13 @@ main {
      o que ela não pode é ENCOLHER abaixo do alvo. MEDIDO antes: 29,5px em 6
      das 8 telas, com o recuo em `rem` "dando no piso" só com a fonte padrão. */
   min-height: var(--hit);
+  /* E O PISO É NOS DOIS EIXOS (v1.8.61). O alvo de toque é o MENOR lado, e com
+     um rótulo de UM caractere quem falha é a LARGURA: MEDIDO, o chip "1" da
+     linha "Quantas" sai com 29,7px contra o piso de 34 (o "3" e o "5" também).
+     O defeito é anterior a este lote — a linha só existia depois de escolher
+     "Montar playlist", e por isso nenhuma tela do portão a alcançava. Com ela
+     sempre desenhada, ele passou a ser o controle mais tocado desta folha. */
+  min-width: var(--hit);
   padding: .34rem .7rem;
   border-radius: var(--radius-pill);
   background: var(--surface-2); color: var(--muted);
@@ -6002,9 +6142,13 @@ main {
    rifa longa a lista cresce sem limite e empurraria os botões para fora. */
 .draw-hist {
   display: flex; gap: var(--sp-2); overflow-x: auto; padding-bottom: .2rem;
-  /* Ela ESCONDE a barra, e é a única — o padrão da marca `.rola` é mostrá-la.
-     Aqui a rolagem é HORIZONTAL e a barra vertical não descreveria nada; a
-     mesma razão que tira a tira de sombra daqui (ver o bloco H do oráculo).
+  /* ELE NÃO É UM `.rola`, e o comentário daqui afirmou o contrário por um lote
+     inteiro: a classe sai de `hist.className = 'draw-hist'` no controle.js, sem
+     a marca. Logo o padrão nunca o alcançou, e esta linha nunca foi exceção a
+     nada — ela é a ÚNICA declaração de barra que este elemento tem, e existe
+     porque sem ela ele cairia no `auto` e desenharia uma barra HORIZONTAL.
+     (Desde a v1.8.61 a marca também diz `none`, então os dois coincidem; a
+     linha fica porque a coincidência é acidente, não herança.)
      (O `::-webkit-scrollbar { display: none }` que acompanhava saiu na v1.8.60,
      pela prova que matou os outros nove: o Chromium desliga os pseudos WebKit
      quando `scrollbar-width` é diferente de `auto`, e aqui ele é `none`.) */
@@ -8338,7 +8482,21 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `min-height` reservado para DUAS linhas: a frase troca a cada tecla digitada,
    e sem altura fixa os botões de fecho subiriam e desceriam embaixo do dedo. */
 .sorteio-conta {
-  min-height: 2.9em;
+  /* O RESERVADO ERAM DUAS LINHAS E O PIOR CASO SÃO QUATRO (v1.8.61). Ela é o
+     último dos quatro motores do pulo da folha, e o mais teimoso: a frase troca
+     de comprimento com a QUANTIDADE, com a palavra tema E com quantas faixas
+     estão baixadas, e quebra em mais linhas quanto mais estreita a tela e maior
+     o corpo de fonte do sistema. MEDIDO em 33 células (3 larguras × 3 escalas ×
+     11 estados): a caixa ia de 57,1 a 117,1px, e o `min-height` de 2,9em
+     reservava 57,1 — isto é, o pior caso passava 60px do reservado.
+
+     6em É O PIOR CASO MEDIDO, e em `em` porque ele acompanha a fonte: 78,7px a
+     1×, 102,3 a 1,3× e 118,1 a 1,5×, e com ele as 33 células medem A MESMA
+     coisa. O PREÇO ESTÁ ACEITO E É 21,6px a 1×, que é o que a caixa reserva
+     além do caso comum — o comentário acima já dizia por que isso vale a pena
+     (*"sem altura fixa os botões de fecho subiriam e desceriam embaixo do
+     dedo"*), e o pedido deste lote é essa frase por extenso. */
+  min-height: 6em;
   display: flex; flex-direction: column; justify-content: center; gap: var(--sp-1);
   padding: .1rem .1rem .2rem;
   font-size: var(--fs-md); line-height: 1.35; color: var(--muted);
@@ -8350,6 +8508,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    botão. Sem caixa e sem ícone: o que a prende ao segmento acima é a proximidade,
    e ela só existe com o playback escolhido. */
 .sorteio-nota {
+  /* DUAS LINHAS RESERVADAS (v1.8.61), e é o cinto do par de frases emparelhadas
+     no `renderSorteio`: elas quebram juntas em toda largura medida, mas o corpo
+     de fonte do SISTEMA é o eixo que nenhum par de strings controla. Reservado,
+     a folha para de pular quando uma delas ganha uma linha e a outra não. */
+  min-height: 2.7em;
   padding: 0 .1rem .1rem;
   font-size: var(--fs-sm); line-height: 1.35; color: var(--muted);
 }
@@ -8399,6 +8562,60 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .sorteio-dest svg { width: var(--icon-sm); height: var(--icon-sm); }
 .sorteio-acao .song-menu-text { align-items: center; justify-content: center; min-height: var(--hit); }
 .sorteio-acao:disabled { opacity: .5; cursor: default; }
+
+/* ---------- A FAIXA DE FECHO TEM UMA ALTURA SÓ (v1.8.61) ----------
+   Relato do operador: *"a altura do botão tocar agora no playlist automática,
+   não está alinhada com a altura dos botões a sua direita"*.
+
+   A CAUSA É UM RESÍDUO, e não era decisão de ninguém. A v1.8.57 devolveu os três
+   quadrados ao `--quad-faixa`; o primário ficou onde estava, e onde ele está é a
+   regra da v5.301 — `.song-menu-text` reserva `--hit` (34px) mais dois
+   `--opcao-recuo-v` (19,2px) = 53,2px. Aquela regra existia para dar ao
+   confirmar *"a altura das LINHAS que ele fecha"*, e a v1.8.60 mudou o lugar
+   dela: a faixa saiu da `.popup-list` para o `.popup-fecho`, e já não há linha
+   de opção nenhuma ao lado. MEDIDO a 320×740: 53,2 contra 42,4 — e o desvio
+   CRESCE com a fonte do sistema, porque `--hit` é fixo e `--quad-faixa` é
+   híbrido px+rem (66,9 contra 49,1 a 1,3×; 78,8 contra 53,6 a 1,5×). Em 144
+   pontos medidos, ZERO alinhados, com CINCO alturas de primário — uma delas
+   dependendo do RÓTULO, porque "Tocar" cabe numa linha onde "Sortear e tocar"
+   não cabia.
+
+   O NÚMERO CERTO É O DO QUADRADO, e o precedente é o rodapé da fila: lá a altura
+   mora na FAIXA (`--faixa-alt: var(--quad-faixa)`) e o botão de rótulo VESTE a
+   caixa. Depois: 144 de 144 alinhados, com um número por escala de fonte.
+
+   OS DOIS CAMINHOS RECUSADOS, com o número que os matou: ESTICAR os quadrados
+   alinha e os deixa **0 de 192 QUADRADOS** (42,4×78,8 a 1,5×) — é a v1.8.57
+   desfeita, e o `quadrado-de-icone.test.mjs` reprova nos dois blocos. CRESCER o
+   quadrado até a altura do primário alinha só 80 de 144, e de quebra os três
+   comem 32,4px da largura que falta ao rótulo.
+
+   O ESCOPO NÃO É A FOLHA, É A FAIXA COM MAIS DE UM BOTÃO — e a diferença é o
+   que faz a regra ser regra. Escopar por `#sorteioPopup` daria ao MESMO botão
+   duas caixas em folhas irmãs, o defeito que a v1.8.57 e a v1.8.60 gastaram dois
+   lotes fechando; aplicar a TODA faixa quebra a folha de destinos, onde o
+   confirmar é FILHO ÚNICO e a regra da v5.301 continua certa — lá ele veste *"a
+   altura das LINHAS que ele fecha"*, e as linhas estão logo acima
+   (`destinos.test.mjs` reprova: respiro 0 contra os 19,2 das opções).
+   A pergunta que separa as duas é *"há irmão nesta faixa?"*: com irmão, a faixa
+   tem uma altura só; sozinho, o botão segue as linhas. `:has(> a ~ b)` é
+   exatamente isso — um botão precedido de outro botão.
+
+   E O `max-width` DO RÓTULO NÃO É HIGIENE — é metade do conserto.
+   `.song-menu-text` é um flex COLUNA: com `nowrap` e sem o clamp, o filho sai
+   com a largura do TEXTO e transborda a caixa. MEDIDO a 320×1,5: 184,1px dentro
+   de 66,9, com o rótulo pintado 117,3px FORA do botão e por cima do primeiro
+   quadrado. `min-width: 0` no pai não resolve (medido, idêntico). */
+.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go {
+  height: var(--quad-faixa);
+  padding-top: 0; padding-bottom: 0;
+}
+.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-text {
+  min-height: 0;
+}
+.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-label {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* ---------- popup de Exibição (preenchimento da mídia) ---------- */
 /* As transições (fade) são inerentes ao sistema — não há mais controles delas

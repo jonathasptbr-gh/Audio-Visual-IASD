@@ -324,7 +324,21 @@ try {
     aberta: document.getElementById('sorteioPopup').classList.contains('open'),
     segmentos: document.querySelectorAll('#sorteioList .fit-seg').length,
     campo: !!document.querySelector('#sorteioList .lib-search'),
+    // OS CHIPS SÃO DE DUAS LINHAS desde a v1.8.61: os TRÊS filtros e as SEIS
+    // quantidades (1·3·5·10·15·20, onde o `1` é a antiga "uma só"). Contá-los
+    // juntos esconderia uma das duas linhas sumindo, então cada uma responde
+    // pela sua.
     chips: document.querySelectorAll('#sorteioList .misc-chip').length,
+    filtros: (() => {
+      const li = [...document.querySelectorAll('#sorteioList .sorteio-linha')]
+        .find((x) => /Filtros/.test((x.querySelector('.sorteio-rotulo') || {}).textContent || ''));
+      return li ? li.querySelectorAll('.misc-chip').length : 0;
+    })(),
+    quantas: (() => {
+      const li = [...document.querySelectorAll('#sorteioList .sorteio-linha')]
+        .find((x) => /Quantas/.test((x.querySelector('.sorteio-rotulo') || {}).textContent || ''));
+      return li ? [...li.querySelectorAll('.misc-chip')].map((c) => c.textContent) : [];
+    })(),
     go: !!document.querySelector('#sorteioPopup .song-menu-go'),
   }));
   const conta0 = await lerConta();
@@ -350,8 +364,18 @@ try {
   checar(origem.topo === 0 && /^0px 0px \S+ \S+$/.test(origem.raio),
     'e ela ENCOSTA NO TETO, com os cantos arredondados embaixo — o botão dela '
     + 'está no alto da Biblioteca', origem);
-  checar(folha.segmentos === 2 && folha.campo && folha.chips === 3 && folha.go,
-    'e ela desenha os dois segmentos, o campo, os TRÊS filtros e o confirmar', folha);
+  // UM SEGMENTO SÓ desde a v1.8.61: o do MODO ("Tocar uma só" × "Montar
+  // playlist") virou o `1` da linha "Quantas", a pedido do operador — *"não
+  // coloque mais opção de playlist ou uma música só, integre isso nas opções de
+  // quantidade, afinal a única diferença é quantidade"*. Sobra o da VARIANTE
+  // (Cantada × Fundo musical), que responde outra pergunta.
+  checar(folha.segmentos === 1 && folha.campo && folha.filtros === 3 && folha.go,
+    'e ela desenha o segmento da VARIANTE, o campo, os TRÊS filtros e o '
+    + 'confirmar — o segmento do MODO virou a linha "Quantas" na v1.8.61', folha);
+  checar(JSON.stringify(folha.quantas) === JSON.stringify(['1', '3', '5', '10', '15', '20']),
+    'e a linha "Quantas" está SEMPRE lá, com o `1` na frente: era ele o segundo '
+    + 'motor do pulo da folha (a linha aparecia e sumia com o modo, 44,4px), e é '
+    + 'ele o antigo "Tocar uma só"', JSON.stringify(folha.quantas));
   // A RESSALVA DOS INFANTIS APARECE DE SAÍDA (v1.0.7), e é o preço declarado de
   // o filtro nascer ligado: ele recusa sem que ninguém o tenha tocado, então a
   // conta tem de dizer isso na primeira frase que o operador lê — pela mesma
@@ -479,7 +503,7 @@ try {
   // ---- MODO "UMA SÓ": vai ao telão ----------------------------------------
   const uma = await pg.evaluate(async () => {
     sorteioPrefs.tema = 'natal';
-    sorteioPrefs.modo = AVSorteio.MODO_UMA;
+    sorteioPrefs.quantos = 1;
     sorteioPrefs.soNoAparelho = true;   // sem rede neste harness
     renderSorteio();
     await executarSorteio(document.querySelector('#sorteioPopup .song-menu-go'), 'tocar');
@@ -498,7 +522,7 @@ try {
 
   // ---- MODO "PLAYLIST": monta a fila e toca a primeira --------------------
   const fila = await pg.evaluate(async () => {
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
+    sorteioPrefs.quantos = 3;
     sorteioPrefs.quantos = 3;
     sorteioPrefs.tema = '';            // o acervo inteiro: 3 baixadas
     sorteioPrefs.soNoAparelho = true;
@@ -529,7 +553,7 @@ try {
   // e por fim o favoritos"*. Lida do DOM, não da tabela — a tabela é travada no
   // `destinos.test.mjs`, e o que falta provar aqui é que esta folha a segue.
   const faixa = await pg.evaluate(async () => {
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
+    sorteioPrefs.quantos = 3;
     await abrirSorteio();
     const bs = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')];
     return {
@@ -541,7 +565,11 @@ try {
       mudos: bs.slice(1).every((b) => !b.textContent.trim() && !!b.getAttribute('aria-label')),
     };
   });
-  checar(faixa.total === 4 && /Tocar agora/.test(faixa.primeiro)
+  // O RÓTULO ENCURTOU NA v1.8.61 ("Tocar agora" → "Tocar", "Sortear e tocar" →
+  // "Sortear"), e ele veio junto com a altura única da faixa: sem os 19,2px de
+  // recuo vertical o primário só cabe em UMA linha, e MEDIDO o par longo
+  // reticenciava em 78 de 432 pontos contra 4 de 56 do curto.
+  checar(faixa.total === 4 && /^Tocar/.test(faixa.primeiro)
     && JSON.stringify(faixa.dest) === JSON.stringify(['cronograma', 'playlist', 'favoritos']),
     'montando a fila a faixa de fecho tem QUATRO botões: tocar mais os três '
     + 'destinos, na ordem canônica (Cronograma · playlist · favoritos)', faixa);
@@ -555,10 +583,10 @@ try {
   // vai sair, e chegar à gaveta dela custa fechar a folha, achar a faixa e
   // abri-la.
   const umaSo = await pg.evaluate(async () => {
-    sorteioPrefs.modo = AVSorteio.MODO_UMA; renderSorteio();
+    sorteioPrefs.quantos = 1; renderSorteio();
     const bs = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')];
     const r = { total: bs.length, dest: bs.slice(1).map((b) => b.dataset.dest) };
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST; renderSorteio();
+    sorteioPrefs.quantos = 3; renderSorteio();
     return r;
   });
   checar(umaSo.total === 4
@@ -727,7 +755,7 @@ try {
   const solta = await pg.evaluate(async () => {
     await AVDB.listSet('imports', []);
     await abrirSorteio();
-    sorteioPrefs.modo = AVSorteio.MODO_UMA;
+    sorteioPrefs.quantos = 1;
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     renderSorteio();
     const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
@@ -763,7 +791,7 @@ try {
   const favs = await pg.evaluate(async () => {
     await AVDB.listSet('favs', []);
     await abrirSorteio();
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST; sorteioPrefs.quantos = 3;
+    sorteioPrefs.quantos = 3;
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     renderSorteio();
     const noArAntes = currentId;
@@ -806,7 +834,7 @@ try {
     const antes = await AVDB.listIds('playlist');
     const noArAntes = currentId;
     await abrirSorteio();
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST; sorteioPrefs.quantos = 3;
+    sorteioPrefs.quantos = 3;
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     renderSorteio();
     const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="playlist"]');
@@ -913,10 +941,14 @@ try {
     const vistos = [];
     const orig = AVDB.sendCommand;
     AVDB.sendCommand = (o) => { vistos.push(o); return orig(o); };
-    const rodar = async (variante, modo) => {
+    // O SEGUNDO EIXO É `quantos` desde a v1.8.61 (1 = a antiga "uma só"), e ele
+    // é escrito UMA vez: a versão anterior punha o modo e logo abaixo um
+    // `quantos = 3` fixo, então os dois casos "uma só" rodavam com fila de três
+    // e passavam pelo motivo errado.
+    const rodar = async (variante, quantos) => {
       vistos.length = 0;
-      sorteioPrefs.modo = modo; sorteioPrefs.variante = variante;
-      sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true; sorteioPrefs.quantos = 3;
+      sorteioPrefs.variante = variante; sorteioPrefs.quantos = quantos;
+      sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
       await abrirSorteio();
       const btn = document.querySelector('#sorteioPopup .song-menu-go');
       await executarSorteio(btn, 'tocar');
@@ -924,10 +956,10 @@ try {
       const load = vistos.filter((o) => o && o.type === 'load').pop();
       return { view, noLoad: load ? load.view : null };
     };
-    const pb1 = await rodar('playback', 'uma');
-    const ct1 = await rodar('full', 'uma');
-    const pbFila = await rodar('playback', 'playlist');
-    const ctFila = await rodar('full', 'playlist');
+    const pb1 = await rodar('playback', 1);
+    const ct1 = await rodar('full', 1);
+    const pbFila = await rodar('playback', 3);
+    const ctFila = await rodar('full', 3);
     AVDB.sendCommand = orig;
     return { pb1, ct1, pbFila, ctFila };
   });
@@ -948,7 +980,7 @@ try {
   // "AO CRONOGRAMA" NÃO TOCA NO TELÃO. Ele guarda; mexer na cortina ali seria o
   // oposto do que aquele botão promete.
   const guardaNaoCobre = await pg.evaluate(async () => {
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
+    sorteioPrefs.quantos = 3;
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     await abrirSorteio();
@@ -976,7 +1008,8 @@ try {
   const nota = await pg.evaluate(async () => {
     await abrirSorteio();
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA; renderSorteio();
-    const cantada = !!document.querySelector('#sorteioList .sorteio-nota');
+    const elC = document.querySelector('#sorteioList .sorteio-nota');
+    const cantada = elC ? elC.textContent : '';
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; renderSorteio();
     const el = document.querySelector('#sorteioList .sorteio-nota');
     const texto = el ? el.textContent : '';
@@ -985,8 +1018,17 @@ try {
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA; fecharSorteio();
     return { cantada, texto, segs, valor: AVSorteio.VARIANTE_PLAYBACK };
   });
-  checar(!nota.cantada && /fundo musical/i.test(nota.texto) && /telão/i.test(nota.texto),
-    'a folha ANUNCIA o fundo musical, e só com ele escolhido', nota);
+  // A NOTA EXISTE NOS DOIS ESTADOS desde a v1.8.61, e a asserção trocou de
+  // sentido junto. Ela aparecia SÓ no fundo musical, e essa condição era o
+  // TERCEIRO motor do pulo da folha: MEDIDO, +39,1px ao trocar de segmento, com
+  // os botões de fecho subindo e descendo embaixo do dedo. O que ela afirma —
+  // *"isto vai aparecer no telão?"* — é uma pergunta legítima sobre a cantada
+  // também, e a resposta dela é o OPOSTO; escrever as duas é informação que
+  // faltava, não enchimento.
+  checar(/fundo musical/i.test(nota.texto) && /telão/i.test(nota.texto)
+      && /cantada/i.test(nota.cantada) && /telão/i.test(nota.cantada),
+    'a folha ANUNCIA o que cada variante faz com o TELÃO, nos DOIS estados — e é '
+    + 'por isso que ela deixou de mudar de altura ao trocar de segmento', nota);
   checar(nota.segs.some((t) => /^Fundo musical$/i.test(t)) && !nota.segs.some((t) => /playback/i.test(t)),
     'o segmento diz "Fundo musical" — o PROPÓSITO da fila, não o nome do arquivo', nota.segs);
   checar(nota.valor === 'playback',

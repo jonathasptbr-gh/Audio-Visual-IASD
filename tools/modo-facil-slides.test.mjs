@@ -284,11 +284,17 @@ try {
   });
   checar(barra.overflow === 'auto' && barra.overflow === barra.refOverflow,
     'a zona do Modo Fácil é um SCROLLER, como a folha do modo avançado', barra);
-  checar(barra.w === 'thin' && barra.w === barra.refW
-      && barra.c !== 'auto' && barra.c === barra.refC,
-    'A BARRA DE ROLAGEM É A MESMA DA FOLHA DO MODO AVANÇADO — a caixa diz que há '
-    + 'algo dentro, a barra diz ONDE se está nele. MEDIDO antes: aqui computava '
-    + '`auto`/`auto`, e a lista rolava sem dizer onde estava', barra);
+  // A PARIDADE SOBREVIVEU AO VALOR, e era essa a metade que valia. O `'thin'`
+  // literal saiu na v1.8.61, quando a barra foi removida de todo o app a pedido
+  // do operador (*"simplesmente deixe sem nenhuma barra de rolagem"*, depois de
+  // medido que a sombra só cobre o polegar a partir de fora do scroller). O que
+  // esta linha sempre afirmou continua de pé: **duas listas que fazem o mesmo
+  // trabalho mostram a mesma coisa** — hoje as duas mostram a SOMBRA, que é o
+  // indicador único desde a v1.8.58, e nenhuma das duas mostra barra.
+  checar(barra.w === barra.refW && barra.c === barra.refC,
+    'A ZONA DO MODO FÁCIL DIZ O MESMO QUE A FOLHA DO MODO AVANÇADO — a asserção é '
+    + 'a PARIDADE e não um valor, e é ela que sobrevive a uma troca de decisão: '
+    + 'as duas computam `' + barra.w + '`', barra);
 
   // ── 3. A TECLA VIRA A PÁGINA ──────────────────────────────────────────────
   await pg.evaluate(() => document.getElementById('simpleSlideNext').click());

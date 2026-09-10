@@ -2353,7 +2353,7 @@ try {
     // existe. `abrirSorteio` reescreve as prefs, então o modo é posto DEPOIS
     // dele e a folha é redesenhada.
     await abrirSorteio();
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
+    sorteioPrefs.quantos = 3;
     renderSorteio();
     out.acoes = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')]
       .map((b) => b.textContent.trim());

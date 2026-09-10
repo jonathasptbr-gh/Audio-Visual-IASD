@@ -374,7 +374,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.60';
+const WEB_VERSION = '1.8.61';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7630,6 +7630,41 @@ function botaoDoRodape(id, cls, titulo, rotulo, desenho) {
   return b;
 }
 
+// ===== A ALTURA DO RODAPÉ FLUTUANTE É LIDA, NUNCA TRANSCRITA (v1.8.61) =====
+//
+// Com as três portas flutuando sobre a lista (`#listFoot` absoluto), quem
+// responde "quanto recuo o fim da lista precisa?" é a altura DELAS. `--hit-foot`
+// é um `min-height` de 42px, e o rodapé o EXCEDE quando o corpo de fonte do
+// sistema cresce: MEDIDO, 42,00 de 280 a 480px de largura com a raiz em 16px E
+// em 20px, e 46,59 com ela em 24px. O desvio não esconde linha nenhuma (a folga
+// sobra), mas come 4 dos 22px da tira de sombra, que passa a terminar atrás das
+// portas.
+//
+// FALHA ABERTA: o CSS lê `var(--rodape-h, var(--hit-foot))`. Sem esta medida o
+// layout é o do `--hit-foot`, que é o de hoje — nunca pior.
+// `getBoundingClientRect` e não `offsetHeight`: o segundo ARREDONDA (47 contra
+// 46,59), e o recuo do fim da lista é justamente onde meio pixel aparece.
+// SÓ O QUE MUDOU, como no `acertarVeus`: reescrever o mesmo valor dentro de um
+// `ResizeObserver` é o laço que o navegador denuncia.
+const rodapeRO = new ResizeObserver(() => medirRodapeDaLista());
+let rodapeObservado = null;
+function medirRodapeDaLista() {
+  const corpo = listFootEl && listFootEl.parentElement;
+  if (!corpo) return;
+  if (rodapeObservado !== listFootEl) {
+    rodapeRO.disconnect(); rodapeRO.observe(listFootEl); rodapeObservado = listFootEl;
+  }
+  const h = listFootEl.getBoundingClientRect().height;
+  // Zero é a AUSÊNCIA de uma medida (rodapé `hidden`, app fora da tela), não uma
+  // medida de zero: escrevê-lo tiraria o recuo do fim da lista. A boa que já
+  // está lá é a resposta certa para quando ele voltar.
+  if (!h) return;
+  const v = (Math.round(h * 100) / 100) + 'px';
+  if (corpo.style.getPropertyValue('--rodape-h') !== v) {
+    corpo.style.setProperty('--rodape-h', v);
+  }
+}
+
 function renderListFoot() {
   const antiga = listFootEl.querySelector('.import-row');
   // O seletor de arquivos mora DENTRO da linha antiga; tirá-lo antes de
@@ -7734,6 +7769,9 @@ function renderListFoot() {
   li.appendChild(ferr);
 
   listFootEl.appendChild(li);
+  // O INQUILINO ACABOU DE TROCAR, e a altura é dele: a `.selbar` e a
+  // `.import-row` medem o mesmo hoje (42,00 nas duas), mas é medida, não regra.
+  medirRodapeDaLista();
 }
 
 // Os tipos que o seletor do sistema oferece. PDF e PPTX entram na MESMA lista
@@ -21306,9 +21344,13 @@ async function lerSorteioPrefs() {
 // uma PERGUNTA, feita uma vez. Reencontrar "natal" no campo em fevereiro é o
 // recurso lembrando de algo que não é para ser lembrado; pior, é um filtro
 // silencioso sobre o primeiro sorteio de quem só queria abrir e tocar.
+// E O `modo` NÃO É MAIS GRAVADO (v1.8.61) — não por economia, mas porque um
+// campo que não existe não fica velho: escrito, um `'uma'` sobrevivente faria a
+// migração do `saneQuantos` re-disparar e engolir a quantidade escolhida a cada
+// relançamento (escolher 10, fechar o app e voltar em 1, para sempre).
 function saveSorteioPrefs() {
   return AVDB.setState('sorteioPrefs', {
-    modo: sorteioPrefs.modo, variante: sorteioPrefs.variante,
+    variante: sorteioPrefs.variante,
     semHinario: sorteioPrefs.semHinario, soNoAparelho: sorteioPrefs.soNoAparelho,
     semInfantis: sorteioPrefs.semInfantis,
     quantos: sorteioPrefs.quantos,
@@ -21492,7 +21534,7 @@ function frasesDaContaSorteio(pool) {
     : baixadas === n ? 'todas já baixadas'
       : numeroPt(baixadas) + (baixadas === 1 ? ' já baixada' : ' já baixadas');
 
-  if (sorteioPrefs.modo !== AVSorteio.MODO_PLAYLIST) {
+  if (sorteioPrefs.quantos === 1) {
     // Sortear UMA: o que decide a espera é se HÁ alguma baixada, porque o
     // sorteio prefere as que estão (ver `AVSorteio.sortear`).
     return [forte, baixadas ? jaTem + ' — toca na hora' : jaTem + ' — vai baixar antes de tocar'];
@@ -21599,15 +21641,9 @@ function renderSorteio() {
   const alvo = sorteioListEl;
   limparFolha(alvo);
 
-  // ---- O MODO: quanto? ----
-  // O mesmo `.fit-seg` do seletor Cantada/Playback da folha da música: é a
-  // mesma classe de pergunta ("qual destes dois?"), e um segundo desenho para
-  // ela leria como outro tipo de controle.
-  alvo.appendChild(ytSegRow(
-    [[AVSorteio.MODO_UMA, 'Tocar uma só'], [AVSorteio.MODO_PLAYLIST, 'Montar playlist']],
-    sorteioPrefs.modo,
-    (v) => { sorteioPrefs.modo = v; saveSorteioPrefs(); renderSorteio(); },
-  ));
+  // (O SELETOR DE MODO SAIU na v1.8.61 — *"não coloque mais opção de playlist ou
+  // uma música só, integre isso nas opções de quantidade, afinal a única
+  // diferença é quantidade"*. Ele virou o `1` da linha "Quantas", abaixo.)
 
   // ---- A PALAVRA TEMA ----
   const liCampo = document.createElement('li');
@@ -21671,17 +21707,28 @@ function renderSorteio() {
     (v) => { sorteioPrefs.variante = v; saveSorteioPrefs(); renderSorteio(); },
   ));
 
-  // A NOTA DO FUNDO MUSICAL. Ela aparece SÓ com ele escolhido, que é exatamente
-  // quando a pergunta existe — "isto vai aparecer no telão?" —, e é uma
+  // A NOTA DO SEGMENTO, e ela existe NOS DOIS ESTADOS desde a v1.8.61. Ela é uma
   // AFIRMAÇÃO e não um controle: o que o operador decide já está decidido no
-  // segmento acima. Sem ela, a cortina posta pelo sorteio seria uma mudança de
-  // estado do telão que ninguém anunciou.
-  if (sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK) {
-    const nota = document.createElement('li');
-    nota.className = 'sorteio-nota';
-    nota.textContent = 'Fundo musical: toca sem letra e sem nada no telão.';
-    alvo.appendChild(nota);
-  }
+  // segmento acima, e a nota diz o que aquela escolha faz com o TELÃO — sem ela,
+  // a cortina posta pelo sorteio seria uma mudança de estado que ninguém
+  // anunciou.
+  //
+  // ELA APARECIA SÓ NO FUNDO MUSICAL, e essa condição era o SEGUNDO motor do
+  // pulo da folha: MEDIDO, **+39,1px** ao trocar de segmento, com os botões de
+  // fecho subindo e descendo embaixo do dedo. Escrita nos dois estados o pulo
+  // some, e o estado que ficou sem frase ganha a dele — que é informação que
+  // faltava, não enchimento: "vai aparecer no telão?" é uma pergunta legítima
+  // sobre a cantada também, e a resposta dela é o oposto.
+  const nota = document.createElement('li');
+  nota.className = 'sorteio-nota';
+  // AS DUAS FRASES TÊM QUASE O MESMO COMPRIMENTO, e isso é medida, não estilo:
+  // com 49 contra 61 caracteres elas quebravam em número DIFERENTE de linhas a
+  // 390px (uma em duas, a outra em uma), e o pulo voltava — 16,0px, medido.
+  // Emparelhadas em 45 e 46 elas quebram juntas em toda largura.
+  nota.textContent = sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK
+    ? 'Fundo musical: sem letra e sem nada no telão.'
+    : 'Cantada: a letra vai ao telão, como no acervo.';
+  alvo.appendChild(nota);
 
   // ---- OS FILTROS ----
   alvo.appendChild(sorteioLinhaChips('Filtros', [
@@ -21707,16 +21754,19 @@ function renderSorteio() {
     },
   ]));
 
-  // ---- QUANTAS (só montando fila) ----
+  // ---- QUANTAS ----
   // Um teto, e ele é obrigatório: um tema genérico ("Deus" casa em quase toda
   // letra) montaria uma fila de centenas — no pior caso centenas de downloads
   // antes da primeira nota.
-  if (sorteioPrefs.modo === AVSorteio.MODO_PLAYLIST) {
-    alvo.appendChild(sorteioLinhaChips('Quantas', AVSorteio.QUANTIDADES.map((q) => ({
-      nome: String(q), ativo: sorteioPrefs.quantos === q,
-      aoTocar: () => { sorteioPrefs.quantos = q; saveSorteioPrefs(); renderSorteio(); },
-    }))));
-  }
+  //
+  // ELA NÃO TEM MAIS CONDIÇÃO (v1.8.61), e é essa a metade do pedido que só esta
+  // mudança resolve: *"assim também resolvemos o problema do tamanho da janela
+  // ficar se alterando por causa da ocultação do campo de quantidade"*. O `1` é
+  // o antigo "Tocar uma só" — ali ele não é um teto, é a quantidade.
+  alvo.appendChild(sorteioLinhaChips('Quantas', AVSorteio.QUANTIDADES.map((q) => ({
+    nome: String(q), ativo: sorteioPrefs.quantos === q,
+    aoTocar: () => { sorteioPrefs.quantos = q; saveSorteioPrefs(); renderSorteio(); },
+  }))));
 
   // ---- A CONTA ----
   const pool = sorteioPool();
@@ -21761,7 +21811,7 @@ function renderSorteio() {
   // `playlistIconSvg`, `starSvg`), e a ORDEM é a canônica (ver `DESTINOS`).
   const liGo = document.createElement('li');
   liGo.className = 'song-menu-go-row';
-  const fila = sorteioPrefs.modo === AVSorteio.MODO_PLAYLIST;
+  const fila = sorteioPrefs.quantos > 1;
   const travado = !pool.itens.length || sorteioRodando;
 
   const botao = (rotulo, classe, aoTocar) => {
@@ -21780,7 +21830,13 @@ function renderSorteio() {
   // O PRIMÁRIO É O DE TOCAR, nos dois modos: é o que o recurso existe para
   // fazer, e o preenchimento em accent é o vocabulário do app para "a ação
   // principal desta folha".
-  liGo.appendChild(botao(fila ? 'Tocar agora' : 'Sortear e tocar', 'song-menu-go',
+  // OS RÓTULOS SÃO CURTOS, e isso entra com a regra da altura (v1.8.61): sem os
+  // 19,2px de recuo vertical o primário só cabe em UMA linha, e "Sortear e
+  // tocar" mede 7,67rem em qualquer escala. MEDIDO, o par longo reticencia em
+  // **78 de 432** pontos (largura × escala de fonte × estado) e este par em
+  // **4 de 56** — todos a 320px com a fonte do sistema a 1,5×, que é o limite já
+  // declarado na faixa irmã (o rodapé da fila).
+  liGo.appendChild(botao(fila ? 'Tocar' : 'Sortear', 'song-menu-go',
     (b) => executarSorteio(b, 'tocar')));
   // OS TRÊS DESTINOS NÃO EXISTEM NO MODO FÁCIL. Ele não tem Cronograma, nem
   // Favoritos, nem fila à vista: `body.mode-simple` esconde o `main` e a barra
@@ -21874,7 +21930,7 @@ async function executarSorteio(btn, desfecho) {
     await ensureLyricIndex();
     const f = AVSorteio.sanear(sorteioPrefs);
     const pool = AVSorteio.montarPool(allCollections(), f, sorteioCap());
-    const quantos = f.modo === AVSorteio.MODO_PLAYLIST ? f.quantos : 1;
+    const quantos = f.quantos;
     const escolhidos = AVSorteio.sortear(pool.itens, quantos);
     // O VEREDITO sai da passada que decidiu, e é o que o Registro imprime.
     sorteioDiario = {
@@ -21897,7 +21953,7 @@ async function executarSorteio(btn, desfecho) {
     // dele, para aplicá-la quando for aberto — ver `cortinaDoSorteio`.)
     if (desfecho !== 'tocar') {
       await guardarSorteadas(escolhidos, btn, f, desfecho);
-    } else if (f.modo !== AVSorteio.MODO_PLAYLIST) {
+    } else if (f.quantos === 1) {
       await acertarCortinaDoSorteio(f);
       await tocarSorteada(escolhidos[0]);
     } else {
@@ -22798,7 +22854,11 @@ function blocoSorteio() {
   const f = d.filtros;
   const p = d.pool;
   const linhas = ['Playlist automática (o que a regra achou)'];
-  linhas.push('· ' + serieHa(d.quando) + ' · ' + (f.modo === AVSorteio.MODO_PLAYLIST
+  // O VEREDITO SAI DO MESMO CAMPO QUE DECIDIU (v1.8.61): era `f.modo`, e o modo
+  // deixou de existir — uma linha que lesse um campo morto diria "uma só" sobre
+  // uma fila de dez, e um log que discorda do aparelho é lido A DISTÂNCIA por
+  // quem não tem como conferir.
+  linhas.push('· ' + serieHa(d.quando) + ' · ' + (f.quantos > 1
     ? 'fila de até ' + f.quantos : 'uma só')
     + ' · ' + (f.variante === AVSorteio.VARIANTE_PLAYBACK
       ? 'fundo musical (telão coberto)' : 'cantada')
@@ -32898,6 +32958,10 @@ document.addEventListener('visibilitychange', () => {
   // MUDA depois dele, e o que já está desenhado na primeira pintura não muda.
   // Daqui em diante ninguém mais precisa lembrar de nada.
   acertarVeus();
+  // E a altura das TRÊS PORTAS, pelo mesmo motivo e no mesmo lugar: o
+  // `ResizeObserver` só vê o que muda depois dele, e a primeira pintura não
+  // muda. (Ver `medirRodapeDaLista`.)
+  medirRodapeDaLista();
   // registra a chegada de compartilhamentos (intent nativo; no navegador é no-op)
   registrarShareNativo();
   // E O LINK QUE JÁ ESTAVA COPIADO. Fire-and-forget, como os três abaixo: a
