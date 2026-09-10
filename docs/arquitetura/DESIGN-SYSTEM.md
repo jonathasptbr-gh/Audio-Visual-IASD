@@ -2233,9 +2233,11 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
     temas. Com isso o `backdrop-filter` saiu, e com ele o custo que prendia o
     efeito a um scroller só. A regra vale para o app inteiro e mora no
     `CLAUDE.md`, na seção da paleta.
-  - **DENTRO do scroller, a `z-index: 2`, é o que o faz sumir sozinho sob uma
-    tampa grudada** — a tampa é opaca e mora acima (z 3 e 4). Medido em 131/131
-    amostras com uma coleção aberta.
+  - **A CAMADA MUDOU NA v1.8.59.** A tira era `z-index: 2`, abaixo das tampas
+    grudadas (z 3 e 4), para sumir sob elas. Medido, o efeito real era que
+    NENHUMA barra `sticky` escurecia — razão 1,0000 contra 1,1553 no fundo a
+    26px dela, nos dois temas —, porque `z-index` é do elemento e não do estado
+    "colada". Ela subiu para `z-index: 5`.
   - **Ele só existe quando MENTIRIA ao não existir**: `.tem-acima`/`.tem-abaixo`
     saem de um ouvinte de `scroll` em CAPTURA no `document` e de um
     `MutationObserver` do documento inteiro, coalescidos por quadro. As regras

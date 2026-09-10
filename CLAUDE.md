@@ -1351,22 +1351,40 @@ nenhum**, e por isso ficam aqui.
   da capa × altura da faixa não fecham num quadrado — ali o oráculo TROCA a
   régua pela que vale (toda peça na mesma altura), em vez de calar.
 - **TODO SCROLLER TEM A SOMBRA DAS BORDAS, e a marca é `rola`** (v1.8.58). Ela
-  diz *"há conteúdo escondido deste lado"*: duas tiras `sticky` de 22px em
-  `z-index: 2`, tinta de `linear-gradient(var(--sombra-rolagem))` e
-  `pointer-events: none`. **É `linear-gradient` e nunca `backdrop-filter`** — o
-  segundo obriga a compor o que está atrás (MEDIDO: duas camadas por tira), e
-  foi esse custo que prendeu o efeito a uma lista só da v1.5.16 até aqui. **As
-  duas medidas que fazem a tira sumir da conta de rolagem são LIDAS do layout**
-  (`getComputedStyle` → `--veu-vao`/`--veu-base`), nunca declaradas: escritas à
-  mão, quatro das catorze primeiras estavam erradas, e o `scrollHeight` não
-  acusa nenhuma numa lista que ainda cabe. **Nada precisa ser religado**: um
-  observador só, no documento inteiro, vê todo `.rola` que nasce — MEDIDO, ele
-  registra ZERO callbacks em 6 s de `display-status` a 4 Hz e a varredura
-  completa custa 0,093 ms. **Um scroller em GRADE fica de fora, e por MEDIDA**
-  (`sem-veu`, do `display` computado a cada passada): o pseudo-elemento de um
-  contêiner de grade é um ITEM dela e empurra o conteúdo uma casa. E **um
-  carrossel HORIZONTAL não recebe a marca** — `overflow-x: auto` COMPUTA
-  `overflow-y: auto`, e a sombra vertical ali não descreve nada.
+  diz *"há conteúdo escondido deste lado"*: duas tiras `sticky` de 22px, tinta
+  de `linear-gradient(var(--sombra-rolagem))` e `pointer-events: none`. **É
+  `linear-gradient` e nunca `backdrop-filter`** — o segundo obriga a compor o
+  que está atrás (MEDIDO: duas camadas por tira), e foi esse custo que prendeu o
+  efeito a uma lista só da v1.5.16 até aqui.
+- **A TIRA MORA NO PADDING BOX, E AS QUATRO MEDIDAS SÃO LIDAS DO LAYOUT**
+  (v1.8.59) — `--veu-vao`/`--veu-topo`/`--veu-base`/`--veu-esq`/`--veu-dir`,
+  todas por `getComputedStyle` na mesma varredura, nunca declaradas. **Um
+  `sticky` em `top: 0` para no topo do CONTENT box**, e um pseudo-elemento é
+  item flex e nasce com a largura dele: sem o desconto, o vão entre a fronteira
+  e a sombra é EXATAMENTE o `padding` do scroller — medido em doze dos dezenove,
+  de 5 a 14px. **E o valor tem de ser lido, nunca escrito**: errar o `top` para
+  mais não é limitado, é RECORTADO pelo overflow, e a sombra encolhe e some sem
+  erro nenhum. (Escritas à mão, quatro das catorze primeiras já saíram erradas, e
+  o `scrollHeight` não acusa nenhuma numa lista que ainda cabe.) **Encostada, ela
+  é RECORTADA pelo arco** de quem arredonda — é assim que o canto fica redondo,
+  e não com um raio próprio.
+- **E ELA PINTA ACIMA DAS TAMPAS GRUDADAS** (`z-index: 5`, v1.8.59, revogando a
+  v1.5.16). Aquele lote a pôs em 2, abaixo dos 3/4 das tampas, para que se
+  calasse onde já houvesse quem respondesse — mas **`z-index` é propriedade do
+  ELEMENTO e não do estado "colada"**: uma `.coll-group-bar` é `sticky` com z 4
+  no meio da lista e na borda de baixo, onde não exerce papel de tampa nenhum.
+  MEDIDO na mesma linha de pixel, a 26px: a barra lia 1,0000 e o fundo ao lado
+  1,1553 — numa lista feita de barras, a sombra só alcançava os vãos. O preço
+  aceito é a tampa grudada receber a sombra como qualquer outra superfície.
+- **Nada precisa ser religado**: um observador só, no documento inteiro, vê todo
+  `.rola` que nasce — MEDIDO, ele registra ZERO callbacks em 6 s de
+  `display-status` a 4 Hz e a varredura completa custa 0,093 ms. **E `sem-veu`
+  sai de DOIS vereditos medidos a cada passada**: quem é GRADE (o
+  pseudo-elemento de um contêiner de grade é um ITEM dela e empurra o conteúdo
+  uma casa) e quem NÃO ROLA (uma regra pode tirar a rolagem por baixo da marca —
+  é o `.misc-panel--msg { overflow: hidden }`). **Um carrossel HORIZONTAL não
+  recebe a marca** — `overflow-x: auto` COMPUTA `overflow-y: auto`, e a sombra
+  vertical ali não descreve nada.
 - **O feedback de toque é `translateY(2px)` — recuo ABSOLUTO, nunca uma
   fração.** Uma fração aplicada a alvos de 34px a 408px não é um valor, são
   doze. **E um BLOCO que hospeda controles responde só com a LUZ**, nunca com
@@ -2360,7 +2378,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.58 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.59 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 

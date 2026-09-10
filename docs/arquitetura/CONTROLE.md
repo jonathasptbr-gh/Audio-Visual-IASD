@@ -4612,10 +4612,12 @@ continua valendo está no `CLAUDE.md`, na seção da paleta; o que era próprio
 desta lista é só o degrau de camadas abaixo. **O `backdrop-filter` saiu** — era
 ele, e o custo dele, que prendia o efeito a um scroller só.
 
-- **Dentro do scroller e a `z-index: 2`, é o que o faz sumir sozinho sob uma
-  tampa grudada** — as tampas são opacas e moram acima (z 3 e 4). Medido em
-  131/131 amostras com uma coleção aberta, e em 250/250 de conteúdo cru na lista
-  plana da busca.
+- **Ele DEIXOU de sumir sob a tampa grudada na v1.8.59.** Até ali a tira era
+  `z-index: 2`, abaixo dos 3/4 das tampas — e a razão escrita era que ela se
+  calava onde já houvesse quem respondesse. `z-index`, porém, é propriedade do
+  ELEMENTO e não do estado "colada": MEDIDO, a `.coll-group-bar` lia razão
+  1,0000 em qualquer posição, inclusive na borda de baixo, e o fundo a 26px dela
+  lia 1,1553. A tira subiu para `z-index: 5`.
 - **Ele só existe quando MENTIRIA ao não existir.** `.tem-acima`/`.tem-abaixo`
   saem de um ouvinte de `scroll` em CAPTURA no `document` (um só para todos os
   scrollers) e de um `MutationObserver` do documento inteiro, os dois
@@ -4623,10 +4625,10 @@ ele, e o custo dele, que prendia o efeito a um scroller só.
   `.popup-backdrop--lib.open`: com o seletor genérico (`.rola:not(.tem-acima)`)
   não há a disputa de especificidade que uma vez deixou o véu aceso no topo da
   lista, exatamente onde ele mente.
-- **O véu de baixo ANULA o recuo da lista**, e é por isso que aquele recuo virou
-  token: sem a anulação ele gruda acima do recuo e deixa uma faixa de conteúdo
-  embaixo de si — um defeito que só aparece num aparelho com barra de gestos.
-  Desde a v1.8.58 o número é LIDO do layout (`--veu-base`), não declarado.
+- **As QUATRO medidas do recuo são LIDAS do layout** (v1.8.59): a de baixo desde
+  a v1.5.16 (sem ela a tira gruda acima do recuo), e o topo e os dois lados
+  desde este lote — sem eles o vão entre a fronteira e a sombra é exatamente o
+  `padding` do scroller, que aqui são 11,2px no topo e 12,8px de cada lado.
 
 #### A divisória entre faixas IRMÃS (v1.5.16)
 

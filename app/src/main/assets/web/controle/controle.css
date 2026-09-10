@@ -5263,15 +5263,27 @@ main {
    sombra pintada no fundo do scroller fica ATRÁS delas — invisível exatamente
    sobre o que ela existe para velar. A tira tem de estar POR CIMA.
 
-   ---------- O `z-index: 2` É O DESENHO INTEIRO ----------
-   Ele põe a sombra ACIMA do conteúdo (z auto) e ABAIXO das tampas grudadas da
-   Biblioteca (z 3 e 4), MEDIDO por `elementsFromPoint`. É isso que torna a tira
-   de cima CONDICIONAL sem uma linha de JS: com uma coleção aberta, a tampa opaca
-   de 45px cobre a tira por completo — MEDIDO na v1.5.16 varrendo 5232px de
-   rolagem, 131 de 131 amostras têm tampa sobre a borda e ZERO têm conteúdo cru;
-   na lista PLANA da busca, onde não há tampa nenhuma, são 250/250 ao contrário.
-   A sombra cala-se exatamente onde já há quem responda. Quem guarda isso hoje é
-   o bloco C do `lista-da-biblioteca.test.mjs`.
+   ---------- O `z-index: 5` VEM ACIMA DAS TAMPAS, E ISSO REVOGA A v1.5.16 ------
+   Aquele lote pôs a tira em `z-index: 2`, ABAIXO das tampas grudadas (z 3 e 4),
+   para que a tira de cima ficasse CONDICIONAL sem uma linha de JS: com uma
+   coleção aberta, a tampa opaca de 45px a cobria por completo, e a sombra
+   calava-se onde já havia quem respondesse.
+
+   O QUE DERRUBA ESSE ARGUMENTO É QUE `z-index` É PROPRIEDADE DO ELEMENTO, E NÃO
+   DO ESTADO "COLADA". Uma `.coll-group-bar` é `sticky` com z 4 em QUALQUER
+   posição — no meio da lista, e encostando na borda de BAIXO, onde ela não
+   exerce papel de tampa nenhum. MEDIDO na mesma linha de pixel, a 26px de
+   distância: o card lê razão 1,0000 (delta ZERO, nos dois temas) e o fundo ao
+   lado dele lê 1,1553. Numa lista que é feita de barras, a sombra só alcançava
+   os VÃOS — que é o relato do operador, palavra por palavra. Medido também: com
+   uma coleção aberta, a tira de cima sai **0% pintada**, e da de baixo sobram 6
+   das 22 linhas conforme onde a rolagem parou.
+
+   O preço aceito é o simétrico: a tampa grudada no topo passa a receber a
+   sombra como qualquer outra superfície. É o que a uniformidade custa, e a
+   uniformidade é o pedido (*"faça esse o padrão de efeito para os scrolls"*).
+   Quem guardava a regra antiga era o bloco C2 do `lista-da-biblioteca.test.mjs`,
+   reescrito no mesmo lote — a asserção trocou de lado, não sumiu.
 
    ---------- AS DUAS MEDIDAS SÃO DO SCROLLER, NÃO DA REGRA ----------
    `--veu-vao` é o `gap` do scroller e `--veu-base` o `padding-bottom` dele, e as
@@ -5295,12 +5307,23 @@ main {
 .rola::before,
 .rola::after {
   content: ''; display: block; flex: none;
-  position: sticky; z-index: 2;
+  position: sticky; z-index: 5;
   height: var(--veu-h);
   pointer-events: none;
+  /* A TIRA VAI DE BORDA A BORDA, e os dois números são o RECUO do scroller. Ela
+     é filha dele, então nasce com a largura do CONTENT box — MEDIDO no leitor de
+     letra, 12,6px de folga clara de cada lado, dentro de uma caixa que ainda é
+     arredondada. Uma sombra que começa depois da borda não descreve a borda. */
+  margin-left: calc(-1 * var(--veu-esq, 0px));
+  margin-right: calc(-1 * var(--veu-dir, 0px));
 }
+/* E O `top` NEGATIVO É O PAR DO `bottom` DA TIRA DE BAIXO. O ponto em que um
+   `sticky` para NÃO é o topo do padding box: é o topo do CONTENT box, isto é,
+   `padding-top` abaixo da borda — MEDIDO, 11,0px de faixa clara sobre a sombra
+   no leitor de letra. A tira de baixo já nascia certa porque `--veu-base`
+   compensava o recuo de lá; esta ficou um lote inteiro sem a metade dela. */
 .rola::before {
-  top: 0;
+  top: calc(-1 * var(--veu-topo, 0px));
   margin-bottom: calc(-1 * (var(--veu-h) + var(--veu-vao, 0px)));
   background: linear-gradient(to bottom, var(--sombra-rolagem), transparent);
 }

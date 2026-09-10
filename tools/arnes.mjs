@@ -28,6 +28,7 @@
 //
 // Não impõe viewport nem `args`: `abrirNavegador` tem o padrão do projeto
 // (430×900, que é o que 37 oráculos usam) e aceita o resto.
+import zlib from 'node:zlib';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -176,4 +177,65 @@ export async function esperarDb(pg, fn, arg = null, prazo = 15000) {
     await pg.waitForTimeout(100);
   }
   return 'o fato não foi observado em ' + Math.round(prazo / 1000) + 's (PRAZO, não veredito)';
+}
+
+// ===== O PIXEL: DECODIFICAR UM PNG SEM DEPENDÊNCIA =====
+//
+// Ele morava dentro do `lista-da-biblioteca.test.mjs`, e ganhou um SEGUNDO
+// consumidor na v1.8.59 (`sombra-de-rolagem.test.mjs`, que passou a medir ONDE
+// a tira pousa). Segundo consumidor é a hora de subir para cá: é exatamente a
+// divergência que este arquivo existe para fechar — o `checar` chegou a ter
+// sete variantes por ter sido copiado, e uma delas descartava o `obtido` em
+// silêncio.
+//
+// Ele lê só o que o `page.screenshot()` do Playwright produz: profundidade 8,
+// cor 2 (RGB) ou 6 (RGBA). Qualquer outra coisa LANÇA — um decodificador que
+// adivinha devolve pixels plausíveis, e uma asserção de cor sobre pixel
+// plausível é pior que asserção nenhuma.
+export function lerPng(buf) {
+  let p = 8, w = 0, h = 0, cor = 0, prof = 0; const idat = [];
+  while (p < buf.length) {
+    const n = buf.readUInt32BE(p); const tipo = buf.toString('ascii', p + 4, p + 8);
+    const dados = buf.subarray(p + 8, p + 8 + n);
+    if (tipo === 'IHDR') { w = dados.readUInt32BE(0); h = dados.readUInt32BE(4); prof = dados[8]; cor = dados[9]; }
+    else if (tipo === 'IDAT') idat.push(dados);
+    else if (tipo === 'IEND') break;
+    p += 12 + n;
+  }
+  if (prof !== 8 || (cor !== 2 && cor !== 6)) throw new Error('PNG inesperado: prof=' + prof + ' cor=' + cor);
+  const canais = cor === 6 ? 4 : 3;
+  const cru = zlib.inflateSync(Buffer.concat(idat));
+  const passo = w * canais; const out = Buffer.alloc(h * passo);
+  let q = 0;
+  for (let y = 0; y < h; y++) {
+    const f = cru[q++]; const src = cru.subarray(q, q + passo); q += passo;
+    const dst = out.subarray(y * passo, y * passo + passo);
+    const ant = y ? out.subarray((y - 1) * passo, y * passo) : null;
+    for (let i = 0; i < passo; i++) {
+      const a = i >= canais ? dst[i - canais] : 0;
+      const b = ant ? ant[i] : 0;
+      const c = ant && i >= canais ? ant[i - canais] : 0;
+      let v = src[i];
+      if (f === 1) v += a; else if (f === 2) v += b; else if (f === 3) v += (a + b) >> 1;
+      else if (f === 4) {
+        const pp = a + b - c, pa = Math.abs(pp - a), pb = Math.abs(pp - b), pc = Math.abs(pp - c);
+        v += (pa <= pb && pa <= pc) ? a : (pb <= pc ? b : c);
+      }
+      dst[i] = v & 255;
+    }
+  }
+  return { w, h, canais, px: out };
+}
+// O pixel (x, y) como [r, g, b]. Fora da imagem devolve `null` — e isso é
+// decisão: um índice negativo entra na linha ANTERIOR do buffer e devolve uma
+// cor de outro lugar da tela, que é uma medição errada sem erro nenhum.
+export function pixel(img, x, y) {
+  if (x < 0 || y < 0 || x >= img.w || y >= img.h) return null;
+  const i = (y * img.w + x) * img.canais;
+  return [img.px[i], img.px[i + 1], img.px[i + 2]];
+}
+// A luminância relativa da WCAG, para razões de contraste e de escurecimento.
+export function luminancia(c) {
+  const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
 }
