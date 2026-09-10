@@ -1271,6 +1271,51 @@ try {
   checar(venceu === 'claro',
     'mas uma escolha GUARDADA vence o aparelho: o operador que escolheu claro '
     + 'continua no claro com o sistema no escuro', venceu);
+
+  // ---- O PRIMEIRO TOQUE MUDA A COR, NOS DOIS APARELHOS (v1.8.62) --------
+  //
+  // Relato do operador: *"ao entrar nas configurações e tocar em cor do tema,
+  // ele ignora o primeiro toque, não alterando o tema. só no segundo toque que
+  // ele começa a responder"*. A ordem era a lista fixa `[null, 'claro',
+  // 'escuro']`: num aparelho que já responde CLARO, o automático mostrava claro
+  // e o primeiro toque escolhia... claro. Gravava, repintava, e não mudava um
+  // pixel.
+  //
+  // ELE É MEDIDO NO APARELHO CLARO, e é essa a razão de o defeito ter
+  // sobrevivido: este arquivo emula ESCURO desde a v1.8.49 (a linha do
+  // `newContext`), e no escuro o percurso sempre esteve certo. Um oráculo que
+  // mede um aparelho só aprova metade de uma regra que depende do aparelho.
+  //
+  // E OS TRÊS ESTADOS CONTINUAM ALCANÇÁVEIS: são três sobre duas cores, então
+  // UM dos toques não muda a cor — o que ENTRA no automático, que é o único
+  // cujo rótulo anuncia o que aconteceu.
+  for (const aparelho of ['light', 'dark']) {
+    await pg.emulateMedia({ colorScheme: aparelho });
+    const ciclo = await pg.evaluate(async (esperado) => {
+      const raiz = document.documentElement;
+      setTemaEscolha(null);
+      await new Promise((f) => setTimeout(f, 120));
+      const passos = [{ tema: raiz.dataset.tema || 'escuro', escolha: raiz.dataset.temaEscolha || null }];
+      for (let i = 0; i < 3; i++) {
+        document.getElementById('temaTile').click();
+        await new Promise((f) => setTimeout(f, 60));
+        passos.push({ tema: raiz.dataset.tema || 'escuro', escolha: raiz.dataset.temaEscolha || null });
+      }
+      setTemaEscolha(null);
+      return { passos, partiu: esperado };
+    }, aparelho === 'light' ? 'claro' : 'escuro');
+    const p = ciclo.passos;
+    checar(p[0].tema === ciclo.partiu && p[1].tema !== p[0].tema,
+      'o PRIMEIRO toque no tema muda a cor num aparelho ' + aparelho + ' — a lista '
+      + 'fixa mandava para o claro, e num aparelho claro isso era um toque que '
+      + 'não fazia nada', JSON.stringify(p));
+    checar(p[1].escolha !== null && p[2].escolha !== null && p[2].tema !== p[1].tema
+      && p[3].escolha === null,
+      'e os TRÊS estados continuam no ciclo, com o toque sem cor sendo o que '
+      + 'VOLTA ao automático — o único cujo rótulo anuncia o que aconteceu',
+      JSON.stringify(p));
+  }
+  await pg.emulateMedia({ colorScheme: 'dark' });
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

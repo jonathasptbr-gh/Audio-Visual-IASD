@@ -1380,6 +1380,15 @@ nenhum**, e por isso ficam aqui.
   muda de cor a cada quadro (medido: 1343 de 3192 amostras), e o valor opaco é
   um TOKEN, não um gradiente compondo sobre o fundo: a cor tem de estar no
   `background-color`, que é o que toda sonda de contraste deste repositório lê.
+  **E ele é o DENIM CHEIO desde a v1.8.62** (`--surface-porta: #2f557f`, o mesmo
+  valor nos dois temas), a pedido do operador: o azul de "ativado" das
+  Configurações (`--btn-accent`) é o denim LAVADO, e o pedido foi o sólido. Sobre
+  ele escreve-se `--on-accent` — o `--accent` mede **2,05:1** ali no escuro e
+  **1,00:1** no claro (onde ele É o denim), e como as regras por classe vêm
+  DEPOIS da agrupada com a mesma especificidade, um `color` deixado numa delas
+  vence e apaga o rótulo. **A sombra de cada porta aponta para CIMA**
+  (`0 -2px 8px`): abaixo delas está a fronteira, e a sombra do resto do app
+  cairia fora da tela sem erro nenhum.
 - **MAS ELA NÃO ALCANÇA O SCROLLER INTEIRO: A CAIXA TEM DE ALCANÇAR PRIMEIRO**
   (v1.8.60). `overflow-y: auto` COMPUTA `overflow-x: auto`, então a margem
   negativa é RECORTADA pela caixa do scroller — MEDIDO no Cronograma, forçar
@@ -1396,12 +1405,16 @@ nenhum**, e por isso ficam aqui.
   a calha à margem deixava o vão em 10,0px. Desde a v1.8.61 a pergunta não se
   faz mais (não há barra), mas a armadilha volta com qualquer barra que volte.
   Um `--veu-calha` foi escrito, medido e revertido; não refazer.
-- **A TIRA SÓ ALCANÇA A BORDA DE BAIXO SE NÃO HOUVER RODAPÉ FLUTUANTE SOBRE ELA**
-  (v1.8.61). No Cronograma as três portas flutuam e a caixa da lista corre por
-  baixo delas: a tira pousa no TOPO DAS PORTAS, e não na base da caixa —
-  `--veu-base` sozinho a mandaria para trás delas (medido: ZERO pixel visível no
-  meio da tela, com dois cotos de 12,8px sobrando na moldura). Rodapé flutuante
-  novo desconta a altura dele da tira, e ela é LIDA (`--rodape-h`).
+- **A TIRA MARCA A FRONTEIRA, E UM RODAPÉ FLUTUANTE PASSA POR CIMA DELA**
+  (v1.8.62, revogando a v1.8.61). Aquele lote descontava a altura das portas do
+  `bottom` da tira para ela não ficar atrás delas; o pedido do operador é o
+  contrário — *"a sombra deve ficar abaixo, na borda com os controles; assim os
+  botões flutuantes ficam sobre a sombra"* —, e o preço estava medido: com as
+  portas OPACAS por cima, a tira só sobrevive nos dois cotos de 12,8px da moldura
+  e nos dois vãos de 8px entre elas. Não há regra: a `.rola` já a põe no PADDING
+  BOX. **O que isto cobra é do ORÁCULO** — quem procura a tira de baixo no MEIO
+  da tela acha a de CIMA e devolve um vão de 507px; a coluna certa é a moldura
+  (bloco J do `sombra-de-rolagem.test.mjs`).
 - **NÃO HÁ BARRA DE ROLAGEM** (`.rola { scrollbar-width: none }`, v1.8.61,
   revogando a v1.8.60). A sombra das bordas é o indicador ÚNICO, e alcança os 15
   scrollers marcados. **Não era bug o operador não a ver:** no Android ela é
@@ -1485,7 +1498,14 @@ nenhum**, e por isso ficam aqui.
   ícone que chega a ser desenhado). Ele **não segue o tema claro** — é desenhado
   pela gaveta do sistema com o app fechado.
 - **O PADRÃO É O AUTOMÁTICO, e ele segue o APARELHO** (v1.8.49). São TRÊS
-  estados — Automático → Claro → Escuro —, e o do meio é a **ausência** da chave
+  estados, e a ORDEM do ciclo é decidida pelo APARELHO (v1.8.62): do automático
+  sai-se para o OPOSTO da cor de agora, dali para o outro explícito, e dali de
+  volta ao automático. A lista fixa `[null, 'claro', 'escuro']` mandava o
+  primeiro toque sempre para o claro — e num aparelho que já responde claro isso
+  era um toque que gravava, repintava e **não mudava um pixel** (foi o relato que
+  abriu a v1.8.62). **Um dos três toques continua sem mudar a cor** — três
+  estados sobre duas cores —, e o certo é que seja o que ENTRA no automático, o
+  único cujo rótulo anuncia o que aconteceu. O do meio é a **ausência** da chave
   `av.tema`: sem escolha guardada o app lê `prefers-color-scheme` (que no WebView
   responde pelo modo noturno do SISTEMA, não pelo tema desta Activity) e
   acompanha o aparelho **ao vivo**, porque o Android troca ao anoitecer e o culto
@@ -2459,7 +2479,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.61 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.62 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -2470,14 +2490,14 @@ bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.61 são o mesmo caso, pela mesma
+> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.62 são o mesmo caso, pela mesma
 > razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A v1.8.61 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
+> **A v1.8.62 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
 > nem o `build.gradle.kts` — só `assets/web/`, `tools/` e `docs/`.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, e desde a v1.8.50 ela TEM ORÁCULO.**

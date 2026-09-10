@@ -321,14 +321,26 @@
   --surface-2-alta: rgba(255, 255, 255, .18); /* chip/campo/badge SOBRE o fundo do app */
   --surface: var(--surface-alta);
 
-  /* A SUPERFÍCIE DAS TRÊS PORTAS DO CRONOGRAMA (v1.8.61), e ela é OPACA porque
-     desde este lote a LISTA CORRE POR BAIXO delas. Elas vestiam
-     `color-mix(--surface 70%, transparent)`, e `--surface` já tem alfa: MEDIDO
-     com a lista rolando, **1343 de 3192** amostras dentro delas mudavam de cor
-     (maxΔ 519 de 765). É a regra da paleta aplicada ao caso que a criou —
-     *"tinta com alfa EMPILHA"* —, e o valor é o RENDERIZADO de sempre, medido
-     por pixel: nada muda de tom, muda o que está atrás. */
-  --surface-porta: #1f252c;
+  /* A SUPERFÍCIE DAS TRÊS PORTAS DO CRONOGRAMA, E ELA É O DENIM CHEIO (v1.8.62).
+     Pedido do operador: *"quero eles em azul, o mesmo azul de ativado dos botões
+     das configurações, cuide que eles lá são semi transparentes, mas aqui devem
+     ser sólidos"*. O azul de "ativado" é o `--btn-accent` do `.qs-tile.qs-on`, e
+     ele é o denim LAVADO contra o fundo — opaco no arquivo, LAVADO aos olhos, que
+     é o que o relato descreve. O sólido dele é o denim de onde ele sai: `#2f557f`,
+     o mesmo valor do `--accent-fill` e o mesmo NOS DOIS TEMAS.
+
+     ELE CONTINUA TENDO NOME PRÓPRIO, e não vira `var(--accent-fill)` na folha:
+     *"de que cor é a porta"* e *"qual é o cheio do accent"* são duas perguntas
+     que hoje têm a mesma resposta, e amarrá-las faria a próxima troca de uma
+     arrastar a outra sem ninguém pedir. Sobre ele escreve-se `--on-accent`, que
+     é o par declarado do denim (6,54:1 no escuro, 7,63:1 no claro).
+
+     A OPACIDADE É INVARIANTE, não estilo: desde a v1.8.61 a LISTA CORRE POR
+     BAIXO das portas. Elas vestiram `color-mix(--surface 70%, transparent)` e
+     `--surface` já tem alfa — MEDIDO com a lista rolando, **1343 de 3192**
+     amostras dentro delas mudavam de cor (maxΔ 519 de 765). Tinta com alfa aqui
+     não é decoração, é vazamento. */
+  --surface-porta: #2f557f;
   --surface-2: var(--surface-2-alta);
   /* ...e o par AFUNDADO, para dentro de um cartão. Ele saiu de controle.css e
      virou token na v5.192 pelo motivo de sempre: com dois temas, o valor
@@ -722,8 +734,10 @@
   --surface-2-alta: rgba(255, 255, 255, .92);
   --surface: var(--surface-alta);
 
-  /* A superfície das três portas, no claro — medida do mesmo jeito. */
-  --surface-porta: #eff1f3;
+  /* A superfície das três portas — o MESMO denim do escuro (ver o bloco de lá).
+     É o único par deste arquivo em que os dois temas partilham o valor, e é de
+     propósito: o denim É a identidade, e o `--accent-fill` já é igual nos dois. */
+  --surface-porta: #2f557f;
   --surface-2: var(--surface-2-alta);
   /* Os afundados subiram de .06/.10 na v5.207, e o motivo está medido: sobre o
      painel BRANCO, .06 dava #f0f0f0 — **1,14:1**, um controle que não se

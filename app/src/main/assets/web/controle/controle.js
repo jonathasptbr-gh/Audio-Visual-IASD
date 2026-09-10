@@ -374,7 +374,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.61';
+const WEB_VERSION = '1.8.62';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21707,28 +21707,11 @@ function renderSorteio() {
     (v) => { sorteioPrefs.variante = v; saveSorteioPrefs(); renderSorteio(); },
   ));
 
-  // A NOTA DO SEGMENTO, e ela existe NOS DOIS ESTADOS desde a v1.8.61. Ela é uma
-  // AFIRMAÇÃO e não um controle: o que o operador decide já está decidido no
-  // segmento acima, e a nota diz o que aquela escolha faz com o TELÃO — sem ela,
-  // a cortina posta pelo sorteio seria uma mudança de estado que ninguém
-  // anunciou.
-  //
-  // ELA APARECIA SÓ NO FUNDO MUSICAL, e essa condição era o SEGUNDO motor do
-  // pulo da folha: MEDIDO, **+39,1px** ao trocar de segmento, com os botões de
-  // fecho subindo e descendo embaixo do dedo. Escrita nos dois estados o pulo
-  // some, e o estado que ficou sem frase ganha a dele — que é informação que
-  // faltava, não enchimento: "vai aparecer no telão?" é uma pergunta legítima
-  // sobre a cantada também, e a resposta dela é o oposto.
-  const nota = document.createElement('li');
-  nota.className = 'sorteio-nota';
-  // AS DUAS FRASES TÊM QUASE O MESMO COMPRIMENTO, e isso é medida, não estilo:
-  // com 49 contra 61 caracteres elas quebravam em número DIFERENTE de linhas a
-  // 390px (uma em duas, a outra em uma), e o pulo voltava — 16,0px, medido.
-  // Emparelhadas em 45 e 46 elas quebram juntas em toda largura.
-  nota.textContent = sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK
-    ? 'Fundo musical: sem letra e sem nada no telão.'
-    : 'Cantada: a letra vai ao telão, como no acervo.';
-  alvo.appendChild(nota);
+  // (A NOTA DO SEGMENTO saiu na v1.8.62, a pedido do operador: *"pode remover o
+  //  comentário sobre a função de cantada e fundo musical… é auto explicativo"*.
+  //  Ela nasceu na v5.311 e a v1.8.61 a escreveu nos DOIS estados para fechar um
+  //  dos quatro motores do pulo da folha — o motor morre com ela, porque o que
+  //  pulava era a nota APARECENDO, e agora não há nota em estado nenhum.)
 
   // ---- OS FILTROS ----
   alvo.appendChild(sorteioLinhaChips('Filtros', [
@@ -21830,13 +21813,17 @@ function renderSorteio() {
   // O PRIMÁRIO É O DE TOCAR, nos dois modos: é o que o recurso existe para
   // fazer, e o preenchimento em accent é o vocabulário do app para "a ação
   // principal desta folha".
-  // OS RÓTULOS SÃO CURTOS, e isso entra com a regra da altura (v1.8.61): sem os
-  // 19,2px de recuo vertical o primário só cabe em UMA linha, e "Sortear e
-  // tocar" mede 7,67rem em qualquer escala. MEDIDO, o par longo reticencia em
-  // **78 de 432** pontos (largura × escala de fonte × estado) e este par em
-  // **4 de 56** — todos a 320px com a fonte do sistema a 1,5×, que é o limite já
-  // declarado na faixa irmã (o rodapé da fila).
-  liGo.appendChild(botao(fila ? 'Tocar' : 'Sortear', 'song-menu-go',
+  // UM RÓTULO SÓ, "Tocar agora" (v1.8.62), a pedido do operador: *"ajuste o botão
+  // de 'sortear' e 'tocar' para que seja uma única versão, pois literalmente faz
+  // a mesma coisa 'Tocar agora'"*. O par `fila ? 'Tocar' : 'Sortear'` dizia com
+  // duas palavras o que o campo "Quantas" logo acima já diz com um número, e
+  // "Sortear" ainda descrevia o MEIO em vez do desfecho — é a mesma frase que a
+  // faixa de fecho de uma mídia comum usa, que é justamente o ponto.
+  // ELE CABE, e isso entra com a regra da altura (v1.8.61): sem os 19,2px de
+  // recuo vertical o primário só tem UMA linha. MEDIDO nas 432 células (largura ×
+  // escala de fonte × estado) que reprovaram o par longo da v5.306 em 78 delas,
+  // "Tocar agora" reticencia em ZERO.
+  liGo.appendChild(botao('Tocar agora', 'song-menu-go',
     (b) => executarSorteio(b, 'tocar')));
   // OS TRÊS DESTINOS NÃO EXISTEM NO MODO FÁCIL. Ele não tem Cronograma, nem
   // Favoritos, nem fila à vista: `body.mode-simple` esconde o `main` e a barra
@@ -30653,9 +30640,34 @@ function renderAppModeSeg() {
 // troca a cor DO PRÓPRIO POPUP — é olhando para ele que o operador decide se
 // gostou. Escolher e continuar vendo é a resposta.
 // TRÊS ESTADOS, e o do meio é a AUSÊNCIA de escolha: `null` = automático.
-// O ciclo é Automático → Claro → Escuro → Automático, e ele começa no
+// O ciclo é Automático → o OUTRO → o do aparelho → Automático, e ele começa no
 // automático porque é o padrão — quem nunca tocou aqui já está nele.
-const TEMA_CICLO = [null, 'claro', 'escuro'];
+//
+// A ORDEM É DECIDIDA PELO APARELHO (v1.8.62), e não pela ordem em que os dois
+// nomes foram escritos. Relato do operador: *"ao entrar nas configurações e
+// tocar em cor do tema, ele ignora o primeiro toque, não alterando o tema. só no
+// segundo toque que ele começa a responder"*. A lista fixa `[null, 'claro',
+// 'escuro']` mandava o primeiro toque para o CLARO — e num aparelho que já
+// responde claro, o automático JÁ mostrava o claro: o toque gravava a escolha,
+// repintava tudo, e não mudava um pixel. MEDIDO nos dois aparelhos: emulado em
+// claro, os toques davam claro → escuro → automático, com o PRIMEIRO parado;
+// emulado em escuro o percurso sempre esteve certo, que é por que o `smoke.mjs`
+// (que emula escuro desde a v1.8.49) nunca o viu.
+//
+// UM DOS TRÊS TOQUES NÃO PODE MUDAR A COR, e isso é aritmética do recurso: são
+// três estados sobre duas cores, e voltar ao automático é pousar na cor que o
+// aparelho responde. O que a ordem decide é QUAL toque paga esse preço — e o
+// certo é o que ENTRA no automático, que é o único cujo rótulo anuncia o que
+// aconteceu (*"Automático · claro"*).
+function proximaEscolhaDeTema() {
+  const aparelho = temaDoAparelho();
+  const oposto = aparelho === 'claro' ? 'escuro' : 'claro';
+  // Do automático sai-se MUDANDO a cor; do oposto passa-se ao outro explícito
+  // (que é o que trava a cor de hoje contra o agendamento noturno); dele
+  // volta-se ao automático.
+  if (!temaEscolha) return oposto;
+  return temaEscolha === oposto ? aparelho : null;
+}
 function setTemaEscolha(escolha) {
   temaEscolha = escolha === 'claro' || escolha === 'escuro' ? escolha : null;
   const raiz = document.documentElement;
@@ -31199,11 +31211,9 @@ appModeSegEl.addEventListener('click', (e) => {
   setAppMode(btn.dataset.mode);
 });
 // O TEMA ALTERNA (v1.4.38): o par escuro/claro virou um tile, e um tile de dois
-// estados não escolhe — ele vai para o outro.
-temaTileEl.addEventListener('click', () => {
-  const i = TEMA_CICLO.indexOf(temaEscolha);
-  setTemaEscolha(TEMA_CICLO[(i + 1) % TEMA_CICLO.length]);
-});
+// estados não escolhe — ele vai para o outro. A ORDEM dos três estados de hoje
+// é do `proximaEscolhaDeTema`, e ela depende do aparelho — ver lá.
+temaTileEl.addEventListener('click', () => { setTemaEscolha(proximaEscolhaDeTema()); });
 // SEM FOCO, e o `() =>` é o ponto: registrado por REFERÊNCIA, o ouvinte chama
 // `openHymnSearch(evento)` — e um `PointerEvent` é truthy, então a lupa do Modo
 // Fácil abria com o teclado por cima da lista. É um BOTÃO, e a regra das duas

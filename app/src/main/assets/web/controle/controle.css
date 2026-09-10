@@ -2450,7 +2450,27 @@ main {
 
    A ESCADA DE FALHA ABERTA SAIU COM O `color-mix`: o token é uma cor literal,
    que todo motor entende. */
-.tools-btn, .lib-foot-btn, .import-btn { background: var(--surface-porta); }
+/* ---------- E ELAS SÃO O DENIM CHEIO, CADA UMA COM A PRÓPRIA SOMBRA (v1.8.62)
+   Pedido do operador, nas duas metades: *"quero eles em azul, o mesmo azul de
+   ativado dos botões das configurações… mas aqui devem ser sólidos"* e *"coloque
+   sombra individual para cada botão, para aumentar a sensação de sobreposição"*.
+   O valor mora no `--surface-porta` (tokens.css) e o traço é o `--on-accent`,
+   par declarado do denim.
+
+   O TRAÇO SAIU DAS DUAS REGRAS DE BAIXO, e tinha de sair: `.tools-btn,
+   .lib-foot-btn` e `.import-btn` vêm DEPOIS desta com a mesma especificidade, e
+   um `color: var(--accent)` deixado lá venceria — accent sobre denim mede
+   **2,05:1**, que é texto ilegível numa porta que continuaria parecendo certa em
+   qualquer captura de layout.
+
+   A SOMBRA APONTA PARA CIMA (`0 -2px 8px`), e não é enfeite invertido: o que
+   estas três cobrem está ACIMA delas — abaixo é a fronteira com os controles.
+   Uma sombra para baixo, a do resto do app, cairia inteira fora da tela e o
+   pedido ficaria sem efeito nenhum, sem erro em lugar nenhum. */
+.tools-btn, .lib-foot-btn, .import-btn {
+  background: var(--surface-porta); color: var(--on-accent);
+  box-shadow: 0 -2px 8px var(--shadow-card);
+}
 /* ===== AS TRÊS PORTAS DO CRONOGRAMA, EM PARTES IGUAIS (v1.5.0) =====
    Bíblia · Importar arquivos · Ferramentas, e as três com RÓTULO — o pedido do
    operador foi *"coloque um texto no botão de ferramentas"*, e o argumento que
@@ -2464,10 +2484,12 @@ main {
    "Importar arquivos" começaria maior que "Bíblia" e ficaria maior depois de
    repartida a sobra. Com base zero as três partem do mesmo lugar.
 
-   AS LATERAIS SÃO `--surface` e a do meio é `--btn-accent`: quem ENTRA com
-   conteúdo na lista é a do meio, e ela é a única ação desta faixa — as outras
-   duas abrem um lugar. É a mesma distinção que a faixa de abas fazia entre o
-   `.tab-add` e as `.tab`, e é o que sobrou dela. */
+   AS TRÊS TÊM A MESMA TINTA desde a v1.8.61, e o denim desde a v1.8.62. A
+   distinção que existiu aqui — laterais em `--surface`, a do meio em
+   `--btn-accent`, porque só ela ENTRA com conteúdo na lista — caiu com o
+   pedido de pintar as três de azul. Ela sobrevive onde ainda descreve o que
+   está na tela: a `.lib-toggle` e o `+ Nova mensagem` (ver a regra da cor por
+   HABITAT, abaixo). */
 .tools-btn, .lib-foot-btn {
   /* `padding: 0 .3rem` desde a v1.5.19 — ver "AS TRÊS PORTAS FICAM QUIETAS". O
      recuo VERTICAL saiu porque era ele, e não o `--hit-foot`, o termo que
@@ -2485,7 +2507,8 @@ main {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: var(--sp-1);
   border: 0; border-radius: var(--radius-btn);
-  color: var(--accent);
+  /* (O `color: var(--accent)` saiu na v1.8.62 — o traço das três portas mora na
+     regra agrupada do `--surface-porta`, e repeti-lo aqui o faria VENCER.) */
   /* `.82rem` e não `.9`: são TRÊS rótulos onde havia um, e MEDIDO em 430px o
      terço de cada um não paga "Ferramentas" no corpo antigo — o nome saía com
      reticências, que é pior que a palavra curta porque não diz qual palavra
@@ -2569,7 +2592,8 @@ main {
      do `--btn-accent` desde a v5.267). Ele não pode ser `transparent`: sem
      contorno em lugar nenhum do app, isso deixaria o botão como uma frase solta
      no meio da tela — verificado no renderizado. */
-  color: var(--accent); font-size: var(--fs-md);
+  /* (O `color` saiu na v1.8.62 — ver a irmã acima.) */
+  font-size: var(--fs-md);
   /* `font-family: inherit` COMO AS IRMÃS (v1.5.19), e a assimetria que ele
      fecha só existe NO APP: no navegador esta porta é um `<label>` e herda do
      `body`; no app ela é um `<button>` (`usaSeletorNativo`), e a folha do
@@ -2711,15 +2735,19 @@ main {
 .list-body:has(> #listFoot:not([hidden])) > #library {
   padding-bottom: calc(.6rem + var(--rodape-h, var(--hit-foot)) + var(--sp-5));
 }
-/* E A TIRA MARCA A FRONTEIRA VISUAL, NÃO A BASE DA CAIXA. `--veu-base` é o
-   `padding-bottom` LIDO do layout, e com ele a tira pousaria em 615,36 — atrás
-   das portas: MEDIDO, ZERO pixel dela no meio da tela, com dois cotos de 12,8px
-   sobrando na moldura lateral. Descontada a faixa das portas, ela volta a ser
-   uma faixa só de 22px cujo pixel de baixo é sempre `foot.top − 1` (medido a
-   320, 390 e 430, nos dois temas). */
-.list-body:has(> #listFoot:not([hidden])) > #library::after {
-  bottom: calc(var(--rodape-h, var(--hit-foot)) - var(--veu-base, 0px));
-}
+/* E A TIRA VOLTOU PARA A BASE DA CAIXA (v1.8.62), revogando a v1.8.61. Aquele
+   lote a descontou da altura das portas para ela não ficar atrás delas; o
+   operador pediu o contrário, e o pedido é o desenho: *"você colocou a sombra de
+   corte do scroll acima desses botões, mas ela deve ficar abaixo, na borda com os
+   controles/barra de busca. assim os botões flutuantes ficam sobre a sombra"*.
+
+   Não há regra nenhuma aqui — o `bottom: calc(-1 * var(--veu-base))` da `.rola`
+   já põe a tira no PADDING BOX, que desde a v1.8.61 vai até a fronteira. O que a
+   revogação custa está medido e é o que o pedido compra: com as portas opacas por
+   cima, a tira só aparece nos dois cotos de 12,8px da moldura e nos dois vãos de
+   8px entre elas. É a mesma faixa contínua de sempre, com três botões flutuando
+   sobre ela — e a sombra PRÓPRIA de cada um (ver a regra agrupada das portas) é a
+   outra metade do pedido. */
 /* A FOLHA DE FERRAMENTAS (v1.3.10). Ela veste `--panel` porque é um bloco sobre
    a página, e declara `--camada` como todo contêiner que hospeda filhos: quem
    pinta um nível é o PAI, nunca quem é pintado. Sem fundo escurecido e sem
@@ -8503,19 +8531,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .sorteio-conta-forte { color: var(--text); font-weight: var(--fw-medio); }
 .sorteio-conta-fraca { color: var(--muted); }
-/* A NOTA DO SOM DE FUNDO (v5.311). Ela é uma AFIRMAÇÃO sobre o que o playback
-   sorteado faz — não um controle —, então veste o tom do subtítulo e não o de um
-   botão. Sem caixa e sem ícone: o que a prende ao segmento acima é a proximidade,
-   e ela só existe com o playback escolhido. */
-.sorteio-nota {
-  /* DUAS LINHAS RESERVADAS (v1.8.61), e é o cinto do par de frases emparelhadas
-     no `renderSorteio`: elas quebram juntas em toda largura medida, mas o corpo
-     de fonte do SISTEMA é o eixo que nenhum par de strings controla. Reservado,
-     a folha para de pular quando uma delas ganha uma linha e a outra não. */
-  min-height: 2.7em;
-  padding: 0 .1rem .1rem;
-  font-size: var(--fs-sm); line-height: 1.35; color: var(--muted);
-}
+/* (A `.sorteio-nota` saiu na v1.8.62 com a frase que ela vestia — ver o
+   `renderSorteio`. Ela existia desde a v5.311 e nada mais a usa.) */
 /* VAZIA ELA GANHA ÊNFASE, NÃO ALARME. `--danger-strong` estava errado pela
    gramática de cor do próprio app: vermelho é "está no ar agora" (saturado) ou
    "ação destrutiva" (suave), e nenhuma das duas é o caso — "nada casa a palavra
@@ -8606,9 +8623,24 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    com a largura do TEXTO e transborda a caixa. MEDIDO a 320×1,5: 184,1px dentro
    de 66,9, com o rótulo pintado 117,3px FORA do botão e por cima do primeiro
    quadrado. `min-width: 0` no pai não resolve (medido, idêntico). */
+/* E O RECUO HORIZONTAL SAI JUNTO (v1.8.62), pelo mesmo escopo e pelo mesmo
+   motivo: numa faixa com irmãos, a largura que sobra ao primário é o que decide
+   se o rótulo cabe. Ele é o ÚNICO desperdício da faixa — MEDIDO a 320×1,3, os
+   290,9px dela são 121,8 do primário + 3×49,1 dos quadrados + 3×7,28 de vão, e
+   não há folga em lugar nenhum: `.song-menu-text` e `.song-menu-label` já são
+   `padding: 0`. Tirados os 11,2px de cada lado, "Tocar agora" (v1.8.62) passa a
+   caber em 390 e 430px nas TRÊS escalas de fonte, contra as onze células a 1,5×
+   que ele reticenciava.
+
+   O LIMITE QUE FICA, declarado: a 320px com a fonte do sistema acima de 1×, o
+   rótulo ainda reticencia — falta 1,2px a 1,3× e 42px a 1,5×, e os dois vêm dos
+   quadrados, que crescem com a raiz. É a MESMA largura que a v1.8.61 já
+   declarava para o par curto ("Sortear" reticenciava a 320×1,5), um degrau de
+   fonte abaixo. Perseguir o 1,2px seria medir o runner: as métricas de fonte do
+   WebView do aparelho não são as do Chromium do CI. */
 .popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go {
   height: var(--quad-faixa);
-  padding-top: 0; padding-bottom: 0;
+  padding: 0;
 }
 .popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-text {
   min-height: 0;
