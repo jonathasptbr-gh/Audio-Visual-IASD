@@ -182,7 +182,7 @@ async function escolher(pg, passos) {
   for (const [rotulo, alvo] of (passos || [])) await tocar(pg, rotulo, alvo);
   const linhas = await pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
     .map((li) => (li.textContent || '').replace(/\s+/g, ' ').trim()));
-  await pg.click('#songMenuList .song-menu-go');
+  await pg.click('#songMenuPopup .song-menu-go');
   return linhas;
 }
 
@@ -529,7 +529,7 @@ try {
   const listaB = await pg2linhas(b.pg);
   checar(listaB.some((t) => /Álbum Um/.test(t)) && listaB.some((t) => /Álbum Dois/.test(t)),
     'B · a folha nomeia cada coleção do aparelho', JSON.stringify(listaB));
-  await b.pg.click('#songMenuList .song-menu-go');
+  await b.pg.click('#songMenuPopup .song-menu-go');
   const fimB = await fimDaExportacao(b.pg);
   checar(fimB && fimB.dialogo === false && /\d/.test(fimB.titulo),
     'B · e a exportação termina no próprio botão, sem diálogo',
@@ -676,7 +676,7 @@ try {
       JSON.stringify(favLinha));
     // A UNIÃO: desmarcar Favoritos NÃO pode tirar o item que o Cronograma pede.
     await tocar(d.pg, 'Favoritos');
-    await d.pg.click('#songMenuList .song-menu-go');
+    await d.pg.click('#songMenuPopup .song-menu-go');
     const fim = await fimDaExportacao(d.pg);
     checar(fim && fim.dialogo === false, 'D · a exportação termina', JSON.stringify(fim));
     const dentro = await d.pg.evaluate(() => {
@@ -1104,7 +1104,7 @@ try {
     // que ele vai escrever. MEDIDO antes do lote: com `bytesEstado: 0` a folha
     // mostrava 14,7% da realidade neste mesmo cenário.
     const prometido = await e.pg.evaluate(() => {
-      const t = (document.querySelector('#songMenuList .song-menu-go') || {}).textContent || '';
+      const t = (document.querySelector('#songMenuPopup .song-menu-go') || {}).textContent || '';
       const m = /([\d.,]+)\s*(B|KB|MB|GB)/.exec(t);
       if (!m) return -1;
       const u = { B: 1, KB: 1024, MB: 1024 * 1024, GB: 1024 * 1024 * 1024 }[m[2]];
@@ -1112,7 +1112,7 @@ try {
     });
     checar(prometido > 0,
       'E · o confirmar da folha diz um peso', String(prometido));
-    await e.pg.click('#songMenuList .song-menu-go');
+    await e.pg.click('#songMenuPopup .song-menu-go');
     const fimE = await fimDaExportacao(e.pg);
     checar(fimE && fimE.dialogo === false, 'E · a exportação termina', JSON.stringify(fimE));
     const escreveu = await e.pg.evaluate(() => {
@@ -1156,6 +1156,88 @@ try {
       'E · e na ORDEM DA BIBLIOTECA — "incompletas primeiro" mandava o operador '
       + 'procurar um grupo onde ele não está', JSON.stringify(linhasRel));
     await e.ctx.close();
+  }
+
+  // ── F. O "SALVAR" NÃO ROLA COM A LISTA (v1.8.60) ────────────────────────
+  //
+  // Relato do operador sobre a v1.8.59, verbatim: *"verifique também o scroll
+  // do exportar, que está com o botão de salvar dentro do scroll, ao invés de
+  // ficar fora, fixo na base, com suas margens corretamente"*.
+  //
+  // A `.song-menu-go-row` era o ÚLTIMO `<li>` da `.popup-list`. Nesta folha
+  // isso é o defeito inteiro: a lista é o acervo agrupado, ela rola de
+  // verdade, e o "Salvar 3,4 GB" é o desfecho e o único botão que a folha tem.
+  //
+  // A ASSERÇÃO É DE POSIÇÃO NA ÁRVORE **E** DE PIXEL. Só a primeira aprovaria
+  // um rodapé que existe e sai da tela; só a segunda aprovaria um botão que
+  // ainda vive na lista mas que a rolagem do cenário não chegou a esconder.
+  {
+    const f = await aparelho();
+    await f.pg.evaluate(() => setAppMode('full'));
+    // A LISTA PRECISA TRANSBORDAR, e é a RECEITA DO CENÁRIO E que a produz:
+    // catálogo de álbuns, um arquivo no OPFS por álbum e o índice da coleção.
+    // Doze deles enchem a folha a 430×900. Sem transbordo o botão está à vista
+    // com e sem o conserto, e o bloco aprovaria qualquer coisa.
+    const ALBUNS = Array.from({ length: 12 }, (_, i) => 'p' + i);
+    await f.pg.evaluate(async (ids) => {
+      // UMA CATEGORIA POR ÁLBUM: a folha agrupa por categoria e desenha a
+      // SEÇÃO fechada, então doze álbuns numa categoria só dão UMA linha.
+      await AVDB.setState('albumCatalog', {
+        categories: ids.map((id, i) => ({ id_category: i + 1, name: 'Coletânea ' + i,
+          order: i + 1, albums: [{ id_album: id, order: 1 }] })),
+        albums: ids.map((id, i) => ({ id_album: id, name: 'Álbum ' + i })),
+      });
+    }, ALBUNS);
+    await f.pg.reload({ waitUntil: 'domcontentloaded' });
+    await esperar(f.pg, () => !document.getElementById('splash'), null, 30000);
+    await f.pg.evaluate(() => setAppMode('full'));
+    await f.pg.evaluate(async (ids) => {
+      for (const id of ids) {
+        const cam = 'folders/album-' + id + '/faixa.m4a';
+        await AVDB.opfsWriteFile(cam, new Blob([new Uint8Array(4000).fill(1)], { type: 'audio/mp4' }));
+        await AVDB.fileAdd({ id: 'f-' + id, folder: 'album-' + id, opfsPath: cam,
+          name: 'Faixa de ' + id, type: 'audio/mp4', kind: 'audio', size: 4000,
+          thumb: null, blob: null, url: null, addedAt: 1 });
+        await AVDB.setState('coll:album-' + id, { songs: [{ id_music: 1, fileIdFull: 'f-' + id }] });
+      }
+    }, ALBUNS);
+    await f.pg.evaluate(() => { window.__fimF = exportarPacote(); });
+    const abriu = await abriuFolha(f.pg);
+    checar(abriu === true, 'F · a folha de grupos abriu', porque(abriu));
+    const pos = await f.pg.evaluate(async () => {
+      const z = (ms) => new Promise((r) => setTimeout(r, ms));
+      const lista = document.getElementById('songMenuList');
+      const go = document.querySelector('#songMenuPopup .song-menu-go');
+      if (!go) return { erro: 'sem botão de salvar' };
+      // ROLA ATÉ O TOPO: é o estado em que o defeito aparece — com a lista no
+      // fim o botão estava à vista mesmo antes do conserto.
+      lista.scrollTop = 0; await z(300);
+      const lr = lista.getBoundingClientRect();
+      const gr = go.getBoundingClientRect();
+      return {
+        naLista: lista.contains(go),
+        noFecho: !!go.closest('.popup-fecho'),
+        transborda: lista.scrollHeight - lista.clientHeight,
+        // O botão está inteiro ABAIXO da base da lista, isto é, no rodapé.
+        abaixoDaLista: +(gr.top - lr.bottom).toFixed(2),
+        visivel: gr.height > 0 && gr.bottom <= innerHeight + 1 && gr.top >= 0,
+        alturaFolha: +document.querySelector('#songMenuPopup .popup-sheet')
+          .getBoundingClientRect().height.toFixed(2),
+      };
+    });
+    checar(!pos.erro && pos.transborda > 40,
+      'F · e a lista de grupos TRANSBORDA de verdade (' + pos.transborda + 'px) — '
+      + 'sobre uma lista que cabe inteira o botão está à vista com e sem o '
+      + 'conserto, e a asserção abaixo aprovaria qualquer coisa', JSON.stringify(pos));
+    checar(!pos.erro && !pos.naLista && pos.noFecho,
+      'F · o "Salvar" mora no `.popup-fecho`, FORA do scroller — ele era o '
+      + 'último `<li>` da lista, e só aparecia depois de rolar o acervo inteiro',
+      JSON.stringify(pos));
+    checar(!pos.erro && pos.abaixoDaLista >= 0 && pos.visivel,
+      'F · e com a lista NO TOPO ele continua na tela, abaixo dela ('
+      + pos.abaixoDaLista + 'px) — a posição na árvore sozinha aprovaria um '
+      + 'rodapé que sai da folha', JSON.stringify(pos));
+    await f.ctx.close();
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));

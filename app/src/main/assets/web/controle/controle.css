@@ -2690,6 +2690,50 @@ main {
   position: relative; list-style: none; display: flex; flex-direction: column; gap: var(--sp-3);
   padding-bottom: .6rem;
 }
+/* ---------- A CAIXA DO CRONOGRAMA VAI ATÉ A BORDA DA TELA (v1.8.60) ---------
+   Relato do operador sobre a v1.8.59: *"no cronograma, verifique a largura da
+   caixa do scroll, que não está indo até as bordas da tela"*.
+
+   Ele está descrevendo a TIRA, e a tira não tinha como ir mais longe: ela é
+   filha do scroller e `overflow-y: auto` COMPUTA `overflow-x: auto`, então a
+   margem negativa que a alarga é RECORTADA pela caixa dele. MEDIDO: forçar
+   `--veu-esq`/`--veu-dir` a 12,8px inline não move um pixel da tira (13..376,
+   idêntica). **A tira só alcança a borda se o SCROLLER alcançar.**
+
+   E o Cronograma era o único com a calha do lado de FORA. MEDIDO a 390: a
+   Biblioteca (`#hymnResults`) e a playlist rolam de 0 a 389 e carregam o recuo
+   como PADDING próprio — a tira delas encosta na borda —, enquanto o
+   `#library` rolava de 12,80 a 377,20, com os 12,8px vindo do `padding` do
+   `<main>`. Duas gramáticas para a mesma caixa.
+
+   O CONSERTO MOVE A CAIXA E DEVOLVE O RECUO COMO PADDING, que é o desenho dos
+   vizinhos. Nada mais se mexe: o `acertarVeus` lê `paddingLeft`/`paddingRight`
+   do layout (não há linha de JS neste conserto), e MEDIDO a 360, 390 e 430 o
+   `.list-header`, o `.list-foot`, a `.deck`, as duas folhas e a `.row`
+   PINTADA ficam onde estavam — a linha continua começando em 13. O que muda é
+   a caixa (0..390) e a tira (0..389).
+
+   O preço aceito, medido: a calha de 12,8px vira área de ROLAGEM (um arrasto
+   começado na moldura passa a rolar a lista, que é o que já acontece nas
+   outras duas) e o `.list-body` ganha 12,8px de transbordo horizontal, hoje
+   recortado por `main { overflow: hidden }` — `body` e `html` continuam em 390,
+   sem rolagem de página. */
+#library {
+  margin-left: -.8rem; margin-right: -.8rem;
+  padding-left: .8rem; padding-right: .8rem;
+}
+/* E COM UMA FOLHA ABERTA A TIRA SE CALA. As folhas de Ferramentas e da Bíblia
+   cobrem o Cronograma inteiro MENOS essa moldura de 12,8px, e a tira alargada
+   passava a pintar justamente ali: MEDIDO com Ferramentas aberta, **1004px de
+   tira FORA do vão da folha** (contra 0 antes deste lote). Uma sombra ao lado
+   de uma folha não descreve fronteira nenhuma — a lista que ela vela está
+   coberta.
+   `:has()` e não uma classe escrita pelo JS: os dois abridores e os dois
+   fechadores de folha teriam de lembrar dela, e é o tipo de par que diverge no
+   primeiro caminho novo. Ele já é dependência desta folha desde a v1.8.53
+   (`.song-menu-go-row:has(> .fav-acoes.confirmando)`), então não é motor novo. */
+.list-body:has(.tools-sheet:not([hidden])) > #library::before,
+.list-body:has(.tools-sheet:not([hidden])) > #library::after { display: none; }
 .empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: var(--fs-lg); }
 
 /* ---------- A LINHA DE LISTA, e o ESTADO dela é um PREENCHIMENTO ----------
@@ -4603,18 +4647,11 @@ main {
    porque são iguais em forma e conteúdo, e é essa diferença que responde "em
    qual metade estou tocando". */
 .bible-half + .bible-half { padding-top: .55rem; }
-/* Barra de rolagem SEMPRE VISÍVEL nestas duas grades. No Android a barra é
-   "overlay": só aparece durante o gesto e some, então nada indicava que havia
-   mais capítulos/versículos abaixo. Declarar largura em `::-webkit-scrollbar`
-   tira o modo overlay e a barra passa a ocupar espaço de verdade — é o que a
-   torna permanente. `scrollbar-*` cobre o mesmo no padrão novo. */
-.bible-half { scrollbar-width: thin; scrollbar-color: var(--accent) var(--panel); }
-.bible-half::-webkit-scrollbar { width: 7px; }
-.bible-half::-webkit-scrollbar-track { background: var(--panel); border-radius: var(--radius-pill); }
-.bible-half::-webkit-scrollbar-thumb {
-  background: var(--accent); border-radius: var(--radius-pill);
-  min-height: 28px;
-}
+/* (A barra SEMPRE VISÍVEL destas duas grades saiu daqui na v1.8.60 e virou o
+   padrão de todo scroller — a declaração mora na marca `.rola`, junto da tira
+   de sombra. A razão dela nasceu aqui e continua valendo: no Android a barra é
+   "overlay", só aparece durante o gesto e some, e nada indicava que havia mais
+   capítulos ou versículos abaixo.) */
 /* linha de uma versão no popup. ELA É UMA LINHA DE LISTA, e a escolhida veste
    o que toda linha escolhida deste app veste — `--sel-fill`, opaco (v1.3.14).
    Era só cor de TEXTO, o mesmo defeito do `#repeat`: aqui o `✓` do
@@ -4674,10 +4711,22 @@ main {
    que as grades de CAPÍTULO e VERSÍCULO já têm desde sempre
    (`minmax(46px, 1fr)` nas colunas, mais o `aspect-ratio: 1`): a de livros
    era a única que escapava dela. */
+/* QUEM ROLA É O ENVELOPE, E NÃO A GRADE (v1.8.60) — ver `renderBibleBooks`. A
+   marca `rola` mudou de nó para que a tira de sombra volte a existir aqui: numa
+   grade o pseudo é ITEM dela, e o `sem-veu` a apagava enquanto o app já
+   escrevia `tem-abaixo`. MEDIDO a 360×640, 24 dos 66 livros ficavam fora da
+   dobra sem um pixel dizendo que a lista continua.
+   O envelope é uma COLUNA FLEX, e é isso que preserva as duas alturas: numa
+   tela alta a grade recebe o que sobra e as fileiras esticam (`1fr`); numa
+   curta, o tamanho mínimo automático de um item flex é o `min-content`, então
+   ela para no piso das onze fileiras e o envelope passa a rolar. */
+.bible-books-rolo {
+  flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y;
+  display: flex; flex-direction: column;
+}
 .bible-grid--books {
-  flex: 1; min-height: 0; gap: 4px;
+  flex: 1; gap: 4px;
   grid-template-rows: repeat(11, minmax(var(--hit-denso), 1fr));
-  overflow-y: auto; touch-action: pan-y;
 }
 /* A CÉLULA É O CONTÊINER DA PRÓPRIA LETRA. `container-type: size` é seguro
    aqui porque a caixa vem da GRADE nos dois eixos — nada do conteúdo entra na
@@ -5285,7 +5334,7 @@ main {
    Quem guardava a regra antiga era o bloco C2 do `lista-da-biblioteca.test.mjs`,
    reescrito no mesmo lote — a asserção trocou de lado, não sumiu.
 
-   ---------- AS DUAS MEDIDAS SÃO DO SCROLLER, NÃO DA REGRA ----------
+   ---------- AS MEDIDAS SÃO DO SCROLLER, NÃO DA REGRA ----------
    `--veu-vao` é o `gap` do scroller e `--veu-base` o `padding-bottom` dele, e as
    duas existem porque a tira precisa DESAPARECER da conta de rolagem: sem as
    margens negativas que as cancelam, cada lista ganharia 44px de rolagem
@@ -5304,6 +5353,40 @@ main {
    `elementFromPoint` devolve o scroller em vez da linha, exatamente onde o
    cabeçalho grudento vive e onde o último item repousa. Com ele, o toque chega
    na `.row` (medido nos dois extremos do Cronograma). */
+/* ---------- A BARRA DE ROLAGEM É UMA SÓ, E ELA MORA AQUI (v1.8.60) ---------
+   Relato do operador sobre a v1.8.59: *"também temos o problema de não estar
+   padronizado, tem caixas sem o scroll. como a tela principal do cronograma"*.
+
+   Ele está certo, e a divergência era de TRÊS contra o resto: a metade da
+   Bíblia (v5.188), o leitor de letra (v1.4.37) e a coluna de páginas do Modo
+   Fácil declaravam a barra visível cada uma por si, e todo o resto ficava no
+   `auto` — que no Android é a barra OVERLAY, a que só aparece durante o gesto e
+   some. Duas linguagens na mesma tela, e a mais comum era a que não diz nada.
+
+   A declaração sobe para a MARCA. Ela é a mesma que já existia nas três, com a
+   pista `transparent` (a razão é da v1.4.37: *"uma pista da cor do próprio
+   fundo não é pista nenhuma"* — e as bases aqui são cinco tons diferentes, o
+   que descarta pintar a pista de qualquer um deles).
+
+   ---------- OS NOVE `::-webkit-scrollbar` ERAM CÓDIGO MORTO ----------
+   As três traziam junto um trio de pseudos WebKit (`width: 7px` + pista +
+   polegar). O Chromium DESLIGA os pseudos `::-webkit-scrollbar*` quando
+   `scrollbar-width` ou `scrollbar-color` tem valor diferente de `auto`, e as
+   três declaravam os dois. MEDIDO no leitor de letra, com barra clássica: a
+   calha sai **10px** — o valor de `thin` — e não os 7px que o pseudo pedia;
+   devolvendo o par a `auto` ela cai para 7px, que é o pseudo assumindo. Nove
+   regras que não pintavam nada.
+
+   E O COMENTÁRIO DELAS CREDITAVA A ESSES NOVE o fim do modo overlay
+   (*"Declarar largura em `::-webkit-scrollbar` tira o modo overlay… é o que a
+   torna permanente"*). Ele afirmava como fato o que não se mede fora do
+   aparelho: aqui, no modelo overlay, NADA disto reserva largura e a barra some
+   entre 440 e 530 ms depois do gesto, com a receita cheia e sem ela. O que
+   este lote afirma é só o que mediu — os pseudos estão mortos, e o par
+   `scrollbar-*` é quem decide largura e cor. Se a permanência vale no WebView
+   do aparelho, ela vale pelo par, não pelos nove. */
+.rola { scrollbar-width: thin; scrollbar-color: var(--accent) transparent; }
+
 .rola::before,
 .rola::after {
   content: ''; display: block; flex: none;
@@ -5317,6 +5400,24 @@ main {
   margin-left: calc(-1 * var(--veu-esq, 0px));
   margin-right: calc(-1 * var(--veu-dir, 0px));
 }
+/* ---------- A CALHA DA BARRA DE ROLAGEM É INALCANÇÁVEL, E ISSO FICA DITO ----
+   Tentativa MEDIDA e revertida na v1.8.60. Onde a barra de rolagem RESERVA
+   largura (a clássica de mesa), ela é subtraída do padding box e a tira para na
+   borda interna dela — MEDIDO, 9,61px no leitor de letra e 9,81px no Modo
+   Fácil, e ali a pista é transparente, então o que se vê naqueles pixels é a
+   superfície do scroller sem sombra nenhuma.
+
+   O conserto óbvio — somar a calha à margem negativa — NÃO FUNCIONA, e o motivo
+   é o mesmo que derrubou a primeira tentativa de alargar a tira do Cronograma:
+   **o retângulo de recorte de um scroller é o padding box MENOS a calha**.
+   Nada que seja filho dele pinta ali, por margem nenhuma. MEDIDO com a barra
+   clássica ligada: com a calha somada à margem, o vão continua 10,0px.
+
+   E ELA É ZERO NO APARELHO. No Android a barra é SOBREPOSTA e não reserva um
+   pixel — medido em 18 de 18 scrollers no modelo overlay —, então a tira já vai
+   à borda lá. Um `--veu-calha` que nunca tem efeito é a regra morta que este
+   mesmo lote tirou de outros dez lugares; o que fica é esta nota, para o
+   próximo não refazer a medição. */
 /* E O `top` NEGATIVO É O PAR DO `bottom` DA TIRA DE BAIXO. O ponto em que um
    `sticky` para NÃO é o topo do padding box: é o topo do CONTENT box, isto é,
    `padding-top` abaixo da borda — MEDIDO, 11,0px de faixa clara sobre a sombra
@@ -5339,7 +5440,7 @@ main {
 .rola:not(.tem-acima)::before,
 .rola:not(.tem-abaixo)::after { display: none; }
 
-/* AS DUAS MEDIDAS SÃO DERIVADAS, E NÃO DECLARADAS — a razão é uma medição
+/* AS CINCO MEDIDAS SÃO DERIVADAS, E NÃO DECLARADAS — a razão é uma medição
    deste lote. Elas nasceram como uma tabela de catorze linhas escrita à mão
    (`#library { --veu-vao: var(--sp-3); … }`), e MEDIDO contra o app real
    **quatro das catorze estavam erradas**: o `gap` do auxiliar de leitura é
@@ -5901,9 +6002,14 @@ main {
    rifa longa a lista cresce sem limite e empurraria os botões para fora. */
 .draw-hist {
   display: flex; gap: var(--sp-2); overflow-x: auto; padding-bottom: .2rem;
+  /* Ela ESCONDE a barra, e é a única — o padrão da marca `.rola` é mostrá-la.
+     Aqui a rolagem é HORIZONTAL e a barra vertical não descreveria nada; a
+     mesma razão que tira a tira de sombra daqui (ver o bloco H do oráculo).
+     (O `::-webkit-scrollbar { display: none }` que acompanhava saiu na v1.8.60,
+     pela prova que matou os outros nove: o Chromium desliga os pseudos WebKit
+     quando `scrollbar-width` é diferente de `auto`, e aqui ele é `none`.) */
   scrollbar-width: none;
 }
-.draw-hist::-webkit-scrollbar { display: none; }
 .draw-hist-chip {
   flex-shrink: 0; padding: .22rem .55rem;
   border-radius: var(--radius-pill); background: var(--surface-2);
@@ -6635,6 +6741,33 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .popup-list > li { flex-shrink: 0; }
 
+/* ---------- O RODAPÉ DE UMA FOLHA: A FAIXA DE FECHO NÃO ROLA (v1.8.60) ------
+   Relato do operador sobre a v1.8.59: *"verifique também o scroll do exportar,
+   que está com o botão de salvar dentro do scroll, ao invés de ficar fora, fixo
+   na base, com suas margens corretamente"*.
+
+   A `.song-menu-go-row` era o ÚLTIMO `<li>` da `.popup-list` — dentro do
+   scroller. Na folha do PACOTE isso é o defeito inteiro: a lista é o acervo
+   agrupado, ela rola de verdade, e o "Salvar 3,4 GB" — que é o desfecho e o
+   único botão que a folha tem — só aparece depois de rolar até o fim. As outras
+   três folhas que usam a mesma faixa (destinos, importação e a playlist
+   automática) têm o mesmo desenho, e sair uma sem as outras é a divergência que
+   este mesmo lote está fechando em outros dois lugares.
+
+   ELE É IRMÃO DO SCROLLER, e nasce VAZIO: cada render o preenche, e o `:empty`
+   o tira da tela quando aquela folha não tem fecho nenhum — assim um nó a mais
+   no HTML não custa um pixel a quem não o usa.
+
+   AS MARGENS SÃO AS DO RODAPÉ DA PLAYLIST, o mesmo lugar na mesma folha e o
+   mesmo lote que as mediu (`--sp-5` no topo, `.7rem` nos lados, `.8rem`
+   embaixo). E o `padding-top` da faixa é ZERADO aqui: ele existe para separá-la
+   do item ACIMA quando ela é conteúdo — na gaveta de uma linha, que continua
+   sendo o outro papel dela —, e somado à margem do rodapé viraria o dobro do
+   respiro em toda folha. */
+.popup-fecho { flex-shrink: 0; margin: var(--sp-5) .7rem .8rem; }
+.popup-fecho:empty { display: none; }
+.popup-fecho > .song-menu-go-row { padding-top: 0; }
+
 /* ---------- A HORA DA LINHA DO HISTÓRICO (v1.2.0) ----------
    Ela é a PRIMEIRA coisa da linha, e não um pedaço do subtítulo: a pergunta
    que se leva ao histórico é "o que eu toquei antes disto?", e a resposta se lê
@@ -6792,10 +6925,39 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `min-width` de conteúdo. O que estoura esta faixa não é a largura da tela e
    sim o TAMANHO DE FONTE do sistema (a lição da v1.8.51): com a fonte a 1,3× os
    dois rótulos deixam de caber lado a lado, e empilhar é melhor que truncar. */
+/* E O TOPO DELA É `--sp-5` DESDE A v1.8.60. Relato do operador sobre a
+   v1.8.59: *"verifique a margem superior do rodapé da playlist, pois está sem
+   uma margem acima dos botões e antes do corte da fronteira para a caixa do
+   scroll, deixando o corte grudado nos botões, sem margem"*. MEDIDO: **0,00px**
+   entre a base do `#playlist` e o topo do rodapé — a tira de sombra encostava
+   nos botões sem um pixel de respiro. Eram os DOIS rodapés que ficam fora de um
+   `.rola` sem nada entre eles (o outro é o do Histórico); os outros quatro do
+   app já tinham de 9,59 a 12,00px, por três mecanismos diferentes.
+
+   `--sp-5` porque é o token que a folha nomeia *"entre blocos"* e é o único com
+   precedente MEDIDO na relação idêntica: o Cronograma é `.rola` + rodapé de
+   botões e mede 9,59px de `gap` no `.list-body`. Custo medido: a fila perde uma
+   linha a 640px de altura com a fonte a 1,3×.
+
+   A MARGEM É DO CONTÊINER, NUNCA DA `.pl-limpar-faixa` — e isso é medido, não
+   preferência. Os três filhos são irmãos flex com `align-items: stretch`: a
+   margem num deles alonga a linha, os dois quadrados esticam para 42,39×51,98
+   (deixam de ser quadrados, contra a regra da v1.8.57), o "Limpar" desce
+   sozinho, e o rodapé continua começando onde começava — o conserto errado paga
+   o preço e não entrega o produto. Ela vai DENTRO do atalho `margin`, e não
+   numa segunda declaração abaixo dele. */
 .pl-rodape {
-  flex-shrink: 0; margin: 0 .7rem .8rem;
+  flex-shrink: 0; margin: var(--sp-5) .7rem .8rem;
   display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--sp-4);
 }
+/* O RODAPÉ DO HISTÓRICO É O SEGUNDO DA FAMÍLIA, e ele não tinha margem NENHUMA.
+   Ali a `.pl-limpar-faixa` é filha direta da `.popup-sheet` (não há `.pl-rodape`
+   por volta), então ela herdava as margens de ninguém: colada nas duas bordas da
+   folha, na base dela, e a 0,00px da tira de sombra do `#histList`. As quatro
+   medidas são as MESMAS do rodapé da playlist, porque é o mesmo lugar na mesma
+   folha — e o alvo é o ID, nunca a classe: a classe é também a caixa do "Limpar"
+   dentro do `.pl-rodape`, onde uma margem quebra os dois quadrados. */
+#histClearFaixa { margin: var(--sp-5) .7rem .8rem; }
 /* O RÓTULO NÃO PODE MUDAR A ALTURA DA FAIXA — e desde a v1.8.54 ele é UM só, o
    do "Limpar" (os dois de guardar viraram botões de símbolo). A linha fica pelo
    caso da FONTE DO SISTEMA: a 320px com ela a 1,5× o rótulo já não cabe na
@@ -8627,16 +8789,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   border-radius: var(--radius-btn);
   display: flex; flex-direction: column; gap: var(--lv-estrofe-gap);
   overscroll-behavior: contain;
-  /* A BARRA VISÍVEL é o segundo sinal, e ele é o que funciona no meio da
-     rolagem: a caixa diz que há um dentro, a barra diz ONDE se está nele.
-     Mesma receita da `.bible-half`, que já tinha este problema. */
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent) transparent;
-}
-.lyricsview-body::-webkit-scrollbar { width: 7px; }
-.lyricsview-body::-webkit-scrollbar-track { background: transparent; }
-.lyricsview-body::-webkit-scrollbar-thumb {
-  background: var(--accent); border-radius: var(--radius-pill);
+  /* (A BARRA VISÍVEL saiu daqui na v1.8.60 — virou o padrão da marca `.rola`.
+     A frase que a justificou nasceu neste bloco e vale para todos: *"a caixa
+     diz que há um dentro, a barra diz ONDE se está nele"*.) */
 }
 /* UM bloco de texto, não uma pilha de cartões. Cada estrofe/versículo é um
    parágrafo: sem fundo, sem moldura e sem o padding que cada cartão cobrava —
@@ -9663,21 +9818,11 @@ body.mode-simple .bottombar { display: none; }
   /* Mesma regra das teclas: superfície sólida, sem contorno. */
   padding: .7rem .6rem; border: none; border-radius: var(--radius-card);
   background: var(--panel);
-  /* A BARRA VISÍVEL, a mesma da folha do modo avançado (v1.4.37). Ela nasceu lá
-     com a razão escrita — *"a caixa diz que há um dentro, a barra diz ONDE se
-     está nele"* — e esta zona, que faz o mesmo trabalho, ficou sem: MEDIDO,
-     `scrollbar-width` e `scrollbar-color` computavam `auto` aqui contra `thin` e
-     o acento lá. Sem ela a lista rola sem dizer onde está — e no Modo Fácil ela
-     agora é a coluna de PÁGINAS, onde saber a posição é o recurso inteiro.
-     A pista fica `transparent` como na `.lyricsview-body`: aqui o fundo já é
-     `--panel`, e uma pista da cor do próprio fundo não é pista nenhuma. */
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent) transparent;
-}
-.simple-lyrics::-webkit-scrollbar { width: 7px; }
-.simple-lyrics::-webkit-scrollbar-track { background: transparent; }
-.simple-lyrics::-webkit-scrollbar-thumb {
-  background: var(--accent); border-radius: var(--radius-pill);
+  /* (A BARRA VISÍVEL saiu daqui na v1.8.60 — virou o padrão da marca `.rola`.
+     Ela importa mais nesta zona que em qualquer outra: no Modo Fácil esta é a
+     coluna de PÁGINAS, e saber a posição é o recurso inteiro. A pista fica
+     `transparent` desde a v1.4.37 — *"uma pista da cor do próprio fundo não é
+     pista nenhuma"*.) */
 }
 .simple-lyrics .lv-empty { margin: auto; color: var(--muted); font-size: var(--fs-md); text-align: center; line-height: 1.5; }
 /* ===== AS PÁGINAS EM DUAS COLUNAS, SÓ AQUI (v1.4.35) =====

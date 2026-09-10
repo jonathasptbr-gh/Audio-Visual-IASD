@@ -188,6 +188,27 @@ mudanças, e nenhuma resolve sozinha:
 (`minmax(46px, 1fr)` nas colunas mais o `aspect-ratio: 1`): a de livros era a
 única que escapava dela. Portão: `tools/geometria.test.mjs`.
 
+**E QUEM ROLA É UM ENVELOPE, NÃO A GRADE (v1.8.60).** A rolagem acima resolveu o
+CORTE e deixou um buraco: a grade carregava a marca `.rola`, e a sombra de
+rolagem (v1.8.58) não pinta sobre uma grade — o pseudo-elemento de um contêiner
+de grade é um ITEM dela, e o `sem-veu` a exclui com razão. O `acertarVeus`
+escrevia `tem-abaixo` normalmente: **o app sabia que havia livro escondido e não
+tinha como dizer.** MEDIDO a 360×640, a medida clássica do Android, **24 dos 66
+livros ficavam fora da dobra** — a única superfície do app em que só a tentativa
+revela que a lista continua.
+
+Os dois consertos de CSS morreram medidos: dar `grid-column: 1/-1` ao pseudo
+reintroduz o defeito exato que criou o `sem-veu` (a primeira célula desce de
+y=0 para y=32, mais 10px de rolagem fantasma), e trocar a grade por `flex-wrap`
+destrói as 66 células. O que passa é a grade DEIXAR de ser o scroller: um
+`.bible-books-rolo` de bloco rola e leva a marca, e a grade fica grade. Ele é
+uma COLUNA FLEX, e é isso que preserva as duas alturas — numa tela alta a grade
+recebe o que sobra e as fileiras esticam (`1fr`); numa curta, o tamanho mínimo
+automático de um item flex é o `min-content`, então ela para no piso das onze
+fileiras e o envelope passa a rolar. O `sem-veu` FICA e não deve ser tocado: o
+`#simpleLyrics` vira `display: grid` em runtime (`.lv-grade`) e é o caso vivo
+dele. Portão: bloco O do `tools/sombra-de-rolagem.test.mjs`.
+
 **Capítulo e versículo convivem numa tela só** (`'chapters'`), dividida na
 vertical (`.bible-split`): em cima a grade de **capítulos**, embaixo a de
 **versículos** do capítulo escolhido (`bibleVersesPane()`, que também rende os

@@ -374,7 +374,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.59';
+const WEB_VERSION = '1.8.60';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4406,11 +4406,31 @@ function bibleCell(sym, opts) {
 function renderBibleBooks(wrap) {
   // (O seletor de versão e o status de download saíram daqui — moram na tela de
   // leitura, dando mais espaço para a grade de livros. Ver renderBibleReading.)
-  // `rola` também aqui: ela rola na vertical como qualquer lista. Que a tira
-  // não apareça nela é decisão da MEDIDA (é uma grade — ver `sem-veu`), não
-  // desta linha, e é isso que a faz valer sozinha no dia em que ela deixar de
-  // ser grade.
-  const grid = document.createElement('div'); grid.className = 'bible-grid bible-grid--books rola';
+  // ===== A GRADE DEIXOU DE SER O SCROLLER (v1.8.60) =====
+  //
+  // A marca `rola` morava NA GRADE, e ali ela não pintava nada: o pseudo de um
+  // contêiner de grade é ITEM dela, então o `sem-veu` a excluía — enquanto o
+  // `acertarVeus` escrevia `tem-acima`/`tem-abaixo` normalmente. O app já sabia
+  // que havia livro escondido e não tinha como dizer. MEDIDO a 360×640, a
+  // medida clássica do Android: **24 dos 66 livros ficam fora da dobra**, e
+  // esta era a única superfície do app em que só a tentativa revela que a lista
+  // continua.
+  //
+  // O conserto não é de CSS, e os dois candidatos que eram morreram medidos:
+  // dar `grid-column: 1/-1` ao pseudo reintroduz o defeito exato que criou o
+  // `sem-veu` (a primeira célula desce de y=0 para y=32, mais 10px de rolagem
+  // fantasma), e trocar a grade por `flex-wrap` destrói as 66 células. O que
+  // passa é tirar a GRADE da posição de scroller: um envelope de bloco rola e
+  // leva a marca; a grade fica como estava e o pseudo volta a ser filho de um
+  // flex. MEDIDO: a tira pinta 22px de borda a borda com a condicional certa, a
+  // primeira célula continua em (0,0) com 6 por linha, e a rolagem não cresce
+  // um pixel.
+  //
+  // O `sem-veu` FICA e não deve ser tocado: o `#simpleLyrics` vira `display:
+  // grid` em runtime (`.lv-grade`) e é o caso vivo dele. Isto tira UM elemento
+  // da situação, não a situação.
+  const rolo = document.createElement('div'); rolo.className = 'bible-books-rolo rola';
+  const grid = document.createElement('div'); grid.className = 'bible-grid bible-grid--books';
   Bible.BOOKS.forEach((b, i) => {
     // Só a abreviação (sem o nome completo) — fonte maior, ver .bible-grid--books.
     const cell = bibleCell(b.abbr, { cls: 'bg-' + b.g });
@@ -4418,7 +4438,8 @@ function renderBibleBooks(wrap) {
     cell.addEventListener('click', () => { bibleSel = { bookIdx: i, chapter: 0 }; gotoBibleScreen('chapters'); });
     grid.appendChild(cell);
   });
-  wrap.appendChild(grid);
+  rolo.appendChild(grid);
+  wrap.appendChild(rolo);
 }
 
 // Capítulo e versículo na MESMA tela, dividida ao meio na vertical: em cima a
@@ -10625,7 +10646,7 @@ function renderItemMenu(item, alvo, destinos, aoLado) {
     });
     // O IRMÃO VEM DO FECHO, nunca do global — ver a nota em `destConfirmRow`.
     const go = destConfirmRow(aoLado);
-    if (go) alvo.appendChild(go);
+    if (go) porFecho(alvo, go);
   };
   desenhar();
 }
@@ -17895,11 +17916,11 @@ let veuVistos = [];
 // grade (`sem-veu`, abaixo) é reescrito nesta mesma passada, e é isso que o faz
 // voltar sozinho quando o contêiner deixa de ser grade — a volta é onde um
 // cache erra, e erra calado.
-// ===== E AS DUAS MEDIDAS SÃO LIDAS, NUNCA TRANSCRITAS =====
+// ===== E AS CINCO MEDIDAS SÃO LIDAS, NUNCA TRANSCRITAS =====
 //
 // A tira precisa SUMIR da conta de rolagem, e quem a cancela são margens
 // negativas que somam a altura dela ao `gap` do scroller; a de baixo ainda
-// compensa o `padding-bottom`. Os dois números são do LAYOUT, e a primeira
+// compensa o `padding-bottom`. Os números são todos do LAYOUT, e a primeira
 // escrita deste lote os declarou à mão no CSS: MEDIDO, **quatro das catorze
 // linhas estavam erradas** (o `gap` do auxiliar de leitura é 19,26px e a tabela
 // dizia 8px), e o `scrollHeight` não acusou porque aquelas listas não
@@ -18785,7 +18806,7 @@ function openYtMenu(r, alvoDado) {
   // qualidade remontam a lista, e precisam refazê-la no mesmo lugar.
   const alvo = songMenuFor.alvo || songMenuListEl;
   if (!songMenuFor.alvo) songMenuTitleEl.textContent = r.name || 'Vídeo do YouTube';
-  alvo.innerHTML = '';
+  limparFolha(alvo);
   // VÍDEO × SÓ ÁUDIO, no MESMO seletor de Cantada/Playback das músicas do
   // acervo — é a mesma pergunta ("qual faixa deste item?") e não havia por que
   // inventar um segundo desenho para ela. A escolha vale para as quatro ações
@@ -18884,7 +18905,7 @@ function openYtMenu(r, alvoDado) {
       (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), d.chave, remontar));
   });
   const go = destConfirmRow();
-  if (go) alvo.appendChild(go);
+  if (go) porFecho(alvo, go);
   // Só a FOLHA abre; no corpo da linha quem abre é o acordeão do chamador.
   if (!songMenuFor.alvo) songMenuPopupEl.classList.add('open');
 }
@@ -20194,6 +20215,39 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar) {
   return li;
 }
 
+// ============================================================================
+// A FAIXA DE FECHO DE UMA FOLHA NÃO ROLA (v1.8.60)
+// ============================================================================
+//
+// Relato do operador: *"verifique também o scroll do exportar, que está com o
+// botão de salvar dentro do scroll, ao invés de ficar fora, fixo na base, com
+// suas margens corretamente"*. A `.song-menu-go-row` era o último `<li>` da
+// `.popup-list`, isto é, DENTRO do scroller: na folha do pacote o "Salvar" só
+// aparecia depois de rolar o acervo inteiro.
+//
+// O DESTINO É DECIDIDO PELO DOM, e não por uma lista de folhas: a faixa vai ao
+// `.popup-fecho` IRMÃO quando ele existe, e fica onde estava quando não existe.
+// Isso importa porque a MESMA faixa tem dois papéis — ela é o rodapé de uma
+// folha e é também uma linha da GAVETA de um item (`songMenuFor.alvo`, v5.285),
+// onde ela é conteúdo e deve rolar com o resto. Uma lista de ids aqui
+// escolheria errado no primeiro chamador novo; a pergunta "há rodapé ao lado?"
+// não tem como envelhecer.
+function fechoDaFolha(alvo) {
+  const pai = alvo && alvo.parentElement;
+  return pai ? pai.querySelector(':scope > .popup-fecho') : null;
+}
+// Esvaziar a folha é esvaziar as DUAS caixas. O rodapé sobrevive ao
+// `innerHTML = ''` da lista — é irmão dela —, e sem esta função cada render
+// empilharia mais um confirmar embaixo do anterior.
+function limparFolha(alvo) {
+  alvo.innerHTML = '';
+  const fecho = fechoDaFolha(alvo);
+  if (fecho) fecho.innerHTML = '';
+}
+function porFecho(alvo, li) {
+  (fechoDaFolha(alvo) || alvo).appendChild(li);
+}
+
 // A linha de confirmação, no fim da folha e só com algo marcado. Ela existe
 // para o caso em que já não há linha a tocar: marcados Playlist e Favoritos,
 // tocar numa terceira linha acrescentaria um destino que ninguém pediu.
@@ -20340,7 +20394,7 @@ function escolherDestinos(titulo, padrao) {
 }
 
 function renderDestPrompt() {
-  songMenuListEl.innerHTML = '';
+  limparFolha(songMenuListEl);
   const remontar = () => renderDestPrompt();
   destRemontar = remontar;
   // AS MESMAS LINHAS DAS OUTRAS FOLHAS (v5.252). Até aqui esta função montava
@@ -20367,7 +20421,7 @@ function renderDestPrompt() {
   go.disabled = !escolhidos.length;
   go.addEventListener('click', () => fecharDestPrompt(escolhidos));
   li.appendChild(go);
-  songMenuListEl.appendChild(li);
+  porFecho(songMenuListEl, li);
 }
 
 function renderSongMenu() {
@@ -20391,7 +20445,7 @@ function renderSongMenu() {
   // Playback e cada marca de destino) refaz a lista, e ele precisa refazê-la no
   // mesmo lugar.
   const alvo = songMenuFor.alvo || songMenuListEl;
-  alvo.innerHTML = '';
+  limparFolha(alvo);
   // (O PARÂMETRO `modo` saiu na v5.286. Ele escolhia entre a metade de TOCAR e a
   // de ADICIONAR, porque cada botão da linha abria a sua — e a v5.285 já tinha
   // acrescentado um terceiro valor, `tudo`, para o corpo da linha. Sem os
@@ -20452,7 +20506,7 @@ function renderSongMenu() {
       (vr, btn, alvos) => destExecutor(alvos, btn, vr), d.chave, remontar));
   });
   const go = destConfirmRow();
-  if (go) alvo.appendChild(go);
+  if (go) porFecho(alvo, go);
 }
 
 // Cena de roteiro da LETRA de uma música do acervo.
@@ -21543,7 +21597,7 @@ function sorteioLinhaChips(rotulo, opcoes) {
 
 function renderSorteio() {
   const alvo = sorteioListEl;
-  alvo.innerHTML = '';
+  limparFolha(alvo);
 
   // ---- O MODO: quanto? ----
   // O mesmo `.fit-seg` do seletor Cantada/Playback da folha da música: é a
@@ -21755,7 +21809,7 @@ function renderSorteio() {
       liGo.appendChild(b);
     }
   }
-  alvo.appendChild(liGo);
+  porFecho(alvo, liGo);
 }
 
 // Os ícones dos três destinos, pelas MESMAS funções que desenham os botões de
@@ -24615,7 +24669,7 @@ function pacoteCheckGrupo(estado) {
 }
 
 function renderPacoteGrupos(plano) {
-  songMenuListEl.innerHTML = '';
+  limparFolha(songMenuListEl);
   const remontar = () => renderPacoteGrupos(plano);
   destRemontar = remontar;
   const porChave = new Map(plano.grupos.map((g) => [g.chave, g]));
@@ -24810,7 +24864,7 @@ function renderPacoteGrupos(plano) {
   go.appendChild(txt);
   go.addEventListener('click', () => fecharPacoteGrupos(pacoteSelecao(plano)));
   li.appendChild(go);
-  songMenuListEl.appendChild(li);
+  porFecho(songMenuListEl, li);
 }
 
 const PACOTE_CANCELADO = 'cancelado';

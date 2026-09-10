@@ -2155,7 +2155,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">v1.8.59</span>
+          <span id="appVersion" class="app-version">v1.8.60</span>
           <!-- O GRUPO DE AÇÕES (v1.8.51). Ele existe por DUAS razões, e nenhuma
                é organização: (1) é ele que carrega o `margin-left: auto` que
                morava no rótulo solto, e (2) é ele que a faixa quebra INTEIRO
@@ -2669,6 +2669,11 @@
         <button id="songMenuClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
       <ul id="songMenuList" class="popup-list song-menu-list rola"></ul>
+      <!-- A FAIXA DE FECHO MORA AQUI, FORA DO SCROLLER (v1.8.60) — ver
+           `.popup-fecho`. Ela nasce VAZIA e cada render a preenche; vazia, o
+           `:empty` a tira da tela, então uma folha sem confirmar não paga um
+           pixel por este nó. -->
+      <div class="popup-fecho"></div>
     </div>
   </div>
 
@@ -2691,6 +2696,8 @@
         <button id="sorteioClose" class="popup-close" title="Fechar" aria-label="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
       <ul id="sorteioList" class="popup-list song-menu-list rola"></ul>
+      <!-- O rodapé da folha, o mesmo do `#songMenuPopup` (v1.8.60). -->
+      <div class="popup-fecho"></div>
     </div>
   </div>
 

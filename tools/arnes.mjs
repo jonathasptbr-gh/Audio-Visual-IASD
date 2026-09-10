@@ -93,12 +93,34 @@ export { checar, falhas } from './checar.mjs';
  * O navegador. `PW_CHROMIUM` aponta o binário quando ele não está onde o
  * Playwright o procura (o passo do CI o deixa vazio de propósito).
  *
- * @param {{args?: string[]}} [opts]
+ * ## `comBarraDeRolagem` — e por que ele precisou existir (v1.8.60)
+ *
+ * **O Playwright passa `--hide-scrollbars` em headless**, e o arnês não tinha
+ * como desligá-lo: TODO oráculo deste repositório roda com as barras de
+ * rolagem APAGADAS, e nenhuma delas reserva um pixel. Uma asserção sobre barra
+ * escrita com o arnês cru lê "não há barra" em toda parte e PASSA, calada —
+ * que é a forma mais cara de oráculo que este projeto conhece.
+ *
+ * MEDIDO no Chromium 141 do repositório, `offsetWidth − clientWidth`:
+ *
+ * | caixa | como está | com `comBarraDeRolagem` |
+ * |---|---|---|
+ * | `scrollbar-width: thin` | 0 | **10** |
+ * | padrão (`auto`) | 0 | **15** |
+ *
+ * Quem o liga está medindo a CALHA, e a ressalva vale: a barra que aparece é a
+ * CLÁSSICA de mesa (o Chromium desktop até desenha setas nas pontas), não a
+ * sobreposta do WebView do aparelho. Ela serve para provar que a tira de sombra
+ * atravessa a calha QUANDO existe uma; que exista é fato do motor, não deste
+ * app.
+ *
+ * @param {{args?: string[], comBarraDeRolagem?: boolean}} [opts]
  */
 export function abrirNavegador(opts = {}) {
   return chromium.launch({
     ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
     ...(opts.args ? { args: opts.args } : {}),
+    ...(opts.comBarraDeRolagem ? { ignoreDefaultArgs: ['--hide-scrollbars'] } : {}),
   });
 }
 

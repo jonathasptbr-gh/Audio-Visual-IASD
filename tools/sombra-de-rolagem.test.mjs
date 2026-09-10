@@ -660,6 +660,352 @@ try {
     'I · e ela NÃO é redeclarada no tema claro: MEDIDO, .30 lê 1,51:1 nos DOIS — no '
     + 'escuro quem escurece é o texto claro, no claro é a superfície branca');
 
+
+  // ── M. O CRONOGRAMA VAI ATÉ A BORDA DA TELA (v1.8.60) ───────────────────
+  //
+  // Relato do operador: *"no cronograma, verifique a largura da caixa do
+  // scroll, que não está indo até as bordas da tela"*. A tira é filha do
+  // scroller e `overflow-y: auto` COMPUTA `overflow-x: auto`: a margem negativa
+  // que a alarga é RECORTADA pela caixa dele, e por isso a tira SÓ alcança a
+  // borda se o scroller alcançar. Este bloco mede a caixa e o PIXEL da tira,
+  // porque medir só `--veu-esq`/`--veu-dir` aprovaria o candidato que já foi
+  // recusado por medição (forçá-los a 12,8 não move um pixel).
+  //
+  // E ele mede a SEGUNDA metade junto: com uma folha aberta a tira se cala. As
+  // folhas cobrem o Cronograma menos a moldura de 12,8px, e a tira alargada
+  // passava a pintar exatamente ali — 1004px de tira ao lado de uma folha que
+  // já responde por tudo que está sob ela.
+  {
+    const ctx = await navegador.newContext({
+      viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: 'dark',
+    });
+    await semRedeExterna(ctx);
+    const pg = await ctx.newPage();
+    await pg.goto(base, { waitUntil: 'load' });
+    await esperarCortina(pg);
+    await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      setAppMode('full'); await z(150);
+      for (let i = 0; i < 40; i++) {
+        await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
+          { name: 'Louvor ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      }
+      await load(); await z(350);
+      const s = document.createElement('style');
+      s.textContent = '.rola::before,.rola::after{background:#ff00ff!important;background-image:none!important}';
+      document.head.appendChild(s);
+      const el = document.getElementById('library');
+      el.scrollTop = Math.floor(el.scrollHeight / 3);
+      await z(350);
+    });
+    const geo = await pg.evaluate(() => {
+      const el = document.getElementById('library');
+      const r = el.getBoundingClientRect();
+      const linha = el.querySelector('.row');
+      const lr = linha ? linha.getBoundingClientRect() : null;
+      return { esq: +r.left.toFixed(2), dir: +(innerWidth - r.right).toFixed(2),
+        largura: +r.width.toFixed(2), tela: innerWidth,
+        transborda: el.scrollHeight - el.clientHeight > 2,
+        linhaEsq: lr ? +lr.left.toFixed(2) : null,
+        linhaLarg: lr ? +lr.width.toFixed(2) : null,
+        cabecalho: +document.querySelector('.list-header').getBoundingClientRect().left.toFixed(2),
+        rodape: +document.getElementById('listFoot').getBoundingClientRect().left.toFixed(2),
+        pagina: [document.body.scrollWidth, document.documentElement.scrollWidth] };
+    });
+    const mag = (c) => !!c && c[0] > 200 && c[1] < 80 && c[2] > 200;
+    const imgM = lerPng(await pg.screenshot());
+    // A linha da tira de cima: 8px abaixo do topo da caixa, no meio dela.
+    const yTira = await pg.evaluate(() =>
+      Math.round(document.getElementById('library').getBoundingClientRect().top) + 8);
+    let tEsq = null, tDir = null;
+    for (let x = 0; x < imgM.w; x++) if (mag(pixel(imgM, x, yTira))) { tEsq = x; break; }
+    for (let x = imgM.w - 1; x >= 0; x--) if (mag(pixel(imgM, x, yTira))) { tDir = x; break; }
+    checar(geo.transborda && geo.linhaEsq === 12.8,
+      'M · a cena tem o Cronograma TRANSBORDANDO e a LINHA continua recuada '
+      + '(12,8px) — sem as duas o bloco não mede o conserto, mede outra coisa',
+      JSON.stringify(geo));
+    checar(geo.esq === 0 && geo.dir === 0 && geo.largura === geo.tela,
+      'M · a caixa do Cronograma vai de borda a borda da tela — ela rolava de '
+      + '12,80 a 377,20 com os 12,8px vindo do `padding` do `<main>`, enquanto a '
+      + 'Biblioteca e a playlist já carregavam o recuo como padding próprio',
+      JSON.stringify(geo));
+    checar(tEsq === 0 && tDir === imgM.w - 1,
+      'M · e a TIRA PINTADA vai com ela, medida em pixel — forçar `--veu-esq`/'
+      + '`--veu-dir` sem mover o scroller não move a tira um pixel (medido: '
+      + '13..376, idêntica), porque a margem negativa é recortada pela caixa dele',
+      JSON.stringify({ tEsq, tDir, largura: imgM.w, yTira }));
+    checar(geo.cabecalho === 12.8 && geo.rodape === 12.8
+      && geo.pagina[0] === geo.tela && geo.pagina[1] === geo.tela,
+      'M · e nada mais se mexe: cabeçalho e rodapé ficam onde estavam e a PÁGINA '
+      + 'não ganha rolagem horizontal — o transbordo de 12,8px do `.list-body` é '
+      + 'recortado por `main { overflow: hidden }`', JSON.stringify(geo));
+    // A SEGUNDA METADE: com a folha aberta, a tira se cala.
+    const comFolha = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      abrirFerramentas(); await z(400);
+      const el = document.getElementById('library');
+      return { antes: getComputedStyle(el, '::before').display,
+        depois: getComputedStyle(el, '::after').display,
+        folhaAberta: !document.getElementById('toolsSheet').hidden };
+    });
+    const semFolha = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      __avBack(); await z(450);
+      const el = document.getElementById('library');
+      el.scrollTop = Math.floor(el.scrollHeight / 3); await z(300);
+      return { depois: getComputedStyle(el, '::after').display,
+        folhaAberta: !document.getElementById('toolsSheet').hidden };
+    });
+    checar(comFolha.folhaAberta && comFolha.antes === 'none' && comFolha.depois === 'none',
+      'M · com uma FOLHA aberta a tira do Cronograma se cala — alargada e sem '
+      + 'esta guarda ela pinta 1004px ao LADO da folha, na moldura de 12,8px que '
+      + 'a folha não cobre', JSON.stringify(comFolha));
+    checar(!semFolha.folhaAberta && semFolha.depois === 'block',
+      'M · e ela VOLTA ao fechar a folha — sem esta metade a guarda passaria '
+      + 'apagando a tira para sempre, que é o oposto do lote',
+      JSON.stringify(semFolha));
+    await ctx.close();
+  }
+
+  // ── N. A TIRA ALCANÇA A BORDA PINTÁVEL, MESMO COM BARRA RESERVANDO ─────
+  //
+  // Relato do operador: *"a sombra não indo até a borda"*. A medição fechou o
+  // caso em duas metades, e as duas precisam estar ditas:
+  //
+  //  1. **A CALHA É INALCANÇÁVEL.** Onde a barra RESERVA largura, ela sai do
+  //     padding box, e o retângulo de recorte de um scroller é o padding box
+  //     MENOS a calha: nada que seja filho dele pinta ali, por margem nenhuma.
+  //     MEDIDO — somar a calha à margem negativa deixa o vão em 10,0px, igual.
+  //     A tentativa foi revertida no mesmo lote (ver o comentário no CSS).
+  //  2. **NO APARELHO A CALHA É ZERO.** No Android a barra é SOBREPOSTA e não
+  //     reserva um pixel — 18 de 18 scrollers no modelo overlay —, então lá a
+  //     tira já vai à borda. O bloco J mede exatamente isso, no motor do arnês.
+  //
+  // O QUE SOBRA PARA GUARDAR é o que o app decide: mesmo com uma barra comendo
+  // a caixa, a tira tem de alcançar a última coluna PINTÁVEL. Sem o `--veu-dir`
+  // ela pararia `padding-right` antes disso — 11,2px a mais de faixa clara, em
+  // cima do que a barra já leva. Este é o único bloco do repositório que liga
+  // `comBarraDeRolagem`: o Playwright passa `--hide-scrollbars` em headless, e
+  // todos os outros medem um motor em que a calha é ZERO. Uma asserção de barra
+  // escrita com o arnês cru passa sem medir nada.
+  {
+    const nav2 = await abrirNavegador({ comBarraDeRolagem: true });
+    try {
+      const ctx = await nav2.newContext({
+        viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: 'dark',
+      });
+      await semRedeExterna(ctx);
+      const pg = await ctx.newPage();
+      await pg.goto(base, { waitUntil: 'load' });
+      await esperarCortina(pg);
+      await pg.evaluate(async () => {
+        const z = (ms) => new Promise((f) => setTimeout(f, ms));
+        setAppMode('full'); await z(150);
+        for (let i = 0; i < 40; i++) {
+          await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
+            { name: 'Louvor ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+        }
+        await load(); await z(350);
+        const s = document.createElement('style');
+        s.textContent = '.rola::before,.rola::after{background:#ff00ff!important;background-image:none!important}';
+        document.head.appendChild(s);
+        // O CRONOGRAMA: desde este lote ele tem recuo PRÓPRIO de 12,8px, e é
+        // esse número que o `--veu-dir` cancela. Sobre um scroller de recuo
+        // zero a asserção passaria com e sem o conserto.
+        const el = document.getElementById('library');
+        el.scrollTop = Math.floor(el.scrollHeight / 3);
+        await z(350);
+      });
+      const cx = await pg.evaluate(() => {
+        const el = document.getElementById('library');
+        const c = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        const calha = +(el.offsetWidth - el.clientWidth
+          - parseFloat(c.borderLeftWidth) - parseFloat(c.borderRightWidth)).toFixed(2);
+        return { calha, recuo: parseFloat(c.paddingRight),
+          lida: el.style.getPropertyValue('--veu-dir'),
+          topo: +r.top.toFixed(2),
+          // A última coluna que o scroller pode pintar: a borda direita menos a
+          // borda e menos a calha que a barra levou.
+          pintavel: +(r.right - parseFloat(c.borderRightWidth) - calha).toFixed(2) };
+      });
+      const img = lerPng(await pg.screenshot());
+      const mag = (c) => !!c && c[0] > 200 && c[1] < 80 && c[2] > 200;
+      const y = Math.round(cx.topo) + 8;
+      let dir = null;
+      for (let x = img.w - 1; x >= 0; x--) if (mag(pixel(img, x, y))) { dir = x; break; }
+      checar(cx.calha >= 8 && cx.recuo >= 9,
+        'N · a barra RESERVA largura nesta execução (' + cx.calha + 'px) e o '
+        + 'scroller tem recuo próprio (' + cx.recuo + 'px) — sem os dois a '
+        + 'asserção abaixo passa com e sem o conserto, que é a tautologia que '
+        + '`--hide-scrollbars` produzia calada', JSON.stringify(cx));
+      checar(parseFloat(cx.lida) === cx.recuo,
+        'N · e o `--veu-dir` continua sendo o recuo LIDO do layout, não um '
+        + 'número escrito à mão', JSON.stringify(cx));
+      checar(dir != null && Math.abs(cx.pintavel - dir - 1) <= 1.5,
+        'N · a tira PINTADA alcança a última coluna que o scroller pode pintar '
+        + '(vão ' + (dir == null ? 'sem tira' : (cx.pintavel - dir - 1).toFixed(1))
+        + 'px). A CALHA em si é inalcançável — o recorte de um scroller é o '
+        + 'padding box MENOS ela, medido —, e no Android ela é zero; o que este '
+        + 'bloco guarda é que o recuo PRÓPRIO continua cancelado',
+        JSON.stringify({ dir, ...cx }));
+      await ctx.close();
+    } finally { await nav2.close(); }
+  }
+
+  // ── O. A GRADE DE LIVROS DA BÍBLIA DEIXOU DE SER O SCROLLER (v1.8.60) ───
+  //
+  // Ela escrevia `tem-abaixo` e não pintava nada: era `display: grid`, e o
+  // `sem-veu` (bloco F) a excluía com razão — o pseudo de uma grade é ITEM
+  // dela. O app já sabia que havia livro escondido e não tinha como dizer.
+  // MEDIDO a 360×640, a medida clássica do Android: 24 dos 66 livros fora da
+  // dobra, sem um pixel de aviso.
+  //
+  // O bloco mede as TRÊS coisas que separam o conserto aprovado dos dois
+  // recusados: a tira PINTA, a grade NÃO SE MEXE (dar `grid-column: 1/-1` ao
+  // pseudo desce a primeira célula de y=0 para y=32) e a rolagem NÃO CRESCE
+  // (aquele mesmo candidato cobrava 10px de rolagem fantasma).
+  {
+    const ctx = await navegador.newContext({
+      viewport: { width: 360, height: 640 }, hasTouch: true, colorScheme: 'dark',
+    });
+    await semRedeExterna(ctx);
+    const pg = await ctx.newPage();
+    await pg.goto(base, { waitUntil: 'load' });
+    await esperarCortina(pg);
+    const b = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      setAppMode('full'); await z(150);
+      const s = document.createElement('style');
+      s.textContent = '.rola::before,.rola::after{background:#ff00ff!important;background-image:none!important}';
+      document.head.appendChild(s);
+      abrirBiblia(); await z(700);
+      const rolo = document.querySelector('.bible-books-rolo');
+      const grade = document.querySelector('.bible-grid--books');
+      if (!rolo || !grade) return { erro: 'sem rolo ou sem grade', rolo: !!rolo, grade: !!grade };
+      const rr = rolo.getBoundingClientRect();
+      const c0 = grade.children[0].getBoundingClientRect();
+      return {
+        marcaNoRolo: rolo.classList.contains('rola'),
+        marcaNaGrade: grade.classList.contains('rola'),
+        semVeu: rolo.classList.contains('sem-veu'),
+        temAbaixo: rolo.classList.contains('tem-abaixo'),
+        depois: getComputedStyle(rolo, '::after').display,
+        esconde: rolo.scrollHeight - rolo.clientHeight,
+        fantasma: rolo.scrollHeight - grade.getBoundingClientRect().height,
+        primeira: [+(c0.left - rr.left).toFixed(1), +(c0.top - rr.top).toFixed(1)],
+        porLinha: [...grade.children]
+          .filter((c) => Math.abs(c.getBoundingClientRect().top - c0.top) < 2).length,
+        total: grade.children.length,
+        caixa: { esq: +rr.left.toFixed(2), dir: +rr.right.toFixed(2),
+          base: +rr.bottom.toFixed(2) },
+      };
+    });
+    const imgO = lerPng(await pg.screenshot());
+    const magO = (c) => !!c && c[0] > 200 && c[1] < 80 && c[2] > 200;
+    let pintou = 0;
+    if (!b.erro) {
+      const yy = Math.round(b.caixa.base) - 8;
+      for (let x = Math.round(b.caixa.esq); x < Math.round(b.caixa.dir); x++) {
+        if (magO(pixel(imgO, x, yy))) pintou++;
+      }
+    }
+    checar(!b.erro && b.esconde > 40 && b.temAbaixo && b.total === 66,
+      'O · a cena esconde livro de verdade (' + b.esconde + 'px de ' + b.total
+      + ') e o app JÁ escreve `tem-abaixo` — é essa a contradição do achado: o '
+      + 'veredito existia e não pintava nada', JSON.stringify(b));
+    checar(b.marcaNoRolo && !b.marcaNaGrade && !b.semVeu && b.depois === 'block',
+      'O · quem rola é o ENVELOPE e a marca `rola` mora nele; a grade fica grade '
+      + 'e o pseudo volta a ser filho de um flex, então `sem-veu` não a alcança',
+      JSON.stringify(b));
+    checar(pintou > 200,
+      'O · e a tira PINTA de verdade na base (' + pintou + 'px de largura) — a '
+      + 'asserção é de PIXEL porque a de classe já passava antes do conserto',
+      JSON.stringify({ pintou, caixa: b.caixa }));
+    checar(b.primeira[0] === 0 && b.primeira[1] === 0 && b.porLinha === 6
+      && Math.abs(b.fantasma) <= 1,
+      'O · e a grade NÃO SE MEXE nem cobra rolagem: primeira célula em (0,0), '
+      + 'seis por linha, zero de rolagem fantasma. Os dois candidatos de CSS '
+      + 'falhavam aqui — o pseudo com `grid-column: 1/-1` descia a primeira '
+      + 'célula 32px e cobrava 10px', JSON.stringify(b));
+    await ctx.close();
+  }
+
+  // ── P. A BARRA DE ROLAGEM É UMA SÓ (v1.8.60) ────────────────────────────
+  //
+  // Relato do operador: *"também temos o problema de não estar padronizado, tem
+  // caixas sem o scroll. como a tela principal do cronograma"*. Três scrollers
+  // declaravam a barra visível cada um por si e os dezesseis restantes ficavam
+  // no `auto` — MEDIDO no tema escuro, polegar 18,26,33 sobre fundo 33,47,61 =
+  // **1,29:1**, contra 6,63:1 no leitor de letra ao lado. Um fator 5,1× de
+  // contraste entre duas listas do mesmo app.
+  //
+  // A asserção é do ESTILO COMPUTADO e não da fonte: uma regra escrita na
+  // ordem errada revoga a de outro seletor calada (a pista `--panel` da Bíblia
+  // era o caso vivo), e só o computado responde por quem venceu.
+  {
+    const ctx = await navegador.newContext({
+      viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: 'dark',
+    });
+    await semRedeExterna(ctx);
+    const pg = await ctx.newPage();
+    await pg.goto(base, { waitUntil: 'load' });
+    await esperarCortina(pg);
+    await cena(pg);
+    const p = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      abrirBiblia(); await z(700);
+      const rolas = [...document.querySelectorAll('.rola')];
+      const rec = rolas.map((el) => {
+        const c = getComputedStyle(el);
+        return { id: el.id || el.className.split(' ')[0],
+          v: c.scrollbarWidth + ' | ' + c.scrollbarColor };
+      });
+      return { n: rolas.length, distintos: [...new Set(rec.map((r) => r.v))],
+        fora: rec.filter((r) => r.v !== rec[0].v),
+        biblia: rec.filter((r) => /bible/.test(r.id)).length };
+    });
+    checar(p.n >= 14 && p.biblia >= 1,
+      'P · a cena tem os scrollers desenhados, a Bíblia entre eles (' + p.n
+      + ' marcados) — as três declarações que divergiam moravam justamente na '
+      + 'Bíblia, no leitor de letra e no Modo Fácil', JSON.stringify(p));
+    checar(p.distintos.length === 1 && /^thin \|/.test(p.distintos[0]),
+      'P · e TODO scroller marcado computa a MESMA barra, `thin` com o acento: '
+      + 'a declaração subiu para a marca `.rola` e as três locais saíram. '
+      + p.fora.length + ' fora do padrão', JSON.stringify(p));
+    await ctx.close();
+  }
+
+  // ── P2. E OS `::-webkit-scrollbar` MORTOS SAÍRAM DA FONTE ───────────────
+  //
+  // Eram dez regras que não pintavam nada: o Chromium DESLIGA os pseudos
+  // `::-webkit-scrollbar*` quando `scrollbar-width` ou `scrollbar-color` tem
+  // valor diferente de `auto`, e as quatro folhas que os traziam declaravam o
+  // par. MEDIDO com barra clássica no leitor de letra: a calha sai 10px — o
+  // valor de `thin` — e não os 7px que o pseudo pedia; devolvendo o par a
+  // `auto` ela cai para 7px, que é o pseudo assumindo.
+  //
+  // A asserção é da FONTE porque o defeito é da fonte: uma regra morta não tem
+  // efeito para medir, e é exatamente por isso que ela sobreviveu a vários
+  // lotes com um comentário que a creditava pelo efeito de outra coisa.
+  {
+    const cssP = fs.readFileSync(path.join(RAIZ, 'controle', 'controle.css'), 'utf8');
+    // O corte é pelo SELETOR seguido de `{`, nunca por conter a palavra: as
+    // linhas de COMENTÁRIO deste mesmo lote citam o pseudo por extenso, e um
+    // `[^/*]` de começo de linha casa o ESPAÇO de indentação delas.
+    const regras = cssP.split('\n')
+      .filter((l) => /^\s*[.#a-zA-Z][^{}]*::-webkit-scrollbar[a-z-]*\s*\{/.test(l));
+    checar(regras.length === 0,
+      'P2 · nenhuma REGRA `::-webkit-scrollbar` sobrou em controle.css — elas '
+      + 'estão desligadas pelo par `scrollbar-*` que as acompanhava, e o '
+      + 'comentário que as creditava pelo fim do modo overlay saiu com elas',
+      JSON.stringify(regras));
+    checar(/^\.rola \{ scrollbar-width: thin; scrollbar-color: var\(--accent\) transparent; \}$/m.test(cssP),
+      'P2 · e a declaração é UMA, na marca — um segundo `scrollbar-color` num '
+      + 'seletor de mesma especificidade decide por ORDEM na folha, que é o '
+      + 'acoplamento invisível que este lote existe para não deixar nascer');
+  }
+
 } finally {
   await navegador.close();
   servidor.close();

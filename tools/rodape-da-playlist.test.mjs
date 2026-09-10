@@ -575,6 +575,118 @@ try {
     + 'alvo do app move os dois juntos', JSON.stringify(cabecalho));
   await ctxH.close();
 
+  // ── J. O RODAPÉ RESPIRA ACIMA (v1.8.60) ─────────────────────────────────
+  //
+  // Relato do operador sobre a v1.8.59: *"verifique a margem superior do rodapé
+  // da playlist, pois está sem uma margem acima dos botões e antes do corte da
+  // fronteira para a caixa do scroll, deixando o corte grudado nos botões, sem
+  // margem"*. MEDIDO: **0,00px** entre a base do `#playlist` e o topo do
+  // rodapé — a tira de sombra da lista encostava nos botões.
+  //
+  // SÃO DOIS, e é por isso que o bloco mede os dois: a playlist e o Histórico
+  // são os únicos rodapés do app que ficam fora de um `.rola` sem nada entre
+  // eles. Os outros quatro já tinham de 9,59 a 12,00px, por três mecanismos
+  // diferentes, e não entram nesta varredura.
+  //
+  // A MARGEM É DO CONTÊINER, e a terceira asserção é o que impede o conserto
+  // errado: pô-la na `.pl-limpar-faixa` — tentador, porque ela é o rodapé do
+  // Histórico E a caixa do "Limpar" — alonga a linha flex, os dois quadrados
+  // esticam para 42,4×52,0 e o rodapé continua começando onde começava. O
+  // bloco A já reprova isso; esta linha diz por quê, no mesmo arquivo.
+  {
+    const ctxJ = await navegador.newContext({
+      viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: 'dark',
+    });
+    await semRedeExterna(ctxJ);
+    const pgJ = await ctxJ.newPage();
+    await pgJ.goto(base, { waitUntil: 'load' });
+    await esperarCortina(pgJ);
+    await pgJ.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      setAppMode('full'); await z(150);
+      for (let i = 0; i < 30; i++) {
+        await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
+          { name: 'Louvor ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      }
+      const ids = await AVDB.listIds('imports');
+      for (const id of ids) await AVDB.listAdd('playlist', id);
+      plItems = await AVDB.listItems('playlist');
+      await load(); await z(300);
+      openPlPopup(); await z(400);
+    });
+    const jPl = await pgJ.evaluate(() => {
+      const l = document.getElementById('playlist');
+      const r = document.querySelector('.pl-rodape');
+      // O TOKEN É RESOLVIDO POR UMA SONDA, nunca por `parseFloat` do valor: ele
+      // vale `.6rem`, e `parseFloat('.6rem')` dá **0,6** — um número que a
+      // asserção compararia contra 9,59 e reprovaria um app certo.
+      const sonda = document.createElement('div');
+      sonda.style.cssText = 'position:absolute;visibility:hidden;height:var(--sp-5)';
+      document.body.appendChild(sonda);
+      const alvo = +sonda.getBoundingClientRect().height.toFixed(2);
+      sonda.remove();
+      const bs = [...r.querySelectorAll('button')]
+        .map((b) => +b.getBoundingClientRect().height.toFixed(1));
+      return { vao: +(r.getBoundingClientRect().top - l.getBoundingClientRect().bottom).toFixed(2),
+        alvo, transborda: l.scrollHeight - l.clientHeight > 2,
+        temTira: getComputedStyle(l, '::after').display, alturas: bs,
+        larguras: [...r.querySelectorAll('.pl-pack')]
+          .map((b) => +b.getBoundingClientRect().width.toFixed(1)) };
+    });
+    checar(jPl.transborda && jPl.temTira === 'block',
+      'J · a fila TRANSBORDA e a tira de baixo está desenhada — sem ela não há '
+      + '"corte grudado nos botões" a medir', JSON.stringify(jPl));
+    checar(Math.abs(jPl.vao - jPl.alvo) <= 0.5,
+      'J · e o rodapé da playlist respira `--sp-5` (' + jPl.vao + 'px) acima da '
+      + 'lista. Era 0,00 — o token é o que a folha nomeia "entre blocos", e o '
+      + 'único com precedente medido na relação idêntica (o Cronograma, 9,59px)',
+      JSON.stringify(jPl));
+    checar(new Set(jPl.alturas).size === 1
+      && jPl.larguras.every((w) => Math.abs(w - jPl.alturas[0]) <= 0.5),
+      'J · e os três botões continuam da MESMA altura, com os dois de símbolo '
+      + 'ainda QUADRADOS — a margem na `.pl-limpar-faixa` os esticaria para '
+      + '42,4×52,0, porque os três são irmãos flex com `align-items: stretch`',
+      JSON.stringify(jPl));
+    // O SEGUNDO DOENTE: o Histórico. Lá a faixa é filha DIRETA da folha, sem
+    // `.pl-rodape` por volta — ela não tinha margem NENHUMA, nem nos lados.
+    const jHi = await pgJ.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      __avBack(); await z(350);
+      // Uma SESSÃO por bloco, com itens dentro — é a forma que o
+      // `renderHistorico` percorre, e uma lista rasa desenharia zero linhas.
+      historico = [{ inicio: Date.now() - 7200000, itens: Array.from({ length: 30 },
+        (_, i) => ({ id: 'h' + i, nome: 'Louvor ' + i, t: 'media',
+          em: Date.now() - i * 60000 })) }];
+      openHistPopup(); await z(500);
+      const l = document.getElementById('histList');
+      const f = document.getElementById('histClearFaixa');
+      if (!l || !f || f.hidden) return { erro: 'folha não abriu', temL: !!l, temF: !!f };
+      const c = getComputedStyle(f);
+      const folha = f.parentElement.getBoundingClientRect();
+      const fr = f.getBoundingClientRect();
+      const sonda = document.createElement('div');
+      sonda.style.cssText = 'position:absolute;visibility:hidden;height:var(--sp-5)';
+      document.body.appendChild(sonda);
+      const alvo = +sonda.getBoundingClientRect().height.toFixed(2);
+      sonda.remove();
+      return { vao: +(fr.top - l.getBoundingClientRect().bottom).toFixed(2),
+        alvo,
+        esq: +(fr.left - folha.left).toFixed(2), dir: +(folha.right - fr.right).toFixed(2),
+        transborda: l.scrollHeight - l.clientHeight > 2,
+        temTira: getComputedStyle(l, '::after').display, mt: c.marginTop };
+    });
+    checar(!jHi.erro && jHi.transborda && jHi.temTira === 'block',
+      'J · o Histórico também TRANSBORDA com a tira desenhada — é o segundo da '
+      + 'família, e sem ele o conserto sairia pela metade', JSON.stringify(jHi));
+    checar(!jHi.erro && Math.abs(jHi.vao - jHi.alvo) <= 0.5
+      && jHi.esq > 8 && jHi.dir > 8,
+      'J · e o rodapé dele ganhou as QUATRO margens (topo ' + jHi.vao + ', lados '
+      + jHi.esq + '/' + jHi.dir + '). Ali a faixa é filha direta da folha, sem '
+      + '`.pl-rodape` por volta: ela herdava as margens de ninguém e ficava '
+      + 'colada nas duas bordas e na tira', JSON.stringify(jHi));
+    await ctxJ.close();
+  }
+
 } finally {
   await navegador.close();
   servidor.close();

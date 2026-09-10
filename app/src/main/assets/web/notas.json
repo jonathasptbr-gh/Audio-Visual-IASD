@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.8.60",
+    "itens": [
+      "A barra de rolagem passa a ser a mesma em todas as listas, visível e na cor de destaque.",
+      "No Cronograma a caixa da lista agora vai até as bordas da tela, como nas outras telas.",
+      "O rodapé da playlist e o do histórico ganharam uma margem acima dos botões.",
+      "Na folha de exportar, o botão de salvar deixa de rolar com a lista e fica fixo na base.",
+      "O mesmo vale para as folhas de destino e da playlist automática.",
+      "Na Bíblia, a grade de livros passa a mostrar a sombra quando há mais livros abaixo."
+    ]
+  },
+  {
     "versao": "1.8.59",
     "itens": [
       "A sombra das listas estava recuada para dentro da borda; agora ela encosta na fronteira.",
