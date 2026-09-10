@@ -320,7 +320,7 @@ async function confirmarGrupos(pg) {
   if (abriu !== true) return abriu;
   const linhas = await pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
     .map((li) => (li.textContent || '').replace(/\s+/g, ' ').trim()));
-  await pg.click('#songMenuList .song-menu-go');
+  await pg.click('#songMenuPopup .song-menu-go');
   return linhas;
 }
 

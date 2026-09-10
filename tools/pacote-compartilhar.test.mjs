@@ -251,7 +251,7 @@ async function exportar(espaco) {
   await a.pg.evaluate(() => { window.__fim = exportarPacote(); });
   const abriu = await abriuFolha(a.pg);
   if (abriu !== true) { await a.ctx.close(); return { erro: porque(abriu) }; }
-  await a.pg.click('#songMenuList .song-menu-go');
+  await a.pg.click('#songMenuPopup .song-menu-go');
   // ESPERA PELO FECHO, e não pela promessa da exportação — e a diferença é a
   // asserção do diálogo lá embaixo. Com um `openAppDialog` de volta no fim do
   // caminho a promessa NUNCA resolve (ela espera um toque), e um
@@ -550,7 +550,7 @@ try {
     const d = document.getElementById('songMenuPopup');
     return !!d && d.classList.contains('open') && !!d.querySelector('.song-menu-go');
   }, null, 60000);
-  await pg.click('#songMenuList .song-menu-go');
+  await pg.click('#songMenuPopup .song-menu-go');
   await esperar(pg, () => (window.__presos || []).length > 0, null, 30000);
 
   const r = await pg.evaluate(() => {

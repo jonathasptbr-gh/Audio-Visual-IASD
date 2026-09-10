@@ -325,7 +325,7 @@ try {
     segmentos: document.querySelectorAll('#sorteioList .fit-seg').length,
     campo: !!document.querySelector('#sorteioList .lib-search'),
     chips: document.querySelectorAll('#sorteioList .misc-chip').length,
-    go: !!document.querySelector('#sorteioList .song-menu-go'),
+    go: !!document.querySelector('#sorteioPopup .song-menu-go'),
   }));
   const conta0 = await lerConta();
   checar(folha.aberta, 'o toque no botão ABRE a folha');
@@ -466,7 +466,7 @@ try {
   const vazio = await pg.evaluate(() => {
     sorteioPrefs.tema = 'zzzznadaaqui'; renderSorteio();
     const li = document.querySelector('#sorteioList .sorteio-conta');
-    const go = document.querySelector('#sorteioList .sorteio-acao');
+    const go = document.querySelector('#sorteioPopup .sorteio-acao');
     return { texto: li.textContent, marcada: li.classList.contains('vazio'), travado: go.disabled };
   });
   checar(/zzzznadaaqui/.test(vazio.texto) && vazio.marcada,
@@ -482,7 +482,7 @@ try {
     sorteioPrefs.modo = AVSorteio.MODO_UMA;
     sorteioPrefs.soNoAparelho = true;   // sem rede neste harness
     renderSorteio();
-    await executarSorteio(document.querySelector('#sorteioList .song-menu-go'), 'tocar');
+    await executarSorteio(document.querySelector('#sorteioPopup .song-menu-go'), 'tocar');
     await new Promise((r) => setTimeout(r, 400));
     return {
       fechou: !document.getElementById('sorteioPopup').classList.contains('open'),
@@ -503,7 +503,7 @@ try {
     sorteioPrefs.tema = '';            // o acervo inteiro: 3 baixadas
     sorteioPrefs.soNoAparelho = true;
     await abrirSorteio();
-    await executarSorteio(document.querySelector('#sorteioList .song-menu-go'), 'tocar');
+    await executarSorteio(document.querySelector('#sorteioPopup .song-menu-go'), 'tocar');
     await new Promise((r) => setTimeout(r, 600));
     const ids = await AVDB.listIds('playlist');
     return { ids, plItems: plItems.length, noAr: currentId, primeiro: ids[0] };
@@ -531,7 +531,7 @@ try {
   const faixa = await pg.evaluate(async () => {
     sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
     await abrirSorteio();
-    const bs = [...document.querySelectorAll('#sorteioList .sorteio-acao')];
+    const bs = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')];
     return {
       total: bs.length,
       primeiro: bs[0].textContent.trim(),
@@ -556,7 +556,7 @@ try {
   // abri-la.
   const umaSo = await pg.evaluate(async () => {
     sorteioPrefs.modo = AVSorteio.MODO_UMA; renderSorteio();
-    const bs = [...document.querySelectorAll('#sorteioList .sorteio-acao')];
+    const bs = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')];
     const r = { total: bs.length, dest: bs.slice(1).map((b) => b.dataset.dest) };
     sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST; renderSorteio();
     return r;
@@ -572,8 +572,8 @@ try {
   const facil = await pg.evaluate(async () => {
     const antes = appMode;
     setAppMode('simple'); renderSorteio();
-    const n = document.querySelectorAll('#sorteioList .sorteio-dest').length;
-    const primario = document.querySelectorAll('#sorteioList .song-menu-go').length;
+    const n = document.querySelectorAll('#sorteioPopup .sorteio-dest').length;
+    const primario = document.querySelectorAll('#sorteioPopup .song-menu-go').length;
     setAppMode(antes); renderSorteio();
     return { n, primario };
   });
@@ -590,7 +590,7 @@ try {
     renderSorteio();
     // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
     // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
-    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const itens = await AVDB.listItems('imports');
@@ -646,7 +646,7 @@ try {
     renderSorteio();
     // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
     // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
-    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const pac = (await AVDB.listItems('imports'))
@@ -681,7 +681,7 @@ try {
     renderSorteio();
     // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
     // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
-    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const pac = (await AVDB.listItems('imports'))
@@ -697,7 +697,7 @@ try {
   const denovo = await pg.evaluate(async () => {
     // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
     // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
-    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const itens = await AVDB.listItems('imports');
@@ -730,7 +730,7 @@ try {
     sorteioPrefs.modo = AVSorteio.MODO_UMA;
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     renderSorteio();
-    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const itens = await AVDB.listItems('imports');
@@ -768,7 +768,7 @@ try {
     renderSorteio();
     const noArAntes = currentId;
     const filaAntes = await AVDB.listIds('playlist');
-    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="favoritos"]');
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="favoritos"]');
     await executarSorteio(btn, 'favoritos');
     await new Promise((r) => setTimeout(r, 600));
     const itens = await AVDB.listItems('favs');
@@ -809,7 +809,7 @@ try {
     sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST; sorteioPrefs.quantos = 3;
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     renderSorteio();
-    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="playlist"]');
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="playlist"]');
     await executarSorteio(btn, 'playlist');
     await new Promise((r) => setTimeout(r, 600));
     const depois = await AVDB.listIds('playlist');
@@ -918,7 +918,7 @@ try {
       sorteioPrefs.modo = modo; sorteioPrefs.variante = variante;
       sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true; sorteioPrefs.quantos = 3;
       await abrirSorteio();
-      const btn = document.querySelector('#sorteioList .song-menu-go');
+      const btn = document.querySelector('#sorteioPopup .song-menu-go');
       await executarSorteio(btn, 'tocar');
       await new Promise((r) => setTimeout(r, 500));
       const load = vistos.filter((o) => o && o.type === 'load').pop();
@@ -956,7 +956,7 @@ try {
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; renderSorteio();
     // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
     // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
-    const btn = document.querySelector('#sorteioList .sorteio-dest[data-dest="cronograma"]');
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 500));
     const v = view;

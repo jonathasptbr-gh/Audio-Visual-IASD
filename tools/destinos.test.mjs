@@ -224,7 +224,7 @@ try {
   // O CONFIRMAR É SEMPRE VISÍVEL, marcado ou não — ele só nascia depois da
   // primeira marca, isto é, era invisível justamente para quem ainda não sabia
   // que dava para marcar.
-  const temGo = await pg.$$eval('#songMenuList .song-menu-go', (els) => els.length);
+  const temGo = await pg.$$eval('#songMenuPopup .song-menu-go', (els) => els.length);
   checar(temGo === 1, 'e a linha de confirmação está lá');
   // ── E ELE TEM A ALTURA DAS LINHAS QUE FECHA (v5.301) ─────────────────────
   // Relato do operador: *"verifique a altura do botão de confirmar que temos em
@@ -261,7 +261,7 @@ try {
       return px(cs.paddingTop) + px(cs.paddingBottom);
     };
     const conteudo = (el) => Math.round(el.getBoundingClientRect().height - respiro(el));
-    const go = document.querySelector('#songMenuList .song-menu-go');
+    const go = document.querySelector('#songMenuPopup .song-menu-go');
     const opcoes = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
       .filter((b) => b.querySelector('.song-menu-check'));
     return {
@@ -301,7 +301,7 @@ try {
     linha.click();
     const depois = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
       .find((b) => /Tocar agora/.test(b.textContent));
-    const go = document.querySelector('#songMenuList .song-menu-go');
+    const go = document.querySelector('#songMenuPopup .song-menu-go');
     return {
       marcado: [...destMarcados],
       check: !!(depois && depois.querySelector('.song-menu-check.on')),
@@ -322,7 +322,7 @@ try {
   const goVazio = await pg.evaluate(() => {
     destMarcados.clear();
     openYtMenu({ id: 'zzzzzzzzzzz', url: 'https://youtu.be/zzzzzzzzzzz', name: 'Vídeo de teste' });
-    const b = document.querySelector('#songMenuList .song-menu-go');
+    const b = document.querySelector('#songMenuPopup .song-menu-go');
     return { existe: !!b, desabilitado: !!(b && b.disabled), texto: b ? b.textContent.trim() : '' };
   });
   checar(goVazio.existe && goVazio.desabilitado && /Escolha uma opção/.test(goVazio.texto),
@@ -460,7 +460,7 @@ try {
     const linhas = [...document.querySelectorAll('#songMenuList .song-menu-btn')];
     linhas[2].click();
     await new Promise((r) => setTimeout(r, 50));
-    document.querySelector('#songMenuList .song-menu-go').click();
+    document.querySelector('#songMenuPopup .song-menu-go').click();
     return p;
   });
   checar(JSON.stringify(escolhido) === JSON.stringify(['cronograma', 'favoritos']),

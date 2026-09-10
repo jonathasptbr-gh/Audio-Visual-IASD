@@ -206,6 +206,13 @@ saltar).
   trabalho, ficou sem ela; com a coluna de PÁGINAS, saber a posição na lista é o
   recurso inteiro. A pista fica `transparent`: o fundo daqui já é `--panel`, e uma
   pista da cor do próprio fundo não é pista nenhuma.
+  **E DESDE A v1.8.60 ELA NÃO É MAIS DAQUI: subiu para a marca `.rola`**, a
+  pedido do operador (*"tem caixas sem o scroll. como a tela principal do
+  cronograma"*). Esta zona e as outras duas que a declaravam por si eram três
+  contra dezesseis — MEDIDO, **1,29:1** de contraste no escuro nas dezesseis
+  contra 6,63:1 aqui. A pista `transparent` venceu como PADRÃO pela medição que
+  esta linha já dizia, generalizada: `--panel` lê **1:1 contra o fundo em doze
+  das dezoito listas**, porque doze delas *são* `--panel`.
 - **DUAS COLUNAS, E SÓ AQUI** (v1.4.35): *"coloque os slides em duas colunas,
   pois temos menos altura vertical, portanto manter os slides de mesmo tamanho
   acaba impedindo de ver mais que dois slides corretamente, deixando de ser uma
@@ -4629,6 +4636,14 @@ ele, e o custo dele, que prendia o efeito a um scroller só.
   a v1.5.16 (sem ela a tira gruda acima do recuo), e o topo e os dois lados
   desde este lote — sem eles o vão entre a fronteira e a sombra é exatamente o
   `padding` do scroller, que aqui são 11,2px no topo e 12,8px de cada lado.
+- **MAS A TIRA SÓ ALCANÇA A BORDA SE A CAIXA ALCANÇAR** (v1.8.60). `overflow-y:
+  auto` COMPUTA `overflow-x: auto`, e a margem negativa é RECORTADA pela caixa do
+  scroller: MEDIDO no Cronograma, forçar `--veu-esq`/`--veu-dir` a 12,8px não
+  move a tira um pixel. Foi por isso que o `#library` passou a levar o recuo
+  como `padding` próprio, com `margin` negativa devolvendo a caixa à borda da
+  tela — o desenho que a Biblioteca e a playlist já tinham. **E a calha da barra
+  de rolagem é inalcançável**: o retângulo de recorte é o padding box MENOS ela.
+  No Android ela é ZERO (barra sobreposta), então lá não há vão.
 
 #### A divisória entre faixas IRMÃS (v1.5.16)
 
