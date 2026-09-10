@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.59",
+    "itens": [
+      "A sombra das listas estava recuada para dentro da borda; agora ela encosta na fronteira.",
+      "Na Biblioteca ela passa a escurecer também as barras das coleções, não só os vãos.",
+      "E nos cantos arredondados ela acompanha a curva da caixa."
+    ]
+  },
+  {
     "versao": "1.8.58",
     "itens": [
       "Toda lista que rola agora mostra uma sombra na borda por onde o conteúdo passa.",

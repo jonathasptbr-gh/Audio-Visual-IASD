@@ -374,7 +374,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.58';
+const WEB_VERSION = '1.8.59';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -17922,26 +17922,35 @@ function acertarVeus() {
   }
   const medidas = alvos.map((el) => {
     const cs = getComputedStyle(el);
-    return [cs.rowGap === 'normal' ? '0px' : cs.rowGap, cs.paddingBottom, cs.display];
+    return { vao: cs.rowGap === 'normal' ? '0px' : cs.rowGap,
+      display: cs.display, eixo: cs.overflowY,
+      topo: cs.paddingTop, base: cs.paddingBottom, esq: cs.paddingLeft, dir: cs.paddingRight };
   });
   alvos.forEach((el, i) => {
-    if (el.style.getPropertyValue('--veu-vao') !== medidas[i][0]) {
-      el.style.setProperty('--veu-vao', medidas[i][0]);
+    for (const campo of ['vao', 'topo', 'base', 'esq', 'dir']) {
+      if (el.style.getPropertyValue('--veu-' + campo) !== medidas[i][campo]) {
+        el.style.setProperty('--veu-' + campo, medidas[i][campo]);
+      }
     }
-    if (el.style.getPropertyValue('--veu-base') !== medidas[i][1]) {
-      el.style.setProperty('--veu-base', medidas[i][1]);
-    }
-    // ===== A GRADE NÃO PODE TER A TIRA, E ISSO É MEDIDO =====
+    // ===== QUEM FICA SEM A TIRA, E OS DOIS MOTIVOS SÃO MEDIDOS =====
     //
-    // O pseudo-elemento de um contêiner de GRADE **é um item dela**: a tira
-    // toma a primeira célula e empurra o conteúdo uma casa. MEDIDO no
-    // `#simpleLyrics` com a letra virada apresentação (`.lv-grade`, duas
-    // colunas): a página 1 do deck ia 188px para a segunda coluna, no meio do
-    // culto. A `.bible-grid--books` é o segundo caso, e o terceiro ainda não
-    // existe — daí a pergunta ser pelo `display` COMPUTADO e não por uma lista
-    // de seletores, que é a lista que se esquece de crescer.
-    const grade = /grid/.test(medidas[i][2]);
-    if (el.classList.contains('sem-veu') !== grade) el.classList.toggle('sem-veu', grade);
+    // (1) A GRADE. O pseudo-elemento de um contêiner de grade **é um item
+    // dela**: a tira toma a primeira célula e empurra o conteúdo uma casa.
+    // MEDIDO no `#simpleLyrics` com a letra virada apresentação (`.lv-grade`,
+    // duas colunas): a página 1 do deck ia 188px para a segunda coluna, no meio
+    // do culto. A `.bible-grid--books` é o segundo caso.
+    //
+    // (2) QUEM NÃO ROLA. A marca é escrita na FONTE, e uma regra pode tirar a
+    // rolagem do elemento marcado por baixo dela: MEDIDO, o `#msgWrap` veste
+    // `.misc-panel` (que carrega a marca) e `.misc-panel--msg { overflow:
+    // hidden }` vence — quem rola ali é a `.msg-list` de dentro. Uma sombra
+    // sobre uma caixa que não rola descreve algo que não existe.
+    //
+    // Os dois são o `display` e o `overflow-y` COMPUTADOS, relidos a cada
+    // passada, e não uma lista de seletores — que é a lista que se esquece de
+    // crescer, e que envelheceria calada nos DOIS sentidos.
+    const fora = /grid/.test(medidas[i].display) || !/auto|scroll/.test(medidas[i].eixo);
+    if (el.classList.contains('sem-veu') !== fora) el.classList.toggle('sem-veu', fora);
   });
   for (const el of alvos) acertarVeu(el);
 }

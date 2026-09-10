@@ -40,7 +40,10 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas } from './arnes.mjs';
+import {
+  servirEstatico, abrirNavegador, esperarCortina, checar, falhas,
+  lerPng, pixel, luminancia,
+} from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
@@ -114,8 +117,16 @@ try {
     // transborda na horizontal e não na vertical é carrossel — e um scroller
     // vertical de verdade nunca cai nela, porque ele transborda em Y. Uma lista
     // de ids aqui seria a lista que se edita para calar o teste.
-    const censo = await pg.evaluate(() => {
+    const censo = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
       const out = { semMarca: [], comMarca: [], carrossel: [] };
+      // O PAINEL DE MENSAGENS ENTRA NO CENSO, e ele é o caso que faltava: só a
+      // ferramenta ATIVA é montada, e a cena abre no Sorteio. MEDIDO, o
+      // `#msgWrap` veste `.misc-panel` (que carrega a marca) e computa
+      // `overflow-y: hidden` — uma marca sobre quem não rola, exatamente o que
+      // a segunda asserção deste bloco existe para policiar e nunca via.
+      miscTool = 'msg'; refreshDiversos(); await z(250);
+      const varrer = () => {
       for (const n of document.querySelectorAll('*')) {
         const cs = getComputedStyle(n);
         const rolavel = /auto|scroll/.test(cs.overflowY);
@@ -124,29 +135,37 @@ try {
           && n.scrollHeight - n.clientHeight <= 2;
         if (rolavel && soHorizontal) out.carrossel.push(nome);
         else if (rolavel && !n.classList.contains('rola')) out.semMarca.push(nome);
-        if (n.classList.contains('rola')) {
+        if (n.classList.contains('rola') && !out.comMarca.some((m) => m.nome === nome)) {
           out.comMarca.push({ nome, oy: cs.overflowY,
             grade: /grid/.test(cs.display), semVeu: n.classList.contains('sem-veu') });
         }
       }
+      };
+      varrer();
+      miscTool = 'draw'; refreshDiversos(); await z(250);
+      varrer();
       return out;
     });
     checar(censo.semMarca.length === 0,
       'A · ' + tema + ': TODO elemento que rola na vertical tem a sombra. Um scroller '
       + 'novo sem a marca é um buraco MUDO — nada na tela diz que falta',
       JSON.stringify(censo.semMarca));
-    checar(censo.comMarca.length >= 12 && censo.comMarca.every((x) => /auto|scroll/.test(x.oy)),
-      'A · ' + tema + ': e o inverso — nenhuma marca sobra num elemento que deixou de '
-      + 'rolar (' + censo.comMarca.length + ' marcados)',
-      JSON.stringify(censo.comMarca.filter((x) => !/auto|scroll/.test(x.oy))));
+    const inertes = censo.comMarca.filter((x) => !/auto|scroll/.test(x.oy) && !x.semVeu);
+    checar(censo.comMarca.length >= 12 && inertes.length === 0,
+      'A · ' + tema + ': e o inverso — uma marca sobre quem NÃO ROLA carrega `sem-veu` '
+      + '(' + censo.comMarca.length + ' marcados). Uma regra pode tirar a rolagem por '
+      + 'baixo da marca — é o `.misc-panel--msg { overflow: hidden }` — e uma sombra '
+      + 'sobre caixa que não rola descreve algo que não existe',
+      JSON.stringify(inertes));
     checar(censo.carrossel.length >= 1,
       'A · ' + tema + ': e a cena TEM um carrossel horizontal desenhado — sem ele a '
       + 'exclusão do censo passa sem nunca ser exercida', JSON.stringify(censo.carrossel));
-    const grades = censo.comMarca.filter((x) => x.grade !== x.semVeu);
-    checar(grades.length === 0,
-      'A · ' + tema + ': e `sem-veu` acompanha o `display` COMPUTADO de cada marcado, '
-      + 'nos dois sentidos — quem é grade tem, quem não é não tem',
-      JSON.stringify(grades));
+    const fora = censo.comMarca.filter((x) =>
+      x.semVeu !== (x.grade || !/auto|scroll/.test(x.oy)));
+    checar(fora.length === 0,
+      'A · ' + tema + ': e `sem-veu` acompanha o `display` e o `overflow-y` COMPUTADOS '
+      + 'de cada marcado, nos DOIS sentidos — quem é grade ou não rola tem, e mais '
+      + 'ninguém tem', JSON.stringify(fora));
 
     // ── B. A TIRA SOME DA CONTA DE ROLAGEM ──────────────────────────────
     //
@@ -387,6 +406,242 @@ try {
       + '`overflow-y: auto` — `overflow-x: auto` COMPUTA o eixo cruzado, e um censo '
       + 'por estilo o marcaria com uma sombra que não descreve nada',
       JSON.stringify(horiz));
+    await ctx.close();
+  }
+
+
+  // ── J. A TIRA ENCOSTA NA FRONTEIRA — O DEFEITO Nº 4 ───────────────────
+  //
+  // Relato do operador sobre a v1.8.58: *"as sombras estão identificando errado
+  // onde é a fronteira e onde fica a sombra, deixando zonas claras entre a
+  // sombra e a fronteira"*. Ele está certo, e o desvio tem FÓRMULA: **o vão é
+  // exatamente o `padding` do próprio scroller**, nos três lados que não eram
+  // compensados. MEDIDO em doze dos dezenove — `#simpleConn` 13,9 no topo e
+  // 14,4 nos lados · `#lyricsViewBody` 11,0 e 12,6 · `#playlist` 8,0 e 11,0 ·
+  // `.fade-opts` 5,0 e 14,0. Onde o recuo é zero a tira já encostava.
+  //
+  // A CAUSA é a mesma que este repositório já tinha medido, por outro caminho:
+  // um `sticky` em `top: 0` para no topo do CONTENT box, não do padding box —
+  // está escrito no comentário de `.popup-sheet--lib .popup-list` desde a
+  // v1.5.15, e a resposta daquele lote foi zerar o `padding-top` de UMA lista.
+  // A tira nasceu herdando o mesmo problema em catorze, e no eixo horizontal
+  // além do vertical (o pseudo é item flex: a largura dele é a do content box).
+  //
+  // ESTE BLOCO EXISTE PORQUE A SUÍTE NÃO MEDIA POSIÇÃO NENHUMA. Ela media
+  // existência, extensão, toque e censo — e nada disso vê uma tira fora do
+  // lugar: plantando `top: 40px` à força, os blocos B, C e D passavam VERBATIM.
+  // A régua aqui é o PIXEL, e não a string de um `calc()`.
+  for (const tema of ['dark', 'light']) {
+    const ctx = await navegador.newContext({
+      viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: tema, deviceScaleFactor: 1,
+    });
+    await semRedeExterna(ctx);
+    const pg = await ctx.newPage();
+    await pg.goto(base, { waitUntil: 'load' });
+    await esperarCortina(pg);
+    await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      setAppMode('full'); await z(150);
+      for (let i = 0; i < 40; i++) {
+        await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
+          { name: 'Louvor ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      }
+      const ids = await AVDB.listIds('imports');
+      for (const id of ids) await AVDB.listAdd('playlist', id);
+      plItems = await AVDB.listItems('playlist');
+      await load(); await z(300);
+      // A TINTA É TROCADA, A CAIXA NÃO: fundo opaco no lugar do degradê. Nenhuma
+      // das duas propriedades move a tira, e é a caixa dela que se mede.
+      const s = document.createElement('style');
+      s.textContent = '.rola::before,.rola::after{background:#ff00ff!important;background-image:none!important}';
+      document.head.appendChild(s);
+      currentItem = { id: 'm', name: 'Louvor de prova', kind: 'audio', seconds: 200,
+        lyrics: Array.from({ length: 40 }, (_, i) => ({ text: 'Estrofe ' + (i + 1) })) };
+    });
+    const CASOS = [
+      ['#library', () => {}],
+      ['#playlist', () => { document.getElementById('plBtn').click(); }],
+      ['#lyricsViewBody', () => { openLyricsPopup(); }],
+    ];
+    const medidos = [];
+    for (const [sel, abrir] of CASOS) {
+      await pg.evaluate(abrir);
+      await pg.waitForTimeout(450);
+      const cx = await pg.evaluate(async (q) => {
+        const z = (ms) => new Promise((f) => setTimeout(f, ms));
+        const el = document.querySelector(q);
+        if (!el || !el.clientHeight) return null;
+        el.scrollTop = Math.floor(el.scrollHeight / 3);
+        await z(350);
+        const r = el.getBoundingClientRect();
+        const c = getComputedStyle(el);
+        return { padTop: r.top + parseFloat(c.borderTopWidth),
+          padLeft: r.left + parseFloat(c.borderLeftWidth),
+          padRight: r.right - parseFloat(c.borderRightWidth),
+          padBottom: r.bottom - parseFloat(c.borderBottomWidth),
+          recuoTopo: parseFloat(c.paddingTop), recuoEsq: parseFloat(c.paddingLeft),
+          transborda: el.scrollHeight - el.clientHeight > 2,
+          extraX: el.scrollWidth - el.clientWidth };
+      }, sel);
+      if (!cx || !cx.transborda) continue;
+      const img = lerPng(await pg.screenshot());
+      const mag = (c) => !!c && c[0] > 200 && c[1] < 80 && c[2] > 200;
+      const xm = Math.round((cx.padLeft + cx.padRight) / 2);
+      let topo = null, fundo = null, esq = null, dir = null;
+      for (let y = Math.floor(cx.padTop) - 6; y < Math.ceil(cx.padBottom) + 6; y++) {
+        if (mag(pixel(img, xm, y))) { topo = y; break; }
+      }
+      for (let y = Math.ceil(cx.padBottom) + 6; y > Math.floor(cx.padTop) - 6; y--) {
+        if (mag(pixel(img, xm, y))) { fundo = y; break; }
+      }
+      if (topo != null) {
+        const yy = topo + 6;
+        const x0 = Math.max(0, Math.floor(cx.padLeft) - 8);
+        const x1 = Math.min(img.w - 1, Math.ceil(cx.padRight) + 8);
+        for (let x = x0; x <= x1; x++) if (mag(pixel(img, x, yy))) { esq = x; break; }
+        for (let x = x1; x >= x0; x--) if (mag(pixel(img, x, yy))) { dir = x; break; }
+      }
+      medidos.push({ sel, recuoTopo: cx.recuoTopo, recuoEsq: cx.recuoEsq, extraX: cx.extraX,
+        topo: topo == null ? null : +(topo - cx.padTop).toFixed(1),
+        base: fundo == null ? null : +(cx.padBottom - fundo - 1).toFixed(1),
+        esq: esq == null ? null : +(esq - cx.padLeft).toFixed(1),
+        dir: dir == null ? null : +(cx.padRight - dir - 1).toFixed(1) });
+    }
+    // A CENA TEM DE CONTER UM SCROLLER COM RECUO DE VERDADE. Sobre um de recuo
+    // ZERO a asserção passa com e sem o conserto — é a tautologia que o bloco
+    // inteiro existe para não ser.
+    const comRecuo = medidos.filter((m) => m.recuoTopo >= 6 && m.recuoEsq >= 9);
+    checar(comRecuo.length >= 2,
+      'J · ' + tema + ': a cena mede pelo menos DOIS scrollers com recuo próprio ('
+      + comRecuo.length + ') — sobre recuo zero a tira encosta com e sem o conserto, '
+      + 'e a asserção abaixo aprovaria qualquer coisa', JSON.stringify(medidos));
+    const fora = medidos.filter((m) => [m.topo, m.base, m.esq, m.dir]
+      .some((v) => v == null || Math.abs(v) > 1.5));
+    checar(fora.length === 0,
+      'J · ' + tema + ': a tira PINTADA encosta nas quatro bordas do padding box, '
+      + 'em todos os medidos — o vão era exatamente o `padding` do scroller, e o '
+      + 'que se via era uma faixa clara entre a fronteira e a sombra',
+      JSON.stringify(fora));
+    checar(medidos.every((m) => m.extraX <= 1),
+      'J · ' + tema + ': e alargar a tira até o padding box NÃO cria rolagem '
+      + 'horizontal — a margem negativa a leva à borda, nunca além dela',
+      JSON.stringify(medidos.map((m) => m.sel + ':' + m.extraX)));
+
+    // ── L. O CANTO SEGUE O ARCO ─────────────────────────────────────────
+    //
+    // Relato do operador: *"em diversas caixas, elas possuem os cantos
+    // arredondados, e a sombra fica dentro desse topo arredondado"*. MEDIDO, a
+    // sombra nunca foi COMIDA pelo arco (a cunha era zero nos dezenove): o que
+    // se via era o canto de 90° da tira RECUADA, parado dentro da curva — *"não
+    // parece sombra de borda; parece uma barra desenhada solta dentro da
+    // caixa"*. Encostada, quem arredonda a tira é o recorte do próprio scroller.
+    //
+    // A régua é o PERFIL: coluna a coluna a partir da borda, a tira tem de
+    // começar mais TARDE perto do canto e nivelar depois do raio. Um perfil
+    // chapado é o canto quadrado de volta.
+    const perfil = await (async () => {
+      const cx = await pg.evaluate(async () => {
+        const z = (ms) => new Promise((f) => setTimeout(f, ms));
+        const el = document.getElementById('lyricsViewBody');
+        el.scrollTop = 300; await z(300);
+        const r = el.getBoundingClientRect(); const c = getComputedStyle(el);
+        return { padTop: r.top + parseFloat(c.borderTopWidth),
+          padLeft: r.left + parseFloat(c.borderLeftWidth),
+          raio: parseFloat(c.borderTopLeftRadius) };
+      });
+      const img = lerPng(await pg.screenshot());
+      const mag = (c) => !!c && c[0] > 200 && c[1] < 80 && c[2] > 200;
+      const col = [];
+      for (let d = 0; d <= 12; d++) {
+        const x = Math.round(cx.padLeft) + d;
+        let y0 = null;
+        for (let y = Math.floor(cx.padTop) - 4; y < Math.floor(cx.padTop) + 30; y++) {
+          if (mag(pixel(img, x, y))) { y0 = y - cx.padTop; break; }
+        }
+        col.push(y0 == null ? null : Math.round(y0));
+      }
+      return { raio: cx.raio, col };
+    })();
+    checar(perfil.raio >= 6 && perfil.col[0] != null && perfil.col[0] >= 3
+      && perfil.col[12] === 0 && perfil.col.every((v, i, a) => i === 0 || (v != null && v <= a[i - 1])),
+      'L · ' + tema + ': no scroller de canto ARREDONDADO (raio ' + perfil.raio + 'px) a '
+      + 'tira segue a curva — ela começa mais tarde no canto e nivela depois do raio, '
+      + 'porque encostada ela é RECORTADA pelo arco em vez de parar quadrada dentro dele',
+      JSON.stringify(perfil));
+    await ctx.close();
+  }
+
+  // ── K. A SOMBRA ALCANÇA A BARRA DA COLEÇÃO — O DEFEITO Nº 5 ───────────
+  //
+  // Relato do operador: *"a sombra parece estar escurecendo muito mais o fundo
+  // do que os cards das coleções. veja se não está mal localizada a camada da
+  // sombra"*. Ele está certo. MEDIDO na mesma linha de pixel, a 26px de
+  // distância: a `.coll-group-bar` lia razão **1,0000** (delta ZERO, nos dois
+  // temas) e o fundo ao lado dela lia 1,1553 — porque ela é `sticky` com
+  // `z-index: 4` e a tira era 2.
+  //
+  // A v1.5.16 pôs a tira embaixo DE PROPÓSITO, para que ela se calasse sob uma
+  // tampa grudada. O que derruba aquele argumento é que `z-index` é propriedade
+  // do ELEMENTO e não do estado "colada": a barra é z 4 no meio da lista e na
+  // borda de baixo, onde não exerce papel de tampa nenhum. Numa lista feita de
+  // barras, a sombra só alcançava os VÃOS.
+  {
+    const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
+    await semRedeExterna(ctx);
+    await ctx.addInitScript(() => { try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* modo padrão */ } });
+    const pg = await ctx.newPage();
+    await pg.goto(base, { waitUntil: 'load' });
+    await esperarCortina(pg);
+    await pg.waitForFunction(() => window.AVDB && !!document.querySelector('.lib-bar'), null, { timeout: 30000 });
+    const alvo = await pg.evaluate(async () => {
+      const faixas = (n, pre) => Array.from({ length: n }, (_, i) => ({
+        id_music: pre + (i + 1), track: i + 1, name: 'Faixa ' + (i + 1),
+        duration: '3:00', has_instrumental_music: false }));
+      collState['hymnal-2022'] = { indexSyncedAt: Date.now(), isHymnal: true, songs: faixas(120, 'h') };
+      albumCatalog.categories = [{ name: 'Álbuns', albums: [{ id_album: 77, name: 'Álbum' }] }];
+      albumCatalog.albums = [{ id_album: 77, name: 'Álbum' }];
+      collState['album-77'] = { indexSyncedAt: Date.now(), songs: faixas(20, 'a') };
+      grupoAberto = 'Álbuns';
+      ui('album-77').expanded = true; ui('album-77').shown = 1000;
+      openHymnSearch(false);
+      hymnResultsEl.innerHTML = '';
+      renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+      await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+      const el = document.getElementById('hymnResults');
+      el.scrollTop = Math.floor(el.scrollHeight / 2);
+      await new Promise((f) => setTimeout(f, 400));
+      const r = el.getBoundingClientRect();
+      const y = Math.round(r.top + 8);
+      const x = Math.round(r.left + r.width / 2);
+      const topo = document.elementsFromPoint(x, y)[0];
+      return { x, y, quem: (topo && topo.className || '').toString().split(' ')[0],
+        z: topo ? getComputedStyle(topo.closest('.coll-group-bar, .coll-bar') || topo).zIndex : 'auto',
+        rola: el.scrollHeight - el.clientHeight > 2 };
+    });
+    const foto = async () => lerPng(await pg.screenshot());
+    const comTira = await foto();
+    await pg.addStyleTag({ content: '.rola::before,.rola::after{display:none!important}' });
+    await pg.waitForTimeout(200);
+    const semTira = await foto();
+    const razao = (x, y) => {
+      const a = luminancia(pixel(semTira, x, y)); const b = luminancia(pixel(comTira, x, y));
+      return +((a + 0.05) / (b + 0.05)).toFixed(4);
+    };
+    const naBarra = razao(alvo.x, alvo.y + 2);
+    const controle = razao(alvo.x, alvo.y + 300);
+    checar(alvo.rola && /coll-group-bar|coll-bar|row-name|hymn/.test(alvo.quem) && Number(alvo.z) >= 3,
+      'K · a faixa da tira de cima cai sobre uma BARRA de coleção `sticky` com '
+      + 'z-index próprio — sem isso a asserção abaixo não mede camada nenhuma',
+      JSON.stringify(alvo));
+    checar(controle === 1,
+      'K · o CONTROLE fora da faixa não muda (razão ' + controle + ') — sem ele, '
+      + 'qualquer diferença entre as duas capturas passaria por sombra',
+      JSON.stringify({ controle }));
+    checar(naBarra > 1.05,
+      'K · e a barra da coleção ESCURECE sob a tira (razão ' + naBarra + '). Ela lia '
+      + '1,0000 enquanto a tira era `z-index: 2`, abaixo dos 3/4 das barras `sticky` '
+      + '— numa lista feita de barras a sombra só alcançava os vãos',
+      JSON.stringify({ naBarra, controle, alvo }));
     await ctx.close();
   }
 
