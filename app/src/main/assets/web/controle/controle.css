@@ -361,16 +361,15 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      tokenizá-los custaria dois tokens novos consumidos em duas pontas cada.
      Quem fecha a conta é o oráculo, que mede o RESULTADO. */
   --faixa-coluna-texto: calc(.5rem + 38px + var(--sp-4));
-  /* ---------- O VÉU DAS BORDAS DA LISTA (v1.5.16) ----------
-     Pedido do operador: *"Ajuste para que o scroll da biblioteca tenha um
-     efeito de blur na borda interna superior ou inferior, quando algum elemento
-     da tela ir para debaixo dessa borda. Para melhor perceber que há mais itens
-     no scroll da lista."*
-     A altura das tiras, e o recuo de baixo do scroller como TOKEN porque a tira
-     de baixo precisa do MESMO número para se pousar rente (o bloco contêiner de
-     um item flex é o CONTENT box, e o padding fica fora dele — MEDIDO, com
-     `bottom: 0` a tira parava 13px acima da borda). */
-  --lib-fade-h: 22px;
+  /* ---------- A ALTURA DA SOMBRA DE UM SCROLL (v1.5.16 · v1.8.58) ----------
+     Pedido do operador, duas vezes: *"um efeito de blur na borda interna
+     superior ou inferior, quando algum elemento da tela ir para debaixo dessa
+     borda"* (v1.5.16, só a Biblioteca) e *"um efeito de sombra nas fronteiras
+     superiores e inferiores… faça esse o padrão de efeito para os scrolls"*
+     (v1.8.58, todas). A COR e a medição que a escolheu moram no
+     `--sombra-rolagem`, em tokens.css; aqui fica só a altura da tira.
+     Ela é uma medida, e medida não entra em tokens.css. */
+  --veu-h: 22px;
   /* ---------- E O RECUO DE BAIXO É O MESMO VÃO DAS COLEÇÕES (v1.5.18) --------
      Relato do operador, com os blocos JÁ crescendo: *"há uma margem maior na
      parte de baixo … o ajuste ainda não ficou correto"*. Ele está certo, e o
@@ -5228,103 +5227,121 @@ main {
   top: 0; left: var(--faixa-coluna-texto); right: 0; height: 1px;
   background: var(--divisoria);
 }
-/* ---------- O VÉU DAS BORDAS DA LISTA (v1.5.16) ----------
-   Pedido do operador: *"um efeito de blur na borda interna superior ou
-   inferior, quando algum elemento da tela ir para debaixo dessa borda. Para
-   melhor perceber que há mais itens no scroll da lista."*
+/* ---------- A SOMBRA DAS BORDAS DE UM SCROLL (v1.5.16 · v1.8.58) ----------
+   Pedido do operador, duas vezes. Na v1.5.16, para a Biblioteca: *"um efeito de
+   blur na borda interna superior ou inferior, quando algum elemento da tela ir
+   para debaixo dessa borda"*. Na v1.8.58, para TODAS: *"precisamos de um efeito
+   de sombra nas fronteiras superiores e inferiores… isso vale para o cronograma,
+   playlist, biblioteca, favoritos auxiliar de leitura e qualquer outro scroll.
+   Faça esse o padrão de efeito para os scrolls"*.
 
-   ---------- POR QUE UMA TIRA, E NÃO UMA MÁSCARA NO SCROLLER ----------
-   `mask-image` no `#hymnResults` é UMA declaração e é o caminho errado. MEDIDO:
-   ela não quebra o `position: sticky` dos descendentes (as tampas ficam nos
-   mesmos tops) e não cria bloco contêiner para `fixed` — mas APAGA A TAMPA
-   GRUDADA junto, e a tampa é justamente o objeto que já responde à pergunta do
-   pedido. A prova é a captura do `.coll-bar` de um hinário aberto: com as
-   tiras o CORPO OPACO dela sai byte a byte idêntico (os únicos 60 pixels de
-   18.360 que diferem são os cantos arredondados, que são transparentes); com a
-   máscara no scroller, não.
+   ---------- O BORRÃO SAIU, E O QUE O DERRUBOU FOI O CUSTO ----------
+   A v1.5.16 usava `backdrop-filter: blur(5px)` e escopou o véu a UMA lista, com
+   a razão escrita: *"o `.open` no seletor não é escopo: é custo"*. Ela mediu 4
+   camadas compostas e declarou que o custo de GPU no WebView do aparelho NÃO
+   fora medido. Generalizar aquele mecanismo atacava esse argumento de frente —
+   e MEDIDO agora, ele é pior do que aquele lote soube: **cada tira custa DUAS
+   camadas**, a tira e a superfície de backdrop que o desfoque exige (6px maior
+   que ela, pela expansão do raio).
+
+   Uma SOMBRA é `linear-gradient`: TINTA, não superfície de composição. Zero
+   camada extra, e o argumento que prendia o véu à Biblioteca cai por inteiro —
+   é por isso que ele pôde virar o padrão sem pagar nada no culto.
+
+   ---------- E ELA PODE SER GRADIENTE PORQUE É ALFA ----------
+   A v1.5.16 recusou o gradiente com uma medição correta: *"a alternância papel →
+   poço → papel faz a base sob a borda ser ora `--panel` ora `--poco`… Um
+   gradiente pintado em `--panel` acerta sobre papel e lava o poço"*. O que ela
+   recusou foi um gradiente de COR. Preto com alfa não escolhe base nenhuma —
+   escurece o que estiver lá —, e por isso ele serve a Biblioteca também. O valor
+   e a medição que o escolheu moram no `--sombra-rolagem`, em tokens.css.
+
+   ---------- POR QUE UMA TIRA STICKY, E NÃO `background-attachment: local` ----
+   O truque clássico de sombra de rolagem pinta quatro camadas no FUNDO do
+   scroller e se esconde sozinho nos extremos, sem uma linha de JS. Ele não serve
+   aqui: as linhas deste app são OPACAS (`background: var(--linha)`), e uma
+   sombra pintada no fundo do scroller fica ATRÁS delas — invisível exatamente
+   sobre o que ela existe para velar. A tira tem de estar POR CIMA.
 
    ---------- O `z-index: 2` É O DESENHO INTEIRO ----------
-   Ele põe o véu ACIMA do conteúdo (z auto) e ABAIXO das três tampas (z 3 e 4),
-   MEDIDO por `elementsFromPoint`. E é isso que torna a tira de CIMA
-   CONDICIONAL sem uma linha de JS: com uma coleção aberta, a tampa opaca de
-   45px cobre a tira de 22px por completo — MEDIDO varrendo 5232px de rolagem,
-   131 de 131 amostras têm tampa sobre a borda, ZERO têm conteúdo cru. O véu
-   fica calado exatamente onde ele estaria pintando por cima de quem já
-   responde, e aparece na lista PLANA da busca, onde não há tampa nenhuma
-   (250/250 amostras).
+   Ele põe a sombra ACIMA do conteúdo (z auto) e ABAIXO das tampas grudadas da
+   Biblioteca (z 3 e 4), MEDIDO por `elementsFromPoint`. É isso que torna a tira
+   de cima CONDICIONAL sem uma linha de JS: com uma coleção aberta, a tampa opaca
+   de 45px cobre a tira por completo — MEDIDO na v1.5.16 varrendo 5232px de
+   rolagem, 131 de 131 amostras têm tampa sobre a borda e ZERO têm conteúdo cru;
+   na lista PLANA da busca, onde não há tampa nenhuma, são 250/250 ao contrário.
+   A sombra cala-se exatamente onde já há quem responda. Quem guarda isso hoje é
+   o bloco C do `lista-da-biblioteca.test.mjs`.
 
-   ---------- POR QUE BLUR E NÃO GRADIENTE ----------
-   NÃO EXISTE COR CERTA PARA UM VÉU AQUI. A alternância papel → poço → papel da
-   v1.5.14 faz a base sob a borda ser ora `--panel` ora `--poco`, e as faixas
-   não têm preenchimento — o que cruza a borda é TEXTO sobre base lisa. Um
-   gradiente pintado em `--panel` acerta sobre papel e lava o poço. O blur é
-   agnóstico de cor por construção, não precisa de token, e por isso não pode
-   divergir entre os temas: MEDIDO, ele derruba a nitidez do texto na borda em
-   ~60% nos DOIS (2516→1002 no escuro, 3410→1343 no claro) e não toca em nada a
-   120px dali.
+   ---------- AS DUAS MEDIDAS SÃO DO SCROLLER, NÃO DA REGRA ----------
+   `--veu-vao` é o `gap` do scroller e `--veu-base` o `padding-bottom` dele, e as
+   duas existem porque a tira precisa DESAPARECER da conta de rolagem: sem as
+   margens negativas que as cancelam, cada lista ganharia 44px de rolagem
+   fantasma no fim. MEDIDO no Cronograma: `scrollHeight` 1480 → 1480. Elas nascem
+   em ZERO e cada scroller declara a sua — quem não declara é um contêiner de
+   bloco sem recuo, que é o caso da metade da Bíblia.
+   (O `bottom` da tira de baixo COMPENSA o recuo porque o bloco contêiner de um
+   item flex é o CONTENT box, e o padding fica fora dele — MEDIDO na v1.5.16,
+   com `bottom: 0` a tira parava 13px acima da borda.)
 
    ---------- PSEUDO-ELEMENTO, E `pointer-events: none` ----------
-   `renderSearchResults` faz `innerHTML = ''`, e a busca é justamente o estado
-   em que a tira é 100% visível: um `<li>` morreria ali. MEDIDO, os pseudos
-   sobrevivem, não afetam o `:first-child` de que a folha depende e custam ZERO
-   layout — `scrollHeight` 5814 → 5814 — desde que a margem negativa cancele a
-   altura E o `gap`.
-   E sem `pointer-events: none` são 22px MORTOS no topo e na base: MEDIDO,
-   `elementFromPoint` devolve o `#hymnResults` em vez da linha, exatamente onde
-   o cabeçalho grudento vive e onde o último item repousa.
-
-   ---------- E ELE SÓ EXISTE COM A BIBLIOTECA ABERTA ----------
-   O `.open` no seletor não é escopo: é custo. MEDIDO no app real, as tiras
-   somam 4 camadas compostas durante a rolagem (22 → 26) sem aumentar a
-   repintura (63 → 59 eventos). Fechada, a Biblioteca não compõe nada — e
-   fechada é o estado do culto, com dois WebViews e um vídeo no mesmo processo.
-   O que NÃO foi medido, e não se afirma: o custo de GPU no WebView do aparelho. */
-.popup-backdrop--lib.open #hymnResults::before,
-.popup-backdrop--lib.open #hymnResults::after {
+   `renderSearchResults` faz `innerHTML = ''`, e a busca é justamente o estado em
+   que a tira é 100% visível: um `<li>` morreria ali. Os pseudos sobrevivem, não
+   afetam o `:first-child` de que a folha depende e custam ZERO layout.
+   E sem `pointer-events: none` são 22px MORTOS no topo e na base — MEDIDO, o
+   `elementFromPoint` devolve o scroller em vez da linha, exatamente onde o
+   cabeçalho grudento vive e onde o último item repousa. Com ele, o toque chega
+   na `.row` (medido nos dois extremos do Cronograma). */
+.rola::before,
+.rola::after {
   content: ''; display: block; flex: none;
   position: sticky; z-index: 2;
-  height: var(--lib-fade-h);
+  height: var(--veu-h);
   pointer-events: none;
-  -webkit-backdrop-filter: blur(5px);
-          backdrop-filter: blur(5px);
 }
-/* Rente à borda porque o `padding-top` do scroller é ZERO desde a v1.5.15 — sem
-   isso a tira pararia no topo do CONTEÚDO, o mesmo defeito que aquele lote
-   corrigiu para as tampas. A máscara faz o borrão MORRER para dentro da lista,
-   em vez de terminar num degrau. */
-.popup-backdrop--lib.open #hymnResults::before {
+.rola::before {
   top: 0;
-  margin-bottom: calc(-1 * var(--lib-fade-h) - var(--sp-5));
-  -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
-          mask-image: linear-gradient(to bottom, #000, transparent);
+  margin-bottom: calc(-1 * (var(--veu-h) + var(--veu-vao, 0px)));
+  background: linear-gradient(to bottom, var(--sombra-rolagem), transparent);
 }
-/* O `bottom` COMPENSA o recuo do scroller: o bloco contêiner de um item flex é
-   o CONTENT box, e o padding fica fora dele. MEDIDO com `bottom: 0`, a tira
-   pousava 13px acima da borda. A de cima não tem esse problema porque o
-   `padding-top` é zero. */
-.popup-backdrop--lib.open #hymnResults::after {
-  bottom: calc(-1 * var(--lib-lista-base));
-  margin-top: calc(-1 * var(--lib-fade-h) - var(--sp-5));
-  -webkit-mask-image: linear-gradient(to top, #000, transparent);
-          mask-image: linear-gradient(to top, #000, transparent);
+.rola::after {
+  bottom: calc(-1 * var(--veu-base, 0px));
+  margin-top: calc(-1 * (var(--veu-h) + var(--veu-vao, 0px)));
+  background: linear-gradient(to top, var(--sombra-rolagem), transparent);
 }
-/* NOS EXTREMOS ELE NÃO EXISTE, e as classes vêm do JS (`acertarVeuDaLista`).
-   O SELETOR REPETE `.popup-backdrop--lib.open` de propósito: sem ele esta regra
-   é (1,1,0) contra os (1,2,0) da que liga o véu, e o `display: none` PERDE —
-   MEDIDO, o véu ficava aceso no topo da lista, que é exatamente o estado em que
-   ele mente. O mesmo vale para o `@supports` logo abaixo.
-   No topo da lista não há nada escondido acima, e um borrão sobre a primeira
-   linha seria o app dizendo que há mais quando não há. `display: none` e não
-   `opacity: 0`: com opacidade zero a tira continua compondo, e o custo desta
-   peça é o argumento inteiro dela. */
-.popup-backdrop--lib.open #hymnResults:not(.tem-acima)::before,
-.popup-backdrop--lib.open #hymnResults:not(.tem-abaixo)::after { display: none; }
-/* A MESMA SAÍDA DO `.simple-veil`: sem `backdrop-filter` não há véu nenhum, e
-   isso é falhar ABERTO — o que sobra é a Biblioteca de antes deste lote. */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .popup-backdrop--lib.open #hymnResults::before,
-  .popup-backdrop--lib.open #hymnResults::after { display: none; }
-}
+/* NOS EXTREMOS ELA NÃO EXISTE, e as classes vêm do JS (`acertarVeus`). No topo
+   da lista não há nada escondido acima, e uma sombra sobre a primeira linha
+   seria o app dizendo que há mais quando não há. `display: none` e não
+   `opacity: 0`: com opacidade zero a tira continua compondo. */
+.rola:not(.tem-acima)::before,
+.rola:not(.tem-abaixo)::after { display: none; }
+
+/* AS DUAS MEDIDAS SÃO DERIVADAS, E NÃO DECLARADAS — a razão é uma medição
+   deste lote. Elas nasceram como uma tabela de catorze linhas escrita à mão
+   (`#library { --veu-vao: var(--sp-3); … }`), e MEDIDO contra o app real
+   **quatro das catorze estavam erradas**: o `gap` do auxiliar de leitura é
+   19,26px e a tabela dizia 8px. Pior, o `scrollHeight` NÃO acusou — aquelas
+   listas não estavam transbordando no cenário, e o erro só apareceria em uso,
+   como rolagem fantasma no fim de uma lista cheia.
+   Quem sabe os dois números é o navegador, e é dele que o `acertarVeus` os lê
+   (`getComputedStyle` → `--veu-vao`/`--veu-base` no próprio elemento). Uma
+   tabela que repete o que o layout já resolveu é uma transcrição, e transcrição
+   erra — esta errou em 29% das linhas na primeira escrita. */
+
+/* ---------- QUEM FICA DE FORA, E POR QUÊ ----------
+   Um pseudo-elemento de um contêiner de GRADE **é um item dela**: a tira toma a
+   primeira célula e empurra o conteúdo uma casa. MEDIDO no `#simpleLyrics` com
+   a letra virada apresentação (`.lv-grade`, duas colunas): a página 1 do deck
+   ia **188px para a segunda coluna**, no meio do culto. A `.bible-grid--books`
+   é o segundo caso.
+   `sem-veu` NÃO é um seletor de nome — é o veredito do `display` COMPUTADO,
+   reescrito a cada passada do `acertarVeus`. Uma lista de nomes aqui seria a
+   lista que se esquece de crescer, e ela envelheceria calada nos dois sentidos:
+   um scroller que VIRA grade em runtime (que é exatamente o `#simpleLyrics`) e
+   um que deixa de ser. */
+.rola.sem-veu::before,
+.rola.sem-veu::after { display: none; }
+
 /* ---------- E A LISTA DE UM AGRUPAMENTO DA RAIZ POUSA NUMA PLACA (v1.5.15) ---
    Relato do operador sobre a v1.5.14: *"isso era pra ser assim? fundo azul nos
    itens do provai e vede? e etc...?"*.

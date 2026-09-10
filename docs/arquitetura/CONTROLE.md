@@ -4601,32 +4601,32 @@ O que apertou foram as DUAS barras — `padding` de `.55rem` para `.35rem`, e
   bloco nenhum; a 360×740 (24px, 420px) ele vai de 6 para 7. Com 9 blocos, os
   dois continuam rolando.
 
-**O VÉU DA BORDA** responde à outra metade do relato — *"um efeito de blur na
+**O VÉU DA BORDA** respondeu à outra metade do relato — *"um efeito de blur na
 borda interna superior ou inferior, quando algum elemento da tela ir para debaixo
-dessa borda"*. São dois pseudo-elementos `position: sticky` DENTRO do scroller
-(`#hymnResults::before` / `::after`), com `backdrop-filter: blur(5px)` e uma
-`mask-image` esmaecendo para transparente.
+dessa borda"*. São dois pseudo-elementos `position: sticky` DENTRO do scroller.
 
-- **BLUR e não gradiente, porque não existe cor certa para o véu.** A alternância
-  papel → poço → papel põe DUAS superfícies sob a mesma borda, e um gradiente
-  teria de escolher uma delas. Blur é agnóstico de cor: MEDIDO, −60% de nitidez
-  nos dois temas.
+**ELE DEIXOU DE SER DESTA LISTA NA v1.8.58**, quando o operador pediu o mesmo
+efeito em todo scroller do app (*"Faça esse o padrão de efeito para os
+scrolls"*) e escolheu o mecanismo (*"sombra de verdade"*). O que valia aqui e
+continua valendo está no `CLAUDE.md`, na seção da paleta; o que era próprio
+desta lista é só o degrau de camadas abaixo. **O `backdrop-filter` saiu** — era
+ele, e o custo dele, que prendia o efeito a um scroller só.
+
 - **Dentro do scroller e a `z-index: 2`, é o que o faz sumir sozinho sob uma
   tampa grudada** — as tampas são opacas e moram acima (z 3 e 4). Medido em
   131/131 amostras com uma coleção aberta, e em 250/250 de conteúdo cru na lista
   plana da busca.
 - **Ele só existe quando MENTIRIA ao não existir.** `.tem-acima`/`.tem-abaixo`
-  saem de um ouvinte de `scroll` com `requestAnimationFrame`, reafirmados em todo
-  ponto que muda a lista (abrir a Biblioteca, redesenhar as coleções, redesenhar
-  a busca, o teclado subindo). E as regras que o DESLIGAM repetem
-  `.popup-backdrop--lib.open` — sem isso a especificidade (1,1,0 contra 1,2,0)
-  deixava o véu aceso no topo da lista, exatamente onde ele mente.
-- **Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a
-  máscara sem o borrão — seria uma sombra sem causa.
-- **O véu de baixo ANULA o recuo da lista** (`bottom: calc(-1 *
-  var(--lib-lista-base))`), e é por isso que aquele recuo virou token: sem a
-  anulação ele gruda acima do recuo e deixa uma faixa de conteúdo nítido embaixo
-  de si — um defeito que só aparece num aparelho com barra de gestos.
+  saem de um ouvinte de `scroll` em CAPTURA no `document` (um só para todos os
+  scrollers) e de um `MutationObserver` do documento inteiro, os dois
+  coalescidos por quadro. As regras que o DESLIGAM já não repetem
+  `.popup-backdrop--lib.open`: com o seletor genérico (`.rola:not(.tem-acima)`)
+  não há a disputa de especificidade que uma vez deixou o véu aceso no topo da
+  lista, exatamente onde ele mente.
+- **O véu de baixo ANULA o recuo da lista**, e é por isso que aquele recuo virou
+  token: sem a anulação ele gruda acima do recuo e deixa uma faixa de conteúdo
+  embaixo de si — um defeito que só aparece num aparelho com barra de gestos.
+  Desde a v1.8.58 o número é LIDO do layout (`--veu-base`), não declarado.
 
 #### A divisória entre faixas IRMÃS (v1.5.16)
 

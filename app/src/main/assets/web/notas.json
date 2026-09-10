@@ -1,19 +1,27 @@
 [
   {
+    "versao": "1.8.58",
+    "itens": [
+      "Toda lista que rola agora mostra uma sombra na borda por onde o conteúdo passa.",
+      "Ela diz que há mais itens acima ou abaixo, e some quando você chega no fim.",
+      "Vale no Cronograma, na playlist, na Biblioteca, nas Ferramentas e na Bíblia."
+    ]
+  },
+  {
     "versao": "1.8.57",
     "itens": [
-      "Os bot\u00f5es de adicionar ao Cronograma e aos favoritos agora s\u00e3o quadrados em todo o app.",
-      "Eles saíam em tr\u00eas alturas diferentes conforme a janela; agora t\u00eam uma medida s\u00f3.",
-      "Vale na playlist autom\u00e1tica, no rodap\u00e9 da fila, na gaveta de um item e na B\u00edblia."
+      "Os botões de adicionar ao Cronograma e aos favoritos agora são quadrados em todo o app.",
+      "Eles saíam em três alturas diferentes conforme a janela; agora têm uma medida só.",
+      "Vale na playlist automática, no rodapé da fila, na gaveta de um item e na Bíblia."
     ]
   },
   {
     "versao": "1.8.56",
     "itens": [
-      "O \u2713 de v\u00eddeo baixado e o \u0022Completa offline\u0022 da B\u00edblia agora s\u00e3o azuis, como toda conclus\u00e3o.",
-      "A playlist autom\u00e1tica ganhou os bot\u00f5es de Cronograma, playlist e favoritos.",
-      "Eles valem nos dois modos: sorteando uma m\u00fasica s\u00f3 e montando a playlist inteira.",
-      "Sortear e mandar \u00e0 playlist acrescenta no fim da fila, sem trocar o que j\u00e1 estava.",
+      "O ✓ de vídeo baixado e o \"Completa offline\" da Bíblia agora são azuis, como toda conclusão.",
+      "A playlist automática ganhou os botões de Cronograma, playlist e favoritos.",
+      "Eles valem nos dois modos: sorteando uma música só e montando a playlist inteira.",
+      "Sortear e mandar à playlist acrescenta no fim da fila, sem trocar o que já estava.",
       "Cronograma, playlist e favoritos agora aparecem nessa ordem em todo o app."
     ]
   },
@@ -24,13 +32,13 @@
       "O contador de itens da playlist virou um botão quadrado, igual ao de fechar ao lado.",
       "A confirmação de uma ação agora é sempre azul, em todo o app — nada mais em verde.",
       "Favoritar e desfavoritar respondiam em cores diferentes; agora respondem igual.",
-      "O \u0022já estava na lista\u0022 continua em âmbar e a falha em vermelho: são outras mensagens."
+      "O \"já estava na lista\" continua em âmbar e a falha em vermelho: são outras mensagens."
     ]
   },
   {
     "versao": "1.8.54",
     "itens": [
-      "A confirmação do limpar agora diz \u0022Confirmar\u0022, em vez de repetir \u0022Limpar\u0022.",
+      "A confirmação do limpar agora diz \"Confirmar\", em vez de repetir \"Limpar\".",
       "Guardar a fila virou dois botões: nos Favoritos (estrela) ou no Cronograma (relógio).",
       "São os mesmos dois ícones que cada item já tem na gaveta dele.",
       "Esvaziar a playlist agora fecha a janela dela — não há mais nada para ver ali.",
@@ -40,20 +48,20 @@
   {
     "versao": "1.8.53",
     "itens": [
-      "Os dois botões do rodapé da playlist ficaram lado a lado: \u0022Limpar\u0022 e \u0022Guardar\u0022.",
+      "Os dois botões do rodapé da playlist ficaram lado a lado: \"Limpar\" e \"Guardar\".",
       "Os rótulos encolheram para caber — o que cada um faz por inteiro está no toque longo e na leitura de tela.",
-      "O \u0022Guardar\u0022 agora fica apagado com menos de duas mídias na fila: não dá para empacotar uma só.",
-      "Ao perguntar \u0022limpar?\u0022, a pergunta ocupa a faixa inteira — os dois botões de resposta ficam maiores.",
-      "E o \u0022Limpar\u0022 passou a afundar ao toque, como todos os outros botões do app."
+      "O \"Guardar\" agora fica apagado com menos de duas mídias na fila: não dá para empacotar uma só.",
+      "Ao perguntar \"limpar?\", a pergunta ocupa a faixa inteira — os dois botões de resposta ficam maiores.",
+      "E o \"Limpar\" passou a afundar ao toque, como todos os outros botões do app."
     ]
   },
   {
     "versao": "1.8.52",
     "itens": [
-      "Excluir o último item da fila agora encerra a cena de verdade: o controle volta para \u0022nada em exibição\u0022.",
+      "Excluir o último item da fila agora encerra a cena de verdade: o controle volta para \"nada em exibição\".",
       "Com outros itens na fila nada muda — tirar um item de uma sequência que continua não para o louvor.",
       "E nada é apagado: o arquivo continua no aparelho e volta pelo Histórico.",
-      "O \u0022Limpar\u0022 da folha da playlist responde igual, e o aviso dele passou a dizer isso.",
+      "O \"Limpar\" da folha da playlist responde igual, e o aviso dele passou a dizer isso.",
       "Uma faixa que terminava sem fila voltava ao telão numa queda de conexão. Não volta mais.",
       "No site: o carrossel dos prints começa e termina no centro da tela.",
       "E a barra de rolagem dele saiu — quem diz onde você está são os pontos.",
@@ -64,11 +72,11 @@
   {
     "versao": "1.8.51",
     "itens": [
-      "O rodapé das Configurações respira, e os dois botões agora dizem o que fazem: \u0022Registro\u0022 e \u0022Pedir ajuda\u0022.",
-      "O \u0022Pedir ajuda\u0022 virou um botão sólido — a versão encolheu para \u0022v1.8.51\u0022 e abriu espaço.",
+      "O rodapé das Configurações respira, e os dois botões agora dizem o que fazem: \"Registro\" e \"Pedir ajuda\".",
+      "O \"Pedir ajuda\" virou um botão sólido — a versão encolheu para \"v1.8.51\" e abriu espaço.",
       "No site: os cartões pararam de sobrar espaço e o texto encolheu.",
       "E o carrossel dos prints anda por etapas, com pontos indicando onde você está.",
-      "Conectar um computador passou a se chamar assim em todo lugar, em vez de \u0022telas da rede\u0022.",
+      "Conectar um computador passou a se chamar assim em todo lugar, em vez de \"telas da rede\".",
       "O botão da playlist apaga com a fila vazia, e o de próxima mídia quando não há fila.",
       "Sem fila, o botão de mídia anterior recomeça o que está no ar.",
       "Os botões de passar slide ganharam setas simples, para não se confundirem com os de mídia."
@@ -82,7 +90,7 @@
       "Com a mídia parada, os botões de slide ficam apagados — antes eles aceitavam toques que reapareciam na música seguinte.",
       "Botões sem função ficam apagados: anterior/próximo com a fila vazia, e o Parar sem nada no ar.",
       "A lixeira da confirmação perdeu o vermelho, que agora é só do botão que apaga.",
-      "Na fila, o confirmar diz \u0022Remover\u0022 em vez de \u0022Tirar\u0022."
+      "Na fila, o confirmar diz \"Remover\" em vez de \"Tirar\"."
     ]
   },
   {

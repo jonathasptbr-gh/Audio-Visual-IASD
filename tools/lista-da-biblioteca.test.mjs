@@ -547,10 +547,15 @@ try {
   // C · O VÉU DAS BORDAS DO SCROLLER
   // ======================================================================
   //
-  // Duas tiras `sticky` de 22px em `z-index: 2`, com `backdrop-filter`, ligadas
-  // por `tem-acima`/`tem-abaixo`. Elas ficam ACIMA do conteúdo e ABAIXO das
-  // tampas grudadas (z 3 e 4) — e é esse degrau que faz o véu calar-se
-  // exatamente onde já há uma tampa respondendo.
+  // Duas tiras `sticky` de 22px em `z-index: 2`, ligadas por
+  // `tem-acima`/`tem-abaixo`. Elas ficam ACIMA do conteúdo e ABAIXO das tampas
+  // grudadas (z 3 e 4) — e é esse degrau que faz a sombra calar-se exatamente
+  // onde já há uma tampa respondendo.
+  // (A tinta é `linear-gradient` desde a v1.8.58, quando o efeito deixou de ser
+  //  desta lista e virou o padrão de TODO scroller do app; o `backdrop-filter`
+  //  da v1.5.16 saiu com o argumento de custo que o prendia aqui. Este bloco
+  //  mede a GEOMETRIA e o degrau de camadas, que não mudaram — quem guarda a
+  //  tinta é o `sombra-de-rolagem.test.mjs`.)
   const rolarPara = async (quanto) => {
     const alvo = await pg.evaluate((q) => {
       const el = document.getElementById('hymnResults');
@@ -713,7 +718,8 @@ try {
   // do `bottom` aprova qualquer leitura que se queira fazer dela.
   //
   // O marcador troca só a TINTA da tira (fundo opaco, sem máscara e sem
-  // desfoque): nenhuma dessas propriedades move a caixa, e é a caixa que se
+  // desfoque — os dois últimos são desligados por precaução, não porque a regra
+  // ainda os use): nenhuma dessas propriedades move a caixa, e é a caixa que se
   // mede.
   await rolarPara(600);
   await esperarVeu(true, true, 'C6 · a lista está rolada, com a tira de baixo no ar');
