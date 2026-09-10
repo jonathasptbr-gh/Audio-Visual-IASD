@@ -998,7 +998,12 @@ try {
   checar(guardaNaoCobre === 'wallpaper',
     '"Ao Cronograma" não mexe na cortina — ele guarda, não projeta', guardaNaoCobre);
 
-  // A NOTA aparece SÓ com o fundo musical escolhido: é quando a pergunta existe.
+  // A NOTA SAIU (v1.8.62), e esta metade guarda que ela não volte. Pedido do
+  // operador: *"pode remover o comentário sobre a função de cantada e fundo
+  // musical… é auto explicativo"*. Ela nasceu na v5.311 explicando o que cada
+  // variante faz com o telão, e a v1.8.61 a escreveu nos DOIS estados para
+  // fechar um dos quatro motores do pulo da folha — com ela fora, o motor
+  // morreu junto.
   //
   // E o RÓTULO do segmento é medido junto (v5.313). Na folha de UMA música
   // "Playback" nomeia o ARQUIVO (a gravação sem voz, ao lado da cantada); aqui
@@ -1018,17 +1023,12 @@ try {
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA; fecharSorteio();
     return { cantada, texto, segs, valor: AVSorteio.VARIANTE_PLAYBACK };
   });
-  // A NOTA EXISTE NOS DOIS ESTADOS desde a v1.8.61, e a asserção trocou de
-  // sentido junto. Ela aparecia SÓ no fundo musical, e essa condição era o
-  // TERCEIRO motor do pulo da folha: MEDIDO, +39,1px ao trocar de segmento, com
-  // os botões de fecho subindo e descendo embaixo do dedo. O que ela afirma —
-  // *"isto vai aparecer no telão?"* — é uma pergunta legítima sobre a cantada
-  // também, e a resposta dela é o OPOSTO; escrever as duas é informação que
-  // faltava, não enchimento.
-  checar(/fundo musical/i.test(nota.texto) && /telão/i.test(nota.texto)
-      && /cantada/i.test(nota.cantada) && /telão/i.test(nota.cantada),
-    'a folha ANUNCIA o que cada variante faz com o TELÃO, nos DOIS estados — e é '
-    + 'por isso que ela deixou de mudar de altura ao trocar de segmento', nota);
+  // NENHUM DOS DOIS ESTADOS TEM NOTA (v1.8.62). A asserção é nos DOIS porque a
+  // versão anterior a desenhava só num deles — medir um estado só aprovaria
+  // metade da remoção, que é exatamente a forma do defeito que ela substitui.
+  checar(nota.texto === '' && nota.cantada === '',
+    'a folha NÃO explica o segmento: os dois rótulos se bastam, e a nota saiu a '
+    + 'pedido do operador', nota);
   checar(nota.segs.some((t) => /^Fundo musical$/i.test(t)) && !nota.segs.some((t) => /playback/i.test(t)),
     'o segmento diz "Fundo musical" — o PROPÓSITO da fila, não o nome do arquivo', nota.segs);
   checar(nota.valor === 'playback',

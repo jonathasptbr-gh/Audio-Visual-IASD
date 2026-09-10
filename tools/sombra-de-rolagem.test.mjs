@@ -487,20 +487,17 @@ try {
         return { padTop: r.top + parseFloat(c.borderTopWidth),
           padLeft: r.left + parseFloat(c.borderLeftWidth),
           padRight: r.right - parseFloat(c.borderRightWidth),
-          // A BORDA DE BAIXO É A FRONTEIRA VISÍVEL (v1.8.61): no Cronograma as
-          // três portas flutuam sobre a lista e a caixa dela corre por baixo,
-          // então a tira de baixo pousa no TOPO DAS PORTAS de propósito — medir
-          // contra `r.bottom` ali cobraria dela um lugar onde ela estaria
-          // escondida. Nos outros scrollers não há rodapé flutuante e os dois
-          // números coincidem.
-          padBottom: (() => {
-            const base = r.bottom - parseFloat(c.borderBottomWidth);
-            const foot = el.parentElement
-              && el.parentElement.querySelector(':scope > #listFoot:not([hidden])');
-            if (!foot) return base;
-            const fr = foot.getBoundingClientRect();
-            return fr.top < base ? fr.top : base;
-          })(),
+          // A BORDA DE BAIXO VOLTOU A SER A DA CAIXA (v1.8.62, revogando a
+          // v1.8.61). Aquele lote descontou a altura das portas daqui porque a
+          // regra do app descontava a mesma coisa da tira; o operador pediu o
+          // contrário — a tira na fronteira, com as portas POR CIMA dela —, e
+          // esta medida acompanha a do app. O que muda junto é a COLUNA do
+          // rastreio (ver `flutua`, abaixo): no meio da tela a tira agora está
+          // atrás de tinta opaca, e procurá-la ali acharia a tira DE CIMA.
+          padBottom: r.bottom - parseFloat(c.borderBottomWidth),
+          // Há rodapé FLUTUANTE sobre este scroller?
+          flutua: !!(el.parentElement
+            && el.parentElement.querySelector(':scope > #listFoot:not([hidden])')),
           recuoTopo: parseFloat(c.paddingTop), recuoEsq: parseFloat(c.paddingLeft),
           transborda: el.scrollHeight - el.clientHeight > 2,
           extraX: el.scrollWidth - el.clientWidth };
@@ -509,12 +506,18 @@ try {
       const img = lerPng(await pg.screenshot());
       const mag = (c) => !!c && c[0] > 200 && c[1] < 80 && c[2] > 200;
       const xm = Math.round((cx.padLeft + cx.padRight) / 2);
+      // A COLUNA DE BAIXO NÃO É A DO MEIO ONDE HÁ RODAPÉ FLUTUANTE (v1.8.62):
+      // as três portas são OPACAS e pintam acima da tira, então no meio da tela
+      // não há magenta nenhum a achar — o rastreio de baixo para cima cairia na
+      // tira DE CIMA e devolveria um "vão" de 500px. A moldura de 12,8px que
+      // elas não cobrem é onde a tira sobrevive, e é lá que ela é medida.
+      const xb = cx.flutua ? Math.round(cx.padLeft) + 2 : xm;
       let topo = null, fundo = null, esq = null, dir = null;
       for (let y = Math.floor(cx.padTop) - 6; y < Math.ceil(cx.padBottom) + 6; y++) {
         if (mag(pixel(img, xm, y))) { topo = y; break; }
       }
       for (let y = Math.ceil(cx.padBottom) + 6; y > Math.floor(cx.padTop) - 6; y--) {
-        if (mag(pixel(img, xm, y))) { fundo = y; break; }
+        if (mag(pixel(img, xb, y))) { fundo = y; break; }
       }
       if (topo != null) {
         const yy = topo + 6;
@@ -1230,6 +1233,14 @@ try {
         .getBoundingClientRect().height.toFixed(1);
       const rodape = () => +document.querySelector('#sorteioPopup .popup-fecho')
         .getBoundingClientRect().top.toFixed(1);
+      // O RÓTULO DO PRIMÁRIO, medido nas MESMAS células (v1.8.62): ele é um só
+      // ("Tocar agora") e a pergunta é se ele CABE — o par curto que ele
+      // substitui existia por causa da largura.
+      const rotulo = () => {
+        const el = document.querySelector('#sorteioPopup .song-menu-go .song-menu-label');
+        return { txt: el.textContent, corta: el.scrollWidth > el.clientWidth + 0.5 };
+      };
+      const rotulos = [];
       const porEscala = {};
       for (const fs of [16, 20.8, 24]) {
         document.documentElement.style.fontSize = fs + 'px';
@@ -1237,10 +1248,12 @@ try {
         for (const q of AVSorteio.QUANTIDADES) {
           sorteioPrefs.quantos = q; renderSorteio(); await z(90);
           alturas.push(folha()); topos.push(rodape());
+          rotulos.push({ fs, ...rotulo() });
         }
         for (const v of [AVSorteio.VARIANTE_CANTADA, AVSorteio.VARIANTE_PLAYBACK]) {
           sorteioPrefs.variante = v; renderSorteio(); await z(90);
           alturas.push(folha()); topos.push(rodape());
+          rotulos.push({ fs, ...rotulo() });
         }
         // E A PALAVRA TEMA, que é o QUARTO motor: a conta troca de frase a cada
         // tecla, e a 320px ela vai a TRÊS linhas sem palavra nenhuma. O
@@ -1250,6 +1263,7 @@ try {
         for (const t of ['', 'natal', 'zzzznadaaqui']) {
           sorteioPrefs.tema = t; renderSorteio(); await z(90);
           alturas.push(folha()); topos.push(rodape());
+          rotulos.push({ fs, ...rotulo() });
         }
         sorteioPrefs.tema = '';
         porEscala[fs] = { folha: +(Math.max(...alturas) - Math.min(...alturas)).toFixed(2),
@@ -1260,7 +1274,7 @@ try {
       const fecho = document.querySelector('#sorteioPopup .popup-fecho');
       const bs = [...fecho.querySelectorAll('button')]
         .map((b) => +b.getBoundingClientRect().height.toFixed(1));
-      return { porEscala, alturasBotoes: bs, n: bs.length };
+      return { porEscala, alturasBotoes: bs, n: bs.length, rotulos };
     });
     const piores = Object.values(r.porEscala);
     checar(piores.every((p) => p.folha <= 1 && p.rodape <= 1),
@@ -1273,6 +1287,140 @@ try {
       + 'o primário tinha CINCO alturas diferentes conforme a fonte e o rótulo, '
       + 'contra os 42,4px fixos dos quadrados',
       JSON.stringify(r.alturasBotoes));
+    // ── O RÓTULO É UM SÓ, E CABE (v1.8.62) ────────────────────────────────
+    //
+    // Pedido do operador: *"ajuste o botão de 'sortear' e 'tocar' para que seja
+    // uma única versão, pois literalmente faz a mesma coisa 'Tocar agora'"*. O
+    // par `fila ? 'Tocar' : 'Sortear'` dizia com duas palavras o que o campo
+    // "Quantas" logo acima já diz com um número.
+    const nomes = [...new Set(r.rotulos.map((x) => x.txt))];
+    checar(nomes.length === 1 && nomes[0] === 'Tocar agora',
+      'S · ' + w + 'px: o primário tem UM rótulo só em todas as ' + r.rotulos.length
+      + ' células — "Tocar agora", o mesmo verbo da faixa de fecho de uma mídia '
+      + 'comum', JSON.stringify(nomes));
+    // ELE É MAIOR QUE O PAR QUE SUBSTITUI, e por isso a asserção é de LARGURA e
+    // não de texto. MEDIDO: 95px a 1×, 123 a 1,3× e 142 a 1,5×, contra os 121,8
+    // que sobram ao primário a 320×1,3 — o limite fica declarado, e ele é o
+    // MESMO 320px que a v1.8.61 já declarava para "Sortear", um degrau de fonte
+    // abaixo. Foi para 390 e 430 caberem nas três escalas que o recuo
+    // horizontal do primário saiu (ver a regra da faixa com irmãos).
+    const cortadas = r.rotulos.filter((x) => x.corta);
+    if (w >= 390) {
+      checar(cortadas.length === 0,
+        'S · ' + w + 'px: e ele NÃO reticencia em nenhuma das ' + r.rotulos.length
+        + ' células, nas TRÊS escalas de fonte do sistema — media 11 a 1,5×',
+        JSON.stringify(cortadas.slice(0, 3)));
+    } else {
+      checar(cortadas.every((x) => x.fs > 16),
+        'S · ' + w + 'px: ele cabe inteiro com a fonte do sistema em 1× — acima '
+        + 'dela os três quadrados crescem com a raiz e o rótulo reticencia, que é '
+        + 'o limite DECLARADO desta largura', JSON.stringify(cortadas.map((x) => x.fs)));
+    }
+    await ctx.close();
+  }
+
+  // ── T. AS PORTAS SÃO O DENIM CHEIO, E CADA UMA TEM SOMBRA PRÓPRIA (v1.8.62) ─
+  //
+  // Pedido do operador, em duas metades: *"quero eles em azul, o mesmo azul de
+  // ativado dos botões das configurações, cuide que eles lá são semi
+  // transparentes, mas aqui devem ser sólidos"* e *"coloque sombra individual
+  // para cada botão, para aumentar a sensação de sobreposição desses botões"*.
+  //
+  // TRÊS ASSERÇÕES, e a terceira é de PIXEL porque a sombra é a única das três
+  // que a folha de estilo não prova: `box-shadow` declarado é `box-shadow`
+  // declarado, e um valor com a DIREÇÃO errada (a do resto do app, para baixo)
+  // cairia inteiro fora da tela — abaixo das portas está a fronteira com os
+  // controles, e não há um pixel para escurecer.
+  for (const tema of ['dark', 'light']) {
+    const ctx = await navegador.newContext({
+      viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: tema,
+    });
+    await semRedeExterna(ctx);
+    const pg = await ctx.newPage();
+    await pg.goto(base, { waitUntil: 'load' });
+    await esperarCortina(pg);
+    const r = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      setAppMode('full'); await z(150);
+      for (let i = 0; i < 40; i++) {
+        await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
+          { name: 'Louvor ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      }
+      await load(); await z(400);
+      const lib = document.getElementById('library');
+      lib.scrollTop = 200; await z(400);
+      const foot = document.getElementById('listFoot');
+      const portas = [...foot.querySelectorAll('.lib-foot-btn, .import-btn, .tools-btn')];
+      const raiz = getComputedStyle(document.documentElement);
+      const corpo = document.querySelector('.list-body').getBoundingClientRect();
+      const meio = portas[1].getBoundingClientRect();
+      return {
+        n: portas.length,
+        token: raiz.getPropertyValue('--surface-porta').trim(),
+        fundos: [...new Set(portas.map((b) => getComputedStyle(b).backgroundColor))],
+        tracos: [...new Set(portas.map((b) => getComputedStyle(b).color))],
+        sombras: [...new Set(portas.map((b) => getComputedStyle(b).boxShadow))],
+        // A tira e a fronteira, para a asserção U.
+        tiraBase: getComputedStyle(lib, '::after').bottom,
+        tiraAlt: getComputedStyle(lib, '::after').height,
+        temAbaixo: lib.classList.contains('tem-abaixo'),
+        corpoBottom: +corpo.bottom.toFixed(1),
+        libBottom: +lib.getBoundingClientRect().bottom.toFixed(1),
+        meio: [Math.round(meio.left), Math.round(meio.top), Math.round(meio.right)],
+      };
+    });
+    const rgb = (c) => c.match(/\d+/g).slice(0, 3).map(Number);
+    const contraste = (a, b) => {
+      const [x, y] = [luminancia(rgb(a)), luminancia(rgb(b))].sort((p, q) => q - p);
+      return +((x + 0.05) / (y + 0.05)).toFixed(2);
+    };
+    // O DENIM É O MESMO NOS DOIS TEMAS, e é de propósito: ele É a identidade
+    // (PMS 302), o mesmo valor do `--accent-fill`. A asserção é pelo VALOR e não
+    // pelo nome do token porque o que o operador vê é a tinta.
+    checar(r.n === 3 && r.token === '#2f557f' && r.fundos.length === 1
+      && rgb(r.fundos[0]).join(',') === '47,85,127',
+      'T · ' + tema + ': as TRÊS portas vestem o denim CHEIO (#2f557f), o mesmo '
+      + 'valor nos dois temas — o azul de "ativado" das Configurações é ele '
+      + 'LAVADO, e o pedido foi o sólido', JSON.stringify(r.fundos) + ' · ' + r.token);
+    checar(r.tracos.length === 1 && contraste(r.fundos[0], r.tracos[0]) >= 4.5,
+      'T · ' + tema + ': e o traço é o par declarado do denim (`--on-accent`), '
+      + 'com ' + contraste(r.fundos[0], r.tracos[0]) + ':1 — o `--accent` que '
+      + 'morava nas duas regras de baixo mede 2,05:1 sobre ele',
+      JSON.stringify(r.tracos));
+    // A SOMBRA, POR PIXEL: ela tem de ESCURECER a faixa logo ACIMA da porta.
+    const img = lerPng(await pg.screenshot());
+    const xm = Math.round((r.meio[0] + r.meio[2]) / 2);
+    const base0 = luminancia(pixel(img, xm, r.meio[1] - 18));
+    const perto = luminancia(pixel(img, xm, r.meio[1] - 2));
+    checar(r.sombras.length === 1 && /-2px 8px/.test(r.sombras[0]) && perto < base0,
+      'T · ' + tema + ': cada porta tem a PRÓPRIA sombra, e ela aponta para CIMA '
+      + '— é lá que está o que elas cobrem. Medido no meio da porta do meio: '
+      + perto.toFixed(4) + ' colado nela contra ' + base0.toFixed(4) + ' a 18px',
+      JSON.stringify(r.sombras));
+
+    // ── U. E A TIRA VOLTOU PARA A FRONTEIRA, COM AS PORTAS POR CIMA (v1.8.62) ─
+    //
+    // *"você colocou a sombra de corte do scroll acima desses botões, mas ela
+    // deve ficar abaixo, na borda com os controles/barra de busca. assim os
+    // botões flutuantes ficam sobre a sombra"* — a revogação da v1.8.61.
+    //
+    // A ASSERÇÃO É GEOMÉTRICA E DE PIXEL, e as duas juntas: o `bottom` provar
+    // que a regra saiu não prova que a tira aparece, e é nos dois cotos de
+    // 12,8px da moldura que ela sobrevive às portas opacas.
+    const fim = Math.round(r.corpoBottom);
+    const pertoDaBorda = luminancia(pixel(img, 2, fim - 2));
+    const acimaDaTira = luminancia(pixel(img, 2, fim - 30));
+    checar(r.temAbaixo && r.tiraBase === '-61.2px' && parseFloat(r.tiraAlt) === 22
+      && Math.abs(r.libBottom - r.corpoBottom) <= 1,
+      'U · ' + tema + ': a tira pousa no PADDING BOX (bottom -61,2px = o recuo '
+      + 'lido), que desde a v1.8.61 vai até a fronteira com os controles — sem a '
+      + 'regra que a descontava da altura das portas',
+      JSON.stringify({ tiraBase: r.tiraBase, corpoBottom: r.corpoBottom, libBottom: r.libBottom }));
+    checar(pertoDaBorda < acimaDaTira,
+      'U · ' + tema + ': e ela APARECE, na moldura de 12,8px que as portas não '
+      + 'cobrem — ' + pertoDaBorda.toFixed(4) + ' a 2px da fronteira contra '
+      + acimaDaTira.toFixed(4) + ' acima dela',
+      JSON.stringify({ pertoDaBorda, acimaDaTira }));
     await ctx.close();
   }
 

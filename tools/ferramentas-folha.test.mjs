@@ -431,12 +431,19 @@ try {
     'na raiz, o toque seguinte FECHA a folha — e continua consumindo o gesto, que '
     + 'é o que impede o app de minimizar no meio do culto', JSON.stringify(subida));
 
-  // ── 9. AS TRÊS PORTAS DO RODAPÉ FICAM QUIETAS (v1.5.19) ─────────────────
+  // ── 9. AS TRÊS PORTAS DO RODAPÉ SÃO IGUAIS ENTRE SI (v1.5.19) ───────────
   //
-  // Pedido do operador: *"padronize os botões de biblia, importar e ferramentas
-  // da aba de cronograma, para que tenham uma cor mais proxima a cor de fundo,
-  // para que não se destaquem … preciso que sejam opções discretas, mescladas
-  // ao fundo."*
+  // Pedido do operador que criou o bloco: *"padronize os botões de biblia,
+  // importar e ferramentas da aba de cronograma, para que tenham uma cor mais
+  // proxima a cor de fundo, para que não se destaquem … preciso que sejam
+  // opções discretas, mescladas ao fundo."*
+  //
+  // **A METADE "DISCRETAS" FOI REVOGADA PELO OPERADOR na v1.8.62**, e a nova
+  // vale por extenso: *"quero eles em azul, o mesmo azul de ativado dos botões
+  // das configurações … mas aqui devem ser sólidos"*. Uma porta em denim cheio é
+  // o OPOSTO de mesclada ao fundo, e o bloco 9-B mudou de sinal para dizer isso
+  // (ver lá). O que sobrevive intacto é a metade "padronize" — as três pintam a
+  // MESMA cor —, que é o 9-A e continua sendo o que morde.
   //
   // Este arquivo já era o dono das TRÊS PORTAS (o bloco 1 trava que elas são
   // três e a ordem delas), e é por isso que o desenho delas se mede aqui: uma
@@ -450,10 +457,12 @@ try {
   //    sozinho quando as três ganharam rótulo. Um lote futuro que reabra esse
   //    argumento não erra alto — ele devolve UMA cor a UM botão, e a palavra do
   //    pedido ("padronize") morre sem nada na tela dizendo por quê.
-  //  - **a discrição virar desaparecimento.** "Mesclado ao fundo" tem um piso,
-  //    e o piso é a linguagem do INDISPONÍVEL deste app (`--op-inativo`). Uma
-  //    caixa mais quieta que um controle desabilitado deixa de ser encontrável
-  //    — e continua tocável, que é o pior par possível.
+  //  - **a discrição virar desaparecimento.** O piso continua escrito no 9-C e
+  //    continua sendo a linguagem do INDISPONÍVEL deste app (`--op-inativo`):
+  //    uma caixa mais quieta que um controle desabilitado deixa de ser
+  //    encontrável e continua tocável, que é o pior par possível. Com o denim
+  //    da v1.8.62 ele passa com folga — e fica, porque é o piso da FAIXA e não
+  //    do valor de um lote.
   //  - **o rodapé PULAR ao entrar na seleção.** É um defeito LATENTE que este
   //    lote fecha: MEDIDO antes dele, `#listFoot` ia de 51,77px (as portas) para
   //    44,00 (a `.selbar`) — 7,77px de pulo debaixo do dedo que segura um item,
@@ -660,6 +669,8 @@ try {
         // `.t-btn:disabled`). Ele é MEDIDO, e não escrito: um número copiado
         // para cá envelheceria na primeira troca de alfa da paleta.
         inativo: window.__sonda('background: var(--surface); opacity: var(--op-inativo)'),
+        // O denim da página, RESOLVIDO — a régua do 9-B (v1.8.62).
+        fill: window.__sonda('background: var(--accent-fill)'),
       };
     }, tema);
 
@@ -688,48 +699,57 @@ try {
     checar(iguais(m.fontes),
       '[' + tema + '] A · e a mesma família de fonte', m.fontes);
 
-    // ── 9-B · ELAS SÃO DISCRETAS, COM NÚMERO ────────────────────────────
+    // ── 9-B · ELAS SÃO O DENIM, E SE DESTACAM (v1.8.62) ─────────────────
+    //
+    // ESTE BLOCO TROCOU DE SINAL, e a troca é uma REVOGAÇÃO declarada, não um
+    // número a corrigir de passagem. Ele nasceu na v1.5.19 exigindo que a
+    // superfície das portas fosse mais QUIETA que as duas que elas tinham; o
+    // operador pediu o contrário na v1.8.62 (*"quero eles em azul … sólidos"*),
+    // e uma asserção que continuasse cobrando discrição reprovaria o app CERTO
+    // — que foi como este oráculo derrubou o lote na primeira passada.
     //
     // A RÉGUA É UMA PORTA SÓ, e de propósito: o 9-A já provou que as três
     // pintam a mesma cor. Medir as três aqui faria a reversão do 9-A reprovar
     // este bloco junto, e cada asserção tem de ter a sua.
     //
-    // DUAS PROPRIEDADES, porque nenhuma delas vale sozinha nos dois temas:
+    // AS MESMAS DUAS PROPRIEDADES, viradas — e as duas continuam necessárias,
+    // porque nenhuma responde sozinha nos dois temas:
     //
-    //  1. em LUMINÂNCIA, a superfície nova é mais quieta que a que as LATERAIS
-    //     tinham (`--surface` puro). É a reversão exata deste lote — sem o
-    //     `color-mix` a razão sobe — e ela vale nos dois temas.
-    //  2. em ΔE00, ela é mais quieta que a que a do MEIO tinha
-    //     (`--btn-accent`). A luminância NÃO serve para este par: MEDIDO, no
-    //     tema claro o azul media 1,07:1 contra o fundo e as laterais 1,20:1 —
-    //     ele já era o mais mesclado dos três em luminância, e o que o fazia
-    //     saltar era o CROMA. Afirmar "abaixo do `--btn-accent` em razão de
-    //     contraste, nos dois temas" seria escrever uma asserção FALSA no
-    //     claro; a régua honesta ali é a diferença perceptual.
+    //  1. em LUMINÂNCIA a porta se destaca MAIS do que o `--surface` puro que
+    //     as laterais tinham antes da v1.5.19 (medido: 2,45 contra 1,39 no
+    //     escuro, 5,97 contra 1,20 no claro).
+    //  2. em ΔE00 ela está MAIS longe do fundo do que o `--btn-accent` que a do
+    //     meio tinha — que é o azul de "ativado" que o pedido cita, e o número
+    //     é a diferença entre ele e o sólido dele (24,34 contra 15,63 no
+    //     escuro, 48,78 contra 6,69 no claro). A luminância não serve para este
+    //     par: no tema claro o `--btn-accent` mede 1,07:1 contra o fundo, mais
+    //     mesclado que as laterais — o que o separa do denim é o CROMA.
     //
-    // Mais uma FAIXA, e não um valor: 1,23 (escuro) e 1,14 (claro) são o mix de
-    // hoje, e um ajuste legítimo de 50% a 85% tem de continuar passando.
-    // REVERSÃO: apagar a linha `background: color-mix(in srgb, var(--surface)
-    // 70%, transparent)` da regra `.tools-btn, .lib-foot-btn, .import-btn` —
-    // sobra o `--surface` puro (a falha aberta declarada), e a razão sobe para
-    // 1,39 no escuro e 1,20 no claro.
+    // E A TERCEIRA NÃO É UMA FAIXA, É O TOKEN: a porta veste exatamente o
+    // `--accent-fill` resolvido na página. Escrever `#2f557f` aqui seria a cor
+    // digitada num segundo lugar, que é o defeito que o `--surface-porta`
+    // existe para não ter; e uma faixa de razão aprovaria qualquer azul.
+    // REVERSÃO: devolver `--surface-porta: #1f252c` / `#eff1f3` a tokens.css —
+    // as três asserções caem juntas.
     const rPorta = razao(m.base, m.fundo);
     const rLateral = razao(m.antesLateral, m.fundo);
     const eMeio = dE00(m.antesMeio, m.fundo);
     const ePorta = dE00(m.base, m.fundo);
-    checar(rPorta < rLateral,
-      '[' + tema + '] B · a superfície das portas é mais quieta EM LUMINÂNCIA do '
-      + 'que a que as laterais tinham (`--surface` puro)',
-      n2(rPorta) + ' < ' + n2(rLateral));
-    checar(ePorta < eMeio,
-      '[' + tema + '] B · e mais quieta EM ΔE00 do que a que a do meio tinha '
-      + '(`--btn-accent`) — no claro o azul já era o mais mesclado em '
-      + 'luminância, e quem o fazia saltar era o CROMA',
-      n2(ePorta) + ' < ' + n2(eMeio));
-    checar(rPorta >= 1.05 && rPorta <= 1.35,
-      '[' + tema + '] B · e a razão fica na faixa que um ajuste de mix entre 50% '
-      + 'e 85% não estoura — o oráculo trava a PROPRIEDADE, não o valor de hoje',
-      n2(rPorta));
+    checar(rPorta > rLateral,
+      '[' + tema + '] B · a superfície das portas se destaca MAIS em luminância '
+      + 'do que o `--surface` puro que as laterais tinham — a v1.5.19 pedia o '
+      + 'contrário, e o operador revogou aquela metade',
+      n2(rPorta) + ' > ' + n2(rLateral));
+    checar(ePorta > eMeio,
+      '[' + tema + '] B · e MAIS em ΔE00 do que o `--btn-accent` da do meio, que '
+      + 'é o azul de "ativado" que o pedido cita — a distância entre os dois é '
+      + 'exatamente o que "sólido" quer dizer',
+      n2(ePorta) + ' > ' + n2(eMeio));
+    checar(m.fill && m.base.slice(0, 3).join(',') === m.fill.slice(0, 3).join(','),
+      '[' + tema + '] B · e ela É o `--accent-fill` da página, lido dela — o '
+      + 'denim escrito de novo aqui seria a cor num segundo lugar, que é o '
+      + 'defeito que o `--surface-porta` existe para não ter',
+      JSON.stringify(m.base) + ' vs ' + JSON.stringify(m.fill));
 
     // ── 9-C · MAS ELAS NÃO SOMEM ────────────────────────────────────────
     //

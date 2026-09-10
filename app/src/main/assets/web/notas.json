@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.62",
+    "itens": [
+      "As três portas do Cronograma agora são azuis, em denim cheio, cada uma com sombra própria.",
+      "E a sombra do corte da lista voltou para a borda dos controles, com os botões flutuando sobre ela.",
+      "Na playlist automática, “Sortear” e “Tocar” viraram um botão só: “Tocar agora”.",
+      "E saiu a frase que explicava cantada e fundo musical — os dois nomes já dizem o que fazem.",
+      "Cor do tema: o primeiro toque voltou a trocar a cor. Ele ia sempre para o claro, mesmo já estando claro."
+    ]
+  },
+  {
     "versao": "1.8.61",
     "itens": [
       "No Cronograma, Bíblia, Importar e Ferramentas viram botões flutuantes: a lista corre por baixo deles.",
