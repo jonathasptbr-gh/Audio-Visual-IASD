@@ -1368,6 +1368,18 @@ nenhum**, e por isso ficam aqui.
   o `scrollHeight` não acusa nenhuma numa lista que ainda cabe.) **Encostada, ela
   é RECORTADA pelo arco** de quem arredonda — é assim que o canto fica redondo,
   e não com um raio próprio.
+- **UM RODAPÉ QUE FLUTUA SOBRE UMA LISTA COBRA UMA FOLGA NO FIM DELA, E ELA É
+  MEDIDA POR PIXEL** (v1.8.61). Com o rodapé fora do fluxo a lista chega à
+  fronteira por `bottom: 0` — **nunca por margem negativa**, cujo número passa a
+  DEFINIR a extensão e faz a lista parar antes dela quando o rodapé cresce com a
+  fonte do sistema (medido: 4,59px, calado). A folga é a altura do rodapé LIDA
+  (`--rodape-h`, falha aberta em `--hit-foot`) mais o recuo que já existia, e o
+  teste é de PIXEL: a geometria não acusa uma linha coberta, porque ela continua
+  dentro da caixa (medido: 58 a 61% da última linha).
+  **E o que flutua tem de ser OPACO** — tinta com alfa sobre uma lista que rola
+  muda de cor a cada quadro (medido: 1343 de 3192 amostras), e o valor opaco é
+  um TOKEN, não um gradiente compondo sobre o fundo: a cor tem de estar no
+  `background-color`, que é o que toda sonda de contraste deste repositório lê.
 - **MAS ELA NÃO ALCANÇA O SCROLLER INTEIRO: A CAIXA TEM DE ALCANÇAR PRIMEIRO**
   (v1.8.60). `overflow-y: auto` COMPUTA `overflow-x: auto`, então a margem
   negativa é RECORTADA pela caixa do scroller — MEDIDO no Cronograma, forçar
@@ -1378,21 +1390,34 @@ nenhum**, e por isso ficam aqui.
   (`.tools-sheet`) o Cronograma fica com uma moldura de 12,8px à vista, e a tira
   pintava 1004px ali — quem a cala é um `:has()`, não uma classe que os dois
   abridores e os dois fechadores teriam de lembrar.
-- **A CALHA DA BARRA DE ROLAGEM É INALCANÇÁVEL, e a tentativa está medida**
-  (v1.8.60). Onde a barra RESERVA largura, o retângulo de recorte de um scroller
-  é o padding box MENOS ela: nada que seja filho dele pinta ali, por margem
-  nenhuma — MEDIDO, somar a calha à margem deixa o vão em 10,0px. **No Android
-  ela é ZERO** (barra sobreposta, 18 de 18), então lá a tira já vai à borda. Um
-  `--veu-calha` foi escrito, medido e revertido no mesmo lote; não refazer.
-- **A BARRA DE ROLAGEM É UMA SÓ, e ela mora na marca `.rola`** (v1.8.60):
-  `scrollbar-width: thin` + `scrollbar-color: var(--accent) transparent`. Três
-  scrollers a declaravam por si e dezesseis ficavam no `auto` — MEDIDO,
-  **1,29:1** de contraste no escuro contra 6,63:1 ao lado, um fator 5,1× na
-  mesma tela. A pista é TRANSPARENTE porque `--panel` lê **1:1 contra o fundo em
-  doze das dezoito listas**: doze delas *são* `--panel`. **E `::-webkit-scrollbar`
-  é código morto onde o par `scrollbar-*` existe** — o Chromium desliga esses
-  pseudos quando um deles é diferente de `auto` (medido: calha 10px, o valor de
-  `thin`, contra os 7px que o pseudo pedia). Não escrever mais nenhum.
+- **A CALHA DA BARRA DE ROLAGEM ERA INALCANÇÁVEL, e a nota fica pelo motivo**
+  (v1.8.60). O retângulo de recorte de um scroller é o padding box MENOS a
+  calha: nada que seja filho dele pinta ali, por margem nenhuma — MEDIDO, somar
+  a calha à margem deixava o vão em 10,0px. Desde a v1.8.61 a pergunta não se
+  faz mais (não há barra), mas a armadilha volta com qualquer barra que volte.
+  Um `--veu-calha` foi escrito, medido e revertido; não refazer.
+- **A TIRA SÓ ALCANÇA A BORDA DE BAIXO SE NÃO HOUVER RODAPÉ FLUTUANTE SOBRE ELA**
+  (v1.8.61). No Cronograma as três portas flutuam e a caixa da lista corre por
+  baixo delas: a tira pousa no TOPO DAS PORTAS, e não na base da caixa —
+  `--veu-base` sozinho a mandaria para trás delas (medido: ZERO pixel visível no
+  meio da tela, com dois cotos de 12,8px sobrando na moldura). Rodapé flutuante
+  novo desconta a altura dele da tira, e ela é LIDA (`--rodape-h`).
+- **NÃO HÁ BARRA DE ROLAGEM** (`.rola { scrollbar-width: none }`, v1.8.61,
+  revogando a v1.8.60). A sombra das bordas é o indicador ÚNICO, e alcança os 15
+  scrollers marcados. **Não era bug o operador não a ver:** no Android ela é
+  SOBREPOSTA e apaga sozinha — MEDIDO, **780 a 850 ms** depois do gesto, com
+  `scrollbar-width: thin` e sem ele; declarar a largura **não** a torna
+  permanente, ao contrário do que um comentário afirmou da v5.188 à v1.8.60.
+  **E a sombra PODE pintar sobre ela, mas só de FORA do scroller** — 240 de 240
+  linhas do polegar cobertas, contra 149 de 240 de dentro, e `z-index:
+  2147483647` não move um pixel: um filho jamais pinta sobre a barra do próprio
+  scroller. O caminho foi recusado com o preço medido — geometria em JS em 11
+  dos 15 scrollers e a PERDA do recorte do arco (o acabamento da v1.8.59), por
+  um efeito visível em 1,6% das posições de rolagem durante 0,8 s.
+  **E `::-webkit-scrollbar` continua código morto** onde `scrollbar-width` ou
+  `scrollbar-color` é diferente de `auto` — o Chromium desliga esses pseudos
+  (medido: calha 10px, o valor de `thin`, contra os 7px que o pseudo pedia).
+  Não escrever mais nenhum.
 - **UM SCROLLER QUE É GRADE NÃO PODE TER A TIRA — então ele deixa de ser o
   scroller** (v1.8.60). O `sem-veu` está certo e fica (o pseudo de uma grade é
   ITEM dela), mas ele APAGA o aviso sem tirar o problema: a `.bible-grid--books`
@@ -1401,6 +1426,23 @@ nenhum**, e por isso ficam aqui.
   dois candidatos de CSS morreram medidos (`grid-column: 1/-1` no pseudo desce a
   primeira célula 32px e cobra 10px de rolagem fantasma). **Grade nova que role
   nasce dentro de um envelope**, não com a marca em si.
+- **UMA FAIXA DE FECHO COM MAIS DE UM BOTÃO TEM UMA ALTURA SÓ** (v1.8.61), e o
+  número é o do QUADRADO (`--quad-faixa`), como no rodapé da fila. Sozinho, o
+  confirmar continua vestindo a altura das LINHAS que ele fecha (a regra da
+  v5.301) — a pergunta que separa as duas é *"há irmão nesta faixa?"*, e não
+  qual folha é. Escopar por folha dá duas caixas ao mesmo botão; aplicar a todas
+  quebra a folha de destinos. MEDIDO: 0 de 144 pontos alinhados antes, com CINCO
+  alturas de primário, contra 144 de 144 depois.
+- **UMA FOLHA NÃO PODE MUDAR DE TAMANHO ENTRE OS ESTADOS QUE O OPERADOR
+  ALCANÇA** (v1.8.61) — *"para não ficar movendo a posição relativa de seus
+  botões na tela, atrapalhando o toque"*. Toda linha que APARECE E SOME é um
+  motor: a da playlist automática tinha quatro (a linha de quantidade
+  condicional, a nota que só existia num segmento, a conta que crescia com o
+  texto e o rótulo do primário quebrando em duas linhas), e eles se
+  CONTRAPESAVAM — fechar um só piorava o total em 3,4×. O conserto é reservar,
+  nunca esconder: linha sempre desenhada, frases de comprimento EMPARELHADO e
+  `min-height` pelo pior caso MEDIDO (33 células: 3 larguras × 3 escalas de
+  fonte × 11 estados).
 - **A FAIXA DE FECHO DE UMA FOLHA NÃO ROLA** (v1.8.60): ela mora no
   `.popup-fecho`, irmão da `.popup-list`. Quem decide é o DOM (`porFecho` procura
   o rodapé ao lado), nunca uma lista de folhas — a MESMA faixa é também uma
@@ -2417,7 +2459,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.60 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.61 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -2428,14 +2470,14 @@ bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.60 são o mesmo caso, pela mesma
+> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.61 são o mesmo caso, pela mesma
 > razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A v1.8.60 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
+> **A v1.8.61 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
 > nem o `build.gradle.kts` — só `assets/web/`, `tools/` e `docs/`.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, e desde a v1.8.50 ela TEM ORÁCULO.**

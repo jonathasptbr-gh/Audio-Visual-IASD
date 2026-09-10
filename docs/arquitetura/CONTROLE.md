@@ -206,13 +206,17 @@ saltar).
   trabalho, ficou sem ela; com a coluna de PÁGINAS, saber a posição na lista é o
   recurso inteiro. A pista fica `transparent`: o fundo daqui já é `--panel`, e uma
   pista da cor do próprio fundo não é pista nenhuma.
-  **E DESDE A v1.8.60 ELA NÃO É MAIS DAQUI: subiu para a marca `.rola`**, a
-  pedido do operador (*"tem caixas sem o scroll. como a tela principal do
-  cronograma"*). Esta zona e as outras duas que a declaravam por si eram três
-  contra dezesseis — MEDIDO, **1,29:1** de contraste no escuro nas dezesseis
-  contra 6,63:1 aqui. A pista `transparent` venceu como PADRÃO pela medição que
-  esta linha já dizia, generalizada: `--panel` lê **1:1 contra o fundo em doze
-  das dezoito listas**, porque doze delas *são* `--panel`.
+  **E DESDE A v1.8.61 ELA NÃO EXISTE MAIS EM LUGAR NENHUM.** A v1.8.60 a
+  padronizou na marca `.rola` (esta zona e outras duas a declaravam por si, três
+  contra dezesseis, com 1,29:1 de contraste nas dezesseis contra 6,63:1 aqui); o
+  relato seguinte pediu a barra SOB a sombra e, medido que de dentro do scroller
+  isso não se faz — 149 de 240 linhas do polegar cobertas, contra 240 de 240 por
+  um elemento de FORA, e `z-index: 2147483647` não move um pixel —, o operador
+  escolheu o desfecho que ele mesmo nomeou: *"simplesmente deixe sem nenhuma
+  barra de rolagem"*. A SOMBRA das bordas ficou como indicador único.
+  **O que a v1.4.37 pedia continua respondido**, por outro meio: *"a caixa diz
+  que há um dentro"* é a tira, e ela não some depois de 0,8 s — que é o que a
+  barra sobreposta do Android faz, medido, com `thin` declarado e sem ele.
 - **DUAS COLUNAS, E SÓ AQUI** (v1.4.35): *"coloque os slides em duas colunas,
   pois temos menos altura vertical, portanto manter os slides de mesmo tamanho
   acaba impedindo de ver mais que dois slides corretamente, deixando de ser uma
@@ -4636,6 +4640,19 @@ ele, e o custo dele, que prendia o efeito a um scroller só.
   a v1.5.16 (sem ela a tira gruda acima do recuo), e o topo e os dois lados
   desde este lote — sem eles o vão entre a fronteira e a sombra é exatamente o
   `padding` do scroller, que aqui são 11,2px no topo e 12,8px de cada lado.
+- **AS TRÊS PORTAS FLUTUAM SOBRE A LISTA** (v1.8.61) — `#listFoot` é
+  `position: absolute` no `.list-body`, e a lista corre por baixo até a
+  fronteira. Ver o CSS para os três desenhos medidos e por que a margem negativa
+  foi recusada (o número passa a definir a EXTENSÃO, e a lista para antes da
+  fronteira quando o rodapé cresce com a fonte do sistema). A folga do fim é a
+  altura do rodapé LIDA mais o recuo de antes, e a tira de sombra desconta a
+  faixa das portas para marcar a fronteira VISÍVEL.
+- **E O CABEÇALHO É UMA BARRA DA COR DOS CONTROLES** (v1.8.61), de borda a
+  borda, com o vão até a lista virado `padding-top` DELA — assim a borda de
+  baixo da barra é a borda do scrollport, e a linha some encostada nela. As duas
+  folhas (Ferramentas e Bíblia) recuperam um degrau de `--sp-5`, senão a borda
+  de cima delas cai de 1,410 para 1,192 no escuro (a sombra da folha deixa de
+  pousar sobre `--bg` e passa a pousar sobre `--bar`, que separa menos).
 - **MAS A TIRA SÓ ALCANÇA A BORDA SE A CAIXA ALCANÇAR** (v1.8.60). `overflow-y:
   auto` COMPUTA `overflow-x: auto`, e a margem negativa é RECORTADA pela caixa do
   scroller: MEDIDO no Cronograma, forçar `--veu-esq`/`--veu-dir` a 12,8px não

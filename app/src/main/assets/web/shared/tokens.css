@@ -320,6 +320,15 @@
   --surface-alta: rgba(255, 255, 255, .12);   /* botão SOBRE o fundo do app */
   --surface-2-alta: rgba(255, 255, 255, .18); /* chip/campo/badge SOBRE o fundo do app */
   --surface: var(--surface-alta);
+
+  /* A SUPERFÍCIE DAS TRÊS PORTAS DO CRONOGRAMA (v1.8.61), e ela é OPACA porque
+     desde este lote a LISTA CORRE POR BAIXO delas. Elas vestiam
+     `color-mix(--surface 70%, transparent)`, e `--surface` já tem alfa: MEDIDO
+     com a lista rolando, **1343 de 3192** amostras dentro delas mudavam de cor
+     (maxΔ 519 de 765). É a regra da paleta aplicada ao caso que a criou —
+     *"tinta com alfa EMPILHA"* —, e o valor é o RENDERIZADO de sempre, medido
+     por pixel: nada muda de tom, muda o que está atrás. */
+  --surface-porta: #1f252c;
   --surface-2: var(--surface-2-alta);
   /* ...e o par AFUNDADO, para dentro de um cartão. Ele saiu de controle.css e
      virou token na v5.192 pelo motivo de sempre: com dois temas, o valor
@@ -712,6 +721,9 @@
   --surface-alta: rgba(255, 255, 255, .70);
   --surface-2-alta: rgba(255, 255, 255, .92);
   --surface: var(--surface-alta);
+
+  /* A superfície das três portas, no claro — medida do mesmo jeito. */
+  --surface-porta: #eff1f3;
   --surface-2: var(--surface-2-alta);
   /* Os afundados subiram de .06/.10 na v5.207, e o motivo está medido: sobre o
      painel BRANCO, .06 dava #f0f0f0 — **1,14:1**, um controle que não se

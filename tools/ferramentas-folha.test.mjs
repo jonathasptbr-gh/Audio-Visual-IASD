@@ -153,9 +153,18 @@ try {
       invadeControles: r.bottom > barra.top + 1,
       // E ela ocupa a lista de fato — uma folha de 20px de altura passaria nas
       // duas de cima sem servir para nada.
+      // O ALVO É O CONTENT BOX DA LISTA, não a caixa dela (v1.8.61). Desde que o
+      // cabeçalho virou barra, o `#library` carrega o vão até ela como
+      // `padding-top` PRÓPRIO — 9,6px de recuo por onde a primeira linha desliza
+      // e onde não há conteúdo nenhum. A folha continua começando no mesmo pixel
+      // absoluto de sempre (53,19) e continua cobrindo TODA linha; o que ela
+      // deixou de cobrir foi o recuo, e cobri-lo custaria encostá-la na barra —
+      // medido, a fronteira de cima dela cai de 1,410 para 1,192 no escuro.
       cobreALista: (() => {
-        const l = document.getElementById('library').getBoundingClientRect();
-        return r.top <= l.top + 1 && r.bottom >= l.bottom - 1;
+        const el = document.getElementById('library');
+        const l = el.getBoundingClientRect();
+        const topo = l.top + parseFloat(getComputedStyle(el).paddingTop);
+        return r.top <= topo + 1 && r.bottom >= l.bottom - 1;
       })(),
       biblia: bibliaAberta(),
       ferramentas: !!document.querySelector('.misc-switch'),
@@ -255,11 +264,16 @@ try {
     const r = f.getBoundingClientRect();
     const cab = document.querySelector('.list-header').getBoundingClientRect();
     const barra = document.querySelector('.bottombar').getBoundingClientRect();
-    const l = document.getElementById('library').getBoundingClientRect();
+    const lEl = document.getElementById('library');
+    const l = lEl.getBoundingClientRect();
+    // O CONTENT BOX, pela mesma razão do bloco de Ferramentas acima (v1.8.61):
+    // desde que o cabeçalho virou barra, o `#library` carrega o vão até ela como
+    // `padding-top` próprio, e ali não há conteúdo a cobrir.
+    const lTopo = l.top + parseFloat(getComputedStyle(lEl).paddingTop);
     return {
       invadeCabecalho: r.top < cab.bottom - 1,
       invadeControles: r.bottom > barra.top + 1,
-      cobreALista: r.top <= l.top + 1 && r.bottom >= l.bottom - 1,
+      cobreALista: r.top <= lTopo + 1 && r.bottom >= l.bottom - 1,
       // O host é PRÓPRIO: a Bíblia desenhava dentro do `#library`, o mesmo
       // `<ul>` do Cronograma, e é por isso que `renderLibrary` tinha um desvio
       // por aba no topo.

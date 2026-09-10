@@ -252,7 +252,16 @@ try {
         return { tag: (e.className || e.tagName).toString().split(' ')[0],
                  dentro: el.contains(e) && e !== el };
       };
-      return { cima: alvo(q.top + 8), baixo: alvo(q.bottom - 8) };
+      // A PONTA DE BAIXO É A FRONTEIRA VISÍVEL, não a base da caixa (v1.8.61).
+      // No Cronograma as três portas FLUTUAM sobre a lista, e a caixa dela passa
+      // por baixo delas: um ponto em `q.bottom - 8` cai no botão de Ferramentas,
+      // que é o comportamento certo (a porta tem de receber o toque) e não diz
+      // nada sobre a tira. O que a tira vela é a fronteira acima das portas, e é
+      // ali que o toque tem de chegar na LINHA.
+      const foot = document.getElementById('listFoot');
+      const fr = foot && !foot.hidden ? foot.getBoundingClientRect() : null;
+      const base = fr && fr.top < q.bottom ? fr.top : q.bottom;
+      return { cima: alvo(q.top + 8), baixo: alvo(base - 8) };
     });
     checar(toque.cima.dentro && toque.baixo.dentro,
       'D · ' + tema + ': o toque ATRAVESSA a sombra nas duas pontas e chega numa LINHA '
@@ -478,7 +487,20 @@ try {
         return { padTop: r.top + parseFloat(c.borderTopWidth),
           padLeft: r.left + parseFloat(c.borderLeftWidth),
           padRight: r.right - parseFloat(c.borderRightWidth),
-          padBottom: r.bottom - parseFloat(c.borderBottomWidth),
+          // A BORDA DE BAIXO É A FRONTEIRA VISÍVEL (v1.8.61): no Cronograma as
+          // três portas flutuam sobre a lista e a caixa dela corre por baixo,
+          // então a tira de baixo pousa no TOPO DAS PORTAS de propósito — medir
+          // contra `r.bottom` ali cobraria dela um lugar onde ela estaria
+          // escondida. Nos outros scrollers não há rodapé flutuante e os dois
+          // números coincidem.
+          padBottom: (() => {
+            const base = r.bottom - parseFloat(c.borderBottomWidth);
+            const foot = el.parentElement
+              && el.parentElement.querySelector(':scope > #listFoot:not([hidden])');
+            if (!foot) return base;
+            const fr = foot.getBoundingClientRect();
+            return fr.top < base ? fr.top : base;
+          })(),
           recuoTopo: parseFloat(c.paddingTop), recuoEsq: parseFloat(c.paddingLeft),
           transborda: el.scrollHeight - el.clientHeight > 2,
           extraX: el.scrollWidth - el.clientWidth };
@@ -734,11 +756,21 @@ try {
       + '`--veu-dir` sem mover o scroller não move a tira um pixel (medido: '
       + '13..376, idêntica), porque a margem negativa é recortada pela caixa dele',
       JSON.stringify({ tEsq, tDir, largura: imgM.w, yTira }));
-    checar(geo.cabecalho === 12.8 && geo.rodape === 12.8
+    // O CABEÇALHO SAIU DOS 12,8 NA v1.8.61, E ISSO É DECISÃO DECLARADA, não um
+    // número a corrigir de passagem. A v1.8.60 escreveu por extenso que ele
+    // ficava onde estava enquanto a CAIXA da lista ia à borda; o relato seguinte
+    // pediu que ele virasse *"uma barra de mesma cor da seção dos controles,
+    // para que o corte do scroll faça sentido"*, e uma barra que começa 12,8px
+    // depois da borda não descreve a fronteira de uma lista que vai de 0 a `w`.
+    // Ele passou a 0 pelo mesmo movimento do `#library`: margem negativa e o
+    // recuo devolvido como `padding`. O RODAPÉ continua em 12,8 — ele é a faixa
+    // das três portas, não uma fronteira.
+    checar(geo.cabecalho === 0 && geo.rodape === 12.8
       && geo.pagina[0] === geo.tela && geo.pagina[1] === geo.tela,
-      'M · e nada mais se mexe: cabeçalho e rodapé ficam onde estavam e a PÁGINA '
-      + 'não ganha rolagem horizontal — o transbordo de 12,8px do `.list-body` é '
-      + 'recortado por `main { overflow: hidden }`', JSON.stringify(geo));
+      'M · o CABEÇALHO acompanha a caixa e vai de borda a borda (a barra da '
+      + 'v1.8.61), o rodapé das portas continua recuado, e a PÁGINA não ganha '
+      + 'rolagem horizontal — o transbordo de 12,8px do `.list-body` é recortado '
+      + 'por `main { overflow: hidden }`', JSON.stringify(geo));
     // A SEGUNDA METADE: com a folha aberta, a tira se cala.
     const comFolha = await pg.evaluate(async () => {
       const z = (ms) => new Promise((f) => setTimeout(f, ms));
@@ -767,27 +799,22 @@ try {
     await ctx.close();
   }
 
-  // ── N. A TIRA ALCANÇA A BORDA PINTÁVEL, MESMO COM BARRA RESERVANDO ─────
+  // ── N. NÃO HÁ BARRA DE ROLAGEM, E ISSO É MEDIDO ONDE ELA APARECERIA ────
   //
-  // Relato do operador: *"a sombra não indo até a borda"*. A medição fechou o
-  // caso em duas metades, e as duas precisam estar ditas:
+  // A v1.8.60 padronizou a barra; a v1.8.61 a tirou, a pedido do operador
+  // (*"simplesmente deixe sem nenhuma barra de rolagem"*), depois de medir que a
+  // sombra só cobre o polegar a partir de FORA do scroller — 240 de 240 linhas,
+  // contra 149 de 240 de dentro, e `z-index: 2147483647` não move um pixel.
+  // Levar a tira para fora custaria o recorte do arco (o acabamento pedido na
+  // v1.8.59) e geometria em JS em 11 dos 15 scrollers, por um efeito visível em
+  // 1,6% das posições de rolagem.
   //
-  //  1. **A CALHA É INALCANÇÁVEL.** Onde a barra RESERVA largura, ela sai do
-  //     padding box, e o retângulo de recorte de um scroller é o padding box
-  //     MENOS a calha: nada que seja filho dele pinta ali, por margem nenhuma.
-  //     MEDIDO — somar a calha à margem negativa deixa o vão em 10,0px, igual.
-  //     A tentativa foi revertida no mesmo lote (ver o comentário no CSS).
-  //  2. **NO APARELHO A CALHA É ZERO.** No Android a barra é SOBREPOSTA e não
-  //     reserva um pixel — 18 de 18 scrollers no modelo overlay —, então lá a
-  //     tira já vai à borda. O bloco J mede exatamente isso, no motor do arnês.
-  //
-  // O QUE SOBRA PARA GUARDAR é o que o app decide: mesmo com uma barra comendo
-  // a caixa, a tira tem de alcançar a última coluna PINTÁVEL. Sem o `--veu-dir`
-  // ela pararia `padding-right` antes disso — 11,2px a mais de faixa clara, em
-  // cima do que a barra já leva. Este é o único bloco do repositório que liga
-  // `comBarraDeRolagem`: o Playwright passa `--hide-scrollbars` em headless, e
-  // todos os outros medem um motor em que a calha é ZERO. Uma asserção de barra
-  // escrita com o arnês cru passa sem medir nada.
+  // ESTE BLOCO É O ÚNICO DO REPOSITÓRIO QUE LIGA `comBarraDeRolagem`, e continua
+  // sendo por uma armadilha de método: o Playwright passa `--hide-scrollbars` em
+  // headless, então nos outros 101 oráculos NENHUMA barra é desenhada e nenhuma
+  // reserva um pixel. Uma asserção de "não há barra" escrita com o arnês cru
+  // passaria sem medir nada — ela diria que o runner não desenha, não que o app
+  // não pede. Aqui a barra é ligada no MOTOR, e é o app que tem de calá-la.
   {
     const nav2 = await abrirNavegador({ comBarraDeRolagem: true });
     try {
@@ -798,57 +825,49 @@ try {
       const pg = await ctx.newPage();
       await pg.goto(base, { waitUntil: 'load' });
       await esperarCortina(pg);
-      await pg.evaluate(async () => {
-        const z = (ms) => new Promise((f) => setTimeout(f, ms));
-        setAppMode('full'); await z(150);
-        for (let i = 0; i < 40; i++) {
-          await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
-            { name: 'Louvor ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
-        }
-        await load(); await z(350);
-        const s = document.createElement('style');
-        s.textContent = '.rola::before,.rola::after{background:#ff00ff!important;background-image:none!important}';
-        document.head.appendChild(s);
-        // O CRONOGRAMA: desde este lote ele tem recuo PRÓPRIO de 12,8px, e é
-        // esse número que o `--veu-dir` cancela. Sobre um scroller de recuo
-        // zero a asserção passaria com e sem o conserto.
-        const el = document.getElementById('library');
-        el.scrollTop = Math.floor(el.scrollHeight / 3);
-        await z(350);
+      await cena(pg);
+      const n = await pg.evaluate(() => {
+        const rolas = [...document.querySelectorAll('.rola')];
+        const rec = rolas.map((el) => {
+          const c = getComputedStyle(el);
+          return {
+            id: el.id || el.className.split(' ')[0],
+            calha: +(el.offsetWidth - el.clientWidth
+              - parseFloat(c.borderLeftWidth) - parseFloat(c.borderRightWidth)).toFixed(2),
+            transborda: el.scrollHeight - el.clientHeight > 2,
+            largura: c.scrollbarWidth,
+          };
+        });
+        // A CENA PRECISA TER SCROLLER QUE TRANSBORDA, senão não há barra a
+        // desenhar e o zero abaixo sairia por vacuidade.
+        return { n: rolas.length, transbordando: rec.filter((r) => r.transborda).length,
+          comCalha: rec.filter((r) => r.calha > 0.5), fora: rec.filter((r) => r.largura !== 'none') };
       });
-      const cx = await pg.evaluate(() => {
-        const el = document.getElementById('library');
-        const c = getComputedStyle(el);
-        const r = el.getBoundingClientRect();
-        const calha = +(el.offsetWidth - el.clientWidth
-          - parseFloat(c.borderLeftWidth) - parseFloat(c.borderRightWidth)).toFixed(2);
-        return { calha, recuo: parseFloat(c.paddingRight),
-          lida: el.style.getPropertyValue('--veu-dir'),
-          topo: +r.top.toFixed(2),
-          // A última coluna que o scroller pode pintar: a borda direita menos a
-          // borda e menos a calha que a barra levou.
-          pintavel: +(r.right - parseFloat(c.borderRightWidth) - calha).toFixed(2) };
+      // O CONTROLE DO MOTOR: com a barra ligada, um scroller SEM a marca tem de
+      // reservar calha. Sem esta linha, um `--hide-scrollbars` que voltasse
+      // faria o bloco inteiro passar dizendo o contrário do que mediu.
+      const motor = await pg.evaluate(async () => {
+        const d = document.createElement('div');
+        d.style.cssText = 'position:fixed;left:-9999px;width:200px;height:100px;overflow-y:scroll';
+        d.innerHTML = '<div style="height:400px"></div>';
+        document.body.appendChild(d);
+        await new Promise((f) => requestAnimationFrame(f));
+        const calha = d.offsetWidth - d.clientWidth;
+        d.remove();
+        return calha;
       });
-      const img = lerPng(await pg.screenshot());
-      const mag = (c) => !!c && c[0] > 200 && c[1] < 80 && c[2] > 200;
-      const y = Math.round(cx.topo) + 8;
-      let dir = null;
-      for (let x = img.w - 1; x >= 0; x--) if (mag(pixel(img, x, y))) { dir = x; break; }
-      checar(cx.calha >= 8 && cx.recuo >= 9,
-        'N · a barra RESERVA largura nesta execução (' + cx.calha + 'px) e o '
-        + 'scroller tem recuo próprio (' + cx.recuo + 'px) — sem os dois a '
-        + 'asserção abaixo passa com e sem o conserto, que é a tautologia que '
-        + '`--hide-scrollbars` produzia calada', JSON.stringify(cx));
-      checar(parseFloat(cx.lida) === cx.recuo,
-        'N · e o `--veu-dir` continua sendo o recuo LIDO do layout, não um '
-        + 'número escrito à mão', JSON.stringify(cx));
-      checar(dir != null && Math.abs(cx.pintavel - dir - 1) <= 1.5,
-        'N · a tira PINTADA alcança a última coluna que o scroller pode pintar '
-        + '(vão ' + (dir == null ? 'sem tira' : (cx.pintavel - dir - 1).toFixed(1))
-        + 'px). A CALHA em si é inalcançável — o recorte de um scroller é o '
-        + 'padding box MENOS ela, medido —, e no Android ela é zero; o que este '
-        + 'bloco guarda é que o recuo PRÓPRIO continua cancelado',
-        JSON.stringify({ dir, ...cx }));
+      checar(motor >= 8,
+        'N · o MOTOR desta execução desenha barra de rolagem (calha ' + motor + 'px '
+        + 'numa caixa sem a marca) — sem isso o zero abaixo mediria o '
+        + '`--hide-scrollbars` do runner, não o app', JSON.stringify({ motor }));
+      checar(n.transbordando >= 3,
+        'N · e a cena tem scroller TRANSBORDANDO de verdade (' + n.transbordando
+        + ' de ' + n.n + ') — sobre listas que cabem não há barra a calar',
+        JSON.stringify(n));
+      checar(n.comCalha.length === 0 && n.fora.length === 0,
+        'N · NENHUM scroller marcado desenha barra nem reserva calha, com o motor '
+        + 'desenhando: a barra saiu inteira na v1.8.61 e a sombra ficou como '
+        + 'indicador único', JSON.stringify(n));
       await ctx.close();
     } finally { await nav2.close(); }
   }
@@ -969,10 +988,17 @@ try {
       'P · a cena tem os scrollers desenhados, a Bíblia entre eles (' + p.n
       + ' marcados) — as três declarações que divergiam moravam justamente na '
       + 'Bíblia, no leitor de letra e no Modo Fácil', JSON.stringify(p));
-    checar(p.distintos.length === 1 && /^thin \|/.test(p.distintos[0]),
-      'P · e TODO scroller marcado computa a MESMA barra, `thin` com o acento: '
-      + 'a declaração subiu para a marca `.rola` e as três locais saíram. '
-      + p.fora.length + ' fora do padrão', JSON.stringify(p));
+    // O VALOR MUDOU NA v1.8.61, e a asserção continua sendo a MESMA pergunta:
+    // *todo scroller diz a mesma coisa?*. A v1.8.60 padronizou em `thin` com o
+    // acento para acabar com 1,29:1 contra 6,63:1 na mesma tela; o relato
+    // seguinte pediu a barra SOB a sombra e, medido que de dentro do scroller
+    // isso não se faz (149 de 240 linhas contra 240 de 240 por um elemento de
+    // fora), escolheu o desfecho que ele mesmo nomeou: *"simplesmente deixe sem
+    // nenhuma barra de rolagem"*. A sombra ficou como indicador único.
+    checar(p.distintos.length === 1 && /^none \|/.test(p.distintos[0]),
+      'P · e TODO scroller marcado computa a MESMA barra — `none` desde a '
+      + 'v1.8.61, quando ela saiu inteira. ' + p.fora.length + ' fora do padrão',
+      JSON.stringify(p));
     await ctx.close();
   }
 
@@ -1000,10 +1026,254 @@ try {
       + 'estão desligadas pelo par `scrollbar-*` que as acompanhava, e o '
       + 'comentário que as creditava pelo fim do modo overlay saiu com elas',
       JSON.stringify(regras));
-    checar(/^\.rola \{ scrollbar-width: thin; scrollbar-color: var\(--accent\) transparent; \}$/m.test(cssP),
-      'P2 · e a declaração é UMA, na marca — um segundo `scrollbar-color` num '
-      + 'seletor de mesma especificidade decide por ORDEM na folha, que é o '
-      + 'acoplamento invisível que este lote existe para não deixar nascer');
+    checar(/^\.rola \{ scrollbar-width: none; \}$/m.test(cssP),
+      'P2 · e a declaração é UMA, na marca — um segundo `scrollbar-width` num '
+      + 'seletor de mesma especificidade decidiria por ORDEM na folha, que é o '
+      + 'acoplamento invisível que a v1.8.60 existiu para não deixar nascer');
+  }
+
+  // ── Q. AS TRÊS PORTAS FLUTUAM, E A LISTA CORRE POR BAIXO (v1.8.61) ──────
+  //
+  // Pedido do operador: *"ajuste os 3 botões de bíblia, importar e ferramentas,
+  // para que sejam botões flutuantes sobre o cronograma … mas tenha um cuidado,
+  // a lista do cronograma deve ter uma margem adicionada ao seu final dentro do
+  // scroll, para que ao rolar a lista até o fim, o último item na base não fique
+  // abaixo desses botões"*.
+  //
+  // AS TRÊS ASSERÇÕES SÃO O PEDIDO INTEIRO, e a do meio é de PIXEL porque só ela
+  // vê o cuidado: com a lista estendida e o recuo de antes, 58 a 61% da última
+  // linha ficam COBERTOS — e a geometria não denuncia isso, porque a linha
+  // continua "dentro" da caixa.
+  {
+    const ctx = await navegador.newContext({
+      viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: 'dark',
+    });
+    await semRedeExterna(ctx);
+    const pg = await ctx.newPage();
+    await pg.goto(base, { waitUntil: 'load' });
+    await esperarCortina(pg);
+    await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      setAppMode('full'); await z(150);
+      for (let i = 0; i < 40; i++) {
+        await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
+          { name: 'Louvor ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      }
+      await load(); await z(400);
+    });
+    const geo = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      const lib = document.getElementById('library');
+      const foot = document.getElementById('listFoot');
+      const corpo = document.querySelector('.list-body');
+      lib.scrollTop = lib.scrollHeight; await z(400);
+      const l = lib.getBoundingClientRect(), f = foot.getBoundingClientRect();
+      const c = corpo.getBoundingClientRect();
+      const linhas = [...lib.querySelectorAll('.row')];
+      const ult = linhas[linhas.length - 1].getBoundingClientRect();
+      return {
+        posicao: getComputedStyle(foot).position,
+        // A lista alcança a fronteira do corpo — o que o pedido chama de
+        // "até a fronteira dos controles".
+        alcanca: +(c.bottom - l.bottom).toFixed(2),
+        // E as portas continuam onde estavam.
+        footTop: +f.top.toFixed(2), footH: +f.height.toFixed(2),
+        // O recuo do fim é LIDO do rodapé, nunca transcrito.
+        rodapeH: corpo.style.getPropertyValue('--rodape-h'),
+        recuo: getComputedStyle(lib).paddingBottom,
+        folga: +(f.top - ult.bottom).toFixed(2),
+        ultima: [Math.round(ult.left), Math.round(ult.top),
+          Math.round(ult.right), Math.round(ult.bottom)],
+      };
+    });
+    checar(geo.posicao === 'absolute' && Math.abs(geo.alcanca) <= 1,
+      'Q · o rodapé das três portas FLUTUA e a lista corre por baixo dele até a '
+      + 'fronteira do corpo (vão ' + geo.alcanca + 'px)', JSON.stringify(geo));
+    checar(parseFloat(geo.rodapeH) === geo.footH && parseFloat(geo.recuo) > geo.footH,
+      'Q · e o recuo do fim é LIDO da altura do rodapé, não transcrito — '
+      + '`--hit-foot` é um piso de 42px e o rodapé o excede com o corpo de fonte '
+      + 'do sistema (medido: 46,59 com a raiz em 24px), e ali quem paga são 4 dos '
+      + '22px da tira', JSON.stringify(geo));
+    // A ASSERÇÃO DE PIXEL: nenhum ponto da última linha muda quando as portas
+    // somem — isto é, nenhum pixel dela está debaixo delas.
+    const comPortas = lerPng(await pg.screenshot());
+    await pg.addStyleTag({ content: '#listFoot { visibility: hidden !important; }' });
+    await pg.waitForTimeout(250);
+    const semPortas = lerPng(await pg.screenshot());
+    let cobertos = 0, amostras = 0;
+    for (let y = geo.ultima[1] + 1; y < geo.ultima[3] - 1; y++) {
+      for (let x = geo.ultima[0] + 1; x < geo.ultima[2] - 1; x += 3) {
+        const a = pixel(comPortas, x, y), b = pixel(semPortas, x, y);
+        if (!a || !b) continue;
+        amostras++;
+        if (a[0] !== b[0] || a[1] !== b[1] || a[2] !== b[2]) cobertos++;
+      }
+    }
+    checar(amostras > 500 && cobertos === 0,
+      'Q · e a ÚLTIMA LINHA fica INTEIRA à vista: zero de ' + amostras + ' pixels '
+      + 'dela mudam quando as portas somem. Com o recuo de antes eram 58 a 61% — '
+      + 'e a geometria não acusa, porque a linha continua dentro da caixa',
+      JSON.stringify({ cobertos, amostras, folga: geo.folga }));
+    await ctx.close();
+  }
+
+  // ── R. O CABEÇALHO É UMA BARRA, E O CORTE ENCOSTA NELA (v1.8.61) ────────
+  //
+  // Pedido do operador: *"ajuste o cabeçalho do cronograma, para que ele seja
+  // uma barra de mesma cor da seção dos controles. para que o corte do scroll do
+  // cronograma faça sentido. pode deixar esse layout apenas para o modo
+  // avançado"*.
+  //
+  // A COR É MEDIDA NO RENDERIZADO e comparada com a caixa de controles — ler o
+  // nome do token provaria que alguém escreveu `--bar`, não que as duas pintam
+  // igual. E o `.deck` não pinta nada (`rgba(0,0,0,0)`): quem carrega a cor da
+  // caixa é a `.bottombar` em volta dela, e foi assim que o token foi achado.
+  for (const tema of ['dark', 'light']) {
+    const ctx = await navegador.newContext({
+      viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: tema,
+    });
+    await semRedeExterna(ctx);
+    const pg = await ctx.newPage();
+    await pg.goto(base, { waitUntil: 'load' });
+    await esperarCortina(pg);
+    await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      setAppMode('full'); await z(150);
+      for (let i = 0; i < 40; i++) {
+        await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
+          { name: 'Louvor ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      }
+      await load(); await z(400);
+      document.getElementById('library').scrollTop = 300; await z(300);
+    });
+    const r = await pg.evaluate(() => {
+      const cab = document.querySelector('.list-header');
+      const c = cab.getBoundingClientRect();
+      const lib = document.getElementById('library');
+      const l = lib.getBoundingClientRect();
+      // AS AMOSTRAS SÃO NA MOLDURA, e não no meio: no meio da barra mora o
+      // título ("CRONOGRAMA") e no meio da caixa de controles mora o transporte
+      // — ali o pixel mede a FONTE, com franja de antialias, e não a superfície.
+      // Os dois recuos laterais são de 12,8px, então x=4 está dentro do recuo
+      // dos dois e fora de qualquer conteúdo.
+      return { x: 4, yCab: Math.round(c.bottom - 4),
+        yBarra: Math.round(document.querySelector('.bottombar').getBoundingClientRect().top + 6),
+        esq: +c.left.toFixed(2), larg: +c.width.toFixed(2), tela: innerWidth,
+        // A BORDA DE BAIXO DA BARRA É A BORDA DO SCROLLPORT: é isso que faz o
+        // corte "fazer sentido" — a linha some encostada nela, e não no meio de
+        // uma faixa de fundo.
+        vao: +(l.top - c.bottom).toFixed(2),
+        simple: document.body.classList.contains('mode-simple') };
+    });
+    const img = lerPng(await pg.screenshot());
+    const cor = pixel(img, r.x, r.yCab);
+    const corControles = pixel(img, r.x, r.yBarra);
+    const igual = cor && corControles
+      && Math.abs(cor[0] - corControles[0]) <= 1
+      && Math.abs(cor[1] - corControles[1]) <= 1
+      && Math.abs(cor[2] - corControles[2]) <= 1;
+    checar(igual,
+      'R · ' + tema + ': o cabeçalho pinta a MESMA cor RENDERIZADA da caixa de '
+      + 'controles — medido em pixel, não pelo nome do token (o `.deck` não pinta '
+      + 'nada; quem carrega a cor é a barra em volta)',
+      JSON.stringify({ cabecalho: cor, controles: corControles }));
+    checar(r.esq === 0 && r.larg === r.tela && Math.abs(r.vao) <= 1,
+      'R · ' + tema + ': e ela é uma BARRA — de borda a borda da tela, com a '
+      + 'lista começando encostada nela (vão ' + r.vao + 'px). Uma barra que '
+      + 'começa 12,8px depois da borda não descreve a fronteira de uma lista que '
+      + 'vai de 0 a `w`', JSON.stringify(r));
+    await ctx.close();
+  }
+
+  // ── S. A FOLHA DA PLAYLIST AUTOMÁTICA NÃO MUDA DE TAMANHO (v1.8.61) ─────
+  //
+  // Pedido do operador: *"integre isso nas opções de quantidade, afinal a única
+  // diferença é quantidade. assim também resolvemos o problema do tamanho da
+  // janela ficar se alterando… elas devem ter tamanho fixo sempre que possível,
+  // para não ficar movendo a posição relativa de seus botões na tela,
+  // atrapalhando o toque"*.
+  //
+  // ERAM QUATRO MOTORES, e fundir o modo na quantidade sozinho PIORAVA o
+  // problema: a linha "Quantas" ausente funcionava como CONTRAPESO dos outros
+  // três, e sem ela a diferença aparecia inteira (medido, 3,4× pior a 430×932
+  // com a fonte a 1,5× e a biblioteca não baixada). Os quatro: a linha "Quantas"
+  // (44,4px), a nota do segmento (39,1px), a conta a três linhas (17,7px) e o
+  // rótulo do primário quebrando em duas (16,0px).
+  //
+  // A ASSERÇÃO VARRE A FONTE DO SISTEMA porque três dos quatro só aparecem com
+  // ela: uma medição a 1× diria zero sobre uma folha que pula.
+  for (const [w, h] of [[320, 740], [390, 900], [430, 900]]) {
+    const ctx = await navegador.newContext({
+      viewport: { width: w, height: h }, hasTouch: true, colorScheme: 'dark',
+    });
+    await semRedeExterna(ctx);
+    const pg = await ctx.newPage();
+    await pg.goto(base, { waitUntil: 'load' });
+    await esperarCortina(pg);
+    const r = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      setAppMode('full'); await z(200);
+      // O ACERVO É PLANTADO, e sem ele este bloco tem um ponto cego: a CONTA é
+      // um dos quatro motores do pulo, e as frases dela dependem de quantas
+      // faixas estão baixadas ("todas já baixadas — toca na hora" contra
+      // "nenhuma baixada ainda — vai baixar antes de tocar"). Com o pool vazio
+      // todas as onze células dizem "nada casa" e a conta não varia — a
+      // asserção passaria por VÁCUO sobre o motor que ela veio medir.
+      collState['hymnal-2022'] = { songs: Array.from({ length: 12 }, (_, i) => ({
+        id_music: 'h' + i, track: i + 1, name: 'Louvor de Natal ' + i,
+        duration: '3:00', has_instrumental_music: true,
+        fileIdFull: i < 4 ? 'f-h' + i : null, fileIdPlayback: null,
+      })) };
+      albumCatalog = { categories: [], albums: [] };
+      await abrirSorteio(); await z(600);
+      const folha = () => +document.querySelector('#sorteioPopup .popup-sheet')
+        .getBoundingClientRect().height.toFixed(1);
+      const rodape = () => +document.querySelector('#sorteioPopup .popup-fecho')
+        .getBoundingClientRect().top.toFixed(1);
+      const porEscala = {};
+      for (const fs of [16, 20.8, 24]) {
+        document.documentElement.style.fontSize = fs + 'px';
+        const alturas = [], topos = [];
+        for (const q of AVSorteio.QUANTIDADES) {
+          sorteioPrefs.quantos = q; renderSorteio(); await z(90);
+          alturas.push(folha()); topos.push(rodape());
+        }
+        for (const v of [AVSorteio.VARIANTE_CANTADA, AVSorteio.VARIANTE_PLAYBACK]) {
+          sorteioPrefs.variante = v; renderSorteio(); await z(90);
+          alturas.push(folha()); topos.push(rodape());
+        }
+        // E A PALAVRA TEMA, que é o QUARTO motor: a conta troca de frase a cada
+        // tecla, e a 320px ela vai a TRÊS linhas sem palavra nenhuma. O
+        // `min-height` dela reservava DUAS desde a v5.306, com a razão escrita
+        // (*"sem altura fixa os botões de fecho subiriam e desceriam embaixo do
+        // dedo"*) — o reservado é que estava abaixo do medido.
+        for (const t of ['', 'natal', 'zzzznadaaqui']) {
+          sorteioPrefs.tema = t; renderSorteio(); await z(90);
+          alturas.push(folha()); topos.push(rodape());
+        }
+        sorteioPrefs.tema = '';
+        porEscala[fs] = { folha: +(Math.max(...alturas) - Math.min(...alturas)).toFixed(2),
+          rodape: +(Math.max(...topos) - Math.min(...topos)).toFixed(2) };
+      }
+      document.documentElement.style.fontSize = '';
+      // E a faixa de fecho tem UMA altura só.
+      const fecho = document.querySelector('#sorteioPopup .popup-fecho');
+      const bs = [...fecho.querySelectorAll('button')]
+        .map((b) => +b.getBoundingClientRect().height.toFixed(1));
+      return { porEscala, alturasBotoes: bs, n: bs.length };
+    });
+    const piores = Object.values(r.porEscala);
+    checar(piores.every((p) => p.folha <= 1 && p.rodape <= 1),
+      'S · ' + w + 'px: a folha NÃO muda de tamanho entre os onze estados que o '
+      + 'operador alcança, nas TRÊS escalas de fonte — e o rodapé dela não se '
+      + 'move. Media 101 a 140px de deslocamento',
+      JSON.stringify(r.porEscala));
+    checar(r.n === 4 && new Set(r.alturasBotoes).size === 1,
+      'S · ' + w + 'px: e os QUATRO botões da faixa de fecho têm a mesma altura — '
+      + 'o primário tinha CINCO alturas diferentes conforme a fonte e o rótulo, '
+      + 'contra os 42,4px fixos dos quadrados',
+      JSON.stringify(r.alturasBotoes));
+    await ctx.close();
   }
 
 } finally {

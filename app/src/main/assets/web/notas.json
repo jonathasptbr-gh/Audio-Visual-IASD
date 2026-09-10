@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.8.61",
+    "itens": [
+      "No Cronograma, Bíblia, Importar e Ferramentas viram botões flutuantes: a lista corre por baixo deles.",
+      "E o fim da lista ganhou folga, para o último item nunca parar escondido atrás desses botões.",
+      "O cabeçalho do Cronograma virou uma barra da cor dos controles, para o corte da lista fazer sentido.",
+      "A barra de rolagem saiu de todas as telas: a sombra das bordas passa a ser o único indicador.",
+      "Na playlist automática, “uma só” virou o número 1 das quantidades — uma pergunta a menos.",
+      "E a janela dela parou de mudar de tamanho, com os quatro botões do rodapé na mesma altura."
+    ]
+  },
+  {
     "versao": "1.8.60",
     "itens": [
       "A barra de rolagem passa a ser a mesma em todas as listas, visível e na cor de destaque.",
