@@ -153,6 +153,35 @@
   --shadow-card: rgba(0, 0, 0, .55);
   --shadow-ink: rgba(0, 0, 0, .9);
 
+  /* ---------- A SOMBRA DA BORDA DE UM SCROLL (v1.8.58) ----------
+     Pedido do operador: *"nos diversos lugares onde temos scroll de listagem,
+     precisamos de um efeito de sombra nas fronteiras superiores e inferiores
+     quando o conteúdo rolar para baixo delas, demonstrando que aquela fronteira
+     está se sobrepondo a um conteúdo"*.
+
+     COMPARTILHADA, e não um delta por tema, porque ela é ALFA: escurece o que
+     estiver embaixo em vez de pintar uma cor. É isso que dissolve a objeção da
+     v1.5.16, que recusou o gradiente para a Biblioteca — o que aquele lote
+     rejeitou foi *"um gradiente pintado em `--panel`"*, que acerta sobre papel e
+     lava o poço. Preto com alfa compõe sobre os dois.
+
+     O NÚMERO FOI ESCOLHIDO POR MEDIÇÃO, e a régua importa: a MÉDIA da faixa é a
+     régua errada — no escuro os vãos entre linhas são quase pretos e não têm
+     como escurecer, então ela dilui justamente o que se quer ver. Quem entra
+     debaixo da borda é o CONTEÚDO (o texto, a capa), e é ele que a medição isola
+     (o decil mais claro da faixa, renderizado no Cronograma com 26 itens):
+
+         α      escuro   claro
+        .22      1,37     1,34
+       **.30**   **1,51** **1,51**
+        .40      1,68     1,74
+        .50      1,88     2,06
+
+     .30 é o ponto em que os DOIS temas leem igual, e é essa igualdade — não o
+     gosto — que escolhe o valor: no escuro quem escurece é o texto claro, no
+     claro é a superfície branca, e a mesma tinta serve os dois. */
+  --sombra-rolagem: rgba(0, 0, 0, .30);
+
   /* ---------- O CAMPO DE BUSCA NÃO TEM TEMA (v5.268) ----------
      Pedido do operador: a caixa de texto da Biblioteca branca nos DOIS temas.
      Ela mora aqui, no bloco compartilhado, pelo mesmo motivo que o palco: uma

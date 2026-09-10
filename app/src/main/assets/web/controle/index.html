@@ -684,7 +684,7 @@
         </div>
         <span class="simple-time-num" id="simpleTimeDur">0:00</span>
       </div>
-      <div class="simple-lyrics" id="simpleLyrics"></div>
+      <div class="simple-lyrics rola" id="simpleLyrics"></div>
     </div>
 
     <!-- A FAIXA DE AÇÕES — preview + buscar, lado a lado, NA ZONA DE BAIXO
@@ -721,7 +721,7 @@
            versões um layout no fluxo que o CSS já não desenhava.
 
            Vazio no HTML de propósito — quem o preenche é `hostCastConn()`. -->
-      <div class="simple-conn" id="simpleConn" hidden></div>
+      <div class="simple-conn rola" id="simpleConn" hidden></div>
       <div class="simple-stage" id="simpleStage"></div>
       <button type="button" id="simpleSearchBtn" class="simple-key simple-action">
         <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -913,7 +913,7 @@
          O `gap` repete o do `<main>`: os dois filhos daqui saíram de lá e a
          distância entre a lista e o rodapé é a mesma de sempre. -->
     <div class="list-body">
-    <ul id="library" class="lib-list"></ul>
+    <ul id="library" class="lib-list rola"></ul>
     <!-- RODAPÉ DA CAIXA DA LISTA (v5.107): fora do `<ul>` rolável, então o que
          estiver aqui fica SEMPRE à vista, encostado na caixa de controles.
          Dois inquilinos, nunca ao mesmo tempo:
@@ -964,7 +964,7 @@
            esconder — com o miolo ganhando piso (`min-height: min-content`), o
            que antes era espremido até sumir passou a transbordar, e a resposta
            a "não cabe" é rolar. -->
-      <div id="toolsBody" class="tools-body lib-misc"></div>
+      <div id="toolsBody" class="tools-body lib-misc rola"></div>
     </div>
     <!-- ===== A BÍBLIA É UMA FOLHA DO CRONOGRAMA (v1.5.0) =====
          Pedido do operador: *"agora o cronograma vai ser a tela padrão e única
@@ -1594,7 +1594,7 @@
         <span id="plPopupCount" class="popup-count">0</span>
         <button id="plPopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
-      <ul id="playlist" class="popup-list"></ul>
+      <ul id="playlist" class="popup-list rola"></ul>
       <!-- O RODAPÉ DA FOLHA: DUAS DECISÕES SOBRE A FILA, LADO A LADO (v1.8.53)
            Pedido do operador: *"ajuste os botões de limpar playlist inteira e
            guardar no cronograma, para que sejam botões lado a lado"*. Eram duas
@@ -1691,7 +1691,7 @@
         <span class="popup-title">Histórico do culto</span>
         <button id="histPopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
-      <ul id="histList" class="popup-list"></ul>
+      <ul id="histList" class="popup-list rola"></ul>
       <!-- LIMPAR TODO O HISTÓRICO (v1.4.31), a pedido do operador: *"pode
            colocar a opção de limpar todo o histórico ou por sessões"*. O por
            SESSÃO mora no cabeçalho de cada uma (ver `renderHistorico`); este é
@@ -1780,7 +1780,7 @@
            operador não procura "o botão que alterna", procura "a coisa do
            histórico", e um segundo formato de botão nesta folha é a densidade
            que o painel rápido acabou de tirar dela. -->
-      <div class="fade-opts">
+      <div class="fade-opts rola">
         <!-- Modo de uso, e desde a v5.250 este é o ÚNICO lugar em que ele se
              troca: os dois botões de cabeçalho que faziam a ida e a volta
              saíram (v5.247 o do avançado, v5.250 o do Fácil, substituído pela
@@ -2155,7 +2155,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">v1.8.57</span>
+          <span id="appVersion" class="app-version">v1.8.58</span>
           <!-- O GRUPO DE AÇÕES (v1.8.51). Ele existe por DUAS razões, e nenhuma
                é organização: (1) é ele que carrega o `margin-left: auto` que
                morava no rótulo solto, e (2) é ele que a faixa quebra INTEIRO
@@ -2274,7 +2274,7 @@
            propaganda de um recurso que o operador já decidiu usar — ele abriu
            esta folha para conectar uma tela, não para saber o que é
            espelhamento. -->
-      <div class="mirror-body" id="castConn">
+      <div class="mirror-body rola" id="castConn">
         <button type="button" id="castMirrorBtn" class="cast-acao">
           <svg class="cast-acao-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoEspelhar"/></svg>
           <!-- A LINHA AUXILIAR SÓ EXISTE COM UMA TV NO AR, e diz a única coisa
@@ -2556,7 +2556,7 @@
           <button type="button" class="fit-opt" data-lvsrc="deck">Páginas</button>
         </div>
       </div>
-      <div class="lyricsview-body" id="lyricsViewBody"></div>
+      <div class="lyricsview-body rola" id="lyricsViewBody"></div>
     </div>
   </div>
 
@@ -2644,7 +2644,7 @@
           </svg>
         </button>
       </div>
-      <ul id="hymnResults" class="popup-list"></ul>
+      <ul id="hymnResults" class="popup-list rola"></ul>
     </div>
   </div>
 
@@ -2655,7 +2655,7 @@
         <span class="popup-title">Versão da Bíblia</span>
         <button id="bibleVerClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
-      <ul id="bibleVerList" class="popup-list"></ul>
+      <ul id="bibleVerList" class="popup-list rola"></ul>
     </div>
   </div>
 
@@ -2668,7 +2668,7 @@
         <span class="popup-title" id="songMenuTitle"></span>
         <button id="songMenuClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
-      <ul id="songMenuList" class="popup-list song-menu-list"></ul>
+      <ul id="songMenuList" class="popup-list song-menu-list rola"></ul>
     </div>
   </div>
 
@@ -2690,7 +2690,7 @@
         <span class="popup-title">Playlist automática</span>
         <button id="sorteioClose" class="popup-close" title="Fechar" aria-label="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
-      <ul id="sorteioList" class="popup-list song-menu-list"></ul>
+      <ul id="sorteioList" class="popup-list song-menu-list rola"></ul>
     </div>
   </div>
 
@@ -2727,7 +2727,7 @@
            Preenchida por `openAppDialog({ itens })`, sempre por `textContent`
            item a item — nunca `innerHTML`, porque um dia esse texto virá de um
            arquivo baixado da rede. -->
-      <ul class="dialog-linha" id="appDialogItens" hidden></ul>
+      <ul class="dialog-linha rola" id="appDialogItens" hidden></ul>
       <!-- O RODAPÉ vem DEPOIS da lista porque a ordem é a leitura: o que é
            (título), o que muda (lista), o que vai acontecer quando eu tocar
            (isto). Entre a versão e as mudanças dela não cabe um parágrafo sobre

@@ -374,7 +374,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.57';
+const WEB_VERSION = '1.8.58';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4406,7 +4406,11 @@ function bibleCell(sym, opts) {
 function renderBibleBooks(wrap) {
   // (O seletor de versão e o status de download saíram daqui — moram na tela de
   // leitura, dando mais espaço para a grade de livros. Ver renderBibleReading.)
-  const grid = document.createElement('div'); grid.className = 'bible-grid bible-grid--books';
+  // `rola` também aqui: ela rola na vertical como qualquer lista. Que a tira
+  // não apareça nela é decisão da MEDIDA (é uma grade — ver `sem-veu`), não
+  // desta linha, e é isso que a faz valer sozinha no dia em que ela deixar de
+  // ser grade.
+  const grid = document.createElement('div'); grid.className = 'bible-grid bible-grid--books rola';
   Bible.BOOKS.forEach((b, i) => {
     // Só a abreviação (sem o nome completo) — fonte maior, ver .bible-grid--books.
     const cell = bibleCell(b.abbr, { cls: 'bg-' + b.g });
@@ -4442,7 +4446,10 @@ function renderBibleChapters(wrap) {
   const split = document.createElement('div'); split.className = 'bible-split';
 
   // ---- metade de cima: capítulos ----
-  const top = document.createElement('div'); top.className = 'bible-half';
+  // `rola` AQUI, e não no index.html, porque estas duas nascem em runtime. Elas
+  // não pedem chamada nenhuma de volta: quem as vê nascer é o observador do
+  // DOCUMENTO (ver "A SOMBRA DAS BORDAS DE UM SCROLL").
+  const top = document.createElement('div'); top.className = 'bible-half rola';
   const cGrid = document.createElement('div'); cGrid.className = 'bible-grid bible-grid--num bible-grid--chapters';
   for (let c = 1; c <= book.chapters; c++) {
     const cell = bibleCell(String(c), { cls: 'bible-cell--num', active: bibleSel.chapter === c });
@@ -4457,7 +4464,7 @@ function renderBibleChapters(wrap) {
   top.appendChild(cGrid);
 
   // ---- metade de baixo: versículos ----
-  const bottom = document.createElement('div'); bottom.className = 'bible-half';
+  const bottom = document.createElement('div'); bottom.className = 'bible-half rola';
   bottom.appendChild(bibleVersesPane());
 
   split.append(top, bottom);
@@ -7038,7 +7045,7 @@ function renderMsg() {
   host.innerHTML = '';
 
   const list = document.createElement('div');
-  list.className = 'msg-list';
+  list.className = 'msg-list rola';
   if (!messages.length) {
     const empty = document.createElement('div');
     empty.className = 'empty'; empty.textContent = 'Nenhuma mensagem.';
@@ -7171,7 +7178,7 @@ function renderDiversos() {
 
   const tool = MISC_TOOLS.find((t) => t.id === miscTool) || MISC_TOOLS[0];
   const panel = document.createElement('div');
-  panel.className = 'misc-panel misc-panel--' + tool.id;
+  panel.className = 'misc-panel rola misc-panel--' + tool.id;
   panel.id = tool.wrap;
   toolsBodyEl.appendChild(panel);
   tool.render();
@@ -8797,9 +8804,6 @@ function renderCollectionsList(alvo, redesenhar, opts) {
   try {
     renderCollectionsListMiolo(alvo, redesenhar, opts);
   } finally {
-    // O véu das bordas: este redesenho roda a cada 400 ms durante um download e
-    // muda a altura da lista sem rolagem nenhuma.
-    acertarVeuDaLista();
     // A TAMPA (v1.5.19), e é aqui porque é aqui que a lista está COMPLETA: a
     // conta divide a altura útil pelo número de blocos, e medi-la no meio da
     // montagem leria uma tela com metade deles.
@@ -17864,28 +17868,130 @@ async function syncLyrics() {
 // A FOLGA DE 2px não é superstição: `scrollTop` é fracionário em telas de alta
 // densidade, e o fim da lista costuma dar `scrollHeight - scrollTop -
 // clientHeight` de 0,5px. Com zero, o véu de baixo piscava no último pixel.
-function acertarVeuDaLista() {
-  const el = hymnResultsEl;
+function acertarVeu(el) {
   if (!el) return;
   const acima = el.scrollTop > 2;
   const abaixo = el.scrollHeight - el.scrollTop - el.clientHeight > 2;
   if (el.classList.contains('tem-acima') !== acima) el.classList.toggle('tem-acima', acima);
   if (el.classList.contains('tem-abaixo') !== abaixo) el.classList.toggle('tem-abaixo', abaixo);
 }
-// Coalescido por quadro: o `scroll` de um gesto chega mais de uma vez por
-// quadro e a conta acima lê `scrollHeight`, que força layout.
+// ===== UM CONJUNTO SÓ, E ELE SE MANTÉM SOZINHO =====
+//
+// O `ResizeObserver` é RELIGADO só quando o CONJUNTO de `.rola` muda — não a
+// cada varredura. Alguns scrollers nascem em runtime (as duas metades da
+// Bíblia, os painéis da folha de Ferramentas) e re-observar sem desligar
+// seguraria o nó morto para sempre; religar a cada quadro seria o oposto, um
+// `disconnect`/`observe` de catorze nós por render.
+const veuRO = new ResizeObserver(() => pedirVeus());
+let veuVistos = [];
+// ===== O VEREDITO NUNCA É GUARDADO =====
+//
+// A varredura relê as três medidas a cada passada, e isso é decisão, não
+// desleixo: um veredito em cache sobrevive ao contêiner mudando de natureza. O
+// `#simpleLyrics` VIRA `display: grid` em runtime (`.lv-grade`, a letra como
+// apresentação em duas colunas), e uma marca escrita enquanto ele era flex
+// continuaria valendo — MEDIDO, com a tira presa numa célula da grade a página
+// 1 do deck ia 188px para a segunda coluna, no meio do culto. O veredito da
+// grade (`sem-veu`, abaixo) é reescrito nesta mesma passada, e é isso que o faz
+// voltar sozinho quando o contêiner deixa de ser grade — a volta é onde um
+// cache erra, e erra calado.
+// ===== E AS DUAS MEDIDAS SÃO LIDAS, NUNCA TRANSCRITAS =====
+//
+// A tira precisa SUMIR da conta de rolagem, e quem a cancela são margens
+// negativas que somam a altura dela ao `gap` do scroller; a de baixo ainda
+// compensa o `padding-bottom`. Os dois números são do LAYOUT, e a primeira
+// escrita deste lote os declarou à mão no CSS: MEDIDO, **quatro das catorze
+// linhas estavam erradas** (o `gap` do auxiliar de leitura é 19,26px e a tabela
+// dizia 8px), e o `scrollHeight` não acusou porque aquelas listas não
+// transbordavam no cenário — o defeito só apareceria em uso.
+//
+// LER É A CORREÇÃO, e ela é de graça aqui: esta varredura já força layout ao
+// pedir `scrollHeight`. As LEITURAS vêm todas antes das ESCRITAS de propósito —
+// intercalar as duas faz o navegador recalcular o layout a cada elemento —, e a
+// escrita só acontece quando o valor VIRA, senão cada passada sujaria o estilo
+// de catorze nós para reescrever o que já estava lá.
+// O caminho da ROLAGEM não passa por aqui (`acertarVeu` direto): rolar não muda
+// `gap` nem recuo, e pagar `getComputedStyle` a cada quadro de um gesto seria o
+// oposto do que a coalescência existe para evitar.
+function acertarVeus() {
+  const alvos = [...document.querySelectorAll('.rola')];
+  if (alvos.length !== veuVistos.length || alvos.some((el, i) => el !== veuVistos[i])) {
+    veuRO.disconnect();
+    for (const el of alvos) veuRO.observe(el);
+    veuVistos = alvos;
+  }
+  const medidas = alvos.map((el) => {
+    const cs = getComputedStyle(el);
+    return [cs.rowGap === 'normal' ? '0px' : cs.rowGap, cs.paddingBottom, cs.display];
+  });
+  alvos.forEach((el, i) => {
+    if (el.style.getPropertyValue('--veu-vao') !== medidas[i][0]) {
+      el.style.setProperty('--veu-vao', medidas[i][0]);
+    }
+    if (el.style.getPropertyValue('--veu-base') !== medidas[i][1]) {
+      el.style.setProperty('--veu-base', medidas[i][1]);
+    }
+    // ===== A GRADE NÃO PODE TER A TIRA, E ISSO É MEDIDO =====
+    //
+    // O pseudo-elemento de um contêiner de GRADE **é um item dela**: a tira
+    // toma a primeira célula e empurra o conteúdo uma casa. MEDIDO no
+    // `#simpleLyrics` com a letra virada apresentação (`.lv-grade`, duas
+    // colunas): a página 1 do deck ia 188px para a segunda coluna, no meio do
+    // culto. A `.bible-grid--books` é o segundo caso, e o terceiro ainda não
+    // existe — daí a pergunta ser pelo `display` COMPUTADO e não por uma lista
+    // de seletores, que é a lista que se esquece de crescer.
+    const grade = /grid/.test(medidas[i][2]);
+    if (el.classList.contains('sem-veu') !== grade) el.classList.toggle('sem-veu', grade);
+  });
+  for (const el of alvos) acertarVeu(el);
+}
+// Coalescido por quadro: o `scroll` de um gesto chega mais de uma vez por quadro
+// e a conta lê `scrollHeight`, que força layout.
 let veuPedido = false;
-function pedirVeuDaLista() {
+function pedirVeus() {
   if (veuPedido) return;
   veuPedido = true;
-  requestAnimationFrame(() => { veuPedido = false; acertarVeuDaLista(); });
+  requestAnimationFrame(() => { veuPedido = false; acertarVeus(); });
 }
-// UM ouvinte, no boot: `#hymnResults` é o MESMO nó entre uma abertura e a
-// seguinte (é a razão de o `openHymnSearch` precisar zerar o `scrollTop` à
-// mão), então registrar por abertura empilharia ouvintes para sempre.
+// ===== UM OUVINTE SÓ, EM CAPTURA =====
+//
+// `scroll` não BORBULHA, mas CAPTURA — e é isso que faz um ouvinte no
+// `document` ver a rolagem de todos os scrollers do app. A alternativa (um por
+// elemento) empilha ouvintes a cada folha reaberta, que é o defeito que a
+// v1.5.16 evitou registrando o dela no boot: para um scroller só aquilo
+// bastava, para catorze não basta, porque vários são recriados.
 // `passive` porque ele não cancela nada — sem isso o Chromium não pode
 // adiantar a rolagem.
-if (hymnResultsEl) hymnResultsEl.addEventListener('scroll', pedirVeuDaLista, { passive: true });
+document.addEventListener('scroll', (e) => {
+  const el = e.target;
+  if (el && el.nodeType === 1 && el.classList && el.classList.contains('rola')) acertarVeu(el);
+}, { capture: true, passive: true });
+
+// ===== E A ROLAGEM NÃO É O ÚNICO JEITO DE A RESPOSTA MUDAR =====
+//
+// Este é o defeito que a generalização quase publicou, e ele é MUDO: um render
+// que troca o conteúdo **sem mexer na caixa e sem rolar** — que é a forma de
+// quase todo render deste app (`innerHTML = ''` mais appends, com o `scrollTop`
+// já em zero) — não dispara `scroll` NEM `ResizeObserver`. MEDIDO: a Biblioteca
+// foi de 511 para 1707 de altura rolável com `tem-abaixo` FALSO, isto é, sem
+// sombra sobre uma lista que passou a esconder conteúdo.
+//
+// ===== E O OBSERVADOR É UM SÓ, NO DOCUMENTO INTEIRO =====
+//
+// A primeira escrita observava `childList` de CADA scroller, com o argumento de
+// que `subtree` faria "cada `timeupdate` da mídia varrer tudo". **MEDIDO, e o
+// argumento caiu:** um `childList: true, subtree: true` no documento inteiro
+// registrou ZERO callbacks em 6 s de `display-status` a 4 Hz (o caminho quente
+// do culto), e uma varredura completa dos catorze custa 0,093 ms. O que o
+// observador por elemento cobrava em troca era uma OBRIGAÇÃO por chamador —
+// todo lugar que montasse um scroller novo tinha de lembrar de religar —, e
+// obrigação por chamador é o que este projeto chama de nascer mudo. Com um
+// observador só, um `.rola` novo em qualquer canto passa a valer sozinho.
+//
+// Ele observa `childList`, e só: as escritas desta varredura (as duas medidas
+// inline e as duas classes) são de ATRIBUTO, então não há laço.
+new MutationObserver(() => pedirVeus())
+  .observe(document.documentElement, { childList: true, subtree: true });
 
 function openHymnSearch(comFoco) {
   hymnSearchInputEl.placeholder = 'Nome, número ou trecho da letra…';
@@ -17913,9 +18019,6 @@ function openHymnSearch(comFoco) {
   // v5.278 (a camada fixa seguindo a viewport visual): com a barra no topo da
   // folha e nada rolando além da lista, não há o que acompanhar.
   hymnResultsEl.scrollTop = 0;
-  // O véu conferido AQUI e não só no `scroll`: um render muda o `scrollHeight`
-  // sem que nenhuma rolagem aconteça, e a Biblioteca abre com a lista parada.
-  acertarVeuDaLista();
   // O TECLADO SOBE NOS DOIS MODOS, um tempo DEPOIS da tela (260 ms: o fade de
   // .25s mais um quadro). Simultâneos, o teclado ENCOLHE a faixa visível
   // (`--kb`/`--vv-top`) enquanto a folha ainda aparece — dois movimentos sobre
@@ -18145,16 +18248,7 @@ function closeHymnSearch() {
 // visível em volta — o operador não perde onde estava para ver o que tem dentro.
 function searchIsBrowsing(q) { return !q; }
 
-// A casca do `renderSearchResults`, na forma que o `renderCollectionsList` já
-// usa: o miolo tem saídas antecipadas (índice vazio, zero resultados) e o véu
-// das bordas precisa ser reconferido depois de TODAS elas — um render muda o
-// `scrollHeight` sem que nenhuma rolagem aconteça. `finally` porque uma exceção
-// no miolo não pode deixar o véu descrevendo a lista anterior.
 function renderSearchResults(query) {
-  try { renderSearchResultsMiolo(query); } finally { acertarVeuDaLista(); }
-}
-
-function renderSearchResultsMiolo(query) {
   const q = normalizeForSearch(query).trim();
   // Digitou outra coisa: os resultados do YouTube da busca anterior saem de
   // cena. Deixá-los ali embaixo de um termo novo é oferecer a resposta errada.
@@ -30330,7 +30424,7 @@ window.addEventListener('resize', () => {
     // isso, e o erro é nos DOIS sentidos: o véu de baixo fica aceso sobre uma
     // lista que passou a caber, ou apagado sobre uma que passou a não caber.
     // Aqui, no mesmo ponto e no mesmo quadro em que a medida é escrita.
-    pedirVeuDaLista();
+    pedirVeus();
   };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
   vv.addEventListener('resize', schedule);
@@ -32728,6 +32822,19 @@ document.addEventListener('visibilitychange', () => {
   // de fazer alguma coisa). O que cobre a falha CATASTRÓFICA — este arquivo
   // nunca chegar aqui — é o prazo armado lá, e não uma guarda aqui.
   if (window.__avSplash) window.__avSplash.pronto();
+  // ===== A SOMBRA DAS BORDAS DE UM SCROLL =====
+  //
+  // AQUI, e não no bloco de teclas de volume, que é onde ela quase ficou: aquele
+  // bloco vive dentro de `if (window.__NATIVE__)`, e uma chamada ali NÃO RODA no
+  // navegador — isto é, não roda em oráculo nenhum. O defeito seria mudo dos
+  // dois lados: no CI a sombra nunca acenderia por render, e no aparelho ela
+  // acenderia, então nenhum teste veria a diferença. É a regra de escrita deste
+  // projeto pelo avesso (*"toda guarda é `if (!window.__NATIVE__)`"*).
+  //
+  // E é a ÚNICA chamada explícita do app: o observador do documento só vê o que
+  // MUDA depois dele, e o que já está desenhado na primeira pintura não muda.
+  // Daqui em diante ninguém mais precisa lembrar de nada.
+  acertarVeus();
   // registra a chegada de compartilhamentos (intent nativo; no navegador é no-op)
   registrarShareNativo();
   // E O LINK QUE JÁ ESTAVA COPIADO. Fire-and-forget, como os três abaixo: a

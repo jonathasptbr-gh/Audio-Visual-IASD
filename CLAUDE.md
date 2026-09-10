@@ -1350,6 +1350,23 @@ nenhum**, e por isso ficam aqui.
   transporte, não pelo nome); e a faixa da gaveta de um favorito, onde largura
   da capa × altura da faixa não fecham num quadrado — ali o oráculo TROCA a
   régua pela que vale (toda peça na mesma altura), em vez de calar.
+- **TODO SCROLLER TEM A SOMBRA DAS BORDAS, e a marca é `rola`** (v1.8.58). Ela
+  diz *"há conteúdo escondido deste lado"*: duas tiras `sticky` de 22px em
+  `z-index: 2`, tinta de `linear-gradient(var(--sombra-rolagem))` e
+  `pointer-events: none`. **É `linear-gradient` e nunca `backdrop-filter`** — o
+  segundo obriga a compor o que está atrás (MEDIDO: duas camadas por tira), e
+  foi esse custo que prendeu o efeito a uma lista só da v1.5.16 até aqui. **As
+  duas medidas que fazem a tira sumir da conta de rolagem são LIDAS do layout**
+  (`getComputedStyle` → `--veu-vao`/`--veu-base`), nunca declaradas: escritas à
+  mão, quatro das catorze primeiras estavam erradas, e o `scrollHeight` não
+  acusa nenhuma numa lista que ainda cabe. **Nada precisa ser religado**: um
+  observador só, no documento inteiro, vê todo `.rola` que nasce — MEDIDO, ele
+  registra ZERO callbacks em 6 s de `display-status` a 4 Hz e a varredura
+  completa custa 0,093 ms. **Um scroller em GRADE fica de fora, e por MEDIDA**
+  (`sem-veu`, do `display` computado a cada passada): o pseudo-elemento de um
+  contêiner de grade é um ITEM dela e empurra o conteúdo uma casa. E **um
+  carrossel HORIZONTAL não recebe a marca** — `overflow-x: auto` COMPUTA
+  `overflow-y: auto`, e a sombra vertical ali não descreve nada.
 - **O feedback de toque é `translateY(2px)` — recuo ABSOLUTO, nunca uma
   fração.** Uma fração aplicada a alvos de 34px a 408px não é um valor, são
   doze. **E um BLOCO que hospeda controles responde só com a LUZ**, nunca com
@@ -2343,7 +2360,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.57 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.58 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
