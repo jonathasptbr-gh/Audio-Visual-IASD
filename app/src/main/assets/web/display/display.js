@@ -1294,9 +1294,11 @@ document.addEventListener('keydown', onUserGesture);
 // ===== YouTube: SEM PLAYER DE TERCEIRO =====
 //
 // A IFrame Player API saiu (v5.212), com `YT.Player`/`ytHandle`/`ytStatus` e
-// ~540 linhas de máquina de estados. Quem toca YouTube é o caminho próprio:
-// transmissão direta (`ytStream` → `shared/mse.js` → `<video>` comum) e, se
-// falhar, o arquivo baixado (`ytFetch`).
+// ~540 linhas de máquina de estados. Quem toca YouTube é o caminho próprio: o
+// arquivo BAIXADO (`ytFetch`), que chega ao palco como mídia comum. A
+// transmissão direta que existia ao lado dele saiu na v1.7.7, e com ela o
+// produtor de manifesto — o `mse.js` fica pela LEITURA (um registro gravado
+// antes daquele lote ainda pode carregar um `stream` no IndexedDB).
 //
 // POR QUE SAIU: `addJavascriptInterface` injeta em TODAS as frames, iframes de
 // outra origem inclusive. No telão a ponte nasce `host = null` (invariante 9),

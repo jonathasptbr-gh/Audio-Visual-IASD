@@ -341,7 +341,7 @@ try {
     await pg.waitForFunction(
       () => window.AVDB && window.AVStream && window.createStage
         && typeof window.__avBack === 'function'
-        && !!document.querySelector('#playlist li'),
+        && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
       null, { timeout: 25000 },
     );
     deuPe = true;
@@ -2353,7 +2353,7 @@ try {
     // existe. `abrirSorteio` reescreve as prefs, então o modo é posto DEPOIS
     // dele e a folha é redesenhada.
     await abrirSorteio();
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
+    sorteioPrefs.quantos = 3;
     renderSorteio();
     out.acoes = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')]
       .map((b) => b.textContent.trim());
@@ -3957,7 +3957,7 @@ try {
     await pg2.waitForFunction(
       () => window.AVDB && window.AVStream && window.createStage
         && typeof window.__avBack === 'function'
-        && !!document.querySelector('#playlist li'),
+        && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
       null, { timeout: 25000 },
     );
     deuPe2 = true;
@@ -4223,7 +4223,7 @@ try {
   // aparece depois de o tile já estar pintado.
   const dePe = () => pgP.waitForFunction(
     () => window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 25000 });
   await pgP.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await dePe();
@@ -5015,10 +5015,12 @@ try {
   });
   checar(!linkYt.erro && linkYt.n === 7
       && JSON.stringify(linkYt.ordem) === JSON.stringify(['row-excluir', 'row-renomear',
-        'fav-btn', 'row-playlist', 'baixar', 'row-ordem', 'row-ordem']),
+        'row-playlist', 'fav-btn', 'baixar', 'row-ordem', 'row-ordem']),
     'A LINHA DE LINK DO YOUTUBE tem os SETE botões, com o "baixar o vídeo" DEPOIS '
     + 'da sequência ditada — ele só existe nesta linha, e no meio dela a partiria '
-    + 'ao meio', JSON.stringify(linkYt.ordem));
+    + 'ao meio. (O par playlist/estrela INVERTEU na v1.8.56, pela ordem canônica '
+    + 'dos destinos: Cronograma · playlist · favoritos, e aqui o Cronograma não '
+    + 'aparece porque o item já está nele.)', JSON.stringify(linkYt.ordem));
   checar(!linkYt.erro && linkYt.soma <= linkYt.caixa
       && linkYt.larguras.every((w) => w === linkYt.larguras[0]) && linkYt.larguras[0] >= 34,
     'e ela CABE na caixa (' + (linkYt.soma || 0) + 'px em ' + (linkYt.caixa || 0)
@@ -5203,7 +5205,7 @@ try {
   // caso corre contra a abertura e é desfeito por ela — MEDIDO, e é a quarta
   // classe da tabela ("o oráculo correndo contra o app") outra vez.
   await pg7.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 25000 });
 
   const fonte = await pg7.evaluate(async () => {
     setAppMode('full');
@@ -5267,7 +5269,7 @@ try {
   await pg8.addInitScript(PONTE);
   await pg8.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
   await pg8.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 20000 });
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 20000 });
   const volta = await pg8.evaluate(() => ({
     valor: lvTamanho,
     token: getComputedStyle(document.documentElement).getPropertyValue('--lv-fonte').trim(),
@@ -5306,7 +5308,7 @@ try {
   await pg9.addInitScript(PONTE);
   await pg9.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
   await pg9.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 25000 });
 
   const clip = await pg9.evaluate(async () => {
     const r = {};
@@ -5439,7 +5441,7 @@ try {
   })();`);
   await pgM.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
   await pgM.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 25000 });
 
   const semTv = await pgM.evaluate(async () => {
     // A PORTA DAS FERRAMENTAS É O BOTÃO DO CRONOGRAMA (v1.3.10) — elas deixaram

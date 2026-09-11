@@ -292,6 +292,65 @@ try {
     'e a badge segue muda nos dois estados — o limiar dela (`> 1`) é OUTRO, e '
     + 'amarrá-los faria uma pergunta responder pela outra',
     JSON.stringify({ zero: semNada.plBadge, um: umSo.plBadge }));
+
+  // ── 10. A FILA MUDA PELA PORTA DE VERDADE (v1.8.70) ─────────────────────
+  // OS NOVE BLOCOS ACIMA MONTAM A FILA PELO BANCO e chamam `load()` na
+  // sequência — e é `load()` quem chega a `renderSlideNav()`, o ÚNICO chamador
+  // de `renderTransporteHabilitado()`. Por isso todos eles APROVAVAM o defeito:
+  // nenhum muda a fila pela porta que o operador usa. Aqui a fila muda por
+  // `togglePlaylist` e NADA mais é chamado — nem `load()`, nem `renderSlideNav()`.
+  await pg.evaluate(async () => {
+    await AVDB.listSet('playlist', []);
+    stop();
+    await load();
+  });
+  await esperar(pg, () => plItems.length === 0 && !midiaNoAr, null, 8000);
+  const antesDaPorta = await botoes();
+  checar(antesDaPorta.fila === 0 && antesDaPorta.midia === false
+      && antesDaPorta.prev.off === true && antesDaPorta.next.off === true,
+    'A PREMISSA: fila vazia, nada no ar, os dois apagados. Sem esta asserção o '
+    + 'bloco passaria a medir um par que já estava aceso',
+    antesDaPorta);
+
+  // A PORTA: o botão de playlist de uma linha. `togglePlaylist` é o handler
+  // dele, e é o mesmo caminho da folha de destinos com só "playlist" marcada.
+  await pg.evaluate(async () => {
+    const b = document.createElement('button');
+    b.className = 'row-playlist';
+    document.body.appendChild(b);
+    window.__btnDaPorta = b;
+    await togglePlaylist({ id: 'hino-um' }, b);
+  });
+  await esperar(pg, () => plItems.length === 1, null, 8000);
+  const pelaPorta = await botoes();
+  checar(pelaPorta.fila === 1,
+    'a fila de fato ganhou o item pela porta de verdade', pelaPorta);
+  checar(pelaPorta.next.off === false && /pr[óo]xima m[íi]dia/i.test(pelaPorta.next.title),
+    'E O ⏭ ACENDE NO ATO: `transportePode(+1)` já responde `true` com a fila '
+    + 'em 1, e quem monta a fila pelo botão da linha não passa por `load()`. '
+    + 'Apagado, ele engole o toque — inclusive o da notificação e o da tela de '
+    + 'bloqueio, que agem por `.click()` — e o único caminho de COMEÇAR uma '
+    + 'fila pelo transporte morre sem nada na tela dizendo por quê',
+    pelaPorta.next);
+  checar(pelaPorta.prev.off === false,
+    'e o ⏮ junto, pela mesma régua', pelaPorta.prev);
+
+  // E A VOLTA, que é o que decide ONDE o repintor mora: `renderPlaylist` VOLTA
+  // CEDO quando a fila fica vazia (o `if (count === 0) return`), então um
+  // repintor no FIM dela não rodaria justamente no caso em que os dois botões
+  // precisam APAGAR. É a mesma armadilha que o KDoc de `marcarNaPlaylist` nomeia.
+  await pg.evaluate(async () => {
+    await togglePlaylist({ id: 'hino-um' }, window.__btnDaPorta);
+  });
+  await esperar(pg, () => plItems.length === 0, null, 8000);
+  const deVolta = await botoes();
+  checar(deVolta.fila === 0 && deVolta.next.off === true
+      && /fila est[áa] vazia/i.test(deVolta.next.title),
+    'e ESVAZIAR pela mesma porta APAGA os dois de volta — a metade que reprova '
+    + 'quem puser o repintor no fim de `renderPlaylist`, depois do retorno '
+    + 'antecipado do `count === 0`',
+    deVolta);
+
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));

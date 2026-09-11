@@ -63,7 +63,7 @@ pg.on('pageerror', (e) => erros.push(e.message));
 try {
   await pg.goto('http://localhost:' + servidor.address().port + '/controle/', { waitUntil: 'load' });
   await pg.waitForFunction(
-    () => window.AVDB && typeof window.__avBack === 'function' && !!document.querySelector('#playlist li'),
+    () => window.AVDB && typeof window.__avBack === 'function' && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 25000 },
   );
   await pg.evaluate(() => setAppMode('full'));
@@ -153,9 +153,18 @@ try {
       invadeControles: r.bottom > barra.top + 1,
       // E ela ocupa a lista de fato — uma folha de 20px de altura passaria nas
       // duas de cima sem servir para nada.
+      // O ALVO É O CONTENT BOX DA LISTA, não a caixa dela (v1.8.61). Desde que o
+      // cabeçalho virou barra, o `#library` carrega o vão até ela como
+      // `padding-top` PRÓPRIO — 9,6px de recuo por onde a primeira linha desliza
+      // e onde não há conteúdo nenhum. A folha continua começando no mesmo pixel
+      // absoluto de sempre (53,19) e continua cobrindo TODA linha; o que ela
+      // deixou de cobrir foi o recuo, e cobri-lo custaria encostá-la na barra —
+      // medido, a fronteira de cima dela cai de 1,410 para 1,192 no escuro.
       cobreALista: (() => {
-        const l = document.getElementById('library').getBoundingClientRect();
-        return r.top <= l.top + 1 && r.bottom >= l.bottom - 1;
+        const el = document.getElementById('library');
+        const l = el.getBoundingClientRect();
+        const topo = l.top + parseFloat(getComputedStyle(el).paddingTop);
+        return r.top <= topo + 1 && r.bottom >= l.bottom - 1;
       })(),
       biblia: bibliaAberta(),
       ferramentas: !!document.querySelector('.misc-switch'),
@@ -255,11 +264,16 @@ try {
     const r = f.getBoundingClientRect();
     const cab = document.querySelector('.list-header').getBoundingClientRect();
     const barra = document.querySelector('.bottombar').getBoundingClientRect();
-    const l = document.getElementById('library').getBoundingClientRect();
+    const lEl = document.getElementById('library');
+    const l = lEl.getBoundingClientRect();
+    // O CONTENT BOX, pela mesma razão do bloco de Ferramentas acima (v1.8.61):
+    // desde que o cabeçalho virou barra, o `#library` carrega o vão até ela como
+    // `padding-top` próprio, e ali não há conteúdo a cobrir.
+    const lTopo = l.top + parseFloat(getComputedStyle(lEl).paddingTop);
     return {
       invadeCabecalho: r.top < cab.bottom - 1,
       invadeControles: r.bottom > barra.top + 1,
-      cobreALista: r.top <= l.top + 1 && r.bottom >= l.bottom - 1,
+      cobreALista: r.top <= lTopo + 1 && r.bottom >= l.bottom - 1,
       // O host é PRÓPRIO: a Bíblia desenhava dentro do `#library`, o mesmo
       // `<ul>` do Cronograma, e é por isso que `renderLibrary` tinha um desvio
       // por aba no topo.
@@ -417,12 +431,19 @@ try {
     'na raiz, o toque seguinte FECHA a folha — e continua consumindo o gesto, que '
     + 'é o que impede o app de minimizar no meio do culto', JSON.stringify(subida));
 
-  // ── 9. AS TRÊS PORTAS DO RODAPÉ FICAM QUIETAS (v1.5.19) ─────────────────
+  // ── 9. AS TRÊS PORTAS DO RODAPÉ SÃO IGUAIS ENTRE SI (v1.5.19) ───────────
   //
-  // Pedido do operador: *"padronize os botões de biblia, importar e ferramentas
-  // da aba de cronograma, para que tenham uma cor mais proxima a cor de fundo,
-  // para que não se destaquem … preciso que sejam opções discretas, mescladas
-  // ao fundo."*
+  // Pedido do operador que criou o bloco: *"padronize os botões de biblia,
+  // importar e ferramentas da aba de cronograma, para que tenham uma cor mais
+  // proxima a cor de fundo, para que não se destaquem … preciso que sejam
+  // opções discretas, mescladas ao fundo."*
+  //
+  // **A METADE "DISCRETAS" FOI REVOGADA PELO OPERADOR na v1.8.62**, e a nova
+  // vale por extenso: *"quero eles em azul, o mesmo azul de ativado dos botões
+  // das configurações … mas aqui devem ser sólidos"*. Uma porta em denim cheio é
+  // o OPOSTO de mesclada ao fundo, e o bloco 9-B mudou de sinal para dizer isso
+  // (ver lá). O que sobrevive intacto é a metade "padronize" — as três pintam a
+  // MESMA cor —, que é o 9-A e continua sendo o que morde.
   //
   // Este arquivo já era o dono das TRÊS PORTAS (o bloco 1 trava que elas são
   // três e a ordem delas), e é por isso que o desenho delas se mede aqui: uma
@@ -436,10 +457,12 @@ try {
   //    sozinho quando as três ganharam rótulo. Um lote futuro que reabra esse
   //    argumento não erra alto — ele devolve UMA cor a UM botão, e a palavra do
   //    pedido ("padronize") morre sem nada na tela dizendo por quê.
-  //  - **a discrição virar desaparecimento.** "Mesclado ao fundo" tem um piso,
-  //    e o piso é a linguagem do INDISPONÍVEL deste app (`--op-inativo`). Uma
-  //    caixa mais quieta que um controle desabilitado deixa de ser encontrável
-  //    — e continua tocável, que é o pior par possível.
+  //  - **a discrição virar desaparecimento.** O piso continua escrito no 9-C e
+  //    continua sendo a linguagem do INDISPONÍVEL deste app (`--op-inativo`):
+  //    uma caixa mais quieta que um controle desabilitado deixa de ser
+  //    encontrável e continua tocável, que é o pior par possível. Com o denim
+  //    da v1.8.62 ele passa com folga — e fica, porque é o piso da FAIXA e não
+  //    do valor de um lote.
   //  - **o rodapé PULAR ao entrar na seleção.** É um defeito LATENTE que este
   //    lote fecha: MEDIDO antes dele, `#listFoot` ia de 51,77px (as portas) para
   //    44,00 (a `.selbar`) — 7,77px de pulo debaixo do dedo que segura um item,
@@ -560,6 +583,11 @@ try {
       }
       return cor.slice(0, 3);
     };
+    // O TRAÇO, pelo mesmo canvas: `color` computado é sempre `rgb()`/`rgba()`,
+    // mas parseá-lo por regex é a armadilha que o comentário do `rgba` acima
+    // descreve — o motor escolhe a sintaxe, e uma delas não é uma lista de
+    // números. Aqui ele passa pelo MESMO decodificador do fundo.
+    window.__texto = (el) => (el ? rgba(getComputedStyle(el).color).slice(0, 3) : null);
     // A SONDA DO "ANTES" pousa na MESMA fileira: `--surface` não tem valor
     // único (a regra R1 o troca por `--surface-sunk` dentro de quem pinta
     // `--panel`), então medi-lo fora do habitat mediria outro token.
@@ -613,8 +641,16 @@ try {
   const temaOriginal = await pg.evaluate(() => document.documentElement.getAttribute('data-tema'));
 
   for (const tema of ['escuro', 'claro']) {
-    const m = await pg.evaluate((t) => {
+    const m = await pg.evaluate(async (t) => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
       document.documentElement.setAttribute('data-tema', t);
+      // O PAINEL PRECISA ESTAR ABERTO para o tile ser lido RENDERIZADO — com
+      // ele fechado a cor computada sai certa sobre nada na tela, e a largura
+      // sai ZERO. Aberto e fechado dentro desta mesma passada: o resto do bloco
+      // 9 mede a faixa do rodapé, e uma folha aberta por cima mudaria o que ele
+      // vê (a 9-D entra em seleção logo abaixo).
+      openFadePopup();
+      await z(320);
       const bib = document.getElementById('bibleBtn');
       const imp = document.querySelector('.import-row .import-btn');
       const fer = document.getElementById('toolsBtn');
@@ -646,6 +682,20 @@ try {
         // `.t-btn:disabled`). Ele é MEDIDO, e não escrito: um número copiado
         // para cá envelheceria na primeira troca de alfa da paleta.
         inativo: window.__sonda('background: var(--surface); opacity: var(--op-inativo)'),
+        // O TILE ACESO DAS CONFIGURAÇÕES, RENDERIZADO — a régua do 9-B desde a
+        // v1.8.63. Ele é lido da PÁGINA e nunca escrito aqui: o operador nomeou
+        // *"os cards de tema, rotação, exportar"*, e um hexadecimal digitado
+        // seria a cor num segundo lugar. `#temaTile` e não um dos três do
+        // pacote — MEDIDO, aqueles saem com largura ZERO no navegador.
+        tile: (() => {
+          const e = document.getElementById('temaTile');
+          if (!e || !e.classList.contains('qs-on')) return null;
+          return { bg: window.__efetivo(e), cru: cs(e).backgroundColor,
+            traco: window.__texto(e),
+            largura: Math.round(e.getBoundingClientRect().width * 100) / 100 };
+        })(),
+        tracoPorta: window.__texto(bib),
+        _fecha: (() => { closeFadePopup(); return 1; })(),
       };
     }, tema);
 
@@ -674,64 +724,50 @@ try {
     checar(iguais(m.fontes),
       '[' + tema + '] A · e a mesma família de fonte', m.fontes);
 
-    // ── 9-B · ELAS SÃO DISCRETAS, COM NÚMERO ────────────────────────────
+    // ── 9-B · ELAS VESTEM O AZUL DE "ATIVADO", LIDO DO TILE (v1.8.63) ───
     //
-    // A RÉGUA É UMA PORTA SÓ, e de propósito: o 9-A já provou que as três
-    // pintam a mesma cor. Medir as três aqui faria a reversão do 9-A reprovar
-    // este bloco junto, e cada asserção tem de ter a sua.
+    // ESTE BLOCO TROCOU DE RÉGUA DUAS VEZES, e a terceira é a que tem DENTE. A
+    // v1.5.19 cobrava DISCRIÇÃO; a v1.8.62 inverteu o sinal e cobrou DESTAQUE,
+    // em luminância e em ΔE00 contra o `--bg`. As duas primeiras reprovavam o
+    // app certo de hoje — e a segunda era pior que isso: MEDIDO, uma régua de
+    // ΔE00 contra o fundo passa em SEIS de seis cores, inclusive no denim que o
+    // operador ACABOU de recusar, em mostarda, verde e roxo. Ela respondia
+    // *"isso está coberto?"* com um sim que não existia.
     //
-    // DUAS PROPRIEDADES, porque nenhuma delas vale sozinha nos dois temas:
+    // A RÉGUA É A IDENTIDADE, e ela é o pedido escrito como código: *"o mesmo
+    // nos cards de tema, rotação, exportar"*. O alvo é lido da PÁGINA — um
+    // `#dcebfe` digitado aqui seria a cor num segundo lugar, que é o defeito
+    // que o `--surface-porta` existe para não ter.
     //
-    //  1. em LUMINÂNCIA, a superfície nova é mais quieta que a que as LATERAIS
-    //     tinham (`--surface` puro). É a reversão exata deste lote — sem o
-    //     `color-mix` a razão sobe — e ela vale nos dois temas.
-    //  2. em ΔE00, ela é mais quieta que a que a do MEIO tinha
-    //     (`--btn-accent`). A luminância NÃO serve para este par: MEDIDO, no
-    //     tema claro o azul media 1,07:1 contra o fundo e as laterais 1,20:1 —
-    //     ele já era o mais mesclado dos três em luminância, e o que o fazia
-    //     saltar era o CROMA. Afirmar "abaixo do `--btn-accent` em razão de
-    //     contraste, nos dois temas" seria escrever uma asserção FALSA no
-    //     claro; a régua honesta ali é a diferença perceptual.
-    //
-    // Mais uma FAIXA, e não um valor: 1,23 (escuro) e 1,14 (claro) são o mix de
-    // hoje, e um ajuste legítimo de 50% a 85% tem de continuar passando.
-    // REVERSÃO: apagar a linha `background: color-mix(in srgb, var(--surface)
-    // 70%, transparent)` da regra `.tools-btn, .lib-foot-btn, .import-btn` —
-    // sobra o `--surface` puro (a falha aberta declarada), e a razão sobe para
-    // 1,39 no escuro e 1,20 no claro.
-    const rPorta = razao(m.base, m.fundo);
-    const rLateral = razao(m.antesLateral, m.fundo);
-    const eMeio = dE00(m.antesMeio, m.fundo);
-    const ePorta = dE00(m.base, m.fundo);
-    checar(rPorta < rLateral,
-      '[' + tema + '] B · a superfície das portas é mais quieta EM LUMINÂNCIA do '
-      + 'que a que as laterais tinham (`--surface` puro)',
-      n2(rPorta) + ' < ' + n2(rLateral));
-    checar(ePorta < eMeio,
-      '[' + tema + '] B · e mais quieta EM ΔE00 do que a que a do meio tinha '
-      + '(`--btn-accent`) — no claro o azul já era o mais mesclado em '
-      + 'luminância, e quem o fazia saltar era o CROMA',
-      n2(ePorta) + ' < ' + n2(eMeio));
-    checar(rPorta >= 1.05 && rPorta <= 1.35,
-      '[' + tema + '] B · e a razão fica na faixa que um ajuste de mix entre 50% '
-      + 'e 85% não estoura — o oráculo trava a PROPRIEDADE, não o valor de hoje',
-      n2(rPorta));
-
-    // ── 9-C · MAS ELAS NÃO SOMEM ────────────────────────────────────────
-    //
-    // O PISO É MEDIDO, e não escrito: ele é o tom que este app usa para dizer
-    // INDISPONÍVEL — a mesma caixa, a mesma superfície, sob
-    // `opacity: var(--op-inativo)`. Uma porta mais quieta que um controle
-    // desabilitado deixa de ser encontrável e continua tocável, que é o pior
-    // par que esta faixa pode produzir.
-    // REVERSÃO: `color-mix(in srgb, var(--surface) 30%, transparent)` — MEDIDO,
-    // a razão cai para 1,08 (escuro) e 1,06 (claro), abaixo do piso nos DOIS.
-    const rInativo = razao(m.inativo, m.fundo);
-    checar(rPorta > rInativo,
-      '[' + tema + '] C · e mesmo assim elas ficam ACIMA do tom do '
-      + '`--op-inativo` — "mesclado ao fundo" tem piso, e o piso é a linguagem '
-      + 'do INDISPONÍVEL deste app',
-      n2(rPorta) + ' > ' + n2(rInativo));
+    // A RÉGUA É UMA PORTA SÓ: o 9-A já provou que as três pintam igual.
+    // REVERSÕES MEDIDAS, uma por metade do lote — e nenhuma reprova tudo, que é
+    // o que prova que as asserções não são uma só:
+    //   · `--surface-porta: #2f557f` nos dois blocos (o estado da v1.8.62):
+    //     reprova a identidade nos DOIS temas.
+    //   · trocar SÓ o bloco escuro e deixar o claro em `#2f557f`: o escuro passa
+    //     inteiro e só o CLARO reprova — traço e fundo no mesmo denim, 1,00:1.
+    //   · `color: var(--on-accent)`: reprova a do traço, com 1,21:1 no claro.
+    checar(!!m.tile && m.tile.largura > 0,
+      '[' + tema + '] B · ponto de partida: há um `.qs-tile.qs-on` RENDERIZADO '
+      + 'no documento — a régua desta asserção é o tile, não o token digitado '
+      + 'aqui, e com o painel fechado ele mede largura ZERO',
+      JSON.stringify(m.tile));
+    checar(!!m.tile && m.cru[0] === m.tile.cru,
+      '[' + tema + '] B · a porta veste EXATAMENTE o azul de "ativado" das '
+      + 'Configurações — foi o pedido do operador, palavra por palavra',
+      m.cru[0] + ' vs ' + (m.tile && m.tile.cru));
+    checar(!!m.tile && dE00(m.base, m.tile.bg) < 0.5,
+      '[' + tema + '] B · e a mesma cor COMPOSTA, não só a mesma declaração — a '
+      + 'porta pousa sobre `--bg` e o tile dentro de uma folha; um alfa que '
+      + 'entrasse num dos dois caminhos separaria as duas sem mudar uma linha '
+      + 'do valor', 'ΔE00 ' + n2(m.tile ? dE00(m.base, m.tile.bg) : -1));
+    checar(!!m.tile && dE00(m.tracoPorta, m.tile.traco) < 0.5
+      && razao(m.tracoPorta, m.base) >= 4.5,
+      '[' + tema + '] B · e o TRAÇO é o mesmo do tile (`--accent`, o par '
+      + 'declarado do `--btn-accent`) — o `--on-accent` que morou aqui é o par '
+      + 'do DENIM e mede 1,21:1 sobre o azul claro',
+      n2(razao(m.tracoPorta, m.base)) + ':1 · ΔE00 '
+        + n2(m.tile ? dE00(m.tracoPorta, m.tile.traco) : -1));
 
     // ── 9-G · O ALVO NÃO DESCEU DO PISO ─────────────────────────────────
     //
@@ -811,6 +847,33 @@ try {
     // `--radius-card` (10px), e é aquela linha que a põe em `--radius-btn`.
     // REVERSÃO: tirar `.list-foot > .selbar` do grupo do raio — ela volta a
     // 10px, sem erro e sem nada mais na tela mudando.
+    // ── 9-C · AS DUAS INQUILINAS DA FATIA NÃO PINTAM IGUAL (v1.8.63) ────
+    //
+    // ESTA É A ASSERÇÃO COM DENTE, e ela substitui o piso que o 9-C cobrava
+    // desde a v1.5.19 (*"mesmo assim elas não somem"*, medido contra o tom do
+    // `--op-inativo`). Aquele piso caiu junto com a régua de discrição: com o
+    // azul de "ativado" ele reprova por 0,0006 no tema claro, sobre uma tela
+    // que está certa — e "mais claro que um controle desabilitado" deixou de
+    // descrever a pergunta desta faixa.
+    //
+    // A PERGUNTA QUE FICOU é a que o azul novo abriu: as portas e a `.selbar`
+    // são as DUAS inquilinas do MESMO retângulo, e a `.selbar` pintava
+    // `--btn-accent` — o mesmo token que as portas passaram a vestir. MEDIDO,
+    // as duas ficariam em ΔE00 **0,00** nos dois temas: não parecidas,
+    // idênticas, e a troca de modo perderia o único sinal de COR que tinha.
+    //
+    // POR ΔE00 e não por razão de luminância: a `.selbar` largou o azul e caiu
+    // no `--bg`, e no tema claro `--bg` (#dfe3e7) e o azul (#dcebfe) medem
+    // 1,07:1 de luminância — o que os separa é o CROMA. Medido depois:
+    // **15,63 no escuro e 6,69 no claro**, contra 9,16/48,51 de antes deste
+    // lote (no escuro a distinção MELHOROU).
+    // REVERSÃO: devolver `.list-foot > .selbar` ao grupo do `--btn-accent` —
+    // ΔE00 vai a 0,00 nos dois temas e esta asserção reprova sozinha.
+    checar(dE00(m.base, sel.selbar) >= 3,
+      '[' + tema + '] C · a porta e a `.selbar` NÃO pintam a mesma cor — elas '
+      + 'são as duas inquilinas da mesma fatia do rodapé, e a troca de modo é o '
+      + 'que essa diferença anuncia',
+      'ΔE00 ' + n2(dE00(m.base, sel.selbar)));
     checar(sel.selbarRaio === sel.foraRaio && m.raios.every((r) => r === sel.selbarRaio),
       '[' + tema + '] F · o raio é UM SÓ para as quatro inquilinas da fatia (as '
       + 'três portas e a `.selbar`) — a base dela declara `--radius-card`, e '

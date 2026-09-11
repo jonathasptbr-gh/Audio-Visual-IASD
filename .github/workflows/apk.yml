@@ -482,6 +482,8 @@ jobs:
           rodar tools/pacote-por-grupos.test.mjs
           rodar tools/pacote-compartilhar.test.mjs
           rodar tools/configuracoes-sem-subtitulo.test.mjs
+          rodar tools/versao-o-que-mudou.test.mjs
+          rodar tools/limpar-cronograma.test.mjs
           rodar tools/linha-da-preparacao.test.mjs
           rodar tools/miniaturas-estaveis.test.mjs
           rodar tools/biblia-leitura-cabe.test.mjs
@@ -526,6 +528,10 @@ jobs:
           rodar tools/leitor-do-transporte.test.mjs
           rodar tools/controles-layout.test.mjs
           rodar tools/transporte-sem-cena.test.mjs
+          rodar tools/rodape-da-playlist.test.mjs
+          rodar tools/feedback-de-confirmacao.test.mjs
+          rodar tools/quadrado-de-icone.test.mjs
+          rodar tools/sombra-de-rolagem.test.mjs
 
           rodar tools/fundo-da-letra.test.mjs
 

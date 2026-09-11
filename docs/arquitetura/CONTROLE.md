@@ -24,7 +24,7 @@
 | [Feedback](#feedback-sem-alerta-flutuante--e-a-exceção-do-salvamento) | a resposta nasce onde o toque nasceu |
 | [Compartilhamento](#compartilhamento) · [Diálogo padrão](#diálogo-padrão-do-app-confirmações--prompts) | entradas e confirmações |
 | [O histórico do culto](#o-histórico-do-culto-em-configurações-v120--v1430) | o que já foi ao telão, por sessão |
-| [A abertura e a badge de versão](#a-abertura-e-a-badge-de-versão-v170) | a cortina do `#splash`, o número no cabeçalho |
+| [A abertura e a badge de versão](#a-abertura-e-a-badge-de-versão-v170) | a cortina do `#splash`, as duas casas do número, o limpar do Cronograma |
 | [O que o telão retoma](#o-que-o-telão-retoma-ao-reconectar-midianoar-v5142) | reconexão |
 
 
@@ -206,6 +206,17 @@ saltar).
   trabalho, ficou sem ela; com a coluna de PÁGINAS, saber a posição na lista é o
   recurso inteiro. A pista fica `transparent`: o fundo daqui já é `--panel`, e uma
   pista da cor do próprio fundo não é pista nenhuma.
+  **E DESDE A v1.8.61 ELA NÃO EXISTE MAIS EM LUGAR NENHUM.** A v1.8.60 a
+  padronizou na marca `.rola` (esta zona e outras duas a declaravam por si, três
+  contra dezesseis, com 1,29:1 de contraste nas dezesseis contra 6,63:1 aqui); o
+  relato seguinte pediu a barra SOB a sombra e, medido que de dentro do scroller
+  isso não se faz — 149 de 240 linhas do polegar cobertas, contra 240 de 240 por
+  um elemento de FORA, e `z-index: 2147483647` não move um pixel —, o operador
+  escolheu o desfecho que ele mesmo nomeou: *"simplesmente deixe sem nenhuma
+  barra de rolagem"*. A SOMBRA das bordas ficou como indicador único.
+  **O que a v1.4.37 pedia continua respondido**, por outro meio: *"a caixa diz
+  que há um dentro"* é a tira, e ela não some depois de 0,8 s — que é o que a
+  barra sobreposta do Android faz, medido, com `thin` declarado e sem ele.
 - **DUAS COLUNAS, E SÓ AQUI** (v1.4.35): *"coloque os slides em duas colunas,
   pois temos menos altura vertical, portanto manter os slides de mesmo tamanho
   acaba impedindo de ver mais que dois slides corretamente, deixando de ser uma
@@ -1153,8 +1164,9 @@ As três regras do tile, escritas por inteiro no `index.html`:
    **E O TÍTULO EMPRESTA A SI MESMO** (`falarNoTile`, v1.7.3), que é outra
    coisa: a segunda linha era PERMANENTE e descrevia o repouso; esta é o próprio
    título, por alguns segundos, e volta. É a mecânica do `#otaRow`
-   (`falarNoOta`) e do "Guardar como pacote" (`falarNoPacote`), e a regra dela
-   está na lista de canais de resposta do `controle.js` desde a v5.207 — *"o
+   (`falarNoOta`) — e a do "Guardar como pacote" até a v1.8.53, que a perdeu ao
+   virar botão de símbolo —, e a regra dela está na lista de canais de resposta
+   do `controle.js` desde a v5.207 — *"o
    rótulo do controle empresta a si mesmo por alguns segundos e volta"*. Foi por
    ela que o cartão sobre a preview saiu do caminho da exportação: aquele canal
    é o do que ACONTECERIA NA PREVIEW, e uma exportação acontece no botão.
@@ -1296,36 +1308,78 @@ cancela a ativação é um `preventDefault()` no ouvinte. Trocar uma imagem por
 outra são **dois toques**, e esse é o preço declarado de o wallpaper caber num
 tile como os outros.
 
-O rodapé: **estado do telão**, a **versão** e o **Registro**.
+O rodapé: **estado do telão**, e a fileira de três — a **versão**, o
+**Registro** e o **Pedir ajuda**.
 
-#### O rodapé é UMA barra (v1.4.43 o desenho, v1.4.44 a barra)
+#### O rodapé são TRÊS BOTÕES IGUAIS (v1.8.65, revogando a v1.4.44)
 
-Pedido do operador, em duas rodadas: *"faça uma unificação do design do rodapé
-das configurações, atualmente cada elemento tem um design e tamanho único"* e,
-depois, *"ficou duas seções, a versão e o registro em grupos separados. pode
-deixar tudo em uma barra horizontal única"*.
+Pedido do operador, em quatro metades: *"coloque a versão, o registro e o pedir
+ajuda... igualmente distribuídos horizontalmente"*, *"pode dar um destaque em
+negrito para o número da versão"*, *"coloque os ícones tanto do registro quanto
+do pedir ajuda à direita de seus respectivos textos"*, *"faça os três serem três
+botões separados, no mesmo estilo do botão de 'pedir ajuda'. e remova o fundo
+cinza desse rodapé"*.
 
-Eram três peças com três desenhos: a versão como texto solto, o rótulo "Registro"
-como legenda e os botões como pastilhas de outra altura. A v1.4.43 as unificou em
-duas pastilhas iguais — e **parou no meio**: duas caixas com a mesma cor e um vão
-entre elas continuam se lendo como dois assuntos, e o assunto é UM. Hoje a
-**superfície é a faixa** (`.footer-diag`), e o que mora nela é texto e um alvo:
+**Ele deixou de ser uma SUPERFÍCIE e virou uma FILEIRA**, e é isso que revoga as
+duas rodadas anteriores. A v1.4.43 unificou três desenhos em duas pastilhas e a
+v1.4.44 as fundiu numa faixa só — *"a superfície é a faixa, e o que mora nela é
+texto e um alvo"*. Sem `--surface-2` não há faixa a ser superfície: saem com ela
+o `padding`, o `border-radius` e o `min-height`, e a altura volta a ser a dos
+filhos (`--hit`, por regra do `.diag-btn`).
 
-| na faixa | o quê |
+| na fileira | o quê |
 |---|---|
-| esquerda | `vX` — a versão da base web, e só ela (v1.7.0: o índice do shell saiu da tela e ficou no Registro) |
-| direita | o rótulo "Registro" + `#diagSave` |
+| 1º | `#versaoBtn` — o número em `--fw-forte`, e o toque abre *"O que mudou"* |
+| 2º | `#diagSave` — "Registro", ícone à direita |
+| 3º | `#contatoBtn` — "Pedir ajuda", ícone à direita |
 
-- **O respiro da esquerda é `padding`; o da direita é o ALVO.** A versão é texto
-  e precisa de folga; o `.log-copy` é um quadrado de `--hit` e a folga dele já
-  está dentro do alvo — um padding à direita empurraria o botão para dentro e
-  deixaria uma borda morta na faixa.
-- **O botão perde o fundo próprio** e herda o da faixa: um fundo dentro de um
-  fundo é a camada a mais que as duas rodadas existem para tirar.
-- **`--text` e não `--muted` na versão**, e é MEDIDO: a faixa afunda
-  `--surface-2` dentro da folha, e no tema CLARO isso é preto a 20% sobre branco
-  (204,204,204) — `--muted` ali dá **4,15:1**, abaixo do piso de 4,5. Com
-  `--text`: **5,52:1** no claro e 10,55:1 no escuro.
+- **A divisão é `flex: 1 1 0`, base ZERO** — é o que iguala. `1 1 auto` daria a
+  cada um a própria largura mais um pedaço, e "Pedir ajuda" sairia sempre maior
+  (MEDIDO a 390×1×: 117,7 nos três contra 107,8 / 132,8 / 152,6).
+- **Não há piso escrito, e a ausência é decisão MEDIDA.** Um
+  `min-width: max-content` foi escrito e removido no mesmo lote: um item flex já
+  nasce com `min-width: auto`, e com o `white-space: nowrap` do `.diag-btn` isso
+  é o rótulo inteiro — forçar um dá largura por largura o mesmo que o outro. Sem
+  piso, a divisão igual vale enquanto couber; apertando, os mínimos automáticos
+  vencem e as larguras saem desiguais com cada rótulo íntegro; apertando mais, o
+  `flex-wrap` empilha. Nenhum dos três degraus corta uma palavra.
+- **O recuo do `.diag-btn` caiu a `--sp-3`** (era `--sp-5`, *"o mesmo respiro de
+  bloco que a faixa reserva à esquerda"* — e essa folga saiu com a pastilha).
+  Com três dividindo a linha, o recuo sai da largura do RÓTULO: MEDIDO, o degrau
+  põe 360×1,25× e 430×1,5× numa linha só, onde antes saíam em duas.
+- **Os TRÊS vestem o preenchido**, revogando a v1.8.51 (*"só um deles o veste:
+  guardar o Registro é o PASSO, falar é o DESTINO"*). Aquilo respondia ao relato
+  de então — o contato precisava se destacar de um vizinho apagado. Numa fileira
+  sem fundo o que está em jogo deixou de ser a hierarquia entre eles e passou a
+  ser cada um se ler COMO BOTÃO, e um `background: none` sobre a folha não se lê.
+- **O ícone à direita é a ORDEM DOS FILHOS**, nunca `row-reverse`: o segundo
+  daria o mesmo desenho e mentiria para o leitor de tela, que percorre o DOM.
+- **O PREÇO está medido e é de contraste:** o botão contra a folha caiu de
+  **1,94:1 para 1,77:1** no escuro — o cinza que saiu clareava o fundo atrás
+  dele. Os dois estão abaixo do piso de 3:1 para superfície, e o que mantém o
+  controle identificável é o RÓTULO, que mede 6,54:1 no escuro e 7,70:1 no
+  claro. No tema claro o botão contra a folha mede 7,70:1.
+
+##### O toque na versão abre "O que mudou" (v1.8.65)
+
+*"para o botão de versão, ao tocar, ele mostra o popup de atualizações que
+ocorreram na última atualização (ou um log em lista das atualizações que tiveram
+em cada versão recente)"*.
+
+**A fonte é o `notas.json` do bundle INSTALADO, e não o `otaNotas`** — e as duas
+têm a mesma FORMA (`[{versao, itens}]`), o que faz a troca compilar, renderizar
+e falhar só no caso normal: o `otaNotas` é o que vem NA atualização oferecida, e
+fora de uma atualização pendente ele está VAZIO. O arquivo viaja no bundle de
+propósito (ver o OTA), então o app tem em disco a linha do tempo do que ele É.
+
+- **Teto de CINCO versões**, e o rodapé do diálogo só aparece quando há corte a
+  anunciar: dizê-lo com quatro guardadas descreveria um recorte que não houve.
+- **O prefixo `vX.Y.Z ·` vai em TODA linha** — ao contrário da lista do OTA, que
+  o omite porque lá o título já diz de que versão se fala. Aqui são várias, e
+  sem ele as mudanças de três lotes viram uma lista só, sem fronteira.
+- **`cancelText: null`**: ele conta, não pergunta.
+- **Falhar não pode ser mudo.** Sem o arquivo a MENSAGEM muda e aponta o
+  Registro ao lado; um diálogo vazio é indistinguível de um botão quebrado.
 
 ##### O COPIAR do Registro saiu (v1.4.44)
 
@@ -1726,20 +1780,175 @@ dos panos"; o que interessa a este capítulo é onde ela mora e o que ela cobre:
   um bundle cujo `controle.js` não é parseado precisa terminar com o app à
   vista, não atrás de uma cortina.
 
-**A BADGE.** `renderVersionLabel()` é o escritor ÚNICO de TRÊS casas — a badge do
-Modo Fácil (colada na marca), a do avançado (a trilha 1 da `.list-header`, vaga
-desde a v1.5.0) e o rodapé de Configurações. Todas dizem `v<base web>`, e só
-isso: o índice do shell saiu da tela e ficou no Registro.
+**A BADGE.** `renderVersionLabel()` é o escritor ÚNICO de DUAS casas — a badge do
+Modo Fácil (colada na marca) e o rodapé de Configurações. As duas dizem
+`v<base web>`, e só isso: o índice do shell saiu da tela e ficou no Registro.
 
-- **A grade da faixa mudou por causa dela.** As duas trilhas laterais eram
-  caixas FIXAS de `--hit`, e a badge é texto: com uma trilha fixa o título saía
-  do eixo, que é o que a trilha reservada da v5.309 existia para impedir.
-  `minmax(var(--hit), 1fr)` nos dois lados reparte a sobra em partes iguais e
-  devolve a promessa sem número escrito à mão.
+- **A TERCEIRA CASA SAIU na v1.8.66.** A badge do avançado morava na trilha 1 da
+  `.list-header` — vaga desde a v1.5.0 — e deu lugar ao botão de LIMPAR O
+  CRONOGRAMA, a pedido do operador. Ela não se mudou: **saiu**. A pergunta que
+  ela respondia ("que versão eu tenho?") tem resposta a um toque de distância, na
+  engrenagem ao lado; o que ela custava era a única casa vaga da faixa.
+- **A grade da faixa mudou por causa dela, e a mudança FICA.** As duas trilhas
+  laterais eram caixas FIXAS de `--hit`, e a badge é texto: com uma trilha fixa o
+  título saía do eixo, que é o que a trilha reservada da v5.309 existia para
+  impedir. `minmax(var(--hit), 1fr)` nos dois lados reparte a sobra em partes
+  iguais. Com o morador novo medindo `--hit` cheio — a caixa da engrenagem em
+  frente — as duas pontas voltaram a ser quadrados iguais, e o elástico deixou de
+  ser necessário; ele fica porque o que ele garante continua verdade e mexer na
+  grade para tirar o que já não atrapalha é risco sem contrapartida. MEDIDO
+  depois da troca: o centro do título fica a **0,01px** do centro da faixa.
 - **No Modo Fácil a marca deixou de comer a sobra** (`flex: 0 1 auto`), para a
   badge poder ficar colada nela; quem empurra a engrenagem para a outra ponta é
   o `margin-right: auto` da badge. O encolher e o `min-width: 0` ficam — num
-  aparelho estreito é a MARCA que cede, nunca o número.
+  aparelho estreito é a MARCA que cede, nunca o número. (Esta metade é da badge
+  do Modo Fácil, que ficou.)
+
+**E O QUE ENTROU NO LUGAR: LIMPAR O CRONOGRAMA (v1.8.66).** Pedido do operador:
+*"substitua o badge de versão que temos na barra do topo do cronograma, a
+esquerda, por um icone/botão de excluir lista (ele limpa a lista do cronograma).
+use um icone de lixeira com list… use o icone na cor vermelha e não precisa de
+corpo para o botão, apenas o icone, que é o padrão dessa top bar"*.
+
+- **A OPERAÇÃO é `AVDB.listSet('imports', () => [])`**, e não um laço de
+  `listRemove`: uma transação com a coleta dentro, contra N transações e N
+  varreduras de detentores. Mas ela repete as DUAS metades do `deleteSelected`
+  que o `listSet` sozinho não faz, e nenhuma tem sintoma — a marca `ytEstado`
+  do ✓ "já está aqui" da busca (que nunca é recalculada enquanto a entrada
+  existir) e o `soltarAvulso` da prateleira invisível (que é detentora, e sem
+  soltá-la o que já tocou fica preso nela).
+- **A CENA NO AR NÃO É ENCERRADA**, e é a regra da v1.3.13 escrita em
+  `botaoExcluirDaLinha`: *"EXCLUIR DE UMA LISTA NÃO TIRA DO AR"*. Excluir tira o
+  item de onde ele fica GUARDADO, e não fala do telão; a FILA é a única exceção
+  (v1.8.52), porque é a lista que o TRANSPORTE governa. Os bytes do que está
+  projetado sobrevivem à coleta porque a cena é detentora
+  (`state.current.mediaId`, em `lerDetentores`).
+- **A PERGUNTA É MODAL, e esta é a exceção que precisa estar dita.** O LIMPAR da
+  fila pergunta na própria faixa (`pedirConfirmacaoNaLinha`), e a v5.301 tirou os
+  modais de exclusão porque *"o modal TIRAVA O ALVO DE CENA"*. Aqui o alvo não é
+  uma linha — é a lista inteira —, que é exatamente onde o `appConfirm({perigo})`
+  sobreviveu (uma pasta, um álbum). E há uma razão medida: a `dica` da
+  pergunta-na-linha vai para o `title`/`aria-label`, e **num WebView não há
+  hover** — a frase que explica nunca aparece no aparelho. Para uma ação que tira
+  a lista inteira de uma vez, o modal é o único dos dois que MOSTRA a
+  consequência — e desde a v1.8.67 ela é só a CONTA: *"pode remover as
+  explicações sobre os itens ainda ficarem em favoritos e sobre continuar
+  tocando, não precisamos de todo esse texto explicativo"*. Quantos saem é a
+  única metade que quem lê não tem como saber olhando a tela, já que a lista
+  pode estar rolada; as duas promessas continuam VALENDO no código, e o que saiu
+  foi dizê-las toda vez. **A ausência delas é AFIRMADA no oráculo** (bloco D),
+  senão reintroduzi-las por zelo passa e o pedido se desfaz sozinho.
+- **O VERBO É LIMPAR, NUNCA EXCLUIR** (v1.8.67): *"foque em chamar apenas de
+  'limpar cronograma' e use esses tipos de termos nos botões de confirmar,
+  títulos e afins"*. A distinção é real e não preferência de palavra — EXCLUIR é
+  o que a seleção múltipla faz a um ITEM, LIMPAR é o que se faz a uma LISTA, e é
+  o verbo que a fila já usa no `#plClear`. Um "excluir" aqui prometeria que os
+  arquivos morrem, e o que morre é só o que não tiver outro detentor. A asserção
+  varre os TRÊS lugares onde a palavra apareceria: o título, o botão que confirma
+  e o `title`/`aria-label` do botão que abriu.
+- **COM A LISTA VAZIA ELE É APAGADO** (`disabled` + `title`), a regra da v1.8.50
+  — e ela pesa o dobro num destrutivo: um botão aceso que não faz nada ensina que
+  tocá-lo é inofensivo. O estado é pintado em `renderLibrary`, o ponto ÚNICO que
+  redesenha a lista: pendurado no `renderListTitle` ele ficaria velho no caminho
+  do `toggleCronograma`, que é justamente o de tirar o último item pela gaveta.
+- **A COR É `--muted`, NEUTRA (v1.8.68)** — *"troque o vermelho pelo branco/cinza,
+  uma cor neutra para esse icone. Vermelho está muito chamativo."* Varridos os 57
+  tokens declarados nos DOIS blocos de tema, só DOIS são neutros E passam o piso
+  de 3:1 contra a `--bar` nos dois: `--muted` (8,09:1 · 6,66:1) e `--text`
+  (11,56:1 · **21,00:1**, que faria o destrutivo virar a peça mais gritante da
+  barra no tema claro). **"Neutro como o vizinho" NÃO é copiar a engrenagem**:
+  MEDIDO por pixel, ela é AZUL (`--accent`), porque `.list-header .settings-btn`
+  (0,2,0) vence a regra base dela — e o comentário que justifica esse azul se
+  ancora no `#backBtn`, que tem `display: none` e 0px desde a v1.5.0. O vizinho
+  NEUTRO desenhado é o `#listTitle`, e `--muted` é a tinta dele — a mesma que a
+  `.ver-badge` substituída na v1.8.66 já pintava. **Os brancos "óbvios" morrem
+  num tema só:** `--on-accent` e `--on-live` medem 13:1 no escuro e **1,00:1** no
+  claro, onde eles e a barra valem os dois `#fff`.
+- **E `--danger` não é um token** — a armadilha fica escrita porque sobrevive à
+  saída do vermelho: um `var()` que não computa cai no valor HERDADO, e aqui o
+  herdado é `--text`. Apagar a linha `color` (a "simplificação" óbvia ao tirar o
+  vermelho) não deixa o botão sem cor: deixa-o com a tinta PRIMÁRIA do app,
+  21,00:1 no claro, calado.
+- **O SINAL DE DESTRUTIVO PASSOU A MORAR SÓ NO DIÁLOGO** (`appConfirm({perigo})`,
+  que continua vermelho e continua tendo asserção). Enfraquecer aquele bloco
+  deixa o recurso sem aviso nenhum.
+- **O DESENHO MEDE 22px, COMO A ENGRENAGEM — e não media (v1.8.68).** O relato
+  foi *"o icone da lixeira está muito pequeno visualmente, principalmente em
+  comparação com o volume e preenchimento visual do icone das configurações"*, e
+  a causa era MUDA: o `.crono-limpar` não estava em NENHUMA das duas listas de
+  escala de ícone do `controle.css`, então o `<svg>` dele vivia do atributo
+  `width="20"` do HTML enquanto a engrenagem media 22 pelo `--icon-md`. As
+  CAIXAS dos dois botões eram iguais (34px) e o oráculo já afirmava isso — que é
+  por que ninguém viu. Mesma armadilha da v1.5.19 nas três portas do rodapé.
+- **A SEGUNDA METADE É DENSIDADE, e ela é paga com um DEGRAU A MAIS (v1.8.69).**
+  Uma lixeira é contorno esparso e a engrenagem é glifo denso: 66,2 unidades de
+  comprimento de traço contra 107,3, e MEDIDO, nenhum redesenho fecha isso
+  (escalar a união até encostar nas bordas do viewBox chega a 0,63x da tinta).
+  **Igualar o TAMANHO não iguala o PESO** — emparelhados em 22px a tinta fica em
+  0,74, e o relato original continuaria de pé. O botão vai a `--icon-lg` (24px),
+  e é a ÚNICA peça do app com esse degrau numa caixa de `--hit`: daí ele ter
+  regra PRÓPRIA no `controle.css`, e não uma vírgula na lista existente, cujo
+  comentário fala de *barras largas de ação*. Tinta contra a engrenagem no tema
+  padrão: **0,44 → 0,89**.
+- **E O EIXO É O TAMANHO, NUNCA A ESPESSURA** — a v1.8.68 tinha fechado o mesmo
+  vão engrossando o traço deste símbolo para 2,4, e o operador revogou: *"a parte
+  do traço da lixeira, desfaça. Eu queria ela maior e não com traços mais
+  grossos."* MEDIDO, os dois caminhos dão o mesmo número (0,90 e 0,89); o que os
+  separa é que um degrau de escala é declarado e uma espessura por símbolo é
+  exceção de um consumidor só. O oráculo guarda o EIXO: o tamanho tem de ser um
+  degrau DECLARADO (um 26px à mão reprova) e o traço tem de ser o do resto do
+  sprite.
+- **O VÃO DE TINTA FICOU EM 1,0 unidade.** Os traços da lista recuaram de x16
+  para x16,8 na v1.8.68 só para acomodar o traço grosso; com ele fora o vão
+  sobrou, e ele é cinco vezes os 0,2 do desenho da v1.8.67 — *"um décimo da
+  linha"*, nas palavras do comentário de lá. **O que limita é o vão de TINTA**
+  (`vão geométrico − stroke-width`), não o geométrico: a 2,85 a lixeira invadia
+  os traços em 0,65 unidade e `getBBox()` não via.
+- **O APAGADO TEM ALFA PRÓPRIO, .5, e não o `--op-inativo` (v1.8.68)** —
+  *"aprimore o sistema de esmaecimento da sua cor quando inativo/sem itens na
+  lista do cronograma"*. Aquele token iguala o ALFA de uma família de PÍLULAS
+  PREENCHIDAS com tinta `--text` que o operador amarrou por extenso na v1.5.15;
+  este é ícone solto, e o que precisa ficar igual é o DESFECHO — mesmo alfa, a
+  pílula entrega 2,66:1 e este traço entregava **1,83:1**. **E 1,83:1 não é
+  esmaecer, é sumir:** dos 488 pixels de tinta do ícone apagado, ZERO cruzavam
+  2:1 no tema escuro contra 262 no claro. **Os pedidos de cor e de véu são UM
+  só**: `--muted` no mesmo `.35` mede 1,71:1 no claro, também com zero pixels
+  legíveis — trocar a tinta sem refazer o véu trocaria o sumiço de tema. A .5 os
+  dois temas medem 3,12:1 e 2,23:1, com separação de 2,6x e 3,0x contra o aceso.
+- **E O DESENHO FOI REPROPORCIONADO na v1.8.67** (*"o icone parece espremido
+  horizontalmente"*). A caixa do BOTÃO já era quadrada — o que estava achatado
+  era a lixeira dentro dela, **1:1,81**, espremida no terço esquerdo para sobrar
+  espaço aos traços; o `trash-2` do Feather, na mesma região, é **1:1,11**. Os 24
+  do viewBox foram repartidos em 12 (lixeira) + 6 (traços) + 2,2 de vão, e ela
+  passou a **1:1,19**. A asserção mede um CLONE RENDERIZADO do símbolo: o
+  `getBBox()` de um filho de `<symbol>` devolve **zeros** no Chromium, e a sonda
+  ingênua aprova o desenho certo e o errado igualmente.
+
+**E O CRONOGRAMA VAZIO É UMA MARCA-D'ÁGUA (v1.8.67).** Pedido do operador:
+*"ajuste o texto de cronograma vazio, para que seja um texto maior, em negrito,
+centralizado na tela, mas com uma cor com menos contraste do que a atual, para
+ficar mais mesclado a cor do fundo e se destacar menos"*.
+
+- **`#library > .empty`, e não a `.empty` geral.** A mesma classe serve a lista
+  de uma pasta, o painel de Mensagens e a Bíblia, onde ela é um aviso dentro de
+  uma caixa pequena — centrá-la verticalmente e inchá-la ali quebraria as três.
+- **CENTRADA NOS DOIS EIXOS:** o `flex: 1` come a altura que sobra do scroller e
+  o `place-content: center` põe a frase no meio dela. Com a lista cheia o `<li>`
+  não existe, então isto não custa layout nenhum.
+- **E ELA SAI DA FOLGA DO RODAPÉ FLUTUANTE** (`:last-child:not(.empty)`): o
+  `<li>` é o último filho por acidente de ser o único, e herdar a folga das
+  portas o empurrava **28,6px** acima do centro — um deslocamento que ninguém
+  relata e ninguém explica. Ele não precisa dela por construção: quem fica atrás
+  das portas é o fim de uma lista que ROLA.
+- **O CONTRASTE TEM TETO, não piso** — o único do repositório. `--muted` a 55%
+  mede **3,76:1** no escuro (de 9,94:1) e **2,22:1** no claro (de 5,16:1),
+  abaixo do piso de 4,5 de propósito: a frase descreve uma ausência que já está à
+  vista e não carrega informação que se perca. Sem um número, *"menos contraste"*
+  é opinião.
+- **A RÉGUA DA CENTRALIZAÇÃO É UM `Range`, e isso custou uma tautologia.** Medir
+  o `getBoundingClientRect()` do `<li>` não acusa nada: ele carrega `flex: 1` e
+  ocupa a caixa inteira COM e SEM o `place-content`. Quem se move é a LINHA de
+  texto — com a régua certa o desvio vai de 4,8px para **266,1px**.
 
 ### O que o telão retoma ao RECONECTAR (`midiaNoAr`, v5.142)
 
@@ -3554,9 +3763,30 @@ propósito, porque é lá que mora o roteamento por tipo.
 O item é o mesmo; o que muda é em quantas listas o mesmo id aparece, e isso nunca
 foi uma escolha exclusiva. A tabela `DESTINOS` (em `controle.js`) é a fonte
 única — `chave` é o nome como o app fala do destino, `lista` é o nome dele no
-banco (o Cronograma é a lista `imports` desde antes de se chamar Cronograma). Ela
-substituiu o `YT_LISTA`, uma SEGUNDA tabela com as mesmas três listas só para o
-YouTube; duas divergiriam no primeiro destino acrescentado a uma só.
+banco (o Cronograma é a lista `imports` desde antes de se chamar Cronograma),
+`rotulo` é o nome do LUGAR ("Cronograma"), `acao` é o que se FAZ com ele
+("Adicionar ao Cronograma") e `ico` é a chave do ícone. Ela substituiu o
+`YT_LISTA`, uma SEGUNDA tabela com as mesmas três listas só para o YouTube; duas
+divergiriam no primeiro destino acrescentado a uma só.
+
+**E A ORDEM DA TABELA É CANÔNICA — Cronograma · playlist · favoritos** (v1.8.56,
+pedido do operador: *"a esquerda o cronograma, no meio a playlist e por fim o
+favoritos… aplique essa ordem a todo o app"*). Ela vale para toda superfície que
+ofereça mais de um deles: as folhas de destino, a gaveta de uma linha, o rodapé
+da fila e a faixa de fecho da playlist automática. **Onde falta um, a ordem
+relativa sobrevive** — a linha do Cronograma não oferece "Cronograma" (o item já
+está lá) e a da fila não oferece "playlist" (a linha É a fila).
+
+**A DIVERGÊNCIA QUE ISTO FECHOU NÃO ERA DECISÃO DE NINGUÉM: eram QUATRO listas
+escritas à mão** com a mesma tríade em ordens diferentes — as duas folhas de
+destino (acervo e YouTube), o mapa `LINHA` da gaveta e o `DEST_ICONE` da folha de
+importação. Uma tabela que só respondia *"quais existem?"* deixava *"em que
+ordem?"* e *"com que cara?"* para cada chamador, e o quinto chamador ia divergir
+também. **É por isso que `ico` e `acao` moram na tabela**, e que
+`destinosNaOrdem(chaves)` existe: um chamador que peça `['playlist',
+'cronograma']` — literalmente, na ordem antiga — recebe os dois na ordem da
+tabela. A lista dele diz QUAIS, nunca em que ordem. Oráculo:
+`destinos.test.mjs`, nos dois sentidos.
 
 **A gramática é uma só, e vale para todas as folhas:** toda opção — as três
 listas E o "Tocar agora" — é SELECIONÁVEL de corpo inteiro, e um botão de
@@ -4579,32 +4809,55 @@ O que apertou foram as DUAS barras — `padding` de `.55rem` para `.35rem`, e
   bloco nenhum; a 360×740 (24px, 420px) ele vai de 6 para 7. Com 9 blocos, os
   dois continuam rolando.
 
-**O VÉU DA BORDA** responde à outra metade do relato — *"um efeito de blur na
+**O VÉU DA BORDA** respondeu à outra metade do relato — *"um efeito de blur na
 borda interna superior ou inferior, quando algum elemento da tela ir para debaixo
-dessa borda"*. São dois pseudo-elementos `position: sticky` DENTRO do scroller
-(`#hymnResults::before` / `::after`), com `backdrop-filter: blur(5px)` e uma
-`mask-image` esmaecendo para transparente.
+dessa borda"*. São dois pseudo-elementos `position: sticky` DENTRO do scroller.
 
-- **BLUR e não gradiente, porque não existe cor certa para o véu.** A alternância
-  papel → poço → papel põe DUAS superfícies sob a mesma borda, e um gradiente
-  teria de escolher uma delas. Blur é agnóstico de cor: MEDIDO, −60% de nitidez
-  nos dois temas.
-- **Dentro do scroller e a `z-index: 2`, é o que o faz sumir sozinho sob uma
-  tampa grudada** — as tampas são opacas e moram acima (z 3 e 4). Medido em
-  131/131 amostras com uma coleção aberta, e em 250/250 de conteúdo cru na lista
-  plana da busca.
+**ELE DEIXOU DE SER DESTA LISTA NA v1.8.58**, quando o operador pediu o mesmo
+efeito em todo scroller do app (*"Faça esse o padrão de efeito para os
+scrolls"*) e escolheu o mecanismo (*"sombra de verdade"*). O que valia aqui e
+continua valendo está no `CLAUDE.md`, na seção da paleta; o que era próprio
+desta lista é só o degrau de camadas abaixo. **O `backdrop-filter` saiu** — era
+ele, e o custo dele, que prendia o efeito a um scroller só.
+
+- **Ele DEIXOU de sumir sob a tampa grudada na v1.8.59.** Até ali a tira era
+  `z-index: 2`, abaixo dos 3/4 das tampas — e a razão escrita era que ela se
+  calava onde já houvesse quem respondesse. `z-index`, porém, é propriedade do
+  ELEMENTO e não do estado "colada": MEDIDO, a `.coll-group-bar` lia razão
+  1,0000 em qualquer posição, inclusive na borda de baixo, e o fundo a 26px dela
+  lia 1,1553. A tira subiu para `z-index: 5`.
 - **Ele só existe quando MENTIRIA ao não existir.** `.tem-acima`/`.tem-abaixo`
-  saem de um ouvinte de `scroll` com `requestAnimationFrame`, reafirmados em todo
-  ponto que muda a lista (abrir a Biblioteca, redesenhar as coleções, redesenhar
-  a busca, o teclado subindo). E as regras que o DESLIGAM repetem
-  `.popup-backdrop--lib.open` — sem isso a especificidade (1,1,0 contra 1,2,0)
-  deixava o véu aceso no topo da lista, exatamente onde ele mente.
-- **Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a
-  máscara sem o borrão — seria uma sombra sem causa.
-- **O véu de baixo ANULA o recuo da lista** (`bottom: calc(-1 *
-  var(--lib-lista-base))`), e é por isso que aquele recuo virou token: sem a
-  anulação ele gruda acima do recuo e deixa uma faixa de conteúdo nítido embaixo
-  de si — um defeito que só aparece num aparelho com barra de gestos.
+  saem de um ouvinte de `scroll` em CAPTURA no `document` (um só para todos os
+  scrollers) e de um `MutationObserver` do documento inteiro, os dois
+  coalescidos por quadro. As regras que o DESLIGAM já não repetem
+  `.popup-backdrop--lib.open`: com o seletor genérico (`.rola:not(.tem-acima)`)
+  não há a disputa de especificidade que uma vez deixou o véu aceso no topo da
+  lista, exatamente onde ele mente.
+- **As QUATRO medidas do recuo são LIDAS do layout** (v1.8.59): a de baixo desde
+  a v1.5.16 (sem ela a tira gruda acima do recuo), e o topo e os dois lados
+  desde este lote — sem eles o vão entre a fronteira e a sombra é exatamente o
+  `padding` do scroller, que aqui são 11,2px no topo e 12,8px de cada lado.
+- **AS TRÊS PORTAS FLUTUAM SOBRE A LISTA** (v1.8.61) — `#listFoot` é
+  `position: absolute` no `.list-body`, e a lista corre por baixo até a
+  fronteira. Ver o CSS para os três desenhos medidos e por que a margem negativa
+  foi recusada (o número passa a definir a EXTENSÃO, e a lista para antes da
+  fronteira quando o rodapé cresce com a fonte do sistema). A folga do fim é a
+  altura do rodapé LIDA mais o recuo de antes, e a tira de sombra desconta a
+  faixa das portas para marcar a fronteira VISÍVEL.
+- **E O CABEÇALHO É UMA BARRA DA COR DOS CONTROLES** (v1.8.61), de borda a
+  borda, com o vão até a lista virado `padding-top` DELA — assim a borda de
+  baixo da barra é a borda do scrollport, e a linha some encostada nela. As duas
+  folhas (Ferramentas e Bíblia) recuperam um degrau de `--sp-5`, senão a borda
+  de cima delas cai de 1,410 para 1,192 no escuro (a sombra da folha deixa de
+  pousar sobre `--bg` e passa a pousar sobre `--bar`, que separa menos).
+- **MAS A TIRA SÓ ALCANÇA A BORDA SE A CAIXA ALCANÇAR** (v1.8.60). `overflow-y:
+  auto` COMPUTA `overflow-x: auto`, e a margem negativa é RECORTADA pela caixa do
+  scroller: MEDIDO no Cronograma, forçar `--veu-esq`/`--veu-dir` a 12,8px não
+  move a tira um pixel. Foi por isso que o `#library` passou a levar o recuo
+  como `padding` próprio, com `margin` negativa devolvendo a caixa à borda da
+  tela — o desenho que a Biblioteca e a playlist já tinham. **E a calha da barra
+  de rolagem é inalcançável**: o retângulo de recorte é o padding box MENOS ela.
+  No Android ela é ZERO (barra sobreposta), então lá não há vão.
 
 #### A divisória entre faixas IRMÃS (v1.5.16)
 
@@ -5473,23 +5726,82 @@ cada uma com a própria pergunta.
   ela é texto que o operador LÊ antes de confirmar. Oráculo: o bloco 4d do
   `excluir-em-cena.test.mjs`.
 - **A pergunta é a mesma das listas** (`pedirConfirmacaoNaLinha`), e por isso o
-  botão tem uma CAIXA só sua (`.pl-limpar-faixa`): o par substitui os IRMÃOS
-  dele, e no rodapé inteiro levaria o "Guardar como pacote" junto. A altura mora
-  na faixa, não nos dois conteúdos dela — o botão e o par têm receitas
-  diferentes, e sem o número num lugar só a folha encolheria sob o dedo no exato
-  instante em que o operador mira um destrutivo. `closePlPopup` **cancela**, como
-  tudo que fecha uma gaveta.
+  botão tem uma CAIXA só sua (`.pl-limpar-faixa`), e ela é o que torna o LADO A
+  LADO possível: `pedirConfirmacaoNaLinha` usa `botao.parentElement` e esconde os
+  IRMÃOS DIRETOS, então pôr os dois botões na MESMA caixa — o que "lado a lado"
+  sugere — apagaria o pacote como efeito colateral do seletor. A altura mora na
+  faixa, não nos dois conteúdos dela, e sem o número num lugar só a folha
+  encolheria sob o dedo no exato instante em que o operador mira um destrutivo.
+  `closePlPopup` **cancela**, como tudo que fecha uma gaveta.
 - **Ele é a PORTA de um destrutivo, não a execução dele**, e veste o par discreto
   do "Tirar do ar" (`--surface` + `--danger-text`); o saturado
   (`--danger-soft` + `--danger-strong`) fica para o botão que de fato limpa. Dois
-  vermelhos cheios empilhados anunciariam duas ações destrutivas onde há uma.
-- **ACIMA do pacote**, e não abaixo: a folha abre pelo botão da barra de baixo,
-  então o dedo chega pela borda inferior — a mesma régua que pôs o excluir no
-  começo da fileira do `⋮` (v5.288).
+  vermelhos cheios anunciariam duas ações destrutivas onde há uma.
+- **À ESQUERDA dos dois de guardar** (v1.8.53; eram duas linhas empilhadas, e o
+  pacote ficava ACIMA): a mesma régua que pôs o excluir no começo da fileira do
+  `⋮` (v5.288) — a folha abre pelo botão da barra de baixo, e o polegar chega
+  pela borda direita. A ordem no HTML é o que a regra `.confirmando ~ .pl-pack`
+  lê, então trocá-la exige trocar o combinador junto.
+- **DOIS DESTINOS, DOIS BOTÕES DE SÍMBOLO** (v1.8.54, pedido do operador: *"sejam
+  os mesmos dois botões de salvar no cronograma ou salvar nos favoritos, pois
+  este já é o padrão do resto do sistema"*). A estrela e o relógio são os MESMOS
+  da gaveta de cada item — `starSvg` e `cronogramaIconSvg`, a fonte única deles,
+  chamadas na carga; copiar os `path` para o HTML seria a segunda cópia de um
+  desenho. Eles são QUADRADOS de `--faixa-alt` (a mesma altura da faixa, herdada
+  como propriedade personalizada) e o rótulo é do "Limpar", que fica com o resto.
+  **Sem rótulo por MEDIDA**: com três ações sobram 49,9px de texto por botão a
+  320px, e só "Limpar" já mede 51,2px. Quem diz o destino é o `aria-label`, e ele
+  anda com o `title` no apagado — dizer "guardar" a quem não pode guardar seria
+  uma promessa falsa. **A diferença entre os dois destinos é do `criarCue`**, e
+  não é técnica: Favoritos não repetem, o Cronograma pode.
+- **E A PERGUNTA OCUPA A FAIXA INTEIRA** (v1.8.53): enquanto ela está aberta, os
+  dois de guardar saem. Até aqui o pacote ficava, e a razão escrita era a ALTURA
+  — empilhados, levar o vizinho junto tirava uma linha do rodapé. Lado a lado
+  essa razão não existe (MEDIDO: 42px com e sem eles), e o que sobra manda tirar:
+  em todo o resto do app a pergunta substitui os irmãos, e com o pacote de pé o
+  par ficava com METADE da faixa — MEDIDO a 320px, 69,6px por botão, com
+  "Cancelar" truncado num destrutivo. O combinador é o irmão GERAL (`~`) desde a
+  v1.8.54: com o adjacente, só o primeiro dos dois sairia.
+- **E ela diz "Confirmar", não "Limpar" de novo** (v1.8.54, pedido do operador).
+  A régua: o botão do meio da pergunta repete o verbo só quando o botão que a
+  abriu não o diz. Aqui ele diz — e o mesmo vale para o "Limpar todo o
+  histórico"; já a lixeira de UMA sessão do Histórico não tem rótulo, e lá a
+  palavra na confirmação continua sendo a única que nomeia o dano (R9). Quem
+  nomeia o dano por extenso, nos três, é a `dica`.
 - **Com a fila vazia a caixa inteira sai**: um botão que não faz nada é pior que
-  botão nenhum, e um destrutivo inerte ensinaria que tocá-lo é inofensivo.
+  botão nenhum, e um destrutivo inerte ensinaria que tocá-lo é inofensivo. **A
+  altura, porém, mora na FAIXA** (v1.8.54): os dois de guardar a herdam por
+  `align-items: stretch`, e com a caixa do limpar escondida eles ficavam com a
+  altura do próprio conteúdo — MEDIDO pelo portão de geometria, 23px contra um
+  piso de toque de 34px.
+- **E o "Guardar" APAGA com menos de duas mídias** (v1.8.53, pedido do operador:
+  *"não faz sentido guardar uma playlist de um item só"*). A recusa já existia no
+  toque; o que muda é a troca da v1.8.50 — explicar depois é pior que não
+  oferecer. A pergunta é a **de quem executa, literalmente** (`!isCue`, porque um
+  pacote é uma fila de reprodução): uma fila de uma mídia mais um cue tem
+  `length` 2 e um só item guardável, e a pergunta larga acenderia o botão para
+  recusar no toque. **Os dois apagam juntos**: o limiar é do PACOTE, não do
+  destino.
+- **A FOLHA FECHA QUANDO A FILA ACABA** (v1.8.54, pedido do operador: *"já que
+  não há mais nada ali"*), pelas duas portas e por uma função só
+  (`fecharFilaVazia`). Ela NÃO mora no `renderPlaylist`: ali a condição seria
+  *"a fila está vazia"*, verdade também quando a folha é ABERTA vazia — o que os
+  oráculos fazem, e o portão de geometria depende de fazer. A condição certa é
+  *"a fila ACABOU DE esvaziar"*, que é um evento com dois donos conhecidos. Com
+  item sobrando ela continua aberta: fechar no meio de uma reorganização seria
+  tirar a folha da mão de quem está usando.
+- **E O CORPO DA FOLHA VAZIA NÃO DESENHA MAIS NADA** (v1.8.54, pedido do
+  operador: *"essa mensagem não tem mais utilidade… ele não tem acesso a janela
+  se ela não tem nada"*). A premissa é verdade por construção: o botão que a abre
+  nasce apagado com a fila vazia desde a v1.8.51, e desde este lote ela fecha
+  sozinha. A frase de ensino não se perdeu — ela mudou de casa naquele lote e é o
+  `title` do botão apagado; este bloco era a segunda cópia. **DOIS ORÁCULOS
+  DEPENDIAM DAQUELE `<li>`** como prova de que o `renderPlaylist` tinha rodado, e
+  o sinal deles passou a ser o `#plBtn` apagado — que sai da mesma função e não é
+  um nó que uma decisão de interface possa apagar.
 
-Medido de ponta a ponta em `tools/smoke.mjs` ("LIMPAR A FILA INTEIRA").
+Medido de ponta a ponta em `tools/smoke.mjs` ("LIMPAR A FILA INTEIRA") e em
+`tools/rodape-da-playlist.test.mjs` (a geometria, os dois destinos e o fecho).
 
 ### Favoritos: uma lista só (marcados + pastas do aparelho)
 
@@ -6845,9 +7157,12 @@ CANTADA precisa revelá-la — senão o louvor entra sem imagem e sem letra por
 causa de uma escolha de dois minutos atrás. **O sorteio diz o estado do telão em
 vez de herdá-lo.**
 
-**"Ao Cronograma" não mexe na cortina**: ele guarda, não projeta — e por isso o
-PACOTE a carrega no descritor (ver abaixo), para aplicá-la no dia em que for
-aberto.
+**Os três destinos não mexem na cortina**: eles guardam, não projetam — e por
+isso o PACOTE a carrega no descritor (ver abaixo), para aplicá-la no dia em que
+for aberto. **Uma música SOLTA não a carrega**, e a assimetria está dita: um id
+de mídia numa lista não tem onde guardar decisão nenhuma, e nenhum caminho deste
+app jamais guardou cortina junto com uma música avulsa — a gaveta da Biblioteca,
+mandando um `playback` ao Cronograma, faz exatamente o mesmo.
 
 A folha **anuncia** o que vai acontecer, e só com o fundo musical escolhido — que
 é quando a pergunta existe: *"Fundo musical: toca sem letra e sem nada no
@@ -6870,41 +7185,67 @@ resolve o `fileIdPlayback`. Renomear o valor junto com o rótulo trocaria a
 variante de todo mundo que já escolheu, em silêncio. `sorteio-tela.test.mjs`
 trava as duas metades: o rótulo que aparece e o valor que não muda.
 
-#### Montando a fila há DOIS desfechos (v5.306)
+#### A faixa de fecho: TOCAR mais os TRÊS destinos (v5.306, v1.8.56)
 
-Eles não são duas versões da mesma ação, e é isso que justifica o segundo botão:
+Eles não são versões da mesma ação, e é isso que justifica os botões ao lado do
+primário:
 
 | Botão | O que faz | O que NÃO faz |
 |---|---|---|
 | **Tocar agora** | `AVDB.listSet('playlist', ids)` + `send` do primeiro — o caminho do `abrirPacote` | — |
-| **Ao Cronograma** | acrescenta **UM PACOTE** à lista `imports` (v5.313) | não substitui a fila do player, não projeta, não fecha a folha |
+| **Cronograma** | acrescenta **UM PACOTE** à lista `imports` (v5.313) | não substitui a fila do player, não projeta, não fecha a folha |
+| **Playlist** | acrescenta as FAIXAS ao FIM da fila (`listAdd`, que é append e idempotente) | não substitui a fila, não projeta, não guarda pacote |
+| **Favoritos** | o mesmo pacote, na lista `favs` | idem |
 
 Pedido do operador: *"vai direto para a playlist do player, para ser tocada"*
-(v5.303) e, depois, *"coloque dois botões, um de tocar agora e outro para
-adicionar ao cronograma"*. Montar o louvor da semana numa terça e projetar no
-domingo são dois momentos, e antes só o primeiro tinha porta.
+(v5.303), depois *"coloque dois botões, um de tocar agora e outro para
+adicionar ao cronograma"* e, na v1.8.56, *"deixe o botão tocar agora, e os dois
+botões de add ao cronograma e add aos favoritos disponíveis… pode até adicionar
+um terceiro botão, adicionar a playlist, que simplesmente joga… no fim da
+playlist atual"*. Montar o louvor da semana numa terça e projetar no domingo são
+dois momentos, e antes só o primeiro tinha porta.
 
 Substituir a fila é a mesma semântica de todo "Tocar agora" do acervo, que já
-passa por `replacePlaylistWith` — não é uma classe de risco nova. **O Cronograma
-nunca é substituído:** ali a ação só ACRESCENTA.
+passa por `replacePlaylistWith` — não é uma classe de risco nova. **Os três
+destinos nunca substituem nada:** ali a ação só ACRESCENTA.
 
-Três decisões que precisam estar ditas:
+**A ORDEM é a canônica** (`DESTINOS` — ver "UM item, VÁRIOS destinos"), e os três
+são ÍCONES MUDOS com `aria-label`: a 320px quatro rótulos não cabem, e o desenho
+é o do rodapé da fila (v1.8.53), com a mesma expressão de tamanho. O `data-dest`
+de cada um é o único jeito de achá-los sem texto — inclusive para um oráculo.
 
-- **Sorteando UMA SÓ o botão continua sendo um.** "Sorteie uma e guarde" é o
-  caminho que a Biblioteca já dá pela gaveta da linha, com a música escolhida à
-  vista — aqui seria um destino a mais para uma decisão que o operador toma
-  justamente por não querer decidir.
+Decisões que precisam estar ditas:
+
+- **UMA SÓ TAMBÉM TEM OS TRÊS** (v1.8.56). Até ali o botão era um, e a razão
+  escrita era: *"sorteie uma e guarde é o caminho que a Biblioteca já dá pela
+  gaveta da linha, com a música escolhida à vista"*. Ela vale para uma música
+  ESCOLHIDA — quem sorteia não sabe qual vai sair, e chegar à gaveta dela custa
+  fechar esta folha, achar a faixa entre milhares e abri-la: uma busca e três
+  toques para o que agora é um. **Eles SORTEIAM**, e é isso que os torna botões
+  e não uma folha de destinos: não há resultado à vista antes do toque, e uma
+  folha perguntaria *"para onde?"* antes de existir o quê.
+- **UMA SÓ ENTRA COMO A LINHA DA MÚSICA, nunca como um pacote de um.** A mesma
+  régua do `.avpkg` da fila (*"um pacote guarda uma fila"*, v1.8.53): uma linha
+  chamada "Playlist da biblioteca · 1 música" que precisa de um toque a mais
+  para revelar o hino que está dentro é pior que a linha do hino.
+- **A PLAYLIST RECEBE AS FAIXAS, não o pacote.** É a metade literal do pedido, e
+  é a única leitura coerente: a fila é uma fila de MÍDIA, e o toque num pacote a
+  SUBSTITUI (`abrirPacote`) — guardá-lo dentro dela seria pôr nela o botão que a
+  apaga.
+- **NENHUM DELES NO MODO FÁCIL.** Ele não tem Cronograma, nem Favoritos, nem
+  fila à vista (`body.mode-simple` esconde o `main` e a barra inteiros), e o que
+  fosse guardado ali só reapareceria para quem trocasse de modo.
 - **Guardar NÃO fecha a folha.** É o princípio das listas de destino do acervo:
   uma ação que guarda não encerra a conversa, e o segundo sorteio é o uso normal
   (acrescenta cinco, olha a lista, acrescenta mais cinco). Fechar cobraria três
   toques por rodada.
-- **Cancelar tem sentidos OPOSTOS nos dois botões, e está certo.** No "Tocar
-  agora" ele descarta: trocar a fila do culto por meia lista é uma
-  SUBSTITUIÇÃO pela metade. No "Ao Cronograma" ele preserva o que já desceu:
-  três de dez é exatamente o que aconteceu, e jogar fora um download que já
-  custou rede seria desperdício.
+- **Cancelar tem sentidos OPOSTOS entre o primário e os destinos, e está
+  certo.** No "Tocar agora" ele descarta: trocar a fila do culto por meia lista
+  é uma SUBSTITUIÇÃO pela metade. Nos três destinos ele preserva o que já
+  desceu: três de dez é exatamente o que aconteceu, e jogar fora um download que
+  já custou rede seria desperdício.
 
-##### O Cronograma recebe UM PACOTE, não N linhas (v5.313)
+##### O Cronograma (e os Favoritos) recebem UM PACOTE, não N linhas (v5.313)
 
 Pedido do operador: *"ajuste o envio ao cronograma para que ele não envie um por
 um, mas sim um item que seja um pacote de playlist"*.
@@ -6917,6 +7258,11 @@ para um mecanismo que existe, nunca um segundo mecanismo.
 O que isso resolve é a ESCALA. Dez faixas sorteadas eram dez linhas avulsas no
 meio do roteiro — para tirá-las, dez perguntas; para saber que eram um lote,
 memória. Uma linha diz o que é, sai num toque, e abre a fila inteira na hora dela.
+
+**Vale para os Favoritos desde a v1.8.56**, pelo mesmo `criarCue` (que já sabia
+guardar em `favs`; o que faltava era o botão) — e **não vale para a fila**, que
+recebe as faixas soltas, nem para o sorteio de UMA, que entra como a linha da
+música. Ver a faixa de fecho, acima.
 
 | Decisão | Por quê |
 |---|---|

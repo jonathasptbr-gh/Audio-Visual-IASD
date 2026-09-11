@@ -546,8 +546,9 @@ Pedido do operador: *"o feedback da ui sobre a preparação da exportação … 
 seja exibida sobre o próprio botão de exportar, já que a ação acontece ali e não
 na tela ou controle"*.
 
-**O APP JÁ TINHA A MECÂNICA, em dois lugares** — o `#otaRow` (`falarNoOta`) e o
-"Guardar como pacote" (`falarNoPacote`) —, e a regra está na lista de canais de
+**O APP JÁ TINHA A MECÂNICA** — o `#otaRow` (`falarNoOta`), e o "Guardar como
+pacote", que a usou da v5.207 à v1.8.53 e a perdeu ao virar um botão de símbolo
+(um símbolo não tem rótulo a emprestar) —, e a regra está na lista de canais de
 resposta do `controle.js` desde a v5.207: *"o rótulo do controle empresta a si
 mesmo por alguns segundos e volta"*. O cartão sobre a preview é o canal do que
 ACONTECERIA NELA; uma exportação não acontece na preview.

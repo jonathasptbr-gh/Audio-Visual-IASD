@@ -153,6 +153,35 @@
   --shadow-card: rgba(0, 0, 0, .55);
   --shadow-ink: rgba(0, 0, 0, .9);
 
+  /* ---------- A SOMBRA DA BORDA DE UM SCROLL (v1.8.58) ----------
+     Pedido do operador: *"nos diversos lugares onde temos scroll de listagem,
+     precisamos de um efeito de sombra nas fronteiras superiores e inferiores
+     quando o conteúdo rolar para baixo delas, demonstrando que aquela fronteira
+     está se sobrepondo a um conteúdo"*.
+
+     COMPARTILHADA, e não um delta por tema, porque ela é ALFA: escurece o que
+     estiver embaixo em vez de pintar uma cor. É isso que dissolve a objeção da
+     v1.5.16, que recusou o gradiente para a Biblioteca — o que aquele lote
+     rejeitou foi *"um gradiente pintado em `--panel`"*, que acerta sobre papel e
+     lava o poço. Preto com alfa compõe sobre os dois.
+
+     O NÚMERO FOI ESCOLHIDO POR MEDIÇÃO, e a régua importa: a MÉDIA da faixa é a
+     régua errada — no escuro os vãos entre linhas são quase pretos e não têm
+     como escurecer, então ela dilui justamente o que se quer ver. Quem entra
+     debaixo da borda é o CONTEÚDO (o texto, a capa), e é ele que a medição isola
+     (o decil mais claro da faixa, renderizado no Cronograma com 26 itens):
+
+         α      escuro   claro
+        .22      1,37     1,34
+       **.30**   **1,51** **1,51**
+        .40      1,68     1,74
+        .50      1,88     2,06
+
+     .30 é o ponto em que os DOIS temas leem igual, e é essa igualdade — não o
+     gosto — que escolhe o valor: no escuro quem escurece é o texto claro, no
+     claro é a superfície branca, e a mesma tinta serve os dois. */
+  --sombra-rolagem: rgba(0, 0, 0, .30);
+
   /* ---------- O CAMPO DE BUSCA NÃO TEM TEMA (v5.268) ----------
      Pedido do operador: a caixa de texto da Biblioteca branca nos DOIS temas.
      Ela mora aqui, no bloco compartilhado, pelo mesmo motivo que o palco: uma
@@ -291,6 +320,32 @@
   --surface-alta: rgba(255, 255, 255, .12);   /* botão SOBRE o fundo do app */
   --surface-2-alta: rgba(255, 255, 255, .18); /* chip/campo/badge SOBRE o fundo do app */
   --surface: var(--surface-alta);
+
+  /* A SUPERFÍCIE DAS TRÊS PORTAS DO CRONOGRAMA, E ELA É O AZUL DE "ATIVADO"
+     (v1.8.63). Pedido do operador, depois de a v1.8.62 ter errado o alvo:
+     *"o azul que você aplicou aos botões flutuantes foi o azul escuro, eu queria
+     o azul mais claro, o mesmo nos cards de tema, rotação, exportar e etc"*. O
+     azul daqueles cards é o `--btn-accent` do `.qs-tile.qs-on` — MEDIDO no
+     renderizado, com o painel aberto: `#293d57` no escuro e `#dcebfe` no claro,
+     com o traço em `--accent` nos dois. A v1.8.62 leu "sólidos" como o denim
+     cheio (`#2f557f`) e entregou OUTRA cor: 2,45:1 contra a faixa no escuro e
+     5,97:1 no claro, contra 1,70 e 1,07 do tile.
+
+     É UM ALIAS, e não o literal: `--btn-accent` tem valores OPOSTOS por tema, e
+     um `#dcebfe` digitado aqui mede 15,57:1 contra o `--bg` no escuro — a porta
+     vira um bloco branco no salão escuro. O alias resolve por tema sozinho,
+     porque a substituição acontece no valor COMPUTADO (a referência para a
+     frente, com o `--btn-accent` declarado mais abaixo no mesmo bloco, é válida
+     e foi medida). **AS DUAS DECLARAÇÕES SÃO UM LOTE SÓ:** trocar só esta e
+     deixar a do tema claro em `#2f557f` põe traço e fundo no MESMO denim —
+     rótulo invisível a 1,00:1, e só o tema claro pega.
+
+     A OPACIDADE É INVARIANTE, não estilo: desde a v1.8.61 a LISTA CORRE POR
+     BAIXO das portas. Elas vestiram `color-mix(--surface 70%, transparent)` e
+     `--surface` já tem alfa — MEDIDO com a lista rolando, **1343 de 3192**
+     amostras dentro delas mudavam de cor (maxΔ 519 de 765). O `--btn-accent` é
+     hexadecimal OPACO nos dois temas, então a invariante segue de pé. */
+  --surface-porta: var(--btn-accent);
   --surface-2: var(--surface-2-alta);
   /* ...e o par AFUNDADO, para dentro de um cartão. Ele saiu de controle.css e
      virou token na v5.192 pelo motivo de sempre: com dois temas, o valor
@@ -486,8 +541,10 @@
      tinta, quando ela cai sobre `--panel`, compõe (61,73,89) e dá **4,46:1** —
      quatro centésimos abaixo do piso de 4,5. Sobre `--bg` (mais escuro) o par
      passa com folga, então só os consumidores que moram DENTRO de um cartão
-     raspam: `.pl-pack`, `.folder-count--st` e irmãos. (`.t-btn.slide-mode`
-     era um deles e saiu na v1.3.5, com o eixo de estrofe do transporte.)
+     raspam: `.folder-count--st` e irmãos. (`.t-btn.slide-mode` era um deles e
+     saiu na v1.3.5, com o eixo de estrofe do transporte; o `.pl-pack` saiu na
+     v1.8.53, quando o rodapé da playlist virou um par de botões discretos —
+     `--accent` sobre `--surface` MEDE 7,66:1 no escuro e 5,58:1 no claro.)
      Fica assumido, e não corrigido, porque o .16 é load-bearing: é ele que faz
      esta tinta compor exatamente o `--panel-2` (#3d4959), que é a medição em
      que a regra "os fundos de estado são OPACOS" se apoia (ver "superfície que
@@ -681,6 +738,11 @@
   --surface-alta: rgba(255, 255, 255, .70);
   --surface-2-alta: rgba(255, 255, 255, .92);
   --surface: var(--surface-alta);
+
+  /* A superfície das três portas — o MESMO alias do escuro (ver o bloco de lá),
+     e ele TEM de estar escrito aqui: sem esta linha o `:root` sem atributo
+     venceria e o tema claro ficaria no valor do escuro. */
+  --surface-porta: var(--btn-accent);
   --surface-2: var(--surface-2-alta);
   /* Os afundados subiram de .06/.10 na v5.207, e o motivo está medido: sobre o
      painel BRANCO, .06 dava #f0f0f0 — **1,14:1**, um controle que não se

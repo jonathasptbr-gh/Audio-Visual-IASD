@@ -704,7 +704,13 @@ encenar cada estado.
 | `--ok` contornando "já conectado" | `--ok-fill`, idem |
 | tracejado de "espaço a preencher" (`.import-btn`, `.selbar`, `.pl-pack`) | preenchimento em `--accent-soft` |
 
-> **E as TRÊS PORTAS do rodapé saíram do `--btn-accent` na v1.5.19**, a pedido do operador (*"discretas, mescladas ao fundo"*): elas vestem `color-mix(in srgb, var(--surface) 70%, transparent)`, com `--surface` como piso de falha aberta. A `.selbar`, o `.msg-add-btn` e o `.pl-pack` FICAM — a cor se partiu por HABITAT (sobre `--bg` × sobre `--panel`), não por botão. Ver o capítulo das três portas em `CONTROLE.md`.
+> **O DESFECHO DE UMA AÇÃO SAIU DO VERDE NA v1.8.55**, a pedido do operador (*"padronize todos com o efeito de fundo azul claro e ícone em azul sólido, sem nada verde"*). O pulso do botão e a nota na linha vestem `--btn-accent` + `--accent` — o par do `.fav-btn.on`, que o próprio pedido citou como referência —, e MEDIDO o contraste MELHOROU: **5,37:1** no escuro e **6,37:1** no claro, contra 4,89 e 5,74 do verde que saiu. **O que ele viu não era decisão de ninguém: era especificidade.** As variantes do `.btn-pulso` são `(0,1,0)` e perdiam para `.fav-btn.on`, `.row-playlist.on`/`.row-crono.on`, `.qs-tile.qs-on` e `.fav-acoes .row-btn` (o CINZA da queixa) — de modo que acrescentar a uma lista pulsava azul e retirar pulsava verde. A classe DOBRADA as leva a `(0,2,0)` sem `!important`. **O âmbar e o vermelho ficam**: são outras mensagens.
+
+> **E OS DOIS ÚLTIMOS INDICADORES SAÍRAM NA v1.8.56**, pela régua que o operador deu ao ver o resultado: *"verde é para sinal de 'ligado', nesses casos são mensagem de conclusão, não de atividade"*. Ela REVOGA a leitura da v1.8.55, que deixara o ✓ do download do YouTube (`.yt-result .yt-ok`) e o "Completa offline" da Bíblia (`.bible-ver-status.done`) verdes por lê-los como ESTADO — e a régua nova é melhor, porque separa o que dura enquanto a coisa está no ar do que anuncia algo que ACABOU. O contraste melhorou nos dois: o ✓ vai de 4,89/5,74 para **5,37:1 · 6,37:1**, e o "Completa offline" de 6,10/6,81 para **6,63:1 · 7,70:1** sobre o painel (4,92 · 5,87 sobre `--sel-fill`, que é a linha selecionada). O segundo divide a linha com o `.bible-ver-check` — o ✓ que marca a versão ESCOLHIDA, também `--accent` —, e os dois só coexistem na linha selecionada, onde quem carrega a seleção é o FILL e a linha inteira já é accent por herança. **O QUE SOBRA VERDE É ATIVIDADE, e são dois**: a TV no ar (`.cast-acao.connected`, mais o ícone dela) e o ponto do Auxiliar de Leitura (`.lv-badge`). A lista é nomeada no `feedback-de-confirmacao.test.mjs` **nos dois sentidos** — um seletor novo consumindo `--ok` reprova, e um NOME que já não descreve seletor nenhum reprova também: uma lista de permissão que envelhece deixa de dizer o que está permitido.
+>
+> **E as TRÊS PORTAS do rodapé saíram do `--btn-accent` na v1.5.19**, a pedido do operador (*"discretas, mescladas ao fundo"*): elas vestem `color-mix(in srgb, var(--surface) 70%, transparent)`, com `--surface` como piso de falha aberta. A `.selbar` e o `.msg-add-btn` FICAM — a cor se partiu por HABITAT (sobre `--bg` × sobre `--panel`), não por botão. Ver o capítulo das três portas em `CONTROLE.md`.
+>
+> **O `.pl-pack` saiu na v1.8.53**, e pelo mesmo argumento caindo pela segunda vez. Ele era pintado por ser *"a única ação do bloco dela"*; o operador pôs o "Limpar" ao lado, e o bloco passou a ter duas — num idioma em que `--btn-accent` + `--accent` quer dizer **LIGADO**, o par lia-se como *"Guardar está ligado, Limpar é neutro"*, uma hierarquia que não existe. Some a razão que decide: com menos de dois itens ele é APAGADO, e **um item é o estado dominante da fila**, de modo que o azul cheio ficaria esmaecido quase o culto inteiro. Hoje os dois vestem a mesma caixa (`--surface`) e a COR os separa — `--accent` × `--danger-text`, MEDIDO 7,66:1 e 6,47:1 no escuro, 5,58:1 e 5,35:1 no claro.
 | segmentado/chip marcado (`--accent-soft` + borda) | `--accent-fill` + `--on-accent`, o par que a aba ativa já usava |
 | filetes separadores | ESPAÇO |
 | faixa lateral do grupo na Bíblia e da estrofe no ar | `linear-gradient` — os mesmos pixels, declarados como o preenchimento que sempre foram |
@@ -2214,24 +2220,30 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
     resto, qualquer outro número põe o último bloco a uma distância da borda que
     nenhum par de vizinhos tem, que é literalmente o que o relato descreve.
 
-  **E A BORDA DO SCROLL DIZ QUE HÁ MAIS** (v1.5.16, o véu). Pedido do operador:
-  *"que o scroll da biblioteca tenha um efeito de blur na borda interna superior
-  ou inferior, quando algum elemento da tela ir para debaixo dessa borda"*. São
-  dois `::before`/`::after` `position: sticky` DENTRO do scroller, com
-  `backdrop-filter: blur(5px)` e `mask-image` esmaecendo para transparente.
-  - **BLUR e não gradiente, porque não existe cor certa para o véu.** A
-    alternância papel → poço → papel põe DUAS superfícies sob a mesma borda, e
-    um gradiente teria de escolher uma. Blur é agnóstico de cor: MEDIDO,
-    −60% de nitidez nos dois temas.
-  - **DENTRO do scroller, a `z-index: 2`, é o que o faz sumir sozinho sob uma
-    tampa grudada** — a tampa é opaca e mora acima (z 3 e 4). Medido em 131/131
-    amostras com uma coleção aberta.
+  **E A BORDA DO SCROLL DIZ QUE HÁ MAIS** (v1.5.16 aqui; o app inteiro desde a
+  v1.8.58). Pedido do operador: *"que o scroll da biblioteca tenha um efeito de
+  blur na borda interna superior ou inferior, quando algum elemento da tela ir
+  para debaixo dessa borda"*. São dois `::before`/`::after` `position: sticky`
+  DENTRO do scroller.
+  - **A TINTA É UMA SOMBRA, e ela não é decisão desta lista.** O primeiro
+    desenho foi BLUR, com o argumento de que *"não existe cor certa para o
+    véu"* — a alternância papel → poço → papel põe DUAS superfícies sob a mesma
+    borda. O que resolveu isso foi a cor ser **alfa** (`--sombra-rolagem`,
+    rgba preta), que pousa igual nas duas: MEDIDO, α .30 lê 1,51:1 nos DOIS
+    temas. Com isso o `backdrop-filter` saiu, e com ele o custo que prendia o
+    efeito a um scroller só. A regra vale para o app inteiro e mora no
+    `CLAUDE.md`, na seção da paleta.
+  - **A CAMADA MUDOU NA v1.8.59.** A tira era `z-index: 2`, abaixo das tampas
+    grudadas (z 3 e 4), para sumir sob elas. Medido, o efeito real era que
+    NENHUMA barra `sticky` escurecia — razão 1,0000 contra 1,1553 no fundo a
+    26px dela, nos dois temas —, porque `z-index` é do elemento e não do estado
+    "colada". Ela subiu para `z-index: 5`.
   - **Ele só existe quando MENTIRIA ao não existir**: `.tem-acima`/`.tem-abaixo`
-    saem de um ouvinte de `scroll` com `requestAnimationFrame`, e as regras de
-    desligar REPETEM `.popup-backdrop--lib.open` — sem isso a especificidade
-    (1,1,0 contra 1,2,0) deixava o véu aceso no topo da lista, onde ele mente.
-  - **Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a
-    máscara sem o borrão — seria uma sombra sem causa.
+    saem de um ouvinte de `scroll` em CAPTURA no `document` e de um
+    `MutationObserver` do documento inteiro, coalescidos por quadro. As regras
+    de desligar já não repetem `.popup-backdrop--lib.open` — com o seletor
+    genérico não há a disputa (1,1,0 contra 1,2,0) que uma vez deixou o véu
+    aceso no topo da lista, onde ele mente.
 
   **E O RECUO DE CIMA DA PLACA ESCAPAVA (v1.5.17).** Relato: *"os cards que
   ficam no topo das listas … estão se sobrepondo de forma errada ao espaço em

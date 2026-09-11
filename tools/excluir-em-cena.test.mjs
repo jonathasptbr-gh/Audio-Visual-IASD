@@ -93,7 +93,7 @@ const excluirPelaLinha = async (nome) => pg.evaluate((n) => {
 try {
   await pg.goto(base + '/controle/', { waitUntil: 'load' });
   await pg.waitForFunction(
-    () => window.AVDB && typeof window.__avBack === 'function' && !!document.querySelector('#playlist li'),
+    () => window.AVDB && typeof window.__avBack === 'function' && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 25000 },
   );
   const ids = await pg.evaluate(new Function('return (async () => {'

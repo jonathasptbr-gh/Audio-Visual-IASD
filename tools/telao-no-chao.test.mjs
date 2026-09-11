@@ -142,7 +142,7 @@ try {
   // `load`. Medir antes disso é correr contra a inicialização.
   await pg.waitForFunction(
     () => window.__NATIVE__ === true && window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
   // O AVANÇADO, e a aba Ferramentas ABERTA: é lá que o botão de microfone mora,

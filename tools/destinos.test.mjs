@@ -68,8 +68,10 @@ try {
   const tabela = await pg.evaluate(() => (typeof DESTINOS === 'undefined' ? null : DESTINOS.map((d) => [d.chave, d.lista])));
   checar(!!tabela && tabela.length === 3, 'a tabela de destinos existe e tem os três lugares');
   checar(JSON.stringify(tabela) === JSON.stringify([
-    ['playlist', 'playlist'], ['cronograma', 'imports'], ['favoritos', 'favs'],
-  ]), 'e cada chave aponta para a lista certa do banco');
+    ['cronograma', 'imports'], ['playlist', 'playlist'], ['favoritos', 'favs'],
+  ]), 'e cada chave aponta para a lista certa do banco, NA ORDEM CANÔNICA — '
+    + 'Cronograma, playlist, favoritos (v1.8.56): *"padronize: a esquerda o '
+    + 'cronograma, no meio a playlist e por fim o favoritos"*', JSON.stringify(tabela));
 
   // ---- Uma mídia de mentira, para ter o que mandar ----
   // O acervo LouvorJA precisa de rede; o que se testa aqui é o TRANSPORTE dos
@@ -124,8 +126,39 @@ try {
     destMarcados.add('playlist');
     return destUniao('cronograma');
   });
-  checar(JSON.stringify(ordem) === JSON.stringify(['playlist', 'cronograma', 'favoritos']),
-    'e a ordem é a da tabela, não a ordem em que o operador marcou');
+  checar(JSON.stringify(ordem) === JSON.stringify(['cronograma', 'playlist', 'favoritos']),
+    'e a ordem é a da tabela, não a ordem em que o operador marcou', JSON.stringify(ordem));
+
+  // ---- E A TABELA MANDA NA ORDEM DE QUEM PEDE FORA DELA (v1.8.56) ----
+  // `destinosNaOrdem` é o que impede um chamador de reintroduzir a divergência
+  // escrevendo o array na ordem que lhe convier: a gaveta de um favorito pede
+  // `['playlist', 'cronograma']` — literalmente, na ordem antiga — e tem de
+  // receber os dois na ordem da tabela. Sem esta função, a lista do chamador
+  // ERA a ordem da tela, e foi assim que quatro listas divergiram.
+  const reordenada = await pg.evaluate(() => ({
+    invertida: destinosNaOrdem(['playlist', 'cronograma']).map((d) => d.chave),
+    parcial: destinosNaOrdem(['favoritos', 'cronograma']).map((d) => d.chave),
+    desconhecida: destinosNaOrdem(['tocar', 'playlist']).map((d) => d.chave),
+  }));
+  checar(JSON.stringify(reordenada.invertida) === JSON.stringify(['cronograma', 'playlist'])
+    && JSON.stringify(reordenada.parcial) === JSON.stringify(['cronograma', 'favoritos'])
+    && JSON.stringify(reordenada.desconhecida) === JSON.stringify(['playlist']),
+    'e um chamador que peça na ordem ERRADA recebe na ordem da tabela — com um '
+    + 'faltando a ordem relativa sobrevive, e uma chave de fora dela (o `tocar`) '
+    + 'não entra', JSON.stringify(reordenada));
+
+  // ---- A TABELA CARREGA O ÍCONE E O VERBO (v1.8.56) ----
+  // Eles moravam em QUATRO listas escritas à mão — as duas folhas de destino, o
+  // mapa `LINHA` da gaveta e o `DEST_ICONE` desta folha. Uma tabela que só
+  // dizia "quais existem" deixava "com que cara?" para cada chamador.
+  const campos = await pg.evaluate(() => DESTINOS.map((d) => [d.ico, d.acao, d.rotulo]));
+  checar(JSON.stringify(campos) === JSON.stringify([
+    ['cronoAdd', 'Adicionar ao Cronograma', 'Cronograma'],
+    ['queue', 'Adicionar à playlist', 'Playlist'],
+    ['star', 'Favoritar', 'Favoritos'],
+  ]), 'e ela carrega o ÍCONE e o VERBO de cada destino — `rotulo` é o nome do '
+    + 'lugar e `acao` é o que se faz com ele, e as folhas usam um ou outro '
+    + 'conforme a linha seja uma marca ou um verbo', JSON.stringify(campos));
   const comTocar = await pg.evaluate(() => {
     destMarcados.clear();
     destMarcados.add('cronograma');
@@ -163,13 +196,15 @@ try {
   await pg.evaluate(() => {
     const linhas = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
       .filter((b) => b.querySelector('.song-menu-check'));
-    linhas[1].click();   // a segunda opção: "Adicionar à playlist"
+    linhas[1].click();   // a segunda opção — desde a v1.8.56, o Cronograma
   });
   const aberta = await pg.$eval('#songMenuPopup', (el) => el.classList.contains('open'));
   checar(aberta, 'e o toque no CORPO dela marca sem executar — a folha continua aberta');
   const marcado = await pg.evaluate(() => [...destMarcados]);
-  checar(marcado.length === 1 && marcado[0] === 'playlist',
-    'com o destino da linha em que se tocou', JSON.stringify(marcado));
+  checar(marcado.length === 1 && marcado[0] === 'cronograma',
+    'com o destino da linha em que se tocou — e a SEGUNDA linha da folha é o '
+    + 'Cronograma desde a v1.8.56, porque "Tocar agora" abre a lista e a ordem '
+    + 'canônica põe o Cronograma na frente', JSON.stringify(marcado));
   const pintou = await pg.$$eval('#songMenuList .song-menu-check',
     (els) => els.filter((e) => e.classList.contains('on')).length);
   checar(pintou === 1, 'e a caixa mostra que está marcada');
@@ -189,7 +224,7 @@ try {
   // O CONFIRMAR É SEMPRE VISÍVEL, marcado ou não — ele só nascia depois da
   // primeira marca, isto é, era invisível justamente para quem ainda não sabia
   // que dava para marcar.
-  const temGo = await pg.$$eval('#songMenuList .song-menu-go', (els) => els.length);
+  const temGo = await pg.$$eval('#songMenuPopup .song-menu-go', (els) => els.length);
   checar(temGo === 1, 'e a linha de confirmação está lá');
   // ── E ELE TEM A ALTURA DAS LINHAS QUE FECHA (v5.301) ─────────────────────
   // Relato do operador: *"verifique a altura do botão de confirmar que temos em
@@ -226,7 +261,7 @@ try {
       return px(cs.paddingTop) + px(cs.paddingBottom);
     };
     const conteudo = (el) => Math.round(el.getBoundingClientRect().height - respiro(el));
-    const go = document.querySelector('#songMenuList .song-menu-go');
+    const go = document.querySelector('#songMenuPopup .song-menu-go');
     const opcoes = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
       .filter((b) => b.querySelector('.song-menu-check'));
     return {
@@ -266,7 +301,7 @@ try {
     linha.click();
     const depois = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
       .find((b) => /Tocar agora/.test(b.textContent));
-    const go = document.querySelector('#songMenuList .song-menu-go');
+    const go = document.querySelector('#songMenuPopup .song-menu-go');
     return {
       marcado: [...destMarcados],
       check: !!(depois && depois.querySelector('.song-menu-check.on')),
@@ -287,7 +322,7 @@ try {
   const goVazio = await pg.evaluate(() => {
     destMarcados.clear();
     openYtMenu({ id: 'zzzzzzzzzzz', url: 'https://youtu.be/zzzzzzzzzzz', name: 'Vídeo de teste' });
-    const b = document.querySelector('#songMenuList .song-menu-go');
+    const b = document.querySelector('#songMenuPopup .song-menu-go');
     return { existe: !!b, desabilitado: !!(b && b.disabled), texto: b ? b.textContent.trim() : '' };
   });
   checar(goVazio.existe && goVazio.desabilitado && /Escolha uma opção/.test(goVazio.texto),
@@ -425,7 +460,7 @@ try {
     const linhas = [...document.querySelectorAll('#songMenuList .song-menu-btn')];
     linhas[2].click();
     await new Promise((r) => setTimeout(r, 50));
-    document.querySelector('#songMenuList .song-menu-go').click();
+    document.querySelector('#songMenuPopup .song-menu-go').click();
     return p;
   });
   checar(JSON.stringify(escolhido) === JSON.stringify(['cronograma', 'favoritos']),
