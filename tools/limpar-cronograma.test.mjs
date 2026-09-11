@@ -144,6 +144,7 @@ try {
         lixeira: (() => {
           const sym = document.getElementById('icoLimparLista');
           if (!sym) return null;
+          const sw = parseFloat(document.querySelector('#cronoLimpar svg').getAttribute('stroke-width')) || 2;
           const NS = 'http://www.w3.org/2000/svg';
           const sv = document.createElementNS(NS, 'svg');
           sv.setAttribute('viewBox', '0 0 24 24');
@@ -168,9 +169,21 @@ try {
           return {
             l: +(c.r - c.x).toFixed(2), a: +(c.d - c.y).toFixed(2),
             razao: +((c.d - c.y) / (c.r - c.x)).toFixed(2),
-            vao: +(t.x - c.r).toFixed(2),
+            // O VÃO DE TINTA, e não o de linha de centro: `getBBox` devolve a
+            // caixa da GEOMETRIA e IGNORA o traço, então o vão geométrico não
+            // diz se os dois lados se TOCAM. MEDIDO: com o traço em 2,85 a
+            // lixeira invade os traços em 0,65 unidade e o vão geométrico
+            // continua marcando 2,2 — a asserção antiga passava VERDE sobre o
+            // defeito que ela nomeia.
+            vaoGeo: +(t.x - c.r).toFixed(2),
+            vao: +((t.x - c.r) - sw).toFixed(2),
           };
         })(),
+        // O TAMANHO RENDERIZADO do desenho, contra o da engrenagem. Não é a
+        // caixa do BOTÃO (essa é a `cx`/`cy` acima, e ela já era igual): é o
+        // `<svg>` dentro dele, que é onde os dois divergiam em silêncio.
+        svgCx: +document.querySelector('#cronoLimpar svg').getBoundingClientRect().width.toFixed(1),
+        svgGear: +document.querySelector('#settingsBtn svg').getBoundingClientRect().width.toFixed(1),
       };
     });
     checar(r.existe && !r.badge,
@@ -205,14 +218,41 @@ try {
       'A · e a lixeira não é ESPREMIDA: ' + (r.lixeira && r.lixeira.razao)
       + ' de altura por largura, contra o 1,11 do `trash-2` do Feather e o 1,81 '
       + 'do desenho que o operador viu', JSON.stringify(r.lixeira));
-    // E O VÃO ENTRE AS DUAS METADES SOBREVIVE À REPARTIÇÃO: alargar a lixeira
-    // contra os traços é o modo óbvio de consertar a razão acima, e ele empasta
-    // o ícone — a 20px o desenho inteiro tem 1,67px de traço, e um vão menor que
-    // a própria linha não se lê como vão.
-    checar(r.lixeira && r.lixeira.vao >= 1.5,
-      'A · e sobra VÃO entre a lixeira e os traços (' + (r.lixeira && r.lixeira.vao)
-      + ' unidades) — alargar a lixeira até encostar neles conserta a razão e '
-      + 'empasta o desenho', JSON.stringify(r.lixeira));
+    // E O VÃO ENTRE AS DUAS METADES É DE TINTA (v1.8.68, corrigindo a régua da
+    // v1.8.67). Alargar a lixeira contra os traços é o modo óbvio de consertar a
+    // razão acima, e ele empasta o ícone — mas ENGROSSAR O TRAÇO faz o mesmo
+    // estrago por outro caminho, e a régua antiga era CEGA a ele: `getBBox`
+    // devolve a caixa da GEOMETRIA e ignora o traço, então o vão de linha de
+    // centro não se move com a espessura. MEDIDO: com `stroke-width` 2,85 a
+    // lixeira INVADE os traços em 0,65 unidade e o vão geométrico continua
+    // marcando 2,2 — a asserção passava VERDE sobre o defeito que ela nomeia,
+    // que é exatamente o que a regra da REVERSÃO deste repositório condena.
+    //
+    // E O PISO TINHA DE SUBIR DE CHÃO: 1,5 era MENOR que o próprio traço (2,0),
+    // então toda a faixa [1,5; 2,0) passava já com tinta sobreposta. Em tinta,
+    // o desenho da v1.8.67 tinha 0,2 unidade de folga — um décimo da linha. Hoje
+    // são 0,6 (3,0 geométrico − 2,4 de traço), e o piso de 0,4 fica abaixo disso
+    // e acima de zero, que é onde os dois lados se encostam.
+    checar(r.lixeira && r.lixeira.vao >= 0.4,
+      'A · e sobra VÃO DE TINTA entre a lixeira e os traços ('
+      + (r.lixeira && r.lixeira.vao) + ' unidades, de um vão geométrico de '
+      + (r.lixeira && r.lixeira.vaoGeo) + ' menos o traço) — encostar os dois '
+      + 'empasta o desenho, e engrossar o traço encosta sem mover a geometria',
+      JSON.stringify(r.lixeira));
+    // E O DESENHO MEDE O MESMO QUE O DA ENGRENAGEM (v1.8.68). O relato foi *"o
+    // icone da lixeira está muito pequeno visualmente, principalmente em
+    // comparação com o volume e preenchimento visual do icone das
+    // configurações"*, e a causa era MUDA: os dois botões têm a mesma CAIXA
+    // (34px, e a asserção acima já provava isso), mas o `.crono-limpar` não
+    // estava em NENHUMA das duas listas de escala de ícone do `controle.css`, e
+    // o `<svg>` dele vivia do atributo `width="20"` do HTML enquanto a
+    // engrenagem ao lado media 22. É a MESMA armadilha que a v1.5.19 consertou
+    // nas três portas do rodapé — e a asserção mede o `<svg>`, não o botão,
+    // porque é ali que a divergência mora.
+    checar(r.svgCx === r.svgGear,
+      'A · e o DESENHO mede o mesmo que o da engrenagem (' + r.svgCx + ' contra '
+      + r.svgGear + 'px): a caixa dos dois já era igual, e era o `<svg>` dentro '
+      + 'dela que divergia em silêncio', JSON.stringify({ limpar: r.svgCx, gear: r.svgGear }));
     await a.ctx.close();
   }
 
@@ -246,13 +286,18 @@ try {
   }
 
   // =========================================================================
-  // C · O VERMELHO, MEDIDO NOS DOIS TEMAS
+  // C · A TINTA NEUTRA, MEDIDA NOS DOIS TEMAS (v1.8.68)
   // =========================================================================
   //
-  // A régua é o CONTRASTE do traço contra a barra em que ele pousa, lido do
-  // RENDERIZADO. Ler o nome do token provaria que alguém escreveu
-  // `--danger-strong`, não que o ícone se vê: o `--danger` (o scarlett oficial)
-  // também "é vermelho" e mede 2,71:1 no escuro.
+  // São DUAS réguas, e as duas lidas do RENDERIZADO. Ler o nome do token
+  // provaria que alguém escreveu `--muted`, não que o ícone se vê nem que ele é
+  // neutro — e a paleta tem branco que some (`--on-accent` mede 13,0:1 no escuro
+  // e **1,00:1** no claro, onde ele e a barra valem os dois `#fff`).
+  //
+  // O VERMELHO SAIU NA v1.8.68, a pedido do operador: *"troque o vermelho pelo
+  // branco/cinza, uma cor neutra para esse icone. Vermelho está muito
+  // chamativo."* O que o bloco afirmava antes era a escolha ENTRE vermelhos; o
+  // que ele afirma agora é que a tinta é NEUTRA e continua acima do piso.
   for (const tema of ['dark', 'light']) {
     const a = await abrir(tema, 6);
     const r = await a.pg.evaluate(() => {
@@ -270,17 +315,26 @@ try {
     const c = razao(r.cor, r.barra);
     checar(c >= 3,
       'C · ' + tema + ': o ícone mede ' + c + ':1 contra a barra, acima do piso '
-      + 'de 3:1. O scarlett oficial (`--live`) mede 2,71:1 no escuro — o '
-      + 'vermelho certo é o CLAREADO, e a régua é o número, não o nome',
+      + 'de 3:1 — e a régua é o número, não o nome: `--on-accent` é neutro, está '
+      + 'declarado nos dois temas e mede 1,00:1 no claro, branco sobre branco',
       JSON.stringify({ cor: r.cor, barra: r.barra, razao: c }));
-    // E ELE É VERMELHO DE VERDADE, não o `--accent` dos vizinhos: o canal
-    // vermelho domina. Sem esta metade, um ícone azul com contraste de sobra
-    // passaria na asserção acima.
+    // E ELE É NEUTRO, pela AMPLITUDE DE CROMA — não por um "não é vermelho".
+    // A negação simples aprovaria o `--accent` AZUL dos vizinhos, que é o que a
+    // metade original existia para barrar, e ali o azul significa NAVEGAÇÃO.
+    // MEDIDO, `max(r,g,b) − min(r,g,b)` nos dois temas: `--muted` 16 e 16 ·
+    // `--text` 9 e 0 · `--accent` 95 e 80 · `--danger-strong` 127 e 180.
+    //
+    // O TETO É 40, e a folga é dos DOIS lados de propósito: 24 (o primeiro
+    // candidato) aprovaria a cor da PRÓPRIA BARRA, cuja amplitude é 23 — um
+    // ícone invisível passaria na metade da neutralidade, e só o piso acima o
+    // pegaria. 40 deixa 24 de margem sobre o `--muted` e 40 abaixo do `--accent`.
     const [rr, gg, bb] = rgb(r.cor);
-    checar(rr > gg + 30 && rr > bb + 30,
-      'C · ' + tema + ': e ele é VERMELHO — o canal r domina os outros dois. Sem '
-      + 'isto, o `--accent` azul dos vizinhos passaria no contraste e o botão '
-      + 'deixaria de se anunciar como destrutivo', JSON.stringify(rgb(r.cor)));
+    const croma = Math.max(rr, gg, bb) - Math.min(rr, gg, bb);
+    checar(croma <= 40,
+      'C · ' + tema + ': e ele é NEUTRO — amplitude de croma ' + croma + ', '
+      + 'abaixo do teto de 40. Sem esta metade o vermelho de antes (127 · 180) e '
+      + 'o `--accent` azul dos vizinhos (95 · 80) passariam no contraste',
+      JSON.stringify({ rgb: [rr, gg, bb], croma }));
     await a.ctx.close();
   }
 
@@ -391,28 +445,73 @@ try {
   //
   // As DUAS pontas medidas — vazio e cheio —, porque um botão sempre `disabled`
   // e um nunca `disabled` passam em metades opostas.
-  {
-    const a = await abrir('dark', 0);
+  //
+  // E A RÉGUA DO APAGADO É O DESFECHO, NÃO O MECANISMO (v1.8.68). Até aqui este
+  // bloco lia `getComputedStyle(b).opacity` e exigia `< 0.9` — e isso tem três
+  // defeitos, os três medidos. (1) Ele trava o MEIO: um esmaecimento feito por
+  // COR, com `opacity: 1`, REPROVAVA, isto é, a asserção bloqueava um conserto
+  // correto em vez de um defeito. (2) Ele passa para qualquer alfa até 0,89,
+  // num estado que a essa altura é indistinguível do aceso. (3) Ele nunca mediu
+  // COR nem contraste, então aprovava igualmente o desenho de antes e o de
+  // agora — a pergunta *"isso está coberto?"* respondida com um sim que não
+  // cobria o que o operador reclamou.
+  //
+  // O QUE ELE MEDE AGORA é a tinta COMPOSTA contra a barra, nos DOIS temas (o
+  // bloco rodava só no escuro, e a única piora possível desta troca mora no
+  // CLARO). O piso de 2:1 é o que o desenho anterior violava: MEDIDO, dos 488
+  // pixels de tinta do ícone apagado, ZERO cruzavam 2:1 no tema escuro contra
+  // 262 no claro — o par de números "1,83 · 2,00" fazia os dois temas parecerem
+  // vizinhos, e em tinta legível eles eram 0 contra 262. Apagado não é ausente:
+  // a regra da v1.8.50 existe para o operador VER o que não responde e entender
+  // por quê, e um traço que some não diz nada.
+  for (const tema of ['dark', 'light']) {
+    const a = await abrir(tema, 0);
     const vazio = await a.pg.evaluate(() => {
       const b = document.getElementById('cronoLimpar');
-      return { dis: b.disabled, title: b.title, op: getComputedStyle(b).opacity };
+      const cs = getComputedStyle(b);
+      return {
+        dis: b.disabled, title: b.title, op: +cs.opacity, cor: cs.color,
+        barra: getComputedStyle(document.querySelector('.list-header')).backgroundColor,
+      };
     });
-    checar(vazio.dis === true && /vazio/i.test(vazio.title) && +vazio.op < 0.9,
-      'F · com a lista vazia o botão é APAGADO e o `title` diz por quê — a regra '
-      + 'da v1.8.50 pesa o dobro num destrutivo: aceso e inerte, ele ensina que '
-      + 'tocá-lo é inofensivo', JSON.stringify(vazio));
+    checar(vazio.dis === true && /vazio/i.test(vazio.title),
+      'F · ' + tema + ': com a lista vazia o botão é APAGADO e o `title` diz por '
+      + 'quê — a regra da v1.8.50 pesa o dobro num destrutivo: aceso e inerte, '
+      + 'ele ensina que tocá-lo é inofensivo', JSON.stringify(vazio));
+    // A COMPOSTA: a `opacity` mistura o traço com a barra, então a razão tem de
+    // ser calculada sobre a MISTURA — ler a `color` crua devolveria o contraste
+    // do token, que é o do estado ACESO.
+    const fundo = rgb(vazio.barra);
+    const mist = rgb(vazio.cor).map((c, i) => c * vazio.op + fundo[i] * (1 - vazio.op));
+    const cApagado = razao('rgb(' + mist.map(Math.round).join(',') + ')', vazio.barra);
+    checar(cApagado > 2,
+      'F · ' + tema + ': e o apagado ainda SE VÊ — ' + cApagado + ':1 composta '
+      + 'contra a barra, acima do piso de 2:1. Abaixo dele não é indisponível, é '
+      + 'ausente: o desenho anterior media 1,83:1 no escuro, com ZERO pixels de '
+      + 'tinta cruzando 2:1', JSON.stringify({ cor: vazio.cor, op: vazio.op, razao: cApagado }));
     const cheio = await a.pg.evaluate(async () => {
       const z = (ms) => new Promise((f) => setTimeout(f, ms));
       await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
         { name: 'Um', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
       await load(); await z(400);
       const b = document.getElementById('cronoLimpar');
-      return { dis: b.disabled, title: b.title, op: getComputedStyle(b).opacity };
+      const cs = getComputedStyle(b);
+      return { dis: b.disabled, title: b.title, op: +cs.opacity, cor: cs.color };
     });
-    checar(cheio.dis === false && !/vazio/i.test(cheio.title) && +cheio.op > 0.9,
-      'F · e com UM item ele volta a acender, com o `title` da ação — sem esta '
-      + 'metade, um botão apagado para sempre passaria na de cima',
-      JSON.stringify(cheio));
+    checar(cheio.dis === false && !/vazio/i.test(cheio.title),
+      'F · ' + tema + ': e com UM item ele volta a acender, com o `title` da '
+      + 'ação — sem esta metade, um botão apagado para sempre passaria na de '
+      + 'cima', JSON.stringify(cheio));
+    // E A SEPARAÇÃO ENTRE OS ESTADOS É O OUTRO LADO DO MESMO PISO: sem ela, um
+    // apagado que subisse até encostar no aceso passaria na asserção acima. O
+    // teto de 2x é medido — hoje a separação é 2,6x no escuro e 3,0x no claro,
+    // e o vermelho de antes dava 3,2x e 3,4x.
+    const cAceso = razao(cheio.cor, vazio.barra);
+    checar(cAceso / cApagado >= 2,
+      'F · ' + tema + ': e o aceso é NITIDAMENTE mais forte — ' + cAceso + ':1 '
+      + 'contra ' + cApagado + ':1, ' + (cAceso / cApagado).toFixed(2) + 'x. O '
+      + 'piso de cima sozinho aprovaria um apagado encostado no aceso',
+      JSON.stringify({ aceso: cAceso, apagado: cApagado }));
     await a.ctx.close();
   }
 

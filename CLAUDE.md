@@ -1289,7 +1289,17 @@ nenhum**, e por isso ficam aqui.
   `--accent-fill` + `--on-accent`; LIGADO (interruptor) = `--btn-accent` +
   `--accent`; SELECIONADO numa lista = `--sel-fill`; ABERTO **não é cor**.
   **Cor de texto nunca carrega estado sozinha**, e **apagado quer dizer
-  INDISPONÍVEL** (`opacity: .3` + `disabled`), nunca "desligado".
+  INDISPONÍVEL** (`--op-inativo` + `disabled`), nunca "desligado" — e o número
+  é **.35**, não o `.3` que este arquivo afirmou até a v1.8.68 (MEDIDO: `.3` é
+  usado por UMA regra em quinze). **MAS O QUE SE IGUALA É O DESFECHO, NÃO O
+  ALFA:** o token nasceu para sincronizar PÍLULAS PREENCHIDAS com tinta `--text`,
+  e o mesmo `.35` sobre um ícone SOLTO entrega outro número — medido no mesmo
+  PNG e contra a mesma barra, a pílula dá 2,66:1 e o traço do `.crono-limpar`
+  dava **1,83:1**. **E abaixo de 2:1 não é indisponível, é AUSENTE**: por
+  população de pixel, dos 488 pixels de tinta daquele ícone apagado ZERO
+  cruzavam 2:1 no tema escuro contra 262 no claro — o par "1,83 · 2,00" fazia os
+  dois temas parecerem vizinhos. Um botão que some não ensina nada; a regra
+  existe para o operador VER o que não responde.
 - **E O DESFECHO DE UMA AÇÃO É AZUL, NUNCA VERDE** (v1.8.55): o pulso do botão
   (`.btn-pulso--ok`) e a nota na linha (`.row-nota--ok`) vestem `--btn-accent` +
   `--accent`, o par do `.fav-btn.on`. **O âmbar e o vermelho FICAM** — "já estava
@@ -1331,6 +1341,29 @@ nenhum**, e por isso ficam aqui.
   lado: ele pediu o apagado também com UM item (*"um item não é uma lista"*) e
   desistiu diante do preço, porque ali a folha ainda é a única porta para cinco
   coisas e um item é o estado que todo toque numa mídia produz.
+- **A CAIXA CERTA NÃO GARANTE O DESENHO CERTO, e a divergência é MUDA**
+  (v1.8.68). A escala de ícone mora em DUAS listas de `controle.css`
+  (`--icon-sm`, 20px, e `--icon-md`, 22px), e um botão que não esteja em NENHUMA
+  delas cai no atributo `width`/`height` que o HTML escreveu — que pode coincidir
+  com o degrau certo por acidente e deixar de coincidir no dia em que alguém
+  mexer no token. Foi o que aconteceu ao `.crono-limpar`: MEDIDO, o `<svg>` dele
+  media 20px contra os 22 da engrenagem a 34px de distância na MESMA faixa,
+  enquanto as CAIXAS dos dois botões eram iguais — e havia asserção provando que
+  as caixas eram iguais, o que é por que ninguém viu. **Botão de ícone novo entra
+  numa das duas listas no lote em que nasce**, e o oráculo que o cobrir mede o
+  `<svg>`, não o botão. É a mesma armadilha que a v1.5.19 já tinha consertado
+  nas três portas do rodapé, e o comentário dela está no lugar certo do CSS.
+- **E O TAMANHO NÃO É A ÚNICA RÉGUA DE "PARECE PEQUENO": A OUTRA É DENSIDADE**
+  (v1.8.68). Dois desenhos no mesmo viewBox e no mesmo tamanho pesam diferente se
+  um é contorno esparso e o outro é glifo cheio — MEDIDO, a lixeira tem 66,2
+  unidades de comprimento de traço contra 107,3 da engrenagem, e **nenhum
+  redesenho fecha isso** (escalar a união até encostar nas bordas do viewBox
+  chega a 0,63x da tinta). O eixo que fecha é a ESPESSURA, e ela é exceção
+  declarada por símbolo, com o número medido ao lado. **MAS O VÃO QUE A LIMITA É
+  O DE TINTA, e `getBBox()` é cego a ele**: ele devolve a caixa da GEOMETRIA e
+  ignora o traço, então engrossar aproxima duas metades do desenho sem mover um
+  pixel da medida. A conta é `vão geométrico − stroke-width`, e um piso menor que
+  o próprio traço não é piso nenhum.
 - **UM BOTÃO SEM RÓTULO É QUADRADO** (v1.8.57), e o app tem TRÊS caixas para
   ele, as três legítimas porque respondem ao VIZINHO: `--hit` (34px) no
   cabeçalho de uma folha, `--thumb` (40px) numa LINHA de lista (é a medida da
@@ -2540,7 +2573,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.67 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.68 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -2551,14 +2584,14 @@ bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.67 são o mesmo caso, pela mesma
+> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.68 são o mesmo caso, pela mesma
 > razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A v1.8.67 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
+> **A v1.8.68 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
 > nem o `build.gradle.kts` — só `assets/web/`, `tools/` e `docs/`.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, e desde a v1.8.50 ela TEM ORÁCULO.**

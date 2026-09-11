@@ -831,7 +831,15 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      alternar — quem manda é esta regra. */
   .lv-cheia-btn
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
-:is(.lib-toggle, .t-btn, .ctl-btn, .misc-tab, .settings-btn) svg {
+/* O `.crono-limpar` entrou aqui na v1.8.68, e é a MESMA armadilha da v1.5.19
+   logo acima: ele não estava em NENHUMA das duas listas, então o svg dele vivia
+   do atributo `width="20"` do HTML enquanto a engrenagem, a 34px de distância na
+   mesma faixa, media 22. MEDIDO, `getBoundingClientRect` do `<svg>`: 20,0 contra
+   22,0 — e as CAIXAS dos dois botões são iguais (34x34, `--hit`), então a
+   divergência era MUDA. Foi o que o operador viu: *"o icone da lixeira está
+   muito pequeno visualmente, principalmente em comparação com o volume e
+   preenchimento visual do icone das configurações"*. */
+:is(.lib-toggle, .t-btn, .ctl-btn, .misc-tab, .settings-btn, .crono-limpar) svg {
   display: block; width: var(--icon-md); height: var(--icon-md);
 }
 /* Barras largas de ação (microfone, projetar): o ícone acompanha o alvo. */
@@ -2154,32 +2162,41 @@ main {
    (`minmax(--hit, 1fr)`): sem ele o botão flutuaria no meio da sobra, e o que a
    faixa promete é um alvo ENCOSTADO no canto, como a engrenagem na outra ponta.
 
-   A COR É `--danger-strong`, e a escolha é MEDIDA — não é o vermelho "óbvio".
-   A paleta reserva o scarlett OFICIAL (`--live`, `#d0021b`) para ser FUNDO;
-   sobre fundo neutro o que se escreve é o CLAREADO. MEDIDO contra a `--bar`
-   desta faixa, que é o que o ícone de fato pousa:
+   A COR É `--muted`, NEUTRA (v1.8.68, revogando o vermelho da v1.8.66). Pedido
+   do operador: *"troque o vermelho pelo branco/cinza, uma cor neutra para esse
+   icone. Vermelho está muito chamativo."*
 
-   | token             | escuro     | claro      |
-   |-------------------|------------|------------|
-   | `--danger-strong` | **5,92:1** | **6,84:1** |
-   | `--live`          | **2,71:1** | 5,67:1     |
-   | `--btn-danger`    | 1,32:1     | 1,21:1     |
+   O NEUTRO CERTO NÃO SE COPIA DO VIZINHO DE CAIXA — a engrenagem é AZUL. MEDIDO
+   por pixel, ela renderiza `--accent` (`rgb(149,181,244)` / `rgb(47,85,127)`),
+   porque `.list-header .settings-btn` (0,2,0) vence a regra base dela. O vizinho
+   NEUTRO desta faixa é o `#listTitle`, e a tinta dele é exatamente esta — a
+   mesma que a `.ver-badge` que este botão substituiu na v1.8.66 já pintava.
 
-   O scarlett REPROVA no escuro — 2,71:1 contra o piso de 3:1 para ícone —, e
-   passa no claro: é o defeito que só aparece num tema, e por isso o número está
-   escrito aqui em vez de o token ser escolhido pelo nome.
+   E A ESCOLHA É MEDIDA, não o primeiro cinza. Varridos os 57 tokens declarados
+   nos DOIS blocos de tema, só DOIS são neutros (amplitude de croma baixa) E
+   passam o piso de 3:1 contra a `--bar` nos dois: `--muted` (8,09:1 · 6,66:1) e
+   `--text` (11,56:1 · **21,00:1**). O segundo faria o destrutivo virar a peça
+   mais gritante da barra no tema claro, que é o oposto do pedido.
 
-   E `--danger` NÃO É UM TOKEN, por mais que a prosa do `tokens.css` fale do
-   "par `--live`/`--danger`". O que existe declarado é `--danger-strong`,
-   `--danger-text` e `--btn-danger`; o scarlett tem um nome só, `--live`. Um
-   `var(--danger)` aqui não erra para vermelho errado — ele não computa, e a
-   cor cai no valor herdado: MEDIDO, `rgb(220,224,229)` no escuro e `#000` no
-   claro, isto é, o ícone vira TEXTO. (Quem reprova isso no CI é o
-   `tokens.test.mjs`, que varre `var()` apontando para token inexistente.)
+   OS BRANCOS "ÓBVIOS" SÃO OS QUE MORREM, e num tema só: `--on-accent` e
+   `--on-live` medem 13,0:1 e 13,4:1 no escuro — e **1,00:1** no claro, onde os
+   dois valem `#fff` e a barra também. Branco sobre branco, sem erro nenhum, e
+   uma captura no tema escuro não acusa.
 
-   CHAPADO (sem `background`), como o `#backBtn` e a engrenagem: o esqueleto
-   acima dá caixa, raio e alvo; o que sobra aqui é a cor. */
-.crono-limpar { background: none; color: var(--danger-strong); }
+   E `--danger` NÃO É UM TOKEN — a armadilha fica escrita porque ela sobrevive à
+   saída do vermelho. O que existe declarado é `--danger-strong`, `--danger-text`
+   e `--btn-danger`; o scarlett tem um nome só, `--live`. Um `var()` que não
+   computa cai no valor HERDADO, e aqui o herdado é `--text`: apagar a linha
+   `color` abaixo (a "simplificação" óbvia ao tirar o vermelho) não deixa o botão
+   sem cor — deixa-o com a tinta PRIMÁRIA do app, 21,00:1 no claro, calado.
+
+   O SINAL DE DESTRUTIVO PASSA A MORAR SÓ NO DIÁLOGO (`appConfirm({perigo})`,
+   que continua vermelho e continua tendo asserção). Enfraquecer aquele bloco
+   deixa o recurso sem aviso nenhum.
+
+   CHAPADO (sem `background`), como a engrenagem: o esqueleto acima dá caixa,
+   raio e alvo; o que sobra aqui é a cor. */
+.crono-limpar { background: none; color: var(--muted); }
 .list-header > .crono-limpar { grid-column: 1; justify-self: start; }
 /* ---------- E COM A LISTA VAZIA ELE É APAGADO, não deixado inerte ----------
    A regra do app (v1.8.50): um botão aceso que não faz nada é indistinguível de
@@ -2189,9 +2206,55 @@ main {
    tabulação e faz o navegador engolir o toque.
 
    NÃO HÁ REGRA GLOBAL de desabilitado nesta folha — cada botão declara a sua
-   (`.slide-btn:disabled`, `.t-btn:disabled`), e esta segue as duas ao pé da
-   letra para não inventar uma terceira aparência para o mesmo estado. */
-.crono-limpar:disabled { opacity: var(--op-inativo); cursor: default; }
+   (`.slide-btn:disabled`, `.t-btn:disabled`).
+
+   E O ALFA É PRÓPRIO, NÃO O `--op-inativo` (v1.8.68). Pedido do operador:
+   *"aprimore o sistema de esmaecimento da sua cor quando inativo/sem itens na
+   lista do cronograma"*.
+
+   O QUE O `--op-inativo` IGUALA É O ALFA, e o que precisa ficar igual aqui é o
+   DESFECHO. Aquele token nasceu (v1.5.15) para manter em sincronia uma família
+   que o operador amarrou por extenso — três PÍLULAS PREENCHIDAS mais o cartão da
+   linha do tempo, *"o mesmo cinza claro dos botões inativos de próximo e
+   anterior slide"* —, e as quatro têm corpo e tinta `--text`. Este é um ícone
+   SOLTO, sem corpo, com 1,83px de traço e tinta `--muted`: ele nunca foi dessa
+   família, só pegou o número emprestado. MEDIDO no mesmo PNG, contra a MESMA
+   barra: a pílula desabilitada entrega 2,66:1 no escuro e o traço deste botão
+   entregava **1,83:1** — mesmo alfa, 0,83 ponto de diferença.
+
+   E 1,83:1 NÃO É ESMAECER, É SUMIR. MEDIDO por população de pixel, contra a
+   barra: dos 488 pixels de tinta do ícone apagado, **ZERO** cruzavam 2:1 no tema
+   escuro (o padrão, o da captura do operador) contra 262 no claro. O par de
+   números "1,83 · 2,00" fazia os dois temas parecerem vizinhos; em tinta
+   legível eles eram 0 contra 262.
+
+   E A COR NEUTRA PIORARIA ISSO SOZINHA: `--muted` no mesmo `.35` mede 1,71:1 no
+   claro, com **zero** pixels acima de 2:1 — um traço quase branco sobre barra
+   branca. Os dois pedidos do operador são UM: trocar a tinta sem refazer o véu
+   trocaria o sumiço de tema.
+
+   O NÚMERO É 0,5, e a varredura está aqui porque nenhum alfa iguala os dois
+   temas — misturar para uma barra escura e para uma branca não é simétrico, e
+   essa assimetria É o defeito de origem:
+
+   | alfa | escuro | claro |
+   |------|--------|-------|
+   | .35  | 2,22:1 | 1,71:1 |
+   | .45  | 2,79:1 | 2,03:1 |
+   | **.5** | **3,12:1** | **2,23:1** |
+   | .6   | 3,86:1 | 2,70:1 |
+
+   .5 é o primeiro degrau em que os DOIS temas têm margem acima de 2:1 (em .45 o
+   claro fica em 2,03, a um arredondamento do chão). Contra o ACESO — 8,09:1 e
+   6,66:1 — a separação de estado fica em 2,6x e 3,0x, na mesma ordem dos 3,2x e
+   3,4x que o vermelho tinha; o que mudou não foi a distância entre os estados,
+   foi o apagado deixar de cair abaixo do piso.
+
+   NÃO HÁ TRANSIÇÃO, e é de propósito: MEDIDO, nenhuma das seis famílias de botão
+   do app declara uma, e a troca de estado acompanha o redesenho da lista
+   (`renderCronoLimpar`, dentro do `renderLibrary`) — não há quadro em que uma
+   animação teria o que ligar. */
+.crono-limpar:disabled { opacity: .5; cursor: default; }
 .list-header > .list-title { grid-column: 2; }
 /* ---------- A BADGE DE VERSÃO (v1.7.0) ----------
    Duas casas, UMA regra: o canto superior esquerdo do avançado e o lugar logo
