@@ -1991,16 +1991,17 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os 81 de Chromium somam **~11 min em série** e **~3,5 min nos três processos**
+Os 82 de Chromium somam **~13 min em série** e **~4,4 min nos três processos**
 (MEDIDO em 4 vCPU, o mesmo do runner; os 23 de Node puro somam **5,5 s** —
-juntos, os 104). O custo não é o que parece: lançar o navegador são **~110 ms** e
+juntos, os 105). O custo não é o que parece: lançar o navegador são **~110 ms** e
 subir o `/controle/` inteiro é **~1 s** — compartilhar um navegador entre
 oráculos, a otimização óbvia, economizaria 2% e custaria o isolamento. O que
 sobra é espera, com os quatro núcleos ociosos.
 
-**E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é.** MEDIDO: os 51 mais
-baratos somam **207 s dos 1.022 s**, e vinte deles rodam em menos de 2 s cada;
-apagá-los devolveria segundos e custaria a cobertura inteira que eles carregam.
+**E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é.** MEDIDO: os 52 mais
+baratos somam **161 s dos 783 s**, e VINTE E TRÊS deles rodam em menos de 2 s
+cada — apagar esses vinte e três devolveria **8 s de parede** e custaria a
+cobertura inteira que eles carregam.
 O passo é caro por causa de uma DÚZIA de arquivos, e o que os encarece são
 defeitos de arnês, não asserções a mais — dois deles pagaram 130 s sozinhos (ver
 as duas armadilhas logo abaixo). **A pergunta diante de um passo lento é "onde

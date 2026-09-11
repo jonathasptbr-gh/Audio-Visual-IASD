@@ -434,8 +434,8 @@ jobs:
       # PRAZO AQUI TAMBÉM, e pela mesma razão: um oráculo que pendure o
       # navegador (uma Promise que nunca resolve, um `waitForFunction` sem
       # timeout) trava o job inteiro e leva o canal OTA junto. O prazo é folga
-      # larga: MEDIDO em 4 vCPU (o mesmo do runner), os 81 somam ~14 min em
-      # SÉRIE e ~4,8 min nos três processos em que rodam hoje — e o prazo cobre o
+      # larga: MEDIDO em 4 vCPU (o mesmo do runner), os 82 somam ~13 min em
+      # SÉRIE e ~4,4 min nos três processos em que rodam hoje — e o prazo cobre o
       # pior caso, que é a paralelização não pegar por qualquer razão e a lista
       # correr em fila.
       - name: Oráculos em Chromium
@@ -450,15 +450,16 @@ jobs:
 
           # ---------- EM PARALELO, E O `rodar` SÓ ENFILEIRA ----------
           #
-          # MEDIDO: os 81 oráculos somam ~14 min em série, e o custo NÃO é o
+          # MEDIDO: os 82 oráculos somam ~13 min em série, e o custo NÃO é o
           # que parece — lançar o Chromium são ~110 ms e subir o `/controle/`
           # inteiro é ~1 s. O que sobra é espera: cada oráculo passa a maior
           # parte do tempo parado esperando o app dele assentar, com os quatro
           # núcleos do runner ociosos.
           #
           # E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é. MEDIDO, os
-          # 51 mais baratos somam 207 s dos 1.022 s e vinte deles rodam em menos
-          # de 2 s: apagá-los devolveria segundos e custaria a cobertura inteira.
+          # 52 mais baratos somam 161 s dos 783 s e VINTE E TRÊS deles rodam em
+          # menos de 2 s: apagá-los devolveria 8 s de parede e custaria a
+          # cobertura inteira.
           # O que encarece este passo é uma DÚZIA de arquivos, e neles o tempo é
           # de arnês, não de asserção — ver as duas armadilhas no CLAUDE.md
           # ("o piso da cortina" e "um stub da ponte que não resolve").
