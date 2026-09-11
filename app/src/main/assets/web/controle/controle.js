@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.76';
+const WEB_VERSION = '1.8.77';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3429,7 +3429,7 @@ function syncFader(pct) {
 // Então aqui o ícone segue sendo o modo ATUAL, que é a informação que se perde.
 function renderRepeat() {
   const icon = repeat === 'one' ? ICON.repeatOne : repeat === 'shuffle' ? ICON.shuffle : ICON.repeatAll;
-  // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (v1.8.76), e não se ela anda:
+  // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (v1.8.77), e não se ela anda:
   // desde aquele lote a fila anda nos quatro modos, e "Repetição desativada"
   // passaria a prometer o oposto do que o `off` faz — que é justamente o
   // comportamento que o operador procurava quando esquecia de armar o `all`.
@@ -5563,7 +5563,7 @@ async function abrirPacote(d, cueId) {
   // prometer por causa deste campo.
   if (d.view && view !== d.view) await setView(d.view);
   // `trocarFila`, e não o `listSet` cru: um pacote é uma SEQUÊNCIA nova, e o
-  // modo de repetição do que tocava antes dele é resquício (v1.8.76).
+  // modo de repetição do que tocava antes dele é resquício (v1.8.77).
   await trocarFila(recs.map((r) => r.id));
   plItems = recs;
   renderPlaylist();
@@ -6461,10 +6461,10 @@ function chronoSetDuration(ms) {
 
 // Atualiza só o NÚMERO do painel (o resto do painel não muda a cada tick).
 // No-op quando a aba não está montada — o laço pode sobreviver a um render.
-function renderChronoReadout(r) {
+function renderChronoReadout() {
   const el = document.getElementById('chronoRead');
   if (!el) return;
-  const rr = r || chronoReading(chrono, Date.now());
+  const rr = chronoReading(chrono, Date.now());
   el.textContent = rr.text;
   el.classList.toggle('over', rr.over);
 }
@@ -8830,9 +8830,9 @@ function categoryCards(cat) {
 // O MIOLO do cabeçalho de grupo — contador (busy/done/fração) + botão de
 // lote/cancelar — hoje usado só pelo `header()` da lista, por CATEGORIA. Ele
 // era compartilhado com o "Baixar toda a biblioteca" fixo do cabeçalho do
-// popup, que saiu na v5.258; `aposClique` era a diferença legítima daquele
-// (ele precisava se redesenhar) e ficou sem chamador que o passe.
-function montarResumoGrupo(host, key, text, colls, gOpts, aposClique) {
+// popup, que saiu na v5.258 — e com ele saiu o `aposClique`, que era a
+// diferença legítima daquele (ele precisava se redesenhar).
+function montarResumoGrupo(host, key, text, colls, gOpts) {
   const g = gui(key);
   const complete = grupoCompleto(colls);
 
@@ -8856,7 +8856,6 @@ function montarResumoGrupo(host, key, text, colls, gOpts, aposClique) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       syncGroup(key, text, colls, gOpts);
-      if (aposClique) aposClique();
     });
     host.appendChild(btn);
   }
@@ -8871,7 +8870,7 @@ function montarResumoGrupo(host, key, text, colls, gOpts, aposClique) {
 // reprovou: *"está errado, reformule o sistema de coloração e organização de
 // grupos e subgrupos"*. O que a substitui é MOLDURA, e é tudo CSS — ver "A
 // HIERARQUIA DA BIBLIOTECA É DESENHADA COM MOLDURA" em controle.css.)
-function renderCollectionsList(alvo, redesenhar, opts) {
+function renderCollectionsList(alvo, redesenhar) {
   // ===== A LISTA DO ACERVO SE NOMEIA (v1.5.9) =====
   // A hierarquia por MOLDURA é escopada a esta lista e a mais nada — foi a
   // condição do operador ao autorizá-la (*"mas apenas para a biblioteca"*), e é
@@ -8887,7 +8886,7 @@ function renderCollectionsList(alvo, redesenhar, opts) {
   cacheLevantar.clear(); cacheBpsGlobal = 0;
   cacheColecoesAtivo = true;
   try {
-    renderCollectionsListMiolo(alvo, redesenhar, opts);
+    renderCollectionsListMiolo(alvo, redesenhar);
   } finally {
     // A TAMPA (v1.5.19), e é aqui porque é aqui que a lista está COMPLETA: a
     // conta divide a altura útil pelo número de blocos, e medi-la no meio da
@@ -8896,7 +8895,7 @@ function renderCollectionsList(alvo, redesenhar, opts) {
     cacheColecoesAtivo = false;
   }
 }
-function renderCollectionsListMiolo(alvo, redesenhar, opts) {
+function renderCollectionsListMiolo(alvo, redesenhar) {
   alvo = alvo || libraryEl;
   redesenhar = redesenhar || renderLibrary;
   redesenharAcervo = redesenhar;
@@ -11536,7 +11535,7 @@ function favBtn(id, nome) {
 // ===== ações de reprodução / sequência =====
 // `daFila` = o avanço automático da playlist chamou. Ver a guarda de imagem
 // sobre áudio, lá dentro: é a única coisa que a distingue de um toque.
-async function send(id, daFila, retomarEm) {
+async function send(id, daFila) {
   ++projecaoSeq;   // ver `projecaoSeq`: invalida um versículo de roteiro em voo
   // E DESARMA A VOLTA DA APRESENTAÇÃO. `send` é o ponto por onde todo caminho
   // que projeta passa, então qualquer coisa que entre em cena — um toque na
@@ -11725,15 +11724,10 @@ async function send(id, daFila, retomarEm) {
   // E O HISTÓRICO DO CULTO, pelo mesmo argumento da linha acima: `send` é o
   // ponto por onde TODOS os caminhos passam. Ver `historicoRegistrar`.
   historicoRegistrar(id, currentItem);
-  // A POSIÇÃO VIAJA DENTRO DO `load`, nunca como um `seek` logo depois — o
-  // `onCommand` do Display NÃO serializa, o `load` é assíncrono (getMedia →
-  // opfsGetFile → mediaReady, mais o fade de saída), e um comando que chegasse
-  // em seguida agiria sobre o `<video>` ANTERIOR. É o mesmo contrato que a
-  // reconexão do telão usa; quem o alimenta aqui é a volta do RECADO.
-  const carga = { type: 'load', mediaId: id, view, muted, volume, page: deckPagina };
-  if (retomarEm && retomarEm.t > 0) carga.time = retomarEm.t;
-  if (retomarEm && retomarEm.playing === false) carga.playing = false;
-  cmd(carga);
+  // ESTE `load` COMEÇA SEMPRE DO ZERO E TOCANDO — projetar é começar. Quem
+  // entra no meio da mídia é a RECONEXÃO do telão, e ela tem caminho próprio
+  // (`resendSceneToDisplay`), com `time`/`playing` no `load` dela.
+  cmd({ type: 'load', mediaId: id, view, muted, volume, page: deckPagina });
   // A partir daqui há mídia no telão — é o que a reconexão precisa reenviar e o
   // que o ▶ pode retomar em vez de recarregar (ver `midiaNoAr`).
   midiaNoAr = true;
@@ -15184,7 +15178,7 @@ function autoAdvance() {
   // `resendSceneToDisplay` pergunta `midiaNoAr`: uma queda de dongle trazia de
   // volta ao telão a faixa que JÁ TINHA ACABADO.
   //
-  // E DESDE A v1.8.76 `off` CHEGA AQUI TAMBÉM — ele deixou de ser o primeiro
+  // E DESDE A v1.8.77 `off` CHEGA AQUI TAMBÉM — ele deixou de ser o primeiro
   // `return` desta função —, o que só torna esta linha mais necessária: é a
   // única que responde pela fila vazia nos QUATRO modos.
   if (plItems.length === 0) { resetAfterEnd(); return; }
@@ -15195,7 +15189,7 @@ function autoAdvance() {
     return;
   }
   const idx = plItems.findIndex((m) => m.id === currentId);
-  // ===== `off` É "SEM REPETIÇÃO", NUNCA "SEM SEQUÊNCIA" (v1.8.76) =====
+  // ===== `off` É "SEM REPETIÇÃO", NUNCA "SEM SEQUÊNCIA" (v1.8.77) =====
   //
   // Relato do operador: *"é normal o seletor estar desativado, tocar uma
   // playlist automática, mas ele tocar apenas a primeira e parar, pois o
@@ -15502,7 +15496,7 @@ function attachRowGestures(row, item) {
 }
 
 /**
- * ===== TROCAR A FILA ZERA O SELETOR DE REPETIÇÃO (v1.8.76) =====
+ * ===== TROCAR A FILA ZERA O SELETOR DE REPETIÇÃO (v1.8.77) =====
  *
  * Pedido do operador: *"ao se tocar um item, seja do cronograma ou o que for,
  * resete o estado do seletor de repetição, para ele não repetir uma mídia que
@@ -15537,7 +15531,7 @@ async function trocarFila(ids) {
 }
 
 /**
- * O SELETOR VOLTA AO COMEÇO (v1.8.76). Separado do `trocarFila` por UM chamador
+ * O SELETOR VOLTA AO COMEÇO (v1.8.77). Separado do `trocarFila` por UM chamador
  * que projeta sem fila nenhuma — o compartilhamento no Modo Fácil —, e ele é o
  * caso extremo da regra: ali a caixa de controles inteira não é desenhada
  * (`body.mode-simple .bottombar`), então um `one` herdado do modo avançado
@@ -22317,14 +22311,14 @@ function nomeDoPacoteSorteado(f, quantas) {
 // A frase mora em ESTADO, não no nó (ver `pintarContaSorteio`).
 let sorteioFala = '';
 let sorteioFalaTimer = null;
-function falarNoSorteio(texto, ms) {
+function falarNoSorteio(texto) {
   clearTimeout(sorteioFalaTimer);
   sorteioFala = texto;
   atualizarContaSorteio();
   sorteioFalaTimer = setTimeout(() => {
     sorteioFala = '';
     if (sorteioPopupEl.classList.contains('open')) atualizarContaSorteio();
-  }, ms || 3000);
+  }, 3000);
 }
 // A FALA NÃO ATRAVESSA UMA ABERTURA. Fechar e reabrir a folha é o gesto de
 // quem foi fazer outra coisa; reencontrar ali o recibo de três minutos atrás
@@ -22385,7 +22379,7 @@ async function montarFilaSorteada(escolhidos) {
     // primeiro item vai ao telão. `listSet` também COLETA o que saiu da lista —
     // é a mesma semântica de todo "Tocar agora" do acervo, que já substitui a
     // fila por `replacePlaylistWith`.
-    // `trocarFila` ZERA O SELETOR (v1.8.76), e é aqui que isso mais importa: a
+    // `trocarFila` ZERA O SELETOR (v1.8.77), e é aqui que isso mais importa: a
     // playlist automática é o caminho em que o operador menos olha para o
     // transporte — ele sorteia e projeta. Com `one` herdado da faixa anterior a
     // fila recém-montada tocaria a primeira em laço; com `off`, ela anda até o
@@ -25751,12 +25745,11 @@ function pacoteFonteDaUrl(url, size) {
  * um declara — e num pacote lido por janelas buscar um corpo que ninguém vai
  * usar seria ler gigabytes duas vezes.
  */
-function pacoteCursor(fonte, inicio) {
-  // O INÍCIO É PARÂMETRO desde a v1.8.0: o arquivo `.avpkg` começa depois da
-  // assinatura, e o corpo de um item do CLONE é um fluxo de registros NU — ele
-  // não tem assinatura porque não é um arquivo, é uma resposta HTTP cuja
-  // identidade já foi provada pelo índice que a nomeou.
-  let pos = inicio == null ? AVPacote.ASSINATURA_BYTES : (inicio | 0);
+function pacoteCursor(fonte) {
+  // O CURSOR COMEÇA DEPOIS DA ASSINATURA, que é onde o `.avpkg` começa. O
+  // início chegou a ser PARÂMETRO (v1.8.0), para o corpo de um item do CLONE —
+  // um fluxo de registros NU, sem assinatura —, e saiu com ele na v1.8.16.
+  let pos = AVPacote.ASSINATURA_BYTES;
   return {
     get pos() { return pos; },
     async proximo(comCorpo, aoLer) {
@@ -28773,7 +28766,7 @@ async function focarImportado(id) {
   // No simplificado o item vai direto ao telão: esse modo existe para quem não
   // vai operar nada, e a lista sequer aparece nele.
   //
-  // E O SELETOR DE REPETIÇÃO VOLTA AO COMEÇO ANTES (v1.8.76) — ver
+  // E O SELETOR DE REPETIÇÃO VOLTA AO COMEÇO ANTES (v1.8.77) — ver
   // `zerarRepeticao`. Este é o único caminho que projeta SEM redefinir a fila,
   // e é o mais exposto: no Modo Fácil não há transporte na tela, então um modo
   // herdado do avançado não teria como ser desfeito por quem está operando.
@@ -32869,6 +32862,12 @@ function resendSceneToDisplay(para) {
     // A apresentação volta na PÁGINA em que estava, pelo mesmo motivo do
     // tempo: um telão que reconecta no meio da pregação não pode voltar ao
     // primeiro slide na frente de todo mundo.
+    //
+    // E OS TRÊS VIAJAM DENTRO DO `load`, nunca como um `seek`/`page` logo
+    // depois: o `onCommand` do Display NÃO serializa, o `load` é assíncrono
+    // (getMedia → opfsGetFile → mediaReady, mais o fade de saída), e um comando
+    // que chegasse em seguida agiria sobre o `<video>` ANTERIOR — o seek seria
+    // aplicado à mídia errada e depois perdido.
     enviar({
       type: 'load', mediaId: currentId, view, muted, volume, time: t, playing,
       page: isDeck(currentItem) ? deckPagina : 0,

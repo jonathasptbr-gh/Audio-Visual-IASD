@@ -145,7 +145,13 @@ O fecho não segue essa regra. `PacoteCanal.fechar()` (PacoteCanal.kt:140-155) f
 
 ### [15] O terceiro parâmetro de `send` (`retomarEm`) perdeu o único produtor na v1.2.17, e o comentário ao lado ainda nomeia o RECADO como quem o alimenta
 
-`app/src/main/assets/web/controle/controle.js:11713` · gravidade **media** · NÃO VERIFICADO · lente `controle-js-morto`
+`app/src/main/assets/web/controle/controle.js:11713` · gravidade **media** · ✅ **RESOLVIDO na v1.8.76** · lente `controle-js-morto`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.76**, com a CLASSE inteira: o bloco novo do
+> `funcao-sem-chamador.test.mjs` mediu SETE parâmetros sem chamador que os supra, em 1.270 funções.
+> Saíram seis; o sétimo (`openLyricsPopup/fonte`) é o achado [16] e fica, porque ali o defeito é o
+> CHAMADOR. A regra do `load` (a posição viaja DENTRO dele) mudou de casa para o
+> `resendSceneToDisplay`, que é quem a exerce.
 
 **Evidência.** A declaração é `async function send(id, daFila, retomarEm)` (linha 11518) e o parâmetro é lido em DUAS linhas: `if (retomarEm && retomarEm.t > 0) carga.time = retomarEm.t;` (11713) e `if (retomarEm && retomarEm.playing === false) carga.playing = false;` (11714). Varri TODOS os `send(` da base web (controle.js 4078, 5549, 7456, 10701, 10703, 11803, 15158, 15168, 15170, 15176, 15766, 15773, 19206, 19415, 21304, 22295, 27829, 27868, 28617, 30396, 30405) — NENHUM passa um terceiro argumento, o máximo é dois. Não há alias (`= send`, `send.apply`, `send.call` não existem), não há chamada de HTML nem de `.kt`. O produtor foi `recadoTerminou`, que fazia `send(volta.id, false, volta)` no commit 3b899a29 (v1.1.25) — e o RECADO saiu na v1.2.17, como o PRÓPRIO arquivo afirma na linha 6237 ("O RECADO (o walkie-talkie da v1.1.26) saiu na v1.2.17"). O comentário da linha 11711 continua dizendo "É o mesmo contrato que a reconexão do telão usa; quem o alimenta AQUI é a volta do RECADO" — isto é, o arquivo se contradiz a 5.500 linhas de distância. Escapa do `funcao-sem-chamador.test.mjs` porque o oráculo só varre declarações `function`/`const`/`let` e a superfície do `AVDB`; um PARÂMETRO não é visto por nenhum dos três blocos.
 

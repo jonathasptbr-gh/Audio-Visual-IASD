@@ -1,9 +1,15 @@
 [
   {
-    "versao": "1.8.76",
+    "versao": "1.8.77",
     "itens": [
       "A playlist toca sozinha do começo ao fim: não é mais preciso ligar a repetição para a fila andar.",
       "Tocar um item volta o seletor de repetição ao normal — nada repete por sobra da mídia anterior."
+    ]
+  },
+  {
+    "versao": "1.8.76",
+    "itens": [
+      "Faxina por dentro: saíram seis parâmetros que nenhuma parte do app preenchia. Nada muda na tela."
     ]
   },
   {

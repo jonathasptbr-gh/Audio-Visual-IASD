@@ -250,7 +250,7 @@ try {
       size: 1, mtime: 1, thumb: null, blob: null, url: null, addedAt: 1, lyrics: null,
     });
     await AVDB.listSet('playlist', ['faixa-curta', 'faixa-2']);
-    // `all` EXPLÍCITO, e desde a v1.8.76 ele não é mais o que faz a fila andar:
+    // `all` EXPLÍCITO, e desde a v1.8.77 ele não é mais o que faz a fila andar:
     // o `off` padrão também avança (o que muda é o FIM da fila, que nele acaba
     // a cena em vez de dar a volta). A linha fica porque este bloco mede o
     // GATILHO — que o status parado de uma tela da rede avança a playlist —, e
