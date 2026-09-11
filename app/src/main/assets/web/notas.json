@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.72",
+    "itens": [
+      "Exportar a biblioteca para um cartão ou para a nuvem deixou de poder travar o app no fim da gravação."
+    ]
+  },
+  {
     "versao": "1.8.71",
     "itens": [
       "Faxina por dentro: saíram três atalhos antigos do app para o aparelho que nada mais usava. Nada muda na tela."

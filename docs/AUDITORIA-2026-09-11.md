@@ -92,7 +92,15 @@ por medição direta. Só o que está marcado **VERIFICADO** passou por isso.
 
 ### [22] O fecho do pacote (flush + close do `content://`) roda na main thread, contra o contrato da própria classe
 
-`app/src/main/java/br/org/iasd/av/MainActivity.kt:1156` · gravidade **media** · NÃO VERIFICADO · lente `kotlin-semana`
+`app/src/main/java/br/org/iasd/av/MainActivity.kt:1156` · gravidade **media** · ✅ **RESOLVIDO na v1.8.72** · lente `kotlin-semana`
+
+
+> **RESOLVIDO na v1.8.72**, escopado ao caminho que de fato bloqueia. Só o `pacoteFinish` passou ao
+> `PacoteCanal.fecharDepois`: o destino é solto na main (sincronamente, para preservar o `-1` de um bloco atrasado e
+> o `uriEmCurso() == null` da v1.8.43) e só o `flush`/`close` vai para a thread `av-pacote`, numa fila PRÓPRIA que o
+> laço só atende quando a de blocos drena. O `fechar()` síncrono FICA no caminho de derrubada (`onDestroy`, morte do
+> renderer): ali adiar para uma thread daemon que o processo pode não viver para executar seria pior que bloquear.
+> **Pede Release** (`shellTag: v1.8.72`) — nada em `java/` chega por OTA.
 
 **Evidência.** O KDoc de `PacoteCanal` (PacoteCanal.kt:51-56) declara o desenho: "## A escrita sai da main thread — `onPostMessage` é `@UiThread` e escrever num `content://` pode bloquear (cartão SD, provedor de nuvem). O trabalho de verdade vai para uma thread própria por uma fila curta; a main só enfileira e volta."
 

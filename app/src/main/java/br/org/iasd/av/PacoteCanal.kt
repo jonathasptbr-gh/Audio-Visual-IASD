@@ -60,6 +60,14 @@ class PacoteCanal {
     private val main = Handler(Looper.getMainLooper())
     private val fila = ArrayBlockingQueue<Trabalho>(FILA)
 
+    /**
+     * A FILA DO FECHO (v1.8.72), separada da de blocos porque ela é a ÚNICA
+     * coisa que não pode rodar no meio deles: fechar o destino com escrita
+     * ainda enfileirada trunca o pacote. O laço só a atende quando a [fila]
+     * drena, e um pacote por vez faz o teto de 1 ser folgado.
+     */
+    private val fechos = ArrayBlockingQueue<() -> Unit>(1)
+
     @Volatile private var thread: Thread? = null
     @Volatile private var rodando = false
     @Volatile private var instalado = false
@@ -154,6 +162,50 @@ class PacoteCanal {
         }
     }
 
+    /**
+     * O MESMO FECHO DE [fechar], com o `flush`/`close` FORA da main thread
+     * (v1.8.72) — é o que o KDoc desta classe já prometia para a escrita e que
+     * o fecho não cumpria. Um `close()` de `content://` é onde um provedor
+     * FUSE ou de nuvem FINALIZA gigabytes; passando de 5 s na main o sistema
+     * mata o processo por ANR, e este processo é o dos dois WebViews e da
+     * `Presentation`.
+     *
+     * O DESTINO É SOLTO NA MAIN, SINCRONAMENTE, e só o bloqueio viaja: `saida`
+     * e `uri` viram nulos antes de a tarefa sair, então um bloco atrasado
+     * continua recusado com `-1` e o `uriEmCurso()` do chamador já devolve
+     * `null` na volta — a regra da v1.8.43, que a limpeza do parcial do SAF usa.
+     *
+     * NÃO SUBSTITUI O [fechar] SÍNCRONO, e isso é decisão: o caminho de
+     * DERRUBADA (`onDestroy`, morte do renderer) não pode adiar trabalho para
+     * uma thread daemon que o processo pode não viver para executar. Ali fechar
+     * na main é o certo, e o pior caso — um `close` lento — já não tem ninguém
+     * para atrapalhar.
+     */
+    fun fecharDepois(aoTerminar: (Long) -> Unit) {
+        val s = saida
+        val n = escritos
+        saida = null
+        uri = null
+        escritos = 0L
+        if (s == null) { aoTerminar(-1L); return }
+        val tarefa = {
+            val r = try {
+                s.flush()
+                s.close()
+                n
+            } catch (e: Exception) {
+                Log.w(TAG, "não consegui fechar o pacote", e)
+                try { s.close() } catch (_: Exception) {}
+                -1L
+            }
+            main.post { aoTerminar(r) }
+        }
+        ligar()
+        // FILA CHEIA OU LAÇO NO CHÃO: fechar AQUI é pior que na thread, mas
+        // infinitamente melhor que vazar o descritor e deixar o arquivo aberto.
+        if (!rodando || !fechos.offer(tarefa)) tarefa()
+    }
+
     private fun ligar() {
         if (rodando) return
         rodando = true
@@ -217,7 +269,13 @@ class PacoteCanal {
                 fila.poll(250, TimeUnit.MILLISECONDS)
             } catch (e: InterruptedException) {
                 break
-            } ?: continue
+            }
+            if (t == null) {
+                // A FILA DE BLOCOS DRENOU — é a única hora em que um fecho pode
+                // rodar sem truncar o que ainda estava para ser escrito.
+                fechos.poll()?.invoke()
+                continue
+            }
             val s = saida
             val total = if (s == null) {
                 -1L
