@@ -37,7 +37,9 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, esperar, porque, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, esperar, porque, checar, falhas,
+  comTema,
+} from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
@@ -52,6 +54,7 @@ try {
       viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: tema,
     });
     await semRedeExterna(ctx);
+    await comTema(ctx, tema);
     const pg = await ctx.newPage();
     await pg.goto(base, { waitUntil: 'load' });
     await esperarCortina(pg);

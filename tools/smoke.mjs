@@ -1183,10 +1183,9 @@ try {
     // para escolher um, há um botão que vai para o outro estado. O toque é o
     // mesmo do operador, e o `data-estado` é o que a pintura escreve.
     //
-    // TRÊS ESTADOS desde a v1.8.49 (Automático → Claro → Escuro), e o percurso
-    // começa no AUTOMÁTICO — o app nasce sem escolha guardada. Com o aparelho
-    // emulado em ESCURO (ver o `emulateMedia` acima), o primeiro toque é
-    // exatamente a transição que este bloco sempre mediu: escuro → claro.
+    // DOIS ESTADOS desde a v1.8.64 (o automático saiu): o app nasce no ESCURO,
+    // que é a ausência da chave, e o primeiro toque é exatamente a transição
+    // que este bloco sempre mediu — escuro → claro.
     document.getElementById('temaTile').click();
     const claro = ler();
     return {
@@ -1213,9 +1212,14 @@ try {
     + ' (' + tema.escuro.accent + ' / ' + tema.escuro.fill + ')');
   checar(tema.escuro.barra !== tema.claro.barra && /^#[0-9a-f]{6}$/i.test(tema.claro.barra),
     'e o `theme-color` acompanha (' + tema.escuro.barra + ' → ' + tema.claro.barra + ')');
-  checar(tema.atributo === 'claro' && tema.guardado === 'claro' && tema.escolha === 'claro',
-    'a escolha vai para o `localStorage` e para o ATRIBUTO — o primeiro é lido '
-    + 'antes do primeiro quadro, o segundo é o carrier que o `controle.js` lê');
+  // O CARRIER É UM SÓ desde a v1.8.64: o `data-tema-escolha` saiu com o
+  // automático, porque sem terceiro estado "qual é o tema?" e "houve escolha?"
+  // deixaram de ser duas perguntas.
+  checar(tema.atributo === 'claro' && tema.guardado === 'claro' && tema.escolha === null,
+    'a escolha vai para o `localStorage` e para o `data-tema` — o primeiro é '
+    + 'lido antes do primeiro quadro, o segundo é o carrier que o `controle.js` '
+    + 'lê, e não há mais um segundo atributo ao lado',
+    JSON.stringify(tema.atributo + '|' + tema.guardado + '|' + tema.escolha));
 
   await pg.reload({ waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(() => typeof window.__avBack === 'function', null, { timeout: 20000 });
@@ -1230,180 +1234,64 @@ try {
   checar(depois.atributo === 'claro' && depois.bg === tema.claro.bg,
     'e ela sobrevive à recarga da página (' + depois.atributo + ' · ' + depois.bg + ')');
 
-  // ---- O AUTOMÁTICO SEGUE O APARELHO (v1.8.49) ------------------------
+  // ---- DOIS ESTADOS, E TODO TOQUE MUDA A COR (v1.8.64) ------------------
   //
-  // O padrão do app deixou de ser "escuro" e passou a ser "o que o aparelho
-  // responde": a pergunta *claro ou escuro?* o sistema do operador já respondeu,
-  // e um app que a ignora acende uma tela branca num salão escuro.
+  // O AUTOMÁTICO SAIU a pedido do operador: *"deixe apenas as opções de claro e
+  // escuro, remova o auto, não está sendo eficaz essa opção"*. Ele existiu da
+  // v1.8.49 à v1.8.63 e custou dois lotes: a v1.8.62 consertou a ORDEM do ciclo
+  // (o primeiro toque ia para o claro mesmo num aparelho já claro, e não mudava
+  // um pixel) e a v1.8.63 lhe deu indicação na tela, porque três estados sobre
+  // DOIS desenhos deixavam dois deles idênticos byte a byte.
   //
-  // TRÊS METADES, e nenhuma basta sozinha: sem a primeira o automático não
-  // existe; sem a SEGUNDA ele é só "o tema que o aparelho tinha quando o app
-  // abriu" — e o caso que morde é o agendamento noturno com o app aberto desde
-  // a tarde; sem a TERCEIRA, "seguir o sistema" viraria desfazer a escolha do
-  // operador, que é um app que não obedece.
+  // AS TRÊS ASSERÇÕES SÃO A REVOGAÇÃO, e a terceira é a que tem dente: com dois
+  // estados sobre duas cores, **todo** toque muda a cor — é a promessa que o
+  // terceiro estado não conseguia fazer, e ela é medida no ciclo inteiro.
   await pg.evaluate(() => { try { localStorage.removeItem('av.tema'); } catch (_) { /* */ } });
   await pg.emulateMedia({ colorScheme: 'light' });
   await pg.reload({ waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(() => typeof window.__avBack === 'function', null, { timeout: 20000 });
   await esperarCortina(pg);
-  const auto = await pg.evaluate(() => ({
+  const semChave = await pg.evaluate(() => ({
     atributo: document.documentElement.dataset.tema || 'escuro',
     escolha: document.documentElement.dataset.temaEscolha || null,
     guardado: localStorage.getItem('av.tema'),
   }));
-  checar(auto.atributo === 'claro' && auto.escolha === null && auto.guardado === null,
-    'SEM escolha guardada o app segue o APARELHO: emulado em claro, ele abre claro '
-    + '— e nada foi gravado, porque automático é a AUSÊNCIA de escolha', JSON.stringify(auto));
-
-  // AO VIVO, sem recarregar: é o agendamento do Android trocando no meio do culto.
-  await pg.emulateMedia({ colorScheme: 'dark' });
-  const seguiu = await esperar(pg,
-    () => (document.documentElement.dataset.tema || 'escuro') === 'escuro', null, 4000);
-  checar(seguiu === true,
-    'e ele acompanha o aparelho AO VIVO — o Android troca para o escuro ao '
-    + 'anoitecer, e o culto de sábado à noite começa com o app já aberto', porque(seguiu));
-
-  // E A ESCOLHA VENCE: sem esta, "seguir o sistema" apagaria a decisão do operador.
-  await pg.evaluate(() => { setTemaEscolha('claro'); });
-  await pg.emulateMedia({ colorScheme: 'dark' });
-  await pg.waitForTimeout(250);
-  const venceu = await pg.evaluate(() => document.documentElement.dataset.tema);
-  checar(venceu === 'claro',
-    'mas uma escolha GUARDADA vence o aparelho: o operador que escolheu claro '
-    + 'continua no claro com o sistema no escuro', venceu);
-
-  // ---- O PRIMEIRO TOQUE MUDA A COR, NOS DOIS APARELHOS (v1.8.62) --------
-  //
-  // Relato do operador: *"ao entrar nas configurações e tocar em cor do tema,
-  // ele ignora o primeiro toque, não alterando o tema. só no segundo toque que
-  // ele começa a responder"*. A ordem era a lista fixa `[null, 'claro',
-  // 'escuro']`: num aparelho que já responde CLARO, o automático mostrava claro
-  // e o primeiro toque escolhia... claro. Gravava, repintava, e não mudava um
-  // pixel.
-  //
-  // ELE É MEDIDO NO APARELHO CLARO, e é essa a razão de o defeito ter
-  // sobrevivido: este arquivo emula ESCURO desde a v1.8.49 (a linha do
-  // `newContext`), e no escuro o percurso sempre esteve certo. Um oráculo que
-  // mede um aparelho só aprova metade de uma regra que depende do aparelho.
-  //
-  // E OS TRÊS ESTADOS CONTINUAM ALCANÇÁVEIS: são três sobre duas cores, então
-  // UM dos toques não muda a cor — o que ENTRA no automático, que é o único
-  // cujo rótulo anuncia o que aconteceu.
-  for (const aparelho of ['light', 'dark']) {
-    await pg.emulateMedia({ colorScheme: aparelho });
-    const ciclo = await pg.evaluate(async (esperado) => {
-      const raiz = document.documentElement;
-      setTemaEscolha(null);
-      await new Promise((f) => setTimeout(f, 120));
-      const passos = [{ tema: raiz.dataset.tema || 'escuro', escolha: raiz.dataset.temaEscolha || null }];
-      for (let i = 0; i < 3; i++) {
-        document.getElementById('temaTile').click();
-        await new Promise((f) => setTimeout(f, 60));
-        passos.push({ tema: raiz.dataset.tema || 'escuro', escolha: raiz.dataset.temaEscolha || null });
-      }
-      setTemaEscolha(null);
-      return { passos, partiu: esperado };
-    }, aparelho === 'light' ? 'claro' : 'escuro');
-    const p = ciclo.passos;
-    // ── E OS TRÊS ESTADOS SÃO DISTINGUÍVEIS NA TELA (v1.8.63) ──────────
-    //
-    // Relato do operador: *"não há nenhuma indicação"* de que o tema está no
-    // automático. MEDIDO na v1.8.62: o automático e a escolha explícita que
-    // casa com a cor do aparelho saíam no MESMO PNG, byte a byte — o `rotulo`
-    // que o `renderTemaTile` monta ia só para o `aria-label`, porque a v1.7.2
-    // tirou a segunda linha de todo tile da grade.
-    //
-    // A RÉGUA É O QUE SE VÊ, e são as DUAS metades que o operador pediu — um
-    // ÍCONE e um TEXTO. A do ícone é PIXEL dentro da caixa do `<svg>`: um teste
-    // de `display` aprova a marca transladada para fora do tile ou em
-    // `opacity: 0`, que é a mesma armadilha do `qs-alt` um nível abaixo.
-    const trioAuto = await pg.evaluate(async () => {
-      const z = (ms) => new Promise((f) => setTimeout(f, ms));
-      const t = document.getElementById('temaTile');
-      const svg = t.querySelector('svg');
-      const ler = () => ({ palavra: (document.getElementById('temaEstado') || {}).textContent || '',
-        estado: t.dataset.estado, aria: t.getAttribute('aria-label'),
-        cx: (() => { const r = svg.getBoundingClientRect();
-          return [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)]; })() });
-      // O PAINEL PRECISA ESTAR ABERTO: a régua desta metade é PIXEL, e com a
-      // folha fechada o `<svg>` do tile mede y negativo — fora da tela.
-      openFadePopup(); await z(350);
-      setTemaEscolha(null); await z(150);
-      return ler();
+  // O APARELHO EMULADO É CLARO de propósito: é ele que separa "o escuro é o
+  // padrão" de "o app segue o sistema". Com o automático de pé esta asserção
+  // dizia o CONTRÁRIO (`atributo === 'claro'`), e é essa troca de sinal que a
+  // faz ser a revogação e não um número corrigido de passagem.
+  checar(semChave.atributo === 'escuro' && semChave.escolha === null
+    && semChave.guardado === null,
+    'SEM chave guardada o app abre no ESCURO, mesmo num aparelho CLARO — o '
+    + '`prefers-color-scheme` deixou de ser lido, e a ausência da chave não é '
+    + 'mais um terceiro estado', JSON.stringify(semChave));
+  // E NADA de `data-tema-escolha`: o carrier do terceiro estado saiu junto, e um
+  // atributo órfão é o mecanismo sobrevivendo ao recurso que o justificava.
+  const trio = await pg.evaluate(async () => {
+    const z = (ms) => new Promise((f) => setTimeout(f, ms));
+    const t = document.getElementById('temaTile');
+    const ler = () => ({
+      tema: document.documentElement.dataset.tema || 'escuro',
+      chave: localStorage.getItem('av.tema'),
+      estado: t.dataset.estado, aria: t.getAttribute('aria-label'),
+      texto: (t.textContent || '').replace(/\s+/g, ' ').trim(),
+      marca: !!t.querySelector('.ico-auto'),
     });
-    const fotoAuto = lerPng(await pg.screenshot());
-    // A MARCA É MEDIDA CONTRA ELA MESMA APAGADA, e não contra o outro estado —
-    // essa foi a primeira escrita desta asserção e ela NÃO TINHA DENTE: a
-    // reversão `opacity: 0` PASSAVA, porque entre o automático e a escolha que
-    // casa a diferença é dominada pelo ENCOLHIMENTO do par lua/sol, não pela
-    // marca. Escondê-la e recomparar isola a tinta que ela põe — é a mesma
-    // receita do bloco Q do `sombra-de-rolagem` (esconder o rodapé e contar o
-    // que muda).
-    await pg.addStyleTag({ content: '#temaTile .ico-auto { display: none !important; }' });
-    await pg.waitForTimeout(200);
-    const fotoSemMarca = lerPng(await pg.screenshot());
-    await pg.evaluate(() => {
-      const t = [...document.querySelectorAll('style')].pop();
-      if (t && /ico-auto/.test(t.textContent)) t.remove();
-    });
-    await pg.waitForTimeout(200);
-    const trioCasa = await pg.evaluate(async (est) => {
-      const z = (ms) => new Promise((f) => setTimeout(f, ms));
-      const t = document.getElementById('temaTile');
-      // A escolha explícita que CASA com a cor de agora: é dela que o
-      // automático era indistinguível, byte a byte.
-      setTemaEscolha(est.replace('auto-', '')); await z(150);
-      return { palavra: (document.getElementById('temaEstado') || {}).textContent || '',
-        estado: t.dataset.estado, aria: t.getAttribute('aria-label') };
-    }, trioAuto.estado);
-    const fotoCasa = lerPng(await pg.screenshot());
-    await pg.evaluate(async () => {
-      await new Promise((f) => setTimeout(f, 120));
-      setTemaEscolha(null);
-      closeFadePopup();
-      await new Promise((f) => setTimeout(f, 250));
-    });
-    const trio = { auto: trioAuto, casa: trioCasa };
-    const contar = (p, q) => {
-      let n = 0;
-      for (let y = trioAuto.cx[1]; y < trioAuto.cx[3]; y++) {
-        for (let x = trioAuto.cx[0]; x < trioAuto.cx[2]; x++) {
-          const a = pixel(p, x, y), b = pixel(q, x, y);
-          if (a && b && (a[0] !== b[0] || a[1] !== b[1] || a[2] !== b[2])) n++;
-        }
-      }
-      return n;
-    };
-    const difIcone = contar(fotoAuto, fotoSemMarca);
-    const difEstados = contar(fotoAuto, fotoCasa);
-    checar(/^auto-/.test(trio.auto.estado) && !/^auto-/.test(trio.casa.estado)
-      && trio.auto.palavra === 'Auto' && trio.casa.palavra !== 'Auto'
-      && trio.casa.palavra !== '',
-      'a linha de estado do tile do tema diz a PALAVRA em cada um dos três — '
-      + '"Auto" no automático, a cor por extenso nos explícitos, e nunca vazia',
-      JSON.stringify(trio));
-    checar(difIcone > 0 && difEstados > 0,
-      'e a MARCA do automático PINTA TINTA dentro da caixa do ícone (' + difIcone
-      + ' pixels somem quando ela é escondida), e os dois estados de fato diferem '
-      + 'na tela (' + difEstados + '). Por PIXEL e não por `display` — uma marca '
-      + 'transladada para fora do tile ou em `opacity: 0` passa num teste de '
-      + 'propriedade, e medi-la só contra o OUTRO estado também passa, porque ali '
-      + 'quem domina a diferença é o encolhimento do par lua/sol',
-      JSON.stringify({ difIcone, difEstados, caixa: trio.auto.cx }));
-    checar(/^Tema: Automático · (claro|escuro)$/.test(trio.auto.aria),
-      'e o `aria-label` diz AUTOMÁTICO por extenso — num botão ele SUBSTITUI o '
-      + 'conteúdo, então o leitor de tela não lê a linha da tela: é o único '
-      + 'canal acessível deste recurso', trio.auto.aria);
-    checar(p[0].tema === ciclo.partiu && p[1].tema !== p[0].tema,
-      'o PRIMEIRO toque no tema muda a cor num aparelho ' + aparelho + ' — a lista '
-      + 'fixa mandava para o claro, e num aparelho claro isso era um toque que '
-      + 'não fazia nada', JSON.stringify(p));
-    checar(p[1].escolha !== null && p[2].escolha !== null && p[2].tema !== p[1].tema
-      && p[3].escolha === null,
-      'e os TRÊS estados continuam no ciclo, com o toque sem cor sendo o que '
-      + 'VOLTA ao automático — o único cujo rótulo anuncia o que aconteceu',
-      JSON.stringify(p));
-  }
+    const passos = [ler()];
+    for (let i = 0; i < 4; i++) { t.click(); await z(120); passos.push(ler()); }
+    return passos;
+  });
+  const mudouSempre = trio.slice(1).every((x, i) => x.tema !== trio[i].tema);
+  checar(mudouSempre && trio.every((x) => x.texto === 'Tema' && !x.marca),
+    'e TODO toque muda a cor — quatro toques, quatro trocas —, com o tile '
+    + 'dizendo só "Tema": a marca do automático e a linha de estado saíram com o '
+    + 'estado que elas indicavam', JSON.stringify(trio.map((x) => x.tema + '/' + x.texto)));
+  checar(trio.slice(1).every((x) => x.chave === x.tema)
+    && trio.every((x) => /^Tema: (Claro|Escuro)$/.test(x.aria) && /^(claro|escuro)$/.test(x.estado)),
+    'e a escolha é SEMPRE guardada, com o `data-estado` e o `aria-label` em dois '
+    + 'valores só — o composto `auto-claro` da v1.8.63 saiu com o terceiro estado',
+    JSON.stringify(trio.map((x) => x.estado + '|' + x.chave + '|' + x.aria)));
+
   await pg.emulateMedia({ colorScheme: 'dark' });
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');

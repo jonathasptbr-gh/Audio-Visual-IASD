@@ -470,10 +470,10 @@ try {
     openHistPopup();
     await new Promise((r) => setTimeout(r, 60));
     const escuro = medir();
-    setTemaEscolha('claro');
+    setTema('claro');
     await new Promise((r) => setTimeout(r, 60));
     const claro = medir();
-    setTemaEscolha('escuro');
+    setTema('escuro');
     closeHistPopup();
     return { escuro, claro };
   });

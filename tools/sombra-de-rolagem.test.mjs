@@ -42,7 +42,7 @@ import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
 import {
   servirEstatico, abrirNavegador, esperarCortina, checar, falhas,
-  lerPng, pixel, luminancia,
+  lerPng, pixel, luminancia, comTema,
 } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
@@ -105,6 +105,7 @@ try {
       viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: tema,
     });
     await semRedeExterna(ctx);
+    await comTema(ctx, tema);
     const pg = await ctx.newPage();
     await pg.goto(base, { waitUntil: 'load' });
     await esperarCortina(pg);
@@ -445,6 +446,7 @@ try {
       viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: tema, deviceScaleFactor: 1,
     });
     await semRedeExterna(ctx);
+    await comTema(ctx, tema);
     const pg = await ctx.newPage();
     await pg.goto(base, { waitUntil: 'load' });
     await esperarCortina(pg);
@@ -1146,6 +1148,7 @@ try {
       viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: tema,
     });
     await semRedeExterna(ctx);
+    await comTema(ctx, tema);
     const pg = await ctx.newPage();
     await pg.goto(base, { waitUntil: 'load' });
     await esperarCortina(pg);
@@ -1346,6 +1349,7 @@ try {
       viewport: { width: 390, height: 900 }, hasTouch: true, colorScheme: tema,
     });
     await semRedeExterna(ctx);
+    await comTema(ctx, tema);
     const pg = await ctx.newPage();
     await pg.goto(base, { waitUntil: 'load' });
     await esperarCortina(pg);
@@ -1373,6 +1377,7 @@ try {
           return e && e.classList.contains('qs-on')
             ? { bg: getComputedStyle(e).backgroundColor, cor: getComputedStyle(e).color } : null;
         })(),
+        temaVisto: document.documentElement.dataset.tema || 'escuro',
         fundos: [...new Set(portas.map((b) => getComputedStyle(b).backgroundColor))],
         tracos: [...new Set(portas.map((b) => getComputedStyle(b).color))],
         sombras: [...new Set(portas.map((b) => getComputedStyle(b).boxShadow))],
@@ -1386,9 +1391,20 @@ try {
         libLeft: +lib.getBoundingClientRect().left.toFixed(1),
         padLeft: parseFloat(getComputedStyle(lib).paddingLeft),
         libBottom: +lib.getBoundingClientRect().bottom.toFixed(1),
-        meio: [Math.round(meio.left), Math.round(meio.top), Math.round(meio.right)],
+        meio: [Math.round(meio.left), Math.round(meio.top), Math.round(meio.right),
+          Math.round(meio.bottom)],
       };
     });
+    // O TEMA CHEGOU? — e esta linha existe porque a metade `'light'` deste laço
+    // mediu o ESCURO por um momento da v1.8.64. O `colorScheme` do Playwright é
+    // `prefers-color-scheme`, e o app parou de lê-lo quando o automático saiu do
+    // tile: sem o `comTema`, as duas voltas saem no MESMO PNG e toda asserção de
+    // cor abaixo compara o tema padrão consigo mesmo, verde. Ela é a primeira
+    // por ser a PREMISSA das outras.
+    checar(r.temaVisto === (tema === 'light' ? 'claro' : 'escuro'),
+      'T · ' + tema + ': o app está NESTE tema — a chave `av.tema` é o que o '
+      + 'carrega desde a v1.8.64, e o `colorScheme` do aparelho sozinho já não '
+      + 'chega ao documento', r.temaVisto);
     const rgb = (c) => c.match(/\d+/g).slice(0, 3).map(Number);
     const contraste = (a, b) => {
       const [x, y] = [luminancia(rgb(a)), luminancia(rgb(b))].sort((p, q) => q - p);
@@ -1412,15 +1428,35 @@ try {
       + contraste(r.fundos[0], r.tracos[0]) + ':1 — o `--on-accent` da v1.8.62 é '
       + 'o par do DENIM e mede 1,21:1 sobre o azul claro',
       JSON.stringify(r.tracos) + ' vs ' + (r.tile && r.tile.cor));
-    // A SOMBRA, POR PIXEL: ela tem de ESCURECER a faixa logo ACIMA da porta.
+    // A SOMBRA, POR PIXEL, e ela é NORMAL — para BAIXO (v1.8.64, revogando a
+    // v1.8.63): *"essas sombras são sombras normais, para baixo"*. A faixa que
+    // ela escurece são os 5,59px entre a base da porta e o topo da barra, e o
+    // que passa daquilo é recortado pelo `main { overflow: hidden }`. Por isso a
+    // régua é o DEGRAU dentro dessa faixa — colada na porta contra o fim dela —,
+    // e não um ponto a 18px, que cairia fora do recorte e mediria a barra.
     const img = lerPng(await pg.screenshot());
     const xm = Math.round((r.meio[0] + r.meio[2]) / 2);
-    const base0 = luminancia(pixel(img, xm, r.meio[1] - 18));
-    const perto = luminancia(pixel(img, xm, r.meio[1] - 2));
-    checar(r.sombras.length === 1 && /-2px 8px/.test(r.sombras[0]) && perto < base0,
-      'T · ' + tema + ': cada porta tem a PRÓPRIA sombra, e ela aponta para CIMA '
-      + '— é lá que está o que elas cobrem. Medido no meio da porta do meio: '
-      + perto.toFixed(4) + ' colado nela contra ' + base0.toFixed(4) + ' a 18px',
+    const perto = luminancia(pixel(img, xm, r.meio[3] + 1));
+    const longe = luminancia(pixel(img, xm, r.meio[3] + 5));
+    // A RÉGUA É A SUBIDA RELATIVA, e o número tem margem MEDIDA nos quatro
+    // estados. `perto < longe` sozinho NÃO reprova a sombra invertida: com ela,
+    // a faixa abaixo da porta é o fundo liso e a diferença entre os dois pontos
+    // é ruído de gradiente — 0,0130 contra 0,0137 no escuro, que passa. A
+    // fração normaliza os dois temas (o claro mede na casa dos 0,3; o escuro na
+    // dos 0,01) e separa por quase 5×:
+    //
+    // | tema · direção | +1px | +5px | subida |
+    // |---|---|---|---|
+    // | escuro · baixo | 0,0088 | 0,0117 | **0,248** |
+    // | escuro · cima  | 0,0130 | 0,0137 | 0,051 |
+    // | claro · baixo  | 0,2462 | 0,3467 | **0,290** |
+    // | claro · cima   | 0,4125 | 0,4342 | 0,050 |
+    const subida = +((longe - perto) / longe).toFixed(3);
+    checar(r.sombras.length === 1 && / 2px 8px/.test(r.sombras[0]) && subida >= 0.15,
+      'T · ' + tema + ': cada porta tem a PRÓPRIA sombra, e ela é NORMAL, para '
+      + 'BAIXO — a faixa até a barra CLAREIA ao se afastar da porta, ' + subida
+      + ' de subida (' + perto.toFixed(4) + ' colada nela contra '
+      + longe.toFixed(4) + ' a 5px). Invertida ela mede 0,05: o fundo liso',
       JSON.stringify(r.sombras));
 
     // ── U. E A TIRA VOLTOU PARA A FRONTEIRA, COM AS PORTAS POR CIMA (v1.8.62) ─

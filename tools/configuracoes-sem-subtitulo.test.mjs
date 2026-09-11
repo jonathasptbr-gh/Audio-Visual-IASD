@@ -87,44 +87,22 @@ try {
   // Mexeu na grade, este número anda junto, no MESMO lote.
   checar(tiles.length === 9,
     'A · a grade tem os NOVE tiles da folha', tiles.length);
-  // ---------- A EXCEÇÃO É UMA, E É O NOME QUE SEGURA A LISTA (v1.8.63) ----
-  //
-  // O `#temaTile` voltou a ter uma segunda linha, e a revogação é PARCIAL com
-  // causa ARITMÉTICA: ele é o único tile com TRÊS estados sobre DOIS desenhos,
-  // então o automático e a escolha explícita que casa com a cor do aparelho
-  // caíam no MESMO desenho por construção — MEDIDO na v1.8.62, os dois saíam no
-  // mesmo PNG, byte a byte, e o operador relatou exatamente isso (*"não há
-  // nenhuma indicação"*). Não é um desenho que faltou: não há terceiro par
-  // lua/sol.
-  //
-  // A LISTA É NOMEADA, como a das bordas e a do verde: um SEGUNDO tile com
-  // segunda linha reprova aqui, e quem o escrever tem de vir dizer por quê. O
-  // preço da exceção está medido — a fileira cresce 9,70px a 1×, 6,00 a 1,3× e
-  // 3,55 a 1,5×, com deslocamento de 0,00px ENTRE os três estados.
-  const COM_ESTADO = ['temaTile'];
   const comSobra = tiles.filter((t) => t.texto !== t.titulo.trim());
-  checar(comSobra.every((t) => COM_ESTADO.includes(t.id)),
-    'A · nenhum tile tem texto além do TÍTULO, fora a exceção NOMEADA do tema '
-    + '— a palavra do estado saiu de todos os outros na v1.7.2',
+  checar(comSobra.length === 0,
+    'A · e nenhum tem texto além do TÍTULO — a palavra do estado saiu de todos '
+    + 'na v1.7.2, e a exceção que o tile do tema teve na v1.8.63 saiu com o '
+    + 'automático que ela indicava (v1.8.64)',
     JSON.stringify(comSobra));
-  checar(COM_ESTADO.every((id) => comSobra.some((t) => t.id === id)),
-    'A · e a exceção EXISTE: o tile do tema tem a linha de estado. A lista vale '
-    + 'nos dois sentidos — um nome que já não descreve tile nenhum é a exceção '
-    + 'sobrevivendo ao recurso que a justificava',
-    JSON.stringify(tiles.map((t) => t.id + ':' + (t.texto !== t.titulo.trim()))));
   // A PALAVRA NÃO FOI APAGADA, MUDOU DE CANAL: quem lê a grade por leitor de
   // tela tinha só "Tema", que não responde nada. Sem esta asserção, "remover a
   // segunda linha" e "remover a informação" passam iguais.
   //
-  // E ELA COBRA O "Automático" POR NOME (v1.8.63): `aria-label` num botão
-  // SUBSTITUI o conteúdo, então o leitor de tela NÃO lê a `.qs-estado` — o
-  // rótulo é o único canal acessível deste recurso, e uma asserção que aceitasse
-  // "Tema: Claro" aqui aprovaria justamente a entrega que o apaga. A cena abre
-  // no automático porque ele é o PADRÃO (v1.8.49) e nada foi guardado.
+  // DOIS VALORES desde a v1.8.64: o "Automático · claro" que esta asserção
+  // cobrava por nome saiu com o terceiro estado, e a cena abre no ESCURO porque
+  // é ele o padrão de quem nunca escolheu.
   const tema = tiles.find((t) => t.id === 'temaTile');
-  checar(!!tema && /^Tema: Automático · (claro|escuro)$/.test(tema.aria),
-    'A · e o estado continua dito no `aria-label` — sem escolha guardada ele diz '
-    + 'AUTOMÁTICO por extenso, que é o que a linha na tela abrevia',
+  checar(!!tema && /^Tema: (Claro|Escuro)$/.test(tema.aria),
+    'A · e o estado continua dito no `aria-label`, que é onde ele não ocupa linha',
     tema && tema.aria);
 
   // =========================================================================

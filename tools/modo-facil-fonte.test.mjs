@@ -257,7 +257,7 @@ try {
     await pg.setViewportSize({ width: tela.w, height: tela.h });
     for (const tema of TEMAS) {
       const cfg = tela.w + '×' + tela.h + ' ' + tema;
-      await pg.evaluate((t) => { setTemaEscolha(t); }, tema);
+      await pg.evaluate((t) => { setTema(t); }, tema);
 
       // O caminho REAL: `setAppMode` zera a escolha em toda troca de modo, e é
       // `setTocarNoCelular(true)` — o "Tocar neste celular" da folha de conexão
@@ -449,7 +449,7 @@ try {
     await pg.setViewportSize({ width: tela.w, height: tela.h });
     for (const tema of TEMAS) {
       const cfg = tela.w + '×' + tela.h + ' ' + tema;
-      await pg.evaluate((t) => { setTemaEscolha(t); setAppMode('simple'); setTocarNoCelular(true); }, tema);
+      await pg.evaluate((t) => { setTema(t); setAppMode('simple'); setTocarNoCelular(true); }, tema);
       // A MEDIDA É TIRADA DENTRO DA PRÓPRIA ESPERA, e não depois dela: o
       // `renderSimpleTime` esconde a faixa em todo quadro em que a preview
       // ainda não tem duração, e medir "logo após" a espera é uma aposta na

@@ -97,31 +97,18 @@
       var raiz = document.documentElement;
       // O TEMA, ANTES DO PRIMEIRO QUADRO. Mesma gaveta do `controle.js`
       // (`localStorage`, síncrono e no mesmo `app_webview/`), e daqui em diante
-      // quem responde "qual tema?" são estes DOIS atributos — ver `storedTema()`
-      // e `storedTemaEscolha()`.
+      // quem responde "qual tema?" é o atributo `data-tema` — ver `storedTema()`.
       //
-      // TRÊS ESTADOS desde a v1.8.49, e a ausência da chave é o do meio:
-      // AUTOMÁTICO segue o aparelho (`prefers-color-scheme`), e uma escolha
-      // guardada vence sempre. O padrão é o automático porque a pergunta "claro
-      // ou escuro?" o sistema do operador já respondeu — e um app que ignora
-      // aquela resposta acende uma tela branca num salão escuro.
-      //
-      // **A ESCOLHA VIAJA NUM ATRIBUTO PRÓPRIO**, e não numa segunda leitura da
-      // chave: o `controle.js` é o último dos treze scripts do fim do `<body>`,
-      // precisa saber se o operador escolheu (para desenhar o tile) e qual é o
-      // tema EFETIVO (para pintar), e ler `av.tema` de novo lá seria a mesma
-      // regra escrita duas vezes, com duas chances de divergir.
-      //
-      // `prefers-color-scheme` no WebView segue o modo noturno do SISTEMA, não
-      // o tema desta Activity — que é exatamente o que se quer aqui.
+      // DOIS ESTADOS, e a ausência da chave é o ESCURO (v1.8.64, revogando a
+      // v1.8.49). O AUTOMÁTICO — que seguia o `prefers-color-scheme` do sistema
+      // e tinha a ausência da chave como estado do meio — saiu a pedido do
+      // operador: *"remova o auto, não está sendo eficaz essa opção"*. Com ele
+      // saíram a leitura do `matchMedia` aqui, o atributo `data-tema-escolha` e
+      // o acompanhamento ao vivo do `controle.js`: o tile volta a ser o
+      // interruptor de dois estados que ele foi até a v1.8.48.
       try {
         var esc = localStorage.getItem('av.tema');
-        if (esc === 'claro' || esc === 'escuro') raiz.dataset.temaEscolha = esc;
-        var claro = esc === 'claro'
-          || (esc !== 'escuro'
-              && window.matchMedia
-              && window.matchMedia('(prefers-color-scheme: light)').matches);
-        if (claro) raiz.dataset.tema = 'claro';
+        if (esc === 'claro') raiz.dataset.tema = 'claro';
       } catch (e) { /* armazenamento bloqueado: o escuro é o padrão */ }
       var PISO_MS = 1800;
       var TETO_MS = 12000;
@@ -463,13 +450,6 @@
     </symbol>
     <symbol id="icoLua" viewBox="0 0 24 24">
       <path d="M20 14.4A8.6 8.6 0 0 1 9.6 4 8.6 8.6 0 1 0 20 14.4z"/>
-    </symbol>
-    <!-- O "A" DO AUTOMÁTICO (v1.8.63). Ele mora no canto que a redução do par
-         lua/sol a 76% abre, e diz a MESMA palavra da linha de estado logo
-         abaixo — é uma LETRA e não um desenho a decifrar, porque a palavra ao
-         lado é quem ensina a marca. -->
-    <symbol id="icoAuto" viewBox="0 0 24 24">
-      <path d="M4 20 L10 6 L16 20"/><path d="M6.6 15h6.8"/>
     </symbol>
     <symbol id="icoSol" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="4.2"/>
@@ -1913,24 +1893,11 @@
                Trocar aqui NÃO fecha a folha, ao contrário do modo do app: é
                olhando para esta folha, que acabou de mudar de cor, que o
                operador decide se ficou bom. -->
-          <!-- O ÚNICO TILE COM LINHA DE ESTADO (v1.8.63), e a exceção tem causa
-               ARITMÉTICA: o tema é o único com TRÊS estados sobre DUAS cores,
-               então o automático e a escolha explícita que casa com a cor do
-               aparelho caem no MESMO desenho por construção — MEDIDO na v1.8.62,
-               os dois saíam no mesmo PNG, byte a byte. Não é um desenho que
-               faltou; não há terceiro par lua/sol. Pedido do operador: *"remova
-               a opção de automatico, ou adicione um icone e texto indicando que
-               está em automático, pois atualmente não há nenhuma indicação de
-               tal"*. A `.qs-estado` é IRMÃ do título e não o substitui — o
-               `pintarTile` monta o `aria-label` lendo o título, e mexer nele
-               faria o rótulo gaguejar. Um SEGUNDO tile que use esta linha
-               reprova o `configuracoes-sem-subtitulo.test.mjs`. -->
-          <button type="button" class="qs-tile" id="temaTile" title="Automático, claro ou escuro — o toque avança">
+          <button type="button" class="qs-tile" id="temaTile" title="Alternar entre o tema escuro e o claro">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoLua"/><use class="ico-alt" href="#icoSol"/><use class="ico-auto" href="#icoAuto"/>
+              <use class="ico-base" href="#icoLua"/><use class="ico-alt" href="#icoSol"/>
             </svg>
             <span class="qs-titulo">Tema</span>
-            <span class="qs-estado" id="temaEstado">Auto</span>
           </button>
           <!-- PREENCHIMENTO. "Esticar" saiu na v5.142 — ele distorcia a
                proporção, e distorção não é uma escolha de exibição: é o defeito
@@ -2175,7 +2142,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">v1.8.63</span>
+          <span id="appVersion" class="app-version">v1.8.64</span>
           <!-- O GRUPO DE AÇÕES (v1.8.51). Ele existe por DUAS razões, e nenhuma
                é organização: (1) é ele que carrega o `margin-left: auto` que
                morava no rótulo solto, e (2) é ele que a faixa quebra INTEIRO

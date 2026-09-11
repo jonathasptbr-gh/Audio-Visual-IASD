@@ -2471,13 +2471,17 @@ main {
    qualquer `color` deixado lá venceria — em silêncio, e correto em toda captura
    de layout.
 
-   A SOMBRA APONTA PARA CIMA (`0 -2px 8px`), e não é enfeite invertido: o que
-   estas três cobrem está ACIMA delas — abaixo é a fronteira com os controles.
-   Uma sombra para baixo, a do resto do app, cairia inteira fora da tela e o
-   pedido ficaria sem efeito nenhum, sem erro em lugar nenhum. */
+   A SOMBRA É NORMAL, PARA BAIXO (v1.8.64, revogando a v1.8.63): *"essas sombras
+   são sombras normais, para baixo"*. A v1.8.63 a apontou para CIMA pelo
+   argumento de que o que as portas cobrem está acima delas — o operador
+   revogou, e a convenção do app é a de sempre (a folha de Ferramentas é
+   `0 4px 14px`). O PREÇO está medido e é o `main { overflow: hidden }`: o
+   recorte cai no padding box, a 5,59px abaixo da base das portas, então o
+   desenho é uma sombra CURTA entre elas e a barra de buscas — o que passa
+   daquilo não chega a existir na tela. */
 .tools-btn, .lib-foot-btn, .import-btn {
   background: var(--surface-porta); color: var(--accent);
-  box-shadow: 0 -2px 8px var(--shadow-card);
+  box-shadow: 0 2px 8px var(--shadow-card);
 }
 /* ===== AS TRÊS PORTAS DO CRONOGRAMA, EM PARTES IGUAIS (v1.5.0) =====
    Bíblia · Importar arquivos · Ferramentas, e as três com RÓTULO — o pedido do
@@ -8923,28 +8927,14 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    a pedido do operador: *"remova o subtítulo dos botões das configurações, todo
    tipo de informação além do nome deve ser representada pelo ícone"*. Ela existe
    agora como `aria-label`, escrito pelo `pintarTile`: fora da tela, e ainda
-   assim verdade para quem lê a grade por leitor de tela.) */
+   assim verdade para quem lê a grade por leitor de tela.
+
+   ELA VOLTOU UMA VEZ, e a volta durou um lote: a v1.8.63 a deu ao `#temaTile`
+   para indicar o automático, e a v1.8.64 tirou os dois juntos. O que a
+   justificava era ARITMÉTICA — três estados sobre dois desenhos —, e com o
+   tema em dois estados a conta não existe mais. A regra volta sem exceção: um
+   tile cujo estado não caiba num desenho não cabe nesta grade.) */
 .qs-titulo { font-size: var(--fs-sm); font-weight: var(--fw-medio); color: var(--text); line-height: 1.15; }
-/* ---------- A LINHA DE ESTADO, E ELA É DE UM TILE SÓ (v1.8.63) ----------
-   Ela devolve ao `#temaTile` a segunda linha que a v1.7.2 tirou de TODOS, e a
-   revogação é PARCIAL com causa aritmética — ver o comentário do tile no
-   `index.html`. O NOME é que segura a lista: um segundo consumidor de
-   `.qs-estado` reprova o `configuracoes-sem-subtitulo.test.mjs`.
-
-   ELA É SEMPRE DESENHADA E SEMPRE TEM PALAVRA ("Auto" · "Claro" · "Escuro"),
-   nunca condicional: uma linha que aparece e some é o motor de pulo que a
-   v1.8.61 proibiu por extenso, e MEDIDO ela custaria 6,81px de grade a 320×1×
-   ENTRE dois estados que um toque alcança. Sempre desenhada, o preço vira FIXO
-   — a fileira cresce 9,70px a 1×, 6,00 a 1,3× e 3,55 a 1,5× — e o deslocamento
-   entre os três estados fica em 0,00px, medido em 36 de 36 células. Nenhuma
-   célula passou a rolar.
-
-   `--fs-xs` e `--muted` porque ela é SUBTÍTULO: o título é o nome do tile e
-   continua sendo o que se lê primeiro. Com o tile aceso ela acompanha o
-   `--accent` do título, senão diria "indisponível" — a outra palavra desta
-   paleta. */
-.qs-estado { font-size: var(--fs-xs); color: var(--muted); line-height: 1.15; }
-.qs-tile.qs-on .qs-estado { color: var(--accent); }
 
 /* ---------- O GIRO GIRA O PRÓPRIO ÍCONE (v1.7.2) ----------
    O ângulo era a palavra do estado deste tile e saiu com as outras. O que o
@@ -9056,25 +9046,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .qs-tile .ico-alt { display: none; }
 .qs-tile.qs-alt .ico-base { display: none; }
 .qs-tile.qs-alt .ico-alt { display: block; }
-/* ---------- E O TERCEIRO DESENHO É ADITIVO, SÓ NO TEMA (v1.8.63) ----------
-   A marca do automático NÃO substitui o par lua/sol: ela se soma a ele. Se
-   substituísse, o tile pararia de responder *"claro ou escuro AGORA?"* — que é
-   a pergunta que o rótulo "Automático · claro" já respondia no `aria-label` e
-   que a v1.8.49 escreveu como requisito. MEDIDO: com o terceiro desenho
-   SUBSTITUINDO, o automático de um aparelho e o do outro saem no mesmo PNG
-   (0 de 2116 pixels); somado, 460 de 2116.
-
-   O par ENCOLHE a 76% por `transform` para abrir o canto — `transform` não
-   entra no fluxo, então a caixa do tile mede o mesmo nos três estados (medido:
-   64px nos três). O seletor é por `data-estado` e não por classe porque o
-   estado do tema virou COMPOSTO (`auto-claro`/`auto-escuro`), e é o prefixo que
-   responde "está no automático?" sem duplicar a pergunta no JS. */
-.qs-tile .ico-auto { display: none; }
-#temaTile[data-estado^="auto"] .ico-auto { display: block; }
-#temaTile[data-estado^="auto"] .ico-base,
-#temaTile[data-estado^="auto"] .ico-alt {
-  transform: translate(-2.4px, -2.4px) scale(.76); transform-origin: 50% 50%;
-}
+/* (O TERCEIRO DESENHO — a marca do automático — saiu na v1.8.64 com o estado
+   que ele indicava. O tile do tema voltou a ser o par lua/sol, e a grade voltou
+   a não ter exceção nenhuma: todo tile diz o estado pelo DESENHO.) */
 
 /* ---------- O TILE OCIOSO VIRA O CANCELAR DO IRMÃO (v1.8.27) ----------
    Relato do operador: *"quando exportando, o botão de importação fica com um

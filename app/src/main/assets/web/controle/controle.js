@@ -19,7 +19,6 @@ const muteToggleEl = document.getElementById('muteToggle');
 // Modo de uso (ver "Modos de uso" mais abaixo)
 const appModeSegEl = document.getElementById('appModeSeg');
 const temaTileEl = document.getElementById('temaTile');
-const temaEstadoEl = document.getElementById('temaEstado');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleSettingsBtnEl = document.getElementById('simpleSettingsBtn');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
@@ -100,13 +99,6 @@ const TEMA_KEY = 'av.tema';
 function storedTema() {
   return document.documentElement.dataset.tema === 'claro' ? 'claro' : 'escuro';
 }
-// A ESCOLHA, que é outra pergunta: `null` = AUTOMÁTICO (segue o aparelho). Ela
-// vem do mesmo script inline, num atributo PRÓPRIO — ver o comentário de lá.
-function storedTemaEscolha() {
-  const e = document.documentElement.dataset.temaEscolha;
-  return e === 'claro' || e === 'escuro' ? e : null;
-}
-let temaEscolha = storedTemaEscolha();
 let tema = storedTema();
 const temaMetaEl = document.getElementById('temaMeta');
 function pintarTema() {
@@ -133,30 +125,11 @@ function pintarTema() {
 }
 pintarTema();
 
-// ===== O AUTOMÁTICO SEGUE O APARELHO ENQUANTO O APP ESTÁ ABERTO =====
-//
-// Sem isto, "automático" seria "o tema que o aparelho tinha quando o app abriu"
-// — e o caso que morde é o do agendamento: o Android troca para o escuro ao
-// anoitecer, e o culto de sábado à noite começa com o app aberto desde a tarde,
-// aceso em branco no púlpito.
-//
-// SÓ NO AUTOMÁTICO. Uma escolha guardada é uma decisão do operador, e um app
-// que a desfaz porque o sistema mudou é um app que não obedece.
-try {
-  const mqTema = window.matchMedia('(prefers-color-scheme: light)');
-  const aoTrocarDoSistema = () => {
-    if (temaEscolha) return;
-    const novo = mqTema.matches ? 'claro' : 'escuro';
-    if (novo === tema) return;
-    tema = novo;
-    pintarTema();
-    renderTemaTile();
-  };
-  // `addEventListener` no `MediaQueryList` é o caminho de hoje; o
-  // `addListener` é o de antes e continua sendo o único em WebViews velhos.
-  if (mqTema.addEventListener) mqTema.addEventListener('change', aoTrocarDoSistema);
-  else if (mqTema.addListener) mqTema.addListener(aoTrocarDoSistema);
-} catch (_) { /* sem matchMedia: o automático vira "o que abriu" */ }
+// (O AUTOMÁTICO SAIU na v1.8.64, a pedido do operador: *"remova o auto, não
+//  está sendo eficaz essa opção"*. Com ele saíram o `data-tema-escolha`, o
+//  acompanhamento ao vivo do `prefers-color-scheme` e o terceiro estado do
+//  tile — que era o único da grade com TRÊS estados sobre DOIS desenhos, e
+//  cuja indicação na tela custou o lote inteiro da v1.8.63.)
 
 const settingsBtnEl = document.getElementById('settingsBtn');
 const lyricsViewBtnEl = document.getElementById('lyricsViewBtn');
@@ -375,7 +348,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.63';
+const WEB_VERSION = '1.8.64';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -30640,59 +30613,15 @@ function renderAppModeSeg() {
 // a tela inteira atrás dele (não há o que ver com o popup na frente), e o tema
 // troca a cor DO PRÓPRIO POPUP — é olhando para ele que o operador decide se
 // gostou. Escolher e continuar vendo é a resposta.
-// TRÊS ESTADOS, e o do meio é a AUSÊNCIA de escolha: `null` = automático.
-// O ciclo é Automático → o OUTRO → o do aparelho → Automático, e ele começa no
-// automático porque é o padrão — quem nunca tocou aqui já está nele.
-//
-// A ORDEM É DECIDIDA PELO APARELHO (v1.8.62), e não pela ordem em que os dois
-// nomes foram escritos. Relato do operador: *"ao entrar nas configurações e
-// tocar em cor do tema, ele ignora o primeiro toque, não alterando o tema. só no
-// segundo toque que ele começa a responder"*. A lista fixa `[null, 'claro',
-// 'escuro']` mandava o primeiro toque para o CLARO — e num aparelho que já
-// responde claro, o automático JÁ mostrava o claro: o toque gravava a escolha,
-// repintava tudo, e não mudava um pixel. MEDIDO nos dois aparelhos: emulado em
-// claro, os toques davam claro → escuro → automático, com o PRIMEIRO parado;
-// emulado em escuro o percurso sempre esteve certo, que é por que o `smoke.mjs`
-// (que emula escuro desde a v1.8.49) nunca o viu.
-//
-// UM DOS TRÊS TOQUES NÃO PODE MUDAR A COR, e isso é aritmética do recurso: são
-// três estados sobre duas cores, e voltar ao automático é pousar na cor que o
-// aparelho responde. O que a ordem decide é QUAL toque paga esse preço — e o
-// certo é o que ENTRA no automático, que é o único cujo rótulo anuncia o que
-// aconteceu (*"Automático · claro"*).
-function proximaEscolhaDeTema() {
-  const aparelho = temaDoAparelho();
-  const oposto = aparelho === 'claro' ? 'escuro' : 'claro';
-  // Do automático sai-se MUDANDO a cor; do oposto passa-se ao outro explícito
-  // (que é o que trava a cor de hoje contra o agendamento noturno); dele
-  // volta-se ao automático.
-  if (!temaEscolha) return oposto;
-  return temaEscolha === oposto ? aparelho : null;
-}
-function setTemaEscolha(escolha) {
-  temaEscolha = escolha === 'claro' || escolha === 'escuro' ? escolha : null;
-  const raiz = document.documentElement;
-  try {
-    if (temaEscolha) localStorage.setItem(TEMA_KEY, temaEscolha);
-    else localStorage.removeItem(TEMA_KEY);
-  } catch (_) { /* storage bloqueado */ }
-  // O ATRIBUTO ACOMPANHA A CHAVE, sempre: ele é o que o `storedTemaEscolha()`
-  // lê, e deixá-los divergir devolveria o defeito que o carrier existe para
-  // impedir — com a diferença de que aqui ninguém releria a gaveta para notar.
-  if (temaEscolha) raiz.dataset.temaEscolha = temaEscolha;
-  else delete raiz.dataset.temaEscolha;
-  tema = temaEscolha || temaDoAparelho();
+// DOIS ESTADOS desde a v1.8.64 (revogando a v1.8.49): escuro e claro, e o tile
+// é o interruptor que vai para o outro. O AUTOMÁTICO saiu a pedido do operador
+// — *"remova o auto, não está sendo eficaz essa opção"* —, e com ele a pergunta
+// "há escolha guardada?": agora há SEMPRE, e a ausência da chave é o ESCURO.
+function setTema(novo) {
+  tema = novo === 'claro' ? 'claro' : 'escuro';
+  try { localStorage.setItem(TEMA_KEY, tema); } catch (_) { /* storage bloqueado */ }
   pintarTema();
   renderTemaTile();
-}
-
-// O que o APARELHO responde agora. Sem `matchMedia` — ou num navegador que não
-// conheça a consulta — o escuro é o padrão, que é o mesmo do `:root` sem
-// atributo: uma resposta só, escrita num lugar só.
-function temaDoAparelho() {
-  try {
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'escuro';
-  } catch (_) { return 'escuro'; }
 }
 
 // SEMPRE ACESO, pelo motivo do preenchimento: escuro e claro são as duas
@@ -30701,20 +30630,10 @@ function temaDoAparelho() {
 // sozinho não responde "então está claro ou escuro AGORA?", e é essa a pergunta
 // de quem olha o tile.
 function renderTemaTile() {
-  const auto = !temaEscolha;
-  const rotulo = auto
-    ? (tema === 'claro' ? 'Automático · claro' : 'Automático · escuro')
-    : (tema === 'claro' ? 'Claro' : 'Escuro');
-  // A LINHA DE ESTADO (v1.8.63) — ver o comentário do tile no `index.html`. Ela
-  // é SEMPRE escrita e nunca fica vazia: no automático diz "Auto", e a cor de
-  // AGORA continua sendo respondida pelo par lua/sol, que não sai de cena.
-  if (temaEstadoEl) temaEstadoEl.textContent = auto ? 'Auto' : rotulo;
-  // O `data-estado` VIROU COMPOSTO, e é ele que o CSS lê para acender a marca
-  // (`[data-estado^="auto"]`). Ele carregava só o tema EFETIVO, e por isso nem
-  // o canal por onde os oráculos perguntam separava o automático da escolha
-  // explícita que casa com a cor do aparelho.
-  pintarTile(temaTileEl, (auto ? 'auto-' : '') + tema, rotulo, true, tema === 'claro');
+  pintarTile(temaTileEl, tema, tema === 'claro' ? 'Claro' : 'Escuro',
+    true, tema === 'claro');
 }
+
 
 // (A CHAVE "este aparelho entra na contagem" saiu na v1.4.42, a pedido do
 //  operador: *"descarte a opção de contagem de uso como opcional, deixe sempre
@@ -31220,10 +31139,10 @@ appModeSegEl.addEventListener('click', (e) => {
   if (!btn) return;
   setAppMode(btn.dataset.mode);
 });
-// O TEMA ALTERNA (v1.4.38): o par escuro/claro virou um tile, e um tile de dois
-// estados não escolhe — ele vai para o outro. A ORDEM dos três estados de hoje
-// é do `proximaEscolhaDeTema`, e ela depende do aparelho — ver lá.
-temaTileEl.addEventListener('click', () => { setTemaEscolha(proximaEscolhaDeTema()); });
+// O TEMA ALTERNA (v1.4.38): o par escuro/claro é um tile, e um tile de dois
+// estados não escolhe — ele vai para o outro. Todo toque muda a cor, que é o
+// que o terceiro estado da v1.8.49 não conseguia prometer.
+temaTileEl.addEventListener('click', () => { setTema(tema === 'claro' ? 'escuro' : 'claro'); });
 // SEM FOCO, e o `() =>` é o ponto: registrado por REFERÊNCIA, o ouvinte chama
 // `openHymnSearch(evento)` — e um `PointerEvent` é truthy, então a lupa do Modo
 // Fácil abria com o teclado por cima da lista. É um BOTÃO, e a regra das duas
