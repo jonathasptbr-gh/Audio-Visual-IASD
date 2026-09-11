@@ -2838,9 +2838,19 @@ main {
    filhos são só `li.lib-item` (ou um `li.empty`), e com a lista vazia
    `scrollHeight === clientHeight`, então a margem não vira rolagem fantasma. */
 .list-body:has(> #listFoot:not([hidden])) > #library { padding-bottom: 0; }
-.list-body:has(> #listFoot:not([hidden])) > #library > :last-child {
+.list-body:has(> #listFoot:not([hidden])) > #library > :last-child:not(.empty) {
   margin-bottom: calc(.6rem + var(--rodape-h, var(--hit-foot)) + var(--sp-5) + var(--vao-barra));
 }
+/* ---------- E A MARCA-D'ÁGUA NÃO CARREGA ESSA FOLGA (v1.8.67) ----------
+   A folga acima existe para a última LINHA não ficar atrás das portas
+   flutuantes. O `<li class="empty">` é o último filho por acidente de ser o
+   único, e herdá-la o empurrava para cima: MEDIDO, a frase ficava **28,6px**
+   acima do centro da lista, num deslocamento que ninguém relata e ninguém
+   explica — parece só uma centralização mal feita.
+
+   E ELE NÃO PRECISA DELA por construção: centrado, ele está no meio da caixa, a
+   centenas de pixels das portas. Quem fica atrás delas é o fim de uma lista que
+   ROLA, e uma lista com esta frase dentro não tem o que rolar. */
 /* E A TIRA VOLTOU PARA A BASE DA CAIXA (v1.8.62), revogando a v1.8.61. Aquele
    lote a descontou da altura das portas para ela não ficar atrás delas; o
    operador pediu o contrário, e o pedido é o desenho: *"você colocou a sombra de
@@ -3016,6 +3026,40 @@ main {
 .list-body:has(.tools-sheet:not([hidden])) > #library::before,
 .list-body:has(.tools-sheet:not([hidden])) > #library::after { display: none; }
 .empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: var(--fs-lg); }
+/* ---------- O CRONOGRAMA VAZIO É UMA MARCA-D'ÁGUA (v1.8.67) ----------
+   Pedido do operador: *"ajuste o texto de cronograma vazio, para que seja um
+   texto maior, em negrito, centralizado na tela, mas com uma cor com menos
+   contraste do que a atual, para ficar mais mesclado a cor do fundo e se
+   destacar menos"*.
+
+   As quatro metades são UMA decisão, e ela é sobre o que a frase É: ela não
+   informa nem pede ação — ela ocupa o silêncio até o primeiro item entrar. Um
+   texto grande e apagado se lê de relance e sai da frente; um texto pequeno e
+   contrastado no topo da lista disputa com o que vem depois dele.
+
+   ESCOPADO AO `#library`, e não à `.empty` geral: a MESMA classe serve a lista
+   de uma pasta, o painel de Mensagens e a Bíblia, onde ela é um aviso dentro de
+   uma caixa pequena — centrá-la verticalmente e inchá-la ali quebraria as três.
+
+   CENTRADA NA TELA quer dizer nos DOIS eixos: o `flex: 1` come a altura que
+   sobra do scroller e o `place-content: center` põe a frase no meio dela. Com a
+   lista cheia o `<li>` não existe, então isto não custa layout nenhum.
+
+   A COR É `--muted` A 55%, e não um token mais fraco: não existe um terceiro
+   degrau de texto nesta paleta, e inventá-lo em `tokens.css` daria um valor com
+   um consumidor só. MEDIDO sobre o `--bg` de cada tema: **3,76:1** no escuro
+   (de 9,94:1) e **2,22:1** no claro (de 5,16:1) — abaixo do piso de 4,5 de
+   propósito, que é o pedido ao pé da letra. Isso é legítimo porque a frase não
+   carrega informação que se perca: ela DESCREVE a ausência que já está à vista,
+   e o app não depende de lê-la para nada. É a mesma licença do `--op-inativo`,
+   e por isso é `opacity` e não uma cor nova — quem vier medir contraste
+   encontra o número junto do motivo. */
+#library > .empty {
+  flex: 1; display: grid; place-content: center;
+  padding: 0 var(--sp-5);
+  font-size: var(--fs-4xl); font-weight: var(--fw-forte); line-height: 1.3;
+  opacity: .55;
+}
 
 /* ---------- A LINHA DE LISTA, e o ESTADO dela é um PREENCHIMENTO ----------
    `--linha` é o preenchimento DESTA linha, e é ele que os três estados

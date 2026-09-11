@@ -1831,8 +1831,21 @@ corpo para o botão, apenas o icone, que é o padrão dessa top bar"*.
   pergunta-na-linha vai para o `title`/`aria-label`, e **num WebView não há
   hover** — a frase que explica nunca aparece no aparelho. Para uma ação que tira
   a lista inteira de uma vez, o modal é o único dos dois que MOSTRA a
-  consequência (quantos saem, que os Favoritos sobrevivem, que o que está no ar
-  segue tocando).
+  consequência — e desde a v1.8.67 ela é só a CONTA: *"pode remover as
+  explicações sobre os itens ainda ficarem em favoritos e sobre continuar
+  tocando, não precisamos de todo esse texto explicativo"*. Quantos saem é a
+  única metade que quem lê não tem como saber olhando a tela, já que a lista
+  pode estar rolada; as duas promessas continuam VALENDO no código, e o que saiu
+  foi dizê-las toda vez. **A ausência delas é AFIRMADA no oráculo** (bloco D),
+  senão reintroduzi-las por zelo passa e o pedido se desfaz sozinho.
+- **O VERBO É LIMPAR, NUNCA EXCLUIR** (v1.8.67): *"foque em chamar apenas de
+  'limpar cronograma' e use esses tipos de termos nos botões de confirmar,
+  títulos e afins"*. A distinção é real e não preferência de palavra — EXCLUIR é
+  o que a seleção múltipla faz a um ITEM, LIMPAR é o que se faz a uma LISTA, e é
+  o verbo que a fila já usa no `#plClear`. Um "excluir" aqui prometeria que os
+  arquivos morrem, e o que morre é só o que não tiver outro detentor. A asserção
+  varre os TRÊS lugares onde a palavra apareceria: o título, o botão que confirma
+  e o `title`/`aria-label` do botão que abriu.
 - **COM A LISTA VAZIA ELE É APAGADO** (`disabled` + `title`), a regra da v1.8.50
   — e ela pesa o dobro num destrutivo: um botão aceso que não faz nada ensina que
   tocá-lo é inofensivo. O estado é pintado em `renderLibrary`, o ponto ÚNICO que
@@ -1844,6 +1857,40 @@ corpo para o botão, apenas o icone, que é o padrão dessa top bar"*.
   defeito que só aparece num tema. E `--danger` **não é um token**: um
   `var(--danger)` não computa e a cor cai no valor herdado, isto é, o ícone vira
   TEXTO.
+- **E O DESENHO FOI REPROPORCIONADO na v1.8.67** (*"o icone parece espremido
+  horizontalmente"*). A caixa do BOTÃO já era quadrada — o que estava achatado
+  era a lixeira dentro dela, **1:1,81**, espremida no terço esquerdo para sobrar
+  espaço aos traços; o `trash-2` do Feather, na mesma região, é **1:1,11**. Os 24
+  do viewBox foram repartidos em 12 (lixeira) + 6 (traços) + 2,2 de vão, e ela
+  passou a **1:1,19**. A asserção mede um CLONE RENDERIZADO do símbolo: o
+  `getBBox()` de um filho de `<symbol>` devolve **zeros** no Chromium, e a sonda
+  ingênua aprova o desenho certo e o errado igualmente.
+
+**E O CRONOGRAMA VAZIO É UMA MARCA-D'ÁGUA (v1.8.67).** Pedido do operador:
+*"ajuste o texto de cronograma vazio, para que seja um texto maior, em negrito,
+centralizado na tela, mas com uma cor com menos contraste do que a atual, para
+ficar mais mesclado a cor do fundo e se destacar menos"*.
+
+- **`#library > .empty`, e não a `.empty` geral.** A mesma classe serve a lista
+  de uma pasta, o painel de Mensagens e a Bíblia, onde ela é um aviso dentro de
+  uma caixa pequena — centrá-la verticalmente e inchá-la ali quebraria as três.
+- **CENTRADA NOS DOIS EIXOS:** o `flex: 1` come a altura que sobra do scroller e
+  o `place-content: center` põe a frase no meio dela. Com a lista cheia o `<li>`
+  não existe, então isto não custa layout nenhum.
+- **E ELA SAI DA FOLGA DO RODAPÉ FLUTUANTE** (`:last-child:not(.empty)`): o
+  `<li>` é o último filho por acidente de ser o único, e herdar a folga das
+  portas o empurrava **28,6px** acima do centro — um deslocamento que ninguém
+  relata e ninguém explica. Ele não precisa dela por construção: quem fica atrás
+  das portas é o fim de uma lista que ROLA.
+- **O CONTRASTE TEM TETO, não piso** — o único do repositório. `--muted` a 55%
+  mede **3,76:1** no escuro (de 9,94:1) e **2,22:1** no claro (de 5,16:1),
+  abaixo do piso de 4,5 de propósito: a frase descreve uma ausência que já está à
+  vista e não carrega informação que se perca. Sem um número, *"menos contraste"*
+  é opinião.
+- **A RÉGUA DA CENTRALIZAÇÃO É UM `Range`, e isso custou uma tautologia.** Medir
+  o `getBoundingClientRect()` do `<li>` não acusa nada: ele carrega `flex: 1` e
+  ocupa a caixa inteira COM e SEM o `place-content`. Quem se move é a LINHA de
+  texto — com a régua certa o desvio vai de 4,8px para **266,1px**.
 
 ### O que o telão retoma ao RECONECTAR (`midiaNoAr`, v5.142)
 

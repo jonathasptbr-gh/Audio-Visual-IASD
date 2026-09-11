@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.66';
+const WEB_VERSION = '1.8.67';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15949,12 +15949,25 @@ async function limparCronograma() {
   // exclusão porque *"o modal TIRAVA O ALVO DE CENA"*, e o `appConfirm` sobrevive
   // exatamente onde o alvo não é uma linha da lista — uma pasta, um álbum, e
   // agora a lista inteira.
+  // O VERBO É "LIMPAR", NUNCA "EXCLUIR" (v1.8.67), a pedido do operador:
+  // *"foque em chamar apenas de 'limpar cronograma' e use esses tipos de termos
+  // nos botões de confirmar, títulos e afins ao invés da palavra 'excluir'"*. E
+  // a distinção é REAL, não preferência de palavra: EXCLUIR é o que a seleção
+  // múltipla faz a um item, e LIMPAR é o que se faz a uma lista — o mesmo verbo
+  // que a fila já usa no `#plClear`. Um "excluir" aqui prometeria que os
+  // arquivos morrem, e o que morre é só o que não tiver outro detentor.
+  //
+  // E A FRASE PERDEU AS EXPLICAÇÕES (*"pode remover as explicações sobre os
+  // itens ainda ficarem em favoritos e sobre continuar tocando, não precisamos
+  // de todo esse texto explicativo"*). O que sobra é a PERGUNTA e a CONTA — que
+  // é a única metade que quem lê não tem como saber olhando a tela, já que a
+  // lista pode estar rolada. As duas promessas continuam VALENDO no código
+  // (`listSet` só coleta o que não tem detentor; a cena não é encerrada); o que
+  // saiu foi dizê-las toda vez.
   const n = ids.length;
   const ok = await appConfirm({
     title: 'Limpar o Cronograma',
-    message: 'Tirar ' + (n === 1 ? 'o único item' : 'os ' + n + ' itens') + ' da lista?\n\n'
-      + 'O que também estiver nos Favoritos ou na playlist continua lá. '
-      + 'O que estiver no ar segue tocando.',
+    message: 'Tirar ' + (n === 1 ? 'o único item' : 'os ' + n + ' itens') + ' da lista?',
     okText: 'Limpar',
     perigo: true,
   });

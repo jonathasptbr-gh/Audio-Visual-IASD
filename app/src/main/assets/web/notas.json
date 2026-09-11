@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.67",
+    "itens": [
+      "O ícone de limpar o Cronograma estava achatado e foi redesenhado nas proporções certas.",
+      "Com o Cronograma vazio, o aviso ficou maior, em negrito e no centro da tela, mais discreto.",
+      "A pergunta de limpar ficou mais curta e agora fala em limpar a lista, não em excluir."
+    ]
+  },
+  {
     "versao": "1.8.66",
     "itens": [
       "O número da versão saiu do topo do Cronograma e deu lugar a um botão de limpar a lista, em vermelho.",
