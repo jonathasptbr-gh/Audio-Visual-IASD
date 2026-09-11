@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.78';
+const WEB_VERSION = '1.8.79';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3869,13 +3869,19 @@ function renderPlaylist() {
   // nomeia, um repintor acima.
   renderTransporteHabilitado();
   const count = plItems.length;
-  // O badge (e a cor do ícone) não devem chamar atenção quando a playlist é só
-  // a mídia atual (1 item); conta apenas os itens além do primeiro (2 itens →
-  // "1", 3 → "2"...) — mesmo critério pros dois, o ícone só fica destacado
-  // quando existe de fato uma fila além do item em exibição.
+  // O BADGE NÃO DEVE CHAMAR ATENÇÃO quando a playlist é só a mídia atual (1
+  // item): ele conta apenas os itens ALÉM do primeiro (2 itens → "1", 3 → "2"…),
+  // porque é aí que existe de fato uma fila.
+  //
+  // QUEM DIZ "HÁ FILA" É O BADGE, E SÓ ELE. Havia aqui uma classe `has-items`
+  // que tingia o ícone de `--accent` junto; a regra dela saiu do `controle.css`
+  // na v1.5.0, com o rodapé, e a escrita sobreviveu sete meses sem consumidor —
+  // o ícone nunca acendeu, e a doc continuava dizendo que acendia. Devolvê-la
+  // seria acrescentar um SIGNIFICADO DE COR que a linguagem de estado do app
+  // não tem (ver o `CLAUDE.md`: escolhido · ligado · selecionado), para dizer o
+  // que o número ao lado já diz.
   plCountEl.textContent = count > 1 ? String(count - 1) : '';
   plPopupCountEl.textContent = String(count);
-  plBtnEl.classList.toggle('has-items', count > 1);
   // COM A FILA VAZIA NÃO HÁ O QUE LIMPAR, e um botão que não faz nada é pior
   // que botão nenhum — ainda mais um destrutivo, que assim ensinaria que
   // tocá-lo é inofensivo. A caixa inteira sai (ela carrega a margem do rodapé),
@@ -4767,8 +4773,11 @@ async function fetchBibleChapterCached(versionId, bookIdx, chapter) {
 
 // Move a sessão de leitura para outro capítulo (cruza livro nos extremos),
 // baixando o texto se necessário.
-// `want`: 'first' | 'last' | um índice (podendo ser NEGATIVO, contado a partir
-// do fim — é como um salto de -2 que estourou o começo do capítulo chega aqui).
+// `want`: um ÍNDICE, podendo ser NEGATIVO (contado a partir do fim — é como um
+// salto de -2 que estourou o começo do capítulo chega aqui). Ausente = o
+// primeiro versículo. Houve dois sentinelas de string (`'first'`/`'last'`) e
+// nenhum dos dois teve produtor: os dois chamadores, no `bibleStep`, passam
+// número, e "voltar para o fim do capítulo anterior" já é o índice negativo.
 async function bibleGotoChapter(bookIdx, chapter, want) {
   const s = bibleSession;
   if (!s) return;
@@ -4779,8 +4788,7 @@ async function bibleGotoChapter(bookIdx, chapter, want) {
   const book = Bible.BOOKS[bookIdx];
   const wasProjecting = s.projecting;
   let idx;
-  if (want === 'last') idx = verses.length - 1;
-  else if (typeof want === 'number') idx = want < 0 ? verses.length + want : want;
+  if (typeof want === 'number') idx = want < 0 ? verses.length + want : want;
   else idx = 0;
   idx = Math.max(0, Math.min(verses.length - 1, idx));
   bibleSession = {
@@ -7178,7 +7186,6 @@ function renderDiversos() {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'misc-tab' + (miscTool === t.id ? ' active' : '');
-    b.dataset.tool = t.id;
     const label = document.createElement('span');
     label.textContent = t.name;
     b.appendChild(label);
@@ -34067,7 +34074,11 @@ async function telaEmpurrarAgora(it) {
   // O TOKEN VEM DO ITEM ENFILEIRADO, nunca relido agora: entre a fila e este
   // ponto o `__wp` pode ter sido recunhado (ver `telaGarantirEnvio`), e reler
   // mandaria os bytes do wallpaper ANTIGO sob o token do NOVO.
-  const token = it.token || telaTokenDe(it.id);
+  //
+  // Havia um `|| telaTokenDe(it.id)` aqui, e ele era INALCANÇÁVEL — quem
+  // enfileira já recusou o item sem token (`if (!token) return`) e empilha uma
+  // CÓPIA com ele. Alcançado, faria exatamente o que o parágrafo acima proíbe.
+  const token = it.token;
   if (!token) return;
   let arquivo = it.blob || null;
   if (!arquivo && it.opfsPath) {
