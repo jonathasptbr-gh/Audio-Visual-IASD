@@ -831,7 +831,18 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      alternar — quem manda é esta regra. */
   .lv-cheia-btn
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
-:is(.lib-toggle, .t-btn, .ctl-btn, .misc-tab, .settings-btn) svg {
+/* E O `.lib-quad` É O IRMÃO DO `.lib-toggle` NESTA LISTA (v1.8.73). Os dois
+   quadrados da barra da Biblioteca são medidos contra o TRANSPORTE desde a
+   v1.5.5 ("no tom E na largura dos botões do transporte"), e o alternador já
+   chegava aqui por `.lib-toggle`; o `#sorteioBtn` só casava `.popup-close` e
+   desenhava 20px contra os 22 do vizinho, a um campo de busca de distância —
+   com as CAIXAS idênticas, que é por que ninguém via (a mesma cegueira do
+   `.crono-limpar` na v1.8.68). O HTML pediu os dois iguais (`width="19"` nos
+   dois), e a receita compartilhada logo abaixo diz que o que os distingue é a
+   COR. A entrada é por CLASSE e não pelo id: dentro de um `:is()` a
+   especificidade é a do argumento MAIS específico, então um `#sorteioBtn` aqui
+   levaria a lista inteira a (1,0,1) e moveria a cascata dos outros cinco. */
+:is(.lib-toggle, .lib-quad, .t-btn, .ctl-btn, .misc-tab, .settings-btn) svg {
   display: block; width: var(--icon-md); height: var(--icon-md);
 }
 /* Barras largas de ação (microfone, projetar): o ícone acompanha o alvo. */

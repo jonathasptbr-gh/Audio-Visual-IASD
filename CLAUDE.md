@@ -2588,8 +2588,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.72 · APK v1.8.45** · `SHELL_VERSION` **72** ·
-bundle com `minShell: 72` e **`shellTag: v1.8.72`** — o shell 72 é o
+**Versão atual: base web v1.8.73 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+bundle com `minShell: 72` e **`shellTag: v1.8.73`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
 > **A v1.8.50 NÃO declara `shellTag`, e a v1.8.45 declarou — a diferença é o
@@ -2606,13 +2606,21 @@ bundle com `minShell: 72` e **`shellTag: v1.8.72`** — o shell 72 é o
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
+> **A TAG DO `shellTag` ACOMPANHA A ÚLTIMA VERSÃO, NÃO A QUE MEXEU NO KOTLIN.**
+> O CI exige `shellTag == 'v' + version`, então um lote só de web publicado
+> DEPOIS de um lote de shell ainda não lançado herda a obrigação: a v1.8.73 não
+> toca `java/`, mas declara `v1.8.73` porque o Kotlin da v1.8.72 continua sem
+> Release. **A Release é UMA**, cortada de `main` na tag mais nova, e o APK que
+> sai dela carrega todo o Kotlin acumulado. Zerar o `shellTag` aqui publicaria o
+> bundle sozinho e deixaria o conserto do pacote para trás, calado.
+>
 > **A v1.8.72 PEDE RELEASE, e ela mostra que o gatilho não é a PONTE, é o
 > `java/`.** Nenhum método entrou nem mudou de forma — o `SHELL_VERSION` segue
 > 72 —, mas o `PacoteCanal` e o `MainActivity` mudaram, e nada em `java/` chega
 > por OTA. O `shellTag` está declarado porque as duas metades têm de pousar
 > JUNTAS: a nota do lote fala de um conserto que só existe no APK, e um bundle
 > que chegasse sozinho anunciaria ao operador algo que o aparelho dele não tem.
-> **Depois do merge em `main`: Actions → Build APK → `release_tag = v1.8.72`.**
+> **Depois do merge em `main`: Actions → Build APK → `release_tag = v1.8.73`.**
 > Sem isso o canal fica SEGURANDO o bundle para sempre, em silêncio, e a única
 > pista é a linha no resumo do run.
 >

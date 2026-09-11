@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.73",
+    "itens": [
+      "Os dois botões quadrados ao lado da busca da Biblioteca voltaram a ter o ícone do mesmo tamanho."
+    ]
+  },
+  {
     "versao": "1.8.72",
     "itens": [
       "Exportar a biblioteca para um cartão ou para a nuvem deixou de poder travar o app no fim da gravação."

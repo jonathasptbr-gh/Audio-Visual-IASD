@@ -72,7 +72,13 @@ por medição direta. Só o que está marcado **VERIFICADO** passou por isso.
 
 ### [6] Os dois quadrados da barra da Biblioteca desenham o ícone em tamanhos diferentes (20px × 22px)
 
-`app/src/main/assets/web/controle/controle.css:834` · gravidade **media** · NÃO VERIFICADO · lente `html-js-fiacao`
+`app/src/main/assets/web/controle/controle.css:834` · gravidade **media** · ✅ **RESOLVIDO na v1.8.73** · lente `html-js-fiacao`
+
+
+> **RESOLVIDO na v1.8.73.** Medido por conta própria antes de mexer: `{sorteio: 20, alternador: 22, degrau: 22}`,
+> com as caixas idênticas nas três telas. A entrada na lista do `--icon-md` é por CLASSE (`.lib-quad`) e nunca pelo id —
+> dentro de um `:is()` a especificidade é a do argumento mais específico, e um `#sorteioBtn` ali moveria a cascata dos
+> outros cinco. As duas asserções novas do `barra-em-qualquer-tela` medem o `<svg>`, não o botão; reversão: 8 reprovações.
 
 **Evidência.** A linha 833 fecha a lista do `--icon-sm` (`) svg { display: block; width: var(--icon-sm); ... }`), que contém `.popup-close`; a 834 abre a do `--icon-md` (`:is(.lib-toggle, .t-btn, .ctl-btn, .misc-tab, .settings-btn) svg {`), que contém `.lib-toggle`. No HTML, `#sorteioBtn` (index.html:2699) tem SÓ `class="popup-close"` e `#hymnSearchToggle` (index.html:2709) tem `class="popup-close lib-toggle"` — ele casa as DUAS regras, que são ambas (0,1,1), e a de baixo vence. Os dois svg estão escritos com `width="19"` no HTML (2699 e 2710/2713), isto é, o autor os pediu iguais. E o próprio CSS diz que o que separa os dois quadrados é só a COR: controle.css:2462-2469 — *"a receita compartilhada dos quadrados é `#hymnSearchToggle, #sorteioBtn`"*, *"as duas coisas que distinguem os dois quadrados, no mesmo lugar"* — e registra que esses MESMOS dois botões já perderam uma vez por cascata sem nada na tela dizer.
 

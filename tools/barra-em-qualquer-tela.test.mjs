@@ -212,6 +212,23 @@ try {
       const btn = document.querySelector('.transport .t-btn');
       const lb = btn.getBoundingClientRect();
       const sorteio = document.getElementById('sorteioBtn').getBoundingClientRect();
+      // O DESENHO DOS DOIS QUADRADOS, e não só a caixa deles (v1.8.73). As
+      // CAIXAS já eram medidas aqui e são idênticas — e foi por isso que a
+      // divergência viveu: o `<svg>` do `#sorteioBtn` media 20px contra os 22
+      // do `#hymnSearchToggle`, a um campo de busca de distância. É a mesma
+      // cegueira que o `.crono-limpar` custou na v1.8.68: medir o BOTÃO nunca
+      // acusa o DESENHO.
+      const svgDe = (id) => {
+        const g = document.getElementById(id).querySelector('svg');
+        return Math.round(g.getBoundingClientRect().width * 100) / 100;
+      };
+      const desenho = { sorteio: svgDe('sorteioBtn'), alternador: svgDe('hymnSearchToggle'),
+        // O DEGRAU DECLARADO, lido do `:root` — e não o `<svg>` de um vizinho:
+        // o `.t-btn` do transporte desenha por GLIFO, não por `<svg>`, e um
+        // terceiro elemento escolhido a esmo faria a asserção medir outra coisa
+        // no dia em que ele trocasse de família.
+        degrau: parseFloat(getComputedStyle(document.documentElement)
+          .getPropertyValue('--icon-md')) };
       const alternador = document.getElementById('hymnSearchToggle').getBoundingClientRect();
       const ultimo = [...document.querySelectorAll('.deck > *')]
         .map((e) => e.getBoundingClientRect())
@@ -225,6 +242,7 @@ try {
         direitas: Math.abs(alternador.right - ultimo.right) <= 1,
       };
       return {
+        desenho,
         grade,
         barra: [Math.round(rb.top), Math.round(rb.bottom)],
         caixa: [Math.round(rc.top), Math.round(rc.bottom)],
@@ -258,6 +276,22 @@ try {
       '[' + tela.nome + '] os dois quadrados têm a LARGURA da coluna do '
       + 'transporte — a grade é proporcional, e uma medida fixa só acerta numa '
       + 'largura de tela (v1.5.5)', JSON.stringify(m.grade));
+    checar(m.desenho.sorteio === m.desenho.alternador,
+      tela.nome + ': OS DOIS QUADRADOS DESENHAM O MESMO TAMANHO. As caixas '
+      + 'sempre foram iguais — a asserção da grade, acima, já as media, e foi '
+      + 'por isso que a divergência viveu: o que difere é o `<svg>` DENTRO '
+      + 'delas. O `#hymnSearchToggle` casa as DUAS listas de escala '
+      + '(`.popup-close` no `--icon-sm`, `.lib-toggle` no `--icon-md`) e o '
+      + '`#sorteioBtn` só a primeira. O HTML pediu os dois iguais (`width="19"` '
+      + 'nos dois) e o CSS da receita compartilhada diz que o que os distingue '
+      + 'é a COR. Medir o BOTÃO nunca acusa o DESENHO — é a cegueira que o '
+      + '`.crono-limpar` custou na v1.8.68',
+      JSON.stringify(m.desenho));
+    checar(m.desenho.sorteio === m.desenho.degrau,
+      tela.nome + ': e o tamanho é o DEGRAU DECLARADO `--icon-md`, não um '
+      + 'número que calhou — é contra o transporte que esta barra é medida '
+      + 'desde a v1.5.5 ("no tom E na largura dos botões do transporte")',
+      JSON.stringify(m.desenho));
     checar(m.grade.esquerdas && m.grade.direitas,
       '[' + tela.nome + '] e as PONTAS batem: a linha começa e acaba onde a '
       + 'fileira de baixo começa e acaba', JSON.stringify(m.grade));
@@ -268,6 +302,7 @@ try {
 
     await ctx.close();
   }
+
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));
 } catch (err) {
