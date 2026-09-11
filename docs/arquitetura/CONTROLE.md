@@ -1611,10 +1611,12 @@ separada (`.tabs`); abre o mesmo bottom-sheet com a fila de reprodução de
 sempre. Reaproveita o tamanho/estilo de `.t-btn` (a linha de transporte
 cresceu de 5 para 6 botões, cada um um pouco mais estreito). O badge de
 contagem (`#plCount`) só aparece a partir do **2º item** (mostra
-`count - 1`), e o ícone só fica destacado em `--accent` (`.has-items`) nesse mesmo
-caso: com apenas a mídia atual em fila, a playlist é só a reprodução avulsa
-e não deve chamar atenção nem com um "1" enganoso nem com o ícone colorido —
-fica neutro (branco).
+`count - 1`): com apenas a mídia atual em fila, a playlist é só a reprodução
+avulsa e não deve chamar atenção com um "1" enganoso. **O ÍCONE NÃO MUDA DE
+COR** — houve uma classe `.has-items` que o tingia de `--accent` no mesmo caso,
+e a regra dela saiu do `controle.css` na v1.5.0 com o rodapé; a escrita
+sobreviveu sem consumidor até a v1.8.79, com esta linha prometendo um destaque
+que não acontecia há sete meses. Quem diz "há fila" é o BADGE, e só ele.
 
 ### Feedback (sem alerta flutuante) — e a exceção do salvamento
 

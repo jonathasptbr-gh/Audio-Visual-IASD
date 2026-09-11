@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.79",
+    "itens": [
+      "Faxina por dentro: saíram quatro restos que nada no app lia ou alcançava. Nada muda na tela."
+    ]
+  },
+  {
     "versao": "1.8.78",
     "itens": [
       "Faxina por dentro: saiu um parâmetro que nenhuma parte do app preenchia desde a v1.2.25. Nada muda na tela."
