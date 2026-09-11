@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.75';
+const WEB_VERSION = '1.8.76';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3429,7 +3429,7 @@ function syncFader(pct) {
 // Então aqui o ícone segue sendo o modo ATUAL, que é a informação que se perde.
 function renderRepeat() {
   const icon = repeat === 'one' ? ICON.repeatOne : repeat === 'shuffle' ? ICON.shuffle : ICON.repeatAll;
-  // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (v1.8.75), e não se ela anda:
+  // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (v1.8.76), e não se ela anda:
   // desde aquele lote a fila anda nos quatro modos, e "Repetição desativada"
   // passaria a prometer o oposto do que o `off` faz — que é justamente o
   // comportamento que o operador procurava quando esquecia de armar o `all`.
@@ -5563,7 +5563,7 @@ async function abrirPacote(d, cueId) {
   // prometer por causa deste campo.
   if (d.view && view !== d.view) await setView(d.view);
   // `trocarFila`, e não o `listSet` cru: um pacote é uma SEQUÊNCIA nova, e o
-  // modo de repetição do que tocava antes dele é resquício (v1.8.75).
+  // modo de repetição do que tocava antes dele é resquício (v1.8.76).
   await trocarFila(recs.map((r) => r.id));
   plItems = recs;
   renderPlaylist();
@@ -15184,7 +15184,7 @@ function autoAdvance() {
   // `resendSceneToDisplay` pergunta `midiaNoAr`: uma queda de dongle trazia de
   // volta ao telão a faixa que JÁ TINHA ACABADO.
   //
-  // E DESDE A v1.8.75 `off` CHEGA AQUI TAMBÉM — ele deixou de ser o primeiro
+  // E DESDE A v1.8.76 `off` CHEGA AQUI TAMBÉM — ele deixou de ser o primeiro
   // `return` desta função —, o que só torna esta linha mais necessária: é a
   // única que responde pela fila vazia nos QUATRO modos.
   if (plItems.length === 0) { resetAfterEnd(); return; }
@@ -15195,7 +15195,7 @@ function autoAdvance() {
     return;
   }
   const idx = plItems.findIndex((m) => m.id === currentId);
-  // ===== `off` É "SEM REPETIÇÃO", NUNCA "SEM SEQUÊNCIA" (v1.8.75) =====
+  // ===== `off` É "SEM REPETIÇÃO", NUNCA "SEM SEQUÊNCIA" (v1.8.76) =====
   //
   // Relato do operador: *"é normal o seletor estar desativado, tocar uma
   // playlist automática, mas ele tocar apenas a primeira e parar, pois o
@@ -15502,7 +15502,7 @@ function attachRowGestures(row, item) {
 }
 
 /**
- * ===== TROCAR A FILA ZERA O SELETOR DE REPETIÇÃO (v1.8.75) =====
+ * ===== TROCAR A FILA ZERA O SELETOR DE REPETIÇÃO (v1.8.76) =====
  *
  * Pedido do operador: *"ao se tocar um item, seja do cronograma ou o que for,
  * resete o estado do seletor de repetição, para ele não repetir uma mídia que
@@ -15537,7 +15537,7 @@ async function trocarFila(ids) {
 }
 
 /**
- * O SELETOR VOLTA AO COMEÇO (v1.8.75). Separado do `trocarFila` por UM chamador
+ * O SELETOR VOLTA AO COMEÇO (v1.8.76). Separado do `trocarFila` por UM chamador
  * que projeta sem fila nenhuma — o compartilhamento no Modo Fácil —, e ele é o
  * caso extremo da regra: ali a caixa de controles inteira não é desenhada
  * (`body.mode-simple .bottombar`), então um `one` herdado do modo avançado
@@ -22385,7 +22385,7 @@ async function montarFilaSorteada(escolhidos) {
     // primeiro item vai ao telão. `listSet` também COLETA o que saiu da lista —
     // é a mesma semântica de todo "Tocar agora" do acervo, que já substitui a
     // fila por `replacePlaylistWith`.
-    // `trocarFila` ZERA O SELETOR (v1.8.75), e é aqui que isso mais importa: a
+    // `trocarFila` ZERA O SELETOR (v1.8.76), e é aqui que isso mais importa: a
     // playlist automática é o caminho em que o operador menos olha para o
     // transporte — ele sorteia e projeta. Com `one` herdado da faixa anterior a
     // fila recém-montada tocaria a primeira em laço; com `off`, ela anda até o
@@ -28072,6 +28072,10 @@ async function pptxImportar(file, nome, opts) {
   // (ver `ytArquivo`): "Preparando apresentação" sozinho não diz QUAL, e com o
   // app minimizado esta é a única tela que existe.
   bgItemOnly(notif, rotulo);
+  // OS IDS QUE ESTA IMPORTAÇÃO ESTACIONOU (ver `avulsosEmMontagem`). Declarada
+  // AQUI, e não dentro do `withBgWork`, porque quem a solta é o `finally` desta
+  // função — o único ponto por onde os três desfechos passam.
+  const emMontagem = [];
   try {
     return await withBgWork(async () => {
       const feito = await AVDeck.paginasDoPptx(file, (feitas, total) => {
@@ -28113,18 +28117,28 @@ async function pptxImportar(file, nome, opts) {
           type: v.blob.type || 'video/mp4',
           list: 'avulsos',
         });
-        if (rec) videos[v.pagina] = rec.id;
+        if (rec) {
+          videos[v.pagina] = rec.id;
+          // ANTES do próximo `addMedia`, que já é uma espera: o `send` do
+          // operador cabe entre dois deles.
+          emMontagem.push(rec.id);
+          avulsosEmMontagem.add(rec.id);
+        }
       }
       const criado = await AVDB.addDeck(feito.pages, {
         name: rotulo, thumb, list: (opts && opts.lista) || 'imports',
         videos: Object.keys(videos).length ? videos : null,
       });
       // E SÓ AGORA ELES SAEM DA PRATELEIRA. `avulsos` é o detentor provisório
-      // que os segura entre o `addMedia` e o `addDeck`: sem ele, uma faxina
-      // caindo nessa janela levaria os vídeos embora e a apresentação nasceria
-      // apontando para bytes que não existem mais. Depois do `addDeck` quem os
-      // segura é a apresentação, e ficar nos dois lugares faria o vídeo
-      // sobreviver a ela.
+      // entre o `addMedia` e o `addDeck` — sem lista nenhuma, a faxina da
+      // abertura os levaria e a apresentação nasceria apontando para bytes que
+      // não existem mais. Depois do `addDeck` quem os segura é a apresentação,
+      // e ficar nos dois lugares faria o vídeo sobreviver a ela.
+      //
+      // **ESTAR NELA NÃO BASTA**, e o comentário aqui afirmou o contrário até a
+      // v1.8.75: ela é RODÍZIO de três, e um `send` do operador nesta janela
+      // despejava o vídeo mais antigo — o blob morria sem dono. Quem fecha isso
+      // é o `avulsosEmMontagem`, e não esta lista.
       for (const p in videos) await AVDB.listRemove('avulsos', videos[p]);
       // O CORTE É DITO, e pela mesma porta do PDF (ver `deckImportar`): uma
       // apresentação cortada sem aviso leria como "o arquivo era assim", e o
@@ -28148,6 +28162,7 @@ async function pptxImportar(file, nome, opts) {
     deckUltimoErro = 'pptx: ' + ((e && e.message) || 'erro sem mensagem');
     return null;
   } finally {
+    for (const id of emMontagem) avulsosEmMontagem.delete(id);
     bgTaskEnd(notif);
     bg.soltar();
   }
@@ -28313,12 +28328,33 @@ async function ytArquivo(alvo, opts) {
 // pelos últimos DA MESMA LEVA — inclusive o que vai ser projetado, que é o
 // primeiro. Quem cede lugar é sempre o que já estava aqui de antes.
 const AVULSO_MAX = 3;
+
+// OS IDS EM MONTAGEM — mídia que já está no IndexedDB e cujo DETENTOR DEFINITIVO
+// ainda não existe. Hoje há um produtor só: o `pptxImportar`, que estaciona cada
+// vídeo embutido em `avulsos` e só cria a apresentação que os segura depois do
+// último `addMedia`.
+//
+// A prateleira NÃO protege esse vão — ela é RODÍZIO, e essa é a razão de ser
+// dela. Todo `send` passa por aqui; com três vídeos estacionados, `cabem = 2` e
+// o excedente leva os mais antigos, que são justamente eles. Ninguém mais os
+// aponta, então o `listRemove` do `db.js` APAGA o blob (`isReferenced` não acha
+// dono), e o `addDeck` seguinte nasce com `videos[pagina]` apontando para um id
+// que já não existe: chegar naquela página não projeta nada, sem erro no
+// console — descoberto no culto. MEDIDO: 2 de 3 vídeos sobreviviam.
+//
+// Entra e sai por LOTE do importador (cada um apaga só os SEUS ids no `finally`,
+// para um segundo import não soltar os do primeiro), e a saída é garantida nos
+// três desfechos — pronto, cancelado e exceção. Solto, o id volta a ser
+// despejável: se a importação falhou, o vídeo é órfão e o rodízio é quem o
+// recolhe.
+const avulsosEmMontagem = new Set();
+
 async function fixarAvulso(novos) {
   const lote = (Array.isArray(novos) ? novos : [novos]).filter(Boolean);
   if (!lote.length) return;
   const ids = await AVDB.listIds('avulsos');
   for (const id of lote) if (!ids.includes(id)) await AVDB.listAdd('avulsos', id);
-  const outros = ids.filter((x) => !lote.includes(x));
+  const outros = ids.filter((x) => !lote.includes(x) && !avulsosEmMontagem.has(x));
   const cabem = Math.max(0, AVULSO_MAX - lote.length);
   const excedente = outros.slice(0, Math.max(0, outros.length - cabem));
   for (const velho of excedente) await AVDB.listRemove('avulsos', velho);
@@ -28737,7 +28773,7 @@ async function focarImportado(id) {
   // No simplificado o item vai direto ao telão: esse modo existe para quem não
   // vai operar nada, e a lista sequer aparece nele.
   //
-  // E O SELETOR DE REPETIÇÃO VOLTA AO COMEÇO ANTES (v1.8.75) — ver
+  // E O SELETOR DE REPETIÇÃO VOLTA AO COMEÇO ANTES (v1.8.76) — ver
   // `zerarRepeticao`. Este é o único caminho que projeta SEM redefinir a fila,
   // e é o mais exposto: no Modo Fácil não há transporte na tela, então um modo
   // herdado do avançado não teria como ser desfeito por quem está operando.

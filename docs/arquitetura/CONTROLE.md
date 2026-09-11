@@ -8306,7 +8306,7 @@ retorno aproveitado; `handleSharedUrl` também devolve o seu.
 
 Ciclo ao tocar no botão 🔁: `off → all → one → shuffle → off` (persistido em `repeat`).
 
-**O SELETOR RESPONDE PELO FIM DA FILA, NÃO POR ELA ANDAR** (v1.8.75). Até aquele
+**O SELETOR RESPONDE PELO FIM DA FILA, NÃO POR ELA ANDAR** (v1.8.76). Até aquele
 lote `off` era o primeiro `return` do `autoAdvance` — o fim de QUALQUER faixa era
 fim de cena —, e com isso a única forma de ouvir uma sequência era armar `all`,
 que é outra coisa: aquele RECOMEÇA no fim. Relato do operador: *"é normal o
@@ -8327,7 +8327,7 @@ projetado na hora, um item que voltou da prateleira `avulsos` — o `off` encerr
 cena, enquanto o `all` começa a fila pelo topo. A diferença é o que a congregação
 vê: abrir um bloco de louvores que ninguém mandou tocar.
 
-**TROCAR A FILA ZERA O SELETOR** (`trocarFila`, v1.8.75) — pedido do operador:
+**TROCAR A FILA ZERA O SELETOR** (`trocarFila`, v1.8.76) — pedido do operador:
 *"ao se tocar um item, seja do cronograma ou o que for, resete o estado do
 seletor de repetição… que reflitam a intenção do usuário e não um resquício de
 uma opção da mídia passada"*. A pergunta é **"a fila foi REDEFINIDA?"**, e por

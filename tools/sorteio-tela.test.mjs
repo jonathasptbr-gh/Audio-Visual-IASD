@@ -526,7 +526,7 @@ try {
     sorteioPrefs.quantos = 3;
     sorteioPrefs.tema = '';            // o acervo inteiro: 3 baixadas
     sorteioPrefs.soNoAparelho = true;
-    // O SELETOR ARMADO NA FAIXA ANTERIOR (v1.8.75): é assim que ele chega aqui
+    // O SELETOR ARMADO NA FAIXA ANTERIOR (v1.8.76): é assim que ele chega aqui
     // num culto — `one` sobrou do louvor que o operador repetiu, e a playlist
     // recém-sorteada tocaria a primeira em laço.
     await AVDB.setState('repeat', 'one'); repeat = 'one'; renderRepeat();
@@ -546,7 +546,7 @@ try {
     fila.plItems);
   checar(fila.noAr === fila.primeiro,
     'e a PRIMEIRA já está no telão (o caminho do `abrirPacote`)', fila);
-  // ===== E A FILA ANDA SOZINHA (v1.8.75) =====
+  // ===== E A FILA ANDA SOZINHA (v1.8.76) =====
   //
   // Relato do operador: *"é normal o seletor estar desativado, tocar uma
   // playlist automática, mas ele tocar apenas a primeira e parar, pois o
