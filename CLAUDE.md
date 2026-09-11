@@ -1376,19 +1376,37 @@ nenhum**, e por isso ficam aqui.
   (`--rodape-h`, falha aberta em `--hit-foot`) mais o recuo que já existia, e o
   teste é de PIXEL: a geometria não acusa uma linha coberta, porque ela continua
   dentro da caixa (medido: 58 a 61% da última linha).
+  **E ELA É MARGEM DO ÚLTIMO ITEM, NUNCA `padding` DO SCROLLER** (v1.8.63). Um
+  `sticky` não escapa do bloco contêiner dele, e o de um item flex é o CONTENT
+  box do pai — que termina onde o `padding-bottom` começa. A tira pede o padding
+  box e, nos últimos pixels de rolagem, é RECORTADA: ela sobe 1px por pixel
+  rolado. **A janela de subida é IGUAL ao `padding-bottom` do scroller** —
+  medido, 57,4px no último degrau com os 61,2px da v1.8.61, e 72,4px com a raiz
+  do sistema a 24px. Num contêiner flex a margem do último item entra na região
+  rolável do mesmo jeito e fica DENTRO do bloco contêiner: `--veu-base` cai a
+  zero e não há o que recortar. **O mesmo mecanismo segue vivo, 8× menor, no
+  `#playlist` (7,2px) e no `#lyricsViewBody` (6,6px)** — não foi consertado
+  neles, e quem for lá encontra a receita aqui.
   **E o que flutua tem de ser OPACO** — tinta com alfa sobre uma lista que rola
   muda de cor a cada quadro (medido: 1343 de 3192 amostras), e o valor opaco é
   um TOKEN, não um gradiente compondo sobre o fundo: a cor tem de estar no
   `background-color`, que é o que toda sonda de contraste deste repositório lê.
-  **E ele é o DENIM CHEIO desde a v1.8.62** (`--surface-porta: #2f557f`, o mesmo
-  valor nos dois temas), a pedido do operador: o azul de "ativado" das
-  Configurações (`--btn-accent`) é o denim LAVADO, e o pedido foi o sólido. Sobre
-  ele escreve-se `--on-accent` — o `--accent` mede **2,05:1** ali no escuro e
-  **1,00:1** no claro (onde ele É o denim), e como as regras por classe vêm
-  DEPOIS da agrupada com a mesma especificidade, um `color` deixado numa delas
-  vence e apaga o rótulo. **A sombra de cada porta aponta para CIMA**
-  (`0 -2px 8px`): abaixo delas está a fronteira, e a sombra do resto do app
-  cairia fora da tela sem erro nenhum.
+  **E ele é o AZUL DE "ATIVADO" desde a v1.8.63** — `--surface-porta:
+  var(--btn-accent)`, o mesmo dos cards de Configurações, a pedido do operador.
+  **É ALIAS e não literal:** os dois temas têm valores OPOSTOS (`#293d57` ·
+  `#dcebfe`), e um deles digitado aqui mede 15,57:1 contra o `--bg` no outro.
+  Sobre ele escreve-se `--accent`, o par declarado do token (5,37:1 · 6,37:1) —
+  o `--on-accent` é o par do DENIM e mede **1,21:1** no claro; e como as regras
+  por classe vêm DEPOIS da agrupada com a mesma especificidade, um `color`
+  deixado numa delas vence e apaga o rótulo. **A sombra de cada porta aponta
+  para CIMA** (`0 -2px 8px`): abaixo delas está a fronteira, e a sombra do resto
+  do app cairia fora da tela sem erro nenhum.
+  **E A `.selbar` LARGOU ESSE AZUL NO MESMO LOTE** — ela é a outra inquilina da
+  MESMA fatia do rodapé, e as duas ficariam em ΔE00 **0,00**. Ela volta à base
+  (`--bg`), que é a que já veste na gaveta dos Favoritos, e a remoção atravessa
+  um piso de carona: o ícone do EXCLUIR estava em **2,48:1** no escuro (abaixo
+  do piso de 3:1) e foi a **4,26:1**. Pintá-la de denim fazia o oposto: 1,88:1
+  no ícone e 1,00:1 no contador.
 - **MAS ELA NÃO ALCANÇA O SCROLLER INTEIRO: A CAIXA TEM DE ALCANÇAR PRIMEIRO**
   (v1.8.60). `overflow-y: auto` COMPUTA `overflow-x: auto`, então a margem
   negativa é RECORTADA pela caixa do scroller — MEDIDO no Cronograma, forçar
@@ -1405,6 +1423,14 @@ nenhum**, e por isso ficam aqui.
   a calha à margem deixava o vão em 10,0px. Desde a v1.8.61 a pergunta não se
   faz mais (não há barra), mas a armadilha volta com qualquer barra que volte.
   Um `--veu-calha` foi escrito, medido e revertido; não refazer.
+- **E A CAIXA TEM DE ALCANÇAR A BARRA, NÃO A BASE DAS PORTAS** (v1.8.63). O
+  `<main>` tem um `padding-bottom` de 5,59px (`--vao-barra`) entre a lista e a
+  caixa de controles, e a tira mora no padding box do SCROLLER: ela nunca
+  alcançava a fronteira que o operador vê. É a lição do eixo horizontal
+  (v1.8.60) aplicada ao vertical — margem negativa leva a caixa até lá, as
+  portas não se mexem (são `absolute` contra o `.list-body`, que não mudou), e
+  a caixa RECOLHE sob uma folha, senão sobram 5,6px de lista visíveis E tocáveis
+  na moldura que a folha não cobre.
 - **A TIRA MARCA A FRONTEIRA, E UM RODAPÉ FLUTUANTE PASSA POR CIMA DELA**
   (v1.8.62, revogando a v1.8.61). Aquele lote descontava a altura das portas do
   `bottom` da tira para ela não ficar atrás delas; o pedido do operador é o
@@ -1505,7 +1531,17 @@ nenhum**, e por isso ficam aqui.
   era um toque que gravava, repintava e **não mudava um pixel** (foi o relato que
   abriu a v1.8.62). **Um dos três toques continua sem mudar a cor** — três
   estados sobre duas cores —, e o certo é que seja o que ENTRA no automático, o
-  único cujo rótulo anuncia o que aconteceu. O do meio é a **ausência** da chave
+  único cujo rótulo anuncia o que aconteceu — **e desde a v1.8.63 esse rótulo
+  EXISTE NA TELA**. O tile tinha TRÊS estados e DUAS renderizações: medido, o
+  automático e a escolha que casa com a cor do aparelho saíam no MESMO PNG, byte
+  a byte, com o mesmo `data-estado` — o `rotulo` do `renderTemaTile` ia só para o
+  `aria-label`, porque a v1.7.2 tirou a segunda linha de todo tile. Hoje o
+  `data-estado` é COMPOSTO (`auto-claro`), uma marca ADITIVA se soma ao par
+  lua/sol (substituí-lo apagaria *"claro ou escuro AGORA?"*) e uma `.qs-estado`
+  diz a palavra. **É a ÚNICA exceção à v1.7.2, ela é NOMEADA no oráculo e a
+  causa é aritmética:** três estados sobre dois desenhos. A linha é SEMPRE
+  desenhada e sempre com tinta — condicional, ela pularia a grade 6,81px entre
+  estados que um toque alcança. O do meio é a **ausência** da chave
   `av.tema`: sem escolha guardada o app lê `prefers-color-scheme` (que no WebView
   responde pelo modo noturno do SISTEMA, não pelo tema desta Activity) e
   acompanha o aparelho **ao vivo**, porque o Android troca ao anoitecer e o culto
@@ -2479,7 +2515,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.62 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.63 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -2490,14 +2526,14 @@ bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.62 são o mesmo caso, pela mesma
+> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.63 são o mesmo caso, pela mesma
 > razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A v1.8.62 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
+> **A v1.8.63 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
 > nem o `build.gradle.kts` — só `assets/web/`, `tools/` e `docs/`.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, e desde a v1.8.50 ela TEM ORÁCULO.**

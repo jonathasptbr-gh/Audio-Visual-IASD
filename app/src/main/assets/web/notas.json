@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.63",
+    "itens": [
+      "As três portas do Cronograma agora usam o mesmo azul dos cards de Configurações, e não o azul escuro.",
+      "A barra de seleção múltipla largou esse azul para continuar se distinguindo delas — e o excluir ficou mais legível.",
+      "A sombra do fim da lista parou de subir da base quando você rola até o fim do Cronograma.",
+      "E a lista passou a terminar no topo da barra de buscas, sem a faixa que sobrava embaixo dela.",
+      "O tema mostra quando está no automático: uma marca no ícone e a palavra “Auto” no card."
+    ]
+  },
+  {
     "versao": "1.8.62",
     "itens": [
       "As três portas do Cronograma agora são azuis, em denim cheio, cada uma com sombra própria.",
