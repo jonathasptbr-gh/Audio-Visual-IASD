@@ -135,9 +135,10 @@ caminhos que produziam uma cena de transmissão — o "Tocar agora", o item de l
   aparelho, e sem o motor aquela cena viraria palco vazio em vez de tocar até o
   manifesto expirar (horas). **Nada no app cria um manifesto novo** — não
   reintroduzir uma chamada a `AVStream.criar` no Controle sem o operador pedir.
-- **`ytStream` na ponte, e o `StreamProxy.kt`.** Tirá-los é um degrau de
-  `SHELL_VERSION` e uma Release; este lote é só web, e um método de ponte sem
-  chamador não custa nada ao aparelho.
+- **O `ytStream` do KOTLIN, e o `StreamProxy.kt`.** Tirá-los é um degrau de
+  `SHELL_VERSION` e uma Release, e um método de ponte sem chamador não custa
+  nada ao aparelho. **O embrulho do lado WEB saiu na v1.8.71** — encolher pelo
+  web é o lado seguro e dispensa Release —, então hoje nada no app o alcança.
 - **A rota `/s/<token>` das telas da rede.** Ela repassa a faixa do googlevideo
   para uma tela da LAN, e o que a alimentava era o mesmo manifesto — hoje ela
   não tem o que servir, e cai junto por construção.

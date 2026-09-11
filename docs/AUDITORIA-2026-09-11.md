@@ -136,9 +136,15 @@ O fecho não segue essa regra. `PacoteCanal.fechar()` (PacoteCanal.kt:140-155) f
 
 ### [18] Três métodos de `AVNative` sem nenhum consumidor no app — `ytStream`, `otaPending` e `apkProcurar` —, os três catalogados em `docs/shell/PONTE.md` como superfície viva
 
-`app/src/main/assets/web/shared/native.js:395` · gravidade **media** · **VERIFICADO** · lente `controle-js-morto`
+`app/src/main/assets/web/shared/native.js:395` · gravidade **media** · ✅ **RESOLVIDO na v1.8.71** · lente `controle-js-morto`
 
 > **Conferido nesta sessão:** medido: zero consumidores dos três em toda a base web; os três existem como `@JavascriptInterface` (`NativeBridge.kt` 576, 755, 1359)
+
+
+> **RESOLVIDO na v1.8.71.** Os três saíram do `native.js` (lado WEB; o `@JavascriptInterface` fica, e por isso
+> o lote não pede Release). O que fecha a classe é o bloco novo do `funcao-sem-chamador.test.mjs`, que varre a
+> superfície de `AVNative` — o vão era este: os dois blocos antigos varrem `function foo` e constantes de módulo, e
+> um método de objeto literal não é nem uma coisa nem outra. Reversão medida nos dois sentidos.
 
 **Evidência.** Varri toda a base web (`controle/`, `display/`, `espelho/`, `shared/`, os dois `index.html`) por `AVNative.<nome>`, `AVNative['<nome>']` e `"<nome>"`: os três não aparecem FORA do próprio `native.js`. `ytStream` (395-396) era o produtor do manifesto DASH, e o cabeçalho de `shared/mse.js:35` diz textualmente "===== NADA NESTE APP CRIA UM MANIFESTO NOVO (v1.7.7) ===== ... O que some é a produção, não a leitura". `otaPending` (640) e `apkProcurar` (686) foram substituídos pelo `atualizacaoEstado` (linha 677), e o comentário dele, na própria linha 667, escreve a substituição no passado: "com `otaPending`, `apkProcurar` e `otaDiag` separados, as três respostas chegam em três momentos" — o irmão `otaDiag` CONTINUA sendo chamado (controle.js:23432), os outros dois não. Nenhum dos três está na lista `MORTAS_DE_PROPOSITO` do `funcao-sem-chamador.test.mjs` (que tem só `addStreamMedia`/`setMediaStream`, com o comentário que as sustenta), e nenhum tem no `native.js` a frase que aquela lista exige. O oráculo não os alcança porque o bloco que varre superfície exportada é "escopado ao `AVDB` de propósito" e os `function`/`const` não cobrem propriedades de objeto literal. O custo não é só o byte: os três estão replicados como stub em ~20 oráculos (`abertura-e-transferencia.test.mjs:46,52,66,70`, `boot-nativo.test.mjs:128,276,280`, `cifra-offline`, `cifra-rolagem`, `cifra-tela-cheia`, `controles-layout`, `fonte-so-do-par`, `leitor-apresentacao`, …), sempre DEFINIDOS e nunca chamados.
 
@@ -148,7 +154,7 @@ O fecho não segue essa regra. `PacoteCanal.fechar()` (PacoteCanal.kt:140-155) f
 
 ### [28] `AVNative.ytStream` não tem consumidor nenhum na base web desde a v1.7.3, e o comentário dele ainda descreve o chamador removido
 
-`app/src/main/assets/web/shared/native.js:395` · gravidade **media** · **VERIFICADO** · lente `ponte-contrato`
+`app/src/main/assets/web/shared/native.js:395` · gravidade **media** · ✅ **RESOLVIDO na v1.8.71** · lente `ponte-contrato`
 
 > **Conferido nesta sessão:** idem — o único `ytStream` fora do `native.js` é um comentário em `display.js:1298`
 
@@ -171,7 +177,7 @@ E ele não carrega nota nenhuma: o comentário de 383-394 descreve o chamador em
 
 ### [30] `otaPending` e `apkProcurar` não têm consumidor nenhum na base web, e o comentário do segundo afirma que tem
 
-`app/src/main/assets/web/shared/native.js:640` · gravidade **media** · **VERIFICADO** · lente `ponte-contrato`
+`app/src/main/assets/web/shared/native.js:640` · gravidade **media** · ✅ **RESOLVIDO na v1.8.71** · lente `ponte-contrato`
 
 > **Conferido nesta sessão:** idem
 

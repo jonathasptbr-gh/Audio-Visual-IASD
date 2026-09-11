@@ -41,7 +41,7 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    (69 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
-                                       window.AVNative  (63 métodos)
+                                       window.AVNative  (60 métodos)
                                        + 4 globais lidas direto
 ```
 
@@ -319,6 +319,10 @@ pronta, fila }`.
 independentes desenhavam o diálogo pela metade.
 
 ### `apkProcurar()` — três desfechos, e nenhum deles é `null`
+
+> **SEM CONSUMIDOR NO WEB desde a v1.8.71** (o embrulho do `native.js` saiu; o
+> `@JavascriptInterface` ficou). A seção fica porque descreve o que o SHELL
+> ainda serve — quem voltar a precisar dele reescreve o embrulho e lê isto.
 
 | desfecho | quando |
 |---|---|
@@ -605,7 +609,14 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 
 ---
 
-## O CATÁLOGO COMPLETO — os 63 métodos, um a um
+## O CATÁLOGO COMPLETO — os 60 métodos, um a um
+
+> **O SHELL SERVE 63.** Os três de diferença — `ytStream`, `otaPending` e
+> `apkProcurar` — perderam o consumidor em duas fusões (a transmissão direta
+> na v1.7.7; o `atualizacaoEstado` absorvendo as leituras separadas do OTA) e a
+> **v1.8.71 os encolheu pelo LADO WEB**, que é o lado seguro: o `@JavascriptInterface`
+> continua em `NativeBridge.kt`, então o lote não pediu Release. Voltar a usá-los
+> é escrever o embrulho de novo no `native.js` — nada do shell precisa mudar.
 
 <!-- Extraído do `CLAUDE.md` na faxina de 2026-09-07. -->
 
@@ -672,7 +683,7 @@ window.AVNative = {
                        //   `altura` é o TETO de resolução
   ytDiscard(url),      //   e apaga o arquivo depois que os bytes foram copiados
   ytCancel(url),       // PARA o download em curso deste link
-  otaPending(),        // → versão da base web já baixada que espera (ou '')
+  // otaPending()      // só no SHELL desde a v1.8.71: sem consumidor no web (absorvido pelo `atualizacaoEstado`)
   otaApply(),          // APLICA-a agora: as duas páginas recarregam
   otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell
   otaDiag(),           // → string: quando foi a última busca e o que ela deu
@@ -685,7 +696,7 @@ window.AVNative = {
                        //   primeiro, JÁ FILTRADA pelo shell para o que este
                        //   aparelho não tem. Lida do `notas.json` do PRÓPRIO
                        //   bundle baixado, nunca do manifesto
-  apkProcurar(),       // → {} · { versao, bytes, notas } · { erro }
+  // apkProcurar()     // só no SHELL desde a v1.8.71: sem consumidor no web (idem)
                        //   `bytes` é o TAMANHO do .apk; NÃO há campo `url` (quem
                        //   guarda a URL é o `ShellUpdater`) e o vazio é `{}`,
                        //   nunca `null`
@@ -694,7 +705,7 @@ window.AVNative = {
                        //    achado da última `apkProcurar`)
   ytDiag(),            // → string: o que o extrator recebeu na última extração
                        //   (diagnóstico do rodapé de Configurações)
-  ytStream(url, altura), // → manifesto DASH ou null: TRANSMITIR sem baixar
+  // ytStream()        // só no SHELL desde a v1.8.71: sem consumidor no web (a transmissão direta saiu na v1.7.7)
                        //   `{ video, videos, audio, seconds, height }`.
                        //   `videos` é a ESCADA (shell 60): as faixas mp4
                        //   transmissíveis sob o teto, UMA POR ALTURA, da mais

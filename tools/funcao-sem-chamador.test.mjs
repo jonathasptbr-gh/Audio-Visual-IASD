@@ -239,6 +239,69 @@ else nao('nenhuma função existe só para o oráculo chamar',
   else nao('nenhuma constante existe só para o oráculo ler', soOraculoC.join('\n\t'));
 }
 
+
+// ── A SUPERFÍCIE DA PONTE (v1.8.71) ─────────────────────────────────────────
+//
+// Os dois blocos acima varrem DECLARAÇÕES (`function foo`) e CONSTANTES DE
+// MÓDULO. Os métodos de `AVNative` não são nem uma coisa nem outra — são
+// propriedades de um objeto literal —, e por isso três deles atravessaram a
+// varredura: `ytStream` (órfão desde a v1.7.7, com a transmissão direta),
+// `otaPending` e `apkProcurar` (absorvidos pelo `atualizacaoEstado`, cujo
+// próprio comentário registra a fusão: *"com `otaPending`, `apkProcurar` e
+// `otaDiag` separados, as três respostas chegam em três momentos"*).
+//
+// O custo deste vão é o da regra inteira: o comentário do `apkProcurar` ainda
+// dizia *"quem chama é uma linha de Configurações"* — uma linha que já não
+// existe —, e o `CLAUDE.md` afirmava que a ponte tinha 63 métodos e que ela era
+// *"a superfície inteira que o resto do lado web tem direito de usar"*.
+//
+// A LISTA DE EXCEÇÃO É POR NOME, e a razão vai ao lado: é o nome que a segura,
+// porque ela não tem regra que o próximo órfão possa alegar cumprir.
+{
+  const SEM_UI_DE_PROPOSITO = new Map([
+    // O `.p12` do TLS das telas da rede: o shell serve os três, a folha que os
+    // acionava saiu na v5.196, e a `docs/shell/PONTE.md` declara esse estado.
+    // Eles NÃO são órfãos por descuido — apagá-los tiraria a única porta de um
+    // recurso que o Kotlin continua servindo.
+    ['espelhoCertImportar', 'sem UI desde a v5.196 (PONTE.md)'],
+    ['espelhoCertEstado', 'sem UI desde a v5.196 (PONTE.md)'],
+    ['espelhoCertApagar', 'sem UI desde a v5.196 (PONTE.md)'],
+  ]);
+
+  const NATIVE = join(WEB, 'shared/native.js');
+  const fonte = readFileSync(NATIVE, 'utf8');
+  const i = fonte.indexOf('global.AVNative = {');
+  // QUEM CHAMA é todo o resto da base — o `native.js` sai do corpo, senão a
+  // própria definição conta como uso e o bloco aprova qualquer coisa.
+  const foraDaPonte = semComentario([...corpo.entries()]
+    .filter(([f]) => f !== NATIVE).map(([, t]) => t).join('\n'));
+
+  const metodos = [...fonte.slice(i).matchAll(/^\s{4}([a-zA-Z][a-zA-Z0-9]*)[:(]/gm)].map((m) => m[1]);
+  const orfaos = [];
+  for (const nome of metodos) {
+    if (SEM_UI_DE_PROPOSITO.has(nome)) continue;
+    if (new RegExp('\\b' + nome + '\\b').test(foraDaPonte)) continue;
+    orfaos.push(nome);
+  }
+
+  // A PREMISSA, senão um regex que pare de casar aprova a ponte inteira calada.
+  if (metodos.length >= 30) ok('a superfície da ponte foi varrida (' + metodos.length + ' métodos)');
+  else nao('a superfície da ponte foi varrida', 'só ' + metodos.length + ' método(s) — o recorte do objeto falhou');
+
+  if (!orfaos.length) ok('todo método de `AVNative` tem consumidor fora do `native.js`');
+  else nao('todo método de `AVNative` tem consumidor fora do `native.js`',
+    orfaos.join(', ') + '\n\tconserto: encolher a ponte pelo LADO WEB (o Kotlin fica, e por isso'
+    + '\n\to lote NÃO pede Release), apagando o método E o comentário dele. Se o método'
+    + '\n\tdeve existir sem consumidor, ele entra em `SEM_UI_DE_PROPOSITO` com a razão.');
+
+  // E A LISTA DE EXCEÇÃO NÃO PODE ENVELHECER: um nome que já não descreve
+  // método nenhum é a mesma armadilha pelo outro lado — ele some da ponte, a
+  // linha fica, e a próxima leitura acredita que há um recurso ali.
+  const fantasmas = [...SEM_UI_DE_PROPOSITO.keys()].filter((n) => !metodos.includes(n));
+  if (!fantasmas.length) ok('e nenhuma exceção da lista descreve um método que já não existe');
+  else nao('e nenhuma exceção da lista descreve um método que já não existe', fantasmas.join(', '));
+}
+
 console.log('');
 if (falhas.length) { console.log(falhas.length + ' FALHA(S).'); process.exit(1); }
 console.log('Toda função da base tem chamador no app.');

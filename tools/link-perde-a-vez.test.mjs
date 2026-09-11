@@ -11,7 +11,7 @@
 // ## Por que ele existe
 //
 // Resolver um `kind: 'youtube'` é a espera mais longa do app: uma extração de
-// rede de SEGUNDOS (`ytStream`) e, falhando ela, um download de MINUTOS. O
+// rede de SEGUNDOS e, falhando ela, um download de MINUTOS. O
 // desfecho chegava sem perguntar a ninguém se ainda era esperado — `send` no
 // fim, cena trocada, louvor cortado na frente da congregação.
 //
@@ -24,8 +24,8 @@
 //
 // A JANELA é o recurso inteiro: entre o toque no link e o desfecho há uma
 // espera que o oráculo precisa CONTROLAR, senão não existe "meio". A ponte de
-// mentira segura o `ytStream` e o `ytFetch` até este arquivo mandar soltar — é
-// isso que torna o defeito determinístico em vez de uma corrida.
+// mentira segura o `ytFetch` (`__soltarFetch`) até este arquivo mandar soltar —
+// é isso que torna o defeito determinístico em vez de uma corrida.
 //
 // E o desfecho é PERMANENTE e silencioso: nada quebra, nada aparece no console,
 // e o operador só percebe porque o louvor parou. Por isso as asserções medem o
@@ -38,9 +38,8 @@ import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
 import { servirEstatico, abrirNavegador, checar, falhas, esperar, esperarDb, porque } from './arnes.mjs';
 
-// A ponte de mentira, com as DUAS esperas seguras: `ytStream` (a extração) e
-// `ytFetch` (o download). Sem elas as duas resolveriam no mesmo tique e não
-// haveria janela nenhuma para medir.
+// A ponte de mentira, com a espera SEGURA do `ytFetch` (o download). Sem ela
+// a chamada resolveria no mesmo tique e não haveria janela nenhuma para medir.
 const PONTE = `(() => {
   window.__fetchPedido = 0;
   const segurar = (id, bandeira, valor) => {

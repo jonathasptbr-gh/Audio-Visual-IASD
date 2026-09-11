@@ -10,9 +10,10 @@
 // atual deve ser instantaneamente interrompida para indicar que há outra mídia
 // sendo colocada no ar, independente dela estar carregando"*.
 //
-// A janela era real e longa: `tentarTransmitir` começa por um `ytStream`, que é
-// uma EXTRAÇÃO DE REDE de segundos, e só depois dela vem o `send` que muda
-// alguma coisa na tela. No meio-tempo o único sinal era o `setYtEstado`, que
+// A janela era real e longa: o caminho começava por uma EXTRAÇÃO DE REDE de
+// segundos, e só depois dela vinha o `send` que muda alguma coisa na tela.
+// (Hoje quem espera é o DOWNLOAD — a transmissão direta saiu na v1.7.7 e o
+// embrulho `ytStream` saiu do `native.js` na v1.8.71 —, e a janela é a mesma.) No meio-tempo o único sinal era o `setYtEstado`, que
 // acende uma LINHA da Biblioteca — a mesma que o `closeHymnSearch` acabou de
 // fechar. E o caminho do DOWNLOAD já tinha o cartão de espera sobre a preview;
 // o da TRANSMISSÃO nunca teve.
@@ -22,8 +23,8 @@
 // É a lição do `aviso-de-importacao`: **um teste do desfecho passa nas duas
 // versões.** Com a correção ou sem ela, o vídeo entra em cena quando os bytes
 // chegam — o que muda é o que acontece ANTES disso, e por isso a ponte de
-// mentira SEGURA o `ytStream` até o oráculo mandar soltar. É essa janela, e
-// só ela, que é o recurso.
+// mentira SEGURA o `ytFetch` (`__soltarBaixa`) até o oráculo mandar soltar. É
+// essa janela, e só ela, que é o recurso.
 //
 // ## As quatro metades
 //
@@ -191,8 +192,8 @@ try {
     midia: midiaNoAr,
     cmds: window.__cmds.slice(),
     cartao: !!document.getElementById('pvBusy'),
-    // O `ytStream` continua PENDENTE: é isso que prova que a interrupção não
-    // esperou a rede.
+    // O DOWNLOAD continua PENDENTE (`__soltarBaixa` ainda não foi solto): é
+    // isso que prova que a interrupção não esperou a rede.
     soltou: !!window.__soltarBaixa,
   }));
   checar(meio.midia === false,

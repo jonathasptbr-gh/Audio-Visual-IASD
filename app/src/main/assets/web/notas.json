@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.71",
+    "itens": [
+      "Faxina por dentro: saíram três atalhos antigos do app para o aparelho que nada mais usava. Nada muda na tela."
+    ]
+  },
+  {
     "versao": "1.8.70",
     "itens": [
       "O botão de próxima mídia deixou de ficar apagado depois de você montar a fila pelo botão da linha."

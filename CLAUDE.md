@@ -47,7 +47,7 @@ tem o que se pode quebrar sem abrir o capítulo, e o capítulo tem o resto:
 | acordes sobre a letra, sob demanda | [§](#a-aba-de-cifra-acordes-ao-lado-da-letra) | [`docs/recursos/CIFRA.md`](docs/recursos/CIFRA.md) |
 | o acervo num arquivo `.avpkg` | [§](#o-pacote-de-transferência-o-acervo-num-arquivo) | [`docs/recursos/PACOTE.md`](docs/recursos/PACOTE.md) |
 | cada par de cor medido, os pisos, o que foi revogado | [§](#a-paleta) | [`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md) |
-| o catálogo dos 63 métodos da ponte, um a um | [§](#a-ponte-windowavnative) | [`docs/shell/PONTE.md`](docs/shell/PONTE.md) |
+| o catálogo dos 60 métodos da ponte, um a um | [§](#a-ponte-windowavnative) | [`docs/shell/PONTE.md`](docs/shell/PONTE.md) |
 | os dois canais, a detecção, o watchdog, a pergunta | [§](#ota-da-base-web-atualização-sem-apk) | [`docs/shell/OTA.md`](docs/shell/OTA.md) |
 | o que cada oráculo trava | (o MÉTODO fica em [Build](#build-e-distribuição)) | [`docs/ORACULOS.md`](docs/ORACULOS.md) |
 
@@ -471,7 +471,7 @@ Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
 `NativeBridge.kt`). **Só existe quando `window.__AVBridge` existe** — no
 navegador a IIFE retorna na entrada e nada é definido, nem `__NATIVE__`.
 
-**O CATÁLOGO dos 63 métodos, um a um, está em
+**O CATÁLOGO dos 60 métodos, um a um, está em
 [`docs/shell/PONTE.md`](docs/shell/PONTE.md)** — é referência, aberta por
 método. Aqui ficam as REGRAS, que valem para todos eles.
 
@@ -512,8 +512,15 @@ atrasada da página velha resolvia a promise homônima da NOVA. Chamadas que
 dependem de **máquina** têm prazo de 60 s; `pickFolder` e `requestMic` esperam
 uma **pessoa** e ficam sem prazo.
 
-São **63 métodos**, e essa é a superfície inteira que o resto do lado web tem
-direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
+São **60 métodos**, e essa é a superfície inteira que o resto do lado web tem
+direito de usar — o SHELL serve 63, e a diferença são os três que a v1.8.71
+encolheu pelo lado web (`ytStream`, `otaPending`, `apkProcurar`): órfãos de
+duas fusões, o Kotlin continua servindo os três, e por isso o lote NÃO pediu
+Release. **Encolher no WEB primeiro é o lado seguro** — um APK que ainda serve
+métodos que ninguém chama não custa nada ao aparelho; é a ordem inversa (base
+web nova contra APK velho) que precisa do `shellTag`. Quem guarda a regra agora
+é o `funcao-sem-chamador.test.mjs`, que varre a superfície da ponte e exige
+consumidor fora do `native.js` — fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
 outros dois DESTINOS do `ytFetch` — só-áudio e teto de resolução),
@@ -2581,7 +2588,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.70 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.71 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -2592,15 +2599,20 @@ bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.70 são o mesmo caso, pela mesma
+> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.71 são o mesmo caso, pela mesma
 > razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A v1.8.70 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
-> nem o `build.gradle.kts` — só `assets/web/`, `tools/` e `docs/`.
+> **A v1.8.71 NÃO pede Release**, e ela é o caso que o parágrafo do `shellTag`
+> descreve pelo AVESSO: ela ENCOLHE a ponte (três métodos saíram do `native.js`)
+> e mesmo assim não toca `java/`, `res/`, o manifesto nem o `build.gradle.kts`.
+> Encolher pelo lado WEB é o lado seguro — o `@JavascriptInterface` fica, o
+> `SHELL_VERSION` segue 72, e um APK que ainda serve método que ninguém chama
+> não custa nada ao aparelho. É a ORDEM INVERSA (base web nova chamando um
+> método que o APK instalado não tem) que precisa do `shellTag`.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, e desde a v1.8.50 ela TEM ORÁCULO.**
 > As três oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção
