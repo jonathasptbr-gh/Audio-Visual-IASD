@@ -2003,7 +2003,7 @@ body {
    dizendo QUAL deles está valendo (ver "O riscado é o corte" no
    DESIGN-SYSTEM). Sobrava a cor sozinha, num botão idêntico a cinco vizinhos.
 
-   E DESDE A v1.8.78 O DESENHO É UM `<use>` DO SPRITE, não mais um glifo — três
+   E DESDE A v1.8.80 O DESENHO É UM `<use>` DO SPRITE, não mais um glifo — três
    símbolos para quatro degraus, com `off` e `one` dividindo o laço puro a
    pedido do operador. É exatamente por eles dividirem o desenho que esta regra
    passou a carregar a distinção inteira entre os dois: sem a superfície, um
@@ -2183,7 +2183,7 @@ main {
      por medição, não por leitura. */
   background: var(--bar);
   margin: calc(-1 * (.6rem + env(safe-area-inset-top))) -.8rem calc(-1 * var(--sp-5));
-  /* ---------- O RESPIRO É PARTIDO EM DOIS, E A CAIXA NÃO MUDA (v1.8.78) ------
+  /* ---------- O RESPIRO É PARTIDO EM DOIS, E A CAIXA NÃO MUDA (v1.8.80) ------
      Relato do operador: *"a margem abaixo dos botões de configurações e de
      limpar cronograma está muito rasa em relação a margem superior. Ou melhor,
      parece que todos os itens dessa barra estão descentralizados para baixo"*.
@@ -3043,7 +3043,7 @@ main {
 @media (prefers-reduced-motion: reduce) {
   .tools-sheet, .tools-sheet.saindo { animation: none; }
 }
-/* ===== O TÍTULO DA JANELA FICA NO CENTRO, E PARADO (v1.8.78) =====
+/* ===== O TÍTULO DA JANELA FICA NO CENTRO, E PARADO (v1.8.80) =====
 
    Pedido do operador: *"aproveite para centralizar o título de cada janela
    dessas como o título na janela da bíblia e o titulo na janela de ferramentas,
@@ -6081,7 +6081,7 @@ main {
    sem isso o padrão `min-width: auto` a impediria de encolher, e o nome longo de
    um livro empurraria os botões para fora da tela em vez de virar reticências.
 
-   ---------- E ELA OCUPA A SOBRA DA BARRA (v1.8.78) ----------
+   ---------- E ELA OCUPA A SOBRA DA BARRA (v1.8.80) ----------
    Relato do operador: *"essa barra de controles não está preenchendo toda a
    largura disponível dessa base"*. MEDIDO a 430×900: a barra tem 382px e o
    conteúdo media 324,6 — **28,7px de vão de cada lado**, porque a foot é
@@ -6155,7 +6155,7 @@ main {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
   color: var(--text);
   padding: .3rem .38rem; cursor: pointer; appearance: none; -webkit-appearance: none;
-  /* `flex-grow: 1` reparte a sobra entre as quatro (v1.8.78): sem ele a nav
+  /* `flex-grow: 1` reparte a sobra entre as quatro (v1.8.80): sem ele a nav
      cresce e as pílulas ficam agrupadas à esquerda dela — o mesmo vão de antes,
      mudado de lugar. O `flex-shrink` ao lado é a ordem de CEDER, e ela não se
      mistura com esta: ver o bloco da `.bible-ref-nav`. */
@@ -9834,7 +9834,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    do pedido: *a fila da cifra sempre tem a saída* (a invariante do
    `lvBuildCifra`). Escondê-lo deixaria uma gaveta aberta em paisagem sem
    nenhuma saída à vista. */
-/* ===== E A GAVETA DESLIZA, COM UM SLIDER DENTRO (v1.8.78) =====
+/* ===== E A GAVETA DESLIZA, COM UM SLIDER DENTRO (v1.8.80) =====
 
    Pedido do operador: *"primeiramente isso não possue nenhuma animação. Então
    faça uma animação horizontal para essa gaveta. Mantenha o botão de play e o

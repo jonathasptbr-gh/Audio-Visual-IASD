@@ -275,7 +275,7 @@ const anotarUso = (nome, onde) => {
   for (let m; (m = re2.exec(js));) {
     anotarUso(m[1], 'controle.js:' + js.slice(0, m.index).split('\n').length);
   }
-  // ===== E O `setAttribute('href', '#icoX')`, QUE É A TERCEIRA FORMA (v1.8.78)
+  // ===== E O `setAttribute('href', '#icoX')`, QUE É A TERCEIRA FORMA (v1.8.80)
   //
   // O `#repeat` troca o desenho SEM tocar no markup: o `<use>` nasce no HTML e
   // o `renderRepeat` só reescreve o `href` dele, com o nome vindo de uma tabela

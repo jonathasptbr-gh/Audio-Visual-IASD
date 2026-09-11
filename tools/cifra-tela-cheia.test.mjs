@@ -388,7 +388,7 @@ try {
     // Percorrida degrau a degrau: a promessa é sobre a ESCADA, e um botão medido
     // parado prova só o rótulo que calhou de estar em cena.
     const velBtn = lyricsPopupEl.querySelector('.lv-cifra-vel');
-    // A ESCADA É PERCORRIDA PELO SLIDER desde a v1.8.78 (a gaveta de botões
+    // A ESCADA É PERCORRIDA PELO SLIDER desde a v1.8.80 (a gaveta de botões
     // virou um `<input type=range>`): abrir, arrastar até o degrau `i`, FECHAR e
     // medir o botão — ele só volta a ser o rótulo com a gaveta fechada, porque
     // aberto ele é o ✕. A pergunta é a mesma de sempre (a caixa não depende do
@@ -408,13 +408,13 @@ try {
         sw: velBtn.scrollWidth, cw: velBtn.clientWidth,
       });
     }
-    // E A GAVETA, na COLUNA (v1.8.78): o slider deitado da v1.8.78 não caberia
+    // E A GAVETA, na COLUNA (v1.8.80): o slider deitado da v1.8.80 não caberia
     // numa trilha de 66px, então em tela cheia ele é VERTICAL e a gaveta cresce
     // em ALTURA. É o par de regras de CSS que se prova aqui — sem ele, 9rem de
     // largura dentro da coluna.
     velBtn.click();
     const gav = lyricsCifraCtlEl.querySelector('.lv-cifra-vels');
-    // A GAVETA ANIMA (v1.8.78), então a medição espera pelo FIM da transição —
+    // A GAVETA ANIMA (v1.8.80), então a medição espera pelo FIM da transição —
     // nunca por um prazo: medida no quadro do toque, ela lê a altura de PARTIDA
     // (zero) e reprova um app que está certo. O `setTimeout` é a rede de
     // segurança para o caso em que o motor não emite o evento (uma transição de
@@ -594,7 +594,7 @@ try {
     'e ele mede o MESMO que o A+ ao lado: uma coluna com um botão mais largo que '
     + 'os outros é o que o pedido nomeia',
     { vel: controles.velCaixas[0], irmao: controles.velIrmao });
-  // ===== E A GAVETA TROCA DE EIXO COM A FILA (v1.8.78) =====
+  // ===== E A GAVETA TROCA DE EIXO COM A FILA (v1.8.80) =====
   //
   // No retrato ela cresce em LARGURA (9rem, à direita do play e do seletor); na
   // coluna deitada isso não caberia — a trilha tem 66px —, então lá ela cresce

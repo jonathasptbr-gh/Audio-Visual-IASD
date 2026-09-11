@@ -343,7 +343,7 @@ das pontas sai de `:first-child`/`:last-child`, então ele acompanha a ordem
 nova sem uma segunda regra; e a Versão continua saindo da barra inteira quando
 não há lista de versões carregada.
 
-### E ela PREENCHE a largura da base (v1.8.78)
+### E ela PREENCHE a largura da base (v1.8.80)
 
 Relato do operador: *"os botões de opções da bíblia, que mostram o texto, salvar
 no cronograma e salvar nos favoritos… essa barra de controles não está

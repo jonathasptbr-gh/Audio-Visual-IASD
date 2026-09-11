@@ -236,7 +236,7 @@ try {
   await pg.evaluate(() => setAppMode('full'));
 
   // ══════════════════════════════════════════════════════════════════════
-  // 7 · A ORDEM DO CICLO E O DESENHO DE CADA DEGRAU (v1.8.78)
+  // 7 · A ORDEM DO CICLO E O DESENHO DE CADA DEGRAU (v1.8.80)
   //
   // Pedido do operador: *"ajuste a ordem das opções do botão de repetir mídia,
   // para que ele mostre primeiro repetir a midia atual e depois o repetir a

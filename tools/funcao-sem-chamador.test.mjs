@@ -346,12 +346,7 @@ else nao('nenhuma função existe só para o oráculo chamar',
   // Cada entrada diz POR QUE o parâmetro fica — e o nome de quem deveria
   // supri-lo, quando o defeito é o chamador e não o parâmetro.
   const SUPRIDO_POR_FORA = new Map([
-    ['openLyricsPopup/fonte',
-      'achado [16] da auditoria de 2026-09-11: NÃO é parâmetro morto, é CHAMADOR '
-      + 'faltando. A nota da v1.2.14 anuncia que a gaveta da Biblioteca abre o leitor '
-      + '"cifra, tom, corpo e rolagem", e o `leitor-do-transporte.test.mjs` afirma o '
-      + 'mesmo no cabeçalho; quem chama passa um argumento só. Apagá-lo cancelaria o '
-      + 'recurso — o conserto é ligar o chamador, em lote próprio.'],
+    // (vazia hoje — a entrada tem a forma `nome/parametro`, com a razão ao lado)
   ]);
 
   const FECHA = { '(': ')', '[': ']', '{': '}' };
@@ -442,6 +437,104 @@ else nao('nenhuma função existe só para o oráculo chamar',
   });
   if (!fantasmas.length) ok('e nenhuma exceção da lista descreve um parâmetro que já não existe');
   else nao('e nenhuma exceção da lista descreve um parâmetro que já não existe', fantasmas.join(', '));
+}
+
+// ============================================================================
+// UMA MARCA NO DOM QUE NINGUÉM LÊ (v1.8.79)
+//
+// O quinto bloco, e a outra metade do que a base ESCREVE: os quatro de cima
+// varrem o que ela DECLARA (funções, a superfície do `AVDB`, constantes,
+// parâmetros); uma classe posta por `classList.toggle` e um `dataset.x = …` não
+// são declarações de nada — são marcação, e por isso atravessavam tudo.
+//
+// MEDIDO na entrada: 76 classes escritas por JS, UMA sem leitor
+// (`.has-items`, cuja regra de CSS saiu na v1.5.0 e cuja doc continuava
+// prometendo que o ícone da fila acende); 24 `dataset` escritos, UM sem leitor
+// (`dataset.tool`, das abas de Ferramentas).
+//
+// O custo é o de sempre nesta classe: não é o atributo, é o PRÓXIMO LEITOR
+// supor que existe consumidor e preservá-lo — ou escrever um seletor
+// `[data-tool]` acreditando que a marcação já é contrato.
+//
+// ## "SÓ O ORÁCULO LÊ" É LEGÍTIMO AQUI, e é o oposto do primeiro bloco
+//
+// Lá, uma função que só o oráculo chama é PIOR que morta: ele prova que algo
+// que ninguém usa funciona. Uma marca no DOM é o contrário — ela existe para
+// ser AGARRADA de fora, e um `data-dest` que só o `sorteio-tela` lê É o
+// contrato de teste, declarado. Por isso a pergunta aqui é só *"alguém lê?"*,
+// com os oráculos contando como leitores.
+//
+// ## Onde a varredura desiste
+//
+// A busca é TEXTUAL, e leitura tem muitas formas: `classList.contains`, um
+// seletor de CSS, um `[data-x=…]` escrito DENTRO do JS, o atributo no HTML.
+// Todas contam. **Duas armadilhas foram medidas ao escrever este bloco**, e as
+// duas produziam acusação FALSA: `dataset.x ===` casava como atribuição (o `=`
+// de `===`), e um seletor de atributo dentro de uma string de JS não era
+// procurado no JS. Sem as duas correções o bloco acusava quatro marcas vivas.
+// ============================================================================
+{
+  // O CSS É LIDO AQUI, e não pelo `arquivos` lá de cima: aquele alimenta o
+  // `app` dos quatro blocos anteriores, e uma classe de folha de estilo com o
+  // nome de uma função passaria a contar como USO dela — o oráculo aprovaria
+  // uma função morta por causa de um seletor homônimo.
+  const cssFiles = [];
+  (function andaCss(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.name === 'vendor') continue;
+      const p2 = join(d, e.name);
+      if (e.isDirectory()) andaCss(p2);
+      else if (p2.endsWith('.css')) cssFiles.push(p2);
+    }
+  })(WEB);
+  const cssTxt = cssFiles.map((f) => readFileSync(f, 'utf8')).join('\n');
+  const jsTxt = semComentario([...corpo.entries()]
+    .filter(([f]) => f.endsWith('.js')).map(([, t]) => t).join('\n'));
+  const htmlTxt = [...corpo.entries()]
+    .filter(([f]) => f.endsWith('.html')).map(([, t]) => t).join('\n');
+  const tudoQueLe = jsTxt + '\n' + cssTxt + '\n' + htmlTxt + '\n' + oraculos;
+
+  const semLeitor = [];
+
+  // ----- CLASSES -----
+  const escritas = new Set([...jsTxt.matchAll(/classList\.(?:toggle|add)\(\s*'([a-z][a-z0-9-]*)'/g)]
+    .map((m) => m[1]));
+  for (const c of escritas) {
+    // O que sobra depois de tirar as ESCRITAS é tudo o que pode ser leitura:
+    // `.classe` numa folha, `contains('classe')`, o atributo no HTML, um
+    // seletor de oráculo.
+    const semEscritas = tudoQueLe.replace(new RegExp("classList\\.(?:toggle|add)\\(\\s*'" + c + "'", 'g'), '');
+    if (!new RegExp('[.\'"`\\s]' + c + '\\b').test(semEscritas)) semLeitor.push('classe `.' + c + '`');
+  }
+
+  // ----- DATASET -----
+  const dsEscritos = new Set([...jsTxt.matchAll(/\.dataset\.([a-zA-Z][\w]*)\s*=(?!=)/g)].map((m) => m[1]));
+  for (const n of dsEscritos) {
+    const kebab = 'data-' + n.replace(/[A-Z]/g, (ch) => '-' + ch.toLowerCase());
+    // Tira as ATRIBUIÇÕES; o que casar depois é leitura — inclusive o `===`.
+    const semEscritas = tudoQueLe.replace(new RegExp('dataset\\.' + n + '\\s*=(?!=)', 'g'), '');
+    const lido = new RegExp('dataset\\.' + n + '\\b').test(semEscritas)
+      || new RegExp('\\[' + kebab + '\\b').test(semEscritas)
+      || new RegExp('getAttribute\\([\'"]' + kebab + '[\'"]').test(semEscritas);
+    if (!lido) semLeitor.push('`dataset.' + n + '` (' + kebab + ')');
+  }
+
+  // A PREMISSA: um recorte quebrado zera as duas listas e o bloco passa por
+  // AUSÊNCIA. MEDIDO ao escrever: 76 classes e 24 `dataset`.
+  const vistas = escritas.size + dsEscritos.size;
+  if (escritas.size >= 40 && dsEscritos.size >= 15) {
+    ok('as marcas do DOM foram varridas (' + escritas.size + ' classes, ' + dsEscritos.size + ' `dataset`)');
+  } else {
+    nao('as marcas do DOM foram varridas',
+      'só ' + vistas + ' marca(s) — o recorte do `classList`/`dataset` falhou');
+  }
+
+  if (!semLeitor.length) ok('e toda marca escrita no DOM tem quem a leia');
+  else nao('toda marca escrita no DOM tem quem a leia',
+    semLeitor.join('\n\t')
+    + '\n\tconserto: apague a escrita E o que a descreve (comentário e doc), no mesmo'
+    + '\n\tlote. Se a marca deve existir como HOOK, o oráculo que a lê entra no MESMO'
+    + '\n\tlote — é ele que a torna contrato.');
 }
 
 console.log('');

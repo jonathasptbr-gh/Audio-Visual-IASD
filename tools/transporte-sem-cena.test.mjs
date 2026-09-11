@@ -292,7 +292,7 @@ try {
     'e a badge segue muda nos dois estados — o limiar dela (`> 1`) é OUTRO, e '
     + 'amarrá-los faria uma pergunta responder pela outra',
     JSON.stringify({ zero: semNada.plBadge, um: umSo.plBadge }));
-  // ===== E COM DOIS ITENS ELA DIZ **2** (v1.8.78) =====
+  // ===== E COM DOIS ITENS ELA DIZ **2** (v1.8.80) =====
   //
   // Revogação do operador: *"o número no botão da playlist está indicando '1'
   // quando há duas mídias na playlist. Isso foi uma decisão antiga, estou

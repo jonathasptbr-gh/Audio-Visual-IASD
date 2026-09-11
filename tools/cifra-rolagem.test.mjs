@@ -286,7 +286,7 @@ try {
   // `CIFRA_VELOCIDADES` provaria que a constante concorda consigo mesma, e o
   // que o operador lê é o `textContent` de quem está na tela.
   //
-  // ===== A GAVETA DE BOTÕES VIROU UM SLIDER QUE DESLIZA (v1.8.78) =====
+  // ===== A GAVETA DE BOTÕES VIROU UM SLIDER QUE DESLIZA (v1.8.80) =====
   //
   // Pedido do operador: *"faça uma animação horizontal para essa gaveta.
   // Mantenha o botão de play e o botão de seletor de velocidade sempre visível,
@@ -442,7 +442,7 @@ try {
   checar(escada.distintos === escada.ciclo.length,
     'e nenhum rótulo se repete: dois degraus escritos "1×" seriam a escolha do '
     + 'operador dizendo duas coisas', escada);
-  // ===== O PEDIDO DA v1.8.78, ponto a ponto =====
+  // ===== O PEDIDO DA v1.8.80, ponto a ponto =====
   checar(escada.abriu.rolarFicou && escada.abriu.velFicou && escada.abriu.saidaFicou,
     'ABRIR a gaveta MANTÉM o play, o seletor e a saída à vista — é a revogação '
     + 'que o operador pediu por extenso, e a v1.7.4 escondia os três',

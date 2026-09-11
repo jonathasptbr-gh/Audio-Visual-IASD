@@ -402,7 +402,7 @@ ganhou `padding-top` com `env(safe-area-inset-top)`.
 faixa já teve SEIS elementos, e o sintoma de estar disputada era objetivo: numa
 tela de 360px a raiz dos Favoritos cortava o próprio título com reticências.
 
-**O RESPIRO DELA É PARTIDO EM DOIS** (v1.8.78). Relato do operador: *"a margem
+**O RESPIRO DELA É PARTIDO EM DOIS** (v1.8.80). Relato do operador: *"a margem
 abaixo dos botões de configurações e de limpar cronograma está muito rasa em
 relação a margem superior… todos os itens dessa barra estão descentralizados
 para baixo"*. MEDIDO: o `padding-bottom` era **zero**, e a linha de `--hit`
@@ -1624,7 +1624,7 @@ sempre. Reaproveita o tamanho/estilo de `.t-btn` (a linha de transporte
 cresceu de 5 para 6 botões, cada um um pouco mais estreito).
 
 **O selo de contagem (`#plCount`) diz o TOTAL da fila, e só aparece a partir do
-2º item** (v1.8.78, revogando a regra de contar os itens ALÉM do primeiro):
+2º item** (v1.8.80, revogando a regra de contar os itens ALÉM do primeiro):
 *"esse número deve representar o número total de itens na playlist. É claro, se
 houver apenas um item, ainda não precisa mostrar o número"*. A régua antiga
 (`count - 1`) fazia o selo dizer **1** com duas mídias na fila e discordar do
@@ -1632,10 +1632,11 @@ contador da própria folha, que sempre disse o total — duas contagens da mesma
 lista, na mesma tela. O limiar (`> 1`) é o que fica: com a mídia atual sozinha, a
 fila é a reprodução avulsa e não merece um número.
 
-> A classe `has-items`, escrita no mesmo ponto com o mesmo limiar, **não pinta
-> nada** desde a v1.5.0 — nenhuma folha de estilo a consome (achado [17] da
-> auditoria de 2026-09-11, ainda em aberto). O ícone não fica destacado em
-> `--accent` como este capítulo afirmava.
+**O ÍCONE NÃO MUDA DE COR** — houve uma classe `.has-items` que o tingia de
+`--accent` no mesmo caso, e a regra dela saiu do `controle.css` na v1.5.0 com o
+rodapé; a escrita sobreviveu sem consumidor até a v1.8.79, com este capítulo
+prometendo um destaque que não acontecia há sete meses. Quem diz "há fila" é o
+SELO, e só ele.
 
 ### Feedback (sem alerta flutuante) — e a exceção do salvamento
 
@@ -2607,7 +2608,7 @@ e ler *"Nada em exibição"*.
   cifra sempre tem a saída*, e escondê-lo deixaria uma gaveta aberta em paisagem
   sem saída à vista.
 
-  **E A GAVETA VIROU UM SLIDER, QUE DESLIZA** (v1.8.78). Pedido do operador:
+  **E A GAVETA VIROU UM SLIDER, QUE DESLIZA** (v1.8.80). Pedido do operador:
   *"primeiramente isso não possue nenhuma animação. Então faça uma animação
   horizontal para essa gaveta. Mantenha o botão de play e o botão de seletor de
   velocidade sempre visível, agora a gaveta vai surgir a direita desses dois
@@ -3211,7 +3212,7 @@ está à vista?"*, que hoje é sempre verdade: **a folha COBRE a lista, não a
 substitui.** É um booleano e não `!bibleSheetEl.hidden` porque o `hidden` só cai
 no fim da animação de saída.
 
-**O TÍTULO DE CADA JANELA FICA NO CENTRO, E PARADO** (v1.8.78) — *"centralizar o
+**O TÍTULO DE CADA JANELA FICA NO CENTRO, E PARADO** (v1.8.80) — *"centralizar o
 título de cada janela dessas… E tome cuidado para que ele permaneça imóvel mesmo
 alternando entre telas da mesma janela"*. As duas metades são uma só, e é isso
 que escolheu o mecanismo: com `flex: 1` o título era o ESPAÇADOR da linha —
@@ -3227,7 +3228,7 @@ Ferramentas (que não tem voltar) poria o título na trilha 1.
 | peça | o que é |
 |---|---|
 | `#toolsSheet` · `#bibleSheet` | as duas folhas, filhas do `.list-body`, cobrindo só a lista |
-| `.tools-head` | a barra de cada uma: **uma grade de três trilhas**, com o título no centro (v1.8.78) |
+| `.tools-head` | a barra de cada uma: **uma grade de três trilhas**, com o título no centro (v1.8.80) |
 | `.import-row` | as três portas: `#bibleBtn` · `.import-btn` · `#toolsBtn` |
 | `.lib-bar` | a barra da Biblioteca — a CABEÇA da janela, à vista no topo da caixa de controles |
 | `#hymnSearchPopup` | a JANELA da Biblioteca — `fixed`, do topo até a LINHA DA BARRA, sobe da barra |
@@ -8368,14 +8369,14 @@ e para isso `addMedia`/`addUrlMedia` — que já devolviam o registro — têm o
 retorno aproveitado; `handleSharedUrl` também devolve o seu.
 
 Ciclo ao tocar no botão 🔁: `off → one → all → shuffle → off` (persistido em
-`repeat`). **A ordem mudou na v1.8.78**, a pedido do operador — *"para que ele
+`repeat`). **A ordem mudou na v1.8.80**, a pedido do operador — *"para que ele
 mostre primeiro repetir a midia atual e depois o repetir a playlist inteira"* —:
 o degrau mais pedido vem primeiro, e os dois primeiros toques vão do mais
 restrito ao mais amplo (a mídia, a fila, o sorteio). O desenho é pintado ANTES da
 transação do banco: num controle que se toca com a música no ar, o que a mão
 espera é o botão mudar no toque.
 
-**E OS QUATRO DEGRAUS VIRARAM SVG DO SPRITE** (v1.8.78), três símbolos para
+**E OS QUATRO DEGRAUS VIRARAM SVG DO SPRITE** (v1.8.80), três símbolos para
 quatro estados:
 
 | modo | desenho | por quê |

@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.77';
+const WEB_VERSION = '1.8.80';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -641,7 +641,7 @@ const ICON = {
   broken: '', // broken_image
   del: '', // delete
   import: '', // folder_open
-  // (`repeatAll`/`repeatOne`/`shuffle` saíram na v1.8.78: os quatro degraus do
+  // (`repeatAll`/`repeatOne`/`shuffle` saíram na v1.8.80: os quatro degraus do
   //  `#repeat` viraram SVG do sprite — ver `#icoRepetir` no index.html.)
   // ADICIONAR AO CRONOGRAMA fica na família do TEMPO (`more_time`): ao lado do
   // `queue_music` da playlist, um `playlist_add` seria a mesma pilha de linhas
@@ -657,7 +657,7 @@ const ICON = {
   close: '',     // close — o MESMO glifo dos `.popup-close` (v5.191)
 };
 
-// ===== A ORDEM É A DO DEDO, E ELA MUDOU (v1.8.78) =====
+// ===== A ORDEM É A DO DEDO, E ELA MUDOU (v1.8.80) =====
 //
 // Pedido do operador: *"ajuste a ordem das opções do botão de repetir mídia,
 // para que ele mostre primeiro repetir a midia atual e depois o repetir a
@@ -3437,7 +3437,7 @@ function syncFader(pct) {
 // glifo só cabe um — mostrar o PRÓXIMO modo apagaria da tela qual está valendo,
 // e a cor (`.active`) só distingue ligado de desligado, não qual dos três.
 // Então aqui o ícone segue sendo o modo ATUAL, que é a informação que se perde.
-// O DESENHO DE CADA MODO (v1.8.78) — três símbolos, quatro degraus.
+// O DESENHO DE CADA MODO (v1.8.80) — três símbolos, quatro degraus.
 //
 // `off` e `one` COMPARTILHAM o laço puro, e é o pedido do operador por extenso:
 // *"o icone de repetir a midia atual deve ser o icone de repetir comum, sem
@@ -3457,7 +3457,7 @@ function renderRepeat() {
   // desde aquele lote a fila anda nos quatro modos, e "Repetição desativada"
   // passaria a prometer o oposto do que o `off` faz — que é justamente o
   // comportamento que o operador procurava quando esquecia de armar o `all`.
-  // O RÓTULO USA AS PALAVRAS DO OPERADOR (v1.8.78) — "repetir a mídia atual" e
+  // O RÓTULO USA AS PALAVRAS DO OPERADOR (v1.8.80) — "repetir a mídia atual" e
   // "repetir a playlist inteira" —, que são as que ele escreveu ao pedir a
   // ordem nova. "Repetir 1" era a abreviação do glifo `repeat_one`, e o glifo
   // saiu.
@@ -3901,7 +3901,7 @@ function renderPlaylist() {
   // nomeia, um repintor acima.
   renderTransporteHabilitado();
   const count = plItems.length;
-  // ===== O SELO CONTA A FILA INTEIRA (v1.8.78) =====
+  // ===== O SELO CONTA A FILA INTEIRA (v1.8.80) =====
   //
   // Revogação do operador, com o relato e a decisão juntos: *"o número no botão
   // da playlist nos controles está indicando '1' quando há duas mídias na
@@ -3916,11 +3916,17 @@ function renderPlaylist() {
   // (`plPopupCountEl`, que sempre disse o total).
   //
   // O LIMIAR NÃO MUDA: com um item o selo continua vazio, e é a segunda metade
-  // do pedido. Ele é o mesmo do destaque do ícone (`has-items`), que responde
-  // outra pergunta com a mesma régua — *existe fila além do que está no ar?*
+  // do pedido.
+  //
+  // QUEM DIZ "HÁ FILA" É O SELO, E SÓ ELE. Havia aqui uma classe `has-items`
+  // que tingia o ícone de `--accent` junto; a regra dela saiu do `controle.css`
+  // na v1.5.0, com o rodapé, e a escrita sobreviveu sete meses sem consumidor —
+  // o ícone nunca acendeu, e a doc continuava dizendo que acendia. Devolvê-la
+  // seria acrescentar um SIGNIFICADO DE COR que a linguagem de estado do app
+  // não tem (ver o `CLAUDE.md`: escolhido · ligado · selecionado), para dizer o
+  // que o número ao lado já diz.
   plCountEl.textContent = count > 1 ? String(count) : '';
   plPopupCountEl.textContent = String(count);
-  plBtnEl.classList.toggle('has-items', count > 1);
   // COM A FILA VAZIA NÃO HÁ O QUE LIMPAR, e um botão que não faz nada é pior
   // que botão nenhum — ainda mais um destrutivo, que assim ensinaria que
   // tocá-lo é inofensivo. A caixa inteira sai (ela carrega a margem do rodapé),
@@ -4812,8 +4818,11 @@ async function fetchBibleChapterCached(versionId, bookIdx, chapter) {
 
 // Move a sessão de leitura para outro capítulo (cruza livro nos extremos),
 // baixando o texto se necessário.
-// `want`: 'first' | 'last' | um índice (podendo ser NEGATIVO, contado a partir
-// do fim — é como um salto de -2 que estourou o começo do capítulo chega aqui).
+// `want`: um ÍNDICE, podendo ser NEGATIVO (contado a partir do fim — é como um
+// salto de -2 que estourou o começo do capítulo chega aqui). Ausente = o
+// primeiro versículo. Houve dois sentinelas de string (`'first'`/`'last'`) e
+// nenhum dos dois teve produtor: os dois chamadores, no `bibleStep`, passam
+// número, e "voltar para o fim do capítulo anterior" já é o índice negativo.
 async function bibleGotoChapter(bookIdx, chapter, want) {
   const s = bibleSession;
   if (!s) return;
@@ -4824,8 +4833,7 @@ async function bibleGotoChapter(bookIdx, chapter, want) {
   const book = Bible.BOOKS[bookIdx];
   const wasProjecting = s.projecting;
   let idx;
-  if (want === 'last') idx = verses.length - 1;
-  else if (typeof want === 'number') idx = want < 0 ? verses.length + want : want;
+  if (typeof want === 'number') idx = want < 0 ? verses.length + want : want;
   else idx = 0;
   idx = Math.max(0, Math.min(verses.length - 1, idx));
   bibleSession = {
@@ -7223,7 +7231,6 @@ function renderDiversos() {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'misc-tab' + (miscTool === t.id ? ' active' : '');
-    b.dataset.tool = t.id;
     const label = document.createElement('span');
     label.textContent = t.name;
     b.appendChild(label);
@@ -12359,7 +12366,7 @@ function lvSignature(src) {
  * um item, para AQUELA música — é assim que a Biblioteca abre a mesma folha sem
  * projetar nada.
  */
-function openLyricsPopup(item, fonte) {
+function openLyricsPopup(item) {
   // O ALVO É A EXCEÇÃO, e ela se declara: um item igual ao que já está em cena
   // não é desvio nenhum, e guardá-lo faria a folha parar de acompanhar o culto
   // por uma coincidência.
@@ -12390,11 +12397,6 @@ function openLyricsPopup(item, fonte) {
   // culto inteiro); mas carregá-la para OUTRA música seria abrir a folha de um
   // louvor na aba que o operador escolheu para outro.
   //
-  // `fonte` é o PEDIDO de quem abriu, e vence os dois — a Biblioteca abre na
-  // cifra, porque quem toca ali foi buscar os acordes. Não é imposição:
-  // `lvActiveSource` só a honra enquanto a fonte existir, e sem ponte
-  // (navegador) a cifra nem entra na lista, então a folha abre na letra sem
-  // nenhum caso especial.
   // E A CAMADA DA FRENTE VENCE A ESCOLHA GUARDADA QUANDO ELA MUDA (v1.4.26).
   //
   // "O elemento na camada mais a frente de tudo é o que aparece na abertura" —
@@ -12411,10 +12413,16 @@ function openLyricsPopup(item, fonte) {
   // `lvFrenteVista` nasce `null` e isso significa *"nenhuma frente vista ainda"*,
   // nunca *"a frente mudou"*: na PRIMEIRA abertura não houve cena anterior, logo
   // não há escolha de antes a invalidar. Ler o sentinela como troca derruba uma
-  // fonte pedida antes da primeira abertura — que é o que um chamador
-  // programático faz, e o que o `cifra-rolagem.test.mjs` faz.
-  if (fonte) lvSource = fonte;
-  else if (trocouAlvo || (lvFrenteVista !== null && frente !== lvFrenteVista)) lvSource = null;
+  // escolha guardada de antes da primeira abertura — que é o que o
+  // `cifra-rolagem.test.mjs` planta.
+  //
+  // NÃO HÁ COMO UM CHAMADOR PEDIR A ABA. Houve: um segundo parâmetro (`fonte`)
+  // vencia os dois testes acima, e a Biblioteca o usava para abrir na CIFRA. O
+  // botão de lá virou *"Ver a letra"* na v1.2.25 e largou o pedido — abrir na
+  // cifra contradiria o próprio rótulo —, e o parâmetro ficou sem produtor até
+  // a v1.8.78. Quem decide a aba é a FRENTE mais a escolha guardada, e mais
+  // nada.
+  if (trocouAlvo || (lvFrenteVista !== null && frente !== lvFrenteVista)) lvSource = null;
   lvFrenteVista = frente;
   lvFollow = true; // toda abertura começa acompanhando o que está no ar
   renderLyricsView();
@@ -14307,7 +14315,7 @@ function cifraVelTitulo() {
 // ESTADO mora aqui fora e quem acabou de nascer vem perguntar como se pintar.
 function cifraPintarRolar() {
   // COM A GAVETA ABERTA O SELETOR É O ✕, e quem o escreve é o `cifraPintarVels`
-  // (v1.8.78). Sem esta guarda, qualquer repintura da fila com a gaveta no ar —
+  // (v1.8.80). Sem esta guarda, qualquer repintura da fila com a gaveta no ar —
   // tocar no play, o degrau mudando pelo arrasto — devolveria o rótulo ao botão
   // e o operador ficaria sem a saída que acabou de abrir.
   if (cifraVelBtnEl && !cifraVelAberta) {
@@ -14495,7 +14503,7 @@ function cifraAdotarVelocidade(v) {
 }
 
 /**
- * ===== E A GAVETA VIROU UM SLIDER, QUE DESLIZA (v1.8.78) =====
+ * ===== E A GAVETA VIROU UM SLIDER, QUE DESLIZA (v1.8.80) =====
  *
  * Pedido do operador: *"o botão de alterar velocidade de rolagem… está abrindo
  * uma lista de outros botões de opções de velocidade, mas primeiramente isso não
@@ -14560,7 +14568,7 @@ function cifraVelFilaAlternar() {
 }
 
 /**
- * Aplica um degrau. **Não fecha a gaveta** (v1.8.78): quem fecha é o ✕.
+ * Aplica um degrau. **Não fecha a gaveta** (v1.8.80): quem fecha é o ✕.
  */
 async function cifraVelEscolher(i) {
   const antes = cifraVelIdx;
@@ -14609,7 +14617,7 @@ function cifraPintarVels() {
   if (cifraVelBtnEl) {
     cifraVelBtnEl.setAttribute('aria-expanded', cifraVelAberta ? 'true' : 'false');
     cifraVelBtnEl.classList.toggle('fechando', cifraVelAberta);
-    // ===== O BOTÃO QUE ABRIU É O QUE FECHA (v1.8.78) =====
+    // ===== O BOTÃO QUE ABRIU É O QUE FECHA (v1.8.80) =====
     // Aberta, ele vira ✕ — o pedido, e a regra do app: o ✕ é o mesmo glifo dos
     // seis fechares deste bundle (`ICON.close`), nunca um desenho novo.
     if (cifraVelAberta) {
@@ -14629,7 +14637,7 @@ function cifraPintarVels() {
 }
 
 /**
- * A GAVETA: uma caixa que cresce, com o slider dentro (v1.8.78).
+ * A GAVETA: uma caixa que cresce, com o slider dentro (v1.8.80).
  *
  * ELA É UMA CAIXA DE VERDADE, e não mais `display: contents`: aquele modo fazia
  * os cinco botões virarem filhos de fato da fila (e herdarem a direção dela de
@@ -14807,7 +14815,7 @@ function lvBuildCifra(el) {
   // transposta é a folha e o rótulo dizendo coisas diferentes sobre a mesma
   // tela. Ele é desenhado no CABEÇALHO DA CAIXA, mais abaixo (v1.6.3).
   const tomAtual = AVCifra.transporTom(p.tom, n);
-  // `lv-cifra-tom` NOS DOIS (v1.8.78): é a classe que a gaveta encolhe para
+  // `lv-cifra-tom` NOS DOIS (v1.8.80): é a classe que a gaveta encolhe para
   // caber, e o pedido nomeia quem FICA — *"mantenha o botão de play e o botão de
   // seletor de velocidade sempre visível"* —, então quem sai é este par. O ⛶
   // continua de fora da lista pela invariante de sempre: *a fila da cifra sempre
@@ -15347,7 +15355,7 @@ function autoAdvance() {
 
 async function cycleRepeat() {
   repeat = REPEATS[(REPEATS.indexOf(repeat) + 1) % REPEATS.length];
-  // A RESPOSTA VEM PRIMEIRO (v1.8.78), a regra deste app: o desenho era pintado
+  // A RESPOSTA VEM PRIMEIRO (v1.8.80), a regra deste app: o desenho era pintado
   // DEPOIS do `await` do banco, e nesse vão o botão mostrava o degrau anterior.
   // Num controle que se toca com a música no ar, o que a mão espera é o botão
   // mudar no toque — a transação é assunto do banco, não do dedo.
@@ -34193,7 +34201,11 @@ async function telaEmpurrarAgora(it) {
   // O TOKEN VEM DO ITEM ENFILEIRADO, nunca relido agora: entre a fila e este
   // ponto o `__wp` pode ter sido recunhado (ver `telaGarantirEnvio`), e reler
   // mandaria os bytes do wallpaper ANTIGO sob o token do NOVO.
-  const token = it.token || telaTokenDe(it.id);
+  //
+  // Havia um `|| telaTokenDe(it.id)` aqui, e ele era INALCANÇÁVEL — quem
+  // enfileira já recusou o item sem token (`if (!token) return`) e empilha uma
+  // CÓPIA com ele. Alcançado, faria exatamente o que o parágrafo acima proíbe.
+  const token = it.token;
   if (!token) return;
   let arquivo = it.blob || null;
   if (!arquivo && it.opfsPath) {

@@ -1,4 +1,4 @@
-// A BARRA DO TOPO, O TÍTULO DAS JANELAS E A BASE DA LEITURA DA BÍBLIA (v1.8.78).
+// A BARRA DO TOPO, O TÍTULO DAS JANELAS E A BASE DA LEITURA DA BÍBLIA (v1.8.80).
 //
 // ## Os três relatos, na mesma sessão
 //

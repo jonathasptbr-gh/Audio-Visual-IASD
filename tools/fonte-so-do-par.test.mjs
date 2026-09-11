@@ -308,7 +308,7 @@ try {
   // Os TRÊS caminhos, como lá — e o motivo de não bastar o `click()` é o mesmo:
   // o acidente que poupava um botão era o alvo do evento, e ele muda conforme o
   // dedo cai no `<button>` ou no que estiver dentro dele.
-  // ===== E O RISCO SAIU DE CENA COM OS BOTÕES (v1.8.78) =====
+  // ===== E O RISCO SAIU DE CENA COM OS BOTÕES (v1.8.80) =====
   //
   // A gaveta virou um `<input type="range">`: não há mais cinco `.lv-fonte-btn`
   // escondidos ali, e um `<input>` não casa o seletor do ouvinte delegado por

@@ -161,7 +161,14 @@ O fecho não segue essa regra. `PacoteCanal.fechar()` (PacoteCanal.kt:140-155) f
 
 ### [16] O parâmetro `fonte` de `openLyricsPopup` só é passado por um ORÁCULO; o comentário dentro da função afirma que "a Biblioteca abre na cifra", e ela não abre
 
-`app/src/main/assets/web/controle/controle.js:12356` · gravidade **media** · NÃO VERIFICADO · lente `controle-js-morto`
+`app/src/main/assets/web/controle/controle.js:12356` · gravidade **media** · ✅ **RESOLVIDO na v1.8.78** · lente `controle-js-morto`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.78, pela segunda das duas saídas propostas** — o parâmetro sai.
+> A v1.8.76 tinha escolhido a PRIMEIRA (ligar o chamador) com base na nota da v1.2.14; errado: a
+> v1.2.25 trocou aquele botão pelo *"Ver a letra"* a pedido do operador, e a tabela de documentação
+> corrigida daquele lote já registrava que `fonte` não tem chamador. O rótulo é o argumento — um
+> botão que diz *Ver a letra* não abre na aba de acordes. Saíram o parâmetro, a leitura, o comentário,
+> os dois argumentos dos oráculos e a linha de exceção da v1.8.76.
 
 **Evidência.** Declaração `function openLyricsPopup(item, fonte)` (12302), leitura única em `if (fonte) lvSource = fonte;` (12356). Os DOIS chamadores do app passam no máximo um argumento: `lyricsViewBtnEl.addEventListener('click', () => openLyricsPopup());` (30505) e, o da Biblioteca, `openLyricsPopup(await lvItemDaBiblioteca(coll, s));` (19816). O ÚNICO ponto do repositório que passa `fonte` é um teste: `tools/leitor-biblioteca.test.mjs:165 → openLyricsPopup(alvo, 'cifra');` (o mesmo arquivo, na linha 228, usa a forma real de UM argumento). O `git log -S` mostra o que aconteceu: o commit 9ed2b1f3 (v1.2.25, "o 'Ver a letra' da Biblioteca abre o LEITOR") REMOVEU a linha `openLyricsPopup(item, 'cifra');` e pôs no lugar a de um argumento — o produtor saiu e o parâmetro ficou. Enquanto isso o comentário de 12333-12334 continua afirmando o comportamento morto: "`fonte` é o PEDIDO de quem abriu, e vence os dois — a Biblioteca abre na cifra, porque quem toca ali foi buscar os acordes". Escapa do oráculo pelo mesmo motivo do achado anterior (é parâmetro, não símbolo declarado).
 
@@ -253,7 +260,11 @@ E o oráculo que varre os consumidores de verde não o alcança: `tools/feedback
 
 ### [11] `b.dataset.tool` é escrito nas abas de Ferramentas e nunca lido em lugar nenhum do repositório
 
-`app/src/main/assets/web/controle/controle.js:7160` · gravidade **baixa** · NÃO VERIFICADO · lente `html-js-fiacao`
+`app/src/main/assets/web/controle/controle.js:7160` · gravidade **baixa** · ✅ **RESOLVIDO na v1.8.79** · lente `html-js-fiacao`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.79.** Medido: a linha era a ÚNICA ocorrência de `data-tool`/
+> `dataset.tool` no repositório. O bloco novo do `funcao-sem-chamador.test.mjs` (marcas do DOM) o
+> nomeia com ela de volta.
 
 **Evidência.** `b.dataset.tool = t.id;`, dentro do `MISC_TOOLS.forEach` de `renderDiversos()`. `grep -rn "data-tool\|dataset.tool" /home/user/Audio-Visual-IASD` (fora de node_modules/.git) devolve ESTA e só esta linha: nenhum seletor `[data-tool]` em controle.css, nenhuma leitura em controle.js, nenhum oráculo em tools/. Quem decide a aba ativa é a classe, escrita uma linha acima (7159, `'misc-tab' + (miscTool === t.id ? ' active' : '')`), e o clique (7173-7177) lê o `t.id` do FECHO, não o dataset. Compare com o irmão vivo `b.dataset.dest` (controle.js:21925), que é hook declarado de oráculo e aparece em oito pontos do tools/sorteio-tela.test.mjs.
 
@@ -263,7 +274,11 @@ E o oráculo que varre os consumidores de verde não o alcança: `tools/feedback
 
 ### [17] `renderPlaylist` escreve a classe `has-items` no `#plBtn`, e nenhuma folha de estilo a consome desde a v1.5.0 — a doc ainda afirma que o ícone acende em `--accent`
 
-`app/src/main/assets/web/controle/controle.js:3859` · gravidade **baixa** · NÃO VERIFICADO · lente `controle-js-morto`
+`app/src/main/assets/web/controle/controle.js:3859` · gravidade **baixa** · ✅ **RESOLVIDO na v1.8.79** · lente `controle-js-morto`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.79, pela saída (b)** — a escrita sai e a doc é corrigida.
+> Devolver a regra de CSS foi RECUSADO: o app tem três significados de cor (escolhido · ligado ·
+> selecionado) e nenhum deles é "há fila" — quem diz isso é o badge, que já está lá.
 
 **Evidência.** A escrita é `plBtnEl.classList.toggle('has-items', count > 1);` (3859). `grep -rn "has-items" --include=*.css` sobre `controle.css`, `display.css`, `espelho/tela.css`, `tokens.css` e `material-symbols.css` devolve ZERO linhas; no repositório inteiro o termo só aparece em dois lugares: esta linha e `docs/arquitetura/CONTROLE.md:1614`. O `git log -S'has-items' -- controle.css` mostra a regra saindo no commit 58653368 (v1.5.0), e ela já não existe no commit-base desta semana. A doc continua afirmando o contrário: "O badge de contagem (`#plCount`) só aparece a partir do 2º item (mostra `count - 1`), e o ícone só fica destacado em `--accent` (`.has-items`) nesse mesmo caso ... fica neutro (branco)". O comentário logo acima da linha, em controle.js:3855, repete a promessa: "o ícone só fica destacado quando existe de fato uma fila além do item em exibição".
 
@@ -273,7 +288,11 @@ E o oráculo que varre os consumidores de verde não o alcança: `tools/feedback
 
 ### [19] Em `telaEmpurrarAgora` o ramo `|| telaTokenDe(it.id)` é inalcançável — e ele faria exatamente o que o comentário duas linhas acima proíbe
 
-`app/src/main/assets/web/controle/controle.js:33907` · gravidade **baixa** · NÃO VERIFICADO · lente `controle-js-morto`
+`app/src/main/assets/web/controle/controle.js:33907` · gravidade **baixa** · ✅ **RESOLVIDO na v1.8.79** · lente `controle-js-morto`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.79.** `telaGarantirEnvio` recusa o item sem token
+> (`if (!token) return`) e empilha uma CÓPIA com ele, então `it.token` é sempre truthy. Sem oráculo
+> próprio — ramo inalcançável não é pergunta que varredura de texto responda.
 
 **Evidência.** A linha é `const token = it.token || telaTokenDe(it.id);` (33907), e o comentário imediatamente acima (33904-33906) diz: "O TOKEN VEM DO ITEM ENFILEIRADO, nunca relido agora: entre a fila e este ponto o `__wp` pode ter sido recunhado (ver `telaGarantirEnvio`), e reler mandaria os bytes do wallpaper ANTIGO sob o token do NOVO." O único chamador é `telaEscoar` (33978), que tira o item de `telaFila` (33975). `telaFila` tem UM ponto de escrita em todo o arquivo — `telaFila.push(Object.assign({}, it, { token }));` (33970) —, e ele vem depois de `const token = telaTokenDe(it.id); if (!token) return;` (33965-33967). Logo todo item que chega a `telaEmpurrarAgora` já carrega `token` truthy e `it.token ||` nunca cai no lado direito. Para não confundir com a redundância deliberada: o comentário de 33952-33955 diz que este ramo "CONTINUA VIVO" — mas o que ele credita é a metade `it.token`, não o fallback; a v1.8.48 apagou o irmão dele no `telaGarantirEnvio` pelo mesmo argumento e deixou este.
 
@@ -283,7 +302,11 @@ E o oráculo que varre os consumidores de verde não o alcança: `tools/feedback
 
 ### [20] O ramo `want === 'last'` de `bibleGotoChapter` é inalcançável, e o comentário de contrato ainda anuncia `'first' | 'last'`
 
-`app/src/main/assets/web/controle/controle.js:4763` · gravidade **baixa** · NÃO VERIFICADO · lente `controle-js-morto`
+`app/src/main/assets/web/controle/controle.js:4763` · gravidade **baixa** · ✅ **RESOLVIDO na v1.8.79** · lente `controle-js-morto`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.79.** O literal `'last'` aparecia UMA vez na base, na própria
+> comparação; os dois chamadores passam número. O contrato do comentário foi reduzido ao que a
+> função aceita. Sem oráculo próprio, pelo mesmo motivo do [19].
 
 **Evidência.** A função é `async function bibleGotoChapter(bookIdx, chapter, want)` (4753) e o ramo é `if (want === 'last') idx = verses.length - 1;` (4763). O literal `'last'` aparece UMA única vez em toda a base web (fora de comentários): nesta comparação. Os dois — e únicos — chamadores estão em `bibleStep` e passam NÚMEROS: `bibleGotoChapter(nx.bookIdx, nx.chapter, t - s.verses.length)` (4804) e `bibleGotoChapter(pv.bookIdx, pv.chapter, t)` (4807), onde `t = s.idx + delta`. O caso de voltar para o fim do capítulo anterior já é atendido pelo ramo seguinte, `typeof want === 'number'` com `want < 0 ? verses.length + want : want` (4764). O comentário de contrato em 4751-4752 continua declarando três formas — "`want`: 'first' | 'last' | um índice" — e nem `'first'` nem `'last'` têm produtor.
 
