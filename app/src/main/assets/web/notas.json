@@ -1,5 +1,30 @@
 [
   {
+    "versao": "1.8.77",
+    "itens": [
+      "A playlist toca sozinha do começo ao fim: não é mais preciso ligar a repetição para a fila andar.",
+      "Tocar um item volta o seletor de repetição ao normal — nada repete por sobra da mídia anterior."
+    ]
+  },
+  {
+    "versao": "1.8.76",
+    "itens": [
+      "Faxina por dentro: saíram seis parâmetros que nenhuma parte do app preenchia. Nada muda na tela."
+    ]
+  },
+  {
+    "versao": "1.8.75",
+    "itens": [
+      "Apresentação com vídeos: projetar outra mídia durante a importação não apaga mais os vídeos embutidos dela."
+    ]
+  },
+  {
+    "versao": "1.8.74",
+    "itens": [
+      "Projetar outra coisa no meio da abertura do vídeo de um slide não faz mais a apresentação voltar sozinha."
+    ]
+  },
+  {
     "versao": "1.8.73",
     "itens": [
       "Os dois botões quadrados ao lado da busca da Biblioteca voltaram a ter o ícone do mesmo tamanho."

@@ -302,6 +302,148 @@ else nao('nenhuma função existe só para o oráculo chamar',
   else nao('e nenhuma exceção da lista descreve um método que já não existe', fantasmas.join(', '));
 }
 
+// ============================================================================
+// UM PARÂMETRO QUE NINGUÉM SUPRE (v1.8.76)
+//
+// A quarta metade da mesma pergunta, e a que escapava dos três blocos acima:
+// eles varrem NOMES — funções, a superfície do `AVDB`, constantes de módulo —, e
+// um parâmetro não é nenhum dos três. O `send(id, daFila, retomarEm)` atravessou
+// 46 versões assim: o produtor do terceiro argumento era o RECADO, removido na
+// v1.2.17, e as duas linhas que o leem nunca mais rodaram. O custo não era o
+// byte — era o comentário ao lado, que continuava creditando o RECADO como quem
+// o alimenta, a 5.500 linhas de distância da linha do mesmo arquivo que diz que
+// o RECADO saiu. *Um comentário errado não custa leitura: produz a decisão
+// errada.*
+//
+// MEDIDO na entrada: SETE parâmetros em 1.270 funções, e dois deles já estavam
+// na auditoria de 2026-09-11 como achados separados.
+//
+// ## A regra, e o que ela deliberadamente NÃO acusa
+//
+// Acusa: parâmetro SEM `=` padrão na assinatura, LIDO no corpo, em função cujo
+// nome nunca aparece solto (só como chamada), e cuja aridade máxima observada
+// fica abaixo da posição dele.
+//
+// Não acusa `function f(a, ms = 3000)`: um padrão na assinatura é a DECLARAÇÃO
+// de que o parâmetro é opcional, visível para quem lê a linha — o mesmo papel
+// que o comentário das `MORTAS_DE_PROPOSITO`. Já `function f(a, ms)` com um
+// `ms || 3000` enterrado no corpo não declara nada: o leitor da assinatura vê um
+// segundo parâmetro e tem de cavar. É a diferença entre um contrato e uma
+// armadilha, e é onde a linha foi traçada.
+//
+// ## Por que ele é MUDO em vez de barulhento, ao contrário dos de cima
+//
+// Contar argumentos é ler JavaScript, e o leitor aqui é um scanner de texto.
+// Onde ele não tem certeza — um template literal, um literal de regex, parênteses
+// que não fecham — ele DESISTE daquela função inteira (`incerto`), e onde o nome
+// aparece solto (callback, alias) ele desiste também, porque aí a aridade vem de
+// quem invoca o callback e não de quem escreveu a linha. MEDIDO: 247 das 1.270
+// funções são puladas por essas duas portas. É a escolha oposta à do primeiro
+// bloco, e de propósito: lá uma acusação falsa se resolve com uma linha de
+// allow-list; aqui ela seria um pedido para APAGAR um parâmetro vivo.
+// ============================================================================
+{
+  // Cada entrada diz POR QUE o parâmetro fica — e o nome de quem deveria
+  // supri-lo, quando o defeito é o chamador e não o parâmetro.
+  const SUPRIDO_POR_FORA = new Map([
+    ['openLyricsPopup/fonte',
+      'achado [16] da auditoria de 2026-09-11: NÃO é parâmetro morto, é CHAMADOR '
+      + 'faltando. A nota da v1.2.14 anuncia que a gaveta da Biblioteca abre o leitor '
+      + '"cifra, tom, corpo e rolagem", e o `leitor-do-transporte.test.mjs` afirma o '
+      + 'mesmo no cabeçalho; quem chama passa um argumento só. Apagá-lo cancelaria o '
+      + 'recurso — o conserto é ligar o chamador, em lote próprio.'],
+  ]);
+
+  const FECHA = { '(': ')', '[': ']', '{': '}' };
+  // Devolve a aridade da chamada que abre em `i`, ou `null` quando não dá para
+  // ter certeza — ver o cabeçalho.
+  const aridade = (t, i) => {
+    const pilha = []; let args = 0, algo = false;
+    for (; i < t.length; i++) {
+      const c = t[i];
+      if (c === '`') return null;
+      if (c === '/') {
+        let j = i - 1;
+        while (j >= 0 && /\s/.test(t[j])) j--;
+        if (j < 0 || t[j] === '(' || t[j] === ',') return null;   // posição de regex literal
+      }
+      if (c === '"' || c === "'") {
+        const q = c; i++;
+        while (i < t.length && t[i] !== q) { if (t[i] === '\\') i++; i++; }
+        algo = true; continue;
+      }
+      if (FECHA[c]) { pilha.push(FECHA[c]); if (pilha.length > 1) algo = true; continue; }
+      if (c === ')' || c === ']' || c === '}') {
+        if (pilha.pop() !== c) return null;
+        if (!pilha.length) return algo ? args + 1 : 0;
+        continue;
+      }
+      if (c === ',' && pilha.length === 1) { args++; algo = true; continue; }
+      if (!/\s/.test(c)) algo = true;
+    }
+    return null;
+  };
+
+  const orfaos = [];
+  let olhadas = 0;
+  for (const [f, txt] of corpo) {
+    if (!f.endsWith('.js')) continue;
+    const rel = f.slice(RAIZ.length + 1);
+    const limpo = semComentario(txt);
+    for (const m of limpo.matchAll(/^[ \t]*(?:async )?function ([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/gm)) {
+      const [, nome, lista] = m;
+      // Padrão declarado, destruturação, rest: fora, pelo cabeçalho.
+      if (!lista.trim() || /[={[.]/.test(lista) || lista.includes('...')) continue;
+      const params = lista.split(',').map((x) => x.trim()).filter(Boolean);
+      const corpoFn = limpo.slice(m.index + m[0].length, m.index + m[0].length + 20000);
+      if (/\barguments\b/.test(corpoFn)) continue;
+      // Nome solto em qualquer lugar = a aridade vem de fora.
+      const todas = (app.match(new RegExp('\\b' + nome + '\\b', 'g')) || []).length;
+      const comParen = (app.match(new RegExp('\\b' + nome + '\\s*\\(', 'g')) || []).length;
+      if (todas !== comParen) continue;
+      let max = 0, incerto = false, chamadas = 0;
+      for (const c of app.matchAll(new RegExp('\\b' + nome + '\\s*\\(', 'g'))) {
+        if (/function\s+$/.test(app.slice(Math.max(0, c.index - 12), c.index))) continue;
+        chamadas++;
+        const n = aridade(app, c.index + c[0].length - 1);
+        if (n === null) { incerto = true; break; }
+        if (n > max) max = n;
+      }
+      if (incerto || !chamadas) continue;
+      olhadas++;
+      for (let i = max; i < params.length; i++) {
+        if (SUPRIDO_POR_FORA.has(nome + '/' + params[i])) continue;
+        if (new RegExp('\\b' + params[i] + '\\b').test(corpoFn)) {
+          orfaos.push(nome + '(' + lista + ') → `' + params[i] + '` (posição ' + (i + 1)
+            + '), máx. suprido = ' + max + '  [' + rel + ']');
+        }
+      }
+    }
+  }
+
+  // A PREMISSA, pelo mesmo motivo dos outros blocos: com as duas portas de
+  // desistência acima, um recorte quebrado zera a lista e o oráculo passa por
+  // AUSÊNCIA. MEDIDO ao escrever: 570 funções chegam até a contagem.
+  if (olhadas >= 200) ok('as assinaturas foram varridas (' + olhadas + ' funções com aridade conferível)');
+  else nao('as assinaturas foram varridas',
+    'só ' + olhadas + ' função(ões) — o recorte da assinatura ou a contagem falhou');
+
+  if (!orfaos.length) ok('e todo parâmetro lido no corpo é suprido por algum chamador');
+  else nao('todo parâmetro lido no corpo é suprido por algum chamador',
+    orfaos.join('\n\t')
+    + '\n\tconserto: apague o parâmetro E o comentário que o explica, no mesmo lote.'
+    + '\n\tSe o defeito for o CHAMADOR (o parâmetro devia ser suprido e não é), ele'
+    + '\n\tentra em `SUPRIDO_POR_FORA` nomeando quem deveria supri-lo.');
+
+  // E a lista não pode envelhecer — a mesma regra do bloco da ponte.
+  const fantasmas = [...SUPRIDO_POR_FORA.keys()].filter((k) => {
+    const [n, p] = k.split('/');
+    return !new RegExp('function ' + n + '\\s*\\([^)]*\\b' + p + '\\b').test(app);
+  });
+  if (!fantasmas.length) ok('e nenhuma exceção da lista descreve um parâmetro que já não existe');
+  else nao('e nenhuma exceção da lista descreve um parâmetro que já não existe', fantasmas.join(', '));
+}
+
 console.log('');
 if (falhas.length) { console.log(falhas.length + ' FALHA(S).'); process.exit(1); }
 console.log('Toda função da base tem chamador no app.');

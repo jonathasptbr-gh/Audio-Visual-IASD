@@ -88,7 +88,14 @@ por medição direta. Só o que está marcado **VERIFICADO** passou por isso.
 
 ### [13] `deckVideoTalvezTocar` arma `deckVideoVolta` no `.then` de um `send` sem guarda de sequência (`projecaoSeq`)
 
-`app/src/main/assets/web/controle/controle.js:27829` · gravidade **media** · NÃO VERIFICADO · lente `controle-js-bugs`
+`app/src/main/assets/web/controle/controle.js:27829` · gravidade **media** · ✅ **RESOLVIDO na v1.8.74** · lente `controle-js-bugs`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.74.** A corrida foi ENCENADA (trava no `getMedia` do vídeo,
+> solta pelo oráculo), e sem o conserto o bloco 5-D do `pptx-video-na-pagina.test.mjs` reprova em
+> DOIS pontos: a volta rearmada e o eixo do ⏮/⏭ apontando para o deck morto. A guarda é a senha
+> de sempre (`projecaoSeq`), lida **depois** do disparo — `send` é `async` e o `++projecaoSeq`
+> dele roda síncrono dentro da chamada; lida antes, ela recusaria SEMPRE (reversão medida: 5
+> reprovações, o recurso inteiro morto). Lote só de web, sem `shellTag`.
 
 **Evidência.** `send(vid, true).then(() => { deckVideoVolta = volta; renderSlideNav(); })` (27829-27835). O próprio comentário acima reconhece a dependência de ordem: *"O `send` LIMPA a volta na entrada … então ela só pode ser armada DEPOIS dele"* — mas o `.then` não confere se ainda é a projeção dele. `send()` zera `deckVideoVolta` na linha 11526 e incrementa `projecaoSeq` na primeira linha (11520); esta é a senha que o resto do arquivo usa para exatamente esta corrida (`senhaDaCena` em `load()`, linha 3204; `senhaDoToque` em `ytAcaoInterno`, linha 19411). É o ÚNICO `.then(` acrescentado nesta semana que mexe em estado de cena sem senha. O `send` do vídeo de slide é longo por construção: o vídeo embutido não está em `plItems`/`libItems`/`favItems`, então ele cai no `await AVDB.getMedia(id)` (11534) — uma leitura de IndexedDB do blob inteiro — mais `await persistCurrent()`.
 
@@ -118,7 +125,15 @@ O fecho não segue essa regra. `PacoteCanal.fechar()` (PacoteCanal.kt:140-155) f
 
 ### [14] Os vídeos embutidos de um `.pptx` ficam estacionados em `avulsos`, que é uma prateleira ROTATIVA de três — um `send` concorrente apaga os bytes antes do `addDeck`
 
-`app/src/main/assets/web/controle/controle.js:27992` · gravidade **baixa** · NÃO VERIFICADO · lente `controle-js-bugs`
+`app/src/main/assets/web/controle/controle.js:27992` · gravidade **baixa** · ✅ **RESOLVIDO na v1.8.75** · lente `controle-js-bugs`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.75**, pela correção (a) — o conjunto `avulsosEmMontagem`, que o
+> `fixarAvulso` tira de `outros`. A (b) foi descartada: criar o deck antes dos vídeos exige um
+> `updateDeckVideos` novo no `db.js` e deixa uma apresentação MEIA na lista se a importação falhar no
+> meio. MEDIDO no bloco 8 do `pptx-video-na-pagina.test.mjs`: **2 de 3 vídeos sobreviviam**. A janela é
+> encenada (trava no `addDeck`) e a rotação é AGUARDADA antes de soltá-la — sem isso o oráculo passava
+> com o defeito de pé, porque o `send` dispara o `fixarAvulso` sem `await`. Segunda reversão medida: o
+> conserto ingênuo (nunca despejar) reprova as duas asserções de rodízio. Lote só de web.
 
 **Evidência.** Em `pptxImportar`, cada vídeo embutido nasce com `AVDB.addMedia(v.blob, { … list: 'avulsos' })` (27988-27993) e só sai de lá DEPOIS do `addDeck`: `for (const p in videos) await AVDB.listRemove('avulsos', videos[p]);` (28006). O comentário ao lado promete que a prateleira os protege (*"`avulsos` é o detentor provisório que os segura entre o `addMedia` e o `addDeck`"*). Mas `avulsos` não é um depósito: `fixarAvulso` (28194-28203) faz rodízio com `AVULSO_MAX = 3` (28193) — `const excedente = outros.slice(0, Math.max(0, outros.length - cabem));` (28201) seguido de `await AVDB.listRemove('avulsos', velho)` (28202). `outros` é a lista na ordem de chegada, e o `listRemove` do `db.js` apaga o blob quando `lerDetentores` não acha outro dono — e o deck, que seria esse dono (`rec.videos`), ainda não existe. `fixarAvulso` é chamado por todo `send` (11614) e por `guardarShare`/`importShare` (28546).
 
@@ -130,7 +145,13 @@ O fecho não segue essa regra. `PacoteCanal.fechar()` (PacoteCanal.kt:140-155) f
 
 ### [15] O terceiro parâmetro de `send` (`retomarEm`) perdeu o único produtor na v1.2.17, e o comentário ao lado ainda nomeia o RECADO como quem o alimenta
 
-`app/src/main/assets/web/controle/controle.js:11713` · gravidade **media** · NÃO VERIFICADO · lente `controle-js-morto`
+`app/src/main/assets/web/controle/controle.js:11713` · gravidade **media** · ✅ **RESOLVIDO na v1.8.76** · lente `controle-js-morto`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.76**, com a CLASSE inteira: o bloco novo do
+> `funcao-sem-chamador.test.mjs` mediu SETE parâmetros sem chamador que os supra, em 1.270 funções.
+> Saíram seis; o sétimo (`openLyricsPopup/fonte`) é o achado [16] e fica, porque ali o defeito é o
+> CHAMADOR. A regra do `load` (a posição viaja DENTRO dele) mudou de casa para o
+> `resendSceneToDisplay`, que é quem a exerce.
 
 **Evidência.** A declaração é `async function send(id, daFila, retomarEm)` (linha 11518) e o parâmetro é lido em DUAS linhas: `if (retomarEm && retomarEm.t > 0) carga.time = retomarEm.t;` (11713) e `if (retomarEm && retomarEm.playing === false) carga.playing = false;` (11714). Varri TODOS os `send(` da base web (controle.js 4078, 5549, 7456, 10701, 10703, 11803, 15158, 15168, 15170, 15176, 15766, 15773, 19206, 19415, 21304, 22295, 27829, 27868, 28617, 30396, 30405) — NENHUM passa um terceiro argumento, o máximo é dois. Não há alias (`= send`, `send.apply`, `send.call` não existem), não há chamada de HTML nem de `.kt`. O produtor foi `recadoTerminou`, que fazia `send(volta.id, false, volta)` no commit 3b899a29 (v1.1.25) — e o RECADO saiu na v1.2.17, como o PRÓPRIO arquivo afirma na linha 6237 ("O RECADO (o walkie-talkie da v1.1.26) saiu na v1.2.17"). O comentário da linha 11711 continua dizendo "É o mesmo contrato que a reconexão do telão usa; quem o alimenta AQUI é a volta do RECADO" — isto é, o arquivo se contradiz a 5.500 linhas de distância. Escapa do `funcao-sem-chamador.test.mjs` porque o oráculo só varre declarações `function`/`const`/`let` e a superfície do `AVDB`; um PARÂMETRO não é visto por nenhum dos três blocos.
 

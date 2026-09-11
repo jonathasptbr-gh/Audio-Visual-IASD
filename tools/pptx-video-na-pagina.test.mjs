@@ -36,7 +36,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas, esperar, porque } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas, esperar, esperarDb, porque } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const servidor = servirEstatico(RAIZ);
@@ -394,6 +394,123 @@ try {
   checar(r === true, 'na página SEGUINTE, e sem repetir o vídeo da capa', porque(r));
 
   // ======================================================================
+  // 5-D. A CORRIDA: a volta REARMADA por uma cena que já morreu
+  //
+  // `deckVideoTalvezTocar` arma a volta no `.then` do `send`, e tem de ser
+  // depois dele — o `send` a LIMPA na entrada, de propósito, para que um toque
+  // do operador desarme a automação. Mas entre o disparo e a resolução há dois
+  // `await`: o `getMedia` do vídeo (que não está em lista nenhuma, então a
+  // leitura do blob inteiro acontece SEMPRE) e o `persistCurrent`. Nesse vão
+  // cabe o toque: o `send` dele zera a volta e o `.then` atrasado a REARMA,
+  // com o deck que já saiu de cena.
+  //
+  // O estrago é do sábado de manhã, e são dois pelo mesmo campo: o fim natural
+  // da mídia que o operador escolheu cai em `autoAdvance`, cuja primeira linha
+  // é `if (deckVideoVolta) { deckVideoVoltar(); return; }` — a fila NÃO avança
+  // e a apresentação antiga volta ao telão sozinha; e `slideTarget()` devolve
+  // 'deck', então o ⏭ passa a mexer no deck morto em vez de andar na cena.
+  //
+  // A CORRIDA É ENCENADA, nunca esperada: o `getMedia` do vídeo fica preso numa
+  // trava que este bloco solta quando quer. Sem ela o oráculo mediria qual das
+  // duas leituras de IndexedDB ganhou naquela rodada — e o defeito é justamente
+  // o desfecho que depende disso.
+  // ======================================================================
+  await pg.evaluate(() => stopClear());
+  await zerar();
+  await pg.evaluate((id) => send(id), ids.deck);
+  r = await noAr(ids.deck);
+  checar(r === true, 'a apresentação no ar para o bloco 5-D', porque(r));
+
+  // A trava pega SÓ o vídeo e SÓ uma vez: `__soltar` fica preenchido depois do
+  // primeiro, e as leituras seguintes (as do `outro`, as do coletor) passam
+  // direto. `__realGetMedia` é guardado para o bloco 6 receber a função de
+  // verdade de volta.
+  await pg.evaluate((vid) => {
+    const real = AVDB.getMedia.bind(AVDB);
+    window.__realGetMedia = real;
+    window.__soltar = null;
+    AVDB.getMedia = async (id) => {
+      const r = await real(id);
+      if (id === vid && !window.__soltar) await new Promise((f) => { window.__soltar = f; });
+      return r;
+    };
+  }, ids.vid);
+
+  // Sem `return`: o `send` do vídeo fica pendurado na trava, e devolvê-lo ao
+  // Playwright penduraria o `evaluate` junto.
+  await pg.evaluate(() => { deckIr(1); });
+  r = await esperar(pg, () => !!window.__soltar, null, 10000);
+  checar(r === true, 'o `send` do vídeo está preso na leitura do blob', porque(r));
+
+  // O TOQUE DO OPERADOR, no meio da espera.
+  await pg.evaluate((id) => send(id), ids.outro);
+  r = await noAr(ids.outro);
+  checar(r === true, 'o operador projeta outra mídia enquanto o vídeo espera', porque(r));
+  const naEntrada = await estado();
+  checar(naEntrada.armado === false, 'e o `send` dele desarma a volta', naEntrada.armado);
+
+  await pg.evaluate(() => window.__soltar());
+  // O FATO QUE FECHA A JANELA, e não um prazo: o `load` do vídeo é o último
+  // passo do `send` (depois dele só há linhas síncronas), e um turno de
+  // macrotarefa depois dele o `.then` já rodou — microtarefa drena antes de
+  // qualquer `setTimeout`.
+  r = await esperar(pg, (vid) => window.__cmds.some((c) => c.type === 'load' && c.mediaId === vid), ids.vid, 10000);
+  checar(r === true, 'o `send` atrasado do vídeo chega ao fim', porque(r));
+  await pg.evaluate(() => new Promise((f) => setTimeout(f, 0)));
+
+  const tarde = await pg.evaluate(() => ({ armado: !!deckVideoVolta, eixo: slideTarget() }));
+  checar(tarde.armado === false,
+    'a volta NÃO é rearmada pelo `send` que perdeu a vez', tarde.armado);
+  checar(tarde.eixo !== 'deck',
+    'e o ⏮/⏭ continua na cena do operador, não no deck morto', tarde.eixo);
+
+  // E A REVERSÃO DA TRAVA: sem toque no meio, a MESMA espera arma a volta. Sem
+  // esta metade, um `deckVideoVolta = null` a mais em qualquer lugar passaria
+  // pelas duas asserções acima.
+  await pg.evaluate(() => stopClear());
+  await zerar();
+  await pg.evaluate((id) => send(id), ids.deck);
+  r = await noAr(ids.deck);
+  checar(r === true, 'a apresentação no ar para a reversão do 5-D', porque(r));
+  await pg.evaluate((vid) => {
+    const real = window.__realGetMedia;
+    window.__soltar = null;
+    AVDB.getMedia = async (id) => {
+      const r = await real(id);
+      if (id === vid && !window.__soltar) await new Promise((f) => { window.__soltar = f; });
+      return r;
+    };
+  }, ids.vid);
+  await pg.evaluate(() => { deckIr(1); });
+  r = await esperar(pg, () => !!window.__soltar, null, 10000);
+  checar(r === true, 'o `send` do vídeo está preso outra vez', porque(r));
+  await pg.evaluate(() => window.__soltar());
+  r = await noAr(ids.vid);
+  checar(r === true, 'REVERSÃO: sem toque no meio, o vídeo entra em cena', porque(r));
+  r = await esperar(pg, () => !!deckVideoVolta, null, 10000);
+  checar(r === true, 'REVERSÃO: e a espera atrasada ARMA a volta', porque(r));
+
+  // O bloco 6 mede o coletor; ele não pode herdar um `getMedia` embrulhado.
+  await pg.evaluate(() => { AVDB.getMedia = window.__realGetMedia; });
+
+  // E A CENA SAI DE CIMA DO VÍDEO, porque o bloco 6 mede QUEM O DETÉM. A cena
+  // no ar é detentora (`state.current.mediaId`, em `lerDetentores`), então
+  // terminar aqui com o vídeo projetado o faria sobreviver à faxina por um
+  // motivo que não é o da asserção — MEDIDO, era a única do coletor que
+  // reprovava com este bloco na frente.
+  await pg.evaluate((id) => send(id), ids.outro);
+  r = await noAr(ids.outro);
+  checar(r === true, 'a cena volta a ser uma mídia comum, para o bloco 6 medir o detentor certo', porque(r));
+
+  // E O `fixarAvulso` DE CADA `send` É FIRE-AND-FORGET: sem esperá-los pousar,
+  // um deles devolve o vídeo à prateleira DEPOIS de o bloco 6 esvaziá-la.
+  // `esperarDb`, e não `esperar`: a leitura mora atrás de um `await`, e
+  // `waitForFunction` não espera a Promise de um predicado `async`.
+  r = await esperarDb(pg, (p) => AVDB.listIds('avulsos').then(
+    (l) => l.indexOf(p.vid) >= 0 && l.indexOf(p.outro) >= 0), { vid: ids.vid, outro: ids.outro });
+  checar(r === true, 'a prateleira recebeu os dois últimos `send`', porque(r));
+
+  // ======================================================================
   // 6. O COLETOR — a metade 4, e a única que só aparece na abertura SEGUINTE
   //
   // A PRATELEIRA `avulsos` ENTRA NO MEIO, e é preciso dizer o que ela é para a
@@ -478,6 +595,123 @@ try {
   checar(vivoAvancado === true,
     'e na lista de sempre (modo avançado) também — o caminho que já funcionava',
     vivoAvancado);
+
+  // ======================================================================
+  // 8. A IMPORTAÇÃO × A PRATELEIRA ROTATIVA — o vídeo apagado ANTES de existir
+  //    apresentação que o segurasse
+  //
+  // O `pptxImportar` estaciona cada vídeo embutido em `avulsos` e só os tira de
+  // lá DEPOIS do `addDeck`, e o comentário ao lado promete que a prateleira os
+  // PROTEGE nesse vão. Ela não protege: `avulsos` é RODÍZIO de três
+  // (`AVULSO_MAX`), e todo `send` passa pelo `fixarAvulso`, que despeja os mais
+  // antigos. Os vídeos recém-estacionados são justamente os mais antigos da
+  // lista, e ninguém mais os aponta — o `listRemove` do `db.js` apaga o blob
+  // quando `isReferenced` não acha outro dono, e o deck que seria esse dono
+  // ainda não existe.
+  //
+  // O desfecho é o da metade 4 por outro caminho: o `addDeck` nasce com
+  // `videos[pagina]` apontando para ids que já não existem. Chegar naquela
+  // página não projeta nada, sem erro no console — descoberto no culto.
+  //
+  // A JANELA É ENCENADA pelo `addDeck`, não esperada: o laço de `addMedia`
+  // grava dezenas de MB por vídeo, então no aparelho ela dura SEGUNDOS, mas
+  // aqui os blobs são de 64 bytes. A trava põe o oráculo exatamente onde o
+  // operador estaria.
+  //
+  // E O `paginasDoPptx` É DUBLADO, não alimentado com um `.pptx` de verdade:
+  // este repositório não aceita binário de terceiro, e o que se mede aqui é o
+  // ESTACIONAMENTO — quem desenha as páginas tem oráculo próprio
+  // (`apresentacao.test.mjs`, `pptxzip.test.mjs`).
+  // ======================================================================
+  await pg.evaluate(() => stopClear());
+  await zerar();
+
+  const importado = await pg.evaluate(async (outroId) => {
+    const cv = document.createElement('canvas'); cv.width = 8; cv.height = 8;
+    const pag = await new Promise((r) => cv.toBlob(r, 'image/png'));
+    const vid = () => new Blob([new ArrayBuffer(64)], { type: 'video/mp4' });
+
+    // TRÊS vídeos é o mínimo que alcança o defeito, e o número sai da conta do
+    // `fixarAvulso`: com `lote.length = 1`, `cabem = 2`, e o excedente é tudo o
+    // que passa disso — a partir do terceiro estacionado, o primeiro sai.
+    const paginas = [pag, pag, pag, pag];
+    const videos = [{ pagina: 1, blob: vid() }, { pagina: 2, blob: vid() }, { pagina: 3, blob: vid() }];
+    window.AVDeck.paginasDoPptx = async () => ({ pages: paginas, videos, truncado: false });
+
+    // E TRÊS AVULSOS DE ANTES, que é o que faz a segunda metade medir alguma
+    // coisa: sem eles a prateleira nem chega ao teto, e "o rodízio continua
+    // funcionando" passaria com o rodízio desligado.
+    const antigos = [];
+    for (let i = 0; i < 3; i++) {
+      const r = await AVDB.addMedia(new Blob([new ArrayBuffer(32)], { type: 'audio/wav' }),
+        { name: 'avulso antigo ' + i, type: 'audio/wav', kind: 'audio', list: 'avulsos' });
+      antigos.push(r.id);
+    }
+
+    // A TRAVA, no `addDeck`: os vídeos já estão estacionados e a apresentação
+    // ainda não existe — o instante exato do defeito.
+    const realDeck = AVDB.addDeck.bind(AVDB);
+    window.__soltarDeck = null;
+    AVDB.addDeck = async (p, m) => {
+      await new Promise((f) => { window.__soltarDeck = f; });
+      AVDB.addDeck = realDeck;
+      return realDeck(p, m);
+    };
+    window.__importando = pptxImportar(new Blob(['x']), 'Sermao com tres videos', {});
+    return { antigos };
+  }, ids.outro);
+
+  r = await esperar(pg, () => !!window.__soltarDeck, null, 20000);
+  checar(r === true, 'os três vídeos estão estacionados e a apresentação ainda não existe', porque(r));
+
+  // O TOQUE DO OPERADOR no meio da importação — qualquer mídia serve; o que
+  // conta é o `fixarAvulso` que todo `send` faz.
+  await pg.evaluate((id) => send(id), ids.outro);
+  r = await noAr(ids.outro);
+  checar(r === true, 'o operador projeta uma mídia no meio da importação', porque(r));
+
+  // E A ROTAÇÃO PRECISA TER TERMINADO ANTES DE A APRESENTAÇÃO NASCER, senão o
+  // oráculo mede qual das duas corridas ganhou — e MEDIDO ele mediu a errada:
+  // `send` dispara `fixarAvulso(id)` SEM `await` (a cena não pode esperar por
+  // cinco transações de IndexedDB, e o comentário lá diz isso), então soltando
+  // a trava logo depois do `noAr` o `addDeck` pousava primeiro, os vídeos já
+  // tinham dono e os três sobreviviam — com o defeito inteiro de pé.
+  //
+  // A chamada direta é a MESMA função que o `send` acima acabou de disparar,
+  // agora aguardada: se aquela já terminou, esta é no-op (o `outro` já está na
+  // lista e o excedente já saiu); se não, esta a conclui. O percurso do
+  // operador continua sendo o `send` — isto é só a barreira.
+  await pg.evaluate((id) => fixarAvulso(id), ids.outro);
+
+  const deckNovo = await pg.evaluate(async () => {
+    window.__soltarDeck();
+    const rec = await window.__importando;
+    if (!rec) return null;
+    const d = await AVDB.getMedia(rec.id);
+    const ids = Object.values((d && d.videos) || {});
+    const vivos = [];
+    for (const v of ids) if (await AVDB.getMedia(v)) vivos.push(v);
+    return { total: ids.length, vivos: vivos.length, avulsos: await AVDB.listIds('avulsos') };
+  });
+  checar(deckNovo !== null, 'a importação devolveu a apresentação', deckNovo);
+  checar(deckNovo && deckNovo.total === 3, 'ela nasce com os três vídeos ligados às páginas',
+    deckNovo && deckNovo.total);
+  checar(deckNovo && deckNovo.vivos === 3,
+    'e os três blobs SOBREVIVEM ao rodízio da prateleira durante a importação',
+    deckNovo && deckNovo.vivos + ' de ' + (deckNovo && deckNovo.total));
+
+  // REVERSÃO: o rodízio não pode ter sido DESLIGADO para isso. Três avulsos
+  // antigos mais o que o `send` fixou passam do teto, e o mais antigo tem de
+  // ter saído — senão a proteção acima seria "nunca despejar nada", e a
+  // prateleira viraria a pilha de centenas de MB que o `AVULSO_MAX` existe
+  // para não ser.
+  const antigoMorto = await pg.evaluate((a) => AVDB.listIds('avulsos').then((l) => !l.includes(a)),
+    importado.antigos[0]);
+  checar(antigoMorto === true,
+    'REVERSÃO: o rodízio continua despejando o avulso mais antigo', antigoMorto);
+  checar(deckNovo && deckNovo.avulsos.length <= 3,
+    'e a prateleira volta ao teto de três depois da importação',
+    deckNovo && deckNovo.avulsos.length);
 
   checar(erros.length === 0, 'nenhum erro de console no percurso', erros.join(' | '));
 } finally {
