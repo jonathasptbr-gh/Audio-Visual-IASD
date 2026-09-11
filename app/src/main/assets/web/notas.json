@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.76",
+    "itens": [
+      "Faxina por dentro: saíram seis parâmetros que nenhuma parte do app preenchia. Nada muda na tela."
+    ]
+  },
+  {
     "versao": "1.8.75",
     "itens": [
       "Apresentação com vídeos: projetar outra mídia durante a importação não apaga mais os vídeos embutidos dela."
