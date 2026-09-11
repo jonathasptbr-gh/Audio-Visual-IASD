@@ -370,6 +370,29 @@ jobs:
       # bundle publica, que é o que não pode faltar.
       #
       # 10 min é folga larga sobre o normal — medido em 24 s na execução seguinte.
+      # O CACHE DO NAVEGADOR — o passo abaixo baixava ~150 MB de CDN em TODO
+      # push, e o `verificar` roda em todos eles.
+      #
+      # A CHAVE É O `package-lock.json`, e isso não é conveniência: o pin do
+      # Playwright é CONTRATO deste repositório (ver "Preparar o Chromium"), e a
+      # regra do projeto manda repetir a campanha de determinismo ao subi-lo.
+      # Com a chave no hash do lock, subir o pin invalida o cache por
+      # construção — o navegador novo é baixado, e nunca se roda a versão nova
+      # do pacote contra o binário da versão velha.
+      #
+      # ELE NÃO PODE REPROVAR O JOB: `continue-on-error`, pela mesma política do
+      # passo que ele serve — infraestrutura AUSENTE não segura o canal OTA. Um
+      # cache frio faz o passo de baixo baixar como antes.
+      - name: Cache do npm e do Chromium
+        id: cache-pw
+        continue-on-error: true
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Preparar o Chromium (infraestrutura)
         id: chromium
         continue-on-error: true
@@ -392,6 +415,10 @@ jobs:
           # tempo uma página leva para assentar. O placar da campanha vale para
           # a versão em que foi medido, e para nenhuma outra.
           npm ci --no-audit --no-fund --silent
+          # `install` com o navegador JÁ em `~/.cache/ms-playwright` é uma
+          # conferência de versão, não um download: o passo cai de ~150 MB para
+          # zero byte de CDN. `--with-deps` fica — ele instala pacotes APT, que
+          # o cache acima não cobre e que o runner quase sempre já tem.
           npx playwright install --with-deps chromium
 
       # FUMAÇA DO CONTROLE e os demais oráculos, num Chromium de verdade. Os
@@ -407,9 +434,10 @@ jobs:
       # PRAZO AQUI TAMBÉM, e pela mesma razão: um oráculo que pendure o
       # navegador (uma Promise que nunca resolve, um `waitForFunction` sem
       # timeout) trava o job inteiro e leva o canal OTA junto. O prazo é folga
-      # larga: MEDIDO, os 57 somam ~7,4 min em SÉRIE e ~2,5 min nos três
-      # processos em que rodam hoje — e o prazo cobre o pior caso, que é a
-      # paralelização não pegar por qualquer razão e a lista correr em fila.
+      # larga: MEDIDO em 4 vCPU (o mesmo do runner), os 82 somam ~13 min em
+      # SÉRIE e ~4,4 min nos três processos em que rodam hoje — e o prazo cobre o
+      # pior caso, que é a paralelização não pegar por qualquer razão e a lista
+      # correr em fila.
       - name: Oráculos em Chromium
         if: steps.chromium.outcome == 'success'
         timeout-minutes: 15
@@ -422,11 +450,19 @@ jobs:
 
           # ---------- EM PARALELO, E O `rodar` SÓ ENFILEIRA ----------
           #
-          # MEDIDO: os 57 oráculos somam ~8 min em série, e o custo NÃO é o que
-          # parece — lançar o Chromium são ~110 ms e subir o `/controle/`
+          # MEDIDO: os 82 oráculos somam ~13 min em série, e o custo NÃO é o
+          # que parece — lançar o Chromium são ~110 ms e subir o `/controle/`
           # inteiro é ~1 s. O que sobra é espera: cada oráculo passa a maior
           # parte do tempo parado esperando o app dele assentar, com os quatro
           # núcleos do runner ociosos.
+          #
+          # E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é. MEDIDO, os
+          # 52 mais baratos somam 161 s dos 783 s e VINTE E TRÊS deles rodam em
+          # menos de 2 s: apagá-los devolveria 8 s de parede e custaria a
+          # cobertura inteira.
+          # O que encarece este passo é uma DÚZIA de arquivos, e neles o tempo é
+          # de arnês, não de asserção — ver as duas armadilhas no CLAUDE.md
+          # ("o piso da cortina" e "um stub da ponte que não resolve").
           #
           # Rodar em paralelo é seguro por CONSTRUÇÃO, e isso foi conferido
           # antes de ligar: todos abrem o servidor com `listen(0)` (porta

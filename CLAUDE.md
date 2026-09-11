@@ -1245,6 +1245,18 @@ a última linha do `init()`.
 > do arnês, e a regra para o próximo: **todo oráculo que toca na tela espera a
 > cortina depois de CADA carga** — inclusive depois de um `reload` no meio do
 > arquivo, que foi como ela apareceu no `smoke.mjs`.
+>
+> **MAS ELE NÃO PAGA O PISO, E ISSO É DELIBERADO.** O piso é do OPERADOR, e quem
+> o AFIRMA é o `abertura-e-transferencia`, com o relógio mockado e nas duas
+> pontas. Os outros ~70 pontos que chamam o `esperarCortina` não medem a cortina:
+> esperam o app ficar TOCÁVEL, e pagavam o piso de carona — MEDIDO, 1,8 s × ~70,
+> **126 s de sono por rodada em série**. Hoje ele espera o `__avPronto` (escrito
+> pelo gancho do `abrirNavegador` quando o `controle.js` chama
+> `__avSplash.pronto()`, a última linha do `init()` que muda o que se vê) e tira
+> o nó, que é o que o `sair()` do app faria 1,8 s depois. **A garantia é a mesma
+> e está provada por reversão**: com o `controle.js` abortado pela rota, ele
+> continua devolvendo a FRASE do prazo em vez de passar — o único caminho que
+> sobra ali é o teto de 12 s, e ele o espera inteiro.
 
 Oráculo: `abertura-e-transferencia.test.mjs`, com o cenário catastrófico medido
 (o `controle.js` abortado pela rota, o tema já certo, a cortina levantando pelo
@@ -1979,10 +1991,21 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os 64 de Chromium somavam **~8 min em série**, e o custo não é o que parece:
-lançar o navegador são **~110 ms** e subir o `/controle/` inteiro é **~1 s** —
-compartilhar um navegador entre oráculos, a otimização óbvia, economizaria 2% e
-custaria o isolamento. O que sobra é espera, com os quatro núcleos ociosos.
+Os 82 de Chromium somam **~13 min em série** e **~4,4 min nos três processos**
+(MEDIDO em 4 vCPU, o mesmo do runner; os 23 de Node puro somam **5,5 s** —
+juntos, os 105). O custo não é o que parece: lançar o navegador são **~110 ms** e
+subir o `/controle/` inteiro é **~1 s** — compartilhar um navegador entre
+oráculos, a otimização óbvia, economizaria 2% e custaria o isolamento. O que
+sobra é espera, com os quatro núcleos ociosos.
+
+**E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é.** MEDIDO: os 52 mais
+baratos somam **161 s dos 783 s**, e VINTE E TRÊS deles rodam em menos de 2 s
+cada — apagar esses vinte e três devolveria **8 s de parede** e custaria a
+cobertura inteira que eles carregam.
+O passo é caro por causa de uma DÚZIA de arquivos, e o que os encarece são
+defeitos de arnês, não asserções a mais — dois deles pagaram 130 s sozinhos (ver
+as duas armadilhas logo abaixo). **A pergunta diante de um passo lento é "onde
+está o tempo?", medida arquivo a arquivo, e nunca "quantos oráculos são?".**
 
 É seguro por CONSTRUÇÃO, e foi conferido antes de ligar: todos abrem o servidor
 com `listen(0)`, nenhum escreve arquivo temporário compartilhado, cada um lança o
@@ -1995,6 +2018,24 @@ O log é escrito em arquivo e impresso na ORDEM da lista — em paralelo os
 `::group::` sairiam intercalados, e um log que não se lê não é rede de segurança.
 **RC ausente conta como REPROVADO**: um oráculo cujo processo morreu sem escrever
 o código de saída não pode entrar no placar como quem passou.
+
+#### UM STUB DA PONTE QUE NÃO RESOLVE TRAVA 60 s, E NÃO DIZ NADA
+
+A ponte falsa de um oráculo é uma allowlist: o método que está nela chama
+`__avResolve`, e o que NÃO está devolve `undefined` e some. Do lado web a Promise
+fica pendurada até o `CALL_TIMEOUT_MS` do `native.js`, que é **UM MINUTO** — e aí
+ela resolve `null`, que quase sempre é o mesmo desfecho que a allowlist teria
+produzido. **Nada reprova, nada aparece no log, e o oráculo só demora.**
+
+MEDIDO: `pacoteDiag` faltava na allowlist do `abertura-e-transferencia`, o bloco
+da badge chama `renderDiag()` (que o aguarda em `await`), e o arquivo gastava
+**60,0 s dos 70,9 s** dele nessa linha — 7% do passo inteiro. Corrigido, o mesmo
+arquivo com as MESMAS 21 asserções roda em **10,5 s**.
+
+**A regra: método novo na ponte entra na allowlist do fixture no mesmo lote** —
+e a varredura que responde "falta algum?" é comparar quem o `native.js` resolve
+por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múltiplo
+redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
 [`docs/ORACULOS.md`](docs/ORACULOS.md).** São 95 linhas de REFERÊNCIA: ninguém as
