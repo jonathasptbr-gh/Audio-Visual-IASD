@@ -1398,9 +1398,17 @@ nenhum**, e por isso ficam aqui.
   Sobre ele escreve-se `--accent`, o par declarado do token (5,37:1 · 6,37:1) —
   o `--on-accent` é o par do DENIM e mede **1,21:1** no claro; e como as regras
   por classe vêm DEPOIS da agrupada com a mesma especificidade, um `color`
-  deixado numa delas vence e apaga o rótulo. **A sombra de cada porta aponta
-  para CIMA** (`0 -2px 8px`): abaixo delas está a fronteira, e a sombra do resto
-  do app cairia fora da tela sem erro nenhum.
+  deixado numa delas vence e apaga o rótulo. **A sombra de cada porta é NORMAL,
+  para BAIXO** (`0 2px 8px`, v1.8.64, revogando a v1.8.63): *"essas sombras são
+  sombras normais, para baixo"*. O argumento da inversão — abaixo delas está a
+  fronteira, e uma sombra para baixo cairia fora da tela — foi revogado com o
+  preço MEDIDO: o `main { overflow: hidden }` recorta 5,59px abaixo da base das
+  portas, então o que se vê é uma sombra CURTA entre elas e a barra de buscas, e
+  o que passa daquilo não chega a existir. **E a asserção que a mede é a subida
+  RELATIVA da faixa, nunca `perto < longe`**: invertida, a faixa é fundo liso e
+  a diferença entre dois pontos dela é ruído que passa (0,0130 contra 0,0137).
+  Medido nos quatro estados — 0,248 · 0,290 para baixo contra 0,051 · 0,050 para
+  cima, piso em 0,15.
   **E A `.selbar` LARGOU ESSE AZUL NO MESMO LOTE** — ela é a outra inquilina da
   MESMA fatia do rodapé, e as duas ficariam em ΔE00 **0,00**. Ela volta à base
   (`--bg`), que é a que já veste na gaveta dos Favoritos, e a remoção atravessa
@@ -1523,36 +1531,33 @@ nenhum**, e por isso ficam aqui.
 - **O ÍCONE DO APP é a paleta** e é VETOR (`minSdk` 26: o adaptativo é o único
   ícone que chega a ser desenhado). Ele **não segue o tema claro** — é desenhado
   pela gaveta do sistema com o app fechado.
-- **O PADRÃO É O AUTOMÁTICO, e ele segue o APARELHO** (v1.8.49). São TRÊS
-  estados, e a ORDEM do ciclo é decidida pelo APARELHO (v1.8.62): do automático
-  sai-se para o OPOSTO da cor de agora, dali para o outro explícito, e dali de
-  volta ao automático. A lista fixa `[null, 'claro', 'escuro']` mandava o
-  primeiro toque sempre para o claro — e num aparelho que já responde claro isso
-  era um toque que gravava, repintava e **não mudava um pixel** (foi o relato que
-  abriu a v1.8.62). **Um dos três toques continua sem mudar a cor** — três
-  estados sobre duas cores —, e o certo é que seja o que ENTRA no automático, o
-  único cujo rótulo anuncia o que aconteceu — **e desde a v1.8.63 esse rótulo
-  EXISTE NA TELA**. O tile tinha TRÊS estados e DUAS renderizações: medido, o
-  automático e a escolha que casa com a cor do aparelho saíam no MESMO PNG, byte
-  a byte, com o mesmo `data-estado` — o `rotulo` do `renderTemaTile` ia só para o
-  `aria-label`, porque a v1.7.2 tirou a segunda linha de todo tile. Hoje o
-  `data-estado` é COMPOSTO (`auto-claro`), uma marca ADITIVA se soma ao par
-  lua/sol (substituí-lo apagaria *"claro ou escuro AGORA?"*) e uma `.qs-estado`
-  diz a palavra. **É a ÚNICA exceção à v1.7.2, ela é NOMEADA no oráculo e a
-  causa é aritmética:** três estados sobre dois desenhos. A linha é SEMPRE
-  desenhada e sempre com tinta — condicional, ela pularia a grade 6,81px entre
-  estados que um toque alcança. O do meio é a **ausência** da chave
-  `av.tema`: sem escolha guardada o app lê `prefers-color-scheme` (que no WebView
-  responde pelo modo noturno do SISTEMA, não pelo tema desta Activity) e
-  acompanha o aparelho **ao vivo**, porque o Android troca ao anoitecer e o culto
-  de sábado à noite começa com o app aberto desde a tarde. **Uma escolha guardada
-  vence sempre** — um app que a desfaz porque o sistema mudou é um app que não
-  obedece. O tema EFETIVO viaja em `data-tema` e a ESCOLHA em `data-tema-escolha`,
-  os dois escritos pelo script inline do `<head>`: é UMA leitura de `localStorage`
-  no app inteiro, e os atributos são o carrier. Oráculo: as três metades no
-  `smoke.mjs`, com o aparelho emulado — **o Chromium responde CLARO por padrão**,
-  então um oráculo de cor que não declara de que tema partiu mede o padrão do
-  navegador, não uma decisão deste app.
+- **O TEMA TEM DUAS OPÇÕES, e o tile é um ALTERNADOR** (v1.8.64, revogando a
+  v1.8.49). Claro e escuro; a ausência da chave `av.tema` é o ESCURO, e **todo
+  toque muda a cor**. O AUTOMÁTICO — um terceiro estado que seguia
+  `prefers-color-scheme` ao vivo — saiu a pedido do operador: *"remova o auto,
+  não está sendo eficaz essa opção"*. Ele custou três lotes e vale registrar por
+  que, porque o defeito não era a regra, era a ARITMÉTICA: **três estados sobre
+  duas cores** fazem um dos toques não mudar um pixel, e **três estados sobre
+  dois desenhos** fazem dois deles saírem no mesmo PNG, byte a byte. A v1.8.62
+  tentou escolher QUAL toque seria o mudo (a ordem do ciclo decidida pelo
+  aparelho) e a v1.8.63 tentou INDICAR o estado (marca aditiva no ícone mais uma
+  `.qs-estado` com a palavra, a única exceção à v1.7.2) — as duas trataram o
+  sintoma. Com dois estados não há toque mudo, não há desenho repetido, e a
+  exceção da v1.7.2 volta a não existir: **todo tile diz o estado pelo DESENHO**.
+  O tema viaja só em `data-tema` (o `data-tema-escolha` saiu com o terceiro
+  estado), escrito pelo script inline do `<head>` — é UMA leitura de
+  `localStorage` no app inteiro, e o atributo é o carrier.
+
+  **E TIRÁ-LO TIROU A ÚNICA LEITURA DE `prefers-color-scheme` DO APP** — que é
+  por onde o `colorScheme` do Playwright chegava ao documento. Cinco laços
+  `['dark', 'light']` passaram a medir o ESCURO nas DUAS voltas, verdes: MEDIDO,
+  as duas metades do bloco T do `sombra-de-rolagem` saíram no mesmo PNG, com as
+  asserções de cor comparando o tema padrão consigo mesmo. **Um oráculo de cor
+  DECLARA de que tema partiu** — `comTema(ctx, tema)` do arnês, que escreve a
+  chave por `addInitScript` —, e o laço abre com uma asserção de PREMISSA
+  (`data-tema` é o que se pediu) para que tirá-la volte a reprovar em vez de
+  calar. É a mesma armadilha que o `smoke.mjs` já declarava pelo outro lado — **o
+  Chromium responde CLARO por padrão** —, agora pelos dois.
 
 > **NÃO HÁ TESTE DE CONTRASTE ABSOLUTO.** Os números nos comentários de
 > `tokens.css` são medições à mão, e os pares abaixo do piso estão declarados
@@ -2515,7 +2520,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.63 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.64 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -2526,14 +2531,14 @@ bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.63 são o mesmo caso, pela mesma
+> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.64 são o mesmo caso, pela mesma
 > razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A v1.8.63 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
+> **A v1.8.64 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
 > nem o `build.gradle.kts` — só `assets/web/`, `tools/` e `docs/`.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, e desde a v1.8.50 ela TEM ORÁCULO.**

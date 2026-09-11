@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.64",
+    "itens": [
+      "O tema voltou a ter duas opções só: claro e escuro. O automático saiu — ele não estava sendo eficaz.",
+      "A sombra das três portas do Cronograma voltou a cair para baixo, como toda sombra do app."
+    ]
+  },
+  {
     "versao": "1.8.63",
     "itens": [
       "As três portas do Cronograma agora usam o mesmo azul dos cards de Configurações, e não o azul escuro.",

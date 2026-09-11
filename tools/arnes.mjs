@@ -261,3 +261,25 @@ export function luminancia(c) {
   const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
   return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
 }
+
+/**
+ * ESCREVE O TEMA NA CHAVE DO APP, e não só no `colorScheme` do aparelho.
+ *
+ * O `colorScheme` do Playwright é `prefers-color-scheme`, e o app só o LIA
+ * enquanto existiu o terceiro estado do tile (o automático, v1.8.49–v1.8.63).
+ * Removido ele, a metade `'light'` de todo laço `['dark', 'light']` passa a
+ * medir o ESCURO — e passa CALADA: a asserção continua verde, comparando o
+ * tema padrão consigo mesmo. MEDIDO na entrada da v1.8.64: as duas metades do
+ * bloco T saíram no mesmo PNG, pixel a pixel.
+ *
+ * É o espelho da armadilha que o `smoke.mjs` já declarava pelo outro lado — *o
+ * Chromium responde CLARO por padrão* —, e a resposta é a mesma: um oráculo de
+ * cor DECLARA de que tema partiu. Vale escrever os dois valores, e não só o
+ * claro: `'escuro'` é a ausência de escolha hoje, mas a chave dita é o que
+ * sobrevive à próxima mudança do padrão.
+ */
+export function comTema(ctx, tema) {
+  return ctx.addInitScript((t) => {
+    try { localStorage.setItem('av.tema', t); } catch (_) { /* armazenamento bloqueado */ }
+  }, (tema === 'light' || tema === 'claro') ? 'claro' : 'escuro');
+}
