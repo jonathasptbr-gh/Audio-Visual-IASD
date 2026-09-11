@@ -162,7 +162,23 @@ try {
     const coll = allCollections().find((c) => c.id === 'album-a1');
     const faixa = collSongs('album-a1')[0];
     const alvo = await lvItemDaBiblioteca(coll, faixa);
-    openLyricsPopup(alvo, 'cifra');
+    // A FORMA REAL, de UM argumento (v1.8.78). Até aqui esta linha passava
+    // `'cifra'` num segundo parâmetro que o app NUNCA preencheu — a categoria
+    // que o `funcao-sem-chamador` chama de SÓ O ORÁCULO, e a pior delas: o
+    // oráculo aprovava um formato de chamada que o aparelho não produz, e ainda
+    // afirmava sobre ele qual aba abria.
+    openLyricsPopup(alvo);
+    // E A CIFRA CHEGA DEPOIS DA ABERTURA. `cifraGarantir` é disparado sem
+    // `await` no topo do `openLyricsPopup`, e é o desfecho dele que redesenha a
+    // folha — MEDIDO, no quadro do toque `lyricsViewSources()` é uma lista
+    // VAZIA. Forçada, a fonte escondia isso; sem ela, a espera pelo FATO (a
+    // folha na mão) é o que faz esta medição descrever o percurso do aparelho.
+    //
+    // A espera é DENTRO do `evaluate` porque o instantâneo abaixo tem de sair
+    // da mesma closure que é dona do `enviados`.
+    for (let i = 0; i < 200 && !cifraTemFolha(lvItem()); i++) {
+      await new Promise((f) => setTimeout(f, 25));
+    }
     const r = {
       titulo: lyricsPopupTitleEl.textContent,
       fonte: lvActiveSource(),
@@ -187,7 +203,12 @@ try {
   checar(leitor.colecao === 'album-a1',
     'e ela reencontra a coleção — é dela que saem o catálogo e o arquivo no aparelho',
     leitor.colecao);
-  checar(leitor.fonte === 'cifra', 'abre na CIFRA, que é o que o músico foi buscar', leitor.fonte);
+  // A ABA É DECIDIDA PELA FRENTE, nunca por quem abriu — o botão da Biblioteca
+  // diz "Ver a letra" desde a v1.2.25 e não pede fonte nenhuma. Esta faixa não
+  // tem letra, então a cifra é a ÚNICA fonte dela: a folha pousa ali pelo
+  // caminho de sempre, e não por um pedido que o app não faz.
+  checar(leitor.fonte === 'cifra',
+    'a folha pousa na CIFRA porque ela é a única fonte DESTA faixa', leitor.fonte);
   checar(leitor.naCena === false, 'e a folha sabe que NÃO é a cena', leitor.naCena);
   // 2. NADA VAI AO TELÃO. É a promessa inteira do recurso, e a única que falha
   // sem deixar rastro na tela de quem abriu a folha.

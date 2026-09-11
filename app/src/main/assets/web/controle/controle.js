@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.77';
+const WEB_VERSION = '1.8.78';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -12314,7 +12314,7 @@ function lvSignature(src) {
  * um item, para AQUELA música — é assim que a Biblioteca abre a mesma folha sem
  * projetar nada.
  */
-function openLyricsPopup(item, fonte) {
+function openLyricsPopup(item) {
   // O ALVO É A EXCEÇÃO, e ela se declara: um item igual ao que já está em cena
   // não é desvio nenhum, e guardá-lo faria a folha parar de acompanhar o culto
   // por uma coincidência.
@@ -12345,11 +12345,6 @@ function openLyricsPopup(item, fonte) {
   // culto inteiro); mas carregá-la para OUTRA música seria abrir a folha de um
   // louvor na aba que o operador escolheu para outro.
   //
-  // `fonte` é o PEDIDO de quem abriu, e vence os dois — a Biblioteca abre na
-  // cifra, porque quem toca ali foi buscar os acordes. Não é imposição:
-  // `lvActiveSource` só a honra enquanto a fonte existir, e sem ponte
-  // (navegador) a cifra nem entra na lista, então a folha abre na letra sem
-  // nenhum caso especial.
   // E A CAMADA DA FRENTE VENCE A ESCOLHA GUARDADA QUANDO ELA MUDA (v1.4.26).
   //
   // "O elemento na camada mais a frente de tudo é o que aparece na abertura" —
@@ -12366,10 +12361,16 @@ function openLyricsPopup(item, fonte) {
   // `lvFrenteVista` nasce `null` e isso significa *"nenhuma frente vista ainda"*,
   // nunca *"a frente mudou"*: na PRIMEIRA abertura não houve cena anterior, logo
   // não há escolha de antes a invalidar. Ler o sentinela como troca derruba uma
-  // fonte pedida antes da primeira abertura — que é o que um chamador
-  // programático faz, e o que o `cifra-rolagem.test.mjs` faz.
-  if (fonte) lvSource = fonte;
-  else if (trocouAlvo || (lvFrenteVista !== null && frente !== lvFrenteVista)) lvSource = null;
+  // escolha guardada de antes da primeira abertura — que é o que o
+  // `cifra-rolagem.test.mjs` planta.
+  //
+  // NÃO HÁ COMO UM CHAMADOR PEDIR A ABA. Houve: um segundo parâmetro (`fonte`)
+  // vencia os dois testes acima, e a Biblioteca o usava para abrir na CIFRA. O
+  // botão de lá virou *"Ver a letra"* na v1.2.25 e largou o pedido — abrir na
+  // cifra contradiria o próprio rótulo —, e o parâmetro ficou sem produtor até
+  // a v1.8.78. Quem decide a aba é a FRENTE mais a escolha guardada, e mais
+  // nada.
+  if (trocouAlvo || (lvFrenteVista !== null && frente !== lvFrenteVista)) lvSource = null;
   lvFrenteVista = frente;
   lvFollow = true; // toda abertura começa acompanhando o que está no ar
   renderLyricsView();
