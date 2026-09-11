@@ -7368,84 +7368,82 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* A versão desceu do cabeçalho da lista para cá (ver o comentário no HTML): no
    rodapé ela fica na mesma coluna do estado do telão e do alvo de
    espelhamento — as três coisas que se olha quando algo não está certo. */
-/* ===== A FAIXA DE DIAGNÓSTICO DO RODAPÉ É UMA BARRA SÓ (v1.4.44) =====
-   Pedido do operador: *"ficou duas seções, a versão e o registro em grupos
-   separados. pode deixar tudo em uma barra horizontal única"*.
+/* ===== A FAIXA DE DIAGNÓSTICO SÃO TRÊS BOTÕES IGUAIS (v1.8.65) =====
+   Pedido do operador, verbatim: *"coloque a versão, o registro e o pedir
+   ajuda... igualmente distribuídos horizontalmente"*, *"faça os três serem três
+   botões separados, no mesmo estilo do botão de 'pedir ajuda'"* e *"remova o
+   fundo cinza desse rodapé"*.
 
-   A v1.4.43 unificou o DESENHO das duas pastilhas (mesma altura, mesmo raio,
-   mesma superfície, mesma fonte) e parou no meio: duas caixas com um vão entre
-   elas continuam se lendo como dois assuntos, e o assunto é UM — *"que versão
-   eu tenho, e o que eu mando para quem vai me ajudar?"*. Hoje a SUPERFÍCIE É A
-   FAIXA, e o que mora nela é texto e um alvo.
+   ELA DEIXOU DE SER UMA SUPERFÍCIE E VIROU UMA FILEIRA, e as duas regras que
+   saíram diziam o contrário: a v1.4.44 escreveu *"hoje a SUPERFÍCIE É A FAIXA,
+   e o que mora nela é texto e um alvo"* (a faixa era a pastilha, os filhos não
+   pintavam), e a v1.8.51 acrescentou o respiro de quatro lados que aquela
+   pastilha cobrava. Sem `--surface-2` não há pastilha: não há o que recuar por
+   dentro, e o `padding`, o `border-radius` e o `min-height` saem juntos — a
+   altura volta a ser a dos filhos, que é `--hit` por regra do `.diag-btn`.
 
-   MEDIDO no que havia antes das duas rodadas: a versão era uma pílula de ~20px
-   com raio de CÁPSULA a .7rem, o "Registro" era texto solto sem superfície a
-   .8rem, e os botões eram quadrados de 34px com raio de BOTÃO. Quatro formas,
-   três alturas, dois raios, duas fontes.
+   E OS TRÊS VESTEM O PREENCHIDO, revogando por pedido a regra da v1.8.51: *"E
+   SÓ UM DELES O VESTE: guardar o Registro é o PASSO, falar é o DESTINO. Dois
+   preenchidos lado a lado seriam duas ações primárias na mesma faixa"*. Aquilo
+   respondia ao relato de então (*"não está claro que ele serve para
+   comunicar"*), em que o contato precisava se destacar de um vizinho apagado.
+   Com três botões iguais numa fileira sem fundo, o que estava em jogo deixou de
+   ser a hierarquia entre eles e passou a ser cada um se ler COMO BOTÃO — e um
+   `background: none` sobre a folha não se lê.
 
-   O RESPIRO DA ESQUERDA É PADDING; O DA DIREITA É O ALVO. A versão é texto e
-   precisa de folga; o `.log-copy` é um quadrado de `--hit` e a folga dele já
-   está dentro do alvo — um padding à direita empurraria o botão para dentro e
-   deixaria uma borda morta na faixa. */
-/* ===== O RESPIRO É DOS QUATRO LADOS DESDE QUE UM FILHO PINTA (v1.8.51) =====
-   Pedido do operador: *"ajuste o espaçamento entre os elementos do rodapé das
-   configurações. Sinto que está muito apertado o botão de entrar em contato"*.
-
-   MEDIDO no que havia: `gap` de **5,6px** (`--sp-3`, que esta folha declara como
-   *"entre linhas de uma lista"*, e não como o gap de barra que é `--sp-4`), a
-   borda direita do `#contatoBtn` a **0px** da borda da faixa, e **0px** acima e
-   abaixo — `min-height: var(--hit)` sobre um alvo de `var(--hit)`. São três
-   zeros, e não um gap apertado.
-
-   A REGRA ANTIGA SE INVERTEU, e é por isso que ela sai em vez de ser ajustada.
-   Ela dizia: *"o respiro da esquerda é padding; o da direita é o ALVO — um
-   padding à direita empurraria o botão para dentro e deixaria uma borda morta"*.
-   Isso valia enquanto o alvo era INVISÍVEL (`background: none`). Com o contato
-   preenchido, o que encosta na borda não é área de toque: é TINTA, contra um
-   canto de `--radius-btn` que a corta. A borda morta que a regra evitava virou a
-   moldura de que o botão precisa para se ler como botão.
-
-   OS DOIS LADOS SEGUEM DIFERENTES, agora por outra razão: à esquerda mora TEXTO
-   nu, que precisa do respiro de bloco (`--sp-5`); à direita mora um botão que já
-   carrega o próprio recuo interno, e o que falta ali é só a costura (`--sp-3`).
-
-   A QUEBRA NÃO É UMA MEDIA QUERY, e não poderia ser: o que estoura a faixa não é
-   a largura da tela, é o TAMANHO DE FONTE do sistema, que o operador escolhe e
-   que ponto de corte nenhum conhece. `flex-wrap` deixa o navegador medir. MEDIDO
-   com "v1.8.51" + "Registro" + "Pedir ajuda": UMA linha a 320px (folga 10,3px),
-   a 360px (50,3px) e a 360px com fonte a 1,15× (8,5px); DUAS a 360px com a fonte
-   a 1,3×, sem transbordar em nenhum dos casos. **A 320px ela cabe só na fonte
-   padrão** — um degrau já a quebra, e é para isso que o `flex-wrap` existe. */
+   O `gap` é `--sp-2` e não `--sp-4`: com três peças numa linha de 320px cada
+   pixel de vão sai da largura de um rótulo, e o que a v1.8.51 media (um par
+   solto contra texto nu) não é este arranjo. */
 .footer-diag {
   --fs-diag: .74rem;
-  display: flex; align-items: center; flex-wrap: wrap;
-  gap: var(--sp-2) var(--sp-4);
+  display: flex; align-items: stretch; flex-wrap: wrap;
+  gap: var(--sp-2);
   margin-top: .45rem;
-  min-height: calc(var(--hit) + 2 * var(--sp-2));
-  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-5);
-  background: var(--surface-2); border-radius: var(--radius-btn);
   font-size: var(--fs-diag);
 }
-/* `--text` E NÃO `--muted`, e é MEDIDO: a faixa afunda `--surface-2` dentro da
-   folha (a `.popup-sheet` está na lista de R1), e no tema CLARO isso é preto a
-   20% sobre branco (204,204,204) — `--muted` ali dá **4,15:1**, abaixo do piso
-   de 4,5. Com `--text`: **13,08:1** no claro e **11,29:1** no escuro. (O
-   comentário anterior dizia 5,52:1 no claro; aquele número foi medido antes da
-   v1.5.12, que fez o `--text` claro virar `#000000`. Errava para melhor, e por
-   isso nada quebrou — mas afirmava o que não é.)
+/* OS TRÊS EM PARTES IGUAIS (v1.8.65): *"coloque a versão, o registro e o pedir
+   ajuda igualmente distribuídos horizontalmente"*. `flex: 1 1 0` é o que iguala
+   — a base é ZERO nos três, então o que cada um recebe é a mesma fatia do
+   espaço, e não a própria largura mais um pedaço (que é o que `1 1 auto` dá, e
+   ali "Pedir ajuda" sairia sempre maior que "v1.8.65"). MEDIDO a 390×1×:
+   117,7 nos três com a base zero, contra 107,8 / 132,8 / 152,6 com `auto`.
 
-   Esta linha é a versão do app lida de relance por quem está diagnosticando —
-   desde a v1.7.0 ela é UM número, o mesmo das duas badges do cabeçalho (ver
-   `renderVersionLabel`). Desde a v1.8.51 ela é SÓ o número: a marca saiu para
-   pagar o rótulo dos dois botões, e nomear o app numa tela DELE era a palavra
-   mais dispensável da faixa. Quem ainda nomeia é o que SAI do app — o rascunho
-   do WhatsApp e o `compartilharTexto` —, e ali a marca é obrigatória. */
-.footer-diag > .app-version { flex: 0 0 auto; color: var(--text); }
-/* O grupo empurra a si mesmo para a outra ponta — era o `margin-left: auto` do
-   `.footer-diag-rot`, que saiu com o rótulo solto (v1.8.51). E ele é a UNIDADE
-   que a faixa quebra: os dois botões são uma sequência (guardar o arquivo,
-   depois mandá-lo), e quebrar entre eles partiria a frase ao meio. */
-.footer-diag-acoes { margin-left: auto; display: flex; align-items: center; gap: var(--sp-3); }
+   E NÃO HÁ PISO ESCRITO AQUI, de propósito. Um `min-width: max-content` foi
+   escrito, medido e REMOVIDO no mesmo lote: um item flex já nasce com
+   `min-width: auto`, que é o tamanho mínimo automático — o min-content do
+   conteúdo —, e com o `white-space: nowrap` do `.diag-btn` isso É o rótulo
+   inteiro. MEDIDO em seis células: forçar `min-width: auto` dá largura por
+   largura o mesmo resultado que `max-content`. A declaração não segurava nada,
+   e o comentário que a creditava teria mandado o próximo leitor proteger o
+   lugar errado. (Quem de fato encolhe o botão abaixo do rótulo é um
+   `min-width: 0` explícito — e aí a palavra sai por FORA da caixa, porque esta
+   folha não tem `text-overflow`.)
+
+   Sem piso escrito, a divisão igual vale enquanto couber: quando não cabe, os
+   mínimos automáticos vencem (as larguras saem desiguais, cada rótulo inteiro)
+   e, apertando mais, o `flex-wrap` empilha. Os três degraus são visíveis e
+   nenhum deles corta uma palavra. */
+.footer-diag > .diag-btn { flex: 1 1 0; }
+/* O NÚMERO EM NEGRITO (v1.8.65), a pedido do operador: *"pode dar um destaque
+   em negrito para o número da versão"*. `--fw-forte` é o peso que esta folha
+   nomeia como *"nome de item, botão"*, e é o que ele virou.
+
+   A COR SAIU DAQUI, e a remoção é o lote: ela era `--text` sobre a pastilha
+   `--surface-2` que a faixa pintava, com a medição ao lado (13,08:1 no claro,
+   11,29:1 no escuro). Sem pastilha e dentro de um botão preenchido, quem
+   responde é o `--on-accent` do `.diag-btn--primario` — deixar um `color`
+   escrito aqui o venceria (esta regra é mais específica) e devolveria texto
+   escuro sobre denim.
+
+   Ela é UM número desde a v1.7.0, o mesmo das duas badges do cabeçalho (ver
+   `renderVersionLabel`), e SÓ o número desde a v1.8.51. Quem ainda nomeia o app
+   é o que SAI dele — o rascunho do WhatsApp e o `compartilharTexto`. */
+.app-version { font-weight: var(--fw-forte); }
+/* (A `.footer-diag-acoes` saiu na v1.8.65: ela agrupava os dois botões para que
+   a faixa os quebrasse JUNTOS, e isso valia enquanto a versão era texto nu numa
+   ponta e eles um par na outra. Com os TRÊS sendo botões iguais não há par a
+   preservar — o que a faixa quebra agora é um botão por vez, e cada um é uma
+   ação inteira.) */
 /* ---------- O BOTÃO DA FAIXA DE DIAGNÓSTICO: ÍCONE **E** RÓTULO (v1.8.51) ----
    Ele NÃO é o `.log-copy`, e a diferença é o rótulo: aquele é o esqueleto de
    `--hit` QUADRADO, e um quadrado não cresce para caber uma palavra. A altura
@@ -7453,10 +7451,21 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    largura, que passa a ser o conteúdo.
 
    `--sp-1` entre o ícone e a palavra porque é literalmente o que o token diz
-   (*"dentro de uma peça (ícone e rótulo)"*), e `--sp-5` de recuo lateral, o
-   mesmo respiro de bloco que a faixa reserva à esquerda. */
+   (*"dentro de uma peça (ícone e rótulo)"*).
+
+   O RECUO LATERAL CAIU A `--sp-3` (v1.8.65). Ele era `--sp-5`, *"o mesmo
+   respiro de bloco que a faixa reserva à esquerda"* — e essa folga da faixa
+   saiu com a pastilha. O que o substitui é aritmética: com os três dividindo a
+   linha, o recuo sai da largura do RÓTULO. MEDIDO a 320px na fonte padrão, o
+   degrau põe os três numa linha só em vez de dois numa e um noutra, e leva
+   360×1,3× e 430×1,5× junto.
+
+   E O `flex-shrink: 0` SAIU no mesmo lote: ele impedia a divisão de agir, e o
+   que protege o rótulo agora é o `min-width: max-content` da regra da faixa —
+   um piso no CONTEÚDO, que é o que "não cortar a palavra" quer dizer. O
+   `flex-shrink` valia quando o botão era uma peça solta ao lado de texto. */
 .diag-btn {
-  flex-shrink: 0; height: var(--hit); padding: 0 var(--sp-5);
+  height: var(--hit); padding: 0 var(--sp-3);
   display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
   border: none; border-radius: var(--radius-btn); cursor: pointer;
   appearance: none; -webkit-appearance: none;

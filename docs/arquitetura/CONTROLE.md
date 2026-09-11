@@ -1308,36 +1308,78 @@ cancela a ativação é um `preventDefault()` no ouvinte. Trocar uma imagem por
 outra são **dois toques**, e esse é o preço declarado de o wallpaper caber num
 tile como os outros.
 
-O rodapé: **estado do telão**, a **versão** e o **Registro**.
+O rodapé: **estado do telão**, e a fileira de três — a **versão**, o
+**Registro** e o **Pedir ajuda**.
 
-#### O rodapé é UMA barra (v1.4.43 o desenho, v1.4.44 a barra)
+#### O rodapé são TRÊS BOTÕES IGUAIS (v1.8.65, revogando a v1.4.44)
 
-Pedido do operador, em duas rodadas: *"faça uma unificação do design do rodapé
-das configurações, atualmente cada elemento tem um design e tamanho único"* e,
-depois, *"ficou duas seções, a versão e o registro em grupos separados. pode
-deixar tudo em uma barra horizontal única"*.
+Pedido do operador, em quatro metades: *"coloque a versão, o registro e o pedir
+ajuda... igualmente distribuídos horizontalmente"*, *"pode dar um destaque em
+negrito para o número da versão"*, *"coloque os ícones tanto do registro quanto
+do pedir ajuda à direita de seus respectivos textos"*, *"faça os três serem três
+botões separados, no mesmo estilo do botão de 'pedir ajuda'. e remova o fundo
+cinza desse rodapé"*.
 
-Eram três peças com três desenhos: a versão como texto solto, o rótulo "Registro"
-como legenda e os botões como pastilhas de outra altura. A v1.4.43 as unificou em
-duas pastilhas iguais — e **parou no meio**: duas caixas com a mesma cor e um vão
-entre elas continuam se lendo como dois assuntos, e o assunto é UM. Hoje a
-**superfície é a faixa** (`.footer-diag`), e o que mora nela é texto e um alvo:
+**Ele deixou de ser uma SUPERFÍCIE e virou uma FILEIRA**, e é isso que revoga as
+duas rodadas anteriores. A v1.4.43 unificou três desenhos em duas pastilhas e a
+v1.4.44 as fundiu numa faixa só — *"a superfície é a faixa, e o que mora nela é
+texto e um alvo"*. Sem `--surface-2` não há faixa a ser superfície: saem com ela
+o `padding`, o `border-radius` e o `min-height`, e a altura volta a ser a dos
+filhos (`--hit`, por regra do `.diag-btn`).
 
-| na faixa | o quê |
+| na fileira | o quê |
 |---|---|
-| esquerda | `vX` — a versão da base web, e só ela (v1.7.0: o índice do shell saiu da tela e ficou no Registro) |
-| direita | o rótulo "Registro" + `#diagSave` |
+| 1º | `#versaoBtn` — o número em `--fw-forte`, e o toque abre *"O que mudou"* |
+| 2º | `#diagSave` — "Registro", ícone à direita |
+| 3º | `#contatoBtn` — "Pedir ajuda", ícone à direita |
 
-- **O respiro da esquerda é `padding`; o da direita é o ALVO.** A versão é texto
-  e precisa de folga; o `.log-copy` é um quadrado de `--hit` e a folga dele já
-  está dentro do alvo — um padding à direita empurraria o botão para dentro e
-  deixaria uma borda morta na faixa.
-- **O botão perde o fundo próprio** e herda o da faixa: um fundo dentro de um
-  fundo é a camada a mais que as duas rodadas existem para tirar.
-- **`--text` e não `--muted` na versão**, e é MEDIDO: a faixa afunda
-  `--surface-2` dentro da folha, e no tema CLARO isso é preto a 20% sobre branco
-  (204,204,204) — `--muted` ali dá **4,15:1**, abaixo do piso de 4,5. Com
-  `--text`: **5,52:1** no claro e 10,55:1 no escuro.
+- **A divisão é `flex: 1 1 0`, base ZERO** — é o que iguala. `1 1 auto` daria a
+  cada um a própria largura mais um pedaço, e "Pedir ajuda" sairia sempre maior
+  (MEDIDO a 390×1×: 117,7 nos três contra 107,8 / 132,8 / 152,6).
+- **Não há piso escrito, e a ausência é decisão MEDIDA.** Um
+  `min-width: max-content` foi escrito e removido no mesmo lote: um item flex já
+  nasce com `min-width: auto`, e com o `white-space: nowrap` do `.diag-btn` isso
+  é o rótulo inteiro — forçar um dá largura por largura o mesmo que o outro. Sem
+  piso, a divisão igual vale enquanto couber; apertando, os mínimos automáticos
+  vencem e as larguras saem desiguais com cada rótulo íntegro; apertando mais, o
+  `flex-wrap` empilha. Nenhum dos três degraus corta uma palavra.
+- **O recuo do `.diag-btn` caiu a `--sp-3`** (era `--sp-5`, *"o mesmo respiro de
+  bloco que a faixa reserva à esquerda"* — e essa folga saiu com a pastilha).
+  Com três dividindo a linha, o recuo sai da largura do RÓTULO: MEDIDO, o degrau
+  põe 360×1,25× e 430×1,5× numa linha só, onde antes saíam em duas.
+- **Os TRÊS vestem o preenchido**, revogando a v1.8.51 (*"só um deles o veste:
+  guardar o Registro é o PASSO, falar é o DESTINO"*). Aquilo respondia ao relato
+  de então — o contato precisava se destacar de um vizinho apagado. Numa fileira
+  sem fundo o que está em jogo deixou de ser a hierarquia entre eles e passou a
+  ser cada um se ler COMO BOTÃO, e um `background: none` sobre a folha não se lê.
+- **O ícone à direita é a ORDEM DOS FILHOS**, nunca `row-reverse`: o segundo
+  daria o mesmo desenho e mentiria para o leitor de tela, que percorre o DOM.
+- **O PREÇO está medido e é de contraste:** o botão contra a folha caiu de
+  **1,94:1 para 1,77:1** no escuro — o cinza que saiu clareava o fundo atrás
+  dele. Os dois estão abaixo do piso de 3:1 para superfície, e o que mantém o
+  controle identificável é o RÓTULO, que mede 6,54:1 no escuro e 7,70:1 no
+  claro. No tema claro o botão contra a folha mede 7,70:1.
+
+##### O toque na versão abre "O que mudou" (v1.8.65)
+
+*"para o botão de versão, ao tocar, ele mostra o popup de atualizações que
+ocorreram na última atualização (ou um log em lista das atualizações que tiveram
+em cada versão recente)"*.
+
+**A fonte é o `notas.json` do bundle INSTALADO, e não o `otaNotas`** — e as duas
+têm a mesma FORMA (`[{versao, itens}]`), o que faz a troca compilar, renderizar
+e falhar só no caso normal: o `otaNotas` é o que vem NA atualização oferecida, e
+fora de uma atualização pendente ele está VAZIO. O arquivo viaja no bundle de
+propósito (ver o OTA), então o app tem em disco a linha do tempo do que ele É.
+
+- **Teto de CINCO versões**, e o rodapé do diálogo só aparece quando há corte a
+  anunciar: dizê-lo com quatro guardadas descreveria um recorte que não houve.
+- **O prefixo `vX.Y.Z ·` vai em TODA linha** — ao contrário da lista do OTA, que
+  o omite porque lá o título já diz de que versão se fala. Aqui são várias, e
+  sem ele as mudanças de três lotes viram uma lista só, sem fronteira.
+- **`cancelText: null`**: ele conta, não pergunta.
+- **Falhar não pode ser mudo.** Sem o arquivo a MENSAGEM muda e aponta o
+  Registro ao lado; um diálogo vazio é indistinguível de um botão quebrado.
 
 ##### O COPIAR do Registro saiu (v1.4.44)
 

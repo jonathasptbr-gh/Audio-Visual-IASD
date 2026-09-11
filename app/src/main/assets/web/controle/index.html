@@ -2142,14 +2142,20 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">v1.8.64</span>
-          <!-- O GRUPO DE AÇÕES (v1.8.51). Ele existe por DUAS razões, e nenhuma
-               é organização: (1) é ele que carrega o `margin-left: auto` que
-               morava no rótulo solto, e (2) é ele que a faixa quebra INTEIRO
-               para a segunda linha quando os dois botões deixam de caber ao lado
-               da versão — sem grupo, o `flex-wrap` quebraria ENTRE os dois, e
-               eles são uma SEQUÊNCIA (guardar o arquivo, depois mandá-lo). -->
-          <div class="footer-diag-acoes">
+          <!-- A VERSÃO VIROU BOTÃO (v1.8.65), a pedido do operador: *"para o botão
+               de versão, ao tocar, ele mostra o popup de atualizações que
+               ocorreram na última atualização"*. O número já era a resposta a
+               *"que versão eu tenho?"*; o toque responde a seguinte, que é
+               *"e o que mudou nela?"* — e a fonte é o `notas.json` do PRÓPRIO
+               bundle instalado, não o da atualização oferecida (aquele é o
+               `otaNotas`, e fora de uma atualização ele está vazio).
+
+               O NÚMERO EM NEGRITO é pedido separado do mesmo lote, e ele é o
+               conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
+               de item, botão". -->
+          <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
+            <span id="appVersion" class="app-version">v1.8.65</span>
+          </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
                  e colar é o caminho que corta o texto no meio SEM AVISAR — foi o
@@ -2165,10 +2171,10 @@
 
                  ELE FICA QUIETO, sem fundo próprio, e é isso que o separa do
                  irmão: guardar o Registro é o PASSO, falar é o DESTINO. -->
-            <button id="diagSave" class="diag-btn" title="Salvar o registro num arquivo" aria-label="Salvar o registro num arquivo" hidden>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
-              <span>Registro</span>
-            </button>
+          <button id="diagSave" class="diag-btn diag-btn--primario" title="Salvar o registro num arquivo" aria-label="Salvar o registro num arquivo" hidden>
+            <span>Registro</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
+          </button>
             <!-- PEDIR AJUDA (v1.8.49, refeito na v1.8.51). Ele mora NESTA faixa,
                  e não numa linha própria, porque é a MESMA conversa que os
                  vizinhos: *"que versão eu tenho, o que eu mando para quem vai me
@@ -2190,11 +2196,10 @@
                  Ele nasce `hidden` e é revelado NO PRÓPRIO HANDLER, nunca no
                  `renderVersionLabel` — aquela função roda no topo do arquivo e o
                  `const` do botão só existe centenas de linhas abaixo. -->
-            <button id="contatoBtn" class="diag-btn diag-btn--primario" title="Falar com quem mantém o app, pelo WhatsApp" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoContato"/></svg>
-              <span>Pedir ajuda</span>
-            </button>
-          </div>
+          <button id="contatoBtn" class="diag-btn diag-btn--primario" title="Falar com quem mantém o app, pelo WhatsApp" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
+            <span>Pedir ajuda</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoContato"/></svg>
+          </button>
         </div>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais

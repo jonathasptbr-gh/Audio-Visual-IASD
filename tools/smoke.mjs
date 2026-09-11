@@ -583,37 +583,45 @@ try {
       faixa: cx(faixa), grade: grade ? cx(grade) : null,
     };
   });
-  // ===== A REGRA ENCOLHEU, E NÃO SUMIU (v1.8.51) =====
+  // ===== A REGRA SE INVERTEU (v1.8.65, revogando a v1.4.44 e a v1.8.51) =====
   //
-  // Ela nasceu na v1.4.44 de um pedido do operador — *"ficou duas seções, a
+  // ELA JÁ NASCEU DE UM PEDIDO E MORREU DE OUTRO, e as duas pontas estão ditas
+  // aqui porque a inversão é o que faz esta asserção parecer errada a quem a
+  // ler sem o histórico.
+  //
+  // A v1.4.44 proibia a faixa se ler como DUAS caixas — *"ficou duas seções, a
   // versão e o registro em grupos separados. pode deixar tudo em uma barra
-  // horizontal única"* — e o que ela proibia era a faixa se ler como DUAS
-  // caixas. O pedido novo revoga a proibição para UM caso, e diz por quê:
-  // *"faça ele um botão mais sólido visualmente, pois não está claro que ele
-  // serve para comunicar ou feedback"*. Um ícone sem superfície e sem rótulo,
-  // ao lado de outro igual, não se lia como a porta que ele é.
+  // horizontal única"* —, e a superfície era a FAIXA. A v1.8.51 abriu uma
+  // exceção de UM (*"faça ele um botão mais sólido visualmente"*) e guardou o
+  // teto: no máximo uma superfície pintada dentro, e ela é a primária.
   //
-  // O QUE FICA É O LIMITE, e ele é mais forte que a allowlist por id que o
-  // caso pedia: **no máximo UMA superfície pintada dentro da faixa, e ela é a
-  // ação primária**. É essa a linha que impede a v1.4.44 de voltar pela porta
-  // dos fundos — dois botões preenchidos lado a lado seriam duas ações
-  // primárias na mesma barra, que é o defeito original com tinta nova. O
-  // `#diagSave` fica quieto de propósito: guardar o Registro é o PASSO, falar
-  // é o DESTINO.
+  // O pedido de agora derruba os dois: *"faça os três serem três botões
+  // separados, no mesmo estilo do botão de 'pedir ajuda'. e remova o fundo
+  // cinza desse rodapé"*. **A faixa deixou de ser superfície** — e é por isso
+  // que a asserção velha não podia só afrouxar de 1 para 3: o que ela media
+  // primeiro era a faixa PINTAR, e hoje ela não pinta. Invertem-se as duas
+  // metades: a faixa NÃO pinta, e os três filhos pintam, todos iguais.
+  //
+  // O TETO CONTINUA EXISTINDO, e é ele que impede a v1.4.44 de voltar pela
+  // porta dos fundos por outro caminho: a faixa não pode voltar a pintar (seria
+  // fundo dentro de fundo) e não pode haver um QUARTO preenchido que não seja
+  // um dos três botões — uma superfície solta ali é a "segunda caixa" que a
+  // regra original nomeava, agora sem a faixa para escondê-la.
   //
   // A LEITURA É POR `getComputedStyle` E VALE COM O BOTÃO ESCONDIDO: num
-  // navegador os dois são `hidden`, e o fundo continua sendo reportado sob
-  // `display:none` (medido). A asserção não depende do cenário revelá-los.
-  checar(rodape && rodape.faixaPinta
-    && rodape.filhosQuePintam.length === rodape.primarios.length,
-    'o rodapé é UMA barra com UMA ação: a superfície é a faixa, e a única coisa '
-    + 'que pinta dentro dela é o botão primário — duas caixas com a mesma cor '
-    + 'ainda se leem como dois assuntos',
+  // navegador dois dos três são `hidden`, e o fundo continua sendo reportado
+  // sob `display:none` (medido). A asserção não depende do cenário revelá-los.
+  checar(rodape && !rodape.faixaPinta,
+    'o rodapé deixou de ser uma SUPERFÍCIE: a faixa não pinta nada — o cinza '
+    + 'saiu a pedido do operador, e com ele a pastilha que a v1.4.44 criou',
+    rodape && JSON.stringify({ faixaPinta: rodape.faixaPinta }));
+  checar(rodape && rodape.primarios.length === 3
+    && rodape.primarios.join(',') === 'versaoBtn,diagSave,contatoBtn'
+    && rodape.filhosQuePintam.length === 3,
+    'e os TRÊS botões pintam, os três iguais — a exceção de UM da v1.8.51 caiu '
+    + 'com a faixa que a justificava. O teto continua: nada mais pinta ali, e '
+    + 'uma quarta superfície solta é a "segunda caixa" que a regra nomeava',
     rodape && JSON.stringify({ pintam: rodape.filhosQuePintam, primarios: rodape.primarios }));
-  checar(rodape && rodape.primarios.length === 1 && rodape.primarios[0] === 'contatoBtn',
-    'e a ação primária é o PEDIR AJUDA, uma só: sem este teto, "deixar o botão '
-    + 'sólido" acabaria com os dois preenchidos e a barra de volta a dois assuntos',
-    rodape && JSON.stringify(rodape.primarios));
   checar(rodape && rodape.versaoDentro && rodape.salvarDentro,
     'e a versão e o salvar do Registro moram os dois nela');
   checar(rodape && rodape.faixa.l === rodape.grade.l && rodape.faixa.r === rodape.grade.r,
