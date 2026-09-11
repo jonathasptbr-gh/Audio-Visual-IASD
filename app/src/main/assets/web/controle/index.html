@@ -276,7 +276,9 @@
       <path d="M7 11l5 5 5-5"/>
       <path d="M4 19h16"/>
     </symbol>
-    <!-- LIXEIRA COM LISTA (v1.8.66) — o "limpar o Cronograma" do cabecalho.
+    <!-- LIXEIRA COM LISTA — o "limpar o Cronograma" do cabeçalho (v1.8.66,
+         reproporcionado na v1.8.67).
+
          Pedido do operador: *"use um icone de lixeira com list, é um icone de
          uma lixeira e uns traços a direita que simbolizam a lista"*.
 
@@ -287,19 +289,39 @@
          mostrar o mesmo desenho de "apagar um item" para uma ação que apaga a
          lista INTEIRA.
 
-         AS MEDIDAS SÃO DO viewBox de 24, e elas decidem se ele se lê a 20px: a
-         lixeira ocupa x 3..11 e os traços x 14,5..21,5, com um vão de 3,5
-         unidades entre as duas metades (2,9px no renderizado) — sem ele o
-         traço de cima encosta na tampa. Os três traços ficam a y 8/12,5/17,
-         4,5 unidades de distância: com `stroke-width: 2` (1,67px a 20px) sobra
-         2,08px de vão, que é o que impede os três de empastarem num só bloco. -->
+         A PROPORÇÃO É O QUE ERROU NA PRIMEIRA ESCRITA, e o relato foi
+         *"o icone parece espremido horizontalmente"*. A conta, MEDIDA sobre a
+         mesma região nos dois desenhos (tampa + alça + corpo): a lixeira tinha
+         **8,5 de largura por 15,35 de altura**, ou **1:1,81**, porque ela foi
+         espremida no terço esquerdo para sobrar espaço aos traços. Uma lixeira
+         de verdade é quase quadrada — o `trash-2` do Feather mede 18 × 20 no
+         mesmo viewBox de 24, **1:1,11**. O que se lê num desenho 1:1,8 não é uma
+         lixeira estreita: é uma lixeira NORMAL achatada, porque o olho conhece a
+         forma e atribui a diferença ao desenho, não ao objeto.
+
+         O CONSERTO É REPARTIR OS 24, e não encolher os traços: a lixeira fica
+         com **12 unidades** (2 → 14) e os traços com **6** (16 → 22), com 2,2 de
+         vão entre as duas metades. Ela passa a medir 11,6 × 13,75 — **1:1,19**,
+         ao lado do Feather. Os traços encurtaram de 7 para 6 unidades, e isso é
+         o preço declarado: eles continuam legíveis porque o que os separa é o
+         VÃO, não o comprimento.
+
+         AS DUAS MEDIDAS TÊM ASSERÇÃO (`limpar-cronograma.test.mjs`, bloco A), e
+         ela mede um CLONE RENDERIZADO do símbolo: o `getBBox()` de um filho de
+         `<symbol>` devolve zeros no Chromium, porque um `<symbol>` nunca é
+         desenhado — a sonda ingênua aprovaria os dois desenhos igualmente.
+
+         OS TRÊS TRAÇOS ficam a y 9,5 / 13 / 16,5 — 3,5 unidades entre centros
+         (2,9px no renderizado a 20px). Com `stroke-width: 2` (1,67px) sobra
+         1,25px de vão limpo, que é o que impede os três de empastarem num só
+         bloco. -->
     <symbol id="icoLimparLista" viewBox="0 0 24 24">
-      <path d="M3 6.5h8.5"/>
-      <path d="M5.75 6.5V5.2a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.3"/>
-      <path d="M4.4 6.5l.55 11.9a1.2 1.2 0 0 0 1.2 1.15h2.2a1.2 1.2 0 0 0 1.2-1.15L10.1 6.5"/>
-      <path d="M14.5 8h7"/>
-      <path d="M14.5 12.5h7"/>
-      <path d="M14.5 17h7"/>
+      <path d="M2.2 7.3h11.6"/>
+      <path d="M6 7.3V6a1.1 1.1 0 0 1 1.1-1.1h1.8A1.1 1.1 0 0 1 10 6v1.3"/>
+      <path d="M3.8 7.3l.5 10.2a1.2 1.2 0 0 0 1.2 1.15h4.6a1.2 1.2 0 0 0 1.2-1.15l.5-10.2"/>
+      <path d="M16 9.5h6"/>
+      <path d="M16 13h6"/>
+      <path d="M16 16.5h6"/>
     </symbol>
     <!-- LUPA. Ela já existia desenhada em JS (`searchIconSvg`, o botão de
          pesquisar no YouTube); virou símbolo na v5.264, quando a barra de busca
@@ -2193,7 +2215,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.8.66</span>
+            <span id="appVersion" class="app-version">v1.8.67</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

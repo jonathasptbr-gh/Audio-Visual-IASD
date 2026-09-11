@@ -132,6 +132,45 @@ try {
         cx: b ? +b.getBoundingClientRect().width.toFixed(1) : null,
         cy: b ? +b.getBoundingClientRect().height.toFixed(1) : null,
         gear: +document.getElementById('settingsBtn').getBoundingClientRect().width.toFixed(1),
+        // A PROPORÇÃO DO DESENHO — a caixa da LIXEIRA (a tampa mais o corpo que
+        // afunila: os três primeiros `<path>`) contra a dos TRAÇOS.
+        //
+        // MEDIDA NUM CLONE RENDERIZADO, e não no `<symbol>`: um `<symbol>` nunca
+        // é desenhado, e o `getBBox()` de um filho dele devolve **zeros** no
+        // Chromium — MEDIDO, `{l:0,a:0}` para os dois desenhos, o certo e o
+        // errado, o que faria qualquer asserção daqui passar sempre. O clone tem
+        // o MESMO path data nas MESMAS unidades de usuário, então a conta é a do
+        // desenho de verdade.
+        lixeira: (() => {
+          const sym = document.getElementById('icoLimparLista');
+          if (!sym) return null;
+          const NS = 'http://www.w3.org/2000/svg';
+          const sv = document.createElementNS(NS, 'svg');
+          sv.setAttribute('viewBox', '0 0 24 24');
+          sv.setAttribute('width', '240'); sv.setAttribute('height', '240');
+          sv.style.cssText = 'position:fixed;left:-9999px;top:0;fill:none;stroke:#000';
+          for (const c of sym.children) sv.appendChild(c.cloneNode(true));
+          document.body.appendChild(sv);
+          const ps = [...sv.querySelectorAll('path')];
+          if (ps.length < 6) { sv.remove(); return null; }
+          const une = (as) => {
+            const bs = as.map((n) => ps[n].getBBox());
+            return {
+              x: Math.min(...bs.map((b) => b.x)), y: Math.min(...bs.map((b) => b.y)),
+              r: Math.max(...bs.map((b) => b.x + b.width)),
+              d: Math.max(...bs.map((b) => b.y + b.height)),
+            };
+          };
+          const c = une([0, 1, 2]), t = une([3, 4, 5]);
+          sv.remove();
+          // `getBBox` responde nas unidades de USUÁRIO — as do `viewBox`, 0..24 —,
+          // e não nos pixels em que o clone foi desenhado.
+          return {
+            l: +(c.r - c.x).toFixed(2), a: +(c.d - c.y).toFixed(2),
+            razao: +((c.d - c.y) / (c.r - c.x)).toFixed(2),
+            vao: +(t.x - c.r).toFixed(2),
+          };
+        })(),
       };
     });
     checar(r.existe && !r.badge,
@@ -151,6 +190,29 @@ try {
     checar(r.cx === r.gear && Math.abs(r.cx - r.cy) < 0.5,
       'A · e a caixa é a MESMA da engrenagem em frente, e quadrada: as duas '
       + 'pontas da barra medem `--hit`', JSON.stringify(r));
+    // E O DESENHO NÃO É ESPREMIDO (v1.8.67). O relato foi *"o icone parece
+    // espremido horizontalmente"*, e o defeito não estava na caixa do botão —
+    // que já era quadrada, e cuja asserção acima passava — e sim na LIXEIRA
+    // dentro dela, achatada no terço esquerdo para sobrar espaço aos traços.
+    //
+    // A RÉGUA É A RAZÃO, e o teto vem de fora: o `trash-2` do Feather, na MESMA
+    // região (tampa + alça + corpo), mede 18 × 20 num viewBox de 24 — **1:1,11**.
+    // MEDIDO aqui: **1:1,81** no desenho que o operador viu (8,5 × 15,35) contra
+    // **1:1,19** no corrigido (11,6 × 13,75). O teto de 1,4 fica acima de toda
+    // lixeira que afunila e abaixo do que se lê como uma lixeira ACHATADA — o
+    // olho conhece a forma e atribui a diferença ao desenho, não ao objeto.
+    checar(r.lixeira && r.lixeira.razao <= 1.4,
+      'A · e a lixeira não é ESPREMIDA: ' + (r.lixeira && r.lixeira.razao)
+      + ' de altura por largura, contra o 1,11 do `trash-2` do Feather e o 1,81 '
+      + 'do desenho que o operador viu', JSON.stringify(r.lixeira));
+    // E O VÃO ENTRE AS DUAS METADES SOBREVIVE À REPARTIÇÃO: alargar a lixeira
+    // contra os traços é o modo óbvio de consertar a razão acima, e ele empasta
+    // o ícone — a 20px o desenho inteiro tem 1,67px de traço, e um vão menor que
+    // a própria linha não se lê como vão.
+    checar(r.lixeira && r.lixeira.vao >= 1.5,
+      'A · e sobra VÃO entre a lixeira e os traços (' + (r.lixeira && r.lixeira.vao)
+      + ' unidades) — alargar a lixeira até encostar neles conserta a razão e '
+      + 'empasta o desenho', JSON.stringify(r.lixeira));
     await a.ctx.close();
   }
 
@@ -238,13 +300,41 @@ try {
       'D · e o diálogo se anuncia DESTRUTIVO (`perigo`), com o verbo no botão — '
       + 'o azul primário diria que confirmar é a ação segura',
       JSON.stringify({ perigo: d.perigoso, ok: d.ok }));
-    // A MENSAGEM CARREGA A CONTA E A PROMESSA, e é por isto que aqui é modal e
-    // não a pergunta-na-linha da fila: a `dica` daquela vai para o `title`, e
-    // num WebView não há hover — a frase que explica nunca apareceria.
-    checar(/6 itens/.test(d.msg) && /Favoritos/.test(d.msg) && /no ar/.test(d.msg),
-      'D · e ela diz QUANTOS saem, que os Favoritos sobrevivem e que o que está '
-      + 'no ar segue tocando — a pergunta-na-linha esconde isso num `title`, '
-      + 'que num WebView nunca aparece', d.msg);
+    // A MENSAGEM CARREGA A CONTA, e é por isto que aqui é modal e não a
+    // pergunta-na-linha da fila: a `dica` daquela vai para o `title`, e num
+    // WebView não há hover — o número nunca apareceria. A CONTA é a única metade
+    // que quem lê não tem como saber olhando a tela, porque a lista pode estar
+    // rolada.
+    //
+    // E AS EXPLICAÇÕES SAÍRAM na v1.8.67 (*"pode remover as explicações sobre os
+    // itens ainda ficarem em favoritos e sobre continuar tocando"*). A ausência
+    // delas é AFIRMADA, e não só deixada de medir: sem isso, alguém que as
+    // reintroduzisse por zelo passaria no oráculo — e o pedido era por menos
+    // texto, que é uma decisão que se desfaz sozinha se ninguém a guardar. As
+    // duas promessas continuam valendo no CÓDIGO, e quem as trava são os blocos
+    // D (cancelar não apaga) e E (a cena continua).
+    checar(/6 itens/.test(d.msg),
+      'D · e ela diz QUANTOS saem — a pergunta-na-linha esconderia o número num '
+      + '`title`, que num WebView nunca aparece, e a lista pode estar rolada',
+      d.msg);
+    checar(!/Favorito|no ar|playlist/i.test(d.msg) && d.msg.length < 60,
+      'D · e ela NÃO explica mais nada: as frases sobre os Favoritos e sobre a '
+      + 'cena continuar tocando saíram a pedido, e a ausência é afirmada para '
+      + 'que zelo não as traga de volta', JSON.stringify({ msg: d.msg, n: d.msg.length }));
+    // O VERBO É "LIMPAR" EM TODA PARTE (v1.8.67): *"foque em chamar apenas de
+    // 'limpar cronograma'… ao invés da palavra 'excluir'"*. A distinção é real —
+    // EXCLUIR é o que se faz a um item, LIMPAR é o que se faz a uma lista —, e
+    // a asserção varre os TRÊS lugares onde a palavra apareceria: o título, o
+    // botão que confirma e o `title`/`aria-label` do botão que abriu.
+    const verbos = await a.pg.evaluate(() => {
+      const b = document.getElementById('cronoLimpar');
+      return [b.title, b.getAttribute('aria-label')].join(' | ');
+    });
+    checar(!/exclu/i.test(d.titulo + ' ' + d.ok + ' ' + d.msg + ' ' + verbos)
+      && /limpar/i.test(d.titulo) && /limpar/i.test(d.ok) && /limpar/i.test(verbos),
+      'D · e o verbo é LIMPAR no título, no confirmar e no próprio botão — nunca '
+      + 'EXCLUIR, que é o que se faz a um ITEM e prometeria que os arquivos morrem',
+      JSON.stringify({ titulo: d.titulo, ok: d.ok, verbos }));
     checar(antes === 6 && depois === 6,
       'D · e CANCELAR não apaga nada. Sem esta metade, um diálogo que sempre '
       + 'confirma passaria na asserção de cima',
@@ -323,6 +413,85 @@ try {
       'F · e com UM item ele volta a acender, com o `title` da ação — sem esta '
       + 'metade, um botão apagado para sempre passaria na de cima',
       JSON.stringify(cheio));
+    await a.ctx.close();
+  }
+
+  // =========================================================================
+  // G · O CRONOGRAMA VAZIO É UMA MARCA-D'ÁGUA (v1.8.67)
+  // =========================================================================
+  //
+  // Pedido do operador: *"um texto maior, em negrito, centralizado na tela, mas
+  // com uma cor com menos contraste do que a atual, para ficar mais mesclado a
+  // cor do fundo e se destacar menos"*. São QUATRO metades e cada uma quebra
+  // sozinha, então cada uma tem asserção.
+  //
+  // O CONTRASTE É MEDIDO DO RENDERIZADO, e a régua é INVERTIDA: aqui se exige
+  // que ele fique ABAIXO de um teto, não acima de um piso. É o único lugar deste
+  // repositório em que isso acontece, e a razão está no CSS — a frase descreve
+  // uma ausência que já está à vista, e não carrega informação que se perca.
+  // Sem o teto, "menos contraste" é uma opinião; com ele, é um número.
+  {
+    const a = await abrir('dark', 0);
+    const g = await a.pg.evaluate(() => {
+      const e = document.querySelector('#library > .empty');
+      if (!e) return null;
+      const lista = document.getElementById('library').getBoundingClientRect();
+      // A RÉGUA É O TEXTO, NUNCA A CAIXA DELE. O `<li>` carrega `flex: 1` e come
+      // a altura que sobra do scroller nos DOIS casos — com e sem o
+      // `place-content` —, então o `getBoundingClientRect()` dele devolve o mesmo
+      // retângulo e a asserção passa nas duas versões. MEDIDO por reversão: ela
+      // era TAUTOLOGIA. O que se move é a LINHA de texto dentro da caixa, e quem
+      // a alcança é um `Range` sobre o conteúdo — a mesma armadilha do
+      // `scrollWidth` de um `<span>` na v1.8.65, onde o medido também não era
+      // quem transbordava.
+      const faixa = document.createRange();
+      faixa.selectNodeContents(e);
+      const r = faixa.getBoundingClientRect();
+      const cs = getComputedStyle(e);
+      const raiz = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      return {
+        texto: (e.textContent || '').trim(),
+        peso: cs.fontWeight,
+        // O TAMANHO em `rem`, e não em px: o px varia com a fonte do sistema, e
+        // o que a asserção guarda é o DEGRAU contra o corpo da lista.
+        fs: +(parseFloat(cs.fontSize) / raiz).toFixed(2),
+        opacidade: +cs.opacity,
+        cor: cs.color,
+        fundo: getComputedStyle(document.body).backgroundColor,
+        // CENTRADA NOS DOIS EIXOS: os centros da LINHA contra os da lista.
+        dx: +Math.abs((r.left + r.width / 2) - (lista.left + lista.width / 2)).toFixed(1),
+        dy: +Math.abs((r.top + r.height / 2) - (lista.top + lista.height / 2)).toFixed(1),
+        alturaLista: +lista.height.toFixed(1),
+      };
+    });
+    checar(!!g && /vazio/i.test(g.texto),
+      'G · com a lista vazia o Cronograma diz que está vazio', g && g.texto);
+    checar(g.fs >= 1.1 && g.peso === '700',
+      'G · e a frase é MAIOR e em NEGRITO — ' + g.fs + 'rem contra os 0,9rem da '
+      + '`.empty` comum, que serve a caixas pequenas noutras listas',
+      JSON.stringify({ fs: g.fs, peso: g.peso }));
+    // O TETO VERTICAL É 6px, E O RESTO TEM NOME: o item é centrado no CONTENT
+    // box, e o `#library` carrega `padding-top: --sp-5` (o vão sob a barra) com
+    // `padding-bottom: 0` — logo o centro do conteúdo fica metade disso abaixo
+    // do centro da caixa. MEDIDO: **4,8px** em 577,4 de altura, 0,8%. Zerar
+    // exigiria o item ignorar o padding do próprio scroller, que é brigar com o
+    // layout por um desvio invisível. O teto está acima do resto conhecido e
+    // abaixo do defeito que ele veio pegar: sem a exclusão da folga do rodapé,
+    // este mesmo número era **28,6px**.
+    checar(g.dx <= 2 && g.dy <= 6 && g.alturaLista > 200,
+      'G · e ela está centrada NOS DOIS EIXOS da lista (dx ' + g.dx + ', dy '
+      + g.dy + 'px — o resto é metade do vão sob a barra) — o vertical é o que '
+      + '"centralizado na tela" pede, e ele só existe porque o item come a '
+      + 'altura que sobra', JSON.stringify(g));
+    // A COR COMPOSTA: a `opacity` mistura o traço com o fundo, então a razão tem
+    // de ser calculada sobre a MISTURA — ler `color` cru devolveria o contraste
+    // do token, que é justamente o que o pedido mandou baixar.
+    const mist = rgb(g.cor).map((c, i) => Math.round(c * g.opacidade + rgb(g.fundo)[i] * (1 - g.opacidade)));
+    const c = razao('rgb(' + mist.join(',') + ')', g.fundo);
+    checar(c < 4.5 && c > 2,
+      'G · e ela MESCLA com o fundo: ' + c + ':1, abaixo do piso de 4,5 de '
+      + 'propósito (era 9,94:1) e ainda acima de 2, que é o chão em que ela '
+      + 'deixaria de ser legível de relance', JSON.stringify({ razao: c, op: g.opacidade }));
     await a.ctx.close();
   }
 } finally {
