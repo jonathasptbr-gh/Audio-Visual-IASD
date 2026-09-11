@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.80",
+    "itens": [
+      "A barra do topo do Cronograma respira igual em cima e embaixo — os botões deixaram de ficar colados na base.",
+      "A base da leitura da Bíblia passou a ocupar toda a largura, e o título das janelas ficou centrado e parado.",
+      "O número no botão da playlist mostra o total de itens da fila.",
+      "Repetir: primeiro a mídia atual, depois a playlist — e cada modo tem o seu desenho.",
+      "A velocidade da rolagem da cifra virou um slider, que desliza ao lado do play."
+    ]
+  },
+  {
     "versao": "1.8.79",
     "itens": [
       "Faxina por dentro: saíram quatro restos que nada no app lia ou alcançava. Nada muda na tela."

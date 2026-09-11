@@ -1999,9 +1999,15 @@ body {
    Ele tem razão, e este botão é o CASO EXTREMO da regra: em toda a outra parte
    em que o app marca um interruptor, o DESENHO muda junto — a estrela de
    favorito enche, o `+` da fila vira `✓` —, e ali a cor é reforço. Aqui não
-   pode mudar: o `repeat` CICLA por quatro modos e o glifo já está ocupado
+   pode mudar: o `repeat` CICLA por quatro modos e o desenho já está ocupado
    dizendo QUAL deles está valendo (ver "O riscado é o corte" no
    DESIGN-SYSTEM). Sobrava a cor sozinha, num botão idêntico a cinco vizinhos.
+
+   E DESDE A v1.8.80 O DESENHO É UM `<use>` DO SPRITE, não mais um glifo — três
+   símbolos para quatro degraus, com `off` e `one` dividindo o laço puro a
+   pedido do operador. É exatamente por eles dividirem o desenho que esta regra
+   passou a carregar a distinção inteira entre os dois: sem a superfície, um
+   "repetir esta mídia" ligado seria indistinguível de "sem repetição".
 
    A resposta é a superfície de ação que a paleta passou a ter: `--btn-accent`
    sob o traço `--accent`, o mesmo par dos botões de baixar da Biblioteca.
@@ -2177,7 +2183,29 @@ main {
      por medição, não por leitura. */
   background: var(--bar);
   margin: calc(-1 * (.6rem + env(safe-area-inset-top))) -.8rem calc(-1 * var(--sp-5));
-  padding: calc(.6rem + env(safe-area-inset-top)) .8rem 0;
+  /* ---------- O RESPIRO É PARTIDO EM DOIS, E A CAIXA NÃO MUDA (v1.8.80) ------
+     Relato do operador: *"a margem abaixo dos botões de configurações e de
+     limpar cronograma está muito rasa em relação a margem superior. Ou melhor,
+     parece que todos os itens dessa barra estão descentralizados para baixo"*.
+
+     MEDIDO, e ele está certo pelo número: o `padding-bottom` era ZERO, então a
+     linha de `--hit` encostava na fronteira de baixo — 9,59px de vão acima e
+     **0** abaixo a 430×900; 12,47 e **0** a 360×640 com a fonte do sistema em
+     1,3×. Não era percepção: os três moradores terminavam exatamente no
+     `bottom` da barra.
+
+     A METADE PARA CADA LADO MANTÉM A CAIXA AO PIXEL, e é isso que a torna a
+     correção mínima: `--sp-5` era o respiro inteiro em cima, e vira meio em
+     cima e meio embaixo — 4,8 + 34 + 4,8 contra os 9,6 + 34 + 0 de antes, os
+     mesmos 43,6px de altura. A fronteira de baixo não se move, a margem
+     negativa continua valendo o que valia e a lista não desce um pixel: crescer
+     a barra para simetrizá-la custaria altura de LISTA, que é o conteúdo desta
+     tela.
+
+     O `env(safe-area-inset-top)` NÃO É PARTIDO: ele é o recorte do sistema, e
+     mora inteiro no lado em que o recorte está. Somá-lo em cima e dividir só o
+     respiro é o que mantém a barra fora do entalhe E simétrica por dentro. */
+  padding: calc(var(--sp-5) / 2 + env(safe-area-inset-top)) .8rem calc(var(--sp-5) / 2);
 }
 .list-header > .back-btn { grid-column: 1; }
 /* ---------- LIMPAR O CRONOGRAMA: a trilha 1 (v1.8.66) ----------
@@ -3015,11 +3043,39 @@ main {
 @media (prefers-reduced-motion: reduce) {
   .tools-sheet, .tools-sheet.saindo { animation: none; }
 }
+/* ===== O TÍTULO DA JANELA FICA NO CENTRO, E PARADO (v1.8.80) =====
+
+   Pedido do operador: *"aproveite para centralizar o título de cada janela
+   dessas como o título na janela da bíblia e o titulo na janela de ferramentas,
+   que hoje estão centralizados a esquerda. E tome cuidado para que ele permaneça
+   imóvel mesmo alternando entre telas da mesma janela"*.
+
+   AS DUAS METADES SÃO UMA SÓ, e é isso que decide o mecanismo. Com `flex: 1` no
+   título ele era o ESPAÇADOR da linha: encostava à esquerda e, na Bíblia, ANDAVA
+   quando o voltar aparecia — MEDIDO, 39,6px a 430×900 e 41,2px a 360×640 com a
+   fonte em 1,3×, entre a lista de livros (sem voltar) e a leitura (com voltar).
+   Um `text-align: center` sozinho não conserta a segunda: a caixa dele continua
+   sendo "o que sobra", e o que sobra muda de tamanho com o vizinho.
+
+   É A GRADE DA `.list-header`, verbatim — três trilhas, as duas laterais com o
+   MESMO piso (`--hit`) e o mesmo crescimento (`1fr`). O centro geométrico da
+   barra passa a ser o centro da trilha 2, independentemente de quantos botões
+   há nas pontas: a Bíblia tem voltar e ✕, o Ferramentas só o ✕, e o título fica
+   no mesmo x nos dois. Um botão `hidden` some do layout mas NÃO apaga a trilha
+   que o template declara — é por isso que a troca de tela não o move.
+
+   O `grid-column` de cada morador é EXPLÍCITO porque a colocação automática
+   preencheria da esquerda para a direita: sem ele, a folha de Ferramentas (que
+   não tem voltar) poria o título na trilha 1 e desfaria tudo. */
 .tools-head {
-  flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-3);
+  flex-shrink: 0; display: grid; align-items: center; gap: var(--sp-3);
+  grid-template-columns: minmax(var(--hit), 1fr) minmax(0, auto) minmax(var(--hit), 1fr);
   margin-bottom: .5rem;
 }
-.tools-title { flex: 1; min-width: 0; font-size: var(--fs-xl); font-weight: var(--fw-max); color: var(--text); }
+.tools-head > .back-btn { grid-column: 1; justify-self: start; }
+.tools-head > .tools-title { grid-column: 2; }
+.tools-head > .popup-close { grid-column: 3; justify-self: end; }
+.tools-title { min-width: 0; text-align: center; font-size: var(--fs-xl); font-weight: var(--fw-max); color: var(--text); }
 /* O host das ferramentas ocupa o que sobra. Ele é o gêmeo da `.lib-list` no que
    importa (coluna que ocupa a altura), e o oposto no que a `.lib-misc` diz
    logo abaixo: aqui quem administra a altura é o painel ativo, não a rolagem. */
@@ -6023,8 +6079,26 @@ main {
 }
 /* `min-width: 0` porque agora ela divide a linha com os dois botões de guardar:
    sem isso o padrão `min-width: auto` a impediria de encolher, e o nome longo de
-   um livro empurraria os botões para fora da tela em vez de virar reticências. */
-.bible-ref-nav { display: flex; align-items: stretch; gap: 1px; min-width: 0; max-width: 100%; }
+   um livro empurraria os botões para fora da tela em vez de virar reticências.
+
+   ---------- E ELA OCUPA A SOBRA DA BARRA (v1.8.80) ----------
+   Relato do operador: *"essa barra de controles não está preenchendo toda a
+   largura disponível dessa base"*. MEDIDO a 430×900: a barra tem 382px e o
+   conteúdo media 324,6 — **28,7px de vão de cada lado**, porque a foot é
+   `justify-content: center` e nenhum dos dois blocos crescia.
+
+   QUEM CRESCE É A REFERÊNCIA, nunca as ações: os dois botões de guardar são
+   QUADRADOS por regra declarada (`aspect-ratio: 1` sobre a altura herdada, ver
+   `.bible-read-acoes .cue-save-btn`) — esticar a caixa deles não os alarga, só
+   abriria um vão DENTRO dela. A referência é o bloco elástico desta barra, e é
+   nela que o espaço a mais vira leitura: o nome do livro deixa de ser o
+   primeiro a reticenciar.
+
+   O `flex-grow` NÃO TOCA NA ORDEM DE CEDER, que é a correção da v1.7.9 e
+   continua inteira: crescer e encolher são eixos independentes, e os
+   `flex-shrink` (1 nas pílulas de número, 3 no livro) seguem decidindo quem
+   perde largura quando a barra aperta. Aqui só se reparte a SOBRA. */
+.bible-ref-nav { display: flex; align-items: stretch; gap: 1px; min-width: 0; max-width: 100%; flex-grow: 1; }
 /* ---------- CADA PÍLULA VESTE A GRADE QUE ELA ABRE (v1.3.14) ----------
    Queixa do operador: *"o seletor de capítulo, versículo e etc. usa cores
    transparentes e marcadores de cores sólidas, o que não faz sentido; podia ser
@@ -6081,7 +6155,11 @@ main {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
   color: var(--text);
   padding: .3rem .38rem; cursor: pointer; appearance: none; -webkit-appearance: none;
-  min-width: 0; flex-shrink: 1;
+  /* `flex-grow: 1` reparte a sobra entre as quatro (v1.8.80): sem ele a nav
+     cresce e as pílulas ficam agrupadas à esquerda dela — o mesmo vão de antes,
+     mudado de lugar. O `flex-shrink` ao lado é a ordem de CEDER, e ela não se
+     mistura com esta: ver o bloco da `.bible-ref-nav`. */
+  min-width: 0; flex-shrink: 1; flex-grow: 1;
 }
 /* O LIVRO não declara fundo: a tinta do grupo vem do `.bg-<grupo>` que o JS
    acrescenta. (A faixa de 3px que havia aqui saiu com a do ladrilho — ver
@@ -9756,14 +9834,123 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    do pedido: *a fila da cifra sempre tem a saída* (a invariante do
    `lvBuildCifra`). Escondê-lo deixaria uma gaveta aberta em paisagem sem
    nenhuma saída à vista. */
-.lv-cifra-vels { display: none; }
-.lv-cifra-ctl.escolhendo > .lv-cifra-vels { display: contents; }
-.lv-cifra-ctl.escolhendo > .lv-fonte-btn { display: none; }
-/* ESCOLHIDO ENTRE ALTERNATIVAS: `--accent-fill` + `--on-accent`, a linguagem de
-   estado deste app (a mesma do ✓ do seletor de destinos). Ela é PREENCHIMENTO e
-   não cor de texto porque *cor de texto nunca carrega estado sozinha* — e aqui
-   os cinco botões são idênticos em tudo o mais. */
-.lv-cifra-vel-op.escolhido { background: var(--accent-fill); color: var(--on-accent); }
+/* ===== E A GAVETA DESLIZA, COM UM SLIDER DENTRO (v1.8.80) =====
+
+   Pedido do operador: *"primeiramente isso não possue nenhuma animação. Então
+   faça uma animação horizontal para essa gaveta. Mantenha o botão de play e o
+   botão de seletor de velocidade sempre visível, agora a gaveta vai surgir a
+   direita desses dois itens. E mude a lógica, não mais uma gaveta com botões,
+   mas um slider regulável"*.
+
+   O `display: contents` da v1.7.4 NÃO PODIA ANIMAR, e é essa a razão de ele
+   sair: uma caixa que não existe no layout não tem largura para transicionar.
+   A gaveta virou uma caixa de verdade, e é a LARGURA dela que anda de 0 até o
+   tamanho do slider.
+
+   QUEM CEDE O LUGAR É O −½/+½, e eles encolhem no MESMO tempo — as duas metades
+   da mesma animação horizontal: a fila não muda de altura, não empurra a folha
+   e não cria camada nenhuma por cima dela. O play, o seletor e o ⛶ ficam onde
+   estavam (os dois primeiros são o pedido; o terceiro é a invariante da saída).
+
+   `overflow: hidden` é o que RECORTA o slider enquanto a caixa é estreita —
+   sem ele o conteúdo vaza sobre os vizinhos durante a transição, que é o
+   defeito que a animação existe para não ter.
+
+   EM TELA CHEIA A FILA É UMA COLUNA, e a gaveta troca de eixo com ela: cresce
+   em ALTURA, com o slider na vertical (a receita do fader do volume, que este
+   app já usa). Sem o par de regras, a largura de 9rem numa trilha de 56px
+   simplesmente não caberia. */
+.lv-cifra-vels {
+  display: flex; align-items: center; gap: var(--sp-2);
+  width: 0; min-width: 0; opacity: 0; overflow: hidden; flex: none;
+  /* `visibility` NO FIM DA IDA E NO COMEÇO DA VOLTA, e ela não é enfeite: uma
+     caixa de largura zero com `opacity: 0` continua FOCÁVEL pelo teclado, e o
+     que mora dentro dela é um slider. O degrau discreto (`0s linear .22s` na
+     ida, `0s` na volta) é o que a esconde só depois de a largura chegar a zero
+     e a revela antes de ela começar a crescer. */
+  visibility: hidden;
+  transition: width .22s ease, opacity .16s ease, visibility 0s linear .22s;
+}
+.lv-cifra-ctl.escolhendo > .lv-cifra-vels {
+  width: 9rem; opacity: 1; visibility: visible;
+  transition: width .22s ease, opacity .16s ease, visibility 0s;
+}
+/* O PAR DE TOM ENCOLHE ATÉ SUMIR — `width: 0` e não `display: none`, que é o
+   que permite a transição. `padding: 0` porque um botão de largura zero com
+   recuo continua ocupando o recuo. */
+.lv-cifra-tom {
+  overflow: hidden;
+  transition: width .22s ease, opacity .16s ease, visibility 0s;
+}
+.lv-cifra-ctl.escolhendo > .lv-cifra-tom {
+  width: 0; min-width: 0; padding: 0; opacity: 0; visibility: hidden;
+  transition: width .22s ease, opacity .16s ease, visibility 0s linear .22s;
+}
+/* AS PONTAS NOMEADAS: um slider sem elas não diz para que lado é mais rápido.
+   `--fs-2xs` é o mesmo degrau do rótulo do seletor fechado, e o `flex: none`
+   impede que a conta da largura da gaveta caia sobre elas. */
+.lv-cifra-vel-ponta {
+  flex: none; font-size: var(--fs-2xs); font-weight: var(--fw-forte);
+  color: var(--muted); font-variant-numeric: tabular-nums; user-select: none;
+}
+/* O SLIDER É O FADER DO VOLUME, DEITADO — mesma receita, mesmas razões
+   (ver `.fader`): `appearance: none` porque a espessura do trilho NATIVO não
+   acompanha a caixa, e o preenchimento vira um gradiente cujo corte (`--vel`,
+   0–1) o JS escreve no mesmo ponto em que grava o degrau.
+
+   A conta do corte desconta o CAP, como lá: sem isso a borda do preenchimento
+   e o cap discordam nas duas pontas. */
+.lv-cifra-slider {
+  --vel-cap: 14px;
+  --vel-stop: calc(var(--vel, 1) * (100% - var(--vel-cap)) + var(--vel-cap) / 2);
+  -webkit-appearance: none; appearance: none;
+  flex: 1; min-width: 0; height: var(--hit); margin: 0;
+  background: transparent; touch-action: none; cursor: pointer;
+}
+.lv-cifra-slider::-webkit-slider-runnable-track {
+  width: 100%; height: 6px; border-radius: 3px;
+  background: linear-gradient(to right,
+    var(--accent) 0 var(--vel-stop), var(--surface-2) var(--vel-stop) 100%);
+}
+.lv-cifra-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: var(--vel-cap); height: var(--vel-cap); margin-top: -4px;
+  border-radius: 50%; background: var(--text);
+  box-shadow: 0 1px 4px var(--shadow-cap); cursor: pointer;
+}
+/* O SELETOR FECHANDO veste a superfície de LIGADO — é o mesmo par do
+   `#repeat.active`, e pela mesma razão: enquanto a gaveta está no ar, aquele
+   botão não é mais um rótulo, é o estado "ajustando" com a saída dentro. */
+.lv-cifra-vel.fechando { background: var(--btn-accent); color: var(--accent); }
+/* ---------- A COLUNA DA TELA CHEIA: o mesmo controle, no outro eixo ---------- */
+#lyricsPopup:fullscreen .lv-cifra-vels,
+#lyricsPopup:-webkit-full-screen .lv-cifra-vels {
+  flex-direction: column; width: auto; height: 0;
+  transition: height .22s ease, opacity .16s ease;
+}
+#lyricsPopup:fullscreen .lv-cifra-ctl.escolhendo > .lv-cifra-vels,
+#lyricsPopup:-webkit-full-screen .lv-cifra-ctl.escolhendo > .lv-cifra-vels {
+  width: auto; height: 9rem;
+}
+#lyricsPopup:fullscreen .lv-cifra-ctl.escolhendo > .lv-cifra-tom,
+#lyricsPopup:-webkit-full-screen .lv-cifra-ctl.escolhendo > .lv-cifra-tom {
+  width: var(--hit); height: 0; padding: 0; opacity: 0;
+}
+#lyricsPopup:fullscreen .lv-cifra-slider,
+#lyricsPopup:-webkit-full-screen .lv-cifra-slider {
+  writing-mode: vertical-lr; direction: rtl;
+  width: var(--hit); height: auto; flex: 1; min-height: 0;
+}
+#lyricsPopup:fullscreen .lv-cifra-slider::-webkit-slider-runnable-track,
+#lyricsPopup:-webkit-full-screen .lv-cifra-slider::-webkit-slider-runnable-track {
+  width: 6px; height: 100%;
+  background: linear-gradient(to top,
+    var(--accent) 0 var(--vel-stop), var(--surface-2) var(--vel-stop) 100%);
+}
+#lyricsPopup:fullscreen .lv-cifra-slider::-webkit-slider-thumb,
+#lyricsPopup:-webkit-full-screen .lv-cifra-slider::-webkit-slider-thumb {
+  margin-top: 0; margin-left: -4px;
+}
 /* O ⛶ É A SAÍDA, e ela não pode encostar no `+½`: o erro é ASSIMÉTRICO — errar
    o `+½` e pegar a saída desfaz o modo inteiro e gira a Activity ida e volta na
    frente de quem está tocando; errar a saída e pegar o `+½` custa um meio tom,

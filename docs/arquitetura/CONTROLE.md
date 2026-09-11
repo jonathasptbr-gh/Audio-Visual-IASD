@@ -402,6 +402,18 @@ ganhou `padding-top` com `env(safe-area-inset-top)`.
 faixa já teve SEIS elementos, e o sintoma de estar disputada era objetivo: numa
 tela de 360px a raiz dos Favoritos cortava o próprio título com reticências.
 
+**O RESPIRO DELA É PARTIDO EM DOIS** (v1.8.80). Relato do operador: *"a margem
+abaixo dos botões de configurações e de limpar cronograma está muito rasa em
+relação a margem superior… todos os itens dessa barra estão descentralizados
+para baixo"*. MEDIDO: o `padding-bottom` era **zero**, e a linha de `--hit`
+encostava na fronteira — 9,59px de vão acima e 0 abaixo a 430×900; 12,47 e 0 a
+360×640 com a fonte do sistema em 1,3×. O `--sp-5` que era todo de cima virou
+metade em cada lado, e a CAIXA não muda um pixel: crescer a barra para
+simetrizá-la custaria altura de LISTA, que é o conteúdo desta tela. O
+`env(safe-area-inset-top)` não é partido — ele é o recorte do sistema, e mora
+inteiro do lado em que o recorte está. Oráculo:
+`barra-do-topo-e-titulos.test.mjs`.
+
 **A ENGRENAGEM SUBIU PARA CÁ NA v1.2.0** (pedido do operador: *"jogue o botão de
 configurações no modo avançado para o topo da tela, na mesma posição que ele já
 ocupa no modo fácil"*). Ela morava na fatia de cima da coluna da direita, encostada
@@ -1609,14 +1621,22 @@ desenho padrão — em **Configurações** (a engrenagem do cabeçalho):
 (`.transport`), à direita do botão de repetição — não é mais uma aba
 separada (`.tabs`); abre o mesmo bottom-sheet com a fila de reprodução de
 sempre. Reaproveita o tamanho/estilo de `.t-btn` (a linha de transporte
-cresceu de 5 para 6 botões, cada um um pouco mais estreito). O badge de
-contagem (`#plCount`) só aparece a partir do **2º item** (mostra
-`count - 1`): com apenas a mídia atual em fila, a playlist é só a reprodução
-avulsa e não deve chamar atenção com um "1" enganoso. **O ÍCONE NÃO MUDA DE
-COR** — houve uma classe `.has-items` que o tingia de `--accent` no mesmo caso,
-e a regra dela saiu do `controle.css` na v1.5.0 com o rodapé; a escrita
-sobreviveu sem consumidor até a v1.8.79, com esta linha prometendo um destaque
-que não acontecia há sete meses. Quem diz "há fila" é o BADGE, e só ele.
+cresceu de 5 para 6 botões, cada um um pouco mais estreito).
+
+**O selo de contagem (`#plCount`) diz o TOTAL da fila, e só aparece a partir do
+2º item** (v1.8.80, revogando a regra de contar os itens ALÉM do primeiro):
+*"esse número deve representar o número total de itens na playlist. É claro, se
+houver apenas um item, ainda não precisa mostrar o número"*. A régua antiga
+(`count - 1`) fazia o selo dizer **1** com duas mídias na fila e discordar do
+contador da própria folha, que sempre disse o total — duas contagens da mesma
+lista, na mesma tela. O limiar (`> 1`) é o que fica: com a mídia atual sozinha, a
+fila é a reprodução avulsa e não merece um número.
+
+**O ÍCONE NÃO MUDA DE COR** — houve uma classe `.has-items` que o tingia de
+`--accent` no mesmo caso, e a regra dela saiu do `controle.css` na v1.5.0 com o
+rodapé; a escrita sobreviveu sem consumidor até a v1.8.79, com este capítulo
+prometendo um destaque que não acontecia há sete meses. Quem diz "há fila" é o
+SELO, e só ele.
 
 ### Feedback (sem alerta flutuante) — e a exceção do salvamento
 
@@ -2584,13 +2604,41 @@ e ler *"Nada em exibição"*.
 
   É **o mecanismo da faixa da linha aplicado à fila**: ela troca de CONTEÚDO, não
   de lugar. Nada é criado por cima da folha, nada a empurra, e a caixa fica com a
-  mesma altura. O invólucro é `display: contents`, e é ele que dispensa uma
-  segunda regra de layout — os cinco viram filhos DE FATO da fila e seguem a
-  direção dela (linha no retrato, coluna em tela cheia). **O ⛶ é a exceção
-  nomeada à palavra "vizinhos"**: *a fila da cifra sempre tem a saída*, e
-  escondê-lo deixaria uma gaveta aberta em paisagem sem saída à vista. Todo botão
-  da gaveta a fecha — inclusive o do degrau já escolhido, que é o "cancelar"
-  natural.
+  mesma altura. **O ⛶ é a exceção nomeada à palavra "vizinhos"**: *a fila da
+  cifra sempre tem a saída*, e escondê-lo deixaria uma gaveta aberta em paisagem
+  sem saída à vista.
+
+  **E A GAVETA VIROU UM SLIDER, QUE DESLIZA** (v1.8.80). Pedido do operador:
+  *"primeiramente isso não possue nenhuma animação. Então faça uma animação
+  horizontal para essa gaveta. Mantenha o botão de play e o botão de seletor de
+  velocidade sempre visível, agora a gaveta vai surgir a direita desses dois
+  itens. E mude a lógica, não mais uma gaveta com botões, mas um slider
+  regulável, quando aberto, o botão que abriu ele se torna um x para fechar"*.
+  São três mudanças que se sustentam:
+
+  | o quê | antes (v1.7.4) | agora |
+  |---|---|---|
+  | quem some ao abrir | os QUATRO botões da fila | só o −½/+½ (`.lv-cifra-tom`) |
+  | o controle | cinco botões, um por degrau | UM `<input type=range>` sobre os mesmos cinco |
+  | o seletor | sumia junto | vira **✕** — a saída no lugar de onde a entrada foi |
+  | a caixa | `display: contents` | uma caixa de verdade, que ANIMA de 0 a 9rem |
+
+  **O `display: contents` teve de sair**: uma caixa que não existe no layout não
+  tem largura para transicionar, e a animação é o pedido. Em tela cheia a fila é
+  uma COLUNA, e lá a mesma gaveta cresce em ALTURA com o slider na vertical (a
+  receita do fader do volume) — sem o par de regras, 9rem numa trilha de 66px
+  sairiam recortados pelo `overflow: hidden` da própria gaveta, com o controle
+  vivo e invisível.
+
+  **O slider regula o ÍNDICE da escada, nunca um número contínuo:** um contínuo
+  pediria outra gramática de rótulo, outro estado gravado e outra conta no
+  `cifraRolarQuadro`, e o pedido é sobre COMO ESCOLHER. Regular não fecha a
+  gaveta — quem fecha é o ✕ —, porque achar o ritmo é um ajuste que se faz
+  ouvindo. As pontas levam rótulo (`0,5×` e `2×`): um slider sem pontas nomeadas
+  não diz para que lado é mais rápido. Oráculos: `cifra-rolagem` (a METADE 0),
+  `cifra-tela-cheia` (o eixo trocado) e `fonte-so-do-par` (a gaveta não hospeda
+  mais nenhum `.lv-fonte-btn` — o risco daquele arquivo saiu de cena com os
+  botões).
 
   **A rolagem anda no tempo da MÚSICA** (`Auto`, o padrão), com o começo parado
   alguns segundos e o fim alcançado bem antes de a música acabar; sem relógio
@@ -3164,9 +3212,23 @@ está à vista?"*, que hoje é sempre verdade: **a folha COBRE a lista, não a
 substitui.** É um booleano e não `!bibleSheetEl.hidden` porque o `hidden` só cai
 no fim da animação de saída.
 
+**O TÍTULO DE CADA JANELA FICA NO CENTRO, E PARADO** (v1.8.80) — *"centralizar o
+título de cada janela dessas… E tome cuidado para que ele permaneça imóvel mesmo
+alternando entre telas da mesma janela"*. As duas metades são uma só, e é isso
+que escolheu o mecanismo: com `flex: 1` o título era o ESPAÇADOR da linha —
+encostava à esquerda e, na Bíblia, ANDAVA quando o voltar aparecia (MEDIDO,
+39,6px a 430×900 e 41,2px a 360×640 · 1,3×, entre a lista de livros e a leitura).
+Um `text-align: center` sozinho não alcança a segunda: a caixa dele continuaria
+sendo "o que sobra", e o que sobra muda de tamanho com o vizinho. A grade é a da
+`.list-header`, verbatim — um botão `hidden` some do layout mas não apaga a
+trilha que o template declara, e é por isso que trocar de tela não move o
+título. O `grid-column` de cada morador é explícito: sem ele, a folha de
+Ferramentas (que não tem voltar) poria o título na trilha 1.
+
 | peça | o que é |
 |---|---|
 | `#toolsSheet` · `#bibleSheet` | as duas folhas, filhas do `.list-body`, cobrindo só a lista |
+| `.tools-head` | a barra de cada uma: **uma grade de três trilhas**, com o título no centro (v1.8.80) |
 | `.import-row` | as três portas: `#bibleBtn` · `.import-btn` · `#toolsBtn` |
 | `.lib-bar` | a barra da Biblioteca — a CABEÇA da janela, à vista no topo da caixa de controles |
 | `#hymnSearchPopup` | a JANELA da Biblioteca — `fixed`, do topo até a LINHA DA BARRA, sobe da barra |
@@ -8306,7 +8368,30 @@ O alvo é o **primeiro** item que entrou (um share pode trazer vários arquivos)
 e para isso `addMedia`/`addUrlMedia` — que já devolviam o registro — têm o
 retorno aproveitado; `handleSharedUrl` também devolve o seu.
 
-Ciclo ao tocar no botão 🔁: `off → all → one → shuffle → off` (persistido em `repeat`).
+Ciclo ao tocar no botão 🔁: `off → one → all → shuffle → off` (persistido em
+`repeat`). **A ordem mudou na v1.8.80**, a pedido do operador — *"para que ele
+mostre primeiro repetir a midia atual e depois o repetir a playlist inteira"* —:
+o degrau mais pedido vem primeiro, e os dois primeiros toques vão do mais
+restrito ao mais amplo (a mídia, a fila, o sorteio). O desenho é pintado ANTES da
+transação do banco: num controle que se toca com a música no ar, o que a mão
+espera é o botão mudar no toque.
+
+**E OS QUATRO DEGRAUS VIRARAM SVG DO SPRITE** (v1.8.80), três símbolos para
+quatro estados:
+
+| modo | desenho | por quê |
+|---|---|---|
+| `off` | `#icoRepetir` (o laço puro), sem superfície | é o estado base |
+| `one` | `#icoRepetir`, com a superfície de LIGADO | *"o icone de repetir a midia atual deve ser o icone de repetir comum, sem adições"* |
+| `all` | `#icoRepetirLista` — o MESMO laço mais a lista no miolo | *"deve ter o mesmo design de repetir, mas deve ter algo que ilustre o objeto 'lista'"* |
+| `shuffle` | `#icoAleatorio` | entra por coerência: um glifo de tinta cheia ao lado de dois laços de traço é divergência de peso |
+
+**Em SVG porque o "repetir com lista" não existe no subset da fonte** (31
+codepoints): pedi-lo por codepoint desenharia um VÃO, sem erro nenhum. `off` e
+`one` DIVIDEM o desenho, e é a superfície (`#repeat.active`) que os separa — a
+mesma convivência que `off` e `all` já tinham. MEDIDO contra o glifo que os três
+substituíram: `#icoRepetir` pinta 0,93× e `#icoAleatorio` 1,03× da tinta dele, e
+o `#icoRepetirLista` 1,25× (a lista é o que ele tem a mais).
 
 **O SELETOR RESPONDE PELO FIM DA FILA, NÃO POR ELA ANDAR** (v1.8.77). Até aquele
 lote `off` era o primeiro `return` do `autoAdvance` — o fim de QUALQUER faixa era
