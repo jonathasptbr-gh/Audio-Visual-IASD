@@ -53,9 +53,16 @@ por medição direta. Só o que está marcado **VERIFICADO** passou por isso.
 
 ### [12] A fila muda e o par ⏮/⏭ não é redesenhado: `togglePlaylist` e `adicionarNasListas` não chamam `renderSlideNav()`
 
-`app/src/main/assets/web/controle/controle.js:11470` · gravidade **alta** · **VERIFICADO** · lente `controle-js-bugs`
+`app/src/main/assets/web/controle/controle.js:11470` · gravidade **alta** · ✅ **RESOLVIDO na v1.8.70** · lente `controle-js-bugs`
 
 > **Conferido nesta sessão:** medido: `togglePlaylist` (11457-11496) e `adicionarNasListas` (5264-5313) chamam `renderPlaylist` e **não** `renderSlideNav` — que é quem chama `renderTransporteHabilitado()`, o que decide o ⏮/⏭
+
+
+> **RESOLVIDO na v1.8.70.** Reproduzido no bloco 10 do `tools/transporte-sem-cena.test.mjs` (o par ficava
+> `disabled` com o `title` *"a fila está vazia"* sobre uma fila de um item) e consertado com uma chamada a
+> `renderTransporteHabilitado()` no TOPO de `renderPlaylist()`. Duas reversões medidas: sem o conserto o bloco
+> reprova em duas asserções; com o repintor no FIM da função, a metade do *esvaziar* reprova sozinha — é ela que
+> prende o lugar contra o retorno antecipado do `count === 0`.
 
 **Evidência.** `togglePlaylist` termina em `plItems = await AVDB.listItems('playlist'); … responder(btn,'ok'); vestirPlBtn(btn, agora); renderPlaylist();` (11462 e 11470) — sem `renderSlideNav()` nem `load()`. O mesmo em `adicionarNasListas`, linha 5279: `if (alvos.includes('playlist')) { plItems = await AVDB.listItems('playlist'); renderPlaylist(); }` (o `await load()` logo abaixo está DENTRO do `if (alvos.includes('imports'))`, então um destino só-playlist não passa por ele). Quem apaga/acende o par é `renderTransporteHabilitado()` (11911), que lê `transportePode(delta)` → `if (plItems.length > 0) return true;` (11782). E ele tem UM único chamador em todo o arquivo: `renderSlideNav()`, linha 11963 (`grep -n renderTransporteHabilitado` devolve só 11911 e 11963). `renderPlaylist` repinta `plBtnEl.disabled` e a badge, mas não toca em `prevEl`/`nextEl` — não há `renderSlideNav` entre as linhas 3855 e 4110. O defeito é exatamente a classe que o comentário da v1.8.51 nomeia em `resetAfterEnd` (15118): *"o estado muda e quem o desenha não é chamado"*. O oráculo `tools/transporte-sem-cena.test.mjs` não o alcança porque monta a fila pelo banco e SEMPRE chama `load()`/`renderSlideNav()` à mão logo depois (blocos 6, 8 e 9).
 

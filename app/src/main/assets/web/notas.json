@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.70",
+    "itens": [
+      "O botão de próxima mídia deixou de ficar apagado depois de você montar a fila pelo botão da linha."
+    ]
+  },
+  {
     "versao": "1.8.69",
     "itens": [
       "O ícone de limpar o Cronograma ficou maior de verdade, e o traço dele voltou a ser fino como o dos outros."

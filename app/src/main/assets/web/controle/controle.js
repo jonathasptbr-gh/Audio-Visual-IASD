@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.69';
+const WEB_VERSION = '1.8.70';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3849,6 +3849,20 @@ function renderPlaylist() {
   // (v5.302) — ver `marcarNaPlaylist`. Ela é o ponto por onde TODA mudança da
   // fila passa, e é isso que dispensa cada porta de lembrar do repintor.
   marcarNaPlaylist();
+  // O ⏮/⏭ DO TRANSPORTE ANDA COM A FILA, e pelo mesmo argumento do repintor
+  // acima (v1.8.70): `transportePode()` lê `plItems`, mas quem o desenha
+  // (`renderTransporteHabilitado`) tinha um chamador só — `renderSlideNav()`,
+  // que só roda por `load()`/`send()`. Das nove portas que refazem `plItems`,
+  // OITO chamam esta função e só UMA chegava lá: montar a fila pelo botão da
+  // linha deixava os dois apagados, com o `title` prometendo "a fila está
+  // vazia" sobre uma fila cheia — e apagado eles engolem o toque, inclusive o
+  // da notificação e o da tela de bloqueio, que agem por `.click()`.
+  //
+  // AQUI EM CIMA, nunca no fim: esta função VOLTA CEDO com a fila vazia (o
+  // `if (count === 0) return` lá embaixo), que é justamente o caso em que os
+  // dois precisam APAGAR. É a armadilha que o KDoc de `marcarNaPlaylist` já
+  // nomeia, um repintor acima.
+  renderTransporteHabilitado();
   const count = plItems.length;
   // O badge (e a cor do ícone) não devem chamar atenção quando a playlist é só
   // a mídia atual (1 item); conta apenas os itens além do primeiro (2 itens →
