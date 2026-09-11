@@ -348,7 +348,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.64';
+const WEB_VERSION = '1.8.65';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23701,6 +23701,83 @@ if (diagSaveEl) {
     // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
     // nos dois casos não há arquivo, e o botão continua ali para tentar de novo.
     responder(diagSaveEl, salvo ? 'ok' : 'erro', salvo ? null : 'Não foi salvo');
+  });
+}
+
+// ===== O QUE MUDOU: o toque na VERSÃO (v1.8.65) =====
+//
+// Pedido do operador: *"para o botão de versão, ao tocar, ele mostra o popup de
+// atualizações que ocorreram na última atualização (ou um log em lista das
+// atualizações que tiveram em cada versão recente)"*.
+//
+// A FONTE É O `notas.json` DO BUNDLE INSTALADO, e não o `otaNotas`. Os dois
+// existem e respondem a perguntas diferentes: o `otaNotas` é o que vem NA
+// atualização oferecida — ele chega pelo `otaEstado` e fora de uma atualização
+// pendente está VAZIO, então ligá-lo a este botão daria um diálogo em branco no
+// caso normal, que é justamente quando alguém pergunta o que mudou. O arquivo
+// viaja no bundle de propósito (ver o OTA), então o app tem em disco a linha do
+// tempo do que ele É.
+//
+// UMA BUSCA SÓ POR SESSÃO, guardada no módulo: o arquivo não muda enquanto a
+// página vive (uma atualização aplicada RECARREGA o Controle), e o caminho é
+// local — `../notas.json` sobre o mesmo origin da base, servido pelo
+// `WebPathHandler` com a mesma resolução OTA→APK do resto.
+//
+// FALHAR NÃO PODE SER MUDO: sem o arquivo o diálogo diz isso em uma linha, em
+// vez de abrir vazio. Um botão que abre um popup em branco é indistinguível de
+// um botão quebrado.
+const NOTAS_MAX_VERSOES = 5;
+let notasDoBundle = null;
+async function lerNotasDoBundle() {
+  if (notasDoBundle) return notasDoBundle;
+  try {
+    const r = await fetch('../notas.json', { cache: 'no-store' });
+    const j = r.ok ? await r.json() : null;
+    notasDoBundle = Array.isArray(j) ? j : [];
+  } catch (_) { notasDoBundle = []; }
+  return notasDoBundle;
+}
+
+// A LISTA É SEMPRE PREFIXADA PELA VERSÃO, ao contrário da do OTA — e a razão é
+// a pergunta. Lá o título já diz de que versão se fala e o prefixo repetiria;
+// aqui o diálogo é a linha do tempo de VÁRIAS, e sem o prefixo as mudanças de
+// três lotes viram uma lista só, sem fronteira.
+function itensDasNotas(blocos) {
+  const linhas = [];
+  for (const b of blocos.slice(0, NOTAS_MAX_VERSOES)) {
+    const itens = b && Array.isArray(b.itens) ? b.itens : [];
+    for (const t of itens) {
+      if (!t || !String(t).trim()) continue;
+      linhas.push((b.versao ? 'v' + b.versao + ' · ' : '') + String(t));
+    }
+  }
+  return linhas;
+}
+
+const versaoBtnEl = document.getElementById('versaoBtn');
+if (versaoBtnEl) {
+  versaoBtnEl.addEventListener('click', async () => {
+    const blocos = await lerNotasDoBundle();
+    const linhas = itensDasNotas(blocos);
+    const quantas = Math.min(blocos.length, NOTAS_MAX_VERSOES);
+    await openAppDialog({
+      title: 'O que mudou',
+      message: linhas.length
+        ? 'Você está na v' + WEB_VERSION + '.'
+        : 'Você está na v' + WEB_VERSION + '. A lista de mudanças não veio neste '
+          + 'pacote — o Registro, ao lado, continua respondendo pelo estado do app.',
+      itens: linhas,
+      // O RODAPÉ DIZ O RECORTE, e ele só aparece quando há recorte a dizer: com
+      // menos versões guardadas que o teto, anunciá-lo descreveria um corte que
+      // não houve.
+      rodape: blocos.length > NOTAS_MAX_VERSOES
+        ? 'As ' + quantas + ' versões mais recentes.' : '',
+      okText: 'Entendi',
+      // `cancelText: null` é o diálogo de AVISO: ele não pergunta nada, e um
+      // "Cancelar" ao lado ofereceria uma escolha que não existe.
+      cancelText: null,
+      input: false,
+    });
   });
 }
 

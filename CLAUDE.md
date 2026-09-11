@@ -2069,6 +2069,26 @@ junto).
   preview chegava ao fim sozinha e o app avançava pelo caminho de sempre. **Uma
   asserção que não pode reprovar o defeito que ela nomeia é pior que asserção
   nenhuma:** ela responde *"isso está coberto?"* com um sim que não existe.
+
+  **E É A REVERSÃO QUE ESCOLHE A CÉLULA E A RÉGUA, não o bom senso** (v1.8.65,
+  onde ela pegou DUAS tautologias num lote só). Uma asserção geométrica mede
+  numa largura e numa escala de fonte, e a maioria delas não alcança a decisão:
+  medido, o rodapé de Configurações cabe folgado a 430×1× e a 390×1×, e a
+  asserção do recuo passava ali com e sem o conserto — só a 360×1,25× ela
+  reprova. **A RÉGUA tem o mesmo problema:** medir `scrollWidth` do `<span>`
+  para provar que um rótulo não é cortado nunca acusa nada, porque o span é do
+  tamanho do próprio texto e quem é estourado é o PAI. Quando a reversão passa,
+  a pergunta não é *"a asserção está errada?"* — é *"que célula, e medindo o
+  quê?"*.
+
+  **E ELA TAMBÉM ACHA DECLARAÇÃO QUE NÃO FAZ NADA.** No mesmo lote, um
+  `min-width: max-content` foi escrito para segurar o rótulo, ganhou comentário
+  e asserção, e a reversão mostrou que removê-lo não move um pixel: um item flex
+  já nasce com `min-width: auto`, o tamanho mínimo automático, e com
+  `white-space: nowrap` isso É o rótulo inteiro. **Saiu a declaração, a asserção
+  e o comentário, os três juntos** — um comentário que credita a peça errada
+  manda o próximo leitor proteger o lugar errado, que é o defeito mais caro que
+  este repositório sabe produzir em documentação.
 - **A REVERSÃO SE DESFAZ COM UMA CÓPIA, NUNCA COM O GIT.** `git checkout
   <arquivo>` restaura do HEAD e **apaga o trabalho não commitado do lote inteiro
   naquele arquivo** — aconteceu, e custou refazer quatro edições. `cp` de um
@@ -2520,7 +2540,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.64 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.65 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -2531,14 +2551,14 @@ bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.64 são o mesmo caso, pela mesma
+> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.65 são o mesmo caso, pela mesma
 > razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A v1.8.64 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
+> **A v1.8.65 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
 > nem o `build.gradle.kts` — só `assets/web/`, `tools/` e `docs/`.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, e desde a v1.8.50 ela TEM ORÁCULO.**

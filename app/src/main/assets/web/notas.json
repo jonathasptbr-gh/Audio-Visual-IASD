@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.65",
+    "itens": [
+      "O rodapé das Configurações virou três botões iguais: a versão, o Registro e o Pedir ajuda, sem o fundo cinza.",
+      "Tocar na versão abre a lista do que mudou nas versões recentes.",
+      "Os ícones do Registro e do Pedir ajuda passaram para a direita do texto, e o número da versão ficou em negrito."
+    ]
+  },
+  {
     "versao": "1.8.64",
     "itens": [
       "O tema voltou a ter duas opções só: claro e escuro. O automático saiu — ele não estava sendo eficaz.",

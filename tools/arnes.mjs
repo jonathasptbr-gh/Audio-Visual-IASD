@@ -65,9 +65,9 @@ export const RAIZ_SITE = path.join(
  *
  * @param {string} raiz
  * @param {(req, res) => boolean} [antes] rota própria do oráculo. Devolvendo
- *   `true` ela ASSUMIU o pedido e o estático não responde — é assim que os nove
+ *   `true` ela ASSUMIU o pedido e o estático não responde — é assim que os dez
  *   oráculos com fixture própria (o manifesto do OTA, o `.pptx`, o googlevideo
- *   de mentira) continuam donos do que servem.
+ *   de mentira, o `notas.json` do "O que mudou") continuam donos do que servem.
  */
 export function servirEstatico(raiz, antes) {
   return http.createServer((req, res) => {
