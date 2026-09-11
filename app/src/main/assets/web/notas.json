@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.74",
+    "itens": [
+      "Projetar outra coisa no meio da abertura do vídeo de um slide não faz mais a apresentação voltar sozinha."
+    ]
+  },
+  {
     "versao": "1.8.73",
     "itens": [
       "Os dois botões quadrados ao lado da busca da Biblioteca voltaram a ter o ícone do mesmo tamanho."

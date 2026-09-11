@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.73';
+const WEB_VERSION = '1.8.74';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -27840,7 +27840,28 @@ function deckVideoTalvezTocar(d, n) {
   const volta = { deckId: d.id, rec: d, pagina: n, videoId: vid };
   // O `send` LIMPA a volta na entrada (um toque do operador em qualquer outra
   // coisa desarma a automação), então ela só pode ser armada DEPOIS dele.
-  send(vid, true).then(() => {
+  //
+  // E DEPOIS DELE PODE SER TARDE DEMAIS — daí a senha. Entre o disparo e a
+  // resolução há dois `await`: o `getMedia` do vídeo (que não está em `plItems`,
+  // `libItems` nem `favItems`, então a leitura do blob inteiro acontece SEMPRE)
+  // e o `persistCurrent`. Nesse vão cabe um toque do operador: o `send` dele
+  // zera a volta, e este `.then` a rearmaria com o deck que já saiu de cena. O
+  // fim natural da mídia escolhida cairia então em `autoAdvance`, cuja primeira
+  // linha devolve a apresentação ANTIGA ao telão em vez de andar na fila, e o
+  // ⏭ passaria a mexer no deck morto (`slideTarget()` devolve 'deck').
+  //
+  // `currentId` não serve no lugar dela: o `send` concorrente pode ter sido de
+  // um cue, que também o escreve. É a mesma senha de `load()` e do
+  // `ytAcaoInterno` — ver `projecaoSeq`.
+  //
+  // ELA É LIDA DEPOIS DO DISPARO, e isso é deliberado: `send` é `async`, e a
+  // primeira linha dele (`++projecaoSeq`) roda SÍNCRONA, dentro da chamada
+  // acima. Lida antes, a senha nasceria uma unidade atrás e a guarda recusaria
+  // sempre — a volta nunca seria armada, que é o defeito nº 2 deste arquivo.
+  const projetando = send(vid, true);
+  const senha = projecaoSeq;
+  projetando.then(() => {
+    if (projecaoSeq !== senha) return;
     deckVideoVolta = volta;
     // E O PAR DE BOTÕES PRECISA SER REDESENHADO AQUI. O `send` já rodou — com a
     // volta ainda nula —, então o ⏮/⏭ foi desenhado como o de um vídeo avulso:
