@@ -188,7 +188,10 @@ class PacoteCanal {
         uri = null
         escritos = 0L
         if (s == null) { aoTerminar(-1L); return }
-        val tarefa = {
+        // O TIPO É DECLARADO, e não inferido: a última expressão do corpo é um
+        // `Handler.post`, que devolve `Boolean` — sem a anotação a lambda vira
+        // `() -> Boolean` e não entra numa fila de `() -> Unit`.
+        val tarefa: () -> Unit = {
             val r = try {
                 s.flush()
                 s.close()
