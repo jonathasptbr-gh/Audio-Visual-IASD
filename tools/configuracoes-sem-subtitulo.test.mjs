@@ -243,9 +243,15 @@ try {
     const botoes = faixa ? [...faixa.querySelectorAll('.diag-btn')] : [];
     return {
       texto: (v.textContent || '').trim(),
-      // A BADGE DO CABEÇALHO continua sendo UM número: o pedido era sobre o
-      // RODAPÉ, e levar o nome para a badge de 40px do topo a estouraria.
-      badge: ((document.getElementById('listVersion') || {}).textContent || '').trim(),
+      // A BADGE continua sendo UM número: o pedido era sobre o RODAPÉ, e levar
+      // o nome para a badge de 40px a estouraria.
+      //
+      // ELA TROCOU DE CASA NA MEDIÇÃO (v1.8.66), e não de regra: a badge do
+      // cabeçalho do Cronograma (`#listVersion`) saiu para o botão de limpar, e
+      // a que sobra é a do MODO FÁCIL. É a mesma pastilha, a mesma classe e a
+      // mesma regra de CSS — o que se guarda aqui é o número não ganhar
+      // companhia, e isso não era propriedade da casa.
+      badge: ((document.getElementById('simpleVersion') || {}).textContent || '').trim(),
       transborda: faixa ? faixa.scrollWidth > faixa.clientWidth + 1 : null,
       // ===== O QUE A v1.8.65 ACRESCENTOU =====
       faixaBg: faixa ? getComputedStyle(faixa).backgroundColor : null,
@@ -284,7 +290,8 @@ try {
     + 'botões, e nomear o app dentro dele era a palavra mais dispensável da faixa',
     rodape.texto);
   checar(/^v\d+\.\d+\.\d+$/.test(rodape.badge),
-    'D · e a badge do cabeçalho continua sendo um número só', rodape.badge);
+    'D · e a badge (a do Modo Fácil, desde que a do Cronograma saiu na v1.8.66) '
+    + 'continua sendo um número só', rodape.badge);
   checar(rodape.transborda === false,
     'D · e a faixa não transborda com o nome dentro', rodape.transborda);
 

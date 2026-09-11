@@ -24,7 +24,7 @@
 | [Feedback](#feedback-sem-alerta-flutuante--e-a-exceção-do-salvamento) | a resposta nasce onde o toque nasceu |
 | [Compartilhamento](#compartilhamento) · [Diálogo padrão](#diálogo-padrão-do-app-confirmações--prompts) | entradas e confirmações |
 | [O histórico do culto](#o-histórico-do-culto-em-configurações-v120--v1430) | o que já foi ao telão, por sessão |
-| [A abertura e a badge de versão](#a-abertura-e-a-badge-de-versão-v170) | a cortina do `#splash`, o número no cabeçalho |
+| [A abertura e a badge de versão](#a-abertura-e-a-badge-de-versão-v170) | a cortina do `#splash`, as duas casas do número, o limpar do Cronograma |
 | [O que o telão retoma](#o-que-o-telão-retoma-ao-reconectar-midianoar-v5142) | reconexão |
 
 
@@ -1780,20 +1780,70 @@ dos panos"; o que interessa a este capítulo é onde ela mora e o que ela cobre:
   um bundle cujo `controle.js` não é parseado precisa terminar com o app à
   vista, não atrás de uma cortina.
 
-**A BADGE.** `renderVersionLabel()` é o escritor ÚNICO de TRÊS casas — a badge do
-Modo Fácil (colada na marca), a do avançado (a trilha 1 da `.list-header`, vaga
-desde a v1.5.0) e o rodapé de Configurações. Todas dizem `v<base web>`, e só
-isso: o índice do shell saiu da tela e ficou no Registro.
+**A BADGE.** `renderVersionLabel()` é o escritor ÚNICO de DUAS casas — a badge do
+Modo Fácil (colada na marca) e o rodapé de Configurações. As duas dizem
+`v<base web>`, e só isso: o índice do shell saiu da tela e ficou no Registro.
 
-- **A grade da faixa mudou por causa dela.** As duas trilhas laterais eram
-  caixas FIXAS de `--hit`, e a badge é texto: com uma trilha fixa o título saía
-  do eixo, que é o que a trilha reservada da v5.309 existia para impedir.
-  `minmax(var(--hit), 1fr)` nos dois lados reparte a sobra em partes iguais e
-  devolve a promessa sem número escrito à mão.
+- **A TERCEIRA CASA SAIU na v1.8.66.** A badge do avançado morava na trilha 1 da
+  `.list-header` — vaga desde a v1.5.0 — e deu lugar ao botão de LIMPAR O
+  CRONOGRAMA, a pedido do operador. Ela não se mudou: **saiu**. A pergunta que
+  ela respondia ("que versão eu tenho?") tem resposta a um toque de distância, na
+  engrenagem ao lado; o que ela custava era a única casa vaga da faixa.
+- **A grade da faixa mudou por causa dela, e a mudança FICA.** As duas trilhas
+  laterais eram caixas FIXAS de `--hit`, e a badge é texto: com uma trilha fixa o
+  título saía do eixo, que é o que a trilha reservada da v5.309 existia para
+  impedir. `minmax(var(--hit), 1fr)` nos dois lados reparte a sobra em partes
+  iguais. Com o morador novo medindo `--hit` cheio — a caixa da engrenagem em
+  frente — as duas pontas voltaram a ser quadrados iguais, e o elástico deixou de
+  ser necessário; ele fica porque o que ele garante continua verdade e mexer na
+  grade para tirar o que já não atrapalha é risco sem contrapartida. MEDIDO
+  depois da troca: o centro do título fica a **0,01px** do centro da faixa.
 - **No Modo Fácil a marca deixou de comer a sobra** (`flex: 0 1 auto`), para a
   badge poder ficar colada nela; quem empurra a engrenagem para a outra ponta é
   o `margin-right: auto` da badge. O encolher e o `min-width: 0` ficam — num
-  aparelho estreito é a MARCA que cede, nunca o número.
+  aparelho estreito é a MARCA que cede, nunca o número. (Esta metade é da badge
+  do Modo Fácil, que ficou.)
+
+**E O QUE ENTROU NO LUGAR: LIMPAR O CRONOGRAMA (v1.8.66).** Pedido do operador:
+*"substitua o badge de versão que temos na barra do topo do cronograma, a
+esquerda, por um icone/botão de excluir lista (ele limpa a lista do cronograma).
+use um icone de lixeira com list… use o icone na cor vermelha e não precisa de
+corpo para o botão, apenas o icone, que é o padrão dessa top bar"*.
+
+- **A OPERAÇÃO é `AVDB.listSet('imports', () => [])`**, e não um laço de
+  `listRemove`: uma transação com a coleta dentro, contra N transações e N
+  varreduras de detentores. Mas ela repete as DUAS metades do `deleteSelected`
+  que o `listSet` sozinho não faz, e nenhuma tem sintoma — a marca `ytEstado`
+  do ✓ "já está aqui" da busca (que nunca é recalculada enquanto a entrada
+  existir) e o `soltarAvulso` da prateleira invisível (que é detentora, e sem
+  soltá-la o que já tocou fica preso nela).
+- **A CENA NO AR NÃO É ENCERRADA**, e é a regra da v1.3.13 escrita em
+  `botaoExcluirDaLinha`: *"EXCLUIR DE UMA LISTA NÃO TIRA DO AR"*. Excluir tira o
+  item de onde ele fica GUARDADO, e não fala do telão; a FILA é a única exceção
+  (v1.8.52), porque é a lista que o TRANSPORTE governa. Os bytes do que está
+  projetado sobrevivem à coleta porque a cena é detentora
+  (`state.current.mediaId`, em `lerDetentores`).
+- **A PERGUNTA É MODAL, e esta é a exceção que precisa estar dita.** O LIMPAR da
+  fila pergunta na própria faixa (`pedirConfirmacaoNaLinha`), e a v5.301 tirou os
+  modais de exclusão porque *"o modal TIRAVA O ALVO DE CENA"*. Aqui o alvo não é
+  uma linha — é a lista inteira —, que é exatamente onde o `appConfirm({perigo})`
+  sobreviveu (uma pasta, um álbum). E há uma razão medida: a `dica` da
+  pergunta-na-linha vai para o `title`/`aria-label`, e **num WebView não há
+  hover** — a frase que explica nunca aparece no aparelho. Para uma ação que tira
+  a lista inteira de uma vez, o modal é o único dos dois que MOSTRA a
+  consequência (quantos saem, que os Favoritos sobrevivem, que o que está no ar
+  segue tocando).
+- **COM A LISTA VAZIA ELE É APAGADO** (`disabled` + `title`), a regra da v1.8.50
+  — e ela pesa o dobro num destrutivo: um botão aceso que não faz nada ensina que
+  tocá-lo é inofensivo. O estado é pintado em `renderLibrary`, o ponto ÚNICO que
+  redesenha a lista: pendurado no `renderListTitle` ele ficaria velho no caminho
+  do `toggleCronograma`, que é justamente o de tirar o último item pela gaveta.
+- **A COR é `--danger-strong` e a escolha é MEDIDA.** Ver o comentário da regra
+  em `controle.css`: o scarlett OFICIAL (`--live`) mede **2,71:1** contra a barra
+  no tema escuro — abaixo do piso de 3:1 para ícone — e 5,67:1 no claro, que é o
+  defeito que só aparece num tema. E `--danger` **não é um token**: um
+  `var(--danger)` não computa e a cor cai no valor herdado, isto é, o ícone vira
+  TEXTO.
 
 ### O que o telão retoma ao RECONECTAR (`midiaNoAr`, v5.142)
 

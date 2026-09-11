@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.66",
+    "itens": [
+      "O número da versão saiu do topo do Cronograma e deu lugar a um botão de limpar a lista, em vermelho.",
+      "Ele pergunta antes, diz quantos itens saem, e o que também está nos Favoritos continua lá.",
+      "O que estiver no ar segue tocando, e com a lista vazia o botão fica apagado."
+    ]
+  },
+  {
     "versao": "1.8.65",
     "itens": [
       "O rodapé das Configurações virou três botões iguais: a versão, o Registro e o Pedir ajuda, sem o fundo cinza.",

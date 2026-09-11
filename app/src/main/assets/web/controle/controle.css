@@ -2147,10 +2147,51 @@ main {
   padding: calc(.6rem + env(safe-area-inset-top)) .8rem 0;
 }
 .list-header > .back-btn { grid-column: 1; }
-/* A BADGE mora na MESMA trilha do voltar — que está vago desde a v1.5.0 e é
-   escondido em toda passada do `renderListTitle`. `justify-self: start` porque
-   a trilha agora é elástica: sem ele a badge flutuaria no meio da sobra. */
-.list-header > .ver-badge { grid-column: 1; justify-self: start; }
+/* ---------- LIMPAR O CRONOGRAMA: a trilha 1 (v1.8.66) ----------
+   Ele mora na MESMA trilha do voltar — vago desde a v1.5.0 e escondido em toda
+   passada do `renderListTitle` —, herdada da badge de versão que saiu a pedido
+   do operador. `justify-self: start` porque a trilha é elástica
+   (`minmax(--hit, 1fr)`): sem ele o botão flutuaria no meio da sobra, e o que a
+   faixa promete é um alvo ENCOSTADO no canto, como a engrenagem na outra ponta.
+
+   A COR É `--danger-strong`, e a escolha é MEDIDA — não é o vermelho "óbvio".
+   A paleta reserva o scarlett OFICIAL (`--live`, `#d0021b`) para ser FUNDO;
+   sobre fundo neutro o que se escreve é o CLAREADO. MEDIDO contra a `--bar`
+   desta faixa, que é o que o ícone de fato pousa:
+
+   | token             | escuro     | claro      |
+   |-------------------|------------|------------|
+   | `--danger-strong` | **5,92:1** | **6,84:1** |
+   | `--live`          | **2,71:1** | 5,67:1     |
+   | `--btn-danger`    | 1,32:1     | 1,21:1     |
+
+   O scarlett REPROVA no escuro — 2,71:1 contra o piso de 3:1 para ícone —, e
+   passa no claro: é o defeito que só aparece num tema, e por isso o número está
+   escrito aqui em vez de o token ser escolhido pelo nome.
+
+   E `--danger` NÃO É UM TOKEN, por mais que a prosa do `tokens.css` fale do
+   "par `--live`/`--danger`". O que existe declarado é `--danger-strong`,
+   `--danger-text` e `--btn-danger`; o scarlett tem um nome só, `--live`. Um
+   `var(--danger)` aqui não erra para vermelho errado — ele não computa, e a
+   cor cai no valor herdado: MEDIDO, `rgb(220,224,229)` no escuro e `#000` no
+   claro, isto é, o ícone vira TEXTO. (Quem reprova isso no CI é o
+   `tokens.test.mjs`, que varre `var()` apontando para token inexistente.)
+
+   CHAPADO (sem `background`), como o `#backBtn` e a engrenagem: o esqueleto
+   acima dá caixa, raio e alvo; o que sobra aqui é a cor. */
+.crono-limpar { background: none; color: var(--danger-strong); }
+.list-header > .crono-limpar { grid-column: 1; justify-self: start; }
+/* ---------- E COM A LISTA VAZIA ELE É APAGADO, não deixado inerte ----------
+   A regra do app (v1.8.50): um botão aceso que não faz nada é indistinguível de
+   um quebrado, e o que se faz diante dele é tocar de novo — pior ainda num
+   DESTRUTIVO, que assim ensinaria que tocá-lo é inofensivo. É o mesmo par do
+   `#plBtn` com a fila vazia. `disabled` e não uma classe: é ele que tira o nó da
+   tabulação e faz o navegador engolir o toque.
+
+   NÃO HÁ REGRA GLOBAL de desabilitado nesta folha — cada botão declara a sua
+   (`.slide-btn:disabled`, `.t-btn:disabled`), e esta segue as duas ao pé da
+   letra para não inventar uma terceira aparência para o mesmo estado. */
+.crono-limpar:disabled { opacity: var(--op-inativo); cursor: default; }
 .list-header > .list-title { grid-column: 2; }
 /* ---------- A BADGE DE VERSÃO (v1.7.0) ----------
    Duas casas, UMA regra: o canto superior esquerdo do avançado e o lugar logo
@@ -2227,7 +2268,7 @@ main {
    (fundo, cor e, no `.cue-save-btn`, a borda). O voltar tinha só ~20×20 px —
    o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
    navegação da Bíblia. */
-.back-btn, .sel-btn, .row-btn, .row-slot,
+.back-btn, .sel-btn, .row-btn, .row-slot, .crono-limpar,
 .cue-save-btn, .popup-close, .log-copy, .lv-cheia-btn {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
