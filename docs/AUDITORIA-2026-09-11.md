@@ -88,7 +88,14 @@ por medição direta. Só o que está marcado **VERIFICADO** passou por isso.
 
 ### [13] `deckVideoTalvezTocar` arma `deckVideoVolta` no `.then` de um `send` sem guarda de sequência (`projecaoSeq`)
 
-`app/src/main/assets/web/controle/controle.js:27829` · gravidade **media** · NÃO VERIFICADO · lente `controle-js-bugs`
+`app/src/main/assets/web/controle/controle.js:27829` · gravidade **media** · ✅ **RESOLVIDO na v1.8.74** · lente `controle-js-bugs`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.74.** A corrida foi ENCENADA (trava no `getMedia` do vídeo,
+> solta pelo oráculo), e sem o conserto o bloco 5-D do `pptx-video-na-pagina.test.mjs` reprova em
+> DOIS pontos: a volta rearmada e o eixo do ⏮/⏭ apontando para o deck morto. A guarda é a senha
+> de sempre (`projecaoSeq`), lida **depois** do disparo — `send` é `async` e o `++projecaoSeq`
+> dele roda síncrono dentro da chamada; lida antes, ela recusaria SEMPRE (reversão medida: 5
+> reprovações, o recurso inteiro morto). Lote só de web, sem `shellTag`.
 
 **Evidência.** `send(vid, true).then(() => { deckVideoVolta = volta; renderSlideNav(); })` (27829-27835). O próprio comentário acima reconhece a dependência de ordem: *"O `send` LIMPA a volta na entrada … então ela só pode ser armada DEPOIS dele"* — mas o `.then` não confere se ainda é a projeção dele. `send()` zera `deckVideoVolta` na linha 11526 e incrementa `projecaoSeq` na primeira linha (11520); esta é a senha que o resto do arquivo usa para exatamente esta corrida (`senhaDaCena` em `load()`, linha 3204; `senhaDoToque` em `ytAcaoInterno`, linha 19411). É o ÚNICO `.then(` acrescentado nesta semana que mexe em estado de cena sem senha. O `send` do vídeo de slide é longo por construção: o vídeo embutido não está em `plItems`/`libItems`/`favItems`, então ele cai no `await AVDB.getMedia(id)` (11534) — uma leitura de IndexedDB do blob inteiro — mais `await persistCurrent()`.
 
