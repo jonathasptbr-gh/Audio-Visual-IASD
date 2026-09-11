@@ -831,19 +831,33 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      alternar — quem manda é esta regra. */
   .lv-cheia-btn
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
-/* O `.crono-limpar` entrou aqui na v1.8.68, e é a MESMA armadilha da v1.5.19
-   logo acima: ele não estava em NENHUMA das duas listas, então o svg dele vivia
-   do atributo `width="20"` do HTML enquanto a engrenagem, a 34px de distância na
-   mesma faixa, media 22. MEDIDO, `getBoundingClientRect` do `<svg>`: 20,0 contra
-   22,0 — e as CAIXAS dos dois botões são iguais (34x34, `--hit`), então a
-   divergência era MUDA. Foi o que o operador viu: *"o icone da lixeira está
-   muito pequeno visualmente, principalmente em comparação com o volume e
-   preenchimento visual do icone das configurações"*. */
-:is(.lib-toggle, .t-btn, .ctl-btn, .misc-tab, .settings-btn, .crono-limpar) svg {
+:is(.lib-toggle, .t-btn, .ctl-btn, .misc-tab, .settings-btn) svg {
   display: block; width: var(--icon-md); height: var(--icon-md);
 }
 /* Barras largas de ação (microfone, projetar): o ícone acompanha o alvo. */
 :is(.mic-btn, .misc-project) svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
+/* O LIMPAR DO CRONOGRAMA É `--icon-lg` NUMA CAIXA DE `--hit` (v1.8.69), e é a
+   ÚNICA peça do app com essa combinação — por isso ele tem linha própria, e não
+   uma vírgula na regra acima, cujo comentário fala de BARRAS LARGAS DE AÇÃO e
+   deixaria de descrever os inquilinos dela.
+
+   DOIS DEFEITOS, e o primeiro era MUDO. Até a v1.8.68 ele não estava em NENHUMA
+   das duas listas, então o svg vivia do atributo `width="20"` do HTML enquanto a
+   engrenagem, a 34px de distância na MESMA faixa, media 22 — e as CAIXAS dos
+   dois botões são iguais (34x34, `--hit`), com asserção provando isso, que é por
+   que ninguém viu. É a MESMA armadilha da v1.5.19 logo acima.
+
+   O SEGUNDO É DENSIDADE, e ele é o que pede o degrau a MAIS: uma lixeira é
+   contorno esparso e a engrenagem é glifo denso — 66,2 unidades de comprimento
+   de traço contra 107,3 —, então igualar o TAMANHO não iguala o PESO. MEDIDO,
+   tinta contra a engrenagem no tema padrão: 20px -> 0,60 · 22px -> 0,74 ·
+   **24px -> 0,89**. Emparelhar os dois em 22 deixaria o relato de pé.
+
+   A v1.8.68 fechou isso engrossando o traço (2,4 a 22px -> 0,90), e o operador
+   revogou o EIXO: *"a parte do traço da lixeira, desfaça. Eu queria ela maior e
+   não com traços mais grossos."* O número é o mesmo; a diferença é que um degrau
+   de escala é declarado e uma espessura por símbolo é exceção. */
+.crono-limpar svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
 
 html, body { height: 100%; overflow: hidden; }
 /* svh = small viewport height: desconta as barras do browser fora do modo PWA. */

@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.69",
+    "itens": [
+      "O ícone de limpar o Cronograma ficou maior de verdade, e o traço dele voltou a ser fino como o dos outros."
+    ]
+  },
+  {
     "versao": "1.8.68",
     "itens": [
       "O ícone de limpar o Cronograma ficou maior e mais encorpado, no mesmo tamanho do ícone de configurações.",
