@@ -161,7 +161,14 @@ O fecho não segue essa regra. `PacoteCanal.fechar()` (PacoteCanal.kt:140-155) f
 
 ### [16] O parâmetro `fonte` de `openLyricsPopup` só é passado por um ORÁCULO; o comentário dentro da função afirma que "a Biblioteca abre na cifra", e ela não abre
 
-`app/src/main/assets/web/controle/controle.js:12356` · gravidade **media** · NÃO VERIFICADO · lente `controle-js-morto`
+`app/src/main/assets/web/controle/controle.js:12356` · gravidade **media** · ✅ **RESOLVIDO na v1.8.78** · lente `controle-js-morto`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.78, pela segunda das duas saídas propostas** — o parâmetro sai.
+> A v1.8.76 tinha escolhido a PRIMEIRA (ligar o chamador) com base na nota da v1.2.14; errado: a
+> v1.2.25 trocou aquele botão pelo *"Ver a letra"* a pedido do operador, e a tabela de documentação
+> corrigida daquele lote já registrava que `fonte` não tem chamador. O rótulo é o argumento — um
+> botão que diz *Ver a letra* não abre na aba de acordes. Saíram o parâmetro, a leitura, o comentário,
+> os dois argumentos dos oráculos e a linha de exceção da v1.8.76.
 
 **Evidência.** Declaração `function openLyricsPopup(item, fonte)` (12302), leitura única em `if (fonte) lvSource = fonte;` (12356). Os DOIS chamadores do app passam no máximo um argumento: `lyricsViewBtnEl.addEventListener('click', () => openLyricsPopup());` (30505) e, o da Biblioteca, `openLyricsPopup(await lvItemDaBiblioteca(coll, s));` (19816). O ÚNICO ponto do repositório que passa `fonte` é um teste: `tools/leitor-biblioteca.test.mjs:165 → openLyricsPopup(alvo, 'cifra');` (o mesmo arquivo, na linha 228, usa a forma real de UM argumento). O `git log -S` mostra o que aconteceu: o commit 9ed2b1f3 (v1.2.25, "o 'Ver a letra' da Biblioteca abre o LEITOR") REMOVEU a linha `openLyricsPopup(item, 'cifra');` e pôs no lugar a de um argumento — o produtor saiu e o parâmetro ficou. Enquanto isso o comentário de 12333-12334 continua afirmando o comportamento morto: "`fonte` é o PEDIDO de quem abriu, e vence os dois — a Biblioteca abre na cifra, porque quem toca ali foi buscar os acordes". Escapa do oráculo pelo mesmo motivo do achado anterior (é parâmetro, não símbolo declarado).
 

@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.8.78",
+    "itens": [
+      "Faxina por dentro: saiu um parâmetro que nenhuma parte do app preenchia desde a v1.2.25. Nada muda na tela."
+    ]
+  },
+  {
     "versao": "1.8.77",
     "itens": [
       "A playlist toca sozinha do começo ao fim: não é mais preciso ligar a repetição para a fila andar.",
