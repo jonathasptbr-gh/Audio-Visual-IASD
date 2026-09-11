@@ -1,18 +1,17 @@
-// O CONTEXTO SEGURO — a premissa em que o cliente do espelho de pixels se apoia.
+// O CONTEXTO SEGURO — a premissa em que a TELA DA REDE se apoia.
 //
 // ## O que este teste trava
 //
-// O espelho de pixels serve o telão para os navegadores da rede local por
-// **HTTP em claro** (`http://192.168.0.42:8787`), e isso não é provisório: a
-// rede da igreja pode não ter internet num domingo, e todo caminho que dependa
+// O telão por comandos serve o `/web/display/` aos navegadores da rede local
+// por **HTTP em claro** (`http://192.168.0.42:8787`), e isso não é provisório:
+// a rede da igreja pode não ter internet num domingo, e todo caminho que dependa
 // de um certificado válido — página, sinalização, ou até só o DNS de um nome —
-// morre nesse dia de um jeito indistinguível de AP isolation. Ver
-// docs/ESPELHO-DE-PIXELS.md §1.4: *"HTTP em claro na LAN é o transporte de
-// produção. O site HTTPS é PLACA DE RUA, nunca cano. TLS é um degrau que se
-// liga quando existe certificado — nunca o chão."*
+// morre nesse dia de um jeito indistinguível de AP isolation. O TLS do
+// `EspelhoCert.kt` é um degrau que se liga quando existe certificado, nunca o
+// chão.
 //
 // A consequência é uma classe inteira de APIs que **simplesmente não existe**
-// na página do cliente: tudo que a IDL marca `[SecureContext]` vem `undefined`
+// na página da tela: tudo que a IDL marca `[SecureContext]` vem `undefined`
 // em `http://` para um host que não seja `localhost`. E o modo de falhar é o
 // pior possível — `crypto.randomUUID is not a function` num navegador que a
 // congregação está usando, num domingo, enquanto no celular do desenvolvedor
@@ -23,17 +22,23 @@
 //
 //     if (isSecureContext && 'X' in Y) { …o melhor… } else { …o piso… }
 //
-// **nunca como caminho principal**. Este arquivo varre `assets/web/espelho/`
-// atrás de quem esqueceu a guarda.
+// **nunca como caminho principal**.
+//
+// ## Os TRÊS alvos, e por que não é só `espelho/`
+//
+// A tela roda o PRÓPRIO `display/index.html`, que carrega `../shared/native.js`,
+// `../shared/db.js`, `../shared/mse.js` e `../shared/stage.js` — e o
+// `EspelhoServidor` serve `/shared/` a ela (`PREFIXOS_BUNDLE`). Varrer só
+// `espelho/` deixaria de fora a maior parte do que de fato roda em `http://`.
 //
 // ## Por que ele também testa a si mesmo
 //
-// `assets/web/espelho/` nasce no P2 e só fica povoada no P5/P6. Um varredor de
-// pasta vazia é verde por vácuo — e um verde por vácuo é indistinguível de um
-// varredor quebrado, que é exatamente o que ninguém descobriria. Então o
-// oráculo roda antes contra AMOSTRAS escritas aqui, com o veredito esperado ao
-// lado de cada uma: se ele parar de acusar o que tem de acusar, a falha
-// aparece hoje, não no dia em que a pasta encher.
+// Um varredor que não acha nada é verde — e um verde por vácuo é
+// indistinguível de um varredor quebrado, que é exatamente o que ninguém
+// descobriria. Então o oráculo roda antes contra AMOSTRAS escritas aqui, com o
+// veredito esperado ao lado de cada uma: se ele parar de acusar o que tem de
+// acusar, a falha aparece hoje, e não no dia em que alguém escrever o primeiro
+// `crypto.subtle` dentro de `shared/`.
 //
 //   node tools/contexto-seguro.test.mjs
 import fs from 'node:fs';

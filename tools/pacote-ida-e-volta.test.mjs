@@ -130,6 +130,11 @@ const PONTE = `(function () {
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
     'ytDetalhes','micDiag','areaTransferencia','salvarTexto','pacoteConsumirOrigem',
+    // Os cinco de baixo NÃO são tocados por este oráculo, e é justamente por
+    // isso que entram: fora da allowlist, um undefined prende quem os chamar
+    // pelos 60 s do CALL_TIMEOUT_MS — sem erro, sem log, só lentidão. Foi o
+    // que custou 60,0 s ao abertura-e-transferencia (ver o CLAUDE.md).
+    'pacoteDiag','cifraHtml','apkInstalar','espelhoCertImportar','espelhoCertApagar',
     ]);
   const B = {
     shellVersion: () => 63,

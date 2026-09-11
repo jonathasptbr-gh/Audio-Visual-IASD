@@ -47,11 +47,28 @@ const PONTE = `(function () {
     espelhoEstado: { ligado: false, telas: [], redes: [] }, espelhoDiag: {},
     castTarget: { label: '' }, apkProcurar: {}, ytDiag: '', cifraDiag: '',
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
+  // ===== ESTA LISTA É A DIFERENÇA ENTRE 'RESOLVE NULL' E 'TRAVA 60 s' =====
+  //
+  // O que NÃO está aqui devolve \`undefined\` e **nunca chama \`__avResolve\`** —
+  // e do lado web a Promise fica pendurada até o \`CALL_TIMEOUT_MS\` do
+  // \`native.js\`, que é UM MINUTO. Não há erro, não há log: o oráculo só demora.
+  //
+  // MEDIDO: \`pacoteDiag\` faltava, o bloco B chama \`renderDiag()\` (que o
+  // aguarda em \`await\`), e o arquivo gastava **60,0 s dos 70,9 s** dele nessa
+  // única linha — 7% do passo inteiro de oráculos. O desfecho era o MESMO
+  // (\`pacoteDiagShell\` fica falsy dos dois jeitos, e o Registro sai igual),
+  // então nada reprovava e nada explicava a lentidão.
+  //
+  // Os outros quatro entram junto porque a armadilha é do PRÓXIMO: nenhum deles
+  // é tocado hoje, e quem acrescentar a chamada pagaria o mesmo minuto sem uma
+  // pista de onde ele saiu. Resolver \`null\` é o que a ponte de verdade faz
+  // quando o shell não tem resposta.
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
     'ytDetalhes','micDiag','areaTransferencia','salvarTexto','pacoteCriar','pacoteFechar',
+    'pacoteDiag','cifraHtml','apkInstalar','espelhoCertImportar','espelhoCertApagar',
     ]);
   const B = {
     shellVersion: () => 63,

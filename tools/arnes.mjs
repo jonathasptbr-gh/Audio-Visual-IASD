@@ -90,6 +90,40 @@ export function servirEstatico(raiz, antes) {
 export { checar, falhas } from './checar.mjs';
 
 /**
+ * O GANCHO DA CORTINA — ele OBSERVA, e não mexe em nada.
+ *
+ * Roda como `addInitScript`, isto é, ANTES do `<script>` inline do
+ * `controle/index.html`. Ele embrulha o `window.__avSplash` que aquele script
+ * publica para que a chamada de `pronto()` — a última linha do `init()` que
+ * muda o que se vê — deixe um fato observável para o `esperarCortina`.
+ *
+ * **O piso de 1,8 s continua inteiro**: o `pronto()` de verdade é chamado logo
+ * em seguida e a cortina sai pelo caminho do app. Este gancho não a levanta, não
+ * a esconde e não muda um byte do que é servido — quem age é o `esperarCortina`,
+ * e só quem o chama. É por isso que o `abertura-e-transferencia` (o oráculo que
+ * AFIRMA o piso e o teto, com o relógio mockado) convive com ele sem opt-out:
+ * ele não chama o `esperarCortina`.
+ *
+ * `configurable: true` nas duas pontas porque o acessador se autodestrói na
+ * primeira escrita — o que fica na página é uma propriedade de dado comum, como
+ * seria sem o gancho.
+ */
+const GANCHO_DA_CORTINA = () => {
+  try {
+    Object.defineProperty(window, '__avSplash', {
+      configurable: true,
+      get() { return undefined; },
+      set(v) {
+        delete window.__avSplash;
+        window.__avSplash = (v && typeof v.pronto === 'function')
+          ? { pronto() { window.__avPronto = true; return v.pronto(); } }
+          : v;
+      },
+    });
+  } catch (_) { /* sem gancho o `esperarCortina` cai no fato, que é o de sempre */ }
+};
+
+/**
  * O navegador. `PW_CHROMIUM` aponta o binário quando ele não está onde o
  * Playwright o procura (o passo do CI o deixa vazio de propósito).
  *
@@ -114,13 +148,30 @@ export { checar, falhas } from './checar.mjs';
  * atravessa a calha QUANDO existe uma; que exista é fato do motor, não deste
  * app.
  *
- * @param {{args?: string[], comBarraDeRolagem?: boolean}} [opts]
+ * @param {{args?: string[], comBarraDeRolagem?: boolean, semGancho?: boolean}} [opts]
+ *
+ * ===== E TODO CONTEXTO NASCIDO DAQUI CARREGA O GANCHO DA CORTINA =====
+ *
+ * O `newContext` é embrulhado AQUI, e não deixado a cargo de cada oráculo,
+ * pela razão de sempre neste arnês: uma linha que 45 arquivos precisam
+ * lembrar de escrever é uma linha que 45 arquivos podem esquecer — e o
+ * esquecimento não teria sintoma, só 1,8 s a mais por boot. Quem quiser o
+ * contexto cru passa `semGancho: true`.
  */
 export function abrirNavegador(opts = {}) {
   return chromium.launch({
     ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
     ...(opts.args ? { args: opts.args } : {}),
     ...(opts.comBarraDeRolagem ? { ignoreDefaultArgs: ['--hide-scrollbars'] } : {}),
+  }).then((nav) => {
+    if (opts.semGancho) return nav;
+    const cru = nav.newContext.bind(nav);
+    nav.newContext = async (o) => {
+      const ctx = await cru(o);
+      await ctx.addInitScript(GANCHO_DA_CORTINA);
+      return ctx;
+    };
+    return nav;
   });
 }
 
@@ -175,9 +226,40 @@ export const porque = (r) => (r === true ? undefined : r);
  *
  * A ESPERA É PELO FATO (o nó fora do documento), nunca por um prazo: a cortina
  * sai por remoção do nó, e é isso que os oráculos da abertura já afirmam.
+ *
+ * ===== MAS ELA NÃO PAGA O PISO, E ISSO É O QUE ELA PASSOU A FAZER =====
+ *
+ * O piso de 1,8 s é do OPERADOR, não do oráculo: ele existe para a abertura não
+ * ser um lampejo no aparelho. Quem o AFIRMA é o `abertura-e-transferencia`, com
+ * o relógio mockado e nas duas pontas — e ele não passa por aqui. Os outros ~70
+ * pontos que chamam esta função não estão medindo a cortina: estão esperando o
+ * app ficar TOCÁVEL, e pagavam o piso de carona. MEDIDO: 1,8 s × ~70, ~126 s de
+ * sono por rodada em SÉRIE, num passo cujo total era 1.022 s.
+ *
+ * Então ela espera pelo fato que os oráculos de fato precisam — **o `init()`
+ * terminou** — e tira o nó, que é exatamente o que o `sair()` do app faria 1,8 s
+ * depois. O estado final é o mesmo em que os oráculos já mediam: nada opaco no
+ * caminho do dedo, nada por cima do `elementFromPoint`.
+ *
+ * O SINAL É DO PRÓPRIO APP, e não um palpite de tempo: `__avPronto` é escrito
+ * pelo gancho de `abrirNavegador` no instante em que o `controle.js` chama
+ * `__avSplash.pronto()` — a ÚLTIMA linha do `init()` que muda o que se vê. A
+ * garantia que esta função dava continua inteira; o que saiu foi a espera
+ * cosmética.
+ *
+ * O `|| !document.getElementById('splash')` é a PRIMEIRA metade de propósito:
+ * o `/display/` não tem cortina nenhuma, e o caminho catastrófico (o teto de
+ * 12 s, que chama `sair` sem passar pelo `pronto`) continua atendido pelo fato.
  */
 export async function esperarCortina(pg, prazo = 30000) {
-  return esperar(pg, () => !document.getElementById('splash'), null, prazo);
+  const r = await esperar(
+    pg, () => !document.getElementById('splash') || window.__avPronto === true, null, prazo);
+  if (r !== true) return r;
+  await pg.evaluate(() => {
+    const c = document.getElementById('splash');
+    if (c && c.parentNode) c.parentNode.removeChild(c);
+  });
+  return true;
 }
 
 /**

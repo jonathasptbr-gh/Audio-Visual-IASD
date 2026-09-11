@@ -85,6 +85,10 @@ const ponte = (opts) => `(function () {
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
     'ytDetalhes','micDiag','areaTransferencia','salvarTexto',
+    // Fora da allowlist, um método devolve undefined e prende quem o chamar
+    // pelos 60 s do CALL_TIMEOUT_MS, calado. (pacoteDiag já tem
+    // implementação própria acima, e é o que o renderDiag() daqui usa.)
+    'cifraHtml','apkInstalar','espelhoCertImportar','espelhoCertApagar',
     ]);
   const bytesEscritos = () => {
     let t = 0;

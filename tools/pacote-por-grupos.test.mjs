@@ -67,6 +67,10 @@ const PONTE = `(function () {
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
     'ytDetalhes','micDiag','areaTransferencia','salvarTexto',
+    // Fora da allowlist, um método devolve undefined e prende quem o chamar
+    // pelos 60 s do CALL_TIMEOUT_MS, calado. Nenhum destes é tocado aqui —
+    // eles entram para que o próximo que os chame não pague o minuto.
+    'pacoteDiag','cifraHtml','apkInstalar','espelhoCertImportar','espelhoCertApagar',
     ]);
   const B = {
     shellVersion: () => 63,
