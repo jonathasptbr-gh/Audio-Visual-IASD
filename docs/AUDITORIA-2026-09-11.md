@@ -161,9 +161,9 @@ O fecho não segue essa regra. `PacoteCanal.fechar()` (PacoteCanal.kt:140-155) f
 
 ### [16] O parâmetro `fonte` de `openLyricsPopup` só é passado por um ORÁCULO; o comentário dentro da função afirma que "a Biblioteca abre na cifra", e ela não abre
 
-`app/src/main/assets/web/controle/controle.js:12356` · gravidade **media** · ✅ **RESOLVIDO na v1.8.77** · lente `controle-js-morto`
+`app/src/main/assets/web/controle/controle.js:12356` · gravidade **media** · ✅ **RESOLVIDO na v1.8.78** · lente `controle-js-morto`
 
-> **CONFIRMADO E RESOLVIDO na v1.8.77, pela segunda das duas saídas propostas** — o parâmetro sai.
+> **CONFIRMADO E RESOLVIDO na v1.8.78, pela segunda das duas saídas propostas** — o parâmetro sai.
 > A v1.8.76 tinha escolhido a PRIMEIRA (ligar o chamador) com base na nota da v1.2.14; errado: a
 > v1.2.25 trocou aquele botão pelo *"Ver a letra"* a pedido do operador, e a tabela de documentação
 > corrigida daquele lote já registrava que `fonte` não tem chamador. O rótulo é o argumento — um

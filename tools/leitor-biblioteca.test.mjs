@@ -162,7 +162,7 @@ try {
     const coll = allCollections().find((c) => c.id === 'album-a1');
     const faixa = collSongs('album-a1')[0];
     const alvo = await lvItemDaBiblioteca(coll, faixa);
-    // A FORMA REAL, de UM argumento (v1.8.77). Até aqui esta linha passava
+    // A FORMA REAL, de UM argumento (v1.8.78). Até aqui esta linha passava
     // `'cifra'` num segundo parâmetro que o app NUNCA preencheu — a categoria
     // que o `funcao-sem-chamador` chama de SÓ O ORÁCULO, e a pior delas: o
     // oráculo aprovava um formato de chamada que o aparelho não produz, e ainda

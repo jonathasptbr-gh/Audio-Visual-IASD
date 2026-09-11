@@ -40,7 +40,7 @@
 //     folha para outra música. Sem ela, apagar o parâmetro do
 //     `openLyricsPopup` "consertaria" a primeira metade e devolveria a folha
 //     presa ao que está no ar, que é o recurso que a v1.2.14 entregou.
-//     (Havia um SEGUNDO parâmetro, `fonte`; ele saiu na v1.8.77 — sem produtor
+//     (Havia um SEGUNDO parâmetro, `fonte`; ele saiu na v1.8.78 — sem produtor
 //     desde que o botão da Biblioteca virou "Ver a letra" na v1.2.25.)
 //
 //   node tools/leitor-do-transporte.test.mjs
@@ -387,7 +387,7 @@ try {
     'a Biblioteca aponta a folha para OUTRA música, sem projetar nada', ensaio);
   checar(ensaio.item === 'Louvor Do Ensaio' && ensaio.cena === 'Louvor Em Cena',
     'e o `currentItem` não foi tocado — o alvo é leitura, não projeção', ensaio);
-  // A ABA É DA FRENTE, NÃO DE QUEM ABRIU (v1.8.77). Esta asserção media um
+  // A ABA É DA FRENTE, NÃO DE QUEM ABRIU (v1.8.78). Esta asserção media um
   // segundo parâmetro (`fonte`) que o app nunca preencheu — o botão da
   // Biblioteca diz "Ver a letra" desde a v1.2.25. O que ela mede agora é que o
   // DESVIO levou a folha junto: a fonte é a da faixa do ensaio (que tem letra),
