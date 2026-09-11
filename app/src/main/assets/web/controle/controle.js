@@ -341,14 +341,22 @@ const appVersionEl = document.getElementById('appVersion');
 // morta temporal — o `ReferenceError` aborta o `controle.js` inteiro e o
 // watchdog do OTA descarta o bundle sem nada na tela dizer por quê.
 const simpleVersionEl = document.getElementById('simpleVersion');
-const listVersionEl = document.getElementById('listVersion');
+// (A TERCEIRA CASA saiu na v1.8.66: a badge do cabeçalho do Cronograma deu
+//  lugar ao botão de LIMPAR. O número continua em DUAS — a do Modo Fácil e o
+//  rodapé de Configurações —, escritas pelo mesmo `renderVersionLabel`.)
+// O botão que ficou no lugar dela é declarado AQUI pela razão do bloco acima:
+// `renderCronoLimpar` o lê milhares de linhas antes de onde o cromo é ligado, e
+// um `const` lido antes da própria declaração é `ReferenceError` — que aborta o
+// `controle.js` inteiro e faz o watchdog do OTA descartar o bundle sem nada na
+// tela dizer por quê.
+const cronoLimparEl = document.getElementById('cronoLimpar');
 
 // ===== Índices de versão (base web × shell nativo) =====
 // Os dois atualizam por caminhos INDEPENDENTES — a base por OTA, o shell só
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.65';
+const WEB_VERSION = '1.8.66';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -438,7 +446,7 @@ function renderVersionLabel() {
   // E NOMEAR O APP DENTRO DELE ERA A PALAVRA MAIS DISPENSÁVEL DA FAIXA. Quem
   // ainda precisa da marca é o que SAI daqui — o rascunho do WhatsApp e o
   // `compartilharTexto` —, e os dois continuam a escrever por conta própria.
-  for (const el of [simpleVersionEl, listVersionEl, appVersionEl]) {
+  for (const el of [simpleVersionEl, appVersionEl]) {
     if (!el) continue;
     el.textContent = rotulo;
     el.title = 'Versão do aplicativo';
@@ -7320,6 +7328,29 @@ function msgProjecting() { return !!(msgSession && msgSession.projecting); }
 // `finally` do balde roda do mesmo jeito.
 function renderLibrary() {
   comBaldeDeMiniaturas(libraryEl, () => renderLibraryCorpo());
+  renderCronoLimpar();
+}
+
+/**
+ * O BOTÃO DE LIMPAR, APAGADO COM A LISTA VAZIA (v1.8.66).
+ *
+ * Ele mora AQUI e não no `renderListTitle` porque a pergunta é sobre a LISTA, e
+ * `renderLibrary` é o ponto único que a redesenha — todo caminho que muda
+ * `libItems` passa por ele (o `load()`, e o `toggleCronograma` que reatribui a
+ * lista e chama só este). Pendurado no título, o estado ficaria velho no segundo
+ * caminho, que é justamente o de tirar o último item pela gaveta da linha.
+ *
+ * A REGRA É A DA v1.8.50 — o que não tem função agora é APAGADO, não deixado
+ * inerte —, e ela pesa o dobro num destrutivo: um botão aceso que não faz nada
+ * ensina que tocá-lo é inofensivo, e o dia em que ele voltar a ter o que apagar
+ * o operador já aprendeu a tocá-lo sem ler. O `title` diz POR QUÊ, que é a outra
+ * metade da mesma regra.
+ */
+function renderCronoLimpar() {
+  if (!cronoLimparEl) return;
+  const vazio = !libItems.length;
+  cronoLimparEl.disabled = vazio;
+  cronoLimparEl.title = vazio ? 'O Cronograma já está vazio' : 'Limpar o Cronograma';
 }
 
 function renderLibraryCorpo() {
@@ -15871,6 +15902,73 @@ async function deleteSelected() {
     for (const id of selected) { await AVDB.listRemove('imports', id); await soltarAvulso(id); }
   }
   exitSelection(); load();
+}
+
+// ===== LIMPAR O CRONOGRAMA INTEIRO (v1.8.66) =====
+//
+// O botão do canto superior esquerdo da faixa, onde morava a badge de versão.
+// Ele é a irmã do `deleteSelected` acima — mesma declaração de intenção, sobre
+// a lista toda em vez de uma seleção — e por isso repete as DUAS metades que
+// aquele tem e que o `listSet` sozinho não faz.
+//
+// `listSet('imports', () => [])` E NÃO UM LAÇO DE `listRemove`: é UMA transação
+// com a coleta dentro (`db.js`, `lerDetentores` uma vez só), contra N
+// transações e N varreduras de detentores. O efeito é idêntico — o mesmo
+// `if (!donos.has(id))` decide quem morre.
+//
+// AS DUAS METADES QUE O `listSet` NÃO FAZ, e nenhuma delas tem sintoma:
+//
+//  1. A MARCA DO YOUTUBE. O ✓ "já está aqui" da busca vive num `Map` em memória
+//     (`ytEstado`) e nunca é recalculado enquanto a entrada existir — limpar sem
+//     invalidá-la deixa a busca prometendo, pela sessão inteira, um download que
+//     já não existe. Ela cai ANTES, porque depois da coleta o registro pode já
+//     não existir para dizer QUAL era o vídeo.
+//  2. A PRATELEIRA INVISÍVEL (`avulsos`). Ela é detentora: sem soltá-la, o que
+//     já tocou uma vez no culto fica preso nela — blob no aparelho, invisível em
+//     toda tela. `soltarAvulso` guarda sozinho a exceção da CENA.
+//
+// E A CENA NÃO É ENCERRADA, o que é a regra da v1.3.13 escrita por extenso em
+// `botaoExcluirDaLinha`: *"EXCLUIR DE UMA LISTA NÃO TIRA DO AR"* — excluir tira
+// o item de onde ele fica GUARDADO, e não fala do telão. A FILA é a única
+// exceção (v1.8.52), porque é a lista que o TRANSPORTE governa; o Cronograma é
+// acervo. O louvor no ar segue tocando, e os bytes dele sobrevivem à coleta
+// porque a cena é detentora (`state.current.mediaId`, em `lerDetentores`).
+// Oráculo da regra: `tools/excluir-em-cena.test.mjs`.
+async function limparCronograma() {
+  const ids = await AVDB.listIds('imports');
+  // A GUARDA É REAL, não defensiva: o botão nasce `disabled` com a lista vazia,
+  // mas o estado dele é pintado no render e o toque pode chegar entre um
+  // esvaziamento e o próximo `load()`.
+  if (!ids.length) return;
+  // O MODAL, e não a pergunta na própria faixa (`pedirConfirmacaoNaLinha`), que
+  // é o que o LIMPAR da fila usa. A razão é que a `dica` daquela vai para o
+  // `title`/`aria-label` — e num WebView NÃO HÁ HOVER, então a frase que explica
+  // o que vai acontecer nunca aparece no aparelho. Para uma ação que tira a
+  // lista inteira de uma vez, o modal é o único dos dois que MOSTRA a
+  // consequência. E o alvo aqui não é uma linha: a v5.301 tirou os modais de
+  // exclusão porque *"o modal TIRAVA O ALVO DE CENA"*, e o `appConfirm` sobrevive
+  // exatamente onde o alvo não é uma linha da lista — uma pasta, um álbum, e
+  // agora a lista inteira.
+  const n = ids.length;
+  const ok = await appConfirm({
+    title: 'Limpar o Cronograma',
+    message: 'Tirar ' + (n === 1 ? 'o único item' : 'os ' + n + ' itens') + ' da lista?\n\n'
+      + 'O que também estiver nos Favoritos ou na playlist continua lá. '
+      + 'O que estiver no ar segue tocando.',
+    okText: 'Limpar',
+    perigo: true,
+  });
+  if (!ok) return;
+  for (const id of ids) {
+    const it = libItems.find((m) => m.id === id) || await AVDB.getMedia(id);
+    if (it && it.youtubeId) setYtEstado(it.youtubeId, null);
+  }
+  for (const id of ids) await soltarAvulso(id);
+  await AVDB.listSet('imports', () => []);
+  // A SELEÇÃO MÚLTIPLA MORRE JUNTO: ela aponta para ids que acabaram de sair da
+  // lista, e o `load()` a re-hidrataria sobre linhas que já não existem.
+  if (typeof exitSelection === 'function') exitSelection();
+  await load();
 }
 
 // A PRATELEIRA INVISÍVEL não sobrevive a uma exclusão explícita.
@@ -31374,6 +31472,7 @@ plClearEl.addEventListener('click', (e) => {
   });
 });
 selDeleteEl.addEventListener('click', deleteSelected);
+if (cronoLimparEl) cronoLimparEl.addEventListener('click', limparCronograma);
 selRenameEl.addEventListener('click', renameSelected);
 
 // (O `#backBtn` do cabeçalho perdeu o dono na v1.5.0: ele só servia à Bíblia,

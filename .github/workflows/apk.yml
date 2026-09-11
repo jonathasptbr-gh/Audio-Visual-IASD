@@ -483,6 +483,7 @@ jobs:
           rodar tools/pacote-compartilhar.test.mjs
           rodar tools/configuracoes-sem-subtitulo.test.mjs
           rodar tools/versao-o-que-mudou.test.mjs
+          rodar tools/limpar-cronograma.test.mjs
           rodar tools/linha-da-preparacao.test.mjs
           rodar tools/miniaturas-estaveis.test.mjs
           rodar tools/biblia-leitura-cabe.test.mjs

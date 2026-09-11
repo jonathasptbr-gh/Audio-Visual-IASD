@@ -276,6 +276,31 @@
       <path d="M7 11l5 5 5-5"/>
       <path d="M4 19h16"/>
     </symbol>
+    <!-- LIXEIRA COM LISTA (v1.8.66) — o "limpar o Cronograma" do cabecalho.
+         Pedido do operador: *"use um icone de lixeira com list, é um icone de
+         uma lixeira e uns traços a direita que simbolizam a lista"*.
+
+         ELE É DESENHADO, e não um glifo da fonte de símbolo, porque a fonte não
+         tem este par: o `&#xe872;` que o EXCLUIR da seleção múltipla e o LIMPAR
+         da fila usam é uma lixeira SOZINHA, e o que distingue este botão dos
+         dois é justamente a lista ao lado — sem ela o cabeçalho passaria a
+         mostrar o mesmo desenho de "apagar um item" para uma ação que apaga a
+         lista INTEIRA.
+
+         AS MEDIDAS SÃO DO viewBox de 24, e elas decidem se ele se lê a 20px: a
+         lixeira ocupa x 3..11 e os traços x 14,5..21,5, com um vão de 3,5
+         unidades entre as duas metades (2,9px no renderizado) — sem ele o
+         traço de cima encosta na tampa. Os três traços ficam a y 8/12,5/17,
+         4,5 unidades de distância: com `stroke-width: 2` (1,67px a 20px) sobra
+         2,08px de vão, que é o que impede os três de empastarem num só bloco. -->
+    <symbol id="icoLimparLista" viewBox="0 0 24 24">
+      <path d="M3 6.5h8.5"/>
+      <path d="M5.75 6.5V5.2a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.3"/>
+      <path d="M4.4 6.5l.55 11.9a1.2 1.2 0 0 0 1.2 1.15h2.2a1.2 1.2 0 0 0 1.2-1.15L10.1 6.5"/>
+      <path d="M14.5 8h7"/>
+      <path d="M14.5 12.5h7"/>
+      <path d="M14.5 17h7"/>
+    </symbol>
     <!-- LUPA. Ela já existia desenhada em JS (`searchIconSvg`, o botão de
          pesquisar no YouTube); virou símbolo na v5.264, quando a barra de busca
          da Biblioteca passou a precisar dela também. UM desenho e duas
@@ -826,18 +851,32 @@
            que era a outra dona dele, virou a gaveta `#favPopup` e levou junto o
            próprio voltar, a busca da pasta e o botão de sincronizar. -->
       <button id="backBtn" class="back-btn" title="Voltar" aria-label="Voltar" hidden><span class="msym" aria-hidden="true">&#xe5c4;</span></button>
-      <!-- A BADGE DE VERSÃO, no canto superior esquerdo (v1.7.0). Ver a gêmea
-           do Modo Fácil, logo acima, para o pedido e para a regra do número
-           único.
+      <!-- LIMPAR O CRONOGRAMA (v1.8.66), no lugar da badge de versão que morava
+           aqui desde a v1.7.0. Pedido do operador: *"substitua o badge de versão
+           que temos na barra do topo do cronograma, a esquerda, por um
+           icone/botão de excluir lista (ele limpa a lista do cronograma)"*.
 
-           A CASA JÁ ESTAVA VAGA: o `#backBtn` da faixa perdeu o dono na v1.5.0
-           (a Bíblia virou folha e levou o voltar dela junto) e `renderListTitle`
-           o esconde explicitamente em toda passada. A trilha 1 da grade
-           continuava reservada só para manter o título no eixo — agora ela tem
-           um morador, e o título segue centrado porque as duas trilhas laterais
-           passaram a repartir a sobra em partes iguais (ver `.list-header` no
-           CSS). -->
-      <span class="ver-badge" id="listVersion" title="Versão do aplicativo"></span>
+           A BADGE NÃO SE MUDOU DE CASA, ELA SAIU: o número continua nas outras
+           DUAS casas que o `renderVersionLabel` escreve — a do Modo Fácil e o
+           rodapé de Configurações —, e a pergunta que esta respondia ("que
+           versão eu tenho?") tem resposta a um toque de distância, na mesma
+           tela. O que ela custava era a única casa vaga da faixa.
+
+           CHAPADO, e é o padrão desta barra: o `#backBtn` em frente e a
+           engrenagem na outra ponta são os dois ícone-solto, sem corpo — a regra
+           do app é "navegação/acesso é ícone solto, operação é botão", e aqui o
+           pedido é explícito (*"não precisa de corpo para o botão, apenas o
+           icone, que é o padrão dessa top bar"*).
+
+           A GRADE NÃO MUDA. As duas trilhas laterais viraram `minmax(--hit, 1fr)`
+           na v1.7.0 POR CAUSA da badge — ela é texto de largura variável, e com
+           trilha fixa o título saía do eixo. O morador novo mede `--hit` cheio,
+           como a engrenagem em frente: as duas pontas voltam a ser quadrados
+           iguais e o título fica centrado pelo mesmo mecanismo, sem uma linha
+           alterada. -->
+      <button id="cronoLimpar" class="crono-limpar" title="Limpar o Cronograma" aria-label="Limpar o Cronograma">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLimparLista"/></svg>
+      </button>
       <!-- A ORDEM DA FAIXA É saída · lugar · destino (v5.107): "Modo Fácil" à
            esquerda, o nome da tela no meio, "Favoritos" à direita. A seta do
            botão de modo aponta para a esquerda, e um botão que aponta para fora
@@ -2154,7 +2193,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.8.65</span>
+            <span id="appVersion" class="app-version">v1.8.66</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
