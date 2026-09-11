@@ -346,12 +346,7 @@ else nao('nenhuma função existe só para o oráculo chamar',
   // Cada entrada diz POR QUE o parâmetro fica — e o nome de quem deveria
   // supri-lo, quando o defeito é o chamador e não o parâmetro.
   const SUPRIDO_POR_FORA = new Map([
-    ['openLyricsPopup/fonte',
-      'achado [16] da auditoria de 2026-09-11: NÃO é parâmetro morto, é CHAMADOR '
-      + 'faltando. A nota da v1.2.14 anuncia que a gaveta da Biblioteca abre o leitor '
-      + '"cifra, tom, corpo e rolagem", e o `leitor-do-transporte.test.mjs` afirma o '
-      + 'mesmo no cabeçalho; quem chama passa um argumento só. Apagá-lo cancelaria o '
-      + 'recurso — o conserto é ligar o chamador, em lote próprio.'],
+    // (vazia hoje — a entrada tem a forma `nome/parametro`, com a razão ao lado)
   ]);
 
   const FECHA = { '(': ')', '[': ']', '{': '}' };

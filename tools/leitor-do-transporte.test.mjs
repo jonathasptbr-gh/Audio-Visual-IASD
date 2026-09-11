@@ -7,7 +7,7 @@
 // Relato do operador (v1.2.19): *"o sistema não identifica que há letra nenhuma
 // para o auxiliar de leitura"*.
 //
-// A v1.2.14 deu parâmetros ao `openLyricsPopup(item, fonte)` para a Biblioteca
+// A v1.2.14 deu um parâmetro ao `openLyricsPopup(item)` para a Biblioteca
 // poder abrir a folha de uma música que NÃO está no ar. O ouvinte do botão do
 // transporte continuou registrado **por referência**:
 //
@@ -36,10 +36,12 @@
 //
 //  1. **o botão abre a CENA** — fonte `lyrics`, sem alvo, com as linhas da letra
 //     desenhadas;
-//  2. **a Biblioteca continua desviando** — `openLyricsPopup(item, 'cifra')`
-//     aponta a folha para outra música. Sem ela, apagar os parâmetros do
+//  2. **a Biblioteca continua desviando** — `openLyricsPopup(item)` aponta a
+//     folha para outra música. Sem ela, apagar o parâmetro do
 //     `openLyricsPopup` "consertaria" a primeira metade e devolveria a folha
 //     presa ao que está no ar, que é o recurso que a v1.2.14 entregou.
+//     (Havia um SEGUNDO parâmetro, `fonte`; ele saiu na v1.8.77 — sem produtor
+//     desde que o botão da Biblioteca virou "Ver a letra" na v1.2.25.)
 //
 //   node tools/leitor-do-transporte.test.mjs
 // ============================================================================
@@ -372,7 +374,7 @@ try {
       id: 'ensaio', name: 'Louvor Do Ensaio', kind: 'audio', seconds: 180,
       hymnAlbum: 'Hinário Adventista 2022',
       lyrics: [{ text: 'letra do ensaio' }],
-    }, 'cifra');
+    });
   });
   const ensaio = await pg.evaluate(() => ({
     naCena: lvNaCena(),
@@ -385,8 +387,13 @@ try {
     'a Biblioteca aponta a folha para OUTRA música, sem projetar nada', ensaio);
   checar(ensaio.item === 'Louvor Do Ensaio' && ensaio.cena === 'Louvor Em Cena',
     'e o `currentItem` não foi tocado — o alvo é leitura, não projeção', ensaio);
-  checar(ensaio.fonte === 'cifra',
-    'e o pedido de quem abriu vence: a Biblioteca abre na CIFRA', ensaio.fonte);
+  // A ABA É DA FRENTE, NÃO DE QUEM ABRIU (v1.8.77). Esta asserção media um
+  // segundo parâmetro (`fonte`) que o app nunca preencheu — o botão da
+  // Biblioteca diz "Ver a letra" desde a v1.2.25. O que ela mede agora é que o
+  // DESVIO levou a folha junto: a fonte é a da faixa do ensaio (que tem letra),
+  // e não a da cena.
+  checar(ensaio.fonte === 'lyrics',
+    'e a folha abre na fonte do ALVO, não na da cena', ensaio.fonte);
 
   // ── 3. E O ALVO MORRE COM A FOLHA ───────────────────────────────────────
   // Sem isto, a próxima abertura pelo transporte mostraria a música do ensaio
