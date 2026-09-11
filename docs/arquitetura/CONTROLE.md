@@ -1880,13 +1880,30 @@ corpo para o botão, apenas o icone, que é o padrão dessa top bar"*.
   `width="20"` do HTML enquanto a engrenagem media 22 pelo `--icon-md`. As
   CAIXAS dos dois botões eram iguais (34px) e o oráculo já afirmava isso — que é
   por que ninguém viu. Mesma armadilha da v1.5.19 nas três portas do rodapé.
-- **A SEGUNDA METADE É DENSIDADE, e o traço deste símbolo é 2,4.** Uma lixeira é
-  contorno esparso e a engrenagem é glifo denso: 66,2 unidades de comprimento de
-  traço contra 107,3, e MEDIDO, nenhum redesenho fecha isso (escalar a união até
-  encostar nas bordas do viewBox chega a 0,63x da tinta). Tinta contra a
-  engrenagem no tema padrão: **0,44 → 0,90**. **O que limita a espessura é o vão
-  de TINTA** (`vão geométrico − stroke-width`), não o geométrico: a 2,85 a
-  lixeira invade os traços da lista em 0,65 unidade, e `getBBox()` não vê.
+- **A SEGUNDA METADE É DENSIDADE, e ela é paga com um DEGRAU A MAIS (v1.8.69).**
+  Uma lixeira é contorno esparso e a engrenagem é glifo denso: 66,2 unidades de
+  comprimento de traço contra 107,3, e MEDIDO, nenhum redesenho fecha isso
+  (escalar a união até encostar nas bordas do viewBox chega a 0,63x da tinta).
+  **Igualar o TAMANHO não iguala o PESO** — emparelhados em 22px a tinta fica em
+  0,74, e o relato original continuaria de pé. O botão vai a `--icon-lg` (24px),
+  e é a ÚNICA peça do app com esse degrau numa caixa de `--hit`: daí ele ter
+  regra PRÓPRIA no `controle.css`, e não uma vírgula na lista existente, cujo
+  comentário fala de *barras largas de ação*. Tinta contra a engrenagem no tema
+  padrão: **0,44 → 0,89**.
+- **E O EIXO É O TAMANHO, NUNCA A ESPESSURA** — a v1.8.68 tinha fechado o mesmo
+  vão engrossando o traço deste símbolo para 2,4, e o operador revogou: *"a parte
+  do traço da lixeira, desfaça. Eu queria ela maior e não com traços mais
+  grossos."* MEDIDO, os dois caminhos dão o mesmo número (0,90 e 0,89); o que os
+  separa é que um degrau de escala é declarado e uma espessura por símbolo é
+  exceção de um consumidor só. O oráculo guarda o EIXO: o tamanho tem de ser um
+  degrau DECLARADO (um 26px à mão reprova) e o traço tem de ser o do resto do
+  sprite.
+- **O VÃO DE TINTA FICOU EM 1,0 unidade.** Os traços da lista recuaram de x16
+  para x16,8 na v1.8.68 só para acomodar o traço grosso; com ele fora o vão
+  sobrou, e ele é cinco vezes os 0,2 do desenho da v1.8.67 — *"um décimo da
+  linha"*, nas palavras do comentário de lá. **O que limita é o vão de TINTA**
+  (`vão geométrico − stroke-width`), não o geométrico: a 2,85 a lixeira invadia
+  os traços em 0,65 unidade e `getBBox()` não via.
 - **O APAGADO TEM ALFA PRÓPRIO, .5, e não o `--op-inativo` (v1.8.68)** —
   *"aprimore o sistema de esmaecimento da sua cor quando inativo/sem itens na
   lista do cronograma"*. Aquele token iguala o ALFA de uma família de PÍLULAS

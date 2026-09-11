@@ -184,6 +184,13 @@ try {
         // `<svg>` dentro dele, que é onde os dois divergiam em silêncio.
         svgCx: +document.querySelector('#cronoLimpar svg').getBoundingClientRect().width.toFixed(1),
         svgGear: +document.querySelector('#settingsBtn svg').getBoundingClientRect().width.toFixed(1),
+        // OS TRÊS DEGRAUS DECLARADOS da escala de ícone, lidos do `:root`. É
+        // contra eles que o tamanho é conferido: um número escrito à mão
+        // (26px, 26,4px) casaria com "maior que a engrenagem" e não é escala.
+        degraus: ['--icon-sm', '--icon-md', '--icon-lg']
+          .map((n) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n))),
+        traco: parseFloat(document.querySelector('#cronoLimpar svg').getAttribute('stroke-width')),
+        tracoGear: parseFloat(document.querySelector('#settingsBtn svg').getAttribute('stroke-width')),
       };
     });
     checar(r.existe && !r.badge,
@@ -249,10 +256,26 @@ try {
     // engrenagem ao lado media 22. É a MESMA armadilha que a v1.5.19 consertou
     // nas três portas do rodapé — e a asserção mede o `<svg>`, não o botão,
     // porque é ali que a divergência mora.
-    checar(r.svgCx === r.svgGear,
-      'A · e o DESENHO mede o mesmo que o da engrenagem (' + r.svgCx + ' contra '
-      + r.svgGear + 'px): a caixa dos dois já era igual, e era o `<svg>` dentro '
-      + 'dela que divergia em silêncio', JSON.stringify({ limpar: r.svgCx, gear: r.svgGear }));
+    checar(r.svgCx > r.svgGear && r.degraus.includes(r.svgCx),
+      'A · e o DESENHO é MAIOR que o da engrenagem (' + r.svgCx + ' contra '
+      + r.svgGear + 'px) E é um DEGRAU DECLARADO da escala (' + r.degraus.join('/')
+      + '): a caixa dos dois já era igual, e era o `<svg>` dentro dela que '
+      + 'divergia em silêncio — e igualá-lo não bastava, porque uma lixeira é '
+      + 'contorno esparso e a engrenagem é glifo denso (66,2 unidades de traço '
+      + 'contra 107,3)', JSON.stringify({ limpar: r.svgCx, gear: r.svgGear, degraus: r.degraus }));
+    // E O PESO VEM DO TAMANHO, NÃO DA ESPESSURA (v1.8.69). A v1.8.68 fechou o
+    // mesmo vão engrossando o traço deste símbolo para 2,4, e o operador revogou
+    // o eixo: *"a parte do traço da lixeira, desfaça. Eu queria ela maior e não
+    // com traços mais grossos."* Os dois caminhos davam o MESMO número (0,90 e
+    // 0,89 de tinta contra a engrenagem); o que os separa é que um degrau de
+    // escala é declarado e uma espessura por símbolo é exceção de um consumidor
+    // só. Sem esta asserção, o traço volta a engrossar no primeiro lote que
+    // quiser mais peso e ninguém lembra por que ele não devia.
+    checar(r.traco === r.tracoGear,
+      'A · e o TRAÇO é o mesmo do resto do sprite (' + r.traco + ' contra '
+      + r.tracoGear + ' da engrenagem): o peso deste ícone vem do DEGRAU de '
+      + 'escala, não de uma espessura própria',
+      JSON.stringify({ limpar: r.traco, gear: r.tracoGear }));
     await a.ctx.close();
   }
 

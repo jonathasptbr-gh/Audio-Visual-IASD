@@ -1358,12 +1358,20 @@ nenhum**, e por isso ficam aqui.
   um é contorno esparso e o outro é glifo cheio — MEDIDO, a lixeira tem 66,2
   unidades de comprimento de traço contra 107,3 da engrenagem, e **nenhum
   redesenho fecha isso** (escalar a união até encostar nas bordas do viewBox
-  chega a 0,63x da tinta). O eixo que fecha é a ESPESSURA, e ela é exceção
-  declarada por símbolo, com o número medido ao lado. **MAS O VÃO QUE A LIMITA É
-  O DE TINTA, e `getBBox()` é cego a ele**: ele devolve a caixa da GEOMETRIA e
-  ignora o traço, então engrossar aproxima duas metades do desenho sem mover um
-  pixel da medida. A conta é `vão geométrico − stroke-width`, e um piso menor que
-  o próprio traço não é piso nenhum.
+  chega a 0,63x da tinta). **O eixo que fecha é o DEGRAU DE ESCALA, nunca a
+  espessura** (v1.8.69, revogando a v1.8.68 a pedido do operador: *"a parte do
+  traço da lixeira, desfaça. Eu queria ela maior e não com traços mais
+  grossos."*). Os dois caminhos dão o MESMO número — MEDIDO, tinta contra a
+  engrenagem no tema padrão: 2,4 a 22px dá 0,90 e o traço de sempre a 24px dá
+  0,89 —, e o que os separa é que um degrau é declarado e vale para o app inteiro,
+  enquanto uma espessura por símbolo é exceção de um consumidor só. **Um desenho
+  esparso pode precisar de um degrau A MAIS que o vizinho denso**, e aí ele ganha
+  regra própria com a razão ao lado, em vez de uma vírgula numa lista cujo
+  comentário deixaria de descrever os inquilinos dela. **MAS O VÃO QUE A
+  ESPESSURA MOVIA É O DE TINTA, e `getBBox()` é cego a ele**: ele devolve a caixa
+  da GEOMETRIA e ignora o traço, então engrossar aproxima duas metades do desenho
+  sem mover um pixel da medida. A conta é `vão geométrico − stroke-width`, e um
+  piso menor que o próprio traço não é piso nenhum.
 - **UM BOTÃO SEM RÓTULO É QUADRADO** (v1.8.57), e o app tem TRÊS caixas para
   ele, as três legítimas porque respondem ao VIZINHO: `--hit` (34px) no
   cabeçalho de uma folha, `--thumb` (40px) numa LINHA de lista (é a medida da
@@ -2573,7 +2581,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.68 · APK v1.8.45** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.69 · APK v1.8.45** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
@@ -2584,14 +2592,14 @@ bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.68 são o mesmo caso, pela mesma
+> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.69 são o mesmo caso, pela mesma
 > razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
 > mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A v1.8.68 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
+> **A v1.8.69 NÃO pede Release**: ela não toca `java/`, `res/`, o manifesto
 > nem o `build.gradle.kts` — só `assets/web/`, `tools/` e `docs/`.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, e desde a v1.8.50 ela TEM ORÁCULO.**
