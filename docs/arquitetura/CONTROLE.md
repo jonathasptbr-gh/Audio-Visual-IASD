@@ -1851,12 +1851,53 @@ corpo para o botão, apenas o icone, que é o padrão dessa top bar"*.
   tocá-lo é inofensivo. O estado é pintado em `renderLibrary`, o ponto ÚNICO que
   redesenha a lista: pendurado no `renderListTitle` ele ficaria velho no caminho
   do `toggleCronograma`, que é justamente o de tirar o último item pela gaveta.
-- **A COR é `--danger-strong` e a escolha é MEDIDA.** Ver o comentário da regra
-  em `controle.css`: o scarlett OFICIAL (`--live`) mede **2,71:1** contra a barra
-  no tema escuro — abaixo do piso de 3:1 para ícone — e 5,67:1 no claro, que é o
-  defeito que só aparece num tema. E `--danger` **não é um token**: um
-  `var(--danger)` não computa e a cor cai no valor herdado, isto é, o ícone vira
-  TEXTO.
+- **A COR É `--muted`, NEUTRA (v1.8.68)** — *"troque o vermelho pelo branco/cinza,
+  uma cor neutra para esse icone. Vermelho está muito chamativo."* Varridos os 57
+  tokens declarados nos DOIS blocos de tema, só DOIS são neutros E passam o piso
+  de 3:1 contra a `--bar` nos dois: `--muted` (8,09:1 · 6,66:1) e `--text`
+  (11,56:1 · **21,00:1**, que faria o destrutivo virar a peça mais gritante da
+  barra no tema claro). **"Neutro como o vizinho" NÃO é copiar a engrenagem**:
+  MEDIDO por pixel, ela é AZUL (`--accent`), porque `.list-header .settings-btn`
+  (0,2,0) vence a regra base dela — e o comentário que justifica esse azul se
+  ancora no `#backBtn`, que tem `display: none` e 0px desde a v1.5.0. O vizinho
+  NEUTRO desenhado é o `#listTitle`, e `--muted` é a tinta dele — a mesma que a
+  `.ver-badge` substituída na v1.8.66 já pintava. **Os brancos "óbvios" morrem
+  num tema só:** `--on-accent` e `--on-live` medem 13:1 no escuro e **1,00:1** no
+  claro, onde eles e a barra valem os dois `#fff`.
+- **E `--danger` não é um token** — a armadilha fica escrita porque sobrevive à
+  saída do vermelho: um `var()` que não computa cai no valor HERDADO, e aqui o
+  herdado é `--text`. Apagar a linha `color` (a "simplificação" óbvia ao tirar o
+  vermelho) não deixa o botão sem cor: deixa-o com a tinta PRIMÁRIA do app,
+  21,00:1 no claro, calado.
+- **O SINAL DE DESTRUTIVO PASSOU A MORAR SÓ NO DIÁLOGO** (`appConfirm({perigo})`,
+  que continua vermelho e continua tendo asserção). Enfraquecer aquele bloco
+  deixa o recurso sem aviso nenhum.
+- **O DESENHO MEDE 22px, COMO A ENGRENAGEM — e não media (v1.8.68).** O relato
+  foi *"o icone da lixeira está muito pequeno visualmente, principalmente em
+  comparação com o volume e preenchimento visual do icone das configurações"*, e
+  a causa era MUDA: o `.crono-limpar` não estava em NENHUMA das duas listas de
+  escala de ícone do `controle.css`, então o `<svg>` dele vivia do atributo
+  `width="20"` do HTML enquanto a engrenagem media 22 pelo `--icon-md`. As
+  CAIXAS dos dois botões eram iguais (34px) e o oráculo já afirmava isso — que é
+  por que ninguém viu. Mesma armadilha da v1.5.19 nas três portas do rodapé.
+- **A SEGUNDA METADE É DENSIDADE, e o traço deste símbolo é 2,4.** Uma lixeira é
+  contorno esparso e a engrenagem é glifo denso: 66,2 unidades de comprimento de
+  traço contra 107,3, e MEDIDO, nenhum redesenho fecha isso (escalar a união até
+  encostar nas bordas do viewBox chega a 0,63x da tinta). Tinta contra a
+  engrenagem no tema padrão: **0,44 → 0,90**. **O que limita a espessura é o vão
+  de TINTA** (`vão geométrico − stroke-width`), não o geométrico: a 2,85 a
+  lixeira invade os traços da lista em 0,65 unidade, e `getBBox()` não vê.
+- **O APAGADO TEM ALFA PRÓPRIO, .5, e não o `--op-inativo` (v1.8.68)** —
+  *"aprimore o sistema de esmaecimento da sua cor quando inativo/sem itens na
+  lista do cronograma"*. Aquele token iguala o ALFA de uma família de PÍLULAS
+  PREENCHIDAS com tinta `--text` que o operador amarrou por extenso na v1.5.15;
+  este é ícone solto, e o que precisa ficar igual é o DESFECHO — mesmo alfa, a
+  pílula entrega 2,66:1 e este traço entregava **1,83:1**. **E 1,83:1 não é
+  esmaecer, é sumir:** dos 488 pixels de tinta do ícone apagado, ZERO cruzavam
+  2:1 no tema escuro contra 262 no claro. **Os pedidos de cor e de véu são UM
+  só**: `--muted` no mesmo `.35` mede 1,71:1 no claro, também com zero pixels
+  legíveis — trocar a tinta sem refazer o véu trocaria o sumiço de tema. A .5 os
+  dois temas medem 3,12:1 e 2,23:1, com separação de 2,6x e 3,0x contra o aceso.
 - **E O DESENHO FOI REPROPORCIONADO na v1.8.67** (*"o icone parece espremido
   horizontalmente"*). A caixa do BOTÃO já era quadrada — o que estava achatado
   era a lixeira dentro dela, **1:1,81**, espremida no terço esquerdo para sobrar

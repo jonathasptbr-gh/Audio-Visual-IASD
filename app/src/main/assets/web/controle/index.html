@@ -300,28 +300,34 @@
          forma e atribui a diferença ao desenho, não ao objeto.
 
          O CONSERTO É REPARTIR OS 24, e não encolher os traços: a lixeira fica
-         com **12 unidades** (2 → 14) e os traços com **6** (16 → 22), com 2,2 de
-         vão entre as duas metades. Ela passa a medir 11,6 × 13,75 — **1:1,19**,
-         ao lado do Feather. Os traços encurtaram de 7 para 6 unidades, e isso é
-         o preço declarado: eles continuam legíveis porque o que os separa é o
-         VÃO, não o comprimento.
+         com **12 unidades** (2 → 14) e os traços com **5,2** (16,8 → 22). Ela
+         passa a medir 11,6 × 13,75 — **1:1,19**, ao lado do Feather.
 
          AS DUAS MEDIDAS TÊM ASSERÇÃO (`limpar-cronograma.test.mjs`, bloco A), e
          ela mede um CLONE RENDERIZADO do símbolo: o `getBBox()` de um filho de
          `<symbol>` devolve zeros no Chromium, porque um `<symbol>` nunca é
          desenhado — a sonda ingênua aprovaria os dois desenhos igualmente.
 
-         OS TRÊS TRAÇOS ficam a y 9,5 / 13 / 16,5 — 3,5 unidades entre centros
-         (2,9px no renderizado a 20px). Com `stroke-width: 2` (1,67px) sobra
-         1,25px de vão limpo, que é o que impede os três de empastarem num só
-         bloco. -->
+         O VÃO QUE CONTA É O DE TINTA, não o de linha de centro (v1.8.68). O
+         `getBBox()` do Chromium devolve a caixa da GEOMETRIA e ignora o traço,
+         então um vão de centro a centro não diz se os dois lados se tocam: com
+         o traço em 2,85 a lixeira INVADE os traços em 0,65 unidade e o vão
+         geométrico continua marcando 2,2, verde. A conta é `vão geométrico −
+         stroke-width`, e ela mora no bloco A do oráculo. Hoje: 3,0 − 2,4 =
+         **0,6**, o triplo dos 0,2 que o desenho da v1.8.67 tinha.
+
+         OS TRÊS TRAÇOS ficam a y 9,5 / 13 / 16,5 — 3,5 unidades entre centros.
+         Com `stroke-width: 2,4` sobram **1,1 unidades** de vão limpo (1,0px no
+         renderizado a 22px), que é o que impede os três de empastarem num só
+         bloco. É o que fecha a espessura por cima: a 2,6 o vão cai a 0,9 e o
+         ganho de tinta é de 0,08. -->
     <symbol id="icoLimparLista" viewBox="0 0 24 24">
       <path d="M2.2 7.3h11.6"/>
       <path d="M6 7.3V6a1.1 1.1 0 0 1 1.1-1.1h1.8A1.1 1.1 0 0 1 10 6v1.3"/>
       <path d="M3.8 7.3l.5 10.2a1.2 1.2 0 0 0 1.2 1.15h4.6a1.2 1.2 0 0 0 1.2-1.15l.5-10.2"/>
-      <path d="M16 9.5h6"/>
-      <path d="M16 13h6"/>
-      <path d="M16 16.5h6"/>
+      <path d="M16.8 9.5h5.2"/>
+      <path d="M16.8 13h5.2"/>
+      <path d="M16.8 16.5h5.2"/>
     </symbol>
     <!-- LUPA. Ela já existia desenhada em JS (`searchIconSvg`, o botão de
          pesquisar no YouTube); virou símbolo na v5.264, quando a barra de busca
@@ -897,7 +903,19 @@
            iguais e o título fica centrado pelo mesmo mecanismo, sem uma linha
            alterada. -->
       <button id="cronoLimpar" class="crono-limpar" title="Limpar o Cronograma" aria-label="Limpar o Cronograma">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLimparLista"/></svg>
+        <!-- O TRAÇO É 2,4 E NÃO O 2 DO RESTO DO SPRITE (v1.8.68) — correção
+             ÓPTICA, e ela é MEDIDA. Uma lixeira é um contorno esparso e a
+             engrenagem é um glifo denso: no mesmo viewBox e no mesmo tamanho,
+             o comprimento de traço é 66,2 unidades contra 107,3, e nenhum
+             redesenho fecha isso (escalar a união até encostar nas bordas do
+             viewBox chega a 0,63x da tinta). Foi o que o operador viu, e ele
+             nomeou o eixo certo: *"volume e preenchimento visual"*.
+             MEDIDO, tinta contra a engrenagem no tema padrão: 2,0 -> 0,77 ·
+             2,2 -> 0,83 · **2,4 -> 0,90** · 2,6 -> 0,98.
+             O `width`/`height` do atributo é MORTO aqui desde a v1.8.68 — quem
+             manda é a regra do `--icon-md` no `controle.css`. Ele fica porque o
+             `viewBox` sozinho não dá tamanho a um `<svg>` sem CSS. -->
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLimparLista"/></svg>
       </button>
       <!-- A ORDEM DA FAIXA É saída · lugar · destino (v5.107): "Modo Fácil" à
            esquerda, o nome da tela no meio, "Favoritos" à direita. A seta do
@@ -2215,7 +2233,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.8.67</span>
+            <span id="appVersion" class="app-version">v1.8.68</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

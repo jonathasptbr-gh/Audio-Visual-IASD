@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.68",
+    "itens": [
+      "O ícone de limpar o Cronograma ficou maior e mais encorpado, no mesmo tamanho do ícone de configurações.",
+      "Ele deixou de ser vermelho: agora é cinza, como o título ao lado, para não chamar tanta atenção.",
+      "Com a lista vazia ele continua apagado, mas agora dá para vê-lo — antes ele quase sumia."
+    ]
+  },
+  {
     "versao": "1.8.67",
     "itens": [
       "O ícone de limpar o Cronograma estava achatado e foi redesenhado nas proporções certas.",
