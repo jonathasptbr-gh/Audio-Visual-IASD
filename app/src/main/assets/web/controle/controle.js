@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.74';
+const WEB_VERSION = '1.8.75';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -27985,6 +27985,10 @@ async function pptxImportar(file, nome, opts) {
   // (ver `ytArquivo`): "Preparando apresentação" sozinho não diz QUAL, e com o
   // app minimizado esta é a única tela que existe.
   bgItemOnly(notif, rotulo);
+  // OS IDS QUE ESTA IMPORTAÇÃO ESTACIONOU (ver `avulsosEmMontagem`). Declarada
+  // AQUI, e não dentro do `withBgWork`, porque quem a solta é o `finally` desta
+  // função — o único ponto por onde os três desfechos passam.
+  const emMontagem = [];
   try {
     return await withBgWork(async () => {
       const feito = await AVDeck.paginasDoPptx(file, (feitas, total) => {
@@ -28026,18 +28030,28 @@ async function pptxImportar(file, nome, opts) {
           type: v.blob.type || 'video/mp4',
           list: 'avulsos',
         });
-        if (rec) videos[v.pagina] = rec.id;
+        if (rec) {
+          videos[v.pagina] = rec.id;
+          // ANTES do próximo `addMedia`, que já é uma espera: o `send` do
+          // operador cabe entre dois deles.
+          emMontagem.push(rec.id);
+          avulsosEmMontagem.add(rec.id);
+        }
       }
       const criado = await AVDB.addDeck(feito.pages, {
         name: rotulo, thumb, list: (opts && opts.lista) || 'imports',
         videos: Object.keys(videos).length ? videos : null,
       });
       // E SÓ AGORA ELES SAEM DA PRATELEIRA. `avulsos` é o detentor provisório
-      // que os segura entre o `addMedia` e o `addDeck`: sem ele, uma faxina
-      // caindo nessa janela levaria os vídeos embora e a apresentação nasceria
-      // apontando para bytes que não existem mais. Depois do `addDeck` quem os
-      // segura é a apresentação, e ficar nos dois lugares faria o vídeo
-      // sobreviver a ela.
+      // entre o `addMedia` e o `addDeck` — sem lista nenhuma, a faxina da
+      // abertura os levaria e a apresentação nasceria apontando para bytes que
+      // não existem mais. Depois do `addDeck` quem os segura é a apresentação,
+      // e ficar nos dois lugares faria o vídeo sobreviver a ela.
+      //
+      // **ESTAR NELA NÃO BASTA**, e o comentário aqui afirmou o contrário até a
+      // v1.8.75: ela é RODÍZIO de três, e um `send` do operador nesta janela
+      // despejava o vídeo mais antigo — o blob morria sem dono. Quem fecha isso
+      // é o `avulsosEmMontagem`, e não esta lista.
       for (const p in videos) await AVDB.listRemove('avulsos', videos[p]);
       // O CORTE É DITO, e pela mesma porta do PDF (ver `deckImportar`): uma
       // apresentação cortada sem aviso leria como "o arquivo era assim", e o
@@ -28061,6 +28075,7 @@ async function pptxImportar(file, nome, opts) {
     deckUltimoErro = 'pptx: ' + ((e && e.message) || 'erro sem mensagem');
     return null;
   } finally {
+    for (const id of emMontagem) avulsosEmMontagem.delete(id);
     bgTaskEnd(notif);
     bg.soltar();
   }
@@ -28226,12 +28241,33 @@ async function ytArquivo(alvo, opts) {
 // pelos últimos DA MESMA LEVA — inclusive o que vai ser projetado, que é o
 // primeiro. Quem cede lugar é sempre o que já estava aqui de antes.
 const AVULSO_MAX = 3;
+
+// OS IDS EM MONTAGEM — mídia que já está no IndexedDB e cujo DETENTOR DEFINITIVO
+// ainda não existe. Hoje há um produtor só: o `pptxImportar`, que estaciona cada
+// vídeo embutido em `avulsos` e só cria a apresentação que os segura depois do
+// último `addMedia`.
+//
+// A prateleira NÃO protege esse vão — ela é RODÍZIO, e essa é a razão de ser
+// dela. Todo `send` passa por aqui; com três vídeos estacionados, `cabem = 2` e
+// o excedente leva os mais antigos, que são justamente eles. Ninguém mais os
+// aponta, então o `listRemove` do `db.js` APAGA o blob (`isReferenced` não acha
+// dono), e o `addDeck` seguinte nasce com `videos[pagina]` apontando para um id
+// que já não existe: chegar naquela página não projeta nada, sem erro no
+// console — descoberto no culto. MEDIDO: 2 de 3 vídeos sobreviviam.
+//
+// Entra e sai por LOTE do importador (cada um apaga só os SEUS ids no `finally`,
+// para um segundo import não soltar os do primeiro), e a saída é garantida nos
+// três desfechos — pronto, cancelado e exceção. Solto, o id volta a ser
+// despejável: se a importação falhou, o vídeo é órfão e o rodízio é quem o
+// recolhe.
+const avulsosEmMontagem = new Set();
+
 async function fixarAvulso(novos) {
   const lote = (Array.isArray(novos) ? novos : [novos]).filter(Boolean);
   if (!lote.length) return;
   const ids = await AVDB.listIds('avulsos');
   for (const id of lote) if (!ids.includes(id)) await AVDB.listAdd('avulsos', id);
-  const outros = ids.filter((x) => !lote.includes(x));
+  const outros = ids.filter((x) => !lote.includes(x) && !avulsosEmMontagem.has(x));
   const cabem = Math.max(0, AVULSO_MAX - lote.length);
   const excedente = outros.slice(0, Math.max(0, outros.length - cabem));
   for (const velho of excedente) await AVDB.listRemove('avulsos', velho);
