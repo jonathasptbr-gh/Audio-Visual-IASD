@@ -125,7 +125,15 @@ O fecho não segue essa regra. `PacoteCanal.fechar()` (PacoteCanal.kt:140-155) f
 
 ### [14] Os vídeos embutidos de um `.pptx` ficam estacionados em `avulsos`, que é uma prateleira ROTATIVA de três — um `send` concorrente apaga os bytes antes do `addDeck`
 
-`app/src/main/assets/web/controle/controle.js:27992` · gravidade **baixa** · NÃO VERIFICADO · lente `controle-js-bugs`
+`app/src/main/assets/web/controle/controle.js:27992` · gravidade **baixa** · ✅ **RESOLVIDO na v1.8.75** · lente `controle-js-bugs`
+
+> **CONFIRMADO E RESOLVIDO na v1.8.75**, pela correção (a) — o conjunto `avulsosEmMontagem`, que o
+> `fixarAvulso` tira de `outros`. A (b) foi descartada: criar o deck antes dos vídeos exige um
+> `updateDeckVideos` novo no `db.js` e deixa uma apresentação MEIA na lista se a importação falhar no
+> meio. MEDIDO no bloco 8 do `pptx-video-na-pagina.test.mjs`: **2 de 3 vídeos sobreviviam**. A janela é
+> encenada (trava no `addDeck`) e a rotação é AGUARDADA antes de soltá-la — sem isso o oráculo passava
+> com o defeito de pé, porque o `send` dispara o `fixarAvulso` sem `await`. Segunda reversão medida: o
+> conserto ingênuo (nunca despejar) reprova as duas asserções de rodízio. Lote só de web.
 
 **Evidência.** Em `pptxImportar`, cada vídeo embutido nasce com `AVDB.addMedia(v.blob, { … list: 'avulsos' })` (27988-27993) e só sai de lá DEPOIS do `addDeck`: `for (const p in videos) await AVDB.listRemove('avulsos', videos[p]);` (28006). O comentário ao lado promete que a prateleira os protege (*"`avulsos` é o detentor provisório que os segura entre o `addMedia` e o `addDeck`"*). Mas `avulsos` não é um depósito: `fixarAvulso` (28194-28203) faz rodízio com `AVULSO_MAX = 3` (28193) — `const excedente = outros.slice(0, Math.max(0, outros.length - cabem));` (28201) seguido de `await AVDB.listRemove('avulsos', velho)` (28202). `outros` é a lista na ordem de chegada, e o `listRemove` do `db.js` apaga o blob quando `lerDetentores` não acha outro dono — e o deck, que seria esse dono (`rec.videos`), ainda não existe. `fixarAvulso` é chamado por todo `send` (11614) e por `guardarShare`/`importShare` (28546).
 
