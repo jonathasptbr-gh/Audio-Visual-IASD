@@ -2588,48 +2588,37 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.74 · APK v1.8.73** · `SHELL_VERSION` **72** ·
-bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
-**PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
+**Versão atual: base web v1.8.75 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.50 NÃO declara `shellTag`, e a v1.8.45 declarou — a diferença é o
-> ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela acrescentou um
-> método à ponte (`pacoteProntoEstado`) e o `controle.js` o CHAMA na abertura:
-> contra um APK sem ele, o `native.js` cai no `catch`, o `call()` vence os 60 s
-> e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
-> toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
-> de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (As v1.8.46 a v1.8.49, as v1.8.51 a v1.8.71 e a v1.8.74 são o mesmo caso,
-> pela mesma razão.)
+> **A v1.8.75 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
+> ACOPLAMENTO, que é a pergunta que aquele campo faz.** Esta não toca `java/`,
+> `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou de forma: o
+> bundle sai na hora, contra o APK v1.8.73 que já está publicado. Aquela
+> declarou porque o Kotlin da v1.8.72 (o fecho do pacote) ainda não tinha
+> Release — e é essa a regra, não a data: **o `shellTag` ACOMPANHA A ÚLTIMA
+> VERSÃO, NÃO A QUE MEXEU NO KOTLIN**, porque o CI exige
+> `shellTag == 'v' + version`. Um lote só de web publicado DEPOIS de um lote de
+> shell ainda não lançado HERDA a obrigação; zerá-lo ali publicaria o bundle
+> sozinho e deixaria o conserto do shell para trás, calado. **A Release é UMA**,
+> cortada de `main` na tag mais nova, e o APK que sai dela carrega todo o Kotlin
+> acumulado.
+>
+> **E O GATILHO DA RELEASE NÃO É A PONTE, É O `java/`.** A v1.8.72 não
+> acrescentou método nenhum — o `SHELL_VERSION` seguiu 72 —, mas `PacoteCanal` e
+> `MainActivity` mudaram, e nada em `java/` chega por OTA. O inverso também é
+> regra: a v1.8.71 ENCOLHEU a ponte (três métodos saíram do `native.js`) e NÃO
+> pediu Release, porque encolher pelo lado WEB é o lado seguro — o
+> `@JavascriptInterface` fica, e um APK que ainda serve método que ninguém chama
+> não custa nada ao aparelho. É a ordem inversa (base web nova contra APK velho)
+> que precisa do `shellTag`.
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
 > linha no resumo do run. **Deixá-la apontando para a tag do lote ANTERIOR é o
-> mesmo defeito por outro caminho** — o CI exige `shellTag == 'v' + version`.
-> **A TAG DO `shellTag` ACOMPANHA A ÚLTIMA VERSÃO, NÃO A QUE MEXEU NO KOTLIN.**
-> O CI exige `shellTag == 'v' + version`, então um lote só de web publicado
-> DEPOIS de um lote de shell ainda não lançado herda a obrigação: a v1.8.73 não
-> toca `java/`, mas declara `v1.8.73` porque o Kotlin da v1.8.72 continua sem
-> Release. **A Release é UMA**, cortada de `main` na tag mais nova, e o APK que
-> sai dela carrega todo o Kotlin acumulado. Zerar o `shellTag` aqui publicaria o
-> bundle sozinho e deixaria o conserto do pacote para trás, calado.
->
-> **A v1.8.72 PEDE RELEASE, e ela mostra que o gatilho não é a PONTE, é o
-> `java/`.** Nenhum método entrou nem mudou de forma — o `SHELL_VERSION` segue
-> 72 —, mas o `PacoteCanal` e o `MainActivity` mudaram, e nada em `java/` chega
-> por OTA. O `shellTag` está declarado porque as duas metades têm de pousar
-> JUNTAS: a nota do lote fala de um conserto que só existe no APK, e um bundle
-> que chegasse sozinho anunciaria ao operador algo que o aparelho dele não tem.
-> **A Release `v1.8.73` SAIU** (o APK está publicado, e é ele que a linha
-> "Versão atual" nomeia), então o Kotlin acumulado chegou à frota e a obrigação
-> que ele criava ACABOU: a v1.8.74 é só web e não declara `shellTag`. Enquanto
-> ela não saía, o modo de falhar era o de sempre — o canal SEGURANDO o bundle
-> para sempre, em silêncio, com a única pista na linha do resumo do run.
->
-> **A v1.8.71 é o AVESSO deste caso, e o contraste é a regra:** ela ENCOLHEU a
-> ponte (três métodos saíram do `native.js`) e NÃO pediu Release, porque
-> encolher pelo lado WEB é o lado seguro — o `@JavascriptInterface` fica e um
-> APK que ainda serve método que ninguém chama não custa nada ao aparelho.
+> mesmo defeito por outro caminho.** Declarada, a Release se dispara depois do
+> merge em `main`: Actions → *Build APK* → `release_tag` = a MESMA tag.
 
 > **ESTE BLOCO É A QUARTA CASA DA VERSÃO, e desde a v1.8.50 ela TEM ORÁCULO.**
 > As três oficiais (`version.json` · `WEB_VERSION` · `#appVersion`) têm asserção

@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.74';
+const WEB_VERSION = '1.8.75';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3429,7 +3429,7 @@ function syncFader(pct) {
 // Então aqui o ícone segue sendo o modo ATUAL, que é a informação que se perde.
 function renderRepeat() {
   const icon = repeat === 'one' ? ICON.repeatOne : repeat === 'shuffle' ? ICON.shuffle : ICON.repeatAll;
-  // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (v1.8.74), e não se ela anda:
+  // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (v1.8.75), e não se ela anda:
   // desde aquele lote a fila anda nos quatro modos, e "Repetição desativada"
   // passaria a prometer o oposto do que o `off` faz — que é justamente o
   // comportamento que o operador procurava quando esquecia de armar o `all`.
@@ -5563,7 +5563,7 @@ async function abrirPacote(d, cueId) {
   // prometer por causa deste campo.
   if (d.view && view !== d.view) await setView(d.view);
   // `trocarFila`, e não o `listSet` cru: um pacote é uma SEQUÊNCIA nova, e o
-  // modo de repetição do que tocava antes dele é resquício (v1.8.74).
+  // modo de repetição do que tocava antes dele é resquício (v1.8.75).
   await trocarFila(recs.map((r) => r.id));
   plItems = recs;
   renderPlaylist();
@@ -15184,7 +15184,7 @@ function autoAdvance() {
   // `resendSceneToDisplay` pergunta `midiaNoAr`: uma queda de dongle trazia de
   // volta ao telão a faixa que JÁ TINHA ACABADO.
   //
-  // E DESDE A v1.8.74 `off` CHEGA AQUI TAMBÉM — ele deixou de ser o primeiro
+  // E DESDE A v1.8.75 `off` CHEGA AQUI TAMBÉM — ele deixou de ser o primeiro
   // `return` desta função —, o que só torna esta linha mais necessária: é a
   // única que responde pela fila vazia nos QUATRO modos.
   if (plItems.length === 0) { resetAfterEnd(); return; }
@@ -15195,7 +15195,7 @@ function autoAdvance() {
     return;
   }
   const idx = plItems.findIndex((m) => m.id === currentId);
-  // ===== `off` É "SEM REPETIÇÃO", NUNCA "SEM SEQUÊNCIA" (v1.8.74) =====
+  // ===== `off` É "SEM REPETIÇÃO", NUNCA "SEM SEQUÊNCIA" (v1.8.75) =====
   //
   // Relato do operador: *"é normal o seletor estar desativado, tocar uma
   // playlist automática, mas ele tocar apenas a primeira e parar, pois o
@@ -15502,7 +15502,7 @@ function attachRowGestures(row, item) {
 }
 
 /**
- * ===== TROCAR A FILA ZERA O SELETOR DE REPETIÇÃO (v1.8.74) =====
+ * ===== TROCAR A FILA ZERA O SELETOR DE REPETIÇÃO (v1.8.75) =====
  *
  * Pedido do operador: *"ao se tocar um item, seja do cronograma ou o que for,
  * resete o estado do seletor de repetição, para ele não repetir uma mídia que
@@ -15537,7 +15537,7 @@ async function trocarFila(ids) {
 }
 
 /**
- * O SELETOR VOLTA AO COMEÇO (v1.8.74). Separado do `trocarFila` por UM chamador
+ * O SELETOR VOLTA AO COMEÇO (v1.8.75). Separado do `trocarFila` por UM chamador
  * que projeta sem fila nenhuma — o compartilhamento no Modo Fácil —, e ele é o
  * caso extremo da regra: ali a caixa de controles inteira não é desenhada
  * (`body.mode-simple .bottombar`), então um `one` herdado do modo avançado
@@ -22385,7 +22385,7 @@ async function montarFilaSorteada(escolhidos) {
     // primeiro item vai ao telão. `listSet` também COLETA o que saiu da lista —
     // é a mesma semântica de todo "Tocar agora" do acervo, que já substitui a
     // fila por `replacePlaylistWith`.
-    // `trocarFila` ZERA O SELETOR (v1.8.74), e é aqui que isso mais importa: a
+    // `trocarFila` ZERA O SELETOR (v1.8.75), e é aqui que isso mais importa: a
     // playlist automática é o caminho em que o operador menos olha para o
     // transporte — ele sorteia e projeta. Com `one` herdado da faixa anterior a
     // fila recém-montada tocaria a primeira em laço; com `off`, ela anda até o
@@ -27927,7 +27927,28 @@ function deckVideoTalvezTocar(d, n) {
   const volta = { deckId: d.id, rec: d, pagina: n, videoId: vid };
   // O `send` LIMPA a volta na entrada (um toque do operador em qualquer outra
   // coisa desarma a automação), então ela só pode ser armada DEPOIS dele.
-  send(vid, true).then(() => {
+  //
+  // E DEPOIS DELE PODE SER TARDE DEMAIS — daí a senha. Entre o disparo e a
+  // resolução há dois `await`: o `getMedia` do vídeo (que não está em `plItems`,
+  // `libItems` nem `favItems`, então a leitura do blob inteiro acontece SEMPRE)
+  // e o `persistCurrent`. Nesse vão cabe um toque do operador: o `send` dele
+  // zera a volta, e este `.then` a rearmaria com o deck que já saiu de cena. O
+  // fim natural da mídia escolhida cairia então em `autoAdvance`, cuja primeira
+  // linha devolve a apresentação ANTIGA ao telão em vez de andar na fila, e o
+  // ⏭ passaria a mexer no deck morto (`slideTarget()` devolve 'deck').
+  //
+  // `currentId` não serve no lugar dela: o `send` concorrente pode ter sido de
+  // um cue, que também o escreve. É a mesma senha de `load()` e do
+  // `ytAcaoInterno` — ver `projecaoSeq`.
+  //
+  // ELA É LIDA DEPOIS DO DISPARO, e isso é deliberado: `send` é `async`, e a
+  // primeira linha dele (`++projecaoSeq`) roda SÍNCRONA, dentro da chamada
+  // acima. Lida antes, a senha nasceria uma unidade atrás e a guarda recusaria
+  // sempre — a volta nunca seria armada, que é o defeito nº 2 deste arquivo.
+  const projetando = send(vid, true);
+  const senha = projecaoSeq;
+  projetando.then(() => {
+    if (projecaoSeq !== senha) return;
     deckVideoVolta = volta;
     // E O PAR DE BOTÕES PRECISA SER REDESENHADO AQUI. O `send` já rodou — com a
     // volta ainda nula —, então o ⏮/⏭ foi desenhado como o de um vídeo avulso:
@@ -28716,7 +28737,7 @@ async function focarImportado(id) {
   // No simplificado o item vai direto ao telão: esse modo existe para quem não
   // vai operar nada, e a lista sequer aparece nele.
   //
-  // E O SELETOR DE REPETIÇÃO VOLTA AO COMEÇO ANTES (v1.8.74) — ver
+  // E O SELETOR DE REPETIÇÃO VOLTA AO COMEÇO ANTES (v1.8.75) — ver
   // `zerarRepeticao`. Este é o único caminho que projeta SEM redefinir a fila,
   // e é o mais exposto: no Modo Fácil não há transporte na tela, então um modo
   // herdado do avançado não teria como ser desfeito por quem está operando.
