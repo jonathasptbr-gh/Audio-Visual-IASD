@@ -1962,8 +1962,9 @@ e é isso que permite repetir a faixa com o ▶:
 
 - **`stopClear`** — o operador cobriu o telão (o comando `clear` leva o Display
   de volta ao wallpaper), mas o item continua selecionado;
-- **`resetAfterEnd`** — a música acabou e nada a seguiu (`repeat === 'off'`); o
-  `stage` já voltou ao wallpaper sozinho pela bandeira `ended`.
+- **`resetAfterEnd`** — a música acabou e nada a seguiu (o fim da fila, ou uma
+  cena que não estava nela); o `stage` já voltou ao wallpaper sozinho pela
+  bandeira `ended`.
 
 Reenviando por `currentId`, os dois viravam defeito: o telão acordava com um
 vídeo **engatilhado** que ninguém pediu — e, num `<video>` pausado que nunca
@@ -8305,20 +8306,47 @@ retorno aproveitado; `handleSharedUrl` também devolve o seu.
 
 Ciclo ao tocar no botão 🔁: `off → all → one → shuffle → off` (persistido em `repeat`).
 
-**Tocar uma música nova zera o `one`** (`replacePlaylistWith`): tanto o toque
-simples na biblioteca quanto o "tocar" de um resultado da busca substituem a
-playlist por aquele item só — e, junto, desligam o `repeat='one'`. Repetir a
-mesma música é uma escolha sobre a música que ESTAVA tocando; mantê-la
-prenderia o item novo em laço, que é o oposto de "escolhi outra coisa para
-tocar". `all` e `shuffle` ficam: são comportamentos da FILA e voltam a valer
-assim que o operador acrescentar itens a ela.
+**O SELETOR RESPONDE PELO FIM DA FILA, NÃO POR ELA ANDAR** (v1.8.74). Até aquele
+lote `off` era o primeiro `return` do `autoAdvance` — o fim de QUALQUER faixa era
+fim de cena —, e com isso a única forma de ouvir uma sequência era armar `all`,
+que é outra coisa: aquele RECOMEÇA no fim. Relato do operador: *"é normal o
+seletor estar desativado, tocar uma playlist automática, mas ele tocar apenas a
+primeira e parar, pois o usuário esquece de ativar o automático"*. Quem monta uma
+playlist já disse, ao montá-la, o que quer; pedir um segundo gesto para isso é
+cobrar duas vezes pela mesma intenção.
 
 | Modo | Comportamento ao fim do item |
 |---|---|
-| `off` | Playlist para; `currentId` permanece para replay manual |
-| `all` | Avança para o próximo; ao fim da lista volta ao início |
+| `off` | Avança para o próximo da fila e **para na última** (`resetAfterEnd`); `currentId` permanece para replay manual |
+| `all` | Avança para o próximo; ao fim da lista **volta ao início** |
 | `one` | Recarrega e reproduz o mesmo item |
 | `shuffle` | Avança para item aleatório (nunca repete o atual) |
+
+**A cena que não está na fila não tem "próximo".** Com `idx === -1` — um share
+projetado na hora, um item que voltou da prateleira `avulsos` — o `off` encerra a
+cena, enquanto o `all` começa a fila pelo topo. A diferença é o que a congregação
+vê: abrir um bloco de louvores que ninguém mandou tocar.
+
+**TROCAR A FILA ZERA O SELETOR** (`trocarFila`, v1.8.74) — pedido do operador:
+*"ao se tocar um item, seja do cronograma ou o que for, resete o estado do
+seletor de repetição… que reflitam a intenção do usuário e não um resquício de
+uma opção da mídia passada"*. A pergunta é **"a fila foi REDEFINIDA?"**, e por
+isso a zeragem mora no funil e não em cada porta: as três chamadas de
+`AVDB.listSet('playlist', …)` com um ARRAY passam por ele — o item avulso
+(`replacePlaylistWith`), o pacote (`abrirPacote`) e a playlist automática
+(`montarFilaSorteada`). Tocar numa linha da fila EXISTENTE não passa: escolher por
+onde começar não desfaz a sequência. O quarto chamador é o `zerarRepeticao`
+sozinho, no share do **Modo Fácil** — o único caminho que projeta sem redefinir
+fila, e o mais exposto, porque ali `body.mode-simple` esconde a caixa de
+controles inteira e um modo herdado não teria por onde ser desfeito.
+
+> **O que isto revoga:** até aqui só o `repeat='one'` caía, sob o argumento de
+> que `all`/`shuffle` "são comportamentos da FILA e voltam a valer quando o
+> operador acrescentar itens a ela". MEDIDO, o argumento não se sustentava no
+> caso dominante: `replacePlaylistWith` deixa a fila com UM item, e sobre uma
+> fila de um os dois VIRAM `one` — `all` faz `(0 + 1) % 1 === 0` e o `shuffle`
+> tem o ramo `length === 1`. A mídia recém-escolhida tocava em laço, que é
+> literalmente o defeito que a queda do `one` existia para evitar.
 
 ---
 

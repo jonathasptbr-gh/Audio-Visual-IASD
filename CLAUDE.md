@@ -2588,8 +2588,8 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.73 · APK v1.8.45** · `SHELL_VERSION` **72** ·
-bundle com `minShell: 72` e **`shellTag: v1.8.73`** — o shell 72 é o
+**Versão atual: base web v1.8.74 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
 > **A v1.8.50 NÃO declara `shellTag`, e a v1.8.45 declarou — a diferença é o
@@ -2599,8 +2599,8 @@ bundle com `minShell: 72` e **`shellTag: v1.8.73`** — o shell 72 é o
 > e resolve `null` — a semeadura simplesmente não acontece, calada. Esta não
 > toca `java/`, `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou
 > de forma: o bundle sai na hora, contra o APK v1.8.45 que já está publicado.
-> (As v1.8.46 a v1.8.49 e as v1.8.51 a v1.8.71 são o mesmo caso, pela mesma
-> razão.)
+> (As v1.8.46 a v1.8.49, as v1.8.51 a v1.8.71 e a v1.8.74 são o mesmo caso,
+> pela mesma razão.)
 >
 > **O modo de falhar deste campo está dito e é o caro:** uma tag declarada cuja
 > Release nunca sai segura o canal PARA SEMPRE, em silêncio, e a única pista é a
@@ -2620,9 +2620,11 @@ bundle com `minShell: 72` e **`shellTag: v1.8.73`** — o shell 72 é o
 > por OTA. O `shellTag` está declarado porque as duas metades têm de pousar
 > JUNTAS: a nota do lote fala de um conserto que só existe no APK, e um bundle
 > que chegasse sozinho anunciaria ao operador algo que o aparelho dele não tem.
-> **Depois do merge em `main`: Actions → Build APK → `release_tag = v1.8.73`.**
-> Sem isso o canal fica SEGURANDO o bundle para sempre, em silêncio, e a única
-> pista é a linha no resumo do run.
+> **A Release `v1.8.73` SAIU** (o APK está publicado, e é ele que a linha
+> "Versão atual" nomeia), então o Kotlin acumulado chegou à frota e a obrigação
+> que ele criava ACABOU: a v1.8.74 é só web e não declara `shellTag`. Enquanto
+> ela não saía, o modo de falhar era o de sempre — o canal SEGURANDO o bundle
+> para sempre, em silêncio, com a única pista na linha do resumo do run.
 >
 > **A v1.8.71 é o AVESSO deste caso, e o contraste é a regra:** ela ENCOLHEU a
 > ponte (três métodos saíram do `native.js`) e NÃO pediu Release, porque

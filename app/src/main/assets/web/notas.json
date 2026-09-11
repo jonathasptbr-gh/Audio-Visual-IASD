@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.74",
+    "itens": [
+      "A playlist toca sozinha do começo ao fim: não é mais preciso ligar a repetição para a fila andar.",
+      "Tocar um item volta o seletor de repetição ao normal — nada repete por sobra da mídia anterior."
+    ]
+  },
+  {
     "versao": "1.8.73",
     "itens": [
       "Os dois botões quadrados ao lado da busca da Biblioteca voltaram a ter o ícone do mesmo tamanho."

@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.73';
+const WEB_VERSION = '1.8.74';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3429,8 +3429,13 @@ function syncFader(pct) {
 // Então aqui o ícone segue sendo o modo ATUAL, que é a informação que se perde.
 function renderRepeat() {
   const icon = repeat === 'one' ? ICON.repeatOne : repeat === 'shuffle' ? ICON.shuffle : ICON.repeatAll;
-  const label = repeat === 'off' ? 'Repetição desativada'
-    : repeat === 'one' ? 'Repetir 1' : repeat === 'shuffle' ? 'Aleatório' : 'Repetir tudo';
+  // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (v1.8.74), e não se ela anda:
+  // desde aquele lote a fila anda nos quatro modos, e "Repetição desativada"
+  // passaria a prometer o oposto do que o `off` faz — que é justamente o
+  // comportamento que o operador procurava quando esquecia de armar o `all`.
+  const label = repeat === 'off' ? 'Sem repetição — a fila toca em sequência e para no fim'
+    : repeat === 'one' ? 'Repetir 1' : repeat === 'shuffle' ? 'Aleatório'
+    : 'Repetir tudo — a fila recomeça no fim';
   repeatEl.querySelector('.msym').textContent = icon;
   repeatEl.title = label;
   repeatEl.classList.toggle('active', repeat !== 'off');
@@ -5557,7 +5562,9 @@ async function abrirPacote(d, cueId) {
   // botão da fila, que nunca prometeu nada sobre o telão e não pode começar a
   // prometer por causa deste campo.
   if (d.view && view !== d.view) await setView(d.view);
-  await AVDB.listSet('playlist', recs.map((r) => r.id));
+  // `trocarFila`, e não o `listSet` cru: um pacote é uma SEQUÊNCIA nova, e o
+  // modo de repetição do que tocava antes dele é resquício (v1.8.74).
+  await trocarFila(recs.map((r) => r.id));
   plItems = recs;
   renderPlaylist();
   await send(recs[0].id);
@@ -15168,7 +15175,6 @@ function autoAdvance() {
   // item da fila: deixá-lo cair no avanço normal projetaria o próximo louvor no
   // meio do sermão, e com `repeat: 'one'` ele tocaria em laço para sempre.
   if (deckVideoVolta) { deckVideoVoltar(); return; }
-  if (repeat === 'off') { resetAfterEnd(); return; }
   if (repeat === 'one') { if (currentId) send(currentId, true); return; }
   // FILA VAZIA COM `repeat` LIGADO TAMBÉM É FIM DE CENA (v1.8.52). Este `return`
   // era seco, e MEDIDO o estrago era permanente: a faixa acabava, o `<video>`
@@ -15177,6 +15183,10 @@ function autoAdvance() {
   // rotinas de acervo nunca mais cediam a vez de volta) e — o caro —
   // `resendSceneToDisplay` pergunta `midiaNoAr`: uma queda de dongle trazia de
   // volta ao telão a faixa que JÁ TINHA ACABADO.
+  //
+  // E DESDE A v1.8.74 `off` CHEGA AQUI TAMBÉM — ele deixou de ser o primeiro
+  // `return` desta função —, o que só torna esta linha mais necessária: é a
+  // única que responde pela fila vazia nos QUATRO modos.
   if (plItems.length === 0) { resetAfterEnd(); return; }
   if (repeat === 'shuffle') {
     if (plItems.length === 1) { send(plItems[0].id, true); return; }
@@ -15184,8 +15194,36 @@ function autoAdvance() {
     send(plItems[i].id, true);
     return;
   }
-  // all
   const idx = plItems.findIndex((m) => m.id === currentId);
+  // ===== `off` É "SEM REPETIÇÃO", NUNCA "SEM SEQUÊNCIA" (v1.8.74) =====
+  //
+  // Relato do operador: *"é normal o seletor estar desativado, tocar uma
+  // playlist automática, mas ele tocar apenas a primeira e parar, pois o
+  // usuário esquece de ativar o automático"*.
+  //
+  // O SELETOR RESPONDE PELO QUE ACONTECE NO FIM DA FILA, não por ela andar.
+  // Até aqui `off` era o primeiro `return` desta função — o fim de QUALQUER
+  // faixa era fim de cena —, e com isso a única forma de ouvir uma fila inteira
+  // era armar `all`, que é outra coisa: aquele RECOMEÇA no fim. Quem monta uma
+  // playlist já disse, ao montá-la, que quer as faixas em sequência; pedir um
+  // segundo gesto para isso é cobrar duas vezes pela mesma intenção, e o preço
+  // de esquecê-lo é o culto parando na primeira faixa.
+  //
+  // E O FIM DA FILA CONTINUA SENDO FIM DE CENA: `off` avança até a última e
+  // para ali (`resetAfterEnd`), que é a diferença inteira para o `all`. Um laço
+  // que ninguém pediu projetaria o primeiro louvor de novo na frente da
+  // congregação — o desfecho que este modo existe para NÃO ter.
+  //
+  // `idx === -1` TAMBÉM PARA, e não volta ao topo como o `all` faz: a cena veio
+  // de fora da fila (a prateleira `avulsos`, um share projetado na hora), e um
+  // item que não está na sequência não tem "próximo" — começar a fila do zero
+  // ali seria projetar um bloco de louvores que o operador não abriu.
+  if (repeat === 'off') {
+    if (idx === -1 || idx + 1 >= plItems.length) { resetAfterEnd(); return; }
+    send(plItems[idx + 1].id, true);
+    return;
+  }
+  // all
   const target = idx === -1 ? 0 : (idx + 1) % plItems.length;
   send(plItems[target].id, true);
 }
@@ -15463,22 +15501,66 @@ function attachRowGestures(row, item) {
   row.addEventListener('pointercancel', () => { clearTimeout(lp); pid = null; });
 }
 
+/**
+ * ===== TROCAR A FILA ZERA O SELETOR DE REPETIÇÃO (v1.8.74) =====
+ *
+ * Pedido do operador: *"ao se tocar um item, seja do cronograma ou o que for,
+ * resete o estado do seletor de repetição, para ele não repetir uma mídia que
+ * não era intenção repetir e nem tocar a próxima mídia automática… que reflitam
+ * a intenção do usuário e não um resquício de uma opção da mídia passada"*.
+ *
+ * **A PERGUNTA É "A FILA FOI REDEFINIDA?", e não "o que foi tocado?"** — e é
+ * por isso que a zeragem mora AQUI, no funil, e não em cada porta que projeta.
+ * Trocar a fila é dizer *"a sequência agora é esta"*; um modo herdado da
+ * sequência ANTERIOR é, por construção, resquício. Tocar numa linha da fila
+ * EXISTENTE não passa por aqui (`renderPlaylist` chama `send` direto), e está
+ * certo que não passe: escolher por onde começar não desfaz a sequência.
+ *
+ * O QUE ISTO REVOGA: até aqui só o `repeat='one'` caía, sob o argumento de que
+ * `all`/`shuffle` são "comportamentos da FILA e voltam a valer quando o
+ * operador acrescentar itens a ela". MEDIDO, o argumento não se sustentava no
+ * caso dominante: `replacePlaylistWith` deixa a fila com UM item, e com ela
+ * assim os dois viram `one` por outro caminho — `all` faz `(0 + 1) % 1 === 0` e
+ * o `shuffle` tem o ramo `length === 1`. A mídia que o operador acabou de
+ * escolher tocava em laço, que é literalmente o defeito que o `one` caindo
+ * existia para evitar.
+ *
+ * **É A ÚNICA PORTA QUE TROCA A FILA INTEIRA**, e isso é verificável: as três
+ * chamadas de `AVDB.listSet('playlist', …)` com um ARRAY passam por ela (o item
+ * avulso, o pacote e a playlist automática). As outras duas usam a forma com
+ * FUNÇÃO — acrescentar aos selecionados e o "Limpar" —, e nenhuma das duas
+ * redefine uma sequência para tocar.
+ */
+async function trocarFila(ids) {
+  await AVDB.listSet('playlist', ids);
+  await zerarRepeticao();
+}
+
+/**
+ * O SELETOR VOLTA AO COMEÇO (v1.8.74). Separado do `trocarFila` por UM chamador
+ * que projeta sem fila nenhuma — o compartilhamento no Modo Fácil —, e ele é o
+ * caso extremo da regra: ali a caixa de controles inteira não é desenhada
+ * (`body.mode-simple .bottombar`), então um `one` herdado do modo avançado
+ * prenderia o que acabou de chegar em laço **sem nenhuma superfície na tela por
+ * onde desfazê-lo**, e um `all` projetaria em seguida o primeiro item de uma
+ * fila que aquele modo não mostra.
+ *
+ * A guarda de igualdade não é economia: sem ela toda troca de fila paga uma
+ * transação de IndexedDB e um redesenho para gravar o valor que já estava lá —
+ * e `off` é o estado dominante, justamente porque este funil o restaura.
+ */
+async function zerarRepeticao() {
+  if (repeat === 'off') return;
+  repeat = 'off';
+  await AVDB.setState('repeat', repeat);
+  renderRepeat();
+}
+
 // Trocar de música do zero: a playlist passa a ser SÓ este item.
-//
-// Junto vai o `repeat='one'`: repetir a mesma música é uma escolha sobre a
-// música que estava tocando, não uma preferência permanente — mantê-la aqui
-// prenderia o item novo em laço, que é o oposto de "escolhi outra coisa para
-// tocar". `all`/`shuffle` ficam: são comportamentos da FILA, e continuam
-// valendo quando o operador acrescentar itens a ela.
 async function replacePlaylistWith(rec) {
-  await AVDB.listSet('playlist', [rec.id]);
+  await trocarFila([rec.id]);
   plItems = [rec];
   renderPlaylist();
-  if (repeat === 'one') {
-    repeat = 'off';
-    await AVDB.setState('repeat', repeat);
-    renderRepeat();
-  }
 }
 
 /**
@@ -22303,7 +22385,12 @@ async function montarFilaSorteada(escolhidos) {
     // primeiro item vai ao telão. `listSet` também COLETA o que saiu da lista —
     // é a mesma semântica de todo "Tocar agora" do acervo, que já substitui a
     // fila por `replacePlaylistWith`.
-    await AVDB.listSet('playlist', ids);
+    // `trocarFila` ZERA O SELETOR (v1.8.74), e é aqui que isso mais importa: a
+    // playlist automática é o caminho em que o operador menos olha para o
+    // transporte — ele sorteia e projeta. Com `one` herdado da faixa anterior a
+    // fila recém-montada tocaria a primeira em laço; com `off`, ela anda até o
+    // fim sozinha, que é o que "montar uma playlist" quer dizer.
+    await trocarFila(ids);
     plItems = await AVDB.listItems('playlist');
     renderPlaylist();
     await send(ids[0]);
@@ -28628,7 +28715,12 @@ async function focarImportado(id) {
   await sairDasCamadas();
   // No simplificado o item vai direto ao telão: esse modo existe para quem não
   // vai operar nada, e a lista sequer aparece nele.
-  if (appMode === 'simple' && id) await send(id);
+  //
+  // E O SELETOR DE REPETIÇÃO VOLTA AO COMEÇO ANTES (v1.8.74) — ver
+  // `zerarRepeticao`. Este é o único caminho que projeta SEM redefinir a fila,
+  // e é o mais exposto: no Modo Fácil não há transporte na tela, então um modo
+  // herdado do avançado não teria como ser desfeito por quem está operando.
+  if (appMode === 'simple' && id) { await zerarRepeticao(); await send(id); }
 }
 
 // (A leitura do estado `pending-share` saiu: quem o escrevia era o service

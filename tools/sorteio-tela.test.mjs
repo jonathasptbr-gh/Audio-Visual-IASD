@@ -526,11 +526,18 @@ try {
     sorteioPrefs.quantos = 3;
     sorteioPrefs.tema = '';            // o acervo inteiro: 3 baixadas
     sorteioPrefs.soNoAparelho = true;
+    // O SELETOR ARMADO NA FAIXA ANTERIOR (v1.8.74): é assim que ele chega aqui
+    // num culto — `one` sobrou do louvor que o operador repetiu, e a playlist
+    // recém-sorteada tocaria a primeira em laço.
+    await AVDB.setState('repeat', 'one'); repeat = 'one'; renderRepeat();
     await abrirSorteio();
     await executarSorteio(document.querySelector('#sorteioPopup .song-menu-go'), 'tocar');
     await new Promise((r) => setTimeout(r, 600));
     const ids = await AVDB.listIds('playlist');
-    return { ids, plItems: plItems.length, noAr: currentId, primeiro: ids[0] };
+    return {
+      ids, plItems: plItems.length, noAr: currentId, primeiro: ids[0],
+      modo: repeat, guardado: (await AVDB.getState('repeat')) || 'off',
+    };
   });
   checar(fila.ids.length === 3,
     'a fila do player passa a ter as três sorteadas', fila.ids);
@@ -539,6 +546,27 @@ try {
     fila.plItems);
   checar(fila.noAr === fila.primeiro,
     'e a PRIMEIRA já está no telão (o caminho do `abrirPacote`)', fila);
+  // ===== E A FILA ANDA SOZINHA (v1.8.74) =====
+  //
+  // Relato do operador: *"é normal o seletor estar desativado, tocar uma
+  // playlist automática, mas ele tocar apenas a primeira e parar, pois o
+  // usuário esquece de ativar o automático"*. São DUAS metades, e as duas se
+  // medem aqui, no caminho por onde ele de fato passa (a folha, o
+  // `executarSorteio`, o `montarFilaSorteada`): montar a fila ZERA o seletor —
+  // o `one` armado acima é resquício da faixa anterior — e, com ele em `off`, o
+  // fim da primeira projeta a SEGUNDA. A regra por partes (as bordas, o limite
+  // de quem NÃO zera) mora no `repeticao-e-sequencia.test.mjs`.
+  checar(fila.modo === 'off' && fila.guardado === 'off',
+    'montar a playlist automática devolve o seletor a `off` — com o `one` de '
+    + 'antes ela tocaria a primeira faixa em laço', fila.modo + ' · ' + fila.guardado);
+  const andou = await pg.evaluate(async () => {
+    autoAdvance();
+    await new Promise((r) => setTimeout(r, 600));
+    return currentId;
+  });
+  checar(andou === fila.ids[1],
+    'e o fim da primeira projeta a SEGUNDA da fila, sem o operador armar nada',
+    andou + ' (esperado: ' + fila.ids[1] + ')');
 
   // ---- A FAIXA DE FECHO: TOCAR MAIS OS TRÊS DESTINOS (v1.8.56) -----------
   //
