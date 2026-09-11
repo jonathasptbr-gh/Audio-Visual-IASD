@@ -308,41 +308,58 @@ try {
   // Os TRÊS caminhos, como lá — e o motivo de não bastar o `click()` é o mesmo:
   // o acidente que poupava um botão era o alvo do evento, e ele muda conforme o
   // dedo cai no `<button>` ou no que estiver dentro dele.
-  const SEL_OP = '#lyricsPopup .lv-cifra-vel-op';
-  const abrirGaveta = () => pg.evaluate(() => {
+  // ===== E O RISCO SAIU DE CENA COM OS BOTÕES (v1.8.78) =====
+  //
+  // A gaveta virou um `<input type="range">`: não há mais cinco `.lv-fonte-btn`
+  // escondidos ali, e um `<input>` não casa o seletor do ouvinte delegado por
+  // construção. Este bloco deixou de poder percorrer botões — e a pergunta que
+  // ele fazia continua valendo, escrita do único jeito que ainda a alcança: **a
+  // gaveta não pode voltar a hospedar um membro da família do A+/A−**.
+  //
+  // É uma asserção de AUSÊNCIA, e ela é honesta porque nomeia o que reprova:
+  // um botão novo lá dentro com a classe da pintura (é o que a v1.7.4 fez, e o
+  // que trouxe este bloco à existência) volta a expor o defeito que o arquivo
+  // inteiro vigia.
+  //
+  // E ELA NÃO BASTA SOZINHA: o slider tem de ser ARRASTÁVEL sem mexer na fonte,
+  // porque um `input` dentro da fila continua disparando eventos que sobem até
+  // o documento. Os dois caminhos do arquivo (o `input` e o teclado) estão
+  // abaixo, com a mesma leitura de antes e depois.
+  const gavetaFonte = await pg.evaluate(() => {
     if (!lyricsCifraCtlEl.classList.contains('escolhendo')) cifraVelFilaAlternar();
-    return lyricsCifraCtlEl.querySelectorAll('.lv-cifra-vel-op').length;
+    return {
+      botoes: lyricsCifraCtlEl.querySelectorAll('.lv-cifra-vels .lv-fonte-btn').length,
+      slider: !!lyricsCifraCtlEl.querySelector('.lv-cifra-slider'),
+    };
   });
-  const quantasOps = await abrirGaveta();
-  checar(quantasOps >= 2,
-    'a gaveta da velocidade tem botões a vigiar — eles vestem `.lv-fonte-btn`, '
-    + 'que é a classe pela qual o defeito passava', quantasOps);
-  for (const caminho of ['click()', 'dedo na borda', 'teclado (Enter)']) {
-    const mexeram = [];
-    for (let i = 0; i < quantasOps; i++) {
-      await armar();
-      // `armar()` remede a folha, o que REFAZ a fila — a gaveta fecha junto.
-      // Reabri-la aqui é parte do cenário, e por isso vem ANTES da leitura.
-      await abrirGaveta();
-      const antes = await lerFonte();
-      const loc = pg.locator(SEL_OP).nth(i);
-      const nome = await loc.evaluate((b) => b.textContent.trim());
-      if (caminho === 'click()') await loc.evaluate((b) => b.click());
-      else if (caminho === 'dedo na borda') {
-        const cx = await loc.boundingBox();
-        await loc.click({ position: { x: 2, y: Math.round(cx.height / 2) } });
-      } else { await loc.focus(); await pg.keyboard.press('Enter'); }
-      const depois = await lerFonte();
-      if (depois.raiz !== antes.raiz) {
-        mexeram.push(nome + ': ' + antes.raiz + ' → ' + depois.raiz);
-      }
-      await pg.evaluate(() => { if (cifraRolando) cifraRolarParar(); });
+  checar(gavetaFonte.slider && gavetaFonte.botoes === 0,
+    'a gaveta da velocidade é um SLIDER e não hospeda nenhum `.lv-fonte-btn` — '
+    + 'é por aquela classe que o defeito deste arquivo passava, e o mecanismo '
+    + 'novo a tirou de lá', gavetaFonte);
+  for (const caminho of ['arrasto (input)', 'teclado (setas)']) {
+    await armar();
+    await pg.evaluate(() => {
+      if (!lyricsCifraCtlEl.classList.contains('escolhendo')) cifraVelFilaAlternar();
+    });
+    const antes = await lerFonte();
+    const loc = pg.locator('#lyricsPopup .lv-cifra-slider');
+    if (caminho === 'arrasto (input)') {
+      await loc.evaluate((el) => {
+        el.value = String(Number(el.value) > 0 ? Number(el.value) - 1 : 1);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    } else {
+      await loc.focus();
+      await pg.keyboard.press('ArrowLeft');
+      await pg.keyboard.press('ArrowRight');
     }
-    checar(mexeram.length === 0,
-      'e nenhum botão da GAVETA da velocidade mexe na escada da fonte por "'
-      + caminho + '" — eles vestem a mesma classe do par, e é por ela que o '
-      + 'defeito passava', mexeram);
+    const depois = await lerFonte();
+    checar(depois.raiz === antes.raiz,
+      'e regular a velocidade por "' + caminho + '" não mexe na escada da fonte',
+      antes.raiz + ' → ' + depois.raiz);
+    await pg.evaluate(() => { if (cifraRolando) cifraRolarParar(); });
   }
+
   await pg.evaluate(() => {
     if (lyricsCifraCtlEl.classList.contains('escolhendo')) cifraVelFilaAlternar();
     cifraAdotarVelocidade('auto');

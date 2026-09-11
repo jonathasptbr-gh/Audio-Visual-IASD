@@ -292,6 +292,33 @@ try {
     'e a badge segue muda nos dois estados — o limiar dela (`> 1`) é OUTRO, e '
     + 'amarrá-los faria uma pergunta responder pela outra',
     JSON.stringify({ zero: semNada.plBadge, um: umSo.plBadge }));
+  // ===== E COM DOIS ITENS ELA DIZ **2** (v1.8.78) =====
+  //
+  // Revogação do operador: *"o número no botão da playlist está indicando '1'
+  // quando há duas mídias na playlist. Isso foi uma decisão antiga, estou
+  // revogando ela, esse número deve representar o número total de itens"*.
+  //
+  // A régua antiga contava os itens ALÉM do primeiro (`count - 1`), e o selo
+  // discordava do contador da própria folha, que sempre disse o total. A
+  // asserção é sobre DOIS porque é ali que as duas contas se separam por um — e
+  // é o caso que o operador relatou.
+  const dois = await pg.evaluate(async () => {
+    await AVDB.listSet('playlist', ['hino-um', 'hino-dois']);
+    await load();
+    return {
+      badge: document.getElementById('plCount').textContent || '',
+      folha: document.getElementById('plPopupCount').textContent || '',
+      fila: plItems.length,
+    };
+  });
+  checar(dois.fila === 2 && dois.badge === '2',
+    'com DOIS itens na fila o selo do botão diz "2" — o TOTAL, e não os itens '
+    + 'além do primeiro', JSON.stringify(dois));
+  checar(dois.badge === dois.folha,
+    'e ele concorda com o contador da folha, que sempre disse o total: duas '
+    + 'contagens da mesma lista na mesma tela é o app se contradizendo',
+    JSON.stringify(dois));
+  await pg.evaluate(async () => { await AVDB.listSet('playlist', []); await load(); });
 
   // ── 10. A FILA MUDA PELA PORTA DE VERDADE (v1.8.70) ─────────────────────
   // OS NOVE BLOCOS ACIMA MONTAM A FILA PELO BANCO e chamam `load()` na

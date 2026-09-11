@@ -275,6 +275,22 @@ const anotarUso = (nome, onde) => {
   for (let m; (m = re2.exec(js));) {
     anotarUso(m[1], 'controle.js:' + js.slice(0, m.index).split('\n').length);
   }
+  // ===== E O `setAttribute('href', '#icoX')`, QUE É A TERCEIRA FORMA (v1.8.78)
+  //
+  // O `#repeat` troca o desenho SEM tocar no markup: o `<use>` nasce no HTML e
+  // o `renderRepeat` só reescreve o `href` dele, com o nome vindo de uma tabela
+  // (`REPEAT_ICO`). Os dois regex acima procuram o texto `href="#ico…` e NÃO
+  // veem isso — MEDIDO na entrada deste lote: dois símbolos VIVOS foram
+  // reprovados como órfãos, com o conserto sugerido sendo apagá-los.
+  //
+  // A forma casada é o LITERAL DE STRING (`'#icoX'` ou `"#icoX"`), e é ela que
+  // separa código de prosa: um comentário que cite `#icoGear` no meio de uma
+  // frase não casa, então a varredura continua reprovando um símbolo que só
+  // sobreviva em documentação.
+  const re3 = /['"`]#(ico[A-Za-z0-9_]*)['"`]/g;
+  for (let m; (m = re3.exec(js));) {
+    anotarUso(m[1], 'controle.js:' + js.slice(0, m.index).split('\n').length);
+  }
 }
 
 checar(definidos.size >= 20,
