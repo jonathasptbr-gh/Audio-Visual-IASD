@@ -321,26 +321,31 @@
   --surface-2-alta: rgba(255, 255, 255, .18); /* chip/campo/badge SOBRE o fundo do app */
   --surface: var(--surface-alta);
 
-  /* A SUPERFÍCIE DAS TRÊS PORTAS DO CRONOGRAMA, E ELA É O DENIM CHEIO (v1.8.62).
-     Pedido do operador: *"quero eles em azul, o mesmo azul de ativado dos botões
-     das configurações, cuide que eles lá são semi transparentes, mas aqui devem
-     ser sólidos"*. O azul de "ativado" é o `--btn-accent` do `.qs-tile.qs-on`, e
-     ele é o denim LAVADO contra o fundo — opaco no arquivo, LAVADO aos olhos, que
-     é o que o relato descreve. O sólido dele é o denim de onde ele sai: `#2f557f`,
-     o mesmo valor do `--accent-fill` e o mesmo NOS DOIS TEMAS.
+  /* A SUPERFÍCIE DAS TRÊS PORTAS DO CRONOGRAMA, E ELA É O AZUL DE "ATIVADO"
+     (v1.8.63). Pedido do operador, depois de a v1.8.62 ter errado o alvo:
+     *"o azul que você aplicou aos botões flutuantes foi o azul escuro, eu queria
+     o azul mais claro, o mesmo nos cards de tema, rotação, exportar e etc"*. O
+     azul daqueles cards é o `--btn-accent` do `.qs-tile.qs-on` — MEDIDO no
+     renderizado, com o painel aberto: `#293d57` no escuro e `#dcebfe` no claro,
+     com o traço em `--accent` nos dois. A v1.8.62 leu "sólidos" como o denim
+     cheio (`#2f557f`) e entregou OUTRA cor: 2,45:1 contra a faixa no escuro e
+     5,97:1 no claro, contra 1,70 e 1,07 do tile.
 
-     ELE CONTINUA TENDO NOME PRÓPRIO, e não vira `var(--accent-fill)` na folha:
-     *"de que cor é a porta"* e *"qual é o cheio do accent"* são duas perguntas
-     que hoje têm a mesma resposta, e amarrá-las faria a próxima troca de uma
-     arrastar a outra sem ninguém pedir. Sobre ele escreve-se `--on-accent`, que
-     é o par declarado do denim (6,54:1 no escuro, 7,63:1 no claro).
+     É UM ALIAS, e não o literal: `--btn-accent` tem valores OPOSTOS por tema, e
+     um `#dcebfe` digitado aqui mede 15,57:1 contra o `--bg` no escuro — a porta
+     vira um bloco branco no salão escuro. O alias resolve por tema sozinho,
+     porque a substituição acontece no valor COMPUTADO (a referência para a
+     frente, com o `--btn-accent` declarado mais abaixo no mesmo bloco, é válida
+     e foi medida). **AS DUAS DECLARAÇÕES SÃO UM LOTE SÓ:** trocar só esta e
+     deixar a do tema claro em `#2f557f` põe traço e fundo no MESMO denim —
+     rótulo invisível a 1,00:1, e só o tema claro pega.
 
      A OPACIDADE É INVARIANTE, não estilo: desde a v1.8.61 a LISTA CORRE POR
      BAIXO das portas. Elas vestiram `color-mix(--surface 70%, transparent)` e
      `--surface` já tem alfa — MEDIDO com a lista rolando, **1343 de 3192**
-     amostras dentro delas mudavam de cor (maxΔ 519 de 765). Tinta com alfa aqui
-     não é decoração, é vazamento. */
-  --surface-porta: #2f557f;
+     amostras dentro delas mudavam de cor (maxΔ 519 de 765). O `--btn-accent` é
+     hexadecimal OPACO nos dois temas, então a invariante segue de pé. */
+  --surface-porta: var(--btn-accent);
   --surface-2: var(--surface-2-alta);
   /* ...e o par AFUNDADO, para dentro de um cartão. Ele saiu de controle.css e
      virou token na v5.192 pelo motivo de sempre: com dois temas, o valor
@@ -734,10 +739,10 @@
   --surface-2-alta: rgba(255, 255, 255, .92);
   --surface: var(--surface-alta);
 
-  /* A superfície das três portas — o MESMO denim do escuro (ver o bloco de lá).
-     É o único par deste arquivo em que os dois temas partilham o valor, e é de
-     propósito: o denim É a identidade, e o `--accent-fill` já é igual nos dois. */
-  --surface-porta: #2f557f;
+  /* A superfície das três portas — o MESMO alias do escuro (ver o bloco de lá),
+     e ele TEM de estar escrito aqui: sem esta linha o `:root` sem atributo
+     venceria e o tema claro ficaria no valor do escuro. */
+  --surface-porta: var(--btn-accent);
   --surface-2: var(--surface-2-alta);
   /* Os afundados subiram de .06/.10 na v5.207, e o motivo está medido: sobre o
      painel BRANCO, .06 dava #f0f0f0 — **1,14:1**, um controle que não se

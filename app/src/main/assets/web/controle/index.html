@@ -464,6 +464,13 @@
     <symbol id="icoLua" viewBox="0 0 24 24">
       <path d="M20 14.4A8.6 8.6 0 0 1 9.6 4 8.6 8.6 0 1 0 20 14.4z"/>
     </symbol>
+    <!-- O "A" DO AUTOMÁTICO (v1.8.63). Ele mora no canto que a redução do par
+         lua/sol a 76% abre, e diz a MESMA palavra da linha de estado logo
+         abaixo — é uma LETRA e não um desenho a decifrar, porque a palavra ao
+         lado é quem ensina a marca. -->
+    <symbol id="icoAuto" viewBox="0 0 24 24">
+      <path d="M4 20 L10 6 L16 20"/><path d="M6.6 15h6.8"/>
+    </symbol>
     <symbol id="icoSol" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="4.2"/>
       <path d="M12 2.6v2.2"/><path d="M12 19.2v2.2"/>
@@ -1906,11 +1913,24 @@
                Trocar aqui NÃO fecha a folha, ao contrário do modo do app: é
                olhando para esta folha, que acabou de mudar de cor, que o
                operador decide se ficou bom. -->
-          <button type="button" class="qs-tile" id="temaTile" title="Alternar entre o tema escuro e o claro">
+          <!-- O ÚNICO TILE COM LINHA DE ESTADO (v1.8.63), e a exceção tem causa
+               ARITMÉTICA: o tema é o único com TRÊS estados sobre DUAS cores,
+               então o automático e a escolha explícita que casa com a cor do
+               aparelho caem no MESMO desenho por construção — MEDIDO na v1.8.62,
+               os dois saíam no mesmo PNG, byte a byte. Não é um desenho que
+               faltou; não há terceiro par lua/sol. Pedido do operador: *"remova
+               a opção de automatico, ou adicione um icone e texto indicando que
+               está em automático, pois atualmente não há nenhuma indicação de
+               tal"*. A `.qs-estado` é IRMÃ do título e não o substitui — o
+               `pintarTile` monta o `aria-label` lendo o título, e mexer nele
+               faria o rótulo gaguejar. Um SEGUNDO tile que use esta linha
+               reprova o `configuracoes-sem-subtitulo.test.mjs`. -->
+          <button type="button" class="qs-tile" id="temaTile" title="Automático, claro ou escuro — o toque avança">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoLua"/><use class="ico-alt" href="#icoSol"/>
+              <use class="ico-base" href="#icoLua"/><use class="ico-alt" href="#icoSol"/><use class="ico-auto" href="#icoAuto"/>
             </svg>
             <span class="qs-titulo">Tema</span>
+            <span class="qs-estado" id="temaEstado">Auto</span>
           </button>
           <!-- PREENCHIMENTO. "Esticar" saiu na v5.142 — ele distorcia a
                proporção, e distorção não é uma escolha de exibição: é o defeito
@@ -2155,7 +2175,7 @@
                distinção entre os dois canais de atualização responde alguma
                pergunta. Aqui ela só oferecia dois números para o operador
                escolher errado. -->
-          <span id="appVersion" class="app-version">v1.8.62</span>
+          <span id="appVersion" class="app-version">v1.8.63</span>
           <!-- O GRUPO DE AÇÕES (v1.8.51). Ele existe por DUAS razões, e nenhuma
                é organização: (1) é ele que carrega o `margin-left: auto` que
                morava no rótulo solto, e (2) é ele que a faixa quebra INTEIRO

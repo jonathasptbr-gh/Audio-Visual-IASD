@@ -583,6 +583,11 @@ try {
       }
       return cor.slice(0, 3);
     };
+    // O TRAÇO, pelo mesmo canvas: `color` computado é sempre `rgb()`/`rgba()`,
+    // mas parseá-lo por regex é a armadilha que o comentário do `rgba` acima
+    // descreve — o motor escolhe a sintaxe, e uma delas não é uma lista de
+    // números. Aqui ele passa pelo MESMO decodificador do fundo.
+    window.__texto = (el) => (el ? rgba(getComputedStyle(el).color).slice(0, 3) : null);
     // A SONDA DO "ANTES" pousa na MESMA fileira: `--surface` não tem valor
     // único (a regra R1 o troca por `--surface-sunk` dentro de quem pinta
     // `--panel`), então medi-lo fora do habitat mediria outro token.
@@ -636,8 +641,16 @@ try {
   const temaOriginal = await pg.evaluate(() => document.documentElement.getAttribute('data-tema'));
 
   for (const tema of ['escuro', 'claro']) {
-    const m = await pg.evaluate((t) => {
+    const m = await pg.evaluate(async (t) => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
       document.documentElement.setAttribute('data-tema', t);
+      // O PAINEL PRECISA ESTAR ABERTO para o tile ser lido RENDERIZADO — com
+      // ele fechado a cor computada sai certa sobre nada na tela, e a largura
+      // sai ZERO. Aberto e fechado dentro desta mesma passada: o resto do bloco
+      // 9 mede a faixa do rodapé, e uma folha aberta por cima mudaria o que ele
+      // vê (a 9-D entra em seleção logo abaixo).
+      openFadePopup();
+      await z(320);
       const bib = document.getElementById('bibleBtn');
       const imp = document.querySelector('.import-row .import-btn');
       const fer = document.getElementById('toolsBtn');
@@ -669,8 +682,20 @@ try {
         // `.t-btn:disabled`). Ele é MEDIDO, e não escrito: um número copiado
         // para cá envelheceria na primeira troca de alfa da paleta.
         inativo: window.__sonda('background: var(--surface); opacity: var(--op-inativo)'),
-        // O denim da página, RESOLVIDO — a régua do 9-B (v1.8.62).
-        fill: window.__sonda('background: var(--accent-fill)'),
+        // O TILE ACESO DAS CONFIGURAÇÕES, RENDERIZADO — a régua do 9-B desde a
+        // v1.8.63. Ele é lido da PÁGINA e nunca escrito aqui: o operador nomeou
+        // *"os cards de tema, rotação, exportar"*, e um hexadecimal digitado
+        // seria a cor num segundo lugar. `#temaTile` e não um dos três do
+        // pacote — MEDIDO, aqueles saem com largura ZERO no navegador.
+        tile: (() => {
+          const e = document.getElementById('temaTile');
+          if (!e || !e.classList.contains('qs-on')) return null;
+          return { bg: window.__efetivo(e), cru: cs(e).backgroundColor,
+            traco: window.__texto(e),
+            largura: Math.round(e.getBoundingClientRect().width * 100) / 100 };
+        })(),
+        tracoPorta: window.__texto(bib),
+        _fecha: (() => { closeFadePopup(); return 1; })(),
       };
     }, tema);
 
@@ -699,73 +724,50 @@ try {
     checar(iguais(m.fontes),
       '[' + tema + '] A · e a mesma família de fonte', m.fontes);
 
-    // ── 9-B · ELAS SÃO O DENIM, E SE DESTACAM (v1.8.62) ─────────────────
+    // ── 9-B · ELAS VESTEM O AZUL DE "ATIVADO", LIDO DO TILE (v1.8.63) ───
     //
-    // ESTE BLOCO TROCOU DE SINAL, e a troca é uma REVOGAÇÃO declarada, não um
-    // número a corrigir de passagem. Ele nasceu na v1.5.19 exigindo que a
-    // superfície das portas fosse mais QUIETA que as duas que elas tinham; o
-    // operador pediu o contrário na v1.8.62 (*"quero eles em azul … sólidos"*),
-    // e uma asserção que continuasse cobrando discrição reprovaria o app CERTO
-    // — que foi como este oráculo derrubou o lote na primeira passada.
+    // ESTE BLOCO TROCOU DE RÉGUA DUAS VEZES, e a terceira é a que tem DENTE. A
+    // v1.5.19 cobrava DISCRIÇÃO; a v1.8.62 inverteu o sinal e cobrou DESTAQUE,
+    // em luminância e em ΔE00 contra o `--bg`. As duas primeiras reprovavam o
+    // app certo de hoje — e a segunda era pior que isso: MEDIDO, uma régua de
+    // ΔE00 contra o fundo passa em SEIS de seis cores, inclusive no denim que o
+    // operador ACABOU de recusar, em mostarda, verde e roxo. Ela respondia
+    // *"isso está coberto?"* com um sim que não existia.
     //
-    // A RÉGUA É UMA PORTA SÓ, e de propósito: o 9-A já provou que as três
-    // pintam a mesma cor. Medir as três aqui faria a reversão do 9-A reprovar
-    // este bloco junto, e cada asserção tem de ter a sua.
+    // A RÉGUA É A IDENTIDADE, e ela é o pedido escrito como código: *"o mesmo
+    // nos cards de tema, rotação, exportar"*. O alvo é lido da PÁGINA — um
+    // `#dcebfe` digitado aqui seria a cor num segundo lugar, que é o defeito
+    // que o `--surface-porta` existe para não ter.
     //
-    // AS MESMAS DUAS PROPRIEDADES, viradas — e as duas continuam necessárias,
-    // porque nenhuma responde sozinha nos dois temas:
-    //
-    //  1. em LUMINÂNCIA a porta se destaca MAIS do que o `--surface` puro que
-    //     as laterais tinham antes da v1.5.19 (medido: 2,45 contra 1,39 no
-    //     escuro, 5,97 contra 1,20 no claro).
-    //  2. em ΔE00 ela está MAIS longe do fundo do que o `--btn-accent` que a do
-    //     meio tinha — que é o azul de "ativado" que o pedido cita, e o número
-    //     é a diferença entre ele e o sólido dele (24,34 contra 15,63 no
-    //     escuro, 48,78 contra 6,69 no claro). A luminância não serve para este
-    //     par: no tema claro o `--btn-accent` mede 1,07:1 contra o fundo, mais
-    //     mesclado que as laterais — o que o separa do denim é o CROMA.
-    //
-    // E A TERCEIRA NÃO É UMA FAIXA, É O TOKEN: a porta veste exatamente o
-    // `--accent-fill` resolvido na página. Escrever `#2f557f` aqui seria a cor
-    // digitada num segundo lugar, que é o defeito que o `--surface-porta`
-    // existe para não ter; e uma faixa de razão aprovaria qualquer azul.
-    // REVERSÃO: devolver `--surface-porta: #1f252c` / `#eff1f3` a tokens.css —
-    // as três asserções caem juntas.
-    const rPorta = razao(m.base, m.fundo);
-    const rLateral = razao(m.antesLateral, m.fundo);
-    const eMeio = dE00(m.antesMeio, m.fundo);
-    const ePorta = dE00(m.base, m.fundo);
-    checar(rPorta > rLateral,
-      '[' + tema + '] B · a superfície das portas se destaca MAIS em luminância '
-      + 'do que o `--surface` puro que as laterais tinham — a v1.5.19 pedia o '
-      + 'contrário, e o operador revogou aquela metade',
-      n2(rPorta) + ' > ' + n2(rLateral));
-    checar(ePorta > eMeio,
-      '[' + tema + '] B · e MAIS em ΔE00 do que o `--btn-accent` da do meio, que '
-      + 'é o azul de "ativado" que o pedido cita — a distância entre os dois é '
-      + 'exatamente o que "sólido" quer dizer',
-      n2(ePorta) + ' > ' + n2(eMeio));
-    checar(m.fill && m.base.slice(0, 3).join(',') === m.fill.slice(0, 3).join(','),
-      '[' + tema + '] B · e ela É o `--accent-fill` da página, lido dela — o '
-      + 'denim escrito de novo aqui seria a cor num segundo lugar, que é o '
-      + 'defeito que o `--surface-porta` existe para não ter',
-      JSON.stringify(m.base) + ' vs ' + JSON.stringify(m.fill));
-
-    // ── 9-C · MAS ELAS NÃO SOMEM ────────────────────────────────────────
-    //
-    // O PISO É MEDIDO, e não escrito: ele é o tom que este app usa para dizer
-    // INDISPONÍVEL — a mesma caixa, a mesma superfície, sob
-    // `opacity: var(--op-inativo)`. Uma porta mais quieta que um controle
-    // desabilitado deixa de ser encontrável e continua tocável, que é o pior
-    // par que esta faixa pode produzir.
-    // REVERSÃO: `color-mix(in srgb, var(--surface) 30%, transparent)` — MEDIDO,
-    // a razão cai para 1,08 (escuro) e 1,06 (claro), abaixo do piso nos DOIS.
-    const rInativo = razao(m.inativo, m.fundo);
-    checar(rPorta > rInativo,
-      '[' + tema + '] C · e mesmo assim elas ficam ACIMA do tom do '
-      + '`--op-inativo` — "mesclado ao fundo" tem piso, e o piso é a linguagem '
-      + 'do INDISPONÍVEL deste app',
-      n2(rPorta) + ' > ' + n2(rInativo));
+    // A RÉGUA É UMA PORTA SÓ: o 9-A já provou que as três pintam igual.
+    // REVERSÕES MEDIDAS, uma por metade do lote — e nenhuma reprova tudo, que é
+    // o que prova que as asserções não são uma só:
+    //   · `--surface-porta: #2f557f` nos dois blocos (o estado da v1.8.62):
+    //     reprova a identidade nos DOIS temas.
+    //   · trocar SÓ o bloco escuro e deixar o claro em `#2f557f`: o escuro passa
+    //     inteiro e só o CLARO reprova — traço e fundo no mesmo denim, 1,00:1.
+    //   · `color: var(--on-accent)`: reprova a do traço, com 1,21:1 no claro.
+    checar(!!m.tile && m.tile.largura > 0,
+      '[' + tema + '] B · ponto de partida: há um `.qs-tile.qs-on` RENDERIZADO '
+      + 'no documento — a régua desta asserção é o tile, não o token digitado '
+      + 'aqui, e com o painel fechado ele mede largura ZERO',
+      JSON.stringify(m.tile));
+    checar(!!m.tile && m.cru[0] === m.tile.cru,
+      '[' + tema + '] B · a porta veste EXATAMENTE o azul de "ativado" das '
+      + 'Configurações — foi o pedido do operador, palavra por palavra',
+      m.cru[0] + ' vs ' + (m.tile && m.tile.cru));
+    checar(!!m.tile && dE00(m.base, m.tile.bg) < 0.5,
+      '[' + tema + '] B · e a mesma cor COMPOSTA, não só a mesma declaração — a '
+      + 'porta pousa sobre `--bg` e o tile dentro de uma folha; um alfa que '
+      + 'entrasse num dos dois caminhos separaria as duas sem mudar uma linha '
+      + 'do valor', 'ΔE00 ' + n2(m.tile ? dE00(m.base, m.tile.bg) : -1));
+    checar(!!m.tile && dE00(m.tracoPorta, m.tile.traco) < 0.5
+      && razao(m.tracoPorta, m.base) >= 4.5,
+      '[' + tema + '] B · e o TRAÇO é o mesmo do tile (`--accent`, o par '
+      + 'declarado do `--btn-accent`) — o `--on-accent` que morou aqui é o par '
+      + 'do DENIM e mede 1,21:1 sobre o azul claro',
+      n2(razao(m.tracoPorta, m.base)) + ':1 · ΔE00 '
+        + n2(m.tile ? dE00(m.tracoPorta, m.tile.traco) : -1));
 
     // ── 9-G · O ALVO NÃO DESCEU DO PISO ─────────────────────────────────
     //
@@ -845,6 +847,33 @@ try {
     // `--radius-card` (10px), e é aquela linha que a põe em `--radius-btn`.
     // REVERSÃO: tirar `.list-foot > .selbar` do grupo do raio — ela volta a
     // 10px, sem erro e sem nada mais na tela mudando.
+    // ── 9-C · AS DUAS INQUILINAS DA FATIA NÃO PINTAM IGUAL (v1.8.63) ────
+    //
+    // ESTA É A ASSERÇÃO COM DENTE, e ela substitui o piso que o 9-C cobrava
+    // desde a v1.5.19 (*"mesmo assim elas não somem"*, medido contra o tom do
+    // `--op-inativo`). Aquele piso caiu junto com a régua de discrição: com o
+    // azul de "ativado" ele reprova por 0,0006 no tema claro, sobre uma tela
+    // que está certa — e "mais claro que um controle desabilitado" deixou de
+    // descrever a pergunta desta faixa.
+    //
+    // A PERGUNTA QUE FICOU é a que o azul novo abriu: as portas e a `.selbar`
+    // são as DUAS inquilinas do MESMO retângulo, e a `.selbar` pintava
+    // `--btn-accent` — o mesmo token que as portas passaram a vestir. MEDIDO,
+    // as duas ficariam em ΔE00 **0,00** nos dois temas: não parecidas,
+    // idênticas, e a troca de modo perderia o único sinal de COR que tinha.
+    //
+    // POR ΔE00 e não por razão de luminância: a `.selbar` largou o azul e caiu
+    // no `--bg`, e no tema claro `--bg` (#dfe3e7) e o azul (#dcebfe) medem
+    // 1,07:1 de luminância — o que os separa é o CROMA. Medido depois:
+    // **15,63 no escuro e 6,69 no claro**, contra 9,16/48,51 de antes deste
+    // lote (no escuro a distinção MELHOROU).
+    // REVERSÃO: devolver `.list-foot > .selbar` ao grupo do `--btn-accent` —
+    // ΔE00 vai a 0,00 nos dois temas e esta asserção reprova sozinha.
+    checar(dE00(m.base, sel.selbar) >= 3,
+      '[' + tema + '] C · a porta e a `.selbar` NÃO pintam a mesma cor — elas '
+      + 'são as duas inquilinas da mesma fatia do rodapé, e a troca de modo é o '
+      + 'que essa diferença anuncia',
+      'ΔE00 ' + n2(dE00(m.base, sel.selbar)));
     checar(sel.selbarRaio === sel.foraRaio && m.raios.every((r) => r === sel.selbarRaio),
       '[' + tema + '] F · o raio é UM SÓ para as quatro inquilinas da fatia (as '
       + 'três portas e a `.selbar`) — a base dela declara `--radius-card`, e '

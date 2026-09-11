@@ -19,6 +19,7 @@ const muteToggleEl = document.getElementById('muteToggle');
 // Modo de uso (ver "Modos de uso" mais abaixo)
 const appModeSegEl = document.getElementById('appModeSeg');
 const temaTileEl = document.getElementById('temaTile');
+const temaEstadoEl = document.getElementById('temaEstado');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleSettingsBtnEl = document.getElementById('simpleSettingsBtn');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
@@ -374,7 +375,7 @@ const listVersionEl = document.getElementById('listVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.62';
+const WEB_VERSION = '1.8.63';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -30700,10 +30701,19 @@ function temaDoAparelho() {
 // sozinho não responde "então está claro ou escuro AGORA?", e é essa a pergunta
 // de quem olha o tile.
 function renderTemaTile() {
-  const rotulo = temaEscolha
-    ? (tema === 'claro' ? 'Claro' : 'Escuro')
-    : (tema === 'claro' ? 'Automático · claro' : 'Automático · escuro');
-  pintarTile(temaTileEl, tema, rotulo, true, tema === 'claro');
+  const auto = !temaEscolha;
+  const rotulo = auto
+    ? (tema === 'claro' ? 'Automático · claro' : 'Automático · escuro')
+    : (tema === 'claro' ? 'Claro' : 'Escuro');
+  // A LINHA DE ESTADO (v1.8.63) — ver o comentário do tile no `index.html`. Ela
+  // é SEMPRE escrita e nunca fica vazia: no automático diz "Auto", e a cor de
+  // AGORA continua sendo respondida pelo par lua/sol, que não sai de cena.
+  if (temaEstadoEl) temaEstadoEl.textContent = auto ? 'Auto' : rotulo;
+  // O `data-estado` VIROU COMPOSTO, e é ele que o CSS lê para acender a marca
+  // (`[data-estado^="auto"]`). Ele carregava só o tema EFETIVO, e por isso nem
+  // o canal por onde os oráculos perguntam separava o automático da escolha
+  // explícita que casa com a cor do aparelho.
+  pintarTile(temaTileEl, (auto ? 'auto-' : '') + tema, rotulo, true, tema === 'claro');
 }
 
 // (A CHAVE "este aparelho entra na contagem" saiu na v1.4.42, a pedido do

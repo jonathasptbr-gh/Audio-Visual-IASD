@@ -2043,8 +2043,12 @@ main {
   /* padding-top inclui a safe-area (notch/status bar) já que não há mais appbar.
      Embaixo sobrou pouco de propósito: o que fechava a tela ali era a faixa de
      abas, que mudou para dentro da caixa de controles (v5.54) — o resto é só a
-     folga entre a última linha da lista e a borda de cima da caixa. */
-  padding: calc(.6rem + env(safe-area-inset-top)) .8rem .35rem;
+     folga entre a última linha da lista e a borda de cima da caixa.
+     O `--vao-barra` É esse resto, e ele ganhou nome na v1.8.63 porque passou a
+     ter um SEGUNDO leitor: a caixa da lista o atravessa para alcançar a barra
+     (ver "A CAIXA ALCANÇA A BARRA"). O valor não mudou. */
+  --vao-barra: .35rem;
+  padding: calc(.6rem + env(safe-area-inset-top)) .8rem var(--vao-barra);
   display: flex; flex-direction: column; gap: var(--sp-5);
 }
 
@@ -2457,18 +2461,22 @@ main {
    O valor mora no `--surface-porta` (tokens.css) e o traço é o `--on-accent`,
    par declarado do denim.
 
-   O TRAÇO SAIU DAS DUAS REGRAS DE BAIXO, e tinha de sair: `.tools-btn,
+   O TRAÇO É O `--accent`, o par DECLARADO do `--btn-accent` (5,37:1 no escuro,
+   6,37:1 no claro) — e é o mesmo traço do tile de onde a cor veio. O
+   `--on-accent` que morou aqui na v1.8.62 é o par do DENIM: sobre o azul claro
+   ele mede **1,21:1** (branco sobre #dcebfe), rótulo que só se lê no escuro.
+
+   ELE MORA SÓ AQUI, e tinha de sair das duas regras de baixo: `.tools-btn,
    .lib-foot-btn` e `.import-btn` vêm DEPOIS desta com a mesma especificidade, e
-   um `color: var(--accent)` deixado lá venceria — accent sobre denim mede
-   **2,05:1**, que é texto ilegível numa porta que continuaria parecendo certa em
-   qualquer captura de layout.
+   qualquer `color` deixado lá venceria — em silêncio, e correto em toda captura
+   de layout.
 
    A SOMBRA APONTA PARA CIMA (`0 -2px 8px`), e não é enfeite invertido: o que
    estas três cobrem está ACIMA delas — abaixo é a fronteira com os controles.
    Uma sombra para baixo, a do resto do app, cairia inteira fora da tela e o
    pedido ficaria sem efeito nenhum, sem erro em lugar nenhum. */
 .tools-btn, .lib-foot-btn, .import-btn {
-  background: var(--surface-porta); color: var(--on-accent);
+  background: var(--surface-porta); color: var(--accent);
   box-shadow: 0 -2px 8px var(--shadow-card);
 }
 /* ===== AS TRÊS PORTAS DO CRONOGRAMA, EM PARTES IGUAIS (v1.5.0) =====
@@ -2577,7 +2585,25 @@ main {
    estado dominante da fila (todo toque numa mídia faz `listSet('playlist',
    [id])`), de modo que o azul cheio estaria esmaecido quase o culto inteiro.
    Ver a `.pl-pack`. */
-.list-foot > .selbar, .msg-add-btn {
+/* ---------- E A `.selbar` LARGOU O AZUL (v1.8.63) ----------
+   Ela é a outra inquilina do MESMO retângulo do rodapé, e com as portas vestindo
+   `--btn-accent` as duas ficariam em ΔE00 **0,00** — não parecidas, IDÊNTICAS.
+   O que se perde aí é o único sinal de COR da troca de modo, que este arquivo
+   registra como desenho medido duas seções acima.
+
+   A SAÍDA NÃO É UMA COR NOVA, É UMA REMOÇÃO: sem esta declaração sobra a base
+   `.selbar { background: var(--bg) }`, que é a que ela já veste na gaveta dos
+   Favoritos. E ela é a única das três saídas que ATRAVESSA um piso em vez de só
+   restaurar a distinção — MEDIDO no tema escuro, o ícone do EXCLUIR sobre o
+   `.sel-btn` estava em **2,48:1**, abaixo do piso de 3:1 de ícone, e vai a
+   **4,26:1**; o `.sel-count` (`--accent`) sobe de 5,37 para **9,14:1**. Pintar a
+   barra de denim (a troca de lugar com as portas) fazia o oposto: 1,88:1 no
+   ícone e 1,00:1 no contador, que no tema claro é o denim sobre o denim.
+
+   O RAIO, o `--hit-foot` e o `padding` FICAM onde estão — eles moram na regra
+   agrupada logo acima, e a fatia continua medindo 42,00px nos dois estados (é o
+   que o 9-F do `ferramentas-folha.test.mjs` cobra). O que sai é só a tinta. */
+.msg-add-btn {
   background: var(--btn-accent);
 }
 /* `min-height: var(--hit-foot)` e não só o padding: é ele que fixa a altura da
@@ -2731,9 +2757,44 @@ main {
 
    A GUARDA `:has()` não é enfeite: com o rodapé `hidden` (a seleção múltipla
    fechada, o Modo Fácil) o recuo viraria 61,5px de nada no fim da lista, contra
-   os 9,6 de hoje. Mesmo motor do `:has()` da v1.8.60. */
-.list-body:has(> #listFoot:not([hidden])) > #library {
-  padding-bottom: calc(.6rem + var(--rodape-h, var(--hit-foot)) + var(--sp-5));
+   os 9,6 de hoje. Mesmo motor do `:has()` da v1.8.60.
+
+   ---------- E ELA É MARGEM DO ÚLTIMO ITEM, NUNCA `padding` DO SCROLLER
+   (v1.8.63). Relato do operador: *"a sombra de corte da base … você colocou ela
+   antes do espaço final, isso faz ela subir da base no fim da lista"*. Ele está
+   certo, e a causa é o CLAMP do `position: sticky`.
+
+   A tira é o ÚLTIMO item flex e pede `bottom: calc(-1 * var(--veu-base))` — o
+   padding box, 61,2px abaixo da borda de baixo do scrollport. Mas um sticky
+   nunca escapa do bloco contêiner dele, e o bloco contêiner de um item flex é o
+   CONTENT box do pai, que termina exatamente onde o `padding-bottom` começa.
+   Enquanto sobra mais de 61,2px de rolagem a posição pedida cabe; a partir daí
+   ela é recortada e a tira anda com o conteúdo, **1px por pixel rolado**.
+   MEDIDO por pixel na moldura, contra o padding box: resto 61 → vão 0,4px;
+   50 → 10,4; 30 → 30,4; 10 → 50,4; 3 → **57,4**; e a ≤2 a tira some, porque o
+   `acertarVeu` desliga `tem-abaixo` com a folga de 2px do `scrollTop`
+   fracionário. Com a raiz do sistema a 24px a subida chega a **72,4px**.
+
+   **A JANELA DE SUBIDA É IGUAL AO `padding-bottom` DO SCROLLER** — e é por isso
+   que o defeito nasceu aqui: a v1.8.61 trocou 9,6px por 61,2px, multiplicando-a
+   por 6,4. O mesmo mecanismo segue vivo, 8× menor, nos irmãos (`#playlist`
+   sobe 7,2px numa janela de 12,8; `#lyricsViewBody`, 6,6 numa de 11,2) — este
+   lote NÃO os toca, e isso está dito para o próximo não concluir que acabou.
+
+   Num contêiner flex a margem do último item entra na região rolável do mesmo
+   jeito que o padding do pai, mas fica DENTRO do bloco contêiner do sticky: o
+   `--veu-base` cai a ZERO, a tira nasce em `bottom: 0` e não há o que recortar.
+   MEDIDO depois, em 390/430/360px e com a raiz a 24px: vão 0,0±0,3px em resto =
+   3, 6, 12, 25, 45, 70 e 200, e a última linha continua INTEIRA à vista (0 de
+   5929 pixels cobertos, a régua de pixel do bloco Q).
+
+   `> :last-child` acerta o último ELEMENTO, e foi medido nos quatro estados que
+   o Cronograma alcança (vazia · um item · 40 itens · seleção múltipla): os
+   filhos são só `li.lib-item` (ou um `li.empty`), e com a lista vazia
+   `scrollHeight === clientHeight`, então a margem não vira rolagem fantasma. */
+.list-body:has(> #listFoot:not([hidden])) > #library { padding-bottom: 0; }
+.list-body:has(> #listFoot:not([hidden])) > #library > :last-child {
+  margin-bottom: calc(.6rem + var(--rodape-h, var(--hit-foot)) + var(--sp-5) + var(--vao-barra));
 }
 /* E A TIRA VOLTOU PARA A BASE DA CAIXA (v1.8.62), revogando a v1.8.61. Aquele
    lote a descontou da altura das portas para ela não ficar atrás delas; o
@@ -2866,7 +2927,29 @@ main {
      desliza por baixo dele. O `acertarVeus` o lê como `--veu-topo` e a tira
      acompanha sozinha (medido: 22px, encostada em 43,59). */
   padding-top: var(--sp-5);
+  /* ---------- E A CAIXA ALCANÇA A BARRA (v1.8.63) ----------
+     Relato do operador: *"há uma margem, igual à distância entre os botões
+     flutuantes e o topo da caixa dos controles; essa margem é onde está o fim
+     do scroll do cronograma, no caso alinhado com a base dos botões flutuantes
+     e não no topo da barra de buscas"*. MEDIDO: `#library`, `#listFoot` e o
+     `.list-body` terminavam em 615,36 e a `.bottombar` começa em 620,95 — os
+     5,59px do `--vao-barra` ficavam como uma faixa de `--bg` que a tira nunca
+     alcançava, porque ela mora no padding box do scroller.
+
+     É a lição do eixo horizontal (v1.8.60) aplicada ao vertical: **a tira só
+     alcança a fronteira se a CAIXA alcançar**. A margem negativa leva a caixa
+     até lá; as PORTAS não se mexem (medido, 573,36–615,36 antes e depois),
+     porque elas são `absolute` contra o `.list-body`, que não mudou. */
+  margin-bottom: calc(-1 * var(--vao-barra));
 }
+/* E ELA RECOLHE SOB UMA FOLHA, pelo motivo da tira duas regras abaixo: com
+   Ferramentas ou a Bíblia aberta, os 5,6px de lista que passariam por baixo
+   ficariam à vista E tocáveis na moldura que a folha não cobre. É o MESMO
+   seletor — `#bibleSheet` também veste `.tools-sheet` —, então não há motor
+   novo. MEDIDO com a folha aberta: `elementFromPoint` devolve o `<main>` em
+   617 e 619, bit a bit igual à base, e o `scrollTop` da lista fica em 300 ao
+   abrir e ao fechar (a caixa cresce pela BASE, então nada se move). */
+.list-body:has(.tools-sheet:not([hidden])) > #library { margin-bottom: 0; }
 /* E AS DUAS FOLHAS RECUPERAM O DEGRAU QUE A BARRA COMEU. Elas são
    `position: absolute; inset: 0` no `.list-body`, e subir esse contêiner 9,6px
    encostava a borda de cima delas na barra: MEDIDO, a fronteira caía de 1,667
@@ -8842,6 +8925,26 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    agora como `aria-label`, escrito pelo `pintarTile`: fora da tela, e ainda
    assim verdade para quem lê a grade por leitor de tela.) */
 .qs-titulo { font-size: var(--fs-sm); font-weight: var(--fw-medio); color: var(--text); line-height: 1.15; }
+/* ---------- A LINHA DE ESTADO, E ELA É DE UM TILE SÓ (v1.8.63) ----------
+   Ela devolve ao `#temaTile` a segunda linha que a v1.7.2 tirou de TODOS, e a
+   revogação é PARCIAL com causa aritmética — ver o comentário do tile no
+   `index.html`. O NOME é que segura a lista: um segundo consumidor de
+   `.qs-estado` reprova o `configuracoes-sem-subtitulo.test.mjs`.
+
+   ELA É SEMPRE DESENHADA E SEMPRE TEM PALAVRA ("Auto" · "Claro" · "Escuro"),
+   nunca condicional: uma linha que aparece e some é o motor de pulo que a
+   v1.8.61 proibiu por extenso, e MEDIDO ela custaria 6,81px de grade a 320×1×
+   ENTRE dois estados que um toque alcança. Sempre desenhada, o preço vira FIXO
+   — a fileira cresce 9,70px a 1×, 6,00 a 1,3× e 3,55 a 1,5× — e o deslocamento
+   entre os três estados fica em 0,00px, medido em 36 de 36 células. Nenhuma
+   célula passou a rolar.
+
+   `--fs-xs` e `--muted` porque ela é SUBTÍTULO: o título é o nome do tile e
+   continua sendo o que se lê primeiro. Com o tile aceso ela acompanha o
+   `--accent` do título, senão diria "indisponível" — a outra palavra desta
+   paleta. */
+.qs-estado { font-size: var(--fs-xs); color: var(--muted); line-height: 1.15; }
+.qs-tile.qs-on .qs-estado { color: var(--accent); }
 
 /* ---------- O GIRO GIRA O PRÓPRIO ÍCONE (v1.7.2) ----------
    O ângulo era a palavra do estado deste tile e saiu com as outras. O que o
@@ -8953,6 +9056,25 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .qs-tile .ico-alt { display: none; }
 .qs-tile.qs-alt .ico-base { display: none; }
 .qs-tile.qs-alt .ico-alt { display: block; }
+/* ---------- E O TERCEIRO DESENHO É ADITIVO, SÓ NO TEMA (v1.8.63) ----------
+   A marca do automático NÃO substitui o par lua/sol: ela se soma a ele. Se
+   substituísse, o tile pararia de responder *"claro ou escuro AGORA?"* — que é
+   a pergunta que o rótulo "Automático · claro" já respondia no `aria-label` e
+   que a v1.8.49 escreveu como requisito. MEDIDO: com o terceiro desenho
+   SUBSTITUINDO, o automático de um aparelho e o do outro saem no mesmo PNG
+   (0 de 2116 pixels); somado, 460 de 2116.
+
+   O par ENCOLHE a 76% por `transform` para abrir o canto — `transform` não
+   entra no fluxo, então a caixa do tile mede o mesmo nos três estados (medido:
+   64px nos três). O seletor é por `data-estado` e não por classe porque o
+   estado do tema virou COMPOSTO (`auto-claro`/`auto-escuro`), e é o prefixo que
+   responde "está no automático?" sem duplicar a pergunta no JS. */
+.qs-tile .ico-auto { display: none; }
+#temaTile[data-estado^="auto"] .ico-auto { display: block; }
+#temaTile[data-estado^="auto"] .ico-base,
+#temaTile[data-estado^="auto"] .ico-alt {
+  transform: translate(-2.4px, -2.4px) scale(.76); transform-origin: 50% 50%;
+}
 
 /* ---------- O TILE OCIOSO VIRA O CANCELAR DO IRMÃO (v1.8.27) ----------
    Relato do operador: *"quando exportando, o botão de importação fica com um

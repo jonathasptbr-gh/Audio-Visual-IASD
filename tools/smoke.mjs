@@ -24,7 +24,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, esperar, porque, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, esperar, porque, checar, falhas, lerPng, pixel } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 
@@ -1305,6 +1305,95 @@ try {
       return { passos, partiu: esperado };
     }, aparelho === 'light' ? 'claro' : 'escuro');
     const p = ciclo.passos;
+    // ── E OS TRÊS ESTADOS SÃO DISTINGUÍVEIS NA TELA (v1.8.63) ──────────
+    //
+    // Relato do operador: *"não há nenhuma indicação"* de que o tema está no
+    // automático. MEDIDO na v1.8.62: o automático e a escolha explícita que
+    // casa com a cor do aparelho saíam no MESMO PNG, byte a byte — o `rotulo`
+    // que o `renderTemaTile` monta ia só para o `aria-label`, porque a v1.7.2
+    // tirou a segunda linha de todo tile da grade.
+    //
+    // A RÉGUA É O QUE SE VÊ, e são as DUAS metades que o operador pediu — um
+    // ÍCONE e um TEXTO. A do ícone é PIXEL dentro da caixa do `<svg>`: um teste
+    // de `display` aprova a marca transladada para fora do tile ou em
+    // `opacity: 0`, que é a mesma armadilha do `qs-alt` um nível abaixo.
+    const trioAuto = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      const t = document.getElementById('temaTile');
+      const svg = t.querySelector('svg');
+      const ler = () => ({ palavra: (document.getElementById('temaEstado') || {}).textContent || '',
+        estado: t.dataset.estado, aria: t.getAttribute('aria-label'),
+        cx: (() => { const r = svg.getBoundingClientRect();
+          return [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)]; })() });
+      // O PAINEL PRECISA ESTAR ABERTO: a régua desta metade é PIXEL, e com a
+      // folha fechada o `<svg>` do tile mede y negativo — fora da tela.
+      openFadePopup(); await z(350);
+      setTemaEscolha(null); await z(150);
+      return ler();
+    });
+    const fotoAuto = lerPng(await pg.screenshot());
+    // A MARCA É MEDIDA CONTRA ELA MESMA APAGADA, e não contra o outro estado —
+    // essa foi a primeira escrita desta asserção e ela NÃO TINHA DENTE: a
+    // reversão `opacity: 0` PASSAVA, porque entre o automático e a escolha que
+    // casa a diferença é dominada pelo ENCOLHIMENTO do par lua/sol, não pela
+    // marca. Escondê-la e recomparar isola a tinta que ela põe — é a mesma
+    // receita do bloco Q do `sombra-de-rolagem` (esconder o rodapé e contar o
+    // que muda).
+    await pg.addStyleTag({ content: '#temaTile .ico-auto { display: none !important; }' });
+    await pg.waitForTimeout(200);
+    const fotoSemMarca = lerPng(await pg.screenshot());
+    await pg.evaluate(() => {
+      const t = [...document.querySelectorAll('style')].pop();
+      if (t && /ico-auto/.test(t.textContent)) t.remove();
+    });
+    await pg.waitForTimeout(200);
+    const trioCasa = await pg.evaluate(async (est) => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      const t = document.getElementById('temaTile');
+      // A escolha explícita que CASA com a cor de agora: é dela que o
+      // automático era indistinguível, byte a byte.
+      setTemaEscolha(est.replace('auto-', '')); await z(150);
+      return { palavra: (document.getElementById('temaEstado') || {}).textContent || '',
+        estado: t.dataset.estado, aria: t.getAttribute('aria-label') };
+    }, trioAuto.estado);
+    const fotoCasa = lerPng(await pg.screenshot());
+    await pg.evaluate(async () => {
+      await new Promise((f) => setTimeout(f, 120));
+      setTemaEscolha(null);
+      closeFadePopup();
+      await new Promise((f) => setTimeout(f, 250));
+    });
+    const trio = { auto: trioAuto, casa: trioCasa };
+    const contar = (p, q) => {
+      let n = 0;
+      for (let y = trioAuto.cx[1]; y < trioAuto.cx[3]; y++) {
+        for (let x = trioAuto.cx[0]; x < trioAuto.cx[2]; x++) {
+          const a = pixel(p, x, y), b = pixel(q, x, y);
+          if (a && b && (a[0] !== b[0] || a[1] !== b[1] || a[2] !== b[2])) n++;
+        }
+      }
+      return n;
+    };
+    const difIcone = contar(fotoAuto, fotoSemMarca);
+    const difEstados = contar(fotoAuto, fotoCasa);
+    checar(/^auto-/.test(trio.auto.estado) && !/^auto-/.test(trio.casa.estado)
+      && trio.auto.palavra === 'Auto' && trio.casa.palavra !== 'Auto'
+      && trio.casa.palavra !== '',
+      'a linha de estado do tile do tema diz a PALAVRA em cada um dos três — '
+      + '"Auto" no automático, a cor por extenso nos explícitos, e nunca vazia',
+      JSON.stringify(trio));
+    checar(difIcone > 0 && difEstados > 0,
+      'e a MARCA do automático PINTA TINTA dentro da caixa do ícone (' + difIcone
+      + ' pixels somem quando ela é escondida), e os dois estados de fato diferem '
+      + 'na tela (' + difEstados + '). Por PIXEL e não por `display` — uma marca '
+      + 'transladada para fora do tile ou em `opacity: 0` passa num teste de '
+      + 'propriedade, e medi-la só contra o OUTRO estado também passa, porque ali '
+      + 'quem domina a diferença é o encolhimento do par lua/sol',
+      JSON.stringify({ difIcone, difEstados, caixa: trio.auto.cx }));
+    checar(/^Tema: Automático · (claro|escuro)$/.test(trio.auto.aria),
+      'e o `aria-label` diz AUTOMÁTICO por extenso — num botão ele SUBSTITUI o '
+      + 'conteúdo, então o leitor de tela não lê a linha da tela: é o único '
+      + 'canal acessível deste recurso', trio.auto.aria);
     checar(p[0].tema === ciclo.partiu && p[1].tema !== p[0].tema,
       'o PRIMEIRO toque no tema muda a cor num aparelho ' + aparelho + ' — a lista '
       + 'fixa mandava para o claro, e num aparelho claro isso era um toque que '

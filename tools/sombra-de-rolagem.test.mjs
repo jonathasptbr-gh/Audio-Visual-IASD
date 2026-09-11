@@ -1071,32 +1071,42 @@ try {
       const corpo = document.querySelector('.list-body');
       lib.scrollTop = lib.scrollHeight; await z(400);
       const l = lib.getBoundingClientRect(), f = foot.getBoundingClientRect();
-      const c = corpo.getBoundingClientRect();
+      const c = document.querySelector('.bottombar').getBoundingClientRect();
       const linhas = [...lib.querySelectorAll('.row')];
       const ult = linhas[linhas.length - 1].getBoundingClientRect();
       return {
         posicao: getComputedStyle(foot).position,
-        // A lista alcança a fronteira do corpo — o que o pedido chama de
-        // "até a fronteira dos controles".
-        alcanca: +(c.bottom - l.bottom).toFixed(2),
+        // A LISTA ALCANÇA A BARRA, e desde a v1.8.63 a régua é o TOPO DELA e
+        // não a base do `.list-body`: *"essa margem é onde está o fim do scroll
+        // do cronograma, no caso alinhado com a base dos botões flutuantes e
+        // não no topo da barra de buscas"*. Os dois números coincidiam até
+        // aquele lote, e o que os separava eram os 5,59px do `--vao-barra`.
+        alcanca: +(c.top - l.bottom).toFixed(2),
         // E as portas continuam onde estavam.
         footTop: +f.top.toFixed(2), footH: +f.height.toFixed(2),
         // O recuo do fim é LIDO do rodapé, nunca transcrito.
         rodapeH: corpo.style.getPropertyValue('--rodape-h'),
         recuo: getComputedStyle(lib).paddingBottom,
+        // ...e desde a v1.8.63 ele é MARGEM DO ÚLTIMO ITEM, não `padding` do
+        // scroller — é essa troca que tira o clamp do `sticky` (ver o bloco U).
+        margemUltimo: getComputedStyle(lib.lastElementChild).marginBottom,
         folga: +(f.top - ult.bottom).toFixed(2),
         ultima: [Math.round(ult.left), Math.round(ult.top),
           Math.round(ult.right), Math.round(ult.bottom)],
       };
     });
     checar(geo.posicao === 'absolute' && Math.abs(geo.alcanca) <= 1,
-      'Q · o rodapé das três portas FLUTUA e a lista corre por baixo dele até a '
-      + 'fronteira do corpo (vão ' + geo.alcanca + 'px)', JSON.stringify(geo));
-    checar(parseFloat(geo.rodapeH) === geo.footH && parseFloat(geo.recuo) > geo.footH,
-      'Q · e o recuo do fim é LIDO da altura do rodapé, não transcrito — '
-      + '`--hit-foot` é um piso de 42px e o rodapé o excede com o corpo de fonte '
-      + 'do sistema (medido: 46,59 com a raiz em 24px), e ali quem paga são 4 dos '
-      + '22px da tira', JSON.stringify(geo));
+      'Q · o rodapé das três portas FLUTUA e a lista corre por baixo dele até o '
+      + 'TOPO DA BARRA DE BUSCAS (vão ' + geo.alcanca + 'px) — era a base das '
+      + 'portas, 5,59px acima, e aquela faixa de `--bg` era o que o operador via',
+      JSON.stringify(geo));
+    checar(parseFloat(geo.rodapeH) === geo.footH && geo.recuo === '0px'
+      && parseFloat(geo.margemUltimo) > geo.footH,
+      'Q · e a folga do fim é MARGEM DO ÚLTIMO ITEM, não `padding` do scroller '
+      + '(v1.8.63) — continua LIDA da altura do rodapé, e é essa troca de lugar '
+      + 'que tira o clamp do `sticky`. `--hit-foot` é um piso de 42px e o rodapé '
+      + 'o excede com o corpo de fonte do sistema (46,59 com a raiz em 24px)',
+      JSON.stringify(geo));
     // A ASSERÇÃO DE PIXEL: nenhum ponto da última linha muda quando as portas
     // somem — isto é, nenhum pixel dela está debaixo delas.
     const comPortas = lerPng(await pg.screenshot());
@@ -1357,6 +1367,12 @@ try {
       return {
         n: portas.length,
         token: raiz.getPropertyValue('--surface-porta').trim(),
+        // O TILE ACESO, RENDERIZADO — a régua da cor desde a v1.8.63.
+        tile: (() => {
+          const e = document.getElementById('temaTile');
+          return e && e.classList.contains('qs-on')
+            ? { bg: getComputedStyle(e).backgroundColor, cor: getComputedStyle(e).color } : null;
+        })(),
         fundos: [...new Set(portas.map((b) => getComputedStyle(b).backgroundColor))],
         tracos: [...new Set(portas.map((b) => getComputedStyle(b).color))],
         sombras: [...new Set(portas.map((b) => getComputedStyle(b).boxShadow))],
@@ -1365,6 +1381,10 @@ try {
         tiraAlt: getComputedStyle(lib, '::after').height,
         temAbaixo: lib.classList.contains('tem-abaixo'),
         corpoBottom: +corpo.bottom.toFixed(1),
+        barTop: +document.querySelector('.bottombar').getBoundingClientRect().top.toFixed(1),
+        veuBase: getComputedStyle(lib).getPropertyValue('--veu-base').trim(),
+        libLeft: +lib.getBoundingClientRect().left.toFixed(1),
+        padLeft: parseFloat(getComputedStyle(lib).paddingLeft),
         libBottom: +lib.getBoundingClientRect().bottom.toFixed(1),
         meio: [Math.round(meio.left), Math.round(meio.top), Math.round(meio.right)],
       };
@@ -1374,19 +1394,24 @@ try {
       const [x, y] = [luminancia(rgb(a)), luminancia(rgb(b))].sort((p, q) => q - p);
       return +((x + 0.05) / (y + 0.05)).toFixed(2);
     };
-    // O DENIM É O MESMO NOS DOIS TEMAS, e é de propósito: ele É a identidade
-    // (PMS 302), o mesmo valor do `--accent-fill`. A asserção é pelo VALOR e não
-    // pelo nome do token porque o que o operador vê é a tinta.
-    checar(r.n === 3 && r.token === '#2f557f' && r.fundos.length === 1
-      && rgb(r.fundos[0]).join(',') === '47,85,127',
-      'T · ' + tema + ': as TRÊS portas vestem o denim CHEIO (#2f557f), o mesmo '
-      + 'valor nos dois temas — o azul de "ativado" das Configurações é ele '
-      + 'LAVADO, e o pedido foi o sólido', JSON.stringify(r.fundos) + ' · ' + r.token);
-    checar(r.tracos.length === 1 && contraste(r.fundos[0], r.tracos[0]) >= 4.5,
-      'T · ' + tema + ': e o traço é o par declarado do denim (`--on-accent`), '
-      + 'com ' + contraste(r.fundos[0], r.tracos[0]) + ':1 — o `--accent` que '
-      + 'morava nas duas regras de baixo mede 2,05:1 sobre ele',
-      JSON.stringify(r.tracos));
+    // O AZUL É O DO TILE, e a régua é o TILE RENDERIZADO (v1.8.63, revogando a
+    // v1.8.62, que exigia o denim cheio). O operador: *"eu queria o azul mais
+    // claro, o mesmo nos cards de tema, rotação, exportar"*. O token é um ALIAS
+    // (`var(--btn-accent)`) porque os dois temas têm valores OPOSTOS — um
+    // literal digitado aqui daria a cor certa num tema e um bloco branco no
+    // outro. A identidade COMPOSTA mora no 9-B do `ferramentas-folha`; aqui
+    // basta a declarada, que é o que o token entrega.
+    checar(r.n === 3 && r.fundos.length === 1 && !!r.tile
+      && r.fundos[0] === r.tile.bg,
+      'T · ' + tema + ': as TRÊS portas vestem o MESMO azul do `.qs-tile.qs-on`, '
+      + 'lido do tile e não escrito aqui',
+      JSON.stringify(r.fundos) + ' vs ' + (r.tile && r.tile.bg) + ' · ' + r.token);
+    checar(r.tracos.length === 1 && !!r.tile && r.tracos[0] === r.tile.cor
+      && contraste(r.fundos[0], r.tracos[0]) >= 4.5,
+      'T · ' + tema + ': e o traço é o MESMO do tile (`--accent`), com '
+      + contraste(r.fundos[0], r.tracos[0]) + ':1 — o `--on-accent` da v1.8.62 é '
+      + 'o par do DENIM e mede 1,21:1 sobre o azul claro',
+      JSON.stringify(r.tracos) + ' vs ' + (r.tile && r.tile.cor));
     // A SOMBRA, POR PIXEL: ela tem de ESCURECER a faixa logo ACIMA da porta.
     const img = lerPng(await pg.screenshot());
     const xm = Math.round((r.meio[0] + r.meio[2]) / 2);
@@ -1407,20 +1432,61 @@ try {
     // A ASSERÇÃO É GEOMÉTRICA E DE PIXEL, e as duas juntas: o `bottom` provar
     // que a regra saiu não prova que a tira aparece, e é nos dois cotos de
     // 12,8px da moldura que ela sobrevive às portas opacas.
-    const fim = Math.round(r.corpoBottom);
+    const fim = Math.round(r.libBottom);
     const pertoDaBorda = luminancia(pixel(img, 2, fim - 2));
     const acimaDaTira = luminancia(pixel(img, 2, fim - 30));
-    checar(r.temAbaixo && r.tiraBase === '-61.2px' && parseFloat(r.tiraAlt) === 22
-      && Math.abs(r.libBottom - r.corpoBottom) <= 1,
-      'U · ' + tema + ': a tira pousa no PADDING BOX (bottom -61,2px = o recuo '
-      + 'lido), que desde a v1.8.61 vai até a fronteira com os controles — sem a '
-      + 'regra que a descontava da altura das portas',
-      JSON.stringify({ tiraBase: r.tiraBase, corpoBottom: r.corpoBottom, libBottom: r.libBottom }));
+    checar(r.temAbaixo && r.veuBase === '0px' && r.tiraBase === '0px'
+      && parseFloat(r.tiraAlt) === 22 && Math.abs(r.libBottom - r.barTop) <= 1,
+      'U · ' + tema + ': a tira pousa no padding box, que desde a v1.8.63 vai até '
+      + 'o TOPO DA BARRA — e o `--veu-base` é ZERO, porque a folga do fim virou '
+      + 'margem do último item. A string `-61,2px` da v1.8.62 era a TRANSCRIÇÃO '
+      + 'de um mecanismo que saiu',
+      JSON.stringify({ veuBase: r.veuBase, tiraBase: r.tiraBase, libBottom: r.libBottom, barTop: r.barTop }));
     checar(pertoDaBorda < acimaDaTira,
       'U · ' + tema + ': e ela APARECE, na moldura de 12,8px que as portas não '
       + 'cobrem — ' + pertoDaBorda.toFixed(4) + ' a 2px da fronteira contra '
       + acimaDaTira.toFixed(4) + ' acima dela',
       JSON.stringify({ pertoDaBorda, acimaDaTira }));
+
+    // ── A TIRA NO FIM DA ROLAGEM (v1.8.63) ────────────────────────────────
+    //
+    // ESTA É A ASSERÇÃO QUE FALTAVA, e a ausência dela é o que deixou um salto
+    // de 57px nascer sob 63 oráculos verdes: o bloco J mede a tira em
+    // `scrollHeight/3`, o MEIO da rolagem, onde o clamp do `sticky` não existe.
+    // Relato do operador: *"isso faz ela subir da base no fim da lista"*.
+    //
+    // A JANELA DE SUBIDA ERA IGUAL AO `padding-bottom` DO SCROLLER (61,2px), e
+    // por isso ela varre o RESTO de rolagem, não a posição: resto 3 é a última
+    // parada antes de o `acertarVeu` desligar `tem-abaixo` (o limiar é 2px).
+    // REVERSÃO MEDIDA (a folga do fim de volta ao `padding` do scroller): os
+    // sete valores saem 57,4 · 54,4 · 48,4 · 35,4 · 15,4 · 0,4 · 0,4 e a
+    // asserção reprova; com o conserto são sete zeros.
+    const vaos = [];
+    for (const resto of [3, 6, 12, 25, 45, 70, 200]) {
+      await pg.evaluate(async (q) => {
+        const z = (ms) => new Promise((f) => setTimeout(f, ms));
+        const lib = document.getElementById('library');
+        lib.scrollTop = lib.scrollHeight - lib.clientHeight - q;
+        await z(220);
+      }, resto);
+      const foto = lerPng(await pg.screenshot());
+      const x = Math.round(r.libLeft) + 2;
+      let base = null;
+      for (let y = Math.ceil(r.libBottom) + 4; y > 120; y--) {
+        const c = pixel(foto, x, y);
+        // A TIRA É ESCURA CONTRA O QUE ESTÁ EMBAIXO: a moldura é `--bg` puro, e
+        // a sombra é a ÚNICA coisa que pinta ali. A régua é a luminância contra
+        // o `--bg` lido 30px acima, e não uma cor plantada: pintar a tira de
+        // magenta mede o seletor, não o que a tela mostra.
+        if (c && luminancia(c) < acimaDaTira * 0.97) { base = y; break; }
+      }
+      vaos.push(base == null ? null : +(r.libBottom - base - 1).toFixed(1));
+    }
+    checar(vaos.every((v) => v != null && v <= 1.5),
+      'U · ' + tema + ': e ela NÃO SOBE no fim da rolagem — vão até a fronteira '
+      + 'em resto 3/6/12/25/45/70/200px. Media 57,4px no último degrau, porque '
+      + 'um `sticky` é recortado pelo bloco contêiner e a folga do fim morava no '
+      + '`padding` do scroller', JSON.stringify(vaos));
     await ctx.close();
   }
 
