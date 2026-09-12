@@ -7,7 +7,7 @@
 // Relato do operador (v1.2.19): *"o sistema não identifica que há letra nenhuma
 // para o auxiliar de leitura"*.
 //
-// A v1.2.14 deu parâmetros ao `openLyricsPopup(item, fonte)` para a Biblioteca
+// A v1.2.14 deu um parâmetro ao `openLyricsPopup(item)` para a Biblioteca
 // poder abrir a folha de uma música que NÃO está no ar. O ouvinte do botão do
 // transporte continuou registrado **por referência**:
 //
@@ -36,10 +36,12 @@
 //
 //  1. **o botão abre a CENA** — fonte `lyrics`, sem alvo, com as linhas da letra
 //     desenhadas;
-//  2. **a Biblioteca continua desviando** — `openLyricsPopup(item, 'cifra')`
-//     aponta a folha para outra música. Sem ela, apagar os parâmetros do
+//  2. **a Biblioteca continua desviando** — `openLyricsPopup(item)` aponta a
+//     folha para outra música. Sem ela, apagar o parâmetro do
 //     `openLyricsPopup` "consertaria" a primeira metade e devolveria a folha
 //     presa ao que está no ar, que é o recurso que a v1.2.14 entregou.
+//     (Havia um SEGUNDO parâmetro, `fonte`; ele saiu na v1.8.78 — sem produtor
+//     desde que o botão da Biblioteca virou "Ver a letra" na v1.2.25.)
 //
 //   node tools/leitor-do-transporte.test.mjs
 // ============================================================================
@@ -70,7 +72,7 @@ const PONTE = `(() => {
     'cifraDiag','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
-    'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
+    'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
     'ytFetchAudio','ytPlaylist','ytSearch','ytStream','areaTransferencia','atualizacaoEstado',
   ];
@@ -103,7 +105,7 @@ try {
   // que o zera com toda a razão — e o cenário evapora sem erro nenhum.
   await pg.waitForFunction(
     () => window.__NATIVE__ === true && window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
 
@@ -131,17 +133,35 @@ try {
     setAppMode('full');
     currentItem = null;
     renderNowPlaying();
-    // O VIZINHO ACESO é a régua do tom: o número do `--op-inativo` pode mudar,
-    // a DISTÂNCIA entre disponível e indisponível é que não pode sumir.
-    const viz = [...document.querySelectorAll('.t-btn')].find((b) => !b.disabled);
+    // ===== A RÉGUA DO TOM É O PRÓPRIO BOTÃO ACESO (v1.8.87) =====
+    //
+    // O número do `--op-inativo` pode mudar; a DISTÂNCIA entre disponível e
+    // indisponível é que não pode sumir. A régua era o primeiro `.t-btn` ainda
+    // ACESO da barra — e desde a v1.8.87 **não há nenhum** neste cenário: a
+    // REPETIÇÃO passou a apagar sem fila e sem mídia escolhida, e ela era o
+    // último aceso aqui. `find` devolvia `undefined`, a opacidade do vizinho
+    // saía `null`, e a comparação reprovava um app que está certo.
+    //
+    // A régua passa a ser o MESMO elemento no OUTRO estado, que é literalmente o
+    // que a frase da asserção diz — e não depende de nenhum vizinho continuar
+    // aceso. O estado é restaurado na hora: o que se lê é a opacidade
+    // COMPUTADA, não um efeito colateral.
+    const semDisponivel = [...document.querySelectorAll('.t-btn')].every((b) => b.disabled);
+    const opacidadeAceso = (() => {
+      lyricsViewBtnEl.disabled = false;
+      const v = +getComputedStyle(lyricsViewBtnEl).opacity;
+      lyricsViewBtnEl.disabled = true;
+      return v;
+    })();
     return {
+      semDisponivel,
+      opacidadeAceso,
       escondida: lvBadgeEl.hidden,
       desenhada: getComputedStyle(lvBadgeEl).display,
       titulo: lyricsViewBtnEl.title,
       fontes: lyricsViewSources(),
       desabilitado: lyricsViewBtnEl.disabled,
       opacidade: +getComputedStyle(lyricsViewBtnEl).opacity,
-      opacidadeVizinho: viz ? +getComputedStyle(viz).opacity : null,
       // A ORDEM DE TABULAÇÃO responde à TENTATIVA, nunca ao `tabIndex`: um
       // `<button disabled>` mantém a propriedade em 0 e mesmo assim não recebe
       // foco, então ler o número aprovaria as duas versões.
@@ -177,8 +197,16 @@ try {
     '  ↳ e o BOTÃO fica indisponível: sem o que ler, o toque abria a folha só '
     + 'para dizer que não há nada — não oferecer é melhor que explicar',
     badgeVazia);
-  checar(badgeVazia.opacidade < badgeVazia.opacidadeVizinho,
-    '  ↳ e ele fica mais claro que um irmão ACESO da mesma barra — a régua é a '
+  // A PREMISSA que explica a régua nova: neste cenário a barra inteira está
+  // apagada desde a v1.8.87 (a repetição foi a última a cair), e um vizinho
+  // aceso deixou de existir como referência.
+  checar(badgeVazia.semDisponivel,
+    '  ↳ A PREMISSA: sem nada em exibição e com a fila vazia, NENHUM botão do '
+    + 'transporte está aceso — a repetição foi a última a cair (v1.8.87), e é '
+    + 'por isso que a régua do tom é o próprio botão no outro estado',
+    badgeVazia);
+  checar(badgeVazia.opacidade < badgeVazia.opacidadeAceso,
+    '  ↳ e ele fica mais claro que ELE MESMO aceso — a régua é a '
     + 'distância entre disponível e indisponível, não o número do token',
     badgeVazia);
   checar(badgeVazia.focavel === false,
@@ -372,7 +400,7 @@ try {
       id: 'ensaio', name: 'Louvor Do Ensaio', kind: 'audio', seconds: 180,
       hymnAlbum: 'Hinário Adventista 2022',
       lyrics: [{ text: 'letra do ensaio' }],
-    }, 'cifra');
+    });
   });
   const ensaio = await pg.evaluate(() => ({
     naCena: lvNaCena(),
@@ -385,8 +413,13 @@ try {
     'a Biblioteca aponta a folha para OUTRA música, sem projetar nada', ensaio);
   checar(ensaio.item === 'Louvor Do Ensaio' && ensaio.cena === 'Louvor Em Cena',
     'e o `currentItem` não foi tocado — o alvo é leitura, não projeção', ensaio);
-  checar(ensaio.fonte === 'cifra',
-    'e o pedido de quem abriu vence: a Biblioteca abre na CIFRA', ensaio.fonte);
+  // A ABA É DA FRENTE, NÃO DE QUEM ABRIU (v1.8.78). Esta asserção media um
+  // segundo parâmetro (`fonte`) que o app nunca preencheu — o botão da
+  // Biblioteca diz "Ver a letra" desde a v1.2.25. O que ela mede agora é que o
+  // DESVIO levou a folha junto: a fonte é a da faixa do ensaio (que tem letra),
+  // e não a da cena.
+  checar(ensaio.fonte === 'lyrics',
+    'e a folha abre na fonte do ALVO, não na da cena', ensaio.fonte);
 
   // ── 3. E O ALVO MORRE COM A FOLHA ───────────────────────────────────────
   // Sem isto, a próxima abertura pelo transporte mostraria a música do ensaio

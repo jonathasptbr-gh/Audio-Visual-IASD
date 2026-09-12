@@ -153,6 +153,35 @@
   --shadow-card: rgba(0, 0, 0, .55);
   --shadow-ink: rgba(0, 0, 0, .9);
 
+  /* ---------- A SOMBRA DA BORDA DE UM SCROLL (v1.8.58) ----------
+     Pedido do operador: *"nos diversos lugares onde temos scroll de listagem,
+     precisamos de um efeito de sombra nas fronteiras superiores e inferiores
+     quando o conteúdo rolar para baixo delas, demonstrando que aquela fronteira
+     está se sobrepondo a um conteúdo"*.
+
+     COMPARTILHADA, e não um delta por tema, porque ela é ALFA: escurece o que
+     estiver embaixo em vez de pintar uma cor. É isso que dissolve a objeção da
+     v1.5.16, que recusou o gradiente para a Biblioteca — o que aquele lote
+     rejeitou foi *"um gradiente pintado em `--panel`"*, que acerta sobre papel e
+     lava o poço. Preto com alfa compõe sobre os dois.
+
+     O NÚMERO FOI ESCOLHIDO POR MEDIÇÃO, e a régua importa: a MÉDIA da faixa é a
+     régua errada — no escuro os vãos entre linhas são quase pretos e não têm
+     como escurecer, então ela dilui justamente o que se quer ver. Quem entra
+     debaixo da borda é o CONTEÚDO (o texto, a capa), e é ele que a medição isola
+     (o decil mais claro da faixa, renderizado no Cronograma com 26 itens):
+
+         α      escuro   claro
+        .22      1,37     1,34
+       **.30**   **1,51** **1,51**
+        .40      1,68     1,74
+        .50      1,88     2,06
+
+     .30 é o ponto em que os DOIS temas leem igual, e é essa igualdade — não o
+     gosto — que escolhe o valor: no escuro quem escurece é o texto claro, no
+     claro é a superfície branca, e a mesma tinta serve os dois. */
+  --sombra-rolagem: rgba(0, 0, 0, .30);
+
   /* ---------- O CAMPO DE BUSCA NÃO TEM TEMA (v5.268) ----------
      Pedido do operador: a caixa de texto da Biblioteca branca nos DOIS temas.
      Ela mora aqui, no bloco compartilhado, pelo mesmo motivo que o palco: uma
@@ -291,6 +320,32 @@
   --surface-alta: rgba(255, 255, 255, .12);   /* botão SOBRE o fundo do app */
   --surface-2-alta: rgba(255, 255, 255, .18); /* chip/campo/badge SOBRE o fundo do app */
   --surface: var(--surface-alta);
+
+  /* A SUPERFÍCIE DAS TRÊS PORTAS DO CRONOGRAMA, E ELA É O AZUL DE "ATIVADO"
+     (v1.8.63). Pedido do operador, depois de a v1.8.62 ter errado o alvo:
+     *"o azul que você aplicou aos botões flutuantes foi o azul escuro, eu queria
+     o azul mais claro, o mesmo nos cards de tema, rotação, exportar e etc"*. O
+     azul daqueles cards é o `--btn-accent` do `.qs-tile.qs-on` — MEDIDO no
+     renderizado, com o painel aberto: `#293d57` no escuro e `#dcebfe` no claro,
+     com o traço em `--accent` nos dois. A v1.8.62 leu "sólidos" como o denim
+     cheio (`#2f557f`) e entregou OUTRA cor: 2,45:1 contra a faixa no escuro e
+     5,97:1 no claro, contra 1,70 e 1,07 do tile.
+
+     É UM ALIAS, e não o literal: `--btn-accent` tem valores OPOSTOS por tema, e
+     um `#dcebfe` digitado aqui mede 15,57:1 contra o `--bg` no escuro — a porta
+     vira um bloco branco no salão escuro. O alias resolve por tema sozinho,
+     porque a substituição acontece no valor COMPUTADO (a referência para a
+     frente, com o `--btn-accent` declarado mais abaixo no mesmo bloco, é válida
+     e foi medida). **AS DUAS DECLARAÇÕES SÃO UM LOTE SÓ:** trocar só esta e
+     deixar a do tema claro em `#2f557f` põe traço e fundo no MESMO denim —
+     rótulo invisível a 1,00:1, e só o tema claro pega.
+
+     A OPACIDADE É INVARIANTE, não estilo: desde a v1.8.61 a LISTA CORRE POR
+     BAIXO das portas. Elas vestiram `color-mix(--surface 70%, transparent)` e
+     `--surface` já tem alfa — MEDIDO com a lista rolando, **1343 de 3192**
+     amostras dentro delas mudavam de cor (maxΔ 519 de 765). O `--btn-accent` é
+     hexadecimal OPACO nos dois temas, então a invariante segue de pé. */
+  --surface-porta: var(--btn-accent);
   --surface-2: var(--surface-2-alta);
   /* ...e o par AFUNDADO, para dentro de um cartão. Ele saiu de controle.css e
      virou token na v5.192 pelo motivo de sempre: com dois temas, o valor
@@ -382,22 +437,22 @@
 
   /* O VERMELHO QUE SE LÊ COMO VERMELHO (v5.76, matiz reancorada na v5.192).
      DERIVADO do `scarlett` (matiz 358°), clareado até passar como texto.
-     MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre `--live-soft`/`--danger-soft` (o
-     soft sobre a PÁGINA; dentro de um cartão dá 4,75:1, ainda AA), 4,88:1 sobre
-     `--panel` e 3,66:1 sobre `--panel-2` — este reprova o piso de 4,5:1.
+     MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre o wash da família (o soft sobre a
+     PÁGINA; dentro de um cartão dá 4,75:1, ainda AA), 4,88:1 sobre `--panel` e
+     3,66:1 sobre `--panel-2` — este reprova o piso de 4,5:1.
      Daí a REGRA: quem veste este vermelho veste junto o fundo da própria
-     família — `--live-fill` numa linha (4,72:1) ou `--live-soft`/
-     `--danger-soft` num chip ou botão.
+     família — `--live-fill` numa linha (4,72:1), `--danger-soft` num wash ou
+     `--btn-danger` num chip ou botão.
      INVENTÁRIO (por grep): o clareado é o padrão; o salmão `--danger-text` tem
      TRÊS consumidores, todos casos em que ele não serve — `.yt-result .yt-err`
-     e `.btn-pulso--erro` sobre `--danger-soft`, e `.save-hint--erro` direto no
+     e `.btn-pulso--erro` sobre `--btn-danger`, e `.save-hint--erro` direto no
      `--panel`. */
   --sel-fill: #2e4262;
   --live-fill: #54282e;
   /* O terceiro da família, e ele é do RESOLVIDO: a TV já conectada, a pasta já
-     em dia. Ele existe pela mesma razão dos outros dois — o `--ok-soft` a 20%
-     sobre um painel é uma tinta que só se distinguia porque havia um contorno
-     verde por cima dela. Medido: 1,21:1 contra o painel, 7,85:1 com o texto e
+     em dia. Ele existe pela mesma razão dos outros dois — um verde a 20% sobre
+     um painel é uma tinta que só se distinguia porque havia um contorno verde
+     por cima dela. Medido: 1,21:1 contra o painel, 7,85:1 com o texto e
      4,65:1 com o `--ok`. */
   --ok-fill: #2a4630;
 
@@ -435,7 +490,12 @@
        --btn-accent   --accent         1,70   1,14   1,17     5,37 · 6,37
        --btn-danger   --danger-strong  1,62   1,09   1,23     4,49 · 5,64
        --btn-warn     --warn           1,69   1,13   1,18     4,30 · 5,68
-       --btn-ok       --ok             1,72   1,15   1,16     4,89 · 5,74
+
+     SÃO TRÊS, e o quarto saiu na v1.8.81: o `--btn-ok` ficou sem um único
+     consumidor quando a v1.8.56 tirou o verde dos indicadores de CONCLUSÃO
+     (*"verde é para sinal de 'ligado'"*), e uma família documentada com um
+     membro a mais convida a completá-la — que é a decisão revogada.
+     O verde que sobra é ATIVIDADE, e ele não é superfície de botão.
 
      O `--btn-warn` é o único abaixo de 4,5:1 no escuro, e ele é ÍCONE — o piso
      de 3:1 é o que vale para quem carrega informação sem ser texto.
@@ -448,7 +508,6 @@
   --btn-accent: #293d57;
   --btn-danger: #5d282e;
   --btn-warn:   #533423;
-  --btn-ok:     #2a431e;
 
   /* texto — off-white com a matiz do denim, nunca branco pleno (ver "A paleta"
      no CLAUDE.md: fora do palco, o branco pleno é a maior fonte isolada de luz
@@ -486,8 +545,10 @@
      tinta, quando ela cai sobre `--panel`, compõe (61,73,89) e dá **4,46:1** —
      quatro centésimos abaixo do piso de 4,5. Sobre `--bg` (mais escuro) o par
      passa com folga, então só os consumidores que moram DENTRO de um cartão
-     raspam: `.pl-pack`, `.folder-count--st` e irmãos. (`.t-btn.slide-mode`
-     era um deles e saiu na v1.3.5, com o eixo de estrofe do transporte.)
+     raspam: `.folder-count--st` e irmãos. (`.t-btn.slide-mode` era um deles e
+     saiu na v1.3.5, com o eixo de estrofe do transporte; o `.pl-pack` saiu na
+     v1.8.53, quando o rodapé da playlist virou um par de botões discretos —
+     `--accent` sobre `--surface` MEDE 7,66:1 no escuro e 5,58:1 no claro.)
      Fica assumido, e não corrigido, porque o .16 é load-bearing: é ele que faz
      esta tinta compor exatamente o `--panel-2` (#3d4959), que é a medição em
      que a regra "os fundos de estado são OPACOS" se apoia (ver "superfície que
@@ -500,52 +561,59 @@
   --brand-text: #c2d4f8;
 
   /* ---------- VERMELHO: atenção, em dois papéis que NÃO se misturam ----------
-     `--live`/`--danger` são o `scarlett` OFICIAL (#D0021B) e existem para ser
-     FUNDO, com --on-live por cima (4,96:1). Usá-los como cor de texto/ícone/
-     borda é o defeito que produzia o pior contraste do app: sobre o fundo
-     escuro o scarlett dá 3,32:1, e reprova. Texto, ícone e borda usam o
-     clareado (`--live-strong` / `--danger-strong`) — ou, sem fundo da própria
-     família, o salmão `--danger-text`.
+     O `scarlett` OFICIAL da identidade é #D0021B, e ele é a ÂNCORA de que os
+     dois tokens abaixo derivam — não um token. Usá-lo cru como cor de
+     texto/ícone/borda é o defeito que produzia o pior contraste do app: sobre o
+     fundo escuro ele dá 3,32:1, e reprova. Texto, ícone e borda usam o clareado
+     (`--live-strong` / `--danger-strong`) — ou, sem fundo da própria família, o
+     salmão `--danger-text`.
 
      A REGRA MUDOU DE EIXO NA v5.267, porque a antiga era "preenchido ×
      contornado" e o contorno saiu do app inteiro. O que a substitui é a
      INTENSIDADE do mesmo preenchimento:
 
-       SATURADO (`--live` + `--on-live`) = "está no ar agora", e só isso — o
-         microfone aberto, o ponto de projetando. É o vermelho que não pode ter
-         concorrente na tela.
-       SUAVE (`--danger-soft` + `--danger-strong`) = ação destrutiva (excluir,
+       PREENCHIDO (`--live-fill` + `--live-strong`) = "está no ar agora", e só
+         isso. É o vermelho que não pode ter concorrente na tela.
+       SUAVE (`--btn-danger` + `--danger-strong`) = ação destrutiva (excluir,
          cancelar). Continua sendo vermelho, continua sendo lido como vermelho,
          e continua sem competir com o que está de fato no telão — porque é a
-         mesma matiz numa fração da força. */
-  --live: #d0021b;                       /* scarlett OFICIAL — só preenchimento */
-  --on-live: #f6eeef;                    /* 4,96:1 sobre --live */
-  --live-soft: rgba(208, 2, 27, .22);
+         mesma matiz numa fração da força.
+
+     O TRIO SATURADO SAIU NA v1.8.89 (`--live`, `--on-live`, `--live-soft`), com
+     o MICROFONE AO VIVO — a barra de push-to-talk era o último consumidor dos
+     três (fundo `--live`, rótulo `--on-live`, halo `--live-soft`), e era ela
+     que justificava haver um grau ACIMA do `--live-fill`: *"o único estado
+     desta aba que precisa ser visto do outro lado do salão"*. Sem esse estado,
+     o que sobra é a família preenchida, e um token declarado sem leitor
+     documenta uma peça disponível para quem for pintar o próximo estado. */
   /* O VERMELHO QUE SE LÊ COMO VERMELHO (v5.76, matiz reancorada na v5.192).
      DERIVADO do `scarlett` (matiz 358°, a mesma do oficial arredondada),
      clareado até passar como texto.
-     MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre `--live-soft`/`--danger-soft`
+     MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre o wash da família
      (o soft sobre a PÁGINA — ver "como ler as medições"; dentro de um cartão o
      mesmo par dá 4,75:1, que ainda passa AA),
      4,88:1 sobre `--panel` e **3,66:1 sobre `--panel-2`** — este último reprova
      o piso de 4,5:1 de texto pequeno.
      A consequência prática é uma regra, não uma exceção: quem veste este
      vermelho veste junto o fundo da própria família — `--live-fill` numa linha
-     de lista (4,72:1) ou `--live-soft`/`--danger-soft` num chip ou num botão.
+     de lista (4,72:1), `--danger-soft` num wash ou `--btn-danger` num chip ou
+     num botão.
      Foi o que a mensagem no ar e o versículo no ar passaram a fazer na v5.76, e
      é o que `.misc-project.live` e os botões destrutivos já faziam.
      INVENTÁRIO (por grep, não de memória): o clareado é o padrão, e o salmão
      `--danger-text` tem TRÊS consumidores, todos casos em que ele não serve —
      a falha na miniatura do YouTube (`.yt-result .yt-err`) e o pulso de erro
-     (`.btn-pulso--erro`), sobre `--danger-soft`, e o texto do aviso de falha
+     (`.btn-pulso--erro`), sobre `--btn-danger`, e o texto do aviso de falha
      (`.save-hint--erro`), pousado direto no `--panel`. */
   --live-strong: #f97a7e;
   --danger-strong: #f97a7e;
-  /* `--danger` é o par de FUNDO do destrutivo — mesmo valor de `--live`, token
-     próprio porque os dois papéis podem divergir um dia. Hoje ele não tem
-     nenhum uso na folha, e isso é intencional, não esquecimento: pela regra
-     acima, ação destrutiva é sempre CONTORNADA, e contorno/texto usam
-     `--danger-strong`/`--danger-text`. */
+  /* (O `--danger` SAIU na v1.5.14, nos dois temas: era o par de FUNDO do
+     destrutivo, mesmo valor do scarlett oficial, e ficou com zero consumidores.
+     O comentário que o explicava sobreviveu à remoção e ficou aqui, no lugar
+     exato da declaração, dizendo que a ausência de uso era "intencional, não
+     esquecimento" — isto é, afirmando que o token existia. Saiu na v1.8.81.
+     O scarlett preenchido tem um nome só, e é `--live-fill`; o destrutivo veste
+     `--btn-danger` de fundo e `--danger-strong`/`--danger-text` de traço.) */
   --danger-text: #e98d83;                /* 5,17:1 sobre painel · 6,89:1 sobre o soft
                                             (o soft sobre a PÁGINA; dentro de um
                                             cartão, 5,03:1 — ver "como ler") */
@@ -556,8 +624,8 @@
      pura solta: um aviso que se anuncia só pela matiz não sobrevive a um
      celular com brilho baixo nem a quem não distingue as duas matizes quentes
      do app. */
-  --warn: #ef853f;                       /* borda/ícone — 6,34:1 sobre --warn-soft */
-  --warn-text: #e5a86c;                  /* texto — 7,95:1 sobre --warn-soft */
+  --warn: #ef853f;                       /* borda/ícone — 4,30:1 sobre --btn-warn */
+  --warn-text: #e5a86c;                  /* texto — 5,39:1 sobre --btn-warn */
 
   /* ---------- VERDE: concluído / conectado ----------
      E SÓ isso. Até a v5.47 o verde também dizia "está no ar" em dois lugares
@@ -681,6 +749,11 @@
   --surface-alta: rgba(255, 255, 255, .70);
   --surface-2-alta: rgba(255, 255, 255, .92);
   --surface: var(--surface-alta);
+
+  /* A superfície das três portas — o MESMO alias do escuro (ver o bloco de lá),
+     e ele TEM de estar escrito aqui: sem esta linha o `:root` sem atributo
+     venceria e o tema claro ficaria no valor do escuro. */
+  --surface-porta: var(--btn-accent);
   --surface-2: var(--surface-2-alta);
   /* Os afundados subiram de .06/.10 na v5.207, e o motivo está medido: sobre o
      painel BRANCO, .06 dava #f0f0f0 — **1,14:1**, um controle que não se
@@ -750,7 +823,6 @@
   --btn-accent: #dcebfe;
   --btn-danger: #fde3e6;
   --btn-warn:   #f8e7de;
-  --btn-ok:     #d5f5c6;
 
   /* ---------- O TEXTO DESTE TEMA É PRETO, E NÃO O `night` (v1.5.12) ----------
      Pedido do operador, depois de duas rodadas sobre a legibilidade da
@@ -796,21 +868,17 @@
   --brand: #2f557f;
   --brand-text: #24446a;
 
-  /* scarlett OFICIAL como fundo (branco em cima, 5,67:1). O `-strong` é o
-     derivado escurecido: o oficial pousado sobre `--live-soft` dá 4,17:1 e
-     reprova, e é justamente sobre o soft da própria família que a regra do tema
-     escuro manda vesti-lo. Medido no derivado: 4,63:1 sobre o soft, 5,30:1
-     sobre a página, 6,84:1 sobre o painel. */
-  --live: #d0021b;
-  --on-live: #ffffff;
-  /* Os dois SOFT subiram de .08 para .14 na v5.267, e a razão é a mesma da
-     `--surface-sunk` logo acima: eles vestiam controles que tinham um contorno
-     vermelho por cima, e sem ele .08 sobre um painel branco dá **1,15:1** — uma
-     tinta que não se distingue do cartão. Em .14 o par vai a **1,29:1**, e o
-     texto sobre ele continua com folga: `--danger-text` 5,73:1 e
-     `--danger-strong` 5,31:1. (No tema escuro eles já eram .22 e não mudaram —
-     ali o overlay pousa sobre um fundo escuro e nunca teve esse problema.) */
-  --live-soft: rgba(208, 2, 27, .14);
+  /* O `-strong` é o scarlett oficial ESCURECIDO: o oficial pousado sobre um
+     wash da própria família dá 4,17:1 e reprova, e é justamente sobre esse wash
+     que a regra do tema escuro manda vesti-lo. Medido no derivado: 4,63:1 sobre
+     o wash, 5,30:1 sobre a página, 6,84:1 sobre o painel.
+     (`--live`, `--on-live` e `--live-soft` saíram na v1.8.89 com o microfone ao
+      vivo — ver o bloco do tema escuro. O `--danger-soft`, que é o wash com
+      consumidor, ficou: os dois SOFT subiram de .08 para .14 na v5.267, e a
+      razão é a mesma da `--surface-sunk` logo acima — sem o contorno vermelho
+      que eles vestiam, .08 sobre um painel branco dá **1,15:1**, uma tinta que
+      não se distingue do cartão. Em .14 o par vai a **1,29:1**, e o texto sobre
+      ele continua com folga.) */
   --live-strong: #b80419;
   --danger-strong: #b80419;
   --danger-text: #93382e;                /* 5,73:1 sobre o soft · 7,38:1 sobre o painel */
@@ -818,9 +886,9 @@
   /* campfire e treefrog escurecidos pelo mesmo motivo: o oficial passa sobre
      BRANCO (4,62:1 e 4,71:1) e reprova sobre a página cinza. Matizes 21° e 101°
      preservadas. `--warn` é ícone/borda e responde ao piso de 3:1. */
-  --warn: #bd520a;                       /* 3,38:1 sobre --warn-soft · 3,72:1 sobre o fundo */
-  --warn-text: #934410;                  /* 4,81:1 sobre --warn-soft */
-  --ok: #216900;                         /* 4,76:1 sobre --ok-soft · 6,81:1 sobre o painel */
+  --warn: #bd520a;                       /* 3,99:1 sobre --btn-warn · 3,72:1 sobre o fundo */
+  --warn-text: #934410;                  /* 5,68:1 sobre --btn-warn */
+  --ok: #216900;                         /* 5,27:1 sobre --ok-fill · 6,81:1 sobre o painel */
 
   /* o véu segue o --bg deste tema, pela mesma regra do escuro */
   --veil: rgba(223, 227, 231, .55);

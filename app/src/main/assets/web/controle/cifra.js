@@ -285,9 +285,13 @@
   }
 
   // O tom declarado na página, ou ''. Tolerante de propósito: procura a palavra
-  // "tom" seguida do acorde em qualquer marcação intermediária. Ele é INFORMAÇÃO
-  // (o cabeçalho da aba), nunca entrada de cálculo — a transposição opera sobre
-  // os acordes da folha, então um tom não lido não quebra nada.
+  // "tom" seguida do acorde em qualquer marcação intermediária.
+  //
+  // **Ele É entrada de cálculo desde a v1.8.93** — é dele que sai a armadura
+  // que a transposição usa para grafar. O que continua valendo é que um tom não
+  // lido não quebra nada: `grafiaDaFolha` cai na PRIMEIRA raiz da folha, e o
+  // preço de errar ali é a grafia de um enarmônico, nunca a altura de um
+  // acorde.
   function lerTom(html) {
     const m = /tom\s*:?\s*(?:<[^>]*>\s*)*([A-G][#b]?m?)\b/i.exec(String(html || ''));
     return m ? m[1] : '';
@@ -297,6 +301,44 @@
 
   const SUSTENIDOS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const BEMOIS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+  // ===== A ARMADURA DO DESTINO DECIDE A GRAFIA (v1.8.93) =====
+  //
+  // Meio tom acima de D é **Eb**, não D#. A regra anterior era "a grafia segue
+  // a ORIGEM" — raiz sem bemol sobe em sustenido, sempre — e se justificava por
+  // uma afirmação FALSA: *"a armadura não muda por transpor"*. Muda: Fá maior
+  // tem um bemol e, dois semitons acima, Sol maior tem um sustenido.
+  //
+  // O que ela produzia eram tons que não existem na prática (`D#`, `G#`, `A#`
+  // como TOM — 9, 8 e 10 sustenidos) e, pior, linhas internamente
+  // INCONSISTENTES, porque a escolha era feita acorde a acorde: `Bb Cm Eb F`
+  // subindo três semitons saía `Db D#m Gb G#`, bemol e sustenido na mesma
+  // sequência.
+  //
+  // ===== E A RÉGUA NÃO É "PREFIRA BEMOL" =====
+  //
+  // Dentro de Mi maior, `G#m` e `D#m` são a grafia CERTA (quatro sustenidos) —
+  // `Abm` ali seria erro. Uma tabela fixa de bemóis estragaria justamente o
+  // caso mais comum de hinário (folha em Ré subindo um tom), que a regra velha
+  // acertava por acidente. O que decide é a ARMADURA do tom de destino,
+  // aplicada à folha INTEIRA — e é a folha inteira que faz a coerência.
+  //
+  // ===== E O MODO INVERTE TRÊS GRAUS =====
+  //
+  // Em MAIOR o grau 1 é `Db` (5 bemóis) contra `C#` (7 sustenidos); em MENOR é
+  // `C#m` (4 sustenidos) contra `Dbm` (8 bemóis). O mesmo nos graus 6 e 8. Por
+  // isso são DUAS tabelas e não uma lista de doze nomes: a lista de doze
+  // devolvia `Dbm`, que é o defeito velho pelo outro lado.
+  //
+  // Os graus SEM acidente (C maior, Lá menor) não têm armadura a consultar e
+  // vão para BEMÓIS — é a família dos empréstimos usuais (bVII, bVI, bIII).
+  //
+  // O grau 6 é o único empate de verdade (F# e Gb têm seis cada); fica em
+  // sustenido, que é o que poupa o `Cb` na folha.
+  //                       C    Db   D    Eb   E    F    F#   G    Ab   A    Bb   B
+  const ARMADURA_MAIOR = ['b', 'b', '#', 'b', '#', 'b', '#', '#', 'b', '#', 'b', '#'];
+  //                       Cm   C#m  Dm   Ebm  Em   Fm   F#m  Gm   G#m  Am   Bbm  Bm
+  const ARMADURA_MENOR = ['b', '#', 'b', 'b', '#', 'b', '#', 'b', '#', 'b', 'b', '#'];
 
   // A gramática de um acorde, e ela é ESTREITA de propósito.
   //
@@ -380,23 +422,70 @@
     return i >= 0 ? i : BEMOIS.indexOf(nota);
   }
 
+  // O acorde é MENOR? `m` que não comece `maj`. `M7` e `7M` são sétima MAIOR (a
+  // notação brasileira do hinário) e o `M` maiúsculo não entra aqui.
+  function extensaoMenor(extensao) {
+    return /^m(?!aj)/.test(String(extensao || ''));
+  }
+
+  // A grafia ('#' ou 'b') que o tom de DESTINO pede, ou '' se o acorde não for
+  // legível. A raiz dá o grau; o sufixo dá o modo.
+  function grafiaDoDestino(tom, semitons) {
+    const m = ACORDE.exec(String(tom == null ? '' : tom).trim());
+    if (!m) return '';
+    const i = indiceDaNota(m[1]);
+    if (i < 0) return '';
+    const grau = (((i + (semitons | 0)) % 12) + 12) % 12;
+    return (extensaoMenor(m[2]) ? ARMADURA_MENOR : ARMADURA_MAIOR)[grau];
+  }
+
+  // A PRIMEIRA raiz da folha — o proxy de tom para quando a página não declara
+  // nenhum. Uma folha de hino abre no tônico.
+  function primeiraRaiz(linhas) {
+    for (const linha of (linhas || [])) {
+      if (!linha || linha.tipo !== 'acordes') continue;
+      for (const token of String(linha.texto || '').split(/\s+/)) {
+        if (token && pareceAcorde(token)) return token;
+      }
+    }
+    return '';
+  }
+
+  // A grafia da FOLHA INTEIRA, e é ela que faz a coerência: uma única família
+  // para todos os acordes, tirada da armadura do tom de destino.
+  //
+  // Três degraus, do mais autoritativo ao mais barato: o tom DECLARADO na
+  // página · a PRIMEIRA raiz da folha · bemol. O último é inalcançável na
+  // prática — sem acorde legível na folha não há o que transpor —, e existe
+  // para a função nunca devolver vazio.
+  function grafiaDaFolha(pagina, semitons) {
+    const p = pagina || {};
+    return grafiaDoDestino(p.tom, semitons)
+      || grafiaDoDestino(primeiraRaiz(p.linhas), semitons)
+      || 'b';
+  }
+
   // Transpõe UM acorde. O sufixo viaja intacto — só a fundamental (e o baixo
   // depois da barra) mudam.
   //
-  // A GRAFIA SEGUE A ORIGEM: uma folha escrita em bemóis continua em bemóis. É
-  // musicalmente correto (a armadura não muda por transpor) e, mais prático que
-  // isso, é o que faz a folha continuar parecendo a mesma folha para quem já a
-  // conhece.
-  function transporAcorde(token, semitons) {
+  // `grafia` é a família da FOLHA ('#' ou 'b'), e passá-la é o caminho normal.
+  // Sem ela, cada acorde se grafa como se fosse o TOM — o mesmo cálculo com o
+  // próprio token no lugar do cabeçalho. Serve o uso avulso e o `transporTom`,
+  // que é literalmente esse caso.
+  function transporAcorde(token, semitons, grafia) {
+    // Zero é IDENTIDADE, e não uma regrafia: a folha no tom original tem de
+    // continuar parecendo a mesma folha para quem já a conhece.
+    if (!semitons) return token;
     const m = ACORDE.exec(token);
     if (!m) return token;
     const [, raiz, extensao, baixo] = m;
-    // A GRAFIA SEGUE A RAIZ, não o token inteiro. Perguntar `token.indexOf('b')`
-    // fazia o bemol de uma ALTERAÇÃO decidir a grafia da fundamental: `C7(b9)`
-    // subindo meio tom saía `Db7(b9)` em vez de `C#7(b9)` — o `b` do `(b9)` não
-    // diz nada sobre como a raiz é escrita.
-    const bemol = raiz[1] === 'b' || (baixo && baixo[1] === 'b');
-    const escala = bemol ? BEMOIS : SUSTENIDOS;
+    // A EXTENSÃO NÃO PARTICIPA, e agora por construção: a família vem do
+    // DESTINO, não do token. Antes isto era uma guarda — perguntar
+    // `token.indexOf('b')` fazia o bemol de uma ALTERAÇÃO decidir a grafia da
+    // fundamental, e `C7(b9)` subia para `Db7(b9)` pelo motivo errado. Hoje ele
+    // sobe para `Db7(b9)` pelo motivo certo (Db maior, cinco bemóis), e o `(b9)`
+    // segue sem voto.
+    const escala = (grafia || grafiaDoDestino(token, semitons)) === 'b' ? BEMOIS : SUSTENIDOS;
     const mover = (nota) => {
       const i = indiceDaNota(nota);
       return i < 0 ? nota : escala[(((i + semitons) % 12) + 12) % 12];
@@ -420,7 +509,7 @@
   // Cada token é reposto na coluna em que começava. Quando o token anterior
   // ficou mais longo e invadiu essa coluna, entra UM espaço — perder a coluna
   // exata de um acorde é ruim; colar dois acordes num só é ilegível.
-  function transporLinha(texto, semitons) {
+  function transporLinha(texto, semitons, grafia) {
     const linha = String(texto == null ? '' : texto);
     if (!semitons) return linha;
     let saida = '';
@@ -430,7 +519,7 @@
       const alvo = m.index;
       if (saida.length < alvo) saida += ' '.repeat(alvo - saida.length);
       else if (saida.length > 0) saida += ' ';
-      saida += transporAcorde(m[0], semitons);
+      saida += transporAcorde(m[0], semitons, grafia);
       m = re.exec(linha);
     }
     return saida;
@@ -439,6 +528,11 @@
   // O tom do cabeçalho acompanha a transposição — senão a aba mostra um tom que
   // não é mais o da folha que está logo abaixo dele, que é a única coisa pior
   // que não mostrar tom nenhum.
+  //
+  // Sem `grafia`, DE PROPÓSITO: aqui o token É o tom, então o caminho avulso do
+  // [transporAcorde] é o certo, e ele devolve a mesma família que o
+  // `grafiaDaFolha` tirou deste mesmo tom. Passá-la seria escrever a mesma
+  // conta duas vezes para obter o mesmo número.
   function transporTom(tom, semitons) {
     if (!tom || !semitons) return tom || '';
     return transporAcorde(tom, semitons);
@@ -1123,6 +1217,7 @@
     urlDoHino, urlDaMusica, urlDeBusca,
     ARTISTAS_PADRAO, urlsPadrao, urlDoAlbum,
     pareceAcorde, transporAcorde, transporLinha, transporTom,
+    grafiaDoDestino, grafiaDaFolha, primeiraRaiz,
     lerFolha, lerPagina, lerBusca, somenteLetra, varianteSemCifra,
     ordenarBusca, parentesco, ehCaminhoDeMusica, radiografia,
     quebrarPares, pontoDeQuebra,

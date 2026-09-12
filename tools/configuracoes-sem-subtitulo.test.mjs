@@ -89,13 +89,19 @@ try {
     'A · a grade tem os NOVE tiles da folha', tiles.length);
   const comSobra = tiles.filter((t) => t.texto !== t.titulo.trim());
   checar(comSobra.length === 0,
-    'A · e nenhum tem texto além do TÍTULO — a palavra do estado saiu de todos',
+    'A · e nenhum tem texto além do TÍTULO — a palavra do estado saiu de todos '
+    + 'na v1.7.2, e a exceção que o tile do tema teve na v1.8.63 saiu com o '
+    + 'automático que ela indicava (v1.8.64)',
     JSON.stringify(comSobra));
   // A PALAVRA NÃO FOI APAGADA, MUDOU DE CANAL: quem lê a grade por leitor de
   // tela tinha só "Tema", que não responde nada. Sem esta asserção, "remover a
   // segunda linha" e "remover a informação" passam iguais.
+  //
+  // DOIS VALORES desde a v1.8.64: o "Automático · claro" que esta asserção
+  // cobrava por nome saiu com o terceiro estado, e a cena abre no ESCURO porque
+  // é ele o padrão de quem nunca escolheu.
   const tema = tiles.find((t) => t.id === 'temaTile');
-  checar(!!tema && /Tema:\s*\S/.test(tema.aria),
+  checar(!!tema && /^Tema: (Claro|Escuro)$/.test(tema.aria),
     'A · e o estado continua dito no `aria-label`, que é onde ele não ocupa linha',
     tema && tema.aria);
 
@@ -221,15 +227,55 @@ try {
   // =========================================================================
   // D · O RODAPÉ LEVA O NOME DO APP
   // =========================================================================
-  const rodape = await a.pg.evaluate(() => {
+  const rodape = await a.pg.evaluate(async () => {
+    const z = (ms) => new Promise((f) => setTimeout(f, ms));
+    // OS DOIS IRMÃOS SÓ EXISTEM NO APP (`hidden` fora dele, e a razão é que
+    // gravar arquivo e abrir o WhatsApp são a ponte). Sem revelá-los a faixa
+    // teria UM filho, e toda asserção de distribuição abaixo mediria um botão
+    // sozinho ocupando a linha — verde, e sobre nada.
+    window.__NATIVE__ = true;
+    for (const id of ['diagSave', 'contatoBtn']) {
+      const e = document.getElementById(id); if (e) e.hidden = false;
+    }
+    await z(120);
     const v = document.getElementById('appVersion');
     const faixa = document.querySelector('#fadePopup .footer-diag');
+    const botoes = faixa ? [...faixa.querySelectorAll('.diag-btn')] : [];
     return {
       texto: (v.textContent || '').trim(),
-      // A BADGE DO CABEÇALHO continua sendo UM número: o pedido era sobre o
-      // RODAPÉ, e levar o nome para a badge de 40px do topo a estouraria.
-      badge: ((document.getElementById('listVersion') || {}).textContent || '').trim(),
+      // A BADGE continua sendo UM número: o pedido era sobre o RODAPÉ, e levar
+      // o nome para a badge de 40px a estouraria.
+      //
+      // ELA TROCOU DE CASA NA MEDIÇÃO (v1.8.66), e não de regra: a badge do
+      // cabeçalho do Cronograma (`#listVersion`) saiu para o botão de limpar, e
+      // a que sobra é a do MODO FÁCIL. É a mesma pastilha, a mesma classe e a
+      // mesma regra de CSS — o que se guarda aqui é o número não ganhar
+      // companhia, e isso não era propriedade da casa.
+      badge: ((document.getElementById('simpleVersion') || {}).textContent || '').trim(),
       transborda: faixa ? faixa.scrollWidth > faixa.clientWidth + 1 : null,
+      // ===== O QUE A v1.8.65 ACRESCENTOU =====
+      faixaBg: faixa ? getComputedStyle(faixa).backgroundColor : null,
+      n: botoes.length,
+      // A VERSÃO É UM BOTÃO, e ela é o PRIMEIRO — a ordem é a do pedido
+      // ("a versão, o registro e o pedir ajuda").
+      ids: botoes.map((b) => b.id),
+      // O ÍCONE À DIREITA DO TEXTO: a ordem dos filhos, e não uma regra de CSS.
+      // `row-reverse` daria o mesmo desenho e mentiria para o leitor de tela,
+      // que lê a ordem do DOM.
+      ordem: botoes.map((b) => [...b.children].map((c) => c.tagName.toLowerCase()).join('+')),
+      // OS TRÊS NO MESMO ESTILO: o fundo lido do RENDERIZADO, um valor só.
+      fundos: [...new Set(botoes.map((b) => getComputedStyle(b).backgroundColor))],
+      larguras: botoes.map((b) => +b.getBoundingClientRect().width.toFixed(1)),
+      // UMA LINHA SÓ a 390px na fonte padrão: os centros verticais coincidem.
+      linhas: new Set(botoes.map((b) => {
+        const r = b.getBoundingClientRect(); return Math.round(r.top + r.height / 2);
+      })).size,
+      peso: getComputedStyle(v).fontWeight,
+      pesoIrmao: getComputedStyle(botoes[1] || v).fontWeight,
+      // NENHUM RÓTULO CORTADO: o `min-width: max-content` é o que segura isso,
+      // e sem ele a divisão igual espreme a palavra mais longa.
+      corta: botoes.map((b) => b.querySelector('span'))
+        .filter((e) => e && e.scrollWidth > e.clientWidth + 1).length,
     };
   });
   // O NOME SAIU NA v1.8.51 (*"considere abreviar a versão para dar espaço a um
@@ -244,10 +290,92 @@ try {
     + 'botões, e nomear o app dentro dele era a palavra mais dispensável da faixa',
     rodape.texto);
   checar(/^v\d+\.\d+\.\d+$/.test(rodape.badge),
-    'D · e a badge do cabeçalho continua sendo um número só', rodape.badge);
+    'D · e a badge (a do Modo Fácil, desde que a do Cronograma saiu na v1.8.66) '
+    + 'continua sendo um número só', rodape.badge);
   checar(rodape.transborda === false,
     'D · e a faixa não transborda com o nome dentro', rodape.transborda);
+
+  // ===== D2 · OS TRÊS SÃO BOTÕES IGUAIS NUMA FILEIRA SEM FUNDO (v1.8.65) =====
+  //
+  // Pedido do operador, em quatro metades: *"coloque a versão, o registro e o
+  // pedir ajuda... igualmente distribuídos horizontalmente"*, *"faça os três
+  // serem três botões separados, no mesmo estilo do botão de 'pedir ajuda'"*,
+  // *"remova o fundo cinza desse rodapé"* e *"coloque os ícones... à direita de
+  // seus respectivos textos"*. Cada uma tem asserção, porque cada uma quebra
+  // sozinha — e três delas quebram SEM SINTOMA numa captura de layout.
+  checar(rodape.n === 3 && rodape.ids.join(',') === 'versaoBtn,diagSave,contatoBtn',
+    'D2 · a faixa são TRÊS botões, nesta ordem — a versão deixou de ser texto '
+    + 'nu e virou o primeiro deles', JSON.stringify(rodape.ids));
+  checar(/^rgba\(0, 0, 0, 0\)$|^transparent$/.test(rodape.faixaBg || ''),
+    'D2 · e a faixa NÃO pinta nada: o cinza saiu, e com ele a pastilha que '
+    + 'cobrava recuo, raio e altura mínima', rodape.faixaBg);
+  checar(rodape.fundos.length === 1,
+    'D2 · os três vestem o MESMO fundo — a regra da v1.8.51 (*"só um deles o '
+    + 'veste"*) foi revogada pelo pedido: numa fileira sem fundo o que está em '
+    + 'jogo é cada um se ler como BOTÃO', JSON.stringify(rodape.fundos));
+  checar(rodape.ordem.every((o) => o === 'span' || o === 'span+svg'),
+    'D2 · e o ícone vem DEPOIS do texto no DOM, não por `row-reverse` — a ordem '
+    + 'visual e a que o leitor de tela percorre são a mesma',
+    JSON.stringify(rodape.ordem));
+  checar(rodape.linhas === 1
+    && Math.max(...rodape.larguras) - Math.min(...rodape.larguras) < 1,
+    'D2 · a 390px na fonte padrão eles dividem a linha em partes IGUAIS — é o '
+    + '`flex: 1 1 0` (base zero), e não `1 1 auto`, que daria a cada um a '
+    + 'própria largura mais um pedaço', JSON.stringify(rodape.larguras));
+  checar(rodape.peso === '700' && rodape.pesoIrmao !== '700',
+    'D2 · o NÚMERO sai em negrito (`--fw-forte`) e os rótulos irmãos não — o '
+    + 'destaque é dele, e medi-lo sozinho aprovaria a faixa inteira em negrito',
+    rodape.peso + ' vs ' + rodape.pesoIrmao);
   await a.ctx.close();
+
+  // ===== D3 · UMA LINHA SÓ, NA CÉLULA QUE ALCANÇA A DECISÃO (v1.8.65) =====
+  //
+  // A CÉLULA É 360px × 1,25×, e ela foi ESCOLHIDA por reversão, não por ser
+  // pequena. MEDIDO nas seis células do lote: a 430×1× (o viewport dos outros
+  // blocos daqui) e a 390×1× os três já cabem folgados, e a asserção passa COM
+  // e SEM o conserto — tautologia. É aqui que o recuo decide:
+  //
+  // | variante | 360×1,25× |
+  // |---|---|
+  // | publicada (`--sp-3`) | uma linha |
+  // | recuo de volta a `--sp-5` | **duas linhas** (160 / 160 / 324) |
+  //
+  // E ESTE BLOCO TINHA UMA SEGUNDA ASSERÇÃO, que saiu por não poder reprovar:
+  // ela dizia que o `min-width: max-content` da faixa segurava o rótulo, e a
+  // reversão mostrou que remover a declaração não muda um pixel — o piso real é
+  // o `min-width: auto` que todo item flex já tem. A declaração saiu junto com
+  // a asserção. O `vaza` fica na medição, como contexto de quem ler uma
+  // reprovação, e não como veredito próprio.
+  const estreito = await abrirConfig(360);
+  const ap = await estreito.pg.evaluate(async () => {
+    const z = (ms) => new Promise((f) => setTimeout(f, ms));
+    document.documentElement.style.fontSize = '20px';
+    window.__NATIVE__ = true;
+    for (const id of ['diagSave', 'contatoBtn']) {
+      const e = document.getElementById(id); if (e) e.hidden = false;
+    }
+    await z(150);
+    const faixa = document.querySelector('#fadePopup .footer-diag');
+    const botoes = [...faixa.querySelectorAll('.diag-btn')];
+    return {
+      linhas: new Set(botoes.map((b) => {
+        const r = b.getBoundingClientRect(); return Math.round(r.top + r.height / 2);
+      })).size,
+      larguras: botoes.map((b) => +b.getBoundingClientRect().width.toFixed(1)),
+      vaza: botoes.map((b) => {
+        const cs = getComputedStyle(b), rb = b.getBoundingClientRect();
+        const filhos = [...b.children].map((c) => c.getBoundingClientRect());
+        return +Math.max(0,
+          (rb.left + parseFloat(cs.paddingLeft)) - Math.min(...filhos.map((r) => r.left)),
+          Math.max(...filhos.map((r) => r.right)) - (rb.right - parseFloat(cs.paddingRight))).toFixed(1);
+      }),
+    };
+  });
+  checar(ap.linhas === 1,
+    'D3 · a 360px×1,25× os três cabem numa LINHA só — é o que o recuo a '
+    + '`--sp-3` compra; com `--sp-5` a faixa quebra em duas aqui e a 430px×1,5×',
+    JSON.stringify(ap));
+  await estreito.ctx.close();
 
   // =========================================================================
   // E · O RÓTULO DO MODO CABE — nas DUAS larguras

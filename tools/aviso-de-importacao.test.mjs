@@ -84,7 +84,7 @@ pg.on('pageerror', (e) => erros.push(e.message));
 try {
   await pg.goto(base + '/controle/', { waitUntil: 'load' });
   await pg.waitForFunction(
-    () => window.AVDB && typeof window.__avBack === 'function' && !!document.querySelector('#playlist li'),
+    () => window.AVDB && typeof window.__avBack === 'function' && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 25000 },
   );
   await pg.evaluate(() => setAppMode('full'));
@@ -98,8 +98,8 @@ try {
   await pg.evaluate((url) => {
     window.__imp = importShare({ files: [{ url, name: 'Video Pesado.mp4', type: 'video/mp4' }] });
   }, base + '/lento.bin');
-  await pg.waitForSelector('#songMenuList .song-menu-go', { timeout: 10000 });
-  await pg.evaluate(() => document.querySelector('#songMenuList .song-menu-go').click());
+  await pg.waitForSelector('#songMenuPopup .song-menu-go', { timeout: 10000 });
+  await pg.evaluate(() => document.querySelector('#songMenuPopup .song-menu-go').click());
 
   // Espera pelo FATO (a linha provisória), não por um prazo.
   const apareceu = await pg.waitForFunction(() => {
@@ -142,8 +142,8 @@ try {
   await pg.evaluate((url) => {
     window.__imp2 = importShare({ files: [{ url, name: 'Nao Existe.mp4', type: 'video/mp4' }] });
   }, base + '/nao-existe.bin');
-  await pg.waitForSelector('#songMenuList .song-menu-go', { timeout: 10000 });
-  await pg.evaluate(() => document.querySelector('#songMenuList .song-menu-go').click());
+  await pg.waitForSelector('#songMenuPopup .song-menu-go', { timeout: 10000 });
+  await pg.evaluate(() => document.querySelector('#songMenuPopup .song-menu-go').click());
   await pg.evaluate(() => window.__imp2);
   await pg.waitForTimeout(300);
   const orfa = await pg.evaluate(() => document.querySelectorAll('.lib-item.baixando').length);

@@ -62,7 +62,7 @@ try {
   // Esperar pelo FATO (o app de pé), nunca por um prazo: é a mesma condição que
   // o watchdog de boot do OTA pergunta.
   await pg.waitForFunction(
-    () => window.AVDB && typeof window.__avBack === 'function' && !!document.querySelector('#playlist li'),
+    () => window.AVDB && typeof window.__avBack === 'function' && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
   await pg.evaluate(() => setAppMode('full'));

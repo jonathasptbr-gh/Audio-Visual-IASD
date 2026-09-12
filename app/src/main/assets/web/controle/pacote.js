@@ -247,13 +247,13 @@
    * O registro de "media" pronto para o cabeçalho.
    *
    * Sai o que carrega bytes (eles viajam como corpo dos registros) e sai o
-   * `stream`: ele é o manifesto de uma TRANSMISSÃO DIRETA, com URLs do
-   * googlevideo que expiram em horas e tokens de um `StreamProxy` que só existe
-   * no aparelho de origem. Um item com `stream` e sem `blob` chega ao destino
-   * como uma cena que não toca — e o `onStreamErro` de lá pediria um manifesto
-   * novo, o que funciona, mas depois de a projeção já ter falhado uma vez.
-   * Sem o campo, o item é um LINK do YouTube, que é o que ele de fato é: o
-   * destino o resolve no primeiro toque, pelo caminho que já existe.
+   * `stream`: o app não o escreve mais, mas um registro gravado antes da
+   * remoção da transmissão direta ainda o carrega no IndexedDB — um manifesto
+   * de URLs do googlevideo expiradas, com tokens de um `StreamProxy` que só
+   * existia no aparelho de origem. **Este é o único lugar do app que ainda
+   * pergunta por ele**, e é aqui que ele morre: sem o campo, o item é um LINK
+   * do YouTube, que é o que ele de fato é — o destino o resolve no primeiro
+   * toque, pelo caminho que já existe.
    */
   function sanearMedia(rec) {
     const out = {};

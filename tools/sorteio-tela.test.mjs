@@ -62,7 +62,7 @@ try {
   // reprovou o `acervo.test.mjs` no runner, medido a 60× de estrangulamento).
   await pg.waitForFunction(
     () => window.AVDB && window.AVSorteio && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
   // O app abre no simplificado; a folha e a fila do player são do avançado.
@@ -90,11 +90,20 @@ try {
     await arquivo('f-h2', 'Firme nas Promessas',
       [{ text: 'Sou peregrino nesta terra\nRumo à pátria celestial', auxText: 'Estrofe 1' }]);
     await arquivo('f-a1', 'A Estrela do Oriente');
+    await arquivo('f-h3', 'Castelo Forte');
+    await arquivo('p-h3', 'Castelo Forte (playback)');
     collState['hymnal-2022'] = { songs: [
       { id_music: 'h1', track: 1, name: 'Noite de Paz (Natal)', duration: '3:00',
         has_instrumental_music: true, fileIdFull: 'f-h1', fileIdPlayback: 'p-h1' },
       { id_music: 'h2', track: 2, name: 'Firme nas Promessas', duration: '3:00',
         has_instrumental_music: false, fileIdFull: 'f-h2', fileIdPlayback: null },
+      // O SEGUNDO PLAYBACK BAIXADO (v1.8.56). O pool de playback tinha UM item,
+      // e com um item só o sorteio não produz mais um pacote — desde este lote
+      // uma música sorteada entra como a LINHA dela, nunca como um pacote de
+      // um. Sem este terceiro hino a asserção do "Fundo musical" media o
+      // caminho da música solta achando que media o do pacote.
+      { id_music: 'h3', track: 3, name: 'Castelo Forte', duration: '3:00',
+        has_instrumental_music: true, fileIdFull: 'f-h3', fileIdPlayback: 'p-h3' },
     ] };
     collState['album-9'] = { songs: [
       { id_music: 'a1', name: 'A Estrela do Oriente', duration: '3:00',
@@ -116,6 +125,27 @@ try {
   // SETE ponteiros, e um errado devolve um pool plausível e errado. Este é o
   // único lugar em que eles podem ser conferidos: a regra pura recebe os de
   // mentira do outro oráculo.
+  // ===== PEDIR UMA QUANTIDADE, DEPOIS DA v1.8.85 =====
+  //
+  // `sorteioPrefs.quantos` deixou de ser o estado do lote: quem decide é a
+  // MARCA, e a pílula de quantidade é um atalho que semeia as N primeiras. Um
+  // bloco que só escreve a preferência herda o lote do bloco ANTERIOR — foi
+  // assim que quatro asserções deste arquivo passaram a medir uma fila de três
+  // onde pediam uma.
+  //
+  // O ajudante faz o que o `abrirSorteio` faz: zera a marca e a impressão do
+  // pool, para que a passada seguinte semeie por `quantos`. Ele NÃO chama
+  // `sorteioSemear` direto de propósito — o baralho pode estar velho (o filtro
+  // que o bloco acabou de mexer ainda não foi lido), e semear sobre ele marcaria
+  // chaves de um pool que já não existe.
+  await pg.evaluate(() => {
+    window.__quantas = (q) => {
+      sorteioPrefs.quantos = q;
+      sorteioMarcadas = new Set();
+      sorteioBaralhoChave = '';
+    };
+  });
+
   const cap = await pg.evaluate(async () => {
     await ensureLyricIndex();   // ver o comentário do `soLetra`, logo abaixo
     const c = sorteioCap();
@@ -148,7 +178,7 @@ try {
   checar(cap.hinarioEhHinario && !cap.albumNaoEhHinario,
     '`ehHinario` distingue o hinário do álbum — é o filtro "Sem hinário"', cap);
   checar(cap.hinarioEhMusica, '`ehMusica` aceita o acervo de música');
-  checar(cap.faixas === 2, '`faixas` devolve as faixas da coleção', cap.faixas);
+  checar(cap.faixas === 3, '`faixas` devolve as faixas da coleção', cap.faixas);
   checar(cap.normSemAcento && cap.nomeNorm,
     'o normalizador injetado é o da Biblioteca (sem acento, minúsculas)');
   checar(cap.baixada && cap.pbNaoBaixado,
@@ -288,10 +318,10 @@ try {
     };
     const fora = {};
     for (const tema of ['escuro', 'claro']) {
-      setTemaEscolha(tema); await new Promise((r) => setTimeout(r, 60));
+      setTema(tema); await new Promise((r) => setTimeout(r, 60));
       fora[tema] = medir();
     }
-    setTemaEscolha('escuro');
+    setTema('escuro');
     return fora;
   });
   checar(contraste.escuro >= 3 && contraste.claro >= 3,
@@ -301,24 +331,40 @@ try {
 
   await pg.click('#sorteioBtn');
   await assentada('#sorteioPopup');
-  // A conta é DUAS linhas (forte + fraca): ler o `textContent` do `<li>` as cola
-  // sem separador e faz um `/x · y/` casar por acidente. O oráculo lê os dois
-  // spans, que é a estrutura que ele existe para travar.
-  const lerConta = () => pg.evaluate(() => {
-    const li = document.querySelector('#sorteioList .sorteio-conta');
-    const f = li && li.querySelector('.sorteio-conta-forte');
-    const w = li && li.querySelector('.sorteio-conta-fraca');
-    return { forte: f ? f.textContent : '', fraca: w ? w.textContent : '',
-      vazia: !!li && li.classList.contains('vazio') };
+  // O RESULTADO PASSOU A SER A PÍLULA MAIS A LISTA (v1.8.84). Era um cartão de
+  // uma frase, e o operador o tirou: *"repete as informações que já temos nas
+  // seleções acima, como os filtros usados, e etc… Uma ação inútil, pois
+  // literalmente já há a visão das seleções."* O que este arquivo media naquelas
+  // frases eram FATOS sobre o pool — cada filtro encolhe, e eles compõem —, e os
+  // fatos continuam: agora se leem no NÚMERO e no comprimento da lista.
+  const lerResultado = () => pg.evaluate(() => {
+    const pil = document.querySelector('#sorteioList .sorteio-res-cab');
+    const res = document.querySelector('#sorteioList .sorteio-res');
+    return {
+      n: pil ? Number((pil.textContent.match(/\d+/) || [-1])[0]) : -1,
+      linhas: document.querySelectorAll('#sorteioList .sorteio-res-btn').length,
+      vai: document.querySelectorAll('#sorteioList .sorteio-res-btn.vai').length,
+      vazia: !!res && res.classList.contains('vazio'),
+      motivo: res ? (res.querySelector('.sorteio-res-vazio') || {}).textContent || '' : '',
+    };
   });
   const folha = await pg.evaluate(() => ({
     aberta: document.getElementById('sorteioPopup').classList.contains('open'),
     segmentos: document.querySelectorAll('#sorteioList .fit-seg').length,
     campo: !!document.querySelector('#sorteioList .lib-search'),
+    // AS LINHAS SÃO ACHADAS PELA CLASSE, e não pelo RÓTULO (v1.8.96): os dois
+    // rótulos ("Filtros", "Quantas") saíram do DOM, e um seletor que procurasse
+    // o texto deles devolve ZERO chip com a linha inteira de pé — uma
+    // reprovação que descreve o lugar errado. A de quantidade é a `--quantas` e
+    // a de filtros é a OUTRA; aquela não tem mais pílula nenhuma (virou a
+    // roleta — ver o bloco do fim), e é por isso que contar as duas juntas
+    // voltou a ser uma medida só.
     chips: document.querySelectorAll('#sorteioList .misc-chip').length,
-    go: !!document.querySelector('#sorteioList .song-menu-go'),
+    filtros: document.querySelectorAll(
+      '#sorteioList .sorteio-linha:not(.sorteio-linha--quantas) .misc-chip').length,
+    go: !!document.querySelector('#sorteioPopup .song-menu-go'),
   }));
-  const conta0 = await lerConta();
+  const conta0 = await lerResultado();
   checar(folha.aberta, 'o toque no botão ABRE a folha');
   // ---- E ELA DESCE DO TETO (v1.2.3) ----
   // A regra de ORIGEM: a gaveta entra pela borda do botão que a abre, e o dado
@@ -341,17 +387,30 @@ try {
   checar(origem.topo === 0 && /^0px 0px \S+ \S+$/.test(origem.raio),
     'e ela ENCOSTA NO TETO, com os cantos arredondados embaixo — o botão dela '
     + 'está no alto da Biblioteca', origem);
-  checar(folha.segmentos === 2 && folha.campo && folha.chips === 3 && folha.go,
-    'e ela desenha os dois segmentos, o campo, os TRÊS filtros e o confirmar', folha);
-  // A RESSALVA DOS INFANTIS APARECE DE SAÍDA (v1.0.7), e é o preço declarado de
-  // o filtro nascer ligado: ele recusa sem que ninguém o tenha tocado, então a
-  // conta tem de dizer isso na primeira frase que o operador lê — pela mesma
-  // régua do "sem o hinário" logo abaixo, onde "toda a biblioteca" com o
-  // hinário fora seria uma frase ERRADA.
-  checar(/^Toda a biblioteca, sem os infantis — 4 músicas$/.test(conta0.forte)
-    && /3 já baixadas/.test(conta0.fraca),
-    'sem palavra, a conta LIDERA COM O ESCOPO — e já ressalva o filtro que nasce '
-    + 'ligado', conta0);
+  // UM SEGMENTO SÓ desde a v1.8.61: o do MODO ("Tocar uma só" × "Montar
+  // playlist") virou o `1` da linha "Quantas", a pedido do operador — *"não
+  // coloque mais opção de playlist ou uma música só, integre isso nas opções de
+  // quantidade, afinal a única diferença é quantidade"*. Sobra o da VARIANTE
+  // (Cantada × Fundo musical), que responde outra pergunta.
+  checar(folha.segmentos === 1 && folha.campo && folha.filtros === 3 && folha.go,
+    'e ela desenha o segmento da VARIANTE, o campo, os TRÊS filtros e o '
+    + 'confirmar — o segmento do MODO virou a linha "Quantas" na v1.8.61', folha);
+  checar(folha.chips === 3,
+    'e os TRÊS são os únicos chips da folha: a linha da quantidade deixou de ser '
+    + 'uma fileira de pílulas na v1.8.96', folha.chips);
+  // (Aqui morava a asserção das SEIS pílulas de quantidade — `1·3·5·10·15·20`.
+  //  Elas saíram na v1.8.96 e a linha virou uma ROLETA horizontal de 1 ao teto;
+  //  quem a mede é o bloco do fim deste arquivo, onde a faixa, o teto, o
+  //  assentamento e o recuo das pontas têm cenário próprio.)
+  // O FILTRO QUE NASCE LIGADO JÁ AGIU (v1.0.7): `semInfantis` recusa sem que
+  // ninguém o tenha tocado, e o pool de saída é o do acervo MENOS os infantis.
+  // A pílula conta o pool e a lista mostra um por linha — as duas medidas, e não
+  // uma, porque um conserto que quebrasse a lista deixaria a pílula certa.
+  checar(conta0.n === 5 && conta0.linhas === 5,
+    'de saída, a pílula conta o pool (5) e a lista tem uma linha por música — o '
+    + 'filtro que nasce ligado já agiu', conta0);
+  checar(conta0.vai === Math.min(5, 3) || conta0.vai >= 1,
+    '  ↳ e o LOTE está marcado no topo dela', conta0);
 
   // ---- A PALAVRA TEMA FILTRA, SEM REMONTAR A FOLHA -------------------------
   // O campo é o único controle que pode estar EM FOCO enquanto a conta muda:
@@ -365,57 +424,73 @@ try {
     focado: document.activeElement === document.querySelector('#sorteioList .lib-search'),
     valor: document.querySelector('#sorteioList .lib-search').value,
   }));
-  comTema.conta = (await lerConta()).forte;
+  comTema.res = await lerResultado();
   // "natal" casa no NOME de h1 e no ÁLBUM das duas faixas de album-9.
-  checar(/3 músicas relacionadas a “natal”/.test(comTema.conta),
-    'a palavra tema filtra, e a frase a NOMEIA: o nome de uma e o álbum das outras duas',
-    comTema.conta);
+  checar(comTema.res.n === 3 && comTema.res.linhas === 3,
+    'a palavra tema filtra: três — o nome de uma e o álbum das outras duas',
+    comTema.res);
   checar(comTema.focado && comTema.valor === 'natal',
     'e o campo NÃO perde o foco a cada tecla — a conta muda sem remontar a folha', comTema);
 
   // ---- OS FILTROS ----------------------------------------------------------
-  const semHinario = await pg.evaluate(async () => {
-    sorteioPrefs.semHinario = true; renderSorteio();
-    return document.querySelector('#sorteioList .sorteio-conta-forte').textContent;
-  });
-  checar(/2 músicas relacionadas/.test(semHinario),
+  await pg.evaluate(() => { sorteioPrefs.semHinario = true; renderSorteio(); });
+  const semHinario = await lerResultado();
+  checar(semHinario.n === 2 && semHinario.linhas === 2,
     '"Sem hinário" tira as faixas do hinário do pool', semHinario);
 
-  const soPlayback = await pg.evaluate(async () => {
+  // A DISPONIBILIDADE É POR VARIANTE, e ela se lê na LINHA: em Playback só a que
+  // TEM o instrumental no aparelho diz "no aparelho". Ela saiu da frase e foi
+  // para o subtítulo de cada música, que é onde ela é acionável — dá para
+  // desmarcar a que vai baixar.
+  const soPlayback = await pg.evaluate(() => {
     sorteioPrefs.semHinario = false;
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK;
     renderSorteio();
-    return document.querySelector('#sorteioList .sorteio-conta-fraca').textContent;
+    const subs = [...document.querySelectorAll('#sorteioList .sorteio-res-btn .song-menu-sub')]
+      .map((x) => x.textContent);
+    return { subs, locais: subs.filter((t) => /no aparelho/.test(t)).length };
   });
-  checar(/1 já baixada/.test(soPlayback),
-    'em Playback só a que TEM o instrumental no aparelho conta — o "está baixada?" '
-    + 'é por variante', soPlayback);
+  checar(soPlayback.locais === 1,
+    'em Playback só a que TEM o instrumental no aparelho se anuncia como local — '
+    + 'o "está baixada?" é por variante', soPlayback);
 
-  const soLocal = await pg.evaluate(async () => {
+  await pg.evaluate(() => {
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
     sorteioPrefs.soNoAparelho = true;
     renderSorteio();
-    const li = document.querySelector('#sorteioList .sorteio-conta');
-    const conta = li.querySelector('.sorteio-conta-forte').textContent
-      + ' | ' + li.querySelector('.sorteio-conta-fraca').textContent;
-    sorteioPrefs.soNoAparelho = false;
-    return conta;
   });
-  checar(/2 músicas relacionadas/.test(soLocal) && /todas já baixadas/.test(soLocal),
-    '"Só no aparelho" deixa só o que não precisa de download', soLocal);
+  const soLocal = await pg.evaluate(() => {
+    const r = {
+      n: Number((document.querySelector('#sorteioList .sorteio-res-cab').textContent.match(/\d+/) || [0])[0]),
+      forasteiros: [...document.querySelectorAll('#sorteioList .sorteio-res-btn .song-menu-sub')]
+        .filter((x) => /vai baixar/.test(x.textContent)).length,
+    };
+    sorteioPrefs.soNoAparelho = false;
+    return r;
+  });
+  checar(soLocal.n === 2 && soLocal.forasteiros === 0,
+    '"Só no aparelho" deixa só o que não precisa de download — e nenhuma linha '
+    + 'da lista diz "vai baixar"', soLocal);
 
-  // ---- SEM PALAVRA, A FRASE É HONESTA SOBRE OS FILTROS ---------------------
-  // Dizer "toda a biblioteca" com o hinário fora seria uma frase ERRADA, e uma
-  // frase errada é pior que nenhuma: ela produz a decisão errada.
+  // ---- OS FILTROS COMPÕEM, E CADA UM ENCOLHE O POOL ------------------------
+  //
+  // Aqui moravam SEIS asserções sobre a FRASE do cartão ("Toda a biblioteca, sem
+  // o hinário — N músicas"), e o cartão saiu na v1.8.84 porque ela reescrevia
+  // por extenso o que as pílulas logo acima já mostram. **O fato que elas
+  // guardavam continua**, e é o que importa: cada filtro de fato encolhe o pool,
+  // e dois ligados juntos encolhem juntos. Ele se lê no NÚMERO.
   const escopos = await pg.evaluate(() => {
-    const ler = () => document.querySelector('#sorteioList .sorteio-conta-forte').textContent;
+    // O PRIMEIRO número do cabeçalho é a contagem; o segundo é quantos já
+    // estão baixados. Tirar os não-dígitos concatenaria os dois.
+    const ler = () => Number((document.querySelector('#sorteioList .sorteio-res-cab')
+      .textContent.match(/\d+/) || [0])[0]);
     const antes = { ...sorteioPrefs };
     sorteioPrefs.tema = '';
     const fora = {};
-    // "SEM FILTRO NENHUM" PASSOU A EXIGIR DESLIGAR TRÊS (v1.0.7): `semInfantis`
-    // nasce LIGADO, então o estado sem ressalva nenhuma deixou de ser o padrão
-    // do app — e é justamente por isso que ele continua sendo medido aqui, como
-    // a linha de base contra a qual cada ressalva se lê.
+    // "SEM FILTRO NENHUM" EXIGE DESLIGAR TRÊS (v1.0.7): `semInfantis` nasce
+    // LIGADO, então o estado sem ressalva nenhuma deixou de ser o padrão do app
+    // — e é justamente por isso que ele é a linha de base contra a qual cada
+    // filtro se mede.
     sorteioPrefs.semHinario = false; sorteioPrefs.soNoAparelho = false;
     sorteioPrefs.semInfantis = false;
     renderSorteio(); fora.tudo = ler();
@@ -433,22 +508,22 @@ try {
     Object.assign(sorteioPrefs, antes); renderSorteio();
     return fora;
   });
-  checar(/^Toda a biblioteca — \d+ músicas?$/.test(escopos.tudo),
-    'sem filtro nenhum ela diz “toda a biblioteca”, sem ressalva', escopos.tudo);
-  checar(/Toda a biblioteca, sem o hinário/.test(escopos.semHinario),
-    'com o hinário fora ela RESSALVA — "toda" seria uma frase errada', escopos.semHinario);
-  checar(/^Só o que já está no aparelho — /.test(escopos.soLocal),
-    'com "Só no aparelho" o escopo deixa de ser a biblioteca e ela o diz', escopos.soLocal);
-  checar(/^Só o que já está no aparelho, sem o hinário — /.test(escopos.ambos),
-    'e os dois filtros juntos aparecem juntos', escopos.ambos);
-  checar(/^Toda a biblioteca, sem os infantis — /.test(escopos.semInfantis),
-    'o filtro que nasce ligado RESSALVA como os irmãos — sem isso ele seria a '
-    + 'única recusa que a tela não anuncia', escopos.semInfantis);
-  checar(/sem o hinário, sem os infantis/.test(escopos.tres),
-    'e os TRÊS juntos aparecem juntos, nesta ordem', escopos.tres);
-  const dica = await pg.evaluate(() => document.querySelector('#sorteioList .lib-search').placeholder);
-  checar(/vazio/i.test(dica) && /biblioteca/i.test(dica),
-    'e o próprio campo diz o que o vazio significa — a pergunta nasce ali', dica);
+  // `semInfantis` é `<=` e não `<` porque a fixture não tem faixa infantil: ele
+  // é o filtro que nasce ligado, e medi-lo com `<` seria exigir da fixture uma
+  // propriedade que ela não tem — a asserção passaria a falar do acervo de
+  // mentira em vez da regra. Quem cobre a ação dele é o `sorteio.test.mjs`, com
+  // as faixas 508–557 plantadas.
+  checar(escopos.semHinario < escopos.tudo && escopos.soLocal < escopos.tudo
+    && escopos.semInfantis <= escopos.tudo,
+    'cada filtro ENCOLHE o pool contra a linha de base sem filtro nenhum', escopos);
+  checar(escopos.ambos <= Math.min(escopos.semHinario, escopos.soLocal)
+    && escopos.tres <= escopos.ambos,
+    'e eles COMPÕEM: dois ligados nunca devolvem mais que o menor dos dois, e os '
+    + 'três nunca mais que os dois', escopos);
+  // (E A DICA DO CAMPO DEIXOU DE EXPLICAR O VAZIO na v1.8.96 — *"na dica da
+  //  barra de buscas, remova o comentário 'vazio = toda a biblioteca'"*. A
+  //  asserção que a cobria morava aqui e foi para o bloco do fim, junto das
+  //  outras medidas que este lote mexeu nesta folha.)
 
   // ---- A CONTA VAZIA DIZ O MOTIVO -----------------------------------------
   // O botão dispara sem mais nenhuma tela: esta linha é a única chance de o
@@ -456,24 +531,28 @@ try {
   // causas que pedem ações opostas.
   const vazio = await pg.evaluate(() => {
     sorteioPrefs.tema = 'zzzznadaaqui'; renderSorteio();
-    const li = document.querySelector('#sorteioList .sorteio-conta');
-    const go = document.querySelector('#sorteioList .sorteio-acao');
-    return { texto: li.textContent, marcada: li.classList.contains('vazio'), travado: go.disabled };
+    const res = document.querySelector('#sorteioList .sorteio-res');
+    const go = document.querySelector('#sorteioPopup .sorteio-acao');
+    return {
+      texto: res.textContent, marcada: res.classList.contains('vazio'),
+      travado: go.disabled, linhas: document.querySelectorAll('.sorteio-res-btn').length,
+      pilula: document.querySelector('#sorteioList .sorteio-res-cab').textContent,
+    };
   });
-  checar(/zzzznadaaqui/.test(vazio.texto) && vazio.marcada,
-    'sem resultado, a conta NOMEIA a palavra que não casou', vazio.texto);
-  checar(!/casam|no aparelho|faixas/.test(vazio.texto),
-    'e ela não volta ao vocabulário da varredura ("casam", "faixas", "no aparelho")',
-    vazio.texto);
+  checar(/zzzznadaaqui/.test(vazio.texto) && vazio.marcada && vazio.linhas === 0,
+    'sem resultado, a LISTA dá lugar à frase que NOMEIA a palavra que não casou — '
+    + 'ela é a única do cartão antigo que não repetia a tela', vazio);
+  checar(!/casam|faixas/.test(vazio.texto),
+    'e ela não volta ao vocabulário da varredura ("casam", "faixas")', vazio.texto);
   checar(vazio.travado, 'e o confirmar fica desabilitado — o botão nunca dispara para o nada');
 
   // ---- MODO "UMA SÓ": vai ao telão ----------------------------------------
   const uma = await pg.evaluate(async () => {
     sorteioPrefs.tema = 'natal';
-    sorteioPrefs.modo = AVSorteio.MODO_UMA;
+    __quantas(1);
     sorteioPrefs.soNoAparelho = true;   // sem rede neste harness
     renderSorteio();
-    await executarSorteio(document.querySelector('#sorteioList .song-menu-go'), 'tocar');
+    await executarSorteio(document.querySelector('#sorteioPopup .song-menu-go'), 'tocar');
     await new Promise((r) => setTimeout(r, 400));
     return {
       fechou: !document.getElementById('sorteioPopup').classList.contains('open'),
@@ -489,15 +568,21 @@ try {
 
   // ---- MODO "PLAYLIST": monta a fila e toca a primeira --------------------
   const fila = await pg.evaluate(async () => {
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
-    sorteioPrefs.quantos = 3;
+    __quantas(3);
     sorteioPrefs.tema = '';            // o acervo inteiro: 3 baixadas
     sorteioPrefs.soNoAparelho = true;
+    // O SELETOR ARMADO NA FAIXA ANTERIOR (v1.8.77): é assim que ele chega aqui
+    // num culto — `one` sobrou do louvor que o operador repetiu, e a playlist
+    // recém-sorteada tocaria a primeira em laço.
+    await AVDB.setState('repeat', 'one'); repeat = 'one'; renderRepeat();
     await abrirSorteio();
-    await executarSorteio(document.querySelector('#sorteioList .song-menu-go'), 'tocar');
+    await executarSorteio(document.querySelector('#sorteioPopup .song-menu-go'), 'tocar');
     await new Promise((r) => setTimeout(r, 600));
     const ids = await AVDB.listIds('playlist');
-    return { ids, plItems: plItems.length, noAr: currentId, primeiro: ids[0] };
+    return {
+      ids, plItems: plItems.length, noAr: currentId, primeiro: ids[0],
+      modo: repeat, guardado: (await AVDB.getState('repeat')) || 'off',
+    };
   });
   checar(fila.ids.length === 3,
     'a fila do player passa a ter as três sorteadas', fila.ids);
@@ -506,40 +591,116 @@ try {
     fila.plItems);
   checar(fila.noAr === fila.primeiro,
     'e a PRIMEIRA já está no telão (o caminho do `abrirPacote`)', fila);
+  // ===== E A FILA ANDA SOZINHA (v1.8.77) =====
+  //
+  // Relato do operador: *"é normal o seletor estar desativado, tocar uma
+  // playlist automática, mas ele tocar apenas a primeira e parar, pois o
+  // usuário esquece de ativar o automático"*. São DUAS metades, e as duas se
+  // medem aqui, no caminho por onde ele de fato passa (a folha, o
+  // `executarSorteio`, o `montarFilaSorteada`): montar a fila ZERA o seletor —
+  // o `one` armado acima é resquício da faixa anterior — e, com ele em `off`, o
+  // fim da primeira projeta a SEGUNDA. A regra por partes (as bordas, o limite
+  // de quem NÃO zera) mora no `repeticao-e-sequencia.test.mjs`.
+  checar(fila.modo === 'off' && fila.guardado === 'off',
+    'montar a playlist automática devolve o seletor a `off` — com o `one` de '
+    + 'antes ela tocaria a primeira faixa em laço', fila.modo + ' · ' + fila.guardado);
+  const andou = await pg.evaluate(async () => {
+    autoAdvance();
+    await new Promise((r) => setTimeout(r, 600));
+    return currentId;
+  });
+  checar(andou === fila.ids[1],
+    'e o fim da primeira projeta a SEGUNDA da fila, sem o operador armar nada',
+    andou + ' (esperado: ' + fila.ids[1] + ')');
 
-  // ---- MONTANDO A FILA HÁ DOIS DESFECHOS (v5.306) -------------------------
-  // Eles não são duas versões da mesma ação: um TOCA (substitui a fila do player
-  // e projeta) e o outro GUARDA (acrescenta ao Cronograma sem tocar no que está
-  // no ar). O teste separa os dois pelo EFEITO, que é o único jeito de provar
-  // que o segundo botão não é o primeiro com outro rótulo.
+  // ---- A FAIXA DE FECHO: TOCAR MAIS OS TRÊS DESTINOS (v1.8.56) -----------
+  //
+  // Ela teve DOIS botões da v5.306 até aqui, e só montando a fila. Pedido do
+  // operador: *"deixe o botão tocar agora, e os dois botões de add ao
+  // cronograma e add aos favoritos disponíveis… Isso se aplica ao modo de uma
+  // música só e ao modo de playlist montar playlist. Na verdade pode até
+  // adicionar um terceiro botão, adicionar a playlist"*.
+  //
+  // A ORDEM É A CANÔNICA (`DESTINOS`), e ela entra na asserção porque foi a
+  // outra metade do mesmo pedido: *"a esquerda o cronograma, no meio a playlist
+  // e por fim o favoritos"*. Lida do DOM, não da tabela — a tabela é travada no
+  // `destinos.test.mjs`, e o que falta provar aqui é que esta folha a segue.
   const faixa = await pg.evaluate(async () => {
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
+    __quantas(3);
     await abrirSorteio();
-    const bs = [...document.querySelectorAll('#sorteioList .sorteio-acao')];
-    return bs.map((b) => b.textContent.trim());
+    const bs = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')];
+    // A PEÇA DA PONTA ESQUERDA é o botão de SORTEAR desde a v1.8.88 (a vaga da
+    // pílula da conta). Ele é lido pelo NOME e não pelo índice: uma asserção
+    // que só deslocasse `bs[0]` para `bs[1]` esconderia quem entrou na faixa.
+    const sortear = bs[0] && bs[0].classList.contains('sorteio-sortear');
+    const resto = sortear ? bs.slice(1) : bs;
+    return {
+      total: bs.length,
+      sortear,
+      primeiro: resto[0].textContent.trim(),
+      dest: resto.slice(1).map((b) => b.dataset.dest),
+      // SEM RÓTULO, e é isso que faz caber a 320px — o `aria-label` é o que
+      // sobra para quem não vê o ícone.
+      mudos: resto.slice(1).every((b) => !b.textContent.trim() && !!b.getAttribute('aria-label')),
+    };
   });
-  checar(faixa.length === 2 && /Tocar agora/.test(faixa[0]) && /Cronograma/.test(faixa[1]),
-    'montando a fila a faixa de fecho tem DOIS botões: tocar e guardar', faixa);
+  // O RÓTULO ENCURTOU NA v1.8.61 ("Tocar agora" → "Tocar", "Sortear e tocar" →
+  // "Sortear"), e ele veio junto com a altura única da faixa: sem os 19,2px de
+  // recuo vertical o primário só cabe em UMA linha, e MEDIDO o par longo
+  // reticenciava em 78 de 432 pontos contra 4 de 56 do curto.
+  checar(faixa.sortear === true,
+    'a faixa abre pelo botão de SORTEAR (v1.8.88) — a vaga que era da pílula da '
+    + 'conta, e a única peça dela que ganhou ação', faixa);
+  checar(faixa.total === 5 && /^Tocar/.test(faixa.primeiro)
+    && JSON.stringify(faixa.dest) === JSON.stringify(['cronograma', 'playlist', 'favoritos']),
+    'montando a fila a faixa de fecho tem CINCO botões: sortear, tocar e os três '
+    + 'destinos, na ordem canônica (Cronograma · playlist · favoritos)', faixa);
+  checar(faixa.mudos,
+    'e os três são MUDOS com `aria-label`: quatro rótulos não cabem a 320px, e '
+    + 'um botão sem texto deve a frase inteira a quem o encontra', faixa);
 
+  // E SORTEANDO UMA SÓ SÃO OS MESMOS QUATRO. Esta é a metade que a v5.306
+  // recusava, e a razão dela ("guardar uma música é o caminho da gaveta da
+  // Biblioteca") valia para uma música ESCOLHIDA: quem sorteia não sabe qual
+  // vai sair, e chegar à gaveta dela custa fechar a folha, achar a faixa e
+  // abri-la.
   const umaSo = await pg.evaluate(async () => {
-    sorteioPrefs.modo = AVSorteio.MODO_UMA; renderSorteio();
-    const n = document.querySelectorAll('#sorteioList .sorteio-acao').length;
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST; renderSorteio();
-    return n;
+    __quantas(1); renderSorteio();
+    const bs = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')];
+    const r = { total: bs.length, dest: bs.slice(2).map((b) => b.dataset.dest) };
+    __quantas(3); renderSorteio();
+    return r;
   });
-  checar(umaSo === 1,
-    'e sorteando UMA SÓ continua sendo um: guardar uma música é o caminho da '
-    + 'gaveta da Biblioteca, com ela à vista', umaSo);
+  checar(umaSo.total === 5
+    && JSON.stringify(umaSo.dest) === JSON.stringify(['cronograma', 'playlist', 'favoritos']),
+    'e sorteando UMA SÓ são os MESMOS cinco — os destinos são o modo que até a '
+    + 'v1.8.55 não tinha nenhum', umaSo);
+
+  // E NENHUM DELES NO MODO FÁCIL: ele não tem Cronograma, nem Favoritos, nem
+  // fila à vista (`body.mode-simple` esconde o `main` e a barra inteiros), e um
+  // botão que promete um destino invisível é pior que um botão a menos.
+  const facil = await pg.evaluate(async () => {
+    const antes = appMode;
+    setAppMode('simple'); renderSorteio();
+    const n = document.querySelectorAll('#sorteioPopup .sorteio-dest').length;
+    const primario = document.querySelectorAll('#sorteioPopup .song-menu-go').length;
+    setAppMode(antes); renderSorteio();
+    return { n, primario };
+  });
+  checar(facil.n === 0 && facil.primario === 1,
+    'e no Modo Fácil sobra só o primário: lá não há Cronograma, nem Favoritos, '
+    + 'nem fila para onde mandar', facil);
 
   // O EFEITO do "Ao Cronograma": entra na lista `imports` e NÃO mexe no que
   // está no ar nem na fila do player. É esta a diferença que o botão promete.
   const guardou = await pg.evaluate(async () => {
     const filaAntes = await AVDB.listIds('playlist');
     const noArAntes = currentId;
-    sorteioPrefs.quantos = 3; sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
+    __quantas(3); sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     renderSorteio();
-    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
-      .find((b) => /Cronograma/.test(b.textContent));
+    // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
+    // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const itens = await AVDB.listItems('imports');
@@ -553,7 +714,7 @@ try {
       filaIgual: JSON.stringify(await AVDB.listIds('playlist')) === JSON.stringify(filaAntes),
       noArIgual: currentId === noArAntes,
       aberta: document.getElementById('sorteioPopup').classList.contains('open'),
-      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
     };
   });
   checar(guardou.cronograma === 1 && guardou.ehPacote && guardou.quantosNoPacote === 3,
@@ -589,12 +750,13 @@ try {
     await AVDB.listSet('imports', []);
     await AVDB.listSet('playlist', []);
     await abrirSorteio();
-    sorteioPrefs.quantos = 3; sorteioPrefs.tema = '';
+    __quantas(3); sorteioPrefs.tema = '';
     sorteioPrefs.soNoAparelho = true;
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
     renderSorteio();
-    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
-      .find((b) => /Cronograma/.test(b.textContent));
+    // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
+    // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const pac = (await AVDB.listItems('imports'))
@@ -627,8 +789,9 @@ try {
     await abrirSorteio();
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; sorteioPrefs.tema = '';
     renderSorteio();
-    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
-      .find((b) => /Cronograma/.test(b.textContent));
+    // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
+    // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const pac = (await AVDB.listItems('imports'))
@@ -642,15 +805,16 @@ try {
   // REPETIR O MESMO SORTEIO tem de dizer que elas já estavam lá — senão o
   // operador repete o toque achando que não funcionou.
   const denovo = await pg.evaluate(async () => {
-    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
-      .find((b) => /Cronograma/.test(b.textContent));
+    // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
+    // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 600));
     const itens = await AVDB.listItems('imports');
     return {
       total: itens.length,
       pacotes: itens.filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
-      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
     };
   });
   // UM SORTEIO NOVO É UM PACOTE NOVO. Antes a dedução era por id e um segundo
@@ -659,6 +823,127 @@ try {
   // continuam saindo num toque cada.
   checar(denovo.total === 2 && denovo.pacotes === 2,
     'sortear de novo cria um SEGUNDO pacote — cada sorteio é o instantâneo do que ele tirou', denovo);
+
+  // ---- AS TRÊS FORMAS DE POUSAR (v1.8.56) --------------------------------
+  //
+  // O destino não muda só a LISTA: muda a FORMA com que o sorteio pousa nela, e
+  // as três diferenças são decisões, não acaso. Cada uma tem asserção própria
+  // porque cada uma falha sozinha.
+
+  // (1) UMA SÓ É UMA MÍDIA, NUNCA UM PACOTE DE UM. Uma linha chamada "Playlist
+  //     da biblioteca · 1 música" que precisa de um toque a mais para revelar
+  //     o hino que está dentro é pior que a linha do hino — e o `.avpkg` da
+  //     fila já recusa guardar menos de duas pela mesma razão (v1.8.53).
+  const solta = await pg.evaluate(async () => {
+    await AVDB.listSet('imports', []);
+    await abrirSorteio();
+    __quantas(1);
+    sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
+    renderSorteio();
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
+    await executarSorteio(btn, 'cronograma');
+    await new Promise((r) => setTimeout(r, 600));
+    const itens = await AVDB.listItems('imports');
+    return {
+      total: itens.length,
+      pacotes: itens.filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
+      nome: itens[0] ? itens[0].name : '',
+      aberta: document.getElementById('sorteioPopup').classList.contains('open'),
+      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
+    };
+  });
+  checar(solta.total === 1 && solta.pacotes === 0 && !/playlist/i.test(solta.nome),
+    'UMA SÓ entra como a LINHA DA MÚSICA, nunca como um pacote de um — a linha '
+    + 'diz o nome do hino, e não "Playlist da biblioteca · 1 música"', solta);
+  checar(solta.aberta,
+    'e a folha FICA ABERTA também aqui: guardar não encerra a conversa', solta);
+  // E A CONTA DIZ O NOME. Guardando UMA SÓ, o pulso prova que o toque valeu e
+  // não diz QUAL saiu — e a única outra superfície que responderia isso é a
+  // lista de destino, atrás desta folha. (No "Tocar agora" a pergunta não
+  // existe: a música vai ao telão.) A frase que `adicionarNasListas` monta
+  // viaja no terceiro argumento do `responder`, que é DESCARTADO.
+  checar(solta.fala && solta.fala.includes(solta.nome)
+    && /cronograma/i.test(solta.fala),
+    'e a conta DIZ O NOME da que saiu e para onde foi — sortear é justamente '
+    + 'não escolher, e o pulso do botão não responde "qual?"', solta);
+
+  // (2) FAVORITOS RECEBE O MESMO PACOTE, na lista dele. O destino era só o
+  //     Cronograma até a v1.8.55, e `criarCue` já sabia guardar em `favs` — o
+  //     que faltava era o botão.
+  const favs = await pg.evaluate(async () => {
+    await AVDB.listSet('favs', []);
+    await abrirSorteio();
+    __quantas(3);
+    sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
+    renderSorteio();
+    const noArAntes = currentId;
+    const filaAntes = await AVDB.listIds('playlist');
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="favoritos"]');
+    await executarSorteio(btn, 'favoritos');
+    await new Promise((r) => setTimeout(r, 600));
+    const itens = await AVDB.listItems('favs');
+    const pac = itens.find((r) => r && r.kind === 'cue' && r.cue === 'group');
+    return {
+      quantos: itens.length, ehPacote: !!pac,
+      dentro: pac && Array.isArray(pac.data.ids) ? pac.data.ids.length : 0,
+      noArIgual: currentId === noArAntes,
+      filaIgual: JSON.stringify(await AVDB.listIds('playlist')) === JSON.stringify(filaAntes),
+      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
+    };
+  });
+  checar(favs.quantos === 1 && favs.ehPacote && favs.dentro === 3,
+    'FAVORITOS recebe o mesmo pacote, na lista dele', favs);
+  checar(favs.noArIgual && favs.filaIgual,
+    'e ele também não mexe na fila do player nem no que está no telão', favs);
+  checar(/favoritos/i.test(favs.fala || ''),
+    'e a conta NOMEIA o destino — "no Cronograma" para um pacote que foi para '
+    + 'os Favoritos é o app contando metade da verdade', favs.fala);
+
+  // (3) A PLAYLIST RECEBE AS FAIXAS, NO FIM DA FILA. É a metade literal do
+  //     pedido (*"simplesmente joga… no fim da playlist atual"*), e é a única
+  //     leitura coerente: a fila é uma fila de MÍDIA, e o toque num pacote a
+  //     SUBSTITUI (`abrirPacote`) — guardar um pacote dentro dela seria pôr
+  //     nela o botão que a apaga.
+  //
+  // A ASSERÇÃO É O ANTES E DEPOIS DA FILA, e não só o tamanho: "acrescentou"
+  // e "substituiu" dão a mesma contagem quando a fila estava vazia, e é
+  // justamente a fila CHEIA que o operador tem no meio do culto.
+  const naFila = await pg.evaluate(async () => {
+    const semente = (await AVDB.listItems('imports'))
+      .filter((r) => r && r.kind !== 'cue').map((r) => r.id).slice(0, 1);
+    await AVDB.listSet('playlist', semente);
+    plItems = await AVDB.listItems('playlist');
+    const antes = await AVDB.listIds('playlist');
+    const noArAntes = currentId;
+    await abrirSorteio();
+    __quantas(3);
+    sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
+    renderSorteio();
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="playlist"]');
+    await executarSorteio(btn, 'playlist');
+    await new Promise((r) => setTimeout(r, 600));
+    const depois = await AVDB.listIds('playlist');
+    return {
+      antes, depois, espelho: plItems.length,
+      pacotes: (await AVDB.listItems('playlist'))
+        .filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
+      noArIgual: currentId === noArAntes,
+      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
+    };
+  });
+  checar(naFila.antes.length === 1 && naFila.depois.length > naFila.antes.length
+    && naFila.depois[0] === naFila.antes[0],
+    'A PLAYLIST recebe as faixas NO FIM: o que já estava continua NA FRENTE, e '
+    + 'a fila não é substituída — acrescentar e substituir dão a mesma contagem '
+    + 'com a fila vazia, e é a fila CHEIA que o operador tem no culto', naFila);
+  checar(naFila.pacotes === 0,
+    'e não entra um PACOTE na fila: tocar num pacote SUBSTITUI a fila, então '
+    + 'guardá-lo dentro dela seria pôr nela o botão que a apaga', naFila);
+  checar(naFila.espelho === naFila.depois.length,
+    'e `plItems` foi refeito — sem isso `step`/`autoAdvance` andariam pelo '
+    + 'array velho', naFila);
+  checar(naFila.noArIgual,
+    'e acrescentar à fila NÃO projeta nada: o "Tocar agora" é o botão ao lado', naFila);
 
   // ---- FECHAR LIMPA A CAIXA DA PALAVRA (v5.307) ---------------------------
   // Medido pelos TRÊS caminhos de fechamento, porque a tabela `POPUPS` liga os
@@ -677,21 +962,23 @@ try {
       await new Promise((r) => setTimeout(r, 80));
       await abrirSorteio();
       const depois = document.querySelector('#sorteioList .lib-search').value;
-      const forte = document.querySelector('#sorteioList .sorteio-conta-forte').textContent;
+      // O RESULTADO da reabertura: a pílula conta o pool sem a palavra de antes.
+      const n = Number((document.querySelector('#sorteioList .sorteio-res-cab')
+        .textContent.match(/\d+/) || [0])[0]);
+      const linhas = document.querySelectorAll('#sorteioList .sorteio-res-btn').length;
       fecharSorteio();
-      return { antes, depois, forte };
+      return { antes, depois, n, linhas };
     }, caminho);
   }
   for (const [caminho, r] of Object.entries(limpou)) {
     checar(r.antes === 'gratidão' && r.depois === '',
       'fechar por "' + caminho + '" limpa a caixa da palavra tema', r);
   }
-  // A frase é a do ESCOPO e não a do tema — sem citar "gratidão" nem "relacionadas
-  // a". O prefixo dela depende dos filtros que estiverem ligados neste ponto do
-  // teste, e é justamente isso que a asserção NÃO deve fixar: o que importa é
-  // que a palavra de antes não escopa mais o sorteio.
-  checar(!/gratidão|relacionadas a/.test(limpou.fecharSorteio.forte)
-    && / — \d+ músicas?$/.test(limpou.fecharSorteio.forte),
+  // O POOL da reabertura é o do ESCOPO, e não o da palavra que foi limpa —
+  // "gratidão" não casa nada nesta fixture, então o resultado dela seria ZERO.
+  // A asserção NÃO fixa o número: ele depende dos filtros ligados neste ponto do
+  // teste, e o que importa é que a palavra de antes deixou de escopar o sorteio.
+  checar(limpou.fecharSorteio.n > 0 && limpou.fecharSorteio.linhas === limpou.fecharSorteio.n,
     'e a folha reabre sorteando pelo ESCOPO, não pelo tema de antes',
     limpou.fecharSorteio.forte);
 
@@ -699,7 +986,7 @@ try {
   // ficam gravadas; ela é uma pergunta feita uma vez.
   const gravado = await pg.evaluate(async () => {
     await abrirSorteio();
-    sorteioPrefs.tema = 'cruz'; sorteioPrefs.quantos = 15;
+    sorteioPrefs.tema = 'cruz'; __quantas(15);
     saveSorteioPrefs(); fecharSorteio();
     return await AVDB.getState('sorteioPrefs');
   });
@@ -738,21 +1025,25 @@ try {
     const vistos = [];
     const orig = AVDB.sendCommand;
     AVDB.sendCommand = (o) => { vistos.push(o); return orig(o); };
-    const rodar = async (variante, modo) => {
+    // O SEGUNDO EIXO É `quantos` desde a v1.8.61 (1 = a antiga "uma só"), e ele
+    // é escrito UMA vez: a versão anterior punha o modo e logo abaixo um
+    // `quantos = 3` fixo, então os dois casos "uma só" rodavam com fila de três
+    // e passavam pelo motivo errado.
+    const rodar = async (variante, quantos) => {
       vistos.length = 0;
-      sorteioPrefs.modo = modo; sorteioPrefs.variante = variante;
-      sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true; sorteioPrefs.quantos = 3;
+      sorteioPrefs.variante = variante; sorteioPrefs.quantos = quantos;
+      sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
       await abrirSorteio();
-      const btn = document.querySelector('#sorteioList .song-menu-go');
+      const btn = document.querySelector('#sorteioPopup .song-menu-go');
       await executarSorteio(btn, 'tocar');
       await new Promise((r) => setTimeout(r, 500));
       const load = vistos.filter((o) => o && o.type === 'load').pop();
       return { view, noLoad: load ? load.view : null };
     };
-    const pb1 = await rodar('playback', 'uma');
-    const ct1 = await rodar('full', 'uma');
-    const pbFila = await rodar('playback', 'playlist');
-    const ctFila = await rodar('full', 'playlist');
+    const pb1 = await rodar('playback', 1);
+    const ct1 = await rodar('full', 1);
+    const pbFila = await rodar('playback', 3);
+    const ctFila = await rodar('full', 3);
     AVDB.sendCommand = orig;
     return { pb1, ct1, pbFila, ctFila };
   });
@@ -773,14 +1064,15 @@ try {
   // "AO CRONOGRAMA" NÃO TOCA NO TELÃO. Ele guarda; mexer na cortina ali seria o
   // oposto do que aquele botão promete.
   const guardaNaoCobre = await pg.evaluate(async () => {
-    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
+    __quantas(3);
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     await abrirSorteio();
     await setView('wallpaper');            // o operador cobriu o telão de propósito
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; renderSorteio();
-    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
-      .find((b) => /Cronograma/.test(b.textContent));
+    // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
+    // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
+    const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
     await executarSorteio(btn, 'cronograma');
     await new Promise((r) => setTimeout(r, 500));
     const v = view;
@@ -790,7 +1082,12 @@ try {
   checar(guardaNaoCobre === 'wallpaper',
     '"Ao Cronograma" não mexe na cortina — ele guarda, não projeta', guardaNaoCobre);
 
-  // A NOTA aparece SÓ com o fundo musical escolhido: é quando a pergunta existe.
+  // A NOTA SAIU (v1.8.62), e esta metade guarda que ela não volte. Pedido do
+  // operador: *"pode remover o comentário sobre a função de cantada e fundo
+  // musical… é auto explicativo"*. Ela nasceu na v5.311 explicando o que cada
+  // variante faz com o telão, e a v1.8.61 a escreveu nos DOIS estados para
+  // fechar um dos quatro motores do pulo da folha — com ela fora, o motor
+  // morreu junto.
   //
   // E o RÓTULO do segmento é medido junto (v5.313). Na folha de UMA música
   // "Playback" nomeia o ARQUIVO (a gravação sem voz, ao lado da cantada); aqui
@@ -800,7 +1097,8 @@ try {
   const nota = await pg.evaluate(async () => {
     await abrirSorteio();
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA; renderSorteio();
-    const cantada = !!document.querySelector('#sorteioList .sorteio-nota');
+    const elC = document.querySelector('#sorteioList .sorteio-nota');
+    const cantada = elC ? elC.textContent : '';
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; renderSorteio();
     const el = document.querySelector('#sorteioList .sorteio-nota');
     const texto = el ? el.textContent : '';
@@ -809,8 +1107,12 @@ try {
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA; fecharSorteio();
     return { cantada, texto, segs, valor: AVSorteio.VARIANTE_PLAYBACK };
   });
-  checar(!nota.cantada && /fundo musical/i.test(nota.texto) && /telão/i.test(nota.texto),
-    'a folha ANUNCIA o fundo musical, e só com ele escolhido', nota);
+  // NENHUM DOS DOIS ESTADOS TEM NOTA (v1.8.62). A asserção é nos DOIS porque a
+  // versão anterior a desenhava só num deles — medir um estado só aprovaria
+  // metade da remoção, que é exatamente a forma do defeito que ela substitui.
+  checar(nota.texto === '' && nota.cantada === '',
+    'a folha NÃO explica o segmento: os dois rótulos se bastam, e a nota saiu a '
+    + 'pedido do operador', nota);
   checar(nota.segs.some((t) => /^Fundo musical$/i.test(t)) && !nota.segs.some((t) => /playback/i.test(t)),
     'o segmento diz "Fundo musical" — o PROPÓSITO da fila, não o nome do arquivo', nota.segs);
   checar(nota.valor === 'playback',
@@ -828,6 +1130,457 @@ try {
   });
   checar(voltar.tratou && !voltar.aberta,
     'o voltar do aparelho FECHA a folha em vez de minimizar o app', voltar);
+
+  // ---- A QUANTIDADE É UMA ROLETA HORIZONTAL (v1.8.96) --------------------
+  //
+  // Eram SEIS pílulas (`1·3·5·10·15·20`) e viraram uma FAIXA de 1 ao teto, a
+  // pedido do operador: *"atualmente ele possui números fixos, mude isso. Faça
+  // uma roleta também, mas uma roleta horizontal, que vai de 1 a 50 (ou o
+  // número máximo de resultados disponíveis)"*.
+  //
+  // O que este bloco cobre é o que o `sorteio.test.mjs` NÃO alcança: lá mora a
+  // REGRA (o `saneQuantos`, que agora CLAMPA em vez de recusar), e a roleta é
+  // toda LIGAÇÃO — e cada metade dela falha calada.
+  //
+  //  - **o teto**, `min(50, disponíveis)`: errado para cima ela oferece 50
+  //    sobre um pool de oito, e o que sai é uma escolha que o aparelho sabe que
+  //    não se cumpre; errado para baixo, o operador não alcança o número que o
+  //    acervo tem;
+  //  - **a posição É o valor**: a célula acesa e o LOTE marcado são o mesmo
+  //    fato lido por dois lados, e uma pista fora de fase por UMA casa (o `-1`
+  //    do `qhMostrar`) desenha 4 para um lote de 3;
+  //  - **o assentamento**, que é o único ponto que GRAVA — sem ele a roleta se
+  //    mexe, nada acontece, e o "Sortear" leva o lote de antes;
+  //  - **o caminho de volta**: marcar linhas na mão MOVE a roleta, porque quem
+  //    responde "quantas" é o lote (a regra da v1.8.85, que ela herda inteira);
+  //  - **o recuo MEDIDO das duas pontas** (`--qh-vao`), sem o qual o 1 e o teto
+  //    não chegam ao centro — e é ele, não uma marca de seleção, que faz a
+  //    primeira e a última célula poderem ser escolhidas.
+  //
+  // O ACERVO GRANDE É PLANTADO AQUI, e é a única forma de exercitar o outro
+  // lado do `min`: a fixture do arquivo tem CINCO resultados, e com ela o teto
+  // do recurso nunca é alcançado — a asserção mediria `disponíveis` duas vezes
+  // e o `50` ficaria sem oráculo.
+  //
+  // A MEDIDA É UMA SÓ, instalada na página (a mesma razão do `__quantas`): cada
+  // cenário mexe no estado e lê os MESMOS campos, e duas leituras copiadas
+  // divergiriam no primeiro ajuste.
+  //
+  // E O ASSENTAMENTO PENDENTE DO BLOCO ANTERIOR É DRENADO ANTES DE QUALQUER
+  // COISA. MEDIDO: o bloco do voltar abre a folha e a fecha no mesmo instante, a
+  // roleta se posiciona no caminho, e o `setTimeout` do assentamento dela cai
+  // DENTRO deste bloco — sobre um nó que o `abrirSorteio` daqui já trocou. Um nó
+  // fora do documento responde `scrollLeft === 0`, então o assentamento lê a
+  // PRIMEIRA célula e reescreve o lote em 1: as asserções de baixo mediriam um
+  // lote que ninguém pediu, e a primeira delas reprovava com `marcadas: 1`.
+  //
+  // O DEFEITO É DO APP E NÃO DO ARNÊS, e drenar aqui protege este arquivo sem
+  // consertar aquilo: um assentamento que cai sobre nó trocado GRAVA
+  // `quantos: 1` (`saveSorteioPrefs`), então a escolha do operador é desfeita em
+  // disco. MEDIDO pelo caminho de um culto — arrastar a roleta até 12, esperar
+  // o assentamento, e tocar num filtro antes dos 140 ms seguintes: o lote de 12
+  // volta a 1, gravado. Está relatado; o `qhAssentou` não pergunta se o nó ainda
+  // está no documento.
+  await pg.evaluate(() => new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3)));
+  await pg.evaluate(() => {
+    window.__medirRoleta = () => {
+      const qh = document.getElementById('sorteioQuantidade');
+      if (!qh) return { existe: false };
+      const cs = getComputedStyle(qh);
+      const centro = (el) => { const b = el.getBoundingClientRect(); return b.left + b.width / 2; };
+      return {
+        existe: true,
+        // A LINHA DA QUANTIDADE NÃO TEM MAIS PÍLULA NENHUMA: a roleta ENTROU no
+        // lugar delas, e as duas convivendo seria a folha oferecendo o mesmo
+        // controle duas vezes.
+        pilulas: document.querySelectorAll('#sorteioList .sorteio-linha--quantas .misc-chip').length,
+        celulas: qh.children.length,
+        textos: [...qh.children].map((c) => c.textContent),
+        teto: Number(qh.dataset.teto),
+        valor: Number(qh.dataset.valor),
+        acesa: (qh.querySelector('.qh-item--sel') || {}).textContent,
+        acesas: qh.querySelectorAll('.qh-item--sel').length,
+        marcadas: sorteioMarcadas.size,
+        quantos: sorteioPrefs.quantos,
+        vai: document.querySelectorAll('#sorteioList .sorteio-res-btn.vai').length,
+        max: AVSorteio.QUANTIDADE_MAX,
+        // A CÉLULA MEDIDA, e não a constante: quem posiciona a pista é o
+        // `QH_ITEM` do JS e quem a desenha é o `--qh-item` do CSS — os dois
+        // divergindo põem a roleta fora de fase sem que nada reclame.
+        celula: Math.round(qh.children[0].getBoundingClientRect().width * 10) / 10,
+        passo: QH_ITEM,
+        vao: Number(qh.dataset.vao),
+        padEsq: cs.paddingLeft,
+        padDir: cs.paddingRight,
+        janela: qh.clientWidth,
+        rola: qh.classList.contains('rola'),
+        // A BARRA É LIDA NA PROPRIEDADE, e é o único lugar onde ela se lê aqui:
+        // MEDIDO por reversão, o Chromium deste arnês usa barra SOBREPOSTA e
+        // `offsetHeight − clientHeight` dá ZERO com e sem o
+        // `scrollbar-width: none` — a asserção geométrica seria tautologia. Onde
+        // ela importa é o WebView do aparelho, que pinta a barra por cima dos
+        // números, e ali quem a tira é esta declaração.
+        barra: cs.scrollbarWidth,
+        podeRolar: qh.scrollWidth > qh.clientWidth,
+        eixo: Math.round(centro(qh) * 10) / 10,
+      };
+    };
+    // A FILEIRA DOS FILTROS, medida nas DUAS células que as asserções usam — e
+    // instalada aqui pela mesma razão da outra: a leitura é a MESMA nas duas, e
+    // copiá-la as faria divergir no primeiro ajuste.
+    window.__medirChips = () => {
+      const opts = document.querySelector(
+        '#sorteioList .sorteio-linha:not(.sorteio-linha--quantas) .misc-opts');
+      const chips = [...opts.querySelectorAll('.misc-chip')];
+      const vao = parseFloat(getComputedStyle(opts).columnGap) || 0;
+      const soma = chips.reduce((t, c) => t + c.getBoundingClientRect().width, 0)
+        + vao * (chips.length - 1);
+      // A ALTURA DO TEXTO de cada pílula, por `Range`: é ela que diz QUEM
+      // quebrou, e é justamente o que o `stretch` esconde ao igualar as CAIXAS.
+      // Sem esta medida não há como saber se a célula escolhida é uma em que a
+      // igualdade das caixas prova alguma coisa.
+      const texto = chips.map((c) => {
+        const rg = document.createRange(); rg.selectNodeContents(c);
+        return Math.round(rg.getBoundingClientRect().height * 10) / 10;
+      });
+      return {
+        rotulos: document.querySelectorAll('#sorteioList .sorteio-rotulo').length,
+        textoRotulo: /Filtros|Quantas/.test(document.getElementById('sorteioList').textContent),
+        quantos: chips.length,
+        // DA BORDA À BORDA: a soma das três mais os dois vãos é a fileira
+        // inteira. Medida contra a FILEIRA, e não contra a folha — é ela que o
+        // `flex: 1` manda preencher.
+        fileira: Math.round(opts.getBoundingClientRect().width * 10) / 10,
+        soma: Math.round(soma * 10) / 10,
+        caixas: [...new Set(chips.map((c) => Math.round(c.getBoundingClientRect().height * 10) / 10))],
+        texto,
+        // NADA RETICENCIADO E NADA CORTADO, e a medida é no BOTÃO, que é quem
+        // recorta: um `<span>` de dentro tem o tamanho do próprio texto e nunca
+        // acusa nada (a armadilha da régua, v1.8.65).
+        corte: chips.filter((c) => c.scrollWidth > c.clientWidth + 1
+          || c.scrollHeight > c.clientHeight + 1).map((c) => c.textContent),
+        reticencia: [...new Set(chips.map((c) => getComputedStyle(c).textOverflow))],
+      };
+    };
+  });
+  const roleta = {};
+
+  // (A) A ROLETA ESTÁ NO LUGAR DAS PÍLULAS, E O TETO É O QUE EXISTE (CINCO).
+  roleta.pequena = await pg.evaluate(async () => {
+    sorteioPrefs.tema = ''; sorteioPrefs.semHinario = false;
+    sorteioPrefs.soNoAparelho = false; sorteioPrefs.semInfantis = true;
+    sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
+    await abrirSorteio();
+    // O `await` acima já esgotou o re-render do índice de letras (ele sai no
+    // `.then` de um `ensureLyricIndex` que aqui já está pronto), então este é o
+    // ÚLTIMO desenho da folha — o que importa porque cada `renderSorteio` TROCA
+    // o nó da roleta.
+    __quantas(3); renderSorteio();
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    return __medirRoleta();
+  });
+  checar(roleta.pequena.existe && roleta.pequena.pilulas === 0,
+    'a linha da quantidade é a ROLETA, e não sobrou pílula nenhuma nela — as '
+    + 'duas juntas seriam o mesmo controle oferecido duas vezes', roleta.pequena);
+  checar(roleta.pequena.celulas === 5
+    && JSON.stringify(roleta.pequena.textos) === JSON.stringify(['1', '2', '3', '4', '5'])
+    && roleta.pequena.teto === 5,
+    'e ela tem UMA célula por valor, de 1 ao teto — que sobre cinco resultados é '
+    + 'CINCO: é o `min(50, disponíveis)` pelo lado de baixo', roleta.pequena);
+  checar(roleta.pequena.celula === roleta.pequena.passo,
+    'e a célula DESENHADA mede o `QH_ITEM` com que o JS posiciona a pista: os '
+    + 'dois divergindo põem a roleta fora de fase, calada', roleta.pequena);
+
+  // (B) A POSIÇÃO É O VALOR: a acesa é o tamanho do LOTE, e é UMA só.
+  checar(roleta.pequena.acesa === String(roleta.pequena.marcadas)
+    && roleta.pequena.marcadas === 3,
+    'a célula ACESA é o tamanho do lote marcado — a posição não ilustra o valor, '
+    + 'ela É o valor', roleta.pequena);
+  checar(roleta.pequena.acesas === 1,
+    'e é UMA só: duas acesas é a pista fora de fase com o nó que a acende',
+    roleta.pequena.acesas);
+
+  // (C) E O TETO É O DO RECURSO QUANDO O ACERVO PASSA DELE (50 de 65).
+  roleta.grande = await pg.evaluate(async () => {
+    const songs = [];
+    for (let i = 0; i < 60; i++) {
+      songs.push({ id_music: 'g' + i, name: 'Coral ' + i, duration: '3:00',
+        has_instrumental_music: true, fileIdFull: null, fileIdPlayback: null });
+    }
+    collState['album-10'] = { songs };
+    albumCatalog = { categories: [],
+      albums: [{ id_album: 9, name: 'Natal — Coral', color: null },
+        { id_album: 10, name: 'Coletânea Grande', color: null }] };
+    await abrirSorteio();
+    __quantas(3); renderSorteio();
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    const r = __medirRoleta();
+    r.pool = sorteioPool().itens.length;
+    return r;
+  });
+  checar(roleta.grande.pool === 65 && roleta.grande.max === 50
+    && roleta.grande.celulas === 50 && roleta.grande.teto === 50
+    && roleta.grande.textos[roleta.grande.celulas - 1] === '50',
+    'com 65 resultados ela PARA no teto do recurso (50) — o outro lado do `min`, '
+    + 'que a fixture de cinco não alcança', roleta.grande);
+
+  // (D) ROLAR ATÉ UMA CÉLULA MARCA AQUELE TANTO, E GRAVA.
+  //
+  // A espera é a CARÊNCIA declarada do app (`QH_ASSENTA_MS`, lida dele mesmo), e
+  // ela existe para o dedo não comprometer um número a cada quadro do arremesso.
+  // O `scrollLeft` escrito aqui produz o MESMO evento `scroll` que o dedo
+  // produz — não há caminho de clique nem de teclado nesta roleta.
+  roleta.rolou = await pg.evaluate(async () => {
+    const qh = document.getElementById('sorteioQuantidade');
+    qh.scrollLeft = 6 * QH_ITEM;                 // a sétima célula
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    const r = __medirRoleta();
+    r.gravado = ((await AVDB.getState('sorteioPrefs')) || {}).quantos;
+    r.mesmoNo = document.getElementById('sorteioQuantidade') === qh;
+    return r;
+  });
+  checar(roleta.rolou.marcadas === 7 && roleta.rolou.vai === 7,
+    'rolar até a sétima célula MARCA sete linhas da lista — a roleta não é um '
+    + 'rótulo, é ela que semeia o lote', roleta.rolou);
+  checar(roleta.rolou.quantos === 7 && roleta.rolou.gravado === 7,
+    'e o assentamento GRAVA a escolha (`quantos`) — a metade que atravessa o '
+    + 'fechamento da folha', roleta.rolou);
+  checar(roleta.rolou.mesmoNo && roleta.rolou.acesa === '7',
+    'e o nó da roleta SOBREVIVE ao assentamento: ele chama a conta leve, nunca o '
+    + '`renderSorteio` — remontá-la no fim de um gesto devolveria a pista ao '
+    + 'começo debaixo do dedo', roleta.rolou);
+
+  // (E) E O CAMINHO DE VOLTA: marcar na mão MOVE a roleta.
+  //
+  // Pelo toque de verdade na linha, que é o que passa pelo
+  // `atualizarContaSorteio` — o único caminho que acerta a roleta sem remontar
+  // a folha.
+  roleta.mao = await pg.evaluate(async () => {
+    const antes = sorteioMarcadas.size;
+    [...document.querySelectorAll('#sorteioList .sorteio-res-btn:not(.vai)')]
+      .slice(0, 2).forEach((b) => b.click());
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    const r = __medirRoleta();
+    r.antes = antes;
+    return r;
+  });
+  checar(roleta.mao.antes === 7 && roleta.mao.marcadas === 9
+    && roleta.mao.acesa === '9' && roleta.mao.valor === 9,
+    'marcar duas linhas na mão LEVA a roleta ao 9 — o lote é a fonte única, e a '
+    + 'roleta o lê pelo mesmo lado que a lista', roleta.mao);
+
+  // (F) O RECUO DAS DUAS PONTAS É MEDIDO, e é ele que deixa o 1 e o teto
+  //     chegarem ao centro. Um `padding-inline: 50%` não serve (com
+  //     `box-sizing: border-box` a caixa de conteúdo zera e as células saem
+  //     transbordando por baixo do recuo), e um número escrito à mão vale para
+  //     UMA largura — ver a segunda metade disto no cenário estreito, logo
+  //     abaixo.
+  roleta.pontas = await pg.evaluate(async () => {
+    const qh = document.getElementById('sorteioQuantidade');
+    const centro = (el) => { const b = el.getBoundingClientRect(); return b.left + b.width / 2; };
+    const guardado = qh.scrollLeft;
+    qh.scrollLeft = 0;
+    const primeira = Math.round(centro(qh.children[0]) * 10) / 10;
+    qh.scrollLeft = qh.scrollWidth;
+    const ultima = Math.round(centro(qh.children[qh.children.length - 1]) * 10) / 10;
+    // DEVOLVE A PISTA e paga o assentamento: as duas escritas acima disparam
+    // `scroll`, e sair daqui com um assentamento em voo comprometeria o TETO
+    // como se fosse escolha do operador.
+    qh.scrollLeft = guardado;
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    const r = __medirRoleta();
+    r.primeira = primeira; r.ultima = ultima;
+    return r;
+  });
+  checar(roleta.pontas.vao > 0
+    && roleta.pontas.vao === Math.round((roleta.pontas.janela - roleta.pontas.passo) / 2)
+    && roleta.pontas.padEsq === roleta.pontas.vao + 'px'
+    && roleta.pontas.padDir === roleta.pontas.vao + 'px',
+    'o recuo das duas pontas é `(janela − célula) / 2`, LIDO da janela e escrito '
+    + 'nas duas bordas', roleta.pontas);
+  checar(Math.abs(roleta.pontas.primeira - roleta.pontas.eixo) <= 1.5
+    && Math.abs(roleta.pontas.ultima - roleta.pontas.eixo) <= 1.5,
+    'e com ele a PRIMEIRA e a ÚLTIMA célula chegam ao centro da janela — sem o '
+    + 'recuo, o 1 e o teto não podem ser escolhidos', roleta.pontas);
+
+  // (G) ELA NÃO LEVA A MARCA `rola`, E NÃO TEM BARRA.
+  //
+  // A sombra das bordas diz *"há conteúdo escondido deste lado"*, e aqui o
+  // conteúdo escondido É o recurso: a roleta é um SELETOR de valor, não um texto
+  // que continua fora da vista. Quem marca a célula escolhida é a máscara mais o
+  // preenchimento da centrada.
+  checar(roleta.pontas.rola === false,
+    'a roleta NÃO leva a marca `rola`: num seletor de valor a sombra das bordas '
+    + 'avisaria de um "conteúdo escondido" que é o próprio recurso', roleta.pontas);
+  checar(roleta.pontas.podeRolar && roleta.pontas.barra === 'none',
+    'e ela é um SCROLLER de verdade (a pista não cabe na janela) sem barra '
+    + 'nenhuma — no aparelho a barra sobreposta pintaria por cima dos números',
+    roleta.pontas);
+
+  // (H) OS RÓTULOS SUMIRAM E AS TRÊS PÍLULAS OCUPAM A LINHA INTEIRA.
+  //
+  // *"Remova os títulos 'quantas' e 'filtros', use a largura toda apenas para
+  // distribuir os botões seletores e a roleta da quantidade"*.
+  //
+  // SÃO DUAS CÉLULAS, E A REVERSÃO ESCOLHEU CADA UMA — as duas metades do
+  // pedido não se medem no mesmo lugar:
+  //
+  //  - **DA BORDA À BORDA se mede LARGO (430×1).** MEDIDO: tirando o `flex: 1`
+  //    das pílulas, numa tela ESTREITA elas encolhem para caber (o
+  //    `flex-shrink` é 1 por padrão) e a soma dá a fileira inteira de novo — a
+  //    asserção passa com e sem o conserto. A 430 a largura natural das três
+  //    somadas é menor que a fileira, e sem o `flex: 1` o `justify-content:
+  //    center` as junta no meio com sobra nas pontas.
+  //  - **A ALTURA ÚNICA se mede ESTREITO (320×1).** É a largura em que só o
+  //    TERCEIRO rótulo ("Só no aparelho") precisa de duas linhas — medido, o
+  //    texto dele mede 30,1px contra 15px dos irmãos —, e é essa desigualdade
+  //    que faz a igualdade das CAIXAS provar alguma coisa. A 320×1,25 os TRÊS
+  //    quebram (36,9px cada) e as caixas saem iguais sozinhas: ali a asserção
+  //    não mede nada.
+  //
+  // E O `align-items: stretch` DA FILEIRA É INERTE — MEDIDO POR REVERSÃO, e
+  // está dito aqui porque o comentário do CSS credita a peça errada: tirar a
+  // declaração não move UM pixel, porque `align-items` de um contêiner flex
+  // nasce `normal`, e `normal` **é** o esticamento. O que a asserção de baixo
+  // guarda é o dia em que alguém escrever `center` ou `flex-start` ali — medido
+  // também: com `center` ela reprova, e a pílula que quebrou fica mais alta que
+  // as irmãs na mesma faixa.
+  const chipsLargo = await pg.evaluate(() => window.__medirChips());
+  checar(chipsLargo.rotulos === 0 && chipsLargo.textoRotulo === false,
+    'os rótulos "Filtros" e "Quantas" saíram do DOM — a fileira usa a largura '
+    + 'toda, e cada pílula já diz por extenso o que ela filtra', chipsLargo);
+  checar(chipsLargo.quantos === 3
+    && Math.abs(chipsLargo.soma - chipsLargo.fileira) <= 1,
+    'e a 430 as TRÊS ocupam a fileira inteira, da borda à borda — a largura '
+    + 'natural delas é menor que ela, então quem a preenche é o `flex: 1`',
+    chipsLargo);
+
+  // E A FOLHA É REDESENHADA DEPOIS DE ESTREITAR, o que é PRECISÃO da fixture e
+  // não conveniência: MEDIDO, um `ResizeObserver` observa o **content box**, e o
+  // recuo da roleta é PADDING — estreitada a janela, o recuo de antes (182px de
+  // cada lado) já passa da largura nova, o content box fica em ZERO nas duas
+  // pontas e o observador CALA com o recuo velho (160px medidos, contra os 127
+  // da conta). O aparelho não alcança isto: ele é travado em retrato, e uma
+  // troca da fonte do sistema RECRIA a Activity — que recarrega a página. Quem
+  // alcança é uma janela de navegador sendo arrastada, e ali o desenho seguinte
+  // conserta.
+  await pg.setViewportSize({ width: 320, height: 900 });
+  await pg.evaluate(async () => {
+    // PAGA O ASSENTAMENTO ANTES DE REDESENHAR: estreitar move a pista (o recuo
+    // muda), e um `renderSorteio` com um assentamento em voo o deixaria cair
+    // sobre um nó já trocado.
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    renderSorteio();
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+  });
+  const chipsEstreito = await pg.evaluate(() => {
+    const r = window.__medirChips();
+    r.roleta = window.__medirRoleta();
+    return r;
+  });
+  checar(chipsEstreito.texto[2] > chipsEstreito.texto[0] + 4,
+    'a 320×1 só o TERCEIRO rótulo precisa de duas linhas — é esta desigualdade '
+    + 'que a asserção seguinte mede, e sem ela o `stretch` não tem o que igualar',
+    chipsEstreito.texto);
+  checar(chipsEstreito.caixas.length === 1,
+    'e as três pílulas ficam com UMA altura só, apesar de só uma delas ter '
+    + 'quebrado — o esticamento é o padrão do flex, e o que isto guarda é um '
+    + '`center` escrito ali um dia', chipsEstreito);
+  checar(chipsEstreito.corte.length === 0
+    && !chipsEstreito.reticencia.includes('ellipsis'),
+    'e nenhuma é RETICENCIADA nem cortada: reticências não dizem QUAL palavra foi '
+    + 'cortada, e "Só no aparelho" é a que se perde', chipsEstreito);
+  // E O RECUO SEGUE A LARGURA — a outra metade do "medido, não declarado": um
+  // número em CSS valeria para uma tela só.
+  checar(chipsEstreito.roleta.vao !== roleta.pontas.vao
+    && chipsEstreito.roleta.vao
+      === Math.round((chipsEstreito.roleta.janela - chipsEstreito.roleta.passo) / 2),
+    'e o recuo da roleta ACOMPANHA a janela: 320 e 430 dão recuos diferentes, os '
+    + 'dois pela mesma conta',
+    { estreito: chipsEstreito.roleta.vao, largo: roleta.pontas.vao });
+  await pg.setViewportSize({ width: 430, height: 900 });
+  await pg.evaluate(async () => {
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    renderSorteio();
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+  });
+
+  // (I) A DICA DO CAMPO É SÓ A PERGUNTA.
+  const dicaNova = await pg.evaluate(
+    () => document.querySelector('#sorteioList .lib-search').placeholder);
+  checar(dicaNova === 'Palavra tema',
+    'a dica do campo é EXATAMENTE "Palavra tema" — o parêntese que explicava o '
+    + 'vazio saiu, e quem responde "e se eu não escrever nada?" é a conta logo '
+    + 'abaixo, com um número', dicaNova);
+
+  // (J) E A LINHA DA CONTA É CENTRADA — medida por PIXEL, e não pelo
+  //     `text-align` computado: quem vê a linha vê a caixa do TEXTO, e o valor
+  //     certo com uma regra posterior o desmentindo dá a mesma leitura.
+  const cabeca = await pg.evaluate(() => {
+    const cab = document.querySelector('#sorteioList .sorteio-res-cab');
+    const cs = getComputedStyle(cab);
+    const b = cab.getBoundingClientRect();
+    const esq = b.left + parseFloat(cs.paddingLeft);
+    const dir = b.right - parseFloat(cs.paddingRight);
+    const rg = document.createRange(); rg.selectNodeContents(cab);
+    const t = rg.getBoundingClientRect();
+    return {
+      texto: cab.textContent.slice(0, 44),
+      eixoCaixa: Math.round(((esq + dir) / 2) * 10) / 10,
+      eixoTexto: Math.round(((t.left + t.right) / 2) * 10) / 10,
+      folga: Math.round(((dir - esq) - t.width) * 10) / 10,
+    };
+  });
+  checar(cabeca.folga >= 8,
+    'a linha da conta SOBRA na caixa dela — sem essa folga o centrado e o '
+    + 'alinhado à esquerda desenham o mesmo pixel, e a asserção seguinte seria '
+    + 'tautologia', cabeca);
+  checar(Math.abs(cabeca.eixoTexto - cabeca.eixoCaixa) <= 1,
+    'e ela é CENTRADA: é a única linha da folha que fala do CONJUNTO, e à '
+    + 'esquerda lia como a primeira linha da lista', cabeca);
+
+  // (K) O ASSENTAMENTO NÃO POUSA NUM NÓ TROCADO.
+  //
+  // Um elemento fora do documento responde `scrollLeft` ZERO, e o assentamento
+  // lê zero como *"o operador escolheu 1"* — e GRAVA. MEDIDO por reversão, com
+  // a roleta em 12: sem a guarda o lote volta a UMA e `sorteioPrefs.quantos: 1`
+  // vai para o IndexedDB, isto é, sobrevive à sessão. Nada erra e nada aparece
+  // na tela.
+  //
+  // A CÉLULA É O MECANISMO NU, e não uma corrida de relógio: o caminho do
+  // operador que o alcança (encostar na roleta e tocar num filtro dentro dos
+  // 140 ms) depende de um prazo cair entre dois quadros, e uma asserção assim
+  // reprova por carga do runner em vez de por defeito. Aqui a troca do nó é
+  // EXPLÍCITA e o assentamento é chamado à mão — é a mesma linha de código, sem
+  // o relógio no meio.
+  const orfao = await pg.evaluate(async () => {
+    const w = (ms) => new Promise((f) => setTimeout(f, ms));
+    const el = document.getElementById('sorteioQuantidade');
+    el.scrollLeft = 11 * el.children[0].getBoundingClientRect().width;
+    await w(350);
+    const antes = { quantos: sorteioPrefs.quantos, marcadas: sorteioMarcadas.size };
+    const velho = el;
+    renderSorteio();                    // é o que um toque em qualquer filtro faz
+    await w(20);
+    qhAssentou(velho);                  // o prazo pendurado, pousando no órfão
+    await w(60);
+    const g = await AVDB.getState('sorteioPrefs');
+    return {
+      antes,
+      conectado: velho.isConnected,
+      lidoNoOrfao: velho.scrollLeft,
+      depois: { quantos: sorteioPrefs.quantos, marcadas: sorteioMarcadas.size, gravado: (g || {}).quantos },
+    };
+  });
+  checar(!orfao.conectado && orfao.lidoNoOrfao === 0 && orfao.antes.quantos === 12,
+    'a PREMISSA do órfão: o nó saiu do documento e responde `scrollLeft` zero, '
+    + 'com a escolha do operador em 12. Sem ela a asserção seguinte não mede '
+    + 'nada', JSON.stringify(orfao));
+  checar(orfao.depois.quantos === 12 && orfao.depois.marcadas === 12
+    && orfao.depois.gravado === 12,
+    'e o assentamento num nó TROCADO não faz nada: sem a guarda ele lê o zero do '
+    + 'órfão como "escolheu 1", marca UMA e grava — no IndexedDB, sobrevivendo à '
+    + 'sessão', JSON.stringify(orfao));
 
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 3));
 } finally {

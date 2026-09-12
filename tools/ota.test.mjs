@@ -117,7 +117,7 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
     otaPending: ${JSON.stringify(web)},
     otaDiag: '', apkProcurar: {} };
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
-    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
+    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaDiag','ytDiag','atualizacaoEstado',
     'ytCanalPlaylists','ytPlaylist',
@@ -134,7 +134,7 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
     'castTarget','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag',
     'espelhoEstado','espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal',
-    'otaApply','otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
+    'otaApply','otaCheck','otaDiag','otaPending','pickDoc','pickFolder','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
     'ytFetchAudio','ytPlaylist','ytSearch','ytStream',
   ];

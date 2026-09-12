@@ -633,7 +633,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // silêncio até o registro em que os bytes acabam. `descartarPacote`
             // fecha e APAGA o parcial; a página nova não sabe que houve uma
             // exportação e nunca a retomaria.
-            descartarPacote()
+            descartarPacote(naMain = true)   // derrubada: o renderer morreu
             // MESMA classe de estado do documento morto: os dois foram ligados
             // pela página que acabou de morrer, e a nova pede de novo ao
             // carregar. `captureVolumeKeys` órfão é o pior dos dois — com a
@@ -788,7 +788,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // com ela nos dois casos. O que ficaria aberto é um destino do SAF que
         // ninguém mais alimenta, com meio acervo dentro e nome de acervo
         // inteiro. `descartarPacote` fecha e apaga; sem nada aberto é no-op.
-        descartarPacote()
+        descartarPacote(naMain = true)   // derrubada: a Activity está indo embora
         // E o empurrão do OTA, pelo mesmo motivo dos dois acima: ele captura
         // esta Activity, e a ronda do `WebUpdater` sobrevive à tela.
         WebUpdater.aoChegar = null
@@ -1153,59 +1153,66 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // `uriEmCurso()` já devolve `null` — e o `pacoteCancelar` que o web
             // dispara na falha chegava sem nada para apagar.
             val doc = pacoteCanal.uriEmCurso()
-            val bytes = pacoteCanal.fechar()
             val local = pacoteLocal
             pacoteLocal = null
-            // O CAMINHO DO SAF acaba aqui, como sempre: o documento é do
-            // operador, e o que ele faz com ele depois não é assunto do app.
-            //
-            // MENOS QUANDO O FECHO FALHOU. `pacoteFechar` existe justamente
-            // para descobrir o cartão cheio — os acks por bloco já disseram
-            // "recebi", e é o `flush`/`close` que reprova. Sem esta limpeza
-            // ficava no cartão do operador um `.avpkg` TRUNCADO com nome de
-            // acervo inteiro, enquanto a tela dizia que o parcial fora apagado.
-            // O `fim` ausente impede o estrago maior (a importação recusa o
-            // pacote), mas não devolve os gigabytes nem desfaz a frase falsa.
-            if (local == null) {
-                if (bytes < 0L && doc != null) {
-                    try {
-                        DocumentsContract.deleteDocument(contentResolver, doc)
-                    } catch (e: Exception) {
-                        // O provedor pode recusar (nuvem, somente-leitura) — a
-                        // mesma ressalva do [descartarPacote].
-                        Log.w(TAG, "o pacote parcial do SAF nao saiu", e)
+            // O FECHO SAI DA MAIN (v1.8.72). `close()` de um `content://` é
+            // onde um provedor FUSE ou de nuvem finaliza gigabytes, e a main
+            // presa nele por mais de 5 s é ANR — no processo que hospeda os
+            // dois WebViews e a `Presentation`. O veredito volta para cá, na
+            // main, então todo o estado da Activity abaixo continua onde estava.
+            pacoteCanal.fecharDepois { bytes ->
+                // O CAMINHO DO SAF acaba aqui, como sempre: o documento é do
+                // operador, e o que ele faz com ele depois não é assunto do app.
+                //
+                // MENOS QUANDO O FECHO FALHOU. `pacoteFechar` existe justamente
+                // para descobrir o cartão cheio — os acks por bloco já disseram
+                // "recebi", e é o `flush`/`close` que reprova. Sem esta limpeza
+                // ficava no cartão do operador um `.avpkg` TRUNCADO com nome de
+                // acervo inteiro, enquanto a tela dizia que o parcial fora apagado.
+                // O `fim` ausente impede o estrago maior (a importação recusa o
+                // pacote), mas não devolve os gigabytes nem desfaz a frase falsa.
+                if (local == null) {
+                    if (bytes < 0L && doc != null) {
+                        try {
+                            DocumentsContract.deleteDocument(contentResolver, doc)
+                        } catch (e: Exception) {
+                            // O provedor pode recusar (nuvem, somente-leitura) — a
+                            // mesma ressalva do [descartarPacote].
+                            Log.w(TAG, "o pacote parcial do SAF nao saiu", e)
+                        }
                     }
+                    onResult(bytes)
+                    return@fecharDepois
                 }
-                onResult(bytes)
-                return@runOnUiThread
-            }
-            // O CAMINHO LOCAL NÃO ACABA NO FECHO (v1.8.19) — ele PROMOVE o
-            // arquivo a PRONTO, e é o operador que decide quando enviá-lo, e
-            // quantas vezes. Antes, fechar e abrir o seletor eram o mesmo
-            // instante: o envio acontecia sozinho e valia uma vez só.
-            //
-            // O QUE O CANAL CONTOU NÃO É O QUE O OUTRO APP VAI LER: `bytes` é o
-            // que foi escrito, `length()` é o que existe no caminho agora.
-            // Conferir só o primeiro fazia um arquivo vazio sair anunciado como
-            // pacote inteiro (v1.8.18).
-            val noDisco = try { local.length() } catch (e: Exception) { 0L }
-            if (bytes <= 0L || noDisco <= 0L) {
-                pacoteUltimoFecho = "recusado: canal " + bytes + " byte(s), disco " + noDisco
-                Log.w(TAG, "o pacote fechou com " + bytes + " byte(s) e o arquivo tem " + noDisco)
-                try { local.delete() } catch (e: Exception) {
-                    Log.w(TAG, "o pacote vazio não saiu", e)
+                // O CAMINHO LOCAL NÃO ACABA NO FECHO (v1.8.19) — ele PROMOVE o
+                // arquivo a PRONTO, e é o operador que decide quando enviá-lo, e
+                // quantas vezes. Antes, fechar e abrir o seletor eram o mesmo
+                // instante: o envio acontecia sozinho e valia uma vez só.
+                //
+                // O QUE O CANAL CONTOU NÃO É O QUE O OUTRO APP VAI LER: `bytes` é o
+                // que foi escrito, `length()` é o que existe no caminho agora.
+                // Conferir só o primeiro fazia um arquivo vazio sair anunciado como
+                // pacote inteiro (v1.8.18).
+                val noDisco = try { local.length() } catch (e: Exception) { 0L }
+                if (bytes <= 0L || noDisco <= 0L) {
+                    pacoteUltimoFecho = "recusado: canal " + bytes + " byte(s), disco " + noDisco
+                    Log.w(TAG, "o pacote fechou com " + bytes + " byte(s) e o arquivo tem " + noDisco)
+                    try { local.delete() } catch (e: Exception) {
+                        Log.w(TAG, "o pacote vazio não saiu", e)
+                    }
+                    onResult(-1L)
+                    return@fecharDepois
                 }
-                onResult(-1L)
-                return@runOnUiThread
+                pacotePronto = local
+                pacoteUltimoFecho = "pronto: " + noDisco + " byte(s) em " + local.name
+                onResult(noDisco)
             }
-            pacotePronto = local
-            pacoteUltimoFecho = "pronto: " + noDisco + " byte(s) em " + local.name
-            onResult(noDisco)
         }
     }
 
     override fun pacoteCancel() {
-        runOnUiThread { descartarPacote() }
+        // O operador cancelando, com o app vivo: o fecho sai da main.
+        runOnUiThread { descartarPacote(naMain = false) }
     }
 
     // ---------- EXPORTAR DIRETO PARA O COMPARTILHAR (shell 67) ----------
@@ -1537,11 +1544,38 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * ponte e o `onRendererGone`), e é idempotente — sem nada aberto, o
      * `fechar()` devolve `-1` e o `uri` já é nulo.
      */
-    private fun descartarPacote() {
+    private fun descartarPacote(naMain: Boolean) {
         val alvo = pacoteCanal.uriEmCurso()
         val local = pacoteLocal
         pacoteLocal = null
-        pacoteCanal.fechar()
+        // O SÍNCRONO É SÓ PARA A DERRUBADA (v1.8.85). `fechar()` faz
+        // `flush`/`close` de um `content://`, que é onde um provedor FUSE ou de
+        // nuvem finaliza gigabytes; e o `deleteDocument` logo abaixo é outro
+        // binder para o mesmo provedor. Na DERRUBADA (`onDestroy`, morte do
+        // renderer) isso na main é o certo: o processo pode não viver para
+        // executar uma thread daemon, e o pior caso — um `close` lento — já não
+        // tem ninguém para atrapalhar.
+        //
+        // O CANCELAMENTO NÃO É DERRUBADA, e é justamente onde o `close` lento
+        // acontece: o operador toca em cancelar PORQUE a exportação está
+        // arrastando. Ali a main presa por mais de 5 s é ANR no processo que
+        // hospeda os dois WebViews e a `Presentation` — a projeção cai no meio
+        // do culto por causa de um cancelamento.
+        if (naMain) {
+            pacoteCanal.fechar()
+            apagarParcialDoPacote(alvo, local)
+            return
+        }
+        pacoteCanal.fecharDepois { apagarParcialDoPacote(alvo, local) }
+    }
+
+    /**
+     * A METADE QUE APAGA, separada para os dois caminhos de [descartarPacote]
+     * compartilharem uma escrita só. Volta na main (o `fecharDepois` responde
+     * por lá), mas o `deleteDocument` é um binder ao provedor: no caminho
+     * assíncrono ele já vem depois do `close`, que é o passo caro.
+     */
+    private fun apagarParcialDoPacote(alvo: Uri?, local: File?) {
         // O CAMINHO LOCAL É UM `File`, e não um documento do SAF: apagá-lo com
         // `DocumentsContract` lançaria, e o `catch` abaixo transformaria isso
         // num parcial esquecido no armazenamento próprio.

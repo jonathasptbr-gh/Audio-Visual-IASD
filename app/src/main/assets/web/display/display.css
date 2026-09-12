@@ -463,8 +463,8 @@ html, body {
    cobria a tela de "vídeos relacionados" enquanto o player caía. As duas
    existiam para consertar o que um player de TERCEIRO desenha por conta
    própria — e o embed saiu inteiro: o que toca vídeo do YouTube agora é o
-   `<video>` do palco, alimentado pela transmissão direta ou pelo arquivo
-   baixado. Não há UI alheia a esconder.) */
+   `<video>` do palco, alimentado pelo arquivo baixado. Não há UI alheia a
+   esconder.) */
 
 /* Toque único ao abrir o Display: cobre a tela inteira, acima de tudo
    (inclusive do wallpaper) — é o gesto real que o navegador exige para liberar

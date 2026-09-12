@@ -29,7 +29,7 @@ import android.webkit.WebChromeClient
  *   pedir a permissão antes (`AVNative.requestMic()`).
  * - **Só da própria origem.** Defesa em profundidade, e ela NÃO depende de o
  *   telão carregar conteúdo de terceiro (o embed do YouTube saiu na v5.212;
- *   hoje o vídeo entra por `shared/mse.js` num `<video>` comum). O que a
+ *   hoje o vídeo é baixado e entra num `<video>` comum). O que a
  *   sustenta é outra coisa: `grant()` é silencioso — não há prompt, não há
  *   sinal na tela —, e permissão de mídia é POR WEBVIEW, não por origem. Hoje
  *   nenhum caminho conhecido exercita isso, mas a permissão que o operador

@@ -90,6 +90,17 @@ Texto é **desacoplada do ciclo de vida da mídia do stage** — `showText`/
   `showLyrics`/`showPvLyrics` retornam cedo se um texto manual estiver em cena
   (a letra pertence a UMA música tocando; um versículo/mensagem manual tem
   precedência sobre a letra do áudio de fundo).
+- **A CORTINA É COMPARTILHADA, A `view` NÃO É** (v1.8.83). `showText` move a
+  cortina por conta própria — o fade de entrada do cartão é dele —, mas a `view`
+  continua sendo estado do STAGE, e ele passou a DECLARÁ-LA
+  (`stage.declararView(textView)`). Sem essa linha ela ficava congelada no valor
+  anterior e o `view` seguinte caía no `if (v === view) return` do
+  `setViewFaded`: com o telão **já coberto** antes de o versículo entrar,
+  "apenas wallpaper" não cobria mais nada e a Escritura ficava presa no telão —
+  **com a preview obedecendo**, porque o `setView` do `controle.js` move a
+  cortina dela por fora. É a condição inteira do *"aconteceu algumas vezes, mas
+  não sempre"*. Ver `declararView` em `MOTOR-STAGE.md`; oráculo:
+  `cartao-preso-no-telao.test.mjs`.
 - **Sair do texto sem nada em cena volta ao WALLPAPER, não ao preto**
   (`restoreSceneAfterText`/`restorePvSceneAfterText`). `showText` abre a
   cortina para o cartão aparecer; se não há mídia carregada — ou a que havia já
@@ -599,23 +610,32 @@ no topo** (`.misc-switch`), uma linha só:
   da lista ligada, a página inteira voltaria a rolar e o rodapé sairia da base.
 - Verificado nas três ferramentas: **zero rolagem**, horizontal ou vertical.
 
-**O rodapé são as duas ações que MANDAM ALGO PARA A TELA**, lado a lado
-(`renderFoot`): o **microfone** e **"Projetar no telão"**. São as únicas com
-efeito fora do celular, e tê-las sempre no mesmo ponto vale mais do que a
-proximidade com os controles que as configuram — o operador aprende UM lugar em
-vez de um por ferramenta. De quebra, o botão de projetar parou de descer
-conforme o painel cresce (no sorteio de texto ele ficava abaixo da lista).
+**O RODAPÉ É FIXO E É IRMÃO DO CORPO** (`#toolsFoot`, v1.8.89): uma barra que
+more dentro do scroller rola com os itens dele, que é o que o pedido do operador
+nomeia. Nele mora tudo o que SAI da ferramenta, e tê-lo sempre no mesmo ponto
+vale mais do que a proximidade com os controles que o configuram — o operador
+aprende UM lugar em vez de um por ferramenta. De quebra, o botão de projetar
+parou de descer conforme o painel cresce (no sorteio de texto ele ficava abaixo
+da lista).
 
-- O microfone é uma **barra**, não mais um disco de 132 px: é o único controle
-  daqui com urgência real (push-to-talk pode ser preciso no meio de uma frase),
-  e como barra custa ~56 px de altura oferecendo área de toque **maior**.
+- **É UMA FAIXA DE FECHO** (`renderFoot`): o "Projetar no telão" CRESCE à
+  esquerda e os dois destinos (`cue-save-btn`) ficam à direita, na ordem
+  canônica da tabela `DESTINOS`. O "guardar isto" era uma LINHA no fim de cada
+  painel (`cueSaveRow`) e descia com ele — o mesmo defeito que já tinha trazido
+  o projetar para cá. Hoje é um DESCRITOR (`cueSaveDaFerramenta`): a ferramenta
+  diz COMO montar a cena, o rodapé desenha.
+- **A ALTURA É UMA SÓ** (a regra da v1.8.61): com irmãos na faixa o primário
+  cede para `--quad-faixa`; SOZINHO — o caso das Mensagens, que devolvem `null`
+  porque já entram no Cronograma pelo caminho próprio — ele volta à barra alta e
+  ocupa a linha inteira, pela AUSÊNCIA do irmão e não por uma regra para o caso.
 - **"Projetar" age sobre a ferramenta ATIVA** (`miscProjectState`). Em Mensagens
   ele não pode projetar sozinho — falta saber QUAL, e isso se escolhe tocando na
   lista —, então fica **inerte com um `title` que explica**; some não, porque o
-  botão é um ponto fixo da tela e sumir faria o microfone pular de largura a
-  cada troca. Com uma mensagem já selecionada ele **reexibe** a que ficou: é a
-  ação natural depois de um "Tirar do telão", e sem ela o operador teria que
-  caçar a linha certa de novo.
+  rodapé é um ponto fixo da tela e sumir faria a faixa mudar de altura a cada
+  troca. Com uma mensagem já selecionada ele **reexibe** a que ficou: é a ação
+  natural depois de um "Tirar do telão", e sem ela o operador teria que caçar a
+  linha certa de novo.
+- (O **microfone ao vivo** era a outra metade deste rodapé, e saiu na v1.8.89.)
 
 > **Vazamento horizontal (v5.31).** A faixa "de/até" do sorteio empurrava a aba
 > além da largura da tela. Causa: o padrão de um item flex é `min-width: auto`,
@@ -627,7 +647,7 @@ conforme o painel cresce (no sorteio de texto ele ficava abaixo da lista).
 
 ### Ferramentas: cronômetro · relógio · timer
 
-Terceiro provedor da Camada de Texto, na aba **Ferramentas** (junto do microfone).
+Terceiro provedor da Camada de Texto, na folha de **Ferramentas**.
 O que vai ao telão é o **mesmo cartão** da Bíblia e das Mensagens
 (`mode: 'chrono'`), e isso não é economia de CSS: herdando o cartão, herda
 junto toda a regra de convivência já madura — `load` de **áudio** mantém o
@@ -666,6 +686,104 @@ exibindo exatamente o mesmo valor do Controle.
   respeitar uma "escolha" que ninguém fez faria a mudança não chegar a ninguém.
 - **`baseMs` existe porque pausar precisa congelar o acumulado.** Com `startAt`
   sozinho, retomar perderia todo o trecho anterior.
+- **NO PAINEL, O TEMPO SE LÊ EM TRÊS ROLETAS** (v1.8.92, ampliado na v1.8.94) —
+  horas, minutos e segundos, pedido do operador. **A roleta É o mostrador**, não um campo
+  ao lado dele: contar é ela andar, e por isso não sobrou número de texto em
+  ferramenta nenhuma — o `.chrono-read` saiu na v1.8.94. Sete coisas que se
+  erram aqui:
+  - **`--roleta-item` é a medida de TUDO** (janela, célula, recuo, corpo do
+    dígito), e é o que faz `scrollTop === valor × item` sem fração. Ela é
+    ESCRITA pelo JS a partir da altura que sobrou (`acertarRoletas`): a caixa
+    cresce por flex, o JS lê a altura DELA e divide por três. Em CSS não dá —
+    `cqh` mediria a caixa que a própria roleta define.
+  - **Trocar a régua obriga a reposicionar.** `scrollTop` é px: mudar a célula
+    sem refazer a posição deixa a lista parada num número que já não é o valor,
+    calado, e só em quem gira a tela.
+  - **A trava de edição é `overflow-y: hidden`, nunca um `return` no ouvinte.**
+    Ignorar o gesto deixa a lista ROLAR sob o dedo e voltar no tique seguinte —
+    pior que não responder, porque parece quebrado.
+  - **Não há bandeira de "estou reposicionando".** O evento `scroll` é
+    assíncrono e sai depois do quadro em que se escreveu o `scrollTop`, então
+    soltar a guarda por `rAF` é corrida. O que fecha é a leitura ser
+    IDEMPOTENTE: `roletaAssentou` sai calada quando o par lido já é a duração.
+  - **Mexer na roleta ZERA o decorrido.** Pausada no meio de uma contagem ela
+    mostra o que FALTA, então mudá-la só pode querer dizer "conte isto a partir
+    de agora"; sem isso o ▶ seguinte terminaria cedo, sem nada explicando.
+  - **O ÍNDICE CRESCE PARA BAIXO E O VALOR PARA CIMA** (v1.8.95, pedido do
+    operador). O índice é o `scrollTop`; o valor é o que se lê. A inversão mora
+    em TRÊS lugares — `valorNaPista`, `pistaDoValor` e o TEXTO das células —, e
+    os três têm de concordar: divergindo, o mostrador acende uma célula e
+    devolve o número de outra, sem erro em lugar nenhum.
+  - **A CONTAGEM ROLA, E SÓ ELA** (v1.8.96, pedido do operador: *"faça uma
+    animação de movimento da rolagem de verdade na contagem regressiva dos
+    números"*). O tique escrevia `scrollTop` direto — instantâneo —, e o que se
+    via era o dígito trocando no lugar. Hoje ele anda por
+    `scrollTo({behavior:'smooth'})`, e o MÉTODO é a decisão: um
+    `scroll-behavior: smooth` na folha animaria TODA escrita, inclusive a
+    recentragem, que salta uma volta inteira da pista e viraria um rolo de
+    sessenta segundos na frente do operador. Daí o `roletaIr`, dono único da
+    posição, com o suave como ARGUMENTO. **Três guardas:** só o TIMER (no
+    Relógio e no Cronômetro as vizinhas são invisíveis, e animar ali mostra o
+    número apagando de um lado e acendendo do outro); só o PASSO CURTO (um salto
+    grande é a cena mudando, não contagem); e `prefers-reduced-motion`. **A
+    régua do oráculo é a quantidade de posições DISTINTAS entre dois tiques** —
+    um salto seco produz duas, uma rolagem produz uma dezena —, amostrada por
+    QUADRO, porque a animação é do compositor e não de um relógio nosso.
+  - **A PRIMEIRA PINTURA NÃO TEM ROLAGEM QUE DISPARE A RECENTRAGEM** (v1.8.95).
+    A lista nasce em `scrollTop` 0 — o TOPO da pista —, e ali não existe célula
+    ACIMA: no zero a roleta abria de um lado só, para sempre, porque o único
+    caminho de volta à banda do meio é o assentamento de um `scroll` que nunca
+    aconteceu. Quem a coloca lá é o posicionamento, na primeira vez e sempre que
+    o `acertarRoletas` mudar a régua. **A CÉLULA que mede isto é a PINTURA NOVA
+    com o valor já em zero**: um `chronoSetDuration(0)` sobre a roleta que já
+    está na tela MOVE a lista, e o movimento paga a recentragem — a asserção
+    passa com e sem o conserto (medido).
+  **AS TRÊS FERRAMENTAS USAM A MESMA ROLETA** (v1.8.94), e a pergunta que separa
+  não é *"qual ferramenta?"* e sim *"há o que ESCOLHER?"* (`roletaEditavel`): só
+  o Timer PARADO recebe o dedo. É isso que dá ao Relógio e ao Cronômetro o
+  aproveitamento da janela de graça.
+
+  **MAS A PISTA À VISTA É DE QUEM ESCOLHE** (v1.8.95): no Relógio e no
+  Cronômetro as vizinhas somem, e somem por OPACIDADE, nunca por altura — a
+  janela continua de três células e o número fica no MESMO PIXEL nas três
+  ferramentas. *"Alterar entre as abas apenas adiciona elementos e não altera
+  eles"*, e a frase cobrou uma correção que ninguém tinha pedido: o sinal do
+  estouro era desenhado só no Timer, entrava na conta da largura, e por isso o
+  Cronômetro — com as MESMAS três colunas — abria com o dígito 29% maior (98px
+  contra 76px, medido a 412px). Ele passou a ser desenhado nas três, escondido.
+  **A régua que prova isto é a JANELA, não o centro:** encolher a caixa para uma
+  célula não move o centro um pixel, porque quem o dá é o flex.
+
+  O Relógio tem duas exceções, as duas da
+  LISTA e não do ciclo: em 12 h a coluna das horas vale 1..12 (0..23 poria o
+  "13" logo abaixo do "12"), e "sem segundos" TIRA a coluna em vez de escondê-la.
+  O `inicio` da lista é o que separa ÍNDICE de VALOR nesse caso, e ele entra nos
+  DOIS sentidos — sem ele na escrita o relógio adianta uma hora, sem ele na
+  leitura adianta quem pergunta o valor.
+
+  **AS LISTAS DÃO A VOLTA** (v1.8.94): 0..23 · 0..59 · 0..59, a base repetida um
+  número ímpar de vezes com o repouso na banda do meio. O operador escreveu
+  *"de 0 a 24"* e, na frase seguinte, *"o ciclo das horas é apenas 24"* — as
+  duas só fecham em 0..23, porque 0..24 daria 25 posições e o zero apareceria
+  duas vezes seguidas na volta. Com a casa das horas o teto virou **23:59:59** e
+  a divergência de notação com o telão ACABOU (o `formatSpan` promove para
+  `h:mm:ss` acima de 3600 s, e agora o painel tem onde mostrar).
+
+  **E O QUE SE ACIONA MORA NO RODAPÉ** — o ▶/⏸ e o ↺ do Timer e do Cronômetro, e
+  os dois seletores do Relógio, à esquerda do "Projetar no telão". O corpo da
+  janela é do mostrador, que é o que cresce. "Segundos" vira **"Seg"** ali: por
+  extenso ele empurra o primário para as reticências. **Os quatro são a MESMA
+  peça** desde a v1.8.95 — quadrados, na caixa e no raio do ▶ —, e o quadrado
+  cobra zerar o `min-width` da pílula, senão ele sai retangular; o "12 h" perdeu
+  o espaço pelo mesmo motivo.
+
+  **O TIMER NASCE EM 00:00:00** (v1.8.95), *"por questão de ordem"*. O padrão
+  eram cinco minutos que ninguém escolheu, e o zero tornou alcançável um estado
+  que nunca aparecia: o ▶ é `disabled` sem tempo desde a v1.8.92, mas
+  `.chrono-btn` não tinha regra de `:disabled` e a caixa azul do primário abria
+  ACESA. Hoje ela veste `--op-inativo`, com o `title` dizendo por quê.
+
+  Oráculo: `ferramentas-folha.test.mjs`, bloco K.
 - **O timer NÃO congela em zero** — passa a contar em negativo, em vermelho
   (`.chrono-over`). Num culto, "estourou por 4 minutos" é a informação que se
   quer; um `00:00` parado não distingue "acabou agora" de "acabou há muito".
@@ -714,8 +832,8 @@ exibindo exatamente o mesmo valor do Controle.
   do relógio, legenda). Uma contagem em curso não sobrevive ao fechamento do
   app de propósito: restaurar um cronômetro que "correu" com o app fechado
   mostraria um número sem significado.
-- A ferramenta vive só no **modo avançado**, como o microfone: o simplificado
-  existe para quem quer conectar a tela e tocar um louvor.
+- A ferramenta vive só no **modo avançado**: o simplificado existe para quem
+  quer conectar a tela e tocar um louvor.
 
 ### Ferramentas: sorteio
 

@@ -99,13 +99,6 @@ const TEMA_KEY = 'av.tema';
 function storedTema() {
   return document.documentElement.dataset.tema === 'claro' ? 'claro' : 'escuro';
 }
-// A ESCOLHA, que é outra pergunta: `null` = AUTOMÁTICO (segue o aparelho). Ela
-// vem do mesmo script inline, num atributo PRÓPRIO — ver o comentário de lá.
-function storedTemaEscolha() {
-  const e = document.documentElement.dataset.temaEscolha;
-  return e === 'claro' || e === 'escuro' ? e : null;
-}
-let temaEscolha = storedTemaEscolha();
 let tema = storedTema();
 const temaMetaEl = document.getElementById('temaMeta');
 function pintarTema() {
@@ -132,30 +125,11 @@ function pintarTema() {
 }
 pintarTema();
 
-// ===== O AUTOMÁTICO SEGUE O APARELHO ENQUANTO O APP ESTÁ ABERTO =====
-//
-// Sem isto, "automático" seria "o tema que o aparelho tinha quando o app abriu"
-// — e o caso que morde é o do agendamento: o Android troca para o escuro ao
-// anoitecer, e o culto de sábado à noite começa com o app aberto desde a tarde,
-// aceso em branco no púlpito.
-//
-// SÓ NO AUTOMÁTICO. Uma escolha guardada é uma decisão do operador, e um app
-// que a desfaz porque o sistema mudou é um app que não obedece.
-try {
-  const mqTema = window.matchMedia('(prefers-color-scheme: light)');
-  const aoTrocarDoSistema = () => {
-    if (temaEscolha) return;
-    const novo = mqTema.matches ? 'claro' : 'escuro';
-    if (novo === tema) return;
-    tema = novo;
-    pintarTema();
-    renderTemaTile();
-  };
-  // `addEventListener` no `MediaQueryList` é o caminho de hoje; o
-  // `addListener` é o de antes e continua sendo o único em WebViews velhos.
-  if (mqTema.addEventListener) mqTema.addEventListener('change', aoTrocarDoSistema);
-  else if (mqTema.addListener) mqTema.addListener(aoTrocarDoSistema);
-} catch (_) { /* sem matchMedia: o automático vira "o que abriu" */ }
+// (O AUTOMÁTICO SAIU na v1.8.64, a pedido do operador: *"remova o auto, não
+//  está sendo eficaz essa opção"*. Com ele saíram o `data-tema-escolha`, o
+//  acompanhamento ao vivo do `prefers-color-scheme` e o terceiro estado do
+//  tile — que era o único da grade com TRÊS estados sobre DOIS desenhos, e
+//  cuja indicação na tela custou o lote inteiro da v1.8.63.)
 
 const settingsBtnEl = document.getElementById('settingsBtn');
 const lyricsViewBtnEl = document.getElementById('lyricsViewBtn');
@@ -312,6 +286,7 @@ const plPopupEl = document.getElementById('plPopup');
 const plPopupCountEl = document.getElementById('plPopupCount');
 const plPopupCloseEl = document.getElementById('plPopupClose');
 const plPackEl = document.getElementById('plPack');
+const plPackFavEl = document.getElementById('plPackFav');
 const plClearEl = document.getElementById('plClear');
 // A CAIXA do "Limpar a playlist", não o botão: é ela que a pergunta ocupa
 // enquanto ele está fora de cena, e é ela que some com a fila vazia.
@@ -351,6 +326,8 @@ const listFootEl = document.getElementById('listFoot');
 // existir está na folha, sobre a regra que o desenha.
 const toolsSheetEl = document.getElementById('toolsSheet');
 const toolsBodyEl = document.getElementById('toolsBody');
+// O RODAPÉ FIXO da folha (v1.8.89), irmão do corpo — ver `renderFoot`.
+const toolsFootEl = document.getElementById('toolsFoot');
 const toolsCloseEl = document.getElementById('toolsClose');
 // Há UM host de lista (`libraryEl`). A pasta do aparelho abre INLINE, como um
 // álbum — e por isso não há busca dentro de uma pasta nem seleção múltipla lá
@@ -366,14 +343,22 @@ const appVersionEl = document.getElementById('appVersion');
 // morta temporal — o `ReferenceError` aborta o `controle.js` inteiro e o
 // watchdog do OTA descarta o bundle sem nada na tela dizer por quê.
 const simpleVersionEl = document.getElementById('simpleVersion');
-const listVersionEl = document.getElementById('listVersion');
+// (A TERCEIRA CASA saiu na v1.8.66: a badge do cabeçalho do Cronograma deu
+//  lugar ao botão de LIMPAR. O número continua em DUAS — a do Modo Fácil e o
+//  rodapé de Configurações —, escritas pelo mesmo `renderVersionLabel`.)
+// O botão que ficou no lugar dela é declarado AQUI pela razão do bloco acima:
+// `renderCronoLimpar` o lê milhares de linhas antes de onde o cromo é ligado, e
+// um `const` lido antes da própria declaração é `ReferenceError` — que aborta o
+// `controle.js` inteiro e faz o watchdog do OTA descartar o bundle sem nada na
+// tela dizer por quê.
+const cronoLimparEl = document.getElementById('cronoLimpar');
 
 // ===== Índices de versão (base web × shell nativo) =====
 // Os dois atualizam por caminhos INDEPENDENTES — a base por OTA, o shell só
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.52';
+const WEB_VERSION = '1.8.97';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -463,7 +448,7 @@ function renderVersionLabel() {
   // E NOMEAR O APP DENTRO DELE ERA A PALAVRA MAIS DISPENSÁVEL DA FAIXA. Quem
   // ainda precisa da marca é o que SAI daqui — o rascunho do WhatsApp e o
   // `compartilharTexto` —, e os dois continuam a escrever por conta própria.
-  for (const el of [simpleVersionEl, listVersionEl, appVersionEl]) {
+  for (const el of [simpleVersionEl, appVersionEl]) {
     if (!el) continue;
     el.textContent = rotulo;
     el.title = 'Versão do aplicativo';
@@ -618,7 +603,7 @@ const castEnsinoEl = document.getElementById('castEnsino');
 const castRedesEl = document.getElementById('castRedes');
 const castRotEl = document.getElementById('castRot');
 const castMirrorLabelEl = document.getElementById('castMirrorLabel');
-const castMirrorNotaEl = document.getElementById('castMirrorNota');
+const castSomAjudaEl = document.getElementById('castSomAjuda');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
 const castUrlCopyEl = document.getElementById('castUrlCopy');
@@ -658,9 +643,8 @@ const ICON = {
   broken: '', // broken_image
   del: '', // delete
   import: '', // folder_open
-  repeatAll: '', // repeat
-  repeatOne: '', // repeat_one
-  shuffle: '', // shuffle
+  // (`repeatAll`/`repeatOne`/`shuffle` saíram na v1.8.80: os quatro degraus do
+  //  `#repeat` viraram SVG do sprite — ver `#icoRepetir` no index.html.)
   // ADICIONAR AO CRONOGRAMA fica na família do TEMPO (`more_time`): ao lado do
   // `queue_music` da playlist, um `playlist_add` seria a mesma pilha de linhas
   // com outra marquinha. O relógio diz o que a lista é — a ORDEM do culto.
@@ -675,7 +659,18 @@ const ICON = {
   close: '',     // close — o MESMO glifo dos `.popup-close` (v5.191)
 };
 
-const REPEATS = ['off', 'all', 'one', 'shuffle'];
+// ===== A ORDEM É A DO DEDO, E ELA MUDOU (v1.8.80) =====
+//
+// Pedido do operador: *"ajuste a ordem das opções do botão de repetir mídia,
+// para que ele mostre primeiro repetir a midia atual e depois o repetir a
+// playlist inteira"*.
+//
+// `one` ANTES de `all` porque é o degrau mais pedido e o mais barato de desfazer
+// (um toque a mais devolve a fila), e porque os dois primeiros toques passam a
+// ir do mais restrito ao mais amplo — a mídia, depois a fila, depois o sorteio.
+// A escada continua MONÓTONA nesse eixo, que é o que um ciclo precisa ter para
+// não parecer aleatório na mão.
+const REPEATS = ['off', 'one', 'all', 'shuffle'];
 
 // ===== estado =====
 let plItems = [];          // mídias da playlist (ordenadas)
@@ -936,8 +931,43 @@ function serieCollections() {
   }));
 }
 
+// A COLETÂNEA DE VÍDEOS DO LOUVORJA — um card por PLAYLIST da curadoria.
+//
+// O catálogo mora em `state['onlineCatalog']` (o payload JÁ LIDO por
+// `AVOnline.lerCatalogo`, não o payload cru): ao contrário do `albumCatalog`,
+// cuja leitura editorial é reaplicada a cada desenho porque a tabela
+// `DISSOLVER` viaja no bundle e muda por OTA, aqui a regra é uma TRADUÇÃO de
+// chaves estrangeiras que não tem o que revisar entre duas aberturas — e o
+// payload cru é o objeto mais pesado que este app guarda (canais, playlists e
+// vídeos do acervo inteiro, com as miniaturas embutidas das capas). Guardar os
+// dois seria guardar duas vezes.
+//
+// **Só no app**, pelo motivo EXATO das séries: o item é um vídeo do YouTube, e
+// quem o baixa é a ponte (`ytFetch`). No navegador o catálogo carregaria e
+// nenhum item tocaria — card sem conteúdo é pior que card nenhum. O
+// `!!window.AVOnline` NÃO é a mesma pergunta: `online.js` é um dos scripts que
+// podem abortar de topo, e é essa condição que o watchdog de boot do OTA exige.
+let onlineCatalog = { albuns: [], diario: null };
+// A assinatura do que está GRAVADO — ver a guarda em `fetchOnlineCatalog`. De
+// MEMÓRIA e nascendo vazia de propósito: a primeira busca de cada sessão
+// reescreve, e é ela que conserta um `coll:<id>` corrompido ou apagado por
+// fora. Persistida, um aparelho nesse estado ficaria preso nele.
+let onlineAssinatura = '';
+
+function onlineDisponivel() {
+  return !!window.__NATIVE__
+    && !!window.AVOnline;
+}
+
+function onlineCollections() {
+  if (!onlineDisponivel()) return [];
+  return onlineCatalog.albuns.map((a) => ({
+    id: a.id, name: a.nome, kind: 'online', online: a, source: a.playlistId,
+  }));
+}
+
 function allCollections() {
-  const cols = FIXED_COLLECTIONS.concat(serieCollections());
+  const cols = FIXED_COLLECTIONS.concat(serieCollections(), onlineCollections());
   for (const a of albumCatalog.albums) {
     cols.push({ id: 'album-' + a.id_album, name: a.name, kind: 'album',
       source: 'album_' + a.id_album, albumId: a.id_album,
@@ -975,8 +1005,15 @@ function collSongs(id) { return (collState[id] && collState[id].songs) || []; }
 const TIPO_MUSICA = 'musica';   // faixa do LouvorJA: áudio no acervo, letra, variantes
 const TIPO_VIDEO = 'video';     // vídeo do YouTube: um LINK, sem letra e sem variante
 
+// O TERCEIRO MODELO CHEGOU, e ele entra exatamente pela porta que este bloco
+// descreve: a coletânea de vídeos do LouvorJA é `TIPO_VIDEO` pelo MESMO motivo
+// da série (o item é um link do YouTube, sem letra e sem variante), e nenhuma
+// afordância precisou saber que ela existe — cada uma continua perguntando pela
+// CAPACIDADE (`temLetra`, `ehLink`), nunca por "é série?".
+const KINDS_DE_VIDEO = ['serie', 'online'];
+
 function tipoDaColecao(coll) {
-  return coll && coll.kind === 'serie' ? TIPO_VIDEO : TIPO_MUSICA;
+  return coll && KINDS_DE_VIDEO.indexOf(coll.kind) >= 0 ? TIPO_VIDEO : TIPO_MUSICA;
 }
 
 // ----- As CAPACIDADES, que é o que os chamadores devem perguntar -----
@@ -995,6 +1032,22 @@ function temLetra(coll) { return tipoDaColecao(coll) === TIPO_MUSICA; }
 // destinos que GUARDAM), o card não oferece download em lote, e o toque no
 // Modo Fácil transmite em vez de baixar.
 function ehLink(coll) { return tipoDaColecao(coll) === TIPO_VIDEO; }
+
+// **A coleção tem um CALENDÁRIO SEMANAL?** A terceira capacidade, e ela nasceu
+// no lote da coletânea de vídeos do LouvorJA porque foi ele que a tornou
+// distinguível: até aqui "é um LINK" e "tem calendário" eram a mesma coleção
+// (a série), e cinco lugares perguntavam `ehLink` quando queriam dizer ISTO —
+// o destaque do sábado no topo do card, o episódio da semana, a opção de
+// mantê-lo baixado e o alternador dela.
+//
+// Sem a distinção, a coletânea nova herdaria a caixa *"Manter o … da semana
+// baixado"* em cada playlist da curadoria: um interruptor para uma rotina que
+// procura por uma data que aqueles vídeos não têm, sobre um `coll.serie` que
+// não existe. Ele ficaria na tela, marcável, e nunca baixaria nada.
+//
+// É `coll.serie` e não `kind === 'serie'` pela razão do bloco acima: o que
+// governa é o DADO de que a rotina depende, não o nome da família.
+function temCalendario(coll) { return !!(coll && coll.serie); }
 
 // ===== Bíblia (acervo online, baixado na 1ª vez que for usado) =====
 // Ver `bible.js`. A seleção é uma "tabela periódica" em três telas (livros →
@@ -1065,6 +1118,20 @@ let lyricLoadSeq = 0;
 // segundo.
 let projecaoSeq = 0;
 
+// ===== A SENHA DO SLOT DE MÍDIA =====
+//
+// `projecaoSeq` responde "alguém projetou QUALQUER COISA desde então?" — e um
+// versículo, uma mensagem ou o cronômetro a incrementam (`soUmProvedorDeTexto`).
+// Para a volta da apresentação essa pergunta é GRANDE DEMAIS: com o vídeo de um
+// slide ainda sendo lido do banco, o operador que subisse o cronômetro desarmava
+// a volta PARA SEMPRE, e a mesma ação tinha desfecho oposto conforme a leitura
+// do blob já tivesse terminado ou não.
+//
+// Esta responde a pergunta certa — "outro `send` TOMOU O SLOT DE MÍDIA?" —, e
+// por isso é bumpada num ponto só: o `send`, na mesma linha em que a volta é
+// desarmada. Camada de Texto não a move, porque camada de texto não toma o slot.
+let cenaSeq = 0;
+
 // ===== UMA RESOLUÇÃO EM VOO PERDE A VEZ PARA A PROJEÇÃO SEGUINTE (v1.4.18) =====
 //
 // Relato do operador: *"ao tocar em um item do tipo link, ele começa a carregar,
@@ -1089,11 +1156,10 @@ let projecaoSeq = 0;
 // correção.
 let palcoEmVoo = null;   // { senha, cartoes[] } — a projeção que espera a rede
 
-// SÃO VÁRIOS CARTÕES, E NÃO UM (v1.7.7). A mesma tentativa de projeção abre
-// DOIS em sequência: o do toque (`cederOPalco`, "Preparando <nome>") e o do
-// download (`ytBaixarNativo` com `aviso: 'preview'`), que antes deste lote era
-// inalcançável neste caminho — a transmissão direta resolvia a cena antes de
-// chegar nele. Guardando um só, quem ganhava a vez derrubava o primeiro e o
+// SÃO VÁRIOS CARTÕES, E NÃO UM. A mesma tentativa de projeção abre DOIS em
+// sequência: o do toque (`cederOPalco`, "Preparando <nome>") e o do download
+// (`ytBaixarNativo` com `aviso: 'preview'`). Guardando um só, quem ganhava a
+// vez derrubava o primeiro e o
 // SEGUNDO ficava sobre a música nova pelos MINUTOS do download: a tela dizendo
 // que prepara uma coisa e tocando outra, que é exatamente o relato que este
 // mecanismo existe para não deixar acontecer.
@@ -1401,7 +1467,14 @@ function grupoCompleto(colls) {
 // contas ao mesmo tempo — um ano de série puxaria a estimativa de todo álbum de
 // louvor para cima, e a média de áudio puxaria a da série para baixo.
 function ehColecaoDeVideo(id) {
-  return String(id || '').startsWith('serie-');
+  // AS DUAS FAMÍLIAS DE VÍDEO, e a segunda entra aqui no lote em que nasce: a
+  // coletânea do LouvorJA (`AVOnline.PREFIXO_ID`) é feita dos MESMOS vídeos do
+  // YouTube que as séries, baixados pelo mesmo `ytFetch`. Fora desta pergunta
+  // ela herdaria a média de bytes por segundo do acervo de ÁUDIO — a
+  // estimativa de "quanto vai ocupar" erraria por duas ordens de grandeza, e
+  // erraria para MENOS, que é o lado que enche o aparelho no meio do download.
+  const x = String(id || '');
+  return x.startsWith('serie-') || (!!window.AVOnline && AVOnline.ehDestaColetanea(x));
 }
 
 function bytesPorSegundo(id) {
@@ -1654,14 +1727,6 @@ let gateTinhaTela = false;
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
-// O dono do cartão que o `onEspera` da preview abriu (`null` = nenhum), e o NOME
-// que ele escreve. O nome é gravado por `aplicarNaPreview` a partir do item que
-// está entrando — nunca lido do rótulo já desenhado: `renderNowPlaying` roda em
-// pontos diferentes de cada caminho, e um nome atrasado é o cartão anunciando o
-// louvor ANTERIOR enquanto o novo carrega.
-let pvEsperaSolta = null;
-let pvEsperaNome = '';
-
 // ===== preview (espelho do display) =====
 // Mostra exatamente o que o display mostra. Recebe os MESMOS comandos enviados
 // ao display e ainda comanda a barra de progresso/avanço.
@@ -1678,33 +1743,6 @@ const preview = createStage({
   // ilustração mentir sobre a cena. É a armadilha que o `fundo-da-letra` já
   // pagou uma vez — *ler cada lado isolado aprova os dois*.
   camadaImg: pvTextImgEl,
-  // ===== TODO O CARREGAMENTO APARECE AQUI, NUM INDICADOR SÓ (v1.4.8) =====
-  //
-  // Pedido do operador: *"vamos abandonar o spinner no telão… e nos controles já
-  // temos a mensagem de preparando, não precisamos de um spinner exclusivo"*.
-  //
-  // O palco não desenha mais nada: ele ANUNCIA (`onEspera`), e quem mostra é o
-  // cartão que já existe sobre a preview — o mesmo do "Preparando" do toque, de
-  // modo que a espera INTEIRA (a extração de rede, e depois a carga do stream)
-  // se lê como um estado só, e não como dois avisos se revezando.
-  //
-  // O TELÃO NÃO PASSA `onEspera`, e é assim que ele fica com dois estados e
-  // nenhum intermediário: o wallpaper em repouso, ou o conteúdo no ar.
-  //
-  // O cartão é aberto e solto por BORDA, e o `pvEsperaSolta` é a memória disso:
-  // `previewBusy` conta donos (`pvBusyCount`), então um `onEspera(true)` repetido
-  // sem o `false` do meio deixaria um dono pendurado — e o cartão nunca sairia.
-  onEspera: (ligado) => {
-    if (ligado) {
-      if (pvEsperaSolta) return;
-      pvEsperaSolta = previewBusy('Preparando', pvEsperaNome || 'a mídia').soltar;
-      return;
-    }
-    if (!pvEsperaSolta) return;
-    const soltar = pvEsperaSolta;
-    pvEsperaSolta = null;
-    soltar();
-  },
   onTime: previewTick,
   // O NAVEGADOR RECUSOU O SOM — e a resposta é voltar a tocar MUDO, na hora.
   //
@@ -2050,10 +2088,9 @@ function telaoConectado() {
 // mandar o som") sem ninguém tocando do outro lado — SILÊNCIO NOS DOIS LADOS,
 // sem erro em lugar nenhum. O `telao` do shell (59) é quem responde.
 //
-// Ela é a pergunta das TRÊS decisões que dependem de haver projeção: quem toca
-// o som (`acertarSaidaDeAudio`), se o microfone é oferecido
-// (`haOndeReproduzirMic`) e se o Modo Fácil destrava (`simpleDisplay`). O que
-// segue lendo a lista CRUA é o que descreve a CONEXÃO — o rótulo da folha, o
+// Ela é a pergunta das decisões que dependem de haver projeção: quem toca o
+// som (`acertarSaidaDeAudio`) e se o Modo Fácil destrava (`simpleDisplay`). O
+// que segue lendo a lista CRUA é o que descreve a CONEXÃO — o rótulo da folha, o
 // `applyPreviewAspect`, o Registro —, e é lá que a distância entre as duas vira
 // frase.
 function telaoNoAr() {
@@ -2405,10 +2442,6 @@ function aplicarNaPreview(obj, item) {
   if (obj.type === 'text') { showPvText(obj); return; }
   if (obj.type === 'text-hide') { hidePvText(); return; }
   if (obj.type === 'load') {
-    // O nome que o cartão de espera vai escrever, gravado ANTES do `handle`:
-    // é dentro dele que o palco pode anunciar a espera, e o `onEspera` não
-    // recebe o item.
-    pvEsperaNome = (item && item.name) || '';
     // Esconde a letra incondicionalmente (como o Display). O texto manual é um
     // overlay independente: só some ao carregar VISUAL; ÁUDIO toca por baixo e
     // mantém o texto (independência áudio × texto).
@@ -3248,6 +3281,7 @@ async function load(opts) {
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   const ytAlturaV = await AVDB.getState('ytAltura');
+  const serieAutoV = await AVDB.getState('serieAuto');
   // A LISTA DA TELA É SEMPRE O CRONOGRAMA (v1.5.0). Ela era `listItems(activeTab)`
   // dentro de uma guarda, porque a aba podia ser a Bíblia — e ali a leitura
   // tinha de ser pulada: `'bible'` não é lista de mídia, e passá-la por
@@ -3306,6 +3340,10 @@ async function load(opts) {
   // `lvTamanho` logo acima: valor fora da escada cai no padrão, e não numa
   // altura que ninguém escolheu.
   ytAlturaPreferida = YT_ALTURAS.includes(ytAlturaV | 0) ? (ytAlturaV | 0) : YT_ALTURA_PADRAO;
+  // O "MANTER BAIXADO" DE CADA SÉRIE (v1.8.87). Ele é do BANCO e não da sessão:
+  // a promessa é *"manter baixado e atualizado"*, e uma marca que morre com o
+  // app faria a semana seguinte chegar sem nada — sem erro em lugar nenhum.
+  serieAuto = new Set(Object.keys(serieAutoV || {}).filter((k) => (serieAutoV || {})[k]));
   libItems = libItemsV;
   // O PAR do `currentId` acima, e pela mesma senha: `currentItemV` foi lido com
   // o id de ANTES do toque, então aplicá-lo deixaria a linha "no ar", o título
@@ -3439,17 +3477,60 @@ function syncFader(pct) {
 }
 
 // EXCEÇÃO à convenção "ícone = ação": este botão CICLA por quatro modos
-// (off → all → one → shuffle), não alterna dois. Num par binário mostrar a ação
-// não custa nada, porque o estado é o inverso dela; num ciclo de quatro, o
-// glifo só cabe um — mostrar o PRÓXIMO modo apagaria da tela qual está valendo,
-// e a cor (`.active`) só distingue ligado de desligado, não qual dos três.
+// (off → one → all → shuffle, a ordem de `REPEATS`), não alterna dois. Num par
+// binário mostrar a ação não custa nada, porque o estado é o inverso dela; num
+// ciclo de quatro, o glifo só cabe um — mostrar o PRÓXIMO modo apagaria da tela
+// qual está valendo, e a cor (`.active`) só distingue ligado de desligado, não
+// qual dos quatro.
 // Então aqui o ícone segue sendo o modo ATUAL, que é a informação que se perde.
+// O DESENHO DE CADA MODO (v1.8.80) — três símbolos, quatro degraus.
+//
+// `off` e `one` COMPARTILHAM o laço puro, e é o pedido do operador por extenso:
+// *"o icone de repetir a midia atual deve ser o icone de repetir comum, sem
+// adições"*. O que os separa é a SUPERFÍCIE (`.active`, a linguagem de "ligado"
+// deste app desde a v1.3.14), e era assim que `off` e `all` já conviviam — o
+// par desenho × superfície é que diz o estado, nunca o desenho sozinho.
+const REPEAT_ICO = {
+  off: '#icoRepetir',
+  one: '#icoRepetir',
+  all: '#icoRepetirLista',
+  shuffle: '#icoAleatorio',
+};
+
 function renderRepeat() {
-  const icon = repeat === 'one' ? ICON.repeatOne : repeat === 'shuffle' ? ICON.shuffle : ICON.repeatAll;
-  const label = repeat === 'off' ? 'Repetição desativada'
-    : repeat === 'one' ? 'Repetir 1' : repeat === 'shuffle' ? 'Aleatório' : 'Repetir tudo';
-  repeatEl.querySelector('.msym').textContent = icon;
-  repeatEl.title = label;
+  const ico = REPEAT_ICO[repeat] || REPEAT_ICO.off;
+  // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (v1.8.77), e não se ela anda:
+  // desde aquele lote a fila anda nos quatro modos, e "Repetição desativada"
+  // passaria a prometer o oposto do que o `off` faz — que é justamente o
+  // comportamento que o operador procurava quando esquecia de armar o `all`.
+  // O RÓTULO USA AS PALAVRAS DO OPERADOR (v1.8.80) — "repetir a mídia atual" e
+  // "repetir a playlist inteira" —, que são as que ele escreveu ao pedir a
+  // ordem nova. "Repetir 1" era a abreviação do glifo `repeat_one`, e o glifo
+  // saiu.
+  const label = repeat === 'off' ? 'Sem repetição — a fila toca em sequência e para no fim'
+    : repeat === 'one' ? 'Repetir esta mídia' : repeat === 'shuffle' ? 'Aleatório'
+    : 'Repetir a playlist inteira — ela recomeça no fim';
+  // `setAttribute('href')` e não `innerHTML`: o `<svg>` é um nó só, e é ele que
+  // a regra de escala (`.t-btn svg`) dimensiona. Recriá-lo devolveria o tamanho
+  // ao atributo do HTML — a divergência MUDA que a v1.8.68 mediu.
+  const uso = repeatEl.querySelector('use');
+  if (uso) uso.setAttribute('href', ico);
+  // ===== E O BOTÃO APAGA SEM NADA PARA REPETIR (v1.8.87) =====
+  //
+  // O `disabled` mora AQUI e não em `renderTransporteHabilitado`, ao contrário
+  // dos três vizinhos: o `title` deste botão depende do DEGRAU, e esta é a
+  // função que o conhece. Escrito nos dois lugares, a última a rodar venceria o
+  // atributo — e as duas rodam, por caminhos diferentes. Um dono só.
+  // `renderTransporteHabilitado` chama esta função, e com isso o botão
+  // acompanha a fila e a cena pelo mesmo pulso dos outros quatro.
+  const pode = repeticaoPode();
+  repeatEl.disabled = !pode;
+  // APAGADO, O `title` DIZ POR QUÊ — é o que um botão apagado deve a quem o
+  // encontra. O rótulo do MODO fica na frente: o degrau escolhido continua
+  // valendo, e é ele que volta a agir assim que houver fila ou mídia.
+  repeatEl.title = pode
+    ? label
+    : label + ' — sem fila e sem mídia escolhida, não há o que repetir';
   repeatEl.classList.toggle('active', repeat !== 'off');
 }
 
@@ -3861,19 +3942,87 @@ function thumbEl(item) {
 }
 
 // ---- Playlist (sequência) ----
+/**
+ * ===== A FILA É UM HOST DE MINIATURAS, E ELA NÃO TINHA BALDE (v1.8.88) =====
+ *
+ * Relato do operador: *"a thumbnail dos vídeos baixados do YouTube ainda estão
+ * se quebrando entre seções… é provável que seja por falta de internet, pelo
+ * aparelho estar offline"*.
+ *
+ * **NÃO É A REDE, e é por isso que a suspeita natural não leva ao conserto.** A
+ * capa de um vídeo BAIXADO é um Blob local (`makeThumb` a extrai do próprio
+ * arquivo, em `ytBaixarNativo`) — não há requisição nenhuma a falhar. O que
+ * quebrava era a `object-URL` dela ser REVOGADA com a imagem em cena.
+ *
+ * `varrerMiniaturas` recolhe toda URL que não esteja no balde de ALGUM host, e
+ * os baldes são publicados por `comBaldeDeMiniaturas`. Havia QUATRO hosts
+ * publicando (a Biblioteca, os Favoritos por dois caminhos, a pasta aberta) e
+ * um que desenhava sem publicar: **esta função**. As chaves dela caíam no
+ * `thumbChavesAtual` de módulo, que nenhum host publica — então a primeira
+ * varredura de qualquer outro host as considerava órfãs e revogava.
+ *
+ * **MEDIDO** (fila com um vídeo que NÃO está no Cronograma, depois um
+ * `renderLibrary`): a `<img>` mantém o mesmo `src`, o `fetch` nele REJEITA e o
+ * `naturalWidth` cai a 0 — a imagem quebrada que o operador vê. O item que
+ * TAMBÉM está no Cronograma escapava por acidente: a chave é `id|tamanho|tipo`,
+ * o outro host a publicava, e a união a mantinha viva. Daí "entre seções": o
+ * que decide é qual lista foi redesenhada por último, não a conexão.
+ *
+ * O conserto é o host a mais, no MESMO idioma do `renderLibrary` — corpo numa
+ * função à parte, `comBaldeDeMiniaturas` por fora. O `return` antecipado de
+ * dentro continua valendo: ele sai da arrow, e o `finally` do balde roda igual
+ * (publicando um balde VAZIO, que é o certo para uma fila sem itens).
+ */
 function renderPlaylist() {
+  comBaldeDeMiniaturas('playlist', () => renderPlaylistCorpo());
+}
+
+function renderPlaylistCorpo() {
   // O ESTADO DOS BOTÕES DE PLAYLIST DAS OUTRAS LISTAS anda com esta função
   // (v5.302) — ver `marcarNaPlaylist`. Ela é o ponto por onde TODA mudança da
   // fila passa, e é isso que dispensa cada porta de lembrar do repintor.
   marcarNaPlaylist();
+  // O ⏮/⏭ DO TRANSPORTE ANDA COM A FILA, e pelo mesmo argumento do repintor
+  // acima (v1.8.70): `transportePode()` lê `plItems`, mas quem o desenha
+  // (`renderTransporteHabilitado`) tinha um chamador só — `renderSlideNav()`,
+  // que só roda por `load()`/`send()`. Das nove portas que refazem `plItems`,
+  // OITO chamam esta função e só UMA chegava lá: montar a fila pelo botão da
+  // linha deixava os dois apagados, com o `title` prometendo "a fila está
+  // vazia" sobre uma fila cheia — e apagado eles engolem o toque, inclusive o
+  // da notificação e o da tela de bloqueio, que agem por `.click()`.
+  //
+  // AQUI EM CIMA, nunca no fim: esta função VOLTA CEDO com a fila vazia (o
+  // `if (count === 0) return` lá embaixo), que é justamente o caso em que os
+  // dois precisam APAGAR. É a armadilha que o KDoc de `marcarNaPlaylist` já
+  // nomeia, um repintor acima.
+  renderTransporteHabilitado();
   const count = plItems.length;
-  // O badge (e a cor do ícone) não devem chamar atenção quando a playlist é só
-  // a mídia atual (1 item); conta apenas os itens além do primeiro (2 itens →
-  // "1", 3 → "2"...) — mesmo critério pros dois, o ícone só fica destacado
-  // quando existe de fato uma fila além do item em exibição.
-  plCountEl.textContent = count > 1 ? String(count - 1) : '';
+  // ===== O SELO CONTA A FILA INTEIRA (v1.8.80) =====
+  //
+  // Revogação do operador, com o relato e a decisão juntos: *"o número no botão
+  // da playlist nos controles está indicando '1' quando há duas mídias na
+  // playlist. Isso foi uma decisão antiga, estou revogando ela, esse número deve
+  // representar o número total de itens na playlist. É claro, se houver apenas
+  // um item, ainda não precisa mostrar o número"*.
+  //
+  // A regra antiga contava os itens ALÉM do primeiro (2 → "1", 3 → "2"), sob o
+  // argumento de que a mídia em exibição não é fila. O preço era um número que
+  // não responde à única pergunta que se faz a um selo de contagem — *quantos
+  // itens há ali dentro?* —, e que discorda do contador da própria folha
+  // (`plPopupCountEl`, que sempre disse o total).
+  //
+  // O LIMIAR NÃO MUDA: com um item o selo continua vazio, e é a segunda metade
+  // do pedido.
+  //
+  // QUEM DIZ "HÁ FILA" É O SELO, E SÓ ELE. Havia aqui uma classe `has-items`
+  // que tingia o ícone de `--accent` junto; a regra dela saiu do `controle.css`
+  // na v1.5.0, com o rodapé, e a escrita sobreviveu sete meses sem consumidor —
+  // o ícone nunca acendeu, e a doc continuava dizendo que acendia. Devolvê-la
+  // seria acrescentar um SIGNIFICADO DE COR que a linguagem de estado do app
+  // não tem (ver o `CLAUDE.md`: escolhido · ligado · selecionado), para dizer o
+  // que o número ao lado já diz.
+  plCountEl.textContent = count > 1 ? String(count) : '';
   plPopupCountEl.textContent = String(count);
-  plBtnEl.classList.toggle('has-items', count > 1);
   // COM A FILA VAZIA NÃO HÁ O QUE LIMPAR, e um botão que não faz nada é pior
   // que botão nenhum — ainda mais um destrutivo, que assim ensinaria que
   // tocá-lo é inofensivo. A caixa inteira sai (ela carrega a margem do rodapé),
@@ -3912,16 +4061,55 @@ function renderPlaylist() {
     ? 'A fila está vazia — segure um item da lista para acrescentá-lo'
     : 'Playlist';
 
-  playlistEl.innerHTML = '';
-  if (count === 0) {
-    // O texto mandava DESLIZAR o item para a esquerda — o gesto saiu na v5.50
-    // (ver `attachRowGestures`) e a frase ficou para trás, ensinando ao
-    // operador um caminho que não existe mais. Hoje se acrescenta pela seleção
-    // múltipla ou pela folha de destinos do acervo.
-    playlistEl.innerHTML = '<li class="empty">Playlist vazia.<br>Segure um item da lista para selecioná-lo'
-      + '<br>e toque em "Acrescentar à playlist".</li>';
-    return;
+  // ===== E O "GUARDAR" APAGA COM MENOS DE DOIS ITENS (v1.8.53) =====
+  //
+  // Pedido do operador: *"verifique o guardar no cronograma, pois este só deve
+  // existir se houver ao menos dois itens na Playlist, não faz sentido guardar
+  // uma playlist de um item só"*. A recusa já existia — `guardarPacote` devolve
+  // "Precisa de 2 itens ou mais" no próprio rótulo —, e o que muda é a TROCA que
+  // a v1.8.50 escreveu: explicar depois do toque é pior que não oferecer. O
+  // `title` é o que um botão apagado deve a quem o encontra.
+  //
+  // A PERGUNTA É A DE QUEM EXECUTA, LITERALMENTE, e não `plItems.length`: o
+  // executor filtra as cenas de roteiro (`!isCue`), porque um pacote é uma FILA
+  // DE REPRODUÇÃO e um pacote dentro de outro faria `abrirPacote` chamar `send`
+  // em laço. Uma fila de uma mídia mais um cue tem `length` 2 e só UM item
+  // guardável — com a pergunta larga, o botão acenderia para recusar no toque.
+  // Duas perguntas sobre a mesma coisa divergem no primeiro ajuste; esta é a
+  // mesma linha, escrita uma vez em cada lado porque uma decide o DESENHO e a
+  // outra a EXECUÇÃO (a fila pode mudar entre um e outro).
+  //
+  // A RECUSA DO EXECUTOR FICA, e não é código morto: ela é a guarda da CORRIDA
+  // — a fila pode esvaziar entre o desenho e o dedo.
+  // OS DOIS APAGAM JUNTOS: o limiar é do PACOTE, não do destino — o que não faz
+  // sentido é empacotar uma mídia só, e isso não muda por ela ir para o
+  // Cronograma ou para os Favoritos.
+  const guardaveis = plItems.filter((m) => !isCue(m)).length;
+  for (const [b, onde] of [[plPackEl, 'no Cronograma'], [plPackFavEl, 'nos Favoritos']]) {
+    if (!b) continue;
+    b.disabled = guardaveis < 2;
+    const frase = guardaveis < 2
+      ? 'Um pacote guarda uma fila — junte pelo menos duas mídias'
+      : 'Guardar a fila como pacote ' + onde;
+    b.title = frase;
+    // O `aria-label` ANDA JUNTO, e não é redundância: ele é o rótulo destes dois
+    // botões (eles não têm texto), e um que ficasse no valor da carga diria
+    // "guardar" a quem não pode guardar.
+    b.setAttribute('aria-label', frase);
   }
+
+  playlistEl.innerHTML = '';
+  // A FOLHA VAZIA NÃO TEM MAIS CORPO (v1.8.54), a pedido do operador: *"remova a
+  // mensagem que tem no corpo da playlist quando não há nenhum item, pois essa
+  // mensagem não tem mais utilidade… ele não tem acesso a janela se ela não tem
+  // nada"*. E a premissa dele é verdade POR CONSTRUÇÃO desde a v1.8.51, quando o
+  // botão que abre esta folha passou a nascer apagado com a fila vazia — e mais
+  // ainda desde este lote, em que ela FECHA sozinha quando o último item sai.
+  //
+  // A FRASE DE ENSINO NÃO SE PERDE: ela já tinha mudado de casa na v1.8.51 e é o
+  // `title` daquele botão apagado, que é onde ela alcança quem procura a fila e
+  // não a encontra. Este bloco era a segunda cópia dela.
+  if (count === 0) return;
   plItems.forEach((item, i) => {
     const li = document.createElement('li');
     li.className = 'row-item' + (linhaAtiva(item.id) ? ' active' : '')
@@ -3930,6 +4118,23 @@ function renderPlaylist() {
 
     const row = document.createElement('div');
     row.className = 'row';
+    // ===== A MINIATURA (v1.8.55), e ela não é enfeite: é GEOMETRIA =====
+    //
+    // Relato do operador: *"na playlist os itens estão sem thumbnail, fazendo a
+    // gaveta de opções ficar faltando cobertura e deixando exposto um pedaço
+    // inútil do texto do card abaixo"*.
+    //
+    // A `.row-acoes` é posicionada CONTRA A MINIATURA — o KDoc dela diz por
+    // extenso que a miniatura *"é a única coisa que fica de fora"* —, e essa
+    // conta não sabe que esta lista não tinha nenhuma. MEDIDO a 390px: a gaveta
+    // abria 56px dentro da linha e o que aparecia naquela fatia era o TÍTULO,
+    // recortado no meio. Toda outra lista deste app põe a capa ali.
+    //
+    // `cueThumb` PARA CENA DE ROTEIRO, a mesma linha da Biblioteca: o comentário
+    // do rodapé desta função diz que um cue nunca entra na fila, e ele não entra
+    // pelo `onTap` — mas entra pela folha de destinos, e uma linha sem capa aqui
+    // seria o mesmo defeito de volta por outra porta.
+    const thumb = isCue(item) ? cueThumb(item) : thumbEl(item);
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
     // ===== A LIXEIRA DO APP, E NÃO UMA SÓ DESTA LISTA (v5.301) =====
     //
@@ -3967,21 +4172,25 @@ function renderPlaylist() {
     rm.appendChild(msym(ICON.del));
     rm.addEventListener('click', (e) => {
       e.stopPropagation();
-      pedirConfirmacaoNaLinha(rm, {
+      // O AVISO só aparece quando a remoção VAI interromper — isto é, este item
+      // no ar E sendo o último da fila. Ver `pedirSaidaDaFila`.
+      pedirSaidaDaFila(rm, {
+        item,
+        titulo: 'Remover da playlist',
         ok: 'Remover',
         dica: 'Remover da fila. O arquivo só é apagado se ele não estiver '
           + 'guardado em mais nenhuma lista.',
         aoConfirmar: async () => {
-          // "ESTAVA NO AR" É O `noArAgora`, e não `item.id === currentId`
-          // escrito à mão: é a MESMA pergunta que o clique nesta linha faz
-          // trinta linhas abaixo, e duas cópias dela divergiriam no primeiro
-          // ajuste.
-          const eraDaCena = noArAgora(item);
+          // A MESMA PERGUNTA QUE A DICA FEZ, pela mesma função — e refeita
+          // AGORA, porque entre abrir a pergunta e confirmá-la a faixa pode ter
+          // acabado. `tirarDaFilaEncerraCena` é a única escrita dela.
+          const encerra = tirarDaFilaEncerraCena(item);
           await AVDB.listRemove('playlist', item.id);
           await load();
           // A FILA ACABOU COM A CENA DENTRO — ver `encerrarCenaDaFila`. Com
           // fila sobrando nada muda: a sequência não acabou, só saiu um item.
-          if (eraDaCena && plItems.length === 0) await encerrarCenaDaFila();
+          if (encerra) await encerrarCenaDaFila();
+          fecharFilaVazia();
         },
       });
     });
@@ -4002,19 +4211,23 @@ function renderPlaylist() {
     //
     // A ORDEM É A DO CRONOGRAMA (v5.302), com a ressalva de não contar com o
     // que não existe nesta lista: o que mexe no ITEM (tirar da fila), o que
-    // mexe em ONDE ele está (favoritar, Cronograma) e o que mexe na POSIÇÃO
+    // mexe em ONDE ele está (Cronograma, favoritar) e o que mexe na POSIÇÃO
     // (↑↓). Falta o botão da PLAYLIST — esta LINHA é a playlist —, e o
     // renomear, que nunca esteve aqui.
+    //
+    // E O PAR DE DESTINO SEGUE A ORDEM CANÔNICA (v1.8.56, ver `DESTINOS`):
+    // Cronograma, playlist, favoritos. Aqui a playlist não existe, então o que
+    // sobra é Cronograma antes de favoritar — o inverso do que estava.
     //
     // OS DOIS SÃO ALTERNADORES COM ESTADO À VISTA, como no Cronograma: a
     // pergunta que se faz montando o culto é "está lá?", não "eu mandei?".
     // UMA CENA DE ROTEIRO NÃO GANHA O DA FILA no Cronograma (*"um versículo não
     // é uma fila de reprodução"*), e aqui a guarda não é necessária pelo motivo
     // oposto — um cue não entra na playlist, então esta linha nunca é um.
-    row.append(name, ...montarAcoesDaLinha(li, [
+    row.append(thumb, name, ...montarAcoesDaLinha(li, [
       rm,
-      favBtn(item.id, item.name),
       cronoBtnDaLinha(item),
+      favBtn(item.id, item.name),
       ...botoesDeOrdem('playlist', item.id, i, plItems.length),
     ], 'playlist:' + item.id));
     li.appendChild(row);
@@ -4069,16 +4282,30 @@ async function ensureBibleMeta(force) {
     } catch (_) {}
   }
   // Completude offline de TODAS as versões (pra resumir na lista de seleção).
-  // O próprio Set é o cache: versão que já está nele não volta ao IDB (uma
-  // versão completa não "des-completa", e os downloads que completam uma já a
-  // adicionam na hora — ver ensureBibleVersionDownloaded). As leituras que
-  // restam saem em paralelo: são independentes, e em série este laço pagava
-  // uma ida ao IDB por versão a cada entrada na aba.
+  // O próprio Set é o cache: versão que já está nele não volta ao IDB, e os
+  // downloads que completam uma já a adicionam na hora (ver
+  // `ensureBibleVersionDownloaded`). As leituras que restam saem em paralelo:
+  // são independentes, e em série este laço pagava uma ida ao IDB por versão a
+  // cada entrada na aba.
+  //
+  // UMA VERSÃO COMPLETA PASSOU A PODER "DES-COMPLETAR" (v1.8.83), e a frase que
+  // estava aqui dizendo o contrário virou a única guarda desse caso: quem
+  // exclui é `apagarVersaoBiblia`, e é ELE que tira a versão do Set no mesmo ato
+  // em que apaga a bandeira. Sem isso o cache seguraria "completa" para sempre —
+  // um Set que só cresce só pode ser cache do que nunca sai.
   await Promise.all(bibleVersions
     .filter((v) => !bibleCompleteVersions.has(v.id))
     .map(async (v) => {
       if (await AVDB.getState('bibleComplete:' + v.id)) bibleCompleteVersions.add(v.id);
     }));
+  // A RECONTAGEM NÃO ENTRA AQUI (v1.8.85). `ensureBibleMeta` está no caminho
+  // QUENTE — o clique de capítulo, a abertura da aba, o boot —, e
+  // `recontarBibliaNoAparelho` varre TODAS as chaves `bible:` (até 1189 por
+  // versão baixada) para alimentar um mapa que só a FOLHA DE VERSÕES lê
+  // (`bibleCachedCount`, em `renderBibleVerList`). E ela já se reconta sozinha:
+  // `openBibleVerPopup` desenha com o que sabe e recontra depois, e o fim de
+  // uma varredura faz o mesmo. Esperar por ela aqui era pagar a varredura
+  // inteira em toda chamada por um número que ninguém ia ler.
   if (bibliaAberta()) renderBible();
 }
 
@@ -4093,30 +4320,205 @@ function pickDefaultBibleVersion(versions) {
 // Popup de seleção de versão (bottom-sheet) — a lista não fica mais toda
 // exposta em chips; um botão com a versão atual abre esta lista.
 function openBibleVerPopup() {
+  // DESENHA COM O QUE SE SABE E RECONTA DEPOIS: a varredura das chaves é uma
+  // transação, mas ela é ASSÍNCRONA, e uma folha que só aparece depois do banco
+  // responder é uma folha que não responde ao toque. O número que ela corrige —
+  // quantos capítulos de cada versão estão no aparelho — muda por download e por
+  // exclusão, nunca dentro do quadro em que a folha abre.
   renderBibleVerList();
   bibleVerPopupEl.classList.add('open');
+  recontarBibliaNoAparelho().then(() => {
+    if (bibleVerPopupEl.classList.contains('open')) renderBibleVerList();
+  });
 }
 function closeBibleVerPopup() { bibleVerPopupEl.classList.remove('open'); }
+// QUANTOS CAPÍTULOS DE CADA VERSÃO ESTÃO NO APARELHO (v1.8.83).
+//
+// A lista de versões sabia responder "completa?" e mais nada — e "completa?"
+// não basta para duas das três coisas que a folha agora faz: dizer que uma
+// versão está PELA METADE (uma varredura que a rede da igreja interrompeu) e
+// oferecer o EXCLUIR só onde há o que excluir.
+//
+// UMA varredura para TODAS as versões, e é o que faz isto caber aqui: as chaves
+// são `bible:<versão>_<livro>_<capítulo>`, então um `stateKeys('bible:')` numa
+// transação só devolve o mapa inteiro. Por versão seriam N varreduras do mesmo
+// intervalo. Chaves, nunca valores — o valor é o capítulo desserializado.
+const bibleCachedCount = Object.create(null);
+async function recontarBibliaNoAparelho() {
+  let chaves = [];
+  try { chaves = await AVDB.stateKeys('bible:'); } catch (_) { return; }
+  for (const k of Object.keys(bibleCachedCount)) delete bibleCachedCount[k];
+  for (const k of chaves) {
+    // `bible:<versão>_<livro>_<cap>` — a versão vai até o PRIMEIRO `_`, que é o
+    // separador que `ensureBibleVersionDownloaded` escreve.
+    const corte = String(k).indexOf('_', 6);
+    if (corte < 0) continue;
+    const vId = String(k).slice(6, corte);
+    bibleCachedCount[vId] = (bibleCachedCount[vId] || 0) + 1;
+  }
+}
+
+// O TOTAL DE CAPÍTULOS DA BÍBLIA — a mesma soma que `ensureBibleVersionDownloaded`
+// enumera, e não um 1189 escrito à mão: um livro a mais na tabela mudaria os
+// dois, e só um deles seria lembrado.
+function bibliaTotalDeCapitulos() {
+  return Bible.BOOKS.reduce((n, b) => n + b.chapters, 0);
+}
+
+// ===== EXCLUIR UMA VERSÃO BAIXADA (v1.8.83) =====
+//
+// Pedido do operador: *"faça uma opção para excluir uma determinada versão que
+// já esteja baixada"*.
+//
+// O que sai são as 1189 chaves do texto MAIS a bandeira de completude — a
+// bandeira sozinha faria a versão parecer pendente com o texto inteiro ocupando
+// espaço, e o texto sozinho deixaria a bandeira mentindo "completa" sobre um
+// banco vazio. As duas são o mesmo fato guardado em dois lugares, e saem juntas.
+async function apagarVersaoBiblia(v) {
+  const nome = v.name || 'esta versão';
+  if (!(await appConfirm({
+    title: 'Excluir versão baixada',
+    message: 'Tirar o texto de "' + nome + '" deste aparelho?\n\n'
+      + 'A leitura continua funcionando com internet, e escolher esta versão de '
+      + 'novo baixa tudo outra vez.',
+    okText: 'Excluir', perigo: true,
+  }))) return;
+  // A VARREDURA EM CURSO CAI PRIMEIRO, e ela é a metade cara deste conserto.
+  // `ensureBibleVersionDownloaded` congela a lista de capítulos que faltam
+  // ANTES do laço e só conta `failed` em erro de REDE — um apagamento do banco
+  // não a interrompe nem a faz falhar. Sem isto, excluir uma versão que estava
+  // baixando deixava ~800 dos 1189 capítulos no aparelho e ainda gravava a
+  // bandeira "Completa offline" por cima, porque `failed === 0`. O guard do
+  // worker (`bibleDl.running`) faz o resto.
+  if (bibleDl && bibleDl.running && bibleDl.versionId === v.id) {
+    bibleDl.running = false;
+    refreshBibleDl(true);
+  }
+  try {
+    await AVDB.stateApagarPrefixo('bible:' + v.id + '_');
+    // A BANDEIRA É CHAVE EXATA, e por isso NÃO sai por prefixo: os ids vêm
+    // numéricos do LouvorJA (`id_bible_version`), e `bibleComplete:1` como
+    // prefixo casa também `bibleComplete:10`, `:11`, `:12`… — excluir a versão
+    // 1 apagava a bandeira das outras, que passavam a anunciar "Parcial · 1189
+    // de 1189". A irmã de cima tem o `_` que fecha o intervalo; esta não tem
+    // sufixo nenhum para fechar.
+    await AVDB.setState('bibleComplete:' + v.id, false);
+  } catch (_) { /* sem banco: a lista se corrige na próxima varredura */ }
+  bibleCompleteVersions.delete(v.id);
+  // E A EXCLUSÃO É UMA INTENÇÃO, não só um apagamento. `garantirBibliaBase`
+  // roda em TODA abertura e rebaixa a versão que o app escolheria
+  // (`pickDefaultBibleVersion`), que pode ser justamente esta: sem registrar a
+  // vontade do operador, os 1189 capítulos voltavam sozinhos no lançamento
+  // seguinte — em geral minutos antes do culto, com serviço em primeiro plano,
+  // wake lock e notificação — e o diálogo que ele acabou de confirmar virava
+  // promessa falsa. Quem a desfaz é ESCOLHER a versão de novo
+  // (`changeBibleVersion`), que é o único gesto que diz "eu quero esta".
+  try {
+    await AVDB.updateState('bibleNaoBaixar', (lista) => {
+      const atual = Array.isArray(lista) ? lista : [];
+      return atual.includes(v.id) ? atual : atual.concat([v.id]);
+    });
+  } catch (_) {}
+  // O CACHE DE VIZINHOS PODE SER DESTA VERSÃO, e ele não é relido do banco:
+  // deixá-lo de pé faria a leitura continuar mostrando um texto que o aparelho
+  // já não tem, e o próximo passo de capítulo o perderia sem explicação.
+  if (bibleSession && bibleSession.versionId === v.id) bibleAdjCache = {};
+  await recontarBibliaNoAparelho();
+  renderBibleVerList();
+  if (bibliaAberta()) renderBible();
+}
+
 function renderBibleVerList() {
   bibleVerListEl.innerHTML = '';
+  const total = bibliaTotalDeCapitulos();
   bibleVersions.forEach((v) => {
     const li = document.createElement('li');
     const row = document.createElement('div');
     row.className = 'row bible-ver-row' + (v.id === bibleVersionId ? ' selected' : '');
-    // nome + status offline resumido (completa / baixando / —)
     const main = document.createElement('span'); main.className = 'bible-ver-main';
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = v.name;
     const st = document.createElement('span'); st.className = 'bible-ver-status';
-    if (bibleCompleteVersions.has(v.id)) { st.textContent = '✓ Completa offline'; st.classList.add('done'); }
-    else if (bibleDl && bibleDl.running && bibleDl.versionId === v.id) { st.textContent = 'Baixando ' + bibleDl.done + '/' + bibleDl.total + '…'; }
-    else { st.textContent = 'Baixa ao usar'; }
+    const baixando = !!(bibleDl && bibleDl.running && bibleDl.versionId === v.id);
+    const noAparelho = bibleCachedCount[v.id] || 0;
+    // ===== O ESTADO DIZ O QUE O APP FAZ (v1.8.83) =====
+    //
+    // A terceira linha dizia **"Baixa ao usar"**, e isso era falso desde a
+    // v5.242: `changeBibleVersion` chama `ensureBibleVersionDownloaded` no ato
+    // da escolha, e `enterBibleTab` a chama para a versão em uso. O operador leu
+    // a frase e pediu o comportamento que o app já tinha — *"ao invés de baixar
+    // ao usar, ajuste o método para baixar a bíblia inteira ao escolher aquela
+    // versão"*. Era o pior artefato que este projeto sabe produzir: uma linha
+    // que DISCORDA do aparelho, lida por quem não tem como conferir.
+    //
+    // E A QUARTA É NOVA: uma versão PELA METADE existia (a varredura desiste
+    // depois de 25 falhas seguidas, que é a rede da igreja fora) e não tinha
+    // como ser vista — ela se lia igual a uma que nunca foi tocada.
+    if (bibleCompleteVersions.has(v.id)) {
+      st.innerHTML = checkIconSvg() + '<span>Completa offline</span>';
+      st.classList.add('done');
+    } else if (baixando) {
+      st.textContent = 'Baixando ' + bibleDl.done + '/' + bibleDl.total + '…';
+    } else if (noAparelho) {
+      st.textContent = 'Parcial · ' + noAparelho + ' de ' + total + ' capítulos';
+    } else {
+      st.textContent = 'Não baixada';
+    }
     main.append(name, st);
     row.appendChild(main);
-    if (v.id === bibleVersionId) { const chk = document.createElement('span'); chk.textContent = '✓'; chk.className = 'bible-ver-check'; row.appendChild(chk); }
+    // (O ✓ DA LINHA ESCOLHIDA SAIU na v1.8.84, revogando a v1.8.83 — que o
+    //  tinha acabado de trocar do caractere cru pelo `checkIconSvg`. Pedido do
+    //  operador: *"remova o elemento 'check' da identificação do selecionado.
+    //  Já temos a coloração azul da linha como marcação, não precisamos do
+    //  check disputando espaço com a lixeira."* A marca da escolha continua
+    //  existindo — é o `--sel-fill` da `.bible-ver-row.selected` —, e o que se
+    //  ganha é a largura que o nome da versão perdia para um segundo sinal da
+    //  mesma coisa. O ✓ do "Completa offline" FICA: aquele diz outra coisa.)
     row.addEventListener('click', () => {
       closeBibleVerPopup();
+      // ESCOLHER É BAIXAR, inclusive a versão JÁ escolhida: `changeBibleVersion`
+      // devolve cedo quando o id não muda, e era esse o único caminho em que
+      // tocar na linha não fazia nada — justamente o que se faz diante de uma
+      // varredura que a rede interrompeu. As duas são idempotentes e resumíveis.
+      ensureBibleVersionDownloaded(v.id);
       changeBibleVersion(v.id); // troca + recarrega o capítulo atual na nova versão
     });
+    // ===== O EXCLUIR: OCULTO SEM NADA BAIXADO, APAGADO NA VERSÃO EM USO =====
+    //
+    // Pedido do operador (v1.8.84): *"ajuste para que oculte os icones de
+    // excluir, nos itens que ainda não foram baixados. Atualmente ele fica
+    // apenas esmaecido, mas pode deixar oculto quando não ainda não há nada
+    // baixado daquele item."*
+    //
+    // **OS DOIS CASOS DEIXARAM DE SER O MESMO, e a régua é o que o operador pode
+    // FAZER a respeito.** A regra da v1.8.50 (*"o que não tem função agora é
+    // apagado, não deixado inerte"*) existe para um botão cuja indisponibilidade
+    // é TEMPORÁRIA e reversível pelo próprio operador — é o caso da versão EM
+    // USO, onde ele escolhe outra e o botão acende, e é por isso que ela precisa
+    // ocupar o lugar e dizer por quê no `title`. Numa versão que nunca foi
+    // baixada não há função a recuperar: excluir o que não existe não é uma ação
+    // adiada, é uma ação que não existe.
+    //
+    // E o preço que a regra cobrava — mover os vizinhos debaixo do dedo — não se
+    // paga aqui: o excluir é o ÚLTIMO item da linha, então some sem empurrar
+    // ninguém, e a linha de uma versão não baixada nem sequer é um alvo de
+    // exclusão para o dedo errar.
+    const emUso = v.id === bibleVersionId;
+    const daParaExcluir = !!(noAparelho || baixando);
+    if (daParaExcluir) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      // `.row-btn` e não uma caixa nova: ele é um botão de símbolo numa LINHA de
+      // lista, que é exatamente o que aquela classe já resolve (caixa `--hit`,
+      // tom, escala de ícone e resposta ao toque, num lugar só).
+      del.className = 'row-btn bible-ver-del';
+      del.appendChild(msym(ICON.del));   // `msym` devolve um NÓ, não uma string
+      del.disabled = emUso;
+      del.title = emUso ? 'A versão em uso não é excluída — escolha outra antes'
+        : 'Excluir o texto baixado desta versão';
+      del.setAttribute('aria-label', del.title);
+      del.addEventListener('click', (e) => { e.stopPropagation(); apagarVersaoBiblia(v); });
+      row.appendChild(del);
+    }
     li.appendChild(row);
     bibleVerListEl.appendChild(li);
   });
@@ -4159,7 +4561,13 @@ async function garantirBibliaBase() {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     await ensureBibleMeta(false);
     const base = pickDefaultBibleVersion(bibleVersions);
-    if (base != null) await ensureBibleVersionDownloaded(base);
+    if (base == null) return;
+    // A EXCLUSÃO DO OPERADOR VALE MAIS QUE A BASE QUE O APP GARANTE. Ver
+    // `apagarVersaoBiblia`: a lista guarda as versões que ele tirou do
+    // aparelho, e ela só é desfeita quando ele ESCOLHE a versão de novo.
+    const naoBaixar = (await AVDB.getState('bibleNaoBaixar')) || [];
+    if (Array.isArray(naoBaixar) && naoBaixar.includes(base)) return;
+    await ensureBibleVersionDownloaded(base);
   } catch (_) {}
 }
 
@@ -4232,7 +4640,7 @@ async function ensureBibleVersionDownloaded(versionId) {
   // por si só não bastava — a igualdade de versão é reversível.
   const runSeq = ++bibleDlSeq;
   bibleDl = { versionId, total, done, running: true, seq: runSeq };
-  refreshBibleDl();
+  refreshBibleDl(true);   // o COMEÇO é desfecho: a linha passa a dizer "Baixando"
 
   // 1189 capítulos: é o download mais longo do app e o que mais sofria com o
   // congelamento do processo ao minimizar.
@@ -4274,15 +4682,35 @@ async function ensureBibleVersionDownloaded(versionId) {
   if (bibleDl && bibleDl.seq === runSeq) {
     bibleDl.running = false;
     if (failed === 0) { await AVDB.setState('bibleComplete:' + versionId, true); bibleCompleteVersions.add(versionId); }
-    refreshBibleDl();
+    // E A CONTAGEM É REFEITA ANTES DE REPINTAR (v1.8.85): `bibleCachedCount` foi
+    // lido quando a folha abriu, e a varredura que acabou de terminar gravou
+    // centenas de capítulos por baixo dele. Sem isto a folha aberta seguia
+    // dizendo "Não baixada" sobre o texto que acabou de entrar, e o EXCLUIR
+    // continuava apagado — os dois leem esse mapa.
+    try { await recontarBibliaNoAparelho(); } catch (_) {}
+    refreshBibleDl(true);
   }
 }
 
 // O status offline/progresso do download aparece SÓ dentro do popup de seleção
 // de versão (`.bible-ver-status` por versão) — não disputa espaço com a leitura.
 // Enquanto o download roda, re-renderiza a lista se o popup estiver aberto.
-function refreshBibleDl() {
-  if (bibleVerPopupEl.classList.contains('open')) renderBibleVerList();
+// ESTRANGULADO (v1.8.85): ele é chamado UMA VEZ POR CAPÍTULO baixado — 1189
+// por versão —, e cada chamada reconstrói a LISTA INTEIRA de versões, que desde
+// a v1.8.83 carrega por linha o botão de excluir e o ✓ em SVG. O número que
+// muda ali é um contador de progresso; repintá-lo a 60 Hz não o torna mais
+// verdadeiro, e o custo cai sobre o mesmo fio que serve a projeção.
+//
+// O `0` do prazo é DELIBERADO nas duas pontas que importam: quem chama fora do
+// laço (o fim da varredura, o `apagarVersaoBiblia`) passa `true` e repinta na
+// hora — ali o desfecho é o que o operador está olhando, não um número andando.
+let bibleDlPintarEm = 0;
+function refreshBibleDl(agora) {
+  if (!bibleVerPopupEl.classList.contains('open')) return;
+  const t = Date.now();
+  if (!agora && t < bibleDlPintarEm) return;
+  bibleDlPintarEm = t + 400;
+  renderBibleVerList();
 }
 
 // Ordem das telas da Bíblia (pra direção do slide de transição).
@@ -4343,6 +4771,30 @@ function bibleCell(sym, opts) {
 function renderBibleBooks(wrap) {
   // (O seletor de versão e o status de download saíram daqui — moram na tela de
   // leitura, dando mais espaço para a grade de livros. Ver renderBibleReading.)
+  // ===== A GRADE DEIXOU DE SER O SCROLLER (v1.8.60) =====
+  //
+  // A marca `rola` morava NA GRADE, e ali ela não pintava nada: o pseudo de um
+  // contêiner de grade é ITEM dela, então o `sem-veu` a excluía — enquanto o
+  // `acertarVeus` escrevia `tem-acima`/`tem-abaixo` normalmente. O app já sabia
+  // que havia livro escondido e não tinha como dizer. MEDIDO a 360×640, a
+  // medida clássica do Android: **24 dos 66 livros ficam fora da dobra**, e
+  // esta era a única superfície do app em que só a tentativa revela que a lista
+  // continua.
+  //
+  // O conserto não é de CSS, e os dois candidatos que eram morreram medidos:
+  // dar `grid-column: 1/-1` ao pseudo reintroduz o defeito exato que criou o
+  // `sem-veu` (a primeira célula desce de y=0 para y=32, mais 10px de rolagem
+  // fantasma), e trocar a grade por `flex-wrap` destrói as 66 células. O que
+  // passa é tirar a GRADE da posição de scroller: um envelope de bloco rola e
+  // leva a marca; a grade fica como estava e o pseudo volta a ser filho de um
+  // flex. MEDIDO: a tira pinta 22px de borda a borda com a condicional certa, a
+  // primeira célula continua em (0,0) com 6 por linha, e a rolagem não cresce
+  // um pixel.
+  //
+  // O `sem-veu` FICA e não deve ser tocado: o `#simpleLyrics` vira `display:
+  // grid` em runtime (`.lv-grade`) e é o caso vivo dele. Isto tira UM elemento
+  // da situação, não a situação.
+  const rolo = document.createElement('div'); rolo.className = 'bible-books-rolo rola';
   const grid = document.createElement('div'); grid.className = 'bible-grid bible-grid--books';
   Bible.BOOKS.forEach((b, i) => {
     // Só a abreviação (sem o nome completo) — fonte maior, ver .bible-grid--books.
@@ -4351,7 +4803,8 @@ function renderBibleBooks(wrap) {
     cell.addEventListener('click', () => { bibleSel = { bookIdx: i, chapter: 0 }; gotoBibleScreen('chapters'); });
     grid.appendChild(cell);
   });
-  wrap.appendChild(grid);
+  rolo.appendChild(grid);
+  wrap.appendChild(rolo);
 }
 
 // Capítulo e versículo na MESMA tela, dividida ao meio na vertical: em cima a
@@ -4379,7 +4832,10 @@ function renderBibleChapters(wrap) {
   const split = document.createElement('div'); split.className = 'bible-split';
 
   // ---- metade de cima: capítulos ----
-  const top = document.createElement('div'); top.className = 'bible-half';
+  // `rola` AQUI, e não no index.html, porque estas duas nascem em runtime. Elas
+  // não pedem chamada nenhuma de volta: quem as vê nascer é o observador do
+  // DOCUMENTO (ver "A SOMBRA DAS BORDAS DE UM SCROLL").
+  const top = document.createElement('div'); top.className = 'bible-half rola';
   const cGrid = document.createElement('div'); cGrid.className = 'bible-grid bible-grid--num bible-grid--chapters';
   for (let c = 1; c <= book.chapters; c++) {
     const cell = bibleCell(String(c), { cls: 'bible-cell--num', active: bibleSel.chapter === c });
@@ -4394,7 +4850,7 @@ function renderBibleChapters(wrap) {
   top.appendChild(cGrid);
 
   // ---- metade de baixo: versículos ----
-  const bottom = document.createElement('div'); bottom.className = 'bible-half';
+  const bottom = document.createElement('div'); bottom.className = 'bible-half rola';
   bottom.appendChild(bibleVersesPane());
 
   split.append(top, bottom);
@@ -4618,6 +5074,14 @@ async function changeBibleVersion(id) {
   bibleVersionId = id;
   bibleAdjCache = {}; // vizinhos em cache eram da versão antiga
   await AVDB.setState('bibleVersion', id);
+  // ESCOLHER É O GESTO QUE DESFAZ A EXCLUSÃO — ver `apagarVersaoBiblia`. Sem
+  // isto, uma versão excluída e depois escolhida ficaria para sempre fora do
+  // alcance do `garantirBibliaBase`.
+  try {
+    await AVDB.updateState('bibleNaoBaixar', (lista) => (
+      Array.isArray(lista) ? lista.filter((x) => x !== id) : []
+    ));
+  } catch (_) {}
   ensureBibleVersionDownloaded(id);
   if (!bibleSession) { renderLibrary(); return; }
   const s = bibleSession;
@@ -4675,8 +5139,11 @@ async function fetchBibleChapterCached(versionId, bookIdx, chapter) {
 
 // Move a sessão de leitura para outro capítulo (cruza livro nos extremos),
 // baixando o texto se necessário.
-// `want`: 'first' | 'last' | um índice (podendo ser NEGATIVO, contado a partir
-// do fim — é como um salto de -2 que estourou o começo do capítulo chega aqui).
+// `want`: um ÍNDICE, podendo ser NEGATIVO (contado a partir do fim — é como um
+// salto de -2 que estourou o começo do capítulo chega aqui). Ausente = o
+// primeiro versículo. Houve dois sentinelas de string (`'first'`/`'last'`) e
+// nenhum dos dois teve produtor: os dois chamadores, no `bibleStep`, passam
+// número, e "voltar para o fim do capítulo anterior" já é o índice negativo.
 async function bibleGotoChapter(bookIdx, chapter, want) {
   const s = bibleSession;
   if (!s) return;
@@ -4687,8 +5154,7 @@ async function bibleGotoChapter(bookIdx, chapter, want) {
   const book = Bible.BOOKS[bookIdx];
   const wasProjecting = s.projecting;
   let idx;
-  if (want === 'last') idx = verses.length - 1;
-  else if (typeof want === 'number') idx = want < 0 ? verses.length + want : want;
+  if (typeof want === 'number') idx = want < 0 ? verses.length + want : want;
   else idx = 0;
   idx = Math.max(0, Math.min(verses.length - 1, idx));
   bibleSession = {
@@ -4884,12 +5350,34 @@ function renderBibleReading(wrap) {
   const foot = document.createElement('div'); foot.className = 'bible-read-foot';
   const v = s.verses[s.idx];
   const nav = document.createElement('div'); nav.className = 'bible-ref-nav';
+  // ===== O RÓTULO SAIU DA TELA E FOI PARA O NOME DO BOTÃO (v1.8.83) =====
+  //
+  // Pedido do operador: *"Remova os títulos dos grupos na barra inferior durante
+  // a leitura. A largura da barra é definida por esses títulos, mas ocupa um
+  // espaço desnecessário na área dos capítulos e versículos em relação aos
+  // números e aperta na área dos livros… Essa barra não deve ter um modo de
+  // 'duas linhas'"*.
+  //
+  // Ele descreve o mecanismo com precisão, e a v1.7.9 já o tinha medido do outro
+  // lado: *"quem se dimensiona pelo RÓTULO são as três pílulas de número —
+  // 'CAPÍTULO' e 'VERSÍCULO' em caixa alta são muito mais largos que os valores
+  // ('3'), então é o rótulo que dita a largura"*. Aquele lote pagou o aperto
+  // encolhendo o rótulo; este tira a causa.
+  //
+  // O QUE SUBSTITUI A PALAVRA NA TELA É A TINTA, e ela já estava lá desde a
+  // v1.3.14: cada pílula veste a grade que abre — o livro na tinta do grupo
+  // canônico, o capítulo no tom frio, o versículo no quente. A palavra era a
+  // terceira escrita da mesma informação, depois da cor e da posição.
+  //
+  // E ELA NÃO SOME DO APP: vira `title` e `aria-label`, que é onde um botão sem
+  // rótulo diz o que é — a mesma regra dos três destinos da playlist automática.
   const part = (label, value, onClick, cls) => {
     const b = document.createElement('button'); b.type = 'button';
     b.className = 'bible-ref-part' + (cls ? ' ' + cls : '');
-    const l = document.createElement('span'); l.className = 'bible-ref-label'; l.textContent = label;
+    b.title = label;
+    b.setAttribute('aria-label', label + ': ' + value);
     const t = document.createElement('span'); t.className = 'bible-ref-value'; t.textContent = value;
-    b.append(l, t);
+    b.appendChild(t);
     b.addEventListener('click', onClick);
     nav.appendChild(b);
   };
@@ -5110,11 +5598,44 @@ const ROTULO_PADRAO = { em: 'na lista', para: 'à lista' };
 // domingo. Escrever embaixo de cada um o que ele é ("A lista do culto") é
 // explicar a própria navegação para quem já está navegando nela, e era metade
 // da altura desta folha.
+//
+// ===== A ORDEM É A DA TABELA, E ELA É CANÔNICA (v1.8.56) =====
+//
+// Pedido do operador: *"há casos em que o cronograma está a esquerda, e outros
+// ele está a direita… Padronize: a esquerda o cronograma, no meio a playlist e
+// por fim o favoritos. Tente aplicar essa ordem a todo o app como padrão onde
+// houver esses botões (é claro, há lugares que só há um ou dois deles)"*.
+//
+// A DIVERGÊNCIA NÃO ERA DECISÃO DE NINGUÉM: eram QUATRO listas escritas à mão
+// com a mesma tríade em ordens diferentes — as duas folhas de destino (a do
+// acervo e a do YouTube), o mapa `LINHA` da gaveta e o `DEST_ICONE` desta
+// folha —, mais duas fileiras de botão de linha. Uma tabela que só respondia
+// "quais existem?" deixava "em que ordem?" para cada chamador, e o quinto
+// chamador ia divergir também.
+//
+// Por isso `ico` e `acao` entraram AQUI, e as quatro listas saíram: quem monta
+// uma folha de destinos percorre esta tabela, e não pode mais escolher a
+// ordem. `rotulo` é o nome do lugar ("Cronograma"); `acao` é o que se FAZ com
+// ele ("Adicionar ao Cronograma") — as folhas usam um ou outro conforme a
+// linha seja uma MARCA ou um verbo, e escrever os dois no mesmo campo torceria
+// metade das telas.
+//
+// ONDE FALTA UM DELES A ORDEM SOBREVIVE, que é a ressalva do pedido: a linha
+// do Cronograma não oferece "Cronograma" (o item já está lá) e a da fila não
+// oferece "Playlist" (a linha É a fila) — em ambas o que resta continua na
+// ordem relativa desta tabela.
 const DESTINOS = [
-  { chave: 'playlist', lista: 'playlist', rotulo: 'Playlist' },
-  { chave: 'cronograma', lista: 'imports', rotulo: 'Cronograma' },
-  { chave: 'favoritos', lista: 'favs', rotulo: 'Favoritos' },
+  { chave: 'cronograma', lista: 'imports', rotulo: 'Cronograma', acao: 'Adicionar ao Cronograma', ico: 'cronoAdd' },
+  { chave: 'playlist', lista: 'playlist', rotulo: 'Playlist', acao: 'Adicionar à playlist', ico: 'queue' },
+  { chave: 'favoritos', lista: 'favs', rotulo: 'Favoritos', acao: 'Favoritar', ico: 'star' },
 ];
+// As chaves pedidas, NA ORDEM DA TABELA. É esta função que impede um chamador
+// de reintroduzir a divergência escrevendo o array na ordem que lhe convier:
+// a lista dele passa a dizer QUAIS, nunca em que ordem.
+function destinosNaOrdem(chaves) {
+  const quer = new Set(chaves || []);
+  return DESTINOS.filter((d) => quer.has(d.chave));
+}
 function destinoPorChave(chave) { return DESTINOS.find((d) => d.chave === chave) || null; }
 function listaDoDestino(chave) {
   const d = destinoPorChave(chave);
@@ -5437,7 +5958,9 @@ async function abrirPacote(d, cueId) {
   // botão da fila, que nunca prometeu nada sobre o telão e não pode começar a
   // prometer por causa deste campo.
   if (d.view && view !== d.view) await setView(d.view);
-  await AVDB.listSet('playlist', recs.map((r) => r.id));
+  // `trocarFila`, e não o `listSet` cru: um pacote é uma SEQUÊNCIA nova, e o
+  // modo de repetição do que tocava antes dele é resquício (v1.8.77).
+  await trocarFila(recs.map((r) => r.id));
   plItems = recs;
   renderPlaylist();
   await send(recs[0].id);
@@ -5829,7 +6352,7 @@ function hideMessage() {
   renderSlideNav();
   marcarNoAr();   // o selo "● No ar" da linha só sai por aqui — ver `hideBibleVerse`
   // Uma chamada só: a segunda (lapso — nenhum outro hide* do arquivo repete)
-  // remontava a aba inteira, microfone incluído, duas vezes no mesmo pulso.
+  // remontava a aba inteira duas vezes no mesmo pulso.
   refreshDiversos();
 }
 
@@ -5886,221 +6409,27 @@ async function deleteMessage(id) {
   refreshDiversos();
 }
 
-// ===== Microfone ao vivo (push-to-talk) =====
-// Segurar o botão abre o microfone e a voz sai NA PROJEÇÃO, ao vivo. A captura
-// acontece no Display, não aqui: um MediaStream não atravessa o
-// BroadcastChannel, então quem reproduz é quem abre o microfone (ver startMic
-// em display.js). Daqui só sai o comando.
+// (O MICROFONE AO VIVO saiu na v1.8.89, a pedido do operador: *"remova a opção
+// de microfone direto para o telão, que temos nas ferramentas"*. Ele era o
+// único caminho de CAPTURA do app — o rodapé da aba Ferramentas era a única
+// porta dele —, e com a porta fechada saíram junto o `renderMic`, o `sendMic`,
+// o `renderMicUI`, o diagnóstico (`micRegistrar`/`blocoMicrofone`) e o
+// `haOndeReproduzirMic`. Do outro lado saiu o `setMic` do `display.js`, que
+// ficaria sem quem lhe mandasse o comando.
 //
-// O comando vai por `AVDB.sendCommand`, **não** por `cmd()`: `cmd()` também
-// aplica na preview, e a preview é este mesmo aparelho, a centímetros do
-// microfone — reproduzir aqui seria realimentação garantida.
-let micOn = false;          // o Display confirmou que está captando
-let micPressed = false;     // o dedo está no botão agora
-let micError = '';
+// O KOTLIN FICA POR ORA, e é o lado seguro: `MicChromeClient`, `requestMic`,
+// `micDiag` e a permissão `RECORD_AUDIO` só saem instalando um APK, e um shell
+// que ainda serve método que ninguém chama não custa nada ao aparelho — é a
+// ordem inversa (base web nova contra APK velho) que precisa de `shellTag`.
+// `requestMic` e `micDiag` saíram do `native.js` no mesmo lote, que é o que a
+// regra pede de quem encolhe a ponte pelo web.)
 
-function sendMic(on) {
-  micPressed = on;
-  AVDB.sendCommand({ type: 'mic', on });
-  renderMicUI();
-}
-
-// HÁ ONDE A VOZ SAIR?
-//
-// Quem abre o microfone é o `/display/`, e ele só existe DENTRO da
-// `Presentation` — sem TV conectada o `syncPresentation` não cria nenhuma, e
-// ninguém consome o comando `mic`. Como ninguém o consome, ninguém responde
-// `mic-status`: `micError` ficava vazio, a nota não aparecia, e o único sinal na
-// tela era o botão vermelho escrito "No ar" — que é o `micPressed`, nunca uma
-// confirmação. O operador segurava o botão achando que falava para a igreja.
-//
-// AS TELAS DA REDE NÃO CONTAM, e é o erro que uma pergunta por `simpleDisplay()`
-// cometeria: elas rodam em `http://`, onde `getUserMedia` não existe, e o
-// `setMic` delas sai na guarda de papel. A pergunta é pela TV, e só por ela.
-//
-// No NAVEGADOR o Display é outra janela, aberta à mão, e o app não tem como
-// saber se ela está lá — ali a resposta otimista continua sendo a certa.
-function haOndeReproduzirMic() {
-  // E A PERGUNTA É PELA `Presentation`, NÃO PELA TELA (shell 59). Quem abre o
-  // microfone é o `/display/`, que só existe dentro dela: com a tela listada e a
-  // janela no chão o botão era desenhado sobre nada, e o toque gastava a única
-  // permissão sensível do app numa ação que não podia funcionar.
-  return !window.__NATIVE__ || !!telaoNoAr();
-}
-
-function renderMicUI() {
-  const btn = document.getElementById('micBtn');
-  if (!btn) return;
-  const live = micOn || micPressed;
-  btn.classList.toggle('live', live);
-  const label = btn.querySelector('.mic-btn-label');
-  if (label) label.textContent = live ? 'No ar' : 'Microfone';
-  // A nota só existe para ERRO (permissão negada, sem microfone…) — é
-  // diagnóstico, não instrução de uso.
-  const note = document.getElementById('micNote');
-  if (note) {
-    note.textContent = micError ? micErrorText(micError) : '';
-    note.hidden = !micError;
-  }
-}
-
-function micErrorText(err) {
-  // NÃO É UM ERRO DO MICROFONE, e é por isso que a frase não fala dele: o
-  // aparelho está bem, o que falta é para ONDE mandar a voz.
-  if (err === 'sem-telao') {
-    // DESDE A v1.2.20 ELE É UMA CORRIDA, não o caminho normal: sem TV o botão
-    // nem é desenhado. Só se alcança aqui se a tela cair ENTRE o desenho e o
-    // toque — a guarda fica porque essa janela existe, e um `sendMic` sem
-    // destino acenderia "No ar" sobre um telão que já não está lá.
-    return 'A TV saiu: a voz não tem mais onde sair.';
-  }
-  if (err === 'NotAllowedError' || err === 'SecurityError') {
-    return 'Permissão de microfone negada. Autorize o app nas configurações do Android.';
-  }
-  if (err === 'NotFoundError') return 'Nenhum microfone encontrado neste aparelho.';
-  if (err === 'unsupported') return 'Este aparelho não expõe captura de áudio ao app.';
-  // "EM USO POR OUTRO APP" SAIU (v5.142) — a frase nomeava uma causa e quase
-  // sempre a errada. `NotReadableError` é o "não consegui abrir o dispositivo"
-  // genérico do WebRTC, e no Android a causa comum aqui não é outro app: é o
-  // sistema recusando a sessão de VOZ que o cancelamento de eco pede enquanto o
-  // áudio está indo para outro lugar (o telão). O app agora tenta de novo sem o
-  // processamento antes de desistir (ver `startMic`), então chegar até esta
-  // mensagem já significa que as três tentativas falharam — e aí a única coisa
-  // honesta a dizer é o que de fato costuma destravar.
-  if (err === 'NotReadableError') {
-    return 'O Android não liberou o microfone. Costuma ser uma chamada, um gravador '
-      + 'aberto em outro app ou o assistente de voz — feche-os e tente de novo.';
-  }
-  return 'Não foi possível abrir o microfone (' + err + ').';
-}
-
-// A ÚLTIMA TENTATIVA DE CAPTURA, guardada para o Registro.
-//
-// Ela existe porque o caminho de FALHA não escrevia nada em lugar nenhum: o
-// operador via "O Android não liberou o microfone" na tela e o Registro — que é
-// o que ele copia e manda — não tinha uma linha sobre o assunto. A frase acusava
-// uma chamada ou um gravador aberto, que é a causa MENOS provável, e não havia
-// como saber se falhou UM degrau ou os TRÊS.
-//
-// As perguntas que só esta estrutura separa, e cada uma pede uma ação oposta:
-//
-//   nenhum dispositivo de entrada  → não é permissão, é o aparelho/privacidade;
-//   um degrau falhou, outro abriu  → é o PROCESSAMENTO (a escada fez o trabalho);
-//   os TRÊS falharam               → o sistema recusa o microfone a este app;
-//   NotAllowedError                → permissão, e a frase de sempre serve.
-let micUltima = null;   // { origem, quando, degraus:[{qual,erro}], entradas, ok }
-
-function micRegistrar(origem, degraus, disp, ok) {
-  micUltima = { origem, quando: Date.now(), degraus, disp: disp || null, ok, shell: null };
-  // A SONDA DO SHELL, só na FALHA e só quando há ponte. Ela responde o que o
-  // navegador não enxerga — `AppOps` pode negar `RECORD_AUDIO` com a permissão
-  // concedida —, e é assíncrona: o bloco do Registro a mostra quando chegar, e
-  // o resto da linha não espera por ela.
-  if (!ok && window.__NATIVE__) {
-    const alvo = micUltima;
-    AVNative.micDiag().then((d) => { if (d) alvo.shell = d; }).catch(() => {});
-  }
-  // E A LISTA DE ENTRADAS, quando quem registrou não a trouxe. O AO VIVO capta
-  // no TELÃO, então a falha chega aqui por `mic-status` e sem lista nenhuma — e
-  // é justamente a contagem que separa "não abre" de "não existe", os dois
-  // vereditos que pedem ações opostas. Enumerar é LEITURA PURA: não abre o
-  // microfone, não pede permissão, e os dois WebViews são o MESMO aparelho, logo
-  // a lista do Controle vale pela do telão. Assíncrona pelo mesmo motivo da
-  // sonda: o resto da linha não espera por ela.
-  if (!disp) {
-    const alvo = micUltima;
-    micDispositivos().then((d) => { if (d && alvo === micUltima) alvo.disp = d; }).catch(() => {});
-  }
-  const falhas = degraus.filter((d) => d.erro);
-  if (ok) {
-    if (falhas.length) {
-      diagC('microfone (' + origem + ') abriu no degrau ' + (falhas.length + 1)
-        + ' — o(s) anterior(es) deu(deram) ' + falhas.map((d) => d.erro).join(', '));
-    }
-    return;
-  }
-  // TODOS OS DEGRAUS NA MESMA LINHA: é a diferença entre "o processamento
-  // incomodou" e "o sistema não entrega o microfone", e ela decide o que fazer.
-  diagC('microfone (' + origem + ') RECUSADO em ' + degraus.length + ' tentativa(s): '
-    + degraus.map((d) => d.qual + '=' + d.erro).join(' · ')
-    + ' · entradas de áudio: ' + (disp === null || disp === undefined ? '?' : disp.length));
-}
-
-// QUANTOS MICROFONES O NAVEGADOR ENXERGA. Zero separa "o aparelho não entrega
-// microfone nenhum a este app" (privacidade do sistema, hardware ocupado) de
-// "existe e não abre" — e as duas leem igual na tela.
-async function micDispositivos() {
-  try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return null;
-    const ds = await navigator.mediaDevices.enumerateDevices();
-    return ds.filter((d) => d.kind === 'audioinput')
-      .map((d) => ({ deviceId: d.deviceId, label: d.label || '' }));
-  } catch (_) { return null; }
-}
-
-// O microfone virou uma BARRA, e não mais um disco: ele fica fixo na base da
-// aba, fora do acordeão, porque push-to-talk é o único controle daqui que pode
-// ser preciso no meio de uma frase — ter que abrir uma seção antes de falar o
-// tornaria inútil. Como barra ele custa ~56px de altura em vez de 132 e ainda
-// oferece uma área de toque MAIOR (largura inteira), que é o que importa para
-// achá-lo sem olhar.
-function renderMic() {
-  const btn = document.createElement('button');
-  btn.type = 'button'; btn.id = 'micBtn'; btn.className = 'mic-btn';
-  btn.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"'
-    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    + '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/>'
-    + '<line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>';
-  const label = document.createElement('span'); label.className = 'mic-btn-label';
-  label.textContent = 'Microfone';
-  btn.appendChild(label);
-
-  // Push-to-talk: abre no pointerdown e fecha em QUALQUER forma de soltar.
-  // `setPointerCapture` mantém o evento de soltura vindo para cá mesmo se o
-  // dedo escorregar para fora do botão — sem isso o microfone ficaria aberto.
-  btn.addEventListener('pointerdown', async (e) => {
-    e.preventDefault();
-    try { btn.setPointerCapture(e.pointerId); } catch (_) {}
-    micError = '';
-    // ANTES DA PERMISSÃO, e essa ordem é o ponto: sem telão a voz não tem onde
-    // sair, e pedir o microfone do Android para uma ação que não pode funcionar
-    // é gastar — talvez queimar — a única permissão sensível deste app. É a
-    // mesma razão pela qual o pedido não mora na abertura, dois comentários
-    // abaixo: um pedido sem contexto é negado por reflexo.
-    if (!haOndeReproduzirMic()) { micError = 'sem-telao'; renderMicUI(); return; }
-    // A permissão do Android é pedida AQUI, no primeiro uso — não na abertura
-    // do app, onde um pedido de gravar áudio sem contexto seria negado por
-    // reflexo. No navegador não existe ponte: o getUserMedia do Display pede.
-    if (window.__NATIVE__) {
-      const ok = await AVNative.requestMic();
-      if (!ok) {
-        // NO REGISTRO TAMBÉM. A recusa acontece ANTES de qualquer captura, então
-        // o telão não emite `mic-status` nenhum e o bloco do microfone ficaria
-        // sem uma linha sequer sobre a tentativa — que é exatamente o estado
-        // mudo que ele existe para acabar. (Este caminho era do RECADO até a
-        // v1.2.17; ele saiu, e o registro veio com ele para cá.)
-        micRegistrar('ao vivo', [{ qual: 'permissão do Android', erro: 'NotAllowedError' }],
-          null, false);
-        micError = 'NotAllowedError'; renderMicUI(); return;
-      }
-      if (!micPressed && !btn.hasPointerCapture(e.pointerId)) return; // já soltou
-    }
-    sendMic(true);
-  });
-  const release = () => { if (micPressed || micOn) sendMic(false); };
-  btn.addEventListener('pointerup', release);
-  btn.addEventListener('pointercancel', release);
-
-  return btn;
-}
-
-// ===== Rodapé da aba Ferramentas: microfone + projetar =====
-// "Projetar no telão" saiu do fim de cada painel e veio para cá, ao lado do
-// microfone. São as duas ações que MANDAM ALGO PARA A TELA — as únicas com
-// efeito fora do celular —, e tê-las sempre no mesmo lugar vale mais do que a
-// proximidade com os controles que as configuram: o operador aprende UM ponto
-// da tela em vez de um por ferramenta. De quebra, o botão para de descer
-// conforme o painel cresce (no sorteio de texto ele ficava abaixo da lista).
+// ===== O ESTADO DO "PROJETAR NO TELÃO" =====
+// Ele saiu do fim de cada painel e foi para o rodapé fixo: tê-lo sempre no
+// mesmo lugar vale mais do que a proximidade com os controles que o
+// configuram — o operador aprende UM ponto da tela em vez de um por
+// ferramenta. De quebra, o botão para de descer conforme o painel cresce (no
+// sorteio de texto ele ficava abaixo da lista).
 function miscProjectState() {
   if (miscTool === 'draw') {
     const live = drawProjecting();
@@ -6124,34 +6453,99 @@ function miscProjectState() {
   };
 }
 
+/**
+ * ===== O RODAPÉ DA FOLHA DE FERRAMENTAS (v1.8.89) =====
+ *
+ * Pedido do operador: *"ajuste o botão de projetar no telão para que organize
+ * uma nova aba inferior, no mesmo padrão das outras seções do aplicativo: essa
+ * barra de rodapé da janela de ferramentas, tera o botão de projetar no telão
+ * na esquerda, e em sua direita, havera o botão de guardar no cronograma e
+ * guardar nos favoritos… deve ser uma barra fixa no rodapé dessa janela, e não
+ * rolar com os itens dentro dela."*
+ *
+ * **O DESENHO É O DA FAIXA DE FECHO** que a playlist automática e o rodapé da
+ * fila já usam: um primário que CRESCE mais botões de símbolo de largura fixa,
+ * na ordem canônica dos destinos (`DESTINOS`: Cronograma, favoritos — a
+ * playlist não entra, porque uma cena de roteiro não é mídia de fila).
+ *
+ * **E ELE É IRMÃO DO CORPO, não filho** (`#toolsFoot`, no `index.html`): a
+ * barra fixa de uma janela não pode morar dentro do scroller dela, senão ela
+ * rola junto — que é o que o pedido nomeia. O corpo leva `flex: 1` e rola; o
+ * rodapé fica.
+ *
+ * O microfone SAIU daqui na v1.8.89 (ver a lápide acima).
+ */
+/**
+ * ===== O QUE A FERRAMENTA OPERA VAI PARA O RODAPÉ (v1.8.94) =====
+ *
+ * Pedido do operador: *"tire os botões de iniciar e resetar cronômetro e
+ * timers, do corpo da janela, para pôr eles à esquerda do botão de projetar no
+ * telão. O mesmo vale para os seletores de segundos e 12 h."*
+ *
+ * **O CORPO DA JANELA FICA PARA O MOSTRADOR.** É a mesma troca que trouxe o
+ * "Projetar" e os dois destinos para cá (v1.8.89 e v1.8.91): tudo o que o
+ * operador ACIONA mora numa faixa fixa, e o que sobra de altura é do conteúdo —
+ * que aqui é a roleta, e ela se mede pelo que sobra.
+ *
+ * **"Segundos" VIROU "Seg", e a razão é a largura.** A faixa passou a ter, no
+ * relógio, dois seletores mais o primário mais os dois destinos; escrito por
+ * extenso, o rótulo empurra o "Projetar no telão" para as reticências —
+ * exatamente o defeito que a v1.8.85 mediu na playlist automática. O nome
+ * inteiro fica no `title` e no `aria-label`.
+ */
 function renderFoot() {
-  const wrap = document.createElement('div'); wrap.className = 'mic-wrap';
-
+  if (!toolsFootEl) return;
+  toolsFootEl.innerHTML = '';
   const row = document.createElement('div'); row.className = 'misc-foot';
-  // UM BOTÃO SÓ. O RECADO (o walkie-talkie da v1.1.26) saiu na v1.2.17: ele
-  // existia para cobrir os modelos SEM TV, onde o microfone ao vivo não podia
-  // funcionar — e a razão pela qual o ao vivo não funcionava era um defeito
-  // nosso (`MODIFY_AUDIO_SETTINGS` ausente do manifest, v1.2.13), não uma
-  // limitação. Consertado o ao vivo, o que sobrava do recado era um segundo
-  // caminho que INTERROMPE a cena para dizer o que o primeiro diz sem
-  // interromper nada.
-  // O MICROFONE SÓ EXISTE QUANDO HÁ PARA ONDE MANDAR A VOZ (v1.2.21).
-  //
-  // Quem capta é o `/display/`, e ele só roda dentro da `Presentation` — sem TV
-  // o `syncPresentation` não cria nenhuma e ninguém consome o comando `mic`. As
-  // telas da rede também não servem: elas rodam o mesmo `display.js`, e lá o
-  // `setMic` sai por `if (TELA) return`.
-  //
-  // ANTES ELE FICAVA VISÍVEL E RECUSAVA O TOQUE, explicando por quê. Explicar é
-  // melhor que mentir (era o conserto da v1.1.20, quando ele acendia "No ar"
-  // sem capturar nada), mas não é melhor que NÃO OFERECER: um controle que só
-  // sabe dizer que não funciona é um controle a mais para o operador aprender,
-  // e a frase aparece no pior momento — com o dedo no botão, no meio do culto.
-  //
-  // A LARGURA VEM DE GRAÇA: `.misc-foot` é flex e os dois filhos são `flex: 1`,
-  // então sozinho o "Projetar no telão" ocupa a linha inteira. Não há regra de
-  // CSS para o caso — há a ausência de um irmão.
-  if (haOndeReproduzirMic()) row.appendChild(renderMic());
+
+  // ---- À ESQUERDA, o que a ferramenta ATIVA opera ----
+  const esq = document.createElement('div');
+  esq.className = 'misc-foot-esq';
+  if (miscTool === 'chrono') {
+    if (chrono.mode === 'clock') {
+      // O RELÓGIO NÃO SE PAUSA, então no lugar do transporte ficam as duas
+      // opções de formato — o mesmo canto, a mesma pergunta ("o que eu aciono
+      // nesta ferramenta?").
+      const mk = (curto, longo, on, fn) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'misc-chip chrono-opt' + (on ? ' active' : '');
+        b.textContent = curto;
+        b.title = longo; b.setAttribute('aria-label', longo);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.addEventListener('click', fn);
+        return b;
+      };
+      esq.appendChild(mk('Seg', 'Mostrar os segundos', chrono.secs, () => {
+        chrono.secs = !chrono.secs; saveChronoPrefs(); pushChrono(); renderChronoEControles();
+      }));
+      // "12h" SEM ESPAÇO desde a v1.8.95: o botão virou QUADRADO (a caixa do ▶
+      // das abas irmãs), e num quadrado de 42px o espaço é o que decide entre
+      // uma linha e duas.
+      esq.appendChild(mk('12h', 'Relógio de 12 horas', chrono.h12, () => {
+        chrono.h12 = !chrono.h12; saveChronoPrefs(); pushChrono(); renderChronoEControles();
+      }));
+    } else {
+      const run = document.createElement('button');
+      run.type = 'button';
+      run.id = 'chronoRun';
+      run.className = 'chrono-btn primary';
+      // Ícone/rótulo = a AÇÃO, nunca o estado (ver "O ícone mostra a AÇÃO" na
+      // arquitetura): correndo, o botão oferece PAUSAR.
+      run.setAttribute('aria-label', chrono.running ? 'Pausar' : 'Iniciar');
+      run.appendChild(msym(chrono.running ? ICON.pause : ICON.play));
+      run.addEventListener('click', () => (chrono.running ? chronoPause() : chronoStart()));
+      const zero = document.createElement('button');
+      zero.type = 'button'; zero.className = 'chrono-btn'; zero.id = 'chronoZero';
+      zero.title = 'Zerar'; zero.setAttribute('aria-label', 'Zerar');
+      zero.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+        + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
+        + ' aria-hidden="true"><use href="#icoZerar"/></svg>';
+      zero.addEventListener('click', chronoReset);
+      esq.appendChild(run); esq.appendChild(zero);
+    }
+  }
+  if (esq.children.length) row.appendChild(esq);
 
   const st = miscProjectState();
   const proj = document.createElement('button');
@@ -6163,13 +6557,25 @@ function renderFoot() {
   if (st.hint) proj.title = st.hint;
   proj.addEventListener('click', st.act);
   row.appendChild(proj);
-  wrap.appendChild(row);
 
-  const note = document.createElement('div'); note.id = 'micNote'; note.className = 'mic-note'; note.hidden = true;
-  wrap.appendChild(note);
+  // OS DOIS DESTINOS, à direita e só onde há o que guardar. Mensagens devolve
+  // `null` — elas já entram no Cronograma pelo caminho próprio, e dois botões
+  // que fizessem a mesma coisa por outro nome seriam a terceira porta para a
+  // mesma lista.
+  const montar = cueSaveDaFerramenta();
+  if (montar) {
+    const mk = (icone, titulo, destino) => {
+      row.appendChild(cueSaveBtn(icone, titulo, async (b) => {
+        const rec = await montar(destino, b);
+        if (!rec) responder(b, 'erro', 'Não foi possível guardar');
+      }));
+    };
+    mk(ICON.cronoAdd, 'Adicionar ao Cronograma', 'imports');
+    mk(ICON.star, 'Favoritar', 'favs');
+  }
 
-  toolsBodyEl.appendChild(wrap);
-  renderMicUI();
+  toolsFootEl.appendChild(row);
+  atualizarChronoRun();   // o ▶ nasce apagado com o 0:00 — ver a regra lá
 }
 
 // ===== Cronômetro / Relógio / Timer (aba Ferramentas) =====
@@ -6188,7 +6594,12 @@ let chrono = {
   running: false,
   startAt: 0,               // epoch ms da última partida
   baseMs: 0,                // acumulado das voltas anteriores (pausas)
-  durationMs: 5 * 60000,    // alvo do timer
+  // O TIMER NASCE EM ZERO (v1.8.95), a pedido do operador: *"mantenha o timer
+  // em 000000, como padrão inicial, por questão de ordem"*. Com as três roletas
+  // o zero é um valor ESCRITÍVEL — o ▶ nasce apagado (`atualizarChronoRun`) e
+  // diz por quê —, e um alvo de cinco minutos que ninguém pediu é a mesma
+  // classe de defeito que um botão aceso sem função: parece escolha de alguém.
+  durationMs: 0,            // alvo do timer
   // Relógio SEM segundos por padrão: no telão o que o operador e a igreja
   // querem é a hora, e o dígito dos segundos mudando o tempo todo puxa o olho
   // para um número que não informa nada. Quem precisar liga no chip.
@@ -6203,7 +6614,9 @@ const CHRONO_MODES = [
   { id: 'stopwatch', name: 'Cronômetro' },
   { id: 'timer', name: 'Timer' },
 ];
-const CHRONO_PRESETS = [1, 3, 5, 10, 15, 30];
+// (Os PRESETS saíram na v1.8.89 — eram [1, 3, 5, 10, 15, 30], seis pílulas
+//  numa linha própria — e o par `\u2212`/`+` que os substituiu saiu na v1.8.92.
+//  Hoje o tempo se escolhe nas DUAS ROLETAS; ver `chronoRoletaEl`.)
 
 const CHRONO_PREFS_V = 2;   // 2 = relógio passou a nascer sem segundos
 
@@ -6249,7 +6662,12 @@ function chronoDescriptor() {
 // caminho novo pode esquecer de atualizar a projeção.
 function pushChrono() {
   if (!chronoProjecting()) return;
-  cmd({ type: 'text', mode: 'chrono', chrono: chronoDescriptor(), sub: chrono.label || '', view: 'visual' });
+  // A VIEW VIGENTE, NUNCA 'visual' LITERAL: isto é REENVIO de descritor, não
+  // projeção. Com o telão coberto (`view: 'wallpaper'`) um literal aqui fazia
+  // iniciar/pausar/zerar DESCOBRIR a mídia que o operador tinha coberto — e,
+  // ao tirar o cartão do ar, o `declararView` propagava a view errada. Quem
+  // projeta é `projectChrono`, que escreve `view = 'visual'` antes de mandar.
+  cmd({ type: 'text', mode: 'chrono', chrono: chronoDescriptor(), sub: chrono.label || '', view });
 }
 
 // Projeta (Display + preview). Encerra Bíblia e Mensagem: a Camada de Texto é
@@ -6288,12 +6706,23 @@ function clearChronoSession() {
   refreshDiversos();
 }
 
+// O MOSTRADOR E OS CONTROLES SÃO DUAS CAIXAS DESDE A v1.8.94 — o painel e o
+// RODAPÉ —, e todo mutador de estado mexe nas duas: o ▶ vira ⏸, o formato do
+// relógio tira uma coluna da roleta. Um helper com dono único em vez de dois
+// `render*` lado a lado em cada chamador, que é o par que diverge no primeiro
+// esquecimento. (O caminho do `renderDiversos` não passa por aqui: lá o
+// `renderFoot` já vem depois do `tool.render()`.)
+function renderChronoEControles() {
+  renderChrono();
+  renderFoot();
+}
+
 function chronoStart() {
   if (chrono.running) return;
   chrono.running = true;
   chrono.startAt = Date.now();
   pushChrono();
-  renderChrono();
+  renderChronoEControles();
 }
 
 // Pausar CONGELA o acumulado: sem isso, `startAt` sozinho perderia todo o
@@ -6304,14 +6733,14 @@ function chronoPause() {
   chrono.running = false;
   chrono.startAt = 0;
   pushChrono();
-  renderChrono();
+  renderChronoEControles();
 }
 
 function chronoReset() {
   chrono.baseMs = 0;
   chrono.startAt = chrono.running ? Date.now() : 0;
   pushChrono();
-  renderChrono();
+  renderChronoEControles();
 }
 
 function chronoSetMode(mode) {
@@ -6322,24 +6751,51 @@ function chronoSetMode(mode) {
   chrono.running = false; chrono.baseMs = 0; chrono.startAt = 0;
   saveChronoPrefs();
   pushChrono();
-  renderChrono();
+  renderChronoEControles();
 }
 
+// O PISO É ZERO, e não mais um segundo (v1.8.92): com duas roletas o 0:00 é uma
+// posição ALCANÇÁVEL, e um clamp para 1 s faria a lista pular sob o dedo. Um
+// timer de zero não tem o que contar, então quem responde é o botão —
+// `disabled`, pela regra da v1.8.50 (o que não tem função agora é apagado, não
+// deixado inerte).
 function chronoSetDuration(ms) {
-  chrono.durationMs = Math.max(1000, Math.round(ms));
+  chrono.durationMs = Math.max(0, Math.round(ms));
   saveChronoPrefs();
   pushChrono();
-  renderChrono();
+  // NÃO CHAMA `renderChrono`: ele TROCA o nó, e a roleta escreve a duração com o
+  // dedo ainda nela — o scroller sairia do documento no meio do gesto, com a
+  // posição perdida. O que precisa acompanhar é só o mostrador (idempotente:
+  // quem chamou de dentro da roleta já está na posição certa) e o ▶, que acende
+  // e apaga com o 0:00.
+  renderChronoReadout();
+  atualizarChronoRun();
 }
 
-// Atualiza só o NÚMERO do painel (o resto do painel não muda a cada tick).
-// No-op quando a aba não está montada — o laço pode sobreviver a um render.
-function renderChronoReadout(r) {
-  const el = document.getElementById('chronoRead');
-  if (!el) return;
-  const rr = r || chronoReading(chrono, Date.now());
-  el.textContent = rr.text;
-  el.classList.toggle('over', rr.over);
+// Atualiza só o MOSTRADOR (o resto do painel não muda a cada tique).
+// No-op quando a ferramenta não está montada — o laço pode sobreviver a um
+// render.
+function renderChronoReadout() {
+  const caixa = document.getElementById('chronoRoletas');
+  if (!caixa) return;
+  const t = chronoTrio(Date.now());
+  caixa.classList.toggle('over', t.over);
+  roletasMostrar(t.h, t.m, t.s);
+  const meio = document.getElementById('roletaMeridiem');
+  // A HORA CRUA decide o AM/PM, não a que a roleta mostra: às 12 h e às 0 h a
+  // coluna diz "12" nos dois casos, e só o valor de 24 h os separa.
+  if (meio) meio.textContent = new Date().getHours() >= 12 ? 'PM' : 'AM';
+}
+
+// SÓ O BOTÃO DE INICIAR, e é isso que a roleta precisa: escrever a duração no
+// meio de um gesto não pode redesenhar o painel (o scroller sairia do
+// documento), mas o ▶ tem de acender e apagar com o 0:00.
+function atualizarChronoRun() {
+  const run = document.getElementById('chronoRun');
+  if (!run) return;
+  const vazio = chrono.mode === 'timer' && !chrono.running && chrono.durationMs <= 0;
+  run.disabled = vazio;
+  run.title = vazio ? 'Escolha um tempo nas roletas' : (chrono.running ? 'Pausar' : 'Iniciar');
 }
 
 function chronoPanelTick() { renderChronoReadout(); }
@@ -6364,6 +6820,414 @@ function chronoSegBtn(m) {
   return b;
 }
 
+/**
+ * ===== AS TRÊS ROLETAS DO TEMPO (v1.8.94) =====
+ *
+ * Pedido do operador, em duas rodadas. A primeira (v1.8.92) trocou os botões
+ * `−`/`+` do timer por duas listas verticais; esta amplia o mesmo desenho:
+ * *"ajuste as dimensões do relógio e do cronômetro para o sistema de
+ * aproveitamento máximo da janela, e usando o mesmo design compartilhado.
+ * Ajuste também o timer para ir de 0 a 59, e voltar para o zero, sendo a roleta
+ * infinita. O mesmo para o minuto e adicione a coluna das horas também… as
+ * horas vão de 0 a 24 e depois para 0 de novo. O ciclo das horas é apenas 24."*
+ *
+ * ## Três colunas, e UM mostrador para as três ferramentas
+ *
+ * O Relógio e o Cronômetro passaram a usar a MESMA roleta do Timer — é o "design
+ * compartilhado" do pedido, e é o que lhes dá de graça o "aproveitamento máximo
+ * da janela": a célula é medida a partir do que sobra (ver `acertarRoletas`), e
+ * quem não pode ser editado apenas não recebe o gesto.
+ *
+ * **A pergunta que separa não é "qual ferramenta?", é "há o que ESCOLHER?"** —
+ * `roletaEditavel()`. Só o Timer PARADO responde sim; o Relógio (a hora é do
+ * aparelho), o Cronômetro (conta do zero) e o Timer CONTANDO são leitura, e a
+ * trava deles é a mesma: `overflow-y: hidden`, nunca um `return` no ouvinte.
+ *
+ * ## O CICLO
+ *
+ * | coluna | valores | ciclo |
+ * |---|---|---|
+ * | horas | 0..23 | 24 |
+ * | minutos | 0..59 | 60 |
+ * | segundos | 0..59 | 60 |
+ *
+ * O operador escreveu *"de 0 a 24"* e, na frase seguinte, *"o ciclo das horas é
+ * apenas 24"*. As duas só fecham em **0..23**: com 0..24 o ciclo teria 25
+ * posições e o 0 apareceria duas vezes seguidas ao dar a volta (…23, 24, 0, 0),
+ * que é o defeito que uma roleta infinita não pode ter. É a leitura de relógio,
+ * e é a que o ciclo declarado exige.
+ *
+ * **O RELÓGIO EM 12 h É A EXCEÇÃO, e ela é da LISTA, não do ciclo:** ali a
+ * coluna das horas vale 1..12, porque uma lista 0..23 mostraria "13" logo
+ * abaixo do "12" — vizinha errada num mostrador que existe para ser lido de
+ * relance. A lista é montada por render, e o render já roda quando a opção muda.
+ *
+ * ## COMO A LISTA FICA INFINITA
+ *
+ * A pista é a base REPETIDA um número ÍMPAR de vezes, e a posição de repouso é
+ * a banda do MEIO. Rolar até sair dela é possível; o que não pode é chegar à
+ * ponta, então a repetição é dimensionada para ~300 células (`repeticoesDe`) —
+ * cinco bandas de 60, treze de 24. **A RECENTRAGEM ACONTECE PARADO**, nunca
+ * durante a rolagem: escrever `scrollTop` no meio de um arremesso CANCELA o
+ * arremesso no Chromium, e o dedo sente a lista travar. Quem recentra é o
+ * assentamento (140 ms de silêncio) e o `roletasMostrar`, e a folga de ~150
+ * células para cada lado é o que garante que ninguém alcance a ponta antes
+ * disso.
+ *
+ * ## O que NÃO se faz aqui, e por quê
+ *
+ * **Não há bandeira de "estou reposicionando".** O evento `scroll` é assíncrono
+ * e sai DEPOIS do quadro em que se escreveu o `scrollTop`, então soltar a guarda
+ * por `requestAnimationFrame` é corrida. O que fecha é a leitura ser
+ * IDEMPOTENTE — `roletaAssentou` compara o trio lido com a duração que já está
+ * no estado e sai calada quando são iguais, que é exatamente o caso de um
+ * reposicionamento e o de uma recentragem.
+ *
+ * **`scrollend` não é usado.** Ele é de Chromium 114 e este arquivo declara
+ * `:has()` e `cqw` (105) como piso.
+ *
+ * ## O TETO virou 23:59:59
+ *
+ * Eram 600 minutos num campo numérico (v1.8.88), depois 60:59 em duas roletas.
+ * Com a coluna das horas o alcance é o do relógio, e **a divergência de notação
+ * com o telão ACABOU**: o `formatSpan` promove para `h:mm:ss` acima de 3600 s, e
+ * agora o painel tem a mesma casa das horas para mostrar.
+ */
+const ROLETA_VISIVEIS = 3;         // quantas células cabem na janela da roleta
+const ROLETA_ITEM_MIN = 22;        // px — o piso, para a lista não sumir
+const ROLETA_ITEM_MAX = 132;       // px — o teto, para o dígito não virar cartaz
+const ROLETA_ASSENTA_MS = 140;     // silêncio depois do último `scroll`
+const ROLETA_CELULAS = 300;        // alvo de células por lista (ver a repetição)
+
+// As três colunas, na ordem em que se leem. `ciclo` é o comprimento da lista
+// base — o que dá a volta.
+const ROLETA_COLUNAS = [
+  { campo: 'hora', ciclo: 24, rotulo: 'Horas' },
+  { campo: 'min', ciclo: 60, rotulo: 'Minutos' },
+  { campo: 'seg', ciclo: 60, rotulo: 'Segundos' },
+];
+
+function repeticoesDe(ciclo) {
+  const n = Math.max(3, Math.ceil(ROLETA_CELULAS / ciclo));
+  return n % 2 ? n : n + 1;        // ÍMPAR: é o que faz existir banda do MEIO
+}
+
+// O ITEM em px, escrito pelo `acertarRoletas` e lido pelo CSS. Ele é a medida
+// de TUDO na roleta (altura da janela, do item, do recuo e do dígito), e é por
+// isso que a posição de um valor é `índice × item`, sem fração.
+// ÍNDICE ↔ VALOR, E ELES ANDAM EM SENTIDOS OPOSTOS (v1.8.95). O índice é o
+// `scrollTop`, que cresce para BAIXO; o valor cresce para CIMA, a pedido do
+// operador: *"faça com que os números cresçam para cima, pois atualmente eles
+// crescem para baixo"*. A inversão mora nestes dois pares e no TEXTO das
+// células, e os três têm de concordar — divergindo, o mostrador acende uma
+// célula e devolve o número de outra, sem erro em lugar nenhum.
+function valorNaPista(indice, ciclo, inicio) {
+  const dentro = ((indice % ciclo) + ciclo) % ciclo;
+  return ((ciclo - dentro) % ciclo) + inicio;
+}
+function pistaDoValor(valor, ciclo, inicio) {
+  const dentro = (((valor - inicio) % ciclo) + ciclo) % ciclo;
+  return (ciclo - dentro) % ciclo;
+}
+
+function roletaItem(caixa) {
+  const v = parseFloat(getComputedStyle(caixa).getPropertyValue('--roleta-item'));
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
+
+// HÁ O QUE ESCOLHER? É a pergunta única, e não "qual ferramenta": o Relógio, o
+// Cronômetro e o Timer CONTANDO são leitura, e leitura não recebe gesto.
+function roletaEditavel() {
+  return chrono.mode === 'timer' && !chrono.running;
+}
+
+// `inicio` é o VALOR da primeira célula da lista. Ele é 0 em toda coluna menos
+// uma — o relógio de 12 h, que vai de 1 a 12 —, e sem ele o índice e o valor
+// se confundem: MEDIDO, às 19 h o mostrador dizia 08. Índice e valor são
+// coisas diferentes desde que a lista virou infinita; esta é a segunda
+// diferença entre eles, e mora no mesmo lugar.
+function chronoRoletaEl(campo, base, ciclo, rotulo, inicio) {
+  const el = document.createElement('div');
+  el.className = 'roleta';
+  el.id = 'roleta_' + campo;
+  const reps = repeticoesDe(ciclo);
+  el.dataset.ciclo = String(ciclo);
+  el.dataset.inicio = String(inicio || 0);
+  el.dataset.base = String(((reps - 1) / 2) * ciclo);   // início da banda do meio
+  // `spinbutton` é o papel de um seletor de valor numérico, e é o que faz o
+  // leitor de tela anunciar o valor em vez de ler a lista inteira.
+  el.setAttribute('role', 'spinbutton');
+  el.setAttribute('aria-label', rotulo);
+  const frag = document.createDocumentFragment();
+  for (let r = 0; r < reps; r++) {
+    for (let i = 0; i < ciclo; i++) {
+      const d = document.createElement('div');
+      d.className = 'roleta-item';
+      d.textContent = base[i];
+      frag.appendChild(d);
+    }
+  }
+  el.appendChild(frag);
+  let assenta = null;
+  el.addEventListener('scroll', () => {
+    // A MARCA ACOMPANHA O DEDO, e não espera o assentamento: sem isto a célula
+    // acesa fica para trás durante todo o arrasto — a lista rola e o número que
+    // parece escolhido é o anterior.
+    roletaAcender(el);
+    clearTimeout(assenta);
+    assenta = setTimeout(() => { roletaRecentrar(el); roletaAssentou(); }, ROLETA_ASSENTA_MS);
+  });
+  return el;
+}
+
+// O ÍNDICE CRU (a célula da pista) e o VALOR (o resto do ciclo) são coisas
+// diferentes, e confundi-los é o defeito da lista infinita: a pista tem 300
+// células e o valor tem 60.
+function roletaIndice(el) {
+  const item = roletaItem(el);
+  return item ? Math.round(el.scrollTop / item) : 0;
+}
+
+function roletaValorDe(el) {
+  const ciclo = Number(el.dataset.ciclo) || 1;
+  const inicio = Number(el.dataset.inicio) || 0;
+  return valorNaPista(roletaIndice(el), ciclo, inicio);
+}
+
+function roletaValor(campo) {
+  const el = document.getElementById('roleta_' + campo);
+  return el ? roletaValorDe(el) : null;
+}
+
+function roletaAcender(el) {
+  const i = roletaIndice(el);
+  if (el.dataset.sel === String(i)) return;
+  el.dataset.sel = String(i);
+  const antes = el.querySelector('.roleta-item--sel');
+  if (antes) antes.classList.remove('roleta-item--sel');
+  const agora = el.children[i];
+  if (agora) agora.classList.add('roleta-item--sel');
+}
+
+// A ÚNICA ESCRITA DE POSIÇÃO DA ROLETA (v1.8.96), e ela existe para que o
+// SUAVE seja uma decisão de quem chama, e não uma propriedade da folha. Um
+// `scroll-behavior: smooth` no CSS animaria TODA escrita — inclusive a
+// recentragem, que salta uma volta inteira da pista e viraria um rolo de
+// segundos na frente do operador.
+function roletaIr(el, px, suave) {
+  if (Math.abs(el.scrollTop - px) < 1) return;
+  if (suave && typeof el.scrollTo === 'function') el.scrollTo({ top: px, behavior: 'smooth' });
+  else el.scrollTop = px;
+}
+
+// A CONTAGEM ROLA, E SÓ ELA (v1.8.96). Pedido do operador: *"faça uma animação
+// de movimento da rolagem de verdade na contagem regressiva dos números"* — o
+// mostrador TROCAVA o dígito no lugar, e o que se via era ele piscando.
+//
+// Três guardas, e cada uma fecha um jeito de a animação virar defeito:
+//
+//  - **só o TIMER**, e não o Relógio nem o Cronômetro: neles as vizinhas são
+//    invisíveis (v1.8.95), então não há pista rolando — o que se veria é o
+//    número apagando de um lado e acendendo do outro, um piscar pior que o que
+//    isto veio consertar.
+//  - **só o PASSO CURTO.** Um salto grande é a cena mudando (o operador
+//    escolheu outro tempo, a ferramenta trocou, a régua mudou), e animá-lo
+//    mostra a lista inteira correndo por uma coisa que não é contagem.
+//  - **`prefers-reduced-motion`**, que é a regra do app inteiro.
+const ROLETA_PASSO_SUAVE = 2;      // células: acima disto é salto, não tique
+function roletaAnimaAgora(passo) {
+  return chrono.mode === 'timer' && chrono.running
+    && Math.abs(passo) <= ROLETA_PASSO_SUAVE && !semMovimento();
+}
+
+// TRAZ A PISTA DE VOLTA À BANDA DO MEIO, mantendo o valor. Só PARADO: no meio
+// de um arremesso isto o cancelaria, e o dedo sente a lista travar. **E nunca
+// suave**: aqui o alvo está a uma volta inteira de distância.
+function roletaRecentrar(el) {
+  const item = roletaItem(el);
+  if (!item) return;
+  const ciclo = Number(el.dataset.ciclo) || 1;
+  const base = Number(el.dataset.base) || 0;
+  const inicio = Number(el.dataset.inicio) || 0;
+  const alvo = (base + pistaDoValor(roletaValorDe(el), ciclo, inicio)) * item;
+  if (Math.abs(el.scrollTop - alvo) < 1) return;
+  roletaIr(el, alvo, false);
+  roletaAcender(el);
+}
+
+function roletaAssentou() {
+  // A EDIÇÃO É SÓ DO TIMER PARADO (a trava de verdade é o `overflow`; esta é a
+  // guarda da corrida — o prazo pode vencer depois de o operador tocar em ▶).
+  if (!roletaEditavel()) return;
+  const h = roletaValor('hora');
+  const m = roletaValor('min');
+  const sg = roletaValor('seg');
+  if (h === null || m === null || sg === null) return;
+  const ms = ((h * 60 + m) * 60 + sg) * 1000;
+  // IDEMPOTENTE: um reposicionamento programático — e uma recentragem — caem
+  // aqui pelo mesmo `scroll` que um dedo, e é esta linha, não uma bandeira, que
+  // os separa.
+  if (ms === chrono.durationMs) return;
+  // E MEXER NA ROLETA ZERA O DECORRIDO. Pausada no meio de uma contagem ela
+  // mostra o que FALTA — é o mostrador, não um campo à parte —, então mudá-la
+  // só pode querer dizer *"conte isto a partir de agora"*. Sem esta linha o
+  // trio lido vira a duração NOVA com o decorrido antigo por baixo, e o ▶
+  // seguinte termina cedo sem nada na tela explicando.
+  chrono.baseMs = 0;
+  chrono.startAt = 0;
+  chronoSetDuration(ms);
+}
+
+// LEVA AS ROLETAS a um trio de valores. Usado pela montagem (o valor guardado)
+// e pelo tique (o tempo em curso) — os dois pelo mesmo caminho, senão a posição
+// de repouso e a de contagem divergiriam na primeira mudança.
+function roletasMostrar(h, m, sg) {
+  for (const [campo, valor] of [['hora', h], ['min', m], ['seg', sg]]) {
+    const el = document.getElementById('roleta_' + campo);
+    if (!el) continue;
+    const item = roletaItem(el);
+    if (!item) continue;
+    const ciclo = Number(el.dataset.ciclo) || 1;
+    const inicio = Number(el.dataset.inicio) || 0;
+    const v = pistaDoValor(Math.round(valor), ciclo, inicio);
+    // O CAMINHO CURTO, e ele não é otimização: andar SEMPRE para a banda do
+    // meio faria a lista SALTAR uma volta inteira toda vez que a contagem
+    // cruzasse o 0 — o número certo, chegando de um pulo que ninguém pediu.
+    // Daqui, o vizinho é o vizinho.
+    // A PRIMEIRA POSIÇÃO É A BANDA DO MEIO, e é a única que não usa o caminho
+    // curto (v1.8.95). Sem isto a lista abre onde NASCEU — `scrollTop` 0, o
+    // topo da pista —, e ali não existe célula acima: relato do operador,
+    // *"[a exibição inicial] só apresenta a roleta em uma das direções se
+    // iniciada na posição 0"*. E não havia conserto depois, porque a
+    // recentragem só roda atrás de um `scroll` e ali não houve rolagem nenhuma.
+    // O mesmo vale depois de a RÉGUA mudar: `acertarRoletas` apaga esta marca,
+    // porque um `scrollTop` medido na célula velha não é índice na nova.
+    const primeira = el.dataset.pos !== '1';
+    el.dataset.pos = '1';
+    const atual = primeira ? (Number(el.dataset.base) || 0) : roletaIndice(el);
+    const dentro = ((atual % ciclo) + ciclo) % ciclo;
+    // QUEM RECENTRA É O `roletaRecentrar`, e não esta função: escrever
+    // `scrollTop` dispara um `scroll`, que agenda o assentamento, que recentra
+    // 140 ms depois — inclusive durante a contagem, onde não há dedo nenhum.
+    // MEDIDO por reversão: um segundo retorno à banda do meio aqui não muda
+    // nada, e um comentário que credite a peça errada manda o próximo leitor
+    // proteger o lugar errado.
+    //
+    // E O ALVO NÃO PODE FICAR NEGATIVO — sem piso, e é por CONSTRUÇÃO: da banda
+    // do meio (que começa em `base >= ciclo`) um passo move no máximo
+    // `ciclo - 1`, então o mínimo alcançável é 1. Um `Math.max(0, …)` aqui foi
+    // escrito, revertido e removido: ele não muda nada e diria que há um caso a
+    // proteger.
+    const alvo = atual + (v - dentro);
+    const px = alvo * item;
+    roletaIr(el, px, roletaAnimaAgora(alvo - atual));
+    roletaAcender(el);
+  }
+}
+
+/**
+ * ===== A ROLETA OCUPA O QUE SOBRA, E POR ISSO ELA É MEDIDA =====
+ *
+ * *"O objetivo é o aproveitamento completo do tamanho disponível na janela da
+ * ferramenta… se tiver espaço sobrando, aumente o tamanho do número/roleta. Se
+ * estiver apertado, reduza. O que eu não quero é que tenha scroll nessa janela
+ * de ferramentas."*
+ *
+ * **NÃO DÁ PARA ESCREVER ISSO EM CSS.** A altura de uma roleta é três células, e
+ * a célula é o que sobra dividido por três — um `flex: 1` faria a CAIXA crescer,
+ * não o dígito dentro dela, e `cqh` mediria a caixa que a própria roleta define,
+ * que é a circularidade. Então a caixa cresce por flex, o JS lê a altura DELA e
+ * escreve a célula; a roleta nunca é maior que a caixa, logo não existe
+ * transbordo a rolar.
+ *
+ * **E A LARGURA É O SEGUNDO TETO** (v1.8.94, com a terceira coluna): três
+ * colunas de dois dígitos mais dois `:` não cabem numa tela estreita se a célula
+ * for escolhida só pela altura, e o que sai é o mostrador vazando de lado —
+ * recortado pelo `overflow: hidden` da folha, sem erro nenhum.
+ *
+ * **E A POSIÇÃO É REFEITA DEPOIS**, porque `scrollTop` é px: mudar a célula sem
+ * reposicionar deixa a lista parada num número que não é mais o valor —
+ * silenciosamente, e só em quem girou a tela.
+ */
+function acertarRoletas() {
+  const caixa = document.getElementById('chronoRoletas');
+  if (!caixa) return;
+  // ALTURA ZERO NÃO É UM CASO À PARTE, e tratá-la como um foi um defeito: numa
+  // tela curta o flex espreme a caixa a 0, e um `return` ali deixava a roleta no
+  // valor de partida do CSS — o MAIOR dos dois, isto é, o transbordo máximo
+  // justamente onde não cabe nada. O piso já responde por esse caso, e o
+  // `ResizeObserver` refina assim que houver altura.
+  const porAltura = Math.max(ROLETA_ITEM_MIN,
+    Math.min(ROLETA_ITEM_MAX, Math.floor(caixa.clientHeight / ROLETA_VISIVEIS)));
+  // A LARGURA É MEDIDA, NÃO CALCULADA. Um divisor escrito à mão ("três colunas
+  // de dois dígitos mais dois `:`") é uma cópia da métrica da FONTE, e ela
+  // envelhece sozinha — MEDIDO, dois dígitos tabulares deste peso valem 1,00 ×
+  // célula e não os 0,75 que a conta ingênua dá, e o erro sai como o mostrador
+  // RECORTADO nas duas pontas, sem aviso. Como tudo aqui escala linearmente com
+  // a célula, uma regra de três resolve: escreve-se a altura, mede-se o que a
+  // linha PEDE (`scrollWidth`, com as colunas em `flex: 0 0 auto` justamente
+  // para que elas não encolham e escondam o excesso) e encolhe-se na proporção.
+  caixa.style.setProperty('--roleta-item', porAltura + 'px');
+  // A SOMA DOS FILHOS, e NÃO o `scrollWidth`: a linha é centrada, então o
+  // excesso sai METADE para cada lado e o `scrollWidth` (que só conta o lado do
+  // fim) devolve metade do que falta — MEDIDO, o relógio de 12 h continuava
+  // recortado nas duas pontas depois de uma correção que parecia certa. Com os
+  // filhos em `flex: 0 0 auto`, a largura de cada um É a intrínseca, e a soma é
+  // exata.
+  let precisa = 0;
+  for (const f of caixa.children) precisa += f.getBoundingClientRect().width;
+  const cabe = caixa.clientWidth;
+  const item = (precisa > cabe && cabe > 0)
+    ? Math.max(ROLETA_ITEM_MIN, Math.floor(porAltura * cabe / precisa))
+    : porAltura;
+  if (roletaItem(caixa) === item) return;   // nada mudou: não mexe na posição
+  caixa.style.setProperty('--roleta-item', item + 'px');
+  // A RÉGUA MUDOU, ENTÃO A POSIÇÃO NÃO É MAIS ÍNDICE: `scrollTop` está em px da
+  // célula VELHA, e lê-lo com a nova devolve outra casa. Apagar a marca manda o
+  // `roletasMostrar` recolocar na banda do meio — que é o único ponto de partida
+  // que não depende de onde a lista estava.
+  for (const f of caixa.children) delete f.dataset.pos;
+  renderChronoReadout();                    // reposiciona na régua nova
+}
+
+let roletasObs = null;
+function observarRoletas(caixa) {
+  if (roletasObs) roletasObs.disconnect();
+  if (typeof ResizeObserver !== 'function') return;
+  roletasObs = new ResizeObserver(() => acertarRoletas());
+  roletasObs.observe(caixa);
+}
+
+// O TRIO que cada ferramenta mostra, e a MESMA conta do telão em todas: o
+// `chronoReading` deriva do mesmo `chronoElapsed` e do mesmo `floor` de segundo,
+// então as duas telas mostram o mesmo instante porque partem do mesmo número —
+// não porque uma leu o texto da outra.
+function chronoTrio(agora) {
+  if (chrono.mode === 'clock') {
+    const t = new Date(agora);
+    let h = t.getHours();
+    if (chrono.h12) h = h % 12 || 12;
+    return { h, m: t.getMinutes(), s: t.getSeconds(), over: false };
+  }
+  const decorrido = createStage.chronoElapsed(chrono, agora);
+  const bruto = chrono.mode === 'timer' ? chrono.durationMs - decorrido : decorrido;
+  const total = Math.floor(Math.abs(bruto) / 1000);
+  return {
+    h: Math.floor(total / 3600), m: Math.floor((total % 3600) / 60), s: total % 60,
+    over: chrono.mode === 'timer' && bruto < 0,
+  };
+}
+
+// O SINAL, e o ECO dele: duas peças idênticas, uma de cada lado, e só a
+// primeira acende (ver o CSS). Elas existem nas TRÊS ferramentas para que a
+// conta da largura seja a MESMA nas três.
+function roletaSinal() {
+  const s = document.createElement('span');
+  s.className = 'roleta-sinal'; s.setAttribute('aria-hidden', 'true');
+  s.textContent = '−';
+  return s;
+}
+
 function renderChrono() {
   const host = document.getElementById('chronoWrap');
   if (!host) return;
@@ -6374,82 +7238,73 @@ function renderChrono() {
   CHRONO_MODES.forEach((m) => modes.appendChild(chronoSegBtn(m)));
   host.appendChild(modes);
 
-  const read = document.createElement('div');
-  read.className = 'chrono-read'; read.id = 'chronoRead';
-  host.appendChild(read);
+  // ---- O MOSTRADOR: as MESMAS três roletas nas três ferramentas ----
+  //
+  // O que muda entre elas não é o desenho, é quem pode tocar (`roletaEditavel`)
+  // e quantas colunas fazem sentido: o Relógio sem segundos mostra duas.
+  const linha = document.createElement('div');
+  linha.className = 'chrono-linha chrono-linha--' + chrono.mode
+    + (roletaEditavel() ? '' : ' travado');
 
-  // ---- Timer: alvo da contagem ----
-  if (chrono.mode === 'timer') {
-    const presets = document.createElement('div');
-    presets.className = 'chrono-presets';
-    CHRONO_PRESETS.forEach((min) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'misc-chip' + (chrono.durationMs === min * 60000 ? ' active' : '');
-      b.textContent = min + ' min';
-      b.addEventListener('click', () => chronoSetDuration(min * 60000));
-      presets.appendChild(b);
-    });
-    host.appendChild(presets);
+  const cx = document.createElement('div');
+  cx.className = 'chrono-roletas';
+  cx.id = 'chronoRoletas';
+  // O SINAL DO ESTOURO é um elemento, não um caractere no número: com três
+  // roletas não há string onde pendurá-lo, e um "−" que aparece e some entre
+  // elas empurraria as colunas de lado a cada virada. Ele reserva o lugar
+  // (`visibility`), e desde a v1.8.95 reserva nas TRÊS ferramentas — só o timer
+  // chega a acendê-lo, mas a largura que ele ocupa entra na conta da célula
+  // (`acertarRoletas`), e desenhá-lo só aqui fazia o Cronômetro abrir com o
+  // dígito 29% maior que o do Timer com as MESMAS três colunas. O pedido do
+  // operador é o oposto: *"alterar entre as abas apenas adiciona elementos e
+  // não altera eles"*.
+  cx.appendChild(roletaSinal());
 
-    const row = document.createElement('div');
-    row.className = 'misc-row';
-    const lab = document.createElement('span');
-    lab.className = 'misc-row-label'; lab.textContent = 'Minutos';
-    const inp = document.createElement('input');
-    inp.type = 'number'; inp.min = '1'; inp.max = '600'; inp.inputMode = 'numeric';
-    inp.className = 'misc-num';
-    inp.value = String(Math.max(1, Math.round(chrono.durationMs / 60000)));
-    // `change` (e não `input`): reprojetar a cada dígito faria o telão piscar
-    // valores intermediários enquanto o operador ainda digita.
-    inp.addEventListener('change', () => {
-      const v = parseInt(inp.value, 10);
-      if (isFinite(v) && v > 0) chronoSetDuration(v * 60000);
-      else renderChrono();
-    });
-    row.appendChild(lab); row.appendChild(inp);
-    host.appendChild(row);
+  // O RELÓGIO SEM SEGUNDOS TIRA A COLUNA, não a esconde: escondê-la deixaria a
+  // caixa reservando a largura de uma coluna que não existe, e as duas que
+  // sobram sairiam do centro.
+  const colunas = ROLETA_COLUNAS.filter(
+    (c) => !(c.campo === 'seg' && chrono.mode === 'clock' && chrono.secs === false));
+  colunas.forEach((c, i) => {
+    if (i) {
+      const dp = document.createElement('span');
+      dp.className = 'roleta-dp'; dp.setAttribute('aria-hidden', 'true');
+      dp.textContent = ':';
+      cx.appendChild(dp);
+    }
+    // A LISTA DAS HORAS DEPENDE DO FORMATO (só no relógio): 1..12 em 12 h, e
+    // 0..23 no resto. Ver a tabela do ciclo, acima.
+    const doze = c.campo === 'hora' && chrono.mode === 'clock' && chrono.h12;
+    const ciclo = doze ? 12 : c.ciclo;
+    const inicio = doze ? 1 : 0;
+    const base = [];
+    for (let k = 0; k < ciclo; k++) {
+      base.push(String(valorNaPista(k, ciclo, inicio)).padStart(2, '0'));
+    }
+    cx.appendChild(chronoRoletaEl(c.campo, base, ciclo, c.rotulo, inicio));
+  });
+
+  // O AM/PM é um MARCADOR e não uma quarta roleta: ele não se escolhe (a hora é
+  // do aparelho) e tem duas posições, que numa lista de três células apareceria
+  // como uma coluna quase vazia.
+  if (chrono.mode === 'clock' && chrono.h12) {
+    const meio = document.createElement('span');
+    meio.className = 'roleta-meridiem'; meio.id = 'roletaMeridiem';
+    // O TEXTO NASCE COM O ELEMENTO, e não só no tique seguinte: quem mede a
+    // largura da linha é o `acertarRoletas`, que roda no fim deste render — com
+    // o marcador VAZIO ele mede uma linha que não existe, e o "PM" chega depois
+    // para ser RECORTADO pela borda. Medido: sem esta linha o relógio de 12 h
+    // sai com o marcador pela metade.
+    meio.textContent = new Date().getHours() >= 12 ? 'PM' : 'AM';
+    cx.appendChild(meio);
   }
-
-  // ---- Relógio: formato ----
-  if (chrono.mode === 'clock') {
-    const opts = document.createElement('div');
-    opts.className = 'misc-opts';
-    const mk = (name, on, fn) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'misc-chip' + (on ? ' active' : '');
-      b.textContent = name;
-      b.addEventListener('click', fn);
-      return b;
-    };
-    opts.appendChild(mk('Segundos', chrono.secs, () => {
-      chrono.secs = !chrono.secs; saveChronoPrefs(); pushChrono(); renderChrono();
-    }));
-    opts.appendChild(mk('12 h', chrono.h12, () => {
-      chrono.h12 = !chrono.h12; saveChronoPrefs(); pushChrono(); renderChrono();
-    }));
-    host.appendChild(opts);
-  }
-
-  // ---- Transporte (não existe para o relógio: a hora não se pausa) ----
-  if (chrono.mode !== 'clock') {
-    const acts = document.createElement('div');
-    acts.className = 'chrono-actions';
-    const run = document.createElement('button');
-    run.type = 'button';
-    run.className = 'chrono-btn primary';
-    // Ícone/rótulo = a AÇÃO, nunca o estado (ver "O ícone mostra a AÇÃO" na
-    // arquitetura): correndo, o botão oferece PAUSAR.
-    run.textContent = chrono.running ? 'Pausar' : 'Iniciar';
-    run.addEventListener('click', () => (chrono.running ? chronoPause() : chronoStart()));
-    const zero = document.createElement('button');
-    zero.type = 'button'; zero.className = 'chrono-btn';
-    zero.textContent = 'Zerar';
-    zero.addEventListener('click', chronoReset);
-    acts.appendChild(run); acts.appendChild(zero);
-    host.appendChild(acts);
-  }
+  // O ECO DO SINAL, do outro lado. Ele reserva a MESMA largura e não mostra
+  // nada: sem ele o `−` (que reserva sempre, para a linha não pular quando o
+  // timer estoura) empurra os três números meio sinal para a direita, e o
+  // mostrador fica torto em relação à janela — sempre, não só no estouro.
+  cx.appendChild(roletaSinal());
+  linha.appendChild(cx);
+  host.appendChild(linha);
 
   // ---- Sublinha do telão ----
   const labRow = document.createElement('div');
@@ -6461,6 +7316,13 @@ function renderChrono() {
   labInp.placeholder = 'opcional — ex: Início do culto';
   labInp.maxLength = 60;
   labInp.value = chrono.label;
+  // O TECLADO SOBREPÕE, NÃO ENCOLHE (v1.8.94) — ver `keyboardShift`. Relato do
+  // operador: *"ao tocar em digitar uma legenda… o teclado sobe, mas ele também
+  // leva o controle todo visível, o que espreme a janela das ferramentas"*. O
+  // que o app encolhe para revelar um campo que JÁ está à vista é a preview, o
+  // transporte e a própria roleta — e a roleta se mede pelo que sobra, então
+  // encolher a janela encolhe o mostrador junto.
+  labInp.dataset.teclado = 'sobrepoe';
   labInp.addEventListener('change', () => {
     chrono.label = labInp.value.trim();
     saveChronoPrefs();
@@ -6469,21 +7331,11 @@ function renderChrono() {
   labRow.appendChild(labLab); labRow.appendChild(labInp);
   host.appendChild(labRow);
 
-  // O PRESET vira item do roteiro. A contagem regressiva de abertura é a cena
-  // mais previsível de um culto — e era justamente a que não cabia na lista do
-  // culto: o operador tinha de lembrar de vir a esta aba, escolher o modo,
-  // ajustar os minutos e projetar, com o salão já enchendo. Guardado aqui, um
-  // toque no Cronograma faz as quatro coisas.
-  host.appendChild(cueSaveRow('Guardar esta contagem', async (destino, btn) => {
-    const nome = chrono.label
-      || (chrono.mode === 'timer' ? 'Timer ' + Math.round(chrono.durationMs / 60000) + ' min'
-        : chrono.mode === 'clock' ? 'Relógio' : 'Cronômetro');
-    return criarCue('chrono', {
-      mode: chrono.mode, durationMs: chrono.durationMs, label: chrono.label,
-      secs: chrono.secs, h12: chrono.h12,
-    }, nome, destino, btn);
-  }));
-
+  // A ORDEM É ESTA: medir a caixa (que só existe depois do `appendChild` do
+  // painel), depois posicionar. Invertida, a primeira posição usa a régua
+  // velha e a roleta abre num número que não é o guardado.
+  acertarRoletas();
+  observarRoletas(cx);
   renderChronoReadout();
   startChronoPanelTimer();
 }
@@ -6506,26 +7358,48 @@ function cueSaveBtn(icone, titulo, fn) {
   return b;
 }
 
-// A linha "guardar isto" das ferramentas: os DOIS destinos possíveis para uma
-// cena de roteiro, lado a lado. Uma função só porque cronômetro e sorteio fazem
-// exatamente a mesma pergunta — e um terceiro provedor de Camada de Texto que
-// apareça amanhã ganha os dois botões sem reescrever nada.
-function cueSaveRow(rotulo, montar) {
-  const row = document.createElement('div');
-  row.className = 'misc-row misc-row--save';
-  const lab = document.createElement('span');
-  lab.className = 'misc-row-label'; lab.textContent = rotulo;
-  const botoes = document.createElement('div'); botoes.className = 'misc-save-btns';
-  const mk = (icone, titulo, destino) => {
-    botoes.appendChild(cueSaveBtn(icone, titulo, async (b) => {
-      const rec = await montar(destino, b);
-      if (!rec) responder(b, 'erro', 'Não foi possível guardar');
-    }));
-  };
-  mk(ICON.cronoAdd, 'Adicionar ao Cronograma', 'imports');
-  mk(ICON.star, 'Favoritar', 'favs');
-  row.append(lab, botoes);
-  return row;
+/**
+ * ===== O "GUARDAR ISTO" SUBIU PARA O RODAPÉ DA FOLHA (v1.8.89) =====
+ *
+ * Pedido do operador: *"o botão de projetar no telão na esquerda, e em sua
+ * direita, havera o botão de guardar no cronograma e guardar nos favoritos"*.
+ *
+ * Ele era uma LINHA dentro de cada painel (`cueSaveRow`), no fim dele, e por
+ * isso descia conforme o painel crescia e rolava junto com ele — o mesmo
+ * defeito que tinha tirado o "Projetar no telão" do fim dos painéis. As três
+ * ações que SAEM da ferramenta (uma para o telão, duas para as listas) passam a
+ * morar no mesmo lugar fixo, e o operador aprende UM ponto da tela.
+ *
+ * ISTO AQUI É O DESCRITOR, não o desenho: cada ferramenta diz COMO montar a
+ * cena de roteiro dela, e quem desenha os dois botões é o `renderFoot`. Uma
+ * ferramenta que não saiba guardar devolve `null` e o rodapé desenha só o
+ * projetar — é o caso das Mensagens, que já viram itens do Cronograma pelo
+ * caminho próprio delas.
+ */
+function cueSaveDaFerramenta() {
+  if (miscTool === 'chrono') {
+    return async (destino, btn) => {
+      const nome = chrono.label
+        || (chrono.mode === 'timer' ? 'Timer ' + Math.round(chrono.durationMs / 60000) + ' min'
+          : chrono.mode === 'clock' ? 'Relógio' : 'Cronômetro');
+      return criarCue('chrono', {
+        mode: chrono.mode, durationMs: chrono.durationMs, label: chrono.label,
+        secs: chrono.secs, h12: chrono.h12,
+      }, nome, destino, btn);
+    };
+  }
+  if (miscTool === 'draw') {
+    return async (destino, btn) => {
+      const nome = draw.label || (draw.kind === 'text'
+        ? 'Sorteio (' + draw.pool.length + ' opções)'
+        : 'Sorteio ' + draw.min + '–' + draw.max);
+      return criarCue('draw', {
+        kind: draw.kind, min: draw.min, max: draw.max,
+        pool: draw.kind === 'text' ? draw.pool.slice() : [], label: draw.label,
+      }, nome, destino, btn);
+    };
+  }
+  return null;
 }
 
 // ===== Sorteio (aba Ferramentas) =====
@@ -6665,7 +7539,9 @@ function drawDescriptor() {
 
 function pushDraw() {
   if (!drawProjecting()) return;
-  cmd({ type: 'text', mode: 'draw', draw: drawDescriptor(), sub: draw.label || '', view: 'visual' });
+  // A VIEW VIGENTE, NUNCA 'visual' LITERAL — ver `pushChrono`: reenvio de
+  // descritor não descobre o que o operador cobriu. Quem projeta é `projectDraw`.
+  cmd({ type: 'text', mode: 'draw', draw: drawDescriptor(), sub: draw.label || '', view });
 }
 
 // O SORTEIO FALA NO PRÓPRIO PAINEL (v5.207).
@@ -6843,6 +7719,7 @@ function renderDraw() {
     const ta = document.createElement('textarea');
     ta.className = 'draw-pool'; ta.rows = 5;
     ta.placeholder = 'Uma opção por linha\nEx.:\nMaria\nJoão\nAna';
+    ta.dataset.teclado = 'sobrepoe';   // ver a legenda do Tempo
     ta.value = draw.pool.join('\n');
     // `change` (e não `input`): reprojetar/repersistir a cada tecla escreveria
     // no IDB dezenas de vezes enquanto o operador ainda digita a lista.
@@ -6898,6 +7775,7 @@ function renderDraw() {
   labInp.placeholder = 'opcional — ex: Sorteio dos visitantes';
   labInp.maxLength = 60;
   labInp.value = draw.label;
+  labInp.dataset.teclado = 'sobrepoe';   // ver a legenda do Tempo
   labInp.addEventListener('change', () => {
     draw.label = labInp.value.trim(); saveDrawPrefs(); pushDraw();
   });
@@ -6916,16 +7794,6 @@ function renderDraw() {
   // resultado: projetar a cena arma o sorteio e espera o toque em "Sortear" —
   // um ganhador que já aparece pronto ao entrar em cena tira do momento
   // justamente o que ele tem de público.
-  host.appendChild(cueSaveRow('Guardar este sorteio', async (destino, btn) => {
-    const nome = draw.label || (draw.kind === 'text'
-      ? 'Sorteio (' + draw.pool.length + ' opções)'
-      : 'Sorteio ' + draw.min + '–' + draw.max);
-    return criarCue('draw', {
-      kind: draw.kind, min: draw.min, max: draw.max,
-      pool: draw.kind === 'text' ? draw.pool.slice() : [], label: draw.label,
-    }, nome, destino, btn);
-  }));
-
   renderDrawReadout();
   startDrawPanelTimer();
 }
@@ -6942,7 +7810,7 @@ function renderMsg() {
   host.innerHTML = '';
 
   const list = document.createElement('div');
-  list.className = 'msg-list';
+  list.className = 'msg-list rola';
   if (!messages.length) {
     const empty = document.createElement('div');
     empty.className = 'empty'; empty.textContent = 'Nenhuma mensagem.';
@@ -7029,8 +7897,8 @@ function renderMsg() {
 // painel ativo começa sempre no mesmo lugar, o que importa para a memória
 // muscular de quem opera sem olhar.
 //
-// O microfone fica FORA do seletor, fixo na base: é o único controle daqui com
-// urgência real (ver renderMic).
+// O que SAI da ferramenta fica fora do seletor, no rodapé fixo (`renderFoot`):
+// projetar à esquerda, os dois destinos à direita.
 let miscTool = 'msg';
 
 const MISC_TOOLS = [
@@ -7051,7 +7919,6 @@ function renderDiversos() {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'misc-tab' + (miscTool === t.id ? ' active' : '');
-    b.dataset.tool = t.id;
     const label = document.createElement('span');
     label.textContent = t.name;
     b.appendChild(label);
@@ -7075,7 +7942,7 @@ function renderDiversos() {
 
   const tool = MISC_TOOLS.find((t) => t.id === miscTool) || MISC_TOOLS[0];
   const panel = document.createElement('div');
-  panel.className = 'misc-panel misc-panel--' + tool.id;
+  panel.className = 'misc-panel rola misc-panel--' + tool.id;
   panel.id = tool.wrap;
   toolsBodyEl.appendChild(panel);
   tool.render();
@@ -7127,10 +7994,6 @@ function abrirFerramentas() {
 
 function fecharFerramentas() {
   if (!ferramentasAbertas()) return;
-  // Sair com o microfone aberto o deixaria captando sem nada na tela que o
-  // mostrasse. O botão é push-to-talk: sem o botão, sem microfone. (Era a mesma
-  // guarda do `switchTab`, quando sair daqui era trocar de aba.)
-  if (micPressed || micOn) sendMic(false);
   // Os laços dos painéis morrem com a folha — o cronômetro NÃO: ele segue
   // correndo no estado, e a projeção tem laço próprio. Sem isto sobraria um
   // timer de 5 Hz reescrevendo nós que o `innerHTML = ''` já descartou.
@@ -7160,6 +8023,7 @@ function fecharFerramentas() {
     toolsSheetEl.classList.remove('saindo');
     toolsSheetEl.hidden = true;
     toolsBodyEl.innerHTML = '';
+    toolsFootEl.innerHTML = '';
   }, TOOLS_ANIM_MS);
 }
 
@@ -7187,10 +8051,31 @@ function abrirBiblia() {
   fecharFerramentas();
   bibleSheetEl.hidden = false;
   bibliaNoAr = true;
-  // A tela de LIVROS é a raiz: entrar pela porta é começar do começo. Sem isto
-  // a Bíblia reabriria no capítulo de uma consulta de meia hora atrás — a mesma
-  // razão do `resetarBiblioteca` do acervo.
-  bibleScreen = 'books';
+  // ===== ELA REABRE ONDE PAROU, DENTRO DA MESMA SESSÃO (v1.8.83) =====
+  //
+  // Pedido do operador: *"faça a janela da bíblia lembrar de onde estava na
+  // próxima abertura durante uma mesma seção. Ao invés de voltar sempre para o
+  // seletor do livro"*.
+  //
+  // ISTO REVOGA a regra da v1.5.0 (*"entrar pela porta é começar do começo"*,
+  // pela analogia com o `resetarBiblioteca` do acervo), e a analogia era o
+  // defeito: a Biblioteca é uma BUSCA — voltar ao topo é o certo, porque o que
+  // se procura muda a cada abertura. A Bíblia numa pregação é UMA leitura,
+  // interrompida por um louvor e retomada dois minutos depois, e cada retomada
+  // custava livro → capítulo → versículo com o pregador falando.
+  //
+  // "MESMA SESSÃO" é literal e vem de graça: `bibleScreen` é um `let` de módulo,
+  // e ele morre com a página — fechar o app devolve a tela de livros sem uma
+  // linha a mais. Nada é gravado.
+  //
+  // E A TELA LEMBRADA É CONFERIDA, nunca restaurada às cegas: `reading` supõe
+  // uma `bibleSession` (o `clearBibleSession` já a rebaixa para `chapters` ao
+  // encerrá-la, mas ela também morre com um `load` de mídia comum) e `chapters`
+  // supõe um livro escolhido em `bibleSel`. Sem a conferência, reabrir depois de
+  // um louvor cairia numa grade de capítulos de livro nenhum — o `bibleSel`
+  // nasce com `bookIdx: -1`.
+  if (bibleScreen === 'reading' && !bibleSession) bibleScreen = 'chapters';
+  if (bibleScreen === 'chapters' && !(bibleSel && bibleSel.bookIdx >= 0)) bibleScreen = 'books';
   renderBible();
   // Versões/livros e o download da versão INTEIRA na 1ª vez (em segundo plano).
   enterBibleTab();
@@ -7222,6 +8107,34 @@ function msgProjecting() { return !!(msgSession && msgSession.projecting); }
 // `finally` do balde roda do mesmo jeito.
 function renderLibrary() {
   comBaldeDeMiniaturas(libraryEl, () => renderLibraryCorpo());
+  renderCronoLimpar();
+}
+
+/**
+ * O BOTÃO DE LIMPAR, APAGADO COM A LISTA VAZIA (v1.8.66).
+ *
+ * Ele mora AQUI e não no `renderListTitle` porque a pergunta é sobre a LISTA, e
+ * `renderLibrary` é o ponto único que a redesenha — todo caminho que muda
+ * `libItems` passa por ele (o `load()`, e o `toggleCronograma` que reatribui a
+ * lista e chama só este). Pendurado no título, o estado ficaria velho no segundo
+ * caminho, que é justamente o de tirar o último item pela gaveta da linha.
+ *
+ * A REGRA É A DA v1.8.50 — o que não tem função agora é APAGADO, não deixado
+ * inerte —, e ela pesa o dobro num destrutivo: um botão aceso que não faz nada
+ * ensina que tocá-lo é inofensivo, e o dia em que ele voltar a ter o que apagar
+ * o operador já aprendeu a tocá-lo sem ler. O `title` diz POR QUÊ, que é a outra
+ * metade da mesma regra.
+ */
+function renderCronoLimpar() {
+  if (!cronoLimparEl) return;
+  const vazio = !libItems.length;
+  cronoLimparEl.disabled = vazio;
+  cronoLimparEl.title = vazio ? 'O Cronograma já está vazio' : 'Limpar o Cronograma';
+  // E O `aria-label` ACOMPANHA, senão a metade que EXPLICA não existe para quem
+  // usa leitor de tela: o nome acessível vem do `aria-label`, que VENCE o
+  // `title` — congelado no HTML, ele anunciava "Limpar o Cronograma,
+  // indisponível" e a razão da indisponibilidade não era dita em lugar nenhum.
+  cronoLimparEl.setAttribute('aria-label', cronoLimparEl.title);
 }
 
 function renderLibraryCorpo() {
@@ -7428,16 +8341,24 @@ function renderLibraryCorpo() {
         //
         // Ela agrupa por NATUREZA, que é o que a ordem anterior não fazia: o que
         // mexe no ITEM (excluir, renomear), o que mexe em ONDE ele está
-        // (favoritar, playlist) e o que mexe na POSIÇÃO dele (↑↓). Antes o
+        // (playlist, favoritar) e o que mexe na POSIÇÃO dele (↑↓). Antes o
         // renomear caía entre a playlist e o par de ordem, separando os dois
         // pares que se parecem.
+        //
+        // O PAR DO MEIO INVERTEU NA v1.8.56, e é a única metade daquele pedido
+        // que não sobreviveu: a ordem canônica dos destinos passou a ser
+        // Cronograma · playlist · favoritos em TODO o app (ver `DESTINOS`), a
+        // pedido do mesmo operador — *"padronize: a esquerda o cronograma, no
+        // meio a playlist e por fim o favoritos"*. Nesta lista o Cronograma não
+        // aparece (o item já está nele), então o que resta é playlist antes da
+        // estrela.
         botaoExcluirDaLinha(item, 'imports', () => load()),
         // RENOMEAR (v5.288), com a mesma guarda do excluir: na pasta do aparelho
         // o nome vem do arquivo, e um nome só no registro seria desfeito na
         // varredura seguinte.
         botaoRenomearDaLinha(item, () => load()),
-        star,
         addBtn,
+        star,
         // O "baixar o vídeo" de uma linha de LINK não está na ordem pedida — ele
         // só existe nessa linha. Entra DEPOIS dela, para não partir ao meio a
         // sequência que o operador ditou.
@@ -7496,6 +8417,41 @@ function botaoDoRodape(id, cls, titulo, rotulo, desenho) {
   t.textContent = rotulo;
   b.appendChild(t);
   return b;
+}
+
+// ===== A ALTURA DO RODAPÉ FLUTUANTE É LIDA, NUNCA TRANSCRITA (v1.8.61) =====
+//
+// Com as três portas flutuando sobre a lista (`#listFoot` absoluto), quem
+// responde "quanto recuo o fim da lista precisa?" é a altura DELAS. `--hit-foot`
+// é um `min-height` de 42px, e o rodapé o EXCEDE quando o corpo de fonte do
+// sistema cresce: MEDIDO, 42,00 de 280 a 480px de largura com a raiz em 16px E
+// em 20px, e 46,59 com ela em 24px. O desvio não esconde linha nenhuma (a folga
+// sobra), mas come 4 dos 22px da tira de sombra, que passa a terminar atrás das
+// portas.
+//
+// FALHA ABERTA: o CSS lê `var(--rodape-h, var(--hit-foot))`. Sem esta medida o
+// layout é o do `--hit-foot`, que é o de hoje — nunca pior.
+// `getBoundingClientRect` e não `offsetHeight`: o segundo ARREDONDA (47 contra
+// 46,59), e o recuo do fim da lista é justamente onde meio pixel aparece.
+// SÓ O QUE MUDOU, como no `acertarVeus`: reescrever o mesmo valor dentro de um
+// `ResizeObserver` é o laço que o navegador denuncia.
+const rodapeRO = new ResizeObserver(() => medirRodapeDaLista());
+let rodapeObservado = null;
+function medirRodapeDaLista() {
+  const corpo = listFootEl && listFootEl.parentElement;
+  if (!corpo) return;
+  if (rodapeObservado !== listFootEl) {
+    rodapeRO.disconnect(); rodapeRO.observe(listFootEl); rodapeObservado = listFootEl;
+  }
+  const h = listFootEl.getBoundingClientRect().height;
+  // Zero é a AUSÊNCIA de uma medida (rodapé `hidden`, app fora da tela), não uma
+  // medida de zero: escrevê-lo tiraria o recuo do fim da lista. A boa que já
+  // está lá é a resposta certa para quando ele voltar.
+  if (!h) return;
+  const v = (Math.round(h * 100) / 100) + 'px';
+  if (corpo.style.getPropertyValue('--rodape-h') !== v) {
+    corpo.style.setProperty('--rodape-h', v);
+  }
 }
 
 function renderListFoot() {
@@ -7593,7 +8549,7 @@ function renderListFoot() {
   li.insertBefore(bib, label);
 
   const ferr = botaoDoRodape('toolsBtn', 'tools-btn',
-    'Ferramentas: mensagens, tempo, sorteio e microfone', 'Ferramentas',
+    'Ferramentas: mensagens, tempo e sorteio', 'Ferramentas',
     '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/>'
@@ -7602,6 +8558,9 @@ function renderListFoot() {
   li.appendChild(ferr);
 
   listFootEl.appendChild(li);
+  // O INQUILINO ACABOU DE TROCAR, e a altura é dele: a `.selbar` e a
+  // `.import-row` medem o mesmo hoje (42,00 nas duas), mas é medida, não regra.
+  medirRodapeDaLista();
 }
 
 // Os tipos que o seletor do sistema oferece. PDF e PPTX entram na MESMA lista
@@ -8634,9 +9593,9 @@ function categoryCards(cat) {
 // O MIOLO do cabeçalho de grupo — contador (busy/done/fração) + botão de
 // lote/cancelar — hoje usado só pelo `header()` da lista, por CATEGORIA. Ele
 // era compartilhado com o "Baixar toda a biblioteca" fixo do cabeçalho do
-// popup, que saiu na v5.258; `aposClique` era a diferença legítima daquele
-// (ele precisava se redesenhar) e ficou sem chamador que o passe.
-function montarResumoGrupo(host, key, text, colls, gOpts, aposClique) {
+// popup, que saiu na v5.258 — e com ele saiu o `aposClique`, que era a
+// diferença legítima daquele (ele precisava se redesenhar).
+function montarResumoGrupo(host, key, text, colls, gOpts) {
   const g = gui(key);
   const complete = grupoCompleto(colls);
 
@@ -8660,7 +9619,6 @@ function montarResumoGrupo(host, key, text, colls, gOpts, aposClique) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       syncGroup(key, text, colls, gOpts);
-      if (aposClique) aposClique();
     });
     host.appendChild(btn);
   }
@@ -8675,7 +9633,7 @@ function montarResumoGrupo(host, key, text, colls, gOpts, aposClique) {
 // reprovou: *"está errado, reformule o sistema de coloração e organização de
 // grupos e subgrupos"*. O que a substitui é MOLDURA, e é tudo CSS — ver "A
 // HIERARQUIA DA BIBLIOTECA É DESENHADA COM MOLDURA" em controle.css.)
-function renderCollectionsList(alvo, redesenhar, opts) {
+function renderCollectionsList(alvo, redesenhar) {
   // ===== A LISTA DO ACERVO SE NOMEIA (v1.5.9) =====
   // A hierarquia por MOLDURA é escopada a esta lista e a mais nada — foi a
   // condição do operador ao autorizá-la (*"mas apenas para a biblioteca"*), e é
@@ -8691,11 +9649,8 @@ function renderCollectionsList(alvo, redesenhar, opts) {
   cacheLevantar.clear(); cacheBpsGlobal = 0;
   cacheColecoesAtivo = true;
   try {
-    renderCollectionsListMiolo(alvo, redesenhar, opts);
+    renderCollectionsListMiolo(alvo, redesenhar);
   } finally {
-    // O véu das bordas: este redesenho roda a cada 400 ms durante um download e
-    // muda a altura da lista sem rolagem nenhuma.
-    acertarVeuDaLista();
     // A TAMPA (v1.5.19), e é aqui porque é aqui que a lista está COMPLETA: a
     // conta divide a altura útil pelo número de blocos, e medi-la no meio da
     // montagem leria uma tela com metade deles.
@@ -8703,7 +9658,7 @@ function renderCollectionsList(alvo, redesenhar, opts) {
     cacheColecoesAtivo = false;
   }
 }
-function renderCollectionsListMiolo(alvo, redesenhar, opts) {
+function renderCollectionsListMiolo(alvo, redesenhar) {
   alvo = alvo || libraryEl;
   redesenhar = redesenhar || renderLibrary;
   redesenharAcervo = redesenhar;
@@ -9031,6 +9986,36 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     if (!cards.length) continue;
     const corpo = grupo(cat.name, cards.map((x) => x.coll));
     if (corpo) cards.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
+  }
+
+  // ===== A COLETÂNEA DE VÍDEOS DO LOUVORJA =====
+  //
+  // Uma seção, um card por PLAYLIST da curadoria, o CANAL como subtítulo do
+  // card — a mesma forma das coletâneas do banco logo acima, montada com o
+  // mesmo `grupo()` e com o mesmo pivô (`ctx.subtitle`), porque para o operador
+  // ela é mais uma coletânea e não deve pedir um vocabulário novo.
+  //
+  // **DEPOIS das coletâneas do banco e ANTES dos órfãos**, e a posição é uma
+  // decisão: o acervo de áudio do LouvorJA é o que este app faz desde sempre e
+  // é o que se procura na maioria das aberturas; "Outros álbuns" é sobra, e
+  // sobra não separa duas seções de conteúdo.
+  //
+  // O `byId.has` é a mesma guarda que as fixas usam logo acima, e ela não é
+  // decorativa: `onlineCollections()` e `allCollections()` podem divergir por
+  // um quadro durante a troca do catálogo, e um card que o `byId` não conhece
+  // é um card sem estado — ele contaria no peso e não responderia a toque
+  // nenhum.
+  const doOnline = onlineCollections().filter((c) => byId.has(c.id));
+  if (doOnline.length) {
+    const corpo = grupo(AVOnline.NOME_COLETANEA, doOnline);
+    if (corpo) {
+      doOnline.forEach((coll) => corpo.appendChild(
+        // O SUBTÍTULO é o CANAL, e ele viaja pelo mesmo `ctx` que o pivô
+        // categoria↔álbum do banco usa — é o único texto que a origem escreveu
+        // sobre aquele álbum naquele contexto, que é exatamente o papel do
+        // subtítulo ali.
+        renderCollectionCard(coll, { subtitle: coll.online.canal || '' })));
+    }
   }
 
   // Álbuns conhecidos que nenhuma categoria reivindicou (catálogo antigo,
@@ -9385,6 +10370,14 @@ function renderCollectionCard(coll, ctx) {
     // sincronização de um álbum que já está aberto na tela era uma camada a
     // mais sobre outra camada — o acervo já é um popup de tela cheia. Aqui elas
     // ficam onde o assunto está, e fechar é o mesmo toque que abriu.
+    // ===== O "MANTER BAIXADO" VEM ANTES DO DESTAQUE (v1.8.87) =====
+    // *"essa opção fica no topo"*, e o topo é ACIMA do destaque do sábado: é ela
+    // que governa se aquele bloco mostra um episódio já no aparelho ou um que
+    // ainda precisa ser baixado a pedido. Abaixo dele, ela seria uma opção
+    // depois da consequência dela.
+    const auto = serieAutoLinha(coll);
+    if (auto) aberto.appendChild(auto);
+
     // O DESTAQUE DO SÁBADO, acima da lista e só na série (ver `blocoDestaque`).
     const dest = blocoDestaque(coll);
     if (dest) aberto.appendChild(dest);
@@ -9771,7 +10764,7 @@ function openCollectionOptions(coll) {
  * recurso do CALENDÁRIO de uma série semanal.
  */
 function destaqueDaSerie(coll) {
-  if (!ehLink(coll) || !window.AVSerie || !AVSerie.ehDoSabadoAtual) return null;
+  if (!temCalendario(coll) || !window.AVSerie || !AVSerie.ehDoSabadoAtual) return null;
   const sab = AVSerie.sabadoDaSemana();
   const alvo = collSongs(coll.id).find(
     (s) => AVSerie.ehDoSabadoAtual(s.serieData, coll.serie));
@@ -10466,10 +11459,11 @@ function linhaDeItem(item, opts) {
  * respondível.
  *
  * **Só onde a mídia É LOCAL.** A folha do YouTube (`openYtMenu`) fica de fora de
- * propósito: ali "Tocar agora" TRANSMITE — abre rede, monta MSE e põe algo no
- * telão —, e as três linhas de lista significam "espere o download". Marcado por
- * padrão, um toque em "Favoritar" começaria uma transmissão na frente da
- * congregação por um destino que não pedia projeção nenhuma. Aqui os bytes já
+ * propósito: ali "Tocar agora" BAIXA o vídeo inteiro antes de projetar
+ * (`ytArquivo`, v1.7.7), e as três linhas de lista significam o mesmo download.
+ * Marcado por padrão, um toque em "Favoritar" começaria uma transferência de
+ * centenas de MB na frente da congregação por um destino que não pedia
+ * projeção nenhuma. Aqui os bytes já
  * estão no aparelho e o pior caso é uma faixa entrando em cena, que é o que o
  * operador está fazendo de qualquer jeito.
  *
@@ -10508,20 +11502,16 @@ function renderItemMenu(item, alvo, destinos, aoLado) {
     alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
       'Sem entrar em lista nenhuma',
       (vr, btn, alvos) => destExecutor(alvos, btn), 'tocar', desenhar));
-    const LINHA = {
-      playlist: [ICON.queue, 'Adicionar à playlist'],
-      cronograma: [ICON.cronoAdd, 'Adicionar ao Cronograma'],
-      favoritos: [ICON.star, 'Favoritar'],
-    };
-    quais.forEach((d) => {
-      const [ico, rot] = LINHA[d] || [];
-      if (!rot) return;
-      alvo.appendChild(songMenuItem(msym(ico), rot, '',
-        (vr, btn, alvos) => destExecutor(alvos, btn), d, desenhar));
+    // O QUE A GAVETA OFERECE VEM DE `cfg.destinos`; A ORDEM VEM DA TABELA
+    // (v1.8.56). Aqui morava a quarta cópia da tríade — um mapa `LINHA` com
+    // ícone e rótulo —, e era ela que fazia a gaveta divergir da folha ao lado.
+    destinosNaOrdem(quais).forEach((d) => {
+      alvo.appendChild(songMenuItem(msym(ICON[d.ico]), d.acao, '',
+        (vr, btn, alvos) => destExecutor(alvos, btn), d.chave, desenhar));
     });
     // O IRMÃO VEM DO FECHO, nunca do global — ver a nota em `destConfirmRow`.
     const go = destConfirmRow(aoLado);
-    if (go) alvo.appendChild(go);
+    if (go) porFecho(alvo, go);
   };
   desenhar();
 }
@@ -11084,9 +12074,10 @@ function starSvg(cheia) {
  * lá?**". Sem resposta na linha, conferir custava abrir a fila.
  *
  * Agora ele é o que a ESTRELA já era: um ALTERNADOR com estado à vista. Mesma
- * anatomia (`favBtn`/`toggleFav`), mesma dupla de cores (`--line` apagado,
- * `--accent` aceso) e a mesma exceção no fecho da caixa — o desfecho dele é o
- * próprio botão mudando de desenho sob o dedo.
+ * anatomia (`favBtn`/`toggleFav`), a mesma linguagem de estado (apagado é o
+ * `.row-btn` de sempre, `--surface` + `--text`; aceso é `--btn-accent` +
+ * `--accent`, o LIGADO do `tokens.css`) e a mesma exceção no fecho da caixa —
+ * o desfecho dele é o próprio botão mudando de desenho sob o dedo.
  *
  * E o SEGUNDO toque TIRA da fila, que é a metade que faz dele um estado em vez
  * de um contador: um botão que só acende nunca se apaga, e a única forma de
@@ -11347,8 +12338,14 @@ function favBtn(id, nome) {
 // ===== ações de reprodução / sequência =====
 // `daFila` = o avanço automático da playlist chamou. Ver a guarda de imagem
 // sobre áudio, lá dentro: é a única coisa que a distingue de um toque.
-async function send(id, daFila, retomarEm) {
+// `recPronto` = o registro JÁ LIDO do banco, quando quem chama acabou de lê-lo.
+// Só o `deckVideoTalvezTocar` o supre, e ele existe para não ler DUAS VEZES o
+// blob de um vídeo embutido: aquele caminho precisa do registro na mão ANTES de
+// disparar (é onde ele confere a senha), e sem isto o vídeo do slide levaria o
+// dobro do tempo para entrar.
+async function send(id, daFila, recPronto) {
   ++projecaoSeq;   // ver `projecaoSeq`: invalida um versículo de roteiro em voo
+  ++cenaSeq;       // ver `cenaSeq`: a senha do SLOT DE MÍDIA, só deste ponto
   // E DESARMA A VOLTA DA APRESENTAÇÃO. `send` é o ponto por onde todo caminho
   // que projeta passa, então qualquer coisa que entre em cena — um toque na
   // lista, o ⏮/⏭, a notificação — cancela a automação do vídeo de slide. Sem
@@ -11362,7 +12359,8 @@ async function send(id, daFila, retomarEm) {
   // stage). A guarda fica AQUI, e não só no toque da lista, porque `send` é o
   // ponto por onde TODOS os caminhos passam — o avanço automático da playlist,
   // o ⏮/⏭ do transporte, a notificação nativa e o pacote logo acima.
-  const alvo = [...plItems, ...libItems, ...favItems].find((m) => m.id === id)
+  const alvo = recPronto
+    || [...plItems, ...libItems, ...favItems].find((m) => m.id === id)
     || (await AVDB.getMedia(id));
   if (isCue(alvo)) {
     currentItem = alvo;
@@ -11378,8 +12376,8 @@ async function send(id, daFila, retomarEm) {
     marcarNoAr();
     return;
   }
-  // O ITEM DE LINK NÃO VAI AO TELÃO COMO LINK (v5.212). Ele é resolvido agora —
-  // transmissão direta ou download — e quem projeta é o registro que sair daí.
+  // O ITEM DE LINK NÃO VAI AO TELÃO COMO LINK (v5.212). Ele é resolvido agora,
+  // por DOWNLOAD, e quem projeta é o registro que sair daí.
   // A guarda fica AQUI pelo mesmo motivo da guarda de cena de roteiro logo
   // acima: `send` é o ponto por onde TODOS os caminhos passam (o avanço
   // automático da playlist, o ⏮/⏭ do transporte, a notificação nativa).
@@ -11536,15 +12534,10 @@ async function send(id, daFila, retomarEm) {
   // E O HISTÓRICO DO CULTO, pelo mesmo argumento da linha acima: `send` é o
   // ponto por onde TODOS os caminhos passam. Ver `historicoRegistrar`.
   historicoRegistrar(id, currentItem);
-  // A POSIÇÃO VIAJA DENTRO DO `load`, nunca como um `seek` logo depois — o
-  // `onCommand` do Display NÃO serializa, o `load` é assíncrono (getMedia →
-  // opfsGetFile → mediaReady, mais o fade de saída), e um comando que chegasse
-  // em seguida agiria sobre o `<video>` ANTERIOR. É o mesmo contrato que a
-  // reconexão do telão usa; quem o alimenta aqui é a volta do RECADO.
-  const carga = { type: 'load', mediaId: id, view, muted, volume, page: deckPagina };
-  if (retomarEm && retomarEm.t > 0) carga.time = retomarEm.t;
-  if (retomarEm && retomarEm.playing === false) carga.playing = false;
-  cmd(carga);
+  // ESTE `load` COMEÇA SEMPRE DO ZERO E TOCANDO — projetar é começar. Quem
+  // entra no meio da mídia é a RECONEXÃO do telão, e ela tem caminho próprio
+  // (`resendSceneToDisplay`), com `time`/`playing` no `load` dela.
+  cmd({ type: 'load', mediaId: id, view, muted, volume, page: deckPagina });
   // A partir daqui há mídia no telão — é o que a reconexão precisa reenviar e o
   // que o ▶ pode retomar em vez de recarregar (ver `midiaNoAr`).
   midiaNoAr = true;
@@ -11738,8 +12731,36 @@ function stepSlide(delta) {
 //  · o ▶ com a mídia PARADA fica ACESO — `currentId` sobrevive ao stop de
 //    propósito, e é ele que faz o ▶ repetir a faixa (v1.4.x). Apagá-lo tiraria
 //    um recurso;
-//  · a REPETIÇÃO fica acesa sempre: ela é um modo, e escolher o modo antes de
-//    montar a fila é o caminho normal.
+//  · (a REPETIÇÃO saiu desta lista na v1.8.87 — ver `repeticaoPode` abaixo.)
+/**
+ * ===== A REPETIÇÃO É UM MODO, MAS UM MODO DE QUÊ? (v1.8.87) =====
+ *
+ * Relato do operador: *"ele não está sendo desativado quando não há nada
+ * selecionado. Verifique os momentos em que ele deveria ficar inativo"*.
+ *
+ * **ISTO REVOGA A EXCEÇÃO DA v1.8.50**, que o deixava aceso sempre sob o
+ * argumento *"ela é um modo, e escolher o modo antes de montar a fila é o
+ * caminho normal"*. O argumento continua verdadeiro e é justamente ele que
+ * escreve esta função: o modo governa `autoAdvance`, e `autoAdvance` só roda
+ * quando uma mídia ACABA. Sem fila e sem mídia escolhida não há o que acabar —
+ * o botão cicla quatro degraus e nenhum deles muda coisa alguma. É o botão
+ * aceso e inerte que aquele mesmo lote existe para não deixar nascer.
+ *
+ * A RÉGUA TEM DUAS METADES, e são as duas que fazem `autoAdvance` ter trabalho:
+ * a FILA (o `all`/`shuffle`/`off` andam nela) e a MÍDIA ESCOLHIDA (o `one`
+ * recarrega o `currentId`). **`currentId` e não `midiaNoAr`**: ele sobrevive ao
+ * stop de propósito — é ele que faz o ▶ repetir a faixa —, e armar `repeat: one`
+ * sobre a faixa parada para que o próximo ▶ a repita em laço é uso legítimo. A
+ * pergunta certa aqui é *"há para onde o modo agir?"*, não *"há cena no ar?"*.
+ *
+ * ELA É LIDA POR QUEM APAGA E POR QUEM EXECUTA, como o `transportePode`:
+ * `cycleRepeat` volta na primeira linha, senão a notificação e a tecla física
+ * (que chegam por `.click()`) ainda ciclariam um modo sem função.
+ */
+function repeticaoPode() {
+  return plItems.length > 0 || !!currentId;
+}
+
 function renderTransporteHabilitado() {
   // A MÍDIA ANTERIOR/PRÓXIMA lê o `transportePode` — a MESMA pergunta que o
   // `step` faz para decidir se executa. Sem fila só o ⏮ sobra, e o que ele faz
@@ -11779,6 +12800,11 @@ function renderTransporteHabilitado() {
     playPauseEl.disabled = semNada;
     playPauseEl.title = semNada ? 'Não há mídia escolhida' : 'Play/Pause';
   }
+  // ===== E A REPETIÇÃO APAGA SEM NADA PARA REPETIR (v1.8.87) =====
+  // Quem escreve o `disabled` dela é `renderRepeat` (o dono do `title`, que
+  // depende do degrau — ver lá); o que este bloco faz é pô-la no MESMO pulso
+  // dos outros quatro, que é o que a faz acompanhar a fila e a cena.
+  renderRepeat();
 }
 
 // Habilita/desabilita os botões de estrofe conforme o item atual tem letra
@@ -12131,7 +13157,7 @@ function lvSignature(src) {
  * um item, para AQUELA música — é assim que a Biblioteca abre a mesma folha sem
  * projetar nada.
  */
-function openLyricsPopup(item, fonte) {
+function openLyricsPopup(item) {
   // O ALVO É A EXCEÇÃO, e ela se declara: um item igual ao que já está em cena
   // não é desvio nenhum, e guardá-lo faria a folha parar de acompanhar o culto
   // por uma coincidência.
@@ -12162,11 +13188,6 @@ function openLyricsPopup(item, fonte) {
   // culto inteiro); mas carregá-la para OUTRA música seria abrir a folha de um
   // louvor na aba que o operador escolheu para outro.
   //
-  // `fonte` é o PEDIDO de quem abriu, e vence os dois — a Biblioteca abre na
-  // cifra, porque quem toca ali foi buscar os acordes. Não é imposição:
-  // `lvActiveSource` só a honra enquanto a fonte existir, e sem ponte
-  // (navegador) a cifra nem entra na lista, então a folha abre na letra sem
-  // nenhum caso especial.
   // E A CAMADA DA FRENTE VENCE A ESCOLHA GUARDADA QUANDO ELA MUDA (v1.4.26).
   //
   // "O elemento na camada mais a frente de tudo é o que aparece na abertura" —
@@ -12183,10 +13204,16 @@ function openLyricsPopup(item, fonte) {
   // `lvFrenteVista` nasce `null` e isso significa *"nenhuma frente vista ainda"*,
   // nunca *"a frente mudou"*: na PRIMEIRA abertura não houve cena anterior, logo
   // não há escolha de antes a invalidar. Ler o sentinela como troca derruba uma
-  // fonte pedida antes da primeira abertura — que é o que um chamador
-  // programático faz, e o que o `cifra-rolagem.test.mjs` faz.
-  if (fonte) lvSource = fonte;
-  else if (trocouAlvo || (lvFrenteVista !== null && frente !== lvFrenteVista)) lvSource = null;
+  // escolha guardada de antes da primeira abertura — que é o que o
+  // `cifra-rolagem.test.mjs` planta.
+  //
+  // NÃO HÁ COMO UM CHAMADOR PEDIR A ABA. Houve: um segundo parâmetro (`fonte`)
+  // vencia os dois testes acima, e a Biblioteca o usava para abrir na CIFRA. O
+  // botão de lá virou *"Ver a letra"* na v1.2.25 e largou o pedido — abrir na
+  // cifra contradiria o próprio rótulo —, e o parâmetro ficou sem produtor até
+  // a v1.8.78. Quem decide a aba é a FRENTE mais a escolha guardada, e mais
+  // nada.
+  if (trocouAlvo || (lvFrenteVista !== null && frente !== lvFrenteVista)) lvSource = null;
   lvFrenteVista = frente;
   lvFollow = true; // toda abertura começa acompanhando o que está no ar
   renderLyricsView();
@@ -13089,12 +14116,12 @@ function cifraGuardavel(coll) {
 // 'cellular'` — nada consultava a cena.
 //
 // **Por que isto é estabilidade e não desempenho.** O uso normal é abrir o app
-// minutos antes do culto e tocar o primeiro item. Nesse instante os fragmentos
-// do MSE disputam a Wi-Fi da igreja com as 12 requisições — e a MEDIDA DE BANDA
-// que escolhe o degrau do louvor inteiro é feita justamente durante a disputa
-// (`talvezTrocarDegrau` roda antes do primeiro quadro, uma vez, para sempre).
-// A varredura do acervo podia rebaixar a resolução do louvor, e numa rede
-// apertada empurrar o fragmento seguinte para a fome.
+// minutos antes do culto e tocar o primeiro item. Nesse instante as 12
+// requisições disputam a Wi-Fi da igreja com o que o culto precisa AGORA: o
+// download do `ytArquivo` (que o "Tocar agora" de um vídeo do YouTube SEMPRE
+// dispara desde a v1.7.7, e que o operador está esperando de olho na barra) e
+// o empurrão de bytes para as telas da rede, que servem o `/m/<token>` do
+// MESMO aparelho. Numa rede apertada a varredura atrasa os dois.
 //
 // **CEDE A VEZ E SAI, não cede a vez e espera.** Esperar seguraria o
 // `withBgRotina` — e com ele o serviço em primeiro plano, cuja cota de
@@ -14078,7 +15105,11 @@ function cifraVelTitulo() {
 // Os dois botões vivem no DOM, que `renderLyricsView` refaz inteiro — então o
 // ESTADO mora aqui fora e quem acabou de nascer vem perguntar como se pintar.
 function cifraPintarRolar() {
-  if (cifraVelBtnEl) {
+  // COM A GAVETA ABERTA O SELETOR É O ✕, e quem o escreve é o `cifraPintarVels`
+  // (v1.8.80). Sem esta guarda, qualquer repintura da fila com a gaveta no ar —
+  // tocar no play, o degrau mudando pelo arrasto — devolveria o rótulo ao botão
+  // e o operador ficaria sem a saída que acabou de abrir.
+  if (cifraVelBtnEl && !cifraVelAberta) {
     cifraVelBtnEl.textContent = cifraVelRotulo();
     const t = cifraVelTitulo();
     cifraVelBtnEl.title = t;
@@ -14263,6 +15294,33 @@ function cifraAdotarVelocidade(v) {
 }
 
 /**
+ * ===== E A GAVETA VIROU UM SLIDER, QUE DESLIZA (v1.8.80) =====
+ *
+ * Pedido do operador: *"o botão de alterar velocidade de rolagem… está abrindo
+ * uma lista de outros botões de opções de velocidade, mas primeiramente isso não
+ * possue nenhuma animação. Então faça uma animação horizontal para essa gaveta.
+ * Mantenha o botão de play e o botão de seletor de velocidade sempre visível,
+ * agora a gaveta vai surgir a direita desses dois itens. E mude a lógica, não
+ * mais uma gaveta com botões, mas um slider regulável, quando aberto, o botão
+ * que abriu ele se torna um x para fechar a gaveta de ajuste de velocidade"*.
+ *
+ * **TRÊS MUDANÇAS NUMA, e elas se sustentam:** quem some passou a ser só o
+ * −½/+½ (o play e o seletor ficam, e é por ISSO que há de onde a gaveta sair),
+ * os cinco botões viraram UM `<input type=range>` sobre os MESMOS cinco degraus,
+ * e o seletor vira ✕ enquanto ela está aberta — a saída no lugar de onde a
+ * entrada foi.
+ *
+ * O QUE O SLIDER NÃO MUDA é a escada: ele regula o ÍNDICE de
+ * `CIFRA_VELOCIDADES` (0 a 4, passo 1), não um número contínuo. Um contínuo
+ * pediria outra gramática de rótulo, outro estado gravado e outra conta no
+ * `cifraRolarQuadro` — e o operador pediu um jeito de ESCOLHER, não uma escala
+ * nova.
+ *
+ * A ANIMAÇÃO É DE LARGURA, e por isso a gaveta é uma CAIXA de verdade (não mais
+ * `display: contents`): não há como transicionar o nada. Em tela cheia a fila é
+ * uma COLUNA, e lá a mesma gaveta cresce em ALTURA com o slider na vertical —
+ * ver o CSS, que declara os dois eixos.
+ *
  * ===== A ESCADA VIROU UMA GAVETA, E NÃO UM CARROSSEL (v1.7.4) =====
  *
  * Pedido do operador: *"ajuste também a forma de seleção da velocidade do
@@ -14288,9 +15346,10 @@ function cifraAdotarVelocidade(v) {
  * tem a saída*. Com ele escondido, uma gaveta aberta em paisagem deixaria a
  * folha deitada sem nenhuma saída à vista.
  *
- * E TODO BOTÃO DA GAVETA A FECHA — inclusive o do degrau que já está escolhido,
- * que é o "cancelar" natural. Não há um sexto botão para desistir: com a lista
- * ocupando a fila inteira, um toque em qualquer lugar dela resolve.
+ * (O "todo botão da gaveta a fecha" daquele lote morreu com os botões: quem
+ * fecha agora é o ✕, que é o mesmo alvo que abriu — regular a velocidade é um
+ * ajuste que se faz OUVINDO, e fechar no primeiro arrasto tiraria a régua da
+ * mão de quem ainda está procurando o ritmo.)
  */
 let cifraVelAberta = false;
 
@@ -14299,8 +15358,10 @@ function cifraVelFilaAlternar() {
   cifraPintarVels();
 }
 
+/**
+ * Aplica um degrau. **Não fecha a gaveta** (v1.8.80): quem fecha é o ✕.
+ */
 async function cifraVelEscolher(i) {
-  cifraVelAberta = false;
   const antes = cifraVelIdx;
   cifraVelIdx = Math.max(0, Math.min(CIFRA_VELOCIDADES.length - 1, i));
   // Nada a zerar: os dois modos integram a partir da posição atual, e o degrau
@@ -14308,9 +15369,9 @@ async function cifraVelEscolher(i) {
   // que era medido contra um alvo absoluto — ele saiu com o alvo.)
   cifraPintarRolar();
   cifraPintarVels();
-  // O MESMO degrau não gasta uma transação: escolher o que já está escolhido é
-  // o caminho de FECHAR a gaveta, e ele acontece sempre que alguém a abre por
-  // engano.
+  // O MESMO degrau não gasta uma transação — e com o slider isso deixou de ser
+  // um caso de borda: um arrasto dispara um `input` por pixel, e quase todos
+  // caem no degrau em que o dedo já estava.
   if (cifraVelIdx === antes) return;
   try { await AVDB.setState('cifraVelocidade', CIFRA_VELOCIDADES[cifraVelIdx]); }
   catch (_) { /* sem banco: vale a sessão */ }
@@ -14320,50 +15381,89 @@ async function cifraVelEscolher(i) {
  * Pinta a gaveta: a classe que troca o conteúdo da fila e a marca do degrau em
  * cena.
  *
- * ESCOLHIDO ENTRE ALTERNATIVAS é `--accent-fill` + `--on-accent`, a linguagem de
- * estado deste app — a mesma do seletor de destinos. Ela mora numa classe e não
- * numa cor de texto porque *cor de texto nunca carrega estado sozinha*.
+ * ESCOLHIDO ENTRE ALTERNATIVAS é `--btn-accent` + `--accent` (v1.8.95), a
+ * linguagem de estado deste app — a mesma do tile LIGADO. Ela mora numa classe
+ * e não numa cor de texto porque *cor de texto nunca carrega estado sozinha*.
  */
 function cifraPintarVels() {
   const ctl = lyricsCifraCtlEl;
   if (!ctl) return;
   ctl.classList.toggle('escolhendo', cifraVelAberta);
-  ctl.querySelectorAll('.lv-cifra-vel-op').forEach((b) => {
-    const escolhido = Number(b.dataset.vel) === cifraVelIdx;
-    b.classList.toggle('escolhido', escolhido);
-    b.setAttribute('aria-checked', escolhido ? 'true' : 'false');
-  });
-  if (cifraVelBtnEl) cifraVelBtnEl.setAttribute('aria-expanded', cifraVelAberta ? 'true' : 'false');
+  const slider = ctl.querySelector('.lv-cifra-slider');
+  if (slider) {
+    // O VALOR do slider é o índice, e ele é reescrito aqui porque o degrau muda
+    // por fora dele também — a hidratação do banco na abertura da folha.
+    slider.value = String(cifraVelIdx);
+    // A FRAÇÃO PINTA O TRILHO (`--vel`), a mesma gramática do fader do volume:
+    // `appearance: none` desliga o preenchimento nativo, então quem mostra "até
+    // onde" é um gradiente que precisa do número.
+    slider.style.setProperty('--vel', String(cifraVelIdx / (CIFRA_VELOCIDADES.length - 1)));
+    // O QUE O LEITOR DE TELA ANUNCIA é o RÓTULO ("1,5×"), nunca o índice cru:
+    // "3 de 4" não é uma velocidade.
+    slider.setAttribute('aria-valuetext', cifraVelRotulo());
+    // Fechada, a gaveta sai da ordem de tabulação: um alvo que não se vê não
+    // pode receber foco (é a mesma razão do `disabled` do app, um nível acima).
+    slider.tabIndex = cifraVelAberta ? 0 : -1;
+  }
+  if (cifraVelBtnEl) {
+    cifraVelBtnEl.setAttribute('aria-expanded', cifraVelAberta ? 'true' : 'false');
+    cifraVelBtnEl.classList.toggle('fechando', cifraVelAberta);
+    // ===== O BOTÃO QUE ABRIU É O QUE FECHA (v1.8.80) =====
+    // Aberta, ele vira ✕ — o pedido, e a regra do app: o ✕ é o mesmo glifo dos
+    // seis fechares deste bundle (`ICON.close`), nunca um desenho novo.
+    if (cifraVelAberta) {
+      cifraVelBtnEl.textContent = '';
+      const x = msym(ICON.close);
+      x.setAttribute('aria-hidden', 'true');
+      cifraVelBtnEl.appendChild(x);
+      const t = 'Fechar o ajuste de velocidade';
+      cifraVelBtnEl.title = t;
+      cifraVelBtnEl.setAttribute('aria-label', t);
+    } else {
+      // Fechado ele volta a ser o RÓTULO do degrau — e quem escreve os dois
+      // (rótulo e title) é o `cifraPintarRolar`, dono único deles.
+      cifraPintarRolar();
+    }
+  }
 }
 
 /**
- * A LISTA, um botão por degrau.
+ * A GAVETA: uma caixa que cresce, com o slider dentro (v1.8.80).
  *
- * `display: contents` no invólucro (ver o CSS): os botões viram filhos de fato
- * da fila, e por isso seguem a direção dela — LINHA no retrato, COLUNA em tela
- * cheia — sem uma segunda regra de layout escrita aqui.
+ * ELA É UMA CAIXA DE VERDADE, e não mais `display: contents`: aquele modo fazia
+ * os cinco botões virarem filhos de fato da fila (e herdarem a direção dela de
+ * graça), mas uma caixa que não existe no layout não tem largura para animar —
+ * e a animação é o pedido.
+ *
+ * O `<input type="range">` é o MESMO controle do fader do volume, e é por isso
+ * que ele não precisa de gramática nova: o app já sabe desenhar trilho e cap com
+ * `appearance: none` (ver `.fader`), e o gesto de arrastar já é conhecido de
+ * quem opera. Os extremos ganham RÓTULO ("0,5×" e "2×") porque um slider sem
+ * pontas nomeadas não diz para que lado é mais rápido.
  */
 function cifraVelFila() {
   const caixa = document.createElement('span');
   caixa.className = 'lv-cifra-vels';
-  caixa.setAttribute('role', 'radiogroup');
-  caixa.setAttribute('aria-label', 'Velocidade da rolagem');
-  CIFRA_VELOCIDADES.forEach((v, i) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'lv-fonte-btn lv-cifra-vel lv-cifra-vel-op';
-    b.dataset.vel = String(i);
-    b.setAttribute('role', 'radio');
-    // O RÓTULO SAI DA MESMA FUNÇÃO que pinta o botão fechado — duas escritas do
-    // mesmo rótulo divergiriam no primeiro ajuste, e a gaveta passaria a
-    // oferecer nomes que o botão não mostra.
-    b.textContent = cifraVelRotuloDe(v);
-    const t = 'Rolar a ' + cifraVelRotuloDe(v);
-    b.title = t;
-    b.setAttribute('aria-label', t);
-    b.addEventListener('click', () => cifraVelEscolher(i));
-    caixa.appendChild(b);
-  });
+  const fim = CIFRA_VELOCIDADES.length - 1;
+  const pontaIni = document.createElement('span');
+  pontaIni.className = 'lv-cifra-vel-ponta';
+  pontaIni.textContent = cifraVelRotuloDe(CIFRA_VELOCIDADES[0]);
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.className = 'lv-cifra-slider';
+  slider.min = '0';
+  slider.max = String(fim);
+  slider.step = '1';
+  slider.value = String(cifraVelIdx);
+  slider.setAttribute('aria-label', 'Velocidade da rolagem');
+  // O `input` (e não o `change`) porque o ajuste tem de ser OUVIDO enquanto o
+  // dedo anda: a folha muda de ritmo no degrau em que ele está, e é assim que
+  // se acha o certo. O degrau repetido não paga transação (ver `cifraVelEscolher`).
+  slider.addEventListener('input', () => cifraVelEscolher(Number(slider.value)));
+  const pontaFim = document.createElement('span');
+  pontaFim.className = 'lv-cifra-vel-ponta';
+  pontaFim.textContent = cifraVelRotuloDe(CIFRA_VELOCIDADES[fim]);
+  caixa.append(pontaIni, slider, pontaFim);
   return caixa;
 }
 
@@ -14412,11 +15512,16 @@ function cifraDesenharFolha(el, pagina, semitons) {
   // coincidir com um número velho e nunca ser requebrada.
   cifraColunasAtual = cifraColunas(folha);
   const linhas = AVCifra.quebrarPares(pagina.linhas, cifraColunasAtual);
+  // A GRAFIA É DA FOLHA, e é tirada UMA vez (v1.8.93): a armadura do tom de
+  // destino vale para todos os acordes. Tirá-la por linha daria o mesmo número
+  // — mas por ACORDE, que era a regra velha, dava `Db D#m Gb G#` na mesma
+  // sequência.
+  const grafia = AVCifra.grafiaDaFolha(pagina, semitons);
   linhas.forEach((linha) => {
     const div = document.createElement('div');
     div.className = 'lv-cifra-linha lv-cifra-' + linha.tipo;
     div.textContent = linha.tipo === 'acordes'
-      ? AVCifra.transporLinha(linha.texto, semitons) : linha.texto;
+      ? AVCifra.transporLinha(linha.texto, semitons, grafia) : linha.texto;
     folha.appendChild(div);
   });
 }
@@ -14467,6 +15572,16 @@ function lvBuildCifra(el) {
   // de módulo, com o desenho e o ouvinte intactos.
   cifraCheiaBtnEl.hidden = false;
   ctl.appendChild(cifraCheiaBtnEl);
+  // E A GAVETA NASCE FECHADA AQUI, ANTES DOS RETORNOS CEDO (v1.8.85). A fila é
+  // esvaziada a cada render, mas a CLASSE mora no `.lv-cifra-ctl`, que não é
+  // recriado: com a gaveta aberta, uma troca de faixa que caia na ESPERA
+  // (`buscando`) deixava a regra da v1.8.83 apagando o ⛶ sobre uma fila em que
+  // o ✕ da própria gaveta já tinha sido varrido — em tela cheia, onde o
+  // `popup-close`, o título e as abas são `display: none`, sobrava o voltar do
+  // Android e mais nada. O zerar de baixo continua lá para o caminho completo;
+  // este é o que os dois retornos cedo alcançam.
+  ctl.classList.remove('escolhendo');
+  cifraVelAberta = false;
 
   // ===== OS DOIS RETORNOS CEDO, E O QUE SOBROU DELES (v1.8.28) ==============
   //
@@ -14506,16 +15621,21 @@ function lvBuildCifra(el) {
   // transposta é a folha e o rótulo dizendo coisas diferentes sobre a mesma
   // tela. Ele é desenhado no CABEÇALHO DA CAIXA, mais abaixo (v1.6.3).
   const tomAtual = AVCifra.transporTom(p.tom, n);
+  // `lv-cifra-tom` NOS DOIS (v1.8.80): é a classe que a gaveta encolhe para
+  // caber, e o pedido nomeia quem FICA — *"mantenha o botão de play e o botão de
+  // seletor de velocidade sempre visível"* —, então quem sai é este par. O ⛶
+  // continua de fora da lista pela invariante de sempre: *a fila da cifra sempre
+  // tem a saída*.
   const menos = document.createElement('button');
   menos.type = 'button';
-  menos.className = 'lv-fonte-btn';
+  menos.className = 'lv-fonte-btn lv-cifra-tom';
   menos.textContent = '−½';
   menos.title = 'Descer meio tom';
   menos.setAttribute('aria-label', 'Descer meio tom');
   menos.addEventListener('click', () => cifraTranspor(-1));
   const mais = document.createElement('button');
   mais.type = 'button';
-  mais.className = 'lv-fonte-btn';
+  mais.className = 'lv-fonte-btn lv-cifra-tom';
   mais.textContent = '+½';
   mais.title = 'Subir meio tom';
   mais.setAttribute('aria-label', 'Subir meio tom');
@@ -14543,11 +15663,14 @@ function lvBuildCifra(el) {
   // mantém UM ponto de anexo para a saída — dois `append` do mesmo nó em ramos
   // diferentes é a divergência que este arquivo evita por construção.
   //
-  // A GAVETA NASCE JUNTO e nasce FECHADA (v1.7.4): ela é `display: none` até a
-  // classe da fila mudar, então construí-la aqui não custa layout nenhum — e
-  // custaria uma segunda porta de montagem se fosse criada no toque, num nó que
-  // `renderLyricsView` refaz a cada transposição.
-  cifraVelAberta = false;
+  // A GAVETA NASCE JUNTO e nasce FECHADA (v1.7.4): desde a v1.8.83 ela vive
+  // FORA DO FLUXO (`position: absolute` contra o `.lv-cifra-ctl`, com
+  // `width: 0`, `opacity: 0` e `visibility: hidden`), então construí-la aqui não
+  // custa layout nenhum — e custaria uma segunda porta de montagem se fosse
+  // criada no toque, num nó que `renderLyricsView` refaz a cada transposição.
+  // O que a segura ali é o `position: relative` + `overflow: hidden` da fila:
+  // inflar o conteúdo dela sem olhar os dois é o que faz a gaveta vazar.
+  cifraVelAberta = false;   // já zerado acima; fica pelo caminho completo
   ctl.prepend(cifraRolarBtnEl, cifraVelBtnEl, cifraVelFila(), menos, mais);
   cifraPintarRolar();
   cifraPintarVels();
@@ -14986,7 +16109,6 @@ function autoAdvance() {
   // item da fila: deixá-lo cair no avanço normal projetaria o próximo louvor no
   // meio do sermão, e com `repeat: 'one'` ele tocaria em laço para sempre.
   if (deckVideoVolta) { deckVideoVoltar(); return; }
-  if (repeat === 'off') { resetAfterEnd(); return; }
   if (repeat === 'one') { if (currentId) send(currentId, true); return; }
   // FILA VAZIA COM `repeat` LIGADO TAMBÉM É FIM DE CENA (v1.8.52). Este `return`
   // era seco, e MEDIDO o estrago era permanente: a faixa acabava, o `<video>`
@@ -14995,6 +16117,10 @@ function autoAdvance() {
   // rotinas de acervo nunca mais cediam a vez de volta) e — o caro —
   // `resendSceneToDisplay` pergunta `midiaNoAr`: uma queda de dongle trazia de
   // volta ao telão a faixa que JÁ TINHA ACABADO.
+  //
+  // E DESDE A v1.8.77 `off` CHEGA AQUI TAMBÉM — ele deixou de ser o primeiro
+  // `return` desta função —, o que só torna esta linha mais necessária: é a
+  // única que responde pela fila vazia nos QUATRO modos.
   if (plItems.length === 0) { resetAfterEnd(); return; }
   if (repeat === 'shuffle') {
     if (plItems.length === 1) { send(plItems[0].id, true); return; }
@@ -15002,16 +16128,53 @@ function autoAdvance() {
     send(plItems[i].id, true);
     return;
   }
-  // all
   const idx = plItems.findIndex((m) => m.id === currentId);
+  // ===== `off` É "SEM REPETIÇÃO", NUNCA "SEM SEQUÊNCIA" (v1.8.77) =====
+  //
+  // Relato do operador: *"é normal o seletor estar desativado, tocar uma
+  // playlist automática, mas ele tocar apenas a primeira e parar, pois o
+  // usuário esquece de ativar o automático"*.
+  //
+  // O SELETOR RESPONDE PELO QUE ACONTECE NO FIM DA FILA, não por ela andar.
+  // Até aqui `off` era o primeiro `return` desta função — o fim de QUALQUER
+  // faixa era fim de cena —, e com isso a única forma de ouvir uma fila inteira
+  // era armar `all`, que é outra coisa: aquele RECOMEÇA no fim. Quem monta uma
+  // playlist já disse, ao montá-la, que quer as faixas em sequência; pedir um
+  // segundo gesto para isso é cobrar duas vezes pela mesma intenção, e o preço
+  // de esquecê-lo é o culto parando na primeira faixa.
+  //
+  // E O FIM DA FILA CONTINUA SENDO FIM DE CENA: `off` avança até a última e
+  // para ali (`resetAfterEnd`), que é a diferença inteira para o `all`. Um laço
+  // que ninguém pediu projetaria o primeiro louvor de novo na frente da
+  // congregação — o desfecho que este modo existe para NÃO ter.
+  //
+  // `idx === -1` TAMBÉM PARA, e não volta ao topo como o `all` faz: a cena veio
+  // de fora da fila (a prateleira `avulsos`, um share projetado na hora), e um
+  // item que não está na sequência não tem "próximo" — começar a fila do zero
+  // ali seria projetar um bloco de louvores que o operador não abriu.
+  if (repeat === 'off') {
+    if (idx === -1 || idx + 1 >= plItems.length) { resetAfterEnd(); return; }
+    send(plItems[idx + 1].id, true);
+    return;
+  }
+  // all
   const target = idx === -1 ? 0 : (idx + 1) % plItems.length;
   send(plItems[target].id, true);
 }
 
 async function cycleRepeat() {
+  // A MESMA pergunta que apaga o botão (v1.8.87). Ele chega por `.click()` de
+  // três superfícies — a tecla da notificação entre elas —, e um botão apagado
+  // na tela que ainda cicla por fora seria o defeito que o apagado existe para
+  // fechar, um nível abaixo.
+  if (!repeticaoPode()) return;
   repeat = REPEATS[(REPEATS.indexOf(repeat) + 1) % REPEATS.length];
-  await AVDB.setState('repeat', repeat);
+  // A RESPOSTA VEM PRIMEIRO (v1.8.80), a regra deste app: o desenho era pintado
+  // DEPOIS do `await` do banco, e nesse vão o botão mostrava o degrau anterior.
+  // Num controle que se toca com a música no ar, o que a mão espera é o botão
+  // mudar no toque — a transação é assunto do banco, não do dedo.
   renderRepeat();
+  await AVDB.setState('repeat', repeat);
 }
 
 async function setView(v) {
@@ -15050,13 +16213,6 @@ async function toggleMute() {
   // só saía depois do commit dela. O irmão que mexe no mesmo áudio
   // (`applyVolume`) sempre mandou primeiro — a assimetria não tinha razão.
   //
-  // **Por que isto pesa numa TRANSMISSÃO e não num arquivo:** os dois WebViews
-  // dividem UM processo, e a transmissão direta é a única mídia do app que
-  // precisa de JavaScript rodando enquanto toca (o `shared/mse.js` repõe o
-  // buffer). Tudo que segura a thread principal entre o toque e o comando segura
-  // o abastecimento junto — um arquivo local não sente, porque o `<video>` lê do
-  // disco sem passar por JS nenhum.
-  //
   // A gravação continua acontecendo, agora SEM prender o comando: o que ela
   // guarda é o ajuste da mesa para a próxima sessão, e ninguém a espera.
   // (`persistCurrent` já é usado assim em quatro outros pontos.)
@@ -15064,9 +16220,7 @@ async function toggleMute() {
   // **O QUE ISTO NÃO PROVA, dito:** o engasgo do relato não foi reproduzido fora
   // do aparelho — aqui a escrita mede ~2 ms num banco vazio. O que se corrige é
   // uma latência REAL e mensurável no caminho exato do relato, não um defeito
-  // observado. Se o engasgo persistir, o próximo suspeito não é este arquivo: é
-  // o que o Chromium faz com um `<video>` de MediaSource ao trocar de estado de
-  // áudio.
+  // observado.
   muted = !muted;
   cmd({ type: 'mute', muted });
   renderControls();
@@ -15179,8 +16333,9 @@ async function stopClear() {
  * não antecipa nada, apenas para de esconder o que já foi decidido.
  *
  * É o mesmo protocolo visual que o `stage.load` já usa (esmaece o que está no
- * ar e segura o aro de espera até `PRONTO_STREAM_MS`); o que muda é COMEÇAR no
- * instante do comando, e não no instante em que os bytes são conhecidos.
+ * ar e espera o quadro seguinte estar pronto antes de revelar); o que muda é
+ * COMEÇAR no instante do comando, e não no instante em que os bytes são
+ * conhecidos.
  *
  * **NÃO É `stopClear`**, e a diferença é o `clearManualText`: aquele encerra as
  * seis sessões de texto, e aqui não há razão para isso — a mídia é que está
@@ -15281,22 +16436,73 @@ function attachRowGestures(row, item) {
   row.addEventListener('pointercancel', () => { clearTimeout(lp); pid = null; });
 }
 
+/**
+ * ===== TROCAR A FILA ZERA O SELETOR DE REPETIÇÃO (v1.8.77) =====
+ *
+ * Pedido do operador: *"ao se tocar um item, seja do cronograma ou o que for,
+ * resete o estado do seletor de repetição, para ele não repetir uma mídia que
+ * não era intenção repetir e nem tocar a próxima mídia automática… que reflitam
+ * a intenção do usuário e não um resquício de uma opção da mídia passada"*.
+ *
+ * **A PERGUNTA É "A FILA FOI REDEFINIDA?", e não "o que foi tocado?"** — e é
+ * por isso que a zeragem mora AQUI, no funil, e não em cada porta que projeta.
+ * Trocar a fila é dizer *"a sequência agora é esta"*; um modo herdado da
+ * sequência ANTERIOR é, por construção, resquício. Tocar numa linha da fila
+ * EXISTENTE não passa por aqui (`renderPlaylist` chama `send` direto), e está
+ * certo que não passe: escolher por onde começar não desfaz a sequência.
+ *
+ * O QUE ISTO REVOGA: até aqui só o `repeat='one'` caía, sob o argumento de que
+ * `all`/`shuffle` são "comportamentos da FILA e voltam a valer quando o
+ * operador acrescentar itens a ela". MEDIDO, o argumento não se sustentava no
+ * caso dominante: `replacePlaylistWith` deixa a fila com UM item, e com ela
+ * assim os dois viram `one` por outro caminho — `all` faz `(0 + 1) % 1 === 0` e
+ * o `shuffle` tem o ramo `length === 1`. A mídia que o operador acabou de
+ * escolher tocava em laço, que é literalmente o defeito que o `one` caindo
+ * existia para evitar.
+ *
+ * **É A ÚNICA PORTA QUE REDEFINE A SEQUÊNCIA**, e o funil é esse — não "toda
+ * escrita em array". São QUATRO as escritas de array na lista `playlist`: três
+ * passam por aqui (o item avulso, o pacote e a playlist automática) e a quarta
+ * é o `moverNaLista`, que um `grep "listSet('playlist'"` NÃO enxerga porque
+ * escreve `listSet(listName, ids)` com o nome em variável. Ela fica de fora com
+ * razão: reordenar não redefine sequência nenhuma, e derrubar a repetição ali
+ * seria um efeito colateral de arrastar um item. As outras duas usam a forma
+ * com FUNÇÃO — acrescentar aos selecionados e o "Limpar" —, e nenhuma delas
+ * redefine uma sequência para tocar.
+ */
+async function trocarFila(ids) {
+  await AVDB.listSet('playlist', ids);
+  await zerarRepeticao();
+}
+
+/**
+ * O SELETOR VOLTA AO COMEÇO (v1.8.77). Separado do `trocarFila` por UM chamador
+ * que projeta sem fila nenhuma — o compartilhamento no Modo Fácil —, e ele é o
+ * caso extremo da regra: ali a caixa de controles inteira não é desenhada
+ * (`body.mode-simple .bottombar`), então um `one` herdado do modo avançado
+ * prenderia o que acabou de chegar em laço **sem nenhuma superfície na tela por
+ * onde desfazê-lo**, e um `all` projetaria em seguida o primeiro item de uma
+ * fila que aquele modo não mostra.
+ *
+ * A guarda de igualdade não é economia: sem ela toda troca de fila paga uma
+ * transação de IndexedDB e um redesenho para gravar o valor que já estava lá —
+ * e `off` é o estado dominante, justamente porque este funil o restaura.
+ */
+async function zerarRepeticao() {
+  if (repeat === 'off') return;
+  repeat = 'off';
+  // A RESPOSTA VEM PRIMEIRO, a mesma inversão que o `cycleRepeat` já leva: o
+  // desenho depois do `await` do banco deixa o botão mostrando o degrau
+  // anterior durante a transação, com a música no ar.
+  renderRepeat();
+  await AVDB.setState('repeat', repeat);
+}
+
 // Trocar de música do zero: a playlist passa a ser SÓ este item.
-//
-// Junto vai o `repeat='one'`: repetir a mesma música é uma escolha sobre a
-// música que estava tocando, não uma preferência permanente — mantê-la aqui
-// prenderia o item novo em laço, que é o oposto de "escolhi outra coisa para
-// tocar". `all`/`shuffle` ficam: são comportamentos da FILA, e continuam
-// valendo quando o operador acrescentar itens a ela.
 async function replacePlaylistWith(rec) {
-  await AVDB.listSet('playlist', [rec.id]);
+  await trocarFila([rec.id]);
   plItems = [rec];
   renderPlaylist();
-  if (repeat === 'one') {
-    repeat = 'off';
-    await AVDB.setState('repeat', repeat);
-    renderRepeat();
-  }
 }
 
 /**
@@ -15736,6 +16942,86 @@ async function deleteSelected() {
   exitSelection(); load();
 }
 
+// ===== LIMPAR O CRONOGRAMA INTEIRO (v1.8.66) =====
+//
+// O botão do canto superior esquerdo da faixa, onde morava a badge de versão.
+// Ele é a irmã do `deleteSelected` acima — mesma declaração de intenção, sobre
+// a lista toda em vez de uma seleção — e por isso repete as DUAS metades que
+// aquele tem e que o `listSet` sozinho não faz.
+//
+// `listSet('imports', () => [])` E NÃO UM LAÇO DE `listRemove`: é UMA transação
+// com a coleta dentro (`db.js`, `lerDetentores` uma vez só), contra N
+// transações e N varreduras de detentores. O efeito é idêntico — o mesmo
+// `if (!donos.has(id))` decide quem morre.
+//
+// AS DUAS METADES QUE O `listSet` NÃO FAZ, e nenhuma delas tem sintoma:
+//
+//  1. A MARCA DO YOUTUBE. O ✓ "já está aqui" da busca vive num `Map` em memória
+//     (`ytEstado`) e nunca é recalculado enquanto a entrada existir — limpar sem
+//     invalidá-la deixa a busca prometendo, pela sessão inteira, um download que
+//     já não existe. Ela cai ANTES, porque depois da coleta o registro pode já
+//     não existir para dizer QUAL era o vídeo.
+//  2. A PRATELEIRA INVISÍVEL (`avulsos`). Ela é detentora: sem soltá-la, o que
+//     já tocou uma vez no culto fica preso nela — blob no aparelho, invisível em
+//     toda tela. `soltarAvulso` guarda sozinho a exceção da CENA.
+//
+// E A CENA NÃO É ENCERRADA, o que é a regra da v1.3.13 escrita por extenso em
+// `botaoExcluirDaLinha`: *"EXCLUIR DE UMA LISTA NÃO TIRA DO AR"* — excluir tira
+// o item de onde ele fica GUARDADO, e não fala do telão. A FILA é a única
+// exceção (v1.8.52), porque é a lista que o TRANSPORTE governa; o Cronograma é
+// acervo. O louvor no ar segue tocando, e os bytes dele sobrevivem à coleta
+// porque a cena é detentora (`state.current.mediaId`, em `lerDetentores`).
+// Oráculo da regra: `tools/excluir-em-cena.test.mjs`.
+async function limparCronograma() {
+  const ids = await AVDB.listIds('imports');
+  // A GUARDA É REAL, não defensiva: o botão nasce `disabled` com a lista vazia,
+  // mas o estado dele é pintado no render e o toque pode chegar entre um
+  // esvaziamento e o próximo `load()`.
+  if (!ids.length) return;
+  // O MODAL, e não a pergunta na própria faixa (`pedirConfirmacaoNaLinha`), que
+  // é o que o LIMPAR da fila usa. A razão é que a `dica` daquela vai para o
+  // `title`/`aria-label` — e num WebView NÃO HÁ HOVER, então a frase que explica
+  // o que vai acontecer nunca aparece no aparelho. Para uma ação que tira a
+  // lista inteira de uma vez, o modal é o único dos dois que MOSTRA a
+  // consequência. E o alvo aqui não é uma linha: a v5.301 tirou os modais de
+  // exclusão porque *"o modal TIRAVA O ALVO DE CENA"*, e o `appConfirm` sobrevive
+  // exatamente onde o alvo não é uma linha da lista — uma pasta, um álbum, e
+  // agora a lista inteira.
+  // O VERBO É "LIMPAR", NUNCA "EXCLUIR" (v1.8.67), a pedido do operador:
+  // *"foque em chamar apenas de 'limpar cronograma' e use esses tipos de termos
+  // nos botões de confirmar, títulos e afins ao invés da palavra 'excluir'"*. E
+  // a distinção é REAL, não preferência de palavra: EXCLUIR é o que a seleção
+  // múltipla faz a um item, e LIMPAR é o que se faz a uma lista — o mesmo verbo
+  // que a fila já usa no `#plClear`. Um "excluir" aqui prometeria que os
+  // arquivos morrem, e o que morre é só o que não tiver outro detentor.
+  //
+  // E A FRASE PERDEU AS EXPLICAÇÕES (*"pode remover as explicações sobre os
+  // itens ainda ficarem em favoritos e sobre continuar tocando, não precisamos
+  // de todo esse texto explicativo"*). O que sobra é a PERGUNTA e a CONTA — que
+  // é a única metade que quem lê não tem como saber olhando a tela, já que a
+  // lista pode estar rolada. As duas promessas continuam VALENDO no código
+  // (`listSet` só coleta o que não tem detentor; a cena não é encerrada); o que
+  // saiu foi dizê-las toda vez.
+  const n = ids.length;
+  const ok = await appConfirm({
+    title: 'Limpar o Cronograma',
+    message: 'Tirar ' + (n === 1 ? 'o único item' : 'os ' + n + ' itens') + ' da lista?',
+    okText: 'Limpar',
+    perigo: true,
+  });
+  if (!ok) return;
+  for (const id of ids) {
+    const it = libItems.find((m) => m.id === id) || await AVDB.getMedia(id);
+    if (it && it.youtubeId) setYtEstado(it.youtubeId, null);
+  }
+  for (const id of ids) await soltarAvulso(id);
+  await AVDB.listSet('imports', () => []);
+  // A SELEÇÃO MÚLTIPLA MORRE JUNTO: ela aponta para ids que acabaram de sair da
+  // lista, e o `load()` a re-hidrataria sobre linhas que já não existem.
+  if (typeof exitSelection === 'function') exitSelection();
+  await load();
+}
+
 // A PRATELEIRA INVISÍVEL não sobrevive a uma exclusão explícita.
 //
 // `avulsos` é a única lista que o operador NÃO vê: ela existe para "Tocar
@@ -16127,7 +17413,11 @@ async function purgeCatalogRecords(recs) {
     // deixaria uma estrela apontando para um registro que não existe mais — a
     // linha some da gaveta pelo `filter(Boolean)` do `listItems`, mas o id fica
     // na lista, contando como favorito para sempre.
-    for (const l of ['imports', 'playlist', 'avulsos', 'favs']) await AVDB.listRemove(l, r.id);
+    // A LISTA É A DO `db.js` (`LISTS`), escrita à mão porque este arquivo não a
+    // importa — e `serie` entrou nela na v1.8.87. Um registro de pasta OPFS
+    // nunca chega àquela lista hoje (ela só guarda mídia baixada do YouTube),
+    // mas deixá-la de fora é a divergência que o comentário acima descreve.
+    for (const l of ['imports', 'playlist', 'avulsos', 'favs', 'serie']) await AVDB.listRemove(l, r.id);
   }
 }
 
@@ -16179,6 +17469,24 @@ async function loadCollections() {
   albumCatalog = Array.isArray(savedCatalog)
     ? { categories: [], albums: savedCatalog }
     : (savedCatalog && Array.isArray(savedCatalog.albums) ? savedCatalog : { categories: [], albums: [] });
+
+  // O CATÁLOGO DE VÍDEOS, do IndexedDB — para a coletânea existir na abertura
+  // OFFLINE, antes de qualquer rede. É a mesma razão do `albumCatalog` acima, e
+  // ela vale mais aqui: sem rede a busca do `autoRefreshCollections` falha, e
+  // sem esta semente a seção só apareceria no dia em que houvesse Wi-Fi.
+  //
+  // **A IMPRESSÃO É CONFERIDA AQUI**, e é o que fecha a armadilha que mordeu as
+  // séries três vezes: o guardado tem os nomes JÁ FORMADOS e a ordem JÁ
+  // decidida por `AVOnline`. Mudando a REGRA sem mudar o payload, o catálogo
+  // velho ficaria de pé PARA SEMPRE no IndexedDB — onde limpar o cache não
+  // alcança. Não batendo, ele é DESCARTADO e a busca seguinte o refaz; o preço
+  // é uma abertura offline sem a seção, contra uma regra nova que nunca chega.
+  const savedOnline = await AVDB.getState('onlineCatalog');
+  onlineCatalog = (savedOnline && Array.isArray(savedOnline.albuns)
+    && window.AVOnline && savedOnline.impressao === AVOnline.IMPRESSAO)
+    ? { albuns: savedOnline.albuns, diario: null }
+    : { albuns: [], diario: null };
+
   const cols = allCollections();
   const states = await Promise.all(cols.map((c) => AVDB.getState('coll:' + c.id)));
   collState = {};
@@ -16230,6 +17538,166 @@ async function fetchAlbumCatalog() {
   refreshCollectionsIfVisible();
 }
 
+/**
+ * O CATÁLOGO DE VÍDEOS DO LOUVORJA — uma requisição, a coletânea inteira.
+ *
+ * `GET /{lang}/collections/online` devolve canais, playlists e vídeos de uma
+ * vez; `AVOnline.lerCatalogo` traduz aquilo em álbuns com as faixas já dentro
+ * (a REGRA, pura, com oráculo em `tools/online.test.mjs`). Aqui fica o que só
+ * este arquivo pode fazer: guardar, semear o `collState` e redesenhar.
+ *
+ * **O QUE SE GUARDA É O LIDO, NÃO O CRU**, e é a escolha oposta à do
+ * `albumCatalog` — que guarda o payload do banco e reaplica a leitura editorial
+ * a cada desenho, para que um ajuste da tabela `DISSOLVER` chegue por OTA e
+ * valha offline na abertura seguinte. Aqui não há decisão a revisar entre duas
+ * aberturas: a regra segue CHAVES ESTRANGEIRAS, e o resultado dela sobre o
+ * mesmo payload é sempre o mesmo. O que mudaria é a própria regra — e para isso
+ * existe o `AVOnline.IMPRESSAO`, logo abaixo. Guardar o cru custaria o objeto
+ * mais pesado deste app duas vezes: ele carrega as miniaturas EMBUTIDAS
+ * (`default_image_base64`) de canais, playlists e vídeos, e a leitura descarta
+ * a maior parte delas.
+ *
+ * **FALHA DE REDE NÃO APAGA O ACERVO.** O `throw` sai para o `.catch(() => {})`
+ * do chamador com `onlineCatalog` intacto: a seção continua na tela com o que
+ * a última busca trouxe, que é o que o operador precisa num sábado sem Wi-Fi.
+ * Escrever `onlineCatalog = { albuns: [] }` antes de buscar faria a Biblioteca
+ * perder a coletânea a cada abertura offline, sem erro em lugar nenhum.
+ */
+async function fetchOnlineCatalog() {
+  // A GUARDA É `onlineDisponivel()` e não `window.__NATIVE__`: sem `AVOnline`
+  // (um erro de topo em `online.js`) não há quem leia o payload, e buscar
+  // seria gastar a rede da igreja para jogar fora.
+  if (!onlineDisponivel()) return;
+  // ===== A FALHA É GRAVADA, e ela é o modo de errar MAIS PROVÁVEL =====
+  //
+  // Sem este `catch`, uma busca que falha deixa o diário AUSENTE — e o bloco do
+  // Registro, diante da ausência, escreve *"ainda não buscado neste aparelho"*,
+  // que é a frase do caso NORMAL (o app acabou de abrir). As duas causas pedem
+  // ações opostas: uma é esperar, a outra é consertar alguma coisa.
+  //
+  // **E a causa que se teme aqui é indistinguível de "sem rede" por
+  // construção:** a origem deste app é `https://appassets.androidplatform.net/`,
+  // e esta rota é a PRIMEIRA fora de `/json_db` que ele consome — se a política
+  // de CORS dela for outra, o preflight morre no console do WebView e o `fetch`
+  // rejeita com um `TypeError` sem status. Sem esta linha, o operador veria
+  // "ainda não buscado" para sempre, num aparelho com Wi-Fi.
+  //
+  // O `throw` SEGUE, e isso é deliberado: quem chama é um `.catch(() => {})` na
+  // fase 1 e o `syncCollection` do toque, e é ele que decide o que dizer na
+  // tela. Este bloco só garante que o Registro não minta.
+  let bruto;
+  try {
+    bruto = await Louvorja.fetchOnline(AVOnline.LANG_PADRAO);
+  } catch (e) {
+    await onlineDiarioGravar({ erro: String((e && e.message) || e || 'falha na busca') });
+    throw e;
+  }
+  const lido = AVOnline.lerCatalogo(bruto);
+  // NENHUM ÁLBUM É UM ESTADO, NÃO UM ERRO — mas ele não pode SUBSTITUIR um
+  // acervo que já está na tela. Um payload que chega vazio (a rota respondeu
+  // 200 com `{channels:[],playlists:[],videos:[]}`, que é o que a réplica serve
+  // enquanto o bucket ainda não foi preenchido) apagaria a coletânea inteira do
+  // aparelho, e a abertura seguinte a traria de volta — um card piscando entre
+  // existir e não existir, sem nada explicando. O diário É gravado nos dois
+  // casos: é ele que diz que a busca aconteceu e voltou vazia.
+  await onlineDiarioGravar(lido.diario);
+  if (!lido.albuns.length && onlineCatalog.albuns.length) {
+    refreshCollectionsIfVisible();
+    return;
+  }
+  // ===== NADA MUDOU? ENTÃO NADA É ESCRITO =====
+  //
+  // Esta função roda na abertura E em TODO `visibilitychange` que traz o app
+  // para a frente — dezenas de voltas por culto. Sem esta guarda, cada uma
+  // reescrevia o catálogo e MAIS UM registro por álbum (`semearIndiceOnline`
+  // grava `coll:<id>` de cada card) sobre um conteúdo idêntico ao que já
+  // estava lá. A curadoria de outro projeto não muda entre duas voltas ao app:
+  // o caso NORMAL é não ter mudado nada.
+  //
+  // A assinatura é do que se GRAVA, e não um hash do payload cru: é o
+  // resultado da REGRA que precisa ser comparado — um campo que o
+  // `lerCatalogo` descarta (a miniatura embutida de um canal, por exemplo) não
+  // muda uma linha do que o aparelho guarda, e compará-lo faria a economia
+  // nunca valer.
+  const assinatura = JSON.stringify(lido.albuns);
+  if (assinatura === onlineAssinatura) { refreshCollectionsIfVisible(); return; }
+  onlineAssinatura = assinatura;
+  onlineCatalog = lido;
+  await AVDB.setState('onlineCatalog', { albuns: lido.albuns, impressao: AVOnline.IMPRESSAO });
+  // Entrada em `collState` para os cards novos. Sem ela, `collSongs` devolve
+  // `[]` e o card nasce anunciando "0 faixas" sobre uma lista que ele TEM.
+  semearIndiceOnline();
+  refreshCollectionsIfVisible();
+  renderBuscaQuandoPuder(false);
+}
+
+/**
+ * O ÍNDICE DE CADA CARD DA COLETÂNEA, semeado a partir do catálogo já lido.
+ *
+ * **A MUTAÇÃO É IN-PLACE**, pelo motivo do `fetchCollectionIndex`: o
+ * `syncCollection` tira um snapshot do array de faixas e grava `fileIdFull` nos
+ * objetos DELE conforme baixa. Recriar os objetos a cada catálogo deixaria o
+ * snapshot apontando para órfãos — os bytes iriam para o OPFS e os ids seriam
+ * descartados no `setState` seguinte, com o item aparecendo como não baixado e
+ * sendo rebaixado. Aqui isso é mais fácil de errar que lá: o catálogo é relido
+ * em TODA retomada do app, que é justamente quando o operador minimizou no meio
+ * de um download.
+ */
+function semearIndiceOnline() {
+  for (const coll of onlineCollections()) {
+    const antigas = new Map(collSongs(coll.id).map((x) => [x.id_music, x]));
+    const songs = coll.online.itens.map((it, i) => {
+      const s = antigas.get(it.id) || { id_music: it.id, fileIdFull: null, fileIdPlayback: null };
+      s.name = it.nome;
+      s.ytUrl = it.url;
+      // A POSIÇÃO NA PLAYLIST como número de faixa. É o que a linha mostra à
+      // esquerda, e é a ordem que o curador montou — não o `sequence` cru, que
+      // pode ter buracos (um vídeo removido do YouTube deixa o número dele).
+      s.track = i + 1;
+      s.thumb = it.thumb || '';
+      s.canal = coll.online.canal || '';
+      // SEM DURAÇÃO, e ela é a única coisa que este caminho não tem. O payload
+      // do LouvorJA não a traz (as três tabelas não têm coluna de duração), e a
+      // série a recebe da EXTRAÇÃO, que aqui não acontece. Fica `''` e não
+      // `'0:00'`: zero é um número, e a conta de peso do álbum o somaria como
+      // um vídeo de duração nula — o card anunciaria "0 MB" para uma playlist
+      // de trinta vídeos. `fmtDur`/`parseTimeToSeconds` já tratam o vazio.
+      s.duration = '';
+      s.seconds = 0;
+      // Um vídeo não tem Playback — sem isto `songVariantsNeeded` pediria uma
+      // segunda variante que nunca vai existir e o álbum nunca ficaria completo.
+      s.has_instrumental_music = false;
+      s._norm = normalizeForSearch(s.name);
+      return s;
+    });
+    const guardado = collState[coll.id] || {};
+    guardado.songs = songs;
+    guardado.isHymnal = false;
+    guardado.indexSyncedAt = Date.now();
+    collState[coll.id] = guardado;
+    AVDB.setState('coll:' + coll.id, guardado).catch(() => {});
+  }
+}
+
+// O DIÁRIO DA LEITURA DO CATÁLOGO — o bloco do Registro (ver `renderDiag`).
+//
+// Ele existe pelo motivo do diário das séries, e aqui a razão é mais forte: o
+// acervo é curado por OUTRO projeto. Quando faltar alguma coisa, a primeira
+// pergunta é *"o LouvorJA não publicou, ou o app recusou?"* — e sem as
+// contagens as duas chegam como a mesma lista curta. Guarda o VEREDITO de
+// `AVOnline.lerCatalogo`, nunca uma segunda opinião.
+const ONLINE_DIARIO_KEY = 'onlineDiag';
+
+async function onlineDiarioLer() {
+  try { return (await AVDB.getState(ONLINE_DIARIO_KEY)) || null; } catch (_) { return null; }
+}
+
+async function onlineDiarioGravar(diario) {
+  try {
+    await AVDB.setState(ONLINE_DIARIO_KEY, Object.assign({ quando: Date.now() }, diario));
+  } catch (_) { /* diagnóstico não pode derrubar a sincronização */ }
+}
+
 // Busca o índice (metadados leves) de UMA coleção e atualiza collState[coll.id],
 // preservando fileIdFull/fileIdPlayback já conhecidos de cada música. Para
 // hinários, o arquivo de lista (coll.source) já é o índice; para álbuns, o
@@ -16274,7 +17742,7 @@ function serieFaixaDoItem(s, it) {
   // motivo só: a lista mostra o episódio três dias antes do sábado dele (a
   // quarta-feira em que o roteiro é montado), e nesses três dias o vídeo pode
   // ainda não estar público. Quando o download falha ali, quem explica é
-  // `serieComoYoutube`, e sem a data no registro não haveria como saber que
+  // `videoComoYoutube`, e sem a data no registro não haveria como saber que
   // aquela falha tem essa causa. `null` quando o título não declarou data — e
   // aí não há nada a afirmar sobre ele.
   s.serieData = it.dia ? { dia: it.dia, mes: it.mes } : null;
@@ -16305,7 +17773,7 @@ function serieFaixaDoItem(s, it) {
   s.canal = String(it.canal || '').trim();
   // E os SEGUNDOS CRUS ao lado da string formatada. `s.duration` continua sendo
   // o "M:SS" que toda conta de peso do álbum lê; este é o número, e ele existe
-  // por um consumidor só: `serieComoYoutube`, que o repassa ao registro quando
+  // por um consumidor só: `videoComoYoutube`, que o repassa ao registro quando
   // o episódio é guardado como LINK (ali não há blob de onde medir nada).
   s.seconds = it.seconds || 0;
   // Um vídeo não tem Playback. Sem isto, `songVariantsNeeded` pediria uma
@@ -16492,6 +17960,22 @@ async function fetchSerieIndex(coll) {
 
 async function fetchCollectionIndex(coll) {
   if (coll.kind === 'serie') return fetchSerieIndex(coll);
+  // A COLETÂNEA DO LOUVORJA REFAZ O CATÁLOGO INTEIRO, e é isso que a separa da
+  // série. Lá cada álbum custa uma extração do YouTube, e por isso o índice é
+  // por card; aqui o catálogo INTEIRO — canais, playlists e vídeos — chega numa
+  // requisição só, e cada card já sai dela com a lista de faixas pronta.
+  //
+  // **E POR ISSO ELA FICA FORA DA FASE 2** do `autoRefreshCollections` (ver o
+  // filtro `stale` lá): varrer card a card repetiria a MESMA resposta uma vez
+  // por álbum, e a rota tem cache de 10 min no servidor — as N-1 repetições nem
+  // chegariam ao banco, só à Wi-Fi da igreja.
+  //
+  // **O QUE CHEGA AQUI É O TOQUE DO OPERADOR** no "Atualizar a lista" da barra
+  // do card, e ele precisa FAZER alguma coisa. Um `return` seco deixaria aquele
+  // botão aceso e inerte — indistinguível de um quebrado, que é o que a regra
+  // do projeto manda apagar em vez de deixar mudo. Uma requisição por toque é
+  // exatamente o que o toque pediu.
+  if (coll.kind === 'online') return fetchOnlineCatalog();
   const raw = await Louvorja.fetchList(coll.source);
   const list = coll.kind === 'album'
     ? (raw && Array.isArray(raw.musics) ? raw.musics : null)
@@ -16649,6 +18133,346 @@ function serieTemODaSemana(c, agora) {
     (s) => AVSerie.ehDoSabadoAtual(s.serieData, c.serie, hoje));
 }
 
+// ============================================================================
+// MANTER O EPISÓDIO DA SEMANA BAIXADO (v1.8.87)
+// ============================================================================
+//
+// Pedido do operador, por extenso: *"faça uma opção de marcar nas coleções de
+// provai e vede e do informativo mundial das missões. Essa opção fica no topo e
+// nela diz, manter o provai e vede da semana baixado e atualizado na
+// biblioteca. Ele permite o download automático em segundo plano no wifi, para
+// baixar e ter disponível offline o provai e vede e o informativo. Ele baixa na
+// qualidade padrão que o usuário tem em seleção. Quando estiver baixado
+// disponível, ele dá as opções no formato que temos para os hinos baixados, que
+// omite a questão da qualidade, pois não precisa mais dessa ação. O sistema
+// automaticamente verifica se o arquivo já existe e limpa os arquivos de
+// semanas passadas e baixa se necessário apenas a mídia da semana."*
+//
+// ## O que isto muda no modelo da série, e o que NÃO muda
+//
+// **O álbum de série não retém arquivo** — é a regra que tirou dele o "baixar
+// em lote" e a lixeira (v1.1.21): um episódio só existe no aparelho enquanto
+// está no Cronograma, nos Favoritos ou na playlist. Ela CONTINUA valendo: não
+// há botão de baixar o álbum, a barra segue sem anunciar peso, e a série segue
+// fora de "Baixar toda a biblioteca". O que entra é um detentor NOVO e de
+// tamanho UM por série — a lista `serie` do `db.js` —, e é a única coisa que o
+// álbum passa a reter.
+//
+// **UM por série, e é isso que o torna barato.** ~300 MB por episódio × 52
+// seria o download em lote que a v1.1.21 recusou; a semana corrente é o teto, e
+// a limpeza é o que o mantém — não uma varredura, uma linha (ver `SERIE_LISTA`).
+//
+// ## As três guardas, e por que cada uma
+//
+//  1. **Wi-Fi CONFIRMADO** (`isConfirmedWifi`), e não "não é celular" como o
+//     `syncLyrics`. A assimetria é a que o próprio `syncLyrics` documenta pelo
+//     outro lado: lá são alguns kB de JSON e "na dúvida, baixa" é o certo; aqui
+//     são ~300 MB que NINGUÉM PEDIU AGORA, e gastar o plano de dados de quem
+//     não olhou a tela é o pior desfecho que este recurso sabe produzir.
+//     **O preço está dito e é REAL:** `navigator.connection.type` devolve
+//     `'unknown'` em boa parte dos aparelhos, e nesses a rotina nunca roda. É
+//     por isso que O CARD DIZ ISSO, na linha de status
+//     (`serieAutoImpedimento`): um no-op silencioso seria a opção marcada e
+//     nada acontecendo, para sempre, sem nada na tela. O caminho à mão (a
+//     folha de destinos) continua inteiro.
+//  2. **CEDE A VEZ ao que está no ar** (`rotinaDeAcervoPodeCorrer`), a regra das
+//     rotinas irmãs. Cede SAINDO, não esperando: quem rearma já existe (a
+//     abertura e todo `visibilitychange`, por `autoRefreshCollections`).
+//  3. **UMA POR VEZ** (`serieAutoRodando`). A fila de transferência do shell é
+//     de uma thread só — é invariante, não economia (o resgate de download é um
+//     slot único) —, então duas séries disparadas juntas seriam uma esperando a
+//     outra de qualquer jeito, com duas notificações disputando a barra.
+//
+// ## O que NÃO está aqui
+//
+// **Nenhum método novo da ponte.** A pergunta "estou no Wi-Fi?" já era
+// respondida no bundle (`isConfirmedWifi`, que o download em massa do hinário
+// usa desde sempre), e o download já é do shell (`ytArquivo` → `ytFetch`). Por
+// isso este lote não sobe `SHELL_VERSION` e não pede Release — se precisasse, a
+// metade web chegaria por OTA em minutos contra um APK que não tem o método, e
+// o que o operador teria seria uma opção marcada que não faz nada.
+
+// A lista que SEGURA o episódio da semana. Ela é o detentor de referência do
+// `db.js` (ver `LISTS` lá), e o nome é digitado nos dois lugares de propósito:
+// uma constante compartilhada exigiria o `db.js` exportá-la, e ele é o arquivo
+// que o Display e as telas da rede também carregam.
+const SERIE_LISTA = 'serie';
+
+// As séries com a opção marcada. Espelho em memória de `state['serieAuto']`,
+// lido no `load()` — e um SET porque a pergunta é sempre "esta coleção está
+// marcada?", nunca "quais estão".
+let serieAuto = new Set();
+let serieAutoRodando = false;
+
+function serieAutoLigada(coll) {
+  return !!coll && serieAuto.has(coll.id);
+}
+
+/**
+ * O NOME DA SÉRIE NA FRASE, e ele não é o `coll.name`.
+ *
+ * O card se chama "Provai e Vede 2026", e *"manter o Provai e Vede 2026 da
+ * semana"* põe o ANO no meio de uma frase que fala de UMA semana — duas escalas
+ * de tempo na mesma linha. O catálogo já tem o nome sem o ano em `rotulo` (o
+ * Informativo o declara para as listas do culto, v5.271); onde ele não existe,
+ * o `prefixo` É o nome ("Provai e Vede").
+ */
+function serieNomeCurto(coll) {
+  const se = coll && coll.serie;
+  return (se && (se.rotulo || se.prefixo)) || (coll && coll.name) || 'a série';
+}
+
+/**
+ * O EPISÓDIO DESTA SEMANA de uma série — a MESMA pergunta do destaque do topo
+ * (`destaqueDaSerie`) e da procura do índice (`serieTemODaSemana`), e por isso
+ * a MESMA função (`AVSerie.ehDoSabadoAtual`). Três contas de calendário
+ * divergiriam, e foi uma divergência dessas que produziu o defeito da v1.2.19:
+ * o destaque declarando um episódio que a lista escondia.
+ */
+function serieEpisodioDaSemana(coll) {
+  if (!temCalendario(coll) || !window.AVSerie || !AVSerie.ehDoSabadoAtual) return null;
+  return collSongs(coll.id).find(
+    (s) => AVSerie.ehDoSabadoAtual(s.serieData, coll.serie)) || null;
+}
+
+/**
+ * O ARQUIVO de um episódio, ou `null`. **Só com BLOB conta** — a mesma régua do
+ * `ytArquivo`: um item de LINK carrega o mesmo `youtubeId` e é justamente o que
+ * o download existe para substituir.
+ */
+async function serieArquivoDoEpisodio(s) {
+  if (!s || !s.id_music) return null;
+  const rec = await AVDB.mediaByYoutube(s.id_music, 'video').catch(() => null);
+  return rec && rec.blob ? rec : null;
+}
+
+/**
+ * ===== O ESTADO SAIU DE BAIXO DO TÍTULO (v1.8.88) =====
+ *
+ * Pedido do operador: *"temos o título principal e um subtitulo com mais
+ * explicações… remova esse subtitulo, não precisamos dos detalhes, apenas o
+ * titulo descrevendo a função. O subtexto extra é desnecessário"*.
+ *
+ * **O que sai é a EXPLICAÇÃO; o que fica é o ESTADO, e ele muda de casa.** As
+ * frases descritivas ("será baixado em segundo plano", "está no aparelho", "é
+ * baixado a pedido") diziam ao operador o que ele acabou de marcar — texto que
+ * se lê uma vez e depois ocupa duas linhas em toda abertura do card. Morreram
+ * com o `serieAutoEstado`, que ficou sem chamador junto com elas.
+ *
+ * **UMA precisa sobreviver, e ela não é detalhe: a do Wi-Fi.** Sem Wi-Fi
+ * confirmado a rotina NÃO RODA, e `connection.type` responde `'unknown'` em
+ * boa parte dos aparelhos — sem nada dito, o desfecho é a opção marcada com
+ * nada acontecendo, para sempre. Ela passa para a LINHA DE STATUS do card
+ * (`setCollStatus`), que é onde os outros estados daquele card já moram
+ * ("Baixando o episódio desta semana…", "Lista atualizada") e que é
+ * TRANSITÓRIA por construção: aparece quando vale e some depois, em vez de
+ * ocupar uma linha permanente para dizer o caso normal.
+ *
+ * Devolve o que IMPEDE o download agora, ou `''` quando nada impede — e o
+ * vazio é a resposta certa para o caso comum: um status que descreve o normal
+ * é ruído no card.
+ */
+function serieAutoImpedimento(coll, epi, rec) {
+  if (!serieAutoLigada(coll) || rec || !epi) return '';
+  if (!window.__NATIVE__) return '';
+  if (serieAutoRodando) return '';
+  if (!isConfirmedWifi()) return 'Esperando uma rede Wi-Fi para baixar o episódio desta semana';
+  return '';
+}
+
+/**
+ * A LINHA DA OPÇÃO, no TOPO do card aberto da série — *"essa opção fica no
+ * topo"*, e o topo é acima do destaque do sábado: ela governa o que aquele
+ * bloco mostra.
+ *
+ * AS PEÇAS SÃO AS QUE JÁ EXISTEM (`.song-menu-btn`, `.song-menu-check`,
+ * `.song-menu-sel`), como na folha de grupos da exportação e pelo mesmo motivo:
+ * é uma CAIXA DE MARCAÇÃO, o idioma do app para "esta linha está marcada", e
+ * inventar um interruptor próprio daria duas gramáticas para o mesmo gesto.
+ *
+ * **SÓ O TÍTULO** (v1.8.88, pedido do operador) — o rótulo descreve a função e
+ * mais nada. O que era subtítulo virou linha de status do card, e só quando há
+ * o que dizer: ver `serieAutoImpedimento`.
+ */
+function serieAutoLinha(coll) {
+  if (!temCalendario(coll)) return null;
+  const cx = document.createElement('div');
+  cx.className = 'serie-auto';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'song-menu-btn song-menu-sel';
+  const txt = document.createElement('span'); txt.className = 'song-menu-text';
+  const rot = document.createElement('span'); rot.className = 'song-menu-label';
+  rot.textContent = 'Manter o ' + serieNomeCurto(coll)
+    + ' da semana baixado e atualizado na biblioteca';
+  txt.append(rot);
+  const chk = document.createElement('span');
+  chk.className = 'song-menu-check' + (serieAutoLigada(coll) ? ' on' : '');
+  chk.setAttribute('role', 'checkbox');
+  btn.append(txt, chk);
+  cx.appendChild(btn);
+
+  // A MARCA é de MEMÓRIA e sai na hora — a linha nunca muda de altura depois de
+  // desenhada, que é o que uma leitura de IndexedDB no meio produziria.
+  btn.setAttribute('aria-checked', serieAutoLigada(coll) ? 'true' : 'false');
+  // O IMPEDIMENTO depende do DISCO (há arquivo?), então ele pousa depois — na
+  // LINHA DE STATUS do card, não na linha da opção: ela não muda de tamanho, e
+  // o status é transitório por construção.
+  const epi = serieEpisodioDaSemana(coll);
+  serieArquivoDoEpisodio(epi).then((rec) => {
+    const porque = serieAutoImpedimento(coll, epi, rec);
+    if (porque) setCollStatus(coll.id, porque, 6000);
+  }).catch(() => {});
+
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await alternarSerieAuto(coll);
+  });
+  return cx;
+}
+
+/**
+ * MARCAR E DESMARCAR.
+ *
+ * `updateState` e não `getState` + `setState`: são DUAS séries hoje, e o
+ * operador pode marcar as duas antes de a primeira transação fechar — o par
+ * lido-calculado-gravado tem um vão em que quem lê primeiro grava por último e
+ * leva a marca do outro junto. É a regra escrita do projeto para toda chave de
+ * `state`, e o sintoma dela é a AUSÊNCIA de sintoma.
+ *
+ * MARCAR DISPARA A ROTINA NA HORA. A alternativa seria esperar o próximo
+ * `visibilitychange`, e o instante em que o operador marca é exatamente o
+ * instante em que ele quer o vídeo — pedir uma troca de app para isso acontecer
+ * seria cobrar um gesto que não explica nada.
+ *
+ * DESMARCAR SOLTA O ARQUIVO pela mesma rotina, e não por um caminho próprio: o
+ * `listSet` dela recalcula a lista inteira a partir de quem está marcado, então
+ * a série que saiu deixa de contribuir e o blob morre na mesma transação — se
+ * nenhuma outra lista o segurar. Um `listRemove` aqui seria a segunda escrita
+ * da mesma regra.
+ */
+async function alternarSerieAuto(coll) {
+  if (!coll || !temCalendario(coll)) return;
+  const liga = !serieAutoLigada(coll);
+  if (liga) serieAuto.add(coll.id); else serieAuto.delete(coll.id);
+  await AVDB.updateState('serieAuto', (v) => {
+    const m = Object.assign({}, v || {});
+    if (liga) m[coll.id] = true; else delete m[coll.id];
+    return m;
+  }).catch(() => {});
+  renderCollectionsNow();
+  manterSeriesDaSemana().catch(() => {});
+}
+
+/**
+ * A ROTINA. Ela faz três coisas, nesta ordem, e a ordem importa:
+ *
+ *  1. **BAIXA o que falta** da semana corrente, uma série por vez;
+ *  2. **RECALCULA a lista de retenção** com os ids da semana corrente;
+ *  3. e é o passo 2 que **LIMPA as semanas passadas** — o `listSet` coleta o
+ *     que saiu, na mesma transação, se ninguém mais o segurar.
+ *
+ * ===== A LIMPEZA SÓ ENCOLHE COM O SUBSTITUTO NA MÃO =====
+ *
+ * A ordem (baixar, depois limpar) **não bastava, e isto foi MEDIDO**: com o
+ * download falhando — rede caída, ou o vídeo ainda não liberado pelo canal, que
+ * é o caso NORMAL de segunda a sexta — a lista recalculada saía VAZIA e o
+ * `listSet` matava o episódio da semana passada de qualquer jeito. O operador
+ * ficava sem nenhum dos dois, e sem nada na tela dizendo por quê.
+ *
+ * A regra é: **a semana passada só sai quando a nova ENTRA.** Sem o arquivo
+ * novo, o que esta série já retinha continua retido (`serieRetidosDa`), e o
+ * pior caso passa a ser um episódio a mais no aparelho até o download vir. A
+ * ORDEM continua importando — ela é o que faz o passo 2 ver o arquivo que o
+ * passo 1 acabou de trazer —, mas quem fecha o caso é esta regra.
+ *
+ * E ELA RODA COM A OPÇÃO DESMARCADA TAMBÉM — chamada por `alternarSerieAuto` e
+ * pelo `autoRefreshCollections`, sempre. É o passo 2 que precisa disso: sem uma
+ * passada com a série já fora de `serieAuto`, desmarcar não soltaria nada.
+ */
+/**
+ * OS IDS QUE ESTA SÉRIE JÁ RETÉM — a metade que impede a limpeza de apagar a
+ * semana passada quando o download da nova não veio.
+ *
+ * A pergunta é feita pelo `youtubeId` do registro contra os `id_music` do
+ * índice, e não por um campo nosso no registro: o arquivo de um episódio é um
+ * vídeo do YouTube como qualquer outro (é o mesmo `ytArquivo`), e inventar uma
+ * marca de "pertence à série X" seria um segundo vínculo a manter em dia com o
+ * primeiro.
+ *
+ * `retidos` chega por parâmetro porque o laço o lê UMA vez: são duas séries e no
+ * máximo um punhado de ids, mas reler a lista por série faria a conta depender
+ * da ordem em que elas são visitadas.
+ */
+async function serieRetidosDa(coll, retidos) {
+  const daSerie = new Set(collSongs(coll.id).map((s) => s.id_music));
+  const meus = [];
+  for (const id of retidos) {
+    const rec = await AVDB.getMedia(id).catch(() => null);
+    if (rec && rec.youtubeId && daSerie.has(rec.youtubeId)) meus.push(id);
+  }
+  return meus;
+}
+
+async function manterSeriesDaSemana() {
+  if (serieAutoRodando) return;
+  const series = allCollections().filter((c) => c.kind === 'serie');
+  if (!series.length) return;
+  serieAutoRodando = true;
+  try {
+    const guardar = [];
+    const retidos = await AVDB.listIds(SERIE_LISTA).catch(() => []);
+    for (const coll of series) {
+      // DESMARCADA, ela não contribui com nada — e é isso que faz desmarcar
+      // soltar o arquivo, sem um caminho próprio para isso.
+      if (!serieAutoLigada(coll)) continue;
+      const epi = serieEpisodioDaSemana(coll);
+      // SEM EPISÓDIO DA SEMANA (a lista ainda não o trouxe), o que esta série já
+      // retém FICA: encolher aqui apagaria o da semana passada por causa de um
+      // índice que ainda não atualizou.
+      if (!epi) { guardar.push(...await serieRetidosDa(coll, retidos)); continue; }
+      let rec = await serieArquivoDoEpisodio(epi);
+      // BAIXAR é o caminho da EXCEÇÃO aqui: o caso normal, semana após semana, é
+      // o arquivo já estar no aparelho e esta função só reescrever a lista.
+      if (!rec && window.__NATIVE__
+          && isConfirmedWifi() && rotinaDeAcervoPodeCorrer()) {
+        // O `videoComoYoutube` é o MESMO objeto que a folha de opções monta: é
+        // ele que carrega `semSoAudio`, a duração, o canal, a chave da linha (o
+        // anel de download do quadrado à esquerda) e o aviso da janela de
+        // antecedência. Um objeto próprio aqui perderia os cinco, e o primeiro
+        // a aparecer seria o pior — um episódio baixando sem nada na tela.
+        const r = videoComoYoutube(coll, epi);
+        setCollStatus(coll.id, 'Baixando o episódio desta semana…');
+        renderCollectionsNow();
+        // `withBgRotina` e não `withBgWork`: isto é *"a ROTINA que ninguém
+        // pediu"* — protege o processo do congelamento igual e NÃO adia a
+        // pergunta da atualização, que é a diferença inteira entre as duas.
+        rec = await withBgRotina(() => ytArquivo(r, {
+          lista: SERIE_LISTA,
+          altura: ytAlturaPadrao(),   // *"a qualidade padrão que o usuário tem em seleção"*
+          // `'nenhum'`: nenhuma superfície da tela está esperando por isto.
+          // Quem mostra o andamento é a notificação do sistema (o `bgTaskStart`
+          // de dentro do `ytBaixarNativo`) mais o anel da linha, pelo `onPct`.
+          aviso: 'nenhum',
+          onPct: (pct) => setYtEstado(r.id, 'baixando', pct),
+        })).catch(() => null);
+        setYtEstado(r.id, rec ? 'pronto' : null);
+        setCollStatus(coll.id, rec ? 'Episódio desta semana baixado' : '', rec ? 4000 : 0);
+      }
+      // O SUBSTITUTO ENTROU? Só então a lista desta série encolhe para ele. Sem
+      // ele, o que já estava retido continua — ver o KDoc acima.
+      if (rec) guardar.push(rec.id);
+      else guardar.push(...await serieRetidosDa(coll, retidos));
+    }
+    // O PASSO QUE LIMPA. `listSet` com a lista INTEIRA (e não `listAdd` mais um
+    // `listRemove` por item) porque é ele que coleta o que saiu na MESMA
+    // transação — e porque a lista é pequena e conhecida por construção: um id
+    // por série marcada, no máximo.
+    await AVDB.listSet(SERIE_LISTA, guardar).catch(() => {});
+    renderCollectionsNow();
+  } finally { serieAutoRodando = false; }
+}
+
 // O ÍNDICE DE UMA COLEÇÃO PRECISA SER REFEITO?
 //
 // Ela é uma função nomeada, e não o corpo de um `filter`, porque o oráculo
@@ -16783,6 +18607,10 @@ async function autoRefreshCollections() {
     await Promise.all([
       ...FIXED_COLLECTIONS.filter(idle).map((c) => fetchCollectionIndex(c).catch(() => {})),
       fetchAlbumCatalog().catch(() => {}),
+      // O CATÁLOGO DE VÍDEOS, na fase 1 e não na 2: ele é UMA requisição para o
+      // acervo inteiro, como o `pt_categories` ao lado — barato, e o que ele
+      // traz são os próprios cards, não o índice de um card que já existe.
+      fetchOnlineCatalog().catch(() => {}),
     ]);
     // Fase 2: índice de cada álbum (só os que estão vazios ou vencidos pelo TTL).
     const now = Date.now();
@@ -16799,6 +18627,10 @@ async function autoRefreshCollections() {
     const forcarIndice = (c) => c.kind === 'album'
       && !indicesForcados.has(c.id)
       && countDownloaded(c.id) > 0;
+    // A coletânea de vídeos do LouvorJA fica FORA desta fase de propósito: o
+    // índice dela não é por card (ver `fetchCollectionIndex`), e quem a
+    // atualiza é o `fetchOnlineCatalog` da fase 1, ao lado do `albumCatalog`
+    // pelo mesmo motivo — uma requisição, o acervo inteiro.
     const stale = allCollections().filter(
       (c) => (c.kind === 'album' || c.kind === 'serie') && idle(c)
         && (indiceVencido(c, now) || forcarIndice(c)));
@@ -16832,6 +18664,15 @@ async function autoRefreshCollections() {
     // sempre foi — informação padrão do acervo, uma vez por sessão, em segundo
     // plano —, e o download deixa de ser a única porta.
     syncCifrasAcervo().catch(() => {});
+    // Fase 5: O EPISÓDIO DA SEMANA das séries marcadas (v1.8.87), pelo mesmo
+    // caminho e pelo mesmo motivo das duas acima — e DEPOIS delas de propósito:
+    // ela roda sobre a lista que a fase 2 acabou de refazer, e é aquela fase
+    // que faz o episódio do sábado existir no índice. Invertida, a primeira
+    // abertura da semana não acharia nada para baixar.
+    //
+    // Fire-and-forget: nada na tela espera por ela, e o andamento vai para a
+    // notificação como todo trabalho de massa deste app.
+    manterSeriesDaSemana().catch(() => {});
   } finally { collectionsRefreshing = false; }
 }
 
@@ -17078,7 +18919,7 @@ async function syncCollection(coll, opts) {
  * a faixa ainda falta, então um registro sem o campo seria rebaixado a cada
  * sincronização, para sempre, sem nada na tela que o explicasse.
  */
-async function downloadSerieItem(coll, s) {
+async function downloadItemDeVideo(coll, s) {
   if (!s.ytUrl) return false;
   let r;
   try { r = await AVNative.ytFetch(s.ytUrl, null, false, 0); }
@@ -17121,7 +18962,13 @@ async function downloadSerieItem(coll, s) {
 }
 
 async function downloadCollectionSong(coll, s) {
-  if (coll.kind === 'serie') return downloadSerieItem(coll, s);
+  // PELA CAPACIDADE, nunca por `kind === 'serie'` (a regra do bloco
+  // `tipoDaColecao`): o caminho abaixo baixa `music_<id>` do LouvorJA, e um
+  // item que é um LINK não tem `id_music` que aquele banco reconheça. Escrito
+  // como `kind === 'serie'`, a coletânea de vídeos do LouvorJA cairia no
+  // caminho do áudio e pediria um metadado que nunca existe — uma requisição
+  // perdida por item, por sincronização, sem erro em lugar nenhum.
+  if (ehLink(coll)) return downloadItemDeVideo(coll, s);
   let meta;
   try { meta = await Louvorja.fetchList('music_' + s.id_music); }
   catch (_) { return false; } // sem rede agora; a próxima sincronização tenta de novo
@@ -17764,28 +19611,139 @@ async function syncLyrics() {
 // A FOLGA DE 2px não é superstição: `scrollTop` é fracionário em telas de alta
 // densidade, e o fim da lista costuma dar `scrollHeight - scrollTop -
 // clientHeight` de 0,5px. Com zero, o véu de baixo piscava no último pixel.
-function acertarVeuDaLista() {
-  const el = hymnResultsEl;
+function acertarVeu(el) {
   if (!el) return;
   const acima = el.scrollTop > 2;
   const abaixo = el.scrollHeight - el.scrollTop - el.clientHeight > 2;
   if (el.classList.contains('tem-acima') !== acima) el.classList.toggle('tem-acima', acima);
   if (el.classList.contains('tem-abaixo') !== abaixo) el.classList.toggle('tem-abaixo', abaixo);
 }
-// Coalescido por quadro: o `scroll` de um gesto chega mais de uma vez por
-// quadro e a conta acima lê `scrollHeight`, que força layout.
+// ===== UM CONJUNTO SÓ, E ELE SE MANTÉM SOZINHO =====
+//
+// O `ResizeObserver` é RELIGADO só quando o CONJUNTO de `.rola` muda — não a
+// cada varredura. Alguns scrollers nascem em runtime (as duas metades da
+// Bíblia, os painéis da folha de Ferramentas) e re-observar sem desligar
+// seguraria o nó morto para sempre; religar a cada quadro seria o oposto, um
+// `disconnect`/`observe` de catorze nós por render.
+const veuRO = new ResizeObserver(() => pedirVeus());
+let veuVistos = [];
+// ===== O VEREDITO NUNCA É GUARDADO =====
+//
+// A varredura relê as três medidas a cada passada, e isso é decisão, não
+// desleixo: um veredito em cache sobrevive ao contêiner mudando de natureza. O
+// `#simpleLyrics` VIRA `display: grid` em runtime (`.lv-grade`, a letra como
+// apresentação em duas colunas), e uma marca escrita enquanto ele era flex
+// continuaria valendo — MEDIDO, com a tira presa numa célula da grade a página
+// 1 do deck ia 188px para a segunda coluna, no meio do culto. O veredito da
+// grade (`sem-veu`, abaixo) é reescrito nesta mesma passada, e é isso que o faz
+// voltar sozinho quando o contêiner deixa de ser grade — a volta é onde um
+// cache erra, e erra calado.
+// ===== E AS CINCO MEDIDAS SÃO LIDAS, NUNCA TRANSCRITAS =====
+//
+// A tira precisa SUMIR da conta de rolagem, e quem a cancela são margens
+// negativas que somam a altura dela ao `gap` do scroller; a de baixo ainda
+// compensa o `padding-bottom`. Os números são todos do LAYOUT, e a primeira
+// escrita deste lote os declarou à mão no CSS: MEDIDO, **quatro das catorze
+// linhas estavam erradas** (o `gap` do auxiliar de leitura é 19,26px e a tabela
+// dizia 8px), e o `scrollHeight` não acusou porque aquelas listas não
+// transbordavam no cenário — o defeito só apareceria em uso.
+//
+// LER É A CORREÇÃO, e ela é de graça aqui: esta varredura já força layout ao
+// pedir `scrollHeight`. As LEITURAS vêm todas antes das ESCRITAS de propósito —
+// intercalar as duas faz o navegador recalcular o layout a cada elemento —, e a
+// escrita só acontece quando o valor VIRA, senão cada passada sujaria o estilo
+// de catorze nós para reescrever o que já estava lá.
+// O caminho da ROLAGEM não passa por aqui (`acertarVeu` direto): rolar não muda
+// `gap` nem recuo, e pagar `getComputedStyle` a cada quadro de um gesto seria o
+// oposto do que a coalescência existe para evitar.
+function acertarVeus() {
+  const alvos = [...document.querySelectorAll('.rola')];
+  if (alvos.length !== veuVistos.length || alvos.some((el, i) => el !== veuVistos[i])) {
+    veuRO.disconnect();
+    for (const el of alvos) veuRO.observe(el);
+    veuVistos = alvos;
+  }
+  const medidas = alvos.map((el) => {
+    const cs = getComputedStyle(el);
+    return { vao: cs.rowGap === 'normal' ? '0px' : cs.rowGap,
+      display: cs.display, eixo: cs.overflowY,
+      topo: cs.paddingTop, base: cs.paddingBottom, esq: cs.paddingLeft, dir: cs.paddingRight };
+  });
+  alvos.forEach((el, i) => {
+    for (const campo of ['vao', 'topo', 'base', 'esq', 'dir']) {
+      if (el.style.getPropertyValue('--veu-' + campo) !== medidas[i][campo]) {
+        el.style.setProperty('--veu-' + campo, medidas[i][campo]);
+      }
+    }
+    // ===== QUEM FICA SEM A TIRA, E OS DOIS MOTIVOS SÃO MEDIDOS =====
+    //
+    // (1) A GRADE. O pseudo-elemento de um contêiner de grade **é um item
+    // dela**: a tira toma a primeira célula e empurra o conteúdo uma casa.
+    // MEDIDO no `#simpleLyrics` com a letra virada apresentação (`.lv-grade`,
+    // duas colunas): a página 1 do deck ia 188px para a segunda coluna, no meio
+    // do culto. A `.bible-grid--books` é o segundo caso.
+    //
+    // (2) QUEM NÃO ROLA. A marca é escrita na FONTE, e uma regra pode tirar a
+    // rolagem do elemento marcado por baixo dela: MEDIDO, o `#msgWrap` veste
+    // `.misc-panel` (que carrega a marca) e `.misc-panel--msg { overflow:
+    // hidden }` vence — quem rola ali é a `.msg-list` de dentro. Uma sombra
+    // sobre uma caixa que não rola descreve algo que não existe.
+    //
+    // Os dois são o `display` e o `overflow-y` COMPUTADOS, relidos a cada
+    // passada, e não uma lista de seletores — que é a lista que se esquece de
+    // crescer, e que envelheceria calada nos DOIS sentidos.
+    const fora = /grid/.test(medidas[i].display) || !/auto|scroll/.test(medidas[i].eixo);
+    if (el.classList.contains('sem-veu') !== fora) el.classList.toggle('sem-veu', fora);
+  });
+  for (const el of alvos) acertarVeu(el);
+}
+// Coalescido por quadro: o `scroll` de um gesto chega mais de uma vez por quadro
+// e a conta lê `scrollHeight`, que força layout.
 let veuPedido = false;
-function pedirVeuDaLista() {
+function pedirVeus() {
   if (veuPedido) return;
   veuPedido = true;
-  requestAnimationFrame(() => { veuPedido = false; acertarVeuDaLista(); });
+  requestAnimationFrame(() => { veuPedido = false; acertarVeus(); });
 }
-// UM ouvinte, no boot: `#hymnResults` é o MESMO nó entre uma abertura e a
-// seguinte (é a razão de o `openHymnSearch` precisar zerar o `scrollTop` à
-// mão), então registrar por abertura empilharia ouvintes para sempre.
+// ===== UM OUVINTE SÓ, EM CAPTURA =====
+//
+// `scroll` não BORBULHA, mas CAPTURA — e é isso que faz um ouvinte no
+// `document` ver a rolagem de todos os scrollers do app. A alternativa (um por
+// elemento) empilha ouvintes a cada folha reaberta, que é o defeito que a
+// v1.5.16 evitou registrando o dela no boot: para um scroller só aquilo
+// bastava, para catorze não basta, porque vários são recriados.
 // `passive` porque ele não cancela nada — sem isso o Chromium não pode
 // adiantar a rolagem.
-if (hymnResultsEl) hymnResultsEl.addEventListener('scroll', pedirVeuDaLista, { passive: true });
+document.addEventListener('scroll', (e) => {
+  const el = e.target;
+  if (el && el.nodeType === 1 && el.classList && el.classList.contains('rola')) acertarVeu(el);
+}, { capture: true, passive: true });
+
+// ===== E A ROLAGEM NÃO É O ÚNICO JEITO DE A RESPOSTA MUDAR =====
+//
+// Este é o defeito que a generalização quase publicou, e ele é MUDO: um render
+// que troca o conteúdo **sem mexer na caixa e sem rolar** — que é a forma de
+// quase todo render deste app (`innerHTML = ''` mais appends, com o `scrollTop`
+// já em zero) — não dispara `scroll` NEM `ResizeObserver`. MEDIDO: a Biblioteca
+// foi de 511 para 1707 de altura rolável com `tem-abaixo` FALSO, isto é, sem
+// sombra sobre uma lista que passou a esconder conteúdo.
+//
+// ===== E O OBSERVADOR É UM SÓ, NO DOCUMENTO INTEIRO =====
+//
+// A primeira escrita observava `childList` de CADA scroller, com o argumento de
+// que `subtree` faria "cada `timeupdate` da mídia varrer tudo". **MEDIDO, e o
+// argumento caiu:** um `childList: true, subtree: true` no documento inteiro
+// registrou ZERO callbacks em 6 s de `display-status` a 4 Hz (o caminho quente
+// do culto), e uma varredura completa dos catorze custa 0,093 ms. O que o
+// observador por elemento cobrava em troca era uma OBRIGAÇÃO por chamador —
+// todo lugar que montasse um scroller novo tinha de lembrar de religar —, e
+// obrigação por chamador é o que este projeto chama de nascer mudo. Com um
+// observador só, um `.rola` novo em qualquer canto passa a valer sozinho.
+//
+// Ele observa `childList`, e só: as escritas desta varredura (as duas medidas
+// inline e as duas classes) são de ATRIBUTO, então não há laço.
+new MutationObserver(() => pedirVeus())
+  .observe(document.documentElement, { childList: true, subtree: true });
 
 function openHymnSearch(comFoco) {
   hymnSearchInputEl.placeholder = 'Nome, número ou trecho da letra…';
@@ -17813,9 +19771,6 @@ function openHymnSearch(comFoco) {
   // v5.278 (a camada fixa seguindo a viewport visual): com a barra no topo da
   // folha e nada rolando além da lista, não há o que acompanhar.
   hymnResultsEl.scrollTop = 0;
-  // O véu conferido AQUI e não só no `scroll`: um render muda o `scrollHeight`
-  // sem que nenhuma rolagem aconteça, e a Biblioteca abre com a lista parada.
-  acertarVeuDaLista();
   // O TECLADO SOBE NOS DOIS MODOS, um tempo DEPOIS da tela (260 ms: o fade de
   // .25s mais um quadro). Simultâneos, o teclado ENCOLHE a faixa visível
   // (`--kb`/`--vv-top`) enquanto a folha ainda aparece — dois movimentos sobre
@@ -18045,16 +20000,7 @@ function closeHymnSearch() {
 // visível em volta — o operador não perde onde estava para ver o que tem dentro.
 function searchIsBrowsing(q) { return !q; }
 
-// A casca do `renderSearchResults`, na forma que o `renderCollectionsList` já
-// usa: o miolo tem saídas antecipadas (índice vazio, zero resultados) e o véu
-// das bordas precisa ser reconferido depois de TODAS elas — um render muda o
-// `scrollHeight` sem que nenhuma rolagem aconteça. `finally` porque uma exceção
-// no miolo não pode deixar o véu descrevendo a lista anterior.
 function renderSearchResults(query) {
-  try { renderSearchResultsMiolo(query); } finally { acertarVeuDaLista(); }
-}
-
-function renderSearchResultsMiolo(query) {
   const q = normalizeForSearch(query).trim();
   // Digitou outra coisa: os resultados do YouTube da busca anterior saem de
   // cena. Deixá-los ali embaixo de um termo novo é oferecer a resposta errada.
@@ -18355,7 +20301,7 @@ function setYtEstado(id, estado, pct) {
     if (li.dataset.yt !== id) return;
     pintarYtLinha(li, ytEstado.get(id));
   });
-  // E A LINHA DA COLEÇÃO, quando o vídeo veio de uma (ver `serieComoYoutube`).
+  // E A LINHA DA COLEÇÃO, quando o vídeo veio de uma (ver `videoComoYoutube`).
   // O anel dela é montado DENTRO da linha, então a marca sobrevive ao redesenho
   // do acervo — que roda a cada 400 ms durante uma sincronização.
   const chave = ytLinhas.get(id);
@@ -18582,7 +20528,7 @@ function openYtMenu(r, alvoDado) {
   // qualidade remontam a lista, e precisam refazê-la no mesmo lugar.
   const alvo = songMenuFor.alvo || songMenuListEl;
   if (!songMenuFor.alvo) songMenuTitleEl.textContent = r.name || 'Vídeo do YouTube';
-  alvo.innerHTML = '';
+  limparFolha(alvo);
   // VÍDEO × SÓ ÁUDIO, no MESMO seletor de Cantada/Playback das músicas do
   // acervo — é a mesma pergunta ("qual faixa deste item?") e não havia por que
   // inventar um segundo desenho para ela. A escolha vale para as quatro ações
@@ -18610,15 +20556,23 @@ function openYtMenu(r, alvoDado) {
   // Shell ≥ 25, pelo método `ytFetchAte` da ponte. Num anterior a linha não
   // aparece e o download sai no padrão de sempre — que é exatamente o que este
   // app fazia até agora, então nada regride.
-  // O DEGRAU "ONLINE" SAIU na v1.7.7, junto com a transmissão direta que ele
-  // existia para alimentar: um item guardado só como link é um item que, ao
-  // tocar, teria de vir da internet ao vivo — e é exatamente isso que o
-  // operador mandou abandonar. Toda qualidade daqui BAIXA bytes.
+  // TODA QUALIDADE DAQUI BAIXA BYTES: não há degrau que guarde só o link.
   //
   // E ESCOLHER AQUI É ESCOLHER O PADRÃO (`adotarAlturaPreferida`): a escolha
   // sobrevive à sessão e passa a valer para o próximo vídeo, que é o pedido ao
   // pé da letra.
-  if (window.__NATIVE__ && !songMenuFor.audio) {
+  // E O SELETOR SOME QUANDO O ARQUIVO JÁ ESTÁ AQUI (`semQualidade`, v1.8.87).
+  // Pedido do operador, sobre o episódio mantido baixado: *"ele dá as opções no
+  // formato que temos para os hinos baixados, que omite a questão da qualidade,
+  // pois não precisa mais dessa ação"*.
+  //
+  // É a MESMA regra que já tira a linha no caminho de só-áudio, uma condição
+  // acima: uma escolha que não muda nada é pior que escolha nenhuma. Com bytes
+  // no aparelho, `ytArquivo` REAPROVEITA o registro e o teto não é consultado —
+  // deixar a escada na tela prometeria que tocar em "480p" faria o vídeo voltar
+  // menor, e o que ela faria de fato é gravar um padrão novo para o PRÓXIMO
+  // vídeo, calado.
+  if (window.__NATIVE__ && !songMenuFor.audio && !r.semQualidade) {
     alvo.appendChild(ytSegRow(
       YT_ALTURAS.map((h) => [h, h + 'p']),
       songMenuFor.alt | 0,
@@ -18672,15 +20626,16 @@ function openYtMenu(r, alvoDado) {
   const subTocar = soAudio ? 'Sem mexer no telão' : 'Sem entrar em lista nenhuma';
   alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora', subTocar,
     (vr, btn, alvos) => ytAcao(r, alvos, null, soAudio, altura), 'tocar', remontar));
+  // OS TRÊS DESTINOS SAEM DA TABELA, na ordem dela (v1.8.56) — ver `DESTINOS`.
+  // Escritos à mão aqui, esta folha e a do acervo divergiam da gaveta e da
+  // folha de importação, que já percorriam a tabela.
   const subGuardar = '';
-  alvo.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', subGuardar,
-    (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'playlist', remontar));
-  alvo.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', subGuardar,
-    (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'cronograma', remontar));
-  alvo.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', subGuardar,
-    (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'favoritos', remontar));
+  DESTINOS.forEach((d) => {
+    alvo.appendChild(songMenuItem(msym(ICON[d.ico]), d.acao, subGuardar,
+      (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), d.chave, remontar));
+  });
   const go = destConfirmRow();
-  if (go) alvo.appendChild(go);
+  if (go) porFecho(alvo, go);
   // Só a FOLHA abre; no corpo da linha quem abre é o acordeão do chamador.
   if (!songMenuFor.alvo) songMenuPopupEl.classList.add('open');
 }
@@ -18691,13 +20646,12 @@ function openYtMenu(r, alvoDado) {
 //
 // Um registro `kind: 'youtube'` é o LINK sem bytes — a última carta de quando
 // o download falhou. Sem o embed (removido na v5.212) ele deixa de ser tocável
-// como link e é RESOLVIDO no toque, por DOWNLOAD (`ytArquivo`). Era uma escada
-// de dois degraus até a v1.7.7, e o primeiro (a transmissão direta) saiu do app.
+// como link e é RESOLVIDO no toque, por DOWNLOAD (`ytArquivo`).
 //
 // O DOWNLOAD TROCA O ITEM NA LISTA. O arquivo é durável e
 // toma o lugar do link EM POSIÇÃO — `listSet` com função é read-modify-write
 // atômico, e `listAdd`+`listRemove` mandaria o item para o fim de um Cronograma
-// que alguém montou à mão. O manifesto de uma transmissão expira em horas.
+// que alguém montou à mão.
 const LISTAS_DO_OPERADOR = ['playlist', 'imports', 'favs'];
 
 async function trocarLinkPeloArquivo(velhoId, novoId) {
@@ -18940,17 +20894,6 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
   // reaproveitamento do arquivo e o download.
   const soAudio = !!somenteAudio;
 
-  // A TRANSMISSÃO DIRETA SAIU DAQUI (v1.7.7). Ela era o caminho do "Tocar
-  // agora": o shell montava o manifesto, o `mse.js` o virava um `<video>` e a
-  // cena entrava com o primeiro fragmento, na casa dos kB — sem esperar
-  // centenas de MB.
-  //
-  // Pedido do operador: *"vamos abandonar o modo online direto, ele é muito
-  // instável"*, depois de relatar travamentos a cada um ou dois segundos com o
-  // espelhamento no ar. O preço está aceito e é o que ela existia para evitar:
-  // "Tocar agora" agora ESPERA o download. O cartão sobre a preview e a barra
-  // de progresso já cobrem essa espera — é o mesmo caminho do `ytArquivo`, que
-  // nunca deixou de existir.
 
   const existente = r && r.id ? await AVDB.mediaByYoutube(r.id, soAudio ? 'audio' : 'video') : null;
   // "Já estava lá" é sobre o CONJUNTO: com mais de um destino, o que interessa
@@ -19443,6 +21386,19 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   // atravessam de um item para o outro. O acordeão fecha a linha anterior, então
   // há no máximo uma gaveta aberta — é isso que deixa `songMenuFor`,
   // `destExecutor` e `destRemontar` continuarem sendo um só.
+  /**
+   * Monta a metade de cima da gaveta. **Devolve `null` quando não há nada a
+   * esperar, e uma Promise quando há** — e essa assimetria é deliberada.
+   *
+   * Numa MÚSICA a gaveta é só as opções desde a v1.2.25: nada é aguardado, e o
+   * `expanded` sai no PRÓPRIO TURNO do toque. Um `async` aqui daria um tique de
+   * microtarefa mesmo no caminho que não espera nada, e o `expanded` cairia no
+   * turno seguinte — o `gaveta-no-download` mede exatamente isso, e foi ele que
+   * pegou a regressão.
+   *
+   * Num VÍDEO há o que esperar (o disco, pelo `semQualidade`), e ali a espera já
+   * existia: o chamador aguarda o `montarDetalhe` logo depois.
+   */
   function montarOpcoes() {
     destLimpar();
     // O BOTÃO IRMÃO do confirmar (v5.286): quem revela a metade de baixo da
@@ -19515,12 +21471,29 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       // O MESMO `r` nas duas chamadas, e isso é o que faz a segunda funcionar:
       // `openYtMenu` só rearma o estado quando o item MUDA (`songMenuFor.yt !==
       // r`), então repetir com o mesmo objeto preserva o `aoLado` que acabou de
-      // ser posto e apenas redesenha a lista com ele. Um `serieComoYoutube`
+      // ser posto e apenas redesenha a lista com ele. Um `videoComoYoutube`
       // novo seria outro objeto — o estado seria zerado e o irmão sumiria.
-      const r = serieComoYoutube(coll, s);
-      openYtMenu(r, opcoes);
-      if (songMenuFor) { songMenuFor.aoLado = aoLado; openYtMenu(r, opcoes); }
-      return;
+      const r = videoComoYoutube(coll, s);
+      // ===== JÁ ESTÁ NO APARELHO? A QUALIDADE SAI DA FOLHA (v1.8.87) =====
+      //
+      // A leitura é AQUI e não dentro do `openYtMenu` porque aquele é chamado de
+      // volta a cada toque num seletor e a cada marca de destino (é o
+      // `destRemontar`): um `await` lá dentro custaria uma leitura de IndexedDB
+      // por redesenho. Aqui é UMA por gaveta aberta — a guarda `gavetaMontada`
+      // do chamador —, e o `r` carrega a resposta pelas remontagens.
+      //
+      // A marca vale para TODO episódio com bytes no aparelho, não só para o da
+      // semana mantido pela rotina: a pergunta é *"há o que baixar?"*, e ela não
+      // depende de quem baixou.
+      //
+      // E ela é lida ANTES de montar, não depois: a folha remontada com o
+      // seletor sumindo faria a gaveta mudar de altura sozinha, um tique depois
+      // de abrir — e a animação do acordeão já mediu a caixa.
+      return serieArquivoDoEpisodio(s).then((rec) => {
+        r.semQualidade = !!rec;
+        openYtMenu(r, opcoes);
+        if (songMenuFor) { songMenuFor.aoLado = aoLado; openYtMenu(r, opcoes); }
+      });
     }
     songMenuFor = { coll, s, variant: 'full', alvo: opcoes, aoLado };
     // A marca nasce AQUI e não em `renderSongMenu`: aquela função é também o
@@ -19530,6 +21503,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     // devolveria, no mesmo quadro.
     destPadraoTocar();
     renderSongMenu();
+    return null;   // nada a esperar — ver o KDoc
   }
 
   // OS DETALHES DA REDE, quando eles chegam — o título cru e a descrição.
@@ -19730,7 +21704,12 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       // de repeti-la (e para o próximo tipo não poder esquecê-la).
       if (!gavetaMontada) {
         gavetaMontada = true;
-        montarOpcoes();
+        // SÓ ESPERA QUEM TEM O QUE ESPERAR (ver o KDoc de `montarOpcoes`). Um
+        // `await` incondicional custaria um tique de microtarefa também na
+        // MÚSICA, e ali o `expanded` tem de sair no turno do toque — é a
+        // asserção do `gaveta-no-download`.
+        const pendente = montarOpcoes();
+        if (pendente) await pendente;
         if (!temLetra(coll)) await montarDetalhe();
       }
       li.classList.add('expanded');
@@ -19820,17 +21799,23 @@ function destUniao(chave) {
  * casca do card veio — e naquele mundo o toque BAIXA (uma faixa de hinário são
  * poucos MB e o acervo existe para ficar offline). Aqui a premissa não vale: são
  * ~300 MB por episódio, e o vídeo do sábado é visto uma vez. Quem já resolvia
- * isso é o caminho do YouTube, com a TRANSMISSÃO DIRETA no "Tocar agora" e o
- * download só nos destinos que GUARDAM.
+ * isso é o caminho do YouTube: o download só acontece a pedido, e não por
+ * abrir o álbum.
  *
  * `semSoAudio` é a única diferença: o seletor Vídeo × Só áudio some. Um
  * testemunho em vídeo não tem versão de áudio que faça sentido projetar, e uma
  * escolha que não muda nada é pior que escolha nenhuma.
+ *
+ * **ELA SERVE AS DUAS COLEÇÕES DE VÍDEO** — a série e a coletânea do LouvorJA —,
+ * e por isso deixou de se chamar `serieComoYoutube`: nada aqui é da série
+ * exceto o aviso de antecedência logo abaixo, que é guardado por `s.serieData`
+ * e por isso não alcança um item que não o tenha. O nome antigo mandaria o
+ * próximo leitor escrever uma segunda cópia disto para a coletânea nova.
  */
-function serieComoYoutube(coll, s) {
+function videoComoYoutube(coll, s) {
   const r = { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true,
     // OS DOIS QUE VIAJAM PARA O REGISTRO (v1.5.21). Um episódio guardado como
-    // LINK ("Online") ou baixado nasce com a duração e o canal que o índice já
+    // LINK ou baixado nasce com a duração e o canal que o índice já
     // sabe — sem eles, o mesmo vídeo perdia os dois ao sair do álbum para o
     // Cronograma. Os nomes são os do `r` da BUSCA (`seconds`/`author`), porque
     // quem os consome é o mesmo caminho: `ytAcaoInterno` e `ytArquivo` não
@@ -19990,6 +21975,39 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar) {
   return li;
 }
 
+// ============================================================================
+// A FAIXA DE FECHO DE UMA FOLHA NÃO ROLA (v1.8.60)
+// ============================================================================
+//
+// Relato do operador: *"verifique também o scroll do exportar, que está com o
+// botão de salvar dentro do scroll, ao invés de ficar fora, fixo na base, com
+// suas margens corretamente"*. A `.song-menu-go-row` era o último `<li>` da
+// `.popup-list`, isto é, DENTRO do scroller: na folha do pacote o "Salvar" só
+// aparecia depois de rolar o acervo inteiro.
+//
+// O DESTINO É DECIDIDO PELO DOM, e não por uma lista de folhas: a faixa vai ao
+// `.popup-fecho` IRMÃO quando ele existe, e fica onde estava quando não existe.
+// Isso importa porque a MESMA faixa tem dois papéis — ela é o rodapé de uma
+// folha e é também uma linha da GAVETA de um item (`songMenuFor.alvo`, v5.285),
+// onde ela é conteúdo e deve rolar com o resto. Uma lista de ids aqui
+// escolheria errado no primeiro chamador novo; a pergunta "há rodapé ao lado?"
+// não tem como envelhecer.
+function fechoDaFolha(alvo) {
+  const pai = alvo && alvo.parentElement;
+  return pai ? pai.querySelector(':scope > .popup-fecho') : null;
+}
+// Esvaziar a folha é esvaziar as DUAS caixas. O rodapé sobrevive ao
+// `innerHTML = ''` da lista — é irmão dela —, e sem esta função cada render
+// empilharia mais um confirmar embaixo do anterior.
+function limparFolha(alvo) {
+  alvo.innerHTML = '';
+  const fecho = fechoDaFolha(alvo);
+  if (fecho) fecho.innerHTML = '';
+}
+function porFecho(alvo, li) {
+  (fechoDaFolha(alvo) || alvo).appendChild(li);
+}
+
 // A linha de confirmação, no fim da folha e só com algo marcado. Ela existe
 // para o caso em que já não há linha a tocar: marcados Playlist e Favoritos,
 // tocar numa terceira linha acrescentaria um destino que ninguém pediu.
@@ -20135,10 +22153,8 @@ function escolherDestinos(titulo, padrao) {
   });
 }
 
-const DEST_ICONE = { playlist: 'queue', cronograma: 'cronoAdd', favoritos: 'star' };
-
 function renderDestPrompt() {
-  songMenuListEl.innerHTML = '';
+  limparFolha(songMenuListEl);
   const remontar = () => renderDestPrompt();
   destRemontar = remontar;
   // AS MESMAS LINHAS DAS OUTRAS FOLHAS (v5.252). Até aqui esta função montava
@@ -20149,7 +22165,7 @@ function renderDestPrompt() {
   // duplicada saíram com a divergência.
   DESTINOS.forEach((d) => {
     songMenuListEl.appendChild(songMenuItem(
-      msym(ICON[DEST_ICONE[d.chave]] || ICON.add), d.rotulo, '',
+      msym(ICON[d.ico] || ICON.add), d.rotulo, '',
       () => {}, d.chave, remontar));
   });
   const li = document.createElement('li');
@@ -20165,7 +22181,7 @@ function renderDestPrompt() {
   go.disabled = !escolhidos.length;
   go.addEventListener('click', () => fecharDestPrompt(escolhidos));
   li.appendChild(go);
-  songMenuListEl.appendChild(li);
+  porFecho(songMenuListEl, li);
 }
 
 function renderSongMenu() {
@@ -20189,7 +22205,7 @@ function renderSongMenu() {
   // Playback e cada marca de destino) refaz a lista, e ele precisa refazê-la no
   // mesmo lugar.
   const alvo = songMenuFor.alvo || songMenuListEl;
-  alvo.innerHTML = '';
+  limparFolha(alvo);
   // (O PARÂMETRO `modo` saiu na v5.286. Ele escolhia entre a metade de TOCAR e a
   // de ADICIONAR, porque cada botão da linha abria a sua — e a v5.285 já tinha
   // acrescentado um terceiro valor, `tudo`, para o corpo da linha. Sem os
@@ -20244,14 +22260,13 @@ function renderSongMenu() {
   alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
     'Sem entrar em lista nenhuma',
     (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'tocar', remontar));
-  alvo.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
-    (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'playlist', remontar));
-  alvo.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
-    (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'cronograma', remontar));
-  alvo.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', '',
-    (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'favoritos', remontar));
+  // OS TRÊS DESTINOS SAEM DA TABELA, na ordem dela (v1.8.56) — ver `DESTINOS`.
+  DESTINOS.forEach((d) => {
+    alvo.appendChild(songMenuItem(msym(ICON[d.ico]), d.acao, '',
+      (vr, btn, alvos) => destExecutor(alvos, btn, vr), d.chave, remontar));
+  });
   const go = destConfirmRow();
-  if (go) alvo.appendChild(go);
+  if (go) porFecho(alvo, go);
 }
 
 // Cena de roteiro da LETRA de uma música do acervo.
@@ -20398,12 +22413,13 @@ async function resolveSongMediaId(coll, s, variant) {
 // respondeu "baixar" já disse como quer que o app se comporte, e repetir a
 // pergunta a cada música viraria ruído no meio do culto.
 async function simplePlaySong(coll, s) {
-  // NO MODO FÁCIL A SÉRIE TAMBÉM TRANSMITE (v5.230), e aqui isso vale ainda
-  // mais: este modo existe para não perguntar nada, e a alternativa seria o
-  // operador esperar ~300 MB de download com o culto rodando. `ytAcao` com
-  // "tocar" e nenhum destino de guarda é exatamente o caminho da transmissão
-  // direta — e, falhando ela, o download de sempre, calado.
-  if (ehLink(coll)) { await ytAcao(serieComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
+  // NO MODO FÁCIL A SÉRIE ENTRA SEM PERGUNTA (v5.230): este modo existe para
+  // não perguntar nada, e `ytAcao` com "tocar" e nenhum destino de guarda é o
+  // caminho do `ytArquivo` — download e projeta, com o cartão sobre a preview
+  // cobrindo a espera. A TRANSMISSÃO DIRETA que este caminho usava saiu na
+  // v1.7.7, e o preço está aceito e escrito: um episódio pesa ~300 MB e o
+  // "Tocar agora" espera por ele.
+  if (ehLink(coll)) { await ytAcao(videoComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
   const { needsFull } = await songVariantsNeeded(coll, s);
   if (needsFull && !(await ensureDownloadConsent())) return;
   playSongVariant(coll, s, 'full');
@@ -20451,13 +22467,10 @@ const PV_FALHA_MS = 5000;
 // mesmo problema na outra ponta, e ele nasceu quando o aro do palco saiu e as
 // DUAS metades da mesma espera viraram o MESMO cartão.
 //
-// Uma espera tem dois donos em sequência: o toque (`cederOPalco`, que cobre a
-// extração de rede) e a carga da mídia (o `onEspera` do palco). O primeiro
-// solta no `finally`, assim que a ação volta; o segundo só acende lá dentro do
-// `load`, depois do fade de saída e do `getMedia`. Entre os dois o contador
-// passa por ZERO — e sem esta carência o cartão sai e volta no meio da mesma
-// espera, que é exatamente o "dois modelos de carregamento" que este lote
-// existe para acabar, com outra roupa.
+// Uma espera pode ter DOIS DONOS EM SEQUÊNCIA — a letra que baixa e a mídia que
+// entra, o download e o "Preparando" que o segue. O primeiro solta no `finally`,
+// o segundo só acende depois; entre os dois o contador passa por ZERO, e sem
+// esta carência o cartão sai e volta no meio da mesma espera.
 //
 // **A carência cobre o pior caso do vão**, que é o `FADE.time` (0,6 s) mais a
 // leitura do IndexedDB. **O preço está dito:** um cartão que de fato acabou fica
@@ -21026,6 +23039,223 @@ let sorteioRodando = false;
 // `YoutubeGrab` não retoma para faixa do acervo.
 let sorteioCancelado = false;
 
+// ===== O BARALHO DA FOLHA (v1.8.84) =====
+//
+// Pedido do operador: *"Essa lista de músicas é aleatória dentro das condições
+// selecionadas, ela mostra todos os disponíveis, mas o número de itens para a
+// 'playlist' fica marcado e ficam no topo da lista… E após jogar para tocar,
+// essa lista marcada é removida, e os itens de baixo são levados para cima,
+// criando a próxima lista selecionada para playlist."*
+//
+// A folha deixou de mostrar UMA CONTA e passou a mostrar A LISTA, e isso exige
+// que a ordem sorteada SOBREVIVA entre os redesenhos: ela é redesenhada a cada
+// tecla, a cada pílula e a cada lote guardado, e reembaralhar em qualquer um
+// deles trocaria debaixo do dedo as músicas que o operador acabou de ler.
+//
+// **ELE GUARDA CHAVES, NUNCA OS ITENS.** `montarPool` refaz os objetos a cada
+// passada (é ele que responde ao contador por tecla digitada), então um baralho
+// de objetos apontaria para a passada anterior — e a comparação por identidade
+// que a lista faz sairia sempre falsa, sem erro nenhum. A chave é
+// `coleção|faixa`, resolvida contra o pool ATUAL na hora de desenhar.
+//
+// AS TRÊS peças, e cada uma responde a uma pergunta diferente. A terceira
+// TROCOU na v1.8.86: era a `sorteioBaralhoChave`, a IMPRESSÃO do pool que
+// decidia quando reembaralhar, e essa decisão deixou de existir (ver
+// `sorteioLista`); no lugar dela entrou a memória do que já saiu, que o mesmo
+// lote passou a exigir — sem ela um lote guardado VOLTA para a lista na passada
+// seguinte, porque guardar não tira a música do acervo e o baralho, que agora é
+// MANTIDO, a lê como quem acabou de entrar no pool.
+let sorteioBaralho = [];          // a ORDEM sorteada, em chaves
+let sorteioMarcadas = new Set();  // O LOTE — o que está marcado AGORA
+let sorteioUsadas = new Set();    // o que JÁ SAIU nesta abertura
+
+// ===== A MARCA É O LOTE, E O LOTE É "QUANTAS" (v1.8.85) =====
+//
+// Pedido do operador: *"as marcações de check devem ficar selecionadas apenas o
+// número de itens selecionado para o filtro atual, o resto da lista segue
+// desmarcado… ajuste para que ao tocar no check para ativar ou desativar, se
+// altere o número selecionado para 'quantas', pois ele é literalmente isso, mas
+// selecionando de forma manual."*
+//
+// **ISTO REVOGA AS DUAS MARCAS DA v1.8.84**, que tinha a caixa marcada em TODAS
+// as linhas (*"esta entra na consideração?"*) e o preenchimento em algumas
+// (*"esta vai tocar?"*). Duas perguntas, dois sinais — e o operador leu uma
+// pergunta só. Ele está certo: *marcar é escolher*, e é o vocabulário do resto
+// do app (a folha de destinos, a seleção múltipla).
+//
+// **`sorteioMarcadas` É A ÚNICA FONTE**, e o número de "Quantas" é derivado
+// (`sorteioMarcadas.size`). Guardar os dois — um número e um conjunto — é a
+// divergência escrita: um toque que atualizasse só um deles faria o seletor
+// discordar da lista, e nenhum dos dois erraria sozinho.
+//
+// A QUANTIDADE deixou de ser o estado e virou um ATALHO: escolher "5" marca as
+// cinco primeiras do baralho. É o que a torna compatível com a marca manual —
+// as duas escrevem no mesmo lugar. (Eram seis PÍLULAS até a v1.8.95; desde a
+// v1.8.96 é uma roleta horizontal de 1 ao teto — ver `sorteioQuantidadeLinha`.)
+//
+// **O QUE PERSISTE CONTINUA SENDO A ESCOLHA**, nunca a marca: `sorteioPrefs.
+// quantos` só é gravado quando a roleta assenta. E ele não perde nada — a marca
+// já é EFÊMERA por pedido do próprio operador (v1.8.84: *"esse check é resetado
+// entre aberturas da janela"*). **A razão antiga disto CAIU na v1.8.96**, e vale
+// dizer por quê: era `sanear` clampar o campo à lista de presets, o que fazia um
+// 4 vindo de marca manual voltar como 1 na abertura seguinte. Com a faixa no
+// lugar da lista qualquer inteiro atravessa, e a regra sobrevive por outro
+// motivo — gravar a cada marca escreveria no banco a cada toque numa linha.
+
+/**
+ * MARCA AS `n` PRIMEIRAS do baralho, e é o único ponto que semeia o lote.
+ *
+ * Chamado de três lugares, e os três precisam do mesmo desfecho: a pílula de
+ * quantidade, a troca de POOL (um filtro, uma palavra — o baralho é outro e as
+ * chaves antigas não existem mais) e o consumo de um lote.
+ */
+function sorteioSemear(n) {
+  const q = Math.max(1, n | 0);
+  sorteioMarcadas = new Set(sorteioBaralho.slice(0, q));
+}
+
+/**
+ * A CHAVE DE UMA FAIXA no baralho. `coll.id` mais o id da música — e o `name`
+ * como último recurso, porque uma coleção montada à mão (a fixture de um
+ * oráculo, um catálogo antigo) pode não ter `id_music`, e duas faixas caindo na
+ * mesma chave fariam a lista perder uma delas em silêncio.
+ */
+function chaveDaFaixa(i) {
+  if (!i) return '';
+  const c = i.coll || {};
+  const m = i.s || {};
+  return String(c.id || c.name || '') + '|' + String(m.id_music != null ? m.id_music : (m.name || ''));
+}
+
+/**
+ * ===== O FILTRO CORTA; ELE NÃO SORTEIA DE NOVO (v1.8.86) =====
+ *
+ * Pedido do operador: *"ajuste a atualização da lista e opções, para que não
+ * re-sorteie a lista em qualquer interação com os filtros, eles apenas vão
+ * cortando as opções do 'fim da lista'. O sorteio só acontece após realmente
+ * 'usar' os itens do topo, no caso, apenas após tocar ou salvar em algum lugar
+ * como cronograma, favoritos ou etc."*
+ *
+ * **A v1.8.84 REEMBARALHAVA A CADA TROCA DE POOL** — uma pílula de filtro, uma
+ * tecla no campo do tema —, e o argumento de lá era o oposto deste: *"mexer num
+ * filtro é pedir outro sorteio"*. Não é: mexer num filtro é dizer o que NÃO
+ * serve, e o que sobrou continua servindo na mesma ordem. O preço da versão
+ * anterior é o que o operador leu na tela — ele lê cinco nomes, tira o hinário
+ * da conta, e recebe cinco OUTROS nomes, como se o filtro tivesse rejeitado os
+ * que ele estava considerando.
+ *
+ * O BARALHO PASSOU A SER MANTIDO, e são duas operações, nesta ordem:
+ *
+ *   1. **quem saiu do pool sai do baralho** — e a ORDEM do que fica não muda,
+ *      que é o *"apenas vão cortando as opções"* do pedido;
+ *   2. **quem entrou vai para o FIM**, embaralhado entre si. Afrouxar um filtro
+ *      não pode empurrar para o topo o que o operador ainda não leu.
+ *
+ * **O EMBARALHAMENTO INICIAL É ESTE MESMO CAMINHO**: na primeira passada o
+ * baralho está vazio, todo o pool é "quem entrou", e a lista inteira sai
+ * embaralhada. Não há dois caminhos, e é por isso que não há como um deles
+ * envelhecer sozinho — quem zera o baralho (`abrirSorteio`) pede um sorteio
+ * novo por construção.
+ *
+ * **A IMPRESSÃO DO POOL SAIU JUNTO** (`sorteioImpressao`): ela existia para
+ * responder *"o pool mudou?"*, e a resposta deixou de decidir alguma coisa. O
+ * custo dela era o que a justificava (uma string por tecla em vez de 1.100
+ * chaves); hoje a manutenção é feita sobre o `Set` que a passada já monta.
+ */
+function sorteioLista(pool, f) {
+  const porChave = new Map();
+  for (const i of pool.itens) porChave.set(chaveDaFaixa(i), i);
+  // O ALVO É LIDO ANTES DA PODA. Ele é o número que o operador escolheu — pela
+  // pílula ou na mão —, e um filtro que leve embora uma marcada não pode
+  // encolher a escolha dele em silêncio.
+  const alvo = sorteioMarcadas.size || f.quantos;
+  sorteioBaralho = sorteioBaralho.filter((k) => porChave.has(k));
+  const noBaralho = new Set(sorteioBaralho);
+  const novos = pool.itens.filter((i) => {
+    const k = chaveDaFaixa(i);
+    return !noBaralho.has(k) && !sorteioUsadas.has(k);
+  });
+  if (novos.length) {
+    sorteioBaralho = sorteioBaralho.concat(AVSorteio.baralhar(novos).map(chaveDaFaixa));
+  }
+  sorteioAjustarLote(alvo);
+  const out = [];
+  for (const k of sorteioBaralho) { const i = porChave.get(k); if (i) out.push(i); }
+  return out;
+}
+
+/**
+ * O LOTE DEPOIS DE UMA PODA: mantém as marcas que SOBREVIVERAM e completa pelo
+ * topo até o alvo.
+ *
+ * **MANTER, e não semear de novo, é o que preserva a escolha manual.** Marcada
+ * a linha 9 e tocado um filtro que não a atinge, semear devolveria a marca ao
+ * topo — desfazendo na mão do operador o que ele acabou de fazer, por um toque
+ * que não tinha nada com aquilo. `sorteioSemear` continua existindo para quem
+ * de fato pede um lote novo: a pílula de quantidade e o consumo.
+ */
+function sorteioAjustarLote(alvo) {
+  const vivas = new Set(sorteioBaralho.filter((k) => sorteioMarcadas.has(k)));
+  for (const k of sorteioBaralho) {
+    if (vivas.size >= alvo) break;
+    vivas.add(k);
+  }
+  sorteioMarcadas = vivas;
+}
+
+/**
+ * OS QUE VÃO — as marcadas, NA ORDEM DO BARALHO (que é a ordem da lista na
+ * tela). Sem teto e sem contagem: o conjunto É o lote, e quantas são é o
+ * tamanho dele.
+ *
+ * A ordem importa e não é a de inserção do `Set`: ela é a que o operador está
+ * lendo, e é ela que o número à esquerda de cada linha anuncia.
+ */
+function sorteioEscolhidos(lista) {
+  return lista.filter((i) => sorteioMarcadas.has(chaveDaFaixa(i)));
+}
+
+/**
+ * O TOQUE NA LINHA. Marca ou desmarca — e com isso muda "Quantas", que é o
+ * mesmo fato lido por outro lado.
+ *
+ * **O PISO É UMA MARCADA**: desmarcar a última deixaria a folha com um primário
+ * aceso que não pode fazer nada, e a régua da v1.8.50 diz o contrário disso. O
+ * caminho de "não quero nenhuma" é fechar a folha.
+ */
+function sorteioAlternar(chave) {
+  if (sorteioMarcadas.has(chave)) {
+    if (sorteioMarcadas.size <= 1) return false;
+    sorteioMarcadas.delete(chave);
+  } else {
+    sorteioMarcadas.add(chave);
+  }
+  return true;
+}
+
+/**
+ * O LOTE SAI DO BARALHO depois de tocado ou guardado — os de baixo sobem, e o
+ * topo passa a ser a PRÓXIMA lista. Só é chamado quando a ação de fato
+ * aconteceu: consumir num lote que falhou apagaria da tela músicas que ninguém
+ * ouviu.
+ */
+function sorteioConsumir(escolhidos) {
+  if (!escolhidos || !escolhidos.length) return;
+  const usadas = new Set(escolhidos.map(chaveDaFaixa));
+  // ELAS FICAM MARCADAS COMO USADAS ATÉ A PRÓXIMA ABERTURA. Tirar do baralho
+  // não basta desde a v1.8.86: guardar uma música não a tira do acervo, então
+  // na passada seguinte a manutenção do baralho a veria como quem acabou de
+  // entrar no pool e a devolveria ao fim da lista — o lote reaparecendo depois
+  // de ter sido usado, que é o oposto do que o operador pediu.
+  for (const k of usadas) sorteioUsadas.add(k);
+  sorteioBaralho = sorteioBaralho.filter((k) => !usadas.has(k));
+  // E O PRÓXIMO LOTE JÁ NASCE MARCADO, do MESMO tamanho — *"os itens de baixo
+  // são levados para cima, criando a próxima lista selecionada para playlist"*.
+  // O tamanho é o do lote que acabou de sair, e não a pílula guardada: se o
+  // operador tirou uma na mão antes de tocar, ele pediu quatro, não cinco.
+  sorteioSemear(usadas.size);
+}
+
 // A ESCOLHA É LIDA NA PRIMEIRA ABERTURA DA FOLHA, e não no `load()`.
 //
 // `load()` roda a cada mexida em lista — reordenar um favorito, adicionar ao
@@ -21051,9 +23281,13 @@ async function lerSorteioPrefs() {
 // uma PERGUNTA, feita uma vez. Reencontrar "natal" no campo em fevereiro é o
 // recurso lembrando de algo que não é para ser lembrado; pior, é um filtro
 // silencioso sobre o primeiro sorteio de quem só queria abrir e tocar.
+// E O `modo` NÃO É MAIS GRAVADO (v1.8.61) — não por economia, mas porque um
+// campo que não existe não fica velho: escrito, um `'uma'` sobrevivente faria a
+// migração do `saneQuantos` re-disparar e engolir a quantidade escolhida a cada
+// relançamento (escolher 10, fechar o app e voltar em 1, para sempre).
 function saveSorteioPrefs() {
   return AVDB.setState('sorteioPrefs', {
-    modo: sorteioPrefs.modo, variante: sorteioPrefs.variante,
+    variante: sorteioPrefs.variante,
     semHinario: sorteioPrefs.semHinario, soNoAparelho: sorteioPrefs.soNoAparelho,
     semInfantis: sorteioPrefs.semInfantis,
     quantos: sorteioPrefs.quantos,
@@ -21101,6 +23335,20 @@ async function abrirSorteio() {
   // ANTES de abrir, e não depois: a folha desenhada com os padrões e corrigida
   // um quadro depois faria a escolha da semana passada piscar por cima da nova.
   await lerSorteioPrefs();
+  // ===== CADA ABERTURA É UM SORTEIO NOVO (v1.8.84) =====
+  //
+  // Pedido do operador, sobre as marcas: *"Esse check é resetado entre aberturas
+  // da janela de playlist automática, para que não aconteça de bloquear uma
+  // música desejada sem saber em outra sessão."* — uma exclusão que sobrevive
+  // fechada é uma música que some do culto sem que ninguém lembre por quê.
+  //
+  // E o BARALHO vai junto, pelo mesmo argumento por outro lado: abrir a folha é
+  // pedir um sorteio, e reencontrar o de meia hora atrás não é "automática". A
+  // ordem só sobrevive DENTRO de uma abertura, que é onde o operador está lendo
+  // a lista e decidindo sobre ela.
+  sorteioMarcadas = new Set();
+  sorteioBaralho = [];
+  sorteioUsadas = new Set();
   sorteioPopupEl.classList.add('open');
   renderSorteio();
   // O índice de letras é o que faz a palavra tema alcançar o que não está no
@@ -21132,82 +23380,74 @@ function fecharSorteio() {
 // palavra. Tudo o mais (chips, segmentos) remonta, porque tocar num botão já
 // tira o foco do campo.
 function atualizarContaSorteio() {
-  const conta = sorteioListEl.querySelector('.sorteio-conta');
-  if (!conta) return;
+  const res = sorteioListEl.querySelector('.sorteio-res');
+  if (!res) return;
   const pool = sorteioPool();
-  const n = pool.itens.length;
-  conta.classList.toggle('vazio', n === 0);
-  pintarContaSorteio(conta, pool);
-  // OS DOIS botões, e não `.song-menu-go`: desde a v5.306 a faixa de fecho tem
-  // "Tocar agora" e "Ao Cronograma", e um seletor que pegasse só o primeiro
-  // deixaria o segundo habilitado sobre um pool vazio.
-  sorteioListEl.querySelectorAll('.sorteio-acao').forEach((b) => { b.disabled = n === 0; });
-}
-
-// ===== A CONTA FALA DE MÚSICA, NÃO DE VARREDURA (v5.306) =====
-//
-// Pedido do operador: *"dê uma aprimorada na forma que descreve os resultados.
-// algo como: x músicas relacionadas, x delas já estão baixadas… mais funcional
-// e menos técnico"*.
-//
-// Ela saía como `12 faixas casam · 3 já no aparelho · sorteia 5` — três números
-// no vocabulário de quem escreveu a regra ("casam", "faixas", "no aparelho"),
-// empilhados numa linha só. O que o operador precisa saber antes de tocar o
-// botão são DUAS coisas, e elas têm pesos diferentes:
-//
-//   1. **o tema achou o quê?** — decide se vale mudar a palavra;
-//   2. **quanto disso toca agora?** — decide se o culto espera a rede.
-//
-// Daí DUAS LINHAS com hierarquia, e não uma frase com separadores: a primeira
-// responde a primeira pergunta e é a que se lê de relance; a segunda é o custo,
-// em `--muted`. Uma linha só obrigava as duas a disputarem o mesmo peso.
-function pintarContaSorteio(conta, pool) {
-  conta.innerHTML = '';
-  // A FALA EMPRESTADA VENCE, e ela é lida AQUI e não escrita no nó: o
-  // `executarSorteio` REDESENHA a folha no `finally`, e uma frase escrita
-  // direto no span era apagada no mesmo quadro em que nascia — o "adicionadas
-  // ao Cronograma" nunca chegou a ser visto. Guardá-la em estado e deixar o
-  // desenho consultá-la faz qualquer redesenho preservá-la, que é a única forma
-  // que sobrevive a um caminho de render que ainda não existe.
-  const [forte, fraca] = sorteioFala ? [sorteioFala, ''] : frasesDaContaSorteio(pool);
-  const a = document.createElement('span');
-  a.className = 'sorteio-conta-forte';
-  a.textContent = forte;
-  conta.appendChild(a);
-  if (fraca) {
-    const b = document.createElement('span');
-    b.className = 'sorteio-conta-fraca';
-    b.textContent = fraca;
-    conta.appendChild(b);
+  const f = AVSorteio.sanear(sorteioPrefs);
+  const lista = sorteioLista(pool, f);
+  const escolhidos = sorteioEscolhidos(lista);
+  // ===== O QUE ESTE CAMINHO PODE TROCAR, E O QUE ELE NÃO PODE (v1.8.84) =====
+  //
+  // Ele é o único que roda com o CAMPO DE TEXTO EM FOCO (o `debounce` da palavra
+  // tema), e remontar a folha ali apagaria o foco no meio da palavra. Então ele
+  // troca só o que fica DEPOIS dos controles: a pílula da conta, a fala e a
+  // lista — que é justamente tudo o que a palavra muda.
+  const sortear = sorteioListEl.querySelector('.sorteio-sortear');
+  if (sortear) sortear.replaceWith(sorteioBotaoDeSortear(pool));
+  // ...E A ROLETA DA QUANTIDADE, que é controle e ainda assim entra aqui
+  // (v1.8.96). Ela é a exceção porque não hospeda foco de teclado: o que este
+  // caminho protege é o CAMPO DE TEXTO, e mover uma roleta não o toca. Ela
+  // PRECISA entrar, por duas razões independentes — o teto dela é o número de
+  // resultados, que muda a cada tecla da palavra tema; e o valor dela é o
+  // tamanho do LOTE MARCADO, que muda a cada linha tocada na lista.
+  //
+  // REMONTA SÓ QUANDO O TETO MUDA. Remontar a cada tecla jogaria a roleta de
+  // volta ao começo no meio do gesto, e o `qhMostrar` é idempotente por posição.
+  const qh = sorteioListEl.querySelector('.roleta-h');
+  if (qh) {
+    const teto = sorteioQuantidadeTeto(pool);
+    if (Number(qh.dataset.teto) !== teto) {
+      qh.closest('li').replaceWith(sorteioQuantidadeLinha(pool));
+    } else {
+      const n = sorteioQuantidadeAtual(teto);
+      qh.dataset.valor = String(n);
+      qhMostrar(qh, n);
+    }
   }
+  const fala = sorteioListEl.querySelector('.sorteio-fala');
+  if (fala) fala.textContent = sorteioFala;
+  // A ROLAGEM DA LISTA SOBREVIVE (v1.8.85), porque desde este lote ela é a
+  // ÚNICA coisa que rola na folha e este caminho roda a cada MARCA. Sem isto,
+  // marcar a linha 300 devolvia a lista ao topo e tirava da tela justamente a
+  // linha que o dedo acabou de tocar. Ler ANTES de trocar o nó: depois ele já
+  // não está no documento e o `scrollTop` dele é zero.
+  const rolagem = res.scrollTop;
+  const novo = sorteioListaDeResultados(lista, escolhidos, pool);
+  res.replaceWith(novo);
+  novo.scrollTop = rolagem;
+  // A TRAVA É UMA REGRA SÓ (v1.8.83). Havia aqui uma segunda cópia dela, e a
+  // cópia estava errada por DOIS motivos: lia só `n === 0` (ignorando o
+  // `sorteioRodando`, então a fala do fim de um lote reabilitava a faixa com a
+  // corrida ainda em pé) e procurava os botões DENTRO da lista, onde eles não
+  // moram mais desde a v1.8.60. O pool já está na mão — ver o parâmetro.
+  acertarTravaSorteio(pool);
 }
 
-// ===== SEM PALAVRA, O ACERVO INTEIRO ENTRA — E A FRASE O DIZ (v5.307) =====
-//
-// Pedido do operador: *"permita (e descreva/identifique) que ao não filtrar por
-// nenhuma palavra, o sistema considere todo o acervo disponível para sortear (é
-// claro, considerando os outros filtros e configurações)"*.
-//
-// A REGRA já permitia — `AVSorteio.ondeCasa` devolve `CASOU_SEM_TEMA` com a
-// busca vazia, e o pool sai com o acervo inteiro. O que faltava era DIZÊ-LO: a
-// frase era "28 músicas na biblioteca", que informa o tamanho e não o ESCOPO, e
-// deixava a pergunta "então ele vai sortear de tudo?" sem resposta na tela.
-//
-// A frase LIDERA COM O ESCOPO em vez do número, porque com a caixa vazia é o
-// escopo que está em dúvida. E ela é HONESTA sobre os dois filtros que
-// encolhem o "tudo": dizer "toda a biblioteca" com o hinário fora seria uma
-// frase errada — e uma frase errada é pior que nenhuma, porque produz a decisão
-// errada. A VARIANTE (Cantada × Playback) fica de fora desta conta de
-// propósito: ela não encolhe um acervo, ela escolhe QUAL faixa de cada música,
-// e o segmento acima já a mostra.
-function escopoSemPalavra(n) {
-  const base = sorteioPrefs.soNoAparelho
-    ? 'Só o que já está no aparelho'
-    : 'Toda a biblioteca';
-  const menos = (sorteioPrefs.semHinario ? ', sem o hinário' : '')
-    + (sorteioPrefs.semInfantis ? ', sem os infantis' : '');
-  return base + menos + ' — ' + numeroPt(n) + (n === 1 ? ' música' : ' músicas');
-}
+// (A `acertarPilulasDeQuantidade` saiu na v1.8.96, com as seis pílulas. O papel
+//  dela — acertar o seletor EM PONTO depois de uma marca manual, sem remontar a
+//  folha — ficou com o trecho da roleta dentro do `atualizarContaSorteio`, que
+//  os dois chamadores dela já invocavam na linha de cima.)
+
+// (A `pintarContaSorteio` e o cartão de UMA FRASE que ela desenhava saíram na
+// v1.8.84, com o `frasesDaContaSorteio` e o `escopoSemPalavra` que a
+// alimentavam. Pedido do operador: *"o cartão de resultados repete as
+// informações que já temos nas seleções acima, como os filtros usados, e etc…
+// Uma ação inútil, pois literalmente já há a visão das seleções."* Ela escrevia
+// por extenso — "Toda a biblioteca, sem os infantis — 2 músicas" — o que as
+// pílulas logo acima e o campo vazio já mostravam. O que sobrou do papel dela
+// está em dois lugares: QUANTOS, na `sorteioPilulaDaConta`; QUAIS, na
+// `sorteioListaDeResultados`. A frase do VAZIO ficou: ela é a única que não
+// repetia a tela — ver `fraseDoVazioSorteio`.)
 
 // Números do acervo passam de mil (os dois hinários somam ~1.100): sem o
 // separador, "1243" se lê como um código.
@@ -21215,43 +23455,16 @@ function numeroPt(n) {
   try { return n.toLocaleString('pt-BR'); } catch (_) { return String(n); }
 }
 
-// Devolve `[linha forte, linha fraca]`. A fraca pode ser vazia.
-function frasesDaContaSorteio(pool) {
-  const n = pool.itens.length;
-  if (!n) return [fraseDoVazioSorteio(pool), ''];
-
-  // `palavra`, e NÃO `tema`: aquele é o nome de módulo do tema claro × escuro
-  // (topo do arquivo), e sombreá-lo aqui é a zona morta temporal que o
-  // `sombra.test.mjs` existe para pegar — ele pegou.
-  const palavra = sorteioPrefs.tema.trim();
-  // "relacionadas a X" é a palavra do operador. Sem tema não há relação a
-  // declarar — ali o acervo INTEIRO é o pool, e dizê-lo é o que explica um
-  // número na casa dos milhares.
-  const forte = palavra
-    ? numeroPt(n) + (n === 1 ? ' música relacionada a ' : ' músicas relacionadas a ')
-      + '“' + palavra + '”'
-    : escopoSemPalavra(n);
-
-  const baixadas = pool.noAparelho;
-  const jaTem = baixadas === 0 ? 'nenhuma baixada ainda'
-    : baixadas === n ? 'todas já baixadas'
-      : numeroPt(baixadas) + (baixadas === 1 ? ' já baixada' : ' já baixadas');
-
-  if (sorteioPrefs.modo !== AVSorteio.MODO_PLAYLIST) {
-    // Sortear UMA: o que decide a espera é se HÁ alguma baixada, porque o
-    // sorteio prefere as que estão (ver `AVSorteio.sortear`).
-    return [forte, baixadas ? jaTem + ' — toca na hora' : jaTem + ' — vai baixar antes de tocar'];
-  }
-
-  // MONTAR A FILA. Aqui o custo é EXATO e não uma estimativa: o sorteio esgota
-  // as baixadas antes de pegar as que faltam, então quantas precisam de rede é
-  // uma subtração, não um palpite.
-  const leva = Math.min(sorteioPrefs.quantos, n);
-  const baixar = Math.max(0, leva - baixadas);
-  const custo = baixar === 0 ? 'todas já baixadas'
-    : baixar === leva ? 'todas para baixar'
-      : baixar + ' para baixar';
-  return [forte, 'A playlist leva ' + leva + ' · ' + custo];
+// A PALAVRA TEMA ENTRA CLAMPADA NA FRASE (v1.8.83).
+//
+// A única entrada SEM LIMITE que chega a uma frase desta folha é o que o
+// operador digita, e a frase do vazio é a que a carrega. Truncar aqui não
+// esconde nada: a palavra inteira está no campo dois dedos acima, e a REGRA
+// continua lendo `sorteioPrefs.tema` cru em `sorteioPool`. O número é o do
+// `rotuloItem`, que resolve a mesma pergunta para o nome de uma faixa.
+const TEMA_NA_FRASE_MAX = 24;
+function temaNaFrase(palavra) {
+  return palavra.length > TEMA_NA_FRASE_MAX ? palavra.slice(0, TEMA_NA_FRASE_MAX) + '…' : palavra;
 }
 
 // O motivo das COLEÇÕES que a frase do vazio deve nomear ('' se nenhuma foi
@@ -21312,18 +23525,20 @@ function fraseDoVazioSorteio(pool) {
     return 'Só sobraram hinos infantis. Desligue “Sem infantis” para incluí-los.';
   }
   const palavra = sorteioPrefs.tema.trim();
-  return palavra ? 'Nada combina com “' + palavra + '” na biblioteca.'
+  return palavra ? 'Nada combina com “' + temaNaFrase(palavra) + '” na biblioteca.'
     : 'Nenhuma música disponível com esses filtros.';
 }
 
-// Uma linha "rótulo à esquerda, pílulas à direita".
-function sorteioLinhaChips(rotulo, opcoes) {
+// UMA LINHA DE PÍLULAS, DA BORDA À BORDA (v1.8.96).
+//
+// Ela tinha um RÓTULO à esquerda ("Filtros", "Quantas") e as pílulas espremidas
+// no que sobrava. Os dois saíram a pedido do operador: *"remova os títulos
+// 'quantas' e 'filtros', use a largura toda apenas para distribuir os botões
+// seletores e a roleta da quantidade"* — e a folha não perde nada, porque cada
+// pílula já diz por extenso o que ela filtra e o `title` diz o resto.
+function sorteioLinhaChips(opcoes) {
   const li = document.createElement('li');
   li.className = 'sorteio-linha';
-  const lab = document.createElement('span');
-  lab.className = 'sorteio-rotulo';
-  lab.textContent = rotulo;
-  li.appendChild(lab);
   const cx = document.createElement('div');
   cx.className = 'misc-opts';
   opcoes.forEach(({ nome, ativo, aoTocar, titulo }) => {
@@ -21340,19 +23555,166 @@ function sorteioLinhaChips(rotulo, opcoes) {
   return li;
 }
 
+/**
+ * ===== A QUANTIDADE VIROU UMA ROLETA HORIZONTAL (v1.8.96) =====
+ *
+ * Pedido do operador: *"atualmente ele possui números fixos, mude isso. Faça uma
+ * roleta também, mas uma roleta horizontal, que vai de 1 a 50 (ou o número
+ * máximo de resultados disponíveis)"*.
+ *
+ * Eram seis pílulas (`[1, 3, 5, 10, 15, 20]`), e o que elas não davam era
+ * justamente o número do meio: escolher 4 exigia marcar as linhas na mão.
+ *
+ * **ELA NÃO É INFINITA, e isso é a diferença dela para as do Tempo.** Aqui a
+ * faixa tem PONTAS de verdade — não existe "zero músicas" nem "meia volta" —,
+ * então não há base repetida, não há banda do meio e não há recentragem. O que
+ * fica igual é tudo o mais do idioma de seletor: sem a marca `rola` (a rolagem
+ * É o recurso, não conteúdo escondido), máscara apagando as pontas da janela,
+ * `--op-inativo` nas vizinhas e a régua vinda do LAYOUT.
+ *
+ * **O RECUO É MEDIDO, e sem ele o 1 e o teto não chegam ao centro.** Ele vale
+ * `(largura da janela − célula) / 2` e não pode ser escrito em CSS: um
+ * `padding-inline: 50%` com `box-sizing: border-box` zera a caixa de conteúdo,
+ * e as células saem transbordando por baixo do recuo. Quem o escreve é o
+ * `acertarQuantidade`, atrás de um `ResizeObserver` — a mesma divisão de
+ * trabalho do `acertarRoletas`.
+ *
+ * **O TETO SEGUE O QUE EXISTE:** `min(50, disponíveis)`. Um 30 escolhido sobre
+ * oito resultados não é erro (o `sorteioSemear` marca o que houver), mas é uma
+ * escolha que o aparelho sabe que não se cumpre, e oferecê-la é o mesmo que
+ * acender um botão sem função. A lista só é REMONTADA quando o teto muda — a
+ * palavra tema é redigitada a cada tecla, e remontar ali jogaria a roleta de
+ * volta ao começo no meio do gesto.
+ */
+const QH_ITEM = 44;                // px — a célula, do tamanho de uma pílula
+const QH_ASSENTA_MS = 140;         // o mesmo silêncio das roletas do Tempo
+
+function sorteioQuantidadeTeto(pool) {
+  const n = (pool && pool.itens ? pool.itens.length : 0) | 0;
+  return Math.max(AVSorteio.QUANTIDADE_MIN,
+    Math.min(AVSorteio.QUANTIDADE_MAX, n || AVSorteio.QUANTIDADE_MIN));
+}
+
+// O VALOR EM CENA é o tamanho do LOTE MARCADO, e não a preferência gravada — a
+// regra da v1.8.85, que a roleta herda inteira: marcar linhas na mão move a
+// roleta, porque quem responde "quantas" é o lote.
+function sorteioQuantidadeAtual(teto) {
+  const n = sorteioMarcadas.size || AVSorteio.sanear(sorteioPrefs).quantos;
+  return Math.max(AVSorteio.QUANTIDADE_MIN, Math.min(teto, n));
+}
+
+function qhIndice(el) {
+  return Math.round(el.scrollLeft / QH_ITEM);
+}
+
+function qhAcender(el) {
+  const i = qhIndice(el);
+  if (el.dataset.sel === String(i)) return;
+  el.dataset.sel = String(i);
+  const antes = el.querySelector('.qh-item--sel');
+  if (antes) antes.classList.remove('qh-item--sel');
+  const agora = el.children[i];
+  if (agora) agora.classList.add('qh-item--sel');
+}
+
+function qhMostrar(el, n) {
+  const px = (Math.max(1, n) - 1) * QH_ITEM;
+  if (Math.abs(el.scrollLeft - px) >= 1) el.scrollLeft = px;
+  qhAcender(el);
+}
+
+// O RECUO das duas pontas, LIDO da janela. Zero enquanto a folha ainda não tem
+// largura (a primeira pintura acontece com o popup fechando a animação de
+// entrada); o `ResizeObserver` refina assim que houver.
+function acertarQuantidade(el) {
+  const vao = Math.max(0, Math.round((el.clientWidth - QH_ITEM) / 2));
+  if (el.dataset.vao === String(vao)) return;
+  el.dataset.vao = String(vao);
+  el.style.setProperty('--qh-vao', vao + 'px');
+  qhMostrar(el, Number(el.dataset.valor) || 1);
+}
+
+let qhObs = null;
+
+function sorteioQuantidadeLinha(pool) {
+  const li = document.createElement('li');
+  li.className = 'sorteio-linha sorteio-linha--quantas';
+  const teto = sorteioQuantidadeTeto(pool);
+  const valor = sorteioQuantidadeAtual(teto);
+
+  const el = document.createElement('div');
+  el.className = 'roleta-h';
+  el.id = 'sorteioQuantidade';
+  el.dataset.teto = String(teto);
+  el.dataset.valor = String(valor);
+  // `spinbutton` pelo mesmo motivo das roletas do Tempo: o leitor de tela
+  // anuncia o VALOR, e não a lista inteira.
+  el.setAttribute('role', 'spinbutton');
+  el.setAttribute('aria-label', 'Quantas músicas sortear');
+  const frag = document.createDocumentFragment();
+  for (let n = AVSorteio.QUANTIDADE_MIN; n <= teto; n++) {
+    const d = document.createElement('div');
+    d.className = 'qh-item';
+    d.textContent = String(n);
+    frag.appendChild(d);
+  }
+  el.appendChild(frag);
+
+  let assenta = null;
+  el.addEventListener('scroll', () => {
+    qhAcender(el);
+    clearTimeout(assenta);
+    assenta = setTimeout(() => qhAssentou(el), QH_ASSENTA_MS);
+  });
+  li.appendChild(el);
+
+  if (qhObs) qhObs.disconnect();
+  if (typeof ResizeObserver === 'function') {
+    qhObs = new ResizeObserver(() => acertarQuantidade(el));
+    // A CAIXA DE BORDA, e não a de conteúdo (o padrão): o recuo das pontas É
+    // `padding`, então numa janela que encolhe a caixa de CONTEÚDO chega a zero
+    // e para de mudar — o observador emudece com o recuo velho na mão, e a
+    // roleta fica medida para uma largura que já não existe.
+    qhObs.observe(el, { box: 'border-box' });
+  }
+  acertarQuantidade(el);
+  qhMostrar(el, valor);
+  return li;
+}
+
+// IDEMPOTENTE pelo mesmo motivo do `roletaAssentou`: um reposicionamento
+// programático cai aqui pelo mesmo `scroll` que um dedo, e é esta comparação —
+// não uma bandeira — que os separa. Sem ela, cada `qhMostrar` remarcaria o lote
+// e o `atualizarContaSorteio` que ele dispara devolveria outro `scroll`.
+function qhAssentou(el) {
+  // O NÓ PODE JÁ TER SIDO TROCADO, e este é o defeito que a guarda fecha: um
+  // elemento fora do documento responde `scrollLeft` ZERO, o que aqui se lê como
+  // "o operador escolheu 1" — e o caminho grava. MEDIDO: com a roleta em 12,
+  // encostar nela e tocar num filtro DENTRO dos 140 ms do assentamento faz o
+  // `renderSorteio` do filtro trocar o nó, o prazo pendurado pousar no órfão, e
+  // o lote voltar a UMA — com `sorteioPrefs.quantos: 1` gravado no IndexedDB,
+  // isto é, sobrevivendo à sessão. Nada erra e nada aparece na tela.
+  if (!el.isConnected) return;
+  const teto = Number(el.dataset.teto) || 1;
+  const n = Math.max(AVSorteio.QUANTIDADE_MIN, Math.min(teto, qhIndice(el) + 1));
+  if (String(n) === el.dataset.valor && sorteioMarcadas.size === n) return;
+  el.dataset.valor = String(n);
+  sorteioPrefs.quantos = n;
+  saveSorteioPrefs();
+  sorteioSemear(n);
+  // NÃO CHAMA `renderSorteio`: ele TROCA o nó da roleta, e trocá-lo no fim de um
+  // gesto do dedo devolve a lista ao começo. O caminho leve já existe e faz
+  // exatamente o que falta — a conta, a fala e a lista de resultados.
+  atualizarContaSorteio();
+}
+
 function renderSorteio() {
   const alvo = sorteioListEl;
-  alvo.innerHTML = '';
+  limparFolha(alvo);
 
-  // ---- O MODO: quanto? ----
-  // O mesmo `.fit-seg` do seletor Cantada/Playback da folha da música: é a
-  // mesma classe de pergunta ("qual destes dois?"), e um segundo desenho para
-  // ela leria como outro tipo de controle.
-  alvo.appendChild(ytSegRow(
-    [[AVSorteio.MODO_UMA, 'Tocar uma só'], [AVSorteio.MODO_PLAYLIST, 'Montar playlist']],
-    sorteioPrefs.modo,
-    (v) => { sorteioPrefs.modo = v; saveSorteioPrefs(); renderSorteio(); },
-  ));
+  // (O SELETOR DE MODO SAIU na v1.8.61 — *"não coloque mais opção de playlist ou
+  // uma música só, integre isso nas opções de quantidade, afinal a única
+  // diferença é quantidade"*. Ele virou o `1` da linha "Quantas", abaixo.)
 
   // ---- A PALAVRA TEMA ----
   const liCampo = document.createElement('li');
@@ -21365,12 +23727,12 @@ function renderSorteio() {
   const inp = document.createElement('input');
   inp.className = 'lib-search';
   inp.type = 'search';
-  // O PLACEHOLDER DIZ O QUE O VAZIO SIGNIFICA. É a única superfície em que essa
-  // pergunta é feita — "e se eu não escrever nada?" — e responder ali custa uma
-  // linha; responder na conta obrigaria o operador a tocar no botão para
-  // descobrir. Ele some no primeiro caractere, que é exatamente quando a
-  // resposta deixa de valer.
-  inp.placeholder = 'Palavra tema (vazio = toda a biblioteca)';
+  // O PARÊNTESE SAIU NA v1.8.96, a pedido do operador: *"na dica da barra de
+  // buscas, remova o comentário 'vazio = toda a biblioteca'"*. Ele respondia
+  // *"e se eu não escrever nada?"* — pergunta que a CONTA logo abaixo responde
+  // com um número, e que o parêntese só repetia em palavras, dentro do campo
+  // mais estreito da folha.
+  inp.placeholder = 'Palavra tema';
   inp.value = sorteioPrefs.tema;
   inp.setAttribute('aria-label', 'Palavra tema');
   // A PALAVRA É ASSINADA NA HORA; SÓ A CONTA ESPERA.
@@ -21416,20 +23778,14 @@ function renderSorteio() {
     (v) => { sorteioPrefs.variante = v; saveSorteioPrefs(); renderSorteio(); },
   ));
 
-  // A NOTA DO FUNDO MUSICAL. Ela aparece SÓ com ele escolhido, que é exatamente
-  // quando a pergunta existe — "isto vai aparecer no telão?" —, e é uma
-  // AFIRMAÇÃO e não um controle: o que o operador decide já está decidido no
-  // segmento acima. Sem ela, a cortina posta pelo sorteio seria uma mudança de
-  // estado do telão que ninguém anunciou.
-  if (sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK) {
-    const nota = document.createElement('li');
-    nota.className = 'sorteio-nota';
-    nota.textContent = 'Fundo musical: toca sem letra e sem nada no telão.';
-    alvo.appendChild(nota);
-  }
+  // (A NOTA DO SEGMENTO saiu na v1.8.62, a pedido do operador: *"pode remover o
+  //  comentário sobre a função de cantada e fundo musical… é auto explicativo"*.
+  //  Ela nasceu na v5.311 e a v1.8.61 a escreveu nos DOIS estados para fechar um
+  //  dos quatro motores do pulo da folha — o motor morre com ela, porque o que
+  //  pulava era a nota APARECENDO, e agora não há nota em estado nenhum.)
 
   // ---- OS FILTROS ----
-  alvo.appendChild(sorteioLinhaChips('Filtros', [
+  alvo.appendChild(sorteioLinhaChips([
     {
       nome: 'Sem hinário', ativo: sorteioPrefs.semHinario,
       titulo: 'Não sortear dos hinários',
@@ -21452,23 +23808,35 @@ function renderSorteio() {
     },
   ]));
 
-  // ---- QUANTAS (só montando fila) ----
+  // ---- QUANTAS ----
   // Um teto, e ele é obrigatório: um tema genérico ("Deus" casa em quase toda
   // letra) montaria uma fila de centenas — no pior caso centenas de downloads
   // antes da primeira nota.
-  if (sorteioPrefs.modo === AVSorteio.MODO_PLAYLIST) {
-    alvo.appendChild(sorteioLinhaChips('Quantas', AVSorteio.QUANTIDADES.map((q) => ({
-      nome: String(q), ativo: sorteioPrefs.quantos === q,
-      aoTocar: () => { sorteioPrefs.quantos = q; saveSorteioPrefs(); renderSorteio(); },
-    }))));
-  }
-
-  // ---- A CONTA ----
+  //
+  // ELA NÃO TEM MAIS CONDIÇÃO (v1.8.61), e é essa a metade do pedido que só esta
+  // mudança resolve: *"assim também resolvemos o problema do tamanho da janela
+  // ficar se alterando por causa da ocultação do campo de quantidade"*. O `1` é
+  // o antigo "Tocar uma só" — ali ele não é um teto, é a quantidade.
+  //
+  // E DESDE A v1.8.85 ELA É UM ATALHO, não o estado: quem responde "quantas" é
+  // o tamanho do LOTE MARCADO, e escolher N marca as N primeiras. A roleta LÊ o
+  // lote pelo mesmo motivo — marcar quatro linhas na mão leva a roleta ao 4, e
+  // é assim que o operador vê que a escolha continua sendo dele.
   const pool = sorteioPool();
-  const liConta = document.createElement('li');
-  liConta.className = 'sorteio-conta' + (pool.itens.length ? '' : ' vazio');
-  pintarContaSorteio(liConta, pool);
-  alvo.appendChild(liConta);
+  alvo.appendChild(sorteioQuantidadeLinha(pool));
+
+  // ---- A BARRA DE AÇÃO, E DEPOIS DELA A LISTA (v1.8.84) ----
+  //
+  // Pedido do operador: *"mova a barra de opções de play para cima dessa sessão
+  // de resultados"*, e o cartão de resultados vira *"a lista dos resultados,
+  // listando cada música disponível naquele resultado"*.
+  //
+  // A ORDEM DA FOLHA passou a ser: o que se ESCOLHE (palavra, variante, filtros,
+  // quantidade), o que se FAZ (esta barra) e o que vai ACONTECER (a lista). Ela
+  // é a ordem da decisão, e é o que tira a barra de baixo de uma lista que pode
+  // ter mil linhas.
+  const lista = sorteioLista(pool, AVSorteio.sanear(sorteioPrefs));
+  const escolhidos = sorteioEscolhidos(lista);
 
   // ---- OS DESFECHOS ----
   //
@@ -21477,19 +23845,38 @@ function renderSorteio() {
   // porquê é o padrão que esta tela já usa. Ela já sabia hospedar um IRMÃO à
   // direita (o "Ver a letra" da gaveta), então dois botões não custam CSS novo.
   //
-  // MONTANDO A FILA HÁ DOIS DESTINOS (v5.306, pedido do operador). Eles não são
-  // duas versões da mesma ação: um TOCA (substitui a fila do player e projeta
-  // agora) e o outro GUARDA (acrescenta ao Cronograma, sem tocar em nada do que
-  // está no ar). Montar o louvor da semana e projetar no domingo são dois
-  // momentos, e antes só o primeiro tinha porta.
+  // ===== TOCAR MAIS OS TRÊS DESTINOS DE SEMPRE (v1.8.56) =====
   //
-  // SORTEANDO UMA SÓ o botão continua sendo um: "sorteie uma e guarde" é o
-  // caminho que a Biblioteca já dá pela gaveta da linha, com a música escolhida
-  // à vista — aqui ele seria um destino a mais para uma decisão que o operador
-  // toma justamente por não querer decidir.
+  // Pedido do operador: *"O modo playlist automática, na seleção tocar uma só,
+  // não tem a opção de adicionar aquela música ao cronograma e nem aos
+  // favoritos. Faça assim como foi feito na aba de playlist: deixe o botão
+  // tocar agora, e os dois botões de add ao cronograma e add aos favoritos
+  // disponíveis… Isso se aplica ao modo de uma música só e ao modo de playlist
+  // montar playlist. Na verdade pode até adicionar um terceiro botão, adicionar
+  // a playlist, que simplesmente joga… no fim da playlist atual"*.
+  //
+  // O QUE ISTO REVOGA, e a razão antiga está escrita porque era defensável:
+  // sorteando UMA SÓ o botão era um, sob o argumento de que "sorteie uma e
+  // guarde" já existia na gaveta da Biblioteca. Existia — para uma música
+  // ESCOLHIDA. Quem sorteia não sabe qual vai sair, e chegar à gaveta dela
+  // custa fechar esta folha, achar a faixa numa lista de milhares e abri-la:
+  // uma busca e três toques para o que agora é um.
+  //
+  // ELES SORTEIAM, e é isso que os torna botões e não uma folha de destinos:
+  // não há resultado à vista antes do toque, e uma folha perguntaria "para
+  // onde?" antes de existir o quê.
+  //
+  // O DESENHO É O DO RODAPÉ DA PLAYLIST (v1.8.53/54) — um primário que CRESCE
+  // mais botões de símbolo de largura fixa —, e a razão é a mesma medida de lá:
+  // com quatro ações na faixa não sobra largura para quatro rótulos a 320px
+  // (MEDIDO: 156,9px para o primário e 42,4 para cada um dos três). Os ícones são os
+  // MESMOS da gaveta de cada item, pelas mesmas funções (`cronogramaIconSvg`,
+  // `playlistIconSvg`, `starSvg`), e a ORDEM é a canônica (ver `DESTINOS`).
   const liGo = document.createElement('li');
-  liGo.className = 'song-menu-go-row';
-  const fila = sorteioPrefs.modo === AVSorteio.MODO_PLAYLIST;
+  liGo.className = 'song-menu-go-row sorteio-barra';
+  // FILA OU UMA: a pergunta é do LOTE MARCADO, não da pílula guardada (v1.8.85)
+  // — é ele que decide o verbo dos três destinos, e ele muda a cada marca.
+  const fila = escolhidos.length > 1;
   const travado = !pool.itens.length || sorteioRodando;
 
   const botao = (rotulo, classe, aoTocar) => {
@@ -21507,20 +23894,337 @@ function renderSorteio() {
 
   // O PRIMÁRIO É O DE TOCAR, nos dois modos: é o que o recurso existe para
   // fazer, e o preenchimento em accent é o vocabulário do app para "a ação
-  // principal desta folha". O de guardar veste o recesso do irmão secundário.
-  liGo.appendChild(botao(fila ? 'Tocar agora' : 'Sortear e tocar', 'song-menu-go',
+  // principal desta folha".
+  // UM RÓTULO SÓ, "Tocar agora" (v1.8.62), a pedido do operador: *"ajuste o botão
+  // de 'sortear' e 'tocar' para que seja uma única versão, pois literalmente faz
+  // a mesma coisa 'Tocar agora'"*. O par `fila ? 'Tocar' : 'Sortear'` dizia com
+  // duas palavras o que o campo "Quantas" logo acima já diz com um número, e
+  // "Sortear" ainda descrevia o MEIO em vez do desfecho — é a mesma frase que a
+  // faixa de fecho de uma mídia comum usa, que é justamente o ponto.
+  // ELE CABE, e isso entra com a regra da altura (v1.8.61): sem os 19,2px de
+  // recuo vertical o primário só tem UMA linha. MEDIDO nas 432 células (largura ×
+  // escala de fonte × estado) que reprovaram o par longo da v5.306 em 78 delas,
+  // "Tocar agora" reticencia em ZERO.
+  //
+  // ===== A CONTAGEM É A PRIMEIRA PEÇA DA BARRA (v1.8.84) =====
+  //
+  // Pedido do operador: *"crie um botão a esquerda do botão de tocar agora. nesse
+  // botão coloque um icone adequado e o número de resultados, agora esse será o
+  // lugar do resultado de disposição (cuide para que o botão tenha um tamanho
+  // fixo independente do número interno)."*
+  //
+  // **ELE NÃO É UM BOTÃO, e a diferença é regra deste app**: *"o que não tem
+  // função agora é apagado, não deixado inerte — um botão aceso que não faz nada
+  // é indistinguível de um quebrado, e o que se faz diante dele é tocar de
+  // novo"* (v1.8.50). A contagem não tem ação por trás; desenhá-la como botão
+  // cobraria um toque de todo operador que passasse por ela pela primeira vez.
+  // O que ele pediu é a PEÇA na barra, à esquerda do primário — e é isso que ela
+  // é: um `<span>` com a mesma caixa e o mesmo tom dos vizinhos.
+  //
+  // O TAMANHO É FIXO por `min-width` em `ch` mais `tabular-nums`: o acervo passa
+  // de mil (os dois hinários somam ~1.100), e um número que cresce empurraria o
+  // "Tocar agora" a cada tecla digitada no campo do tema.
+  liGo.appendChild(sorteioBotaoDeSortear(pool));
+  liGo.appendChild(botao('Tocar agora', 'song-menu-go',
     (b) => executarSorteio(b, 'tocar')));
-  // O SEGUNDO DESFECHO NÃO EXISTE NO MODO FÁCIL. Ele guarda a fila sorteada no
-  // Cronograma — e o Modo Fácil não tem Cronograma: não há aba, não há lista, e
-  // o que fosse guardado ali só reapareceria para quem trocasse de modo. Um
-  // botão que promete um destino invisível é pior que um botão a menos.
-  // (Mesma razão da seção de Favoritos — ver `renderCollectionsList`.)
-  if (fila && appMode !== 'simple') {
-    liGo.appendChild(botao('Ao Cronograma', 'song-menu-letra',
-      (b) => executarSorteio(b, 'cronograma')));
+  // OS TRÊS DESTINOS NÃO EXISTEM NO MODO FÁCIL. Ele não tem Cronograma, nem
+  // Favoritos, nem fila à vista: `body.mode-simple` esconde o `main` e a barra
+  // inteiros, e o que fosse guardado ali só reapareceria para quem trocasse de
+  // modo. Um botão que promete um destino invisível é pior que um botão a
+  // menos. (Mesma razão da seção de Favoritos — ver `renderCollectionsList`.)
+  if (appMode !== 'simple') {
+    for (const d of DESTINOS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'song-menu-btn sorteio-acao sorteio-dest';
+      // QUAL destino, num atributo: sem rótulo não há texto por onde achá-lo —
+      // nem para um oráculo, nem para quem depurar a folha no console.
+      b.dataset.dest = d.chave;
+      b.innerHTML = SORTEIO_ICONE[d.chave]();
+      // A FRASE INTEIRA no `title` e no `aria-label`, que é tudo que um botão
+      // sem rótulo deve a quem o encontra — e ela diz o VERBO, não o lugar:
+      // este botão sorteia antes de guardar, e "Cronograma" sozinho leria como
+      // se houvesse algo escolhido esperando destino.
+      const frase = (fila ? 'Sortear a playlist e guardar ' : 'Sortear uma e guardar ')
+        + (LISTA_ROTULO[d.lista] || ROTULO_PADRAO).em;
+      b.title = frase;
+      b.setAttribute('aria-label', frase);
+      b.disabled = travado;
+      b.addEventListener('click', () => executarSorteio(b, d.chave));
+      liGo.appendChild(b);
+    }
   }
+  // ===== A BARRA NÃO MORA MAIS NO `.popup-fecho` (v1.8.84) =====
+  //
+  // Ela era `porFecho(alvo, liGo)` — o rodapé que não rola, irmão da lista. Com
+  // a lista de resultados abaixo dela, o fecho a poria DEPOIS dos resultados, que
+  // é o oposto do pedido. Ela entra na própria lista e fica GRUDADA no topo
+  // (`position: sticky`): acima dos resultados, como se pediu, e à vista com a
+  // lista rolando por baixo — que é a propriedade que o fecho dava de graça e
+  // que uma barra solta perderia na primeira rolagem.
   alvo.appendChild(liGo);
+
+  // ---- A FALA: o recibo do lote guardado ----
+  //
+  // Ela é a única coisa do cartão antigo que NÃO repetia a tela — *"5 músicas
+  // acrescentadas ao fim da playlist"*, *"todas as 5 já estavam"* —, e a segunda
+  // metade dela não tem outro jeito de ser dita: a lista mostra as cinco saindo
+  // do baralho, mas não distingue "entraram" de "já estavam lá".
+  //
+  // **A LINHA É SEMPRE DESENHADA**, vazia quando não há fala. Uma linha que
+  // aparece e some é um motor de pulo da folha (v1.8.61), e o espaço que ela
+  // reserva se paga duas vezes: calada, é o respiro entre a barra e a lista.
+  const liFala = document.createElement('li');
+  liFala.className = 'sorteio-fala';
+  liFala.textContent = sorteioFala;
+  alvo.appendChild(liFala);
+
+  // ---- A LISTA DOS RESULTADOS ----
+  //
+  // Pedido do operador: *"O cartão de resultados repete as informações que já
+  // temos nas seleções acima, como os filtros usados, e etc… Uma ação inútil,
+  // pois literalmente já há a visão das seleções."*
+  //
+  // O cartão de UMA FRASE (v1.8.83) dizia "Toda a biblioteca, sem os infantis —
+  // 2 músicas" logo abaixo das pílulas que dizem "sem infantis" e do campo vazio:
+  // ele reescrevia por extenso o que a tela já mostrava. O que sobrou do papel
+  // dele — QUANTOS — subiu para a pílula da barra; o que ele nunca respondeu —
+  // QUAIS — é esta lista.
+  alvo.appendChild(sorteioListaDeResultados(lista, escolhidos, pool));
 }
+
+// Os ícones dos três destinos, pelas MESMAS funções que desenham os botões de
+// cada linha da Biblioteca — um `path` escrito duas vezes diverge no primeiro
+/**
+ * A PÍLULA DA CONTA — quantos resultados, e quantos já estão no aparelho.
+ *
+ * As DUAS metades são o que o operador pediu (*"Quantos temos, e se está
+ * disponível"*), e elas se dividem entre o que se lê de RELANCE e o que se lê
+ * quando a pergunta aparece: o NÚMERO é o total, e a disponibilidade viaja no
+ * `title` mais na própria lista, linha a linha — ali ela é acionável (dá para
+ * desmarcar a que vai baixar), e num número só não seria.
+ *
+ * **SEM ÍCONE desde a v1.8.85**, a pedido do operador: *"remova o ícone e deixe
+ * apenas o número no botão de número de resultados disponíveis."* Ele era a
+ * NOTA (`ICON.music`), e o que ele acrescentava — "isto conta músicas" — a
+ * lista logo abaixo já diz, item por item. O que ele custava é medível e é o
+ * vizinho: **24px** da largura do rótulo do primário, numa faixa em que ela é o
+ * recurso escasso (ver a QUEBRA, no CSS).
+ */
+/**
+ * ===== O NÚMERO SAIU DA BARRA; O SORTEAR ENTROU (v1.8.88) =====
+ *
+ * Pedido do operador: *"remova o número de resultados e deixe ele em apenas uma
+ * linha no topo da lista dizendo quantos resultados disponíveis. No lugar dele
+ * coloque o botão de sortear lista, um botão que reordena a lista a disposição.
+ * ele não muda os filtros apenas resorteia."*
+ *
+ * **A CONTAGEM MUDOU DE CASA, não de existência** — ela é um rótulo da LISTA, e
+ * agora mora encostada nela (`sorteioCabecalhoDaLista`). Na barra ela ocupava a
+ * largura do recurso escasso daquela faixa (o rótulo do primário) para dizer um
+ * número que a lista logo abaixo ilustra linha por linha.
+ *
+ * **E O QUE ENTRA NO LUGAR É UMA AÇÃO DE VERDADE**, que é a diferença que a
+ * regra da v1.8.50 cobra: a pílula era um `<span>` justamente porque não tinha
+ * função por trás. Este tem, e por isso é botão.
+ *
+ * O QUE ELE FAZ, E O QUE ELE NÃO FAZ (`sorteioRessortear`): ele NÃO mexe nos
+ * filtros nem na quantidade — refaz o BARALHO sobre o mesmo pool e volta a
+ * marcar os N do topo. É a operação que a v1.8.86 tirou dos filtros ("mexer num
+ * filtro é cortar, não sortear de novo") e que ficou sem porta nenhuma: desde
+ * aquele lote o sorteio novo só acontecia ao ABRIR a folha ou ao USAR o lote.
+ * Este botão é a porta que faltava, e é por ela que a v1.8.86 continua certa.
+ */
+function sorteioBotaoDeSortear(pool) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'song-menu-btn sorteio-acao sorteio-sortear';
+  // O DESENHO É O `#icoAleatorio` DO SPRITE, o mesmo do degrau "Aleatório" do
+  // `#repeat` — as duas coisas são a mesma ideia, e um segundo desenho para ela
+  // seria o operador tendo de aprender duas. (O glifo `shuffle` saiu do `ICON`
+  // na v1.8.80, quando aqueles degraus viraram SVG.)
+  //
+  // **SEM `.song-menu-text` POR FORA** (v1.8.89), e é isso que o alinha: aquele
+  // invólucro leva `min-height: var(--hit)` na regra dos `.sorteio-acao`, então
+  // o ícone ficava no TOPO de uma caixa de 34px centrada num botão de 42,4 —
+  // MEDIDO, 7px acima do centro, ao lado de três irmãos centrados. Os botões de
+  // DESTINO nunca tiveram o invólucro (eles põem o SVG direto no botão), e é o
+  // idioma desta faixa; este passa a segui-lo.
+  b.innerHTML = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none"'
+    + ' stroke="currentColor" stroke-width="2" stroke-linecap="round"'
+    + ' stroke-linejoin="round" aria-hidden="true"><use href="#icoAleatorio"/></svg>';
+  // A MESMA TRAVA dos vizinhos da faixa: sem pool não há o que sortear, e
+  // durante uma corrida a lista está sendo consumida.
+  b.disabled = !pool.itens.length || sorteioRodando;
+  b.title = b.disabled ? 'Não há resultados para sortear' : 'Sortear a lista de novo';
+  b.setAttribute('aria-label', b.title);
+  b.addEventListener('click', () => sorteioRessortear());
+  return b;
+}
+
+/**
+ * SORTEAR DE NOVO — o baralho se refaz, os filtros ficam.
+ *
+ * SÃO TRÊS LINHAS, e cada uma responde por uma metade do pedido:
+ *
+ *  - **`sorteioBaralho = []`** faz o `sorteioLista` ver TODO o pool como
+ *    entrante e embaralhá-lo inteiro. É o sorteio.
+ *  - **`sorteioSemear(quantos)`** volta a marcar os N do TOPO da ordem nova.
+ *    Sem ela o `sorteioAjustarLote` preserva as marcas de antes — o que é o
+ *    certo para um FILTRO (v1.8.86) e o oposto do que se quer aqui: a lista
+ *    sairia reordenada com o MESMO lote marcado, espalhado. Ela vem DEPOIS do
+ *    `sorteioLista`, porque o baralho novo só existe ali.
+ *  - **`quantos`, lido ANTES**, é o que faz a QUANTIDADE sobreviver: ela é
+ *    escolha do operador, não parte do sorteio.
+ *
+ * (Um `sorteioMarcadas = new Set()` esteve aqui e SAIU: medido por reversão,
+ * tirá-lo não muda um pixel — o `sorteioSemear` logo abaixo reescreve o
+ * conjunto inteiro de qualquer jeito.)
+ *
+ * **`sorteioUsadas` NÃO é zerado**, e isso é a regra da v1.8.86 de pé: o que já
+ * foi tocado ou guardado nesta abertura saiu da lista de propósito, e um
+ * "sortear de novo" que o trouxesse de volta projetaria no culto um louvor que
+ * acabou de tocar.
+ */
+function sorteioRessortear() {
+  if (sorteioRodando) return;
+  const quantos = sorteioMarcadas.size || AVSorteio.sanear(sorteioPrefs).quantos;
+  sorteioBaralho = [];
+  const pool = sorteioPool();
+  sorteioLista(pool, AVSorteio.sanear(sorteioPrefs));
+  sorteioSemear(quantos);
+  atualizarContaSorteio();
+}
+
+/**
+ * A CONTAGEM, agora como CABEÇALHO da lista (v1.8.88) — *"apenas uma linha no
+ * topo da lista dizendo quantos resultados disponíveis"*.
+ *
+ * Ela é uma LINHA e não uma pílula: encostada na lista, o número não precisa de
+ * caixa nem de largura fixa para não empurrar vizinho — o que ele empurrava era
+ * o rótulo do primário, e ele já não está ao lado.
+ *
+ * A DISPONIBILIDADE fica junto, porque é a metade que muda a decisão: quem está
+ * no aparelho toca na hora, quem não está espera download.
+ */
+function sorteioCabecalhoDaLista(pool) {
+  const n = pool.itens.length;
+  const cx = document.createElement('div');
+  cx.className = 'sorteio-res-cab';
+  cx.textContent = n
+    ? numeroPt(n) + (n === 1 ? ' resultado disponível' : ' resultados disponíveis')
+      + ' · ' + (pool.noAparelho === n ? 'todos já baixados'
+        : pool.noAparelho ? numeroPt(pool.noAparelho) + ' já baixados'
+          : 'nenhum baixado ainda')
+    : 'Nenhum resultado com esses filtros';
+  // `status` porque ela é o número que muda sob os filtros — um leitor de tela
+  // precisa ouvir a mudança sem varrer a folha atrás dela.
+  cx.setAttribute('role', 'status');
+  return cx;
+}
+
+/**
+ * ===== A LISTA DOS RESULTADOS (v1.8.84) =====
+ *
+ * Pedido do operador: *"agora ele será a lista dos resultados, listando cada
+ * música disponível naquele resultado, assim como é a lista de resultados na
+ * busca da biblioteca. Apenas com um diferencial, uma caixa de check em cada
+ * item (que já vem marcado) que permite ou não incluir uma música em específico
+ * na consideração final ao tocar/salvar."*
+ *
+ * **UMA MARCA SÓ, desde a v1.8.85** — a caixa, o preenchimento e o número são
+ * o MESMO fato: *"esta vai tocar"*. A v1.8.84 tinha duas (a caixa marcada em
+ * todas, o preenchimento em algumas) porque a caixa respondia *"entra na
+ * consideração?"* e o seletor "Quantas" cortava o lote depois; o operador leu
+ * uma pergunta só, e tem razão — marcar é escolher, que é o vocabulário do
+ * resto do app. O seletor não mente mais porque ele deixou de ser o dono do
+ * número: quem responde "quantas" é o tamanho do lote marcado.
+ *
+ * A LINHA É A DA FOLHA DE DESTINOS (`.song-menu-btn.song-menu-sel`), e não um
+ * desenho novo: é a mesma gramática de "lista com caixa de marcação" que a
+ * v5.252 fechou, e o toque no CORPO inteiro alterna — a caixa é indicador, não
+ * alvo (`pointer-events: none`).
+ *
+ * **O SUBTÍTULO É A DISPONIBILIDADE**, que é a metade do pedido que a pílula não
+ * carrega: quem está no aparelho toca na hora, quem não está espera download. E
+ * ele explica a ORDEM — o baralho põe o que está no aparelho na frente
+ * (`AVSorteio.baralhar`), então as primeiras linhas são as que tocam na hora.
+ */
+function sorteioListaDeResultados(lista, escolhidos, pool) {
+  const li = document.createElement('li');
+  // `rola` porque desde a v1.8.85 o scroller é ESTE, e não mais a folha: é ele
+  // que precisa da sombra das bordas dizendo que há resultado escondido. A
+  // `.popup-list` continua com a marca e o observador a lê como `sem-veu`
+  // enquanto ela não rolar — que é o caso normal.
+  li.className = 'sorteio-res rola' + (lista.length ? '' : ' vazio');
+  // A CONTAGEM, no topo da lista (v1.8.88). Ela entra ANTES do desvio do vazio
+  // porque "nenhum resultado" também é uma contagem — e ali ela é a única linha
+  // que diz o número, já que a pílula da barra saiu.
+  li.appendChild(sorteioCabecalhoDaLista(pool));
+  if (!lista.length) {
+    // VAZIO ELA DIZ O MOTIVO, e a frase é a mesma de sempre: `fraseDoVazioSorteio`
+    // separa cinco causas que pedem ações OPOSTAS, e ela é a única peça do cartão
+    // antigo que não repetia o que a tela já mostra.
+    const vazio = document.createElement('div');
+    vazio.className = 'sorteio-res-vazio';
+    vazio.textContent = fraseDoVazioSorteio(pool);
+    li.appendChild(vazio);
+    return li;
+  }
+  const ul = document.createElement('ul');
+  ul.className = 'sorteio-res-lista';
+  lista.forEach((it) => {
+    const chave = chaveDaFaixa(it);
+    const vai = sorteioMarcadas.has(chave);
+    const linha = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'song-menu-btn song-menu-sel sorteio-res-btn' + (vai ? ' vai' : '');
+    // A POSIÇÃO só existe para quem vai tocar — é ela que separa o lote do resto
+    // sem uma divisória, e ela diz a ORDEM, que o preenchimento sozinho não diz.
+    const pos = document.createElement('span');
+    pos.className = 'sorteio-res-pos';
+    pos.textContent = vai ? String(escolhidos.findIndex((e) => chaveDaFaixa(e) === chave) + 1) : '';
+    btn.appendChild(pos);
+    const txt = document.createElement('span'); txt.className = 'song-menu-text';
+    const t = document.createElement('span'); t.className = 'song-menu-label';
+    t.textContent = songLabel(it.coll, it.s);
+    const d = document.createElement('span'); d.className = 'song-menu-sub';
+    d.textContent = (it.coll && it.coll.name ? it.coll.name + ' · ' : '')
+      + (it.noAparelho ? 'no aparelho' : 'vai baixar');
+    txt.append(t, d);
+    btn.appendChild(txt);
+    const cx = document.createElement('span');
+    cx.className = 'song-menu-check' + (vai ? ' on' : '');
+    cx.setAttribute('role', 'checkbox');
+    cx.setAttribute('aria-checked', vai ? 'true' : 'false');
+    btn.appendChild(cx);
+    btn.title = vai ? 'Vai tocar — tocar para tirar' : 'Fora — tocar para incluir';
+    // O REDESENHO É O LEVE, e a ROLAGEM É PRESERVADA (v1.8.85). `renderSorteio`
+    // remonta a folha inteira e devolveria a lista ao TOPO a cada marca — numa
+    // lista de mil linhas, um toque na linha 300 tirava a linha 300 da tela.
+    btn.addEventListener('click', () => {
+      if (!sorteioAlternar(chave)) { pulsar(btn, 'erro'); return; }
+      // A ROLETA DA QUANTIDADE mora ACIMA dos resultados e lê
+      // `sorteioMarcadas.size`, que o toque acabou de mudar — quem a acerta EM
+      // PONTO, sem remontar a folha, é o próprio `atualizarContaSorteio`
+      // (v1.8.96). Remontar aqui é o que a v1.8.83 veio evitar.
+      atualizarContaSorteio();
+    });
+    linha.appendChild(btn);
+    ul.appendChild(linha);
+  });
+  li.appendChild(ul);
+  return li;
+}
+
+// ajuste. `false` nos três: aqui nada está "dentro" de lista nenhuma, porque
+// nada foi sorteado ainda, e é a variante com `+` que diz "cabe aqui".
+const SORTEIO_ICONE = {
+  cronograma: () => cronogramaIconSvg(false),
+  playlist: () => playlistIconSvg(false),
+  favoritos: () => starSvg(false),
+};
 
 // ===== PLAYBACK SORTEADO É SOM DE FUNDO (v5.311) =====
 //
@@ -21561,9 +24265,10 @@ async function acertarCortinaDoSorteio(f) {
 
 // ---- O sorteio -------------------------------------------------------------
 
-// `desfecho` = `'tocar'` (a fila do player, projetando a primeira) ou
-// `'cronograma'` (guardar, sem mexer no que está no ar). Sorteando UMA SÓ só o
-// primeiro existe — ver a nota da faixa de fecho.
+// `desfecho` = `'tocar'` (a fila do player, projetando a primeira) ou uma CHAVE
+// de `DESTINOS` — `'cronograma'`, `'playlist'`, `'favoritos'` —, que guarda sem
+// mexer no que está no ar. Os quatro valem nos DOIS modos desde a v1.8.56; ver
+// a nota da faixa de fecho.
 async function executarSorteio(btn, desfecho) {
   if (sorteioRodando) return;
   sorteioRodando = true;
@@ -21573,8 +24278,14 @@ async function executarSorteio(btn, desfecho) {
     await ensureLyricIndex();
     const f = AVSorteio.sanear(sorteioPrefs);
     const pool = AVSorteio.montarPool(allCollections(), f, sorteioCap());
-    const quantos = f.modo === AVSorteio.MODO_PLAYLIST ? f.quantos : 1;
-    const escolhidos = AVSorteio.sortear(pool.itens, quantos);
+    // ===== O LOTE É O TOPO DO BARALHO, NÃO UM SORTEIO NOVO (v1.8.84) =====
+    //
+    // Era `AVSorteio.sortear(pool.itens, quantos)` — um embaralhamento PRÓPRIO,
+    // feito no toque. Com a folha mostrando a lista, isso passou a ser o pior
+    // defeito possível deste botão: o operador lê cinco nomes, tira um, toca em
+    // "Tocar agora" **e ouve outras cinco**. A ordem que ele está lendo é a do
+    // baralho, e é dela que o lote tem de sair.
+    const escolhidos = sorteioEscolhidos(sorteioLista(pool, f));
     // O VEREDITO sai da passada que decidiu, e é o que o Registro imprime.
     sorteioDiario = {
       quando: Date.now(), filtros: f, pool,
@@ -21590,27 +24301,84 @@ async function executarSorteio(btn, desfecho) {
       atualizarContaSorteio();
       return;
     }
-    // A cortina só é acertada por quem PROJETA. "Ao Cronograma" guarda e não
-    // toca em nada do que está no ar — mexer no telão ali seria o oposto do que
-    // aquele botão promete.
-    if (f.modo !== AVSorteio.MODO_PLAYLIST) {
+    // A cortina só é acertada por quem PROJETA. Os três destinos guardam e não
+    // tocam em nada do que está no ar — mexer no telão ali seria o oposto do
+    // que aqueles botões prometem. (O pacote guardado leva a cortina DENTRO
+    // dele, para aplicá-la quando for aberto — ver `cortinaDoSorteio`.)
+    if (desfecho !== 'tocar') {
+      await guardarSorteadas(escolhidos, btn, f, desfecho);
+    } else if (escolhidos.length === 1) {
       await acertarCortinaDoSorteio(f);
       await tocarSorteada(escolhidos[0]);
-    } else if (desfecho === 'cronograma') {
-      await guardarSorteadasNoCronograma(escolhidos, btn, f);
     } else {
       await acertarCortinaDoSorteio(f);
       await montarFilaSorteada(escolhidos);
     }
+    // O LOTE SAI DO BARALHO — *"após jogar para tocar, essa lista marcada é
+    // removida, e os itens de baixo são levados para cima, criando a próxima
+    // lista selecionada"*. Depois da ação, nunca antes: um lote que falhou (o
+    // consentimento de download recusado, nenhuma faixa baixável) apagaria da
+    // tela músicas que ninguém ouviu.
+    sorteioConsumir(escolhidos);
+    // E A LISTA MOSTRA O QUE SOBROU, no mesmo instante. Consumir sem redesenhar
+    // deixa na tela o lote que já foi usado — e nos três destinos a folha FICA
+    // aberta, então o próximo toque sairia por cima do mesmo lote. É
+    // `atualizarContaSorteio` e não `renderSorteio` pelo motivo da v1.8.83: um
+    // redesenho troca os nós e APAGA o pulso que o `guardarSorteadas` acabou de
+    // pôr no botão tocado. Este troca só a pílula, a fala e a lista — e o botão
+    // do pulso não está em nenhuma das três.
+    atualizarContaSorteio();
   } finally {
     sorteioRodando = false;
-    // E A FOLHA VOLTA A ACEITAR TOQUE. Ela costuma já ter sido fechada aqui,
-    // mas há um caminho em que não: recusar o consentimento de download desiste
-    // sem fechar nada. Sem este redesenho, um render que tenha acontecido
-    // DURANTE a corrida (o índice de letras chegando) deixaria o confirmar
-    // desabilitado pelo `sorteioRodando` — e nada mais o reabilitaria.
-    if (sorteioPopupEl.classList.contains('open')) renderSorteio();
+    // E A FOLHA VOLTA A ACEITAR TOQUE — EM PONTOS, nunca por redesenho
+    // (v1.8.83). Ela costuma já ter sido fechada aqui, mas há um caminho em que
+    // não: recusar o consentimento de download desiste sem fechar nada. Sem
+    // isto, um render que tenha acontecido DURANTE a corrida (o índice de
+    // letras chegando) deixaria o confirmar desabilitado pelo `sorteioRodando`
+    // — e nada mais o reabilitaria. Ver `acertarTravaSorteio`: era um
+    // `renderSorteio()`, e ele APAGAVA o pulso que a linha acima acabou de pôr.
+    acertarTravaSorteio();
   }
+}
+
+// A TRAVA DA FAIXA DE FECHO, ESCRITA EM PONTOS (v1.8.83).
+//
+// Relato do operador: *"O feedback de confirmação dos botões na seção de
+// playlist automática, estão muito rápidos, basicamente não visíveis. Verifique
+// seu tempo de exposição ou se tem algo atualizando a tela"*.
+//
+// Era a segunda hipótese, e o tempo não tinha nada a ver: o `finally` do
+// `executarSorteio` chamava `renderSorteio()` só para reabilitar esta faixa, e
+// um redesenho TROCA OS NÓS — `limparFolha` esvazia a lista e cada botão é
+// criado de novo. O `responder` acabara de pôr o pulso no botão TOCADO, e
+// aquele botão saía do documento no quadro seguinte.
+//
+// MEDIDO: o nó trocado em 23 ms, o pulso vivendo os `PULSO_MS` (1100 ms)
+// inteiros — num nó SOLTO. **Zero milissegundo na tela.** Não era rápido: não
+// era visível. Vale para os dois desfechos que respondem no botão, o "guardei"
+// e o "não havia o que sortear".
+//
+// Escrever `disabled` em cada botão é tudo que aquele redesenho tinha a fazer,
+// e não toca em nó nenhum. A CONTA continua sendo repintada à parte
+// (`atualizarContaSorteio` substitui só os filhos dela), e é por isso que a
+// frase do `falarNoSorteio` sobrevive: ela mora em ESTADO, não no nó — a mesma
+// regra que faltava aqui.
+// `pool` é OPCIONAL e existe por CUSTO: quem já o montou o passa, e quem chama
+// do `finally` não tem um na mão. `sorteioPool()` varre os dois hinários mais
+// todos os álbuns indexados e, para o que não casa pelo título, o texto inteiro
+// da letra — a mesma varredura que o campo do tema paga com `debounce`. Montá-lo
+// duas vezes por tecla digitada é o preço que este parâmetro não paga.
+//
+// E O SELETOR É O DA FOLHA, não o da LISTA. A faixa de fecho mora no
+// `.popup-fecho`, IRMÃO da `.popup-list` (v1.8.60) — um
+// `sorteioListEl.querySelectorAll('.sorteio-acao')` não acha botão nenhum, e era
+// isso que a cópia daqui fazia desde então: um laço sobre zero nós, sem erro em
+// lugar nenhum.
+function acertarTravaSorteio(pool) {
+  if (!sorteioPopupEl.classList.contains('open')) return;
+  const p = pool || sorteioPool();
+  const travado = !p.itens.length || sorteioRodando;
+  sorteioPopupEl.querySelectorAll('.sorteio-acao').forEach((b) => { b.disabled = travado; });
 }
 
 // UMA SÓ. `playSongVariant` já faz tudo — fecha o acervo, abre o cartão de
@@ -21622,9 +24390,9 @@ async function tocarSorteada(escolha) {
   await playSongVariant(escolha.coll, escolha.s, escolha.variante);
 }
 
-// AO CRONOGRAMA. Ele guarda, e é essa a diferença que justifica o segundo botão:
-// não toca no que está no ar, não substitui a fila do player e não projeta nada.
-// O operador monta o louvor da semana numa terça e projeta no domingo.
+// GUARDAR. É essa a diferença que justifica os três botões ao lado do primário:
+// não tocam no que está no ar, não substituem a fila do player e não projetam
+// nada. O operador monta o louvor da semana numa terça e projeta no domingo.
 //
 // A FOLHA FICA ABERTA, ao contrário do "Tocar agora". É o mesmo princípio das
 // listas de destino do acervo: uma ação que GUARDA não encerra a conversa, e
@@ -21640,13 +24408,19 @@ async function tocarSorteada(escolha) {
 // de fato aconteceu. A folha continua aberta depois de guardar, então mexer
 // num controle enquanto o download corre reescreveria as preferências — e o
 // pacote sairia com o nome de uma escolha que ninguém sorteou.
-async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
+//
+// `destino` É UMA CHAVE DE `DESTINOS` (v1.8.56), e não mais só o Cronograma:
+// os três lugares recebem o MESMO sorteio, e o que muda entre eles é a FORMA
+// com que ele pousa lá — ver o fecho desta função.
+async function guardarSorteadas(escolhidos, btn, f, destino) {
+  const lista = listaDoDestino(destino);
+  const onde = LISTA_ROTULO[lista] || ROTULO_PADRAO;
   const faltam = escolhidos.filter((i) => !i.noAparelho).length;
   if (faltam && !(await ensureDownloadConsent())) return;
 
   sorteioCancelado = false;
   const total = escolhidos.length;
-  const bg = previewBusy('Preparando', total + ' para o Cronograma',
+  const bg = previewBusy('Preparando', total + ' ' + onde.para,
     () => { sorteioCancelado = true; });
   const tarefa = bgTaskStart('Playlist automática', total, 'processar');
   const ids = [];
@@ -21672,7 +24446,7 @@ async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
 
   // CANCELAR AQUI NÃO DESCARTA O QUE JÁ DESCEU, ao contrário do "Tocar agora".
   // Lá o cancelamento evita trocar a fila do culto por meia lista — uma
-  // SUBSTITUIÇÃO pela metade. Aqui a ação ACRESCENTA: três de dez no Cronograma
+  // SUBSTITUIÇÃO pela metade. Aqui a ação ACRESCENTA: três de dez no destino
   // é exatamente o que aconteceu, é reversível linha a linha, e jogar fora um
   // download que já custou rede seria o desperdício que ninguém pediu.
   if (!ids.length) {
@@ -21680,6 +24454,57 @@ async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
     return;
   }
   bg.soltar();
+  // ===== AS TRÊS FORMAS DE POUSAR, E A ESCOLHA NÃO É DE ESTILO =====
+  //
+  // **UMA SÓ É UMA MÍDIA, NUNCA UM PACOTE DE UM.** O `.avpkg` da fila já recusa
+  // guardar menos de duas (*"um pacote guarda uma fila"*, v1.8.53), e a razão
+  // vale aqui inteira: uma linha chamada "Playlist da biblioteca · 1 música"
+  // que precisa de um toque a mais para revelar o hino que está dentro é pior
+  // que a linha do hino. Este é o caminho de todo sorteio de UMA — o modo que
+  // até a v1.8.55 não tinha destino nenhum.
+  //
+  // **A FILA RECEBE AS FAIXAS, as outras duas recebem o PACOTE.** É a metade
+  // literal do pedido (*"simplesmente joga… no fim da playlist atual"*), e ela
+  // é a única leitura coerente: a playlist é uma fila de MÍDIA, e o toque num
+  // pacote a SUBSTITUI (`abrirPacote`) — guardar um pacote dentro da fila
+  // seria pôr nela o botão que a apaga.
+  if (ids.length === 1) {
+    // `adicionarNasListas` cuida da duplicata e do redesenho da lista que
+    // recebeu — é o mesmo funil de toda porta do app.
+    //
+    // **E A CONTA DIZ O NOME**, que aqui não é enfeite: guardando UMA SÓ, o
+    // pulso do botão prova que o toque valeu e não diz QUAL saiu — e a única
+    // outra superfície que responderia isso é a lista de destino, que está
+    // atrás desta folha. (No "Tocar agora" a pergunta não existe: a música vai
+    // ao telão.) A frase que `adicionarNasListas` monta viaja no terceiro
+    // argumento do `responder`, que é DESCARTADO; a folha do sorteio tem canal
+    // próprio, e é ele que fala.
+    const ja = await AVDB.listHas(lista, ids[0]);
+    await adicionarNasListas([lista], ids[0], nomes[0], btn);
+    falarNoSorteio(rotuloItem(nomes[0])
+      + (ja ? 'já estava ' + onde.em : 'adicionado ' + onde.para));
+    return;
+  }
+  if (lista === 'playlist') {
+    // NO FIM DA FILA, e `listAdd` já faz exatamente isso — ele é APPEND e é
+    // idempotente para mídia (a lista é um conjunto de ids). O que a contagem
+    // separa é o que ENTROU do que JÁ ESTAVA: sortear duas vezes o mesmo tema
+    // com o acervo pequeno repete faixas, e sem a distinção a segunda rodada
+    // pareceria não ter feito nada.
+    let novas = 0;
+    for (const id of ids) {
+      if (await AVDB.listHas('playlist', id)) continue;
+      await AVDB.listAdd('playlist', id);
+      novas++;
+    }
+    plItems = await AVDB.listItems('playlist');
+    renderPlaylist();
+    responder(btn, novas ? 'ok' : 'dup');
+    falarNoSorteio(novas
+      ? novas + (novas === 1 ? ' música acrescentada' : ' músicas acrescentadas') + ' ao fim da playlist'
+      : 'todas as ' + ids.length + ' já estavam na playlist');
+    return;
+  }
   // UM PACOTE, NÃO N LINHAS (v5.313), a pedido do operador: *"ajuste o envio ao
   // cronograma para que ele não envie um por um, mas sim um item que seja um
   // pacote de playlist"*.
@@ -21701,10 +24526,9 @@ async function guardarSorteadasNoCronograma(escolhidos, btn, f) {
   // store `media`) não os deixa órfãos. Quem manda na vida deles é a coleção
   // que os baixou, como antes.
   const rec = await criarCue('group', { ids, view: cortinaDoSorteio(f) },
-    nomeDoPacoteSorteado(f, ids.length), 'imports', btn);
+    nomeDoPacoteSorteado(f, ids.length), lista, btn);
   if (!rec) { responder(btn, 'erro', 'Não foi possível guardar o pacote'); return; }
-  falarNoSorteio(ids.length + (ids.length === 1 ? ' música' : ' músicas')
-    + ' num pacote ' + LISTA_ROTULO.imports.em);
+  falarNoSorteio(ids.length + ' músicas num pacote ' + onde.em);
 }
 
 /**
@@ -21735,19 +24559,20 @@ function nomeDoPacoteSorteado(f, quantas) {
 // A frase mora em ESTADO, não no nó (ver `pintarContaSorteio`).
 let sorteioFala = '';
 let sorteioFalaTimer = null;
-function falarNoSorteio(texto, ms) {
+function falarNoSorteio(texto) {
   clearTimeout(sorteioFalaTimer);
   sorteioFala = texto;
   atualizarContaSorteio();
   sorteioFalaTimer = setTimeout(() => {
     sorteioFala = '';
     if (sorteioPopupEl.classList.contains('open')) atualizarContaSorteio();
-  }, ms || 3000);
+  }, 3000);
 }
 // A FALA NÃO ATRAVESSA UMA ABERTURA. Fechar e reabrir a folha é o gesto de
 // quem foi fazer outra coisa; reencontrar ali o recibo de três minutos atrás
 // diria que a conta é o que ela não é.
 function calarSorteio() { clearTimeout(sorteioFalaTimer); sorteioFala = ''; }
+
 
 // A FILA. O caro é o download, e ele é feito UMA vez por faixa, em série: seis
 // downloads em paralelo é o que a sincronização de um álbum faz, e ali ninguém
@@ -21803,7 +24628,12 @@ async function montarFilaSorteada(escolhidos) {
     // primeiro item vai ao telão. `listSet` também COLETA o que saiu da lista —
     // é a mesma semântica de todo "Tocar agora" do acervo, que já substitui a
     // fila por `replacePlaylistWith`.
-    await AVDB.listSet('playlist', ids);
+    // `trocarFila` ZERA O SELETOR (v1.8.77), e é aqui que isso mais importa: a
+    // playlist automática é o caminho em que o operador menos olha para o
+    // transporte — ele sorteia e projeta. Com `one` herdado da faixa anterior a
+    // fila recém-montada tocaria a primeira em laço; com `off`, ela anda até o
+    // fim sozinha, que é o que "montar uma playlist" quer dizer.
+    await trocarFila(ids);
     plItems = await AVDB.listItems('playlist');
     renderPlaylist();
     await send(ids[0]);
@@ -21938,11 +24768,6 @@ function cabecalhoDiag() {
       : (somLocalBloqueado
         ? 'em lugar nenhum — o navegador recusou o som deste aparelho'
         : 'em lugar nenhum — sem tela e no Modo Fácil (este aparelho só soa no avançado)'))));
-  // SUPORTE A TRANSMISSÃO DIRETA. É o dado mais útil deste bloco desde a
-  // v5.120: quando um "Tocar agora" cai no download em vez de transmitir, a
-  // primeira pergunta é se o WebView deste aparelho aceita os codecs — e a
-  // resposta não se descobre de fora.
-  l.push('Transmissão: ' + diagMse());
   // O ALCANCE (v1.4.1). Com a chave fora (v1.4.42) ele responde UMA pergunta, e
   // é a que faz este Registro ser copiado: **o farol chegou a acender?** Sem
   // esta linha, "o número não sobe" é indistinguível de "o farol nunca saiu
@@ -22021,23 +24846,6 @@ function cabecalhoDiag() {
     ? 'Aparelho: Android ' + and[1] + ' · ' + mod[1].trim() + ' · WebView ' + chr[1]
     : 'Aparelho: ' + ua);
   return l.join('\n');
-}
-
-function diagMse() {
-  if (!window.MediaSource) return 'sem MediaSource';
-  const testes = [
-    ['avc1', 'video/mp4; codecs="avc1.640028"'],
-    ['aac', 'audio/mp4; codecs="mp4a.40.2"'],
-  ];
-  const faltam = testes
-    .filter(([, t]) => { try { return !MediaSource.isTypeSupported(t); } catch (_) { return true; } })
-    .map(([n]) => n);
-  const codecs = faltam.length ? 'MediaSource sem ' + faltam.join('+') : 'MediaSource ok (avc1+aac)';
-  // POR ONDE A FAIXA VIAJA. É a diferença entre o navegador e o WebView (ver o
-  // cabeçalho de `shared/mse.js`), e não se infere da versão que o rodapé
-  // mostra — quem decide é o contexto em que a página está rodando.
-  if (!window.__NATIVE__) return codecs + ' · navegador (faixa no cabeçalho)';
-  return codecs + ' · faixa na URL';
 }
 
 // ===== O bloco da TRANSMISSÃO no Registro =====
@@ -22440,8 +25248,17 @@ function blocoSorteio() {
   const f = d.filtros;
   const p = d.pool;
   const linhas = ['Playlist automática (o que a regra achou)'];
-  linhas.push('· ' + serieHa(d.quando) + ' · ' + (f.modo === AVSorteio.MODO_PLAYLIST
-    ? 'fila de até ' + f.quantos : 'uma só')
+  // O VEREDITO SAI DO MESMO CAMPO QUE DECIDIU (v1.8.61): era `f.modo`, e o modo
+  // deixou de existir — uma linha que lesse um campo morto diria "uma só" sobre
+  // uma fila de dez, e um log que discorda do aparelho é lido A DISTÂNCIA por
+  // quem não tem como conferir.
+  // E O NÚMERO É O DO LOTE QUE SAIU (v1.8.85), nunca `f.quantos`: aquele é a
+  // pílula GUARDADA, e desde este lote a quantidade se escolhe também na mão,
+  // marcando linhas. Um Registro dizendo "fila de até 5" sobre um lote de três
+  // é o log que discorda do aparelho — lido a distância por quem não confere.
+  const quantasSairam = (d.escolhidos || []).length;
+  linhas.push('· ' + serieHa(d.quando) + ' · ' + (quantasSairam > 1
+    ? 'fila de ' + quantasSairam : 'uma só')
     + ' · ' + (f.variante === AVSorteio.VARIANTE_PLAYBACK
       ? 'fundo musical (telão coberto)' : 'cantada')
     + (f.semHinario ? ' · sem hinário' : '')
@@ -22582,6 +25399,94 @@ function blocoColetaneas() {
   linhas.push('  coletâneas do banco: '
     + (cats.length ? cats.map((c) => c.name).join(' · ') : 'nenhuma'));
   return 'Coletâneas (o que a regra dissolveu)\n' + linhas.join('\n');
+}
+
+// A COLETÂNEA DE VÍDEOS DO LOUVORJA — o que a curadoria mandou e o que a regra
+// aceitou.
+//
+// **A pergunta que este bloco existe para responder é uma só**, e ela é
+// diferente da das séries: o acervo é curado por OUTRO projeto, então quando
+// falta alguma coisa a dúvida é *"o LouvorJA não publicou, ou o app recusou?"*.
+// Sem as contagens do payload ao lado das aceitas, as duas chegam como a mesma
+// lista curta — e quem lê está a distância, sem como abrir o banco.
+//
+// Guarda o VEREDITO de `AVOnline.lerCatalogo`, nunca uma segunda opinião: os
+// números vêm do diário que aquela função devolveu, e as frases de
+// `onlineMotivoFrase`. Uma segunda contagem escrita aqui envelheceria à parte
+// no primeiro ajuste da regra, e o que sairia é um log que discorda do
+// aparelho.
+function onlineMotivoFrase(motivo) {
+  switch (motivo) {
+    case AVOnline.MOTIVO_SEM_ID: return 'veio sem o id do YouTube';
+    case AVOnline.MOTIVO_ID_INVALIDO: return 'o id não tem forma de id do YouTube';
+    case AVOnline.MOTIVO_ORFAO: return 'não está em playlist nenhuma do catálogo';
+    case AVOnline.MOTIVO_VAZIA: return 'a playlist veio sem vídeo nenhum';
+    case AVOnline.MOTIVO_REPETIDA: return 'o mesmo id de playlist veio duas vezes';
+    default: return motivo || 'motivo não declarado';
+  }
+}
+
+async function blocoOnline() {
+  if (!onlineDisponivel()) return '';
+  const linhas = [];
+  linhas.push('· fonte: api.louvorja.com.br/' + AVOnline.LANG_PADRAO + '/collections/online');
+  const d = await onlineDiarioLer();
+  if (d && d.erro) {
+    // A FALHA TEM LINHA PRÓPRIA, e ela vem ANTES de qualquer contagem: um
+    // diário com `erro` pode ter contagens de uma busca ANTERIOR que deu certo,
+    // e mostrá-las primeiro faria a última tentativa parecer bem-sucedida.
+    linhas.push('  ÚLTIMA BUSCA FALHOU (' + (serieHa(d.quando) || 'agora') + '): ' + d.erro);
+    linhas.push('    um erro SEM código HTTP aqui é o caso a investigar: esta é a'
+      + ' primeira rota fora de /json_db que o app consome, e uma política de CORS'
+      + ' diferente falha igual a "sem rede"');
+  }
+  if (!d) {
+    // O MESMO caso que o bloco das séries nomeia, e pela mesma razão: seção na
+    // tela e nada no Registro é NORMAL (a busca acontece na abertura ou na
+    // retomada) e precisa estar dito, senão se lê como o recurso quebrado.
+    linhas.push('  ainda não buscado neste aparelho — a busca acontece ao abrir'
+      + ' o app (ou toque em "Atualizar a lista" num card da coletânea)');
+    return AVOnline.NOME_COLETANEA + ' (a curadoria do LouvorJA)\n' + linhas.join('\n');
+  }
+  linhas.push('  última busca: ' + (serieHa(d.quando) || 'agora'));
+  // O QUE O PAYLOAD ANUNCIOU, ao lado do que ficou. É a única referência
+  // externa deste bloco — sem ela, "12 álbuns" não diz se vieram 12 ou 400.
+  linhas.push('  o catálogo trouxe: ' + (d.canaisNoPayload | 0) + ' canal(is) · '
+    + (d.playlistsNoPayload | 0) + ' playlist(s) · ' + (d.videosNoPayload | 0) + ' vídeo(s)');
+  linhas.push('  virou: ' + (d.albuns | 0) + ' álbum(ns) · ' + (d.aceitos | 0) + ' faixa(s)');
+  // A PROCEDÊNCIA. É a primeira pergunta diante de uma curadoria que parece
+  // errada — *"de QUEM é este material?"* —, e o `@handle` é a única forma que
+  // uma PESSOA consegue conferir: o `channel_id` funciona e não se lê.
+  if ((d.canais || []).length) {
+    linhas.push('  canais: ' + d.canais
+      .map((c) => (c.nome || c.id) + (c.arroba ? ' (' + c.arroba + ')' : '')).join(' · '));
+  }
+  // OS ÁLBUNS NOMINAIS, com o canal — é o que prova que a regra achou o que
+  // devia, e é por esses nomes que o operador procura na Biblioteca.
+  linhas.push(...serieLista(onlineCollections(),
+    (c) => '    + "' + c.name + '"' + (c.online.canal ? ' — ' + c.online.canal : '')
+      + ' · ' + c.online.itens.length + ' vídeo(s)'));
+  // AS RECUSAS, agrupadas por motivo e pelo MESMO resumidor das séries: o teto
+  // de nomes por motivo existe porque um payload torto produz centenas de
+  // linhas iguais, e um log que ninguém termina de ler não é diagnóstico.
+  const recusadas = d.recusadas || [];
+  const recusados = d.recusados || [];
+  if (recusadas.length) {
+    linhas.push('  playlists recusadas: ' + recusadas.length);
+    linhas.push(...serieRecusasResumidas(recusadas, onlineMotivoFrase));
+  }
+  if (recusados.length) {
+    linhas.push('  vídeos recusados: ' + recusados.length + ' de ' + (d.total | 0));
+    linhas.push(...serieRecusasResumidas(recusados, onlineMotivoFrase));
+  }
+  // SEM NOME não é recusa — é sintoma. Um acervo inteiro sem título é o que um
+  // payload lido pelo campo errado produz, e sem esta linha ele chega como
+  // "funcionou" com uma lista de "Vídeo xxxxxxxxxxx".
+  if ((d.semNome || []).length) {
+    linhas.push('  ' + d.semNome.length + ' registro(s) vieram SEM título (entraram com rótulo derivado do id)');
+  }
+  if (!recusadas.length && !recusados.length) linhas.push('  nada recusado');
+  return AVOnline.NOME_COLETANEA + ' (a curadoria do LouvorJA)\n' + linhas.join('\n');
 }
 
 async function blocoSeries() {
@@ -22744,138 +25649,18 @@ let diagSeq = 0;
 // precisa estar escrita onde se copia e se repassa, senão a investigação é
 // refeita do zero a cada relato.
 //
-// A FRASE AQUI É MAIS ESTRITA QUE A DA FOLHA DE CONEXÃO. Lá cabe "o som deste
-// celular vai junto", que é o que o operador precisa saber para agir. Aqui a
-// afirmação é técnica, e o que se sabe tem três graus: a MÍDIA de outros apps
-// vai (observado em aparelho); toque e alarme têm guarda explícita no audio
-// policy do AOSP (`// no sonification on remote submix (e.g. WFD)`); e som de
-// NOTIFICAÇÃO depende do aparelho — a Samsung é implementação própria. Escrever
-// as três como certezas seria inventar duas.
-// O MICROFONE, NO REGISTRO — a última tentativa de captura, degrau a degrau.
-//
-// O bloco "Áudio do aparelho" responde ONDE a voz sai; este responde POR QUE ela
-// não saiu, e são perguntas diferentes. Ele existe porque o desfecho relatado do
-// aparelho — "O Android não liberou o microfone" — é uma frase que acusa a causa
-// MENOS provável (uma chamada, um gravador aberto) e não distingue os quatro
-// casos que pedem ações opostas.
-//
-// SÓ APARECE DEPOIS DE UMA TENTATIVA. Num Registro de um culto em que ninguém
-// tocou no microfone ele não responde pergunta nenhuma, e a regra deste arquivo
-// é que linha que não responde nada não é impressa.
-function blocoMicrofone() {
-  if (!micUltima) return '';
-  const l = [];
-  const quando = new Date(micUltima.quando).toLocaleTimeString('pt-BR', { hour12: false });
-  l.push(micUltima.origem + ' · ' + quando + ' · '
-    + (micUltima.ok ? 'ABRIU' : 'RECUSADO'));
-  for (const d of micUltima.degraus) {
-    // A MENSAGEM DO NAVEGADOR ao lado do nome do erro: `NotReadableError` é o
-    // balde genérico do WebRTC e a frase costuma nomear a etapa que falhou.
-    l.push('  ' + d.qual + ': ' + (d.erro || 'abriu') + (d.msg ? ' — ' + d.msg : ''));
-  }
-  const disp = micUltima.disp;
-  if (disp) {
-    l.push('  entradas de áudio que o navegador enxerga: ' + disp.length);
-    // O RÓTULO É O QUE DIZ QUAL microfone é. Ele só existe com permissão
-    // concedida, então a presença dele já responde metade da pergunta — e o
-    // nome ("Fone Bluetooth" contra o embutido) responde a outra metade.
-    for (const d of disp) {
-      l.push('    · ' + (d.label || '(sem rótulo — a permissão não chegou a valer)'));
-    }
-  }
-  // O QUE O SISTEMA DIZ, quando o shell respondeu. Estas linhas são as únicas
-  // do bloco que o navegador não podia produzir — e são elas que fecham o caso
-  // em que tudo do lado web está em ordem e a captura falha assim mesmo.
-  const sh = micUltima.shell;
-  if (sh) {
-    l.push('  --- o que o SISTEMA diz (shell) ---');
-    if (sh.permissao !== null && sh.permissao !== undefined) {
-      l.push('  permissão RECORD_AUDIO: ' + (sh.permissao ? 'concedida' : 'NEGADA'));
-    }
-    if (sh.appops) l.push('  AppOps para gravar: ' + sh.appops);
-    if (sh.modAudio !== null && sh.modAudio !== undefined) {
-      l.push('  permissão MODIFY_AUDIO_SETTINGS: ' + (sh.modAudio ? 'concedida' : 'AUSENTE'));
-    }
-    if (sh.mudo !== null && sh.mudo !== undefined) {
-      l.push('  microfone mudo no sistema: ' + (sh.mudo ? 'SIM' : 'não'));
-    }
-    if (sh.modo !== null && sh.modo !== undefined) {
-      // 2 = MODE_IN_CALL, 3 = MODE_IN_COMMUNICATION. É a causa que a frase da
-      // tela sempre acusou e que nunca tinha sido verificada.
-      const emChamada = sh.modo === 2 || sh.modo === 3;
-      l.push('  modo de áudio: ' + sh.modo + (emChamada ? ' (EM CHAMADA)' : ''));
-    }
-    if (sh.gravando !== null && sh.gravando !== undefined) {
-      l.push('  sessões de gravação visíveis: ' + sh.gravando);
-    }
-    if (Array.isArray(sh.entradas)) {
-      l.push('  entradas que o SISTEMA enxerga: ' + sh.entradas.length);
-      for (const e of sh.entradas) {
-        l.push('    · ' + e.tipo + (e.nome ? ' — ' + e.nome : ''));
-      }
-    }
-  }
-  // O VEREDITO, e ele é o ponto do bloco: a mesma frase na tela sai de várias
-  // causas, e cada uma pede uma ação diferente. Quem lê o Registro está a
-  // distância e não pode tentar todas.
-  if (!micUltima.ok) {
-    const erros = micUltima.degraus.map((d) => d.erro);
-    if (sh && sh.modAudio === false) {
-      // VENCE TODOS OS OUTROS, e é o único deste bloco cujo conserto é NOSSO.
-      // Sem `MODIFY_AUDIO_SETTINGS` no manifest, o Chromium do WebView recusa a
-      // abertura ANTES de qualquer AudioRecord existir — e como a recusa é
-      // anterior à negociação de restrições, ela produz `NotReadableError` em
-      // TODOS os degraus da escada, que é a assinatura exata que se via.
-      // Enquanto este ramo acender, investigar AppOps ou fabricante é perseguir
-      // a causa errada.
-      l.push('→ FALTA A PERMISSÃO MODIFY_AUDIO_SETTINGS NO APK INSTALADO. Não é o '
-        + 'aparelho, não é o AppOps e não é o fabricante: o Chromium do WebView exige '
-        + 'essa permissão do app HOSPEDEIRO para abrir qualquer captura de áudio, e sem '
-        + 'ela toda tentativa morre em NotReadableError. Ela é concedida na instalação '
-        + '(não há o que autorizar na tela). O conserto é INSTALAR O APK v1.2.13 OU MAIS '
-        + 'NOVO — versões anteriores não têm como funcionar.');
-    } else if (sh && sh.appops && sh.appops !== 'permitido' && sh.appops !== 'primeiro plano'
-        && sh.appops !== '?') {
-      // O CASO QUE QUATRO RODADAS NÃO CONSEGUIRAM NOMEAR. A permissão está
-      // concedida e o AppOps a recusa — é o interruptor de privacidade do
-      // sistema, o controle do fabricante (o Auto Blocker da Samsung sobre um
-      // app instalado fora da loja) ou o mudo global. Nos três a tela do app diz
-      // "permissão concedida" e a captura falha assim mesmo.
-      l.push('→ O SISTEMA ESTÁ BLOQUEANDO A GRAVAÇÃO (AppOps: ' + sh.appops + '), mesmo com '
-        + 'a permissão concedida. Não adianta reconceder a permissão. Veja: o interruptor '
-        + '"Acesso ao microfone" nas configurações rápidas; e, num Samsung, o Bloqueio '
-        + 'automático (Auto Blocker) em Segurança e privacidade — ele restringe apps '
-        + 'instalados fora da Play Store.');
-    } else if (sh && (sh.modo === 2 || sh.modo === 3)) {
-      l.push('→ O APARELHO ESTÁ EM CHAMADA (modo ' + sh.modo + '): aí o microfone é da '
-        + 'chamada, e esta é a única vez em que a frase antiga estava certa.');
-    } else if (sh && sh.mudo === true) {
-      l.push('→ O MICROFONE ESTÁ MUDO NO SISTEMA. Não é permissão nem app concorrente.');
-    } else if (erros.some((e) => e === 'NotAllowedError' || e === 'SecurityError')) {
-      l.push('→ PERMISSÃO: o Android (ou o WebView) negou. Autorize o app em '
-        + 'Configurações › Aplicativos › Áudio Visual › Permissões.');
-    } else if (disp && disp.length === 0) {
-      l.push('→ NENHUMA ENTRADA DE ÁUDIO: não é permissão. O aparelho não está '
-        + 'entregando microfone nenhum ao app — veja o interruptor de PRIVACIDADE '
-        + '"Acesso ao microfone" nas configurações rápidas.');
-    } else if (micUltima.degraus.length >= 3 && erros.every(Boolean)) {
-      l.push('→ TODOS OS DEGRAUS FALHARAM, inclusive o pedido CRU e o pedido pelo ID '
-        + 'do dispositivo: o problema não é o processamento de áudio (que é o que a '
-        + 'escada contorna), nem a escolha do "default" do navegador. Com a permissão '
-        + 'concedida e o dispositivo à vista, quem recusa é o sistema — outro app '
-        + 'segurando o microfone, ou política do fabricante.');
-    } else {
-      // NÃO AFIRMA QUE A ESCADA FOI INTERROMPIDA — ela pode ter rodado inteira no
-      // TELÃO e chegado aqui resumida por um bundle antigo. Um veredito errado é
-      // pior que veredito nenhum, e este Registro é lido a distância.
-      l.push('→ ' + micUltima.degraus.length + ' tentativa(s) registrada(s). Se o número '
-        + 'for menor que a escada, ou o erro não era retentável (permissão), ou o '
-        + 'operador soltou o botão, ou quem tentou foi um bundle que ainda não '
-        + 'reporta os degraus.');
-    }
-  }
-  return 'Microfone (última tentativa)\n' + l.join('\n');
-}
+// A FRASE AQUI É MAIS ESTRITA QUE A DO `?` DA FOLHA DE CONEXÃO. Lá cabe
+// "exceto as notificações, todo o som deste aparelho é tocado na tela" — a
+// versão que muda o que o operador FAZ antes do culto (silenciar o aparelho,
+// não deixar um áudio de mensagem tocar). Aqui a afirmação é técnica, e o que
+// se sabe tem três graus: a MÍDIA de outros apps vai (observado em aparelho);
+// toque e alarme têm guarda explícita no audio policy do AOSP (`// no
+// sonification on remote submix (e.g. WFD)`); e som de NOTIFICAÇÃO depende do
+// aparelho — a Samsung é implementação própria. Escrever as três como certezas
+// seria inventar duas, e é por isso que a folha e o Registro dizem coisas
+// diferentes de propósito.
+// (O BLOCO "microfone" do Registro saiu na v1.8.89 com o recurso — ele
+//  respondia "por que a voz não saiu", e não há mais voz a sair.)
 
 function blocoAudio() {
   if (!window.__NATIVE__) return '';
@@ -22908,18 +25693,6 @@ function blocoAudio() {
       '  Presentation isola a janela, nunca o som. Não é ajuste que falta.',
       'sem vazamento: "Conectar um computador" (a tela toca o arquivo dela),',
       '  com o espelhamento DESLIGADO — os dois juntos mantêm a mistura no ar.');
-  }
-  // O MICROFONE, e ONDE ELE SAI. É a pergunta que o operador faz depois de
-  // segurar o botão e não ouvir nada, e ela tem duas respostas opostas conforme
-  // a TV — sem ela não há telão, e sem telão não há captura em lugar nenhum.
-  // As telas da rede NÃO substituem o telão nisto: elas rodam em `http://`, onde
-  // `getUserMedia` não existe, e o `setMic` delas sai na guarda de papel.
-  if (tv) {
-    linhas.push('microfone: capta no telão e sai junto com a mídia, nas caixas da TV.');
-  } else {
-    linhas.push('microfone: INDISPONÍVEL sem TV — quem capta é o telão, e sem TV',
-      '  não há telão. Um computador conectado não capta som (o navegador dele',
-      '  não entrega microfone em http://).');
   }
   // O PLACAR DA RETOMADA entra AQUI, e não num bloco próprio: ele responde à
   // mesma pergunta deste — o que outro app fez com o som deste aparelho. As
@@ -23097,19 +25870,11 @@ async function renderDiag() {
     }
 
   }
-  // A QUALIDADE QUE DE FATO FOI AO AR (v1.7.7).
+  // A QUALIDADE QUE DE FATO FOI AO AR.
   //
-  // Este bloco descrevia a TRANSMISSÃO DIRETA e morava atrás de um
-  // `if (motivoStream)`. Com ela fora do app, o que sobrou é a pergunta que
-  // continua tendo resposta e continua importando: *"a projeção saiu pior do
-  // que se pediu?"* — que vale para o DOWNLOAD do mesmo jeito, porque quem
-  // escreve o censo é `avisarResolucaoLimitada`, e os dois caminhos passavam
-  // por ela.
-  //
-  // A CONTAGEM ESTAVA PRESA À TRANSMISSÃO SEM PRECISAR: gateada pelo
-  // `motivoStream`, ela sumiria do Registro justamente agora que todo "Tocar
-  // agora" baixa. O teto preferido entra ao lado porque desde este lote ele
-  // SOBREVIVE À SESSÃO — e um teto de 480p esquecido é a explicação mais
+  // A pergunta é *"a projeção saiu pior do que se pediu?"*, e quem escreve o
+  // censo é `avisarResolucaoLimitada`. O teto preferido entra ao lado porque
+  // ele SOBREVIVE À SESSÃO — e um teto de 480p esquecido é a explicação mais
   // provável para "a imagem está ruim" num aparelho que ninguém mexeu.
   //
   // SÓ SAI DEPOIS DE ACONTECER: a ausência da linha é "nada saiu limitado", e
@@ -23138,11 +25903,6 @@ async function renderDiag() {
   // à mesma pergunta ("o que está no ar?") pelo lado que ninguém escolheu.
   const ba = blocoAudio();
   if (ba) blocos.push(ba);
-  // DEPOIS do áudio, e não antes: aquele responde "onde a voz sai", este
-  // responde "por que ela não saiu". Só o segundo é condicional a ter havido
-  // tentativa, então ele é o que pode faltar.
-  const bm = blocoMicrofone();
-  if (bm) blocos.push(bm);
   // AS SÉRIES: o que a regra achou nos canais, com os nomes CRUS. Ele vem
   // depois do estado da transmissão e antes da linha do tempo porque a ordem
   // desta caixa é "quem eu sou → o que tentei → o que está no ar → o que
@@ -23162,6 +25922,12 @@ async function renderDiag() {
   // um bloco curto, e não no meio de oitenta linhas de playlist.
   const bcol = blocoColetaneas();
   if (bcol) blocos.push(bcol);
+  // A COLETÂNEA DE VÍDEOS DO LOUVORJA, logo depois das coletâneas do banco: as
+  // duas decidem o que a Biblioteca MOSTRA, e quem abre o Registro por causa de
+  // um álbum que sumiu procura as duas no mesmo lugar.
+  const bon = await blocoOnline();
+  if (meu !== diagSeq) return;
+  if (bon) blocos.push(bon);
   // O LADO DO SHELL vem ANTES de montar o bloco, e é `await` como as outras
   // leituras de ponte deste render. Ele é o único que sabe se há um pronto no
   // disco e o que o seletor respondeu.
@@ -23322,6 +26088,83 @@ if (diagSaveEl) {
     // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
     // nos dois casos não há arquivo, e o botão continua ali para tentar de novo.
     responder(diagSaveEl, salvo ? 'ok' : 'erro', salvo ? null : 'Não foi salvo');
+  });
+}
+
+// ===== O QUE MUDOU: o toque na VERSÃO (v1.8.65) =====
+//
+// Pedido do operador: *"para o botão de versão, ao tocar, ele mostra o popup de
+// atualizações que ocorreram na última atualização (ou um log em lista das
+// atualizações que tiveram em cada versão recente)"*.
+//
+// A FONTE É O `notas.json` DO BUNDLE INSTALADO, e não o `otaNotas`. Os dois
+// existem e respondem a perguntas diferentes: o `otaNotas` é o que vem NA
+// atualização oferecida — ele chega pelo `otaEstado` e fora de uma atualização
+// pendente está VAZIO, então ligá-lo a este botão daria um diálogo em branco no
+// caso normal, que é justamente quando alguém pergunta o que mudou. O arquivo
+// viaja no bundle de propósito (ver o OTA), então o app tem em disco a linha do
+// tempo do que ele É.
+//
+// UMA BUSCA SÓ POR SESSÃO, guardada no módulo: o arquivo não muda enquanto a
+// página vive (uma atualização aplicada RECARREGA o Controle), e o caminho é
+// local — `../notas.json` sobre o mesmo origin da base, servido pelo
+// `WebPathHandler` com a mesma resolução OTA→APK do resto.
+//
+// FALHAR NÃO PODE SER MUDO: sem o arquivo o diálogo diz isso em uma linha, em
+// vez de abrir vazio. Um botão que abre um popup em branco é indistinguível de
+// um botão quebrado.
+const NOTAS_MAX_VERSOES = 5;
+let notasDoBundle = null;
+async function lerNotasDoBundle() {
+  if (notasDoBundle) return notasDoBundle;
+  try {
+    const r = await fetch('../notas.json', { cache: 'no-store' });
+    const j = r.ok ? await r.json() : null;
+    notasDoBundle = Array.isArray(j) ? j : [];
+  } catch (_) { notasDoBundle = []; }
+  return notasDoBundle;
+}
+
+// A LISTA É SEMPRE PREFIXADA PELA VERSÃO, ao contrário da do OTA — e a razão é
+// a pergunta. Lá o título já diz de que versão se fala e o prefixo repetiria;
+// aqui o diálogo é a linha do tempo de VÁRIAS, e sem o prefixo as mudanças de
+// três lotes viram uma lista só, sem fronteira.
+function itensDasNotas(blocos) {
+  const linhas = [];
+  for (const b of blocos.slice(0, NOTAS_MAX_VERSOES)) {
+    const itens = b && Array.isArray(b.itens) ? b.itens : [];
+    for (const t of itens) {
+      if (!t || !String(t).trim()) continue;
+      linhas.push((b.versao ? 'v' + b.versao + ' · ' : '') + String(t));
+    }
+  }
+  return linhas;
+}
+
+const versaoBtnEl = document.getElementById('versaoBtn');
+if (versaoBtnEl) {
+  versaoBtnEl.addEventListener('click', async () => {
+    const blocos = await lerNotasDoBundle();
+    const linhas = itensDasNotas(blocos);
+    const quantas = Math.min(blocos.length, NOTAS_MAX_VERSOES);
+    await openAppDialog({
+      title: 'O que mudou',
+      message: linhas.length
+        ? 'Você está na v' + WEB_VERSION + '.'
+        : 'Você está na v' + WEB_VERSION + '. A lista de mudanças não veio neste '
+          + 'pacote — o Registro, ao lado, continua respondendo pelo estado do app.',
+      itens: linhas,
+      // O RODAPÉ DIZ O RECORTE, e ele só aparece quando há recorte a dizer: com
+      // menos versões guardadas que o teto, anunciá-lo descreveria um corte que
+      // não houve.
+      rodape: blocos.length > NOTAS_MAX_VERSOES
+        ? 'As ' + quantas + ' versões mais recentes.' : '',
+      okText: 'Entendi',
+      // `cancelText: null` é o diálogo de AVISO: ele não pergunta nada, e um
+      // "Cancelar" ao lado ofereceria uma escolha que não existe.
+      cancelText: null,
+      input: false,
+    });
   });
 }
 
@@ -24311,7 +27154,7 @@ function pacoteCheckGrupo(estado) {
 }
 
 function renderPacoteGrupos(plano) {
-  songMenuListEl.innerHTML = '';
+  limparFolha(songMenuListEl);
   const remontar = () => renderPacoteGrupos(plano);
   destRemontar = remontar;
   const porChave = new Map(plano.grupos.map((g) => [g.chave, g]));
@@ -24506,7 +27349,7 @@ function renderPacoteGrupos(plano) {
   go.appendChild(txt);
   go.addEventListener('click', () => fecharPacoteGrupos(pacoteSelecao(plano)));
   li.appendChild(go);
-  songMenuListEl.appendChild(li);
+  porFecho(songMenuListEl, li);
 }
 
 const PACOTE_CANCELADO = 'cancelado';
@@ -25083,12 +27926,11 @@ function pacoteFonteDaUrl(url, size) {
  * um declara — e num pacote lido por janelas buscar um corpo que ninguém vai
  * usar seria ler gigabytes duas vezes.
  */
-function pacoteCursor(fonte, inicio) {
-  // O INÍCIO É PARÂMETRO desde a v1.8.0: o arquivo `.avpkg` começa depois da
-  // assinatura, e o corpo de um item do CLONE é um fluxo de registros NU — ele
-  // não tem assinatura porque não é um arquivo, é uma resposta HTTP cuja
-  // identidade já foi provada pelo índice que a nomeou.
-  let pos = inicio == null ? AVPacote.ASSINATURA_BYTES : (inicio | 0);
+function pacoteCursor(fonte) {
+  // O CURSOR COMEÇA DEPOIS DA ASSINATURA, que é onde o `.avpkg` começa. O
+  // início chegou a ser PARÂMETRO (v1.8.0), para o corpo de um item do CLONE —
+  // um fluxo de registros NU, sem assinatura —, e saiu com ele na v1.8.16.
+  let pos = AVPacote.ASSINATURA_BYTES;
   return {
     get pos() { return pos; },
     async proximo(comCorpo, aoLer) {
@@ -25424,9 +28266,10 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
     if (cab.t === 'info') continue;   // o cabeçalho humano; nada a aplicar
     if (cab.t === 'media') {
       // O `blob` volta do CORPO, e os campos que o exportador tirou continuam
-      // ausentes de propósito: `stream` é o manifesto de uma transmissão que
-      // expirou horas atrás, e o item sem ele é o LINK que ele sempre foi —
-      // resolvido no primeiro toque, pelo caminho que já existe.
+      // ausentes de propósito: um `stream` de registro LEGADO é o manifesto de
+      // uma transmissão que expirou horas atrás, e o item sem ele é o LINK que
+      // ele sempre foi — resolvido no primeiro toque, pelo caminho que já
+      // existe.
       const rec = Object.assign({}, cab.rec, { blob: corpo, thumb: null, pages: null });
       pendente = { tipo: 'media', rec };
       continue;
@@ -26519,9 +29362,10 @@ function pintarTile(el, estado, rotulo, aceso, alt) {
 // na tela ou controle. o mesmo vale para feedbacks visuais das ações das
 // configurações, eles devem notificar ali mesmo"*.
 //
-// ELE ESTÁ CERTO E O APP JÁ TINHA A MECÂNICA, em dois lugares: o `#otaRow`
-// (`falarNoOta`) e o "Guardar como pacote" (`falarNoPacote`). A regra está
-// escrita desde a v5.207 na lista de canais de resposta deste arquivo — *"o
+// ELE ESTÁ CERTO E O APP JÁ TINHA A MECÂNICA: o `#otaRow` (`falarNoOta`) — e o
+// "Guardar como pacote", que a usou da v5.207 à v1.8.53 e a perdeu junto com o
+// próprio rótulo, quando virou um botão de símbolo. A regra está escrita desde a
+// v5.207 na lista de canais de resposta deste arquivo — *"o
 // rótulo do controle empresta a si mesmo por alguns segundos e volta"* —, e o
 // cartão sobre a preview é o canal do que ACONTECERIA NELA. Uma exportação não
 // acontece na preview: ela acontece no botão.
@@ -27140,7 +29984,9 @@ function deckIr(alvo) {
   // mandado para a camada não acharia deck nenhum no motor e não faria NADA —
   // sem erro, com o operador apertando o botão na frente da congregação.
   if (deckSobreProjetando()) {
-    cmd({ type: 'text', mode: 'image', mediaId: visualSession.id, page: deckPagina, sub: '', view: 'visual' });
+    // A VIEW VIGENTE, NUNCA 'visual' LITERAL — ver `pushChrono`: andar de
+    // página é reenvio, e um literal aqui descobriria a mídia coberta.
+    cmd({ type: 'text', mode: 'image', mediaId: visualSession.id, page: deckPagina, sub: '', view });
   } else {
     cmd({ type: 'page', page: deckPagina });
   }
@@ -27251,14 +30097,44 @@ function paginaDoSlide() {
  * O que continua valendo é o `deckVideoSemGatilho`: a volta de um vídeo NÃO
  * pode reprojetá-lo na mesma página, senão ele toca em laço para sempre.
  */
-function deckVideoTalvezTocar(d, n) {
+async function deckVideoTalvezTocar(d, n) {
   if (deckSobreProjetando() || deckVideoSemGatilho) return;
   const vid = deckVideoDaPagina(d, n);
   if (!vid) return;
   const volta = { deckId: d.id, rec: d, pagina: n, videoId: vid };
+  // A ESPERA VEM ANTES DO DISPARO, e é isso que faz a guarda valer de verdade.
+  //
+  // O vídeo embutido não está em `plItems`, `libItems` nem `favItems`, então
+  // lê-lo é ler o BLOB INTEIRO do banco — segundos no aparelho. Feita essa
+  // espera DENTRO do `send`, o comando `load` já saiu e é irrevogável: o
+  // operador que tocasse num louvor durante a leitura via o louvor entrar e,
+  // um a três segundos depois, o vídeo do slide entrar POR CIMA dele. Lida
+  // aqui, a mesma espera acontece antes de qualquer coisa ir ao telão, e a
+  // senha decide se ainda vale projetar. O registro é passado adiante
+  // (`recPronto`) para o `send` não reler o mesmo blob.
+  const senha = cenaSeq;
+  let rec = null;
+  try { rec = await AVDB.getMedia(vid); } catch (_) { /* sumiu do banco: nada a projetar */ }
+  if (!rec || cenaSeq !== senha) return;
+  // A SENHA É A DO SLOT DE MÍDIA (`cenaSeq`), NUNCA `projecaoSeq`. Aquela sobe
+  // também em toda Camada de Texto (`soUmProvedorDeTexto`), e com ela o
+  // operador que subisse o cronômetro enquanto o vídeo era lido desarmava a
+  // volta para sempre — a MESMA ação com desfecho oposto conforme a leitura
+  // tivesse terminado ou não. Camada de texto não toma o slot de mídia, logo
+  // não pode cancelar a volta da apresentação. Ver `cenaSeq`.
+  //
+  // `currentId` não serve no lugar dela: o `send` concorrente pode ter sido de
+  // um cue, que também o escreve.
+  //
   // O `send` LIMPA a volta na entrada (um toque do operador em qualquer outra
-  // coisa desarma a automação), então ela só pode ser armada DEPOIS dele.
-  send(vid, true).then(() => {
+  // coisa desarma a automação), então ela só pode ser armada DEPOIS dele — e a
+  // senha é RELIDA depois do disparo porque `send` bumpa `cenaSeq` na primeira
+  // linha, síncrona, dentro da chamada abaixo. Lida antes, ela nasceria uma
+  // unidade atrás e a guarda recusaria sempre.
+  const projetando = send(vid, true, rec);
+  const senhaDoDisparo = cenaSeq;
+  projetando.then(() => {
+    if (cenaSeq !== senhaDoDisparo) return;
     deckVideoVolta = volta;
     // E O PAR DE BOTÕES PRECISA SER REDESENHADO AQUI. O `send` já rodou — com a
     // volta ainda nula —, então o ⏮/⏭ foi desenhado como o de um vídeo avulso:
@@ -27382,6 +30258,10 @@ async function pptxImportar(file, nome, opts) {
   // (ver `ytArquivo`): "Preparando apresentação" sozinho não diz QUAL, e com o
   // app minimizado esta é a única tela que existe.
   bgItemOnly(notif, rotulo);
+  // OS IDS QUE ESTA IMPORTAÇÃO ESTACIONOU (ver `avulsosEmMontagem`). Declarada
+  // AQUI, e não dentro do `withBgWork`, porque quem a solta é o `finally` desta
+  // função — o único ponto por onde os três desfechos passam.
+  const emMontagem = [];
   try {
     return await withBgWork(async () => {
       const feito = await AVDeck.paginasDoPptx(file, (feitas, total) => {
@@ -27423,18 +30303,28 @@ async function pptxImportar(file, nome, opts) {
           type: v.blob.type || 'video/mp4',
           list: 'avulsos',
         });
-        if (rec) videos[v.pagina] = rec.id;
+        if (rec) {
+          videos[v.pagina] = rec.id;
+          // ANTES do próximo `addMedia`, que já é uma espera: o `send` do
+          // operador cabe entre dois deles.
+          emMontagem.push(rec.id);
+          avulsosEmMontagem.add(rec.id);
+        }
       }
       const criado = await AVDB.addDeck(feito.pages, {
         name: rotulo, thumb, list: (opts && opts.lista) || 'imports',
         videos: Object.keys(videos).length ? videos : null,
       });
       // E SÓ AGORA ELES SAEM DA PRATELEIRA. `avulsos` é o detentor provisório
-      // que os segura entre o `addMedia` e o `addDeck`: sem ele, uma faxina
-      // caindo nessa janela levaria os vídeos embora e a apresentação nasceria
-      // apontando para bytes que não existem mais. Depois do `addDeck` quem os
-      // segura é a apresentação, e ficar nos dois lugares faria o vídeo
-      // sobreviver a ela.
+      // entre o `addMedia` e o `addDeck` — sem lista nenhuma, a faxina da
+      // abertura os levaria e a apresentação nasceria apontando para bytes que
+      // não existem mais. Depois do `addDeck` quem os segura é a apresentação,
+      // e ficar nos dois lugares faria o vídeo sobreviver a ela.
+      //
+      // **ESTAR NELA NÃO BASTA**, e o comentário aqui afirmou o contrário até a
+      // v1.8.75: ela é RODÍZIO de três, e um `send` do operador nesta janela
+      // despejava o vídeo mais antigo — o blob morria sem dono. Quem fecha isso
+      // é o `avulsosEmMontagem`, e não esta lista.
       for (const p in videos) await AVDB.listRemove('avulsos', videos[p]);
       // O CORTE É DITO, e pela mesma porta do PDF (ver `deckImportar`): uma
       // apresentação cortada sem aviso leria como "o arquivo era assim", e o
@@ -27458,6 +30348,7 @@ async function pptxImportar(file, nome, opts) {
     deckUltimoErro = 'pptx: ' + ((e && e.message) || 'erro sem mensagem');
     return null;
   } finally {
+    for (const id of emMontagem) avulsosEmMontagem.delete(id);
     bgTaskEnd(notif);
     bg.soltar();
   }
@@ -27623,12 +30514,33 @@ async function ytArquivo(alvo, opts) {
 // pelos últimos DA MESMA LEVA — inclusive o que vai ser projetado, que é o
 // primeiro. Quem cede lugar é sempre o que já estava aqui de antes.
 const AVULSO_MAX = 3;
+
+// OS IDS EM MONTAGEM — mídia que já está no IndexedDB e cujo DETENTOR DEFINITIVO
+// ainda não existe. Hoje há um produtor só: o `pptxImportar`, que estaciona cada
+// vídeo embutido em `avulsos` e só cria a apresentação que os segura depois do
+// último `addMedia`.
+//
+// A prateleira NÃO protege esse vão — ela é RODÍZIO, e essa é a razão de ser
+// dela. Todo `send` passa por aqui; com três vídeos estacionados, `cabem = 2` e
+// o excedente leva os mais antigos, que são justamente eles. Ninguém mais os
+// aponta, então o `listRemove` do `db.js` APAGA o blob (`isReferenced` não acha
+// dono), e o `addDeck` seguinte nasce com `videos[pagina]` apontando para um id
+// que já não existe: chegar naquela página não projeta nada, sem erro no
+// console — descoberto no culto. MEDIDO: 2 de 3 vídeos sobreviviam.
+//
+// Entra e sai por LOTE do importador (cada um apaga só os SEUS ids no `finally`,
+// para um segundo import não soltar os do primeiro), e a saída é garantida nos
+// três desfechos — pronto, cancelado e exceção. Solto, o id volta a ser
+// despejável: se a importação falhou, o vídeo é órfão e o rodízio é quem o
+// recolhe.
+const avulsosEmMontagem = new Set();
+
 async function fixarAvulso(novos) {
   const lote = (Array.isArray(novos) ? novos : [novos]).filter(Boolean);
   if (!lote.length) return;
   const ids = await AVDB.listIds('avulsos');
   for (const id of lote) if (!ids.includes(id)) await AVDB.listAdd('avulsos', id);
-  const outros = ids.filter((x) => !lote.includes(x));
+  const outros = ids.filter((x) => !lote.includes(x) && !avulsosEmMontagem.has(x));
   const cabem = Math.max(0, AVULSO_MAX - lote.length);
   const excedente = outros.slice(0, Math.max(0, outros.length - cabem));
   for (const velho of excedente) await AVDB.listRemove('avulsos', velho);
@@ -27678,11 +30590,10 @@ async function handleSharedUrl(url, title) {
       openYtMenu({ id: ytId, url, name: rotulo });
       return SHARE_TRATADO;
     }
-    // NO SIMPLIFICADO O LINK COMPARTILHADO CONTINUA SENDO UM "TOCAR AGORA" —
-    // ele vai direto ao telão, não entra em lista visível nenhuma e ninguém
-    // pediu para guardar nada. O que mudou na v1.7.7 é o MEIO: era a
-    // transmissão direta (v5.138), e ela saiu do app; hoje é o download de
-    // sempre, logo abaixo, que projeta quando os bytes chegam.
+    // NO SIMPLIFICADO O LINK COMPARTILHADO É UM "TOCAR AGORA" — ele vai direto
+    // ao telão, não entra em lista visível nenhuma e ninguém pediu para guardar
+    // nada. O MEIO é o download de sempre, logo abaixo, que projeta quando os
+    // bytes chegam.
     // O link vira ARQUIVO — é a via que toca em segundo plano e não depende da
     // rede durante o culto. Falhando (vídeo restrito, shell antigo), cai no
     // item de player de sempre: um link compartilhado nunca se perde.
@@ -28046,7 +30957,12 @@ async function focarImportado(id) {
   await sairDasCamadas();
   // No simplificado o item vai direto ao telão: esse modo existe para quem não
   // vai operar nada, e a lista sequer aparece nele.
-  if (appMode === 'simple' && id) await send(id);
+  //
+  // E O SELETOR DE REPETIÇÃO VOLTA AO COMEÇO ANTES (v1.8.77) — ver
+  // `zerarRepeticao`. Este é o único caminho que projeta SEM redefinir a fila,
+  // e é o mais exposto: no Modo Fácil não há transporte na tela, então um modo
+  // herdado do avançado não teria como ser desfeito por quem está operando.
+  if (appMode === 'simple' && id) { await zerarRepeticao(); await send(id); }
 }
 
 // (A leitura do estado `pending-share` saiu: quem o escrevia era o service
@@ -28095,9 +31011,9 @@ function registrarShareNativo() {
 // teto de qualidade).
 //
 // A pergunta também é o que torna o recurso seguro no MODO FÁCIL: ali um link
-// compartilhado vira transmissão direta SEM perguntar nada — e um link
-// projetado na frente da congregação porque estava copiado seria o pior
-// desfecho possível deste recurso.
+// compartilhado vai direto ao telão SEM perguntar nada — e um link projetado na
+// frente da congregação porque estava copiado seria o pior desfecho possível
+// deste recurso.
 //
 // ===== O AVISO DO SISTEMA É O CUSTO, E ELE É PAGO UMA VEZ POR LINK =====
 //
@@ -28170,8 +31086,10 @@ async function conferirLinkCopiado() {
 //  · `previewBusy(...).falhar(motivo)` — o cartão sobre a preview, para o que
 //    aconteceria nela e não aconteceu.
 //  · `statusPasta(id, texto)` — o contador da própria pasta.
-//  · `falarNoOta` / `falarNoPacote` / `#otaRow` — o rótulo do controle empresta
-//    a si mesmo por alguns segundos e volta.
+//  · `falarNoOta` / `#otaRow` — o rótulo do controle empresta a si mesmo por
+//    alguns segundos e volta. **Ele exige rótulo**, e é por isso que o "Guardar
+//    como pacote" saiu desta linha na v1.8.54: virou botão de símbolo, e um
+//    símbolo não tem o que emprestar.
 //  · `#castMsg` — a linha de estado da folha de conexão.
 //  · `appConfirm` — o ÚNICO caso sem interface de origem (compartilhamento que
 //    chega de fora e falha inteiro). Toma o foco e exige um toque.
@@ -28229,8 +31147,20 @@ function pulsar(btn, tipo) {
 // que mandava toda resposta órfã para a faixa flutuante. Era cômodo e era
 // justamente o mecanismo que levava a informação para longe do alvo de foco —
 // e ele escondia a pergunta que importa, que é por que uma ação ficou sem
-// interface em que responder. O parâmetro `texto` saiu com ele; nenhum dos
-// catorze chamadores o passava.
+// interface em que responder. O parâmetro `texto` saiu com ele.
+//
+// **E A FRASE SEGUINTE ERA FALSA** (corrigida na v1.8.55). Ela dizia *"nenhum
+// dos catorze chamadores o passava"* — e hoje QUINZE passam um terceiro
+// argumento que esta função não declara (5230, 5326, 5330, 6581, 7037, 7054,
+// 10675, 15688, 15734, 20330, 21764, 23320, 23383, 23419, 29681). Eles são
+// engolidos em silêncio: quem escreveu a chamada acha que disse o motivo, e o
+// operador vê um pulso sem frase nenhuma.
+//
+// **NÃO SE CONSERTA APAGANDO OS ARGUMENTOS**, e é por isso que a linha fica
+// aqui em vez de virar uma varredura: cada uma daquelas frases é um motivo que
+// alguém quis dizer, e a pergunta certa é a mesma que derrubou o `avisar` —
+// QUAL superfície diz isto? Para uma linha de lista já existe resposta
+// (`notaNoItem`, o canal irmão do pulso); para um botão solto, não.
 function responder(btn, tipo) {
   return pulsar(btn, tipo);
 }
@@ -28998,44 +31928,47 @@ appDialogInputEl.addEventListener('keydown', (e) => {
 });
 
 // ===== popup de playlist =====
-// A fila em cena vira um PACOTE: um item do Cronograma que, ao ser tocado,
-// devolve exatamente estes itens nesta ordem. O nome sai do primeiro item mais
-// a contagem — "Abertura · 4 itens" é o que se reconhece numa lista de culto.
-// O BOTÃO DE PACOTE EMPRESTA O PRÓPRIO RÓTULO (v5.207) — mesmo mecanismo do
-// `#otaRow` e do rótulo de versão: a resposta nasce onde o toque nasceu, e o
-// botão volta a ser o que era. O `<span>` de texto é o segundo filho (o
-// primeiro é o glifo), e é só ele que troca.
-let pacoteFalaTimer = null;
-const PACOTE_ROTULO = 'Guardar como pacote no Cronograma';
-function falarNoPacote(texto, ms) {
-  if (!plPackEl) return;
-  const alvo = plPackEl.querySelector('span:not(.msym)');
-  if (!alvo) return;
-  clearTimeout(pacoteFalaTimer);
-  alvo.textContent = texto;
-  pacoteFalaTimer = setTimeout(() => { alvo.textContent = PACOTE_ROTULO; }, ms || 3000);
+// A fila em cena vira um PACOTE: um item que, ao ser tocado, devolve exatamente
+// estes itens nesta ordem. O nome sai do primeiro item mais a contagem —
+// "Abertura · 4 itens" é o que se reconhece numa lista de culto.
+//
+// DOIS DESTINOS DESDE A v1.8.54 (pedido do operador: *"sejam os mesmos dois
+// botões de salvar no cronograma ou salvar nos favoritos, pois este já é o
+// padrão do resto do sistema"*). Quem sabe a diferença entre eles é o
+// `criarCue`, e ela não é técnica: **Favoritos não repetem** (favoritar é
+// marcar, e dois iguais na mesma gaveta são ruído) enquanto **o Cronograma
+// pode** (o mesmo bloco de louvores pode voltar no apelo). Escrever a regra de
+// novo aqui seria a segunda cópia que diverge no primeiro ajuste.
+//
+// O RÓTULO EMPRESTADO MORREU COM O RÓTULO (v1.8.54). Da v5.207 até aqui o botão
+// dizia o motivo trocando o próprio texto por três segundos; sem texto, o que
+// responde é o pulso — que é o que TODO botão de símbolo deste app usa — e,
+// onde o pulso não basta, o diálogo de AVISO (`cancelText: null`).
+//
+// OS ÍCONES VÊM DA FONTE ÚNICA DELES, na carga: `starSvg` e `cronogramaIconSvg`
+// são as mesmas funções que desenham a gaveta de cada item, e copiar os `path`
+// para o HTML seria a segunda cópia de um desenho. O estado é sempre o "vazio"
+// (estrela contornada, relógio com `+`): estes dois botões CRIAM um item novo a
+// cada toque, não alternam a existência de um.
+function vestirBotoesDeGuardar() {
+  if (plPackEl) plPackEl.innerHTML = cronogramaIconSvg(false);
+  if (plPackFavEl) plPackFavEl.innerHTML = starSvg(false);
 }
+vestirBotoesDeGuardar();
 
-async function guardarPacote() {
+async function guardarPacote(destino, btn) {
   // Só MÍDIA entra num pacote. Uma cena de roteiro dentro dele abriria a porta
   // para um pacote que contém outro pacote — e dois que se contenham
   // mutuamente fariam `abrirPacote` chamar `send` em laço, travando o app. Um
   // pacote é uma FILA de reprodução; cena de roteiro se põe no Cronograma.
   const midias = plItems.filter((m) => !isCue(m));
   const ids = midias.map((m) => m.id);
-  // Este é o único caso em que o pulso NÃO basta: ele diz "não deu", e aqui o
-  // que o operador precisa saber é POR QUE (a fila tem menos de dois itens).
-  // Motivo não cabe num botão — então os dois sinais saem juntos.
-  if (ids.length < 2) {
-    pulsar(plPackEl, 'erro');
-    // O MOTIVO NO PRÓPRIO BOTÃO (v5.207). O comentário acima dizia que "motivo
-    // não cabe num botão" e por isso os dois sinais saíam juntos — o pulso aqui
-    // e a frase numa faixa no topo da tela. Cabe: o botão tem rótulo, e ele
-    // empresta o rótulo por três segundos. É o mesmo mecanismo do `#otaRow` e
-    // do rótulo de versão, e mantém a resposta onde o toque aconteceu.
-    falarNoPacote('Precisa de 2 itens ou mais');
-    return;
-  }
+  // A GUARDA DA CORRIDA, e só isso: desde a v1.8.53 os dois botões nascem
+  // APAGADOS com menos de duas mídias (ver `renderPlaylist`), então este caminho
+  // só se alcança se a fila encolher entre o desenho e o dedo. Um botão
+  // `disabled` não emite `click`, logo não há como explicar aqui — e não é
+  // preciso: quem já não oferece não deve explicação.
+  if (ids.length < 2) { pulsar(btn, 'erro'); return; }
   // O nome sai do primeiro item QUE ENTRA no pacote (`midias[0]`), não de
   // `plItems[0]`: com uma cena de roteiro no topo da fila, a sugestão citava
   // um item que o filtro acabara de deixar de fora.
@@ -29044,8 +31977,21 @@ async function guardarPacote() {
     title: 'Guardar pacote', message: 'Nome do pacote:', value: sugestao, okText: 'Guardar',
   });
   if (nome === null) return;
-  const rec = await criarCue('group', { ids }, (nome || '').trim() || sugestao, 'imports', plPackEl);
-  if (!rec) { responder(plPackEl, 'erro', 'Não foi possível guardar'); return; }
+  const rec = await criarCue('group', { ids }, (nome || '').trim() || sugestao, destino, btn);
+  // FALHAR VAZIO É PROIBIDO, e sem rótulo para emprestar (v1.8.54) quem conta o
+  // que houve é o diálogo de AVISO — `cancelText: null`, que o próprio
+  // `openAppDialog` descreve como *"não pergunta nada, só conta o que
+  // aconteceu"*. Ele cabe aqui e não caberia numa falha corriqueira: guardar um
+  // pacote é uma decisão que o operador acabou de tomar e nomear, e um pulso
+  // vermelho sozinho o deixaria sem saber se a fila do culto foi guardada.
+  if (!rec) {
+    responder(btn, 'erro');
+    await appConfirm({
+      title: 'Não deu para guardar', okText: 'Entendi', cancelText: null,
+      message: 'O pacote não foi criado. A fila continua aqui — dá para tentar de novo.',
+    });
+    return;
+  }
   setTimeout(closePlPopup, PULSO_MS);
 }
 
@@ -29070,13 +32016,103 @@ async function guardarPacote() {
  * entre a leitura e a escrita.
  */
 async function limparPlaylist() {
-  const eraDaCena = plItems.some((it) => noArAgora(it));
+  const encerra = tirarDaFilaEncerraCena();
   await AVDB.listSet('playlist', () => []);
   await load();
   // A MESMA RESPOSTA DA LIXEIRA DA LINHA (v1.8.52). Esvaziar a fila pelo botão
   // "Limpar" e esvaziá-la tirando o último item são o mesmo estado; duas
   // respostas para ele fariam o app se contradizer conforme a porta.
-  if (eraDaCena) await encerrarCenaDaFila();
+  if (encerra) await encerrarCenaDaFila();
+  fecharFilaVazia();
+}
+
+/**
+ * ===== TIRAR ISTO DA FILA VAI ENCERRAR A CENA? (v1.8.84) =====
+ *
+ * UMA pergunta, DOIS consumidores: a FRASE da confirmação e a AÇÃO que a segue.
+ * Duas cópias dela divergiriam no primeiro ajuste, e o modo de falhar é o pior
+ * que esta superfície sabe produzir — a frase prometendo uma interrupção que não
+ * vem, ou calando a que vem, com o dedo já no botão.
+ *
+ * `item` ausente = a fila INTEIRA (o "Limpar"); com item = a lixeira da linha.
+ *
+ * ===== E O "LIMPAR" DEIXOU DE PERGUNTAR PELA PROVENIÊNCIA =====
+ *
+ * Relato do operador: *"ao limpar um item da playlist, ele remove ele da
+ * exibição, mas quando limpo uma playlist inteira, ele mantém a midia no player
+ * ao inves de limpar corretamente"*.
+ *
+ * A condição era `plItems.some(noArAgora)` — *"o que está no ar é DA FILA?"* —,
+ * e ela deixa DOIS casos de fora, os dois MEDIDOS:
+ *
+ *  1. **o que está no player não está na fila.** Tocando A com a fila em [B],
+ *     "Limpar" esvaziava a fila e a mídia seguia tocando.
+ *  2. **`currentId` sem `midiaNoAr`** — a faixa acabou, ou o Parar foi tocado.
+ *     O `currentId` sobrevive de propósito (é ele que faz o ▶ repetir), então o
+ *     cartão continua anunciando o nome sobre uma fila vazia.
+ *
+ * A pergunta certa é `!!currentId`: **a fila é a única lista que o TRANSPORTE
+ * percorre**, e esvaziá-la não deixa sequência nenhuma para ele governar — de
+ * onde veio o que está no player deixa de importar quando não sobra fila. É a
+ * mesma frase da v1.8.52 (*"não é 'guardei noutro lugar', é ACABOU"*), agora sem
+ * a cláusula que a limitava.
+ *
+ * ISTO NÃO ALCANÇA A v1.3.13, e a fronteira é a LISTA: excluir do Cronograma ou
+ * dos Favoritos continua não tirando nada do ar. A exceção é da FILA, e continua
+ * sendo só dela.
+ *
+ * E A CAMADA DE TEXTO NÃO É ALCANÇADA por construção: um versículo sem mídia por
+ * baixo tem `currentId` nulo, e com um louvor de fundo quem sai é só o louvor —
+ * `encerrarCenaDaFila` escolhe `media-clear` por `cenaDeRoteiroNoAr()`.
+ *
+ * A LIXEIRA DA LINHA NÃO MUDOU: com fila sobrando nada é interrompido (v1.8.52
+ * — *"pausar o louvor porque o operador reorganizou a fila seria interrupção de
+ * culto"*), e é por isso que os dois ramos desta função são diferentes.
+ */
+function tirarDaFilaEncerraCena(item) {
+  if (!item) return !!currentId;
+  return noArAgora(item) && plItems.length === 1;
+}
+
+/**
+ * ===== A PERGUNTA SOBE PARA O DIÁLOGO QUANDO PRECISA DIZER ALGO (v1.8.84) =====
+ *
+ * Pedido do operador: *"Coloque também uma mensagem de aviso ao excluir um item
+ * ou Playlist que tenha algo tocando no momento, avisando que a mídia será
+ * interrompida."*
+ *
+ * **A FAIXA DA LINHA NÃO TEM ONDE PÔR UMA FRASE, e é isso que escolhe o
+ * mecanismo.** A `pedirConfirmacaoNaLinha` divide a caixa em DOIS rótulos
+ * (Cancelar / Confirmar) e um terceiro filho os encolhe — é o desenho que a
+ * v5.309 pediu por extenso. A `dica` dela vai para o `title`, e um `title` **não
+ * existe num aparelho de toque**: escrever o aviso ali seria cumprir o pedido no
+ * papel e não na tela.
+ *
+ * Então a pergunta troca de superfície conforme o que ela tem a dizer, e o app
+ * já separava as duas assim: o par inline é o *"tem certeza?"* de um gesto cuja
+ * consequência a própria linha mostra; o `appConfirm` é a confirmação que
+ * carrega uma FRASE, e é o que "Limpar o Cronograma", "Excluir pasta" e o
+ * excluir de uma versão da Bíblia já usam.
+ *
+ * **E O AVISO É CONDICIONAL.** Ele só aparece onde a interrupção de fato
+ * acontece (`tirarDaFilaEncerraCena`, a mesma pergunta que a ação faz) — remover
+ * um item de uma fila que ainda tem outros não para nada, e prometer ali que a
+ * mídia será interrompida é uma frase sobre o que o aparelho NÃO vai fazer, com
+ * o dedo já no botão.
+ */
+function pedirSaidaDaFila(botao, opts) {
+  if (!tirarDaFilaEncerraCena(opts.item)) {
+    pedirConfirmacaoNaLinha(botao, { ok: opts.ok, dica: opts.dica, aoConfirmar: opts.aoConfirmar });
+    return;
+  }
+  appConfirm({
+    title: opts.titulo,
+    // A CONSEQUÊNCIA PRIMEIRO, o resto depois: a frase que muda a decisão é a
+    // interrupção, e a que fala de arquivos é a mesma de sempre.
+    message: 'A mídia no ar será interrompida.\n\n' + opts.dica,
+    okText: opts.ok,
+    perigo: true,
+  }).then((sim) => { if (sim) opts.aoConfirmar(); });
 }
 
 /**
@@ -29114,6 +32150,26 @@ async function limparPlaylist() {
  * — o operador acabou de declarar que ela saiu da fila, e com a fila vazia não
  * há mais linha nenhuma na tela apontando para ela. Ela continua no Histórico.
  */
+/**
+ * A FOLHA FECHA QUANDO A FILA ACABA (v1.8.54), a pedido do operador: *"ajuste
+ * também após o esvaziamento da playlist, para que a janela dela seja fechada,
+ * já que não há mais nada ali"*.
+ *
+ * ELA MORA NUMA FUNÇÃO, e não nos dois chamadores: esvaziar pela lixeira da
+ * última linha e pelo "Limpar" são o MESMO estado, e duas escritas divergem no
+ * primeiro ajuste — é a razão que criou o `encerrarCenaDaFila`, aplicada de
+ * novo.
+ *
+ * E ELA NÃO MORA NO `renderPlaylist`. Ali a condição seria *"a fila está
+ * vazia"*, e isso é verdade também quando a folha é ABERTA vazia (o que os
+ * oráculos fazem, e o portão de geometria depende de fazer, para medir os
+ * botões do rodapé). A condição certa é *"a fila ACABOU DE esvaziar"*, que é um
+ * evento e tem dois donos conhecidos.
+ */
+function fecharFilaVazia() {
+  if (plItems.length === 0) closePlPopup();
+}
+
 async function encerrarCenaDaFila() {
   await pararMidia(cenaDeRoteiroNoAr() ? 'media-clear' : 'clear');
   currentId = null;
@@ -29860,7 +32916,7 @@ histOpenRowEl.addEventListener('click', openHistPopup);
 histClearEl.addEventListener('click', (e) => {
   e.stopPropagation();
   pedirConfirmacaoNaLinha(histClearEl, {
-    ok: 'Limpar',
+    ok: 'Confirmar',
     dica: 'Apaga o registro de todas as sessões — nenhum arquivo do aparelho é tocado',
     aoConfirmar: () => histLimpar(null),
   });
@@ -30077,7 +33133,7 @@ window.addEventListener('resize', () => {
     // isso, e o erro é nos DOIS sentidos: o véu de baixo fica aceso sobre uma
     // lista que passou a caber, ou apagado sobre uma que passou a não caber.
     // Aqui, no mesmo ponto e no mesmo quadro em que a medida é escrita.
-    pedirVeuDaLista();
+    pedirVeus();
   };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
   vv.addEventListener('resize', schedule);
@@ -30101,6 +33157,42 @@ function applyVolume(v) {
   if (volume > 0 && muted) { muted = false; cmd({ type: 'mute', muted }); }
   cmd({ type: 'volume', volume });
   renderControls();   // e por ele o fader e a leitura do Modo Fácil
+}
+
+/**
+ * ===== O PASSO É FINO ABAIXO DE 10 (v1.8.90) =====
+ *
+ * Pedido do operador: *"ajuste o slider de volume para ele ser mais sensível
+ * abaixo do nível 10, para que ele vá de 1 e 1 abaixo desse ponto. E subindo
+ * ele também siga essa precisão"*.
+ *
+ * **A razão é que o volume não é linear no OUVIDO.** De 95 para 100 quase não
+ * se nota; de 5 para 10 é o dobro da pressão. Um passo único de 5 dá quatro
+ * degraus úteis (5·10·15·20) na faixa em que o operador de fato ajusta um
+ * louvor de fundo sob a fala do púlpito — e o zero fica a UM toque do 5, que é
+ * o corte que ninguém quer por engano.
+ *
+ * **A FRONTEIRA É DO LADO DE QUEM SOBE:** de 9 vai-se a 10 (fino), de 10 a 15
+ * (grosso). Escrita com o mesmo `<` nos dois sentidos, descer de 10 daria 5 e o
+ * trecho fino só existiria na subida.
+ *
+ * **E O ALVO É ALINHADO À GRADE, nunca `atual ± passo`.** O fader é arrastável
+ * e deixa valores fora dos múltiplos: de 12, um passo para baixo daria 7 e
+ * PULARIA o 10 — o degrau que separa os dois trechos. Alinhando, 12 desce para
+ * 10 e sobe para 15, e a grade fica igual venha o valor de onde vier.
+ */
+const VOL_FINO_ATE = 10;      // % abaixo do qual o passo é de 1
+const VOL_PASSO_FINO = 1;
+const VOL_PASSO = 5;
+
+function volumeProximo(atual, dir) {
+  const pct = Math.round(atual * 100);
+  const fino = dir > 0 ? pct < VOL_FINO_ATE : pct <= VOL_FINO_ATE;
+  const passo = fino ? VOL_PASSO_FINO : VOL_PASSO;
+  const alvo = dir > 0
+    ? (Math.floor(pct / passo) + 1) * passo
+    : (Math.ceil(pct / passo) - 1) * passo;
+  return Math.max(0, Math.min(100, alvo)) / 100;
 }
 
 
@@ -30182,34 +33274,15 @@ function renderAppModeSeg() {
 // a tela inteira atrás dele (não há o que ver com o popup na frente), e o tema
 // troca a cor DO PRÓPRIO POPUP — é olhando para ele que o operador decide se
 // gostou. Escolher e continuar vendo é a resposta.
-// TRÊS ESTADOS, e o do meio é a AUSÊNCIA de escolha: `null` = automático.
-// O ciclo é Automático → Claro → Escuro → Automático, e ele começa no
-// automático porque é o padrão — quem nunca tocou aqui já está nele.
-const TEMA_CICLO = [null, 'claro', 'escuro'];
-function setTemaEscolha(escolha) {
-  temaEscolha = escolha === 'claro' || escolha === 'escuro' ? escolha : null;
-  const raiz = document.documentElement;
-  try {
-    if (temaEscolha) localStorage.setItem(TEMA_KEY, temaEscolha);
-    else localStorage.removeItem(TEMA_KEY);
-  } catch (_) { /* storage bloqueado */ }
-  // O ATRIBUTO ACOMPANHA A CHAVE, sempre: ele é o que o `storedTemaEscolha()`
-  // lê, e deixá-los divergir devolveria o defeito que o carrier existe para
-  // impedir — com a diferença de que aqui ninguém releria a gaveta para notar.
-  if (temaEscolha) raiz.dataset.temaEscolha = temaEscolha;
-  else delete raiz.dataset.temaEscolha;
-  tema = temaEscolha || temaDoAparelho();
+// DOIS ESTADOS desde a v1.8.64 (revogando a v1.8.49): escuro e claro, e o tile
+// é o interruptor que vai para o outro. O AUTOMÁTICO saiu a pedido do operador
+// — *"remova o auto, não está sendo eficaz essa opção"* —, e com ele a pergunta
+// "há escolha guardada?": agora há SEMPRE, e a ausência da chave é o ESCURO.
+function setTema(novo) {
+  tema = novo === 'claro' ? 'claro' : 'escuro';
+  try { localStorage.setItem(TEMA_KEY, tema); } catch (_) { /* storage bloqueado */ }
   pintarTema();
   renderTemaTile();
-}
-
-// O que o APARELHO responde agora. Sem `matchMedia` — ou num navegador que não
-// conheça a consulta — o escuro é o padrão, que é o mesmo do `:root` sem
-// atributo: uma resposta só, escrita num lugar só.
-function temaDoAparelho() {
-  try {
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'escuro';
-  } catch (_) { return 'escuro'; }
 }
 
 // SEMPRE ACESO, pelo motivo do preenchimento: escuro e claro são as duas
@@ -30218,11 +33291,10 @@ function temaDoAparelho() {
 // sozinho não responde "então está claro ou escuro AGORA?", e é essa a pergunta
 // de quem olha o tile.
 function renderTemaTile() {
-  const rotulo = temaEscolha
-    ? (tema === 'claro' ? 'Claro' : 'Escuro')
-    : (tema === 'claro' ? 'Automático · claro' : 'Automático · escuro');
-  pintarTile(temaTileEl, tema, rotulo, true, tema === 'claro');
+  pintarTile(temaTileEl, tema, tema === 'claro' ? 'Claro' : 'Escuro',
+    true, tema === 'claro');
 }
+
 
 // (A CHAVE "este aparelho entra na contagem" saiu na v1.4.42, a pedido do
 //  operador: *"descarte a opção de contagem de uso como opcional, deixe sempre
@@ -30356,11 +33428,11 @@ function setupSimpleSeek() {
 }
 setupSimpleSeek();
 
-// Volume em passos, como num controle remoto — o MESMO passo dos botões
-// físicos (VOL_KEY_STEP), para os dois caminhos não discordarem, e a mesma
+// Volume em passos, como num controle remoto — a MESMA grade dos botões
+// físicos (`volumeProximo`), para os dois caminhos não discordarem, e a mesma
 // `applyVolume` de sempre (clamp, desmutar ao subir de 0, comando, render).
 function simpleVolStep(dir) {
-  applyVolume(volume + dir * VOL_KEY_STEP);
+  applyVolume(volumeProximo(volume, dir));
   persistCurrent();
 }
 
@@ -30728,12 +33800,10 @@ appModeSegEl.addEventListener('click', (e) => {
   if (!btn) return;
   setAppMode(btn.dataset.mode);
 });
-// O TEMA ALTERNA (v1.4.38): o par escuro/claro virou um tile, e um tile de dois
-// estados não escolhe — ele vai para o outro.
-temaTileEl.addEventListener('click', () => {
-  const i = TEMA_CICLO.indexOf(temaEscolha);
-  setTemaEscolha(TEMA_CICLO[(i + 1) % TEMA_CICLO.length]);
-});
+// O TEMA ALTERNA (v1.4.38): o par escuro/claro é um tile, e um tile de dois
+// estados não escolhe — ele vai para o outro. Todo toque muda a cor, que é o
+// que o terceiro estado da v1.8.49 não conseguia prometer.
+temaTileEl.addEventListener('click', () => { setTema(tema === 'claro' ? 'escuro' : 'claro'); });
 // SEM FOCO, e o `() =>` é o ponto: registrado por REFERÊNCIA, o ouvinte chama
 // `openHymnSearch(evento)` — e um `PointerEvent` é truthy, então a lupa do Modo
 // Fácil abria com o teclado por cima da lista. É um BOTÃO, e a regra das duas
@@ -30778,7 +33848,7 @@ setAppMode(appMode);
 // congregação está vendo. Consumindo, nada disso chega ao telão: o que aparece
 // é o fader do celular, por alguns segundos (ver `peekVolume`).
 // A Activity intercepta a tecla e chama esta função (ver MainActivity.onKeyDown).
-const VOL_KEY_STEP = 0.05;
+// O TAMANHO do passo é de `volumeProximo` — fino abaixo de 10, ver lá.
 if (window.__NATIVE__) {
   window.__avVolumeKey = (step) => {
     // Mostra o fader por alguns segundos — inclusive quando o passo vai para o
@@ -30792,7 +33862,7 @@ if (window.__NATIVE__) {
       AVNative.systemVolume(step);
       return;
     }
-    applyVolume(volume + step * VOL_KEY_STEP);
+    applyVolume(volumeProximo(volume, step));
     persistCurrent();
   };
   // Só agora — com o handler de pé — a Activity pode consumir as teclas.
@@ -30866,19 +33936,30 @@ function deslizarNaFolha(host, dir) {
 selCancelEl.addEventListener('click', exitSelection);
 selPlaylistEl.addEventListener('click', addSelectedToPlaylist);
 selFavEl.addEventListener('click', favoritarSelecionados);
-plPackEl.addEventListener('click', guardarPacote);
+plPackEl.addEventListener('click', () => guardarPacote('imports', plPackEl));
+plPackFavEl.addEventListener('click', () => guardarPacote('favs', plPackFavEl));
 // A PERGUNTA NASCE NA CAIXA DO BOTÃO (`pedirConfirmacaoNaLinha` olha o pai dele)
 // — o mesmo par de "Cancelar/Excluir" das listas, aqui sobre a fila inteira.
 plClearEl.addEventListener('click', (e) => {
   e.stopPropagation();
-  pedirConfirmacaoNaLinha(plClearEl, {
-    ok: 'Limpar',
-    dica: 'Esvaziar a fila. Se o que está no ar for dela, a cena se encerra; os '
-      + 'arquivos só são apagados se não estiverem guardados em mais nenhuma lista.',
+  pedirSaidaDaFila(plClearEl, {
+    titulo: 'Limpar a playlist',
+    // "CONFIRMAR", E NÃO "LIMPAR" DE NOVO (v1.8.54, pedido do operador: *"ajuste
+    // a confirmação do limpar para 'confirmar' ao invés de um 'limpar'
+    // novamente"*). A régua que sai daí: o botão do meio da pergunta REPETE o
+    // verbo só quando o botão que a abriu não o diz. Aqui ele diz — o rótulo é
+    // "Limpar" —, e o mesmo vale para o "Limpar todo o histórico"; já a lixeira
+    // de UMA sessão do histórico não tem rótulo nenhum, e lá a palavra na
+    // confirmação continua sendo a única que nomeia o dano (R9 do
+    // DESIGN-SYSTEM). Quem nomeia o dano por extenso, nos três, é a `dica`.
+    ok: 'Confirmar',
+    dica: 'Esvaziar a fila. Os arquivos só são apagados se não estiverem '
+      + 'guardados em mais nenhuma lista.',
     aoConfirmar: limparPlaylist,
   });
 });
 selDeleteEl.addEventListener('click', deleteSelected);
+if (cronoLimparEl) cronoLimparEl.addEventListener('click', limparCronograma);
 selRenameEl.addEventListener('click', renameSelected);
 
 // (O `#backBtn` do cabeçalho perdeu o dono na v1.5.0: ele só servia à Bíblia,
@@ -31190,15 +34271,9 @@ if (window.__NATIVE__) {
     else if (antes && tv && (antes.id !== tv.id || antes.w !== tv.w || antes.h !== tv.h)) {
       diagC('TV mudou: ' + nomeDe(tv));
     }
-    // A PRESENÇA DO TELÃO, não a da tela: é ela que decide se o botão de
-    // microfone existe (`haOndeReproduzirMic`), e é ela que precisa disparar o
-    // redesenho da aba Ferramentas. Sem isto o botão só apareceria na próxima
-    // vez que o operador TROCASSE de aba — isto é, a TV entra no meio do culto e
-    // o microfone continua ausente, sem nada na tela explicando.
-    //
-    // E É O TELÃO, e não `lastDisplays.length`, desde o shell 59: quem capta o
-    // microfone é o `/display/` dentro da `Presentation`, então uma tela listada
-    // com a janela no chão não é lugar de reproduzir nada.
+    // A PRESENÇA DO TELÃO, não a da tela — e é o TELÃO desde o shell 59: uma
+    // tela listada com a `Presentation` no chão não projeta nada, e as três
+    // frases da linha do tempo logo abaixo existem para dizer exatamente isso.
     const tinhaTela = lastDisplays.length > 0;
     const tinhaTelao = !!telaoNoAr();
     lastDisplays = list || [];
@@ -31213,11 +34288,12 @@ if (window.__NATIVE__) {
     } else if (tv && temTelao && tinhaTela && !tinhaTelao) {
       diagC('o telão SUBIU (a TV já estava conectada)');
     }
-    // SÓ NA TRANSIÇÃO. `refreshDiversos` esvazia o `libraryEl` e redesenha o
-    // painel inteiro: rodá-lo a cada callback (o `onResume` reconfere a lista)
-    // derrubaria o que o operador está usando — um campo com foco, uma lista
-    // rolada — por um evento que não mudou nada.
-    if (tinhaTelao !== temTelao) refreshDiversos();
+    // (O `refreshDiversos()` na transição do telão saiu na v1.8.89 com o
+    //  microfone: ele existia para o botão dele APARECER quando a TV entrava no
+    //  meio do culto, e nada mais na folha de Ferramentas depende de haver
+    //  projeção. Mantê-lo custaria o que a guarda "só na transição" já evitava
+    //  — remontar o painel por baixo de quem está usando — sem nada a mostrar
+    //  em troca.)
     // Conectar (ou perder) o telão MUDA O REGIME da preview: com TV a projeção
     // é ela, chega no ato, e a preview volta a andar junto. Ver `cmd`.
     recalcularAtrasoPreview();
@@ -31696,15 +34772,8 @@ function renderCast() {
   // O AVISO DO SOM (ver o comentário no HTML), e ele SÓ EXISTE COM TV NO AR:
   // sem ela não há para onde vazar, e um aviso permanente sobre uma
   // consequência que ainda não aconteceu é ruído na folha em que se decide
-  // conectar. A frase nomeia o que o operador RECONHECE ("vídeo ou áudio de
-  // outro app"), não a categoria do Android que a explica — o `USAGE_MEDIA`
-  // fica no Registro, que é onde a afirmação precisa ser estrita.
-  if (castMirrorNotaEl) {
-    castMirrorNotaEl.hidden = !tv;
-    castMirrorNotaEl.textContent = tv
-      ? 'O som deste celular vai junto: vídeo ou áudio de outro app é ouvido nas caixas.'
-      : '';
-  }
+  // conectar. Desde a v1.8.87 o que aparece é o `?`; a frase mora atrás dele.
+  if (castSomAjudaEl) castSomAjudaEl.hidden = !tv;
   // (O subtítulo do interruptor saiu na v5.194: desligado ele descrevia o
   // recurso para quem já decidiu usá-lo, e ligado dizia "N tela(s) recebendo" —
   // que é exatamente o que a LISTA logo abaixo mostra, com nome e tempo de
@@ -31844,6 +34913,34 @@ if (castMirrorBtnEl) {
     if (window.__NATIVE__) AVNative.openCast();
     else openWebDisplay();
   });
+  // ===== O `?` DO SOM (v1.8.87) =====
+  //
+  // A frase é do OPERADOR, quase ao pé da letra: *"apenas coloque que, exceto
+  // as notificações, todo o som do aparelho vai ser tocado na tela. Tome
+  // cuidado com mensagens de áudios e mídias de outros aplicativos"*.
+  //
+  // ELA É MAIS FROUXA QUE A DO REGISTRO, e isso é a divisão de sempre — o
+  // bloco "Áudio do aparelho" separa os TRÊS graus do que se sabe (a mídia de
+  // outros apps VAI, medido; toque e alarme têm guarda no audio policy do
+  // AOSP; som de notificação depende do aparelho). Aqui cabe o que muda o que
+  // o operador FAZ antes do culto: silenciar o aparelho e não deixar um áudio
+  // de mensagem tocar. Escrever os três graus na folha de conexão seria a
+  // afirmação estrita no lugar onde ela não é lida.
+  //
+  // `cancelText: null` é o diálogo de AVISO: ele não pergunta nada, e um
+  // "Cancelar" ao lado do "Entendi" ofereceria uma escolha que não existe.
+  if (castSomAjudaEl) {
+    castSomAjudaEl.addEventListener('click', () => {
+      openAppDialog({
+        title: 'O som deste aparelho vai para a tela',
+        message: 'Com a TV conectada, exceto as notificações, todo o som deste '
+          + 'aparelho é tocado na tela.\n\nTome cuidado com áudios de mensagens e '
+          + 'com mídia de outros aplicativos: eles saem nas caixas junto com a '
+          + 'projeção.',
+        okText: 'Entendi', cancelText: null,
+      });
+    });
+  }
   // ATIVAR (E DESLIGAR) A TRANSMISSÃO PELO SITE: este botão é a única coisa
   // desta folha que sobe ou derruba o servidor.
   //
@@ -32099,6 +35196,12 @@ function resendSceneToDisplay(para) {
     // A apresentação volta na PÁGINA em que estava, pelo mesmo motivo do
     // tempo: um telão que reconecta no meio da pregação não pode voltar ao
     // primeiro slide na frente de todo mundo.
+    //
+    // E OS TRÊS VIAJAM DENTRO DO `load`, nunca como um `seek`/`page` logo
+    // depois: o `onCommand` do Display NÃO serializa, o `load` é assíncrono
+    // (getMedia → opfsGetFile → mediaReady, mais o fade de saída), e um comando
+    // que chegasse em seguida agiria sobre o `<video>` ANTERIOR — o seek seria
+    // aplicado à mídia errada e depois perdido.
     enviar({
       type: 'load', mediaId: currentId, view, muted, volume, time: t, playing,
       page: isDeck(currentItem) ? deckPagina : 0,
@@ -32190,34 +35293,10 @@ AVDB.onCommand((msg) => {
     // ninguém via havia versões. O canal certo já estava de pé.
     renderControls();
   }
-  // Microfone: camada de áudio independente da mídia — precisa ser tratado
-  // ANTES do filtro por `mediaId` abaixo, que descarta tudo que não é sobre o
-  // item em exibição.
-  if (msg.type === 'mic-status') {
-    micOn = !!msg.on;
-    // O ERRO DO AO VIVO TAMBÉM ENTRA NO REGISTRO, e a razão é que ele nasce no
-    // TELÃO: o `diag('microfone recusado: …')` de lá mora no diário da
-    // `Presentation`, que só chega ao Registro se o `diag-ask` conseguir
-    // respondê-lo — e um dongle que caiu no meio leva o diário junto. A linha
-    // que o operador precisa é a do CELULAR, que sobrevive.
-    //
-    // Só na TRANSIÇÃO: o telão reemite `mic-status` e repetir a mesma recusa
-    // encheria a linha do tempo com o mesmo fato.
-    const erroNovo = msg.error || '';
-    if (erroNovo && erroNovo !== micError) {
-      // OS DEGRAUS VÊM DO TELÃO quando ele os manda. Sem eles o Registro do
-      // celular via UMA tentativa e concluía "falhou antes de esgotar a escada"
-      // — enquanto o telão tinha rodado a escada inteira. O consumidor não
-      // tinha como saber, e um veredito errado é pior que veredito nenhum.
-      const dg = Array.isArray(msg.degraus) && msg.degraus.length
-        ? msg.degraus
-        : [{ qual: 'telão', erro: erroNovo }];
-      micRegistrar('ao vivo', dg, null, false);
-    }
-    micError = erroNovo;
-    if (ferramentasAbertas()) renderMicUI();
-    return;
-  }
+  // (O `mic-status` deixou de ser tratado na v1.8.89: sem quem mande o comando
+  //  `mic`, o telão não tem o que anunciar. Um telão de bundle ANTIGO pode
+  //  ainda emiti-lo — e cai no filtro por `mediaId` logo abaixo, como qualquer
+  //  mensagem que não é sobre o item em exibição.)
   if (!currentItem || msg.mediaId !== currentId) return;
   const isYoutube = currentItem.kind === 'youtube';
   const isTimedLocal = currentItem.kind === 'audio' || currentItem.kind === 'video';
@@ -32377,10 +35456,6 @@ AVDB.onCommand((msg) => {
 // com o SW, v5.48 — ver o bloco acima.)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') {
-    // App em segundo plano: o botão de falar não está mais sob o dedo, então
-    // o microfone não pode continuar aberto. Push-to-talk que sobrevive ao
-    // app sair da frente vira um microfone esquecido ligado.
-    if (micPressed || micOn) sendMic(false);
     // E O HISTÓRICO PENDENTE VAI AO DISCO (v1.4.31). Sair da frente é o
     // instante em que o processo passa a ser descartável — congelamento,
     // pressão de memória, morte do renderer —, e a gravação coalescida
@@ -32466,6 +35541,23 @@ document.addEventListener('visibilitychange', () => {
   // de fazer alguma coisa). O que cobre a falha CATASTRÓFICA — este arquivo
   // nunca chegar aqui — é o prazo armado lá, e não uma guarda aqui.
   if (window.__avSplash) window.__avSplash.pronto();
+  // ===== A SOMBRA DAS BORDAS DE UM SCROLL =====
+  //
+  // AQUI, e não no bloco de teclas de volume, que é onde ela quase ficou: aquele
+  // bloco vive dentro de `if (window.__NATIVE__)`, e uma chamada ali NÃO RODA no
+  // navegador — isto é, não roda em oráculo nenhum. O defeito seria mudo dos
+  // dois lados: no CI a sombra nunca acenderia por render, e no aparelho ela
+  // acenderia, então nenhum teste veria a diferença. É a regra de escrita deste
+  // projeto pelo avesso (*"toda guarda é `if (!window.__NATIVE__)`"*).
+  //
+  // E é a ÚNICA chamada explícita do app: o observador do documento só vê o que
+  // MUDA depois dele, e o que já está desenhado na primeira pintura não muda.
+  // Daqui em diante ninguém mais precisa lembrar de nada.
+  acertarVeus();
+  // E a altura das TRÊS PORTAS, pelo mesmo motivo e no mesmo lugar: o
+  // `ResizeObserver` só vê o que muda depois dele, e a primeira pintura não
+  // muda. (Ver `medirRodapeDaLista`.)
+  medirRodapeDaLista();
   // registra a chegada de compartilhamentos (intent nativo; no navegador é no-op)
   registrarShareNativo();
   // E O LINK QUE JÁ ESTAVA COPIADO. Fire-and-forget, como os três abaixo: a
@@ -33117,52 +36209,6 @@ function telaSanearRec(it, token) {
   return rec;
 }
 
-// O MANIFESTO REESCRITO PARA A REDE (v5.189).
-//
-// As URLs que o shell entrega apontam para `/stream/<token>` no origin do
-// WebView (`https://appassets.androidplatform.net/…`), e uma tela da rede não
-// tem WebView nenhum no caminho: para ela a mesma faixa é servida pelo
-// `EspelhoServidor` em `/s/<token>`, RELATIVA — o host é o próprio celular, de
-// onde a página veio. O token é o MESMO dos dois lados (o registro do
-// `StreamProxy` é um só), então não há segunda extração nem segundo cache.
-//
-// Devolve `null` quando não há faixa reescrevível: aí a cena vira o aviso de
-// sempre, em vez de uma tela preta com um `<video>` que não busca nada.
-function telaManifestoDaRede(man) {
-  if (!man) return null;
-  const refazer = (faixa) => {
-    if (!faixa || !faixa.url) return null;
-    const i = String(faixa.url).indexOf('/stream/');
-    if (i < 0) return null;
-    return Object.assign({}, faixa, { url: '/s/' + String(faixa.url).slice(i + 8) });
-  };
-  const video = refazer(man.video);
-  const audio = refazer(man.audio);
-  // O áudio é o que não pode faltar: um manifesto sem ele não toca em lugar
-  // nenhum, e a tela sem som é justamente o que a rede existe para evitar.
-  if (!audio) return null;
-  // ===== A ESCADA TAMBÉM (shell 60), e ELA NÃO PODE PASSAR INTACTA =====
-  //
-  // `Object.assign` carrega `videos` adiante sem tocar nele, e as URLs de lá
-  // apontam para `appassets.androidplatform.net` — um host que o navegador da
-  // rede NÃO alcança. A tela mediria a banda, decidiria descer um degrau, e o
-  // fetch do init novo falharia quatro vezes até `morrer()`: a transmissão
-  // MORRE por causa de uma otimização, e só nas telas.
-  //
-  // O que não se deixa reescrever SAI da escada — uma escada com um degrau
-  // quebrado é pior que escada nenhuma, porque a regra escolheria justamente
-  // ele numa rede ruim. Sobrando menos de dois, ela some inteira e a tela volta
-  // ao comportamento de antes: uma faixa só, sem medição.
-  const escada = Array.isArray(man.videos)
-    ? man.videos.map(refazer).filter(Boolean)
-    : null;
-  return Object.assign({}, man, {
-    video: video,
-    audio: audio,
-    videos: (escada && escada.length > 1) ? escada : undefined,
-  });
-}
-
 // Token estável por imagem de letra; devolve a URL /m/ dela (ou undefined).
 function telaImagemLetraUrl(opfsPath) {
   const token = telaTokenDe('ly:' + opfsPath);
@@ -33280,7 +36326,11 @@ async function telaEmpurrarAgora(it) {
   // O TOKEN VEM DO ITEM ENFILEIRADO, nunca relido agora: entre a fila e este
   // ponto o `__wp` pode ter sido recunhado (ver `telaGarantirEnvio`), e reler
   // mandaria os bytes do wallpaper ANTIGO sob o token do NOVO.
-  const token = it.token || telaTokenDe(it.id);
+  //
+  // Havia um `|| telaTokenDe(it.id)` aqui, e ele era INALCANÇÁVEL — quem
+  // enfileira já recusou o item sem token (`if (!token) return`) e empilha uma
+  // CÓPIA com ele. Alcançado, faria exatamente o que o parágrafo acima proíbe.
+  const token = it.token;
   if (!token) return;
   let arquivo = it.blob || null;
   if (!arquivo && it.opfsPath) {
@@ -33376,24 +36426,6 @@ function telaEnriquecer(cmd) {
   if (cmd.type === 'load') {
     const it = (currentItem && currentItem.id === cmd.mediaId) ? currentItem : null;
     if (!it) return;
-    // A TRANSMISSÃO DIRETA VAI PARA A REDE desde a v5.189 (a dívida §7): o
-    // shell passou a servir as mesmas faixas em `/s/<token>`, então o que a
-    // tela precisa é do manifesto com as URLs REESCRITAS — as originais
-    // apontam para `/stream/` no origin do WebView, que não existe lá.
-    if (it.stream) {
-      const man = telaManifestoDaRede(it.stream);
-      if (man) {
-        cmd.__rec = Object.assign(telaSanearRec(it, telaTokenDe(it.id) || ''), {
-          // Sem `url`: quem toca é o MediaSource, pelo manifesto. Deixar a
-          // `/m/<token>` de um item que ninguém empurrou faria a tela buscar
-          // um 404 antes de tentar o stream.
-          url: '',
-          stream: man,
-        });
-        return;
-      }
-      // Manifesto sem faixa servível: cai no aviso, como as outras.
-    }
     // As cenas que NÃO vão para a rede (spec §5.6): o embed é iframe de
     // terceiro (e a CSP das telas o barra por construção); o deck
     // são Blobs por página (E4.1). O aviso sai LOGO DEPOIS do load — a tela

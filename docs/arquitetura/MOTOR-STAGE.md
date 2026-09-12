@@ -10,10 +10,11 @@ arquivos do OPFS (`opfsPath` — resolvidos via `AVDB.opfsGetFile`, com re-checa
 de `loadSeq` após o await) e itens de URL direta (`blob=null, url=string`).
 Itens `kind='youtube'` (link sem bytes) **não chegam ao stage**: quem os
 resolve é o Controle, ANTES do `load` (`resolverLinkYoutube`), e o Display
-esvazia o palco se um chegar. O vídeo do YouTube que de fato toca — baixado ou
-por transmissão direta (`shared/mse.js`) — entra como `<video>` COMUM, pelo
-mesmo caminho de toda mídia local. (Até a v5.212 havia um iframe no
-`display.js`; ele saiu com a IFrame Player API.)
+esvazia o palco se um chegar. O vídeo do YouTube que de fato toca é o ARQUIVO
+baixado, e ele entra como `<video>` COMUM, pelo mesmo caminho de toda mídia
+local. (Até a v5.212 havia um iframe no `display.js`; ele saiu com a IFrame
+Player API. A transmissão direta, o outro caminho que já existiu aqui, saiu do
+`stage.js` na v1.8.82 — hoje **não há segundo caminho**.)
 
 ### Modelo de camadas: wallpaper é uma cortina por cima de tudo
 
@@ -74,6 +75,27 @@ depois que o texto sai: `reconcileCover` pergunta `stage.shouldCover()` — o
 `computeCover` exposto — em vez de reabrir cegamente. Só quando a cena é do
 stage: fora dele `current` pode estar nulo e a pergunta responderia "cobre"
 justamente sobre o que está em cena.
+
+**E QUEM MOVE A CORTINA POR FORA TEM DE DECLARAR A VIEW** (`declararView`,
+v1.8.83). A cortina é compartilhada; o estado de `view` **não é** — ele é do
+stage, e `setViewFaded` abre com `if (v === view) return`. O `showText` do
+Display movia a cortina à mão (o fade de entrada do cartão é dele) e deixava a
+`view` congelada no valor anterior: o `view` SEGUINTE concluía "nada mudou" e
+voltava mudo.
+
+O desfecho, relatado pelo operador: com o telão **já coberto** antes de o
+versículo entrar, "apenas wallpaper" não cobria mais nada e a Escritura ficava
+presa na frente da congregação — **e a preview obedecia**, porque o `setView` do
+`controle.js` move a cortina dela por fora, sem passar por `setViewFaded`. As
+duas metades discordando é o relato ao pé da letra, e é a condição que explica o
+*"aconteceu algumas vezes, mas não sempre"*: sem o cobrir antes, a `view` do
+stage é `'visual'` e o mesmo toque funciona.
+
+`declararView` **não toca na cortina**, de propósito: quem a chama acabou de
+decidi-la, e um `instantCover` ali cortaria o fade pela metade. É o mesmo defeito
+que o ramo de `view` do `onCommand` já corrigia por delegação, uma porta ao lado
+— e o comentário de lá já o descrevia palavra por palavra (*"mover a cortina
+direto deixava `stage.view` congelado"*). Oráculo: `cartao-preso-no-telao.test.mjs`.
 
 **Verificado em Chromium**, com Controle e Display na mesma origem trocando
 comandos de verdade: imagem em cena → `wallpaper: none`; áudio sem letra logo em

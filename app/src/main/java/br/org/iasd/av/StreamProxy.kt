@@ -16,9 +16,17 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * ## Por que um proxy, e não a URL direta
  *
- * O lado web precisa dos BYTES de faixas adaptativas para alimentar o
- * `MediaSource` (ver `shared/mse.js`), e um `fetch()` direto falha por três
- * motivos independentes, cada um suficiente sozinho:
+ * SEM CLIENTE DESDE A v1.8.82, e isto é a primeira linha por ser a primeira
+ * coisa que quem abre este arquivo precisa saber: o leitor de MSE
+ * (`shared/mse.js`) e a transmissão direta que ele servia SAÍRAM do bundle. O
+ * Kotlin ficou porque tirá-lo é um degrau de `SHELL_VERSION` e uma Release, e o
+ * lado seguro é encolher o web primeiro — nada no app alcança esta rota hoje.
+ * O que segue descreve o contrato COMO ELE FOI, e é o que faz sentido guardar:
+ * quem for removê-lo precisa saber o que está removendo.
+ *
+ * O lado web precisava dos BYTES de faixas adaptativas para alimentar o
+ * `MediaSource`, e um `fetch()` direto falhava por três motivos independentes,
+ * cada um suficiente sozinho:
  *
  * 1. **CORS.** O googlevideo não manda `Access-Control-Allow-Origin`, então o
  *    `fetch` do WebView nunca enxerga a resposta.
@@ -50,8 +58,8 @@ import java.util.concurrent.ConcurrentHashMap
  * de cada faixa podia funcionar**. Não existe versão disto que funcione com a
  * faixa no CABEÇALHO.
  *
- * A correção é sair do contrato, não emulá-lo: do shell 27 em diante o
- * `shared/mse.js` pede `/stream/<token>?r=<ini>-<fim>` **sem cabeçalho `Range`
+ * A correção era sair do contrato, não emulá-lo: do shell 27 em diante o
+ * leitor pedia `/stream/<token>?r=<ini>-<fim>` **sem cabeçalho `Range`
  * nenhum** — sem ele `ParseRange` não acha nada e a fatia sai inteira. A
  * resposta é um **200 seco** (sem 206, `Content-Range` ou `Accept-Ranges`:
  * anunciar suporte a faixa nesta URL é o oposto do que este caminho quer), e o
@@ -94,11 +102,11 @@ object StreamProxy {
      * de um aparelho em economia de energia — nunca o dispara, e o
      * [InputStream.readBytes] abaixo fica lendo por minutos.
      *
-     * Do outro lado disso está a projeção congelada: o `mse.js` espera este
-     * `fetch`, o buffer drena e não há erro nenhum para o dono da cena tratar.
-     * Estourado o prazo, a leitura vira `IOException`, o [tryHandle] a
-     * transforma num **502 com texto** — e 5xx é retentável no `mse.js`, que
-     * repete o pedaço em vez de derrubar a transmissão.
+     * Do outro lado disso estava a projeção congelada: o leitor esperava este
+     * `fetch`, o buffer drenava e não havia erro nenhum para o dono da cena
+     * tratar. Estourado o prazo, a leitura vira `IOException`, o [tryHandle] a
+     * transforma num **502 com texto** — e 5xx era retentável do outro lado,
+     * que repetia o pedaço em vez de derrubar a transmissão.
      *
      * O valor é folgado de propósito: 90 s para um pedaço que nunca passa de
      * alguns MB dá uma taxa efetiva menor que a do degrau mais baixo que este
@@ -108,8 +116,8 @@ object StreamProxy {
      * `read` bloqueia até [LE_MS], e um fluxo que entregue um bloco a cada 29 s
      * só é reprovado na volta seguinte — o pior caso é uma leitura a mais.
      * Apertar isso exigiria uma thread de vigia por requisição, e o que se
-     * ganharia são segundos num caminho que já tem o prazo de parede do
-     * `mse.js` do outro lado.
+     * ganharia são segundos num caminho que já tinha o prazo de parede do
+     * leitor do outro lado.
      */
     private const val PEDACO_MS = 90_000L
 
@@ -362,7 +370,7 @@ object StreamProxy {
         // cenário que `YoutubeGrab.baixarUmaVez` já trata) pode responder 200
         // com o recurso INTEIRO. Servir esse corpo rotulado como a fatia é a
         // mesma corrupção silenciosa que a v1.55 matou: no caminho da query o
-        // `mse.js` appendaria bytes errados, e no de compatibilidade o
+        // leitor appendaria bytes errados, e no de compatibilidade o
         // [FatiaComoTodo] suporia que o corpo começa em `fantasma`. O único 200
         // legítimo é o do pedido ABERTO a partir do zero (`bytes=0-`), em que o
         // recurso inteiro É exatamente o que foi pedido. Um 200 com
@@ -412,7 +420,7 @@ object StreamProxy {
         //
         // Sem `Content-Range` — ninguém o lê: o caminho de intercepção do
         // Chromium não tem uma única ocorrência de 206/Partial/Content-Range, e
-        // o `mse.js` aceita 200 de propósito desde a v5.120. Sem
+        // o leitor aceitava 200 de propósito desde a v5.120. Sem
         // `Accept-Ranges` — anunciar suporte a faixa nesta URL é o oposto do que
         // este caminho quer. E sem `Content-Length` NOSSO: o loader escreve o
         // dele a partir do `available()` do array (com `SetHeader`), e o nosso

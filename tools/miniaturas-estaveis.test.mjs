@@ -45,6 +45,20 @@
 //    TODA escrita no banco, e excluir um item é uma. A chave passou a ser
 //    `id|tamanho|tipo`, que é o que atravessa a releitura.
 //
+//  · **F · a FILA DA PLAYLIST, o host que desenhava sem publicar balde**
+//    (v1.8.88). Relato do operador: *"a thumbnail dos vídeos baixados do
+//    YouTube ainda estão se quebrando entre seções… é provável que seja por
+//    falta de internet"*. **Não é a rede** — a capa de um vídeo baixado é um
+//    Blob local, e nada é buscado. `renderPlaylist` chamava `thumbEl` fora de
+//    `comBaldeDeMiniaturas`, então as chaves dela caíam no `thumbChavesAtual`
+//    de módulo, que host nenhum publica: a primeira varredura de qualquer outro
+//    host as julgava órfãs e revogava a URL COM A IMAGEM EM CENA.
+//    **O item precisa estar SÓ na fila**, e é isso que a célula constrói: um
+//    vídeo que também esteja no Cronograma escapa por acidente, porque a chave
+//    é `id|tamanho|tipo` e o outro host a publica — a união o mantém vivo. É
+//    literalmente o "entre seções" do relato: o que decide é qual lista foi
+//    redesenhada por último.
+//
 //   node tools/miniaturas-estaveis.test.mjs
 // ============================================================================
 import path from 'node:path';
@@ -71,7 +85,7 @@ try {
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
   await pg.goto(base + '/controle/', { waitUntil: 'load' });
   const dePe = await esperar(pg, () => window.AVDB && typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, 30000);
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, 30000);
   checar(dePe === true, 'o app ficou de pé', porque(dePe));
 
   // O CENÁRIO: um item com CAPA em blob, no Cronograma e nos Favoritos. A capa é
@@ -335,6 +349,64 @@ try {
     && cronRecolhida.vive === false,
     'E · e a de quem SAIU é revogada na mesma passada',
     cronRecolhida);
+
+  // ── F · A FILA DA PLAYLIST (v1.8.88) ────────────────────────────────────
+  // O item de teste entra SÓ na fila. Um que também esteja no Cronograma
+  // sobrevive por acidente (a chave é a mesma e o outro host a publica), e uma
+  // célula assim aprovaria as duas versões — MEDIDO.
+  const filaSrc = () => pg.evaluate(() => {
+    const im = document.querySelector('#playlist img');
+    return im ? im.getAttribute('src') : null;
+  });
+  await pg.evaluate(async () => {
+    closeHymnSearch();
+    const png = await new Promise((r) => {
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 8;
+      const c = cv.getContext('2d');
+      c.fillStyle = '#48c'; c.fillRect(0, 0, 8, 8);
+      cv.toBlob(r, 'image/png');
+    });
+    await AVDB.addMedia(new Blob([new Uint8Array(64)], { type: 'video/mp4' }), {
+      name: 'So na fila', type: 'video/mp4', kind: 'video', thumb: png, list: 'playlist',
+    });
+    await load();
+  });
+  const filaAntes = await filaSrc();
+  checar(!!filaAntes && filaAntes.startsWith('blob:'),
+    'F · a capa de um vídeo que está SÓ na fila nasce com uma object-URL',
+    filaAntes);
+  const soNaFila = await pg.evaluate(() => !libItems.some((i) => i.name === 'So na fila'));
+  checar(soNaFila === true,
+    'F · A PREMISSA: ele NÃO está no Cronograma. Estivesse, o balde daquele '
+    + 'host o manteria vivo e esta célula aprovaria as duas versões',
+    soNaFila);
+
+  // O GATILHO é um render de OUTRO host — é ele que publica um balde e VARRE.
+  // `renderLibrary` é o que roda a cada 400 ms durante um download e a cada
+  // troca de seção, que é quando o operador vê a capa quebrar.
+  await pg.evaluate(() => renderLibrary());
+  const filaDepois = await filaSrc();
+  checar(filaDepois === filaAntes,
+    'F · e ela mantém a MESMA URL depois de a Biblioteca redesenhar', 
+    { antes: filaAntes, depois: filaDepois });
+  const filaViva = await pg.evaluate(async (url) => {
+    try { const r = await fetch(url); return r.ok && (await r.blob()).size > 0; }
+    catch (_) { return false; }
+  }, filaDepois);
+  checar(filaViva === true,
+    'F · e continua VÁLIDA — sem o balde da fila a varredura a revogava com a '
+    + 'imagem em cena, e o que sobrava era o `src` de sempre apontando para '
+    + 'nada: a miniatura quebrada do relato',
+    filaViva);
+  const filaPintada = await pg.evaluate(() => {
+    const im = document.querySelector('#playlist img');
+    return im ? im.naturalWidth : null;
+  });
+  checar(filaPintada > 0,
+    'F · e o navegador de fato a DESENHA (`naturalWidth`) — a asserção que o '
+    + '`src` sozinho não faz, porque ele fica igual nas duas versões',
+    filaPintada);
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 } finally {

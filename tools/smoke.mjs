@@ -24,7 +24,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, esperar, porque, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, esperar, porque, checar, falhas, lerPng, pixel } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 
@@ -138,9 +138,25 @@ try {
   // o `init()` começa por `loadCollections()`, que faz `collState = {}` e
   // apaga o que o oráculo acabou de plantar. Foi assim que o
   // `acervo.test.mjs` reprovou no runner e passou em toda máquina rápida.
+  // ===== O SINAL DE QUE O APP ESTÁ DE PÉ, e por que ele mudou (v1.8.54) =====
+  //
+  // Era `#playlist li` — a linha da mensagem "Playlist vazia" —, e ela provava
+  // INICIALIZAÇÃO e não parse: o `init()` começa por `loadCollections()`, que
+  // faz `collState = {}` e apaga o que o oráculo acabou de plantar.
+  //
+  // O OPERADOR MANDOU REMOVER A MENSAGEM, e com ela sumiu a prova de boot de
+  // **31 oráculos** — que reprovaram por prazo em blocos sem relação nenhuma com
+  // a playlist (o tema, o arranque da Biblioteca, o acervo). Um nó de INTERFACE
+  // não é um bom sinal de boot: ele existe por decisão de desenho, e some com
+  // ela.
+  //
+  // O SINAL NOVO SAI DA MESMA FUNÇÃO e cobre as duas fixtures: quem planta itens
+  // antes da carga vê a LINHA; quem carrega com a fila vazia vê o botão que abre
+  // a folha APAGADO (v1.8.51) — e o HTML o entrega aceso, então o apagado só
+  // pode ter vindo do `renderPlaylist`.
   await pg.waitForFunction(
     () => window.AVDB && window.createStage && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
   checar(true, 'a base web inicializa (AVDB + createStage + __avBack + a playlist renderizada)');
@@ -567,37 +583,45 @@ try {
       faixa: cx(faixa), grade: grade ? cx(grade) : null,
     };
   });
-  // ===== A REGRA ENCOLHEU, E NÃO SUMIU (v1.8.51) =====
+  // ===== A REGRA SE INVERTEU (v1.8.65, revogando a v1.4.44 e a v1.8.51) =====
   //
-  // Ela nasceu na v1.4.44 de um pedido do operador — *"ficou duas seções, a
+  // ELA JÁ NASCEU DE UM PEDIDO E MORREU DE OUTRO, e as duas pontas estão ditas
+  // aqui porque a inversão é o que faz esta asserção parecer errada a quem a
+  // ler sem o histórico.
+  //
+  // A v1.4.44 proibia a faixa se ler como DUAS caixas — *"ficou duas seções, a
   // versão e o registro em grupos separados. pode deixar tudo em uma barra
-  // horizontal única"* — e o que ela proibia era a faixa se ler como DUAS
-  // caixas. O pedido novo revoga a proibição para UM caso, e diz por quê:
-  // *"faça ele um botão mais sólido visualmente, pois não está claro que ele
-  // serve para comunicar ou feedback"*. Um ícone sem superfície e sem rótulo,
-  // ao lado de outro igual, não se lia como a porta que ele é.
+  // horizontal única"* —, e a superfície era a FAIXA. A v1.8.51 abriu uma
+  // exceção de UM (*"faça ele um botão mais sólido visualmente"*) e guardou o
+  // teto: no máximo uma superfície pintada dentro, e ela é a primária.
   //
-  // O QUE FICA É O LIMITE, e ele é mais forte que a allowlist por id que o
-  // caso pedia: **no máximo UMA superfície pintada dentro da faixa, e ela é a
-  // ação primária**. É essa a linha que impede a v1.4.44 de voltar pela porta
-  // dos fundos — dois botões preenchidos lado a lado seriam duas ações
-  // primárias na mesma barra, que é o defeito original com tinta nova. O
-  // `#diagSave` fica quieto de propósito: guardar o Registro é o PASSO, falar
-  // é o DESTINO.
+  // O pedido de agora derruba os dois: *"faça os três serem três botões
+  // separados, no mesmo estilo do botão de 'pedir ajuda'. e remova o fundo
+  // cinza desse rodapé"*. **A faixa deixou de ser superfície** — e é por isso
+  // que a asserção velha não podia só afrouxar de 1 para 3: o que ela media
+  // primeiro era a faixa PINTAR, e hoje ela não pinta. Invertem-se as duas
+  // metades: a faixa NÃO pinta, e os três filhos pintam, todos iguais.
+  //
+  // O TETO CONTINUA EXISTINDO, e é ele que impede a v1.4.44 de voltar pela
+  // porta dos fundos por outro caminho: a faixa não pode voltar a pintar (seria
+  // fundo dentro de fundo) e não pode haver um QUARTO preenchido que não seja
+  // um dos três botões — uma superfície solta ali é a "segunda caixa" que a
+  // regra original nomeava, agora sem a faixa para escondê-la.
   //
   // A LEITURA É POR `getComputedStyle` E VALE COM O BOTÃO ESCONDIDO: num
-  // navegador os dois são `hidden`, e o fundo continua sendo reportado sob
-  // `display:none` (medido). A asserção não depende do cenário revelá-los.
-  checar(rodape && rodape.faixaPinta
-    && rodape.filhosQuePintam.length === rodape.primarios.length,
-    'o rodapé é UMA barra com UMA ação: a superfície é a faixa, e a única coisa '
-    + 'que pinta dentro dela é o botão primário — duas caixas com a mesma cor '
-    + 'ainda se leem como dois assuntos',
+  // navegador dois dos três são `hidden`, e o fundo continua sendo reportado
+  // sob `display:none` (medido). A asserção não depende do cenário revelá-los.
+  checar(rodape && !rodape.faixaPinta,
+    'o rodapé deixou de ser uma SUPERFÍCIE: a faixa não pinta nada — o cinza '
+    + 'saiu a pedido do operador, e com ele a pastilha que a v1.4.44 criou',
+    rodape && JSON.stringify({ faixaPinta: rodape.faixaPinta }));
+  checar(rodape && rodape.primarios.length === 3
+    && rodape.primarios.join(',') === 'versaoBtn,diagSave,contatoBtn'
+    && rodape.filhosQuePintam.length === 3,
+    'e os TRÊS botões pintam, os três iguais — a exceção de UM da v1.8.51 caiu '
+    + 'com a faixa que a justificava. O teto continua: nada mais pinta ali, e '
+    + 'uma quarta superfície solta é a "segunda caixa" que a regra nomeava',
     rodape && JSON.stringify({ pintam: rodape.filhosQuePintam, primarios: rodape.primarios }));
-  checar(rodape && rodape.primarios.length === 1 && rodape.primarios[0] === 'contatoBtn',
-    'e a ação primária é o PEDIR AJUDA, uma só: sem este teto, "deixar o botão '
-    + 'sólido" acabaria com os dois preenchidos e a barra de volta a dois assuntos',
-    rodape && JSON.stringify(rodape.primarios));
   checar(rodape && rodape.versaoDentro && rodape.salvarDentro,
     'e a versão e o salvar do Registro moram os dois nela');
   checar(rodape && rodape.faixa.l === rodape.grade.l && rodape.faixa.r === rodape.grade.r,
@@ -879,10 +903,21 @@ try {
     const netOn = net ? fundoNet() : '';
     if (net) net.classList.remove('ligado');
     const r = {
-      acao: raio('.cast-acao'), interruptor: raio('#castNetBtn'), endereco: raio('.cast-addr'),
+      // O RAIO É DO ENVELOPE, e o do botão é PARCIAL desde a v1.8.89: com o `?`
+      // dentro dele, `.cast-acao` arredonda só o lado esquerdo (o direito é
+      // reto, para os dois formarem UMA peça). `borderRadius` devolveria a
+      // forma abreviada de quatro cantos e a comparação com o interruptor
+      // reprovaria o desenho correto.
+      acao: raio('.cast-acao-linha'), interruptor: raio('#castNetBtn'), endereco: raio('.cast-addr'),
       netOff, netOn,
       liveFill: getComputedStyle(document.documentElement).getPropertyValue('--live-fill').trim(),
-      acaoFundo: cor('.cast-acao', 'backgroundColor'), acaoTexto: cor('.cast-acao', 'color'),
+      // E O PREENCHIMENTO TAMBÉM É DO ENVELOPE. Dois irmãos numa peça só não
+      // podem cada um pintar o próprio fundo — a costura entre eles apareceria
+      // no primeiro estado em que os dois divergissem —, então a superfície
+      // subiu para `.cast-acao-linha` e o botão herda a tinta do TEXTO. Ler o
+      // fundo do botão aqui devolve `transparent`, que é o desenho CERTO.
+      acaoFundo: cor('.cast-acao-linha', 'backgroundColor'),
+      acaoTexto: cor('.cast-acao', 'color'),
       // O valor do token, resolvido pelo navegador — a asserção compara o
       // RENDERIZADO com ele, e não com um literal copiado para cá.
       accentFill: getComputedStyle(document.documentElement).getPropertyValue('--accent-fill').trim(),
@@ -1167,10 +1202,9 @@ try {
     // para escolher um, há um botão que vai para o outro estado. O toque é o
     // mesmo do operador, e o `data-estado` é o que a pintura escreve.
     //
-    // TRÊS ESTADOS desde a v1.8.49 (Automático → Claro → Escuro), e o percurso
-    // começa no AUTOMÁTICO — o app nasce sem escolha guardada. Com o aparelho
-    // emulado em ESCURO (ver o `emulateMedia` acima), o primeiro toque é
-    // exatamente a transição que este bloco sempre mediu: escuro → claro.
+    // DOIS ESTADOS desde a v1.8.64 (o automático saiu): o app nasce no ESCURO,
+    // que é a ausência da chave, e o primeiro toque é exatamente a transição
+    // que este bloco sempre mediu — escuro → claro.
     document.getElementById('temaTile').click();
     const claro = ler();
     return {
@@ -1197,9 +1231,14 @@ try {
     + ' (' + tema.escuro.accent + ' / ' + tema.escuro.fill + ')');
   checar(tema.escuro.barra !== tema.claro.barra && /^#[0-9a-f]{6}$/i.test(tema.claro.barra),
     'e o `theme-color` acompanha (' + tema.escuro.barra + ' → ' + tema.claro.barra + ')');
-  checar(tema.atributo === 'claro' && tema.guardado === 'claro' && tema.escolha === 'claro',
-    'a escolha vai para o `localStorage` e para o ATRIBUTO — o primeiro é lido '
-    + 'antes do primeiro quadro, o segundo é o carrier que o `controle.js` lê');
+  // O CARRIER É UM SÓ desde a v1.8.64: o `data-tema-escolha` saiu com o
+  // automático, porque sem terceiro estado "qual é o tema?" e "houve escolha?"
+  // deixaram de ser duas perguntas.
+  checar(tema.atributo === 'claro' && tema.guardado === 'claro' && tema.escolha === null,
+    'a escolha vai para o `localStorage` e para o `data-tema` — o primeiro é '
+    + 'lido antes do primeiro quadro, o segundo é o carrier que o `controle.js` '
+    + 'lê, e não há mais um segundo atributo ao lado',
+    JSON.stringify(tema.atributo + '|' + tema.guardado + '|' + tema.escolha));
 
   await pg.reload({ waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(() => typeof window.__avBack === 'function', null, { timeout: 20000 });
@@ -1214,47 +1253,65 @@ try {
   checar(depois.atributo === 'claro' && depois.bg === tema.claro.bg,
     'e ela sobrevive à recarga da página (' + depois.atributo + ' · ' + depois.bg + ')');
 
-  // ---- O AUTOMÁTICO SEGUE O APARELHO (v1.8.49) ------------------------
+  // ---- DOIS ESTADOS, E TODO TOQUE MUDA A COR (v1.8.64) ------------------
   //
-  // O padrão do app deixou de ser "escuro" e passou a ser "o que o aparelho
-  // responde": a pergunta *claro ou escuro?* o sistema do operador já respondeu,
-  // e um app que a ignora acende uma tela branca num salão escuro.
+  // O AUTOMÁTICO SAIU a pedido do operador: *"deixe apenas as opções de claro e
+  // escuro, remova o auto, não está sendo eficaz essa opção"*. Ele existiu da
+  // v1.8.49 à v1.8.63 e custou dois lotes: a v1.8.62 consertou a ORDEM do ciclo
+  // (o primeiro toque ia para o claro mesmo num aparelho já claro, e não mudava
+  // um pixel) e a v1.8.63 lhe deu indicação na tela, porque três estados sobre
+  // DOIS desenhos deixavam dois deles idênticos byte a byte.
   //
-  // TRÊS METADES, e nenhuma basta sozinha: sem a primeira o automático não
-  // existe; sem a SEGUNDA ele é só "o tema que o aparelho tinha quando o app
-  // abriu" — e o caso que morde é o agendamento noturno com o app aberto desde
-  // a tarde; sem a TERCEIRA, "seguir o sistema" viraria desfazer a escolha do
-  // operador, que é um app que não obedece.
+  // AS TRÊS ASSERÇÕES SÃO A REVOGAÇÃO, e a terceira é a que tem dente: com dois
+  // estados sobre duas cores, **todo** toque muda a cor — é a promessa que o
+  // terceiro estado não conseguia fazer, e ela é medida no ciclo inteiro.
   await pg.evaluate(() => { try { localStorage.removeItem('av.tema'); } catch (_) { /* */ } });
   await pg.emulateMedia({ colorScheme: 'light' });
   await pg.reload({ waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(() => typeof window.__avBack === 'function', null, { timeout: 20000 });
   await esperarCortina(pg);
-  const auto = await pg.evaluate(() => ({
+  const semChave = await pg.evaluate(() => ({
     atributo: document.documentElement.dataset.tema || 'escuro',
     escolha: document.documentElement.dataset.temaEscolha || null,
     guardado: localStorage.getItem('av.tema'),
   }));
-  checar(auto.atributo === 'claro' && auto.escolha === null && auto.guardado === null,
-    'SEM escolha guardada o app segue o APARELHO: emulado em claro, ele abre claro '
-    + '— e nada foi gravado, porque automático é a AUSÊNCIA de escolha', JSON.stringify(auto));
+  // O APARELHO EMULADO É CLARO de propósito: é ele que separa "o escuro é o
+  // padrão" de "o app segue o sistema". Com o automático de pé esta asserção
+  // dizia o CONTRÁRIO (`atributo === 'claro'`), e é essa troca de sinal que a
+  // faz ser a revogação e não um número corrigido de passagem.
+  checar(semChave.atributo === 'escuro' && semChave.escolha === null
+    && semChave.guardado === null,
+    'SEM chave guardada o app abre no ESCURO, mesmo num aparelho CLARO — o '
+    + '`prefers-color-scheme` deixou de ser lido, e a ausência da chave não é '
+    + 'mais um terceiro estado', JSON.stringify(semChave));
+  // E NADA de `data-tema-escolha`: o carrier do terceiro estado saiu junto, e um
+  // atributo órfão é o mecanismo sobrevivendo ao recurso que o justificava.
+  const trio = await pg.evaluate(async () => {
+    const z = (ms) => new Promise((f) => setTimeout(f, ms));
+    const t = document.getElementById('temaTile');
+    const ler = () => ({
+      tema: document.documentElement.dataset.tema || 'escuro',
+      chave: localStorage.getItem('av.tema'),
+      estado: t.dataset.estado, aria: t.getAttribute('aria-label'),
+      texto: (t.textContent || '').replace(/\s+/g, ' ').trim(),
+      marca: !!t.querySelector('.ico-auto'),
+    });
+    const passos = [ler()];
+    for (let i = 0; i < 4; i++) { t.click(); await z(120); passos.push(ler()); }
+    return passos;
+  });
+  const mudouSempre = trio.slice(1).every((x, i) => x.tema !== trio[i].tema);
+  checar(mudouSempre && trio.every((x) => x.texto === 'Tema' && !x.marca),
+    'e TODO toque muda a cor — quatro toques, quatro trocas —, com o tile '
+    + 'dizendo só "Tema": a marca do automático e a linha de estado saíram com o '
+    + 'estado que elas indicavam', JSON.stringify(trio.map((x) => x.tema + '/' + x.texto)));
+  checar(trio.slice(1).every((x) => x.chave === x.tema)
+    && trio.every((x) => /^Tema: (Claro|Escuro)$/.test(x.aria) && /^(claro|escuro)$/.test(x.estado)),
+    'e a escolha é SEMPRE guardada, com o `data-estado` e o `aria-label` em dois '
+    + 'valores só — o composto `auto-claro` da v1.8.63 saiu com o terceiro estado',
+    JSON.stringify(trio.map((x) => x.estado + '|' + x.chave + '|' + x.aria)));
 
-  // AO VIVO, sem recarregar: é o agendamento do Android trocando no meio do culto.
   await pg.emulateMedia({ colorScheme: 'dark' });
-  const seguiu = await esperar(pg,
-    () => (document.documentElement.dataset.tema || 'escuro') === 'escuro', null, 4000);
-  checar(seguiu === true,
-    'e ele acompanha o aparelho AO VIVO — o Android troca para o escuro ao '
-    + 'anoitecer, e o culto de sábado à noite começa com o app já aberto', porque(seguiu));
-
-  // E A ESCOLHA VENCE: sem esta, "seguir o sistema" apagaria a decisão do operador.
-  await pg.evaluate(() => { setTemaEscolha('claro'); });
-  await pg.emulateMedia({ colorScheme: 'dark' });
-  await pg.waitForTimeout(250);
-  const venceu = await pg.evaluate(() => document.documentElement.dataset.tema);
-  checar(venceu === 'claro',
-    'mas uma escolha GUARDADA vence o aparelho: o operador que escolheu claro '
-    + 'continua no claro com o sistema no escuro', venceu);
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }
@@ -4213,10 +4270,16 @@ try {
 // o botão morto; e a que sobrevive ao fechamento da folha esvaziaria a fila na
 // abertura seguinte, sem ninguém ter tocado nela.
 //
-// O "Guardar como pacote" precisa CONTINUAR EM CENA: a pergunta troca o
-// conteúdo da caixa do botão que a pediu, e só dela — no rodapé inteiro ela
-// levaria o vizinho junto, e a folha encolheria sob o dedo no exato instante em
-// que o operador mira um destrutivo.
+// A PERGUNTA OCUPA A FAIXA INTEIRA (v1.8.53), e esta asserção MUDOU DE VEREDITO
+// junto com o layout. Até a v1.8.52 ela exigia o "Guardar" EM CENA durante a
+// pergunta, e a razão era a ALTURA: os dois botões moravam em linhas
+// empilhadas, e levar o vizinho junto tirava uma linha inteira do rodapé — a
+// folha encolhia sob o dedo que mira um destrutivo. Lado a lado essa razão não
+// existe (a faixa carrega a altura), e o que sobra manda o contrário: com o
+// pacote de pé o par ficava com METADE da faixa, e MEDIDO a 320px isso é 69,6px
+// por botão com "Cancelar" TRUNCADO. Hoje mede-se o que aquela asserção
+// protegia de verdade — a altura NÃO muda — mais o que ela não sabia pedir: o
+// par não é cortado.
 try {
   const limpar = await pg.evaluate(async () => {
     setAppMode('full');
@@ -4243,6 +4306,7 @@ try {
     }
     const r = { antes: plItems.length, aVista: !faixa.hidden && faixa.getBoundingClientRect().height > 0 };
     const alturaAntes = Math.round(faixa.getBoundingClientRect().height);
+    const rodapeAntes = Math.round(document.querySelector('.pl-rodape').getBoundingClientRect().height);
     botao.click();
     if (!await ate(() => !!faixa.querySelector('.linha-confirma'))) {
       return Object.assign(r, { erro: 'a pergunta não abriu' });
@@ -4253,8 +4317,14 @@ try {
     r.rotulos = par.map((b) => b.textContent).join(' · ');
     r.aoMeio = Math.abs(cxs[0].width - cxs[1].width) <= 1
       && cxs[0].width + cxs[1].width >= faixa.getBoundingClientRect().width - 8;
-    r.pacoteFica = document.getElementById('plPack').getBoundingClientRect().height > 0;
+    // OS DOIS de guardar, desde a v1.8.54 — com o irmão adjacente (`+`) só o
+    // primeiro sumia, e a faixa ficava com uma estrela solta ao lado da pergunta.
+    r.pacoteSai = ['plPack', 'plPackFav']
+      .every((i) => document.getElementById(i).getBoundingClientRect().height === 0);
     r.semPulo = Math.round(faixa.getBoundingClientRect().height) === alturaAntes;
+    // O RODAPÉ inteiro, não só a caixa: é ele que a folha empurra.
+    r.rodapeSemPulo = Math.round(document.querySelector('.pl-rodape').getBoundingClientRect().height) === rodapeAntes;
+    r.parCortou = par.some((b) => b.scrollWidth > b.clientWidth + 1);
     r.filaIntacta = plItems.length === r.antes;
     // FECHAR A FOLHA CANCELA — a mesma regra da gaveta da linha.
     closePlPopup();
@@ -4273,15 +4343,25 @@ try {
     closePlPopup();
     return r;
   });
-  checar(!limpar.erro && limpar.aVista === true && limpar.rotulos === 'Cancelar · Limpar',
+  // "CONFIRMAR" DESDE A v1.8.54, e o par é literal de propósito: o botão que
+  // abre a pergunta JÁ diz "Limpar", e repetir o verbo não acrescenta nada. Onde
+  // ele NÃO diz — a lixeira sem rótulo de uma sessão do Histórico — a palavra
+  // continua sendo "Limpar", porque lá ela é a única que nomeia o dano.
+  checar(!limpar.erro && limpar.aVista === true && limpar.rotulos === 'Cancelar · Confirmar',
     'o rodapé da folha da playlist tem o LIMPAR, e ele pergunta na própria caixa '
     + '(' + limpar.rotulos + ')', JSON.stringify(limpar));
   checar(!limpar.erro && limpar.aoMeio === true && limpar.semPulo === true,
     'o par divide a caixa ao meio e ela NÃO muda de altura ao perguntar — a '
     + 'folha não pode pular sob o dedo que mira um destrutivo', JSON.stringify(limpar));
-  checar(!limpar.erro && limpar.pacoteFica === true && limpar.filaIntacta === true,
-    'e "Guardar como pacote" continua em cena: a pergunta troca o conteúdo da '
-    + 'caixa que a pediu, não o rodapé inteiro', JSON.stringify(limpar));
+  checar(!limpar.erro && limpar.pacoteSai === true && limpar.rodapeSemPulo === true
+      && limpar.filaIntacta === true,
+    'a pergunta OCUPA a faixa — o "Guardar" sai e o rodapé NÃO muda de altura: '
+    + 'lado a lado, deixá-lo de pé daria meia caixa ao par de um destrutivo '
+    + '(69,6px por botão a 320px, com "Cancelar" truncado)', JSON.stringify(limpar));
+  checar(!limpar.erro && limpar.parCortou === false,
+    'e o par não é CORTADO: `textContent` não denuncia reticências, então a '
+    + 'medida é `scrollWidth` contra `clientWidth` — "Cancela…" num destrutivo é '
+    + 'a pior linha que esta faixa saberia desenhar', JSON.stringify(limpar));
   checar(!limpar.erro && limpar.fecharCancelou === true,
     'fechar a folha CANCELA a pergunta — herdar um "sim" pendente esvaziaria a '
     + 'fila na abertura seguinte, sem ninguém ter tocado nela', JSON.stringify(limpar));
@@ -4941,11 +5021,13 @@ try {
   });
   checar(!dest.erro && dest.temEstrela === true && dest.temCrono === true
     && JSON.stringify(dest.ordem.slice(0, 3))
-      === JSON.stringify(['row-excluir', 'fav-btn', 'row-crono'])
+      === JSON.stringify(['row-excluir', 'row-crono', 'fav-btn'])
     && dest.ordem.slice(3).every((c) => c === 'row-ordem'),
-    'A FILA DA PLAYLIST GANHOU OS DOIS DESTINOS (v1.4.25), na ordem do '
-    + 'Cronograma sem os que não existem nela: tirar da fila · favoritar · ao '
-    + 'Cronograma', JSON.stringify(dest.ordem));
+    'A FILA DA PLAYLIST GANHOU OS DOIS DESTINOS (v1.4.25), na ORDEM CANÔNICA dos '
+    + 'destinos sem os que não existem nela: tirar da fila · ao Cronograma · '
+    + 'favoritar. (A dupla INVERTEU na v1.8.56 — *"a esquerda o cronograma, no '
+    + 'meio a playlist e por fim o favoritos"* —, e a playlist não entra porque '
+    + 'esta LINHA é a playlist.)', JSON.stringify(dest.ordem));
   checar(!dest.erro && dest.cronoAntes === false && dest.cronoDepois === true
     && dest.noBancoCrono === true && dest.favDepois === true && dest.noBancoFav === true,
     'e eles ALTERNAM de verdade — o id entra nas listas do BANCO, não só o '
@@ -5212,10 +5294,13 @@ try {
     return r;
   });
   checar(!ordem.erro && JSON.stringify(ordem.cronograma)
-      === JSON.stringify(['row-excluir', 'row-renomear', 'fav-btn', 'row-playlist',
+      === JSON.stringify(['row-excluir', 'row-renomear', 'row-playlist', 'fav-btn',
         'row-ordem', 'row-ordem']),
-    'A ORDEM DA FILEIRA DO CRONOGRAMA é a ditada (v5.302): excluir · renomear · '
-    + 'favoritar · playlist · ↑ · ↓', JSON.stringify(ordem.cronograma));
+    'A ORDEM DA FILEIRA DO CRONOGRAMA agrupa por NATUREZA (v5.302): o que mexe '
+    + 'no ITEM (excluir, renomear), o que mexe em ONDE ele está (playlist, '
+    + 'favoritar) e o que mexe na POSIÇÃO (↑↓). O PAR DO MEIO inverteu na '
+    + 'v1.8.56, pela ordem canônica dos destinos — aqui o Cronograma não '
+    + 'aparece porque o item já está nele', JSON.stringify(ordem.cronograma));
 } catch (e) {
   checar(false, 'a medição do "à playlist" terminou sem exceção ('
     + (e && e.message) + ')');
@@ -5630,9 +5715,10 @@ try {
   // A CORTINA cobre a tela por 1,8 s (v1.7.2) e ela é o topo da pilha: sem esta
   // espera, todo hit-test e toda captura deste arquivo medem o `#splash`.
   await esperarCortina(pg2);
+  // Mesmo sinal do topo do arquivo, e pelo mesmo motivo — ver lá.
   await pg2.waitForFunction(
     () => window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
   const arranque = await pg2.evaluate(() => {

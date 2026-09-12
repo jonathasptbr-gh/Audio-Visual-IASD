@@ -147,8 +147,8 @@ só uma, o token está no bloco COMPARTILHADO e vale nos dois.
 | `--surface-sunk` / `--surface-2-sunk` | `rgba(0,0,0,.24)` / `.14` | `rgba(0,0,0,.14)` / `.20` | os mesmos dois **dentro de um cartão**, onde o sinal se inverte e o controle AFUNDA. Eram literais em `controle.css` até a v5.192 — os últimos pedaços de cor fora da fonte única, e o tema claro herdaria um recesso de 24% de preto sobre um cartão branco |
 | `--text` / `--muted` | `#dce0e5` / `#b6bdc6` | `#000000` / `#565d66` | texto (14,19:1 sobre o fundo · 9,52:1 sobre painel no escuro; 16,28:1 · 21:1 no claro) / secundário. **No claro o `--text` é PRETO desde a v1.5.12** — o ÚNICO desvio declarado da paleta oficial, a pedido do operador (*"use a cor preta pra os textos e não cinza como me parece ser hoje"*): ele era o `night` OFICIAL (#4a4a4a), que É um cinza escuro e se lia como texto apagado sob a luz de um salão. `--muted` NÃO acompanhou — é ele que mantém a regra NOME × NÚMERO da v1.5.11, e o par abriu de 1,33:1 para 3,15:1. Ele é derivado porque o `winter` oficial (#717171) passa sobre branco (4,88:1) e cai para 3,81:1 sobre o cinza da página |
 | `--accent` | `#95b5f4` | `#2f557f` | o azul como **texto e ícone**. No escuro é o `bluejay` CLAREADO (o oficial dá 3,97:1 sobre o fundo e reprova): 9,17:1 sobre o fundo, 6,64:1 sobre painel (medidos contra o fundo DENIM PROFUNDO da v1.5.14). No claro é o `denim` OFICIAL: 7,70:1 sobre painel, 5,97:1 sobre a página |
-| `--accent-fill` | `#2f557f` | `#2f557f` | o **`denim` OFICIAL** como fundo de elemento preenchido (aba ativa, botão primário), nos dois temas. 2,44:1 contra o fundo escuro — exatamente o peso que o preenchido âmbar tinha (2,59:1) |
-| `--on-accent` | `#e8edf3` | `#ffffff` | o que se escreve **em cima** de `--accent-fill` — 6,54:1 e 7,70:1. O par branco-sobre-denim é o que a própria identidade recomenda; no escuro vale a regra do off-white, e a folga sobra nos dois |
+| `--accent-fill` | `#2f557f` | `#2f557f` | o **`denim` OFICIAL** como fundo de elemento preenchido, nos dois temas. 2,44:1 contra o fundo escuro — exatamente o peso que o preenchido âmbar tinha (2,59:1). **Desde a v1.8.95 ele é SÓ DE BOTÃO** (primário e ação de destaque): ESCOLHIDO entre alternativas desceu para `--btn-accent` + `--accent`, e `tokens.test.mjs` reprova o denim sob um seletor de escolha |
+| `--on-accent` | `#e8edf3` | `#ffffff` | o que se escreve **em cima** de `--accent-fill` — 6,54:1 e 7,70:1. O par branco-sobre-denim é o que a própria identidade recomenda; no escuro vale a regra do off-white, e a folga sobra nos dois. **Sobre `--btn-accent` ele NÃO serve** (1,21:1 no tema claro): a escolha que desceu para aquela superfície na v1.8.95 trocou junto a tinta, para `--accent` |
 | `--accent-soft` | `rgba(143,177,243,.16)` | `rgba(47,85,127,.12)` | fundo suave de estado ativo |
 | `--stage-accent-glow` | `rgba(143,177,243,.32)` | *(idem — é do PALCO, logo sem tema)* | halo do `.start-pill` do Display. Segue a MATIZ do accent, não o `--accent-fill`: um halo na cor do preenchimento (escuro por definição) sobre o fundo escuro seria invisível. **Saiu do botão de conectar do simplificado bloqueado na v5.75** — ali quem separa o botão do fundo é a cortina embaçada |
 | `--brand` / `--brand-text` | `#95b5f4` / `#c2d4f8` | `#2f557f` / `#24446a` | marca ("IASD"): logo, capa da letra, pill "Ligar Sistema", rótulo de estrofe, destaque da busca por letra. Mesmo valor do accent — os dois nomes existem para distinguir marca de navegação na folha |
@@ -157,7 +157,7 @@ só uma, o token está no bloco COMPARTILHADO e vale nos dois.
 | `--live-strong` / `--danger-strong` | `#f97a7e` | `#b80419` | **o vermelho que se lê como vermelho** (v5.76): ícone, borda e marca preenchida. Derivado do `scarlett` (matiz 358°/353°), clareado no escuro e escurecido no claro. Escuro: 7,27:1 sobre `--bg`, 6,59:1 sobre o soft, 4,88:1 sobre `--panel`, **3,77:1 sobre `--panel-2`** — este passa o piso de borda e reprova o de texto, e é por isso que quem veste este vermelho veste junto o fundo suave da própria família. Claro: 4,63:1 sobre o soft, 6,84:1 sobre o painel |
 | `--danger-text` | `#e98d83` | `#93382e` | o salmão, para os TRÊS casos em que o `-strong` não serve: a falha na miniatura do YouTube, o pulso de erro e o aviso de falha pousado direto no painel — 5,17:1 sobre `--panel` no escuro, 7,38:1 no claro |
 | `--live-soft` | `rgba(208,2,27,.22)` | `rgba(208,2,27,.14)` | wash de "no ar" — hoje só o `box-shadow` do pulso. **É wash, nunca superfície de controle** (ver `--btn-*`), e foi essa regra que esvaziou a família: dos seis `-soft`, só este tem consumidor. Os outros quatro (`--danger-soft`, `--warn-soft`, `--ok-soft`, e o `--accent-soft` que ficou) eram defendidos por "servem ao wash" — a v1.5.14 mediu e removeu os que não serviam a nenhum |
-| `--btn-accent` / `--btn-danger` / `--btn-warn` / `--btn-ok` | `#293d57` / `#5d282e` / `#533423` / `#2a431e` | `#dcebfe` / `#fde3e6` / `#f8e7de` / `#d5f5c6` | **a superfície OPACA de um botão ou chip** em cada família (v1.3.14). Recebem por cima o traço que a família já tinha (`--accent`, `--danger-strong`, `--warn`, `--ok`). Ver "A superfície de uma ação é opaca" |
+| `--btn-accent` / `--btn-danger` / `--btn-warn` | `#293d57` / `#5d282e` / `#533423` | `#dcebfe` / `#fde3e6` / `#f8e7de` | **a superfície OPACA de um botão ou chip** em cada família (v1.3.14). Recebem por cima o traço que a família já tinha (`--accent`, `--danger-strong`, `--warn`, `--ok`). Ver "A superfície de uma ação é opaca" |
 | `--warn` / `--warn-text` | `#ef853f` / `#e5a86c` | `#bd520a` / `#934410` | aviso: borda/ícone, texto, fundo. Derivados do **`campfire` OFICIAL** (matiz 21°) — 6,34:1 e 7,95:1 sobre o próprio suave no escuro; 3,38:1 (piso de ícone) e 4,81:1 no claro |
 | `--ok` | `#80bd64` | `#216900` | concluído/conectado. Derivado do **`treefrog` OFICIAL** (matiz 101°), clareado e DESSATURADO no escuro — no talo ele vira um limão que grita mais que o accent. 5,64:1 sobre painel · 8,41:1 sobre o fundo; no claro 6,81:1 sobre o painel |
 | `--stage-bg` / `--stage-text` | `#000` / `#fff` | *(idem)* | **o palco**, não a UI, e por isso NÃO tem tema: o preto é preto de verdade (as barras do letterbox têm de sumir na moldura da TV) e o texto projetado é branco pleno — num telão a legibilidade vem de luminância máxima, não de um off-white calibrado para uma tela a 30 cm do rosto |
@@ -383,8 +383,10 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   conectar), onde o alvo é o polegar de quem está de pé. "Três degraus **e só
   eles**" era a frase antiga, e ela era desmentida por dezenas de valores no
   HTML; agora ela é verificável.
-- **Alvo de toque:** dois degraus, e desde a v5.49 são **tokens** — `--hit`
-  (34px) e `--hit-nav` (38px, a faixa de navegação: `.tab` e `.tab-add`). O piso
+- **Alvo de toque:** o token é **`--hit`** (34px, desde a v5.49). O segundo
+  degrau, `--hit-nav` (38px), era a faixa de NAVEGAÇÃO — `.tab` e `.tab-add` —,
+  e saiu na v1.8.81: a faixa de abas inteira saiu na v1.5.0 e o token sobreviveu
+  vinte e nove lotes declarado e sem um único leitor. O piso
   de 34px vale para `.row-btn`, `.row-handle`, `.popup-close`, `.back-btn`,
   `.add-dir-btn`, `.sel-btn`, `.coll-bar-dl`, `.coll-group-btn` e `.pv-fab`.
   Nada abaixo disso — o `.back-btn` já teve 20×20 px sendo a única saída da tela
@@ -399,8 +401,9 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 - **Receita repetida vira seletor agrupado, não cópia:** os estados de cor são
   declarados por ESTADO (`.view-blocked`/`.muted`/`.danger` num bloco,
   `.active` noutro), a coluna "nome + subtítulo" das linhas de lista é uma regra
-  para `.coll-bar-info, .bible-ver-main, .hymn-info`, e `.tab-add` divide a
-  caixa de `.tab` (`flex:1`, `--hit-nav`, mesmo raio) em vez de reescrevê-la.
+  para `.coll-bar-info, .bible-ver-main, .hymn-info`. (O exemplo antigo era o
+  `.tab-add` dividindo a caixa de `.tab` em vez de reescrevê-la — as duas peças
+  saíram com a faixa de abas na v1.5.0.)
 - **Ordem importa quando a especificidade empata:** `.pv-text { z-index: 2 }`
   precisa vir DEPOIS de `.pv-layer { z-index: 1 }` (o elemento tem as duas
   classes). Já esteve antes, e o cartão de texto só ficava acima do iframe do
@@ -522,14 +525,48 @@ interna quando ativo, sendo pouco visível"*):
 
 | como era dito | onde |
 |---|---|
-| preenchido em `--accent-fill` | `.bible-cell.active`, `.misc-tab/.misc-seg/.misc-chip.active`, `.fit-opt.active` |
+| preenchido em `--accent-fill` (os MESMOS seletores, hoje em `--btn-accent` — v1.8.95, abaixo) | `.bible-cell.active`, `.misc-tab/.misc-seg/.misc-chip.active`, `.fit-opt.active` |
 | `--sel-fill` opaco na linha | `.lib-item.active`, `.bible-vsec.cur` |
 | **só cor de TEXTO** | `#repeat.active`, `.tab.active`, `.bible-ver-row.selected`, `.hymnal-card.expanded`, `.folder-opfs.expanded` |
 
-A regra, e ela responde a QUATRO perguntas diferentes com quatro respostas:
+A regra, e ela responde a QUATRO perguntas diferentes — com TRÊS respostas
+desde a v1.8.95, quando ESCOLHIDO e LIGADO passaram a vestir o mesmo par:
 
 - **ESCOLHIDO entre alternativas** (uma célula, um segmento, um chip, uma aba) →
-  **preenchido**: `--accent-fill` + `--on-accent`.
+  **superfície de ação**: `--btn-accent` + `--accent` (v1.8.95, que revogou esta
+  metade da regra). O par era o denim cheio (`--accent-fill` + `--on-accent`), e
+  o operador o tirou daí: *"todos esses usam um azul forte, sólido, que deveria
+  ser reservado para botões e não seleções. Para seleções, pode usar o mesmo
+  azul que usamos nos botões flutuantes sobre o cronograma"* — o `--btn-accent`
+  do `--surface-porta`, que é também o do `.qs-tile.qs-on` e o do `.fav-btn.on`,
+  o modelo que ele apontou. **Sete regras trocadas** (`.bible-cell.active`,
+  `.bible-cell--num.active`, `.misc-tab.active`, `.misc-seg.active`,
+  `.misc-chip.active`, `.fit-opt.active`, `.cast-rede.active`) mais o polegar do
+  alternador de modo — `.qs-modo::before` no fundo, `.qs-modo .fit-opt.active`
+  na tinta.
+
+  **MEDIDO no renderizado:** a tinta sobre o fundo novo dá **5,37:1** no escuro
+  e **6,37:1** no claro, contra o piso de 4,5. O que ENCOLHEU foi o
+  PREENCHIMENTO contra a pílula apagada — 2,05:1 → **1,43:1** no escuro e
+  5,56:1 → **1,14:1** no claro —, de modo que o que separa escolhido de não
+  escolhido passou a ser sobretudo a MATIZ (cinza × azul). É o mesmo desfecho
+  que o app já aceitava no `.qs-tile.qs-on`, o modelo do pedido.
+
+  **O DENIM FICA NOS BOTÕES** — `.chrono-btn.primary`, `.misc-project`,
+  `.draw-go`, `.diag-btn--primario`, `.song-menu-go`, `.dialog-btn.primary`,
+  `.cast-acao`/`.cast-acao-linha`, `.ota-row--agora` —, mais o `.popup-count`,
+  que é INFORMAÇÃO e já era exceção comentada no CSS. Oráculo:
+  `tokens.test.mjs`, bloco *"ESCOLHIDO NÃO É O DENIM"*, que varre por SELETOR
+  (toda regra com `.active`, mais o `.qs-modo::before` nomeado à parte) e
+  reprova `background`/`color` em `--accent-fill`/`--on-accent`. **A varredura é
+  por seletor porque é ele que diz o PAPEL** — uma busca global levaria os
+  primários junto.
+
+  **O ARGUMENTO REVOGADO, para não ser refeito:** ESCOLHIDO e LIGADO eram pares
+  DISTINTOS para que "um entre irmãos" não se lesse como "um interruptor solto".
+  Hoje são o MESMO par, e quem os separa é o contexto — haver ou não irmãos
+  disputando a faixa. A colisão é deliberada: o operador apontou justamente o
+  tile LIGADO como o modelo da seleção.
 - **LIGADO** (um interruptor de um modo só, sem irmãos disputando) →
   **superfície de ação**: `--btn-accent` + `--accent`. É o caso do `#repeat`, e
   ele é o extremo da regra: em todo outro interruptor do app o DESENHO muda
@@ -593,9 +630,12 @@ ganha superfície, ou ele já é dito pela forma e a cor sai.
 
 #### Quando AÇÃO e ESCOLHA dividem a mesma faixa, o CHEIO fica com a ESCOLHA
 
-O accent cheio serve aos dois papéis em todo o app — é o botão primário
-(`.cast-acao`, `.dialog-btn.primary`) e é o segmento escolhido — e fora do
-trilho de navegação isso nunca colide, porque os dois não dividem a mesma faixa.
+O accent cheio servia aos dois papéis — era o botão primário (`.cast-acao`,
+`.dialog-btn.primary`) e era o segmento escolhido —, e fora do trilho de
+navegação isso nunca colidia, porque os dois não dividiam a mesma faixa. **A
+colisão deixou de ser possível na v1.8.95**, quando o escolhido desceu para
+`--btn-accent` + `--accent` e o denim ficou só com o botão; o trilho que criou a
+pergunta saiu na v1.5.0, e o que fica desta seção é o DESEMPATE.
 Ali dividiam, e o desempate estava invertido: o cheio ficava com a AÇÃO (a
 busca) e a ESCOLHA caía num vazado de **1,32:1** — degrau que o próprio texto
 que o defendia admitia ser "pouco num salão escuro", deixando a cor do ícone
@@ -704,11 +744,17 @@ encenar cada estado.
 | `--ok` contornando "já conectado" | `--ok-fill`, idem |
 | tracejado de "espaço a preencher" (`.import-btn`, `.selbar`, `.pl-pack`) | preenchimento em `--accent-soft` |
 
-> **E as TRÊS PORTAS do rodapé saíram do `--btn-accent` na v1.5.19**, a pedido do operador (*"discretas, mescladas ao fundo"*): elas vestem `color-mix(in srgb, var(--surface) 70%, transparent)`, com `--surface` como piso de falha aberta. A `.selbar`, o `.msg-add-btn` e o `.pl-pack` FICAM — a cor se partiu por HABITAT (sobre `--bg` × sobre `--panel`), não por botão. Ver o capítulo das três portas em `CONTROLE.md`.
-| segmentado/chip marcado (`--accent-soft` + borda) | `--accent-fill` + `--on-accent`, o par que a aba ativa já usava |
+> **O DESFECHO DE UMA AÇÃO SAIU DO VERDE NA v1.8.55**, a pedido do operador (*"padronize todos com o efeito de fundo azul claro e ícone em azul sólido, sem nada verde"*). O pulso do botão e a nota na linha vestem `--btn-accent` + `--accent` — o par do `.fav-btn.on`, que o próprio pedido citou como referência —, e MEDIDO o contraste MELHOROU: **5,37:1** no escuro e **6,37:1** no claro, contra 4,89 e 5,74 do verde que saiu. **O que ele viu não era decisão de ninguém: era especificidade.** As variantes do `.btn-pulso` são `(0,1,0)` e perdiam para `.fav-btn.on`, `.row-playlist.on`/`.row-crono.on`, `.qs-tile.qs-on` e `.fav-acoes .row-btn` (o CINZA da queixa) — de modo que acrescentar a uma lista pulsava azul e retirar pulsava verde. A classe DOBRADA as leva a `(0,2,0)` sem `!important`. **O âmbar e o vermelho ficam**: são outras mensagens.
+
+> **E OS DOIS ÚLTIMOS INDICADORES SAÍRAM NA v1.8.56**, pela régua que o operador deu ao ver o resultado: *"verde é para sinal de 'ligado', nesses casos são mensagem de conclusão, não de atividade"*. Ela REVOGA a leitura da v1.8.55, que deixara o ✓ do download do YouTube (`.yt-result .yt-ok`) e o "Completa offline" da Bíblia (`.bible-ver-status.done`) verdes por lê-los como ESTADO — e a régua nova é melhor, porque separa o que dura enquanto a coisa está no ar do que anuncia algo que ACABOU. O contraste melhorou nos dois: o ✓ vai de 4,89/5,74 para **5,37:1 · 6,37:1**, e o "Completa offline" de 6,10/6,81 para **6,63:1 · 7,70:1** sobre o painel (4,92 · 5,87 sobre `--sel-fill`, que é a linha selecionada). O segundo divide a linha com o `.bible-ver-check` — o ✓ que marca a versão ESCOLHIDA, também `--accent` —, e os dois só coexistem na linha selecionada, onde quem carrega a seleção é o FILL e a linha inteira já é accent por herança. **O QUE SOBRA VERDE É ATIVIDADE, e são dois**: a TV no ar (`.cast-acao.connected`, mais o ícone dela) e o ponto do Auxiliar de Leitura (`.lv-badge`). A lista é nomeada no `feedback-de-confirmacao.test.mjs` **nos dois sentidos** — um seletor novo consumindo `--ok` reprova, e um NOME que já não descreve seletor nenhum reprova também: uma lista de permissão que envelhece deixa de dizer o que está permitido.
+>
+> **E as TRÊS PORTAS do rodapé saíram do `--btn-accent` na v1.5.19**, a pedido do operador (*"discretas, mescladas ao fundo"*): elas vestem `color-mix(in srgb, var(--surface) 70%, transparent)`, com `--surface` como piso de falha aberta. A `.selbar` e o `.msg-add-btn` FICAM — a cor se partiu por HABITAT (sobre `--bg` × sobre `--panel`), não por botão. Ver o capítulo das três portas em `CONTROLE.md`.
+>
+> **O `.pl-pack` saiu na v1.8.53**, e pelo mesmo argumento caindo pela segunda vez. Ele era pintado por ser *"a única ação do bloco dela"*; o operador pôs o "Limpar" ao lado, e o bloco passou a ter duas — num idioma em que `--btn-accent` + `--accent` quer dizer **LIGADO**, o par lia-se como *"Guardar está ligado, Limpar é neutro"*, uma hierarquia que não existe. Some a razão que decide: com menos de dois itens ele é APAGADO, e **um item é o estado dominante da fila**, de modo que o azul cheio ficaria esmaecido quase o culto inteiro. Hoje os dois vestem a mesma caixa (`--surface`) e a COR os separa — `--accent` × `--danger-text`, MEDIDO 7,66:1 e 6,47:1 no escuro, 5,58:1 e 5,35:1 no claro.
+| segmentado/chip marcado (`--accent-soft` + borda) | PREENCHIDO — o denim até a v1.8.94, `--btn-accent` + `--accent` desde a v1.8.95 |
 | filetes separadores | ESPAÇO |
 | faixa lateral do grupo na Bíblia e da estrofe no ar | `linear-gradient` — os mesmos pixels, declarados como o preenchimento que sempre foram |
-| anel externo da célula ativa da Bíblia (`outline`) | a célula inteira em `--accent-fill` |
+| anel externo da célula ativa da Bíblia (`outline`) | a célula inteira preenchida — em `--btn-accent` + `--accent` desde a v1.8.95, era o denim |
 | moldura da preview (`outline`) | `box-shadow: 0 0 0 2px var(--camada)` — uma faixa preenchida que não entra no `aspect-ratio` |
 | anel do eco (`.btn-eco`) | `box-shadow` de mesma espessura |
 | aresta de 1px do tema claro (`--control-edge`) | `--surface-sunk`/`--surface-2-sunk` mais fundos (.14/.20): **1,32:1** e **1,51:1** contra o painel branco, contra os 1,14:1 que motivaram a aresta |
@@ -746,7 +792,7 @@ variava mais que dois níveis inteiros da escada. Era a queixa do operador —
 *"cores diferentes ou inconsistentes entre grupos de hinário, informativos e
 coleções"*: o chevron da SEÇÃO compunha `#3d4959` e o do CARD, `#4a596d`.
 
-Daí `--btn-accent`, `--btn-danger`, `--btn-warn` e `--btn-ok`, opacos, um por
+Daí `--btn-accent`, `--btn-danger` e `--btn-warn`, opacos, um por
 família, ancorados na matiz OFICIAL (bluejay 214°, scarlett 353°, campfire 21°,
 treefrog 101°). O separador **não é a claridade, é o CROMA**: ~53–58% de
 saturação contra os ~27% da escada neutra, com ~1,15:1 das duas bases de cartão
@@ -757,7 +803,6 @@ saturação contra os ~27% da escada neutra, com ~1,15:1 das duas bases de cart�
 | `--btn-accent` | `--accent` | 1,70 | 1,14 | 1,17 | 5,37 · 6,37 |
 | `--btn-danger` | `--danger-strong` | 1,62 | 1,09 | 1,23 | 4,49 · 5,64 |
 | `--btn-warn` | `--warn` | 1,69 | 1,13 | 1,18 | **4,30** · 5,68 |
-| `--btn-ok` | `--ok` | 1,72 | 1,15 | 1,16 | 4,89 · 5,74 |
 
 O `--btn-warn` é o único abaixo de 4,5:1, e ele é ÍCONE — o piso de 3:1 é o que
 vale para quem carrega informação sem ser texto.
@@ -769,11 +814,15 @@ BOTÃO ou de CHIP usa os `--btn-*`, e `tools/tokens.test.mjs` trava isso.
 
 #### A regra do vermelho é a INTENSIDADE, não o preenchimento
 
-- **saturado** (`--live` + `--on-live`) = está no ar agora, e só isso — o
-  microfone aberto, o ponto de projetando. É o vermelho que não pode ter
-  concorrente na tela;
-- **suave** (`--live-fill` numa linha, `--danger-soft` num chip ou botão) = ação
-  destrutiva, ou "no ar" numa lista.
+- **preenchido** (`--live-fill` + `--live-strong`) = está no ar agora, e só
+  isso. É o vermelho que não pode ter concorrente na tela;
+- **suave** (`--danger-soft` num chip ou botão) = ação destrutiva.
+
+(O grau SATURADO — `--live` + `--on-live` + `--live-soft` — saiu na v1.8.89 com
+o microfone ao vivo, que era o último consumidor dos três e a razão de haver um
+degrau acima do `--live-fill`: *"o único estado desta aba que precisa ser visto
+do outro lado do salão"*. O scarlett oficial #D0021B continua sendo a ÂNCORA de
+que os dois graus derivam; ele deixou de ser um token declarado.)
 
 (Antes de as bordas saírem a régua era "preenchido = no ar · contornado =
 destrutivo"; sem contorno, o eixo passou a ser a intensidade do mesmo
@@ -889,8 +938,9 @@ lado do mesmo erro. `tools/tokens.test.mjs` passou a cobrar a filiação: todo
 bloco que pinta `--panel` está na lista **ou** afunda a superfície por conta
 própria.
 
-**E um CHIP não é um BLOCO.** Com R1 no lugar o microfone ficaria a 1,19:1 —
-correto pela regra e fino demais para um alvo daquele tamanho. `--surface-2` é
+**E um CHIP não é um BLOCO.** Com R1 no lugar aquele botão de 56px (a barra do
+microfone, que saiu na v1.8.89) ficaria a 1,19:1 — correto pela regra e fino
+demais para um alvo daquele tamanho. `--surface-2` é
 o overlay de uma peça DENTRO de um bloco; aquilo é o bloco, e ele passou a ler
 `--camada` (1,33:1 no escuro, 1,41:1 no claro). Antes de escolher o alfa,
 pergunte de que NÍVEL a peça é.
@@ -1103,8 +1153,9 @@ texto por cima**. Isso é contradição aritmética, não questão de gosto: par
 legível COMO TEXTO sobre fundo escuro a cor precisa ser clara; para RECEBER
 texto por cima precisa ser escura. Daí três tokens, um por papel:
 
-- **`--accent-fill`** — fundo de elemento preenchido (aba ativa, botão
-  primário). É o par **fundo/texto** que reprovava na paleta anterior, e não a
+- **`--accent-fill`** — fundo de elemento preenchido e, desde a v1.8.95, **só
+  de BOTÃO** (o item ESCOLHIDO entre alternativas desceu para `--btn-accent`).
+  É o par **fundo/texto** que reprovava na paleta anterior, e não a
   cor como texto: o azul preenchido com branco por cima passava raspando
   (**4,63:1**), mas o mesmo desenho aplicado ao vermelho — o botão "no ar",
   `--danger` cheio com `#fff` — ficava em **4,23:1**, abaixo dos 4,5 exigidos.
@@ -1142,7 +1193,7 @@ texto por cima precisa ser escura. Daí três tokens, um por papel:
 - **R5 — os tokens de cor moram em `shared/tokens.css`**, carregado pelos dois
   apps. Não há mais o que dessincronizar.
 - **R6 — a superfície de um CONTROLE é opaca.** Fundo de botão ou de chip usa
-  `--btn-accent`/`--btn-danger`/`--btn-warn`/`--btn-ok`. Os `-soft` são wash
+  `--btn-accent`/`--btn-danger`/`--btn-warn`. Os `-soft` são wash
   (sombra de pulso, trilho de anel) e nunca superfície: alfa empilha, e o mesmo
   token compõe uma cor por camada. `tokens.test.mjs` trava.
 - **R7 — um CONTROLE responde por RECUO; um BLOCO responde por LUZ.** `--press`
@@ -1290,13 +1341,16 @@ rótulo foi de 6,46:1 para **15,31:1**.
 
 1. Existe token pro valor? Use-o. Não existe e o valor se repete? **Crie um
    token** — cor em `shared/tokens.css`, o resto no `:root` do Controle.
-2. Fundo em accent? Escolha pelo **papel**: `--accent-fill` se for uma ESCOLHA
-   entre alternativas ou um botão primário (e aí o texto é `--on-accent`),
-   `--btn-accent` se for a superfície de um botão/chip de ação ou um
-   interruptor LIGADO (e aí o traço é `--accent`), `--accent` se for
-   texto/ícone/decoração sem fundo próprio. **Nunca um `-soft`** (R6).
-2b. **Ação e escolha na MESMA faixa?** O cheio fica com a ESCOLHA; a ação desce
-   para `--btn-accent`.
+2. Fundo em accent? Escolha pelo **papel**: `--accent-fill` **só para BOTÃO**
+   primário ou ação de destaque (e aí o texto é `--on-accent`), `--btn-accent`
+   para a superfície de um botão/chip de ação, para um interruptor LIGADO **e
+   para o item ESCOLHIDO entre alternativas** (e aí o traço é `--accent`, nunca
+   `--on-accent`, que mede 1,21:1 sobre ele no claro), `--accent` se for
+   texto/ícone/decoração sem fundo próprio. **Nunca um `-soft`** (R6). O denim
+   sob um seletor de escolha reprova em `tokens.test.mjs`.
+2b. **Ação e escolha na MESMA faixa?** Desde a v1.8.95 elas não disputam mais a
+   mesma tinta — o cheio é da AÇÃO, a escolha veste a superfície —, e o trilho
+   de navegação que criou a pergunta saiu na v1.5.0.
 2c. **Um bloco novo que pinte `--panel`** entra na lista de R1, senão os
    controles dentro dele usam a superfície flutuante e somem no tema claro. E
    pergunte de que NÍVEL a peça é: um chip usa `--surface-2`, um bloco usa
@@ -1329,7 +1383,7 @@ v5.171), que **nenhum token exista só no tema claro**, que **nenhuma superfíci
 de controle seja uma tinta com alfa** (R6) e que **todo bloco que pinta
 `--panel` afunde a superfície dos filhos** (R1) — as duas últimas provadas por
 REVERSÃO, e a segunda existe porque a `.tools-sheet` passou três versões fora da
-lista com o microfone invisível no tema claro; `tools/smoke.mjs` trava
+lista, com o botão de 56px da base dela invisível no tema claro; `tools/smoke.mjs` trava
 o efeito RENDERIZADO nos dois temas, o palco que não os segue, a superfície que
 afunda dentro do cartão e a escolha que sobrevive à recarga. Nenhum dos dois
 mede razão de contraste.
@@ -1599,7 +1653,8 @@ substitui enquanto elas estão à mostra (`chevronUpIconSvg`) e o ícone de
 **voz/microfone** (Cantado, `voiceIconSvg`) e **nota musical** (Playback,
 `noteIconSvg`); e o **livro com uma cruz** da aba **Bíblia**
 (`.tab[data-tab="bible"]`), mais a **grade de módulos** da aba **Ferramentas** —
-que substituiu o microfone quando a aba deixou de ter uma ferramenta só.
+que substituiu o ícone de microfone quando a aba deixou de ter uma ferramenta
+só.
 
 > **Borda nativa dos `<button>`**: `.tab-add` e `.pv-fab` zeram
 > `border`/`appearance` explicitamente — sem isso, um `<button>` (ex.:
@@ -1773,7 +1828,7 @@ caixas** — daí o resto desta seção.
   nível de baixo da árvore. Opacos, valem o mesmo em qualquer nível: **um estado
   SAI da escada em vez de ocupar um degrau dela**.
 - **E A SUPERFÍCIE DE UMA AÇÃO TAMBÉM É OPACA** (`--btn-accent`, `--btn-danger`,
-  `--btn-warn`, `--btn-ok`). Os `-soft` são tinta com ALFA, e alfa EMPILHA:
+  `--btn-warn`). Os `-soft` são tinta com ALFA, e alfa EMPILHA:
   MEDIDO no escuro, o mesmo botão derivava **1,97:1** entre a base mais escura e
   a mais clara em que ele pousa — mais que o degrau `--bg` × `--panel` (1,49:1).
   O chevron de uma SEÇÃO compunha `#3d4959` e o de um CARD, `#4a596d`: um
@@ -1783,8 +1838,13 @@ caixas** — daí o resto desta seção.
 - **UMA LINGUAGEM DE ESTADO SÓ, e ela responde a quatro perguntas.** O app
   tinha três maneiras de dizer "isto está ativo" (preenchido, `--sel-fill`, e
   **só cor de texto** — a fraca, de que o operador reclamou no botão de
-  repetição). Hoje: **ESCOLHIDO** entre alternativas = `--accent-fill` +
-  `--on-accent`; **LIGADO** (interruptor) = `--btn-accent` + `--accent`;
+  repetição). Hoje **ESCOLHIDO** entre alternativas e **LIGADO** (interruptor)
+  são o MESMO par, `--btn-accent` + `--accent` (v1.8.95, que revogou a metade
+  ESCOLHIDO a pedido do operador — *"um azul forte, sólido, que deveria ser
+  reservado para botões e não seleções"* —, deixando o denim `--accent-fill` +
+  `--on-accent` só nos BOTÕES: 5,37:1 e 6,37:1 de tinta, com o preenchimento
+  contra a pílula apagada caindo a 1,43:1 e 1,14:1, e o que separa os estados
+  passando a ser a MATIZ; `tokens.test.mjs` trava);
   **SELECIONADO** numa lista = `--sel-fill`; **ABERTO** = não é cor (a seta que
   gira, o corpo à vista, a tampa que gruda e o nome em accent da pasta já
   dizem). **Cor de texto nunca carrega estado sozinha.**
@@ -1813,11 +1873,12 @@ caixas** — daí o resto desta seção.
   linha NO AR que o operador abra continua vermelha. E a divisória acima dela
   SOME, de propósito: o traço mora sob a `.row`, e ali quem separa é o
   preenchimento.
-  E quando AÇÃO e ESCOLHA dividem a MESMA faixa — o trilho de navegação é o
-  único caso — a ação desce para `--btn-accent` e a ESCOLHA é marcada **sem
-  área**: uma barra de 3px em `--accent` na borda de cima da aba, mais o glifo
-  na mesma cor (v1.3.15). Duas manchas cheias na mesma faixa disputam, e a que
-  menos deve disputar é a que só diz "você está aqui".
+  E quando AÇÃO e ESCOLHA dividiam a MESMA faixa — o trilho de navegação foi o
+  único caso, e saiu na v1.5.0 — a ação descia para `--btn-accent` e a ESCOLHA
+  era marcada **sem área**: uma barra de 3px em `--accent` na borda de cima da
+  aba, mais o glifo na mesma cor (v1.3.15). Duas manchas cheias na mesma faixa
+  disputam, e a que menos deve disputar é a que só diz "você está aqui" — régua
+  que fica, mesmo com o par de ESCOLHIDO sendo hoje o próprio `--btn-accent`.
   **E UM INTERRUPTOR APAGADO É UM BOTÃO NORMAL** (v1.4.25): a estrela e o
   "à playlist" vestiam `--line` — a cor de LINHA, que já então quase ninguém
   usava e que saiu de vez na v1.5.14 —, e o operador os lia como indisponíveis (*"foi simplesmente
@@ -2214,24 +2275,30 @@ janela              PAPEL  (--panel)   cabeçalho GRUDENTO, top 0
     resto, qualquer outro número põe o último bloco a uma distância da borda que
     nenhum par de vizinhos tem, que é literalmente o que o relato descreve.
 
-  **E A BORDA DO SCROLL DIZ QUE HÁ MAIS** (v1.5.16, o véu). Pedido do operador:
-  *"que o scroll da biblioteca tenha um efeito de blur na borda interna superior
-  ou inferior, quando algum elemento da tela ir para debaixo dessa borda"*. São
-  dois `::before`/`::after` `position: sticky` DENTRO do scroller, com
-  `backdrop-filter: blur(5px)` e `mask-image` esmaecendo para transparente.
-  - **BLUR e não gradiente, porque não existe cor certa para o véu.** A
-    alternância papel → poço → papel põe DUAS superfícies sob a mesma borda, e
-    um gradiente teria de escolher uma. Blur é agnóstico de cor: MEDIDO,
-    −60% de nitidez nos dois temas.
-  - **DENTRO do scroller, a `z-index: 2`, é o que o faz sumir sozinho sob uma
-    tampa grudada** — a tampa é opaca e mora acima (z 3 e 4). Medido em 131/131
-    amostras com uma coleção aberta.
+  **E A BORDA DO SCROLL DIZ QUE HÁ MAIS** (v1.5.16 aqui; o app inteiro desde a
+  v1.8.58). Pedido do operador: *"que o scroll da biblioteca tenha um efeito de
+  blur na borda interna superior ou inferior, quando algum elemento da tela ir
+  para debaixo dessa borda"*. São dois `::before`/`::after` `position: sticky`
+  DENTRO do scroller.
+  - **A TINTA É UMA SOMBRA, e ela não é decisão desta lista.** O primeiro
+    desenho foi BLUR, com o argumento de que *"não existe cor certa para o
+    véu"* — a alternância papel → poço → papel põe DUAS superfícies sob a mesma
+    borda. O que resolveu isso foi a cor ser **alfa** (`--sombra-rolagem`,
+    rgba preta), que pousa igual nas duas: MEDIDO, α .30 lê 1,51:1 nos DOIS
+    temas. Com isso o `backdrop-filter` saiu, e com ele o custo que prendia o
+    efeito a um scroller só. A regra vale para o app inteiro e mora no
+    `CLAUDE.md`, na seção da paleta.
+  - **A CAMADA MUDOU NA v1.8.59.** A tira era `z-index: 2`, abaixo das tampas
+    grudadas (z 3 e 4), para sumir sob elas. Medido, o efeito real era que
+    NENHUMA barra `sticky` escurecia — razão 1,0000 contra 1,1553 no fundo a
+    26px dela, nos dois temas —, porque `z-index` é do elemento e não do estado
+    "colada". Ela subiu para `z-index: 5`.
   - **Ele só existe quando MENTIRIA ao não existir**: `.tem-acima`/`.tem-abaixo`
-    saem de um ouvinte de `scroll` com `requestAnimationFrame`, e as regras de
-    desligar REPETEM `.popup-backdrop--lib.open` — sem isso a especificidade
-    (1,1,0 contra 1,2,0) deixava o véu aceso no topo da lista, onde ele mente.
-  - **Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a
-    máscara sem o borrão — seria uma sombra sem causa.
+    saem de um ouvinte de `scroll` em CAPTURA no `document` e de um
+    `MutationObserver` do documento inteiro, coalescidos por quadro. As regras
+    de desligar já não repetem `.popup-backdrop--lib.open` — com o seletor
+    genérico não há a disputa (1,1,0 contra 1,2,0) que uma vez deixou o véu
+    aceso no topo da lista, onde ele mente.
 
   **E O RECUO DE CIMA DA PLACA ESCAPAVA (v1.5.17).** Relato: *"os cards que
   ficam no topo das listas … estão se sobrepondo de forma errada ao espaço em

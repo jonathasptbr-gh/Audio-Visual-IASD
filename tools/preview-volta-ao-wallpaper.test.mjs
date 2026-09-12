@@ -250,9 +250,12 @@ try {
       size: 1, mtime: 1, thumb: null, blob: null, url: null, addedAt: 1, lyrics: null,
     });
     await AVDB.listSet('playlist', ['faixa-curta', 'faixa-2']);
-    // `repeat: 'off'` é o padrão, e nele o fim da faixa CHAMA `resetAfterEnd` em
-    // vez de avançar — a fila só anda em 'all'/'one'/'shuffle'. Sem esta linha o
-    // bloco mede o gatilho e não o avanço.
+    // `all` EXPLÍCITO, e desde a v1.8.77 ele não é mais o que faz a fila andar:
+    // o `off` padrão também avança (o que muda é o FIM da fila, que nele acaba
+    // a cena em vez de dar a volta). A linha fica porque este bloco mede o
+    // GATILHO — que o status parado de uma tela da rede avança a playlist —, e
+    // o modo que não depende da posição na fila é o que mantém a asserção sobre
+    // o gatilho e não sobre a borda.
     await AVDB.setState('repeat', 'all');
     await load();
   });

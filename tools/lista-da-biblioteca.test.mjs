@@ -52,11 +52,13 @@
 //
 //   node tools/lista-da-biblioteca.test.mjs
 // ============================================================================
-import zlib from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas } from './arnes.mjs';
+import {
+  servirEstatico, abrirNavegador, esperarCortina, checar, falhas,
+  lerPng as decodificarPng, pixel,
+} from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const servidor = servirEstatico(RAIZ);
@@ -73,45 +75,13 @@ async function esperar(pg, fn, msg, arg, ms = 15000) {
 // arquivo ("o traço apareceu?", "onde a tira pousou?") só têm resposta no que
 // foi PINTADO, e um `getComputedStyle` de pseudo-elemento responde pela caixa
 // declarada, não pela tinta.
+// A DECODIFICAÇÃO mora no arnês desde a v1.8.59 (segundo consumidor: o
+// `sombra-de-rolagem.test.mjs`). O que fica aqui é só o ACESSADOR deste
+// arquivo, que devolve [-1,-1,-1] fora da imagem em vez de `null` — as
+// asserções abaixo comparam cores e um `null` quebraria o `dif()`.
 function lerPng(buf) {
-  let p = 8, w = 0, h = 0, cor = 0, prof = 0; const idat = [];
-  while (p < buf.length) {
-    const n = buf.readUInt32BE(p); const tipo = buf.toString('ascii', p + 4, p + 8);
-    const dados = buf.subarray(p + 8, p + 8 + n);
-    if (tipo === 'IHDR') { w = dados.readUInt32BE(0); h = dados.readUInt32BE(4); prof = dados[8]; cor = dados[9]; }
-    else if (tipo === 'IDAT') idat.push(dados);
-    else if (tipo === 'IEND') break;
-    p += 12 + n;
-  }
-  if (prof !== 8 || (cor !== 2 && cor !== 6)) throw new Error('PNG inesperado: prof=' + prof + ' cor=' + cor);
-  const canais = cor === 6 ? 4 : 3;
-  const cru = zlib.inflateSync(Buffer.concat(idat));
-  const passo = w * canais; const out = Buffer.alloc(h * passo);
-  let q = 0;
-  for (let y = 0; y < h; y++) {
-    const f = cru[q++]; const src = cru.subarray(q, q + passo); q += passo;
-    const dst = out.subarray(y * passo, y * passo + passo);
-    const ant = y ? out.subarray((y - 1) * passo, y * passo) : null;
-    for (let i = 0; i < passo; i++) {
-      const a = i >= canais ? dst[i - canais] : 0;
-      const b = ant ? ant[i] : 0;
-      const c = ant && i >= canais ? ant[i - canais] : 0;
-      let v = src[i];
-      if (f === 1) v += a; else if (f === 2) v += b; else if (f === 3) v += (a + b) >> 1;
-      else if (f === 4) {
-        const pp = a + b - c; const pa = Math.abs(pp - a), pb = Math.abs(pp - b), pc = Math.abs(pp - c);
-        v += (pa <= pb && pa <= pc) ? a : (pb <= pc ? b : c);
-      }
-      dst[i] = v & 255;
-    }
-  }
-  return {
-    w, h,
-    em(x, y) {
-      if (x < 0 || y < 0 || x >= w || y >= h) return [-1, -1, -1];
-      const i = y * passo + x * canais; return [out[i], out[i + 1], out[i + 2]];
-    },
-  };
+  const img = decodificarPng(buf);
+  return { w: img.w, h: img.h, em: (x, y) => pixel(img, x, y) || [-1, -1, -1] };
 }
 const dif = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
 // AS DUAS SONDAS DE UMA FAIXA, e onde elas caem é medição, não gosto.
@@ -183,9 +153,9 @@ try {
   // espera, todo hit-test e toda captura deste arquivo medem o `#splash`.
   await esperarCortina(pg);
   await pg.waitForFunction(() => (
-    window.AVDB && window.AVStream && window.createStage && window.AVHinario
+    window.AVDB && window.createStage && window.AVHinario
       && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li')
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled)
       && !!document.querySelector('.lib-bar')
   ), null, { timeout: 30000 });
 
@@ -547,10 +517,15 @@ try {
   // C · O VÉU DAS BORDAS DO SCROLLER
   // ======================================================================
   //
-  // Duas tiras `sticky` de 22px em `z-index: 2`, com `backdrop-filter`, ligadas
-  // por `tem-acima`/`tem-abaixo`. Elas ficam ACIMA do conteúdo e ABAIXO das
-  // tampas grudadas (z 3 e 4) — e é esse degrau que faz o véu calar-se
-  // exatamente onde já há uma tampa respondendo.
+  // Duas tiras `sticky` de 22px em `z-index: 2`, ligadas por
+  // `tem-acima`/`tem-abaixo`. Elas ficam ACIMA do conteúdo e ABAIXO das tampas
+  // grudadas (z 3 e 4) — e é esse degrau que faz a sombra calar-se exatamente
+  // onde já há uma tampa respondendo.
+  // (A tinta é `linear-gradient` desde a v1.8.58, quando o efeito deixou de ser
+  //  desta lista e virou o padrão de TODO scroller do app; o `backdrop-filter`
+  //  da v1.5.16 saiu com o argumento de custo que o prendia aqui. Este bloco
+  //  mede a GEOMETRIA e o degrau de camadas, que não mudaram — quem guarda a
+  //  tinta é o `sombra-de-rolagem.test.mjs`.)
   const rolarPara = async (quanto) => {
     const alvo = await pg.evaluate((q) => {
       const el = document.getElementById('hymnResults');
@@ -650,20 +625,25 @@ try {
     + 'hit-test devolve um nó de dentro de uma LINHA da lista, nunca o próprio '
     + '`#hymnResults`', toque);
 
-  // ---- C2 · A TAMPA GRUDADA FICA INTACTA -------------------------------
-  // É a asserção que separa este desenho do óbvio (`mask-image` no scroller): a
-  // máscara não quebra o `sticky` e não cria bloco contêiner, mas APAGA a tampa
-  // junto — e a tampa é justamente o objeto que já responde à pergunta do
-  // pedido. A prova é a captura do `.coll-bar` colado no topo.
+  // ---- C2 · A TAMPA GRUDADA RECEBE A SOMBRA (v1.8.59: a asserção TROCOU
+  //           DE LADO) ---------------------------------------------------
+  // Até a v1.8.58 esta asserção exigia o CONTRÁRIO: que o corpo opaco da tampa
+  // saísse byte a byte IGUAL com e sem a tira, porque a v1.5.16 pôs a tira em
+  // `z-index: 2`, abaixo das tampas (z 3 e 4), para que ela se calasse onde já
+  // houvesse quem respondesse.
   //
-  // O RECORTE PULA OS CANTOS ARREDONDADOS, e isso é medição: a tampa tem
-  // `border-radius` no topo, então os ~10px de cada canto são TRANSPARENTES e o
-  // borrão de trás aparece por eles. MEDIDO, é o que sobra da diferença: 60
-  // pixels de 18.360, delta máximo de 7 níveis, decaindo linha a linha com a
-  // curva (20, 12, 8, 6, 4, 4, 2, 2, 2). Isso não é o véu cobrindo a tampa — é
-  // a curva dela deixando passar o que está atrás, como qualquer canto
-  // arredondado deixa. Medir o CORPO OPACO é a pergunta certa, e o recuo sai do
-  // raio RENDERIZADO, nunca de um número escrito aqui.
+  // O QUE DERRUBOU AQUELE ARGUMENTO É QUE `z-index` É PROPRIEDADE DO ELEMENTO,
+  // E NÃO DO ESTADO "COLADA". Uma `.coll-group-bar` é sticky com z 4 em
+  // QUALQUER posição — no meio da lista e na borda de BAIXO, onde ela não
+  // exerce papel de tampa nenhum. MEDIDO na mesma linha de pixel, a 26px de
+  // distância: a barra lia razão 1,0000 (delta ZERO, nos dois temas) e o fundo
+  // ao lado dela lia 1,1553 no escuro. Numa lista feita de barras, a sombra só
+  // alcançava os VÃOS, e foi esse o relato do operador. A tira subiu para
+  // `z-index: 5` e a tampa passa a escurecer como qualquer outra superfície.
+  //
+  // A RÉGUA CONTINUA SENDO O CORPO OPACO, pelo mesmo motivo de sempre: os ~10px
+  // de cada canto arredondado são transparentes, e o recuo sai do raio
+  // RENDERIZADO, nunca de um número escrito aqui.
   const tampa = await pg.evaluate(() => {
     const el = document.getElementById('hymnResults');
     const r = el.getBoundingClientRect();
@@ -676,9 +656,9 @@ try {
       width: Math.round(b.width) - 2 * raio, height: Math.round(b.height) },
       quem: bar.className, z: getComputedStyle(bar).zIndex, raio };
   });
-  checar(!!tampa && Number(tampa.z) > 2,
-    'C2 · há uma tampa GRUDADA no topo da lista, e ela pinta ACIMA do véu '
-    + '(z-index maior que os 2 da tira)', tampa);
+  checar(!!tampa && Number(tampa.z) >= 3,
+    'C2 · há uma tampa GRUDADA no topo da lista, e ela é `sticky` com z-index '
+    + 'próprio — sem isso as duas asserções abaixo não medem camada nenhuma', tampa);
   if (tampa) {
     const foto = async () => {
       await pg.evaluate(() => new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f))));
@@ -696,10 +676,11 @@ try {
       + 'mask-image:linear-gradient(to bottom,transparent 0,#000 22px)!important}' });
     const comMascara = await foto();
     await pg.evaluate(() => document.head.lastElementChild.remove());
-    checar(Buffer.compare(comVeu, semVeu) === 0,
-      'C2a · o CORPO OPACO da tampa grudada sai BYTE A BYTE idêntico com e sem '
-      + 'o véu — a tira de cima fica calada onde já há uma tampa respondendo',
-      { bytes: comVeu.length + ' × ' + semVeu.length, raio: tampa.raio });
+    checar(Buffer.compare(comVeu, semVeu) !== 0,
+      'C2a · o CORPO OPACO da tampa grudada MUDA com a tira no ar — a sombra '
+      + 'alcança a barra da coleção, e não só os vãos entre elas (v1.8.59, '
+      + 'revogando a v1.5.16: `z-index` é do elemento, não do estado "colada")',
+      { bytes: comVeu.length + ' × ' + semVeu.length, raio: tampa.raio, z: tampa.z });
     checar(Buffer.compare(comVeu, comMascara) !== 0,
       'C2b · REVERSÃO: a mesma tampa MUDA sob um `mask-image` no scroller — é '
       + 'esse apagamento que a solução de uma declaração custaria', 
@@ -713,7 +694,8 @@ try {
   // do `bottom` aprova qualquer leitura que se queira fazer dela.
   //
   // O marcador troca só a TINTA da tira (fundo opaco, sem máscara e sem
-  // desfoque): nenhuma dessas propriedades move a caixa, e é a caixa que se
+  // desfoque — os dois últimos são desligados por precaução, não porque a regra
+  // ainda os use): nenhuma dessas propriedades move a caixa, e é a caixa que se
   // mede.
   await rolarPara(600);
   await esperarVeu(true, true, 'C6 · a lista está rolada, com a tira de baixo no ar');
@@ -1032,7 +1014,7 @@ try {
     await esperarCortina(p2);
     await p2.waitForFunction(
       () => window.AVDB && typeof window.__avBack === 'function'
-        && !!document.querySelector('#playlist li'), null, { timeout: 30000 },
+        && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 30000 },
     );
     const m = await p2.evaluate(async (tela) => {
       if (tela.sa) document.documentElement.style.setProperty('--sa-topo', tela.sa);
@@ -1417,7 +1399,7 @@ try {
     await esperarCortina(pF);
     await pF.waitForFunction(
       () => window.AVDB && typeof window.__avBack === 'function'
-        && !!document.querySelector('#playlist li'), null, { timeout: 30000 },
+        && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 30000 },
     );
     await pF.evaluate(async (tela) => {
       if (tela.sa) document.documentElement.style.setProperty('--sa-topo', tela.sa);

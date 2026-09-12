@@ -275,6 +275,34 @@ const anotarUso = (nome, onde) => {
   for (let m; (m = re2.exec(js));) {
     anotarUso(m[1], 'controle.js:' + js.slice(0, m.index).split('\n').length);
   }
+  // ===== E O `setAttribute('href', '#icoX')`, QUE É A TERCEIRA FORMA (v1.8.80)
+  //
+  // O `#repeat` troca o desenho SEM tocar no markup: o `<use>` nasce no HTML e
+  // o `renderRepeat` só reescreve o `href` dele, com o nome vindo de uma tabela
+  // (`REPEAT_ICO`). Os dois regex acima procuram o texto `href="#ico…` e NÃO
+  // veem isso — MEDIDO na entrada deste lote: dois símbolos VIVOS foram
+  // reprovados como órfãos, com o conserto sugerido sendo apagá-los.
+  //
+  // A forma casada é o LITERAL DE STRING (`'#icoX'` ou `"#icoX"`), e é ela que
+  // separa código de prosa: um comentário que cite `#icoGear` no meio de uma
+  // frase não casa, então a varredura continua reprovando um símbolo que só
+  // sobreviva em documentação.
+  // E A VARREDURA RODA SOBRE O CÓDIGO, NUNCA SOBRE A PROSA (v1.8.85). A forma
+  // casada é o LITERAL DE STRING — mas a crase está na classe de delimitadores,
+  // e a CONVENÇÃO DESTE REPOSITÓRIO é citar um símbolo entre crases no meio de
+  // uma frase de comentário. MEDIDO: trocar os três `href="#icoImagem"` do
+  // `index.html` por outro símbolo deixava o `#icoImagem` ÓRFÃO e o oráculo
+  // seguia verde — o único "consumidor" que sobrava era a citação da linha 636
+  // do `controle.js`. As linhas de comentário são ESVAZIADAS (não removidas,
+  // para a contagem de linha do relatório continuar apontando o lugar certo),
+  // como o `funcao-sem-chamador.test.mjs` já faz.
+  const jsSemProsa = js.split('\n')
+    .map((l) => (/^\s*(\/\/|\*|\/\*)/.test(l) ? '' : l))
+    .join('\n');
+  const re3 = /['"`]#(ico[A-Za-z0-9_]*)['"`]/g;
+  for (let m; (m = re3.exec(jsSemProsa));) {
+    anotarUso(m[1], 'controle.js:' + jsSemProsa.slice(0, m.index).split('\n').length);
+  }
 }
 
 checar(definidos.size >= 20,

@@ -93,7 +93,7 @@ const PONTE = `(() => {
     espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' },
     otaPending: '', otaDiag: 'ultima busca ha 11s: nada novo', ytDiag: '' };
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
-    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
+    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag',
     ]);
@@ -109,7 +109,7 @@ const PONTE = `(() => {
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
-    'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
+    'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','systemVolume',
     'temaClaro','ytCancel','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio','ytSearch',
     'ytStream',
   ];
@@ -139,7 +139,7 @@ try {
   await pg.addInitScript(PONTE);
   await pg.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(() => typeof window.__avBack === 'function'
-    && !!document.querySelector('#playlist li'), null, { timeout: 25000 });
+    && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 25000 });
 
   // O REGISTRO é montado por `renderDiag()`, que é assíncrona (ela pergunta ao
   // shell) e roda ao abrir Configurações. Chamá-la direto é o caminho honesto:
@@ -187,6 +187,13 @@ try {
     ['Cedendo o acervo', 'a linha da cessão'],
     ['aparelho(s) cedendo', 'a lista da descoberta por mDNS'],
     ['Cópia da biblioteca', 'o diário do clone'],
+    // O MICROFONE AO VIVO, removido na v1.8.89. O bloco dele respondia "por que
+    // a voz não saiu" e a linha do "Áudio do aparelho" dizia ONDE ela sairia —
+    // duas afirmações sobre uma captura que não existe mais, num artefato lido
+    // A DISTÂNCIA por quem não tem como conferir.
+    ['microfone', 'o bloco e as linhas do microfone ao vivo (v1.8.89)'],
+    ['AppOps', 'a sonda do shell que só o diagnóstico do microfone lia'],
+    ['DEGRAUS', 'o veredito sobre a escada de captura'],
   ];
   for (const [termo, oque] of PROIBIDOS) {
     checar(!texto.includes(termo), `o Registro não fala de ${oque} ("${termo}")`);
@@ -303,274 +310,21 @@ try {
   checar(/retomado 3x/.test(comPlacar) && /desistido 1x/.test(comPlacar),
     'com as três contas, que respondem coisas diferentes (roubos · socorros · desistências)');
 
-  // ---- O MICROFONE RECUSADO: o Registro precisa DIZER qual degrau ----------
+  // ---- (O MICROFONE saiu na v1.8.89, e com ele DOIS blocos deste arquivo) ---
   //
-  // Relatado do aparelho, com captura: "O Android não liberou o microfone.
-  // Costuma ser uma chamada, um gravador aberto…". Nenhuma das causas nomeadas
-  // era verdade — e o Registro colado junto não tinha UMA linha sobre o
-  // microfone, porque só o caminho de SUCESSO era registrado.
+  // Eram "O MICROFONE RECUSADO: o Registro precisa DIZER qual degrau" e "O QUE
+  // SÓ O SHELL SABE: `AppOps` negando com a permissão concedida" — 268 linhas
+  // que forjavam a recusa da captura e afirmavam que o Registro separava as
+  // causas (permissão · zero entradas · os três degraus recusados · o AppOps
+  // discordando de `checkSelfPermission`). Sem `blocoMicrofone`, não há bloco a
+  // medir: as asserções saíram com o produtor delas, e não por escolha de
+  // cobertura.
   //
-  // A mesma frase na tela sai de causas que pedem ações OPOSTAS: permissão,
-  // nenhuma entrada de áudio, ou os três degraus recusados (aí o problema não é
-  // o processamento que a escada contorna). Este bloco prova que o Registro as
-  // separa — sem ele, quem lê a distância recebe a mesma frase para todas.
-  //
-  // FORJA A CAPTURA e exercita o caminho REAL (o botão, a escada, o registro).
-  // Nada de costura de teste: o que se quer medir é o que o app FAZ quando o
-  // aparelho recusa, e um gancho só-para-teste mediria o gancho.
-  // A PONTE CONCEDE nesta página: sem isso o caminho sai na permissão, ANTES da
-  // escada, e as asserções sobre os degraus passariam por não ter chegado lá.
-  // (O caso da permissão negada é medido à parte, no fim, com a ponte real.)
-  await pg.evaluate(() => {
-    window.__AVBridge.requestMic = (id) => {
-      setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
-    };
-    // A SONDA DO SHELL responde o que o teste mandar em `__micShell`.
-    window.__micShell = null;
-    window.__AVBridge.micDiag = (id) => {
-      setTimeout(() => { try { window.__avResolve(id, window.__micShell); } catch (_) {} }, 0);
-    };
-  });
-
-  // O AO VIVO CAPTA NO TELÃO, então a falha chega ao Controle como um
-  // `mic-status` com `error` e `degraus` — pelo mesmo caminho do `diag-dump`
-  // acima, um canal SEPARADO, porque um BroadcastChannel não entrega ao próprio
-  // objeto que postou.
-  //
-  // ERA O RECADO QUE DIRIGIA ESTE BLOCO até a v1.2.17 (o oráculo clicava no
-  // botão dele e forjava o `getUserMedia` local). Com o recado fora, dirigir
-  // pelo `mic-status` não é só o que restou: é o caminho de VERDADE do único
-  // microfone que existe hoje — o oráculo passou a medir o app em vez de um
-  // segundo consumidor que já não está lá.
-  let micSeqTeste = 0;
-  const proxSeq = () => ++micSeqTeste;
-  async function tentarAoVivo(erro, entradas) {
-    return pg.evaluate(async ([nomeErro, nDisp, seq]) => {
-      const dorme = (ms) => new Promise((f) => setTimeout(f, ms));
-      // A lista de entradas é do NAVEGADOR e o `micRegistrar` a busca sozinho
-      // (o telão não a manda): forjar `enumerateDevices` é o que faz a contagem
-      // do Registro ser a do cenário, e é ela que separa "não abre" de
-      // "não existe".
-      Object.defineProperty(navigator, 'mediaDevices', {
-        configurable: true,
-        value: {
-          enumerateDevices: () => Promise.resolve(
-            Array.from({ length: nDisp }, (_, i) => ({ kind: 'audioinput', deviceId: 'd' + i }))),
-        },
-      });
-      const bc = new BroadcastChannel('av-iasd');
-      // ZERA O ERRO ANTERIOR PRIMEIRO. O `micRegistrar` do ao vivo só dispara na
-      // TRANSIÇÃO (`erroNovo !== micError`), porque o telão reemite `mic-status`
-      // e repetir a mesma recusa encheria a linha do tempo com o mesmo fato. Sem
-      // esta limpeza, dois cenários com o MESMO erro fariam o segundo ser
-      // engolido — e o oráculo mediria o resultado do primeiro, passando.
-      bc.postMessage({ type: 'mic-status', on: false, error: '', __mid: 'micz:' + seq });
-      await dorme(120);
-      bc.postMessage({
-        type: 'mic-status', on: false, error: nomeErro,
-        degraus: [
-          { qual: 'com eco', erro: nomeErro },
-          { qual: 'sem eco', erro: nomeErro },
-          { qual: 'cru', erro: nomeErro },
-          { qual: 'pelo ID', erro: nomeErro },
-        ],
-        __mid: 'mic:' + seq,
-      });
-      await dorme(300);
-      bc.close();
-      await window.renderDiag();
-      delete navigator.mediaDevices;
-      return { texto: typeof diagTexto === 'string' ? diagTexto : '' };
-    }, [erro, entradas, proxSeq()]);
-  }
-  // O `micRegistrar` do ao vivo só dispara na TRANSIÇÃO do erro (o telão
-  // reemite `mic-status`, e repetir a mesma recusa encheria a linha do tempo).
-  // Cada cenário precisa de um erro DIFERENTE do anterior, senão o segundo é
-  // engolido e o oráculo mediria o resultado do primeiro.
-
-  const semTentativa = await pg.evaluate(async () => {
-    await window.renderDiag();
-    return typeof diagTexto === 'string' ? diagTexto : '';
-  });
-  checar(!/Microfone \(última tentativa\)/.test(semTentativa),
-    'sem NENHUMA tentativa de captura o bloco do microfone NÃO existe — linha que não '
-    + 'responde nada não é impressa');
-
-  // OS TRÊS DEGRAUS RECUSADOS: o caso do relato. O pedido CRU também falhou,
-  // então o problema não é o processamento que a escada existe para contornar.
-  const tres = (await tentarAoVivo('NotReadableError', 1)).texto || '';
-  checar(/Microfone \(última tentativa\)/.test(tres),
-    'havendo tentativa, o bloco aparece', tres.slice(0, 200));
-  checar(/com eco: NotReadableError/.test(tres) && /cru: NotReadableError/.test(tres),
-    'e ele nomeia CADA degrau com o erro dele — "falhou" sozinho não distingue "o '
-    + 'processamento incomodou" de "o sistema não entrega o microfone"');
-  checar(/TODOS OS DEGRAUS FALHARAM/.test(tres) && /pelo ID/.test(tres),
-    'e dá o VEREDITO: com o pedido cru E o pedido pelo ID do dispositivo recusados, '
-    + 'não sobra o que a escada contorne', tres.slice(tres.indexOf('Microfone'), tres.indexOf('Microfone') + 500));
-  checar(/entradas de áudio que o navegador enxerga: 1/.test(tres),
-    'com a contagem de entradas — é ela que separa "não abre" de "não existe"');
-  // E A LINHA DO TEMPO leva o mesmo fato: é ela que dá a HORA, ao lado do que o
-  // operador estava fazendo.
-  checar(/microfone \(ao vivo\) RECUSADO em \d+ tentativa\(s\)/.test(tres),
-    'e a LINHA DO TEMPO carimba a recusa com a hora, ao lado do resto do culto');
-
-  // ZERO ENTRADAS é outra causa e outra ação: não adianta mexer em permissão.
-  const zero = (await tentarAoVivo('NotFoundError', 0)).texto || '';
-  checar(/NENHUMA ENTRADA DE ÁUDIO/.test(zero) && /não é permissão/.test(zero),
-    'ZERO entradas dá um veredito DIFERENTE, e ele nega a causa errada por extenso — '
-    + 'mandar mexer em permissão aqui é a adivinhação que este bloco existe para acabar');
-  checar(!/TODOS OS DEGRAUS FALHARAM/.test(zero),
-    'e sem acumular o outro veredito: dois diagnósticos no mesmo bloco é o Registro '
-    + 'discordando de si mesmo');
-
-  // PERMISSÃO NEGADA PELO ANDROID: a saída acontece ANTES da escada, e é o caso
-  // em que o Registro ficava mais mudo — a resposta é a mais simples de todas.
-  const perm = await pg.evaluate(async () => {
-    const dorme = (ms) => new Promise((f) => setTimeout(f, ms));
-    window.__AVBridge.requestMic = (id) => {
-      setTimeout(() => { try { window.__avResolve(id, false); } catch (_) {} }, 0);
-    };
-    // A PORTA DAS FERRAMENTAS É O BOTÃO DO CRONOGRAMA (v1.3.10) — elas deixaram
-    // de ser uma aba. Clicar nele, e não chamar `abrirFerramentas()`, é o que
-    // mantém o caminho do operador dentro do oráculo.
-    setAppMode('full');
-    await dorme(120);
-    document.getElementById('toolsBtn').click();
-    await dorme(250);
-    const btn = document.getElementById('micBtn');
-    if (!btn) return 'SEM BOTÃO DE MICROFONE';
-    btn.setPointerCapture = () => {}; btn.hasPointerCapture = () => true;
-    btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 9 }));
-    await dorme(500);
-    btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 9 }));
-    await dorme(400);
-    await window.renderDiag();
-    return typeof diagTexto === 'string' ? diagTexto : '';
-  });
-  checar(/PERMISSÃO/.test(perm) && /Permissões/.test(perm),
-    'PERMISSÃO NEGADA pelo Android tem o terceiro veredito, com o caminho das '
-    + 'Configurações — e ela sai ANTES da escada, que era onde o Registro ficava mudo',
-    perm.slice(perm.indexOf('Microfone'), perm.indexOf('Microfone') + 300));
-  checar(/permissão do Android: NotAllowedError/.test(perm),
-    'e o degrau que falhou é NOMEADO como a permissão, não como um pedido de captura');
-
-  // ---- O QUE SÓ O SHELL SABE: `AppOps` negando com a permissão concedida ----
-  //
-  // É o caso que quatro rodadas de investigação pelo lado web não conseguiram
-  // nomear: `NotReadableError` nas três configurações, nos dois WebViews, com
-  // `RECORD_AUDIO` concedida e um dispositivo enumerado. O `AppOps` pode RECUSAR
-  // a gravação enquanto `checkSelfPermission` devolve concedida — é o
-  // interruptor de privacidade, o controle do fabricante ou o mudo global —, e o
-  // navegador não enxerga essa diferença.
-  const comShell = async (shell, erro) => {
-    // REGRANTE A PERMISSÃO. O caso anterior (permissão negada) deixou o
-    // `requestMic` respondendo `false`, e sem isto o caminho sai ANTES da escada
-    // — as asserções abaixo passariam por um motivo que não é o delas. MEDIDO:
-    // foi o que aconteceu na primeira escrita deste bloco.
-    await pg.evaluate((sh) => {
-      window.__micShell = sh;
-      window.__AVBridge.requestMic = (id) => {
-        setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
-      };
-    }, shell);
-    const r = await tentarAoVivo(erro || 'NotReadableError', 1);
-    // A sonda é assíncrona de propósito (o resto da linha não espera por ela);
-    // um render a mais garante que ela já chegou.
-    return pg.evaluate(async () => {
-      await new Promise((f) => setTimeout(f, 250));
-      await window.renderDiag();
-      return typeof diagTexto === 'string' ? diagTexto : '';
-    }).then((t) => t || r.texto || '');
-  };
-
-  const bloq = await comShell({
-    permissao: true, appops: 'recusado', mudo: false, modo: 0, gravando: 0,
-    entradas: [{ tipo: 'microfone embutido', nome: 'SM-S928B' }],
-  });
-  checar(/permissão RECORD_AUDIO: concedida/.test(bloq) && /AppOps para gravar: recusado/.test(bloq),
-    'o Registro mostra a CONTRADIÇÃO em vez de supô-la: permissão concedida E AppOps '
-    + 'recusando', bloq.slice(bloq.indexOf('Microfone'), bloq.indexOf('Microfone') + 600));
-  checar(/O SISTEMA ESTÁ BLOQUEANDO A GRAVAÇÃO/.test(bloq) && /Auto Blocker/.test(bloq),
-    'e o veredito nomeia a causa E o lugar de mexer — reconceder a permissão não resolve, '
-    + 'e mandar fazer isso é a rodada perdida que este bloco existe para acabar');
-  checar(!/TODOS OS DEGRAUS FALHARAM/.test(bloq),
-    'o veredito do AppOps VENCE o genérico: dois diagnósticos no mesmo bloco é o Registro '
-    + 'discordando de si mesmo');
-  checar(/entradas que o SISTEMA enxerga: 1/.test(bloq) && /microfone embutido — SM-S928B/.test(bloq),
-    'e as entradas do SISTEMA aparecem com tipo e nome — a lista do navegador é outra, e a '
-    + 'diferença entre as duas é informação');
-
-  // EM CHAMADA é a única vez em que a frase antiga estava certa.
-  const chamada = await comShell({
-    permissao: true, appops: 'permitido', mudo: false, modo: 2, gravando: 1, entradas: [],
-  });
-  checar(/EM CHAMADA/.test(chamada) && /modo de áudio: 2 \(EM CHAMADA\)/.test(chamada),
-    'MODO 2 dá o veredito da CHAMADA — a causa que a frase da tela sempre acusou e que '
-    + 'nunca tinha sido verificada');
-  checar(!/O SISTEMA ESTÁ BLOQUEANDO/.test(chamada),
-    'e com o AppOps permitido o veredito do bloqueio NÃO aparece');
-
-  // MUDO GLOBAL é um terceiro interruptor, e um Registro que o confundisse com o
-  // AppOps mandaria mexer no lugar errado.
-  const mudo = await comShell({
-    permissao: true, appops: 'permitido', mudo: true, modo: 0, gravando: 0, entradas: [],
-  });
-  checar(/MICROFONE ESTÁ MUDO NO SISTEMA/.test(mudo),
-    'o MUDO global tem veredito próprio — é outro interruptor, e outra ação');
-
-  // A PERMISSÃO QUE FALTAVA NO NOSSO PRÓPRIO APK. É o único veredito deste bloco
-  // cujo conserto é NOSSO, e por isso ele precisa VENCER até o do AppOps: com o
-  // Chromium recusando a abertura antes de existir AudioRecord, o que o AppOps
-  // diz é irrelevante, e mandar o operador mexer no Auto Blocker é a rodada
-  // perdida em cima de um app que ainda não foi consertado.
-  const semModAudio = await comShell({
-    permissao: true, modAudio: false, appops: 'recusado', mudo: true, modo: 2, gravando: 3,
-    entradas: [{ tipo: 'microfone embutido', nome: 'SM-S928B' }],
-  });
-  checar(/permissão MODIFY_AUDIO_SETTINGS: AUSENTE/.test(semModAudio),
-    'o Registro diz que a permissão que o CHROMIUM exige não está no APK instalado',
-    semModAudio.slice(semModAudio.indexOf('Microfone'), semModAudio.indexOf('Microfone') + 700));
-  checar(/FALTA A PERMISSÃO MODIFY_AUDIO_SETTINGS/.test(semModAudio),
-    'e o veredito nomeia a causa e diz que o conserto é INSTALAR o APK novo');
-  // As quatro comparações são contra a frase do VEREDITO, nunca contra a linha de
-  // FATO que a alimenta: "modo de áudio: 2 (EM CHAMADA)" continua sendo impresso
-  // — é um fato, e fatos não competem entre si. Quem não pode acumular é o
-  // veredito.
-  checar(!/O SISTEMA ESTÁ BLOQUEANDO/.test(semModAudio)
-    && !/O APARELHO ESTÁ EM CHAMADA/.test(semModAudio)
-    && !/O MICROFONE ESTÁ MUDO NO SISTEMA/.test(semModAudio)
-    && !/TODOS OS DEGRAUS FALHARAM/.test(semModAudio),
-    'e ele VENCE os quatro outros vereditos, mesmo com AppOps recusando, mudo ligado e '
-    + 'chamada em curso ao mesmo tempo — enquanto ele acender, os outros perseguem a '
-    + 'causa errada');
-
-  // MODE_FOREGROUND É O ESTADO NORMAL DO APARELHO, e sem o ramo dele o Registro
-  // acusava bloqueio no caso mais comum que existe. "Permitir apenas ao usar o
-  // app" é o padrão de RECORD_AUDIO do Android 10 em diante.
-  const primPlano = await comShell({
-    permissao: true, modAudio: true, appops: 'primeiro plano', mudo: false, modo: 0,
-    gravando: 0, entradas: [{ tipo: 'microfone embutido', nome: 'SM-S928B' }],
-  });
-  checar(/AppOps para gravar: primeiro plano/.test(primPlano),
-    'o AppOps em MODE_FOREGROUND sai por extenso, nunca como "modo 4"');
-  checar(!/O SISTEMA ESTÁ BLOQUEANDO/.test(primPlano),
-    'e ele NÃO é lido como bloqueio: com o app na frente — o único momento em que este '
-    + 'diagnóstico roda — MODE_FOREGROUND é permitido, e acusar o sistema aí é a frase '
-    + 'certa pela razão errada, num log que é lido a distância');
-  checar(/TODOS OS DEGRAUS FALHARAM/.test(primPlano),
-    'com o sistema em ordem o veredito volta a ser o genérico, que é a resposta honesta');
-
-  // E COM O SHELL CALADO (bundle novo, APK antigo) nada disso aparece, e o
-  // veredito genérico volta: um campo ausente nunca vira "undefined" num log.
-  const semShell = await comShell(null);
-  checar(!/o que o SISTEMA diz/.test(semShell) && /TODOS OS DEGRAUS FALHARAM/.test(semShell),
-    'sem resposta do shell o bloco cai no veredito de sempre, sem inventar linha nenhuma');
-  checar(!/undefined|NaN|\[object Object\]/.test(bloq + chamada + mudo + semShell
-      + semModAudio + primPlano),
-    'e nenhum dos seis produz "undefined", "NaN" ou "[object Object]"');
-
-  checar(!/undefined|NaN|\[object Object\]/.test(tres + zero + perm),
-    'e nenhum dos três casos produz "undefined", "NaN" ou "[object Object]"');
+  // **O QUE FICA NO LUGAR É A RÉGUA 1**, lá em cima: as palavras do recurso
+  // morto entraram em `PROIBIDOS`. É a inversão certa — enquanto o bloco
+  // existia, o risco era ele MENTIR sobre a causa; agora que ele saiu, o risco
+  // é um consumidor sobreviver ao produtor e o Registro seguir falando de um
+  // microfone que o app não tem, a distância, para quem não pode conferir.
 
   // E UM BUNDLE ANTIGO não manda o campo: a linha some, e NADA sai quebrado —
   // é a regra de que toda linha do bloco é opcional, cobrada onde ela vale.

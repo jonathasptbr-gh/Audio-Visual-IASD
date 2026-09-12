@@ -126,10 +126,15 @@ const PONTE = `(function () {
     castTarget: { label: '' }, apkProcurar: {}, ytDiag: '', cifraDiag: '',
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
-    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
+    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
-    'ytDetalhes','micDiag','areaTransferencia','salvarTexto','pacoteConsumirOrigem',
+    'ytDetalhes','areaTransferencia','salvarTexto','pacoteConsumirOrigem',
+    // Os cinco de baixo NÃO são tocados por este oráculo, e é justamente por
+    // isso que entram: fora da allowlist, um undefined prende quem os chamar
+    // pelos 60 s do CALL_TIMEOUT_MS — sem erro, sem log, só lentidão. Foi o
+    // que custou 60,0 s ao abertura-e-transferencia (ver o CLAUDE.md).
+    'pacoteDiag','cifraHtml','apkInstalar','espelhoCertImportar','espelhoCertApagar',
     ]);
   const B = {
     shellVersion: () => 63,
@@ -198,9 +203,9 @@ const PONTE = `(function () {
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar','espelhoCertEstado',
     'espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado','espelhoLigar',
     'keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply','otaCheck',
-    'otaDiag','otaPending','pickFolder','requestMic','systemVolume','temaClaro',
+    'otaDiag','otaPending','pickFolder','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
-    'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','micDiag','cifraHtml',
+    'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','cifraHtml',
     'cifraDiag','areaTransferencia','salvarTexto','pacoteDiag','ytDetalhes',
   ];
   for (const n of nomes) {
@@ -320,7 +325,7 @@ async function confirmarGrupos(pg) {
   if (abriu !== true) return abriu;
   const linhas = await pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
     .map((li) => (li.textContent || '').replace(/\s+/g, ' ').trim()));
-  await pg.click('#songMenuList .song-menu-go');
+  await pg.click('#songMenuPopup .song-menu-go');
   return linhas;
 }
 
