@@ -287,7 +287,7 @@
   // O tom declarado na página, ou ''. Tolerante de propósito: procura a palavra
   // "tom" seguida do acorde em qualquer marcação intermediária.
   //
-  // **Ele É entrada de cálculo desde a v1.8.91** — é dele que sai a armadura
+  // **Ele É entrada de cálculo desde a v1.8.92** — é dele que sai a armadura
   // que a transposição usa para grafar. O que continua valendo é que um tom não
   // lido não quebra nada: `grafiaDaFolha` cai na PRIMEIRA raiz da folha, e o
   // preço de errar ali é a grafia de um enarmônico, nunca a altura de um
@@ -302,7 +302,7 @@
   const SUSTENIDOS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const BEMOIS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
-  // ===== A ARMADURA DO DESTINO DECIDE A GRAFIA (v1.8.91) =====
+  // ===== A ARMADURA DO DESTINO DECIDE A GRAFIA (v1.8.92) =====
   //
   // Meio tom acima de D é **Eb**, não D#. A regra anterior era "a grafia segue
   // a ORIGEM" — raiz sem bemol sobe em sustenido, sempre — e se justificava por

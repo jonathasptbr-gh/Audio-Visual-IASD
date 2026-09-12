@@ -539,6 +539,63 @@ try {
   }
 
   // =========================================================================
+  // H · ELE RESPONDE AO TOQUE, E O `aria-label` DIZ POR QUÊ (v1.8.85)
+  // =========================================================================
+  //
+  // DUAS metades, as duas medidas na v1.8.84 como ausentes:
+  //
+  // (1) `.crono-limpar` ficou FORA da lista do `--press`, e era o único botão
+  //     da barra do topo que não afundava nem acendia ao toque — ao lado da
+  //     engrenagem, na MESMA faixa, a 34px de distância. A regra do projeto é a
+  //     do bloco de guardas: *"Bloco novo que hospede controles entra na lista
+  //     de guardas no MESMO lote em que nasce"*, e a recíproca vale para o
+  //     controle. REVERSÃO: tirar `.crono-limpar` do `:is(...)` reprova aqui.
+  //
+  // (2) O `title` diz POR QUÊ o botão está apagado — a outra metade da regra da
+  //     v1.8.50 —, mas o nome acessível vem do `aria-label`, que VENCE o
+  //     `title`. Congelado no HTML, ele anunciava "Limpar o Cronograma,
+  //     indisponível" e a razão não existia para quem usa leitor de tela.
+  //     REVERSÃO: tirar o `setAttribute('aria-label', …)` do
+  //     `renderCronoLimpar` reprova aqui.
+  {
+    const a = await abrir('dark', 0);
+    const r = await a.pg.evaluate(() => {
+      const b = document.getElementById('cronoLimpar');
+      const g = document.getElementById('settingsBtn') || document.querySelector('.settings-btn');
+      const dePress = (el) => {
+        // a regra do `--press` é `:active`; sem pseudo-classe em JS, mede-se a
+        // DECLARAÇÃO: o seletor tem de alcançar o elemento.
+        for (const folha of document.styleSheets) {
+          let regras; try { regras = folha.cssRules; } catch (_) { continue; }
+          for (const reg of regras) {
+            if (!reg.selectorText || !/:active/.test(reg.selectorText)) continue;
+            if (!/var\(--press\)/.test(reg.style.transform || '')) continue;
+            const sem = reg.selectorText.replace(/:active/g, '');
+            try { if (el.matches(sem)) return true; } catch (_) {}
+          }
+        }
+        return false;
+      };
+      return {
+        botao: dePress(b),
+        vizinha: g ? dePress(g) : null,
+        rotuloVazio: b.getAttribute('aria-label'),
+        titleVazio: b.title,
+      };
+    });
+    checar(r.vizinha === true,
+      'H · PREMISSA: a engrenagem da mesma faixa está na lista do `--press` — '
+      + 'sem ela a metade de baixo mediria a ausência da lista inteira', r);
+    checar(r.botao === true,
+      'H · e o limpar também: ele é o botão de uma barra de controles, e um '
+      + 'que não afunda ao toque é indistinguível de um quebrado', r);
+    checar(r.rotuloVazio === r.titleVazio && /vazio/i.test(r.rotuloVazio),
+      'H · com a lista vazia o `aria-label` ACOMPANHA o `title` — o nome '
+      + 'acessível vence o `title`, e congelado ele anunciava o botão sem '
+      + 'nunca dizer por que está indisponível', r);
+    await a.ctx.close();
+  }
+
   // G · O CRONOGRAMA VAZIO É UMA MARCA-D'ÁGUA (v1.8.67)
   // =========================================================================
   //

@@ -633,7 +633,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // silêncio até o registro em que os bytes acabam. `descartarPacote`
             // fecha e APAGA o parcial; a página nova não sabe que houve uma
             // exportação e nunca a retomaria.
-            descartarPacote()
+            descartarPacote(naMain = true)   // derrubada: o renderer morreu
             // MESMA classe de estado do documento morto: os dois foram ligados
             // pela página que acabou de morrer, e a nova pede de novo ao
             // carregar. `captureVolumeKeys` órfão é o pior dos dois — com a
@@ -788,7 +788,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // com ela nos dois casos. O que ficaria aberto é um destino do SAF que
         // ninguém mais alimenta, com meio acervo dentro e nome de acervo
         // inteiro. `descartarPacote` fecha e apaga; sem nada aberto é no-op.
-        descartarPacote()
+        descartarPacote(naMain = true)   // derrubada: a Activity está indo embora
         // E o empurrão do OTA, pelo mesmo motivo dos dois acima: ele captura
         // esta Activity, e a ronda do `WebUpdater` sobrevive à tela.
         WebUpdater.aoChegar = null
@@ -1211,7 +1211,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     override fun pacoteCancel() {
-        runOnUiThread { descartarPacote() }
+        // O operador cancelando, com o app vivo: o fecho sai da main.
+        runOnUiThread { descartarPacote(naMain = false) }
     }
 
     // ---------- EXPORTAR DIRETO PARA O COMPARTILHAR (shell 67) ----------
@@ -1543,11 +1544,38 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * ponte e o `onRendererGone`), e é idempotente — sem nada aberto, o
      * `fechar()` devolve `-1` e o `uri` já é nulo.
      */
-    private fun descartarPacote() {
+    private fun descartarPacote(naMain: Boolean) {
         val alvo = pacoteCanal.uriEmCurso()
         val local = pacoteLocal
         pacoteLocal = null
-        pacoteCanal.fechar()
+        // O SÍNCRONO É SÓ PARA A DERRUBADA (v1.8.85). `fechar()` faz
+        // `flush`/`close` de um `content://`, que é onde um provedor FUSE ou de
+        // nuvem finaliza gigabytes; e o `deleteDocument` logo abaixo é outro
+        // binder para o mesmo provedor. Na DERRUBADA (`onDestroy`, morte do
+        // renderer) isso na main é o certo: o processo pode não viver para
+        // executar uma thread daemon, e o pior caso — um `close` lento — já não
+        // tem ninguém para atrapalhar.
+        //
+        // O CANCELAMENTO NÃO É DERRUBADA, e é justamente onde o `close` lento
+        // acontece: o operador toca em cancelar PORQUE a exportação está
+        // arrastando. Ali a main presa por mais de 5 s é ANR no processo que
+        // hospeda os dois WebViews e a `Presentation` — a projeção cai no meio
+        // do culto por causa de um cancelamento.
+        if (naMain) {
+            pacoteCanal.fechar()
+            apagarParcialDoPacote(alvo, local)
+            return
+        }
+        pacoteCanal.fecharDepois { apagarParcialDoPacote(alvo, local) }
+    }
+
+    /**
+     * A METADE QUE APAGA, separada para os dois caminhos de [descartarPacote]
+     * compartilharem uma escrita só. Volta na main (o `fecharDepois` responde
+     * por lá), mas o `deleteDocument` é um binder ao provedor: no caminho
+     * assíncrono ele já vem depois do `close`, que é o passo caro.
+     */
+    private fun apagarParcialDoPacote(alvo: Uri?, local: File?) {
         // O CAMINHO LOCAL É UM `File`, e não um documento do SAF: apagá-lo com
         // `DocumentsContract` lançaria, e o `catch` abaixo transformaria isso
         // num parcial esquecido no armazenamento próprio.

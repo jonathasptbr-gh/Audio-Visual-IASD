@@ -918,6 +918,48 @@ try {
   checar(false, 'a medição do selo do roteiro terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ============================================================================
+// O REENVIO DE DESCRITOR LEVA A VIEW VIGENTE, NUNCA 'visual' LITERAL (v1.8.84)
+//
+// `pushChrono`/`pushDraw`/`deckIr` são REENVIOS: todo start/pause/zerar/troca de
+// modo, cada sorteio e cada troca de página de uma apresentação em CAMADA
+// passam por eles. Com `view: 'visual'` fixo, mexer no cronômetro com o telão
+// COBERTO ("apenas wallpaper") descobria a mídia que o operador tinha coberto —
+// e, ao tirar o cartão do ar, o `declararView` do display propagava a view
+// errada. Quem projeta é `projectChrono`/`projectDraw`, que escrevem
+// `view = 'visual'` antes de mandar; estes só repintam.
+// ============================================================================
+try {
+  const vistas = await pg.evaluate(() => {
+    const out = {};
+    const original = AVDB.sendCommand;
+    const pega = (fn) => {
+      const vistos = [];
+      AVDB.sendCommand = (m) => { vistos.push(m); return original(m); };
+      try { fn(); } finally { AVDB.sendCommand = original; }
+      return vistos.filter((m) => m && m.type === 'text').map((m) => m.view);
+    };
+    projectChrono();
+    view = 'wallpaper';          // o operador cobriu o telão com o cartão no ar
+    out.chrono = pega(() => pushChrono());
+    hideChrono();
+    projectDraw();
+    view = 'wallpaper';
+    out.draw = pega(() => pushDraw());
+    hideDraw();
+    view = 'visual';
+    return out;
+  });
+  checar(vistas.chrono.length === 1 && vistas.chrono[0] === 'wallpaper',
+    'com o telão COBERTO, iniciar/pausar o cronômetro NÃO o descobre — o '
+    + 'reenvio carrega a view vigente, e um \'visual\' literal aqui punha de '
+    + 'volta na tela a mídia que o operador acabara de cobrir', vistas.chrono);
+  checar(vistas.draw.length === 1 && vistas.draw[0] === 'wallpaper',
+    '  ↳ e o sorteio segue a mesma regra, pelo mesmo motivo', vistas.draw);
+} catch (e) {
+  checar(false, 'a medição da view do reenvio terminou sem exceção (' + (e && e.message) + ')');
+}
+
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
 await navegador.close();

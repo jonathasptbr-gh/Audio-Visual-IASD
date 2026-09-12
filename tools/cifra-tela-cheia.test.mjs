@@ -683,7 +683,7 @@ try {
     + 'controles são os de verdade, não uma segunda implementação',
     { antes: cheia.tom, depois: tomDepois });
 
-  // ===== A GRAFIA É DA FOLHA, E SÓ AQUI ISSO É MEDIDO (v1.8.91) =====
+  // ===== A GRAFIA É DA FOLHA, E SÓ AQUI ISSO É MEDIDO (v1.8.92) =====
   //
   // A regra mora no `cifra.js` (bloco 3c do `cifra.test.mjs`), mas quem a LIGA é
   // o `cifraDesenharFolha`, e essa ligação não tinha oráculo nenhum. O modo de
@@ -845,6 +845,81 @@ try {
     'com a cifra em `buscando` e a tela cheia no ar, a saída continua na fila, '
     + 'desenhada, na coluna e TOCÁVEL — a barra nasce com o ⛶ antes do retorno '
     + 'cedo, e a espera fica de pé para quem ESCOLHEU a aba', naEspera);
+
+  // ── 7-C'. E A MESMA ESPERA COM A GAVETA ABERTA (v1.8.85) ────────────────
+  //
+  // A v1.8.83 revogou a invariante do ⛶ ("a fila sempre tem a saída") a pedido
+  // do operador: com a gaveta ABERTA, a saída passou a ser o ✕ da própria
+  // gaveta, que é o mesmo botão do seletor. Só que a classe `escolhendo` mora
+  // no `.lv-cifra-ctl`, que `renderLyricsView` NÃO recria — ela atravessava o
+  // render, e um render que caísse na ESPERA varria o ✕ da fila enquanto a
+  // regra de tela cheia seguia apagando o ⛶. Sobrava o voltar do Android.
+  //
+  // REVERSÃO: tirar o `classList.remove('escolhendo')` de antes dos retornos
+  // cedo, no `lvBuildCifra`, reprova aqui.
+  const gavetaNaEspera = await pg.evaluate(() => {
+    const vel = lyricsPopupEl.querySelector('.lv-cifra-vel');
+    if (vel) vel.click();                       // abre a gaveta
+    const entrada = cifraCache.get(cifraChave(lvItem()));
+    const antes = entrada.estado;
+    entrada.estado = 'buscando';
+    renderLyricsView();
+    const ctl = lyricsPopupEl.querySelector('.lv-cifra-ctl');
+    const btn = lyricsPopupEl.querySelector('.lv-cifra-ctl > #cifraCheiaBtn:last-child');
+    const b = btn ? btn.getBoundingClientRect() : null;
+    const alvo = b
+      ? document.elementFromPoint(Math.round(b.left + b.width / 2),
+        Math.round(b.top + b.height / 2))
+      : null;
+    const r = {
+      cheia: document.fullscreenElement === lyricsPopupEl,
+      escolhendo: !!(ctl && ctl.classList.contains('escolhendo')),
+      desenhado: !!(b && b.width > 0 && b.height > 0),
+      recebeOToque: !!(alvo && alvo.closest('#cifraCheiaBtn')),
+    };
+    entrada.estado = antes;
+    renderLyricsView();
+    return r;
+  });
+  checar(gavetaNaEspera.cheia && gavetaNaEspera.escolhendo === false
+    && gavetaNaEspera.desenhado && gavetaNaEspera.recebeOToque,
+    'com a GAVETA ABERTA, a espera fecha a gaveta e devolve o ⛶ tocável — a '
+    + 'classe `escolhendo` não pode atravessar um render que varre o ✕ dela',
+    gavetaNaEspera);
+
+  // ── 7-E. AS PONTAS DO SLIDER SEGUEM O EIXO DELE (v1.8.85) ───────────────
+  //
+  // O slider da gaveta é `writing-mode: vertical-lr` + `direction: rtl`: o
+  // MÍNIMO fica EMBAIXO. A ordem do DOM é `pontaIni("0,5×") · slider ·
+  // pontaFim("2×")`, então numa coluna comum os rótulos saem INVERTIDOS em
+  // relação ao controle — o músico arrasta o cap para o "0,5×" que lê em cima e
+  // a folha acelera para 2× no meio da música.
+  //
+  // REVERSÃO: trocar `column-reverse` por `column` na regra de tela cheia
+  // reprova aqui.
+  const eixo = await pg.evaluate(() => {
+    const vel = lyricsPopupEl.querySelector('.lv-cifra-vel');
+    if (vel) vel.click();
+    const vels = lyricsPopupEl.querySelector('.lv-cifra-vels');
+    const pontas = [...vels.querySelectorAll('.lv-cifra-vel-ponta')];
+    const slider = vels.querySelector('.lv-cifra-slider');
+    const r = {
+      n: pontas.length,
+      primeiroTexto: pontas[0] ? pontas[0].textContent.trim() : '',
+      // quem está MAIS EMBAIXO na tela (maior `top`)
+      embaixo: pontas.length === 2
+        ? (pontas[0].getBoundingClientRect().top > pontas[1].getBoundingClientRect().top
+          ? pontas[0].textContent.trim() : pontas[1].textContent.trim())
+        : '',
+      minEmbaixo: slider ? getComputedStyle(slider).direction === 'rtl' : false,
+    };
+    if (vel) vel.click();
+    return r;
+  });
+  checar(eixo.n === 2 && eixo.minEmbaixo === true && eixo.embaixo === eixo.primeiroTexto,
+    'em tela cheia a ponta do MÍNIMO fica EMBAIXO, do mesmo lado do mínimo do '
+    + 'slider (`direction: rtl`) — invertidas, elas mandam o músico arrastar '
+    + 'para o lado errado com a música no ar', eixo);
 
   // ── 7-D. E O DESFECHO SEM FOLHA NÃO CHEGA MAIS À BARRA (v1.8.28) ─────────
   //

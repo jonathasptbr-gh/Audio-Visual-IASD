@@ -125,7 +125,7 @@ checar(C.transporAcorde('B', 1) === 'C', 'B +1 = C (dá a volta)');
 checar(C.transporAcorde('C', -1) === 'B', 'C −1 = B (dá a volta para trás)');
 checar(C.transporAcorde('Am7', 3) === 'Cm7', 'o sufixo viaja intacto', C.transporAcorde('Am7', 3));
 checar(C.transporAcorde('G/B', 2) === 'A/C#', 'o baixo invertido também sobe', C.transporAcorde('G/B', 2));
-// A GRAFIA VEM DA ARMADURA DO DESTINO, não da origem (v1.8.91 — ver o bloco 3c).
+// A GRAFIA VEM DA ARMADURA DO DESTINO, não da origem (v1.8.92 — ver o bloco 3c).
 checar(C.transporAcorde('Bb', 2) === 'C', 'Bb +2 = C');
 checar(C.transporAcorde('Bb', 1) === 'B', 'Bb +1 = B (destino Si maior, 5 sustenidos)', C.transporAcorde('Bb', 1));
 checar(C.transporAcorde('Eb', 1) === 'E', 'Eb +1 = E', C.transporAcorde('Eb', 1));
@@ -139,7 +139,7 @@ checar(C.transporAcorde('C', 0) === 'C' && C.transporLinha('C   G', 0) === 'C   
 // A folha real vem no tom de D; o operador pediu A (−5) e Bb (−4). Era ali que
 // `D7M/A` e `G7M` ficavam parados enquanto o resto da linha andava.
 //
-// **Os dois de −4 mudaram na v1.8.91**, e a mudança é deliberada: eles foram
+// **Os dois de −4 mudaram na v1.8.92**, e a mudança é deliberada: eles foram
 // conferidos, à época, contra a grafia do PRÓPRIO site, que ali escreve `A#`.
 // Quem lê esta aba está tocando, e `A#` não é um tom — são dez sustenidos. A
 // divergência com o Cifra Club é a escolha, não um descuido.
@@ -160,7 +160,7 @@ checar(C.transporLinha('C7/9    Am7     D7/9    G7M', 2) === 'D7/9    Bm7     E7
   C.transporLinha('C7/9    Am7     D7/9    G7M', 2));
 checar(C.transporAcorde('Cmaj7', 2) === 'Dmaj7', 'a grafia por extenso também anda');
 checar(C.transporAcorde('A5+', 3) === 'C5+', 'e as alterações com sinal');
-// A EXTENSÃO NÃO VOTA NA GRAFIA DA RAIZ, e desde a v1.8.91 isso é estrutural: a
+// A EXTENSÃO NÃO VOTA NA GRAFIA DA RAIZ, e desde a v1.8.92 isso é estrutural: a
 // família vem do DESTINO, e o token nem é consultado. A asserção continua
 // existindo porque o desfecho é o mesmo de sempre pelo motivo certo — `Db` aqui
 // é a armadura de Ré bemol maior, não o `b` de `(b9)` vazando para a raiz. O que
@@ -195,7 +195,7 @@ secao('3b. transposição PRESERVA AS COLUNAS');
   checar(/^Db\s+Ab$/.test(depois), 'quando o acorde cresce, entra um espaço em vez de colar', depois);
 }
 
-// ── 3c. A ARMADURA DO DESTINO DECIDE A GRAFIA (v1.8.91) ─────────────────────
+// ── 3c. A ARMADURA DO DESTINO DECIDE A GRAFIA (v1.8.92) ─────────────────────
 // Meio tom acima de D é Eb, não D#. A regra velha ("a grafia segue a ORIGEM")
 // produzia tons que não existem — D#, G# e A# são 9, 8 e 10 sustenidos — e
 // linhas internamente inconsistentes, porque decidia acorde a acorde.

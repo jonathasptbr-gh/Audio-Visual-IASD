@@ -1,9 +1,26 @@
 [
   {
-    "versao": "1.8.91",
+    "versao": "1.8.92",
     "itens": [
       "Cifra: transpor passou a escrever o tom pela armadura — meio tom acima de Ré é Mi bemol, e não Ré sustenido.",
       "Cifra: a folha inteira sai numa grafia só; antes bemol e sustenido se misturavam na mesma linha."
+    ]
+  },
+  {
+    "versao": "1.8.91",
+    "itens": [
+      "Apresentação: o vídeo de um slide não entra mais por cima da mídia que você escolheu enquanto ele carregava.",
+      "Apresentação: subir o cronômetro enquanto o slide abre deixou de cancelar a volta para a apresentação.",
+      "Bíblia: excluir uma versão que estava baixando agora para o download, em vez de marcá-la como completa.",
+      "Bíblia: a versão excluída não volta sozinha a baixar na abertura seguinte.",
+      "Bíblia: excluir uma versão não apaga mais a marca de 'completa' de outras versões.",
+      "Bíblia: a lista de versões deixou de ser redesenhada a cada capítulo — a folha ficou mais leve.",
+      "Bíblia: ao terminar de baixar, a folha aberta passa a mostrar o resultado na hora.",
+      "Telão: com a tela coberta, mexer no cronômetro ou no sorteio não descobre mais a mídia.",
+      "Cifra em tela cheia: com a barra de velocidade aberta, o botão de sair some — agora ele volta.",
+      "Cifra em tela cheia: os rótulos 0,5× e 2× estavam trocados de lado no controle de velocidade.",
+      "O botão de limpar o Cronograma passou a responder ao toque como os vizinhos.",
+      "Exportar o acervo: cancelar no meio não trava mais o app."
     ]
   },
   {
