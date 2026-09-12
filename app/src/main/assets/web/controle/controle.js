@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.80';
+const WEB_VERSION = '1.8.81';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11324,9 +11324,10 @@ function starSvg(cheia) {
  * lá?**". Sem resposta na linha, conferir custava abrir a fila.
  *
  * Agora ele é o que a ESTRELA já era: um ALTERNADOR com estado à vista. Mesma
- * anatomia (`favBtn`/`toggleFav`), mesma dupla de cores (`--line` apagado,
- * `--accent` aceso) e a mesma exceção no fecho da caixa — o desfecho dele é o
- * próprio botão mudando de desenho sob o dedo.
+ * anatomia (`favBtn`/`toggleFav`), a mesma linguagem de estado (apagado é o
+ * `.row-btn` de sempre, `--surface` + `--text`; aceso é `--btn-accent` +
+ * `--accent`, o LIGADO do `tokens.css`) e a mesma exceção no fecho da caixa —
+ * o desfecho dele é o próprio botão mudando de desenho sob o dedo.
  *
  * E o SEGUNDO toque TIRA da fila, que é a metade que faz dele um estado em vez
  * de um contador: um botão que só acende nunca se apaga, e a única forma de

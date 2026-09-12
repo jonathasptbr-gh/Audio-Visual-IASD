@@ -3930,7 +3930,16 @@ A frase do aviso nomeia TODOS os destinos (`ondeDe`/`juntarFrases` sobre o
 impede o toque repetido. Um aviso por lista seria três faixas piscando para um
 toque único.
 
-#### A faixa de abas
+#### A faixa de abas — SAIU NA v1.5.0
+
+> **ESTA SEÇÃO DESCREVE UMA PEÇA QUE JÁ NÃO EXISTE**, e o aviso entrou na
+> v1.8.81 porque o corpo dela está todo em PRESENTE: a faixa saiu inteira na
+> v1.5.0 (com o `.tab`, o `.tab-add`, o `.tab-pl`, o vazado deslizante e o
+> `switchTab`), e hoje a navegação são as três portas do rodapé. Ela fica pelo
+> que explica — por que quatro alvos viraram três, e por que nenhuma das cinco
+> formas anteriores sobreviveu —, não pelo que promete. O token de altura dela,
+> `--hit-nav`, saiu na v1.8.81; o que se lê aqui sobre ele é história.
+
 
 Ela fica **no alto da caixa de controles** (`.bottombar`) e são **abas de
 verdade**: uma fileira SEM trilho, encostada na borda de cima da caixa e indo de

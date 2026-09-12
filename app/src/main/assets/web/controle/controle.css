@@ -173,12 +173,13 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --fs-display: 2.6rem;
 
   /* ---------- Alvos de toque ----------
-     `--hit` é o piso de qualquer botão só-de-ícone; `--hit-nav` é a faixa de
-     navegação (alvo percorrido de relance, não mirado numa lista densa);
-     `--hit-foot` é a fatia do rodapé FIXO da lista, dividida por "Importar
-     arquivos" e pela barra de seleção múltipla — os dois PRECISAM medir o
-     mesmo, ou a caixa da lista muda de tamanho ao entrar na seleção e a lista
-     pula debaixo do dedo. */
+     `--hit` é o piso de qualquer botão só-de-ícone; `--hit-foot` é a fatia do
+     rodapé FIXO da lista, dividida por "Importar arquivos" e pela barra de
+     seleção múltipla — os dois PRECISAM medir o mesmo, ou a caixa da lista
+     muda de tamanho ao entrar na seleção e a lista pula debaixo do dedo.
+     (O `--hit-nav`, a faixa de NAVEGAÇÃO, saiu na v1.8.81: os consumidores
+     dele eram `.tab` e `.tab-add`, e a faixa de abas inteira saiu na v1.5.0.
+     Ele sobreviveu vinte e nove lotes declarado e sem um único leitor.) */
   --hit: 34px;
   /* O PISO DE UMA GRADE DENSA — a exceção NOMEADA ao `--hit` (v1.8.1).
      A grade de livros da Bíblia é 66 alvos numa folha só, e 66 alvos de 34px
@@ -391,7 +392,6 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   /* Espessura do cap do fader de volume — ele atravessa a coluna inteira, como
      o cap de uma mesa de som de verdade. */
   --fader-cap: 26px;
-  --hit-nav: 38px;
   --hit-foot: 42px;
   /* A LINHA DA BUSCA DA BIBLIOTECA: a ALTURA de tudo que mora nela — o campo e
      os dois quadrados ao lado. Um número para as três peças, porque quem manda
@@ -3837,9 +3837,10 @@ main {
    invés de modificar o ícone do botão e seus efeitos, foi simplesmente ofuscado
    o botão inteiro, o que dá a impressão de que não está disponível a opção"*.
 
-   Ele está certo, e o defeito tem nome nesta folha: `--line` é a cor de LINHA
-   (2,65:1 contra o fundo), e o único outro `.row-btn` que a veste é o `↑`/`↓`
-   INERTE das pontas da lista — aquele por `opacity: .3`, que é literalmente
+   Ele está certo, e o defeito tinha nome nesta folha: os dois vestiam o
+   `--line`, a cor de LINHA daquela paleta (2,65:1 contra o fundo, medido
+   quando ele ainda existia — o token SAIU na v1.5.14), e o `↑`/`↓` INERTE das
+   pontas da lista lia como desabilitado por `opacity: .3`, que é literalmente
    como este app desenha "desabilitado". Dois alternadores VIVOS estavam com a
    tinta de um botão morto, numa fileira em que todos os vizinhos vestem
    `--text`.

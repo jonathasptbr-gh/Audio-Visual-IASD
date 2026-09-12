@@ -437,22 +437,22 @@
 
   /* O VERMELHO QUE SE LÊ COMO VERMELHO (v5.76, matiz reancorada na v5.192).
      DERIVADO do `scarlett` (matiz 358°), clareado até passar como texto.
-     MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre `--live-soft`/`--danger-soft` (o
-     soft sobre a PÁGINA; dentro de um cartão dá 4,75:1, ainda AA), 4,88:1 sobre
-     `--panel` e 3,66:1 sobre `--panel-2` — este reprova o piso de 4,5:1.
+     MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre `--live-soft` (o soft sobre a
+     PÁGINA; dentro de um cartão dá 4,75:1, ainda AA), 4,88:1 sobre `--panel` e
+     3,66:1 sobre `--panel-2` — este reprova o piso de 4,5:1.
      Daí a REGRA: quem veste este vermelho veste junto o fundo da própria
-     família — `--live-fill` numa linha (4,72:1) ou `--live-soft`/
-     `--danger-soft` num chip ou botão.
+     família — `--live-fill` numa linha (4,72:1), `--live-soft` num wash ou
+     `--btn-danger` num chip ou botão.
      INVENTÁRIO (por grep): o clareado é o padrão; o salmão `--danger-text` tem
      TRÊS consumidores, todos casos em que ele não serve — `.yt-result .yt-err`
-     e `.btn-pulso--erro` sobre `--danger-soft`, e `.save-hint--erro` direto no
+     e `.btn-pulso--erro` sobre `--btn-danger`, e `.save-hint--erro` direto no
      `--panel`. */
   --sel-fill: #2e4262;
   --live-fill: #54282e;
   /* O terceiro da família, e ele é do RESOLVIDO: a TV já conectada, a pasta já
-     em dia. Ele existe pela mesma razão dos outros dois — o `--ok-soft` a 20%
-     sobre um painel é uma tinta que só se distinguia porque havia um contorno
-     verde por cima dela. Medido: 1,21:1 contra o painel, 7,85:1 com o texto e
+     em dia. Ele existe pela mesma razão dos outros dois — um verde a 20% sobre
+     um painel é uma tinta que só se distinguia porque havia um contorno verde
+     por cima dela. Medido: 1,21:1 contra o painel, 7,85:1 com o texto e
      4,65:1 com o `--ok`. */
   --ok-fill: #2a4630;
 
@@ -490,7 +490,12 @@
        --btn-accent   --accent         1,70   1,14   1,17     5,37 · 6,37
        --btn-danger   --danger-strong  1,62   1,09   1,23     4,49 · 5,64
        --btn-warn     --warn           1,69   1,13   1,18     4,30 · 5,68
-       --btn-ok       --ok             1,72   1,15   1,16     4,89 · 5,74
+
+     SÃO TRÊS, e o quarto saiu na v1.8.81: o `--btn-ok` ficou sem um único
+     consumidor quando a v1.8.56 tirou o verde dos indicadores de CONCLUSÃO
+     (*"verde é para sinal de 'ligado'"*), e uma família documentada com um
+     membro a mais convida a completá-la — que é a decisão revogada.
+     O verde que sobra é ATIVIDADE, e ele não é superfície de botão.
 
      O `--btn-warn` é o único abaixo de 4,5:1 no escuro, e ele é ÍCONE — o piso
      de 3:1 é o que vale para quem carrega informação sem ser texto.
@@ -503,7 +508,6 @@
   --btn-accent: #293d57;
   --btn-danger: #5d282e;
   --btn-warn:   #533423;
-  --btn-ok:     #2a431e;
 
   /* texto — off-white com a matiz do denim, nunca branco pleno (ver "A paleta"
      no CLAUDE.md: fora do palco, o branco pleno é a maior fonte isolada de luz
@@ -571,7 +575,7 @@
        SATURADO (`--live` + `--on-live`) = "está no ar agora", e só isso — o
          microfone aberto, o ponto de projetando. É o vermelho que não pode ter
          concorrente na tela.
-       SUAVE (`--danger-soft` + `--danger-strong`) = ação destrutiva (excluir,
+       SUAVE (`--btn-danger` + `--danger-strong`) = ação destrutiva (excluir,
          cancelar). Continua sendo vermelho, continua sendo lido como vermelho,
          e continua sem competir com o que está de fato no telão — porque é a
          mesma matiz numa fração da força. */
@@ -581,28 +585,31 @@
   /* O VERMELHO QUE SE LÊ COMO VERMELHO (v5.76, matiz reancorada na v5.192).
      DERIVADO do `scarlett` (matiz 358°, a mesma do oficial arredondada),
      clareado até passar como texto.
-     MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre `--live-soft`/`--danger-soft`
+     MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre `--live-soft`
      (o soft sobre a PÁGINA — ver "como ler as medições"; dentro de um cartão o
      mesmo par dá 4,75:1, que ainda passa AA),
      4,88:1 sobre `--panel` e **3,66:1 sobre `--panel-2`** — este último reprova
      o piso de 4,5:1 de texto pequeno.
      A consequência prática é uma regra, não uma exceção: quem veste este
      vermelho veste junto o fundo da própria família — `--live-fill` numa linha
-     de lista (4,72:1) ou `--live-soft`/`--danger-soft` num chip ou num botão.
+     de lista (4,72:1), `--live-soft` num wash ou `--btn-danger` num chip ou
+     num botão.
      Foi o que a mensagem no ar e o versículo no ar passaram a fazer na v5.76, e
      é o que `.misc-project.live` e os botões destrutivos já faziam.
      INVENTÁRIO (por grep, não de memória): o clareado é o padrão, e o salmão
      `--danger-text` tem TRÊS consumidores, todos casos em que ele não serve —
      a falha na miniatura do YouTube (`.yt-result .yt-err`) e o pulso de erro
-     (`.btn-pulso--erro`), sobre `--danger-soft`, e o texto do aviso de falha
+     (`.btn-pulso--erro`), sobre `--btn-danger`, e o texto do aviso de falha
      (`.save-hint--erro`), pousado direto no `--panel`. */
   --live-strong: #f97a7e;
   --danger-strong: #f97a7e;
-  /* `--danger` é o par de FUNDO do destrutivo — mesmo valor de `--live`, token
-     próprio porque os dois papéis podem divergir um dia. Hoje ele não tem
-     nenhum uso na folha, e isso é intencional, não esquecimento: pela regra
-     acima, ação destrutiva é sempre CONTORNADA, e contorno/texto usam
-     `--danger-strong`/`--danger-text`. */
+  /* (O `--danger` SAIU na v1.5.14, nos dois temas: era o par de FUNDO do
+     destrutivo, mesmo valor de `--live`, e ficou com zero consumidores.
+     O comentário que o explicava sobreviveu à remoção e ficou aqui, no lugar
+     exato da declaração, dizendo que a ausência de uso era "intencional, não
+     esquecimento" — isto é, afirmando que o token existia. Saiu na v1.8.81.
+     O scarlett tem um nome só, e é `--live`; o destrutivo veste
+     `--btn-danger` de fundo e `--danger-strong`/`--danger-text` de traço.) */
   --danger-text: #e98d83;                /* 5,17:1 sobre painel · 6,89:1 sobre o soft
                                             (o soft sobre a PÁGINA; dentro de um
                                             cartão, 5,03:1 — ver "como ler") */
@@ -613,8 +620,8 @@
      pura solta: um aviso que se anuncia só pela matiz não sobrevive a um
      celular com brilho baixo nem a quem não distingue as duas matizes quentes
      do app. */
-  --warn: #ef853f;                       /* borda/ícone — 6,34:1 sobre --warn-soft */
-  --warn-text: #e5a86c;                  /* texto — 7,95:1 sobre --warn-soft */
+  --warn: #ef853f;                       /* borda/ícone — 4,30:1 sobre --btn-warn */
+  --warn-text: #e5a86c;                  /* texto — 5,39:1 sobre --btn-warn */
 
   /* ---------- VERDE: concluído / conectado ----------
      E SÓ isso. Até a v5.47 o verde também dizia "está no ar" em dois lugares
@@ -812,7 +819,6 @@
   --btn-accent: #dcebfe;
   --btn-danger: #fde3e6;
   --btn-warn:   #f8e7de;
-  --btn-ok:     #d5f5c6;
 
   /* ---------- O TEXTO DESTE TEMA É PRETO, E NÃO O `night` (v1.5.12) ----------
      Pedido do operador, depois de duas rodadas sobre a legibilidade da
@@ -880,9 +886,9 @@
   /* campfire e treefrog escurecidos pelo mesmo motivo: o oficial passa sobre
      BRANCO (4,62:1 e 4,71:1) e reprova sobre a página cinza. Matizes 21° e 101°
      preservadas. `--warn` é ícone/borda e responde ao piso de 3:1. */
-  --warn: #bd520a;                       /* 3,38:1 sobre --warn-soft · 3,72:1 sobre o fundo */
-  --warn-text: #934410;                  /* 4,81:1 sobre --warn-soft */
-  --ok: #216900;                         /* 4,76:1 sobre --ok-soft · 6,81:1 sobre o painel */
+  --warn: #bd520a;                       /* 3,99:1 sobre --btn-warn · 3,72:1 sobre o fundo */
+  --warn-text: #934410;                  /* 5,68:1 sobre --btn-warn */
+  --ok: #216900;                         /* 5,27:1 sobre --ok-fill · 6,81:1 sobre o painel */
 
   /* o véu segue o --bg deste tema, pela mesma regra do escuro */
   --veil: rgba(223, 227, 231, .55);
