@@ -779,7 +779,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      inteiro: ver "O BLOCO RESPONDE POR LUZ".) */
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .song-menu-btn, .msg-add-btn, .msg-item,
-  .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .chrono-step, .misc-project, .draw-go,
+  .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
   /* (`.lib-item` saiu na v1.7.4, pela regra do bloco — ver "O BLOCO RESPONDE
      POR LUZ". Ela é a linha de lista deste app, isto é, o outro CONTÊINER que
      hospeda controles: o `⋮`, o "Tirar do ar" na capa, a gaveta inteira.) */
@@ -6449,6 +6449,29 @@ main {
 /* Mensagens: quem rola é a LISTA, não o painel — senão "+ Nova mensagem" e
    "Tirar do telão" sairiam de vista assim que a lista crescesse. */
 .misc-panel--msg { overflow: hidden; }
+/* TEMPO: O PAINEL NÃO ROLA, ELE ENCOLHE (v1.8.92) — *"o que eu não quero é que
+   tenha scroll nessa janela de ferramentas"*. O `min-height: min-content` da
+   regra acima é o que fazia a folha rolar quando o conteúdo não cabia; com o
+   piso em ZERO quem cede é a ROLETA, que mede o que sobra e se ajusta (ver
+   `acertarRoletas`).
+
+   **E O `overflow` FICA EM `auto`, de propósito.** Tentá-lo em `hidden` foi
+   medido e revertido: a 360×640 com a fonte do sistema em 1,25× o painel tem
+   68px e o seletor mais a legenda já pedem mais que isso — a roleta chega ao
+   PISO e ainda sobram 37px, que `hidden` não esconde, RECORTA. O que se perde
+   ali é o campo de legenda, inalcançável e sem nada dizendo por quê. Rolar é o
+   desfecho honesto de uma janela que não cabe; recortar é a versão calada do
+   mesmo problema.
+
+   MEDIDO nas três telas: 430×900 e 390×844 não rolam um pixel (a roleta abre
+   com 97px e 85px de célula), e a punitiva rola 37px contra os 84px que o
+   desenho anterior já rolava ali. */
+.misc-panel--chrono {
+  min-height: 0;
+  /* E O RESPIRO É MENOR AQUI: os dois vãos deste painel são altura que sai da
+     roleta, e ela é o conteúdo. */
+  gap: var(--sp-4);
+}
 /* Idem: com o painel de Mensagens em `overflow: hidden`, o scroller é ESTA
    lista — então é nela que o eixo precisa ser declarado. */
 .msg-list { flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y; display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -6464,13 +6487,25 @@ main {
 }
 .misc-seg.active { background: var(--accent-fill); color: var(--on-accent); }
 /* ---------- UMA LINHA SÓ PARA O TEMPO (v1.8.89) ----------
-   O número, o passo (`\2212`/`+`) e o transporte na MESMA faixa — quatro linhas
-   viraram uma, e é o que tirou a rolagem da folha. Ver `renderChrono`.
+   O mostrador e o transporte na MESMA faixa — quatro linhas viraram uma, e é o
+   que tirou a rolagem da folha. Ver `renderChrono`.
 
    `min-width: 0` no número é o que permite os vizinhos: sem ele o `.chrono-read`
    é do tamanho do texto dele e empurra o transporte para fora da caixa (que
-   `overflow: hidden` na folha CORTA, sem erro nenhum). */
-.chrono-linha { display: flex; align-items: center; gap: var(--sp-4); container-type: inline-size; }
+   `overflow: hidden` na folha CORTA, sem erro nenhum).
+
+   E A FAIXA CRESCE (v1.8.92): no timer o mostrador é a ROLETA, e ela ocupa o
+   que sobrar da altura do painel. `min-height: 0` é o que permite ENCOLHER —
+   sem ele um item flex nunca fica menor que o conteúdo, e o painel voltaria a
+   rolar numa tela apertada, que é o que o pedido do operador proíbe. */
+.chrono-linha {
+  flex: 1; min-height: 0;
+  display: flex; align-items: center; gap: var(--sp-4);
+  container-type: inline-size;
+}
+/* O RELÓGIO E O CRONÔMETRO NÃO CRESCEM: eles são uma linha de texto, e esticá-la
+   só afastaria o número da legenda. Quem cresce é o timer. */
+.chrono-linha--clock, .chrono-linha--stopwatch { flex: 0 0 auto; }
 /* O número no Controle. `tabular-nums` pelo mesmo motivo do telão: sem ele a
    linha se desloca a cada segundo e o número parece tremer. */
 .chrono-read {
@@ -6480,18 +6515,16 @@ main {
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
   padding: .2rem 0;
 }
-/* COM VIZINHOS ELE CEDE UM DEGRAU. A 2,6rem sobrando ~125px para o número, os
-   dois quadrados do passo e os dois do transporte não cabem numa tela de 360 —
-   e o relógio, que ocupa a linha SOZINHO, não tem por que pagar por isso. É a
-   mesma pergunta da faixa de fecho: *"há irmão nesta linha?"*, não *"qual
-   modo?"*.
+/* COM VIZINHOS ELE CEDE UM DEGRAU. A 2,6rem sobrando ~125px para o número e os
+   dois quadrados do transporte não cabem numa tela de 360 — e o relógio, que
+   ocupa a linha SOZINHO, não tem por que pagar por isso. É a mesma pergunta da
+   faixa de fecho: *"há irmão nesta linha?"*, não *"qual modo?"*.
 
    E O DEGRAU FIXO NÃO BASTA — ele é um TETO, e o piso é a CAIXA. MEDIDO a
    360×640 com a fonte do sistema em 1,25×: a caixa do número fica com 127px e
-   "1:30:00" a 2rem pede 137 — o texto sai por cima do `+`, sem erro nenhum e
-   sem clipe que denuncie (um `overflow: hidden` aqui CORTARIA um dígito, que é
-   pior). Um timer passa de uma hora com naturalidade (600 min é o teto), e a
-   régua tem de ser a LARGURA DISPONÍVEL, não a tela.
+   "1:30:00" a 2rem pede 137 — o texto sai por cima do vizinho, sem erro nenhum
+   e sem clipe que denuncie (um `overflow: hidden` aqui CORTARIA um dígito, que
+   é pior). A régua tem de ser a LARGURA DISPONÍVEL, não a tela.
 
    `cqw` é a unidade que responde isso: 8 caracteres a ~0,61em cabem em 8cqw
    (medido — 8 × 0,61 × 24px = 117 contra os 127 da caixa). A consulta de
@@ -6501,20 +6534,86 @@ main {
   font-size: min(var(--fs-display-sm), 8cqw);
 }
 .chrono-read.over { color: var(--danger-strong); }
-/* O PASSO: quadrado de `--hit`, o sinal em tinta de texto. Ele NÃO é um chip —
-   um chip é escolha entre alternativas, e isto é um incremento.
-   `touch-action: none` porque ele é SEGURADO (ver `chronoStepBtn`): sem isso o
-   primeiro movimento do dedo vira rolagem e o WebView mata o gesto com um
-   `pointercancel`, cortando a repetição no meio. */
-.chrono-step {
-  flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
-  border: none; border-radius: var(--radius-btn);
+
+/* ---------- AS DUAS ROLETAS DO TIMER (v1.8.92) ----------
+   Pedido do operador: *"uma roleta/lista vertical de 0 a 60 para os minutos e
+   uma roleta vertical para os segundos de 0 a 59… O número durante a contagem é
+   a própria roleta/lista se movendo e contando."*
+
+   `--roleta-item` é a MEDIDA DE TUDO aqui — a altura da janela (três células),
+   a do item, o recuo que centra a primeira e a última, e o corpo do dígito. Ela
+   é escrita pelo `acertarRoletas` a partir da altura que sobrou, e é por ela
+   ser uma só que o `scrollTop` de um valor é `valor × item`, sem fração. O
+   valor abaixo é só o PISO de partida: quem manda é o JS. */
+.chrono-roletas {
+  --roleta-item: 44px;
+  flex: 1; min-width: 0; min-height: 0; align-self: stretch;
   display: flex; align-items: center; justify-content: center;
-  background: var(--surface); color: var(--text);
-  font-family: inherit; font-size: var(--fs-xl); font-weight: var(--fw-max);
-  line-height: 1; cursor: pointer; touch-action: none;
-  appearance: none; -webkit-appearance: none;
+  color: var(--text);
 }
+.chrono-roletas.over { color: var(--danger-strong); }
+/* O SINAL DO ESTOURO ocupa lugar SEMPRE (`visibility`, não `display`): some com
+   `display: none` e as duas roletas andam de lado no segundo em que o timer
+   vira o zero, na frente de quem está olhando o número. */
+.roleta-sinal, .roleta-dp {
+  flex: 0 0 auto;
+  font-size: calc(var(--roleta-item) * .58); font-weight: var(--fw-forte);
+  line-height: 1; padding: 0 calc(var(--roleta-item) * .06);
+}
+.roleta-sinal { visibility: hidden; }
+.chrono-roletas.over .roleta-sinal { visibility: visible; }
+/* A LISTA. `scroll-snap-type: y mandatory` com o item centrado é o que faz cada
+   número parar no meio da janela; o recuo de uma célula em cima e embaixo é o
+   que deixa o PRIMEIRO e o ÚLTIMO chegarem lá (sem ele, o 0 e o 60 nunca
+   ficariam centrados e a régua `valor × item` sairia deslocada).
+
+   `scrollbar-width: none` porque a barra aqui não descreve nada: a lista é um
+   seletor de valor, não um texto que continua fora da vista — e ela é a mesma
+   regra do `.rola` do app inteiro, que não se aplica a este por ele não ser um
+   scroller de CONTEÚDO. */
+.roleta {
+  flex: 0 1 auto;
+  height: calc(var(--roleta-item) * 3);
+  padding-block: var(--roleta-item);
+  overflow-y: auto; overflow-x: hidden;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  overscroll-behavior: contain;   /* a folha atrás não rola junto */
+  touch-action: pan-y;
+  text-align: center;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+.roleta-item {
+  height: var(--roleta-item); line-height: var(--roleta-item);
+  scroll-snap-align: center;
+  font-size: calc(var(--roleta-item) * .72); font-weight: var(--fw-forte);
+  /* AS VIZINHAS SÃO A PISTA, não conteúdo: apagadas, elas dizem que a lista
+     continua sem competir com o número escolhido, que é o que se lê. */
+  opacity: var(--op-inativo);
+}
+/* A DO MEIO É A ESCOLHIDA, e quem a marca é a POSIÇÃO — não uma classe que o JS
+   teria de mover a cada quadro de rolagem, nem um `:nth-child` que não sabe
+   onde a lista parou. O par que resolve é: as células nascem apagadas
+   (`--op-inativo`, acima) e uma MÁSCARA apaga as pontas da janela, deixando
+   cheia só a faixa do meio — que é, por construção do recuo, onde a centrada
+   está. Zero JS por quadro. */
+.roleta {
+  -webkit-mask-image: linear-gradient(
+    to bottom, transparent 0, #000 30%, #000 70%, transparent 100%);
+  mask-image: linear-gradient(
+    to bottom, transparent 0, #000 30%, #000 70%, transparent 100%);
+}
+/* E A CENTRADA FICA OPACA. `:nth-child` não serve (a lista rola), mas a faixa
+   do meio serve: o item que a cruza é o escolhido, e é ele que recebe a tinta
+   cheia. Sem uma consulta de posição em CSS, quem o marca é o JS — UMA classe,
+   escrita só quando o índice muda (ver `roletasMostrar`). */
+.roleta-item.roleta-item--sel { opacity: 1; }
+/* CONTANDO NÃO SE EDITA (pedido do operador). A trava é o `overflow`, e não um
+   `return` no ouvinte: sem ela a lista ROLA sob o dedo e volta sozinha no tique
+   seguinte — pior que não responder, porque parece quebrado. O `scrollTop`
+   programático continua funcionando com `hidden`, que é o que faz a contagem
+   andar. */
+.chrono-linha--timer.contando .roleta { overflow-y: hidden; touch-action: none; }
 .misc-opts { display: flex; flex-wrap: wrap; gap: var(--sp-3); justify-content: center; }
 .misc-chip {
   /* PISO, e não `height`: a pílula continua crescendo com a fonte do sistema —

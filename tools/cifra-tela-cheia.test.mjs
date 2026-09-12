@@ -683,7 +683,7 @@ try {
     + 'controles são os de verdade, não uma segunda implementação',
     { antes: cheia.tom, depois: tomDepois });
 
-  // ===== A GRAFIA É DA FOLHA, E SÓ AQUI ISSO É MEDIDO (v1.8.92) =====
+  // ===== A GRAFIA É DA FOLHA, E SÓ AQUI ISSO É MEDIDO (v1.8.93) =====
   //
   // A regra mora no `cifra.js` (bloco 3c do `cifra.test.mjs`), mas quem a LIGA é
   // o `cifraDesenharFolha`, e essa ligação não tinha oráculo nenhum. O modo de

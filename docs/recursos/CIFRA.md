@@ -404,7 +404,7 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   pior desfecho possível. O passo é guardado na entrada do cache: voltar a um
   hino devolve o tom em que o operador o deixou, e trocar de hino não arrasta o
   passo do anterior.
-- **A GRAFIA VEM DA ARMADURA DO TOM DE DESTINO** (v1.8.92), e vale para a folha
+- **A GRAFIA VEM DA ARMADURA DO TOM DE DESTINO** (v1.8.93), e vale para a folha
   INTEIRA. Meio tom acima de D é `Eb`, não `D#`. A regra anterior — *a grafia
   segue a ORIGEM*, raiz sem bemol sobe em sustenido — se justificava por uma
   afirmação **falsa**: *"transpor não muda a armadura"*. Muda: Fá maior tem um

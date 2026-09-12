@@ -1,9 +1,18 @@
 [
   {
-    "versao": "1.8.92",
+    "versao": "1.8.93",
     "itens": [
       "Cifra: transpor passou a escrever o tom pela armadura — meio tom acima de Ré é Mi bemol, e não Ré sustenido.",
       "Cifra: a folha inteira sai numa grafia só; antes bemol e sustenido se misturavam na mesma linha."
+    ]
+  },
+  {
+    "versao": "1.8.92",
+    "itens": [
+      "Timer: os botões de + e − saíram; agora o tempo se escolhe em duas roletas, minutos e segundos.",
+      "Timer: a roleta é o próprio número, e é ela que anda durante a contagem.",
+      "Timer: contando, o tempo não pode mais ser alterado sem pausar.",
+      "Timer: o número cresce até ocupar a janela, e a janela de Ferramentas não rola mais."
     ]
   },
   {
