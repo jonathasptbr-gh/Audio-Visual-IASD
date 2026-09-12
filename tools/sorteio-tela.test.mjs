@@ -310,15 +310,22 @@ try {
 
   await pg.click('#sorteioBtn');
   await assentada('#sorteioPopup');
-  // A conta é DUAS linhas (forte + fraca): ler o `textContent` do `<li>` as cola
-  // sem separador e faz um `/x · y/` casar por acidente. O oráculo lê os dois
-  // spans, que é a estrutura que ele existe para travar.
-  const lerConta = () => pg.evaluate(() => {
-    const li = document.querySelector('#sorteioList .sorteio-conta');
-    const f = li && li.querySelector('.sorteio-conta-forte');
-    const w = li && li.querySelector('.sorteio-conta-fraca');
-    return { forte: f ? f.textContent : '', fraca: w ? w.textContent : '',
-      vazia: !!li && li.classList.contains('vazio') };
+  // O RESULTADO PASSOU A SER A PÍLULA MAIS A LISTA (v1.8.84). Era um cartão de
+  // uma frase, e o operador o tirou: *"repete as informações que já temos nas
+  // seleções acima, como os filtros usados, e etc… Uma ação inútil, pois
+  // literalmente já há a visão das seleções."* O que este arquivo media naquelas
+  // frases eram FATOS sobre o pool — cada filtro encolhe, e eles compõem —, e os
+  // fatos continuam: agora se leem no NÚMERO e no comprimento da lista.
+  const lerResultado = () => pg.evaluate(() => {
+    const pil = document.querySelector('#sorteioList .sorteio-pilula-num');
+    const res = document.querySelector('#sorteioList .sorteio-res');
+    return {
+      n: pil ? Number(pil.textContent.replace(/\D/g, '')) : -1,
+      linhas: document.querySelectorAll('#sorteioList .sorteio-res-btn').length,
+      vai: document.querySelectorAll('#sorteioList .sorteio-res-btn.vai').length,
+      vazia: !!res && res.classList.contains('vazio'),
+      motivo: res ? (res.querySelector('.sorteio-res-vazio') || {}).textContent || '' : '',
+    };
   });
   const folha = await pg.evaluate(() => ({
     aberta: document.getElementById('sorteioPopup').classList.contains('open'),
@@ -341,7 +348,7 @@ try {
     })(),
     go: !!document.querySelector('#sorteioPopup .song-menu-go'),
   }));
-  const conta0 = await lerConta();
+  const conta0 = await lerResultado();
   checar(folha.aberta, 'o toque no botão ABRE a folha');
   // ---- E ELA DESCE DO TETO (v1.2.3) ----
   // A regra de ORIGEM: a gaveta entra pela borda do botão que a abre, e o dado
@@ -376,15 +383,15 @@ try {
     'e a linha "Quantas" está SEMPRE lá, com o `1` na frente: era ele o segundo '
     + 'motor do pulo da folha (a linha aparecia e sumia com o modo, 44,4px), e é '
     + 'ele o antigo "Tocar uma só"', JSON.stringify(folha.quantas));
-  // A RESSALVA DOS INFANTIS APARECE DE SAÍDA (v1.0.7), e é o preço declarado de
-  // o filtro nascer ligado: ele recusa sem que ninguém o tenha tocado, então a
-  // conta tem de dizer isso na primeira frase que o operador lê — pela mesma
-  // régua do "sem o hinário" logo abaixo, onde "toda a biblioteca" com o
-  // hinário fora seria uma frase ERRADA.
-  checar(/^Toda a biblioteca, sem os infantis — 5 músicas$/.test(conta0.forte)
-    && /4 já baixadas/.test(conta0.fraca),
-    'sem palavra, a conta LIDERA COM O ESCOPO — e já ressalva o filtro que nasce '
-    + 'ligado', conta0);
+  // O FILTRO QUE NASCE LIGADO JÁ AGIU (v1.0.7): `semInfantis` recusa sem que
+  // ninguém o tenha tocado, e o pool de saída é o do acervo MENOS os infantis.
+  // A pílula conta o pool e a lista mostra um por linha — as duas medidas, e não
+  // uma, porque um conserto que quebrasse a lista deixaria a pílula certa.
+  checar(conta0.n === 5 && conta0.linhas === 5,
+    'de saída, a pílula conta o pool (5) e a lista tem uma linha por música — o '
+    + 'filtro que nasce ligado já agiu', conta0);
+  checar(conta0.vai === Math.min(5, 3) || conta0.vai >= 1,
+    '  ↳ e o LOTE está marcado no topo dela', conta0);
 
   // ---- A PALAVRA TEMA FILTRA, SEM REMONTAR A FOLHA -------------------------
   // O campo é o único controle que pode estar EM FOCO enquanto a conta muda:
@@ -398,57 +405,71 @@ try {
     focado: document.activeElement === document.querySelector('#sorteioList .lib-search'),
     valor: document.querySelector('#sorteioList .lib-search').value,
   }));
-  comTema.conta = (await lerConta()).forte;
+  comTema.res = await lerResultado();
   // "natal" casa no NOME de h1 e no ÁLBUM das duas faixas de album-9.
-  checar(/3 músicas relacionadas a “natal”/.test(comTema.conta),
-    'a palavra tema filtra, e a frase a NOMEIA: o nome de uma e o álbum das outras duas',
-    comTema.conta);
+  checar(comTema.res.n === 3 && comTema.res.linhas === 3,
+    'a palavra tema filtra: três — o nome de uma e o álbum das outras duas',
+    comTema.res);
   checar(comTema.focado && comTema.valor === 'natal',
     'e o campo NÃO perde o foco a cada tecla — a conta muda sem remontar a folha', comTema);
 
   // ---- OS FILTROS ----------------------------------------------------------
-  const semHinario = await pg.evaluate(async () => {
-    sorteioPrefs.semHinario = true; renderSorteio();
-    return document.querySelector('#sorteioList .sorteio-conta-forte').textContent;
-  });
-  checar(/2 músicas relacionadas/.test(semHinario),
+  await pg.evaluate(() => { sorteioPrefs.semHinario = true; renderSorteio(); });
+  const semHinario = await lerResultado();
+  checar(semHinario.n === 2 && semHinario.linhas === 2,
     '"Sem hinário" tira as faixas do hinário do pool', semHinario);
 
-  const soPlayback = await pg.evaluate(async () => {
+  // A DISPONIBILIDADE É POR VARIANTE, e ela se lê na LINHA: em Playback só a que
+  // TEM o instrumental no aparelho diz "no aparelho". Ela saiu da frase e foi
+  // para o subtítulo de cada música, que é onde ela é acionável — dá para
+  // desmarcar a que vai baixar.
+  const soPlayback = await pg.evaluate(() => {
     sorteioPrefs.semHinario = false;
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK;
     renderSorteio();
-    return document.querySelector('#sorteioList .sorteio-conta-fraca').textContent;
+    const subs = [...document.querySelectorAll('#sorteioList .sorteio-res-btn .song-menu-sub')]
+      .map((x) => x.textContent);
+    return { subs, locais: subs.filter((t) => /no aparelho/.test(t)).length };
   });
-  checar(/1 já baixada/.test(soPlayback),
-    'em Playback só a que TEM o instrumental no aparelho conta — o "está baixada?" '
-    + 'é por variante', soPlayback);
+  checar(soPlayback.locais === 1,
+    'em Playback só a que TEM o instrumental no aparelho se anuncia como local — '
+    + 'o "está baixada?" é por variante', soPlayback);
 
-  const soLocal = await pg.evaluate(async () => {
+  await pg.evaluate(() => {
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
     sorteioPrefs.soNoAparelho = true;
     renderSorteio();
-    const li = document.querySelector('#sorteioList .sorteio-conta');
-    const conta = li.querySelector('.sorteio-conta-forte').textContent
-      + ' | ' + li.querySelector('.sorteio-conta-fraca').textContent;
-    sorteioPrefs.soNoAparelho = false;
-    return conta;
   });
-  checar(/2 músicas relacionadas/.test(soLocal) && /todas já baixadas/.test(soLocal),
-    '"Só no aparelho" deixa só o que não precisa de download', soLocal);
+  const soLocal = await pg.evaluate(() => {
+    const r = {
+      n: Number(document.querySelector('#sorteioList .sorteio-pilula-num').textContent.replace(/\D/g, '')),
+      forasteiros: [...document.querySelectorAll('#sorteioList .sorteio-res-btn .song-menu-sub')]
+        .filter((x) => /vai baixar/.test(x.textContent)).length,
+    };
+    sorteioPrefs.soNoAparelho = false;
+    return r;
+  });
+  checar(soLocal.n === 2 && soLocal.forasteiros === 0,
+    '"Só no aparelho" deixa só o que não precisa de download — e nenhuma linha '
+    + 'da lista diz "vai baixar"', soLocal);
 
-  // ---- SEM PALAVRA, A FRASE É HONESTA SOBRE OS FILTROS ---------------------
-  // Dizer "toda a biblioteca" com o hinário fora seria uma frase ERRADA, e uma
-  // frase errada é pior que nenhuma: ela produz a decisão errada.
+  // ---- OS FILTROS COMPÕEM, E CADA UM ENCOLHE O POOL ------------------------
+  //
+  // Aqui moravam SEIS asserções sobre a FRASE do cartão ("Toda a biblioteca, sem
+  // o hinário — N músicas"), e o cartão saiu na v1.8.84 porque ela reescrevia
+  // por extenso o que as pílulas logo acima já mostram. **O fato que elas
+  // guardavam continua**, e é o que importa: cada filtro de fato encolhe o pool,
+  // e dois ligados juntos encolhem juntos. Ele se lê no NÚMERO.
   const escopos = await pg.evaluate(() => {
-    const ler = () => document.querySelector('#sorteioList .sorteio-conta-forte').textContent;
+    const ler = () => Number(document.querySelector('#sorteioList .sorteio-pilula-num')
+      .textContent.replace(/\D/g, ''));
     const antes = { ...sorteioPrefs };
     sorteioPrefs.tema = '';
     const fora = {};
-    // "SEM FILTRO NENHUM" PASSOU A EXIGIR DESLIGAR TRÊS (v1.0.7): `semInfantis`
-    // nasce LIGADO, então o estado sem ressalva nenhuma deixou de ser o padrão
-    // do app — e é justamente por isso que ele continua sendo medido aqui, como
-    // a linha de base contra a qual cada ressalva se lê.
+    // "SEM FILTRO NENHUM" EXIGE DESLIGAR TRÊS (v1.0.7): `semInfantis` nasce
+    // LIGADO, então o estado sem ressalva nenhuma deixou de ser o padrão do app
+    // — e é justamente por isso que ele é a linha de base contra a qual cada
+    // filtro se mede.
     sorteioPrefs.semHinario = false; sorteioPrefs.soNoAparelho = false;
     sorteioPrefs.semInfantis = false;
     renderSorteio(); fora.tudo = ler();
@@ -466,19 +487,18 @@ try {
     Object.assign(sorteioPrefs, antes); renderSorteio();
     return fora;
   });
-  checar(/^Toda a biblioteca — \d+ músicas?$/.test(escopos.tudo),
-    'sem filtro nenhum ela diz “toda a biblioteca”, sem ressalva', escopos.tudo);
-  checar(/Toda a biblioteca, sem o hinário/.test(escopos.semHinario),
-    'com o hinário fora ela RESSALVA — "toda" seria uma frase errada', escopos.semHinario);
-  checar(/^Só o que já está no aparelho — /.test(escopos.soLocal),
-    'com "Só no aparelho" o escopo deixa de ser a biblioteca e ela o diz', escopos.soLocal);
-  checar(/^Só o que já está no aparelho, sem o hinário — /.test(escopos.ambos),
-    'e os dois filtros juntos aparecem juntos', escopos.ambos);
-  checar(/^Toda a biblioteca, sem os infantis — /.test(escopos.semInfantis),
-    'o filtro que nasce ligado RESSALVA como os irmãos — sem isso ele seria a '
-    + 'única recusa que a tela não anuncia', escopos.semInfantis);
-  checar(/sem o hinário, sem os infantis/.test(escopos.tres),
-    'e os TRÊS juntos aparecem juntos, nesta ordem', escopos.tres);
+  // `semInfantis` é `<=` e não `<` porque a fixture não tem faixa infantil: ele
+  // é o filtro que nasce ligado, e medi-lo com `<` seria exigir da fixture uma
+  // propriedade que ela não tem — a asserção passaria a falar do acervo de
+  // mentira em vez da regra. Quem cobre a ação dele é o `sorteio.test.mjs`, com
+  // as faixas 508–557 plantadas.
+  checar(escopos.semHinario < escopos.tudo && escopos.soLocal < escopos.tudo
+    && escopos.semInfantis <= escopos.tudo,
+    'cada filtro ENCOLHE o pool contra a linha de base sem filtro nenhum', escopos);
+  checar(escopos.ambos <= Math.min(escopos.semHinario, escopos.soLocal)
+    && escopos.tres <= escopos.ambos,
+    'e eles COMPÕEM: dois ligados nunca devolvem mais que o menor dos dois, e os '
+    + 'três nunca mais que os dois', escopos);
   const dica = await pg.evaluate(() => document.querySelector('#sorteioList .lib-search').placeholder);
   checar(/vazio/i.test(dica) && /biblioteca/i.test(dica),
     'e o próprio campo diz o que o vazio significa — a pergunta nasce ali', dica);
@@ -489,15 +509,19 @@ try {
   // causas que pedem ações opostas.
   const vazio = await pg.evaluate(() => {
     sorteioPrefs.tema = 'zzzznadaaqui'; renderSorteio();
-    const li = document.querySelector('#sorteioList .sorteio-conta');
+    const res = document.querySelector('#sorteioList .sorteio-res');
     const go = document.querySelector('#sorteioPopup .sorteio-acao');
-    return { texto: li.textContent, marcada: li.classList.contains('vazio'), travado: go.disabled };
+    return {
+      texto: res.textContent, marcada: res.classList.contains('vazio'),
+      travado: go.disabled, linhas: document.querySelectorAll('.sorteio-res-btn').length,
+      pilula: document.querySelector('#sorteioList .sorteio-pilula-num').textContent,
+    };
   });
-  checar(/zzzznadaaqui/.test(vazio.texto) && vazio.marcada,
-    'sem resultado, a conta NOMEIA a palavra que não casou', vazio.texto);
-  checar(!/casam|no aparelho|faixas/.test(vazio.texto),
-    'e ela não volta ao vocabulário da varredura ("casam", "faixas", "no aparelho")',
-    vazio.texto);
+  checar(/zzzznadaaqui/.test(vazio.texto) && vazio.marcada && vazio.linhas === 0,
+    'sem resultado, a LISTA dá lugar à frase que NOMEIA a palavra que não casou — '
+    + 'ela é a única do cartão antigo que não repetia a tela', vazio);
+  checar(!/casam|faixas/.test(vazio.texto),
+    'e ela não volta ao vocabulário da varredura ("casam", "faixas")', vazio.texto);
   checar(vazio.travado, 'e o confirmar fica desabilitado — o botão nunca dispara para o nada');
 
   // ---- MODO "UMA SÓ": vai ao telão ----------------------------------------
@@ -660,7 +684,7 @@ try {
       filaIgual: JSON.stringify(await AVDB.listIds('playlist')) === JSON.stringify(filaAntes),
       noArIgual: currentId === noArAntes,
       aberta: document.getElementById('sorteioPopup').classList.contains('open'),
-      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
     };
   });
   checar(guardou.cronograma === 1 && guardou.ehPacote && guardou.quantosNoPacote === 3,
@@ -760,7 +784,7 @@ try {
     return {
       total: itens.length,
       pacotes: itens.filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
-      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
     };
   });
   // UM SORTEIO NOVO É UM PACOTE NOVO. Antes a dedução era por id e um segundo
@@ -795,7 +819,7 @@ try {
       pacotes: itens.filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
       nome: itens[0] ? itens[0].name : '',
       aberta: document.getElementById('sorteioPopup').classList.contains('open'),
-      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
     };
   });
   checar(solta.total === 1 && solta.pacotes === 0 && !/playlist/i.test(solta.nome),
@@ -834,7 +858,7 @@ try {
       dentro: pac && Array.isArray(pac.data.ids) ? pac.data.ids.length : 0,
       noArIgual: currentId === noArAntes,
       filaIgual: JSON.stringify(await AVDB.listIds('playlist')) === JSON.stringify(filaAntes),
-      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
     };
   });
   checar(favs.quantos === 1 && favs.ehPacote && favs.dentro === 3,
@@ -874,7 +898,7 @@ try {
       pacotes: (await AVDB.listItems('playlist'))
         .filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
       noArIgual: currentId === noArAntes,
-      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
     };
   });
   checar(naFila.antes.length === 1 && naFila.depois.length > naFila.antes.length
@@ -908,21 +932,23 @@ try {
       await new Promise((r) => setTimeout(r, 80));
       await abrirSorteio();
       const depois = document.querySelector('#sorteioList .lib-search').value;
-      const forte = document.querySelector('#sorteioList .sorteio-conta-forte').textContent;
+      // O RESULTADO da reabertura: a pílula conta o pool sem a palavra de antes.
+      const n = Number(document.querySelector('#sorteioList .sorteio-pilula-num')
+        .textContent.replace(/\D/g, ''));
+      const linhas = document.querySelectorAll('#sorteioList .sorteio-res-btn').length;
       fecharSorteio();
-      return { antes, depois, forte };
+      return { antes, depois, n, linhas };
     }, caminho);
   }
   for (const [caminho, r] of Object.entries(limpou)) {
     checar(r.antes === 'gratidão' && r.depois === '',
       'fechar por "' + caminho + '" limpa a caixa da palavra tema', r);
   }
-  // A frase é a do ESCOPO e não a do tema — sem citar "gratidão" nem "relacionadas
-  // a". O prefixo dela depende dos filtros que estiverem ligados neste ponto do
-  // teste, e é justamente isso que a asserção NÃO deve fixar: o que importa é
-  // que a palavra de antes não escopa mais o sorteio.
-  checar(!/gratidão|relacionadas a/.test(limpou.fecharSorteio.forte)
-    && / — \d+ músicas?$/.test(limpou.fecharSorteio.forte),
+  // O POOL da reabertura é o do ESCOPO, e não o da palavra que foi limpa —
+  // "gratidão" não casa nada nesta fixture, então o resultado dela seria ZERO.
+  // A asserção NÃO fixa o número: ele depende dos filtros ligados neste ponto do
+  // teste, e o que importa é que a palavra de antes deixou de escopar o sorteio.
+  checar(limpou.fecharSorteio.n > 0 && limpou.fecharSorteio.linhas === limpou.fecharSorteio.n,
     'e a folha reabre sorteando pelo ESCOPO, não pelo tema de antes',
     limpou.fecharSorteio.forte);
 

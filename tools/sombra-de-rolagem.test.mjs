@@ -1242,9 +1242,20 @@ try {
       })) };
       albumCatalog = { categories: [], albums: [] };
       await abrirSorteio(); await z(600);
-      const folha = () => +document.querySelector('#sorteioPopup .popup-sheet')
-        .getBoundingClientRect().height.toFixed(1);
-      const rodape = () => +document.querySelector('#sorteioPopup .popup-fecho')
+      // ===== A RÉGUA MUDOU DE PEÇA NA v1.8.84, E O PEDIDO NÃO =====
+      //
+      // O que o operador pediu tem uma razão anexada — *"para não ficar movendo
+      // a posição relativa de seus botões na tela, atrapalhando o toque"* —, e
+      // até aqui a ALTURA DA FOLHA respondia por ela: os botões moravam no
+      // rodapé, e a folha desce do topo, então crescer empurrava o rodapé.
+      //
+      // A v1.8.84 tirou os botões de lá: eles subiram para a `.sorteio-barra`,
+      // ACIMA da lista de resultados, e a lista é a única coisa que cresce. A
+      // folha voltou a variar (110 a 338px) e **nenhum botão se move** — MEDIDO,
+      // deslocamento ZERO da barra em todas as 33 células. Continuar medindo a
+      // folha reprovaria um estado que satisfaz o pedido melhor do que o
+      // anterior; a peça certa é a BARRA, que é onde os botões estão.
+      const barra = () => +document.querySelector('#sorteioPopup .sorteio-barra')
         .getBoundingClientRect().top.toFixed(1);
       // O RÓTULO DO PRIMÁRIO, medido nas MESMAS células (v1.8.62): ele é um só
       // ("Tocar agora") e a pergunta é se ele CABE — o par curto que ele
@@ -1257,15 +1268,15 @@ try {
       const porEscala = {};
       for (const fs of [16, 20.8, 24]) {
         document.documentElement.style.fontSize = fs + 'px';
-        const alturas = [], topos = [];
+        const topos = [];
         for (const q of AVSorteio.QUANTIDADES) {
           sorteioPrefs.quantos = q; renderSorteio(); await z(90);
-          alturas.push(folha()); topos.push(rodape());
+          topos.push(barra());
           rotulos.push({ fs, ...rotulo() });
         }
         for (const v of [AVSorteio.VARIANTE_CANTADA, AVSorteio.VARIANTE_PLAYBACK]) {
           sorteioPrefs.variante = v; renderSorteio(); await z(90);
-          alturas.push(folha()); topos.push(rodape());
+          topos.push(barra());
           rotulos.push({ fs, ...rotulo() });
         }
         // E A PALAVRA TEMA, que é o QUARTO motor: a conta troca de frase a cada
@@ -1275,31 +1286,50 @@ try {
         // dedo"*) — o reservado é que estava abaixo do medido.
         for (const t of ['', 'natal', 'zzzznadaaqui']) {
           sorteioPrefs.tema = t; renderSorteio(); await z(90);
-          alturas.push(folha()); topos.push(rodape());
+          topos.push(barra());
           rotulos.push({ fs, ...rotulo() });
         }
         sorteioPrefs.tema = '';
-        porEscala[fs] = { folha: +(Math.max(...alturas) - Math.min(...alturas)).toFixed(2),
-          rodape: +(Math.max(...topos) - Math.min(...topos)).toFixed(2) };
+        porEscala[fs] = { barra: +(Math.max(...topos) - Math.min(...topos)).toFixed(2) };
       }
       document.documentElement.style.fontSize = '';
-      // E a faixa de fecho tem UMA altura só.
-      const fecho = document.querySelector('#sorteioPopup .popup-fecho');
-      const bs = [...fecho.querySelectorAll('button')]
+      // E A FAIXA TEM UMA ALTURA SÓ — agora com CINCO peças e não quatro: a
+      // pílula da conta entrou à esquerda do primário (v1.8.84), e ela é medida
+      // junto porque a regra é da FAIXA e não dos botões dela. A varredura é
+      // por FILHO e não por `button`: a pílula é um `<span>` de propósito (ver
+      // `sorteioPilulaDaConta`), e procurar por `button` a deixaria de fora
+      // exatamente onde ela pode desalinhar.
+      const faixa = document.querySelector('#sorteioPopup .sorteio-barra');
+      const bs = [...faixa.children]
         .map((b) => +b.getBoundingClientRect().height.toFixed(1));
-      return { porEscala, alturasBotoes: bs, n: bs.length, rotulos };
+      // E NENHUMA PEÇA SAI DA FAIXA. Esta asserção existe por REVERSÃO: tirar o
+      // `flex-wrap: wrap` deixava as três outras VERDES, porque com o piso do
+      // primário no lugar o rótulo cabe — e o que ele empurra para fora da tela
+      // são os três QUADRADOS, que nenhuma delas olha. Um piso sem quebra troca
+      // um rótulo cortado por três destinos invisíveis.
+      const cx = faixa.getBoundingClientRect();
+      const fora = [...faixa.children]
+        .map((b, i) => ({ i, dir: +(b.getBoundingClientRect().right - cx.right).toFixed(1) }))
+        .filter((x) => x.dir > 0.5);
+      return { porEscala, alturasBotoes: bs, n: bs.length, rotulos, fora };
     });
     const piores = Object.values(r.porEscala);
-    checar(piores.every((p) => p.folha <= 1 && p.rodape <= 1),
-      'S · ' + w + 'px: a folha NÃO muda de tamanho entre os onze estados que o '
-      + 'operador alcança, nas TRÊS escalas de fonte — e o rodapé dela não se '
-      + 'move. Media 101 a 140px de deslocamento',
+    checar(piores.every((p) => p.barra <= 1),
+      'S · ' + w + 'px: NENHUM BOTÃO SE MOVE entre os onze estados que o operador '
+      + 'alcança, nas TRÊS escalas de fonte — a régua é a BARRA e não mais a '
+      + 'altura da folha (v1.8.84), porque foi para lá que os botões subiram; o '
+      + 'que cresce agora é a lista ABAIXO deles',
       JSON.stringify(r.porEscala));
-    checar(r.n === 4 && new Set(r.alturasBotoes).size === 1,
-      'S · ' + w + 'px: e os QUATRO botões da faixa de fecho têm a mesma altura — '
-      + 'o primário tinha CINCO alturas diferentes conforme a fonte e o rótulo, '
+    checar(r.n === 5 && new Set(r.alturasBotoes).size === 1,
+      'S · ' + w + 'px: e as CINCO peças da faixa têm a mesma altura — o primário '
+      + 'tinha CINCO alturas diferentes conforme a fonte e o rótulo, '
       + 'contra os 42,4px fixos dos quadrados',
       JSON.stringify(r.alturasBotoes));
+    checar(r.fora.length === 0,
+      'S · ' + w + 'px: e NENHUMA das cinco peças é empurrada para fora da faixa '
+      + '— é o outro lado do piso do primário (v1.8.84): sem a QUEBRA ele cabe '
+      + 'empurrando os três destinos para fora da tela, e as asserções de rótulo '
+      + 'ficam VERDES sobre uma barra sem destinos', JSON.stringify(r.fora));
     // ── O RÓTULO É UM SÓ, E CABE (v1.8.62) ────────────────────────────────
     //
     // Pedido do operador: *"ajuste o botão de 'sortear' e 'tocar' para que seja
@@ -1317,18 +1347,19 @@ try {
     // MESMO 320px que a v1.8.61 já declarava para "Sortear", um degrau de fonte
     // abaixo. Foi para 390 e 430 caberem nas três escalas que o recuo
     // horizontal do primário saiu (ver a regra da faixa com irmãos).
+    //
+    // E O LIMITE DE 320px DEIXOU DE EXISTIR NA v1.8.84, pelo caminho que a
+    // pílula abriu: cinco peças não cabem numa linha de 320px, então a faixa
+    // passou a QUEBRAR — e com os três quadrados na segunda linha sobra ao
+    // primário a largura que faltava. A asserção é a MESMA nas três larguras
+    // agora, e essa uniformidade é o achado: o `if (w >= 390)` que morava aqui
+    // era a forma de dizer "esta largura é um caso à parte", e ela não é mais.
     const cortadas = r.rotulos.filter((x) => x.corta);
-    if (w >= 390) {
-      checar(cortadas.length === 0,
-        'S · ' + w + 'px: e ele NÃO reticencia em nenhuma das ' + r.rotulos.length
-        + ' células, nas TRÊS escalas de fonte do sistema — media 11 a 1,5×',
-        JSON.stringify(cortadas.slice(0, 3)));
-    } else {
-      checar(cortadas.every((x) => x.fs > 16),
-        'S · ' + w + 'px: ele cabe inteiro com a fonte do sistema em 1× — acima '
-        + 'dela os três quadrados crescem com a raiz e o rótulo reticencia, que é '
-        + 'o limite DECLARADO desta largura', JSON.stringify(cortadas.map((x) => x.fs)));
-    }
+    checar(cortadas.length === 0,
+      'S · ' + w + 'px: e ele NÃO reticencia em nenhuma das ' + r.rotulos.length
+      + ' células, nas TRÊS escalas de fonte do sistema — nem a 320px, que era o '
+      + 'limite declarado da v1.8.62 e caiu com a QUEBRA da faixa (v1.8.84)',
+      JSON.stringify(cortadas.slice(0, 3)));
     await ctx.close();
   }
 

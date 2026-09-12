@@ -584,8 +584,15 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    pleno — **1,00:1**. A barra de push-to-talk, 56px de altura, o controle que
    se procura sem olhar no meio de uma frase, simplesmente não existia na tela.
    (No escuro o mesmo botão ficava a 12,62:1 da folha: claro demais, o outro
-   lado do mesmo erro.) */
-.tools-sheet {
+   lado do mesmo erro.)
+
+   A `.sorteio-barra` entrou na v1.8.84 pelo MESMO motivo, e o oráculo a pegou no
+   lote em que ela nasceu: ela é `sticky` sobre uma lista que rola por baixo,
+   então precisa de fundo OPACO e o fundo dela é o da folha — e ela hospeda
+   quatro controles (a pílula, o primário e os três destinos), que é o que a põe
+   nesta lista em vez de na exceção dos rótulos. */
+.tools-sheet,
+.sorteio-barra {
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
 }
@@ -5124,14 +5131,21 @@ main {
    capítulos ou versículos abaixo.) */
 /* linha de uma versão no popup. ELA É UMA LINHA DE LISTA, e a escolhida veste
    o que toda linha escolhida deste app veste — `--sel-fill`, opaco (v1.3.14).
-   Era só cor de TEXTO, o mesmo defeito do `#repeat`: aqui o `✓` do
-   `.bible-ver-check` acompanhava, então a cor não estava sozinha — mas duas
-   listas do mesmo app marcando a linha corrente de dois jeitos é a
-   inconsistência que esta passada existe para fechar. */
+   Era só cor de TEXTO, o mesmo defeito do `#repeat`; duas listas do mesmo app
+   marcando a linha corrente de dois jeitos é a inconsistência que aquela
+   passada existiu para fechar.
+
+   **E DESDE A v1.8.84 O FILL É A MARCA INTEIRA.** Havia um `✓` ao lado
+   (`.bible-ver-check`), e o operador o tirou: *"já temos a coloração azul da
+   linha como marcação, não precisamos do check disputando espaço com a
+   lixeira"*. O que ele ocupava volta para o NOME da versão, que é o campo de
+   largura imprevisível desta lista. O ✓ do "Completa offline" não é o mesmo
+   sinal e fica: aquele responde *"está no aparelho?"*, este respondia
+   *"é a escolhida?"* — e essa o fill já responde. */
 .bible-ver-row.selected { --linha: var(--sel-fill); color: var(--accent); }
 .bible-ver-row .row-name { font-weight: var(--fw-medio); }
-/* `inline-flex` porque o estado COMPLETA carrega um ✓ desenhado ao lado do
-   texto desde a v1.8.83 (era o caractere `✓` colado na string, e o caractere é
+/* `inline-flex` porque o estado COMPLETA carrega um ✓ DESENHADO ao lado do
+   texto desde a v1.8.83 (era o caractere `✓` colado na string, e um caractere é
    desenhado pela FONTE DO SISTEMA — outro traço, outro peso, outra inclinação
    que o ✓ do resto do app). Os outros três estados são só texto e não sentem a
    caixa. */
@@ -5141,15 +5155,13 @@ main {
 }
 .bible-ver-status svg { flex: none; }
 /* "✓ Completa offline" é DESFECHO de um download, e desde a v1.8.56 veste o
-   mesmo azul do resto (era `--ok`). Ele divide a linha com o `.bible-ver-check`
-   — o ✓ que marca a versão ESCOLHIDA, também `--accent` —, e os dois só
-   coexistem na linha selecionada, onde quem carrega a seleção é o FILL
-   (`--sel-fill`) e não a cor: ali a linha inteira já é accent por herança, e
-   o status era a única peça fora do tom. MEDIDO: 6,63 · 7,70 sobre o painel e
-   4,92 · 5,87 sobre `--sel-fill` (escuro · claro), acima do verde que saiu. */
+   mesmo azul do resto (era `--ok`). Na linha selecionada quem carrega a seleção
+   é o FILL (`--sel-fill`) e não a cor: ali a linha inteira já é accent por
+   herança, e o status era a única peça fora do tom. MEDIDO: 6,63 · 7,70 sobre o
+   painel e 4,92 · 5,87 sobre `--sel-fill` (escuro · claro), acima do verde que
+   saiu. (A `.bible-ver-check` que dividia a linha com ele saiu na v1.8.84 —
+   ver a regra da `.bible-ver-row.selected`.) */
 .bible-ver-status.done { color: var(--accent); }
-.bible-ver-check { color: var(--accent); flex-shrink: 0; display: inline-flex; align-items: center; }
-.bible-ver-check svg { width: var(--icon-sm); height: var(--icon-sm); }
 /* ---------- EXCLUIR O TEXTO BAIXADO DE UMA VERSÃO (v1.8.83) ----------
    Pedido do operador: *"faça uma opção para excluir uma determinada versão que
    já esteja baixada"*.
@@ -8901,82 +8913,138 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .sorteio-linha { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .55rem; padding: .15rem .1rem; }
 .sorteio-rotulo { font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted); flex-shrink: 0; }
 .sorteio-linha .misc-opts { margin-left: auto; }
-/* A CONTA, e ela é o miolo do recurso: o botão dispara sem mais nenhuma tela,
-   então ela é a ÚNICA chance de o operador ver o que vai acontecer antes de
-   acontecer.
+/* ===== A BARRA DE AÇÃO FICA GRUDADA NO TOPO DA LISTA (v1.8.84) =====
+   Pedido do operador: *"mova a barra de opções de play para cima dessa sessão de
+   resultados"*. Ela morava no `.popup-fecho` (o rodapé que não rola); com a
+   lista de resultados abaixo dela, o fecho a poria DEPOIS dos resultados.
 
-   DUAS LINHAS COM HIERARQUIA (v5.306), e não uma frase com separadores. Ela
-   responde a duas perguntas de pesos diferentes — *o tema achou o quê?* e
-   *quanto disso toca agora?* —, e numa linha só as duas disputavam o mesmo
-   peso. A primeira é a que se lê de relance; a segunda é o custo.
+   `sticky` e não estática: o fecho dava de graça a propriedade de estar sempre
+   à vista, e uma barra solta acima de uma lista de mil linhas a perderia na
+   primeira rolagem. Ela é o primário desta folha — perder de vista o "Tocar
+   agora" é perder o recurso.
 
-   `min-height` reservado para DUAS linhas: a frase troca a cada tecla digitada,
-   e sem altura fixa os botões de fecho subiriam e desceriam embaixo do dedo. */
-.sorteio-conta {
-  /* ===== ELA É UM CARTÃO, E O TAMANHO DELE NÃO MUDA (v1.8.83) =====
-     Relato do operador: *"Seu design está sendo muito variado e pouco modular,
-     resultando novamente no problema de movimentação da janela por questão de
-     mais ou menos textos ou linhas na janela… Algo como um simples card, com
-     texto centralizado, avisando sobre os resultados. O card sempre terá o
-     mesmo tamanho, mantendo a janela estável."*
+   O FUNDO É OPACO, e é o `--panel` que a própria folha pinta: a lista passa POR
+   BAIXO dela, e tinta com alfa sobre uma lista que rola muda de cor a cada
+   quadro (a medição da v1.8.61: 1343 de 3192 amostras). Pintar `--panel` cobra
+   AFUNDAR a superfície dos filhos — ver a lista do `.tools-sheet` lá em cima,
+   onde ela está.
 
-     O `min-height: 6em` da v1.8.61 reservava QUATRO linhas, e o pior caso são
-     CINCO. MEDIDO nas 99 células (3 larguras × 3 escalas × 11 estados que o
-     operador alcança tocando nas pílulas e digitando): a caixa ia de 78,7 a
-     143,7px, e a FOLHA se mexia 25,6px a 360×1,5. A 320×1,5 ela NÃO se mexia, e
-     isso era pior em vez de melhor — ali a folha já batia no teto de 80vh e o
-     crescimento virava rolagem, que é o mesmo defeito escondido atrás de um
-     gesto.
+   `z-index: 4` fica ABAIXO da tira de sombra da `.rola` (que é 5): a sombra
+   marca a fronteira do scroller, e é ela que diz que há conteúdo escondido. */
+.sorteio-barra {
+  position: sticky; top: 0; z-index: 4;
+  background: var(--panel);
+  padding-block: var(--sp-2);
+  /* ===== CINCO PEÇAS NÃO CABEM NUMA LINHA DE 320px (v1.8.84) =====
+     A pílula custa 68,5px a 1× e 90,8 a 1,5×, e ela entrou numa faixa que já
+     era apertada: o limite DECLARADO pela v1.8.62 era *"a 320px com a fonte do
+     sistema acima de 1× o rótulo reticencia"*. Sem `wrap`, o primário é o único
+     que encolhe (`flex: 1; min-width: 0`) e MEDIDO ele ia a **6,1px** a 320×1,5
+     — não é um rótulo cortado, é um botão que sumiu.
 
-     `height` E NÃO `min-height`, e a troca é o pedido: um piso responde *"não
-     encolhe"*, e a pergunta é *"não muda"*. 7,4em é o pior caso MEDIDO em `em`
-     porque ele acompanha a fonte do sistema — 97,1px a 1×, 121,3 a 1,25 e 145,6
-     a 1,5. O PREÇO ESTÁ ACEITO E É 40px a 1× no caso comum de duas linhas: num
-     cartão, espaço em volta do texto é o que ele é, e a alternativa é a faixa
-     de fecho andando debaixo do dedo.
+     `wrap` sozinho não faz nada, e isso está MEDIDO: um item que pode encolher
+     até zero nunca força a quebra. Quem a força é o PISO do primário, e é ele
+     que escolhe QUEM cede — os três quadrados descem para a segunda linha, que
+     é a ordem certa: eles são destinos, e o "Tocar agora" é o botão do culto.
 
-     `overflow: hidden` é o ÚLTIMO recurso, não o mecanismo: quem mantém o texto
-     dentro do cartão é o `line-clamp` das duas frases mais o clampe da palavra
-     tema (`temaNaFrase`), que era a única entrada sem limite aqui. Sem ele, uma
-     frase nova mais longa volta a empurrar a folha; com ele, ela é cortada — um
-     desfecho ruim que fica DENTRO do cartão em vez de mover a tela inteira. */
-  height: 7.4em;
-  /* O TOM VEM DO PAI, nunca escrito aqui: a `.popup-sheet` declara
-     `--camada: var(--panel-2)`, e é essa a regra da escada de camadas. */
-  background: var(--camada);
-  border-radius: var(--radius-card);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: var(--sp-1);
-  padding: var(--sp-2) var(--sp-3);
-  overflow: hidden;
-  font-size: var(--fs-md); line-height: 1.35; color: var(--muted);
-  /* CENTRADO, que é a metade visual do pedido. `text-align` e não só o
-     `align-items` acima: aquele centra as CAIXAS das duas frases, este centra as
-     linhas DENTRO de cada uma — e é a segunda linha de uma frase quebrada que
-     revelava a diferença. */
-  text-align: center;
+     A QUEBRA NÃO MOVE NADA que o operador esteja mirando: ela depende da tela e
+     da fonte do sistema, nunca do que ele acabou de tocar (as cinco peças têm
+     largura fixa e o rótulo é um só). MEDIDO, deslocamento ZERO da barra nas 33
+     células — ver o bloco S do `sombra-de-rolagem.test.mjs`. */
+  flex-wrap: wrap;
 }
-/* O CLAMPE DAS DUAS FRASES. Três linhas para a forte, duas para a fraca: é o
-   pior caso MEDIDO com a palavra tema já clampada, e o que sobra de margem é o
-   que impede uma frase futura de empurrar a folha sem ninguém notar. */
-.sorteio-conta-forte, .sorteio-conta-fraca {
-  display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden;
+/* O PISO DO PRIMÁRIO em `em`, que acompanha a fonte do sistema como o rótulo
+   que ele precisa caber — nunca `max-content`, que MEDIDO não segura nada aqui
+   (o `overflow: hidden` do rótulo zera o tamanho mínimo automático do item, e a
+   caixa do botão volta a poder encolher a zero).
+
+   O NÚMERO É MEDIDO, nas nove células (3 larguras × 3 escalas da fonte do
+   sistema): **11em é o primeiro degrau com ZERO reticências nas nove**, e com
+   ele o limite que a v1.8.62 declarava — *"a 320px acima de 1× o rótulo ainda
+   reticencia"* — deixa de existir. 9em ainda cortava em duas células, 10em numa,
+   e 12em só acrescenta quebras (390px passa a quebrar a 1×) sem ganhar nenhuma
+   célula. */
+.sorteio-barra > .song-menu-go { min-width: 11em; }
+/* ===== A PÍLULA DA CONTA (v1.8.84) =====
+   *"um botão a esquerda do botão de tocar agora… um icone adequado e o número de
+   resultados… um tamanho fixo independente do número interno"*.
+
+   **NÃO É UM `<button>`**, e a diferença é a regra da v1.8.50: um botão aceso
+   que não faz nada é indistinguível de um quebrado. Ela veste a caixa e o tom
+   dos vizinhos porque é PEÇA da barra, e não porque seja tocável.
+
+   O TAMANHO FIXO sai de `min-width` em `ch` mais `tabular-nums`: o acervo passa
+   de mil (os dois hinários somam ~1.100), e sem eles o "Tocar agora" andaria a
+   cada tecla digitada no campo do tema. 4ch cobre quatro dígitos; o `--quad-faixa`
+   de altura é o mesmo dos três destinos, que é o que faz a faixa ter UMA altura
+   (a regra da v1.8.61). */
+.sorteio-pilula {
+  flex: 0 0 auto; align-self: center;
+  height: var(--quad-faixa);
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  /* O RECUO É O MENOR DA ESCALA, e não o `--sp-2` dos botões: cada pixel aqui
+     sai da largura do rótulo do primário, que é o vizinho — e a pílula não é
+     um alvo de toque, então não deve nada ao piso de 34px que justifica o
+     recuo dos outros. */
+  padding: 0 var(--sp-1);
+  border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--accent);
+  font-size: var(--fs-md); font-weight: var(--fw-forte);
 }
-.sorteio-conta-forte { color: var(--text); font-weight: var(--fw-medio); -webkit-line-clamp: 3; }
-.sorteio-conta-fraca { color: var(--muted); -webkit-line-clamp: 2; }
-/* (A `.sorteio-nota` saiu na v1.8.62 com a frase que ela vestia — ver o
-   `renderSorteio`. Ela existia desde a v5.311 e nada mais a usa.) */
-/* VAZIA ELA GANHA ÊNFASE, NÃO ALARME. `--danger-strong` estava errado pela
-   gramática de cor do próprio app: vermelho é "está no ar agora" (saturado) ou
-   "ação destrutiva" (suave), e nenhuma das duas é o caso — "nada casa a palavra
-   tema" é um desfecho normal de quem acabou de digitar uma palavra, e "nenhuma
-   coleção com índice" é um aparelho recém-configurado. Quem já diz que nada vai
-   acontecer é o confirmar desabilitado logo abaixo; esta linha diz POR QUÊ, e
-   para isso lhe basta sair do `--muted` do estado normal. */
-/* Vazia ela é UMA linha só (não há custo a declarar), e o `.sorteio-conta-forte`
-   dela já carrega a ênfase — a regra abaixo existe para o caso de a frase do
-   motivo passar a ter uma segunda metade um dia. */
-.sorteio-conta.vazio .sorteio-conta-forte { font-weight: var(--fw-medio); }
+.sorteio-pilula .msym { font-size: var(--icon-sm); }
+.sorteio-pilula-num { min-width: 4ch; text-align: center; font-variant-numeric: tabular-nums; }
+/* Vazia ela sai do accent: um número em destaque dizendo ZERO é o mesmo defeito
+   do botão aceso que não faz nada. */
+.sorteio-pilula.vazio { color: var(--muted); }
+/* ===== O RECIBO DO LOTE (v1.8.84) =====
+   A única frase do cartão antigo que não repetia a tela. **Sempre desenhada**,
+   vazia quando não há fala: uma linha que aparece e some é um motor de pulo da
+   folha (v1.8.61), e o espaço que ela reserva se paga duas vezes — calada, é o
+   respiro entre a barra e a lista. */
+.sorteio-fala {
+  min-height: 1.35em; line-height: 1.35;
+  font-size: var(--fs-xs); color: var(--accent); text-align: center;
+  padding: 0 var(--sp-2);
+}
+/* ===== A LISTA DOS RESULTADOS (v1.8.84) =====
+   *"agora ele será a lista dos resultados, listando cada música disponível
+   naquele resultado, assim como é a lista de resultados na busca da
+   biblioteca."*
+
+   A LINHA É A DA FOLHA DE DESTINOS (`.song-menu-btn.song-menu-sel` mais a
+   `.song-menu-check`), e não um desenho novo: é a mesma gramática de "lista com
+   caixa de marcação" que a v5.252 fechou. O que este bloco acrescenta são as
+   DUAS peças que aquela folha não tem — a posição no lote e o preenchimento de
+   quem vai tocar.
+
+   ELA NÃO ROLA POR CONTA PRÓPRIA. Um scroller dentro de outro é o gesto que não
+   se sabe para quem vai; quem rola é a folha, e a barra acima fica grudada. */
+.sorteio-res { padding: 0; }
+.sorteio-res-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+/* ===== O QUE VAI TOCAR: PREENCHIMENTO MAIS POSIÇÃO =====
+   `--sel-fill` é o SELECIONADO numa lista, que é exatamente o que estas linhas
+   são. E a POSIÇÃO ao lado é o que o preenchimento sozinho não diz: com "Quantas
+   = 10", dez linhas cheias não contam em que ordem elas tocam. */
+.sorteio-res-btn.vai { background: var(--sel-fill); }
+.sorteio-res-pos {
+  flex: none; width: 2.2ch; text-align: right;
+  font-size: var(--fs-sm); font-weight: var(--fw-forte);
+  font-variant-numeric: tabular-nums; color: var(--accent);
+}
+/* A LINHA FORA DO SORTEIO fica APAGADA — é a linguagem de "indisponível" do app
+   (`--op-inativo`), e aqui ela é literal: aquela música não entra no lote. O
+   toque continua chegando (ela é a única forma de devolvê-la), então nada de
+   `disabled`: o que se apaga é a tinta. */
+.sorteio-res-btn:not(:has(.song-menu-check.on)) .song-menu-text { opacity: var(--op-inativo); }
+/* VAZIA, a lista DIZ O MOTIVO — cinco causas que pedem ações opostas
+   (`fraseDoVazioSorteio`). É a única frase do cartão antigo que sobreviveu, e é
+   a que nunca repetia o que a tela já mostrava. */
+.sorteio-res-vazio {
+  padding: var(--sp-4) var(--sp-3);
+  text-align: center; line-height: 1.35;
+  font-size: var(--fs-md); color: var(--text);
+  background: var(--camada); border-radius: var(--radius-card);
+}
 /* ---------- A FAIXA DE FECHO DO SORTEIO: UM PRIMÁRIO E TRÊS ÍCONES (v1.8.56)
    Ela teve DOIS botões de rótulo da v5.306 até aqui ("Tocar agora" e "Ao
    Cronograma", os dois crescendo). Com os três destinos do app na faixa, rótulo
@@ -9071,14 +9139,25 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    declarava para o par curto ("Sortear" reticenciava a 320×1,5), um degrau de
    fonte abaixo. Perseguir o 1,2px seria medir o runner: as métricas de fonte do
    WebView do aparelho não são as do Chromium do CI. */
-.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go {
+/* E A `.sorteio-barra` ENTRA NO MESMO ESCOPO (v1.8.84), porque a faixa dela
+   SAIU do `.popup-fecho`: ela subiu para cima da lista de resultados, e o
+   prefixo que a alcançava foi embora junto. MEDIDO na entrada do lote, a 320,
+   390 e 430px: 53,2px do primário contra 42,4 dos quatro irmãos — a v1.8.61
+   inteira de volta, e por um caminho que nenhuma daquelas asserções cobria
+   (elas leem o `.popup-fecho`). **É `.sorteio-barra` e não uma classe nova
+   porque a pergunta continua sendo a MESMA — *"há irmão nesta faixa?"* —, e o
+   `:has()` que a faz continua idêntico; o que mudou foi o ancestral.** */
+.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go,
+.sorteio-barra:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go {
   height: var(--quad-faixa);
   padding: 0;
 }
-.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-text {
+.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-text,
+.sorteio-barra:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-text {
   min-height: 0;
 }
-.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-label {
+.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-label,
+.sorteio-barra:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-label {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
