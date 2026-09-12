@@ -48,6 +48,17 @@
 // sem isso, marcar a linha 300 devolvia a lista ao topo e tirava da tela
 // justamente a linha que o dedo acabou de tocar.
 //
+// **H · O FILTRO CORTA; ELE NÃO SORTEIA DE NOVO** (v1.8.86) — *"eles apenas vão
+// cortando as opções do 'fim da lista'"*. Até a v1.8.85 uma pílula de filtro
+// reembaralhava tudo: o operador lia cinco nomes, tirava o hinário da conta e
+// recebia cinco OUTROS, como se o filtro tivesse rejeitado o que ele estava
+// considerando. **A medida é a SUBSEQUÊNCIA** — quem sobrevive aparece na mesma
+// ordem relativa —, e não a igualdade das listas: elas têm tamanhos diferentes
+// de propósito, que é o que o filtro faz. Mais duas metades que a primeira não
+// alcança: a marca MANUAL sobrevive ao corte (semear de novo a devolveria ao
+// topo, desfazendo na mão do operador o que ele acabou de fazer) e quem VOLTA
+// ao afrouxar o filtro entra no FIM, nunca no topo que ele ainda não leu.
+//
 // **G · A PÍLULA DA CONTA É SÓ O NÚMERO** — o ícone saiu, e com ele 27px que o
 // rótulo do primário não tinha.
 //
@@ -59,14 +70,22 @@
 //   o `acertarPilulasDeQuantidade` fora do toque       → 1  (B, o seletor)
 //   sem o piso de uma marcada no `sorteioAlternar`     → 1  (B, o piso)
 //   sem o `sorteioConsumir`                            → 2  (C)
-//   a impressão do pool sempre diferente               → 7  (B, C, D) — **A passa**
+//   o baralho refeito a cada passada                   → 13 (A, B, C, D, H)
+//   `sorteioSemear` no lugar do `sorteioAjustarLote`    → 2  (B e H, a marca manual)
+//   sem a memória do que já saiu (`sorteioUsadas`)      → 2  (C)
+//   quem volta ao afrouxar o filtro entra no TOPO       → 1  (H, o fim da lista)
 //   `.sorteio-res` sem o pai no seletor (0,1,0)        → 2  (F)
 //   sem guardar o `scrollTop` no caminho leve          → 1  (F, a rolagem)
 //   o ícone de volta na pílula                         → 1  (G)
 //
-// A LINHA DA IMPRESSÃO É A QUE PROVA O RESTO. Com o baralho refeito a cada
-// passada, o bloco A continua verde INTEIRO: ele mede o DESENHO de uma passada,
-// e uma passada sozinha nunca acusa a persistência.
+// A LINHA DO BARALHO REFEITO MUDOU DE MAGNITUDE NA v1.8.86, e a mudança é o
+// próprio lote: até a v1.8.85 ela derrubava 7 e **o bloco A passava inteiro** —
+// A mede o desenho de UMA passada, e uma passada sozinha nunca acusava a
+// persistência. Hoje ela derruba 13, A incluído, porque com o baralho MANTIDO a
+// primeira passada e a segunda deixaram de ser a mesma pergunta: refazê-lo
+// desfaz a semeadura que o `abrir()` acabou de pedir. **A assimetria não sumiu,
+// mudou de dono** — quem a carrega agora é a reversão do `sorteioAjustarLote`,
+// que derruba B e H e deixa A e C verdes.
 //
 // E AS DUAS ÚLTIMAS SÃO O PAR QUE F PRECISA: a especificidade derruba as duas
 // asserções (sem a caixa certa não há rolagem que sobreviver a nada), e o
@@ -279,12 +298,10 @@ try {
   // =======================================================================
   // C · O LOTE USADO SAI DA LISTA, E OS DE BAIXO SOBEM
   // =======================================================================
-  // O FILTRO ENTRA ANTES DA LEITURA, e isto é o oráculo respeitando o mecanismo
-  // que ele veio medir: o baralho é reembaralhado quando o POOL muda (é a
-  // impressão que o guarda), então mexer num filtro entre ler a lista e usá-la
-  // mede um sorteio novo em vez da consumação. Medir a consumação exige o pool
-  // parado dos dois lados da ação — que é também o que o operador faz: ele
-  // escolhe, lê, e só então toca.
+  // (A ARMADILHA QUE MORAVA AQUI SAIU NA v1.8.86, com o mecanismo que a criava:
+  // até a v1.8.85 mexer num filtro entre ler a lista e usá-la REEMBARALHAVA, e
+  // o bloco media um sorteio novo em vez da consumação. Hoje o filtro só corta,
+  // e a ordem dos dois lados da ação é a mesma por construção.)
   await pg.evaluate(async () => {
     await abrirSorteio();
     sorteioPrefs.soNoAparelho = true;   // sem rede neste arnês
@@ -439,6 +456,66 @@ try {
   checar(/músicas?/.test(pilula.titulo) && /baixad/.test(pilula.titulo),
     'G · e a frase inteira fica no `title`/`aria-label` — o número sozinho não '
     + 'diz de que ele é, e é ele que um leitor de tela anuncia', pilula.titulo);
+
+  // =======================================================================
+  // H · O FILTRO CORTA; ELE NÃO SORTEIA DE NOVO
+  // =======================================================================
+  //
+  // *"Ajuste a atualização da lista e opções, para que não re-sorteie a lista em
+  // qualquer interação com os filtros, eles apenas vão cortando as opções do
+  // 'fim da lista'."*
+  //
+  // O CENÁRIO É REARMADO do zero (o percurso acima consumiu o baralho e mexeu
+  // no acervo), e o filtro escolhido é o "Só no aparelho" porque ele é o único
+  // cujo corte é conhecido pela fixture: as `Extra` plantadas no bloco F não
+  // têm arquivo, então ele leva embora um pedaço grande e previsível.
+  await pg.evaluate(async () => {
+    sorteioPrefs.soNoAparelho = false;
+    fecharSorteio();
+    await new Promise((r) => setTimeout(r, 120));
+    await abrirSorteio();
+  });
+  await abrir(3);
+  const h0 = await ler();
+  // UMA MARCA LÁ DE BAIXO, em algo que o filtro NÃO vai levar: é ela que prova
+  // que o corte preserva a escolha manual em vez de semear o topo de novo.
+  const sobrevivente = h0.find((l, i) => i > 3 && /no aparelho/.test(l.sub));
+  await tocar(sobrevivente.nome);
+  await pg.waitForTimeout(150);
+  const h1 = await ler();
+  await pg.evaluate(() => {
+    [...document.querySelectorAll('#sorteioList .misc-chip')]
+      .find((b) => b.textContent === 'Só no aparelho').click();
+  });
+  await pg.waitForTimeout(300);
+  const h2 = await ler();
+  const subsequencia = (todo, parte) => {
+    const nomes = new Set(parte.map((l) => l.nome));
+    return todo.filter((l) => nomes.has(l.nome)).map((l) => l.nome).join(',')
+      === parte.map((l) => l.nome).join(',');
+  };
+  checar(h2.length > 0 && h2.length < h1.length && subsequencia(h1, h2),
+    'H · o filtro CORTA e não reembaralha — quem sobrevive aparece na MESMA '
+    + 'ordem relativa. A medida é a subsequência e não a igualdade: as duas '
+    + 'listas têm tamanhos diferentes de propósito, que é o que o filtro faz',
+    { antes: h1.length, depois: h2.length, ordem: h2.map((l) => l.nome) });
+  checar(h2.some((l) => l.nome === sobrevivente.nome && l.marcada),
+    'H · e a marca MANUAL sobrevive ao corte — semear o lote de novo a devolveria '
+    + 'ao topo, desfazendo na mão do operador o que ele acabou de fazer por um '
+    + 'toque que não tinha nada com aquilo',
+    { marcada: sobrevivente.nome, agora: h2.filter((l) => l.marcada).map((l) => l.nome) });
+  // E QUEM VOLTA ENTRA NO FIM.
+  await pg.evaluate(() => {
+    [...document.querySelectorAll('#sorteioList .misc-chip')]
+      .find((b) => b.textContent === 'Só no aparelho').click();
+  });
+  await pg.waitForTimeout(300);
+  const h3 = await ler();
+  checar(h3.length > h2.length
+    && h3.slice(0, h2.length).map((l) => l.nome).join(',') === h2.map((l) => l.nome).join(','),
+    'H · e afrouxar o filtro devolve as cortadas no FIM, nunca no topo — o que o '
+    + 'operador está lendo não se mexe por causa de quem voltou',
+    { antes: h2.map((l) => l.nome), depois: h3.map((l) => l.nome) });
 
   checar(erros.length === 0, 'nenhum erro de console', erros);
 } catch (e) {

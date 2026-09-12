@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.8.86",
+    "itens": [
+      "Playlist automática: mexer num filtro não sorteia de novo — ele só corta da lista o que deixou de servir.",
+      "Playlist automática: a ordem que você está lendo fica parada, e o que volta ao afrouxar um filtro entra no fim.",
+      "Playlist automática: uma música marcada na mão continua marcada depois de mexer nos filtros.",
+      "Playlist automática: o sorteio novo acontece ao abrir a janela; usar o lote só tira ele da lista."
+    ]
+  },
+  {
     "versao": "1.8.85",
     "itens": [
       "Playlist automática: só as músicas que vão tocar ficam marcadas; o resto continua na lista, desmarcado.",

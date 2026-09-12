@@ -7450,6 +7450,43 @@ de destinos, a seleção múltipla).
   scroller da folha, e um redesenho a devolveria ao TOPO a cada marca. Numa
   lista de mil linhas, um toque na linha 300 tirava a linha 300 da tela.
 
+#### O BARALHO É MANTIDO, NÃO REFEITO (v1.8.86)
+
+*"Ajuste a atualização da lista e opções, para que não re-sorteie a lista em
+qualquer interação com os filtros, eles apenas vão cortando as opções do 'fim da
+lista'. O sorteio só acontece após realmente 'usar' os itens do topo, no caso,
+apenas após tocar ou salvar em algum lugar como cronograma, favoritos ou etc."*
+
+Cada passada faz DUAS operações sobre o baralho, nesta ordem:
+
+1. **quem saiu do pool sai do baralho** — e a ordem do que fica não muda, que é
+   o *"apenas vão cortando as opções"* do pedido;
+2. **quem entrou vai para o FIM**, embaralhado entre si. Afrouxar um filtro não
+   pode empurrar para o topo o que o operador ainda não leu.
+
+- **O EMBARALHAMENTO INICIAL É ESTE MESMO CAMINHO.** Na primeira passada o
+  baralho está vazio, todo o pool é "quem entrou", e a lista inteira sai
+  embaralhada. Não há dois caminhos, e é por isso que nenhum deles envelhece
+  sozinho: quem zera o baralho (`abrirSorteio`) pede um sorteio novo por
+  construção.
+- **A `sorteioImpressao` SAIU JUNTO.** Ela existia para responder *"o pool
+  mudou?"*, e a resposta deixou de decidir alguma coisa. O custo dela era o que
+  a justificava (uma string por tecla em vez de 1.100 chaves); hoje a manutenção
+  é feita sobre o `Set` que a passada já monta.
+- **E ELA COBROU UMA PEÇA NOVA: `sorteioUsadas`.** Guardar uma música não a tira
+  do acervo, então na passada seguinte a manutenção a leria como quem acabou de
+  entrar no pool — **o lote reaparecendo no fim da lista depois de ter sido
+  usado**, que é o oposto do pedido. A memória do que já saiu vale para a
+  abertura, e `abrirSorteio` a zera com o resto.
+- **O LOTE É AJUSTADO, nunca semeado de novo** (`sorteioAjustarLote`): mantém as
+  marcas que sobreviveram ao corte e completa pelo topo até o alvo. Semear
+  devolveria ao topo uma marca que o operador acabou de fazer na linha 9, por um
+  toque de filtro que não tinha nada com aquilo. O alvo é lido ANTES da poda —
+  um filtro que leve embora uma marcada não pode encolher em silêncio o número
+  que ele escolheu.
+- **`sorteioSemear` continua existindo** para quem de fato pede um lote novo: a
+  pílula de quantidade e o consumo.
+
 #### SÓ A LISTA ROLA (v1.8.85)
 
 *"Sobre o scroll, mantenha as opções dos filtros sempre visíveis e deixe apenas
@@ -7542,15 +7579,13 @@ operador acabou de ler.
 - **Ele guarda CHAVES, nunca os itens** (`chaveDaFaixa`: coleção + id da música).
   Os objetos são novos a cada passada; guardá-los seria guardar uma lista que não
   casa com a próxima.
-- **Refeito só quando o POOL muda**, e a régua é a `sorteioImpressao` — os
-  filtros saneados mais o tamanho do pool mais quantas estão no aparelho. Mexer
-  num filtro é pedir outro sorteio; digitar uma letra que não muda o resultado,
-  não.
-- **E O BARALHO NOVO CHEGA COM O LOTE SEMEADO**, do tamanho do lote ANTERIOR e
-  nunca de `f.quantos`: é o que faz uma marca manual sobreviver a um filtro —
-  marcadas quatro e ligado "Só no aparelho", o pool é outro e as chaves antigas
-  não existem, mas o QUATRO é a escolha viva do operador. Vazio (a primeira
-  abertura), quem responde é a pílula guardada.
+- **O FILTRO CORTA; ELE NÃO SORTEIA DE NOVO** (v1.8.86), e isto REVOGA a
+  v1.8.84, cujo argumento era o oposto (*"mexer num filtro é pedir outro
+  sorteio"*). Não é: mexer num filtro é dizer o que NÃO serve, e o que sobrou
+  continua servindo na mesma ordem. O preço da versão anterior é o que o
+  operador leu na tela — ele lê cinco nomes, tira o hinário da conta e recebe
+  cinco OUTROS, como se o filtro tivesse rejeitado o que ele estava
+  considerando. Ver a seção abaixo.
 - **O "Tocar agora" toca o que está na TELA.** Era `AVSorteio.sortear` no toque,
   isto é, um sorteio NOVO: o operador lia cinco nomes e ouvia outros cinco. O
   lote sai de `sorteioEscolhidos(sorteioLista(…))`, que é a mesma função que
