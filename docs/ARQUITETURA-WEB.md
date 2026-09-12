@@ -215,6 +215,12 @@ app/src/main/assets/web/
 │   │                           # oráculo em Node: qual coletânea não tem
 │   │                           # independência e se DISSOLVE em outra. Aplicada
 │   │                           # no DESENHO: o catálogo do banco continua cru
+│   ├── online.js               # A COLETÂNEA DE VÍDEOS DO LOUVORJA — PURA, com
+│   │                           # oráculo em Node: o payload de
+│   │                           # `/{lang}/collections/online` (canal → playlist
+│   │                           # → vídeo) virando coletânea → álbum → faixa. A
+│   │                           # PLAYLIST prova o pertencimento; o título é só
+│   │                           # rótulo. Quem busca é `louvorja.js`
 │   ├── pptxzip.js              # O ZIP de um `.pptx` lido por FATIAS — PURO, com
 │   │                           # oráculo em Node: lê o índice por `Blob.slice()`
 │   │                           # (sem materializar o arquivo), separa os VÍDEOS

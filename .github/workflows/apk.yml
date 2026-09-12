@@ -270,6 +270,7 @@ jobs:
           node tools/sorteio.test.mjs
           node tools/hinario.test.mjs
           node tools/coletanea.test.mjs
+          node tools/online.test.mjs
           node tools/pptxzip.test.mjs
           node tools/pacote.test.mjs
           node tools/glifos.test.mjs
@@ -621,6 +622,7 @@ jobs:
           rodar tools/plataforma.test.mjs
           rodar tools/site-grade-e-carrossel.test.mjs
           rodar tools/lista-da-biblioteca.test.mjs
+          rodar tools/online-na-biblioteca.test.mjs
           rodar tools/geometria.test.mjs
           rodar tools/deslize-nao-vaza.test.mjs
           # SEGUNDA vez que um lote entrega um oráculo e não o registra (a

@@ -16,6 +16,7 @@
 | [Os acordeões](#os-acordeões-abrem-animados) | card do álbum, letra, opções da coleção, completude |
 | [O download vira estado da tela](#o-download-vira-estado-da-tela) | espera na preview, anel na linha, letra sincronizada |
 | [Séries do YouTube](#séries-do-youtube--coleções-que-não-vêm-do-louvorja-v5228) | Provai e Vede, Informativo |
+| [A coletânea de vídeos do LouvorJA](#a-coletânea-de-vídeos-do-louvorja-v1897) | a curadoria de vídeos do banco, como uma coletânea |
 | [Playlist automática](#playlist-automática-o-sorteio-temático-v5303) | sortear por tema: uma só ou uma fila |
 | [Buscar no YouTube](#pesquisar-texto-no-youtube-no-fim-da-busca) | busca e download (a transmissão direta saiu na v1.7.7) |
 | [Favoritos](#favoritos-uma-lista-só-marcados--pastas-do-aparelho) | lista única, pastas do aparelho |
@@ -8822,13 +8823,13 @@ sábado é visto uma vez. Então:
 
 | O que | Onde | Como |
 |---|---|---|
-| toque no item | `openSongMenu` → `openYtMenu(serieComoYoutube(coll, s))` | a folha do YouTube, com `semSoAudio: true` (o seletor Vídeo × Só áudio some) |
+| toque no item | `openSongMenu` → `openYtMenu(videoComoYoutube(coll, s))` | a folha do YouTube, com `semSoAudio: true` (o seletor Vídeo × Só áudio some) |
 | "Tocar agora" | `ytAcao(…, ['tocar'])` | **BAIXA e projeta** — `ytArquivo`, no teto padrão do operador (720p). Era TRANSMISSÃO DIRETA até a v1.7.2 |
 | Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
 | guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
 | card | `renderCollectionCard` | **card da RAIZ** do índice (v1.0.1), acima dos hinários. **UM botão só** (v1.1.21): "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), puro e sem texto, na direita da barra — sem baixar em lote e sem lixeira, porque o álbum não retém arquivo. A barra diz quantos EPISÓDIOS a lista tem, não peso, e o do sábado desta semana fica DESTACADO no topo (`blocoDestaque`). A série sai de "Baixar toda a biblioteca" |
 
-`downloadSerieItem` e o laço de `syncCollection` continuam existindo e corretos
+`downloadItemDeVideo` e o laço de `syncCollection` continuam existindo e corretos
 — o que mudou é que nenhum toque de UI os alcança hoje. O que muda em relação a
 uma coleção do LouvorJA é **de onde vem o índice e de onde vêm os bytes**.
 
@@ -8838,7 +8839,7 @@ uma coleção do LouvorJA é **de onde vem o índice e de onde vêm os bytes**.
 | descoberta | `AVNative.ytCanalPlaylists(canal)` | a **aba Playlists** do canal — `[{name,url,count}]` |
 | expansão | `AVNative.ytPlaylist(url)` | os vídeos de uma playlist, com o título **CRU** |
 | índice | `fetchSerieIndex` (controle.js) | monta `collState[id].songs` com `{ id_music, name, ytUrl, duration }` |
-| download | `downloadSerieItem` (controle.js) | `ytFetch` → OPFS → `fileAdd` com `folder: coll.id`, `kind: 'video'` |
+| download | `downloadItemDeVideo` (controle.js) | `ytFetch` → OPFS → `fileAdd` com `folder: coll.id`, `kind: 'video'` |
 
 **Três pontos de integração que não são óbvios:**
 
@@ -8882,7 +8883,7 @@ mostra; e as duas metades (aba do canal × varredura dos vídeos) trazem datas
 próprias, porque a assinatura pula a extração e só uma delas é de agora.
 
 **O preço da antecedência tem remédio** (v5.256): entre o domingo que abre a
-semana e o sábado do episódio, o vídeo pode ainda não estar público. `serieComoYoutube` anexa `avisoSeFalhar` (e o card da
+semana e o sábado do episódio, o vídeo pode ainda não estar público. `videoComoYoutube` anexa `avisoSeFalhar` (e o card da
 série como endereço) enquanto `AVSerie.diasAte(...) > 0`, e o caminho de falha do
 `ytAcao` a usa no lugar de "não foi possível baixar" — em dois lugares, porque
 "Tocar agora" fecha a Biblioteca e os destinos que guardam não.
@@ -8942,5 +8943,73 @@ O resto — as seis armadilhas de nomenclatura, por que a descoberta é a aba do
 canal e não uma busca, e a regra de ouro ("a playlist prova o pertencimento, o
 título é só rótulo") — está no topo do `serie.js` e na seção "Séries do YouTube"
 do `CLAUDE.md`.
+
+### A coletânea de vídeos do LouvorJA (v1.8.97)
+
+O LouvorJA mantém, ao lado do acervo de ÁUDIO que este app consome desde sempre,
+uma **curadoria de vídeos do YouTube** em três tabelas
+(`online_videos_channels` → `online_videos_playlists` → `online_videos`), servida
+inteira por `GET /{lang}/collections/online`. Ela vira **uma coletânea da
+Biblioteca**, ao lado das do banco.
+
+**A hierarquia é a mesma dos dois lados, e é isso que fez o recurso caber num
+módulo puro:**
+
+| LouvorJA | Biblioteca | quem desenha |
+|---|---|---|
+| canal | o SUBTÍTULO do card | `ctx.subtitle`, o mesmo pivô categoria↔álbum |
+| playlist | o ÁLBUM (um card) | `renderCollectionCard`, sem uma linha nova |
+| vídeo | a FAIXA | `hymnResultRow`, como um episódio de série |
+
+**As peças:**
+
+| arquivo | papel |
+|---|---|
+| `controle/online.js` | a REGRA — PURA, com oráculo em `tools/online.test.mjs`. Lê o payload e devolve `{ albuns, diario }` |
+| `louvorja.js` → `fetchOnline(lang)` | o TRANSPORTE, e só ele. Mesmo host, mesmo token e mesmo cache-busting do `fetchList` |
+| `fetchOnlineCatalog()` | guarda o LIDO em `state['onlineCatalog']`, semeia o `collState` e redesenha |
+| `semearIndiceOnline()` | o índice de cada card, com **mutação in-place** (a regra do `fetchCollectionIndex`) |
+| `blocoOnline()` | o bloco do Registro |
+
+**UMA seção, e o canal NÃO vira seção.** A razão é medida e emprestada da
+v1.5.16: com 5 coletâneas (10 blocos) a lista de abertura da Biblioteca ROLA,
+com 4 (9 blocos) não — e o payload não declara quantos canais tem. Uma seção por
+canal poria o número de blocos da tela de abertura de toda a frota nas mãos de
+um curador de OUTRO projeto.
+
+**O catálogo é UMA requisição, não uma por card.** Daí a coletânea ficar fora da
+fase 2 do `autoRefreshCollections` (varrer card a card repetiria a mesma
+resposta, e a rota tem cache de 10 min no servidor) e entrar na fase 1, ao lado
+do `pt_categories`. O **"Atualizar a lista"** da barra do card refaz o catálogo
+inteiro: um `return` seco deixaria aquele botão aceso e inerte.
+
+**O que se guarda é o LIDO, não o cru** — a escolha OPOSTA à do `albumCatalog`,
+e as duas estão certas. Lá a leitura editorial é reaplicada a cada desenho para
+que um ajuste da tabela `DISSOLVER` chegue por OTA e valha offline; aqui a regra
+segue chaves estrangeiras e não tem o que revisar entre duas aberturas. O que
+muda é a própria regra, e para isso existe `AVOnline.IMPRESSAO`, conferida no
+`loadCollections` — a armadilha que mordeu as séries três vezes.
+
+**As três capacidades, depois deste lote.** `ehLink(coll)` significava "é a
+série" porque a série era a única coleção de vídeo, e cinco lugares perguntavam
+por ele querendo dizer outra coisa. Hoje:
+
+| pergunta | quem responde | governa |
+|---|---|---|
+| tem LETRA? | `temLetra(coll)` | o toque na linha, a busca por trecho, a fila de `syncLyrics` |
+| o item é um LINK? | `ehLink(coll)` | as folhas do YouTube, o download item a item, o fim do download em lote |
+| tem CALENDÁRIO semanal? | `temCalendario(coll)` = `!!coll.serie` | o destaque do sábado, o episódio da semana, a caixa "Manter o … baixado" |
+
+Sem a terceira, cada playlist da curadoria ganharia aquela caixa: um interruptor
+marcável para uma rotina que procura uma data que aqueles vídeos não têm.
+
+**Sem duração, e dito.** As três tabelas não têm coluna de duração e aqui não há
+extração de onde tirá-la: `duration` fica `''` e não `'0:00'` — zero é um número,
+e a conta de peso somaria um vídeo de duração nula, com o card anunciando "0 MB"
+para uma playlist de trinta vídeos.
+
+O resto — a regra de ouro herdada das séries, o `data:` embutido que NÃO é guardado (o card não desenha miniatura: o quadrado dele é a seta), o
+`sequence` ausente e as cinco recusas nomeadas — está no topo do `online.js` e no
+`tools/online.test.mjs`.
 
 ---

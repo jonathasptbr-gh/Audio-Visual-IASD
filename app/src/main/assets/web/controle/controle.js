@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.96';
+const WEB_VERSION = '1.8.97';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -931,8 +931,43 @@ function serieCollections() {
   }));
 }
 
+// A COLETÂNEA DE VÍDEOS DO LOUVORJA — um card por PLAYLIST da curadoria.
+//
+// O catálogo mora em `state['onlineCatalog']` (o payload JÁ LIDO por
+// `AVOnline.lerCatalogo`, não o payload cru): ao contrário do `albumCatalog`,
+// cuja leitura editorial é reaplicada a cada desenho porque a tabela
+// `DISSOLVER` viaja no bundle e muda por OTA, aqui a regra é uma TRADUÇÃO de
+// chaves estrangeiras que não tem o que revisar entre duas aberturas — e o
+// payload cru é o objeto mais pesado que este app guarda (canais, playlists e
+// vídeos do acervo inteiro, com as miniaturas embutidas das capas). Guardar os
+// dois seria guardar duas vezes.
+//
+// **Só no app**, pelo motivo EXATO das séries: o item é um vídeo do YouTube, e
+// quem o baixa é a ponte (`ytFetch`). No navegador o catálogo carregaria e
+// nenhum item tocaria — card sem conteúdo é pior que card nenhum. O
+// `!!window.AVOnline` NÃO é a mesma pergunta: `online.js` é um dos scripts que
+// podem abortar de topo, e é essa condição que o watchdog de boot do OTA exige.
+let onlineCatalog = { albuns: [], diario: null };
+// A assinatura do que está GRAVADO — ver a guarda em `fetchOnlineCatalog`. De
+// MEMÓRIA e nascendo vazia de propósito: a primeira busca de cada sessão
+// reescreve, e é ela que conserta um `coll:<id>` corrompido ou apagado por
+// fora. Persistida, um aparelho nesse estado ficaria preso nele.
+let onlineAssinatura = '';
+
+function onlineDisponivel() {
+  return !!window.__NATIVE__
+    && !!window.AVOnline;
+}
+
+function onlineCollections() {
+  if (!onlineDisponivel()) return [];
+  return onlineCatalog.albuns.map((a) => ({
+    id: a.id, name: a.nome, kind: 'online', online: a, source: a.playlistId,
+  }));
+}
+
 function allCollections() {
-  const cols = FIXED_COLLECTIONS.concat(serieCollections());
+  const cols = FIXED_COLLECTIONS.concat(serieCollections(), onlineCollections());
   for (const a of albumCatalog.albums) {
     cols.push({ id: 'album-' + a.id_album, name: a.name, kind: 'album',
       source: 'album_' + a.id_album, albumId: a.id_album,
@@ -970,8 +1005,15 @@ function collSongs(id) { return (collState[id] && collState[id].songs) || []; }
 const TIPO_MUSICA = 'musica';   // faixa do LouvorJA: áudio no acervo, letra, variantes
 const TIPO_VIDEO = 'video';     // vídeo do YouTube: um LINK, sem letra e sem variante
 
+// O TERCEIRO MODELO CHEGOU, e ele entra exatamente pela porta que este bloco
+// descreve: a coletânea de vídeos do LouvorJA é `TIPO_VIDEO` pelo MESMO motivo
+// da série (o item é um link do YouTube, sem letra e sem variante), e nenhuma
+// afordância precisou saber que ela existe — cada uma continua perguntando pela
+// CAPACIDADE (`temLetra`, `ehLink`), nunca por "é série?".
+const KINDS_DE_VIDEO = ['serie', 'online'];
+
 function tipoDaColecao(coll) {
-  return coll && coll.kind === 'serie' ? TIPO_VIDEO : TIPO_MUSICA;
+  return coll && KINDS_DE_VIDEO.indexOf(coll.kind) >= 0 ? TIPO_VIDEO : TIPO_MUSICA;
 }
 
 // ----- As CAPACIDADES, que é o que os chamadores devem perguntar -----
@@ -990,6 +1032,22 @@ function temLetra(coll) { return tipoDaColecao(coll) === TIPO_MUSICA; }
 // destinos que GUARDAM), o card não oferece download em lote, e o toque no
 // Modo Fácil transmite em vez de baixar.
 function ehLink(coll) { return tipoDaColecao(coll) === TIPO_VIDEO; }
+
+// **A coleção tem um CALENDÁRIO SEMANAL?** A terceira capacidade, e ela nasceu
+// no lote da coletânea de vídeos do LouvorJA porque foi ele que a tornou
+// distinguível: até aqui "é um LINK" e "tem calendário" eram a mesma coleção
+// (a série), e cinco lugares perguntavam `ehLink` quando queriam dizer ISTO —
+// o destaque do sábado no topo do card, o episódio da semana, a opção de
+// mantê-lo baixado e o alternador dela.
+//
+// Sem a distinção, a coletânea nova herdaria a caixa *"Manter o … da semana
+// baixado"* em cada playlist da curadoria: um interruptor para uma rotina que
+// procura por uma data que aqueles vídeos não têm, sobre um `coll.serie` que
+// não existe. Ele ficaria na tela, marcável, e nunca baixaria nada.
+//
+// É `coll.serie` e não `kind === 'serie'` pela razão do bloco acima: o que
+// governa é o DADO de que a rotina depende, não o nome da família.
+function temCalendario(coll) { return !!(coll && coll.serie); }
 
 // ===== Bíblia (acervo online, baixado na 1ª vez que for usado) =====
 // Ver `bible.js`. A seleção é uma "tabela periódica" em três telas (livros →
@@ -1409,7 +1467,14 @@ function grupoCompleto(colls) {
 // contas ao mesmo tempo — um ano de série puxaria a estimativa de todo álbum de
 // louvor para cima, e a média de áudio puxaria a da série para baixo.
 function ehColecaoDeVideo(id) {
-  return String(id || '').startsWith('serie-');
+  // AS DUAS FAMÍLIAS DE VÍDEO, e a segunda entra aqui no lote em que nasce: a
+  // coletânea do LouvorJA (`AVOnline.PREFIXO_ID`) é feita dos MESMOS vídeos do
+  // YouTube que as séries, baixados pelo mesmo `ytFetch`. Fora desta pergunta
+  // ela herdaria a média de bytes por segundo do acervo de ÁUDIO — a
+  // estimativa de "quanto vai ocupar" erraria por duas ordens de grandeza, e
+  // erraria para MENOS, que é o lado que enche o aparelho no meio do download.
+  const x = String(id || '');
+  return x.startsWith('serie-') || (!!window.AVOnline && AVOnline.ehDestaColetanea(x));
 }
 
 function bytesPorSegundo(id) {
@@ -9923,6 +9988,36 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
     if (corpo) cards.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
   }
 
+  // ===== A COLETÂNEA DE VÍDEOS DO LOUVORJA =====
+  //
+  // Uma seção, um card por PLAYLIST da curadoria, o CANAL como subtítulo do
+  // card — a mesma forma das coletâneas do banco logo acima, montada com o
+  // mesmo `grupo()` e com o mesmo pivô (`ctx.subtitle`), porque para o operador
+  // ela é mais uma coletânea e não deve pedir um vocabulário novo.
+  //
+  // **DEPOIS das coletâneas do banco e ANTES dos órfãos**, e a posição é uma
+  // decisão: o acervo de áudio do LouvorJA é o que este app faz desde sempre e
+  // é o que se procura na maioria das aberturas; "Outros álbuns" é sobra, e
+  // sobra não separa duas seções de conteúdo.
+  //
+  // O `byId.has` é a mesma guarda que as fixas usam logo acima, e ela não é
+  // decorativa: `onlineCollections()` e `allCollections()` podem divergir por
+  // um quadro durante a troca do catálogo, e um card que o `byId` não conhece
+  // é um card sem estado — ele contaria no peso e não responderia a toque
+  // nenhum.
+  const doOnline = onlineCollections().filter((c) => byId.has(c.id));
+  if (doOnline.length) {
+    const corpo = grupo(AVOnline.NOME_COLETANEA, doOnline);
+    if (corpo) {
+      doOnline.forEach((coll) => corpo.appendChild(
+        // O SUBTÍTULO é o CANAL, e ele viaja pelo mesmo `ctx` que o pivô
+        // categoria↔álbum do banco usa — é o único texto que a origem escreveu
+        // sobre aquele álbum naquele contexto, que é exatamente o papel do
+        // subtítulo ali.
+        renderCollectionCard(coll, { subtitle: coll.online.canal || '' })));
+    }
+  }
+
   // Álbuns conhecidos que nenhuma categoria reivindicou (catálogo antigo,
   // migrado de uma versão sem categorias, ou álbum removido de todas elas).
   const claimed = new Set();
@@ -10669,7 +10764,7 @@ function openCollectionOptions(coll) {
  * recurso do CALENDÁRIO de uma série semanal.
  */
 function destaqueDaSerie(coll) {
-  if (!ehLink(coll) || !window.AVSerie || !AVSerie.ehDoSabadoAtual) return null;
+  if (!temCalendario(coll) || !window.AVSerie || !AVSerie.ehDoSabadoAtual) return null;
   const sab = AVSerie.sabadoDaSemana();
   const alvo = collSongs(coll.id).find(
     (s) => AVSerie.ehDoSabadoAtual(s.serieData, coll.serie));
@@ -17374,6 +17469,24 @@ async function loadCollections() {
   albumCatalog = Array.isArray(savedCatalog)
     ? { categories: [], albums: savedCatalog }
     : (savedCatalog && Array.isArray(savedCatalog.albums) ? savedCatalog : { categories: [], albums: [] });
+
+  // O CATÁLOGO DE VÍDEOS, do IndexedDB — para a coletânea existir na abertura
+  // OFFLINE, antes de qualquer rede. É a mesma razão do `albumCatalog` acima, e
+  // ela vale mais aqui: sem rede a busca do `autoRefreshCollections` falha, e
+  // sem esta semente a seção só apareceria no dia em que houvesse Wi-Fi.
+  //
+  // **A IMPRESSÃO É CONFERIDA AQUI**, e é o que fecha a armadilha que mordeu as
+  // séries três vezes: o guardado tem os nomes JÁ FORMADOS e a ordem JÁ
+  // decidida por `AVOnline`. Mudando a REGRA sem mudar o payload, o catálogo
+  // velho ficaria de pé PARA SEMPRE no IndexedDB — onde limpar o cache não
+  // alcança. Não batendo, ele é DESCARTADO e a busca seguinte o refaz; o preço
+  // é uma abertura offline sem a seção, contra uma regra nova que nunca chega.
+  const savedOnline = await AVDB.getState('onlineCatalog');
+  onlineCatalog = (savedOnline && Array.isArray(savedOnline.albuns)
+    && window.AVOnline && savedOnline.impressao === AVOnline.IMPRESSAO)
+    ? { albuns: savedOnline.albuns, diario: null }
+    : { albuns: [], diario: null };
+
   const cols = allCollections();
   const states = await Promise.all(cols.map((c) => AVDB.getState('coll:' + c.id)));
   collState = {};
@@ -17425,6 +17538,166 @@ async function fetchAlbumCatalog() {
   refreshCollectionsIfVisible();
 }
 
+/**
+ * O CATÁLOGO DE VÍDEOS DO LOUVORJA — uma requisição, a coletânea inteira.
+ *
+ * `GET /{lang}/collections/online` devolve canais, playlists e vídeos de uma
+ * vez; `AVOnline.lerCatalogo` traduz aquilo em álbuns com as faixas já dentro
+ * (a REGRA, pura, com oráculo em `tools/online.test.mjs`). Aqui fica o que só
+ * este arquivo pode fazer: guardar, semear o `collState` e redesenhar.
+ *
+ * **O QUE SE GUARDA É O LIDO, NÃO O CRU**, e é a escolha oposta à do
+ * `albumCatalog` — que guarda o payload do banco e reaplica a leitura editorial
+ * a cada desenho, para que um ajuste da tabela `DISSOLVER` chegue por OTA e
+ * valha offline na abertura seguinte. Aqui não há decisão a revisar entre duas
+ * aberturas: a regra segue CHAVES ESTRANGEIRAS, e o resultado dela sobre o
+ * mesmo payload é sempre o mesmo. O que mudaria é a própria regra — e para isso
+ * existe o `AVOnline.IMPRESSAO`, logo abaixo. Guardar o cru custaria o objeto
+ * mais pesado deste app duas vezes: ele carrega as miniaturas EMBUTIDAS
+ * (`default_image_base64`) de canais, playlists e vídeos, e a leitura descarta
+ * a maior parte delas.
+ *
+ * **FALHA DE REDE NÃO APAGA O ACERVO.** O `throw` sai para o `.catch(() => {})`
+ * do chamador com `onlineCatalog` intacto: a seção continua na tela com o que
+ * a última busca trouxe, que é o que o operador precisa num sábado sem Wi-Fi.
+ * Escrever `onlineCatalog = { albuns: [] }` antes de buscar faria a Biblioteca
+ * perder a coletânea a cada abertura offline, sem erro em lugar nenhum.
+ */
+async function fetchOnlineCatalog() {
+  // A GUARDA É `onlineDisponivel()` e não `window.__NATIVE__`: sem `AVOnline`
+  // (um erro de topo em `online.js`) não há quem leia o payload, e buscar
+  // seria gastar a rede da igreja para jogar fora.
+  if (!onlineDisponivel()) return;
+  // ===== A FALHA É GRAVADA, e ela é o modo de errar MAIS PROVÁVEL =====
+  //
+  // Sem este `catch`, uma busca que falha deixa o diário AUSENTE — e o bloco do
+  // Registro, diante da ausência, escreve *"ainda não buscado neste aparelho"*,
+  // que é a frase do caso NORMAL (o app acabou de abrir). As duas causas pedem
+  // ações opostas: uma é esperar, a outra é consertar alguma coisa.
+  //
+  // **E a causa que se teme aqui é indistinguível de "sem rede" por
+  // construção:** a origem deste app é `https://appassets.androidplatform.net/`,
+  // e esta rota é a PRIMEIRA fora de `/json_db` que ele consome — se a política
+  // de CORS dela for outra, o preflight morre no console do WebView e o `fetch`
+  // rejeita com um `TypeError` sem status. Sem esta linha, o operador veria
+  // "ainda não buscado" para sempre, num aparelho com Wi-Fi.
+  //
+  // O `throw` SEGUE, e isso é deliberado: quem chama é um `.catch(() => {})` na
+  // fase 1 e o `syncCollection` do toque, e é ele que decide o que dizer na
+  // tela. Este bloco só garante que o Registro não minta.
+  let bruto;
+  try {
+    bruto = await Louvorja.fetchOnline(AVOnline.LANG_PADRAO);
+  } catch (e) {
+    await onlineDiarioGravar({ erro: String((e && e.message) || e || 'falha na busca') });
+    throw e;
+  }
+  const lido = AVOnline.lerCatalogo(bruto);
+  // NENHUM ÁLBUM É UM ESTADO, NÃO UM ERRO — mas ele não pode SUBSTITUIR um
+  // acervo que já está na tela. Um payload que chega vazio (a rota respondeu
+  // 200 com `{channels:[],playlists:[],videos:[]}`, que é o que a réplica serve
+  // enquanto o bucket ainda não foi preenchido) apagaria a coletânea inteira do
+  // aparelho, e a abertura seguinte a traria de volta — um card piscando entre
+  // existir e não existir, sem nada explicando. O diário É gravado nos dois
+  // casos: é ele que diz que a busca aconteceu e voltou vazia.
+  await onlineDiarioGravar(lido.diario);
+  if (!lido.albuns.length && onlineCatalog.albuns.length) {
+    refreshCollectionsIfVisible();
+    return;
+  }
+  // ===== NADA MUDOU? ENTÃO NADA É ESCRITO =====
+  //
+  // Esta função roda na abertura E em TODO `visibilitychange` que traz o app
+  // para a frente — dezenas de voltas por culto. Sem esta guarda, cada uma
+  // reescrevia o catálogo e MAIS UM registro por álbum (`semearIndiceOnline`
+  // grava `coll:<id>` de cada card) sobre um conteúdo idêntico ao que já
+  // estava lá. A curadoria de outro projeto não muda entre duas voltas ao app:
+  // o caso NORMAL é não ter mudado nada.
+  //
+  // A assinatura é do que se GRAVA, e não um hash do payload cru: é o
+  // resultado da REGRA que precisa ser comparado — um campo que o
+  // `lerCatalogo` descarta (a miniatura embutida de um canal, por exemplo) não
+  // muda uma linha do que o aparelho guarda, e compará-lo faria a economia
+  // nunca valer.
+  const assinatura = JSON.stringify(lido.albuns);
+  if (assinatura === onlineAssinatura) { refreshCollectionsIfVisible(); return; }
+  onlineAssinatura = assinatura;
+  onlineCatalog = lido;
+  await AVDB.setState('onlineCatalog', { albuns: lido.albuns, impressao: AVOnline.IMPRESSAO });
+  // Entrada em `collState` para os cards novos. Sem ela, `collSongs` devolve
+  // `[]` e o card nasce anunciando "0 faixas" sobre uma lista que ele TEM.
+  semearIndiceOnline();
+  refreshCollectionsIfVisible();
+  renderBuscaQuandoPuder(false);
+}
+
+/**
+ * O ÍNDICE DE CADA CARD DA COLETÂNEA, semeado a partir do catálogo já lido.
+ *
+ * **A MUTAÇÃO É IN-PLACE**, pelo motivo do `fetchCollectionIndex`: o
+ * `syncCollection` tira um snapshot do array de faixas e grava `fileIdFull` nos
+ * objetos DELE conforme baixa. Recriar os objetos a cada catálogo deixaria o
+ * snapshot apontando para órfãos — os bytes iriam para o OPFS e os ids seriam
+ * descartados no `setState` seguinte, com o item aparecendo como não baixado e
+ * sendo rebaixado. Aqui isso é mais fácil de errar que lá: o catálogo é relido
+ * em TODA retomada do app, que é justamente quando o operador minimizou no meio
+ * de um download.
+ */
+function semearIndiceOnline() {
+  for (const coll of onlineCollections()) {
+    const antigas = new Map(collSongs(coll.id).map((x) => [x.id_music, x]));
+    const songs = coll.online.itens.map((it, i) => {
+      const s = antigas.get(it.id) || { id_music: it.id, fileIdFull: null, fileIdPlayback: null };
+      s.name = it.nome;
+      s.ytUrl = it.url;
+      // A POSIÇÃO NA PLAYLIST como número de faixa. É o que a linha mostra à
+      // esquerda, e é a ordem que o curador montou — não o `sequence` cru, que
+      // pode ter buracos (um vídeo removido do YouTube deixa o número dele).
+      s.track = i + 1;
+      s.thumb = it.thumb || '';
+      s.canal = coll.online.canal || '';
+      // SEM DURAÇÃO, e ela é a única coisa que este caminho não tem. O payload
+      // do LouvorJA não a traz (as três tabelas não têm coluna de duração), e a
+      // série a recebe da EXTRAÇÃO, que aqui não acontece. Fica `''` e não
+      // `'0:00'`: zero é um número, e a conta de peso do álbum o somaria como
+      // um vídeo de duração nula — o card anunciaria "0 MB" para uma playlist
+      // de trinta vídeos. `fmtDur`/`parseTimeToSeconds` já tratam o vazio.
+      s.duration = '';
+      s.seconds = 0;
+      // Um vídeo não tem Playback — sem isto `songVariantsNeeded` pediria uma
+      // segunda variante que nunca vai existir e o álbum nunca ficaria completo.
+      s.has_instrumental_music = false;
+      s._norm = normalizeForSearch(s.name);
+      return s;
+    });
+    const guardado = collState[coll.id] || {};
+    guardado.songs = songs;
+    guardado.isHymnal = false;
+    guardado.indexSyncedAt = Date.now();
+    collState[coll.id] = guardado;
+    AVDB.setState('coll:' + coll.id, guardado).catch(() => {});
+  }
+}
+
+// O DIÁRIO DA LEITURA DO CATÁLOGO — o bloco do Registro (ver `renderDiag`).
+//
+// Ele existe pelo motivo do diário das séries, e aqui a razão é mais forte: o
+// acervo é curado por OUTRO projeto. Quando faltar alguma coisa, a primeira
+// pergunta é *"o LouvorJA não publicou, ou o app recusou?"* — e sem as
+// contagens as duas chegam como a mesma lista curta. Guarda o VEREDITO de
+// `AVOnline.lerCatalogo`, nunca uma segunda opinião.
+const ONLINE_DIARIO_KEY = 'onlineDiag';
+
+async function onlineDiarioLer() {
+  try { return (await AVDB.getState(ONLINE_DIARIO_KEY)) || null; } catch (_) { return null; }
+}
+
+async function onlineDiarioGravar(diario) {
+  try {
+    await AVDB.setState(ONLINE_DIARIO_KEY, Object.assign({ quando: Date.now() }, diario));
+  } catch (_) { /* diagnóstico não pode derrubar a sincronização */ }
+}
+
 // Busca o índice (metadados leves) de UMA coleção e atualiza collState[coll.id],
 // preservando fileIdFull/fileIdPlayback já conhecidos de cada música. Para
 // hinários, o arquivo de lista (coll.source) já é o índice; para álbuns, o
@@ -17469,7 +17742,7 @@ function serieFaixaDoItem(s, it) {
   // motivo só: a lista mostra o episódio três dias antes do sábado dele (a
   // quarta-feira em que o roteiro é montado), e nesses três dias o vídeo pode
   // ainda não estar público. Quando o download falha ali, quem explica é
-  // `serieComoYoutube`, e sem a data no registro não haveria como saber que
+  // `videoComoYoutube`, e sem a data no registro não haveria como saber que
   // aquela falha tem essa causa. `null` quando o título não declarou data — e
   // aí não há nada a afirmar sobre ele.
   s.serieData = it.dia ? { dia: it.dia, mes: it.mes } : null;
@@ -17500,7 +17773,7 @@ function serieFaixaDoItem(s, it) {
   s.canal = String(it.canal || '').trim();
   // E os SEGUNDOS CRUS ao lado da string formatada. `s.duration` continua sendo
   // o "M:SS" que toda conta de peso do álbum lê; este é o número, e ele existe
-  // por um consumidor só: `serieComoYoutube`, que o repassa ao registro quando
+  // por um consumidor só: `videoComoYoutube`, que o repassa ao registro quando
   // o episódio é guardado como LINK (ali não há blob de onde medir nada).
   s.seconds = it.seconds || 0;
   // Um vídeo não tem Playback. Sem isto, `songVariantsNeeded` pediria uma
@@ -17687,6 +17960,22 @@ async function fetchSerieIndex(coll) {
 
 async function fetchCollectionIndex(coll) {
   if (coll.kind === 'serie') return fetchSerieIndex(coll);
+  // A COLETÂNEA DO LOUVORJA REFAZ O CATÁLOGO INTEIRO, e é isso que a separa da
+  // série. Lá cada álbum custa uma extração do YouTube, e por isso o índice é
+  // por card; aqui o catálogo INTEIRO — canais, playlists e vídeos — chega numa
+  // requisição só, e cada card já sai dela com a lista de faixas pronta.
+  //
+  // **E POR ISSO ELA FICA FORA DA FASE 2** do `autoRefreshCollections` (ver o
+  // filtro `stale` lá): varrer card a card repetiria a MESMA resposta uma vez
+  // por álbum, e a rota tem cache de 10 min no servidor — as N-1 repetições nem
+  // chegariam ao banco, só à Wi-Fi da igreja.
+  //
+  // **O QUE CHEGA AQUI É O TOQUE DO OPERADOR** no "Atualizar a lista" da barra
+  // do card, e ele precisa FAZER alguma coisa. Um `return` seco deixaria aquele
+  // botão aceso e inerte — indistinguível de um quebrado, que é o que a regra
+  // do projeto manda apagar em vez de deixar mudo. Uma requisição por toque é
+  // exatamente o que o toque pediu.
+  if (coll.kind === 'online') return fetchOnlineCatalog();
   const raw = await Louvorja.fetchList(coll.source);
   const list = coll.kind === 'album'
     ? (raw && Array.isArray(raw.musics) ? raw.musics : null)
@@ -17941,7 +18230,7 @@ function serieNomeCurto(coll) {
  * o destaque declarando um episódio que a lista escondia.
  */
 function serieEpisodioDaSemana(coll) {
-  if (!ehLink(coll) || !window.AVSerie || !AVSerie.ehDoSabadoAtual) return null;
+  if (!temCalendario(coll) || !window.AVSerie || !AVSerie.ehDoSabadoAtual) return null;
   return collSongs(coll.id).find(
     (s) => AVSerie.ehDoSabadoAtual(s.serieData, coll.serie)) || null;
 }
@@ -18006,7 +18295,7 @@ function serieAutoImpedimento(coll, epi, rec) {
  * o que dizer: ver `serieAutoImpedimento`.
  */
 function serieAutoLinha(coll) {
-  if (!ehLink(coll)) return null;
+  if (!temCalendario(coll)) return null;
   const cx = document.createElement('div');
   cx.className = 'serie-auto';
   const btn = document.createElement('button');
@@ -18063,7 +18352,7 @@ function serieAutoLinha(coll) {
  * da mesma regra.
  */
 async function alternarSerieAuto(coll) {
-  if (!coll || !ehLink(coll)) return;
+  if (!coll || !temCalendario(coll)) return;
   const liga = !serieAutoLigada(coll);
   if (liga) serieAuto.add(coll.id); else serieAuto.delete(coll.id);
   await AVDB.updateState('serieAuto', (v) => {
@@ -18147,12 +18436,12 @@ async function manterSeriesDaSemana() {
       // o arquivo já estar no aparelho e esta função só reescrever a lista.
       if (!rec && window.__NATIVE__
           && isConfirmedWifi() && rotinaDeAcervoPodeCorrer()) {
-        // O `serieComoYoutube` é o MESMO objeto que a folha de opções monta: é
+        // O `videoComoYoutube` é o MESMO objeto que a folha de opções monta: é
         // ele que carrega `semSoAudio`, a duração, o canal, a chave da linha (o
         // anel de download do quadrado à esquerda) e o aviso da janela de
         // antecedência. Um objeto próprio aqui perderia os cinco, e o primeiro
         // a aparecer seria o pior — um episódio baixando sem nada na tela.
-        const r = serieComoYoutube(coll, epi);
+        const r = videoComoYoutube(coll, epi);
         setCollStatus(coll.id, 'Baixando o episódio desta semana…');
         renderCollectionsNow();
         // `withBgRotina` e não `withBgWork`: isto é *"a ROTINA que ninguém
@@ -18318,6 +18607,10 @@ async function autoRefreshCollections() {
     await Promise.all([
       ...FIXED_COLLECTIONS.filter(idle).map((c) => fetchCollectionIndex(c).catch(() => {})),
       fetchAlbumCatalog().catch(() => {}),
+      // O CATÁLOGO DE VÍDEOS, na fase 1 e não na 2: ele é UMA requisição para o
+      // acervo inteiro, como o `pt_categories` ao lado — barato, e o que ele
+      // traz são os próprios cards, não o índice de um card que já existe.
+      fetchOnlineCatalog().catch(() => {}),
     ]);
     // Fase 2: índice de cada álbum (só os que estão vazios ou vencidos pelo TTL).
     const now = Date.now();
@@ -18334,6 +18627,10 @@ async function autoRefreshCollections() {
     const forcarIndice = (c) => c.kind === 'album'
       && !indicesForcados.has(c.id)
       && countDownloaded(c.id) > 0;
+    // A coletânea de vídeos do LouvorJA fica FORA desta fase de propósito: o
+    // índice dela não é por card (ver `fetchCollectionIndex`), e quem a
+    // atualiza é o `fetchOnlineCatalog` da fase 1, ao lado do `albumCatalog`
+    // pelo mesmo motivo — uma requisição, o acervo inteiro.
     const stale = allCollections().filter(
       (c) => (c.kind === 'album' || c.kind === 'serie') && idle(c)
         && (indiceVencido(c, now) || forcarIndice(c)));
@@ -18622,7 +18919,7 @@ async function syncCollection(coll, opts) {
  * a faixa ainda falta, então um registro sem o campo seria rebaixado a cada
  * sincronização, para sempre, sem nada na tela que o explicasse.
  */
-async function downloadSerieItem(coll, s) {
+async function downloadItemDeVideo(coll, s) {
   if (!s.ytUrl) return false;
   let r;
   try { r = await AVNative.ytFetch(s.ytUrl, null, false, 0); }
@@ -18665,7 +18962,13 @@ async function downloadSerieItem(coll, s) {
 }
 
 async function downloadCollectionSong(coll, s) {
-  if (coll.kind === 'serie') return downloadSerieItem(coll, s);
+  // PELA CAPACIDADE, nunca por `kind === 'serie'` (a regra do bloco
+  // `tipoDaColecao`): o caminho abaixo baixa `music_<id>` do LouvorJA, e um
+  // item que é um LINK não tem `id_music` que aquele banco reconheça. Escrito
+  // como `kind === 'serie'`, a coletânea de vídeos do LouvorJA cairia no
+  // caminho do áudio e pediria um metadado que nunca existe — uma requisição
+  // perdida por item, por sincronização, sem erro em lugar nenhum.
+  if (ehLink(coll)) return downloadItemDeVideo(coll, s);
   let meta;
   try { meta = await Louvorja.fetchList('music_' + s.id_music); }
   catch (_) { return false; } // sem rede agora; a próxima sincronização tenta de novo
@@ -19998,7 +20301,7 @@ function setYtEstado(id, estado, pct) {
     if (li.dataset.yt !== id) return;
     pintarYtLinha(li, ytEstado.get(id));
   });
-  // E A LINHA DA COLEÇÃO, quando o vídeo veio de uma (ver `serieComoYoutube`).
+  // E A LINHA DA COLEÇÃO, quando o vídeo veio de uma (ver `videoComoYoutube`).
   // O anel dela é montado DENTRO da linha, então a marca sobrevive ao redesenho
   // do acervo — que roda a cada 400 ms durante uma sincronização.
   const chave = ytLinhas.get(id);
@@ -21168,9 +21471,9 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       // O MESMO `r` nas duas chamadas, e isso é o que faz a segunda funcionar:
       // `openYtMenu` só rearma o estado quando o item MUDA (`songMenuFor.yt !==
       // r`), então repetir com o mesmo objeto preserva o `aoLado` que acabou de
-      // ser posto e apenas redesenha a lista com ele. Um `serieComoYoutube`
+      // ser posto e apenas redesenha a lista com ele. Um `videoComoYoutube`
       // novo seria outro objeto — o estado seria zerado e o irmão sumiria.
-      const r = serieComoYoutube(coll, s);
+      const r = videoComoYoutube(coll, s);
       // ===== JÁ ESTÁ NO APARELHO? A QUALIDADE SAI DA FOLHA (v1.8.87) =====
       //
       // A leitura é AQUI e não dentro do `openYtMenu` porque aquele é chamado de
@@ -21502,8 +21805,14 @@ function destUniao(chave) {
  * `semSoAudio` é a única diferença: o seletor Vídeo × Só áudio some. Um
  * testemunho em vídeo não tem versão de áudio que faça sentido projetar, e uma
  * escolha que não muda nada é pior que escolha nenhuma.
+ *
+ * **ELA SERVE AS DUAS COLEÇÕES DE VÍDEO** — a série e a coletânea do LouvorJA —,
+ * e por isso deixou de se chamar `serieComoYoutube`: nada aqui é da série
+ * exceto o aviso de antecedência logo abaixo, que é guardado por `s.serieData`
+ * e por isso não alcança um item que não o tenha. O nome antigo mandaria o
+ * próximo leitor escrever uma segunda cópia disto para a coletânea nova.
  */
-function serieComoYoutube(coll, s) {
+function videoComoYoutube(coll, s) {
   const r = { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true,
     // OS DOIS QUE VIAJAM PARA O REGISTRO (v1.5.21). Um episódio guardado como
     // LINK ou baixado nasce com a duração e o canal que o índice já
@@ -22110,7 +22419,7 @@ async function simplePlaySong(coll, s) {
   // cobrindo a espera. A TRANSMISSÃO DIRETA que este caminho usava saiu na
   // v1.7.7, e o preço está aceito e escrito: um episódio pesa ~300 MB e o
   // "Tocar agora" espera por ele.
-  if (ehLink(coll)) { await ytAcao(serieComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
+  if (ehLink(coll)) { await ytAcao(videoComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
   const { needsFull } = await songVariantsNeeded(coll, s);
   if (needsFull && !(await ensureDownloadConsent())) return;
   playSongVariant(coll, s, 'full');
@@ -25092,6 +25401,94 @@ function blocoColetaneas() {
   return 'Coletâneas (o que a regra dissolveu)\n' + linhas.join('\n');
 }
 
+// A COLETÂNEA DE VÍDEOS DO LOUVORJA — o que a curadoria mandou e o que a regra
+// aceitou.
+//
+// **A pergunta que este bloco existe para responder é uma só**, e ela é
+// diferente da das séries: o acervo é curado por OUTRO projeto, então quando
+// falta alguma coisa a dúvida é *"o LouvorJA não publicou, ou o app recusou?"*.
+// Sem as contagens do payload ao lado das aceitas, as duas chegam como a mesma
+// lista curta — e quem lê está a distância, sem como abrir o banco.
+//
+// Guarda o VEREDITO de `AVOnline.lerCatalogo`, nunca uma segunda opinião: os
+// números vêm do diário que aquela função devolveu, e as frases de
+// `onlineMotivoFrase`. Uma segunda contagem escrita aqui envelheceria à parte
+// no primeiro ajuste da regra, e o que sairia é um log que discorda do
+// aparelho.
+function onlineMotivoFrase(motivo) {
+  switch (motivo) {
+    case AVOnline.MOTIVO_SEM_ID: return 'veio sem o id do YouTube';
+    case AVOnline.MOTIVO_ID_INVALIDO: return 'o id não tem forma de id do YouTube';
+    case AVOnline.MOTIVO_ORFAO: return 'não está em playlist nenhuma do catálogo';
+    case AVOnline.MOTIVO_VAZIA: return 'a playlist veio sem vídeo nenhum';
+    case AVOnline.MOTIVO_REPETIDA: return 'o mesmo id de playlist veio duas vezes';
+    default: return motivo || 'motivo não declarado';
+  }
+}
+
+async function blocoOnline() {
+  if (!onlineDisponivel()) return '';
+  const linhas = [];
+  linhas.push('· fonte: api.louvorja.com.br/' + AVOnline.LANG_PADRAO + '/collections/online');
+  const d = await onlineDiarioLer();
+  if (d && d.erro) {
+    // A FALHA TEM LINHA PRÓPRIA, e ela vem ANTES de qualquer contagem: um
+    // diário com `erro` pode ter contagens de uma busca ANTERIOR que deu certo,
+    // e mostrá-las primeiro faria a última tentativa parecer bem-sucedida.
+    linhas.push('  ÚLTIMA BUSCA FALHOU (' + (serieHa(d.quando) || 'agora') + '): ' + d.erro);
+    linhas.push('    um erro SEM código HTTP aqui é o caso a investigar: esta é a'
+      + ' primeira rota fora de /json_db que o app consome, e uma política de CORS'
+      + ' diferente falha igual a "sem rede"');
+  }
+  if (!d) {
+    // O MESMO caso que o bloco das séries nomeia, e pela mesma razão: seção na
+    // tela e nada no Registro é NORMAL (a busca acontece na abertura ou na
+    // retomada) e precisa estar dito, senão se lê como o recurso quebrado.
+    linhas.push('  ainda não buscado neste aparelho — a busca acontece ao abrir'
+      + ' o app (ou toque em "Atualizar a lista" num card da coletânea)');
+    return AVOnline.NOME_COLETANEA + ' (a curadoria do LouvorJA)\n' + linhas.join('\n');
+  }
+  linhas.push('  última busca: ' + (serieHa(d.quando) || 'agora'));
+  // O QUE O PAYLOAD ANUNCIOU, ao lado do que ficou. É a única referência
+  // externa deste bloco — sem ela, "12 álbuns" não diz se vieram 12 ou 400.
+  linhas.push('  o catálogo trouxe: ' + (d.canaisNoPayload | 0) + ' canal(is) · '
+    + (d.playlistsNoPayload | 0) + ' playlist(s) · ' + (d.videosNoPayload | 0) + ' vídeo(s)');
+  linhas.push('  virou: ' + (d.albuns | 0) + ' álbum(ns) · ' + (d.aceitos | 0) + ' faixa(s)');
+  // A PROCEDÊNCIA. É a primeira pergunta diante de uma curadoria que parece
+  // errada — *"de QUEM é este material?"* —, e o `@handle` é a única forma que
+  // uma PESSOA consegue conferir: o `channel_id` funciona e não se lê.
+  if ((d.canais || []).length) {
+    linhas.push('  canais: ' + d.canais
+      .map((c) => (c.nome || c.id) + (c.arroba ? ' (' + c.arroba + ')' : '')).join(' · '));
+  }
+  // OS ÁLBUNS NOMINAIS, com o canal — é o que prova que a regra achou o que
+  // devia, e é por esses nomes que o operador procura na Biblioteca.
+  linhas.push(...serieLista(onlineCollections(),
+    (c) => '    + "' + c.name + '"' + (c.online.canal ? ' — ' + c.online.canal : '')
+      + ' · ' + c.online.itens.length + ' vídeo(s)'));
+  // AS RECUSAS, agrupadas por motivo e pelo MESMO resumidor das séries: o teto
+  // de nomes por motivo existe porque um payload torto produz centenas de
+  // linhas iguais, e um log que ninguém termina de ler não é diagnóstico.
+  const recusadas = d.recusadas || [];
+  const recusados = d.recusados || [];
+  if (recusadas.length) {
+    linhas.push('  playlists recusadas: ' + recusadas.length);
+    linhas.push(...serieRecusasResumidas(recusadas, onlineMotivoFrase));
+  }
+  if (recusados.length) {
+    linhas.push('  vídeos recusados: ' + recusados.length + ' de ' + (d.total | 0));
+    linhas.push(...serieRecusasResumidas(recusados, onlineMotivoFrase));
+  }
+  // SEM NOME não é recusa — é sintoma. Um acervo inteiro sem título é o que um
+  // payload lido pelo campo errado produz, e sem esta linha ele chega como
+  // "funcionou" com uma lista de "Vídeo xxxxxxxxxxx".
+  if ((d.semNome || []).length) {
+    linhas.push('  ' + d.semNome.length + ' registro(s) vieram SEM título (entraram com rótulo derivado do id)');
+  }
+  if (!recusadas.length && !recusados.length) linhas.push('  nada recusado');
+  return AVOnline.NOME_COLETANEA + ' (a curadoria do LouvorJA)\n' + linhas.join('\n');
+}
+
 async function blocoSeries() {
   if (!serieDisponivel()) return '';
   const linhas = [];
@@ -25525,6 +25922,12 @@ async function renderDiag() {
   // um bloco curto, e não no meio de oitenta linhas de playlist.
   const bcol = blocoColetaneas();
   if (bcol) blocos.push(bcol);
+  // A COLETÂNEA DE VÍDEOS DO LOUVORJA, logo depois das coletâneas do banco: as
+  // duas decidem o que a Biblioteca MOSTRA, e quem abre o Registro por causa de
+  // um álbum que sumiu procura as duas no mesmo lugar.
+  const bon = await blocoOnline();
+  if (meu !== diagSeq) return;
+  if (bon) blocos.push(bon);
   // O LADO DO SHELL vem ANTES de montar o bloco, e é `await` como as outras
   // leituras de ponte deste render. Ele é o único que sabe se há um pronto no
   // disco e o que o seletor respondeu.

@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.97",
+    "itens": [
+      "Biblioteca: nova coletânea “Vídeos do YouTube”, com os vídeos escolhidos pelo LouvorJA.",
+      "Cada álbum dela é uma playlist do LouvorJA; o nome do canal aparece embaixo do título.",
+      "Tocar, baixar ou mandar para o Cronograma funciona igual aos vídeos do Provai e Vede.",
+      "A lista chega sozinha ao abrir o app e fica guardada — ela continua na tela sem internet.",
+      "O Registro ganhou um bloco dizendo quantos vídeos vieram e o que não pôde ser usado."
+    ]
+  },
+  {
     "versao": "1.8.96",
     "itens": [
       "Timer: durante a contagem os números agora rolam de verdade, em vez de piscar trocando no lugar.",

@@ -26,6 +26,7 @@
 
 1. [Endpoints, base URLs e autenticação](#1-endpoints-base-urls-e-autenticação)
 2. [As duas superfícies de API](#2-as-duas-superfícies-de-api)
+   - [2.1 `GET /{lang}/collections/online` — o catálogo de vídeos](#21-get-langcollectionsonline--o-catálogo-de-vídeos)
 3. [Convenção de nomes dos arquivos do "banco" (`json_db`)](#3-convenção-de-nomes-dos-arquivos-do-banco-json_db)
 4. [Servidor de arquivos de mídia (`file`)](#4-servidor-de-arquivos-de-mídia-file)
 5. [Schemas por tipo de arquivo](#5-schemas-por-tipo-de-arquivo)
@@ -101,6 +102,58 @@ O código do chatbot lê os campos com **muitos fallbacks** (`m.title || m.name`
 do schema** dessas rotas. Trate-as como **não documentadas/instáveis**; prefira
 sempre a superfície (A). Ficam registradas aqui só para não serem "descobertas"
 de novo por engano.
+
+**MAS A RESSALVA É SOBRE AS ROTAS CURINGA, e uma delas é exceção declarada
+(v1.8.97).** O que a torna instável é o mecanismo: elas são servidas por um
+`/:lang/:collection` genérico, sem controlador próprio e sem schema escrito em
+lugar nenhum. **`GET /{lang}/collections/online` não é uma delas** — ela tem
+controlador próprio (`CollectionController@online`), anotação OpenAPI própria,
+registro explícito em `routes/web.php` e teste próprio na réplica, e o schema
+está no controlador campo a campo. **E não há escolha a fazer:** o catálogo de
+vídeos do YouTube (as três tabelas `online_videos_*`) **não tem arquivo em
+`json_db` nenhum** — conferido no mapa `COLLECTIONS` da réplica pública
+(`louvorja/api-workers`), que lista musics, albums, categories, hymnal, lyrics,
+files, albums_musics, categories_albums e languages e mais nada. A única outra
+porta é a rota legada `/onlinevideos`, cujo formato PADRÃO é um dump de comandos
+SQL separados por `|` para o app desktop em Pascal.
+
+### 2.1 `GET /{lang}/collections/online` — o catálogo de vídeos
+
+Consumida por `controle/louvorja.js` → `fetchOnline(lang)`, lida por
+`controle/online.js`. Mesmo host, mesmo header `Api-Token` e mesmo cache-busting
+diário do [fetchList]. Cache de 600 s no servidor; só registros
+`status = 'validated'` são servidos.
+
+```jsonc
+{
+  "channels":  [{ "channel_id", "title", "custom_url", "default_image", "default_image_base64" }],
+  "playlists": [{ "playlist_id", "channel_id", "title", "default_image", "default_image_base64" }],
+  "videos":    [{ "video_id", "playlist_id", "title", "sequence", "default_image", "default_image_base64" }]
+}
+```
+
+**Quatro fatos do formato, lidos no código-fonte de `louvorja/api` e não
+inferidos** — os três primeiros mudam quem consome:
+
+| fato | consequência |
+|---|---|
+| `default_image` é uma URL absoluta do `i.ytimg.com` e cai em string **VAZIA**, nunca `null` (o `?? ''` de `app/Helpers/OnlineVideos.php`) | a guarda é `!img`, e um `img === null` deixa passar o vazio |
+| `default_image_base64` é um `data:` URI da MESMA imagem (o thumbnail `default`, 120×90), embutido | desenha sem internet — e **custa tamanho no que o aparelho guarda**. `online.js` o RECUSA quando há URL: o card não tem miniatura (o quadrado dele é a seta, v5.244) e a da faixa é ilustração |
+| `playlist.channel_id` e `video.playlist_id` podem vir **`null`** (o ternário `$x->relation ? … : null` do controlador) | o vídeo órfão é caso REAL, não hipótese; a playlist sem canal fica sem subtítulo, mas não pode ser recusada |
+| `sequence` é a ordem dentro da playlist | pode FALTAR — e `Number(undefined)` é `NaN`, cujo comparador entrega a ordem ao motor |
+
+**Hierarquia:** canal 1—N playlist 1—N vídeo, segmentada por `id_language`
+(`pt`, `es`). `UNIQUE(id_online_video_playlist, video_id)` no banco, então o
+mesmo vídeo em duas playlists é legítimo e comum; repetido dentro da mesma, não.
+
+> **A réplica pública** (`https://api.louvorja.workers.dev`, `louvorja/api-workers`,
+> Cloudflare Workers + R2) serve as mesmas rotas **sem token**, com
+> `Access-Control-Allow-Origin: *`. Ela foi RECUSADA para este consumo e o
+> motivo fica registrado: seria um HOST A MAIS, e um segundo nome DNS
+> acrescenta um modo de falhar próprio na Wi-Fi de uma igreja (portal cativo,
+> DNS filtrado, um `.dev` que um filtro de conteúdo barra) para um ganho de zero
+> — o token já viaja no bundle desde o primeiro hino. Fica como **caminho de
+> recuo** se um dia esta rota passar a exigir autenticação de verdade.
 
 ---
 

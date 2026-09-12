@@ -2315,7 +2315,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.8.96</span>
+            <span id="appVersion" class="app-version">v1.8.97</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
@@ -2951,6 +2951,12 @@
        `DISSOLVER`, com oráculo em `tools/coletanea.test.mjs`). ANTES do
        controle.js, que a aplica a cada desenho da Biblioteca. -->
   <script src="coletanea.js"></script>
+  <!-- A QUINTA regra pura: a leitura do catálogo de VÍDEOS do LouvorJA — canal
+       → playlist → vídeo virando coletânea → álbum → faixa, com oráculo em
+       `tools/online.test.mjs`. ANTES do controle.js, que a consulta na carga
+       (o `loadCollections` confere a IMPRESSÃO dela para decidir se o catálogo
+       guardado ainda vale) e a cada desenho da Biblioteca. -->
+  <script src="online.js"></script>
   <!-- A TRADUÇÃO DA APRESENTAÇÃO: `.pptx` → uma imagem por página. ANTES do
        controle.js pela regra dos irmãos acima, e num arquivo próprio porque os
        três modos de falhar dela são CALADOS (a mídia que não atravessa o

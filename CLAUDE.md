@@ -47,6 +47,7 @@ tem o que se pode quebrar sem abrir o capítulo, e o capítulo tem o resto:
 | download minimizado, `SyncService`, notificação de progresso | [§](#trabalho-em-segundo-plano-downloads-com-o-app-minimizado) | [`docs/shell/SEGUNDO-PLANO.md`](docs/shell/SEGUNDO-PLANO.md) |
 | `MediaSession`, transporte fora do app | [§](#notificação-de-controles-sessão-de-mídia) | [`docs/shell/SESSAO-DE-MIDIA.md`](docs/shell/SESSAO-DE-MIDIA.md) |
 | os álbuns oficiais da Biblioteca | [§](#séries-do-youtube-os-álbuns-oficiais-da-biblioteca) | [`docs/recursos/SERIES.md`](docs/recursos/SERIES.md) |
+| a curadoria de vídeos do banco, como coletânea | [§](#a-coletânea-de-vídeos-do-louvorja) | [`docs/arquitetura/CONTROLE.md`](docs/arquitetura/CONTROLE.md) |
 | acordes sobre a letra, sob demanda | [§](#a-aba-de-cifra-acordes-ao-lado-da-letra) | [`docs/recursos/CIFRA.md`](docs/recursos/CIFRA.md) |
 | o acervo num arquivo `.avpkg` | [§](#o-pacote-de-transferência-o-acervo-num-arquivo) | [`docs/recursos/PACOTE.md`](docs/recursos/PACOTE.md) |
 | cada par de cor medido, os pisos, o que foi revogado | [§](#a-paleta) | [`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md) |
@@ -195,6 +196,12 @@ app/src/main/
 │   │                            #   independência e entra em outra. PURA, com
 │   │                            #   oráculo Node. Aplicada na LEITURA: o
 │   │                            #   catálogo cru continua cru no aparelho
+│   ├── controle/online.js       #   a COLETÂNEA DE VÍDEOS DO LOUVORJA: o
+│   │                            #   catálogo de `/{lang}/collections/online`
+│   │                            #   (canal → playlist → vídeo) virando
+│   │                            #   coletânea → álbum → faixa. PURA, com
+│   │                            #   oráculo Node. A PLAYLIST prova o
+│   │                            #   pertencimento; o título é só rótulo
 │   ├── controle/cifra.js        #   a CIFRA: a REGRA que lê uma página de cifra
 │   │                            #   (slug, folha, transposição). PURA, com
 │   │                            #   oráculo Node. Sob demanda: NADA é guardado
@@ -1193,6 +1200,49 @@ O que vale sem abrir o capítulo:
   web um ajuste chega por OTA em minutos.
 - **O ÁUDIO em português é outra pergunta, e é do SHELL** (`TrilhaAudio.kt`): o
   YouTube dubla sozinho e a dublagem não muda o título.
+
+## A coletânea de vídeos do LouvorJA
+
+O mesmo banco que manda hinos e Bíblia mantém uma **curadoria de vídeos do
+YouTube** (três tabelas, servidas por `GET /{lang}/collections/online`), e ela
+vira **uma coletânea da Biblioteca**. **Detalhe em
+[`docs/arquitetura/CONTROLE.md`](docs/arquitetura/CONTROLE.md)** — abra antes de
+mexer no `controle/online.js`, no `fetchOnlineCatalog` ou na seção dela.
+
+O que vale sem abrir o capítulo:
+
+- **A hierarquia é a MESMA dos dois lados** — canal → playlist → vídeo contra
+  coletânea → álbum → faixa —, e é por isso que o recurso custou um módulo puro
+  e nenhum fluxo novo: a playlist é o card, o canal é o SUBTÍTULO dele, o vídeo
+  é a faixa. A folha, o download e a projeção são os das séries.
+- **A regra de ouro é a das séries: a PLAYLIST prova o pertencimento, o título é
+  só RÓTULO.** Aqui o vínculo é uma chave estrangeira que o banco já resolveu —
+  um vídeo cujo `playlist_id` não case com playlist nenhuma é ÓRFÃO, jamais
+  adotado por semelhança de nome.
+- **UMA seção, e o canal NÃO vira seção.** A razão é medida e é a da v1.5.16:
+  com 5 coletâneas (10 blocos) a lista de abertura da Biblioteca ROLA, com 4
+  não — e o payload não declara quantos canais tem. Uma seção por canal poria o
+  número de blocos da tela de abertura de toda a frota nas mãos de um curador
+  de outro projeto.
+- **UMA requisição traz o acervo inteiro**, na fase 1 do
+  `autoRefreshCollections` (ao lado do `pt_categories`), nunca uma por card.
+  Nada muda ⇒ nada é escrito: sem essa guarda cada retomada do app reescrevia o
+  catálogo e um `coll:<id>` por álbum sobre conteúdo idêntico.
+- **O que se guarda é o LIDO, não o cru** — a escolha OPOSTA à do
+  `albumCatalog`, e as duas estão certas (lá a tabela `DISSOLVER` muda por OTA e
+  a leitura é reaplicada a cada desenho; aqui a regra segue chaves estrangeiras
+  e não tem o que revisar). O que muda é a própria regra, e para isso existe
+  `AVOnline.IMPRESSAO`, conferida no `loadCollections`.
+- **A TERCEIRA CAPACIDADE nasceu aqui: `temCalendario(coll)` = `!!coll.serie`.**
+  `ehLink` significava "é a série" porque a série era a única coleção de vídeo, e
+  cinco lugares perguntavam por ele querendo dizer isto. Sem a distinção, cada
+  playlist da curadoria herda a caixa *"Manter o … da semana baixado"* — um
+  interruptor marcável sobre uma rotina que procura uma data que aqueles vídeos
+  não têm.
+- **Esta é a PRIMEIRA rota fora de `json_db`** que o app consome, e ela é
+  forçada: não há arquivo em `json_db` para este acervo. Daí a falha da busca
+  virar linha do Registro — uma política de CORS diferente falha igual a "sem
+  rede", e sem a linha o bloco diria *"ainda não buscado"* para sempre.
 
 ## A aba de cifra (acordes ao lado da letra)
 
@@ -2747,9 +2797,29 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.96 · APK v1.8.91** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.97 · APK v1.8.91** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
+
+> **A v1.8.97 é CORREÇÃO e não INCREMENTAL, e a régua é a da tabela acima.** Ela
+> acrescenta uma COLETÂNEA à Biblioteca (os vídeos curados pelo LouvorJA), e
+> "uma seção inteiramente nova do app" quer dizer *um lugar que não existia,
+> **com tela e fluxo próprios***. Esta não tem nem um nem outro, de propósito: o
+> card é o `renderCollectionCard` de sempre, a folha é a do YouTube, o download
+> é o `ytFetch` das séries, e o que o lote acrescenta de fluxo é ZERO — é essa
+> reutilização que faz a coletânea custar um módulo puro e não um subsistema.
+> A mesma régua já classificou a v1.8.87 (manter o episódio da semana baixado,
+> com rotina de segundo plano e tudo) como CORREÇÃO.
+>
+> **Ela também NÃO declara `shellTag`, e pelo motivo do lote anterior:** não
+> toca `java/`, `res/` nem o manifesto — o gatilho da Release é o `java/`, e o
+> `apk.yml` mudou só para acrescentar a linha do oráculo novo, que roda no CI e
+> não no aparelho. A ponte não mudou (`SHELL_VERSION` segue 72) e nem precisava:
+> **o catálogo chega por `fetch` comum**, não pela ponte, e o download do vídeo
+> reusa o `ytFetch` que já está na frota. `AVOnline` é mais um módulo de
+> `assets/web/` — como o `AVSorteio` da v1.8.86 e o `AVColetanea` da v1.5.16, a
+> superfície que o `SHELL_VERSION` governa é a da PONTE, não a dos módulos do
+> bundle, e quem os chama chega no mesmo zip.
 
 > **A v1.8.96 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela mudou `java/` (o
