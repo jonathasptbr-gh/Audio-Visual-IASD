@@ -49,7 +49,7 @@
 //   node tools/cartao-preso-no-telao.test.mjs
 // ============================================================================
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas, RAIZ_WEB } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas, RAIZ_WEB, esperar, porque } from './arnes.mjs';
 
 const servidor = servirEstatico(RAIZ_WEB);
 
@@ -117,23 +117,47 @@ try {
   // ======================================================================
   // O CENÁRIO DO RELATO — e é o "cobrir ANTES" que o produz
   // ======================================================================
+  // AS ESPERAS SÃO PELO FATO (v1.8.85), e não pelo relógio: cortina e cartão
+  // são ESTADO do DOM do telão, e o `espiar()` já os lê. MEDIDO, este arquivo
+  // gastava 9,8 s dos 10,5 s dele em `waitForTimeout` — o prazo virava a régua,
+  // e um runner carregado reprovaria por sono curto, indistinguível de defeito.
+  // As DUAS que ficam estão nomeadas: a mídia precisa TOCAR (tempo de parede
+  // real) e a cortina precisa ter TERMINADO o fade (o `text-hide` do caminho de
+  // reversão não tem estado próprio que o feche).
+  // O VALOR VAI COMO ARGUMENTO, nunca por closure: `waitForFunction` SERIALIZA a
+  // função para o navegador, e uma variável do Node não atravessa — ela chega
+  // `undefined` e a espera nunca se satisfaz (medido: reprovava em 1 s com a
+  // frase do prazo, que é justamente a confusão que `porque()` existe para
+  // evitar).
+  const ate = (fn, arg, o) => esperar(tv, fn, arg, 8000).then((r) => {
+    if (r !== true) throw new Error('esperando ' + o + ' ' + porque(r));
+  });
+  const cortinaEm = (v) => ate(
+    (q) => getComputedStyle(document.getElementById('wallpaper')).display === q,
+    v, 'a cortina em ' + v);
+  const cartaoEm = (v) => ate(
+    (q) => (!document.getElementById('text').hidden) === q,
+    v, 'o cartão ' + (v ? 'à vista' : 'fora'));
+
   await mandar({ type: 'load', mediaId: ids.audio, view: 'visual', muted: true, volume: 0 });
-  await tv.waitForTimeout(1500);
+  await ate(() => { const el = document.querySelector('video'); return !!el && !el.paused; }, null, 'a mídia tocando');
+  await tv.waitForTimeout(400);   // TEMPO DE PAREDE: o `a2.tempo > a1.tempo` mede segundos andando
   await mandar({ type: 'view', view: 'wallpaper' });
-  await tv.waitForTimeout(900);
+  await cortinaEm('flex');
   const a0 = await espiar();
   checar(a0.cortina === 'flex' && !a0.cartao && a0.tocando,
     'ponto de partida: o louvor toca com o telão COBERTO, sem cartão nenhum', a0);
 
   await mandar({ type: 'text', mode: 'verse', main: 'No princípio criou Deus', sub: 'Gênesis 1:1', view: 'visual' });
-  await tv.waitForTimeout(900);
+  await cortinaEm('none'); await cartaoEm(true);
   const a1 = await espiar();
   checar(a1.cortina === 'none' && a1.cartao,
     'a Escritura projetada DESCOBRE a cortina e aparece — mesmo com o telão coberto antes', a1);
 
   // ---- A ASSERÇÃO CENTRAL: o "apenas wallpaper" do relato -----------------
   await mandar({ type: 'view', view: 'wallpaper' });
-  await tv.waitForTimeout(1200);
+  await cortinaEm('flex');
+  await tv.waitForTimeout(400);   // TEMPO DE PAREDE: `a2.tempo > a1.tempo`
   const a2 = await espiar();
   checar(a2.cortina === 'flex',
     'e "apenas wallpaper" COBRE a Escritura — ela não fica presa na frente da congregação', a2);
@@ -142,7 +166,7 @@ try {
 
   // ---- DESCOBRIR devolve: o conserto não pode ser "nunca descobrir" -------
   await mandar({ type: 'view', view: 'visual' });
-  await tv.waitForTimeout(1200);
+  await cortinaEm('none'); await cartaoEm(true);
   const a3 = await espiar();
   checar(a3.cortina === 'none' && a3.cartao,
     'e o toque seguinte devolve a Escritura — o cartão continua montado por baixo '
@@ -154,16 +178,16 @@ try {
   // Sem esta metade, um conserto que trocasse o defeito de lugar (cobrir sempre,
   // por exemplo) passaria em tudo o que está acima.
   await mandar({ type: 'text-hide' });
-  await tv.waitForTimeout(800);
+  await cartaoEm(false);
   await mandar({ type: 'load', mediaId: ids.audio, view: 'visual', muted: true, volume: 0 });
-  await tv.waitForTimeout(1200);
+  await ate(() => { const el = document.querySelector('video'); return !!el && !el.paused; }, null, 'a mídia tocando');
   await mandar({ type: 'text', mode: 'verse', main: 'Eu sou o caminho', sub: 'João 14:6', view: 'visual' });
-  await tv.waitForTimeout(900);
+  await cortinaEm('none'); await cartaoEm(true);
   const b1 = await espiar();
   checar(b1.cortina === 'none' && b1.cartao,
     'SEM cobrir antes, a Escritura aparece como sempre', b1);
   await mandar({ type: 'view', view: 'wallpaper' });
-  await tv.waitForTimeout(1200);
+  await cortinaEm('flex');
   const b2 = await espiar();
   checar(b2.cortina === 'flex',
     '  ↳ e o "apenas wallpaper" deste caminho continua cobrindo', b2);

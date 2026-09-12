@@ -773,10 +773,12 @@ object YoutubeGrab {
             // Registro não sabia responder sobre resolução: *"o app escolheu
             // baixo, ou só havia baixo?"*.
             //
-            // A rede NÃO é resposta possível aqui, e é preciso estar dito: o
-            // `shared/mse.js` não faz ABR (está no cabeçalho dele, em letras
-            // maiúsculas). Uma rede fraca produz TRAVAMENTO, nunca resolução
-            // menor — quem conta os travamentos é o `AVStream.fome`. Sobram três
+            // A rede NÃO é resposta possível aqui, e é preciso estar dito:
+            // nada neste caminho faz ABR. Hoje o vídeo é BAIXADO INTEIRO antes
+            // de projetar (`ytArquivo`, v1.7.7), então uma rede fraca atrasa o
+            // download e não muda um pixel da imagem; antes disso, com a
+            // transmissão direta (que saiu na v1.8.82), ela produzia TRAVAMENTO,
+            // nunca resolução menor. Nos dois casos sobram três
             // causas para uma imagem ruim, e esta linha separa a primeira:
             // a faixa que escolhemos, o teto que o operador pediu, e o encoder
             // do espelhamento, que fica fora do alcance do app.
@@ -791,12 +793,14 @@ object YoutubeGrab {
                 " · v=${v.mime};${v.codec} a=${a.mime};${a.codec}"
             // ===== A ESCADA, e não uma faixa só =====
             //
-            // O `mse.js` NÃO faz ABR, e é justamente por isso que a escolha tem
-            // de ser boa: ela é feita uma vez e vale o louvor inteiro. Enquanto
-            // o manifesto trouxe UMA faixa, ela era feita CEGA — sempre o teto —
-            // e uma rede que não a sustenta produz travamento, nunca imagem
-            // menor. Com a escada, quem escolhe é o lado web, que é o único que
-            // sabe quanto a rede de FATO entregou (ver `AVStream.escolherDegrau`).
+            // NADA AQUI FAZ ABR, e é justamente por isso que a escolha tem de
+            // ser boa: ela é feita uma vez e vale o louvor inteiro. Enquanto o
+            // manifesto trouxe UMA faixa, ela era feita CEGA — sempre o teto.
+            // Com a escada, quem escolhe é o lado web. **O consumidor que
+            // escolhia pela banda medida saiu na v1.8.82** (era o leitor de
+            // MSE); hoje quem recebe a escada é o download, que pega a faixa
+            // sob o teto do operador — a lista continua servindo, e é ela que
+            // torna o teto de 720p/480p exato em vez de um palpite.
             //
             // A decisão fica no JS por três razões, e a terceira é a que decide:
             // é a invariante 5; ela precisa da MEDIÇÃO, que só existe depois dos

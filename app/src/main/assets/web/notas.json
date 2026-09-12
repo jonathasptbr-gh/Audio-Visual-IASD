@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.8.85",
+    "itens": [
+      "Cifra em tela cheia: com a barra de velocidade aberta, o botão de sair some — agora ele volta.",
+      "Cifra em tela cheia: os rótulos 0,5× e 2× estavam trocados de lado no controle de velocidade.",
+      "O botão de limpar o Cronograma passou a responder ao toque como os vizinhos.",
+      "Playlist automática: as frases do cartão encurtaram para não serem cortadas em telas pequenas.",
+      "Bíblia: a lista de versões deixou de ser redesenhada a cada capítulo — a folha ficou mais leve.",
+      "Bíblia: ao terminar de baixar, a folha aberta passa a mostrar o resultado na hora.",
+      "Exportar o acervo: cancelar no meio não trava mais o app."
+    ]
+  },
+  {
     "versao": "1.8.84",
     "itens": [
       "Apresentação: o vídeo de um slide não entra mais por cima da mídia que você escolheu enquanto ele carregava.",

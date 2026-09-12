@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.84';
+const WEB_VERSION = '1.8.85';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3406,10 +3406,11 @@ function syncFader(pct) {
 }
 
 // EXCEÇÃO à convenção "ícone = ação": este botão CICLA por quatro modos
-// (off → all → one → shuffle), não alterna dois. Num par binário mostrar a ação
-// não custa nada, porque o estado é o inverso dela; num ciclo de quatro, o
-// glifo só cabe um — mostrar o PRÓXIMO modo apagaria da tela qual está valendo,
-// e a cor (`.active`) só distingue ligado de desligado, não qual dos três.
+// (off → one → all → shuffle, a ordem de `REPEATS`), não alterna dois. Num par
+// binário mostrar a ação não custa nada, porque o estado é o inverso dela; num
+// ciclo de quatro, o glifo só cabe um — mostrar o PRÓXIMO modo apagaria da tela
+// qual está valendo, e a cor (`.active`) só distingue ligado de desligado, não
+// qual dos quatro.
 // Então aqui o ícone segue sendo o modo ATUAL, que é a informação que se perde.
 // O DESENHO DE CADA MODO (v1.8.80) — três símbolos, quatro degraus.
 //
@@ -4174,7 +4175,14 @@ async function ensureBibleMeta(force) {
     .map(async (v) => {
       if (await AVDB.getState('bibleComplete:' + v.id)) bibleCompleteVersions.add(v.id);
     }));
-  await recontarBibliaNoAparelho();
+  // A RECONTAGEM NÃO ENTRA AQUI (v1.8.85). `ensureBibleMeta` está no caminho
+  // QUENTE — o clique de capítulo, a abertura da aba, o boot —, e
+  // `recontarBibliaNoAparelho` varre TODAS as chaves `bible:` (até 1189 por
+  // versão baixada) para alimentar um mapa que só a FOLHA DE VERSÕES lê
+  // (`bibleCachedCount`, em `renderBibleVerList`). E ela já se reconta sozinha:
+  // `openBibleVerPopup` desenha com o que sabe e recontra depois, e o fim de
+  // uma varredura faz o mesmo. Esperar por ela aqui era pagar a varredura
+  // inteira em toda chamada por um número que ninguém ia ler.
   if (bibliaAberta()) renderBible();
 }
 
@@ -4261,7 +4269,7 @@ async function apagarVersaoBiblia(v) {
   // worker (`bibleDl.running`) faz o resto.
   if (bibleDl && bibleDl.running && bibleDl.versionId === v.id) {
     bibleDl.running = false;
-    refreshBibleDl();
+    refreshBibleDl(true);
   }
   try {
     await AVDB.stateApagarPrefixo('bible:' + v.id + '_');
@@ -4499,7 +4507,7 @@ async function ensureBibleVersionDownloaded(versionId) {
   // por si só não bastava — a igualdade de versão é reversível.
   const runSeq = ++bibleDlSeq;
   bibleDl = { versionId, total, done, running: true, seq: runSeq };
-  refreshBibleDl();
+  refreshBibleDl(true);   // o COMEÇO é desfecho: a linha passa a dizer "Baixando"
 
   // 1189 capítulos: é o download mais longo do app e o que mais sofria com o
   // congelamento do processo ao minimizar.
@@ -4541,15 +4549,35 @@ async function ensureBibleVersionDownloaded(versionId) {
   if (bibleDl && bibleDl.seq === runSeq) {
     bibleDl.running = false;
     if (failed === 0) { await AVDB.setState('bibleComplete:' + versionId, true); bibleCompleteVersions.add(versionId); }
-    refreshBibleDl();
+    // E A CONTAGEM É REFEITA ANTES DE REPINTAR (v1.8.85): `bibleCachedCount` foi
+    // lido quando a folha abriu, e a varredura que acabou de terminar gravou
+    // centenas de capítulos por baixo dele. Sem isto a folha aberta seguia
+    // dizendo "Não baixada" sobre o texto que acabou de entrar, e o EXCLUIR
+    // continuava apagado — os dois leem esse mapa.
+    try { await recontarBibliaNoAparelho(); } catch (_) {}
+    refreshBibleDl(true);
   }
 }
 
 // O status offline/progresso do download aparece SÓ dentro do popup de seleção
 // de versão (`.bible-ver-status` por versão) — não disputa espaço com a leitura.
 // Enquanto o download roda, re-renderiza a lista se o popup estiver aberto.
-function refreshBibleDl() {
-  if (bibleVerPopupEl.classList.contains('open')) renderBibleVerList();
+// ESTRANGULADO (v1.8.85): ele é chamado UMA VEZ POR CAPÍTULO baixado — 1189
+// por versão —, e cada chamada reconstrói a LISTA INTEIRA de versões, que desde
+// a v1.8.83 carrega por linha o botão de excluir e o ✓ em SVG. O número que
+// muda ali é um contador de progresso; repintá-lo a 60 Hz não o torna mais
+// verdadeiro, e o custo cai sobre o mesmo fio que serve a projeção.
+//
+// O `0` do prazo é DELIBERADO nas duas pontas que importam: quem chama fora do
+// laço (o fim da varredura, o `apagarVersaoBiblia`) passa `true` e repinta na
+// hora — ali o desfecho é o que o operador está olhando, não um número andando.
+let bibleDlPintarEm = 0;
+function refreshBibleDl(agora) {
+  if (!bibleVerPopupEl.classList.contains('open')) return;
+  const t = Date.now();
+  if (!agora && t < bibleDlPintarEm) return;
+  bibleDlPintarEm = t + 400;
+  renderBibleVerList();
 }
 
 // Ordem das telas da Bíblia (pra direção do slide de transição).
@@ -7634,6 +7662,11 @@ function renderCronoLimpar() {
   const vazio = !libItems.length;
   cronoLimparEl.disabled = vazio;
   cronoLimparEl.title = vazio ? 'O Cronograma já está vazio' : 'Limpar o Cronograma';
+  // E O `aria-label` ACOMPANHA, senão a metade que EXPLICA não existe para quem
+  // usa leitor de tela: o nome acessível vem do `aria-label`, que VENCE o
+  // `title` — congelado no HTML, ele anunciava "Limpar o Cronograma,
+  // indisponível" e a razão da indisponibilidade não era dita em lugar nenhum.
+  cronoLimparEl.setAttribute('aria-label', cronoLimparEl.title);
 }
 
 function renderLibraryCorpo() {
@@ -10920,10 +10953,11 @@ function linhaDeItem(item, opts) {
  * respondível.
  *
  * **Só onde a mídia É LOCAL.** A folha do YouTube (`openYtMenu`) fica de fora de
- * propósito: ali "Tocar agora" TRANSMITE — abre rede, monta MSE e põe algo no
- * telão —, e as três linhas de lista significam "espere o download". Marcado por
- * padrão, um toque em "Favoritar" começaria uma transmissão na frente da
- * congregação por um destino que não pedia projeção nenhuma. Aqui os bytes já
+ * propósito: ali "Tocar agora" BAIXA o vídeo inteiro antes de projetar
+ * (`ytArquivo`, v1.7.7), e as três linhas de lista significam o mesmo download.
+ * Marcado por padrão, um toque em "Favoritar" começaria uma transferência de
+ * centenas de MB na frente da congregação por um destino que não pedia
+ * projeção nenhuma. Aqui os bytes já
  * estão no aparelho e o pior caso é uma faixa entrando em cena, que é o que o
  * operador está fazendo de qualquer jeito.
  *
@@ -13543,12 +13577,12 @@ function cifraGuardavel(coll) {
 // 'cellular'` — nada consultava a cena.
 //
 // **Por que isto é estabilidade e não desempenho.** O uso normal é abrir o app
-// minutos antes do culto e tocar o primeiro item. Nesse instante os fragmentos
-// do MSE disputam a Wi-Fi da igreja com as 12 requisições — e a MEDIDA DE BANDA
-// que escolhe o degrau do louvor inteiro é feita justamente durante a disputa
-// (`talvezTrocarDegrau` roda antes do primeiro quadro, uma vez, para sempre).
-// A varredura do acervo podia rebaixar a resolução do louvor, e numa rede
-// apertada empurrar o fragmento seguinte para a fome.
+// minutos antes do culto e tocar o primeiro item. Nesse instante as 12
+// requisições disputam a Wi-Fi da igreja com o que o culto precisa AGORA: o
+// download do `ytArquivo` (que o "Tocar agora" de um vídeo do YouTube SEMPRE
+// dispara desde a v1.7.7, e que o operador está esperando de olho na barra) e
+// o empurrão de bytes para as telas da rede, que servem o `/m/<token>` do
+// MESMO aparelho. Numa rede apertada a varredura atrasa os dois.
 //
 // **CEDE A VEZ E SAI, não cede a vez e espera.** Esperar seguraria o
 // `withBgRotina` — e com ele o serviço em primeiro plano, cuja cota de
@@ -14994,6 +15028,16 @@ function lvBuildCifra(el) {
   // de módulo, com o desenho e o ouvinte intactos.
   cifraCheiaBtnEl.hidden = false;
   ctl.appendChild(cifraCheiaBtnEl);
+  // E A GAVETA NASCE FECHADA AQUI, ANTES DOS RETORNOS CEDO (v1.8.85). A fila é
+  // esvaziada a cada render, mas a CLASSE mora no `.lv-cifra-ctl`, que não é
+  // recriado: com a gaveta aberta, uma troca de faixa que caia na ESPERA
+  // (`buscando`) deixava a regra da v1.8.83 apagando o ⛶ sobre uma fila em que
+  // o ✕ da própria gaveta já tinha sido varrido — em tela cheia, onde o
+  // `popup-close`, o título e as abas são `display: none`, sobrava o voltar do
+  // Android e mais nada. O zerar de baixo continua lá para o caminho completo;
+  // este é o que os dois retornos cedo alcançam.
+  ctl.classList.remove('escolhendo');
+  cifraVelAberta = false;
 
   // ===== OS DOIS RETORNOS CEDO, E O QUE SOBROU DELES (v1.8.28) ==============
   //
@@ -15075,11 +15119,14 @@ function lvBuildCifra(el) {
   // mantém UM ponto de anexo para a saída — dois `append` do mesmo nó em ramos
   // diferentes é a divergência que este arquivo evita por construção.
   //
-  // A GAVETA NASCE JUNTO e nasce FECHADA (v1.7.4): ela é `display: none` até a
-  // classe da fila mudar, então construí-la aqui não custa layout nenhum — e
-  // custaria uma segunda porta de montagem se fosse criada no toque, num nó que
-  // `renderLyricsView` refaz a cada transposição.
-  cifraVelAberta = false;
+  // A GAVETA NASCE JUNTO e nasce FECHADA (v1.7.4): desde a v1.8.83 ela vive
+  // FORA DO FLUXO (`position: absolute` contra o `.lv-cifra-ctl`, com
+  // `width: 0`, `opacity: 0` e `visibility: hidden`), então construí-la aqui não
+  // custa layout nenhum — e custaria uma segunda porta de montagem se fosse
+  // criada no toque, num nó que `renderLyricsView` refaz a cada transposição.
+  // O que a segura ali é o `position: relative` + `overflow: hidden` da fila:
+  // inflar o conteúdo dela sem olhar os dois é o que faz a gaveta vazar.
+  cifraVelAberta = false;   // já zerado acima; fica pelo caminho completo
   ctl.prepend(cifraRolarBtnEl, cifraVelBtnEl, cifraVelFila(), menos, mais);
   cifraPintarRolar();
   cifraPintarVels();
@@ -15737,8 +15784,9 @@ async function stopClear() {
  * não antecipa nada, apenas para de esconder o que já foi decidido.
  *
  * É o mesmo protocolo visual que o `stage.load` já usa (esmaece o que está no
- * ar e segura o aro de espera até `PRONTO_STREAM_MS`); o que muda é COMEÇAR no
- * instante do comando, e não no instante em que os bytes são conhecidos.
+ * ar e espera o quadro seguinte estar pronto antes de revelar); o que muda é
+ * COMEÇAR no instante do comando, e não no instante em que os bytes são
+ * conhecidos.
  *
  * **NÃO É `stopClear`**, e a diferença é o `clearManualText`: aquele encerra as
  * seis sessões de texto, e aqui não há razão para isso — a mídia é que está
@@ -15863,10 +15911,14 @@ function attachRowGestures(row, item) {
  * escolher tocava em laço, que é literalmente o defeito que o `one` caindo
  * existia para evitar.
  *
- * **É A ÚNICA PORTA QUE TROCA A FILA INTEIRA**, e isso é verificável: as três
- * chamadas de `AVDB.listSet('playlist', …)` com um ARRAY passam por ela (o item
- * avulso, o pacote e a playlist automática). As outras duas usam a forma com
- * FUNÇÃO — acrescentar aos selecionados e o "Limpar" —, e nenhuma das duas
+ * **É A ÚNICA PORTA QUE REDEFINE A SEQUÊNCIA**, e o funil é esse — não "toda
+ * escrita em array". São QUATRO as escritas de array na lista `playlist`: três
+ * passam por aqui (o item avulso, o pacote e a playlist automática) e a quarta
+ * é o `moverNaLista`, que um `grep "listSet('playlist'"` NÃO enxerga porque
+ * escreve `listSet(listName, ids)` com o nome em variável. Ela fica de fora com
+ * razão: reordenar não redefine sequência nenhuma, e derrubar a repetição ali
+ * seria um efeito colateral de arrastar um item. As outras duas usam a forma
+ * com FUNÇÃO — acrescentar aos selecionados e o "Limpar" —, e nenhuma delas
  * redefine uma sequência para tocar.
  */
 async function trocarFila(ids) {
@@ -15890,8 +15942,11 @@ async function trocarFila(ids) {
 async function zerarRepeticao() {
   if (repeat === 'off') return;
   repeat = 'off';
-  await AVDB.setState('repeat', repeat);
+  // A RESPOSTA VEM PRIMEIRO, a mesma inversão que o `cycleRepeat` já leva: o
+  // desenho depois do `await` do banco deixa o botão mostrando o degrau
+  // anterior durante a transação, com a música no ar.
   renderRepeat();
+  await AVDB.setState('repeat', repeat);
 }
 
 // Trocar de música do zero: a playlist passa a ser SÓ este item.
@@ -21195,11 +21250,12 @@ async function resolveSongMediaId(coll, s, variant) {
 // respondeu "baixar" já disse como quer que o app se comporte, e repetir a
 // pergunta a cada música viraria ruído no meio do culto.
 async function simplePlaySong(coll, s) {
-  // NO MODO FÁCIL A SÉRIE TAMBÉM TRANSMITE (v5.230), e aqui isso vale ainda
-  // mais: este modo existe para não perguntar nada, e a alternativa seria o
-  // operador esperar ~300 MB de download com o culto rodando. `ytAcao` com
-  // "tocar" e nenhum destino de guarda é exatamente o caminho da transmissão
-  // direta — e, falhando ela, o download de sempre, calado.
+  // NO MODO FÁCIL A SÉRIE ENTRA SEM PERGUNTA (v5.230): este modo existe para
+  // não perguntar nada, e `ytAcao` com "tocar" e nenhum destino de guarda é o
+  // caminho do `ytArquivo` — download e projeta, com o cartão sobre a preview
+  // cobrindo a espera. A TRANSMISSÃO DIRETA que este caminho usava saiu na
+  // v1.7.7, e o preço está aceito e escrito: um episódio pesa ~300 MB e o
+  // "Tocar agora" espera por ele.
   if (ehLink(coll)) { await ytAcao(serieComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
   const { needsFull } = await songVariantsNeeded(coll, s);
   if (needsFull && !(await ensureDownloadConsent())) return;
@@ -22000,12 +22056,23 @@ function pintarContaSorteio(conta, pool) {
 // errada. A VARIANTE (Cantada × Playback) fica de fora desta conta de
 // propósito: ela não encolhe um acervo, ela escolhe QUAL faixa de cada música,
 // e o segmento acima já a mostra.
+// AS FRASES SÃO CURTAS PORQUE O CARTÃO TEM ALTURA FIXA (v1.8.85).
+//
+// O cartão clampa em TRÊS linhas (`-webkit-line-clamp`), e o clampe corta
+// DENTRO do span — a caixa de fora não muda, então nada na geometria acusa.
+// MEDIDO a 320px com a fonte do sistema a 1,5× (a célula estreita que o próprio
+// `#sorteioPopup` já declara como o pior caso que se aceita): com os três
+// filtros ligados a frase antiga (`'Só o que já está no aparelho, sem o
+// hinário, sem os infantis — 1.100 músicas'`) quebrava em QUATRO linhas e o
+// substantivo "músicas" sumia atrás das reticências. E não era preciso os três:
+// com DOIS filtros e o número acima de mil ela já quebrava.
+//
+// O que encolheu foi a BASE e as duas subtrações, nunca o número — ele é a
+// resposta da conta, e é por ele que o operador decide.
 function escopoSemPalavra(n) {
-  const base = sorteioPrefs.soNoAparelho
-    ? 'Só o que já está no aparelho'
-    : 'Toda a biblioteca';
-  const menos = (sorteioPrefs.semHinario ? ', sem o hinário' : '')
-    + (sorteioPrefs.semInfantis ? ', sem os infantis' : '');
+  const base = sorteioPrefs.soNoAparelho ? 'Só o baixado' : 'Toda a biblioteca';
+  const menos = (sorteioPrefs.semHinario ? ', sem hinário' : '')
+    + (sorteioPrefs.semInfantis ? ', sem infantis' : '');
   return base + menos + ' — ' + numeroPt(n) + (n === 1 ? ' música' : ' músicas');
 }
 
@@ -22027,7 +22094,11 @@ function numeroPt(n) {
 // acima, e é dele que a REGRA lê (`sorteioPrefs.tema` continua cru em
 // `sorteioPool`). O número é o do `rotuloItem`, que resolve a mesma pergunta
 // para o nome de uma faixa.
-const TEMA_NA_FRASE_MAX = 24;
+// 24 ERA O NÚMERO DA v1.8.83 e ele estourava por uma linha a 360×1,5 (MEDIDO,
+// 3px de excesso no span clampado — invisível para a geometria de fora, que foi
+// por onde o oráculo o perdeu). O que cresceu em volta foi a frase: "músicas
+// relacionadas a" mais um número de quatro dígitos com separador.
+const TEMA_NA_FRASE_MAX = 18;
 function temaNaFrase(palavra) {
   return palavra.length > TEMA_NA_FRASE_MAX ? palavra.slice(0, TEMA_NA_FRASE_MAX) + '…' : palavra;
 }
@@ -22698,9 +22769,19 @@ function nomeDoPacoteSorteado(f, quantas) {
 // A frase mora em ESTADO, não no nó (ver `pintarContaSorteio`).
 let sorteioFala = '';
 let sorteioFalaTimer = null;
+// O TETO DA FALA (v1.8.85), pela mesma razão do `temaNaFrase`: a fala toma as
+// TRÊS linhas do cartão sozinha (`[sorteioFala, '']`), e o cartão tem altura
+// fixa — o que passar é cortado pelo `-webkit-line-clamp` DENTRO do span, sem
+// nada na geometria acusar. O pior caso real são ~56 caracteres (o nome
+// clampado em 28 pelo `rotuloItem`, mais o par mais longo de `LISTA_ROTULO`), e
+// MEDIDO ele estourava 26px a 360 com a fonte do sistema a 1,5×.
+//
+// O que se corta é o NOME, nunca o verbo: quem lê a fala acabou de tocar
+// naquela linha e a tem à vista; o que ele não sabe é PARA ONDE foi.
+const FALA_MAX = 50;
 function falarNoSorteio(texto) {
   clearTimeout(sorteioFalaTimer);
-  sorteioFala = texto;
+  sorteioFala = texto.length > FALA_MAX ? encurtarFalaDoSorteio(texto) : texto;
   atualizarContaSorteio();
   sorteioFalaTimer = setTimeout(() => {
     sorteioFala = '';
@@ -22711,6 +22792,23 @@ function falarNoSorteio(texto) {
 // quem foi fazer outra coisa; reencontrar ali o recibo de três minutos atrás
 // diria que a conta é o que ela não é.
 function calarSorteio() { clearTimeout(sorteioFalaTimer); sorteioFala = ''; }
+
+// Encurta pelo NOME: ele vem entre aspas curvas no começo (`rotuloItem`), e é a
+// única parte variável. Sem aspas — as falas de contagem — corta no fim, que
+// ali é o caso que não acontece (elas são curtas por construção).
+function encurtarFalaDoSorteio(texto) {
+  // O NOME VEM ENTRE ASPAS RETAS, que é o que o `rotuloItem` escreve (`'"'`) —
+  // conferir a aspa CURVA aqui fazia a função cair no corte pelo fim e comer o
+  // verbo, que é a metade que não pode sair: "…adicionado ao Crono…" não diz
+  // para onde foi.
+  const fim = texto.indexOf('" ');
+  if (texto[0] !== '"' || fim <= 0) return texto.slice(0, FALA_MAX - 1) + '…';
+  const resto = texto.slice(fim + 2);            // 'adicionado ao Cronograma'
+  const cabe = Math.max(6, FALA_MAX - resto.length - 4);   // 4 = as aspas, o … e o espaço
+  const nome = texto.slice(1, fim);
+  if (nome.length <= cabe) return texto;
+  return '"' + nome.slice(0, cabe) + '…" ' + resto;
+}
 
 // A FILA. O caro é o download, e ele é feito UMA vez por faixa, em série: seis
 // downloads em paralelo é o que a sincronização de um álbum faz, e ali ninguém

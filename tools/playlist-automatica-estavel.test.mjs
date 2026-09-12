@@ -55,7 +55,7 @@
 //   node tools/playlist-automatica-estavel.test.mjs
 // ============================================================================
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas, RAIZ_WEB } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas, RAIZ_WEB, esperar, porque } from './arnes.mjs';
 
 const servidor = servirEstatico(RAIZ_WEB);
 await new Promise((r) => servidor.listen(0, r));
@@ -115,7 +115,15 @@ const abrir = async (ctx, escala) => {
   await pg.evaluate(() => setAppMode('full'));
   await SEMEAR(pg);
   await pg.click('#sorteioBtn');
-  await pg.waitForTimeout(500);
+  // O FATO, não o relógio: a folha está pronta quando o cartão da conta existe.
+  // MEDIDO, os 500 ms × 5 aberturas eram 2,5 s de sono — e um runner carregado
+  // reprovava por sono curto, indistinguível de defeito.
+  const r = await esperar(pg, () => {
+    const p = document.getElementById('sorteioPopup');
+    return !!p && p.classList.contains('open')
+      && !!document.querySelector('#sorteioList .sorteio-conta');
+  }, null, 10000);
+  if (r !== true) throw new Error('a folha do sorteio não abriu ' + porque(r));
   return pg;
 };
 
@@ -133,7 +141,13 @@ const ESTADOS = [
   ['palavra sem resultado', () => { sorteioPrefs.tema = 'xyzabcdefgh'; }],
   ['playback sem fundo musical', () => { sorteioPrefs.tema = ''; sorteioPrefs.variante = 'playback'; }],
   ['a fala: adicionado', () => { sorteioPrefs.variante = 'full'; sorteioPrefs.tema = ''; falarNoSorteio('“Noite de Paz” adicionado ao Cronograma'); }],
-  ['a fala mais longa: o pacote', () => { falarNoSorteio('10 músicas num pacote no Cronograma, e a frase mais longa que este canal sabe produzir'); }],
+  // A FALA MAIS LONGA QUE O APP SABE PRODUZIR, montada das BORDAS DELE e não
+  // inventada (v1.8.85): o nome vem clampado em 28 caracteres (`rotuloItem`) e
+  // o resto é o par mais longo de `LISTA_ROTULO` (`'adicionado ' + 'ao
+  // Cronograma'`). Uma frase maior que essa mede um app que não existe — e foi
+  // o que a versão anterior deste estado fazia, com 86 caracteres contra os 56
+  // do pior caso real.
+  ['a fala mais longa (o pior caso REAL)', () => { falarNoSorteio('"um nome de louvor bem grande de verdade" adicionado ao Cronograma'); }],
 ];
 
 try {
@@ -202,7 +216,12 @@ try {
   // ======================================================================
   // BLOCO B — O CARTÃO TEM UM TAMANHO SÓ, E A FOLHA NÃO ANDA
   // ======================================================================
-  const CELULAS = [[360, 1], [360, 1.5], [430, 1], [430, 1.5]];
+  // 320×1,5 É A CÉLULA QUE ALCANÇA A DECISÃO (v1.8.85), e sem ela a asserção do
+  // corte nunca reprova: MEDIDO, a frase do escopo cabe folgada a 360 e a 430 e
+  // só estoura as três linhas no aparelho estreito com a fonte do sistema
+  // grande — que é a combinação que o próprio `#sorteioPopup` já declara como o
+  // pior caso aceito.
+  const CELULAS = [[320, 1.5], [360, 1], [360, 1.5], [430, 1], [430, 1.5]];
   const medidas = [];
   for (const [largura, escala] of CELULAS) {
     const ctx = await navegador.newContext({ viewport: { width: largura, height: 900 } });
@@ -215,7 +234,10 @@ try {
         (new Function('return (' + src + ')'))()();
         renderSorteio();
       }, fn.toString());
-      await pg.waitForTimeout(70);
+      // O FATO É O TEXTO TER TROCADO — 70 ms × 44 estados eram 3,1 s de sono
+      // para esperar um render SÍNCRONO que já terminou quando o `evaluate`
+      // volta. O que resta é o LAYOUT, e `requestAnimationFrame` o fecha.
+      await pg.evaluate(() => new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f))));
       const m = await pg.evaluate(() => {
         const c = document.querySelector('#sorteioList .sorteio-conta');
         const sh = document.querySelector('#sorteioPopup .popup-sheet');
@@ -224,9 +246,14 @@ try {
         return {
           conta: +c.getBoundingClientRect().height.toFixed(1),
           folha: +sh.getBoundingClientRect().height.toFixed(1),
-          // `scrollHeight - clientHeight`: o `overflow: hidden` esconde o
-          // excesso sem mexer na caixa, então a geometria de fora não o acusa.
-          cortado: c.scrollHeight - c.clientHeight,
+          // A RÉGUA É O SPAN, NUNCA O CARTÃO (v1.8.85). O `-webkit-line-clamp`
+          // corta DENTRO do span, e o span tem `overflow: hidden` PRÓPRIO mais
+          // o `flex-shrink: 1` padrão — medido, o cartão devolve ZERO em todas
+          // as células, inclusive numa em que o span estava cortado em 239px.
+          // A asserção que perguntava ao cartão não podia reprovar nada, e
+          // respondia "isso está coberto?" com um sim que não existia.
+          cortado: [...c.querySelectorAll('.sorteio-conta-forte, .sorteio-conta-fraca')]
+            .reduce((a, el) => a + Math.max(0, el.scrollHeight - el.clientHeight), 0),
           align: cs.textAlign,
           fundoAlfa: rgb(cs.backgroundColor).length < 4 ? 1 : rgb(cs.backgroundColor)[3],
           raio: parseFloat(cs.borderTopLeftRadius) || 0,
@@ -250,11 +277,15 @@ try {
       dif ? sub.map((m) => m.estado + ': ' + m.folha) : dif);
   }
 
+  // REVERSÃO: devolver a frase longa do `escopoSemPalavra` (a base `'Só o que
+  // já está no aparelho'` com `', sem o hinário, sem os infantis'`) reprova
+  // aqui, na célula 320×1,5.
   const cortados = medidas.filter((m) => m.cortado > 0);
   checar(cortados.length === 0,
-    'e em nenhum dos estados o texto é CORTADO pelo cartão — a altura fixa é o '
-    + 'pior caso medido, não um recorte do caso comum',
-    cortados.slice(0, 4));
+    'e em nenhum dos estados o texto é CORTADO — a medida é do SPAN clampado, '
+    + 'não do cartão: a altura fixa é o pior caso medido, e a frase tem de '
+    + 'caber nela em vez de sumir atrás das reticências',
+    cortados.slice(0, 4).map((m) => m.estado + ': ' + m.cortado + 'px'));
   checar(medidas.every((m) => m.align === 'center'),
     'o texto é CENTRADO, que é a metade visual do pedido',
     [...new Set(medidas.map((m) => m.align))]);

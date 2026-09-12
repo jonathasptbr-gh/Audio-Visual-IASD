@@ -128,6 +128,35 @@ checar(await pg.evaluate(async () => {
   return recebido === 'undefined' && r.ok === 1 && fim.ok === 1;
 }), 'chave que nunca existiu chega como `undefined` e a gravação vale');
 
+// ── 6. `stateApagarPrefixo` NÃO PODE APAGAR O STATE INTEIRO (v1.8.85) ───────
+// `IDBKeyRange.bound('', '\uFFFF')` é o store inteiro — o tema, a fila, o
+// volume, o acervo indexado. Um chamador que monte o prefixo a partir de um id
+// que chegou vazio apagaria o aparelho sem erro nenhum. E a transação é
+// OBSERVADA: sem isso um abort no meio do cursor (pressão de armazenamento, que
+// é justamente quando isto roda) deixava a Promise pendente PARA SEMPRE, e o
+// `catch` de quem chamou nunca rodava.
+// REVERSÃO: devolver o corpo antigo (o `new Promise` sobre `store(...)`, sem
+// `txDone` e sem a guarda) reprova as duas asserções abaixo.
+const apag = await pg.evaluate(async () => {
+  await window.AVDB.setState('zz:um', 1);
+  await window.AVDB.setState('zz:dois', 2);
+  await window.AVDB.setState('naoMexer', 'fica');
+  const out = { recusou: true };
+  for (const vazio of ['', null, undefined]) {
+    try { await window.AVDB.stateApagarPrefixo(vazio); out.recusou = false; break; } catch (_) {}
+  }
+  out.apagou = await window.AVDB.stateApagarPrefixo('zz:');
+  out.sobrou = await window.AVDB.getState('naoMexer');
+  out.restante = (await window.AVDB.stateKeys('zz:')).length;
+  return out;
+});
+checar(apag.recusou === true,
+  'prefixo vazio é RECUSADO — ele casaria o state inteiro, e apagá-lo por um id '
+  + 'que chegou vazio não tem sintoma até o app reabrir sem nada', JSON.stringify(apag));
+checar(apag.apagou === 2 && apag.restante === 0 && apag.sobrou === 'fica',
+  'e o prefixo de verdade apaga o que casa, DEVOLVE a conta (a Promise só '
+  + 'resolve com a transação confirmada) e não toca no resto', JSON.stringify(apag));
+
 await navegador.close();
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');
 process.exit(falhas.length ? 1 : 0);

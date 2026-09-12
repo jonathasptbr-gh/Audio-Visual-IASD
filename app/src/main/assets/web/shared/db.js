@@ -372,20 +372,35 @@
   // ajuste), e o `delete()` do cursor não invalida a iteração. Devolve QUANTAS
   // chaves saíram — quem chama precisa distinguir "apaguei" de "não havia
   // nada", e um `undefined` faria as duas se lerem igual.
+  // PREFIXO VAZIO É RECUSADO, e não é higiene: `IDBKeyRange.bound('', '\uFFFF')`
+  // é o store `state` INTEIRO — a preferência de tema, a fila, o volume, o
+  // acervo indexado. Um chamador que monte o prefixo a partir de um id que
+  // chegou vazio apagaria o aparelho sem erro nenhum.
+  //
+  // E A TRANSAÇÃO É OBSERVADA: com só o `onsuccess` do cursor, uma transação
+  // abortada no meio (pressão de armazenamento, o caso em que isto roda)
+  // deixava a Promise PENDENTE PARA SEMPRE — o `await` de quem chamou nunca
+  // voltava, e o `catch` ao lado dele nunca rodava. Quem responde pelo desfecho
+  // é o `txDone`; o cursor só conta.
   async function stateApagarPrefixo(prefix) {
-    const st = await store(STORE_STATE, 'readwrite');
-    const range = IDBKeyRange.bound(prefix, prefix + '￿', false, false);
-    return new Promise((resolve, reject) => {
-      let n = 0;
+    const p = String(prefix == null ? '' : prefix);
+    if (!p) throw new Error('stateApagarPrefixo: prefixo vazio apagaria o state inteiro');
+    const [st, tx] = await storeTx(STORE_STATE, 'readwrite');
+    const range = IDBKeyRange.bound(p, p + '￿', false, false);
+    let n = 0;
+    const varrido = new Promise((resolve, reject) => {
       const req = st.openCursor(range);
       req.onerror = () => reject(req.error);
       req.onsuccess = () => {
         const c = req.result;
-        if (!c) { resolve(n); return; }
+        if (!c) { resolve(); return; }
         c.delete(); n++;
         c.continue();
       };
     });
+    await varrido;
+    await txDone(tx);
+    return n;
   }
 
   // ---- media ----

@@ -381,7 +381,14 @@ try {
   // conta tem de dizer isso na primeira frase que o operador lê — pela mesma
   // régua do "sem o hinário" logo abaixo, onde "toda a biblioteca" com o
   // hinário fora seria uma frase ERRADA.
-  checar(/^Toda a biblioteca, sem os infantis — 5 músicas$/.test(conta0.forte)
+  // AS FRASES ENCOLHERAM NA v1.8.85 ("sem os infantis" → "sem infantis", "Só o
+  // que já está no aparelho" → "Só o baixado"), e o motivo é MEDIDO: a 320px com
+  // a fonte do sistema a 1,5× a frase inteira quebrava numa QUARTA linha e o
+  // `-webkit-line-clamp` do cartão comia o substantivo. O que estas asserções
+  // guardam é a ESTRUTURA — escopo primeiro, ressalva de cada filtro, número no
+  // fim —, não o comprimento; ver `playlist-automatica-estavel.test.mjs`, que
+  // mede o corte.
+  checar(/^Toda a biblioteca, sem infantis — 5 músicas$/.test(conta0.forte)
     && /4 já baixadas/.test(conta0.fraca),
     'sem palavra, a conta LIDERA COM O ESCOPO — e já ressalva o filtro que nasce '
     + 'ligado', conta0);
@@ -468,16 +475,16 @@ try {
   });
   checar(/^Toda a biblioteca — \d+ músicas?$/.test(escopos.tudo),
     'sem filtro nenhum ela diz “toda a biblioteca”, sem ressalva', escopos.tudo);
-  checar(/Toda a biblioteca, sem o hinário/.test(escopos.semHinario),
+  checar(/Toda a biblioteca, sem hinário/.test(escopos.semHinario),
     'com o hinário fora ela RESSALVA — "toda" seria uma frase errada', escopos.semHinario);
-  checar(/^Só o que já está no aparelho — /.test(escopos.soLocal),
+  checar(/^Só o baixado — /.test(escopos.soLocal),
     'com "Só no aparelho" o escopo deixa de ser a biblioteca e ela o diz', escopos.soLocal);
-  checar(/^Só o que já está no aparelho, sem o hinário — /.test(escopos.ambos),
+  checar(/^Só o baixado, sem hinário — /.test(escopos.ambos),
     'e os dois filtros juntos aparecem juntos', escopos.ambos);
-  checar(/^Toda a biblioteca, sem os infantis — /.test(escopos.semInfantis),
+  checar(/^Toda a biblioteca, sem infantis — /.test(escopos.semInfantis),
     'o filtro que nasce ligado RESSALVA como os irmãos — sem isso ele seria a '
     + 'única recusa que a tela não anuncia', escopos.semInfantis);
-  checar(/sem o hinário, sem os infantis/.test(escopos.tres),
+  checar(/sem hinário, sem infantis/.test(escopos.tres),
     'e os TRÊS juntos aparecem juntos, nesta ordem', escopos.tres);
   const dica = await pg.evaluate(() => document.querySelector('#sorteioList .lib-search').placeholder);
   checar(/vazio/i.test(dica) && /biblioteca/i.test(dica),

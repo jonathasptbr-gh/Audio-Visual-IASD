@@ -7,7 +7,7 @@
 
 | Object Store | Chave | Conteúdo |
 |---|---|---|
-| `media` | `id` (UUID), índice `youtubeId` | `{ id, blob, url, thumb, type, kind, name, youtubeId, pages, cue, data, createdAt }` mais os DESCRITORES: `height`, `seconds`, `canal`, `stream` |
+| `media` | `id` (UUID), índice `youtubeId` | `{ id, blob, url, thumb, type, kind, name, youtubeId, pages, cue, data, createdAt }` mais os DESCRITORES: `height`, `seconds`, `canal` |
 | `files` | `id` (UUID), índice `folder` | catálogo OPFS: `{ id, folder, opfsPath, srcName, name, type, kind, size, mtime, thumb, addedAt }` |
 | `state` | chave string | valor arbitrário (listas, estado atual, pastas dos Favoritos, transições…) |
 
