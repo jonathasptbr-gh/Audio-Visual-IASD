@@ -435,27 +435,124 @@ try {
     { antes: rolagem.barra, depois: marcou.barra });
 
   // =======================================================================
-  // G · A PÍLULA DA CONTA É SÓ O NÚMERO
+  // G · A CONTAGEM SAIU DA BARRA E VIROU O CABEÇALHO DA LISTA (v1.8.88)
   // =======================================================================
-  const pilula = await pg.evaluate(() => {
-    const p = document.querySelector('#sorteioList .sorteio-pilula');
+  // Pedido do operador: *"remova o número de resultados e deixe ele em apenas
+  // uma linha no topo da lista dizendo quantos resultados disponíveis. No lugar
+  // dele coloque o botão de sortear lista"*.
+  //
+  // As DUAS metades, e nenhuma basta: a pílula não existe mais NA BARRA, e a
+  // contagem existe COMO LINHA no topo da lista. Só a primeira aprovaria a
+  // contagem sumindo do app; só a segunda aprovaria as duas convivendo.
+  const conta = await pg.evaluate(() => {
+    const cab = document.querySelector('#sorteioList .sorteio-res .sorteio-res-cab');
     const go = document.querySelector('#sorteioList .sorteio-barra .song-menu-go');
+    const res = document.querySelector('#sorteioList .sorteio-res');
     return {
-      texto: p.textContent.trim(),
-      desenho: p.querySelectorAll('svg, .msym, img').length,
-      titulo: p.title,
-      larg: +p.getBoundingClientRect().width.toFixed(1),
+      pilulaNaBarra: !!document.querySelector('#sorteioList .sorteio-barra .sorteio-pilula'),
+      texto: cab ? cab.textContent.trim() : null,
+      // ELE É O PRIMEIRO da lista: *"uma linha no topo"*.
+      primeiro: res && res.firstElementChild
+        ? res.firstElementChild.className : null,
       goLarg: +go.getBoundingClientRect().width.toFixed(1),
     };
   });
-  checar(/^\d+$/.test(pilula.texto) && pilula.desenho === 0,
-    'G · a pílula da conta é SÓ O NÚMERO — *"remova o ícone e deixe apenas o '
-    + 'número"*. A medida é o NÓ e não a largura: um ícone com `display: none` '
-    + 'devolveria a largura e continuaria na árvore de acessibilidade',
-    JSON.stringify(pilula));
-  checar(/músicas?/.test(pilula.titulo) && /baixad/.test(pilula.titulo),
-    'G · e a frase inteira fica no `title`/`aria-label` — o número sozinho não '
-    + 'diz de que ele é, e é ele que um leitor de tela anuncia', pilula.titulo);
+  checar(conta.pilulaNaBarra === false,
+    'G · a pílula da conta SAIU da barra — a vaga é do botão de sortear',
+    JSON.stringify(conta));
+  checar(/^\d+ resultados? dispon[íi]ve/.test(conta.texto) && /baixad/.test(conta.texto),
+    'G · e a contagem virou a PRIMEIRA LINHA da lista, com a disponibilidade '
+    + 'junto — que é a metade que muda a decisão: quem está no aparelho toca na '
+    + 'hora', conta.texto);
+  checar(conta.primeiro === 'sorteio-res-cab',
+    'G · e ela é o primeiro nó do scroller, não uma linha perdida no meio',
+    conta.primeiro);
+
+  // =======================================================================
+  // G2 · O BOTÃO DE SORTEAR: RESSORTEIA SEM MEXER NOS FILTROS (v1.8.88)
+  // =======================================================================
+  // *"um botão que reordena a lista a disposição. ele não muda os filtros
+  // apenas resorteia."* São TRÊS metades, e a terceira é a que o desenho pode
+  // quebrar sem sintoma.
+  // OS FILTROS PRECISAM ESTAR EM VALORES NÃO-PADRÃO, senão "não muda os
+  // filtros" é uma asserção sobre um objeto vazio — MEDIDO na reversão: zerar o
+  // `tema` passava, porque ele já era `''`.
+  const antesDoSorteio = await pg.evaluate(async () => {
+    sorteioPrefs.soNoAparelho = true;
+    sorteioPrefs.semInfantis = false;
+    renderSorteio();
+    await new Promise((f) => setTimeout(f, 80));
+    return {
+      ordem: [...document.querySelectorAll('#sorteioList .sorteio-res-lista li')]
+        .map((li) => (li.querySelector('.song-menu-label') || {}).textContent || ''),
+      marcadas: sorteioMarcadas.size,
+      prefs: JSON.stringify(sorteioPrefs),
+      total: sorteioPool().itens.length,
+    };
+  });
+  checar(/"soNoAparelho":true/.test(antesDoSorteio.prefs)
+    && /"semInfantis":false/.test(antesDoSorteio.prefs),
+    'G2 · A PREMISSA dos filtros: eles estão em valores NÃO-PADRÃO, senão a '
+    + 'asserção de "não mexe nos filtros" mediria um objeto vazio',
+    antesDoSorteio.prefs);
+  checar(antesDoSorteio.ordem.length > 3,
+    'G2 · A PREMISSA: há lista suficiente para uma ordem nova ser distinguível '
+    + 'da anterior', antesDoSorteio.ordem.length);
+  const depoisDoSorteio = await pg.evaluate(async () => {
+    document.querySelector('#sorteioList .sorteio-sortear').click();
+    await new Promise((f) => setTimeout(f, 120));
+    return {
+      ordem: [...document.querySelectorAll('#sorteioList .sorteio-res-lista li')]
+        .map((li) => (li.querySelector('.song-menu-label') || {}).textContent || ''),
+      marcadas: sorteioMarcadas.size,
+      prefs: JSON.stringify(sorteioPrefs),
+      total: sorteioPool().itens.length,
+    };
+  });
+  checar(depoisDoSorteio.prefs === antesDoSorteio.prefs
+    && depoisDoSorteio.total === antesDoSorteio.total,
+    'G2 · o toque NÃO mexe nos filtros nem no pool — *"ele não muda os filtros"*',
+    { antes: antesDoSorteio.prefs, depois: depoisDoSorteio.prefs });
+  checar(depoisDoSorteio.marcadas === antesDoSorteio.marcadas,
+    'G2 · e NÃO mexe na quantidade: ela é escolha do operador, não parte do '
+    + 'sorteio', { antes: antesDoSorteio.marcadas, depois: depoisDoSorteio.marcadas });
+  // A ORDEM MUDA — e a asserção aceita empate por acaso só uma vez: com N > 3
+  // um embaralhamento devolver a MESMA ordem é possível, então o oráculo tenta
+  // de novo antes de reprovar. Sem isso ele seria intermitente, que é a classe
+  // de defeito que a campanha da v5.316 corrigiu uma a uma.
+  let mudou = depoisDoSorteio.ordem.join('|') !== antesDoSorteio.ordem.join('|');
+  if (!mudou) {
+    mudou = await pg.evaluate(async (antes) => {
+      for (let i = 0; i < 6; i++) {
+        document.querySelector('#sorteioList .sorteio-sortear').click();
+        await new Promise((f) => setTimeout(f, 80));
+        const agora = [...document.querySelectorAll('#sorteioList .sorteio-res-lista li')]
+          .map((li) => (li.querySelector('.song-menu-label') || {}).textContent || '');
+        if (agora.join('|') !== antes.join('|')) return true;
+      }
+      return false;
+    }, antesDoSorteio.ordem);
+  }
+  checar(mudou === true,
+    'G2 · e a ORDEM da lista muda — é o recurso inteiro: desde a v1.8.86 o '
+    + 'sorteio novo só acontecia ao ABRIR a folha ou ao USAR o lote, e este '
+    + 'botão é a porta que faltava', { antes: antesDoSorteio.ordem.slice(0, 4) });
+
+  // E AS MARCADAS SÃO AS N PRIMEIRAS DA ORDEM NOVA, sempre. Sem esta metade,
+  // "a ordem mudou" passa com as marcas do sorteio ANTERIOR espalhadas pela
+  // lista nova — o lote seria o de antes, com as linhas em outro lugar, e o
+  // operador leria um sorteio que não aconteceu.
+  const topo = await pg.evaluate(() => {
+    const linhas = [...document.querySelectorAll('#sorteioList .sorteio-res-lista li')];
+    const marcadas = linhas.map((li, i) => (li.querySelector('.sorteio-res-btn.vai') ? i : -1))
+      .filter((i) => i >= 0);
+    return { marcadas, n: sorteioMarcadas.size };
+  });
+  checar(topo.marcadas.length === topo.n
+    && topo.marcadas.every((i, k) => i === k),
+    'G2 · e as marcadas são as N PRIMEIRAS da ordem nova — um sorteio que '
+    + 'reordena e mantém as marcas de antes devolve o MESMO lote com as linhas '
+    + 'trocadas de lugar', topo);
 
   // =======================================================================
   // H · O FILTRO CORTA; ELE NÃO SORTEIA DE NOVO

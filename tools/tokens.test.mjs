@@ -421,7 +421,15 @@ checar(orfaos.length === 0,
   // opaco em que o número passa AA: MEDIDO em `tokens.css`, `--muted` dá 4,88:1
   // sobre `--panel` e 3,66:1 sobre `--panel-2` — trocar de token para escapar
   // desta asserção custaria a legibilidade que ela existe para defender.
-  const excecoes = [/scrollbar/, /^\.lv-selo$/];
+  //
+  // `.sorteio-res-cab` (v1.8.88) é o MESMO caso do `.lv-selo`, e a razão também
+  // está no CSS: é a contagem no topo da lista de resultados — texto, sem um
+  // único controle dentro, e sem como ganhar um (a lista rola POR BAIXO dela).
+  // Ela pinta `--panel` porque é `sticky` sobre conteúdo que se move e precisa
+  // de fundo OPACO, e porque `--panel` é a superfície da própria folha: ela
+  // não é um degrau novo da escada, é o chão da folha aparecendo onde a lista
+  // passa.
+  const excecoes = [/scrollbar/, /^\.lv-selo$/, /^\.sorteio-res-cab$/];
   // A varredura é por BLOCO e não por regex de rua: entre um `}` e o seletor
   // seguinte cabe um comentário de trinta linhas (já em branco, mas ocupando
   // espaço), e um teto de caracteres no meio faz o oráculo pular exatamente as

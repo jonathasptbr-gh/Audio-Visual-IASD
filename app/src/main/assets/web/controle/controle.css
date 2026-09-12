@@ -9004,36 +9004,54 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    e 12em só acrescenta quebras (390px passa a quebrar a 1×) sem ganhar nenhuma
    célula. */
 .sorteio-barra > .song-menu-go { min-width: 11em; }
-/* ===== A PÍLULA DA CONTA (v1.8.84) =====
-   *"um botão a esquerda do botão de tocar agora… um icone adequado e o número de
-   resultados… um tamanho fixo independente do número interno"*.
+/* ===== O SORTEAR OCUPA A VAGA DA CONTAGEM (v1.8.88) =====
+   Pedido do operador: *"remova o número de resultados e deixe ele em apenas uma
+   linha no topo da lista dizendo quantos resultados disponíveis. No lugar dele
+   coloque o botão de sortear lista, um botão que reordena a lista a disposição.
+   ele não muda os filtros apenas resorteia."*
 
-   **NÃO É UM `<button>`**, e a diferença é a regra da v1.8.50: um botão aceso
-   que não faz nada é indistinguível de um quebrado. Ela veste a caixa e o tom
-   dos vizinhos porque é PEÇA da barra, e não porque seja tocável.
+   **AGORA É UM `<button>` DE VERDADE**, e é isso que muda em relação à pílula
+   que estava aqui: ela era `<span>` pela regra da v1.8.50 (um botão aceso que
+   não faz nada é indistinguível de um quebrado), e a razão sumiu quando a peça
+   ganhou ação.
 
-   O TAMANHO FIXO sai de `min-width` em `ch` mais `tabular-nums`: o acervo passa
-   de mil (os dois hinários somam ~1.100), e sem eles o "Tocar agora" andaria a
-   cada tecla digitada no campo do tema. 4ch cobre quatro dígitos; o `--quad-faixa`
-   de altura é o mesmo dos três destinos, que é o que faz a faixa ter UMA altura
-   (a regra da v1.8.61). */
-.sorteio-pilula {
+   A CAIXA É A DOS TRÊS DESTINOS — `--quad-faixa` nas DUAS dimensões, que é o
+   quadrado de um botão sem rótulo numa faixa de fecho (v1.8.57) e o que mantém
+   a faixa com UMA altura (v1.8.61). Ele é mais estreito que a pílula era (4ch
+   mais recuo), e o que sobra vai para o rótulo do primário, que é o recurso
+   escasso desta faixa. */
+.sorteio-sortear {
   flex: 0 0 auto; align-self: center;
-  height: var(--quad-faixa);
-  display: flex; align-items: center; justify-content: center; gap: 4px;
-  /* O RECUO É O MENOR DA ESCALA, e não o `--sp-2` dos botões: cada pixel aqui
-     sai da largura do rótulo do primário, que é o vizinho — e a pílula não é
-     um alvo de toque, então não deve nada ao piso de 34px que justifica o
-     recuo dos outros. */
-  padding: 0 var(--sp-1);
-  border-radius: var(--radius-btn);
-  background: var(--surface); color: var(--accent);
-  font-size: var(--fs-md); font-weight: var(--fw-forte);
+  width: var(--quad-faixa); height: var(--quad-faixa);
+  padding: 0;
+  display: flex; align-items: center; justify-content: center;
 }
-.sorteio-pilula-num { min-width: 4ch; text-align: center; font-variant-numeric: tabular-nums; }
-/* Vazia ela sai do accent: um número em destaque dizendo ZERO é o mesmo defeito
-   do botão aceso que não faz nada. */
-.sorteio-pilula.vazio { color: var(--muted); }
+.sorteio-sortear .song-menu-text { display: block; }
+.sorteio-sortear .song-menu-label { display: flex; align-items: center; justify-content: center; }
+.sorteio-sortear svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
+
+/* ===== A CONTAGEM, ENCOSTADA NA LISTA (v1.8.88) =====
+   Ela era a pílula da barra. Como LINHA ela não precisa de largura fixa: o que
+   o número empurrava era o rótulo do primário ao lado, e ele já não está ali.
+   `sticky` porque a lista rola por baixo dela — a contagem descreve a lista
+   inteira, não as três primeiras linhas.
+
+   ELA MORA DENTRO DO SCROLLER, logo acima da sombra de rolagem — a `.rola` põe
+   a tira no padding box, e o cabeçalho é conteúdo.
+
+   **`--panel` E FORA DA LISTA DE R1**, como o `.lv-selo` e pelo mesmo motivo:
+   ela é TEXTO, não hospeda controle nenhum e não tem como hospedar (a lista
+   rola por baixo dela). O fundo precisa ser OPACO porque ela é `sticky` sobre
+   conteúdo em movimento, e `--panel` é a superfície da própria folha — ela não
+   acrescenta um degrau à escada, é o chão da folha aparecendo onde a lista
+   passa. A exceção é NOMEADA no `tokens.test.mjs`, uma a uma, como as dos
+   contornos. */
+.sorteio-res-cab {
+  position: sticky; top: 0; z-index: 3;
+  background: var(--panel);
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-xs); color: var(--muted); line-height: 1.35;
+}
 /* ===== O RECIBO DO LOTE (v1.8.84) =====
    A única frase do cartão antigo que não repetia a tela. **Sempre desenhada**,
    vazia quando não há fala: uma linha que aparece e some é um motor de pulo da

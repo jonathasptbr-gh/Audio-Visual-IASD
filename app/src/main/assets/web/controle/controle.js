@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.87';
+const WEB_VERSION = '1.8.88';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3861,7 +3861,42 @@ function thumbEl(item) {
 }
 
 // ---- Playlist (sequência) ----
+/**
+ * ===== A FILA É UM HOST DE MINIATURAS, E ELA NÃO TINHA BALDE (v1.8.88) =====
+ *
+ * Relato do operador: *"a thumbnail dos vídeos baixados do YouTube ainda estão
+ * se quebrando entre seções… é provável que seja por falta de internet, pelo
+ * aparelho estar offline"*.
+ *
+ * **NÃO É A REDE, e é por isso que a suspeita natural não leva ao conserto.** A
+ * capa de um vídeo BAIXADO é um Blob local (`makeThumb` a extrai do próprio
+ * arquivo, em `ytBaixarNativo`) — não há requisição nenhuma a falhar. O que
+ * quebrava era a `object-URL` dela ser REVOGADA com a imagem em cena.
+ *
+ * `varrerMiniaturas` recolhe toda URL que não esteja no balde de ALGUM host, e
+ * os baldes são publicados por `comBaldeDeMiniaturas`. Havia QUATRO hosts
+ * publicando (a Biblioteca, os Favoritos por dois caminhos, a pasta aberta) e
+ * um que desenhava sem publicar: **esta função**. As chaves dela caíam no
+ * `thumbChavesAtual` de módulo, que nenhum host publica — então a primeira
+ * varredura de qualquer outro host as considerava órfãs e revogava.
+ *
+ * **MEDIDO** (fila com um vídeo que NÃO está no Cronograma, depois um
+ * `renderLibrary`): a `<img>` mantém o mesmo `src`, o `fetch` nele REJEITA e o
+ * `naturalWidth` cai a 0 — a imagem quebrada que o operador vê. O item que
+ * TAMBÉM está no Cronograma escapava por acidente: a chave é `id|tamanho|tipo`,
+ * o outro host a publicava, e a união a mantinha viva. Daí "entre seções": o
+ * que decide é qual lista foi redesenhada por último, não a conexão.
+ *
+ * O conserto é o host a mais, no MESMO idioma do `renderLibrary` — corpo numa
+ * função à parte, `comBaldeDeMiniaturas` por fora. O `return` antecipado de
+ * dentro continua valendo: ele sai da arrow, e o `finally` do balde roda igual
+ * (publicando um balde VAZIO, que é o certo para uma fila sem itens).
+ */
 function renderPlaylist() {
+  comBaldeDeMiniaturas('playlist', () => renderPlaylistCorpo());
+}
+
+function renderPlaylistCorpo() {
   // O ESTADO DOS BOTÕES DE PLAYLIST DAS OUTRAS LISTAS anda com esta função
   // (v5.302) — ver `marcarNaPlaylist`. Ela é o ponto por onde TODA mudança da
   // fila passa, e é isso que dispensa cada porta de lembrar do repintor.
@@ -17379,9 +17414,10 @@ function serieTemODaSemana(c, agora) {
 //     não olhou a tela é o pior desfecho que este recurso sabe produzir.
 //     **O preço está dito e é REAL:** `navigator.connection.type` devolve
 //     `'unknown'` em boa parte dos aparelhos, e nesses a rotina nunca roda. É
-//     por isso que a LINHA DIZ ISSO (ver `serieAutoEstado`) — um no-op silencioso
-//     seria a opção marcada e nada acontecendo, para sempre, sem nada na tela.
-//     O caminho à mão (a folha de destinos) continua inteiro.
+//     por isso que O CARD DIZ ISSO, na linha de status
+//     (`serieAutoImpedimento`): um no-op silencioso seria a opção marcada e
+//     nada acontecendo, para sempre, sem nada na tela. O caminho à mão (a
+//     folha de destinos) continua inteiro.
 //  2. **CEDE A VEZ ao que está no ar** (`rotinaDeAcervoPodeCorrer`), a regra das
 //     rotinas irmãs. Cede SAINDO, não esperando: quem rearma já existe (a
 //     abertura e todo `visibilitychange`, por `autoRefreshCollections`).
@@ -17454,29 +17490,37 @@ async function serieArquivoDoEpisodio(s) {
 }
 
 /**
- * A FRASE DA LINHA — o que a opção está fazendo AGORA. Ela é o que transforma
- * as guardas de cima em algo dizível, e é por isso que cada uma delas tem um
- * desfecho aqui.
+ * ===== O ESTADO SAIU DE BAIXO DO TÍTULO (v1.8.88) =====
  *
- * Devolve `{ texto, baixado }`. `baixado` só é `true` com bytes no aparelho —
- * é ele que decide a linha do episódio (ver `semQualidade` em `openYtMenu`).
+ * Pedido do operador: *"temos o título principal e um subtitulo com mais
+ * explicações… remova esse subtitulo, não precisamos dos detalhes, apenas o
+ * titulo descrevendo a função. O subtexto extra é desnecessário"*.
+ *
+ * **O que sai é a EXPLICAÇÃO; o que fica é o ESTADO, e ele muda de casa.** As
+ * frases descritivas ("será baixado em segundo plano", "está no aparelho", "é
+ * baixado a pedido") diziam ao operador o que ele acabou de marcar — texto que
+ * se lê uma vez e depois ocupa duas linhas em toda abertura do card. Morreram
+ * com o `serieAutoEstado`, que ficou sem chamador junto com elas.
+ *
+ * **UMA precisa sobreviver, e ela não é detalhe: a do Wi-Fi.** Sem Wi-Fi
+ * confirmado a rotina NÃO RODA, e `connection.type` responde `'unknown'` em
+ * boa parte dos aparelhos — sem nada dito, o desfecho é a opção marcada com
+ * nada acontecendo, para sempre. Ela passa para a LINHA DE STATUS do card
+ * (`setCollStatus`), que é onde os outros estados daquele card já moram
+ * ("Baixando o episódio desta semana…", "Lista atualizada") e que é
+ * TRANSITÓRIA por construção: aparece quando vale e some depois, em vez de
+ * ocupar uma linha permanente para dizer o caso normal.
+ *
+ * Devolve o que IMPEDE o download agora, ou `''` quando nada impede — e o
+ * vazio é a resposta certa para o caso comum: um status que descreve o normal
+ * é ruído no card.
  */
-function serieAutoEstado(coll, epi, rec) {
-  if (!serieAutoLigada(coll)) {
-    return { texto: 'O episódio da semana é baixado a pedido, pela folha de opções', baixado: !!rec };
-  }
-  if (!window.__NATIVE__) {
-    return { texto: 'O download automático só existe no aplicativo', baixado: false };
-  }
-  if (rec) return { texto: 'O episódio desta semana está no aparelho', baixado: true };
-  if (!epi) return { texto: 'Aguardando o episódio desta semana entrar na lista', baixado: false };
-  if (serieAutoRodando) return { texto: 'Baixando o episódio desta semana…', baixado: false };
-  // A GUARDA QUE PRECISA SER DITA: sem Wi-Fi confirmado a rotina não roda, e o
-  // operador não tem como adivinhar isso olhando uma marca acesa.
-  if (!isConfirmedWifi()) {
-    return { texto: 'Esperando uma rede Wi-Fi para baixar o episódio desta semana', baixado: false };
-  }
-  return { texto: 'O episódio desta semana será baixado em segundo plano', baixado: false };
+function serieAutoImpedimento(coll, epi, rec) {
+  if (!serieAutoLigada(coll) || rec || !epi) return '';
+  if (!window.__NATIVE__) return '';
+  if (serieAutoRodando) return '';
+  if (!isConfirmedWifi()) return 'Esperando uma rede Wi-Fi para baixar o episódio desta semana';
+  return '';
 }
 
 /**
@@ -17489,7 +17533,9 @@ function serieAutoEstado(coll, epi, rec) {
  * é uma CAIXA DE MARCAÇÃO, o idioma do app para "esta linha está marcada", e
  * inventar um interruptor próprio daria duas gramáticas para o mesmo gesto.
  *
- * O SUBTÍTULO É A FRASE DE ESTADO, e ele não é enfeite — ver `serieAutoEstado`.
+ * **SÓ O TÍTULO** (v1.8.88, pedido do operador) — o rótulo descreve a função e
+ * mais nada. O que era subtítulo virou linha de status do card, e só quando há
+ * o que dizer: ver `serieAutoImpedimento`.
  */
 function serieAutoLinha(coll) {
   if (!ehLink(coll)) return null;
@@ -17502,31 +17548,23 @@ function serieAutoLinha(coll) {
   const rot = document.createElement('span'); rot.className = 'song-menu-label';
   rot.textContent = 'Manter o ' + serieNomeCurto(coll)
     + ' da semana baixado e atualizado na biblioteca';
-  const sub = document.createElement('span'); sub.className = 'song-menu-sub';
-  txt.append(rot, sub);
+  txt.append(rot);
   const chk = document.createElement('span');
   chk.className = 'song-menu-check' + (serieAutoLigada(coll) ? ' on' : '');
   chk.setAttribute('role', 'checkbox');
   btn.append(txt, chk);
   cx.appendChild(btn);
 
-  // A FRASE É PINTADA NUM PASSO À PARTE porque ela depende do DISCO, e ler o
-  // disco é assíncrono. A linha nasce com o estado que já se sabe (a marca, que
-  // é de memória) e a frase pousa em seguida — nunca o contrário, porque uma
-  // caixa de marcação que só aparece depois de uma leitura de IndexedDB é uma
-  // linha que muda de altura debaixo do dedo.
-  const pintar = (est) => {
-    sub.textContent = est.texto;
-    btn.setAttribute('aria-checked', serieAutoLigada(coll) ? 'true' : 'false');
-    chk.className = 'song-menu-check' + (serieAutoLigada(coll) ? ' on' : '');
-  };
-  pintar(serieAutoEstado(coll, serieEpisodioDaSemana(coll), null));
+  // A MARCA é de MEMÓRIA e sai na hora — a linha nunca muda de altura depois de
+  // desenhada, que é o que uma leitura de IndexedDB no meio produziria.
+  btn.setAttribute('aria-checked', serieAutoLigada(coll) ? 'true' : 'false');
+  // O IMPEDIMENTO depende do DISCO (há arquivo?), então ele pousa depois — na
+  // LINHA DE STATUS do card, não na linha da opção: ela não muda de tamanho, e
+  // o status é transitório por construção.
   const epi = serieEpisodioDaSemana(coll);
   serieArquivoDoEpisodio(epi).then((rec) => {
-    // A linha pode ter saído do documento (o acervo é redesenhado a cada 400 ms
-    // durante um download): pintar um nó órfão é inofensivo, e conferir isso
-    // custaria mais que o próprio efeito.
-    pintar(serieAutoEstado(coll, epi, rec));
+    const porque = serieAutoImpedimento(coll, epi, rec);
+    if (porque) setCollStatus(coll.id, porque, 6000);
   }).catch(() => {});
 
   btn.addEventListener('click', async (e) => {
@@ -22573,8 +22611,8 @@ function atualizarContaSorteio() {
   // tema), e remontar a folha ali apagaria o foco no meio da palavra. Então ele
   // troca só o que fica DEPOIS dos controles: a pílula da conta, a fala e a
   // lista — que é justamente tudo o que a palavra muda.
-  const pilula = sorteioListEl.querySelector('.sorteio-pilula');
-  if (pilula) pilula.replaceWith(sorteioPilulaDaConta(pool));
+  const sortear = sorteioListEl.querySelector('.sorteio-sortear');
+  if (sortear) sortear.replaceWith(sorteioBotaoDeSortear(pool));
   const fala = sorteioListEl.querySelector('.sorteio-fala');
   if (fala) fala.textContent = sorteioFala;
   // A ROLAGEM DA LISTA SOBREVIVE (v1.8.85), porque desde este lote ela é a
@@ -22958,7 +22996,7 @@ function renderSorteio() {
   // O TAMANHO É FIXO por `min-width` em `ch` mais `tabular-nums`: o acervo passa
   // de mil (os dois hinários somam ~1.100), e um número que cresce empurraria o
   // "Tocar agora" a cada tecla digitada no campo do tema.
-  liGo.appendChild(sorteioPilulaDaConta(pool));
+  liGo.appendChild(sorteioBotaoDeSortear(pool));
   liGo.appendChild(botao('Tocar agora', 'song-menu-go',
     (b) => executarSorteio(b, 'tocar')));
   // OS TRÊS DESTINOS NÃO EXISTEM NO MODO FÁCIL. Ele não tem Cronograma, nem
@@ -23045,25 +23083,112 @@ function renderSorteio() {
  * vizinho: **24px** da largura do rótulo do primário, numa faixa em que ela é o
  * recurso escasso (ver a QUEBRA, no CSS).
  */
-function sorteioPilulaDaConta(pool) {
+/**
+ * ===== O NÚMERO SAIU DA BARRA; O SORTEAR ENTROU (v1.8.88) =====
+ *
+ * Pedido do operador: *"remova o número de resultados e deixe ele em apenas uma
+ * linha no topo da lista dizendo quantos resultados disponíveis. No lugar dele
+ * coloque o botão de sortear lista, um botão que reordena a lista a disposição.
+ * ele não muda os filtros apenas resorteia."*
+ *
+ * **A CONTAGEM MUDOU DE CASA, não de existência** — ela é um rótulo da LISTA, e
+ * agora mora encostada nela (`sorteioCabecalhoDaLista`). Na barra ela ocupava a
+ * largura do recurso escasso daquela faixa (o rótulo do primário) para dizer um
+ * número que a lista logo abaixo ilustra linha por linha.
+ *
+ * **E O QUE ENTRA NO LUGAR É UMA AÇÃO DE VERDADE**, que é a diferença que a
+ * regra da v1.8.50 cobra: a pílula era um `<span>` justamente porque não tinha
+ * função por trás. Este tem, e por isso é botão.
+ *
+ * O QUE ELE FAZ, E O QUE ELE NÃO FAZ (`sorteioRessortear`): ele NÃO mexe nos
+ * filtros nem na quantidade — refaz o BARALHO sobre o mesmo pool e volta a
+ * marcar os N do topo. É a operação que a v1.8.86 tirou dos filtros ("mexer num
+ * filtro é cortar, não sortear de novo") e que ficou sem porta nenhuma: desde
+ * aquele lote o sorteio novo só acontecia ao ABRIR a folha ou ao USAR o lote.
+ * Este botão é a porta que faltava, e é por ela que a v1.8.86 continua certa.
+ */
+function sorteioBotaoDeSortear(pool) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'song-menu-btn sorteio-acao sorteio-sortear';
+  const t = document.createElement('span'); t.className = 'song-menu-text';
+  const r = document.createElement('span'); r.className = 'song-menu-label';
+  // O DESENHO É O `#icoAleatorio` DO SPRITE, o mesmo do degrau "Aleatório" do
+  // `#repeat` — as duas coisas são a mesma ideia, e um segundo desenho para ela
+  // seria o operador tendo de aprender duas. (O glifo `shuffle` saiu do `ICON`
+  // na v1.8.80, quando aqueles degraus viraram SVG.)
+  r.innerHTML = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none"'
+    + ' stroke="currentColor" stroke-width="2" stroke-linecap="round"'
+    + ' stroke-linejoin="round" aria-hidden="true"><use href="#icoAleatorio"/></svg>';
+  t.appendChild(r); b.appendChild(t);
+  // A MESMA TRAVA dos vizinhos da faixa: sem pool não há o que sortear, e
+  // durante uma corrida a lista está sendo consumida.
+  b.disabled = !pool.itens.length || sorteioRodando;
+  b.title = b.disabled ? 'Não há resultados para sortear' : 'Sortear a lista de novo';
+  b.setAttribute('aria-label', b.title);
+  b.addEventListener('click', () => sorteioRessortear());
+  return b;
+}
+
+/**
+ * SORTEAR DE NOVO — o baralho se refaz, os filtros ficam.
+ *
+ * SÃO TRÊS LINHAS, e cada uma responde por uma metade do pedido:
+ *
+ *  - **`sorteioBaralho = []`** faz o `sorteioLista` ver TODO o pool como
+ *    entrante e embaralhá-lo inteiro. É o sorteio.
+ *  - **`sorteioSemear(quantos)`** volta a marcar os N do TOPO da ordem nova.
+ *    Sem ela o `sorteioAjustarLote` preserva as marcas de antes — o que é o
+ *    certo para um FILTRO (v1.8.86) e o oposto do que se quer aqui: a lista
+ *    sairia reordenada com o MESMO lote marcado, espalhado. Ela vem DEPOIS do
+ *    `sorteioLista`, porque o baralho novo só existe ali.
+ *  - **`quantos`, lido ANTES**, é o que faz a QUANTIDADE sobreviver: ela é
+ *    escolha do operador, não parte do sorteio.
+ *
+ * (Um `sorteioMarcadas = new Set()` esteve aqui e SAIU: medido por reversão,
+ * tirá-lo não muda um pixel — o `sorteioSemear` logo abaixo reescreve o
+ * conjunto inteiro de qualquer jeito.)
+ *
+ * **`sorteioUsadas` NÃO é zerado**, e isso é a regra da v1.8.86 de pé: o que já
+ * foi tocado ou guardado nesta abertura saiu da lista de propósito, e um
+ * "sortear de novo" que o trouxesse de volta projetaria no culto um louvor que
+ * acabou de tocar.
+ */
+function sorteioRessortear() {
+  if (sorteioRodando) return;
+  const quantos = sorteioMarcadas.size || AVSorteio.sanear(sorteioPrefs).quantos;
+  sorteioBaralho = [];
+  const pool = sorteioPool();
+  sorteioLista(pool, AVSorteio.sanear(sorteioPrefs));
+  sorteioSemear(quantos);
+  atualizarContaSorteio();
+  acertarPilulasDeQuantidade();
+}
+
+/**
+ * A CONTAGEM, agora como CABEÇALHO da lista (v1.8.88) — *"apenas uma linha no
+ * topo da lista dizendo quantos resultados disponíveis"*.
+ *
+ * Ela é uma LINHA e não uma pílula: encostada na lista, o número não precisa de
+ * caixa nem de largura fixa para não empurrar vizinho — o que ele empurrava era
+ * o rótulo do primário, e ele já não está ao lado.
+ *
+ * A DISPONIBILIDADE fica junto, porque é a metade que muda a decisão: quem está
+ * no aparelho toca na hora, quem não está espera download.
+ */
+function sorteioCabecalhoDaLista(pool) {
   const n = pool.itens.length;
-  const cx = document.createElement('span');
-  cx.className = 'sorteio-pilula' + (n ? '' : ' vazio');
-  const num = document.createElement('span');
-  num.className = 'sorteio-pilula-num';
-  num.textContent = numeroPt(n);
-  cx.appendChild(num);
-  const frase = n
-    ? numeroPt(n) + (n === 1 ? ' música encontrada' : ' músicas encontradas')
-      + ' · ' + (pool.noAparelho === n ? 'todas já baixadas'
-        : pool.noAparelho ? numeroPt(pool.noAparelho) + ' já baixadas'
-          : 'nenhuma baixada ainda')
-    : 'Nenhuma música com esses filtros';
-  cx.title = frase;
-  // ELE ANUNCIA A FRASE, não o número solto: um leitor de tela lendo "12" no
-  // meio de uma barra de botões não diz de que 12 se trata.
+  const cx = document.createElement('div');
+  cx.className = 'sorteio-res-cab';
+  cx.textContent = n
+    ? numeroPt(n) + (n === 1 ? ' resultado disponível' : ' resultados disponíveis')
+      + ' · ' + (pool.noAparelho === n ? 'todos já baixados'
+        : pool.noAparelho ? numeroPt(pool.noAparelho) + ' já baixados'
+          : 'nenhum baixado ainda')
+    : 'Nenhum resultado com esses filtros';
+  // `status` porque ela é o número que muda sob os filtros — um leitor de tela
+  // precisa ouvir a mudança sem varrer a folha atrás dela.
   cx.setAttribute('role', 'status');
-  cx.setAttribute('aria-label', frase);
   return cx;
 }
 
@@ -23101,6 +23226,10 @@ function sorteioListaDeResultados(lista, escolhidos, pool) {
   // `.popup-list` continua com a marca e o observador a lê como `sem-veu`
   // enquanto ela não rolar — que é o caso normal.
   li.className = 'sorteio-res rola' + (lista.length ? '' : ' vazio');
+  // A CONTAGEM, no topo da lista (v1.8.88). Ela entra ANTES do desvio do vazio
+  // porque "nenhum resultado" também é uma contagem — e ali ela é a única linha
+  // que diz o número, já que a pílula da barra saiu.
+  li.appendChild(sorteioCabecalhoDaLista(pool));
   if (!lista.length) {
     // VAZIO ELA DIZ O MOTIVO, e a frase é a mesma de sempre: `fraseDoVazioSorteio`
     // separa cinco causas que pedem ações OPOSTAS, e ela é a única peça do cartão

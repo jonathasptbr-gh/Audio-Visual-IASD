@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.8.88",
+    "itens": [
+      "Playlist automática: o número de resultados virou uma linha no topo da lista, e no lugar dele entrou o botão de sortear.",
+      "Playlist automática: o botão de sortear reordena a lista sem mexer nos filtros nem na quantidade.",
+      "A miniatura de um vídeo baixado não quebra mais ao trocar de seção — ela não dependia da internet, era um defeito nosso.",
+      "Provai e Vede e Informativo: a opção de manter baixado ficou só com o título, sem o subtexto."
+    ]
+  },
+  {
     "versao": "1.8.87",
     "itens": [
       "Provai e Vede e Informativo: marque \"Manter o da semana baixado\" no topo do álbum e o episódio desce sozinho, no Wi-Fi.",
