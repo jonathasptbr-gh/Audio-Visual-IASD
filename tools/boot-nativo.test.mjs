@@ -5443,13 +5443,16 @@ try {
     return eval('(' + fn + ')')();
   }, medir.toString());
 
-  checar(tempo.destinos === 2 && tempo.irmaos === 3,
-    'no TEMPO a faixa ganha os DOIS destinos à direita, na ordem canônica '
-    + '(Cronograma, favoritos)', JSON.stringify(tempo));
-  checar(tempo.alturas.length === 3
+  // QUATRO desde a v1.8.94: o grupo do que a ferramenta OPERA entrou à esquerda
+  // do primário (▶ e ↺ no Tempo), e ele é um filho da faixa como os outros.
+  checar(tempo.destinos === 2 && tempo.irmaos === 4,
+    'no TEMPO a faixa leva o transporte à esquerda, o primário no meio e os DOIS '
+    + 'destinos à direita, na ordem canônica (Cronograma, favoritos)',
+    JSON.stringify(tempo));
+  checar(tempo.alturas.length === 4
     && new Set(tempo.alturas).size === 1,
     'e a faixa tem UMA ALTURA só (a regra da v1.8.61): o primário cede para a medida '
-    + 'do quadrado em vez de esticar os destinos contra ele',
+    + 'do quadrado em vez de esticar os vizinhos contra ele',
     JSON.stringify(tempo.alturas));
   checar(tempo.alturaProj < msg.alturaProj,
     'é o PRIMÁRIO que cede, e só onde há irmão — sozinho ele volta à barra alta de '

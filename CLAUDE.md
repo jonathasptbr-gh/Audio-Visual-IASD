@@ -1540,17 +1540,25 @@ nenhum**, e por isso ficam aqui.
   `scrollbar-color` é diferente de `auto` — o Chromium desliga esses pseudos
   (medido: calha 10px, o valor de `thin`, contra os 7px que o pseudo pedia).
   Não escrever mais nenhum.
-- **UM SCROLLER QUE É SELETOR NÃO LEVA A MARCA `rola`** (v1.8.92). A roleta do
-  timer é um scroller com `scroll-snap`, e a sombra das bordas diria ali *"há
+- **UM SCROLLER QUE É SELETOR NÃO LEVA A MARCA `rola`** (v1.8.92). As roletas do
+  Tempo são scrollers com `scroll-snap`, e a sombra das bordas diria ali *"há
   conteúdo escondido"* sobre uma lista cujo conteúdo escondido é o RECURSO — ela
   é um seletor de valor, não um texto que continua fora da vista. O que marca a
   célula escolhida é uma MÁSCARA que apaga as pontas da janela mais o
   `--op-inativo` nas vizinhas: zero JS por quadro de rolagem, e a centrada é a
-  única cheia por construção do recuo. **E o tamanho dela é MEDIDO, não
-  declarado** — a caixa cresce por flex, o JS lê a altura dela e escreve a
-  célula (`--roleta-item`), porque `cqh` mediria a caixa que a própria roleta
-  define. Um scroller-seletor novo nasce com as três: sem `rola`, com máscara, e
-  com a régua vinda do layout.
+  única cheia por construção do recuo. **E o tamanho dela é MEDIDO NOS DOIS
+  EIXOS, não declarado** — a caixa cresce por flex, o JS lê a altura dela e
+  escreve a célula (`--roleta-item`), porque `cqh` mediria a caixa que a própria
+  roleta define; e a LARGURA vira um segundo teto por regra de três, porque um
+  divisor escrito à mão é uma cópia da métrica da fonte (MEDIDO: dois dígitos
+  tabulares valem 1,00 × célula, não os 0,75 da conta ingênua). **A soma dos
+  filhos, nunca o `scrollWidth`:** a linha é centrada, o excesso sai metade para
+  cada lado, e o `scrollWidth` conta só o do fim. **INFINITA é a base REPETIDA**
+  (ímpar, ~300 células) com a posição de repouso na banda do MEIO, e a
+  recentragem acontece PARADA — escrever `scrollTop` no meio de um arremesso o
+  cancela, e o dedo sente a lista travar. Um scroller-seletor novo nasce com
+  isso: sem `rola`, com máscara, com a régua vinda do layout, e com ÍNDICE e
+  VALOR separados (a pista tem 300 células e o valor tem 60).
 - **UM SCROLLER QUE É GRADE NÃO PODE TER A TIRA — então ele deixa de ser o
   scroller** (v1.8.60). O `sem-veu` está certo e fica (o pseudo de uma grade é
   ITEM dela), mas ele APAGA o aviso sem tirar o problema: a `.bible-grid--books`
@@ -2655,11 +2663,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.93 · APK v1.8.91** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.94 · APK v1.8.91** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.92 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
+> **A v1.8.94 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela mudou `java/` (o
 > cancelamento da exportação saiu da main thread) e nada em `java/` chega por
 > OTA, então o bundle ficou SEGURO até a Release sair — **e ela saiu**: o APK
