@@ -23362,7 +23362,11 @@ function sorteioQuantidadeLinha(pool) {
   if (qhObs) qhObs.disconnect();
   if (typeof ResizeObserver === 'function') {
     qhObs = new ResizeObserver(() => acertarQuantidade(el));
-    qhObs.observe(el);
+    // A CAIXA DE BORDA, e não a de conteúdo (o padrão): o recuo das pontas É
+    // `padding`, então numa janela que encolhe a caixa de CONTEÚDO chega a zero
+    // e para de mudar — o observador emudece com o recuo velho na mão, e a
+    // roleta fica medida para uma largura que já não existe.
+    qhObs.observe(el, { box: 'border-box' });
   }
   acertarQuantidade(el);
   qhMostrar(el, valor);
@@ -23374,6 +23378,14 @@ function sorteioQuantidadeLinha(pool) {
 // não uma bandeira — que os separa. Sem ela, cada `qhMostrar` remarcaria o lote
 // e o `atualizarContaSorteio` que ele dispara devolveria outro `scroll`.
 function qhAssentou(el) {
+  // O NÓ PODE JÁ TER SIDO TROCADO, e este é o defeito que a guarda fecha: um
+  // elemento fora do documento responde `scrollLeft` ZERO, o que aqui se lê como
+  // "o operador escolheu 1" — e o caminho grava. MEDIDO: com a roleta em 12,
+  // encostar nela e tocar num filtro DENTRO dos 140 ms do assentamento faz o
+  // `renderSorteio` do filtro trocar o nó, o prazo pendurado pousar no órfão, e
+  // o lote voltar a UMA — com `sorteioPrefs.quantos: 1` gravado no IndexedDB,
+  // isto é, sobrevivendo à sessão. Nada erra e nada aparece na tela.
+  if (!el.isConnected) return;
   const teto = Number(el.dataset.teto) || 1;
   const n = Math.max(AVSorteio.QUANTIDADE_MIN, Math.min(teto, qhIndice(el) + 1));
   if (String(n) === el.dataset.valor && sorteioMarcadas.size === n) return;

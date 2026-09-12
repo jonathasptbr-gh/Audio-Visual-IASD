@@ -9112,10 +9112,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      é o motor de pulo que a regra da v1.8.61 proíbe. */
   display: flex; align-items: center; justify-content: center;
   text-align: center; line-height: 1.15;
+  /* E AS TRÊS TÊM UMA ALTURA SÓ, por ESTICAMENTO — que é o padrão de um item
+     flex (`align-items: normal`) e não precisa ser declarado: um
+     `align-items: stretch` escrito na fileira foi MEDIDO INERTE e removido, na
+     regra da v1.8.65. O que quebra a igualdade é declarar `center` ali, e é
+     essa a reversão que o oráculo mede. */
 }
-/* E AS TRÊS TÊM UMA ALTURA SÓ: `stretch` no lugar do `center` da linha, senão a
-   que quebrou em duas fica mais alta que as irmãs na mesma faixa. */
-.sorteio-linha > .misc-opts { align-items: stretch; }
 
 /* ===== A ROLETA HORIZONTAL DA QUANTIDADE (v1.8.96) =====
    Ela é o idioma de SELETOR do app (ver as roletas do Tempo) deitado: sem a
