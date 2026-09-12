@@ -45,6 +45,14 @@
 // varredura no toque, o `apagarVersaoBiblia` no botão e o `chk.textContent =
 // '✓'` —, reprovam A(1), B(3), C(2) e D(3).
 //
+// E MAIS DUAS, uma por peça da v1.8.84, medidas à parte:
+//  · o excluir de volta a EXISTIR apagado onde não há nada baixado → 2, as duas
+//    de ausência (a versão nunca baixada e a linha logo depois do apagar). As
+//    outras quatro de C passam: elas medem o botão que continua existindo, e é
+//    essa assimetria que separa "some" de "não responde".
+//  · o ✓ da escolha de volta na linha → 1, a de D — e as duas vizinhas passam,
+//    porque o fill e o ✓ do "Completa offline" são outros dois fatos.
+//
 // AS DUAS ASSIMETRIAS estão aqui porque são elas que provam que as asserções
 // medem coisas diferentes, e não o percurso:
 //  · as duas QUEDAS de A passam sob a reversão (uma tela que nunca é lembrada
@@ -167,26 +175,51 @@ try {
   await pg.evaluate(() => { openBibleVerPopup(); });
   // A recontagem é assíncrona (uma varredura de chaves), e é ela que decide o
   // estado do EXCLUIR — medir antes dela é medir a primeira pintura.
+  // A ESPERA É PELO EXCLUIR DA NVI, e ela precisa ser NULA-SEGURA: desde a
+  // v1.8.84 o botão não existe onde não há o que excluir, e a PRIMEIRA pintura
+  // da folha é justamente essa — o `recontarBibliaNoAparelho` é assíncrono e o
+  // popup abre antes dele responder. Um `.disabled` direto lança ali, e o
+  // percurso morre com um `TypeError` que não descreve nada.
+  //
+  // **E ELA ESPERA A VARREDURA PARAR, não só a contagem chegar** — foi o que
+  // reprovou este arquivo no CI e passou dezenas de vezes aqui. Abrir a aba
+  // dispara `ensureBibleVersionDownloaded` para a versão em uso, e enquanto ela
+  // corre a LINHA daquela versão diz *"Baixando 20/1189…"* em vez do estado que
+  // o bloco B veio medir. O `bibleDl` é o fato: com ele parado, a linha volta a
+  // descrever o BANCO. Esperar a rede morrer por tempo seria medir o runner —
+  // aqui toda saída externa é bloqueada, e o que varia é QUANDO as 1189 falham.
   const contou = await esperarDb(pg, async () => {
     const l = document.querySelectorAll('#bibleVerList .bible-ver-row');
-    return l.length === 3 && !l[1].querySelector('.bible-ver-del').disabled;
+    const del = l.length === 3 && l[1].querySelector('.bible-ver-del');
+    if (!del || del.disabled) return false;
+    return !(bibleDl && bibleDl.running);
   });
-  checar(contou === true, 'a folha de versões desenhou as três linhas', porque(contou));
+  checar(contou === true,
+    'a folha de versões desenhou as três linhas, com a contagem do banco já na '
+    + 'mão e NENHUMA varredura em voo — a linha de uma versão em varredura diz '
+    + '"Baixando N/1189…", que é outro estado que o do banco',
+    porque(contou));
 
   const folha = await pg.evaluate(() => {
     const rows = [...document.querySelectorAll('#bibleVerList .bible-ver-row')];
     return rows.map((r) => {
       const st = r.querySelector('.bible-ver-status');
-      const chk = r.querySelector('.bible-ver-check');
       const del = r.querySelector('.bible-ver-del');
+      const cs = getComputedStyle(r);
       return {
         nome: r.querySelector('.row-name').textContent,
         estado: (st.textContent || '').trim(),
-        // O CHECK: o que importa é o NÓ, não o caractere.
-        temCheck: !!chk,
-        checkSvg: !!(chk && chk.querySelector('svg polyline')),
-        checkTexto: chk ? chk.textContent.trim() : '',
-        // E o ✓ do estado "Completa offline" é o MESMO desenho.
+        // A MARCA DA ESCOLHA é o FILL da linha, e a régua é o computado: a
+        // regra pinta `--linha`, e ler a variável provaria a declaração, não o
+        // desenho.
+        selecionada: r.classList.contains('selected'),
+        fundo: cs.backgroundColor,
+        // O CHECK QUE SAIU (v1.8.84) — asserção NEGATIVA, e ela mede o NÓ mais
+        // o caractere: as duas formas que ele já teve.
+        temCheck: !!r.querySelector('.bible-ver-check'),
+        temCharCheck: /✓/.test(r.textContent || ''),
+        // E o ✓ do estado "Completa offline" FICA, porque responde outra
+        // pergunta — é o mesmo desenho do resto do app.
         estadoSvg: !!st.querySelector('svg polyline'),
         delExiste: !!del,
         delTravado: !!(del && del.disabled),
@@ -211,9 +244,11 @@ try {
   checar(/não baixada/i.test(acf.estado),
     'B · e a que não tem NADA no aparelho diz isso — é ela que desenha o ramo em '
     + 'que morava a frase falsa', acf.estado);
-  checar(acf.delExiste && acf.delTravado && /nada desta versão/i.test(acf.delTitulo),
-    'C · e o excluir dela é apagado por não haver o que excluir, com o `title` '
-    + 'dizendo qual dos dois motivos é', acf);
+  checar(!acf.delExiste,
+    'C · e o excluir dela NÃO EXISTE (v1.8.84, revogando o apagado da v1.8.83): '
+    + 'a regra do inerte vale para quem tem função a recuperar — a versão em uso '
+    + 'a recupera com um toque noutra linha —, e excluir o que nunca foi baixado '
+    + 'não é uma ação adiada, é uma ação que não existe', acf);
 
   // ESCOLHER É BAIXAR, inclusive a versão JÁ escolhida: é o único caminho que
   // de fato não existia, e é justamente o que se faz diante de uma parcial.
@@ -230,16 +265,24 @@ try {
     + '`changeBibleVersion` devolve cedo quando o id não muda, e era esse o '
     + 'único toque desta folha que não fazia nada', disparou);
 
-  // ---- D · o check é o do app ----
-  checar(ara.temCheck && ara.checkSvg && ara.checkTexto === '',
-    'D · o ✓ da versão escolhida é o `checkIconSvg` do app (um `<svg>` com '
-    + '`polyline`), e não o caractere `✓` — aquele era desenhado pela fonte do '
-    + 'SISTEMA, com outro traço, outro peso e outra inclinação', ara);
+  // ---- D · a marca da escolha, e o ✓ que sobrou ----
+  //
+  // A v1.8.83 trocou o caractere `✓` pelo desenho do app e a v1.8.84 tirou o
+  // sinal inteiro: *"já temos a coloração azul da linha como marcação, não
+  // precisamos do check disputando espaço com a lixeira"*. As duas asserções
+  // abaixo são o par que impede as duas regressões opostas — o ✓ voltar, e a
+  // marca sumir junto com ele.
+  checar(!folha.some((r) => r.temCheck || r.temCharCheck),
+    'D · nenhuma linha tem o ✓ da ESCOLHA, em nó nem em caractere — a marca é o '
+    + 'fill da linha, e um segundo sinal da mesma coisa custava a largura do '
+    + 'nome da versão', folha.map((r) => r.nome + ':' + r.temCheck + '/' + r.temCharCheck));
+  checar(ara.selecionada && !nvi.selecionada && ara.fundo !== nvi.fundo,
+    'D · …e a linha escolhida CONTINUA marcada: o `--sel-fill` pinta um fundo '
+    + 'diferente do das outras (medido no computado — ler o token provaria a '
+    + 'declaração, não o desenho)', { ara, nvi });
   checar(nvi.estadoSvg,
-    'D · e o ✓ do "Completa offline" é o MESMO desenho — eles dividem a linha, e '
-    + 'dois ✓ de famílias diferentes lado a lado é o que se vê', nvi);
-  checar(!folha.some((r) => /✓/.test(r.estado) || /✓/.test(r.checkTexto)),
-    'D · e o caractere não sobrou em lugar nenhum da folha', folha);
+    'D · e o ✓ do "Completa offline" FICA, com o desenho do app: ele responde '
+    + '"está no aparelho?", que é outra pergunta que a do fill', nvi);
 
   // ---- C · o excluir ----
   checar(ara.delExiste && ara.delTravado && /em uso/i.test(ara.delTitulo),
@@ -292,12 +335,15 @@ try {
 
   const depois = await pg.evaluate(() => {
     const r = document.querySelectorAll('#bibleVerList .bible-ver-row')[1];
-    const del = r.querySelector('.bible-ver-del');
-    return { estado: r.querySelector('.bible-ver-status').textContent.trim(), travado: del.disabled };
+    return {
+      estado: r.querySelector('.bible-ver-status').textContent.trim(),
+      temDel: !!r.querySelector('.bible-ver-del'),
+    };
   });
-  checar(/não baixada/i.test(depois.estado) && depois.travado === true,
-    'C · e a linha se redesenha: a versão passa a "Não baixada" e o excluir '
-    + 'apaga — não há o que excluir duas vezes', depois);
+  checar(/não baixada/i.test(depois.estado) && depois.temDel === false,
+    'C · e a linha se redesenha: a versão passa a "Não baixada" e o excluir SOME '
+    + '— não há o que excluir duas vezes, e desde a v1.8.84 isso é ausência e '
+    + 'não um botão apagado', depois);
 
   // =======================================================================
   // D · OS IDS REAIS SÃO NUMÉRICOS, E UM É PREFIXO DO OUTRO (v1.8.84)

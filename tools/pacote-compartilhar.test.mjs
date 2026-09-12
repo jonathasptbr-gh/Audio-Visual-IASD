@@ -81,10 +81,10 @@ const ponte = (opts) => `(function () {
     castTarget: { label: '' }, apkProcurar: {}, ytDiag: '', cifraDiag: '',
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
-    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
+    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
-    'ytDetalhes','micDiag','areaTransferencia','salvarTexto',
+    'ytDetalhes','areaTransferencia','salvarTexto',
     // Fora da allowlist, um método devolve undefined e prende quem o chamar
     // pelos 60 s do CALL_TIMEOUT_MS, calado. (pacoteDiag já tem
     // implementação própria acima, e é o que o renderDiag() daqui usa.)
@@ -152,9 +152,9 @@ const ponte = (opts) => `(function () {
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar','espelhoCertEstado',
     'espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado','espelhoLigar',
     'keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply','otaCheck',
-    'otaDiag','otaPending','pickFolder','requestMic','systemVolume','temaClaro',
+    'otaDiag','otaPending','pickFolder','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
-    'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','micDiag','cifraHtml',
+    'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','cifraHtml',
     'cifraDiag','areaTransferencia','salvarTexto','pacoteDiag','ytDetalhes',
   ];
   for (const n of nomes) {

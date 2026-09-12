@@ -903,10 +903,21 @@ try {
     const netOn = net ? fundoNet() : '';
     if (net) net.classList.remove('ligado');
     const r = {
-      acao: raio('.cast-acao'), interruptor: raio('#castNetBtn'), endereco: raio('.cast-addr'),
+      // O RAIO É DO ENVELOPE, e o do botão é PARCIAL desde a v1.8.89: com o `?`
+      // dentro dele, `.cast-acao` arredonda só o lado esquerdo (o direito é
+      // reto, para os dois formarem UMA peça). `borderRadius` devolveria a
+      // forma abreviada de quatro cantos e a comparação com o interruptor
+      // reprovaria o desenho correto.
+      acao: raio('.cast-acao-linha'), interruptor: raio('#castNetBtn'), endereco: raio('.cast-addr'),
       netOff, netOn,
       liveFill: getComputedStyle(document.documentElement).getPropertyValue('--live-fill').trim(),
-      acaoFundo: cor('.cast-acao', 'backgroundColor'), acaoTexto: cor('.cast-acao', 'color'),
+      // E O PREENCHIMENTO TAMBÉM É DO ENVELOPE. Dois irmãos numa peça só não
+      // podem cada um pintar o próprio fundo — a costura entre eles apareceria
+      // no primeiro estado em que os dois divergissem —, então a superfície
+      // subiu para `.cast-acao-linha` e o botão herda a tinta do TEXTO. Ler o
+      // fundo do botão aqui devolve `transparent`, que é o desenho CERTO.
+      acaoFundo: cor('.cast-acao-linha', 'backgroundColor'),
+      acaoTexto: cor('.cast-acao', 'color'),
       // O valor do token, resolvido pelo navegador — a asserção compara o
       // RENDERIZADO com ele, e não com um literal copiado para cá.
       accentFill: getComputedStyle(document.documentElement).getPropertyValue('--accent-fill').trim(),

@@ -123,7 +123,7 @@ const ponteCom = (espelho, telas) => `(() => {
     // devolve \`null\` e o Registro perderia a linha em silêncio.
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
-    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
+    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag',
     'farolEstado',
@@ -277,7 +277,7 @@ const ponteCom = (espelho, telas) => `(() => {
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
-    'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
+    'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
     'ytFetchAudio','ytPlaylist','ytSearch','ytStream','farolEstado',
   ];
@@ -2357,6 +2357,10 @@ try {
     renderSorteio();
     out.acoes = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')]
       .map((b) => b.textContent.trim());
+    // O SORTEAR (v1.8.88) fica no Modo Fácil, e os destinos não: reordenar a
+    // lista não depende de haver Cronograma nem Favoritos para onde mandar.
+    out.temSortear = !!document.querySelector('#sorteioPopup .sorteio-sortear');
+    out.destinos = document.querySelectorAll('#sorteioPopup .sorteio-dest').length;
     fecharSorteio();
     setAppMode(antes);
     return out;
@@ -2367,8 +2371,14 @@ try {
   checar(facil.cards > 0,
     'e o resto dela continua inteiro — a guarda tira UMA seção, não a lista',
     facil.cards + ' card(s)');
-  checar(facil.acoes.length === 1 && !facil.acoes.some((t) => /cronograma/i.test(t)),
+  checar(facil.destinos === 0 && !facil.acoes.some((t) => /cronograma/i.test(t)),
     'e a playlist automática perde o "Ao Cronograma": ali não há Cronograma para ver',
+    JSON.stringify(facil.acoes));
+  checar(facil.temSortear === true && facil.acoes.length === 2,
+    'MAS O SORTEAR FICA (v1.8.88) — reordenar a lista não promete destino '
+    // Sem esta metade, "menos botões no Modo Fácil" levaria o sortear junto na
+    // próxima varredura, e ele é a única porta para um sorteio novo.
+    + 'nenhum, e é a única porta para pedir outra lista',
     JSON.stringify(facil.acoes));
   checar(favs.temItem,
     'OS FAVORITOS SÃO DESENHADOS DENTRO DA BIBLIOTECA, pelo mesmo '
@@ -5354,52 +5364,57 @@ try {
   checar(false, 'o percurso da área de transferência terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ===== O MICROFONE SEM TELÃO: O BOTÃO NÃO É OFERECIDO (v1.2.20) =====
+// ===== O RODAPÉ FIXO DA FOLHA DE FERRAMENTAS (v1.8.89) =====
 //
-// Quem abre o microfone é o `/display/`, e ele só existe DENTRO da
-// `Presentation` — sem TV conectada o `syncPresentation` não cria nenhuma, e
-// ninguém consome o comando `mic`. As telas da rede também não servem: elas
-// rodam o MESMO `display.js`, e lá o `setMic` sai por `if (TELA) return`.
+// ESTE BLOCO ERA "O MICROFONE SEM TELÃO" (v1.2.20), e o que ele media morreu
+// com o recurso na v1.8.89. As três asserções dele:
 //
-// A HISTÓRIA DESTE BLOCO, em três degraus, porque cada um consertou o anterior:
+//   1. sem TV o botão de microfone NÃO É DESENHADO ......... sem sujeito
+//   2. o "Projetar no telão" fica SOZINHO e ocupa a linha .. FICA, abaixo
+//   3. a TV ENTRANDO o faz aparecer sem trocar de aba ...... sem sujeito
 //
-//   até a v1.1.20 ... o botão acendia "No ar" com o `micPressed` local, sem
-//                     nada captando. O operador falava para ninguém.
-//   v1.1.20 ........ ele passou a RECUSAR o toque e DIZER por quê.
-//   v1.2.20 ........ ele deixou de ser desenhado. Explicar é melhor que mentir,
-//                    mas não é melhor que não oferecer — a frase chegava com o
-//                    dedo no botão, no meio do culto.
+// A terceira era o `refreshDiversos()` disparado pela TRANSIÇÃO de presença no
+// `renderDisplayStatus`; ele saiu junto, porque nada mais nesta folha depende
+// de haver projeção — e mantê-lo custaria remontar o painel por baixo de quem
+// está usando, que é o que a guarda "só na transição" existia para evitar.
 //
-// A PONTE PADRÃO DESTE ARQUIVO TEM ZERO TELAS (`ponteCom(…, [])`), então a
-// ausência é a condição normal aqui. O QUE PRECISA DE CENÁRIO é o contrário:
-// a TV ENTRANDO deve fazer o botão aparecer SEM trocar de aba — sem isso ele só
-// voltaria na próxima navegação, isto é, a TV conecta no meio do culto e o
-// microfone continua ausente, sem nada na tela explicando.
+// O QUE ENTRA NO LUGAR é a mesma pergunta com o inquilino de hoje: **a largura
+// do primário vem da AUSÊNCIA do irmão**, nunca de uma regra de CSS para o
+// caso. Em Mensagens não há o que guardar (`cueSaveDaFerramenta` devolve
+// `null`), então o projetar ocupa a linha; no Tempo e no Sorteio ele divide a
+// faixa com os dois destinos e CEDE a altura do quadrado. As duas metades são a
+// regra da faixa de fecho (v1.8.61) — *"há irmão nesta faixa?"* —, e é medindo
+// as DUAS que ela deixa de poder ser satisfeita por acidente.
 try {
   const pgM = await ctx.newPage();
   await pgM.addInitScript(PONTE);
-  // A LISTA DE TELAS VIRA MUTÁVEL, para a TV poder entrar no meio do teste. O
-  // `__avDisplaysChanged` do `native.js` reconsulta a ponte, então basta trocar
-  // o que ela responde.
-  await pgM.addInitScript(`(() => {
-    window.__telas = [];
-    const arm = () => {
-      const B = window.__AVBridge;
-      if (!B) { setTimeout(arm, 0); return; }
-      B.displays = (id) => {
-        setTimeout(() => { try { window.__avResolve(id, window.__telas); } catch (_) {} }, 0);
-      };
-      B.requestMic = (id) => {
-        setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
-      };
-    };
-    arm();
-  })();`);
   await pgM.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
   await pgM.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function'
     && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled), null, { timeout: 25000 });
 
-  const semTv = await pgM.evaluate(async () => {
+  const medir = () => {
+    const proj = document.getElementById('miscProjectBtn');
+    const row = proj && proj.parentElement;
+    const foot = document.getElementById('toolsFoot');
+    const body = document.getElementById('toolsBody');
+    return {
+      temProj: !!proj,
+      // A LARGURA É MEDIDA CONTRA A LINHA, nunca contra um número de pixel: a
+      // fonte e a densidade são da MÁQUINA, e afirmar "440px" seria medir o
+      // runner.
+      largura: proj ? Math.round(proj.getBoundingClientRect().width) : 0,
+      alturaProj: proj ? Math.round(proj.getBoundingClientRect().height) : 0,
+      larguraDaLinha: row ? Math.round(row.getBoundingClientRect().width) : 0,
+      irmaos: row ? row.children.length : 0,
+      destinos: foot ? foot.querySelectorAll('.cue-save-btn').length : -1,
+      // O RODAPÉ É IRMÃO DO CORPO, e é isso que o faz não rolar com ele.
+      foraDoCorpo: !!(foot && body && !body.contains(foot)),
+      alturas: foot ? [...foot.querySelector('.misc-foot').children]
+        .map((e) => Math.round(e.getBoundingClientRect().height)) : [],
+    };
+  };
+
+  const msg = await pgM.evaluate(async (fn) => {
     // A PORTA DAS FERRAMENTAS É O BOTÃO DO CRONOGRAMA (v1.3.10) — elas deixaram
     // de ser uma aba. Clicar nele, e não chamar `abrirFerramentas()`, é o que
     // mantém o caminho do operador dentro do oráculo.
@@ -5407,70 +5422,42 @@ try {
     await new Promise((f) => setTimeout(f, 120));
     document.getElementById('toolsBtn').click();
     await new Promise((f) => setTimeout(f, 300));
-    const proj = document.getElementById('miscProjectBtn');
-    const row = proj && proj.parentElement;
-    return {
-      temMic: !!document.getElementById('micBtn'),
-      temProj: !!proj,
-      // A LARGURA É MEDIDA CONTRA A LINHA, nunca contra um número de pixel: a
-      // fonte e a densidade são da MÁQUINA, e afirmar "440px" seria medir o
-      // runner. O que o desenho promete é que o botão OCUPA A LINHA.
-      largura: proj ? Math.round(proj.getBoundingClientRect().width) : 0,
-      larguraDaLinha: row ? Math.round(row.getBoundingClientRect().width) : 0,
-      irmaos: row ? row.children.length : 0,
-    };
-  });
+    return eval('(' + fn + ')')();
+  }, medir.toString());
 
-  checar(semTv.temMic === false,
-    'SEM TV o botão de microfone NÃO É DESENHADO — um controle que só sabe dizer que '
-    + 'não funciona é um controle a mais para o operador aprender', JSON.stringify(semTv));
-  checar(semTv.temProj === true && semTv.irmaos === 1,
-    'e o "Projetar no telão" fica SOZINHO na linha', JSON.stringify(semTv));
-  checar(semTv.larguraDaLinha > 0 && semTv.largura >= semTv.larguraDaLinha - 2,
-    'OCUPANDO-A DE LADO A LADO: `.misc-foot` é flex e o filho é `flex: 1`, então a '
-    + 'largura vem da AUSÊNCIA do irmão, não de uma regra de CSS para o caso',
-    JSON.stringify(semTv));
+  checar(msg.foraDoCorpo === true,
+    'o rodapé da folha é IRMÃO do corpo, não filho: uma barra dentro do scroller '
+    + 'rolaria com os itens dela', JSON.stringify(msg));
+  checar(msg.temProj === true && msg.destinos === 0 && msg.irmaos === 1,
+    'em MENSAGENS o "Projetar no telão" fica SOZINHO — elas já entram no Cronograma '
+    + 'pelo caminho próprio, e dois botões fazendo o mesmo por outro nome seriam a '
+    + 'terceira porta para a mesma lista', JSON.stringify(msg));
+  checar(msg.larguraDaLinha > 0 && msg.largura >= msg.larguraDaLinha - 2,
+    'OCUPANDO A LINHA DE LADO A LADO: `.misc-foot` é flex e o filho é `flex: 1`, então '
+    + 'a largura vem da AUSÊNCIA do irmão, não de uma regra de CSS para o caso',
+    JSON.stringify(msg));
 
-  // A METADE QUE FALHARIA CALADA: a TV ENTRA e o botão precisa aparecer SEM que
-  // o operador troque de aba. Quem faz isso é o `refreshDiversos()` disparado
-  // pela TRANSIÇÃO de presença no `renderDisplayStatus` — e sem ele nada erra:
-  // a aba simplesmente continua sem microfone.
-  const comTv = await pgM.evaluate(async () => {
-    // `telao: true` NÃO É ENFEITE (shell 59): a lista responde pelo DisplayManager
-    // e quem decide microfone e som é a `Presentation`. Uma fixture sem o campo é
-    // uma TV conectada com o telão no chão — outro cenário, coberto logo abaixo.
-    window.__telas = [{ id: 1, name: 'TV do templo', w: 1920, h: 1080, density: 320, telao: true }];
-    window.__avDisplaysChanged();
-    await new Promise((f) => setTimeout(f, 500));
-    const proj = document.getElementById('miscProjectBtn');
-    const row = proj && proj.parentElement;
-    return {
-      temMic: !!document.getElementById('micBtn'),
-      irmaos: row ? row.children.length : 0,
-      naFolha: !!document.getElementById('miscProjectBtn'),
-    };
-  });
-  checar(comTv.temMic === true,
-    'A TV ENTRANDO faz o botão APARECER, sem trocar de aba — sem isso ela conecta no '
-    + 'meio do culto e o microfone continua ausente, calado', JSON.stringify(comTv));
-  checar(comTv.irmaos === 2,
-    'e a linha volta a ter os dois, dividindo a largura', JSON.stringify(comTv));
+  const tempo = await pgM.evaluate(async (fn) => {
+    [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
+    await new Promise((f) => setTimeout(f, 200));
+    return eval('(' + fn + ')')();
+  }, medir.toString());
 
-  // E A TV SAINDO desfaz: a simetria não é elegância, é o caso do dongle que
-  // cai — e ali o botão precisa sumir, senão volta a ser o que mentia.
-  const saiu = await pgM.evaluate(async () => {
-    window.__telas = [];
-    window.__avDisplaysChanged();
-    await new Promise((f) => setTimeout(f, 500));
-    return { temMic: !!document.getElementById('micBtn') };
-  });
-  checar(saiu.temMic === false,
-    'e a TV SAINDO o tira de novo — é o caso do dongle que cai no meio do culto',
-    JSON.stringify(saiu));
+  checar(tempo.destinos === 2 && tempo.irmaos === 3,
+    'no TEMPO a faixa ganha os DOIS destinos à direita, na ordem canônica '
+    + '(Cronograma, favoritos)', JSON.stringify(tempo));
+  checar(tempo.alturas.length === 3
+    && new Set(tempo.alturas).size === 1,
+    'e a faixa tem UMA ALTURA só (a regra da v1.8.61): o primário cede para a medida '
+    + 'do quadrado em vez de esticar os destinos contra ele',
+    JSON.stringify(tempo.alturas));
+  checar(tempo.alturaProj < msg.alturaProj,
+    'é o PRIMÁRIO que cede, e só onde há irmão — sozinho ele volta à barra alta de '
+    + 'sempre', JSON.stringify([msg.alturaProj, tempo.alturaProj]));
 
   await pgM.close();
 } catch (e) {
-  checar(false, 'o percurso do microfone sem telão terminou sem exceção (' + (e && e.message) + ')');
+  checar(false, 'o percurso do rodapé das Ferramentas terminou sem exceção (' + (e && e.message) + ')');
 }
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));

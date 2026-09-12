@@ -397,9 +397,11 @@ checar(orfaos.length === 0,
 // aqui herda o overlay FLUTUANTE, que é branco com alfa.
 //
 // MEDIDO, e é o caso que criou esta asserção: a `.tools-sheet` nasceu na v1.3.10
-// pintando `--panel` e nunca entrou na lista. No tema CLARO o `.mic-btn` dentro
-// dela saía em branco a 92% sobre branco pleno — **1,00:1**. A barra de
-// push-to-talk, 56px, o controle que se procura sem olhar, não existia na tela.
+// pintando `--panel` e nunca entrou na lista. No tema CLARO o botão de 56px que
+// então ocupava a base dela saía em branco a 92% sobre branco pleno —
+// **1,00:1**: o controle que se procura sem olhar não existia na tela. (Aquele
+// botão era o do microfone ao vivo, e saiu na v1.8.89; a folha fica, e a
+// asserção com ela.)
 //
 // A varredura é do `--panel` LITERAL, não de `var(--camada)`: quem lê a camada
 // está justamente delegando o nível ao pai, e o pai é que precisa estar na
@@ -421,7 +423,15 @@ checar(orfaos.length === 0,
   // opaco em que o número passa AA: MEDIDO em `tokens.css`, `--muted` dá 4,88:1
   // sobre `--panel` e 3,66:1 sobre `--panel-2` — trocar de token para escapar
   // desta asserção custaria a legibilidade que ela existe para defender.
-  const excecoes = [/scrollbar/, /^\.lv-selo$/];
+  //
+  // `.sorteio-res-cab` (v1.8.88) é o MESMO caso do `.lv-selo`, e a razão também
+  // está no CSS: é a contagem no topo da lista de resultados — texto, sem um
+  // único controle dentro, e sem como ganhar um (a lista rola POR BAIXO dela).
+  // Ela pinta `--panel` porque é `sticky` sobre conteúdo que se move e precisa
+  // de fundo OPACO, e porque `--panel` é a superfície da própria folha: ela
+  // não é um degrau novo da escada, é o chão da folha aparecendo onde a lista
+  // passa.
+  const excecoes = [/scrollbar/, /^\.lv-selo$/, /^\.sorteio-res-cab$/];
   // A varredura é por BLOCO e não por regex de rua: entre um `}` e o seletor
   // seguinte cabe um comentário de trinta linhas (já em branco, mas ocupando
   // espaço), e um teto de caracteres no meio faz o oráculo pular exatamente as

@@ -1,25 +1,89 @@
 [
   {
-    "versao": "1.8.85",
-    "itens": [
-      "Cifra em tela cheia: com a barra de velocidade aberta, o botão de sair some — agora ele volta.",
-      "Cifra em tela cheia: os rótulos 0,5× e 2× estavam trocados de lado no controle de velocidade.",
-      "O botão de limpar o Cronograma passou a responder ao toque como os vizinhos.",
-      "Playlist automática: as frases do cartão encurtaram para não serem cortadas em telas pequenas.",
-      "Bíblia: a lista de versões deixou de ser redesenhada a cada capítulo — a folha ficou mais leve.",
-      "Bíblia: ao terminar de baixar, a folha aberta passa a mostrar o resultado na hora.",
-      "Exportar o acervo: cancelar no meio não trava mais o app."
-    ]
-  },
-  {
-    "versao": "1.8.84",
+    "versao": "1.8.91",
     "itens": [
       "Apresentação: o vídeo de um slide não entra mais por cima da mídia que você escolheu enquanto ele carregava.",
       "Apresentação: subir o cronômetro enquanto o slide abre deixou de cancelar a volta para a apresentação.",
       "Bíblia: excluir uma versão que estava baixando agora para o download, em vez de marcá-la como completa.",
       "Bíblia: a versão excluída não volta sozinha a baixar na abertura seguinte.",
       "Bíblia: excluir uma versão não apaga mais a marca de 'completa' de outras versões.",
-      "Telão: com a tela coberta, mexer no cronômetro ou no sorteio não descobre mais a mídia."
+      "Bíblia: a lista de versões deixou de ser redesenhada a cada capítulo — a folha ficou mais leve.",
+      "Bíblia: ao terminar de baixar, a folha aberta passa a mostrar o resultado na hora.",
+      "Telão: com a tela coberta, mexer no cronômetro ou no sorteio não descobre mais a mídia.",
+      "Cifra em tela cheia: com a barra de velocidade aberta, o botão de sair some — agora ele volta.",
+      "Cifra em tela cheia: os rótulos 0,5× e 2× estavam trocados de lado no controle de velocidade.",
+      "O botão de limpar o Cronograma passou a responder ao toque como os vizinhos.",
+      "Exportar o acervo: cancelar no meio não trava mais o app."
+    ]
+  },
+  {
+    "versao": "1.8.90",
+    "itens": [
+      "Volume: abaixo do nível 10 os botões passaram a andar de 1 em 1, para subir e para descer.",
+      "Volume: de 10 para cima o passo segue de 5 em 5, e o 10 nunca é pulado."
+    ]
+  },
+  {
+    "versao": "1.8.89",
+    "itens": [
+      "Playlist automática: o botão de sortear voltou ao centro da caixa dele.",
+      "Conectar TV: o \"?\" do aviso de som passou a ficar DENTRO do botão de conexão, à direita.",
+      "Ferramentas: o microfone ao vivo saiu, a pedido.",
+      "Ferramentas: barra fixa no rodapé da janela — projetar à esquerda, Cronograma e favoritos à direita.",
+      "Tempo: o timer perdeu as pílulas de minuto e o campo; agora é um − / + ao lado do próprio número.",
+      "Tempo: iniciar e zerar foram para a direita do número, na mesma linha — a janela deixou de rolar."
+    ]
+  },
+  {
+    "versao": "1.8.88",
+    "itens": [
+      "Playlist automática: o número de resultados virou uma linha no topo da lista, e no lugar dele entrou o botão de sortear.",
+      "Playlist automática: o botão de sortear reordena a lista sem mexer nos filtros nem na quantidade.",
+      "A miniatura de um vídeo baixado não quebra mais ao trocar de seção — ela não dependia da internet, era um defeito nosso.",
+      "Provai e Vede e Informativo: a opção de manter baixado ficou só com o título, sem o subtexto."
+    ]
+  },
+  {
+    "versao": "1.8.87",
+    "itens": [
+      "Provai e Vede e Informativo: marque \"Manter o da semana baixado\" no topo do álbum e o episódio desce sozinho, no Wi-Fi.",
+      "O download automático usa a qualidade que você escolheu, e os episódios de semanas passadas saem do aparelho.",
+      "Episódio já baixado: a folha de opções não pergunta mais a qualidade — não há o que baixar.",
+      "O botão de repetir fica apagado quando não há fila nem mídia escolhida.",
+      "Conexão com a TV: o aviso sobre o som do aparelho virou um botão \"?\" ao lado.",
+      "A barra de volume passou a aparecer no botão da ESQUERDA, para não cobrir a passagem de slides."
+    ]
+  },
+  {
+    "versao": "1.8.86",
+    "itens": [
+      "Playlist automática: mexer num filtro não sorteia de novo — ele só corta da lista o que deixou de servir.",
+      "Playlist automática: a ordem que você está lendo fica parada, e o que volta ao afrouxar um filtro entra no fim.",
+      "Playlist automática: uma música marcada na mão continua marcada depois de mexer nos filtros.",
+      "Playlist automática: o sorteio novo acontece ao abrir a janela; usar o lote só tira ele da lista."
+    ]
+  },
+  {
+    "versao": "1.8.85",
+    "itens": [
+      "Playlist automática: só as músicas que vão tocar ficam marcadas; o resto continua na lista, desmarcado.",
+      "Playlist automática: marcar e desmarcar agora muda o número em \"Quantas\" — é a escolha manual dele.",
+      "Playlist automática: a linha marcada fica onde está, e o número ao lado diz a ordem em que ela toca.",
+      "Playlist automática: os filtros ficam parados e só a lista de resultados rola.",
+      "Playlist automática: o botão de contagem ficou só com o número, sem o ícone."
+    ]
+  },
+  {
+    "versao": "1.8.84",
+    "itens": [
+      "Corrigido: limpar a playlist inteira agora limpa o player também, em vez de deixar a mídia tocando.",
+      "Excluir um item ou a playlist com algo no ar agora avisa antes que a mídia será interrompida.",
+      "Playlist automática: o cartão de resultados virou a LISTA das músicas sorteadas, com o lote no topo.",
+      "Playlist automática: um check por música deixa tirar uma do sorteio, e a próxima da fila entra no lugar.",
+      "Playlist automática: as escolhidas saem da lista depois de usadas, e as de baixo formam o próximo lote.",
+      "Playlist automática: a contagem virou um botão fixo ao lado do tocar, com o número dos resultados.",
+      "Bíblia: saiu o ✓ da versão escolhida — a linha azul já diz qual é, e o nome ganhou a largura.",
+      "Bíblia: o excluir só aparece nas versões que têm algo baixado."
     ]
   },
   {

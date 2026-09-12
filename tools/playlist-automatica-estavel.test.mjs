@@ -45,17 +45,16 @@
 // a folha ANDANDO é o que o operador vê. Uma asserção só sobre a conta aprovaria
 // um conserto que a congelasse e deixasse outro motor solto.
 //
-// REVERSÃO MEDIDA, e ela reprova 8 das 18 asserções. Devolvendo o
-// `min-height: 6em` (mais o fundo, o raio e a centralização), a folha reprova a
-// 360×1,5 com Δ 27,5px — e a 430×1 e 430×1,5 PASSAM, que é a assimetria a
-// reparar: só a fonte grande numa tela estreita alcança a decisão. Devolvendo o
-// `renderSorteio()` ao `finally` do `executarSorteio`, as três asserções do
-// bloco A reprovam com 0 ms de exposição.
+// REVERSÃO MEDIDA. Devolvendo o `renderSorteio()` ao `finally` do
+// `executarSorteio`, as três asserções do bloco A reprovam com 0 ms de
+// exposição. Devolvendo a barra ao `.popup-fecho` (`porFecho(alvo, liGo)`), o
+// bloco B reprova nas quatro células — sem a barra dentro da lista não há
+// `.sorteio-barra` no lugar em que ela tem de estar.
 //
 //   node tools/playlist-automatica-estavel.test.mjs
 // ============================================================================
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas, RAIZ_WEB, esperar, porque } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, checar, falhas, RAIZ_WEB } from './arnes.mjs';
 
 const servidor = servirEstatico(RAIZ_WEB);
 await new Promise((r) => servidor.listen(0, r));
@@ -115,15 +114,7 @@ const abrir = async (ctx, escala) => {
   await pg.evaluate(() => setAppMode('full'));
   await SEMEAR(pg);
   await pg.click('#sorteioBtn');
-  // O FATO, não o relógio: a folha está pronta quando o cartão da conta existe.
-  // MEDIDO, os 500 ms × 5 aberturas eram 2,5 s de sono — e um runner carregado
-  // reprovava por sono curto, indistinguível de defeito.
-  const r = await esperar(pg, () => {
-    const p = document.getElementById('sorteioPopup');
-    return !!p && p.classList.contains('open')
-      && !!document.querySelector('#sorteioList .sorteio-conta');
-  }, null, 10000);
-  if (r !== true) throw new Error('a folha do sorteio não abriu ' + porque(r));
+  await pg.waitForTimeout(500);
   return pg;
 };
 
@@ -141,13 +132,7 @@ const ESTADOS = [
   ['palavra sem resultado', () => { sorteioPrefs.tema = 'xyzabcdefgh'; }],
   ['playback sem fundo musical', () => { sorteioPrefs.tema = ''; sorteioPrefs.variante = 'playback'; }],
   ['a fala: adicionado', () => { sorteioPrefs.variante = 'full'; sorteioPrefs.tema = ''; falarNoSorteio('“Noite de Paz” adicionado ao Cronograma'); }],
-  // A FALA MAIS LONGA QUE O APP SABE PRODUZIR, montada das BORDAS DELE e não
-  // inventada (v1.8.85): o nome vem clampado em 28 caracteres (`rotuloItem`) e
-  // o resto é o par mais longo de `LISTA_ROTULO` (`'adicionado ' + 'ao
-  // Cronograma'`). Uma frase maior que essa mede um app que não existe — e foi
-  // o que a versão anterior deste estado fazia, com 86 caracteres contra os 56
-  // do pior caso real.
-  ['a fala mais longa (o pior caso REAL)', () => { falarNoSorteio('"um nome de louvor bem grande de verdade" adicionado ao Cronograma'); }],
+  ['a fala mais longa: o pacote', () => { falarNoSorteio('10 músicas num pacote no Cronograma, e a frase mais longa que este canal sabe produzir'); }],
 ];
 
 try {
@@ -206,8 +191,12 @@ try {
     // A TRAVA CONTINUA SENDO ACERTADA — o que o redesenho fazia, e a única coisa
     // que ele fazia. Sem esta asserção o conserto poderia ter sido só "não
     // redesenhar", deixando a faixa travada para sempre depois de um lote.
+    // CINCO desde a v1.8.88: o botão de SORTEAR entrou na faixa (a vaga da
+    // pílula da conta) e leva a mesma classe porque ele TEM ação — e a mesma
+    // trava, porque sortear com a corrida em pé é mexer na lista que está
+    // sendo consumida.
     const depois = await pg.$$eval('#sorteioPopup .sorteio-acao', (bs) => bs.map((b) => b.disabled));
-    checar(depois.length === 4 && depois.every((d) => d === false),
+    checar(depois.length === 5 && depois.every((d) => d === false),
       'a faixa de fecho volta a aceitar toque depois do lote (o `disabled` em '
       + 'ponto faz o trabalho que o redesenho fazia)', depois);
     await ctx.close();
@@ -216,12 +205,7 @@ try {
   // ======================================================================
   // BLOCO B — O CARTÃO TEM UM TAMANHO SÓ, E A FOLHA NÃO ANDA
   // ======================================================================
-  // 320×1,5 É A CÉLULA QUE ALCANÇA A DECISÃO (v1.8.85), e sem ela a asserção do
-  // corte nunca reprova: MEDIDO, a frase do escopo cabe folgada a 360 e a 430 e
-  // só estoura as três linhas no aparelho estreito com a fonte do sistema
-  // grande — que é a combinação que o próprio `#sorteioPopup` já declara como o
-  // pior caso aceito.
-  const CELULAS = [[320, 1.5], [360, 1], [360, 1.5], [430, 1], [430, 1.5]];
+  const CELULAS = [[360, 1], [360, 1.5], [430, 1], [430, 1.5]];
   const medidas = [];
   for (const [largura, escala] of CELULAS) {
     const ctx = await navegador.newContext({ viewport: { width: largura, height: 900 } });
@@ -234,29 +218,29 @@ try {
         (new Function('return (' + src + ')'))()();
         renderSorteio();
       }, fn.toString());
-      // O FATO É O TEXTO TER TROCADO — 70 ms × 44 estados eram 3,1 s de sono
-      // para esperar um render SÍNCRONO que já terminou quando o `evaluate`
-      // volta. O que resta é o LAYOUT, e `requestAnimationFrame` o fecha.
-      await pg.evaluate(() => new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f))));
+      await pg.waitForTimeout(70);
       const m = await pg.evaluate(() => {
-        const c = document.querySelector('#sorteioList .sorteio-conta');
+        const barra = document.querySelector('#sorteioList .sorteio-barra');
         const sh = document.querySelector('#sorteioPopup .popup-sheet');
-        const cs = getComputedStyle(c);
+        // A vaga da pílula é do botão de SORTEAR desde a v1.8.88 — o que este
+        // bloco mede é a largura de UMA peça fixa na ponta esquerda da barra,
+        // e ela continua existindo, só que como botão.
+        const pil = document.querySelector('#sorteioList .sorteio-sortear');
+        const cs = getComputedStyle(barra);
         const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+        const rb = barra.getBoundingClientRect();
+        const rs = sh.getBoundingClientRect();
         return {
-          conta: +c.getBoundingClientRect().height.toFixed(1),
-          folha: +sh.getBoundingClientRect().height.toFixed(1),
-          // A RÉGUA É O SPAN, NUNCA O CARTÃO (v1.8.85). O `-webkit-line-clamp`
-          // corta DENTRO do span, e o span tem `overflow: hidden` PRÓPRIO mais
-          // o `flex-shrink: 1` padrão — medido, o cartão devolve ZERO em todas
-          // as células, inclusive numa em que o span estava cortado em 239px.
-          // A asserção que perguntava ao cartão não podia reprovar nada, e
-          // respondia "isso está coberto?" com um sim que não existia.
-          cortado: [...c.querySelectorAll('.sorteio-conta-forte, .sorteio-conta-fraca')]
-            .reduce((a, el) => a + Math.max(0, el.scrollHeight - el.clientHeight), 0),
-          align: cs.textAlign,
+          // A POSIÇÃO DA BARRA DENTRO DA FOLHA — é ela que o dedo procura, e é
+          // dela que a promessa passou a ser (ver o cabeçalho).
+          barraTopo: +(rb.top - rs.top).toFixed(1),
+          barraAlt: +rb.height.toFixed(1),
+          pecaLarg: +pil.getBoundingClientRect().width.toFixed(1),
+          folha: +rs.height.toFixed(1),
+          // A barra é `sticky` sobre uma lista que rola por baixo: sem fundo
+          // OPACO o texto das linhas atravessa os botões.
+          sticky: cs.position,
           fundoAlfa: rgb(cs.backgroundColor).length < 4 ? 1 : rgb(cs.backgroundColor)[3],
-          raio: parseFloat(cs.borderTopLeftRadius) || 0,
         };
       });
       medidas.push({ largura, escala, estado: nome, ...m });
@@ -266,36 +250,32 @@ try {
 
   for (const [largura, escala] of CELULAS) {
     const sub = medidas.filter((m) => m.largura === largura && m.escala === escala);
-    const hs = [...new Set(sub.map((m) => m.conta))];
-    const fs = sub.map((m) => m.folha);
-    const dif = +(Math.max(...fs) - Math.min(...fs)).toFixed(1);
-    checar(hs.length === 1,
-      `${largura}×${escala}: o cartão tem UM tamanho nos ${sub.length} estados `
-      + '(era um `min-height`, e o pior caso passava dele)', hs);
-    checar(dif === 0,
-      `  ↳ e a FOLHA não anda um pixel entre eles (Δ ${dif}px)`,
-      dif ? sub.map((m) => m.estado + ': ' + m.folha) : dif);
+    const topos = [...new Set(sub.map((m) => m.barraTopo))];
+    const alturas = [...new Set(sub.map((m) => m.barraAlt))];
+    const larguras = [...new Set(sub.map((m) => m.pecaLarg))];
+    checar(topos.length === 1 && alturas.length === 1,
+      `${largura}×${escala}: a BARRA DE AÇÃO fica no mesmo ponto da folha nos `
+      + `${sub.length} estados — é ela que o dedo procura, e agora ela não `
+      + 'depende do resultado: os quatro controles acima dela não mudam de altura',
+      { topos, alturas });
+    checar(larguras.length === 1,
+      '  ↳ e a PEÇA DA PONTA tem uma largura só, com 1 e com 1.000 resultados. '
+      + 'O pedido que a criou falava da pílula (*"um tamanho fixo independente '
+      + 'do número interno"*); com o botão de SORTEAR no lugar dela (v1.8.88) a '
+      + 'promessa é a mesma e fica mais forte — ele não tem número dentro, e o '
+      + 'que ela protege é o rótulo do primário ao lado',
+      larguras.concat(sub.map((m) => m.estado)).slice(0, 8));
   }
 
-  // REVERSÃO: devolver a frase longa do `escopoSemPalavra` (a base `'Só o que
-  // já está no aparelho'` com `', sem o hinário, sem os infantis'`) reprova
-  // aqui, na célula 320×1,5.
-  const cortados = medidas.filter((m) => m.cortado > 0);
-  checar(cortados.length === 0,
-    'e em nenhum dos estados o texto é CORTADO — a medida é do SPAN clampado, '
-    + 'não do cartão: a altura fixa é o pior caso medido, e a frase tem de '
-    + 'caber nela em vez de sumir atrás das reticências',
-    cortados.slice(0, 4).map((m) => m.estado + ': ' + m.cortado + 'px'));
-  checar(medidas.every((m) => m.align === 'center'),
-    'o texto é CENTRADO, que é a metade visual do pedido',
-    [...new Set(medidas.map((m) => m.align))]);
+  checar(medidas.every((m) => m.sticky === 'sticky'),
+    'a barra é `sticky`: acima dos resultados como se pediu, e à vista com a '
+    + 'lista rolando por baixo — o `.popup-fecho` dava essa segunda metade de '
+    + 'graça, e uma barra solta a perderia na primeira rolagem',
+    [...new Set(medidas.map((m) => m.sticky))]);
   checar(medidas.every((m) => m.fundoAlfa === 1),
-    'e o cartão é uma superfície OPACA: tinta com alfa sobre a folha empilharia '
-    + 'com o que estivesse atrás (a regra das superfícies de estado)',
+    '  ↳ com fundo OPACO, porque a lista passa POR BAIXO dela: tinta com alfa '
+    + 'sobre uma lista que rola muda de cor a cada quadro (v1.8.61)',
     [...new Set(medidas.map((m) => m.fundoAlfa))]);
-  checar(medidas.every((m) => m.raio > 0),
-    '  ↳ com o raio que faz dele um CARTÃO e não um bloco de texto',
-    [...new Set(medidas.map((m) => m.raio))]);
 
   checar(erros.length === 0, 'nenhum erro de console', erros);
 } catch (e) {

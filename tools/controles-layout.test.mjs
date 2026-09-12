@@ -58,8 +58,8 @@ const PONTE = `(() => {
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDerrubar',
     'espelhoDesligar','espelhoDiag','espelhoEstado','espelhoLigar','keepAlive','listFolder',
-    'micDiag','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
-    'otaPending','pickDoc','pickFolder','requestMic','salvarTexto','systemVolume','temaClaro',
+    'nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
+    'otaPending','pickDoc','pickFolder','salvarTexto','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytPlaylist','ytSearch','ytStream','areaTransferencia','atualizacaoEstado',
   ];
@@ -1066,8 +1066,13 @@ try {
   // SOBRE o que a congregação está vendo.
   //
   // As três metades: o botão não existe, o fader existe e nasce escondido, e a
-  // TECLA o acende. Mais a que originou o relato — o botão de VOLTAR slide não
-  // some junto.
+  // TECLA o acende. Mais a que o operador pediu na v1.8.87 — quem cede a célula
+  // é o de VOLTAR, e o de PASSAR slide fica no ar durante a espiada.
+  //
+  // O LADO É ASSERÇÃO PRÓPRIA, e não decorre da faixa: a v1.3.8 e a v1.8.87
+  // põem o fader na MESMA faixa vertical (a da preview) e em colunas OPOSTAS,
+  // então medir só topo e base aprova as duas. Quem separa é a horizontal
+  // contra a preview.
   const faderCx = () => pg.evaluate(() => {
     const cx = (sel) => {
       const el = document.querySelector(sel);
@@ -1093,8 +1098,12 @@ try {
     'não há botão de tela que abra o fader — era só ele que o operador dispensou', fechado.botoes);
   checar(fechado.temFader && fechado.fader.vis === false,
     'o fader EXISTE e nasce escondido: a única porta dele é a tecla física', fechado);
-  checar(fechado.prox.vis,
-    'com ele escondido, o botão de passar slide ocupa a célula', fechado.prox);
+  // FECHADO OS DOIS ESTÃO NO AR, e esta linha vale por isso e não por qual dos
+  // dois cede: MEDIDO na reversão, ela passa nas duas colunas. É a PREMISSA do
+  // bloco (o par inteiro existe antes da espiada); quem decide o lado são as
+  // três asserções com o fader aberto, e essas três reprovam na reversão.
+  checar(fechado.ant.vis && fechado.prox.vis,
+    'com ele escondido, os DOIS botões de slide estão no ar', fechado);
 
   // A TECLA ACENDE. `peekVolume` é o que `__avVolumeKey` chama; medir por ela é
   // medir o caminho de verdade, não um estado forçado à mão.
@@ -1107,14 +1116,20 @@ try {
   checar(aberto.fader.vis,
     'a tecla física ACENDE o fader (`peekVolume`)', aberto.fader);
   checar(perto(aberto.fader.topo, aberto.pv.topo) && perto(aberto.fader.base, aberto.pv.base),
-    'e ele ocupa exatamente a faixa da preview, na coluna do passar slide',
+    'e ele ocupa exatamente a faixa da preview',
     { fader: [aberto.fader.topo, aberto.fader.base], pv: [aberto.pv.topo, aberto.pv.base] });
-  checar(aberto.prox.vis === false,
-    'o botão de passar slide dá lugar a ele — os dois dividem a célula', aberto.prox);
-  // ESTA É A ASSERÇÃO DO RELATO: o de VOLTAR não some junto. Ele sumia por uma
-  // regra deliberada (`.deck.vol-open .slide-side`), e o operador viu.
-  checar(aberto.ant.vis,
-    'e o de VOLTAR slide FICA no ar — era o sumiço dele que o operador relatou', aberto.ant);
+  // O LADO (v1.8.87). Ele está À ESQUERDA da preview, que é a coluna do
+  // `#slidePrevBtn` — a asserção que reprova a volta à coluna 3.
+  checar(aberto.fader.dir <= aberto.pv.esq + 1,
+    'e à ESQUERDA da preview: a coluna do VOLTAR slide, não a do passar',
+    { fader: [aberto.fader.esq, aberto.fader.dir], pv: [aberto.pv.esq, aberto.pv.dir] });
+  checar(aberto.ant.vis === false,
+    'o botão de VOLTAR slide dá lugar a ele — os dois dividem a célula', aberto.ant);
+  // ESTA É A ASSERÇÃO DO PEDIDO: o de PASSAR não some junto — *"assim ele não
+  // interrompe a passagem dos slides"*. E o par nunca some INTEIRO, que é o
+  // relato que a v1.3.8 consertou e que esta continua honrando.
+  checar(aberto.prox.vis,
+    'e o de PASSAR slide FICA no ar — é o gesto repetido do sermão', aberto.prox);
   checar(aberto.hist.vis,
     'a sétima célula também fica: ela não tem nada a ver com volume', aberto.hist);
 
@@ -1128,8 +1143,8 @@ try {
   await pg.waitForFunction(() => !document.querySelector('.deck').classList.contains('vol-open'),
     null, { timeout: 5000 }).catch(() => {});
   const devolta = await faderCx();
-  checar(devolta.fader.vis === false && devolta.prox.vis,
-    'fechado, a célula volta a ser do botão de passar slide', devolta);
+  checar(devolta.fader.vis === false && devolta.ant.vis && devolta.prox.vis,
+    'fechado, o par inteiro volta ao ar', devolta);
 
   // ── 6b. A ORDEM DA LINHA DE BAIXO, E A CAIXA DO HISTÓRICO ──────────────
   const linha = await pg.evaluate(() => {
@@ -1235,6 +1250,62 @@ try {
     'e ele não passa por baixo de NENHUMA das duas colunas de `.pv-fab` — elas '
     + 'são `z-index: 5` contra 4, então o que invade não é coberto: é coberto '
     + 'POR ELAS', cartao);
+  // ── 7. O PASSO DO VOLUME É FINO ABAIXO DE 10 (v1.8.90) ─────────────────
+  //
+  // Pedido do operador: *"ajuste o slider de volume para ele ser mais sensível
+  // abaixo do nível 10, para que ele vá de 1 e 1 abaixo desse ponto. E subindo
+  // ele também siga essa precisão"*.
+  //
+  // **A ESCADA INTEIRA, e não uma amostra.** Um passo medido de um valor só
+  // aprova quase qualquer implementação: o que este bloco afirma é a SEQUÊNCIA
+  // completa dos dois sentidos, que é onde moram as três formas de errar —
+  // pular o 10, dar o passo grosso dentro do trecho fino, e a escada de subida
+  // não ser a de descida ao contrário.
+  const escada = await pg.evaluate(() => {
+    const pct = () => Math.round(volume * 100);
+    const anda = (de, dir) => {
+      applyVolume(de / 100);
+      const passos = [pct()];
+      for (let i = 0; i < 40; i++) {
+        applyVolume(volumeProximo(volume, dir));
+        if (pct() === passos[passos.length - 1]) break;
+        passos.push(pct());
+      }
+      return passos;
+    };
+    const desce = anda(100, -1);
+    const sobe = anda(0, 1);
+    // E DE FORA DA GRADE: o fader é arrastável e deixa valores que não são
+    // múltiplos de nada.
+    const fora = {};
+    for (const x of [12, 11, 97, 3]) {
+      applyVolume(x / 100); applyVolume(volumeProximo(volume, 1));
+      const cima = pct();
+      applyVolume(x / 100); applyVolume(volumeProximo(volume, -1));
+      fora[x] = [cima, pct()];
+    }
+    applyVolume(1);
+    return { desce, sobe, fora };
+  });
+
+  const ESPERADA = [100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30,
+    25, 20, 15, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+  checar(escada.desce.join(' ') === ESPERADA.join(' '),
+    'DESCENDO, o passo é de 5 até o 10 e de 1 daí para baixo — os quatro degraus '
+    + 'úteis (5·10·15·20) na faixa em que se ajusta um louvor sob a fala do púlpito',
+    escada.desce.join(' '));
+  checar(escada.sobe.join(' ') === ESPERADA.slice().reverse().join(' '),
+    'e SUBINDO é a MESMA escada ao contrário: a fronteira é do lado de quem sobe '
+    + '(9 → 10 fino, 10 → 15 grosso), senão o trecho fino só existiria num sentido',
+    escada.sobe.join(' '));
+  // O 10 É O DEGRAU QUE NÃO PODE SER PULADO, e é ele que a grade protege: de 12,
+  // um `atual − passo` daria 7 e passaria por cima da fronteira.
+  checar(escada.fora['12'][1] === 10 && escada.fora['11'][1] === 10,
+    'e um valor ARRASTADO no fader se alinha à grade em vez de pular o 10 — de 12 '
+    + 'ou de 11, um passo para baixo pousa em 10', JSON.stringify(escada.fora));
+  checar(escada.fora['97'].join() === '100,95' && escada.fora['3'].join() === '4,2',
+    'a grade vale nos dois trechos e nos dois sentidos', JSON.stringify(escada.fora));
+
 } finally {
   await navegador.close();
   servidor.close();

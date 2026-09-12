@@ -64,10 +64,10 @@ const PONTE = `(function () {
   // pista de onde ele saiu. Resolver \`null\` é o que a ponte de verdade faz
   // quando o shell não tem resposta.
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
-    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
+    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
-    'ytDetalhes','micDiag','areaTransferencia','salvarTexto','pacoteCriar','pacoteFechar',
+    'ytDetalhes','areaTransferencia','salvarTexto','pacoteCriar','pacoteFechar',
     'pacoteDiag','cifraHtml','apkInstalar','espelhoCertImportar','espelhoCertApagar',
     ]);
   const B = {
@@ -84,9 +84,9 @@ const PONTE = `(function () {
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar','espelhoCertEstado',
     'espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado','espelhoLigar',
     'keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply','otaCheck',
-    'otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume','temaClaro',
+    'otaDiag','otaPending','pickDoc','pickFolder','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
-    'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','micDiag','cifraHtml',
+    'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','cifraHtml',
     'cifraDiag','areaTransferencia','salvarTexto','pacoteDiag','ytDetalhes','pacoteCriar','pacoteFechar',
   ];
   for (const n of nomes) {

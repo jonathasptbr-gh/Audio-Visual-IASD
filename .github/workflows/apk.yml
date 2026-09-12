@@ -265,7 +265,7 @@ jobs:
 
           node tools/tipos-que-sobem.test.mjs
 
-          node tools/mic-escada.test.mjs
+          node tools/sem-captura.test.mjs
           node tools/serie.test.mjs
           node tools/sorteio.test.mjs
           node tools/hinario.test.mjs
@@ -526,10 +526,10 @@ jobs:
           # cada justificativa escrita DUAS vezes.
           #
           # A segunda cópia é a que ninguém relê, e ela não envelheceu calada:
-          # o bloco do `mic-escada` descrevia o RECADO — o microfone estilo
-          # walkie-talkie do Controle — como recurso vivo. Ele saiu na v1.2.17,
-          # o próprio oráculo diz isso na terceira linha dele, e o workflow
-          # seguiu afirmando o contrário. É a regra do projeto cobrada aqui:
+          # o bloco do então `mic-escada` (hoje `sem-captura`) descrevia o
+          # RECADO — o microfone estilo walkie-talkie do Controle — como recurso
+          # vivo. Ele saiu na v1.2.17, o próprio oráculo dizia isso na terceira
+          # linha dele, e o workflow seguiu afirmando o contrário. É a regra do projeto cobrada aqui:
           # *"um comentário errado é pior que um comentário longo: ele não custa
           # só leitura, produz a decisão errada."*
           #
@@ -568,6 +568,7 @@ jobs:
           rodar tools/cena.test.mjs
           rodar tools/hidratacao-perde-a-vez.test.mjs
           rodar tools/telao-no-chao.test.mjs
+          rodar tools/serie-mantem-a-semana.test.mjs
           rodar tools/som-nao-vaza-ao-perder-a-tela.test.mjs
           rodar tools/imagem-sobre-audio.test.mjs
           rodar tools/slides-sobre-audio.test.mjs
@@ -640,6 +641,8 @@ jobs:
           rodar tools/cartao-preso-no-telao.test.mjs
           rodar tools/playlist-automatica-estavel.test.mjs
           rodar tools/biblia-versoes-e-retomada.test.mjs
+          rodar tools/fila-limpa-a-cena.test.mjs
+          rodar tools/sorteio-lista-de-resultados.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá

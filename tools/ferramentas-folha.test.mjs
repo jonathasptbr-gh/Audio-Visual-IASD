@@ -6,8 +6,8 @@
 // faixa. As três coisas se medem juntas porque elas são UMA decisão — quem
 // mexer numa mexe no que sobrou das outras.
 //
-// Mensagens, Tempo, Sorteio e o microfone ao vivo eram uma ABA, ao lado do
-// Cronograma e da Bíblia. A faixa passou a ter só os dois LUGARES do culto — o
+// Mensagens, Tempo e Sorteio eram uma ABA, ao lado do Cronograma e da Bíblia.
+// (O microfone ao vivo era a quarta peça dela, e saiu na v1.8.89.) A faixa passou a ter só os dois LUGARES do culto — o
 // roteiro e a Bíblia — mais a porta da Biblioteca, e as ferramentas viraram uma
 // folha que sobe de dentro do Cronograma.
 //
@@ -1107,6 +1107,147 @@ try {
   checar(icone.depois.join() === icone.padrao.join(),
     'J · e o token volta ao valor da folha depois da sonda, para o resto do '
     + 'arquivo não medir uma tela adulterada', JSON.stringify(icone));
+
+  // ── K. O PAINEL DE TEMPO CABE EM UMA LINHA (v1.8.89) ────────────────────
+  //
+  // Pedido do operador: *"o timer tem duas linhas para tempo pré-definido, que
+  // poderiam ser apenas unificados todos os métodos de inserção de tempo por um
+  // sistema básico comum de rolagem/+ e - que ficam adjacentes ao próprio número
+  // indicador. Além disso, os botões de iniciar e zerar podem ficar à direita
+  // dessa numeração, ficando paralelo e não ocupando altura."*
+  //
+  // Eram QUATRO linhas — o número, os seis presets, o campo "Minutos" e a faixa
+  // Iniciar/Zerar —, e era isso que fazia a folha rolar. O que este bloco mede é
+  // que a linha existe, que ela CABE, e que o passo substitui de fato os presets
+  // (sem aceleração ele não substitui: 30 minutos seriam trinta toques).
+  {
+    const linha = await pg.evaluate(async () => {
+      document.getElementById('toolsBtn').click();
+      await new Promise((f) => setTimeout(f, 300));
+      [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
+      await new Promise((f) => setTimeout(f, 200));
+      // O MODO É DECLARADO, e não herdado: `chrono.mode` vem das preferências
+      // guardadas, e medir o painel do RELÓGIO aqui aprovaria a ausência do
+      // passo — ele existe só onde há duração a ajustar.
+      chronoSetMode('timer');
+      chronoSetDuration(5 * 60000);
+      const l = document.querySelector('.chrono-linha');
+      const filhos = [...l.children].map((e) => e.className.split(' ')[0]);
+      const cx = (e) => e.getBoundingClientRect().left + e.getBoundingClientRect().width / 2;
+      const read = document.getElementById('chronoRead');
+      const passos = [...document.querySelectorAll('.chrono-step')];
+      const acoes = [...document.querySelectorAll('.chrono-btn')];
+      // A LARGURA DO TEXTO, e não a da caixa: `.chrono-read` é `flex: 1` e a
+      // caixa dele é o que sobra — ela nunca acusa um número que transborda.
+      const rg = document.createRange(); rg.selectNodeContents(read);
+      return {
+        filhos,
+        presets: document.querySelectorAll('.chrono-presets, .misc-num').length,
+        // "PARALELO E NÃO OCUPANDO ALTURA": a linha inteira mede o que o número
+        // mediria sozinho, sem a faixa de ações empilhada embaixo.
+        umaLinha: Math.round(l.getBoundingClientRect().height),
+        alturaDoNumero: Math.round(read.getBoundingClientRect().height),
+        // O − à ESQUERDA do número e o + à DIREITA, com as ações depois do +.
+        ordem: passos.length === 2 && acoes.length === 2
+          && cx(passos[0]) < cx(read) && cx(read) < cx(passos[1])
+          && cx(passos[1]) < cx(acoes[0]) && cx(acoes[0]) < cx(acoes[1]),
+        cabe: Math.round(l.scrollWidth - l.clientWidth),
+        textoNaCaixa: rg.getBoundingClientRect().width <= read.getBoundingClientRect().width + 0.5,
+      };
+    });
+    checar(linha.presets === 0 && linha.filhos.length === 4,
+      'K · o painel de Tempo tem UMA linha para o número: os seis presets e o campo '
+      + '"Minutos" saíram, e o que ficou é `−` · número · `+` · transporte',
+      JSON.stringify(linha));
+    checar(linha.ordem === true,
+      'K · o passo é ADJACENTE ao número (um de cada lado) e as ações vêm à DIREITA '
+      + 'dele — a ordem que o pedido descreve', JSON.stringify(linha));
+    checar(linha.umaLinha <= linha.alturaDoNumero + 2,
+      'K · "paralelo e não ocupando altura": a faixa inteira mede o que o número '
+      + 'mediria sozinho', JSON.stringify(linha));
+    checar(linha.cabe === 0 && linha.textoNaCaixa === true,
+      'K · e nada transborda — é o TEXTO que se mede, não a caixa: `.chrono-read` é '
+      + '`flex: 1` e a caixa dele é o que sobra, então ela nunca acusa um número que '
+      + 'sai por cima do `+`', JSON.stringify(linha));
+
+    // **A CÉLULA QUE DECIDE É A PIOR, e a folgada aprova as duas versões.** O
+    // degrau fixo (`--fs-display-sm`) cabe em 412×892 com qualquer duração e
+    // cabe em 360×640 com "05:00" — MEDIDO, o transbordo só aparece com a fonte
+    // do sistema em 1,25× E um timer que passou de uma hora, que é o caso do
+    // teto de 600 min. Sem esta medição a asserção acima passa com e sem o
+    // conserto, que é a tautologia que a reversão existe para achar.
+    await pg.setViewportSize({ width: 360, height: 640 });
+    const fonte = await pg.addStyleTag({ content: 'html{font-size:20px}' });
+    const apertado = await pg.evaluate(async () => {
+      const medir = () => {
+        const read = document.getElementById('chronoRead');
+        const rg = document.createRange(); rg.selectNodeContents(read);
+        return {
+          txt: read.textContent,
+          folga: Math.round(read.getBoundingClientRect().width - rg.getBoundingClientRect().width),
+        };
+      };
+      const fora = [];
+      for (const min of [5, 90, 600]) {
+        chronoSetDuration(min * 60000);
+        await new Promise((f) => setTimeout(f, 30));
+        const m = medir();
+        if (m.folga < 0) fora.push(m);
+      }
+      return { fora, largura: Math.round(document.querySelector('.chrono-linha').getBoundingClientRect().width) };
+    });
+    await fonte.evaluate((el) => el.remove());
+    await pg.setViewportSize({ width: 412, height: 892 });
+    checar(apertado.fora.length === 0,
+      'K · e cabe TAMBÉM a 360×640 com a fonte do sistema em 1,25× e o timer no teto '
+      + '(10:00:00) — a régua do número é a LARGURA DISPONÍVEL (`cqw`), não a tela: um '
+      + 'degrau fixo sai por cima do `+` sem erro nenhum, e um `overflow: hidden` '
+      + 'CORTARIA um dígito, que é pior', JSON.stringify(apertado));
+
+    // O PASSO ACELERA, e sem isso ele não substitui os presets. Segurar o `+`
+    // tem de passar das doze repetições de 1 min e entrar no degrau de 5 — a um
+    // toque por minuto, os 30 minutos do maior preset seriam trinta toques, que
+    // é exatamente o que ele existia para evitar. **2,6 s é escolhido com folga
+    // sobre a conta, não colado nela:** 450 ms de espera mais 11 repetições de
+    // 110 ms levam ao degrau (1,66 s), e o alvo de 30 min chega em ~2,0 s a
+    // partir de 5. Colar o prazo na conta faria a carga do runner virar
+    // veredito, que é a primeira classe da tabela do CLAUDE.md.
+    const passo = await pg.evaluate(async () => {
+      chronoSetMode('timer');
+      chronoSetDuration(5 * 60000);
+      const mais = document.querySelectorAll('.chrono-step')[1];
+      const min = () => Math.round(chrono.durationMs / 60000);
+      // Um toque SOLTO: um minuto, e só um.
+      mais.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+      window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1 }));
+      await new Promise((f) => setTimeout(f, 700));
+      const umToque = min();
+      // E um SEGURADO. **O `pointerup` sai na JANELA, e é essa a régua**: o nó é
+      // trocado a cada `renderChrono`, então o botão que recebeu o `pointerdown`
+      // está fora do documento antes da segunda repetição, e um `pointerup` real
+      // não chega a um nó detached — o navegador o entrega a quem está sob o
+      // dedo. Soltar no próprio botão mediria uma coisa que não acontece.
+      const seg = document.querySelectorAll('.chrono-step')[1];
+      seg.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 2 }));
+      await new Promise((f) => setTimeout(f, 2600));
+      window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 2 }));
+      const aoSoltar = min();
+      await new Promise((f) => setTimeout(f, 500));
+      return { umToque, aoSoltar, depoisDeSoltar: min() };
+    });
+    checar(passo.umToque === 6,
+      'K · um toque solto vale UM minuto — e só um: a repetição espera 450 ms, acima '
+      + 'do que um toque normal dura', JSON.stringify(passo));
+    checar(passo.aoSoltar >= 30,
+      'K · e SEGURAR acelera: 2,6 s passam dos doze degraus de 1 min e entram nos de '
+      + '5, o que faz o par substituir os presets em vez de cobrar trinta toques',
+      JSON.stringify(passo));
+    checar(passo.depoisDeSoltar === passo.aoSoltar,
+      'K · soltar PARA, e quem ouve é a JANELA: `chronoSetDuration` chama '
+      + '`renderChrono` e troca o nó a cada passo, então um par de ouvintes no próprio '
+      + 'botão deixaria o timer subindo sozinho até o teto com o dedo já solto',
+      JSON.stringify(passo));
+  }
 
   checar(erros.length === 0, 'nenhum erro de página', erros);
 } finally {

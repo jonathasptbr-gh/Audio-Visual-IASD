@@ -149,10 +149,21 @@ pergunta a cada música viraria ruído no meio do culto. A verificação usa
 `songVariantsNeeded()`, a mesma regra da sincronização em massa (não basta ter
 `fileIdFull`: o arquivo pode ter sido apagado por fora).
 
-**Volume em degraus, não em curso.** `simpleVolStep()` usa o MESMO passo dos
-botões físicos (`VOL_KEY_STEP`) e a mesma `applyVolume()`. `holdRepeat()` faz a
+**Volume em degraus, não em curso.** `simpleVolStep()` usa a MESMA grade dos
+botões físicos (`volumeProximo`) e a mesma `applyVolume()`. `holdRepeat()` faz a
 tecla repetir enquanto segurada: o primeiro passo sai no `pointerdown` e a
 repetição só começa depois de uma pausa, senão um toque comum viraria dois.
+
+**A GRADE TEM DOIS TRECHOS** (v1.8.90): de 5 em 5 acima de 10, de 1 em 1 abaixo
+— o volume não é linear no ouvido, e de 95 para 100 quase não se nota enquanto
+de 5 para 10 é o dobro da pressão. Três coisas que se erram: a fronteira é do
+lado de quem SOBE (9 → 10 fino, 10 → 15 grosso; escrita com `<` nos dois
+sentidos, o trecho fino só existiria na subida); o alvo é ALINHADO À GRADE e
+nunca `atual ± passo`, porque o fader é arrastável e de 12 um passo para baixo
+daria 7, pulando o 10; e o resultado é a MESMA escada nos dois sentidos.
+Oráculo: `controles-layout.test.mjs`, bloco 7 — ele afirma a sequência
+COMPLETA, porque um passo medido de um valor só aprova quase qualquer
+implementação.
 
 **A zona de leitura reusa o renderizador da leitura auxiliar**: `lvBuildSong()`,
 `lvBuildDeck()` e `lvMarkCurrent()` recebem o CONTAINER como parâmetro, e
@@ -2174,9 +2185,9 @@ alguma tela conectada?  ── sim ──▶  preview MUDA (o som é da TV / das
   calava a preview por haver "para onde mandar o som" sem ninguém tocando do
   outro lado: **silêncio nos dois lados**, com o Registro dizendo "conectado". O
   campo `telao` de cada tela (shell 59) é quem responde agora, por `telaoNoAr()`
-  — e as três perguntas que passaram a usá-lo são as que dependem de haver
-  PROJEÇÃO: o som, o microfone (`haOndeReproduzirMic` — quem capta é o
-  `/display/` DENTRO da janela) e o portão do Modo Fácil. O que descreve a
+  — e as perguntas que passaram a usá-lo são as que dependem de haver PROJEÇÃO:
+  o som e o portão do Modo Fácil. (A terceira era o microfone, e saiu na v1.8.89
+  com o recurso.) O que descreve a
   CONEXÃO segue lendo a lista crua: o rótulo da folha, o `applyPreviewAspect`, o
   Registro — e é lá que a distância entre as duas vira frase. Com o telão no
   chão o som volta para o celular, que no espelhamento continua chegando às
@@ -2444,7 +2455,8 @@ e ler *"Nada em exibição"*.
 
   **E o A+/A− some nesta aba.** Ele dimensiona TEXTO, e a miniatura ocupa a
   largura da coluna: um par de botões que continua ali e não muda nada na tela é
-  a mesma coisa que o microfone sem TV — não oferecer é melhor que explicar.
+  a mesma coisa que a aba de cifra sem cifra — não oferecer é melhor que
+  explicar.
 - **A BÍBLIA NO AR ABRE A FOLHA, e não a esvazia** (v1.1.11, revogada em
   parte na v1.4.26). Projetando, ela é a camada da FRENTE: a folha abre nela, e
   a letra e a cifra do louvor de fundo continuam a um toque no seletor. Fora do
@@ -4026,10 +4038,20 @@ As quatro células:
 
 #### A FOLHA DE FERRAMENTAS (v1.3.10)
 
-Mensagens, Tempo (cronômetro/relógio/timer), Sorteio e o microfone ao vivo. Elas
-eram uma ABA; hoje são `#toolsSheet`, uma folha que sobe **de dentro do
-Cronograma**, aberta pelo `#toolsBtn` — o botão à direita de "Importar arquivos",
-no `#listFoot`.
+Mensagens, Tempo (cronômetro/relógio/timer) e Sorteio. Elas eram uma ABA; hoje
+são `#toolsSheet`, uma folha que sobe **de dentro do Cronograma**, aberta pelo
+`#toolsBtn` — o botão à direita de "Importar arquivos", no `#listFoot`. (O
+microfone ao vivo era a quarta peça delas, e saiu na v1.8.89.)
+
+**O RODAPÉ DELA É FIXO** (`#toolsFoot`, v1.8.89), e é IRMÃO do `#toolsBody`: uma
+barra que more dentro do scroller rola com os itens dele, que é o que o pedido do
+operador nomeia. Ele hospeda uma FAIXA DE FECHO — o "Projetar no telão" que
+CRESCE à esquerda, e à direita os dois destinos (`cue-save-btn`) na ordem
+canônica da tabela `DESTINOS`. As Mensagens não têm o que guardar
+(`cueSaveDaFerramenta` devolve `null`), e ali o primário ocupa a linha inteira e
+volta à altura de barra; com irmãos ele cede para `--quad-faixa`, que é a regra
+da faixa de fecho (v1.8.61). O "guardar isto" era uma LINHA no fim de cada painel
+e descia com ele — o mesmo defeito que já tinha tirado o projetar dali.
 
 **A mudança não é de navegação, é de PARENTESCO.** Toda ferramenta daqui produz
 uma CENA que entra no roteiro: a mensagem vira cue, o cronômetro e o sorteio são
@@ -4045,7 +4067,7 @@ quarta célula de uma faixa feita de LUGARES.
 | **a porta é só ÍCONE** | "Importar arquivos" fica com o rótulo e com a linha. Dois nomes lado a lado numa faixa de celular empurram o primeiro para reticências justamente na tela mais estreita |
 | **a saída tem PAR** (v1.3.13) | ela subia deslizando e sumia no talo — duas coisas diferentes para o olho, e a segunda lendo como um erro justamente porque a primeira já ensinou a esperar o contrário. Mesma curva, mesma duração (`--tools-anim`, um valor só, lido pelo CSS e pelo JS), ao contrário. Quem tira a folha da árvore é o `hidden` no FIM da animação, e não um `animation-fill-mode`: uma folha "fora" por estar transladada continuaria capturando toque. Sem `animationend`, porque `prefers-reduced-motion` desliga a animação e o evento nunca chegaria — a folha ficaria de pé para sempre |
 | **trocar de aba a fecha** (`switchTab` → `fecharFerramentas`) | ela é extensão do CRONOGRAMA; de pé sobre a Bíblia seria a folha de uma tela flutuando sobre outra |
-| **`fecharFerramentas` desliga o microfone e os laços** | eram as mesmas guardas do `switchTab`, quando sair daqui era trocar de aba: o push-to-talk não pode ficar captando sem nada na tela que o mostre, e os timers de 5 Hz do cronômetro/sorteio não podem sobrar reescrevendo nós já descartados |
+| **`fecharFerramentas` desliga os laços** | eram as mesmas guardas do `switchTab`, quando sair daqui era trocar de aba: os timers de 5 Hz do cronômetro/sorteio não podem sobrar reescrevendo nós já descartados. (A terceira guarda soltava o microfone, e saiu na v1.8.89 com ele.) |
 
 **Os nomes internos ficaram**: `renderDiversos`/`refreshDiversos`, `miscTool`,
 `MISC_TOOLS` e as classes `.misc-*`. Renomeá-los não muda um pixel — a mesma
@@ -5776,9 +5798,33 @@ cada uma com a própria pergunta.
 - **MAS A CENA ACABA COM A FILA** (v1.8.52), e por isso este caminho chama
   `encerrarCenaDaFila` quando o que estava no ar era dela — a mesma resposta da
   lixeira da última linha, porque o mesmo estado por duas portas não pode ter
-  duas respostas. A `dica` do botão dizia *"o que está no ar segue no ar"*, e
-  ela é texto que o operador LÊ antes de confirmar. Oráculo: o bloco 4d do
-  `excluir-em-cena.test.mjs`.
+  duas respostas. Oráculo: o bloco 4d do `excluir-em-cena.test.mjs`.
+- **E A PERGUNTA QUE ELE FAZIA ESTAVA ERRADA** (v1.8.84). Relato do operador:
+  *"ao limpar um item da playlist, ele remove ele da exibição, mas quando limpo
+  uma playlist inteira, ele mantém a mídia no player ao invés de limpar
+  corretamente."* O `limparPlaylist` herdou da linha a condição
+  `plItems.some(noArAgora)`, que pergunta pela **PROVENIÊNCIA** do que está no
+  ar — e ela responde *"não é minha"* nos dois estados em que o defeito aparece:
+  tocando algo projetado de FORA da fila (um item do Cronograma, o caso comum) e
+  depois do **Parar**, que preserva o `currentId` de propósito, porque é ele que
+  faz o ▶ repetir a faixa. **Limpar TUDO não tem proveniência a apurar**: a
+  pergunta é `!!currentId`. As duas portas passaram a ler a MESMA função
+  (`tirarDaFilaEncerraCena`), que responde diferente conforme receba ou não um
+  item — na LINHA a proveniência continua sendo a pergunta certa, e a v1.8.52
+  fica de pé inteira.
+- **E O AVISO SOBE PARA O DIÁLOGO QUANDO VAI INTERROMPER** (v1.8.84, pedido do
+  operador: *"coloque também uma mensagem de aviso ao excluir um item ou playlist
+  que tenha algo tocando no momento, avisando que a mídia será interrompida"*).
+  Quem decidiu o desenho foi a medição do que já existia: a faixa da linha tem
+  dois botões e **nenhum lugar para uma frase** — a `dica` dela vira um `title`,
+  e num aparelho de toque um `title` não existe (era ela que dizia *"o que está
+  no ar segue no ar"*, e ninguém nunca leu). `pedirSaidaDaFila` roteia: sem
+  interrupção, a faixa de sempre; com interrupção, o `appConfirm`, que é a única
+  superfície deste app que carrega uma sentença. **E só quando vai** — um aviso
+  incondicional prometeria uma interrupção que o aparelho não faz, e cobraria um
+  modal por item removido de uma fila que continua tocando. Oráculo:
+  `fila-limpa-a-cena.test.mjs`, cujo bloco D mede justamente o caminho que NÃO
+  interrompe continuando na faixa.
 - **A pergunta é a mesma das listas** (`pedirConfirmacaoNaLinha`), e por isso o
   botão tem uma CAIXA só sua (`.pl-limpar-faixa`), e ela é o que torna o LADO A
   LADO possível: `pedirConfirmacaoNaLinha` usa `botao.parentElement` e esconde os
@@ -7351,31 +7397,242 @@ não moram desde a v1.8.60 — um laço sobre zero nós, sem erro em lugar nenhu
 > inteiros, nó solto e tudo. O que se mede é `.btn-pulso` **dentro da folha** —
 > isto é, um pulso que alguém pode ver.
 
-**(2) A zona de resultados.** *"Seu design está sendo muito variado e pouco
-modular, resultando novamente no problema de movimentação da janela… Algo como um
-simples card, com texto centralizado, avisando sobre os resultados. O card sempre
-terá o mesmo tamanho, mantendo a janela estável"*.
+**(2) A zona de resultados** — e ela foi REESCRITA na v1.8.84, uma versão
+depois. Vale registrar as duas, porque a segunda revoga a primeira por uma razão
+que a primeira não podia ver.
 
-O `min-height: 6em` da v1.8.61 reservava QUATRO linhas e o pior caso são CINCO.
-MEDIDO em 99 células (3 larguras × 3 escalas da fonte do sistema × 11 estados que
-o operador alcança tocando nas pílulas e digitando): a caixa ia de **78,7 a
-143,7px** e a FOLHA andava **25,6px** a 360×1,5. A 320×1,5 ela NÃO andava, e isso
-era pior em vez de melhor — ali a folha já batia no teto de 80vh e o crescimento
-virava rolagem, que é o mesmo defeito escondido atrás de um gesto.
+**v1.8.83, o cartão de tamanho fixo.** *"Seu design está sendo muito variado e
+pouco modular, resultando novamente no problema de movimentação da janela… Algo
+como um simples card, com texto centralizado… O card sempre terá o mesmo
+tamanho"*. O `min-height: 6em` da v1.8.61 reservava QUATRO linhas e o pior caso
+são CINCO. MEDIDO em 99 células (3 larguras × 3 escalas da fonte do sistema × 11
+estados que o operador alcança tocando nas pílulas e digitando): a caixa ia de
+**78,7 a 143,7px** e a FOLHA andava **25,6px** a 360×1,5. A 320×1,5 ela NÃO
+andava, e isso era pior em vez de melhor — ali a folha já batia no teto de 80vh e
+o crescimento virava rolagem, que é o mesmo defeito escondido atrás de um gesto.
 
-- **`height` e não `min-height`**, e a troca é o pedido: um piso responde *"não
-  encolhe"*, e a pergunta é *"não muda"*. 7,4em é o pior caso medido, em `em`
-  porque ele acompanha a fonte do sistema.
-- **A única entrada SEM LIMITE era a palavra tema**, e ela passou a entrar
-  clampada na frase (`temaNaFrase`, 24 caracteres — o número do `rotuloItem`).
-  Truncar ali não esconde nada: a palavra inteira está no campo dois dedos acima,
-  e a REGRA continua lendo `sorteioPrefs.tema` cru.
-- **`overflow: hidden` é o último recurso, não o mecanismo.** Quem mantém o texto
-  dentro é o `line-clamp` das duas frases mais o clampe da palavra; com ele, uma
-  frase nova mais longa é cortada DENTRO do cartão em vez de mover a tela.
-- **A fala emprestada continua morando em ESTADO** (`sorteioFala`, lida por
-  `pintarContaSorteio`) — era a única peça desta folha que já sobrevivia a um
-  redesenho, e é a regra que faltava ao pulso.
+**v1.8.84, a lista.** *"O cartão de resultados repete as informações que já temos
+nas seleções acima, como os filtros usados, e etc… Uma ação inútil, pois
+literalmente já há a visão das seleções. Nesse resultado, precisamos apenas dos
+resultados. Quantos temos, e se está disponível."* Ele estava certo, e o lote
+anterior tinha consertado a peça errada: fixar a altura de uma frase que
+reescrevia por extenso *"Toda a biblioteca, sem os infantis — 2 músicas"* logo
+abaixo das pílulas que dizem "sem infantis" e do campo vazio. **Uma frase que
+repete a tela não fica melhor por não se mexer.**
+
+O que sobrou dela se dividiu em dois, por onde cada metade é lida:
+
+| pergunta | onde vive | por quê |
+|---|---|---|
+| **QUANTOS** | `sorteioPilulaDaConta` — uma pílula à esquerda do primário | é o que se lê de RELANCE, e por isso fica na altura do dedo. Largura FIXA (`min-width: 4ch` + `tabular-nums`), *"cuide para que o botão tenha um tamanho fixo independente do número interno"*. **Só o número desde a v1.8.85** — ver abaixo |
+| **QUAIS** | `sorteioListaDeResultados` — a lista, no formato da busca da Biblioteca | é o que o cartão nunca respondeu, e é onde a disponibilidade vira acionável: a linha diz "no aparelho" ou "vai baixar", e dá para desmarcar a que vai baixar |
+
+#### A MARCA É O LOTE, E O LOTE É "QUANTAS" (v1.8.85)
+
+*"As marcações de check devem ficar selecionadas apenas o número de itens
+selecionado para o filtro atual, o resto da lista segue desmarcado, mas ainda
+segue sendo listado… ajuste para que ao tocar no check para ativar ou desativar,
+se altere o número selecionado para 'quantas', pois ele é literalmente isso, mas
+selecionando de forma manual."*
+
+**Isto REVOGA as duas marcas da v1.8.84**, que tinha a caixa marcada em TODAS as
+linhas (*"esta entra na consideração?"*) e o preenchimento em algumas (*"esta vai
+tocar?"*). Duas perguntas, dois sinais — e o operador leu uma pergunta só. Ele
+está certo: **marcar é escolher**, que é o vocabulário do resto do app (a folha
+de destinos, a seleção múltipla).
+
+| peça | o que é |
+|---|---|
+| `sorteioMarcadas` | **a única fonte**. O conjunto de chaves marcadas É o lote, e "quantas" é o `size` dele |
+| a pílula de quantidade | deixou de ser o estado e virou um **atalho**: tocar em "5" marca as cinco primeiras do baralho (`sorteioSemear`) |
+| `sorteioPrefs.quantos` | continua sendo o que PERSISTE, e só a pílula o escreve |
+
+- **Guardar os dois — um número e um conjunto — é a divergência escrita.** Um
+  toque que atualizasse só um deles faria o seletor discordar da lista, e nenhum
+  dos dois erraria sozinho. Daí `quantos` ser DERIVADO na tela: a pílula acesa é
+  a que casa com `sorteioMarcadas.size`, e **nenhuma acesa é um estado legítimo**
+  — é o que o operador vê com quatro marcadas, e é a única indicação de que a
+  escolha passou a ser dele.
+- **Só a pílula grava, e é por uma razão do módulo puro:** `AVSorteio.sanear`
+  clampa `quantos` à lista de presets (`QUANTIDADES`), então um 4 vindo de marca
+  manual voltaria como 1 na abertura seguinte, calado. E não se perde nada — a
+  marca já é EFÊMERA por pedido do próprio operador (v1.8.84: *"esse check é
+  resetado entre aberturas da janela"*).
+- **A LISTA NÃO SE REORGANIZA.** Marcar a linha 9 deixa a linha 9 onde está, com
+  a posição 3 do lote: o que numera é a ordem do BARALHO, contando só as
+  marcadas. Subir a marcada para o topo seria reorganizar a lista debaixo do
+  dedo, que é o que o baralho existe para não fazer.
+- **O PISO É UMA MARCADA** (`sorteioAlternar` devolve `false` e o botão pulsa em
+  erro). Desmarcar a última deixaria a folha com um primário aceso que não pode
+  fazer nada, e a régua da v1.8.50 diz o contrário disso; o caminho de "não quero
+  nenhuma" é fechar a folha.
+- **O TOQUE NÃO REDESENHA A FOLHA** — `atualizarContaSorteio` mais
+  `acertarPilulasDeQuantidade`, os dois em ponto. É o remédio da v1.8.83 pelo
+  mesmo motivo, com um agravante novo: desde este lote a lista é o único
+  scroller da folha, e um redesenho a devolveria ao TOPO a cada marca. Numa
+  lista de mil linhas, um toque na linha 300 tirava a linha 300 da tela.
+
+#### O BARALHO É MANTIDO, NÃO REFEITO (v1.8.86)
+
+*"Ajuste a atualização da lista e opções, para que não re-sorteie a lista em
+qualquer interação com os filtros, eles apenas vão cortando as opções do 'fim da
+lista'. O sorteio só acontece após realmente 'usar' os itens do topo, no caso,
+apenas após tocar ou salvar em algum lugar como cronograma, favoritos ou etc."*
+
+Cada passada faz DUAS operações sobre o baralho, nesta ordem:
+
+1. **quem saiu do pool sai do baralho** — e a ordem do que fica não muda, que é
+   o *"apenas vão cortando as opções"* do pedido;
+2. **quem entrou vai para o FIM**, embaralhado entre si. Afrouxar um filtro não
+   pode empurrar para o topo o que o operador ainda não leu.
+
+- **O EMBARALHAMENTO INICIAL É ESTE MESMO CAMINHO.** Na primeira passada o
+  baralho está vazio, todo o pool é "quem entrou", e a lista inteira sai
+  embaralhada. Não há dois caminhos, e é por isso que nenhum deles envelhece
+  sozinho: quem zera o baralho (`abrirSorteio`) pede um sorteio novo por
+  construção.
+- **A `sorteioImpressao` SAIU JUNTO.** Ela existia para responder *"o pool
+  mudou?"*, e a resposta deixou de decidir alguma coisa. O custo dela era o que
+  a justificava (uma string por tecla em vez de 1.100 chaves); hoje a manutenção
+  é feita sobre o `Set` que a passada já monta.
+- **E ELA COBROU UMA PEÇA NOVA: `sorteioUsadas`.** Guardar uma música não a tira
+  do acervo, então na passada seguinte a manutenção a leria como quem acabou de
+  entrar no pool — **o lote reaparecendo no fim da lista depois de ter sido
+  usado**, que é o oposto do pedido. A memória do que já saiu vale para a
+  abertura, e `abrirSorteio` a zera com o resto.
+- **O LOTE É AJUSTADO, nunca semeado de novo** (`sorteioAjustarLote`): mantém as
+  marcas que sobreviveram ao corte e completa pelo topo até o alvo. Semear
+  devolveria ao topo uma marca que o operador acabou de fazer na linha 9, por um
+  toque de filtro que não tinha nada com aquilo. O alvo é lido ANTES da poda —
+  um filtro que leve embora uma marcada não pode encolher em silêncio o número
+  que ele escolheu.
+- **`sorteioSemear` continua existindo** para quem de fato pede um lote novo: a
+  pílula de quantidade e o consumo.
+
+#### SÓ A LISTA ROLA (v1.8.85)
+
+*"Sobre o scroll, mantenha as opções dos filtros sempre visíveis e deixe apenas
+a lista dos resultados como scroll."*
+
+A `.popup-list` já é uma coluna flex; o que mudou é **quem cede**: a
+`.sorteio-res` é o único item com `flex-shrink: 1`, então tudo o que passa do
+teto de 80vh é descontado dela e o resto — palavra, variante, filtros,
+quantidade e a barra de ação — fica onde está.
+
+- **O SELETOR PRECISA NOMEAR O PAI.** `.popup-list > li` declara `flex-shrink: 0`
+  e é (0,1,1); `.sorteio-res` sozinho é (0,1,0) e PERDE. MEDIDO: a lista ficava
+  com 1323px dentro de uma folha de 720 e quem rolava era a folha inteira — o
+  pedido desfeito por um ponto de especificidade, sem erro em lugar nenhum.
+- **O PISO (`min-height: 9rem`) É A FALHA ABERTA.** Sem ele, uma folha apertada
+  (tela baixa, fonte do sistema grande) esmaga a lista até zero e o operador vê
+  os filtros sem nenhum resultado, sem nada dizendo por quê. Com o piso, quem
+  transborda é a folha — que nunca deixou de ser um scroller —, e no pior caso
+  volta-se ao comportamento de antes deste lote.
+- **A `.rola` MUDOU DE DONO**: a sombra das bordas é da lista de resultados, que
+  é quem rola. A `.popup-list` continua com a marca e o observador a lê como
+  `sem-veu` enquanto ela não rolar, que é o caso normal.
+- **E a `.sorteio-barra` continua `sticky`, agora como REDE**: quem a mantém à
+  vista no caso normal é a estrutura (ela está ACIMA do scroller). O `sticky`
+  cobre o mesmo caso que o piso deixa acontecer de propósito.
+
+- **A PÍLULA NÃO É UM BOTÃO**, e é um `<span>` de propósito. Ela não faz nada, e
+  a v1.8.50 diz que o que não tem função agora não fica aceso esperando toque —
+  um número desenhado como botão é um botão que se toca e não responde. Ela
+  anuncia a FRASE (`role="status"` + `aria-label`), nunca o número solto: um
+  leitor de tela lendo "12" no meio de uma barra de botões não diz de que 12 se
+  trata.
+- **E ELA PERDEU O ÍCONE na v1.8.85** (*"remova o ícone e deixe apenas o número
+  no botão de número de resultados disponíveis"*). Ele era a nota musical, e o
+  que ele acrescentava — "isto conta músicas" — a lista logo abaixo já diz, item
+  por item. **O que ele custava é medível e é o vizinho:** 27px da largura do
+  rótulo do primário, numa faixa onde ela é o recurso escasso. O pior caso do
+  "Tocar agora" subiu de 6,1px para 34,9 — o que MELHOROU o número e não
+  resolveu, e as duas metades ficam escritas porque a primeira convida a
+  desfazer a segunda (a quebra da faixa continua obrigatória).
+- **A BARRA DE AÇÕES SUBIU** para cima dos resultados (*"mova a barra de opções
+  de play para cima dessa sessão de resultados"*) e por isso saiu do
+  `porFecho` — o rodapé que não rola a poria DEPOIS da lista. Ela entra na
+  própria lista e fica GRUDADA no topo (`sticky`), que é o que devolve a
+  propriedade do fecho: à vista com os resultados rolando por baixo.
+- **E CINCO PEÇAS NÃO CABEM NUMA LINHA DE 320px**, que é o que a pílula custou e
+  onde este lote gastou a maior parte da medição. Ela vale 68,5px a 1× e 90,8 a
+  1,5×, e sem quebra o primário é o único que encolhe (`flex: 1; min-width: 0`):
+  MEDIDO, **6,1px a 320×1,5** — não é um rótulo cortado, é um botão que sumiu.
+  Três coisas resolvem, e a ordem entre elas é o argumento:
+
+  | peça | o que faz | o que se aprendeu medindo |
+  |---|---|---|
+  | `flex-wrap: wrap` na faixa | permite a segunda linha | **sozinho não faz nada**: um item que pode encolher até zero nunca força a quebra |
+  | `min-width: 11em` no primário | é quem FORÇA a quebra, e quem escolhe quem cede | os três destinos descem, que é a ordem certa — o "Tocar agora" é o botão do culto. Nunca `max-content`: o `overflow: hidden` do rótulo zera o tamanho mínimo automático do item |
+  | a regra de altura única da v1.8.61 | ganhou o novo ancestral | escopada em `.popup-fecho`, ela não alcançava a barra que saiu de lá — MEDIDO, 53,2px do primário contra 42,4 dos irmãos, a v1.8.61 inteira de volta |
+
+  **O número 11em é medido**: é o primeiro degrau com ZERO reticências nas nove
+  células (3 larguras × 3 escalas da fonte do sistema), e com ele **cai o limite
+  de 320px** que a v1.8.62 declarava. 9em ainda cortava em duas, 10em numa, e
+  12em só acrescenta quebras sem ganhar célula nenhuma.
+
+  **E A QUEBRA NÃO CONTRADIZ A ESTABILIDADE**: ela depende da TELA e da fonte do
+  sistema, nunca do que o operador acabou de tocar — as cinco peças têm largura
+  fixa e o rótulo é um só. MEDIDO, deslocamento ZERO da barra nas 33 células.
+- **A FALA FICOU** (`sorteioFala`), e é a única coisa do cartão que não repetia
+  a tela: *"5 músicas acrescentadas ao fim da playlist"*, *"todas as 5 já
+  estavam"*. A segunda metade não tem outro jeito de ser dita — a lista mostra
+  as cinco saindo do baralho, mas não distingue "entraram" de "já estavam lá".
+  **A linha é SEMPRE desenhada**, vazia quando não há fala: uma linha que aparece
+  e some é um motor de pulo da folha (v1.8.61), e o espaço que ela reserva se
+  paga duas vezes — calada, é o respiro entre a barra e a lista.
+- **E o clampe da palavra tema FICOU** (`temaNaFrase`, 24 caracteres), embora o
+  cartão que o pedia tenha saído: a frase do VAZIO ainda a carrega, e ela
+  continua sendo a única entrada sem limite que chega a uma frase desta folha.
+
+#### O BARALHO: a ordem que sobrevive ao redesenho (v1.8.84)
+
+É a metade que o pedido não descreve e sem a qual nada dele funciona. *"Essa
+lista de músicas é aleatória dentro das condições selecionadas, ela mostra todos
+os disponíveis, mas o número de itens para a 'playlist' fica marcado e ficam no
+topo da lista… E após jogar para tocar, essa lista marcada é removida, e os itens
+de baixo são levados para cima."*
+
+**A folha é redesenhada a cada tecla digitada, a cada pílula e a cada marca**, e
+`montarPool` refaz os objetos em toda passada — ele é quem responde ao contador
+por caractere. Um sorteio por render trocaria debaixo do dedo as músicas que o
+operador acabou de ler.
+
+- **Ele guarda CHAVES, nunca os itens** (`chaveDaFaixa`: coleção + id da música).
+  Os objetos são novos a cada passada; guardá-los seria guardar uma lista que não
+  casa com a próxima.
+- **O FILTRO CORTA; ELE NÃO SORTEIA DE NOVO** (v1.8.86), e isto REVOGA a
+  v1.8.84, cujo argumento era o oposto (*"mexer num filtro é pedir outro
+  sorteio"*). Não é: mexer num filtro é dizer o que NÃO serve, e o que sobrou
+  continua servindo na mesma ordem. O preço da versão anterior é o que o
+  operador leu na tela — ele lê cinco nomes, tira o hinário da conta e recebe
+  cinco OUTROS, como se o filtro tivesse rejeitado o que ele estava
+  considerando. Ver a seção abaixo.
+- **O "Tocar agora" toca o que está na TELA.** Era `AVSorteio.sortear` no toque,
+  isto é, um sorteio NOVO: o operador lia cinco nomes e ouvia outros cinco. O
+  lote sai de `sorteioEscolhidos(sorteioLista(…))`, que é a mesma função que
+  desenhou a lista.
+- **O lote USADO sai do baralho** (`sorteioConsumir`), **depois da ação e nunca
+  antes**: um lote que falhou — o consentimento de download recusado, nenhuma
+  faixa baixável — apagaria da tela músicas que ninguém ouviu.
+- **E a lista se redesenha no ato, por `atualizarContaSorteio`.** Nunca por
+  `renderSorteio`: um redesenho troca os nós e apaga o pulso que o
+  `guardarSorteadas` acabou de pôr no botão tocado (a lição da v1.8.83). Aquele
+  troca só a pílula, a fala e a lista — e o botão do pulso não está em nenhuma
+  das três. Sem isto, nos três destinos (que deixam a folha ABERTA) o próximo
+  toque sairia por cima do mesmo lote.
+- **E o próximo lote já nasce MARCADO, do mesmo tamanho** — *"criando a próxima
+  lista selecionada para playlist"*. O tamanho é o do lote que saiu, e não a
+  pílula guardada: se o operador tirou uma na mão antes de tocar, ele pediu
+  quatro, não cinco.
+- **Marcas e baralho ZERAM a cada abertura** (`abrirSorteio`) — *"para que não
+  aconteça de bloquear uma música desejada sem saber em outra sessão"*. O baralho
+  vai junto pelo mesmo argumento por outro lado: abrir a folha é pedir um
+  sorteio, e reencontrar o de meia hora atrás não é "automática".
+
+Oráculo: `sorteio-lista-de-resultados.test.mjs`, e a assimetria dele é o
+argumento inteiro — **com o baralho refeito a cada passada, o bloco que mede o
+DESENHO passa inteiro**. Uma passada sozinha nunca acusa persistência.
 
 #### O lote de download
 
@@ -7391,27 +7648,25 @@ virava rolagem, que é o mesmo defeito escondido atrás de um gesto.
 - **O cancelar** do cartão da preview para a fila **entre** faixas: o download em
   curso termina, porque interrompê-lo no meio deixaria um parcial.
 
-#### A conta é a única chance de ver antes de acontecer
+#### Ver antes de acontecer
 
-O botão dispara sem mais nenhuma tela, então a linha do contador é onde o
-operador lê o que vai acontecer. Ela responde a **duas perguntas de pesos
-diferentes** — *o tema achou o quê?* e *quanto disso toca agora?* —, e por isso
-são **duas linhas com hierarquia** e não uma frase com separadores (v5.306,
-pedido do operador: *"mais funcional e menos técnico"*):
+O botão dispara sem mais nenhuma tela, então tudo o que o operador tem para saber
+o que vai acontecer está nesta folha. **Desde a v1.8.84 quem responde é a LISTA**
+— cada música que vai tocar, na ordem, com o lote no topo —, e a pílula responde
+o total.
 
-```
-28 músicas relacionadas a “natal”          ← --text, peso 600
-A playlist leva 10 · 1 para baixar         ← --muted
-```
+> **A LINHA DE DUAS FRASES SAIU COM O CARTÃO.** Ela dizia `28 músicas
+> relacionadas a “natal”` sobre `A playlist leva 10 · 1 para baixar` (v5.306,
+> pedido do operador: *"mais funcional e menos técnico"* — antes era `12 faixas
+> casam · 3 já no aparelho · sorteia 5`, três números no vocabulário de quem
+> escreveu a regra). O que a segunda linha respondia — *quanto disso toca
+> agora?* — a lista responde por extenso: as que vão tocar estão marcadas e no
+> topo, e cada uma diz se está no aparelho ou se vai baixar. O custo continua
+> **exato e não uma estimativa**, pelo mesmo motivo de sempre: o baralho põe as
+> baixadas antes das que faltam, então o que precisa de rede é o que sobra
+> depois das primeiras.
 
-O custo é **exato, não uma estimativa**: o sorteio esgota as baixadas antes de
-pegar as que faltam, então quantas precisam de rede é uma subtração.
-
-Ela saía como `12 faixas casam · 3 já no aparelho · sorteia 5` — três números no
-vocabulário de quem escreveu a regra, empilhados numa linha só, disputando o
-mesmo peso.
-
-Vazia, ela diz o **motivo dominante** — sem ele, "nada encontrado" tem cinco
+Vazia, a folha diz o **motivo dominante** — sem ele, "nada encontrado" tem cinco
 causas que pedem ações opostas (trocar a palavra, desligar um filtro, trocar a
 variante, abrir a Biblioteca com internet).
 
@@ -7431,13 +7686,15 @@ nada dizia que faltava carregar a biblioteca. Quem sabe por que cada
 coleção ficou de fora é `AVSorteio.avaliarColecao`, e é dela que a frase sai.
 
 **A frase de resposta do "Ao Cronograma" mora em ESTADO, não no nó.** O
-`executarSorteio` redesenha a folha no `finally`, e um texto escrito direto no
+`executarSorteio` redesenhava a folha no `finally`, e um texto escrito direto no
 span era apagado no mesmo quadro em que nascia — o "adicionadas ao Cronograma"
-nunca chegava a ser visto. Guardá-la em `sorteioFala` e deixar
-`pintarContaSorteio` consultá-la faz qualquer redesenho preservá-la, inclusive um
-caminho de render que ainda não existe.
+nunca chegava a ser visto. Guardá-la em `sorteioFala` e deixar quem desenha
+consultá-la faz qualquer redesenho preservá-la, inclusive um caminho de render
+que ainda não existe. **Ela é a `.sorteio-fala` desde a v1.8.84**, e a regra
+sobreviveu à troca do cartão pela lista sem uma linha alterada — que é o que ela
+existia para garantir.
 
-Vazia, a linha do contador ganha **ênfase, não alarme**: `--muted` → `--text`
+Vazia, a frase do sorteio ganha **ênfase, não alarme**: `--muted` → `--text`
 com peso 600, e nunca a família do vermelho. "Nada casa a palavra tema" é o
 desfecho normal de quem acabou de digitar uma palavra, e "nenhuma coleção com
 índice" é um aparelho recém-configurado — nenhum dos dois é "está no ar agora"
