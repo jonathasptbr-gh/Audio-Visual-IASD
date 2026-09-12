@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.94",
+    "itens": [
+      "Relógio e Cronômetro agora usam a mesma roleta do Timer, e ocupam a janela inteira.",
+      "Timer: entrou a coluna das HORAS, e as roletas dão a volta — do 59 passam ao 0 sozinhas.",
+      "Iniciar e Zerar saíram do corpo da janela: agora ficam à esquerda do Projetar no telão.",
+      "Relógio: os seletores de segundos e 12 h foram para o mesmo canto, ao lado do Projetar.",
+      "Ao digitar a legenda, o teclado passa a cobrir os controles em vez de espremer a janela."
+    ]
+  },
+  {
     "versao": "1.8.93",
     "itens": [
       "Cifra: transpor passou a escrever o tom pela armadura — meio tom acima de Ré é Mi bemol, e não Ré sustenido.",

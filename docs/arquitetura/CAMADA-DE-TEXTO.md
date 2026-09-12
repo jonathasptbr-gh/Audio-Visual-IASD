@@ -686,8 +686,8 @@ exibindo exatamente o mesmo valor do Controle.
   respeitar uma "escolha" que ninguém fez faria a mudança não chegar a ninguém.
 - **`baseMs` existe porque pausar precisa congelar o acumulado.** Com `startAt`
   sozinho, retomar perderia todo o trecho anterior.
-- **NO PAINEL, O TIMER SE ESCOLHE EM DUAS ROLETAS** (v1.8.92) — minutos 0..60 e
-  segundos 0..59, pedido do operador. **A roleta É o mostrador**, não um campo
+- **NO PAINEL, O TEMPO SE LÊ EM TRÊS ROLETAS** (v1.8.92, ampliado na v1.8.94) —
+  horas, minutos e segundos, pedido do operador. **A roleta É o mostrador**, não um campo
   ao lado dele: contar é ela andar, e por isso não sobrou número de texto no
   modo timer (o Relógio e o Cronômetro mantêm o `.chrono-read`, porque neles não
   há o que escolher). Cinco coisas que se erram aqui:
@@ -709,10 +709,30 @@ exibindo exatamente o mesmo valor do Controle.
   - **Mexer na roleta ZERA o decorrido.** Pausada no meio de uma contagem ela
     mostra o que FALTA, então mudá-la só pode querer dizer "conte isto a partir
     de agora"; sem isso o ▶ seguinte terminaria cedo, sem nada explicando.
-  O teto virou **60:59** (eram 600 min). Acima de 3600 s o `formatSpan` do telão
-  promove para `h:mm:ss`, então um timer de 60:30 sai como `1:00:30` na projeção
-  e `60:30` no painel — o mesmo instante em duas notações, no máximo durante o
-  primeiro minuto. Oráculo: `ferramentas-folha.test.mjs`, bloco K.
+  **AS TRÊS FERRAMENTAS USAM A MESMA ROLETA** (v1.8.94), e a pergunta que separa
+  não é *"qual ferramenta?"* e sim *"há o que ESCOLHER?"* (`roletaEditavel`): só
+  o Timer PARADO recebe o dedo. É isso que dá ao Relógio e ao Cronômetro o
+  aproveitamento da janela de graça. O Relógio tem duas exceções, as duas da
+  LISTA e não do ciclo: em 12 h a coluna das horas vale 1..12 (0..23 poria o
+  "13" logo abaixo do "12"), e "sem segundos" TIRA a coluna em vez de escondê-la.
+  O `inicio` da lista é o que separa ÍNDICE de VALOR nesse caso, e ele entra nos
+  DOIS sentidos — sem ele na escrita o relógio adianta uma hora, sem ele na
+  leitura adianta quem pergunta o valor.
+
+  **AS LISTAS DÃO A VOLTA** (v1.8.94): 0..23 · 0..59 · 0..59, a base repetida um
+  número ímpar de vezes com o repouso na banda do meio. O operador escreveu
+  *"de 0 a 24"* e, na frase seguinte, *"o ciclo das horas é apenas 24"* — as
+  duas só fecham em 0..23, porque 0..24 daria 25 posições e o zero apareceria
+  duas vezes seguidas na volta. Com a casa das horas o teto virou **23:59:59** e
+  a divergência de notação com o telão ACABOU (o `formatSpan` promove para
+  `h:mm:ss` acima de 3600 s, e agora o painel tem onde mostrar).
+
+  **E O QUE SE ACIONA MORA NO RODAPÉ** — o ▶/⏸ e o ↺ do Timer e do Cronômetro, e
+  os dois seletores do Relógio, à esquerda do "Projetar no telão". O corpo da
+  janela é do mostrador, que é o que cresce. "Segundos" vira **"Seg"** ali: por
+  extenso ele empurra o primário para as reticências.
+
+  Oráculo: `ferramentas-folha.test.mjs`, bloco K.
 - **O timer NÃO congela em zero** — passa a contar em negativo, em vermelho
   (`.chrono-over`). Num culto, "estourou por 4 minutos" é a informação que se
   quer; um `00:00` parado não distingue "acabou agora" de "acabou há muito".

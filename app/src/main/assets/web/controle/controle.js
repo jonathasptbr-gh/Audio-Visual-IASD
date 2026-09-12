@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.93';
+const WEB_VERSION = '1.8.94';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -6410,10 +6410,74 @@ function miscProjectState() {
  *
  * O microfone SAIU daqui na v1.8.89 (ver a lápide acima).
  */
+/**
+ * ===== O QUE A FERRAMENTA OPERA VAI PARA O RODAPÉ (v1.8.94) =====
+ *
+ * Pedido do operador: *"tire os botões de iniciar e resetar cronômetro e
+ * timers, do corpo da janela, para pôr eles à esquerda do botão de projetar no
+ * telão. O mesmo vale para os seletores de segundos e 12 h."*
+ *
+ * **O CORPO DA JANELA FICA PARA O MOSTRADOR.** É a mesma troca que trouxe o
+ * "Projetar" e os dois destinos para cá (v1.8.89 e v1.8.91): tudo o que o
+ * operador ACIONA mora numa faixa fixa, e o que sobra de altura é do conteúdo —
+ * que aqui é a roleta, e ela se mede pelo que sobra.
+ *
+ * **"Segundos" VIROU "Seg", e a razão é a largura.** A faixa passou a ter, no
+ * relógio, dois seletores mais o primário mais os dois destinos; escrito por
+ * extenso, o rótulo empurra o "Projetar no telão" para as reticências —
+ * exatamente o defeito que a v1.8.85 mediu na playlist automática. O nome
+ * inteiro fica no `title` e no `aria-label`.
+ */
 function renderFoot() {
   if (!toolsFootEl) return;
   toolsFootEl.innerHTML = '';
   const row = document.createElement('div'); row.className = 'misc-foot';
+
+  // ---- À ESQUERDA, o que a ferramenta ATIVA opera ----
+  const esq = document.createElement('div');
+  esq.className = 'misc-foot-esq';
+  if (miscTool === 'chrono') {
+    if (chrono.mode === 'clock') {
+      // O RELÓGIO NÃO SE PAUSA, então no lugar do transporte ficam as duas
+      // opções de formato — o mesmo canto, a mesma pergunta ("o que eu aciono
+      // nesta ferramenta?").
+      const mk = (curto, longo, on, fn) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'misc-chip chrono-opt' + (on ? ' active' : '');
+        b.textContent = curto;
+        b.title = longo; b.setAttribute('aria-label', longo);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.addEventListener('click', fn);
+        return b;
+      };
+      esq.appendChild(mk('Seg', 'Mostrar os segundos', chrono.secs, () => {
+        chrono.secs = !chrono.secs; saveChronoPrefs(); pushChrono(); renderChronoEControles();
+      }));
+      esq.appendChild(mk('12 h', 'Relógio de 12 horas', chrono.h12, () => {
+        chrono.h12 = !chrono.h12; saveChronoPrefs(); pushChrono(); renderChronoEControles();
+      }));
+    } else {
+      const run = document.createElement('button');
+      run.type = 'button';
+      run.id = 'chronoRun';
+      run.className = 'chrono-btn primary';
+      // Ícone/rótulo = a AÇÃO, nunca o estado (ver "O ícone mostra a AÇÃO" na
+      // arquitetura): correndo, o botão oferece PAUSAR.
+      run.setAttribute('aria-label', chrono.running ? 'Pausar' : 'Iniciar');
+      run.appendChild(msym(chrono.running ? ICON.pause : ICON.play));
+      run.addEventListener('click', () => (chrono.running ? chronoPause() : chronoStart()));
+      const zero = document.createElement('button');
+      zero.type = 'button'; zero.className = 'chrono-btn'; zero.id = 'chronoZero';
+      zero.title = 'Zerar'; zero.setAttribute('aria-label', 'Zerar');
+      zero.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+        + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
+        + ' aria-hidden="true"><use href="#icoZerar"/></svg>';
+      zero.addEventListener('click', chronoReset);
+      esq.appendChild(run); esq.appendChild(zero);
+    }
+  }
+  if (esq.children.length) row.appendChild(esq);
 
   const st = miscProjectState();
   const proj = document.createElement('button');
@@ -6443,6 +6507,7 @@ function renderFoot() {
   }
 
   toolsFootEl.appendChild(row);
+  atualizarChronoRun();   // o ▶ nasce apagado com o 0:00 — ver a regra lá
 }
 
 // ===== Cronômetro / Relógio / Timer (aba Ferramentas) =====
@@ -6568,12 +6633,23 @@ function clearChronoSession() {
   refreshDiversos();
 }
 
+// O MOSTRADOR E OS CONTROLES SÃO DUAS CAIXAS DESDE A v1.8.94 — o painel e o
+// RODAPÉ —, e todo mutador de estado mexe nas duas: o ▶ vira ⏸, o formato do
+// relógio tira uma coluna da roleta. Um helper com dono único em vez de dois
+// `render*` lado a lado em cada chamador, que é o par que diverge no primeiro
+// esquecimento. (O caminho do `renderDiversos` não passa por aqui: lá o
+// `renderFoot` já vem depois do `tool.render()`.)
+function renderChronoEControles() {
+  renderChrono();
+  renderFoot();
+}
+
 function chronoStart() {
   if (chrono.running) return;
   chrono.running = true;
   chrono.startAt = Date.now();
   pushChrono();
-  renderChrono();
+  renderChronoEControles();
 }
 
 // Pausar CONGELA o acumulado: sem isso, `startAt` sozinho perderia todo o
@@ -6584,14 +6660,14 @@ function chronoPause() {
   chrono.running = false;
   chrono.startAt = 0;
   pushChrono();
-  renderChrono();
+  renderChronoEControles();
 }
 
 function chronoReset() {
   chrono.baseMs = 0;
   chrono.startAt = chrono.running ? Date.now() : 0;
   pushChrono();
-  renderChrono();
+  renderChronoEControles();
 }
 
 function chronoSetMode(mode) {
@@ -6602,7 +6678,7 @@ function chronoSetMode(mode) {
   chrono.running = false; chrono.baseMs = 0; chrono.startAt = 0;
   saveChronoPrefs();
   pushChrono();
-  renderChrono();
+  renderChronoEControles();
 }
 
 // O PISO É ZERO, e não mais um segundo (v1.8.92): com duas roletas o 0:00 é uma
@@ -6623,25 +6699,19 @@ function chronoSetDuration(ms) {
   atualizarChronoRun();
 }
 
-// Atualiza só o NÚMERO do painel (o resto do painel não muda a cada tick).
-// No-op quando a aba não está montada — o laço pode sobreviver a um render.
+// Atualiza só o MOSTRADOR (o resto do painel não muda a cada tique).
+// No-op quando a ferramenta não está montada — o laço pode sobreviver a um
+// render.
 function renderChronoReadout() {
-  const rr = chronoReading(chrono, Date.now());
-  const el = document.getElementById('chronoRead');
-  if (el) {
-    el.textContent = rr.text;
-    el.classList.toggle('over', rr.over);
-  }
-  // ---- O TIMER: quem mostra é a ROLETA, e ela anda com a contagem ----
   const caixa = document.getElementById('chronoRoletas');
   if (!caixa) return;
-  // O PAR VEM DA MESMA CONTA DO TELÃO (`chronoElapsed` + o `floor` de segundo
-  // do `formatSpan`), e não de um parse do texto: as duas telas mostram o mesmo
-  // instante porque derivam do mesmo número, não porque uma leu a outra.
-  const resto = chrono.durationMs - createStage.chronoElapsed(chrono, Date.now());
-  const total = Math.floor(Math.abs(resto) / 1000);
-  caixa.classList.toggle('over', resto < 0);
-  roletasMostrar(Math.floor(total / 60), total % 60);
+  const t = chronoTrio(Date.now());
+  caixa.classList.toggle('over', t.over);
+  roletasMostrar(t.h, t.m, t.s);
+  const meio = document.getElementById('roletaMeridiem');
+  // A HORA CRUA decide o AM/PM, não a que a roleta mostra: às 12 h e às 0 h a
+  // coluna diz "12" nos dois casos, e só o valor de 24 h os separa.
+  if (meio) meio.textContent = new Date().getHours() >= 12 ? 'PM' : 'AM';
 }
 
 // SÓ O BOTÃO DE INICIAR, e é isso que a roleta precisa: escrever a duração no
@@ -6678,159 +6748,250 @@ function chronoSegBtn(m) {
 }
 
 /**
- * ===== AS DUAS ROLETAS DO TIMER (v1.8.92) =====
+ * ===== AS TRÊS ROLETAS DO TEMPO (v1.8.94) =====
  *
- * Pedido do operador: *"ao invés de usar botões de mais e menos, vamos aplicar
- * o design padrão: uma roleta/lista vertical de 0 a 60 para os minutos e uma
- * roleta vertical para os segundos de 0 a 59. O número durante a contagem é a
- * própria roleta/lista se movendo e contando. O número só pode ser alterado se
- * não estiver contando/ativo."*
+ * Pedido do operador, em duas rodadas. A primeira (v1.8.92) trocou os botões
+ * `−`/`+` do timer por duas listas verticais; esta amplia o mesmo desenho:
+ * *"ajuste as dimensões do relógio e do cronômetro para o sistema de
+ * aproveitamento máximo da janela, e usando o mesmo design compartilhado.
+ * Ajuste também o timer para ir de 0 a 59, e voltar para o zero, sendo a roleta
+ * infinita. O mesmo para o minuto e adicione a coluna das horas também… as
+ * horas vão de 0 a 24 e depois para 0 de novo. O ciclo das horas é apenas 24."*
  *
- * **A ROLETA É O MOSTRADOR, não um campo ao lado dele.** É isso que o pedido
- * tem de diferente do par `−`/`+` que ela substitui (v1.8.89): ali havia um
- * número e dois botões que o mexiam; aqui a lista É o número, e contar é ela
- * andar. Some o `.chrono-read` do modo timer, somem os dois `.chrono-step`, e o
- * mostrador ganha a altura que sobrava entre eles.
+ * ## Três colunas, e UM mostrador para as três ferramentas
  *
- * **O SEGUNDO É EDITÁVEL, e antes não era.** O par de botões andava de minuto
- * em minuto e não havia como pedir 4:30 — a duração só existia em múltiplos de
- * 60 s. Duas roletas dão o par inteiro sem nenhum controle a mais.
+ * O Relógio e o Cronômetro passaram a usar a MESMA roleta do Timer — é o "design
+ * compartilhado" do pedido, e é o que lhes dá de graça o "aproveitamento máximo
+ * da janela": a célula é medida a partir do que sobra (ver `acertarRoletas`), e
+ * quem não pode ser editado apenas não recebe o gesto.
+ *
+ * **A pergunta que separa não é "qual ferramenta?", é "há o que ESCOLHER?"** —
+ * `roletaEditavel()`. Só o Timer PARADO responde sim; o Relógio (a hora é do
+ * aparelho), o Cronômetro (conta do zero) e o Timer CONTANDO são leitura, e a
+ * trava deles é a mesma: `overflow-y: hidden`, nunca um `return` no ouvinte.
+ *
+ * ## O CICLO
+ *
+ * | coluna | valores | ciclo |
+ * |---|---|---|
+ * | horas | 0..23 | 24 |
+ * | minutos | 0..59 | 60 |
+ * | segundos | 0..59 | 60 |
+ *
+ * O operador escreveu *"de 0 a 24"* e, na frase seguinte, *"o ciclo das horas é
+ * apenas 24"*. As duas só fecham em **0..23**: com 0..24 o ciclo teria 25
+ * posições e o 0 apareceria duas vezes seguidas ao dar a volta (…23, 24, 0, 0),
+ * que é o defeito que uma roleta infinita não pode ter. É a leitura de relógio,
+ * e é a que o ciclo declarado exige.
+ *
+ * **O RELÓGIO EM 12 h É A EXCEÇÃO, e ela é da LISTA, não do ciclo:** ali a
+ * coluna das horas vale 1..12, porque uma lista 0..23 mostraria "13" logo
+ * abaixo do "12" — vizinha errada num mostrador que existe para ser lido de
+ * relance. A lista é montada por render, e o render já roda quando a opção muda.
+ *
+ * ## COMO A LISTA FICA INFINITA
+ *
+ * A pista é a base REPETIDA um número ÍMPAR de vezes, e a posição de repouso é
+ * a banda do MEIO. Rolar até sair dela é possível; o que não pode é chegar à
+ * ponta, então a repetição é dimensionada para ~300 células (`repeticoesDe`) —
+ * cinco bandas de 60, treze de 24. **A RECENTRAGEM ACONTECE PARADO**, nunca
+ * durante a rolagem: escrever `scrollTop` no meio de um arremesso CANCELA o
+ * arremesso no Chromium, e o dedo sente a lista travar. Quem recentra é o
+ * assentamento (140 ms de silêncio) e o `roletasMostrar`, e a folga de ~150
+ * células para cada lado é o que garante que ninguém alcance a ponta antes
+ * disso.
  *
  * ## O que NÃO se faz aqui, e por quê
  *
- * **A trava é `overflow-y: hidden`, nunca um `return` no ouvinte.** Contando, o
- * pedido é que o número não possa ser alterado — e um ouvinte que ignora o
- * gesto deixa a lista ROLAR sob o dedo e voltar sozinha no tique seguinte, que
- * é pior que não responder: parece quebrado. Sem overflow o navegador não move
- * o scroller, e o `scrollTop` programático continua funcionando.
- *
- * **Não há bandeira de "estou reposicionando".** Ela seria uma corrida: o
- * evento `scroll` é assíncrono e sai DEPOIS do quadro em que se escreveu o
- * `scrollTop`, então soltar a guarda por `requestAnimationFrame` acerta às
- * vezes. O que fecha isso é a leitura ser IDEMPOTENTE — `roletaAssentou`
- * compara o par lido com a duração que já está no estado e sai calada quando
- * são iguais, que é exatamente o caso de um reposicionamento.
+ * **Não há bandeira de "estou reposicionando".** O evento `scroll` é assíncrono
+ * e sai DEPOIS do quadro em que se escreveu o `scrollTop`, então soltar a guarda
+ * por `requestAnimationFrame` é corrida. O que fecha é a leitura ser
+ * IDEMPOTENTE — `roletaAssentou` compara o trio lido com a duração que já está
+ * no estado e sai calada quando são iguais, que é exatamente o caso de um
+ * reposicionamento e o de uma recentragem.
  *
  * **`scrollend` não é usado.** Ele é de Chromium 114 e este arquivo declara
- * `:has()` e `cqw` (105) como piso; um prazo curto depois do último `scroll`
- * faz o mesmo trabalho em qualquer WebView que já rode o resto.
+ * `:has()` e `cqw` (105) como piso.
  *
- * ## O TETO É 60:59, e ele ENCOLHEU
+ * ## O TETO virou 23:59:59
  *
- * Eram 600 minutos (dez horas) no campo numérico que saiu. A roleta pedida vai
- * a 60, e num culto nada é cronometrado além disso. **A consequência está dita
- * porque é visível:** acima de 3600 s o `formatSpan` do telão promove para
- * `h:mm:ss`, então um timer de 60:30 aparece como `1:00:30` na projeção e como
- * `60:30` aqui. É o mesmo instante em duas notações, e a divergência dura no
- * máximo o primeiro minuto de um timer posto acima da hora.
+ * Eram 600 minutos num campo numérico (v1.8.88), depois 60:59 em duas roletas.
+ * Com a coluna das horas o alcance é o do relógio, e **a divergência de notação
+ * com o telão ACABOU**: o `formatSpan` promove para `h:mm:ss` acima de 3600 s, e
+ * agora o painel tem a mesma casa das horas para mostrar.
  */
 const ROLETA_VISIVEIS = 3;         // quantas células cabem na janela da roleta
-const ROLETA_ITEM_MIN = 26;        // px — o piso, para a lista não sumir
+const ROLETA_ITEM_MIN = 22;        // px — o piso, para a lista não sumir
 const ROLETA_ITEM_MAX = 132;       // px — o teto, para o dígito não virar cartaz
 const ROLETA_ASSENTA_MS = 140;     // silêncio depois do último `scroll`
-const ROLETA_MIN_MAX = 60;         // minutos: 0..60
-const ROLETA_SEG_MAX = 59;         // segundos: 0..59
+const ROLETA_CELULAS = 300;        // alvo de células por lista (ver a repetição)
+
+// As três colunas, na ordem em que se leem. `ciclo` é o comprimento da lista
+// base — o que dá a volta.
+const ROLETA_COLUNAS = [
+  { campo: 'hora', ciclo: 24, rotulo: 'Horas' },
+  { campo: 'min', ciclo: 60, rotulo: 'Minutos' },
+  { campo: 'seg', ciclo: 60, rotulo: 'Segundos' },
+];
+
+function repeticoesDe(ciclo) {
+  const n = Math.max(3, Math.ceil(ROLETA_CELULAS / ciclo));
+  return n % 2 ? n : n + 1;        // ÍMPAR: é o que faz existir banda do MEIO
+}
 
 // O ITEM em px, escrito pelo `acertarRoletas` e lido pelo CSS. Ele é a medida
 // de TUDO na roleta (altura da janela, do item, do recuo e do dígito), e é por
-// isso que o `scrollTop` de um valor é `valor × item`, sem fração.
+// isso que a posição de um valor é `índice × item`, sem fração.
 function roletaItem(caixa) {
   const v = parseFloat(getComputedStyle(caixa).getPropertyValue('--roleta-item'));
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-function chronoRoletaEl(campo, max, rotulo) {
+// HÁ O QUE ESCOLHER? É a pergunta única, e não "qual ferramenta": o Relógio, o
+// Cronômetro e o Timer CONTANDO são leitura, e leitura não recebe gesto.
+function roletaEditavel() {
+  return chrono.mode === 'timer' && !chrono.running;
+}
+
+// `inicio` é o VALOR da primeira célula da lista. Ele é 0 em toda coluna menos
+// uma — o relógio de 12 h, que vai de 1 a 12 —, e sem ele o índice e o valor
+// se confundem: MEDIDO, às 19 h o mostrador dizia 08. Índice e valor são
+// coisas diferentes desde que a lista virou infinita; esta é a segunda
+// diferença entre eles, e mora no mesmo lugar.
+function chronoRoletaEl(campo, base, ciclo, rotulo, inicio) {
   const el = document.createElement('div');
   el.className = 'roleta';
   el.id = 'roleta_' + campo;
+  const reps = repeticoesDe(ciclo);
+  el.dataset.ciclo = String(ciclo);
+  el.dataset.inicio = String(inicio || 0);
+  el.dataset.base = String(((reps - 1) / 2) * ciclo);   // início da banda do meio
   // `spinbutton` é o papel de um seletor de valor numérico, e é o que faz o
-  // leitor de tela anunciar "35 de 0 a 60" em vez de ler a lista inteira.
+  // leitor de tela anunciar o valor em vez de ler a lista inteira.
   el.setAttribute('role', 'spinbutton');
   el.setAttribute('aria-label', rotulo);
-  el.setAttribute('aria-valuemin', '0');
-  el.setAttribute('aria-valuemax', String(max));
   const frag = document.createDocumentFragment();
-  for (let i = 0; i <= max; i++) {
-    const d = document.createElement('div');
-    d.className = 'roleta-item';
-    d.textContent = String(i).padStart(2, '0');
-    frag.appendChild(d);
+  for (let r = 0; r < reps; r++) {
+    for (let i = 0; i < ciclo; i++) {
+      const d = document.createElement('div');
+      d.className = 'roleta-item';
+      d.textContent = base[i];
+      frag.appendChild(d);
+    }
   }
   el.appendChild(frag);
   let assenta = null;
   el.addEventListener('scroll', () => {
     // A MARCA ACOMPANHA O DEDO, e não espera o assentamento: sem isto a célula
-    // acesa fica para trás durante todo o arrasto — a lista rola e o número
-    // que parece escolhido é o anterior.
-    const item = roletaItem(el);
-    if (item) {
-      const i = Math.max(0, Math.min(max, Math.round(el.scrollTop / item)));
-      if (el.dataset.sel !== String(i)) {
-        el.dataset.sel = String(i);
-        const antes = el.querySelector('.roleta-item--sel');
-        if (antes) antes.classList.remove('roleta-item--sel');
-        const agora = el.children[i];
-        if (agora) agora.classList.add('roleta-item--sel');
-      }
-    }
+    // acesa fica para trás durante todo o arrasto — a lista rola e o número que
+    // parece escolhido é o anterior.
+    roletaAcender(el);
     clearTimeout(assenta);
-    assenta = setTimeout(roletaAssentou, ROLETA_ASSENTA_MS);
+    assenta = setTimeout(() => { roletaRecentrar(el); roletaAssentou(); }, ROLETA_ASSENTA_MS);
   });
   return el;
 }
 
-// O VALOR de uma roleta é a posição dela dividida pela altura do item — a lista
-// é a régua, e não há segundo lugar onde ele fique guardado.
-function roletaValor(campo, max) {
-  const el = document.getElementById('roleta_' + campo);
-  if (!el) return null;
+// O ÍNDICE CRU (a célula da pista) e o VALOR (o resto do ciclo) são coisas
+// diferentes, e confundi-los é o defeito da lista infinita: a pista tem 300
+// células e o valor tem 60.
+function roletaIndice(el) {
   const item = roletaItem(el);
-  if (!item) return null;
-  return Math.max(0, Math.min(max, Math.round(el.scrollTop / item)));
+  return item ? Math.round(el.scrollTop / item) : 0;
+}
+
+function roletaValorDe(el) {
+  const ciclo = Number(el.dataset.ciclo) || 1;
+  const inicio = Number(el.dataset.inicio) || 0;
+  return ((roletaIndice(el) % ciclo) + ciclo) % ciclo + inicio;
+}
+
+function roletaValor(campo) {
+  const el = document.getElementById('roleta_' + campo);
+  return el ? roletaValorDe(el) : null;
+}
+
+function roletaAcender(el) {
+  const i = roletaIndice(el);
+  if (el.dataset.sel === String(i)) return;
+  el.dataset.sel = String(i);
+  const antes = el.querySelector('.roleta-item--sel');
+  if (antes) antes.classList.remove('roleta-item--sel');
+  const agora = el.children[i];
+  if (agora) agora.classList.add('roleta-item--sel');
+}
+
+// TRAZ A PISTA DE VOLTA À BANDA DO MEIO, mantendo o valor. Só PARADO: no meio
+// de um arremesso isto o cancelaria, e o dedo sente a lista travar.
+function roletaRecentrar(el) {
+  const item = roletaItem(el);
+  if (!item) return;
+  const ciclo = Number(el.dataset.ciclo) || 1;
+  const base = Number(el.dataset.base) || 0;
+  const inicio = Number(el.dataset.inicio) || 0;
+  const alvo = (base + roletaValorDe(el) - inicio) * item;
+  if (Math.abs(el.scrollTop - alvo) < 1) return;
+  el.scrollTop = alvo;
+  roletaAcender(el);
 }
 
 function roletaAssentou() {
-  // CONTANDO NÃO SE EDITA (a trava de verdade é o `overflow`; esta é a guarda
-  // da corrida — o prazo pode vencer depois de o operador ter tocado em ▶).
-  if (chrono.mode !== 'timer' || chrono.running) return;
-  const m = roletaValor('min', ROLETA_MIN_MAX);
-  const sg = roletaValor('seg', ROLETA_SEG_MAX);
-  if (m === null || sg === null) return;
-  const ms = (m * 60 + sg) * 1000;
-  // IDEMPOTENTE: um reposicionamento programático cai aqui pelo mesmo `scroll`
-  // que um dedo, e é esta linha — não uma bandeira — que os separa.
+  // A EDIÇÃO É SÓ DO TIMER PARADO (a trava de verdade é o `overflow`; esta é a
+  // guarda da corrida — o prazo pode vencer depois de o operador tocar em ▶).
+  if (!roletaEditavel()) return;
+  const h = roletaValor('hora');
+  const m = roletaValor('min');
+  const sg = roletaValor('seg');
+  if (h === null || m === null || sg === null) return;
+  const ms = ((h * 60 + m) * 60 + sg) * 1000;
+  // IDEMPOTENTE: um reposicionamento programático — e uma recentragem — caem
+  // aqui pelo mesmo `scroll` que um dedo, e é esta linha, não uma bandeira, que
+  // os separa.
   if (ms === chrono.durationMs) return;
-  // E MEXER NA ROLETA ZERA O DECORRIDO. Pausado no meio de uma contagem, a
-  // roleta mostra o que FALTA — é o mostrador, não um campo à parte —, então
-  // mudá-la só pode querer dizer *"conte isto a partir de agora"*. Sem esta
-  // linha o par lido vira a duração NOVA com o decorrido antigo por baixo, e o
-  // ▶ seguinte termina cedo sem nada na tela explicando.
+  // E MEXER NA ROLETA ZERA O DECORRIDO. Pausada no meio de uma contagem ela
+  // mostra o que FALTA — é o mostrador, não um campo à parte —, então mudá-la
+  // só pode querer dizer *"conte isto a partir de agora"*. Sem esta linha o
+  // trio lido vira a duração NOVA com o decorrido antigo por baixo, e o ▶
+  // seguinte termina cedo sem nada na tela explicando.
   chrono.baseMs = 0;
   chrono.startAt = 0;
   chronoSetDuration(ms);
 }
 
-// LEVA AS ROLETAS a um par de valores. Usado pela montagem (o valor guardado) e
-// pelo tique da contagem (o tempo restante) — os dois pelo mesmo caminho, senão
-// a posição de repouso e a de contagem divergiriam na primeira mudança.
-function roletasMostrar(m, sg) {
-  for (const [campo, valor, max] of [['min', m, ROLETA_MIN_MAX], ['seg', sg, ROLETA_SEG_MAX]]) {
+// LEVA AS ROLETAS a um trio de valores. Usado pela montagem (o valor guardado)
+// e pelo tique (o tempo em curso) — os dois pelo mesmo caminho, senão a posição
+// de repouso e a de contagem divergiriam na primeira mudança.
+function roletasMostrar(h, m, sg) {
+  for (const [campo, valor] of [['hora', h], ['min', m], ['seg', sg]]) {
     const el = document.getElementById('roleta_' + campo);
     if (!el) continue;
     const item = roletaItem(el);
     if (!item) continue;
-    const i = Math.max(0, Math.min(max, valor));
-    const alvo = i * item;
-    if (Math.abs(el.scrollTop - alvo) >= 1) el.scrollTop = alvo;
-    // A TINTA CHEIA DA CENTRADA. Uma classe, e só quando o índice MUDA: escrita
-    // a cada tique (5 Hz) ela pediria estilo de 61 nós por roleta para não
-    // mudar nada em 4 de 5 passadas.
-    if (el.dataset.sel === String(i)) continue;
-    el.dataset.sel = String(i);
-    const antes = el.querySelector('.roleta-item--sel');
-    if (antes) antes.classList.remove('roleta-item--sel');
-    const agora = el.children[i];
-    if (agora) agora.classList.add('roleta-item--sel');
+    const ciclo = Number(el.dataset.ciclo) || 1;
+    const inicio = Number(el.dataset.inicio) || 0;
+    const v = (((Math.round(valor) - inicio) % ciclo) + ciclo) % ciclo;
+    // O CAMINHO CURTO, e ele não é otimização: andar SEMPRE para a banda do
+    // meio faria a lista SALTAR uma volta inteira toda vez que a contagem
+    // cruzasse o 0 — o número certo, chegando de um pulo que ninguém pediu.
+    // Daqui, o vizinho é o vizinho.
+    const atual = roletaIndice(el);
+    const dentro = ((atual % ciclo) + ciclo) % ciclo;
+    // QUEM RECENTRA É O `roletaRecentrar`, e não esta função: escrever
+    // `scrollTop` dispara um `scroll`, que agenda o assentamento, que recentra
+    // 140 ms depois — inclusive durante a contagem, onde não há dedo nenhum.
+    // MEDIDO por reversão: um segundo retorno à banda do meio aqui não muda
+    // nada, e um comentário que credite a peça errada manda o próximo leitor
+    // proteger o lugar errado.
+    //
+    // E O ALVO NÃO PODE FICAR NEGATIVO — sem piso, e é por CONSTRUÇÃO: da banda
+    // do meio (que começa em `base >= ciclo`) um passo move no máximo
+    // `ciclo - 1`, então o mínimo alcançável é 1. Um `Math.max(0, …)` aqui foi
+    // escrito, revertido e removido: ele não muda nada e diria que há um caso a
+    // proteger.
+    const alvo = atual + (v - dentro);
+    const px = alvo * item;
+    if (Math.abs(el.scrollTop - px) >= 1) el.scrollTop = px;
+    roletaAcender(el);
   }
 }
 
@@ -6838,24 +6999,25 @@ function roletasMostrar(m, sg) {
  * ===== A ROLETA OCUPA O QUE SOBRA, E POR ISSO ELA É MEDIDA =====
  *
  * *"O objetivo é o aproveitamento completo do tamanho disponível na janela da
- * ferramenta timer. Ou seja, se tiver espaço sobrando, aumente o tamanho do
- * número/roleta. Se estiver apertado, reduza. O que eu não quero é que tenha
- * scroll nessa janela de ferramentas."*
+ * ferramenta… se tiver espaço sobrando, aumente o tamanho do número/roleta. Se
+ * estiver apertado, reduza. O que eu não quero é que tenha scroll nessa janela
+ * de ferramentas."*
  *
- * **NÃO DÁ PARA ESCREVER ISSO EM CSS.** A altura de uma roleta é três células,
- * e a célula é o que sobra dividido por três — um `flex: 1` faria a CAIXA
- * crescer, não o dígito dentro dela, e `cqh` mediria a caixa que a própria
- * roleta define, que é a circularidade. Então a caixa cresce por flex, o JS lê
- * a altura DELA e escreve a célula; a roleta nunca é maior que a caixa, logo
- * não existe transbordo a rolar.
+ * **NÃO DÁ PARA ESCREVER ISSO EM CSS.** A altura de uma roleta é três células, e
+ * a célula é o que sobra dividido por três — um `flex: 1` faria a CAIXA crescer,
+ * não o dígito dentro dela, e `cqh` mediria a caixa que a própria roleta define,
+ * que é a circularidade. Então a caixa cresce por flex, o JS lê a altura DELA e
+ * escreve a célula; a roleta nunca é maior que a caixa, logo não existe
+ * transbordo a rolar.
+ *
+ * **E A LARGURA É O SEGUNDO TETO** (v1.8.94, com a terceira coluna): três
+ * colunas de dois dígitos mais dois `:` não cabem numa tela estreita se a célula
+ * for escolhida só pela altura, e o que sai é o mostrador vazando de lado —
+ * recortado pelo `overflow: hidden` da folha, sem erro nenhum.
  *
  * **E A POSIÇÃO É REFEITA DEPOIS**, porque `scrollTop` é px: mudar a célula sem
  * reposicionar deixa a lista parada num número que não é mais o valor —
  * silenciosamente, e só em quem girou a tela.
- *
- * Quem chama: a montagem, o `ResizeObserver` da caixa (rotação, teclado, a
- * fonte do sistema) e nada mais. Um relógio periódico aqui seria varredura de
- * layout a esmo.
  */
 function acertarRoletas() {
   const caixa = document.getElementById('chronoRoletas');
@@ -6865,8 +7027,29 @@ function acertarRoletas() {
   // valor de partida do CSS — o MAIOR dos dois, isto é, o transbordo máximo
   // justamente onde não cabe nada. O piso já responde por esse caso, e o
   // `ResizeObserver` refina assim que houver altura.
-  const item = Math.max(ROLETA_ITEM_MIN,
+  const porAltura = Math.max(ROLETA_ITEM_MIN,
     Math.min(ROLETA_ITEM_MAX, Math.floor(caixa.clientHeight / ROLETA_VISIVEIS)));
+  // A LARGURA É MEDIDA, NÃO CALCULADA. Um divisor escrito à mão ("três colunas
+  // de dois dígitos mais dois `:`") é uma cópia da métrica da FONTE, e ela
+  // envelhece sozinha — MEDIDO, dois dígitos tabulares deste peso valem 1,00 ×
+  // célula e não os 0,75 que a conta ingênua dá, e o erro sai como o mostrador
+  // RECORTADO nas duas pontas, sem aviso. Como tudo aqui escala linearmente com
+  // a célula, uma regra de três resolve: escreve-se a altura, mede-se o que a
+  // linha PEDE (`scrollWidth`, com as colunas em `flex: 0 0 auto` justamente
+  // para que elas não encolham e escondam o excesso) e encolhe-se na proporção.
+  caixa.style.setProperty('--roleta-item', porAltura + 'px');
+  // A SOMA DOS FILHOS, e NÃO o `scrollWidth`: a linha é centrada, então o
+  // excesso sai METADE para cada lado e o `scrollWidth` (que só conta o lado do
+  // fim) devolve metade do que falta — MEDIDO, o relógio de 12 h continuava
+  // recortado nas duas pontas depois de uma correção que parecia certa. Com os
+  // filhos em `flex: 0 0 auto`, a largura de cada um É a intrínseca, e a soma é
+  // exata.
+  let precisa = 0;
+  for (const f of caixa.children) precisa += f.getBoundingClientRect().width;
+  const cabe = caixa.clientWidth;
+  const item = (precisa > cabe && cabe > 0)
+    ? Math.max(ROLETA_ITEM_MIN, Math.floor(porAltura * cabe / precisa))
+    : porAltura;
   if (roletaItem(caixa) === item) return;   // nada mudou: não mexe na posição
   caixa.style.setProperty('--roleta-item', item + 'px');
   renderChronoReadout();                    // reposiciona na régua nova
@@ -6880,26 +7063,26 @@ function observarRoletas(caixa) {
   roletasObs.observe(caixa);
 }
 
-/**
- * ===== UMA LINHA PARA O NÚMERO, O PASSO E O TRANSPORTE (v1.8.89) =====
- *
- * *"os botões de iniciar e zerar, podem ficar a direita dessa numeração,
- * ficando paralelo e não ocupando altura."*
- *
- * O painel de Tempo gastava QUATRO linhas onde uma basta: o número, os presets,
- * o campo "Minutos" e a faixa Iniciar/Zerar. A folha inteira rolava por causa
- * disso.
- *
- * **O TRANSPORTE VIROU ÍCONE, e a razão é aritmética.** MEDIDO a 360×640: com
- * "Iniciar" e "Zerar" escritos por extenso a linha pede ~343px contra os ~330
- * disponíveis, e com a fonte do sistema em 1,3× a conta piora. Dois quadrados
- * de `--hit` cabem, falam a MESMA língua do transporte do deck (▶/⏸) e levam o
- * rótulo no `title`/`aria-label` — é a regra do botão sem rótulo, que é
- * QUADRADO.
- *
- * O RELÓGIO fica de fora das duas metades: a hora não se pausa nem se ajusta, e
- * ali o número ocupa a linha sozinho, no tamanho grande de sempre.
- */
+// O TRIO que cada ferramenta mostra, e a MESMA conta do telão em todas: o
+// `chronoReading` deriva do mesmo `chronoElapsed` e do mesmo `floor` de segundo,
+// então as duas telas mostram o mesmo instante porque partem do mesmo número —
+// não porque uma leu o texto da outra.
+function chronoTrio(agora) {
+  if (chrono.mode === 'clock') {
+    const t = new Date(agora);
+    let h = t.getHours();
+    if (chrono.h12) h = h % 12 || 12;
+    return { h, m: t.getMinutes(), s: t.getSeconds(), over: false };
+  }
+  const decorrido = createStage.chronoElapsed(chrono, agora);
+  const bruto = chrono.mode === 'timer' ? chrono.durationMs - decorrido : decorrido;
+  const total = Math.floor(Math.abs(bruto) / 1000);
+  return {
+    h: Math.floor(total / 3600), m: Math.floor((total % 3600) / 60), s: total % 60,
+    over: chrono.mode === 'timer' && bruto < 0,
+  };
+}
+
 function renderChrono() {
   const host = document.getElementById('chronoWrap');
   if (!host) return;
@@ -6910,82 +7093,78 @@ function renderChrono() {
   CHRONO_MODES.forEach((m) => modes.appendChild(chronoSegBtn(m)));
   host.appendChild(modes);
 
+  // ---- O MOSTRADOR: as MESMAS três roletas nas três ferramentas ----
+  //
+  // O que muda entre elas não é o desenho, é quem pode tocar (`roletaEditavel`)
+  // e quantas colunas fazem sentido: o Relógio sem segundos mostra duas.
   const linha = document.createElement('div');
   linha.className = 'chrono-linha chrono-linha--' + chrono.mode
-    + (chrono.running ? ' contando' : '');
+    + (roletaEditavel() ? '' : ' travado');
 
-  // O TIMER MOSTRA A ROLETA; os outros dois, o número. A pergunta que separa é
-  // "há o que ESCOLHER aqui?" — o cronômetro conta do zero e a hora vem do
-  // relógio do aparelho, e nos dois o mostrador é só leitura.
+  const cx = document.createElement('div');
+  cx.className = 'chrono-roletas';
+  cx.id = 'chronoRoletas';
+  // O SINAL DO ESTOURO é um elemento, não um caractere no número: com três
+  // roletas não há string onde pendurá-lo, e um "−" que aparece e some entre
+  // elas empurraria as colunas de lado a cada virada. Ele reserva o lugar
+  // (`visibility`), e por isso só é DESENHADO onde pode haver estouro — o
+  // relógio e o cronômetro não passam do zero, e ali ele seria uma coluna de
+  // largura roubada do número.
   if (chrono.mode === 'timer') {
-    const cx = document.createElement('div');
-    cx.className = 'chrono-roletas';
-    cx.id = 'chronoRoletas';
-    // O SINAL DO ESTOURO é um elemento, não um caractere no número: com duas
-    // roletas não há string onde pendurá-lo, e um "−" que aparece e some entre
-    // elas empurraria as duas de lado a cada virada.
     const sinal = document.createElement('span');
     sinal.className = 'roleta-sinal'; sinal.setAttribute('aria-hidden', 'true');
-    sinal.textContent = '\u2212';
+    sinal.textContent = '−';
     cx.appendChild(sinal);
-    cx.appendChild(chronoRoletaEl('min', ROLETA_MIN_MAX, 'Minutos'));
-    const dp = document.createElement('span');
-    dp.className = 'roleta-dp'; dp.setAttribute('aria-hidden', 'true');
-    dp.textContent = ':';
-    cx.appendChild(dp);
-    cx.appendChild(chronoRoletaEl('seg', ROLETA_SEG_MAX, 'Segundos'));
-    linha.appendChild(cx);
-  } else {
-    const read = document.createElement('div');
-    read.className = 'chrono-read'; read.id = 'chronoRead';
-    linha.appendChild(read);
   }
 
-  // ---- Transporte (não existe para o relógio: a hora não se pausa) ----
-  if (chrono.mode !== 'clock') {
-    const acts = document.createElement('div');
-    acts.className = 'chrono-actions';
-    const run = document.createElement('button');
-    run.type = 'button';
-    run.id = 'chronoRun';
-    run.className = 'chrono-btn primary';
-    // Ícone/rótulo = a AÇÃO, nunca o estado (ver "O ícone mostra a AÇÃO" na
-    // arquitetura): correndo, o botão oferece PAUSAR.
-    run.setAttribute('aria-label', chrono.running ? 'Pausar' : 'Iniciar');
-    run.appendChild(msym(chrono.running ? ICON.pause : ICON.play));
-    run.addEventListener('click', () => (chrono.running ? chronoPause() : chronoStart()));
-    const zero = document.createElement('button');
-    zero.type = 'button'; zero.className = 'chrono-btn';
-    zero.title = 'Zerar'; zero.setAttribute('aria-label', 'Zerar');
-    zero.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
-      + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
-      + ' aria-hidden="true"><use href="#icoZerar"/></svg>';
-    zero.addEventListener('click', chronoReset);
-    acts.appendChild(run); acts.appendChild(zero);
-    linha.appendChild(acts);
+  // O RELÓGIO SEM SEGUNDOS TIRA A COLUNA, não a esconde: escondê-la deixaria a
+  // caixa reservando a largura de uma coluna que não existe, e as duas que
+  // sobram sairiam do centro.
+  const colunas = ROLETA_COLUNAS.filter(
+    (c) => !(c.campo === 'seg' && chrono.mode === 'clock' && chrono.secs === false));
+  colunas.forEach((c, i) => {
+    if (i) {
+      const dp = document.createElement('span');
+      dp.className = 'roleta-dp'; dp.setAttribute('aria-hidden', 'true');
+      dp.textContent = ':';
+      cx.appendChild(dp);
+    }
+    // A LISTA DAS HORAS DEPENDE DO FORMATO (só no relógio): 1..12 em 12 h, e
+    // 0..23 no resto. Ver a tabela do ciclo, acima.
+    const doze = c.campo === 'hora' && chrono.mode === 'clock' && chrono.h12;
+    const ciclo = doze ? 12 : c.ciclo;
+    const inicio = doze ? 1 : 0;
+    const base = [];
+    for (let k = 0; k < ciclo; k++) base.push(String(k + inicio).padStart(2, '0'));
+    cx.appendChild(chronoRoletaEl(c.campo, base, ciclo, c.rotulo, inicio));
+  });
+
+  // O AM/PM é um MARCADOR e não uma quarta roleta: ele não se escolhe (a hora é
+  // do aparelho) e tem duas posições, que numa lista de três células apareceria
+  // como uma coluna quase vazia.
+  if (chrono.mode === 'clock' && chrono.h12) {
+    const meio = document.createElement('span');
+    meio.className = 'roleta-meridiem'; meio.id = 'roletaMeridiem';
+    // O TEXTO NASCE COM O ELEMENTO, e não só no tique seguinte: quem mede a
+    // largura da linha é o `acertarRoletas`, que roda no fim deste render — com
+    // o marcador VAZIO ele mede uma linha que não existe, e o "PM" chega depois
+    // para ser RECORTADO pela borda. Medido: sem esta linha o relógio de 12 h
+    // sai com o marcador pela metade.
+    meio.textContent = new Date().getHours() >= 12 ? 'PM' : 'AM';
+    cx.appendChild(meio);
   }
+  // O ECO DO SINAL, do outro lado. Ele reserva a MESMA largura e não mostra
+  // nada: sem ele o `−` (que reserva sempre, para a linha não pular quando o
+  // timer estoura) empurra os três números meio sinal para a direita, e o
+  // mostrador fica torto em relação à janela — sempre, não só no estouro.
+  if (chrono.mode === 'timer') {
+    const eco = document.createElement('span');
+    eco.className = 'roleta-sinal'; eco.setAttribute('aria-hidden', 'true');
+    eco.textContent = '−';
+    cx.appendChild(eco);
+  }
+  linha.appendChild(cx);
   host.appendChild(linha);
-
-  // ---- Relógio: formato ----
-  if (chrono.mode === 'clock') {
-    const opts = document.createElement('div');
-    opts.className = 'misc-opts';
-    const mk = (name, on, fn) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'misc-chip' + (on ? ' active' : '');
-      b.textContent = name;
-      b.addEventListener('click', fn);
-      return b;
-    };
-    opts.appendChild(mk('Segundos', chrono.secs, () => {
-      chrono.secs = !chrono.secs; saveChronoPrefs(); pushChrono(); renderChrono();
-    }));
-    opts.appendChild(mk('12 h', chrono.h12, () => {
-      chrono.h12 = !chrono.h12; saveChronoPrefs(); pushChrono(); renderChrono();
-    }));
-    host.appendChild(opts);
-  }
 
   // ---- Sublinha do telão ----
   const labRow = document.createElement('div');
@@ -6997,6 +7176,13 @@ function renderChrono() {
   labInp.placeholder = 'opcional — ex: Início do culto';
   labInp.maxLength = 60;
   labInp.value = chrono.label;
+  // O TECLADO SOBREPÕE, NÃO ENCOLHE (v1.8.94) — ver `keyboardShift`. Relato do
+  // operador: *"ao tocar em digitar uma legenda… o teclado sobe, mas ele também
+  // leva o controle todo visível, o que espreme a janela das ferramentas"*. O
+  // que o app encolhe para revelar um campo que JÁ está à vista é a preview, o
+  // transporte e a própria roleta — e a roleta se mede pelo que sobra, então
+  // encolher a janela encolhe o mostrador junto.
+  labInp.dataset.teclado = 'sobrepoe';
   labInp.addEventListener('change', () => {
     chrono.label = labInp.value.trim();
     saveChronoPrefs();
@@ -7008,11 +7194,9 @@ function renderChrono() {
   // A ORDEM É ESTA: medir a caixa (que só existe depois do `appendChild` do
   // painel), depois posicionar. Invertida, a primeira posição usa a régua
   // velha e a roleta abre num número que não é o guardado.
-  const cx = document.getElementById('chronoRoletas');
-  if (cx) { acertarRoletas(); observarRoletas(cx); }
-  else if (roletasObs) { roletasObs.disconnect(); roletasObs = null; }
+  acertarRoletas();
+  observarRoletas(cx);
   renderChronoReadout();
-  atualizarChronoRun();
   startChronoPanelTimer();
 }
 
@@ -7395,6 +7579,7 @@ function renderDraw() {
     const ta = document.createElement('textarea');
     ta.className = 'draw-pool'; ta.rows = 5;
     ta.placeholder = 'Uma opção por linha\nEx.:\nMaria\nJoão\nAna';
+    ta.dataset.teclado = 'sobrepoe';   // ver a legenda do Tempo
     ta.value = draw.pool.join('\n');
     // `change` (e não `input`): reprojetar/repersistir a cada tecla escreveria
     // no IDB dezenas de vezes enquanto o operador ainda digita a lista.
@@ -7450,6 +7635,7 @@ function renderDraw() {
   labInp.placeholder = 'opcional — ex: Sorteio dos visitantes';
   labInp.maxLength = 60;
   labInp.value = draw.label;
+  labInp.dataset.teclado = 'sobrepoe';   // ver a legenda do Tempo
   labInp.addEventListener('change', () => {
     draw.label = labInp.value.trim(); saveDrawPrefs(); pushDraw();
   });
