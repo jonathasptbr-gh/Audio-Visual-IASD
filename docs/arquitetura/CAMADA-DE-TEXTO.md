@@ -686,6 +686,33 @@ exibindo exatamente o mesmo valor do Controle.
   respeitar uma "escolha" que ninguém fez faria a mudança não chegar a ninguém.
 - **`baseMs` existe porque pausar precisa congelar o acumulado.** Com `startAt`
   sozinho, retomar perderia todo o trecho anterior.
+- **NO PAINEL, O TIMER SE ESCOLHE EM DUAS ROLETAS** (v1.8.91) — minutos 0..60 e
+  segundos 0..59, pedido do operador. **A roleta É o mostrador**, não um campo
+  ao lado dele: contar é ela andar, e por isso não sobrou número de texto no
+  modo timer (o Relógio e o Cronômetro mantêm o `.chrono-read`, porque neles não
+  há o que escolher). Cinco coisas que se erram aqui:
+  - **`--roleta-item` é a medida de TUDO** (janela, célula, recuo, corpo do
+    dígito), e é o que faz `scrollTop === valor × item` sem fração. Ela é
+    ESCRITA pelo JS a partir da altura que sobrou (`acertarRoletas`): a caixa
+    cresce por flex, o JS lê a altura DELA e divide por três. Em CSS não dá —
+    `cqh` mediria a caixa que a própria roleta define.
+  - **Trocar a régua obriga a reposicionar.** `scrollTop` é px: mudar a célula
+    sem refazer a posição deixa a lista parada num número que já não é o valor,
+    calado, e só em quem gira a tela.
+  - **A trava de edição é `overflow-y: hidden`, nunca um `return` no ouvinte.**
+    Ignorar o gesto deixa a lista ROLAR sob o dedo e voltar no tique seguinte —
+    pior que não responder, porque parece quebrado.
+  - **Não há bandeira de "estou reposicionando".** O evento `scroll` é
+    assíncrono e sai depois do quadro em que se escreveu o `scrollTop`, então
+    soltar a guarda por `rAF` é corrida. O que fecha é a leitura ser
+    IDEMPOTENTE: `roletaAssentou` sai calada quando o par lido já é a duração.
+  - **Mexer na roleta ZERA o decorrido.** Pausada no meio de uma contagem ela
+    mostra o que FALTA, então mudá-la só pode querer dizer "conte isto a partir
+    de agora"; sem isso o ▶ seguinte terminaria cedo, sem nada explicando.
+  O teto virou **60:59** (eram 600 min). Acima de 3600 s o `formatSpan` do telão
+  promove para `h:mm:ss`, então um timer de 60:30 sai como `1:00:30` na projeção
+  e `60:30` no painel — o mesmo instante em duas notações, no máximo durante o
+  primeiro minuto. Oráculo: `ferramentas-folha.test.mjs`, bloco K.
 - **O timer NÃO congela em zero** — passa a contar em negativo, em vermelho
   (`.chrono-over`). Num culto, "estourou por 4 minutos" é a informação que se
   quer; um `00:00` parado não distingue "acabou agora" de "acabou há muito".

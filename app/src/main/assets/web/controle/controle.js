@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.90';
+const WEB_VERSION = '1.8.91';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -6390,8 +6390,8 @@ const CHRONO_MODES = [
   { id: 'timer', name: 'Timer' },
 ];
 // (Os PRESETS saíram na v1.8.89 — eram [1, 3, 5, 10, 15, 30], seis pílulas
-//  numa linha própria, e viraram o par `\u2212`/`+` ao lado do número. Ver
-//  `chronoStepBtn`.)
+//  numa linha própria — e o par `\u2212`/`+` que os substituiu saiu na v1.8.91.
+//  Hoje o tempo se escolhe nas DUAS ROLETAS; ver `chronoRoletaEl`.)
 
 const CHRONO_PREFS_V = 2;   // 2 = relógio passou a nascer sem segundos
 
@@ -6513,21 +6513,59 @@ function chronoSetMode(mode) {
   renderChrono();
 }
 
+// APLICAR e REDESENHAR são separados desde a v1.8.91, e a razão é a ROLETA: ela
+// escreve a duração enquanto o dedo ainda está nela, e `renderChrono` TROCA o
+// nó — o scroller sairia do documento no meio do gesto, com a posição perdida.
+// Quem a chama é a própria roleta, que já está no valor certo e só precisa que
+// o estado, o telão e o botão de iniciar acompanhem.
+//
+// O PISO É ZERO, e não mais um segundo: com duas roletas o 0:00 é uma posição
+// ALCANÇÁVEL, e um clamp para 1 s faria a roleta pular sob o dedo. Um timer de
+// zero não tem o que contar, então quem responde é o botão — `disabled`, pela
+// regra da v1.8.50 (o que não tem função agora é apagado, não deixado inerte).
 function chronoSetDuration(ms) {
-  chrono.durationMs = Math.max(1000, Math.round(ms));
+  chrono.durationMs = Math.max(0, Math.round(ms));
   saveChronoPrefs();
   pushChrono();
-  renderChrono();
+  // NÃO CHAMA `renderChrono`: ele TROCA o nó, e a roleta escreve a duração com o
+  // dedo ainda nela — o scroller sairia do documento no meio do gesto, com a
+  // posição perdida. O que precisa acompanhar é só o mostrador (idempotente:
+  // quem chamou de dentro da roleta já está na posição certa) e o ▶, que acende
+  // e apaga com o 0:00.
+  renderChronoReadout();
+  atualizarChronoRun();
 }
 
 // Atualiza só o NÚMERO do painel (o resto do painel não muda a cada tick).
 // No-op quando a aba não está montada — o laço pode sobreviver a um render.
 function renderChronoReadout() {
-  const el = document.getElementById('chronoRead');
-  if (!el) return;
   const rr = chronoReading(chrono, Date.now());
-  el.textContent = rr.text;
-  el.classList.toggle('over', rr.over);
+  const el = document.getElementById('chronoRead');
+  if (el) {
+    el.textContent = rr.text;
+    el.classList.toggle('over', rr.over);
+  }
+  // ---- O TIMER: quem mostra é a ROLETA, e ela anda com a contagem ----
+  const caixa = document.getElementById('chronoRoletas');
+  if (!caixa) return;
+  // O PAR VEM DA MESMA CONTA DO TELÃO (`chronoElapsed` + o `floor` de segundo
+  // do `formatSpan`), e não de um parse do texto: as duas telas mostram o mesmo
+  // instante porque derivam do mesmo número, não porque uma leu a outra.
+  const resto = chrono.durationMs - createStage.chronoElapsed(chrono, Date.now());
+  const total = Math.floor(Math.abs(resto) / 1000);
+  caixa.classList.toggle('over', resto < 0);
+  roletasMostrar(Math.floor(total / 60), total % 60);
+}
+
+// SÓ O BOTÃO DE INICIAR, e é isso que a roleta precisa: escrever a duração no
+// meio de um gesto não pode redesenhar o painel (o scroller sairia do
+// documento), mas o ▶ tem de acender e apagar com o 0:00.
+function atualizarChronoRun() {
+  const run = document.getElementById('chronoRun');
+  if (!run) return;
+  const vazio = chrono.mode === 'timer' && !chrono.running && chrono.durationMs <= 0;
+  run.disabled = vazio;
+  run.title = vazio ? 'Escolha um tempo nas roletas' : (chrono.running ? 'Pausar' : 'Iniciar');
 }
 
 function chronoPanelTick() { renderChronoReadout(); }
@@ -6553,76 +6591,206 @@ function chronoSegBtn(m) {
 }
 
 /**
- * ===== O PASSO DO TIMER (v1.8.89) =====
+ * ===== AS DUAS ROLETAS DO TIMER (v1.8.91) =====
  *
- * Pedido do operador: *"o timer tem duas linhas para tempo pre definido, que
- * poderiam ser apenas unificados todos os métodos de inserção de tempo por um
- * sistema básico comum de rolagem/+e- que ficam adjacentes ao próprio número
- * indicador"*.
+ * Pedido do operador: *"ao invés de usar botões de mais e menos, vamos aplicar
+ * o design padrão: uma roleta/lista vertical de 0 a 60 para os minutos e uma
+ * roleta vertical para os segundos de 0 a 59. O número durante a contagem é a
+ * própria roleta/lista se movendo e contando. O número só pode ser alterado se
+ * não estiver contando/ativo."*
  *
- * Eram DOIS métodos e DUAS linhas: seis pílulas de preset (1·3·5·10·15·30) e um
- * campo numérico "Minutos". Viraram um só, o par `−`/`+` ao lado do número.
+ * **A ROLETA É O MOSTRADOR, não um campo ao lado dele.** É isso que o pedido
+ * tem de diferente do par `−`/`+` que ela substitui (v1.8.89): ali havia um
+ * número e dois botões que o mexiam; aqui a lista É o número, e contar é ela
+ * andar. Some o `.chrono-read` do modo timer, somem os dois `.chrono-step`, e o
+ * mostrador ganha a altura que sobrava entre eles.
  *
- * **O PASSO ACELERA, e sem isso o par não substituiria os presets:** 30 minutos
- * a um toque por minuto são trinta toques, e o preset existia justamente para
- * evitá-los. Segurar o botão repete — 450 ms até a primeira repetição (abaixo
- * disso um toque normal já dispararia duas), 110 ms entre elas, e o passo passa
- * de 1 para 5 minutos depois de doze — 450 + 11×110 ms até o degrau, e os 30
- * minutos do maior preset em ~2,0 s de dedo parado.
+ * **O SEGUNDO É EDITÁVEL, e antes não era.** O par de botões andava de minuto
+ * em minuto e não havia como pedir 4:30 — a duração só existia em múltiplos de
+ * 60 s. Duas roletas dão o par inteiro sem nenhum controle a mais.
  *
- * `pointerdown` e não `mousedown`: no WebView o par de mouse é SINTETIZADO
- * depois do toque, com atraso. Quem PARA a repetição é a janela, e não o botão
- * — ver `chronoPassoParar`.
+ * ## O que NÃO se faz aqui, e por quê
+ *
+ * **A trava é `overflow-y: hidden`, nunca um `return` no ouvinte.** Contando, o
+ * pedido é que o número não possa ser alterado — e um ouvinte que ignora o
+ * gesto deixa a lista ROLAR sob o dedo e voltar sozinha no tique seguinte, que
+ * é pior que não responder: parece quebrado. Sem overflow o navegador não move
+ * o scroller, e o `scrollTop` programático continua funcionando.
+ *
+ * **Não há bandeira de "estou reposicionando".** Ela seria uma corrida: o
+ * evento `scroll` é assíncrono e sai DEPOIS do quadro em que se escreveu o
+ * `scrollTop`, então soltar a guarda por `requestAnimationFrame` acerta às
+ * vezes. O que fecha isso é a leitura ser IDEMPOTENTE — `roletaAssentou`
+ * compara o par lido com a duração que já está no estado e sai calada quando
+ * são iguais, que é exatamente o caso de um reposicionamento.
+ *
+ * **`scrollend` não é usado.** Ele é de Chromium 114 e este arquivo declara
+ * `:has()` e `cqw` (105) como piso; um prazo curto depois do último `scroll`
+ * faz o mesmo trabalho em qualquer WebView que já rode o resto.
+ *
+ * ## O TETO É 60:59, e ele ENCOLHEU
+ *
+ * Eram 600 minutos (dez horas) no campo numérico que saiu. A roleta pedida vai
+ * a 60, e num culto nada é cronometrado além disso. **A consequência está dita
+ * porque é visível:** acima de 3600 s o `formatSpan` do telão promove para
+ * `h:mm:ss`, então um timer de 60:30 aparece como `1:00:30` na projeção e como
+ * `60:30` aqui. É o mesmo instante em duas notações, e a divergência dura no
+ * máximo o primeiro minuto de um timer posto acima da hora.
  */
-const CHRONO_PASSO_ESPERA_MS = 450;
-const CHRONO_PASSO_INTERVALO_MS = 110;
-const CHRONO_PASSO_ACELERA = 12;   // repetições até o passo virar 5 min
+const ROLETA_VISIVEIS = 3;         // quantas células cabem na janela da roleta
+const ROLETA_ITEM_MIN = 26;        // px — o piso, para a lista não sumir
+const ROLETA_ITEM_MAX = 132;       // px — o teto, para o dígito não virar cartaz
+const ROLETA_ASSENTA_MS = 140;     // silêncio depois do último `scroll`
+const ROLETA_MIN_MAX = 60;         // minutos: 0..60
+const ROLETA_SEG_MAX = 59;         // segundos: 0..59
 
-// O REPETIDOR MORA NO MÓDULO, E QUEM O PARA É A JANELA — não o botão.
-// `chronoSetDuration` chama `renderChrono`, que TROCA o nó a cada passo: o
-// elemento que recebeu o `pointerdown` está fora do documento antes da segunda
-// repetição, e um `pointerup` real não chega a um nó detached — o navegador o
-// entrega a quem está sob o dedo, que é o botão NOVO, com um estado zerado. Um
-// par de ouvintes no próprio botão deixaria o relógio correndo com o dedo já
-// solto, isto é, o timer subindo sozinho até o teto.
-let chronoPassoTimers = null;
-function chronoPassoParar() {
-  if (!chronoPassoTimers) return;
-  clearTimeout(chronoPassoTimers.espera);
-  clearInterval(chronoPassoTimers.repete);
-  chronoPassoTimers = null;
-}
-for (const ev of ['pointerup', 'pointercancel']) {
-  window.addEventListener(ev, chronoPassoParar);
+// O ITEM em px, escrito pelo `acertarRoletas` e lido pelo CSS. Ele é a medida
+// de TUDO na roleta (altura da janela, do item, do recuo e do dígito), e é por
+// isso que o `scrollTop` de um valor é `valor × item`, sem fração.
+function roletaItem(caixa) {
+  const v = parseFloat(getComputedStyle(caixa).getPropertyValue('--roleta-item'));
+  return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-function chronoStepBtn(sinal) {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'chrono-step';
-  b.textContent = sinal > 0 ? '+' : '\u2212';
-  const titulo = sinal > 0 ? 'Mais um minuto' : 'Menos um minuto';
-  b.title = titulo; b.setAttribute('aria-label', titulo);
-
-  let n = 0;
-  const passo = () => {
-    const min = Math.max(1, Math.round(chrono.durationMs / 60000));
-    const salto = n >= CHRONO_PASSO_ACELERA ? 5 : 1;
-    const alvo = Math.min(600, Math.max(1, min + sinal * salto));
-    if (alvo !== min) chronoSetDuration(alvo * 60000);
-    n++;
-  };
-  b.addEventListener('pointerdown', () => {
-    chronoPassoParar();   // um pointerdown sem o up anterior não empilha timer
-    n = 0;
-    passo();
-    chronoPassoTimers = {
-      espera: setTimeout(() => {
-        chronoPassoTimers.repete = setInterval(passo, CHRONO_PASSO_INTERVALO_MS);
-      }, CHRONO_PASSO_ESPERA_MS),
-    };
+function chronoRoletaEl(campo, max, rotulo) {
+  const el = document.createElement('div');
+  el.className = 'roleta';
+  el.id = 'roleta_' + campo;
+  // `spinbutton` é o papel de um seletor de valor numérico, e é o que faz o
+  // leitor de tela anunciar "35 de 0 a 60" em vez de ler a lista inteira.
+  el.setAttribute('role', 'spinbutton');
+  el.setAttribute('aria-label', rotulo);
+  el.setAttribute('aria-valuemin', '0');
+  el.setAttribute('aria-valuemax', String(max));
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i <= max; i++) {
+    const d = document.createElement('div');
+    d.className = 'roleta-item';
+    d.textContent = String(i).padStart(2, '0');
+    frag.appendChild(d);
+  }
+  el.appendChild(frag);
+  let assenta = null;
+  el.addEventListener('scroll', () => {
+    // A MARCA ACOMPANHA O DEDO, e não espera o assentamento: sem isto a célula
+    // acesa fica para trás durante todo o arrasto — a lista rola e o número
+    // que parece escolhido é o anterior.
+    const item = roletaItem(el);
+    if (item) {
+      const i = Math.max(0, Math.min(max, Math.round(el.scrollTop / item)));
+      if (el.dataset.sel !== String(i)) {
+        el.dataset.sel = String(i);
+        const antes = el.querySelector('.roleta-item--sel');
+        if (antes) antes.classList.remove('roleta-item--sel');
+        const agora = el.children[i];
+        if (agora) agora.classList.add('roleta-item--sel');
+      }
+    }
+    clearTimeout(assenta);
+    assenta = setTimeout(roletaAssentou, ROLETA_ASSENTA_MS);
   });
-  return b;
+  return el;
+}
+
+// O VALOR de uma roleta é a posição dela dividida pela altura do item — a lista
+// é a régua, e não há segundo lugar onde ele fique guardado.
+function roletaValor(campo, max) {
+  const el = document.getElementById('roleta_' + campo);
+  if (!el) return null;
+  const item = roletaItem(el);
+  if (!item) return null;
+  return Math.max(0, Math.min(max, Math.round(el.scrollTop / item)));
+}
+
+function roletaAssentou() {
+  // CONTANDO NÃO SE EDITA (a trava de verdade é o `overflow`; esta é a guarda
+  // da corrida — o prazo pode vencer depois de o operador ter tocado em ▶).
+  if (chrono.mode !== 'timer' || chrono.running) return;
+  const m = roletaValor('min', ROLETA_MIN_MAX);
+  const sg = roletaValor('seg', ROLETA_SEG_MAX);
+  if (m === null || sg === null) return;
+  const ms = (m * 60 + sg) * 1000;
+  // IDEMPOTENTE: um reposicionamento programático cai aqui pelo mesmo `scroll`
+  // que um dedo, e é esta linha — não uma bandeira — que os separa.
+  if (ms === chrono.durationMs) return;
+  // E MEXER NA ROLETA ZERA O DECORRIDO. Pausado no meio de uma contagem, a
+  // roleta mostra o que FALTA — é o mostrador, não um campo à parte —, então
+  // mudá-la só pode querer dizer *"conte isto a partir de agora"*. Sem esta
+  // linha o par lido vira a duração NOVA com o decorrido antigo por baixo, e o
+  // ▶ seguinte termina cedo sem nada na tela explicando.
+  chrono.baseMs = 0;
+  chrono.startAt = 0;
+  chronoSetDuration(ms);
+}
+
+// LEVA AS ROLETAS a um par de valores. Usado pela montagem (o valor guardado) e
+// pelo tique da contagem (o tempo restante) — os dois pelo mesmo caminho, senão
+// a posição de repouso e a de contagem divergiriam na primeira mudança.
+function roletasMostrar(m, sg) {
+  for (const [campo, valor, max] of [['min', m, ROLETA_MIN_MAX], ['seg', sg, ROLETA_SEG_MAX]]) {
+    const el = document.getElementById('roleta_' + campo);
+    if (!el) continue;
+    const item = roletaItem(el);
+    if (!item) continue;
+    const i = Math.max(0, Math.min(max, valor));
+    const alvo = i * item;
+    if (Math.abs(el.scrollTop - alvo) >= 1) el.scrollTop = alvo;
+    // A TINTA CHEIA DA CENTRADA. Uma classe, e só quando o índice MUDA: escrita
+    // a cada tique (5 Hz) ela pediria estilo de 61 nós por roleta para não
+    // mudar nada em 4 de 5 passadas.
+    if (el.dataset.sel === String(i)) continue;
+    el.dataset.sel = String(i);
+    const antes = el.querySelector('.roleta-item--sel');
+    if (antes) antes.classList.remove('roleta-item--sel');
+    const agora = el.children[i];
+    if (agora) agora.classList.add('roleta-item--sel');
+  }
+}
+
+/**
+ * ===== A ROLETA OCUPA O QUE SOBRA, E POR ISSO ELA É MEDIDA =====
+ *
+ * *"O objetivo é o aproveitamento completo do tamanho disponível na janela da
+ * ferramenta timer. Ou seja, se tiver espaço sobrando, aumente o tamanho do
+ * número/roleta. Se estiver apertado, reduza. O que eu não quero é que tenha
+ * scroll nessa janela de ferramentas."*
+ *
+ * **NÃO DÁ PARA ESCREVER ISSO EM CSS.** A altura de uma roleta é três células,
+ * e a célula é o que sobra dividido por três — um `flex: 1` faria a CAIXA
+ * crescer, não o dígito dentro dela, e `cqh` mediria a caixa que a própria
+ * roleta define, que é a circularidade. Então a caixa cresce por flex, o JS lê
+ * a altura DELA e escreve a célula; a roleta nunca é maior que a caixa, logo
+ * não existe transbordo a rolar.
+ *
+ * **E A POSIÇÃO É REFEITA DEPOIS**, porque `scrollTop` é px: mudar a célula sem
+ * reposicionar deixa a lista parada num número que não é mais o valor —
+ * silenciosamente, e só em quem girou a tela.
+ *
+ * Quem chama: a montagem, o `ResizeObserver` da caixa (rotação, teclado, a
+ * fonte do sistema) e nada mais. Um relógio periódico aqui seria varredura de
+ * layout a esmo.
+ */
+function acertarRoletas() {
+  const caixa = document.getElementById('chronoRoletas');
+  if (!caixa) return;
+  // ALTURA ZERO NÃO É UM CASO À PARTE, e tratá-la como um foi um defeito: numa
+  // tela curta o flex espreme a caixa a 0, e um `return` ali deixava a roleta no
+  // valor de partida do CSS — o MAIOR dos dois, isto é, o transbordo máximo
+  // justamente onde não cabe nada. O piso já responde por esse caso, e o
+  // `ResizeObserver` refina assim que houver altura.
+  const item = Math.max(ROLETA_ITEM_MIN,
+    Math.min(ROLETA_ITEM_MAX, Math.floor(caixa.clientHeight / ROLETA_VISIVEIS)));
+  if (roletaItem(caixa) === item) return;   // nada mudou: não mexe na posição
+  caixa.style.setProperty('--roleta-item', item + 'px');
+  renderChronoReadout();                    // reposiciona na régua nova
+}
+
+let roletasObs = null;
+function observarRoletas(caixa) {
+  if (roletasObs) roletasObs.disconnect();
+  if (typeof ResizeObserver !== 'function') return;
+  roletasObs = new ResizeObserver(() => acertarRoletas());
+  roletasObs.observe(caixa);
 }
 
 /**
@@ -6656,17 +6824,35 @@ function renderChrono() {
   host.appendChild(modes);
 
   const linha = document.createElement('div');
-  linha.className = 'chrono-linha chrono-linha--' + chrono.mode;
+  linha.className = 'chrono-linha chrono-linha--' + chrono.mode
+    + (chrono.running ? ' contando' : '');
 
-  // O passo só existe onde há o que ajustar: o cronômetro conta do zero e a
-  // hora vem do relógio do aparelho.
-  if (chrono.mode === 'timer') linha.appendChild(chronoStepBtn(-1));
-
-  const read = document.createElement('div');
-  read.className = 'chrono-read'; read.id = 'chronoRead';
-  linha.appendChild(read);
-
-  if (chrono.mode === 'timer') linha.appendChild(chronoStepBtn(1));
+  // O TIMER MOSTRA A ROLETA; os outros dois, o número. A pergunta que separa é
+  // "há o que ESCOLHER aqui?" — o cronômetro conta do zero e a hora vem do
+  // relógio do aparelho, e nos dois o mostrador é só leitura.
+  if (chrono.mode === 'timer') {
+    const cx = document.createElement('div');
+    cx.className = 'chrono-roletas';
+    cx.id = 'chronoRoletas';
+    // O SINAL DO ESTOURO é um elemento, não um caractere no número: com duas
+    // roletas não há string onde pendurá-lo, e um "−" que aparece e some entre
+    // elas empurraria as duas de lado a cada virada.
+    const sinal = document.createElement('span');
+    sinal.className = 'roleta-sinal'; sinal.setAttribute('aria-hidden', 'true');
+    sinal.textContent = '\u2212';
+    cx.appendChild(sinal);
+    cx.appendChild(chronoRoletaEl('min', ROLETA_MIN_MAX, 'Minutos'));
+    const dp = document.createElement('span');
+    dp.className = 'roleta-dp'; dp.setAttribute('aria-hidden', 'true');
+    dp.textContent = ':';
+    cx.appendChild(dp);
+    cx.appendChild(chronoRoletaEl('seg', ROLETA_SEG_MAX, 'Segundos'));
+    linha.appendChild(cx);
+  } else {
+    const read = document.createElement('div');
+    read.className = 'chrono-read'; read.id = 'chronoRead';
+    linha.appendChild(read);
+  }
 
   // ---- Transporte (não existe para o relógio: a hora não se pausa) ----
   if (chrono.mode !== 'clock') {
@@ -6674,11 +6860,11 @@ function renderChrono() {
     acts.className = 'chrono-actions';
     const run = document.createElement('button');
     run.type = 'button';
+    run.id = 'chronoRun';
     run.className = 'chrono-btn primary';
     // Ícone/rótulo = a AÇÃO, nunca o estado (ver "O ícone mostra a AÇÃO" na
     // arquitetura): correndo, o botão oferece PAUSAR.
-    const rotulo = chrono.running ? 'Pausar' : 'Iniciar';
-    run.title = rotulo; run.setAttribute('aria-label', rotulo);
+    run.setAttribute('aria-label', chrono.running ? 'Pausar' : 'Iniciar');
     run.appendChild(msym(chrono.running ? ICON.pause : ICON.play));
     run.addEventListener('click', () => (chrono.running ? chronoPause() : chronoStart()));
     const zero = document.createElement('button');
@@ -6732,7 +6918,14 @@ function renderChrono() {
   labRow.appendChild(labLab); labRow.appendChild(labInp);
   host.appendChild(labRow);
 
+  // A ORDEM É ESTA: medir a caixa (que só existe depois do `appendChild` do
+  // painel), depois posicionar. Invertida, a primeira posição usa a régua
+  // velha e a roleta abre num número que não é o guardado.
+  const cx = document.getElementById('chronoRoletas');
+  if (cx) { acertarRoletas(); observarRoletas(cx); }
+  else if (roletasObs) { roletasObs.disconnect(); roletasObs = null; }
   renderChronoReadout();
+  atualizarChronoRun();
   startChronoPanelTimer();
 }
 

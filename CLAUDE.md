@@ -1531,6 +1531,17 @@ nenhum**, e por isso ficam aqui.
   `scrollbar-color` é diferente de `auto` — o Chromium desliga esses pseudos
   (medido: calha 10px, o valor de `thin`, contra os 7px que o pseudo pedia).
   Não escrever mais nenhum.
+- **UM SCROLLER QUE É SELETOR NÃO LEVA A MARCA `rola`** (v1.8.91). A roleta do
+  timer é um scroller com `scroll-snap`, e a sombra das bordas diria ali *"há
+  conteúdo escondido"* sobre uma lista cujo conteúdo escondido é o RECURSO — ela
+  é um seletor de valor, não um texto que continua fora da vista. O que marca a
+  célula escolhida é uma MÁSCARA que apaga as pontas da janela mais o
+  `--op-inativo` nas vizinhas: zero JS por quadro de rolagem, e a centrada é a
+  única cheia por construção do recuo. **E o tamanho dela é MEDIDO, não
+  declarado** — a caixa cresce por flex, o JS lê a altura dela e escreve a
+  célula (`--roleta-item`), porque `cqh` mediria a caixa que a própria roleta
+  define. Um scroller-seletor novo nasce com as três: sem `rola`, com máscara, e
+  com a régua vinda do layout.
 - **UM SCROLLER QUE É GRADE NÃO PODE TER A TIRA — então ele deixa de ser o
   scroller** (v1.8.60). O `sem-veu` está certo e fica (o pseudo de uma grade é
   ITEM dela), mas ele APAGA o aviso sem tirar o problema: a `.bible-grid--books`
@@ -2630,11 +2641,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.90 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.91 · APK v1.8.73** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.90 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
+> **A v1.8.91 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Esta não toca `java/`,
 > `res/` nem o manifesto: o bundle sai na hora, contra o APK v1.8.73 que já está
 > publicado. **E a ponte só ENCOLHEU** — `requestMic` e `micDiag` saíram do
