@@ -1350,9 +1350,23 @@ nenhum**, e por isso ficam aqui.
   `--live-fill`, `--btn-accent`, `--btn-danger`…). Tinta com alfa EMPILHA: o
   mesmo botão derivava **1,97:1** entre a base mais escura e a mais clara em que
   pousa. Os `-soft` ficam para o que é wash de verdade.
-- **UMA LINGUAGEM DE ESTADO SÓ:** ESCOLHIDO entre alternativas =
-  `--accent-fill` + `--on-accent`; LIGADO (interruptor) = `--btn-accent` +
-  `--accent`; SELECIONADO numa lista = `--sel-fill`; ABERTO **não é cor**.
+- **UMA LINGUAGEM DE ESTADO SÓ:** ESCOLHIDO entre alternativas **e** LIGADO
+  (interruptor) = `--btn-accent` + `--accent`; SELECIONADO numa lista =
+  `--sel-fill`; ABERTO **não é cor**. **O denim `--accent-fill` + `--on-accent`
+  é dos BOTÕES**, e só deles — a v1.8.95 revogou metade da regra da v1.3.14 a
+  pedido do operador: *"todos esses usam um azul forte, sólido, que deveria ser
+  reservado para botões e não seleções. Para seleções, pode usar o mesmo azul
+  que usamos nos botões flutuantes sobre o cronograma"*. Os dois estados
+  passaram a ser o MESMO par de propósito: foi o tile LIGADO que ele apontou
+  como modelo. **O preço está medido e é de PREENCHIMENTO**, não de tinta: o
+  traço sobre o fundo novo dá 5,37:1 no escuro e 6,37:1 no claro (o par é
+  declarado), mas o fundo contra a pílula apagada caiu de 2,05:1 para 1,43:1 no
+  escuro e de 5,56:1 para 1,14:1 no claro — o que separa os dois estados passou
+  a ser sobretudo o MATIZ, que é como o `.qs-tile.qs-on` já vivia. Quem trava é
+  o `tokens.test.mjs`, e ele varre por SELETOR e não por regra: **o seletor é
+  que diz o PAPEL**, e quem termina em `.active` está pintando uma escolha
+  (`.qs-modo::before`, o polegar do alternador de modo, entra NOMEADO — nenhum
+  `.active` o alcançaria).
   **Cor de texto nunca carrega estado sozinha**, e **apagado quer dizer
   INDISPONÍVEL** (`--op-inativo` + `disabled`), nunca "desligado" — e o número
   é **.35**, não o `.3` que este arquivo afirmou até a v1.8.68 (MEDIDO: `.3` é
@@ -1598,9 +1612,23 @@ nenhum**, e por isso ficam aqui.
   cada lado, e o `scrollWidth` conta só o do fim. **INFINITA é a base REPETIDA**
   (ímpar, ~300 células) com a posição de repouso na banda do MEIO, e a
   recentragem acontece PARADA — escrever `scrollTop` no meio de um arremesso o
-  cancela, e o dedo sente a lista travar. Um scroller-seletor novo nasce com
-  isso: sem `rola`, com máscara, com a régua vinda do layout, e com ÍNDICE e
-  VALOR separados (a pista tem 300 células e o valor tem 60).
+  cancela, e o dedo sente a lista travar. **MAS A PRIMEIRA PINTURA NÃO TEM
+  ROLAGEM PARA DISPARÁ-LA** (v1.8.95): a lista nasce em `scrollTop` 0, o TOPO da
+  pista, e ali não existe célula acima — a roleta abria de um lado só, para
+  sempre, no único valor que não pede movimento. Quem a coloca na banda do meio
+  é o posicionamento, na primeira vez e sempre que a RÉGUA muda (`scrollTop` em
+  px da célula velha não é índice na nova). **E O ÍNDICE CRESCE PARA BAIXO
+  ENQUANTO O VALOR CRESCE PARA CIMA** — pedido do operador —, o que põe a
+  inversão em TRÊS lugares que têm de concordar: as duas conversões e o TEXTO
+  das células. Divergindo, o mostrador acende uma célula e devolve o número de
+  outra. **A PISTA À VISTA É DE QUEM ESCOLHE:** onde não há escolha as vizinhas
+  somem por OPACIDADE e jamais por altura — a janela continua de três células e
+  o número fica no mesmo pixel em toda aba, e a régua que prova isso é a JANELA,
+  porque encolher a caixa para uma célula **não move o centro um pixel** (o flex
+  recentra sozinho: a asserção do centro, sozinha, é tautologia). Um
+  scroller-seletor novo nasce com isso: sem `rola`, com máscara, com a régua
+  vinda do layout, com o repouso na banda do meio desde a primeira pintura, e
+  com ÍNDICE e VALOR separados (a pista tem 300 células e o valor tem 60).
 - **UM SCROLLER QUE É GRADE NÃO PODE TER A TIRA — então ele deixa de ser o
   scroller** (v1.8.60). O `sem-veu` está certo e fica (o pseudo de uma grade é
   ITEM dela), mas ele APAGA o aviso sem tirar o problema: a `.bible-grid--books`
@@ -2705,11 +2733,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.94 · APK v1.8.91** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.95 · APK v1.8.91** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.94 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
+> **A v1.8.95 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela mudou `java/` (o
 > cancelamento da exportação saiu da main thread) e nada em `java/` chega por
 > OTA, então o bundle ficou SEGURO até a Release sair — **e ela saiu**: o APK

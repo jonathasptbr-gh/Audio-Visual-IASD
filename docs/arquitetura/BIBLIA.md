@@ -335,12 +335,15 @@ novo). A grade ganha um `padding-right` para a última coluna não encostar nela
 > variável fazia a tela mudar de cara a cada livro. Rolar com uma barra
 > visível é mais previsível.
 
-As duas grades marcam a seleção atual (`.bible-cell--num.active`: preenchimento
-em `--accent-fill`, texto em `--on-accent` e `outline` da mesma cor; na grade de
-livros, `.bible-cell.active` marca só com um `outline` em `--text`, para não
-apagar a tinta do grupo), e é isso que faz **voltar da
-leitura mostrar de imediato o capítulo E o versículo que estão no ar**, sem o
-operador ter que se localizar — e sem procurar, já que nada rola.
+As duas grades marcam a seleção atual **preenchendo a célula inteira**
+(`.bible-cell.active` e `.bible-cell--num.active`: `--btn-accent` de fundo com
+`--accent` por cima — o par de ESCOLHIDO entre alternativas desde a v1.8.95, no
+lugar do denim `--accent-fill` + `--on-accent`; na grade de LIVROS o
+preenchimento troca a tinta do grupo, e é assumido desde a v5.267: uma célula
+inteira pintada destaca mais que o anel de 2px que ela substituiu, inclusive
+meio cortada quando a grade rola, que era o argumento do anel), e é isso que
+faz **voltar da leitura mostrar de imediato o capítulo E o versículo que estão
+no ar**, sem o operador ter que se localizar — e sem procurar, já que nada rola.
 
 Capítulos e versículos mantêm **tons distintos** (`--cell-chapter` em tom frio,
 `--cell-verse` em tom quente) pra separar bem os dois níveis: as duas grades

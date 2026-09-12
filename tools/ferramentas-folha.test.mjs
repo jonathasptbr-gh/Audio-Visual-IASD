@@ -1119,7 +1119,19 @@ try {
   // botão de projetar no telão. O mesmo vale para os seletores de segundos e
   // 12 h… ache uma abreviação para o termo 'Segundos'."*
   //
-  // Sete metades, e cada uma falha de um jeito próprio.
+  // E na rodada seguinte (v1.8.95): *"mantenha o timer em 000000, como padrão
+  // inicial… faça com que os números cresçam para cima, pois atualmente eles
+  // crescem para baixo… [a exibição inicial] só apresenta a roleta em uma das
+  // direções se iniciada na posição 0… o relógio e o cronômetro não precisam ter
+  // a roleta acima e abaixo visíveis, apenas ter a posição da numeração
+  // principal, na mesma posição da numeração principal do timer… ajuste os itens
+  // opcionais do relógio… para que sejam botões quadrados, padronizados com os
+  // botões de play e reset."*
+  //
+  // Cada metade falha de um jeito próprio, e três delas falham CALADAS: o
+  // sentido invertido dá um mostrador que responde certo e desenha ao contrário;
+  // a pista aberta no topo esconde metade da lista sem erro nenhum; e a célula
+  // que muda de tamanho entre abas move o número que o operador lê de relance.
   {
     const abrir = async (modo, opts) => pg.evaluate(async (a) => {
       document.getElementById('toolsBtn').click();
@@ -1155,11 +1167,54 @@ try {
         rolaB: body.scrollHeight - body.clientHeight,
         rolaP: painel.scrollHeight - painel.clientHeight,
         editavel: getComputedStyle(cols[0]).overflowY,
+        // A PISTA À VISTA, e o CENTRO do número. As duas juntas são o pedido:
+        // esconder as vizinhas SEM mover o que se lê.
+        vizinha: (() => {
+          const v = cols[0].querySelector('.roleta-item:not(.roleta-item--sel)');
+          return v ? Number(getComputedStyle(v).opacity) : null;
+        })(),
+        centro: (() => {
+          const a = cols[0].querySelector('.roleta-item--sel');
+          if (!a) return null;
+          const b = a.getBoundingClientRect();
+          return Math.round(b.top + b.height / 2);
+        })(),
+        // A JANELA continua sendo TRÊS células — é ela, e não o centro, que
+        // reprova quem "esconder" as vizinhas encolhendo a caixa: o centro é
+        // dado pelo flex e não se move de qualquer jeito (MEDIDO por reversão).
+        janela: Math.round(cols[0].getBoundingClientRect().height),
         rodape: [...document.querySelectorAll('#toolsFoot button')]
           .map((b) => b.id || b.textContent.trim()),
         noCorpo: document.querySelectorAll('.misc-panel .chrono-btn, .misc-panel .chrono-opt').length,
       };
     });
+
+    // O PADRÃO É 00:00:00, e ele se lê ANTES do primeiro `chronoSetDuration`
+    // deste bloco — depois dele o número é do teste, não do app.
+    const padrao = await pg.evaluate(() => {
+      document.getElementById('toolsBtn').click();
+      return { dur: chrono.durationMs };
+    });
+    await pg.waitForTimeout(250);
+    checar(padrao.dur === 0,
+      'K · o Timer NASCE em 00:00:00, a pedido do operador ("por questão de '
+      + 'ordem"). Um alvo de cinco minutos que ninguém escolheu é a mesma classe '
+      + 'de defeito que um botão aceso sem função: parece decisão de alguém',
+      JSON.stringify(padrao));
+    const zerado = await pg.evaluate(async () => {
+      [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
+      await new Promise((f) => setTimeout(f, 150));
+      chronoSetMode('timer');
+      chrono.durationMs = 0;
+      renderChronoEControles();
+      await new Promise((f) => setTimeout(f, 200));
+      const b = document.getElementById('chronoRun');
+      return { off: b.disabled, opac: getComputedStyle(b).opacity, titulo: b.title };
+    });
+    checar(zerado.off && Number(zerado.opac) < 0.5 && /tempo/i.test(zerado.titulo),
+      'K · e em zero o ▶ é APAGADO, não inerte (a regra da v1.8.50): com o padrão '
+      + 'em zero este virou o PRIMEIRO estado que o operador vê, e um primário azul '
+      + 'que não responde é indistinguível de um quebrado', JSON.stringify(zerado));
 
     await abrir('timer');
     const t = await forma();
@@ -1184,7 +1239,7 @@ try {
       const item = parseFloat(getComputedStyle(
         document.getElementById('chronoRoletas')).getPropertyValue('--roleta-item'));
       const antes = roletaValorDe(rs);
-      rs.scrollTop += item;                       // 59 → 0
+      rs.scrollTop -= item;                       // 59 → 0, PARA CIMA
       await new Promise((f) => setTimeout(f, 400));
       const depois = roletaValorDe(rs);
       // E A PISTA VOLTOU PARA A BANDA DO MEIO — é isso que impede a ponta de ser
@@ -1194,12 +1249,52 @@ try {
     });
     checar(volta.antes === 59 && volta.depois === 0 && volta.dur === 0,
       'K · a roleta é INFINITA: do 59 ela passa ao 0 em UM passo, e a duração '
-      + 'acompanha — sem isso a lista bate na ponta e o operador não fecha a volta',
-      JSON.stringify(volta));
+      + 'acompanha — sem isso a lista bate na ponta e o operador não fecha a volta. '
+      + 'E o passo é para CIMA: o índice é o `scrollTop` e cresce para baixo, o '
+      + 'VALOR cresce para cima (v1.8.95)', JSON.stringify(volta));
     checar(volta.banda === 0,
       'K · e a pista se RECENTRA parada: a banda do meio é a posição de repouso, e é '
       + 'ela que garante folga para as voltas seguintes. Recentrar durante a rolagem '
       + 'CANCELARIA o arremesso no Chromium', JSON.stringify(volta));
+
+    // O SENTIDO, E A PISTA ABERTA DOS DOIS LADOS. As duas metades são o mesmo
+    // pedido lido de dois jeitos, e cada uma reprova sozinha: sem a inversão o
+    // vizinho de cima é 59; sem a banda do meio o repouso é `scrollTop` 0, e ali
+    // não existe vizinho de cima nenhum — foi o relato do operador.
+    // A CÉLULA É A PINTURA NOVA COM O VALOR JÁ EM ZERO, e não um
+    // `chronoSetDuration(0)` sobre a roleta que já estava na tela: aquele
+    // caminho MOVE a lista, o movimento dispara um `scroll`, e a recentragem de
+    // 140 ms conserta a posição — a asserção passaria com e sem o conserto.
+    // MEDIDO por reversão: o defeito só existe onde não há rolagem NENHUMA, que
+    // é exatamente a abertura do operador com o padrão em zero.
+    await abrir('timer');
+    await pg.evaluate(async () => {
+      chrono.durationMs = 0;
+      renderChronoEControles();
+      await new Promise((f) => setTimeout(f, 350));
+    });
+    const sentido = await pg.evaluate(() => {
+      const el = document.getElementById('roleta_min');
+      const item = parseFloat(getComputedStyle(
+        document.getElementById('chronoRoletas')).getPropertyValue('--roleta-item'));
+      const repouso = Math.round(el.scrollTop / item);
+      const emCasa = repouso === Number(el.dataset.base);
+      const aqui = roletaValorDe(el);
+      el.scrollTop -= item; const acima = roletaValorDe(el);
+      el.scrollTop += 2 * item; const abaixo = roletaValorDe(el);
+      el.scrollTop = repouso * item;
+      return { aqui, acima, abaixo, emCasa, repouso, base: Number(el.dataset.base) };
+    });
+    checar(sentido.aqui === 0 && sentido.acima === 1 && sentido.abaixo === 59,
+      'K · OS NÚMEROS CRESCEM PARA CIMA: acima do 00 está o 01 e abaixo dele o 59. '
+      + 'Invertido, o mostrador responde o número certo e desenha a lista ao '
+      + 'contrário — nada erra, e o dedo vai sempre para o lado errado',
+      JSON.stringify(sentido));
+    checar(sentido.emCasa,
+      'K · e o REPOUSO é a banda do meio, inclusive na primeira pintura. Sem isto a '
+      + 'lista abre onde nasceu (`scrollTop` 0, o topo da pista) e no zero não há '
+      + 'célula ACIMA: a roleta aparece de um lado só, e não há `scroll` depois '
+      + 'para consertá-la', JSON.stringify(sentido));
 
     // O MESMO DESENHO NAS TRÊS FERRAMENTAS, e a diferença é só quem pode tocar.
     await abrir('stopwatch');
@@ -1214,6 +1309,12 @@ try {
       'K · mas só o Timer PARADO aceita o dedo: no Cronômetro e no Relógio o '
       + 'mostrador é leitura, e a trava é `overflow`, nunca um `return` no ouvinte',
       JSON.stringify({ timer: t.editavel, crono: c.editavel, relogio: r.editavel }));
+    checar(c.item === t.item,
+      'K · e a CÉLULA é a mesma no Cronômetro e no Timer: as duas têm três colunas, '
+      + 'e o pedido é que trocar de aba só ACRESCENTE elementos. O sinal do estouro '
+      + 'é desenhado nas três (escondido) justamente para entrar na conta da '
+      + 'largura — sem isso o Cronômetro abria com o dígito 29% maior',
+      JSON.stringify({ crono: c.item, timer: t.item }));
     checar([t, c, r].every((x) => x.cabe && x.rolaB === 0 && x.rolaP === 0),
       'K · e nas três a linha CABE de lado e a janela não rola — o mostrador é medido '
       + 'contra o que sobra, nos dois eixos',
@@ -1247,6 +1348,20 @@ try {
       + 'posicionamento o relógio adianta uma hora, e sem ele na leitura quem '
       + 'adianta é quem pergunta o valor. Uma asserção só cobre um dos dois',
       JSON.stringify(doze));
+    checar(t.vizinha > 0 && c.vizinha === 0 && r.vizinha === 0,
+      'K · SÓ O TIMER MOSTRA A PISTA: no Relógio e no Cronômetro as vizinhas somem, '
+      + 'porque ali não há o que escolher. Elas somem por OPACIDADE, e é isso que '
+      + 'as próximas duas asserções cobram',
+      JSON.stringify({ timer: t.vizinha, crono: c.vizinha, relogio: r.vizinha }));
+    checar(t.centro === c.centro && c.centro === r.centro
+      && [t, c, r].every((x) => x.janela === x.item * 3),
+      'K · e o número fica NO MESMO PIXEL nas três — *"apenas ter a posição da '
+      + 'numeração principal, na mesma posição da numeração principal do timer"*. '
+      + 'A régua que decide é a JANELA, não o centro: as vizinhas somem por '
+      + 'OPACIDADE e a caixa continua de três células. Encolhê-la para uma passa '
+      + 'na prova do centro (o flex recentra sozinho) e muda tudo o mais — foi '
+      + 'MEDIDO por reversão',
+      JSON.stringify([t, c, r].map((x) => ({ c: x.centro, j: x.janela, i: x.item }))));
     const semSeg = await abrir('clock', { h12: false, secs: false }).then(forma);
     checar(semSeg.campos.join() === 'hora,min',
       'K · e "sem segundos" TIRA a coluna em vez de escondê-la: escondida, ela '
@@ -1263,11 +1378,37 @@ try {
       'K · o transporte do tempo saiu do corpo da janela e ficou à ESQUERDA do '
       + '"Projetar no telão" — o corpo é do mostrador, que é o que cresce',
       JSON.stringify(rodT.rodape));
-    checar(rodR.rodape[0] === 'Seg' && rodR.rodape[1] === '12 h'
+    checar(rodR.rodape[0] === 'Seg' && rodR.rodape[1] === '12h'
       && rodR.rodape[2] === 'miscProjectBtn',
       'K · e no Relógio o mesmo canto leva os dois seletores, com "Segundos" '
       + 'ABREVIADO: escrito por extenso o rótulo empurra o primário para as '
-      + 'reticências', JSON.stringify(rodR.rodape));
+      + 'reticências (e o "12 h" perdeu o espaço na v1.8.95, quando o botão virou '
+      + 'quadrado)', JSON.stringify(rodR.rodape));
+
+    // OS SELETORES SÃO A MESMA PEÇA QUE O ▶ E O ↺ — pedido literal: *"botões
+    // quadrados, padronizados com os botões de play e reset das outras abas
+    // irmãs"*. As DUAS dimensões e o RAIO: sem zerar o `min-width` da pílula o
+    // quadrado sai retangular, e com o raio da pílula ele sai redondo.
+    const quadr = await pg.evaluate(() => {
+      const cx = (s) => { const e = document.querySelector(s); if (!e) return null;
+        const b = e.getBoundingClientRect(); const g = getComputedStyle(e);
+        return { w: Math.round(b.width), h: Math.round(b.height), r: g.borderRadius }; };
+      return { opts: [...document.querySelectorAll('.misc-foot-esq .chrono-opt')].map((e) => {
+        const b = e.getBoundingClientRect(); const g = getComputedStyle(e);
+        return { w: Math.round(b.width), h: Math.round(b.height), r: g.borderRadius }; }),
+        ref: cx('#miscProjectBtn') };
+    });
+    const botao = await pg.evaluate(async () => {
+      chronoSetMode('timer'); renderChronoEControles();
+      await new Promise((f) => setTimeout(f, 200));
+      const e = document.getElementById('chronoRun');
+      const b = e.getBoundingClientRect(); const g = getComputedStyle(e);
+      return { w: Math.round(b.width), h: Math.round(b.height), r: g.borderRadius };
+    });
+    checar(quadr.opts.length === 2
+      && quadr.opts.every((o) => o.w === o.h && o.w === botao.w && o.r === botao.r),
+      'K · e os dois seletores do Relógio são QUADRADOS, na caixa e no raio do ▶ das '
+      + 'abas irmãs: mesma faixa, mesma peça', JSON.stringify({ quadr: quadr.opts, play: botao }));
     checar(rodT.noCorpo === 0 && rodR.noCorpo === 0,
       'K · e nada disso sobrou no corpo: um controle em dois lugares é o par que '
       + 'diverge no primeiro ajuste',

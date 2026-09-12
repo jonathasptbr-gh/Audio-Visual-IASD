@@ -2029,10 +2029,10 @@ body {
    `--bg`, e a superfície ligada é #293d57 — 1,73:1 entre os dois estados,
    contra os 1,00:1 de antes (o fundo não mudava). O traço fica a 5,37:1.
 
-   NÃO é `--accent-fill` preenchido: aquele par é "ESCOLHIDO entre alternativas"
-   (a célula da Bíblia, o segmento de Ferramentas), e este botão não é uma
-   escolha entre irmãos — é um interruptor de um modo só. Dois estados, duas
-   linguagens. */
+   NÃO é `--accent-fill` preenchido: aquele par ficou sendo dos BOTÕES
+   PRIMÁRIOS (v1.8.95), e este botão não é um. O par de LIGADO daqui virou
+   também o de ESCOLHIDO entre alternativas — a célula da Bíblia, o segmento de
+   Ferramentas —, a pedido do operador, e as duas linguagens viraram uma. */
 #repeat.active { background: var(--btn-accent); color: var(--accent); }
 /* ⏮/⏭ do transporte falam de MÍDIA e mais nada desde a v1.3.5: quem passa
    slide são os dois botões que flanqueiam a preview (`.slide-btn`). Saíram
@@ -5323,13 +5323,14 @@ main {
 /* Célula selecionada agora — o livro aberto, o capítulo aberto e o versículo em
    leitura. É o que faz voltar da leitura já mostrar onde se está, sem procurar.
    ELA É PREENCHIDA (v5.267), e não mais um anel de 2px: o livro ativo troca a
-   tinta do grupo pelo `--accent-fill`, e a FAIXA do grupo continua ali,
+   tinta do grupo pelo par de ESCOLHIDO — `--btn-accent` + `--accent` desde a
+   v1.8.95, o denim até ali —, e a FAIXA do grupo continua ali,
    dizendo de qual divisão ele é. Uma célula inteira pintada destaca mais que um
    anel — inclusive quando a grade rola e ela fica meio cortada, que era o
    argumento do anel. */
-.bible-cell.active { background-color: var(--accent-fill); color: var(--on-accent); }
+.bible-cell.active { background-color: var(--btn-accent); color: var(--accent); }
 .bible-cell--num.active {
-  background-color: var(--accent-fill); color: var(--on-accent);
+  background-color: var(--btn-accent); color: var(--accent);
   font-weight: var(--fw-max);
 }
 .bible-cell-sym { font-size: var(--fs-2xl); font-weight: var(--fw-max); line-height: 1; }
@@ -6380,13 +6381,22 @@ main {
 /* Na faixa, a altura é UMA (a regra da v1.8.61): o quadrado manda, e os
    seletores acompanham em vez de esticar contra ele. */
 .misc-foot-esq .chrono-btn { height: var(--quad-faixa); width: var(--quad-faixa); }
-/* E O SELETOR DE FORMATO É UM CHIP, não um quadrado: ele tem RÓTULO, e um
-   rótulo de três letras numa caixa de 42px sai apertado. O `min-width` do
-   `.misc-chip` (o piso de alvo) continua valendo; o que muda é a altura, que
-   passa a ser a da faixa. */
+/* E O SELETOR DE FORMATO É QUADRADO TAMBÉM (v1.8.95, revogando a v1.8.94), a
+   pedido do operador: *"ajuste os itens opcionais do relógio, como segundos e
+   12h, para que sejam botões quadrados, padronizados com os botões de play e
+   reset das outras abas irmãs"*. As DUAS dimensões declaradas, como manda a
+   regra do botão sem rótulo — e o `min-width` do `.misc-chip` (o piso de alvo
+   de uma pílula que cresce com o texto) tem de ser ZERADO aqui, senão ele vence
+   a largura e o quadrado sai retangular. O rótulo cabe porque ele encolheu
+   junto: "Seg" e "12h", três caracteres, em `--fs-sm`. */
 .misc-foot-esq .chrono-opt {
-  height: var(--quad-faixa); min-height: 0; padding-inline: .5rem;
-  font-size: var(--fs-md);
+  width: var(--quad-faixa); height: var(--quad-faixa);
+  min-width: 0; min-height: 0; padding: 0;
+  /* E O CANTO É O DO BOTÃO, não o da pílula: "padronizados com os botões de
+     play e reset" é o pedido inteiro, e o raio é metade do que faz duas caixas
+     do mesmo tamanho lerem como a mesma peça. */
+  border-radius: var(--radius-btn);
+  font-size: var(--fs-sm);
 }
 
 /* ---------- Primitivos da aba Ferramentas (base comum) ---------- */
@@ -6425,7 +6435,7 @@ main {
   font-size: var(--fs-md); font-weight: var(--fw-max); cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-.misc-tab.active { background: var(--accent-fill); color: var(--on-accent); }
+.misc-tab.active { background: var(--btn-accent); color: var(--accent); }
 /* Ponto = está PROJETANDO. Trocar de ferramenta não tira do telão a que estava
    no ar; sem o ponto, descobrir qual é exigiria visitar cada uma.
    Em `--live-strong`, não em `--live`: o ponto é um GRÁFICO que carrega
@@ -6505,7 +6515,7 @@ main {
   font-size: var(--fs-md); font-weight: var(--fw-forte); cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-.misc-seg.active { background: var(--accent-fill); color: var(--on-accent); }
+.misc-seg.active { background: var(--btn-accent); color: var(--accent); }
 /* ---------- UMA LINHA SÓ PARA O TEMPO (v1.8.89) ----------
    O mostrador e o transporte na MESMA faixa — quatro linhas viraram uma, e é o
    que tirou a rolagem da folha. Ver `renderChrono`.
@@ -6617,6 +6627,19 @@ main {
    cheia. Sem uma consulta de posição em CSS, quem o marca é o JS — UMA classe,
    escrita só quando o índice muda (ver `roletasMostrar`). */
 .roleta-item.roleta-item--sel { opacity: 1; }
+/* SÓ O TIMER MOSTRA A PISTA (v1.8.95). Pedido do operador: *"o relógio e o
+   cronômetro não precisam ter a roleta acima e abaixo visíveis, apenas ter a
+   posição da numeração principal, na mesma posição da numeração principal do
+   timer"* — e a segunda metade da frase é a REGRA: *"alterar entre as abas
+   apenas adiciona elementos e não altera eles"*. Por isso as vizinhas somem por
+   OPACIDADE e nunca por altura: a janela continua sendo três células, e o
+   número escolhido continua no meio dela, no mesmo pixel das três ferramentas.
+   Encolher a janela para uma célula moveria o mostrador ao trocar de aba, que é
+   exatamente o que a frase proíbe. */
+.chrono-linha--clock .roleta-item,
+.chrono-linha--stopwatch .roleta-item { opacity: 0; }
+.chrono-linha--clock .roleta-item.roleta-item--sel,
+.chrono-linha--stopwatch .roleta-item.roleta-item--sel { opacity: 1; }
 /* LEITURA NÃO SE EDITA — e "leitura" é o Relógio, o Cronômetro e o Timer
    CONTANDO, isto é, tudo o que não seja o Timer parado (`roletaEditavel`). A
    trava é o `overflow`, e não um `return` no ouvinte: sem ela a lista ROLA sob o
@@ -6643,7 +6666,7 @@ main {
   font-size: var(--fs-md); font-weight: var(--fw-forte); cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-.misc-chip.active { background: var(--accent-fill); color: var(--on-accent); }
+.misc-chip.active { background: var(--btn-accent); color: var(--accent); }
 .misc-row { display: flex; align-items: center; gap: var(--sp-5); }
 .misc-row-label { font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted); flex-shrink: 0; }
 /* "Guardar esta contagem / este sorteio" (v5.103): o rótulo à esquerda e os
@@ -6675,6 +6698,12 @@ main {
 }
 .chrono-btn .msym { font-size: var(--icon-md); }
 .chrono-btn.primary { background: var(--accent-fill); color: var(--on-accent); }
+/* SEM FUNÇÃO AGORA É APAGADO (a regra da v1.8.50), e ela só passou a ser
+   alcançável na v1.8.95: com o timer nascendo em 00:00:00 o ▶ abre SEM tempo a
+   contar — é o primeiro estado que o operador vê. Acesa, a caixa azul do
+   primário é indistinguível de um botão quebrado, e o que se faz diante dela é
+   tocar de novo. O `title` diz por quê (`atualizarChronoRun`). */
+.chrono-btn:disabled { opacity: var(--op-inativo); cursor: default; }
 /* Projetar: a ação com efeito no TELÃO, por isso destacada. No ar vira
    vermelha — a cor mostra o ESTADO, o rótulo a AÇÃO. */
 .misc-project {
@@ -9404,7 +9433,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: var(--surface); color: var(--muted);
   font-size: var(--fs-md); font-weight: var(--fw-medio); cursor: pointer;
 }
-.fit-opt.active { background: var(--accent-fill); color: var(--on-accent); }
+.fit-opt.active { background: var(--btn-accent); color: var(--accent); }
 
 /* ===== O MODO DO APP É UM INTERRUPTOR QUE DESLIZA (v1.4.43) =====
    Pedido do operador: *"simplifique o design do agrupamento e botões de fácil e
@@ -9476,7 +9505,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   content: ''; position: absolute; z-index: 0;
   top: var(--modo-folga); bottom: var(--modo-folga); left: var(--modo-folga);
   width: calc(50% - var(--modo-folga));
-  background: var(--accent-fill);
+  background: var(--btn-accent);
   border-radius: calc(var(--radius-card) - var(--modo-folga));
   transition: transform var(--dur-media) ease;
 }
@@ -9501,7 +9530,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    mesma medição que o seletor em destaque carregava (3,47:1). O que separa as
    duas metades é o POLEGAR, não o esmaecimento do rótulo; apagar o não
    escolhido diria "indisponível", que é a outra palavra desta paleta. */
-.qs-modo .fit-opt.active { background: none; color: var(--on-accent); }
+.qs-modo .fit-opt.active { background: none; color: var(--accent); }
 .qs-modo .fit-opt svg { display: block; width: var(--icon-md); height: var(--icon-md); }
 /* Menos movimento: o polegar troca de lado NO LUGAR. O que ele comunica é
    ONDE está a escolha, e isso o `data-modo` já entrega sem animar. */
@@ -9621,9 +9650,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    botão está trabalhando. */
 .qs-tile.qs-trabalhando:disabled { opacity: 1; }
 /* A GRADE TEM UMA COR SÓ, E O ESTADO MORA NO DESENHO (v1.7.6).
-   `--btn-accent` + `--accent` é a gramática de INTERRUPTOR LIGADO da paleta, e
-   não o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS: um tile é um botão que
-   alterna, e o seletor de modo logo acima é que é o par de alternativas.
+   `--btn-accent` + `--accent` é a gramática de INTERRUPTOR LIGADO da paleta —
+   e, desde a v1.8.95, também a de ESCOLHIDO entre alternativas: foi ESTE tile
+   que o operador apontou como modelo ao tirar o denim das seleções. O
+   `--accent-fill` ficou sendo dos botões primários.
 
    A v1.4.40 acendeu os tiles que não têm "desligado" e deixou dois apagando (o
    fundo da letra e o giro). O operador encerrou a distinção: *"todos os botões
@@ -9998,8 +10028,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    exatamente o que `.row-item.no-ar` pinta —, e é a mesma palavra que o operador
    já lê em toda parte do app como "isto está no telão".
    ELE SUBSTITUIU O `--accent-fill` da v1.4.24, e a troca de matiz é a regra da
-   paleta e não gosto: acento é ESCOLHA entre alternativas, vermelho saturado é
-   *está no ar agora* — e uma página projetada é o segundo caso.
+   paleta e não gosto: azul é ESCOLHA entre alternativas (hoje `--btn-accent` +
+   `--accent`, v1.8.95), vermelho saturado é *está no ar agora* — e uma página
+   projetada é o segundo caso.
    O corpo da linha é uma IMAGEM, então a cor do texto que marca um versículo não
    alcança nada aqui: quem carrega o estado é o preenchimento do selo. Um
    contorno seria a exceção que a regra existe para não ter, e o
@@ -11361,7 +11392,8 @@ body.mode-simple .bottombar { display: none; }
    passou a ser legível. */
 /* A ESCOLHA DA REDE — a mesma anatomia do `.misc-seg`, que é o par
    "ESCOLHIDO entre alternativas" da paleta: `--surface` no que não está
-   escolhido, `--accent-fill` + `--on-accent` no que está. Ela não reusa aquela
+   escolhido, `--btn-accent` + `--accent` no que está (era o denim até a
+   v1.8.95). Ela não reusa aquela
    classe porque as duas vivem em telas diferentes e um ajuste de uma não deve
    mexer na outra; o que se compartilha são os TOKENS, que é onde a linguagem
    de estado mora. */
@@ -11373,7 +11405,7 @@ body.mode-simple .bottombar { display: none; }
   font-size: var(--fs-md); font-weight: var(--fw-forte); cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-.cast-rede.active { background: var(--accent-fill); color: var(--on-accent); }
+.cast-rede.active { background: var(--btn-accent); color: var(--accent); }
 .cast-rede:active { filter: var(--press-luz); transform: var(--press); }
 
 .cast-acao:disabled { opacity: .7; cursor: default; }
