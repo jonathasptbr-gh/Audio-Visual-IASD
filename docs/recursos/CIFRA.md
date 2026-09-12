@@ -454,9 +454,9 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
     para outra música abriria a folha de um louvor na aba escolhida para outro.
     Quem abre pela Biblioteca não pede fonte nenhuma desde a v1.2.25: o botão
     de lá é **"Ver a letra"**, e a folha nasce na primeira fonte disponível, que
-    é a letra. O parâmetro `fonte` de `openLyricsPopup` continua na assinatura e
-    HOJE NENHUM CHAMADOR O USA. O ALVO morre ao fechar: é o desvio de UMA
-    leitura.
+    é a letra. O parâmetro `fonte` de `openLyricsPopup` **SAIU na v1.8.78** —
+    desde a v1.2.25 nenhum chamador o supria, e o que o mantinha de pé era um
+    oráculo. O ALVO morre ao fechar: é o desvio de UMA leitura.
 - **A aba é a ÚLTIMA da lista de fontes**, e isso é a precedência inteira: sem
   escolha do operador, `lvActiveSource` abre a primeira, que é a camada mais à
   frente do que está sendo VISTO. **A cifra não é uma camada** — ela é o auxiliar

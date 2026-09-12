@@ -380,10 +380,24 @@ jobs:
       # ELE NÃO PODE REPROVAR O JOB: `continue-on-error`, pela mesma política do
       # passo que ele serve — infraestrutura AUSENTE não segura o canal OTA. Um
       # cache frio faz o passo de baixo baixar como antes.
-      - name: Cache do npm e do Chromium
+      # E ELE É `restore` + `save` SEPARADOS, nunca o `cache` de uma peça só.
+      # A razão é o `post-if: success()` do `actions/cache`: o passo de gravação
+      # que ele instala no fim do job NÃO RODA quando o job termina vermelho — e
+      # o job `verificar` termina vermelho sempre que um oráculo reprova, que é
+      # exatamente o caso de quem acabou de subir o pin do Playwright e está
+      # empurrando o mesmo branch três, quatro vezes até ficar verde. Cada um
+      # desses pushes rebaixava os ~150 MB de novo, com a chave nunca escrita.
+      #
+      # E A GRAVAÇÃO É CONDICIONADA AO SUCESSO DA INSTALAÇÃO: `continue-on-error`
+      # absorve uma falha de rede no `npm ci` ou um prazo estourado no
+      # `playwright install`, e sem esta guarda o que ia para o cache era uma
+      # pasta PELA METADE — sob a chave EXATA, que nunca mais é reescrita. Um
+      # cache assim é pior que nenhum: ele restaura calado e o `install`
+      # seguinte pode dá-lo por completo.
+      - name: Cache do npm e do Chromium (restaurar)
         id: cache-pw
         continue-on-error: true
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.npm
@@ -417,6 +431,21 @@ jobs:
           # zero byte de CDN. `--with-deps` fica — ele instala pacotes APT, que
           # o cache acima não cobre e que o runner quase sempre já tem.
           npx playwright install --with-deps chromium
+
+      # A GRAVAÇÃO, fora do `post` — ver o comentário do `restore` acima.
+      # `always()` para sobreviver a um oráculo vermelho mais adiante; o
+      # `outcome == 'success'` para nunca gravar uma instalação pela metade; e o
+      # `cache-hit != 'true'` porque regravar a MESMA chave é um erro do
+      # `actions/cache`, não um no-op.
+      - name: Cache do npm e do Chromium (gravar)
+        if: always() && steps.chromium.outcome == 'success' && steps.cache-pw.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       # FUMAÇA DO CONTROLE e os demais oráculos, num Chromium de verdade. Os
       # passos acima provam que os arquivos são PARSEÁVEIS; estes provam que o

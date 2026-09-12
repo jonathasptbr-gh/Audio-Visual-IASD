@@ -450,19 +450,56 @@ try {
   checar(naEntrada.armado === false, 'e o `send` dele desarma a volta', naEntrada.armado);
 
   await pg.evaluate(() => window.__soltar());
-  // O FATO QUE FECHA A JANELA, e não um prazo: o `load` do vídeo é o último
-  // passo do `send` (depois dele só há linhas síncronas), e um turno de
-  // macrotarefa depois dele o `.then` já rodou — microtarefa drena antes de
-  // qualquer `setTimeout`.
-  r = await esperar(pg, (vid) => window.__cmds.some((c) => c.type === 'load' && c.mediaId === vid), ids.vid, 10000);
-  checar(r === true, 'o `send` atrasado do vídeo chega ao fim', porque(r));
-  await pg.evaluate(() => new Promise((f) => setTimeout(f, 0)));
-
-  const tarde = await pg.evaluate(() => ({ armado: !!deckVideoVolta, eixo: slideTarget() }));
+  // O QUE SE MEDE AGORA É UMA AUSÊNCIA — o vídeo que perdeu a vez NÃO PROJETA.
+  // A espera do blob acontece ANTES do disparo (ver `deckVideoTalvezTocar`), e
+  // a senha do slot é conferida ali: solto o cadeado, o caminho apenas desiste.
+  // Um prazo é a única régua possível para uma ausência, e o fato que fecha a
+  // janela veio antes dele — a leitura já voltou, e o que faltava era só o
+  // `if` seguinte.
+  await pg.evaluate(() => new Promise((f) => setTimeout(f, 120)));
+  const tarde = await pg.evaluate((vid) => ({
+    armado: !!deckVideoVolta,
+    eixo: slideTarget(),
+    loadDoVideo: window.__cmds.some((c) => c.type === 'load' && c.mediaId === vid),
+    noAr: currentId,
+  }), ids.vid);
+  checar(tarde.loadDoVideo === false,
+    'o vídeo que perdeu a vez NÃO sobe ao palco por cima da cena do operador', tarde.loadDoVideo);
+  checar(tarde.noAr === ids.outro,
+    'e a mídia que o operador escolheu continua no ar', tarde.noAr);
   checar(tarde.armado === false,
     'a volta NÃO é rearmada pelo `send` que perdeu a vez', tarde.armado);
   checar(tarde.eixo !== 'deck',
     'e o ⏮/⏭ continua na cena do operador, não no deck morto', tarde.eixo);
+
+  // E A CAMADA DE TEXTO NÃO CANCELA A VOLTA (v1.8.84) — a senha é a do SLOT DE
+  // MÍDIA (`cenaSeq`), não `projecaoSeq`. Subir o cronômetro enquanto o vídeo
+  // do slide é lido é uma ação que não toma o slot, logo a volta tem de sair
+  // armada. Com `projecaoSeq` no lugar dela esta asserção reprova.
+  await pg.evaluate(() => stopClear());
+  await zerar();
+  await pg.evaluate((id) => send(id), ids.deck);
+  r = await noAr(ids.deck);
+  checar(r === true, 'a apresentação no ar para o bloco do cronômetro', porque(r));
+  await pg.evaluate((vid) => {
+    const real = window.__realGetMedia;
+    window.__soltar = null;
+    AVDB.getMedia = async (id) => {
+      const r = await real(id);
+      if (id === vid && !window.__soltar) await new Promise((f) => { window.__soltar = f; });
+      return r;
+    };
+  }, ids.vid);
+  await pg.evaluate(() => { deckIr(1); });
+  r = await esperar(pg, () => !!window.__soltar, null, 10000);
+  checar(r === true, 'o `send` do vídeo está preso na leitura, para o cronômetro entrar', porque(r));
+  await pg.evaluate(() => { projectChrono(); });
+  await pg.evaluate(() => window.__soltar());
+  r = await noAr(ids.vid);
+  checar(r === true, 'o vídeo do slide entra mesmo com o cronômetro projetado no meio', porque(r));
+  r = await esperar(pg, () => !!deckVideoVolta, null, 10000);
+  checar(r === true, 'e a volta da apresentação CONTINUA armada — camada de texto não toma o slot', porque(r));
+  await pg.evaluate(() => { hideChrono(); });
 
   // E A REVERSÃO DA TRAVA: sem toque no meio, a MESMA espera arma a volta. Sem
   // esta metade, um `deckVideoVolta = null` a mais em qualquer lugar passaria
