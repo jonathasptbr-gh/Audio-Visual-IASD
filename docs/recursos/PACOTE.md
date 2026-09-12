@@ -243,11 +243,13 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   lista VAZIA, que o `controle.js` lê como *"a pasta sumiu do aparelho"*. Os
   arquivos delas saem junto (`AVPacote.pastasDoAparelho`), e o corte é por
   SEGMENTO de caminho, nunca por prefixo de texto.
-- **O `stream` de um registro é RETIRADO na exportação.** Ele é o manifesto de
-  uma transmissão direta: URLs do googlevideo que expiram em horas e tokens de
-  um `StreamProxy` que só existe na origem. Sem o campo, o item é o LINK do
-  YouTube que ele sempre foi — resolvido no primeiro toque, pelo caminho que já
-  existe.
+- **O `stream` de um registro é RETIRADO na exportação.** O app não escreve mais
+  esse campo (a transmissão direta saiu na v1.8.82), mas um registro gravado
+  antes dela ainda o carrega no aparelho: um manifesto de URLs do googlevideo já
+  expiradas, com tokens de um `StreamProxy` que só existia na origem. **Esta é a
+  única pergunta que o web ainda faz pelo campo**, e é aqui que ele morre — sem
+  ele, o item é o LINK do YouTube que ele sempre foi, resolvido no primeiro
+  toque.
 - **O LEITOR NUNCA MATERIALIZA O ARQUIVO** (v1.7.9). Ele lê por JANELAS
   (`pacoteFonteDaUrl` → `/saf/<token>?r=<ini>-<fim>`), e são DUAS operações
   porque elas custam coisas diferentes: `bytes()` para os CABEÇALHOS (dezenas
@@ -546,8 +548,9 @@ Pedido do operador: *"o feedback da ui sobre a preparação da exportação … 
 seja exibida sobre o próprio botão de exportar, já que a ação acontece ali e não
 na tela ou controle"*.
 
-**O APP JÁ TINHA A MECÂNICA, em dois lugares** — o `#otaRow` (`falarNoOta`) e o
-"Guardar como pacote" (`falarNoPacote`) —, e a regra está na lista de canais de
+**O APP JÁ TINHA A MECÂNICA** — o `#otaRow` (`falarNoOta`), e o "Guardar como
+pacote", que a usou da v5.207 à v1.8.53 e a perdeu ao virar um botão de símbolo
+(um símbolo não tem rótulo a emprestar) —, e a regra está na lista de canais de
 resposta do `controle.js` desde a v5.207: *"o rótulo do controle empresta a si
 mesmo por alguns segundos e volta"*. O cartão sobre a preview é o canal do que
 ACONTECERIA NELA; uma exportação não acontece na preview.

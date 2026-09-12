@@ -74,10 +74,15 @@
 (function (global) {
   'use strict';
 
-  // ---- OS DOIS EIXOS DA ESCOLHA ----
-  // O MODO responde "quanto?" e a VARIANTE responde "o quê?". São perguntas
-  // independentes: sortear uma cantada e montar uma fila de playbacks são os
-  // dois cantos úteis do mesmo quadrado.
+  // ---- OS VALORES DO EIXO QUE SAIU (v1.8.61) ----
+  // Havia DOIS eixos onde o operador via um: um MODO ("Tocar uma só" × "Montar
+  // playlist") e a QUANTIDADE, e o primeiro só decidia se a segunda contava —
+  // *"a única diferença é quantidade"*. Hoje o eixo é UM: `quantos`, e
+  // `quantos === 1` É "uma só".
+  //
+  // AS DUAS STRINGS FICAM porque são o que um `sorteioPrefs` gravado até a
+  // v1.8.60 carrega, e é por elas que a migração do `saneQuantos` decide. Elas
+  // NÃO são exportadas: um consumidor novo delas seria o eixo velho voltando.
   const MODO_UMA = 'uma';
   const MODO_PLAYLIST = 'playlist';
 
@@ -133,8 +138,15 @@
   // Quantas faixas a fila pode ter. É um TETO com nome porque, sem ele, um tema
   // genérico ("Deus" casa em quase toda letra) montaria uma fila de centenas —
   // e, no pior caso, centenas de downloads antes de a primeira nota tocar.
-  const QUANTIDADES = [3, 5, 10, 15, 20];
-  const QUANTIDADE_PADRAO = 5;
+  //
+  // O `1` É A PRIMEIRA DELAS desde a v1.8.61, e é o antigo "Tocar uma só" — daí
+  // o padrão ser 1: o padrão do recurso sempre foi sortear UMA, e agora esse
+  // estado é um número em vez de um eixo. `QUANTIDADE_FILA` é o teto que um
+  // registro LEGADO de playlist herda quando não trouxe quantidade válida; só a
+  // migração o usa.
+  const QUANTIDADES = [1, 3, 5, 10, 15, 20];
+  const QUANTIDADE_PADRAO = 1;
+  const QUANTIDADE_FILA = 5;
 
   // ---- O ESTADO SANEADO ----
   // Campo a campo e por TIPO, como `applyDrawPrefs`: isto lê o que voltou do
@@ -142,10 +154,27 @@
   // campo ausente cai no padrão; um campo com o tipo errado também. O que NÃO
   // pode acontecer é um `variante: 'cantada'` guardado por engano atravessar
   // até o `resolveSongMediaId` (ver a nota das duas strings, acima).
+  // A MIGRAÇÃO DO EIXO (v1.8.61), e ela é o ponto perigoso deste lote.
+  //
+  // `{ modo: 'uma', quantos: 5 }` é o estado COMUM de um aparelho gravado até a
+  // v1.8.60: o `quantos` ficava guardado e o modo o ignorava. Derivar sem olhar
+  // o `modo` daria a esse operador uma playlist de CINCO onde ele escolheu UMA.
+  //
+  // A OUTRA METADE MORA NO `saveSorteioPrefs`, e sem ela isto não fecha: ele
+  // parou de gravar `modo`. Se o campo continuasse sendo escrito, um `'uma'`
+  // GRUDADO faria esta migração re-disparar a cada leitura — o operador escolhe
+  // 10, fecha o app, e volta em 1 para sempre.
+  function saneQuantos(p) {
+    const q = p.quantos | 0;
+    const valido = QUANTIDADES.includes(q);
+    if (p.modo === MODO_UMA) return 1;
+    if (p.modo === MODO_PLAYLIST) return valido && q > 1 ? q : QUANTIDADE_FILA;
+    return valido ? q : QUANTIDADE_PADRAO;
+  }
+
   function sanear(f) {
     const p = f || {};
     return {
-      modo: p.modo === MODO_PLAYLIST ? MODO_PLAYLIST : MODO_UMA,
       tema: typeof p.tema === 'string' ? p.tema : '',
       variante: p.variante === VARIANTE_PLAYBACK ? VARIANTE_PLAYBACK : VARIANTE_CANTADA,
       semHinario: p.semHinario === true,
@@ -158,7 +187,7 @@
       // infantis na fila sem ter mexido em nada.
       semInfantis: p.semInfantis !== false,
       soNoAparelho: p.soNoAparelho === true,
-      quantos: QUANTIDADES.includes(p.quantos | 0) ? (p.quantos | 0) : QUANTIDADE_PADRAO,
+      quantos: saneQuantos(p),
     };
   }
 
@@ -328,25 +357,47 @@
   //
   // A preferência é ABSOLUTA (concatenar, não intercalar) e o preço está dito:
   // com três faixas baixadas e nenhum filtro, "sortear uma" sai dessas três até
-  // que outras sejam baixadas. É por isso que o contador da tela mostra as duas
-  // metades ("12 casam · 3 já no aparelho") em vez de um número só, e é por isso
-  // que o chip "Só no aparelho" existe: ele torna a escolha explícita em vez de
-  // deixá-la implícita na ordenação.
+  // que outras sejam baixadas. É por isso que o chip "Só no aparelho" existe:
+  // ele torna a escolha explícita em vez de deixá-la implícita na ordenação — e
+  // é por isso que cada linha da lista diz "no aparelho" ou "vai baixar", que
+  // desde a v1.8.84 é onde essa metade da conta aparece (antes era um contador
+  // de duas metades, "12 casam · 3 já no aparelho", que saiu com o cartão).
   //
   // Embaralha as DUAS partições, e não só a primeira: quando a de cima não
   // enche a fila, o que completa também tem de ser sorteado — senão o resto da
   // lista sai na ordem do acervo, isto é, sempre o mesmo álbum.
-  function sortear(itens, quantos, rnd) {
-    const n = Math.max(1, quantos | 0);
+  //
+  // ---- O BARALHO: a ordem INTEIRA, da qual o sorteio é o topo (v1.8.84) ----
+  //
+  // Ele é o `sortear` sem o corte, e existe porque a folha passou a MOSTRAR a
+  // lista: *"ela mostra todos os disponíveis, mas o número de itens para a
+  // playlist fica marcado e ficam no topo da lista"*.
+  //
+  // **A partição VIRA A ORDEM, e é isso que faz o desenho funcionar**: com o que
+  // está no aparelho na frente, o topo da lista — que é o que vai tocar — é
+  // justamente o que toca na hora. A coluna "no aparelho" da lista deixa de ser
+  // um aviso e passa a ser a explicação de por que aquele item está ali em cima.
+  //
+  // E é UMA regra, não duas: `sortear` é este mais um `slice`. Duas escritas do
+  // mesmo embaralhamento dariam à lista uma ordem e ao sorteio outra — o
+  // operador marcaria cinco e ouviria outras cinco.
+  function baralhar(itens, rnd) {
     const r = typeof rnd === 'function' ? rnd : Math.random;
     const lista = Array.isArray(itens) ? itens : [];
     const perto = embaralhar(lista.filter((i) => i && i.noAparelho), r);
     const longe = embaralhar(lista.filter((i) => i && !i.noAparelho), r);
-    return perto.concat(longe).slice(0, n);
+    return perto.concat(longe);
+  }
+
+  function sortear(itens, quantos, rnd) {
+    const n = Math.max(1, quantos | 0);
+    return baralhar(itens, rnd).slice(0, n);
   }
 
   global.AVSorteio = {
-    MODO_UMA, MODO_PLAYLIST,
+    // (`MODO_UMA`/`MODO_PLAYLIST` saíram da superfície na v1.8.61: o eixo virou
+    // `quantos`, e as duas strings sobrevivem só como ENTRADA da migração —
+    // exportá-las convidaria o eixo velho de volta por um consumidor novo.)
     VARIANTE_CANTADA, VARIANTE_PLAYBACK,
     MOTIVO_SEM_MUSICA, MOTIVO_HINARIO, MOTIVO_SEM_INDICE,
     MOTIVO_VARIANTE, MOTIVO_TEMA, MOTIVO_FORA, MOTIVO_INFANTIL,
@@ -354,6 +405,6 @@
     CASOU_NOME, CASOU_ALBUM, CASOU_LETRA, CASOU_SEM_TEMA,
     QUANTIDADES, QUANTIDADE_PADRAO,
     sanear, temVariante, avaliarColecao, ondeCasa, avaliarFaixa,
-    montarPool, embaralhar, sortear,
+    montarPool, embaralhar, baralhar, sortear,
   };
 })(this);

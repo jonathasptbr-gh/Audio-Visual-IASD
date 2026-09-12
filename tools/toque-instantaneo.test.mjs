@@ -10,9 +10,10 @@
 // atual deve ser instantaneamente interrompida para indicar que há outra mídia
 // sendo colocada no ar, independente dela estar carregando"*.
 //
-// A janela era real e longa: `tentarTransmitir` começa por um `ytStream`, que é
-// uma EXTRAÇÃO DE REDE de segundos, e só depois dela vem o `send` que muda
-// alguma coisa na tela. No meio-tempo o único sinal era o `setYtEstado`, que
+// A janela era real e longa: o caminho começava por uma EXTRAÇÃO DE REDE de
+// segundos, e só depois dela vinha o `send` que muda alguma coisa na tela.
+// (Hoje quem espera é o DOWNLOAD — a transmissão direta saiu na v1.7.7 e o
+// embrulho `ytStream` saiu do `native.js` na v1.8.71 —, e a janela é a mesma.) No meio-tempo o único sinal era o `setYtEstado`, que
 // acende uma LINHA da Biblioteca — a mesma que o `closeHymnSearch` acabou de
 // fechar. E o caminho do DOWNLOAD já tinha o cartão de espera sobre a preview;
 // o da TRANSMISSÃO nunca teve.
@@ -22,8 +23,8 @@
 // É a lição do `aviso-de-importacao`: **um teste do desfecho passa nas duas
 // versões.** Com a correção ou sem ela, o vídeo entra em cena quando os bytes
 // chegam — o que muda é o que acontece ANTES disso, e por isso a ponte de
-// mentira SEGURA o `ytStream` até o oráculo mandar soltar. É essa janela, e
-// só ela, que é o recurso.
+// mentira SEGURA o `ytFetch` (`__soltarBaixa`) até o oráculo mandar soltar. É
+// essa janela, e só ela, que é o recurso.
 //
 // ## As quatro metades
 //
@@ -98,8 +99,8 @@ const PONTE = `(() => {
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolEstado','keepAlive',
-    'listFolder','micDiag','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
-    'otaPending','pickDoc','pickFolder','requestMic','salvarTexto','systemVolume','temaClaro',
+    'listFolder','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
+    'otaPending','pickDoc','pickFolder','salvarTexto','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiscard','ytStream',
     'ytPlaylist','ytSearch','areaTransferencia','atualizacaoEstado',
   ];
@@ -158,7 +159,7 @@ try {
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(
     () => window.__NATIVE__ === true && window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
 
@@ -191,8 +192,8 @@ try {
     midia: midiaNoAr,
     cmds: window.__cmds.slice(),
     cartao: !!document.getElementById('pvBusy'),
-    // O `ytStream` continua PENDENTE: é isso que prova que a interrupção não
-    // esperou a rede.
+    // O DOWNLOAD continua PENDENTE (`__soltarBaixa` ainda não foi solto): é
+    // isso que prova que a interrupção não esperou a rede.
     soltou: !!window.__soltarBaixa,
   }));
   checar(meio.midia === false,
@@ -333,12 +334,11 @@ try {
   // é o nome do item ou renomeação que temos já no app"*.
   //
   // A espera tem dois donos em sequência e cada um escreve a legenda: o toque
-  // (`cederOPalco`, com o nome do ITEM) e a carga do stream (o `onEspera`, com o
-  // nome do REGISTRO recém-criado). O registro nascia com `man.name || r.name`
-  // — o título que o shell extraiu do YouTube VENCENDO o nome que o app já
-  // tinha —, então na segunda metade a legenda trocava sozinha. No caminho que
-  // mais importa, um item de link do Cronograma, o que era apagado é o nome que
-  // o OPERADOR deu.
+  // (`cederOPalco`, com o nome do ITEM) e o download (`ytBaixarNativo`, com o
+  // nome do REGISTRO recém-criado). O registro nascia com o título que o shell
+  // extraiu do YouTube VENCENDO o nome que o app já tinha, então na segunda
+  // metade a legenda trocava sozinha. No caminho que mais importa, um item de
+  // link do Cronograma, o que era apagado é o nome que o OPERADOR deu.
   //
   // A MEDIDA É A SEQUÊNCIA DE NOMES, não o estado final. Um teste do fim passa
   // nas duas versões enquanto o segundo dono não tiver escrito ainda, e passa
@@ -362,19 +362,16 @@ try {
       url: 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDE=',
     };
     // O ESPIÃO: `previewBusy` é uma declaração de topo, logo uma propriedade do
-    // objeto global — e é por ela que `cederOPalco` e o `onEspera` resolvem a
-    // chamada. Trocá-la aqui alcança os dois sem tocar no código deles.
+    // objeto global — e é por ela que `cederOPalco` e o cartão do download
+    // resolvem a chamada. Trocá-la aqui alcança os dois sem tocar no código
+    // deles.
     const vistos = [];
     const orig = window.previewBusy;
     window.previewBusy = (acao, nome, cancelar) => { vistos.push(nome); return orig(acao, nome, cancelar); };
     // O NOME DO REGISTRO é colhido NO PONTO DA DECISÃO, e não relido do banco
-    // depois: o `recuperarStream` troca o registro quando as URLs de mentira
-    // falham, e o coletor apaga o que ficou sem lista. Procurá-lo no fim mede o
-    // desfecho do arnês, não a regra.
-    // O ESPIÃO DO REGISTRO É O DO DOWNLOAD (v1.7.7): era o `addStreamMedia`, e
-    // a transmissão que o chamava saiu do app. A regra medida não mudou — o
-    // nome que o app já tem VENCE o título que o shell extraiu —, mudou o
-    // ponto em que ela é aplicada.
+    // depois: o coletor apaga o que ficou sem lista, e procurá-lo no fim mede o
+    // desfecho do arnês, não a regra. O espião é o `AVDB.addMedia` do download,
+    // que é por onde o registro do link resolvido nasce.
     const batizados = [];
     const origAdd = AVDB.addMedia;
     AVDB.addMedia = (blob, meta) => { batizados.push(meta && meta.name); return origAdd(blob, meta); };

@@ -90,6 +90,17 @@ Texto é **desacoplada do ciclo de vida da mídia do stage** — `showText`/
   `showLyrics`/`showPvLyrics` retornam cedo se um texto manual estiver em cena
   (a letra pertence a UMA música tocando; um versículo/mensagem manual tem
   precedência sobre a letra do áudio de fundo).
+- **A CORTINA É COMPARTILHADA, A `view` NÃO É** (v1.8.83). `showText` move a
+  cortina por conta própria — o fade de entrada do cartão é dele —, mas a `view`
+  continua sendo estado do STAGE, e ele passou a DECLARÁ-LA
+  (`stage.declararView(textView)`). Sem essa linha ela ficava congelada no valor
+  anterior e o `view` seguinte caía no `if (v === view) return` do
+  `setViewFaded`: com o telão **já coberto** antes de o versículo entrar,
+  "apenas wallpaper" não cobria mais nada e a Escritura ficava presa no telão —
+  **com a preview obedecendo**, porque o `setView` do `controle.js` move a
+  cortina dela por fora. É a condição inteira do *"aconteceu algumas vezes, mas
+  não sempre"*. Ver `declararView` em `MOTOR-STAGE.md`; oráculo:
+  `cartao-preso-no-telao.test.mjs`.
 - **Sair do texto sem nada em cena volta ao WALLPAPER, não ao preto**
   (`restoreSceneAfterText`/`restorePvSceneAfterText`). `showText` abre a
   cortina para o cartão aparecer; se não há mídia carregada — ou a que havia já
@@ -599,23 +610,32 @@ no topo** (`.misc-switch`), uma linha só:
   da lista ligada, a página inteira voltaria a rolar e o rodapé sairia da base.
 - Verificado nas três ferramentas: **zero rolagem**, horizontal ou vertical.
 
-**O rodapé são as duas ações que MANDAM ALGO PARA A TELA**, lado a lado
-(`renderFoot`): o **microfone** e **"Projetar no telão"**. São as únicas com
-efeito fora do celular, e tê-las sempre no mesmo ponto vale mais do que a
-proximidade com os controles que as configuram — o operador aprende UM lugar em
-vez de um por ferramenta. De quebra, o botão de projetar parou de descer
-conforme o painel cresce (no sorteio de texto ele ficava abaixo da lista).
+**O RODAPÉ É FIXO E É IRMÃO DO CORPO** (`#toolsFoot`, v1.8.89): uma barra que
+more dentro do scroller rola com os itens dele, que é o que o pedido do operador
+nomeia. Nele mora tudo o que SAI da ferramenta, e tê-lo sempre no mesmo ponto
+vale mais do que a proximidade com os controles que o configuram — o operador
+aprende UM lugar em vez de um por ferramenta. De quebra, o botão de projetar
+parou de descer conforme o painel cresce (no sorteio de texto ele ficava abaixo
+da lista).
 
-- O microfone é uma **barra**, não mais um disco de 132 px: é o único controle
-  daqui com urgência real (push-to-talk pode ser preciso no meio de uma frase),
-  e como barra custa ~56 px de altura oferecendo área de toque **maior**.
+- **É UMA FAIXA DE FECHO** (`renderFoot`): o "Projetar no telão" CRESCE à
+  esquerda e os dois destinos (`cue-save-btn`) ficam à direita, na ordem
+  canônica da tabela `DESTINOS`. O "guardar isto" era uma LINHA no fim de cada
+  painel (`cueSaveRow`) e descia com ele — o mesmo defeito que já tinha trazido
+  o projetar para cá. Hoje é um DESCRITOR (`cueSaveDaFerramenta`): a ferramenta
+  diz COMO montar a cena, o rodapé desenha.
+- **A ALTURA É UMA SÓ** (a regra da v1.8.61): com irmãos na faixa o primário
+  cede para `--quad-faixa`; SOZINHO — o caso das Mensagens, que devolvem `null`
+  porque já entram no Cronograma pelo caminho próprio — ele volta à barra alta e
+  ocupa a linha inteira, pela AUSÊNCIA do irmão e não por uma regra para o caso.
 - **"Projetar" age sobre a ferramenta ATIVA** (`miscProjectState`). Em Mensagens
   ele não pode projetar sozinho — falta saber QUAL, e isso se escolhe tocando na
   lista —, então fica **inerte com um `title` que explica**; some não, porque o
-  botão é um ponto fixo da tela e sumir faria o microfone pular de largura a
-  cada troca. Com uma mensagem já selecionada ele **reexibe** a que ficou: é a
-  ação natural depois de um "Tirar do telão", e sem ela o operador teria que
-  caçar a linha certa de novo.
+  rodapé é um ponto fixo da tela e sumir faria a faixa mudar de altura a cada
+  troca. Com uma mensagem já selecionada ele **reexibe** a que ficou: é a ação
+  natural depois de um "Tirar do telão", e sem ela o operador teria que caçar a
+  linha certa de novo.
+- (O **microfone ao vivo** era a outra metade deste rodapé, e saiu na v1.8.89.)
 
 > **Vazamento horizontal (v5.31).** A faixa "de/até" do sorteio empurrava a aba
 > além da largura da tela. Causa: o padrão de um item flex é `min-width: auto`,
@@ -627,7 +647,7 @@ conforme o painel cresce (no sorteio de texto ele ficava abaixo da lista).
 
 ### Ferramentas: cronômetro · relógio · timer
 
-Terceiro provedor da Camada de Texto, na aba **Ferramentas** (junto do microfone).
+Terceiro provedor da Camada de Texto, na folha de **Ferramentas**.
 O que vai ao telão é o **mesmo cartão** da Bíblia e das Mensagens
 (`mode: 'chrono'`), e isso não é economia de CSS: herdando o cartão, herda
 junto toda a regra de convivência já madura — `load` de **áudio** mantém o
@@ -714,8 +734,8 @@ exibindo exatamente o mesmo valor do Controle.
   do relógio, legenda). Uma contagem em curso não sobrevive ao fechamento do
   app de propósito: restaurar um cronômetro que "correu" com o app fechado
   mostraria um número sem significado.
-- A ferramenta vive só no **modo avançado**, como o microfone: o simplificado
-  existe para quem quer conectar a tela e tocar um louvor.
+- A ferramenta vive só no **modo avançado**: o simplificado existe para quem
+  quer conectar a tela e tocar um louvor.
 
 ### Ferramentas: sorteio
 

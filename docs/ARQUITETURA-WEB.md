@@ -22,7 +22,7 @@ para uma pergunta sobre a Bíblia não custar a leitura do Controle inteiro.
 | Motor de renderização | [`arquitetura/MOTOR-STAGE.md`](arquitetura/MOTOR-STAGE.md) | `shared/stage.js`: cortina, fades, concorrência de load |
 | Camada de Texto | [`arquitetura/CAMADA-DE-TEXTO.md`](arquitetura/CAMADA-DE-TEXTO.md) | Bíblia, Mensagens, letra avulsa, cronômetro, sorteio, letra sincronizada, IMAGEM sobre o áudio |
 | Bíblia | [`arquitetura/BIBLIA.md`](arquitetura/BIBLIA.md) | a aba `bible`: seleção, leitura e projeção |
-| Display | [`arquitetura/DISPLAY.md`](arquitetura/DISPLAY.md) | wallpaper, microfone, recuperação de áudio, o telão |
+| Display | [`arquitetura/DISPLAY.md`](arquitetura/DISPLAY.md) | wallpaper, recuperação de áudio, o telão |
 | Design System | [`arquitetura/DESIGN-SYSTEM.md`](arquitetura/DESIGN-SYSTEM.md) | **antes de escrever qualquer cor**; tokens, dois temas, contraste, ícones |
 | Documento em cena | [`arquitetura/DOCUMENTO-EM-CENA.md`](arquitetura/DOCUMENTO-EM-CENA.md) | PDF, PowerPoint e Google Apresentações virando páginas |
 
@@ -181,8 +181,6 @@ app/src/main/assets/web/
 │   ├── native.js               # ponte AVNative (só existe no app; no-op no navegador)
 │   ├── db.js                   # Camada comum: IndexedDB + OPFS + BroadcastChannel (+ relay nativo)
 │   ├── stage.js                # Motor de renderização compartilhado
-│   ├── mse.js                  # Player DASH mínimo (window.AVStream): a
-│   │                           # TRANSMISSÃO DIRETA do YouTube sem baixar
 │   ├── wallpaper-padrao.svg    # O wallpaper padrão: o símbolo oficial IASD
 │   ├── material-symbols.css    # Font-face da fonte de ícones (subset offline; só o Controle usa)
 │   └── fonts/

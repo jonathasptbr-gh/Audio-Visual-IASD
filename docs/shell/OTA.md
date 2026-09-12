@@ -161,12 +161,12 @@ não confirme é descartado no lançamento seguinte e o app volta ao embutido.
 
 #### O sinal de boot (`otaAppIsUp`)
 
-Ordem dos scripts do Controle: `native.js` → `db.js` → `mse.js` → `stage.js` →
+Ordem dos scripts do Controle: `native.js` → `db.js` → `stage.js` →
 `louvorja.js` → `bible.js` → `serie.js` → `cifra.js` → `sorteio.js` →
 `hinario.js` → `coletanea.js` → `pptxzip.js` → `deck.js` → `pacote.js` →
 `controle.js`.
 
-As CINCO condições: papel `controle` · `AVDB`/`AVStream`/`createStage` ·
+As CINCO condições: papel `controle` · `AVDB`/`createStage` ·
 `__avBack` · um `<li>` em `#playlist` · **os dez módulos do Controle**
 (`Louvorja`, `Bible`, `AVSerie`, `AVSorteio`, `AVCifra`, `AVHinario`,
 `AVColetanea`, `AVPptxZip`, `AVDeck`, `AVPacote`). Por **polling** (250 ms,
@@ -581,10 +581,10 @@ sintoma é "a atualização não chega".
 #### O sinal de boot é "o app está DE PÉ" (`otaAppIsUp`)
 
 `window.AVDB` no `load` não bastava: a ordem dos scripts do Controle é
-`native.js` → `db.js` → `mse.js` → `stage.js` → `louvorja.js` → `bible.js` →
+`native.js` → `db.js` → `stage.js` → `louvorja.js` → `bible.js` →
 `serie.js` → `cifra.js` → `sorteio.js` → `hinario.js` → `coletanea.js` →
 `pptxzip.js` → `deck.js` → `pacote.js` → `controle.js`, e um erro
-em qualquer um dos **catorze** últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
+em qualquer um dos **treze** últimos aborta só AQUELE script — o `load` dispara, `AVDB` continua lá, e o
 bundle quebrado era carimbado como bom **para sempre**. As cinco condições,
 cada uma cobrindo o que a anterior não cobre:
 
@@ -592,8 +592,8 @@ cada uma cobrindo o que a anterior não cobre:
    e é o caso NORMAL de culto: confirmaria quase sempre no lugar do outro. Regra
    imposta **nos dois lados** (o laço nem começa no Display, e `otaConfirm`
    recusa `role != "controle"`).
-2. **`AVDB` · `AVStream` · `createStage`** — os três módulos compartilhados, cada
-   um publicando seu global no fim do arquivo.
+2. **`AVDB` · `createStage`** — os dois módulos compartilhados, cada um
+   publicando seu global no fim do arquivo.
 3. **`__avBack`** (perto do fim do `controle.js`) — só existe se o arquivo foi
    parseado inteiro. É a mesma função que `handleBack()` consulta: contrato que
    já existe, não marcador inventado.

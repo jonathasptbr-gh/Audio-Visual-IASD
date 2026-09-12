@@ -206,10 +206,10 @@ ser diagnosticável.
   extrator (`ex.getPage`), nunca de `getMoreItems(service, …)`, que monta um
   extrator novo por dentro e nasceria sem o `forceLocalization`.
 - **UM EPISÓDIO É UM VÍDEO DO YOUTUBE**, não uma faixa de hinário: `openSongMenu`
-  desvia para `openYtMenu`, e com isso ganha de graça a transmissão direta no
-  "Tocar agora" e o download só nos destinos que GUARDAM. `semSoAudio` tira o
-  seletor Vídeo × Só áudio (um testemunho em vídeo não tem versão de áudio que
-  faça sentido projetar).
+  desvia para `openYtMenu`, e com isso ganha de graça o caminho do YouTube
+  inteiro — o download a pedido, nunca por abrir o álbum (~300 MB por episódio).
+  `semSoAudio` tira o seletor Vídeo × Só áudio (um testemunho em vídeo não tem
+  versão de áudio que faça sentido projetar).
 - **E A LINHA TAMBÉM É A DO VÍDEO.** Quem decide é o TIPO da coleção
   (`tipoDaColecao`, com `temLetra` e `ehLink`), não um `if` por recurso: a gaveta
   que numa música abre a letra abre aqui a MINIATURA, a duração e o estado no
@@ -221,6 +221,47 @@ ser diagnosticável.
   LouvorJA com um id do YouTube; como falha de rede não grava `LYRIC_NONE` de
   propósito, eram ~52 requisições perdidas **por abertura, para sempre**,
   infladas no total da notificação.
+- **MANTER O EPISÓDIO DA SEMANA BAIXADO** (v1.8.87). Uma caixa de marcação no
+  **topo** do card aberto — acima do destaque do sábado, porque é ela que
+  governa o que aquele bloco mostra —, e uma rotina na fase 5 do
+  `autoRefreshCollections` (`manterSeriesDaSemana`).
+
+  **O álbum de série continua não retendo arquivo**, e a regra da v1.1.21 não
+  mudou: não há botão de baixar em lote, a barra não anuncia peso, e a série
+  segue fora de "Baixar toda a biblioteca". O que entra é um detentor NOVO de
+  tamanho **UM por série** — a lista `serie` de `shared/db.js`, o quinto membro
+  de `LISTS`.
+
+  - **Escrever na lista não é reter.** O que a torna detentora é estar em
+    `LISTS`, que é o que o `lerDetentores` varre; fora dela o arquivo nasce
+    órfão, o `gcOrfaos` da abertura seguinte o apaga, e o app rebaixa os mesmos
+    ~300 MB toda semana com a lista de pé apontando para bytes que não existem.
+  - **A limpeza é o `listSet`, não uma varredura.** A lista recalculada solta o
+    que saiu e o blob morre na mesma transação, se nenhuma outra lista o
+    segurar — o que honra de graça o episódio que o operador mandou ao
+    Cronograma.
+  - **MAS a lista só ENCOLHE com o substituto na mão** (`serieRetidosDa`). A
+    ordem "baixar, depois limpar" não bastava, e isso foi MEDIDO: com o download
+    falhando — rede caída, ou o vídeo ainda não liberado pelo canal, que é o
+    caso normal de segunda a sexta — a lista saía vazia e o `listSet` matava o
+    episódio da semana passada de qualquer jeito. O pior caso passa a ser um
+    episódio a mais no aparelho até o download vir.
+  - **A guarda de rede é `isConfirmedWifi`**, e não "não é celular" como o
+    `syncLyrics`: lá são alguns kB de JSON e "na dúvida, baixa" é o certo; aqui
+    são ~300 MB que ninguém pediu agora. **O preço é real, e por isso a LINHA o
+    diz:** `connection.type` devolve `'unknown'` em boa parte dos aparelhos, e
+    nesses a rotina nunca roda — um no-op silencioso seria a opção marcada com
+    nada acontecendo, para sempre.
+  - **A qualidade é a do OPERADOR** (`ytAlturaPadrao`), não um teto próprio da
+    rotina.
+  - **E a folha de um episódio JÁ BAIXADO omite a qualidade** (`semQualidade`),
+    pela mesma régua que já a tira no caminho de só-áudio: com bytes no aparelho
+    o `ytArquivo` reaproveita o registro e o teto não é consultado.
+  - **O nome na frase não é o `coll.name`.** *"Manter o Provai e Vede 2026 da
+    semana"* põe duas escalas de tempo na mesma linha; o nome sem o ano é
+    `serie.rotulo || serie.prefixo`.
+
+  Oráculo: `serie-mantem-a-semana.test.mjs`.
 - **O CARD DA SÉRIE TEM UM BOTÃO SÓ** (v1.1.21), e é o de **atualizar a lista**
   (`syncCollection(coll, { soIndice: true })`) — puro, sem texto, na direita da
   barra. Os outros dois saíram porque **o álbum de série não retém arquivo**: um

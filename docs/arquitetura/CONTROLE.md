@@ -24,7 +24,7 @@
 | [Feedback](#feedback-sem-alerta-flutuante--e-a-exceção-do-salvamento) | a resposta nasce onde o toque nasceu |
 | [Compartilhamento](#compartilhamento) · [Diálogo padrão](#diálogo-padrão-do-app-confirmações--prompts) | entradas e confirmações |
 | [O histórico do culto](#o-histórico-do-culto-em-configurações-v120--v1430) | o que já foi ao telão, por sessão |
-| [A abertura e a badge de versão](#a-abertura-e-a-badge-de-versão-v170) | a cortina do `#splash`, o número no cabeçalho |
+| [A abertura e a badge de versão](#a-abertura-e-a-badge-de-versão-v170) | a cortina do `#splash`, as duas casas do número, o limpar do Cronograma |
 | [O que o telão retoma](#o-que-o-telão-retoma-ao-reconectar-midianoar-v5142) | reconexão |
 
 
@@ -149,10 +149,21 @@ pergunta a cada música viraria ruído no meio do culto. A verificação usa
 `songVariantsNeeded()`, a mesma regra da sincronização em massa (não basta ter
 `fileIdFull`: o arquivo pode ter sido apagado por fora).
 
-**Volume em degraus, não em curso.** `simpleVolStep()` usa o MESMO passo dos
-botões físicos (`VOL_KEY_STEP`) e a mesma `applyVolume()`. `holdRepeat()` faz a
+**Volume em degraus, não em curso.** `simpleVolStep()` usa a MESMA grade dos
+botões físicos (`volumeProximo`) e a mesma `applyVolume()`. `holdRepeat()` faz a
 tecla repetir enquanto segurada: o primeiro passo sai no `pointerdown` e a
 repetição só começa depois de uma pausa, senão um toque comum viraria dois.
+
+**A GRADE TEM DOIS TRECHOS** (v1.8.90): de 5 em 5 acima de 10, de 1 em 1 abaixo
+— o volume não é linear no ouvido, e de 95 para 100 quase não se nota enquanto
+de 5 para 10 é o dobro da pressão. Três coisas que se erram: a fronteira é do
+lado de quem SOBE (9 → 10 fino, 10 → 15 grosso; escrita com `<` nos dois
+sentidos, o trecho fino só existiria na subida); o alvo é ALINHADO À GRADE e
+nunca `atual ± passo`, porque o fader é arrastável e de 12 um passo para baixo
+daria 7, pulando o 10; e o resultado é a MESMA escada nos dois sentidos.
+Oráculo: `controles-layout.test.mjs`, bloco 7 — ele afirma a sequência
+COMPLETA, porque um passo medido de um valor só aprova quase qualquer
+implementação.
 
 **A zona de leitura reusa o renderizador da leitura auxiliar**: `lvBuildSong()`,
 `lvBuildDeck()` e `lvMarkCurrent()` recebem o CONTAINER como parâmetro, e
@@ -206,6 +217,17 @@ saltar).
   trabalho, ficou sem ela; com a coluna de PÁGINAS, saber a posição na lista é o
   recurso inteiro. A pista fica `transparent`: o fundo daqui já é `--panel`, e uma
   pista da cor do próprio fundo não é pista nenhuma.
+  **E DESDE A v1.8.61 ELA NÃO EXISTE MAIS EM LUGAR NENHUM.** A v1.8.60 a
+  padronizou na marca `.rola` (esta zona e outras duas a declaravam por si, três
+  contra dezesseis, com 1,29:1 de contraste nas dezesseis contra 6,63:1 aqui); o
+  relato seguinte pediu a barra SOB a sombra e, medido que de dentro do scroller
+  isso não se faz — 149 de 240 linhas do polegar cobertas, contra 240 de 240 por
+  um elemento de FORA, e `z-index: 2147483647` não move um pixel —, o operador
+  escolheu o desfecho que ele mesmo nomeou: *"simplesmente deixe sem nenhuma
+  barra de rolagem"*. A SOMBRA das bordas ficou como indicador único.
+  **O que a v1.4.37 pedia continua respondido**, por outro meio: *"a caixa diz
+  que há um dentro"* é a tira, e ela não some depois de 0,8 s — que é o que a
+  barra sobreposta do Android faz, medido, com `thin` declarado e sem ele.
 - **DUAS COLUNAS, E SÓ AQUI** (v1.4.35): *"coloque os slides em duas colunas,
   pois temos menos altura vertical, portanto manter os slides de mesmo tamanho
   acaba impedindo de ver mais que dois slides corretamente, deixando de ser uma
@@ -390,6 +412,18 @@ ganhou `padding-top` com `env(safe-area-inset-top)`.
 `#settingsBtn` à direita e, só na navegação da Bíblia, o `#backBtn` à esquerda. A
 faixa já teve SEIS elementos, e o sintoma de estar disputada era objetivo: numa
 tela de 360px a raiz dos Favoritos cortava o próprio título com reticências.
+
+**O RESPIRO DELA É PARTIDO EM DOIS** (v1.8.80). Relato do operador: *"a margem
+abaixo dos botões de configurações e de limpar cronograma está muito rasa em
+relação a margem superior… todos os itens dessa barra estão descentralizados
+para baixo"*. MEDIDO: o `padding-bottom` era **zero**, e a linha de `--hit`
+encostava na fronteira — 9,59px de vão acima e 0 abaixo a 430×900; 12,47 e 0 a
+360×640 com a fonte do sistema em 1,3×. O `--sp-5` que era todo de cima virou
+metade em cada lado, e a CAIXA não muda um pixel: crescer a barra para
+simetrizá-la custaria altura de LISTA, que é o conteúdo desta tela. O
+`env(safe-area-inset-top)` não é partido — ele é o recorte do sistema, e mora
+inteiro do lado em que o recorte está. Oráculo:
+`barra-do-topo-e-titulos.test.mjs`.
 
 **A ENGRENAGEM SUBIU PARA CÁ NA v1.2.0** (pedido do operador: *"jogue o botão de
 configurações no modo avançado para o topo da tela, na mesma posição que ele já
@@ -1153,8 +1187,9 @@ As três regras do tile, escritas por inteiro no `index.html`:
    **E O TÍTULO EMPRESTA A SI MESMO** (`falarNoTile`, v1.7.3), que é outra
    coisa: a segunda linha era PERMANENTE e descrevia o repouso; esta é o próprio
    título, por alguns segundos, e volta. É a mecânica do `#otaRow`
-   (`falarNoOta`) e do "Guardar como pacote" (`falarNoPacote`), e a regra dela
-   está na lista de canais de resposta do `controle.js` desde a v5.207 — *"o
+   (`falarNoOta`) — e a do "Guardar como pacote" até a v1.8.53, que a perdeu ao
+   virar botão de símbolo —, e a regra dela está na lista de canais de resposta
+   do `controle.js` desde a v5.207 — *"o
    rótulo do controle empresta a si mesmo por alguns segundos e volta"*. Foi por
    ela que o cartão sobre a preview saiu do caminho da exportação: aquele canal
    é o do que ACONTECERIA NA PREVIEW, e uma exportação acontece no botão.
@@ -1296,36 +1331,78 @@ cancela a ativação é um `preventDefault()` no ouvinte. Trocar uma imagem por
 outra são **dois toques**, e esse é o preço declarado de o wallpaper caber num
 tile como os outros.
 
-O rodapé: **estado do telão**, a **versão** e o **Registro**.
+O rodapé: **estado do telão**, e a fileira de três — a **versão**, o
+**Registro** e o **Pedir ajuda**.
 
-#### O rodapé é UMA barra (v1.4.43 o desenho, v1.4.44 a barra)
+#### O rodapé são TRÊS BOTÕES IGUAIS (v1.8.65, revogando a v1.4.44)
 
-Pedido do operador, em duas rodadas: *"faça uma unificação do design do rodapé
-das configurações, atualmente cada elemento tem um design e tamanho único"* e,
-depois, *"ficou duas seções, a versão e o registro em grupos separados. pode
-deixar tudo em uma barra horizontal única"*.
+Pedido do operador, em quatro metades: *"coloque a versão, o registro e o pedir
+ajuda... igualmente distribuídos horizontalmente"*, *"pode dar um destaque em
+negrito para o número da versão"*, *"coloque os ícones tanto do registro quanto
+do pedir ajuda à direita de seus respectivos textos"*, *"faça os três serem três
+botões separados, no mesmo estilo do botão de 'pedir ajuda'. e remova o fundo
+cinza desse rodapé"*.
 
-Eram três peças com três desenhos: a versão como texto solto, o rótulo "Registro"
-como legenda e os botões como pastilhas de outra altura. A v1.4.43 as unificou em
-duas pastilhas iguais — e **parou no meio**: duas caixas com a mesma cor e um vão
-entre elas continuam se lendo como dois assuntos, e o assunto é UM. Hoje a
-**superfície é a faixa** (`.footer-diag`), e o que mora nela é texto e um alvo:
+**Ele deixou de ser uma SUPERFÍCIE e virou uma FILEIRA**, e é isso que revoga as
+duas rodadas anteriores. A v1.4.43 unificou três desenhos em duas pastilhas e a
+v1.4.44 as fundiu numa faixa só — *"a superfície é a faixa, e o que mora nela é
+texto e um alvo"*. Sem `--surface-2` não há faixa a ser superfície: saem com ela
+o `padding`, o `border-radius` e o `min-height`, e a altura volta a ser a dos
+filhos (`--hit`, por regra do `.diag-btn`).
 
-| na faixa | o quê |
+| na fileira | o quê |
 |---|---|
-| esquerda | `vX` — a versão da base web, e só ela (v1.7.0: o índice do shell saiu da tela e ficou no Registro) |
-| direita | o rótulo "Registro" + `#diagSave` |
+| 1º | `#versaoBtn` — o número em `--fw-forte`, e o toque abre *"O que mudou"* |
+| 2º | `#diagSave` — "Registro", ícone à direita |
+| 3º | `#contatoBtn` — "Pedir ajuda", ícone à direita |
 
-- **O respiro da esquerda é `padding`; o da direita é o ALVO.** A versão é texto
-  e precisa de folga; o `.log-copy` é um quadrado de `--hit` e a folga dele já
-  está dentro do alvo — um padding à direita empurraria o botão para dentro e
-  deixaria uma borda morta na faixa.
-- **O botão perde o fundo próprio** e herda o da faixa: um fundo dentro de um
-  fundo é a camada a mais que as duas rodadas existem para tirar.
-- **`--text` e não `--muted` na versão**, e é MEDIDO: a faixa afunda
-  `--surface-2` dentro da folha, e no tema CLARO isso é preto a 20% sobre branco
-  (204,204,204) — `--muted` ali dá **4,15:1**, abaixo do piso de 4,5. Com
-  `--text`: **5,52:1** no claro e 10,55:1 no escuro.
+- **A divisão é `flex: 1 1 0`, base ZERO** — é o que iguala. `1 1 auto` daria a
+  cada um a própria largura mais um pedaço, e "Pedir ajuda" sairia sempre maior
+  (MEDIDO a 390×1×: 117,7 nos três contra 107,8 / 132,8 / 152,6).
+- **Não há piso escrito, e a ausência é decisão MEDIDA.** Um
+  `min-width: max-content` foi escrito e removido no mesmo lote: um item flex já
+  nasce com `min-width: auto`, e com o `white-space: nowrap` do `.diag-btn` isso
+  é o rótulo inteiro — forçar um dá largura por largura o mesmo que o outro. Sem
+  piso, a divisão igual vale enquanto couber; apertando, os mínimos automáticos
+  vencem e as larguras saem desiguais com cada rótulo íntegro; apertando mais, o
+  `flex-wrap` empilha. Nenhum dos três degraus corta uma palavra.
+- **O recuo do `.diag-btn` caiu a `--sp-3`** (era `--sp-5`, *"o mesmo respiro de
+  bloco que a faixa reserva à esquerda"* — e essa folga saiu com a pastilha).
+  Com três dividindo a linha, o recuo sai da largura do RÓTULO: MEDIDO, o degrau
+  põe 360×1,25× e 430×1,5× numa linha só, onde antes saíam em duas.
+- **Os TRÊS vestem o preenchido**, revogando a v1.8.51 (*"só um deles o veste:
+  guardar o Registro é o PASSO, falar é o DESTINO"*). Aquilo respondia ao relato
+  de então — o contato precisava se destacar de um vizinho apagado. Numa fileira
+  sem fundo o que está em jogo deixou de ser a hierarquia entre eles e passou a
+  ser cada um se ler COMO BOTÃO, e um `background: none` sobre a folha não se lê.
+- **O ícone à direita é a ORDEM DOS FILHOS**, nunca `row-reverse`: o segundo
+  daria o mesmo desenho e mentiria para o leitor de tela, que percorre o DOM.
+- **O PREÇO está medido e é de contraste:** o botão contra a folha caiu de
+  **1,94:1 para 1,77:1** no escuro — o cinza que saiu clareava o fundo atrás
+  dele. Os dois estão abaixo do piso de 3:1 para superfície, e o que mantém o
+  controle identificável é o RÓTULO, que mede 6,54:1 no escuro e 7,70:1 no
+  claro. No tema claro o botão contra a folha mede 7,70:1.
+
+##### O toque na versão abre "O que mudou" (v1.8.65)
+
+*"para o botão de versão, ao tocar, ele mostra o popup de atualizações que
+ocorreram na última atualização (ou um log em lista das atualizações que tiveram
+em cada versão recente)"*.
+
+**A fonte é o `notas.json` do bundle INSTALADO, e não o `otaNotas`** — e as duas
+têm a mesma FORMA (`[{versao, itens}]`), o que faz a troca compilar, renderizar
+e falhar só no caso normal: o `otaNotas` é o que vem NA atualização oferecida, e
+fora de uma atualização pendente ele está VAZIO. O arquivo viaja no bundle de
+propósito (ver o OTA), então o app tem em disco a linha do tempo do que ele É.
+
+- **Teto de CINCO versões**, e o rodapé do diálogo só aparece quando há corte a
+  anunciar: dizê-lo com quatro guardadas descreveria um recorte que não houve.
+- **O prefixo `vX.Y.Z ·` vai em TODA linha** — ao contrário da lista do OTA, que
+  o omite porque lá o título já diz de que versão se fala. Aqui são várias, e
+  sem ele as mudanças de três lotes viram uma lista só, sem fronteira.
+- **`cancelText: null`**: ele conta, não pergunta.
+- **Falhar não pode ser mudo.** Sem o arquivo a MENSAGEM muda e aponta o
+  Registro ao lado; um diálogo vazio é indistinguível de um botão quebrado.
 
 ##### O COPIAR do Registro saiu (v1.4.44)
 
@@ -1555,12 +1632,22 @@ desenho padrão — em **Configurações** (a engrenagem do cabeçalho):
 (`.transport`), à direita do botão de repetição — não é mais uma aba
 separada (`.tabs`); abre o mesmo bottom-sheet com a fila de reprodução de
 sempre. Reaproveita o tamanho/estilo de `.t-btn` (a linha de transporte
-cresceu de 5 para 6 botões, cada um um pouco mais estreito). O badge de
-contagem (`#plCount`) só aparece a partir do **2º item** (mostra
-`count - 1`), e o ícone só fica destacado em `--accent` (`.has-items`) nesse mesmo
-caso: com apenas a mídia atual em fila, a playlist é só a reprodução avulsa
-e não deve chamar atenção nem com um "1" enganoso nem com o ícone colorido —
-fica neutro (branco).
+cresceu de 5 para 6 botões, cada um um pouco mais estreito).
+
+**O selo de contagem (`#plCount`) diz o TOTAL da fila, e só aparece a partir do
+2º item** (v1.8.80, revogando a regra de contar os itens ALÉM do primeiro):
+*"esse número deve representar o número total de itens na playlist. É claro, se
+houver apenas um item, ainda não precisa mostrar o número"*. A régua antiga
+(`count - 1`) fazia o selo dizer **1** com duas mídias na fila e discordar do
+contador da própria folha, que sempre disse o total — duas contagens da mesma
+lista, na mesma tela. O limiar (`> 1`) é o que fica: com a mídia atual sozinha, a
+fila é a reprodução avulsa e não merece um número.
+
+**O ÍCONE NÃO MUDA DE COR** — houve uma classe `.has-items` que o tingia de
+`--accent` no mesmo caso, e a regra dela saiu do `controle.css` na v1.5.0 com o
+rodapé; a escrita sobreviveu sem consumidor até a v1.8.79, com este capítulo
+prometendo um destaque que não acontecia há sete meses. Quem diz "há fila" é o
+SELO, e só ele.
 
 ### Feedback (sem alerta flutuante) — e a exceção do salvamento
 
@@ -1726,20 +1813,175 @@ dos panos"; o que interessa a este capítulo é onde ela mora e o que ela cobre:
   um bundle cujo `controle.js` não é parseado precisa terminar com o app à
   vista, não atrás de uma cortina.
 
-**A BADGE.** `renderVersionLabel()` é o escritor ÚNICO de TRÊS casas — a badge do
-Modo Fácil (colada na marca), a do avançado (a trilha 1 da `.list-header`, vaga
-desde a v1.5.0) e o rodapé de Configurações. Todas dizem `v<base web>`, e só
-isso: o índice do shell saiu da tela e ficou no Registro.
+**A BADGE.** `renderVersionLabel()` é o escritor ÚNICO de DUAS casas — a badge do
+Modo Fácil (colada na marca) e o rodapé de Configurações. As duas dizem
+`v<base web>`, e só isso: o índice do shell saiu da tela e ficou no Registro.
 
-- **A grade da faixa mudou por causa dela.** As duas trilhas laterais eram
-  caixas FIXAS de `--hit`, e a badge é texto: com uma trilha fixa o título saía
-  do eixo, que é o que a trilha reservada da v5.309 existia para impedir.
-  `minmax(var(--hit), 1fr)` nos dois lados reparte a sobra em partes iguais e
-  devolve a promessa sem número escrito à mão.
+- **A TERCEIRA CASA SAIU na v1.8.66.** A badge do avançado morava na trilha 1 da
+  `.list-header` — vaga desde a v1.5.0 — e deu lugar ao botão de LIMPAR O
+  CRONOGRAMA, a pedido do operador. Ela não se mudou: **saiu**. A pergunta que
+  ela respondia ("que versão eu tenho?") tem resposta a um toque de distância, na
+  engrenagem ao lado; o que ela custava era a única casa vaga da faixa.
+- **A grade da faixa mudou por causa dela, e a mudança FICA.** As duas trilhas
+  laterais eram caixas FIXAS de `--hit`, e a badge é texto: com uma trilha fixa o
+  título saía do eixo, que é o que a trilha reservada da v5.309 existia para
+  impedir. `minmax(var(--hit), 1fr)` nos dois lados reparte a sobra em partes
+  iguais. Com o morador novo medindo `--hit` cheio — a caixa da engrenagem em
+  frente — as duas pontas voltaram a ser quadrados iguais, e o elástico deixou de
+  ser necessário; ele fica porque o que ele garante continua verdade e mexer na
+  grade para tirar o que já não atrapalha é risco sem contrapartida. MEDIDO
+  depois da troca: o centro do título fica a **0,01px** do centro da faixa.
 - **No Modo Fácil a marca deixou de comer a sobra** (`flex: 0 1 auto`), para a
   badge poder ficar colada nela; quem empurra a engrenagem para a outra ponta é
   o `margin-right: auto` da badge. O encolher e o `min-width: 0` ficam — num
-  aparelho estreito é a MARCA que cede, nunca o número.
+  aparelho estreito é a MARCA que cede, nunca o número. (Esta metade é da badge
+  do Modo Fácil, que ficou.)
+
+**E O QUE ENTROU NO LUGAR: LIMPAR O CRONOGRAMA (v1.8.66).** Pedido do operador:
+*"substitua o badge de versão que temos na barra do topo do cronograma, a
+esquerda, por um icone/botão de excluir lista (ele limpa a lista do cronograma).
+use um icone de lixeira com list… use o icone na cor vermelha e não precisa de
+corpo para o botão, apenas o icone, que é o padrão dessa top bar"*.
+
+- **A OPERAÇÃO é `AVDB.listSet('imports', () => [])`**, e não um laço de
+  `listRemove`: uma transação com a coleta dentro, contra N transações e N
+  varreduras de detentores. Mas ela repete as DUAS metades do `deleteSelected`
+  que o `listSet` sozinho não faz, e nenhuma tem sintoma — a marca `ytEstado`
+  do ✓ "já está aqui" da busca (que nunca é recalculada enquanto a entrada
+  existir) e o `soltarAvulso` da prateleira invisível (que é detentora, e sem
+  soltá-la o que já tocou fica preso nela).
+- **A CENA NO AR NÃO É ENCERRADA**, e é a regra da v1.3.13 escrita em
+  `botaoExcluirDaLinha`: *"EXCLUIR DE UMA LISTA NÃO TIRA DO AR"*. Excluir tira o
+  item de onde ele fica GUARDADO, e não fala do telão; a FILA é a única exceção
+  (v1.8.52), porque é a lista que o TRANSPORTE governa. Os bytes do que está
+  projetado sobrevivem à coleta porque a cena é detentora
+  (`state.current.mediaId`, em `lerDetentores`).
+- **A PERGUNTA É MODAL, e esta é a exceção que precisa estar dita.** O LIMPAR da
+  fila pergunta na própria faixa (`pedirConfirmacaoNaLinha`), e a v5.301 tirou os
+  modais de exclusão porque *"o modal TIRAVA O ALVO DE CENA"*. Aqui o alvo não é
+  uma linha — é a lista inteira —, que é exatamente onde o `appConfirm({perigo})`
+  sobreviveu (uma pasta, um álbum). E há uma razão medida: a `dica` da
+  pergunta-na-linha vai para o `title`/`aria-label`, e **num WebView não há
+  hover** — a frase que explica nunca aparece no aparelho. Para uma ação que tira
+  a lista inteira de uma vez, o modal é o único dos dois que MOSTRA a
+  consequência — e desde a v1.8.67 ela é só a CONTA: *"pode remover as
+  explicações sobre os itens ainda ficarem em favoritos e sobre continuar
+  tocando, não precisamos de todo esse texto explicativo"*. Quantos saem é a
+  única metade que quem lê não tem como saber olhando a tela, já que a lista
+  pode estar rolada; as duas promessas continuam VALENDO no código, e o que saiu
+  foi dizê-las toda vez. **A ausência delas é AFIRMADA no oráculo** (bloco D),
+  senão reintroduzi-las por zelo passa e o pedido se desfaz sozinho.
+- **O VERBO É LIMPAR, NUNCA EXCLUIR** (v1.8.67): *"foque em chamar apenas de
+  'limpar cronograma' e use esses tipos de termos nos botões de confirmar,
+  títulos e afins"*. A distinção é real e não preferência de palavra — EXCLUIR é
+  o que a seleção múltipla faz a um ITEM, LIMPAR é o que se faz a uma LISTA, e é
+  o verbo que a fila já usa no `#plClear`. Um "excluir" aqui prometeria que os
+  arquivos morrem, e o que morre é só o que não tiver outro detentor. A asserção
+  varre os TRÊS lugares onde a palavra apareceria: o título, o botão que confirma
+  e o `title`/`aria-label` do botão que abriu.
+- **COM A LISTA VAZIA ELE É APAGADO** (`disabled` + `title`), a regra da v1.8.50
+  — e ela pesa o dobro num destrutivo: um botão aceso que não faz nada ensina que
+  tocá-lo é inofensivo. O estado é pintado em `renderLibrary`, o ponto ÚNICO que
+  redesenha a lista: pendurado no `renderListTitle` ele ficaria velho no caminho
+  do `toggleCronograma`, que é justamente o de tirar o último item pela gaveta.
+- **A COR É `--muted`, NEUTRA (v1.8.68)** — *"troque o vermelho pelo branco/cinza,
+  uma cor neutra para esse icone. Vermelho está muito chamativo."* Varridos os 57
+  tokens declarados nos DOIS blocos de tema, só DOIS são neutros E passam o piso
+  de 3:1 contra a `--bar` nos dois: `--muted` (8,09:1 · 6,66:1) e `--text`
+  (11,56:1 · **21,00:1**, que faria o destrutivo virar a peça mais gritante da
+  barra no tema claro). **"Neutro como o vizinho" NÃO é copiar a engrenagem**:
+  MEDIDO por pixel, ela é AZUL (`--accent`), porque `.list-header .settings-btn`
+  (0,2,0) vence a regra base dela — e o comentário que justifica esse azul se
+  ancora no `#backBtn`, que tem `display: none` e 0px desde a v1.5.0. O vizinho
+  NEUTRO desenhado é o `#listTitle`, e `--muted` é a tinta dele — a mesma que a
+  `.ver-badge` substituída na v1.8.66 já pintava. **Os brancos "óbvios" morrem
+  num tema só:** `--on-accent` e `--on-live` medem 13:1 no escuro e **1,00:1** no
+  claro, onde eles e a barra valem os dois `#fff`.
+- **E `--danger` não é um token** — a armadilha fica escrita porque sobrevive à
+  saída do vermelho: um `var()` que não computa cai no valor HERDADO, e aqui o
+  herdado é `--text`. Apagar a linha `color` (a "simplificação" óbvia ao tirar o
+  vermelho) não deixa o botão sem cor: deixa-o com a tinta PRIMÁRIA do app,
+  21,00:1 no claro, calado.
+- **O SINAL DE DESTRUTIVO PASSOU A MORAR SÓ NO DIÁLOGO** (`appConfirm({perigo})`,
+  que continua vermelho e continua tendo asserção). Enfraquecer aquele bloco
+  deixa o recurso sem aviso nenhum.
+- **O DESENHO MEDE 22px, COMO A ENGRENAGEM — e não media (v1.8.68).** O relato
+  foi *"o icone da lixeira está muito pequeno visualmente, principalmente em
+  comparação com o volume e preenchimento visual do icone das configurações"*, e
+  a causa era MUDA: o `.crono-limpar` não estava em NENHUMA das duas listas de
+  escala de ícone do `controle.css`, então o `<svg>` dele vivia do atributo
+  `width="20"` do HTML enquanto a engrenagem media 22 pelo `--icon-md`. As
+  CAIXAS dos dois botões eram iguais (34px) e o oráculo já afirmava isso — que é
+  por que ninguém viu. Mesma armadilha da v1.5.19 nas três portas do rodapé.
+- **A SEGUNDA METADE É DENSIDADE, e ela é paga com um DEGRAU A MAIS (v1.8.69).**
+  Uma lixeira é contorno esparso e a engrenagem é glifo denso: 66,2 unidades de
+  comprimento de traço contra 107,3, e MEDIDO, nenhum redesenho fecha isso
+  (escalar a união até encostar nas bordas do viewBox chega a 0,63x da tinta).
+  **Igualar o TAMANHO não iguala o PESO** — emparelhados em 22px a tinta fica em
+  0,74, e o relato original continuaria de pé. O botão vai a `--icon-lg` (24px),
+  e é a ÚNICA peça do app com esse degrau numa caixa de `--hit`: daí ele ter
+  regra PRÓPRIA no `controle.css`, e não uma vírgula na lista existente, cujo
+  comentário fala de *barras largas de ação*. Tinta contra a engrenagem no tema
+  padrão: **0,44 → 0,89**.
+- **E O EIXO É O TAMANHO, NUNCA A ESPESSURA** — a v1.8.68 tinha fechado o mesmo
+  vão engrossando o traço deste símbolo para 2,4, e o operador revogou: *"a parte
+  do traço da lixeira, desfaça. Eu queria ela maior e não com traços mais
+  grossos."* MEDIDO, os dois caminhos dão o mesmo número (0,90 e 0,89); o que os
+  separa é que um degrau de escala é declarado e uma espessura por símbolo é
+  exceção de um consumidor só. O oráculo guarda o EIXO: o tamanho tem de ser um
+  degrau DECLARADO (um 26px à mão reprova) e o traço tem de ser o do resto do
+  sprite.
+- **O VÃO DE TINTA FICOU EM 1,0 unidade.** Os traços da lista recuaram de x16
+  para x16,8 na v1.8.68 só para acomodar o traço grosso; com ele fora o vão
+  sobrou, e ele é cinco vezes os 0,2 do desenho da v1.8.67 — *"um décimo da
+  linha"*, nas palavras do comentário de lá. **O que limita é o vão de TINTA**
+  (`vão geométrico − stroke-width`), não o geométrico: a 2,85 a lixeira invadia
+  os traços em 0,65 unidade e `getBBox()` não via.
+- **O APAGADO TEM ALFA PRÓPRIO, .5, e não o `--op-inativo` (v1.8.68)** —
+  *"aprimore o sistema de esmaecimento da sua cor quando inativo/sem itens na
+  lista do cronograma"*. Aquele token iguala o ALFA de uma família de PÍLULAS
+  PREENCHIDAS com tinta `--text` que o operador amarrou por extenso na v1.5.15;
+  este é ícone solto, e o que precisa ficar igual é o DESFECHO — mesmo alfa, a
+  pílula entrega 2,66:1 e este traço entregava **1,83:1**. **E 1,83:1 não é
+  esmaecer, é sumir:** dos 488 pixels de tinta do ícone apagado, ZERO cruzavam
+  2:1 no tema escuro contra 262 no claro. **Os pedidos de cor e de véu são UM
+  só**: `--muted` no mesmo `.35` mede 1,71:1 no claro, também com zero pixels
+  legíveis — trocar a tinta sem refazer o véu trocaria o sumiço de tema. A .5 os
+  dois temas medem 3,12:1 e 2,23:1, com separação de 2,6x e 3,0x contra o aceso.
+- **E O DESENHO FOI REPROPORCIONADO na v1.8.67** (*"o icone parece espremido
+  horizontalmente"*). A caixa do BOTÃO já era quadrada — o que estava achatado
+  era a lixeira dentro dela, **1:1,81**, espremida no terço esquerdo para sobrar
+  espaço aos traços; o `trash-2` do Feather, na mesma região, é **1:1,11**. Os 24
+  do viewBox foram repartidos em 12 (lixeira) + 6 (traços) + 2,2 de vão, e ela
+  passou a **1:1,19**. A asserção mede um CLONE RENDERIZADO do símbolo: o
+  `getBBox()` de um filho de `<symbol>` devolve **zeros** no Chromium, e a sonda
+  ingênua aprova o desenho certo e o errado igualmente.
+
+**E O CRONOGRAMA VAZIO É UMA MARCA-D'ÁGUA (v1.8.67).** Pedido do operador:
+*"ajuste o texto de cronograma vazio, para que seja um texto maior, em negrito,
+centralizado na tela, mas com uma cor com menos contraste do que a atual, para
+ficar mais mesclado a cor do fundo e se destacar menos"*.
+
+- **`#library > .empty`, e não a `.empty` geral.** A mesma classe serve a lista
+  de uma pasta, o painel de Mensagens e a Bíblia, onde ela é um aviso dentro de
+  uma caixa pequena — centrá-la verticalmente e inchá-la ali quebraria as três.
+- **CENTRADA NOS DOIS EIXOS:** o `flex: 1` come a altura que sobra do scroller e
+  o `place-content: center` põe a frase no meio dela. Com a lista cheia o `<li>`
+  não existe, então isto não custa layout nenhum.
+- **E ELA SAI DA FOLGA DO RODAPÉ FLUTUANTE** (`:last-child:not(.empty)`): o
+  `<li>` é o último filho por acidente de ser o único, e herdar a folga das
+  portas o empurrava **28,6px** acima do centro — um deslocamento que ninguém
+  relata e ninguém explica. Ele não precisa dela por construção: quem fica atrás
+  das portas é o fim de uma lista que ROLA.
+- **O CONTRASTE TEM TETO, não piso** — o único do repositório. `--muted` a 55%
+  mede **3,76:1** no escuro (de 9,94:1) e **2,22:1** no claro (de 5,16:1),
+  abaixo do piso de 4,5 de propósito: a frase descreve uma ausência que já está à
+  vista e não carrega informação que se perca. Sem um número, *"menos contraste"*
+  é opinião.
+- **A RÉGUA DA CENTRALIZAÇÃO É UM `Range`, e isso custou uma tautologia.** Medir
+  o `getBoundingClientRect()` do `<li>` não acusa nada: ele carrega `flex: 1` e
+  ocupa a caixa inteira COM e SEM o `place-content`. Quem se move é a LINHA de
+  texto — com a régua certa o desvio vai de 4,8px para **266,1px**.
 
 ### O que o telão retoma ao RECONECTAR (`midiaNoAr`, v5.142)
 
@@ -1753,8 +1995,9 @@ e é isso que permite repetir a faixa com o ▶:
 
 - **`stopClear`** — o operador cobriu o telão (o comando `clear` leva o Display
   de volta ao wallpaper), mas o item continua selecionado;
-- **`resetAfterEnd`** — a música acabou e nada a seguiu (`repeat === 'off'`); o
-  `stage` já voltou ao wallpaper sozinho pela bandeira `ended`.
+- **`resetAfterEnd`** — a música acabou e nada a seguiu (o fim da fila, ou uma
+  cena que não estava nela); o `stage` já voltou ao wallpaper sozinho pela
+  bandeira `ended`.
 
 Reenviando por `currentId`, os dois viravam defeito: o telão acordava com um
 vídeo **engatilhado** que ninguém pediu — e, num `<video>` pausado que nunca
@@ -1781,39 +2024,6 @@ seguia ligada, e sem atributo de pôster o WebView desenhava o placeholder cinza
 Com a bandeira desligada o atributo é ignorado pelo contrato, então mantê-lo não
 custa nada; e para o quadro congelado aparecer de fato, a cena pausada agora
 **sempre faz seek** (mesmo para o segundo zero).
-
-### O preto de vários segundos da transmissão direta (v5.142)
-
-> **NADA NO APP CRIA UM STREAM DESDE A v1.7.7** — a transmissão direta saiu a
-> pedido do operador (ver o CLAUDE.md). Esta seção descreve o que o `stage.js`
-> faz ao RECEBER um registro com manifesto, e ele continua sendo capaz disso: um
-> registro gravado antes daquele lote pode existir no aparelho até o manifesto
-> expirar (horas).
-
-Um stream leva segundos entre o comando e o primeiro quadro — init, índice e o
-primeiro fragmento vêm da **rede**. Metade desse caso já estava resolvida: quando
-a cena anterior era o wallpaper, a cortina fica de pé até haver quadro (o
-`mediaReady` com `PRONTO_STREAM_MS` acontece **antes** do `coverOut`).
-
-O que sobrava era a troca de **mídia para mídia**: ali o fade de saída já levou a
-anterior ao preto e não há cortina para segurar — segundos de tela preta, sem
-nada dizendo que o app está trabalhando. Do lado de quem opera isso é
-indistinguível de uma projeção que morreu.
-
-Agora a espera é **anunciada** enquanto ela dura (`mostrarEspera` →
-`opts.onEspera`), nos dois caminhos: sobre o preto, e também sobre o wallpaper —
-porque ali o operador vê exatamente a mesma tela de quando nada foi pedido, por
-vários segundos, depois de ter pedido um vídeo. Detalhes que não são decoração:
-
-- **Só no stream.** Um arquivo local vira quadro em milissegundos, e um aviso
-  que pisca é pior que nenhum.
-- **O PALCO NÃO DESENHA** (v1.4.8): ele chama `opts.onEspera(ligado)` e quem
-  mostra é o dono. Ver *"Todo o carregamento é do Controle"*, abaixo.
-- **`resetMediaDom` o desliga**, então ele nunca sobrevive à cena que o acendeu
-  (stop, clear e o começo de todo load passam por lá); e a ordem depois do
-  `mediaReady` é conferir o `loadSeq` **antes** de desligar — um load mais novo
-  já acendeu a espera dele, e desligá-la depois de perder a corrida levaria junto
-  a do load que assumiu.
 
 ### Girar a mídia (v5.142)
 
@@ -1912,49 +2122,39 @@ houvesse apenas o 'preparando…' no controle, vamos abandonar o spinner no tel�
 nos controles já temos a mensagem de preparando, não precisamos de um spinner
 exclusivo"*. Na v1.4.8 o aro saiu inteiro, e com ele a folha `shared/stage.css`.
 
-- **O palco ANUNCIA; ele não desenha** (`opts.onEspera(ligado)`). Invariante 5
-  aplicada ao motor: ele diz o FATO, não a forma. Quem desenha é o dono.
-- **Um indicador só, no Controle.** O `onEspera` da preview abre e solta o
-  MESMO cartão do "Preparando" do toque (`previewBusy`), de modo que a espera
-  inteira — a extração de rede, e depois a carga do stream — se lê como um
-  estado só, e não como dois avisos se revezando. Ele é aberto e solto por
-  BORDA (`pvEsperaSolta`): `previewBusy` conta donos, e um `onEspera(true)`
-  repetido sem o `false` do meio deixaria um dono pendurado e o cartão nunca
-  sairia.
-- **O nome vem do ITEM, não do rótulo já desenhado** (`pvEsperaNome`, gravado
-  por `aplicarNaPreview`): `renderNowPlaying` roda em pontos diferentes de cada
-  caminho, e um nome atrasado é o cartão anunciando o louvor ANTERIOR enquanto o
-  novo carrega.
-- **A SAÍDA DO CARTÃO GANHOU UMA CARÊNCIA** (`PV_BUSY_SAIDA_MS`, 700 ms), e ela
-  é o que faz a promessa acima ser verdade. A espera tem DOIS donos em sequência
-  — o toque (`cederOPalco`, que cobre a extração de rede) e a carga do stream (o
-  `onEspera`) —, e o primeiro solta no `finally` assim que a ação
-  volta, enquanto o segundo só acende lá dentro do `load`, depois do fade de
-  saída e do `getMedia`: **entre os dois o contador passa por ZERO**. Sem a
-  carência o cartão sai e volta no meio da MESMA espera, que é o "dois modelos
-  de carregamento" com outra roupa. Um dono novo dentro dela CANCELA a saída. É
-  o irmão do `PV_BUSY_DELAY_MS` na outra ponta, e cobre o pior caso do vão (o
-  `FADE.time` de 0,6 s mais a leitura do IndexedDB). **O preço está dito:** um
-  cartão que de fato acabou fica esse tanto a mais na tela — e ele é um
-  indicador de estado, não um modal. O que sai NA HORA é o botão de cancelar:
-  ele é uma AÇÃO, e uma ação sem dono não pode ficar tocável nem por meio
-  segundo.
-- **O telão não passa `onEspera`**, e é só isso que o separa da preview. Não é
-  `__AV_ROLE__` lido dentro do `stage.js`: a pergunta é *"este palco é uma
-  ILUSTRAÇÃO?"*, e a tela da rede é papel `tela` e é PROJEÇÃO — a leitura de
-  papel acertaria por acidente e erraria no quarto papel.
-- **Sem quadro, a cortina fica.** `mediaReady` devolve se houve dado, e num
-  stream o prazo deixou de revelar: ele socorria a transição de pendurar, mas o
-  que revelava era o preto. O wallpaper é o repouso da projeção e a resposta
-  certa a "não há o que mostrar". **Só no stream** — o socorro de 2,5 s do
-  arquivo local não é assunto deste lote.
+> **O ANÚNCIO DE ESPERA DO PALCO (`opts.onEspera`) SAIU NA v1.8.82.** Ele existia
+> para a TRANSMISSÃO DIRETA, o único caso em que "carregado" e "tem o que
+> mostrar" ficavam a segundos de distância; com aquele caminho fora do app o
+> palco nunca mais o acendeu. O que fica desta seção é o CARTÃO, que continua
+> cobrindo a espera de verdade que sobrou: a extração e o download.
 
-Oráculo: `tools/toque-instantaneo.test.mjs`, a última metade do
-`tools/espera-do-stream.test.mjs` (provada por REVERSÃO: um palco sem `onEspera`
-que volte a criar um nó reprova) e a **passagem de bastão** no
+- **O palco ANUNCIA; ele não desenha.** Invariante 5 aplicada ao motor: ele diz
+  o FATO, não a forma. Quem desenha é o dono. A regra vale para o próximo
+  anúncio que o palco precise fazer.
+- **Um indicador só, no Controle** (`previewBusy`): a espera inteira se lê como
+  um estado só, e não como dois avisos se revezando.
+- **O nome vem do ITEM, não do rótulo já desenhado**: `renderNowPlaying` roda em
+  pontos diferentes de cada caminho, e um nome atrasado é o cartão anunciando o
+  louvor ANTERIOR enquanto o novo carrega.
+- **A SAÍDA DO CARTÃO TEM UMA CARÊNCIA** (`PV_BUSY_SAIDA_MS`, 700 ms), e ela é o
+  que faz a promessa acima ser verdade. Uma espera pode ter DOIS donos em
+  sequência — o toque (`cederOPalco`, que cobre a extração de rede) e o download
+  que vem depois dele —, e o primeiro solta no `finally` assim que a ação volta,
+  enquanto o segundo só acende adiante: **entre os dois o contador passa por
+  ZERO**. Sem a carência o cartão sai e volta no meio da MESMA espera, que é o
+  "dois modelos de carregamento" com outra roupa. Um dono novo dentro dela
+  CANCELA a saída. É o irmão do `PV_BUSY_DELAY_MS` na outra ponta, e cobre o
+  pior caso do vão (o `FADE.time` de 0,6 s mais a leitura do IndexedDB). **O
+  preço está dito:** um cartão que de fato acabou fica esse tanto a mais na tela
+  — e ele é um indicador de estado, não um modal. O que sai NA HORA é o botão de
+  cancelar: ele é uma AÇÃO, e uma ação sem dono não pode ficar tocável nem por
+  meio segundo.
+
+Oráculo: `tools/toque-instantaneo.test.mjs` e a **passagem de bastão** no
 `tools/gaveta-e-cartao.test.mjs` — esta amostrada a cada quadro, porque um teste
 do estado FINAL passa nas duas versões (no fim o cartão está de pé de qualquer
 jeito); com a carência em zero ela devolve `{"apagou":true,"on":true}`.
+
 
 ### A saída de áudio: os displays, ou ESTE APARELHO (v5.215)
 
@@ -1985,9 +2185,9 @@ alguma tela conectada?  ── sim ──▶  preview MUDA (o som é da TV / das
   calava a preview por haver "para onde mandar o som" sem ninguém tocando do
   outro lado: **silêncio nos dois lados**, com o Registro dizendo "conectado". O
   campo `telao` de cada tela (shell 59) é quem responde agora, por `telaoNoAr()`
-  — e as três perguntas que passaram a usá-lo são as que dependem de haver
-  PROJEÇÃO: o som, o microfone (`haOndeReproduzirMic` — quem capta é o
-  `/display/` DENTRO da janela) e o portão do Modo Fácil. O que descreve a
+  — e as perguntas que passaram a usá-lo são as que dependem de haver PROJEÇÃO:
+  o som e o portão do Modo Fácil. (A terceira era o microfone, e saiu na v1.8.89
+  com o recurso.) O que descreve a
   CONEXÃO segue lendo a lista crua: o rótulo da folha, o `applyPreviewAspect`, o
   Registro — e é lá que a distância entre as duas vira frase. Com o telão no
   chão o som volta para o celular, que no espelhamento continua chegando às
@@ -2255,7 +2455,8 @@ e ler *"Nada em exibição"*.
 
   **E o A+/A− some nesta aba.** Ele dimensiona TEXTO, e a miniatura ocupa a
   largura da coluna: um par de botões que continua ali e não muda nada na tela é
-  a mesma coisa que o microfone sem TV — não oferecer é melhor que explicar.
+  a mesma coisa que a aba de cifra sem cifra — não oferecer é melhor que
+  explicar.
 - **A BÍBLIA NO AR ABRE A FOLHA, e não a esvazia** (v1.1.11, revogada em
   parte na v1.4.26). Projetando, ela é a camada da FRENTE: a folha abre nela, e
   a letra e a cifra do louvor de fundo continuam a um toque no seletor. Fora do
@@ -2372,13 +2573,79 @@ e ler *"Nada em exibição"*.
 
   É **o mecanismo da faixa da linha aplicado à fila**: ela troca de CONTEÚDO, não
   de lugar. Nada é criado por cima da folha, nada a empurra, e a caixa fica com a
-  mesma altura. O invólucro é `display: contents`, e é ele que dispensa uma
-  segunda regra de layout — os cinco viram filhos DE FATO da fila e seguem a
-  direção dela (linha no retrato, coluna em tela cheia). **O ⛶ é a exceção
-  nomeada à palavra "vizinhos"**: *a fila da cifra sempre tem a saída*, e
-  escondê-lo deixaria uma gaveta aberta em paisagem sem saída à vista. Todo botão
-  da gaveta a fecha — inclusive o do degrau já escolhido, que é o "cancelar"
-  natural.
+  mesma altura. **O ⛶ é a exceção nomeada à palavra "vizinhos"**: *a fila da
+  cifra sempre tem a saída*, e escondê-lo deixaria uma gaveta aberta em paisagem
+  sem saída à vista.
+
+  **E A GAVETA VIROU UM SLIDER, QUE DESLIZA** (v1.8.80). Pedido do operador:
+  *"primeiramente isso não possue nenhuma animação. Então faça uma animação
+  horizontal para essa gaveta. Mantenha o botão de play e o botão de seletor de
+  velocidade sempre visível, agora a gaveta vai surgir a direita desses dois
+  itens. E mude a lógica, não mais uma gaveta com botões, mas um slider
+  regulável, quando aberto, o botão que abriu ele se torna um x para fechar"*.
+  São três mudanças que se sustentam:
+
+  | o quê | antes (v1.7.4) | agora |
+  |---|---|---|
+  | quem some ao abrir | os QUATRO botões da fila | só o −½/+½ (`.lv-cifra-tom`) |
+  | o controle | cinco botões, um por degrau | UM `<input type=range>` sobre os mesmos cinco |
+  | o seletor | sumia junto | vira **✕** — a saída no lugar de onde a entrada foi |
+  | a caixa | `display: contents` | uma caixa de verdade, que ANIMA de 0 até a borda da fila |
+
+  **O `display: contents` teve de sair**: uma caixa que não existe no layout não
+  tem largura para transicionar, e a animação é o pedido. Em tela cheia a fila é
+  uma COLUNA, e lá a mesma gaveta cresce em ALTURA com o slider na vertical (a
+  receita do fader do volume) — sem o par de regras, a largura numa trilha de
+  66px sairia recortada pelo `overflow: hidden` da própria gaveta, com o controle
+  vivo e invisível.
+
+  **E ELA SAIU DO FLUXO, que é o que fez os três defeitos seguintes sumirem de
+  uma vez** (v1.8.83). Relato do operador: *"a margem a direita do botão está
+  duplicada em relação as outras margens entre os botões… o botão de tela cheia
+  está separado da fileira dos botões a esquerda, junte ele a ela. Fazendo com
+  que a barra de ajuste de velocidade cubra esse botão também, pois atualmente
+  ela apenas empurra ele para o lado, jogando todos os outros botões para fora da
+  janela do auxiliar de leitura… verifique esse movimento, para que os botões de
+  aumentar fonte, diminuir fonte e fechar janela não sejam movidos de seus
+  lugares originais"*.
+
+  Os três são o MESMO defeito, e ele é *a gaveta ser um ITEM DA FILA*:
+
+  | o que se via | a causa, MEDIDA |
+  |---|---|
+  | a margem à direita do seletor é o dobro | fechada com `width: 0` ela continua sendo item e recebe `gap` dos DOIS lados: **4 + 0 + 4 = 8px**, contra 4 em todos os outros pares |
+  | o ⛶ está separado da fileira | o respiro próprio dele (`--sp-5`) fazia o último vão medir **13,6px** — 3,4× o vizinho |
+  | abrir joga tudo para fora da janela | os 9rem entravam na conta da fila: o ⛶ andava **76px** e o ✕ do cabeçalho terminava **51,6px fora** da caixa a 360px (91,6 a 320) |
+
+  `position: absolute` dentro de uma fila `relative` resolve os três: fora do
+  fluxo ela **não tem `gap` nenhum**, a fila mede o MESMO aberta ou fechada, e o
+  que ela faz ao crescer é passar **por cima** do −½/+½ e do ⛶. MEDIDO depois:
+  deslocamento **ZERO** do A−, do A+, do ✕ e do ⛶ em 320, 360 e 430px, nos dois
+  estados.
+
+  - **`--vels-off` é onde ela começa** (dois botões mais dois vãos) e a largura
+    aberta é `calc(100% - var(--vels-off))` — as duas DERIVADAS dos tokens. Os
+    9rem de antes eram um número escrito à mão sem relação com nada, e era ele
+    que sobrava para fora.
+  - **O trio coberto some por `visibility`, nunca por `width: 0`**: encolher era
+    o que fazia a fila mudar de tamanho. `display: none` tiraria as caixas do
+    fluxo e a fila encolheria de novo, pelo caminho de trás.
+  - **O respiro próprio do ⛶ saiu nos dois eixos**, revogando a v1.6.1. A razão
+    antiga fica registrada porque era boa — o erro ali é ASSIMÉTRICO: pegar a
+    saída em vez do `+½` desfaz o modo inteiro e gira a Activity na frente de
+    quem toca, enquanto o inverso custa um meio tom. **O preço encolheu no mesmo
+    lote**: com a gaveta aberta o ⛶ não é vizinho de nada, porque ela o cobre. De
+    carona, o cabeçalho a 320px deixou de estourar 16px e passou a estourar 2.
+
+  **O slider regula o ÍNDICE da escada, nunca um número contínuo:** um contínuo
+  pediria outra gramática de rótulo, outro estado gravado e outra conta no
+  `cifraRolarQuadro`, e o pedido é sobre COMO ESCOLHER. Regular não fecha a
+  gaveta — quem fecha é o ✕ —, porque achar o ritmo é um ajuste que se faz
+  ouvindo. As pontas levam rótulo (`0,5×` e `2×`): um slider sem pontas nomeadas
+  não diz para que lado é mais rápido. Oráculos: `cifra-rolagem` (a METADE 0),
+  `cifra-tela-cheia` (o eixo trocado) e `fonte-so-do-par` (a gaveta não hospeda
+  mais nenhum `.lv-fonte-btn` — o risco daquele arquivo saiu de cena com os
+  botões).
 
   **A rolagem anda no tempo da MÚSICA** (`Auto`, o padrão), com o começo parado
   alguns segundos e o fim alcançado bem antes de a música acabar; sem relógio
@@ -2952,9 +3219,23 @@ está à vista?"*, que hoje é sempre verdade: **a folha COBRE a lista, não a
 substitui.** É um booleano e não `!bibleSheetEl.hidden` porque o `hidden` só cai
 no fim da animação de saída.
 
+**O TÍTULO DE CADA JANELA FICA NO CENTRO, E PARADO** (v1.8.80) — *"centralizar o
+título de cada janela dessas… E tome cuidado para que ele permaneça imóvel mesmo
+alternando entre telas da mesma janela"*. As duas metades são uma só, e é isso
+que escolheu o mecanismo: com `flex: 1` o título era o ESPAÇADOR da linha —
+encostava à esquerda e, na Bíblia, ANDAVA quando o voltar aparecia (MEDIDO,
+39,6px a 430×900 e 41,2px a 360×640 · 1,3×, entre a lista de livros e a leitura).
+Um `text-align: center` sozinho não alcança a segunda: a caixa dele continuaria
+sendo "o que sobra", e o que sobra muda de tamanho com o vizinho. A grade é a da
+`.list-header`, verbatim — um botão `hidden` some do layout mas não apaga a
+trilha que o template declara, e é por isso que trocar de tela não move o
+título. O `grid-column` de cada morador é explícito: sem ele, a folha de
+Ferramentas (que não tem voltar) poria o título na trilha 1.
+
 | peça | o que é |
 |---|---|
 | `#toolsSheet` · `#bibleSheet` | as duas folhas, filhas do `.list-body`, cobrindo só a lista |
+| `.tools-head` | a barra de cada uma: **uma grade de três trilhas**, com o título no centro (v1.8.80) |
 | `.import-row` | as três portas: `#bibleBtn` · `.import-btn` · `#toolsBtn` |
 | `.lib-bar` | a barra da Biblioteca — a CABEÇA da janela, à vista no topo da caixa de controles |
 | `#hymnSearchPopup` | a JANELA da Biblioteca — `fixed`, do topo até a LINHA DA BARRA, sobe da barra |
@@ -3554,9 +3835,30 @@ propósito, porque é lá que mora o roteamento por tipo.
 O item é o mesmo; o que muda é em quantas listas o mesmo id aparece, e isso nunca
 foi uma escolha exclusiva. A tabela `DESTINOS` (em `controle.js`) é a fonte
 única — `chave` é o nome como o app fala do destino, `lista` é o nome dele no
-banco (o Cronograma é a lista `imports` desde antes de se chamar Cronograma). Ela
-substituiu o `YT_LISTA`, uma SEGUNDA tabela com as mesmas três listas só para o
-YouTube; duas divergiriam no primeiro destino acrescentado a uma só.
+banco (o Cronograma é a lista `imports` desde antes de se chamar Cronograma),
+`rotulo` é o nome do LUGAR ("Cronograma"), `acao` é o que se FAZ com ele
+("Adicionar ao Cronograma") e `ico` é a chave do ícone. Ela substituiu o
+`YT_LISTA`, uma SEGUNDA tabela com as mesmas três listas só para o YouTube; duas
+divergiriam no primeiro destino acrescentado a uma só.
+
+**E A ORDEM DA TABELA É CANÔNICA — Cronograma · playlist · favoritos** (v1.8.56,
+pedido do operador: *"a esquerda o cronograma, no meio a playlist e por fim o
+favoritos… aplique essa ordem a todo o app"*). Ela vale para toda superfície que
+ofereça mais de um deles: as folhas de destino, a gaveta de uma linha, o rodapé
+da fila e a faixa de fecho da playlist automática. **Onde falta um, a ordem
+relativa sobrevive** — a linha do Cronograma não oferece "Cronograma" (o item já
+está lá) e a da fila não oferece "playlist" (a linha É a fila).
+
+**A DIVERGÊNCIA QUE ISTO FECHOU NÃO ERA DECISÃO DE NINGUÉM: eram QUATRO listas
+escritas à mão** com a mesma tríade em ordens diferentes — as duas folhas de
+destino (acervo e YouTube), o mapa `LINHA` da gaveta e o `DEST_ICONE` da folha de
+importação. Uma tabela que só respondia *"quais existem?"* deixava *"em que
+ordem?"* e *"com que cara?"* para cada chamador, e o quinto chamador ia divergir
+também. **É por isso que `ico` e `acao` moram na tabela**, e que
+`destinosNaOrdem(chaves)` existe: um chamador que peça `['playlist',
+'cronograma']` — literalmente, na ordem antiga — recebe os dois na ordem da
+tabela. A lista dele diz QUAIS, nunca em que ordem. Oráculo:
+`destinos.test.mjs`, nos dois sentidos.
 
 **A gramática é uma só, e vale para todas as folhas:** toda opção — as três
 listas E o "Tocar agora" — é SELECIONÁVEL de corpo inteiro, e um botão de
@@ -3611,10 +3913,10 @@ marcado: o estado ficava certo e só o desenho não acompanhava.
 
 Casos particulares:
 
-- **(A transmissão direta SAIU na v1.7.7.** Ela ficava de fora quando havia um
-  destino de guarda marcado — não produz arquivo, é um manifesto que expira em
-  horas —, e hoje esse caso não existe: toda ação baixa, e "Tocar agora"
-  combinado com "Cronograma" é UM download que também entra na lista.)
+- **Toda ação BAIXA**, e é isso que faz os destinos se combinarem: "Tocar
+  agora" com "Cronograma" é UM download que também entra na lista. (Até a v1.7.7
+  o "Tocar agora" sozinho podia transmitir sem produzir arquivo, e esse caso
+  tinha de ser excluído à mão.)
 - **Um download só** (`ytAcao`): o arquivo nasce na PRIMEIRA lista escolhida e é
   espalhado por `listAdd` (idempotente). "Já estava lá" é sobre o CONJUNTO — um
   vídeo no Cronograma e fora dos Favoritos não é duplicata.
@@ -3635,7 +3937,16 @@ A frase do aviso nomeia TODOS os destinos (`ondeDe`/`juntarFrases` sobre o
 impede o toque repetido. Um aviso por lista seria três faixas piscando para um
 toque único.
 
-#### A faixa de abas
+#### A faixa de abas — SAIU NA v1.5.0
+
+> **ESTA SEÇÃO DESCREVE UMA PEÇA QUE JÁ NÃO EXISTE**, e o aviso entrou na
+> v1.8.81 porque o corpo dela está todo em PRESENTE: a faixa saiu inteira na
+> v1.5.0 (com o `.tab`, o `.tab-add`, o `.tab-pl`, o vazado deslizante e o
+> `switchTab`), e hoje a navegação são as três portas do rodapé. Ela fica pelo
+> que explica — por que quatro alvos viraram três, e por que nenhuma das cinco
+> formas anteriores sobreviveu —, não pelo que promete. O token de altura dela,
+> `--hit-nav`, saiu na v1.8.81; o que se lê aqui sobre ele é história.
+
 
 Ela fica **no alto da caixa de controles** (`.bottombar`) e são **abas de
 verdade**: uma fileira SEM trilho, encostada na borda de cima da caixa e indo de
@@ -3727,10 +4038,20 @@ As quatro células:
 
 #### A FOLHA DE FERRAMENTAS (v1.3.10)
 
-Mensagens, Tempo (cronômetro/relógio/timer), Sorteio e o microfone ao vivo. Elas
-eram uma ABA; hoje são `#toolsSheet`, uma folha que sobe **de dentro do
-Cronograma**, aberta pelo `#toolsBtn` — o botão à direita de "Importar arquivos",
-no `#listFoot`.
+Mensagens, Tempo (cronômetro/relógio/timer) e Sorteio. Elas eram uma ABA; hoje
+são `#toolsSheet`, uma folha que sobe **de dentro do Cronograma**, aberta pelo
+`#toolsBtn` — o botão à direita de "Importar arquivos", no `#listFoot`. (O
+microfone ao vivo era a quarta peça delas, e saiu na v1.8.89.)
+
+**O RODAPÉ DELA É FIXO** (`#toolsFoot`, v1.8.89), e é IRMÃO do `#toolsBody`: uma
+barra que more dentro do scroller rola com os itens dele, que é o que o pedido do
+operador nomeia. Ele hospeda uma FAIXA DE FECHO — o "Projetar no telão" que
+CRESCE à esquerda, e à direita os dois destinos (`cue-save-btn`) na ordem
+canônica da tabela `DESTINOS`. As Mensagens não têm o que guardar
+(`cueSaveDaFerramenta` devolve `null`), e ali o primário ocupa a linha inteira e
+volta à altura de barra; com irmãos ele cede para `--quad-faixa`, que é a regra
+da faixa de fecho (v1.8.61). O "guardar isto" era uma LINHA no fim de cada painel
+e descia com ele — o mesmo defeito que já tinha tirado o projetar dali.
 
 **A mudança não é de navegação, é de PARENTESCO.** Toda ferramenta daqui produz
 uma CENA que entra no roteiro: a mensagem vira cue, o cronômetro e o sorteio são
@@ -3746,7 +4067,7 @@ quarta célula de uma faixa feita de LUGARES.
 | **a porta é só ÍCONE** | "Importar arquivos" fica com o rótulo e com a linha. Dois nomes lado a lado numa faixa de celular empurram o primeiro para reticências justamente na tela mais estreita |
 | **a saída tem PAR** (v1.3.13) | ela subia deslizando e sumia no talo — duas coisas diferentes para o olho, e a segunda lendo como um erro justamente porque a primeira já ensinou a esperar o contrário. Mesma curva, mesma duração (`--tools-anim`, um valor só, lido pelo CSS e pelo JS), ao contrário. Quem tira a folha da árvore é o `hidden` no FIM da animação, e não um `animation-fill-mode`: uma folha "fora" por estar transladada continuaria capturando toque. Sem `animationend`, porque `prefers-reduced-motion` desliga a animação e o evento nunca chegaria — a folha ficaria de pé para sempre |
 | **trocar de aba a fecha** (`switchTab` → `fecharFerramentas`) | ela é extensão do CRONOGRAMA; de pé sobre a Bíblia seria a folha de uma tela flutuando sobre outra |
-| **`fecharFerramentas` desliga o microfone e os laços** | eram as mesmas guardas do `switchTab`, quando sair daqui era trocar de aba: o push-to-talk não pode ficar captando sem nada na tela que o mostre, e os timers de 5 Hz do cronômetro/sorteio não podem sobrar reescrevendo nós já descartados |
+| **`fecharFerramentas` desliga os laços** | eram as mesmas guardas do `switchTab`, quando sair daqui era trocar de aba: os timers de 5 Hz do cronômetro/sorteio não podem sobrar reescrevendo nós já descartados. (A terceira guarda soltava o microfone, e saiu na v1.8.89 com ele.) |
 
 **Os nomes internos ficaram**: `renderDiversos`/`refreshDiversos`, `miscTool`,
 `MISC_TOOLS` e as classes `.misc-*`. Renomeá-los não muda um pixel — a mesma
@@ -3758,7 +4079,13 @@ Oráculo: **`tools/ferramentas-folha.test.mjs`**, e a asserção que carrega o l
 folha de corpo inteiro continua funcionando e continua bonita; o que ela perde
 não aparece em teste de comportamento nenhum.
 
-#### O contrato do `shouldInterceptRequest`, e a transmissão direta
+#### O contrato do `shouldInterceptRequest` (a invariante 8)
+
+> **O CLIENTE DESTE PROXY ERA A TRANSMISSÃO DIRETA, e ela saiu do lado web na
+> v1.8.82.** A regra abaixo NÃO saiu com ela: ela vale para **toda** resposta
+> interceptada, e é a próxima coisa deste app que sirva bytes por faixa que vai
+> pagá-la de novo. O `StreamProxy.kt` continua no shell, sem quem o chame — ver
+> `docs/shell/SEGUNDO-PLANO.md`.
 
 **O `InputStream` devolvido não é "a resposta": o Chromium o lê como o recurso
 INTEIRO a partir do byte 0, e é ELE quem aplica o `Range`** — incondicionalmente,
@@ -3783,7 +4110,7 @@ Como todo fragmento de mídia começa a megabytes do início, **só a primeira
 requisição de cada faixa podia funcionar**.
 
 **A correção é sair do contrato, não emulá-lo.** Do shell 27 em diante o
-`shared/mse.js` pede `/stream/<token>?r=<ini>-<fim>` **sem cabeçalho `Range`
+cliente pede `/stream/<token>?r=<ini>-<fim>` **sem cabeçalho `Range`
 nenhum**: sem cabeçalho, `ParseRange` não acha nada, o seek não acontece, e a
 fatia chega inteira. A resposta é um **200 seco** — sem 206, sem
 `Content-Range`, sem `Accept-Ranges`, e sem `Content-Length` nosso (o loader
@@ -3816,19 +4143,18 @@ deslocamento errado sai como **bytes errados**, não como tamanho errado, que é
 mudar essa regra, o lugar de descobrir é o CI, não o culto.
 
 > **O caminho FELIZ não é testável aqui** (exige um fMP4 de verdade, e não há
-> ffmpeg no ambiente). O que se trava é o contrato, dos dois lados:
-> `webview-range` prova a REGRA e `mse.test.mjs` prova o que sai pelo FIO (a
-> faixa na URL, sem cabeçalho).
+> ffmpeg no ambiente). O que se trava é a REGRA, e o `webview-range` a prova.
+> O oráculo que media o FIO (a faixa na URL, sem cabeçalho) era do player do lado
+> web, e saiu com ele na v1.8.82.
 
 ##### O pôster padrão do WebView
 
 Um `<video>` sem `poster` é pintado pelo WebView com **um retângulo cinza e um
 play preto gigante** (contrato de `WebChromeClient.getDefaultVideoPoster`) — não
-há como estilizá-lo, só como deixar de pedi-lo. O `stage.js` já escondia o
-elemento enquanto não havia `src`; com `MediaSource` o elemento entra em cena
-vazio e só ganha quadro depois de init + índice + primeiro fragmento virem da
-REDE — **"sem `src`" virou "sem dados"**. A correção é `POSTER_VAZIO` (1×1
-transparente), posto a cada `load` e removido no `loadeddata`:
+há como estilizá-lo, só como deixar de pedi-lo. O `stage.js` esconde o elemento
+enquanto não há `src`, e o pôster cobre a outra metade: a janela entre a fonte
+atribuída e o primeiro quadro. A correção é `POSTER_VAZIO` (1×1 transparente),
+posto a cada `load` e removido no `loadeddata`:
 
 - **transparente e não preto** — as camadas já pintam `--stage-bg`, e um segundo
   "qual preto" divergiria da paleta;
@@ -3837,11 +4163,12 @@ transparente), posto a cada `load` e removido no `loadeddata`:
 
 ##### As mensagens de falha SÃO o produto
 
-Este recurso roda no aparelho do operador, num WebView, contra URLs que expiram:
-**não há como depurar de fora**, e a única coisa que atravessa essa distância é a
-linha do Registro. Ela só serve se disser em que passo morreu e com que resposta.
+A regra vale para todo caminho de rede deste app: ele roda no aparelho do
+operador, num WebView, e **não há como depurar de fora** — a única coisa que
+atravessa essa distância é a linha do Registro, e ela só serve se disser em que
+passo morreu e com que resposta.
 
-O que o `StreamProxy` responde:
+O que o `StreamProxy` responde (KOTLIN; sem cliente no web desde a v1.8.82):
 
 | Resposta | Significa |
 |---|---|
@@ -3849,18 +4176,6 @@ O que o `StreamProxy` responde:
 | `502 (<texto da exceção>)` | o proxy falhou falando com o CDN |
 | `403 (googlevideo: Forbidden)` | o CDN recusou — o proxy chegou lá |
 | `404` **sem** razão | o proxy NEM foi consultado (respondeu o asset loader) |
-
-O que o player escreve (`AVStream.ultimoErro` → `falhou ao tocar: …`), com
-passo + faixa + bytes pedidos + status:
-
-| Mensagem | O que aconteceu |
-|---|---|
-| `init vídeo: HTTP 403 pedindo bytes 0-739` | o googlevideo recusou |
-| `init vídeo: HTTP 404 …` | o **proxy não foi alcançado** |
-| `init vídeo: a requisição não completou` | o `fetch` nem saiu |
-| `init vídeo: resposta vazia (HTTP 206, pedidos 740 bytes)` | status bom e zero bytes — o mais traiçoeiro, porque o `appendBuffer` aceita sem reclamar e o vídeo nunca começa |
-| `init vídeo: o decodificador recusou (…) — mime …` | os bytes vieram e o WebView não os quis |
-| `índice vídeo: sidx não reconhecido (N bytes em …)` | o `indexRange` não continha um `sidx` |
 
 Regras que sustentam isso:
 
@@ -3882,21 +4197,12 @@ Regras que sustentam isso:
   `waiting`, não `pause`. O que emite `pause` é o `video.pause()` no topo do
   `load()` — isto é, mídia NOVA entrando.
 
-`tools/mse.test.mjs` sobe um servidor de mentira, confere as mensagens que chegam
-ao `onErro` e afirma que **nenhuma pode conter `undefined`** (a armadilha de
-aridade: `node --check` não vê aridade, e uma refatoração deixou `pegar()` com
-três parâmetros e três chamadas passando quatro). Ele roda com **VP9 + Opus**, e
-não com o `avc1`+`aac` do aparelho: o Chromium do Playwright é o build
-open-source e não traz codecs proprietários, então `addSourceBuffer` recusaria
-`avc1` e todo cenário morreria antes do que se quer medir. Quem confere o suporte
-REAL é o Registro do aparelho.
-
 #### UM registro só
 
 Um cabeçalho de **identificação** (versões da base, do shell e da ponte; estado
 do telão; alvo de espelhamento; aparelho), **a linha do tempo** dos dois
 processos em ordem de relógio, e só então os blocos de verificação por recurso
-(extração do YouTube, cifra, transmissão direta, espelho, áudio, Séries,
+(extração do YouTube, cifra, espelho, áudio, Séries,
 sorteio). O cabeçalho existe por razão prática: um log colado sem contexto obriga
 a primeira resposta a ser sempre a mesma pergunta.
 
@@ -4579,32 +4885,55 @@ O que apertou foram as DUAS barras — `padding` de `.55rem` para `.35rem`, e
   bloco nenhum; a 360×740 (24px, 420px) ele vai de 6 para 7. Com 9 blocos, os
   dois continuam rolando.
 
-**O VÉU DA BORDA** responde à outra metade do relato — *"um efeito de blur na
+**O VÉU DA BORDA** respondeu à outra metade do relato — *"um efeito de blur na
 borda interna superior ou inferior, quando algum elemento da tela ir para debaixo
-dessa borda"*. São dois pseudo-elementos `position: sticky` DENTRO do scroller
-(`#hymnResults::before` / `::after`), com `backdrop-filter: blur(5px)` e uma
-`mask-image` esmaecendo para transparente.
+dessa borda"*. São dois pseudo-elementos `position: sticky` DENTRO do scroller.
 
-- **BLUR e não gradiente, porque não existe cor certa para o véu.** A alternância
-  papel → poço → papel põe DUAS superfícies sob a mesma borda, e um gradiente
-  teria de escolher uma delas. Blur é agnóstico de cor: MEDIDO, −60% de nitidez
-  nos dois temas.
-- **Dentro do scroller e a `z-index: 2`, é o que o faz sumir sozinho sob uma
-  tampa grudada** — as tampas são opacas e moram acima (z 3 e 4). Medido em
-  131/131 amostras com uma coleção aberta, e em 250/250 de conteúdo cru na lista
-  plana da busca.
+**ELE DEIXOU DE SER DESTA LISTA NA v1.8.58**, quando o operador pediu o mesmo
+efeito em todo scroller do app (*"Faça esse o padrão de efeito para os
+scrolls"*) e escolheu o mecanismo (*"sombra de verdade"*). O que valia aqui e
+continua valendo está no `CLAUDE.md`, na seção da paleta; o que era próprio
+desta lista é só o degrau de camadas abaixo. **O `backdrop-filter` saiu** — era
+ele, e o custo dele, que prendia o efeito a um scroller só.
+
+- **Ele DEIXOU de sumir sob a tampa grudada na v1.8.59.** Até ali a tira era
+  `z-index: 2`, abaixo dos 3/4 das tampas — e a razão escrita era que ela se
+  calava onde já houvesse quem respondesse. `z-index`, porém, é propriedade do
+  ELEMENTO e não do estado "colada": MEDIDO, a `.coll-group-bar` lia razão
+  1,0000 em qualquer posição, inclusive na borda de baixo, e o fundo a 26px dela
+  lia 1,1553. A tira subiu para `z-index: 5`.
 - **Ele só existe quando MENTIRIA ao não existir.** `.tem-acima`/`.tem-abaixo`
-  saem de um ouvinte de `scroll` com `requestAnimationFrame`, reafirmados em todo
-  ponto que muda a lista (abrir a Biblioteca, redesenhar as coleções, redesenhar
-  a busca, o teclado subindo). E as regras que o DESLIGAM repetem
-  `.popup-backdrop--lib.open` — sem isso a especificidade (1,1,0 contra 1,2,0)
-  deixava o véu aceso no topo da lista, exatamente onde ele mente.
-- **Sem `backdrop-filter` ele não aparece** (`@supports not`): meio véu — a
-  máscara sem o borrão — seria uma sombra sem causa.
-- **O véu de baixo ANULA o recuo da lista** (`bottom: calc(-1 *
-  var(--lib-lista-base))`), e é por isso que aquele recuo virou token: sem a
-  anulação ele gruda acima do recuo e deixa uma faixa de conteúdo nítido embaixo
-  de si — um defeito que só aparece num aparelho com barra de gestos.
+  saem de um ouvinte de `scroll` em CAPTURA no `document` (um só para todos os
+  scrollers) e de um `MutationObserver` do documento inteiro, os dois
+  coalescidos por quadro. As regras que o DESLIGAM já não repetem
+  `.popup-backdrop--lib.open`: com o seletor genérico (`.rola:not(.tem-acima)`)
+  não há a disputa de especificidade que uma vez deixou o véu aceso no topo da
+  lista, exatamente onde ele mente.
+- **As QUATRO medidas do recuo são LIDAS do layout** (v1.8.59): a de baixo desde
+  a v1.5.16 (sem ela a tira gruda acima do recuo), e o topo e os dois lados
+  desde este lote — sem eles o vão entre a fronteira e a sombra é exatamente o
+  `padding` do scroller, que aqui são 11,2px no topo e 12,8px de cada lado.
+- **AS TRÊS PORTAS FLUTUAM SOBRE A LISTA** (v1.8.61) — `#listFoot` é
+  `position: absolute` no `.list-body`, e a lista corre por baixo até a
+  fronteira. Ver o CSS para os três desenhos medidos e por que a margem negativa
+  foi recusada (o número passa a definir a EXTENSÃO, e a lista para antes da
+  fronteira quando o rodapé cresce com a fonte do sistema). A folga do fim é a
+  altura do rodapé LIDA mais o recuo de antes, e a tira de sombra desconta a
+  faixa das portas para marcar a fronteira VISÍVEL.
+- **E O CABEÇALHO É UMA BARRA DA COR DOS CONTROLES** (v1.8.61), de borda a
+  borda, com o vão até a lista virado `padding-top` DELA — assim a borda de
+  baixo da barra é a borda do scrollport, e a linha some encostada nela. As duas
+  folhas (Ferramentas e Bíblia) recuperam um degrau de `--sp-5`, senão a borda
+  de cima delas cai de 1,410 para 1,192 no escuro (a sombra da folha deixa de
+  pousar sobre `--bg` e passa a pousar sobre `--bar`, que separa menos).
+- **MAS A TIRA SÓ ALCANÇA A BORDA SE A CAIXA ALCANÇAR** (v1.8.60). `overflow-y:
+  auto` COMPUTA `overflow-x: auto`, e a margem negativa é RECORTADA pela caixa do
+  scroller: MEDIDO no Cronograma, forçar `--veu-esq`/`--veu-dir` a 12,8px não
+  move a tira um pixel. Foi por isso que o `#library` passou a levar o recuo
+  como `padding` próprio, com `margin` negativa devolvendo a caixa à borda da
+  tela — o desenho que a Biblioteca e a playlist já tinham. **E a calha da barra
+  de rolagem é inalcançável**: o retângulo de recorte é o padding box MENOS ela.
+  No Android ela é ZERO (barra sobreposta), então lá não há vão.
 
 #### A divisória entre faixas IRMÃS (v1.5.16)
 
@@ -5469,27 +5798,110 @@ cada uma com a própria pergunta.
 - **MAS A CENA ACABA COM A FILA** (v1.8.52), e por isso este caminho chama
   `encerrarCenaDaFila` quando o que estava no ar era dela — a mesma resposta da
   lixeira da última linha, porque o mesmo estado por duas portas não pode ter
-  duas respostas. A `dica` do botão dizia *"o que está no ar segue no ar"*, e
-  ela é texto que o operador LÊ antes de confirmar. Oráculo: o bloco 4d do
-  `excluir-em-cena.test.mjs`.
+  duas respostas. Oráculo: o bloco 4d do `excluir-em-cena.test.mjs`.
+- **E A PERGUNTA QUE ELE FAZIA ESTAVA ERRADA** (v1.8.84). Relato do operador:
+  *"ao limpar um item da playlist, ele remove ele da exibição, mas quando limpo
+  uma playlist inteira, ele mantém a mídia no player ao invés de limpar
+  corretamente."* O `limparPlaylist` herdou da linha a condição
+  `plItems.some(noArAgora)`, que pergunta pela **PROVENIÊNCIA** do que está no
+  ar — e ela responde *"não é minha"* nos dois estados em que o defeito aparece:
+  tocando algo projetado de FORA da fila (um item do Cronograma, o caso comum) e
+  depois do **Parar**, que preserva o `currentId` de propósito, porque é ele que
+  faz o ▶ repetir a faixa. **Limpar TUDO não tem proveniência a apurar**: a
+  pergunta é `!!currentId`. As duas portas passaram a ler a MESMA função
+  (`tirarDaFilaEncerraCena`), que responde diferente conforme receba ou não um
+  item — na LINHA a proveniência continua sendo a pergunta certa, e a v1.8.52
+  fica de pé inteira.
+- **E O AVISO SOBE PARA O DIÁLOGO QUANDO VAI INTERROMPER** (v1.8.84, pedido do
+  operador: *"coloque também uma mensagem de aviso ao excluir um item ou playlist
+  que tenha algo tocando no momento, avisando que a mídia será interrompida"*).
+  Quem decidiu o desenho foi a medição do que já existia: a faixa da linha tem
+  dois botões e **nenhum lugar para uma frase** — a `dica` dela vira um `title`,
+  e num aparelho de toque um `title` não existe (era ela que dizia *"o que está
+  no ar segue no ar"*, e ninguém nunca leu). `pedirSaidaDaFila` roteia: sem
+  interrupção, a faixa de sempre; com interrupção, o `appConfirm`, que é a única
+  superfície deste app que carrega uma sentença. **E só quando vai** — um aviso
+  incondicional prometeria uma interrupção que o aparelho não faz, e cobraria um
+  modal por item removido de uma fila que continua tocando. Oráculo:
+  `fila-limpa-a-cena.test.mjs`, cujo bloco D mede justamente o caminho que NÃO
+  interrompe continuando na faixa.
 - **A pergunta é a mesma das listas** (`pedirConfirmacaoNaLinha`), e por isso o
-  botão tem uma CAIXA só sua (`.pl-limpar-faixa`): o par substitui os IRMÃOS
-  dele, e no rodapé inteiro levaria o "Guardar como pacote" junto. A altura mora
-  na faixa, não nos dois conteúdos dela — o botão e o par têm receitas
-  diferentes, e sem o número num lugar só a folha encolheria sob o dedo no exato
-  instante em que o operador mira um destrutivo. `closePlPopup` **cancela**, como
-  tudo que fecha uma gaveta.
+  botão tem uma CAIXA só sua (`.pl-limpar-faixa`), e ela é o que torna o LADO A
+  LADO possível: `pedirConfirmacaoNaLinha` usa `botao.parentElement` e esconde os
+  IRMÃOS DIRETOS, então pôr os dois botões na MESMA caixa — o que "lado a lado"
+  sugere — apagaria o pacote como efeito colateral do seletor. A altura mora na
+  faixa, não nos dois conteúdos dela, e sem o número num lugar só a folha
+  encolheria sob o dedo no exato instante em que o operador mira um destrutivo.
+  `closePlPopup` **cancela**, como tudo que fecha uma gaveta.
 - **Ele é a PORTA de um destrutivo, não a execução dele**, e veste o par discreto
   do "Tirar do ar" (`--surface` + `--danger-text`); o saturado
   (`--danger-soft` + `--danger-strong`) fica para o botão que de fato limpa. Dois
-  vermelhos cheios empilhados anunciariam duas ações destrutivas onde há uma.
-- **ACIMA do pacote**, e não abaixo: a folha abre pelo botão da barra de baixo,
-  então o dedo chega pela borda inferior — a mesma régua que pôs o excluir no
-  começo da fileira do `⋮` (v5.288).
+  vermelhos cheios anunciariam duas ações destrutivas onde há uma.
+- **À ESQUERDA dos dois de guardar** (v1.8.53; eram duas linhas empilhadas, e o
+  pacote ficava ACIMA): a mesma régua que pôs o excluir no começo da fileira do
+  `⋮` (v5.288) — a folha abre pelo botão da barra de baixo, e o polegar chega
+  pela borda direita. A ordem no HTML é o que a regra `.confirmando ~ .pl-pack`
+  lê, então trocá-la exige trocar o combinador junto.
+- **DOIS DESTINOS, DOIS BOTÕES DE SÍMBOLO** (v1.8.54, pedido do operador: *"sejam
+  os mesmos dois botões de salvar no cronograma ou salvar nos favoritos, pois
+  este já é o padrão do resto do sistema"*). A estrela e o relógio são os MESMOS
+  da gaveta de cada item — `starSvg` e `cronogramaIconSvg`, a fonte única deles,
+  chamadas na carga; copiar os `path` para o HTML seria a segunda cópia de um
+  desenho. Eles são QUADRADOS de `--faixa-alt` (a mesma altura da faixa, herdada
+  como propriedade personalizada) e o rótulo é do "Limpar", que fica com o resto.
+  **Sem rótulo por MEDIDA**: com três ações sobram 49,9px de texto por botão a
+  320px, e só "Limpar" já mede 51,2px. Quem diz o destino é o `aria-label`, e ele
+  anda com o `title` no apagado — dizer "guardar" a quem não pode guardar seria
+  uma promessa falsa. **A diferença entre os dois destinos é do `criarCue`**, e
+  não é técnica: Favoritos não repetem, o Cronograma pode.
+- **E A PERGUNTA OCUPA A FAIXA INTEIRA** (v1.8.53): enquanto ela está aberta, os
+  dois de guardar saem. Até aqui o pacote ficava, e a razão escrita era a ALTURA
+  — empilhados, levar o vizinho junto tirava uma linha do rodapé. Lado a lado
+  essa razão não existe (MEDIDO: 42px com e sem eles), e o que sobra manda tirar:
+  em todo o resto do app a pergunta substitui os irmãos, e com o pacote de pé o
+  par ficava com METADE da faixa — MEDIDO a 320px, 69,6px por botão, com
+  "Cancelar" truncado num destrutivo. O combinador é o irmão GERAL (`~`) desde a
+  v1.8.54: com o adjacente, só o primeiro dos dois sairia.
+- **E ela diz "Confirmar", não "Limpar" de novo** (v1.8.54, pedido do operador).
+  A régua: o botão do meio da pergunta repete o verbo só quando o botão que a
+  abriu não o diz. Aqui ele diz — e o mesmo vale para o "Limpar todo o
+  histórico"; já a lixeira de UMA sessão do Histórico não tem rótulo, e lá a
+  palavra na confirmação continua sendo a única que nomeia o dano (R9). Quem
+  nomeia o dano por extenso, nos três, é a `dica`.
 - **Com a fila vazia a caixa inteira sai**: um botão que não faz nada é pior que
-  botão nenhum, e um destrutivo inerte ensinaria que tocá-lo é inofensivo.
+  botão nenhum, e um destrutivo inerte ensinaria que tocá-lo é inofensivo. **A
+  altura, porém, mora na FAIXA** (v1.8.54): os dois de guardar a herdam por
+  `align-items: stretch`, e com a caixa do limpar escondida eles ficavam com a
+  altura do próprio conteúdo — MEDIDO pelo portão de geometria, 23px contra um
+  piso de toque de 34px.
+- **E o "Guardar" APAGA com menos de duas mídias** (v1.8.53, pedido do operador:
+  *"não faz sentido guardar uma playlist de um item só"*). A recusa já existia no
+  toque; o que muda é a troca da v1.8.50 — explicar depois é pior que não
+  oferecer. A pergunta é a **de quem executa, literalmente** (`!isCue`, porque um
+  pacote é uma fila de reprodução): uma fila de uma mídia mais um cue tem
+  `length` 2 e um só item guardável, e a pergunta larga acenderia o botão para
+  recusar no toque. **Os dois apagam juntos**: o limiar é do PACOTE, não do
+  destino.
+- **A FOLHA FECHA QUANDO A FILA ACABA** (v1.8.54, pedido do operador: *"já que
+  não há mais nada ali"*), pelas duas portas e por uma função só
+  (`fecharFilaVazia`). Ela NÃO mora no `renderPlaylist`: ali a condição seria
+  *"a fila está vazia"*, verdade também quando a folha é ABERTA vazia — o que os
+  oráculos fazem, e o portão de geometria depende de fazer. A condição certa é
+  *"a fila ACABOU DE esvaziar"*, que é um evento com dois donos conhecidos. Com
+  item sobrando ela continua aberta: fechar no meio de uma reorganização seria
+  tirar a folha da mão de quem está usando.
+- **E O CORPO DA FOLHA VAZIA NÃO DESENHA MAIS NADA** (v1.8.54, pedido do
+  operador: *"essa mensagem não tem mais utilidade… ele não tem acesso a janela
+  se ela não tem nada"*). A premissa é verdade por construção: o botão que a abre
+  nasce apagado com a fila vazia desde a v1.8.51, e desde este lote ela fecha
+  sozinha. A frase de ensino não se perdeu — ela mudou de casa naquele lote e é o
+  `title` do botão apagado; este bloco era a segunda cópia. **DOIS ORÁCULOS
+  DEPENDIAM DAQUELE `<li>`** como prova de que o `renderPlaylist` tinha rodado, e
+  o sinal deles passou a ser o `#plBtn` apagado — que sai da mesma função e não é
+  um nó que uma decisão de interface possa apagar.
 
-Medido de ponta a ponta em `tools/smoke.mjs` ("LIMPAR A FILA INTEIRA").
+Medido de ponta a ponta em `tools/smoke.mjs` ("LIMPAR A FILA INTEIRA") e em
+`tools/rodape-da-playlist.test.mjs` (a geometria, os dois destinos e o fecho).
 
 ### Favoritos: uma lista só (marcados + pastas do aparelho)
 
@@ -6845,9 +7257,12 @@ CANTADA precisa revelá-la — senão o louvor entra sem imagem e sem letra por
 causa de uma escolha de dois minutos atrás. **O sorteio diz o estado do telão em
 vez de herdá-lo.**
 
-**"Ao Cronograma" não mexe na cortina**: ele guarda, não projeta — e por isso o
-PACOTE a carrega no descritor (ver abaixo), para aplicá-la no dia em que for
-aberto.
+**Os três destinos não mexem na cortina**: eles guardam, não projetam — e por
+isso o PACOTE a carrega no descritor (ver abaixo), para aplicá-la no dia em que
+for aberto. **Uma música SOLTA não a carrega**, e a assimetria está dita: um id
+de mídia numa lista não tem onde guardar decisão nenhuma, e nenhum caminho deste
+app jamais guardou cortina junto com uma música avulsa — a gaveta da Biblioteca,
+mandando um `playback` ao Cronograma, faz exatamente o mesmo.
 
 A folha **anuncia** o que vai acontecer, e só com o fundo musical escolhido — que
 é quando a pergunta existe: *"Fundo musical: toca sem letra e sem nada no
@@ -6870,41 +7285,67 @@ resolve o `fileIdPlayback`. Renomear o valor junto com o rótulo trocaria a
 variante de todo mundo que já escolheu, em silêncio. `sorteio-tela.test.mjs`
 trava as duas metades: o rótulo que aparece e o valor que não muda.
 
-#### Montando a fila há DOIS desfechos (v5.306)
+#### A faixa de fecho: TOCAR mais os TRÊS destinos (v5.306, v1.8.56)
 
-Eles não são duas versões da mesma ação, e é isso que justifica o segundo botão:
+Eles não são versões da mesma ação, e é isso que justifica os botões ao lado do
+primário:
 
 | Botão | O que faz | O que NÃO faz |
 |---|---|---|
 | **Tocar agora** | `AVDB.listSet('playlist', ids)` + `send` do primeiro — o caminho do `abrirPacote` | — |
-| **Ao Cronograma** | acrescenta **UM PACOTE** à lista `imports` (v5.313) | não substitui a fila do player, não projeta, não fecha a folha |
+| **Cronograma** | acrescenta **UM PACOTE** à lista `imports` (v5.313) | não substitui a fila do player, não projeta, não fecha a folha |
+| **Playlist** | acrescenta as FAIXAS ao FIM da fila (`listAdd`, que é append e idempotente) | não substitui a fila, não projeta, não guarda pacote |
+| **Favoritos** | o mesmo pacote, na lista `favs` | idem |
 
 Pedido do operador: *"vai direto para a playlist do player, para ser tocada"*
-(v5.303) e, depois, *"coloque dois botões, um de tocar agora e outro para
-adicionar ao cronograma"*. Montar o louvor da semana numa terça e projetar no
-domingo são dois momentos, e antes só o primeiro tinha porta.
+(v5.303), depois *"coloque dois botões, um de tocar agora e outro para
+adicionar ao cronograma"* e, na v1.8.56, *"deixe o botão tocar agora, e os dois
+botões de add ao cronograma e add aos favoritos disponíveis… pode até adicionar
+um terceiro botão, adicionar a playlist, que simplesmente joga… no fim da
+playlist atual"*. Montar o louvor da semana numa terça e projetar no domingo são
+dois momentos, e antes só o primeiro tinha porta.
 
 Substituir a fila é a mesma semântica de todo "Tocar agora" do acervo, que já
-passa por `replacePlaylistWith` — não é uma classe de risco nova. **O Cronograma
-nunca é substituído:** ali a ação só ACRESCENTA.
+passa por `replacePlaylistWith` — não é uma classe de risco nova. **Os três
+destinos nunca substituem nada:** ali a ação só ACRESCENTA.
 
-Três decisões que precisam estar ditas:
+**A ORDEM é a canônica** (`DESTINOS` — ver "UM item, VÁRIOS destinos"), e os três
+são ÍCONES MUDOS com `aria-label`: a 320px quatro rótulos não cabem, e o desenho
+é o do rodapé da fila (v1.8.53), com a mesma expressão de tamanho. O `data-dest`
+de cada um é o único jeito de achá-los sem texto — inclusive para um oráculo.
 
-- **Sorteando UMA SÓ o botão continua sendo um.** "Sorteie uma e guarde" é o
-  caminho que a Biblioteca já dá pela gaveta da linha, com a música escolhida à
-  vista — aqui seria um destino a mais para uma decisão que o operador toma
-  justamente por não querer decidir.
+Decisões que precisam estar ditas:
+
+- **UMA SÓ TAMBÉM TEM OS TRÊS** (v1.8.56). Até ali o botão era um, e a razão
+  escrita era: *"sorteie uma e guarde é o caminho que a Biblioteca já dá pela
+  gaveta da linha, com a música escolhida à vista"*. Ela vale para uma música
+  ESCOLHIDA — quem sorteia não sabe qual vai sair, e chegar à gaveta dela custa
+  fechar esta folha, achar a faixa entre milhares e abri-la: uma busca e três
+  toques para o que agora é um. **Eles SORTEIAM**, e é isso que os torna botões
+  e não uma folha de destinos: não há resultado à vista antes do toque, e uma
+  folha perguntaria *"para onde?"* antes de existir o quê.
+- **UMA SÓ ENTRA COMO A LINHA DA MÚSICA, nunca como um pacote de um.** A mesma
+  régua do `.avpkg` da fila (*"um pacote guarda uma fila"*, v1.8.53): uma linha
+  chamada "Playlist da biblioteca · 1 música" que precisa de um toque a mais
+  para revelar o hino que está dentro é pior que a linha do hino.
+- **A PLAYLIST RECEBE AS FAIXAS, não o pacote.** É a metade literal do pedido, e
+  é a única leitura coerente: a fila é uma fila de MÍDIA, e o toque num pacote a
+  SUBSTITUI (`abrirPacote`) — guardá-lo dentro dela seria pôr nela o botão que a
+  apaga.
+- **NENHUM DELES NO MODO FÁCIL.** Ele não tem Cronograma, nem Favoritos, nem
+  fila à vista (`body.mode-simple` esconde o `main` e a barra inteiros), e o que
+  fosse guardado ali só reapareceria para quem trocasse de modo.
 - **Guardar NÃO fecha a folha.** É o princípio das listas de destino do acervo:
   uma ação que guarda não encerra a conversa, e o segundo sorteio é o uso normal
   (acrescenta cinco, olha a lista, acrescenta mais cinco). Fechar cobraria três
   toques por rodada.
-- **Cancelar tem sentidos OPOSTOS nos dois botões, e está certo.** No "Tocar
-  agora" ele descarta: trocar a fila do culto por meia lista é uma
-  SUBSTITUIÇÃO pela metade. No "Ao Cronograma" ele preserva o que já desceu:
-  três de dez é exatamente o que aconteceu, e jogar fora um download que já
-  custou rede seria desperdício.
+- **Cancelar tem sentidos OPOSTOS entre o primário e os destinos, e está
+  certo.** No "Tocar agora" ele descarta: trocar a fila do culto por meia lista
+  é uma SUBSTITUIÇÃO pela metade. Nos três destinos ele preserva o que já
+  desceu: três de dez é exatamente o que aconteceu, e jogar fora um download que
+  já custou rede seria desperdício.
 
-##### O Cronograma recebe UM PACOTE, não N linhas (v5.313)
+##### O Cronograma (e os Favoritos) recebem UM PACOTE, não N linhas (v5.313)
 
 Pedido do operador: *"ajuste o envio ao cronograma para que ele não envie um por
 um, mas sim um item que seja um pacote de playlist"*.
@@ -6918,6 +7359,11 @@ O que isso resolve é a ESCALA. Dez faixas sorteadas eram dez linhas avulsas no
 meio do roteiro — para tirá-las, dez perguntas; para saber que eram um lote,
 memória. Uma linha diz o que é, sai num toque, e abre a fila inteira na hora dela.
 
+**Vale para os Favoritos desde a v1.8.56**, pelo mesmo `criarCue` (que já sabia
+guardar em `favs`; o que faltava era o botão) — e **não vale para a fila**, que
+recebe as faixas soltas, nem para o sorteio de UMA, que entra como a linha da
+música. Ver a faixa de fecho, acima.
+
 | Decisão | Por quê |
 |---|---|
 | **o nome não usa a palavra "sorteio"** | ela já é o nome de outra cena de roteiro (`CUES.draw`), e duas linhas homônimas fazendo coisas diferentes só se descobrem no sábado. `nomeDoPacoteSorteado` produz *"Playlist “natal” · 5 músicas"* / *"Fundo musical da biblioteca · 3 músicas"* |
@@ -6925,6 +7371,268 @@ memória. Uma linha diz o que é, sai num toque, e abre a fila inteira na hora d
 | **os `ids` dentro do cue não viram órfãos** | a mídia do sorteio vive no store **`files`** (`resolveSongMediaId` devolve o `fileIdFull`/`fileIdPlayback` do hinário, e `getMedia` cai no `fileGet`), e o coletor lê listas + Favoritos e apaga só do store `media`. Quem manda na vida deles é a coleção que os baixou, como antes |
 | **cada sorteio é um pacote NOVO** | antes a dedução era por id e o segundo sorteio só acrescentava o que faltava. Um pacote é o INSTANTÂNEO de uma tirada; dois lotes no roteiro são dois lotes, e continuam saindo num toque cada. `criarCue` ainda avisa quando o conteúdo é idêntico |
 | **`f` é passado a `guardarSorteadasNoCronograma`** | e não `sorteioPrefs`: a folha fica aberta durante o download, e mexer num controle ali reescreveria as preferências — o pacote sairia com o nome de uma escolha que ninguém sorteou |
+
+##### A CONTA É UM CARTÃO DE TAMANHO FIXO, E O PULSO CHEGA À TELA (v1.8.83)
+
+Dois relatos do operador no mesmo minuto, sobre a mesma folha — e são o MESMO
+defeito por dois ângulos: **ela se redesenhando quando não precisava**.
+
+**(1) O pulso.** *"O feedback de confirmação dos botões na seção de playlist
+automática, estão muito rápidos, basicamente não visíveis. Verifique seu tempo de
+exposição ou se tem algo atualizando a tela"* — era a segunda hipótese, e o tempo
+não tinha nada a ver. O `finally` do `executarSorteio` chamava `renderSorteio()`
+só para reabilitar a faixa de fecho, e um redesenho **troca os nós**
+(`limparFolha` esvazia a lista e cada botão é criado de novo). MEDIDO: o nó do
+botão tocado saía do documento em **23 ms**, e o pulso vivia os 1100 ms do
+`PULSO_MS` inteiros **num nó solto — zero milissegundo na tela**.
+
+`acertarTravaSorteio` escreve `disabled` em ponto, que é tudo o que aquele
+redesenho tinha a fazer. A unificação achou a **segunda cópia da mesma regra** no
+`atualizarContaSorteio`, e ela estava errada por dois motivos: lia só `n === 0`
+(ignorando o `sorteioRodando`) e procurava os botões DENTRO da lista, onde eles
+não moram desde a v1.8.60 — um laço sobre zero nós, sem erro em lugar nenhum.
+
+> **A armadilha da MEDIDA está no oráculo, e ela é o ponto:**
+> `btn.classList.contains('btn-pulso')` responde `true` durante os 1100 ms
+> inteiros, nó solto e tudo. O que se mede é `.btn-pulso` **dentro da folha** —
+> isto é, um pulso que alguém pode ver.
+
+**(2) A zona de resultados** — e ela foi REESCRITA na v1.8.84, uma versão
+depois. Vale registrar as duas, porque a segunda revoga a primeira por uma razão
+que a primeira não podia ver.
+
+**v1.8.83, o cartão de tamanho fixo.** *"Seu design está sendo muito variado e
+pouco modular, resultando novamente no problema de movimentação da janela… Algo
+como um simples card, com texto centralizado… O card sempre terá o mesmo
+tamanho"*. O `min-height: 6em` da v1.8.61 reservava QUATRO linhas e o pior caso
+são CINCO. MEDIDO em 99 células (3 larguras × 3 escalas da fonte do sistema × 11
+estados que o operador alcança tocando nas pílulas e digitando): a caixa ia de
+**78,7 a 143,7px** e a FOLHA andava **25,6px** a 360×1,5. A 320×1,5 ela NÃO
+andava, e isso era pior em vez de melhor — ali a folha já batia no teto de 80vh e
+o crescimento virava rolagem, que é o mesmo defeito escondido atrás de um gesto.
+
+**v1.8.84, a lista.** *"O cartão de resultados repete as informações que já temos
+nas seleções acima, como os filtros usados, e etc… Uma ação inútil, pois
+literalmente já há a visão das seleções. Nesse resultado, precisamos apenas dos
+resultados. Quantos temos, e se está disponível."* Ele estava certo, e o lote
+anterior tinha consertado a peça errada: fixar a altura de uma frase que
+reescrevia por extenso *"Toda a biblioteca, sem os infantis — 2 músicas"* logo
+abaixo das pílulas que dizem "sem infantis" e do campo vazio. **Uma frase que
+repete a tela não fica melhor por não se mexer.**
+
+O que sobrou dela se dividiu em dois, por onde cada metade é lida:
+
+| pergunta | onde vive | por quê |
+|---|---|---|
+| **QUANTOS** | `sorteioPilulaDaConta` — uma pílula à esquerda do primário | é o que se lê de RELANCE, e por isso fica na altura do dedo. Largura FIXA (`min-width: 4ch` + `tabular-nums`), *"cuide para que o botão tenha um tamanho fixo independente do número interno"*. **Só o número desde a v1.8.85** — ver abaixo |
+| **QUAIS** | `sorteioListaDeResultados` — a lista, no formato da busca da Biblioteca | é o que o cartão nunca respondeu, e é onde a disponibilidade vira acionável: a linha diz "no aparelho" ou "vai baixar", e dá para desmarcar a que vai baixar |
+
+#### A MARCA É O LOTE, E O LOTE É "QUANTAS" (v1.8.85)
+
+*"As marcações de check devem ficar selecionadas apenas o número de itens
+selecionado para o filtro atual, o resto da lista segue desmarcado, mas ainda
+segue sendo listado… ajuste para que ao tocar no check para ativar ou desativar,
+se altere o número selecionado para 'quantas', pois ele é literalmente isso, mas
+selecionando de forma manual."*
+
+**Isto REVOGA as duas marcas da v1.8.84**, que tinha a caixa marcada em TODAS as
+linhas (*"esta entra na consideração?"*) e o preenchimento em algumas (*"esta vai
+tocar?"*). Duas perguntas, dois sinais — e o operador leu uma pergunta só. Ele
+está certo: **marcar é escolher**, que é o vocabulário do resto do app (a folha
+de destinos, a seleção múltipla).
+
+| peça | o que é |
+|---|---|
+| `sorteioMarcadas` | **a única fonte**. O conjunto de chaves marcadas É o lote, e "quantas" é o `size` dele |
+| a pílula de quantidade | deixou de ser o estado e virou um **atalho**: tocar em "5" marca as cinco primeiras do baralho (`sorteioSemear`) |
+| `sorteioPrefs.quantos` | continua sendo o que PERSISTE, e só a pílula o escreve |
+
+- **Guardar os dois — um número e um conjunto — é a divergência escrita.** Um
+  toque que atualizasse só um deles faria o seletor discordar da lista, e nenhum
+  dos dois erraria sozinho. Daí `quantos` ser DERIVADO na tela: a pílula acesa é
+  a que casa com `sorteioMarcadas.size`, e **nenhuma acesa é um estado legítimo**
+  — é o que o operador vê com quatro marcadas, e é a única indicação de que a
+  escolha passou a ser dele.
+- **Só a pílula grava, e é por uma razão do módulo puro:** `AVSorteio.sanear`
+  clampa `quantos` à lista de presets (`QUANTIDADES`), então um 4 vindo de marca
+  manual voltaria como 1 na abertura seguinte, calado. E não se perde nada — a
+  marca já é EFÊMERA por pedido do próprio operador (v1.8.84: *"esse check é
+  resetado entre aberturas da janela"*).
+- **A LISTA NÃO SE REORGANIZA.** Marcar a linha 9 deixa a linha 9 onde está, com
+  a posição 3 do lote: o que numera é a ordem do BARALHO, contando só as
+  marcadas. Subir a marcada para o topo seria reorganizar a lista debaixo do
+  dedo, que é o que o baralho existe para não fazer.
+- **O PISO É UMA MARCADA** (`sorteioAlternar` devolve `false` e o botão pulsa em
+  erro). Desmarcar a última deixaria a folha com um primário aceso que não pode
+  fazer nada, e a régua da v1.8.50 diz o contrário disso; o caminho de "não quero
+  nenhuma" é fechar a folha.
+- **O TOQUE NÃO REDESENHA A FOLHA** — `atualizarContaSorteio` mais
+  `acertarPilulasDeQuantidade`, os dois em ponto. É o remédio da v1.8.83 pelo
+  mesmo motivo, com um agravante novo: desde este lote a lista é o único
+  scroller da folha, e um redesenho a devolveria ao TOPO a cada marca. Numa
+  lista de mil linhas, um toque na linha 300 tirava a linha 300 da tela.
+
+#### O BARALHO É MANTIDO, NÃO REFEITO (v1.8.86)
+
+*"Ajuste a atualização da lista e opções, para que não re-sorteie a lista em
+qualquer interação com os filtros, eles apenas vão cortando as opções do 'fim da
+lista'. O sorteio só acontece após realmente 'usar' os itens do topo, no caso,
+apenas após tocar ou salvar em algum lugar como cronograma, favoritos ou etc."*
+
+Cada passada faz DUAS operações sobre o baralho, nesta ordem:
+
+1. **quem saiu do pool sai do baralho** — e a ordem do que fica não muda, que é
+   o *"apenas vão cortando as opções"* do pedido;
+2. **quem entrou vai para o FIM**, embaralhado entre si. Afrouxar um filtro não
+   pode empurrar para o topo o que o operador ainda não leu.
+
+- **O EMBARALHAMENTO INICIAL É ESTE MESMO CAMINHO.** Na primeira passada o
+  baralho está vazio, todo o pool é "quem entrou", e a lista inteira sai
+  embaralhada. Não há dois caminhos, e é por isso que nenhum deles envelhece
+  sozinho: quem zera o baralho (`abrirSorteio`) pede um sorteio novo por
+  construção.
+- **A `sorteioImpressao` SAIU JUNTO.** Ela existia para responder *"o pool
+  mudou?"*, e a resposta deixou de decidir alguma coisa. O custo dela era o que
+  a justificava (uma string por tecla em vez de 1.100 chaves); hoje a manutenção
+  é feita sobre o `Set` que a passada já monta.
+- **E ELA COBROU UMA PEÇA NOVA: `sorteioUsadas`.** Guardar uma música não a tira
+  do acervo, então na passada seguinte a manutenção a leria como quem acabou de
+  entrar no pool — **o lote reaparecendo no fim da lista depois de ter sido
+  usado**, que é o oposto do pedido. A memória do que já saiu vale para a
+  abertura, e `abrirSorteio` a zera com o resto.
+- **O LOTE É AJUSTADO, nunca semeado de novo** (`sorteioAjustarLote`): mantém as
+  marcas que sobreviveram ao corte e completa pelo topo até o alvo. Semear
+  devolveria ao topo uma marca que o operador acabou de fazer na linha 9, por um
+  toque de filtro que não tinha nada com aquilo. O alvo é lido ANTES da poda —
+  um filtro que leve embora uma marcada não pode encolher em silêncio o número
+  que ele escolheu.
+- **`sorteioSemear` continua existindo** para quem de fato pede um lote novo: a
+  pílula de quantidade e o consumo.
+
+#### SÓ A LISTA ROLA (v1.8.85)
+
+*"Sobre o scroll, mantenha as opções dos filtros sempre visíveis e deixe apenas
+a lista dos resultados como scroll."*
+
+A `.popup-list` já é uma coluna flex; o que mudou é **quem cede**: a
+`.sorteio-res` é o único item com `flex-shrink: 1`, então tudo o que passa do
+teto de 80vh é descontado dela e o resto — palavra, variante, filtros,
+quantidade e a barra de ação — fica onde está.
+
+- **O SELETOR PRECISA NOMEAR O PAI.** `.popup-list > li` declara `flex-shrink: 0`
+  e é (0,1,1); `.sorteio-res` sozinho é (0,1,0) e PERDE. MEDIDO: a lista ficava
+  com 1323px dentro de uma folha de 720 e quem rolava era a folha inteira — o
+  pedido desfeito por um ponto de especificidade, sem erro em lugar nenhum.
+- **O PISO (`min-height: 9rem`) É A FALHA ABERTA.** Sem ele, uma folha apertada
+  (tela baixa, fonte do sistema grande) esmaga a lista até zero e o operador vê
+  os filtros sem nenhum resultado, sem nada dizendo por quê. Com o piso, quem
+  transborda é a folha — que nunca deixou de ser um scroller —, e no pior caso
+  volta-se ao comportamento de antes deste lote.
+- **A `.rola` MUDOU DE DONO**: a sombra das bordas é da lista de resultados, que
+  é quem rola. A `.popup-list` continua com a marca e o observador a lê como
+  `sem-veu` enquanto ela não rolar, que é o caso normal.
+- **E a `.sorteio-barra` continua `sticky`, agora como REDE**: quem a mantém à
+  vista no caso normal é a estrutura (ela está ACIMA do scroller). O `sticky`
+  cobre o mesmo caso que o piso deixa acontecer de propósito.
+
+- **A PÍLULA NÃO É UM BOTÃO**, e é um `<span>` de propósito. Ela não faz nada, e
+  a v1.8.50 diz que o que não tem função agora não fica aceso esperando toque —
+  um número desenhado como botão é um botão que se toca e não responde. Ela
+  anuncia a FRASE (`role="status"` + `aria-label`), nunca o número solto: um
+  leitor de tela lendo "12" no meio de uma barra de botões não diz de que 12 se
+  trata.
+- **E ELA PERDEU O ÍCONE na v1.8.85** (*"remova o ícone e deixe apenas o número
+  no botão de número de resultados disponíveis"*). Ele era a nota musical, e o
+  que ele acrescentava — "isto conta músicas" — a lista logo abaixo já diz, item
+  por item. **O que ele custava é medível e é o vizinho:** 27px da largura do
+  rótulo do primário, numa faixa onde ela é o recurso escasso. O pior caso do
+  "Tocar agora" subiu de 6,1px para 34,9 — o que MELHOROU o número e não
+  resolveu, e as duas metades ficam escritas porque a primeira convida a
+  desfazer a segunda (a quebra da faixa continua obrigatória).
+- **A BARRA DE AÇÕES SUBIU** para cima dos resultados (*"mova a barra de opções
+  de play para cima dessa sessão de resultados"*) e por isso saiu do
+  `porFecho` — o rodapé que não rola a poria DEPOIS da lista. Ela entra na
+  própria lista e fica GRUDADA no topo (`sticky`), que é o que devolve a
+  propriedade do fecho: à vista com os resultados rolando por baixo.
+- **E CINCO PEÇAS NÃO CABEM NUMA LINHA DE 320px**, que é o que a pílula custou e
+  onde este lote gastou a maior parte da medição. Ela vale 68,5px a 1× e 90,8 a
+  1,5×, e sem quebra o primário é o único que encolhe (`flex: 1; min-width: 0`):
+  MEDIDO, **6,1px a 320×1,5** — não é um rótulo cortado, é um botão que sumiu.
+  Três coisas resolvem, e a ordem entre elas é o argumento:
+
+  | peça | o que faz | o que se aprendeu medindo |
+  |---|---|---|
+  | `flex-wrap: wrap` na faixa | permite a segunda linha | **sozinho não faz nada**: um item que pode encolher até zero nunca força a quebra |
+  | `min-width: 11em` no primário | é quem FORÇA a quebra, e quem escolhe quem cede | os três destinos descem, que é a ordem certa — o "Tocar agora" é o botão do culto. Nunca `max-content`: o `overflow: hidden` do rótulo zera o tamanho mínimo automático do item |
+  | a regra de altura única da v1.8.61 | ganhou o novo ancestral | escopada em `.popup-fecho`, ela não alcançava a barra que saiu de lá — MEDIDO, 53,2px do primário contra 42,4 dos irmãos, a v1.8.61 inteira de volta |
+
+  **O número 11em é medido**: é o primeiro degrau com ZERO reticências nas nove
+  células (3 larguras × 3 escalas da fonte do sistema), e com ele **cai o limite
+  de 320px** que a v1.8.62 declarava. 9em ainda cortava em duas, 10em numa, e
+  12em só acrescenta quebras sem ganhar célula nenhuma.
+
+  **E A QUEBRA NÃO CONTRADIZ A ESTABILIDADE**: ela depende da TELA e da fonte do
+  sistema, nunca do que o operador acabou de tocar — as cinco peças têm largura
+  fixa e o rótulo é um só. MEDIDO, deslocamento ZERO da barra nas 33 células.
+- **A FALA FICOU** (`sorteioFala`), e é a única coisa do cartão que não repetia
+  a tela: *"5 músicas acrescentadas ao fim da playlist"*, *"todas as 5 já
+  estavam"*. A segunda metade não tem outro jeito de ser dita — a lista mostra
+  as cinco saindo do baralho, mas não distingue "entraram" de "já estavam lá".
+  **A linha é SEMPRE desenhada**, vazia quando não há fala: uma linha que aparece
+  e some é um motor de pulo da folha (v1.8.61), e o espaço que ela reserva se
+  paga duas vezes — calada, é o respiro entre a barra e a lista.
+- **E o clampe da palavra tema FICOU** (`temaNaFrase`, 24 caracteres), embora o
+  cartão que o pedia tenha saído: a frase do VAZIO ainda a carrega, e ela
+  continua sendo a única entrada sem limite que chega a uma frase desta folha.
+
+#### O BARALHO: a ordem que sobrevive ao redesenho (v1.8.84)
+
+É a metade que o pedido não descreve e sem a qual nada dele funciona. *"Essa
+lista de músicas é aleatória dentro das condições selecionadas, ela mostra todos
+os disponíveis, mas o número de itens para a 'playlist' fica marcado e ficam no
+topo da lista… E após jogar para tocar, essa lista marcada é removida, e os itens
+de baixo são levados para cima."*
+
+**A folha é redesenhada a cada tecla digitada, a cada pílula e a cada marca**, e
+`montarPool` refaz os objetos em toda passada — ele é quem responde ao contador
+por caractere. Um sorteio por render trocaria debaixo do dedo as músicas que o
+operador acabou de ler.
+
+- **Ele guarda CHAVES, nunca os itens** (`chaveDaFaixa`: coleção + id da música).
+  Os objetos são novos a cada passada; guardá-los seria guardar uma lista que não
+  casa com a próxima.
+- **O FILTRO CORTA; ELE NÃO SORTEIA DE NOVO** (v1.8.86), e isto REVOGA a
+  v1.8.84, cujo argumento era o oposto (*"mexer num filtro é pedir outro
+  sorteio"*). Não é: mexer num filtro é dizer o que NÃO serve, e o que sobrou
+  continua servindo na mesma ordem. O preço da versão anterior é o que o
+  operador leu na tela — ele lê cinco nomes, tira o hinário da conta e recebe
+  cinco OUTROS, como se o filtro tivesse rejeitado o que ele estava
+  considerando. Ver a seção abaixo.
+- **O "Tocar agora" toca o que está na TELA.** Era `AVSorteio.sortear` no toque,
+  isto é, um sorteio NOVO: o operador lia cinco nomes e ouvia outros cinco. O
+  lote sai de `sorteioEscolhidos(sorteioLista(…))`, que é a mesma função que
+  desenhou a lista.
+- **O lote USADO sai do baralho** (`sorteioConsumir`), **depois da ação e nunca
+  antes**: um lote que falhou — o consentimento de download recusado, nenhuma
+  faixa baixável — apagaria da tela músicas que ninguém ouviu.
+- **E a lista se redesenha no ato, por `atualizarContaSorteio`.** Nunca por
+  `renderSorteio`: um redesenho troca os nós e apaga o pulso que o
+  `guardarSorteadas` acabou de pôr no botão tocado (a lição da v1.8.83). Aquele
+  troca só a pílula, a fala e a lista — e o botão do pulso não está em nenhuma
+  das três. Sem isto, nos três destinos (que deixam a folha ABERTA) o próximo
+  toque sairia por cima do mesmo lote.
+- **E o próximo lote já nasce MARCADO, do mesmo tamanho** — *"criando a próxima
+  lista selecionada para playlist"*. O tamanho é o do lote que saiu, e não a
+  pílula guardada: se o operador tirou uma na mão antes de tocar, ele pediu
+  quatro, não cinco.
+- **Marcas e baralho ZERAM a cada abertura** (`abrirSorteio`) — *"para que não
+  aconteça de bloquear uma música desejada sem saber em outra sessão"*. O baralho
+  vai junto pelo mesmo argumento por outro lado: abrir a folha é pedir um
+  sorteio, e reencontrar o de meia hora atrás não é "automática".
+
+Oráculo: `sorteio-lista-de-resultados.test.mjs`, e a assimetria dele é o
+argumento inteiro — **com o baralho refeito a cada passada, o bloco que mede o
+DESENHO passa inteiro**. Uma passada sozinha nunca acusa persistência.
 
 #### O lote de download
 
@@ -6940,27 +7648,25 @@ memória. Uma linha diz o que é, sai num toque, e abre a fila inteira na hora d
 - **O cancelar** do cartão da preview para a fila **entre** faixas: o download em
   curso termina, porque interrompê-lo no meio deixaria um parcial.
 
-#### A conta é a única chance de ver antes de acontecer
+#### Ver antes de acontecer
 
-O botão dispara sem mais nenhuma tela, então a linha do contador é onde o
-operador lê o que vai acontecer. Ela responde a **duas perguntas de pesos
-diferentes** — *o tema achou o quê?* e *quanto disso toca agora?* —, e por isso
-são **duas linhas com hierarquia** e não uma frase com separadores (v5.306,
-pedido do operador: *"mais funcional e menos técnico"*):
+O botão dispara sem mais nenhuma tela, então tudo o que o operador tem para saber
+o que vai acontecer está nesta folha. **Desde a v1.8.84 quem responde é a LISTA**
+— cada música que vai tocar, na ordem, com o lote no topo —, e a pílula responde
+o total.
 
-```
-28 músicas relacionadas a “natal”          ← --text, peso 600
-A playlist leva 10 · 1 para baixar         ← --muted
-```
+> **A LINHA DE DUAS FRASES SAIU COM O CARTÃO.** Ela dizia `28 músicas
+> relacionadas a “natal”` sobre `A playlist leva 10 · 1 para baixar` (v5.306,
+> pedido do operador: *"mais funcional e menos técnico"* — antes era `12 faixas
+> casam · 3 já no aparelho · sorteia 5`, três números no vocabulário de quem
+> escreveu a regra). O que a segunda linha respondia — *quanto disso toca
+> agora?* — a lista responde por extenso: as que vão tocar estão marcadas e no
+> topo, e cada uma diz se está no aparelho ou se vai baixar. O custo continua
+> **exato e não uma estimativa**, pelo mesmo motivo de sempre: o baralho põe as
+> baixadas antes das que faltam, então o que precisa de rede é o que sobra
+> depois das primeiras.
 
-O custo é **exato, não uma estimativa**: o sorteio esgota as baixadas antes de
-pegar as que faltam, então quantas precisam de rede é uma subtração.
-
-Ela saía como `12 faixas casam · 3 já no aparelho · sorteia 5` — três números no
-vocabulário de quem escreveu a regra, empilhados numa linha só, disputando o
-mesmo peso.
-
-Vazia, ela diz o **motivo dominante** — sem ele, "nada encontrado" tem cinco
+Vazia, a folha diz o **motivo dominante** — sem ele, "nada encontrado" tem cinco
 causas que pedem ações opostas (trocar a palavra, desligar um filtro, trocar a
 variante, abrir a Biblioteca com internet).
 
@@ -6980,13 +7686,15 @@ nada dizia que faltava carregar a biblioteca. Quem sabe por que cada
 coleção ficou de fora é `AVSorteio.avaliarColecao`, e é dela que a frase sai.
 
 **A frase de resposta do "Ao Cronograma" mora em ESTADO, não no nó.** O
-`executarSorteio` redesenha a folha no `finally`, e um texto escrito direto no
+`executarSorteio` redesenhava a folha no `finally`, e um texto escrito direto no
 span era apagado no mesmo quadro em que nascia — o "adicionadas ao Cronograma"
-nunca chegava a ser visto. Guardá-la em `sorteioFala` e deixar
-`pintarContaSorteio` consultá-la faz qualquer redesenho preservá-la, inclusive um
-caminho de render que ainda não existe.
+nunca chegava a ser visto. Guardá-la em `sorteioFala` e deixar quem desenha
+consultá-la faz qualquer redesenho preservá-la, inclusive um caminho de render
+que ainda não existe. **Ela é a `.sorteio-fala` desde a v1.8.84**, e a regra
+sobreviveu à troca do cartão pela lista sem uma linha alterada — que é o que ela
+existia para garantir.
 
-Vazia, a linha do contador ganha **ênfase, não alarme**: `--muted` → `--text`
+Vazia, a frase do sorteio ganha **ênfase, não alarme**: `--muted` → `--text`
 com peso 600, e nunca a família do vermelho. "Nada casa a palavra tema" é o
 desfecho normal de quem acabou de digitar uma palavra, e "nenhuma coleção com
 índice" é um aparelho recém-configurado — nenhum dos dois é "está no ar agora"
@@ -7957,22 +8665,72 @@ O alvo é o **primeiro** item que entrou (um share pode trazer vários arquivos)
 e para isso `addMedia`/`addUrlMedia` — que já devolviam o registro — têm o
 retorno aproveitado; `handleSharedUrl` também devolve o seu.
 
-Ciclo ao tocar no botão 🔁: `off → all → one → shuffle → off` (persistido em `repeat`).
+Ciclo ao tocar no botão 🔁: `off → one → all → shuffle → off` (persistido em
+`repeat`). **A ordem mudou na v1.8.80**, a pedido do operador — *"para que ele
+mostre primeiro repetir a midia atual e depois o repetir a playlist inteira"* —:
+o degrau mais pedido vem primeiro, e os dois primeiros toques vão do mais
+restrito ao mais amplo (a mídia, a fila, o sorteio). O desenho é pintado ANTES da
+transação do banco: num controle que se toca com a música no ar, o que a mão
+espera é o botão mudar no toque.
 
-**Tocar uma música nova zera o `one`** (`replacePlaylistWith`): tanto o toque
-simples na biblioteca quanto o "tocar" de um resultado da busca substituem a
-playlist por aquele item só — e, junto, desligam o `repeat='one'`. Repetir a
-mesma música é uma escolha sobre a música que ESTAVA tocando; mantê-la
-prenderia o item novo em laço, que é o oposto de "escolhi outra coisa para
-tocar". `all` e `shuffle` ficam: são comportamentos da FILA e voltam a valer
-assim que o operador acrescentar itens a ela.
+**E OS QUATRO DEGRAUS VIRARAM SVG DO SPRITE** (v1.8.80), três símbolos para
+quatro estados:
+
+| modo | desenho | por quê |
+|---|---|---|
+| `off` | `#icoRepetir` (o laço puro), sem superfície | é o estado base |
+| `one` | `#icoRepetir`, com a superfície de LIGADO | *"o icone de repetir a midia atual deve ser o icone de repetir comum, sem adições"* |
+| `all` | `#icoRepetirLista` — o MESMO laço mais a lista no miolo | *"deve ter o mesmo design de repetir, mas deve ter algo que ilustre o objeto 'lista'"* |
+| `shuffle` | `#icoAleatorio` | entra por coerência: um glifo de tinta cheia ao lado de dois laços de traço é divergência de peso |
+
+**Em SVG porque o "repetir com lista" não existe no subset da fonte** (31
+codepoints): pedi-lo por codepoint desenharia um VÃO, sem erro nenhum. `off` e
+`one` DIVIDEM o desenho, e é a superfície (`#repeat.active`) que os separa — a
+mesma convivência que `off` e `all` já tinham. MEDIDO contra o glifo que os três
+substituíram: `#icoRepetir` pinta 0,93× e `#icoAleatorio` 1,03× da tinta dele, e
+o `#icoRepetirLista` 1,25× (a lista é o que ele tem a mais).
+
+**O SELETOR RESPONDE PELO FIM DA FILA, NÃO POR ELA ANDAR** (v1.8.77). Até aquele
+lote `off` era o primeiro `return` do `autoAdvance` — o fim de QUALQUER faixa era
+fim de cena —, e com isso a única forma de ouvir uma sequência era armar `all`,
+que é outra coisa: aquele RECOMEÇA no fim. Relato do operador: *"é normal o
+seletor estar desativado, tocar uma playlist automática, mas ele tocar apenas a
+primeira e parar, pois o usuário esquece de ativar o automático"*. Quem monta uma
+playlist já disse, ao montá-la, o que quer; pedir um segundo gesto para isso é
+cobrar duas vezes pela mesma intenção.
 
 | Modo | Comportamento ao fim do item |
 |---|---|
-| `off` | Playlist para; `currentId` permanece para replay manual |
-| `all` | Avança para o próximo; ao fim da lista volta ao início |
+| `off` | Avança para o próximo da fila e **para na última** (`resetAfterEnd`); `currentId` permanece para replay manual |
+| `all` | Avança para o próximo; ao fim da lista **volta ao início** |
 | `one` | Recarrega e reproduz o mesmo item |
 | `shuffle` | Avança para item aleatório (nunca repete o atual) |
+
+**A cena que não está na fila não tem "próximo".** Com `idx === -1` — um share
+projetado na hora, um item que voltou da prateleira `avulsos` — o `off` encerra a
+cena, enquanto o `all` começa a fila pelo topo. A diferença é o que a congregação
+vê: abrir um bloco de louvores que ninguém mandou tocar.
+
+**TROCAR A FILA ZERA O SELETOR** (`trocarFila`, v1.8.77) — pedido do operador:
+*"ao se tocar um item, seja do cronograma ou o que for, resete o estado do
+seletor de repetição… que reflitam a intenção do usuário e não um resquício de
+uma opção da mídia passada"*. A pergunta é **"a fila foi REDEFINIDA?"**, e por
+isso a zeragem mora no funil e não em cada porta: as três chamadas de
+`AVDB.listSet('playlist', …)` com um ARRAY passam por ele — o item avulso
+(`replacePlaylistWith`), o pacote (`abrirPacote`) e a playlist automática
+(`montarFilaSorteada`). Tocar numa linha da fila EXISTENTE não passa: escolher por
+onde começar não desfaz a sequência. O quarto chamador é o `zerarRepeticao`
+sozinho, no share do **Modo Fácil** — o único caminho que projeta sem redefinir
+fila, e o mais exposto, porque ali `body.mode-simple` esconde a caixa de
+controles inteira e um modo herdado não teria por onde ser desfeito.
+
+> **O que isto revoga:** até aqui só o `repeat='one'` caía, sob o argumento de
+> que `all`/`shuffle` "são comportamentos da FILA e voltam a valer quando o
+> operador acrescentar itens a ela". MEDIDO, o argumento não se sustentava no
+> caso dominante: `replacePlaylistWith` deixa a fila com UM item, e sobre uma
+> fila de um os dois VIRAM `one` — `all` faz `(0 + 1) % 1 === 0` e o `shuffle`
+> tem o ramo `length === 1`. A mídia recém-escolhida tocava em laço, que é
+> literalmente o defeito que a queda do `one` existia para evitar.
 
 ---
 

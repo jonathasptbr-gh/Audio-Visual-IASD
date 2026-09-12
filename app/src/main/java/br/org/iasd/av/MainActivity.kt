@@ -1153,54 +1153,60 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // `uriEmCurso()` já devolve `null` — e o `pacoteCancelar` que o web
             // dispara na falha chegava sem nada para apagar.
             val doc = pacoteCanal.uriEmCurso()
-            val bytes = pacoteCanal.fechar()
             val local = pacoteLocal
             pacoteLocal = null
-            // O CAMINHO DO SAF acaba aqui, como sempre: o documento é do
-            // operador, e o que ele faz com ele depois não é assunto do app.
-            //
-            // MENOS QUANDO O FECHO FALHOU. `pacoteFechar` existe justamente
-            // para descobrir o cartão cheio — os acks por bloco já disseram
-            // "recebi", e é o `flush`/`close` que reprova. Sem esta limpeza
-            // ficava no cartão do operador um `.avpkg` TRUNCADO com nome de
-            // acervo inteiro, enquanto a tela dizia que o parcial fora apagado.
-            // O `fim` ausente impede o estrago maior (a importação recusa o
-            // pacote), mas não devolve os gigabytes nem desfaz a frase falsa.
-            if (local == null) {
-                if (bytes < 0L && doc != null) {
-                    try {
-                        DocumentsContract.deleteDocument(contentResolver, doc)
-                    } catch (e: Exception) {
-                        // O provedor pode recusar (nuvem, somente-leitura) — a
-                        // mesma ressalva do [descartarPacote].
-                        Log.w(TAG, "o pacote parcial do SAF nao saiu", e)
+            // O FECHO SAI DA MAIN (v1.8.72). `close()` de um `content://` é
+            // onde um provedor FUSE ou de nuvem finaliza gigabytes, e a main
+            // presa nele por mais de 5 s é ANR — no processo que hospeda os
+            // dois WebViews e a `Presentation`. O veredito volta para cá, na
+            // main, então todo o estado da Activity abaixo continua onde estava.
+            pacoteCanal.fecharDepois { bytes ->
+                // O CAMINHO DO SAF acaba aqui, como sempre: o documento é do
+                // operador, e o que ele faz com ele depois não é assunto do app.
+                //
+                // MENOS QUANDO O FECHO FALHOU. `pacoteFechar` existe justamente
+                // para descobrir o cartão cheio — os acks por bloco já disseram
+                // "recebi", e é o `flush`/`close` que reprova. Sem esta limpeza
+                // ficava no cartão do operador um `.avpkg` TRUNCADO com nome de
+                // acervo inteiro, enquanto a tela dizia que o parcial fora apagado.
+                // O `fim` ausente impede o estrago maior (a importação recusa o
+                // pacote), mas não devolve os gigabytes nem desfaz a frase falsa.
+                if (local == null) {
+                    if (bytes < 0L && doc != null) {
+                        try {
+                            DocumentsContract.deleteDocument(contentResolver, doc)
+                        } catch (e: Exception) {
+                            // O provedor pode recusar (nuvem, somente-leitura) — a
+                            // mesma ressalva do [descartarPacote].
+                            Log.w(TAG, "o pacote parcial do SAF nao saiu", e)
+                        }
                     }
+                    onResult(bytes)
+                    return@fecharDepois
                 }
-                onResult(bytes)
-                return@runOnUiThread
-            }
-            // O CAMINHO LOCAL NÃO ACABA NO FECHO (v1.8.19) — ele PROMOVE o
-            // arquivo a PRONTO, e é o operador que decide quando enviá-lo, e
-            // quantas vezes. Antes, fechar e abrir o seletor eram o mesmo
-            // instante: o envio acontecia sozinho e valia uma vez só.
-            //
-            // O QUE O CANAL CONTOU NÃO É O QUE O OUTRO APP VAI LER: `bytes` é o
-            // que foi escrito, `length()` é o que existe no caminho agora.
-            // Conferir só o primeiro fazia um arquivo vazio sair anunciado como
-            // pacote inteiro (v1.8.18).
-            val noDisco = try { local.length() } catch (e: Exception) { 0L }
-            if (bytes <= 0L || noDisco <= 0L) {
-                pacoteUltimoFecho = "recusado: canal " + bytes + " byte(s), disco " + noDisco
-                Log.w(TAG, "o pacote fechou com " + bytes + " byte(s) e o arquivo tem " + noDisco)
-                try { local.delete() } catch (e: Exception) {
-                    Log.w(TAG, "o pacote vazio não saiu", e)
+                // O CAMINHO LOCAL NÃO ACABA NO FECHO (v1.8.19) — ele PROMOVE o
+                // arquivo a PRONTO, e é o operador que decide quando enviá-lo, e
+                // quantas vezes. Antes, fechar e abrir o seletor eram o mesmo
+                // instante: o envio acontecia sozinho e valia uma vez só.
+                //
+                // O QUE O CANAL CONTOU NÃO É O QUE O OUTRO APP VAI LER: `bytes` é o
+                // que foi escrito, `length()` é o que existe no caminho agora.
+                // Conferir só o primeiro fazia um arquivo vazio sair anunciado como
+                // pacote inteiro (v1.8.18).
+                val noDisco = try { local.length() } catch (e: Exception) { 0L }
+                if (bytes <= 0L || noDisco <= 0L) {
+                    pacoteUltimoFecho = "recusado: canal " + bytes + " byte(s), disco " + noDisco
+                    Log.w(TAG, "o pacote fechou com " + bytes + " byte(s) e o arquivo tem " + noDisco)
+                    try { local.delete() } catch (e: Exception) {
+                        Log.w(TAG, "o pacote vazio não saiu", e)
+                    }
+                    onResult(-1L)
+                    return@fecharDepois
                 }
-                onResult(-1L)
-                return@runOnUiThread
+                pacotePronto = local
+                pacoteUltimoFecho = "pronto: " + noDisco + " byte(s) em " + local.name
+                onResult(noDisco)
             }
-            pacotePronto = local
-            pacoteUltimoFecho = "pronto: " + noDisco + " byte(s) em " + local.name
-            onResult(noDisco)
         }
     }
 

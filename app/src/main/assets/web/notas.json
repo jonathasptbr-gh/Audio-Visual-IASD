@@ -1,11 +1,336 @@
 [
   {
+    "versao": "1.8.91",
+    "itens": [
+      "Cifra: transpor passou a escrever o tom pela armadura — meio tom acima de Ré é Mi bemol, e não Ré sustenido.",
+      "Cifra: a folha inteira sai numa grafia só; antes bemol e sustenido se misturavam na mesma linha."
+    ]
+  },
+  {
+    "versao": "1.8.90",
+    "itens": [
+      "Volume: abaixo do nível 10 os botões passaram a andar de 1 em 1, para subir e para descer.",
+      "Volume: de 10 para cima o passo segue de 5 em 5, e o 10 nunca é pulado."
+    ]
+  },
+  {
+    "versao": "1.8.89",
+    "itens": [
+      "Playlist automática: o botão de sortear voltou ao centro da caixa dele.",
+      "Conectar TV: o \"?\" do aviso de som passou a ficar DENTRO do botão de conexão, à direita.",
+      "Ferramentas: o microfone ao vivo saiu, a pedido.",
+      "Ferramentas: barra fixa no rodapé da janela — projetar à esquerda, Cronograma e favoritos à direita.",
+      "Tempo: o timer perdeu as pílulas de minuto e o campo; agora é um − / + ao lado do próprio número.",
+      "Tempo: iniciar e zerar foram para a direita do número, na mesma linha — a janela deixou de rolar."
+    ]
+  },
+  {
+    "versao": "1.8.88",
+    "itens": [
+      "Playlist automática: o número de resultados virou uma linha no topo da lista, e no lugar dele entrou o botão de sortear.",
+      "Playlist automática: o botão de sortear reordena a lista sem mexer nos filtros nem na quantidade.",
+      "A miniatura de um vídeo baixado não quebra mais ao trocar de seção — ela não dependia da internet, era um defeito nosso.",
+      "Provai e Vede e Informativo: a opção de manter baixado ficou só com o título, sem o subtexto."
+    ]
+  },
+  {
+    "versao": "1.8.87",
+    "itens": [
+      "Provai e Vede e Informativo: marque \"Manter o da semana baixado\" no topo do álbum e o episódio desce sozinho, no Wi-Fi.",
+      "O download automático usa a qualidade que você escolheu, e os episódios de semanas passadas saem do aparelho.",
+      "Episódio já baixado: a folha de opções não pergunta mais a qualidade — não há o que baixar.",
+      "O botão de repetir fica apagado quando não há fila nem mídia escolhida.",
+      "Conexão com a TV: o aviso sobre o som do aparelho virou um botão \"?\" ao lado.",
+      "A barra de volume passou a aparecer no botão da ESQUERDA, para não cobrir a passagem de slides."
+    ]
+  },
+  {
+    "versao": "1.8.86",
+    "itens": [
+      "Playlist automática: mexer num filtro não sorteia de novo — ele só corta da lista o que deixou de servir.",
+      "Playlist automática: a ordem que você está lendo fica parada, e o que volta ao afrouxar um filtro entra no fim.",
+      "Playlist automática: uma música marcada na mão continua marcada depois de mexer nos filtros.",
+      "Playlist automática: o sorteio novo acontece ao abrir a janela; usar o lote só tira ele da lista."
+    ]
+  },
+  {
+    "versao": "1.8.85",
+    "itens": [
+      "Playlist automática: só as músicas que vão tocar ficam marcadas; o resto continua na lista, desmarcado.",
+      "Playlist automática: marcar e desmarcar agora muda o número em \"Quantas\" — é a escolha manual dele.",
+      "Playlist automática: a linha marcada fica onde está, e o número ao lado diz a ordem em que ela toca.",
+      "Playlist automática: os filtros ficam parados e só a lista de resultados rola.",
+      "Playlist automática: o botão de contagem ficou só com o número, sem o ícone."
+    ]
+  },
+  {
+    "versao": "1.8.84",
+    "itens": [
+      "Corrigido: limpar a playlist inteira agora limpa o player também, em vez de deixar a mídia tocando.",
+      "Excluir um item ou a playlist com algo no ar agora avisa antes que a mídia será interrompida.",
+      "Playlist automática: o cartão de resultados virou a LISTA das músicas sorteadas, com o lote no topo.",
+      "Playlist automática: um check por música deixa tirar uma do sorteio, e a próxima da fila entra no lugar.",
+      "Playlist automática: as escolhidas saem da lista depois de usadas, e as de baixo formam o próximo lote.",
+      "Playlist automática: a contagem virou um botão fixo ao lado do tocar, com o número dos resultados.",
+      "Bíblia: saiu o ✓ da versão escolhida — a linha azul já diz qual é, e o nome ganhou a largura.",
+      "Bíblia: o excluir só aparece nas versões que têm algo baixado."
+    ]
+  },
+  {
+    "versao": "1.8.83",
+    "itens": [
+      "Corrigido: com um louvor tocando, cobrir o telão deixava o versículo na tela da TV.",
+      "Playlist automática: a confirmação dos botões agora aparece de verdade — era apagada na hora.",
+      "Playlist automática: os resultados viraram um cartão de tamanho fixo, e a folha parou de pular.",
+      "Cifra: a barra de velocidade agora cobre os botões ao lado em vez de empurrá-los para fora.",
+      "Bíblia: a barra de livro/capítulo/versículo cabe numa linha só, sem os títulos dos grupos.",
+      "Bíblia: a janela reabre onde você parou, até fechar o app.",
+      "Bíblia: dá para excluir uma versão baixada, e a lista diz quanto de cada uma está no aparelho."
+    ]
+  },
+  {
+    "versao": "1.8.82",
+    "itens": [
+      "Faxina por dentro: saiu o motor de tocar vídeo do YouTube sem baixar, desligado desde a v1.7.7.",
+      "O app ficou mais leve e a atualização automática, mais segura. Nada muda na tela."
+    ]
+  },
+  {
+    "versao": "1.8.81",
+    "itens": [
+      "Faxina na paleta: saíram dois tokens que nada no app lia. Nada muda na tela.",
+      "Corrigidas medições de contraste que citavam uma superfície que não existe mais."
+    ]
+  },
+  {
+    "versao": "1.8.80",
+    "itens": [
+      "A barra do topo do Cronograma respira igual em cima e embaixo — os botões deixaram de ficar colados na base.",
+      "A base da leitura da Bíblia passou a ocupar toda a largura, e o título das janelas ficou centrado e parado.",
+      "O número no botão da playlist mostra o total de itens da fila.",
+      "Repetir: primeiro a mídia atual, depois a playlist — e cada modo tem o seu desenho.",
+      "A velocidade da rolagem da cifra virou um slider, que desliza ao lado do play."
+    ]
+  },
+  {
+    "versao": "1.8.79",
+    "itens": [
+      "Faxina por dentro: saíram quatro restos que nada no app lia ou alcançava. Nada muda na tela."
+    ]
+  },
+  {
+    "versao": "1.8.78",
+    "itens": [
+      "Faxina por dentro: saiu um parâmetro que nenhuma parte do app preenchia desde a v1.2.25. Nada muda na tela."
+    ]
+  },
+  {
+    "versao": "1.8.77",
+    "itens": [
+      "A playlist toca sozinha do começo ao fim: não é mais preciso ligar a repetição para a fila andar.",
+      "Tocar um item volta o seletor de repetição ao normal — nada repete por sobra da mídia anterior."
+    ]
+  },
+  {
+    "versao": "1.8.76",
+    "itens": [
+      "Faxina por dentro: saíram seis parâmetros que nenhuma parte do app preenchia. Nada muda na tela."
+    ]
+  },
+  {
+    "versao": "1.8.75",
+    "itens": [
+      "Apresentação com vídeos: projetar outra mídia durante a importação não apaga mais os vídeos embutidos dela."
+    ]
+  },
+  {
+    "versao": "1.8.74",
+    "itens": [
+      "Projetar outra coisa no meio da abertura do vídeo de um slide não faz mais a apresentação voltar sozinha."
+    ]
+  },
+  {
+    "versao": "1.8.73",
+    "itens": [
+      "Os dois botões quadrados ao lado da busca da Biblioteca voltaram a ter o ícone do mesmo tamanho."
+    ]
+  },
+  {
+    "versao": "1.8.72",
+    "itens": [
+      "Exportar a biblioteca para um cartão ou para a nuvem deixou de poder travar o app no fim da gravação."
+    ]
+  },
+  {
+    "versao": "1.8.71",
+    "itens": [
+      "Faxina por dentro: saíram três atalhos antigos do app para o aparelho que nada mais usava. Nada muda na tela."
+    ]
+  },
+  {
+    "versao": "1.8.70",
+    "itens": [
+      "O botão de próxima mídia deixou de ficar apagado depois de você montar a fila pelo botão da linha."
+    ]
+  },
+  {
+    "versao": "1.8.69",
+    "itens": [
+      "O ícone de limpar o Cronograma ficou maior de verdade, e o traço dele voltou a ser fino como o dos outros."
+    ]
+  },
+  {
+    "versao": "1.8.68",
+    "itens": [
+      "O ícone de limpar o Cronograma ficou maior e mais encorpado, no mesmo tamanho do ícone de configurações.",
+      "Ele deixou de ser vermelho: agora é cinza, como o título ao lado, para não chamar tanta atenção.",
+      "Com a lista vazia ele continua apagado, mas agora dá para vê-lo — antes ele quase sumia."
+    ]
+  },
+  {
+    "versao": "1.8.67",
+    "itens": [
+      "O ícone de limpar o Cronograma estava achatado e foi redesenhado nas proporções certas.",
+      "Com o Cronograma vazio, o aviso ficou maior, em negrito e no centro da tela, mais discreto.",
+      "A pergunta de limpar ficou mais curta e agora fala em limpar a lista, não em excluir."
+    ]
+  },
+  {
+    "versao": "1.8.66",
+    "itens": [
+      "O número da versão saiu do topo do Cronograma e deu lugar a um botão de limpar a lista, em vermelho.",
+      "Ele pergunta antes, diz quantos itens saem, e o que também está nos Favoritos continua lá.",
+      "O que estiver no ar segue tocando, e com a lista vazia o botão fica apagado."
+    ]
+  },
+  {
+    "versao": "1.8.65",
+    "itens": [
+      "O rodapé das Configurações virou três botões iguais: a versão, o Registro e o Pedir ajuda, sem o fundo cinza.",
+      "Tocar na versão abre a lista do que mudou nas versões recentes.",
+      "Os ícones do Registro e do Pedir ajuda passaram para a direita do texto, e o número da versão ficou em negrito."
+    ]
+  },
+  {
+    "versao": "1.8.64",
+    "itens": [
+      "O tema voltou a ter duas opções só: claro e escuro. O automático saiu — ele não estava sendo eficaz.",
+      "A sombra das três portas do Cronograma voltou a cair para baixo, como toda sombra do app."
+    ]
+  },
+  {
+    "versao": "1.8.63",
+    "itens": [
+      "As três portas do Cronograma agora usam o mesmo azul dos cards de Configurações, e não o azul escuro.",
+      "A barra de seleção múltipla largou esse azul para continuar se distinguindo delas — e o excluir ficou mais legível.",
+      "A sombra do fim da lista parou de subir da base quando você rola até o fim do Cronograma.",
+      "E a lista passou a terminar no topo da barra de buscas, sem a faixa que sobrava embaixo dela.",
+      "O tema mostra quando está no automático: uma marca no ícone e a palavra “Auto” no card."
+    ]
+  },
+  {
+    "versao": "1.8.62",
+    "itens": [
+      "As três portas do Cronograma agora são azuis, em denim cheio, cada uma com sombra própria.",
+      "E a sombra do corte da lista voltou para a borda dos controles, com os botões flutuando sobre ela.",
+      "Na playlist automática, “Sortear” e “Tocar” viraram um botão só: “Tocar agora”.",
+      "E saiu a frase que explicava cantada e fundo musical — os dois nomes já dizem o que fazem.",
+      "Cor do tema: o primeiro toque voltou a trocar a cor. Ele ia sempre para o claro, mesmo já estando claro."
+    ]
+  },
+  {
+    "versao": "1.8.61",
+    "itens": [
+      "No Cronograma, Bíblia, Importar e Ferramentas viram botões flutuantes: a lista corre por baixo deles.",
+      "E o fim da lista ganhou folga, para o último item nunca parar escondido atrás desses botões.",
+      "O cabeçalho do Cronograma virou uma barra da cor dos controles, para o corte da lista fazer sentido.",
+      "A barra de rolagem saiu de todas as telas: a sombra das bordas passa a ser o único indicador.",
+      "Na playlist automática, “uma só” virou o número 1 das quantidades — uma pergunta a menos.",
+      "E a janela dela parou de mudar de tamanho, com os quatro botões do rodapé na mesma altura."
+    ]
+  },
+  {
+    "versao": "1.8.60",
+    "itens": [
+      "A barra de rolagem passa a ser a mesma em todas as listas, visível e na cor de destaque.",
+      "No Cronograma a caixa da lista agora vai até as bordas da tela, como nas outras telas.",
+      "O rodapé da playlist e o do histórico ganharam uma margem acima dos botões.",
+      "Na folha de exportar, o botão de salvar deixa de rolar com a lista e fica fixo na base.",
+      "O mesmo vale para as folhas de destino e da playlist automática.",
+      "Na Bíblia, a grade de livros passa a mostrar a sombra quando há mais livros abaixo."
+    ]
+  },
+  {
+    "versao": "1.8.59",
+    "itens": [
+      "A sombra das listas estava recuada para dentro da borda; agora ela encosta na fronteira.",
+      "Na Biblioteca ela passa a escurecer também as barras das coleções, não só os vãos.",
+      "E nos cantos arredondados ela acompanha a curva da caixa."
+    ]
+  },
+  {
+    "versao": "1.8.58",
+    "itens": [
+      "Toda lista que rola agora mostra uma sombra na borda por onde o conteúdo passa.",
+      "Ela diz que há mais itens acima ou abaixo, e some quando você chega no fim.",
+      "Vale no Cronograma, na playlist, na Biblioteca, nas Ferramentas e na Bíblia."
+    ]
+  },
+  {
+    "versao": "1.8.57",
+    "itens": [
+      "Os botões de adicionar ao Cronograma e aos favoritos agora são quadrados em todo o app.",
+      "Eles saíam em três alturas diferentes conforme a janela; agora têm uma medida só.",
+      "Vale na playlist automática, no rodapé da fila, na gaveta de um item e na Bíblia."
+    ]
+  },
+  {
+    "versao": "1.8.56",
+    "itens": [
+      "O ✓ de vídeo baixado e o \"Completa offline\" da Bíblia agora são azuis, como toda conclusão.",
+      "A playlist automática ganhou os botões de Cronograma, playlist e favoritos.",
+      "Eles valem nos dois modos: sorteando uma música só e montando a playlist inteira.",
+      "Sortear e mandar à playlist acrescenta no fim da fila, sem trocar o que já estava.",
+      "Cronograma, playlist e favoritos agora aparecem nessa ordem em todo o app."
+    ]
+  },
+  {
+    "versao": "1.8.55",
+    "itens": [
+      "Os itens da playlist voltaram a ter miniatura — e com ela a gaveta de opções cobre a linha inteira.",
+      "O contador de itens da playlist virou um botão quadrado, igual ao de fechar ao lado.",
+      "A confirmação de uma ação agora é sempre azul, em todo o app — nada mais em verde.",
+      "Favoritar e desfavoritar respondiam em cores diferentes; agora respondem igual.",
+      "O \"já estava na lista\" continua em âmbar e a falha em vermelho: são outras mensagens."
+    ]
+  },
+  {
+    "versao": "1.8.54",
+    "itens": [
+      "A confirmação do limpar agora diz \"Confirmar\", em vez de repetir \"Limpar\".",
+      "Guardar a fila virou dois botões: nos Favoritos (estrela) ou no Cronograma (relógio).",
+      "São os mesmos dois ícones que cada item já tem na gaveta dele.",
+      "Esvaziar a playlist agora fecha a janela dela — não há mais nada para ver ali.",
+      "E a mensagem da lista vazia saiu: quem procura a fila e não a encontra lê o motivo no próprio botão."
+    ]
+  },
+  {
+    "versao": "1.8.53",
+    "itens": [
+      "Os dois botões do rodapé da playlist ficaram lado a lado: \"Limpar\" e \"Guardar\".",
+      "Os rótulos encolheram para caber — o que cada um faz por inteiro está no toque longo e na leitura de tela.",
+      "O \"Guardar\" agora fica apagado com menos de duas mídias na fila: não dá para empacotar uma só.",
+      "Ao perguntar \"limpar?\", a pergunta ocupa a faixa inteira — os dois botões de resposta ficam maiores.",
+      "E o \"Limpar\" passou a afundar ao toque, como todos os outros botões do app."
+    ]
+  },
+  {
     "versao": "1.8.52",
     "itens": [
-      "Excluir o último item da fila agora encerra a cena de verdade: o controle volta para \u0022nada em exibição\u0022.",
+      "Excluir o último item da fila agora encerra a cena de verdade: o controle volta para \"nada em exibição\".",
       "Com outros itens na fila nada muda — tirar um item de uma sequência que continua não para o louvor.",
       "E nada é apagado: o arquivo continua no aparelho e volta pelo Histórico.",
-      "O \u0022Limpar\u0022 da folha da playlist responde igual, e o aviso dele passou a dizer isso.",
+      "O \"Limpar\" da folha da playlist responde igual, e o aviso dele passou a dizer isso.",
       "Uma faixa que terminava sem fila voltava ao telão numa queda de conexão. Não volta mais.",
       "No site: o carrossel dos prints começa e termina no centro da tela.",
       "E a barra de rolagem dele saiu — quem diz onde você está são os pontos.",
@@ -16,11 +341,11 @@
   {
     "versao": "1.8.51",
     "itens": [
-      "O rodapé das Configurações respira, e os dois botões agora dizem o que fazem: \u0022Registro\u0022 e \u0022Pedir ajuda\u0022.",
-      "O \u0022Pedir ajuda\u0022 virou um botão sólido — a versão encolheu para \u0022v1.8.51\u0022 e abriu espaço.",
+      "O rodapé das Configurações respira, e os dois botões agora dizem o que fazem: \"Registro\" e \"Pedir ajuda\".",
+      "O \"Pedir ajuda\" virou um botão sólido — a versão encolheu para \"v1.8.51\" e abriu espaço.",
       "No site: os cartões pararam de sobrar espaço e o texto encolheu.",
       "E o carrossel dos prints anda por etapas, com pontos indicando onde você está.",
-      "Conectar um computador passou a se chamar assim em todo lugar, em vez de \u0022telas da rede\u0022.",
+      "Conectar um computador passou a se chamar assim em todo lugar, em vez de \"telas da rede\".",
       "O botão da playlist apaga com a fila vazia, e o de próxima mídia quando não há fila.",
       "Sem fila, o botão de mídia anterior recomeça o que está no ar.",
       "Os botões de passar slide ganharam setas simples, para não se confundirem com os de mídia."
@@ -34,7 +359,7 @@
       "Com a mídia parada, os botões de slide ficam apagados — antes eles aceitavam toques que reapareciam na música seguinte.",
       "Botões sem função ficam apagados: anterior/próximo com a fila vazia, e o Parar sem nada no ar.",
       "A lixeira da confirmação perdeu o vermelho, que agora é só do botão que apaga.",
-      "Na fila, o confirmar diz \u0022Remover\u0022 em vez de \u0022Tirar\u0022."
+      "Na fila, o confirmar diz \"Remover\" em vez de \"Tirar\"."
     ]
   },
   {

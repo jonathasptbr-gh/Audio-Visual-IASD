@@ -56,7 +56,7 @@ const PONTE = `(() => {
     'cifraDiag','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
-    'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
+    'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
     'ytFetchAudio','ytPlaylist','ytSearch','ytStream','areaTransferencia','atualizacaoEstado',
   ];
@@ -86,7 +86,7 @@ try {
   // correr contra a inicialização, que o zera com razão.
   await pg.waitForFunction(
     () => window.__NATIVE__ === true && window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
 

@@ -253,9 +253,6 @@ jobs:
           # Chromium: a segunda cópia é a que ninguém relê, e foi ela que passou
           # versões descrevendo o RECADO (removido na v1.2.17) como recurso
           # vivo.
-          node tools/sidx.test.mjs
-          node tools/degrau-de-banda.test.mjs
-          node tools/degrau-e-prazo.test.mjs
           node tools/webview-range.test.mjs
           node tools/contexto-seguro.test.mjs
           node tools/sombra.test.mjs
@@ -268,7 +265,7 @@ jobs:
 
           node tools/tipos-que-sobem.test.mjs
 
-          node tools/mic-escada.test.mjs
+          node tools/sem-captura.test.mjs
           node tools/serie.test.mjs
           node tools/sorteio.test.mjs
           node tools/hinario.test.mjs
@@ -370,6 +367,29 @@ jobs:
       # bundle publica, que é o que não pode faltar.
       #
       # 10 min é folga larga sobre o normal — medido em 24 s na execução seguinte.
+      # O CACHE DO NAVEGADOR — o passo abaixo baixava ~150 MB de CDN em TODO
+      # push, e o `verificar` roda em todos eles.
+      #
+      # A CHAVE É O `package-lock.json`, e isso não é conveniência: o pin do
+      # Playwright é CONTRATO deste repositório (ver "Preparar o Chromium"), e a
+      # regra do projeto manda repetir a campanha de determinismo ao subi-lo.
+      # Com a chave no hash do lock, subir o pin invalida o cache por
+      # construção — o navegador novo é baixado, e nunca se roda a versão nova
+      # do pacote contra o binário da versão velha.
+      #
+      # ELE NÃO PODE REPROVAR O JOB: `continue-on-error`, pela mesma política do
+      # passo que ele serve — infraestrutura AUSENTE não segura o canal OTA. Um
+      # cache frio faz o passo de baixo baixar como antes.
+      - name: Cache do npm e do Chromium
+        id: cache-pw
+        continue-on-error: true
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Preparar o Chromium (infraestrutura)
         id: chromium
         continue-on-error: true
@@ -392,6 +412,10 @@ jobs:
           # tempo uma página leva para assentar. O placar da campanha vale para
           # a versão em que foi medido, e para nenhuma outra.
           npm ci --no-audit --no-fund --silent
+          # `install` com o navegador JÁ em `~/.cache/ms-playwright` é uma
+          # conferência de versão, não um download: o passo cai de ~150 MB para
+          # zero byte de CDN. `--with-deps` fica — ele instala pacotes APT, que
+          # o cache acima não cobre e que o runner quase sempre já tem.
           npx playwright install --with-deps chromium
 
       # FUMAÇA DO CONTROLE e os demais oráculos, num Chromium de verdade. Os
@@ -407,9 +431,10 @@ jobs:
       # PRAZO AQUI TAMBÉM, e pela mesma razão: um oráculo que pendure o
       # navegador (uma Promise que nunca resolve, um `waitForFunction` sem
       # timeout) trava o job inteiro e leva o canal OTA junto. O prazo é folga
-      # larga: MEDIDO, os 57 somam ~7,4 min em SÉRIE e ~2,5 min nos três
-      # processos em que rodam hoje — e o prazo cobre o pior caso, que é a
-      # paralelização não pegar por qualquer razão e a lista correr em fila.
+      # larga: MEDIDO em 4 vCPU (o mesmo do runner), os 82 somam ~13 min em
+      # SÉRIE e ~4,4 min nos três processos em que rodam hoje — e o prazo cobre o
+      # pior caso, que é a paralelização não pegar por qualquer razão e a lista
+      # correr em fila.
       - name: Oráculos em Chromium
         if: steps.chromium.outcome == 'success'
         timeout-minutes: 15
@@ -422,11 +447,19 @@ jobs:
 
           # ---------- EM PARALELO, E O `rodar` SÓ ENFILEIRA ----------
           #
-          # MEDIDO: os 57 oráculos somam ~8 min em série, e o custo NÃO é o que
-          # parece — lançar o Chromium são ~110 ms e subir o `/controle/`
+          # MEDIDO: os 82 oráculos somam ~13 min em série, e o custo NÃO é o
+          # que parece — lançar o Chromium são ~110 ms e subir o `/controle/`
           # inteiro é ~1 s. O que sobra é espera: cada oráculo passa a maior
           # parte do tempo parado esperando o app dele assentar, com os quatro
           # núcleos do runner ociosos.
+          #
+          # E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é. MEDIDO, os
+          # 52 mais baratos somam 161 s dos 783 s e VINTE E TRÊS deles rodam em
+          # menos de 2 s: apagá-los devolveria 8 s de parede e custaria a
+          # cobertura inteira.
+          # O que encarece este passo é uma DÚZIA de arquivos, e neles o tempo é
+          # de arnês, não de asserção — ver as duas armadilhas no CLAUDE.md
+          # ("o piso da cortina" e "um stub da ponte que não resolve").
           #
           # Rodar em paralelo é seguro por CONSTRUÇÃO, e isso foi conferido
           # antes de ligar: todos abrem o servidor com `listen(0)` (porta
@@ -464,10 +497,10 @@ jobs:
           # cada justificativa escrita DUAS vezes.
           #
           # A segunda cópia é a que ninguém relê, e ela não envelheceu calada:
-          # o bloco do `mic-escada` descrevia o RECADO — o microfone estilo
-          # walkie-talkie do Controle — como recurso vivo. Ele saiu na v1.2.17,
-          # o próprio oráculo diz isso na terceira linha dele, e o workflow
-          # seguiu afirmando o contrário. É a regra do projeto cobrada aqui:
+          # o bloco do então `mic-escada` (hoje `sem-captura`) descrevia o
+          # RECADO — o microfone estilo walkie-talkie do Controle — como recurso
+          # vivo. Ele saiu na v1.2.17, o próprio oráculo dizia isso na terceira
+          # linha dele, e o workflow seguiu afirmando o contrário. É a regra do projeto cobrada aqui:
           # *"um comentário errado é pior que um comentário longo: ele não custa
           # só leitura, produz a decisão errada."*
           #
@@ -482,16 +515,14 @@ jobs:
           rodar tools/pacote-por-grupos.test.mjs
           rodar tools/pacote-compartilhar.test.mjs
           rodar tools/configuracoes-sem-subtitulo.test.mjs
+          rodar tools/versao-o-que-mudou.test.mjs
+          rodar tools/limpar-cronograma.test.mjs
           rodar tools/linha-da-preparacao.test.mjs
           rodar tools/miniaturas-estaveis.test.mjs
           rodar tools/biblia-leitura-cabe.test.mjs
-          rodar tools/mse.test.mjs
           rodar tools/stage-fade.test.mjs
           rodar tools/aba-sem-estalo.test.mjs
           rodar tools/link-perde-a-vez.test.mjs
-          rodar tools/espera-do-stream.test.mjs
-          rodar tools/fome-que-desiste.test.mjs
-          rodar tools/stream-so-audio.test.mjs
           rodar tools/rotina-cede-a-vez.test.mjs
           rodar tools/db-gc.test.mjs
           rodar tools/db-estado.test.mjs
@@ -508,6 +539,7 @@ jobs:
           rodar tools/cena.test.mjs
           rodar tools/hidratacao-perde-a-vez.test.mjs
           rodar tools/telao-no-chao.test.mjs
+          rodar tools/serie-mantem-a-semana.test.mjs
           rodar tools/som-nao-vaza-ao-perder-a-tela.test.mjs
           rodar tools/imagem-sobre-audio.test.mjs
           rodar tools/slides-sobre-audio.test.mjs
@@ -526,6 +558,10 @@ jobs:
           rodar tools/leitor-do-transporte.test.mjs
           rodar tools/controles-layout.test.mjs
           rodar tools/transporte-sem-cena.test.mjs
+          rodar tools/rodape-da-playlist.test.mjs
+          rodar tools/feedback-de-confirmacao.test.mjs
+          rodar tools/quadrado-de-icone.test.mjs
+          rodar tools/sombra-de-rolagem.test.mjs
 
           rodar tools/fundo-da-letra.test.mjs
 
@@ -571,6 +607,13 @@ jobs:
           # documentação, não rede de segurança"* — ele não estava guardando
           # nada. Conferido verde antes de entrar.
           rodar tools/enquadramento-da-camada.test.mjs
+          rodar tools/repeticao-e-sequencia.test.mjs
+          rodar tools/barra-do-topo-e-titulos.test.mjs
+          rodar tools/cartao-preso-no-telao.test.mjs
+          rodar tools/playlist-automatica-estavel.test.mjs
+          rodar tools/biblia-versoes-e-retomada.test.mjs
+          rodar tools/fila-limpa-a-cena.test.mjs
+          rodar tools/sorteio-lista-de-resultados.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá

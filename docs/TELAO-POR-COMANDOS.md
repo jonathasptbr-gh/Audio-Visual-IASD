@@ -69,7 +69,7 @@
 | E1 | Fundações puras no shell: Range RFC 7233 + framing SSE no `EspelhoHttp` — com JUnit, sem fiação | **CONCLUÍDA** (commit b756d19, CI verde: 128 JUnit, 21 novos) |
 | E2 | Servir o bundle à LAN (prefixos `web/display/`, `web/shared/`, `web/espelho/`) + rota SSE `GET /e` + tap de comandos em `busPost` → servidor | **CONCLUÍDA** (aguardou o CI verde do lote E2+E3) |
 | E3 | Papel `tela` no lado web (`espelho/tela.js` + `?tela=1`): display rodando num navegador da LAN, TEXTO completo (versículo, mensagem, cronômetro com correção de relógio, sorteio, cortina), dreno de subida, vigília de tela acesa | **CONCLUÍDA** (tela-rede.test 23/23 no Chromium; ligado no apk.yml) |
-| E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + wallpaper | **CONCLUÍDA** (JUnit do cache; tela-rede.test 26/26). Pendências DECLARADAS → E4.1: pré-busca da playlist. Fechadas: imagens de fundo da letra (v5.188), proxy da transmissão direta (§7, v5.189) e **deck por páginas (v1.1.7)** — hoje só o EMBED vira o aviso de cena-sem-rede |
+| E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + wallpaper | **CONCLUÍDA** (JUnit do cache; tela-rede.test 26/26). Pendências DECLARADAS → E4.1: pré-busca da playlist. Fechadas: imagens de fundo da letra (v5.188) e **deck por páginas (v1.1.7)** — hoje só o EMBED vira o aviso de cena-sem-rede. A §7 (proxy da transmissão direta) foi fechada na v5.189 e ficou SEM CLIENTE na v1.8.82, quando a transmissão direta saiu do lado web |
 | E5 | Status de volta (`tela-status` → ponte → Controle), eleição de referência, snoop da notificação, preview sem atraso | **CONCLUÍDA** (ramo `st` no /r → MessageBus + snoop; eleição no controle.js; preview: telas de comando não entram em `mirrorEstado.telas`, então o atraso já resolve 0 sem pixels). Folha/Registro novos → E6 |
 | E6 | Corte: a transmissão liga o caminho novo; raiz `/` → tela; frases da UI; política YouTube sem TV | **CONCLUÍDA** (commit 518f960) — **DESVIO DECLARADO**: a pedido do operador, E6 e E7 saíram num lote só; a "volta por constante" não existe — a volta é o revert do lote |
 | E7 | Remoção: EspelhoCodec/EspelhoAudio/EspelhoDisplay/MirrorPresentation/fmp4.js/cliente.js/espelho.css/sonda.html; EspelhoDiag realocado na MainActivity; dreno do papel espelho fora do native.js; testes e CI atualizados; SHELL_VERSION 37; v5.187 | **CONCLUÍDA** (o commit desta linha) |
@@ -86,7 +86,7 @@
 >
 > **PROJETO CONCLUÍDO (v5.187 / v1.86).** O que fica de fora, declarado:
 > E4.1 (pré-busca da playlist — as outras três fecharam),
-> §7 (proxy da transmissão direta — hoje ela cai no download quando não há
+> §7 (proxy da transmissão direta, hoje sem cliente — o caminho é o download quando não há
 > TV), e o primeiro culto de VALIDAÇÃO em aparelho — que, pela regra de
 > calendário herdada do espelho, acontece num dia SEM culto (segunda, terça,
 > quinta ou sexta), nunca num dos três: sábado de manhã, domingo ou quarta à
@@ -177,11 +177,14 @@
 > — e o caminho de volta é travado logo abaixo, senão apagar o botão passaria.
 >
 > **v5.189 fechou a §7 e mudou a PORTA.** A transmissão direta do YouTube
-> agora chega às telas: o shell serve as mesmas faixas em `/s/<token>` (repasse
-> ao googlevideo com o UA que combina, `Range` do cliente subindo cru) e o
-> `telaEnriquecer` reescreve o manifesto — com isso o `pularTransmissao` da
+> passou a chegar às telas: o shell serve as mesmas faixas em `/s/<token>`
+> (repasse ao googlevideo com o UA que combina, `Range` do cliente subindo cru)
+> e o `telaEnriquecer` reescrevia o manifesto — com isso o `pularTransmissao` da
 > v5.187, que mandava todo "Tocar agora" para o download quando a transmissão
-> estava ligada e não havia TV, deixou de ter razão de existir e saiu. E a
+> estava ligada e não havia TV, deixou de ter razão de existir e saiu. **O
+> cliente daquela rota saiu do web na v1.8.82** (a `/s/<token>` é Kotlin e fica
+> até uma Release a tirar); o que atravessa hoje é o ARQUIVO baixado, pela
+> `/m/<token>` de sempre. E a
 > ENTRADA perdeu o código de três dígitos (a porta é o endereço; ver a
 > invariante 5 do `EspelhoPares`): o overlay virou UM botão — "Ativar esta
 > tela" — que gasta o gesto, e a perda de token passou a reentrar sozinha, sem
@@ -218,9 +221,9 @@ que o OTA atualiza — não existe "cliente desatualizado" possível); o que mud
 é o TRANSPORTE dos comandos e a FONTE da mídia.
 
 **Fora da equação, por decisão do operador:** o embed do YouTube. Cena de
-embed vira aviso "esta cena não vai para a rede". O caminho padrão de YouTube
-(download e transmissão direta) segue recebendo manutenção; transmissão
-direta na LAN é a fase opcional §7. E a CSP `default-src 'self'` que o
+embed vira aviso "esta cena não vai para a rede". O caminho padrão de YouTube é
+o DOWNLOAD, e o arquivo baixado atravessa pela `/m/<token>` como qualquer outra
+mídia. E a CSP `default-src 'self'` que o
 servidor já põe em toda página **força** essa exclusão por construção: a
 IFrame API nem carregaria numa tela da rede.
 
@@ -348,22 +351,25 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
    progresso real de escrita — sem tráfego, o teto de 2 h venceria no meio
    do culto (fato da varredura).
 9. **Status: dreno de subida + eleição no Controle.** N telas emitindo
-   `display-status`/`media-ended`/`mic-status` é exatamente o que o dreno
+   `display-status`/`media-ended`/`diag-dump` é exatamente o que o dreno
    do papel espelho existe para calar — o problema reaparece na direção
    LAN→celular. O `post` do tela.js é lista de PERMISSÃO: `display-ready`
    (com `__tela`) e `display-status` RENOMEADO `tela-status` (com
    `__tela`); todo o resto morre mudo (media-ended dobraria o repeat-one;
-   mic-status 'unsupported' apagaria o microfone real; quem avança playlist
-   continua sendo o Controle, como hoje). O Kotlin injeta o `st` verbatim
+   diag-dump duplo faria o Registro mostrar o diário de UM sem dizer qual;
+   quem avança playlist continua sendo o Controle, como hoje). O Kotlin injeta o `st` verbatim
    no barramento E alimenta o snoop da notificação de mídia (a exceção já
    documentada do `snoopDisplayStatus`: copiar campos que o web calculou).
    Quem ELEGE a referência entre N telas é o Controle (invariante 5) — a
    mais antiga com `mediaId === currentId`; o telão de verdade tem
    precedência pelo relógio de 2,5 s que já existe.
 10. **Som opt-in continua** (invariante 10): a tela nasce muda; o gesto
-    desmuta `el.v` — agora é um atributo, sem MediaSource, sem torneira.
-11. **Microfone nunca sai na rede** — inalterado; numa página http nem há
-    `getUserMedia`, e o `mic-status` que isso geraria morre no dreno.
+    desmuta `el.v` — é um atributo do `<video>`, sem torneira.
+11. **(Microfone: o recurso SAIU na v1.8.89.** Ele nunca saía na rede, e a
+    armadilha que deixou vale para o próximo comando de DESCIDA: quem barra um
+    comando numa tela é uma GUARDA no consumidor, nunca o ambiente — "numa
+    página http não há `getUserMedia`" é proteção emprestada do navegador, e ela
+    se desfaz sozinha no dia em que a transmissão subir em `https://`.)
 12. **Relógio das telas.** Cronômetro e sorteio viajam por descritor com
     epoch ms (`startAt`, `rollUntil`) e supõem relógio comum — uma Smart TV
     com minutos de desvio contaria errado. O tela.js mede o desvio
@@ -540,12 +546,14 @@ Cada etapa: testes verdes, Estado atualizado, commit na branch, merge em
   aposentadoria apontando para cá; CLAUDE.md reescrito; SHELL_VERSION sobe
   de novo se a superfície da ponte mudar na limpeza.
 
-## §7 FASE OPCIONAL (registrada para não se perder)
-Transmissão direta na LAN: rota proxy com a lógica do StreamProxy (UA
-casado, upstream googlevideo) mas com **Range de verdade e streaming real**
-(o StreamProxy lê o pedaço inteiro em memória — não serve para 3 clientes), e
-`__rec.stream` com URLs reescritas para o host do celular. O `mse.js` da
-tela consome com header Range (o modo query é só do caminho nativo).
+## §7 FASE OPCIONAL — FECHADA na v5.189 e SEM CLIENTE desde a v1.8.82
+Transmissão direta na LAN: rota proxy (`/s/<token>`) com a lógica do
+`StreamProxy` (UA casado, upstream googlevideo) mas com **Range de verdade e
+streaming real**, mais o manifesto reescrito para o host do celular. Ela foi
+entregue e usada até a transmissão direta sair do lado web; a rota continua no
+Kotlin, sem quem a chame. **Registrada para não se perder**: quem for tirá-la do
+shell paga um degrau de `SHELL_VERSION` e uma Release, e quem for trazer a
+transmissão de volta não precisa reescrevê-la.
 
 ## §7-B O CELULAR COMO PONTO DE ACESSO (v1.4.1)
 A transmissão **nunca precisou de internet** — ela precisava que o celular fosse

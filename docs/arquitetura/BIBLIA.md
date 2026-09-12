@@ -30,14 +30,94 @@ de baixar só o capítulo tocado, ao usar a Bíblia pela primeira vez o app baix
 (pula o que já está em cache), concorrência limitada (`runLimited` com
 `NET_CONCURRENCY`). O texto é leve (só versículos, sem mídia), então o volume total é modesto. O progresso
 (`bibleDl`, memória) aparece **só dentro do popup de seleção de versão**
-(`.bible-ver-status` por versão: "✓ Completa offline" / "Baixando N/1189…" /
-"Baixa ao usar" — `refreshBibleDl` re-renderiza a lista enquanto o popup está
-aberto), **sem disputar espaço com a leitura**; ao terminar sem falhas marca
-`state['bibleComplete:<v>']` pra não refazer (cacheado em memória em
+(`.bible-ver-status` por versão — `refreshBibleDl` re-renderiza a lista enquanto
+o popup está aberto), **sem disputar espaço com a leitura**; ao terminar sem
+falhas marca `state['bibleComplete:<v>']` pra não refazer (cacheado em memória em
 `bibleCompleteVersions`, populado pra **todas** as versões no `ensureBibleMeta`).
 A leitura por capítulo (`loadBibleChapter`) continua baixando sob demanda como
 fallback se o operador abrir um capítulo antes de o download em massa chegar
 nele.
+
+#### O ESTADO DE CADA VERSÃO, e o que ele dizia de errado (v1.8.83)
+
+São **quatro**, e o quarto é novo:
+
+| estado | quando |
+|---|---|
+| Completa offline | `bibleComplete:<v>` gravado (com o ✓ do `checkIconSvg` — o único ✓ desta folha desde a v1.8.84) |
+| Baixando N/1189… | a varredura desta versão está correndo |
+| Parcial · N de 1189 capítulos | há chaves no banco e a varredura não terminou |
+| Não baixada | não há chave nenhuma desta versão |
+
+**A terceira linha dizia "Baixa ao usar", e isso era falso desde a v5.242**:
+`changeBibleVersion` chama `ensureBibleVersionDownloaded` no ato da escolha, e
+`enterBibleTab` a chama para a versão em uso. O operador leu a frase e pediu o
+comportamento que o app já tinha (*"ao invés de baixar ao usar, ajuste o método
+para baixar a bíblia inteira ao escolher aquela versão"*) — **o log que discorda
+do aparelho**, lido a distância por quem não tem como conferir.
+
+O que de fato **não existia** era o toque na versão JÁ ESCOLHIDA disparar alguma
+coisa: `changeBibleVersion` devolve cedo quando o id não muda, e era esse o único
+toque da folha que não fazia nada — justamente o que se faz diante de uma
+varredura que a rede da igreja interrompeu (o freio de 25 falhas seguidas). Hoje
+o ouvinte chama `ensureBibleVersionDownloaded` ANTES, e as duas são idempotentes
+e resumíveis.
+
+**O estado PARCIAL vem de uma varredura só para TODAS as versões**
+(`recontarBibliaNoAparelho`): as chaves são `bible:<versão>_<livro>_<capítulo>`,
+então um `stateKeys('bible:')` numa transação devolve o mapa inteiro. Por versão
+seriam N varreduras do mesmo intervalo. **Chaves, nunca valores** — o valor é o
+capítulo desserializado.
+
+#### EXCLUIR uma versão baixada (v1.8.83)
+
+Pedido do operador: *"faça uma opção para excluir uma determinada versão que já
+esteja baixada"*. `apagarVersaoBiblia` apaga as chaves do TEXTO **e** a bandeira
+de completude — as duas, porque são o mesmo fato guardado em dois lugares: a
+bandeira sozinha faria a versão parecer pendente com o texto inteiro ocupando
+espaço, e o texto sozinho deixaria a bandeira mentindo "completa" sobre um banco
+vazio. O `bibleCompleteVersions` também é limpo, senão o cache em memória
+seguraria "completa" para sempre — **um Set que só cresce só pode ser cache do
+que nunca sai**.
+
+Quem apaga é `AVDB.stateApagarPrefixo`, **uma transação** com cursor sobre o
+MESMO intervalo do `stateKeys` (1189 `delete` avulsos seriam 1189 transações num
+processo aberto o culto inteiro). O prefixo carrega o `_` (`bible:nvi_`), senão
+ele alcançaria toda versão cujo id comece pelo mesmo texto.
+
+**O botão APARECE só onde há o que excluir** (v1.8.84, pedido do operador:
+*"ajuste para que oculte os ícones de excluir nos itens que ainda não foram
+baixados… pode deixar oculto quando ainda não há nada baixado daquele item"*),
+**e isso revoga metade da v1.8.83 — só metade, e a divisão é a régua da v1.8.50
+aplicada com cuidado**:
+
+| linha | o excluir | por quê |
+|---|---|---|
+| **em uso** | existe, **apagado**, com o `title` dizendo por quê | ele tem função a RECUPERAR: um toque noutra linha devolve o botão. Apagar é o que ensina isso; sumir mandaria procurar o que não sumiu |
+| **sem nada baixado** | **não existe** | não é uma ação adiada, é uma ação que não existe — e o app já não oferece o que não pode funcionar (a aba de cifra sem cifra) |
+
+Excluir a versão em uso é o pé de galinha desta folha: a leitura em cena passaria
+a depender da rede da igreja no meio do culto.
+
+> **A LINHA NÃO SE MEXE NAS DUAS TRANSIÇÕES QUE O OPERADOR VÊ**, que é o que
+> normalmente cobra o apagado em vez da ausência: o botão nasce com a linha
+> (depois do `recontarBibliaNoAparelho`) e some quando o apagar redesenha a
+> lista — nenhuma das duas acontece sob o dedo.
+
+#### O ✓ DA ESCOLHA SAIU (v1.8.84)
+
+*"Remova o elemento 'check' da identificação do selecionado. Já temos a coloração
+azul da linha como marcação, não precisamos do check disputando espaço com a
+lixeira."* Ele **revoga a v1.8.83**, que tinha acabado de trocar o caractere cru
+`✓` — desenhado pela fonte do sistema, e por isso *"reto e pouco estilizado"* —
+pelo `checkIconSvg`. A marca da escolha continua existindo: é o `--sel-fill` da
+`.bible-ver-row.selected`, um fundo diferente do das outras. O que se ganha é a
+largura que o nome da versão perdia para um **segundo sinal da mesma coisa**.
+
+**O ✓ do "Completa offline" FICA**, e a distinção é o motivo de um ter saído e o
+outro não: aquele responde *"está no aparelho?"*, que é outra pergunta que a do
+fill. Oráculo: `biblia-versoes-e-retomada.test.mjs`, bloco D — e ele mede o ✓ da
+escolha **em nó E em caractere**, porque as duas formas já existiram.
 
 ### A BÍBLIA BASE, garantida na abertura (v5.242)
 
@@ -141,6 +221,27 @@ precisa fazer, e ambas nasceram de defeito:
 
 ### Seleção em "tabela periódica" (três telas)
 
+**E A FOLHA REABRE ONDE PAROU, dentro da mesma sessão (v1.8.83).** Pedido do
+operador: *"faça a janela da bíblia lembrar de onde estava na próxima abertura
+durante uma mesma seção. Ao invés de voltar sempre para o seletor do livro"*.
+
+Isto **revoga a v1.5.0**, que zerava `bibleScreen` em toda abertura sob o
+argumento *"entrar pela porta é começar do começo"*, pela analogia com o
+`resetarBiblioteca` do acervo — e a analogia era o defeito: a Biblioteca é uma
+BUSCA (voltar ao topo é o certo, porque o que se procura muda a cada abertura) e
+a Bíblia numa pregação é **UMA leitura**, interrompida por um louvor e retomada
+dois minutos depois. Cada retomada custava livro → capítulo → versículo com o
+pregador falando.
+
+- **"Mesma sessão" é literal e vem de graça**: `bibleScreen` é um `let` de
+  módulo e morre com a página. Fechar o app devolve a tela de livros sem uma
+  linha a mais, e **nada é gravado**.
+- **A tela lembrada é CONFERIDA, nunca restaurada às cegas.** `reading` supõe uma
+  `bibleSession` (o `clearBibleSession` já a rebaixa ao encerrá-la, mas ela
+  também morre com um `load` de mídia comum) e `chapters` supõe um livro
+  escolhido — `bibleSel` nasce com `bookIdx: -1`, e a grade de capítulos dele é
+  exatamente a tela que a lembrança às cegas produziria.
+
 `renderBible()` despacha por `bibleScreen` (`'books'`|`'chapters'`|`'reading'`),
 renderizando dentro de `#library` uma **grade de células no estilo de uma
 tabela periódica** (`.bible-grid` + `.bible-cell`): cada célula é um "símbolo"
@@ -187,6 +288,27 @@ mudanças, e nenhuma resolve sozinha:
 É a mesma disciplina que as grades de CAPÍTULO e VERSÍCULO já tinham
 (`minmax(46px, 1fr)` nas colunas mais o `aspect-ratio: 1`): a de livros era a
 única que escapava dela. Portão: `tools/geometria.test.mjs`.
+
+**E QUEM ROLA É UM ENVELOPE, NÃO A GRADE (v1.8.60).** A rolagem acima resolveu o
+CORTE e deixou um buraco: a grade carregava a marca `.rola`, e a sombra de
+rolagem (v1.8.58) não pinta sobre uma grade — o pseudo-elemento de um contêiner
+de grade é um ITEM dela, e o `sem-veu` a exclui com razão. O `acertarVeus`
+escrevia `tem-abaixo` normalmente: **o app sabia que havia livro escondido e não
+tinha como dizer.** MEDIDO a 360×640, a medida clássica do Android, **24 dos 66
+livros ficavam fora da dobra** — a única superfície do app em que só a tentativa
+revela que a lista continua.
+
+Os dois consertos de CSS morreram medidos: dar `grid-column: 1/-1` ao pseudo
+reintroduz o defeito exato que criou o `sem-veu` (a primeira célula desce de
+y=0 para y=32, mais 10px de rolagem fantasma), e trocar a grade por `flex-wrap`
+destrói as 66 células. O que passa é a grade DEIXAR de ser o scroller: um
+`.bible-books-rolo` de bloco rola e leva a marca, e a grade fica grade. Ele é
+uma COLUNA FLEX, e é isso que preserva as duas alturas — numa tela alta a grade
+recebe o que sobra e as fileiras esticam (`1fr`); numa curta, o tamanho mínimo
+automático de um item flex é o `min-content`, então ela para no piso das onze
+fileiras e o envelope passa a rolar. O `sem-veu` FICA e não deve ser tocado: o
+`#simpleLyrics` vira `display: grid` em runtime (`.lv-grade`) e é o caso vivo
+dele. Portão: bloco O do `tools/sombra-de-rolagem.test.mjs`.
 
 **Capítulo e versículo convivem numa tela só** (`'chapters'`), dividida na
 vertical (`.bible-split`): em cima a grade de **capítulos**, embaixo a de
@@ -322,6 +444,26 @@ das pontas sai de `:first-child`/`:last-child`, então ele acompanha a ordem
 nova sem uma segunda regra; e a Versão continua saindo da barra inteira quando
 não há lista de versões carregada.
 
+### E ela PREENCHE a largura da base (v1.8.80)
+
+Relato do operador: *"os botões de opções da bíblia, que mostram o texto, salvar
+no cronograma e salvar nos favoritos… essa barra de controles não está
+preenchendo toda a largura disponível dessa base"*. MEDIDO a 430×900: a base tem
+382px e o conteúdo media 324,6 — **28,7px de vão de cada lado**, porque o rodapé
+é `justify-content: center` e nenhum dos dois blocos crescia.
+
+**Quem cresce é a REFERÊNCIA, nunca as ações:** os dois botões de guardar são
+quadrados por regra declarada (`aspect-ratio: 1` sobre a altura herdada), então
+esticar a caixa deles não os alarga — abriria um vão DENTRO dela. O `flex-grow`
+entra na nav e nas quatro pílulas, e o espaço a mais vira leitura: o nome do
+livro deixa de ser o primeiro a reticenciar.
+
+**Crescer e encolher são eixos independentes**, e é por isso que isto não desfaz
+a correção abaixo: os `flex-shrink` (1 nas pílulas de número, 3 no livro) seguem
+decidindo quem perde largura quando a barra aperta; aqui só se reparte a SOBRA.
+(A barra **deixou de quebrar** na v1.8.83 — ver abaixo. O oráculo media a
+segunda linha como caso previsto até ali.)
+
 ### E a barra CABE encolhendo, nunca pintando por cima (v1.7.10)
 
 Relato do operador, na mesma captura: *"na base, onde tem o livro capítulo e
@@ -338,21 +480,35 @@ do irmão**, e os dois botões continuam tocáveis por baixo.
 - **TODAS as pílulas encolhem agora**, e a ordem de ceder é explícita: a do
   livro cede **três vezes** mais (é o único campo de largura imprevisível e o
   único cujo valor vira reticências sem perder o sentido).
-- **QUEM SE DIMENSIONA PELO RÓTULO** são as três pílulas de número: "CAPÍTULO" e
-  "VERSÍCULO" em caixa alta são bem mais largos que os valores, então é no
-  rótulo que o aperto é pago (menos `letter-spacing`, menos respiro lateral).
-- **E QUANDO NÃO CABE NA LINHA, ELA QUEBRA** (`flex-wrap`). O algoritmo decide
-  as linhas pelo tamanho IDEAL antes de encolher qualquer item: onde a
-  referência cabe ao lado dos botões nada muda (o desenho da v5.109, e o das
-  telas largas); onde não cabe, ela toma a linha e os botões descem. Com a linha
-  inteira ela cabe em 8 dos 10 cenários. **A altura que isso custa sai da
-  leitura**, e era esse o argumento da v5.109 para juntar as duas faixas — ele
-  continua valendo e deixou de decidir, porque uma barra pintando sobre um botão
-  tocável é pior que uma linha a mais.
-- **O EXTREMO ESTÁ DITO**: a 360×640 com fonte 1,3× nem a linha sozinha basta
-  (308px pedidos contra 298px de folha), e ali o rótulo vira reticências — a
-  última barreira. Apertar o respiro das pílulas para ganhar os 10px foi MEDIDO
-  e não resolveu, e cobraria o aperto em todas as telas.
+- **QUEM SE DIMENSIONAVA PELO RÓTULO** eram as três pílulas de número:
+  "CAPÍTULO" e "VERSÍCULO" em caixa alta são bem mais largos que os valores. A
+  v1.7.10 pagou o aperto NO rótulo (menos `letter-spacing`, menos respiro
+  lateral): 270px → 222px.
+
+### E O RÓTULO SAIU, com o modo de duas linhas junto (v1.8.83)
+
+Pedido do operador: *"Remova os títulos dos grupos na barra inferior durante a
+leitura. A largura da barra é definida por esses títulos, mas ocupa um espaço
+desnecessário na área dos capítulos e versículos em relação aos números e aperta
+na área dos livros… Essa barra não deve ter um modo de 'duas linhas' que foi
+adicionado anteriormente por você"*.
+
+Ele descreve o mecanismo que a v1.7.10 já tinha medido, e pede a CAUSA em vez do
+paliativo. Tirar a palavra leva o pior caso de 270px para **117,7px**, e com isso
+saem juntos o `flex-wrap: wrap` e o EXTREMO que era exceção no oráculo: MEDIDO
+nas sete telas dele, a barra cabe em **UMA LINHA** em todas, sem truncar nada e
+sem transbordar a base (`scrollWidth === clientWidth`).
+
+- **O que a palavra dizia, a TINTA já diz** desde a v1.3.14 — cada pílula veste a
+  grade que abre (o livro na tinta do grupo canônico, o capítulo no tom frio, o
+  versículo no quente). A palavra era a terceira escrita da mesma informação,
+  depois da cor e da posição.
+- **Ela não some do app**: vira `title` e `aria-label` do botão, que é onde um
+  botão sem rótulo diz o que é.
+- **A ordem de ceder (v1.7.9) fica**, agora como barreira que não se alcança: é
+  ela que garante, no dia em que uma pílula nova chegar, que a única coisa que
+  NUNCA pode acontecer aqui — a barra pintar por cima de um botão que continua
+  tocável por baixo — continue não acontecendo.
 
 A **versão entra pela sigla** (`bibleVersionAbbr`): "Almeida Revista e
 Atualizada" ocupava a linha inteira e empurrava a referência para baixo, e a
@@ -362,10 +518,10 @@ possível; um nome de uma palavra já é a sigla; senão, as iniciais das palavr
 significativas (ignorando "e", "de", "na"…) — o que dá ARA, ARC, NVI, NAA,
 NTLH, ACF. Quando a linha aperta quem cede primeiro é o **nome do livro**
 (`.bible-ref-part--book`, o único de largura imprevisível, com `flex-shrink`
-três vezes maior), e quando nem isso basta a barra QUEBRA — ver "E a barra CABE
-encolhendo, nunca pintando por cima", acima. *(Este parágrafo dizia "sem
-`flex-wrap`" até a v1.8.1 — dois lotes depois de a v1.7.10 acrescentar o
-`flex-wrap`, e ninguém tinha lido a frase desde então.)*
+três vezes maior) — ver "E a barra CABE encolhendo, nunca pintando por cima",
+acima. *(Este parágrafo descreveu a quebra em duas linhas da v1.7.10 até a
+v1.8.83, e antes dela dizia "sem `flex-wrap`" por dois lotes inteiros depois de
+o `flex-wrap` ter entrado. Hoje não há quebra: o rótulo que a exigia saiu.)*
 
 **À direita da referência, na MESMA linha** (v5.109), os dois botões de guardar
 (`.cue-save-btn`: ⊞ para o Cronograma, ★ para os favoritos). **Aqui eles são

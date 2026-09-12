@@ -404,9 +404,32 @@ a congregação vê continua sendo a letra, pelo caminho de sempre.
   pior desfecho possível. O passo é guardado na entrada do cache: voltar a um
   hino devolve o tom em que o operador o deixou, e trocar de hino não arrasta o
   passo do anterior.
-- **A GRAFIA SEGUE A ORIGEM.** Folha escrita em bemóis continua em bemóis. É
-  musicalmente correto (transpor não muda a armadura) e é o que faz a folha
-  continuar parecendo a mesma para quem já a conhece.
+- **A GRAFIA VEM DA ARMADURA DO TOM DE DESTINO** (v1.8.91), e vale para a folha
+  INTEIRA. Meio tom acima de D é `Eb`, não `D#`. A regra anterior — *a grafia
+  segue a ORIGEM*, raiz sem bemol sobe em sustenido — se justificava por uma
+  afirmação **falsa**: *"transpor não muda a armadura"*. Muda: Fá maior tem um
+  bemol e, dois semitons acima, Sol maior tem um sustenido. Ela produzia tons
+  que não existem (`D#`, `G#`, `A#` são 9, 8 e 10 sustenidos) e linhas
+  **internamente inconsistentes**, porque decidia acorde a acorde: `Bb Cm Eb F`
+  subindo três semitons saía `Db D#m Gb G#`.
+  - **E a régua NÃO é "prefira bemol".** Dentro de Mi maior, `G#m` e `D#m` são a
+    grafia certa (quatro sustenidos), e `Abm` ali seria erro — uma tabela fixa
+    de bemóis estragaria o caso mais comum de hinário (folha em Ré subindo um
+    tom), que a regra velha acertava por acidente.
+  - **O MODO inverte três graus**, e por isso são DUAS tabelas: o grau 1 é `Db`
+    em maior (5 bemóis) e `C#m` em menor (4 sustenidos contra os 8 de `Dbm`);
+    idem nos graus 6 e 8. Uma lista única de doze nomes devolvia `Dbm`, que é o
+    defeito velho pelo outro lado.
+  - **O tom deixou de ser só informação de cabeçalho**: `grafiaDaFolha` o lê
+    como ENTRADA. Não lido, o proxy é a PRIMEIRA raiz da folha — hino abre no
+    tônico, e errar ali custa a grafia de um enarmônico, nunca a altura de um
+    acorde.
+  - **ENTRADA ≠ SAÍDA:** a gramática continua ACEITANDO `D#7M` e `A#m7`, que é
+    como o site às vezes escreve. Recusá-los deixaria o acorde parado no tom
+    original com a folha andando à volta dele — o defeito da v1.1.13.
+  - **Zero semitom não regrafa**: a folha no tom original continua idêntica à
+    página. E a divergência com a grafia do Cifra Club nos tons pretos é
+    **escolhida**: quem lê esta aba está tocando, e `A#` não é um tom.
 - **A gramática do acorde erra para os DOIS lados, e os dois são mudos.** Larga
   demais ("maiúscula seguida de qualquer coisa"), ela classifica uma linha de
   letra como acordes e a letra **some da aba**. Estreita demais, o acorde que

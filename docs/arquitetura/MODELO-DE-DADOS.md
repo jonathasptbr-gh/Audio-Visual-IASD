@@ -249,12 +249,10 @@ updateState(key, fn)          // ler + calcular + gravar numa transação SÓ. `
                               // SÍNCRONA (ver a regra abaixo)
 stateKeys(prefix)             // chaves de `state` com esse prefixo, numa transação
                               // só e SEM ler valor nenhum — presença em massa
+stateApagarPrefixo(prefix)    // apaga TODAS as chaves com esse prefixo, numa
+                              // transação só; devolve quantas saíram (v1.8.83)
 addMedia(blob, meta)          // cria registro + adiciona a meta.list (padrão 'imports')
 addUrlMedia(url, meta)        // item de URL externa (blob=null), idem
-addStreamMedia(stream, meta)  // TRANSMISSÃO DIRETA: registro sem bytes, com o
-                              // manifesto DASH dentro
-setMediaStream(id, stream)    // troca o manifesto de um registro já existente —
-                              // as URLs do googlevideo expiram em horas
 addDeck(pages, meta)          // apresentação: uma imagem por página
 addCue(cue, data, meta)       // CENA DE ROTEIRO: item sem bytes (ver abaixo)
 getMedia(id), renameMedia(id, name)
@@ -269,6 +267,16 @@ opfsDeleteFile, opfsDeleteDir,                          // File System
 opfsFolderSize(path)                                    // quanto uma pasta ocupa
 kindFromType, sendCommand, onCommand
 ```
+
+**`stateApagarPrefixo` é do mesmo par que o `stateKeys`, e eles estão lado a lado
+no arquivo por isso:** os dois montam o MESMO intervalo (`IDBKeyRange.bound(p, p
++ '\uffff')`), e dois jeitos de escrevê-lo divergiriam no primeiro ajuste. Quem o
+pediu foi o excluir de uma versão da Bíblia — **1189 chaves**; apagá-las uma a
+uma seriam 1189 transações num processo que fica aberto o culto inteiro, que é a
+mesma conta que fez o `stateKeys` existir. O `delete()` do cursor não invalida a
+iteração. Ele devolve QUANTAS saíram porque quem chama precisa distinguir
+*"apaguei"* de *"não havia nada"*, e um `undefined` faria as duas se lerem igual.
+
 
 **`listSet` tem duas formas, e a diferença é atomicidade:**
 
@@ -437,130 +445,58 @@ as quatro ações em vez de dobrar a folha para oito linhas.
 - **A escolha viaja no FECHO de cada ação**, nunca em `songMenuFor`: o
   `songMenuItem` chama `closeSongMenu()` ANTES da ação, e ele zera aquele objeto
   — consultá-lo lá dentro encontraria null e todo download sairia como vídeo.
-##### TRANSMISSÃO DIRETA: o vídeo sem baixar e sem o player do YouTube
+##### A TRANSMISSÃO DIRETA SAIU (v1.7.7 o escritor, v1.8.82 o leitor)
 
-O "Tocar agora" de um resultado do YouTube vira um `<video>` COMUM alimentado por
-`MediaSource` — daí para a frente ele é mídia como qualquer outra: fade, cortina,
-`MediaSession`, barra de progresso e segundo plano, e **zero pixel de YouTube no
-telão**. As alternativas cobravam caro: baixar antes são centenas de MB de espera
-antes do primeiro quadro, e o player embutido (removido na v5.212) trazia a UI
-dele junto — a rodinha de carregamento, o botão grande na pausa e a tela final
-**não têm parâmetro que desligue**, porque não são *controles*.
+Da v5.212 à v1.7.2 o "Tocar agora" de um resultado do YouTube virava um
+`<video>` alimentado por `MediaSource`: o `YoutubeGrab.manifesto` escolhia as
+duas faixas adaptativas, o `StreamProxy.kt` as servia em `/stream/<token>` no
+nosso origin, e um player DASH mínimo do lado web lia o índice do arquivo e
+entregava os pedaços. A cena entrava com o primeiro fragmento, na casa dos kB.
 
-###### As três peças
+**Ela foi abandonada a pedido do operador** (*"vamos abandonar o modo online
+direto, ele é muito instável"*), e o motor saiu do bundle na v1.8.82. **O relato
+inteiro — o que saiu em cada lote, o que fica no Kotlin e por quê — está em
+[`docs/shell/SEGUNDO-PLANO.md`](../shell/SEGUNDO-PLANO.md)**, e não se repete
+aqui.
 
-| Peça | Onde | O que faz |
-|---|---|---|
-| manifesto | `YoutubeGrab.manifesto` + `AVNative.ytStream` | escolhe as duas faixas adaptativas pela MESMA fila de candidatos do download (visionOS primeiro) e devolve os byte-ranges do DASH |
-| proxy | `StreamProxy.kt` | serve o `googlevideo` em `/stream/<token>`, no nosso origin |
-| player | `shared/mse.js` | lê o `sidx`, pede os pedaços e os entrega ao `MediaSource` |
+**O que este capítulo guarda é o que sobreviveu à remoção:**
 
-**Por que o proxy não é opcional.** Um `fetch` direto ao googlevideo falha por
-três motivos independentes, cada um suficiente sozinho: **CORS** (o googlevideo
-não manda `Access-Control-Allow-Origin`), o **User-Agent** (uma faixa do visionOS
-pedida com o UA do WebView responde 403) e a **invariante 2** (o WebView recusa
-buscar fora do origin).
+- **Não há `addStreamMedia`/`setMediaStream` nem campo `stream`** em registro
+  novo. O `controle/pacote.js` ainda descarta um `stream` de registro LEGADO ao
+  exportar — é a única pergunta que o web faz pelo campo.
+- **`StreamProxy.kt` NÃO é um `PathHandler`, e a razão vale para o próximo.** O
+  `WebViewAssetLoader.PathHandler` recebe só o caminho — os cabeçalhos não
+  chegam lá —, e uma faixa de bytes é feita de `Range`: sem repassá-lo, cada
+  pedido traria o arquivo inteiro para usar 200 kB. Por isso ele é chamado de
+  dentro do `shouldInterceptRequest`, que recebe o `WebResourceRequest`
+  completo, ANTES de o asset loader ver a URL — **o único ponto do app que
+  enxerga os cabeçalhos de uma requisição**. Ver a invariante 8 no `CLAUDE.md`.
+- **Um proxy não era opcional, e os três motivos são independentes:** CORS (o
+  googlevideo não manda `Access-Control-Allow-Origin`), o **User-Agent** (uma
+  faixa do visionOS pedida com o UA do WebView responde 403) e a **invariante
+  2** (o WebView recusa buscar fora do origin). Quem for buscar bytes de
+  terceiro a partir do web paga os três de novo.
 
-**Por que ele NÃO é um `PathHandler`.** O `WebViewAssetLoader.PathHandler` recebe
-só o caminho — os cabeçalhos não chegam lá —, e MSE é feito de requisições por
-FAIXA DE BYTES: sem repassar o `Range`, cada pedido traria o arquivo inteiro para
-usar 200 kB. Por isso ele é chamado de dentro do `shouldInterceptRequest`, que
-recebe o `WebResourceRequest` completo, ANTES de o asset loader ver a URL — é o
-único ponto do app que enxerga os cabeçalhos de uma requisição.
+##### Só em "Tocar agora"
 
-Ele vale para os DOIS WebViews, ao contrário do handler `/saf/`: quem projeta é o
-telão, então negá-lo ao Display seria negar o recurso inteiro. A exposição é de
-outra natureza — um token de stream aponta para uma faixa do vídeo que já está em
-cena, não para o índice de uma pasta do aparelho.
-
-###### O `sidx`, e por que ele é a peça testada
-
-O índice DASH é o que torna a coisa viável: com alguns kilobytes o player sabe
-onde começa cada fragmento. Sem ele, "tocar aos 3:20" significaria baixar tudo
-até os 3:20.
-
-É também a peça que falha em SILÊNCIO (um erro de deslocamento não dá exceção —
-dá vídeo que não toca) e a única do caminho que se verifica sem aparelho, porque
-os boxes podem ser construídos byte a byte a partir da especificação. Daí
-`tools/sidx.test.mjs`: v0 e v1 (o tamanho do cabeçalho MUDA entre as duas, e
-errá-lo desloca todas as entradas), `first_offset`, um box anterior ao `sidx`, o
-bit de `reference_type` (que sem máscara viraria um tamanho absurdo), buffer
-curto, ausência do box e `timescale` zero.
-
-###### O que este player deliberadamente NÃO é
-
-`mse.js` **não** troca de qualidade, **não** lê MPD e **não** faz ABR — ele lê um
-índice, pede pedaços e os entrega. Um player DASH de prateleira (dash.js, Shaka)
-são centenas de kB de terceiro para um caso que aqui é minúsculo: duas faixas, um
-perfil, sem DRM, sem múltiplas qualidades, sem legenda. O preço está declarado:
-isto é superfície NOSSA, e por isso cada ponto de falha avisa quem chamou
-(`onErro` → `onStreamErro` do stage), e quem chamou tem para onde cair.
-
-###### O que segura a transmissão em SEGUNDO PLANO (v1.2.0)
-
-Relato do operador: *"vídeos tocando direto do YouTube sem baixar são
-interrompidos quando o app está em segundo plano"*. **Um arquivo BAIXADO não é**,
-e a assimetria é a explicação inteira: ali o `<video>` toca sozinho e nenhum
-JavaScript precisa rodar durante a reprodução. Aqui precisa — quem repõe o buffer
-é este player, e ele estava apoiado em duas coisas que o segundo plano quebra.
-
-- **O compasso não pode ser só um `setInterval`.** `updateend` encadeia a maior
-  parte dos ciclos, mas quando o buffer atinge `ALVO_S` (20 s) nada mais é
-  appendado e nada mais dispara evento: quem reacorda o player é o tique de
-  `TICK_MS`. Um `setInterval` de página em segundo plano é ESTRANGULADO pelo
-  Chromium (1×/s, e 1×/min depois de alguns minutos escondida), e a conta é
-  aritmética — 20 s de buffer contra um compasso de até um minuto dá projeção
-  parando sozinha, sem erro em lugar nenhum. Hoje o compasso também sai dos
-  eventos do próprio `<video>` (`EVENTOS_DO_COMPASSO`: `timeupdate`, `progress`,
-  `waiting`, `stalled`), que nascem do pipeline de mídia e não do agendador de
-  tarefas. O intervalo FICA como piso: é ele que cobre a cena PAUSADA, onde não
-  há `timeupdate`.
-- **Uma falha de rede não é o fim da transmissão.** Qualquer tropeço matava o
-  player: o erro subia até `morrer`, o Controle recebia `onStreamErro` e a cena
-  caía no download — um vídeo de 300 MB começando a baixar por causa de um pacote
-  perdido. E é justamente em segundo plano que o tropeço acontece, porque o Wi-Fi
-  entra em economia de energia com o app fora da frente. Hoje `pegar()` retenta
-  (4 tentativas, 0,4 s → 1,2 s → 3 s), com a **mesma divisão do download**: passa
-  o que pode ter sido acidente (requisição que não completou, corpo interrompido,
-  5xx, 429, resposta vazia) e **não** retenta 4xx — 401/403 é a URL expirada, e a
-  resposta a ela é o `recuperarStream` abaixo, que re-extrai o manifesto e
-  reconhece o caso pela MENSAGEM. A marca viaja no próprio erro
-  (`marcar`/`retentavel`), nunca casando strings depois.
-
-###### A recuperação, e quem a faz
-
-As URLs do googlevideo expiram em algumas horas, então um registro de stream é
-transitório por natureza. Quando ele falha em cena:
-
-1. **A preview do Controle é a canária** — ela toca o MESMO registro, na mesma
-   hora, e é na tela do operador que a falha aparece primeiro.
-2. O Controle pede um manifesto NOVO para o mesmo `youtubeId` e o regrava
-   (`AVDB.setMediaStream`).
-3. **Uma tentativa só.** Falhando a segunda, o problema não é validade — é rede,
-   codec ou vídeo restrito —, e a mídia é substituída pelo DOWNLOAD.
-
-**O telão não recupera sozinho**, e não é omissão: ele recebe a ponte com
-`host = null` e não pode pedir manifesto nenhum; e duas recuperações
-independentes para a mesma cena brigariam entre si.
-
-###### Só em "Tocar agora"
-
-As outras três ações GUARDAM o item, e um manifesto que expira em horas seria
-algo que não abre no domingo. Falhando qualquer coisa (vídeo sem
-par adaptativo, WebView sem o codec), o caminho segue para o download **sem
-avisar nada ao operador**: ele pediu o louvor, não o método.
+As outras três ações GUARDAM o item. Falhando qualquer coisa, o caminho segue
+para o download **sem avisar nada ao operador**: ele pediu o louvor, não o
+método.
 
 ##### E a QUALIDADE, logo abaixo
 
 Uma segunda linha de segmentos, no mesmo construtor da primeira (`ytSegRow`):
-**1080p · 720p · 480p** (mais **Online**, que não baixa nada).
+**1080p · 720p · 480p**. Toda qualidade daqui BAIXA bytes — o degrau **"Online"**
+(que guardava só o link) saiu na v1.7.7, com a transmissão direta que ele existia
+para alimentar.
 
 - **Some com "Só áudio" escolhido** — ali não existe resolução nenhuma, e uma
   escolha que não faz nada é pior que escolha nenhuma.
-- **O teto nasce no padrão A CADA ITEM.** Um teto que grudasse faria quem
-  escolheu 480p numa rede ruim receber, sem aviso, o vídeo principal do domingo
-  seguinte em 480p no telão: o atrito de dois toques é visível, a regressão
-  silenciosa não seria.
+- **O teto ESCOLHIDO vira o padrão** (v1.7.7, `state` `ytAltura`): ele sobrevive
+  à sessão e vale para o próximo vídeo. Foi pedido por extenso, e revoga a regra
+  anterior — o teto nascia no padrão a cada item. O preço está no Registro, que
+  imprime o teto em vigor: um 480p esquecido é a explicação mais provável para
+  "a imagem está ruim" num aparelho que ninguém mexeu.
 - **360p ficou de fora**: num telão de salão ele é ruim o suficiente para não
   valer ser oferecido.
 - **Ponte:** um TERCEIRO destino (`ytFetchAte`), pela regra de aridade do
@@ -742,7 +678,6 @@ significaria perder o comando seguinte no meio de um culto.
 | `wallpaper` | — | Avisa que a imagem do wallpaper mudou. **Sem payload**: o blob mora no state `wallpaper`, que os dois apps compartilham — o Display relê do IDB (ver "Wallpaper personalizado") |
 | `text` | `mode, view` + payload conforme o modo | Projeta/atualiza a **Camada de Texto** (ver a seção própria). `mode` = `'verse'` (Bíblia) \| `'message'` (aviso) \| `'chrono'` (relógio/cronômetro/timer) \| `'draw'` (sorteio). Nos dois primeiros o payload é `main` (texto principal) + `sub` (referência dourada abaixo; vazio nas mensagens); nos dois últimos é um **descritor** (`chrono` / `draw`) a partir do qual cada lado calcula o número localmente — ver as seções de Ferramentas. Um novo `text` troca o conteúdo em cena; `view` só liga/desliga a cortina compartilhada. **Independente do áudio**: um `text` NÃO para a mídia do stage — o áudio segue tocando por baixo |
 | `text-hide` | — | Encerra a Camada de Texto (Bíblia/Mensagem) sem tocar na mídia de fundo |
-| `mic` | `on` (bool) | **Microfone ao vivo** (push-to-talk): o Display abre o microfone e reproduz a voz na projeção. Camada de ÁUDIO independente — não toca na mídia, no texto nem na cortina. Enviado por `AVDB.sendCommand` direto, **nunca** por `cmd()`: a preview é o mesmo aparelho, a centímetros do microfone |
 | `audio-retry` | — | Retentativa imediata de liberar o áudio bloqueado (botão de mudo do Controle no estado "sem áudio") |
 
 #### Display → Controle
@@ -752,7 +687,6 @@ significaria perder o comando seguinte no meio de um culto.
 | `display-ready` | — | Display pronto; o Controle reenvia a **cena inteira** (ver abaixo) |
 | `display-status` | `mediaId, view, muted, volume, playing, currentTime, duration, audioBlocked` | Estado do Display a cada evento de tempo/estado (`audioBlocked`: navegador bloqueou som sem gesto; o Controle avisa o operador) |
 | `media-ended` | `mediaId` | Vídeo/áudio chegou ao fim |
-| `mic-status` | `on`, `error` | Resultado da abertura do microfone (permissão negada, sem microfone, em uso por outro app…) |
 
 #### Reenvio da cena (`resendSceneToDisplay`)
 

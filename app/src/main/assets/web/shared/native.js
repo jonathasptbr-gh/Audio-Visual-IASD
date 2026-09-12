@@ -35,9 +35,9 @@
   // embutido no APK (mais velho, porém funcionando).
   //
   // `window.AVDB` no `load` NÃO basta. A ordem dos scripts do Controle é
-  // native.js → db.js → mse.js → stage.js → louvorja.js → bible.js → serie.js →
+  // native.js → db.js → stage.js → louvorja.js → bible.js → serie.js →
   // cifra.js → sorteio.js → hinario.js → coletanea.js → pptxzip.js → deck.js →
-  // pacote.js → controle.js, e um erro em qualquer um dos CATORZE últimos aborta só AQUELE
+  // pacote.js → controle.js, e um erro em qualquer um dos TREZE últimos aborta só AQUELE
   // script: o `load` dispara, `AVDB` continua lá, e o bundle quebrado é
   // carimbado como bom PARA SEMPRE.
   //
@@ -46,10 +46,8 @@
   //   1. papel 'controle' — o Display não carrega controle.js nem louvorja.js, e
   //      é o caso NORMAL de culto: ele confirmaria quase sempre no lugar do
   //      outro, validando um bundle cujo Controle nunca rodou.
-  //   2. `AVDB` (db.js), `AVStream` (mse.js) e `createStage` (stage.js) — os
-  //      três módulos compartilhados, cada um publicando seu global no fim do
-  //      arquivo (o `AVStream` existe mesmo sem MediaSource; só o `suportado()`
-  //      responde false).
+  //   2. `AVDB` (db.js) e `createStage` (stage.js) — os dois módulos
+  //      compartilhados, cada um publicando seu global no fim do arquivo.
   //   3. os dez módulos do Controle (`Louvorja`, `Bible`, `AVSerie`,
   //      `AVSorteio`, `AVCifra`, `AVHinario`, `AVColetanea`, `AVPptxZip`,
   //      `AVDeck`, `AVPacote`) — todo uso deles no `controle.js`
@@ -75,7 +73,7 @@
 
   function otaAppIsUp() {
     if (global.__AV_ROLE__ !== 'controle') return false;
-    if (!global.AVDB || !global.AVStream || !global.createStage) return false;
+    if (!global.AVDB || !global.createStage) return false;
     // OS MÓDULOS DO CONTROLE, e eles eram o buraco declarado deste watchdog.
     // Um erro de topo em qualquer um deles aborta
     // só AQUELE script: o `controle.js` continua inteiro (todo uso de
@@ -195,8 +193,8 @@
     return Number.isFinite(n) && n > 0 ? n : 0;
   }
 
-  // `timeoutMs` é OPCIONAL de propósito: `pickFolder` e `requestMic` esperam
-  // uma PESSOA (navegar no seletor do SAF, responder ao diálogo de permissão)
+  // `timeoutMs` é OPCIONAL de propósito: `pickFolder`, `pickDoc` e `salvarTexto`
+  // esperam uma PESSOA (navegar no seletor do SAF, responder ao "Salvar como")
   // e não têm prazo razoável — um timeout ali resolveria null com o operador
   // ainda escolhendo a pasta, e o `resolve` que chegasse depois seria jogado
   // fora. Essas ficam sem prazo, como antes.
@@ -379,23 +377,6 @@
         onProgresso,
       );
     },
-    // O MANIFESTO DA TRANSMISSÃO DIRETA de um vídeo do YouTube: as duas faixas
-    // adaptativas com os byte-ranges do DASH e URLs servíveis pelo próprio
-    // origin (ver StreamProxy.kt). `null` quando não há par transmissível ou
-    // quando o vídeo é restrito — e aí quem chamou cai no download, que
-    // continua inteiro.
-    //
-    // COM prazo, como o gêmeo `ytSearch` — e ao contrário do `ytFetch`: aqui
-    // há uma EXTRAÇÃO no meio (segundos), não um download de minutos. Sem o
-    // prazo, um resolve perdido (exceção no Kotlin depois de entrar no método,
-    // renderer trocado no meio) deixava a chamada num await para
-    // SEMPRE — o "Tocar agora" nem transmitia nem caía no download, o pior
-    // desfecho possível. O null do timeout é o mesmo null da falha normal:
-    // quem chamou cai no download, como sempre.
-    ytStream: (url, altura) => call(
-      (id) => B.ytStream(id, String(url), altura | 0),
-      CALL_TIMEOUT_MS,
-    ),
 
     // Busca no YouTube DENTRO do app: devolve
     // `[{ id, url, name, author, seconds, thumb }]`. Lista vazia num shell
@@ -408,7 +389,7 @@
     // decide o que é da série, o que é Libras e como o item se chama é o
     // `serie.js`, do lado web (invariante 5).
     //
-    // COM prazo, como o `ytSearch` e o `ytStream`: há rede no meio (segundos),
+    // COM prazo, como o `ytSearch`: há rede no meio (segundos),
     // não um download de minutos. Vencido o prazo, a lista vazia faz o card da
     // série não ser desenhado — a degradação certa.
 
@@ -477,7 +458,7 @@
     //
     // SEM PRAZO: quem responde é uma PESSOA no seletor "Salvar como" do
     // sistema, e um timeout resolveria vazio com o diálogo ainda aberto — a
-    // mesma regra do `pickFolder` e do `requestMic`.
+    // mesma regra do `pickFolder`.
     salvarTexto: (nome, texto) => call((id) => B.salvarTexto(id, String(nome), String(texto))),
 
     // ---- O PACOTE DE TRANSFERÊNCIA (shell 63) ----
@@ -635,9 +616,6 @@
     // parar.
     ytCancel(url) { try { B.ytCancel(String(url)); } catch (_) { /* ponte indisponível */ } },
 
-    // A ATUALIZAÇÃO DA BASE WEB que já está baixada e espera o próximo
-    // lançamento. String vazia quando não há nada novo.
-    otaPending: () => call((id) => B.otaPending(id), CALL_TIMEOUT_MS),
 
     // APLICA essa atualização AGORA: as duas páginas recarregam. Devolve a
     // versão aplicada, ou null se não havia o que aplicar.
@@ -647,8 +625,8 @@
     // houve o que aplicar, o único desfecho em que a página continua viva.
     otaApply: () => call((id) => B.otaApply(id), CALL_TIMEOUT_MS),
 
-    // PROCURAR AGORA. Síncrono e sem resposta de propósito: quem
-    // entrega o desfecho é o `otaPending` seguinte ou o empurrão do shell
+    // PROCURAR AGORA. Síncrono e sem resposta de propósito: quem entrega o
+    // desfecho é o `atualizacaoEstado` seguinte ou o empurrão do shell
     // (`window.__avAtualizacao`) — segurar uma promise pelo tempo de um download de
     // megabytes daria um botão travado.
     otaCheck(forcar) { try { B.otaCheck(!!forcar); } catch (_) { /* ponte indisponível */ } },
@@ -663,10 +641,9 @@
     // razão de a linha acima existir: ela é a única descrição da forma que este
     // lado tem.
     //
-    // Ele existe pela COERÊNCIA DE INSTANTE, não por economia de chamadas: com
-    // `otaPending`, `apkProcurar` e `otaDiag` separados, as três respostas
-    // chegam em três momentos e a pergunta na tela mudava de conteúdo depois de
-    // desenhada — "há uma base nova" virando "…e um APK junto" meio segundo
+    // Ele existe pela COERÊNCIA DE INSTANTE, não por economia de chamadas: as
+    // leituras separadas que ele substituiu chegavam em três momentos, e a
+    // pergunta na tela mudava de conteúdo depois de desenhada — "há uma base nova" virando "…e um APK junto" meio segundo
     // depois, num diálogo que o operador já estava lendo.
     //
     // Resolve `null` se a ponte não responder no prazo, e aí o chamador não
@@ -674,16 +651,6 @@
     atualizacaoEstado: () => call((id) => B.atualizacaoEstado(id), CALL_TIMEOUT_MS)
       .catch(() => null),
 
-    // ---- O APK SE ATUALIZA SOZINHO ----
-    //
-    // `apkProcurar` devolve `{}` quando não há nada, `{versao, bytes, notas}`
-    // quando há, e `{erro}` quando a pergunta falhou — os três são leituras
-    // diferentes, e por isso o vazio não carrega mensagem.
-    //
-    // Os dois resolvem o desfecho INOFENSIVO em vez de lançar: quem chama é uma
-    // linha de Configurações, e um `throw` ali deixaria a tela sem a versão web
-    // também.
-    apkProcurar: () => call((id) => B.apkProcurar(id), CALL_TIMEOUT_MS).catch(() => ({})),
 
     // BAIXA e abre o instalador do sistema. `''` = deu certo; qualquer outra
     // coisa é a FRASE do erro, pronta para a tela.
@@ -704,18 +671,10 @@
     // o que ela deu e quantas falhas seguidas.
     otaDiag: () => call((id) => B.otaDiag(id), CALL_TIMEOUT_MS).then((r) => r || ''),
 
-    // POR QUE O MICROFONE NÃO ABRE — o que só o shell sabe (shell 53).
-    //
-    // `{ permissao, appops, mudo, modo, gravando, entradas:[{tipo,nome}] }`.
-    // Leitura PURA: não abre o microfone, não pede permissão, não muda nada.
-    //
-    // Ela existe porque quatro rodadas pelo lado web terminaram no mesmo lugar —
-    // `NotReadableError` nas três configurações, nos dois WebViews, com a
-    // permissão concedida e um dispositivo enumerado. O `AppOps` pode NEGAR
-    // `RECORD_AUDIO` enquanto `checkSelfPermission` devolve concedida, e o
-    // navegador não enxerga essa diferença.
-    micDiag: () => call((id) => B.micDiag(id), CALL_TIMEOUT_MS)
-      .then((r) => (r && typeof r === 'object' ? r : null)),
+    // (`micDiag` saiu na v1.8.89 com o MICROFONE AO VIVO — ver a lápide no
+    //  `controle.js`. O `@JavascriptInterface` continua no Kotlin, que é o lado
+    //  seguro de encolher a ponte: um APK que ainda serve método que ninguém
+    //  chama não custa nada ao aparelho.)
 
     // O FAROL: uma busca por dia, para o app poder responder "quantos aparelhos
     // usaram isto esta semana?" (shell 58).
@@ -924,11 +883,7 @@
 
     temaClaro(on) { try { B.temaClaro(!!on); } catch (_) { /* ponte indisponível */ } },
 
-    // Microfone (push-to-talk): garante a permissão RECORD_AUDIO do Android
-    // ANTES do getUserMedia. Sem ela o WebView nega a captura de propósito
-    // (ver MicChromeClient). Resolvendo false, o lado web tenta o getUserMedia
-    // mesmo assim, que é o caminho do navegador.
-    requestMic: () => call((id) => B.requestMic(id)).then((r) => r === true),
+    // (`requestMic` saiu na v1.8.89, com o `micDiag` e pela mesma razão.)
 
 
     // Downloads em andamento: sem isto o Android congela o processo quando o

@@ -115,10 +115,10 @@ try {
   // linha TOCA a música e não abre gaveta nenhuma — o oráculo mediria um
   // container vazio e concluiria o que quisesse.
   await pg.waitForFunction(() => (
-    window.AVDB && window.AVStream && window.createStage
+    window.AVDB && window.createStage
       && window.Louvorja && window.Bible && window.AVSerie && window.AVSorteio
       && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li')
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled)
       // A FAIXA DE ABAS SAIU (v1.5.0). O sinal de "a interface assentou" passou
       // a ser a barra da Biblioteca — a cabeça da janela dela, à vista na base
       // do app —, mais as portas do rodapé. É o irmão do `--tab-w` que estava

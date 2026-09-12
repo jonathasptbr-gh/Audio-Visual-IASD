@@ -109,12 +109,10 @@ try {
     'o cartao sai quando o trabalho NOVO termina, sem esperar o prazo do que falhou',
     cartao);
 
-  // ---- A PASSAGEM DE BASTÃO NÃO PISCA (v1.4.8) ---------------------------
-  // Uma espera de transmissão tem DOIS donos em sequência — o toque
-  // (`cederOPalco`) e a carga do stream (o `onEspera` do palco) —, e entre eles
-  // o contador passa por ZERO. Sem a carência da saída o cartão sumia e voltava
-  // no meio da MESMA espera: o "dois modelos de carregamento" que a v1.4.8
-  // existe para acabar, com outra roupa.
+  // ---- A PASSAGEM DE BASTÃO NÃO PISCA -----------------------------------
+  // Uma espera pode ter DOIS donos em sequência — o toque (`cederOPalco`) e o
+  // download que vem depois dele —, e entre eles o contador passa por ZERO. Sem
+  // a carência da saída o cartão sumia e voltava no meio da MESMA espera.
   //
   // A asserção é a CONTINUIDADE, amostrada a cada quadro: um teste do estado
   // final passa nas duas versões, porque no fim o cartão está de pé de qualquer

@@ -47,11 +47,28 @@ const PONTE = `(function () {
     espelhoEstado: { ligado: false, telas: [], redes: [] }, espelhoDiag: {},
     castTarget: { label: '' }, apkProcurar: {}, ytDiag: '', cifraDiag: '',
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
+  // ===== ESTA LISTA É A DIFERENÇA ENTRE 'RESOLVE NULL' E 'TRAVA 60 s' =====
+  //
+  // O que NÃO está aqui devolve \`undefined\` e **nunca chama \`__avResolve\`** —
+  // e do lado web a Promise fica pendurada até o \`CALL_TIMEOUT_MS\` do
+  // \`native.js\`, que é UM MINUTO. Não há erro, não há log: o oráculo só demora.
+  //
+  // MEDIDO: \`pacoteDiag\` faltava, o bloco B chama \`renderDiag()\` (que o
+  // aguarda em \`await\`), e o arquivo gastava **60,0 s dos 70,9 s** dele nessa
+  // única linha — 7% do passo inteiro de oráculos. O desfecho era o MESMO
+  // (\`pacoteDiagShell\` fica falsy dos dois jeitos, e o Registro sai igual),
+  // então nada reprovava e nada explicava a lentidão.
+  //
+  // Os outros quatro entram junto porque a armadilha é do PRÓXIMO: nenhum deles
+  // é tocado hoje, e quem acrescentar a chamada pagaria o mesmo minuto sem uma
+  // pista de onde ele saiu. Resolver \`null\` é o que a ponte de verdade faz
+  // quando o shell não tem resposta.
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
-    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
+    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
-    'ytDetalhes','micDiag','areaTransferencia','salvarTexto','pacoteCriar','pacoteFechar',
+    'ytDetalhes','areaTransferencia','salvarTexto','pacoteCriar','pacoteFechar',
+    'pacoteDiag','cifraHtml','apkInstalar','espelhoCertImportar','espelhoCertApagar',
     ]);
   const B = {
     shellVersion: () => 63,
@@ -67,9 +84,9 @@ const PONTE = `(function () {
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar','espelhoCertEstado',
     'espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado','espelhoLigar',
     'keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply','otaCheck',
-    'otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume','temaClaro',
+    'otaDiag','otaPending','pickDoc','pickFolder','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
-    'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','micDiag','cifraHtml',
+    'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','cifraHtml',
     'cifraDiag','areaTransferencia','salvarTexto','pacoteDiag','ytDetalhes','pacoteCriar','pacoteFechar',
   ];
   for (const n of nomes) {
@@ -258,8 +275,12 @@ try {
 
     const textos = await pg.evaluate(() => ({
       simples: (document.getElementById('simpleVersion') || {}).textContent,
-      avancado: (document.getElementById('listVersion') || {}).textContent,
       rodape: (document.getElementById('appVersion') || {}).textContent,
+      // A CASA DO CABEÇALHO DO CRONOGRAMA SAIU (v1.8.66) — a badge deu lugar ao
+      // botão de limpar. Ela é medida pela AUSÊNCIA, e não apagada da conta: um
+      // `#listVersion` que volte a existir é um terceiro escritor do mesmo
+      // número, e é isso que esta metade sempre guardou.
+      cabecalho: !!document.getElementById('listVersion'),
     }));
     const esperado = 'v' + VERSAO;
     // AS TRÊS CASAS DIZEM A MESMA STRING desde a v1.8.51, e é mais forte assim.
@@ -270,13 +291,16 @@ try {
     // (*"considere abreviar a versão para dar espaço a um botão mais claro em
     // sua função"*). O que esta asserção guarda nunca foi a marca — é o NÚMERO
     // ser um só, escrito por um escritor só.
-    checar(textos.simples === esperado && textos.avancado === esperado
-      && textos.rodape === esperado,
-      'B · as TRÊS casas dizem o MESMO número, e ele é a versão do `version.json` (' + esperado + ') — '
+    checar(textos.simples === esperado && textos.rodape === esperado,
+      'B · as DUAS casas dizem o MESMO número, e ele é a versão do `version.json` (' + esperado + ') — '
       + 'um escritor só é o que impede duas telas de anunciarem versões diferentes', textos);
+    checar(textos.cabecalho === false,
+      'B · e a TERCEIRA casa não existe mais: a badge do cabeçalho do Cronograma '
+      + 'saiu na v1.8.66 para o botão de limpar, e o número dela não migrou para '
+      + 'lugar nenhum — ele já estava nas outras duas', textos.cabecalho);
 
     // O PEDIDO, ao pé da letra: *"apenas um número, sem o 'web'"*.
-    const juntos = [textos.simples, textos.avancado, textos.rodape].join(' ');
+    const juntos = [textos.simples, textos.rodape].join(' ');
     checar(!/web|shell/i.test(juntos),
       'B · e nenhuma delas escreve "Web" ou "Shell" — é um número, não uma tabela de canais', juntos);
     checar(!juntos.includes(SHELL_NOME),

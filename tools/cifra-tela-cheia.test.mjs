@@ -114,10 +114,10 @@ const PONTE = `(() => {
     'cifraDiag','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
-    'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
+    'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
     'ytFetchAudio','ytPlaylist','ytSearch','ytStream','areaTransferencia','atualizacaoEstado',
-    'micDiag','salvarTexto','farolEstado','espelhoDerrubar',
+    'salvarTexto','farolEstado','espelhoDerrubar',
   ];
   for (const n of nomes) {
     if (B[n]) continue;
@@ -162,7 +162,7 @@ try {
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(
     () => window.__NATIVE__ === true && window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
 
@@ -350,7 +350,7 @@ try {
     + 'da remedição — o par não se desfez', cheia.par);
 
   // ── 6. OS CONTROLES PEDIDOS ESTÃO NA COLUNA, E FUNCIONAM ─────────────────
-  const controles = await pg.evaluate(() => {
+  const controles = await pg.evaluate(async () => {
     const corpo = lyricsViewBodyEl.getBoundingClientRect();
     const nomes = {
       sair: '#cifraCheiaBtn',
@@ -385,18 +385,22 @@ try {
     };
     // ===== A CAIXA DO BOTÃO DE VELOCIDADE, NA COLUNA DEITADA (v1.6.2) =====
     //
-    // Percorrida com `click()`, como no retrato: a promessa é sobre o CICLO, e
-    // um botão medido parado prova só o rótulo que calhou de estar em cena.
+    // Percorrida degrau a degrau: a promessa é sobre a ESCADA, e um botão medido
+    // parado prova só o rótulo que calhou de estar em cena.
     const velBtn = lyricsPopupEl.querySelector('.lv-cifra-vel');
-    // A ESCADA É PERCORRIDA PELA GAVETA desde a v1.7.4 (o toque no botão a ABRE
-    // em vez de avançar um degrau): abrir, escolher o degrau `i`, medir o botão
-    // já FECHADO. A pergunta é a mesma de sempre — a caixa não depende do rótulo
-    // em cena — e ela vale numa coluna flex, que é o ponto deste arquivo.
+    // A ESCADA É PERCORRIDA PELO SLIDER desde a v1.8.80 (a gaveta de botões
+    // virou um `<input type=range>`): abrir, arrastar até o degrau `i`, FECHAR e
+    // medir o botão — ele só volta a ser o rótulo com a gaveta fechada, porque
+    // aberto ele é o ✕. A pergunta é a mesma de sempre (a caixa não depende do
+    // rótulo em cena) e ela vale numa coluna flex, que é o ponto deste arquivo.
     const velCaixas = [];
-    const opsDe = () => [...lyricsCifraCtlEl.querySelectorAll('.lv-cifra-vel-op')];
+    const sliderDe = () => lyricsCifraCtlEl.querySelector('.lv-cifra-slider');
     for (let i = 0; i < CIFRA_VELOCIDADES.length; i++) {
       velBtn.click();
-      opsDe()[i].click();
+      const sl = sliderDe();
+      sl.value = String(i);
+      sl.dispatchEvent(new Event('input', { bubbles: true }));
+      velBtn.click();
       const b = velBtn.getBoundingClientRect();
       velCaixas.push({
         rotulo: velBtn.textContent.trim(),
@@ -404,23 +408,47 @@ try {
         sw: velBtn.scrollWidth, cw: velBtn.clientWidth,
       });
     }
-    // E OS BOTÕES DA GAVETA, na COLUNA: é aqui que o `display: contents` do
-    // invólucro se prova — sem ele os cinco ficariam numa LINHA dentro da
-    // coluna, e a fila da paisagem sairia com um bloco horizontal no meio dela.
+    // E A GAVETA, na COLUNA (v1.8.80): o slider deitado da v1.8.80 não caberia
+    // numa trilha de 66px, então em tela cheia ele é VERTICAL e a gaveta cresce
+    // em ALTURA. É o par de regras de CSS que se prova aqui — sem ele, 9rem de
+    // largura dentro da coluna.
+    const colunaAntes = +lyricsCifraCtlEl.getBoundingClientRect().height.toFixed(2);
     velBtn.click();
-    const velOps = opsDe().map((b) => {
-      const r = b.getBoundingClientRect();
-      return {
-        rotulo: b.textContent.trim(),
-        w: +r.width.toFixed(2), h: +r.height.toFixed(2),
-        x: Math.round(r.left), y: Math.round(r.top),
-      };
+    const gav = lyricsCifraCtlEl.querySelector('.lv-cifra-vels');
+    // A GAVETA ANIMA (v1.8.80), então a medição espera pelo FIM da transição —
+    // nunca por um prazo: medida no quadro do toque, ela lê a altura de PARTIDA
+    // (zero) e reprova um app que está certo. O `setTimeout` é a rede de
+    // segurança para o caso em que o motor não emite o evento (uma transição de
+    // duração zero não emite `transitionend`).
+    await new Promise((pronto) => {
+      const t = setTimeout(pronto, 800);
+      gav.addEventListener('transitionend', () => { clearTimeout(t); pronto(); }, { once: true });
     });
-    opsDe()[2].click();
+    const gavB = gav.getBoundingClientRect();
+    const slB = sliderDe().getBoundingClientRect();
+    const velGaveta = {
+      w: +gavB.width.toFixed(2), h: +gavB.height.toFixed(2),
+      sliderW: +slB.width.toFixed(2), sliderH: +slB.height.toFixed(2),
+      modo: getComputedStyle(sliderDe()).writingMode,
+      // O play e o seletor FICAM à vista com ela aberta — o pedido, e aqui na
+      // coluna também.
+      rolarAVista: lyricsPopupEl.querySelector('.lv-cifra-rolar').getClientRects().length > 0,
+      velAVista: velBtn.getClientRects().length > 0,
+      // E O QUE ELA COBRE (v1.8.83): aqui a saída é o PÉ da coluna, e ela é
+      // coberta como o par de tom. A `visibility` não tem eixo, então esta
+      // metade não precisou de regra própria — o que precisou foi da MEDIDA,
+      // porque "não precisou de regra" é exatamente o que ninguém confere.
+      // A CAIXA CONTINUA EXISTINDO — é justamente ela que mantém a coluna do
+      // mesmo comprimento —, então a régua é a `visibility`, nunca
+      // `getClientRects()`: este responde por caixa, e a caixa está lá.
+      saidaCoberta: getComputedStyle(lyricsPopupEl.querySelector('.lv-cheia-btn')).visibility === 'hidden',
+      colunaIgual: Math.abs(+lyricsCifraCtlEl.getBoundingClientRect().height.toFixed(2) - colunaAntes) < 0.5,
+    };
+    velBtn.click();
     return {
       ausentes, fora, meiosTons, icoW,
       hit: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')),
-      velCaixas, velOps,
+      velCaixas, velGaveta,
       trilha: +lyricsCifraCtlEl.getBoundingClientRect().width.toFixed(2),
       velIrmao: +lyricsPopupEl.querySelector('.lv-fonte-mais')
         .getBoundingClientRect().width.toFixed(2),
@@ -576,23 +604,28 @@ try {
     'e ele mede o MESMO que o A+ ao lado: uma coluna com um botão mais largo que '
     + 'os outros é o que o pedido nomeia',
     { vel: controles.velCaixas[0], irmao: controles.velIrmao });
-  // ===== E A GAVETA É UMA COLUNA, COMO A FILA (v1.7.4) =====
+  // ===== E A GAVETA TROCA DE EIXO COM A FILA (v1.8.80) =====
   //
-  // O invólucro é `display: contents`, então os cinco botões viram filhos DE
-  // FATO da fila e herdam o `flex-direction: column` do modo deitado. Sem ele
-  // eles ficariam numa LINHA horizontal dentro da trilha de 66px: a asserção é
-  // o EMPILHAMENTO (mesmo x, y crescente), que é a única coisa que distingue as
-  // duas montagens — as caixas medem o mesmo nas duas.
-  const ops = controles.velOps || [];
-  // O NÚMERO SAI DA PRÓPRIA MEDIÇÃO (as caixas percorridas no laço acima), e não
-  // de uma constante da página: aqui, no Node, ela não existe — e um literal `5`
-  // envelheceria com a escada.
-  const emColuna = ops.length === controles.velCaixas.length
-    && ops.every((c, i) => i === 0 || (c.x === ops[0].x && c.y > ops[i - 1].y));
-  checar(emColuna,
-    'e a GAVETA da velocidade empilha na coluna deitada, como a fila que ela '
-    + 'substitui — o invólucro é `display: contents`, e sem ele os cinco sairiam '
-    + 'numa linha horizontal dentro de uma trilha de 66px', ops);
+  // No retrato ela cresce em LARGURA (9rem, à direita do play e do seletor); na
+  // coluna deitada isso não caberia — a trilha tem 66px —, então lá ela cresce
+  // em ALTURA com o slider na VERTICAL. É o par de regras de `:fullscreen` que
+  // se prova aqui, e o modo de falhar dele é geométrico e mudo: 9rem dentro de
+  // uma trilha de 66px sai recortado pelo `overflow: hidden` da própria gaveta,
+  // com o controle vivo e invisível.
+  const gav = controles.velGaveta || {};
+  checar(gav.h > 0 && gav.w <= controles.hit + 2,
+    'a gaveta da velocidade cresce em ALTURA na coluna deitada, e não passa da '
+    + 'trilha', gav);
+  checar(gav.sliderH > gav.sliderW,
+    'e o slider é VERTICAL ali — deitado, ele seria o controle recortado que a '
+    + 'gaveta esconde sem erro nenhum', gav);
+  checar(gav.rolarAVista === true && gav.velAVista === true,
+    'e o play e o seletor continuam à vista com a gaveta aberta, como no '
+    + 'retrato — é o que o pedido do operador nomeia', gav);
+  checar(gav.saidaCoberta === true && gav.colunaIgual === true,
+    'e a SAÍDA é coberta aqui também, sem a coluna mudar de comprimento (v1.8.83 '
+    + '— no retrato era o ✕ do cabeçalho que saía da caixa; aqui seria o A+/A− '
+    + 'do pé da coluna)', gav);
   const velEstourando = controles.velCaixas.filter((c) => c.sw > c.cw);
   checar(velEstourando.length === 0,
     'e o rótulo CABE nele aqui também — com `width` fixo, um rótulo grande '
@@ -649,6 +682,33 @@ try {
     'e transpor meio tom DENTRO da tela cheia muda o tom mostrado — os '
     + 'controles são os de verdade, não uma segunda implementação',
     { antes: cheia.tom, depois: tomDepois });
+
+  // ===== A GRAFIA É DA FOLHA, E SÓ AQUI ISSO É MEDIDO (v1.8.91) =====
+  //
+  // A regra mora no `cifra.js` (bloco 3c do `cifra.test.mjs`), mas quem a LIGA é
+  // o `cifraDesenharFolha`, e essa ligação não tinha oráculo nenhum. O modo de
+  // falhar dela é MUDO: sem o terceiro argumento do `transporLinha`, cada acorde
+  // volta a se grafar sozinho e o resultado fica QUASE certo — três dos quatro
+  // saem idênticos.
+  //
+  // O DISCRIMINADOR É O `F`. A fixture é `C G Am F` no tom de C; meio tom acima
+  // o tom é Ré bemol maior, e o quarto acorde é `Gb`. Sozinho, aquele `F` viraria
+  // `F#`: o grau 6 é o único empate de armadura (seis acidentes de cada lado), e
+  // a folha é justamente quem desempata. Um sustenido nesta linha é a ligação
+  // desfeita.
+  // Lê TODAS as linhas de acordes e junta o conjunto, em vez da primeira: na
+  // coluna estreita da tela cheia o `quebrarPares` reparte o par, e a primeira
+  // linha sai com três dos quatro acordes — um `[0]` aqui mediria a quebra, não
+  // a grafia.
+  const acordesDepois = await pg.evaluate(() => {
+    const t = [...lyricsViewBodyEl.querySelectorAll('.lv-cifra-acordes')]
+      .map((l) => l.textContent).join(' ').trim().split(/\s+/).filter(Boolean);
+    return [...new Set(t)].sort().join(' ');
+  });
+  checar(acordesDepois === 'Ab Bbm Db Gb',
+    'a folha inteira sai na grafia do TOM DE DESTINO — o `F` vira `Gb` porque a '
+    + 'folha está em Ré bemol, e não `F#` porque cada acorde decidiu sozinho',
+    acordesDepois);
 
   // O A+/A− também é o de verdade, e mexe na escada DA TELA CHEIA.
   const fonteMais = await pg.evaluate(async () => {

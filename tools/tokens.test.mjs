@@ -397,9 +397,11 @@ checar(orfaos.length === 0,
 // aqui herda o overlay FLUTUANTE, que é branco com alfa.
 //
 // MEDIDO, e é o caso que criou esta asserção: a `.tools-sheet` nasceu na v1.3.10
-// pintando `--panel` e nunca entrou na lista. No tema CLARO o `.mic-btn` dentro
-// dela saía em branco a 92% sobre branco pleno — **1,00:1**. A barra de
-// push-to-talk, 56px, o controle que se procura sem olhar, não existia na tela.
+// pintando `--panel` e nunca entrou na lista. No tema CLARO o botão de 56px que
+// então ocupava a base dela saía em branco a 92% sobre branco pleno —
+// **1,00:1**: o controle que se procura sem olhar não existia na tela. (Aquele
+// botão era o do microfone ao vivo, e saiu na v1.8.89; a folha fica, e a
+// asserção com ela.)
 //
 // A varredura é do `--panel` LITERAL, não de `var(--camada)`: quem lê a camada
 // está justamente delegando o nível ao pai, e o pai é que precisa estar na
@@ -421,7 +423,15 @@ checar(orfaos.length === 0,
   // opaco em que o número passa AA: MEDIDO em `tokens.css`, `--muted` dá 4,88:1
   // sobre `--panel` e 3,66:1 sobre `--panel-2` — trocar de token para escapar
   // desta asserção custaria a legibilidade que ela existe para defender.
-  const excecoes = [/scrollbar/, /^\.lv-selo$/];
+  //
+  // `.sorteio-res-cab` (v1.8.88) é o MESMO caso do `.lv-selo`, e a razão também
+  // está no CSS: é a contagem no topo da lista de resultados — texto, sem um
+  // único controle dentro, e sem como ganhar um (a lista rola POR BAIXO dela).
+  // Ela pinta `--panel` porque é `sticky` sobre conteúdo que se move e precisa
+  // de fundo OPACO, e porque `--panel` é a superfície da própria folha: ela
+  // não é um degrau novo da escada, é o chão da folha aparecendo onde a lista
+  // passa.
+  const excecoes = [/scrollbar/, /^\.lv-selo$/, /^\.sorteio-res-cab$/];
   // A varredura é por BLOCO e não por regex de rua: entre um `}` e o seletor
   // seguinte cabe um comentário de trinta linhas (já em branco, mas ocupando
   // espaço), e um teto de caracteres no meio faz o oráculo pular exatamente as
@@ -521,6 +531,152 @@ checar(orfaos.length === 0,
     'e o fundo do ícone adaptativo é o mesmo do tema escuro: abrir o app expande '
     + 'o fundo do próprio ícone',
     'xml ' + cor('ic_launcher_background') + ' · token ' + escuro);
+}
+
+// ===== A PALETA NÃO DOCUMENTA PEÇA QUE NÃO EXISTE (v1.8.81) =====
+// As asserções acima varrem o `var(--x)` — QUEM LÊ um token. Faltavam as duas
+// direções opostas, e as duas falham CALADAS: um token declarado que ninguém lê
+// é computado e descartado em toda carga de página, nos dois temas; e um nome
+// citado num comentário como se existisse não custa um pixel — custa a DECISÃO
+// de quem o lê, que é o defeito mais caro que este repositório sabe produzir em
+// documentação ("um comentário que credita a peça errada manda o próximo leitor
+// proteger o lugar errado").
+//
+// MEDIDO na entrada deste lote: DOIS tokens declarados sem um único leitor
+// (`--btn-ok`, órfão desde a v1.8.56, e `--hit-nav`, órfão desde a v1.5.0 —
+// vinte e nove lotes) e NOVE citações de nome inexistente em `tokens.css`,
+// cinco delas MEDIÇÕES DE CONTRASTE contra uma superfície que não existe
+// (`6,34:1 sobre --warn-soft`, sendo 4,30:1 a medida real sobre `--btn-warn`).
+//
+// E ISTO JÁ FOI ATACADO À MÃO UMA VEZ: a v1.5.14 removeu `--danger`,
+// `--danger-soft`, `--warn-soft` e `--ok-soft` como "órfãos verificados sem
+// consumidor em CSS, JS e HTML" — e os comentários que os citavam sobreviveram
+// à limpeza, com as medições apontando para eles. É por isso que o oráculo
+// existe: a varredura acha o que a leitura de quem removeu não achou.
+{
+  // ---------- O QUE CONTA COMO DECLARADO ----------
+  // O `definidos` lá de cima só enxerga CSS, e isso basta para a direção que
+  // ele guarda (um `var()` sem fallback só resolve contra uma declaração de
+  // CSS). Nas duas direções DESTE bloco ele acusaria código vivo: há tokens
+  // que só existem porque o JS os escreve. MEDIDO, e em DUAS formas — o nome
+  // LITERAL (`setProperty('--rodape-h', …)`) e o nome CONCATENADO
+  // (`setProperty('--veu-' + campo, …)`, que nenhuma varredura estática vê.
+  // Daí a varredura PRÓPRIA: alargar o `definidos` compartilhado contaminaria
+  // as asserções acima, que precisam do universo só-CSS.
+  const js = [];
+  (function varrer(dir) {
+    for (const nome of fs.readdirSync(dir)) {
+      const q = path.join(dir, nome);
+      if (fs.statSync(q).isDirectory()) { if (nome !== 'vendor') varrer(q); }
+      else if (nome.endsWith('.js') || nome.endsWith('.html')) js.push(q);
+    }
+  })(RAIZ);
+
+  const declarados = new Set(definidos);
+  const prefixos = [];
+  for (const f of js) {
+    const s = fs.readFileSync(f, 'utf8');
+    for (const m of s.matchAll(/setProperty\(\s*['"`](--[a-zA-Z0-9-]+)/g)) declarados.add(m[1]);
+    // `setProperty('--veu-' + campo, …)`: o nome é montado, e o que se pode
+    // afirmar é o PREFIXO. Tudo que começa por ele passa a contar como escrito
+    // pelo JS — deliberadamente largo, porque a alternativa é acusar um token
+    // vivo, e um falso positivo aqui custa uma sessão de quem for consertá-lo.
+    for (const m of s.matchAll(/setProperty\(\s*['"`](--[a-zA-Z0-9-]+-)['"`]\s*\+/g)) prefixos.push(m[1]);
+  }
+  const escritoPeloJs = (n) => declarados.has(n) || prefixos.some((p) => n.startsWith(p));
+
+  checar(declarados.size > definidos.size && prefixos.length > 0,
+    'a varredura enxerga os tokens que o JS escreve — o nome literal E o '
+    + 'concatenado, que nenhuma varredura estática vê',
+    (declarados.size - definidos.size) + ' literais · prefixo(s): ' + prefixos.join(', '));
+
+  // ---------- (A) TOKEN DECLARADO SEM UM ÚNICO LEITOR ----------
+  // Leitor é `var(--x)` em qualquer folha (COM ou SEM fallback — a asserção de
+  // cima exige o fallback, esta não), ou a citação do nome em qualquer `.js` /
+  // `.html`, que é como o JS lê (`getPropertyValue('--bg')`).
+  const lidos = new Set();
+  for (const f of arquivos) {
+    for (const m of fonte.get(f).matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)) lidos.add(m[1]);
+  }
+  const textoJs = js.map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+  // NENHUMA EXCEÇÃO, e ela não é um esquecimento: um token que exista só para o
+  // oráculo ler é a condição que o `funcao-sem-chamador.test.mjs` reprova do
+  // lado JS ("nenhuma constante existe só para o oráculo ler"), e a paleta não
+  // tem por que ser diferente. `tools/` fica FORA do corpus de propósito.
+  const mudos = [];
+  for (const n of definidos) {
+    if (lidos.has(n)) continue;
+    if (textoJs.includes(n)) continue;
+    mudos.push(n);
+  }
+  checar(mudos.length === 0,
+    'nenhum token é DECLARADO sem um único leitor: um token que ninguém lê é '
+    + 'computado e descartado em toda carga, e — pior — documenta uma peça '
+    + 'disponível para quem for pintar o próximo estado',
+    mudos.sort().join(', '));
+
+  // ---------- (B) NOME CITADO NUM COMENTÁRIO DE `tokens.css` ----------
+  // O DISCRIMINADOR, e ele é o que separa acusação de ruído. Um comentário que
+  // nomeia um token REMOVIDO e DIZ que ele saiu é documentação correta ("regra
+  // e armadilha ficam"); um que o apresenta como coisa que existe é defeito.
+  // Isso não é decidível por regex — é intenção —, então a regra é por BLOCO:
+  // um bloco `/* */` que cite nome não declarado tem de carregar, nele mesmo,
+  // um verbo de remoção ou de passado. MEDIDO na saída deste lote: 0 acusações
+  // e 21 blocos perdoados pelo marcador, sem um falso positivo.
+  //
+  // TRÊS CLASSES DE RUÍDO foram medidas e estão fechadas por construção:
+  //   · MODIFICADOR BEM (`.lv-row--verse`) e PRÉ-DECREMENTO do JS
+  //     (`if (--carregando) return;`) — o `(?<![A-Za-z0-9_-])` os mata, e por
+  //     isso este bloco não varre `.js` nem o `controle.css`;
+  //   · PREFIXO DE FAMÍLIA citado com asterisco (`--btn-*`, `--stage-*`) — o
+  //     `(?!-?\*)` o mata; o nome cortado nunca foi um token;
+  //   · token escrito pelo JS — o `escritoPeloJs` acima.
+  //
+  // O LIMITE ESTÁ DITO: este bloco varre SÓ `shared/tokens.css`. O mesmo
+  // defeito vive em `controle.css` e `controle.js` (a v1.8.81 consertou duas
+  // citações de `--line` lá, uma delas no bloco de documentação ACIMA da função
+  // viva), e ali o ruído de BEM e de pré-decremento é grande demais para a
+  // mesma régua. Quem alargar mede antes.
+  const MARCA = /SAIU|saiu|saíram|sairam|viveu da|nunca existi|perderam o|deixou de|revogad|removid|\bera\b|\bEra\b|\bforam\b|\btinha\b|\blia\b|\bpintava\b|chamava|Chamava/;
+  // O FECHO É `(?![A-Za-z0-9_-])`, e ele não é o mesmo que `(?!-?\*)` — MEDIDO:
+  // com aquele, `--stage-*` casava como `--stag`, por BACKTRACKING (o `*` do
+  // nome cede uma letra até o lookahead passar), e o oráculo acusava um token
+  // de quatro letras que não existe em lugar nenhum. Este fecho mata as duas
+  // formas de uma vez: o prefixo de família (`--btn-*`, `--stage-*`, cujo nome
+  // cortado nunca foi token) e a quebra de linha hifenizada, porque nos dois o
+  // caractere seguinte está na classe e nenhum recuo do greedy o tira de lá.
+  const CITA = /(?<![A-Za-z0-9_-])(--[a-z][a-z0-9-]*[a-z0-9])(?![A-Za-z0-9_-])/g;
+  const bruto = fs.readFileSync(path.join(RAIZ, 'shared', 'tokens.css'), 'utf8');
+  const fantasmas = [];
+  let comToken = 0;    // blocos que citam QUALQUER token — prova que a varredura anda
+  let julgados = 0;    // blocos que citam um nome INEXISTENTE — a população do veredito
+  for (const c of bruto.matchAll(/\/\*[\s\S]*?\*\//g)) {
+    const texto = c[0];
+    const citados = [...new Set([...texto.matchAll(CITA)].map((m) => m[1]))];
+    if (citados.length) comToken++;
+    const nomes = citados.filter((n) => !escritoPeloJs(n));
+    if (!nomes.length) continue;
+    julgados++;
+    // O PERDÃO É POR BLOCO, não por linha: a lápide de um token mora no
+    // parágrafo que o explica, e a citação pode estar três linhas abaixo dela.
+    if (MARCA.test(texto)) continue;
+    const linha = bruto.slice(0, c.index).split('\n').length;
+    for (const n of nomes) fantasmas.push('tokens.css:' + linha + ' → ' + n);
+  }
+  // As DUAS premissas, e a segunda é a que importa: se o `escritoPeloJs` ou o
+  // `definidos` inchasse a ponto de nada mais ser julgado, a asserção de baixo
+  // passaria por vacuidade — verde sem ter olhado para nada.
+  checar(comToken > 40, 'os comentários de `tokens.css` que citam token foram varridos',
+    comToken + ' blocos citam token');
+  checar(julgados > 5,
+    'e sobra uma população de nomes INEXISTENTES para julgar — sem ela a '
+    + 'asserção seguinte passaria por vacuidade',
+    julgados + ' blocos citam nome que não existe (todos com lápide)');
+  checar(fantasmas.length === 0,
+    'nenhum comentário de `tokens.css` cita um token que não existe sem dizer '
+    + 'que ele saiu — uma medição "N:1 sobre `--x`" é uma afirmação sobre uma '
+    + 'superfície do PRESENTE, e ela não pode ser reconferida por ninguém',
+    fantasmas.join('\n        '));
 }
 
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');

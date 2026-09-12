@@ -6,8 +6,8 @@
 // faixa. As três coisas se medem juntas porque elas são UMA decisão — quem
 // mexer numa mexe no que sobrou das outras.
 //
-// Mensagens, Tempo, Sorteio e o microfone ao vivo eram uma ABA, ao lado do
-// Cronograma e da Bíblia. A faixa passou a ter só os dois LUGARES do culto — o
+// Mensagens, Tempo e Sorteio eram uma ABA, ao lado do Cronograma e da Bíblia.
+// (O microfone ao vivo era a quarta peça dela, e saiu na v1.8.89.) A faixa passou a ter só os dois LUGARES do culto — o
 // roteiro e a Bíblia — mais a porta da Biblioteca, e as ferramentas viraram uma
 // folha que sobe de dentro do Cronograma.
 //
@@ -63,7 +63,7 @@ pg.on('pageerror', (e) => erros.push(e.message));
 try {
   await pg.goto('http://localhost:' + servidor.address().port + '/controle/', { waitUntil: 'load' });
   await pg.waitForFunction(
-    () => window.AVDB && typeof window.__avBack === 'function' && !!document.querySelector('#playlist li'),
+    () => window.AVDB && typeof window.__avBack === 'function' && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 25000 },
   );
   await pg.evaluate(() => setAppMode('full'));
@@ -153,9 +153,18 @@ try {
       invadeControles: r.bottom > barra.top + 1,
       // E ela ocupa a lista de fato — uma folha de 20px de altura passaria nas
       // duas de cima sem servir para nada.
+      // O ALVO É O CONTENT BOX DA LISTA, não a caixa dela (v1.8.61). Desde que o
+      // cabeçalho virou barra, o `#library` carrega o vão até ela como
+      // `padding-top` PRÓPRIO — 9,6px de recuo por onde a primeira linha desliza
+      // e onde não há conteúdo nenhum. A folha continua começando no mesmo pixel
+      // absoluto de sempre (53,19) e continua cobrindo TODA linha; o que ela
+      // deixou de cobrir foi o recuo, e cobri-lo custaria encostá-la na barra —
+      // medido, a fronteira de cima dela cai de 1,410 para 1,192 no escuro.
       cobreALista: (() => {
-        const l = document.getElementById('library').getBoundingClientRect();
-        return r.top <= l.top + 1 && r.bottom >= l.bottom - 1;
+        const el = document.getElementById('library');
+        const l = el.getBoundingClientRect();
+        const topo = l.top + parseFloat(getComputedStyle(el).paddingTop);
+        return r.top <= topo + 1 && r.bottom >= l.bottom - 1;
       })(),
       biblia: bibliaAberta(),
       ferramentas: !!document.querySelector('.misc-switch'),
@@ -255,11 +264,16 @@ try {
     const r = f.getBoundingClientRect();
     const cab = document.querySelector('.list-header').getBoundingClientRect();
     const barra = document.querySelector('.bottombar').getBoundingClientRect();
-    const l = document.getElementById('library').getBoundingClientRect();
+    const lEl = document.getElementById('library');
+    const l = lEl.getBoundingClientRect();
+    // O CONTENT BOX, pela mesma razão do bloco de Ferramentas acima (v1.8.61):
+    // desde que o cabeçalho virou barra, o `#library` carrega o vão até ela como
+    // `padding-top` próprio, e ali não há conteúdo a cobrir.
+    const lTopo = l.top + parseFloat(getComputedStyle(lEl).paddingTop);
     return {
       invadeCabecalho: r.top < cab.bottom - 1,
       invadeControles: r.bottom > barra.top + 1,
-      cobreALista: r.top <= l.top + 1 && r.bottom >= l.bottom - 1,
+      cobreALista: r.top <= lTopo + 1 && r.bottom >= l.bottom - 1,
       // O host é PRÓPRIO: a Bíblia desenhava dentro do `#library`, o mesmo
       // `<ul>` do Cronograma, e é por isso que `renderLibrary` tinha um desvio
       // por aba no topo.
@@ -417,12 +431,19 @@ try {
     'na raiz, o toque seguinte FECHA a folha — e continua consumindo o gesto, que '
     + 'é o que impede o app de minimizar no meio do culto', JSON.stringify(subida));
 
-  // ── 9. AS TRÊS PORTAS DO RODAPÉ FICAM QUIETAS (v1.5.19) ─────────────────
+  // ── 9. AS TRÊS PORTAS DO RODAPÉ SÃO IGUAIS ENTRE SI (v1.5.19) ───────────
   //
-  // Pedido do operador: *"padronize os botões de biblia, importar e ferramentas
-  // da aba de cronograma, para que tenham uma cor mais proxima a cor de fundo,
-  // para que não se destaquem … preciso que sejam opções discretas, mescladas
-  // ao fundo."*
+  // Pedido do operador que criou o bloco: *"padronize os botões de biblia,
+  // importar e ferramentas da aba de cronograma, para que tenham uma cor mais
+  // proxima a cor de fundo, para que não se destaquem … preciso que sejam
+  // opções discretas, mescladas ao fundo."*
+  //
+  // **A METADE "DISCRETAS" FOI REVOGADA PELO OPERADOR na v1.8.62**, e a nova
+  // vale por extenso: *"quero eles em azul, o mesmo azul de ativado dos botões
+  // das configurações … mas aqui devem ser sólidos"*. Uma porta em denim cheio é
+  // o OPOSTO de mesclada ao fundo, e o bloco 9-B mudou de sinal para dizer isso
+  // (ver lá). O que sobrevive intacto é a metade "padronize" — as três pintam a
+  // MESMA cor —, que é o 9-A e continua sendo o que morde.
   //
   // Este arquivo já era o dono das TRÊS PORTAS (o bloco 1 trava que elas são
   // três e a ordem delas), e é por isso que o desenho delas se mede aqui: uma
@@ -436,10 +457,12 @@ try {
   //    sozinho quando as três ganharam rótulo. Um lote futuro que reabra esse
   //    argumento não erra alto — ele devolve UMA cor a UM botão, e a palavra do
   //    pedido ("padronize") morre sem nada na tela dizendo por quê.
-  //  - **a discrição virar desaparecimento.** "Mesclado ao fundo" tem um piso,
-  //    e o piso é a linguagem do INDISPONÍVEL deste app (`--op-inativo`). Uma
-  //    caixa mais quieta que um controle desabilitado deixa de ser encontrável
-  //    — e continua tocável, que é o pior par possível.
+  //  - **a discrição virar desaparecimento.** O piso continua escrito no 9-C e
+  //    continua sendo a linguagem do INDISPONÍVEL deste app (`--op-inativo`):
+  //    uma caixa mais quieta que um controle desabilitado deixa de ser
+  //    encontrável e continua tocável, que é o pior par possível. Com o denim
+  //    da v1.8.62 ele passa com folga — e fica, porque é o piso da FAIXA e não
+  //    do valor de um lote.
   //  - **o rodapé PULAR ao entrar na seleção.** É um defeito LATENTE que este
   //    lote fecha: MEDIDO antes dele, `#listFoot` ia de 51,77px (as portas) para
   //    44,00 (a `.selbar`) — 7,77px de pulo debaixo do dedo que segura um item,
@@ -560,6 +583,11 @@ try {
       }
       return cor.slice(0, 3);
     };
+    // O TRAÇO, pelo mesmo canvas: `color` computado é sempre `rgb()`/`rgba()`,
+    // mas parseá-lo por regex é a armadilha que o comentário do `rgba` acima
+    // descreve — o motor escolhe a sintaxe, e uma delas não é uma lista de
+    // números. Aqui ele passa pelo MESMO decodificador do fundo.
+    window.__texto = (el) => (el ? rgba(getComputedStyle(el).color).slice(0, 3) : null);
     // A SONDA DO "ANTES" pousa na MESMA fileira: `--surface` não tem valor
     // único (a regra R1 o troca por `--surface-sunk` dentro de quem pinta
     // `--panel`), então medi-lo fora do habitat mediria outro token.
@@ -613,8 +641,16 @@ try {
   const temaOriginal = await pg.evaluate(() => document.documentElement.getAttribute('data-tema'));
 
   for (const tema of ['escuro', 'claro']) {
-    const m = await pg.evaluate((t) => {
+    const m = await pg.evaluate(async (t) => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
       document.documentElement.setAttribute('data-tema', t);
+      // O PAINEL PRECISA ESTAR ABERTO para o tile ser lido RENDERIZADO — com
+      // ele fechado a cor computada sai certa sobre nada na tela, e a largura
+      // sai ZERO. Aberto e fechado dentro desta mesma passada: o resto do bloco
+      // 9 mede a faixa do rodapé, e uma folha aberta por cima mudaria o que ele
+      // vê (a 9-D entra em seleção logo abaixo).
+      openFadePopup();
+      await z(320);
       const bib = document.getElementById('bibleBtn');
       const imp = document.querySelector('.import-row .import-btn');
       const fer = document.getElementById('toolsBtn');
@@ -646,6 +682,20 @@ try {
         // `.t-btn:disabled`). Ele é MEDIDO, e não escrito: um número copiado
         // para cá envelheceria na primeira troca de alfa da paleta.
         inativo: window.__sonda('background: var(--surface); opacity: var(--op-inativo)'),
+        // O TILE ACESO DAS CONFIGURAÇÕES, RENDERIZADO — a régua do 9-B desde a
+        // v1.8.63. Ele é lido da PÁGINA e nunca escrito aqui: o operador nomeou
+        // *"os cards de tema, rotação, exportar"*, e um hexadecimal digitado
+        // seria a cor num segundo lugar. `#temaTile` e não um dos três do
+        // pacote — MEDIDO, aqueles saem com largura ZERO no navegador.
+        tile: (() => {
+          const e = document.getElementById('temaTile');
+          if (!e || !e.classList.contains('qs-on')) return null;
+          return { bg: window.__efetivo(e), cru: cs(e).backgroundColor,
+            traco: window.__texto(e),
+            largura: Math.round(e.getBoundingClientRect().width * 100) / 100 };
+        })(),
+        tracoPorta: window.__texto(bib),
+        _fecha: (() => { closeFadePopup(); return 1; })(),
       };
     }, tema);
 
@@ -674,64 +724,50 @@ try {
     checar(iguais(m.fontes),
       '[' + tema + '] A · e a mesma família de fonte', m.fontes);
 
-    // ── 9-B · ELAS SÃO DISCRETAS, COM NÚMERO ────────────────────────────
+    // ── 9-B · ELAS VESTEM O AZUL DE "ATIVADO", LIDO DO TILE (v1.8.63) ───
     //
-    // A RÉGUA É UMA PORTA SÓ, e de propósito: o 9-A já provou que as três
-    // pintam a mesma cor. Medir as três aqui faria a reversão do 9-A reprovar
-    // este bloco junto, e cada asserção tem de ter a sua.
+    // ESTE BLOCO TROCOU DE RÉGUA DUAS VEZES, e a terceira é a que tem DENTE. A
+    // v1.5.19 cobrava DISCRIÇÃO; a v1.8.62 inverteu o sinal e cobrou DESTAQUE,
+    // em luminância e em ΔE00 contra o `--bg`. As duas primeiras reprovavam o
+    // app certo de hoje — e a segunda era pior que isso: MEDIDO, uma régua de
+    // ΔE00 contra o fundo passa em SEIS de seis cores, inclusive no denim que o
+    // operador ACABOU de recusar, em mostarda, verde e roxo. Ela respondia
+    // *"isso está coberto?"* com um sim que não existia.
     //
-    // DUAS PROPRIEDADES, porque nenhuma delas vale sozinha nos dois temas:
+    // A RÉGUA É A IDENTIDADE, e ela é o pedido escrito como código: *"o mesmo
+    // nos cards de tema, rotação, exportar"*. O alvo é lido da PÁGINA — um
+    // `#dcebfe` digitado aqui seria a cor num segundo lugar, que é o defeito
+    // que o `--surface-porta` existe para não ter.
     //
-    //  1. em LUMINÂNCIA, a superfície nova é mais quieta que a que as LATERAIS
-    //     tinham (`--surface` puro). É a reversão exata deste lote — sem o
-    //     `color-mix` a razão sobe — e ela vale nos dois temas.
-    //  2. em ΔE00, ela é mais quieta que a que a do MEIO tinha
-    //     (`--btn-accent`). A luminância NÃO serve para este par: MEDIDO, no
-    //     tema claro o azul media 1,07:1 contra o fundo e as laterais 1,20:1 —
-    //     ele já era o mais mesclado dos três em luminância, e o que o fazia
-    //     saltar era o CROMA. Afirmar "abaixo do `--btn-accent` em razão de
-    //     contraste, nos dois temas" seria escrever uma asserção FALSA no
-    //     claro; a régua honesta ali é a diferença perceptual.
-    //
-    // Mais uma FAIXA, e não um valor: 1,23 (escuro) e 1,14 (claro) são o mix de
-    // hoje, e um ajuste legítimo de 50% a 85% tem de continuar passando.
-    // REVERSÃO: apagar a linha `background: color-mix(in srgb, var(--surface)
-    // 70%, transparent)` da regra `.tools-btn, .lib-foot-btn, .import-btn` —
-    // sobra o `--surface` puro (a falha aberta declarada), e a razão sobe para
-    // 1,39 no escuro e 1,20 no claro.
-    const rPorta = razao(m.base, m.fundo);
-    const rLateral = razao(m.antesLateral, m.fundo);
-    const eMeio = dE00(m.antesMeio, m.fundo);
-    const ePorta = dE00(m.base, m.fundo);
-    checar(rPorta < rLateral,
-      '[' + tema + '] B · a superfície das portas é mais quieta EM LUMINÂNCIA do '
-      + 'que a que as laterais tinham (`--surface` puro)',
-      n2(rPorta) + ' < ' + n2(rLateral));
-    checar(ePorta < eMeio,
-      '[' + tema + '] B · e mais quieta EM ΔE00 do que a que a do meio tinha '
-      + '(`--btn-accent`) — no claro o azul já era o mais mesclado em '
-      + 'luminância, e quem o fazia saltar era o CROMA',
-      n2(ePorta) + ' < ' + n2(eMeio));
-    checar(rPorta >= 1.05 && rPorta <= 1.35,
-      '[' + tema + '] B · e a razão fica na faixa que um ajuste de mix entre 50% '
-      + 'e 85% não estoura — o oráculo trava a PROPRIEDADE, não o valor de hoje',
-      n2(rPorta));
-
-    // ── 9-C · MAS ELAS NÃO SOMEM ────────────────────────────────────────
-    //
-    // O PISO É MEDIDO, e não escrito: ele é o tom que este app usa para dizer
-    // INDISPONÍVEL — a mesma caixa, a mesma superfície, sob
-    // `opacity: var(--op-inativo)`. Uma porta mais quieta que um controle
-    // desabilitado deixa de ser encontrável e continua tocável, que é o pior
-    // par que esta faixa pode produzir.
-    // REVERSÃO: `color-mix(in srgb, var(--surface) 30%, transparent)` — MEDIDO,
-    // a razão cai para 1,08 (escuro) e 1,06 (claro), abaixo do piso nos DOIS.
-    const rInativo = razao(m.inativo, m.fundo);
-    checar(rPorta > rInativo,
-      '[' + tema + '] C · e mesmo assim elas ficam ACIMA do tom do '
-      + '`--op-inativo` — "mesclado ao fundo" tem piso, e o piso é a linguagem '
-      + 'do INDISPONÍVEL deste app',
-      n2(rPorta) + ' > ' + n2(rInativo));
+    // A RÉGUA É UMA PORTA SÓ: o 9-A já provou que as três pintam igual.
+    // REVERSÕES MEDIDAS, uma por metade do lote — e nenhuma reprova tudo, que é
+    // o que prova que as asserções não são uma só:
+    //   · `--surface-porta: #2f557f` nos dois blocos (o estado da v1.8.62):
+    //     reprova a identidade nos DOIS temas.
+    //   · trocar SÓ o bloco escuro e deixar o claro em `#2f557f`: o escuro passa
+    //     inteiro e só o CLARO reprova — traço e fundo no mesmo denim, 1,00:1.
+    //   · `color: var(--on-accent)`: reprova a do traço, com 1,21:1 no claro.
+    checar(!!m.tile && m.tile.largura > 0,
+      '[' + tema + '] B · ponto de partida: há um `.qs-tile.qs-on` RENDERIZADO '
+      + 'no documento — a régua desta asserção é o tile, não o token digitado '
+      + 'aqui, e com o painel fechado ele mede largura ZERO',
+      JSON.stringify(m.tile));
+    checar(!!m.tile && m.cru[0] === m.tile.cru,
+      '[' + tema + '] B · a porta veste EXATAMENTE o azul de "ativado" das '
+      + 'Configurações — foi o pedido do operador, palavra por palavra',
+      m.cru[0] + ' vs ' + (m.tile && m.tile.cru));
+    checar(!!m.tile && dE00(m.base, m.tile.bg) < 0.5,
+      '[' + tema + '] B · e a mesma cor COMPOSTA, não só a mesma declaração — a '
+      + 'porta pousa sobre `--bg` e o tile dentro de uma folha; um alfa que '
+      + 'entrasse num dos dois caminhos separaria as duas sem mudar uma linha '
+      + 'do valor', 'ΔE00 ' + n2(m.tile ? dE00(m.base, m.tile.bg) : -1));
+    checar(!!m.tile && dE00(m.tracoPorta, m.tile.traco) < 0.5
+      && razao(m.tracoPorta, m.base) >= 4.5,
+      '[' + tema + '] B · e o TRAÇO é o mesmo do tile (`--accent`, o par '
+      + 'declarado do `--btn-accent`) — o `--on-accent` que morou aqui é o par '
+      + 'do DENIM e mede 1,21:1 sobre o azul claro',
+      n2(razao(m.tracoPorta, m.base)) + ':1 · ΔE00 '
+        + n2(m.tile ? dE00(m.tracoPorta, m.tile.traco) : -1));
 
     // ── 9-G · O ALVO NÃO DESCEU DO PISO ─────────────────────────────────
     //
@@ -811,6 +847,33 @@ try {
     // `--radius-card` (10px), e é aquela linha que a põe em `--radius-btn`.
     // REVERSÃO: tirar `.list-foot > .selbar` do grupo do raio — ela volta a
     // 10px, sem erro e sem nada mais na tela mudando.
+    // ── 9-C · AS DUAS INQUILINAS DA FATIA NÃO PINTAM IGUAL (v1.8.63) ────
+    //
+    // ESTA É A ASSERÇÃO COM DENTE, e ela substitui o piso que o 9-C cobrava
+    // desde a v1.5.19 (*"mesmo assim elas não somem"*, medido contra o tom do
+    // `--op-inativo`). Aquele piso caiu junto com a régua de discrição: com o
+    // azul de "ativado" ele reprova por 0,0006 no tema claro, sobre uma tela
+    // que está certa — e "mais claro que um controle desabilitado" deixou de
+    // descrever a pergunta desta faixa.
+    //
+    // A PERGUNTA QUE FICOU é a que o azul novo abriu: as portas e a `.selbar`
+    // são as DUAS inquilinas do MESMO retângulo, e a `.selbar` pintava
+    // `--btn-accent` — o mesmo token que as portas passaram a vestir. MEDIDO,
+    // as duas ficariam em ΔE00 **0,00** nos dois temas: não parecidas,
+    // idênticas, e a troca de modo perderia o único sinal de COR que tinha.
+    //
+    // POR ΔE00 e não por razão de luminância: a `.selbar` largou o azul e caiu
+    // no `--bg`, e no tema claro `--bg` (#dfe3e7) e o azul (#dcebfe) medem
+    // 1,07:1 de luminância — o que os separa é o CROMA. Medido depois:
+    // **15,63 no escuro e 6,69 no claro**, contra 9,16/48,51 de antes deste
+    // lote (no escuro a distinção MELHOROU).
+    // REVERSÃO: devolver `.list-foot > .selbar` ao grupo do `--btn-accent` —
+    // ΔE00 vai a 0,00 nos dois temas e esta asserção reprova sozinha.
+    checar(dE00(m.base, sel.selbar) >= 3,
+      '[' + tema + '] C · a porta e a `.selbar` NÃO pintam a mesma cor — elas '
+      + 'são as duas inquilinas da mesma fatia do rodapé, e a troca de modo é o '
+      + 'que essa diferença anuncia',
+      'ΔE00 ' + n2(dE00(m.base, sel.selbar)));
     checar(sel.selbarRaio === sel.foraRaio && m.raios.every((r) => r === sel.selbarRaio),
       '[' + tema + '] F · o raio é UM SÓ para as quatro inquilinas da fatia (as '
       + 'três portas e a `.selbar`) — a base dela declara `--radius-card`, e '
@@ -1044,6 +1107,147 @@ try {
   checar(icone.depois.join() === icone.padrao.join(),
     'J · e o token volta ao valor da folha depois da sonda, para o resto do '
     + 'arquivo não medir uma tela adulterada', JSON.stringify(icone));
+
+  // ── K. O PAINEL DE TEMPO CABE EM UMA LINHA (v1.8.89) ────────────────────
+  //
+  // Pedido do operador: *"o timer tem duas linhas para tempo pré-definido, que
+  // poderiam ser apenas unificados todos os métodos de inserção de tempo por um
+  // sistema básico comum de rolagem/+ e - que ficam adjacentes ao próprio número
+  // indicador. Além disso, os botões de iniciar e zerar podem ficar à direita
+  // dessa numeração, ficando paralelo e não ocupando altura."*
+  //
+  // Eram QUATRO linhas — o número, os seis presets, o campo "Minutos" e a faixa
+  // Iniciar/Zerar —, e era isso que fazia a folha rolar. O que este bloco mede é
+  // que a linha existe, que ela CABE, e que o passo substitui de fato os presets
+  // (sem aceleração ele não substitui: 30 minutos seriam trinta toques).
+  {
+    const linha = await pg.evaluate(async () => {
+      document.getElementById('toolsBtn').click();
+      await new Promise((f) => setTimeout(f, 300));
+      [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
+      await new Promise((f) => setTimeout(f, 200));
+      // O MODO É DECLARADO, e não herdado: `chrono.mode` vem das preferências
+      // guardadas, e medir o painel do RELÓGIO aqui aprovaria a ausência do
+      // passo — ele existe só onde há duração a ajustar.
+      chronoSetMode('timer');
+      chronoSetDuration(5 * 60000);
+      const l = document.querySelector('.chrono-linha');
+      const filhos = [...l.children].map((e) => e.className.split(' ')[0]);
+      const cx = (e) => e.getBoundingClientRect().left + e.getBoundingClientRect().width / 2;
+      const read = document.getElementById('chronoRead');
+      const passos = [...document.querySelectorAll('.chrono-step')];
+      const acoes = [...document.querySelectorAll('.chrono-btn')];
+      // A LARGURA DO TEXTO, e não a da caixa: `.chrono-read` é `flex: 1` e a
+      // caixa dele é o que sobra — ela nunca acusa um número que transborda.
+      const rg = document.createRange(); rg.selectNodeContents(read);
+      return {
+        filhos,
+        presets: document.querySelectorAll('.chrono-presets, .misc-num').length,
+        // "PARALELO E NÃO OCUPANDO ALTURA": a linha inteira mede o que o número
+        // mediria sozinho, sem a faixa de ações empilhada embaixo.
+        umaLinha: Math.round(l.getBoundingClientRect().height),
+        alturaDoNumero: Math.round(read.getBoundingClientRect().height),
+        // O − à ESQUERDA do número e o + à DIREITA, com as ações depois do +.
+        ordem: passos.length === 2 && acoes.length === 2
+          && cx(passos[0]) < cx(read) && cx(read) < cx(passos[1])
+          && cx(passos[1]) < cx(acoes[0]) && cx(acoes[0]) < cx(acoes[1]),
+        cabe: Math.round(l.scrollWidth - l.clientWidth),
+        textoNaCaixa: rg.getBoundingClientRect().width <= read.getBoundingClientRect().width + 0.5,
+      };
+    });
+    checar(linha.presets === 0 && linha.filhos.length === 4,
+      'K · o painel de Tempo tem UMA linha para o número: os seis presets e o campo '
+      + '"Minutos" saíram, e o que ficou é `−` · número · `+` · transporte',
+      JSON.stringify(linha));
+    checar(linha.ordem === true,
+      'K · o passo é ADJACENTE ao número (um de cada lado) e as ações vêm à DIREITA '
+      + 'dele — a ordem que o pedido descreve', JSON.stringify(linha));
+    checar(linha.umaLinha <= linha.alturaDoNumero + 2,
+      'K · "paralelo e não ocupando altura": a faixa inteira mede o que o número '
+      + 'mediria sozinho', JSON.stringify(linha));
+    checar(linha.cabe === 0 && linha.textoNaCaixa === true,
+      'K · e nada transborda — é o TEXTO que se mede, não a caixa: `.chrono-read` é '
+      + '`flex: 1` e a caixa dele é o que sobra, então ela nunca acusa um número que '
+      + 'sai por cima do `+`', JSON.stringify(linha));
+
+    // **A CÉLULA QUE DECIDE É A PIOR, e a folgada aprova as duas versões.** O
+    // degrau fixo (`--fs-display-sm`) cabe em 412×892 com qualquer duração e
+    // cabe em 360×640 com "05:00" — MEDIDO, o transbordo só aparece com a fonte
+    // do sistema em 1,25× E um timer que passou de uma hora, que é o caso do
+    // teto de 600 min. Sem esta medição a asserção acima passa com e sem o
+    // conserto, que é a tautologia que a reversão existe para achar.
+    await pg.setViewportSize({ width: 360, height: 640 });
+    const fonte = await pg.addStyleTag({ content: 'html{font-size:20px}' });
+    const apertado = await pg.evaluate(async () => {
+      const medir = () => {
+        const read = document.getElementById('chronoRead');
+        const rg = document.createRange(); rg.selectNodeContents(read);
+        return {
+          txt: read.textContent,
+          folga: Math.round(read.getBoundingClientRect().width - rg.getBoundingClientRect().width),
+        };
+      };
+      const fora = [];
+      for (const min of [5, 90, 600]) {
+        chronoSetDuration(min * 60000);
+        await new Promise((f) => setTimeout(f, 30));
+        const m = medir();
+        if (m.folga < 0) fora.push(m);
+      }
+      return { fora, largura: Math.round(document.querySelector('.chrono-linha').getBoundingClientRect().width) };
+    });
+    await fonte.evaluate((el) => el.remove());
+    await pg.setViewportSize({ width: 412, height: 892 });
+    checar(apertado.fora.length === 0,
+      'K · e cabe TAMBÉM a 360×640 com a fonte do sistema em 1,25× e o timer no teto '
+      + '(10:00:00) — a régua do número é a LARGURA DISPONÍVEL (`cqw`), não a tela: um '
+      + 'degrau fixo sai por cima do `+` sem erro nenhum, e um `overflow: hidden` '
+      + 'CORTARIA um dígito, que é pior', JSON.stringify(apertado));
+
+    // O PASSO ACELERA, e sem isso ele não substitui os presets. Segurar o `+`
+    // tem de passar das doze repetições de 1 min e entrar no degrau de 5 — a um
+    // toque por minuto, os 30 minutos do maior preset seriam trinta toques, que
+    // é exatamente o que ele existia para evitar. **2,6 s é escolhido com folga
+    // sobre a conta, não colado nela:** 450 ms de espera mais 11 repetições de
+    // 110 ms levam ao degrau (1,66 s), e o alvo de 30 min chega em ~2,0 s a
+    // partir de 5. Colar o prazo na conta faria a carga do runner virar
+    // veredito, que é a primeira classe da tabela do CLAUDE.md.
+    const passo = await pg.evaluate(async () => {
+      chronoSetMode('timer');
+      chronoSetDuration(5 * 60000);
+      const mais = document.querySelectorAll('.chrono-step')[1];
+      const min = () => Math.round(chrono.durationMs / 60000);
+      // Um toque SOLTO: um minuto, e só um.
+      mais.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+      window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1 }));
+      await new Promise((f) => setTimeout(f, 700));
+      const umToque = min();
+      // E um SEGURADO. **O `pointerup` sai na JANELA, e é essa a régua**: o nó é
+      // trocado a cada `renderChrono`, então o botão que recebeu o `pointerdown`
+      // está fora do documento antes da segunda repetição, e um `pointerup` real
+      // não chega a um nó detached — o navegador o entrega a quem está sob o
+      // dedo. Soltar no próprio botão mediria uma coisa que não acontece.
+      const seg = document.querySelectorAll('.chrono-step')[1];
+      seg.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 2 }));
+      await new Promise((f) => setTimeout(f, 2600));
+      window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 2 }));
+      const aoSoltar = min();
+      await new Promise((f) => setTimeout(f, 500));
+      return { umToque, aoSoltar, depoisDeSoltar: min() };
+    });
+    checar(passo.umToque === 6,
+      'K · um toque solto vale UM minuto — e só um: a repetição espera 450 ms, acima '
+      + 'do que um toque normal dura', JSON.stringify(passo));
+    checar(passo.aoSoltar >= 30,
+      'K · e SEGURAR acelera: 2,6 s passam dos doze degraus de 1 min e entram nos de '
+      + '5, o que faz o par substituir os presets em vez de cobrar trinta toques',
+      JSON.stringify(passo));
+    checar(passo.depoisDeSoltar === passo.aoSoltar,
+      'K · soltar PARA, e quem ouve é a JANELA: `chronoSetDuration` chama '
+      + '`renderChrono` e troca o nó a cada passo, então um par de ouvintes no próprio '
+      + 'botão deixaria o timer subindo sozinho até o teto com o dedo já solto',
+      JSON.stringify(passo));
+  }
 
   checar(erros.length === 0, 'nenhum erro de página', erros);
 } finally {

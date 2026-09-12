@@ -65,8 +65,8 @@ const PONTE = `(() => {
     'castTarget','cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag',
     'espelhoEstado','espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolEstado',
-    'keepAlive','listFolder','micDiag','nowPlaying','openCast','openExternal','otaApply','otaCheck',
-    'otaDiag','otaPending','pickDoc','pickFolder','requestMic','salvarTexto','systemVolume',
+    'keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply','otaCheck',
+    'otaDiag','otaPending','pickDoc','pickFolder','salvarTexto','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytStream','ytPlaylist','ytSearch','ytDiag','areaTransferencia','atualizacaoEstado',
   ];
@@ -96,7 +96,7 @@ try {
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(
     () => window.__NATIVE__ === true && window.AVDB && typeof window.__avBack === 'function'
-      && !!document.querySelector('#playlist li'),
+      && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
   // O BARRAMENTO, gravado: o que prova um salto de página é o COMANDO que sai,
