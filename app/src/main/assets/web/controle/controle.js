@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.95';
+const WEB_VERSION = '1.8.96';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -6944,8 +6944,40 @@ function roletaAcender(el) {
   if (agora) agora.classList.add('roleta-item--sel');
 }
 
+// A ÚNICA ESCRITA DE POSIÇÃO DA ROLETA (v1.8.96), e ela existe para que o
+// SUAVE seja uma decisão de quem chama, e não uma propriedade da folha. Um
+// `scroll-behavior: smooth` no CSS animaria TODA escrita — inclusive a
+// recentragem, que salta uma volta inteira da pista e viraria um rolo de
+// segundos na frente do operador.
+function roletaIr(el, px, suave) {
+  if (Math.abs(el.scrollTop - px) < 1) return;
+  if (suave && typeof el.scrollTo === 'function') el.scrollTo({ top: px, behavior: 'smooth' });
+  else el.scrollTop = px;
+}
+
+// A CONTAGEM ROLA, E SÓ ELA (v1.8.96). Pedido do operador: *"faça uma animação
+// de movimento da rolagem de verdade na contagem regressiva dos números"* — o
+// mostrador TROCAVA o dígito no lugar, e o que se via era ele piscando.
+//
+// Três guardas, e cada uma fecha um jeito de a animação virar defeito:
+//
+//  - **só o TIMER**, e não o Relógio nem o Cronômetro: neles as vizinhas são
+//    invisíveis (v1.8.95), então não há pista rolando — o que se veria é o
+//    número apagando de um lado e acendendo do outro, um piscar pior que o que
+//    isto veio consertar.
+//  - **só o PASSO CURTO.** Um salto grande é a cena mudando (o operador
+//    escolheu outro tempo, a ferramenta trocou, a régua mudou), e animá-lo
+//    mostra a lista inteira correndo por uma coisa que não é contagem.
+//  - **`prefers-reduced-motion`**, que é a regra do app inteiro.
+const ROLETA_PASSO_SUAVE = 2;      // células: acima disto é salto, não tique
+function roletaAnimaAgora(passo) {
+  return chrono.mode === 'timer' && chrono.running
+    && Math.abs(passo) <= ROLETA_PASSO_SUAVE && !semMovimento();
+}
+
 // TRAZ A PISTA DE VOLTA À BANDA DO MEIO, mantendo o valor. Só PARADO: no meio
-// de um arremesso isto o cancelaria, e o dedo sente a lista travar.
+// de um arremesso isto o cancelaria, e o dedo sente a lista travar. **E nunca
+// suave**: aqui o alvo está a uma volta inteira de distância.
 function roletaRecentrar(el) {
   const item = roletaItem(el);
   if (!item) return;
@@ -6954,7 +6986,7 @@ function roletaRecentrar(el) {
   const inicio = Number(el.dataset.inicio) || 0;
   const alvo = (base + pistaDoValor(roletaValorDe(el), ciclo, inicio)) * item;
   if (Math.abs(el.scrollTop - alvo) < 1) return;
-  el.scrollTop = alvo;
+  roletaIr(el, alvo, false);
   roletaAcender(el);
 }
 
@@ -7023,7 +7055,7 @@ function roletasMostrar(h, m, sg) {
     // proteger.
     const alvo = atual + (v - dentro);
     const px = alvo * item;
-    if (Math.abs(el.scrollTop - px) >= 1) el.scrollTop = px;
+    roletaIr(el, px, roletaAnimaAgora(alvo - atual));
     roletaAcender(el);
   }
 }
@@ -22747,16 +22779,19 @@ let sorteioUsadas = new Set();    // o que JÁ SAIU nesta abertura
 // divergência escrita: um toque que atualizasse só um deles faria o seletor
 // discordar da lista, e nenhum dos dois erraria sozinho.
 //
-// A PÍLULA DE QUANTIDADE deixou de ser o estado e virou um ATALHO: tocar em "5"
-// marca as cinco primeiras do baralho. É o que a torna compatível com a marca
-// manual — as duas escrevem no mesmo lugar.
+// A QUANTIDADE deixou de ser o estado e virou um ATALHO: escolher "5" marca as
+// cinco primeiras do baralho. É o que a torna compatível com a marca manual —
+// as duas escrevem no mesmo lugar. (Eram seis PÍLULAS até a v1.8.95; desde a
+// v1.8.96 é uma roleta horizontal de 1 ao teto — ver `sorteioQuantidadeLinha`.)
 //
-// **O QUE PERSISTE CONTINUA SENDO A PÍLULA**, nunca a marca. `sorteioPrefs.
-// quantos` só é gravado no toque de uma pílula, porque `AVSorteio.sanear`
-// clampa o campo à lista de presets (`QUANTIDADES`): um 4 vindo de marca manual
-// voltaria como 1 na abertura seguinte, calado. E ele não perde nada — a marca
+// **O QUE PERSISTE CONTINUA SENDO A ESCOLHA**, nunca a marca: `sorteioPrefs.
+// quantos` só é gravado quando a roleta assenta. E ele não perde nada — a marca
 // já é EFÊMERA por pedido do próprio operador (v1.8.84: *"esse check é resetado
-// entre aberturas da janela"*).
+// entre aberturas da janela"*). **A razão antiga disto CAIU na v1.8.96**, e vale
+// dizer por quê: era `sanear` clampar o campo à lista de presets, o que fazia um
+// 4 vindo de marca manual voltar como 1 na abertura seguinte. Com a faixa no
+// lugar da lista qualquer inteiro atravessa, e a regra sobrevive por outro
+// motivo — gravar a cada marca escreveria no banco a cada toque numa linha.
 
 /**
  * MARCA AS `n` PRIMEIRAS do baralho, e é o único ponto que semeia o lote.
@@ -23050,6 +23085,26 @@ function atualizarContaSorteio() {
   // lista — que é justamente tudo o que a palavra muda.
   const sortear = sorteioListEl.querySelector('.sorteio-sortear');
   if (sortear) sortear.replaceWith(sorteioBotaoDeSortear(pool));
+  // ...E A ROLETA DA QUANTIDADE, que é controle e ainda assim entra aqui
+  // (v1.8.96). Ela é a exceção porque não hospeda foco de teclado: o que este
+  // caminho protege é o CAMPO DE TEXTO, e mover uma roleta não o toca. Ela
+  // PRECISA entrar, por duas razões independentes — o teto dela é o número de
+  // resultados, que muda a cada tecla da palavra tema; e o valor dela é o
+  // tamanho do LOTE MARCADO, que muda a cada linha tocada na lista.
+  //
+  // REMONTA SÓ QUANDO O TETO MUDA. Remontar a cada tecla jogaria a roleta de
+  // volta ao começo no meio do gesto, e o `qhMostrar` é idempotente por posição.
+  const qh = sorteioListEl.querySelector('.roleta-h');
+  if (qh) {
+    const teto = sorteioQuantidadeTeto(pool);
+    if (Number(qh.dataset.teto) !== teto) {
+      qh.closest('li').replaceWith(sorteioQuantidadeLinha(pool));
+    } else {
+      const n = sorteioQuantidadeAtual(teto);
+      qh.dataset.valor = String(n);
+      qhMostrar(qh, n);
+    }
+  }
   const fala = sorteioListEl.querySelector('.sorteio-fala');
   if (fala) fala.textContent = sorteioFala;
   // A ROLAGEM DA LISTA SOBREVIVE (v1.8.85), porque desde este lote ela é a
@@ -23069,26 +23124,10 @@ function atualizarContaSorteio() {
   acertarTravaSorteio(pool);
 }
 
-/**
- * AS PÍLULAS DE QUANTIDADE, acertadas EM PONTO (v1.8.85).
- *
- * O toque numa linha da lista muda `sorteioMarcadas.size`, e é ele que decide
- * qual pílula está acesa — mas o caminho leve não redesenha a folha. É o mesmo
- * remédio da trava da v1.8.83, pelo mesmo motivo: remontar aqui devolveria a
- * lista ao topo e apagaria o pulso, que é o que aquele lote veio consertar.
- *
- * NENHUMA ACESA é um estado legítimo — é o que o operador vê quando marcou uma
- * quantidade que não é preset nenhum, e é a única indicação de que a escolha
- * passou a ser dele.
- */
-function acertarPilulasDeQuantidade() {
-  const n = sorteioMarcadas.size;
-  sorteioListEl.querySelectorAll('.sorteio-linha--quantas .misc-chip').forEach((b) => {
-    const aceso = Number(b.dataset.valor) === n;
-    b.classList.toggle('active', aceso);
-    b.setAttribute('aria-pressed', aceso ? 'true' : 'false');
-  });
-}
+// (A `acertarPilulasDeQuantidade` saiu na v1.8.96, com as seis pílulas. O papel
+//  dela — acertar o seletor EM PONTO depois de uma marca manual, sem remontar a
+//  folha — ficou com o trecho da roleta dentro do `atualizarContaSorteio`, que
+//  os dois chamadores dela já invocavam na linha de cima.)
 
 // (A `pintarContaSorteio` e o cartão de UMA FRASE que ela desenhava saíram na
 // v1.8.84, com o `frasesDaContaSorteio` e o `escopoSemPalavra` que a
@@ -23181,25 +23220,23 @@ function fraseDoVazioSorteio(pool) {
     : 'Nenhuma música disponível com esses filtros.';
 }
 
-// Uma linha "rótulo à esquerda, pílulas à direita".
-function sorteioLinhaChips(rotulo, opcoes, marca) {
+// UMA LINHA DE PÍLULAS, DA BORDA À BORDA (v1.8.96).
+//
+// Ela tinha um RÓTULO à esquerda ("Filtros", "Quantas") e as pílulas espremidas
+// no que sobrava. Os dois saíram a pedido do operador: *"remova os títulos
+// 'quantas' e 'filtros', use a largura toda apenas para distribuir os botões
+// seletores e a roleta da quantidade"* — e a folha não perde nada, porque cada
+// pílula já diz por extenso o que ela filtra e o `title` diz o resto.
+function sorteioLinhaChips(opcoes) {
   const li = document.createElement('li');
-  li.className = 'sorteio-linha' + (marca ? ' ' + marca : '');
-  const lab = document.createElement('span');
-  lab.className = 'sorteio-rotulo';
-  lab.textContent = rotulo;
-  li.appendChild(lab);
+  li.className = 'sorteio-linha';
   const cx = document.createElement('div');
   cx.className = 'misc-opts';
-  opcoes.forEach(({ nome, ativo, aoTocar, titulo, valor }) => {
+  opcoes.forEach(({ nome, ativo, aoTocar, titulo }) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'misc-chip' + (ativo ? ' active' : '');
     b.textContent = nome;
-    // O VALOR num atributo, e não no texto: quem acerta a pílula em ponto
-    // (`acertarPilulasDeQuantidade`) precisa comparar NÚMERO, e ler o rótulo
-    // seria fazer o estado depender de como ele é escrito.
-    if (valor != null) b.dataset.valor = String(valor);
     if (titulo) b.title = titulo;
     b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
     b.addEventListener('click', aoTocar);
@@ -23207,6 +23244,147 @@ function sorteioLinhaChips(rotulo, opcoes, marca) {
   });
   li.appendChild(cx);
   return li;
+}
+
+/**
+ * ===== A QUANTIDADE VIROU UMA ROLETA HORIZONTAL (v1.8.96) =====
+ *
+ * Pedido do operador: *"atualmente ele possui números fixos, mude isso. Faça uma
+ * roleta também, mas uma roleta horizontal, que vai de 1 a 50 (ou o número
+ * máximo de resultados disponíveis)"*.
+ *
+ * Eram seis pílulas (`[1, 3, 5, 10, 15, 20]`), e o que elas não davam era
+ * justamente o número do meio: escolher 4 exigia marcar as linhas na mão.
+ *
+ * **ELA NÃO É INFINITA, e isso é a diferença dela para as do Tempo.** Aqui a
+ * faixa tem PONTAS de verdade — não existe "zero músicas" nem "meia volta" —,
+ * então não há base repetida, não há banda do meio e não há recentragem. O que
+ * fica igual é tudo o mais do idioma de seletor: sem a marca `rola` (a rolagem
+ * É o recurso, não conteúdo escondido), máscara apagando as pontas da janela,
+ * `--op-inativo` nas vizinhas e a régua vinda do LAYOUT.
+ *
+ * **O RECUO É MEDIDO, e sem ele o 1 e o teto não chegam ao centro.** Ele vale
+ * `(largura da janela − célula) / 2` e não pode ser escrito em CSS: um
+ * `padding-inline: 50%` com `box-sizing: border-box` zera a caixa de conteúdo,
+ * e as células saem transbordando por baixo do recuo. Quem o escreve é o
+ * `acertarQuantidade`, atrás de um `ResizeObserver` — a mesma divisão de
+ * trabalho do `acertarRoletas`.
+ *
+ * **O TETO SEGUE O QUE EXISTE:** `min(50, disponíveis)`. Um 30 escolhido sobre
+ * oito resultados não é erro (o `sorteioSemear` marca o que houver), mas é uma
+ * escolha que o aparelho sabe que não se cumpre, e oferecê-la é o mesmo que
+ * acender um botão sem função. A lista só é REMONTADA quando o teto muda — a
+ * palavra tema é redigitada a cada tecla, e remontar ali jogaria a roleta de
+ * volta ao começo no meio do gesto.
+ */
+const QH_ITEM = 44;                // px — a célula, do tamanho de uma pílula
+const QH_ASSENTA_MS = 140;         // o mesmo silêncio das roletas do Tempo
+
+function sorteioQuantidadeTeto(pool) {
+  const n = (pool && pool.itens ? pool.itens.length : 0) | 0;
+  return Math.max(AVSorteio.QUANTIDADE_MIN,
+    Math.min(AVSorteio.QUANTIDADE_MAX, n || AVSorteio.QUANTIDADE_MIN));
+}
+
+// O VALOR EM CENA é o tamanho do LOTE MARCADO, e não a preferência gravada — a
+// regra da v1.8.85, que a roleta herda inteira: marcar linhas na mão move a
+// roleta, porque quem responde "quantas" é o lote.
+function sorteioQuantidadeAtual(teto) {
+  const n = sorteioMarcadas.size || AVSorteio.sanear(sorteioPrefs).quantos;
+  return Math.max(AVSorteio.QUANTIDADE_MIN, Math.min(teto, n));
+}
+
+function qhIndice(el) {
+  return Math.round(el.scrollLeft / QH_ITEM);
+}
+
+function qhAcender(el) {
+  const i = qhIndice(el);
+  if (el.dataset.sel === String(i)) return;
+  el.dataset.sel = String(i);
+  const antes = el.querySelector('.qh-item--sel');
+  if (antes) antes.classList.remove('qh-item--sel');
+  const agora = el.children[i];
+  if (agora) agora.classList.add('qh-item--sel');
+}
+
+function qhMostrar(el, n) {
+  const px = (Math.max(1, n) - 1) * QH_ITEM;
+  if (Math.abs(el.scrollLeft - px) >= 1) el.scrollLeft = px;
+  qhAcender(el);
+}
+
+// O RECUO das duas pontas, LIDO da janela. Zero enquanto a folha ainda não tem
+// largura (a primeira pintura acontece com o popup fechando a animação de
+// entrada); o `ResizeObserver` refina assim que houver.
+function acertarQuantidade(el) {
+  const vao = Math.max(0, Math.round((el.clientWidth - QH_ITEM) / 2));
+  if (el.dataset.vao === String(vao)) return;
+  el.dataset.vao = String(vao);
+  el.style.setProperty('--qh-vao', vao + 'px');
+  qhMostrar(el, Number(el.dataset.valor) || 1);
+}
+
+let qhObs = null;
+
+function sorteioQuantidadeLinha(pool) {
+  const li = document.createElement('li');
+  li.className = 'sorteio-linha sorteio-linha--quantas';
+  const teto = sorteioQuantidadeTeto(pool);
+  const valor = sorteioQuantidadeAtual(teto);
+
+  const el = document.createElement('div');
+  el.className = 'roleta-h';
+  el.id = 'sorteioQuantidade';
+  el.dataset.teto = String(teto);
+  el.dataset.valor = String(valor);
+  // `spinbutton` pelo mesmo motivo das roletas do Tempo: o leitor de tela
+  // anuncia o VALOR, e não a lista inteira.
+  el.setAttribute('role', 'spinbutton');
+  el.setAttribute('aria-label', 'Quantas músicas sortear');
+  const frag = document.createDocumentFragment();
+  for (let n = AVSorteio.QUANTIDADE_MIN; n <= teto; n++) {
+    const d = document.createElement('div');
+    d.className = 'qh-item';
+    d.textContent = String(n);
+    frag.appendChild(d);
+  }
+  el.appendChild(frag);
+
+  let assenta = null;
+  el.addEventListener('scroll', () => {
+    qhAcender(el);
+    clearTimeout(assenta);
+    assenta = setTimeout(() => qhAssentou(el), QH_ASSENTA_MS);
+  });
+  li.appendChild(el);
+
+  if (qhObs) qhObs.disconnect();
+  if (typeof ResizeObserver === 'function') {
+    qhObs = new ResizeObserver(() => acertarQuantidade(el));
+    qhObs.observe(el);
+  }
+  acertarQuantidade(el);
+  qhMostrar(el, valor);
+  return li;
+}
+
+// IDEMPOTENTE pelo mesmo motivo do `roletaAssentou`: um reposicionamento
+// programático cai aqui pelo mesmo `scroll` que um dedo, e é esta comparação —
+// não uma bandeira — que os separa. Sem ela, cada `qhMostrar` remarcaria o lote
+// e o `atualizarContaSorteio` que ele dispara devolveria outro `scroll`.
+function qhAssentou(el) {
+  const teto = Number(el.dataset.teto) || 1;
+  const n = Math.max(AVSorteio.QUANTIDADE_MIN, Math.min(teto, qhIndice(el) + 1));
+  if (String(n) === el.dataset.valor && sorteioMarcadas.size === n) return;
+  el.dataset.valor = String(n);
+  sorteioPrefs.quantos = n;
+  saveSorteioPrefs();
+  sorteioSemear(n);
+  // NÃO CHAMA `renderSorteio`: ele TROCA o nó da roleta, e trocá-lo no fim de um
+  // gesto do dedo devolve a lista ao começo. O caminho leve já existe e faz
+  // exatamente o que falta — a conta, a fala e a lista de resultados.
+  atualizarContaSorteio();
 }
 
 function renderSorteio() {
@@ -23228,12 +23406,12 @@ function renderSorteio() {
   const inp = document.createElement('input');
   inp.className = 'lib-search';
   inp.type = 'search';
-  // O PLACEHOLDER DIZ O QUE O VAZIO SIGNIFICA. É a única superfície em que essa
-  // pergunta é feita — "e se eu não escrever nada?" — e responder ali custa uma
-  // linha; responder na conta obrigaria o operador a tocar no botão para
-  // descobrir. Ele some no primeiro caractere, que é exatamente quando a
-  // resposta deixa de valer.
-  inp.placeholder = 'Palavra tema (vazio = toda a biblioteca)';
+  // O PARÊNTESE SAIU NA v1.8.96, a pedido do operador: *"na dica da barra de
+  // buscas, remova o comentário 'vazio = toda a biblioteca'"*. Ele respondia
+  // *"e se eu não escrever nada?"* — pergunta que a CONTA logo abaixo responde
+  // com um número, e que o parêntese só repetia em palavras, dentro do campo
+  // mais estreito da folha.
+  inp.placeholder = 'Palavra tema';
   inp.value = sorteioPrefs.tema;
   inp.setAttribute('aria-label', 'Palavra tema');
   // A PALAVRA É ASSINADA NA HORA; SÓ A CONTA ESPERA.
@@ -23286,7 +23464,7 @@ function renderSorteio() {
   //  pulava era a nota APARECENDO, e agora não há nota em estado nenhum.)
 
   // ---- OS FILTROS ----
-  alvo.appendChild(sorteioLinhaChips('Filtros', [
+  alvo.appendChild(sorteioLinhaChips([
     {
       nome: 'Sem hinário', ativo: sorteioPrefs.semHinario,
       titulo: 'Não sortear dos hinários',
@@ -23320,18 +23498,11 @@ function renderSorteio() {
   // o antigo "Tocar uma só" — ali ele não é um teto, é a quantidade.
   //
   // E DESDE A v1.8.85 ELA É UM ATALHO, não o estado: quem responde "quantas" é
-  // o tamanho do LOTE MARCADO, e tocar numa pílula marca as N primeiras. O
-  // `ativo` lê o lote pelo mesmo motivo — com quatro marcadas na mão, nenhuma
-  // pílula acende, e é assim que o operador vê que a escolha agora é dele.
-  // Gravar continua sendo só daqui: `sanear` clampa `quantos` aos presets.
-  alvo.appendChild(sorteioLinhaChips('Quantas', AVSorteio.QUANTIDADES.map((q) => ({
-    nome: String(q), valor: q, ativo: sorteioMarcadas.size === q,
-    aoTocar: () => {
-      sorteioPrefs.quantos = q; saveSorteioPrefs();
-      sorteioSemear(q);
-      renderSorteio();
-    },
-  })), 'sorteio-linha--quantas'));
+  // o tamanho do LOTE MARCADO, e escolher N marca as N primeiras. A roleta LÊ o
+  // lote pelo mesmo motivo — marcar quatro linhas na mão leva a roleta ao 4, e
+  // é assim que o operador vê que a escolha continua sendo dele.
+  const pool = sorteioPool();
+  alvo.appendChild(sorteioQuantidadeLinha(pool));
 
   // ---- A BARRA DE AÇÃO, E DEPOIS DELA A LISTA (v1.8.84) ----
   //
@@ -23343,7 +23514,6 @@ function renderSorteio() {
   // quantidade), o que se FAZ (esta barra) e o que vai ACONTECER (a lista). Ela
   // é a ordem da decisão, e é o que tira a barra de baixo de uma lista que pode
   // ter mil linhas.
-  const pool = sorteioPool();
   const lista = sorteioLista(pool, AVSorteio.sanear(sorteioPrefs));
   const escolhidos = sorteioEscolhidos(lista);
 
@@ -23603,7 +23773,6 @@ function sorteioRessortear() {
   sorteioLista(pool, AVSorteio.sanear(sorteioPrefs));
   sorteioSemear(quantos);
   atualizarContaSorteio();
-  acertarPilulasDeQuantidade();
 }
 
 /**
@@ -23715,12 +23884,11 @@ function sorteioListaDeResultados(lista, escolhidos, pool) {
     // lista de mil linhas, um toque na linha 300 tirava a linha 300 da tela.
     btn.addEventListener('click', () => {
       if (!sorteioAlternar(chave)) { pulsar(btn, 'erro'); return; }
+      // A ROLETA DA QUANTIDADE mora ACIMA dos resultados e lê
+      // `sorteioMarcadas.size`, que o toque acabou de mudar — quem a acerta EM
+      // PONTO, sem remontar a folha, é o próprio `atualizarContaSorteio`
+      // (v1.8.96). Remontar aqui é o que a v1.8.83 veio evitar.
       atualizarContaSorteio();
-      // A PÍLULA DE QUANTIDADE mora ACIMA dos resultados e não é redesenhada
-      // pelo caminho leve — mas ela lê `sorteioMarcadas.size`, que o toque
-      // acabou de mudar. Acertar as pílulas em PONTO é o mesmo remédio da trava
-      // (v1.8.83): remontar a folha aqui é o que se veio evitar.
-      acertarPilulasDeQuantidade();
     });
     linha.appendChild(btn);
     ul.appendChild(linha);

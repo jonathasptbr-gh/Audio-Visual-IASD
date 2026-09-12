@@ -1269,7 +1269,12 @@ try {
       for (const fs of [16, 20.8, 24]) {
         document.documentElement.style.fontSize = fs + 'px';
         const topos = [];
-        for (const q of AVSorteio.QUANTIDADES) {
+        // A LISTA DE PRESETS SAIU NA v1.8.96 (a quantidade virou uma roleta de
+        // 1 a 50), e as células continuam sendo as MESMAS seis: o que este
+        // bloco mede é o deslocamento da barra entre estados que o operador
+        // alcança, e são os DÍGITOS do número — um, dois — que podem movê-la,
+        // não quantos valores existem entre eles.
+        for (const q of [1, 3, 5, 10, 15, 20]) {
           sorteioPrefs.quantos = q; renderSorteio(); await z(90);
           topos.push(barra());
           rotulos.push({ fs, ...rotulo() });

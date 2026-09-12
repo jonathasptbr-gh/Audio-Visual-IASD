@@ -714,6 +714,21 @@ exibindo exatamente o mesmo valor do Controle.
     em TRÊS lugares — `valorNaPista`, `pistaDoValor` e o TEXTO das células —, e
     os três têm de concordar: divergindo, o mostrador acende uma célula e
     devolve o número de outra, sem erro em lugar nenhum.
+  - **A CONTAGEM ROLA, E SÓ ELA** (v1.8.96, pedido do operador: *"faça uma
+    animação de movimento da rolagem de verdade na contagem regressiva dos
+    números"*). O tique escrevia `scrollTop` direto — instantâneo —, e o que se
+    via era o dígito trocando no lugar. Hoje ele anda por
+    `scrollTo({behavior:'smooth'})`, e o MÉTODO é a decisão: um
+    `scroll-behavior: smooth` na folha animaria TODA escrita, inclusive a
+    recentragem, que salta uma volta inteira da pista e viraria um rolo de
+    sessenta segundos na frente do operador. Daí o `roletaIr`, dono único da
+    posição, com o suave como ARGUMENTO. **Três guardas:** só o TIMER (no
+    Relógio e no Cronômetro as vizinhas são invisíveis, e animar ali mostra o
+    número apagando de um lado e acendendo do outro); só o PASSO CURTO (um salto
+    grande é a cena mudando, não contagem); e `prefers-reduced-motion`. **A
+    régua do oráculo é a quantidade de posições DISTINTAS entre dois tiques** —
+    um salto seco produz duas, uma rolagem produz uma dezena —, amostrada por
+    QUADRO, porque a animação é do compositor e não de um relógio nosso.
   - **A PRIMEIRA PINTURA NÃO TEM ROLAGEM QUE DISPARE A RECENTRAGEM** (v1.8.95).
     A lista nasce em `scrollTop` 0 — o TOPO da pista —, e ali não existe célula
     ACIMA: no zero a roleta abria de um lado só, para sempre, porque o único

@@ -7197,8 +7197,13 @@ nenhuma:
 
 A **variante** (Cantada × Playback) fica de fora dessa conta de propósito: ela
 não encolhe um acervo, escolhe QUAL faixa de cada música — e o segmento logo
-acima já a mostra. O placeholder responde a mesma pergunta antes de o operador
-tocar em nada: *"Palavra tema (vazio = toda a biblioteca)"*.
+acima já a mostra. **O placeholder é só `Palavra tema` desde a v1.8.96**: ele
+trazia o parêntese *"(vazio = toda a biblioteca)"*, e o operador o mandou sair —
+ele respondia *"e se eu não escrever nada?"*, pergunta que a CONTA logo abaixo
+responde com um número, e a repetia em palavras dentro do campo mais estreito da
+folha. **E a conta é CENTRADA** no mesmo lote: ela é a única linha que fala do
+CONJUNTO — as de baixo são cada uma sobre uma música —, e alinhada à esquerda
+lia como a primeira linha da lista.
 
 **A palavra vale no MESMO toque.** O `debounce` cobria a atribuição também, e
 digitar e tocar no botão dentro dos 130 ms sorteava com a palavra ANTERIOR — sem
@@ -7449,20 +7454,51 @@ de destinos, a seleção múltipla).
 | peça | o que é |
 |---|---|
 | `sorteioMarcadas` | **a única fonte**. O conjunto de chaves marcadas É o lote, e "quantas" é o `size` dele |
-| a pílula de quantidade | deixou de ser o estado e virou um **atalho**: tocar em "5" marca as cinco primeiras do baralho (`sorteioSemear`) |
-| `sorteioPrefs.quantos` | continua sendo o que PERSISTE, e só a pílula o escreve |
+| a ROLETA de quantidade | deixou de ser o estado e virou um **atalho**: parar no "5" marca as cinco primeiras do baralho (`sorteioSemear`) |
+| `sorteioPrefs.quantos` | continua sendo o que PERSISTE, e só a roleta o escreve |
+
+**ELA É UMA ROLETA HORIZONTAL desde a v1.8.96** (`sorteioQuantidadeLinha`), no
+lugar das seis pílulas `[1, 3, 5, 10, 15, 20]` — pedido do operador: *"atualmente
+ele possui números fixos, mude isso… uma roleta horizontal, que vai de 1 a 50 (ou
+o número máximo de resultados disponíveis)"*. O que as pílulas não davam era
+justamente o número do meio: escolher 4 exigia marcar as linhas na mão.
+
+- **Ela NÃO dá a volta**, e é isso que a separa das roletas do Tempo: a faixa tem
+  PONTAS de verdade (não existe "zero músicas"), logo não há base repetida, banda
+  do meio nem recentragem. Do idioma de seletor sobrevive o resto — sem a marca
+  `rola`, máscara nas pontas, `--op-inativo` nas vizinhas, régua vinda do layout.
+- **O recuo das duas pontas é MEDIDO** (`--qh-vao`, `(janela − célula) / 2`,
+  escrito por `acertarQuantidade` atrás de um `ResizeObserver`): um
+  `padding-inline: 50%` com `box-sizing: border-box` zera a caixa de conteúdo e
+  as células saem transbordando por baixo do recuo. **E é ele que torna a roleta
+  ROLÁVEL com poucos resultados** — com oito células a fileira é mais estreita
+  que a janela, e sem o recuo o `scrollLeft` não sai de zero.
+- **O teto segue o que EXISTE** (`min(50, disponíveis)`), e a linha só é
+  REMONTADA quando ele muda: a palavra tema é redigitada a cada tecla, e remontar
+  ali jogaria a roleta de volta ao começo no meio do gesto.
+- **`qhAssentou` é IDEMPOTENTE** pelo mesmo motivo do `roletaAssentou`: um
+  reposicionamento programático cai nele pelo mesmo `scroll` que um dedo, e é a
+  comparação — não uma bandeira — que os separa.
+- **E OS TÍTULOS "FILTROS" E "QUANTAS" SAÍRAM** no mesmo lote: *"use a largura
+  toda apenas para distribuir os botões seletores e a roleta da quantidade"*. Com
+  o rótulo fora, a fileira DISTRIBUI em vez de se encolher contra ele — e o preço
+  apareceu MEDIDO: com `nowrap` + `ellipsis`, "Só no aparelho" é cortado já a
+  320×1× e os TRÊS a 320×1,25×. O rótulo passou a QUEBRAR, com `align-items:
+  stretch` dando às três pílulas uma altura só. Não é o motor de pulo da v1.8.61:
+  o texto destas três não muda de estado nenhum.
 
 - **Guardar os dois — um número e um conjunto — é a divergência escrita.** Um
   toque que atualizasse só um deles faria o seletor discordar da lista, e nenhum
-  dos dois erraria sozinho. Daí `quantos` ser DERIVADO na tela: a pílula acesa é
-  a que casa com `sorteioMarcadas.size`, e **nenhuma acesa é um estado legítimo**
-  — é o que o operador vê com quatro marcadas, e é a única indicação de que a
-  escolha passou a ser dele.
-- **Só a pílula grava, e é por uma razão do módulo puro:** `AVSorteio.sanear`
-  clampa `quantos` à lista de presets (`QUANTIDADES`), então um 4 vindo de marca
-  manual voltaria como 1 na abertura seguinte, calado. E não se perde nada — a
-  marca já é EFÊMERA por pedido do próprio operador (v1.8.84: *"esse check é
-  resetado entre aberturas da janela"*).
+  dos dois erraria sozinho. Daí `quantos` ser DERIVADO na tela: a posição da
+  ROLETA é `sorteioMarcadas.size` clampado ao teto, então marcar quatro linhas
+  na mão leva a roleta ao 4 — a escolha continua sendo do operador, e agora ela
+  é DIZÍVEL (com as seis pílulas, quatro marcadas não acendiam nenhuma).
+- **Só a roleta grava**, e nunca a marca: gravar a cada linha tocada escreveria
+  no banco a cada toque. *(A razão ANTIGA disto caiu na v1.8.96: era `sanear`
+  clampar `quantos` à lista de presets, o que fazia um 4 de marca manual voltar
+  como 1 na abertura seguinte. Com a faixa `QUANTIDADE_MIN..QUANTIDADE_MAX` no
+  lugar da lista, qualquer inteiro atravessa.)* A marca segue EFÊMERA por pedido
+  do operador (v1.8.84: *"esse check é resetado entre aberturas da janela"*).
 - **A LISTA NÃO SE REORGANIZA.** Marcar a linha 9 deixa a linha 9 onde está, com
   a posição 3 do lote: o que numera é a ordem do BARALHO, contando só as
   marcadas. Subir a marcada para o topo seria reorganizar a lista debaixo do
@@ -7512,7 +7548,7 @@ Cada passada faz DUAS operações sobre o baralho, nesta ordem:
   um filtro que leve embora uma marcada não pode encolher em silêncio o número
   que ele escolheu.
 - **`sorteioSemear` continua existindo** para quem de fato pede um lote novo: a
-  pílula de quantidade e o consumo.
+  roleta de quantidade e o consumo.
 
 #### SÓ A LISTA ROLA (v1.8.85)
 

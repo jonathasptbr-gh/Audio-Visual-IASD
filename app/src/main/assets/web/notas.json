@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.96",
+    "itens": [
+      "Timer: durante a contagem os números agora rolam de verdade, em vez de piscar trocando no lugar.",
+      "Playlist automática: a quantidade virou uma roleta horizontal — qualquer número, não só 1, 3, 5, 10, 15 e 20.",
+      "Playlist automática: a roleta vai até o número de resultados que existem, no máximo 50.",
+      "Playlist automática: saíram os títulos “Filtros” e “Quantas”; os botões ocupam a largura toda.",
+      "Playlist automática: a dica da busca ficou só “Palavra tema”, e a contagem de resultados foi centralizada."
+    ]
+  },
+  {
     "versao": "1.8.95",
     "itens": [
       "Timer: começa sempre em 00:00:00, e o botão de iniciar só acende quando há tempo escolhido.",

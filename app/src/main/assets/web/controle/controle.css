@@ -9089,9 +9089,79 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    do painel de ferramentas, e ela não é reusada tal e qual porque ali o rótulo
    fica ao lado de UM campo, e aqui de uma fileira de pílulas que precisa poder
    quebrar numa tela estreita sem espremer o rótulo. */
-.sorteio-linha { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .55rem; padding: .15rem .1rem; }
-.sorteio-rotulo { font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted); flex-shrink: 0; }
-.sorteio-linha .misc-opts { margin-left: auto; }
+.sorteio-linha { display: flex; align-items: center; gap: .4rem .55rem; padding: .15rem .1rem; }
+/* DA BORDA À BORDA (v1.8.96, revogando o rótulo à esquerda). Pedido do
+   operador: *"remova os títulos 'quantas' e 'filtros', use a largura toda
+   apenas para distribuir os botões seletores e a roleta da quantidade"*. Com o
+   rótulo fora, o que sobra é a fileira — e ela passa a DISTRIBUIR em vez de se
+   encolher contra ele: `flex: 1` na fileira, `flex: 1` em cada pílula, e o
+   `space-between` que não é mais necessário porque não sobra vão.
+
+   `flex-wrap` saiu da linha junto: ele existia para a fileira poder cair para
+   baixo do rótulo numa tela estreita, e sem rótulo não há para onde cair. */
+.sorteio-linha > .misc-opts {
+  flex: 1; min-width: 0; flex-wrap: nowrap; gap: var(--sp-3);
+}
+.sorteio-linha > .misc-opts > .misc-chip {
+  flex: 1; min-width: 0; padding-inline: .2rem;
+  /* O RÓTULO QUEBRA, E NUNCA RETICENCIA. MEDIDO: com `nowrap` + `ellipsis`, "Só
+     no aparelho" é cortado já a 320×1× e os TRÊS a 320×1,25× — e reticências são
+     piores que a palavra em duas linhas, porque não dizem qual palavra foi
+     cortada. Quebrando, o que muda é a altura da FAIXA, que é constante por
+     tela (o texto destas três pílulas não muda de estado nenhum) e por isso não
+     é o motor de pulo que a regra da v1.8.61 proíbe. */
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; line-height: 1.15;
+}
+/* E AS TRÊS TÊM UMA ALTURA SÓ: `stretch` no lugar do `center` da linha, senão a
+   que quebrou em duas fica mais alta que as irmãs na mesma faixa. */
+.sorteio-linha > .misc-opts { align-items: stretch; }
+
+/* ===== A ROLETA HORIZONTAL DA QUANTIDADE (v1.8.96) =====
+   Ela é o idioma de SELETOR do app (ver as roletas do Tempo) deitado: sem a
+   marca `rola` — a rolagem É o recurso, não conteúdo escondido —, com a máscara
+   apagando as pontas da janela e o `--op-inativo` nas vizinhas.
+
+   O QUE ELA NÃO TEM é a volta: a faixa tem PONTAS de verdade (não existe "zero
+   músicas"), então não há base repetida nem recentragem. O recuo das duas
+   pontas é o que deixa o primeiro e o último chegarem ao centro, e ele é
+   MEDIDO (`--qh-vao`, escrito pelo `acertarQuantidade`): `padding-inline: 50%`
+   com `box-sizing: border-box` zera a caixa de conteúdo e as células saem
+   transbordando por baixo do recuo. */
+.roleta-h {
+  --qh-item: 44px;
+  --qh-vao: 0px;
+  flex: 1; min-width: 0;
+  display: flex; align-items: center;
+  padding-inline: var(--qh-vao);
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  -webkit-mask-image: linear-gradient(
+    to right, transparent 0, #000 22%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(
+    to right, transparent 0, #000 22%, #000 78%, transparent 100%);
+}
+.qh-item {
+  flex: 0 0 var(--qh-item);
+  height: var(--hit); line-height: var(--hit);
+  scroll-snap-align: center;
+  text-align: center;
+  font-size: var(--fs-lg); font-weight: var(--fw-forte);
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+  color: var(--text); opacity: var(--op-inativo);
+  border-radius: var(--radius-pill);
+}
+/* A CENTRADA É A ESCOLHIDA, e ela veste o par de ESCOLHIDO do app (v1.8.95):
+   `--btn-accent` + `--accent`, o mesmo das pílulas que ela substituiu. A
+   máscara sozinha não bastaria aqui — a fileira é de números soltos, e sem o
+   preenchimento não há o que diga QUAL deles está valendo. */
+.qh-item.qh-item--sel {
+  opacity: 1;
+  background: var(--btn-accent); color: var(--accent);
+}
 /* ===== A BARRA DE AÇÃO FICA GRUDADA NO TOPO DA LISTA (v1.8.84) =====
    Pedido do operador: *"mova a barra de opções de play para cima dessa sessão de
    resultados"*. Ela morava no `.popup-fecho` (o rodapé que não rola); com a
@@ -9195,6 +9265,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: var(--panel);
   padding: var(--sp-1) var(--sp-2);
   font-size: var(--fs-xs); color: var(--muted); line-height: 1.35;
+  /* CENTRADA desde a v1.8.96, a pedido do operador. Ela é a única linha da
+     folha que fala do CONJUNTO — as de baixo são cada uma sobre uma música —,
+     e alinhada à esquerda ela lia como a primeira linha da lista. */
+  text-align: center;
 }
 /* ===== O RECIBO DO LOTE (v1.8.84) =====
    A única frase do cartão antigo que não repetia a tela. **Sempre desenhada**,
