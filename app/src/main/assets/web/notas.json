@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.8.87",
+    "itens": [
+      "Provai e Vede e Informativo: marque \"Manter o da semana baixado\" no topo do álbum e o episódio desce sozinho, no Wi-Fi.",
+      "O download automático usa a qualidade que você escolheu, e os episódios de semanas passadas saem do aparelho.",
+      "Episódio já baixado: a folha de opções não pergunta mais a qualidade — não há o que baixar.",
+      "O botão de repetir fica apagado quando não há fila nem mídia escolhida.",
+      "Conexão com a TV: o aviso sobre o som do aparelho virou um botão \"?\" ao lado.",
+      "A barra de volume passou a aparecer no botão da ESQUERDA, para não cobrir a passagem de slides."
+    ]
+  },
+  {
     "versao": "1.8.86",
     "itens": [
       "Playlist automática: mexer num filtro não sorteia de novo — ele só corta da lista o que deixou de servir.",

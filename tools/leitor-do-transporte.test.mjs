@@ -133,17 +133,35 @@ try {
     setAppMode('full');
     currentItem = null;
     renderNowPlaying();
-    // O VIZINHO ACESO é a régua do tom: o número do `--op-inativo` pode mudar,
-    // a DISTÂNCIA entre disponível e indisponível é que não pode sumir.
-    const viz = [...document.querySelectorAll('.t-btn')].find((b) => !b.disabled);
+    // ===== A RÉGUA DO TOM É O PRÓPRIO BOTÃO ACESO (v1.8.87) =====
+    //
+    // O número do `--op-inativo` pode mudar; a DISTÂNCIA entre disponível e
+    // indisponível é que não pode sumir. A régua era o primeiro `.t-btn` ainda
+    // ACESO da barra — e desde a v1.8.87 **não há nenhum** neste cenário: a
+    // REPETIÇÃO passou a apagar sem fila e sem mídia escolhida, e ela era o
+    // último aceso aqui. `find` devolvia `undefined`, a opacidade do vizinho
+    // saía `null`, e a comparação reprovava um app que está certo.
+    //
+    // A régua passa a ser o MESMO elemento no OUTRO estado, que é literalmente o
+    // que a frase da asserção diz — e não depende de nenhum vizinho continuar
+    // aceso. O estado é restaurado na hora: o que se lê é a opacidade
+    // COMPUTADA, não um efeito colateral.
+    const semDisponivel = [...document.querySelectorAll('.t-btn')].every((b) => b.disabled);
+    const opacidadeAceso = (() => {
+      lyricsViewBtnEl.disabled = false;
+      const v = +getComputedStyle(lyricsViewBtnEl).opacity;
+      lyricsViewBtnEl.disabled = true;
+      return v;
+    })();
     return {
+      semDisponivel,
+      opacidadeAceso,
       escondida: lvBadgeEl.hidden,
       desenhada: getComputedStyle(lvBadgeEl).display,
       titulo: lyricsViewBtnEl.title,
       fontes: lyricsViewSources(),
       desabilitado: lyricsViewBtnEl.disabled,
       opacidade: +getComputedStyle(lyricsViewBtnEl).opacity,
-      opacidadeVizinho: viz ? +getComputedStyle(viz).opacity : null,
       // A ORDEM DE TABULAÇÃO responde à TENTATIVA, nunca ao `tabIndex`: um
       // `<button disabled>` mantém a propriedade em 0 e mesmo assim não recebe
       // foco, então ler o número aprovaria as duas versões.
@@ -179,8 +197,16 @@ try {
     '  ↳ e o BOTÃO fica indisponível: sem o que ler, o toque abria a folha só '
     + 'para dizer que não há nada — não oferecer é melhor que explicar',
     badgeVazia);
-  checar(badgeVazia.opacidade < badgeVazia.opacidadeVizinho,
-    '  ↳ e ele fica mais claro que um irmão ACESO da mesma barra — a régua é a '
+  // A PREMISSA que explica a régua nova: neste cenário a barra inteira está
+  // apagada desde a v1.8.87 (a repetição foi a última a cair), e um vizinho
+  // aceso deixou de existir como referência.
+  checar(badgeVazia.semDisponivel,
+    '  ↳ A PREMISSA: sem nada em exibição e com a fila vazia, NENHUM botão do '
+    + 'transporte está aceso — a repetição foi a última a cair (v1.8.87), e é '
+    + 'por isso que a régua do tom é o próprio botão no outro estado',
+    badgeVazia);
+  checar(badgeVazia.opacidade < badgeVazia.opacidadeAceso,
+    '  ↳ e ele fica mais claro que ELE MESMO aceso — a régua é a '
     + 'distância entre disponível e indisponível, não o número do token',
     badgeVazia);
   checar(badgeVazia.focavel === false,

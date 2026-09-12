@@ -1135,6 +1135,11 @@ Mundial das Missões). **Detalhe em
 
 O que vale sem abrir o capítulo:
 
+- **MANTER O EPISÓDIO DA SEMANA BAIXADO** (v1.8.87): uma caixa de marcação no
+  topo do card, e uma rotina que baixa o do sábado no Wi-Fi, na qualidade do
+  operador, e **solta as semanas passadas**. O álbum de série continua não
+  retendo arquivo — o que retém é um detentor novo de tamanho UM por série (a
+  lista `serie` de `db.js`), e **a lista só encolhe com o substituto na mão**.
 - **A regra de ouro: a PLAYLIST prova o pertencimento, o título é só RÓTULO.**
   Um vídeo entra por estar numa playlist aceita, jamais por casar um padrão de
   título. Errar para um nome feio é recuperável; errar para um episódio ausente
@@ -1352,12 +1357,21 @@ nenhum**, e por isso ficam aqui.
   reescrevê-la faz as duas divergirem no primeiro ajuste —, e ela pede cuidado:
   `cenaNoAr()` parece "há algo no ar" e começa por `!!currentId`, que sobrevive
   ao stop de propósito. **E o que NÃO se apaga entra na lista escrita ao lado**,
-  senão o lote seguinte "completa" a varredura e leva um recurso junto (o ▶
-  parado repete a faixa; a repetição é um modo). **E a lista se ENCOLHE quando o
-  operador revoga** — a playlist saiu dela na v1.8.51 —, mas com a MEDIDA ao
-  lado: ele pediu o apagado também com UM item (*"um item não é uma lista"*) e
-  desistiu diante do preço, porque ali a folha ainda é a única porta para cinco
-  coisas e um item é o estado que todo toque numa mídia produz.
+  senão o lote seguinte "completa" a varredura e leva um recurso junto — hoje
+  sobra UM na lista, o ▶ parado, que repete a faixa. **E a lista se ENCOLHE
+  quando o operador revoga**: a playlist saiu dela na v1.8.51 e a REPETIÇÃO na
+  v1.8.87. Esta segunda não desmente o argumento dela (*"é um modo, e escolher
+  o modo antes de montar a fila é o caminho normal"*) — o argumento é que
+  escreve a régua: o modo governa o `autoAdvance`, que só roda quando uma mídia
+  ACABA, então sem fila E sem `currentId` não há o que acabar. A régua é
+  `repeticaoPode()` = `plItems.length || currentId`, e a segunda metade é a que
+  se erra: escrita como `midiaNoAr`, ela apaga o botão sobre a faixa PARADA, e
+  armar `repeat: one` ali para o próximo ▶ repeti-la é uso legítimo. **A célula
+  que separa as duas escritas é UMA** — fila vazia, nada no ar, faixa ainda
+  escolhida —, e é ela que o oráculo mede. A playlist encolheu com a MEDIDA ao
+  lado: o operador pediu o apagado também com UM item (*"um item não é uma
+  lista"*) e desistiu diante do preço, porque ali a folha ainda é a única porta
+  para cinco coisas e um item é o estado que todo toque numa mídia produz.
 - **A CAIXA CERTA NÃO GARANTE O DESENHO CERTO, e a divergência é MUDA**
   (v1.8.68). A escala de ícone mora em DUAS listas de `controle.css`
   (`--icon-sm`, 20px, e `--icon-md`, 22px), e um botão que não esteja em NENHUMA
@@ -1660,6 +1674,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | **Só o ÁUDIO** em "Tocar agora" | **não toca** | baixado pelo `ytFetchAudio`, como nos destinos que guardam — a transmissão dele saiu na v1.7.7 junto com a do vídeo. Entra como `kind:'audio'` (o telão mantém o wallpaper) |
 | **Só o ÁUDIO** guardado | — | **`ytFetchAudio`** (shell ≥ 23), pelo mesmo seletor Cantada/Playback. `kind:'audio'` e sem miniatura — é o *kind*, não o contêiner, que faz o telão manter o wallpaper. Único caminho sem o teto de 720p do progressivo. Fila de três candidatos na ordem do cliente que funciona, progressivo no fim |
 | **Séries do YouTube** | **não existe** | **um álbum por SÉRIE** (shell 41) — ver a seção do recurso. O ITEM é um vídeo do YouTube, não faixa de hinário: mesma folha (sem "Só áudio"), "Tocar agora" transmite, download só nos destinos que guardam. Não há "baixar o álbum" (~300 MB/episódio) |
+| **Manter o episódio da SEMANA baixado** | **não existe** — não há rotina de segundo plano nem coletor de referência a que pendurar um detentor | **uma caixa de marcação no topo do card** da série (v1.8.87): o episódio do sábado desce sozinho no **Wi-Fi confirmado** (`isConfirmedWifi`, não "não é celular" — são ~300 MB que ninguém pediu agora), na qualidade do operador, e as semanas passadas saem do aparelho. O álbum de série **continua não retendo arquivo**: o que retém é a lista `serie` de `db.js`, um detentor de tamanho UM por série, e **ela só ENCOLHE com o substituto na mão** — a ordem "baixar, depois limpar" não bastava, e com o download falhando (o caso normal de segunda a sexta) a limpeza levava os DOIS episódios. Sem Wi-Fi confirmado a rotina não roda, e **a linha DIZ isso**: `connection.type` responde `'unknown'` em boa parte dos aparelhos, e um no-op silencioso seria a opção marcada com nada acontecendo, para sempre |
 | Buscar no YouTube | não existe: abre o YouTube numa aba | **busca dentro da Biblioteca** (`ytSearch` → `YoutubeGrab.pesquisar`), resultados na mesma lista e mesma folha de destinos. Em **português**: passar localização ao `NewPipe.init` NÃO resolve (o serviço filtra por uma lista que só tem `en-GB`) — quem resolve é o `forceLocalization` do próprio `Extractor`. Iframe é recusado pelo `X-Frame-Options`; a API oficial exigiria chave com cota |
 | Link para fora do app | `window.open` | **`openExternal(url)`** → `ACTION_VIEW` em tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2): sem esse método um link externo não faz nada, nem erro no console |
 | Sem tela conectada (simplificado) | mesmo bloqueio, com a janela do Display no lugar da `Presentation` | **modo bloqueado**: cortina embaçada, seção de conexão no centro, saída para o avançado na frente. **Não é incondicional**: o "Tocar neste celular" da folha (`tocarNoCelular`) desbloqueia e manda o som para este aparelho. **Caminho só de IDA e sem persistência**: o bloqueio se rearma ao fechar o app, ao passar pelo modo avançado (`setAppMode`) ou quando uma tela entra — e por isso o botão SOME depois do toque, em vez de oferecer o desfazer |
@@ -1801,8 +1816,11 @@ correspondente, senão o sistema ainda reage à soltura) e entrega o passo a
 - **A tecla ACENDE o fader** por 2,8 s (`peekVolume`) — a ÚNICA porta dele desde
   a v1.3.8, quando o botão de tela que o abria saiu a pedido do operador. Sem
   isso a tecla mexeria num número invisível. Ele ocupa a célula do
-  `#slideNextBtn` e some sozinho; o botão de VOLTAR slide, na outra ponta, **não
-  some junto** (sumia até a v1.3.8, e foi disso que o operador reclamou).
+  `#slidePrevBtn` e some sozinho; o botão de PASSAR slide, na outra ponta, **não
+  some junto** — o par sumia junto até a v1.3.8, e foi disso que o operador
+  reclamou. **QUAL dos dois cede é a v1.8.87**, revogando a v1.3.8: *"assim ele
+  não interrompe a passagem dos slides"*. Passar slide é o gesto repetido de um
+  sermão inteiro; voltar é a correção.
 - **O número não é o volume do aparelho:** ele viaja no comando `volume` e
   chega também às **telas da rede**, que são outros aparelhos.
 
@@ -1890,8 +1908,14 @@ passar e concluir que ela não servia.
 **A saída para o VAZAMENTO continua estrutural: o áudio não nascer no celular** — o telão por comandos,
 com o espelhamento DESLIGADO (os dois juntos mantêm a mistura no ar), ou um
 aparelho dedicado só para projetar. O operador é avisado disso na folha de
-conexão (só com TV no ar) e por inteiro no bloco "Áudio do aparelho" do
-Registro.
+conexão — desde a v1.8.87 atrás de um `?` ao lado do botão de conectar, e só com
+TV no ar — e por inteiro no bloco "Áudio do aparelho" do Registro. **As duas
+frases divergem de propósito:** a do `?` é a que muda o que ele FAZ (*"exceto as
+notificações, todo o som deste aparelho é tocado na tela"*, as palavras do
+operador); a do Registro é a estrita, com os três graus do que se sabe. O que o
+`?` conserta é o CUSTO DE LER: como linha permanente dentro do botão, a frase
+ficava na frente de quem já a leu, em toda abertura da folha durante todo o
+culto.
 
 ### Andaimes do modelo de dois PWAs, removidos
 
@@ -1989,7 +2013,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **85** e os de Node puro **19** — juntos, os 104. MEDIDO com
+Os de Chromium são **86** e os de Node puro **19** — juntos, os 105. MEDIDO com
 79 deles: **12,8 min em série** e **4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. O custo não é o que parece: lançar o navegador são **~110 ms** e
 subir o `/controle/` inteiro é **~1 s** — compartilhar um navegador entre
@@ -2036,7 +2060,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 104 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 105 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2627,19 +2651,21 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.86 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.87 · APK v1.8.73** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.86 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
+> **A v1.8.87 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Esta não toca `java/`,
 > `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou de forma: o
-> bundle sai na hora, contra o APK v1.8.73 que já está publicado. **E
-> `AVSorteio.baralhar` não é exceção**, como não foi o `AVDB.stateApagarPrefixo`
-> da v1.8.83: a superfície que o `SHELL_VERSION` governa é a da PONTE
-> (`window.AVNative` sobre `__AVBridge`), não a dos módulos de
-> `assets/web/` — eles viajam DENTRO do bundle, e quem os chama chega no mesmo
-> zip. Aquela
+> bundle sai na hora, contra o APK v1.8.73 que já está publicado. **E a LISTA
+> `serie` nova em `shared/db.js` não é exceção**, como não foram o
+> `AVSorteio.baralhar` da v1.8.86 e o `AVDB.stateApagarPrefixo` da v1.8.83: a
+> superfície que o `SHELL_VERSION` governa é a da PONTE (`window.AVNative` sobre
+> `__AVBridge`), não a dos módulos de `assets/web/` — eles viajam DENTRO do
+> bundle, e quem os chama chega no mesmo zip. **E o download automático da série
+> não pediu método novo**: a pergunta do Wi-Fi (`isConfirmedWifi`) já era
+> respondida no bundle e o download já era do shell (`ytFetch`). Aquela
 > declarou porque o Kotlin da v1.8.72 (o fecho do pacote) ainda não tinha
 > Release — e é essa a regra, não a data: **o `shellTag` ACOMPANHA A ÚLTIMA
 > VERSÃO, NÃO A QUE MEXEU NO KOTLIN**, porque o CI exige

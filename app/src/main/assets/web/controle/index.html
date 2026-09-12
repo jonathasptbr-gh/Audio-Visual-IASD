@@ -1188,6 +1188,34 @@
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSlidePrev"/></svg>
         </button>
       </div>
+      <!-- ===== O FADER DE VOLUME: UMA ESPIADA, E SÓ (v1.3.9) =====
+           Ele não tem botão que o abra — a ÚNICA porta é a TECLA FÍSICA de
+           volume, e a única saída é o relógio dela (`peekVolume`, 2,8 s). O
+           botão de tela saiu na v1.3.8 a pedido do operador; o fader ficou.
+
+           E ELE É O PONTO DO RECURSO, não um enfeite: o app CONSOME a tecla de
+           volume, e quem não consome deixa o Android desenhar o painel de
+           volume dele — que, com espelhamento ativo, aparece SOBRE A PROJEÇÃO,
+           na frente da congregação. Este fader é o que o substitui: mora no
+           celular, some sozinho, e nada disso chega ao telão.
+
+           ELE OCUPA A CÉLULA DO `#slidePrevBtn` (coluna 1, a faixa da
+           preview) e o esconde enquanto está no ar — v1.8.87, revogando a
+           v1.3.8, que o punha sobre o `#slideNextBtn`. Pedido do operador:
+           *"assim ele não interrompe a passagem dos slides"*. Passar slide é o
+           gesto que se repete durante um sermão inteiro; voltar é a correção.
+           O par não some junto (foi disso que ele reclamou na v1.3.8) — só o da
+           ESQUERDA cede, e o de PASSAR fica no ar os 2,8 s da espiada. -->
+      <div class="fader-wrap">
+        <input type="range" id="volSlider" class="fader" min="0" max="100" value="100" aria-label="Volume da mídia">
+        <!-- O número (0–100) vive DENTRO do cap do fader — e é um elemento à
+             parte porque `::-webkit-slider-thumb` é pseudo-elemento e não
+             aceita conteúdo. Segue o cap pela mesma conta do preenchimento
+             (`--vol`/`--fader-cap`), então os dois nunca se descolam.
+             `pointer-events:none` no CSS: quem recebe o arrasto é o input.
+             `aria-hidden`: o valor já é anunciado pelo próprio range. -->
+        <span id="volValue" class="fader-value" aria-hidden="true">100</span>
+      </div>
       <!-- ===== A BARRA DE PROGRESSO SEGUE A GRADE DO DECK (v1.3.8) =====
            Ela atravessa as TRÊS colunas, e o que está dentro dela cai nas
            mesmas: o tempo decorrido sobre o botão de voltar slide, a barra
@@ -1646,31 +1674,6 @@
         <button id="slideNextBtn" class="ctl-btn slide-btn" type="button" title="Próximo slide" aria-label="Próximo slide" disabled>
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSlideNext"/></svg>
         </button>
-      </div>
-      <!-- ===== O FADER DE VOLUME: UMA ESPIADA, E SÓ (v1.3.9) =====
-           Ele não tem botão que o abra — a ÚNICA porta é a TECLA FÍSICA de
-           volume, e a única saída é o relógio dela (`peekVolume`, 2,8 s). O
-           botão de tela saiu na v1.3.8 a pedido do operador; o fader ficou.
-
-           E ELE É O PONTO DO RECURSO, não um enfeite: o app CONSOME a tecla de
-           volume, e quem não consome deixa o Android desenhar o painel de
-           volume dele — que, com espelhamento ativo, aparece SOBRE A PROJEÇÃO,
-           na frente da congregação. Este fader é o que o substitui: mora no
-           celular, some sozinho, e nada disso chega ao telão.
-
-           Ele ocupa a MESMA célula do `#slideNextBtn` (coluna 3, a faixa da
-           preview) e o esconde enquanto está no ar. O de VOLTAR slide, na outra
-           ponta, NÃO some — ele sumia até a v1.3.8, e foi disso que o operador
-           reclamou. -->
-      <div class="fader-wrap">
-        <input type="range" id="volSlider" class="fader" min="0" max="100" value="100" aria-label="Volume da mídia">
-        <!-- O número (0–100) vive DENTRO do cap do fader — e é um elemento à
-             parte porque `::-webkit-slider-thumb` é pseudo-elemento e não
-             aceita conteúdo. Segue o cap pela mesma conta do preenchimento
-             (`--vol`/`--fader-cap`), então os dois nunca se descolam.
-             `pointer-events:none` no CSS: quem recebe o arrasto é o input.
-             `aria-hidden`: o valor já é anunciado pelo próprio range. -->
-        <span id="volValue" class="fader-value" aria-hidden="true">100</span>
       </div>
       <!-- ===== O AUXILIAR DE LEITURA, NA SÉTIMA CÉLULA (v1.4.31) =====
            Pedido do operador: *"no lugar que é atualmente o botão do histórico,
@@ -2295,7 +2298,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.8.86</span>
+            <span id="appVersion" class="app-version">v1.8.87</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
@@ -2408,17 +2411,38 @@
            esta folha para conectar uma tela, não para saber o que é
            espelhamento. -->
       <div class="mirror-body rola" id="castConn">
-        <button type="button" id="castMirrorBtn" class="cast-acao">
-          <svg class="cast-acao-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoEspelhar"/></svg>
-          <!-- A LINHA AUXILIAR SÓ EXISTE COM UMA TV NO AR, e diz a única coisa
-               que o espelhamento faz e o operador não escolheu: ele leva o som
-               do aparelho INTEIRO. Não é preferência nem estado do app — é
-               consequência do Android, que roteia áudio por APARELHO e não por
-               tela, e por isso não tem interruptor. Ela mora no próprio botão
-               pela mesma razão que o "Conectado: …" mora (v5.196): é onde a
-               decisão é tomada, e é para onde o olho já foi. -->
-          <span class="cast-acao-txt"><b id="castMirrorLabel">Conectar uma TV</b><small id="castMirrorNota" hidden></small></span>
-        </button>
+        <!-- ===== O AVISO DO SOM SAIU DE DENTRO DO BOTÃO (v1.8.87) =====
+             Pedido do operador: *"esse comentário está muito grande e confuso…
+             deixe essa mensagem em um botão/ícone de '?', ao invés de deixar
+             totalmente exposto"*.
+
+             O QUE ELE DIZ continua sendo a única coisa que o espelhamento faz
+             e o operador não escolheu: ele leva o som do aparelho INTEIRO. Não
+             é preferência nem estado do app — é consequência do Android, que
+             roteia áudio por APARELHO e não por tela, e por isso não tem
+             interruptor.
+
+             O QUE MUDOU é o CUSTO DE LÊ-LO. Como `<small>` dentro do botão, a
+             frase inteira ficava na frente de quem já a leu — em toda abertura
+             da folha, durante todo culto com TV no ar. Atrás do `?` ela é uma
+             linha que se busca quando a pergunta aparece, e o que sobra na
+             tela é o sinal de que HÁ o que perguntar.
+
+             O `?` É IRMÃO, NÃO FILHO: um `<button>` não pode aninhar outro, e
+             o alvo do `?` tem de ser separado do alvo que ABRE O SELETOR DE
+             ESPELHAMENTO do Android — tocar um querendo o outro sai do app.
+
+             E ELE SÓ EXISTE COM TV NO AR, a mesma regra da frase que ele
+             substitui (v5.196): sem tela não há para onde vazar, e um aviso
+             permanente sobre uma consequência que ainda não aconteceu é ruído
+             na folha em que se DECIDE conectar. -->
+        <div class="cast-acao-linha">
+          <button type="button" id="castMirrorBtn" class="cast-acao">
+            <svg class="cast-acao-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoEspelhar"/></svg>
+            <span class="cast-acao-txt"><b id="castMirrorLabel">Conectar uma TV</b></span>
+          </button>
+          <button type="button" id="castSomAjuda" class="cast-ajuda" title="O que acontece com o som deste aparelho" aria-label="O que acontece com o som deste aparelho" hidden>?</button>
+        </div>
 
         <!-- A SEGUNDA FORMA DE CONECTAR, e ela é o BOTÃO IRMÃO do de cima
              (v5.224) — era um interruptor (`.cast-sw-row`) desde a v5.184.
