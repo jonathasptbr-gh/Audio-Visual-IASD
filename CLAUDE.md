@@ -2627,14 +2627,18 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.82 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.83 · APK v1.8.73** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.82 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
+> **A v1.8.83 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Esta não toca `java/`,
 > `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou de forma: o
-> bundle sai na hora, contra o APK v1.8.73 que já está publicado. Aquela
+> bundle sai na hora, contra o APK v1.8.73 que já está publicado. **E
+> `AVDB.stateApagarPrefixo` não é exceção**: a superfície que o `SHELL_VERSION`
+> governa é a da PONTE (`window.AVNative` sobre `__AVBridge`), não a do
+> `shared/db.js` — este viaja DENTRO do bundle, e quem o chama chega no mesmo
+> zip. Aquela
 > declarou porque o Kotlin da v1.8.72 (o fecho do pacote) ainda não tinha
 > Release — e é essa a regra, não a data: **o `shellTag` ACOMPANHA A ÚLTIMA
 > VERSÃO, NÃO A QUE MEXEU NO KOTLIN**, porque o CI exige

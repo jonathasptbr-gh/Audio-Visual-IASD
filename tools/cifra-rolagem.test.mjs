@@ -365,12 +365,18 @@ try {
     const transicao = getComputedStyle(gav).transitionDuration;
     await assentar();
     const abriu = {
-      // O QUE FICA — e é o pedido inteiro desta metade.
+      // O QUE FICA — o play e o seletor, os dois que o operador pediu à vista.
       rolarFicou: aVista(cifraRolarBtnEl),
       velFicou: aVista(btn),
-      saidaFicou: aVista(lyricsPopupEl.querySelector('.lv-cheia-btn')),
-      // O QUE SAI: só o par de tom, pela CLASSE que o lote criou para eles.
+      // O QUE A GAVETA COBRE (v1.8.83): o par de tom E A SAÍDA. Aquele lote
+      // pedia que o ⛶ ficasse; este revoga a metade dele, por extenso — *"a
+      // barra de ajuste de velocidade [deve] cobrir esse botão também, pois
+      // atualmente ela apenas empurra ele para o lado"*.
+      saidaCoberta: !aVista(lyricsPopupEl.querySelector('.lv-cheia-btn')),
       transporSumiu: [...ctlEl.querySelectorAll('.lv-cifra-tom')].every((e) => !aVista(e)),
+      // E A FILA NÃO MUDA DE LARGURA — a promessa que o resto do cabeçalho
+      // depende: é ela que mantém o A+/A− e o ✕ onde estavam.
+      larguraIgual: Math.abs(ctl() - ctlAntes) < 0.5,
       // O SLIDER está no ar e tem largura de verdade.
       sliderW: +slider().getBoundingClientRect().width.toFixed(2),
       gavetaW: +gav.getBoundingClientRect().width.toFixed(2),
@@ -443,12 +449,16 @@ try {
     'e nenhum rótulo se repete: dois degraus escritos "1×" seriam a escolha do '
     + 'operador dizendo duas coisas', escada);
   // ===== O PEDIDO DA v1.8.80, ponto a ponto =====
-  checar(escada.abriu.rolarFicou && escada.abriu.velFicou && escada.abriu.saidaFicou,
-    'ABRIR a gaveta MANTÉM o play, o seletor e a saída à vista — é a revogação '
-    + 'que o operador pediu por extenso, e a v1.7.4 escondia os três',
-    escada.abriu);
-  checar(escada.abriu.transporSumiu,
-    'e quem cede o lugar é o −½/+½, que é de onde a gaveta sai', escada.abriu);
+  checar(escada.abriu.rolarFicou && escada.abriu.velFicou,
+    'ABRIR a gaveta MANTÉM o play e o seletor à vista — a v1.7.4 escondia os '
+    + 'dois, e a v1.8.80 os trouxe de volta a pedido', escada.abriu);
+  checar(escada.abriu.transporSumiu && escada.abriu.saidaCoberta,
+    'e o que ela COBRE são os três de depois: o −½, o +½ e a SAÍDA (v1.8.83 — '
+    + 'aquele lote deixava o ⛶ de fora e ele era EMPURRADO, levando o ✕ do '
+    + 'cabeçalho 51,6px para fora da caixa a 360px)', escada.abriu);
+  checar(escada.abriu.larguraIgual,
+    '  ↳ e a FILA não muda de largura ao abrir: a gaveta saiu do fluxo, então o '
+    + 'que ela ocupa não é espaço que alguém tenha de ceder', escada.abriu);
   checar(escada.fechadaW === 0 && escada.abriu.gavetaW > 0 && escada.abriu.sliderW > 0,
     'a gaveta vai de largura ZERO a uma caixa de verdade — é isso que a animação '
     + 'horizontal move, e é por isso que ela deixou de ser `display: contents`',

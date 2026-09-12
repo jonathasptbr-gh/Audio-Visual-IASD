@@ -2578,14 +2578,52 @@ e ler *"Nada em exibição"*.
   | quem some ao abrir | os QUATRO botões da fila | só o −½/+½ (`.lv-cifra-tom`) |
   | o controle | cinco botões, um por degrau | UM `<input type=range>` sobre os mesmos cinco |
   | o seletor | sumia junto | vira **✕** — a saída no lugar de onde a entrada foi |
-  | a caixa | `display: contents` | uma caixa de verdade, que ANIMA de 0 a 9rem |
+  | a caixa | `display: contents` | uma caixa de verdade, que ANIMA de 0 até a borda da fila |
 
   **O `display: contents` teve de sair**: uma caixa que não existe no layout não
   tem largura para transicionar, e a animação é o pedido. Em tela cheia a fila é
   uma COLUNA, e lá a mesma gaveta cresce em ALTURA com o slider na vertical (a
-  receita do fader do volume) — sem o par de regras, 9rem numa trilha de 66px
-  sairiam recortados pelo `overflow: hidden` da própria gaveta, com o controle
+  receita do fader do volume) — sem o par de regras, a largura numa trilha de
+  66px sairia recortada pelo `overflow: hidden` da própria gaveta, com o controle
   vivo e invisível.
+
+  **E ELA SAIU DO FLUXO, que é o que fez os três defeitos seguintes sumirem de
+  uma vez** (v1.8.83). Relato do operador: *"a margem a direita do botão está
+  duplicada em relação as outras margens entre os botões… o botão de tela cheia
+  está separado da fileira dos botões a esquerda, junte ele a ela. Fazendo com
+  que a barra de ajuste de velocidade cubra esse botão também, pois atualmente
+  ela apenas empurra ele para o lado, jogando todos os outros botões para fora da
+  janela do auxiliar de leitura… verifique esse movimento, para que os botões de
+  aumentar fonte, diminuir fonte e fechar janela não sejam movidos de seus
+  lugares originais"*.
+
+  Os três são o MESMO defeito, e ele é *a gaveta ser um ITEM DA FILA*:
+
+  | o que se via | a causa, MEDIDA |
+  |---|---|
+  | a margem à direita do seletor é o dobro | fechada com `width: 0` ela continua sendo item e recebe `gap` dos DOIS lados: **4 + 0 + 4 = 8px**, contra 4 em todos os outros pares |
+  | o ⛶ está separado da fileira | o respiro próprio dele (`--sp-5`) fazia o último vão medir **13,6px** — 3,4× o vizinho |
+  | abrir joga tudo para fora da janela | os 9rem entravam na conta da fila: o ⛶ andava **76px** e o ✕ do cabeçalho terminava **51,6px fora** da caixa a 360px (91,6 a 320) |
+
+  `position: absolute` dentro de uma fila `relative` resolve os três: fora do
+  fluxo ela **não tem `gap` nenhum**, a fila mede o MESMO aberta ou fechada, e o
+  que ela faz ao crescer é passar **por cima** do −½/+½ e do ⛶. MEDIDO depois:
+  deslocamento **ZERO** do A−, do A+, do ✕ e do ⛶ em 320, 360 e 430px, nos dois
+  estados.
+
+  - **`--vels-off` é onde ela começa** (dois botões mais dois vãos) e a largura
+    aberta é `calc(100% - var(--vels-off))` — as duas DERIVADAS dos tokens. Os
+    9rem de antes eram um número escrito à mão sem relação com nada, e era ele
+    que sobrava para fora.
+  - **O trio coberto some por `visibility`, nunca por `width: 0`**: encolher era
+    o que fazia a fila mudar de tamanho. `display: none` tiraria as caixas do
+    fluxo e a fila encolheria de novo, pelo caminho de trás.
+  - **O respiro próprio do ⛶ saiu nos dois eixos**, revogando a v1.6.1. A razão
+    antiga fica registrada porque era boa — o erro ali é ASSIMÉTRICO: pegar a
+    saída em vez do `+½` desfaz o modo inteiro e gira a Activity na frente de
+    quem toca, enquanto o inverso custa um meio tom. **O preço encolheu no mesmo
+    lote**: com a gaveta aberta o ⛶ não é vizinho de nada, porque ela o cobre. De
+    carona, o cabeçalho a 320px deixou de estourar 16px e passou a estourar 2.
 
   **O slider regula o ÍNDICE da escada, nunca um número contínuo:** um contínuo
   pediria outra gramática de rótulo, outro estado gravado e outra conta no
@@ -7287,6 +7325,57 @@ música. Ver a faixa de fecho, acima.
 | **os `ids` dentro do cue não viram órfãos** | a mídia do sorteio vive no store **`files`** (`resolveSongMediaId` devolve o `fileIdFull`/`fileIdPlayback` do hinário, e `getMedia` cai no `fileGet`), e o coletor lê listas + Favoritos e apaga só do store `media`. Quem manda na vida deles é a coleção que os baixou, como antes |
 | **cada sorteio é um pacote NOVO** | antes a dedução era por id e o segundo sorteio só acrescentava o que faltava. Um pacote é o INSTANTÂNEO de uma tirada; dois lotes no roteiro são dois lotes, e continuam saindo num toque cada. `criarCue` ainda avisa quando o conteúdo é idêntico |
 | **`f` é passado a `guardarSorteadasNoCronograma`** | e não `sorteioPrefs`: a folha fica aberta durante o download, e mexer num controle ali reescreveria as preferências — o pacote sairia com o nome de uma escolha que ninguém sorteou |
+
+##### A CONTA É UM CARTÃO DE TAMANHO FIXO, E O PULSO CHEGA À TELA (v1.8.83)
+
+Dois relatos do operador no mesmo minuto, sobre a mesma folha — e são o MESMO
+defeito por dois ângulos: **ela se redesenhando quando não precisava**.
+
+**(1) O pulso.** *"O feedback de confirmação dos botões na seção de playlist
+automática, estão muito rápidos, basicamente não visíveis. Verifique seu tempo de
+exposição ou se tem algo atualizando a tela"* — era a segunda hipótese, e o tempo
+não tinha nada a ver. O `finally` do `executarSorteio` chamava `renderSorteio()`
+só para reabilitar a faixa de fecho, e um redesenho **troca os nós**
+(`limparFolha` esvazia a lista e cada botão é criado de novo). MEDIDO: o nó do
+botão tocado saía do documento em **23 ms**, e o pulso vivia os 1100 ms do
+`PULSO_MS` inteiros **num nó solto — zero milissegundo na tela**.
+
+`acertarTravaSorteio` escreve `disabled` em ponto, que é tudo o que aquele
+redesenho tinha a fazer. A unificação achou a **segunda cópia da mesma regra** no
+`atualizarContaSorteio`, e ela estava errada por dois motivos: lia só `n === 0`
+(ignorando o `sorteioRodando`) e procurava os botões DENTRO da lista, onde eles
+não moram desde a v1.8.60 — um laço sobre zero nós, sem erro em lugar nenhum.
+
+> **A armadilha da MEDIDA está no oráculo, e ela é o ponto:**
+> `btn.classList.contains('btn-pulso')` responde `true` durante os 1100 ms
+> inteiros, nó solto e tudo. O que se mede é `.btn-pulso` **dentro da folha** —
+> isto é, um pulso que alguém pode ver.
+
+**(2) A zona de resultados.** *"Seu design está sendo muito variado e pouco
+modular, resultando novamente no problema de movimentação da janela… Algo como um
+simples card, com texto centralizado, avisando sobre os resultados. O card sempre
+terá o mesmo tamanho, mantendo a janela estável"*.
+
+O `min-height: 6em` da v1.8.61 reservava QUATRO linhas e o pior caso são CINCO.
+MEDIDO em 99 células (3 larguras × 3 escalas da fonte do sistema × 11 estados que
+o operador alcança tocando nas pílulas e digitando): a caixa ia de **78,7 a
+143,7px** e a FOLHA andava **25,6px** a 360×1,5. A 320×1,5 ela NÃO andava, e isso
+era pior em vez de melhor — ali a folha já batia no teto de 80vh e o crescimento
+virava rolagem, que é o mesmo defeito escondido atrás de um gesto.
+
+- **`height` e não `min-height`**, e a troca é o pedido: um piso responde *"não
+  encolhe"*, e a pergunta é *"não muda"*. 7,4em é o pior caso medido, em `em`
+  porque ele acompanha a fonte do sistema.
+- **A única entrada SEM LIMITE era a palavra tema**, e ela passou a entrar
+  clampada na frase (`temaNaFrase`, 24 caracteres — o número do `rotuloItem`).
+  Truncar ali não esconde nada: a palavra inteira está no campo dois dedos acima,
+  e a REGRA continua lendo `sorteioPrefs.tema` cru.
+- **`overflow: hidden` é o último recurso, não o mecanismo.** Quem mantém o texto
+  dentro é o `line-clamp` das duas frases mais o clampe da palavra; com ele, uma
+  frase nova mais longa é cortada DENTRO do cartão em vez de mover a tela.
+- **A fala emprestada continua morando em ESTADO** (`sorteioFala`, lida por
+  `pintarContaSorteio`) — era a única peça desta folha que já sobrevivia a um
+  redesenho, e é a regra que faltava ao pulso.
 
 #### O lote de download
 

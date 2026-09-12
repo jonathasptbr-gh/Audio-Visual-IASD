@@ -412,6 +412,7 @@ try {
     // numa trilha de 66px, então em tela cheia ele é VERTICAL e a gaveta cresce
     // em ALTURA. É o par de regras de CSS que se prova aqui — sem ele, 9rem de
     // largura dentro da coluna.
+    const colunaAntes = +lyricsCifraCtlEl.getBoundingClientRect().height.toFixed(2);
     velBtn.click();
     const gav = lyricsCifraCtlEl.querySelector('.lv-cifra-vels');
     // A GAVETA ANIMA (v1.8.80), então a medição espera pelo FIM da transição —
@@ -433,6 +434,15 @@ try {
       // coluna também.
       rolarAVista: lyricsPopupEl.querySelector('.lv-cifra-rolar').getClientRects().length > 0,
       velAVista: velBtn.getClientRects().length > 0,
+      // E O QUE ELA COBRE (v1.8.83): aqui a saída é o PÉ da coluna, e ela é
+      // coberta como o par de tom. A `visibility` não tem eixo, então esta
+      // metade não precisou de regra própria — o que precisou foi da MEDIDA,
+      // porque "não precisou de regra" é exatamente o que ninguém confere.
+      // A CAIXA CONTINUA EXISTINDO — é justamente ela que mantém a coluna do
+      // mesmo comprimento —, então a régua é a `visibility`, nunca
+      // `getClientRects()`: este responde por caixa, e a caixa está lá.
+      saidaCoberta: getComputedStyle(lyricsPopupEl.querySelector('.lv-cheia-btn')).visibility === 'hidden',
+      colunaIgual: Math.abs(+lyricsCifraCtlEl.getBoundingClientRect().height.toFixed(2) - colunaAntes) < 0.5,
     };
     velBtn.click();
     return {
@@ -612,6 +622,10 @@ try {
   checar(gav.rolarAVista === true && gav.velAVista === true,
     'e o play e o seletor continuam à vista com a gaveta aberta, como no '
     + 'retrato — é o que o pedido do operador nomeia', gav);
+  checar(gav.saidaCoberta === true && gav.colunaIgual === true,
+    'e a SAÍDA é coberta aqui também, sem a coluna mudar de comprimento (v1.8.83 '
+    + '— no retrato era o ✕ do cabeçalho que saía da caixa; aqui seria o A+/A− '
+    + 'do pé da coluna)', gav);
   const velEstourando = controles.velCaixas.filter((c) => c.sw > c.cw);
   checar(velEstourando.length === 0,
     'e o rótulo CABE nele aqui também — com `width` fixo, um rótulo grande '

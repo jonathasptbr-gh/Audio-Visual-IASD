@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.82';
+const WEB_VERSION = '1.8.83';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4144,16 +4144,23 @@ async function ensureBibleMeta(force) {
     } catch (_) {}
   }
   // Completude offline de TODAS as versões (pra resumir na lista de seleção).
-  // O próprio Set é o cache: versão que já está nele não volta ao IDB (uma
-  // versão completa não "des-completa", e os downloads que completam uma já a
-  // adicionam na hora — ver ensureBibleVersionDownloaded). As leituras que
-  // restam saem em paralelo: são independentes, e em série este laço pagava
-  // uma ida ao IDB por versão a cada entrada na aba.
+  // O próprio Set é o cache: versão que já está nele não volta ao IDB, e os
+  // downloads que completam uma já a adicionam na hora (ver
+  // `ensureBibleVersionDownloaded`). As leituras que restam saem em paralelo:
+  // são independentes, e em série este laço pagava uma ida ao IDB por versão a
+  // cada entrada na aba.
+  //
+  // UMA VERSÃO COMPLETA PASSOU A PODER "DES-COMPLETAR" (v1.8.83), e a frase que
+  // estava aqui dizendo o contrário virou a única guarda desse caso: quem
+  // exclui é `apagarVersaoBiblia`, e é ELE que tira a versão do Set no mesmo ato
+  // em que apaga a bandeira. Sem isso o cache seguraria "completa" para sempre —
+  // um Set que só cresce só pode ser cache do que nunca sai.
   await Promise.all(bibleVersions
     .filter((v) => !bibleCompleteVersions.has(v.id))
     .map(async (v) => {
       if (await AVDB.getState('bibleComplete:' + v.id)) bibleCompleteVersions.add(v.id);
     }));
+  await recontarBibliaNoAparelho();
   if (bibliaAberta()) renderBible();
 }
 
@@ -4168,30 +4175,164 @@ function pickDefaultBibleVersion(versions) {
 // Popup de seleção de versão (bottom-sheet) — a lista não fica mais toda
 // exposta em chips; um botão com a versão atual abre esta lista.
 function openBibleVerPopup() {
+  // DESENHA COM O QUE SE SABE E RECONTA DEPOIS: a varredura das chaves é uma
+  // transação, mas ela é ASSÍNCRONA, e uma folha que só aparece depois do banco
+  // responder é uma folha que não responde ao toque. O número que ela corrige —
+  // quantos capítulos de cada versão estão no aparelho — muda por download e por
+  // exclusão, nunca dentro do quadro em que a folha abre.
   renderBibleVerList();
   bibleVerPopupEl.classList.add('open');
+  recontarBibliaNoAparelho().then(() => {
+    if (bibleVerPopupEl.classList.contains('open')) renderBibleVerList();
+  });
 }
 function closeBibleVerPopup() { bibleVerPopupEl.classList.remove('open'); }
+// QUANTOS CAPÍTULOS DE CADA VERSÃO ESTÃO NO APARELHO (v1.8.83).
+//
+// A lista de versões sabia responder "completa?" e mais nada — e "completa?"
+// não basta para duas das três coisas que a folha agora faz: dizer que uma
+// versão está PELA METADE (uma varredura que a rede da igreja interrompeu) e
+// oferecer o EXCLUIR só onde há o que excluir.
+//
+// UMA varredura para TODAS as versões, e é o que faz isto caber aqui: as chaves
+// são `bible:<versão>_<livro>_<capítulo>`, então um `stateKeys('bible:')` numa
+// transação só devolve o mapa inteiro. Por versão seriam N varreduras do mesmo
+// intervalo. Chaves, nunca valores — o valor é o capítulo desserializado.
+const bibleCachedCount = Object.create(null);
+async function recontarBibliaNoAparelho() {
+  let chaves = [];
+  try { chaves = await AVDB.stateKeys('bible:'); } catch (_) { return; }
+  for (const k of Object.keys(bibleCachedCount)) delete bibleCachedCount[k];
+  for (const k of chaves) {
+    // `bible:<versão>_<livro>_<cap>` — a versão vai até o PRIMEIRO `_`, que é o
+    // separador que `ensureBibleVersionDownloaded` escreve.
+    const corte = String(k).indexOf('_', 6);
+    if (corte < 0) continue;
+    const vId = String(k).slice(6, corte);
+    bibleCachedCount[vId] = (bibleCachedCount[vId] || 0) + 1;
+  }
+}
+
+// O TOTAL DE CAPÍTULOS DA BÍBLIA — a mesma soma que `ensureBibleVersionDownloaded`
+// enumera, e não um 1189 escrito à mão: um livro a mais na tabela mudaria os
+// dois, e só um deles seria lembrado.
+function bibliaTotalDeCapitulos() {
+  return Bible.BOOKS.reduce((n, b) => n + b.chapters, 0);
+}
+
+// ===== EXCLUIR UMA VERSÃO BAIXADA (v1.8.83) =====
+//
+// Pedido do operador: *"faça uma opção para excluir uma determinada versão que
+// já esteja baixada"*.
+//
+// O que sai são as 1189 chaves do texto MAIS a bandeira de completude — a
+// bandeira sozinha faria a versão parecer pendente com o texto inteiro ocupando
+// espaço, e o texto sozinho deixaria a bandeira mentindo "completa" sobre um
+// banco vazio. As duas são o mesmo fato guardado em dois lugares, e saem juntas.
+async function apagarVersaoBiblia(v) {
+  const nome = v.name || 'esta versão';
+  if (!(await appConfirm({
+    title: 'Excluir versão baixada',
+    message: 'Tirar o texto de "' + nome + '" deste aparelho?\n\n'
+      + 'A leitura continua funcionando com internet, e escolher esta versão de '
+      + 'novo baixa tudo outra vez.',
+    okText: 'Excluir', perigo: true,
+  }))) return;
+  try {
+    await AVDB.stateApagarPrefixo('bible:' + v.id + '_');
+    await AVDB.stateApagarPrefixo('bibleComplete:' + v.id);
+  } catch (_) { /* sem banco: a lista se corrige na próxima varredura */ }
+  bibleCompleteVersions.delete(v.id);
+  // O CACHE DE VIZINHOS PODE SER DESTA VERSÃO, e ele não é relido do banco:
+  // deixá-lo de pé faria a leitura continuar mostrando um texto que o aparelho
+  // já não tem, e o próximo passo de capítulo o perderia sem explicação.
+  if (bibleSession && bibleSession.versionId === v.id) bibleAdjCache = {};
+  await recontarBibliaNoAparelho();
+  renderBibleVerList();
+  if (bibliaAberta()) renderBible();
+}
+
 function renderBibleVerList() {
   bibleVerListEl.innerHTML = '';
+  const total = bibliaTotalDeCapitulos();
   bibleVersions.forEach((v) => {
     const li = document.createElement('li');
     const row = document.createElement('div');
     row.className = 'row bible-ver-row' + (v.id === bibleVersionId ? ' selected' : '');
-    // nome + status offline resumido (completa / baixando / —)
     const main = document.createElement('span'); main.className = 'bible-ver-main';
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = v.name;
     const st = document.createElement('span'); st.className = 'bible-ver-status';
-    if (bibleCompleteVersions.has(v.id)) { st.textContent = '✓ Completa offline'; st.classList.add('done'); }
-    else if (bibleDl && bibleDl.running && bibleDl.versionId === v.id) { st.textContent = 'Baixando ' + bibleDl.done + '/' + bibleDl.total + '…'; }
-    else { st.textContent = 'Baixa ao usar'; }
+    const baixando = !!(bibleDl && bibleDl.running && bibleDl.versionId === v.id);
+    const noAparelho = bibleCachedCount[v.id] || 0;
+    // ===== O ESTADO DIZ O QUE O APP FAZ (v1.8.83) =====
+    //
+    // A terceira linha dizia **"Baixa ao usar"**, e isso era falso desde a
+    // v5.242: `changeBibleVersion` chama `ensureBibleVersionDownloaded` no ato
+    // da escolha, e `enterBibleTab` a chama para a versão em uso. O operador leu
+    // a frase e pediu o comportamento que o app já tinha — *"ao invés de baixar
+    // ao usar, ajuste o método para baixar a bíblia inteira ao escolher aquela
+    // versão"*. Era o pior artefato que este projeto sabe produzir: uma linha
+    // que DISCORDA do aparelho, lida por quem não tem como conferir.
+    //
+    // E A QUARTA É NOVA: uma versão PELA METADE existia (a varredura desiste
+    // depois de 25 falhas seguidas, que é a rede da igreja fora) e não tinha
+    // como ser vista — ela se lia igual a uma que nunca foi tocada.
+    if (bibleCompleteVersions.has(v.id)) {
+      st.innerHTML = checkIconSvg() + '<span>Completa offline</span>';
+      st.classList.add('done');
+    } else if (baixando) {
+      st.textContent = 'Baixando ' + bibleDl.done + '/' + bibleDl.total + '…';
+    } else if (noAparelho) {
+      st.textContent = 'Parcial · ' + noAparelho + ' de ' + total + ' capítulos';
+    } else {
+      st.textContent = 'Não baixada';
+    }
     main.append(name, st);
     row.appendChild(main);
-    if (v.id === bibleVersionId) { const chk = document.createElement('span'); chk.textContent = '✓'; chk.className = 'bible-ver-check'; row.appendChild(chk); }
+    // O ✓ DA ESCOLHA É O DO APP (v1.8.83), e não mais o caractere `✓` cru.
+    // Pedido do operador: *"verifique o design do 'check' usado nessa área de
+    // versões da bíblia, ele parece em um design fora do padrão estabelecido no
+    // app de um check reto e pouco estilizado"*. Ele estava certo sobre a causa:
+    // um caractere é desenhado pela FONTE DO SISTEMA, então o traço, o peso e a
+    // inclinação eram os de outra família — enquanto o mesmo ✓ em todo o resto
+    // do app sai do `checkIconSvg`, que é `polyline` de traço reto.
+    if (v.id === bibleVersionId) {
+      const chk = document.createElement('span');
+      chk.className = 'bible-ver-check';
+      chk.innerHTML = checkIconSvg();
+      row.appendChild(chk);
+    }
     row.addEventListener('click', () => {
       closeBibleVerPopup();
+      // ESCOLHER É BAIXAR, inclusive a versão JÁ escolhida: `changeBibleVersion`
+      // devolve cedo quando o id não muda, e era esse o único caminho em que
+      // tocar na linha não fazia nada — justamente o que se faz diante de uma
+      // varredura que a rede interrompeu. As duas são idempotentes e resumíveis.
+      ensureBibleVersionDownloaded(v.id);
       changeBibleVersion(v.id); // troca + recarrega o capítulo atual na nova versão
     });
+    // ===== O EXCLUIR (v1.8.83) =====
+    //
+    // APAGADO, e não ausente, quando não há o que excluir ou quando a versão é a
+    // que está EM USO: é a regra da v1.8.50 — um botão que aparece e some move
+    // os vizinhos debaixo do dedo, e o `title` diz POR QUÊ. Excluir a versão em
+    // uso é o pé de galinha desta folha: a leitura em cena passaria a depender
+    // da rede da igreja no meio do culto.
+    const del = document.createElement('button');
+    del.type = 'button';
+    // `.row-btn` e não uma caixa nova: ele é um botão de símbolo numa LINHA de
+    // lista, que é exatamente o que aquela classe já resolve (caixa `--hit`,
+    // tom, escala de ícone e resposta ao toque, num lugar só).
+    del.className = 'row-btn bible-ver-del';
+    del.appendChild(msym(ICON.del));   // `msym` devolve um NÓ, não uma string
+    const emUso = v.id === bibleVersionId;
+    del.disabled = emUso || (!noAparelho && !baixando);
+    del.title = emUso ? 'A versão em uso não é excluída — escolha outra antes'
+      : (!noAparelho && !baixando) ? 'Nada desta versão está no aparelho'
+        : 'Excluir o texto baixado desta versão';
+    del.setAttribute('aria-label', del.title);
+    del.addEventListener('click', (e) => { e.stopPropagation(); apagarVersaoBiblia(v); });
+    row.appendChild(del);
     li.appendChild(row);
     bibleVerListEl.appendChild(li);
   });
@@ -4989,12 +5130,34 @@ function renderBibleReading(wrap) {
   const foot = document.createElement('div'); foot.className = 'bible-read-foot';
   const v = s.verses[s.idx];
   const nav = document.createElement('div'); nav.className = 'bible-ref-nav';
+  // ===== O RÓTULO SAIU DA TELA E FOI PARA O NOME DO BOTÃO (v1.8.83) =====
+  //
+  // Pedido do operador: *"Remova os títulos dos grupos na barra inferior durante
+  // a leitura. A largura da barra é definida por esses títulos, mas ocupa um
+  // espaço desnecessário na área dos capítulos e versículos em relação aos
+  // números e aperta na área dos livros… Essa barra não deve ter um modo de
+  // 'duas linhas'"*.
+  //
+  // Ele descreve o mecanismo com precisão, e a v1.7.9 já o tinha medido do outro
+  // lado: *"quem se dimensiona pelo RÓTULO são as três pílulas de número —
+  // 'CAPÍTULO' e 'VERSÍCULO' em caixa alta são muito mais largos que os valores
+  // ('3'), então é o rótulo que dita a largura"*. Aquele lote pagou o aperto
+  // encolhendo o rótulo; este tira a causa.
+  //
+  // O QUE SUBSTITUI A PALAVRA NA TELA É A TINTA, e ela já estava lá desde a
+  // v1.3.14: cada pílula veste a grade que abre — o livro na tinta do grupo
+  // canônico, o capítulo no tom frio, o versículo no quente. A palavra era a
+  // terceira escrita da mesma informação, depois da cor e da posição.
+  //
+  // E ELA NÃO SOME DO APP: vira `title` e `aria-label`, que é onde um botão sem
+  // rótulo diz o que é — a mesma regra dos três destinos da playlist automática.
   const part = (label, value, onClick, cls) => {
     const b = document.createElement('button'); b.type = 'button';
     b.className = 'bible-ref-part' + (cls ? ' ' + cls : '');
-    const l = document.createElement('span'); l.className = 'bible-ref-label'; l.textContent = label;
+    b.title = label;
+    b.setAttribute('aria-label', label + ': ' + value);
     const t = document.createElement('span'); t.className = 'bible-ref-value'; t.textContent = value;
-    b.append(l, t);
+    b.appendChild(t);
     b.addEventListener('click', onClick);
     nav.appendChild(b);
   };
@@ -7326,10 +7489,31 @@ function abrirBiblia() {
   fecharFerramentas();
   bibleSheetEl.hidden = false;
   bibliaNoAr = true;
-  // A tela de LIVROS é a raiz: entrar pela porta é começar do começo. Sem isto
-  // a Bíblia reabriria no capítulo de uma consulta de meia hora atrás — a mesma
-  // razão do `resetarBiblioteca` do acervo.
-  bibleScreen = 'books';
+  // ===== ELA REABRE ONDE PAROU, DENTRO DA MESMA SESSÃO (v1.8.83) =====
+  //
+  // Pedido do operador: *"faça a janela da bíblia lembrar de onde estava na
+  // próxima abertura durante uma mesma seção. Ao invés de voltar sempre para o
+  // seletor do livro"*.
+  //
+  // ISTO REVOGA a regra da v1.5.0 (*"entrar pela porta é começar do começo"*,
+  // pela analogia com o `resetarBiblioteca` do acervo), e a analogia era o
+  // defeito: a Biblioteca é uma BUSCA — voltar ao topo é o certo, porque o que
+  // se procura muda a cada abertura. A Bíblia numa pregação é UMA leitura,
+  // interrompida por um louvor e retomada dois minutos depois, e cada retomada
+  // custava livro → capítulo → versículo com o pregador falando.
+  //
+  // "MESMA SESSÃO" é literal e vem de graça: `bibleScreen` é um `let` de módulo,
+  // e ele morre com a página — fechar o app devolve a tela de livros sem uma
+  // linha a mais. Nada é gravado.
+  //
+  // E A TELA LEMBRADA É CONFERIDA, nunca restaurada às cegas: `reading` supõe
+  // uma `bibleSession` (o `clearBibleSession` já a rebaixa para `chapters` ao
+  // encerrá-la, mas ela também morre com um `load` de mídia comum) e `chapters`
+  // supõe um livro escolhido em `bibleSel`. Sem a conferência, reabrir depois de
+  // um louvor cairia numa grade de capítulos de livro nenhum — o `bibleSel`
+  // nasce com `bookIdx: -1`.
+  if (bibleScreen === 'reading' && !bibleSession) bibleScreen = 'chapters';
+  if (bibleScreen === 'chapters' && !(bibleSel && bibleSel.bookIdx >= 0)) bibleScreen = 'books';
   renderBible();
   // Versões/livros e o download da versão INTEIRA na 1ª vez (em segundo plano).
   enterBibleTab();
@@ -21679,10 +21863,12 @@ function atualizarContaSorteio() {
   const n = pool.itens.length;
   conta.classList.toggle('vazio', n === 0);
   pintarContaSorteio(conta, pool);
-  // OS DOIS botões, e não `.song-menu-go`: desde a v5.306 a faixa de fecho tem
-  // "Tocar agora" e "Ao Cronograma", e um seletor que pegasse só o primeiro
-  // deixaria o segundo habilitado sobre um pool vazio.
-  sorteioListEl.querySelectorAll('.sorteio-acao').forEach((b) => { b.disabled = n === 0; });
+  // A TRAVA É UMA REGRA SÓ (v1.8.83). Este laço era uma segunda cópia dela, e a
+  // cópia estava errada por DOIS motivos: lia só `n === 0` (ignorando o
+  // `sorteioRodando`, então a fala do fim de um lote reabilitava a faixa com a
+  // corrida ainda em pé) e procurava os botões DENTRO da lista, onde eles não
+  // moram mais desde a v1.8.60. O pool já está na mão — ver o parâmetro.
+  acertarTravaSorteio(pool);
 }
 
 // ===== A CONTA FALA DE MÚSICA, NÃO DE VARREDURA (v5.306) =====
@@ -21756,6 +21942,23 @@ function numeroPt(n) {
   try { return n.toLocaleString('pt-BR'); } catch (_) { return String(n); }
 }
 
+// A PALAVRA TEMA ENTRA CLAMPADA NA FRASE (v1.8.83).
+//
+// O cartão da conta tem altura FIXA (ver `.sorteio-conta` no CSS), e a única
+// entrada SEM LIMITE que chega até ele é o que o operador digita: MEDIDO, uma
+// palavra de 30 caracteres empurrava a frase para uma QUINTA linha a 360px com
+// a fonte do sistema a 1,5× — e com ela a faixa de fecho, que é o defeito que o
+// cartão veio fechar.
+//
+// Truncar AQUI não esconde nada: a palavra inteira está no campo dois dedos
+// acima, e é dele que a REGRA lê (`sorteioPrefs.tema` continua cru em
+// `sorteioPool`). O número é o do `rotuloItem`, que resolve a mesma pergunta
+// para o nome de uma faixa.
+const TEMA_NA_FRASE_MAX = 24;
+function temaNaFrase(palavra) {
+  return palavra.length > TEMA_NA_FRASE_MAX ? palavra.slice(0, TEMA_NA_FRASE_MAX) + '…' : palavra;
+}
+
 // Devolve `[linha forte, linha fraca]`. A fraca pode ser vazia.
 function frasesDaContaSorteio(pool) {
   const n = pool.itens.length;
@@ -21770,7 +21973,7 @@ function frasesDaContaSorteio(pool) {
   // número na casa dos milhares.
   const forte = palavra
     ? numeroPt(n) + (n === 1 ? ' música relacionada a ' : ' músicas relacionadas a ')
-      + '“' + palavra + '”'
+      + '“' + temaNaFrase(palavra) + '”'
     : escopoSemPalavra(n);
 
   const baixadas = pool.noAparelho;
@@ -21853,7 +22056,7 @@ function fraseDoVazioSorteio(pool) {
     return 'Só sobraram hinos infantis. Desligue “Sem infantis” para incluí-los.';
   }
   const palavra = sorteioPrefs.tema.trim();
-  return palavra ? 'Nada combina com “' + palavra + '” na biblioteca.'
+  return palavra ? 'Nada combina com “' + temaNaFrase(palavra) + '” na biblioteca.'
     : 'Nenhuma música disponível com esses filtros.';
 }
 
@@ -22193,13 +22396,55 @@ async function executarSorteio(btn, desfecho) {
     }
   } finally {
     sorteioRodando = false;
-    // E A FOLHA VOLTA A ACEITAR TOQUE. Ela costuma já ter sido fechada aqui,
-    // mas há um caminho em que não: recusar o consentimento de download desiste
-    // sem fechar nada. Sem este redesenho, um render que tenha acontecido
-    // DURANTE a corrida (o índice de letras chegando) deixaria o confirmar
-    // desabilitado pelo `sorteioRodando` — e nada mais o reabilitaria.
-    if (sorteioPopupEl.classList.contains('open')) renderSorteio();
+    // E A FOLHA VOLTA A ACEITAR TOQUE — EM PONTOS, nunca por redesenho
+    // (v1.8.83). Ela costuma já ter sido fechada aqui, mas há um caminho em que
+    // não: recusar o consentimento de download desiste sem fechar nada. Sem
+    // isto, um render que tenha acontecido DURANTE a corrida (o índice de
+    // letras chegando) deixaria o confirmar desabilitado pelo `sorteioRodando`
+    // — e nada mais o reabilitaria. Ver `acertarTravaSorteio`: era um
+    // `renderSorteio()`, e ele APAGAVA o pulso que a linha acima acabou de pôr.
+    acertarTravaSorteio();
   }
+}
+
+// A TRAVA DA FAIXA DE FECHO, ESCRITA EM PONTOS (v1.8.83).
+//
+// Relato do operador: *"O feedback de confirmação dos botões na seção de
+// playlist automática, estão muito rápidos, basicamente não visíveis. Verifique
+// seu tempo de exposição ou se tem algo atualizando a tela"*.
+//
+// Era a segunda hipótese, e o tempo não tinha nada a ver: o `finally` do
+// `executarSorteio` chamava `renderSorteio()` só para reabilitar esta faixa, e
+// um redesenho TROCA OS NÓS — `limparFolha` esvazia a lista e cada botão é
+// criado de novo. O `responder` acabara de pôr o pulso no botão TOCADO, e
+// aquele botão saía do documento no quadro seguinte.
+//
+// MEDIDO: o nó trocado em 23 ms, o pulso vivendo os `PULSO_MS` (1100 ms)
+// inteiros — num nó SOLTO. **Zero milissegundo na tela.** Não era rápido: não
+// era visível. Vale para os dois desfechos que respondem no botão, o "guardei"
+// e o "não havia o que sortear".
+//
+// Escrever `disabled` em cada botão é tudo que aquele redesenho tinha a fazer,
+// e não toca em nó nenhum. A CONTA continua sendo repintada à parte
+// (`atualizarContaSorteio` substitui só os filhos dela), e é por isso que a
+// frase do `falarNoSorteio` sobrevive: ela mora em ESTADO, não no nó — a mesma
+// regra que faltava aqui.
+// `pool` é OPCIONAL e existe por CUSTO: quem já o montou o passa, e quem chama
+// do `finally` não tem um na mão. `sorteioPool()` varre os dois hinários mais
+// todos os álbuns indexados e, para o que não casa pelo título, o texto inteiro
+// da letra — a mesma varredura que o campo do tema paga com `debounce`. Montá-lo
+// duas vezes por tecla digitada é o preço que este parâmetro não paga.
+//
+// E O SELETOR É O DA FOLHA, não o da LISTA. A faixa de fecho mora no
+// `.popup-fecho`, IRMÃO da `.popup-list` (v1.8.60) — um
+// `sorteioListEl.querySelectorAll('.sorteio-acao')` não acha botão nenhum, e era
+// isso que a cópia daqui fazia desde então: um laço sobre zero nós, sem erro em
+// lugar nenhum.
+function acertarTravaSorteio(pool) {
+  if (!sorteioPopupEl.classList.contains('open')) return;
+  const p = pool || sorteioPool();
+  const travado = !p.itens.length || sorteioRodando;
+  sorteioPopupEl.querySelectorAll('.sorteio-acao').forEach((b) => { b.disabled = travado; });
 }
 
 // UMA SÓ. `playSongVariant` já faz tudo — fecha o acervo, abre o cartão de

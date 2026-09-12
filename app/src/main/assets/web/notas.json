@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.8.83",
+    "itens": [
+      "Corrigido: com um louvor tocando, cobrir o telão deixava o versículo na tela da TV.",
+      "Playlist automática: a confirmação dos botões agora aparece de verdade — era apagada na hora.",
+      "Playlist automática: os resultados viraram um cartão de tamanho fixo, e a folha parou de pular.",
+      "Cifra: a barra de velocidade agora cobre os botões ao lado em vez de empurrá-los para fora.",
+      "Bíblia: a barra de livro/capítulo/versículo cabe numa linha só, sem os títulos dos grupos.",
+      "Bíblia: a janela reabre onde você parou, até fechar o app.",
+      "Bíblia: dá para excluir uma versão baixada, e a lista diz quanto de cada uma está no aparelho."
+    ]
+  },
+  {
     "versao": "1.8.82",
     "itens": [
       "Faxina por dentro: saiu o motor de tocar vídeo do YouTube sem baixar, desligado desde a v1.7.7.",

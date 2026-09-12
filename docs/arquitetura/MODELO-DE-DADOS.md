@@ -249,6 +249,8 @@ updateState(key, fn)          // ler + calcular + gravar numa transação SÓ. `
                               // SÍNCRONA (ver a regra abaixo)
 stateKeys(prefix)             // chaves de `state` com esse prefixo, numa transação
                               // só e SEM ler valor nenhum — presença em massa
+stateApagarPrefixo(prefix)    // apaga TODAS as chaves com esse prefixo, numa
+                              // transação só; devolve quantas saíram (v1.8.83)
 addMedia(blob, meta)          // cria registro + adiciona a meta.list (padrão 'imports')
 addUrlMedia(url, meta)        // item de URL externa (blob=null), idem
 addDeck(pages, meta)          // apresentação: uma imagem por página
@@ -265,6 +267,16 @@ opfsDeleteFile, opfsDeleteDir,                          // File System
 opfsFolderSize(path)                                    // quanto uma pasta ocupa
 kindFromType, sendCommand, onCommand
 ```
+
+**`stateApagarPrefixo` é do mesmo par que o `stateKeys`, e eles estão lado a lado
+no arquivo por isso:** os dois montam o MESMO intervalo (`IDBKeyRange.bound(p, p
++ '\uffff')`), e dois jeitos de escrevê-lo divergiriam no primeiro ajuste. Quem o
+pediu foi o excluir de uma versão da Bíblia — **1189 chaves**; apagá-las uma a
+uma seriam 1189 transações num processo que fica aberto o culto inteiro, que é a
+mesma conta que fez o `stateKeys` existir. O `delete()` do cursor não invalida a
+iteração. Ele devolve QUANTAS saíram porque quem chama precisa distinguir
+*"apaguei"* de *"não havia nada"*, e um `undefined` faria as duas se lerem igual.
+
 
 **`listSet` tem duas formas, e a diferença é atomicidade:**
 

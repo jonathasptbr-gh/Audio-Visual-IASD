@@ -90,6 +90,17 @@ Texto é **desacoplada do ciclo de vida da mídia do stage** — `showText`/
   `showLyrics`/`showPvLyrics` retornam cedo se um texto manual estiver em cena
   (a letra pertence a UMA música tocando; um versículo/mensagem manual tem
   precedência sobre a letra do áudio de fundo).
+- **A CORTINA É COMPARTILHADA, A `view` NÃO É** (v1.8.83). `showText` move a
+  cortina por conta própria — o fade de entrada do cartão é dele —, mas a `view`
+  continua sendo estado do STAGE, e ele passou a DECLARÁ-LA
+  (`stage.declararView(textView)`). Sem essa linha ela ficava congelada no valor
+  anterior e o `view` seguinte caía no `if (v === view) return` do
+  `setViewFaded`: com o telão **já coberto** antes de o versículo entrar,
+  "apenas wallpaper" não cobria mais nada e a Escritura ficava presa no telão —
+  **com a preview obedecendo**, porque o `setView` do `controle.js` move a
+  cortina dela por fora. É a condição inteira do *"aconteceu algumas vezes, mas
+  não sempre"*. Ver `declararView` em `MOTOR-STAGE.md`; oráculo:
+  `cartao-preso-no-telao.test.mjs`.
 - **Sair do texto sem nada em cena volta ao WALLPAPER, não ao preto**
   (`restoreSceneAfterText`/`restorePvSceneAfterText`). `showText` abre a
   cortina para o cartão aparecer; se não há mídia carregada — ou a que havia já
