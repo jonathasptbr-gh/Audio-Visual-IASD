@@ -1,11 +1,28 @@
 [
   {
-    "versao": "1.8.91",
+    "versao": "1.8.92",
     "itens": [
       "Timer: os botões de + e − saíram; agora o tempo se escolhe em duas roletas, minutos e segundos.",
       "Timer: a roleta é o próprio número, e é ela que anda durante a contagem.",
       "Timer: contando, o tempo não pode mais ser alterado sem pausar.",
       "Timer: o número cresce até ocupar a janela, e a janela de Ferramentas não rola mais."
+    ]
+  },
+  {
+    "versao": "1.8.91",
+    "itens": [
+      "Apresentação: o vídeo de um slide não entra mais por cima da mídia que você escolheu enquanto ele carregava.",
+      "Apresentação: subir o cronômetro enquanto o slide abre deixou de cancelar a volta para a apresentação.",
+      "Bíblia: excluir uma versão que estava baixando agora para o download, em vez de marcá-la como completa.",
+      "Bíblia: a versão excluída não volta sozinha a baixar na abertura seguinte.",
+      "Bíblia: excluir uma versão não apaga mais a marca de 'completa' de outras versões.",
+      "Bíblia: a lista de versões deixou de ser redesenhada a cada capítulo — a folha ficou mais leve.",
+      "Bíblia: ao terminar de baixar, a folha aberta passa a mostrar o resultado na hora.",
+      "Telão: com a tela coberta, mexer no cronômetro ou no sorteio não descobre mais a mídia.",
+      "Cifra em tela cheia: com a barra de velocidade aberta, o botão de sair some — agora ele volta.",
+      "Cifra em tela cheia: os rótulos 0,5× e 2× estavam trocados de lado no controle de velocidade.",
+      "O botão de limpar o Cronograma passou a responder ao toque como os vizinhos.",
+      "Exportar o acervo: cancelar no meio não trava mais o app."
     ]
   },
   {

@@ -686,7 +686,7 @@ exibindo exatamente o mesmo valor do Controle.
   respeitar uma "escolha" que ninguém fez faria a mudança não chegar a ninguém.
 - **`baseMs` existe porque pausar precisa congelar o acumulado.** Com `startAt`
   sozinho, retomar perderia todo o trecho anterior.
-- **NO PAINEL, O TIMER SE ESCOLHE EM DUAS ROLETAS** (v1.8.91) — minutos 0..60 e
+- **NO PAINEL, O TIMER SE ESCOLHE EM DUAS ROLETAS** (v1.8.92) — minutos 0..60 e
   segundos 0..59, pedido do operador. **A roleta É o mostrador**, não um campo
   ao lado dele: contar é ela andar, e por isso não sobrou número de texto no
   modo timer (o Relógio e o Cronômetro mantêm o `.chrono-read`, porque neles não

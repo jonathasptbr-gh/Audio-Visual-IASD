@@ -1108,7 +1108,7 @@ try {
     'J · e o token volta ao valor da folha depois da sonda, para o resto do '
     + 'arquivo não medir uma tela adulterada', JSON.stringify(icone));
 
-  // ── K. AS DUAS ROLETAS DO TIMER (v1.8.91) ───────────────────────────────
+  // ── K. AS DUAS ROLETAS DO TIMER (v1.8.92) ───────────────────────────────
   //
   // Pedido do operador: *"uma roleta/lista vertical de 0 a 60 para os minutos e
   // uma roleta vertical para os segundos de 0 a 59. O número durante a contagem

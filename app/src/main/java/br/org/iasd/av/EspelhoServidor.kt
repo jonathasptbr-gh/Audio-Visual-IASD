@@ -575,9 +575,12 @@ class EspelhoServidor(
             // o token de serviço leva o 404 idêntico de sempre.
             r.metodo == "GET" && rota.startsWith("/m/") ->
                 servirMidia(rota.substring(3), r, saida)
-            // A TRANSMISSÃO DIRETA (v5.189) — ANÔNIMA pelo mesmo motivo do
-            // `/m/`: o token opaco na rota é a capacidade, e quem busca é o
-            // `shared/mse.js`, que não sabe de sessão nenhuma.
+            // A TRANSMISSÃO DIRETA (v5.189) — SEM CLIENTE desde a v1.8.82: o
+            // leitor de MSE saiu do bundle e nada no app pede esta rota. Ela
+            // fica porque tirá-la é um degrau de `SHELL_VERSION` e uma Release,
+            // e o lado seguro é encolher o web primeiro. Era ANÔNIMA pelo mesmo
+            // motivo do `/m/`: o token opaco na rota é a capacidade, e quem
+            // buscava não sabia de sessão nenhuma.
             r.metodo == "GET" && rota.startsWith("/s/") ->
                 servirTransmissao(rota.substring(3), r, saida)
             else -> responder(saida, naoAchei())

@@ -761,7 +761,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :is(
   .ctl-btn, .t-btn, .settings-btn,
   .import-btn, .tools-btn, .lib-foot-btn, .back-btn, .sel-btn,
-  .row-btn, .popup-close,
+  .row-btn, .popup-close, .crono-limpar,
   /* O ⛶ da cifra (v1.6.0): ele nasce no MESMO lote em que entra aqui, que é a
      regra desta lista — um controle novo fora dela fica mudo ao toque sem nada
      na tela dizer por quê. Nenhum ancestral dele responde ao toque. */
@@ -2284,7 +2284,8 @@ main {
    que o operador amarrou por extenso — três PÍLULAS PREENCHIDAS mais o cartão da
    linha do tempo, *"o mesmo cinza claro dos botões inativos de próximo e
    anterior slide"* —, e as quatro têm corpo e tinta `--text`. Este é um ícone
-   SOLTO, sem corpo, com 1,83px de traço e tinta `--muted`: ele nunca foi dessa
+   SOLTO, sem corpo, com o traço de sempre a `--icon-lg` (v1.8.69) e tinta
+   `--muted`: ele nunca foi dessa
    família, só pegou o número emprestado. MEDIDO no mesmo PNG, contra a MESMA
    barra: a pílula desabilitada entrega 2,66:1 no escuro e o traço deste botão
    entregava **1,83:1** — mesmo alfa, 0,83 ponto de diferença.
@@ -6242,9 +6243,10 @@ main {
   /* O PISO DE TOQUE, e ele passou a ser DECLARADO na v1.8.83: com o rótulo, a
      altura vinha das duas linhas e sobrava; com uma linha só, MEDIDO, as pílulas
      de número caíam a 28,7px a 360×740 com a fonte do sistema em 1,5× — abaixo
-     dos 34 do piso, e o portão de geometria (T4) o pegou. O  do rodapé
-     não resolve: os dois botões de guardar derivam a LARGURA da altura herdada,
-     então quem dita a altura da faixa é este bloco. */
+     dos 34 do piso, e o portão de geometria (T4) o pegou. O `align-items:
+     stretch` do rodapé (`.bible-read-foot`) não resolve: os dois botões de
+     guardar derivam a LARGURA da altura herdada, então quem dita a altura da
+     faixa é este bloco. */
   min-height: var(--hit);
   /* `flex-grow: 1` reparte a sobra entre as quatro (v1.8.80): sem ele a nav
      cresce e as pílulas ficam agrupadas à esquerda dela — o mesmo vão de antes,
@@ -6447,7 +6449,7 @@ main {
 /* Mensagens: quem rola é a LISTA, não o painel — senão "+ Nova mensagem" e
    "Tirar do telão" sairiam de vista assim que a lista crescesse. */
 .misc-panel--msg { overflow: hidden; }
-/* TEMPO: O PAINEL NÃO ROLA, ELE ENCOLHE (v1.8.91) — *"o que eu não quero é que
+/* TEMPO: O PAINEL NÃO ROLA, ELE ENCOLHE (v1.8.92) — *"o que eu não quero é que
    tenha scroll nessa janela de ferramentas"*. O `min-height: min-content` da
    regra acima é o que fazia a folha rolar quando o conteúdo não cabia; com o
    piso em ZERO quem cede é a ROLETA, que mede o que sobra e se ajusta (ver
@@ -6492,7 +6494,7 @@ main {
    é do tamanho do texto dele e empurra o transporte para fora da caixa (que
    `overflow: hidden` na folha CORTA, sem erro nenhum).
 
-   E A FAIXA CRESCE (v1.8.91): no timer o mostrador é a ROLETA, e ela ocupa o
+   E A FAIXA CRESCE (v1.8.92): no timer o mostrador é a ROLETA, e ela ocupa o
    que sobrar da altura do painel. `min-height: 0` é o que permite ENCOLHER —
    sem ele um item flex nunca fica menor que o conteúdo, e o painel voltaria a
    rolar numa tela apertada, que é o que o pedido do operador proíbe. */
@@ -6533,7 +6535,7 @@ main {
 }
 .chrono-read.over { color: var(--danger-strong); }
 
-/* ---------- AS DUAS ROLETAS DO TIMER (v1.8.91) ----------
+/* ---------- AS DUAS ROLETAS DO TIMER (v1.8.92) ----------
    Pedido do operador: *"uma roleta/lista vertical de 0 a 60 para os minutos e
    uma roleta vertical para os segundos de 0 a 59… O número durante a contagem é
    a própria roleta/lista se movendo e contando."*
@@ -10211,10 +10213,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    DOM ainda assim, o `>` das regras abaixo continua alcançando só os quatro
    botões originais.
 
-   O ⛶ NÃO ENTRA NA LISTA DO QUE SOME, e é a única exceção à palavra "vizinhos"
-   do pedido: *a fila da cifra sempre tem a saída* (a invariante do
-   `lvBuildCifra`). Escondê-lo deixaria uma gaveta aberta em paisagem sem
-   nenhuma saída à vista. */
+   O ⛶ ENTROU NA LISTA DO QUE SOME na v1.8.83, a pedido do operador — a regra
+   anterior (*a fila da cifra sempre tem a saída*) foi REVOGADA ali, e a saída
+   passou a ser o ✕ da própria gaveta, que é o mesmo botão do seletor. O que
+   sustenta isso é o `lvBuildCifra` fechar a gaveta ANTES dos retornos cedo
+   (v1.8.85): sem aquilo, um render que caísse na ESPERA varria o ✕ e deixava a
+   classe `escolhendo` apagando o ⛶ — em paisagem, sem nenhuma saída à vista. */
 /* ===== E A GAVETA DESLIZA, COM UM SLIDER DENTRO (v1.8.80) =====
 
    Pedido do operador: *"primeiramente isso não possue nenhuma animação. Então
@@ -10323,9 +10327,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `height` é sobre-restrição, e aí o navegador ignora um deles — o que se
    anima é a altura. O trio coberto não precisa de regra própria aqui: ele some
    por `visibility`, que não tem eixo. */
+/* `column-reverse` E NÃO `column` (v1.8.85): o slider é `writing-mode:
+   vertical-lr` + `direction: rtl`, isto é, o MÍNIMO fica EMBAIXO — e a ordem do
+   DOM é `pontaIni("0,5×") · slider · pontaFim("2×")`. Em `column` os dois
+   rótulos saíam invertidos em relação ao próprio controle: o músico lia "0,5×"
+   em cima, arrastava o cap para lá querendo desacelerar, e a folha acelerava
+   para 2× no meio da música. `column-reverse` põe a `pontaIni` no PÉ, junto do
+   mínimo. Isto não toca o eixo do retrato, onde a fila é LINHA e a ordem do DOM
+   já casa com o `direction` padrão. */
 #lyricsPopup:fullscreen .lv-cifra-vels,
 #lyricsPopup:-webkit-full-screen .lv-cifra-vels {
-  flex-direction: column;
+  flex-direction: column-reverse;
   left: 0; right: 0; top: var(--vels-off); bottom: auto;
   width: auto; height: 0;
   transition: height .22s ease, opacity .16s ease, visibility 0s linear .22s;

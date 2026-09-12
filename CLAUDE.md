@@ -78,7 +78,8 @@ ficaram por aplicar — consultar por `grep`) e
 `docs/AUDITORIA-ESTABILIDADE-AV.md` (**apêndice**: a varredura de 2026-08-29
 focada em ESTABILIDADE — o que pode interromper a transmissão ou a mídia no ar:
 dez achados, cada um com cenário, correção proposta e ressalva; um deles é
-MEDIÇÃO, não conserto) e `docs/AUDITORIA-EFICIENCIA-2026-09.md` (o custo de
+MEDIÇÃO, não conserto), `docs/AUDITORIA-2026-09-11.md` (**apêndice**: a varredura
+da semana da v1.5.19 à v1.8.69) e `docs/AUDITORIA-EFICIENCIA-2026-09.md` (o custo de
 MANTER o repositório, não a qualidade do que ele produz: nove achados medidos
 sobre contexto, retrabalho, rito de entrega e CI — o nº 1 é este arquivo, que
 cresceu 23% em sete dias e é lido inteiro em toda sessão. **A refutação rodou
@@ -512,7 +513,8 @@ dependem de **máquina** têm prazo de 60 s; `pickFolder` e `requestMic` esperam
 uma **pessoa** e ficam sem prazo.
 
 São **58 métodos**, e essa é a superfície inteira que o resto do lado web tem
-direito de usar — o SHELL serve 63, e a diferença são CINCO encolhidos pelo lado
+direito de usar — o SHELL serve **69** métodos `@JavascriptInterface`, e a
+diferença de 11 são os internos logo abaixo mais CINCO encolhidos pelo lado
 web: três na v1.8.71 (`ytStream`, `otaPending`, `apkProcurar` — órfãos de duas
 fusões) e dois na v1.8.89 (`requestMic`, `micDiag`, com o MICROFONE AO VIVO). O
 Kotlin continua servindo os cinco, e por isso nenhum dos dois lotes pediu
@@ -521,12 +523,15 @@ métodos que ninguém chama não custa nada ao aparelho; é a ordem inversa (bas
 web nova contra APK velho) que precisa do `shellTag`. Quem guarda a regra agora
 é o `funcao-sem-chamador.test.mjs`, que varre a superfície da ponte e exige
 consumidor fora do `native.js` — fora do `native.js`, tocar em `__AVBridge` direto é
-acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
+acoplamento indevido. O próprio `native.js` chama mais NOVE coisas lá, e nenhuma
 é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
 outros dois DESTINOS do `ytFetch` — só-áudio e teto de resolução),
+`espelhoLigarEm` (a via escolhida pelo operador, por trás do `espelhoLigar`),
 `shellVersion()`/`role()`/`appVersion()` (viram as globais abaixo), `busPost()`
 (relay do barramento), `otaConfirm()` (watchdog do OTA) e `takeShare()` (consumo
-do share pendente, que alimenta o `onShare`).
+do share pendente, que alimenta o `onShare`). **A conta fecha:** 60 de
+superfície − 3 callbacks sem par no Kotlin (`onShare`, `onRemote`,
+`onDisplayChange`) + 9 internos = 66 chamados, + 3 órfãos = 69 servidos.
 
 **Quatro globais lidas direto, sem Promise:** `window.__NATIVE__`, `__AV_ROLE__`
 (`'controle'`/`'display'`; o terceiro valor, `'tela'`, é escrito por
@@ -1250,10 +1255,12 @@ a última linha do `init()`.
 > **126 s de sono por rodada em série**. Hoje ele espera o `__avPronto` (escrito
 > pelo gancho do `abrirNavegador` quando o `controle.js` chama
 > `__avSplash.pronto()`, a última linha do `init()` que muda o que se vê) e tira
-> o nó, que é o que o `sair()` do app faria 1,8 s depois. **A garantia é a mesma
-> e está provada por reversão**: com o `controle.js` abortado pela rota, ele
-> continua devolvendo a FRASE do prazo em vez de passar — o único caminho que
-> sobra ali é o teto de 12 s, e ele o espera inteiro.
+> o nó, que é o que o `sair()` do app faria 1,8 s depois. **E ELE NÃO É UM
+> DETECTOR DE APP QUEBRADO**: no cenário catastrófico o teto de 12 s do `<head>`
+> tira a cortina, o predicado passa a valer e ele devolve `true` — a garantia é
+> que a tela fica TOCÁVEL, não que o app subiu. Quem afirma o app de pé é o
+> `abertura-e-transferencia`, com asserção própria; um oráculo que trate o
+> retorno deste como veredito está lendo o que ele não responde.
 
 Oráculo: `abertura-e-transferencia.test.mjs`, com o cenário catastrófico medido
 (o `controle.js` abortado pela rota, o tema já certo, a cortina levantando pelo
@@ -1367,15 +1374,17 @@ nenhum**, e por isso ficam aqui.
   lista"*) e desistiu diante do preço, porque ali a folha ainda é a única porta
   para cinco coisas e um item é o estado que todo toque numa mídia produz.
 - **A CAIXA CERTA NÃO GARANTE O DESENHO CERTO, e a divergência é MUDA**
-  (v1.8.68). A escala de ícone mora em DUAS listas de `controle.css`
-  (`--icon-sm`, 20px, e `--icon-md`, 22px), e um botão que não esteja em NENHUMA
-  delas cai no atributo `width`/`height` que o HTML escreveu — que pode coincidir
+  (v1.8.68). A escala de ícone mora em TRÊS listas de `controle.css`
+  (`--icon-sm`, 20px; `--icon-md`, 22px; `--icon-lg`, 24px), e um botão que não
+  esteja em NENHUMA delas cai no atributo `width`/`height` que o HTML escreveu — que pode coincidir
   com o degrau certo por acidente e deixar de coincidir no dia em que alguém
   mexer no token. Foi o que aconteceu ao `.crono-limpar`: MEDIDO, o `<svg>` dele
   media 20px contra os 22 da engrenagem a 34px de distância na MESMA faixa,
   enquanto as CAIXAS dos dois botões eram iguais — e havia asserção provando que
-  as caixas eram iguais, o que é por que ninguém viu. **Botão de ícone novo entra
-  numa das duas listas no lote em que nasce**, e o oráculo que o cobrir mede o
+  as caixas eram iguais, o que é por que ninguém viu. (Ele hoje é `--icon-lg`,
+  por regra PRÓPRIA, que é o degrau a mais que a v1.8.69 lhe deu.) **Botão de
+  ícone novo entra numa das TRÊS listas — ou ganha regra própria com a razão ao
+  lado — no lote em que nasce**, e o oráculo que o cobrir mede o
   `<svg>`, não o botão. É a mesma armadilha que a v1.5.19 já tinha consertado
   nas três portas do rodapé, e o comentário dela está no lugar certo do CSS.
 - **E O TAMANHO NÃO É A ÚNICA RÉGUA DE "PARECE PEQUENO": A OUTRA É DENSIDADE**
@@ -1531,7 +1540,7 @@ nenhum**, e por isso ficam aqui.
   `scrollbar-color` é diferente de `auto` — o Chromium desliga esses pseudos
   (medido: calha 10px, o valor de `thin`, contra os 7px que o pseudo pedia).
   Não escrever mais nenhum.
-- **UM SCROLLER QUE É SELETOR NÃO LEVA A MARCA `rola`** (v1.8.91). A roleta do
+- **UM SCROLLER QUE É SELETOR NÃO LEVA A MARCA `rola`** (v1.8.92). A roleta do
   timer é um scroller com `scroll-snap`, e a sombra das bordas diria ali *"há
   conteúdo escondido"* sobre uma lista cujo conteúdo escondido é o RECURSO — ela
   é um seletor de valor, não um texto que continua fora da vista. O que marca a
@@ -2003,17 +2012,21 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **86** e os de Node puro **19** — juntos, os 105. MEDIDO com
-79 deles: **12,8 min em série** e **4,3 min nos três processos** (4 vCPU, o mesmo
-do runner); os de Node puro somam **8 s**. O custo não é o que parece: lançar o navegador são **~110 ms** e
+Os de Chromium são **85** e os de Node puro **19** — juntos, os 104. MEDIDO com
+82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
+do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
+lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
+contra 82/101 lá) e a varredura que os fecha é contar o `rodar` do workflow. O custo não é o que parece: lançar o navegador são **~110 ms** e
 subir o `/controle/` inteiro é **~1 s** — compartilhar um navegador entre
 oráculos, a otimização óbvia, economizaria 2% e custaria o isolamento. O que
 sobra é espera, com os quatro núcleos ociosos.
 
-**E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é.** MEDIDO: os 49 mais
-baratos somam **153 s dos 769 s**, e VINTE deles rodam em menos de 2 s cada —
-apagar esses vinte devolveria **9 s de parede** e custaria a cobertura inteira
-que eles carregam.
+**E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é.** MEDIDO: os 52 mais
+baratos somam **161 s dos 783 s**, e VINTE E TRÊS deles rodam em menos de 2 s
+cada — apagar esses vinte e três devolveria **~9 s de parede** e custaria a
+cobertura inteira que eles carregam. **Os números moram no `apk.yml`**, ao lado
+do passo que eles descrevem, e esta é a cópia: divergiram uma vez (79/99 aqui
+contra 82/101 lá), e quem decide sobre o passo lê esta.
 O passo é caro por causa de uma DÚZIA de arquivos, e o que os encarece são
 defeitos de arnês, não asserções a mais — dois deles pagaram 130 s sozinhos (ver
 as duas armadilhas logo abaixo). **A pergunta diante de um passo lento é "onde
@@ -2476,8 +2489,9 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   da mesma semana deram três respostas sobre a extração do YouTube, e a leitura
   que saiu delas ("é sempre") foi uma generalização de duas amostras que a
   terceira derrubou. Onde o desfecho pode variar entre uma vez e outra, o bloco
-  leva CONTADOR DE SESSÃO ao lado da linha: o `ytCenso` (pedidos e qualidade
-  limitada) é o de hoje. (O censo de travamentos da transmissão direta saiu com
+  leva CONTADOR DE SESSÃO ao lado da linha: o `ytCenso` é o de hoje, e ele conta
+  a QUALIDADE LIMITADA (quantas vezes e a menor altura que foi ao ar) — o
+  contador de pedidos saiu com a transmissão direta, na v1.8.82. (O censo de travamentos da transmissão direta saiu com
   ela na v1.8.82.) **Contador, não log:** guardar QUAIS vídeos responderia mais
   e custaria tamanho, privacidade do que se copia e uma segunda fonte de
   verdade. E **só sai depois de acontecer** — uma linha de zeros é mais uma para
@@ -2641,14 +2655,17 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.91 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.92 · APK v1.8.91** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.91 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
-> ACOPLAMENTO, que é a pergunta que aquele campo faz.** Esta não toca `java/`,
-> `res/` nem o manifesto: o bundle sai na hora, contra o APK v1.8.73 que já está
-> publicado. **E a ponte só ENCOLHEU** — `requestMic` e `micDiag` saíram do
+> **A v1.8.92 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
+> ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela mudou `java/` (o
+> cancelamento da exportação saiu da main thread) e nada em `java/` chega por
+> OTA, então o bundle ficou SEGURO até a Release sair — **e ela saiu**: o APK
+> v1.8.91 está publicado e o manifesto do canal já aponta para ele. Esta não
+> toca `java/`, `res/` nem o manifesto, e por isso a obrigação NÃO é herdada: o
+> bundle sai na hora, contra um shell que já está na frota. **E a ponte só ENCOLHEU** — `requestMic` e `micDiag` saíram do
 > `native.js` com o MICROFONE AO VIVO, e o `@JavascriptInterface` de cada um
 > continua no Kotlin. Encolher pelo WEB primeiro é o lado seguro, e por isso não
 > pede Release: um APK que ainda serve método que ninguém chama não custa nada
