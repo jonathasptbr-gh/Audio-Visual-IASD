@@ -180,13 +180,24 @@ try {
   // da folha é justamente essa — o `recontarBibliaNoAparelho` é assíncrono e o
   // popup abre antes dele responder. Um `.disabled` direto lança ali, e o
   // percurso morre com um `TypeError` que não descreve nada.
+  //
+  // **E ELA ESPERA A VARREDURA PARAR, não só a contagem chegar** — foi o que
+  // reprovou este arquivo no CI e passou dezenas de vezes aqui. Abrir a aba
+  // dispara `ensureBibleVersionDownloaded` para a versão em uso, e enquanto ela
+  // corre a LINHA daquela versão diz *"Baixando 20/1189…"* em vez do estado que
+  // o bloco B veio medir. O `bibleDl` é o fato: com ele parado, a linha volta a
+  // descrever o BANCO. Esperar a rede morrer por tempo seria medir o runner —
+  // aqui toda saída externa é bloqueada, e o que varia é QUANDO as 1189 falham.
   const contou = await esperarDb(pg, async () => {
     const l = document.querySelectorAll('#bibleVerList .bible-ver-row');
     const del = l.length === 3 && l[1].querySelector('.bible-ver-del');
-    return !!del && !del.disabled;
+    if (!del || del.disabled) return false;
+    return !(bibleDl && bibleDl.running);
   });
   checar(contou === true,
-    'a folha de versões desenhou as três linhas, com a contagem do banco já na mão',
+    'a folha de versões desenhou as três linhas, com a contagem do banco já na '
+    + 'mão e NENHUMA varredura em voo — a linha de uma versão em varredura diz '
+    + '"Baixando N/1189…", que é outro estado que o do banco',
     porque(contou));
 
   const folha = await pg.evaluate(() => {
