@@ -35,9 +35,9 @@
   // embutido no APK (mais velho, porém funcionando).
   //
   // `window.AVDB` no `load` NÃO basta. A ordem dos scripts do Controle é
-  // native.js → db.js → mse.js → stage.js → louvorja.js → bible.js → serie.js →
+  // native.js → db.js → stage.js → louvorja.js → bible.js → serie.js →
   // cifra.js → sorteio.js → hinario.js → coletanea.js → pptxzip.js → deck.js →
-  // pacote.js → controle.js, e um erro em qualquer um dos CATORZE últimos aborta só AQUELE
+  // pacote.js → controle.js, e um erro em qualquer um dos TREZE últimos aborta só AQUELE
   // script: o `load` dispara, `AVDB` continua lá, e o bundle quebrado é
   // carimbado como bom PARA SEMPRE.
   //
@@ -46,10 +46,8 @@
   //   1. papel 'controle' — o Display não carrega controle.js nem louvorja.js, e
   //      é o caso NORMAL de culto: ele confirmaria quase sempre no lugar do
   //      outro, validando um bundle cujo Controle nunca rodou.
-  //   2. `AVDB` (db.js), `AVStream` (mse.js) e `createStage` (stage.js) — os
-  //      três módulos compartilhados, cada um publicando seu global no fim do
-  //      arquivo (o `AVStream` existe mesmo sem MediaSource; só o `suportado()`
-  //      responde false).
+  //   2. `AVDB` (db.js) e `createStage` (stage.js) — os dois módulos
+  //      compartilhados, cada um publicando seu global no fim do arquivo.
   //   3. os dez módulos do Controle (`Louvorja`, `Bible`, `AVSerie`,
   //      `AVSorteio`, `AVCifra`, `AVHinario`, `AVColetanea`, `AVPptxZip`,
   //      `AVDeck`, `AVPacote`) — todo uso deles no `controle.js`
@@ -75,7 +73,7 @@
 
   function otaAppIsUp() {
     if (global.__AV_ROLE__ !== 'controle') return false;
-    if (!global.AVDB || !global.AVStream || !global.createStage) return false;
+    if (!global.AVDB || !global.createStage) return false;
     // OS MÓDULOS DO CONTROLE, e eles eram o buraco declarado deste watchdog.
     // Um erro de topo em qualquer um deles aborta
     // só AQUELE script: o `controle.js` continua inteiro (todo uso de

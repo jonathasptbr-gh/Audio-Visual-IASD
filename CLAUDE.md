@@ -129,7 +129,6 @@ app/src/main/
 │   ├── shared/tokens.css        #   PALETA — fonte única, carregada pelos dois apps
 │   ├── shared/wallpaper-padrao.svg  # o WALLPAPER padrão: símbolo oficial IASD
 │   ├── shared/native.js         #   ponte AVNative + watchdog do OTA (NÃO existe no PWA)
-│   ├── shared/mse.js            #   player DASH mínimo: transmissão direta sem baixar
 │   ├── shared/db.js             #   + relay nativo no canal de comandos
 │   ├── shared/stage.js          #   motor de mídia (compartilhado Controle/Display)
 │   ├── vendor/                  #   ÚNICO código de terceiro do lado web:
@@ -811,12 +810,12 @@ errada e depois perdido.
   perdido em silêncio), então o `startAt` entra num `loadedmetadata` com
   `{ once: true }`, protegido pelo `loadSeq`. `autoplay === false` é a cena que
   voltou pausada; `undefined` mantém o comportamento de sempre.
-- **Não há segundo caminho.** O vídeo do YouTube entra pelo `shared/mse.js`
-  como `<video>` comum, então o `startAt` dele segue a MESMA regra acima. Um
-  `kind: 'youtube'` (link sem bytes) nem chega a ser cena no telão: quem o
-  resolve é o Controle, antes do `load` (`resolverLinkYoutube`), e o Display
-  esvazia o palco se um chegar. (`loadYoutube`/`playerVars` saíram com a IFrame
-  Player API na v5.212.)
+- **Não há segundo caminho.** TODA mídia entra como `<video>`/`<img>` comum, e
+  o `startAt` segue sempre a MESMA regra acima. Um `kind: 'youtube'` (link sem
+  bytes) nem chega a ser cena no telão: quem o resolve é o Controle, antes do
+  `load` (`resolverLinkYoutube`, que BAIXA), e o Display esvazia o palco se um
+  chegar. (`loadYoutube`/`playerVars` saíram com a IFrame Player API na v5.212;
+  a transmissão direta, o outro segundo caminho, saiu na v1.7.7.)
 
 O comando mais frequente do barramento é o `display-status`, emitido pelo telão a
 cada `timeupdate` (mais `play`, `pause`, `loadedmetadata`, `ended`,
@@ -1036,13 +1035,12 @@ deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
   `media-ended`, `mic-status` e `diag-dump` de uma tela morrem no dreno. **E a
   lista existe nos DOIS lados**: validação que mora só no cliente não é
   validação (ver `TIPOS_QUE_SOBEM`, acima).
-- **A TRANSMISSÃO DIRETA CHEGA ÀS TELAS.** A rota `/s/<token>` repassa a faixa do
-  googlevideo (o `Range` do cliente sobe cru, a resposta é espelhada de volta)
-  com o UA que combina com a URL, e o `telaEnriquecer` reescreve
-  `/stream/<token>` → `/s/<token>`. O token é o MESMO dos dois lados (o registro
-  do `StreamProxy` é um só): não há segunda extração. **O que ainda não vai para
-  a rede é o EMBED** — iframe de terceiro, que a CSP das telas barra por
-  construção.
+- **O QUE NÃO VAI PARA A REDE É O EMBED** — iframe de terceiro, que a CSP das
+  telas barra por construção. A rota `/s/<token>` do `EspelhoServidor` era a
+  metade de rede da TRANSMISSÃO DIRETA e ficou sem cliente quando ela saiu do
+  web (v1.8.82): **ela é KOTLIN**, e tirá-la é um degrau de `SHELL_VERSION` e
+  uma Release — o lado seguro é encolher o web primeiro, e foi o que este lote
+  fez.
 - **A APRESENTAÇÃO CHEGA ÀS TELAS, uma `/m/` POR PÁGINA.** Ela é o único kind
   cujo conteúdo é uma LISTA, e por isso não cabia no `url` do registro saneado:
   `telaDeckUrls` cunha um token por página (id estável `dk:<item>:<i>`, irmão do
@@ -1654,7 +1652,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Girar a mídia | idem (comando `rotate`) | tile **"Girar no telão"** em Configurações, 90° por toque — o nome diz ONDE, porque "Girar" sozinho se lê como o giro da INTERFACE (v1.4.41). O motor TROCA O EIXO da caixa antes de girar, para o `object-fit` medir o retângulo em que a mídia vai de fato aparecer |
 | Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão. **E PERDER a projeção com mídia no ar PAUSA a mídia** (v1.8.50): a promessa acima vale para quem ABRE o app sem tela, não para quem PERDE a tela com o louvor no ar — o estado final é o mesmo, a intenção não. A régua é a PERDA (escrita como estado, ela pausaria o ensaio de quem nunca conectou nada) e é a perda de um DESTINO — `haDestinoDeProjecao()`, que lê a tela LISTADA e as SESSÕES de tela da rede, e **não** `algumaTelaConectada()`, que responde pela `Presentation`: com aquela, a oscilação do dongle pausaria o louvor a cada piscada do Miracast, que é uma interrupção de culto no lugar de um vazamento de segundos |
 | PDF · `.pptx` · Google Apresentações | **PDF não existe**; `.pptx` funciona pelo mesmo caminho do app | **uma IMAGEM POR PÁGINA**. PDF pelo `PdfRenderer` da plataforma (`SlideDeck.kt` + `deckPages`); `.pptx` pelo renderizador de `assets/web/vendor/` (`controle/deck.js`, `import()` dinâmico + `<foreignObject>`/canvas). Daí é mídia comum, com ⏮/⏭ passando página — **e uma CAMADA desde a v1.4.28**: com um áudio no ar, o toque na apresentação a sobrepõe em vez de substituir, pela mesma porta da imagem (`mode:'image'` com um `page`), e o louvor de fundo continua tocando por baixo dos slides. **O FORMATO de cada página é decidido por ela**, nos dois caminhos e pelo mesmo número (`PAGINA_LEVE`, 512 kB): PNG na página chapada, WebP na fotográfica — MEDIDO, uma apresentação de fundo fotográfico dá 100,4 MB em PNG contra 12,3 MB. **Não há botão de "apresentação"** — entra por "Importar arquivos" (`pickDoc`: o PDF precisa que o shell abra o ARQUIVO, e `<input type=file>` só devolve bytes) ou pelo share. `.ppt` legado e `.odp` ficam de fora: ninguém sabe desenhá-los **E O VÍDEO EMBUTIDO TOCA** (v1.6.2): o `pptxzip.js` o tira do zip ANTES de abrir o arquivo — sem isso um `.pptx` com vídeo é RECUSADO (teto de entrada da biblioteca) e, passando, sairia como retângulo PRETO (o `embutirRecursos` não alcança `<video>`). Ele vira mídia presa à PÁGINA em que estava: chegar nela projeta o vídeo, e o fim dele devolve a apresentação no slide SEGUINTE |
-| **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **BAIXA E PROJETA** (v1.7.7): o mesmo `ytArquivo` dos outros destinos, com o cartão sobre a preview e a barra de progresso cobrindo a espera. Foi TRANSMISSÃO DIRETA da v5.212 à v1.7.2 — o `ytStream` montava o manifesto e o `mse.js` o virava um `<video>` —, e ela saiu a pedido do operador: *"vamos abandonar o modo online direto, ele é muito instável"*, depois de travamentos a cada um ou dois segundos com o espelhamento no ar. **O preço está aceito e é o que ela existia para evitar: "Tocar agora" agora ESPERA o download** |
+| **Tocar agora** de vídeo do YouTube | **não toca**, e a linha do item diz isso | **BAIXA E PROJETA** (v1.7.7): o mesmo `ytArquivo` dos outros destinos, com o cartão sobre a preview e a barra de progresso cobrindo a espera. Foi TRANSMISSÃO DIRETA da v5.212 à v1.7.2, e ela saiu a pedido do operador: *"vamos abandonar o modo online direto, ele é muito instável"*, depois de travamentos a cada um ou dois segundos com o espelhamento no ar. **O preço está aceito e é o que ela existia para evitar: "Tocar agora" agora ESPERA o download** |
 | **Cifra do hino** | **não existe** — sem ponte não há como buscar a página (CORS), e a aba nem é oferecida | **aba CIFRA no visualizador de letras** (shell 49): `cifraHtml` traz o HTML cru, `controle/cifra.js` o lê, e a folha aparece com transposição por meio tom. **SÓ COM FOLHA NA MÃO** (v1.8.28): sem cifra achada o botão não é desenhado — `cifraCabe` decide se vale PROCURAR, `cifraTemFolha` decide se há o que MOSTRAR. **SOB DEMANDA:** nada é baixado em lote, nada entra no bundle, e fora do acervo guardado o cache é um `Map` que morre com o app |
 | Vídeo do YouTube | **não toca** | **baixado PELO APARELHO** (`YoutubeGrab.kt` + `ytFetch`) — a extração sai do IP do chip, que é o que o YouTube não bloqueia. Falhando, vira item de LINK, retentado no toque seguinte |
 | Qualidade do download | — | teto escolhido pelo operador: **1080p · 720p · 480p**, no mesmo seletor de Vídeo/Só áudio. **O padrão é 720p e ele é DO OPERADOR** (v1.7.7): escolher um teto o GRAVA (`state` `ytAltura`) e ele vale para o próximo vídeo. As duas metades revogam decisões escritas — o padrão era `YT_ALTURAS[0]` (1080p) e o teto nascia no padrão A CADA ITEM —, e as duas foram pedidas por extenso. 1080p usa o `ytFetch` de sempre; só teto MENOR usa `ytFetchAte`. O degrau **"Online"** (`-1`, que guardava só o link) SAIU junto com a transmissão direta que ele alimentava |
@@ -1991,17 +1989,17 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os 82 de Chromium somam **~13 min em série** e **~4,4 min nos três processos**
-(MEDIDO em 4 vCPU, o mesmo do runner; os 23 de Node puro somam **5,5 s** —
-juntos, os 105). O custo não é o que parece: lançar o navegador são **~110 ms** e
+Os 79 de Chromium somam **12,8 min em série** e **4,3 min nos três processos**
+(MEDIDO em 4 vCPU, o mesmo do runner; os 20 de Node puro somam **8 s** —
+juntos, os 99). O custo não é o que parece: lançar o navegador são **~110 ms** e
 subir o `/controle/` inteiro é **~1 s** — compartilhar um navegador entre
 oráculos, a otimização óbvia, economizaria 2% e custaria o isolamento. O que
 sobra é espera, com os quatro núcleos ociosos.
 
-**E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é.** MEDIDO: os 52 mais
-baratos somam **161 s dos 783 s**, e VINTE E TRÊS deles rodam em menos de 2 s
-cada — apagar esses vinte e três devolveria **8 s de parede** e custaria a
-cobertura inteira que eles carregam.
+**E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é.** MEDIDO: os 49 mais
+baratos somam **153 s dos 769 s**, e VINTE deles rodam em menos de 2 s cada —
+apagar esses vinte devolveria **9 s de parede** e custaria a cobertura inteira
+que eles carregam.
 O passo é caro por causa de uma DÚZIA de arquivos, e o que os encarece são
 defeitos de arnês, não asserções a mais — dois deles pagaram 130 s sozinhos (ver
 as duas armadilhas logo abaixo). **A pergunta diante de um passo lento é "onde
@@ -2038,7 +2036,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 95 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 99 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2464,9 +2462,9 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   da mesma semana deram três respostas sobre a extração do YouTube, e a leitura
   que saiu delas ("é sempre") foi uma generalização de duas amostras que a
   terceira derrubou. Onde o desfecho pode variar entre uma vez e outra, o bloco
-  leva CONTADOR DE SESSÃO ao lado da linha: `AVStream.fome` (episódios e
-  segundos parados) e `ytCenso` (pedidos, transmitidos, qualidade limitada) são
-  os dois de hoje. **Contador, não log:** guardar QUAIS vídeos responderia mais
+  leva CONTADOR DE SESSÃO ao lado da linha: o `ytCenso` (pedidos e qualidade
+  limitada) é o de hoje. (O censo de travamentos da transmissão direta saiu com
+  ela na v1.8.82.) **Contador, não log:** guardar QUAIS vídeos responderia mais
   e custaria tamanho, privacidade do que se copia e uma segunda fonte de
   verdade. E **só sai depois de acontecer** — uma linha de zeros é mais uma para
   ler em toda cópia.
@@ -2629,11 +2627,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.81 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.82 · APK v1.8.73** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.80 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
+> **A v1.8.82 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Esta não toca `java/`,
 > `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou de forma: o
 > bundle sai na hora, contra o APK v1.8.73 que já está publicado. Aquela

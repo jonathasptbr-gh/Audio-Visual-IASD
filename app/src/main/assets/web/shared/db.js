@@ -207,16 +207,6 @@
       // registro antigo simplesmente não tem o campo, e quem o lê já trata a
       // ausência — que é o caso normal deste campo, não a exceção.
       canal: null,
-      // TRANSMISSÃO DIRETA (v5.120): o manifesto das duas faixas adaptativas —
-      // URLs servíveis pelo próprio origin e os byte-ranges do DASH. Uma mídia
-      // com este campo não tem `blob` nem `url`: quem a toca é o `MediaSource`
-      // (ver shared/mse.js), e o `stage.js` a trata como vídeo em tudo o mais.
-      //
-      // Ela é TRANSITÓRIA por natureza, e isso não é descuido: as URLs do
-      // googlevideo expiram em algumas horas. Um registro de stream que
-      // sobreviva à expiração falha ao tocar — e é o `onStreamErro` do Controle
-      // que pede um manifesto novo e o regrava aqui.
-      stream: null,
       createdAt: Date.now(),
     }, fields);
   }
@@ -411,59 +401,9 @@
       height: (meta && meta.height) || null,
       seconds: (meta && meta.seconds) || null,
       canal: (meta && meta.canal) || null,
-      stream: (meta && meta.stream) || null,
     });
     return addMediaToList(record, (meta && meta.list) || 'imports');
   }
-  // Uma mídia de TRANSMISSÃO DIRETA: sem bytes no aparelho, sem URL única — o
-  // que ela tem é o manifesto das faixas. Não passa por `addMedia`, que deriva
-  // tipo e kind de um blob que aqui não existe.
-  //
-  // SEM CHAMADOR DESDE A v1.7.7, e isto está dito para não ser lido como
-  // contrato vivo: a transmissão direta saiu do `controle.js` a pedido do
-  // operador, e nada no app cria um registro de stream. Elas ficam porque o
-  // banco continua LENDO registros gravados antes daquele lote (o `stage.js` os
-  // reconhece pelo campo `stream`), e uma store que sabe ler e não sabe
-  // escrever é mais fácil de entender inteira. Ver o cabeçalho de
-  // `shared/mse.js`, que é o leitor.
-  //
-  // `kind: 'video'` de propósito, e não um kind novo: para todo o resto do app
-  // isto É um vídeo — a cortina, o fade, o transporte, a barra de progresso e a
-  // sessão de mídia não têm por que saber de onde vêm os bytes. Um kind próprio
-  // obrigaria cada um desses lugares a aprender um caso a mais.
-  async function addStreamMedia(stream, meta) {
-    // SÓ ÁUDIO é um KIND, não um detalhe do manifesto: é o `kind` que faz o
-    // telão manter o wallpaper em vez de trocar de imagem, que escolhe o
-    // arquivo certo no reaproveitamento por forma (`mediaByYoutube`) e que diz
-    // ao fallback qual download pedir se a transmissão morrer. Mesma regra do
-    // `ytFetchAudio`, e pelo mesmo motivo — inclusive a MINIATURA, que aqui não
-    // entra: um registro de áudio com thumb faria o telão trocar de imagem.
-    const soAudio = !!(meta && meta.somenteAudio);
-    const record = makeMediaRecord({
-      stream,
-      thumb: soAudio ? null : ((meta && meta.thumb) || null),
-      type: soAudio ? 'audio/mp4' : 'video/mp4',
-      kind: soAudio ? 'audio' : 'video',
-      name: (meta && meta.name) || 'Vídeo',
-      youtubeId: (meta && meta.youtubeId) || null,
-      height: (meta && meta.height) || null,
-      seconds: (meta && meta.seconds) || null,
-    });
-    return addMediaToList(record, (meta && meta.list) || 'avulsos');
-  }
-
-  // Regrava o manifesto de uma mídia de transmissão — o caminho de recuperação
-  // quando as URLs expiram. Get + put na MESMA transação, como o `renameMedia`.
-  async function setMediaStream(id, stream) {
-    const [st, tx] = await storeTx(STORE_MEDIA, 'readwrite');
-    const record = await asPromise(st.get(id));
-    if (!record) return null;
-    record.stream = stream || null;
-    await asPromise(st.put(record));
-    await txDone(tx);
-    return record;
-  }
-
   // Uma APRESENTAÇÃO: as páginas já rasterizadas (ver SlideDeck.kt, no shell).
   // Ela não tem `blob` nem `url` — a mídia É a lista de páginas —, e por isso
   // não passa por `addMedia`, que deriva tipo e kind de um blob que aqui não
@@ -1233,7 +1173,7 @@
   // helpers — que é exatamente onde mora a atomicidade deste arquivo.
   global.AVDB = {
     setState, getState, updateState, updateStateLote, stateKeys, stateVarrer,
-    addMedia, addUrlMedia, addStreamMedia, setMediaStream, addDeck, addCue,
+    addMedia, addUrlMedia, addDeck, addCue,
     getMedia, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,

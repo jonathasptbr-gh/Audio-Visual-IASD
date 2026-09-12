@@ -1,8 +1,8 @@
 # Achados em aberto
 
-**Quatro** — os dois do áudio do espelhamento, o CLIENTE de onde sai a escada
-da transmissão direta (v1.4.5; as outras duas hipóteses daquele relato morreram,
-uma por construção e a outra por correção), e a faixa da Biblioteca que nunca é
+**Quatro** — os dois do áudio do espelhamento, o CLIENTE de onde sai a escada de
+faixas do YouTube (v1.4.5; as outras duas hipóteses daquele relato morreram, uma
+por construção e a outra por correção), e a faixa da Biblioteca que nunca é
 marcada como no ar (v1.5.16). (Houve outro, e ele já saiu — *"mídia baixada pausa
 quando eu minimizo"* — durou um lote: o operador deu a cena que faltava
 (*"ocorre quando não há telas conectadas"*), e ela era a segunda das três
@@ -165,24 +165,23 @@ extração de cada tipo, então respondia *"o que aconteceu da última vez?"* e
 nunca *"com que frequência?"* — a pergunta de uma falha intermitente. Três
 Registros deram três respostas e nenhuma contava.
 
-O `ytCenso` é a forma do `AVStream.fome` aplicada a este caminho: contadores de
-sessão, sem log e sem disco. Duas linhas novas no bloco da transmissão:
+O `ytCenso` são contadores de sessão, sem log e sem disco, no bloco da
+qualidade:
 
 ```
-nesta sessão: 7 pedido(s) de transmissão · 5 transmitiu(ram) · 2 caiu(ram) no download
-e 2× a projeção saiu em qualidade limitada (a menor: 360p)
+teto escolhido: 720p
+2× a projeção saiu em qualidade limitada (a menor: 360p)
 ```
 
-Três decisões que o oráculo trava (metade 10 do `toque-instantaneo.test.mjs`,
-provada por reversão nas três):
+**Ele encolheu com a transmissão direta.** Até a v1.7.7 ele contava também os
+pedidos de transmissão, quantos transmitiram e quantos caíram no download; com
+aquele caminho fora do app, o que sobra é a pergunta que continua tendo resposta
+— *"a projeção saiu pior do que se pediu?"* —, e ela vale para o download do
+mesmo jeito. Duas decisões que o oráculo trava (metade 10 do
+`toque-instantaneo.test.mjs`, provada por reversão nas duas):
 
-- **O pedido conta no ponto em que o shell é PERGUNTADO**, não na entrada da
-  função: acima dela há recusas (sem ponte, sem `mse.js`, sem URL) que nunca
-  chegam a extrair nada, e contá-las inflaria o denominador com o que não foi
-  tentado.
-- **A qualidade limitada é contada À PARTE**: um pedido pode transmitir e ainda
-  assim sair abaixo do pedido, então somá-la aos outros dois responderia uma
-  pergunta que ninguém fez.
+- **A qualidade limitada é contada À PARTE** de qualquer contagem de pedidos: um
+  pedido pode chegar ao ar e ainda assim sair abaixo do que se pediu.
 - **Guarda o MENOR valor, não o último** — é ele que diz se foi um degrau ou o
   fundo do poço.
 

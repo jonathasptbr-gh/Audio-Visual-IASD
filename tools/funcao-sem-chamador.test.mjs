@@ -68,13 +68,7 @@ const VIVAS_POR_FORA = new Set([
 // Cada entrada tem de apontar o comentário que a sustenta — sem isso a lista
 // vira a porta larga por onde todo achado deste oráculo passa a ser silenciado.
 const MORTAS_DE_PROPOSITO = new Set([
-  // `db.js`: *"SEM CHAMADOR DESDE A v1.7.7, e isto está dito para não ser lido
-  // como contrato vivo"*. A transmissão direta saiu do `controle.js` a pedido
-  // do operador; o banco continua LENDO registros gravados antes daquele lote,
-  // e uma store que sabe ler e não sabe escrever é mais difícil de entender
-  // inteira. Ver o cabeçalho de `shared/mse.js`, que é o leitor.
-  'addStreamMedia',
-  'setMediaStream',
+  // (vazia hoje — acrescente `nome` com o comentário que a sustenta ao lado)
 ]);
 
 const falhas = [];
@@ -123,7 +117,7 @@ for (const [f, txt] of corpo) {
   if (!f.endsWith('.js')) continue;
   const rel = f.slice(RAIZ.length + 1);
   // O RECUO ENTRA NA REGEX (v1.8.46), e sem ele a varredura via só metade da
-  // base: `db.js`, `stage.js`, `mse.js` e as outras são um IIFE, e toda função
+  // base: `db.js`, `stage.js` e as outras são um IIFE, e toda função
   // delas nasce indentada. MEDIDO: com a âncora colada no começo da linha, 918
   // funções eram vistas — nenhuma de `shared/`, que é onde mora o banco.
   // Foi assim que o `filesResumo` passou.
@@ -198,13 +192,10 @@ else nao('nenhuma função existe só para o oráculo chamar',
 // A mesma pergunta do bloco de cima, na outra metade do que a base declara — e
 // a que a revisão de 2026-09-07 achou à mão depois de o oráculo já existir:
 //
-//  - `STREAM_RETENTAR_MS` e `streamRetentado` — a TRANSMISSÃO DIRETA saiu do
-//    app na v1.7.7, e com ela `tentarTransmitir`, `recuperarStream` e
-//    `onStreamErro`. O par que media a retentativa ficou, e com ele TRINTA E TRÊS
-//    linhas de comentário afirmando que o app re-extrai o manifesto quando um
-//    stream falha em cena — um mecanismo que ele não tem mais, descrito com o
-//    cenário do sábado inteiro. Nenhum oráculo alcança isso: não há
-//    comportamento a medir.
+//  - `STREAM_RETENTAR_MS` e `streamRetentado` — a TRANSMISSÃO DIRETA tinha
+//    saído do app, e o par que media a retentativa ficou, com TRINTA E TRÊS
+//    linhas de comentário afirmando que o app re-extrai um manifesto que ele
+//    não pede mais. Nenhum oráculo alcança isso: não há comportamento a medir.
 //  - `listBodyEl` — a v1.5.0 tirou a faixa de abas e o fantasma que ela
 //    animava; o handle ficou, e o comentário dele seguia dizendo que o
 //    `.list-body` é o offsetParent de um fantasma que não existe.

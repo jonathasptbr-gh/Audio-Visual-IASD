@@ -75,7 +75,7 @@ pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
 try {
   await pg.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
   await pg.waitForFunction(() => (
-    window.AVDB && window.AVStream && window.createStage
+    window.AVDB && window.createStage
       && window.Louvorja && window.Bible && window.AVSerie && window.AVSorteio
       && window.AVHinario
       && typeof window.__avBack === 'function'

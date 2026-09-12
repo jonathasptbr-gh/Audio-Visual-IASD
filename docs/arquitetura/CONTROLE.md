@@ -2014,39 +2014,6 @@ Com a bandeira desligada o atributo é ignorado pelo contrato, então mantê-lo 
 custa nada; e para o quadro congelado aparecer de fato, a cena pausada agora
 **sempre faz seek** (mesmo para o segundo zero).
 
-### O preto de vários segundos da transmissão direta (v5.142)
-
-> **NADA NO APP CRIA UM STREAM DESDE A v1.7.7** — a transmissão direta saiu a
-> pedido do operador (ver o CLAUDE.md). Esta seção descreve o que o `stage.js`
-> faz ao RECEBER um registro com manifesto, e ele continua sendo capaz disso: um
-> registro gravado antes daquele lote pode existir no aparelho até o manifesto
-> expirar (horas).
-
-Um stream leva segundos entre o comando e o primeiro quadro — init, índice e o
-primeiro fragmento vêm da **rede**. Metade desse caso já estava resolvida: quando
-a cena anterior era o wallpaper, a cortina fica de pé até haver quadro (o
-`mediaReady` com `PRONTO_STREAM_MS` acontece **antes** do `coverOut`).
-
-O que sobrava era a troca de **mídia para mídia**: ali o fade de saída já levou a
-anterior ao preto e não há cortina para segurar — segundos de tela preta, sem
-nada dizendo que o app está trabalhando. Do lado de quem opera isso é
-indistinguível de uma projeção que morreu.
-
-Agora a espera é **anunciada** enquanto ela dura (`mostrarEspera` →
-`opts.onEspera`), nos dois caminhos: sobre o preto, e também sobre o wallpaper —
-porque ali o operador vê exatamente a mesma tela de quando nada foi pedido, por
-vários segundos, depois de ter pedido um vídeo. Detalhes que não são decoração:
-
-- **Só no stream.** Um arquivo local vira quadro em milissegundos, e um aviso
-  que pisca é pior que nenhum.
-- **O PALCO NÃO DESENHA** (v1.4.8): ele chama `opts.onEspera(ligado)` e quem
-  mostra é o dono. Ver *"Todo o carregamento é do Controle"*, abaixo.
-- **`resetMediaDom` o desliga**, então ele nunca sobrevive à cena que o acendeu
-  (stop, clear e o começo de todo load passam por lá); e a ordem depois do
-  `mediaReady` é conferir o `loadSeq` **antes** de desligar — um load mais novo
-  já acendeu a espera dele, e desligá-la depois de perder a corrida levaria junto
-  a do load que assumiu.
-
 ### Girar a mídia (v5.142)
 
 Vídeo gravado de lado no celular chega **deitado** no telão. Não havia o que
@@ -2144,49 +2111,39 @@ houvesse apenas o 'preparando…' no controle, vamos abandonar o spinner no tel�
 nos controles já temos a mensagem de preparando, não precisamos de um spinner
 exclusivo"*. Na v1.4.8 o aro saiu inteiro, e com ele a folha `shared/stage.css`.
 
-- **O palco ANUNCIA; ele não desenha** (`opts.onEspera(ligado)`). Invariante 5
-  aplicada ao motor: ele diz o FATO, não a forma. Quem desenha é o dono.
-- **Um indicador só, no Controle.** O `onEspera` da preview abre e solta o
-  MESMO cartão do "Preparando" do toque (`previewBusy`), de modo que a espera
-  inteira — a extração de rede, e depois a carga do stream — se lê como um
-  estado só, e não como dois avisos se revezando. Ele é aberto e solto por
-  BORDA (`pvEsperaSolta`): `previewBusy` conta donos, e um `onEspera(true)`
-  repetido sem o `false` do meio deixaria um dono pendurado e o cartão nunca
-  sairia.
-- **O nome vem do ITEM, não do rótulo já desenhado** (`pvEsperaNome`, gravado
-  por `aplicarNaPreview`): `renderNowPlaying` roda em pontos diferentes de cada
-  caminho, e um nome atrasado é o cartão anunciando o louvor ANTERIOR enquanto o
-  novo carrega.
-- **A SAÍDA DO CARTÃO GANHOU UMA CARÊNCIA** (`PV_BUSY_SAIDA_MS`, 700 ms), e ela
-  é o que faz a promessa acima ser verdade. A espera tem DOIS donos em sequência
-  — o toque (`cederOPalco`, que cobre a extração de rede) e a carga do stream (o
-  `onEspera`) —, e o primeiro solta no `finally` assim que a ação
-  volta, enquanto o segundo só acende lá dentro do `load`, depois do fade de
-  saída e do `getMedia`: **entre os dois o contador passa por ZERO**. Sem a
-  carência o cartão sai e volta no meio da MESMA espera, que é o "dois modelos
-  de carregamento" com outra roupa. Um dono novo dentro dela CANCELA a saída. É
-  o irmão do `PV_BUSY_DELAY_MS` na outra ponta, e cobre o pior caso do vão (o
-  `FADE.time` de 0,6 s mais a leitura do IndexedDB). **O preço está dito:** um
-  cartão que de fato acabou fica esse tanto a mais na tela — e ele é um
-  indicador de estado, não um modal. O que sai NA HORA é o botão de cancelar:
-  ele é uma AÇÃO, e uma ação sem dono não pode ficar tocável nem por meio
-  segundo.
-- **O telão não passa `onEspera`**, e é só isso que o separa da preview. Não é
-  `__AV_ROLE__` lido dentro do `stage.js`: a pergunta é *"este palco é uma
-  ILUSTRAÇÃO?"*, e a tela da rede é papel `tela` e é PROJEÇÃO — a leitura de
-  papel acertaria por acidente e erraria no quarto papel.
-- **Sem quadro, a cortina fica.** `mediaReady` devolve se houve dado, e num
-  stream o prazo deixou de revelar: ele socorria a transição de pendurar, mas o
-  que revelava era o preto. O wallpaper é o repouso da projeção e a resposta
-  certa a "não há o que mostrar". **Só no stream** — o socorro de 2,5 s do
-  arquivo local não é assunto deste lote.
+> **O ANÚNCIO DE ESPERA DO PALCO (`opts.onEspera`) SAIU NA v1.8.82.** Ele existia
+> para a TRANSMISSÃO DIRETA, o único caso em que "carregado" e "tem o que
+> mostrar" ficavam a segundos de distância; com aquele caminho fora do app o
+> palco nunca mais o acendeu. O que fica desta seção é o CARTÃO, que continua
+> cobrindo a espera de verdade que sobrou: a extração e o download.
 
-Oráculo: `tools/toque-instantaneo.test.mjs`, a última metade do
-`tools/espera-do-stream.test.mjs` (provada por REVERSÃO: um palco sem `onEspera`
-que volte a criar um nó reprova) e a **passagem de bastão** no
+- **O palco ANUNCIA; ele não desenha.** Invariante 5 aplicada ao motor: ele diz
+  o FATO, não a forma. Quem desenha é o dono. A regra vale para o próximo
+  anúncio que o palco precise fazer.
+- **Um indicador só, no Controle** (`previewBusy`): a espera inteira se lê como
+  um estado só, e não como dois avisos se revezando.
+- **O nome vem do ITEM, não do rótulo já desenhado**: `renderNowPlaying` roda em
+  pontos diferentes de cada caminho, e um nome atrasado é o cartão anunciando o
+  louvor ANTERIOR enquanto o novo carrega.
+- **A SAÍDA DO CARTÃO TEM UMA CARÊNCIA** (`PV_BUSY_SAIDA_MS`, 700 ms), e ela é o
+  que faz a promessa acima ser verdade. Uma espera pode ter DOIS donos em
+  sequência — o toque (`cederOPalco`, que cobre a extração de rede) e o download
+  que vem depois dele —, e o primeiro solta no `finally` assim que a ação volta,
+  enquanto o segundo só acende adiante: **entre os dois o contador passa por
+  ZERO**. Sem a carência o cartão sai e volta no meio da MESMA espera, que é o
+  "dois modelos de carregamento" com outra roupa. Um dono novo dentro dela
+  CANCELA a saída. É o irmão do `PV_BUSY_DELAY_MS` na outra ponta, e cobre o
+  pior caso do vão (o `FADE.time` de 0,6 s mais a leitura do IndexedDB). **O
+  preço está dito:** um cartão que de fato acabou fica esse tanto a mais na tela
+  — e ele é um indicador de estado, não um modal. O que sai NA HORA é o botão de
+  cancelar: ele é uma AÇÃO, e uma ação sem dono não pode ficar tocável nem por
+  meio segundo.
+
+Oráculo: `tools/toque-instantaneo.test.mjs` e a **passagem de bastão** no
 `tools/gaveta-e-cartao.test.mjs` — esta amostrada a cada quadro, porque um teste
 do estado FINAL passa nas duas versões (no fim o cartão está de pé de qualquer
 jeito); com a carência em zero ela devolve `{"apagou":true,"on":true}`.
+
 
 ### A saída de áudio: os displays, ou ESTE APARELHO (v5.215)
 
@@ -3906,10 +3863,10 @@ marcado: o estado ficava certo e só o desenho não acompanhava.
 
 Casos particulares:
 
-- **(A transmissão direta SAIU na v1.7.7.** Ela ficava de fora quando havia um
-  destino de guarda marcado — não produz arquivo, é um manifesto que expira em
-  horas —, e hoje esse caso não existe: toda ação baixa, e "Tocar agora"
-  combinado com "Cronograma" é UM download que também entra na lista.)
+- **Toda ação BAIXA**, e é isso que faz os destinos se combinarem: "Tocar
+  agora" com "Cronograma" é UM download que também entra na lista. (Até a v1.7.7
+  o "Tocar agora" sozinho podia transmitir sem produzir arquivo, e esse caso
+  tinha de ser excluído à mão.)
 - **Um download só** (`ytAcao`): o arquivo nasce na PRIMEIRA lista escolhida e é
   espalhado por `listAdd` (idempotente). "Já estava lá" é sobre o CONJUNTO — um
   vídeo no Cronograma e fora dos Favoritos não é duplicata.
@@ -4062,7 +4019,13 @@ Oráculo: **`tools/ferramentas-folha.test.mjs`**, e a asserção que carrega o l
 folha de corpo inteiro continua funcionando e continua bonita; o que ela perde
 não aparece em teste de comportamento nenhum.
 
-#### O contrato do `shouldInterceptRequest`, e a transmissão direta
+#### O contrato do `shouldInterceptRequest` (a invariante 8)
+
+> **O CLIENTE DESTE PROXY ERA A TRANSMISSÃO DIRETA, e ela saiu do lado web na
+> v1.8.82.** A regra abaixo NÃO saiu com ela: ela vale para **toda** resposta
+> interceptada, e é a próxima coisa deste app que sirva bytes por faixa que vai
+> pagá-la de novo. O `StreamProxy.kt` continua no shell, sem quem o chame — ver
+> `docs/shell/SEGUNDO-PLANO.md`.
 
 **O `InputStream` devolvido não é "a resposta": o Chromium o lê como o recurso
 INTEIRO a partir do byte 0, e é ELE quem aplica o `Range`** — incondicionalmente,
@@ -4087,7 +4050,7 @@ Como todo fragmento de mídia começa a megabytes do início, **só a primeira
 requisição de cada faixa podia funcionar**.
 
 **A correção é sair do contrato, não emulá-lo.** Do shell 27 em diante o
-`shared/mse.js` pede `/stream/<token>?r=<ini>-<fim>` **sem cabeçalho `Range`
+cliente pede `/stream/<token>?r=<ini>-<fim>` **sem cabeçalho `Range`
 nenhum**: sem cabeçalho, `ParseRange` não acha nada, o seek não acontece, e a
 fatia chega inteira. A resposta é um **200 seco** — sem 206, sem
 `Content-Range`, sem `Accept-Ranges`, e sem `Content-Length` nosso (o loader
@@ -4120,19 +4083,18 @@ deslocamento errado sai como **bytes errados**, não como tamanho errado, que é
 mudar essa regra, o lugar de descobrir é o CI, não o culto.
 
 > **O caminho FELIZ não é testável aqui** (exige um fMP4 de verdade, e não há
-> ffmpeg no ambiente). O que se trava é o contrato, dos dois lados:
-> `webview-range` prova a REGRA e `mse.test.mjs` prova o que sai pelo FIO (a
-> faixa na URL, sem cabeçalho).
+> ffmpeg no ambiente). O que se trava é a REGRA, e o `webview-range` a prova.
+> O oráculo que media o FIO (a faixa na URL, sem cabeçalho) era do player do lado
+> web, e saiu com ele na v1.8.82.
 
 ##### O pôster padrão do WebView
 
 Um `<video>` sem `poster` é pintado pelo WebView com **um retângulo cinza e um
 play preto gigante** (contrato de `WebChromeClient.getDefaultVideoPoster`) — não
-há como estilizá-lo, só como deixar de pedi-lo. O `stage.js` já escondia o
-elemento enquanto não havia `src`; com `MediaSource` o elemento entra em cena
-vazio e só ganha quadro depois de init + índice + primeiro fragmento virem da
-REDE — **"sem `src`" virou "sem dados"**. A correção é `POSTER_VAZIO` (1×1
-transparente), posto a cada `load` e removido no `loadeddata`:
+há como estilizá-lo, só como deixar de pedi-lo. O `stage.js` esconde o elemento
+enquanto não há `src`, e o pôster cobre a outra metade: a janela entre a fonte
+atribuída e o primeiro quadro. A correção é `POSTER_VAZIO` (1×1 transparente),
+posto a cada `load` e removido no `loadeddata`:
 
 - **transparente e não preto** — as camadas já pintam `--stage-bg`, e um segundo
   "qual preto" divergiria da paleta;
@@ -4141,11 +4103,12 @@ transparente), posto a cada `load` e removido no `loadeddata`:
 
 ##### As mensagens de falha SÃO o produto
 
-Este recurso roda no aparelho do operador, num WebView, contra URLs que expiram:
-**não há como depurar de fora**, e a única coisa que atravessa essa distância é a
-linha do Registro. Ela só serve se disser em que passo morreu e com que resposta.
+A regra vale para todo caminho de rede deste app: ele roda no aparelho do
+operador, num WebView, e **não há como depurar de fora** — a única coisa que
+atravessa essa distância é a linha do Registro, e ela só serve se disser em que
+passo morreu e com que resposta.
 
-O que o `StreamProxy` responde:
+O que o `StreamProxy` responde (KOTLIN; sem cliente no web desde a v1.8.82):
 
 | Resposta | Significa |
 |---|---|
@@ -4153,18 +4116,6 @@ O que o `StreamProxy` responde:
 | `502 (<texto da exceção>)` | o proxy falhou falando com o CDN |
 | `403 (googlevideo: Forbidden)` | o CDN recusou — o proxy chegou lá |
 | `404` **sem** razão | o proxy NEM foi consultado (respondeu o asset loader) |
-
-O que o player escreve (`AVStream.ultimoErro` → `falhou ao tocar: …`), com
-passo + faixa + bytes pedidos + status:
-
-| Mensagem | O que aconteceu |
-|---|---|
-| `init vídeo: HTTP 403 pedindo bytes 0-739` | o googlevideo recusou |
-| `init vídeo: HTTP 404 …` | o **proxy não foi alcançado** |
-| `init vídeo: a requisição não completou` | o `fetch` nem saiu |
-| `init vídeo: resposta vazia (HTTP 206, pedidos 740 bytes)` | status bom e zero bytes — o mais traiçoeiro, porque o `appendBuffer` aceita sem reclamar e o vídeo nunca começa |
-| `init vídeo: o decodificador recusou (…) — mime …` | os bytes vieram e o WebView não os quis |
-| `índice vídeo: sidx não reconhecido (N bytes em …)` | o `indexRange` não continha um `sidx` |
 
 Regras que sustentam isso:
 
@@ -4186,21 +4137,12 @@ Regras que sustentam isso:
   `waiting`, não `pause`. O que emite `pause` é o `video.pause()` no topo do
   `load()` — isto é, mídia NOVA entrando.
 
-`tools/mse.test.mjs` sobe um servidor de mentira, confere as mensagens que chegam
-ao `onErro` e afirma que **nenhuma pode conter `undefined`** (a armadilha de
-aridade: `node --check` não vê aridade, e uma refatoração deixou `pegar()` com
-três parâmetros e três chamadas passando quatro). Ele roda com **VP9 + Opus**, e
-não com o `avc1`+`aac` do aparelho: o Chromium do Playwright é o build
-open-source e não traz codecs proprietários, então `addSourceBuffer` recusaria
-`avc1` e todo cenário morreria antes do que se quer medir. Quem confere o suporte
-REAL é o Registro do aparelho.
-
 #### UM registro só
 
 Um cabeçalho de **identificação** (versões da base, do shell e da ponte; estado
 do telão; alvo de espelhamento; aparelho), **a linha do tempo** dos dois
 processos em ordem de relógio, e só então os blocos de verificação por recurso
-(extração do YouTube, cifra, transmissão direta, espelho, áudio, Séries,
+(extração do YouTube, cifra, espelho, áudio, Séries,
 sorteio). O cabeçalho existe por razão prática: um log colado sem contexto obriga
 a primeira resposta a ser sempre a mesma pergunta.
 

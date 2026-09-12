@@ -111,7 +111,7 @@
   // `conectar()` — a tela fica presa na entrada, num domingo, sem nada na tela
   // que aponte a causa. Sem ele o `fetch` vai sem `signal`: o fio não é cortado
   // na hora, mas o laço de reconexão continua inteiro, que é a degradação
-  // certa. Mesmo padrão do `shared/mse.js`.
+  // certa.
   function abortador() {
     return (typeof AbortController === 'function') ? new AbortController() : null;
   }

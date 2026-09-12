@@ -711,11 +711,12 @@ window.AVNative = {
                        //   transmissíveis sob o teto, UMA POR ALTURA, da mais
                        //   alta para a mais baixa. `video` continua sendo o
                        //   TOPO — a mudança é ADITIVA de propósito, e tudo que
-                       //   já lia `man.video` segue lendo o mesmo. Quem ESCOLHE
-                       //   é o web (`AVStream.escolherDegrau`), porque a escolha
-                       //   depende da BANDA MEDIDA, que só existe depois dos
-                       //   primeiros bytes — e porque uma regra de escolha erra,
-                       //   e no web ela se conserta por OTA
+                       //   já lia `man.video` segue lendo o mesmo. Quem ESCOLHIA
+                       //   o degrau era o WEB, porque a escolha depende da BANDA
+                       //   MEDIDA, que só existe depois dos primeiros bytes — e
+                       //   porque uma regra de escolha erra, e no web ela se
+                       //   conserta por OTA. Essa regra saiu com o player, na
+                       //   v1.8.82
   ytSearch(termo),     // → [{ id, url, name, author, seconds, thumb }] do YouTube
   ytCanalPlaylists(canalUrl), // → [{ name, url, count }] da ABA do canal
   ytPlaylist(url),     // → { name, author, items:[{id,url,name,seconds,thumb}] }

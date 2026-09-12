@@ -181,8 +181,6 @@ app/src/main/assets/web/
 │   ├── native.js               # ponte AVNative (só existe no app; no-op no navegador)
 │   ├── db.js                   # Camada comum: IndexedDB + OPFS + BroadcastChannel (+ relay nativo)
 │   ├── stage.js                # Motor de renderização compartilhado
-│   ├── mse.js                  # Player DASH mínimo (window.AVStream): a
-│   │                           # TRANSMISSÃO DIRETA do YouTube sem baixar
 │   ├── wallpaper-padrao.svg    # O wallpaper padrão: o símbolo oficial IASD
 │   ├── material-symbols.css    # Font-face da fonte de ícones (subset offline; só o Controle usa)
 │   └── fonts/

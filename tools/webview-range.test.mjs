@@ -18,10 +18,10 @@
 //
 // ## Por que um ORÁCULO transcrito, e não um teste de aparelho
 //
-// Porque a camada que falha só existe dentro do WebView: `tools/mse.test.mjs`
-// roda num Chromium de mesa, onde `shouldInterceptRequest` não existe e um
-// corpo que não corresponde ao `Range` pedido é aceito sem reclamar. Foi por
-// isso que a suíte ficou verde com a transmissão quebrada desde a v5.120.
+// Porque a camada que falha só existe dentro do WebView. Um oráculo de Chromium
+// de mesa não a alcança: ali `shouldInterceptRequest` não existe, e um corpo que
+// não corresponde ao `Range` pedido é aceito sem reclamar. Foi por isso que a
+// suíte ficou verde com a transmissão quebrada desde a v5.120.
 //
 // A transcrição abaixo é a hipótese ficando EXPLÍCITA e versionada: se um dia o
 // Chromium mudar essa regra, o lugar de descobrir isso é o CI, não o culto.

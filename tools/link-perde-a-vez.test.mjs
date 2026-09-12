@@ -164,16 +164,7 @@ try {
     + 'setAppMode("full");' + SEMEAR
     + 'await load(); return { audio: a.id, l1: l1.id, l2: l2.id, l3: l3.id }; })()'));
 
-  // O manifesto de mentira é VP9/Opus: o Chromium do Playwright não traz codec
-  // proprietário, e um `avc1+aac` seria RECUSADO pelo `AVStream.suportado` — o
-  // fluxo cairia no download e o arquivo mediria outra coisa que não o que diz.
   await pg.evaluate((u) => {
-    window.__manifesto = {
-      name: 'Video do YouTube', seconds: 30, height: 1080,
-      video: { mime: 'video/webm; codecs="vp9"', url: u + '/nada.webm', init: [0, 1], index: [0, 1] },
-      videos: [],
-      audio: { mime: 'audio/webm; codecs="opus"', url: u + '/nada2.webm', init: [0, 1], index: [0, 1] },
-    };
     window.__arquivo = { url: u + '/baixado.wav', name: 'Baixado', size: 0,
       type: 'audio/wav', height: 0, seconds: 20 };
   }, base);
@@ -408,7 +399,7 @@ try {
   // das guardas acima o alcança. Foi assim que a v1.4.6 pôs o reconhecimento do
   // toque numa porta e deixou a outra de fora; a lição está no comentário do
   // `resolverLinkYoutube`, e este caso é ela cobrada.
-  await pg.evaluate(() => { window.__soltarFetch = false; window.__manifesto = null; });
+  await pg.evaluate(() => { window.__soltarFetch = false; });
   await pg.evaluate((u) => {
     ytAcao({ id: 'ddddddddddd', url: 'https://www.youtube.com/watch?v=ddddddddddd',
       name: 'Da busca' }, ['tocar'], null, false, 1080);

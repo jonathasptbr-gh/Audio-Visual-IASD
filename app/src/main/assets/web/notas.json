@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.82",
+    "itens": [
+      "Faxina por dentro: saiu o motor de tocar vídeo do YouTube sem baixar, desligado desde a v1.7.7.",
+      "O app ficou mais leve e a atualização automática, mais segura. Nada muda na tela."
+    ]
+  },
+  {
     "versao": "1.8.81",
     "itens": [
       "Faxina na paleta: saíram dois tokens que nada no app lia. Nada muda na tela.",

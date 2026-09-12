@@ -109,44 +109,52 @@ memória caminho → URL), um parcial do 137 seria "retomado" por um download do
 136 — dois vídeos emendados, sem erro, aparecendo só na hora de projetar. O mapa
 morre com o processo de propósito.
 
-### A TRANSMISSÃO DIRETA SAIU DO APP (v1.7.7)
+### A TRANSMISSÃO DIRETA SAIU DO APP (v1.7.7 o ESCRITOR, v1.8.82 o LEITOR)
 
 Da v5.212 à v1.7.2 o "Tocar agora" de um vídeo do YouTube **projetava sem
 baixar**: o `ytStream` montava o manifesto das duas faixas adaptativas, o
-`StreamProxy` as servia pelo NOSSO origin, e o `shared/mse.js` as virava um
-`<video>` comum — a cena entrava com o primeiro fragmento, na casa dos kB, em
-vez de esperar centenas de MB.
+`StreamProxy` as servia pelo NOSSO origin, e um player DASH mínimo
+(`shared/mse.js`) as virava um `<video>` comum — a cena entrava com o primeiro
+fragmento, na casa dos kB, em vez de esperar centenas de MB.
 
 **Ela foi abandonada a pedido do operador**, depois do relato de *"travamentos a
 cada um ou dois segundos durante a exibição de um vídeo do YouTube transmitido
 diretamente para a tv"*, com espelhamento no ar: *"vamos abandonar o modo online
 direto, ele é muito instável, vamos manter o download em 720p como padrão"*.
 
-**O que saiu do `controle.js`:** `tentarTransmitir`, `recuperarStream`, o
+**A v1.7.7 tirou o ESCRITOR** — `tentarTransmitir`, `recuperarStream`, o
 `onStreamErro` da preview, o degrau **"Online"** do seletor de qualidade
 (`YT_ONLINE`), o `motivoStream` e o bloco de Registro que o lia. Os TRÊS
 caminhos que produziam uma cena de transmissão — o "Tocar agora", o item de link
 (`resolverLinkYoutube`) e o share do modo simplificado — passaram todos a baixar.
 
-**O que FICA, e por quê:**
+**A v1.8.82 tirou o LEITOR, e a razão é que ele deixou de ser um leitor.** O
+motor ficava para tocar um registro gravado ANTES daquele lote — mas o que ele
+lia são URLs do googlevideo, que **expiram em horas**. Passados três meses não
+existe aparelho em que aquele registro ainda toque: o que sobrava era ~1.000
+linhas de JS viajando no bundle do OTA para toda a frota, sete oráculos medindo
+um caminho que nenhum toque alcança, e — o custo real — `mse.js` na lista de
+globais do `otaAppIsUp`, onde um erro de escrita descarta TODO bundle novo, para
+sempre e em silêncio. Saíram com ele o `AVStream.fome`, o `AVStream.banda`, os
+campos `stream` do `db.js` (com `addStreamMedia`/`setMediaStream`), o ramo
+`rec.stream` e o maquinário de espera/fome do `stage.js`, o `onEspera` da
+preview, o `diagMse` do Registro e o `telaManifestoDaRede`. Um registro legado é
+hoje o que ele de fato é: uma cena sem bytes, que o palco esvazia.
 
-- **`shared/mse.js` e o ramo `rec.stream` do `stage.js`.** Eles são o LEITOR. Um
-  registro gravado ANTES deste lote pode carregar um `stream` no IndexedDB de um
-  aparelho, e sem o motor aquela cena viraria palco vazio em vez de tocar até o
-  manifesto expirar (horas). **Nada no app cria um manifesto novo** — não
-  reintroduzir uma chamada a `AVStream.criar` no Controle sem o operador pedir.
-- **O `ytStream` do KOTLIN, e o `StreamProxy.kt`.** Tirá-los é um degrau de
+**O que FICA, e por quê — tudo no KOTLIN:**
+
+- **O `ytStream` e o `StreamProxy.kt`.** Tirá-los é um degrau de
   `SHELL_VERSION` e uma Release, e um método de ponte sem chamador não custa
   nada ao aparelho. **O embrulho do lado WEB saiu na v1.8.71** — encolher pelo
-  web é o lado seguro e dispensa Release —, então hoje nada no app o alcança.
+  web é o lado seguro e dispensa Release —, então hoje nada no app os alcança.
 - **A rota `/s/<token>` das telas da rede.** Ela repassa a faixa do googlevideo
   para uma tela da LAN, e o que a alimentava era o mesmo manifesto — hoje ela
-  não tem o que servir, e cai junto por construção.
-- **`AVStream.fome`, `AVStream.banda` e os oráculos do motor**
-  (`mse.test.mjs`, `degrau-de-banda`, `degrau-e-prazo`, `espera-do-stream`,
-  `fome-que-desiste`, `stream-so-audio`). Eles medem o LEITOR, que continua de pé.
+  não tem o que servir. Cai no mesmo lote em que o `StreamProxy` cair.
+- **O `k === 'stream'` do `controle/pacote.js`** — a ÚNICA pergunta que o web
+  ainda faz pelo campo, e ela é sobre o passado: um registro legado não deve
+  exportar um manifesto morto para outro aparelho.
 
-**O preço, dito:** "Tocar agora" agora ESPERA o download — minutos, num vídeo de
+**O preço, dito:** "Tocar agora" ESPERA o download — minutos, num vídeo de
 ~300 MB. É exatamente o que a transmissão existia para evitar, e o operador
 aceitou a troca por extenso. O cartão sobre a preview e a barra de progresso já
 cobrem essa espera; o caminho é o `ytArquivo`, que nunca deixou de existir.

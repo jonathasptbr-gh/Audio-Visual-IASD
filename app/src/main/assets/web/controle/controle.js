@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.81';
+const WEB_VERSION = '1.8.82';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1082,11 +1082,10 @@ let projecaoSeq = 0;
 // correção.
 let palcoEmVoo = null;   // { senha, cartoes[] } — a projeção que espera a rede
 
-// SÃO VÁRIOS CARTÕES, E NÃO UM (v1.7.7). A mesma tentativa de projeção abre
-// DOIS em sequência: o do toque (`cederOPalco`, "Preparando <nome>") e o do
-// download (`ytBaixarNativo` com `aviso: 'preview'`), que antes deste lote era
-// inalcançável neste caminho — a transmissão direta resolvia a cena antes de
-// chegar nele. Guardando um só, quem ganhava a vez derrubava o primeiro e o
+// SÃO VÁRIOS CARTÕES, E NÃO UM. A mesma tentativa de projeção abre DOIS em
+// sequência: o do toque (`cederOPalco`, "Preparando <nome>") e o do download
+// (`ytBaixarNativo` com `aviso: 'preview'`). Guardando um só, quem ganhava a
+// vez derrubava o primeiro e o
 // SEGUNDO ficava sobre a música nova pelos MINUTOS do download: a tela dizendo
 // que prepara uma coisa e tocando outra, que é exatamente o relato que este
 // mecanismo existe para não deixar acontecer.
@@ -1647,14 +1646,6 @@ let gateTinhaTela = false;
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
-// O dono do cartão que o `onEspera` da preview abriu (`null` = nenhum), e o NOME
-// que ele escreve. O nome é gravado por `aplicarNaPreview` a partir do item que
-// está entrando — nunca lido do rótulo já desenhado: `renderNowPlaying` roda em
-// pontos diferentes de cada caminho, e um nome atrasado é o cartão anunciando o
-// louvor ANTERIOR enquanto o novo carrega.
-let pvEsperaSolta = null;
-let pvEsperaNome = '';
-
 // ===== preview (espelho do display) =====
 // Mostra exatamente o que o display mostra. Recebe os MESMOS comandos enviados
 // ao display e ainda comanda a barra de progresso/avanço.
@@ -1671,33 +1662,6 @@ const preview = createStage({
   // ilustração mentir sobre a cena. É a armadilha que o `fundo-da-letra` já
   // pagou uma vez — *ler cada lado isolado aprova os dois*.
   camadaImg: pvTextImgEl,
-  // ===== TODO O CARREGAMENTO APARECE AQUI, NUM INDICADOR SÓ (v1.4.8) =====
-  //
-  // Pedido do operador: *"vamos abandonar o spinner no telão… e nos controles já
-  // temos a mensagem de preparando, não precisamos de um spinner exclusivo"*.
-  //
-  // O palco não desenha mais nada: ele ANUNCIA (`onEspera`), e quem mostra é o
-  // cartão que já existe sobre a preview — o mesmo do "Preparando" do toque, de
-  // modo que a espera INTEIRA (a extração de rede, e depois a carga do stream)
-  // se lê como um estado só, e não como dois avisos se revezando.
-  //
-  // O TELÃO NÃO PASSA `onEspera`, e é assim que ele fica com dois estados e
-  // nenhum intermediário: o wallpaper em repouso, ou o conteúdo no ar.
-  //
-  // O cartão é aberto e solto por BORDA, e o `pvEsperaSolta` é a memória disso:
-  // `previewBusy` conta donos (`pvBusyCount`), então um `onEspera(true)` repetido
-  // sem o `false` do meio deixaria um dono pendurado — e o cartão nunca sairia.
-  onEspera: (ligado) => {
-    if (ligado) {
-      if (pvEsperaSolta) return;
-      pvEsperaSolta = previewBusy('Preparando', pvEsperaNome || 'a mídia').soltar;
-      return;
-    }
-    if (!pvEsperaSolta) return;
-    const soltar = pvEsperaSolta;
-    pvEsperaSolta = null;
-    soltar();
-  },
   onTime: previewTick,
   // O NAVEGADOR RECUSOU O SOM — e a resposta é voltar a tocar MUDO, na hora.
   //
@@ -2398,10 +2362,6 @@ function aplicarNaPreview(obj, item) {
   if (obj.type === 'text') { showPvText(obj); return; }
   if (obj.type === 'text-hide') { hidePvText(); return; }
   if (obj.type === 'load') {
-    // O nome que o cartão de espera vai escrever, gravado ANTES do `handle`:
-    // é dentro dele que o palco pode anunciar a espera, e o `onEspera` não
-    // recebe o item.
-    pvEsperaNome = (item && item.name) || '';
     // Esconde a letra incondicionalmente (como o Display). O texto manual é um
     // overlay independente: só some ao carregar VISUAL; ÁUDIO toca por baixo e
     // mantém o texto (independência áudio × texto).
@@ -11619,8 +11579,8 @@ async function send(id, daFila) {
     marcarNoAr();
     return;
   }
-  // O ITEM DE LINK NÃO VAI AO TELÃO COMO LINK (v5.212). Ele é resolvido agora —
-  // transmissão direta ou download — e quem projeta é o registro que sair daí.
+  // O ITEM DE LINK NÃO VAI AO TELÃO COMO LINK (v5.212). Ele é resolvido agora,
+  // por DOWNLOAD, e quem projeta é o registro que sair daí.
   // A guarda fica AQUI pelo mesmo motivo da guarda de cena de roteiro logo
   // acima: `send` é o ponto por onde TODOS os caminhos passam (o avanço
   // automático da playlist, o ⏮/⏭ do transporte, a notificação nativa).
@@ -15400,13 +15360,6 @@ async function toggleMute() {
   // só saía depois do commit dela. O irmão que mexe no mesmo áudio
   // (`applyVolume`) sempre mandou primeiro — a assimetria não tinha razão.
   //
-  // **Por que isto pesa numa TRANSMISSÃO e não num arquivo:** os dois WebViews
-  // dividem UM processo, e a transmissão direta é a única mídia do app que
-  // precisa de JavaScript rodando enquanto toca (o `shared/mse.js` repõe o
-  // buffer). Tudo que segura a thread principal entre o toque e o comando segura
-  // o abastecimento junto — um arquivo local não sente, porque o `<video>` lê do
-  // disco sem passar por JS nenhum.
-  //
   // A gravação continua acontecendo, agora SEM prender o comando: o que ela
   // guarda é o ajuste da mesa para a próxima sessão, e ninguém a espera.
   // (`persistCurrent` já é usado assim em quatro outros pontos.)
@@ -15414,9 +15367,7 @@ async function toggleMute() {
   // **O QUE ISTO NÃO PROVA, dito:** o engasgo do relato não foi reproduzido fora
   // do aparelho — aqui a escrita mede ~2 ms num banco vazio. O que se corrige é
   // uma latência REAL e mensurável no caminho exato do relato, não um defeito
-  // observado. Se o engasgo persistir, o próximo suspeito não é este arquivo: é
-  // o que o Chromium faz com um `<video>` de MediaSource ao trocar de estado de
-  // áudio.
+  // observado.
   muted = !muted;
   cmd({ type: 'mute', muted });
   renderControls();
@@ -19183,10 +19134,7 @@ function openYtMenu(r, alvoDado) {
   // Shell ≥ 25, pelo método `ytFetchAte` da ponte. Num anterior a linha não
   // aparece e o download sai no padrão de sempre — que é exatamente o que este
   // app fazia até agora, então nada regride.
-  // O DEGRAU "ONLINE" SAIU na v1.7.7, junto com a transmissão direta que ele
-  // existia para alimentar: um item guardado só como link é um item que, ao
-  // tocar, teria de vir da internet ao vivo — e é exatamente isso que o
-  // operador mandou abandonar. Toda qualidade daqui BAIXA bytes.
+  // TODA QUALIDADE DAQUI BAIXA BYTES: não há degrau que guarde só o link.
   //
   // E ESCOLHER AQUI É ESCOLHER O PADRÃO (`adotarAlturaPreferida`): a escolha
   // sobrevive à sessão e passa a valer para o próximo vídeo, que é o pedido ao
@@ -19265,13 +19213,12 @@ function openYtMenu(r, alvoDado) {
 //
 // Um registro `kind: 'youtube'` é o LINK sem bytes — a última carta de quando
 // o download falhou. Sem o embed (removido na v5.212) ele deixa de ser tocável
-// como link e é RESOLVIDO no toque, por DOWNLOAD (`ytArquivo`). Era uma escada
-// de dois degraus até a v1.7.7, e o primeiro (a transmissão direta) saiu do app.
+// como link e é RESOLVIDO no toque, por DOWNLOAD (`ytArquivo`).
 //
 // O DOWNLOAD TROCA O ITEM NA LISTA. O arquivo é durável e
 // toma o lugar do link EM POSIÇÃO — `listSet` com função é read-modify-write
 // atômico, e `listAdd`+`listRemove` mandaria o item para o fim de um Cronograma
-// que alguém montou à mão. O manifesto de uma transmissão expira em horas.
+// que alguém montou à mão.
 const LISTAS_DO_OPERADOR = ['playlist', 'imports', 'favs'];
 
 async function trocarLinkPeloArquivo(velhoId, novoId) {
@@ -19514,17 +19461,6 @@ async function ytAcaoInterno(r, destinos, btn, somenteAudio, altura) {
   // reaproveitamento do arquivo e o download.
   const soAudio = !!somenteAudio;
 
-  // A TRANSMISSÃO DIRETA SAIU DAQUI (v1.7.7). Ela era o caminho do "Tocar
-  // agora": o shell montava o manifesto, o `mse.js` o virava um `<video>` e a
-  // cena entrava com o primeiro fragmento, na casa dos kB — sem esperar
-  // centenas de MB.
-  //
-  // Pedido do operador: *"vamos abandonar o modo online direto, ele é muito
-  // instável"*, depois de relatar travamentos a cada um ou dois segundos com o
-  // espelhamento no ar. O preço está aceito e é o que ela existia para evitar:
-  // "Tocar agora" agora ESPERA o download. O cartão sobre a preview e a barra
-  // de progresso já cobrem essa espera — é o mesmo caminho do `ytArquivo`, que
-  // nunca deixou de existir.
 
   const existente = r && r.id ? await AVDB.mediaByYoutube(r.id, soAudio ? 'audio' : 'video') : null;
   // "Já estava lá" é sobre o CONJUNTO: com mais de um destino, o que interessa
@@ -20394,8 +20330,8 @@ function destUniao(chave) {
  * casca do card veio — e naquele mundo o toque BAIXA (uma faixa de hinário são
  * poucos MB e o acervo existe para ficar offline). Aqui a premissa não vale: são
  * ~300 MB por episódio, e o vídeo do sábado é visto uma vez. Quem já resolvia
- * isso é o caminho do YouTube, com a TRANSMISSÃO DIRETA no "Tocar agora" e o
- * download só nos destinos que GUARDAM.
+ * isso é o caminho do YouTube: o download só acontece a pedido, e não por
+ * abrir o álbum.
  *
  * `semSoAudio` é a única diferença: o seletor Vídeo × Só áudio some. Um
  * testemunho em vídeo não tem versão de áudio que faça sentido projetar, e uma
@@ -20404,7 +20340,7 @@ function destUniao(chave) {
 function serieComoYoutube(coll, s) {
   const r = { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true,
     // OS DOIS QUE VIAJAM PARA O REGISTRO (v1.5.21). Um episódio guardado como
-    // LINK ("Online") ou baixado nasce com a duração e o canal que o índice já
+    // LINK ou baixado nasce com a duração e o canal que o índice já
     // sabe — sem eles, o mesmo vídeo perdia os dois ao sair do álbum para o
     // Cronograma. Os nomes são os do `r` da BUSCA (`seconds`/`author`), porque
     // quem os consome é o mesmo caminho: `ytAcaoInterno` e `ytArquivo` não
@@ -21055,13 +20991,10 @@ const PV_FALHA_MS = 5000;
 // mesmo problema na outra ponta, e ele nasceu quando o aro do palco saiu e as
 // DUAS metades da mesma espera viraram o MESMO cartão.
 //
-// Uma espera tem dois donos em sequência: o toque (`cederOPalco`, que cobre a
-// extração de rede) e a carga da mídia (o `onEspera` do palco). O primeiro
-// solta no `finally`, assim que a ação volta; o segundo só acende lá dentro do
-// `load`, depois do fade de saída e do `getMedia`. Entre os dois o contador
-// passa por ZERO — e sem esta carência o cartão sai e volta no meio da mesma
-// espera, que é exatamente o "dois modelos de carregamento" que este lote
-// existe para acabar, com outra roupa.
+// Uma espera pode ter DOIS DONOS EM SEQUÊNCIA — a letra que baixa e a mídia que
+// entra, o download e o "Preparando" que o segue. O primeiro solta no `finally`,
+// o segundo só acende depois; entre os dois o contador passa por ZERO, e sem
+// esta carência o cartão sai e volta no meio da mesma espera.
 //
 // **A carência cobre o pior caso do vão**, que é o `FADE.time` (0,6 s) mais a
 // leitura do IndexedDB. **O preço está dito:** um cartão que de fato acabou fica
@@ -22655,11 +22588,6 @@ function cabecalhoDiag() {
       : (somLocalBloqueado
         ? 'em lugar nenhum — o navegador recusou o som deste aparelho'
         : 'em lugar nenhum — sem tela e no Modo Fácil (este aparelho só soa no avançado)'))));
-  // SUPORTE A TRANSMISSÃO DIRETA. É o dado mais útil deste bloco desde a
-  // v5.120: quando um "Tocar agora" cai no download em vez de transmitir, a
-  // primeira pergunta é se o WebView deste aparelho aceita os codecs — e a
-  // resposta não se descobre de fora.
-  l.push('Transmissão: ' + diagMse());
   // O ALCANCE (v1.4.1). Com a chave fora (v1.4.42) ele responde UMA pergunta, e
   // é a que faz este Registro ser copiado: **o farol chegou a acender?** Sem
   // esta linha, "o número não sobe" é indistinguível de "o farol nunca saiu
@@ -22738,23 +22666,6 @@ function cabecalhoDiag() {
     ? 'Aparelho: Android ' + and[1] + ' · ' + mod[1].trim() + ' · WebView ' + chr[1]
     : 'Aparelho: ' + ua);
   return l.join('\n');
-}
-
-function diagMse() {
-  if (!window.MediaSource) return 'sem MediaSource';
-  const testes = [
-    ['avc1', 'video/mp4; codecs="avc1.640028"'],
-    ['aac', 'audio/mp4; codecs="mp4a.40.2"'],
-  ];
-  const faltam = testes
-    .filter(([, t]) => { try { return !MediaSource.isTypeSupported(t); } catch (_) { return true; } })
-    .map(([n]) => n);
-  const codecs = faltam.length ? 'MediaSource sem ' + faltam.join('+') : 'MediaSource ok (avc1+aac)';
-  // POR ONDE A FAIXA VIAJA. É a diferença entre o navegador e o WebView (ver o
-  // cabeçalho de `shared/mse.js`), e não se infere da versão que o rodapé
-  // mostra — quem decide é o contexto em que a página está rodando.
-  if (!window.__NATIVE__) return codecs + ' · navegador (faixa no cabeçalho)';
-  return codecs + ' · faixa na URL';
 }
 
 // ===== O bloco da TRANSMISSÃO no Registro =====
@@ -23818,19 +23729,11 @@ async function renderDiag() {
     }
 
   }
-  // A QUALIDADE QUE DE FATO FOI AO AR (v1.7.7).
+  // A QUALIDADE QUE DE FATO FOI AO AR.
   //
-  // Este bloco descrevia a TRANSMISSÃO DIRETA e morava atrás de um
-  // `if (motivoStream)`. Com ela fora do app, o que sobrou é a pergunta que
-  // continua tendo resposta e continua importando: *"a projeção saiu pior do
-  // que se pediu?"* — que vale para o DOWNLOAD do mesmo jeito, porque quem
-  // escreve o censo é `avisarResolucaoLimitada`, e os dois caminhos passavam
-  // por ela.
-  //
-  // A CONTAGEM ESTAVA PRESA À TRANSMISSÃO SEM PRECISAR: gateada pelo
-  // `motivoStream`, ela sumiria do Registro justamente agora que todo "Tocar
-  // agora" baixa. O teto preferido entra ao lado porque desde este lote ele
-  // SOBREVIVE À SESSÃO — e um teto de 480p esquecido é a explicação mais
+  // A pergunta é *"a projeção saiu pior do que se pediu?"*, e quem escreve o
+  // censo é `avisarResolucaoLimitada`. O teto preferido entra ao lado porque
+  // ele SOBREVIVE À SESSÃO — e um teto de 480p esquecido é a explicação mais
   // provável para "a imagem está ruim" num aparelho que ninguém mexeu.
   //
   // SÓ SAI DEPOIS DE ACONTECER: a ausência da linha é "nada saiu limitado", e
@@ -26221,9 +26124,10 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
     if (cab.t === 'info') continue;   // o cabeçalho humano; nada a aplicar
     if (cab.t === 'media') {
       // O `blob` volta do CORPO, e os campos que o exportador tirou continuam
-      // ausentes de propósito: `stream` é o manifesto de uma transmissão que
-      // expirou horas atrás, e o item sem ele é o LINK que ele sempre foi —
-      // resolvido no primeiro toque, pelo caminho que já existe.
+      // ausentes de propósito: um `stream` de registro LEGADO é o manifesto de
+      // uma transmissão que expirou horas atrás, e o item sem ele é o LINK que
+      // ele sempre foi — resolvido no primeiro toque, pelo caminho que já
+      // existe.
       const rec = Object.assign({}, cab.rec, { blob: corpo, thumb: null, pages: null });
       pendente = { tipo: 'media', rec };
       continue;
@@ -28533,11 +28437,10 @@ async function handleSharedUrl(url, title) {
       openYtMenu({ id: ytId, url, name: rotulo });
       return SHARE_TRATADO;
     }
-    // NO SIMPLIFICADO O LINK COMPARTILHADO CONTINUA SENDO UM "TOCAR AGORA" —
-    // ele vai direto ao telão, não entra em lista visível nenhuma e ninguém
-    // pediu para guardar nada. O que mudou na v1.7.7 é o MEIO: era a
-    // transmissão direta (v5.138), e ela saiu do app; hoje é o download de
-    // sempre, logo abaixo, que projeta quando os bytes chegam.
+    // NO SIMPLIFICADO O LINK COMPARTILHADO É UM "TOCAR AGORA" — ele vai direto
+    // ao telão, não entra em lista visível nenhuma e ninguém pediu para guardar
+    // nada. O MEIO é o download de sempre, logo abaixo, que projeta quando os
+    // bytes chegam.
     // O link vira ARQUIVO — é a via que toca em segundo plano e não depende da
     // rede durante o culto. Falhando (vídeo restrito, shell antigo), cai no
     // item de player de sempre: um link compartilhado nunca se perde.
@@ -28955,9 +28858,9 @@ function registrarShareNativo() {
 // teto de qualidade).
 //
 // A pergunta também é o que torna o recurso seguro no MODO FÁCIL: ali um link
-// compartilhado vira transmissão direta SEM perguntar nada — e um link
-// projetado na frente da congregação porque estava copiado seria o pior
-// desfecho possível deste recurso.
+// compartilhado vai direto ao telão SEM perguntar nada — e um link projetado na
+// frente da congregação porque estava copiado seria o pior desfecho possível
+// deste recurso.
 //
 // ===== O AVISO DO SISTEMA É O CUSTO, E ELE É PAGO UMA VEZ POR LINK =====
 //
@@ -34039,52 +33942,6 @@ function telaSanearRec(it, token) {
   return rec;
 }
 
-// O MANIFESTO REESCRITO PARA A REDE (v5.189).
-//
-// As URLs que o shell entrega apontam para `/stream/<token>` no origin do
-// WebView (`https://appassets.androidplatform.net/…`), e uma tela da rede não
-// tem WebView nenhum no caminho: para ela a mesma faixa é servida pelo
-// `EspelhoServidor` em `/s/<token>`, RELATIVA — o host é o próprio celular, de
-// onde a página veio. O token é o MESMO dos dois lados (o registro do
-// `StreamProxy` é um só), então não há segunda extração nem segundo cache.
-//
-// Devolve `null` quando não há faixa reescrevível: aí a cena vira o aviso de
-// sempre, em vez de uma tela preta com um `<video>` que não busca nada.
-function telaManifestoDaRede(man) {
-  if (!man) return null;
-  const refazer = (faixa) => {
-    if (!faixa || !faixa.url) return null;
-    const i = String(faixa.url).indexOf('/stream/');
-    if (i < 0) return null;
-    return Object.assign({}, faixa, { url: '/s/' + String(faixa.url).slice(i + 8) });
-  };
-  const video = refazer(man.video);
-  const audio = refazer(man.audio);
-  // O áudio é o que não pode faltar: um manifesto sem ele não toca em lugar
-  // nenhum, e a tela sem som é justamente o que a rede existe para evitar.
-  if (!audio) return null;
-  // ===== A ESCADA TAMBÉM (shell 60), e ELA NÃO PODE PASSAR INTACTA =====
-  //
-  // `Object.assign` carrega `videos` adiante sem tocar nele, e as URLs de lá
-  // apontam para `appassets.androidplatform.net` — um host que o navegador da
-  // rede NÃO alcança. A tela mediria a banda, decidiria descer um degrau, e o
-  // fetch do init novo falharia quatro vezes até `morrer()`: a transmissão
-  // MORRE por causa de uma otimização, e só nas telas.
-  //
-  // O que não se deixa reescrever SAI da escada — uma escada com um degrau
-  // quebrado é pior que escada nenhuma, porque a regra escolheria justamente
-  // ele numa rede ruim. Sobrando menos de dois, ela some inteira e a tela volta
-  // ao comportamento de antes: uma faixa só, sem medição.
-  const escada = Array.isArray(man.videos)
-    ? man.videos.map(refazer).filter(Boolean)
-    : null;
-  return Object.assign({}, man, {
-    video: video,
-    audio: audio,
-    videos: (escada && escada.length > 1) ? escada : undefined,
-  });
-}
-
 // Token estável por imagem de letra; devolve a URL /m/ dela (ou undefined).
 function telaImagemLetraUrl(opfsPath) {
   const token = telaTokenDe('ly:' + opfsPath);
@@ -34302,24 +34159,6 @@ function telaEnriquecer(cmd) {
   if (cmd.type === 'load') {
     const it = (currentItem && currentItem.id === cmd.mediaId) ? currentItem : null;
     if (!it) return;
-    // A TRANSMISSÃO DIRETA VAI PARA A REDE desde a v5.189 (a dívida §7): o
-    // shell passou a servir as mesmas faixas em `/s/<token>`, então o que a
-    // tela precisa é do manifesto com as URLs REESCRITAS — as originais
-    // apontam para `/stream/` no origin do WebView, que não existe lá.
-    if (it.stream) {
-      const man = telaManifestoDaRede(it.stream);
-      if (man) {
-        cmd.__rec = Object.assign(telaSanearRec(it, telaTokenDe(it.id) || ''), {
-          // Sem `url`: quem toca é o MediaSource, pelo manifesto. Deixar a
-          // `/m/<token>` de um item que ninguém empurrou faria a tela buscar
-          // um 404 antes de tentar o stream.
-          url: '',
-          stream: man,
-        });
-        return;
-      }
-      // Manifesto sem faixa servível: cai no aviso, como as outras.
-    }
     // As cenas que NÃO vão para a rede (spec §5.6): o embed é iframe de
     // terceiro (e a CSP das telas o barra por construção); o deck
     // são Blobs por página (E4.1). O aviso sai LOGO DEPOIS do load — a tela

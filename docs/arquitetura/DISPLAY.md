@@ -200,15 +200,14 @@ cena**, o `document.hidden` que pausava o player com o app minimizado, e a cena
 que ia MUDA para as telas da rede porque o Web Audio não alcança um iframe
 alheio.
 
-**Quem toca YouTube hoje** é o caminho PRÓPRIO, que já era o preferido:
-transmissão direta (`AVNative.ytStream` → `shared/mse.js`, um `MediaSource`
-alimentado pelo `StreamProxy`) e, falhando ela, o arquivo baixado pelo
-`YoutubeGrab`. Nos dois casos o telão toca um `<video>` COMUM, com fade,
-cortina, `MediaSession` e barra de graça — e **zero pixel de YouTube na
-projeção**. Um registro `kind: 'youtube'` (o link sem bytes) deixou de ser
-tocável como link e passa a ser RESOLVIDO no toque, dentro do `send`
-(`resolverLinkYoutube`). Ver "A via do arquivo baixado", abaixo, e a seção da
-transmissão direta.
+**Quem toca YouTube hoje** é o caminho PRÓPRIO, e ele é UM: o arquivo baixado
+pelo `YoutubeGrab`. O telão toca um `<video>` COMUM, com fade, cortina,
+`MediaSession` e barra de graça — e **zero pixel de YouTube na projeção**. Um
+registro `kind: 'youtube'` (o link sem bytes) deixou de ser tocável como link e
+passa a ser RESOLVIDO no toque, dentro do `send` (`resolverLinkYoutube`, que
+BAIXA). Ver "A via do arquivo baixado", abaixo. (A transmissão direta era o
+primeiro degrau desta escada até a v1.7.7, e o motor dela saiu do bundle na
+v1.8.82.)
 
 **A lição de método, que é o que sobrevive a qualquer transporte:** três
 versões (v5.75–v5.77) atacaram "o telão para ao minimizar" supondo que o
