@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.89';
+const WEB_VERSION = '1.8.90';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -32013,6 +32013,42 @@ function applyVolume(v) {
   renderControls();   // e por ele o fader e a leitura do Modo Fácil
 }
 
+/**
+ * ===== O PASSO É FINO ABAIXO DE 10 (v1.8.90) =====
+ *
+ * Pedido do operador: *"ajuste o slider de volume para ele ser mais sensível
+ * abaixo do nível 10, para que ele vá de 1 e 1 abaixo desse ponto. E subindo
+ * ele também siga essa precisão"*.
+ *
+ * **A razão é que o volume não é linear no OUVIDO.** De 95 para 100 quase não
+ * se nota; de 5 para 10 é o dobro da pressão. Um passo único de 5 dá quatro
+ * degraus úteis (5·10·15·20) na faixa em que o operador de fato ajusta um
+ * louvor de fundo sob a fala do púlpito — e o zero fica a UM toque do 5, que é
+ * o corte que ninguém quer por engano.
+ *
+ * **A FRONTEIRA É DO LADO DE QUEM SOBE:** de 9 vai-se a 10 (fino), de 10 a 15
+ * (grosso). Escrita com o mesmo `<` nos dois sentidos, descer de 10 daria 5 e o
+ * trecho fino só existiria na subida.
+ *
+ * **E O ALVO É ALINHADO À GRADE, nunca `atual ± passo`.** O fader é arrastável
+ * e deixa valores fora dos múltiplos: de 12, um passo para baixo daria 7 e
+ * PULARIA o 10 — o degrau que separa os dois trechos. Alinhando, 12 desce para
+ * 10 e sobe para 15, e a grade fica igual venha o valor de onde vier.
+ */
+const VOL_FINO_ATE = 10;      // % abaixo do qual o passo é de 1
+const VOL_PASSO_FINO = 1;
+const VOL_PASSO = 5;
+
+function volumeProximo(atual, dir) {
+  const pct = Math.round(atual * 100);
+  const fino = dir > 0 ? pct < VOL_FINO_ATE : pct <= VOL_FINO_ATE;
+  const passo = fino ? VOL_PASSO_FINO : VOL_PASSO;
+  const alvo = dir > 0
+    ? (Math.floor(pct / passo) + 1) * passo
+    : (Math.ceil(pct / passo) - 1) * passo;
+  return Math.max(0, Math.min(100, alvo)) / 100;
+}
+
 
 // ===== Modos de uso: simplificado × sonoplasta completo =====
 // Duas pessoas: quem só conecta a tela e toca um louvor, e o sonoplasta que
@@ -32246,11 +32282,11 @@ function setupSimpleSeek() {
 }
 setupSimpleSeek();
 
-// Volume em passos, como num controle remoto — o MESMO passo dos botões
-// físicos (VOL_KEY_STEP), para os dois caminhos não discordarem, e a mesma
+// Volume em passos, como num controle remoto — a MESMA grade dos botões
+// físicos (`volumeProximo`), para os dois caminhos não discordarem, e a mesma
 // `applyVolume` de sempre (clamp, desmutar ao subir de 0, comando, render).
 function simpleVolStep(dir) {
-  applyVolume(volume + dir * VOL_KEY_STEP);
+  applyVolume(volumeProximo(volume, dir));
   persistCurrent();
 }
 
@@ -32666,7 +32702,7 @@ setAppMode(appMode);
 // congregação está vendo. Consumindo, nada disso chega ao telão: o que aparece
 // é o fader do celular, por alguns segundos (ver `peekVolume`).
 // A Activity intercepta a tecla e chama esta função (ver MainActivity.onKeyDown).
-const VOL_KEY_STEP = 0.05;
+// O TAMANHO do passo é de `volumeProximo` — fino abaixo de 10, ver lá.
 if (window.__NATIVE__) {
   window.__avVolumeKey = (step) => {
     // Mostra o fader por alguns segundos — inclusive quando o passo vai para o
@@ -32680,7 +32716,7 @@ if (window.__NATIVE__) {
       AVNative.systemVolume(step);
       return;
     }
-    applyVolume(volume + step * VOL_KEY_STEP);
+    applyVolume(volumeProximo(volume, step));
     persistCurrent();
   };
   // Só agora — com o handler de pé — a Activity pode consumir as teclas.

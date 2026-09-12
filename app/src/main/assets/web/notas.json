@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.90",
+    "itens": [
+      "Volume: abaixo do nível 10 os botões passaram a andar de 1 em 1, para subir e para descer.",
+      "Volume: de 10 para cima o passo segue de 5 em 5, e o 10 nunca é pulado."
+    ]
+  },
+  {
     "versao": "1.8.89",
     "itens": [
       "Playlist automática: o botão de sortear voltou ao centro da caixa dele.",
