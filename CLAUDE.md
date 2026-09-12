@@ -1989,9 +1989,9 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os 79 de Chromium somam **12,8 min em série** e **4,3 min nos três processos**
-(MEDIDO em 4 vCPU, o mesmo do runner; os 20 de Node puro somam **8 s** —
-juntos, os 99). O custo não é o que parece: lançar o navegador são **~110 ms** e
+Os de Chromium são **85** e os de Node puro **19** — juntos, os 104. MEDIDO com
+79 deles: **12,8 min em série** e **4,3 min nos três processos** (4 vCPU, o mesmo
+do runner); os de Node puro somam **8 s**. O custo não é o que parece: lançar o navegador são **~110 ms** e
 subir o `/controle/` inteiro é **~1 s** — compartilhar um navegador entre
 oráculos, a otimização óbvia, economizaria 2% e custaria o isolamento. O que
 sobra é espera, com os quatro núcleos ociosos.
@@ -2036,7 +2036,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 99 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 104 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2627,17 +2627,18 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.83 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.84 · APK v1.8.73** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.83 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
+> **A v1.8.84 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Esta não toca `java/`,
 > `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou de forma: o
 > bundle sai na hora, contra o APK v1.8.73 que já está publicado. **E
-> `AVDB.stateApagarPrefixo` não é exceção**: a superfície que o `SHELL_VERSION`
-> governa é a da PONTE (`window.AVNative` sobre `__AVBridge`), não a do
-> `shared/db.js` — este viaja DENTRO do bundle, e quem o chama chega no mesmo
+> `AVSorteio.baralhar` não é exceção**, como não foi o `AVDB.stateApagarPrefixo`
+> da v1.8.83: a superfície que o `SHELL_VERSION` governa é a da PONTE
+> (`window.AVNative` sobre `__AVBridge`), não a dos módulos de
+> `assets/web/` — eles viajam DENTRO do bundle, e quem os chama chega no mesmo
 > zip. Aquela
 > declarou porque o Kotlin da v1.8.72 (o fecho do pacote) ainda não tinha
 > Release — e é essa a regra, não a data: **o `shellTag` ACOMPANHA A ÚLTIMA

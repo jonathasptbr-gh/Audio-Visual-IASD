@@ -44,7 +44,7 @@ São **quatro**, e o quarto é novo:
 
 | estado | quando |
 |---|---|
-| Completa offline | `bibleComplete:<v>` gravado (com o ✓ do `checkIconSvg`) |
+| Completa offline | `bibleComplete:<v>` gravado (com o ✓ do `checkIconSvg` — o único ✓ desta folha desde a v1.8.84) |
 | Baixando N/1189… | a varredura desta versão está correndo |
 | Parcial · N de 1189 capítulos | há chaves no banco e a varredura não terminou |
 | Não baixada | não há chave nenhuma desta versão |
@@ -85,10 +85,39 @@ MESMO intervalo do `stateKeys` (1189 `delete` avulsos seriam 1189 transações n
 processo aberto o culto inteiro). O prefixo carrega o `_` (`bible:nvi_`), senão
 ele alcançaria toda versão cujo id comece pelo mesmo texto.
 
-O botão é **APAGADO, nunca ausente**, na versão EM USO e onde não há o que
-excluir — a regra da v1.8.50, com o `title` dizendo qual dos dois motivos é.
+**O botão APARECE só onde há o que excluir** (v1.8.84, pedido do operador:
+*"ajuste para que oculte os ícones de excluir nos itens que ainda não foram
+baixados… pode deixar oculto quando ainda não há nada baixado daquele item"*),
+**e isso revoga metade da v1.8.83 — só metade, e a divisão é a régua da v1.8.50
+aplicada com cuidado**:
+
+| linha | o excluir | por quê |
+|---|---|---|
+| **em uso** | existe, **apagado**, com o `title` dizendo por quê | ele tem função a RECUPERAR: um toque noutra linha devolve o botão. Apagar é o que ensina isso; sumir mandaria procurar o que não sumiu |
+| **sem nada baixado** | **não existe** | não é uma ação adiada, é uma ação que não existe — e o app já não oferece o que não pode funcionar (o microfone sem TV, a aba de cifra sem cifra) |
+
 Excluir a versão em uso é o pé de galinha desta folha: a leitura em cena passaria
 a depender da rede da igreja no meio do culto.
+
+> **A LINHA NÃO SE MEXE NAS DUAS TRANSIÇÕES QUE O OPERADOR VÊ**, que é o que
+> normalmente cobra o apagado em vez da ausência: o botão nasce com a linha
+> (depois do `recontarBibliaNoAparelho`) e some quando o apagar redesenha a
+> lista — nenhuma das duas acontece sob o dedo.
+
+#### O ✓ DA ESCOLHA SAIU (v1.8.84)
+
+*"Remova o elemento 'check' da identificação do selecionado. Já temos a coloração
+azul da linha como marcação, não precisamos do check disputando espaço com a
+lixeira."* Ele **revoga a v1.8.83**, que tinha acabado de trocar o caractere cru
+`✓` — desenhado pela fonte do sistema, e por isso *"reto e pouco estilizado"* —
+pelo `checkIconSvg`. A marca da escolha continua existindo: é o `--sel-fill` da
+`.bible-ver-row.selected`, um fundo diferente do das outras. O que se ganha é a
+largura que o nome da versão perdia para um **segundo sinal da mesma coisa**.
+
+**O ✓ do "Completa offline" FICA**, e a distinção é o motivo de um ter saído e o
+outro não: aquele responde *"está no aparelho?"*, que é outra pergunta que a do
+fill. Oráculo: `biblia-versoes-e-retomada.test.mjs`, bloco D — e ele mede o ✓ da
+escolha **em nó E em caractere**, porque as duas formas já existiram.
 
 ### A BÍBLIA BASE, garantida na abertura (v5.242)
 

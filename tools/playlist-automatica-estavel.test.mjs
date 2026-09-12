@@ -45,12 +45,11 @@
 // a folha ANDANDO é o que o operador vê. Uma asserção só sobre a conta aprovaria
 // um conserto que a congelasse e deixasse outro motor solto.
 //
-// REVERSÃO MEDIDA, e ela reprova 8 das 18 asserções. Devolvendo o
-// `min-height: 6em` (mais o fundo, o raio e a centralização), a folha reprova a
-// 360×1,5 com Δ 27,5px — e a 430×1 e 430×1,5 PASSAM, que é a assimetria a
-// reparar: só a fonte grande numa tela estreita alcança a decisão. Devolvendo o
-// `renderSorteio()` ao `finally` do `executarSorteio`, as três asserções do
-// bloco A reprovam com 0 ms de exposição.
+// REVERSÃO MEDIDA. Devolvendo o `renderSorteio()` ao `finally` do
+// `executarSorteio`, as três asserções do bloco A reprovam com 0 ms de
+// exposição. Devolvendo a barra ao `.popup-fecho` (`porFecho(alvo, liGo)`), o
+// bloco B reprova nas quatro células — sem a barra dentro da lista não há
+// `.sorteio-barra` no lugar em que ela tem de estar.
 //
 //   node tools/playlist-automatica-estavel.test.mjs
 // ============================================================================
@@ -217,19 +216,24 @@ try {
       }, fn.toString());
       await pg.waitForTimeout(70);
       const m = await pg.evaluate(() => {
-        const c = document.querySelector('#sorteioList .sorteio-conta');
+        const barra = document.querySelector('#sorteioList .sorteio-barra');
         const sh = document.querySelector('#sorteioPopup .popup-sheet');
-        const cs = getComputedStyle(c);
+        const pil = document.querySelector('#sorteioList .sorteio-pilula');
+        const cs = getComputedStyle(barra);
         const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+        const rb = barra.getBoundingClientRect();
+        const rs = sh.getBoundingClientRect();
         return {
-          conta: +c.getBoundingClientRect().height.toFixed(1),
-          folha: +sh.getBoundingClientRect().height.toFixed(1),
-          // `scrollHeight - clientHeight`: o `overflow: hidden` esconde o
-          // excesso sem mexer na caixa, então a geometria de fora não o acusa.
-          cortado: c.scrollHeight - c.clientHeight,
-          align: cs.textAlign,
+          // A POSIÇÃO DA BARRA DENTRO DA FOLHA — é ela que o dedo procura, e é
+          // dela que a promessa passou a ser (ver o cabeçalho).
+          barraTopo: +(rb.top - rs.top).toFixed(1),
+          barraAlt: +rb.height.toFixed(1),
+          pilulaLarg: +pil.getBoundingClientRect().width.toFixed(1),
+          folha: +rs.height.toFixed(1),
+          // A barra é `sticky` sobre uma lista que rola por baixo: sem fundo
+          // OPACO o texto das linhas atravessa os botões.
+          sticky: cs.position,
           fundoAlfa: rgb(cs.backgroundColor).length < 4 ? 1 : rgb(cs.backgroundColor)[3],
-          raio: parseFloat(cs.borderTopLeftRadius) || 0,
         };
       });
       medidas.push({ largura, escala, estado: nome, ...m });
@@ -239,32 +243,29 @@ try {
 
   for (const [largura, escala] of CELULAS) {
     const sub = medidas.filter((m) => m.largura === largura && m.escala === escala);
-    const hs = [...new Set(sub.map((m) => m.conta))];
-    const fs = sub.map((m) => m.folha);
-    const dif = +(Math.max(...fs) - Math.min(...fs)).toFixed(1);
-    checar(hs.length === 1,
-      `${largura}×${escala}: o cartão tem UM tamanho nos ${sub.length} estados `
-      + '(era um `min-height`, e o pior caso passava dele)', hs);
-    checar(dif === 0,
-      `  ↳ e a FOLHA não anda um pixel entre eles (Δ ${dif}px)`,
-      dif ? sub.map((m) => m.estado + ': ' + m.folha) : dif);
+    const topos = [...new Set(sub.map((m) => m.barraTopo))];
+    const alturas = [...new Set(sub.map((m) => m.barraAlt))];
+    const larguras = [...new Set(sub.map((m) => m.pilulaLarg))];
+    checar(topos.length === 1 && alturas.length === 1,
+      `${largura}×${escala}: a BARRA DE AÇÃO fica no mesmo ponto da folha nos `
+      + `${sub.length} estados — é ela que o dedo procura, e agora ela não `
+      + 'depende do resultado: os quatro controles acima dela não mudam de altura',
+      { topos, alturas });
+    checar(larguras.length === 1,
+      '  ↳ e a PÍLULA tem uma largura só, com 1 e com 1.000 resultados — *"cuide '
+      + 'para que o botão tenha um tamanho fixo independente do número interno"*',
+      larguras.concat(sub.map((m) => m.estado)).slice(0, 8));
   }
 
-  const cortados = medidas.filter((m) => m.cortado > 0);
-  checar(cortados.length === 0,
-    'e em nenhum dos estados o texto é CORTADO pelo cartão — a altura fixa é o '
-    + 'pior caso medido, não um recorte do caso comum',
-    cortados.slice(0, 4));
-  checar(medidas.every((m) => m.align === 'center'),
-    'o texto é CENTRADO, que é a metade visual do pedido',
-    [...new Set(medidas.map((m) => m.align))]);
+  checar(medidas.every((m) => m.sticky === 'sticky'),
+    'a barra é `sticky`: acima dos resultados como se pediu, e à vista com a '
+    + 'lista rolando por baixo — o `.popup-fecho` dava essa segunda metade de '
+    + 'graça, e uma barra solta a perderia na primeira rolagem',
+    [...new Set(medidas.map((m) => m.sticky))]);
   checar(medidas.every((m) => m.fundoAlfa === 1),
-    'e o cartão é uma superfície OPACA: tinta com alfa sobre a folha empilharia '
-    + 'com o que estivesse atrás (a regra das superfícies de estado)',
+    '  ↳ com fundo OPACO, porque a lista passa POR BAIXO dela: tinta com alfa '
+    + 'sobre uma lista que rola muda de cor a cada quadro (v1.8.61)',
     [...new Set(medidas.map((m) => m.fundoAlfa))]);
-  checar(medidas.every((m) => m.raio > 0),
-    '  ↳ com o raio que faz dele um CARTÃO e não um bloco de texto',
-    [...new Set(medidas.map((m) => m.raio))]);
 
   checar(erros.length === 0, 'nenhum erro de console', erros);
 } catch (e) {

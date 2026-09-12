@@ -282,12 +282,22 @@ try {
     await load();
     return { a: a.id, b: b.id };
   });
+  // A CONFIRMAÇÃO SAI POR DUAS PORTAS DESDE A v1.8.84, e este ajudante aceita as
+  // duas de propósito: a faixa da linha é a de sempre, e o DIÁLOGO é a que a
+  // remoção usa quando vai interromper a mídia no ar (o último item da fila, com
+  // ele tocando). Qual é qual não é pergunta deste arquivo — ele mede o DESFECHO
+  // da remoção; quem afirma a porta certa em cada caso é o
+  // `fila-limpa-a-cena.test.mjs`. Aceitar as duas aqui é o que impede este
+  // oráculo de reprovar por uma decisão que outro já guarda, e o que ele NÃO faz
+  // é aceitar a ausência das duas — 'sem confirmar' continua reprovando.
   const remover = (nome) => pg.evaluate((n) => {
     const li = [...document.querySelectorAll('#playlist li')].find((e) => (e.textContent || '').includes(n));
     if (!li) return 'sem linha';
     const m = li.querySelector('.row-mais'); if (m) m.click();
     const rm = li.querySelector('.row-excluir'); if (!rm) return 'sem lixeira';
     rm.click();
+    const dlg = document.getElementById('appDialog');
+    if (dlg && dlg.classList.contains('open')) { document.getElementById('appDialogOk').click(); return ''; }
     const sim = li.querySelector('.linha-confirma-btn.linha-sim'); if (!sim) return 'sem confirmar';
     sim.click(); return '';
   }, nome);
@@ -407,9 +417,9 @@ try {
   checar(limpou.antes.midiaNoAr === true && limpou.fila === 0
       && limpou.midiaNoAr === false && limpou.currentId === '',
     '4d · o "Limpar" da folha responde COMO A LIXEIRA: o mesmo estado por duas '
-    + 'portas não pode ter duas respostas — e a `dica` do botão, que dizia "o '
-    + 'que está no ar segue no ar", é texto que o operador LÊ antes de confirmar',
-    JSON.stringify(limpou));
+    + 'portas não pode ter duas respostas — e desde a v1.8.84 a pergunta é a '
+    + 'MESMA função nas duas (`tirarDaFilaEncerraCena`), o que fecha a única '
+    + 'forma de elas voltarem a divergir', JSON.stringify(limpou));
 
 } finally {
   await navegador.close();

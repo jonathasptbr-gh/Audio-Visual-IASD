@@ -1,5 +1,18 @@
 [
   {
+    "versao": "1.8.84",
+    "itens": [
+      "Corrigido: limpar a playlist inteira agora limpa o player também, em vez de deixar a mídia tocando.",
+      "Excluir um item ou a playlist com algo no ar agora avisa antes que a mídia será interrompida.",
+      "Playlist automática: o cartão de resultados virou a LISTA das músicas sorteadas, com o lote no topo.",
+      "Playlist automática: um check por música deixa tirar uma do sorteio, e a próxima da fila entra no lugar.",
+      "Playlist automática: as escolhidas saem da lista depois de usadas, e as de baixo formam o próximo lote.",
+      "Playlist automática: a contagem virou um botão fixo ao lado do tocar, com o número dos resultados.",
+      "Bíblia: saiu o ✓ da versão escolhida — a linha azul já diz qual é, e o nome ganhou a largura.",
+      "Bíblia: o excluir só aparece nas versões que têm algo baixado."
+    ]
+  },
+  {
     "versao": "1.8.83",
     "itens": [
       "Corrigido: com um louvor tocando, cobrir o telão deixava o versículo na tela da TV.",

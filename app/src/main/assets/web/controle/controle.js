@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.83';
+const WEB_VERSION = '1.8.84';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4037,21 +4037,24 @@ function renderPlaylist() {
     rm.appendChild(msym(ICON.del));
     rm.addEventListener('click', (e) => {
       e.stopPropagation();
-      pedirConfirmacaoNaLinha(rm, {
+      // O AVISO só aparece quando a remoção VAI interromper — isto é, este item
+      // no ar E sendo o último da fila. Ver `pedirSaidaDaFila`.
+      pedirSaidaDaFila(rm, {
+        item,
+        titulo: 'Remover da playlist',
         ok: 'Remover',
         dica: 'Remover da fila. O arquivo só é apagado se ele não estiver '
           + 'guardado em mais nenhuma lista.',
         aoConfirmar: async () => {
-          // "ESTAVA NO AR" É O `noArAgora`, e não `item.id === currentId`
-          // escrito à mão: é a MESMA pergunta que o clique nesta linha faz
-          // trinta linhas abaixo, e duas cópias dela divergiriam no primeiro
-          // ajuste.
-          const eraDaCena = noArAgora(item);
+          // A MESMA PERGUNTA QUE A DICA FEZ, pela mesma função — e refeita
+          // AGORA, porque entre abrir a pergunta e confirmá-la a faixa pode ter
+          // acabado. `tirarDaFilaEncerraCena` é a única escrita dela.
+          const encerra = tirarDaFilaEncerraCena(item);
           await AVDB.listRemove('playlist', item.id);
           await load();
           // A FILA ACABOU COM A CENA DENTRO — ver `encerrarCenaDaFila`. Com
           // fila sobrando nada muda: a sequência não acabou, só saiu um item.
-          if (eraDaCena && plItems.length === 0) await encerrarCenaDaFila();
+          if (encerra) await encerrarCenaDaFila();
           fecharFilaVazia();
         },
       });
@@ -4289,19 +4292,14 @@ function renderBibleVerList() {
     }
     main.append(name, st);
     row.appendChild(main);
-    // O ✓ DA ESCOLHA É O DO APP (v1.8.83), e não mais o caractere `✓` cru.
-    // Pedido do operador: *"verifique o design do 'check' usado nessa área de
-    // versões da bíblia, ele parece em um design fora do padrão estabelecido no
-    // app de um check reto e pouco estilizado"*. Ele estava certo sobre a causa:
-    // um caractere é desenhado pela FONTE DO SISTEMA, então o traço, o peso e a
-    // inclinação eram os de outra família — enquanto o mesmo ✓ em todo o resto
-    // do app sai do `checkIconSvg`, que é `polyline` de traço reto.
-    if (v.id === bibleVersionId) {
-      const chk = document.createElement('span');
-      chk.className = 'bible-ver-check';
-      chk.innerHTML = checkIconSvg();
-      row.appendChild(chk);
-    }
+    // (O ✓ DA LINHA ESCOLHIDA SAIU na v1.8.84, revogando a v1.8.83 — que o
+    //  tinha acabado de trocar do caractere cru pelo `checkIconSvg`. Pedido do
+    //  operador: *"remova o elemento 'check' da identificação do selecionado.
+    //  Já temos a coloração azul da linha como marcação, não precisamos do
+    //  check disputando espaço com a lixeira."* A marca da escolha continua
+    //  existindo — é o `--sel-fill` da `.bible-ver-row.selected` —, e o que se
+    //  ganha é a largura que o nome da versão perdia para um segundo sinal da
+    //  mesma coisa. O ✓ do "Completa offline" FICA: aquele diz outra coisa.)
     row.addEventListener('click', () => {
       closeBibleVerPopup();
       // ESCOLHER É BAIXAR, inclusive a versão JÁ escolhida: `changeBibleVersion`
@@ -4311,28 +4309,43 @@ function renderBibleVerList() {
       ensureBibleVersionDownloaded(v.id);
       changeBibleVersion(v.id); // troca + recarrega o capítulo atual na nova versão
     });
-    // ===== O EXCLUIR (v1.8.83) =====
+    // ===== O EXCLUIR: OCULTO SEM NADA BAIXADO, APAGADO NA VERSÃO EM USO =====
     //
-    // APAGADO, e não ausente, quando não há o que excluir ou quando a versão é a
-    // que está EM USO: é a regra da v1.8.50 — um botão que aparece e some move
-    // os vizinhos debaixo do dedo, e o `title` diz POR QUÊ. Excluir a versão em
-    // uso é o pé de galinha desta folha: a leitura em cena passaria a depender
-    // da rede da igreja no meio do culto.
-    const del = document.createElement('button');
-    del.type = 'button';
-    // `.row-btn` e não uma caixa nova: ele é um botão de símbolo numa LINHA de
-    // lista, que é exatamente o que aquela classe já resolve (caixa `--hit`,
-    // tom, escala de ícone e resposta ao toque, num lugar só).
-    del.className = 'row-btn bible-ver-del';
-    del.appendChild(msym(ICON.del));   // `msym` devolve um NÓ, não uma string
+    // Pedido do operador (v1.8.84): *"ajuste para que oculte os icones de
+    // excluir, nos itens que ainda não foram baixados. Atualmente ele fica
+    // apenas esmaecido, mas pode deixar oculto quando não ainda não há nada
+    // baixado daquele item."*
+    //
+    // **OS DOIS CASOS DEIXARAM DE SER O MESMO, e a régua é o que o operador pode
+    // FAZER a respeito.** A regra da v1.8.50 (*"o que não tem função agora é
+    // apagado, não deixado inerte"*) existe para um botão cuja indisponibilidade
+    // é TEMPORÁRIA e reversível pelo próprio operador — é o caso da versão EM
+    // USO, onde ele escolhe outra e o botão acende, e é por isso que ela precisa
+    // ocupar o lugar e dizer por quê no `title`. Numa versão que nunca foi
+    // baixada não há função a recuperar: excluir o que não existe não é uma ação
+    // adiada, é uma ação que não existe.
+    //
+    // E o preço que a regra cobrava — mover os vizinhos debaixo do dedo — não se
+    // paga aqui: o excluir é o ÚLTIMO item da linha, então some sem empurrar
+    // ninguém, e a linha de uma versão não baixada nem sequer é um alvo de
+    // exclusão para o dedo errar.
     const emUso = v.id === bibleVersionId;
-    del.disabled = emUso || (!noAparelho && !baixando);
-    del.title = emUso ? 'A versão em uso não é excluída — escolha outra antes'
-      : (!noAparelho && !baixando) ? 'Nada desta versão está no aparelho'
+    const daParaExcluir = !!(noAparelho || baixando);
+    if (daParaExcluir) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      // `.row-btn` e não uma caixa nova: ele é um botão de símbolo numa LINHA de
+      // lista, que é exatamente o que aquela classe já resolve (caixa `--hit`,
+      // tom, escala de ícone e resposta ao toque, num lugar só).
+      del.className = 'row-btn bible-ver-del';
+      del.appendChild(msym(ICON.del));   // `msym` devolve um NÓ, não uma string
+      del.disabled = emUso;
+      del.title = emUso ? 'A versão em uso não é excluída — escolha outra antes'
         : 'Excluir o texto baixado desta versão';
-    del.setAttribute('aria-label', del.title);
-    del.addEventListener('click', (e) => { e.stopPropagation(); apagarVersaoBiblia(v); });
-    row.appendChild(del);
+      del.setAttribute('aria-label', del.title);
+      del.addEventListener('click', (e) => { e.stopPropagation(); apagarVersaoBiblia(v); });
+      row.appendChild(del);
+    }
     li.appendChild(row);
     bibleVerListEl.appendChild(li);
   });
@@ -21747,6 +21760,107 @@ let sorteioRodando = false;
 // `YoutubeGrab` não retoma para faixa do acervo.
 let sorteioCancelado = false;
 
+// ===== O BARALHO DA FOLHA (v1.8.84) =====
+//
+// Pedido do operador: *"Essa lista de músicas é aleatória dentro das condições
+// selecionadas, ela mostra todos os disponíveis, mas o número de itens para a
+// 'playlist' fica marcado e ficam no topo da lista… E após jogar para tocar,
+// essa lista marcada é removida, e os itens de baixo são levados para cima,
+// criando a próxima lista selecionada para playlist."*
+//
+// A folha deixou de mostrar UMA CONTA e passou a mostrar A LISTA, e isso exige
+// que a ordem sorteada SOBREVIVA entre os redesenhos: ela é redesenhada a cada
+// tecla, a cada pílula e a cada lote guardado, e reembaralhar em qualquer um
+// deles trocaria debaixo do dedo as músicas que o operador acabou de ler.
+//
+// **ELE GUARDA CHAVES, NUNCA OS ITENS.** `montarPool` refaz os objetos a cada
+// passada (é ele que responde ao contador por tecla digitada), então um baralho
+// de objetos apontaria para a passada anterior — e a comparação por identidade
+// que a lista faz sairia sempre falsa, sem erro nenhum. A chave é
+// `coleção|faixa`, resolvida contra o pool ATUAL na hora de desenhar.
+//
+// As TRÊS peças, e cada uma responde a uma pergunta diferente:
+let sorteioBaralho = [];        // a ORDEM sorteada, em chaves
+let sorteioBaralhoChave = '';   // a IMPRESSÃO do pool que a produziu
+let sorteioFora = new Set();    // o que o operador DESMARCOU
+
+/**
+ * A CHAVE DE UMA FAIXA no baralho. `coll.id` mais o id da música — e o `name`
+ * como último recurso, porque uma coleção montada à mão (a fixture de um
+ * oráculo, um catálogo antigo) pode não ter `id_music`, e duas faixas caindo na
+ * mesma chave fariam a lista perder uma delas em silêncio.
+ */
+function chaveDaFaixa(i) {
+  if (!i) return '';
+  const c = i.coll || {};
+  const m = i.s || {};
+  return String(c.id || c.name || '') + '|' + String(m.id_music != null ? m.id_music : (m.name || ''));
+}
+
+/**
+ * A IMPRESSÃO DO POOL — o que decide se o baralho continua valendo.
+ *
+ * Filtros + tamanho + quantos estão no aparelho. Não é o conjunto de chaves: a
+ * folha remonta o pool a cada tecla digitada, e montar uma string de 1.100
+ * chaves por tecla é o custo que o `debounce` do campo existe para não pagar.
+ * O que ela precisa pegar é a TROCA DE POOL, e as três mudam juntas com ela.
+ */
+function sorteioImpressao(pool, f) {
+  return JSON.stringify(f) + '·' + pool.itens.length + '·' + pool.noAparelho;
+}
+
+/**
+ * Reembaralha SE o pool mudou, e devolve os itens do baralho na ordem dele.
+ *
+ * O baralho ENCOLHE quando um lote é consumido (`sorteioConsumir`) sem que o
+ * pool mude — é assim que *"a lista marcada é removida e os itens de baixo são
+ * levados para cima"* acontece. Por isso a impressão não conta o baralho: ela
+ * pergunta pelo POOL, e o pool não muda quando alguém toca em "Tocar agora".
+ */
+function sorteioLista(pool, f) {
+  const impressao = sorteioImpressao(pool, f);
+  if (impressao !== sorteioBaralhoChave) {
+    sorteioBaralhoChave = impressao;
+    sorteioBaralho = AVSorteio.baralhar(pool.itens).map(chaveDaFaixa);
+  }
+  const porChave = new Map();
+  for (const i of pool.itens) porChave.set(chaveDaFaixa(i), i);
+  const out = [];
+  for (const k of sorteioBaralho) { const i = porChave.get(k); if (i) out.push(i); }
+  return out;
+}
+
+/**
+ * OS QUE VÃO — os primeiros `quantos` do baralho que o operador não desmarcou.
+ *
+ * **DESMARCAR TIRA DA CONSIDERAÇÃO, NÃO DA CONTA**: a linha sai e a seguinte
+ * sobe, então "Quantas: 5" continua entregando cinco enquanto houver cinco. A
+ * alternativa — desmarcar diminuir o lote — faria o seletor de quantidade logo
+ * acima mentir, e ele é a coisa que o operador acabou de escolher.
+ */
+function sorteioEscolhidos(lista, quantos) {
+  const n = Math.max(1, quantos | 0);
+  const out = [];
+  for (const i of lista) {
+    if (sorteioFora.has(chaveDaFaixa(i))) continue;
+    out.push(i);
+    if (out.length >= n) break;
+  }
+  return out;
+}
+
+/**
+ * O LOTE SAI DO BARALHO depois de tocado ou guardado — os de baixo sobem, e o
+ * topo passa a ser a PRÓXIMA lista. Só é chamado quando a ação de fato
+ * aconteceu: consumir num lote que falhou apagaria da tela músicas que ninguém
+ * ouviu.
+ */
+function sorteioConsumir(escolhidos) {
+  if (!escolhidos || !escolhidos.length) return;
+  const usadas = new Set(escolhidos.map(chaveDaFaixa));
+  sorteioBaralho = sorteioBaralho.filter((k) => !usadas.has(k));
+}
+
 // A ESCOLHA É LIDA NA PRIMEIRA ABERTURA DA FOLHA, e não no `load()`.
 //
 // `load()` roda a cada mexida em lista — reordenar um favorito, adicionar ao
@@ -21826,6 +21940,19 @@ async function abrirSorteio() {
   // ANTES de abrir, e não depois: a folha desenhada com os padrões e corrigida
   // um quadro depois faria a escolha da semana passada piscar por cima da nova.
   await lerSorteioPrefs();
+  // ===== CADA ABERTURA É UM SORTEIO NOVO (v1.8.84) =====
+  //
+  // Pedido do operador, sobre as marcas: *"Esse check é resetado entre aberturas
+  // da janela de playlist automática, para que não aconteça de bloquear uma
+  // música desejada sem saber em outra sessão."* — uma exclusão que sobrevive
+  // fechada é uma música que some do culto sem que ninguém lembre por quê.
+  //
+  // E o BARALHO vai junto, pelo mesmo argumento por outro lado: abrir a folha é
+  // pedir um sorteio, e reencontrar o de meia hora atrás não é "automática". A
+  // ordem só sobrevive DENTRO de uma abertura, que é onde o operador está lendo
+  // a lista e decidindo sobre ela.
+  sorteioFora = new Set();
+  sorteioBaralhoChave = '';
   sorteioPopupEl.classList.add('open');
   renderSorteio();
   // O índice de letras é o que faz a palavra tema alcançar o que não está no
@@ -21857,13 +21984,24 @@ function fecharSorteio() {
 // palavra. Tudo o mais (chips, segmentos) remonta, porque tocar num botão já
 // tira o foco do campo.
 function atualizarContaSorteio() {
-  const conta = sorteioListEl.querySelector('.sorteio-conta');
-  if (!conta) return;
+  const res = sorteioListEl.querySelector('.sorteio-res');
+  if (!res) return;
   const pool = sorteioPool();
-  const n = pool.itens.length;
-  conta.classList.toggle('vazio', n === 0);
-  pintarContaSorteio(conta, pool);
-  // A TRAVA É UMA REGRA SÓ (v1.8.83). Este laço era uma segunda cópia dela, e a
+  const f = AVSorteio.sanear(sorteioPrefs);
+  const lista = sorteioLista(pool, f);
+  const escolhidos = sorteioEscolhidos(lista, f.quantos);
+  // ===== O QUE ESTE CAMINHO PODE TROCAR, E O QUE ELE NÃO PODE (v1.8.84) =====
+  //
+  // Ele é o único que roda com o CAMPO DE TEXTO EM FOCO (o `debounce` da palavra
+  // tema), e remontar a folha ali apagaria o foco no meio da palavra. Então ele
+  // troca só o que fica DEPOIS dos controles: a pílula da conta, a fala e a
+  // lista — que é justamente tudo o que a palavra muda.
+  const pilula = sorteioListEl.querySelector('.sorteio-pilula');
+  if (pilula) pilula.replaceWith(sorteioPilulaDaConta(pool));
+  const fala = sorteioListEl.querySelector('.sorteio-fala');
+  if (fala) fala.textContent = sorteioFala;
+  res.replaceWith(sorteioListaDeResultados(lista, escolhidos, pool));
+  // A TRAVA É UMA REGRA SÓ (v1.8.83). Havia aqui uma segunda cópia dela, e a
   // cópia estava errada por DOIS motivos: lia só `n === 0` (ignorando o
   // `sorteioRodando`, então a fala do fim de um lote reabilitava a faixa com a
   // corrida ainda em pé) e procurava os botões DENTRO da lista, onde eles não
@@ -21871,70 +22009,16 @@ function atualizarContaSorteio() {
   acertarTravaSorteio(pool);
 }
 
-// ===== A CONTA FALA DE MÚSICA, NÃO DE VARREDURA (v5.306) =====
-//
-// Pedido do operador: *"dê uma aprimorada na forma que descreve os resultados.
-// algo como: x músicas relacionadas, x delas já estão baixadas… mais funcional
-// e menos técnico"*.
-//
-// Ela saía como `12 faixas casam · 3 já no aparelho · sorteia 5` — três números
-// no vocabulário de quem escreveu a regra ("casam", "faixas", "no aparelho"),
-// empilhados numa linha só. O que o operador precisa saber antes de tocar o
-// botão são DUAS coisas, e elas têm pesos diferentes:
-//
-//   1. **o tema achou o quê?** — decide se vale mudar a palavra;
-//   2. **quanto disso toca agora?** — decide se o culto espera a rede.
-//
-// Daí DUAS LINHAS com hierarquia, e não uma frase com separadores: a primeira
-// responde a primeira pergunta e é a que se lê de relance; a segunda é o custo,
-// em `--muted`. Uma linha só obrigava as duas a disputarem o mesmo peso.
-function pintarContaSorteio(conta, pool) {
-  conta.innerHTML = '';
-  // A FALA EMPRESTADA VENCE, e ela é lida AQUI e não escrita no nó: o
-  // `executarSorteio` REDESENHA a folha no `finally`, e uma frase escrita
-  // direto no span era apagada no mesmo quadro em que nascia — o "adicionadas
-  // ao Cronograma" nunca chegou a ser visto. Guardá-la em estado e deixar o
-  // desenho consultá-la faz qualquer redesenho preservá-la, que é a única forma
-  // que sobrevive a um caminho de render que ainda não existe.
-  const [forte, fraca] = sorteioFala ? [sorteioFala, ''] : frasesDaContaSorteio(pool);
-  const a = document.createElement('span');
-  a.className = 'sorteio-conta-forte';
-  a.textContent = forte;
-  conta.appendChild(a);
-  if (fraca) {
-    const b = document.createElement('span');
-    b.className = 'sorteio-conta-fraca';
-    b.textContent = fraca;
-    conta.appendChild(b);
-  }
-}
-
-// ===== SEM PALAVRA, O ACERVO INTEIRO ENTRA — E A FRASE O DIZ (v5.307) =====
-//
-// Pedido do operador: *"permita (e descreva/identifique) que ao não filtrar por
-// nenhuma palavra, o sistema considere todo o acervo disponível para sortear (é
-// claro, considerando os outros filtros e configurações)"*.
-//
-// A REGRA já permitia — `AVSorteio.ondeCasa` devolve `CASOU_SEM_TEMA` com a
-// busca vazia, e o pool sai com o acervo inteiro. O que faltava era DIZÊ-LO: a
-// frase era "28 músicas na biblioteca", que informa o tamanho e não o ESCOPO, e
-// deixava a pergunta "então ele vai sortear de tudo?" sem resposta na tela.
-//
-// A frase LIDERA COM O ESCOPO em vez do número, porque com a caixa vazia é o
-// escopo que está em dúvida. E ela é HONESTA sobre os dois filtros que
-// encolhem o "tudo": dizer "toda a biblioteca" com o hinário fora seria uma
-// frase errada — e uma frase errada é pior que nenhuma, porque produz a decisão
-// errada. A VARIANTE (Cantada × Playback) fica de fora desta conta de
-// propósito: ela não encolhe um acervo, ela escolhe QUAL faixa de cada música,
-// e o segmento acima já a mostra.
-function escopoSemPalavra(n) {
-  const base = sorteioPrefs.soNoAparelho
-    ? 'Só o que já está no aparelho'
-    : 'Toda a biblioteca';
-  const menos = (sorteioPrefs.semHinario ? ', sem o hinário' : '')
-    + (sorteioPrefs.semInfantis ? ', sem os infantis' : '');
-  return base + menos + ' — ' + numeroPt(n) + (n === 1 ? ' música' : ' músicas');
-}
+// (A `pintarContaSorteio` e o cartão de UMA FRASE que ela desenhava saíram na
+// v1.8.84, com o `frasesDaContaSorteio` e o `escopoSemPalavra` que a
+// alimentavam. Pedido do operador: *"o cartão de resultados repete as
+// informações que já temos nas seleções acima, como os filtros usados, e etc…
+// Uma ação inútil, pois literalmente já há a visão das seleções."* Ela escrevia
+// por extenso — "Toda a biblioteca, sem os infantis — 2 músicas" — o que as
+// pílulas logo acima e o campo vazio já mostravam. O que sobrou do papel dela
+// está em dois lugares: QUANTOS, na `sorteioPilulaDaConta`; QUAIS, na
+// `sorteioListaDeResultados`. A frase do VAZIO ficou: ela é a única que não
+// repetia a tela — ver `fraseDoVazioSorteio`.)
 
 // Números do acervo passam de mil (os dois hinários somam ~1.100): sem o
 // separador, "1243" se lê como um código.
@@ -21944,58 +22028,14 @@ function numeroPt(n) {
 
 // A PALAVRA TEMA ENTRA CLAMPADA NA FRASE (v1.8.83).
 //
-// O cartão da conta tem altura FIXA (ver `.sorteio-conta` no CSS), e a única
-// entrada SEM LIMITE que chega até ele é o que o operador digita: MEDIDO, uma
-// palavra de 30 caracteres empurrava a frase para uma QUINTA linha a 360px com
-// a fonte do sistema a 1,5× — e com ela a faixa de fecho, que é o defeito que o
-// cartão veio fechar.
-//
-// Truncar AQUI não esconde nada: a palavra inteira está no campo dois dedos
-// acima, e é dele que a REGRA lê (`sorteioPrefs.tema` continua cru em
-// `sorteioPool`). O número é o do `rotuloItem`, que resolve a mesma pergunta
-// para o nome de uma faixa.
+// A única entrada SEM LIMITE que chega a uma frase desta folha é o que o
+// operador digita, e a frase do vazio é a que a carrega. Truncar aqui não
+// esconde nada: a palavra inteira está no campo dois dedos acima, e a REGRA
+// continua lendo `sorteioPrefs.tema` cru em `sorteioPool`. O número é o do
+// `rotuloItem`, que resolve a mesma pergunta para o nome de uma faixa.
 const TEMA_NA_FRASE_MAX = 24;
 function temaNaFrase(palavra) {
   return palavra.length > TEMA_NA_FRASE_MAX ? palavra.slice(0, TEMA_NA_FRASE_MAX) + '…' : palavra;
-}
-
-// Devolve `[linha forte, linha fraca]`. A fraca pode ser vazia.
-function frasesDaContaSorteio(pool) {
-  const n = pool.itens.length;
-  if (!n) return [fraseDoVazioSorteio(pool), ''];
-
-  // `palavra`, e NÃO `tema`: aquele é o nome de módulo do tema claro × escuro
-  // (topo do arquivo), e sombreá-lo aqui é a zona morta temporal que o
-  // `sombra.test.mjs` existe para pegar — ele pegou.
-  const palavra = sorteioPrefs.tema.trim();
-  // "relacionadas a X" é a palavra do operador. Sem tema não há relação a
-  // declarar — ali o acervo INTEIRO é o pool, e dizê-lo é o que explica um
-  // número na casa dos milhares.
-  const forte = palavra
-    ? numeroPt(n) + (n === 1 ? ' música relacionada a ' : ' músicas relacionadas a ')
-      + '“' + temaNaFrase(palavra) + '”'
-    : escopoSemPalavra(n);
-
-  const baixadas = pool.noAparelho;
-  const jaTem = baixadas === 0 ? 'nenhuma baixada ainda'
-    : baixadas === n ? 'todas já baixadas'
-      : numeroPt(baixadas) + (baixadas === 1 ? ' já baixada' : ' já baixadas');
-
-  if (sorteioPrefs.quantos === 1) {
-    // Sortear UMA: o que decide a espera é se HÁ alguma baixada, porque o
-    // sorteio prefere as que estão (ver `AVSorteio.sortear`).
-    return [forte, baixadas ? jaTem + ' — toca na hora' : jaTem + ' — vai baixar antes de tocar'];
-  }
-
-  // MONTAR A FILA. Aqui o custo é EXATO e não uma estimativa: o sorteio esgota
-  // as baixadas antes de pegar as que faltam, então quantas precisam de rede é
-  // uma subtração, não um palpite.
-  const leva = Math.min(sorteioPrefs.quantos, n);
-  const baixar = Math.max(0, leva - baixadas);
-  const custo = baixar === 0 ? 'todas já baixadas'
-    : baixar === leva ? 'todas para baixar'
-      : baixar + ' para baixar';
-  return [forte, 'A playlist leva ' + leva + ' · ' + custo];
 }
 
 // O motivo das COLEÇÕES que a frase do vazio deve nomear ('' se nenhuma foi
@@ -22198,12 +22238,19 @@ function renderSorteio() {
     aoTocar: () => { sorteioPrefs.quantos = q; saveSorteioPrefs(); renderSorteio(); },
   }))));
 
-  // ---- A CONTA ----
+  // ---- A BARRA DE AÇÃO, E DEPOIS DELA A LISTA (v1.8.84) ----
+  //
+  // Pedido do operador: *"mova a barra de opções de play para cima dessa sessão
+  // de resultados"*, e o cartão de resultados vira *"a lista dos resultados,
+  // listando cada música disponível naquele resultado"*.
+  //
+  // A ORDEM DA FOLHA passou a ser: o que se ESCOLHE (palavra, variante, filtros,
+  // quantidade), o que se FAZ (esta barra) e o que vai ACONTECER (a lista). Ela
+  // é a ordem da decisão, e é o que tira a barra de baixo de uma lista que pode
+  // ter mil linhas.
   const pool = sorteioPool();
-  const liConta = document.createElement('li');
-  liConta.className = 'sorteio-conta' + (pool.itens.length ? '' : ' vazio');
-  pintarContaSorteio(liConta, pool);
-  alvo.appendChild(liConta);
+  const lista = sorteioLista(pool, AVSorteio.sanear(sorteioPrefs));
+  const escolhidos = sorteioEscolhidos(lista, sorteioPrefs.quantos);
 
   // ---- OS DESFECHOS ----
   //
@@ -22240,7 +22287,7 @@ function renderSorteio() {
   // MESMOS da gaveta de cada item, pelas mesmas funções (`cronogramaIconSvg`,
   // `playlistIconSvg`, `starSvg`), e a ORDEM é a canônica (ver `DESTINOS`).
   const liGo = document.createElement('li');
-  liGo.className = 'song-menu-go-row';
+  liGo.className = 'song-menu-go-row sorteio-barra';
   const fila = sorteioPrefs.quantos > 1;
   const travado = !pool.itens.length || sorteioRodando;
 
@@ -22270,6 +22317,26 @@ function renderSorteio() {
   // recuo vertical o primário só tem UMA linha. MEDIDO nas 432 células (largura ×
   // escala de fonte × estado) que reprovaram o par longo da v5.306 em 78 delas,
   // "Tocar agora" reticencia em ZERO.
+  //
+  // ===== A CONTAGEM É A PRIMEIRA PEÇA DA BARRA (v1.8.84) =====
+  //
+  // Pedido do operador: *"crie um botão a esquerda do botão de tocar agora. nesse
+  // botão coloque um icone adequado e o número de resultados, agora esse será o
+  // lugar do resultado de disposição (cuide para que o botão tenha um tamanho
+  // fixo independente do número interno)."*
+  //
+  // **ELE NÃO É UM BOTÃO, e a diferença é regra deste app**: *"o que não tem
+  // função agora é apagado, não deixado inerte — um botão aceso que não faz nada
+  // é indistinguível de um quebrado, e o que se faz diante dele é tocar de
+  // novo"* (v1.8.50). A contagem não tem ação por trás; desenhá-la como botão
+  // cobraria um toque de todo operador que passasse por ela pela primeira vez.
+  // O que ele pediu é a PEÇA na barra, à esquerda do primário — e é isso que ela
+  // é: um `<span>` com a mesma caixa e o mesmo tom dos vizinhos.
+  //
+  // O TAMANHO É FIXO por `min-width` em `ch` mais `tabular-nums`: o acervo passa
+  // de mil (os dois hinários somam ~1.100), e um número que cresce empurraria o
+  // "Tocar agora" a cada tecla digitada no campo do tema.
+  liGo.appendChild(sorteioPilulaDaConta(pool));
   liGo.appendChild(botao('Tocar agora', 'song-menu-go',
     (b) => executarSorteio(b, 'tocar')));
   // OS TRÊS DESTINOS NÃO EXISTEM NO MODO FÁCIL. Ele não tem Cronograma, nem
@@ -22299,11 +22366,164 @@ function renderSorteio() {
       liGo.appendChild(b);
     }
   }
-  porFecho(alvo, liGo);
+  // ===== A BARRA NÃO MORA MAIS NO `.popup-fecho` (v1.8.84) =====
+  //
+  // Ela era `porFecho(alvo, liGo)` — o rodapé que não rola, irmão da lista. Com
+  // a lista de resultados abaixo dela, o fecho a poria DEPOIS dos resultados, que
+  // é o oposto do pedido. Ela entra na própria lista e fica GRUDADA no topo
+  // (`position: sticky`): acima dos resultados, como se pediu, e à vista com a
+  // lista rolando por baixo — que é a propriedade que o fecho dava de graça e
+  // que uma barra solta perderia na primeira rolagem.
+  alvo.appendChild(liGo);
+
+  // ---- A FALA: o recibo do lote guardado ----
+  //
+  // Ela é a única coisa do cartão antigo que NÃO repetia a tela — *"5 músicas
+  // acrescentadas ao fim da playlist"*, *"todas as 5 já estavam"* —, e a segunda
+  // metade dela não tem outro jeito de ser dita: a lista mostra as cinco saindo
+  // do baralho, mas não distingue "entraram" de "já estavam lá".
+  //
+  // **A LINHA É SEMPRE DESENHADA**, vazia quando não há fala. Uma linha que
+  // aparece e some é um motor de pulo da folha (v1.8.61), e o espaço que ela
+  // reserva se paga duas vezes: calada, é o respiro entre a barra e a lista.
+  const liFala = document.createElement('li');
+  liFala.className = 'sorteio-fala';
+  liFala.textContent = sorteioFala;
+  alvo.appendChild(liFala);
+
+  // ---- A LISTA DOS RESULTADOS ----
+  //
+  // Pedido do operador: *"O cartão de resultados repete as informações que já
+  // temos nas seleções acima, como os filtros usados, e etc… Uma ação inútil,
+  // pois literalmente já há a visão das seleções."*
+  //
+  // O cartão de UMA FRASE (v1.8.83) dizia "Toda a biblioteca, sem os infantis —
+  // 2 músicas" logo abaixo das pílulas que dizem "sem infantis" e do campo vazio:
+  // ele reescrevia por extenso o que a tela já mostrava. O que sobrou do papel
+  // dele — QUANTOS — subiu para a pílula da barra; o que ele nunca respondeu —
+  // QUAIS — é esta lista.
+  alvo.appendChild(sorteioListaDeResultados(lista, escolhidos, pool));
 }
 
 // Os ícones dos três destinos, pelas MESMAS funções que desenham os botões de
 // cada linha da Biblioteca — um `path` escrito duas vezes diverge no primeiro
+/**
+ * A PÍLULA DA CONTA — quantos resultados, e quantos já estão no aparelho.
+ *
+ * As DUAS metades são o que o operador pediu (*"Quantos temos, e se está
+ * disponível"*), e elas se dividem entre o que se lê de RELANCE e o que se lê
+ * quando a pergunta aparece: o NÚMERO é o total, e a disponibilidade viaja no
+ * `title` mais na própria lista, linha a linha — ali ela é acionável (dá para
+ * desmarcar a que vai baixar), e num número só não seria.
+ *
+ * O ícone é a NOTA (`ICON.music`) porque o que se conta são músicas; o da lupa
+ * diria "busca", que é o campo lá em cima, e um segundo desenho para a busca
+ * mandaria procurar um segundo campo.
+ */
+function sorteioPilulaDaConta(pool) {
+  const n = pool.itens.length;
+  const cx = document.createElement('span');
+  cx.className = 'sorteio-pilula' + (n ? '' : ' vazio');
+  cx.appendChild(msym(ICON.music));
+  const num = document.createElement('span');
+  num.className = 'sorteio-pilula-num';
+  num.textContent = numeroPt(n);
+  cx.appendChild(num);
+  const frase = n
+    ? numeroPt(n) + (n === 1 ? ' música encontrada' : ' músicas encontradas')
+      + ' · ' + (pool.noAparelho === n ? 'todas já baixadas'
+        : pool.noAparelho ? numeroPt(pool.noAparelho) + ' já baixadas'
+          : 'nenhuma baixada ainda')
+    : 'Nenhuma música com esses filtros';
+  cx.title = frase;
+  // ELE ANUNCIA A FRASE, não o número solto: um leitor de tela lendo "12" no
+  // meio de uma barra de botões não diz de que 12 se trata.
+  cx.setAttribute('role', 'status');
+  cx.setAttribute('aria-label', frase);
+  return cx;
+}
+
+/**
+ * ===== A LISTA DOS RESULTADOS (v1.8.84) =====
+ *
+ * Pedido do operador: *"agora ele será a lista dos resultados, listando cada
+ * música disponível naquele resultado, assim como é a lista de resultados na
+ * busca da biblioteca. Apenas com um diferencial, uma caixa de check em cada
+ * item (que já vem marcado) que permite ou não incluir uma música em específico
+ * na consideração final ao tocar/salvar."*
+ *
+ * **DUAS MARCAS, PORQUE SÃO DUAS PERGUNTAS.** A caixa (`.song-menu-check`, a
+ * mesma da folha de destinos) responde *"esta entra na consideração?"* e nasce
+ * marcada em todas; o PREENCHIMENTO da linha mais o número à esquerda respondem
+ * *"esta vai tocar agora, e em que posição?"*. Colapsá-las numa só faria o
+ * seletor "Quantas" mentir — desmarcar uma diminuiria o lote em vez de trazer a
+ * seguinte, e o número que o operador acabou de escolher deixaria de valer.
+ *
+ * A LINHA É A DA FOLHA DE DESTINOS (`.song-menu-btn.song-menu-sel`), e não um
+ * desenho novo: é a mesma gramática de "lista com caixa de marcação" que a
+ * v5.252 fechou, e o toque no CORPO inteiro alterna — a caixa é indicador, não
+ * alvo (`pointer-events: none`).
+ *
+ * **O SUBTÍTULO É A DISPONIBILIDADE**, que é a metade do pedido que a pílula não
+ * carrega: quem está no aparelho toca na hora, quem não está espera download. E
+ * ele explica a ORDEM — o baralho põe o que está no aparelho na frente
+ * (`AVSorteio.baralhar`), então as primeiras linhas são as que tocam na hora.
+ */
+function sorteioListaDeResultados(lista, escolhidos, pool) {
+  const li = document.createElement('li');
+  li.className = 'sorteio-res' + (lista.length ? '' : ' vazio');
+  if (!lista.length) {
+    // VAZIO ELA DIZ O MOTIVO, e a frase é a mesma de sempre: `fraseDoVazioSorteio`
+    // separa cinco causas que pedem ações OPOSTAS, e ela é a única peça do cartão
+    // antigo que não repetia o que a tela já mostra.
+    const vazio = document.createElement('div');
+    vazio.className = 'sorteio-res-vazio';
+    vazio.textContent = fraseDoVazioSorteio(pool);
+    li.appendChild(vazio);
+    return li;
+  }
+  const noLote = new Set(escolhidos.map(chaveDaFaixa));
+  const ul = document.createElement('ul');
+  ul.className = 'sorteio-res-lista';
+  lista.forEach((it) => {
+    const chave = chaveDaFaixa(it);
+    const dentro = !sorteioFora.has(chave);
+    const vai = noLote.has(chave);
+    const linha = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'song-menu-btn song-menu-sel sorteio-res-btn' + (vai ? ' vai' : '');
+    // A POSIÇÃO só existe para quem vai tocar — é ela que separa o lote do resto
+    // sem uma divisória, e ela diz a ORDEM, que o preenchimento sozinho não diz.
+    const pos = document.createElement('span');
+    pos.className = 'sorteio-res-pos';
+    pos.textContent = vai ? String(escolhidos.findIndex((e) => chaveDaFaixa(e) === chave) + 1) : '';
+    btn.appendChild(pos);
+    const txt = document.createElement('span'); txt.className = 'song-menu-text';
+    const t = document.createElement('span'); t.className = 'song-menu-label';
+    t.textContent = songLabel(it.coll, it.s);
+    const d = document.createElement('span'); d.className = 'song-menu-sub';
+    d.textContent = (it.coll && it.coll.name ? it.coll.name + ' · ' : '')
+      + (it.noAparelho ? 'no aparelho' : 'vai baixar');
+    txt.append(t, d);
+    btn.appendChild(txt);
+    const cx = document.createElement('span');
+    cx.className = 'song-menu-check' + (dentro ? ' on' : '');
+    cx.setAttribute('role', 'checkbox');
+    cx.setAttribute('aria-checked', dentro ? 'true' : 'false');
+    btn.appendChild(cx);
+    btn.title = (dentro ? 'Marcada — tocar para tirar do sorteio' : 'Fora do sorteio — tocar para devolver');
+    btn.addEventListener('click', () => {
+      if (sorteioFora.has(chave)) sorteioFora.delete(chave); else sorteioFora.add(chave);
+      renderSorteio();
+    });
+    linha.appendChild(btn);
+    ul.appendChild(linha);
+  });
+  li.appendChild(ul);
+  return li;
+}
+
 // ajuste. `false` nos três: aqui nada está "dentro" de lista nenhuma, porque
 // nada foi sorteado ainda, e é a variante com `+` que diz "cabe aqui".
 const SORTEIO_ICONE = {
@@ -22365,7 +22585,14 @@ async function executarSorteio(btn, desfecho) {
     const f = AVSorteio.sanear(sorteioPrefs);
     const pool = AVSorteio.montarPool(allCollections(), f, sorteioCap());
     const quantos = f.quantos;
-    const escolhidos = AVSorteio.sortear(pool.itens, quantos);
+    // ===== O LOTE É O TOPO DO BARALHO, NÃO UM SORTEIO NOVO (v1.8.84) =====
+    //
+    // Era `AVSorteio.sortear(pool.itens, quantos)` — um embaralhamento PRÓPRIO,
+    // feito no toque. Com a folha mostrando a lista, isso passou a ser o pior
+    // defeito possível deste botão: o operador lê cinco nomes, tira um, toca em
+    // "Tocar agora" **e ouve outras cinco**. A ordem que ele está lendo é a do
+    // baralho, e é dela que o lote tem de sair.
+    const escolhidos = sorteioEscolhidos(sorteioLista(pool, f), quantos);
     // O VEREDITO sai da passada que decidiu, e é o que o Registro imprime.
     sorteioDiario = {
       quando: Date.now(), filtros: f, pool,
@@ -22394,6 +22621,20 @@ async function executarSorteio(btn, desfecho) {
       await acertarCortinaDoSorteio(f);
       await montarFilaSorteada(escolhidos);
     }
+    // O LOTE SAI DO BARALHO — *"após jogar para tocar, essa lista marcada é
+    // removida, e os itens de baixo são levados para cima, criando a próxima
+    // lista selecionada"*. Depois da ação, nunca antes: um lote que falhou (o
+    // consentimento de download recusado, nenhuma faixa baixável) apagaria da
+    // tela músicas que ninguém ouviu.
+    sorteioConsumir(escolhidos);
+    // E A LISTA MOSTRA O QUE SOBROU, no mesmo instante. Consumir sem redesenhar
+    // deixa na tela o lote que já foi usado — e nos três destinos a folha FICA
+    // aberta, então o próximo toque sairia por cima do mesmo lote. É
+    // `atualizarContaSorteio` e não `renderSorteio` pelo motivo da v1.8.83: um
+    // redesenho troca os nós e APAGA o pulso que o `guardarSorteadas` acabou de
+    // pôr no botão tocado. Este troca só a pílula, a fala e a lista — e o botão
+    // do pulso não está em nenhuma das três.
+    atualizarContaSorteio();
   } finally {
     sorteioRodando = false;
     // E A FOLHA VOLTA A ACEITAR TOQUE — EM PONTOS, nunca por redesenho
@@ -30108,14 +30349,103 @@ async function guardarPacote(destino, btn) {
  * entre a leitura e a escrita.
  */
 async function limparPlaylist() {
-  const eraDaCena = plItems.some((it) => noArAgora(it));
+  const encerra = tirarDaFilaEncerraCena();
   await AVDB.listSet('playlist', () => []);
   await load();
   // A MESMA RESPOSTA DA LIXEIRA DA LINHA (v1.8.52). Esvaziar a fila pelo botão
   // "Limpar" e esvaziá-la tirando o último item são o mesmo estado; duas
   // respostas para ele fariam o app se contradizer conforme a porta.
-  if (eraDaCena) await encerrarCenaDaFila();
+  if (encerra) await encerrarCenaDaFila();
   fecharFilaVazia();
+}
+
+/**
+ * ===== TIRAR ISTO DA FILA VAI ENCERRAR A CENA? (v1.8.84) =====
+ *
+ * UMA pergunta, DOIS consumidores: a FRASE da confirmação e a AÇÃO que a segue.
+ * Duas cópias dela divergiriam no primeiro ajuste, e o modo de falhar é o pior
+ * que esta superfície sabe produzir — a frase prometendo uma interrupção que não
+ * vem, ou calando a que vem, com o dedo já no botão.
+ *
+ * `item` ausente = a fila INTEIRA (o "Limpar"); com item = a lixeira da linha.
+ *
+ * ===== E O "LIMPAR" DEIXOU DE PERGUNTAR PELA PROVENIÊNCIA =====
+ *
+ * Relato do operador: *"ao limpar um item da playlist, ele remove ele da
+ * exibição, mas quando limpo uma playlist inteira, ele mantém a midia no player
+ * ao inves de limpar corretamente"*.
+ *
+ * A condição era `plItems.some(noArAgora)` — *"o que está no ar é DA FILA?"* —,
+ * e ela deixa DOIS casos de fora, os dois MEDIDOS:
+ *
+ *  1. **o que está no player não está na fila.** Tocando A com a fila em [B],
+ *     "Limpar" esvaziava a fila e a mídia seguia tocando.
+ *  2. **`currentId` sem `midiaNoAr`** — a faixa acabou, ou o Parar foi tocado.
+ *     O `currentId` sobrevive de propósito (é ele que faz o ▶ repetir), então o
+ *     cartão continua anunciando o nome sobre uma fila vazia.
+ *
+ * A pergunta certa é `!!currentId`: **a fila é a única lista que o TRANSPORTE
+ * percorre**, e esvaziá-la não deixa sequência nenhuma para ele governar — de
+ * onde veio o que está no player deixa de importar quando não sobra fila. É a
+ * mesma frase da v1.8.52 (*"não é 'guardei noutro lugar', é ACABOU"*), agora sem
+ * a cláusula que a limitava.
+ *
+ * ISTO NÃO ALCANÇA A v1.3.13, e a fronteira é a LISTA: excluir do Cronograma ou
+ * dos Favoritos continua não tirando nada do ar. A exceção é da FILA, e continua
+ * sendo só dela.
+ *
+ * E A CAMADA DE TEXTO NÃO É ALCANÇADA por construção: um versículo sem mídia por
+ * baixo tem `currentId` nulo, e com um louvor de fundo quem sai é só o louvor —
+ * `encerrarCenaDaFila` escolhe `media-clear` por `cenaDeRoteiroNoAr()`.
+ *
+ * A LIXEIRA DA LINHA NÃO MUDOU: com fila sobrando nada é interrompido (v1.8.52
+ * — *"pausar o louvor porque o operador reorganizou a fila seria interrupção de
+ * culto"*), e é por isso que os dois ramos desta função são diferentes.
+ */
+function tirarDaFilaEncerraCena(item) {
+  if (!item) return !!currentId;
+  return noArAgora(item) && plItems.length === 1;
+}
+
+/**
+ * ===== A PERGUNTA SOBE PARA O DIÁLOGO QUANDO PRECISA DIZER ALGO (v1.8.84) =====
+ *
+ * Pedido do operador: *"Coloque também uma mensagem de aviso ao excluir um item
+ * ou Playlist que tenha algo tocando no momento, avisando que a mídia será
+ * interrompida."*
+ *
+ * **A FAIXA DA LINHA NÃO TEM ONDE PÔR UMA FRASE, e é isso que escolhe o
+ * mecanismo.** A `pedirConfirmacaoNaLinha` divide a caixa em DOIS rótulos
+ * (Cancelar / Confirmar) e um terceiro filho os encolhe — é o desenho que a
+ * v5.309 pediu por extenso. A `dica` dela vai para o `title`, e um `title` **não
+ * existe num aparelho de toque**: escrever o aviso ali seria cumprir o pedido no
+ * papel e não na tela.
+ *
+ * Então a pergunta troca de superfície conforme o que ela tem a dizer, e o app
+ * já separava as duas assim: o par inline é o *"tem certeza?"* de um gesto cuja
+ * consequência a própria linha mostra; o `appConfirm` é a confirmação que
+ * carrega uma FRASE, e é o que "Limpar o Cronograma", "Excluir pasta" e o
+ * excluir de uma versão da Bíblia já usam.
+ *
+ * **E O AVISO É CONDICIONAL.** Ele só aparece onde a interrupção de fato
+ * acontece (`tirarDaFilaEncerraCena`, a mesma pergunta que a ação faz) — remover
+ * um item de uma fila que ainda tem outros não para nada, e prometer ali que a
+ * mídia será interrompida é uma frase sobre o que o aparelho NÃO vai fazer, com
+ * o dedo já no botão.
+ */
+function pedirSaidaDaFila(botao, opts) {
+  if (!tirarDaFilaEncerraCena(opts.item)) {
+    pedirConfirmacaoNaLinha(botao, { ok: opts.ok, dica: opts.dica, aoConfirmar: opts.aoConfirmar });
+    return;
+  }
+  appConfirm({
+    title: opts.titulo,
+    // A CONSEQUÊNCIA PRIMEIRO, o resto depois: a frase que muda a decisão é a
+    // interrupção, e a que fala de arquivos é a mesma de sempre.
+    message: 'A mídia no ar será interrompida.\n\n' + opts.dica,
+    okText: opts.ok,
+    perigo: true,
+  }).then((sim) => { if (sim) opts.aoConfirmar(); });
 }
 
 /**
@@ -31909,7 +32239,8 @@ plPackFavEl.addEventListener('click', () => guardarPacote('favs', plPackFavEl));
 // — o mesmo par de "Cancelar/Excluir" das listas, aqui sobre a fila inteira.
 plClearEl.addEventListener('click', (e) => {
   e.stopPropagation();
-  pedirConfirmacaoNaLinha(plClearEl, {
+  pedirSaidaDaFila(plClearEl, {
+    titulo: 'Limpar a playlist',
     // "CONFIRMAR", E NÃO "LIMPAR" DE NOVO (v1.8.54, pedido do operador: *"ajuste
     // a confirmação do limpar para 'confirmar' ao invés de um 'limpar'
     // novamente"*). A régua que sai daí: o botão do meio da pergunta REPETE o
@@ -31919,8 +32250,8 @@ plClearEl.addEventListener('click', (e) => {
     // confirmação continua sendo a única que nomeia o dano (R9 do
     // DESIGN-SYSTEM). Quem nomeia o dano por extenso, nos três, é a `dica`.
     ok: 'Confirmar',
-    dica: 'Esvaziar a fila. Se o que está no ar for dela, a cena se encerra; os '
-      + 'arquivos só são apagados se não estiverem guardados em mais nenhuma lista.',
+    dica: 'Esvaziar a fila. Os arquivos só são apagados se não estiverem '
+      + 'guardados em mais nenhuma lista.',
     aoConfirmar: limparPlaylist,
   });
 });

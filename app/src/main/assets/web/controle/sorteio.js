@@ -357,21 +357,41 @@
   //
   // A preferência é ABSOLUTA (concatenar, não intercalar) e o preço está dito:
   // com três faixas baixadas e nenhum filtro, "sortear uma" sai dessas três até
-  // que outras sejam baixadas. É por isso que o contador da tela mostra as duas
-  // metades ("12 casam · 3 já no aparelho") em vez de um número só, e é por isso
-  // que o chip "Só no aparelho" existe: ele torna a escolha explícita em vez de
-  // deixá-la implícita na ordenação.
+  // que outras sejam baixadas. É por isso que o chip "Só no aparelho" existe:
+  // ele torna a escolha explícita em vez de deixá-la implícita na ordenação — e
+  // é por isso que cada linha da lista diz "no aparelho" ou "vai baixar", que
+  // desde a v1.8.84 é onde essa metade da conta aparece (antes era um contador
+  // de duas metades, "12 casam · 3 já no aparelho", que saiu com o cartão).
   //
   // Embaralha as DUAS partições, e não só a primeira: quando a de cima não
   // enche a fila, o que completa também tem de ser sorteado — senão o resto da
   // lista sai na ordem do acervo, isto é, sempre o mesmo álbum.
-  function sortear(itens, quantos, rnd) {
-    const n = Math.max(1, quantos | 0);
+  //
+  // ---- O BARALHO: a ordem INTEIRA, da qual o sorteio é o topo (v1.8.84) ----
+  //
+  // Ele é o `sortear` sem o corte, e existe porque a folha passou a MOSTRAR a
+  // lista: *"ela mostra todos os disponíveis, mas o número de itens para a
+  // playlist fica marcado e ficam no topo da lista"*.
+  //
+  // **A partição VIRA A ORDEM, e é isso que faz o desenho funcionar**: com o que
+  // está no aparelho na frente, o topo da lista — que é o que vai tocar — é
+  // justamente o que toca na hora. A coluna "no aparelho" da lista deixa de ser
+  // um aviso e passa a ser a explicação de por que aquele item está ali em cima.
+  //
+  // E é UMA regra, não duas: `sortear` é este mais um `slice`. Duas escritas do
+  // mesmo embaralhamento dariam à lista uma ordem e ao sorteio outra — o
+  // operador marcaria cinco e ouviria outras cinco.
+  function baralhar(itens, rnd) {
     const r = typeof rnd === 'function' ? rnd : Math.random;
     const lista = Array.isArray(itens) ? itens : [];
     const perto = embaralhar(lista.filter((i) => i && i.noAparelho), r);
     const longe = embaralhar(lista.filter((i) => i && !i.noAparelho), r);
-    return perto.concat(longe).slice(0, n);
+    return perto.concat(longe);
+  }
+
+  function sortear(itens, quantos, rnd) {
+    const n = Math.max(1, quantos | 0);
+    return baralhar(itens, rnd).slice(0, n);
   }
 
   global.AVSorteio = {
@@ -385,6 +405,6 @@
     CASOU_NOME, CASOU_ALBUM, CASOU_LETRA, CASOU_SEM_TEMA,
     QUANTIDADES, QUANTIDADE_PADRAO,
     sanear, temVariante, avaliarColecao, ondeCasa, avaliarFaixa,
-    montarPool, embaralhar, sortear,
+    montarPool, embaralhar, baralhar, sortear,
   };
 })(this);
