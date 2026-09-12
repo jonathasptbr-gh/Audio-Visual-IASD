@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.92';
+const WEB_VERSION = '1.8.93';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15342,11 +15342,16 @@ function cifraDesenharFolha(el, pagina, semitons) {
   // coincidir com um número velho e nunca ser requebrada.
   cifraColunasAtual = cifraColunas(folha);
   const linhas = AVCifra.quebrarPares(pagina.linhas, cifraColunasAtual);
+  // A GRAFIA É DA FOLHA, e é tirada UMA vez (v1.8.93): a armadura do tom de
+  // destino vale para todos os acordes. Tirá-la por linha daria o mesmo número
+  // — mas por ACORDE, que era a regra velha, dava `Db D#m Gb G#` na mesma
+  // sequência.
+  const grafia = AVCifra.grafiaDaFolha(pagina, semitons);
   linhas.forEach((linha) => {
     const div = document.createElement('div');
     div.className = 'lv-cifra-linha lv-cifra-' + linha.tipo;
     div.textContent = linha.tipo === 'acordes'
-      ? AVCifra.transporLinha(linha.texto, semitons) : linha.texto;
+      ? AVCifra.transporLinha(linha.texto, semitons, grafia) : linha.texto;
     folha.appendChild(div);
   });
 }

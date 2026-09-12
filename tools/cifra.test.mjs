@@ -125,25 +125,30 @@ checar(C.transporAcorde('B', 1) === 'C', 'B +1 = C (dá a volta)');
 checar(C.transporAcorde('C', -1) === 'B', 'C −1 = B (dá a volta para trás)');
 checar(C.transporAcorde('Am7', 3) === 'Cm7', 'o sufixo viaja intacto', C.transporAcorde('Am7', 3));
 checar(C.transporAcorde('G/B', 2) === 'A/C#', 'o baixo invertido também sobe', C.transporAcorde('G/B', 2));
-// A GRAFIA SEGUE A ORIGEM: uma folha em bemóis continua em bemóis. Musicalmente
-// correto, e é o que faz a folha continuar parecendo a mesma para quem a conhece.
+// A GRAFIA VEM DA ARMADURA DO DESTINO, não da origem (v1.8.93 — ver o bloco 3c).
 checar(C.transporAcorde('Bb', 2) === 'C', 'Bb +2 = C');
-checar(C.transporAcorde('Bb', 1) === 'B', 'Bb +1 = B (bemol → natural)', C.transporAcorde('Bb', 1));
+checar(C.transporAcorde('Bb', 1) === 'B', 'Bb +1 = B (destino Si maior, 5 sustenidos)', C.transporAcorde('Bb', 1));
 checar(C.transporAcorde('Eb', 1) === 'E', 'Eb +1 = E', C.transporAcorde('Eb', 1));
-checar(C.transporAcorde('C', 1) === 'C#', 'sem bemol na origem, sobe em sustenido');
+checar(C.transporAcorde('C', 1) === 'Db', 'C +1 = Db, nunca C# (5 bemóis contra 7 sustenidos)',
+  C.transporAcorde('C', 1));
 checar(C.transporAcorde('Deus', 2) === 'Deus', 'o que não é acorde não é transposto');
 checar(C.transporAcorde('C', 0) === 'C' && C.transporLinha('C   G', 0) === 'C   G',
   'zero semitom é identidade');
 
 // ── 3a. O DEFEITO DA v1.1.13, preso pelos números do aparelho ───────────────
-// A folha real vem no tom de D; o operador pediu A (−5) e A# (−4). Os valores
-// esperados foram conferidos contra a página do site nos dois tons: era ali que
+// A folha real vem no tom de D; o operador pediu A (−5) e Bb (−4). Era ali que
 // `D7M/A` e `G7M` ficavam parados enquanto o resto da linha andava.
+//
+// **Os dois de −4 mudaram na v1.8.93**, e a mudança é deliberada: eles foram
+// conferidos, à época, contra a grafia do PRÓPRIO site, que ali escreve `A#`.
+// Quem lê esta aba está tocando, e `A#` não é um tom — são dez sustenidos. A
+// divergência com o Cifra Club é a escolha, não um descuido.
 checar(C.transporAcorde('D7M/A', -5) === 'A7M/E',
   'D7M/A −5 = A7M/E (raiz E baixo andam, o 7M viaja intacto)', C.transporAcorde('D7M/A', -5));
 checar(C.transporAcorde('G7M', -5) === 'D7M', 'G7M −5 = D7M', C.transporAcorde('G7M', -5));
-checar(C.transporAcorde('D7M/A', -4) === 'A#7M/F', 'D7M/A −4 = A#7M/F', C.transporAcorde('D7M/A', -4));
-checar(C.transporAcorde('G7M', -4) === 'D#7M', 'G7M −4 = D#7M', C.transporAcorde('G7M', -4));
+checar(C.transporAcorde('D7M/A', -4) === 'Bb7M/F', 'D7M/A −4 = Bb7M/F, nunca A#7M/F',
+  C.transporAcorde('D7M/A', -4));
+checar(C.transporAcorde('G7M', -4) === 'Eb7M', 'G7M −4 = Eb7M, nunca D#7M', C.transporAcorde('G7M', -4));
 // A TENSÃO DEPOIS DA BARRA viaja com o resto da extensão, e o baixo de verdade
 // continua andando: as duas barras convivem no mesmo token (`C7/9/E`).
 checar(C.transporAcorde('C7/9', 2) === 'D7/9', 'C7/9 +2 = D7/9', C.transporAcorde('C7/9', 2));
@@ -155,10 +160,16 @@ checar(C.transporLinha('C7/9    Am7     D7/9    G7M', 2) === 'D7/9    Bm7     E7
   C.transporLinha('C7/9    Am7     D7/9    G7M', 2));
 checar(C.transporAcorde('Cmaj7', 2) === 'Dmaj7', 'a grafia por extenso também anda');
 checar(C.transporAcorde('A5+', 3) === 'C5+', 'e as alterações com sinal');
-// A GRAFIA SEGUE A RAIZ, não um `b` perdido dentro da extensão: o bemol de uma
-// ALTERAÇÃO não diz nada sobre como a fundamental é escrita.
-checar(C.transporAcorde('C7(b9)', 1) === 'C#7(b9)',
-  'o b de (b9) não force a raiz para bemol', C.transporAcorde('C7(b9)', 1));
+// A EXTENSÃO NÃO VOTA NA GRAFIA DA RAIZ, e desde a v1.8.93 isso é estrutural: a
+// família vem do DESTINO, e o token nem é consultado. A asserção continua
+// existindo porque o desfecho é o mesmo de sempre pelo motivo certo — `Db` aqui
+// é a armadura de Ré bemol maior, não o `b` de `(b9)` vazando para a raiz. O que
+// a fecha é o par abaixo: mesma extensão, destino SUSTENIDO.
+checar(C.transporAcorde('C7(b9)', 1) === 'Db7(b9)',
+  'C7(b9) +1 = Db7(b9) pela armadura do destino', C.transporAcorde('C7(b9)', 1));
+checar(C.transporAcorde('C7(b9)', 2) === 'D7(b9)' && C.transporAcorde('A7(b9)', 2) === 'B7(b9)',
+  'e o (b9) não puxa a raiz para bemol num destino em sustenidos',
+  C.transporAcorde('A7(b9)', 2));
 // E A EXTENSÃO VIAJA VERBATIM — só raiz e baixo andam.
 checar(C.transporAcorde('F#m7(b5)', 1) === 'Gm7(b5)',
   'a extensão inteira é preservada', C.transporAcorde('F#m7(b5)', 1));
@@ -178,11 +189,94 @@ secao('3b. transposição PRESERVA AS COLUNAS');
     'e são de fato os acordes transpostos', depois);
 }
 {
-  // O caso em que NÃO cabe: "C" (1 char) vira "C#" (2) num espaço de 1. Perder
+  // O caso em que NÃO cabe: "C" (1 char) vira "Db" (2) num espaço de 1. Perder
   // a coluna exata é ruim; colar dois acordes num só é ilegível.
   const depois = C.transporLinha('C G', 1);
-  checar(/^C#\s+G#$/.test(depois), 'quando o acorde cresce, entra um espaço em vez de colar', depois);
+  checar(/^Db\s+Ab$/.test(depois), 'quando o acorde cresce, entra um espaço em vez de colar', depois);
 }
+
+// ── 3c. A ARMADURA DO DESTINO DECIDE A GRAFIA (v1.8.93) ─────────────────────
+// Meio tom acima de D é Eb, não D#. A regra velha ("a grafia segue a ORIGEM")
+// produzia tons que não existem — D#, G# e A# são 9, 8 e 10 sustenidos — e
+// linhas internamente inconsistentes, porque decidia acorde a acorde.
+secao('3c. a armadura do destino');
+
+// OS CINCO GRAUS PRETOS, a partir de um tom sem acidente. É a lista do
+// operador: "C, Db, D, Eb, E, F, F#, G, Ab, A, Bb, B — basicamente só Fá que é
+// sustenido". O grau 6 é o único empate real (F# e Gb têm seis cada).
+[
+  [1, 'Db'], [2, 'D'], [3, 'Eb'], [4, 'E'], [5, 'F'],
+  [6, 'F#'], [7, 'G'], [8, 'Ab'], [9, 'A'], [10, 'Bb'], [11, 'B'],
+].forEach(([n, esperado]) => {
+  checar(C.transporAcorde('C', n) === esperado,
+    'C +' + n + ' = ' + esperado, C.transporAcorde('C', n));
+});
+
+// E NÃO É "PREFIRA BEMOL": dentro de Mi maior, G#m e D#m são a grafia CERTA
+// (quatro sustenidos), e Abm ali seria erro. Este é o caso mais comum de
+// hinário — uma folha em Ré subindo um tom — e uma tabela fixa de bemóis o
+// estragaria. A folha declara a grafia UMA vez, e ela vale para a linha toda.
+{
+  const pagina = { tom: 'D', linhas: [{ tipo: 'acordes', texto: 'D    Em   F#m  G    A    Bm   C#m' }] };
+  const g = C.grafiaDaFolha(pagina, 2);
+  checar(g === '#', 'destino Mi maior pede SUSTENIDOS', g);
+  checar(C.transporLinha(pagina.linhas[0].texto, 2, g).trim().split(/\s+/).join(' ')
+    === 'E F#m G#m A B C#m D#m',
+    'D +2 = E maior, com G#m e D#m — e nenhum Abm/Ebm',
+    C.transporLinha(pagina.linhas[0].texto, 2, g));
+}
+
+// A COERÊNCIA É DA FOLHA, e é o que a regra velha não tinha: ela dava
+// `Db D#m Gb G#` — bemol e sustenido na MESMA sequência.
+{
+  const pagina = { tom: 'Bb', linhas: [{ tipo: 'acordes', texto: 'Bb   Cm   Eb   F' }] };
+  const saida = C.transporLinha(pagina.linhas[0].texto, 3, C.grafiaDaFolha(pagina, 3));
+  checar(saida.trim().split(/\s+/).join(' ') === 'Db Ebm Gb Ab',
+    'Bb +3 = Db maior, a folha inteira em bemóis', saida);
+  checar(!/#/.test(saida), 'e nenhum sustenido sobra no meio', saida);
+}
+
+// O MODO INVERTE TRÊS GRAUS, e é por isso que são DUAS tabelas de armadura:
+// em maior o grau 1 é Db (5 bemóis), em menor é C#m (4 sustenidos contra os 8
+// de Dbm). Uma lista única de doze nomes devolvia `Dbm`, que é o defeito velho
+// pelo outro lado.
+checar(C.transporTom('Bbm', 3) === 'C#m', 'Bbm +3 = C#m, nunca Dbm', C.transporTom('Bbm', 3));
+checar(C.transporTom('Bb', 3) === 'Db', 'mas Bb +3 = Db — o mesmo grau, outro modo',
+  C.transporTom('Bb', 3));
+checar(C.transporAcorde('Em', 4) === 'G#m' && C.transporAcorde('E', 4) === 'Ab',
+  'e o grau 8 se parte igual: G#m (5 sustenidos) contra Ab (4 bemóis)',
+  C.transporAcorde('Em', 4) + ' / ' + C.transporAcorde('E', 4));
+
+// O CABEÇALHO É O TOM, e ele não pode anunciar uma armadura que não existe.
+checar(C.transporTom('D', 1) === 'Eb', 'o tom mostrado vira Eb, nunca D#', C.transporTom('D', 1));
+checar(C.transporTom('D', -4) === 'Bb', 'e Bb, nunca A#', C.transporTom('D', -4));
+
+// SEM TOM DECLARADO a folha não perde a coerência: o proxy é a PRIMEIRA raiz.
+// O site nem sempre declara o tom, e o degrau existe para esse caso.
+{
+  const pagina = { linhas: [
+    { tipo: 'letra', texto: 'Santo, santo, santo' },
+    { tipo: 'acordes', texto: 'C    Dm   Em   F    G    Am' },
+  ] };
+  checar(C.primeiraRaiz(pagina.linhas) === 'C', 'a primeira raiz pula a linha de letra',
+    C.primeiraRaiz(pagina.linhas));
+  const saida = C.transporLinha(pagina.linhas[1].texto, 3, C.grafiaDaFolha(pagina, 3));
+  checar(saida.trim().split(/\s+/).join(' ') === 'Eb Fm Gm Ab Bb Cm',
+    'sem tom na página, a folha ainda sai em Eb maior inteira', saida);
+}
+
+// ENTRADA ≠ SAÍDA: uma folha do site escrita em D# continua sendo LIDA. O que
+// mudou é como o app ESCREVE, e recusar a entrada deixaria o acorde parado no
+// tom original com a folha andando à volta dele (o defeito da v1.1.13).
+checar(C.pareceAcorde('D#7M') && C.pareceAcorde('A#m7') && C.pareceAcorde('G#'),
+  'sustenidos incomuns continuam aceitos na ENTRADA');
+checar(C.transporAcorde('D#7M', 1) === 'E7M', 'e andam normalmente', C.transporAcorde('D#7M', 1));
+
+// ZERO NÃO REGRAFA. A folha no tom original tem de continuar parecendo a mesma
+// folha para quem já a conhece — regrafar sem transpor seria reescrever a
+// página do site por conta própria.
+checar(C.transporAcorde('D#', 0) === 'D#' && C.transporAcorde('Gb', 0) === 'Gb',
+  'zero semitom devolve a grafia da página, intacta');
 
 // ── 4. ENTIDADES ────────────────────────────────────────────────────────────
 secao('4. entidades HTML');
