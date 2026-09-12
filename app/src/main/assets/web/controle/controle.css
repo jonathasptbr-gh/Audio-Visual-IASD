@@ -6368,13 +6368,33 @@ main {
 .misc-foot .misc-project { flex: 1; min-width: 0; height: var(--misc-bar-h); }
 .misc-foot:has(.cue-save-btn) .misc-project { height: var(--quad-faixa); }
 .misc-foot .cue-save-btn { width: var(--quad-faixa); height: var(--quad-faixa); }
+/* ---------- O QUE A FERRAMENTA OPERA, À ESQUERDA (v1.8.94) ----------
+   Pedido do operador: o transporte do tempo e os seletores do relógio saíram do
+   corpo da janela e vieram para cá, à ESQUERDA do primário. O corpo fica para o
+   mostrador, que é o que cresce.
+
+   `gap: var(--sp-3)` e não `--sp-4`: eles são um GRUPO (▶ com ↺, Seg com 12 h),
+   e o vão de dentro de um grupo é menor que o vão entre grupos — sem isso os
+   quatro elementos da faixa leem como quatro coisas soltas. */
+.misc-foot-esq { flex: 0 0 auto; display: flex; align-items: stretch; gap: var(--sp-3); }
+/* Na faixa, a altura é UMA (a regra da v1.8.61): o quadrado manda, e os
+   seletores acompanham em vez de esticar contra ele. */
+.misc-foot-esq .chrono-btn { height: var(--quad-faixa); width: var(--quad-faixa); }
+/* E O SELETOR DE FORMATO É UM CHIP, não um quadrado: ele tem RÓTULO, e um
+   rótulo de três letras numa caixa de 42px sai apertado. O `min-width` do
+   `.misc-chip` (o piso de alvo) continua valendo; o que muda é a altura, que
+   passa a ser a da faixa. */
+.misc-foot-esq .chrono-opt {
+  height: var(--quad-faixa); min-height: 0; padding-inline: .5rem;
+  font-size: var(--fs-md);
+}
 
 /* ---------- Primitivos da aba Ferramentas (base comum) ---------- */
 /* `.misc-*` são os primitivos COMPARTILHADOS pelo cronômetro e pelo sorteio
    (painel, segmentado, chip, campos, botão de projetar). Nasceram como
    `.chrono-*`, com uma ferramenta só; ao ganhar a segunda, um nome que anuncia
    apenas uma delas passava a mentir sobre quem o usa. O que é de fato exclusivo
-   segue nomeado por dono: `.chrono-read/-actions/-btn` e `.draw-*`.
+   segue nomeado por dono: `.chrono-btn` e `.draw-*`.
    Três ferramentas não cabem juntas numa tela de celular. Um SELETOR no topo
    troca entre elas em UMA linha: o painel ativo começa sempre no mesmo lugar
    (memória muscular de quem opera sem olhar) e a tela não rola. A v5.31 tentou
@@ -6490,10 +6510,6 @@ main {
    O mostrador e o transporte na MESMA faixa — quatro linhas viraram uma, e é o
    que tirou a rolagem da folha. Ver `renderChrono`.
 
-   `min-width: 0` no número é o que permite os vizinhos: sem ele o `.chrono-read`
-   é do tamanho do texto dele e empurra o transporte para fora da caixa (que
-   `overflow: hidden` na folha CORTA, sem erro nenhum).
-
    E A FAIXA CRESCE (v1.8.92): no timer o mostrador é a ROLETA, e ela ocupa o
    que sobrar da altura do painel. `min-height: 0` é o que permite ENCOLHER —
    sem ele um item flex nunca fica menor que o conteúdo, e o painel voltaria a
@@ -6503,37 +6519,17 @@ main {
   display: flex; align-items: center; gap: var(--sp-4);
   container-type: inline-size;
 }
-/* O RELÓGIO E O CRONÔMETRO NÃO CRESCEM: eles são uma linha de texto, e esticá-la
-   só afastaria o número da legenda. Quem cresce é o timer. */
-.chrono-linha--clock, .chrono-linha--stopwatch { flex: 0 0 auto; }
-/* O número no Controle. `tabular-nums` pelo mesmo motivo do telão: sem ele a
-   linha se desloca a cada segundo e o número parece tremer. */
-.chrono-read {
-  flex: 1; min-width: 0;
-  text-align: center; color: var(--text);
-  font-size: var(--fs-display); font-weight: var(--fw-forte); line-height: 1.1;
-  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
-  padding: .2rem 0;
-}
-/* COM VIZINHOS ELE CEDE UM DEGRAU. A 2,6rem sobrando ~125px para o número e os
-   dois quadrados do transporte não cabem numa tela de 360 — e o relógio, que
-   ocupa a linha SOZINHO, não tem por que pagar por isso. É a mesma pergunta da
-   faixa de fecho: *"há irmão nesta linha?"*, não *"qual modo?"*.
-
-   E O DEGRAU FIXO NÃO BASTA — ele é um TETO, e o piso é a CAIXA. MEDIDO a
-   360×640 com a fonte do sistema em 1,25×: a caixa do número fica com 127px e
-   "1:30:00" a 2rem pede 137 — o texto sai por cima do vizinho, sem erro nenhum
-   e sem clipe que denuncie (um `overflow: hidden` aqui CORTARIA um dígito, que
-   é pior). A régua tem de ser a LARGURA DISPONÍVEL, não a tela.
-
-   `cqw` é a unidade que responde isso: 8 caracteres a ~0,61em cabem em 8cqw
-   (medido — 8 × 0,61 × 24px = 117 contra os 127 da caixa). A consulta de
-   contêiner tem a MESMA linha de base do `:has()` que este arquivo já usa em
-   outros seis lugares, então ela não amplia o piso de Chromium de ninguém. */
-.chrono-linha:has(> .chrono-actions) .chrono-read {
-  font-size: min(var(--fs-display-sm), 8cqw);
-}
-.chrono-read.over { color: var(--danger-strong); }
+/* E AS TRÊS FERRAMENTAS CRESCEM IGUAL (v1.8.94). A regra anterior segurava o
+   Relógio e o Cronômetro em `flex: 0 0 auto` porque ali o mostrador era uma
+   linha de TEXTO, e esticá-la só afastaria o número da legenda. Com a roleta
+   compartilhada isso se inverteu: o pedido do operador é *"ajuste as dimensões
+   do relógio e do cronômetro para o sistema de aproveitamento máximo da
+   janela"*, e quem aproveita é justamente quem cresce. */
+/* (O `.chrono-read` — o mostrador de TEXTO — saiu na v1.8.94: as três
+   ferramentas passaram a usar a mesma roleta, e com ela foram embora as regras
+   que dimensionavam aquele número, inclusive o teto por `cqw` que existia
+   porque o texto podia estourar a caixa de lado. A roleta responde a mesma
+   pergunta por medição — ver `acertarRoletas`.) */
 
 /* ---------- AS DUAS ROLETAS DO TIMER (v1.8.92) ----------
    Pedido do operador: *"uma roleta/lista vertical de 0 a 60 para os minutos e
@@ -6558,10 +6554,21 @@ main {
 .roleta-sinal, .roleta-dp {
   flex: 0 0 auto;
   font-size: calc(var(--roleta-item) * .58); font-weight: var(--fw-forte);
-  line-height: 1; padding: 0 calc(var(--roleta-item) * .06);
+  line-height: 1; padding: 0 calc(var(--roleta-item) * .04);
+}
+/* O AM/PM é um MARCADOR, e por isso ele é pequeno e não uma quarta coluna: ele
+   não se escolhe (a hora é do aparelho) e tem duas posições, que numa lista de
+   três células sairia como uma coluna quase vazia. */
+.roleta-meridiem {
+  flex: 0 0 auto; align-self: center;
+  padding-left: calc(var(--roleta-item) * .12);
+  font-size: calc(var(--roleta-item) * .26); font-weight: var(--fw-max);
+  letter-spacing: .04em; color: var(--muted);
 }
 .roleta-sinal { visibility: hidden; }
-.chrono-roletas.over .roleta-sinal { visibility: visible; }
+/* SÓ O PRIMEIRO acende: o segundo é o ECO que centra a linha (ver
+   `renderChrono`), e um "−" à direita do número diria outra coisa. */
+.chrono-roletas.over .roleta-sinal:first-child { visibility: visible; }
 /* A LISTA. `scroll-snap-type: y mandatory` com o item centrado é o que faz cada
    número parar no meio da janela; o recuo de uma célula em cima e embaixo é o
    que deixa o PRIMEIRO e o ÚLTIMO chegarem lá (sem ele, o 0 e o 60 nunca
@@ -6572,7 +6579,9 @@ main {
    regra do `.rola` do app inteiro, que não se aplica a este por ele não ser um
    scroller de CONTEÚDO. */
 .roleta {
-  flex: 0 1 auto;
+  /* NÃO ENCOLHE: é o que faz o `scrollWidth` da caixa dizer o que a linha PEDE
+     em vez de o que ela coube — ver `acertarRoletas`. */
+  flex: 0 0 auto;
   height: calc(var(--roleta-item) * 3);
   padding-block: var(--roleta-item);
   overflow-y: auto; overflow-x: hidden;
@@ -6608,12 +6617,13 @@ main {
    cheia. Sem uma consulta de posição em CSS, quem o marca é o JS — UMA classe,
    escrita só quando o índice muda (ver `roletasMostrar`). */
 .roleta-item.roleta-item--sel { opacity: 1; }
-/* CONTANDO NÃO SE EDITA (pedido do operador). A trava é o `overflow`, e não um
-   `return` no ouvinte: sem ela a lista ROLA sob o dedo e volta sozinha no tique
-   seguinte — pior que não responder, porque parece quebrado. O `scrollTop`
-   programático continua funcionando com `hidden`, que é o que faz a contagem
-   andar. */
-.chrono-linha--timer.contando .roleta { overflow-y: hidden; touch-action: none; }
+/* LEITURA NÃO SE EDITA — e "leitura" é o Relógio, o Cronômetro e o Timer
+   CONTANDO, isto é, tudo o que não seja o Timer parado (`roletaEditavel`). A
+   trava é o `overflow`, e não um `return` no ouvinte: sem ela a lista ROLA sob o
+   dedo e volta sozinha no tique seguinte — pior que não responder, porque
+   parece quebrado. O `scrollTop` programático continua funcionando com
+   `hidden`, que é o que faz a contagem andar. */
+.chrono-linha.travado .roleta { overflow-y: hidden; touch-action: none; }
 .misc-opts { display: flex; flex-wrap: wrap; gap: var(--sp-3); justify-content: center; }
 .misc-chip {
   /* PISO, e não `height`: a pílula continua crescendo com a fonte do sistema —
@@ -6651,10 +6661,10 @@ main {
   font-size: var(--fs-lg); font-family: inherit;
 }
 .misc-num { max-width: 6.5rem; }
-.chrono-actions { display: flex; gap: var(--sp-3); flex-shrink: 0; }
 /* SEM RÓTULO, LOGO QUADRADO (v1.8.89) — as duas dimensões declaradas, como
    manda a regra. Eles eram `flex: 1` numa faixa própria, com "Iniciar" e
-   "Zerar" escritos; a conta que os trouxe para cá está em `renderChrono`. */
+   "Zerar" escritos; desde a v1.8.94 moram no RODAPÉ (ver `.misc-foot-esq`), e a
+   caixa deles ali é a da faixa. */
 .chrono-btn {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
