@@ -31,16 +31,17 @@
 // ## O que este oráculo mede, e por que nenhuma metade basta
 //
 //  1. **TELÃO NO CHÃO** (`telao: false`): o som fica NESTE aparelho
-//     (`somLocalDeveEstar`), o microfone NÃO é oferecido (quem capta é o
-//     `/display/` dentro da `Presentation`) e o Modo Fácil não destrava.
+//     (`somLocalDeveEstar`) e o Modo Fácil não destrava. (A terceira
+//     consequência era o microfone não ser oferecido; ela saiu na v1.8.89 com o
+//     recurso, e com ela as três asserções que a mediam.)
 //  2. **O ESTADO É DIZÍVEL**: o Registro e a folha de conexão separam "não há
 //     TV" de "a TV está aí e o telão não subiu". Sem esta metade, a correção
 //     poderia ser um filtro que simplesmente esconde a TV — e aí o operador lê
 //     "nenhuma TV" com o cabo na mão.
-//  3. **A RECUPERAÇÃO** (`telao` vira true): som, microfone e Modo Fácil voltam
-//     SEM o operador trocar de aba. É a metade que a escada de retomada do
-//     shell existe para alcançar, e sem ela a correção seria só um jeito novo
-//     de ficar parado.
+//  3. **A RECUPERAÇÃO** (`telao` vira true): som e Modo Fácil voltam SEM o
+//     operador trocar de aba. É a metade que a escada de retomada do shell
+//     existe para alcançar, e sem ela a correção seria só um jeito novo de
+//     ficar parado.
 //
 // O CENÁRIO É `appMode: 'full'` de propósito: no Modo Fácil `somLocalDeveEstar`
 // depende também do `tocarNoCelular`, e a pergunta aqui é sobre a DERIVAÇÃO da
@@ -68,15 +69,12 @@ const PONTE = `(() => {
     displays: (id) => {
       setTimeout(() => { try { window.__avResolve(id, window.__telas); } catch (_) {} }, 0);
     },
-    requestMic: (id) => {
-      setTimeout(() => { try { window.__avResolve(id, true); } catch (_) {} }, 0);
-    },
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget',
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolEstado','keepAlive',
-    'listFolder','micDiag','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
+    'listFolder','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
     'otaPending','pickDoc','pickFolder','salvarTexto','systemVolume','temaClaro','ytCancel',
     'ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio','ytPlaylist',
     'ytSearch','ytStream','areaTransferencia','atualizacaoEstado',
@@ -118,9 +116,7 @@ const ler = () => pg.evaluate(() => ({
   noChao: telaoNoChao(),
   conectado: telaoConectado(),
   somLocal: somLocalDeveEstar(),
-  mic: haOndeReproduzirMic(),
   simple: !!simpleDisplay(),
-  botaoMic: !!document.getElementById('micBtn'),
   registro: descreverTelao(),
 }));
 
@@ -156,6 +152,28 @@ const ajudaDoSom = () => pg.evaluate(() => {
     // A frase NÃO pode estar exposta na folha: é o pedido inteiro.
     textoNaFolha: (document.getElementById('castConn').textContent || '').replace(/\s+/g, ' ').trim(),
     caixa: cx ? { l: +cx.width.toFixed(2), a: +cx.height.toFixed(2) } : null,
+    // DENTRO DO CORPO do botão de conectar (v1.8.89): a superfície é a
+    // `.cast-acao-linha`, e o `?` é a fatia direita dela.
+    dentro: (() => {
+      const linha = document.querySelector('.cast-acao-linha');
+      const conectar = document.getElementById('castMirrorBtn');
+      if (!linha || !b || !conectar) return null;
+      const rl = linha.getBoundingClientRect();
+      const rb = b.getBoundingClientRect();
+      const rc = conectar.getBoundingClientRect();
+      return {
+        // o `?` cabe INTEIRO na caixa que o operador lê como "o botão"
+        contido: rb.left >= rl.left - 1 && rb.right <= rl.right + 1
+          && rb.top >= rl.top - 1 && rb.bottom <= rl.bottom + 1,
+        naDireita: Math.abs(rb.right - rl.right) <= 1,
+        // e o de conectar PARA antes dele: os dois alvos não se sobrepõem
+        semSobrepor: rc.right <= rb.left + 1,
+        alturaCheia: Math.abs(rb.height - rl.height) <= 1,
+        // a `.cast-acao-linha` é que PINTA agora — sem fundo próprio ela seria
+        // um invólucro invisível e o `?` flutuaria fora de qualquer corpo
+        pinta: getComputedStyle(linha).backgroundColor,
+      };
+    })(),
   };
   fecharCast();
   return r;
@@ -171,21 +189,20 @@ try {
       && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled),
     null, { timeout: 30000 },
   );
-  // O AVANÇADO, e a aba Ferramentas ABERTA: é lá que o botão de microfone mora,
-  // e é o `refreshDiversos()` da transição que precisa desenhá-lo sem ninguém
-  // trocar de aba. Sem abrir a folha, `botaoMic` seria falso nos três estados e
-  // a asserção 3 aprovaria a ausência do recurso.
+  // O AVANÇADO. (A folha de Ferramentas era ABERTA aqui, porque o botão de
+  // microfone morava nela e era o `refreshDiversos()` da transição que precisava
+  // desenhá-lo sem ninguém trocar de aba. As duas coisas saíram na v1.8.89 —
+  // nada mais naquela folha depende de haver projeção —, e abri-la agora
+  // custaria um passo que não mede nada.)
   await pg.evaluate(async () => {
     setAppMode('full');
     await new Promise((f) => setTimeout(f, 120));
-    document.getElementById('toolsBtn').click();
-    await new Promise((f) => setTimeout(f, 300));
   });
 
   // ── 1. SEM TELA: a linha de base ────────────────────────────────────────
   const semTv = await ler();
-  checar(semTv.telao === false && semTv.somLocal === true && semTv.botaoMic === false,
-    'sem tela nenhuma o som é DESTE aparelho e não há microfone a oferecer', semTv);
+  checar(semTv.telao === false && semTv.somLocal === true,
+    'sem tela nenhuma o som é DESTE aparelho', semTv);
   checar(semTv.noChao === false && semTv.registro === 'nenhum conectado',
     'e "não há TV" NÃO é "o telão não subiu" — o Registro diz a primeira', semTv);
   const ajudaFria = await ajudaDoSom();
@@ -205,9 +222,6 @@ try {
     chao);
   checar(chao.conectado === false && chao.simple === false,
     'e nada trata isso como projeção: sem `Presentation` não há para onde projetar', chao);
-  checar(chao.mic === false && chao.botaoMic === false,
-    'o microfone NÃO é oferecido — quem capta é o `/display/`, que só existe dentro '
-    + 'da `Presentation`', chao);
   checar(chao.noChao === true && chao.registro.includes('SEM TELÃO NO AR'),
     'e o estado é DIZÍVEL: o Registro separa "a TV está aí e o telão não subiu" de '
     + '"não há TV" — um filtro que escondesse a tela diria a segunda, que é falsa',
@@ -226,12 +240,29 @@ try {
     'e a FRASE não está exposta em lugar nenhum da folha: é o pedido inteiro — '
     + 'ela mora atrás do `?`',
     ajudaChao.textoNaFolha);
-  // UM BOTÃO SEM RÓTULO É QUADRADO (v1.8.57), e as DUAS dimensões são
-  // declaradas: o vizinho é um cartão de duas alturas de texto, e o
-  // `align-items: stretch` do flex esticaria o `?` até a altura dele.
-  checar(ajudaChao.caixa && Math.abs(ajudaChao.caixa.l - ajudaChao.caixa.a) <= 1,
-    'e ele é QUADRADO: `align-self: center` é o que o impede de esticar até a '
-    + 'altura do cartão ao lado', ajudaChao.caixa);
+  // ===== ELE MORA DENTRO DO CORPO DO BOTÃO (v1.8.89) =====
+  // Pedido do operador: *"pode colocar ele dentro do corpo do botão inteiro da
+  // conexão da tv… ainda na direita, mas dentro"*. **ISTO REVOGA O QUADRADO da
+  // v1.8.88**: enquanto ele era uma peça AO LADO, `align-self: center` o
+  // mantinha quadrado (a regra da v1.8.57); dentro do corpo ele é a fatia
+  // direita dele, e a altura é a do cartão.
+  //
+  // As quatro metades, e nenhuma basta: contido na caixa, encostado na borda
+  // direita, sem sobrepor o alvo de conectar, e o invólucro PINTANDO — sem a
+  // última ele estaria "dentro" de uma caixa que ninguém vê.
+  const d = ajudaChao.dentro;
+  checar(!!d && d.contido && d.naDireita,
+    'o `?` fica DENTRO do corpo do botão de conexão, encostado na borda '
+    + 'direita', d);
+  checar(!!d && d.semSobrepor,
+    'e o alvo de CONECTAR para antes dele: um `<button>` não aninha outro, '
+    + 'então os dois são irmãos e o que os une é a superfície do invólucro', d);
+  checar(!!d && d.alturaCheia,
+    'e ele tem a ALTURA do corpo, não a de um quadrado solto — dentro do botão '
+    + 'ele é a fatia direita dele', d);
+  checar(!!d && !/rgba\(0, 0, 0, 0\)|transparent/.test(d.pinta),
+    'e quem PINTA é o invólucro: sem fundo próprio ele seria uma caixa '
+    + 'invisível, e o `?` voltaria a flutuar fora de qualquer corpo', d);
   const semSeletor = await pg.evaluate(async () => {
     abrirCast();
     let chamou = 0;
@@ -291,9 +322,6 @@ try {
   checar(subiu.somLocal === false && subiu.conectado === true && subiu.simple === true,
     'O TELÃO SUBINDO cala este aparelho e volta a ser a projeção — sem passar por '
     + 'uma desconexão, que é o que a escada de retomada produz', subiu);
-  checar(subiu.botaoMic === true,
-    'e o botão de microfone APARECE sem trocar de aba: a transição que dispara o '
-    + '`refreshDiversos` é a do TELÃO, não a da tela', subiu);
   const rotuloSubiu = await rotulo();
   checar(subiu.noChao === false && !subiu.registro.includes('SEM TELÃO')
     && /^Conectado: /.test(rotuloSubiu),
@@ -309,7 +337,7 @@ try {
   });
   await pg.waitForFunction(() => !telaoNoAr(), null, { timeout: 5000 });
   const caiu = await ler();
-  checar(caiu.somLocal === true && caiu.botaoMic === false && caiu.noChao === true,
+  checar(caiu.somLocal === true && caiu.noChao === true,
     'O TELÃO CAINDO com a tela ainda listada devolve o som a este aparelho — no '
     + 'espelhamento ele continua chegando à TV, porque o `REMOTE_SUBMIX` leva a '
     + 'mistura do aparelho inteiro', caiu);

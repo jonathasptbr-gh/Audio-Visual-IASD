@@ -41,7 +41,7 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    (69 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
-                                       window.AVNative  (60 métodos)
+                                       window.AVNative  (58 métodos)
                                        + 4 globais lidas direto
 ```
 
@@ -120,7 +120,7 @@ resolvia a promise homônima da NOVA.
 |---|---|---|
 | `CALL_TIMEOUT_MS` = **60 s** | tudo que depende de MÁQUINA | nenhuma deveria demorar mais que isso |
 | `APK_TIMEOUT_MS` = **15 min** | `apkInstalar` | dezenas de MB numa rede de igreja levam minutos; um prazo curto resolveria `null` sobre um trabalho que continua, e o instalador abriria sozinho depois de a tela já ter dito que falhou |
-| **sem prazo** | `pickFolder`, `pickDoc`, `requestMic`, `salvarTexto`, `pacoteCriar`, `ytFetch`, `deckPages` | quem responde é uma **PESSOA** num diálogo do sistema — um timeout resolveria `null` com o operador ainda escolhendo a pasta |
+| **sem prazo** | `pickFolder`, `pickDoc`, `salvarTexto`, `pacoteCriar`, `ytFetch`, `deckPages` | quem responde é uma **PESSOA** num diálogo do sistema — um timeout resolveria `null` com o operador ainda escolhendo a pasta |
 
 Vencido o prazo, `call()` resolve **`null`**, e cada chamador já trata isso como
 lista vazia, string vazia ou `false`. **Isso é uma mentira silenciosa por
@@ -609,14 +609,16 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 
 ---
 
-## O CATÁLOGO COMPLETO — os 60 métodos, um a um
+## O CATÁLOGO COMPLETO — os 58 métodos, um a um
 
-> **O SHELL SERVE 63.** Os três de diferença — `ytStream`, `otaPending` e
-> `apkProcurar` — perderam o consumidor em duas fusões (a transmissão direta
-> na v1.7.7; o `atualizacaoEstado` absorvendo as leituras separadas do OTA) e a
-> **v1.8.71 os encolheu pelo LADO WEB**, que é o lado seguro: o `@JavascriptInterface`
-> continua em `NativeBridge.kt`, então o lote não pediu Release. Voltar a usá-los
-> é escrever o embrulho de novo no `native.js` — nada do shell precisa mudar.
+> **O SHELL SERVE 63.** Os CINCO de diferença foram encolhidos pelo LADO WEB,
+> que é o lado seguro: o `@JavascriptInterface` de cada um continua em
+> `NativeBridge.kt`, então nenhum dos dois lotes pediu Release.
+> `ytStream`, `otaPending` e `apkProcurar` perderam o consumidor em duas fusões
+> (a transmissão direta na v1.7.7; o `atualizacaoEstado` absorvendo as leituras
+> separadas do OTA) e saíram na **v1.8.71**; `requestMic` e `micDiag` saíram na
+> **v1.8.89** com o MICROFONE AO VIVO. Voltar a usar qualquer um é escrever o
+> embrulho de novo no `native.js` — nada do shell precisa mudar.
 
 <!-- Extraído do `CLAUDE.md` na faxina de 2026-09-07. -->
 
@@ -646,8 +648,9 @@ window.AVNative = {
                        //   não disse, e NÃO é `0` (arquivo vazio): achatar os
                        //   dois faz um pacote bom ser recusado como vazio.
                        //   ELE É O ÚNICO MÉTODO QUE NÃO É REMONTADO campo a
-                       //   campo no `native.js` (o irmão do `micDiag`), e aqui
-                       //   é de propósito pelo motivo OPOSTO: a lista vem do
+                       //   campo no `native.js` — o `micDiag` era o irmão dele
+                       //   nisso, e saiu na v1.8.89 —, e aqui é de propósito
+                       //   pelo motivo OPOSTO: a lista vem do
                        //   Kotlin já na forma final, e o remonte só poderia
                        //   perder o campo de amanhã
   listFolder(uri),     // → [{ name, size, mtime, type, url }]   (só no Controle)
@@ -668,10 +671,11 @@ window.AVNative = {
                        //   responde pelo DisplayManager; a projeção é a janela,
                        //   e as duas divergem numa negociação de Miracast (o
                        //   `show()` que lança, o dismiss que o sistema faz
-                       //   sozinho). É por ele que o web decide QUEM TOCA O SOM,
-                       //   se o microfone é oferecido e se o Modo Fácil
-                       //   destrava — as três perguntas cuja resposta honesta é
-                       //   a janela, não a tela. A tela CONTINUA na lista com o
+                       //   sozinho). É por ele que o web decide QUEM TOCA O SOM
+                       //   e se o Modo Fácil destrava — as perguntas cuja
+                       //   resposta honesta é a janela, não a tela. (A terceira
+                       //   era se o microfone é oferecido, e saiu na v1.8.89.)
+                       //   A tela CONTINUA na lista com o
                        //   telão no chão: "não há TV" e "a TV está aí e o telão
                        //   não subiu" pedem frases diferentes
   onDisplayChange(cb),
@@ -757,7 +761,13 @@ window.AVNative = {
                        //   ar o Controle DEVE ser estrangulado em segundo plano
   systemVolume(step),  // devolve um passo ao volume do sistema (fader no limite)
   temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
-  requestMic(),        // → bool: permissão RECORD_AUDIO (push-to-talk)
+  // requestMic() e micDiag() — SERVIDOS PELO KOTLIN, SEM CHAMADOR desde a
+  // v1.8.89: o MICROFONE AO VIVO saiu pelo lado WEB e os dois deixaram o
+  // `native.js` no mesmo lote. Encolher pelo WEB primeiro é o lado seguro (um
+  // APK que ainda serve método que ninguém chama não custa nada ao aparelho), e
+  // por isso o `SHELL_VERSION` NÃO subiu e o lote não pediu Release. Tirá-los
+  // do Kotlin, junto com o `MicChromeClient` e a permissão `RECORD_AUDIO`, é um
+  // lote de shell — e aí sim um degrau e uma Release.
   keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
   bgConcluido({titulo, texto}), // O CARTÃO QUE FICA quando um trabalho longo
                        //   termina BEM. A notificação de progresso é do SERVIÇO
@@ -824,30 +834,6 @@ window.AVNative = {
                        //   quem lê o HTML é `controle/cifra.js`. Os dois campos
                        //   respondem perguntas diferentes — `status 0` é "não
                        //   houve resposta", `404` é "o site não tem"
-  micDiag(),           // → { permissao, modAudio, appops, mudo, modo, gravando,
-                       //     entradas:[{tipo,nome}] }: POR QUE o microfone não
-                       //     abre — o que só o SHELL sabe. `modAudio` é
-                       //     `MODIFY_AUDIO_SETTINGS`, e é ela que O CHROMIUM DO
-                       //     WEBVIEW exige do app HOSPEDEIRO para abrir QUALQUER
-                       //     captura: sem ela `setCommunicationDevice()` devolve
-                       //     `false` e `MakeLowLatencyInputStream` devolve
-                       //     `nullptr` — `NotReadableError` em toda configuração,
-                       //     antes de qualquer restrição ser negociada. Foi o
-                       //     defeito da v1.2.11 para trás. `AppOps` responde outra
-                       //     coisa: ele pode RECUSAR `RECORD_AUDIO` com
-                       //     `checkSelfPermission` devolvendo concedida (o
-                       //     interruptor de privacidade, o Auto Blocker da Samsung
-                       //     sobre app fora da loja, o mudo global). ATENÇÃO ao
-                       //     valor `primeiro plano` (`MODE_FOREGROUND`): é o
-                       //     ESTADO NORMAL do Android 10+ com a permissão no
-                       //     padrão, e lê-lo como bloqueio acusa o sistema no caso
-                       //     mais comum que existe.
-                       //     LEITURA PURA: não abre o microfone, não pede nada
-                       //     ESTE É O ÚNICO MÉTODO QUE NÃO É REMONTADO campo a
-                       //     campo no `native.js` — ele passa o objeto inteiro, de
-                       //     propósito, para um diagnóstico ganhar campo sem
-                       //     mexer na ponte. O degrau do `SHELL_VERSION` continua
-                       //     obrigatório: a FORMA de retorno mudou
   compartilharTexto(txt), // o SELETOR DE COMPARTILHAMENTO do Android
                        //   (ACTION_SEND + createChooser). Síncrono e sem
                        //   resposta, como o `openCast`: o desfecho é uma pessoa

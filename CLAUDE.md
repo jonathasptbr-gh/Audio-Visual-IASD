@@ -47,7 +47,7 @@ tem o que se pode quebrar sem abrir o capítulo, e o capítulo tem o resto:
 | acordes sobre a letra, sob demanda | [§](#a-aba-de-cifra-acordes-ao-lado-da-letra) | [`docs/recursos/CIFRA.md`](docs/recursos/CIFRA.md) |
 | o acervo num arquivo `.avpkg` | [§](#o-pacote-de-transferência-o-acervo-num-arquivo) | [`docs/recursos/PACOTE.md`](docs/recursos/PACOTE.md) |
 | cada par de cor medido, os pisos, o que foi revogado | [§](#a-paleta) | [`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md) |
-| o catálogo dos 60 métodos da ponte, um a um | [§](#a-ponte-windowavnative) | [`docs/shell/PONTE.md`](docs/shell/PONTE.md) |
+| o catálogo dos 58 métodos da ponte, um a um | [§](#a-ponte-windowavnative) | [`docs/shell/PONTE.md`](docs/shell/PONTE.md) |
 | os dois canais, a detecção, o watchdog, a pergunta | [§](#ota-da-base-web-atualização-sem-apk) | [`docs/shell/OTA.md`](docs/shell/OTA.md) |
 | o que cada oráculo trava | (o MÉTODO fica em [Build](#build-e-distribuição)) | [`docs/ORACULOS.md`](docs/ORACULOS.md) |
 
@@ -396,10 +396,10 @@ sozinho — `syncPresentation` só volta a rodar por um evento do `DisplayManage
 celular fica no suporte.
 
 - **O campo `telao` de cada tela** é a `Presentation` DE FATO no ar nela, e é
-  ele que responde às três perguntas que dependem de haver projeção: quem toca o
-  som (`somLocalDeveEstar`), se o microfone é oferecido (`haOndeReproduzirMic`,
-  porque quem capta é o `/display/` dentro da janela) e se o Modo Fácil destrava
-  (`simpleDisplay`). O que segue lendo a lista CRUA é o que descreve a CONEXÃO —
+  ele que responde às perguntas que dependem de haver projeção: quem toca o som
+  (`somLocalDeveEstar`) e se o Modo Fácil destrava (`simpleDisplay`). (A
+  terceira era se o microfone é oferecido, e saiu na v1.8.89 com o recurso.) O
+  que segue lendo a lista CRUA é o que descreve a CONEXÃO —
   o rótulo da folha, o `applyPreviewAspect`, o Registro.
 - **E AS TELAS DA REDE TÊM O IRMÃO DISSO** (v1.4.19): `telasDaRede()` exige
   `pronta` — o `__de` do `display-ready` tendo voltado, isto é, o `/display/`
@@ -470,7 +470,7 @@ Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
 `NativeBridge.kt`). **Só existe quando `window.__AVBridge` existe** — no
 navegador a IIFE retorna na entrada e nada é definido, nem `__NATIVE__`.
 
-**O CATÁLOGO dos 60 métodos, um a um, está em
+**O CATÁLOGO dos 58 métodos, um a um, está em
 [`docs/shell/PONTE.md`](docs/shell/PONTE.md)** — é referência, aberta por
 método. Aqui ficam as REGRAS, que valem para todos eles.
 
@@ -511,10 +511,11 @@ atrasada da página velha resolvia a promise homônima da NOVA. Chamadas que
 dependem de **máquina** têm prazo de 60 s; `pickFolder` e `requestMic` esperam
 uma **pessoa** e ficam sem prazo.
 
-São **60 métodos**, e essa é a superfície inteira que o resto do lado web tem
-direito de usar — o SHELL serve 63, e a diferença são os três que a v1.8.71
-encolheu pelo lado web (`ytStream`, `otaPending`, `apkProcurar`): órfãos de
-duas fusões, o Kotlin continua servindo os três, e por isso o lote NÃO pediu
+São **58 métodos**, e essa é a superfície inteira que o resto do lado web tem
+direito de usar — o SHELL serve 63, e a diferença são CINCO encolhidos pelo lado
+web: três na v1.8.71 (`ytStream`, `otaPending`, `apkProcurar` — órfãos de duas
+fusões) e dois na v1.8.89 (`requestMic`, `micDiag`, com o MICROFONE AO VIVO). O
+Kotlin continua servindo os cinco, e por isso nenhum dos dois lotes pediu
 Release. **Encolher no WEB primeiro é o lado seguro** — um APK que ainda serve
 métodos que ninguém chama não custa nada ao aparelho; é a ordem inversa (base
 web nova contra APK velho) que precisa do `shellTag`. Quem guarda a regra agora
@@ -706,10 +707,12 @@ barramento por SSE. É o mesmo arquivo — e é por ser idêntico que **ele não
 falar tudo**: a arquitetura inteira supõe UM telão. Drenado tudo passa:
 `display-status` sai a ~4 Hz de CADA um (o Controle e o `snoopDisplayStatus`
 passariam a ter N fontes alternadas), `media-ended` dobrado dá um segundo `load`
-em `repeat one`, `mic-status` de uma tela — que **nega `getUserMedia` em
-silêncio**, por não ter o `MicChromeClient` — apagaria o estado do microfone
-VERDADEIRO, e `diag-ask` respondido por vários faz o Registro mostrar o diário de
-um deles sem dizer qual.
+em `repeat one`, e `diag-ask` respondido por vários faz o Registro mostrar o
+diário de um deles sem dizer qual. (O `mic-status` era o quarto, e o mais
+perigoso: 'unsupported' de uma tela — que **nega `getUserMedia` em silêncio**,
+por não ter o `MicChromeClient` — apagava o estado do microfone VERDADEIRO. Ele
+saiu na v1.8.89 com o recurso, e o dreno não muda por isso: lista de PERMISSÃO,
+um emissor a menos não abre porta nenhuma.)
 
 O dreno mora em `espelho/tela.js` (o `__AVBus.post` do papel) e é lista de
 **PERMISSÃO** — um tipo de mensagem novo em `display.js` nasce mudo por
@@ -1083,27 +1086,18 @@ deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
    e o `AudioWorklet`. O som é **opt-in por tela** (o `forceMuted` só sai com o
    gesto do visitante).
 
-   **O microfone ao vivo continua fora da rede — por uma GUARDA, e não pelo
-   dreno.** O dreno é o filtro de SUBIDA; `mic` é um comando de DESCIDA e desce
-   verbatim para toda tela (o `difundirJson` não lê tipo, o `entregar()` do
-   `tela.js` também não). Quem o barra é `if (TELA) return` no topo do `setMic`
-   (`display.js`), e ele existe porque a alternativa era uma proteção
-   **EMPRESTADA DO NAVEGADOR**: uma tela roda em `http://`, e `getUserMedia` é
-   `[SecureContext]`, logo `navigator.mediaDevices` nem existe ali. Essa proteção
-   se desfaz sozinha no dia em que a transmissão subir em `https://` — e nesse
-   dia, sem a guarda, o primeiro push-to-talk pediria o microfone **de cada
-   aparelho da rede**, devolvendo-o às caixas daquele mesmo aparelho. Nenhum
-   áudio atravessa a rede aqui: o estrago não é a tela falando com a voz do
-   púlpito, é realimentação local num aparelho que ninguém está olhando.
-   Oráculo: `tela-rede.test.mjs`.
-
-   **E o microfone é DO TELÃO no sentido forte: sem TV ele NÃO É OFERECIDO.**
-   Quem o abre é o `/display/`, que só roda dentro da `Presentation` — sem TV o
-   `syncPresentation` não cria nenhuma. Desde a v1.2.20 o botão nem é desenhado
-   (`haOndeReproduzirMic`, em `renderFoot`); a guarda no toque fica pela CORRIDA
-   (a TV pode cair entre o desenho e o dedo), e ela continua vindo **antes de
-   pedir a permissão do Android**, porque gastar a única permissão sensível do
-   app numa ação que não pode funcionar é como se queima uma permissão.
+   **A ARMADILHA QUE O MICROFONE DEIXOU, e ela vale para o PRÓXIMO comando de
+   descida** (o recurso saiu na v1.8.89 — ver a seção dele). O dreno é o filtro
+   de SUBIDA; um comando de DESCIDA desce verbatim para toda tela (o
+   `difundirJson` não lê tipo, o `entregar()` do `tela.js` também não), então
+   quem precisa barrá-lo numa tela é uma GUARDA no consumidor. A do `mic` era
+   `if (TELA) return` no topo do `setMic`, e ela existia porque a alternativa era
+   uma proteção **EMPRESTADA DO NAVEGADOR**: uma tela roda em `http://`, e
+   `getUserMedia` é `[SecureContext]`, logo `navigator.mediaDevices` nem existe
+   ali. Proteção assim **se desfaz sozinha** no dia em que a transmissão subir em
+   `https://`, e naquele caso o desfecho seria o primeiro push-to-talk pedindo o
+   microfone **de cada aparelho da rede**. Comando novo que a tela não deva
+   executar nasce com a guarda no consumidor, nunca confiando no ambiente dela.
 2. **O que vaza numa rede aberta mudou de natureza:** antes, a imagem contínua de
    tudo que a igreja projeta; agora, os comandos (títulos, referências, letras) e
    as mídias carregadas durante a transmissão, por tokens opacos por sessão. A
@@ -1680,8 +1674,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Sem tela conectada (simplificado) | mesmo bloqueio, com a janela do Display no lugar da `Presentation` | **modo bloqueado**: cortina embaçada, seção de conexão no centro, saída para o avançado na frente. **Não é incondicional**: o "Tocar neste celular" da folha (`tocarNoCelular`) desbloqueia e manda o som para este aparelho. **Caminho só de IDA e sem persistência**: o bloqueio se rearma ao fechar o app, ao passar pelo modo avançado (`setAppMode`) ou quando uma tela entra — e por isso o botão SOME depois do toque, em vez de oferecer o desfazer |
 | Fullscreen da preview | `requestFullscreen` + Screen Orientation | idem, com trava de paisagem **nativa** (`onShowCustomView`). Os controles são uma COLUNA na lateral direita que o toque acende e 4 s apagam — não gestos (v1.0.7, ver `docs/arquitetura/CONTROLE.md`). É uma das duas superfícies em que ⏮/⏭ ainda tem DOIS eixos (a outra é a notificação): aqui não cabe um par de botões de slide, porque sem TV o que se pinta nesta tela a congregação vê |
 | Botões físicos de volume | o navegador não os recebe | **interceptados**, ligados ao fader do deck — e é isso que mantém o painel de volume do Android FORA da projeção (ver abaixo) |
-| Microfone AO VIVO | o navegador pergunta | `MicChromeClient` + `RECORD_AUDIO` (ver abaixo). **Só com TV**: quem capta é o `/display/`, que só existe dentro da `Presentation` — e sem TV o botão **não é desenhado** (v1.2.21) |
-| Câmera | o navegador pergunta | **negada, sempre**. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do zero |
+| Captura de áudio ou vídeo | o navegador pergunta | **não existe caminho nenhum** desde a v1.8.89 (ver a seção abaixo): o microfone ao vivo era o único, e a câmera sempre foi **negada, sempre**. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do zero |
 | Navegação | idem (uma tela e duas folhas) | **UMA TELA e DUAS FOLHAS** (v1.5.0): o Cronograma é a tela única; a Bíblia e as Ferramentas são folhas dele, abertas pelas portas do rodapé (Bíblia · Importar · Ferramentas); a Biblioteca é uma JANELA DE TELA CHEIA que sobe levando a barra de busca junto, e a barra é a CABEÇA dela — fechada, ela repousa no TOPO da caixa de controles (v1.5.2), sem pintar nada, com os dois quadrados no tom E na largura dos botões do transporte (v1.5.5) e o campo branco com borda entre eles; aberta, ela para no topo da TELA, e é por isso que o teclado deixou de cobrir o campo. A janela vai do topo até a LINHA DA BARRA (v1.5.4): fora disso não há camada — nem pixel, nem scrim, nem toque —, então os controles continuam à vista e alcançáveis com a Biblioteca aberta, e a barra de status é o DESTINO da abertura, não um recuo que viaja acima da barra ao fechar. Aberta ela é uma JANELA como as folhas de Bíblia e Ferramentas — `--panel`, `--radius-card` e uma FRESTA acima dos controles, para se ver onde a lista acaba (v1.5.7); fechada não tem raio nem fundo, porque ali o que se vê é a barra. **E a camada dela é o CHÃO da pilha, não o teto** (`z-index: 190`, v1.5.6): ela é a única deste app que existe SEMPRE, então empatada em 200 com as outras quem decidia era a ordem do documento — a barra pintava sobre Configurações e sobre a playlist, e o que se abrisse dos controles subia ATRÁS da Biblioteca. **Sem caixa de controles na tela a janela vai até a base** (o teclado com a Biblioteca aberta, e o Modo Fácil): o recorte protege os controles, e sem controles ele só corta. Saíram a faixa de abas, o vazado deslizante, o carrossel horizontal e o `switchTab` |
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
@@ -1712,65 +1705,45 @@ que ela é desenvolvida e testada fora do aparelho.
    fonte ou idioma, nenhum dos dois em `android:configChanges`; ou voltar pelo
    Recentes) importaria outra cópia integral do arquivo, sem aviso e sem desfazer.
 
-### Microfone ao vivo (push-to-talk)
+### O microfone ao vivo SAIU (v1.8.89) — e o que fica é a porta
 
-**A captura acontece no WebView do DISPLAY**, não no do Controle: um
-`MediaStream` **não atravessa o BroadcastChannel** (não é clonável). O que
-atravessa é o comando `mic`; quem abre o microfone é quem vai reproduzi-lo.
+Pedido do operador: *"remova a opção de microfone direto para o telão, que
+temos nas ferramentas"*. Ele era o **ÚNICO caminho de captura do app**, e o
+rodapé da folha de Ferramentas era a única porta dele.
 
-- **`MicChromeClient`** (WebView da `StagePresentation`). Sem tratar
-  `onPermissionRequest` o WebView **nega `getUserMedia` em silêncio** — mesma
-  armadilha da invariante 6. Três regras: concede **só**
-  `RESOURCE_AUDIO_CAPTURE`; **só se o app já tiver `RECORD_AUDIO`** (conceder ao
-  WebView o que o processo não tem adia a falha para um ponto sem sinal); e
-  **só da própria origem** — defesa em profundidade, porque `grant()` é
-  silencioso. Origem AUSENTE não é negada (nunca observada, e recusar por campo
-  vazio tiraria o recurso sem ganho).
-- **`requestMic()` sob demanda**, no primeiro toque no botão — nunca na abertura,
-  que é o pedido que se nega por reflexo.
+**Saíram do WEB:** `renderMic`/`sendMic`/`renderMicUI`, o `blocoMicrofone` e o
+`micRegistrar` do Registro, o `haOndeReproduzirMic`, o
+`startMic`/`stopMic`/`setMic` do `display.js` (com a escada de três degraus e a
+guarda `if (TELA) return`), o `mic-status` nos dois sentidos, e
+`requestMic`/`micDiag` do `native.js`. Foram junto o `refreshDiversos()` da
+TRANSIÇÃO do telão em `renderDisplayStatus` — ele existia só para o botão
+APARECER quando a TV entrava no meio do culto, e nada mais naquela folha depende
+de haver projeção — e três tokens da paleta (`--live`, `--on-live`,
+`--live-soft`): a barra de push-to-talk era o último consumidor dos três, e era
+ela que justificava haver um grau ACIMA do `--live-fill`.
 
-Caminho no Display: `getUserMedia → MediaStreamSource → GainNode → destination`,
-com rampa nas duas pontas (cortar no meio de uma palavra estala na caixa).
-`echoCancellation` **ligado**: num culto a realimentação é estrago público
-imediato. Fecha sozinho ao soltar o botão, ao trocar de aba e em segundo plano.
+**O KOTLIN FICA, e é o lado seguro:** `MicChromeClient`, os dois
+`@JavascriptInterface` e a permissão `RECORD_AUDIO` só saem instalando um APK.
+Encolher pelo WEB primeiro não custa nada ao aparelho — é a ordem inversa (base
+web nova contra APK velho) que precisa de `shellTag`.
 
-**A ESCADA DE TRÊS DEGRAUS é o que o faz abrir NO CULTO** (`TENTATIVAS`, com
-oráculo): com `echoCancellation` o Chromium abre o `AudioRecord` em
-`VOICE_COMMUNICATION`, e o Android recusa essa sessão quando a saída de áudio
-está em outro caminho — que é o app **com o espelhamento ligado**. O segundo
-degrau desliga o processamento, o terceiro pede `true` cru, e depois deles vem o
-pedido pelo `deviceId` (o `default` do Chromium é uma entrada virtual, e falhar
-nele não é falhar no microfone). Quem falha DESISTE em `NotAllowedError`: os
-degraus seguintes dariam o mesmo erro.
+**A ESCADA DE TRÊS DEGRAUS ESTÁ ESCRITA no `tools/sem-captura.test.mjs`**, e
+não por nostalgia: com `echoCancellation` o Chromium abre o `AudioRecord` em
+`VOICE_COMMUNICATION`, e o Android RECUSA essa sessão quando a saída de áudio
+está em outro caminho — o app **com o espelhamento ligado**, isto é, o modo
+normal de um culto com TV. Era o SEGUNDO degrau (sem processamento) que a fazia
+abrir, o terceiro era `true` cru, e depois deles vinha o pedido pelo `deviceId`
+(o `default` do Chromium é uma entrada virtual, e falhar nele não é falhar no
+microfone). **Quem trouxer captura de volta traz também a escada, a guarda de
+papel e o dreno do `mic-status` — ou traz o defeito de origem junto**, e aquele
+oráculo é a porta que o cobra: nenhum `getUserMedia` em arquivo nenhum da base
+web.
 
-**É O ÚNICO CAMINHO DE CAPTURA DO APP, e isso é recente.** O **RECADO** (o
-microfone estilo walkie-talkie, v1.1.26–v1.2.16) gravava no WebView do Controle
-e mandava a voz como item `kind:'audio'`, para cobrir os modelos SEM TV, onde o
-ao vivo não abria. Ele saiu na v1.2.17: **a razão de o ao vivo não abrir era um
-defeito nosso** — `MODIFY_AUDIO_SETTINGS` fora do manifest (v1.2.13) —, não uma
-limitação da arquitetura. Consertado o ao vivo, o que restava do recado era um
-segundo caminho que INTERROMPE a cena para dizer o que o primeiro diz sem
-interromper nada. Com ele saiu a concessão de áudio do `ControleChromeClient`,
-que existia só para ele; `mic-escada.test.mjs` guarda que o Controle não volte a
-abrir captura sem trazer o par de volta ao oráculo.
+**A CÂMERA continua negada, sempre** — o `onPermissionRequest` do
+`ControleChromeClient` FICOU, negando **com log**: um WebView sem ele nega em
+silêncio, e o próximo que precisar de mídia aqui descobriria a armadilha do
+zero.
 
-**SEM TV O BOTÃO NÃO EXISTE** (v1.2.21). `renderFoot` só o desenha com
-`haOndeReproduzirMic()`, e `renderDisplayStatus` chama `refreshDiversos()` na
-**transição de presença** — é ela que faz o botão aparecer quando a TV entra no
-meio do culto, sem trocar de aba, e sumir quando o dongle cai. Só na transição:
-`refreshDiversos` esvazia o `libraryEl`, e rodá-lo a cada callback (o `onResume`
-reconfere a lista) derrubaria o que o operador está usando.
-
-**A largura vem da AUSÊNCIA do irmão, não de uma regra de CSS:** `.misc-foot` é
-flex e os dois filhos são `flex: 1`, então sozinho o "Projetar no telão" ocupa a
-linha inteira.
-
-**A guarda `sem-telao` FICA, e virou uma corrida** — só se alcança se a TV cair
-entre o desenho e o toque. Ela é anterior à permissão pelo mesmo motivo de
-sempre. **Três degraus, cada um consertando o anterior:** até a v1.1.20 o botão
-acendia "No ar" sem nada captando; ela o fez recusar e DIZER por quê; a v1.2.20
-parou de oferecê-lo — explicar é melhor que mentir, mas não é melhor que não
-oferecer, e a frase chegava com o dedo no botão, no meio do culto.
 
 ### Botão voltar: fecha antes de minimizar
 
@@ -2651,16 +2624,19 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.88 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.89 · APK v1.8.73** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.88 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
+> **A v1.8.89 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Esta não toca `java/`,
-> `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou de forma: o
-> bundle sai na hora, contra o APK v1.8.73 que já está publicado. **E nada
-> deste lote toca a ponte** — o balde de miniaturas, o botão de sortear e a
-> linha da série são todos do `assets/web/`. Como a LISTA `serie` da v1.8.87, o
+> `res/` nem o manifesto: o bundle sai na hora, contra o APK v1.8.73 que já está
+> publicado. **E a ponte só ENCOLHEU** — `requestMic` e `micDiag` saíram do
+> `native.js` com o MICROFONE AO VIVO, e o `@JavascriptInterface` de cada um
+> continua no Kotlin. Encolher pelo WEB primeiro é o lado seguro, e por isso não
+> pede Release: um APK que ainda serve método que ninguém chama não custa nada
+> ao aparelho. É a ordem inversa — base web nova contra APK velho — que precisa
+> do `shellTag`. Como a LISTA `serie` da v1.8.87, o
 > `AVSorteio.baralhar` da v1.8.86 e o `AVDB.stateApagarPrefixo` da v1.8.83: a
 > superfície que o `SHELL_VERSION` governa é a da PONTE (`window.AVNative` sobre
 > `__AVBridge`), não a dos módulos de `assets/web/` — eles viajam DENTRO do

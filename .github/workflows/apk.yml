@@ -265,7 +265,7 @@ jobs:
 
           node tools/tipos-que-sobem.test.mjs
 
-          node tools/mic-escada.test.mjs
+          node tools/sem-captura.test.mjs
           node tools/serie.test.mjs
           node tools/sorteio.test.mjs
           node tools/hinario.test.mjs
@@ -497,10 +497,10 @@ jobs:
           # cada justificativa escrita DUAS vezes.
           #
           # A segunda cópia é a que ninguém relê, e ela não envelheceu calada:
-          # o bloco do `mic-escada` descrevia o RECADO — o microfone estilo
-          # walkie-talkie do Controle — como recurso vivo. Ele saiu na v1.2.17,
-          # o próprio oráculo diz isso na terceira linha dele, e o workflow
-          # seguiu afirmando o contrário. É a regra do projeto cobrada aqui:
+          # o bloco do então `mic-escada` (hoje `sem-captura`) descrevia o
+          # RECADO — o microfone estilo walkie-talkie do Controle — como recurso
+          # vivo. Ele saiu na v1.2.17, o próprio oráculo dizia isso na terceira
+          # linha dele, e o workflow seguiu afirmando o contrário. É a regra do projeto cobrada aqui:
           # *"um comentário errado é pior que um comentário longo: ele não custa
           # só leitura, produz a decisão errada."*
           #

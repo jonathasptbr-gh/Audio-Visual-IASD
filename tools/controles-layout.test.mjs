@@ -58,8 +58,8 @@ const PONTE = `(() => {
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDerrubar',
     'espelhoDesligar','espelhoDiag','espelhoEstado','espelhoLigar','keepAlive','listFolder',
-    'micDiag','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
-    'otaPending','pickDoc','pickFolder','requestMic','salvarTexto','systemVolume','temaClaro',
+    'nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
+    'otaPending','pickDoc','pickFolder','salvarTexto','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytPlaylist','ytSearch','ytStream','areaTransferencia','atualizacaoEstado',
   ];

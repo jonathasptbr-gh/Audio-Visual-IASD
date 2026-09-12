@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.8.89",
+    "itens": [
+      "Playlist automática: o botão de sortear voltou ao centro da caixa dele.",
+      "Conectar TV: o \"?\" do aviso de som passou a ficar DENTRO do botão de conexão, à direita.",
+      "Ferramentas: o microfone ao vivo saiu, a pedido.",
+      "Ferramentas: barra fixa no rodapé da janela — projetar à esquerda, Cronograma e favoritos à direita.",
+      "Tempo: o timer perdeu as pílulas de minuto e o campo; agora é um − / + ao lado do próprio número.",
+      "Tempo: iniciar e zerar foram para a direita do número, na mesma linha — a janela deixou de rolar."
+    ]
+  },
+  {
     "versao": "1.8.88",
     "itens": [
       "Playlist automática: o número de resultados virou uma linha no topo da lista, e no lugar dele entrou o botão de sortear.",

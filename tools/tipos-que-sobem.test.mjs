@@ -4,9 +4,11 @@
 //
 // Cada tela da rede roda uma cópia do `/web/display/`, e a arquitetura inteira
 // supõe UM telão. Drenado tudo passa: `display-status` a ~4 Hz de CADA tela,
-// `media-ended` dobrado dando um segundo `load` em `repeat one`, `mic-status`
-// de uma tela — que NEGA `getUserMedia` em silêncio, por não ter o
-// `MicChromeClient` — apagando o estado do microfone VERDADEIRO.
+// `media-ended` dobrado dando um segundo `load` em `repeat one`, `diag-dump`
+// duplo fazendo o Registro mostrar o diário de UM sem dizer qual. (O
+// `mic-status` era o mais perigoso dos três, e saiu na v1.8.89 com o microfone
+// ao vivo — a lista é de PERMISSÃO, então um emissor a menos não abre porta
+// nenhuma.)
 //
 // Por isso a lista é de PERMISSÃO, e por isso ela é DUPLA:
 //   - `espelho/tela.js`  (`drenar`)        — evita o tráfego;

@@ -397,9 +397,11 @@ checar(orfaos.length === 0,
 // aqui herda o overlay FLUTUANTE, que é branco com alfa.
 //
 // MEDIDO, e é o caso que criou esta asserção: a `.tools-sheet` nasceu na v1.3.10
-// pintando `--panel` e nunca entrou na lista. No tema CLARO o `.mic-btn` dentro
-// dela saía em branco a 92% sobre branco pleno — **1,00:1**. A barra de
-// push-to-talk, 56px, o controle que se procura sem olhar, não existia na tela.
+// pintando `--panel` e nunca entrou na lista. No tema CLARO o botão de 56px que
+// então ocupava a base dela saía em branco a 92% sobre branco pleno —
+// **1,00:1**: o controle que se procura sem olhar não existia na tela. (Aquele
+// botão era o do microfone ao vivo, e saiu na v1.8.89; a folha fica, e a
+// asserção com ela.)
 //
 // A varredura é do `--panel` LITERAL, não de `var(--camada)`: quem lê a camada
 // está justamente delegando o nível ao pai, e o pai é que precisa estar na

@@ -777,11 +777,15 @@ BOTÃO ou de CHIP usa os `--btn-*`, e `tools/tokens.test.mjs` trava isso.
 
 #### A regra do vermelho é a INTENSIDADE, não o preenchimento
 
-- **saturado** (`--live` + `--on-live`) = está no ar agora, e só isso — o
-  microfone aberto, o ponto de projetando. É o vermelho que não pode ter
-  concorrente na tela;
-- **suave** (`--live-fill` numa linha, `--danger-soft` num chip ou botão) = ação
-  destrutiva, ou "no ar" numa lista.
+- **preenchido** (`--live-fill` + `--live-strong`) = está no ar agora, e só
+  isso. É o vermelho que não pode ter concorrente na tela;
+- **suave** (`--danger-soft` num chip ou botão) = ação destrutiva.
+
+(O grau SATURADO — `--live` + `--on-live` + `--live-soft` — saiu na v1.8.89 com
+o microfone ao vivo, que era o último consumidor dos três e a razão de haver um
+degrau acima do `--live-fill`: *"o único estado desta aba que precisa ser visto
+do outro lado do salão"*. O scarlett oficial #D0021B continua sendo a ÂNCORA de
+que os dois graus derivam; ele deixou de ser um token declarado.)
 
 (Antes de as bordas saírem a régua era "preenchido = no ar · contornado =
 destrutivo"; sem contorno, o eixo passou a ser a intensidade do mesmo
@@ -897,8 +901,9 @@ lado do mesmo erro. `tools/tokens.test.mjs` passou a cobrar a filiação: todo
 bloco que pinta `--panel` está na lista **ou** afunda a superfície por conta
 própria.
 
-**E um CHIP não é um BLOCO.** Com R1 no lugar o microfone ficaria a 1,19:1 —
-correto pela regra e fino demais para um alvo daquele tamanho. `--surface-2` é
+**E um CHIP não é um BLOCO.** Com R1 no lugar aquele botão de 56px (a barra do
+microfone, que saiu na v1.8.89) ficaria a 1,19:1 — correto pela regra e fino
+demais para um alvo daquele tamanho. `--surface-2` é
 o overlay de uma peça DENTRO de um bloco; aquilo é o bloco, e ele passou a ler
 `--camada` (1,33:1 no escuro, 1,41:1 no claro). Antes de escolher o alfa,
 pergunte de que NÍVEL a peça é.
@@ -1337,7 +1342,7 @@ v5.171), que **nenhum token exista só no tema claro**, que **nenhuma superfíci
 de controle seja uma tinta com alfa** (R6) e que **todo bloco que pinta
 `--panel` afunde a superfície dos filhos** (R1) — as duas últimas provadas por
 REVERSÃO, e a segunda existe porque a `.tools-sheet` passou três versões fora da
-lista com o microfone invisível no tema claro; `tools/smoke.mjs` trava
+lista, com o botão de 56px da base dela invisível no tema claro; `tools/smoke.mjs` trava
 o efeito RENDERIZADO nos dois temas, o palco que não os segue, a superfície que
 afunda dentro do cartão e a escolha que sobrevive à recarga. Nenhum dos dois
 mede razão de contraste.
@@ -1607,7 +1612,8 @@ substitui enquanto elas estão à mostra (`chevronUpIconSvg`) e o ícone de
 **voz/microfone** (Cantado, `voiceIconSvg`) e **nota musical** (Playback,
 `noteIconSvg`); e o **livro com uma cruz** da aba **Bíblia**
 (`.tab[data-tab="bible"]`), mais a **grade de módulos** da aba **Ferramentas** —
-que substituiu o microfone quando a aba deixou de ter uma ferramenta só.
+que substituiu o ícone de microfone quando a aba deixou de ter uma ferramenta
+só.
 
 > **Borda nativa dos `<button>`**: `.tab-add` e `.pv-fab` zeram
 > `border`/`appearance` explicitamente — sem isso, um `<button>` (ex.:

@@ -2174,9 +2174,9 @@ alguma tela conectada?  ── sim ──▶  preview MUDA (o som é da TV / das
   calava a preview por haver "para onde mandar o som" sem ninguém tocando do
   outro lado: **silêncio nos dois lados**, com o Registro dizendo "conectado". O
   campo `telao` de cada tela (shell 59) é quem responde agora, por `telaoNoAr()`
-  — e as três perguntas que passaram a usá-lo são as que dependem de haver
-  PROJEÇÃO: o som, o microfone (`haOndeReproduzirMic` — quem capta é o
-  `/display/` DENTRO da janela) e o portão do Modo Fácil. O que descreve a
+  — e as perguntas que passaram a usá-lo são as que dependem de haver PROJEÇÃO:
+  o som e o portão do Modo Fácil. (A terceira era o microfone, e saiu na v1.8.89
+  com o recurso.) O que descreve a
   CONEXÃO segue lendo a lista crua: o rótulo da folha, o `applyPreviewAspect`, o
   Registro — e é lá que a distância entre as duas vira frase. Com o telão no
   chão o som volta para o celular, que no espelhamento continua chegando às
@@ -2444,7 +2444,8 @@ e ler *"Nada em exibição"*.
 
   **E o A+/A− some nesta aba.** Ele dimensiona TEXTO, e a miniatura ocupa a
   largura da coluna: um par de botões que continua ali e não muda nada na tela é
-  a mesma coisa que o microfone sem TV — não oferecer é melhor que explicar.
+  a mesma coisa que a aba de cifra sem cifra — não oferecer é melhor que
+  explicar.
 - **A BÍBLIA NO AR ABRE A FOLHA, e não a esvazia** (v1.1.11, revogada em
   parte na v1.4.26). Projetando, ela é a camada da FRENTE: a folha abre nela, e
   a letra e a cifra do louvor de fundo continuam a um toque no seletor. Fora do
@@ -4026,10 +4027,20 @@ As quatro células:
 
 #### A FOLHA DE FERRAMENTAS (v1.3.10)
 
-Mensagens, Tempo (cronômetro/relógio/timer), Sorteio e o microfone ao vivo. Elas
-eram uma ABA; hoje são `#toolsSheet`, uma folha que sobe **de dentro do
-Cronograma**, aberta pelo `#toolsBtn` — o botão à direita de "Importar arquivos",
-no `#listFoot`.
+Mensagens, Tempo (cronômetro/relógio/timer) e Sorteio. Elas eram uma ABA; hoje
+são `#toolsSheet`, uma folha que sobe **de dentro do Cronograma**, aberta pelo
+`#toolsBtn` — o botão à direita de "Importar arquivos", no `#listFoot`. (O
+microfone ao vivo era a quarta peça delas, e saiu na v1.8.89.)
+
+**O RODAPÉ DELA É FIXO** (`#toolsFoot`, v1.8.89), e é IRMÃO do `#toolsBody`: uma
+barra que more dentro do scroller rola com os itens dele, que é o que o pedido do
+operador nomeia. Ele hospeda uma FAIXA DE FECHO — o "Projetar no telão" que
+CRESCE à esquerda, e à direita os dois destinos (`cue-save-btn`) na ordem
+canônica da tabela `DESTINOS`. As Mensagens não têm o que guardar
+(`cueSaveDaFerramenta` devolve `null`), e ali o primário ocupa a linha inteira e
+volta à altura de barra; com irmãos ele cede para `--quad-faixa`, que é a regra
+da faixa de fecho (v1.8.61). O "guardar isto" era uma LINHA no fim de cada painel
+e descia com ele — o mesmo defeito que já tinha tirado o projetar dali.
 
 **A mudança não é de navegação, é de PARENTESCO.** Toda ferramenta daqui produz
 uma CENA que entra no roteiro: a mensagem vira cue, o cronômetro e o sorteio são
@@ -4045,7 +4056,7 @@ quarta célula de uma faixa feita de LUGARES.
 | **a porta é só ÍCONE** | "Importar arquivos" fica com o rótulo e com a linha. Dois nomes lado a lado numa faixa de celular empurram o primeiro para reticências justamente na tela mais estreita |
 | **a saída tem PAR** (v1.3.13) | ela subia deslizando e sumia no talo — duas coisas diferentes para o olho, e a segunda lendo como um erro justamente porque a primeira já ensinou a esperar o contrário. Mesma curva, mesma duração (`--tools-anim`, um valor só, lido pelo CSS e pelo JS), ao contrário. Quem tira a folha da árvore é o `hidden` no FIM da animação, e não um `animation-fill-mode`: uma folha "fora" por estar transladada continuaria capturando toque. Sem `animationend`, porque `prefers-reduced-motion` desliga a animação e o evento nunca chegaria — a folha ficaria de pé para sempre |
 | **trocar de aba a fecha** (`switchTab` → `fecharFerramentas`) | ela é extensão do CRONOGRAMA; de pé sobre a Bíblia seria a folha de uma tela flutuando sobre outra |
-| **`fecharFerramentas` desliga o microfone e os laços** | eram as mesmas guardas do `switchTab`, quando sair daqui era trocar de aba: o push-to-talk não pode ficar captando sem nada na tela que o mostre, e os timers de 5 Hz do cronômetro/sorteio não podem sobrar reescrevendo nós já descartados |
+| **`fecharFerramentas` desliga os laços** | eram as mesmas guardas do `switchTab`, quando sair daqui era trocar de aba: os timers de 5 Hz do cronômetro/sorteio não podem sobrar reescrevendo nós já descartados. (A terceira guarda soltava o microfone, e saiu na v1.8.89 com ele.) |
 
 **Os nomes internos ficaram**: `renderDiversos`/`refreshDiversos`, `miscTool`,
 `MISC_TOOLS` e as classes `.misc-*`. Renomeá-los não muda um pixel — a mesma
