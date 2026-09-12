@@ -688,9 +688,9 @@ exibindo exatamente o mesmo valor do Controle.
   sozinho, retomar perderia todo o trecho anterior.
 - **NO PAINEL, O TEMPO SE LÊ EM TRÊS ROLETAS** (v1.8.92, ampliado na v1.8.94) —
   horas, minutos e segundos, pedido do operador. **A roleta É o mostrador**, não um campo
-  ao lado dele: contar é ela andar, e por isso não sobrou número de texto no
-  modo timer (o Relógio e o Cronômetro mantêm o `.chrono-read`, porque neles não
-  há o que escolher). Cinco coisas que se erram aqui:
+  ao lado dele: contar é ela andar, e por isso não sobrou número de texto em
+  ferramenta nenhuma — o `.chrono-read` saiu na v1.8.94. Sete coisas que se
+  erram aqui:
   - **`--roleta-item` é a medida de TUDO** (janela, célula, recuo, corpo do
     dígito), e é o que faz `scrollTop === valor × item` sem fração. Ela é
     ESCRITA pelo JS a partir da altura que sobrou (`acertarRoletas`): a caixa
@@ -709,10 +709,37 @@ exibindo exatamente o mesmo valor do Controle.
   - **Mexer na roleta ZERA o decorrido.** Pausada no meio de uma contagem ela
     mostra o que FALTA, então mudá-la só pode querer dizer "conte isto a partir
     de agora"; sem isso o ▶ seguinte terminaria cedo, sem nada explicando.
+  - **O ÍNDICE CRESCE PARA BAIXO E O VALOR PARA CIMA** (v1.8.95, pedido do
+    operador). O índice é o `scrollTop`; o valor é o que se lê. A inversão mora
+    em TRÊS lugares — `valorNaPista`, `pistaDoValor` e o TEXTO das células —, e
+    os três têm de concordar: divergindo, o mostrador acende uma célula e
+    devolve o número de outra, sem erro em lugar nenhum.
+  - **A PRIMEIRA PINTURA NÃO TEM ROLAGEM QUE DISPARE A RECENTRAGEM** (v1.8.95).
+    A lista nasce em `scrollTop` 0 — o TOPO da pista —, e ali não existe célula
+    ACIMA: no zero a roleta abria de um lado só, para sempre, porque o único
+    caminho de volta à banda do meio é o assentamento de um `scroll` que nunca
+    aconteceu. Quem a coloca lá é o posicionamento, na primeira vez e sempre que
+    o `acertarRoletas` mudar a régua. **A CÉLULA que mede isto é a PINTURA NOVA
+    com o valor já em zero**: um `chronoSetDuration(0)` sobre a roleta que já
+    está na tela MOVE a lista, e o movimento paga a recentragem — a asserção
+    passa com e sem o conserto (medido).
   **AS TRÊS FERRAMENTAS USAM A MESMA ROLETA** (v1.8.94), e a pergunta que separa
   não é *"qual ferramenta?"* e sim *"há o que ESCOLHER?"* (`roletaEditavel`): só
   o Timer PARADO recebe o dedo. É isso que dá ao Relógio e ao Cronômetro o
-  aproveitamento da janela de graça. O Relógio tem duas exceções, as duas da
+  aproveitamento da janela de graça.
+
+  **MAS A PISTA À VISTA É DE QUEM ESCOLHE** (v1.8.95): no Relógio e no
+  Cronômetro as vizinhas somem, e somem por OPACIDADE, nunca por altura — a
+  janela continua de três células e o número fica no MESMO PIXEL nas três
+  ferramentas. *"Alterar entre as abas apenas adiciona elementos e não altera
+  eles"*, e a frase cobrou uma correção que ninguém tinha pedido: o sinal do
+  estouro era desenhado só no Timer, entrava na conta da largura, e por isso o
+  Cronômetro — com as MESMAS três colunas — abria com o dígito 29% maior (98px
+  contra 76px, medido a 412px). Ele passou a ser desenhado nas três, escondido.
+  **A régua que prova isto é a JANELA, não o centro:** encolher a caixa para uma
+  célula não move o centro um pixel, porque quem o dá é o flex.
+
+  O Relógio tem duas exceções, as duas da
   LISTA e não do ciclo: em 12 h a coluna das horas vale 1..12 (0..23 poria o
   "13" logo abaixo do "12"), e "sem segundos" TIRA a coluna em vez de escondê-la.
   O `inicio` da lista é o que separa ÍNDICE de VALOR nesse caso, e ele entra nos
@@ -730,7 +757,16 @@ exibindo exatamente o mesmo valor do Controle.
   **E O QUE SE ACIONA MORA NO RODAPÉ** — o ▶/⏸ e o ↺ do Timer e do Cronômetro, e
   os dois seletores do Relógio, à esquerda do "Projetar no telão". O corpo da
   janela é do mostrador, que é o que cresce. "Segundos" vira **"Seg"** ali: por
-  extenso ele empurra o primário para as reticências.
+  extenso ele empurra o primário para as reticências. **Os quatro são a MESMA
+  peça** desde a v1.8.95 — quadrados, na caixa e no raio do ▶ —, e o quadrado
+  cobra zerar o `min-width` da pílula, senão ele sai retangular; o "12 h" perdeu
+  o espaço pelo mesmo motivo.
+
+  **O TIMER NASCE EM 00:00:00** (v1.8.95), *"por questão de ordem"*. O padrão
+  eram cinco minutos que ninguém escolheu, e o zero tornou alcançável um estado
+  que nunca aparecia: o ▶ é `disabled` sem tempo desde a v1.8.92, mas
+  `.chrono-btn` não tinha regra de `:disabled` e a caixa azul do primário abria
+  ACESA. Hoje ela veste `--op-inativo`, com o `title` dizendo por quê.
 
   Oráculo: `ferramentas-folha.test.mjs`, bloco K.
 - **O timer NÃO congela em zero** — passa a contar em negativo, em vermelho

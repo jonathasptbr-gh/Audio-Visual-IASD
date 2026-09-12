@@ -356,6 +356,50 @@ checar(orfaos.length === 0,
     soft.join('\n        '));
 }
 
+// ---------- ESCOLHIDO NÃO É O DENIM (v1.8.95) ----------
+// O operador revogou metade da "linguagem de estado" da v1.3.14: *"todos esses
+// usam um azul forte, sólido, que deveria ser reservado para botões e não
+// seleções. Para seleções, pode usar o mesmo azul que usamos nos botões
+// flutuantes sobre o cronograma"* — que é o `--btn-accent`, o mesmo do
+// `--surface-porta` e do tile ligado.
+//
+// A varredura é por SELETOR e não por regra, porque é o seletor que diz o
+// PAPEL: quem termina em `.active` está pintando o item ESCOLHIDO de um
+// conjunto, e ali o denim (`--accent-fill`) passou a ser o azul errado. Os
+// primários continuam com ele, e por isso a busca não é global.
+//
+// O MODO DE FALHAR é mudo dos dois lados: um seletor novo com o denim volta a
+// pintar uma escolha como se fosse um botão, e ninguém repara porque a cor é
+// "a cor do app"; e o `--on-accent` sobre o azul claro mede **1,21:1** no tema
+// claro, isto é, um rótulo que some — o mesmo par que o oráculo das portas já
+// recusa. Daí as duas metades.
+//
+// `.qs-modo::before` entra NOMEADO: ele é o polegar do alternador
+// Simplificado × Avançado, uma escolha pintada num pseudo-elemento, e nenhum
+// `.active` no seletor o alcançaria.
+{
+  const escolhidos = [];
+  const NOMEADOS = ['.qs-modo::before'];
+  for (const f of arquivos) {
+    const s = fonte.get(f) || '';
+    for (const m of s.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const sel = m[1].trim().split('\n').pop().trim();
+      const corpo = m[2];
+      const eEscolha = /\.active\b/.test(sel) || NOMEADOS.some((n) => sel.includes(n));
+      if (!eEscolha) continue;
+      if (/(?:background|color)\s*:\s*var\(\s*--(?:accent-fill|on-accent)\s*\)/.test(corpo)) {
+        escolhidos.push(path.relative(RAIZ, f) + ':'
+          + s.slice(0, m.index).split('\n').length + ' → ' + sel);
+      }
+    }
+  }
+  checar(escolhidos.length === 0,
+    'ESCOLHIDO entre alternativas veste `--btn-accent` + `--accent` (o azul das '
+    + 'portas), nunca o denim `--accent-fill` + `--on-accent`, que ficou para os '
+    + 'BOTÕES — e o `--on-accent` sobre o azul claro mede 1,21:1 no tema claro',
+    escolhidos.join('\n        '));
+}
+
 // ---------- MARCA DE CONFLITO NA FOLHA (v1.4.31) ----------
 // MEDIDO, e é o defeito que criou esta asserção: a v1.4.27 subiu com um
 // conflito de merge por resolver DENTRO do `:is(...)` da lista do `--press` —

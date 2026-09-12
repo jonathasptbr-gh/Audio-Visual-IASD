@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.8.95",
+    "itens": [
+      "Timer: começa sempre em 00:00:00, e o botão de iniciar só acende quando há tempo escolhido.",
+      "As roletas do tempo giram ao contrário: agora os números crescem para cima.",
+      "As roletas abrem já mostrando o número de cima e o de baixo, mesmo começando no zero.",
+      "Relógio e Cronômetro deixam de mostrar a roleta em volta: fica só o número, no mesmo lugar.",
+      "Relógio: os botões de segundos e 12h ficaram quadrados, iguais aos de iniciar e zerar.",
+      "Abas, filtros e seletores marcados passaram a usar o azul claro, o mesmo dos botões flutuantes."
+    ]
+  },
+  {
     "versao": "1.8.94",
     "itens": [
       "Relógio e Cronômetro agora usam a mesma roleta do Timer, e ocupam a janela inteira.",

@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.94';
+const WEB_VERSION = '1.8.95';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -6454,7 +6454,10 @@ function renderFoot() {
       esq.appendChild(mk('Seg', 'Mostrar os segundos', chrono.secs, () => {
         chrono.secs = !chrono.secs; saveChronoPrefs(); pushChrono(); renderChronoEControles();
       }));
-      esq.appendChild(mk('12 h', 'Relógio de 12 horas', chrono.h12, () => {
+      // "12h" SEM ESPAÇO desde a v1.8.95: o botão virou QUADRADO (a caixa do ▶
+      // das abas irmãs), e num quadrado de 42px o espaço é o que decide entre
+      // uma linha e duas.
+      esq.appendChild(mk('12h', 'Relógio de 12 horas', chrono.h12, () => {
         chrono.h12 = !chrono.h12; saveChronoPrefs(); pushChrono(); renderChronoEControles();
       }));
     } else {
@@ -6526,7 +6529,12 @@ let chrono = {
   running: false,
   startAt: 0,               // epoch ms da última partida
   baseMs: 0,                // acumulado das voltas anteriores (pausas)
-  durationMs: 5 * 60000,    // alvo do timer
+  // O TIMER NASCE EM ZERO (v1.8.95), a pedido do operador: *"mantenha o timer
+  // em 000000, como padrão inicial, por questão de ordem"*. Com as três roletas
+  // o zero é um valor ESCRITÍVEL — o ▶ nasce apagado (`atualizarChronoRun`) e
+  // diz por quê —, e um alvo de cinco minutos que ninguém pediu é a mesma
+  // classe de defeito que um botão aceso sem função: parece escolha de alguém.
+  durationMs: 0,            // alvo do timer
   // Relógio SEM segundos por padrão: no telão o que o operador e a igreja
   // querem é a hora, e o dígito dos segundos mudando o tempo todo puxa o olho
   // para um número que não informa nada. Quem precisar liga no chip.
@@ -6842,6 +6850,21 @@ function repeticoesDe(ciclo) {
 // O ITEM em px, escrito pelo `acertarRoletas` e lido pelo CSS. Ele é a medida
 // de TUDO na roleta (altura da janela, do item, do recuo e do dígito), e é por
 // isso que a posição de um valor é `índice × item`, sem fração.
+// ÍNDICE ↔ VALOR, E ELES ANDAM EM SENTIDOS OPOSTOS (v1.8.95). O índice é o
+// `scrollTop`, que cresce para BAIXO; o valor cresce para CIMA, a pedido do
+// operador: *"faça com que os números cresçam para cima, pois atualmente eles
+// crescem para baixo"*. A inversão mora nestes dois pares e no TEXTO das
+// células, e os três têm de concordar — divergindo, o mostrador acende uma
+// célula e devolve o número de outra, sem erro em lugar nenhum.
+function valorNaPista(indice, ciclo, inicio) {
+  const dentro = ((indice % ciclo) + ciclo) % ciclo;
+  return ((ciclo - dentro) % ciclo) + inicio;
+}
+function pistaDoValor(valor, ciclo, inicio) {
+  const dentro = (((valor - inicio) % ciclo) + ciclo) % ciclo;
+  return (ciclo - dentro) % ciclo;
+}
+
 function roletaItem(caixa) {
   const v = parseFloat(getComputedStyle(caixa).getPropertyValue('--roleta-item'));
   return Number.isFinite(v) && v > 0 ? v : 0;
@@ -6903,7 +6926,7 @@ function roletaIndice(el) {
 function roletaValorDe(el) {
   const ciclo = Number(el.dataset.ciclo) || 1;
   const inicio = Number(el.dataset.inicio) || 0;
-  return ((roletaIndice(el) % ciclo) + ciclo) % ciclo + inicio;
+  return valorNaPista(roletaIndice(el), ciclo, inicio);
 }
 
 function roletaValor(campo) {
@@ -6929,7 +6952,7 @@ function roletaRecentrar(el) {
   const ciclo = Number(el.dataset.ciclo) || 1;
   const base = Number(el.dataset.base) || 0;
   const inicio = Number(el.dataset.inicio) || 0;
-  const alvo = (base + roletaValorDe(el) - inicio) * item;
+  const alvo = (base + pistaDoValor(roletaValorDe(el), ciclo, inicio)) * item;
   if (Math.abs(el.scrollTop - alvo) < 1) return;
   el.scrollTop = alvo;
   roletaAcender(el);
@@ -6969,12 +6992,22 @@ function roletasMostrar(h, m, sg) {
     if (!item) continue;
     const ciclo = Number(el.dataset.ciclo) || 1;
     const inicio = Number(el.dataset.inicio) || 0;
-    const v = (((Math.round(valor) - inicio) % ciclo) + ciclo) % ciclo;
+    const v = pistaDoValor(Math.round(valor), ciclo, inicio);
     // O CAMINHO CURTO, e ele não é otimização: andar SEMPRE para a banda do
     // meio faria a lista SALTAR uma volta inteira toda vez que a contagem
     // cruzasse o 0 — o número certo, chegando de um pulo que ninguém pediu.
     // Daqui, o vizinho é o vizinho.
-    const atual = roletaIndice(el);
+    // A PRIMEIRA POSIÇÃO É A BANDA DO MEIO, e é a única que não usa o caminho
+    // curto (v1.8.95). Sem isto a lista abre onde NASCEU — `scrollTop` 0, o
+    // topo da pista —, e ali não existe célula acima: relato do operador,
+    // *"[a exibição inicial] só apresenta a roleta em uma das direções se
+    // iniciada na posição 0"*. E não havia conserto depois, porque a
+    // recentragem só roda atrás de um `scroll` e ali não houve rolagem nenhuma.
+    // O mesmo vale depois de a RÉGUA mudar: `acertarRoletas` apaga esta marca,
+    // porque um `scrollTop` medido na célula velha não é índice na nova.
+    const primeira = el.dataset.pos !== '1';
+    el.dataset.pos = '1';
+    const atual = primeira ? (Number(el.dataset.base) || 0) : roletaIndice(el);
     const dentro = ((atual % ciclo) + ciclo) % ciclo;
     // QUEM RECENTRA É O `roletaRecentrar`, e não esta função: escrever
     // `scrollTop` dispara um `scroll`, que agenda o assentamento, que recentra
@@ -7052,6 +7085,11 @@ function acertarRoletas() {
     : porAltura;
   if (roletaItem(caixa) === item) return;   // nada mudou: não mexe na posição
   caixa.style.setProperty('--roleta-item', item + 'px');
+  // A RÉGUA MUDOU, ENTÃO A POSIÇÃO NÃO É MAIS ÍNDICE: `scrollTop` está em px da
+  // célula VELHA, e lê-lo com a nova devolve outra casa. Apagar a marca manda o
+  // `roletasMostrar` recolocar na banda do meio — que é o único ponto de partida
+  // que não depende de onde a lista estava.
+  for (const f of caixa.children) delete f.dataset.pos;
   renderChronoReadout();                    // reposiciona na régua nova
 }
 
@@ -7083,6 +7121,16 @@ function chronoTrio(agora) {
   };
 }
 
+// O SINAL, e o ECO dele: duas peças idênticas, uma de cada lado, e só a
+// primeira acende (ver o CSS). Elas existem nas TRÊS ferramentas para que a
+// conta da largura seja a MESMA nas três.
+function roletaSinal() {
+  const s = document.createElement('span');
+  s.className = 'roleta-sinal'; s.setAttribute('aria-hidden', 'true');
+  s.textContent = '−';
+  return s;
+}
+
 function renderChrono() {
   const host = document.getElementById('chronoWrap');
   if (!host) return;
@@ -7107,15 +7155,13 @@ function renderChrono() {
   // O SINAL DO ESTOURO é um elemento, não um caractere no número: com três
   // roletas não há string onde pendurá-lo, e um "−" que aparece e some entre
   // elas empurraria as colunas de lado a cada virada. Ele reserva o lugar
-  // (`visibility`), e por isso só é DESENHADO onde pode haver estouro — o
-  // relógio e o cronômetro não passam do zero, e ali ele seria uma coluna de
-  // largura roubada do número.
-  if (chrono.mode === 'timer') {
-    const sinal = document.createElement('span');
-    sinal.className = 'roleta-sinal'; sinal.setAttribute('aria-hidden', 'true');
-    sinal.textContent = '−';
-    cx.appendChild(sinal);
-  }
+  // (`visibility`), e desde a v1.8.95 reserva nas TRÊS ferramentas — só o timer
+  // chega a acendê-lo, mas a largura que ele ocupa entra na conta da célula
+  // (`acertarRoletas`), e desenhá-lo só aqui fazia o Cronômetro abrir com o
+  // dígito 29% maior que o do Timer com as MESMAS três colunas. O pedido do
+  // operador é o oposto: *"alterar entre as abas apenas adiciona elementos e
+  // não altera eles"*.
+  cx.appendChild(roletaSinal());
 
   // O RELÓGIO SEM SEGUNDOS TIRA A COLUNA, não a esconde: escondê-la deixaria a
   // caixa reservando a largura de uma coluna que não existe, e as duas que
@@ -7135,7 +7181,9 @@ function renderChrono() {
     const ciclo = doze ? 12 : c.ciclo;
     const inicio = doze ? 1 : 0;
     const base = [];
-    for (let k = 0; k < ciclo; k++) base.push(String(k + inicio).padStart(2, '0'));
+    for (let k = 0; k < ciclo; k++) {
+      base.push(String(valorNaPista(k, ciclo, inicio)).padStart(2, '0'));
+    }
     cx.appendChild(chronoRoletaEl(c.campo, base, ciclo, c.rotulo, inicio));
   });
 
@@ -7157,12 +7205,7 @@ function renderChrono() {
   // nada: sem ele o `−` (que reserva sempre, para a linha não pular quando o
   // timer estoura) empurra os três números meio sinal para a direita, e o
   // mostrador fica torto em relação à janela — sempre, não só no estouro.
-  if (chrono.mode === 'timer') {
-    const eco = document.createElement('span');
-    eco.className = 'roleta-sinal'; eco.setAttribute('aria-hidden', 'true');
-    eco.textContent = '−';
-    cx.appendChild(eco);
-  }
+  cx.appendChild(roletaSinal());
   linha.appendChild(cx);
   host.appendChild(linha);
 
@@ -15211,9 +15254,9 @@ async function cifraVelEscolher(i) {
  * Pinta a gaveta: a classe que troca o conteúdo da fila e a marca do degrau em
  * cena.
  *
- * ESCOLHIDO ENTRE ALTERNATIVAS é `--accent-fill` + `--on-accent`, a linguagem de
- * estado deste app — a mesma do seletor de destinos. Ela mora numa classe e não
- * numa cor de texto porque *cor de texto nunca carrega estado sozinha*.
+ * ESCOLHIDO ENTRE ALTERNATIVAS é `--btn-accent` + `--accent` (v1.8.95), a
+ * linguagem de estado deste app — a mesma do tile LIGADO. Ela mora numa classe
+ * e não numa cor de texto porque *cor de texto nunca carrega estado sozinha*.
  */
 function cifraPintarVels() {
   const ctl = lyricsCifraCtlEl;

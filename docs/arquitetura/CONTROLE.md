@@ -1199,8 +1199,10 @@ As três regras do tile, escritas por inteiro no `index.html`:
    `pintarTile` leria a constante antes da linha que a declara — zona morta
    temporal, e o app não abre.
 3. **A COR NÃO DIZ ESTADO NENHUM: TODO TILE É ACESO** (v1.7.6). `qs-on` é
-   `--btn-accent` + `--accent`, a gramática de INTERRUPTOR LIGADO da paleta,
-   nunca o `--accent-fill` de ESCOLHA ENTRE ALTERNATIVAS.
+   `--btn-accent` + `--accent`, a gramática de INTERRUPTOR LIGADO da paleta —
+   e, desde a v1.8.95, também a de ESCOLHA ENTRE ALTERNATIVAS, que desceu para
+   o MESMO par: foi este tile o modelo que o operador apontou ao tirar o denim
+   (`--accent-fill`) das seleções e reservá-lo aos BOTÕES.
 
    A v1.4.38 lia o aceso como *"o estado não é o padrão"*; a v1.4.40 acendeu os
    tiles sem "desligado" e deixou DOIS apagando (o fundo da letra e o giro); e a
@@ -1265,8 +1267,10 @@ toggle onde ele desliza de um lado para o outro"*.
 
 **Eram QUATRO tons empilhados** para uma escolha de duas posições: a folha
 (`--panel`), o cartão em destaque (`--camada`), a superfície afundada de cada
-botão (`--surface`) e o `--accent-fill` do escolhido. Hoje são **DOIS**: o
-trilho e o polegar. O cartão saiu — aquela linha tinha peso por TOM e por
+botão (`--surface`) e o denim cheio (`--accent-fill`) do escolhido. Hoje são
+**DOIS**: o trilho e o polegar — e o polegar veste `--btn-accent` desde a
+v1.8.95, com o rótulo escolhido em `--accent`, porque ESCOLHIDO deixou de ser o
+denim. O cartão saiu — aquela linha tinha peso por TOM e por
 TAMANHO, e passou a ter peso por **movimento**, que nenhuma das irmãs tem e que
 não gasta degrau da escada de camadas.
 
@@ -2423,9 +2427,10 @@ e ler *"Nada em exibição"*.
     RÓTULO, com `pointer-events: none`, e não hospeda controle nenhum.
   - **A página no ar troca o par para `--live-fill` + `--live-strong`**, o mesmo
     de `.row-item.no-ar`, e ganha o **`● No ar`** ao lado do número. Ele
-    substituiu o `--accent-fill` da v1.4.24, e a troca de matiz é a regra da
-    paleta: acento é ESCOLHA entre alternativas, vermelho saturado é *está no ar
-    agora* — e uma página projetada é o segundo caso. A barra de acento **nunca
+    substituiu o denim cheio da v1.4.24 (`--accent-fill`, hoje só de BOTÃO), e
+    a troca de MATIZ é a regra da paleta: azul é ESCOLHA entre alternativas
+    (`--btn-accent` + `--accent` desde a v1.8.95), vermelho saturado é *está no
+    ar agora* — e uma página projetada é o segundo caso. A barra de acento **nunca
     chega a uma página desde a v1.8.33** (ela é do `.lv-row--verse`); antes disso
     era preciso suprimi-la aqui, senão ela apareceria pela faixa transparente de
     uma página 4:3 — duas cores dizendo a mesma coisa na mesma linha, que é a
