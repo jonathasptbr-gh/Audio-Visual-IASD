@@ -683,6 +683,33 @@ try {
     + 'controles são os de verdade, não uma segunda implementação',
     { antes: cheia.tom, depois: tomDepois });
 
+  // ===== A GRAFIA É DA FOLHA, E SÓ AQUI ISSO É MEDIDO (v1.8.91) =====
+  //
+  // A regra mora no `cifra.js` (bloco 3c do `cifra.test.mjs`), mas quem a LIGA é
+  // o `cifraDesenharFolha`, e essa ligação não tinha oráculo nenhum. O modo de
+  // falhar dela é MUDO: sem o terceiro argumento do `transporLinha`, cada acorde
+  // volta a se grafar sozinho e o resultado fica QUASE certo — três dos quatro
+  // saem idênticos.
+  //
+  // O DISCRIMINADOR É O `F`. A fixture é `C G Am F` no tom de C; meio tom acima
+  // o tom é Ré bemol maior, e o quarto acorde é `Gb`. Sozinho, aquele `F` viraria
+  // `F#`: o grau 6 é o único empate de armadura (seis acidentes de cada lado), e
+  // a folha é justamente quem desempata. Um sustenido nesta linha é a ligação
+  // desfeita.
+  // Lê TODAS as linhas de acordes e junta o conjunto, em vez da primeira: na
+  // coluna estreita da tela cheia o `quebrarPares` reparte o par, e a primeira
+  // linha sai com três dos quatro acordes — um `[0]` aqui mediria a quebra, não
+  // a grafia.
+  const acordesDepois = await pg.evaluate(() => {
+    const t = [...lyricsViewBodyEl.querySelectorAll('.lv-cifra-acordes')]
+      .map((l) => l.textContent).join(' ').trim().split(/\s+/).filter(Boolean);
+    return [...new Set(t)].sort().join(' ');
+  });
+  checar(acordesDepois === 'Ab Bbm Db Gb',
+    'a folha inteira sai na grafia do TOM DE DESTINO — o `F` vira `Gb` porque a '
+    + 'folha está em Ré bemol, e não `F#` porque cada acorde decidiu sozinho',
+    acordesDepois);
+
   // O A+/A− também é o de verdade, e mexe na escada DA TELA CHEIA.
   const fonteMais = await pg.evaluate(async () => {
     const antesEscopado = lyricsPopupEl.style.getPropertyValue('--lv-fonte');

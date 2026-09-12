@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.91",
+    "itens": [
+      "Cifra: transpor passou a escrever o tom pela armadura — meio tom acima de Ré é Mi bemol, e não Ré sustenido.",
+      "Cifra: a folha inteira sai numa grafia só; antes bemol e sustenido se misturavam na mesma linha."
+    ]
+  },
+  {
     "versao": "1.8.90",
     "itens": [
       "Volume: abaixo do nível 10 os botões passaram a andar de 1 em 1, para subir e para descer.",
