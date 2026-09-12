@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.8.85",
+    "itens": [
+      "Playlist automática: só as músicas que vão tocar ficam marcadas; o resto continua na lista, desmarcado.",
+      "Playlist automática: marcar e desmarcar agora muda o número em \"Quantas\" — é a escolha manual dele.",
+      "Playlist automática: a linha marcada fica onde está, e o número ao lado diz a ordem em que ela toca.",
+      "Playlist automática: os filtros ficam parados e só a lista de resultados rola.",
+      "Playlist automática: o botão de contagem ficou só com o número, sem o ícone."
+    ]
+  },
+  {
     "versao": "1.8.84",
     "itens": [
       "Corrigido: limpar a playlist inteira agora limpa o player também, em vez de deixar a mídia tocando.",

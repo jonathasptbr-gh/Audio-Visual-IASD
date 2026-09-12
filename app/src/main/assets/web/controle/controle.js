@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.84';
+const WEB_VERSION = '1.8.85';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21780,9 +21780,51 @@ let sorteioCancelado = false;
 // `coleção|faixa`, resolvida contra o pool ATUAL na hora de desenhar.
 //
 // As TRÊS peças, e cada uma responde a uma pergunta diferente:
-let sorteioBaralho = [];        // a ORDEM sorteada, em chaves
-let sorteioBaralhoChave = '';   // a IMPRESSÃO do pool que a produziu
-let sorteioFora = new Set();    // o que o operador DESMARCOU
+let sorteioBaralho = [];          // a ORDEM sorteada, em chaves
+let sorteioBaralhoChave = '';     // a IMPRESSÃO do pool que a produziu
+let sorteioMarcadas = new Set();  // O LOTE — o que está marcado AGORA
+
+// ===== A MARCA É O LOTE, E O LOTE É "QUANTAS" (v1.8.85) =====
+//
+// Pedido do operador: *"as marcações de check devem ficar selecionadas apenas o
+// número de itens selecionado para o filtro atual, o resto da lista segue
+// desmarcado… ajuste para que ao tocar no check para ativar ou desativar, se
+// altere o número selecionado para 'quantas', pois ele é literalmente isso, mas
+// selecionando de forma manual."*
+//
+// **ISTO REVOGA AS DUAS MARCAS DA v1.8.84**, que tinha a caixa marcada em TODAS
+// as linhas (*"esta entra na consideração?"*) e o preenchimento em algumas
+// (*"esta vai tocar?"*). Duas perguntas, dois sinais — e o operador leu uma
+// pergunta só. Ele está certo: *marcar é escolher*, e é o vocabulário do resto
+// do app (a folha de destinos, a seleção múltipla).
+//
+// **`sorteioMarcadas` É A ÚNICA FONTE**, e o número de "Quantas" é derivado
+// (`sorteioMarcadas.size`). Guardar os dois — um número e um conjunto — é a
+// divergência escrita: um toque que atualizasse só um deles faria o seletor
+// discordar da lista, e nenhum dos dois erraria sozinho.
+//
+// A PÍLULA DE QUANTIDADE deixou de ser o estado e virou um ATALHO: tocar em "5"
+// marca as cinco primeiras do baralho. É o que a torna compatível com a marca
+// manual — as duas escrevem no mesmo lugar.
+//
+// **O QUE PERSISTE CONTINUA SENDO A PÍLULA**, nunca a marca. `sorteioPrefs.
+// quantos` só é gravado no toque de uma pílula, porque `AVSorteio.sanear`
+// clampa o campo à lista de presets (`QUANTIDADES`): um 4 vindo de marca manual
+// voltaria como 1 na abertura seguinte, calado. E ele não perde nada — a marca
+// já é EFÊMERA por pedido do próprio operador (v1.8.84: *"esse check é resetado
+// entre aberturas da janela"*).
+
+/**
+ * MARCA AS `n` PRIMEIRAS do baralho, e é o único ponto que semeia o lote.
+ *
+ * Chamado de três lugares, e os três precisam do mesmo desfecho: a pílula de
+ * quantidade, a troca de POOL (um filtro, uma palavra — o baralho é outro e as
+ * chaves antigas não existem mais) e o consumo de um lote.
+ */
+function sorteioSemear(n) {
+  const q = Math.max(1, n | 0);
+  sorteioMarcadas = new Set(sorteioBaralho.slice(0, q));
+}
 
 /**
  * A CHAVE DE UMA FAIXA no baralho. `coll.id` mais o id da música — e o `name`
@@ -21820,8 +21862,15 @@ function sorteioImpressao(pool, f) {
 function sorteioLista(pool, f) {
   const impressao = sorteioImpressao(pool, f);
   if (impressao !== sorteioBaralhoChave) {
+    // O BARALHO NOVO CHEGA COM O LOTE SEMEADO, e o tamanho vem do lote ANTERIOR
+    // — nunca de `f.quantos`. É o que faz uma marca manual sobreviver a um
+    // filtro: marcadas quatro e ligado "Só no aparelho", o pool é outro e as
+    // chaves antigas não existem, mas o QUATRO é a escolha viva do operador.
+    // Vazio (a primeira abertura), quem responde é a pílula guardada.
+    const n = sorteioMarcadas.size || f.quantos;
     sorteioBaralhoChave = impressao;
     sorteioBaralho = AVSorteio.baralhar(pool.itens).map(chaveDaFaixa);
+    sorteioSemear(n);
   }
   const porChave = new Map();
   for (const i of pool.itens) porChave.set(chaveDaFaixa(i), i);
@@ -21831,22 +21880,33 @@ function sorteioLista(pool, f) {
 }
 
 /**
- * OS QUE VÃO — os primeiros `quantos` do baralho que o operador não desmarcou.
+ * OS QUE VÃO — as marcadas, NA ORDEM DO BARALHO (que é a ordem da lista na
+ * tela). Sem teto e sem contagem: o conjunto É o lote, e quantas são é o
+ * tamanho dele.
  *
- * **DESMARCAR TIRA DA CONSIDERAÇÃO, NÃO DA CONTA**: a linha sai e a seguinte
- * sobe, então "Quantas: 5" continua entregando cinco enquanto houver cinco. A
- * alternativa — desmarcar diminuir o lote — faria o seletor de quantidade logo
- * acima mentir, e ele é a coisa que o operador acabou de escolher.
+ * A ordem importa e não é a de inserção do `Set`: ela é a que o operador está
+ * lendo, e é ela que o número à esquerda de cada linha anuncia.
  */
-function sorteioEscolhidos(lista, quantos) {
-  const n = Math.max(1, quantos | 0);
-  const out = [];
-  for (const i of lista) {
-    if (sorteioFora.has(chaveDaFaixa(i))) continue;
-    out.push(i);
-    if (out.length >= n) break;
+function sorteioEscolhidos(lista) {
+  return lista.filter((i) => sorteioMarcadas.has(chaveDaFaixa(i)));
+}
+
+/**
+ * O TOQUE NA LINHA. Marca ou desmarca — e com isso muda "Quantas", que é o
+ * mesmo fato lido por outro lado.
+ *
+ * **O PISO É UMA MARCADA**: desmarcar a última deixaria a folha com um primário
+ * aceso que não pode fazer nada, e a régua da v1.8.50 diz o contrário disso. O
+ * caminho de "não quero nenhuma" é fechar a folha.
+ */
+function sorteioAlternar(chave) {
+  if (sorteioMarcadas.has(chave)) {
+    if (sorteioMarcadas.size <= 1) return false;
+    sorteioMarcadas.delete(chave);
+  } else {
+    sorteioMarcadas.add(chave);
   }
-  return out;
+  return true;
 }
 
 /**
@@ -21859,6 +21919,11 @@ function sorteioConsumir(escolhidos) {
   if (!escolhidos || !escolhidos.length) return;
   const usadas = new Set(escolhidos.map(chaveDaFaixa));
   sorteioBaralho = sorteioBaralho.filter((k) => !usadas.has(k));
+  // E O PRÓXIMO LOTE JÁ NASCE MARCADO, do MESMO tamanho — *"os itens de baixo
+  // são levados para cima, criando a próxima lista selecionada para playlist"*.
+  // O tamanho é o do lote que acabou de sair, e não a pílula guardada: se o
+  // operador tirou uma na mão antes de tocar, ele pediu quatro, não cinco.
+  sorteioSemear(usadas.size);
 }
 
 // A ESCOLHA É LIDA NA PRIMEIRA ABERTURA DA FOLHA, e não no `load()`.
@@ -21951,7 +22016,7 @@ async function abrirSorteio() {
   // pedir um sorteio, e reencontrar o de meia hora atrás não é "automática". A
   // ordem só sobrevive DENTRO de uma abertura, que é onde o operador está lendo
   // a lista e decidindo sobre ela.
-  sorteioFora = new Set();
+  sorteioMarcadas = new Set();
   sorteioBaralhoChave = '';
   sorteioPopupEl.classList.add('open');
   renderSorteio();
@@ -21989,7 +22054,7 @@ function atualizarContaSorteio() {
   const pool = sorteioPool();
   const f = AVSorteio.sanear(sorteioPrefs);
   const lista = sorteioLista(pool, f);
-  const escolhidos = sorteioEscolhidos(lista, f.quantos);
+  const escolhidos = sorteioEscolhidos(lista);
   // ===== O QUE ESTE CAMINHO PODE TROCAR, E O QUE ELE NÃO PODE (v1.8.84) =====
   //
   // Ele é o único que roda com o CAMPO DE TEXTO EM FOCO (o `debounce` da palavra
@@ -22000,13 +22065,42 @@ function atualizarContaSorteio() {
   if (pilula) pilula.replaceWith(sorteioPilulaDaConta(pool));
   const fala = sorteioListEl.querySelector('.sorteio-fala');
   if (fala) fala.textContent = sorteioFala;
-  res.replaceWith(sorteioListaDeResultados(lista, escolhidos, pool));
+  // A ROLAGEM DA LISTA SOBREVIVE (v1.8.85), porque desde este lote ela é a
+  // ÚNICA coisa que rola na folha e este caminho roda a cada MARCA. Sem isto,
+  // marcar a linha 300 devolvia a lista ao topo e tirava da tela justamente a
+  // linha que o dedo acabou de tocar. Ler ANTES de trocar o nó: depois ele já
+  // não está no documento e o `scrollTop` dele é zero.
+  const rolagem = res.scrollTop;
+  const novo = sorteioListaDeResultados(lista, escolhidos, pool);
+  res.replaceWith(novo);
+  novo.scrollTop = rolagem;
   // A TRAVA É UMA REGRA SÓ (v1.8.83). Havia aqui uma segunda cópia dela, e a
   // cópia estava errada por DOIS motivos: lia só `n === 0` (ignorando o
   // `sorteioRodando`, então a fala do fim de um lote reabilitava a faixa com a
   // corrida ainda em pé) e procurava os botões DENTRO da lista, onde eles não
   // moram mais desde a v1.8.60. O pool já está na mão — ver o parâmetro.
   acertarTravaSorteio(pool);
+}
+
+/**
+ * AS PÍLULAS DE QUANTIDADE, acertadas EM PONTO (v1.8.85).
+ *
+ * O toque numa linha da lista muda `sorteioMarcadas.size`, e é ele que decide
+ * qual pílula está acesa — mas o caminho leve não redesenha a folha. É o mesmo
+ * remédio da trava da v1.8.83, pelo mesmo motivo: remontar aqui devolveria a
+ * lista ao topo e apagaria o pulso, que é o que aquele lote veio consertar.
+ *
+ * NENHUMA ACESA é um estado legítimo — é o que o operador vê quando marcou uma
+ * quantidade que não é preset nenhum, e é a única indicação de que a escolha
+ * passou a ser dele.
+ */
+function acertarPilulasDeQuantidade() {
+  const n = sorteioMarcadas.size;
+  sorteioListEl.querySelectorAll('.sorteio-linha--quantas .misc-chip').forEach((b) => {
+    const aceso = Number(b.dataset.valor) === n;
+    b.classList.toggle('active', aceso);
+    b.setAttribute('aria-pressed', aceso ? 'true' : 'false');
+  });
 }
 
 // (A `pintarContaSorteio` e o cartão de UMA FRASE que ela desenhava saíram na
@@ -22101,20 +22195,24 @@ function fraseDoVazioSorteio(pool) {
 }
 
 // Uma linha "rótulo à esquerda, pílulas à direita".
-function sorteioLinhaChips(rotulo, opcoes) {
+function sorteioLinhaChips(rotulo, opcoes, marca) {
   const li = document.createElement('li');
-  li.className = 'sorteio-linha';
+  li.className = 'sorteio-linha' + (marca ? ' ' + marca : '');
   const lab = document.createElement('span');
   lab.className = 'sorteio-rotulo';
   lab.textContent = rotulo;
   li.appendChild(lab);
   const cx = document.createElement('div');
   cx.className = 'misc-opts';
-  opcoes.forEach(({ nome, ativo, aoTocar, titulo }) => {
+  opcoes.forEach(({ nome, ativo, aoTocar, titulo, valor }) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'misc-chip' + (ativo ? ' active' : '');
     b.textContent = nome;
+    // O VALOR num atributo, e não no texto: quem acerta a pílula em ponto
+    // (`acertarPilulasDeQuantidade`) precisa comparar NÚMERO, e ler o rótulo
+    // seria fazer o estado depender de como ele é escrito.
+    if (valor != null) b.dataset.valor = String(valor);
     if (titulo) b.title = titulo;
     b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
     b.addEventListener('click', aoTocar);
@@ -22233,10 +22331,20 @@ function renderSorteio() {
   // mudança resolve: *"assim também resolvemos o problema do tamanho da janela
   // ficar se alterando por causa da ocultação do campo de quantidade"*. O `1` é
   // o antigo "Tocar uma só" — ali ele não é um teto, é a quantidade.
+  //
+  // E DESDE A v1.8.85 ELA É UM ATALHO, não o estado: quem responde "quantas" é
+  // o tamanho do LOTE MARCADO, e tocar numa pílula marca as N primeiras. O
+  // `ativo` lê o lote pelo mesmo motivo — com quatro marcadas na mão, nenhuma
+  // pílula acende, e é assim que o operador vê que a escolha agora é dele.
+  // Gravar continua sendo só daqui: `sanear` clampa `quantos` aos presets.
   alvo.appendChild(sorteioLinhaChips('Quantas', AVSorteio.QUANTIDADES.map((q) => ({
-    nome: String(q), ativo: sorteioPrefs.quantos === q,
-    aoTocar: () => { sorteioPrefs.quantos = q; saveSorteioPrefs(); renderSorteio(); },
-  }))));
+    nome: String(q), valor: q, ativo: sorteioMarcadas.size === q,
+    aoTocar: () => {
+      sorteioPrefs.quantos = q; saveSorteioPrefs();
+      sorteioSemear(q);
+      renderSorteio();
+    },
+  })), 'sorteio-linha--quantas'));
 
   // ---- A BARRA DE AÇÃO, E DEPOIS DELA A LISTA (v1.8.84) ----
   //
@@ -22250,7 +22358,7 @@ function renderSorteio() {
   // ter mil linhas.
   const pool = sorteioPool();
   const lista = sorteioLista(pool, AVSorteio.sanear(sorteioPrefs));
-  const escolhidos = sorteioEscolhidos(lista, sorteioPrefs.quantos);
+  const escolhidos = sorteioEscolhidos(lista);
 
   // ---- OS DESFECHOS ----
   //
@@ -22288,7 +22396,9 @@ function renderSorteio() {
   // `playlistIconSvg`, `starSvg`), e a ORDEM é a canônica (ver `DESTINOS`).
   const liGo = document.createElement('li');
   liGo.className = 'song-menu-go-row sorteio-barra';
-  const fila = sorteioPrefs.quantos > 1;
+  // FILA OU UMA: a pergunta é do LOTE MARCADO, não da pílula guardada (v1.8.85)
+  // — é ele que decide o verbo dos três destinos, e ele muda a cada marca.
+  const fila = escolhidos.length > 1;
   const travado = !pool.itens.length || sorteioRodando;
 
   const botao = (rotulo, classe, aoTocar) => {
@@ -22416,15 +22526,17 @@ function renderSorteio() {
  * `title` mais na própria lista, linha a linha — ali ela é acionável (dá para
  * desmarcar a que vai baixar), e num número só não seria.
  *
- * O ícone é a NOTA (`ICON.music`) porque o que se conta são músicas; o da lupa
- * diria "busca", que é o campo lá em cima, e um segundo desenho para a busca
- * mandaria procurar um segundo campo.
+ * **SEM ÍCONE desde a v1.8.85**, a pedido do operador: *"remova o ícone e deixe
+ * apenas o número no botão de número de resultados disponíveis."* Ele era a
+ * NOTA (`ICON.music`), e o que ele acrescentava — "isto conta músicas" — a
+ * lista logo abaixo já diz, item por item. O que ele custava é medível e é o
+ * vizinho: **24px** da largura do rótulo do primário, numa faixa em que ela é o
+ * recurso escasso (ver a QUEBRA, no CSS).
  */
 function sorteioPilulaDaConta(pool) {
   const n = pool.itens.length;
   const cx = document.createElement('span');
   cx.className = 'sorteio-pilula' + (n ? '' : ' vazio');
-  cx.appendChild(msym(ICON.music));
   const num = document.createElement('span');
   num.className = 'sorteio-pilula-num';
   num.textContent = numeroPt(n);
@@ -22452,12 +22564,13 @@ function sorteioPilulaDaConta(pool) {
  * item (que já vem marcado) que permite ou não incluir uma música em específico
  * na consideração final ao tocar/salvar."*
  *
- * **DUAS MARCAS, PORQUE SÃO DUAS PERGUNTAS.** A caixa (`.song-menu-check`, a
- * mesma da folha de destinos) responde *"esta entra na consideração?"* e nasce
- * marcada em todas; o PREENCHIMENTO da linha mais o número à esquerda respondem
- * *"esta vai tocar agora, e em que posição?"*. Colapsá-las numa só faria o
- * seletor "Quantas" mentir — desmarcar uma diminuiria o lote em vez de trazer a
- * seguinte, e o número que o operador acabou de escolher deixaria de valer.
+ * **UMA MARCA SÓ, desde a v1.8.85** — a caixa, o preenchimento e o número são
+ * o MESMO fato: *"esta vai tocar"*. A v1.8.84 tinha duas (a caixa marcada em
+ * todas, o preenchimento em algumas) porque a caixa respondia *"entra na
+ * consideração?"* e o seletor "Quantas" cortava o lote depois; o operador leu
+ * uma pergunta só, e tem razão — marcar é escolher, que é o vocabulário do
+ * resto do app. O seletor não mente mais porque ele deixou de ser o dono do
+ * número: quem responde "quantas" é o tamanho do lote marcado.
  *
  * A LINHA É A DA FOLHA DE DESTINOS (`.song-menu-btn.song-menu-sel`), e não um
  * desenho novo: é a mesma gramática de "lista com caixa de marcação" que a
@@ -22471,7 +22584,11 @@ function sorteioPilulaDaConta(pool) {
  */
 function sorteioListaDeResultados(lista, escolhidos, pool) {
   const li = document.createElement('li');
-  li.className = 'sorteio-res' + (lista.length ? '' : ' vazio');
+  // `rola` porque desde a v1.8.85 o scroller é ESTE, e não mais a folha: é ele
+  // que precisa da sombra das bordas dizendo que há resultado escondido. A
+  // `.popup-list` continua com a marca e o observador a lê como `sem-veu`
+  // enquanto ela não rolar — que é o caso normal.
+  li.className = 'sorteio-res rola' + (lista.length ? '' : ' vazio');
   if (!lista.length) {
     // VAZIO ELA DIZ O MOTIVO, e a frase é a mesma de sempre: `fraseDoVazioSorteio`
     // separa cinco causas que pedem ações OPOSTAS, e ela é a única peça do cartão
@@ -22482,13 +22599,11 @@ function sorteioListaDeResultados(lista, escolhidos, pool) {
     li.appendChild(vazio);
     return li;
   }
-  const noLote = new Set(escolhidos.map(chaveDaFaixa));
   const ul = document.createElement('ul');
   ul.className = 'sorteio-res-lista';
   lista.forEach((it) => {
     const chave = chaveDaFaixa(it);
-    const dentro = !sorteioFora.has(chave);
-    const vai = noLote.has(chave);
+    const vai = sorteioMarcadas.has(chave);
     const linha = document.createElement('li');
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -22508,14 +22623,22 @@ function sorteioListaDeResultados(lista, escolhidos, pool) {
     txt.append(t, d);
     btn.appendChild(txt);
     const cx = document.createElement('span');
-    cx.className = 'song-menu-check' + (dentro ? ' on' : '');
+    cx.className = 'song-menu-check' + (vai ? ' on' : '');
     cx.setAttribute('role', 'checkbox');
-    cx.setAttribute('aria-checked', dentro ? 'true' : 'false');
+    cx.setAttribute('aria-checked', vai ? 'true' : 'false');
     btn.appendChild(cx);
-    btn.title = (dentro ? 'Marcada — tocar para tirar do sorteio' : 'Fora do sorteio — tocar para devolver');
+    btn.title = vai ? 'Vai tocar — tocar para tirar' : 'Fora — tocar para incluir';
+    // O REDESENHO É O LEVE, e a ROLAGEM É PRESERVADA (v1.8.85). `renderSorteio`
+    // remonta a folha inteira e devolveria a lista ao TOPO a cada marca — numa
+    // lista de mil linhas, um toque na linha 300 tirava a linha 300 da tela.
     btn.addEventListener('click', () => {
-      if (sorteioFora.has(chave)) sorteioFora.delete(chave); else sorteioFora.add(chave);
-      renderSorteio();
+      if (!sorteioAlternar(chave)) { pulsar(btn, 'erro'); return; }
+      atualizarContaSorteio();
+      // A PÍLULA DE QUANTIDADE mora ACIMA dos resultados e não é redesenhada
+      // pelo caminho leve — mas ela lê `sorteioMarcadas.size`, que o toque
+      // acabou de mudar. Acertar as pílulas em PONTO é o mesmo remédio da trava
+      // (v1.8.83): remontar a folha aqui é o que se veio evitar.
+      acertarPilulasDeQuantidade();
     });
     linha.appendChild(btn);
     ul.appendChild(linha);
@@ -22584,7 +22707,6 @@ async function executarSorteio(btn, desfecho) {
     await ensureLyricIndex();
     const f = AVSorteio.sanear(sorteioPrefs);
     const pool = AVSorteio.montarPool(allCollections(), f, sorteioCap());
-    const quantos = f.quantos;
     // ===== O LOTE É O TOPO DO BARALHO, NÃO UM SORTEIO NOVO (v1.8.84) =====
     //
     // Era `AVSorteio.sortear(pool.itens, quantos)` — um embaralhamento PRÓPRIO,
@@ -22592,7 +22714,7 @@ async function executarSorteio(btn, desfecho) {
     // defeito possível deste botão: o operador lê cinco nomes, tira um, toca em
     // "Tocar agora" **e ouve outras cinco**. A ordem que ele está lendo é a do
     // baralho, e é dela que o lote tem de sair.
-    const escolhidos = sorteioEscolhidos(sorteioLista(pool, f), quantos);
+    const escolhidos = sorteioEscolhidos(sorteioLista(pool, f));
     // O VEREDITO sai da passada que decidiu, e é o que o Registro imprime.
     sorteioDiario = {
       quando: Date.now(), filtros: f, pool,
@@ -22614,7 +22736,7 @@ async function executarSorteio(btn, desfecho) {
     // dele, para aplicá-la quando for aberto — ver `cortinaDoSorteio`.)
     if (desfecho !== 'tocar') {
       await guardarSorteadas(escolhidos, btn, f, desfecho);
-    } else if (f.quantos === 1) {
+    } else if (escolhidos.length === 1) {
       await acertarCortinaDoSorteio(f);
       await tocarSorteada(escolhidos[0]);
     } else {
@@ -23558,8 +23680,13 @@ function blocoSorteio() {
   // deixou de existir — uma linha que lesse um campo morto diria "uma só" sobre
   // uma fila de dez, e um log que discorda do aparelho é lido A DISTÂNCIA por
   // quem não tem como conferir.
-  linhas.push('· ' + serieHa(d.quando) + ' · ' + (f.quantos > 1
-    ? 'fila de até ' + f.quantos : 'uma só')
+  // E O NÚMERO É O DO LOTE QUE SAIU (v1.8.85), nunca `f.quantos`: aquele é a
+  // pílula GUARDADA, e desde este lote a quantidade se escolhe também na mão,
+  // marcando linhas. Um Registro dizendo "fila de até 5" sobre um lote de três
+  // é o log que discorda do aparelho — lido a distância por quem não confere.
+  const quantasSairam = (d.escolhidos || []).length;
+  linhas.push('· ' + serieHa(d.quando) + ' · ' + (quantasSairam > 1
+    ? 'fila de ' + quantasSairam : 'uma só')
     + ' · ' + (f.variante === AVSorteio.VARIANTE_PLAYBACK
       ? 'fundo musical (telão coberto)' : 'cantada')
     + (f.semHinario ? ' · sem hinário' : '')

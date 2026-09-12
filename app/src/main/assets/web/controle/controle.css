@@ -8918,10 +8918,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    resultados"*. Ela morava no `.popup-fecho` (o rodapé que não rola); com a
    lista de resultados abaixo dela, o fecho a poria DEPOIS dos resultados.
 
-   `sticky` e não estática: o fecho dava de graça a propriedade de estar sempre
-   à vista, e uma barra solta acima de uma lista de mil linhas a perderia na
-   primeira rolagem. Ela é o primário desta folha — perder de vista o "Tocar
-   agora" é perder o recurso.
+   `sticky` e não estática, e desde a v1.8.85 ela é a REDE: quem mantém a barra
+   à vista no caso normal é a estrutura — só a lista de resultados rola, e ela
+   fica ABAIXO desta faixa. O `sticky` cobre o caso em que a folha inteira
+   transborda (tela baixa com a fonte do sistema grande), que é o mesmo caso que
+   o piso da `.sorteio-res` deixa acontecer de propósito. Ela é o primário desta
+   folha — perder de vista o "Tocar agora" é perder o recurso.
 
    O FUNDO É OPACO, e é o `--panel` que a própria folha pinta: a lista passa POR
    BAIXO dela, e tinta com alfa sobre uma lista que rola muda de cor a cada
@@ -8936,11 +8938,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: var(--panel);
   padding-block: var(--sp-2);
   /* ===== CINCO PEÇAS NÃO CABEM NUMA LINHA DE 320px (v1.8.84) =====
-     A pílula custa 68,5px a 1× e 90,8 a 1,5×, e ela entrou numa faixa que já
-     era apertada: o limite DECLARADO pela v1.8.62 era *"a 320px com a fonte do
-     sistema acima de 1× o rótulo reticencia"*. Sem `wrap`, o primário é o único
-     que encolhe (`flex: 1; min-width: 0`) e MEDIDO ele ia a **6,1px** a 320×1,5
-     — não é um rótulo cortado, é um botão que sumiu.
+     A pílula entrou numa faixa que já era apertada: o limite DECLARADO pela
+     v1.8.62 era *"a 320px com a fonte do sistema acima de 1× o rótulo
+     reticencia"*. Sem `wrap`, o primário é o único que encolhe (`flex: 1;
+     min-width: 0`) — não é um rótulo cortado, é um botão que some.
+
+     **TIRAR O ÍCONE DA PÍLULA (v1.8.85) MELHOROU O NÚMERO E NÃO RESOLVEU**, e
+     as duas metades ficam escritas porque a primeira convida a desfazer a
+     segunda. Ela caiu de 68,5px para **41,3** a 1× (90,8 → 61,9 a 1,5×), e o
+     pior caso do primário subiu de 6,1px para **34,9** — que continua sendo um
+     botão inutilizável. MEDIDO com as duas peças desfeitas: 3 das 9 células
+     ainda reticenciam.
 
      `wrap` sozinho não faz nada, e isso está MEDIDO: um item que pode encolher
      até zero nunca força a quebra. Quem a força é o PISO do primário, e é ele
@@ -8991,7 +8999,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: var(--surface); color: var(--accent);
   font-size: var(--fs-md); font-weight: var(--fw-forte);
 }
-.sorteio-pilula .msym { font-size: var(--icon-sm); }
 .sorteio-pilula-num { min-width: 4ch; text-align: center; font-variant-numeric: tabular-nums; }
 /* Vazia ela sai do accent: um número em destaque dizendo ZERO é o mesmo defeito
    do botão aceso que não faz nada. */
@@ -9019,7 +9026,34 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 
    ELA NÃO ROLA POR CONTA PRÓPRIA. Um scroller dentro de outro é o gesto que não
    se sabe para quem vai; quem rola é a folha, e a barra acima fica grudada. */
-.sorteio-res { padding: 0; }
+/* ===== SÓ A LISTA ROLA (v1.8.85) =====
+   Pedido do operador: *"sobre o scroll, mantenha as opções dos filtros sempre
+   visíveis e deixe apenas a lista dos resultados como scroll."*
+
+   `flex: 0 1 auto` sobre a `.popup-list` (que já é coluna) faz esta caixa ser a
+   ÚNICA que cede: com a folha no teto de 80vh, tudo o que sobra é descontado
+   daqui e o resto — palavra, variante, filtros, quantidade e a barra de ação —
+   fica onde está. `.popup-list > li` declara `flex-shrink: 0`, então o `1` do
+   meio é a metade que faz a regra existir — **e o seletor precisa nomear o
+   PAI**: MEDIDO, `.sorteio-res` sozinho é (0,1,0) contra os (0,1,1) daquela
+   regra, e perde. A lista ficava com 1323px dentro de uma folha de 720, e quem
+   rolava era a folha inteira — o pedido desfeito por um ponto de
+   especificidade, sem erro em lugar nenhum.
+
+   **O PISO É O QUE IMPEDE A FALHA FECHADA** (`min-height`): sem ele, uma folha
+   apertada (tela baixa, fonte do sistema grande) esmaga a lista até zero e o
+   operador vê os filtros sem nenhum resultado, sem nada dizendo por quê. Com o
+   piso, quem transborda é a folha — que continua rolando por fora, porque a
+   `.popup-list` nunca deixou de ser um scroller. É a falha ABERTA: no pior caso
+   volta-se ao comportamento de antes deste lote, e nada fica inalcançável. */
+.popup-list > .sorteio-res {
+  padding: 0;
+  flex: 0 1 auto; min-height: 9rem;
+  overflow-y: auto; overscroll-behavior: contain;
+}
+/* VAZIA ELA NÃO RESERVA NADA. O piso existe para uma lista que rola; sobre a
+   frase do vazio ele é um buraco de 9rem entre a barra e o fim da folha. */
+.popup-list > .sorteio-res.vazio { min-height: 0; overflow: visible; }
 .sorteio-res-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 /* ===== O QUE VAI TOCAR: PREENCHIMENTO MAIS POSIÇÃO =====
    `--sel-fill` é o SELECIONADO numa lista, que é exatamente o que estas linhas
