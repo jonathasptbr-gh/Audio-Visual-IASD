@@ -125,6 +125,27 @@ try {
   // SETE ponteiros, e um errado devolve um pool plausível e errado. Este é o
   // único lugar em que eles podem ser conferidos: a regra pura recebe os de
   // mentira do outro oráculo.
+  // ===== PEDIR UMA QUANTIDADE, DEPOIS DA v1.8.85 =====
+  //
+  // `sorteioPrefs.quantos` deixou de ser o estado do lote: quem decide é a
+  // MARCA, e a pílula de quantidade é um atalho que semeia as N primeiras. Um
+  // bloco que só escreve a preferência herda o lote do bloco ANTERIOR — foi
+  // assim que quatro asserções deste arquivo passaram a medir uma fila de três
+  // onde pediam uma.
+  //
+  // O ajudante faz o que o `abrirSorteio` faz: zera a marca e a impressão do
+  // pool, para que a passada seguinte semeie por `quantos`. Ele NÃO chama
+  // `sorteioSemear` direto de propósito — o baralho pode estar velho (o filtro
+  // que o bloco acabou de mexer ainda não foi lido), e semear sobre ele marcaria
+  // chaves de um pool que já não existe.
+  await pg.evaluate(() => {
+    window.__quantas = (q) => {
+      sorteioPrefs.quantos = q;
+      sorteioMarcadas = new Set();
+      sorteioBaralhoChave = '';
+    };
+  });
+
   const cap = await pg.evaluate(async () => {
     await ensureLyricIndex();   // ver o comentário do `soLetra`, logo abaixo
     const c = sorteioCap();
@@ -527,7 +548,7 @@ try {
   // ---- MODO "UMA SÓ": vai ao telão ----------------------------------------
   const uma = await pg.evaluate(async () => {
     sorteioPrefs.tema = 'natal';
-    sorteioPrefs.quantos = 1;
+    __quantas(1);
     sorteioPrefs.soNoAparelho = true;   // sem rede neste harness
     renderSorteio();
     await executarSorteio(document.querySelector('#sorteioPopup .song-menu-go'), 'tocar');
@@ -546,8 +567,7 @@ try {
 
   // ---- MODO "PLAYLIST": monta a fila e toca a primeira --------------------
   const fila = await pg.evaluate(async () => {
-    sorteioPrefs.quantos = 3;
-    sorteioPrefs.quantos = 3;
+    __quantas(3);
     sorteioPrefs.tema = '';            // o acervo inteiro: 3 baixadas
     sorteioPrefs.soNoAparelho = true;
     // O SELETOR ARMADO NA FAIXA ANTERIOR (v1.8.77): é assim que ele chega aqui
@@ -605,7 +625,7 @@ try {
   // e por fim o favoritos"*. Lida do DOM, não da tabela — a tabela é travada no
   // `destinos.test.mjs`, e o que falta provar aqui é que esta folha a segue.
   const faixa = await pg.evaluate(async () => {
-    sorteioPrefs.quantos = 3;
+    __quantas(3);
     await abrirSorteio();
     const bs = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')];
     return {
@@ -635,10 +655,10 @@ try {
   // vai sair, e chegar à gaveta dela custa fechar a folha, achar a faixa e
   // abri-la.
   const umaSo = await pg.evaluate(async () => {
-    sorteioPrefs.quantos = 1; renderSorteio();
+    __quantas(1); renderSorteio();
     const bs = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')];
     const r = { total: bs.length, dest: bs.slice(1).map((b) => b.dataset.dest) };
-    sorteioPrefs.quantos = 3; renderSorteio();
+    __quantas(3); renderSorteio();
     return r;
   });
   checar(umaSo.total === 4
@@ -666,7 +686,7 @@ try {
   const guardou = await pg.evaluate(async () => {
     const filaAntes = await AVDB.listIds('playlist');
     const noArAntes = currentId;
-    sorteioPrefs.quantos = 3; sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
+    __quantas(3); sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     renderSorteio();
     // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
     // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
@@ -720,7 +740,7 @@ try {
     await AVDB.listSet('imports', []);
     await AVDB.listSet('playlist', []);
     await abrirSorteio();
-    sorteioPrefs.quantos = 3; sorteioPrefs.tema = '';
+    __quantas(3); sorteioPrefs.tema = '';
     sorteioPrefs.soNoAparelho = true;
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
     renderSorteio();
@@ -807,7 +827,7 @@ try {
   const solta = await pg.evaluate(async () => {
     await AVDB.listSet('imports', []);
     await abrirSorteio();
-    sorteioPrefs.quantos = 1;
+    __quantas(1);
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     renderSorteio();
     const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="cronograma"]');
@@ -843,7 +863,7 @@ try {
   const favs = await pg.evaluate(async () => {
     await AVDB.listSet('favs', []);
     await abrirSorteio();
-    sorteioPrefs.quantos = 3;
+    __quantas(3);
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     renderSorteio();
     const noArAntes = currentId;
@@ -886,7 +906,7 @@ try {
     const antes = await AVDB.listIds('playlist');
     const noArAntes = currentId;
     await abrirSorteio();
-    sorteioPrefs.quantos = 3;
+    __quantas(3);
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     renderSorteio();
     const btn = document.querySelector('#sorteioPopup .sorteio-dest[data-dest="playlist"]');
@@ -956,7 +976,7 @@ try {
   // ficam gravadas; ela é uma pergunta feita uma vez.
   const gravado = await pg.evaluate(async () => {
     await abrirSorteio();
-    sorteioPrefs.tema = 'cruz'; sorteioPrefs.quantos = 15;
+    sorteioPrefs.tema = 'cruz'; __quantas(15);
     saveSorteioPrefs(); fecharSorteio();
     return await AVDB.getState('sorteioPrefs');
   });
@@ -1034,7 +1054,7 @@ try {
   // "AO CRONOGRAMA" NÃO TOCA NO TELÃO. Ele guarda; mexer na cortina ali seria o
   // oposto do que aquele botão promete.
   const guardaNaoCobre = await pg.evaluate(async () => {
-    sorteioPrefs.quantos = 3;
+    __quantas(3);
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     await abrirSorteio();

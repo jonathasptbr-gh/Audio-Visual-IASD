@@ -7402,16 +7402,94 @@ O que sobrou dela se dividiu em dois, por onde cada metade é lida:
 
 | pergunta | onde vive | por quê |
 |---|---|---|
-| **QUANTOS** | `sorteioPilulaDaConta` — uma pílula à esquerda do primário | é o que se lê de RELANCE, e por isso fica na altura do dedo. Largura FIXA (`min-width: 4ch` + `tabular-nums`), *"cuide para que o botão tenha um tamanho fixo independente do número interno"* |
+| **QUANTOS** | `sorteioPilulaDaConta` — uma pílula à esquerda do primário | é o que se lê de RELANCE, e por isso fica na altura do dedo. Largura FIXA (`min-width: 4ch` + `tabular-nums`), *"cuide para que o botão tenha um tamanho fixo independente do número interno"*. **Só o número desde a v1.8.85** — ver abaixo |
 | **QUAIS** | `sorteioListaDeResultados` — a lista, no formato da busca da Biblioteca | é o que o cartão nunca respondeu, e é onde a disponibilidade vira acionável: a linha diz "no aparelho" ou "vai baixar", e dá para desmarcar a que vai baixar |
+
+#### A MARCA É O LOTE, E O LOTE É "QUANTAS" (v1.8.85)
+
+*"As marcações de check devem ficar selecionadas apenas o número de itens
+selecionado para o filtro atual, o resto da lista segue desmarcado, mas ainda
+segue sendo listado… ajuste para que ao tocar no check para ativar ou desativar,
+se altere o número selecionado para 'quantas', pois ele é literalmente isso, mas
+selecionando de forma manual."*
+
+**Isto REVOGA as duas marcas da v1.8.84**, que tinha a caixa marcada em TODAS as
+linhas (*"esta entra na consideração?"*) e o preenchimento em algumas (*"esta vai
+tocar?"*). Duas perguntas, dois sinais — e o operador leu uma pergunta só. Ele
+está certo: **marcar é escolher**, que é o vocabulário do resto do app (a folha
+de destinos, a seleção múltipla).
+
+| peça | o que é |
+|---|---|
+| `sorteioMarcadas` | **a única fonte**. O conjunto de chaves marcadas É o lote, e "quantas" é o `size` dele |
+| a pílula de quantidade | deixou de ser o estado e virou um **atalho**: tocar em "5" marca as cinco primeiras do baralho (`sorteioSemear`) |
+| `sorteioPrefs.quantos` | continua sendo o que PERSISTE, e só a pílula o escreve |
+
+- **Guardar os dois — um número e um conjunto — é a divergência escrita.** Um
+  toque que atualizasse só um deles faria o seletor discordar da lista, e nenhum
+  dos dois erraria sozinho. Daí `quantos` ser DERIVADO na tela: a pílula acesa é
+  a que casa com `sorteioMarcadas.size`, e **nenhuma acesa é um estado legítimo**
+  — é o que o operador vê com quatro marcadas, e é a única indicação de que a
+  escolha passou a ser dele.
+- **Só a pílula grava, e é por uma razão do módulo puro:** `AVSorteio.sanear`
+  clampa `quantos` à lista de presets (`QUANTIDADES`), então um 4 vindo de marca
+  manual voltaria como 1 na abertura seguinte, calado. E não se perde nada — a
+  marca já é EFÊMERA por pedido do próprio operador (v1.8.84: *"esse check é
+  resetado entre aberturas da janela"*).
+- **A LISTA NÃO SE REORGANIZA.** Marcar a linha 9 deixa a linha 9 onde está, com
+  a posição 3 do lote: o que numera é a ordem do BARALHO, contando só as
+  marcadas. Subir a marcada para o topo seria reorganizar a lista debaixo do
+  dedo, que é o que o baralho existe para não fazer.
+- **O PISO É UMA MARCADA** (`sorteioAlternar` devolve `false` e o botão pulsa em
+  erro). Desmarcar a última deixaria a folha com um primário aceso que não pode
+  fazer nada, e a régua da v1.8.50 diz o contrário disso; o caminho de "não quero
+  nenhuma" é fechar a folha.
+- **O TOQUE NÃO REDESENHA A FOLHA** — `atualizarContaSorteio` mais
+  `acertarPilulasDeQuantidade`, os dois em ponto. É o remédio da v1.8.83 pelo
+  mesmo motivo, com um agravante novo: desde este lote a lista é o único
+  scroller da folha, e um redesenho a devolveria ao TOPO a cada marca. Numa
+  lista de mil linhas, um toque na linha 300 tirava a linha 300 da tela.
+
+#### SÓ A LISTA ROLA (v1.8.85)
+
+*"Sobre o scroll, mantenha as opções dos filtros sempre visíveis e deixe apenas
+a lista dos resultados como scroll."*
+
+A `.popup-list` já é uma coluna flex; o que mudou é **quem cede**: a
+`.sorteio-res` é o único item com `flex-shrink: 1`, então tudo o que passa do
+teto de 80vh é descontado dela e o resto — palavra, variante, filtros,
+quantidade e a barra de ação — fica onde está.
+
+- **O SELETOR PRECISA NOMEAR O PAI.** `.popup-list > li` declara `flex-shrink: 0`
+  e é (0,1,1); `.sorteio-res` sozinho é (0,1,0) e PERDE. MEDIDO: a lista ficava
+  com 1323px dentro de uma folha de 720 e quem rolava era a folha inteira — o
+  pedido desfeito por um ponto de especificidade, sem erro em lugar nenhum.
+- **O PISO (`min-height: 9rem`) É A FALHA ABERTA.** Sem ele, uma folha apertada
+  (tela baixa, fonte do sistema grande) esmaga a lista até zero e o operador vê
+  os filtros sem nenhum resultado, sem nada dizendo por quê. Com o piso, quem
+  transborda é a folha — que nunca deixou de ser um scroller —, e no pior caso
+  volta-se ao comportamento de antes deste lote.
+- **A `.rola` MUDOU DE DONO**: a sombra das bordas é da lista de resultados, que
+  é quem rola. A `.popup-list` continua com a marca e o observador a lê como
+  `sem-veu` enquanto ela não rolar, que é o caso normal.
+- **E a `.sorteio-barra` continua `sticky`, agora como REDE**: quem a mantém à
+  vista no caso normal é a estrutura (ela está ACIMA do scroller). O `sticky`
+  cobre o mesmo caso que o piso deixa acontecer de propósito.
 
 - **A PÍLULA NÃO É UM BOTÃO**, e é um `<span>` de propósito. Ela não faz nada, e
   a v1.8.50 diz que o que não tem função agora não fica aceso esperando toque —
   um número desenhado como botão é um botão que se toca e não responde. Ela
   anuncia a FRASE (`role="status"` + `aria-label`), nunca o número solto: um
   leitor de tela lendo "12" no meio de uma barra de botões não diz de que 12 se
-  trata. O ícone é a NOTA e não a lupa — a lupa diria "busca", que é o campo lá
-  em cima.
+  trata.
+- **E ELA PERDEU O ÍCONE na v1.8.85** (*"remova o ícone e deixe apenas o número
+  no botão de número de resultados disponíveis"*). Ele era a nota musical, e o
+  que ele acrescentava — "isto conta músicas" — a lista logo abaixo já diz, item
+  por item. **O que ele custava é medível e é o vizinho:** 27px da largura do
+  rótulo do primário, numa faixa onde ela é o recurso escasso. O pior caso do
+  "Tocar agora" subiu de 6,1px para 34,9 — o que MELHOROU o número e não
+  resolveu, e as duas metades ficam escritas porque a primeira convida a
+  desfazer a segunda (a quebra da faixa continua obrigatória).
 - **A BARRA DE AÇÕES SUBIU** para cima dos resultados (*"mova a barra de opções
   de play para cima dessa sessão de resultados"*) e por isso saiu do
   `porFecho` — o rodapé que não rola a poria DEPOIS da lista. Ela entra na
@@ -7468,11 +7546,11 @@ operador acabou de ler.
   filtros saneados mais o tamanho do pool mais quantas estão no aparelho. Mexer
   num filtro é pedir outro sorteio; digitar uma letra que não muda o resultado,
   não.
-- **`sorteioFora` é o que o operador DESMARCOU**, e desmarcar tira da
-  consideração, **não da conta**: com *"Quantas = 3"*, tirar uma traz a QUARTA.
-  Diminuir o lote faria o seletor de quantidade que ele acabou de tocar deixar de
-  valer. **E quem entra é a SEGUINTE da ordem**, nunca uma sorteada de novo — a
-  ordem é a que ele está lendo.
+- **E O BARALHO NOVO CHEGA COM O LOTE SEMEADO**, do tamanho do lote ANTERIOR e
+  nunca de `f.quantos`: é o que faz uma marca manual sobreviver a um filtro —
+  marcadas quatro e ligado "Só no aparelho", o pool é outro e as chaves antigas
+  não existem, mas o QUATRO é a escolha viva do operador. Vazio (a primeira
+  abertura), quem responde é a pílula guardada.
 - **O "Tocar agora" toca o que está na TELA.** Era `AVSorteio.sortear` no toque,
   isto é, um sorteio NOVO: o operador lia cinco nomes e ouvia outros cinco. O
   lote sai de `sorteioEscolhidos(sorteioLista(…))`, que é a mesma função que
@@ -7486,6 +7564,10 @@ operador acabou de ler.
   troca só a pílula, a fala e a lista — e o botão do pulso não está em nenhuma
   das três. Sem isto, nos três destinos (que deixam a folha ABERTA) o próximo
   toque sairia por cima do mesmo lote.
+- **E o próximo lote já nasce MARCADO, do mesmo tamanho** — *"criando a próxima
+  lista selecionada para playlist"*. O tamanho é o do lote que saiu, e não a
+  pílula guardada: se o operador tirou uma na mão antes de tocar, ele pediu
+  quatro, não cinco.
 - **Marcas e baralho ZERAM a cada abertura** (`abrirSorteio`) — *"para que não
   aconteça de bloquear uma música desejada sem saber em outra sessão"*. O baralho
   vai junto pelo mesmo argumento por outro lado: abrir a folha é pedir um
