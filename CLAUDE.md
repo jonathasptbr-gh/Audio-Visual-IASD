@@ -36,6 +36,9 @@ ia tocar.
 | 11 | [Build e distribuição](#build-e-distribuição) | CI, o portão, assinatura, backup |
 | 12 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
 
+**A [conversa com o operador](#a-conversa-com-o-operador) não entra na tabela:
+ela não tem "quando abrir" — vale SEMPRE, desde a primeira linha da sessão.**
+
 **Os RESUMOS destes quatro ficam aqui; o detalhe está no capítulo** — o resumo
 tem o que se pode quebrar sem abrir o capítulo, e o capítulo tem o resto:
 
@@ -86,6 +89,45 @@ cresceu 23% em sete dias e é lido inteiro em toda sessão. **A refutação rodo
 depois**: dois achados caíram, dois encolheram de magnitude e quatro novos
 entraram — um deles o ÚNICO da auditoria que toca o culto. A lista dos MORTOS,
 com a razão de cada um, é o que economiza a sessão de quem for reachá-los).
+
+---
+
+## A conversa com o operador
+
+**Quem lê o que sai desta sessão não programa.** Ele opera o app num culto, e a
+pergunta dele é sempre a mesma: *mudou o quê, e eu preciso fazer alguma coisa?*
+
+| regra | o que é |
+|---|---|
+| **NÃO NARRAR O TRABALHO** | nada de "vou conferir", "agora vou editar", "encontrei o arquivo". A sessão fala DUAS vezes: para perguntar o que não dá para decidir sozinha, e para ENTREGAR |
+| **O RELATÓRIO É PARA LEIGO** | sem nome de arquivo, de função, de tecnologia ou de número interno. O que mudou, dito pelo que ele VÊ ou FAZ no app |
+| **ECONOMIA DE PALAVRAS** | frases curtas, sem preâmbulo e sem fecho de cortesia. Um relatório de dez linhas que se lê vale mais que um de cinquenta que se pula |
+| **DETALHE SÓ SOB PEDIDO** | ele pergunta, e aí vem o técnico inteiro, sem economia |
+
+**AS DUAS COISAS QUE NUNCA SE OMITEM** — são elas que impedem "sucinto" de virar
+"só a parte boa":
+
+- **O QUE ELE PRECISA FAZER.** Instalar, esperar, reiniciar, conferir no
+  aparelho — ou nada. Um relatório que diz *"pronto"* sobre o que só chega
+  instalando o APK é FALSO, e o preço disso aparece no sábado de manhã.
+- **O QUE NÃO DEU CERTO.** Falha é dita, com o que falhou. Pedaço de escopo que
+  ficou de fora é dito, com o porquê. Encolher o trabalho em silêncio é o pior
+  desfecho que uma sessão sabe produzir.
+
+**O QUE NÃO DÁ PARA APAGAR, e fica dito para ninguém tentar:** as linhas de
+ferramenta que aparecem na tela durante o trabalho são do PROGRAMA, não do texto
+da sessão — nenhuma regra de escrita as suprime. **O que as encolhe é DELEGAR:**
+o que roda dentro de um agente aparece como UM cartão no lugar de trinta linhas.
+Por isso a tarefa substantiva nasce delegada — é economia de LEITURA do
+operador, não gosto por paralelismo.
+
+**E ISTO VALE PARA O CHAT, JAMAIS PARA A DOCUMENTAÇÃO.** O `CLAUDE.md`, os
+`docs/` e as mensagens de commit continuam técnicos, densos e cheios de nome de
+símbolo: eles são lidos por um AGENTE, antes do trabalho, e é essa densidade que
+economiza a sessão seguinte. O `notas.json` é o único arquivo do repositório que
+fala com o operador, e ele já tem regra própria (um tópico por linha, teto de 120
+caracteres). **Aplicar linguagem de leigo à documentação destrói o
+`HISTORICO.md`** — e o que se perde ali não volta.
 
 ---
 
