@@ -338,10 +338,10 @@ try {
   // frases eram FATOS sobre o pool — cada filtro encolhe, e eles compõem —, e os
   // fatos continuam: agora se leem no NÚMERO e no comprimento da lista.
   const lerResultado = () => pg.evaluate(() => {
-    const pil = document.querySelector('#sorteioList .sorteio-pilula-num');
+    const pil = document.querySelector('#sorteioList .sorteio-res-cab');
     const res = document.querySelector('#sorteioList .sorteio-res');
     return {
-      n: pil ? Number(pil.textContent.replace(/\D/g, '')) : -1,
+      n: pil ? Number((pil.textContent.match(/\d+/) || [-1])[0]) : -1,
       linhas: document.querySelectorAll('#sorteioList .sorteio-res-btn').length,
       vai: document.querySelectorAll('#sorteioList .sorteio-res-btn.vai').length,
       vazia: !!res && res.classList.contains('vazio'),
@@ -463,7 +463,7 @@ try {
   });
   const soLocal = await pg.evaluate(() => {
     const r = {
-      n: Number(document.querySelector('#sorteioList .sorteio-pilula-num').textContent.replace(/\D/g, '')),
+      n: Number((document.querySelector('#sorteioList .sorteio-res-cab').textContent.match(/\d+/) || [0])[0]),
       forasteiros: [...document.querySelectorAll('#sorteioList .sorteio-res-btn .song-menu-sub')]
         .filter((x) => /vai baixar/.test(x.textContent)).length,
     };
@@ -482,8 +482,10 @@ try {
   // guardavam continua**, e é o que importa: cada filtro de fato encolhe o pool,
   // e dois ligados juntos encolhem juntos. Ele se lê no NÚMERO.
   const escopos = await pg.evaluate(() => {
-    const ler = () => Number(document.querySelector('#sorteioList .sorteio-pilula-num')
-      .textContent.replace(/\D/g, ''));
+    // O PRIMEIRO número do cabeçalho é a contagem; o segundo é quantos já
+    // estão baixados. Tirar os não-dígitos concatenaria os dois.
+    const ler = () => Number((document.querySelector('#sorteioList .sorteio-res-cab')
+      .textContent.match(/\d+/) || [0])[0]);
     const antes = { ...sorteioPrefs };
     sorteioPrefs.tema = '';
     const fora = {};
@@ -535,7 +537,7 @@ try {
     return {
       texto: res.textContent, marcada: res.classList.contains('vazio'),
       travado: go.disabled, linhas: document.querySelectorAll('.sorteio-res-btn').length,
-      pilula: document.querySelector('#sorteioList .sorteio-pilula-num').textContent,
+      pilula: document.querySelector('#sorteioList .sorteio-res-cab').textContent,
     };
   });
   checar(/zzzznadaaqui/.test(vazio.texto) && vazio.marcada && vazio.linhas === 0,
@@ -628,22 +630,31 @@ try {
     __quantas(3);
     await abrirSorteio();
     const bs = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')];
+    // A PEÇA DA PONTA ESQUERDA é o botão de SORTEAR desde a v1.8.88 (a vaga da
+    // pílula da conta). Ele é lido pelo NOME e não pelo índice: uma asserção
+    // que só deslocasse `bs[0]` para `bs[1]` esconderia quem entrou na faixa.
+    const sortear = bs[0] && bs[0].classList.contains('sorteio-sortear');
+    const resto = sortear ? bs.slice(1) : bs;
     return {
       total: bs.length,
-      primeiro: bs[0].textContent.trim(),
-      dest: bs.slice(1).map((b) => b.dataset.dest),
+      sortear,
+      primeiro: resto[0].textContent.trim(),
+      dest: resto.slice(1).map((b) => b.dataset.dest),
       // SEM RÓTULO, e é isso que faz caber a 320px — o `aria-label` é o que
       // sobra para quem não vê o ícone.
-      mudos: bs.slice(1).every((b) => !b.textContent.trim() && !!b.getAttribute('aria-label')),
+      mudos: resto.slice(1).every((b) => !b.textContent.trim() && !!b.getAttribute('aria-label')),
     };
   });
   // O RÓTULO ENCURTOU NA v1.8.61 ("Tocar agora" → "Tocar", "Sortear e tocar" →
   // "Sortear"), e ele veio junto com a altura única da faixa: sem os 19,2px de
   // recuo vertical o primário só cabe em UMA linha, e MEDIDO o par longo
   // reticenciava em 78 de 432 pontos contra 4 de 56 do curto.
-  checar(faixa.total === 4 && /^Tocar/.test(faixa.primeiro)
+  checar(faixa.sortear === true,
+    'a faixa abre pelo botão de SORTEAR (v1.8.88) — a vaga que era da pílula da '
+    + 'conta, e a única peça dela que ganhou ação', faixa);
+  checar(faixa.total === 5 && /^Tocar/.test(faixa.primeiro)
     && JSON.stringify(faixa.dest) === JSON.stringify(['cronograma', 'playlist', 'favoritos']),
-    'montando a fila a faixa de fecho tem QUATRO botões: tocar mais os três '
+    'montando a fila a faixa de fecho tem CINCO botões: sortear, tocar e os três '
     + 'destinos, na ordem canônica (Cronograma · playlist · favoritos)', faixa);
   checar(faixa.mudos,
     'e os três são MUDOS com `aria-label`: quatro rótulos não cabem a 320px, e '
@@ -657,14 +668,14 @@ try {
   const umaSo = await pg.evaluate(async () => {
     __quantas(1); renderSorteio();
     const bs = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')];
-    const r = { total: bs.length, dest: bs.slice(1).map((b) => b.dataset.dest) };
+    const r = { total: bs.length, dest: bs.slice(2).map((b) => b.dataset.dest) };
     __quantas(3); renderSorteio();
     return r;
   });
-  checar(umaSo.total === 4
+  checar(umaSo.total === 5
     && JSON.stringify(umaSo.dest) === JSON.stringify(['cronograma', 'playlist', 'favoritos']),
-    'e sorteando UMA SÓ são os MESMOS quatro — o modo que até a v1.8.55 não '
-    + 'tinha destino nenhum', umaSo);
+    'e sorteando UMA SÓ são os MESMOS cinco — os destinos são o modo que até a '
+    + 'v1.8.55 não tinha nenhum', umaSo);
 
   // E NENHUM DELES NO MODO FÁCIL: ele não tem Cronograma, nem Favoritos, nem
   // fila à vista (`body.mode-simple` esconde o `main` e a barra inteiros), e um
@@ -953,8 +964,8 @@ try {
       await abrirSorteio();
       const depois = document.querySelector('#sorteioList .lib-search').value;
       // O RESULTADO da reabertura: a pílula conta o pool sem a palavra de antes.
-      const n = Number(document.querySelector('#sorteioList .sorteio-pilula-num')
-        .textContent.replace(/\D/g, ''));
+      const n = Number((document.querySelector('#sorteioList .sorteio-res-cab')
+        .textContent.match(/\d+/) || [0])[0]);
       const linhas = document.querySelectorAll('#sorteioList .sorteio-res-btn').length;
       fecharSorteio();
       return { antes, depois, n, linhas };

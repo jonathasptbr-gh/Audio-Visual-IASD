@@ -2357,6 +2357,10 @@ try {
     renderSorteio();
     out.acoes = [...document.querySelectorAll('#sorteioPopup .sorteio-acao')]
       .map((b) => b.textContent.trim());
+    // O SORTEAR (v1.8.88) fica no Modo Fácil, e os destinos não: reordenar a
+    // lista não depende de haver Cronograma nem Favoritos para onde mandar.
+    out.temSortear = !!document.querySelector('#sorteioPopup .sorteio-sortear');
+    out.destinos = document.querySelectorAll('#sorteioPopup .sorteio-dest').length;
     fecharSorteio();
     setAppMode(antes);
     return out;
@@ -2367,8 +2371,14 @@ try {
   checar(facil.cards > 0,
     'e o resto dela continua inteiro — a guarda tira UMA seção, não a lista',
     facil.cards + ' card(s)');
-  checar(facil.acoes.length === 1 && !facil.acoes.some((t) => /cronograma/i.test(t)),
+  checar(facil.destinos === 0 && !facil.acoes.some((t) => /cronograma/i.test(t)),
     'e a playlist automática perde o "Ao Cronograma": ali não há Cronograma para ver',
+    JSON.stringify(facil.acoes));
+  checar(facil.temSortear === true && facil.acoes.length === 2,
+    'MAS O SORTEAR FICA (v1.8.88) — reordenar a lista não promete destino '
+    // Sem esta metade, "menos botões no Modo Fácil" levaria o sortear junto na
+    // próxima varredura, e ele é a única porta para um sorteio novo.
+    + 'nenhum, e é a única porta para pedir outra lista',
     JSON.stringify(facil.acoes));
   checar(favs.temItem,
     'OS FAVORITOS SÃO DESENHADOS DENTRO DA BIBLIOTECA, pelo mesmo '

@@ -2651,15 +2651,16 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.87 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.88 · APK v1.8.73** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.87 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
+> **A v1.8.88 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Esta não toca `java/`,
 > `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou de forma: o
-> bundle sai na hora, contra o APK v1.8.73 que já está publicado. **E a LISTA
-> `serie` nova em `shared/db.js` não é exceção**, como não foram o
+> bundle sai na hora, contra o APK v1.8.73 que já está publicado. **E nada
+> deste lote toca a ponte** — o balde de miniaturas, o botão de sortear e a
+> linha da série são todos do `assets/web/`. Como a LISTA `serie` da v1.8.87, o
 > `AVSorteio.baralhar` da v1.8.86 e o `AVDB.stateApagarPrefixo` da v1.8.83: a
 > superfície que o `SHELL_VERSION` governa é a da PONTE (`window.AVNative` sobre
 > `__AVBridge`), não a dos módulos de `assets/web/` — eles viajam DENTRO do

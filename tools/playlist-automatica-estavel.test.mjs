@@ -191,8 +191,12 @@ try {
     // A TRAVA CONTINUA SENDO ACERTADA — o que o redesenho fazia, e a única coisa
     // que ele fazia. Sem esta asserção o conserto poderia ter sido só "não
     // redesenhar", deixando a faixa travada para sempre depois de um lote.
+    // CINCO desde a v1.8.88: o botão de SORTEAR entrou na faixa (a vaga da
+    // pílula da conta) e leva a mesma classe porque ele TEM ação — e a mesma
+    // trava, porque sortear com a corrida em pé é mexer na lista que está
+    // sendo consumida.
     const depois = await pg.$$eval('#sorteioPopup .sorteio-acao', (bs) => bs.map((b) => b.disabled));
-    checar(depois.length === 4 && depois.every((d) => d === false),
+    checar(depois.length === 5 && depois.every((d) => d === false),
       'a faixa de fecho volta a aceitar toque depois do lote (o `disabled` em '
       + 'ponto faz o trabalho que o redesenho fazia)', depois);
     await ctx.close();
@@ -218,7 +222,10 @@ try {
       const m = await pg.evaluate(() => {
         const barra = document.querySelector('#sorteioList .sorteio-barra');
         const sh = document.querySelector('#sorteioPopup .popup-sheet');
-        const pil = document.querySelector('#sorteioList .sorteio-pilula');
+        // A vaga da pílula é do botão de SORTEAR desde a v1.8.88 — o que este
+        // bloco mede é a largura de UMA peça fixa na ponta esquerda da barra,
+        // e ela continua existindo, só que como botão.
+        const pil = document.querySelector('#sorteioList .sorteio-sortear');
         const cs = getComputedStyle(barra);
         const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number);
         const rb = barra.getBoundingClientRect();
@@ -228,7 +235,7 @@ try {
           // dela que a promessa passou a ser (ver o cabeçalho).
           barraTopo: +(rb.top - rs.top).toFixed(1),
           barraAlt: +rb.height.toFixed(1),
-          pilulaLarg: +pil.getBoundingClientRect().width.toFixed(1),
+          pecaLarg: +pil.getBoundingClientRect().width.toFixed(1),
           folha: +rs.height.toFixed(1),
           // A barra é `sticky` sobre uma lista que rola por baixo: sem fundo
           // OPACO o texto das linhas atravessa os botões.
@@ -245,15 +252,18 @@ try {
     const sub = medidas.filter((m) => m.largura === largura && m.escala === escala);
     const topos = [...new Set(sub.map((m) => m.barraTopo))];
     const alturas = [...new Set(sub.map((m) => m.barraAlt))];
-    const larguras = [...new Set(sub.map((m) => m.pilulaLarg))];
+    const larguras = [...new Set(sub.map((m) => m.pecaLarg))];
     checar(topos.length === 1 && alturas.length === 1,
       `${largura}×${escala}: a BARRA DE AÇÃO fica no mesmo ponto da folha nos `
       + `${sub.length} estados — é ela que o dedo procura, e agora ela não `
       + 'depende do resultado: os quatro controles acima dela não mudam de altura',
       { topos, alturas });
     checar(larguras.length === 1,
-      '  ↳ e a PÍLULA tem uma largura só, com 1 e com 1.000 resultados — *"cuide '
-      + 'para que o botão tenha um tamanho fixo independente do número interno"*',
+      '  ↳ e a PEÇA DA PONTA tem uma largura só, com 1 e com 1.000 resultados. '
+      + 'O pedido que a criou falava da pílula (*"um tamanho fixo independente '
+      + 'do número interno"*); com o botão de SORTEAR no lugar dela (v1.8.88) a '
+      + 'promessa é a mesma e fica mais forte — ele não tem número dentro, e o '
+      + 'que ela protege é o rótulo do primário ao lado',
       larguras.concat(sub.map((m) => m.estado)).slice(0, 8));
   }
 

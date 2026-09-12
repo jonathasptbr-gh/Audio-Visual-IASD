@@ -206,7 +206,9 @@ const cartao = () => pg.evaluate((id) => {
       && (auto.compareDocumentPosition(dest) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0),
     primeiro: aberto.firstElementChild ? aberto.firstElementChild.className : '',
     rotulo: auto ? (auto.querySelector('.song-menu-label').textContent || '').trim() : '',
-    frase: auto ? (auto.querySelector('.song-menu-sub').textContent || '').trim() : '',
+    // SÓ O TÍTULO desde a v1.8.88 — a ausência do subtítulo é asserção, não
+    // omissão: ele voltar é o defeito que o operador pediu para tirar.
+    temSub: !!(auto && auto.querySelector('.song-menu-sub')),
     marcado: !!(auto && auto.querySelector('.song-menu-check.on')),
   };
 }, SERIE);
@@ -251,6 +253,11 @@ try {
     + 'mesma linha', cx.rotulo);
   checar(cx.marcado === false,
     'e ela nasce DESMARCADA: ~300 MB por episódio não se liga por padrão', cx);
+  checar(cx.temSub === false,
+    'e a linha tem SÓ O TÍTULO (v1.8.88) — *"remova esse subtitulo, não '
+    + 'precisamos dos detalhes, apenas o titulo descrevendo a função"*. O que '
+    + 'era subtexto vira status do card, e só quando há o que dizer',
+    cx);
 
   // ── B. DESMARCADA, NADA BAIXA ───────────────────────────────────────────
   await armarDownload(true);
@@ -380,11 +387,23 @@ try {
     'EM REDE MÓVEL a rotina não baixa: são ~300 MB que ninguém pediu agora, e '
     + 'gastar o plano de dados de quem não olhou a tela é o pior desfecho deste '
     + 'recurso', movel);
-  const cxMovel = await cartao();
-  checar(/Wi-Fi/i.test(cxMovel.frase),
-    'e a LINHA DIZ ISSO — `connection.type` responde `unknown` em boa parte dos '
-    + 'aparelhos, e sem a frase a opção ficaria marcada sem nada acontecer, '
-    + 'para sempre', cxMovel.frase);
+  // A FRASE DO WI-FI MUDOU DE CASA (v1.8.88): saiu do subtítulo e virou a linha
+  // de STATUS do card, que é onde os outros estados dele já moram. Ela é a
+  // única das antigas que sobrevive, e por um motivo que não é decoração —
+  // sem ela o recurso é uma marca acesa com nada acontecendo, para sempre.
+  const statusMovel = await pg.evaluate(async (id) => {
+    // O caminho de verdade: montar a linha é o que dispara a leitura do disco
+    // e, com ela, o impedimento.
+    serieAutoLinha(allCollections().find((c) => c.id === id));
+    await new Promise((f) => setTimeout(f, 200));
+    // `ui(id).status` é onde o `setCollStatus` grava — a MESMA fonte que o card
+    // desenha, e não uma segunda leitura da tela.
+    return String(ui(id).status || '');
+  }, SERIE);
+  checar(/Wi-Fi/i.test(statusMovel),
+    'e o CARD DIZ ISSO na linha de status — `connection.type` responde '
+    + '`unknown` em boa parte dos aparelhos, e sem a frase a opção ficaria '
+    + 'marcada sem nada acontecer, para sempre', statusMovel);
   await rede('wifi');
 
   // ── H. DESMARCAR SOLTA O ARQUIVO ────────────────────────────────────────
