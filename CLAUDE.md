@@ -1629,6 +1629,20 @@ nenhum**, e por isso ficam aqui.
   scroller-seletor novo nasce com isso: sem `rola`, com máscara, com a régua
   vinda do layout, com o repouso na banda do meio desde a primeira pintura, e
   com ÍNDICE e VALOR separados (a pista tem 300 células e o valor tem 60).
+  **E A CONTAGEM ROLA** (v1.8.96): o tique do Timer anda por
+  `scrollTo({behavior:'smooth'})`, nunca por um `scroll-behavior` na folha — no
+  CSS ele animaria TODA escrita, inclusive a recentragem, que salta uma volta
+  inteira. Três guardas: só o TIMER (onde a pista está à vista), só o passo
+  CURTO (um salto grande é a cena mudando, não contagem) e
+  `prefers-reduced-motion`.
+- **UMA ROLETA DEITADA NÃO DÁ A VOLTA, e por isso ela é outra peça** (v1.8.96, a
+  quantidade da playlist automática). A faixa tem PONTAS de verdade — não existe
+  "zero músicas" —, então não há base repetida, banda do meio nem recentragem; o
+  que sobrevive do idioma é o resto (sem `rola`, máscara nas pontas,
+  `--op-inativo` nas vizinhas, régua do layout). **O recuo das duas pontas é
+  MEDIDO** (`(janela − célula) / 2`, escrito em JS): `padding-inline: 50%` com
+  `box-sizing: border-box` zera a caixa de conteúdo e as células saem
+  transbordando por baixo do recuo.
 - **UM SCROLLER QUE É GRADE NÃO PODE TER A TIRA — então ele deixa de ser o
   scroller** (v1.8.60). O `sem-veu` está certo e fica (o pseudo de uma grade é
   ITEM dela), mas ele APAGA o aviso sem tirar o problema: a `.bible-grid--books`
@@ -2733,11 +2747,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.95 · APK v1.8.91** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.96 · APK v1.8.91** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.95 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
+> **A v1.8.96 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela mudou `java/` (o
 > cancelamento da exportação saiu da main thread) e nada em `java/` chega por
 > OTA, então o bundle ficou SEGURO até a Release sair — **e ela saiu**: o APK

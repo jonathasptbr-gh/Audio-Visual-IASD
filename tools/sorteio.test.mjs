@@ -135,9 +135,21 @@ checar(S.sanear({ variante: 'playback' }).variante === 'playback',
   'e a variante válida atravessa');
 checar(S.sanear(null).modo === S.MODO_UMA && S.sanear(null).quantos === S.QUANTIDADE_PADRAO,
   'sem preferência nenhuma o padrão é "uma só" na quantidade padrão');
-checar(S.sanear({ quantos: 7 }).quantos === S.QUANTIDADE_PADRAO,
-  'uma quantidade fora da lista de tetos cai no padrão — não vira teto novo',
-  S.sanear({ quantos: 7 }).quantos);
+// A QUANTIDADE VIROU UMA FAIXA (v1.8.96), e com ela "fora da lista" deixou de
+// existir: o que pode chegar é um número fora dos LIMITES. Ele é CLAMPADO e não
+// recusado — devolver ao padrão apagaria uma escolha que só precisava de teto —,
+// e as três células são as três que se erram: dentro, acima e abaixo.
+checar(S.sanear({ quantos: 7 }).quantos === 7,
+  'uma quantidade DENTRO da faixa atravessa: com a roleta no lugar dos presets, '
+  + '7 é um valor como outro qualquer', S.sanear({ quantos: 7 }).quantos);
+checar(S.sanear({ quantos: 999 }).quantos === S.QUANTIDADE_MAX,
+  'acima do teto ela é CLAMPADA, não descartada — o teto existe para não montar '
+  + 'centenas de downloads antes da primeira nota, e clampar já o cumpre',
+  S.sanear({ quantos: 999 }).quantos);
+checar(S.sanear({ quantos: 0 }).quantos === S.QUANTIDADE_PADRAO
+  && S.sanear({ quantos: -3 }).quantos === S.QUANTIDADE_PADRAO,
+  'e abaixo do piso ela cai no padrão: zero não é uma escolha a preservar',
+  JSON.stringify([S.sanear({ quantos: 0 }).quantos, S.sanear({ quantos: -3 }).quantos]));
 checar(S.sanear({ semHinario: 'sim' }).semHinario === false,
   'filtro com tipo errado é FALSO, não "verdadeiro porque tem conteúdo"');
 

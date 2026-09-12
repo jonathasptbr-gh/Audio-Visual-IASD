@@ -1414,6 +1414,49 @@ try {
       + 'diverge no primeiro ajuste',
       JSON.stringify({ timer: rodT.noCorpo, relogio: rodR.noCorpo }));
 
+    // A CONTAGEM ROLA, E SÓ ELA (v1.8.96). Pedido do operador: *"faça uma
+    // animação de movimento da rolagem de verdade na contagem regressiva dos
+    // números"* — o mostrador TROCAVA o dígito no lugar, e o que se via era ele
+    // piscando. A RÉGUA é a quantidade de posições DISTINTAS por onde a pista
+    // passa entre dois tiques: um salto seco produz DUAS (a de antes e a de
+    // depois), uma rolagem produz uma dezena. Amostrada por quadro, com o
+    // relógio de parede — é animação do compositor, não um `setInterval` nosso.
+    const rolagem = await pg.evaluate(async () => {
+      const amostrar = async (modo) => {
+        chronoSetMode(modo);
+        if (modo === 'timer') chronoSetDuration(20000);
+        renderChronoEControles();
+        await new Promise((f) => setTimeout(f, 250));
+        chronoStart();
+        // O RENDER DO `chronoStart` TROCA O NÓ: ler a coluna antes dele é ler um
+        // elemento fora do documento, cujo `scrollTop` nunca sai de zero.
+        await new Promise((f) => setTimeout(f, 150));
+        const el = document.getElementById('roleta_seg');
+        const vistos = new Set();
+        const quadro = () => {
+          vistos.add(Math.round(el.scrollTop));
+          if (vistos.size < 400) requestAnimationFrame(quadro);
+        };
+        requestAnimationFrame(quadro);
+        await new Promise((f) => setTimeout(f, 2200));
+        chronoPause();
+        chronoReset();
+        return vistos.size;
+      };
+      const timer = await amostrar('timer');
+      const crono = await amostrar('stopwatch');
+      return { timer, crono };
+    });
+    checar(rolagem.timer > 6,
+      'K · A CONTAGEM DO TIMER ROLA: em dois segundos a pista passa por muitas '
+      + 'posições, e não pelas duas de um salto seco. É a animação que o operador '
+      + 'pediu no lugar do dígito piscando', JSON.stringify(rolagem));
+    checar(rolagem.crono <= 4,
+      'K · e o CRONÔMETRO não rola, porque nele as vizinhas são invisíveis '
+      + '(v1.8.95): animar ali não mostra pista nenhuma, mostra o número apagando '
+      + 'de um lado e acendendo do outro — um piscar pior que o que a animação '
+      + 'veio consertar', JSON.stringify(rolagem));
+
     // O TECLADO SOBREPÕE, NÃO ENCOLHE — relato do operador. A DECLARAÇÃO é do
     // campo; quem a lê é o `keyboardShift`, e a marca sem leitor já reprova no
     // `funcao-sem-chamador`.

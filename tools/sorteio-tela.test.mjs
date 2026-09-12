@@ -352,21 +352,16 @@ try {
     aberta: document.getElementById('sorteioPopup').classList.contains('open'),
     segmentos: document.querySelectorAll('#sorteioList .fit-seg').length,
     campo: !!document.querySelector('#sorteioList .lib-search'),
-    // OS CHIPS SÃO DE DUAS LINHAS desde a v1.8.61: os TRÊS filtros e as SEIS
-    // quantidades (1·3·5·10·15·20, onde o `1` é a antiga "uma só"). Contá-los
-    // juntos esconderia uma das duas linhas sumindo, então cada uma responde
-    // pela sua.
+    // AS LINHAS SÃO ACHADAS PELA CLASSE, e não pelo RÓTULO (v1.8.96): os dois
+    // rótulos ("Filtros", "Quantas") saíram do DOM, e um seletor que procurasse
+    // o texto deles devolve ZERO chip com a linha inteira de pé — uma
+    // reprovação que descreve o lugar errado. A de quantidade é a `--quantas` e
+    // a de filtros é a OUTRA; aquela não tem mais pílula nenhuma (virou a
+    // roleta — ver o bloco do fim), e é por isso que contar as duas juntas
+    // voltou a ser uma medida só.
     chips: document.querySelectorAll('#sorteioList .misc-chip').length,
-    filtros: (() => {
-      const li = [...document.querySelectorAll('#sorteioList .sorteio-linha')]
-        .find((x) => /Filtros/.test((x.querySelector('.sorteio-rotulo') || {}).textContent || ''));
-      return li ? li.querySelectorAll('.misc-chip').length : 0;
-    })(),
-    quantas: (() => {
-      const li = [...document.querySelectorAll('#sorteioList .sorteio-linha')]
-        .find((x) => /Quantas/.test((x.querySelector('.sorteio-rotulo') || {}).textContent || ''));
-      return li ? [...li.querySelectorAll('.misc-chip')].map((c) => c.textContent) : [];
-    })(),
+    filtros: document.querySelectorAll(
+      '#sorteioList .sorteio-linha:not(.sorteio-linha--quantas) .misc-chip').length,
     go: !!document.querySelector('#sorteioPopup .song-menu-go'),
   }));
   const conta0 = await lerResultado();
@@ -400,10 +395,13 @@ try {
   checar(folha.segmentos === 1 && folha.campo && folha.filtros === 3 && folha.go,
     'e ela desenha o segmento da VARIANTE, o campo, os TRÊS filtros e o '
     + 'confirmar — o segmento do MODO virou a linha "Quantas" na v1.8.61', folha);
-  checar(JSON.stringify(folha.quantas) === JSON.stringify(['1', '3', '5', '10', '15', '20']),
-    'e a linha "Quantas" está SEMPRE lá, com o `1` na frente: era ele o segundo '
-    + 'motor do pulo da folha (a linha aparecia e sumia com o modo, 44,4px), e é '
-    + 'ele o antigo "Tocar uma só"', JSON.stringify(folha.quantas));
+  checar(folha.chips === 3,
+    'e os TRÊS são os únicos chips da folha: a linha da quantidade deixou de ser '
+    + 'uma fileira de pílulas na v1.8.96', folha.chips);
+  // (Aqui morava a asserção das SEIS pílulas de quantidade — `1·3·5·10·15·20`.
+  //  Elas saíram na v1.8.96 e a linha virou uma ROLETA horizontal de 1 ao teto;
+  //  quem a mede é o bloco do fim deste arquivo, onde a faixa, o teto, o
+  //  assentamento e o recuo das pontas têm cenário próprio.)
   // O FILTRO QUE NASCE LIGADO JÁ AGIU (v1.0.7): `semInfantis` recusa sem que
   // ninguém o tenha tocado, e o pool de saída é o do acervo MENOS os infantis.
   // A pílula conta o pool e a lista mostra um por linha — as duas medidas, e não
@@ -522,9 +520,10 @@ try {
     && escopos.tres <= escopos.ambos,
     'e eles COMPÕEM: dois ligados nunca devolvem mais que o menor dos dois, e os '
     + 'três nunca mais que os dois', escopos);
-  const dica = await pg.evaluate(() => document.querySelector('#sorteioList .lib-search').placeholder);
-  checar(/vazio/i.test(dica) && /biblioteca/i.test(dica),
-    'e o próprio campo diz o que o vazio significa — a pergunta nasce ali', dica);
+  // (E A DICA DO CAMPO DEIXOU DE EXPLICAR O VAZIO na v1.8.96 — *"na dica da
+  //  barra de buscas, remova o comentário 'vazio = toda a biblioteca'"*. A
+  //  asserção que a cobria morava aqui e foi para o bloco do fim, junto das
+  //  outras medidas que este lote mexeu nesta folha.)
 
   // ---- A CONTA VAZIA DIZ O MOTIVO -----------------------------------------
   // O botão dispara sem mais nenhuma tela: esta linha é a única chance de o
@@ -1131,6 +1130,457 @@ try {
   });
   checar(voltar.tratou && !voltar.aberta,
     'o voltar do aparelho FECHA a folha em vez de minimizar o app', voltar);
+
+  // ---- A QUANTIDADE É UMA ROLETA HORIZONTAL (v1.8.96) --------------------
+  //
+  // Eram SEIS pílulas (`1·3·5·10·15·20`) e viraram uma FAIXA de 1 ao teto, a
+  // pedido do operador: *"atualmente ele possui números fixos, mude isso. Faça
+  // uma roleta também, mas uma roleta horizontal, que vai de 1 a 50 (ou o
+  // número máximo de resultados disponíveis)"*.
+  //
+  // O que este bloco cobre é o que o `sorteio.test.mjs` NÃO alcança: lá mora a
+  // REGRA (o `saneQuantos`, que agora CLAMPA em vez de recusar), e a roleta é
+  // toda LIGAÇÃO — e cada metade dela falha calada.
+  //
+  //  - **o teto**, `min(50, disponíveis)`: errado para cima ela oferece 50
+  //    sobre um pool de oito, e o que sai é uma escolha que o aparelho sabe que
+  //    não se cumpre; errado para baixo, o operador não alcança o número que o
+  //    acervo tem;
+  //  - **a posição É o valor**: a célula acesa e o LOTE marcado são o mesmo
+  //    fato lido por dois lados, e uma pista fora de fase por UMA casa (o `-1`
+  //    do `qhMostrar`) desenha 4 para um lote de 3;
+  //  - **o assentamento**, que é o único ponto que GRAVA — sem ele a roleta se
+  //    mexe, nada acontece, e o "Sortear" leva o lote de antes;
+  //  - **o caminho de volta**: marcar linhas na mão MOVE a roleta, porque quem
+  //    responde "quantas" é o lote (a regra da v1.8.85, que ela herda inteira);
+  //  - **o recuo MEDIDO das duas pontas** (`--qh-vao`), sem o qual o 1 e o teto
+  //    não chegam ao centro — e é ele, não uma marca de seleção, que faz a
+  //    primeira e a última célula poderem ser escolhidas.
+  //
+  // O ACERVO GRANDE É PLANTADO AQUI, e é a única forma de exercitar o outro
+  // lado do `min`: a fixture do arquivo tem CINCO resultados, e com ela o teto
+  // do recurso nunca é alcançado — a asserção mediria `disponíveis` duas vezes
+  // e o `50` ficaria sem oráculo.
+  //
+  // A MEDIDA É UMA SÓ, instalada na página (a mesma razão do `__quantas`): cada
+  // cenário mexe no estado e lê os MESMOS campos, e duas leituras copiadas
+  // divergiriam no primeiro ajuste.
+  //
+  // E O ASSENTAMENTO PENDENTE DO BLOCO ANTERIOR É DRENADO ANTES DE QUALQUER
+  // COISA. MEDIDO: o bloco do voltar abre a folha e a fecha no mesmo instante, a
+  // roleta se posiciona no caminho, e o `setTimeout` do assentamento dela cai
+  // DENTRO deste bloco — sobre um nó que o `abrirSorteio` daqui já trocou. Um nó
+  // fora do documento responde `scrollLeft === 0`, então o assentamento lê a
+  // PRIMEIRA célula e reescreve o lote em 1: as asserções de baixo mediriam um
+  // lote que ninguém pediu, e a primeira delas reprovava com `marcadas: 1`.
+  //
+  // O DEFEITO É DO APP E NÃO DO ARNÊS, e drenar aqui protege este arquivo sem
+  // consertar aquilo: um assentamento que cai sobre nó trocado GRAVA
+  // `quantos: 1` (`saveSorteioPrefs`), então a escolha do operador é desfeita em
+  // disco. MEDIDO pelo caminho de um culto — arrastar a roleta até 12, esperar
+  // o assentamento, e tocar num filtro antes dos 140 ms seguintes: o lote de 12
+  // volta a 1, gravado. Está relatado; o `qhAssentou` não pergunta se o nó ainda
+  // está no documento.
+  await pg.evaluate(() => new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3)));
+  await pg.evaluate(() => {
+    window.__medirRoleta = () => {
+      const qh = document.getElementById('sorteioQuantidade');
+      if (!qh) return { existe: false };
+      const cs = getComputedStyle(qh);
+      const centro = (el) => { const b = el.getBoundingClientRect(); return b.left + b.width / 2; };
+      return {
+        existe: true,
+        // A LINHA DA QUANTIDADE NÃO TEM MAIS PÍLULA NENHUMA: a roleta ENTROU no
+        // lugar delas, e as duas convivendo seria a folha oferecendo o mesmo
+        // controle duas vezes.
+        pilulas: document.querySelectorAll('#sorteioList .sorteio-linha--quantas .misc-chip').length,
+        celulas: qh.children.length,
+        textos: [...qh.children].map((c) => c.textContent),
+        teto: Number(qh.dataset.teto),
+        valor: Number(qh.dataset.valor),
+        acesa: (qh.querySelector('.qh-item--sel') || {}).textContent,
+        acesas: qh.querySelectorAll('.qh-item--sel').length,
+        marcadas: sorteioMarcadas.size,
+        quantos: sorteioPrefs.quantos,
+        vai: document.querySelectorAll('#sorteioList .sorteio-res-btn.vai').length,
+        max: AVSorteio.QUANTIDADE_MAX,
+        // A CÉLULA MEDIDA, e não a constante: quem posiciona a pista é o
+        // `QH_ITEM` do JS e quem a desenha é o `--qh-item` do CSS — os dois
+        // divergindo põem a roleta fora de fase sem que nada reclame.
+        celula: Math.round(qh.children[0].getBoundingClientRect().width * 10) / 10,
+        passo: QH_ITEM,
+        vao: Number(qh.dataset.vao),
+        padEsq: cs.paddingLeft,
+        padDir: cs.paddingRight,
+        janela: qh.clientWidth,
+        rola: qh.classList.contains('rola'),
+        // A BARRA É LIDA NA PROPRIEDADE, e é o único lugar onde ela se lê aqui:
+        // MEDIDO por reversão, o Chromium deste arnês usa barra SOBREPOSTA e
+        // `offsetHeight − clientHeight` dá ZERO com e sem o
+        // `scrollbar-width: none` — a asserção geométrica seria tautologia. Onde
+        // ela importa é o WebView do aparelho, que pinta a barra por cima dos
+        // números, e ali quem a tira é esta declaração.
+        barra: cs.scrollbarWidth,
+        podeRolar: qh.scrollWidth > qh.clientWidth,
+        eixo: Math.round(centro(qh) * 10) / 10,
+      };
+    };
+    // A FILEIRA DOS FILTROS, medida nas DUAS células que as asserções usam — e
+    // instalada aqui pela mesma razão da outra: a leitura é a MESMA nas duas, e
+    // copiá-la as faria divergir no primeiro ajuste.
+    window.__medirChips = () => {
+      const opts = document.querySelector(
+        '#sorteioList .sorteio-linha:not(.sorteio-linha--quantas) .misc-opts');
+      const chips = [...opts.querySelectorAll('.misc-chip')];
+      const vao = parseFloat(getComputedStyle(opts).columnGap) || 0;
+      const soma = chips.reduce((t, c) => t + c.getBoundingClientRect().width, 0)
+        + vao * (chips.length - 1);
+      // A ALTURA DO TEXTO de cada pílula, por `Range`: é ela que diz QUEM
+      // quebrou, e é justamente o que o `stretch` esconde ao igualar as CAIXAS.
+      // Sem esta medida não há como saber se a célula escolhida é uma em que a
+      // igualdade das caixas prova alguma coisa.
+      const texto = chips.map((c) => {
+        const rg = document.createRange(); rg.selectNodeContents(c);
+        return Math.round(rg.getBoundingClientRect().height * 10) / 10;
+      });
+      return {
+        rotulos: document.querySelectorAll('#sorteioList .sorteio-rotulo').length,
+        textoRotulo: /Filtros|Quantas/.test(document.getElementById('sorteioList').textContent),
+        quantos: chips.length,
+        // DA BORDA À BORDA: a soma das três mais os dois vãos é a fileira
+        // inteira. Medida contra a FILEIRA, e não contra a folha — é ela que o
+        // `flex: 1` manda preencher.
+        fileira: Math.round(opts.getBoundingClientRect().width * 10) / 10,
+        soma: Math.round(soma * 10) / 10,
+        caixas: [...new Set(chips.map((c) => Math.round(c.getBoundingClientRect().height * 10) / 10))],
+        texto,
+        // NADA RETICENCIADO E NADA CORTADO, e a medida é no BOTÃO, que é quem
+        // recorta: um `<span>` de dentro tem o tamanho do próprio texto e nunca
+        // acusa nada (a armadilha da régua, v1.8.65).
+        corte: chips.filter((c) => c.scrollWidth > c.clientWidth + 1
+          || c.scrollHeight > c.clientHeight + 1).map((c) => c.textContent),
+        reticencia: [...new Set(chips.map((c) => getComputedStyle(c).textOverflow))],
+      };
+    };
+  });
+  const roleta = {};
+
+  // (A) A ROLETA ESTÁ NO LUGAR DAS PÍLULAS, E O TETO É O QUE EXISTE (CINCO).
+  roleta.pequena = await pg.evaluate(async () => {
+    sorteioPrefs.tema = ''; sorteioPrefs.semHinario = false;
+    sorteioPrefs.soNoAparelho = false; sorteioPrefs.semInfantis = true;
+    sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
+    await abrirSorteio();
+    // O `await` acima já esgotou o re-render do índice de letras (ele sai no
+    // `.then` de um `ensureLyricIndex` que aqui já está pronto), então este é o
+    // ÚLTIMO desenho da folha — o que importa porque cada `renderSorteio` TROCA
+    // o nó da roleta.
+    __quantas(3); renderSorteio();
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    return __medirRoleta();
+  });
+  checar(roleta.pequena.existe && roleta.pequena.pilulas === 0,
+    'a linha da quantidade é a ROLETA, e não sobrou pílula nenhuma nela — as '
+    + 'duas juntas seriam o mesmo controle oferecido duas vezes', roleta.pequena);
+  checar(roleta.pequena.celulas === 5
+    && JSON.stringify(roleta.pequena.textos) === JSON.stringify(['1', '2', '3', '4', '5'])
+    && roleta.pequena.teto === 5,
+    'e ela tem UMA célula por valor, de 1 ao teto — que sobre cinco resultados é '
+    + 'CINCO: é o `min(50, disponíveis)` pelo lado de baixo', roleta.pequena);
+  checar(roleta.pequena.celula === roleta.pequena.passo,
+    'e a célula DESENHADA mede o `QH_ITEM` com que o JS posiciona a pista: os '
+    + 'dois divergindo põem a roleta fora de fase, calada', roleta.pequena);
+
+  // (B) A POSIÇÃO É O VALOR: a acesa é o tamanho do LOTE, e é UMA só.
+  checar(roleta.pequena.acesa === String(roleta.pequena.marcadas)
+    && roleta.pequena.marcadas === 3,
+    'a célula ACESA é o tamanho do lote marcado — a posição não ilustra o valor, '
+    + 'ela É o valor', roleta.pequena);
+  checar(roleta.pequena.acesas === 1,
+    'e é UMA só: duas acesas é a pista fora de fase com o nó que a acende',
+    roleta.pequena.acesas);
+
+  // (C) E O TETO É O DO RECURSO QUANDO O ACERVO PASSA DELE (50 de 65).
+  roleta.grande = await pg.evaluate(async () => {
+    const songs = [];
+    for (let i = 0; i < 60; i++) {
+      songs.push({ id_music: 'g' + i, name: 'Coral ' + i, duration: '3:00',
+        has_instrumental_music: true, fileIdFull: null, fileIdPlayback: null });
+    }
+    collState['album-10'] = { songs };
+    albumCatalog = { categories: [],
+      albums: [{ id_album: 9, name: 'Natal — Coral', color: null },
+        { id_album: 10, name: 'Coletânea Grande', color: null }] };
+    await abrirSorteio();
+    __quantas(3); renderSorteio();
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    const r = __medirRoleta();
+    r.pool = sorteioPool().itens.length;
+    return r;
+  });
+  checar(roleta.grande.pool === 65 && roleta.grande.max === 50
+    && roleta.grande.celulas === 50 && roleta.grande.teto === 50
+    && roleta.grande.textos[roleta.grande.celulas - 1] === '50',
+    'com 65 resultados ela PARA no teto do recurso (50) — o outro lado do `min`, '
+    + 'que a fixture de cinco não alcança', roleta.grande);
+
+  // (D) ROLAR ATÉ UMA CÉLULA MARCA AQUELE TANTO, E GRAVA.
+  //
+  // A espera é a CARÊNCIA declarada do app (`QH_ASSENTA_MS`, lida dele mesmo), e
+  // ela existe para o dedo não comprometer um número a cada quadro do arremesso.
+  // O `scrollLeft` escrito aqui produz o MESMO evento `scroll` que o dedo
+  // produz — não há caminho de clique nem de teclado nesta roleta.
+  roleta.rolou = await pg.evaluate(async () => {
+    const qh = document.getElementById('sorteioQuantidade');
+    qh.scrollLeft = 6 * QH_ITEM;                 // a sétima célula
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    const r = __medirRoleta();
+    r.gravado = ((await AVDB.getState('sorteioPrefs')) || {}).quantos;
+    r.mesmoNo = document.getElementById('sorteioQuantidade') === qh;
+    return r;
+  });
+  checar(roleta.rolou.marcadas === 7 && roleta.rolou.vai === 7,
+    'rolar até a sétima célula MARCA sete linhas da lista — a roleta não é um '
+    + 'rótulo, é ela que semeia o lote', roleta.rolou);
+  checar(roleta.rolou.quantos === 7 && roleta.rolou.gravado === 7,
+    'e o assentamento GRAVA a escolha (`quantos`) — a metade que atravessa o '
+    + 'fechamento da folha', roleta.rolou);
+  checar(roleta.rolou.mesmoNo && roleta.rolou.acesa === '7',
+    'e o nó da roleta SOBREVIVE ao assentamento: ele chama a conta leve, nunca o '
+    + '`renderSorteio` — remontá-la no fim de um gesto devolveria a pista ao '
+    + 'começo debaixo do dedo', roleta.rolou);
+
+  // (E) E O CAMINHO DE VOLTA: marcar na mão MOVE a roleta.
+  //
+  // Pelo toque de verdade na linha, que é o que passa pelo
+  // `atualizarContaSorteio` — o único caminho que acerta a roleta sem remontar
+  // a folha.
+  roleta.mao = await pg.evaluate(async () => {
+    const antes = sorteioMarcadas.size;
+    [...document.querySelectorAll('#sorteioList .sorteio-res-btn:not(.vai)')]
+      .slice(0, 2).forEach((b) => b.click());
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    const r = __medirRoleta();
+    r.antes = antes;
+    return r;
+  });
+  checar(roleta.mao.antes === 7 && roleta.mao.marcadas === 9
+    && roleta.mao.acesa === '9' && roleta.mao.valor === 9,
+    'marcar duas linhas na mão LEVA a roleta ao 9 — o lote é a fonte única, e a '
+    + 'roleta o lê pelo mesmo lado que a lista', roleta.mao);
+
+  // (F) O RECUO DAS DUAS PONTAS É MEDIDO, e é ele que deixa o 1 e o teto
+  //     chegarem ao centro. Um `padding-inline: 50%` não serve (com
+  //     `box-sizing: border-box` a caixa de conteúdo zera e as células saem
+  //     transbordando por baixo do recuo), e um número escrito à mão vale para
+  //     UMA largura — ver a segunda metade disto no cenário estreito, logo
+  //     abaixo.
+  roleta.pontas = await pg.evaluate(async () => {
+    const qh = document.getElementById('sorteioQuantidade');
+    const centro = (el) => { const b = el.getBoundingClientRect(); return b.left + b.width / 2; };
+    const guardado = qh.scrollLeft;
+    qh.scrollLeft = 0;
+    const primeira = Math.round(centro(qh.children[0]) * 10) / 10;
+    qh.scrollLeft = qh.scrollWidth;
+    const ultima = Math.round(centro(qh.children[qh.children.length - 1]) * 10) / 10;
+    // DEVOLVE A PISTA e paga o assentamento: as duas escritas acima disparam
+    // `scroll`, e sair daqui com um assentamento em voo comprometeria o TETO
+    // como se fosse escolha do operador.
+    qh.scrollLeft = guardado;
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    const r = __medirRoleta();
+    r.primeira = primeira; r.ultima = ultima;
+    return r;
+  });
+  checar(roleta.pontas.vao > 0
+    && roleta.pontas.vao === Math.round((roleta.pontas.janela - roleta.pontas.passo) / 2)
+    && roleta.pontas.padEsq === roleta.pontas.vao + 'px'
+    && roleta.pontas.padDir === roleta.pontas.vao + 'px',
+    'o recuo das duas pontas é `(janela − célula) / 2`, LIDO da janela e escrito '
+    + 'nas duas bordas', roleta.pontas);
+  checar(Math.abs(roleta.pontas.primeira - roleta.pontas.eixo) <= 1.5
+    && Math.abs(roleta.pontas.ultima - roleta.pontas.eixo) <= 1.5,
+    'e com ele a PRIMEIRA e a ÚLTIMA célula chegam ao centro da janela — sem o '
+    + 'recuo, o 1 e o teto não podem ser escolhidos', roleta.pontas);
+
+  // (G) ELA NÃO LEVA A MARCA `rola`, E NÃO TEM BARRA.
+  //
+  // A sombra das bordas diz *"há conteúdo escondido deste lado"*, e aqui o
+  // conteúdo escondido É o recurso: a roleta é um SELETOR de valor, não um texto
+  // que continua fora da vista. Quem marca a célula escolhida é a máscara mais o
+  // preenchimento da centrada.
+  checar(roleta.pontas.rola === false,
+    'a roleta NÃO leva a marca `rola`: num seletor de valor a sombra das bordas '
+    + 'avisaria de um "conteúdo escondido" que é o próprio recurso', roleta.pontas);
+  checar(roleta.pontas.podeRolar && roleta.pontas.barra === 'none',
+    'e ela é um SCROLLER de verdade (a pista não cabe na janela) sem barra '
+    + 'nenhuma — no aparelho a barra sobreposta pintaria por cima dos números',
+    roleta.pontas);
+
+  // (H) OS RÓTULOS SUMIRAM E AS TRÊS PÍLULAS OCUPAM A LINHA INTEIRA.
+  //
+  // *"Remova os títulos 'quantas' e 'filtros', use a largura toda apenas para
+  // distribuir os botões seletores e a roleta da quantidade"*.
+  //
+  // SÃO DUAS CÉLULAS, E A REVERSÃO ESCOLHEU CADA UMA — as duas metades do
+  // pedido não se medem no mesmo lugar:
+  //
+  //  - **DA BORDA À BORDA se mede LARGO (430×1).** MEDIDO: tirando o `flex: 1`
+  //    das pílulas, numa tela ESTREITA elas encolhem para caber (o
+  //    `flex-shrink` é 1 por padrão) e a soma dá a fileira inteira de novo — a
+  //    asserção passa com e sem o conserto. A 430 a largura natural das três
+  //    somadas é menor que a fileira, e sem o `flex: 1` o `justify-content:
+  //    center` as junta no meio com sobra nas pontas.
+  //  - **A ALTURA ÚNICA se mede ESTREITO (320×1).** É a largura em que só o
+  //    TERCEIRO rótulo ("Só no aparelho") precisa de duas linhas — medido, o
+  //    texto dele mede 30,1px contra 15px dos irmãos —, e é essa desigualdade
+  //    que faz a igualdade das CAIXAS provar alguma coisa. A 320×1,25 os TRÊS
+  //    quebram (36,9px cada) e as caixas saem iguais sozinhas: ali a asserção
+  //    não mede nada.
+  //
+  // E O `align-items: stretch` DA FILEIRA É INERTE — MEDIDO POR REVERSÃO, e
+  // está dito aqui porque o comentário do CSS credita a peça errada: tirar a
+  // declaração não move UM pixel, porque `align-items` de um contêiner flex
+  // nasce `normal`, e `normal` **é** o esticamento. O que a asserção de baixo
+  // guarda é o dia em que alguém escrever `center` ou `flex-start` ali — medido
+  // também: com `center` ela reprova, e a pílula que quebrou fica mais alta que
+  // as irmãs na mesma faixa.
+  const chipsLargo = await pg.evaluate(() => window.__medirChips());
+  checar(chipsLargo.rotulos === 0 && chipsLargo.textoRotulo === false,
+    'os rótulos "Filtros" e "Quantas" saíram do DOM — a fileira usa a largura '
+    + 'toda, e cada pílula já diz por extenso o que ela filtra', chipsLargo);
+  checar(chipsLargo.quantos === 3
+    && Math.abs(chipsLargo.soma - chipsLargo.fileira) <= 1,
+    'e a 430 as TRÊS ocupam a fileira inteira, da borda à borda — a largura '
+    + 'natural delas é menor que ela, então quem a preenche é o `flex: 1`',
+    chipsLargo);
+
+  // E A FOLHA É REDESENHADA DEPOIS DE ESTREITAR, o que é PRECISÃO da fixture e
+  // não conveniência: MEDIDO, um `ResizeObserver` observa o **content box**, e o
+  // recuo da roleta é PADDING — estreitada a janela, o recuo de antes (182px de
+  // cada lado) já passa da largura nova, o content box fica em ZERO nas duas
+  // pontas e o observador CALA com o recuo velho (160px medidos, contra os 127
+  // da conta). O aparelho não alcança isto: ele é travado em retrato, e uma
+  // troca da fonte do sistema RECRIA a Activity — que recarrega a página. Quem
+  // alcança é uma janela de navegador sendo arrastada, e ali o desenho seguinte
+  // conserta.
+  await pg.setViewportSize({ width: 320, height: 900 });
+  await pg.evaluate(async () => {
+    // PAGA O ASSENTAMENTO ANTES DE REDESENHAR: estreitar move a pista (o recuo
+    // muda), e um `renderSorteio` com um assentamento em voo o deixaria cair
+    // sobre um nó já trocado.
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    renderSorteio();
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+  });
+  const chipsEstreito = await pg.evaluate(() => {
+    const r = window.__medirChips();
+    r.roleta = window.__medirRoleta();
+    return r;
+  });
+  checar(chipsEstreito.texto[2] > chipsEstreito.texto[0] + 4,
+    'a 320×1 só o TERCEIRO rótulo precisa de duas linhas — é esta desigualdade '
+    + 'que a asserção seguinte mede, e sem ela o `stretch` não tem o que igualar',
+    chipsEstreito.texto);
+  checar(chipsEstreito.caixas.length === 1,
+    'e as três pílulas ficam com UMA altura só, apesar de só uma delas ter '
+    + 'quebrado — o esticamento é o padrão do flex, e o que isto guarda é um '
+    + '`center` escrito ali um dia', chipsEstreito);
+  checar(chipsEstreito.corte.length === 0
+    && !chipsEstreito.reticencia.includes('ellipsis'),
+    'e nenhuma é RETICENCIADA nem cortada: reticências não dizem QUAL palavra foi '
+    + 'cortada, e "Só no aparelho" é a que se perde', chipsEstreito);
+  // E O RECUO SEGUE A LARGURA — a outra metade do "medido, não declarado": um
+  // número em CSS valeria para uma tela só.
+  checar(chipsEstreito.roleta.vao !== roleta.pontas.vao
+    && chipsEstreito.roleta.vao
+      === Math.round((chipsEstreito.roleta.janela - chipsEstreito.roleta.passo) / 2),
+    'e o recuo da roleta ACOMPANHA a janela: 320 e 430 dão recuos diferentes, os '
+    + 'dois pela mesma conta',
+    { estreito: chipsEstreito.roleta.vao, largo: roleta.pontas.vao });
+  await pg.setViewportSize({ width: 430, height: 900 });
+  await pg.evaluate(async () => {
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    renderSorteio();
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+  });
+
+  // (I) A DICA DO CAMPO É SÓ A PERGUNTA.
+  const dicaNova = await pg.evaluate(
+    () => document.querySelector('#sorteioList .lib-search').placeholder);
+  checar(dicaNova === 'Palavra tema',
+    'a dica do campo é EXATAMENTE "Palavra tema" — o parêntese que explicava o '
+    + 'vazio saiu, e quem responde "e se eu não escrever nada?" é a conta logo '
+    + 'abaixo, com um número', dicaNova);
+
+  // (J) E A LINHA DA CONTA É CENTRADA — medida por PIXEL, e não pelo
+  //     `text-align` computado: quem vê a linha vê a caixa do TEXTO, e o valor
+  //     certo com uma regra posterior o desmentindo dá a mesma leitura.
+  const cabeca = await pg.evaluate(() => {
+    const cab = document.querySelector('#sorteioList .sorteio-res-cab');
+    const cs = getComputedStyle(cab);
+    const b = cab.getBoundingClientRect();
+    const esq = b.left + parseFloat(cs.paddingLeft);
+    const dir = b.right - parseFloat(cs.paddingRight);
+    const rg = document.createRange(); rg.selectNodeContents(cab);
+    const t = rg.getBoundingClientRect();
+    return {
+      texto: cab.textContent.slice(0, 44),
+      eixoCaixa: Math.round(((esq + dir) / 2) * 10) / 10,
+      eixoTexto: Math.round(((t.left + t.right) / 2) * 10) / 10,
+      folga: Math.round(((dir - esq) - t.width) * 10) / 10,
+    };
+  });
+  checar(cabeca.folga >= 8,
+    'a linha da conta SOBRA na caixa dela — sem essa folga o centrado e o '
+    + 'alinhado à esquerda desenham o mesmo pixel, e a asserção seguinte seria '
+    + 'tautologia', cabeca);
+  checar(Math.abs(cabeca.eixoTexto - cabeca.eixoCaixa) <= 1,
+    'e ela é CENTRADA: é a única linha da folha que fala do CONJUNTO, e à '
+    + 'esquerda lia como a primeira linha da lista', cabeca);
+
+  // (K) O ASSENTAMENTO NÃO POUSA NUM NÓ TROCADO.
+  //
+  // Um elemento fora do documento responde `scrollLeft` ZERO, e o assentamento
+  // lê zero como *"o operador escolheu 1"* — e GRAVA. MEDIDO por reversão, com
+  // a roleta em 12: sem a guarda o lote volta a UMA e `sorteioPrefs.quantos: 1`
+  // vai para o IndexedDB, isto é, sobrevive à sessão. Nada erra e nada aparece
+  // na tela.
+  //
+  // A CÉLULA É O MECANISMO NU, e não uma corrida de relógio: o caminho do
+  // operador que o alcança (encostar na roleta e tocar num filtro dentro dos
+  // 140 ms) depende de um prazo cair entre dois quadros, e uma asserção assim
+  // reprova por carga do runner em vez de por defeito. Aqui a troca do nó é
+  // EXPLÍCITA e o assentamento é chamado à mão — é a mesma linha de código, sem
+  // o relógio no meio.
+  const orfao = await pg.evaluate(async () => {
+    const w = (ms) => new Promise((f) => setTimeout(f, ms));
+    const el = document.getElementById('sorteioQuantidade');
+    el.scrollLeft = 11 * el.children[0].getBoundingClientRect().width;
+    await w(350);
+    const antes = { quantos: sorteioPrefs.quantos, marcadas: sorteioMarcadas.size };
+    const velho = el;
+    renderSorteio();                    // é o que um toque em qualquer filtro faz
+    await w(20);
+    qhAssentou(velho);                  // o prazo pendurado, pousando no órfão
+    await w(60);
+    const g = await AVDB.getState('sorteioPrefs');
+    return {
+      antes,
+      conectado: velho.isConnected,
+      lidoNoOrfao: velho.scrollLeft,
+      depois: { quantos: sorteioPrefs.quantos, marcadas: sorteioMarcadas.size, gravado: (g || {}).quantos },
+    };
+  });
+  checar(!orfao.conectado && orfao.lidoNoOrfao === 0 && orfao.antes.quantos === 12,
+    'a PREMISSA do órfão: o nó saiu do documento e responde `scrollLeft` zero, '
+    + 'com a escolha do operador em 12. Sem ela a asserção seguinte não mede '
+    + 'nada', JSON.stringify(orfao));
+  checar(orfao.depois.quantos === 12 && orfao.depois.marcadas === 12
+    && orfao.depois.gravado === 12,
+    'e o assentamento num nó TROCADO não faz nada: sem a guarda ele lê o zero do '
+    + 'órfão como "escolheu 1", marca UMA e grava — no IndexedDB, sobrevivendo à '
+    + 'sessão', JSON.stringify(orfao));
 
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 3));
 } finally {

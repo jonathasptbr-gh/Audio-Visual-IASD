@@ -139,12 +139,19 @@
   // genérico ("Deus" casa em quase toda letra) montaria uma fila de centenas —
   // e, no pior caso, centenas de downloads antes de a primeira nota tocar.
   //
-  // O `1` É A PRIMEIRA DELAS desde a v1.8.61, e é o antigo "Tocar uma só" — daí
-  // o padrão ser 1: o padrão do recurso sempre foi sortear UMA, e agora esse
-  // estado é um número em vez de um eixo. `QUANTIDADE_FILA` é o teto que um
-  // registro LEGADO de playlist herda quando não trouxe quantidade válida; só a
-  // migração o usa.
-  const QUANTIDADES = [1, 3, 5, 10, 15, 20];
+  // O `1` É O PISO desde a v1.8.61, e é o antigo "Tocar uma só" — daí o padrão
+  // ser 1: o padrão do recurso sempre foi sortear UMA, e agora esse estado é um
+  // número em vez de um eixo.
+  //
+  // **A LISTA DE PRESETS SAIU NA v1.8.96** — eram `[1, 3, 5, 10, 15, 20]`, seis
+  // pílulas —, a pedido do operador: *"atualmente ele possui números fixos, mude
+  // isso. Faça uma roleta também, mas uma roleta horizontal, que vai de 1 a 50
+  // (ou o número máximo de resultados disponíveis)"*. O teto continua existindo
+  // pela razão de sempre; o que mudou é que ele deixou de ser uma lista de seis
+  // valores e virou uma FAIXA. `QUANTIDADE_FILA` é o que um registro LEGADO de
+  // playlist herda quando não trouxe quantidade válida; só a migração o usa.
+  const QUANTIDADE_MIN = 1;
+  const QUANTIDADE_MAX = 50;
   const QUANTIDADE_PADRAO = 1;
   const QUANTIDADE_FILA = 5;
 
@@ -164,12 +171,20 @@
   // parou de gravar `modo`. Se o campo continuasse sendo escrito, um `'uma'`
   // GRUDADO faria esta migração re-disparar a cada leitura — o operador escolhe
   // 10, fecha o app, e volta em 1 para sempre.
+  // CLAMPAR E NÃO RECUSAR (v1.8.96): com a faixa no lugar dos presets, "não
+  // está na lista" deixou de existir — o que pode chegar aqui é um número FORA
+  // dos limites (um `quantos: 200` gravado à mão, um 0 de um registro velho), e
+  // devolvê-lo ao padrão apagaria uma escolha que só precisava de teto.
+  function noLimite(q) {
+    if (!Number.isFinite(q) || q < QUANTIDADE_MIN) return QUANTIDADE_PADRAO;
+    return Math.min(QUANTIDADE_MAX, Math.round(q));
+  }
+
   function saneQuantos(p) {
     const q = p.quantos | 0;
-    const valido = QUANTIDADES.includes(q);
     if (p.modo === MODO_UMA) return 1;
-    if (p.modo === MODO_PLAYLIST) return valido && q > 1 ? q : QUANTIDADE_FILA;
-    return valido ? q : QUANTIDADE_PADRAO;
+    if (p.modo === MODO_PLAYLIST) return q > 1 ? noLimite(q) : QUANTIDADE_FILA;
+    return noLimite(q);
   }
 
   function sanear(f) {
@@ -403,7 +418,7 @@
     MOTIVO_VARIANTE, MOTIVO_TEMA, MOTIVO_FORA, MOTIVO_INFANTIL,
     INFANTIL_DE, INFANTIL_ATE,
     CASOU_NOME, CASOU_ALBUM, CASOU_LETRA, CASOU_SEM_TEMA,
-    QUANTIDADES, QUANTIDADE_PADRAO,
+    QUANTIDADE_MIN, QUANTIDADE_MAX, QUANTIDADE_PADRAO,
     sanear, temVariante, avaliarColecao, ondeCasa, avaliarFaixa,
     montarPool, embaralhar, baralhar, sortear,
   };

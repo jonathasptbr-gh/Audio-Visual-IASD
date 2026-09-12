@@ -67,7 +67,7 @@
 //
 //   a caixa marcada em TODAS (a v1.8.84 de volta)      → 7  (A, B, E)
 //   o `sorteioSemear` fora do toque da pílula          → 5  (A, D)
-//   o `acertarPilulasDeQuantidade` fora do toque       → 1  (B, o seletor)
+//   o seletor de quantidade fora do toque              → 1  (B, a roleta)
 //   sem o piso de uma marcada no `sorteioAlternar`     → 1  (B, o piso)
 //   sem o `sorteioConsumir`                            → 2  (C)
 //   o baralho refeito a cada passada                   → 13 (A, B, C, D, H)
@@ -146,24 +146,36 @@ try {
     await ensureLyricIndex();
   });
 
-  // ABRIR PEDINDO UMA QUANTIDADE, PELO CAMINHO DO OPERADOR: a pílula. Desde a
-  // v1.8.85 escrever `sorteioPrefs.quantos` não muda o lote — ele é a MARCA, e
-  // a pílula é o atalho que semeia. Um oráculo que escrevesse a preferência
-  // mediria o lote do bloco anterior.
+  // ABRIR PEDINDO UMA QUANTIDADE, PELO CAMINHO DO OPERADOR: a ROLETA (v1.8.96,
+  // no lugar das seis pílulas). Desde a v1.8.85 escrever `sorteioPrefs.quantos`
+  // não muda o lote — ele é a MARCA, e o seletor é o atalho que semeia. Um
+  // oráculo que escrevesse a preferência mediria o lote do bloco anterior.
+  //
+  // A ESPERA É MAIOR QUE O ASSENTAMENTO (140 ms): quem semeia é o `qhAssentou`,
+  // e ler antes dele mede o lote de antes do gesto.
   const abrir = async (quantos) => {
     await pg.evaluate(async (q) => {
       if (!sorteioPopupEl.classList.contains('open')) await abrirSorteio();
-      const pil = [...document.querySelectorAll('.sorteio-linha--quantas .misc-chip')]
-        .find((b) => Number(b.dataset.valor) === q);
-      if (!pil) throw new Error('não há pílula de quantidade ' + q);
-      pil.click();
+      const el = document.getElementById('sorteioQuantidade');
+      if (!el) throw new Error('não há roleta de quantidade');
+      if (q > el.children.length) throw new Error('a roleta não alcança ' + q);
+      // O RECUO DAS PONTAS É QUE TORNA A ROLETA ROLÁVEL, e ele é escrito pelo
+      // `ResizeObserver` — com poucos resultados a fileira é MAIS ESTREITA que
+      // a janela, e sem o recuo `scrollLeft` não sai de zero. Esperar por ele é
+      // esperar pelo layout, não por um prazo: sem isto o lote fica em 1 e as
+      // quatro asserções do bloco A reprovam por uma razão que não é a delas.
+      for (let i = 0; i < 60 && !(el.scrollWidth > el.clientWidth); i++) {
+        await new Promise((f) => requestAnimationFrame(f));
+      }
+      el.scrollLeft = (q - 1) * el.children[0].getBoundingClientRect().width;
     }, quantos);
-    await pg.waitForTimeout(250);
+    await pg.waitForTimeout(350);
   };
-  // QUAL PÍLULA DE QUANTIDADE ESTÁ ACESA (nenhuma é um estado legítimo).
+  // ONDE A ROLETA PAROU. Ao contrário das pílulas, ela SEMPRE tem uma posição —
+  // e é essa a diferença que o lote comprou: com duas marcadas nenhuma pílula
+  // acendia, e agora a roleta diz 2.
   const quantasAcesas = () => pg.evaluate(() =>
-    [...document.querySelectorAll('.sorteio-linha--quantas .misc-chip')]
-      .filter((b) => b.classList.contains('active')).map((b) => b.textContent));
+    [...document.querySelectorAll('#sorteioQuantidade .qh-item--sel')].map((b) => b.textContent));
   // O QUE SE MEDE: o nome de cada linha, se ela está marcada, se está no lote e
   // a posição que ela anuncia. As quatro, porque um conserto que acertasse a
   // ordem e errasse a marca passaria em qualquer uma sozinha.
@@ -201,8 +213,8 @@ try {
     'A · e cada uma do lote diz a POSIÇÃO em que vai tocar — com "Quantas = 10" '
     + 'dez linhas cheias não contam em que ordem elas saem', a.map((l) => l.pos));
   checar((await quantasAcesas()).join(',') === '3',
-    'A · e a pílula de quantidade acesa é a do TAMANHO DO LOTE — ela deixou de '
-    + 'ser o estado e virou um atalho que semeia', await quantasAcesas());
+    'A · e a roleta de quantidade para no TAMANHO DO LOTE — ela deixou de ser o '
+    + 'estado e virou um atalho que semeia', await quantasAcesas());
   // A PARTIÇÃO DO BARALHO É OBSERVÁVEL: o que está no aparelho vem primeiro, e
   // por isso o lote toca na hora em vez de esperar download. É a propriedade que
   // faz a ordem da lista significar alguma coisa.
@@ -224,9 +236,10 @@ try {
     'B · desmarcar TIRA do lote, e não traz a seguinte — a v1.8.84 trazia, '
     + 'porque lá quem mandava era o seletor; hoje a marca É o número',
     b.filter((l) => l.marcada).map((l) => l.nome));
-  checar((await quantasAcesas()).length === 0,
-    'B · e NENHUMA pílula de quantidade fica acesa com duas marcadas — 2 não é '
-    + 'preset, e é assim que a folha diz que a escolha agora é manual',
+  checar((await quantasAcesas()).join(',') === '2',
+    'B · e a ROLETA vai para 2 (v1.8.96, revogando o "nenhuma acesa"): com as '
+    + 'seis pílulas o 2 não era preset nenhum e a folha ficava sem indicar nada — '
+    + 'a faixa alcança todo inteiro, então o seletor sempre diz o tamanho do lote',
     await quantasAcesas());
   checar(b.map((l) => l.nome).join(',') === a.map((l) => l.nome).join(','),
     'B · e nenhuma linha TROCA DE LUGAR: o que muda é a marca, não a ordem — '
@@ -242,8 +255,8 @@ try {
   const b2 = await ler();
   checar(b2.filter((l) => l.marcada).length === 3
     && (await quantasAcesas()).join(',') === '3',
-    'B · marcar uma fora do topo devolve o número a três, e a pílula acende de '
-    + 'novo — o seletor segue a marca nos DOIS sentidos',
+    'B · marcar uma fora do topo devolve o número a três, e a roleta volta ao 3 — '
+    + 'o seletor segue a marca nos DOIS sentidos',
     { marcadas: b2.filter((l) => l.marcada).map((l) => l.nome), acesa: await quantasAcesas() });
   checar(b2.map((l) => l.nome).join(',') === a.map((l) => l.nome).join(',')
     && b2.find((l) => l.nome === laDeBaixo).pos === '3',
@@ -252,7 +265,7 @@ try {
     + 'existe para não fazer', { ordem: b2.map((l) => l.nome), pos: b2.map((l) => l.pos) });
 
   // O PISO: a última marcada não se desmarca.
-  await pg.evaluate(() => { sorteioMarcadas = new Set([...sorteioMarcadas].slice(0, 1)); atualizarContaSorteio(); acertarPilulasDeQuantidade(); });
+  await pg.evaluate(() => { sorteioMarcadas = new Set([...sorteioMarcadas].slice(0, 1)); atualizarContaSorteio(); });
   await pg.waitForTimeout(120);
   const soUma = (await ler()).find((l) => l.marcada);
   await tocar(soUma.nome);
