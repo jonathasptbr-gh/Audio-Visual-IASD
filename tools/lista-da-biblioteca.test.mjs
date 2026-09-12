@@ -153,7 +153,7 @@ try {
   // espera, todo hit-test e toda captura deste arquivo medem o `#splash`.
   await esperarCortina(pg);
   await pg.waitForFunction(() => (
-    window.AVDB && window.AVStream && window.createStage && window.AVHinario
+    window.AVDB && window.createStage && window.AVHinario
       && typeof window.__avBack === 'function'
       && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled)
       && !!document.querySelector('.lib-bar')

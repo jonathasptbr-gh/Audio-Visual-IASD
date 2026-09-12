@@ -2139,9 +2139,9 @@
              telão: três versões seguidas tentaram consertar "o vídeo para
              quando o app é minimizado" por hipótese e as três erraram, porque
              ninguém vê o que acontece com a projeção enquanto o celular está
-             fora da frente. Ele junta identificação do aparelho, suporte a
-             transmissão direta, a última extração do YouTube, o estado da
-             transmissão e a linha do tempo dos dois processos.
+             fora da frente. Ele junta identificação do aparelho, a última
+             extração do YouTube, o estado da transmissão para navegador e a
+             linha do tempo dos dois processos.
 
              O VISOR SAIU na v5.207, e o que ele custava era ESPAÇO SEMPRE
              VISÍVEL. A caixa `<pre>` tinha 240px de altura máxima no meio de
@@ -2233,7 +2233,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.8.79</span>
+            <span id="appVersion" class="app-version">v1.8.80</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
@@ -2823,10 +2823,6 @@
        qualquer outro script consulte essas guardas. No navegador é no-op. -->
   <script src="../shared/native.js"></script>
   <script src="../shared/db.js"></script>
-  <!-- ANTES do stage.js: é ele quem consulta `AVStream` ao carregar uma mídia
-       de transmissão direta, e um script carregado depois chegaria tarde para
-       o primeiro `load` de uma sessão. -->
-  <script src="../shared/mse.js"></script>
   <script src="../shared/stage.js"></script>
   <script src="louvorja.js"></script>
   <script src="bible.js"></script>

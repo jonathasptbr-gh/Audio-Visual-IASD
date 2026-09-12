@@ -253,9 +253,6 @@ jobs:
           # Chromium: a segunda cópia é a que ninguém relê, e foi ela que passou
           # versões descrevendo o RECADO (removido na v1.2.17) como recurso
           # vivo.
-          node tools/sidx.test.mjs
-          node tools/degrau-de-banda.test.mjs
-          node tools/degrau-e-prazo.test.mjs
           node tools/webview-range.test.mjs
           node tools/contexto-seguro.test.mjs
           node tools/sombra.test.mjs
@@ -523,13 +520,9 @@ jobs:
           rodar tools/linha-da-preparacao.test.mjs
           rodar tools/miniaturas-estaveis.test.mjs
           rodar tools/biblia-leitura-cabe.test.mjs
-          rodar tools/mse.test.mjs
           rodar tools/stage-fade.test.mjs
           rodar tools/aba-sem-estalo.test.mjs
           rodar tools/link-perde-a-vez.test.mjs
-          rodar tools/espera-do-stream.test.mjs
-          rodar tools/fome-que-desiste.test.mjs
-          rodar tools/stream-so-audio.test.mjs
           rodar tools/rotina-cede-a-vez.test.mjs
           rodar tools/db-gc.test.mjs
           rodar tools/db-estado.test.mjs

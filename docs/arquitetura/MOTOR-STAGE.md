@@ -10,10 +10,11 @@ arquivos do OPFS (`opfsPath` — resolvidos via `AVDB.opfsGetFile`, com re-checa
 de `loadSeq` após o await) e itens de URL direta (`blob=null, url=string`).
 Itens `kind='youtube'` (link sem bytes) **não chegam ao stage**: quem os
 resolve é o Controle, ANTES do `load` (`resolverLinkYoutube`), e o Display
-esvazia o palco se um chegar. O vídeo do YouTube que de fato toca — baixado ou
-por transmissão direta (`shared/mse.js`) — entra como `<video>` COMUM, pelo
-mesmo caminho de toda mídia local. (Até a v5.212 havia um iframe no
-`display.js`; ele saiu com a IFrame Player API.)
+esvazia o palco se um chegar. O vídeo do YouTube que de fato toca é o ARQUIVO
+baixado, e ele entra como `<video>` COMUM, pelo mesmo caminho de toda mídia
+local. (Até a v5.212 havia um iframe no `display.js`; ele saiu com a IFrame
+Player API. A transmissão direta, o outro caminho que já existiu aqui, saiu do
+`stage.js` na v1.8.80 — hoje **não há segundo caminho**.)
 
 ### Modelo de camadas: wallpaper é uma cortina por cima de tudo
 

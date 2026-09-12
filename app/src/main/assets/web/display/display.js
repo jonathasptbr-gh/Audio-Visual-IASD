@@ -167,12 +167,11 @@ const stage = createStage({
   // interrompido.
   forceMuted: TELA,
   onTime: sendStatus,
-  // O TELÃO NÃO RECUPERA SOZINHO uma transmissão que falhou, e não é omissão:
-  // ele não tem a ponte (`host = null`, ver NativeBridge) para pedir um
-  // manifesto novo, e duas recuperações independentes para a mesma cena
-  // brigariam entre si. Quem conserta é o Controle, cuja preview toca o MESMO
-  // registro e vê o mesmo erro no mesmo instante — e que reenvia a cena
-  // arrumada pelo caminho de sempre.
+  // O TELÃO NÃO CONSERTA UMA CENA QUEBRADA, e não é omissão: ele não tem a
+  // ponte (`host = null`, ver NativeBridge) para buscar nada, e duas correções
+  // independentes para a mesma cena brigariam entre si. Quem conserta é o
+  // Controle, cuja preview toca o MESMO registro e vê o mesmo erro no mesmo
+  // instante — e que reenvia a cena arrumada pelo caminho de sempre.
   // O ERRO DE MÍDIA DO TELÃO não tinha para onde ir. A PREVIEW já mandava o
   // dela ao Registro (`ERRO DE MÍDIA na preview`); aqui ele terminava num
   // `console.warn` DENTRO de uma Presentation — uma janela sem console, num
@@ -183,7 +182,6 @@ const stage = createStage({
     const cod = (el && el.error && el.error.code) || '?';
     diag('ERRO DE MÍDIA no telão (código ' + cod + ')', { t2: Math.round(videoEl.currentTime || 0) });
   },
-  onStreamErro: (rec, porque) => { diag('transmissão falhou no telão: ' + porque); },
   onBlocked: () => {
     // A guarda de nativo fica AQUI, e não só dentro de beginAudioRecovery():
     // no APK não há política de gesto (ver #startBtn), então um NotAllowedError
@@ -1295,10 +1293,7 @@ document.addEventListener('keydown', onUserGesture);
 //
 // A IFrame Player API saiu (v5.212), com `YT.Player`/`ytHandle`/`ytStatus` e
 // ~540 linhas de máquina de estados. Quem toca YouTube é o caminho próprio: o
-// arquivo BAIXADO (`ytFetch`), que chega ao palco como mídia comum. A
-// transmissão direta que existia ao lado dele saiu na v1.7.7, e com ela o
-// produtor de manifesto — o `mse.js` fica pela LEITURA (um registro gravado
-// antes daquele lote ainda pode carregar um `stream` no IndexedDB).
+// arquivo BAIXADO (`ytFetch`), que chega ao palco como mídia comum.
 //
 // POR QUE SAIU: `addJavascriptInterface` injeta em TODAS as frames, iframes de
 // outra origem inclusive. No telão a ponte nasce `host = null` (invariante 9),
@@ -1731,8 +1726,8 @@ AVDB.onCommand(async (cmd) => {
     if (textActive && (!rec || rec.kind !== 'audio')) hideText(false);
     // O ITEM DE LINK NÃO TOCA MAIS AQUI (v5.212).
     //
-    // Quem o resolve — por transmissão direta ou download — é o Controle,
-    // ANTES de emitir o `load` (`resolverLinkYoutube`). Um `kind: 'youtube'`
+    // Quem o resolve — por DOWNLOAD — é o Controle, ANTES de emitir o `load`
+    // (`resolverLinkYoutube`). Um `kind: 'youtube'`
     // que chegue assim mesmo é um registro que este documento não sabe
     // desenhar: bundle antigo do outro lado, ou um item guardado antes desta
     // versão. A resposta honesta é esvaziar o palco — o telão volta ao

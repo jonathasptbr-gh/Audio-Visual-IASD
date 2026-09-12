@@ -122,6 +122,9 @@ const docs = [];
     ['EspelhoMidia.kt', 'idem — hoje são o EspelhoMidiaCache e o EspelhoMidiaCanal'],
     // A folha do aro de espera do palco, removida na v1.4.8.
     ['stage.css', 'saiu na v1.4.8 com o aro de espera do palco'],
+    // O player DASH da TRANSMISSÃO DIRETA, removido na v1.8.80 — o capítulo do
+    // segundo plano explica a AUSÊNCIA, que é o que o nome sustenta lá.
+    ['mse.js', 'o player da transmissão direta saiu na v1.8.80'],
     // Oráculos que saíram com o recurso que mediam.
     ['cifra-teclado.test.mjs', 'saiu na v1.3.3 com a busca à mão da cifra'],
     ['clone-de-outro-celular.test.mjs', 'saiu na v1.8.16 com o clone pela rede'],

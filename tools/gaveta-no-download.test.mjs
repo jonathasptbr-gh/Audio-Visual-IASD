@@ -115,7 +115,7 @@ try {
   // linha TOCA a música e não abre gaveta nenhuma — o oráculo mediria um
   // container vazio e concluiria o que quisesse.
   await pg.waitForFunction(() => (
-    window.AVDB && window.AVStream && window.createStage
+    window.AVDB && window.createStage
       && window.Louvorja && window.Bible && window.AVSerie && window.AVSorteio
       && typeof window.__avBack === 'function'
       && (!!document.querySelector('#playlist li') || document.getElementById('plBtn').disabled)

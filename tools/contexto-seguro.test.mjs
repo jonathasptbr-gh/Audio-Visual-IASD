@@ -27,7 +27,7 @@
 // ## Os TRÊS alvos, e por que não é só `espelho/`
 //
 // A tela roda o PRÓPRIO `display/index.html`, que carrega `../shared/native.js`,
-// `../shared/db.js`, `../shared/mse.js` e `../shared/stage.js` — e o
+// `../shared/db.js` e `../shared/stage.js` — e o
 // `EspelhoServidor` serve `/shared/` a ela (`PREFIXOS_BUNDLE`). Varrer só
 // `espelho/` deixaria de fora a maior parte do que de fato roda em `http://`.
 //
@@ -49,13 +49,12 @@ import { checar, falhas } from './checar.mjs';
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 // TRÊS alvos, e o terceiro é o que faltava. A tela da rede roda o PRÓPRIO
 // /display/ em http://, então a disciplina de contexto seguro vale lá — mas o
-// `display/index.html` carrega `../shared/native.js`, `../shared/db.js`,
-// `../shared/mse.js` e `../shared/stage.js`, e o `EspelhoServidor` serve
-// `/shared/` às telas (`PREFIXOS_BUNDLE`). Varrer só `display/` e `espelho/`
-// deixava metade do que roda em `http://` fora do alcance: o próximo
-// `crypto.subtle` dentro de `shared/mse.js` passaria batido, e o `TypeError`
-// mataria o script inteiro numa tela da LAN — wallpaper na parede, culto
-// rodando, nada no console de ninguém.
+// `display/index.html` carrega `../shared/native.js`, `../shared/db.js` e
+// `../shared/stage.js`, e o `EspelhoServidor` serve `/shared/` às telas
+// (`PREFIXOS_BUNDLE`). Varrer só `display/` e `espelho/` deixava metade do que
+// roda em `http://` fora do alcance: o próximo `crypto.subtle` dentro de
+// `shared/` passaria batido, e o `TypeError` mataria o script inteiro numa tela
+// da LAN — wallpaper na parede, culto rodando, nada no console de ninguém.
 const ALVOS = [
   path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'espelho'),
   path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'display'),

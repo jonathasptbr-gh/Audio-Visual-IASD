@@ -334,12 +334,11 @@ try {
   // é o nome do item ou renomeação que temos já no app"*.
   //
   // A espera tem dois donos em sequência e cada um escreve a legenda: o toque
-  // (`cederOPalco`, com o nome do ITEM) e a carga do stream (o `onEspera`, com o
-  // nome do REGISTRO recém-criado). O registro nascia com `man.name || r.name`
-  // — o título que o shell extraiu do YouTube VENCENDO o nome que o app já
-  // tinha —, então na segunda metade a legenda trocava sozinha. No caminho que
-  // mais importa, um item de link do Cronograma, o que era apagado é o nome que
-  // o OPERADOR deu.
+  // (`cederOPalco`, com o nome do ITEM) e o download (`ytBaixarNativo`, com o
+  // nome do REGISTRO recém-criado). O registro nascia com o título que o shell
+  // extraiu do YouTube VENCENDO o nome que o app já tinha, então na segunda
+  // metade a legenda trocava sozinha. No caminho que mais importa, um item de
+  // link do Cronograma, o que era apagado é o nome que o OPERADOR deu.
   //
   // A MEDIDA É A SEQUÊNCIA DE NOMES, não o estado final. Um teste do fim passa
   // nas duas versões enquanto o segundo dono não tiver escrito ainda, e passa
@@ -363,19 +362,16 @@ try {
       url: 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDE=',
     };
     // O ESPIÃO: `previewBusy` é uma declaração de topo, logo uma propriedade do
-    // objeto global — e é por ela que `cederOPalco` e o `onEspera` resolvem a
-    // chamada. Trocá-la aqui alcança os dois sem tocar no código deles.
+    // objeto global — e é por ela que `cederOPalco` e o cartão do download
+    // resolvem a chamada. Trocá-la aqui alcança os dois sem tocar no código
+    // deles.
     const vistos = [];
     const orig = window.previewBusy;
     window.previewBusy = (acao, nome, cancelar) => { vistos.push(nome); return orig(acao, nome, cancelar); };
     // O NOME DO REGISTRO é colhido NO PONTO DA DECISÃO, e não relido do banco
-    // depois: o `recuperarStream` troca o registro quando as URLs de mentira
-    // falham, e o coletor apaga o que ficou sem lista. Procurá-lo no fim mede o
-    // desfecho do arnês, não a regra.
-    // O ESPIÃO DO REGISTRO É O DO DOWNLOAD (v1.7.7): era o `addStreamMedia`, e
-    // a transmissão que o chamava saiu do app. A regra medida não mudou — o
-    // nome que o app já tem VENCE o título que o shell extraiu —, mudou o
-    // ponto em que ela é aplicada.
+    // depois: o coletor apaga o que ficou sem lista, e procurá-lo no fim mede o
+    // desfecho do arnês, não a regra. O espião é o `AVDB.addMedia` do download,
+    // que é por onde o registro do link resolvido nasce.
     const batizados = [];
     const origAdd = AVDB.addMedia;
     AVDB.addMedia = (blob, meta) => { batizados.push(meta && meta.name); return origAdd(blob, meta); };

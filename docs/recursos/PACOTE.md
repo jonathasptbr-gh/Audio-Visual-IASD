@@ -243,11 +243,13 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   lista VAZIA, que o `controle.js` lê como *"a pasta sumiu do aparelho"*. Os
   arquivos delas saem junto (`AVPacote.pastasDoAparelho`), e o corte é por
   SEGMENTO de caminho, nunca por prefixo de texto.
-- **O `stream` de um registro é RETIRADO na exportação.** Ele é o manifesto de
-  uma transmissão direta: URLs do googlevideo que expiram em horas e tokens de
-  um `StreamProxy` que só existe na origem. Sem o campo, o item é o LINK do
-  YouTube que ele sempre foi — resolvido no primeiro toque, pelo caminho que já
-  existe.
+- **O `stream` de um registro é RETIRADO na exportação.** O app não escreve mais
+  esse campo (a transmissão direta saiu na v1.8.80), mas um registro gravado
+  antes dela ainda o carrega no aparelho: um manifesto de URLs do googlevideo já
+  expiradas, com tokens de um `StreamProxy` que só existia na origem. **Esta é a
+  única pergunta que o web ainda faz pelo campo**, e é aqui que ele morre — sem
+  ele, o item é o LINK do YouTube que ele sempre foi, resolvido no primeiro
+  toque.
 - **O LEITOR NUNCA MATERIALIZA O ARQUIVO** (v1.7.9). Ele lê por JANELAS
   (`pacoteFonteDaUrl` → `/saf/<token>?r=<ini>-<fim>`), e são DUAS operações
   porque elas custam coisas diferentes: `bytes()` para os CABEÇALHOS (dezenas

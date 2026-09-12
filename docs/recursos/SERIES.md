@@ -206,10 +206,10 @@ ser diagnosticável.
   extrator (`ex.getPage`), nunca de `getMoreItems(service, …)`, que monta um
   extrator novo por dentro e nasceria sem o `forceLocalization`.
 - **UM EPISÓDIO É UM VÍDEO DO YOUTUBE**, não uma faixa de hinário: `openSongMenu`
-  desvia para `openYtMenu`, e com isso ganha de graça a transmissão direta no
-  "Tocar agora" e o download só nos destinos que GUARDAM. `semSoAudio` tira o
-  seletor Vídeo × Só áudio (um testemunho em vídeo não tem versão de áudio que
-  faça sentido projetar).
+  desvia para `openYtMenu`, e com isso ganha de graça o caminho do YouTube
+  inteiro — o download a pedido, nunca por abrir o álbum (~300 MB por episódio).
+  `semSoAudio` tira o seletor Vídeo × Só áudio (um testemunho em vídeo não tem
+  versão de áudio que faça sentido projetar).
 - **E A LINHA TAMBÉM É A DO VÍDEO.** Quem decide é o TIPO da coleção
   (`tipoDaColecao`, com `temLetra` e `ehLink`), não um `if` por recurso: a gaveta
   que numa música abre a letra abre aqui a MINIATURA, a duração e o estado no
