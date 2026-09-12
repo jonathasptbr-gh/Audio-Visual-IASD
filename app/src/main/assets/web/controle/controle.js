@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.85';
+const WEB_VERSION = '1.8.86';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21779,10 +21779,16 @@ let sorteioCancelado = false;
 // que a lista faz sairia sempre falsa, sem erro nenhum. A chave é
 // `coleção|faixa`, resolvida contra o pool ATUAL na hora de desenhar.
 //
-// As TRÊS peças, e cada uma responde a uma pergunta diferente:
+// AS TRÊS peças, e cada uma responde a uma pergunta diferente. A terceira
+// TROCOU na v1.8.86: era a `sorteioBaralhoChave`, a IMPRESSÃO do pool que
+// decidia quando reembaralhar, e essa decisão deixou de existir (ver
+// `sorteioLista`); no lugar dela entrou a memória do que já saiu, que o mesmo
+// lote passou a exigir — sem ela um lote guardado VOLTA para a lista na passada
+// seguinte, porque guardar não tira a música do acervo e o baralho, que agora é
+// MANTIDO, a lê como quem acabou de entrar no pool.
 let sorteioBaralho = [];          // a ORDEM sorteada, em chaves
-let sorteioBaralhoChave = '';     // a IMPRESSÃO do pool que a produziu
 let sorteioMarcadas = new Set();  // O LOTE — o que está marcado AGORA
+let sorteioUsadas = new Set();    // o que JÁ SAIU nesta abertura
 
 // ===== A MARCA É O LOTE, E O LOTE É "QUANTAS" (v1.8.85) =====
 //
@@ -21840,43 +21846,79 @@ function chaveDaFaixa(i) {
 }
 
 /**
- * A IMPRESSÃO DO POOL — o que decide se o baralho continua valendo.
+ * ===== O FILTRO CORTA; ELE NÃO SORTEIA DE NOVO (v1.8.86) =====
  *
- * Filtros + tamanho + quantos estão no aparelho. Não é o conjunto de chaves: a
- * folha remonta o pool a cada tecla digitada, e montar uma string de 1.100
- * chaves por tecla é o custo que o `debounce` do campo existe para não pagar.
- * O que ela precisa pegar é a TROCA DE POOL, e as três mudam juntas com ela.
- */
-function sorteioImpressao(pool, f) {
-  return JSON.stringify(f) + '·' + pool.itens.length + '·' + pool.noAparelho;
-}
-
-/**
- * Reembaralha SE o pool mudou, e devolve os itens do baralho na ordem dele.
+ * Pedido do operador: *"ajuste a atualização da lista e opções, para que não
+ * re-sorteie a lista em qualquer interação com os filtros, eles apenas vão
+ * cortando as opções do 'fim da lista'. O sorteio só acontece após realmente
+ * 'usar' os itens do topo, no caso, apenas após tocar ou salvar em algum lugar
+ * como cronograma, favoritos ou etc."*
  *
- * O baralho ENCOLHE quando um lote é consumido (`sorteioConsumir`) sem que o
- * pool mude — é assim que *"a lista marcada é removida e os itens de baixo são
- * levados para cima"* acontece. Por isso a impressão não conta o baralho: ela
- * pergunta pelo POOL, e o pool não muda quando alguém toca em "Tocar agora".
+ * **A v1.8.84 REEMBARALHAVA A CADA TROCA DE POOL** — uma pílula de filtro, uma
+ * tecla no campo do tema —, e o argumento de lá era o oposto deste: *"mexer num
+ * filtro é pedir outro sorteio"*. Não é: mexer num filtro é dizer o que NÃO
+ * serve, e o que sobrou continua servindo na mesma ordem. O preço da versão
+ * anterior é o que o operador leu na tela — ele lê cinco nomes, tira o hinário
+ * da conta, e recebe cinco OUTROS nomes, como se o filtro tivesse rejeitado os
+ * que ele estava considerando.
+ *
+ * O BARALHO PASSOU A SER MANTIDO, e são duas operações, nesta ordem:
+ *
+ *   1. **quem saiu do pool sai do baralho** — e a ORDEM do que fica não muda,
+ *      que é o *"apenas vão cortando as opções"* do pedido;
+ *   2. **quem entrou vai para o FIM**, embaralhado entre si. Afrouxar um filtro
+ *      não pode empurrar para o topo o que o operador ainda não leu.
+ *
+ * **O EMBARALHAMENTO INICIAL É ESTE MESMO CAMINHO**: na primeira passada o
+ * baralho está vazio, todo o pool é "quem entrou", e a lista inteira sai
+ * embaralhada. Não há dois caminhos, e é por isso que não há como um deles
+ * envelhecer sozinho — quem zera o baralho (`abrirSorteio`) pede um sorteio
+ * novo por construção.
+ *
+ * **A IMPRESSÃO DO POOL SAIU JUNTO** (`sorteioImpressao`): ela existia para
+ * responder *"o pool mudou?"*, e a resposta deixou de decidir alguma coisa. O
+ * custo dela era o que a justificava (uma string por tecla em vez de 1.100
+ * chaves); hoje a manutenção é feita sobre o `Set` que a passada já monta.
  */
 function sorteioLista(pool, f) {
-  const impressao = sorteioImpressao(pool, f);
-  if (impressao !== sorteioBaralhoChave) {
-    // O BARALHO NOVO CHEGA COM O LOTE SEMEADO, e o tamanho vem do lote ANTERIOR
-    // — nunca de `f.quantos`. É o que faz uma marca manual sobreviver a um
-    // filtro: marcadas quatro e ligado "Só no aparelho", o pool é outro e as
-    // chaves antigas não existem, mas o QUATRO é a escolha viva do operador.
-    // Vazio (a primeira abertura), quem responde é a pílula guardada.
-    const n = sorteioMarcadas.size || f.quantos;
-    sorteioBaralhoChave = impressao;
-    sorteioBaralho = AVSorteio.baralhar(pool.itens).map(chaveDaFaixa);
-    sorteioSemear(n);
-  }
   const porChave = new Map();
   for (const i of pool.itens) porChave.set(chaveDaFaixa(i), i);
+  // O ALVO É LIDO ANTES DA PODA. Ele é o número que o operador escolheu — pela
+  // pílula ou na mão —, e um filtro que leve embora uma marcada não pode
+  // encolher a escolha dele em silêncio.
+  const alvo = sorteioMarcadas.size || f.quantos;
+  sorteioBaralho = sorteioBaralho.filter((k) => porChave.has(k));
+  const noBaralho = new Set(sorteioBaralho);
+  const novos = pool.itens.filter((i) => {
+    const k = chaveDaFaixa(i);
+    return !noBaralho.has(k) && !sorteioUsadas.has(k);
+  });
+  if (novos.length) {
+    sorteioBaralho = sorteioBaralho.concat(AVSorteio.baralhar(novos).map(chaveDaFaixa));
+  }
+  sorteioAjustarLote(alvo);
   const out = [];
   for (const k of sorteioBaralho) { const i = porChave.get(k); if (i) out.push(i); }
   return out;
+}
+
+/**
+ * O LOTE DEPOIS DE UMA PODA: mantém as marcas que SOBREVIVERAM e completa pelo
+ * topo até o alvo.
+ *
+ * **MANTER, e não semear de novo, é o que preserva a escolha manual.** Marcada
+ * a linha 9 e tocado um filtro que não a atinge, semear devolveria a marca ao
+ * topo — desfazendo na mão do operador o que ele acabou de fazer, por um toque
+ * que não tinha nada com aquilo. `sorteioSemear` continua existindo para quem
+ * de fato pede um lote novo: a pílula de quantidade e o consumo.
+ */
+function sorteioAjustarLote(alvo) {
+  const vivas = new Set(sorteioBaralho.filter((k) => sorteioMarcadas.has(k)));
+  for (const k of sorteioBaralho) {
+    if (vivas.size >= alvo) break;
+    vivas.add(k);
+  }
+  sorteioMarcadas = vivas;
 }
 
 /**
@@ -21918,6 +21960,12 @@ function sorteioAlternar(chave) {
 function sorteioConsumir(escolhidos) {
   if (!escolhidos || !escolhidos.length) return;
   const usadas = new Set(escolhidos.map(chaveDaFaixa));
+  // ELAS FICAM MARCADAS COMO USADAS ATÉ A PRÓXIMA ABERTURA. Tirar do baralho
+  // não basta desde a v1.8.86: guardar uma música não a tira do acervo, então
+  // na passada seguinte a manutenção do baralho a veria como quem acabou de
+  // entrar no pool e a devolveria ao fim da lista — o lote reaparecendo depois
+  // de ter sido usado, que é o oposto do que o operador pediu.
+  for (const k of usadas) sorteioUsadas.add(k);
   sorteioBaralho = sorteioBaralho.filter((k) => !usadas.has(k));
   // E O PRÓXIMO LOTE JÁ NASCE MARCADO, do MESMO tamanho — *"os itens de baixo
   // são levados para cima, criando a próxima lista selecionada para playlist"*.
@@ -22017,7 +22065,8 @@ async function abrirSorteio() {
   // ordem só sobrevive DENTRO de uma abertura, que é onde o operador está lendo
   // a lista e decidindo sobre ela.
   sorteioMarcadas = new Set();
-  sorteioBaralhoChave = '';
+  sorteioBaralho = [];
+  sorteioUsadas = new Set();
   sorteioPopupEl.classList.add('open');
   renderSorteio();
   // O índice de letras é o que faz a palavra tema alcançar o que não está no
