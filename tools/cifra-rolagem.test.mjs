@@ -282,143 +282,149 @@ try {
   // *"não mude o comportamento da escala, o comportamento estava correto, o
   // nome auto que não representava uma comparação de velocidade"*.
   //
-  // O rótulo sai do BOTÃO DE VERDADE, e a escada é lida NA GAVETA que o toque
-  // abre: ler `CIFRA_VELOCIDADES` provaria que a constante concorda consigo
-  // mesma, e o que o operador lê é o `textContent` de quem está na tela.
+  // O rótulo sai do BOTÃO DE VERDADE, percorrendo a escada: ler
+  // `CIFRA_VELOCIDADES` provaria que a constante concorda consigo mesma, e o
+  // que o operador lê é o `textContent` de quem está na tela.
   //
-  // ===== A GAVETA SUBSTITUIU O CARROSSEL (v1.7.4) =====
+  // ===== A GAVETA DE BOTÕES VIROU UM SLIDER QUE DESLIZA (v1.8.80) =====
   //
-  // Pedido do operador: *"faça com que o botão de velocidade abra uma gaveta,
-  // substituindo seus botões vizinhos, pela lista de botões com as variações de
-  // velocidade, dessa forma, permitindo escolher as velocidades sem passar por
-  // cada uma delas em carrocel"*.
+  // Pedido do operador: *"faça uma animação horizontal para essa gaveta.
+  // Mantenha o botão de play e o botão de seletor de velocidade sempre visível,
+  // agora a gaveta vai surgir a direita desses dois itens. E mude a lógica, não
+  // mais uma gaveta com botões, mas um slider regulável, quando aberto, o botão
+  // que abriu ele se torna um x para fechar"*.
   //
-  // O que este bloco media era o CICLO fechando em cinco toques; o que ele mede
-  // agora é a LISTA — e as promessas que sobrevivem à troca de mecanismo são as
-  // mesmas, porque nenhuma delas era sobre o ciclo:
+  // O QUE SOBREVIVE À TROCA DE MECANISMO — e nenhuma destas era sobre os botões:
   //  - o SENTINELA se chama `1×`;
-  //  - a escada é a mesma, na mesma ordem monótona, com CINCO degraus à vista de
-  //    uma vez (um degrau inalcançável não aparece em nenhum outro lugar);
-  //  - NÃO HÁ RÓTULO REPETIDO — é ela que reprova a volta do `1` numérico, que
-  //    daria DOIS botões escritos "1×" na mesma lista;
-  //  - a palavra `Auto` sumiu da TELA, e não só do botão: um `title` ou um
-  //    `aria-label` sobrevivente a devolve sem nada acusar.
+  //  - a escada é a mesma, na mesma ordem monótona, com CINCO degraus;
+  //  - NÃO HÁ RÓTULO REPETIDO — é ela que reprova a volta do `1` numérico;
+  //  - a palavra `Auto` sumiu da TELA, e não só do botão.
   //
-  // E DUAS QUE SÓ EXISTEM COM A GAVETA, e são o pedido:
-  //  - abrir SUBSTITUI os vizinhos (o ⛶ é a exceção nomeada — *a fila da cifra
-  //    sempre tem a saída*);
-  //  - escolher um degrau LEVA A ELE DIRETO, sem passar pelos do meio. A prova é
-  //    o degrau que fica DEPOIS de UM toque: no carrossel, ir do `1×` ao `0,5×`
-  //    custava dois, e os do meio ACONTECIAM — a folha mudava de ritmo com a
-  //    música no ar.
+  // E O QUE ESTE LOTE INVERTE, ponto a ponto:
+  //  - quem SOME é só o −½/+½; o play e o seletor FICAM (a v1.7.4 escondia os
+  //    quatro, e era isso que o operador estava revogando);
+  //  - o seletor vira ✕ — a saída no lugar de onde a entrada foi;
+  //  - a gaveta ANIMA, e a animação é de LARGURA (era `display: contents`, que
+  //    não tem o que transicionar).
   //
   // REVERSÃO: devolver `'auto'` ao `cifraVelRotulo` reprova a primeira e a
   // quarta; devolver o `1` numérico à escada reprova a segunda e a terceira;
-  // devolver o ciclo ao botão reprova as duas últimas.
-  const escada = await pg.evaluate(() => {
+  // devolver o `display: contents` reprova a da animação; esconder o play junto
+  // reprova a do pedido.
+  const escada = await pg.evaluate(async () => {
     cifraAdotarVelocidade('auto');
     cifraPintarRolar();
     const btn = cifraVelBtnEl;
     const base = btn.textContent.trim();
     const ctlEl = lyricsPopupEl.querySelector('.lv-cifra-ctl');
-    const aVista = (el) => !!el && el.getClientRects().length > 0;
-    // ---- A GAVETA ABRE, e o que ela mostra é a escada inteira ----
-    btn.click();
-    const ops = [...ctlEl.querySelectorAll('.lv-cifra-vel-op')];
-    const ciclo = ops.map((b) => b.textContent.trim());
-    const abriu = {
-      // O que SOME: os quatro botões da fila, o de velocidade entre eles.
-      rolarSumiu: !aVista(cifraRolarBtnEl),
-      velSumiu: !aVista(btn),
-      // A TRANSPOSIÇÃO pela ÁRVORE, e não por classe: os dois `±½` não têm nome
-      // próprio — o que os identifica é serem filhos DIRETOS da fila. É a mesma
-      // pergunta que a regra de CSS faz (`.escolhendo > .lv-fonte-btn`), e é ela
-      // que garante que a gaveta (filha do invólucro) não se esconda junto.
-      transporSumiu: [...ctlEl.children]
-        .filter((e) => e.classList.contains('lv-fonte-btn'))
-        .every((e) => !aVista(e)),
-      // O que FICA: a saída da tela cheia.
-      saidaFicou: aVista(lyricsPopupEl.querySelector('.lv-cheia-btn')),
-      // Todos os degraus À VISTA de uma vez — a promessa inteira do pedido.
-      opsAVista: ops.filter(aVista).length,
-      // E o degrau em cena vem MARCADO: sem isso a lista não diz onde se está.
-      marcado: (ops.find((b) => b.classList.contains('escolhido')) || {}).textContent,
-    };
-    // ---- ESCOLHER LEVA DIRETO ----
-    // Do `1×` (índice 2) ao `0,5×` (índice 0): um toque, e os dois degraus do
-    // meio NÃO acontecem. `cifraVelEscolher` é `async` e pinta ANTES do `await`
-    // do banco — o rótulo já está na tela quando o `click()` volta.
-    ops[0].click();
-    const direto = {
-      rotulo: btn.textContent.trim(),
-      fechou: !ctlEl.classList.contains('escolhendo'),
-      velVoltou: aVista(btn),
-    };
-    // E o `1×` de volta, para o resto do arquivo continuar de onde partiu.
-    btn.click();
-    [...ctlEl.querySelectorAll('.lv-cifra-vel-op')][2].click();
-    const textos = [lyricsPopupEl.innerText];
-    lyricsPopupEl.querySelectorAll('[title], [aria-label]').forEach((el) => {
-      textos.push(el.getAttribute('title') || '', el.getAttribute('aria-label') || '');
+    // À VISTA = tem caixa, tem largura e não está escondido. `getClientRects()`
+    // sozinho aprova uma caixa de largura ZERO, que é exatamente o estado em que
+    // o −½/+½ fica com a gaveta aberta.
+    const aVista = (el) => !!el && el.getClientRects().length > 0
+      && el.getBoundingClientRect().width > 0.5
+      && getComputedStyle(el).visibility !== 'hidden';
+    const gav = ctlEl.querySelector('.lv-cifra-vels');
+    // A GAVETA ANIMA, então toda medição de caixa espera o FIM da transição —
+    // medida no quadro do toque, ela lê a largura de PARTIDA e reprova um app
+    // que está certo. O `setTimeout` é a rede de segurança para o motor que não
+    // emite `transitionend` (uma transição de duração zero não emite).
+    // A ESPERA É PELA PROPRIEDADE QUE MOVE A CAIXA, nunca pelo primeiro
+    // `transitionend` que chegar: a opacidade dura 0,16s e a largura 0,22s —
+    // MEDIDO, quem esperava o primeiro evento media a fila no MEIO do
+    // movimento (os botões de tom em 33,02px de 34, a gaveta em 4,16 de 0) e
+    // reprovava um app que estava certo.
+    const assentar = () => new Promise((pronto) => {
+      const t = setTimeout(pronto, 1200);
+      const ouvir = (e) => {
+        if (e.propertyName !== 'width' && e.propertyName !== 'height') return;
+        clearTimeout(t);
+        gav.removeEventListener('transitionend', ouvir);
+        pronto();
+      };
+      gav.addEventListener('transitionend', ouvir);
     });
-    // ===== A CAIXA, MEDIDA A CADA DEGRAU (v1.6.2) =====
-    //
-    // Uma SEGUNDA volta pelo botão, agora medindo. Ela é separada da primeira
-    // porque o que se afirma é outro: lá o RÓTULO, aqui a GEOMETRIA — e a
-    // geometria só se prova percorrendo o ciclo, porque era o ciclo que a movia.
-    //
-    // `scrollWidth` × `clientWidth` e não a largura do texto por `Range`: com
-    // `width` fixo, um rótulo que não coubesse NÃO mudaria a caixa (ele
-    // transbordaria por fora, calado), e é exatamente esse desfecho que a
-    // medição precisa alcançar.
+    const slider = () => ctlEl.querySelector('.lv-cifra-slider');
+    const irPara = (i) => {
+      const sl = slider();
+      sl.value = String(i);
+      sl.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    const ctl = () => +ctlEl.getBoundingClientRect().width.toFixed(2);
+    const alturaCtl = () => +ctlEl.getBoundingClientRect().height.toFixed(2);
+
+    // ---- A FILA FECHADA, antes de qualquer toque ----
+    const fechadaW = +gav.getBoundingClientRect().width.toFixed(2);
+    const alturaAntes = alturaCtl();
+    const ctlAntes = ctl();
     const hit = parseFloat(
       getComputedStyle(document.documentElement).getPropertyValue('--hit'));
     const irmao = lyricsPopupEl.querySelector('.lv-fonte-mais').getBoundingClientRect();
-    const ctl = () => +lyricsPopupEl.querySelector('.lv-cifra-ctl')
-      .getBoundingClientRect().width.toFixed(2);
-    const ctlAntes = ctl();
-    // A CAIXA, degrau a degrau. A escada é percorrida pela GAVETA agora (v1.7.4)
-    // — abrir, escolher, medir o botão fechado —, e é a mesma pergunta de antes:
-    // a largura do botão não pode depender do rótulo em cena.
+
+    // ---- A GAVETA ABRE ----
+    btn.click();
+    const transicao = getComputedStyle(gav).transitionDuration;
+    await assentar();
+    const abriu = {
+      // O QUE FICA — e é o pedido inteiro desta metade.
+      rolarFicou: aVista(cifraRolarBtnEl),
+      velFicou: aVista(btn),
+      saidaFicou: aVista(lyricsPopupEl.querySelector('.lv-cheia-btn')),
+      // O QUE SAI: só o par de tom, pela CLASSE que o lote criou para eles.
+      transporSumiu: [...ctlEl.querySelectorAll('.lv-cifra-tom')].every((e) => !aVista(e)),
+      // O SLIDER está no ar e tem largura de verdade.
+      sliderW: +slider().getBoundingClientRect().width.toFixed(2),
+      gavetaW: +gav.getBoundingClientRect().width.toFixed(2),
+      // O BOTÃO QUE ABRIU VIROU ✕ — pelo GLIFO, que é o que o operador vê.
+      virouX: btn.textContent.trim() === ICON.close,
+      expandido: btn.getAttribute('aria-expanded'),
+      alturaIgual: Math.abs(alturaCtl() - alturaAntes) < 0.5,
+      transicao,
+    };
+    // ---- A ESCADA, percorrida pelo SLIDER ----
+    // O rótulo só existe com a gaveta FECHADA (aberta, o botão é o ✕), então
+    // cada degrau é: arrastar, fechar, ler, reabrir.
+    const ciclo = [];
     const caixas = [];
     for (let i = 0; i < CIFRA_VELOCIDADES.length; i++) {
-      btn.click();
-      [...ctlEl.querySelectorAll('.lv-cifra-vel-op')][i].click();
+      irPara(i);
+      btn.click();            // fecha
+      await assentar();
+      ciclo.push(btn.textContent.trim());
       const b = btn.getBoundingClientRect();
       caixas.push({
         rotulo: btn.textContent.trim(),
         w: +b.width.toFixed(2), h: +b.height.toFixed(2),
         sw: btn.scrollWidth, cw: btn.clientWidth,
       });
+      if (i < CIFRA_VELOCIDADES.length - 1) { btn.click(); await assentar(); }
     }
-    // E OS BOTÕES DA GAVETA MEDEM O MESMO: eles ocupam a fila no lugar dos
-    // quatro, e uma fila que muda de largura ao abrir é a caixa dançando sob o
-    // dedo — o defeito que o `min-width` da v1.6.2 existia para impedir, um
-    // nível acima.
-    btn.click();
-    const caixasOps = [...ctlEl.querySelectorAll('.lv-cifra-vel-op')].map((b) => {
-      const r = b.getBoundingClientRect();
-      return {
-        rotulo: b.textContent.trim(),
-        w: +r.width.toFixed(2), h: +r.height.toFixed(2),
-        sw: b.scrollWidth, cw: b.clientWidth,
-      };
+    // ---- ESCOLHER LEVA DIRETO ----
+    // Do `2×` (onde o laço parou) ao `0,5×`: um arrasto, e os três degraus do
+    // meio NÃO acontecem como escolha — é a promessa que a v1.7.4 comprou do
+    // carrossel e que o slider mantém.
+    btn.click(); await assentar();
+    irPara(0);
+    const rotuloDireto = cifraVelRotulo();
+    const idxDireto = cifraVelIdx;
+    // E a gaveta FICA ABERTA: regular é um ajuste que se faz ouvindo.
+    const ficouAberta = ctlEl.classList.contains('escolhendo');
+    btn.click(); await assentar();
+    const fechouNoX = !ctlEl.classList.contains('escolhendo');
+    const velVoltou = btn.textContent.trim() === rotuloDireto;
+    // E o `1×` de volta, para o resto do arquivo continuar de onde partiu.
+    btn.click(); await assentar();
+    irPara(2);
+    btn.click(); await assentar();
+    const textos = [lyricsPopupEl.innerText];
+    lyricsPopupEl.querySelectorAll('[title], [aria-label]').forEach((el) => {
+      textos.push(el.getAttribute('title') || '', el.getAttribute('aria-label') || '');
     });
-    const ctlAberta = ctl();
-    [...ctlEl.querySelectorAll('.lv-cifra-vel-op')][2].click();
     return {
-      base,
-      ciclo,
-      abriu,
-      direto,
-      caixasOps,
-      ctlAberta,
-      distintos: new Set(ciclo).size,
-      hit,
+      base, ciclo, abriu, caixas, hit, fechadaW,
+      direto: { rotulo: rotuloDireto, idx: idxDireto, ficouAberta, fechouNoX, velVoltou },
       irmao: { w: +irmao.width.toFixed(2), h: +irmao.height.toFixed(2) },
-      caixas,
-      ctlAntes,
-      ctlDepois: ctl(),
+      ctlAntes, ctlDepois: ctl(),
+      distintos: new Set(ciclo).size,
       // `\b...\b` e não `/auto/` solto: "automática" é outra palavra e continua
       // legítima em qualquer frase da folha.
       comAuto: textos.filter((t) => /\bauto\b/i.test(t)),
@@ -428,29 +434,42 @@ try {
     'o degrau BASE se chama `1×` — o sentinela `auto` continua sendo o valor '
     + 'interno, e o que mudou é o RÓTULO', escada.base);
   checar(escada.ciclo.join(' · ') === '0,5× · 0,75× · 1× · 1,5× · 2×',
-    'e a GAVETA mostra 0,5× · 0,75× · 1× · 1,5× · 2×, nessa ordem e de uma vez '
-    + '(o 3× saiu a pedido, e o 1 numérico saiu porque o rótulo o duplicava)',
-    escada.ciclo);
+    'e o SLIDER percorre 0,5× · 0,75× · 1× · 1,5× · 2×, nessa ordem (o 3× saiu a '
+    + 'pedido, e o 1 numérico saiu porque o rótulo o duplicava)', escada.ciclo);
   // CONTRA O COMPRIMENTO DA LISTA, nunca contra o número 5: com o `1` numérico
   // de volta ela tem SEIS rótulos e cinco distintos, e um `=== 5` escrito à mão
   // aprovaria exatamente a escada que esta asserção existe para recusar.
   checar(escada.distintos === escada.ciclo.length,
-    'e nenhum rótulo se repete: dois botões escritos "1×" seriam a escolha do '
+    'e nenhum rótulo se repete: dois degraus escritos "1×" seriam a escolha do '
     + 'operador dizendo duas coisas', escada);
-  // ===== O PEDIDO DA v1.7.4, nas duas metades =====
-  checar(escada.abriu.rolarSumiu && escada.abriu.velSumiu && escada.abriu.transporSumiu
-    && escada.abriu.saidaFicou
-    && escada.abriu.opsAVista === escada.ciclo.length,
-    'ABRIR a gaveta SUBSTITUI os vizinhos pela escada inteira — e o ⛶ FICA, '
-    + 'porque *a fila da cifra sempre tem a saída*: escondê-lo deixaria uma '
-    + 'paisagem deitada sem nenhuma saída à vista', escada.abriu);
-  checar(escada.abriu.marcado === '1×',
-    'e o degrau em cena vem MARCADO na lista — sem isso ela oferece cinco '
-    + 'opções e não diz em qual delas se está', escada.abriu);
-  checar(escada.direto.rotulo === '0,5×' && escada.direto.fechou && escada.direto.velVoltou,
-    'e ESCOLHER leva DIRETO ao degrau, fechando a gaveta: no carrossel, ir do '
-    + '1× ao 0,5× custava dois toques e os degraus do meio ACONTECIAM — a folha '
-    + 'mudava de ritmo com a música no ar', escada.direto);
+  // ===== O PEDIDO DA v1.8.80, ponto a ponto =====
+  checar(escada.abriu.rolarFicou && escada.abriu.velFicou && escada.abriu.saidaFicou,
+    'ABRIR a gaveta MANTÉM o play, o seletor e a saída à vista — é a revogação '
+    + 'que o operador pediu por extenso, e a v1.7.4 escondia os três',
+    escada.abriu);
+  checar(escada.abriu.transporSumiu,
+    'e quem cede o lugar é o −½/+½, que é de onde a gaveta sai', escada.abriu);
+  checar(escada.fechadaW === 0 && escada.abriu.gavetaW > 0 && escada.abriu.sliderW > 0,
+    'a gaveta vai de largura ZERO a uma caixa de verdade — é isso que a animação '
+    + 'horizontal move, e é por isso que ela deixou de ser `display: contents`',
+    { fechada: escada.fechadaW, aberta: escada.abriu.gavetaW });
+  checar(/^0?\.?\d/.test(escada.abriu.transicao) && !/^0s/.test(escada.abriu.transicao),
+    'e a gaveta TEM transição declarada — sem ela o pedido ("isso não possue '
+    + 'nenhuma animação") continua de pé com o slider no lugar dos botões',
+    escada.abriu.transicao);
+  checar(escada.abriu.virouX && escada.abriu.expandido === 'true',
+    'e o botão que abriu vira ✕ — a saída no lugar de onde a entrada foi',
+    escada.abriu);
+  checar(escada.abriu.alturaIgual,
+    'e a FILA não muda de altura ao abrir: a gaveta troca conteúdo de lugar, não '
+    + 'empurra a folha', escada.abriu);
+  checar(escada.direto.idx === 0 && escada.direto.rotulo === '0,5×',
+    'e ARRASTAR leva DIRETO ao degrau: no carrossel, ir do 2× ao 0,5× custava '
+    + 'quatro toques e os degraus do meio ACONTECIAM — a folha mudava de ritmo '
+    + 'com a música no ar', escada.direto);
+  checar(escada.direto.ficouAberta && escada.direto.fechouNoX && escada.direto.velVoltou,
+    'e regular NÃO fecha a gaveta (quem fecha é o ✕, e fechando o botão volta a '
+    + 'ser o rótulo do degrau)', escada.direto);
   checar(escada.comAuto.length === 0,
     'e a palavra `Auto` não está mais em lugar nenhum da folha — nem no texto, '
     + 'nem num `title`, nem num `aria-label`', escada.comAuto);
@@ -508,22 +527,6 @@ try {
     'e a fila de controles não muda de largura ao percorrer a escada inteira: um '
     + 'botão que se desloca sob o dedo erra o alvo na segunda batida',
     { antes: escada.ctlAntes, depois: escada.ctlDepois });
-  // ===== E A GAVETA ABERTA CABE NA MESMA FILA (v1.7.4) =====
-  //
-  // Ela troca quatro botões por cinco, e o ⛶ fica: a fila é UM botão mais larga
-  // com a gaveta aberta. O que não pode acontecer é os botões dela mudarem de
-  // CAIXA — é a mesma promessa da asserção de cima, um nível acima: a fila é a
-  // mesma fila, e o dedo mira nela.
-  const opsFora = escada.caixasOps.filter(
-    (c) => Math.abs(c.w - escada.hit) > 0.5 || Math.abs(c.h - escada.hit) > 0.5);
-  checar(escada.caixasOps.length === escada.ciclo.length && opsFora.length === 0,
-    'e os botões da GAVETA medem a mesma caixa dos que eles substituem — uma '
-    + 'fila que troca de altura ao abrir é a caixa dançando sob o dedo',
-    { hit: escada.hit, fora: opsFora });
-  const opsEstourando = escada.caixasOps.filter((c) => c.sw > c.cw);
-  checar(opsEstourando.length === 0,
-    'e o rótulo cabe em cada um deles: com largura fixa, um rótulo grande demais '
-    + 'transborda por fora, calado', opsEstourando);
   const estourando = escada.caixas.filter((c) => c.sw > c.cw);
   checar(estourando.length === 0,
     'e o rótulo CABE na caixa em todo degrau — com largura fixa, um rótulo '

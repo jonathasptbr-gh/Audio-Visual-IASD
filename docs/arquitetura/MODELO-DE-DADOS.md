@@ -433,7 +433,7 @@ as quatro ações em vez de dobrar a folha para oito linhas.
 - **A escolha viaja no FECHO de cada ação**, nunca em `songMenuFor`: o
   `songMenuItem` chama `closeSongMenu()` ANTES da ação, e ele zera aquele objeto
   — consultá-lo lá dentro encontraria null e todo download sairia como vídeo.
-##### A TRANSMISSÃO DIRETA SAIU (v1.7.7 o escritor, v1.8.80 o leitor)
+##### A TRANSMISSÃO DIRETA SAIU (v1.7.7 o escritor, v1.8.82 o leitor)
 
 Da v5.212 à v1.7.2 o "Tocar agora" de um resultado do YouTube virava um
 `<video>` alimentado por `MediaSource`: o `YoutubeGrab.manifesto` escolhia as
@@ -442,7 +442,7 @@ nosso origin, e um player DASH mínimo do lado web lia o índice do arquivo e
 entregava os pedaços. A cena entrava com o primeiro fragmento, na casa dos kB.
 
 **Ela foi abandonada a pedido do operador** (*"vamos abandonar o modo online
-direto, ele é muito instável"*), e o motor saiu do bundle na v1.8.80. **O relato
+direto, ele é muito instável"*), e o motor saiu do bundle na v1.8.82. **O relato
 inteiro — o que saiu em cada lote, o que fica no Kotlin e por quê — está em
 [`docs/shell/SEGUNDO-PLANO.md`](../shell/SEGUNDO-PLANO.md)**, e não se repete
 aqui.

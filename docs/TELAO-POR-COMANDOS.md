@@ -69,7 +69,7 @@
 | E1 | Fundações puras no shell: Range RFC 7233 + framing SSE no `EspelhoHttp` — com JUnit, sem fiação | **CONCLUÍDA** (commit b756d19, CI verde: 128 JUnit, 21 novos) |
 | E2 | Servir o bundle à LAN (prefixos `web/display/`, `web/shared/`, `web/espelho/`) + rota SSE `GET /e` + tap de comandos em `busPost` → servidor | **CONCLUÍDA** (aguardou o CI verde do lote E2+E3) |
 | E3 | Papel `tela` no lado web (`espelho/tela.js` + `?tela=1`): display rodando num navegador da LAN, TEXTO completo (versículo, mensagem, cronômetro com correção de relógio, sorteio, cortina), dreno de subida, vigília de tela acesa | **CONCLUÍDA** (tela-rede.test 23/23 no Chromium; ligado no apk.yml) |
-| E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + wallpaper | **CONCLUÍDA** (JUnit do cache; tela-rede.test 26/26). Pendências DECLARADAS → E4.1: pré-busca da playlist. Fechadas: imagens de fundo da letra (v5.188) e **deck por páginas (v1.1.7)** — hoje só o EMBED vira o aviso de cena-sem-rede. A §7 (proxy da transmissão direta) foi fechada na v5.189 e ficou SEM CLIENTE na v1.8.80, quando a transmissão direta saiu do lado web |
+| E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + wallpaper | **CONCLUÍDA** (JUnit do cache; tela-rede.test 26/26). Pendências DECLARADAS → E4.1: pré-busca da playlist. Fechadas: imagens de fundo da letra (v5.188) e **deck por páginas (v1.1.7)** — hoje só o EMBED vira o aviso de cena-sem-rede. A §7 (proxy da transmissão direta) foi fechada na v5.189 e ficou SEM CLIENTE na v1.8.82, quando a transmissão direta saiu do lado web |
 | E5 | Status de volta (`tela-status` → ponte → Controle), eleição de referência, snoop da notificação, preview sem atraso | **CONCLUÍDA** (ramo `st` no /r → MessageBus + snoop; eleição no controle.js; preview: telas de comando não entram em `mirrorEstado.telas`, então o atraso já resolve 0 sem pixels). Folha/Registro novos → E6 |
 | E6 | Corte: a transmissão liga o caminho novo; raiz `/` → tela; frases da UI; política YouTube sem TV | **CONCLUÍDA** (commit 518f960) — **DESVIO DECLARADO**: a pedido do operador, E6 e E7 saíram num lote só; a "volta por constante" não existe — a volta é o revert do lote |
 | E7 | Remoção: EspelhoCodec/EspelhoAudio/EspelhoDisplay/MirrorPresentation/fmp4.js/cliente.js/espelho.css/sonda.html; EspelhoDiag realocado na MainActivity; dreno do papel espelho fora do native.js; testes e CI atualizados; SHELL_VERSION 37; v5.187 | **CONCLUÍDA** (o commit desta linha) |
@@ -182,7 +182,7 @@
 > e o `telaEnriquecer` reescrevia o manifesto — com isso o `pularTransmissao` da
 > v5.187, que mandava todo "Tocar agora" para o download quando a transmissão
 > estava ligada e não havia TV, deixou de ter razão de existir e saiu. **O
-> cliente daquela rota saiu do web na v1.8.80** (a `/s/<token>` é Kotlin e fica
+> cliente daquela rota saiu do web na v1.8.82** (a `/s/<token>` é Kotlin e fica
 > até uma Release a tirar); o que atravessa hoje é o ARQUIVO baixado, pela
 > `/m/<token>` de sempre. E a
 > ENTRADA perdeu o código de três dígitos (a porta é o endereço; ver a
@@ -543,7 +543,7 @@ Cada etapa: testes verdes, Estado atualizado, commit na branch, merge em
   aposentadoria apontando para cá; CLAUDE.md reescrito; SHELL_VERSION sobe
   de novo se a superfície da ponte mudar na limpeza.
 
-## §7 FASE OPCIONAL — FECHADA na v5.189 e SEM CLIENTE desde a v1.8.80
+## §7 FASE OPCIONAL — FECHADA na v5.189 e SEM CLIENTE desde a v1.8.82
 Transmissão direta na LAN: rota proxy (`/s/<token>`) com a lógica do
 `StreamProxy` (UA casado, upstream googlevideo) mas com **Range de verdade e
 streaming real**, mais o manifesto reescrito para o host do celular. Ela foi

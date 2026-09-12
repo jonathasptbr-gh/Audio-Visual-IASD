@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.80';
+const WEB_VERSION = '1.8.82';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -641,9 +641,8 @@ const ICON = {
   broken: '', // broken_image
   del: '', // delete
   import: '', // folder_open
-  repeatAll: '', // repeat
-  repeatOne: '', // repeat_one
-  shuffle: '', // shuffle
+  // (`repeatAll`/`repeatOne`/`shuffle` saíram na v1.8.80: os quatro degraus do
+  //  `#repeat` viraram SVG do sprite — ver `#icoRepetir` no index.html.)
   // ADICIONAR AO CRONOGRAMA fica na família do TEMPO (`more_time`): ao lado do
   // `queue_music` da playlist, um `playlist_add` seria a mesma pilha de linhas
   // com outra marquinha. O relógio diz o que a lista é — a ORDEM do culto.
@@ -658,7 +657,18 @@ const ICON = {
   close: '',     // close — o MESMO glifo dos `.popup-close` (v5.191)
 };
 
-const REPEATS = ['off', 'all', 'one', 'shuffle'];
+// ===== A ORDEM É A DO DEDO, E ELA MUDOU (v1.8.80) =====
+//
+// Pedido do operador: *"ajuste a ordem das opções do botão de repetir mídia,
+// para que ele mostre primeiro repetir a midia atual e depois o repetir a
+// playlist inteira"*.
+//
+// `one` ANTES de `all` porque é o degrau mais pedido e o mais barato de desfazer
+// (um toque a mais devolve a fila), e porque os dois primeiros toques passam a
+// ir do mais restrito ao mais amplo — a mídia, depois a fila, depois o sorteio.
+// A escada continua MONÓTONA nesse eixo, que é o que um ciclo precisa ter para
+// não parecer aleatório na mão.
+const REPEATS = ['off', 'one', 'all', 'shuffle'];
 
 // ===== estado =====
 let plItems = [];          // mídias da playlist (ordenadas)
@@ -3387,16 +3397,38 @@ function syncFader(pct) {
 // glifo só cabe um — mostrar o PRÓXIMO modo apagaria da tela qual está valendo,
 // e a cor (`.active`) só distingue ligado de desligado, não qual dos três.
 // Então aqui o ícone segue sendo o modo ATUAL, que é a informação que se perde.
+// O DESENHO DE CADA MODO (v1.8.80) — três símbolos, quatro degraus.
+//
+// `off` e `one` COMPARTILHAM o laço puro, e é o pedido do operador por extenso:
+// *"o icone de repetir a midia atual deve ser o icone de repetir comum, sem
+// adições"*. O que os separa é a SUPERFÍCIE (`.active`, a linguagem de "ligado"
+// deste app desde a v1.3.14), e era assim que `off` e `all` já conviviam — o
+// par desenho × superfície é que diz o estado, nunca o desenho sozinho.
+const REPEAT_ICO = {
+  off: '#icoRepetir',
+  one: '#icoRepetir',
+  all: '#icoRepetirLista',
+  shuffle: '#icoAleatorio',
+};
+
 function renderRepeat() {
-  const icon = repeat === 'one' ? ICON.repeatOne : repeat === 'shuffle' ? ICON.shuffle : ICON.repeatAll;
+  const ico = REPEAT_ICO[repeat] || REPEAT_ICO.off;
   // O RÓTULO DIZ O QUE ACONTECE NO FIM DA FILA (v1.8.77), e não se ela anda:
   // desde aquele lote a fila anda nos quatro modos, e "Repetição desativada"
   // passaria a prometer o oposto do que o `off` faz — que é justamente o
   // comportamento que o operador procurava quando esquecia de armar o `all`.
+  // O RÓTULO USA AS PALAVRAS DO OPERADOR (v1.8.80) — "repetir a mídia atual" e
+  // "repetir a playlist inteira" —, que são as que ele escreveu ao pedir a
+  // ordem nova. "Repetir 1" era a abreviação do glifo `repeat_one`, e o glifo
+  // saiu.
   const label = repeat === 'off' ? 'Sem repetição — a fila toca em sequência e para no fim'
-    : repeat === 'one' ? 'Repetir 1' : repeat === 'shuffle' ? 'Aleatório'
-    : 'Repetir tudo — a fila recomeça no fim';
-  repeatEl.querySelector('.msym').textContent = icon;
+    : repeat === 'one' ? 'Repetir esta mídia' : repeat === 'shuffle' ? 'Aleatório'
+    : 'Repetir a playlist inteira — ela recomeça no fim';
+  // `setAttribute('href')` e não `innerHTML`: o `<svg>` é um nó só, e é ele que
+  // a regra de escala (`.t-btn svg`) dimensiona. Recriá-lo devolveria o tamanho
+  // ao atributo do HTML — a divergência MUDA que a v1.8.68 mediu.
+  const uso = repeatEl.querySelector('use');
+  if (uso) uso.setAttribute('href', ico);
   repeatEl.title = label;
   repeatEl.classList.toggle('active', repeat !== 'off');
 }
@@ -3829,18 +3861,31 @@ function renderPlaylist() {
   // nomeia, um repintor acima.
   renderTransporteHabilitado();
   const count = plItems.length;
-  // O BADGE NÃO DEVE CHAMAR ATENÇÃO quando a playlist é só a mídia atual (1
-  // item): ele conta apenas os itens ALÉM do primeiro (2 itens → "1", 3 → "2"…),
-  // porque é aí que existe de fato uma fila.
+  // ===== O SELO CONTA A FILA INTEIRA (v1.8.80) =====
   //
-  // QUEM DIZ "HÁ FILA" É O BADGE, E SÓ ELE. Havia aqui uma classe `has-items`
+  // Revogação do operador, com o relato e a decisão juntos: *"o número no botão
+  // da playlist nos controles está indicando '1' quando há duas mídias na
+  // playlist. Isso foi uma decisão antiga, estou revogando ela, esse número deve
+  // representar o número total de itens na playlist. É claro, se houver apenas
+  // um item, ainda não precisa mostrar o número"*.
+  //
+  // A regra antiga contava os itens ALÉM do primeiro (2 → "1", 3 → "2"), sob o
+  // argumento de que a mídia em exibição não é fila. O preço era um número que
+  // não responde à única pergunta que se faz a um selo de contagem — *quantos
+  // itens há ali dentro?* —, e que discorda do contador da própria folha
+  // (`plPopupCountEl`, que sempre disse o total).
+  //
+  // O LIMIAR NÃO MUDA: com um item o selo continua vazio, e é a segunda metade
+  // do pedido.
+  //
+  // QUEM DIZ "HÁ FILA" É O SELO, E SÓ ELE. Havia aqui uma classe `has-items`
   // que tingia o ícone de `--accent` junto; a regra dela saiu do `controle.css`
   // na v1.5.0, com o rodapé, e a escrita sobreviveu sete meses sem consumidor —
   // o ícone nunca acendeu, e a doc continuava dizendo que acendia. Devolvê-la
   // seria acrescentar um SIGNIFICADO DE COR que a linguagem de estado do app
   // não tem (ver o `CLAUDE.md`: escolhido · ligado · selecionado), para dizer o
   // que o número ao lado já diz.
-  plCountEl.textContent = count > 1 ? String(count - 1) : '';
+  plCountEl.textContent = count > 1 ? String(count) : '';
   plPopupCountEl.textContent = String(count);
   // COM A FILA VAZIA NÃO HÁ O QUE LIMPAR, e um botão que não faz nada é pior
   // que botão nenhum — ainda mais um destrutivo, que assim ensinaria que
@@ -11239,9 +11284,10 @@ function starSvg(cheia) {
  * lá?**". Sem resposta na linha, conferir custava abrir a fila.
  *
  * Agora ele é o que a ESTRELA já era: um ALTERNADOR com estado à vista. Mesma
- * anatomia (`favBtn`/`toggleFav`), mesma dupla de cores (`--line` apagado,
- * `--accent` aceso) e a mesma exceção no fecho da caixa — o desfecho dele é o
- * próprio botão mudando de desenho sob o dedo.
+ * anatomia (`favBtn`/`toggleFav`), a mesma linguagem de estado (apagado é o
+ * `.row-btn` de sempre, `--surface` + `--text`; aceso é `--btn-accent` +
+ * `--accent`, o LIGADO do `tokens.css`) e a mesma exceção no fecho da caixa —
+ * o desfecho dele é o próprio botão mudando de desenho sob o dedo.
  *
  * E o SEGUNDO toque TIRA da fila, que é a metade que faz dele um estado em vez
  * de um contador: um botão que só acende nunca se apaga, e a única forma de
@@ -14229,7 +14275,11 @@ function cifraVelTitulo() {
 // Os dois botões vivem no DOM, que `renderLyricsView` refaz inteiro — então o
 // ESTADO mora aqui fora e quem acabou de nascer vem perguntar como se pintar.
 function cifraPintarRolar() {
-  if (cifraVelBtnEl) {
+  // COM A GAVETA ABERTA O SELETOR É O ✕, e quem o escreve é o `cifraPintarVels`
+  // (v1.8.80). Sem esta guarda, qualquer repintura da fila com a gaveta no ar —
+  // tocar no play, o degrau mudando pelo arrasto — devolveria o rótulo ao botão
+  // e o operador ficaria sem a saída que acabou de abrir.
+  if (cifraVelBtnEl && !cifraVelAberta) {
     cifraVelBtnEl.textContent = cifraVelRotulo();
     const t = cifraVelTitulo();
     cifraVelBtnEl.title = t;
@@ -14414,6 +14464,33 @@ function cifraAdotarVelocidade(v) {
 }
 
 /**
+ * ===== E A GAVETA VIROU UM SLIDER, QUE DESLIZA (v1.8.80) =====
+ *
+ * Pedido do operador: *"o botão de alterar velocidade de rolagem… está abrindo
+ * uma lista de outros botões de opções de velocidade, mas primeiramente isso não
+ * possue nenhuma animação. Então faça uma animação horizontal para essa gaveta.
+ * Mantenha o botão de play e o botão de seletor de velocidade sempre visível,
+ * agora a gaveta vai surgir a direita desses dois itens. E mude a lógica, não
+ * mais uma gaveta com botões, mas um slider regulável, quando aberto, o botão
+ * que abriu ele se torna um x para fechar a gaveta de ajuste de velocidade"*.
+ *
+ * **TRÊS MUDANÇAS NUMA, e elas se sustentam:** quem some passou a ser só o
+ * −½/+½ (o play e o seletor ficam, e é por ISSO que há de onde a gaveta sair),
+ * os cinco botões viraram UM `<input type=range>` sobre os MESMOS cinco degraus,
+ * e o seletor vira ✕ enquanto ela está aberta — a saída no lugar de onde a
+ * entrada foi.
+ *
+ * O QUE O SLIDER NÃO MUDA é a escada: ele regula o ÍNDICE de
+ * `CIFRA_VELOCIDADES` (0 a 4, passo 1), não um número contínuo. Um contínuo
+ * pediria outra gramática de rótulo, outro estado gravado e outra conta no
+ * `cifraRolarQuadro` — e o operador pediu um jeito de ESCOLHER, não uma escala
+ * nova.
+ *
+ * A ANIMAÇÃO É DE LARGURA, e por isso a gaveta é uma CAIXA de verdade (não mais
+ * `display: contents`): não há como transicionar o nada. Em tela cheia a fila é
+ * uma COLUNA, e lá a mesma gaveta cresce em ALTURA com o slider na vertical —
+ * ver o CSS, que declara os dois eixos.
+ *
  * ===== A ESCADA VIROU UMA GAVETA, E NÃO UM CARROSSEL (v1.7.4) =====
  *
  * Pedido do operador: *"ajuste também a forma de seleção da velocidade do
@@ -14439,9 +14516,10 @@ function cifraAdotarVelocidade(v) {
  * tem a saída*. Com ele escondido, uma gaveta aberta em paisagem deixaria a
  * folha deitada sem nenhuma saída à vista.
  *
- * E TODO BOTÃO DA GAVETA A FECHA — inclusive o do degrau que já está escolhido,
- * que é o "cancelar" natural. Não há um sexto botão para desistir: com a lista
- * ocupando a fila inteira, um toque em qualquer lugar dela resolve.
+ * (O "todo botão da gaveta a fecha" daquele lote morreu com os botões: quem
+ * fecha agora é o ✕, que é o mesmo alvo que abriu — regular a velocidade é um
+ * ajuste que se faz OUVINDO, e fechar no primeiro arrasto tiraria a régua da
+ * mão de quem ainda está procurando o ritmo.)
  */
 let cifraVelAberta = false;
 
@@ -14450,8 +14528,10 @@ function cifraVelFilaAlternar() {
   cifraPintarVels();
 }
 
+/**
+ * Aplica um degrau. **Não fecha a gaveta** (v1.8.80): quem fecha é o ✕.
+ */
 async function cifraVelEscolher(i) {
-  cifraVelAberta = false;
   const antes = cifraVelIdx;
   cifraVelIdx = Math.max(0, Math.min(CIFRA_VELOCIDADES.length - 1, i));
   // Nada a zerar: os dois modos integram a partir da posição atual, e o degrau
@@ -14459,9 +14539,9 @@ async function cifraVelEscolher(i) {
   // que era medido contra um alvo absoluto — ele saiu com o alvo.)
   cifraPintarRolar();
   cifraPintarVels();
-  // O MESMO degrau não gasta uma transação: escolher o que já está escolhido é
-  // o caminho de FECHAR a gaveta, e ele acontece sempre que alguém a abre por
-  // engano.
+  // O MESMO degrau não gasta uma transação — e com o slider isso deixou de ser
+  // um caso de borda: um arrasto dispara um `input` por pixel, e quase todos
+  // caem no degrau em que o dedo já estava.
   if (cifraVelIdx === antes) return;
   try { await AVDB.setState('cifraVelocidade', CIFRA_VELOCIDADES[cifraVelIdx]); }
   catch (_) { /* sem banco: vale a sessão */ }
@@ -14479,42 +14559,81 @@ function cifraPintarVels() {
   const ctl = lyricsCifraCtlEl;
   if (!ctl) return;
   ctl.classList.toggle('escolhendo', cifraVelAberta);
-  ctl.querySelectorAll('.lv-cifra-vel-op').forEach((b) => {
-    const escolhido = Number(b.dataset.vel) === cifraVelIdx;
-    b.classList.toggle('escolhido', escolhido);
-    b.setAttribute('aria-checked', escolhido ? 'true' : 'false');
-  });
-  if (cifraVelBtnEl) cifraVelBtnEl.setAttribute('aria-expanded', cifraVelAberta ? 'true' : 'false');
+  const slider = ctl.querySelector('.lv-cifra-slider');
+  if (slider) {
+    // O VALOR do slider é o índice, e ele é reescrito aqui porque o degrau muda
+    // por fora dele também — a hidratação do banco na abertura da folha.
+    slider.value = String(cifraVelIdx);
+    // A FRAÇÃO PINTA O TRILHO (`--vel`), a mesma gramática do fader do volume:
+    // `appearance: none` desliga o preenchimento nativo, então quem mostra "até
+    // onde" é um gradiente que precisa do número.
+    slider.style.setProperty('--vel', String(cifraVelIdx / (CIFRA_VELOCIDADES.length - 1)));
+    // O QUE O LEITOR DE TELA ANUNCIA é o RÓTULO ("1,5×"), nunca o índice cru:
+    // "3 de 4" não é uma velocidade.
+    slider.setAttribute('aria-valuetext', cifraVelRotulo());
+    // Fechada, a gaveta sai da ordem de tabulação: um alvo que não se vê não
+    // pode receber foco (é a mesma razão do `disabled` do app, um nível acima).
+    slider.tabIndex = cifraVelAberta ? 0 : -1;
+  }
+  if (cifraVelBtnEl) {
+    cifraVelBtnEl.setAttribute('aria-expanded', cifraVelAberta ? 'true' : 'false');
+    cifraVelBtnEl.classList.toggle('fechando', cifraVelAberta);
+    // ===== O BOTÃO QUE ABRIU É O QUE FECHA (v1.8.80) =====
+    // Aberta, ele vira ✕ — o pedido, e a regra do app: o ✕ é o mesmo glifo dos
+    // seis fechares deste bundle (`ICON.close`), nunca um desenho novo.
+    if (cifraVelAberta) {
+      cifraVelBtnEl.textContent = '';
+      const x = msym(ICON.close);
+      x.setAttribute('aria-hidden', 'true');
+      cifraVelBtnEl.appendChild(x);
+      const t = 'Fechar o ajuste de velocidade';
+      cifraVelBtnEl.title = t;
+      cifraVelBtnEl.setAttribute('aria-label', t);
+    } else {
+      // Fechado ele volta a ser o RÓTULO do degrau — e quem escreve os dois
+      // (rótulo e title) é o `cifraPintarRolar`, dono único deles.
+      cifraPintarRolar();
+    }
+  }
 }
 
 /**
- * A LISTA, um botão por degrau.
+ * A GAVETA: uma caixa que cresce, com o slider dentro (v1.8.80).
  *
- * `display: contents` no invólucro (ver o CSS): os botões viram filhos de fato
- * da fila, e por isso seguem a direção dela — LINHA no retrato, COLUNA em tela
- * cheia — sem uma segunda regra de layout escrita aqui.
+ * ELA É UMA CAIXA DE VERDADE, e não mais `display: contents`: aquele modo fazia
+ * os cinco botões virarem filhos de fato da fila (e herdarem a direção dela de
+ * graça), mas uma caixa que não existe no layout não tem largura para animar —
+ * e a animação é o pedido.
+ *
+ * O `<input type="range">` é o MESMO controle do fader do volume, e é por isso
+ * que ele não precisa de gramática nova: o app já sabe desenhar trilho e cap com
+ * `appearance: none` (ver `.fader`), e o gesto de arrastar já é conhecido de
+ * quem opera. Os extremos ganham RÓTULO ("0,5×" e "2×") porque um slider sem
+ * pontas nomeadas não diz para que lado é mais rápido.
  */
 function cifraVelFila() {
   const caixa = document.createElement('span');
   caixa.className = 'lv-cifra-vels';
-  caixa.setAttribute('role', 'radiogroup');
-  caixa.setAttribute('aria-label', 'Velocidade da rolagem');
-  CIFRA_VELOCIDADES.forEach((v, i) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'lv-fonte-btn lv-cifra-vel lv-cifra-vel-op';
-    b.dataset.vel = String(i);
-    b.setAttribute('role', 'radio');
-    // O RÓTULO SAI DA MESMA FUNÇÃO que pinta o botão fechado — duas escritas do
-    // mesmo rótulo divergiriam no primeiro ajuste, e a gaveta passaria a
-    // oferecer nomes que o botão não mostra.
-    b.textContent = cifraVelRotuloDe(v);
-    const t = 'Rolar a ' + cifraVelRotuloDe(v);
-    b.title = t;
-    b.setAttribute('aria-label', t);
-    b.addEventListener('click', () => cifraVelEscolher(i));
-    caixa.appendChild(b);
-  });
+  const fim = CIFRA_VELOCIDADES.length - 1;
+  const pontaIni = document.createElement('span');
+  pontaIni.className = 'lv-cifra-vel-ponta';
+  pontaIni.textContent = cifraVelRotuloDe(CIFRA_VELOCIDADES[0]);
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.className = 'lv-cifra-slider';
+  slider.min = '0';
+  slider.max = String(fim);
+  slider.step = '1';
+  slider.value = String(cifraVelIdx);
+  slider.setAttribute('aria-label', 'Velocidade da rolagem');
+  // O `input` (e não o `change`) porque o ajuste tem de ser OUVIDO enquanto o
+  // dedo anda: a folha muda de ritmo no degrau em que ele está, e é assim que
+  // se acha o certo. O degrau repetido não paga transação (ver `cifraVelEscolher`).
+  slider.addEventListener('input', () => cifraVelEscolher(Number(slider.value)));
+  const pontaFim = document.createElement('span');
+  pontaFim.className = 'lv-cifra-vel-ponta';
+  pontaFim.textContent = cifraVelRotuloDe(CIFRA_VELOCIDADES[fim]);
+  caixa.append(pontaIni, slider, pontaFim);
   return caixa;
 }
 
@@ -14657,16 +14776,21 @@ function lvBuildCifra(el) {
   // transposta é a folha e o rótulo dizendo coisas diferentes sobre a mesma
   // tela. Ele é desenhado no CABEÇALHO DA CAIXA, mais abaixo (v1.6.3).
   const tomAtual = AVCifra.transporTom(p.tom, n);
+  // `lv-cifra-tom` NOS DOIS (v1.8.80): é a classe que a gaveta encolhe para
+  // caber, e o pedido nomeia quem FICA — *"mantenha o botão de play e o botão de
+  // seletor de velocidade sempre visível"* —, então quem sai é este par. O ⛶
+  // continua de fora da lista pela invariante de sempre: *a fila da cifra sempre
+  // tem a saída*.
   const menos = document.createElement('button');
   menos.type = 'button';
-  menos.className = 'lv-fonte-btn';
+  menos.className = 'lv-fonte-btn lv-cifra-tom';
   menos.textContent = '−½';
   menos.title = 'Descer meio tom';
   menos.setAttribute('aria-label', 'Descer meio tom');
   menos.addEventListener('click', () => cifraTranspor(-1));
   const mais = document.createElement('button');
   mais.type = 'button';
-  mais.className = 'lv-fonte-btn';
+  mais.className = 'lv-fonte-btn lv-cifra-tom';
   mais.textContent = '+½';
   mais.title = 'Subir meio tom';
   mais.setAttribute('aria-label', 'Subir meio tom');
@@ -15192,8 +15316,12 @@ function autoAdvance() {
 
 async function cycleRepeat() {
   repeat = REPEATS[(REPEATS.indexOf(repeat) + 1) % REPEATS.length];
-  await AVDB.setState('repeat', repeat);
+  // A RESPOSTA VEM PRIMEIRO (v1.8.80), a regra deste app: o desenho era pintado
+  // DEPOIS do `await` do banco, e nesse vão o botão mostrava o degrau anterior.
+  // Num controle que se toca com a música no ar, o que a mão espera é o botão
+  // mudar no toque — a transação é assunto do banco, não do dedo.
   renderRepeat();
+  await AVDB.setState('repeat', repeat);
 }
 
 async function setView(v) {

@@ -207,7 +207,7 @@ registro `kind: 'youtube'` (o link sem bytes) deixou de ser tocável como link e
 passa a ser RESOLVIDO no toque, dentro do `send` (`resolverLinkYoutube`, que
 BAIXA). Ver "A via do arquivo baixado", abaixo. (A transmissão direta era o
 primeiro degrau desta escada até a v1.7.7, e o motor dela saiu do bundle na
-v1.8.80.)
+v1.8.82.)
 
 **A lição de método, que é o que sobrevive a qualquer transporte:** três
 versões (v5.75–v5.77) atacaram "o telão para ao minimizar" supondo que o

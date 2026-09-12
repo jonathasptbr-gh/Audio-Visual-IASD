@@ -716,7 +716,7 @@ window.AVNative = {
                        //   MEDIDA, que só existe depois dos primeiros bytes — e
                        //   porque uma regra de escolha erra, e no web ela se
                        //   conserta por OTA. Essa regra saiu com o player, na
-                       //   v1.8.80
+                       //   v1.8.82
   ytSearch(termo),     // → [{ id, url, name, author, seconds, thumb }] do YouTube
   ytCanalPlaylists(canalUrl), // → [{ name, url, count }] da ABA do canal
   ytPlaylist(url),     // → { name, author, items:[{id,url,name,seconds,thumb}] }

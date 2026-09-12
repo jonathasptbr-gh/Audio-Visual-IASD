@@ -479,6 +479,63 @@
     <symbol id="icoSlideNext" viewBox="0 0 24 24">
       <polyline points="9 18 15 12 9 6"/>
     </symbol>
+    <!-- ===== OS TRÊS MODOS DE REPETIÇÃO (v1.8.80) =====
+         Pedido do operador: *"altere o icone dessas funções. O icone de repetir
+         a midia atual deve ser o icone de repetir comum, sem adições. O icone de
+         repetir a playlist, deve ter o mesmo design de repetir, mas deve ter
+         algo que ilustre o objeto 'lista' de sua função."*
+
+         EM SVG E NÃO EM GLIFO, e aqui a razão é literal: o "repetir com lista"
+         NÃO EXISTE no subset de `shared/fonts/material-symbols.woff2` (31
+         codepoints) — pedi-lo por `&#x…;` desenharia um VÃO, sem erro nenhum
+         (ver `tools/glifos.test.mjs`). E os três vêm JUNTOS porque eles são um
+         conjunto: o modo é lido pela diferença entre os desenhos, e metade em
+         glifo (tinta cheia) contra metade em traço daria duas famílias no mesmo
+         botão, com pesos que não se comparam.
+
+         O LAÇO É O MESMO NOS DOIS PRIMEIROS, ao ponto: `#icoRepetirLista` é o
+         `#icoRepetir` mais a lista no miolo. É isso que o operador pediu por "o
+         mesmo design de repetir" — a diferença tem de ser a ADIÇÃO, não um
+         segundo desenho parecido.
+
+         A LISTA TEM MARCADOR, e isso saiu de uma MEDIÇÃO seguida de uma
+         olhada: com duas linhas nuas o desenho virava quatro traços horizontais
+         quase equidistantes (os dois do laço mais os dois do miolo) e lia como
+         "mais setas", não como lista. O par ponto + linha é o que a nomeia. O
+         ponto é um segmento de comprimento `.01` com `stroke-linecap: round`,
+         que o traço fecha num disco — um `<circle>` não pintaria nada aqui,
+         porque o `<svg>` de uso é `fill="none"`.
+
+         E O LAÇO ABRIU para caber: ele foi de 6..18 para 5,5..18,5 no eixo Y
+         (MEDIDO, com a lista dentro do laço apertado as duas linhas encostavam
+         na base e no topo). O PESO continua no lugar — tinta medida contra o
+         glifo `repeat` que estes três substituíram: `#icoRepetir` 0,93× e
+         `#icoAleatorio` 1,03×; o `#icoRepetirLista` dá 1,25×, e a diferença é
+         exatamente o que ele tem a mais por definição. -->
+    <symbol id="icoRepetir" viewBox="0 0 24 24">
+      <path d="M3.5 10V9a3.5 3.5 0 0 1 3.5-3.5h10"/>
+      <polyline points="14.5 3 17 5.5 14.5 8"/>
+      <path d="M20.5 14v1a3.5 3.5 0 0 1-3.5 3.5H7"/>
+      <polyline points="9.5 21 7 18.5 9.5 16"/>
+    </symbol>
+    <symbol id="icoRepetirLista" viewBox="0 0 24 24">
+      <path d="M3.5 10V9a3.5 3.5 0 0 1 3.5-3.5h10"/>
+      <polyline points="14.5 3 17 5.5 14.5 8"/>
+      <path d="M20.5 14v1a3.5 3.5 0 0 1-3.5 3.5H7"/>
+      <polyline points="9.5 21 7 18.5 9.5 16"/>
+      <path d="M9 10.5h.01"/><path d="M11.5 10.5h4"/>
+      <path d="M9 13.5h.01"/><path d="M11.5 13.5h4"/>
+    </symbol>
+    <!-- O ALEATÓRIO entra no conjunto por COERÊNCIA, não por falta: o glifo
+         `shuffle` existe no subset e desenhava. Ele é o quarto degrau do MESMO
+         botão, e um glifo de tinta cheia ao lado de dois laços de traço é a
+         divergência de peso que a v1.8.68 mediu noutro lugar deste app. -->
+    <symbol id="icoAleatorio" viewBox="0 0 24 24">
+      <path d="M4 7h3.2l9.6 10H20"/>
+      <path d="M4 17h3.2l9.6-10H20"/>
+      <polyline points="17.5 4.5 20 7 17.5 9.5"/>
+      <polyline points="17.5 14.5 20 17 17.5 19.5"/>
+    </symbol>
     <!-- ===== OS ÍCONES DO PAINEL RÁPIDO DE CONFIGURAÇÕES (v1.4.38) =====
          Cada tile da grade tem UM desenho, e os que governam uma escolha de dois
          estados têm DOIS — o par `.ico-base`/`.ico-alt`, a mesma mecânica da
@@ -1538,7 +1595,12 @@
            (ver `#lyricsViewBtn`), e a regra que a governa não mudou — o que
            ocupa a ponta é o que abre uma folha, não o que opera a cena. -->
       <div class="transport">
-        <button id="repeat" class="t-btn" title="Repetição"><span class="msym" aria-hidden="true">&#xe040;</span></button>
+        <!-- O DESENHO VIVE NUM `<use>`, e `renderRepeat` troca só o `href` dele:
+             um `innerHTML` a cada render recriaria o `<svg>` quatro vezes por
+             ciclo, e o `width`/`height` viria do atributo em vez da regra de
+             escala (a armadilha MUDA da v1.8.68). A caixa é a do transporte:
+             `.t-btn svg` já está na lista do `--icon-md`. -->
+        <button id="repeat" class="t-btn" title="Repetição"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoRepetir"/></svg></button>
         <!-- Único botão do transporte com `aria-label`: o selo #plCount é
              texto de verdade, então esconder só o glifo faria o nome acessível
              virar o NÚMERO ("3"), sem dizer de quê. O aria-label nomeia o
@@ -2233,7 +2295,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.8.80</span>
+            <span id="appVersion" class="app-version">v1.8.82</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

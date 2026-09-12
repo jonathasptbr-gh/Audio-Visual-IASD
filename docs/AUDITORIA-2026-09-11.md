@@ -239,7 +239,19 @@ O comentário de `apkProcurar` (linhas 678-685) afirma o contrário: *"Os dois r
 
 **Correção proposta.** Decidir e escrever: ou apagar `otaPending` e `apkProcurar` dos dois lados no mesmo lote (com degrau de `SHELL_VERSION` e `shellTag`, o rito do `farolContar`), ou mantê-los com a nota explícita de que estão sem chamador desde que o `atualizacaoEstado` os unificou. Nos dois casos, corrigir o comentário de `native.js:682` (só `apkInstalar` tem chamador) e a linha `PONTE.md:330` (quem guarda o achado é o `ShellUpdater.anunciar`, a partir do manifesto OTA).
 
-### [34] O token `--btn-ok` ficou sem um único consumidor quando o verde saiu (v1.8.55/v1.8.56), e a paleta ainda o documenta como superfície ativa
+### [34] RESOLVIDO na v1.8.81 — O token `--btn-ok` ficou sem um único consumidor quando o verde saiu (v1.8.55/v1.8.56), e a paleta ainda o documenta como superfície ativa
+
+> **RESOLVIDO na v1.8.81, e a varredura achou MAIS do que o achado dizia.** São
+> DOIS tokens sem leitor, não um: o **`--hit-nav`**
+> (`controle.css`), órfão desde a v1.5.0, que este achado não tinha. E a direção
+> OPOSTA é pior: nove citações de nome inexistente no `tokens.css`, cinco delas
+> medições de contraste contra uma superfície que não existe. As duas direções
+> ganharam bloco no `tokens.test.mjs`. O `tok('--btn-ok')` do
+> `feedback-de-confirmacao.test.mjs` virou literal congelado, como esta
+> proposta previa — e havia a armadilha que ela não previa: apagado o token, o
+> `getPropertyValue` devolve string vazia e a asserção ficaria verde comparando
+> contra lixo.
+
 
 `app/src/main/assets/web/shared/tokens.css:506` · gravidade **media** · **VERIFICADO** · lente `arqueologia-revogacoes`
 

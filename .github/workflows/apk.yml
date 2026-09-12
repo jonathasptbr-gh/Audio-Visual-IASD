@@ -607,6 +607,7 @@ jobs:
           # nada. Conferido verde antes de entrar.
           rodar tools/enquadramento-da-camada.test.mjs
           rodar tools/repeticao-e-sequencia.test.mjs
+          rodar tools/barra-do-topo-e-titulos.test.mjs
 
           # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
           # originou este lote foi precisamente que o desfecho só existia lá

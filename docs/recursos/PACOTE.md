@@ -244,7 +244,7 @@ mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos
   arquivos delas saem junto (`AVPacote.pastasDoAparelho`), e o corte é por
   SEGMENTO de caminho, nunca por prefixo de texto.
 - **O `stream` de um registro é RETIRADO na exportação.** O app não escreve mais
-  esse campo (a transmissão direta saiu na v1.8.80), mas um registro gravado
+  esse campo (a transmissão direta saiu na v1.8.82), mas um registro gravado
   antes dela ainda o carrega no aparelho: um manifesto de URLs do googlevideo já
   expiradas, com tokens de um `StreamProxy` que só existia na origem. **Esta é a
   única pergunta que o web ainda faz pelo campo**, e é aqui que ele morre — sem

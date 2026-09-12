@@ -235,6 +235,63 @@ try {
     + 'controles — onde o seletor mora — não é desenhada', escondido);
   await pg.evaluate(() => setAppMode('full'));
 
+  // ══════════════════════════════════════════════════════════════════════
+  // 7 · A ORDEM DO CICLO E O DESENHO DE CADA DEGRAU (v1.8.80)
+  //
+  // Pedido do operador: *"ajuste a ordem das opções do botão de repetir mídia,
+  // para que ele mostre primeiro repetir a midia atual e depois o repetir a
+  // playlist inteira. Inclusive, altere o icone dessas funções. O icone de
+  // repetir a midia atual deve ser o icone de repetir comum, sem adições. O
+  // icone de repetir a playlist, deve ter o mesmo design de repetir, mas deve
+  // ter algo que ilustre o objeto 'lista' de sua função"*.
+  //
+  // O CICLO É PERCORRIDO PELO TOQUE, nunca lendo `REPEATS`: a constante
+  // concordar consigo mesma não prova nada — o que o operador percorre é o
+  // botão. E o DESENHO é lido do `<use>`, que é o que o `renderRepeat` escreve;
+  // o `glifos.test.mjs` é quem garante, do outro lado, que cada nome desses tem
+  // um `<symbol>` no sprite (sem ele o botão fica tocável e VAZIO).
+  // ══════════════════════════════════════════════════════════════════════
+  await pg.evaluate(async () => { await AVDB.setState('repeat', 'off'); repeat = 'off'; renderRepeat(); });
+  const ciclo = await pg.evaluate(() => {
+    const b = document.getElementById('repeat');
+    const passo = () => ({
+      modo: repeat,
+      ico: (b.querySelector('use') || {}).getAttribute
+        ? b.querySelector('use').getAttribute('href') : '',
+      aceso: b.classList.contains('active'),
+      titulo: b.title,
+      svg: (() => { const r = b.querySelector('svg').getBoundingClientRect(); return { w: +r.width.toFixed(1), h: +r.height.toFixed(1) }; })(),
+    });
+    const voltas = [passo()];
+    for (let i = 0; i < 4; i++) { b.click(); voltas.push(passo()); }
+    return voltas;
+  });
+  const ordem = ciclo.map((p) => p.modo).join(' → ');
+  checar(ordem === 'off → one → all → shuffle → off',
+    '7 · o ciclo do botão é off → REPETIR ESTA MÍDIA → repetir a playlist → '
+    + 'aleatório: o degrau mais pedido vem primeiro, e os dois primeiros toques '
+    + 'vão do mais restrito ao mais amplo', ordem);
+  const desenhos = ciclo.slice(0, 4).map((p) => p.modo + '=' + p.ico).join(' · ');
+  checar(ciclo[1].ico === '#icoRepetir' && ciclo[2].ico === '#icoRepetirLista'
+    && ciclo[3].ico === '#icoAleatorio',
+    '7 · "repetir esta mídia" usa o laço PURO e "repetir a playlist" usa o mesmo '
+    + 'laço COM a lista — a diferença é a adição, que é o que o pedido descreve',
+    desenhos);
+  checar(ciclo[0].ico === ciclo[1].ico && ciclo[0].aceso === false && ciclo[1].aceso === true,
+    '7 · `off` divide o desenho com `one`, e o que os separa é a SUPERFÍCIE — '
+    + 'sem o aceso, "repetir esta mídia" seria indistinguível de "sem repetição"',
+    JSON.stringify({ off: ciclo[0], one: ciclo[1] }));
+  const semCaixa = ciclo.filter((p) => p.svg.w < 10 || p.svg.h < 10);
+  checar(semCaixa.length === 0,
+    '7 · e o desenho tem caixa em todo degrau: um `<svg>` sem regra de escala '
+    + 'nasce em 300×150 ou em nada, e nos dois casos o botão mente', semCaixa);
+  const semTitulo = ciclo.filter((p) => !p.titulo || /repetir 1/i.test(p.titulo));
+  checar(semTitulo.length === 0,
+    '7 · e o rótulo de cada degrau usa as palavras do operador — "Repetir 1" era '
+    + 'a abreviação do glifo `repeat_one`, e o glifo saiu',
+    semTitulo.map((p) => p.modo + ': ' + p.titulo));
+  await pg.evaluate(async () => { await AVDB.setState('repeat', 'off'); repeat = 'off'; renderRepeat(); });
+
   checar(erros.length === 0, 'nenhum erro de página durante o percurso', erros.join(' | '));
 } finally {
   await navegador.close();

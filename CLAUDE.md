@@ -1038,7 +1038,7 @@ deixa o veredito com o `confirmarRede` de sempre. O caso não é raro: o hotspot
 - **O QUE NÃO VAI PARA A REDE É O EMBED** — iframe de terceiro, que a CSP das
   telas barra por construção. A rota `/s/<token>` do `EspelhoServidor` era a
   metade de rede da TRANSMISSÃO DIRETA e ficou sem cliente quando ela saiu do
-  web (v1.8.80): **ela é KOTLIN**, e tirá-la é um degrau de `SHELL_VERSION` e
+  web (v1.8.82): **ela é KOTLIN**, e tirá-la é um degrau de `SHELL_VERSION` e
   uma Release — o lado seguro é encolher o web primeiro, e foi o que este lote
   fez.
 - **A APRESENTAÇÃO CHEGA ÀS TELAS, uma `/m/` POR PÁGINA.** Ela é o único kind
@@ -1989,16 +1989,16 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os 78 de Chromium somam **13,3 min em série** e **4,5 min nos três processos**
+Os 79 de Chromium somam **12,8 min em série** e **4,3 min nos três processos**
 (MEDIDO em 4 vCPU, o mesmo do runner; os 20 de Node puro somam **8 s** —
-juntos, os 98). O custo não é o que parece: lançar o navegador são **~110 ms** e
+juntos, os 99). O custo não é o que parece: lançar o navegador são **~110 ms** e
 subir o `/controle/` inteiro é **~1 s** — compartilhar um navegador entre
 oráculos, a otimização óbvia, economizaria 2% e custaria o isolamento. O que
 sobra é espera, com os quatro núcleos ociosos.
 
-**E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é.** MEDIDO: os 48 mais
-baratos somam **166 s dos 801 s**, e DEZOITO deles rodam em menos de 2 s cada —
-apagar esses dezoito devolveria **8 s de parede** e custaria a cobertura inteira
+**E O NÚMERO DE ORÁCULOS NÃO É O CUSTO — a distribuição é.** MEDIDO: os 49 mais
+baratos somam **153 s dos 769 s**, e VINTE deles rodam em menos de 2 s cada —
+apagar esses vinte devolveria **9 s de parede** e custaria a cobertura inteira
 que eles carregam.
 O passo é caro por causa de uma DÚZIA de arquivos, e o que os encarece são
 defeitos de arnês, não asserções a mais — dois deles pagaram 130 s sozinhos (ver
@@ -2036,7 +2036,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 98 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 99 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2464,7 +2464,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   terceira derrubou. Onde o desfecho pode variar entre uma vez e outra, o bloco
   leva CONTADOR DE SESSÃO ao lado da linha: o `ytCenso` (pedidos e qualidade
   limitada) é o de hoje. (O censo de travamentos da transmissão direta saiu com
-  ela na v1.8.80.) **Contador, não log:** guardar QUAIS vídeos responderia mais
+  ela na v1.8.82.) **Contador, não log:** guardar QUAIS vídeos responderia mais
   e custaria tamanho, privacidade do que se copia e uma segunda fonte de
   verdade. E **só sai depois de acontecer** — uma linha de zeros é mais uma para
   ler em toda cópia.
@@ -2627,11 +2627,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.80 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.82 · APK v1.8.73** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.80 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
+> **A v1.8.82 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Esta não toca `java/`,
 > `res/` nem o manifesto, e nenhum método da ponte entrou ou mudou de forma: o
 > bundle sai na hora, contra o APK v1.8.73 que já está publicado. Aquela

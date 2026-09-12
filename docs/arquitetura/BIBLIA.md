@@ -343,6 +343,27 @@ das pontas sai de `:first-child`/`:last-child`, então ele acompanha a ordem
 nova sem uma segunda regra; e a Versão continua saindo da barra inteira quando
 não há lista de versões carregada.
 
+### E ela PREENCHE a largura da base (v1.8.80)
+
+Relato do operador: *"os botões de opções da bíblia, que mostram o texto, salvar
+no cronograma e salvar nos favoritos… essa barra de controles não está
+preenchendo toda a largura disponível dessa base"*. MEDIDO a 430×900: a base tem
+382px e o conteúdo media 324,6 — **28,7px de vão de cada lado**, porque o rodapé
+é `justify-content: center` e nenhum dos dois blocos crescia.
+
+**Quem cresce é a REFERÊNCIA, nunca as ações:** os dois botões de guardar são
+quadrados por regra declarada (`aspect-ratio: 1` sobre a altura herdada), então
+esticar a caixa deles não os alarga — abriria um vão DENTRO dela. O `flex-grow`
+entra na nav e nas quatro pílulas, e o espaço a mais vira leitura: o nome do
+livro deixa de ser o primeiro a reticenciar.
+
+**Crescer e encolher são eixos independentes**, e é por isso que isto não desfaz
+a correção abaixo: os `flex-shrink` (1 nas pílulas de número, 3 no livro) seguem
+decidindo quem perde largura quando a barra aperta; aqui só se reparte a SOBRA.
+Na tela em que a barra QUEBRA em duas linhas (360×640 com a fonte em 1,3×) o que
+vale é a linha da referência ir de ponta a ponta — e é assim que o oráculo
+pergunta, em vez de medir a segunda linha como se fosse a primeira.
+
 ### E a barra CABE encolhendo, nunca pintando por cima (v1.7.10)
 
 Relato do operador, na mesma captura: *"na base, onde tem o livro capítulo e

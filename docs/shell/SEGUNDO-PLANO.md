@@ -109,7 +109,7 @@ memória caminho → URL), um parcial do 137 seria "retomado" por um download do
 136 — dois vídeos emendados, sem erro, aparecendo só na hora de projetar. O mapa
 morre com o processo de propósito.
 
-### A TRANSMISSÃO DIRETA SAIU DO APP (v1.7.7 o ESCRITOR, v1.8.80 o LEITOR)
+### A TRANSMISSÃO DIRETA SAIU DO APP (v1.7.7 o ESCRITOR, v1.8.82 o LEITOR)
 
 Da v5.212 à v1.7.2 o "Tocar agora" de um vídeo do YouTube **projetava sem
 baixar**: o `ytStream` montava o manifesto das duas faixas adaptativas, o
@@ -128,7 +128,7 @@ direto, ele é muito instável, vamos manter o download em 720p como padrão"*.
 caminhos que produziam uma cena de transmissão — o "Tocar agora", o item de link
 (`resolverLinkYoutube`) e o share do modo simplificado — passaram todos a baixar.
 
-**A v1.8.80 tirou o LEITOR, e a razão é que ele deixou de ser um leitor.** O
+**A v1.8.82 tirou o LEITOR, e a razão é que ele deixou de ser um leitor.** O
 motor ficava para tocar um registro gravado ANTES daquele lote — mas o que ele
 lia são URLs do googlevideo, que **expiram em horas**. Passados três meses não
 existe aparelho em que aquele registro ainda toque: o que sobrava era ~1.000

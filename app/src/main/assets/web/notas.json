@@ -1,9 +1,26 @@
 [
   {
-    "versao": "1.8.80",
+    "versao": "1.8.82",
     "itens": [
       "Faxina por dentro: saiu o motor de tocar vídeo do YouTube sem baixar, desligado desde a v1.7.7.",
       "O app ficou mais leve e a atualização automática, mais segura. Nada muda na tela."
+    ]
+  },
+  {
+    "versao": "1.8.81",
+    "itens": [
+      "Faxina na paleta: saíram dois tokens que nada no app lia. Nada muda na tela.",
+      "Corrigidas medições de contraste que citavam uma superfície que não existe mais."
+    ]
+  },
+  {
+    "versao": "1.8.80",
+    "itens": [
+      "A barra do topo do Cronograma respira igual em cima e embaixo — os botões deixaram de ficar colados na base.",
+      "A base da leitura da Bíblia passou a ocupar toda a largura, e o título das janelas ficou centrado e parado.",
+      "O número no botão da playlist mostra o total de itens da fila.",
+      "Repetir: primeiro a mídia atual, depois a playlist — e cada modo tem o seu desenho.",
+      "A velocidade da rolagem da cifra virou um slider, que desliza ao lado do play."
     ]
   },
   {
