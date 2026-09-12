@@ -94,7 +94,7 @@ aplicada com cuidado**:
 | linha | o excluir | por quê |
 |---|---|---|
 | **em uso** | existe, **apagado**, com o `title` dizendo por quê | ele tem função a RECUPERAR: um toque noutra linha devolve o botão. Apagar é o que ensina isso; sumir mandaria procurar o que não sumiu |
-| **sem nada baixado** | **não existe** | não é uma ação adiada, é uma ação que não existe — e o app já não oferece o que não pode funcionar (o microfone sem TV, a aba de cifra sem cifra) |
+| **sem nada baixado** | **não existe** | não é uma ação adiada, é uma ação que não existe — e o app já não oferece o que não pode funcionar (a aba de cifra sem cifra) |
 
 Excluir a versão em uso é o pé de galinha desta folha: a leitura em cena passaria
 a depender da rede da igreja no meio do culto.

@@ -51,8 +51,8 @@ para a TV com `android.app.Presentation`.
 | `SyncService.kt` | 550 | `CLAUDE.md` — "Trabalho em segundo plano" |
 | `MainActivity.kt` | 2.517 | `CLAUDE.md` — voltar, volume, cast, fullscreen |
 | `StagePresentation.kt` | 188 | `CLAUDE.md` — "Reconexão e morte do renderer" |
-| `MicChromeClient.kt` | 81 | `CLAUDE.md` — "Microfone ao vivo" |
-| `MicDiag.kt` | 181 | `CLAUDE.md` — "Microfone ao vivo" (o `micDiag` da ponte: POR QUE ele não abre — leitura PURA, não pede nada) |
+| `MicChromeClient.kt` | 81 | `CLAUDE.md` — "O microfone ao vivo SAIU" (**sem consumidor desde a v1.8.89**: o recurso saiu pelo lado WEB e o Kotlin ficou, que é o lado seguro de encolher a ponte) |
+| `MicDiag.kt` | 181 | `CLAUDE.md` — "O microfone ao vivo SAIU" (idem: o `micDiag` da ponte é servido e ninguém o chama. Leitura PURA — não abre nada, não pede nada) |
 | `PacoteProvider.kt` | 39 | `CLAUDE.md` — "O pacote de transferência" (subclasse VAZIA do `FileProvider`, e ela É a correção do "0 KB": duas autoridades sobre a MESMA classe compartilham a instância — e a tabela de caminhos — da primeira, porque o `ActivityThread` as guarda por `ComponentName`. Oráculo: `manifest-provedores.test.mjs`) |
 | `PacoteCanal.kt` | 265 | `CLAUDE.md` — "O pacote de transferência" (o SEGUNDO canal de `ArrayBuffer` do shell; abrir e fechar o destino entram pela ponte, porque envolvem uma PESSOA) |
 | `MessageBus.kt` | 54 | `CLAUDE.md` — "Barramento de comandos" |

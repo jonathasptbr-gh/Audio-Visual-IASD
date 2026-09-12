@@ -906,261 +906,19 @@ function reconcileCover(view) {
   else stage.coverOut();
 }
 
-// ===== Microfone ao vivo (push-to-talk) =====
-// O operador segura o botão no Controle e a voz sai na PROJEÇÃO, ao vivo.
+// (O MICROFONE AO VIVO saiu na v1.8.89, a pedido do operador: *"remova a opção
+//  de microfone direto para o telão, que temos nas ferramentas"*. Ele nasceu
+//  AQUI, e não no Controle, porque um `MediaStream` não atravessa o
+//  BroadcastChannel — quem abria a captura tinha de ser quem a reproduzia.
+//  Foram junto `startMic`/`stopMic`, a escada de três degraus (a que fazia o
+//  `AudioRecord` abrir com o espelhamento ligado), o `micStatus` e o `setMic`,
+//  com a guarda `if (TELA) return` que impedia cada tela da rede de abrir o
+//  microfone DO APARELHO ONDE O NAVEGADOR RODA. Com o comando `mic` sem
+//  emissor, não sobra nada disso a defender.
 //
-// A captura acontece AQUI, no Display: um `MediaStream` não atravessa o
-// BroadcastChannel (não é clonável), então mandar o áudio "pela ponte" não
-// existe como opção. O que atravessa é o comando; quem abre o microfone é quem
-// vai reproduzi-lo.
-//
-// Caminho: getUserMedia → MediaStreamSource → GainNode → destination. Menor
-// atraso disponível; a latência do WebView (~0,1–0,3 s) é inerente.
-//
-// REALIMENTAÇÃO: `echoCancellation` fica LIGADO de propósito — num culto um
-// ganho realimentado é estrago imediato e público, e vale mais que a fidelidade
-// de desligar o processamento. Com a saída no próprio celular (e não na TV) o
-// risco continua: é do formato, não do código.
-
-let micStream = null;
-let micCtx = null;
-let micSrc = null;
-let micGain = null;
-const MIC_RAMP = 0.12; // s — entrada/saída sem estalo
-
-function micStatus(on, error, degraus) {
-  const m = { type: 'mic-status', on: !!on, error: error || '' };
-  // OS DEGRAUS SÓ VIAJAM NA FALHA: no sucesso o Controle não tem o que fazer com
-  // eles, e o `mic-status` sai a cada transição.
-  if (degraus && degraus.length) m.degraus = degraus;
-  AVDB.sendCommand(m);
-}
-
-// OS DISPOSITIVOS DE ENTRADA, com rótulo. O rótulo só existe depois de uma
-// permissão concedida — antes disso o navegador o esconde por privacidade —,
-// então esta lista é lida DEPOIS das tentativas, quando ela diz algo sobre o
-// aparelho em vez de sobre a política do navegador.
-async function micDispositivos() {
-  try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return [];
-    const ds = await navigator.mediaDevices.enumerateDevices();
-    return ds.filter((d) => d.kind === 'audioinput')
-      .map((d) => ({ deviceId: d.deviceId, label: d.label || '' }));
-  } catch (_) { return []; }
-}
-
-// Token da captura EM VOO. `micStream` sozinho não servia como guarda: ele só
-// existe DEPOIS de o getUserMedia resolver, e o primeiro push-to-talk da sessão
-// demora (permissão + onPermissionRequest do WebView). Um on→off→on nesse
-// intervalo — o operador aperta, não ouve nada, solta e aperta de novo —
-// disparava um SEGUNDO getUserMedia com o primeiro ainda pendente; quando os
-// dois resolviam, o segundo sobrescrevia micStream/micSrc/micGain e o primeiro
-// ficava com as trilhas vivas e o ganho ligado ao destination, sem ninguém
-// para pará-lo: microfone aberto no telão (e o indicador de gravação do
-// Android aceso) até o WebView do telão ser recriado.
-let micSeq = 0;
-
-async function startMic() {
-  if (micStream) return; // já no ar
-  const seq = ++micSeq;
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    micStatus(false, 'unsupported');
-    return;
-  }
-  // ===== TRÊS TENTATIVAS, DA MELHOR PARA A QUE SEMPRE ABRE =====
-  //
-  // `NotReadableError` NÃO é "outro app está usando o microfone": é o "não
-  // consegui abrir o dispositivo" genérico do WebRTC, e no Android a causa comum
-  // é o PROCESSAMENTO pedido. Com `echoCancellation` o Chromium abre o
-  // `AudioRecord` em `VOICE_COMMUNICATION` (sessão de voz), que o sistema recusa
-  // quando a saída de áudio está em outro caminho — o caso deste app com
-  // espelhamento ligado. O microfone CRU não passa por ali e abre.
-  //
-  // A ordem é deliberada: o cancelamento de eco vem primeiro porque uma
-  // realimentação num culto é estrago imediato e público. Um push-to-talk com
-  // risco de microfonia é melhor que um que não funciona, desde que o operador
-  // seja avisado — é o que o `sem-eco` faz.
-
-  const TENTATIVAS = [
-    { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-    true,
-  ];
-  const QUAL = ['com eco', 'sem eco', 'cru'];
-  let stream = null;
-  let ultimoErro = 'error';
-  let ultimaMsg = '';
-  let semEco = false;
-  const degraus = [];
-  for (let i = 0; i < TENTATIVAS.length; i++) {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: TENTATIVAS[i], video: false });
-      semEco = i > 0;
-      degraus.push({ qual: QUAL[i] || String(i), erro: '' });
-      break;
-    } catch (e) {
-      ultimoErro = (e && e.name) || 'error';
-      // A MENSAGEM, e não só o nome. `NotReadableError` é o balde genérico do
-      // WebRTC; a frase que vem junto é do Chromium e costuma nomear a etapa
-      // que falhou. Sem ela o Registro empata em "não abriu" e a investigação
-      // vira adivinhação — que foi o que aconteceu por três rodadas.
-      ultimaMsg = (e && e.message) ? String(e.message).slice(0, 120) : '';
-      degraus.push({ qual: QUAL[i] || String(i), erro: ultimoErro, msg: ultimaMsg });
-      // PERMISSÃO NEGADA não melhora com menos processamento: é resposta do
-      // sistema (ou do `MicChromeClient`), e insistir só gasta duas chamadas
-      // para dar o mesmo erro. Qualquer outra falha é candidata a ser o
-      // dispositivo recusando aquela configuração — e essa vale tentar de novo.
-      if (ultimoErro === 'NotAllowedError' || ultimoErro === 'SecurityError') break;
-      // O operador pode ter soltado o botão entre uma tentativa e outra.
-      if (seq !== micSeq || !micWanted) break;
-    }
-  }
-  // O ÚLTIMO RECURSO: pedir o dispositivo PELO ID, em vez de deixar o navegador
-  // escolher o "default". Não é a mesma pergunta — o `default` do Chromium é uma
-  // entrada virtual que segue o roteamento do sistema, e ela pode falhar
-  // enquanto o dispositivo físico abre. Só roda depois de a escada de
-  // restrições ter se esgotado, e só se houver um id para pedir.
-  if (!stream && ultimoErro !== 'NotAllowedError' && ultimoErro !== 'SecurityError'
-      && (seq === micSeq && micWanted)) {
-    // O `default` NÃO É PULADO — ver o gêmeo no `controle.js`: num aparelho com
-    // UMA entrada, o id dela É `default`, e pular significava não tentar nada.
-    for (const d of await micDispositivos()) {
-      if (!d.deviceId) continue;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { deviceId: { exact: d.deviceId } }, video: false,
-        });
-        semEco = true;
-        degraus.push({ qual: 'id ' + (d.label || d.deviceId).slice(0, 24), erro: '' });
-        break;
-      } catch (e) {
-        ultimoErro = (e && e.name) || 'error';
-        ultimaMsg = (e && e.message) ? String(e.message).slice(0, 120) : '';
-        degraus.push({ qual: 'id ' + (d.label || d.deviceId).slice(0, 24), erro: ultimoErro, msg: ultimaMsg });
-      }
-      if (seq !== micSeq || !micWanted) break;
-    }
-  }
-  if (!stream) {
-    diag('microfone recusado: ' + ultimoErro + (ultimaMsg ? ' — ' + ultimaMsg : ''));
-    // OS DEGRAUS VÃO JUNTO, e é o que impede o Registro do CELULAR de mentir:
-    // ele via um `mic-status` com um erro só e concluía "falhou antes de esgotar
-    // a escada" — quando o telão tinha rodado a escada inteira. O consumidor não
-    // tinha como saber, porque a informação nunca saiu daqui.
-    micStatus(false, ultimoErro, degraus);
-    return;
-  }
-  if (semEco) diag('microfone SEM cancelamento de eco (o modo com eco foi recusado)');
-  // O operador pode ter soltado o botão (ou apertado de novo, começando outra
-  // captura) enquanto a permissão era resolvida: nos dois casos este stream já
-  // nasceu obsoleto e não pode virar áudio no telão — quem manda é a última
-  // intenção, e o token diz se esta ainda é ela.
-  if (seq !== micSeq || !micWanted) {
-    stream.getTracks().forEach((t) => t.stop());
-    // O Controle precisa saber que ISTO não virou microfone: o stopMic de
-    // quem soltou o botão saiu cedo (micStream ainda era null — não havia o
-    // que derrubar) e não emitiu nada, então sem esta linha o indicador do
-    // botão ficava no último estado. Só quando o operador SOLTOU: se ele
-    // apertou de novo (`micWanted` ainda true), a captura mais nova é quem
-    // vai anunciar o próprio desfecho — um `false` daqui poderia chegar
-    // DEPOIS do `true` dela e apagar um microfone que está no ar.
-    if (!micWanted) micStatus(false);
-    return;
-  }
-  micStream = stream;
-  try {
-    micCtx = micCtx || new (window.AudioContext || window.webkitAudioContext)();
-    if (micCtx.state === 'suspended') { try { await micCtx.resume(); } catch (_) {} }
-    // O resume é OUTRO await, e um stopMic() aqui no meio já teria passado
-    // batido: ele derruba as trilhas, mas não existiria micSrc/micGain para
-    // desconectar — e a continuação abaixo ligaria a fonte ao destination
-    // depois de o operador ter soltado o botão. Reconfere antes de conectar.
-    if (seq !== micSeq || !micWanted) {
-      stream.getTracks().forEach((t) => t.stop());
-      if (micStream === stream) micStream = null;
-      return;
-    }
-    micSrc = micCtx.createMediaStreamSource(micStream);
-    micGain = micCtx.createGain();
-    micGain.gain.value = 0;
-    micSrc.connect(micGain);
-    micGain.connect(micCtx.destination);
-    micGain.gain.linearRampToValueAtTime(1, micCtx.currentTime + MIC_RAMP);
-    micStatus(true);
-  } catch (e) {
-    stopMic();
-    micStatus(false, (e && e.name) || 'audio-error');
-  }
-}
-
-function stopMic() {
-  // Invalida a captura em voo ANTES da saída antecipada: com `micStream` ainda
-  // null (permissão não resolveu) esta função não tinha nada a derrubar, mas
-  // precisa mesmo assim registrar que o operador soltou o botão — senão o
-  // getUserMedia pendente vira um microfone aberto que nenhum comando desliga.
-  ++micSeq;
-  if (!micStream) return;
-  const stream = micStream, src = micSrc, gain = micGain;
-  micStream = null; micSrc = null; micGain = null;
-  // Desliga em rampa e só então derruba a fonte — cortar no meio de uma
-  // palavra produz um estalo bem audível numa caixa de som.
-  const drop = () => {
-    try { if (src) src.disconnect(); } catch (_) {}
-    try { if (gain) gain.disconnect(); } catch (_) {}
-    stream.getTracks().forEach((t) => t.stop());
-    // SUSPENDE o contexto, não fecha: fechado exigiria criar outro no aperto
-    // seguinte, e é justamente esse custo (e a latência de abertura) que se
-    // quer evitar num push-to-talk. Suspenso, ele para de segurar a saída de
-    // áudio. Só se ninguém tiver reaberto o microfone nesse meio tempo —
-    // startMic religa com o resume que já existe lá.
-    if (micCtx && !micStream) { try { micCtx.suspend(); } catch (_) {} }
-  };
-  if (gain && micCtx) {
-    try {
-      gain.gain.cancelScheduledValues(micCtx.currentTime);
-      gain.gain.setValueAtTime(gain.gain.value, micCtx.currentTime);
-      gain.gain.linearRampToValueAtTime(0, micCtx.currentTime + MIC_RAMP);
-    } catch (_) {}
-    setTimeout(drop, MIC_RAMP * 1000 + 40);
-  } else {
-    drop();
-  }
-  micStatus(false);
-}
-
-// Intenção do operador (o botão está pressionado?). Guardada à parte de
-// `micStream` porque a captura é assíncrona: sem isso, soltar o botão antes de
-// a permissão resolver deixaria o microfone aberto sozinho.
-let micWanted = false;
-
-function setMic(on) {
-  // O MICROFONE É DO TELÃO, e esta linha é a única coisa que diz isso.
-  //
-  // O comando `mic` DESCE para toda tela da rede sem filtro nenhum: o fan-out
-  // do `EspelhoServidor.difundirJson` repassa verbatim o que o barramento
-  // emitiu (só o `__para` do reenvio endereçado é lido), e o `entregar()` do
-  // `tela.js` não olha o tipo. Sem esta guarda, cada tela executa `startMic` e
-  // abre o microfone DO APARELHO ONDE O NAVEGADOR RODA — o notebook do saguão,
-  // a Smart TV —, devolvendo-o às caixas DAQUELE aparelho. Nenhum áudio
-  // atravessa a rede aqui, então o estrago não é "a tela fala com a voz do
-  // púlpito": é realimentação local, num aparelho que ninguém está olhando.
-  //
-  // Hoje isso NÃO ACONTECE, e é por isso que a guarda precisa existir: quem o
-  // impede é o ambiente, não o app. Uma tela roda em `http://`, e ali
-  // `navigator.mediaDevices` simplesmente não existe (a API é `[SecureContext]`)
-  // — a chamada morre na conferência de presença logo abaixo. É uma proteção
-  // EMPRESTADA do navegador, e ela se desfaz sozinha no dia em que a transmissão
-  // subir em `https://` (o `EspelhoCert` continua inteiro no shell; o que saiu
-  // na v5.196 foi só a folha que o alimentava). Nesse dia, sem esta linha, o
-  // primeiro push-to-talk pediria microfone em cada tela da igreja.
-  //
-  // (Onde esta guarda mora era, até aqui, um COMENTÁRIO dizendo que ela existia.
-  // Ele descrevia o papel `espelho` — removido na v5.187 — e prometia uma saída
-  // antecipada que nenhuma linha implementava.)
-  if (TELA) return;
-  micWanted = !!on;
-  if (micWanted) startMic(); else stopMic();
-}
+//  O KOTLIN FICA: `MicChromeClient`, `requestMic`, `micDiag` e a permissão
+//  `RECORD_AUDIO` só saem instalando um APK — encolher pelo WEB primeiro é o
+//  lado seguro.)
 
 // ===== Wallpaper personalizado =====
 // A cortina do telão aceita uma imagem escolhida pelo operador no lugar do
@@ -1657,9 +1415,9 @@ AVDB.onCommand(async (cmd) => {
     applyWallpaper();
     return;
   }
-  // Microfone ao vivo: camada de ÁUDIO independente — não toca na mídia, no
-  // texto nem na cortina. Convive com qualquer coisa em cena.
-  if (cmd.type === 'mic') { setMic(cmd.on); return; }
+  // (O ramo `mic` saiu na v1.8.89 com o recurso — ver a lápide acima. Um
+  //  Controle de bundle ANTIGO ainda pode emitir o comando; ele cai no fim
+  //  desta função como qualquer tipo desconhecido, sem efeito.)
 
   // PARAR SÓ A MÍDIA — a outra metade da independência áudio × texto (v5.178).
   //

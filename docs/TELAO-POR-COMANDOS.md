@@ -351,13 +351,13 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
    progresso real de escrita — sem tráfego, o teto de 2 h venceria no meio
    do culto (fato da varredura).
 9. **Status: dreno de subida + eleição no Controle.** N telas emitindo
-   `display-status`/`media-ended`/`mic-status` é exatamente o que o dreno
+   `display-status`/`media-ended`/`diag-dump` é exatamente o que o dreno
    do papel espelho existe para calar — o problema reaparece na direção
    LAN→celular. O `post` do tela.js é lista de PERMISSÃO: `display-ready`
    (com `__tela`) e `display-status` RENOMEADO `tela-status` (com
    `__tela`); todo o resto morre mudo (media-ended dobraria o repeat-one;
-   mic-status 'unsupported' apagaria o microfone real; quem avança playlist
-   continua sendo o Controle, como hoje). O Kotlin injeta o `st` verbatim
+   diag-dump duplo faria o Registro mostrar o diário de UM sem dizer qual;
+   quem avança playlist continua sendo o Controle, como hoje). O Kotlin injeta o `st` verbatim
    no barramento E alimenta o snoop da notificação de mídia (a exceção já
    documentada do `snoopDisplayStatus`: copiar campos que o web calculou).
    Quem ELEGE a referência entre N telas é o Controle (invariante 5) — a
@@ -365,8 +365,11 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
    precedência pelo relógio de 2,5 s que já existe.
 10. **Som opt-in continua** (invariante 10): a tela nasce muda; o gesto
     desmuta `el.v` — é um atributo do `<video>`, sem torneira.
-11. **Microfone nunca sai na rede** — inalterado; numa página http nem há
-    `getUserMedia`, e o `mic-status` que isso geraria morre no dreno.
+11. **(Microfone: o recurso SAIU na v1.8.89.** Ele nunca saía na rede, e a
+    armadilha que deixou vale para o próximo comando de DESCIDA: quem barra um
+    comando numa tela é uma GUARDA no consumidor, nunca o ambiente — "numa
+    página http não há `getUserMedia`" é proteção emprestada do navegador, e ela
+    se desfaz sozinha no dia em que a transmissão subir em `https://`.)
 12. **Relógio das telas.** Cronômetro e sorteio viajam por descritor com
     epoch ms (`startAt`, `rollUntil`) e supõem relógio comum — uma Smart TV
     com minutos de desvio contaria errado. O tela.js mede o desvio

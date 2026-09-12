@@ -326,6 +326,8 @@ const listFootEl = document.getElementById('listFoot');
 // existir está na folha, sobre a regra que o desenha.
 const toolsSheetEl = document.getElementById('toolsSheet');
 const toolsBodyEl = document.getElementById('toolsBody');
+// O RODAPÉ FIXO da folha (v1.8.89), irmão do corpo — ver `renderFoot`.
+const toolsFootEl = document.getElementById('toolsFoot');
 const toolsCloseEl = document.getElementById('toolsClose');
 // Há UM host de lista (`libraryEl`). A pasta do aparelho abre INLINE, como um
 // álbum — e por isso não há busca dentro de uma pasta nem seleção múltipla lá
@@ -356,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.88';
+const WEB_VERSION = '1.8.89';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2007,10 +2009,9 @@ function telaoConectado() {
 // mandar o som") sem ninguém tocando do outro lado — SILÊNCIO NOS DOIS LADOS,
 // sem erro em lugar nenhum. O `telao` do shell (59) é quem responde.
 //
-// Ela é a pergunta das TRÊS decisões que dependem de haver projeção: quem toca
-// o som (`acertarSaidaDeAudio`), se o microfone é oferecido
-// (`haOndeReproduzirMic`) e se o Modo Fácil destrava (`simpleDisplay`). O que
-// segue lendo a lista CRUA é o que descreve a CONEXÃO — o rótulo da folha, o
+// Ela é a pergunta das decisões que dependem de haver projeção: quem toca o
+// som (`acertarSaidaDeAudio`) e se o Modo Fácil destrava (`simpleDisplay`). O
+// que segue lendo a lista CRUA é o que descreve a CONEXÃO — o rótulo da folha, o
 // `applyPreviewAspect`, o Registro —, e é lá que a distância entre as duas vira
 // frase.
 function telaoNoAr() {
@@ -3998,9 +3999,8 @@ function renderPlaylistCorpo() {
   // mesma linha, escrita uma vez em cada lado porque uma decide o DESENHO e a
   // outra a EXECUÇÃO (a fila pode mudar entre um e outro).
   //
-  // A RECUSA DO EXECUTOR FICA, e não é código morto: ela é a guarda da CORRIDA,
-  // a mesma razão pela qual a guarda `sem-telao` do microfone sobreviveu ao
-  // botão que deixou de ser desenhado.
+  // A RECUSA DO EXECUTOR FICA, e não é código morto: ela é a guarda da CORRIDA
+  // — a fila pode esvaziar entre o desenho e o dedo.
   // OS DOIS APAGAM JUNTOS: o limiar é do PACOTE, não do destino — o que não faz
   // sentido é empacotar uma mídia só, e isso não muda por ela ir para o
   // Cronograma ou para os Favoritos.
@@ -6200,7 +6200,7 @@ function hideMessage() {
   renderSlideNav();
   marcarNoAr();   // o selo "● No ar" da linha só sai por aqui — ver `hideBibleVerse`
   // Uma chamada só: a segunda (lapso — nenhum outro hide* do arquivo repete)
-  // remontava a aba inteira, microfone incluído, duas vezes no mesmo pulso.
+  // remontava a aba inteira duas vezes no mesmo pulso.
   refreshDiversos();
 }
 
@@ -6257,221 +6257,27 @@ async function deleteMessage(id) {
   refreshDiversos();
 }
 
-// ===== Microfone ao vivo (push-to-talk) =====
-// Segurar o botão abre o microfone e a voz sai NA PROJEÇÃO, ao vivo. A captura
-// acontece no Display, não aqui: um MediaStream não atravessa o
-// BroadcastChannel, então quem reproduz é quem abre o microfone (ver startMic
-// em display.js). Daqui só sai o comando.
+// (O MICROFONE AO VIVO saiu na v1.8.89, a pedido do operador: *"remova a opção
+// de microfone direto para o telão, que temos nas ferramentas"*. Ele era o
+// único caminho de CAPTURA do app — o rodapé da aba Ferramentas era a única
+// porta dele —, e com a porta fechada saíram junto o `renderMic`, o `sendMic`,
+// o `renderMicUI`, o diagnóstico (`micRegistrar`/`blocoMicrofone`) e o
+// `haOndeReproduzirMic`. Do outro lado saiu o `setMic` do `display.js`, que
+// ficaria sem quem lhe mandasse o comando.
 //
-// O comando vai por `AVDB.sendCommand`, **não** por `cmd()`: `cmd()` também
-// aplica na preview, e a preview é este mesmo aparelho, a centímetros do
-// microfone — reproduzir aqui seria realimentação garantida.
-let micOn = false;          // o Display confirmou que está captando
-let micPressed = false;     // o dedo está no botão agora
-let micError = '';
+// O KOTLIN FICA POR ORA, e é o lado seguro: `MicChromeClient`, `requestMic`,
+// `micDiag` e a permissão `RECORD_AUDIO` só saem instalando um APK, e um shell
+// que ainda serve método que ninguém chama não custa nada ao aparelho — é a
+// ordem inversa (base web nova contra APK velho) que precisa de `shellTag`.
+// `requestMic` e `micDiag` saíram do `native.js` no mesmo lote, que é o que a
+// regra pede de quem encolhe a ponte pelo web.)
 
-function sendMic(on) {
-  micPressed = on;
-  AVDB.sendCommand({ type: 'mic', on });
-  renderMicUI();
-}
-
-// HÁ ONDE A VOZ SAIR?
-//
-// Quem abre o microfone é o `/display/`, e ele só existe DENTRO da
-// `Presentation` — sem TV conectada o `syncPresentation` não cria nenhuma, e
-// ninguém consome o comando `mic`. Como ninguém o consome, ninguém responde
-// `mic-status`: `micError` ficava vazio, a nota não aparecia, e o único sinal na
-// tela era o botão vermelho escrito "No ar" — que é o `micPressed`, nunca uma
-// confirmação. O operador segurava o botão achando que falava para a igreja.
-//
-// AS TELAS DA REDE NÃO CONTAM, e é o erro que uma pergunta por `simpleDisplay()`
-// cometeria: elas rodam em `http://`, onde `getUserMedia` não existe, e o
-// `setMic` delas sai na guarda de papel. A pergunta é pela TV, e só por ela.
-//
-// No NAVEGADOR o Display é outra janela, aberta à mão, e o app não tem como
-// saber se ela está lá — ali a resposta otimista continua sendo a certa.
-function haOndeReproduzirMic() {
-  // E A PERGUNTA É PELA `Presentation`, NÃO PELA TELA (shell 59). Quem abre o
-  // microfone é o `/display/`, que só existe dentro dela: com a tela listada e a
-  // janela no chão o botão era desenhado sobre nada, e o toque gastava a única
-  // permissão sensível do app numa ação que não podia funcionar.
-  return !window.__NATIVE__ || !!telaoNoAr();
-}
-
-function renderMicUI() {
-  const btn = document.getElementById('micBtn');
-  if (!btn) return;
-  const live = micOn || micPressed;
-  btn.classList.toggle('live', live);
-  const label = btn.querySelector('.mic-btn-label');
-  if (label) label.textContent = live ? 'No ar' : 'Microfone';
-  // A nota só existe para ERRO (permissão negada, sem microfone…) — é
-  // diagnóstico, não instrução de uso.
-  const note = document.getElementById('micNote');
-  if (note) {
-    note.textContent = micError ? micErrorText(micError) : '';
-    note.hidden = !micError;
-  }
-}
-
-function micErrorText(err) {
-  // NÃO É UM ERRO DO MICROFONE, e é por isso que a frase não fala dele: o
-  // aparelho está bem, o que falta é para ONDE mandar a voz.
-  if (err === 'sem-telao') {
-    // DESDE A v1.2.20 ELE É UMA CORRIDA, não o caminho normal: sem TV o botão
-    // nem é desenhado. Só se alcança aqui se a tela cair ENTRE o desenho e o
-    // toque — a guarda fica porque essa janela existe, e um `sendMic` sem
-    // destino acenderia "No ar" sobre um telão que já não está lá.
-    return 'A TV saiu: a voz não tem mais onde sair.';
-  }
-  if (err === 'NotAllowedError' || err === 'SecurityError') {
-    return 'Permissão de microfone negada. Autorize o app nas configurações do Android.';
-  }
-  if (err === 'NotFoundError') return 'Nenhum microfone encontrado neste aparelho.';
-  if (err === 'unsupported') return 'Este aparelho não expõe captura de áudio ao app.';
-  // "EM USO POR OUTRO APP" SAIU (v5.142) — a frase nomeava uma causa e quase
-  // sempre a errada. `NotReadableError` é o "não consegui abrir o dispositivo"
-  // genérico do WebRTC, e no Android a causa comum aqui não é outro app: é o
-  // sistema recusando a sessão de VOZ que o cancelamento de eco pede enquanto o
-  // áudio está indo para outro lugar (o telão). O app agora tenta de novo sem o
-  // processamento antes de desistir (ver `startMic`), então chegar até esta
-  // mensagem já significa que as três tentativas falharam — e aí a única coisa
-  // honesta a dizer é o que de fato costuma destravar.
-  if (err === 'NotReadableError') {
-    return 'O Android não liberou o microfone. Costuma ser uma chamada, um gravador '
-      + 'aberto em outro app ou o assistente de voz — feche-os e tente de novo.';
-  }
-  return 'Não foi possível abrir o microfone (' + err + ').';
-}
-
-// A ÚLTIMA TENTATIVA DE CAPTURA, guardada para o Registro.
-//
-// Ela existe porque o caminho de FALHA não escrevia nada em lugar nenhum: o
-// operador via "O Android não liberou o microfone" na tela e o Registro — que é
-// o que ele copia e manda — não tinha uma linha sobre o assunto. A frase acusava
-// uma chamada ou um gravador aberto, que é a causa MENOS provável, e não havia
-// como saber se falhou UM degrau ou os TRÊS.
-//
-// As perguntas que só esta estrutura separa, e cada uma pede uma ação oposta:
-//
-//   nenhum dispositivo de entrada  → não é permissão, é o aparelho/privacidade;
-//   um degrau falhou, outro abriu  → é o PROCESSAMENTO (a escada fez o trabalho);
-//   os TRÊS falharam               → o sistema recusa o microfone a este app;
-//   NotAllowedError                → permissão, e a frase de sempre serve.
-let micUltima = null;   // { origem, quando, degraus:[{qual,erro}], entradas, ok }
-
-function micRegistrar(origem, degraus, disp, ok) {
-  micUltima = { origem, quando: Date.now(), degraus, disp: disp || null, ok, shell: null };
-  // A SONDA DO SHELL, só na FALHA e só quando há ponte. Ela responde o que o
-  // navegador não enxerga — `AppOps` pode negar `RECORD_AUDIO` com a permissão
-  // concedida —, e é assíncrona: o bloco do Registro a mostra quando chegar, e
-  // o resto da linha não espera por ela.
-  if (!ok && window.__NATIVE__) {
-    const alvo = micUltima;
-    AVNative.micDiag().then((d) => { if (d) alvo.shell = d; }).catch(() => {});
-  }
-  // E A LISTA DE ENTRADAS, quando quem registrou não a trouxe. O AO VIVO capta
-  // no TELÃO, então a falha chega aqui por `mic-status` e sem lista nenhuma — e
-  // é justamente a contagem que separa "não abre" de "não existe", os dois
-  // vereditos que pedem ações opostas. Enumerar é LEITURA PURA: não abre o
-  // microfone, não pede permissão, e os dois WebViews são o MESMO aparelho, logo
-  // a lista do Controle vale pela do telão. Assíncrona pelo mesmo motivo da
-  // sonda: o resto da linha não espera por ela.
-  if (!disp) {
-    const alvo = micUltima;
-    micDispositivos().then((d) => { if (d && alvo === micUltima) alvo.disp = d; }).catch(() => {});
-  }
-  const falhas = degraus.filter((d) => d.erro);
-  if (ok) {
-    if (falhas.length) {
-      diagC('microfone (' + origem + ') abriu no degrau ' + (falhas.length + 1)
-        + ' — o(s) anterior(es) deu(deram) ' + falhas.map((d) => d.erro).join(', '));
-    }
-    return;
-  }
-  // TODOS OS DEGRAUS NA MESMA LINHA: é a diferença entre "o processamento
-  // incomodou" e "o sistema não entrega o microfone", e ela decide o que fazer.
-  diagC('microfone (' + origem + ') RECUSADO em ' + degraus.length + ' tentativa(s): '
-    + degraus.map((d) => d.qual + '=' + d.erro).join(' · ')
-    + ' · entradas de áudio: ' + (disp === null || disp === undefined ? '?' : disp.length));
-}
-
-// QUANTOS MICROFONES O NAVEGADOR ENXERGA. Zero separa "o aparelho não entrega
-// microfone nenhum a este app" (privacidade do sistema, hardware ocupado) de
-// "existe e não abre" — e as duas leem igual na tela.
-async function micDispositivos() {
-  try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return null;
-    const ds = await navigator.mediaDevices.enumerateDevices();
-    return ds.filter((d) => d.kind === 'audioinput')
-      .map((d) => ({ deviceId: d.deviceId, label: d.label || '' }));
-  } catch (_) { return null; }
-}
-
-// O microfone virou uma BARRA, e não mais um disco: ele fica fixo na base da
-// aba, fora do acordeão, porque push-to-talk é o único controle daqui que pode
-// ser preciso no meio de uma frase — ter que abrir uma seção antes de falar o
-// tornaria inútil. Como barra ele custa ~56px de altura em vez de 132 e ainda
-// oferece uma área de toque MAIOR (largura inteira), que é o que importa para
-// achá-lo sem olhar.
-function renderMic() {
-  const btn = document.createElement('button');
-  btn.type = 'button'; btn.id = 'micBtn'; btn.className = 'mic-btn';
-  btn.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"'
-    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    + '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/>'
-    + '<line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>';
-  const label = document.createElement('span'); label.className = 'mic-btn-label';
-  label.textContent = 'Microfone';
-  btn.appendChild(label);
-
-  // Push-to-talk: abre no pointerdown e fecha em QUALQUER forma de soltar.
-  // `setPointerCapture` mantém o evento de soltura vindo para cá mesmo se o
-  // dedo escorregar para fora do botão — sem isso o microfone ficaria aberto.
-  btn.addEventListener('pointerdown', async (e) => {
-    e.preventDefault();
-    try { btn.setPointerCapture(e.pointerId); } catch (_) {}
-    micError = '';
-    // ANTES DA PERMISSÃO, e essa ordem é o ponto: sem telão a voz não tem onde
-    // sair, e pedir o microfone do Android para uma ação que não pode funcionar
-    // é gastar — talvez queimar — a única permissão sensível deste app. É a
-    // mesma razão pela qual o pedido não mora na abertura, dois comentários
-    // abaixo: um pedido sem contexto é negado por reflexo.
-    if (!haOndeReproduzirMic()) { micError = 'sem-telao'; renderMicUI(); return; }
-    // A permissão do Android é pedida AQUI, no primeiro uso — não na abertura
-    // do app, onde um pedido de gravar áudio sem contexto seria negado por
-    // reflexo. No navegador não existe ponte: o getUserMedia do Display pede.
-    if (window.__NATIVE__) {
-      const ok = await AVNative.requestMic();
-      if (!ok) {
-        // NO REGISTRO TAMBÉM. A recusa acontece ANTES de qualquer captura, então
-        // o telão não emite `mic-status` nenhum e o bloco do microfone ficaria
-        // sem uma linha sequer sobre a tentativa — que é exatamente o estado
-        // mudo que ele existe para acabar. (Este caminho era do RECADO até a
-        // v1.2.17; ele saiu, e o registro veio com ele para cá.)
-        micRegistrar('ao vivo', [{ qual: 'permissão do Android', erro: 'NotAllowedError' }],
-          null, false);
-        micError = 'NotAllowedError'; renderMicUI(); return;
-      }
-      if (!micPressed && !btn.hasPointerCapture(e.pointerId)) return; // já soltou
-    }
-    sendMic(true);
-  });
-  const release = () => { if (micPressed || micOn) sendMic(false); };
-  btn.addEventListener('pointerup', release);
-  btn.addEventListener('pointercancel', release);
-
-  return btn;
-}
-
-// ===== Rodapé da aba Ferramentas: microfone + projetar =====
-// "Projetar no telão" saiu do fim de cada painel e veio para cá, ao lado do
-// microfone. São as duas ações que MANDAM ALGO PARA A TELA — as únicas com
-// efeito fora do celular —, e tê-las sempre no mesmo lugar vale mais do que a
-// proximidade com os controles que as configuram: o operador aprende UM ponto
-// da tela em vez de um por ferramenta. De quebra, o botão para de descer
-// conforme o painel cresce (no sorteio de texto ele ficava abaixo da lista).
+// ===== O ESTADO DO "PROJETAR NO TELÃO" =====
+// Ele saiu do fim de cada painel e foi para o rodapé fixo: tê-lo sempre no
+// mesmo lugar vale mais do que a proximidade com os controles que o
+// configuram — o operador aprende UM ponto da tela em vez de um por
+// ferramenta. De quebra, o botão para de descer conforme o painel cresce (no
+// sorteio de texto ele ficava abaixo da lista).
 function miscProjectState() {
   if (miscTool === 'draw') {
     const live = drawProjecting();
@@ -6495,34 +6301,32 @@ function miscProjectState() {
   };
 }
 
+/**
+ * ===== O RODAPÉ DA FOLHA DE FERRAMENTAS (v1.8.89) =====
+ *
+ * Pedido do operador: *"ajuste o botão de projetar no telão para que organize
+ * uma nova aba inferior, no mesmo padrão das outras seções do aplicativo: essa
+ * barra de rodapé da janela de ferramentas, tera o botão de projetar no telão
+ * na esquerda, e em sua direita, havera o botão de guardar no cronograma e
+ * guardar nos favoritos… deve ser uma barra fixa no rodapé dessa janela, e não
+ * rolar com os itens dentro dela."*
+ *
+ * **O DESENHO É O DA FAIXA DE FECHO** que a playlist automática e o rodapé da
+ * fila já usam: um primário que CRESCE mais botões de símbolo de largura fixa,
+ * na ordem canônica dos destinos (`DESTINOS`: Cronograma, favoritos — a
+ * playlist não entra, porque uma cena de roteiro não é mídia de fila).
+ *
+ * **E ELE É IRMÃO DO CORPO, não filho** (`#toolsFoot`, no `index.html`): a
+ * barra fixa de uma janela não pode morar dentro do scroller dela, senão ela
+ * rola junto — que é o que o pedido nomeia. O corpo leva `flex: 1` e rola; o
+ * rodapé fica.
+ *
+ * O microfone SAIU daqui na v1.8.89 (ver a lápide acima).
+ */
 function renderFoot() {
-  const wrap = document.createElement('div'); wrap.className = 'mic-wrap';
-
+  if (!toolsFootEl) return;
+  toolsFootEl.innerHTML = '';
   const row = document.createElement('div'); row.className = 'misc-foot';
-  // UM BOTÃO SÓ. O RECADO (o walkie-talkie da v1.1.26) saiu na v1.2.17: ele
-  // existia para cobrir os modelos SEM TV, onde o microfone ao vivo não podia
-  // funcionar — e a razão pela qual o ao vivo não funcionava era um defeito
-  // nosso (`MODIFY_AUDIO_SETTINGS` ausente do manifest, v1.2.13), não uma
-  // limitação. Consertado o ao vivo, o que sobrava do recado era um segundo
-  // caminho que INTERROMPE a cena para dizer o que o primeiro diz sem
-  // interromper nada.
-  // O MICROFONE SÓ EXISTE QUANDO HÁ PARA ONDE MANDAR A VOZ (v1.2.21).
-  //
-  // Quem capta é o `/display/`, e ele só roda dentro da `Presentation` — sem TV
-  // o `syncPresentation` não cria nenhuma e ninguém consome o comando `mic`. As
-  // telas da rede também não servem: elas rodam o mesmo `display.js`, e lá o
-  // `setMic` sai por `if (TELA) return`.
-  //
-  // ANTES ELE FICAVA VISÍVEL E RECUSAVA O TOQUE, explicando por quê. Explicar é
-  // melhor que mentir (era o conserto da v1.1.20, quando ele acendia "No ar"
-  // sem capturar nada), mas não é melhor que NÃO OFERECER: um controle que só
-  // sabe dizer que não funciona é um controle a mais para o operador aprender,
-  // e a frase aparece no pior momento — com o dedo no botão, no meio do culto.
-  //
-  // A LARGURA VEM DE GRAÇA: `.misc-foot` é flex e os dois filhos são `flex: 1`,
-  // então sozinho o "Projetar no telão" ocupa a linha inteira. Não há regra de
-  // CSS para o caso — há a ausência de um irmão.
-  if (haOndeReproduzirMic()) row.appendChild(renderMic());
 
   const st = miscProjectState();
   const proj = document.createElement('button');
@@ -6534,13 +6338,24 @@ function renderFoot() {
   if (st.hint) proj.title = st.hint;
   proj.addEventListener('click', st.act);
   row.appendChild(proj);
-  wrap.appendChild(row);
 
-  const note = document.createElement('div'); note.id = 'micNote'; note.className = 'mic-note'; note.hidden = true;
-  wrap.appendChild(note);
+  // OS DOIS DESTINOS, à direita e só onde há o que guardar. Mensagens devolve
+  // `null` — elas já entram no Cronograma pelo caminho próprio, e dois botões
+  // que fizessem a mesma coisa por outro nome seriam a terceira porta para a
+  // mesma lista.
+  const montar = cueSaveDaFerramenta();
+  if (montar) {
+    const mk = (icone, titulo, destino) => {
+      row.appendChild(cueSaveBtn(icone, titulo, async (b) => {
+        const rec = await montar(destino, b);
+        if (!rec) responder(b, 'erro', 'Não foi possível guardar');
+      }));
+    };
+    mk(ICON.cronoAdd, 'Adicionar ao Cronograma', 'imports');
+    mk(ICON.star, 'Favoritar', 'favs');
+  }
 
-  toolsBodyEl.appendChild(wrap);
-  renderMicUI();
+  toolsFootEl.appendChild(row);
 }
 
 // ===== Cronômetro / Relógio / Timer (aba Ferramentas) =====
@@ -6574,7 +6389,9 @@ const CHRONO_MODES = [
   { id: 'stopwatch', name: 'Cronômetro' },
   { id: 'timer', name: 'Timer' },
 ];
-const CHRONO_PRESETS = [1, 3, 5, 10, 15, 30];
+// (Os PRESETS saíram na v1.8.89 — eram [1, 3, 5, 10, 15, 30], seis pílulas
+//  numa linha própria, e viraram o par `\u2212`/`+` ao lado do número. Ver
+//  `chronoStepBtn`.)
 
 const CHRONO_PREFS_V = 2;   // 2 = relógio passou a nascer sem segundos
 
@@ -6735,6 +6552,99 @@ function chronoSegBtn(m) {
   return b;
 }
 
+/**
+ * ===== O PASSO DO TIMER (v1.8.89) =====
+ *
+ * Pedido do operador: *"o timer tem duas linhas para tempo pre definido, que
+ * poderiam ser apenas unificados todos os métodos de inserção de tempo por um
+ * sistema básico comum de rolagem/+e- que ficam adjacentes ao próprio número
+ * indicador"*.
+ *
+ * Eram DOIS métodos e DUAS linhas: seis pílulas de preset (1·3·5·10·15·30) e um
+ * campo numérico "Minutos". Viraram um só, o par `−`/`+` ao lado do número.
+ *
+ * **O PASSO ACELERA, e sem isso o par não substituiria os presets:** 30 minutos
+ * a um toque por minuto são trinta toques, e o preset existia justamente para
+ * evitá-los. Segurar o botão repete — 450 ms até a primeira repetição (abaixo
+ * disso um toque normal já dispararia duas), 110 ms entre elas, e o passo passa
+ * de 1 para 5 minutos depois de doze — 450 + 11×110 ms até o degrau, e os 30
+ * minutos do maior preset em ~2,0 s de dedo parado.
+ *
+ * `pointerdown` e não `mousedown`: no WebView o par de mouse é SINTETIZADO
+ * depois do toque, com atraso. Quem PARA a repetição é a janela, e não o botão
+ * — ver `chronoPassoParar`.
+ */
+const CHRONO_PASSO_ESPERA_MS = 450;
+const CHRONO_PASSO_INTERVALO_MS = 110;
+const CHRONO_PASSO_ACELERA = 12;   // repetições até o passo virar 5 min
+
+// O REPETIDOR MORA NO MÓDULO, E QUEM O PARA É A JANELA — não o botão.
+// `chronoSetDuration` chama `renderChrono`, que TROCA o nó a cada passo: o
+// elemento que recebeu o `pointerdown` está fora do documento antes da segunda
+// repetição, e um `pointerup` real não chega a um nó detached — o navegador o
+// entrega a quem está sob o dedo, que é o botão NOVO, com um estado zerado. Um
+// par de ouvintes no próprio botão deixaria o relógio correndo com o dedo já
+// solto, isto é, o timer subindo sozinho até o teto.
+let chronoPassoTimers = null;
+function chronoPassoParar() {
+  if (!chronoPassoTimers) return;
+  clearTimeout(chronoPassoTimers.espera);
+  clearInterval(chronoPassoTimers.repete);
+  chronoPassoTimers = null;
+}
+for (const ev of ['pointerup', 'pointercancel']) {
+  window.addEventListener(ev, chronoPassoParar);
+}
+
+function chronoStepBtn(sinal) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'chrono-step';
+  b.textContent = sinal > 0 ? '+' : '\u2212';
+  const titulo = sinal > 0 ? 'Mais um minuto' : 'Menos um minuto';
+  b.title = titulo; b.setAttribute('aria-label', titulo);
+
+  let n = 0;
+  const passo = () => {
+    const min = Math.max(1, Math.round(chrono.durationMs / 60000));
+    const salto = n >= CHRONO_PASSO_ACELERA ? 5 : 1;
+    const alvo = Math.min(600, Math.max(1, min + sinal * salto));
+    if (alvo !== min) chronoSetDuration(alvo * 60000);
+    n++;
+  };
+  b.addEventListener('pointerdown', () => {
+    chronoPassoParar();   // um pointerdown sem o up anterior não empilha timer
+    n = 0;
+    passo();
+    chronoPassoTimers = {
+      espera: setTimeout(() => {
+        chronoPassoTimers.repete = setInterval(passo, CHRONO_PASSO_INTERVALO_MS);
+      }, CHRONO_PASSO_ESPERA_MS),
+    };
+  });
+  return b;
+}
+
+/**
+ * ===== UMA LINHA PARA O NÚMERO, O PASSO E O TRANSPORTE (v1.8.89) =====
+ *
+ * *"os botões de iniciar e zerar, podem ficar a direita dessa numeração,
+ * ficando paralelo e não ocupando altura."*
+ *
+ * O painel de Tempo gastava QUATRO linhas onde uma basta: o número, os presets,
+ * o campo "Minutos" e a faixa Iniciar/Zerar. A folha inteira rolava por causa
+ * disso.
+ *
+ * **O TRANSPORTE VIROU ÍCONE, e a razão é aritmética.** MEDIDO a 360×640: com
+ * "Iniciar" e "Zerar" escritos por extenso a linha pede ~343px contra os ~330
+ * disponíveis, e com a fonte do sistema em 1,3× a conta piora. Dois quadrados
+ * de `--hit` cabem, falam a MESMA língua do transporte do deck (▶/⏸) e levam o
+ * rótulo no `title`/`aria-label` — é a regra do botão sem rótulo, que é
+ * QUADRADO.
+ *
+ * O RELÓGIO fica de fora das duas metades: a hora não se pausa nem se ajusta, e
+ * ali o número ocupa a linha sozinho, no tamanho grande de sempre.
+ */
 function renderChrono() {
   const host = document.getElementById('chronoWrap');
   if (!host) return;
@@ -6745,42 +6655,43 @@ function renderChrono() {
   CHRONO_MODES.forEach((m) => modes.appendChild(chronoSegBtn(m)));
   host.appendChild(modes);
 
+  const linha = document.createElement('div');
+  linha.className = 'chrono-linha chrono-linha--' + chrono.mode;
+
+  // O passo só existe onde há o que ajustar: o cronômetro conta do zero e a
+  // hora vem do relógio do aparelho.
+  if (chrono.mode === 'timer') linha.appendChild(chronoStepBtn(-1));
+
   const read = document.createElement('div');
   read.className = 'chrono-read'; read.id = 'chronoRead';
-  host.appendChild(read);
+  linha.appendChild(read);
 
-  // ---- Timer: alvo da contagem ----
-  if (chrono.mode === 'timer') {
-    const presets = document.createElement('div');
-    presets.className = 'chrono-presets';
-    CHRONO_PRESETS.forEach((min) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'misc-chip' + (chrono.durationMs === min * 60000 ? ' active' : '');
-      b.textContent = min + ' min';
-      b.addEventListener('click', () => chronoSetDuration(min * 60000));
-      presets.appendChild(b);
-    });
-    host.appendChild(presets);
+  if (chrono.mode === 'timer') linha.appendChild(chronoStepBtn(1));
 
-    const row = document.createElement('div');
-    row.className = 'misc-row';
-    const lab = document.createElement('span');
-    lab.className = 'misc-row-label'; lab.textContent = 'Minutos';
-    const inp = document.createElement('input');
-    inp.type = 'number'; inp.min = '1'; inp.max = '600'; inp.inputMode = 'numeric';
-    inp.className = 'misc-num';
-    inp.value = String(Math.max(1, Math.round(chrono.durationMs / 60000)));
-    // `change` (e não `input`): reprojetar a cada dígito faria o telão piscar
-    // valores intermediários enquanto o operador ainda digita.
-    inp.addEventListener('change', () => {
-      const v = parseInt(inp.value, 10);
-      if (isFinite(v) && v > 0) chronoSetDuration(v * 60000);
-      else renderChrono();
-    });
-    row.appendChild(lab); row.appendChild(inp);
-    host.appendChild(row);
+  // ---- Transporte (não existe para o relógio: a hora não se pausa) ----
+  if (chrono.mode !== 'clock') {
+    const acts = document.createElement('div');
+    acts.className = 'chrono-actions';
+    const run = document.createElement('button');
+    run.type = 'button';
+    run.className = 'chrono-btn primary';
+    // Ícone/rótulo = a AÇÃO, nunca o estado (ver "O ícone mostra a AÇÃO" na
+    // arquitetura): correndo, o botão oferece PAUSAR.
+    const rotulo = chrono.running ? 'Pausar' : 'Iniciar';
+    run.title = rotulo; run.setAttribute('aria-label', rotulo);
+    run.appendChild(msym(chrono.running ? ICON.pause : ICON.play));
+    run.addEventListener('click', () => (chrono.running ? chronoPause() : chronoStart()));
+    const zero = document.createElement('button');
+    zero.type = 'button'; zero.className = 'chrono-btn';
+    zero.title = 'Zerar'; zero.setAttribute('aria-label', 'Zerar');
+    zero.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
+      + ' aria-hidden="true"><use href="#icoZerar"/></svg>';
+    zero.addEventListener('click', chronoReset);
+    acts.appendChild(run); acts.appendChild(zero);
+    linha.appendChild(acts);
   }
+  host.appendChild(linha);
 
   // ---- Relógio: formato ----
   if (chrono.mode === 'clock') {
@@ -6803,25 +6714,6 @@ function renderChrono() {
     host.appendChild(opts);
   }
 
-  // ---- Transporte (não existe para o relógio: a hora não se pausa) ----
-  if (chrono.mode !== 'clock') {
-    const acts = document.createElement('div');
-    acts.className = 'chrono-actions';
-    const run = document.createElement('button');
-    run.type = 'button';
-    run.className = 'chrono-btn primary';
-    // Ícone/rótulo = a AÇÃO, nunca o estado (ver "O ícone mostra a AÇÃO" na
-    // arquitetura): correndo, o botão oferece PAUSAR.
-    run.textContent = chrono.running ? 'Pausar' : 'Iniciar';
-    run.addEventListener('click', () => (chrono.running ? chronoPause() : chronoStart()));
-    const zero = document.createElement('button');
-    zero.type = 'button'; zero.className = 'chrono-btn';
-    zero.textContent = 'Zerar';
-    zero.addEventListener('click', chronoReset);
-    acts.appendChild(run); acts.appendChild(zero);
-    host.appendChild(acts);
-  }
-
   // ---- Sublinha do telão ----
   const labRow = document.createElement('div');
   labRow.className = 'misc-row';
@@ -6839,21 +6731,6 @@ function renderChrono() {
   });
   labRow.appendChild(labLab); labRow.appendChild(labInp);
   host.appendChild(labRow);
-
-  // O PRESET vira item do roteiro. A contagem regressiva de abertura é a cena
-  // mais previsível de um culto — e era justamente a que não cabia na lista do
-  // culto: o operador tinha de lembrar de vir a esta aba, escolher o modo,
-  // ajustar os minutos e projetar, com o salão já enchendo. Guardado aqui, um
-  // toque no Cronograma faz as quatro coisas.
-  host.appendChild(cueSaveRow('Guardar esta contagem', async (destino, btn) => {
-    const nome = chrono.label
-      || (chrono.mode === 'timer' ? 'Timer ' + Math.round(chrono.durationMs / 60000) + ' min'
-        : chrono.mode === 'clock' ? 'Relógio' : 'Cronômetro');
-    return criarCue('chrono', {
-      mode: chrono.mode, durationMs: chrono.durationMs, label: chrono.label,
-      secs: chrono.secs, h12: chrono.h12,
-    }, nome, destino, btn);
-  }));
 
   renderChronoReadout();
   startChronoPanelTimer();
@@ -6877,26 +6754,48 @@ function cueSaveBtn(icone, titulo, fn) {
   return b;
 }
 
-// A linha "guardar isto" das ferramentas: os DOIS destinos possíveis para uma
-// cena de roteiro, lado a lado. Uma função só porque cronômetro e sorteio fazem
-// exatamente a mesma pergunta — e um terceiro provedor de Camada de Texto que
-// apareça amanhã ganha os dois botões sem reescrever nada.
-function cueSaveRow(rotulo, montar) {
-  const row = document.createElement('div');
-  row.className = 'misc-row misc-row--save';
-  const lab = document.createElement('span');
-  lab.className = 'misc-row-label'; lab.textContent = rotulo;
-  const botoes = document.createElement('div'); botoes.className = 'misc-save-btns';
-  const mk = (icone, titulo, destino) => {
-    botoes.appendChild(cueSaveBtn(icone, titulo, async (b) => {
-      const rec = await montar(destino, b);
-      if (!rec) responder(b, 'erro', 'Não foi possível guardar');
-    }));
-  };
-  mk(ICON.cronoAdd, 'Adicionar ao Cronograma', 'imports');
-  mk(ICON.star, 'Favoritar', 'favs');
-  row.append(lab, botoes);
-  return row;
+/**
+ * ===== O "GUARDAR ISTO" SUBIU PARA O RODAPÉ DA FOLHA (v1.8.89) =====
+ *
+ * Pedido do operador: *"o botão de projetar no telão na esquerda, e em sua
+ * direita, havera o botão de guardar no cronograma e guardar nos favoritos"*.
+ *
+ * Ele era uma LINHA dentro de cada painel (`cueSaveRow`), no fim dele, e por
+ * isso descia conforme o painel crescia e rolava junto com ele — o mesmo
+ * defeito que tinha tirado o "Projetar no telão" do fim dos painéis. As três
+ * ações que SAEM da ferramenta (uma para o telão, duas para as listas) passam a
+ * morar no mesmo lugar fixo, e o operador aprende UM ponto da tela.
+ *
+ * ISTO AQUI É O DESCRITOR, não o desenho: cada ferramenta diz COMO montar a
+ * cena de roteiro dela, e quem desenha os dois botões é o `renderFoot`. Uma
+ * ferramenta que não saiba guardar devolve `null` e o rodapé desenha só o
+ * projetar — é o caso das Mensagens, que já viram itens do Cronograma pelo
+ * caminho próprio delas.
+ */
+function cueSaveDaFerramenta() {
+  if (miscTool === 'chrono') {
+    return async (destino, btn) => {
+      const nome = chrono.label
+        || (chrono.mode === 'timer' ? 'Timer ' + Math.round(chrono.durationMs / 60000) + ' min'
+          : chrono.mode === 'clock' ? 'Relógio' : 'Cronômetro');
+      return criarCue('chrono', {
+        mode: chrono.mode, durationMs: chrono.durationMs, label: chrono.label,
+        secs: chrono.secs, h12: chrono.h12,
+      }, nome, destino, btn);
+    };
+  }
+  if (miscTool === 'draw') {
+    return async (destino, btn) => {
+      const nome = draw.label || (draw.kind === 'text'
+        ? 'Sorteio (' + draw.pool.length + ' opções)'
+        : 'Sorteio ' + draw.min + '–' + draw.max);
+      return criarCue('draw', {
+        kind: draw.kind, min: draw.min, max: draw.max,
+        pool: draw.kind === 'text' ? draw.pool.slice() : [], label: draw.label,
+      }, nome, destino, btn);
+    };
+  }
+  return null;
 }
 
 // ===== Sorteio (aba Ferramentas) =====
@@ -7287,16 +7186,6 @@ function renderDraw() {
   // resultado: projetar a cena arma o sorteio e espera o toque em "Sortear" —
   // um ganhador que já aparece pronto ao entrar em cena tira do momento
   // justamente o que ele tem de público.
-  host.appendChild(cueSaveRow('Guardar este sorteio', async (destino, btn) => {
-    const nome = draw.label || (draw.kind === 'text'
-      ? 'Sorteio (' + draw.pool.length + ' opções)'
-      : 'Sorteio ' + draw.min + '–' + draw.max);
-    return criarCue('draw', {
-      kind: draw.kind, min: draw.min, max: draw.max,
-      pool: draw.kind === 'text' ? draw.pool.slice() : [], label: draw.label,
-    }, nome, destino, btn);
-  }));
-
   renderDrawReadout();
   startDrawPanelTimer();
 }
@@ -7400,8 +7289,8 @@ function renderMsg() {
 // painel ativo começa sempre no mesmo lugar, o que importa para a memória
 // muscular de quem opera sem olhar.
 //
-// O microfone fica FORA do seletor, fixo na base: é o único controle daqui com
-// urgência real (ver renderMic).
+// O que SAI da ferramenta fica fora do seletor, no rodapé fixo (`renderFoot`):
+// projetar à esquerda, os dois destinos à direita.
 let miscTool = 'msg';
 
 const MISC_TOOLS = [
@@ -7497,10 +7386,6 @@ function abrirFerramentas() {
 
 function fecharFerramentas() {
   if (!ferramentasAbertas()) return;
-  // Sair com o microfone aberto o deixaria captando sem nada na tela que o
-  // mostrasse. O botão é push-to-talk: sem o botão, sem microfone. (Era a mesma
-  // guarda do `switchTab`, quando sair daqui era trocar de aba.)
-  if (micPressed || micOn) sendMic(false);
   // Os laços dos painéis morrem com a folha — o cronômetro NÃO: ele segue
   // correndo no estado, e a projeção tem laço próprio. Sem isto sobraria um
   // timer de 5 Hz reescrevendo nós que o `innerHTML = ''` já descartou.
@@ -7530,6 +7415,7 @@ function fecharFerramentas() {
     toolsSheetEl.classList.remove('saindo');
     toolsSheetEl.hidden = true;
     toolsBodyEl.innerHTML = '';
+    toolsFootEl.innerHTML = '';
   }, TOOLS_ANIM_MS);
 }
 
@@ -8050,7 +7936,7 @@ function renderListFoot() {
   li.insertBefore(bib, label);
 
   const ferr = botaoDoRodape('toolsBtn', 'tools-btn',
-    'Ferramentas: mensagens, tempo, sorteio e microfone', 'Ferramentas',
+    'Ferramentas: mensagens, tempo e sorteio', 'Ferramentas',
     '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/>'
     + '<rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/>'
@@ -23111,16 +22997,20 @@ function sorteioBotaoDeSortear(pool) {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'song-menu-btn sorteio-acao sorteio-sortear';
-  const t = document.createElement('span'); t.className = 'song-menu-text';
-  const r = document.createElement('span'); r.className = 'song-menu-label';
   // O DESENHO É O `#icoAleatorio` DO SPRITE, o mesmo do degrau "Aleatório" do
   // `#repeat` — as duas coisas são a mesma ideia, e um segundo desenho para ela
   // seria o operador tendo de aprender duas. (O glifo `shuffle` saiu do `ICON`
   // na v1.8.80, quando aqueles degraus viraram SVG.)
-  r.innerHTML = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none"'
+  //
+  // **SEM `.song-menu-text` POR FORA** (v1.8.89), e é isso que o alinha: aquele
+  // invólucro leva `min-height: var(--hit)` na regra dos `.sorteio-acao`, então
+  // o ícone ficava no TOPO de uma caixa de 34px centrada num botão de 42,4 —
+  // MEDIDO, 7px acima do centro, ao lado de três irmãos centrados. Os botões de
+  // DESTINO nunca tiveram o invólucro (eles põem o SVG direto no botão), e é o
+  // idioma desta faixa; este passa a segui-lo.
+  b.innerHTML = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none"'
     + ' stroke="currentColor" stroke-width="2" stroke-linecap="round"'
     + ' stroke-linejoin="round" aria-hidden="true"><use href="#icoAleatorio"/></svg>';
-  t.appendChild(r); b.appendChild(t);
   // A MESMA TRAVA dos vizinhos da faixa: sem pool não há o que sortear, e
   // durante uma corrida a lista está sendo consumida.
   b.disabled = !pool.itens.length || sorteioRodando;
@@ -24640,131 +24530,8 @@ let diagSeq = 0;
 // aparelho — a Samsung é implementação própria. Escrever as três como certezas
 // seria inventar duas, e é por isso que a folha e o Registro dizem coisas
 // diferentes de propósito.
-// O MICROFONE, NO REGISTRO — a última tentativa de captura, degrau a degrau.
-//
-// O bloco "Áudio do aparelho" responde ONDE a voz sai; este responde POR QUE ela
-// não saiu, e são perguntas diferentes. Ele existe porque o desfecho relatado do
-// aparelho — "O Android não liberou o microfone" — é uma frase que acusa a causa
-// MENOS provável (uma chamada, um gravador aberto) e não distingue os quatro
-// casos que pedem ações opostas.
-//
-// SÓ APARECE DEPOIS DE UMA TENTATIVA. Num Registro de um culto em que ninguém
-// tocou no microfone ele não responde pergunta nenhuma, e a regra deste arquivo
-// é que linha que não responde nada não é impressa.
-function blocoMicrofone() {
-  if (!micUltima) return '';
-  const l = [];
-  const quando = new Date(micUltima.quando).toLocaleTimeString('pt-BR', { hour12: false });
-  l.push(micUltima.origem + ' · ' + quando + ' · '
-    + (micUltima.ok ? 'ABRIU' : 'RECUSADO'));
-  for (const d of micUltima.degraus) {
-    // A MENSAGEM DO NAVEGADOR ao lado do nome do erro: `NotReadableError` é o
-    // balde genérico do WebRTC e a frase costuma nomear a etapa que falhou.
-    l.push('  ' + d.qual + ': ' + (d.erro || 'abriu') + (d.msg ? ' — ' + d.msg : ''));
-  }
-  const disp = micUltima.disp;
-  if (disp) {
-    l.push('  entradas de áudio que o navegador enxerga: ' + disp.length);
-    // O RÓTULO É O QUE DIZ QUAL microfone é. Ele só existe com permissão
-    // concedida, então a presença dele já responde metade da pergunta — e o
-    // nome ("Fone Bluetooth" contra o embutido) responde a outra metade.
-    for (const d of disp) {
-      l.push('    · ' + (d.label || '(sem rótulo — a permissão não chegou a valer)'));
-    }
-  }
-  // O QUE O SISTEMA DIZ, quando o shell respondeu. Estas linhas são as únicas
-  // do bloco que o navegador não podia produzir — e são elas que fecham o caso
-  // em que tudo do lado web está em ordem e a captura falha assim mesmo.
-  const sh = micUltima.shell;
-  if (sh) {
-    l.push('  --- o que o SISTEMA diz (shell) ---');
-    if (sh.permissao !== null && sh.permissao !== undefined) {
-      l.push('  permissão RECORD_AUDIO: ' + (sh.permissao ? 'concedida' : 'NEGADA'));
-    }
-    if (sh.appops) l.push('  AppOps para gravar: ' + sh.appops);
-    if (sh.modAudio !== null && sh.modAudio !== undefined) {
-      l.push('  permissão MODIFY_AUDIO_SETTINGS: ' + (sh.modAudio ? 'concedida' : 'AUSENTE'));
-    }
-    if (sh.mudo !== null && sh.mudo !== undefined) {
-      l.push('  microfone mudo no sistema: ' + (sh.mudo ? 'SIM' : 'não'));
-    }
-    if (sh.modo !== null && sh.modo !== undefined) {
-      // 2 = MODE_IN_CALL, 3 = MODE_IN_COMMUNICATION. É a causa que a frase da
-      // tela sempre acusou e que nunca tinha sido verificada.
-      const emChamada = sh.modo === 2 || sh.modo === 3;
-      l.push('  modo de áudio: ' + sh.modo + (emChamada ? ' (EM CHAMADA)' : ''));
-    }
-    if (sh.gravando !== null && sh.gravando !== undefined) {
-      l.push('  sessões de gravação visíveis: ' + sh.gravando);
-    }
-    if (Array.isArray(sh.entradas)) {
-      l.push('  entradas que o SISTEMA enxerga: ' + sh.entradas.length);
-      for (const e of sh.entradas) {
-        l.push('    · ' + e.tipo + (e.nome ? ' — ' + e.nome : ''));
-      }
-    }
-  }
-  // O VEREDITO, e ele é o ponto do bloco: a mesma frase na tela sai de várias
-  // causas, e cada uma pede uma ação diferente. Quem lê o Registro está a
-  // distância e não pode tentar todas.
-  if (!micUltima.ok) {
-    const erros = micUltima.degraus.map((d) => d.erro);
-    if (sh && sh.modAudio === false) {
-      // VENCE TODOS OS OUTROS, e é o único deste bloco cujo conserto é NOSSO.
-      // Sem `MODIFY_AUDIO_SETTINGS` no manifest, o Chromium do WebView recusa a
-      // abertura ANTES de qualquer AudioRecord existir — e como a recusa é
-      // anterior à negociação de restrições, ela produz `NotReadableError` em
-      // TODOS os degraus da escada, que é a assinatura exata que se via.
-      // Enquanto este ramo acender, investigar AppOps ou fabricante é perseguir
-      // a causa errada.
-      l.push('→ FALTA A PERMISSÃO MODIFY_AUDIO_SETTINGS NO APK INSTALADO. Não é o '
-        + 'aparelho, não é o AppOps e não é o fabricante: o Chromium do WebView exige '
-        + 'essa permissão do app HOSPEDEIRO para abrir qualquer captura de áudio, e sem '
-        + 'ela toda tentativa morre em NotReadableError. Ela é concedida na instalação '
-        + '(não há o que autorizar na tela). O conserto é INSTALAR O APK v1.2.13 OU MAIS '
-        + 'NOVO — versões anteriores não têm como funcionar.');
-    } else if (sh && sh.appops && sh.appops !== 'permitido' && sh.appops !== 'primeiro plano'
-        && sh.appops !== '?') {
-      // O CASO QUE QUATRO RODADAS NÃO CONSEGUIRAM NOMEAR. A permissão está
-      // concedida e o AppOps a recusa — é o interruptor de privacidade do
-      // sistema, o controle do fabricante (o Auto Blocker da Samsung sobre um
-      // app instalado fora da loja) ou o mudo global. Nos três a tela do app diz
-      // "permissão concedida" e a captura falha assim mesmo.
-      l.push('→ O SISTEMA ESTÁ BLOQUEANDO A GRAVAÇÃO (AppOps: ' + sh.appops + '), mesmo com '
-        + 'a permissão concedida. Não adianta reconceder a permissão. Veja: o interruptor '
-        + '"Acesso ao microfone" nas configurações rápidas; e, num Samsung, o Bloqueio '
-        + 'automático (Auto Blocker) em Segurança e privacidade — ele restringe apps '
-        + 'instalados fora da Play Store.');
-    } else if (sh && (sh.modo === 2 || sh.modo === 3)) {
-      l.push('→ O APARELHO ESTÁ EM CHAMADA (modo ' + sh.modo + '): aí o microfone é da '
-        + 'chamada, e esta é a única vez em que a frase antiga estava certa.');
-    } else if (sh && sh.mudo === true) {
-      l.push('→ O MICROFONE ESTÁ MUDO NO SISTEMA. Não é permissão nem app concorrente.');
-    } else if (erros.some((e) => e === 'NotAllowedError' || e === 'SecurityError')) {
-      l.push('→ PERMISSÃO: o Android (ou o WebView) negou. Autorize o app em '
-        + 'Configurações › Aplicativos › Áudio Visual › Permissões.');
-    } else if (disp && disp.length === 0) {
-      l.push('→ NENHUMA ENTRADA DE ÁUDIO: não é permissão. O aparelho não está '
-        + 'entregando microfone nenhum ao app — veja o interruptor de PRIVACIDADE '
-        + '"Acesso ao microfone" nas configurações rápidas.');
-    } else if (micUltima.degraus.length >= 3 && erros.every(Boolean)) {
-      l.push('→ TODOS OS DEGRAUS FALHARAM, inclusive o pedido CRU e o pedido pelo ID '
-        + 'do dispositivo: o problema não é o processamento de áudio (que é o que a '
-        + 'escada contorna), nem a escolha do "default" do navegador. Com a permissão '
-        + 'concedida e o dispositivo à vista, quem recusa é o sistema — outro app '
-        + 'segurando o microfone, ou política do fabricante.');
-    } else {
-      // NÃO AFIRMA QUE A ESCADA FOI INTERROMPIDA — ela pode ter rodado inteira no
-      // TELÃO e chegado aqui resumida por um bundle antigo. Um veredito errado é
-      // pior que veredito nenhum, e este Registro é lido a distância.
-      l.push('→ ' + micUltima.degraus.length + ' tentativa(s) registrada(s). Se o número '
-        + 'for menor que a escada, ou o erro não era retentável (permissão), ou o '
-        + 'operador soltou o botão, ou quem tentou foi um bundle que ainda não '
-        + 'reporta os degraus.');
-    }
-  }
-  return 'Microfone (última tentativa)\n' + l.join('\n');
-}
+// (O BLOCO "microfone" do Registro saiu na v1.8.89 com o recurso — ele
+//  respondia "por que a voz não saiu", e não há mais voz a sair.)
 
 function blocoAudio() {
   if (!window.__NATIVE__) return '';
@@ -24797,18 +24564,6 @@ function blocoAudio() {
       '  Presentation isola a janela, nunca o som. Não é ajuste que falta.',
       'sem vazamento: "Conectar um computador" (a tela toca o arquivo dela),',
       '  com o espelhamento DESLIGADO — os dois juntos mantêm a mistura no ar.');
-  }
-  // O MICROFONE, e ONDE ELE SAI. É a pergunta que o operador faz depois de
-  // segurar o botão e não ouvir nada, e ela tem duas respostas opostas conforme
-  // a TV — sem ela não há telão, e sem telão não há captura em lugar nenhum.
-  // As telas da rede NÃO substituem o telão nisto: elas rodam em `http://`, onde
-  // `getUserMedia` não existe, e o `setMic` delas sai na guarda de papel.
-  if (tv) {
-    linhas.push('microfone: capta no telão e sai junto com a mídia, nas caixas da TV.');
-  } else {
-    linhas.push('microfone: INDISPONÍVEL sem TV — quem capta é o telão, e sem TV',
-      '  não há telão. Um computador conectado não capta som (o navegador dele',
-      '  não entrega microfone em http://).');
   }
   // O PLACAR DA RETOMADA entra AQUI, e não num bloco próprio: ele responde à
   // mesma pergunta deste — o que outro app fez com o som deste aparelho. As
@@ -25019,11 +24774,6 @@ async function renderDiag() {
   // à mesma pergunta ("o que está no ar?") pelo lado que ninguém escolheu.
   const ba = blocoAudio();
   if (ba) blocos.push(ba);
-  // DEPOIS do áudio, e não antes: aquele responde "onde a voz sai", este
-  // responde "por que ela não saiu". Só o segundo é condicional a ter havido
-  // tentativa, então ele é o que pode faltar.
-  const bm = blocoMicrofone();
-  if (bm) blocos.push(bm);
   // AS SÉRIES: o que a regra achou nos canais, com os nomes CRUS. Ele vem
   // depois do estado da transmissão e antes da linha do tempo porque a ordem
   // desta caixa é "quem eu sou → o que tentei → o que está no ar → o que
@@ -33339,15 +33089,9 @@ if (window.__NATIVE__) {
     else if (antes && tv && (antes.id !== tv.id || antes.w !== tv.w || antes.h !== tv.h)) {
       diagC('TV mudou: ' + nomeDe(tv));
     }
-    // A PRESENÇA DO TELÃO, não a da tela: é ela que decide se o botão de
-    // microfone existe (`haOndeReproduzirMic`), e é ela que precisa disparar o
-    // redesenho da aba Ferramentas. Sem isto o botão só apareceria na próxima
-    // vez que o operador TROCASSE de aba — isto é, a TV entra no meio do culto e
-    // o microfone continua ausente, sem nada na tela explicando.
-    //
-    // E É O TELÃO, e não `lastDisplays.length`, desde o shell 59: quem capta o
-    // microfone é o `/display/` dentro da `Presentation`, então uma tela listada
-    // com a janela no chão não é lugar de reproduzir nada.
+    // A PRESENÇA DO TELÃO, não a da tela — e é o TELÃO desde o shell 59: uma
+    // tela listada com a `Presentation` no chão não projeta nada, e as três
+    // frases da linha do tempo logo abaixo existem para dizer exatamente isso.
     const tinhaTela = lastDisplays.length > 0;
     const tinhaTelao = !!telaoNoAr();
     lastDisplays = list || [];
@@ -33362,11 +33106,12 @@ if (window.__NATIVE__) {
     } else if (tv && temTelao && tinhaTela && !tinhaTelao) {
       diagC('o telão SUBIU (a TV já estava conectada)');
     }
-    // SÓ NA TRANSIÇÃO. `refreshDiversos` esvazia o `libraryEl` e redesenha o
-    // painel inteiro: rodá-lo a cada callback (o `onResume` reconfere a lista)
-    // derrubaria o que o operador está usando — um campo com foco, uma lista
-    // rolada — por um evento que não mudou nada.
-    if (tinhaTelao !== temTelao) refreshDiversos();
+    // (O `refreshDiversos()` na transição do telão saiu na v1.8.89 com o
+    //  microfone: ele existia para o botão dele APARECER quando a TV entrava no
+    //  meio do culto, e nada mais na folha de Ferramentas depende de haver
+    //  projeção. Mantê-lo custaria o que a guarda "só na transição" já evitava
+    //  — remontar o painel por baixo de quem está usando — sem nada a mostrar
+    //  em troca.)
     // Conectar (ou perder) o telão MUDA O REGIME da preview: com TV a projeção
     // é ela, chega no ato, e a preview volta a andar junto. Ver `cmd`.
     recalcularAtrasoPreview();
@@ -34366,34 +34111,10 @@ AVDB.onCommand((msg) => {
     // ninguém via havia versões. O canal certo já estava de pé.
     renderControls();
   }
-  // Microfone: camada de áudio independente da mídia — precisa ser tratado
-  // ANTES do filtro por `mediaId` abaixo, que descarta tudo que não é sobre o
-  // item em exibição.
-  if (msg.type === 'mic-status') {
-    micOn = !!msg.on;
-    // O ERRO DO AO VIVO TAMBÉM ENTRA NO REGISTRO, e a razão é que ele nasce no
-    // TELÃO: o `diag('microfone recusado: …')` de lá mora no diário da
-    // `Presentation`, que só chega ao Registro se o `diag-ask` conseguir
-    // respondê-lo — e um dongle que caiu no meio leva o diário junto. A linha
-    // que o operador precisa é a do CELULAR, que sobrevive.
-    //
-    // Só na TRANSIÇÃO: o telão reemite `mic-status` e repetir a mesma recusa
-    // encheria a linha do tempo com o mesmo fato.
-    const erroNovo = msg.error || '';
-    if (erroNovo && erroNovo !== micError) {
-      // OS DEGRAUS VÊM DO TELÃO quando ele os manda. Sem eles o Registro do
-      // celular via UMA tentativa e concluía "falhou antes de esgotar a escada"
-      // — enquanto o telão tinha rodado a escada inteira. O consumidor não
-      // tinha como saber, e um veredito errado é pior que veredito nenhum.
-      const dg = Array.isArray(msg.degraus) && msg.degraus.length
-        ? msg.degraus
-        : [{ qual: 'telão', erro: erroNovo }];
-      micRegistrar('ao vivo', dg, null, false);
-    }
-    micError = erroNovo;
-    if (ferramentasAbertas()) renderMicUI();
-    return;
-  }
+  // (O `mic-status` deixou de ser tratado na v1.8.89: sem quem mande o comando
+  //  `mic`, o telão não tem o que anunciar. Um telão de bundle ANTIGO pode
+  //  ainda emiti-lo — e cai no filtro por `mediaId` logo abaixo, como qualquer
+  //  mensagem que não é sobre o item em exibição.)
   if (!currentItem || msg.mediaId !== currentId) return;
   const isYoutube = currentItem.kind === 'youtube';
   const isTimedLocal = currentItem.kind === 'audio' || currentItem.kind === 'video';
@@ -34553,10 +34274,6 @@ AVDB.onCommand((msg) => {
 // com o SW, v5.48 — ver o bloco acima.)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') {
-    // App em segundo plano: o botão de falar não está mais sob o dedo, então
-    // o microfone não pode continuar aberto. Push-to-talk que sobrevive ao
-    // app sair da frente vira um microfone esquecido ligado.
-    if (micPressed || micOn) sendMic(false);
     // E O HISTÓRICO PENDENTE VAI AO DISCO (v1.4.31). Sair da frente é o
     // instante em que o processo passa a ser descartável — congelamento,
     // pressão de memória, morte do renderer —, e a gravação coalescida

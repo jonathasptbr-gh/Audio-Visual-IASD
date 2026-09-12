@@ -225,6 +225,11 @@ try {
     '.display-status.connected',       // (regra morta: o elemento só existe no ramo do navegador)
     '.cast-acao.connected',            // "há TV no ar" — dura o culto, não 1,1 s
     '.cast-acao.connected .cast-acao-ico',  // o ícone do mesmo botão, mesmo estado
+    // A MESMA "TV no ar", um nível acima (v1.8.89). O `?` do aviso de áudio
+    // passou a morar DENTRO do botão de conectar, e dois irmãos não podem cada
+    // um pintar o próprio fundo: a superfície subiu para o envelope, e o verde
+    // com ela. É o mesmo estado, no mesmo momento — não um consumidor novo.
+    '.cast-acao-linha:has(> .cast-acao.connected)',
   ];
   const sobrando = consumidores.filter((c) => !ESPERADOS.includes(c));
   checar(sobrando.length === 0,

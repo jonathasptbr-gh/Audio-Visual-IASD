@@ -193,8 +193,8 @@
     return Number.isFinite(n) && n > 0 ? n : 0;
   }
 
-  // `timeoutMs` é OPCIONAL de propósito: `pickFolder` e `requestMic` esperam
-  // uma PESSOA (navegar no seletor do SAF, responder ao diálogo de permissão)
+  // `timeoutMs` é OPCIONAL de propósito: `pickFolder`, `pickDoc` e `salvarTexto`
+  // esperam uma PESSOA (navegar no seletor do SAF, responder ao "Salvar como")
   // e não têm prazo razoável — um timeout ali resolveria null com o operador
   // ainda escolhendo a pasta, e o `resolve` que chegasse depois seria jogado
   // fora. Essas ficam sem prazo, como antes.
@@ -458,7 +458,7 @@
     //
     // SEM PRAZO: quem responde é uma PESSOA no seletor "Salvar como" do
     // sistema, e um timeout resolveria vazio com o diálogo ainda aberto — a
-    // mesma regra do `pickFolder` e do `requestMic`.
+    // mesma regra do `pickFolder`.
     salvarTexto: (nome, texto) => call((id) => B.salvarTexto(id, String(nome), String(texto))),
 
     // ---- O PACOTE DE TRANSFERÊNCIA (shell 63) ----
@@ -671,18 +671,10 @@
     // o que ela deu e quantas falhas seguidas.
     otaDiag: () => call((id) => B.otaDiag(id), CALL_TIMEOUT_MS).then((r) => r || ''),
 
-    // POR QUE O MICROFONE NÃO ABRE — o que só o shell sabe (shell 53).
-    //
-    // `{ permissao, appops, mudo, modo, gravando, entradas:[{tipo,nome}] }`.
-    // Leitura PURA: não abre o microfone, não pede permissão, não muda nada.
-    //
-    // Ela existe porque quatro rodadas pelo lado web terminaram no mesmo lugar —
-    // `NotReadableError` nas três configurações, nos dois WebViews, com a
-    // permissão concedida e um dispositivo enumerado. O `AppOps` pode NEGAR
-    // `RECORD_AUDIO` enquanto `checkSelfPermission` devolve concedida, e o
-    // navegador não enxerga essa diferença.
-    micDiag: () => call((id) => B.micDiag(id), CALL_TIMEOUT_MS)
-      .then((r) => (r && typeof r === 'object' ? r : null)),
+    // (`micDiag` saiu na v1.8.89 com o MICROFONE AO VIVO — ver a lápide no
+    //  `controle.js`. O `@JavascriptInterface` continua no Kotlin, que é o lado
+    //  seguro de encolher a ponte: um APK que ainda serve método que ninguém
+    //  chama não custa nada ao aparelho.)
 
     // O FAROL: uma busca por dia, para o app poder responder "quantos aparelhos
     // usaram isto esta semana?" (shell 58).
@@ -891,11 +883,7 @@
 
     temaClaro(on) { try { B.temaClaro(!!on); } catch (_) { /* ponte indisponível */ } },
 
-    // Microfone (push-to-talk): garante a permissão RECORD_AUDIO do Android
-    // ANTES do getUserMedia. Sem ela o WebView nega a captura de propósito
-    // (ver MicChromeClient). Resolvendo false, o lado web tenta o getUserMedia
-    // mesmo assim, que é o caminho do navegador.
-    requestMic: () => call((id) => B.requestMic(id)).then((r) => r === true),
+    // (`requestMic` saiu na v1.8.89, com o `micDiag` e pela mesma razão.)
 
 
     // Downloads em andamento: sem isto o Android congela o processo quando o

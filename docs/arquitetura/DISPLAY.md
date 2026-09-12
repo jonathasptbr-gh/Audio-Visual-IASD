@@ -98,80 +98,45 @@ imediata) em vez de alternar o mudo. Qualquer gesto real no Display
 comando `mute` do operador encerra a recuperação. **Este mecanismo não se
 aplica ao YouTube** — ver seção abaixo.
 
-### Microfone ao vivo, no lado do Display
+### O microfone ao vivo SAIU (v1.8.89) — e as três lições que ficam
 
-O operador segura o botão no Controle, o comando `mic` atravessa o canal e é o
-**Display** que abre o microfone e o reproduz na projeção — um `MediaStream`
-não é clonável e portanto **não atravessa o BroadcastChannel**, então quem
-reproduz tem de ser quem captura. O caminho é `getUserMedia →
-MediaStreamSource → GainNode → destination`, com rampa curta na entrada e na
-saída (cortar no meio de uma palavra estala na caixa de som). A parte nativa
-(permissão `RECORD_AUDIO`, `onPermissionRequest` do WebView) está em
-[`CLAUDE.md`](../../CLAUDE.md).
+**Aqui havia ~75 linhas descrevendo, no presente, uma captura que não existe
+mais.** O operador pediu a remoção (*"remova a opção de microfone direto para o
+telão, que temos nas ferramentas"*), e com ela foram o `startMic`/`stopMic`, o
+`micSeq`, o `micStatus` e o `setMic`. Ficam o que foi APRENDIDO — porque as três
+coisas voltam junto com qualquer captura que este arquivo venha a ganhar — e o
+endereço de quem as guarda.
 
-**A captura em voo tem um token (`micSeq`), e `micStream` não servia como
-guarda.** Ele só existe DEPOIS de o `getUserMedia` resolver, e o primeiro
-push-to-talk da sessão demora (permissão + `onPermissionRequest`). Um
-on→off→on nesse intervalo — o operador aperta, não ouve nada, solta e aperta de
-novo — disparava um **segundo** `getUserMedia` com o primeiro ainda pendente;
-quando os dois resolviam, o segundo sobrescrevia as referências e o primeiro
-ficava com as trilhas vivas e o ganho ligado ao `destination`, **sem ninguém
-para pará-lo**: microfone aberto no telão (e o indicador de gravação do Android
-aceso) até o WebView do telão ser recriado.
+1. **A CAPTURA MORA ONDE A REPRODUÇÃO MORA.** Um `MediaStream` não é clonável e
+   não atravessa o BroadcastChannel: o comando viaja, o áudio não. Era por isso
+   que o microfone abria no `/display/` e não no Controle, apesar de o botão
+   estar lá.
+2. **UM `await` NO MEIO PRECISA DE TOKEN.** `micStream` não servia como guarda
+   porque só existe DEPOIS de o `getUserMedia` resolver, e o primeiro
+   push-to-talk demora (permissão + `onPermissionRequest`). Um on→off→on nesse
+   vão — o operador aperta, não ouve nada, solta e aperta de novo — disparava um
+   SEGUNDO `getUserMedia` com o primeiro pendente; resolvidos os dois, o segundo
+   sobrescrevia as referências e o primeiro ficava com as trilhas vivas ligadas
+   ao `destination`, **sem ninguém para pará-lo**: microfone aberto no telão até
+   o WebView ser recriado. `stopMic` incrementava o token ANTES da saída
+   antecipada, e `startMic` o reconferia DUAS vezes — depois do `getUserMedia` e
+   depois do `micCtx.resume()`, que é outro `await`.
+3. **`NotReadableError` NÃO É "outro app está usando"** (v5.142). O nome engana:
+   é o *"não consegui abrir o dispositivo"* genérico do WebRTC, e no Android a
+   causa comum não era disputa entre apps, era o PROCESSAMENTO pedido. Com
+   `echoCancellation` o Chromium abre o `AudioRecord` em `VOICE_COMMUNICATION` —
+   uma sessão de VOZ, que o sistema recusa quando a saída de áudio está em outro
+   caminho, isto é, este app durante um culto com espelhamento ligado. Daí a
+   escada de três degraus (com processamento · sem · `true` cru) e o pedido pelo
+   `deviceId` depois dela, com `NotAllowedError`/`SecurityError` DESISTINDO em
+   vez de descer — permissão negada não melhora com menos processamento.
 
-Três consequências disso, e cada uma cobre um `await` diferente:
+**Quem guarda isto hoje é `tools/sem-captura.test.mjs`**, que afirma a PORTA
+(nenhum `getUserMedia` em arquivo nenhum da base web) e carrega a escada inteira
+escrita no cabeçalho. O Kotlin ficou de pé — `MicChromeClient`, `requestMic`,
+`micDiag` e a permissão `RECORD_AUDIO` —, porque encolher pelo WEB primeiro é o
+lado seguro.
 
-- `stopMic()` **incrementa o token antes da saída antecipada**: com `micStream`
-  ainda nulo não há nada a derrubar, mas é preciso registrar que o operador
-  soltou o botão — senão o `getUserMedia` pendente vira um microfone aberto que
-  nenhum comando desliga.
-- `startMic()` reconfere o token **duas vezes**: depois do `getUserMedia` e
-  depois do `micCtx.resume()`. O resume é outro `await`, e um `stopMic()` ali
-  no meio passava batido — a continuação ligaria a fonte ao `destination`
-  depois de o botão já ter sido solto.
-- ao parar, o `AudioContext` é **suspenso, não fechado**: fechá-lo exigiria
-  criar outro no aperto seguinte, e é justamente esse custo (e a latência de
-  abertura) que se quer evitar num push-to-talk. Suspenso, ele para de segurar
-  a saída de áudio — e só é suspenso se ninguém tiver reaberto o microfone
-  nesse meio tempo.
-
-#### `NotReadableError` não é "outro app está usando" (v5.142)
-
-O relato foi o push-to-talk falhando com **"o microfone está em uso por outro
-app"** num aparelho em que nenhum outro app gravava — e a mensagem era nossa, do
-mapeamento de `NotReadableError`. O nome do erro engana: ele é o *"não consegui
-abrir o dispositivo"* genérico do WebRTC, e no Android a causa comum aqui não é
-disputa entre apps, é o **processamento pedido**.
-
-Com `echoCancellation`, o Chromium abre o `AudioRecord` em
-`VOICE_COMMUNICATION` para usar o cancelador de eco do hardware — uma sessão de
-**voz**, que o sistema recusa quando a saída de áudio está em outro caminho. Que
-é exatamente o caso deste app durante um culto: espelhamento ligado, telão
-recebendo o som.
-
-`startMic` passou a tentar **três vezes, da melhor para a que sempre abre**:
-
-1. `echoCancellation` + `noiseSuppression` + `autoGainControl` (o de sempre);
-2. os três **desligados** — força a fonte `MIC`, sem sessão de voz;
-3. `audio: true`, cru.
-
-A ordem é deliberada: o cancelamento de eco fica em primeiro porque num culto uma
-realimentação é um estrago imediato e público. Só se ele não abrir é que se desce
-— e um push-to-talk que funciona com risco de microfonia é melhor que um que não
-funciona, desde que fique registrado, que é o que a linha `microfone SEM
-cancelamento de eco` do Registro do telão faz.
-
-**`NotAllowedError`/`SecurityError` não descem a escada**: permissão negada é
-resposta do sistema (ou do `MicChromeClient`) e não melhora com menos
-processamento — insistir só gastaria duas chamadas para dar o mesmo erro. E a
-mensagem ao operador deixou de nomear uma causa que quase sempre estava errada:
-chegar até ela agora significa que as três tentativas falharam.
-
-> **Não foi reproduzido aqui.** A condição depende do roteamento de áudio do
-> aparelho com espelhamento ativo, que não existe neste ambiente. A escada é a
-> hipótese mais provável e não custa nada quando ela está errada — se o erro
-> persistir, o Registro do telão passa a dizer qual das três tentativas caiu e
-> com que nome, que é o que faltava para responder isso sem adivinhação.
 
 ### YouTube — o EMBED SAIU (v5.212), e o que ficou no lugar
 

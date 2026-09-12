@@ -63,10 +63,10 @@ const raiz = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app'
 // provaria o arnês.
 const PONTE = `(() => {
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
-    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
+    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','farolEstado','ytCanalPlaylists','ytPlaylist','ytDetalhes',
-    'areaTransferencia','pacoteDiag','cifraHtml','micDiag','espelhoRedes']);
+    'areaTransferencia','pacoteDiag','cifraHtml','espelhoRedes']);
   const vazio = { displays: [], listFolder: [], pickDoc: [], ytSearch: [],
     espelhoEstado: { ligado: false, telas: [] }, espelhoDiag: {},
     espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' },

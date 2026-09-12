@@ -19,12 +19,15 @@
 //
 // ## O dreno de SUBIDA é lista de PERMISSÃO
 //
-// Cada /display/ emite display-status a ~4 Hz, media-ended, mic-status e
-// diag-dump, e N telas mandando isso de volta ao celular quebra a suposição de
-// que há UM telão: media-ended dobrado dá um segundo load em repeat-one;
-// mic-status 'unsupported' (não há getUserMedia em http) apagaria o estado do
-// microfone VERDADEIRO; diag-dump duplo faz o Registro mostrar o diário de um
-// sem dizer qual. Sobem DUAS coisas: `display-ready` (o que faz o Controle
+// Cada /display/ emite display-status a ~4 Hz, media-ended e diag-dump, e N
+// telas mandando isso de volta ao celular quebra a suposição de que há UM
+// telão: media-ended dobrado dá um segundo load em repeat-one; diag-dump duplo
+// faz o Registro mostrar o diário de um sem dizer qual. (O `mic-status` era o
+// terceiro, e o mais perigoso — 'unsupported', porque não há getUserMedia em
+// http, apagava o estado do microfone VERDADEIRO. Ele saiu na v1.8.89 com o
+// recurso, e o dreno não muda por isso: ele é lista de PERMISSÃO, então um
+// emissor a menos não abre porta nenhuma.) Sobem DUAS coisas: `display-ready`
+// (o que faz o Controle
 // reenviar a cena) e `display-status` RENOMEADO `tela-status`, com o id desta
 // tela. Tipo novo nasce mudo por construção.
 //

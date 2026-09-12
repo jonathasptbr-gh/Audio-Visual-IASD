@@ -536,6 +536,16 @@
       <polyline points="17.5 4.5 20 7 17.5 9.5"/>
       <polyline points="17.5 14.5 20 17 17.5 19.5"/>
     </symbol>
+    <!-- ZERAR (v1.8.89): a seta que volta ao começo, no transporte do
+         cronômetro. Em SVG e não em glifo porque o subset da fonte é ESTÁTICO —
+         e porque ele vive ao lado do `#icoRepetir`/`#icoAleatorio`, que são
+         laços de traço: um glifo de tinta cheia aqui seria a divergência de
+         peso que a v1.8.68 mediu noutro lugar. O laço abre no topo (o mesmo
+         vão dos irmãos) para a ponta da seta caber sem engordar o desenho. -->
+    <symbol id="icoZerar" viewBox="0 0 24 24">
+      <path d="M20 12a8 8 0 1 1-2.34-5.66"/>
+      <polyline points="20 3 20 8 15 8"/>
+    </symbol>
     <!-- ===== OS ÍCONES DO PAINEL RÁPIDO DE CONFIGURAÇÕES (v1.4.38) =====
          Cada tile da grade tem UM desenho, e os que governam uma escolha de dois
          estados têm DOIS — o par `.ico-base`/`.ico-alt`, a mesma mecânica da
@@ -1052,8 +1062,9 @@
     <div id="listFoot" class="list-foot"></div>
 
     <!-- ===== FERRAMENTAS: A FOLHA DO CRONOGRAMA (v1.3.10) =====
-         Mensagens, Tempo (cronômetro/relógio/timer), Sorteio e o microfone ao
-         vivo. Elas eram uma ABA, ao lado do Cronograma e da Bíblia, e a faixa
+         Mensagens, Tempo (cronômetro/relógio/timer) e Sorteio. (O microfone ao
+         vivo morava aqui e saiu na v1.8.89 — ver a lápide no `controle.js`.)
+         Elas eram uma ABA, ao lado do Cronograma e da Bíblia, e a faixa
          ficou com três destinos mais a busca — a pedido do operador ela voltou
          a ter só os dois LUGARES do culto (o roteiro e a Bíblia) mais a porta
          da Biblioteca.
@@ -1088,6 +1099,12 @@
            que antes era espremido até sumir passou a transbordar, e a resposta
            a "não cabe" é rolar. -->
       <div id="toolsBody" class="tools-body lib-misc rola"></div>
+      <!-- O RODAPÉ FIXO DA FOLHA (v1.8.89). Ele é IRMÃO do corpo, nunca filho:
+           uma barra que mora dentro do scroller rola com ele, que é o que o
+           pedido do operador nomeia (*"deve ser uma barra fixa no rodapé dessa
+           janela, e não rolar com os itens dentro dela"*). O corpo leva
+           `flex: 1` e rola; este fica. Quem o preenche é `renderFoot()`. -->
+      <div id="toolsFoot" class="tools-foot"></div>
     </div>
     <!-- ===== A BÍBLIA É UMA FOLHA DO CRONOGRAMA (v1.5.0) =====
          Pedido do operador: *"agora o cronograma vai ser a tela padrão e única
@@ -1362,8 +1379,8 @@
                O ÍCONE MOSTRA O ESTADO; O RÓTULO, A AÇÃO — a mesma regra dos
                botões da notificação de mídia. O desenho é a pilha de camadas
                (o que está acontecendo) e o `title` diz o que o toque faz.
-               Vermelho `--live` porque é o vermelho de "está no ar agora"
-               deste app, e a camada de cima é justamente isso. -->
+               Vermelho da família `--live-*` porque é o vermelho de "está no ar
+               agora" deste app, e a camada de cima é justamente isso. -->
           <!-- ===== A BASE DA PREVIEW É A REGIÃO DO QUE ESTÁ FORA DO PADRÃO =====
                Pedido do operador (v1.4.43): *"atualize o local onde hoje
                sobrepomos o icone de remover camada na preview. essa região
@@ -2298,7 +2315,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.8.88</span>
+            <span id="appVersion" class="app-version">v1.8.89</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
@@ -2428,9 +2445,14 @@
              linha que se busca quando a pergunta aparece, e o que sobra na
              tela é o sinal de que HÁ o que perguntar.
 
-             O `?` É IRMÃO, NÃO FILHO: um `<button>` não pode aninhar outro, e
-             o alvo do `?` tem de ser separado do alvo que ABRE O SELETOR DE
-             ESPELHAMENTO do Android — tocar um querendo o outro sai do app.
+             O `?` É IRMÃO NO DOM E ESTÁ DENTRO DO CORPO (v1.8.89, pedido do
+             operador: *"pode colocar ele dentro do corpo do botão inteiro da
+             conexão da tv… ainda na direita, mas dentro"*). As duas coisas
+             convivem porque a SUPERFÍCIE subiu para a `.cast-acao-linha`: um
+             `<button>` não aninha outro — o parser fecha o de fora antes de
+             abrir o de dentro —, e o alvo do `?` precisa ser separado do que
+             ABRE O SELETOR DE ESPELHAMENTO do Android, senão tocar um querendo
+             o outro sai do app. Ver o CSS da `.cast-acao-linha`.
 
              E ELE SÓ EXISTE COM TV NO AR, a mesma regra da frase que ele
              substitui (v5.196): sem tela não há para onde vazar, e um aviso
