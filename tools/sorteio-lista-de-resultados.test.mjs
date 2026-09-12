@@ -458,15 +458,19 @@ try {
   // contagem existe COMO LINHA no topo da lista. Só a primeira aprovaria a
   // contagem sumindo do app; só a segunda aprovaria as duas convivendo.
   const conta = await pg.evaluate(() => {
-    const cab = document.querySelector('#sorteioList .sorteio-res .sorteio-res-cab');
+    // ELA SAIU DE DENTRO DO SCROLLER na v1.8.97 e virou a linha ANTERIOR a ele
+    // (a tira de sombra do `.rola` pintava por cima dela). O que a asserção
+    // cobra continua sendo o LUGAR — imediatamente acima da lista —, e a régua
+    // passou a ser a IRMÃ, que é onde o lugar agora se lê.
+    const cab = document.querySelector('#sorteioList > .sorteio-res-cab');
     const go = document.querySelector('#sorteioList .sorteio-barra .song-menu-go');
     const res = document.querySelector('#sorteioList .sorteio-res');
     return {
       pilulaNaBarra: !!document.querySelector('#sorteioList .sorteio-barra .sorteio-pilula'),
       texto: cab ? cab.textContent.trim() : null,
-      // ELE É O PRIMEIRO da lista: *"uma linha no topo"*.
-      primeiro: res && res.firstElementChild
-        ? res.firstElementChild.className : null,
+      // ELA É A IRMÃ IMEDIATAMENTE ANTERIOR à lista: *"uma linha no topo"*.
+      antesDaLista: !!cab && cab.nextElementSibling === res,
+      dentroDoScroller: !!(res && res.querySelector('.sorteio-res-cab')),
       goLarg: +go.getBoundingClientRect().width.toFixed(1),
     };
   });
@@ -477,9 +481,11 @@ try {
     'G · e a contagem virou a PRIMEIRA LINHA da lista, com a disponibilidade '
     + 'junto — que é a metade que muda a decisão: quem está no aparelho toca na '
     + 'hora', conta.texto);
-  checar(conta.primeiro === 'sorteio-res-cab',
-    'G · e ela é o primeiro nó do scroller, não uma linha perdida no meio',
-    conta.primeiro);
+  checar(conta.antesDaLista && !conta.dentroDoScroller,
+    'G · e ela é a linha IMEDIATAMENTE ACIMA da lista, e FORA do scroller '
+    + '(v1.8.97): dentro dele a tira de sombra do `.rola` (z-index 5, 22px) '
+    + 'pintava por cima da contagem, e a fronteira de verdade — a primeira linha '
+    + 'cortada — ficava sem marca nenhuma', JSON.stringify(conta));
 
   // =======================================================================
   // G2 · O BOTÃO DE SORTEAR: RESSORTEIA SEM MEXER NOS FILTROS (v1.8.88)

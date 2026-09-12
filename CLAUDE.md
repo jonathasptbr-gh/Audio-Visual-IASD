@@ -201,8 +201,10 @@ app/src/main/
 │   ├── controle/sorteio.js      #   a PLAYLIST AUTOMÁTICA: a REGRA que decide o
 │   │                            #   que pode ser sorteado (PURA, capacidades
 │   │                            #   injetadas, com oráculo Node). "Sem infantis"
-│   │                            #   (508–557 do Hinário 2022) é o ÚNICO filtro
-│   │                            #   que nasce LIGADO — daí o `!== false`
+│   │                            #   (508–557 do Hinário 2022) nasce LIGADO na
+│   │                            #   LEITURA de um registro gravado (o `!== false`)
+│   │                            #   — mas a FOLHA o apaga a cada abertura, com
+│   │                            #   os outros dois e a palavra tema (v1.8.97)
 │   ├── controle/pacote.js       #   o PACOTE DE TRANSFERÊNCIA: a regra de como
 │   │                            #   o acervo de um aparelho vira UM arquivo e
 │   │                            #   volta noutro. PURA, com oráculo Node — os
@@ -2747,11 +2749,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.96 · APK v1.8.91** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.97 · APK v1.8.91** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.96 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
+> **A v1.8.97 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela mudou `java/` (o
 > cancelamento da exportação saiu da main thread) e nada em `java/` chega por
 > OTA, então o bundle ficou SEGURO até a Release sair — **e ela saiu**: o APK

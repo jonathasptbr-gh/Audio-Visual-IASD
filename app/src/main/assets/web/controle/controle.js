@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.96';
+const WEB_VERSION = '1.8.97';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23040,6 +23040,26 @@ async function abrirSorteio() {
   sorteioMarcadas = new Set();
   sorteioBaralho = [];
   sorteioUsadas = new Set();
+  // ===== E OS FILTROS TAMBÉM (v1.8.97) =====
+  //
+  // Pedido do operador: *"ajuste para que essa aba de playlist automática
+  // reinicie seus filtros sempre que for reaberta. Desmarcando os filtros
+  // hinário, sem infantis e só no aparelho. Além de limpar a palavra tema."*
+  //
+  // É o mesmo argumento das MARCAS, um nível acima: um filtro que sobrevive
+  // fechado tira músicas do sorteio sem que ninguém lembre por quê — e o "sem
+  // hinário" esquecido ligado é a biblioteca inteira do culto fora da conta.
+  //
+  // **ISTO REVOGA "O ÚNICO FILTRO QUE NASCE LIGADO"** (`sanear` mantém o
+  // `semInfantis: true` por omissão, e essa regra fica de pé para quem LÊ um
+  // registro gravado): aqui ele é apagado por escrito, a cada abertura, porque
+  // o operador pediu os três desmarcados. A folha volta a ser o acervo inteiro,
+  // que é o estado de que toda decisão parte.
+  sorteioPrefs.semHinario = false;
+  sorteioPrefs.semInfantis = false;
+  sorteioPrefs.soNoAparelho = false;
+  sorteioPrefs.tema = '';
+  saveSorteioPrefs();
   sorteioPopupEl.classList.add('open');
   renderSorteio();
   // O índice de letras é o que faz a palavra tema alcançar o que não está no
@@ -23113,6 +23133,11 @@ function atualizarContaSorteio() {
   // linha que o dedo acabou de tocar. Ler ANTES de trocar o nó: depois ele já
   // não está no documento e o `scrollTop` dele é zero.
   const rolagem = res.scrollTop;
+  // SÃO DUAS LINHAS desde a v1.8.97: a contagem saiu de dentro do scroller e
+  // virou a irmã ANTERIOR dele. As duas mudam pela mesma razão (o pool), e
+  // trocar só uma deixaria o número descrevendo a lista de antes.
+  const cabVelho = sorteioListEl.querySelector('.sorteio-res-cab');
+  if (cabVelho) cabVelho.replaceWith(sorteioCabecalhoDaLista(pool));
   const novo = sorteioListaDeResultados(lista, escolhidos, pool);
   res.replaceWith(novo);
   novo.scrollTop = rolagem;
@@ -23314,6 +23339,31 @@ function qhMostrar(el, n) {
   qhAcender(el);
 }
 
+// O TOQUE NUM NÚMERO À VISTA (v1.8.97). Pedido do operador: *"atualmente ela
+// apenas rola… se eu tocar no 3 ele vai direto para o 3"*. Sem isto o único
+// gesto que a roleta aceitava era o ARRASTO, e alcançar o 40 custava atravessar
+// trinta e nove células com o dedo.
+//
+// **QUEM CONCLUI É O ASSENTAMENTO DE SEMPRE**, e não este caminho: rolar dispara
+// `scroll`, que reagenda o prazo de 140 ms, que chama o `qhAssentou`. Escrever a
+// preferência aqui seria a mesma regra em dois lugares — e as duas divergiriam
+// no primeiro ajuste, com o toque e o arrasto marcando lotes diferentes.
+//
+// SUAVE, porque o número tem de ser VISTO chegando: um salto instantâneo de
+// cinco casas é indistinguível de um erro de toque. `prefers-reduced-motion`
+// desliga a animação, nunca o gesto.
+function qhTocar(el, alvo) {
+  const i = [].indexOf.call(el.children, alvo);
+  if (i < 0) return;
+  const px = i * QH_ITEM;
+  if (Math.abs(el.scrollLeft - px) < 1) return;
+  if (!semMovimento() && typeof el.scrollTo === 'function') {
+    el.scrollTo({ left: px, behavior: 'smooth' });
+  } else {
+    el.scrollLeft = px;
+  }
+}
+
 // O RECUO das duas pontas, LIDO da janela. Zero enquanto a folha ainda não tem
 // largura (a primeira pintura acontece com o popup fechando a animação de
 // entrada); o `ResizeObserver` refina assim que houver.
@@ -23352,10 +23402,23 @@ function sorteioQuantidadeLinha(pool) {
   el.appendChild(frag);
 
   let assenta = null;
+  let rolou = false;
   el.addEventListener('scroll', () => {
+    rolou = true;
     qhAcender(el);
     clearTimeout(assenta);
     assenta = setTimeout(() => qhAssentou(el), QH_ASSENTA_MS);
+  });
+  // O ARRASTO NÃO É UM TOQUE, e a guarda é do MOUSE. Num aparelho o Chromium já
+  // engole o `click` depois de um gesto que rolou; com o ponteiro ele não
+  // engole, e arrastar a roleta terminaria selecionando a célula onde o dedo
+  // parou — que quase nunca é a que o operador queria. `rolou` é zerado no
+  // `pointerdown` e conferido no `click`.
+  el.addEventListener('pointerdown', () => { rolou = false; });
+  el.addEventListener('click', (ev) => {
+    const alvo = ev.target.closest && ev.target.closest('.qh-item');
+    if (!alvo || rolou) return;
+    qhTocar(el, alvo);
   });
   li.appendChild(el);
 
@@ -23681,6 +23744,7 @@ function renderSorteio() {
   // ele reescrevia por extenso o que a tela já mostrava. O que sobrou do papel
   // dele — QUANTOS — subiu para a pílula da barra; o que ele nunca respondeu —
   // QUAIS — é esta lista.
+  alvo.appendChild(sorteioCabecalhoDaLista(pool));
   alvo.appendChild(sorteioListaDeResultados(lista, escolhidos, pool));
 }
 
@@ -23800,7 +23864,16 @@ function sorteioRessortear() {
  */
 function sorteioCabecalhoDaLista(pool) {
   const n = pool.itens.length;
-  const cx = document.createElement('div');
+  // FORA DO SCROLLER desde a v1.8.97, e é um `<li>` da folha. Relato do
+  // operador: *"o texto de número de resultados disponíveis está com uma sombra
+  // em sua caixa, que parece que deveria ser da caixa do scroll da lista de
+  // resultados, pois ela está sem sombra de corte por rolagem"*. Ele estava
+  // DENTRO da lista, `sticky` no topo e com z-index 3 — e a tira de sombra do
+  // `.rola` é z-index 5 e 22px de altura sobre uma linha de 19,5: rolada a
+  // lista, a sombra pintava POR CIMA da contagem, e a fronteira de verdade (a
+  // primeira linha cortada, logo abaixo) ficava sem marca nenhuma. Fora do
+  // scroller ele não é conteúdo rolável, e a tira volta a descrever o corte.
+  const cx = document.createElement('li');
   cx.className = 'sorteio-res-cab';
   cx.textContent = n
     ? numeroPt(n) + (n === 1 ? ' resultado disponível' : ' resultados disponíveis')
@@ -23848,10 +23921,10 @@ function sorteioListaDeResultados(lista, escolhidos, pool) {
   // `.popup-list` continua com a marca e o observador a lê como `sem-veu`
   // enquanto ela não rolar — que é o caso normal.
   li.className = 'sorteio-res rola' + (lista.length ? '' : ' vazio');
-  // A CONTAGEM, no topo da lista (v1.8.88). Ela entra ANTES do desvio do vazio
-  // porque "nenhum resultado" também é uma contagem — e ali ela é a única linha
-  // que diz o número, já que a pílula da barra saiu.
-  li.appendChild(sorteioCabecalhoDaLista(pool));
+  // (A CONTAGEM saiu daqui na v1.8.97 e virou a linha ANTERIOR da folha — ver
+  //  `sorteioCabecalhoDaLista`. Ela continua imediatamente acima da lista, e
+  //  continua sendo desenhada também no vazio, porque "nenhum resultado"
+  //  também é uma contagem.)
   if (!lista.length) {
     // VAZIO ELA DIZ O MOTIVO, e a frase é a mesma de sempre: `fraseDoVazioSorteio`
     // separa cinco causas que pedem ações OPOSTAS, e ela é a única peça do cartão
