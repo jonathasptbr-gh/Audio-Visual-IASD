@@ -299,6 +299,83 @@ try {
     'C · e a linha se redesenha: a versão passa a "Não baixada" e o excluir '
     + 'apaga — não há o que excluir duas vezes', depois);
 
+  // =======================================================================
+  // D · OS IDS REAIS SÃO NUMÉRICOS, E UM É PREFIXO DO OUTRO (v1.8.84)
+  //
+  // A fixture acima usa `'ara'/'nvi'/'acf'` — três strings de três letras,
+  // nenhuma prefixo de outra —, e por isso ela NÃO alcança a forma que o app
+  // recebe de verdade: `id_bible_version` vem NUMÉRICO do LouvorJA
+  // (`controle/bible.js`, e a chave de exemplo do capítulo é `bible_1_1_1`).
+  // Com ids 1 e 10 no aparelho, apagar a bandeira do 1 POR PREFIXO levava a do
+  // 10 junto, e a versão completa passava a anunciar "Parcial · 1189 de 1189".
+  // =======================================================================
+  const numericos = await pg.evaluate(async () => {
+    bibleVersions = [{ id: 1, name: 'Versão um' }, { id: 10, name: 'Versão dez' }];
+    bibleVersionId = 1;
+    const vs = [{ n: 1, text: 'No princípio.' }];
+    await AVDB.setState('bible:1_' + bibleBookId(0) + '_1', { verses: vs, syncedAt: Date.now() });
+    await AVDB.setState('bible:10_' + bibleBookId(0) + '_1', { verses: vs, syncedAt: Date.now() });
+    await AVDB.setState('bibleComplete:1', true);
+    await AVDB.setState('bibleComplete:10', true);
+    bibleCompleteVersions.add(1); bibleCompleteVersions.add(10);
+    const antes = window.appConfirm;
+    window.appConfirm = async () => true;
+    await apagarVersaoBiblia({ id: 1, name: 'Versão um' });
+    window.appConfirm = antes;
+    return {
+      alvo: !!(await AVDB.getState('bibleComplete:1')),
+      vizinha: !!(await AVDB.getState('bibleComplete:10')),
+      textoVizinho: (await AVDB.stateKeys('bible:10_')).length,
+    };
+  });
+  checar(numericos.alvo === false,
+    'D · a bandeira da versão excluída sai', numericos);
+  checar(numericos.vizinha === true && numericos.textoVizinho === 1,
+    'D · e a da versão 10 FICA — `bibleComplete:1` é chave EXATA, não família: '
+    + 'apagada por prefixo, ela levava `:10`, `:11`, `:12`… e a versão completa '
+    + 'passava a se anunciar como parcial', numericos);
+
+  // =======================================================================
+  // E · EXCLUIR DURANTE A VARREDURA DERRUBA A VARREDURA (v1.8.84)
+  //
+  // `ensureBibleVersionDownloaded` congela a lista do que falta ANTES do laço e
+  // só conta `failed` em erro de REDE — apagar o banco no meio não a
+  // interrompe nem a faz falhar, então ela terminava com `failed === 0` e
+  // gravava "Completa offline" sobre um texto pela metade.
+  // =======================================================================
+  const meio = await pg.evaluate(async () => {
+    bibleDl = { versionId: 7, total: 1189, done: 300, running: true, seq: 99 };
+    const antes = window.appConfirm;
+    window.appConfirm = async () => true;
+    await apagarVersaoBiblia({ id: 7, name: 'Versão sete' });
+    window.appConfirm = antes;
+    return { rodando: !!(bibleDl && bibleDl.running) };
+  });
+  checar(meio.rodando === false,
+    'E · a varredura em curso daquela versão é derrubada pela exclusão — senão '
+    + 'ela seguia gravando capítulos e carimbava "Completa offline" no fim', meio);
+
+  // =======================================================================
+  // F · A EXCLUSÃO É UMA INTENÇÃO, E A ABERTURA SEGUINTE A HONRA (v1.8.84)
+  //
+  // `garantirBibliaBase` roda em TODA abertura e rebaixa a versão que o app
+  // escolheria — que pode ser a que o operador acabou de excluir. Sem a
+  // intenção gravada, os 1189 capítulos voltavam sozinhos minutos antes do
+  // culto e o diálogo que ele confirmou virava promessa falsa.
+  // =======================================================================
+  const intencao = await pg.evaluate(async () => {
+    const lista = (await AVDB.getState('bibleNaoBaixar')) || [];
+    // E ESCOLHER A VERSÃO DE NOVO DESFAZ A INTENÇÃO — é o único gesto que diz
+    // "eu quero esta".
+    await changeBibleVersion(7);
+    return { depoisDeExcluir: lista, depoisDeEscolher: (await AVDB.getState('bibleNaoBaixar')) || [] };
+  });
+  checar(intencao.depoisDeExcluir.includes(7),
+    'F · excluir grava a intenção de NÃO rebaixar aquela versão', intencao);
+  checar(!intencao.depoisDeEscolher.includes(7),
+    'F · e escolher a versão de novo a desfaz — senão ela ficaria para sempre '
+    + 'fora do alcance do `garantirBibliaBase`', intencao);
+
   checar(erros.length === 0, 'nenhum erro de console', erros);
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');

@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.8.84",
+    "itens": [
+      "Apresentação: o vídeo de um slide não entra mais por cima da mídia que você escolheu enquanto ele carregava.",
+      "Apresentação: subir o cronômetro enquanto o slide abre deixou de cancelar a volta para a apresentação.",
+      "Bíblia: excluir uma versão que estava baixando agora para o download, em vez de marcá-la como completa.",
+      "Bíblia: a versão excluída não volta sozinha a baixar na abertura seguinte.",
+      "Bíblia: excluir uma versão não apaga mais a marca de 'completa' de outras versões.",
+      "Telão: com a tela coberta, mexer no cronômetro ou no sorteio não descobre mais a mídia."
+    ]
+  },
+  {
     "versao": "1.8.83",
     "itens": [
       "Corrigido: com um louvor tocando, cobrir o telão deixava o versículo na tela da TV.",

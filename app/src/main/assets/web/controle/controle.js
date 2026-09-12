@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.83';
+const WEB_VERSION = '1.8.84';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1057,6 +1057,20 @@ let lyricLoadSeq = 0;
 // navegação da própria Bíblia, e projetar pela folha de Ferramentas não toca no
 // segundo.
 let projecaoSeq = 0;
+
+// ===== A SENHA DO SLOT DE MÍDIA =====
+//
+// `projecaoSeq` responde "alguém projetou QUALQUER COISA desde então?" — e um
+// versículo, uma mensagem ou o cronômetro a incrementam (`soUmProvedorDeTexto`).
+// Para a volta da apresentação essa pergunta é GRANDE DEMAIS: com o vídeo de um
+// slide ainda sendo lido do banco, o operador que subisse o cronômetro desarmava
+// a volta PARA SEMPRE, e a mesma ação tinha desfecho oposto conforme a leitura
+// do blob já tivesse terminado ou não.
+//
+// Esta responde a pergunta certa — "outro `send` TOMOU O SLOT DE MÍDIA?" —, e
+// por isso é bumpada num ponto só: o `send`, na mesma linha em que a volta é
+// desarmada. Camada de Texto não a move, porque camada de texto não toma o slot.
+let cenaSeq = 0;
 
 // ===== UMA RESOLUÇÃO EM VOO PERDE A VEZ PARA A PROJEÇÃO SEGUINTE (v1.4.18) =====
 //
@@ -4238,11 +4252,42 @@ async function apagarVersaoBiblia(v) {
       + 'novo baixa tudo outra vez.',
     okText: 'Excluir', perigo: true,
   }))) return;
+  // A VARREDURA EM CURSO CAI PRIMEIRO, e ela é a metade cara deste conserto.
+  // `ensureBibleVersionDownloaded` congela a lista de capítulos que faltam
+  // ANTES do laço e só conta `failed` em erro de REDE — um apagamento do banco
+  // não a interrompe nem a faz falhar. Sem isto, excluir uma versão que estava
+  // baixando deixava ~800 dos 1189 capítulos no aparelho e ainda gravava a
+  // bandeira "Completa offline" por cima, porque `failed === 0`. O guard do
+  // worker (`bibleDl.running`) faz o resto.
+  if (bibleDl && bibleDl.running && bibleDl.versionId === v.id) {
+    bibleDl.running = false;
+    refreshBibleDl();
+  }
   try {
     await AVDB.stateApagarPrefixo('bible:' + v.id + '_');
-    await AVDB.stateApagarPrefixo('bibleComplete:' + v.id);
+    // A BANDEIRA É CHAVE EXATA, e por isso NÃO sai por prefixo: os ids vêm
+    // numéricos do LouvorJA (`id_bible_version`), e `bibleComplete:1` como
+    // prefixo casa também `bibleComplete:10`, `:11`, `:12`… — excluir a versão
+    // 1 apagava a bandeira das outras, que passavam a anunciar "Parcial · 1189
+    // de 1189". A irmã de cima tem o `_` que fecha o intervalo; esta não tem
+    // sufixo nenhum para fechar.
+    await AVDB.setState('bibleComplete:' + v.id, false);
   } catch (_) { /* sem banco: a lista se corrige na próxima varredura */ }
   bibleCompleteVersions.delete(v.id);
+  // E A EXCLUSÃO É UMA INTENÇÃO, não só um apagamento. `garantirBibliaBase`
+  // roda em TODA abertura e rebaixa a versão que o app escolheria
+  // (`pickDefaultBibleVersion`), que pode ser justamente esta: sem registrar a
+  // vontade do operador, os 1189 capítulos voltavam sozinhos no lançamento
+  // seguinte — em geral minutos antes do culto, com serviço em primeiro plano,
+  // wake lock e notificação — e o diálogo que ele acabou de confirmar virava
+  // promessa falsa. Quem a desfaz é ESCOLHER a versão de novo
+  // (`changeBibleVersion`), que é o único gesto que diz "eu quero esta".
+  try {
+    await AVDB.updateState('bibleNaoBaixar', (lista) => {
+      const atual = Array.isArray(lista) ? lista : [];
+      return atual.includes(v.id) ? atual : atual.concat([v.id]);
+    });
+  } catch (_) {}
   // O CACHE DE VIZINHOS PODE SER DESTA VERSÃO, e ele não é relido do banco:
   // deixá-lo de pé faria a leitura continuar mostrando um texto que o aparelho
   // já não tem, e o próximo passo de capítulo o perderia sem explicação.
@@ -4375,7 +4420,13 @@ async function garantirBibliaBase() {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     await ensureBibleMeta(false);
     const base = pickDefaultBibleVersion(bibleVersions);
-    if (base != null) await ensureBibleVersionDownloaded(base);
+    if (base == null) return;
+    // A EXCLUSÃO DO OPERADOR VALE MAIS QUE A BASE QUE O APP GARANTE. Ver
+    // `apagarVersaoBiblia`: a lista guarda as versões que ele tirou do
+    // aparelho, e ela só é desfeita quando ele ESCOLHE a versão de novo.
+    const naoBaixar = (await AVDB.getState('bibleNaoBaixar')) || [];
+    if (Array.isArray(naoBaixar) && naoBaixar.includes(base)) return;
+    await ensureBibleVersionDownloaded(base);
   } catch (_) {}
 }
 
@@ -4862,6 +4913,14 @@ async function changeBibleVersion(id) {
   bibleVersionId = id;
   bibleAdjCache = {}; // vizinhos em cache eram da versão antiga
   await AVDB.setState('bibleVersion', id);
+  // ESCOLHER É O GESTO QUE DESFAZ A EXCLUSÃO — ver `apagarVersaoBiblia`. Sem
+  // isto, uma versão excluída e depois escolhida ficaria para sempre fora do
+  // alcance do `garantirBibliaBase`.
+  try {
+    await AVDB.updateState('bibleNaoBaixar', (lista) => (
+      Array.isArray(lista) ? lista.filter((x) => x !== id) : []
+    ));
+  } catch (_) {}
   ensureBibleVersionDownloaded(id);
   if (!bibleSession) { renderLibrary(); return; }
   const s = bibleSession;
@@ -6552,7 +6611,12 @@ function chronoDescriptor() {
 // caminho novo pode esquecer de atualizar a projeção.
 function pushChrono() {
   if (!chronoProjecting()) return;
-  cmd({ type: 'text', mode: 'chrono', chrono: chronoDescriptor(), sub: chrono.label || '', view: 'visual' });
+  // A VIEW VIGENTE, NUNCA 'visual' LITERAL: isto é REENVIO de descritor, não
+  // projeção. Com o telão coberto (`view: 'wallpaper'`) um literal aqui fazia
+  // iniciar/pausar/zerar DESCOBRIR a mídia que o operador tinha coberto — e,
+  // ao tirar o cartão do ar, o `declararView` propagava a view errada. Quem
+  // projeta é `projectChrono`, que escreve `view = 'visual'` antes de mandar.
+  cmd({ type: 'text', mode: 'chrono', chrono: chronoDescriptor(), sub: chrono.label || '', view });
 }
 
 // Projeta (Display + preview). Encerra Bíblia e Mensagem: a Camada de Texto é
@@ -6968,7 +7032,9 @@ function drawDescriptor() {
 
 function pushDraw() {
   if (!drawProjecting()) return;
-  cmd({ type: 'text', mode: 'draw', draw: drawDescriptor(), sub: draw.label || '', view: 'visual' });
+  // A VIEW VIGENTE, NUNCA 'visual' LITERAL — ver `pushChrono`: reenvio de
+  // descritor não descobre o que o operador cobriu. Quem projeta é `projectDraw`.
+  cmd({ type: 'text', mode: 'draw', draw: drawDescriptor(), sub: draw.label || '', view });
 }
 
 // O SORTEIO FALA NO PRÓPRIO PAINEL (v5.207).
@@ -11732,8 +11798,14 @@ function favBtn(id, nome) {
 // ===== ações de reprodução / sequência =====
 // `daFila` = o avanço automático da playlist chamou. Ver a guarda de imagem
 // sobre áudio, lá dentro: é a única coisa que a distingue de um toque.
-async function send(id, daFila) {
+// `recPronto` = o registro JÁ LIDO do banco, quando quem chama acabou de lê-lo.
+// Só o `deckVideoTalvezTocar` o supre, e ele existe para não ler DUAS VEZES o
+// blob de um vídeo embutido: aquele caminho precisa do registro na mão ANTES de
+// disparar (é onde ele confere a senha), e sem isto o vídeo do slide levaria o
+// dobro do tempo para entrar.
+async function send(id, daFila, recPronto) {
   ++projecaoSeq;   // ver `projecaoSeq`: invalida um versículo de roteiro em voo
+  ++cenaSeq;       // ver `cenaSeq`: a senha do SLOT DE MÍDIA, só deste ponto
   // E DESARMA A VOLTA DA APRESENTAÇÃO. `send` é o ponto por onde todo caminho
   // que projeta passa, então qualquer coisa que entre em cena — um toque na
   // lista, o ⏮/⏭, a notificação — cancela a automação do vídeo de slide. Sem
@@ -11747,7 +11819,8 @@ async function send(id, daFila) {
   // stage). A guarda fica AQUI, e não só no toque da lista, porque `send` é o
   // ponto por onde TODOS os caminhos passam — o avanço automático da playlist,
   // o ⏮/⏭ do transporte, a notificação nativa e o pacote logo acima.
-  const alvo = [...plItems, ...libItems, ...favItems].find((m) => m.id === id)
+  const alvo = recPronto
+    || [...plItems, ...libItems, ...favItems].find((m) => m.id === id)
     || (await AVDB.getMedia(id));
   if (isCue(alvo)) {
     currentItem = alvo;
@@ -28087,7 +28160,9 @@ function deckIr(alvo) {
   // mandado para a camada não acharia deck nenhum no motor e não faria NADA —
   // sem erro, com o operador apertando o botão na frente da congregação.
   if (deckSobreProjetando()) {
-    cmd({ type: 'text', mode: 'image', mediaId: visualSession.id, page: deckPagina, sub: '', view: 'visual' });
+    // A VIEW VIGENTE, NUNCA 'visual' LITERAL — ver `pushChrono`: andar de
+    // página é reenvio, e um literal aqui descobriria a mídia coberta.
+    cmd({ type: 'text', mode: 'image', mediaId: visualSession.id, page: deckPagina, sub: '', view });
   } else {
     cmd({ type: 'page', page: deckPagina });
   }
@@ -28198,35 +28273,44 @@ function paginaDoSlide() {
  * O que continua valendo é o `deckVideoSemGatilho`: a volta de um vídeo NÃO
  * pode reprojetá-lo na mesma página, senão ele toca em laço para sempre.
  */
-function deckVideoTalvezTocar(d, n) {
+async function deckVideoTalvezTocar(d, n) {
   if (deckSobreProjetando() || deckVideoSemGatilho) return;
   const vid = deckVideoDaPagina(d, n);
   if (!vid) return;
   const volta = { deckId: d.id, rec: d, pagina: n, videoId: vid };
-  // O `send` LIMPA a volta na entrada (um toque do operador em qualquer outra
-  // coisa desarma a automação), então ela só pode ser armada DEPOIS dele.
+  // A ESPERA VEM ANTES DO DISPARO, e é isso que faz a guarda valer de verdade.
   //
-  // E DEPOIS DELE PODE SER TARDE DEMAIS — daí a senha. Entre o disparo e a
-  // resolução há dois `await`: o `getMedia` do vídeo (que não está em `plItems`,
-  // `libItems` nem `favItems`, então a leitura do blob inteiro acontece SEMPRE)
-  // e o `persistCurrent`. Nesse vão cabe um toque do operador: o `send` dele
-  // zera a volta, e este `.then` a rearmaria com o deck que já saiu de cena. O
-  // fim natural da mídia escolhida cairia então em `autoAdvance`, cuja primeira
-  // linha devolve a apresentação ANTIGA ao telão em vez de andar na fila, e o
-  // ⏭ passaria a mexer no deck morto (`slideTarget()` devolve 'deck').
+  // O vídeo embutido não está em `plItems`, `libItems` nem `favItems`, então
+  // lê-lo é ler o BLOB INTEIRO do banco — segundos no aparelho. Feita essa
+  // espera DENTRO do `send`, o comando `load` já saiu e é irrevogável: o
+  // operador que tocasse num louvor durante a leitura via o louvor entrar e,
+  // um a três segundos depois, o vídeo do slide entrar POR CIMA dele. Lida
+  // aqui, a mesma espera acontece antes de qualquer coisa ir ao telão, e a
+  // senha decide se ainda vale projetar. O registro é passado adiante
+  // (`recPronto`) para o `send` não reler o mesmo blob.
+  const senha = cenaSeq;
+  let rec = null;
+  try { rec = await AVDB.getMedia(vid); } catch (_) { /* sumiu do banco: nada a projetar */ }
+  if (!rec || cenaSeq !== senha) return;
+  // A SENHA É A DO SLOT DE MÍDIA (`cenaSeq`), NUNCA `projecaoSeq`. Aquela sobe
+  // também em toda Camada de Texto (`soUmProvedorDeTexto`), e com ela o
+  // operador que subisse o cronômetro enquanto o vídeo era lido desarmava a
+  // volta para sempre — a MESMA ação com desfecho oposto conforme a leitura
+  // tivesse terminado ou não. Camada de texto não toma o slot de mídia, logo
+  // não pode cancelar a volta da apresentação. Ver `cenaSeq`.
   //
   // `currentId` não serve no lugar dela: o `send` concorrente pode ter sido de
-  // um cue, que também o escreve. É a mesma senha de `load()` e do
-  // `ytAcaoInterno` — ver `projecaoSeq`.
+  // um cue, que também o escreve.
   //
-  // ELA É LIDA DEPOIS DO DISPARO, e isso é deliberado: `send` é `async`, e a
-  // primeira linha dele (`++projecaoSeq`) roda SÍNCRONA, dentro da chamada
-  // acima. Lida antes, a senha nasceria uma unidade atrás e a guarda recusaria
-  // sempre — a volta nunca seria armada, que é o defeito nº 2 deste arquivo.
-  const projetando = send(vid, true);
-  const senha = projecaoSeq;
+  // O `send` LIMPA a volta na entrada (um toque do operador em qualquer outra
+  // coisa desarma a automação), então ela só pode ser armada DEPOIS dele — e a
+  // senha é RELIDA depois do disparo porque `send` bumpa `cenaSeq` na primeira
+  // linha, síncrona, dentro da chamada abaixo. Lida antes, ela nasceria uma
+  // unidade atrás e a guarda recusaria sempre.
+  const projetando = send(vid, true, rec);
+  const senhaDoDisparo = cenaSeq;
   projetando.then(() => {
-    if (projecaoSeq !== senha) return;
+    if (cenaSeq !== senhaDoDisparo) return;
     deckVideoVolta = volta;
     // E O PAR DE BOTÕES PRECISA SER REDESENHADO AQUI. O `send` já rodou — com a
     // volta ainda nula —, então o ⏮/⏭ foi desenhado como o de um vídeo avulso:
