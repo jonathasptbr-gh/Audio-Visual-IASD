@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.8.81",
+    "itens": [
+      "Faxina na paleta: saíram dois tokens que nada no app lia. Nada muda na tela.",
+      "Corrigidas medições de contraste que citavam uma superfície que não existe mais."
+    ]
+  },
+  {
     "versao": "1.8.80",
     "itens": [
       "A barra do topo do Cronograma respira igual em cima e embaixo — os botões deixaram de ficar colados na base.",

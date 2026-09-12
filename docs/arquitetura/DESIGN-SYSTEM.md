@@ -157,7 +157,7 @@ só uma, o token está no bloco COMPARTILHADO e vale nos dois.
 | `--live-strong` / `--danger-strong` | `#f97a7e` | `#b80419` | **o vermelho que se lê como vermelho** (v5.76): ícone, borda e marca preenchida. Derivado do `scarlett` (matiz 358°/353°), clareado no escuro e escurecido no claro. Escuro: 7,27:1 sobre `--bg`, 6,59:1 sobre o soft, 4,88:1 sobre `--panel`, **3,77:1 sobre `--panel-2`** — este passa o piso de borda e reprova o de texto, e é por isso que quem veste este vermelho veste junto o fundo suave da própria família. Claro: 4,63:1 sobre o soft, 6,84:1 sobre o painel |
 | `--danger-text` | `#e98d83` | `#93382e` | o salmão, para os TRÊS casos em que o `-strong` não serve: a falha na miniatura do YouTube, o pulso de erro e o aviso de falha pousado direto no painel — 5,17:1 sobre `--panel` no escuro, 7,38:1 no claro |
 | `--live-soft` | `rgba(208,2,27,.22)` | `rgba(208,2,27,.14)` | wash de "no ar" — hoje só o `box-shadow` do pulso. **É wash, nunca superfície de controle** (ver `--btn-*`), e foi essa regra que esvaziou a família: dos seis `-soft`, só este tem consumidor. Os outros quatro (`--danger-soft`, `--warn-soft`, `--ok-soft`, e o `--accent-soft` que ficou) eram defendidos por "servem ao wash" — a v1.5.14 mediu e removeu os que não serviam a nenhum |
-| `--btn-accent` / `--btn-danger` / `--btn-warn` / `--btn-ok` | `#293d57` / `#5d282e` / `#533423` / `#2a431e` | `#dcebfe` / `#fde3e6` / `#f8e7de` / `#d5f5c6` | **a superfície OPACA de um botão ou chip** em cada família (v1.3.14). Recebem por cima o traço que a família já tinha (`--accent`, `--danger-strong`, `--warn`, `--ok`). Ver "A superfície de uma ação é opaca" |
+| `--btn-accent` / `--btn-danger` / `--btn-warn` | `#293d57` / `#5d282e` / `#533423` | `#dcebfe` / `#fde3e6` / `#f8e7de` | **a superfície OPACA de um botão ou chip** em cada família (v1.3.14). Recebem por cima o traço que a família já tinha (`--accent`, `--danger-strong`, `--warn`, `--ok`). Ver "A superfície de uma ação é opaca" |
 | `--warn` / `--warn-text` | `#ef853f` / `#e5a86c` | `#bd520a` / `#934410` | aviso: borda/ícone, texto, fundo. Derivados do **`campfire` OFICIAL** (matiz 21°) — 6,34:1 e 7,95:1 sobre o próprio suave no escuro; 3,38:1 (piso de ícone) e 4,81:1 no claro |
 | `--ok` | `#80bd64` | `#216900` | concluído/conectado. Derivado do **`treefrog` OFICIAL** (matiz 101°), clareado e DESSATURADO no escuro — no talo ele vira um limão que grita mais que o accent. 5,64:1 sobre painel · 8,41:1 sobre o fundo; no claro 6,81:1 sobre o painel |
 | `--stage-bg` / `--stage-text` | `#000` / `#fff` | *(idem)* | **o palco**, não a UI, e por isso NÃO tem tema: o preto é preto de verdade (as barras do letterbox têm de sumir na moldura da TV) e o texto projetado é branco pleno — num telão a legibilidade vem de luminância máxima, não de um off-white calibrado para uma tela a 30 cm do rosto |
@@ -383,8 +383,10 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   conectar), onde o alvo é o polegar de quem está de pé. "Três degraus **e só
   eles**" era a frase antiga, e ela era desmentida por dezenas de valores no
   HTML; agora ela é verificável.
-- **Alvo de toque:** dois degraus, e desde a v5.49 são **tokens** — `--hit`
-  (34px) e `--hit-nav` (38px, a faixa de navegação: `.tab` e `.tab-add`). O piso
+- **Alvo de toque:** o token é **`--hit`** (34px, desde a v5.49). O segundo
+  degrau, `--hit-nav` (38px), era a faixa de NAVEGAÇÃO — `.tab` e `.tab-add` —,
+  e saiu na v1.8.81: a faixa de abas inteira saiu na v1.5.0 e o token sobreviveu
+  vinte e nove lotes declarado e sem um único leitor. O piso
   de 34px vale para `.row-btn`, `.row-handle`, `.popup-close`, `.back-btn`,
   `.add-dir-btn`, `.sel-btn`, `.coll-bar-dl`, `.coll-group-btn` e `.pv-fab`.
   Nada abaixo disso — o `.back-btn` já teve 20×20 px sendo a única saída da tela
@@ -399,8 +401,9 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 - **Receita repetida vira seletor agrupado, não cópia:** os estados de cor são
   declarados por ESTADO (`.view-blocked`/`.muted`/`.danger` num bloco,
   `.active` noutro), a coluna "nome + subtítulo" das linhas de lista é uma regra
-  para `.coll-bar-info, .bible-ver-main, .hymn-info`, e `.tab-add` divide a
-  caixa de `.tab` (`flex:1`, `--hit-nav`, mesmo raio) em vez de reescrevê-la.
+  para `.coll-bar-info, .bible-ver-main, .hymn-info`. (O exemplo antigo era o
+  `.tab-add` dividindo a caixa de `.tab` em vez de reescrevê-la — as duas peças
+  saíram com a faixa de abas na v1.5.0.)
 - **Ordem importa quando a especificidade empata:** `.pv-text { z-index: 2 }`
   precisa vir DEPOIS de `.pv-layer { z-index: 1 }` (o elemento tem as duas
   classes). Já esteve antes, e o cartão de texto só ficava acima do iframe do
@@ -752,7 +755,7 @@ variava mais que dois níveis inteiros da escada. Era a queixa do operador —
 *"cores diferentes ou inconsistentes entre grupos de hinário, informativos e
 coleções"*: o chevron da SEÇÃO compunha `#3d4959` e o do CARD, `#4a596d`.
 
-Daí `--btn-accent`, `--btn-danger`, `--btn-warn` e `--btn-ok`, opacos, um por
+Daí `--btn-accent`, `--btn-danger` e `--btn-warn`, opacos, um por
 família, ancorados na matiz OFICIAL (bluejay 214°, scarlett 353°, campfire 21°,
 treefrog 101°). O separador **não é a claridade, é o CROMA**: ~53–58% de
 saturação contra os ~27% da escada neutra, com ~1,15:1 das duas bases de cartão
@@ -763,7 +766,6 @@ saturação contra os ~27% da escada neutra, com ~1,15:1 das duas bases de cart�
 | `--btn-accent` | `--accent` | 1,70 | 1,14 | 1,17 | 5,37 · 6,37 |
 | `--btn-danger` | `--danger-strong` | 1,62 | 1,09 | 1,23 | 4,49 · 5,64 |
 | `--btn-warn` | `--warn` | 1,69 | 1,13 | 1,18 | **4,30** · 5,68 |
-| `--btn-ok` | `--ok` | 1,72 | 1,15 | 1,16 | 4,89 · 5,74 |
 
 O `--btn-warn` é o único abaixo de 4,5:1, e ele é ÍCONE — o piso de 3:1 é o que
 vale para quem carrega informação sem ser texto.
@@ -1148,7 +1150,7 @@ texto por cima precisa ser escura. Daí três tokens, um por papel:
 - **R5 — os tokens de cor moram em `shared/tokens.css`**, carregado pelos dois
   apps. Não há mais o que dessincronizar.
 - **R6 — a superfície de um CONTROLE é opaca.** Fundo de botão ou de chip usa
-  `--btn-accent`/`--btn-danger`/`--btn-warn`/`--btn-ok`. Os `-soft` são wash
+  `--btn-accent`/`--btn-danger`/`--btn-warn`. Os `-soft` são wash
   (sombra de pulso, trilho de anel) e nunca superfície: alfa empilha, e o mesmo
   token compõe uma cor por camada. `tokens.test.mjs` trava.
 - **R7 — um CONTROLE responde por RECUO; um BLOCO responde por LUZ.** `--press`
@@ -1779,7 +1781,7 @@ caixas** — daí o resto desta seção.
   nível de baixo da árvore. Opacos, valem o mesmo em qualquer nível: **um estado
   SAI da escada em vez de ocupar um degrau dela**.
 - **E A SUPERFÍCIE DE UMA AÇÃO TAMBÉM É OPACA** (`--btn-accent`, `--btn-danger`,
-  `--btn-warn`, `--btn-ok`). Os `-soft` são tinta com ALFA, e alfa EMPILHA:
+  `--btn-warn`). Os `-soft` são tinta com ALFA, e alfa EMPILHA:
   MEDIDO no escuro, o mesmo botão derivava **1,97:1** entre a base mais escura e
   a mais clara em que ele pousa — mais que o degrau `--bg` × `--panel` (1,49:1).
   O chevron de uma SEÇÃO compunha `#3d4959` e o de um CARD, `#4a596d`: um

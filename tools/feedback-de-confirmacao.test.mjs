@@ -94,7 +94,7 @@ try {
         // A REFERÊNCIA QUE O PEDIDO NOMEIA, lida do próprio app.
         referencia: medir('row-btn fav-btn on', solto),
         tokens: { btnAccent: tok('--btn-accent'), accent: tok('--accent'),
-          btnOk: tok('--btn-ok'), ok: tok('--ok') },
+          ok: tok('--ok') },
       };
     });
 
@@ -122,11 +122,21 @@ try {
       const d = document.createElement('div');
       document.body.appendChild(d);
       const rgbDe = (v) => { d.style.color = v; const r = getComputedStyle(d).color; return r; };
-      const r = { ok: rgbDe(hex('--ok')), btnOk: rgbDe(hex('--btn-ok')) };
+      // O VERDE DE FUNDO É UM LITERAL CONGELADO, e isso é deliberado.
+      // `--btn-ok` era a superfície verde de CONCLUSÃO; ele ficou sem um único
+      // consumidor na v1.8.56 e saiu da paleta na v1.8.81. Lê-lo do
+      // `getPropertyValue` aqui seria manter um token vivo só para o oráculo
+      // ler — e, pior, apagado ele devolve string VAZIA: a comparação passaria
+      // a medir lixo e esta asserção ficaria verde sem testar o que promete.
+      // Um literal não apodrece porque a asserção é NEGATIVA: ela diz "este
+      // verde não volta", e o valor de um verde que saiu não muda mais.
+      const r = { ok: rgbDe(hex('--ok')), btnOk: rgbDe('#2a431e'),
+        btnOkClaro: rgbDe('#d5f5c6') };
       d.remove();
       return r;
     }, cores);
-    checar(vistos[0].cor !== verde.ok && vistos[0].bg !== verde.btnOk,
+    checar(vistos[0].cor !== verde.ok && vistos[0].bg !== verde.btnOk
+      && vistos[0].bg !== verde.btnOkClaro,
       'B · ' + tema + ': e ele não é mais o VERDE — nem no traço nem no fundo. '
       + 'É a metade literal do pedido ("sem nada verde")',
       JSON.stringify({ pulso: vistos[0], verde }));
