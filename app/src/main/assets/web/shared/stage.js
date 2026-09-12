@@ -295,6 +295,23 @@
     // Declarado pelo Display quando o cartão de texto entra e sai de cena.
     function setOverlay(v) { overlay = (v === 'visual' || v === 'wallpaper') ? v : null; }
 
+    // A VIEW DO CARTÃO É A VIEW DO STAGE — declarada, não deduzida (v1.8.83).
+    //
+    // O `showText` do Display move a cortina por conta própria (o fade de
+    // entrada do cartão é dele, e o `overlay` acima já lhe dá a precedência em
+    // `computeCover`), mas a VIEW continua sendo estado DAQUI. Deixá-la
+    // congelada fazia o `view` SEGUINTE cair no `v === view` do `setViewFaded`
+    // e voltar mudo: com o telão coberto ANTES do versículo, "cobrir" não
+    // cobria mais nada — o cartão ficava preso na frente da congregação (e a
+    // PREVIEW obedecia, porque ela move a cortina por fora, então as duas
+    // metades discordavam). MEDIDO: a cortina em `display: none` depois do
+    // segundo `view: 'wallpaper'`. É o mesmo defeito que o ramo de `view` do
+    // `onCommand` já corrigia por delegação, uma porta ao lado.
+    //
+    // Ela NÃO toca na cortina de propósito: quem chama acabou de decidi-la, e
+    // um `instantCover` aqui cortaria o fade dela pela metade.
+    function declararView(v) { if (v === 'visual' || v === 'wallpaper') view = v; }
+
     // Elemento de mídia atualmente visível (alvo do fade de CONTEÚDO, ao
     // trocar de item) — só existe quando a cortina não está cobrindo; se
     // estiver cobrindo, ninguém vê nada, então não há o que esmaecer.
@@ -1180,7 +1197,7 @@
       // ("ResizeObserver loop") o `smoke.mjs` lê como erro de console.
       reporGiro: () => { if (rot) { giroTentativa = 0; aplicarGiroTudo(); } },
       setForceMuted,
-      coverIn, coverOut, instantCover, fadeOutToBlack, setOverlay,
+      coverIn, coverOut, instantCover, fadeOutToBlack, setOverlay, declararView,
       // O FIM DA PROJEÇÃO É UM FIM, E NÃO UMA PAUSA (v1.7.7). Quem sabe que a
       // mídia acabou nem sempre é este `<video>`: com telão no ar a preview é
       // ilustração e é PAUSADA pelo `resyncPreviewToDisplay` antes de chegar ao

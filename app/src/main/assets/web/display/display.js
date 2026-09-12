@@ -790,6 +790,14 @@ function showText(cmd) {
   // reavalia a cortina sozinho no fim natural da mídia, no `play()` e no fim de
   // um `load`, e o wallpaper engole o texto sem nenhum sinal. Ver `setOverlay`.
   if (stage.setOverlay) stage.setOverlay(textView);
+  // E A VIEW DO CARTÃO É A VIEW DO STAGE (v1.8.83). A cortina abaixo é movida à
+  // mão — o fade de entrada do cartão é daqui —, mas quem guarda a view é o
+  // stage: sem esta linha ela ficava congelada no valor ANTERIOR, e o `view`
+  // seguinte caía no `v === view` do `setViewFaded` e voltava mudo. Com o telão
+  // COBERTO antes do versículo, "apenas wallpaper" não cobria mais nada e a
+  // Escritura ficava presa no telão — com a preview obedecendo, porque ela move
+  // a cortina por fora. Ver `declararView` no `stage.js`.
+  stage.declararView(textView);
   if (textActive) {
     // Já em cena (troca de versículo/mensagem): fade-in do texto, sem mexer na moldura.
     animateFadeIn(textMainEl); if (!textSubEl.hidden) animateFadeIn(textSubEl);

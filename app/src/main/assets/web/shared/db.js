@@ -361,6 +361,33 @@
     return asPromise(s.getAllKeys(range));
   }
 
+  // APAGAR TUDO QUE COMEÇA COM UM PREFIXO, numa transação só (v1.8.83).
+  //
+  // A Bíblia de uma versão são 1189 chaves (`bible:<v>_<livro>_<cap>`), e
+  // apagá-las uma a uma seriam 1189 transações — a MESMA conta que fez o
+  // `stateKeys` existir, e num processo que fica aberto o culto inteiro.
+  //
+  // Cursor sobre o MESMO intervalo do `stateKeys` (é por isso que os dois estão
+  // lado a lado: dois jeitos de escrever o intervalo divergiriam no primeiro
+  // ajuste), e o `delete()` do cursor não invalida a iteração. Devolve QUANTAS
+  // chaves saíram — quem chama precisa distinguir "apaguei" de "não havia
+  // nada", e um `undefined` faria as duas se lerem igual.
+  async function stateApagarPrefixo(prefix) {
+    const st = await store(STORE_STATE, 'readwrite');
+    const range = IDBKeyRange.bound(prefix, prefix + '￿', false, false);
+    return new Promise((resolve, reject) => {
+      let n = 0;
+      const req = st.openCursor(range);
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) { resolve(n); return; }
+        c.delete(); n++;
+        c.continue();
+      };
+    });
+  }
+
   // ---- media ----
   // Insere o registro em "media" E o adiciona à lista numa ÚNICA transação
   // (media + state) — sem isso, uma falha entre o add e o listAdd deixaria um
@@ -1173,6 +1200,7 @@
   // helpers — que é exatamente onde mora a atomicidade deste arquivo.
   global.AVDB = {
     setState, getState, updateState, updateStateLote, stateKeys, stateVarrer,
+    stateApagarPrefixo,
     addMedia, addUrlMedia, addDeck, addCue,
     getMedia, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
