@@ -356,7 +356,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.86';
+const WEB_VERSION = '1.8.87';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -601,7 +601,7 @@ const castEnsinoEl = document.getElementById('castEnsino');
 const castRedesEl = document.getElementById('castRedes');
 const castRotEl = document.getElementById('castRot');
 const castMirrorLabelEl = document.getElementById('castMirrorLabel');
-const castMirrorNotaEl = document.getElementById('castMirrorNota');
+const castSomAjudaEl = document.getElementById('castSomAjuda');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
 const castUrlCopyEl = document.getElementById('castUrlCopy');
@@ -3201,6 +3201,7 @@ async function load(opts) {
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   const ytAlturaV = await AVDB.getState('ytAltura');
+  const serieAutoV = await AVDB.getState('serieAuto');
   // A LISTA DA TELA É SEMPRE O CRONOGRAMA (v1.5.0). Ela era `listItems(activeTab)`
   // dentro de uma guarda, porque a aba podia ser a Bíblia — e ali a leitura
   // tinha de ser pulada: `'bible'` não é lista de mídia, e passá-la por
@@ -3259,6 +3260,10 @@ async function load(opts) {
   // `lvTamanho` logo acima: valor fora da escada cai no padrão, e não numa
   // altura que ninguém escolheu.
   ytAlturaPreferida = YT_ALTURAS.includes(ytAlturaV | 0) ? (ytAlturaV | 0) : YT_ALTURA_PADRAO;
+  // O "MANTER BAIXADO" DE CADA SÉRIE (v1.8.87). Ele é do BANCO e não da sessão:
+  // a promessa é *"manter baixado e atualizado"*, e uma marca que morre com o
+  // app faria a semana seguinte chegar sem nada — sem erro em lugar nenhum.
+  serieAuto = new Set(Object.keys(serieAutoV || {}).filter((k) => (serieAutoV || {})[k]));
   libItems = libItemsV;
   // O PAR do `currentId` acima, e pela mesma senha: `currentItemV` foi lido com
   // o id de ANTES do toque, então aplicá-lo deixaria a linha "no ar", o título
@@ -3429,7 +3434,22 @@ function renderRepeat() {
   // ao atributo do HTML — a divergência MUDA que a v1.8.68 mediu.
   const uso = repeatEl.querySelector('use');
   if (uso) uso.setAttribute('href', ico);
-  repeatEl.title = label;
+  // ===== E O BOTÃO APAGA SEM NADA PARA REPETIR (v1.8.87) =====
+  //
+  // O `disabled` mora AQUI e não em `renderTransporteHabilitado`, ao contrário
+  // dos três vizinhos: o `title` deste botão depende do DEGRAU, e esta é a
+  // função que o conhece. Escrito nos dois lugares, a última a rodar venceria o
+  // atributo — e as duas rodam, por caminhos diferentes. Um dono só.
+  // `renderTransporteHabilitado` chama esta função, e com isso o botão
+  // acompanha a fila e a cena pelo mesmo pulso dos outros quatro.
+  const pode = repeticaoPode();
+  repeatEl.disabled = !pode;
+  // APAGADO, O `title` DIZ POR QUÊ — é o que um botão apagado deve a quem o
+  // encontra. O rótulo do MODO fica na frente: o degrau escolhido continua
+  // valendo, e é ele que volta a agir assim que houver fila ou mídia.
+  repeatEl.title = pode
+    ? label
+    : label + ' — sem fila e sem mídia escolhida, não há o que repetir';
   repeatEl.classList.toggle('active', repeat !== 'off');
 }
 
@@ -9786,6 +9806,14 @@ function renderCollectionCard(coll, ctx) {
     // sincronização de um álbum que já está aberto na tela era uma camada a
     // mais sobre outra camada — o acervo já é um popup de tela cheia. Aqui elas
     // ficam onde o assunto está, e fechar é o mesmo toque que abriu.
+    // ===== O "MANTER BAIXADO" VEM ANTES DO DESTAQUE (v1.8.87) =====
+    // *"essa opção fica no topo"*, e o topo é ACIMA do destaque do sábado: é ela
+    // que governa se aquele bloco mostra um episódio já no aparelho ou um que
+    // ainda precisa ser baixado a pedido. Abaixo dele, ela seria uma opção
+    // depois da consequência dela.
+    const auto = serieAutoLinha(coll);
+    if (auto) aberto.appendChild(auto);
+
     // O DESTAQUE DO SÁBADO, acima da lista e só na série (ver `blocoDestaque`).
     const dest = blocoDestaque(coll);
     if (dest) aberto.appendChild(dest);
@@ -12131,8 +12159,36 @@ function stepSlide(delta) {
 //  · o ▶ com a mídia PARADA fica ACESO — `currentId` sobrevive ao stop de
 //    propósito, e é ele que faz o ▶ repetir a faixa (v1.4.x). Apagá-lo tiraria
 //    um recurso;
-//  · a REPETIÇÃO fica acesa sempre: ela é um modo, e escolher o modo antes de
-//    montar a fila é o caminho normal.
+//  · (a REPETIÇÃO saiu desta lista na v1.8.87 — ver `repeticaoPode` abaixo.)
+/**
+ * ===== A REPETIÇÃO É UM MODO, MAS UM MODO DE QUÊ? (v1.8.87) =====
+ *
+ * Relato do operador: *"ele não está sendo desativado quando não há nada
+ * selecionado. Verifique os momentos em que ele deveria ficar inativo"*.
+ *
+ * **ISTO REVOGA A EXCEÇÃO DA v1.8.50**, que o deixava aceso sempre sob o
+ * argumento *"ela é um modo, e escolher o modo antes de montar a fila é o
+ * caminho normal"*. O argumento continua verdadeiro e é justamente ele que
+ * escreve esta função: o modo governa `autoAdvance`, e `autoAdvance` só roda
+ * quando uma mídia ACABA. Sem fila e sem mídia escolhida não há o que acabar —
+ * o botão cicla quatro degraus e nenhum deles muda coisa alguma. É o botão
+ * aceso e inerte que aquele mesmo lote existe para não deixar nascer.
+ *
+ * A RÉGUA TEM DUAS METADES, e são as duas que fazem `autoAdvance` ter trabalho:
+ * a FILA (o `all`/`shuffle`/`off` andam nela) e a MÍDIA ESCOLHIDA (o `one`
+ * recarrega o `currentId`). **`currentId` e não `midiaNoAr`**: ele sobrevive ao
+ * stop de propósito — é ele que faz o ▶ repetir a faixa —, e armar `repeat: one`
+ * sobre a faixa parada para que o próximo ▶ a repita em laço é uso legítimo. A
+ * pergunta certa aqui é *"há para onde o modo agir?"*, não *"há cena no ar?"*.
+ *
+ * ELA É LIDA POR QUEM APAGA E POR QUEM EXECUTA, como o `transportePode`:
+ * `cycleRepeat` volta na primeira linha, senão a notificação e a tecla física
+ * (que chegam por `.click()`) ainda ciclariam um modo sem função.
+ */
+function repeticaoPode() {
+  return plItems.length > 0 || !!currentId;
+}
+
 function renderTransporteHabilitado() {
   // A MÍDIA ANTERIOR/PRÓXIMA lê o `transportePode` — a MESMA pergunta que o
   // `step` faz para decidir se executa. Sem fila só o ⏮ sobra, e o que ele faz
@@ -12172,6 +12228,11 @@ function renderTransporteHabilitado() {
     playPauseEl.disabled = semNada;
     playPauseEl.title = semNada ? 'Não há mídia escolhida' : 'Play/Pause';
   }
+  // ===== E A REPETIÇÃO APAGA SEM NADA PARA REPETIR (v1.8.87) =====
+  // Quem escreve o `disabled` dela é `renderRepeat` (o dono do `title`, que
+  // depende do degrau — ver lá); o que este bloco faz é pô-la no MESMO pulso
+  // dos outros quatro, que é o que a faz acompanhar a fila e a cena.
+  renderRepeat();
 }
 
 // Habilita/desabilita os botões de estrofe conforme o item atual tem letra
@@ -15512,6 +15573,11 @@ function autoAdvance() {
 }
 
 async function cycleRepeat() {
+  // A MESMA pergunta que apaga o botão (v1.8.87). Ele chega por `.click()` de
+  // três superfícies — a tecla da notificação entre elas —, e um botão apagado
+  // na tela que ainda cicla por fora seria o defeito que o apagado existe para
+  // fechar, um nível abaixo.
+  if (!repeticaoPode()) return;
   repeat = REPEATS[(REPEATS.indexOf(repeat) + 1) % REPEATS.length];
   // A RESPOSTA VEM PRIMEIRO (v1.8.80), a regra deste app: o desenho era pintado
   // DEPOIS do `await` do banco, e nesse vão o botão mostrava o degrau anterior.
@@ -16749,7 +16815,11 @@ async function purgeCatalogRecords(recs) {
     // deixaria uma estrela apontando para um registro que não existe mais — a
     // linha some da gaveta pelo `filter(Boolean)` do `listItems`, mas o id fica
     // na lista, contando como favorito para sempre.
-    for (const l of ['imports', 'playlist', 'avulsos', 'favs']) await AVDB.listRemove(l, r.id);
+    // A LISTA É A DO `db.js` (`LISTS`), escrita à mão porque este arquivo não a
+    // importa — e `serie` entrou nela na v1.8.87. Um registro de pasta OPFS
+    // nunca chega àquela lista hoje (ela só guarda mídia baixada do YouTube),
+    // mas deixá-la de fora é a divergência que o comentário acima descreve.
+    for (const l of ['imports', 'playlist', 'avulsos', 'favs', 'serie']) await AVDB.listRemove(l, r.id);
   }
 }
 
@@ -17271,6 +17341,343 @@ function serieTemODaSemana(c, agora) {
     (s) => AVSerie.ehDoSabadoAtual(s.serieData, c.serie, hoje));
 }
 
+// ============================================================================
+// MANTER O EPISÓDIO DA SEMANA BAIXADO (v1.8.87)
+// ============================================================================
+//
+// Pedido do operador, por extenso: *"faça uma opção de marcar nas coleções de
+// provai e vede e do informativo mundial das missões. Essa opção fica no topo e
+// nela diz, manter o provai e vede da semana baixado e atualizado na
+// biblioteca. Ele permite o download automático em segundo plano no wifi, para
+// baixar e ter disponível offline o provai e vede e o informativo. Ele baixa na
+// qualidade padrão que o usuário tem em seleção. Quando estiver baixado
+// disponível, ele dá as opções no formato que temos para os hinos baixados, que
+// omite a questão da qualidade, pois não precisa mais dessa ação. O sistema
+// automaticamente verifica se o arquivo já existe e limpa os arquivos de
+// semanas passadas e baixa se necessário apenas a mídia da semana."*
+//
+// ## O que isto muda no modelo da série, e o que NÃO muda
+//
+// **O álbum de série não retém arquivo** — é a regra que tirou dele o "baixar
+// em lote" e a lixeira (v1.1.21): um episódio só existe no aparelho enquanto
+// está no Cronograma, nos Favoritos ou na playlist. Ela CONTINUA valendo: não
+// há botão de baixar o álbum, a barra segue sem anunciar peso, e a série segue
+// fora de "Baixar toda a biblioteca". O que entra é um detentor NOVO e de
+// tamanho UM por série — a lista `serie` do `db.js` —, e é a única coisa que o
+// álbum passa a reter.
+//
+// **UM por série, e é isso que o torna barato.** ~300 MB por episódio × 52
+// seria o download em lote que a v1.1.21 recusou; a semana corrente é o teto, e
+// a limpeza é o que o mantém — não uma varredura, uma linha (ver `SERIE_LISTA`).
+//
+// ## As três guardas, e por que cada uma
+//
+//  1. **Wi-Fi CONFIRMADO** (`isConfirmedWifi`), e não "não é celular" como o
+//     `syncLyrics`. A assimetria é a que o próprio `syncLyrics` documenta pelo
+//     outro lado: lá são alguns kB de JSON e "na dúvida, baixa" é o certo; aqui
+//     são ~300 MB que NINGUÉM PEDIU AGORA, e gastar o plano de dados de quem
+//     não olhou a tela é o pior desfecho que este recurso sabe produzir.
+//     **O preço está dito e é REAL:** `navigator.connection.type` devolve
+//     `'unknown'` em boa parte dos aparelhos, e nesses a rotina nunca roda. É
+//     por isso que a LINHA DIZ ISSO (ver `serieAutoEstado`) — um no-op silencioso
+//     seria a opção marcada e nada acontecendo, para sempre, sem nada na tela.
+//     O caminho à mão (a folha de destinos) continua inteiro.
+//  2. **CEDE A VEZ ao que está no ar** (`rotinaDeAcervoPodeCorrer`), a regra das
+//     rotinas irmãs. Cede SAINDO, não esperando: quem rearma já existe (a
+//     abertura e todo `visibilitychange`, por `autoRefreshCollections`).
+//  3. **UMA POR VEZ** (`serieAutoRodando`). A fila de transferência do shell é
+//     de uma thread só — é invariante, não economia (o resgate de download é um
+//     slot único) —, então duas séries disparadas juntas seriam uma esperando a
+//     outra de qualquer jeito, com duas notificações disputando a barra.
+//
+// ## O que NÃO está aqui
+//
+// **Nenhum método novo da ponte.** A pergunta "estou no Wi-Fi?" já era
+// respondida no bundle (`isConfirmedWifi`, que o download em massa do hinário
+// usa desde sempre), e o download já é do shell (`ytArquivo` → `ytFetch`). Por
+// isso este lote não sobe `SHELL_VERSION` e não pede Release — se precisasse, a
+// metade web chegaria por OTA em minutos contra um APK que não tem o método, e
+// o que o operador teria seria uma opção marcada que não faz nada.
+
+// A lista que SEGURA o episódio da semana. Ela é o detentor de referência do
+// `db.js` (ver `LISTS` lá), e o nome é digitado nos dois lugares de propósito:
+// uma constante compartilhada exigiria o `db.js` exportá-la, e ele é o arquivo
+// que o Display e as telas da rede também carregam.
+const SERIE_LISTA = 'serie';
+
+// As séries com a opção marcada. Espelho em memória de `state['serieAuto']`,
+// lido no `load()` — e um SET porque a pergunta é sempre "esta coleção está
+// marcada?", nunca "quais estão".
+let serieAuto = new Set();
+let serieAutoRodando = false;
+
+function serieAutoLigada(coll) {
+  return !!coll && serieAuto.has(coll.id);
+}
+
+/**
+ * O NOME DA SÉRIE NA FRASE, e ele não é o `coll.name`.
+ *
+ * O card se chama "Provai e Vede 2026", e *"manter o Provai e Vede 2026 da
+ * semana"* põe o ANO no meio de uma frase que fala de UMA semana — duas escalas
+ * de tempo na mesma linha. O catálogo já tem o nome sem o ano em `rotulo` (o
+ * Informativo o declara para as listas do culto, v5.271); onde ele não existe,
+ * o `prefixo` É o nome ("Provai e Vede").
+ */
+function serieNomeCurto(coll) {
+  const se = coll && coll.serie;
+  return (se && (se.rotulo || se.prefixo)) || (coll && coll.name) || 'a série';
+}
+
+/**
+ * O EPISÓDIO DESTA SEMANA de uma série — a MESMA pergunta do destaque do topo
+ * (`destaqueDaSerie`) e da procura do índice (`serieTemODaSemana`), e por isso
+ * a MESMA função (`AVSerie.ehDoSabadoAtual`). Três contas de calendário
+ * divergiriam, e foi uma divergência dessas que produziu o defeito da v1.2.19:
+ * o destaque declarando um episódio que a lista escondia.
+ */
+function serieEpisodioDaSemana(coll) {
+  if (!ehLink(coll) || !window.AVSerie || !AVSerie.ehDoSabadoAtual) return null;
+  return collSongs(coll.id).find(
+    (s) => AVSerie.ehDoSabadoAtual(s.serieData, coll.serie)) || null;
+}
+
+/**
+ * O ARQUIVO de um episódio, ou `null`. **Só com BLOB conta** — a mesma régua do
+ * `ytArquivo`: um item de LINK carrega o mesmo `youtubeId` e é justamente o que
+ * o download existe para substituir.
+ */
+async function serieArquivoDoEpisodio(s) {
+  if (!s || !s.id_music) return null;
+  const rec = await AVDB.mediaByYoutube(s.id_music, 'video').catch(() => null);
+  return rec && rec.blob ? rec : null;
+}
+
+/**
+ * A FRASE DA LINHA — o que a opção está fazendo AGORA. Ela é o que transforma
+ * as guardas de cima em algo dizível, e é por isso que cada uma delas tem um
+ * desfecho aqui.
+ *
+ * Devolve `{ texto, baixado }`. `baixado` só é `true` com bytes no aparelho —
+ * é ele que decide a linha do episódio (ver `semQualidade` em `openYtMenu`).
+ */
+function serieAutoEstado(coll, epi, rec) {
+  if (!serieAutoLigada(coll)) {
+    return { texto: 'O episódio da semana é baixado a pedido, pela folha de opções', baixado: !!rec };
+  }
+  if (!window.__NATIVE__) {
+    return { texto: 'O download automático só existe no aplicativo', baixado: false };
+  }
+  if (rec) return { texto: 'O episódio desta semana está no aparelho', baixado: true };
+  if (!epi) return { texto: 'Aguardando o episódio desta semana entrar na lista', baixado: false };
+  if (serieAutoRodando) return { texto: 'Baixando o episódio desta semana…', baixado: false };
+  // A GUARDA QUE PRECISA SER DITA: sem Wi-Fi confirmado a rotina não roda, e o
+  // operador não tem como adivinhar isso olhando uma marca acesa.
+  if (!isConfirmedWifi()) {
+    return { texto: 'Esperando uma rede Wi-Fi para baixar o episódio desta semana', baixado: false };
+  }
+  return { texto: 'O episódio desta semana será baixado em segundo plano', baixado: false };
+}
+
+/**
+ * A LINHA DA OPÇÃO, no TOPO do card aberto da série — *"essa opção fica no
+ * topo"*, e o topo é acima do destaque do sábado: ela governa o que aquele
+ * bloco mostra.
+ *
+ * AS PEÇAS SÃO AS QUE JÁ EXISTEM (`.song-menu-btn`, `.song-menu-check`,
+ * `.song-menu-sel`), como na folha de grupos da exportação e pelo mesmo motivo:
+ * é uma CAIXA DE MARCAÇÃO, o idioma do app para "esta linha está marcada", e
+ * inventar um interruptor próprio daria duas gramáticas para o mesmo gesto.
+ *
+ * O SUBTÍTULO É A FRASE DE ESTADO, e ele não é enfeite — ver `serieAutoEstado`.
+ */
+function serieAutoLinha(coll) {
+  if (!ehLink(coll)) return null;
+  const cx = document.createElement('div');
+  cx.className = 'serie-auto';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'song-menu-btn song-menu-sel';
+  const txt = document.createElement('span'); txt.className = 'song-menu-text';
+  const rot = document.createElement('span'); rot.className = 'song-menu-label';
+  rot.textContent = 'Manter o ' + serieNomeCurto(coll)
+    + ' da semana baixado e atualizado na biblioteca';
+  const sub = document.createElement('span'); sub.className = 'song-menu-sub';
+  txt.append(rot, sub);
+  const chk = document.createElement('span');
+  chk.className = 'song-menu-check' + (serieAutoLigada(coll) ? ' on' : '');
+  chk.setAttribute('role', 'checkbox');
+  btn.append(txt, chk);
+  cx.appendChild(btn);
+
+  // A FRASE É PINTADA NUM PASSO À PARTE porque ela depende do DISCO, e ler o
+  // disco é assíncrono. A linha nasce com o estado que já se sabe (a marca, que
+  // é de memória) e a frase pousa em seguida — nunca o contrário, porque uma
+  // caixa de marcação que só aparece depois de uma leitura de IndexedDB é uma
+  // linha que muda de altura debaixo do dedo.
+  const pintar = (est) => {
+    sub.textContent = est.texto;
+    btn.setAttribute('aria-checked', serieAutoLigada(coll) ? 'true' : 'false');
+    chk.className = 'song-menu-check' + (serieAutoLigada(coll) ? ' on' : '');
+  };
+  pintar(serieAutoEstado(coll, serieEpisodioDaSemana(coll), null));
+  const epi = serieEpisodioDaSemana(coll);
+  serieArquivoDoEpisodio(epi).then((rec) => {
+    // A linha pode ter saído do documento (o acervo é redesenhado a cada 400 ms
+    // durante um download): pintar um nó órfão é inofensivo, e conferir isso
+    // custaria mais que o próprio efeito.
+    pintar(serieAutoEstado(coll, epi, rec));
+  }).catch(() => {});
+
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await alternarSerieAuto(coll);
+  });
+  return cx;
+}
+
+/**
+ * MARCAR E DESMARCAR.
+ *
+ * `updateState` e não `getState` + `setState`: são DUAS séries hoje, e o
+ * operador pode marcar as duas antes de a primeira transação fechar — o par
+ * lido-calculado-gravado tem um vão em que quem lê primeiro grava por último e
+ * leva a marca do outro junto. É a regra escrita do projeto para toda chave de
+ * `state`, e o sintoma dela é a AUSÊNCIA de sintoma.
+ *
+ * MARCAR DISPARA A ROTINA NA HORA. A alternativa seria esperar o próximo
+ * `visibilitychange`, e o instante em que o operador marca é exatamente o
+ * instante em que ele quer o vídeo — pedir uma troca de app para isso acontecer
+ * seria cobrar um gesto que não explica nada.
+ *
+ * DESMARCAR SOLTA O ARQUIVO pela mesma rotina, e não por um caminho próprio: o
+ * `listSet` dela recalcula a lista inteira a partir de quem está marcado, então
+ * a série que saiu deixa de contribuir e o blob morre na mesma transação — se
+ * nenhuma outra lista o segurar. Um `listRemove` aqui seria a segunda escrita
+ * da mesma regra.
+ */
+async function alternarSerieAuto(coll) {
+  if (!coll || !ehLink(coll)) return;
+  const liga = !serieAutoLigada(coll);
+  if (liga) serieAuto.add(coll.id); else serieAuto.delete(coll.id);
+  await AVDB.updateState('serieAuto', (v) => {
+    const m = Object.assign({}, v || {});
+    if (liga) m[coll.id] = true; else delete m[coll.id];
+    return m;
+  }).catch(() => {});
+  renderCollectionsNow();
+  manterSeriesDaSemana().catch(() => {});
+}
+
+/**
+ * A ROTINA. Ela faz três coisas, nesta ordem, e a ordem importa:
+ *
+ *  1. **BAIXA o que falta** da semana corrente, uma série por vez;
+ *  2. **RECALCULA a lista de retenção** com os ids da semana corrente;
+ *  3. e é o passo 2 que **LIMPA as semanas passadas** — o `listSet` coleta o
+ *     que saiu, na mesma transação, se ninguém mais o segurar.
+ *
+ * ===== A LIMPEZA SÓ ENCOLHE COM O SUBSTITUTO NA MÃO =====
+ *
+ * A ordem (baixar, depois limpar) **não bastava, e isto foi MEDIDO**: com o
+ * download falhando — rede caída, ou o vídeo ainda não liberado pelo canal, que
+ * é o caso NORMAL de segunda a sexta — a lista recalculada saía VAZIA e o
+ * `listSet` matava o episódio da semana passada de qualquer jeito. O operador
+ * ficava sem nenhum dos dois, e sem nada na tela dizendo por quê.
+ *
+ * A regra é: **a semana passada só sai quando a nova ENTRA.** Sem o arquivo
+ * novo, o que esta série já retinha continua retido (`serieRetidosDa`), e o
+ * pior caso passa a ser um episódio a mais no aparelho até o download vir. A
+ * ORDEM continua importando — ela é o que faz o passo 2 ver o arquivo que o
+ * passo 1 acabou de trazer —, mas quem fecha o caso é esta regra.
+ *
+ * E ELA RODA COM A OPÇÃO DESMARCADA TAMBÉM — chamada por `alternarSerieAuto` e
+ * pelo `autoRefreshCollections`, sempre. É o passo 2 que precisa disso: sem uma
+ * passada com a série já fora de `serieAuto`, desmarcar não soltaria nada.
+ */
+/**
+ * OS IDS QUE ESTA SÉRIE JÁ RETÉM — a metade que impede a limpeza de apagar a
+ * semana passada quando o download da nova não veio.
+ *
+ * A pergunta é feita pelo `youtubeId` do registro contra os `id_music` do
+ * índice, e não por um campo nosso no registro: o arquivo de um episódio é um
+ * vídeo do YouTube como qualquer outro (é o mesmo `ytArquivo`), e inventar uma
+ * marca de "pertence à série X" seria um segundo vínculo a manter em dia com o
+ * primeiro.
+ *
+ * `retidos` chega por parâmetro porque o laço o lê UMA vez: são duas séries e no
+ * máximo um punhado de ids, mas reler a lista por série faria a conta depender
+ * da ordem em que elas são visitadas.
+ */
+async function serieRetidosDa(coll, retidos) {
+  const daSerie = new Set(collSongs(coll.id).map((s) => s.id_music));
+  const meus = [];
+  for (const id of retidos) {
+    const rec = await AVDB.getMedia(id).catch(() => null);
+    if (rec && rec.youtubeId && daSerie.has(rec.youtubeId)) meus.push(id);
+  }
+  return meus;
+}
+
+async function manterSeriesDaSemana() {
+  if (serieAutoRodando) return;
+  const series = allCollections().filter((c) => c.kind === 'serie');
+  if (!series.length) return;
+  serieAutoRodando = true;
+  try {
+    const guardar = [];
+    const retidos = await AVDB.listIds(SERIE_LISTA).catch(() => []);
+    for (const coll of series) {
+      // DESMARCADA, ela não contribui com nada — e é isso que faz desmarcar
+      // soltar o arquivo, sem um caminho próprio para isso.
+      if (!serieAutoLigada(coll)) continue;
+      const epi = serieEpisodioDaSemana(coll);
+      // SEM EPISÓDIO DA SEMANA (a lista ainda não o trouxe), o que esta série já
+      // retém FICA: encolher aqui apagaria o da semana passada por causa de um
+      // índice que ainda não atualizou.
+      if (!epi) { guardar.push(...await serieRetidosDa(coll, retidos)); continue; }
+      let rec = await serieArquivoDoEpisodio(epi);
+      // BAIXAR é o caminho da EXCEÇÃO aqui: o caso normal, semana após semana, é
+      // o arquivo já estar no aparelho e esta função só reescrever a lista.
+      if (!rec && window.__NATIVE__
+          && isConfirmedWifi() && rotinaDeAcervoPodeCorrer()) {
+        // O `serieComoYoutube` é o MESMO objeto que a folha de opções monta: é
+        // ele que carrega `semSoAudio`, a duração, o canal, a chave da linha (o
+        // anel de download do quadrado à esquerda) e o aviso da janela de
+        // antecedência. Um objeto próprio aqui perderia os cinco, e o primeiro
+        // a aparecer seria o pior — um episódio baixando sem nada na tela.
+        const r = serieComoYoutube(coll, epi);
+        setCollStatus(coll.id, 'Baixando o episódio desta semana…');
+        renderCollectionsNow();
+        // `withBgRotina` e não `withBgWork`: isto é *"a ROTINA que ninguém
+        // pediu"* — protege o processo do congelamento igual e NÃO adia a
+        // pergunta da atualização, que é a diferença inteira entre as duas.
+        rec = await withBgRotina(() => ytArquivo(r, {
+          lista: SERIE_LISTA,
+          altura: ytAlturaPadrao(),   // *"a qualidade padrão que o usuário tem em seleção"*
+          // `'nenhum'`: nenhuma superfície da tela está esperando por isto.
+          // Quem mostra o andamento é a notificação do sistema (o `bgTaskStart`
+          // de dentro do `ytBaixarNativo`) mais o anel da linha, pelo `onPct`.
+          aviso: 'nenhum',
+          onPct: (pct) => setYtEstado(r.id, 'baixando', pct),
+        })).catch(() => null);
+        setYtEstado(r.id, rec ? 'pronto' : null);
+        setCollStatus(coll.id, rec ? 'Episódio desta semana baixado' : '', rec ? 4000 : 0);
+      }
+      // O SUBSTITUTO ENTROU? Só então a lista desta série encolhe para ele. Sem
+      // ele, o que já estava retido continua — ver o KDoc acima.
+      if (rec) guardar.push(rec.id);
+      else guardar.push(...await serieRetidosDa(coll, retidos));
+    }
+    // O PASSO QUE LIMPA. `listSet` com a lista INTEIRA (e não `listAdd` mais um
+    // `listRemove` por item) porque é ele que coleta o que saiu na MESMA
+    // transação — e porque a lista é pequena e conhecida por construção: um id
+    // por série marcada, no máximo.
+    await AVDB.listSet(SERIE_LISTA, guardar).catch(() => {});
+    renderCollectionsNow();
+  } finally { serieAutoRodando = false; }
+}
+
 // O ÍNDICE DE UMA COLEÇÃO PRECISA SER REFEITO?
 //
 // Ela é uma função nomeada, e não o corpo de um `filter`, porque o oráculo
@@ -17454,6 +17861,15 @@ async function autoRefreshCollections() {
     // sempre foi — informação padrão do acervo, uma vez por sessão, em segundo
     // plano —, e o download deixa de ser a única porta.
     syncCifrasAcervo().catch(() => {});
+    // Fase 5: O EPISÓDIO DA SEMANA das séries marcadas (v1.8.87), pelo mesmo
+    // caminho e pelo mesmo motivo das duas acima — e DEPOIS delas de propósito:
+    // ela roda sobre a lista que a fase 2 acabou de refazer, e é aquela fase
+    // que faz o episódio do sábado existir no índice. Invertida, a primeira
+    // abertura da semana não acharia nada para baixar.
+    //
+    // Fire-and-forget: nada na tela espera por ela, e o andamento vai para a
+    // notificação como todo trabalho de massa deste app.
+    manterSeriesDaSemana().catch(() => {});
   } finally { collectionsRefreshing = false; }
 }
 
@@ -19336,7 +19752,18 @@ function openYtMenu(r, alvoDado) {
   // E ESCOLHER AQUI É ESCOLHER O PADRÃO (`adotarAlturaPreferida`): a escolha
   // sobrevive à sessão e passa a valer para o próximo vídeo, que é o pedido ao
   // pé da letra.
-  if (window.__NATIVE__ && !songMenuFor.audio) {
+  // E O SELETOR SOME QUANDO O ARQUIVO JÁ ESTÁ AQUI (`semQualidade`, v1.8.87).
+  // Pedido do operador, sobre o episódio mantido baixado: *"ele dá as opções no
+  // formato que temos para os hinos baixados, que omite a questão da qualidade,
+  // pois não precisa mais dessa ação"*.
+  //
+  // É a MESMA regra que já tira a linha no caminho de só-áudio, uma condição
+  // acima: uma escolha que não muda nada é pior que escolha nenhuma. Com bytes
+  // no aparelho, `ytArquivo` REAPROVEITA o registro e o teto não é consultado —
+  // deixar a escada na tela prometeria que tocar em "480p" faria o vídeo voltar
+  // menor, e o que ela faria de fato é gravar um padrão novo para o PRÓXIMO
+  // vídeo, calado.
+  if (window.__NATIVE__ && !songMenuFor.audio && !r.semQualidade) {
     alvo.appendChild(ytSegRow(
       YT_ALTURAS.map((h) => [h, h + 'p']),
       songMenuFor.alt | 0,
@@ -20150,6 +20577,19 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   // atravessam de um item para o outro. O acordeão fecha a linha anterior, então
   // há no máximo uma gaveta aberta — é isso que deixa `songMenuFor`,
   // `destExecutor` e `destRemontar` continuarem sendo um só.
+  /**
+   * Monta a metade de cima da gaveta. **Devolve `null` quando não há nada a
+   * esperar, e uma Promise quando há** — e essa assimetria é deliberada.
+   *
+   * Numa MÚSICA a gaveta é só as opções desde a v1.2.25: nada é aguardado, e o
+   * `expanded` sai no PRÓPRIO TURNO do toque. Um `async` aqui daria um tique de
+   * microtarefa mesmo no caminho que não espera nada, e o `expanded` cairia no
+   * turno seguinte — o `gaveta-no-download` mede exatamente isso, e foi ele que
+   * pegou a regressão.
+   *
+   * Num VÍDEO há o que esperar (o disco, pelo `semQualidade`), e ali a espera já
+   * existia: o chamador aguarda o `montarDetalhe` logo depois.
+   */
   function montarOpcoes() {
     destLimpar();
     // O BOTÃO IRMÃO do confirmar (v5.286): quem revela a metade de baixo da
@@ -20225,9 +20665,26 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       // ser posto e apenas redesenha a lista com ele. Um `serieComoYoutube`
       // novo seria outro objeto — o estado seria zerado e o irmão sumiria.
       const r = serieComoYoutube(coll, s);
-      openYtMenu(r, opcoes);
-      if (songMenuFor) { songMenuFor.aoLado = aoLado; openYtMenu(r, opcoes); }
-      return;
+      // ===== JÁ ESTÁ NO APARELHO? A QUALIDADE SAI DA FOLHA (v1.8.87) =====
+      //
+      // A leitura é AQUI e não dentro do `openYtMenu` porque aquele é chamado de
+      // volta a cada toque num seletor e a cada marca de destino (é o
+      // `destRemontar`): um `await` lá dentro custaria uma leitura de IndexedDB
+      // por redesenho. Aqui é UMA por gaveta aberta — a guarda `gavetaMontada`
+      // do chamador —, e o `r` carrega a resposta pelas remontagens.
+      //
+      // A marca vale para TODO episódio com bytes no aparelho, não só para o da
+      // semana mantido pela rotina: a pergunta é *"há o que baixar?"*, e ela não
+      // depende de quem baixou.
+      //
+      // E ela é lida ANTES de montar, não depois: a folha remontada com o
+      // seletor sumindo faria a gaveta mudar de altura sozinha, um tique depois
+      // de abrir — e a animação do acordeão já mediu a caixa.
+      return serieArquivoDoEpisodio(s).then((rec) => {
+        r.semQualidade = !!rec;
+        openYtMenu(r, opcoes);
+        if (songMenuFor) { songMenuFor.aoLado = aoLado; openYtMenu(r, opcoes); }
+      });
     }
     songMenuFor = { coll, s, variant: 'full', alvo: opcoes, aoLado };
     // A marca nasce AQUI e não em `renderSongMenu`: aquela função é também o
@@ -20237,6 +20694,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     // devolveria, no mesmo quadro.
     destPadraoTocar();
     renderSongMenu();
+    return null;   // nada a esperar — ver o KDoc
   }
 
   // OS DETALHES DA REDE, quando eles chegam — o título cru e a descrição.
@@ -20437,7 +20895,12 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       // de repeti-la (e para o próximo tipo não poder esquecê-la).
       if (!gavetaMontada) {
         gavetaMontada = true;
-        montarOpcoes();
+        // SÓ ESPERA QUEM TEM O QUE ESPERAR (ver o KDoc de `montarOpcoes`). Um
+        // `await` incondicional custaria um tique de microtarefa também na
+        // MÚSICA, e ali o `expanded` tem de sair no turno do toque — é a
+        // asserção do `gaveta-no-download`.
+        const pendente = montarOpcoes();
+        if (pendente) await pendente;
         if (!temLetra(coll)) await montarDetalhe();
       }
       li.classList.add('expanded');
@@ -24038,13 +24501,16 @@ let diagSeq = 0;
 // precisa estar escrita onde se copia e se repassa, senão a investigação é
 // refeita do zero a cada relato.
 //
-// A FRASE AQUI É MAIS ESTRITA QUE A DA FOLHA DE CONEXÃO. Lá cabe "o som deste
-// celular vai junto", que é o que o operador precisa saber para agir. Aqui a
-// afirmação é técnica, e o que se sabe tem três graus: a MÍDIA de outros apps
-// vai (observado em aparelho); toque e alarme têm guarda explícita no audio
-// policy do AOSP (`// no sonification on remote submix (e.g. WFD)`); e som de
-// NOTIFICAÇÃO depende do aparelho — a Samsung é implementação própria. Escrever
-// as três como certezas seria inventar duas.
+// A FRASE AQUI É MAIS ESTRITA QUE A DO `?` DA FOLHA DE CONEXÃO. Lá cabe
+// "exceto as notificações, todo o som deste aparelho é tocado na tela" — a
+// versão que muda o que o operador FAZ antes do culto (silenciar o aparelho,
+// não deixar um áudio de mensagem tocar). Aqui a afirmação é técnica, e o que
+// se sabe tem três graus: a MÍDIA de outros apps vai (observado em aparelho);
+// toque e alarme têm guarda explícita no audio policy do AOSP (`// no
+// sonification on remote submix (e.g. WFD)`); e som de NOTIFICAÇÃO depende do
+// aparelho — a Samsung é implementação própria. Escrever as três como certezas
+// seria inventar duas, e é por isso que a folha e o Registro dizem coisas
+// diferentes de propósito.
 // O MICROFONE, NO REGISTRO — a última tentativa de captura, degrau a degrau.
 //
 // O bloco "Áudio do aparelho" responde ONDE a voz sai; este responde POR QUE ela
@@ -33250,15 +33716,8 @@ function renderCast() {
   // O AVISO DO SOM (ver o comentário no HTML), e ele SÓ EXISTE COM TV NO AR:
   // sem ela não há para onde vazar, e um aviso permanente sobre uma
   // consequência que ainda não aconteceu é ruído na folha em que se decide
-  // conectar. A frase nomeia o que o operador RECONHECE ("vídeo ou áudio de
-  // outro app"), não a categoria do Android que a explica — o `USAGE_MEDIA`
-  // fica no Registro, que é onde a afirmação precisa ser estrita.
-  if (castMirrorNotaEl) {
-    castMirrorNotaEl.hidden = !tv;
-    castMirrorNotaEl.textContent = tv
-      ? 'O som deste celular vai junto: vídeo ou áudio de outro app é ouvido nas caixas.'
-      : '';
-  }
+  // conectar. Desde a v1.8.87 o que aparece é o `?`; a frase mora atrás dele.
+  if (castSomAjudaEl) castSomAjudaEl.hidden = !tv;
   // (O subtítulo do interruptor saiu na v5.194: desligado ele descrevia o
   // recurso para quem já decidiu usá-lo, e ligado dizia "N tela(s) recebendo" —
   // que é exatamente o que a LISTA logo abaixo mostra, com nome e tempo de
@@ -33398,6 +33857,34 @@ if (castMirrorBtnEl) {
     if (window.__NATIVE__) AVNative.openCast();
     else openWebDisplay();
   });
+  // ===== O `?` DO SOM (v1.8.87) =====
+  //
+  // A frase é do OPERADOR, quase ao pé da letra: *"apenas coloque que, exceto
+  // as notificações, todo o som do aparelho vai ser tocado na tela. Tome
+  // cuidado com mensagens de áudios e mídias de outros aplicativos"*.
+  //
+  // ELA É MAIS FROUXA QUE A DO REGISTRO, e isso é a divisão de sempre — o
+  // bloco "Áudio do aparelho" separa os TRÊS graus do que se sabe (a mídia de
+  // outros apps VAI, medido; toque e alarme têm guarda no audio policy do
+  // AOSP; som de notificação depende do aparelho). Aqui cabe o que muda o que
+  // o operador FAZ antes do culto: silenciar o aparelho e não deixar um áudio
+  // de mensagem tocar. Escrever os três graus na folha de conexão seria a
+  // afirmação estrita no lugar onde ela não é lida.
+  //
+  // `cancelText: null` é o diálogo de AVISO: ele não pergunta nada, e um
+  // "Cancelar" ao lado do "Entendi" ofereceria uma escolha que não existe.
+  if (castSomAjudaEl) {
+    castSomAjudaEl.addEventListener('click', () => {
+      openAppDialog({
+        title: 'O som deste aparelho vai para a tela',
+        message: 'Com a TV conectada, exceto as notificações, todo o som deste '
+          + 'aparelho é tocado na tela.\n\nTome cuidado com áudios de mensagens e '
+          + 'com mídia de outros aplicativos: eles saem nas caixas junto com a '
+          + 'projeção.',
+        okText: 'Entendi', cancelText: null,
+      });
+    });
+  }
   // ATIVAR (E DESLIGAR) A TRANSMISSÃO PELO SITE: este botão é a única coisa
   // desta folha que sobe ou derruba o servidor.
   //

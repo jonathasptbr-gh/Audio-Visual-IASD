@@ -135,6 +135,32 @@ const rotulo = () => pg.evaluate(() => {
   return t;
 });
 
+// O `?` DO AVISO DO SOM (v1.8.87), lido pela mesma porta e pelo mesmo motivo.
+// Ele acompanha a TELA LISTADA, não o telão: o que vaza é o `REMOTE_SUBMIX` do
+// espelhamento, que existe desde que a TV está conectada — com o telão no chão
+// o som deste aparelho já está saindo nas caixas, e é aí que o aviso mais vale.
+const ajudaDoSom = () => pg.evaluate(() => {
+  abrirCast();
+  const b = document.getElementById('castSomAjuda');
+  // O TOQUE NO `?` NÃO PODE ABRIR O SELETOR DE ESPELHAMENTO. É a razão de ele
+  // ser irmão e não filho — e medir o ANINHAMENTO no DOM não serve: o parser
+  // do HTML FECHA um `<button>` antes de abrir outro, então a marcação
+  // aninhada nunca chega a existir e a asserção passaria sempre (MEDIDO por
+  // reversão). O que se mede é o desfecho: o `openCast` da ponte não é
+  // chamado, e nenhum ancestral do `?` é o botão de conectar.
+  const cx = b ? b.getBoundingClientRect() : null;
+  const r = {
+    existe: !!b,
+    visivel: !!b && !b.hidden,
+    dentroDoBotao: !!(b && b.closest('#castMirrorBtn')),
+    // A frase NÃO pode estar exposta na folha: é o pedido inteiro.
+    textoNaFolha: (document.getElementById('castConn').textContent || '').replace(/\s+/g, ' ').trim(),
+    caixa: cx ? { l: +cx.width.toFixed(2), a: +cx.height.toFixed(2) } : null,
+  };
+  fecharCast();
+  return r;
+});
+
 try {
   await pg.addInitScript(PONTE);
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
@@ -162,6 +188,11 @@ try {
     'sem tela nenhuma o som é DESTE aparelho e não há microfone a oferecer', semTv);
   checar(semTv.noChao === false && semTv.registro === 'nenhum conectado',
     'e "não há TV" NÃO é "o telão não subiu" — o Registro diz a primeira', semTv);
+  const ajudaFria = await ajudaDoSom();
+  checar(ajudaFria.existe && ajudaFria.visivel === false,
+    'SEM TV o `?` do som não é oferecido: não há para onde vazar, e um aviso '
+    + 'sobre uma consequência que ainda não aconteceu é ruído na folha em que '
+    + 'se DECIDE conectar', ajudaFria);
 
   // ── 2. A TELA ENTRA COM O TELÃO NO CHÃO ─────────────────────────────────
   // É o `show()` que lançou, ou a janela que o sistema derrubou sozinho: a tela
@@ -181,6 +212,66 @@ try {
     'e o estado é DIZÍVEL: o Registro separa "a TV está aí e o telão não subiu" de '
     + '"não há TV" — um filtro que escondesse a tela diria a segunda, que é falsa',
     chao.registro);
+  // ===== O AVISO DO SOM ATRÁS DO `?` (v1.8.87) =====
+  //
+  // Pedido do operador: *"deixe essa mensagem em um botão/ícone de '?', ao
+  // invés de deixar totalmente exposto"*. São TRÊS metades, e a segunda é a
+  // que reprova a volta: a frase não pode estar no texto da folha.
+  const ajudaChao = await ajudaDoSom();
+  checar(ajudaChao.visivel === true,
+    'COM A TV LISTADA o `?` do som aparece — e ele acompanha a TELA, não o '
+    + 'telão: o `REMOTE_SUBMIX` do espelhamento já está levando o som deste '
+    + 'aparelho para as caixas', ajudaChao);
+  checar(!/som deste celular|som do aparelho|vai junto|nas caixas/i.test(ajudaChao.textoNaFolha),
+    'e a FRASE não está exposta em lugar nenhum da folha: é o pedido inteiro — '
+    + 'ela mora atrás do `?`',
+    ajudaChao.textoNaFolha);
+  // UM BOTÃO SEM RÓTULO É QUADRADO (v1.8.57), e as DUAS dimensões são
+  // declaradas: o vizinho é um cartão de duas alturas de texto, e o
+  // `align-items: stretch` do flex esticaria o `?` até a altura dele.
+  checar(ajudaChao.caixa && Math.abs(ajudaChao.caixa.l - ajudaChao.caixa.a) <= 1,
+    'e ele é QUADRADO: `align-self: center` é o que o impede de esticar até a '
+    + 'altura do cartão ao lado', ajudaChao.caixa);
+  const semSeletor = await pg.evaluate(async () => {
+    abrirCast();
+    let chamou = 0;
+    const orig = AVNative.openCast;
+    AVNative.openCast = () => { chamou++; };
+    try {
+      document.getElementById('castSomAjuda').click();
+      await new Promise((f) => setTimeout(f, 80));
+    } finally { AVNative.openCast = orig; }
+    document.getElementById('appDialogOk').click();
+    await new Promise((f) => setTimeout(f, 80));
+    fecharCast();
+    return chamou;
+  });
+  checar(ajudaChao.dentroDoBotao === false && semSeletor === 0,
+    'e tocar o `?` NÃO abre o seletor de espelhamento do Android: ele é irmão '
+    + 'do botão de conectar, e o toque dele não escapa para lá',
+    { dentroDoBotao: ajudaChao.dentroDoBotao, openCast: semSeletor });
+
+  // E O TOQUE ABRE A FRASE. Sem esta metade, um `?` que não responde nada
+  // passaria — que é o botão inerte que este app recusa em toda parte.
+  const dito = await pg.evaluate(async () => {
+    abrirCast();
+    document.getElementById('castSomAjuda').click();
+    await new Promise((f) => setTimeout(f, 80));
+    const cx = document.getElementById('appDialog');
+    const txt = (cx.textContent || '').replace(/\s+/g, ' ').trim();
+    const aberto = cx.classList.contains('open');
+    document.getElementById('appDialogOk').click();
+    await new Promise((f) => setTimeout(f, 80));
+    fecharCast();
+    return { aberto, txt };
+  });
+  checar(dito.aberto && /notifica[çc][õo]es/i.test(dito.txt) && /som deste aparelho/i.test(dito.txt),
+    'o toque no `?` abre a frase do operador — *"exceto as notificações, todo '
+    + 'o som deste aparelho é tocado na tela"*', dito);
+  checar(/mensagens/i.test(dito.txt) && /outros aplicativos|outros apps/i.test(dito.txt),
+    'com a segunda metade dela, que é a que diz o que FAZER: cuidado com '
+    + 'áudios de mensagens e mídia de outros aplicativos', dito.txt);
+
   const rotuloChao = await rotulo();
   checar(/n[aã]o subiu/i.test(rotuloChao),
     'a folha de conexão diz o mesmo, onde o operador vai procurar: o rótulo verde '

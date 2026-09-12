@@ -1098,14 +1098,22 @@ body {
   pointer-events: none;
 }
 
-/* ===== O FADER DE VOLUME: A MESMA CÉLULA DO PASSAR SLIDE =====
-   Ele é item da grade do deck (a coluna 3, a faixa da preview) e só existe
+/* ===== O FADER DE VOLUME: A MESMA CÉLULA DO VOLTAR SLIDE (v1.8.87) =====
+   Ele é item da grade do deck (a coluna 1, a faixa da preview) e só existe
    enquanto a tecla física o acendeu — ver `peekVolume`. Some com o botão de
-   passar slide, que ocupa a mesma célula; o de VOLTAR, na outra ponta, FICA:
-   ele sumia junto até a v1.3.8, e foi disso que o operador reclamou. */
-.fader-wrap { display: none; grid-column: 3; grid-row: 2; min-height: 0; position: relative; }
+   VOLTAR slide, que ocupa a mesma célula; o de PASSAR, na outra ponta, FICA.
+
+   ISTO REVOGA A ESCOLHA DA v1.3.8, e a razão é a FREQUÊNCIA. Aquele lote pôs o
+   fader sobre o de PASSAR porque, até ele, o par inteiro sumia junto — e o que
+   o operador tinha relatado era o sumiço. Escolher qual dos dois cede era uma
+   pergunta aberta, e a resposta veio agora: *"assim ele não interrompe a
+   passagem dos slides"*. Passar slide é o gesto que se repete durante um
+   sermão inteiro, com a mão parada no mesmo ponto da tela; voltar é a
+   correção, que se faz olhando. O fader come 2,8 s da célula que ele cobre, e
+   cobrir a célula do gesto repetido é interromper o sermão a cada espiada. */
+.fader-wrap { display: none; grid-column: 1; grid-row: 2; min-height: 0; position: relative; }
 .deck.vol-open .fader-wrap { display: block; }
-.deck.vol-open .slide-side--dir { display: none; }
+.deck.vol-open .slide-side:not(.slide-side--dir) { display: none; }
 .deck.vol-open:not(.vol-closing) .fader-wrap { animation: vol-slide-in .2s ease both; }
 .deck.vol-closing .fader-wrap { animation: vol-slide-out .2s ease both; }
 @keyframes vol-slide-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -1164,10 +1172,10 @@ body {
   cursor: pointer;
 }
 .slide-btn:disabled { opacity: var(--op-inativo); cursor: default; }
-/* (O `.deck.vol-open .slide-side` — que escondia o botão de VOLTAR slide
-   enquanto o fader cobria o de PASSAR — saiu na v1.3.8 e NÃO voltou com o
-   fader. Era exatamente esse sumiço que o operador via, e o par não some mais:
-   só o da direita dá lugar ao fader, na célula que os dois dividem.) */
+/* (O par NÃO some junto, e é isso que a v1.3.8 consertou — antes dela os dois
+   davam lugar ao fader e o operador ficava sem passagem de slide nenhuma
+   durante a espiada. O que a v1.8.87 mudou foi só QUAL dos dois cede: hoje é o
+   da ESQUERDA, o de voltar. Um só, sempre.) */
 
 /* Preview */
 /* A proporção é a do TELÃO REAL, não um 16:9 fixo (`--pv-ar`, escrito pelo JS a
@@ -4924,6 +4932,29 @@ main {
    `tokens.css` — opaco de propósito, para valer o mesmo em qualquer nível da
    escada). Ele não é `--live`: nada aqui está NO AR, e vermelho ao lado de uma
    lista de episódios prometeria projeção. */
+/* ---------- "MANTER O EPISÓDIO DA SEMANA BAIXADO" (v1.8.87) ----------
+   A linha da opção, no TOPO do card aberto da série. AS PEÇAS SÃO AS QUE JÁ
+   EXISTEM — `.song-menu-btn`, `.song-menu-text`, `.song-menu-check` e o
+   `--sel-fill` de marcado —, e é o mesmo reuso da folha de grupos da exportação
+   (v1.7.3): é uma CAIXA DE MARCAÇÃO, o idioma deste app para "esta linha está
+   marcada", e um interruptor próprio daria duas gramáticas para o mesmo gesto.
+
+   O RÓTULO QUEBRA EM DUAS LINHAS de propósito — ele é a frase do operador
+   inteira, e encurtá-la seria escrever outra coisa. `align-items: flex-start`
+   no botão é o que mantém a caixa de marcação no alto em vez de centrada contra
+   um parágrafo: centrada, ela flutua longe do começo da frase que ela governa.
+
+   O RECUO É O DO `.serie-destaque` logo abaixo, que é o vizinho: dois blocos
+   empilhados com recuos diferentes leem como dois níveis de hierarquia, e aqui
+   eles são irmãos. */
+.serie-auto { margin: .4rem 0 .1rem; }
+.serie-auto > .song-menu-btn { align-items: flex-start; }
+.serie-auto .song-menu-label { font-size: var(--fs-md); }
+/* A caixa VOLTA À ALTURA DE UMA LINHA. Ela é `align-self: center` na regra base
+   (a folha, onde o rótulo é curto); aqui o texto tem duas ou três linhas, e o
+   centro delas não é onde o olho procura a marca. */
+.serie-auto .song-menu-check { align-self: flex-start; }
+
 .serie-destaque {
   margin: .4rem 0 .1rem;
   padding: .45rem .5rem .5rem;
@@ -11089,12 +11120,42 @@ body.mode-simple .bottombar { display: none; }
 }
 .cast-acao-txt { min-width: 0; }
 .cast-acao-txt b { font-size: var(--fs-lg); }
-/* A linha auxiliar herda o `--on-accent` com alfa em vez de virar `--muted`:
-   o cinza da paleta é calibrado contra as superfícies escuras e some sobre o
-   âmbar preenchido. Por alfa e não por token: ela existe nos DOIS fundos deste
-   botão (o preenchido e o `.connected`), e cada um traz a própria cor de texto
-   — herdar as duas é o que um token único não faria. */
-.cast-acao-txt small { display: block; margin-top: .12rem; font-size: var(--fs-sm); opacity: .82; }
+/* (A linha auxiliar `.cast-acao-txt small` saiu na v1.8.87: o aviso do som
+   virou o `?` ao lado — ver `.cast-ajuda`. Ela era o único `<small>` deste
+   botão, e a regra saiu junto com ela.) */
+
+/* ---------- O `?` DO AVISO DO SOM (v1.8.87) ----------
+   Ele é IRMÃO do botão de conectar, não filho: um `<button>` não aninha outro,
+   e o alvo dele não pode dividir superfície com o que abre o seletor de
+   espelhamento do Android — tocar um querendo o outro sai do app.
+
+   A LINHA É FLEX e o botão de conectar leva `flex: 1`, então a caixa dele não
+   muda de largura quando o `?` entra e sai: o que ele come é o vão, e a
+   entrada de uma TV não pode redesenhar o alvo principal da folha debaixo do
+   dedo.
+
+   QUADRADO PELAS DUAS DIMENSÕES, e o número é `--hit` (34px, a caixa de um
+   botão sem rótulo em cabeçalho de folha — v1.8.57). As duas são declaradas:
+   `align-self: center` é o que o impede de esticar até a altura do vizinho,
+   que aqui é um cartão de duas alturas de texto — a armadilha do
+   `align-items: stretch` que aquele lote mediu.
+
+   A SUPERFÍCIE é `--surface` sobre o `--panel` da folha, e a tinta é
+   `--accent`: ele é uma PORTA para uma explicação, não um estado, e as
+   linguagens de ESCOLHIDO e de LIGADO pertencem a outra coisa. */
+.cast-acao-linha { display: flex; align-items: stretch; gap: var(--sp-3); }
+.cast-acao-linha > .cast-acao { flex: 1; min-width: 0; }
+.cast-ajuda {
+  flex: 0 0 auto; align-self: center;
+  width: var(--hit); height: var(--hit);
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--accent);
+  font-family: inherit; font-size: var(--fs-lg); font-weight: var(--fw-forte);
+  line-height: 1; cursor: pointer;
+}
+.cast-ajuda:active { transform: translateY(2px); }
+.cast-ajuda[hidden] { display: none; }
 
 /* O INTERRUPTOR. Ele é uma LINHA de estado, não um botão: fundo de superfície
    comum, texto normal, e o sinal fica todo no trilho à direita. A linha inteira

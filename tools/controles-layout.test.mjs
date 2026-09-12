@@ -1066,8 +1066,13 @@ try {
   // SOBRE o que a congregação está vendo.
   //
   // As três metades: o botão não existe, o fader existe e nasce escondido, e a
-  // TECLA o acende. Mais a que originou o relato — o botão de VOLTAR slide não
-  // some junto.
+  // TECLA o acende. Mais a que o operador pediu na v1.8.87 — quem cede a célula
+  // é o de VOLTAR, e o de PASSAR slide fica no ar durante a espiada.
+  //
+  // O LADO É ASSERÇÃO PRÓPRIA, e não decorre da faixa: a v1.3.8 e a v1.8.87
+  // põem o fader na MESMA faixa vertical (a da preview) e em colunas OPOSTAS,
+  // então medir só topo e base aprova as duas. Quem separa é a horizontal
+  // contra a preview.
   const faderCx = () => pg.evaluate(() => {
     const cx = (sel) => {
       const el = document.querySelector(sel);
@@ -1093,8 +1098,12 @@ try {
     'não há botão de tela que abra o fader — era só ele que o operador dispensou', fechado.botoes);
   checar(fechado.temFader && fechado.fader.vis === false,
     'o fader EXISTE e nasce escondido: a única porta dele é a tecla física', fechado);
-  checar(fechado.prox.vis,
-    'com ele escondido, o botão de passar slide ocupa a célula', fechado.prox);
+  // FECHADO OS DOIS ESTÃO NO AR, e esta linha vale por isso e não por qual dos
+  // dois cede: MEDIDO na reversão, ela passa nas duas colunas. É a PREMISSA do
+  // bloco (o par inteiro existe antes da espiada); quem decide o lado são as
+  // três asserções com o fader aberto, e essas três reprovam na reversão.
+  checar(fechado.ant.vis && fechado.prox.vis,
+    'com ele escondido, os DOIS botões de slide estão no ar', fechado);
 
   // A TECLA ACENDE. `peekVolume` é o que `__avVolumeKey` chama; medir por ela é
   // medir o caminho de verdade, não um estado forçado à mão.
@@ -1107,14 +1116,20 @@ try {
   checar(aberto.fader.vis,
     'a tecla física ACENDE o fader (`peekVolume`)', aberto.fader);
   checar(perto(aberto.fader.topo, aberto.pv.topo) && perto(aberto.fader.base, aberto.pv.base),
-    'e ele ocupa exatamente a faixa da preview, na coluna do passar slide',
+    'e ele ocupa exatamente a faixa da preview',
     { fader: [aberto.fader.topo, aberto.fader.base], pv: [aberto.pv.topo, aberto.pv.base] });
-  checar(aberto.prox.vis === false,
-    'o botão de passar slide dá lugar a ele — os dois dividem a célula', aberto.prox);
-  // ESTA É A ASSERÇÃO DO RELATO: o de VOLTAR não some junto. Ele sumia por uma
-  // regra deliberada (`.deck.vol-open .slide-side`), e o operador viu.
-  checar(aberto.ant.vis,
-    'e o de VOLTAR slide FICA no ar — era o sumiço dele que o operador relatou', aberto.ant);
+  // O LADO (v1.8.87). Ele está À ESQUERDA da preview, que é a coluna do
+  // `#slidePrevBtn` — a asserção que reprova a volta à coluna 3.
+  checar(aberto.fader.dir <= aberto.pv.esq + 1,
+    'e à ESQUERDA da preview: a coluna do VOLTAR slide, não a do passar',
+    { fader: [aberto.fader.esq, aberto.fader.dir], pv: [aberto.pv.esq, aberto.pv.dir] });
+  checar(aberto.ant.vis === false,
+    'o botão de VOLTAR slide dá lugar a ele — os dois dividem a célula', aberto.ant);
+  // ESTA É A ASSERÇÃO DO PEDIDO: o de PASSAR não some junto — *"assim ele não
+  // interrompe a passagem dos slides"*. E o par nunca some INTEIRO, que é o
+  // relato que a v1.3.8 consertou e que esta continua honrando.
+  checar(aberto.prox.vis,
+    'e o de PASSAR slide FICA no ar — é o gesto repetido do sermão', aberto.prox);
   checar(aberto.hist.vis,
     'a sétima célula também fica: ela não tem nada a ver com volume', aberto.hist);
 
@@ -1128,8 +1143,8 @@ try {
   await pg.waitForFunction(() => !document.querySelector('.deck').classList.contains('vol-open'),
     null, { timeout: 5000 }).catch(() => {});
   const devolta = await faderCx();
-  checar(devolta.fader.vis === false && devolta.prox.vis,
-    'fechado, a célula volta a ser do botão de passar slide', devolta);
+  checar(devolta.fader.vis === false && devolta.ant.vis && devolta.prox.vis,
+    'fechado, o par inteiro volta ao ar', devolta);
 
   // ── 6b. A ORDEM DA LINHA DE BAIXO, E A CAIXA DO HISTÓRICO ──────────────
   const linha = await pg.evaluate(() => {

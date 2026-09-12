@@ -58,7 +58,23 @@
   // passa a poder coletá-lo, sem uma linha nova de gc. Os atalhos
   // (`folder_<id>`) existem ao lado dela como organização OPCIONAL — ver
   // `folderDrop`.
-  const LISTS = ['imports', 'playlist', 'avulsos', 'favs'];
+  //
+  // "serie" (v1.8.87) é a SEGUNDA que o operador não vê, e ela existe pelo
+  // mesmo argumento de "avulsos" por outro lado: o álbum de uma série NÃO
+  // RETÉM ARQUIVO — um episódio só sobrevive enquanto está no Cronograma, nos
+  // Favoritos ou na playlist —, e "manter o episódio da semana baixado" é
+  // exatamente pedir um detentor que não é nenhuma dessas três. Sem ela, o
+  // download automático nasceria órfão e o `gcOrfaos` da abertura seguinte o
+  // apagaria: a opção ficaria marcada, o app rebaixaria o mesmo vídeo de ~300
+  // MB toda semana, e nada na tela diria por quê.
+  //
+  // ELA É O PONTO DE LIMPEZA TAMBÉM. Quem a mantém é `listSet('serie', …)` com
+  // os ids da semana CORRENTE: o que sai vira órfão na MESMA transação e morre
+  // ali, se nenhuma outra lista o segurar. É o "limpa os arquivos de semanas
+  // passadas" escrito como uma linha, e ele honra de graça o caso em que o
+  // operador também mandou o episódio ao Cronograma — ali o `isReferenced` diz
+  // que há outro dono e o blob fica.
+  const LISTS = ['imports', 'playlist', 'avulsos', 'favs', 'serie'];
 
   let dbPromise = null;
 

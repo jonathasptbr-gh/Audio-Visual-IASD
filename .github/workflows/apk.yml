@@ -539,6 +539,7 @@ jobs:
           rodar tools/cena.test.mjs
           rodar tools/hidratacao-perde-a-vez.test.mjs
           rodar tools/telao-no-chao.test.mjs
+          rodar tools/serie-mantem-a-semana.test.mjs
           rodar tools/som-nao-vaza-ao-perder-a-tela.test.mjs
           rodar tools/imagem-sobre-audio.test.mjs
           rodar tools/slides-sobre-audio.test.mjs
