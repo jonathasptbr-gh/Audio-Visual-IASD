@@ -1796,6 +1796,12 @@ correspondente, senão o sistema ainda reage à soltura) e entrega o passo a
   sermão inteiro; voltar é a correção.
 - **O número não é o volume do aparelho:** ele viaja no comando `volume` e
   chega também às **telas da rede**, que são outros aparelhos.
+- **O PASSO TEM DOIS TRECHOS** (`volumeProximo`, v1.8.90): 5 acima de 10, **1
+  abaixo** — o volume não é linear no ouvido, e é na faixa baixa que se ajusta
+  um louvor sob a fala do púlpito. A fronteira é do lado de quem SOBE (9 → 10
+  fino, 10 → 15 grosso), e o alvo é ALINHADO À GRADE, nunca `atual ± passo`: o
+  fader é arrastável, e de 12 um passo para baixo daria 7 e pularia o 10. Vale
+  para as teclas físicas E para o ± do Modo Fácil, que é o que os mantém iguais.
 
 ### Espelhamento de tela ≠ Google Cast
 
@@ -2624,11 +2630,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.89 · APK v1.8.73** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.90 · APK v1.8.73** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.8.89 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
+> **A v1.8.90 NÃO declara `shellTag`, e a v1.8.73 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Esta não toca `java/`,
 > `res/` nem o manifesto: o bundle sai na hora, contra o APK v1.8.73 que já está
 > publicado. **E a ponte só ENCOLHEU** — `requestMic` e `micDiag` saíram do

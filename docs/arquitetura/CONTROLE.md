@@ -149,10 +149,21 @@ pergunta a cada música viraria ruído no meio do culto. A verificação usa
 `songVariantsNeeded()`, a mesma regra da sincronização em massa (não basta ter
 `fileIdFull`: o arquivo pode ter sido apagado por fora).
 
-**Volume em degraus, não em curso.** `simpleVolStep()` usa o MESMO passo dos
-botões físicos (`VOL_KEY_STEP`) e a mesma `applyVolume()`. `holdRepeat()` faz a
+**Volume em degraus, não em curso.** `simpleVolStep()` usa a MESMA grade dos
+botões físicos (`volumeProximo`) e a mesma `applyVolume()`. `holdRepeat()` faz a
 tecla repetir enquanto segurada: o primeiro passo sai no `pointerdown` e a
 repetição só começa depois de uma pausa, senão um toque comum viraria dois.
+
+**A GRADE TEM DOIS TRECHOS** (v1.8.90): de 5 em 5 acima de 10, de 1 em 1 abaixo
+— o volume não é linear no ouvido, e de 95 para 100 quase não se nota enquanto
+de 5 para 10 é o dobro da pressão. Três coisas que se erram: a fronteira é do
+lado de quem SOBE (9 → 10 fino, 10 → 15 grosso; escrita com `<` nos dois
+sentidos, o trecho fino só existiria na subida); o alvo é ALINHADO À GRADE e
+nunca `atual ± passo`, porque o fader é arrastável e de 12 um passo para baixo
+daria 7, pulando o 10; e o resultado é a MESMA escada nos dois sentidos.
+Oráculo: `controles-layout.test.mjs`, bloco 7 — ele afirma a sequência
+COMPLETA, porque um passo medido de um valor só aprova quase qualquer
+implementação.
 
 **A zona de leitura reusa o renderizador da leitura auxiliar**: `lvBuildSong()`,
 `lvBuildDeck()` e `lvMarkCurrent()` recebem o CONTAINER como parâmetro, e

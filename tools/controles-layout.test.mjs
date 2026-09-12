@@ -1250,6 +1250,62 @@ try {
     'e ele não passa por baixo de NENHUMA das duas colunas de `.pv-fab` — elas '
     + 'são `z-index: 5` contra 4, então o que invade não é coberto: é coberto '
     + 'POR ELAS', cartao);
+  // ── 7. O PASSO DO VOLUME É FINO ABAIXO DE 10 (v1.8.90) ─────────────────
+  //
+  // Pedido do operador: *"ajuste o slider de volume para ele ser mais sensível
+  // abaixo do nível 10, para que ele vá de 1 e 1 abaixo desse ponto. E subindo
+  // ele também siga essa precisão"*.
+  //
+  // **A ESCADA INTEIRA, e não uma amostra.** Um passo medido de um valor só
+  // aprova quase qualquer implementação: o que este bloco afirma é a SEQUÊNCIA
+  // completa dos dois sentidos, que é onde moram as três formas de errar —
+  // pular o 10, dar o passo grosso dentro do trecho fino, e a escada de subida
+  // não ser a de descida ao contrário.
+  const escada = await pg.evaluate(() => {
+    const pct = () => Math.round(volume * 100);
+    const anda = (de, dir) => {
+      applyVolume(de / 100);
+      const passos = [pct()];
+      for (let i = 0; i < 40; i++) {
+        applyVolume(volumeProximo(volume, dir));
+        if (pct() === passos[passos.length - 1]) break;
+        passos.push(pct());
+      }
+      return passos;
+    };
+    const desce = anda(100, -1);
+    const sobe = anda(0, 1);
+    // E DE FORA DA GRADE: o fader é arrastável e deixa valores que não são
+    // múltiplos de nada.
+    const fora = {};
+    for (const x of [12, 11, 97, 3]) {
+      applyVolume(x / 100); applyVolume(volumeProximo(volume, 1));
+      const cima = pct();
+      applyVolume(x / 100); applyVolume(volumeProximo(volume, -1));
+      fora[x] = [cima, pct()];
+    }
+    applyVolume(1);
+    return { desce, sobe, fora };
+  });
+
+  const ESPERADA = [100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30,
+    25, 20, 15, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+  checar(escada.desce.join(' ') === ESPERADA.join(' '),
+    'DESCENDO, o passo é de 5 até o 10 e de 1 daí para baixo — os quatro degraus '
+    + 'úteis (5·10·15·20) na faixa em que se ajusta um louvor sob a fala do púlpito',
+    escada.desce.join(' '));
+  checar(escada.sobe.join(' ') === ESPERADA.slice().reverse().join(' '),
+    'e SUBINDO é a MESMA escada ao contrário: a fronteira é do lado de quem sobe '
+    + '(9 → 10 fino, 10 → 15 grosso), senão o trecho fino só existiria num sentido',
+    escada.sobe.join(' '));
+  // O 10 É O DEGRAU QUE NÃO PODE SER PULADO, e é ele que a grade protege: de 12,
+  // um `atual − passo` daria 7 e passaria por cima da fronteira.
+  checar(escada.fora['12'][1] === 10 && escada.fora['11'][1] === 10,
+    'e um valor ARRASTADO no fader se alinha à grade em vez de pular o 10 — de 12 '
+    + 'ou de 11, um passo para baixo pousa em 10', JSON.stringify(escada.fora));
+  checar(escada.fora['97'].join() === '100,95' && escada.fora['3'].join() === '4,2',
+    'a grade vale nos dois trechos e nos dois sentidos', JSON.stringify(escada.fora));
+
 } finally {
   await navegador.close();
   servidor.close();
