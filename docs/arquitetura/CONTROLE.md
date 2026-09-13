@@ -4054,9 +4054,10 @@ operador nomeia. Ele hospeda uma FAIXA DE FECHO — à esquerda a célula do que
 ferramenta OPERA (`.misc-foot-esq`), no meio o "Projetar no telão" que CRESCE, à
 direita os dois destinos (`cue-save-btn`) na ordem canônica da tabela `DESTINOS`.
 As Mensagens não têm o que guardar (`cueSaveDaFerramenta` devolve `null`) **e,
-desde a v1.9.1, não têm primário nenhum** (`miscProjectState` devolve `null`):
-quem projeta é o toque na linha, nos dois sentidos, e o que a célula da esquerda
-leva ali é o PARAR. A faixa tem UMA altura — o primário cede para
+desde a v1.9.1, não têm o primário de PROJETAR** (`miscProjectState` devolve
+`null`): quem projeta é o toque na linha, nos dois sentidos. O que ocupa a faixa
+ali é o **"+ Nova mensagem"** (v1.9.2), a única ação da ferramenta — o PARAR
+desceu para dentro de cada LINHA no mesmo lote. A faixa tem UMA altura — o primário cede para
 `--quad-faixa`, a medida do quadrado (a regra da v1.8.61) —, e o segundo degrau
 (a barra alta de quando ele estava sozinho) saiu com o único estado que o
 alcançava, que eram justamente as Mensagens. O "guardar isto" era uma LINHA no
