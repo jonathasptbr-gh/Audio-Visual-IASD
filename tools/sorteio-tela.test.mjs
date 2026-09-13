@@ -579,6 +579,7 @@ try {
     // recém-sorteada tocaria a primeira em laço.
     await AVDB.setState('repeat', 'one'); repeat = 'one'; renderRepeat();
     await abrirSorteio();
+    sorteioPrefs.soNoAparelho = true; renderSorteio();   // ver a nota do pacote
     await executarSorteio(document.querySelector('#sorteioPopup .song-menu-go'), 'tocar');
     await new Promise((r) => setTimeout(r, 600));
     const ids = await AVDB.listIds('playlist');
@@ -790,6 +791,14 @@ try {
   const fundoPac = await pg.evaluate(async () => {
     await AVDB.listSet('imports', []);
     await abrirSorteio();
+    // O FILTRO É DESTE BLOCO, e não herdado: desde a v1.8.97 `abrirSorteio`
+    // ZERA os três filtros e a palavra tema, então um bloco que executa um
+    // sorteio de verdade tem de declarar o "só no aparelho" DEPOIS de abrir.
+    // Sem isto o pool volta a incluir o que precisa baixar, o
+    // `ensureDownloadConsent` abre um `appConfirm` que ninguém responde, e o
+    // `evaluate` fica PENDURADO — o arquivo inteiro morre por prazo, sem uma
+    // linha dizendo onde.
+    sorteioPrefs.soNoAparelho = true;
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; sorteioPrefs.tema = '';
     renderSorteio();
     // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
@@ -1037,6 +1046,7 @@ try {
       sorteioPrefs.variante = variante; sorteioPrefs.quantos = quantos;
       sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
       await abrirSorteio();
+      sorteioPrefs.soNoAparelho = true; renderSorteio();   // ver a nota do pacote
       const btn = document.querySelector('#sorteioPopup .song-menu-go');
       await executarSorteio(btn, 'tocar');
       await new Promise((r) => setTimeout(r, 500));
@@ -1072,6 +1082,7 @@ try {
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     await abrirSorteio();
     await setView('wallpaper');            // o operador cobriu o telão de propósito
+    sorteioPrefs.soNoAparelho = true;      // ver a nota do pacote
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; renderSorteio();
     // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
     // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
