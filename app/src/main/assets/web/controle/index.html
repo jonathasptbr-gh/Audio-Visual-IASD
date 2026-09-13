@@ -542,6 +542,31 @@
          laços de traço: um glifo de tinta cheia aqui seria a divergência de
          peso que a v1.8.68 mediu noutro lugar. O laço abre no topo (o mesmo
          vão dos irmãos) para a ponta da seta caber sem engordar o desenho. -->
+    <!-- ESTILO DO TEXTO — o "A" sobre a linha de base, o desenho universal de
+         "formatar". Ele NÃO pode ser o `#icoTexto`: aquele é o cartão de
+         mensagem (a identidade da FERRAMENTA), e este é o botão que muda como
+         UMA delas aparece — dois papéis num desenho só é o que a v1.8.68 mediu
+         noutro lugar. A barra inferior é a largura toda, o que dá ao "A"
+         esparso o peso que ele não tem sozinho a 20px. -->
+    <symbol id="icoEstilo" viewBox="0 0 24 24">
+      <path d="M5.6 15.6 10.4 4.8l4.8 10.8"/>
+      <line x1="7.3" y1="12.4" x2="13.5" y2="12.4"/>
+      <line x1="3.5" y1="19.4" x2="20.5" y2="19.4"/>
+    </symbol>
+    <!-- PARAR — o quadrado cheio. Ele é o único transporte deste app que NÃO
+         vem do subset da fonte: `stop` não está entre os 31 codepoints (ver
+         `tools/glifos.test.mjs`), e um codepoint de fora não desenha NADA — sem
+         erro, sem requisição falhando, só um vão.
+
+         CHEIO e não vazado, ao contrário dos irmãos de traço deste sprite: um
+         quadrado de contorno lê-se como caixa de marcação, e este botão tira do
+         telão o que a congregação está vendo. O `fill`/`stroke` são declarados
+         no próprio `<rect>` porque o consumidor pinta com `fill="none"
+         stroke="currentColor"`, e sem eles o desenho sairia oco e mais gordo
+         que a caixa. -->
+    <symbol id="icoParar" viewBox="0 0 24 24">
+      <rect x="6" y="6" width="12" height="12" rx="2.4" fill="currentColor" stroke="none"/>
+    </symbol>
     <symbol id="icoZerar" viewBox="0 0 24 24">
       <path d="M20 12a8 8 0 1 1-2.34-5.66"/>
       <polyline points="20 3 20 8 15 8"/>
@@ -2315,7 +2340,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.9</span>
+            <span id="appVersion" class="app-version">v1.9.1</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

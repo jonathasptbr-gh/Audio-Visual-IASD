@@ -5378,13 +5378,18 @@ try {
 // de haver projeção — e mantê-lo custaria remontar o painel por baixo de quem
 // está usando, que é o que a guarda "só na transição" existia para evitar.
 //
-// O QUE ENTRA NO LUGAR é a mesma pergunta com o inquilino de hoje: **a largura
-// do primário vem da AUSÊNCIA do irmão**, nunca de uma regra de CSS para o
-// caso. Em Mensagens não há o que guardar (`cueSaveDaFerramenta` devolve
-// `null`), então o projetar ocupa a linha; no Tempo e no Sorteio ele divide a
-// faixa com os dois destinos e CEDE a altura do quadrado. As duas metades são a
-// regra da faixa de fecho (v1.8.61) — *"há irmão nesta faixa?"* —, e é medindo
-// as DUAS que ela deixa de poder ser satisfeita por acidente.
+// O QUE ENTRA NO LUGAR é a mesma pergunta com o inquilino de hoje: **cada
+// ferramenta desenha a faixa que ela precisa**, e a de Mensagens é a mais
+// estreita de todas — desde a v1.9.1 ela não tem primário nenhum.
+//
+// Pedido do operador: *"na seção de mensagens, remova o botão de projetar no
+// telão. Atualmente o item selecionado fica vermelho, mas não tem um botão de
+// stop. Adicione esse botão."* Quem projeta é o TOQUE na linha (v5.104), nos
+// dois sentidos; o que faltava era PARAR sem caçar a linha vermelha na lista.
+//
+// AS DUAS METADES SÃO MEDIDAS, e é o par que impede a asserção de ser
+// satisfeita por acidente: em Mensagens não há `#miscProjectBtn` E há um
+// `#msgPararBtn` QUADRADO; no Tempo o primário volta, com os dois destinos.
 try {
   const pgM = await ctx.newPage();
   await pgM.addInitScript(PONTE);
@@ -5394,11 +5399,25 @@ try {
 
   const medir = () => {
     const proj = document.getElementById('miscProjectBtn');
-    const row = proj && proj.parentElement;
     const foot = document.getElementById('toolsFoot');
+    // A LINHA É A `.misc-foot`, NUNCA `proj.parentElement` (v1.9.1). Em
+    // Mensagens o primário não existe mais, e lido pelo pai dele `irmaos`
+    // caía a ZERO — a asserção reprovava falando de uma célula que está lá.
+    // A faixa é a mesma peça nas três ferramentas; é ela que se conta.
+    const row = foot && foot.querySelector('.misc-foot');
     const body = document.getElementById('toolsBody');
+    const parar = document.getElementById('msgPararBtn');
+    const pb = parar ? parar.getBoundingClientRect() : null;
     return {
       temProj: !!proj,
+      // O PARAR: existe, é quadrado, e nasce APAGADO — sem mensagem no ar ele
+      // não tem função, e a regra da v1.8.50 manda apagar em vez de deixar
+      // inerte. O `title` é o que diz por quê.
+      temParar: !!parar,
+      pararQuadrado: pb ? Math.round(pb.width) === Math.round(pb.height) : false,
+      pararLado: pb ? Math.round(pb.width) : 0,
+      pararApagado: parar ? parar.disabled : null,
+      pararTitulo: parar ? parar.title : '',
       // A LARGURA É MEDIDA CONTRA A LINHA, nunca contra um número de pixel: a
       // fonte e a densidade são da MÁQUINA, e afirmar "440px" seria medir o
       // runner.
@@ -5428,14 +5447,22 @@ try {
   checar(msg.foraDoCorpo === true,
     'o rodapé da folha é IRMÃO do corpo, não filho: uma barra dentro do scroller '
     + 'rolaria com os itens dela', JSON.stringify(msg));
-  checar(msg.temProj === true && msg.destinos === 0 && msg.irmaos === 1,
-    'em MENSAGENS o "Projetar no telão" fica SOZINHO — elas já entram no Cronograma '
-    + 'pelo caminho próprio, e dois botões fazendo o mesmo por outro nome seriam a '
-    + 'terceira porta para a mesma lista', JSON.stringify(msg));
-  checar(msg.larguraDaLinha > 0 && msg.largura >= msg.larguraDaLinha - 2,
-    'OCUPANDO A LINHA DE LADO A LADO: `.misc-foot` é flex e o filho é `flex: 1`, então '
-    + 'a largura vem da AUSÊNCIA do irmão, não de uma regra de CSS para o caso',
+  checar(msg.temProj === false && msg.destinos === 0 && msg.irmaos === 1,
+    'em MENSAGENS não há primário NENHUM (v1.9.1): quem projeta é o toque na linha, '
+    + 'nos dois sentidos, e o botão era a terceira porta para a mesma ação — com a '
+    + 'agravante de ter de responder "projetar o QUÊ?" com uma sessão que pode não '
+    + 'existir. E não há destino: elas entram no Cronograma pelo caminho próprio',
     JSON.stringify(msg));
+  checar(msg.temParar === true && msg.pararQuadrado === true,
+    'e no lugar dele fica o PARAR, um QUADRADO na célula da esquerda — a mesma '
+    + 'peça do ▶/↺ do Tempo, que é o que a faixa oferece para "o que esta '
+    + 'ferramenta opera". Sem rótulo, logo quadrado (a regra da v1.8.57)',
+    JSON.stringify(msg));
+  checar(msg.pararApagado === true && /Nenhuma mensagem/.test(msg.pararTitulo),
+    'e ele NASCE APAGADO, com o `title` dizendo por quê: sem nada no telão ele não '
+    + 'tem função, e um quadrado aceso que não faz nada é indistinguível de um '
+    + 'quebrado (a regra da v1.8.50)',
+    JSON.stringify([msg.pararApagado, msg.pararTitulo]));
 
   const tempo = await pgM.evaluate(async (fn) => {
     [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
@@ -5454,9 +5481,15 @@ try {
     'e a faixa tem UMA ALTURA só (a regra da v1.8.61): o primário cede para a medida '
     + 'do quadrado em vez de esticar os vizinhos contra ele',
     JSON.stringify(tempo.alturas));
-  checar(tempo.alturaProj < msg.alturaProj,
-    'é o PRIMÁRIO que cede, e só onde há irmão — sozinho ele volta à barra alta de '
-    + 'sempre', JSON.stringify([msg.alturaProj, tempo.alturaProj]));
+  // E O PRIMÁRIO TEM UMA ALTURA SÓ desde a v1.9.1: o segundo degrau
+  // (`--misc-bar-h`, a barra alta de quando ele estava sozinho na faixa) saiu
+  // com o único estado que o alcançava, que eram justamente as Mensagens. Uma
+  // regra que só pinta num estado inalcançável responde "isto está coberto?"
+  // com um sim que não existe.
+  checar(tempo.alturaProj === tempo.alturas[0] && tempo.alturaProj > 0,
+    'e o primário mede o MESMO que o quadrado ao lado — não há mais "sozinho na '
+    + 'faixa", logo não há mais duas alturas',
+    JSON.stringify([tempo.alturaProj, tempo.alturas]));
 
   await pgM.close();
 } catch (e) {

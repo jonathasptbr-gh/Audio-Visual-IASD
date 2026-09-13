@@ -1354,6 +1354,69 @@
     return { text: String(min + Math.floor(r * (max - min + 1))), rolling: true };
   }
 
+  // ===== O ESTILO DE UM CARTÃO DE MENSAGEM (v1.9.1) =====
+  // Três escolhas por mensagem — tamanho, fonte e alinhamento —, e a REGRA que
+  // as traduz mora AQUI porque os DOIS lados do cartão a aplicam: o telão
+  // (`display.js`) e a preview do Controle. Escrita duas vezes ela divergiria no
+  // primeiro ajuste, e a preview existe justamente para ESPELHAR o telão. A
+  // FOLHA de opções do Controle também lê esta tabela, então o rótulo que o
+  // operador toca e o valor que o telão aplica são a mesma linha.
+  //
+  // **A ESCALA GOVERNA O RECORTE**, e é o que esta função tem de próprio: a
+  // caixa do cartão NÃO cresce com a fonte. Com o clamp parado em sete, uma
+  // mensagem em "Enorme" é cortada no MEIO da linha — quem corta é o
+  // `overflow: hidden` da caixa, não o clamp, e meia linha de altura na frente
+  // da congregação é pior que uma palavra a menos.
+  //
+  // **As fontes são as do APARELHO.** O bundle só embarca o subset de símbolos
+  // (31 codepoints); qualquer família baixada seria peso no OTA e um telão sem
+  // rede caindo no genérico sem avisar.
+  const CARTAO_LINHAS = 7;
+  const CARTAO_ESTILO = {
+    tamanho: [
+      { id: 'pequeno', nome: 'Pequeno', v: 0.75 },
+      { id: 'medio', nome: 'Médio', v: 1 },
+      { id: 'grande', nome: 'Grande', v: 1.3 },
+      { id: 'enorme', nome: 'Enorme', v: 1.6 },
+    ],
+    fonte: [
+      { id: 'sistema', nome: 'Padrão', v: 'system-ui, sans-serif' },
+      { id: 'serifa', nome: 'Serifa', v: 'Georgia, "Times New Roman", serif' },
+      { id: 'maquina', nome: 'Máquina', v: 'ui-monospace, "Courier New", monospace' },
+    ],
+    alinha: [
+      { id: 'esquerda', nome: 'Esquerda', v: 'left' },
+      { id: 'centro', nome: 'Centro', v: 'center' },
+      { id: 'direita', nome: 'Direita', v: 'right' },
+    ],
+  };
+
+  // O PADRÃO É A PRIMEIRA LINHA DE CADA EIXO? NÃO — é o valor NOMEADO abaixo, e
+  // a diferença importa: uma mensagem gravada antes deste recurso não tem
+  // `estilo` nenhum, e o que ela tem de continuar mostrando é EXATAMENTE o
+  // cartão de sempre (médio, padrão, centro).
+  const CARTAO_PADRAO = { tamanho: 'medio', fonte: 'sistema', alinha: 'centro' };
+
+  function acharEstilo(eixo, id) {
+    const lista = CARTAO_ESTILO[eixo];
+    return lista.find((x) => x.id === id) || lista.find((x) => x.id === CARTAO_PADRAO[eixo]);
+  }
+
+  function estiloDoCartao(e) {
+    const o = (e && typeof e === 'object') ? e : {};
+    const escala = acharEstilo('tamanho', o.tamanho).v;
+    return {
+      escala,
+      fonte: acharEstilo('fonte', o.fonte).v,
+      alinha: acharEstilo('alinha', o.alinha).v,
+      linhas: Math.max(2, Math.round(CARTAO_LINHAS / escala)),
+    };
+  }
+
+  createStage.CARTAO_ESTILO = CARTAO_ESTILO;
+  createStage.CARTAO_PADRAO = CARTAO_PADRAO;
+  createStage.estiloDoCartao = estiloDoCartao;
+
   createStage.CHRONO_TICK_MS = CHRONO_TICK_MS;
   createStage.chronoElapsed = chronoElapsed;
   createStage.chronoReading = chronoReading;

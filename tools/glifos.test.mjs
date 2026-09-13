@@ -303,6 +303,21 @@ const anotarUso = (nome, onde) => {
   for (let m; (m = re3.exec(jsSemProsa));) {
     anotarUso(m[1], 'controle.js:' + jsSemProsa.slice(0, m.index).split('\n').length);
   }
+  // ===== E O NOME NU PASSADO AO `icoSprite(…)`, A QUARTA FORMA (v1.9.1) =====
+  //
+  // O helper monta o `<svg>` inteiro e concatena o `#` ELE MESMO
+  // (`'<use href="#' + nome + '"/>'`), então quem o chama escreve só
+  // `icoSprite('icoParar')` — sem `#`, e nenhuma das três formas acima o vê.
+  // MEDIDO na entrada deste lote: os dois símbolos NOVOS do rodapé das
+  // Ferramentas foram reprovados como órfãos, com o conserto sugerido sendo
+  // apagá-los. A quarta forma é a assinatura do helper, o que a mantém estreita:
+  // um nome citado em prosa continua não casando (as linhas de comentário já
+  // estão esvaziadas), e um nome montado por variável continua fora — se um dia
+  // existir, ele reprova aqui, que é o lado certo de falhar.
+  const re4 = /\bicoSprite\(\s*['"`](ico[A-Za-z0-9_]*)['"`]/g;
+  for (let m; (m = re4.exec(jsSemProsa));) {
+    anotarUso(m[1], 'controle.js:' + jsSemProsa.slice(0, m.index).split('\n').length);
+  }
 }
 
 checar(definidos.size >= 20,
