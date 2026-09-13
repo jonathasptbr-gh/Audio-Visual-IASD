@@ -566,6 +566,7 @@ jobs:
           rodar tools/fonte-so-do-par.test.mjs
           rodar tools/leitor-biblioteca.test.mjs
           rodar tools/sorteio-tela.test.mjs
+          rodar tools/sorteio-lista-por-pagina.test.mjs
           rodar tools/cena.test.mjs
           rodar tools/hidratacao-perde-a-vez.test.mjs
           rodar tools/telao-no-chao.test.mjs

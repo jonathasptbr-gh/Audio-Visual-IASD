@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.8.100",
+    "itens": [
+      "Playlist automática: a lista de resultados chega de 100 em 100, e mais 100 quando você rola até o fim.",
+      "Playlist automática: com acervo grande, um indicador de carregando cobre o primeiro segundo da abertura.",
+      "A janela abre e responde bem mais rápido; o sorteio continua usando todos os resultados, não só os 100."
+    ]
+  },
+  {
     "versao": "1.8.99",
     "itens": [
       "A coletânea “Vídeos do YouTube” saiu da Biblioteca — a busca direta no YouTube já resolvia.",
