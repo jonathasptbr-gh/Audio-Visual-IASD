@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.9.4",
+    "itens": [
+      "Cronômetro e sorteio no telão: os botões ao lado da tela viram zerar e iniciar/sortear.",
+      "Isso vale também quando a cena vem do Cronograma, sem precisar abrir a aba de Ferramentas.",
+      "No modo relógio os botões continuam apagados: não há o que iniciar nem zerar.",
+      "O ▶ do transporte apaga quando há só um cartão no telão, sem música por baixo.",
+      "Mensagens: o cartão de tamanho, letra e alinhamento parou de piscar ao escolher uma opção.",
+      "Mensagens: com esse cartão aberto, o ⋮ vira o botão dele e serve para fechar.",
+      "O texto do campo de legenda ficou centralizado."
+    ]
+  },
+  {
     "versao": "1.9.3",
     "itens": [
       "Mensagens: os botões de cada mensagem ficam escondidos atrás do ⋮, como no Cronograma.",

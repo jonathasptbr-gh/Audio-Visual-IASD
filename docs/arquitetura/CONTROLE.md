@@ -746,6 +746,46 @@ nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
     literalmente "undefined". Faltavam `deck` (desde a v5.97) e `songlyrics` até
     a v5.102 — justamente o alvo em que eles são o ÚNICO jeito de passar página.
     Alvo novo em `slideTarget()` = três linhas novas aqui.
+- **E DESDE A v1.9.4 HÁ DOIS ALVOS QUE NÃO PASSAM NADA: ELES ACIONAM.** Com o
+  cronômetro (`'chrono'`) ou o sorteio (`'draw'`) no ar, o par vira o transporte
+  DAQUELA ferramenta — esquerdo ZERA, direito INICIA/PAUSA ou SORTEIA —, e o
+  desenho troca junto. Eles ficam **fora** das três tabelas de propósito: elas
+  devolvem o SUBSTANTIVO de um eixo de navegação, e aqui o par é ASSIMÉTRICO
+  (cada botão é uma ação diferente). Quem responde por eles é `EIXO_DE_ACAO`, uma
+  tabela de FUNÇÕES — o ▶ vira ⏸ com a contagem correndo, o sortear vira "de
+  novo" depois do primeiro.
+  - **O QUE ISTO CONSERTA É A CENA VINDA DO CRONOGRAMA.** Ali o rodapé da folha
+    de Ferramentas nunca chegou a ser montado, e não havia NENHUM botão na tela
+    para iniciar a contagem. As cinco funções-alvo (`chronoStart`, `chronoPause`,
+    `chronoReset`, `doDraw`, `drawReset`) não dependem da folha: medido com ela
+    fechada, nenhuma lança e cada uma emite o comando ao telão.
+  - **O RELÓGIO CONTINUA SEM EIXO** — ele não se pausa nem se zera (o rodapé
+    dele traz os dois seletores de formato no lugar do transporte), e um par
+    aceso ali é o botão inerte da v1.8.50.
+  - **A RÉGUA DO `disabled` É UMA SÓ:** `chronoRunApagado`, `drawGoApagado` e
+    `drawResetApagado` respondem ao par E aos quadrados do rodapé. Reescrevê-las
+    aqui faria um botão aceso de um lado da tela e apagado do outro para a MESMA
+    ação, e divergiria calado no primeiro ajuste.
+  - **O DESENHO TROCA PELO NÓ, e a caixa fica com o CSS**
+    (`desenharBotaoDeEixo`): `icoSprite()` sem atributo de caixa, ou `msym()` —
+    MEDIDO, dentro de um `.ctl-btn` os dois computam 22px e os dois seguem
+    `--icon-md`. Ele guarda a marca em `dataset.desenho` e **só repinta quando
+    ela muda**: `renderTransportAxis` roda no pulso do `renderSlideNav`, que o
+    `timeupdate` da preview dispara a ~4 Hz.
+  - **NENHUM MUTADOR REDESENHAVA O EIXO** (medido: zero chamadas de
+    `renderSlideNav` em cinco execuções), então o ▶ do par continuaria ▶ depois
+    de iniciar. Quem os alcança é `renderEixoDoPar()` — só `applySlideLimits` +
+    `renderTransportAxis`, NESTA ordem, porque o desenho lê o `disabled` que os
+    limites acabaram de escrever — chamado do fim do `renderFoot` (o pulso que
+    TODO mutador dos dois já toca) e do `atualizarChronoRun`, porque
+    `chronoSetDuration` não passa pelo rodapé (a roleta está sob o dedo).
+  - **E O PAR DE AÇÃO É DO PAINEL, E DE MAIS NINGUÉM** (`eixoForaDoPainel`).
+    Três superfícies roteavam por *"o eixo é truthy?"*: a coluna da TELA CHEIA
+    (`attachTransportStep`), os ⏮/⏭ da NOTIFICAÇÃO (`onRemote`) e o `slideMode`
+    que o `pushNowPlaying` publica. Nas duas primeiras **o desenho é OUTRO** — a
+    seta com barra, copiada inline no `index.html` —, e deixá-las ver o alvo novo
+    faria a tela de bloqueio ZERAR a contagem com "mídia anterior" desenhado na
+    frente. Elas continuam no eixo de MÍDIA, que é o que aquele desenho promete.
 - **A ALTURA DELES É A DA FAIXA, e a faixa É a preview** (v1.3.7 — ver "Um vão
   só…", acima). Eles nasceram vestindo uma faixa FIXA de 150px enquanto a
   miniatura dentro dela era dimensionada pela proporção do telão: MEDIDO, em
@@ -774,7 +814,12 @@ nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
 Oráculo: **`tools/controles-layout.test.mjs`** — a geometria (quem flanqueia
 quem, e com que caixa), o eixo do transporte medido pelo COMANDO que sai no
 barramento (`seek` é estrofe andando, e ele não pode mais sair de `#next`) e o
-par sumindo junto com o fader. Provado por reversão.
+par sumindo junto com o fader. Provado por reversão. O par de AÇÃO tem oráculo
+PRÓPRIO — **`tools/eixo-de-acao.test.mjs`** —, e ele mede pelo COMANDO que sai no
+barramento, nunca pela classe ou pelo `title`: o modo de falhar de uma
+implementação incompleta é MUDO (o ramo genérico de `stepSlide` e de
+`applySlideLimits` engole um alvo desconhecido sem lançar, e o que se vê é o par
+apagado e inerte).
 
 **Título rolante (now-playing):** o nome da mídia em exibição (`#npName`) tem
 um span interno (`#npNameInner`); quando o texto não cabe na largura

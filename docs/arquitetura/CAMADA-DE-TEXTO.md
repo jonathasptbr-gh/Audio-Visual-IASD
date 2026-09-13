@@ -1002,6 +1002,11 @@ Tempo e o Sorteio chamam. Duas cópias divergiriam no primeiro ajuste, e aqui
   ninguém.
 - **O `aria-label` é obrigatório.** Sem o `<span>`, era ele ou um campo sem nome
   acessível nenhum.
+- **O TEXTO É CENTRALIZADO** (v1.9.4), a pedido do operador. Vale para o valor
+  digitado E para o marcador — é a mesma linha, e uma dica descentrada sob um
+  valor centrado saltaria a cada toque no campo. A regra é ESCOPADA à
+  `.misc-row--legenda`: os outros `.misc-text` são listas e faixas numéricas, que
+  se leem alinhadas à esquerda.
 
 ### Entradas e saídas de camada sempre com fade (`fadeLayerIn`/`fadeLayerOut`)
 
@@ -1140,10 +1145,23 @@ configurar o tamanho da fonte, a fonte e o alinhamento daquela mensagem."*
 - **A GAVETA ABRE ABAIXO DA LINHA**, e é UMA por vez. A marca é do MÓDULO
   (`msgEstiloAberto`, pelo `id` da mensagem) e não do DOM, porque
   `refreshDiversos` remonta o painel inteiro a cada projeção — uma classe no nó
-  não sobreviveria a isso. A linha e a gaveta ficam num ENVELOPE (`.msg-row`):
-  filhas diretas da lista, o `gap` dela as separaria, e duas superfícies com um
-  vão entre si leem como dois cartões. A gaveta se separa por PREENCHIMENTO
-  (`--gaveta-bg`, com `--gaveta-btn` nos chips), nunca por um filete.
+  não sobreviveria a isso. Desde a v1.9.3 ela é o segundo filho da própria
+  `.lib-item` (o envelope `.msg-row` saiu com o componente próprio), e se separa
+  da linha por PREENCHIMENTO (`--gaveta-bg`, com `--gaveta-btn` nos chips),
+  nunca por um filete.
+- **E COM ELA ABERTA O `⋮` É O BOTÃO DE ESTILO** (v1.9.4): *"o botão que abre as
+  opções da mensagem, se transforme no botão de fonte quando as opções da fonte
+  estiverem abertas, para poder tocar nele e fechar a aba das opções. Hoje a aba
+  abre, e as opções fecham, removendo da tela um método de fechar a janela de
+  opções de fonte."* Era exato — abrir a gaveta FECHA a faixa de ações (as duas
+  juntas escondem a linha inteira), e o botão que a abriu mora DENTRO dela: a
+  única volta era reabrir a faixa pelo `⋮` e só então tocar no estilo. A coluna
+  do `⋮` é o único alvo que fica à vista, então é ela que carrega a volta —
+  `portaDeEstilo()` devolve um `.row-btn.row-mais.on` com o `#icoEstilo` e o par
+  de LIGADO do app (`--btn-accent` + `--accent`, o MESMO do chip que ele
+  substitui). O `mais` de `montarAcoesDaLinha` é DESCARTADO nesse estado: os
+  outros três botões continuam a um toque (fechar a gaveta devolve o `⋮`), e um
+  segundo alvo para "fechar" não caberia na linha.
 - **A TABELA É DO PALCO** (`createStage.CARTAO_ESTILO`, em `shared/stage.js`): o
   rótulo que o operador toca e o valor que o telão aplica saem da MESMA linha.
   A folha do Controle, o telão e a preview leem a mesma
@@ -1171,9 +1189,19 @@ configurar o tamanho da fonte, a fonte e o alinhamento daquela mensagem."*
 - **AS FONTES SÃO AS DO APARELHO.** O bundle só embarca o subset de símbolos (31
   codepoints); uma família baixada seria peso no OTA e um telão sem rede caindo
   no genérico sem avisar.
-- **Mudar o estilo do que está NO AR reprojeta.** Não há um segundo caminho para
-  "só o estilo": o comando já carrega tudo, e o telão, as telas da rede e a
-  preview recebem a mudança pelo trilho que já usam.
+- **MUDAR O ESTILO DO QUE ESTÁ NO AR NÃO REDESENHA NADA** (v1.9.4, revogando a
+  v1.9.1). Relato do operador: *"verifique um glitch visual de piscar o card das
+  opções de fonte das mensagens."* Era isto: escolher um chip com a mensagem no
+  ar chamava `projectMessage`, que termina em `refreshDiversos()` — o painel
+  inteiro esvaziado e remontado, a gaveta junto; fora do ar não era melhor,
+  porque `renderMsg()` refaz a lista inteira. Nos dois casos a gaveta saía do
+  documento e voltava no mesmo quadro. Hoje o que muda na tela é UM chip
+  (repintado em posição, e **antes** do `await` que grava no IndexedDB — um toque
+  que só responde depois de alguns quadros se lê como toque perdido) e o que
+  muda no telão é o comando, que sai por `pushMessage` — o irmão do `pushChrono`,
+  com a MESMA armadilha: a `view` VIGENTE, nunca `'visual'` literal, senão
+  trocar o estilo com o telão coberto DESCOBRIRIA a mídia. Continua não havendo
+  um segundo caminho para "só o estilo": o comando já carrega tudo.
 
 **Excluir uma mensagem mexe na SESSÃO, não só no array** (`deleteMessage`), e
 são dois casos distintos:
