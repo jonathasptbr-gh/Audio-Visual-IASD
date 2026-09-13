@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.8.98';
+const WEB_VERSION = '1.8.100';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23325,6 +23325,63 @@ function sorteioCap() {
   };
 }
 
+// ===== A LISTA CHEGA DE CEM EM CEM, E DEPOIS DE UM RESPIRO (v1.8.100) =====
+//
+// Relato do operador: *"estou sentindo um leve travamento na abertura da janela
+// de playlist automática… imagino que seja por causa da lista de resultados que
+// já fica à mostra."* Ele estava certo, e a MEDIÇÃO diz de quanto: com os 1.100
+// do hinário a folha desenhava **7.701 nós**, e o `atualizarContaSorteio` — o
+// caminho de toda marca e de toda tecla da palavra tema — custava **402 ms**.
+//
+// São dois consertos independentes, e cada um resolve uma metade:
+//
+//  - **O AQUECIMENTO** é o pedido literal: *"um spinner temporário durante a
+//    animação e após um segundo carregando (e dando respiro para a animação de
+//    abertura da janela), então o spinner sai e exibe a lista"*. Ele não torna a
+//    lista mais barata; ele tira o custo dela de CIMA da animação de entrada,
+//    que é onde o travamento se via.
+//  - **A PÁGINA** é o que de fato tira o peso, e ela vale para sempre — não só
+//    na abertura. O corte é de VISTA: quem sorteia continua sendo o pool
+//    inteiro, e a contagem acima da lista continua dizendo o total.
+const SORTEIO_PAGINA = 100;        // linhas por vez, a pedido do operador
+const SORTEIO_PUXA_PX = 320;       // quão perto do fim a próxima página entra
+const SORTEIO_AQUECE_MS = 1000;    // o "um segundo" do pedido
+let sorteioVistos = SORTEIO_PAGINA;
+let sorteioAquecendo = false;
+let sorteioAqueceTimer = null;
+
+// O RESPIRO COMEÇA E TERMINA EM UM LUGAR SÓ. `abrirSorteio` arma, o prazo
+// desarma e redesenha SÓ a lista (o caminho leve), e `fecharSorteio` cancela —
+// sem o cancelamento, fechar e reabrir depressa deixa um prazo velho apagando o
+// aquecimento do novo.
+// **E ELE SÓ ACONTECE ONDE HÁ CUSTO.** Com o pool cabendo numa página a lista
+// já é desenhada em milissegundos (MEDIDO: 19 ms para as cem linhas, contra os
+// 402 das mil e cem), e um aro de um segundo ali seria espera inventada — pior
+// que o travamento que ele veio cobrir, porque acontece SEMPRE. É esta guarda
+// que faz o recurso não cobrar nada de quem tem um acervo pequeno.
+function sorteioAquecer() {
+  clearTimeout(sorteioAqueceTimer);
+  if (sorteioPool().itens.length <= SORTEIO_PAGINA) { sorteioPararAquecimento(); return; }
+  sorteioAquecendo = true;
+  // A MARCA VAI NO POPUP, e não na lista: quem precisa segurar a altura é a
+  // FOLHA (ver o CSS). Na lista, o piso que a fizesse ocupar o lugar da de
+  // verdade passaria do que sobra e poria a `.popup-list` a rolar — e "só a
+  // lista rola" é a regra da v1.8.85.
+  sorteioPopupEl.classList.add('aquecendo');
+  sorteioAqueceTimer = setTimeout(() => {
+    sorteioAquecendo = false;
+    sorteioPopupEl.classList.remove('aquecendo');
+    if (sorteioPopupEl.classList.contains('open')) atualizarContaSorteio();
+  }, SORTEIO_AQUECE_MS);
+}
+
+function sorteioPararAquecimento() {
+  clearTimeout(sorteioAqueceTimer);
+  sorteioAqueceTimer = null;
+  sorteioAquecendo = false;
+  if (sorteioPopupEl) sorteioPopupEl.classList.remove('aquecendo');
+}
+
 function sorteioPool() {
   return AVSorteio.montarPool(allCollections(), sorteioPrefs, sorteioCap());
 }
@@ -23369,6 +23426,10 @@ async function abrirSorteio() {
   sorteioPrefs.soNoAparelho = false;
   sorteioPrefs.tema = '';
   saveSorteioPrefs();
+  // A LISTA COMEÇA DE NOVO NO TOPO, e não em quantas páginas o operador tinha
+  // aberto na sessão passada: cada abertura é um sorteio novo.
+  sorteioVistos = SORTEIO_PAGINA;
+  sorteioAquecer();
   sorteioPopupEl.classList.add('open');
   renderSorteio();
   // O índice de letras é o que faz a palavra tema alcançar o que não está no
@@ -23382,6 +23443,11 @@ async function abrirSorteio() {
 function fecharSorteio() {
   sorteioPopupEl.classList.remove('open');
   calarSorteio();
+  // O PRAZO DO AQUECIMENTO MORRE COM A FOLHA. Sem isto, fechar e reabrir
+  // depressa deixa o prazo VELHO desarmando o aquecimento do novo — e o que se
+  // vê é a lista aparecendo antes da animação de entrada terminar, que é
+  // exatamente o travamento que o respiro veio tirar.
+  sorteioPararAquecimento();
   // A CAIXA DA PALAVRA É LIMPA A CADA FECHAMENTO (v5.307, pedido do operador).
   // A folha é reaberta em outro momento do culto, para outra coisa — e o campo
   // preenchido a espera com um filtro que ela não pediu, que é o pior estado
@@ -24229,7 +24295,21 @@ function sorteioListaDeResultados(lista, escolhidos, pool) {
   // que precisa da sombra das bordas dizendo que há resultado escondido. A
   // `.popup-list` continua com a marca e o observador a lê como `sem-veu`
   // enquanto ela não rolar — que é o caso normal.
-  li.className = 'sorteio-res rola' + (lista.length ? '' : ' vazio');
+  li.className = 'sorteio-res rola'
+    + (sorteioAquecendo ? ' aquecendo' : (lista.length ? '' : ' vazio'));
+  // O ARO, e nada mais. Ele é o `.dl-ring` do app inteiro — o mesmo desenho que
+  // já diz "estou trabalhando" no download e no tile de Configurações —, e a
+  // regra dele é a de sempre: cada consumidor põe a GEOMETRIA, a tinta é de lá.
+  // A CONTAGEM acima continua desenhada e já traz o número: o que aquece é a
+  // LISTA, e o operador não fica sem resposta nenhuma durante o respiro.
+  if (sorteioAquecendo) {
+    const aro = document.createElement('div');
+    aro.className = 'dl-ring';
+    aro.setAttribute('role', 'status');
+    aro.setAttribute('aria-label', 'Montando a lista');
+    li.appendChild(aro);
+    return li;
+  }
   // (A CONTAGEM saiu daqui na v1.8.98 e virou a linha ANTERIOR da folha — ver
   //  `sorteioCabecalhoDaLista`. Ela continua imediatamente acima da lista, e
   //  continua sendo desenhada também no vazio, porque "nenhum resultado"
@@ -24246,7 +24326,31 @@ function sorteioListaDeResultados(lista, escolhidos, pool) {
   }
   const ul = document.createElement('ul');
   ul.className = 'sorteio-res-lista';
-  lista.forEach((it) => {
+  // DE CEM EM CEM (v1.8.100). O acervo passa de mil faixas, e a lista inteira era
+  // desenhada a cada MARCA: MEDIDO com os 1.100 do hinário, 7.701 nós e **402 ms
+  // por toque** no `atualizarContaSorteio` — que é o caminho de toda marca e de
+  // toda tecla da palavra tema. O corte é só de VISTA: quem sorteia é o pool
+  // inteiro (`sorteioLista`), e a contagem acima continua dizendo o total.
+  sorteioVistos = Math.max(SORTEIO_PAGINA, Math.min(sorteioVistos, lista.length));
+  sorteioLinhasEm(ul, lista, escolhidos, 0, sorteioVistos);
+  li.appendChild(ul);
+  // CRESCE NO FIM DA ROLAGEM, e APENDANDO — remontar a lista para mostrar mais
+  // cem devolveria a rolagem ao topo, que é o defeito que a v1.8.85 consertou.
+  li.addEventListener('scroll', () => {
+    if (sorteioVistos >= lista.length) return;
+    if (li.scrollTop + li.clientHeight < li.scrollHeight - SORTEIO_PUXA_PX) return;
+    const de = sorteioVistos;
+    sorteioVistos = Math.min(lista.length, de + SORTEIO_PAGINA);
+    sorteioLinhasEm(ul, lista, escolhidos, de, sorteioVistos);
+  });
+  return li;
+}
+
+// UMA FATIA DE LINHAS, apendada no `<ul>` que já está na tela. Ela é a metade
+// que permite crescer sem remontar; a outra é o `scroll` que a chama.
+function sorteioLinhasEm(ul, lista, escolhidos, de, ate) {
+  const frag = document.createDocumentFragment();
+  lista.slice(de, ate).forEach((it) => {
     const chave = chaveDaFaixa(it);
     const vai = sorteioMarcadas.has(chave);
     const linha = document.createElement('li');
@@ -24285,10 +24389,9 @@ function sorteioListaDeResultados(lista, escolhidos, pool) {
       atualizarContaSorteio();
     });
     linha.appendChild(btn);
-    ul.appendChild(linha);
+    frag.appendChild(linha);
   });
-  li.appendChild(ul);
-  return li;
+  ul.appendChild(frag);
 }
 
 // ajuste. `false` nos três: aqui nada está "dentro" de lista nenhuma, porque
