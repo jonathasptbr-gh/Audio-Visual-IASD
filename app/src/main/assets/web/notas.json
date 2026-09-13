@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.9.5",
+    "itens": [
+      "Mensagens: o cartão no telão parou de piscar ao trocar o tamanho, a letra ou o alinhamento.",
+      "Cronômetro e timer: iniciar, pausar e zerar também não fazem mais o cartão piscar no telão."
+    ]
+  },
+  {
     "versao": "1.9.4",
     "itens": [
       "Cronômetro e sorteio no telão: os botões ao lado da tela viram zerar e iniciar/sortear.",

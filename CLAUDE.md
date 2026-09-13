@@ -2750,11 +2750,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.9.4 · APK v1.9** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.9.5 · APK v1.9** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.9.4 NÃO declara `shellTag`, como as três anteriores — a diferença com
+> **A v1.9.5 NÃO declara `shellTag`, como as quatro anteriores — a diferença com
 > a v1.9 é o que o campo pergunta.** Aquela existia para DISPARAR uma Release (pedido por
 > extenso), e sem o campo o bundle sairia sozinho, deixando a frota com um APK
 > v1.8.91 embaixo de uma base v1.9. **Essa Release SAIU**: o `v1.9` está

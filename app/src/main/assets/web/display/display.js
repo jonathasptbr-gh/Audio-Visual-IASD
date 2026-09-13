@@ -559,6 +559,8 @@ function updateLyricSlide(t) {
 let textActive = false;
 let textView = 'visual';
 let textMode = 'verse';
+// O que o cartão mostrava da última vez — ver `assinaturaDoCartao` (v1.9.5).
+let cartaoAssinado = '';
 
 // ===== Texto VIVO: cronômetro/relógio/timer e sorteio =====
 // É o MESMO cartão da Bíblia e das Mensagens (`mode: 'chrono'` | `'draw'`), e
@@ -818,9 +820,20 @@ function showText(cmd) {
   // Escritura ficava presa no telão — com a preview obedecendo, porque ela move
   // a cortina por fora. Ver `declararView` no `stage.js`.
   stage.declararView(textView);
+  // ===== O FADE É DA TROCA DE CONTEÚDO, NUNCA DO REENVIO (v1.9.5) =====
+  // Relato do operador: *"ainda estou vendo o card do item piscar ao selecionar
+  // uma opção sobre as características da fonte da mensagem"*. Era o CARTÃO, não
+  // a gaveta: MEDIDO, cada toque num chip de estilo disparava aqui um fade de
+  // 260 ms (opacity 1 → 0 → 1) sobre um texto que não mudou uma letra. O mesmo
+  // valia para iniciar/pausar/zerar a contagem, e ali o piscar acontece NA
+  // FRENTE DA CONGREGAÇÃO. Quem responde "o cartão mudou?" é a assinatura, e ela
+  // é do `stage.js` porque a preview tem de espelhar isto.
+  const assinado = createStage.assinaturaDoCartao(cmd, textMode);
+  const soReenvio = textActive && assinado === cartaoAssinado;
+  cartaoAssinado = assinado;
   if (textActive) {
     // Já em cena (troca de versículo/mensagem): fade-in do texto, sem mexer na moldura.
-    animateFadeIn(textMainEl); if (!textSubEl.hidden) animateFadeIn(textSubEl);
+    if (!soReenvio) { animateFadeIn(textMainEl); if (!textSubEl.hidden) animateFadeIn(textSubEl); }
     stage.instantCover(wallpaper);
     return;
   }

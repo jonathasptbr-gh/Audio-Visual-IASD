@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.4';
+const WEB_VERSION = '1.9.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2737,6 +2737,8 @@ function applyPvLyricsBg() {
 // Overlay independente do áudio: um som pode seguir tocando por baixo (preview
 // muda), como no Display. `mode`: 'verse' (sublinha = referência) | 'message'.
 let pvTextActive = false;
+// O que o cartão da preview mostrava da última vez — ver `assinaturaDoCartao`.
+let pvCartaoAssinado = '';
 
 // UM `load` EM VOO ADIA A RESTAURAÇÃO — a metade PREVIEW da regra que o
 // `display.js` aplica ao telão (`aoCarregar`/`aoSairDeCena`), e ler cada lado
@@ -2949,9 +2951,17 @@ function showPvText(obj) {
     pvTextMainEl.textContent = obj.main || '';
   }
   pvTextSubEl.textContent = obj.sub || '';
+  // O FADE É DA TROCA DE CONTEÚDO, NUNCA DO REENVIO (v1.9.5) — a metade da
+  // preview, com a MESMA régua do telão (`createStage.assinaturaDoCartao`).
+  // Escrita duas vezes ela daria um cartão que pisca de um lado e não do outro,
+  // e a preview existe justamente para ESPELHAR o que a congregação vê.
+  const assinado = createStage.assinaturaDoCartao(obj,
+    isImg ? 'image' : isChrono ? 'chrono' : isDraw ? 'draw' : isMsg ? 'message' : 'verse');
+  const soReenvio = pvTextActive && assinado === pvCartaoAssinado;
+  pvCartaoAssinado = assinado;
   if (pvTextActive) {
     // Já em cena (troca de versículo/mensagem): fade-in do texto.
-    pvFadeIn(pvTextMainEl); if (obj.sub) pvFadeIn(pvTextSubEl);
+    if (!soReenvio) { pvFadeIn(pvTextMainEl); if (obj.sub) pvFadeIn(pvTextSubEl); }
     preview.instantCover(wallpaper);
     return;
   }

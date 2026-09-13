@@ -1202,6 +1202,21 @@ configurar o tamanho da fonte, a fonte e o alinhamento daquela mensagem."*
   com a MESMA armadilha: a `view` VIGENTE, nunca `'visual'` literal, senão
   trocar o estilo com o telão coberto DESCOBRIRIA a mídia. Continua não havendo
   um segundo caminho para "só o estilo": o comando já carrega tudo.
+- **MAS O CARTÃO AINDA PISCAVA, e a metade que faltava não era do Controle**
+  (v1.9.5). Relato do operador, DEPOIS daquele lote: *"ainda estou vendo o card
+  do item piscar ao selecionar uma opção"*. MEDIDO com um `MutationObserver`
+  sobre a folha inteira, o toque num chip produz SEIS mutações, todas de
+  ATRIBUTO nos próprios chips — a gaveta e a linha sobrevivem. Quem pisca é o
+  **CARTÃO**: `showText`/`showPvText` rodam o fade de entrada em TODO comando
+  `text` com o cartão já em cena, e um `text` é reenviado por vários motivos que
+  não trocam uma letra — o estilo, o iniciar/pausar/zerar da contagem, cobrir e
+  descobrir o telão. `document.getAnimations()` logo após o toque devolvia uma
+  animação de 260 ms sobre o `#pvTextMain`, com a opacidade caindo a ZERO.
+  **E não era só a preview:** o `display.js` tem a linha gêmea, então o piscar
+  chegava ao telão e às telas da rede. Quem responde *"o cartão mudou?"* é
+  `createStage.assinaturaDoCartao`, no `stage.js` porque os DOIS lados a leem —
+  e cada modo declara o que o identifica (o TEXTO num aviso, o MODO no
+  cronômetro, o VALOR no sorteio, nada na imagem, onde o `textMain` está vazio).
 
 **Excluir uma mensagem mexe na SESSÃO, não só no array** (`deleteMessage`), e
 são dois casos distintos:

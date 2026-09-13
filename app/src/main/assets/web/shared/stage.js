@@ -1240,6 +1240,37 @@
   // nos dois apps (ver bloco no topo).
   createStage.FADE = FADE;
   createStage.LAYER_FADE_MS = LAYER_FADE_MS;
+  /**
+   * A ASSINATURA DO QUE O CARTÃO MOSTRA (v1.9.5) — o que muda quando o CONTEÚDO
+   * muda, e NADA mais.
+   *
+   * Um comando `text` é reenviado por vários motivos que não trocam uma palavra
+   * do que está na tela: mudar o ESTILO de uma mensagem, iniciar ou pausar a
+   * contagem, cobrir e descobrir o telão. O cartão já em cena responde a todos
+   * eles com o fade de entrada, e o que se vê é o MESMO texto piscando — na
+   * preview, no telão e nas telas da rede, na frente da congregação.
+   *
+   * Ela mora AQUI porque os dois lados a leem: a preview existe para ESPELHAR o
+   * telão, e uma régua escrita duas vezes daria um cartão que pisca de um lado
+   * e não do outro. Cada modo declara o que o identifica:
+   *
+   *  - `message`/`verse`: o TEXTO (`main` + `sub`) — o estilo fica de fora de
+   *    propósito, e é ele que este lote conserta;
+   *  - `chrono`: o MODO (cronômetro × timer × relógio). Iniciar, pausar e zerar
+   *    não trocam o cartão, trocam o número que ele já mostra sozinho;
+   *  - `draw`: o VALOR sorteado — um sorteio novo é cartão novo;
+   *  - `image`: nada, porque ali `textMain` está VAZIO e o fade dele não pinta
+   *    pixel nenhum (quem troca é a imagem, por outro caminho).
+   */
+  function assinaturaDoCartao(cmd, modo) {
+    const c = cmd || {};
+    return [modo, c.main || '', c.sub || '',
+      modo === 'chrono' ? ((c.chrono && c.chrono.mode) || '') : '',
+      modo === 'draw' ? ((c.draw && c.draw.value) || '') : '',
+    ].join('\u0000');
+  }
+
+  createStage.assinaturaDoCartao = assinaturaDoCartao;
   createStage.fadeContentIn = fadeContentIn;
   createStage.fadeLayerIn = fadeLayerIn;
   createStage.fadeLayerOut = fadeLayerOut;

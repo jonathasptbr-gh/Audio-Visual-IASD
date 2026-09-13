@@ -483,6 +483,77 @@ try {
     + 'seguinte em silêncio, e a vítima aqui foi o `tabular-nums` do relógio da '
     + 'preview — o número continua na tela, tremendo', JSON.stringify(mortos));
 
+  // ======================================================================
+  // D · O REENVIO NÃO PISCA (v1.9.5)
+  // ======================================================================
+  // Relato do operador: *"ainda estou vendo o card do item piscar ao selecionar
+  // uma opção sobre as características da fonte da mensagem"*. Não era a gaveta
+  // (aquela parou de ser redesenhada na v1.9.4, e o nó dela sobrevive ao toque):
+  // era o CARTÃO. Um `text` reenviado com o MESMO texto caía no fade de entrada
+  // de 260 ms — MEDIDO, `opacity` 1 → 0 → 1 sobre palavras que não mudaram —, na
+  // preview e no telão, isto é, na frente da congregação.
+  //
+  // A RÉGUA É A OPACIDADE MÍNIMA em ~20 quadros, e as DUAS metades são
+  // obrigatórias: sozinha, "não piscou" passaria num app que nunca mais fizesse
+  // fade nenhum. A segunda é a reversão embutida — trocar o TEXTO tem de
+  // continuar piscando, que é o que separa "não reenvia" de "quebrou o fade".
+  const minOpac = (pg2, sel) => pg2.evaluate(async (s2) => {
+    const el = document.querySelector(s2); const o = [];
+    for (let i = 0; i < 20; i++) { await new Promise((f) => requestAnimationFrame(f)); o.push(+getComputedStyle(el).opacity); }
+    return Math.min(...o);
+  }, sel);
+
+  {
+    const M2 = 'AVISO DO REENVIO\nA mesma frase, duas vezes.';
+    const manda = (o) => tv.evaluate((c) => {
+      const bc = new BroadcastChannel('av-iasd'); bc.postMessage(c); bc.close();
+    }, o);
+    await manda({ type: 'text', mode: 'message', main: M2, sub: '', estilo: null, view: 'visual' });
+    await tv.waitForTimeout(500);
+
+    const pEstilo = minOpac(tv, '#textMain');
+    await manda({ type: 'text', mode: 'message', main: M2, sub: '', estilo: { tamanho: 'enorme' }, view: 'visual' });
+    checar(await pEstilo === 1,
+      'D · TELÃO: trocar só o ESTILO com o cartão no ar não faz o texto piscar — '
+      + 'a opacidade não sai de 1 em vinte quadros', await pEstilo);
+    await tv.waitForTimeout(500);
+
+    const pAplicou = await tv.evaluate(() => getComputedStyle(document.querySelector('.text-content')).getPropertyValue('--msg-escala').trim());
+    checar(pAplicou === '1.6',
+      'D · e o estilo novo CHEGOU assim mesmo: sem o fade, o que muda é o cartão, '
+      + 'não o caminho', pAplicou);
+
+    const pTexto = minOpac(tv, '#textMain');
+    await manda({ type: 'text', mode: 'message', main: 'OUTRA MENSAGEM', sub: '', estilo: { tamanho: 'enorme' }, view: 'visual' });
+    checar(await pTexto === 0,
+      'D · mas trocar o TEXTO continua piscando — é o fade de entrada de sempre, e '
+      + 'sem esta metade um app que nunca mais desse fade passaria na asserção acima',
+      await pTexto);
+    await tv.waitForTimeout(500);
+  }
+
+  {
+    // A METADE DA PREVIEW, pelo caminho do OPERADOR: o toque num chip da gaveta.
+    // Ela é a que o relato nomeia, e as duas réguas são a MESMA
+    // (`createStage.assinaturaDoCartao`) — escrita duas vezes, o cartão pararia
+    // de piscar de um lado e continuaria do outro.
+    await pg.evaluate(() => document.querySelector('.msg-list .row-mais').click());
+    await pg.waitForTimeout(80);
+    await pg.evaluate(() => document.querySelector('.msg-estilo-btn').click());
+    await pg.waitForTimeout(200);
+    const abriu = await pg.evaluate(() => !!document.querySelector('.msg-estilo'));
+    checar(abriu, 'D · PREMISSA: a gaveta de estilo está aberta na linha da mensagem no ar');
+
+    const pPv = minOpac(pg, '#pvTextMain');
+    await pg.evaluate(() => {
+      const c = document.querySelectorAll('.msg-estilo-linha:first-child .misc-chip');
+      c[c.length - 1].click();
+    });
+    checar(await pPv === 1,
+      'D · PREVIEW: o toque no chip de estilo não faz o cartão piscar — era ESTE o '
+      + 'relato, e a preview é a ilustração do que a congregação vê', await pPv);
+  }
+
   checar(erros.length === 0, 'nenhum erro de página nas duas metades', erros.slice(0, 4));
 } finally {
   await navegador.close();
