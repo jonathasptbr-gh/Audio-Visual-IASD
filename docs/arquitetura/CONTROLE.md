@@ -7588,6 +7588,44 @@ Cada passada faz DUAS operações sobre o baralho, nesta ordem:
 - **`sorteioSemear` continua existindo** para quem de fato pede um lote novo: a
   roleta de quantidade e o consumo.
 
+#### A LISTA CHEGA DE CEM EM CEM, E DEPOIS DE UM RESPIRO (v1.8.100)
+
+Relato do operador: *"estou sentindo um leve travamento na abertura da janela de
+playlist automática. Imagino que seja por causa da lista de resultados que já
+fica à mostra."* **Ele estava certo, e a medição diz de quanto:** com os 1.100
+do hinário a folha desenhava **7.701 nós**, e o `atualizarContaSorteio` — que é
+o caminho de TODA marca e de TODA tecla da palavra tema, não só o da abertura —
+custava **402 ms**. Depois: **27 ms** para abrir e **19 ms** por toque, com 1.401
+nós.
+
+São dois consertos independentes, e cada um resolve uma metade:
+
+- **O AQUECIMENTO** (`sorteioAquecer`, `SORTEIO_AQUECE_MS`) é o pedido literal —
+  um aro por um segundo. Ele **não** torna a lista mais barata: tira o custo dela
+  de CIMA da animação de entrada, que é onde o travamento se via. **E só existe
+  onde há custo:** com o pool cabendo numa página a lista já sai em 19 ms, e um
+  aro ali seria espera INVENTADA — pior que o travamento, porque aconteceria
+  sempre. O aro é o `.dl-ring` do app inteiro, com a geometria própria e a tinta
+  de lá.
+- **A PÁGINA** (`SORTEIO_PAGINA`, `sorteioVistos`, `sorteioLinhasEm`) é o que de
+  fato tira o peso, e vale para sempre. **O corte é de VISTA:** quem sorteia é o
+  pool inteiro (`sorteioLista`), e a contagem acima continua dizendo o total — um
+  `slice` que escapasse para o sorteio daria trinta dos cem primeiros com o
+  número certo na tela.
+- **Ela cresce por APÊNDICE**, no fim da rolagem: remontar para mostrar mais cem
+  devolveria a lista ao topo, que é o defeito que a v1.8.85 consertou.
+- **A ALTURA É RESERVADA NA FOLHA, nunca na lista** — a marca vai no popup
+  (`#sorteioPopup.aquecendo .popup-sheet { height: 80vh }`) e a lista aquecendo
+  ganha `flex: 1` para o aro pousar no meio do lugar que a lista vai ocupar. Um
+  piso escrito na LISTA passaria do que sobra e poria a `.popup-list` a rolar, e
+  *"só a lista rola"* é a regra abaixo. MEDIDO a 412×892: folha de 714px nos DOIS
+  estados, com a barra de ação parada — sem a reserva ela abria com 480 e crescia
+  um segundo depois.
+- **A contagem NÃO espera.** Ela é a resposta a *"quantos são?"*, já está na mão,
+  e segurá-la deixaria o operador um segundo sem resposta nenhuma.
+
+Oráculo: `sorteio-lista-por-pagina.test.mjs`.
+
 #### SÓ A LISTA ROLA (v1.8.85)
 
 *"Sobre o scroll, mantenha as opções dos filtros sempre visíveis e deixe apenas
