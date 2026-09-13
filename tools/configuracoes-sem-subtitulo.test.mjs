@@ -285,11 +285,16 @@ try {
   // deixou de ser enchimento e passou a ser espaço. MEDIDO: o nome custa
   // 153,0px e o número seco 44,6px, e os 108,4px de diferença são exatamente o
   // que "Registro" e "Pedir ajuda" ocupam.
-  checar(/^v\d+\.\d+\.\d+$/.test(rodape.texto),
+  // A GRAMÁTICA É A DO PORTÃO, e não "três casas": o bloco de sanidade do
+  // `apk.yml` aceita `MAIOR.INCREMENTAL[.CORREÇÃO]`, e a `1.9` (como a `1.0` e a
+  // `1.1` antes dela) é um número LEGÍTIMO de dois componentes. Escrita com as
+  // três casas obrigatórias, esta asserção reprovava um app CERTO — e o que ela
+  // existe para pegar não é a forma do número, é a MARCA de volta ao lado dele.
+  checar(/^v\d+\.\d+(\.\d+)?$/.test(rodape.texto),
     'D · o rodapé diz a versão, seca — a marca saiu para pagar o rótulo dos '
     + 'botões, e nomear o app dentro dele era a palavra mais dispensável da faixa',
     rodape.texto);
-  checar(/^v\d+\.\d+\.\d+$/.test(rodape.badge),
+  checar(/^v\d+\.\d+(\.\d+)?$/.test(rodape.badge),
     'D · e a badge (a do Modo Fácil, desde que a do Cronograma saiu na v1.8.66) '
     + 'continua sendo um número só', rodape.badge);
   checar(rodape.transborda === false,
