@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.9.6",
+    "itens": [
+      "Mensagens: tocar numa opção de tamanho, letra ou alinhamento não acende mais o item inteiro."
+    ]
+  },
+  {
     "versao": "1.9.5",
     "itens": [
       "Mensagens: o cartão no telão parou de piscar ao trocar o tamanho, a letra ou o alinhamento.",

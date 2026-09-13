@@ -732,7 +732,15 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    margens e os cantos —, ao contrário da barra transparente de um card. */
 .lib-item:active { filter: var(--press-luz); }
 .lib-item:has(:is(.row-mais, .row-slot, .row-cancel):active),
-.lib-item:has(:is(.hymn-gaveta, .folder-itens, .row-acoes) :active),
+/* E A GAVETA DE ESTILO DE UMA MENSAGEM ENTROU NA LISTA (v1.9.5), que é onde ela
+   devia ter nascido — a regra é a mesma das três acima, e o preço de esquecê-la
+   é o relato do operador: *"ao tocar por exemplo em 'enorme' a pílula de opção
+   de tamanho, todo o card do item pisca na cor do feedback do toque"*. Ela é
+   filha da `.lib-item` desde a v1.9.3 e `:active` casa em ANCESTRAL, então o
+   dedo na pílula acendia o cartão inteiro — MEDIDO, `brightness(1.35)` na
+   `.lib-item` ao mesmo tempo em que a pílula já respondia com a dela mais o
+   recuo. Duas respostas ao mesmo gesto, e a segunda cobre trezentos pixels. */
+.lib-item:has(:is(.hymn-gaveta, .folder-itens, .row-acoes, .msg-estilo) :active),
 .lib-item:has(.lib-item:active) { transform: none; filter: none; }
 /* (A guarda das duas BARRAS saiu na v1.7.4 com elas: quem responde ao toque numa
    tampa é o BLOCO, e a guarda dele — que é a mesma regra, um nível acima — mora

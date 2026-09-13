@@ -554,6 +554,58 @@ try {
       + 'relato, e a preview é a ilustração do que a congregação vê', await pPv);
   }
 
+  // ======================================================================
+  // E · O FEEDBACK DE TOQUE NÃO VAZA PARA O CARTÃO (v1.9.6)
+  // ======================================================================
+  // Relato do operador: *"o que pisca é durante a seleção de configurações da
+  // fonte da mensagem. Ao tocar por exemplo em 'enorme' a pílula de opção de
+  // tamanho, todo o card do item pisca na cor do feedback do toque.
+  // Provavelmente é um erro de escopo do efeito de feedback."* Era exatamente
+  // isso: `:active` casa também nos ANCESTRAIS, a gaveta é filha da `.lib-item`
+  // desde a v1.9.3, e a `.msg-estilo` nunca entrou na lista de guardas —
+  // MEDIDO, `brightness(1.35)` no cartão inteiro ao mesmo tempo em que a pílula
+  // já respondia com a dela mais o recuo. Duas respostas ao mesmo dedo, e a
+  // segunda cobre trezentos pixels.
+  //
+  // SÃO TRÊS CÉLULAS, e as duas últimas são o que impede a guarda de virar um
+  // `filter: none` que apaga o feedback legítimo do cartão.
+  {
+    const pressionar = async (sel) => {
+      const cx = await pg.evaluate((s2) => {
+        const e = document.querySelector(s2); if (!e) return null;
+        const r = e.getBoundingClientRect();
+        return { x: r.x + Math.min(10, r.width / 2), y: r.y + r.height / 2 };
+      }, sel);
+      if (!cx) return null;
+      await pg.mouse.move(cx.x, cx.y);
+      await pg.mouse.down();
+      await pg.waitForTimeout(60);
+      const r = await pg.evaluate(() => {
+        const g = (s3) => { const e = document.querySelector(s3); if (!e) return null;
+          const cs = getComputedStyle(e); return { filter: cs.filter, transform: cs.transform }; };
+        return { cartao: g('.msg-list .lib-item'), chip: g('.msg-estilo-linha:first-child .misc-chip:last-child') };
+      });
+      await pg.mouse.up();
+      await pg.waitForTimeout(120);
+      return r;
+    };
+
+    const naPilula = await pressionar('.msg-estilo-linha:first-child .misc-chip:last-child');
+    checar(naPilula && naPilula.cartao.filter === 'none',
+      'E · o dedo na PÍLULA de estilo não acende o cartão inteiro — o feedback é '
+      + 'de quem recebeu o toque, e um ancestral não responde por um filho',
+      naPilula && naPilula.cartao.filter);
+    checar(naPilula && naPilula.chip.filter !== 'none' && naPilula.chip.transform !== 'none',
+      'E · e a PÍLULA responde, com luz E recuo: sem esta metade, uma guarda que '
+      + 'apagasse os dois passaria como conserto', naPilula && JSON.stringify(naPilula.chip));
+
+    const noCorpo = await pressionar('.msg-list .lib-item > .row .row-name');
+    checar(noCorpo && noCorpo.cartao.filter !== 'none',
+      'E · mas o dedo no CORPO da linha continua acendendo o cartão — é o toque '
+      + 'que projeta, e a guarda não pode apagar o feedback de quem de fato o recebe',
+      noCorpo && noCorpo.cartao.filter);
+  }
+
   checar(erros.length === 0, 'nenhum erro de página nas duas metades', erros.slice(0, 4));
 } finally {
   await navegador.close();
