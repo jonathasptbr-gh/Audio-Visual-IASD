@@ -7921,7 +7921,16 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    mínimos automáticos vencem (as larguras saem desiguais, cada rótulo inteiro)
    e, apertando mais, o `flex-wrap` empilha. Os três degraus são visíveis e
    nenhum deles corta uma palavra. */
-.footer-diag > .diag-btn { flex: 1 1 0; }
+/* E O RECUO DELES É MENOR QUE O DOS OUTROS `.diag-btn` (v1.8.100). O rótulo do
+   primeiro é a VERSÃO, e é o único desta faixa que CRESCE: ao passar de
+   "v1.8.99" para "v1.8.100" ele ganhou um caractere e a faixa quebrou em DUAS
+   linhas — MEDIDO a 360×1,25×, os mínimos somam 318px mais 10 de vão contra 324
+   de caixa, e a 430×1,5× a conta fecha por 0,2px. Os dois degraus que a v1.8.65
+   escolheu como célula eram exatamente esses.
+   `--sp-2` no lugar de `--sp-3` devolve 12px a 1,25× e 14,4 a 1,5× — folga para
+   o próximo dígito, e não para este. A alternativa era afrouxar a asserção, que
+   é trocar a régua para caber o defeito. */
+.footer-diag > .diag-btn { flex: 1 1 0; padding-inline: var(--sp-2); }
 /* O NÚMERO EM NEGRITO (v1.8.65), a pedido do operador: *"pode dar um destaque
    em negrito para o número da versão"*. `--fw-forte` é o peso que esta folha
    nomeia como *"nome de item, botão"*, e é o que ele virou.

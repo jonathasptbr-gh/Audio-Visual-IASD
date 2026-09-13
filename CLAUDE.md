@@ -2749,7 +2749,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.99 · APK v1.8.91** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.8.100 · APK v1.8.91** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web.
 
@@ -2785,7 +2785,7 @@ método da ponte existe, e não há guarda de versão no lado web.
 > `notas.json`; aqui houve uma quinta, a chave da faxina (`faxina:online-1899`),
 > que carrega o número no nome.
 
-> **A v1.8.98 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
+> **A v1.8.100 NÃO declara `shellTag`, e a v1.8.91 declarou — a diferença é o
 > ACOPLAMENTO, que é a pergunta que aquele campo faz.** Aquela mudou `java/` (o
 > cancelamento da exportação saiu da main thread) e nada em `java/` chega por
 > OTA, então o bundle ficou SEGURO até a Release sair — **e ela saiu**: o APK
