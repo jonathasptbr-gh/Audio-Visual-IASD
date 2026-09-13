@@ -17402,8 +17402,28 @@ function guessMediaType(filename) {
 //
 // UMA VEZ POR APARELHO, e a marca é o que impede a varredura de rodar em toda
 // abertura pelo resto da vida do app. Ela é barata de manter e cara de tirar: a
-// alternativa (apagar sem marcar) custa duas transações de IndexedDB em cada
+// alternativa (apagar sem marcar) custa três transações de IndexedDB em cada
 // carga, para sempre, achando zero.
+//
+// ===== E ELA NÃO BLOQUEIA A ABERTURA — MEDIDO =====
+//
+// A primeira escrita a colocava no COMEÇO do `loadCollections`, com `await`, por
+// um motivo que não se sustenta: *"as chaves não podem entrar na memória desta
+// sessão, senão seriam regravadas"*. **Elas não entram.** Quem lê `coll:<id>` é
+// o laço sobre `allCollections()`, e com a coletânea removida não há `coll` de
+// `online-` nenhum ali — nada neste app volta a tocar naquelas chaves. A ordem
+// era uma precaução contra um caminho que não existe.
+//
+// E ela custava: quatro transações de IndexedDB ANTES do primeiro desenho da
+// Biblioteca, na abertura de todo aparelho que ainda não fez a faxina. MEDIDO no
+// `boot-nativo.test.mjs` sob carga 3× (o mesmo regime do CI): **2 reprovações em
+// 6 com o `await` no começo, 0 em 6 sem ele** — o oráculo espera o desenho por
+// prazo FIXO depois do `load()`, e o atraso o empurrava para fora da janela. O
+// CI reprovou por isso na v1.8.99, e a causa é esta, não o oráculo.
+//
+// Fire-and-forget no FIM, como as outras rotinas de acervo: nada na tela espera
+// por ela, e um aparelho que feche o app antes de ela terminar a refaz na
+// abertura seguinte — a marca só é gravada depois de apagar.
 const ONLINE_FAXINA_KEY = 'faxina:online-1899';
 
 async function faxinaDaColetaneaOnline() {
@@ -17422,10 +17442,6 @@ async function faxinaDaColetaneaOnline() {
 }
 
 async function loadCollections() {
-  // ANTES de ler o `collState`: as chaves da coletânea removida não podem entrar
-  // na memória desta sessão, senão elas seriam regravadas pelo `setState` de
-  // qualquer rotina que varra `allCollections()`.
-  await faxinaDaColetaneaOnline();
   const legacy = await AVDB.getState('hymnal2022');
   const has2022 = await AVDB.getState('coll:' + HYMNAL_2022_ID);
   if (legacy && !has2022) await AVDB.setState('coll:' + HYMNAL_2022_ID, legacy);
@@ -17443,6 +17459,9 @@ async function loadCollections() {
   cols.forEach((c, i) => { collState[c.id] = states[i] || { indexSyncedAt: 0, songs: [] }; });
   await carregarPesos();
   await loadLyricStore();
+  // A FAXINA POR ÚLTIMO E SEM `await` — ver o KDoc dela. Ela não pode atrasar o
+  // primeiro desenho da Biblioteca, e nada nesta função depende do que ela faz.
+  faxinaDaColetaneaOnline();
 }
 
 // Descobre os álbuns disponíveis no banco (pt_categories) e persiste a

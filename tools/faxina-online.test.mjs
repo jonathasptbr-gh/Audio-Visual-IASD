@@ -187,14 +187,29 @@ checar(sobrou.join('|') === DEVEM_FICAR.sort().join('|'),
   checar(!/fileDel|opfsDelete|opfsRemove|mediaDel|listRemove/.test(corpo),
     'e ela NÃO toca em mídia: só cache de índice sai, nunca um arquivo baixado'
     + ' (que pode estar no Cronograma ou nos Favoritos)', corpo);
-  // A CHAMADA, e o LUGAR dela: antes de o `collState` ser lido para a memória.
-  const iChamada = src.indexOf('await faxinaDaColetaneaOnline();');
+  // ===== ELA NÃO PODE ATRASAR A ABERTURA — e esta é a asserção que o CI comprou =====
+  //
+  // A primeira escrita a chamava com `await` no COMEÇO do `loadCollections`, por
+  // uma precaução contra um caminho que não existe (ver o KDoc dela). MEDIDO sob
+  // carga 3×, o mesmo regime do CI: **2 reprovações em 6 no `boot-nativo` com o
+  // `await`, 0 em 6 sem ele** — quatro transações de IndexedDB antes do primeiro
+  // desenho da Biblioteca empurram o render para fora da janela de prazo FIXO
+  // que aquele oráculo usa. O CI reprovou por isso, e a causa era esta.
+  const iChamada = src.indexOf('  faxinaDaColetaneaOnline();');
   const iLoad = src.indexOf('async function loadCollections()');
-  const iEstados = src.indexOf("AVDB.getState('coll:' + c.id)");
-  checar(iChamada > iLoad && iChamada < iEstados,
-    'ela roda DENTRO do `loadCollections` e ANTES da leitura dos `coll:<id>` — depois,'
-    + ' as chaves entrariam na memória desta sessão e seriam regravadas',
-    { chamada: iChamada, load: iLoad, estados: iEstados });
+  checar(iChamada > iLoad, 'a faxina é CHAMADA dentro do `loadCollections`',
+    { chamada: iChamada, load: iLoad });
+  checar(src.indexOf('await faxinaDaColetaneaOnline()') < 0,
+    'e NUNCA com `await`: ela é fire-and-forget, como as outras rotinas de acervo —'
+    + ' nada na tela espera por ela, e no caminho crítico ela atrasa o primeiro desenho'
+    + ' da Biblioteca (MEDIDO: 2 reprovações em 6 no boot-nativo sob carga 3×)');
+  // E ela é a ÚLTIMA linha: antes do `loadLyricStore` ela voltaria ao caminho
+  // que a abertura espera.
+  const iLyric = src.indexOf('await loadLyricStore();');
+  checar(iChamada > iLyric,
+    'e ela vem DEPOIS de tudo o que a abertura precisa — no meio, o `await` do que vem'
+    + ' a seguir a traria de volta para o caminho crítico',
+    { chamada: iChamada, lyric: iLyric });
 }
 
 console.log('');
