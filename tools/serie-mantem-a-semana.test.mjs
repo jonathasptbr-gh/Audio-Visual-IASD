@@ -430,7 +430,7 @@ try {
     document.body.appendChild(alvo);
     const abrir = async (s) => {
       songMenuFor = null;
-      const r = videoComoYoutube(coll, s);
+      const r = serieComoYoutube(coll, s);
       r.semQualidade = !!(await serieArquivoDoEpisodio(s));
       limparFolha(alvo);
       openYtMenu(r, alvo);
