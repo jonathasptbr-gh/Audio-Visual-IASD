@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.9",
+    "itens": [
+      "Novo número de versão: a base web passa a 1.9, e sai um aplicativo novo com o mesmo número.",
+      "Atualize o aplicativo quando o aviso aparecer — a parte de dentro já chega sozinha."
+    ]
+  },
+  {
     "versao": "1.8.100",
     "itens": [
       "Playlist automática: a lista de resultados chega de 100 em 100, e mais 100 quando você rola até o fim.",
