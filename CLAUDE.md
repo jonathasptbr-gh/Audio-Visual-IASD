@@ -2107,7 +2107,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **87** e os de Node puro **21** — juntos, os 108. MEDIDO com
+Os de Chromium são **88** e os de Node puro **21** — juntos, os 109. MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -2158,7 +2158,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 108 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 109 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2750,11 +2750,11 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.9.3 · APK v1.9** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.9.4 · APK v1.9** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.9.3 NÃO declara `shellTag`, como as duas anteriores — a diferença com
+> **A v1.9.4 NÃO declara `shellTag`, como as três anteriores — a diferença com
 > a v1.9 é o que o campo pergunta.** Aquela existia para DISPARAR uma Release (pedido por
 > extenso), e sem o campo o bundle sairia sozinho, deixando a frota com um APK
 > v1.8.91 embaixo de uma base v1.9. **Essa Release SAIU**: o `v1.9` está

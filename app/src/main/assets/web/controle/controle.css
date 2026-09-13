@@ -3761,6 +3761,10 @@ main {
    está com o menu no ar quando a lista rola. */
 .row-mais { color: var(--muted); }
 .acoes-abertas .row-mais { color: var(--accent); }
+/* O `⋮` NO ESTADO "GAVETA DE ESTILO ABERTA" (v1.9.4) — ver `portaDeEstilo`.
+   O par é o de LIGADO do app (`--btn-accent` + `--accent`), o mesmo do chip de
+   estilo que ele substitui: é a MESMA gaveta, dita no mesmo idioma. */
+.row-mais.on { background: var(--btn-accent); color: var(--accent); }
 
 /* A caixa da miniatura é o FUNDO DO APP dentro do cartão: um buraco na
    elevação, que é o que faz a capa (quando existe) parecer colada por cima.
@@ -6697,6 +6701,12 @@ main {
    `flex: 1` — a regra existe para NOMEAR o caso, e porque tirar o rótulo tira
    junto o nome acessível do campo (quem o devolve é o `aria-label`, no JS). */
 .misc-row--legenda { gap: 0; }
+/* O TEXTO DA LEGENDA É CENTRALIZADO (v1.9.4), a pedido do operador. Ele vale
+   para o texto digitado E para a dica dentro da caixa — é a mesma linha, e a
+   dica descentrada sob um valor centrado saltaria a cada toque no campo.
+   ESCOPADO à legenda: os outros `.misc-text` são listas e faixas numéricas, que
+   se leem alinhadas à esquerda. */
+.misc-row--legenda .misc-text { text-align: center; }
 .misc-row--save { flex-wrap: wrap; }
 .misc-save-btns { display: flex; gap: var(--sp-3); margin-left: auto; }
 .misc-num, .misc-text {

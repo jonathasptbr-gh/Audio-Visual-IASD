@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.3';
+const WEB_VERSION = '1.9.4';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3759,7 +3759,8 @@ function cenaNoAr() {
 
 function pushNowPlaying() {
   if (!window.__NATIVE__) return;
-  const who = slideTarget();
+  // O eixo que sai do painel — ver `eixoForaDoPainel` (v1.9.4).
+  const who = eixoForaDoPainel();
   // CENA é tudo que está no telão, não só mídia. Cronômetro e sorteio ficavam
   // de fora: `renderNowPlaying` já os trata como cena (escreve "Cronômetro" no
   // título e chama esta função), mas aqui `active` dava false e o Kotlin
@@ -6558,12 +6559,11 @@ function renderFoot() {
   // é um motor que desloca o primário sob o dedo (a regra da v1.8.61). Apagado,
   // a faixa tem uma geometria só em todos os estados que o operador alcança.
   if (miscTool === 'draw') {
-    const restam = drawRemaining();
     const go = document.createElement('button');
     go.type = 'button'; go.id = 'drawGoBtn'; go.className = 'chrono-btn primary';
     go.setAttribute('aria-label', draw.used.length || draw.value ? 'Sortear de novo' : 'Sortear');
     go.innerHTML = icoSprite('icoSorteio');
-    go.disabled = restam <= 0;
+    go.disabled = drawGoApagado();
     go.title = go.disabled
       ? (draw.kind === 'text' && !draw.pool.length
         ? 'Escreva as opções antes de sortear'
@@ -6574,12 +6574,21 @@ function renderFoot() {
     rst.type = 'button'; rst.id = 'drawResetBtn'; rst.className = 'chrono-btn';
     rst.setAttribute('aria-label', 'Reiniciar');
     rst.innerHTML = icoSprite('icoZerar');
-    rst.disabled = !draw.used.length && !draw.value;
+    rst.disabled = drawResetApagado();
     rst.title = rst.disabled ? 'Nada sorteado ainda' : 'Reiniciar';
     rst.addEventListener('click', drawReset);
     esq.appendChild(go); esq.appendChild(rst);
   }
   if (esq.children.length) row.appendChild(esq);
+  // ===== O PAR AO LADO DA PREVIEW É O TERCEIRO CONSUMIDOR DAS MESMAS RÉGUAS =====
+  // (v1.9.4) Com o cronômetro ou o sorteio no ar, os ⏮/⏭ passaram a ser o
+  // zerar/iniciar/sortear — as MESMAS ações dos dois quadrados que este rodapé
+  // desenha, e apagadas pelas MESMAS funções (`chronoRunApagado`,
+  // `drawGoApagado`, `drawResetApagado`). Todo mutador dos dois já chama este
+  // `renderFoot`, então é aqui que o pulso não tem como ser esquecido — nenhum
+  // deles chamava `renderSlideNav`, e sem esta linha o ▶ do par continuaria ▶
+  // depois de iniciar a contagem (MEDIDO: zero redesenhos do eixo).
+  renderEixoDoPar();
 
   // ---- MENSAGENS: O PRIMÁRIO É "+ NOVA MENSAGEM" (v1.9.2) ----
   // Pedido do operador: *"no rodapé deve ficar o botão nova mensagem."* Ele era
@@ -6842,12 +6851,24 @@ function renderChronoReadout() {
 // SÓ O BOTÃO DE INICIAR, e é isso que a roleta precisa: escrever a duração no
 // meio de um gesto não pode redesenhar o painel (o scroller sairia do
 // documento), mas o ▶ tem de acender e apagar com o 0:00.
+// A RÉGUA DO INICIAR/PAUSAR, com dono único (v1.9.4): ela responde ao `#chronoRun`
+// do rodapé E ao botão da direita do par ao lado da preview, que passou a fazer
+// a mesma coisa. Duas escritas divergiriam calado — um aceso e outro apagado
+// para a mesma ação, a dez centímetros de distância.
+function chronoRunApagado() {
+  return chrono.mode === 'timer' && !chrono.running && chrono.durationMs <= 0;
+}
+
 function atualizarChronoRun() {
   const run = document.getElementById('chronoRun');
   if (!run) return;
-  const vazio = chrono.mode === 'timer' && !chrono.running && chrono.durationMs <= 0;
+  const vazio = chronoRunApagado();
   run.disabled = vazio;
   run.title = vazio ? 'Escolha um tempo nas roletas' : (chrono.running ? 'Pausar' : 'Iniciar');
+  // O par ao lado da preview lê a MESMA régua, e o `chronoSetDuration` chega
+  // aqui SEM passar pelo `renderChrono` (a roleta está sob o dedo) — sem esta
+  // linha, escolher um tempo acenderia o ▶ do rodapé e deixaria o do par apagado.
+  renderEixoDoPar();
 }
 
 function chronoPanelTick() { renderChronoReadout(); }
@@ -7627,6 +7648,12 @@ function doDraw() {
   renderFoot();
 }
 
+// AS DUAS RÉGUAS DO SORTEIO, com dono único (v1.9.4) — ver `chronoRunApagado`:
+// elas respondem ao `#drawGoBtn`/`#drawResetBtn` do rodapé E ao par ao lado da
+// preview, que faz a mesma coisa quando o sorteio está no ar.
+function drawGoApagado() { return drawRemaining() <= 0; }
+function drawResetApagado() { return !draw.used.length && !draw.value; }
+
 function drawReset() {
   draw.used = [];
   draw.value = null;
@@ -7945,7 +7972,7 @@ function gavetaDeEstilo(m) {
       b.className = 'misc-chip' + (atual[eixo] === o.id ? ' active' : '');
       b.textContent = o.nome;
       b.setAttribute('aria-pressed', atual[eixo] === o.id ? 'true' : 'false');
-      b.addEventListener('click', () => escolherEstiloDaMensagem(m, eixo, o.id));
+      b.addEventListener('click', () => escolherEstiloDaMensagem(m, eixo, o.id, opcs));
       opcs.appendChild(b);
     });
     linha.append(lab, opcs);
@@ -7954,17 +7981,51 @@ function gavetaDeEstilo(m) {
   return g;
 }
 
-async function escolherEstiloDaMensagem(m, eixo, id) {
+/**
+ * REENVIA O CARTÃO SE A MENSAGEM ESTIVER NO AR — o irmão do `pushChrono`, e com
+ * a MESMA armadilha (v1.9.4): a `view` VIGENTE, nunca `'visual'` literal. Isto é
+ * REENVIO, não projeção; com o telão coberto um literal aqui descobriria a
+ * mídia que o operador acabou de cobrir.
+ */
+function pushMessage(m) {
+  if (!(msgProjecting() && messages[msgSession.idx] === m)) return;
+  cmd({ type: 'text', mode: 'message', main: m.text, sub: '',
+    estilo: m.estilo || null, view });
+}
+
+/**
+ * ===== A GAVETA DE ESTILO NÃO PISCA MAIS (v1.9.4) =====
+ *
+ * Relato do operador: *"verifique um glitch visual de piscar o card das opções
+ * de fonte das mensagens"*.
+ *
+ * Era isto: escolher um chip com a mensagem NO AR chamava `projectMessage`, que
+ * termina em `refreshDiversos()` — o painel inteiro esvaziado e remontado, a
+ * gaveta junto. Fora do ar não era melhor: `renderMsg()` refaz a lista inteira.
+ * Em qualquer dos dois a gaveta saía do documento e voltava no mesmo quadro, e
+ * o que se vê é o cartão piscando debaixo do dedo.
+ *
+ * **O CONSERTO É NÃO REDESENHAR NADA.** O que muda na tela é UM chip (a linha
+ * do eixo tocado), e o que muda no telão é o comando — que agora sai por
+ * `pushMessage`, sem passar pela projeção. O `estilo` já viajava no comando
+ * desde a v1.9.1, então não há um segundo caminho a manter.
+ */
+async function escolherEstiloDaMensagem(m, eixo, id, opcs) {
   const e = Object.assign({}, createStage.CARTAO_PADRAO, m.estilo || {});
   if (e[eixo] === id) return;
   e[eixo] = id;
   m.estilo = e;
+  // O chip ACENDE ANTES do `await`: gravar no IndexedDB leva alguns quadros, e
+  // um toque que só responde depois disso se lê como toque perdido.
+  if (opcs) {
+    Array.from(opcs.children).forEach((b, i) => {
+      const on = createStage.CARTAO_ESTILO[eixo][i].id === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  pushMessage(m);
   await saveMessages();
-  // No ar, reprojeta — é isso que leva o estilo novo ao telão e às telas da
-  // rede. `projectMessage` já remonta o painel (`refreshDiversos`), e a gaveta
-  // continua aberta porque quem a guarda é o `msgEstiloAberto`, não o DOM.
-  if (msgProjecting() && messages[msgSession.idx] === m) projectMessage(msgSession.idx);
-  else renderMsg();
 }
 
 /**
@@ -7997,6 +8058,25 @@ async function escolherEstiloDaMensagem(m, eixo, id) {
  * atrás de um toque a mais. O `.no-ar` do `li` é o que troca o ícone pelo ⏹ —
  * CSS, não JS.
  */
+// O `⋮` no estado "gaveta de estilo aberta" — mesma classe, logo mesma coluna e
+// mesma caixa; o que muda é o desenho, o rótulo e o que o toque faz. Ver a
+// chamada em `renderMsg`.
+function portaDeEstilo() {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'row-btn row-mais on';
+  b.title = 'Fechar tamanho, fonte e alinhamento';
+  b.setAttribute('aria-label', b.title);
+  b.setAttribute('aria-expanded', 'true');
+  b.innerHTML = icoSprite('icoEstilo');
+  b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    msgEstiloAberto = null;
+    renderMsg();
+  });
+  return b;
+}
+
 function renderMsg() {
   const host = document.getElementById('msgWrap');
   if (!host) return;
@@ -8137,7 +8217,23 @@ function renderMsg() {
       // A ORDEM DOS DESTINOS é a da tabela `DESTINOS` (Cronograma, favoritos), e
       // o excluir fecha a fileira — é o que as outras listas fazem.
       const [caixa, mais] = montarAcoesDaLinha(li, [est, add, fav, del], 'msg:' + m.id);
-      row.append(thumb, nome, caixa, mais);
+      // ===== COM A GAVETA ABERTA, O `⋮` É O BOTÃO DE ESTILO (v1.9.4) =====
+      //
+      // Relato do operador: *"verifique também para que o botão que abre as
+      // opções da mensagem, se transforme no botão de fonte quando as opções da
+      // fonte estiverem abertas, para poder tocar nele e fechar a aba das
+      // opções. Hoje a aba abre, e as opções fecham, removendo da tela um método
+      // de fechar a janela de opções de fonte."*
+      //
+      // Era exato: abrir a gaveta FECHA a faixa de ações (elas se cobririam), e
+      // o botão que a abriu mora dentro dessa faixa — a única saída virava tocar
+      // no `⋮` para reabrir a faixa e só então tocar no estilo. A coluna do `⋮`
+      // é o único alvo que fica à vista, então é ela que carrega a volta.
+      //
+      // O `mais` devolvido é DESCARTADO de propósito: os outros três botões
+      // continuam a um toque (fechar a gaveta devolve o `⋮`), e um segundo
+      // alvo para "fechar" não caberia na linha.
+      row.append(thumb, nome, caixa, msgEstiloAberto === m.id ? portaDeEstilo() : mais);
       li.appendChild(row);
       if (msgEstiloAberto === m.id) li.appendChild(gavetaDeEstilo(m));
       list.appendChild(li);
@@ -12901,7 +12997,28 @@ function slideTarget() {
   // tinha nenhum: `currentItem` é o vídeo, que não é deck e não tem letra, e o
   // par de botões nascia desabilitado — o operador ficava sem como pular.
   if (deckVideoVolta) return 'deck';
-  if (chronoProjecting() || drawProjecting() || visualSobreProjetando()) return null;
+  if (visualSobreProjetando()) return null;
+  // ===== CRONÔMETRO E SORTEIO SÃO ALVOS DE AÇÃO (v1.9.4) =====
+  //
+  // Pedido do operador: *"para o sorteio, cronômetro ou timer, quando eles
+  // estiverem sendo exibidos no telão, seja pela aba de ferramentas ou direto
+  // pelo cronograma, faça com que os botões de próximo slide e slide anterior,
+  // alterem seus ícones e funcionem como: esquerdo, resetar e direito, ação de
+  // playpause/sortear"*.
+  //
+  // A guarda acima era TRIPLA e calava o par para os três; ela foi DIVIDIDA
+  // porque só o terço da imagem sobreposta continua valendo — ali o cartão é
+  // opaco e não tem para onde ir, e o `imagem-sobre-audio.test.mjs` cobra isso.
+  // O cronômetro e o sorteio TÊM o que acionar, e a ferramenta que os aciona
+  // pode estar fechada: com a cena vinda do Cronograma o rodapé da folha nem
+  // foi montado, e o operador ficava sem nenhum botão na tela.
+  //
+  // O RELÓGIO CONTINUA SEM EIXO, e é a única exceção: ele não se pausa nem se
+  // zera (o rodapé dele traz os dois seletores de formato no lugar do
+  // transporte), e um par aceso ali seria o botão inerte que a v1.8.50 existe
+  // para não deixar nascer.
+  if (chronoProjecting()) return chrono.mode === 'clock' ? null : 'chrono';
+  if (drawProjecting()) return 'draw';
   if (lyricProjecting()) return 'songlyrics';
   if (msgSession && msgSession.projecting) return 'message';
   if (bibleSession && bibleSession.projecting) return 'bible';
@@ -12939,6 +13056,17 @@ function stepSlide(delta) {
   if (who === 'songlyrics') { lyricStep(delta); return; }
   if (who === 'message') { msgStep(delta); return; }
   if (who === 'bible') { bibleStep(delta); return; }
+  // O par de AÇÃO (v1.9.4): esquerdo ZERA, direito INICIA/PAUSA ou SORTEIA. As
+  // cinco funções abaixo não dependem da folha de Ferramentas estar aberta —
+  // MEDIDO: com ela fechada nenhuma lança, cada uma emite o comando ao telão, e
+  // os `render*` que tocam nós do painel já voltam cedo sem eles.
+  if (who === 'chrono') {
+    if (delta < 0) chronoReset();
+    else if (chrono.running) chronoPause();
+    else chronoStart();
+    return;
+  }
+  if (who === 'draw') { if (delta < 0) drawReset(); else doDraw(); return; }
   if (who !== 'lyrics') return;
   const lyrics = currentItem.lyrics;
   const idx = findSlideIndex(lyrics, authoritativeTime());
@@ -13040,8 +13168,18 @@ function renderTransporteHabilitado() {
   // bloco acima existe para não deixar nascer.
   if (playPauseEl) {
     const semNada = !currentId && !midiaNoAr && !cenaDeRoteiroNoAr();
-    playPauseEl.disabled = semNada;
-    playPauseEl.title = semNada ? 'Não há mídia escolhida' : 'Play/Pause';
+    // ===== E COM UM CARTÃO NO AR SEM ÁUDIO POR BAIXO (v1.9.4) =====
+    // A pergunta é a MESMA que o handler faz na primeira linha dele
+    // (`pvTextActive && !preview.getCurrent()` — "texto manual em cena sem áudio
+    // de fundo"), e ali ela já produz um `return`: o botão sempre foi aceso e
+    // inerte nesse estado. O que mudou é a vizinhança — o botão da direita do
+    // par passou a ser o play/pause DO CRONÔMETRO, e dois play/pause a dez
+    // centímetros um do outro, um que age e um que não, é o pior desfecho
+    // possível da v1.8.50.
+    const inerte = pvTextActive && !preview.getCurrent();
+    playPauseEl.disabled = semNada || inerte;
+    playPauseEl.title = semNada ? 'Não há mídia escolhida'
+      : (inerte ? 'Não há mídia para pausar' : 'Play/Pause');
   }
   // ===== E A REPETIÇÃO APAGA SEM NADA PARA REPETIR (v1.8.87) =====
   // Quem escreve o `disabled` dela é `renderRepeat` (o dono do `title`, que
@@ -13052,6 +13190,23 @@ function renderTransporteHabilitado() {
 
 // Habilita/desabilita os botões de estrofe conforme o item atual tem letra
 // sincronizada e a posição dentro dela (desabilita no primeiro/último slide).
+/**
+ * SÓ O PAR AO LADO DA PREVIEW (v1.9.4) — o `disabled` e o desenho, nada mais.
+ *
+ * `renderSlideNav` é o pulso INTEIRO (leitura auxiliar, Modo Fácil, transporte)
+ * e tem dezenas de chamadores; quem muda o estado do cronômetro ou do sorteio
+ * precisa só destes dois, e um desses caminhos (`chronoSetDuration`) roda com o
+ * dedo na roleta — o pulso inteiro ali reconstruiria o que não mudou.
+ *
+ * A ORDEM É A DE `renderSlideNav`, e não é livre: o desenho lê o `disabled` que
+ * os limites acabaram de escrever.
+ */
+function renderEixoDoPar() {
+  const who = slideTarget();
+  applySlideLimits(who);
+  renderTransportAxis(who);
+}
+
 function renderSlideNav() {
   // Mesmo pulso da navegação de estrofe: a leitura auxiliar (popup da letra /
   // do capítulo) e a zona de letra do modo simplificado acompanham o que está
@@ -13138,6 +13293,23 @@ function applySlideLimits(who) {
     slideNextBtnEl.disabled = !d || pag >= d.pages.length - 1;
     return;
   }
+  // ===== O PAR DE AÇÃO LÊ A MESMA RÉGUA DO RODAPÉ (v1.9.4) =====
+  // Não há segunda conta: `chronoRunApagado`, `drawGoApagado` e
+  // `drawResetApagado` são as MESMAS funções que apagam `#chronoRun`,
+  // `#drawGoBtn` e `#drawResetBtn` na folha. Reescrevê-las aqui faria os dois
+  // pares divergirem no primeiro ajuste — e divergirem CALADOS, com um botão
+  // aceso de um lado da tela e apagado do outro para a mesma ação.
+  if (who === 'chrono') {
+    // O ZERAR do rodapé nunca apaga (`#chronoZero`), e este o espelha.
+    slidePrevBtnEl.disabled = false;
+    slideNextBtnEl.disabled = chronoRunApagado();
+    return;
+  }
+  if (who === 'draw') {
+    slidePrevBtnEl.disabled = drawResetApagado();
+    slideNextBtnEl.disabled = drawGoApagado();
+    return;
+  }
   if (who !== 'lyrics') {
     slidePrevBtnEl.disabled = true;
     slideNextBtnEl.disabled = true;
@@ -13156,12 +13328,19 @@ function applySlideLimits(who) {
 // há para onde ir" é o `disabled` que `applySlideLimits` escreve — o esmaecido
 // de um botão desabilitado, que é a leitura de sempre.
 //
-// AS TRÊS TABELAS COBREM TODOS OS ALVOS DE `slideTarget()`, e isso não é
-// zelo: elas são indexadas pelo alvo, e um alvo que falte não dá erro nenhum —
-// vira `undefined` e o `title` do botão passa a dizer literalmente
-// "undefined". Faltavam justamente os dois mais novos, `deck` (v5.97) e
+// AS TRÊS TABELAS COBREM TODO ALVO QUE NAVEGA, e isso não é zelo: elas são
+// indexadas pelo alvo, e um alvo de navegação que falte cai no rótulo GENÉRICO
+// — o botão promete "Próximo slide" sobre uma cena que tem nome próprio, e
+// nada acusa. Faltavam justamente os dois mais novos, `deck` (v5.97) e
 // `songlyrics` — e o da apresentação é o que mais aparece, porque ali eles são
 // o único jeito de passar página.
+//
+// **`chrono` e `draw` NÃO ESTÃO AQUI, e é de propósito** (v1.9.4): eles não
+// navegam, ACIONAM. O par é assimétrico (zerar × iniciar/sortear) e não tem
+// substantivo comum, então quem responde por eles é o `EIXO_DE_ACAO` logo
+// abaixo — acrescentá-los a estas três seria uma segunda resposta para a mesma
+// pergunta, e a de cá é a que perde (o `desenho.rotulo` tem precedência em
+// `renderTransportAxis`), isto é, seria linha morta desde o primeiro dia.
 const SLIDE_AXIS_NAME = {
   lyrics: 'estrofe', songlyrics: 'estrofe', bible: 'versículo',
   message: 'mensagem', deck: 'página',
@@ -13174,16 +13353,81 @@ const SLIDE_AXIS_NEXT = {
   lyrics: 'Próxima estrofe', songlyrics: 'Próxima estrofe', bible: 'Próximo versículo',
   message: 'Próxima mensagem', deck: 'Próxima página',
 };
+// ===== OS DOIS ALVOS QUE TROCAM O DESENHO, E NÃO SÓ O RÓTULO (v1.9.4) =====
+//
+// `chrono` e `draw` não passam slide: eles ACIONAM a ferramenta no ar. Por isso
+// ficam FORA das três tabelas acima — elas devolvem o SUBSTANTIVO de um eixo de
+// navegação ("estrofe", "página"), e aqui não há substantivo que sirva: o par é
+// ASSIMÉTRICO (zerar × iniciar) e cada botão descreve uma ação diferente.
+//
+// A tabela é de FUNÇÕES porque as duas respostas dependem do estado do momento
+// (o ▶ vira ⏸ com a contagem correndo; o sortear vira "de novo" depois do
+// primeiro). Quem as chama é `renderTransportAxis`, no mesmo pulso do `disabled`.
+const EIXO_DE_ACAO = {
+  chrono: () => ({
+    prev: { sym: 'icoZerar', rotulo: 'Zerar a contagem' },
+    // O ícone é a AÇÃO, nunca o estado — a mesma regra do `#chronoRun`.
+    next: chrono.running
+      ? { glifo: ICON.pause, rotulo: 'Pausar a contagem' }
+      : { glifo: ICON.play, rotulo: 'Iniciar a contagem' },
+  }),
+  draw: () => ({
+    prev: { sym: 'icoZerar', rotulo: 'Reiniciar o sorteio' },
+    next: { sym: 'icoSorteio',
+      rotulo: (draw.used.length || draw.value) ? 'Sortear de novo' : 'Sortear' },
+  }),
+};
+
+/**
+ * O DESENHO DE UM DOS DOIS BOTÕES DO PAR.
+ *
+ * **A CAIXA FICA COM O CSS**, e é por isso que o `<svg>` sai do `icoSprite()`
+ * (sem `width`/`height` de atributo) e o glifo de um `msym()`: dentro de um
+ * `.ctl-btn` os dois seguem `--icon-md` — MEDIDO, 22px cada um, e os dois vão a
+ * 30px quando o token vai. Recriar o `<svg>` com atributo devolveria a
+ * divergência MUDA que a v1.8.68 mediu.
+ *
+ * **E ELE SÓ REPINTA QUANDO A MARCA MUDA.** `renderTransportAxis` roda no pulso
+ * do `renderSlideNav`, que o `timeupdate` da preview dispara a ~4 Hz: reescrever
+ * o nó a cada passada trocaria o desenho debaixo do dedo dezenas de vezes por
+ * minuto, por nada.
+ */
+function desenharBotaoDeEixo(btn, d) {
+  const padrao = btn === slidePrevBtnEl ? 'icoSlidePrev' : 'icoSlideNext';
+  const marca = d.sym ? 's:' + d.sym : (d.glifo ? 'g:' + d.glifo : 's:' + padrao);
+  if (btn.dataset.desenho === marca) return;
+  btn.dataset.desenho = marca;
+  if (d.glifo) { btn.innerHTML = ''; btn.appendChild(msym(d.glifo)); }
+  else btn.innerHTML = icoSprite(d.sym || padrao);
+}
+
 // O rótulo dos dois botões de slide. Sem alvo eles ficam com o nome genérico —
 // e desabilitados, porque `applySlideLimits` já respondeu que não há para onde
 // ir; um nome específico ali prometeria uma cena que não está no ar.
 function renderTransportAxis(who) {
-  const par = [[slidePrevBtnEl, SLIDE_AXIS_PREV[who], 'Slide anterior'],
-    [slideNextBtnEl, SLIDE_AXIS_NEXT[who], 'Próximo slide']];
-  for (const [btn, rotulo, generico] of par) {
-    btn.title = rotulo || generico;
+  const acao = EIXO_DE_ACAO[who] ? EIXO_DE_ACAO[who]() : null;
+  const par = [[slidePrevBtnEl, acao && acao.prev, SLIDE_AXIS_PREV[who], 'Slide anterior'],
+    [slideNextBtnEl, acao && acao.next, SLIDE_AXIS_NEXT[who], 'Próximo slide']];
+  for (const [btn, desenho, rotulo, generico] of par) {
+    desenharBotaoDeEixo(btn, desenho || {});
+    btn.title = (desenho && desenho.rotulo) || rotulo || generico;
     btn.setAttribute('aria-label', btn.title);
   }
+}
+
+// ===== O PAR DE AÇÃO É DO PAINEL, E DE MAIS NINGUÉM (v1.9.4) =====
+//
+// Três superfícies roteiam pelo eixo: a coluna da TELA CHEIA e os ⏮/⏭ da
+// NOTIFICAÇÃO (`if (slideTarget()) slideBtn().click(); else step(dir)`) e o
+// rótulo que a notificação publica. Nas duas primeiras o desenho é OUTRO — a
+// seta com barra, copiada inline — e não acompanha esta troca; deixá-las ver
+// `chrono`/`draw` faria a tela de bloqueio ZERAR a contagem com o desenho de
+// "mídia anterior" na frente. Elas continuam no eixo de MÍDIA, que é o que
+// aquele desenho promete.
+const EIXO_SO_DO_PAINEL = ['chrono', 'draw'];
+function eixoForaDoPainel() {
+  const w = slideTarget();
+  return EIXO_SO_DO_PAINEL.includes(w) ? null : w;
 }
 
 // ===== Leitura auxiliar: letra completa / capítulo inteiro =====
@@ -33051,7 +33295,7 @@ function attachTransportStep(btn, dir) {
   ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => btn.addEventListener(ev, cancel));
   btn.addEventListener('click', () => {
     if (fired) { fired = false; return; }   // o toque longo já agiu
-    if (slideTarget()) slideBtn().click();
+    if (eixoForaDoPainel()) slideBtn().click();
     else step(dir);
   });
 }
@@ -34060,8 +34304,8 @@ if (window.__NATIVE__) {
       // Com letra, versículo ou mensagem em cena, ⏮/⏭ passam ESTROFE — é o que
       // o operador está fazendo naquele momento. Ver `slideMode` em
       // pushNowPlaying, que é o que rotula os botões na notificação.
-      case 'prev': (slideTarget() ? slidePrevBtnEl : prevEl).click(); break;
-      case 'next': (slideTarget() ? slideNextBtnEl : nextEl).click(); break;
+      case 'prev': (eixoForaDoPainel() ? slidePrevBtnEl : prevEl).click(); break;
+      case 'next': (eixoForaDoPainel() ? slideNextBtnEl : nextEl).click(); break;
       default: break;
     }
   });
