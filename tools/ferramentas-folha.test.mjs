@@ -1471,6 +1471,490 @@ try {
   }
 
 
+  // ── L. MENSAGENS: O PARAR, E A GAVETA DE ESTILO (v1.9.1) ────────────────
+  //
+  // Pedido do operador: *"na seção de mensagens, remova o botão de projetar no
+  // telão. Atualmente o item selecionado fica vermelho, mas não tem um botão de
+  // stop. Adicione esse botão."* E, na mesma rodada: *"crie um botão na gaveta
+  // de opções da mensagem, que permite configurar o tamanho da fonte, a fonte e
+  // o alinhamento daquela mensagem."*
+  //
+  // O `boot-nativo` já afirma a FAIXA de Mensagens no repouso — que não há
+  // primário, que o PARAR é quadrado e que ele nasce apagado com o `title`
+  // dizendo por quê. O que falta é o CICLO, que é onde ele de fato serve: com
+  // uma mensagem no ar ele acende, tocá-lo tira do ar, e ele volta a apagar.
+  //
+  // O que falha calado aqui, e por isso cada metade tem asserção:
+  //
+  //  - **o PARAR não acender.** `renderFoot` só roda de novo se alguém o
+  //    chamar: `projectMessage` chama `refreshDiversos`, e é essa linha —
+  //    invisível no diff de um lote futuro — que liga o botão. Sem ela a linha
+  //    fica vermelha e a faixa continua apagada, que é EXATAMENTE o estado que
+  //    o pedido do operador descreve como defeito.
+  //  - **duas gavetas abertas.** `msgEstiloAberto` é a única coisa que impede
+  //    isso, e num painel de várias mensagens duas gavetas abertas fazem o
+  //    operador ajustar a linha errada.
+  //  - **a gaveta MORRER no redesenho.** Escolher com a mensagem no ar
+  //    REPROJETA, e reprojetar remonta o painel inteiro: se a marca morasse no
+  //    DOM, a gaveta fecharia a cada chip tocado — o operador teria de reabri-la
+  //    para escolher o segundo eixo.
+  //  - **os chips serem uma CÓPIA da tabela do palco.** O rótulo que o operador
+  //    toca e o valor que o telão aplica têm de sair da mesma linha; uma cópia
+  //    aqui dá um chip "Enorme" que o telão desenha em médio, sem erro em lugar
+  //    nenhum. A régua é a única que não é tautologia: MEXER em
+  //    `createStage.CARTAO_ESTILO` em runtime e exigir que o painel obedeça.
+  {
+    const irPara = (nome) => pg.evaluate(async (n) => {
+      abrirFerramentas();
+      await new Promise((f) => setTimeout(f, 120));
+      const t = [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === n);
+      if (t) t.click();
+      await new Promise((f) => setTimeout(f, 150));
+    }, nome);
+
+    await pg.evaluate(async () => {
+      // DUAS mensagens: com uma só, "uma gaveta por vez" não tem como reprovar.
+      if (msgProjecting()) hideMessage();
+      clearMsgSession();
+      messages.length = 0;
+      messages.push({ id: 'ml1', text: 'Bem-vindos ao culto!' });
+      messages.push({ id: 'ml2', text: 'A reunião de pais fica para sábado.' });
+      await saveMessages();
+    });
+    await irPara('Mensagens');
+
+    const olharMsg = () => pg.evaluate(() => {
+      const p = document.getElementById('msgPararBtn');
+      const linhas = [...document.querySelectorAll('.msg-item')];
+      return {
+        apagado: p ? p.disabled : null,
+        titulo: p ? p.title : '',
+        ativas: linhas.filter((l) => l.classList.contains('active')).length,
+        gavetas: document.querySelectorAll('.msg-estilo').length,
+        noAr: msgProjecting(),
+      };
+    });
+
+    const repouso = await olharMsg();
+    checar(repouso.apagado === true && repouso.ativas === 0,
+      'L · o ponto de partida: nada no ar, nenhuma linha vermelha, e o PARAR apagado',
+      JSON.stringify(repouso));
+
+    await pg.evaluate(() => document.querySelectorAll('.msg-item .msg-text')[0].click());
+    const acendeu = await esperar(pg, () => {
+      const p = document.getElementById('msgPararBtn');
+      return !!p && p.disabled === false;
+    }, null, 4000);
+    const noAr = await olharMsg();
+    checar(acendeu === true && noAr.ativas === 1 && /Tirar do telão/.test(noAr.titulo),
+      'L · projetada uma mensagem, o PARAR ACENDE — e é `refreshDiversos` dentro do '
+      + '`projectMessage` que redesenha a faixa. Sem essa linha a linha fica vermelha '
+      + 'e a faixa continua apagada, que é o defeito que o pedido do operador nomeia',
+      porque(acendeu) || JSON.stringify(noAr));
+
+    await pg.evaluate(() => document.getElementById('msgPararBtn').click());
+    const saiu = await esperar(pg, () => {
+      const p = document.getElementById('msgPararBtn');
+      return !!p && p.disabled === true && !document.querySelector('.msg-item.active');
+    }, null, 4000);
+    const depois = await olharMsg();
+    checar(saiu === true && depois.noAr === false,
+      'L · e tocá-lo TIRA DO AR: a linha perde o vermelho e ele volta a apagar — o '
+      + 'ciclo fechado, que é o que a lista sozinha não dá quando a linha vermelha '
+      + 'está fora da vista', porque(saiu) || JSON.stringify(depois));
+
+    // ---- A GAVETA: UMA POR VEZ ----
+    const g1 = await pg.evaluate(async () => {
+      document.querySelectorAll('.msg-estilo-btn')[0].click();
+      await new Promise((f) => setTimeout(f, 80));
+      const env = [...document.querySelectorAll('.msg-row')];
+      return {
+        quantas: document.querySelectorAll('.msg-estilo').length,
+        // A gaveta é irmã da linha DENTRO do envelope — filha direta da lista,
+        // o `gap` dela as separaria e as duas leriam como dois cartões.
+        naPrimeira: !!env[0].querySelector(':scope > .msg-estilo'),
+        expandido: document.querySelectorAll('.msg-estilo-btn')[0].getAttribute('aria-expanded'),
+        // Os três eixos, na ordem do pedido.
+        eixos: [...document.querySelectorAll('.msg-estilo-linha')]
+          .map((l) => l.querySelector('.misc-row-label').textContent),
+      };
+    });
+    checar(g1.quantas === 1 && g1.naPrimeira && g1.expandido === 'true',
+      'L · o botão de estilo abre UMA gaveta, dentro do envelope da própria linha',
+      JSON.stringify(g1));
+    checar(JSON.stringify(g1.eixos) === JSON.stringify(['Tamanho', 'Fonte', 'Alinhamento']),
+      'L · e ela tem os TRÊS eixos, nesta ordem', JSON.stringify(g1.eixos));
+
+    const g2 = await pg.evaluate(async () => {
+      document.querySelectorAll('.msg-estilo-btn')[1].click();
+      await new Promise((f) => setTimeout(f, 80));
+      const env = [...document.querySelectorAll('.msg-row')];
+      return {
+        quantas: document.querySelectorAll('.msg-estilo').length,
+        naSegunda: !!env[1].querySelector(':scope > .msg-estilo'),
+        naPrimeira: !!env[0].querySelector(':scope > .msg-estilo'),
+      };
+    });
+    checar(g2.quantas === 1 && g2.naSegunda && !g2.naPrimeira,
+      'L · e abrir a da SEGUNDA mensagem FECHA a da primeira — uma por vez, senão o '
+      + 'operador ajusta a linha errada', JSON.stringify(g2));
+
+    // ---- OS CHIPS SAEM DA TABELA DO PALCO, e a prova é MEXER NELA ----
+    //
+    // Comparar os rótulos do painel com `createStage.CARTAO_ESTILO` seria
+    // TAUTOLOGIA quando o painel já lê aquela tabela — e continuaria passando se
+    // alguém escrevesse uma cópia igual aqui. O que separa os dois casos é
+    // ACRESCENTAR uma opção à tabela em runtime e exigir que o painel a desenhe.
+    const espelha = await pg.evaluate(async () => {
+      const antes = [...document.querySelectorAll('.msg-estilo-linha')]
+        .find((l) => l.textContent.trim().startsWith('Fonte'))
+        .querySelectorAll('.misc-chip').length;
+      createStage.CARTAO_ESTILO.fonte.push({ id: 'oraculo', nome: 'Oráculo', v: 'cursive' });
+      renderMsg();
+      await new Promise((f) => setTimeout(f, 60));
+      const linha = [...document.querySelectorAll('.msg-estilo-linha')]
+        .find((l) => l.textContent.trim().startsWith('Fonte'));
+      const r = {
+        antes,
+        depois: linha.querySelectorAll('.misc-chip').length,
+        temONovo: [...linha.querySelectorAll('.misc-chip')].some((b) => b.textContent === 'Oráculo'),
+      };
+      createStage.CARTAO_ESTILO.fonte.pop();
+      renderMsg();
+      return r;
+    });
+    checar(espelha.antes >= 3 && espelha.depois === espelha.antes + 1 && espelha.temONovo,
+      'L · e os chips SÃO a tabela do palco, não uma cópia dela: uma opção '
+      + 'acrescentada a `createStage.CARTAO_ESTILO` em runtime aparece no painel. '
+      + 'Comparar os rótulos com a tabela passaria com uma cópia idêntica ao lado — '
+      + 'mexer nela é a única régua que separa os dois casos', JSON.stringify(espelha));
+
+    // ---- ESCOLHER GRAVA, E SOBREVIVE AO REDESENHO ----
+    const gravou = await pg.evaluate(async () => {
+      document.querySelectorAll('.msg-estilo-btn')[1].click();   // reabre a da 2ª
+      await new Promise((f) => setTimeout(f, 80));
+      const linha = [...document.querySelectorAll('.msg-estilo-linha')]
+        .find((l) => l.textContent.trim().startsWith('Tamanho'));
+      [...linha.querySelectorAll('.misc-chip')].find((b) => b.textContent === 'Grande').click();
+      await new Promise((f) => setTimeout(f, 220));
+      // O REDESENHO DO PAINEL INTEIRO — o que `projectMessage` faz a cada
+      // reprojeção, e o que qualquer outra ferramenta faz ao mudar de estado.
+      refreshDiversos();
+      await new Promise((f) => setTimeout(f, 120));
+      const env = [...document.querySelectorAll('.msg-row')];
+      const linha2 = [...document.querySelectorAll('.msg-estilo-linha')]
+        .find((l) => l.textContent.trim().startsWith('Tamanho'));
+      return {
+        memoria: messages[1].estilo,
+        gravado: (await AVDB.getState('messages'))[1].estilo,
+        // A gaveta CONTINUA na mesma linha depois do redesenho…
+        aindaAberta: !!env[1].querySelector(':scope > .msg-estilo'),
+        quantas: document.querySelectorAll('.msg-estilo').length,
+        // …e o chip escolhido continua aceso, porque quem o acende é o registro.
+        aceso: linha2 ? [...linha2.querySelectorAll('.misc-chip')]
+          .filter((b) => b.classList.contains('active')).map((b) => b.textContent) : [],
+        // A outra mensagem NÃO foi tocada: o estilo é DE UMA mensagem.
+        aOutra: messages[0].estilo || null,
+      };
+    });
+    checar(gravou.memoria && gravou.memoria.tamanho === 'grande'
+      && gravou.gravado && gravou.gravado.tamanho === 'grande',
+      'L · escolher GRAVA o eixo em `messages` E no IndexedDB — sem a segunda '
+      + 'metade o estilo morre ao fechar o app, e o operador reajusta todo sábado',
+      JSON.stringify([gravou.memoria, gravou.gravado]));
+    checar(gravou.aindaAberta && gravou.quantas === 1
+      && JSON.stringify(gravou.aceso) === JSON.stringify(['Grande']),
+      'L · e SOBREVIVE ao redesenho do painel, com o chip escolhido aceso: quem '
+      + 'guarda a gaveta aberta é `msgEstiloAberto` (módulo), não uma marca no DOM — '
+      + 'no DOM ela fecharia a cada reprojeção, e o operador teria de reabri-la para '
+      + 'escolher o segundo eixo', JSON.stringify(gravou));
+    checar(gravou.aOutra === null,
+      'L · e o estilo é DE UMA MENSAGEM: a vizinha continua sem `estilo` nenhum',
+      JSON.stringify(gravou.aOutra));
+  }
+
+  // ── M. SORTEIO: OS DOIS QUADRADOS, E AS DUAS COLUNAS (v1.9.1) ───────────
+  //
+  // Pedido do operador: *"coloque o botão de sortear a esquerda do botão de
+  // projetar, juntamente com o botão de reiniciar, ambos usarão apenas icones e
+  // serão quadrados, seguindo o padrão das abas de ferramentas"* e *"deixe o
+  // texto sorteado no topo e abaixo faça duas colunas… na direita deixe a caixa
+  // de texto dos itens a serem sorteados"*.
+  //
+  // As quatro coisas que falham calado:
+  //
+  //  - **a caixa divergir da do ▶ do Tempo.** Eles são a MESMA peça na MESMA
+  //    célula da faixa, e "seguindo o padrão das abas de ferramentas" é o pedido
+  //    literal. A régua é o `#chronoRun` medido na outra aba, nunca um número.
+  //  - **o reiniciar voltar a APARECER E SUMIR.** Ele era um chip que só existia
+  //    com histórico, e uma peça que nasce e morre é um motor que desloca o
+  //    primário sob o dedo (a regra da v1.8.61). Desenhado sempre e apagado, a
+  //    faixa tem uma geometria só em todos os estados alcançáveis.
+  //  - **as peças velhas sobreviverem no CORPO.** O `.draw-go` de largura
+  //    inteira e o chip "Reiniciar" viraram DUAS portas para a mesma ação, e a
+  //    de baixo é a que o operador vê primeiro.
+  //  - **a ROLAGEM HORIZONTAL.** Um `<textarea>` mede ~200px de largura
+  //    intrínseca e um item flex nasce com `min-width: auto`: sem a linha que o
+  //    zera, a 360px as duas colunas somam mais que a tela e a aba ganha um eixo
+  //    que ela não deveria ter.
+  {
+    const irPara = (nome) => pg.evaluate(async (n) => {
+      abrirFerramentas();
+      await new Promise((f) => setTimeout(f, 120));
+      const t = [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === n);
+      if (t) t.click();
+      await new Promise((f) => setTimeout(f, 150));
+    }, nome);
+
+    // A RÉGUA VEM DA OUTRA ABA: o ▶ do Tempo, no mesmo rodapé.
+    await irPara('Tempo');
+    const refRun = await pg.evaluate(async () => {
+      chronoSetMode('stopwatch');
+      renderChronoEControles();
+      await new Promise((f) => setTimeout(f, 150));
+      const b = document.getElementById('chronoRun');
+      const r = b.getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height) };
+    });
+    checar(refRun.w > 0 && refRun.w === refRun.h,
+      'M · a régua existe e é QUADRADA: o ▶ do Tempo (`#chronoRun`) na mesma faixa',
+      JSON.stringify(refRun));
+
+    await irPara('Sorteio');
+    // A LISTA VAZIA é o primeiro estado: é ela que apaga o sortear, e o `title`
+    // é o que diz por quê.
+    const vazio = await pg.evaluate(async () => {
+      draw.kind = 'text'; draw.pool = []; draw.used = []; draw.value = null;
+      await saveDrawPrefs();
+      renderDiversos();
+      await new Promise((f) => setTimeout(f, 150));
+      const go = document.getElementById('drawGoBtn');
+      const rst = document.getElementById('drawResetBtn');
+      const esq = document.querySelector('.misc-foot-esq');
+      const painel = document.querySelector('.misc-panel');
+      const cx = (b) => { const r = b.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; };
+      return {
+        temGo: !!go, temRst: !!rst,
+        // OS DOIS NA CÉLULA DA ESQUERDA, o sortear ANTES do reiniciar.
+        naEsquerda: !!(esq && esq.contains(go) && esq.contains(rst)),
+        ordem: esq ? [...esq.children].map((e) => e.id) : [],
+        // E À ESQUERDA DO PRIMÁRIO, que é o pedido literal.
+        antesDoPrimario: (() => {
+          const p = document.getElementById('miscProjectBtn');
+          return !!p && esq.getBoundingClientRect().right <= p.getBoundingClientRect().left + 1;
+        })(),
+        caixaGo: cx(go), caixaRst: cx(rst),
+        // SÓ ÍCONE: nenhum texto, e um `<use>` do sprite dentro.
+        soIconeGo: !go.textContent.trim() && !!go.querySelector('svg use'),
+        soIconeRst: !rst.textContent.trim() && !!rst.querySelector('svg use'),
+        rotuloGo: go.getAttribute('aria-label') || '',
+        rotuloRst: rst.getAttribute('aria-label') || '',
+        goApagado: go.disabled, rstApagado: rst.disabled,
+        goTitulo: go.title, rstTitulo: rst.title,
+        // AS PEÇAS VELHAS: a barra de largura inteira e o chip.
+        barraVelha: !!document.querySelector('.draw-go'),
+        chipVelho: [...painel.querySelectorAll('.misc-chip')]
+          .some((b) => b.textContent.trim() === 'Reiniciar'),
+        noCorpo: painel.querySelectorAll('.chrono-btn').length,
+      };
+    });
+    checar(vazio.temGo && vazio.temRst && vazio.naEsquerda
+      && JSON.stringify(vazio.ordem) === JSON.stringify(['drawGoBtn', 'drawResetBtn'])
+      && vazio.antesDoPrimario,
+      'M · os DOIS quadrados moram na célula da esquerda, o sortear antes do '
+      + 'reiniciar e os dois à esquerda do primário — o pedido literal',
+      JSON.stringify(vazio));
+    checar(JSON.stringify(vazio.caixaGo) === JSON.stringify([refRun.w, refRun.h])
+      && JSON.stringify(vazio.caixaRst) === JSON.stringify([refRun.w, refRun.h]),
+      'M · e a caixa dos dois é EXATAMENTE a do ▶ do Tempo — medida contra a outra '
+      + 'aba, nunca contra um número de pixel (fonte e densidade são da máquina)',
+      JSON.stringify([refRun, vazio.caixaGo, vazio.caixaRst]));
+    checar(vazio.soIconeGo && vazio.soIconeRst
+      && vazio.rotuloGo && vazio.rotuloRst,
+      'M · só ÍCONE, com `aria-label`: um botão sem rótulo e sem nome acessível é um '
+      + 'quadrado mudo para quem depende do leitor de tela', JSON.stringify(vazio));
+    checar(vazio.goApagado === true && /Escreva as opções/.test(vazio.goTitulo),
+      'M · sem lista, o SORTEAR é apagado e o `title` diz por quê (a regra da '
+      + 'v1.8.50: um quadrado aceso que não faz nada é indistinguível de um '
+      + 'quebrado)', JSON.stringify([vazio.goApagado, vazio.goTitulo]));
+    checar(vazio.rstApagado === true && /Nada sorteado/.test(vazio.rstTitulo),
+      'M · e o REINICIAR é DESENHADO mesmo sem histórico, apagado: ele era um chip '
+      + 'que aparecia e sumia, e uma peça que nasce e morre desloca o primário sob o '
+      + 'dedo (a regra da v1.8.61)', JSON.stringify([vazio.rstApagado, vazio.rstTitulo]));
+    checar(vazio.barraVelha === false && vazio.chipVelho === false,
+      'M · e as peças velhas saíram do CORPO: nem o `.draw-go` de largura inteira, '
+      + 'nem o chip "Reiniciar" — duas portas para a mesma ação, e a de baixo é a que '
+      + 'o operador vê primeiro', JSON.stringify(vazio));
+
+    // ---- COM LISTA E COM HISTÓRICO: os dois acendem, e o reiniciar depois ----
+    const comLista = await pg.evaluate(async () => {
+      draw.pool = ['Maria', 'João', 'Ana']; draw.used = []; draw.value = null;
+      await saveDrawPrefs();
+      renderDiversos();
+      await new Promise((f) => setTimeout(f, 150));
+      const a = {
+        go: document.getElementById('drawGoBtn').disabled,
+        rst: document.getElementById('drawResetBtn').disabled,
+      };
+      document.getElementById('drawGoBtn').click();
+      await new Promise((f) => setTimeout(f, 200));
+      return {
+        antes: a,
+        depois: {
+          go: document.getElementById('drawGoBtn').disabled,
+          rst: document.getElementById('drawResetBtn').disabled,
+          sorteado: draw.value,
+        },
+      };
+    });
+    checar(comLista.antes.go === false && comLista.antes.rst === true,
+      'M · com lista e sem histórico: o sortear acende e o reiniciar continua apagado',
+      JSON.stringify(comLista));
+    checar(comLista.depois.rst === false && comLista.depois.sorteado,
+      'M · e SORTEADO uma vez o reiniciar acende — é `renderFoot` dentro do `doDraw` '
+      + 'que o redesenha: `renderDraw` desenha só o painel, e sem essa linha o botão '
+      + 'ficaria apagado sobre um histórico que existe', JSON.stringify(comLista));
+
+    // ---- DUAS COLUNAS, E SÓ NO MODO TEXTO ----
+    const cols = await pg.evaluate(() => {
+      const c = document.querySelector('.draw-cols');
+      const read = document.getElementById('drawRead');
+      const ta = document.querySelector('textarea.draw-pool');
+      if (!c || !read || !ta) return { faltando: [!c && 'draw-cols', !read && 'drawRead', !ta && 'draw-pool'].filter(Boolean) };
+      const rc = c.getBoundingClientRect();
+      const rr = read.getBoundingClientRect();
+      const esq = c.querySelector('.draw-col--esq');
+      const dir = c.querySelector('.draw-col--dir');
+      return {
+        duas: c.children.length === 2 && !!esq && !!dir,
+        // A CAIXA DE OPÇÕES NA DIREITA — o pedido literal.
+        naDireita: dir.contains(ta) && !esq.contains(ta),
+        // E O SORTEADO ACIMA DAS DUAS, no fluxo e na geometria.
+        acima: read.compareDocumentPosition(c) === Node.DOCUMENT_POSITION_FOLLOWING
+          && rr.bottom <= rc.top + 1,
+        // A LEGENDA fica na esquerda, com o resto do que tem tamanho previsível.
+        legendaNaEsquerda: !!esq.querySelector('.misc-row--legenda'),
+        // A da direita ESTICA: é ela que ocupa o que sobra.
+        esticou: Math.round(ta.getBoundingClientRect().height)
+          >= Math.round(dir.getBoundingClientRect().height) - 2,
+      };
+    });
+    checar(cols.duas && cols.naDireita,
+      'M · no modo TEXTO o corpo é de DUAS colunas, com o `<textarea>` das opções na '
+      + 'DIREITA', JSON.stringify(cols));
+    checar(cols.acima && cols.legendaNaEsquerda,
+      'M · e o SORTEADO fica ACIMA das duas (no fluxo e na geometria), com a legenda '
+      + 'na coluna da esquerda, junto do que tem tamanho previsível',
+      JSON.stringify(cols));
+    checar(cols.esticou,
+      'M · e a caixa de opções é quem ESTICA: ela cresce com a lista que se digita, '
+      + 'e o painel não rola — quem cede é o resto', JSON.stringify(cols));
+
+    const numero = await pg.evaluate(async () => {
+      [...document.querySelectorAll('#drawWrap .misc-chip')]
+        .find((b) => b.textContent.trim() === 'Números').click();
+      await new Promise((f) => setTimeout(f, 200));
+      return {
+        cols: !!document.querySelector('.draw-cols'),
+        faixa: !!document.querySelector('.draw-range'),
+      };
+    });
+    checar(numero.cols === false && numero.faixa === true,
+      'M · e no modo NÚMERO não há duas colunas: a fonte das opções são dois campos '
+      + 'curtos, e uma segunda coluna ali seria uma coluna vazia', JSON.stringify(numero));
+
+    // ---- NENHUMA ROLAGEM HORIZONTAL A 360px ----
+    const estreito = await (async () => {
+      await pg.setViewportSize({ width: 360, height: 780 });
+      return pg.evaluate(async () => {
+        [...document.querySelectorAll('#drawWrap .misc-chip')]
+          .find((b) => b.textContent.trim() === 'Texto').click();
+        await new Promise((f) => setTimeout(f, 250));
+        const painel = document.querySelector('.misc-panel');
+        const corpo = document.getElementById('toolsBody');
+        const de = document.documentElement;
+        return {
+          painel: painel.scrollWidth - painel.clientWidth,
+          corpo: corpo.scrollWidth - corpo.clientWidth,
+          pagina: de.scrollWidth - de.clientWidth,
+          // A PROVA DE QUE O CENÁRIO É O CERTO: as duas colunas estão na tela.
+          duas: document.querySelectorAll('.draw-col').length,
+        };
+      });
+    })();
+    checar(estreito.duas === 2 && estreito.painel <= 0 && estreito.corpo <= 0
+      && estreito.pagina <= 0,
+      'M · e a 360px NADA ROLA DE LADO: um `<textarea>` mede ~200px de largura '
+      + 'intrínseca e um item flex nasce com `min-width: auto` — sem zerá-lo nas duas '
+      + 'colunas, elas somam mais que a tela e a aba ganha um eixo horizontal',
+      JSON.stringify(estreito));
+    await pg.setViewportSize({ width: 412, height: 892 });
+  }
+
+  // ── N. AS DUAS LEGENDAS SE IDENTIFICAM POR DENTRO (v1.9.1) ──────────────
+  //
+  // Pedido do operador: *"caixa essa que a identificação e explicação ficara
+  // dentro da caixa, não precisa do título legenda fora da caixa, aplique para
+  // as outras caixas de legenda"*.
+  //
+  // Duas coisas falham calado. A primeira é a METADE: aplicar num provedor e
+  // esquecer o outro deixa o app com duas linhas de legenda desenhadas
+  // diferente — e era exatamente essa duplicação (a mesma linha escrita duas
+  // vezes) que o `campoDeLegenda` veio fechar. A segunda é o NOME ACESSÍVEL:
+  // tirar o `<span>` tira junto o rótulo do campo, e um `<input>` sem nome é
+  // anunciado como "caixa de edição" e mais nada.
+  //
+  // E A IDENTIFICAÇÃO VEM NO COMEÇO do marcador, porque é o FIM dele que o campo
+  // estreito corta — na coluna da esquerda do Sorteio sobra "Legenda
+  // (opcional)", que é justamente a metade que não pode faltar.
+  {
+    const irPara = (nome) => pg.evaluate(async (n) => {
+      abrirFerramentas();
+      await new Promise((f) => setTimeout(f, 120));
+      const t = [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === n);
+      if (t) t.click();
+      await new Promise((f) => setTimeout(f, 150));
+    }, nome);
+    const ler = () => pg.evaluate(() => {
+      const inp = document.querySelector('.misc-panel .misc-row--legenda .misc-text');
+      if (!inp) return { faltando: true, linhas: document.querySelectorAll('.misc-panel .misc-row').length };
+      const row = inp.closest('.misc-row');
+      return {
+        // NENHUM rótulo fora da caixa — e a régua é a LINHA dela, não o painel:
+        // o Sorteio tem outros `.misc-row-label` (os chips, os eixos), e varrer
+        // o painel inteiro aprovaria a legenda com rótulo desde que alguém
+        // tirasse um rótulo qualquer de outro lugar.
+        rotuloFora: row.querySelectorAll('.misc-row-label').length,
+        filhos: row.children.length,
+        marcador: inp.placeholder,
+        nome: inp.getAttribute('aria-label') || '',
+        teclado: inp.dataset.teclado || '',
+      };
+    });
+
+    await irPara('Tempo');
+    const lt = await ler();
+    await irPara('Sorteio');
+    const ls = await ler();
+    for (const [onde, r] of [['Tempo', lt], ['Sorteio', ls]]) {
+      checar(r.rotuloFora === 0 && r.filhos === 1,
+        'N · a legenda do ' + onde + ' não tem rótulo FORA da caixa — a linha tem um '
+        + 'filho só', JSON.stringify(r));
+      checar(/^Legenda \(opcional\) — /.test(r.marcador || ''),
+        'N · e a identificação vem NO COMEÇO do marcador, porque é o fim dele que o '
+        + 'campo estreito corta: sobra "Legenda (opcional)", a metade que não pode '
+        + 'faltar (' + onde + ')', JSON.stringify(r.marcador));
+      checar(!!r.nome && r.teclado === 'sobrepoe',
+        'N · e o `aria-label` devolve o nome que o `<span>` dava, com o teclado '
+        + 'SOBREPONDO como antes (' + onde + ')', JSON.stringify(r));
+    }
+    checar(lt.marcador !== ls.marcador,
+      'N · e o exemplo é de cada ferramenta: o campo é UM (`campoDeLegenda`), o que '
+      + 'muda é o que ele sugere — duas cópias divergiriam no primeiro ajuste, e '
+      + 'aqui "ajuste" é literalmente o texto que o operador lê',
+      JSON.stringify([lt.marcador, ls.marcador]));
+  }
+
   checar(erros.length === 0, 'nenhum erro de página', erros);
 } finally {
   await navegador.close();
