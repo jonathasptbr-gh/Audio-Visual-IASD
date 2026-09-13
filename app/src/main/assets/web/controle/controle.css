@@ -9262,10 +9262,22 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    acrescenta um degrau à escada, é o chão da folha aparecendo onde a lista
    passa. A exceção é NOMEADA no `tokens.test.mjs`, uma a uma, como as dos
    contornos. */
+/* ELA SAIU DE DENTRO DO SCROLLER (v1.8.98), e com ela saíram o `sticky`, o
+   `z-index` e o fundo opaco que só existiam para ela sobreviver à rolagem.
+   Relato do operador: *"o texto de número de resultados disponíveis está com
+   uma sombra em sua caixa, que parece que deveria ser da caixa do scroll da
+   lista de resultados, pois ela está sem sombra de corte por rolagem"*. A tira
+   do `.rola` é `z-index: 5` e mede 22px sobre uma linha de 19,5: rolada a
+   lista, ela pintava POR CIMA da contagem, e a fronteira de verdade — a
+   primeira linha cortada, logo abaixo — ficava sem marca. Fora do scroller a
+   tira volta a descrever o corte, e a contagem deixa de ser conteúdo rolável.
+
+   A MARGEM NEGATIVA cola as duas: elas são irmãs numa lista com `gap`, e a
+   contagem RÓTULA a lista — um vão de folha inteira entre as duas as leria como
+   dois blocos. */
 .sorteio-res-cab {
-  position: sticky; top: 0; z-index: 3;
-  background: var(--panel);
-  padding: var(--sp-1) var(--sp-2);
+  padding: var(--sp-1) var(--sp-2) 0;
+  margin-bottom: calc(2px - var(--sp-3));
   font-size: var(--fs-xs); color: var(--muted); line-height: 1.35;
   /* CENTRADA desde a v1.8.96, a pedido do operador. Ela é a única linha da
      folha que fala do CONJUNTO — as de baixo são cada uma sobre uma música —,
@@ -9282,6 +9294,16 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   font-size: var(--fs-xs); color: var(--accent); text-align: center;
   padding: 0 var(--sp-2);
 }
+/* CALADA ELA NÃO OCUPA NADA (v1.8.98), a pedido do operador: *"verifique o
+   excesso de margem entre a linha de botões de play e esse texto de número de
+   resultados"* — MEDIDO, eram 25,9px entre a barra e a contagem, e 14,7 deles
+   eram esta linha vazia mais os dois vãos da folha.
+
+   O QUE A RESERVA PROTEGIA CONTINUA PROTEGIDO, e é por isso que ela pode cair:
+   a regra da v1.8.61 é sobre BOTÃO que se mexe debaixo do dedo, e esta linha
+   mora ABAIXO de todos eles — quem cede quando ela aparece é a lista, que é
+   `flex: 0 1 auto`. A barra de ação não anda um pixel. */
+.sorteio-fala:empty { display: none; }
 /* ===== A LISTA DOS RESULTADOS (v1.8.84) =====
    *"agora ele será a lista dos resultados, listando cada música disponível
    naquele resultado, assim como é a lista de resultados na busca da

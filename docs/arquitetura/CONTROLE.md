@@ -7206,6 +7206,27 @@ folha. **E a conta é CENTRADA** no mesmo lote: ela é a única linha que fala d
 CONJUNTO — as de baixo são cada uma sobre uma música —, e alinhada à esquerda
 lia como a primeira linha da lista.
 
+**E ELA SAIU DE DENTRO DO SCROLLER** (v1.8.98). Relato do operador: *"o texto de
+número de resultados disponíveis está com uma sombra em sua caixa, que parece que
+deveria ser da caixa do scroll da lista de resultados, pois ela está sem sombra
+de corte por rolagem."* O diagnóstico é aritmético: ela era `sticky` no topo da
+lista com `z-index: 3`, e a tira do `.rola` é `z-index: 5` com 22px sobre uma
+linha de 19,5 — rolada a lista, a sombra pintava POR CIMA da contagem, e a
+fronteira de verdade (a primeira linha cortada, logo abaixo) ficava sem marca.
+Hoje ela é o `<li>` ANTERIOR ao scroller, e perdeu com isso o `sticky`, o
+`z-index` e o fundo opaco, que só existiam para ela sobreviver à rolagem; uma
+margem negativa a cola na lista, porque elas são irmãs numa lista com `gap` e a
+contagem RÓTULA a lista. MEDIDO depois: os pixels da contagem sobre `--panel`
+limpo, e o gradiente começando no topo do scroller.
+
+**E O RECIBO CALADO NÃO OCUPA NADA** (`.sorteio-fala:empty`, v1.8.98) — MEDIDO,
+eram 25,9px entre a barra e a contagem, dos quais 14,7 eram a linha vazia mais os
+dois vãos da folha; hoje são 5,6px. **O que a reserva protegia continua
+protegido**, e é por isso que ela pôde cair: a regra da v1.8.61 é sobre BOTÃO que
+se mexe debaixo do dedo, e esta linha mora ABAIXO de todos eles — quem cede
+quando ela aparece é a lista (`flex: 0 1 auto`), e a barra de ação não anda um
+pixel.
+
 **A palavra vale no MESMO toque.** O `debounce` cobria a atribuição também, e
 digitar e tocar no botão dentro dos 130 ms sorteava com a palavra ANTERIOR — sem
 erro e com a conta mostrando o número certo, porque ela e o sorteio liam a mesma
@@ -7480,6 +7501,14 @@ justamente o número do meio: escolher 4 exigia marcar as linhas na mão.
 - **`qhAssentou` é IDEMPOTENTE** pelo mesmo motivo do `roletaAssentou`: um
   reposicionamento programático cai nele pelo mesmo `scroll` que um dedo, e é a
   comparação — não uma bandeira — que os separa.
+- **O TOQUE NUM NÚMERO À VISTA** (v1.8.98): *"está no 1, mas eu vejo o 3. Se eu
+  tocar no 3 ele vai direto para o 3."* O `qhTocar` só ROLA — quem conclui é o
+  assentamento de sempre, senão a mesma regra existiria em dois lugares e o
+  toque e o arrasto marcariam lotes diferentes no primeiro ajuste. **E o arrasto
+  não é um toque:** num aparelho o Chromium engole o `click` depois de um gesto
+  que rolou, mas com o PONTEIRO ele não engole, e arrastar terminaria
+  selecionando a célula onde o dedo parou. A guarda é uma bandeira zerada no
+  `pointerdown` e conferida no `click`.
 - **E OS TÍTULOS "FILTROS" E "QUANTAS" SAÍRAM** no mesmo lote: *"use a largura
   toda apenas para distribuir os botões seletores e a roleta da quantidade"*. Com
   o rótulo fora, a fileira DISTRIBUI em vez de se encolher contra ele — e o preço
@@ -7500,6 +7529,15 @@ justamente o número do meio: escolher 4 exigia marcar as linhas na mão.
   como 1 na abertura seguinte. Com a faixa `QUANTIDADE_MIN..QUANTIDADE_MAX` no
   lugar da lista, qualquer inteiro atravessa.)* A marca segue EFÊMERA por pedido
   do operador (v1.8.84: *"esse check é resetado entre aberturas da janela"*).
+- **REABRIR REINICIA OS FILTROS** (v1.8.98), a pedido do operador: *"reinicie
+  seus filtros sempre que for reaberta. Desmarcando os filtros hinário, sem
+  infantis e só no aparelho. Além de limpar a palavra tema."* É o argumento das
+  MARCAS (v1.8.84) um nível acima: um filtro que sobrevive fechado tira músicas
+  do sorteio sem que ninguém lembre por quê — e o "sem hinário" esquecido ligado
+  é a biblioteca inteira do culto fora da conta. **Isto REVOGA "o único filtro
+  que nasce ligado"** da v5.311 pela metade que importa: `AVSorteio.sanear`
+  continua devolvendo `semInfantis: true` por omissão (aquela regra é sobre LER
+  um registro gravado), e a folha o apaga por escrito em toda abertura.
 - **A LISTA NÃO SE REORGANIZA.** Marcar a linha 9 deixa a linha 9 onde está, com
   a posição 3 do lote: o que numera é a ordem do BARALHO, contando só as
   marcadas. Subir a marcada para o topo seria reorganizar a lista debaixo do

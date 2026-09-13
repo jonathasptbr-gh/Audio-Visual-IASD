@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.8.98",
+    "itens": [
+      "Playlist automática: tocar num número visível da roleta leva direto até ele; não precisa mais arrastar.",
+      "Playlist automática: a contagem de resultados saiu de dentro da lista — a sombra de corte voltou para a lista.",
+      "Playlist automática: menos espaço vazio entre os botões e a contagem de resultados.",
+      "Playlist automática: ao reabrir, os três filtros voltam desmarcados e a palavra tema é apagada."
+    ]
+  },
+  {
     "versao": "1.8.97",
     "itens": [
       "Biblioteca: nova coletânea “Vídeos do YouTube”, com os vídeos escolhidos pelo LouvorJA.",

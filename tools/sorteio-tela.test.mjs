@@ -29,7 +29,10 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
+import {
+  servirEstatico, abrirNavegador, checar, falhas,
+  esperar, porque, esperarCortina, lerPng, pixel, luminancia,
+} from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 
@@ -576,6 +579,7 @@ try {
     // recém-sorteada tocaria a primeira em laço.
     await AVDB.setState('repeat', 'one'); repeat = 'one'; renderRepeat();
     await abrirSorteio();
+    sorteioPrefs.soNoAparelho = true; renderSorteio();   // ver a nota do pacote
     await executarSorteio(document.querySelector('#sorteioPopup .song-menu-go'), 'tocar');
     await new Promise((r) => setTimeout(r, 600));
     const ids = await AVDB.listIds('playlist');
@@ -787,6 +791,14 @@ try {
   const fundoPac = await pg.evaluate(async () => {
     await AVDB.listSet('imports', []);
     await abrirSorteio();
+    // O FILTRO É DESTE BLOCO, e não herdado: desde a v1.8.98 `abrirSorteio`
+    // ZERA os três filtros e a palavra tema, então um bloco que executa um
+    // sorteio de verdade tem de declarar o "só no aparelho" DEPOIS de abrir.
+    // Sem isto o pool volta a incluir o que precisa baixar, o
+    // `ensureDownloadConsent` abre um `appConfirm` que ninguém responde, e o
+    // `evaluate` fica PENDURADO — o arquivo inteiro morre por prazo, sem uma
+    // linha dizendo onde.
+    sorteioPrefs.soNoAparelho = true;
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; sorteioPrefs.tema = '';
     renderSorteio();
     // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
@@ -1034,6 +1046,7 @@ try {
       sorteioPrefs.variante = variante; sorteioPrefs.quantos = quantos;
       sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
       await abrirSorteio();
+      sorteioPrefs.soNoAparelho = true; renderSorteio();   // ver a nota do pacote
       const btn = document.querySelector('#sorteioPopup .song-menu-go');
       await executarSorteio(btn, 'tocar');
       await new Promise((r) => setTimeout(r, 500));
@@ -1069,6 +1082,7 @@ try {
     sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
     await abrirSorteio();
     await setView('wallpaper');            // o operador cobriu o telão de propósito
+    sorteioPrefs.soNoAparelho = true;      // ver a nota do pacote
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; renderSorteio();
     // POR ATRIBUTO desde a v1.8.56: o botão é MUDO, e não há texto por onde
     // achá-lo. `data-dest` é o hook que o `renderSorteio` escreve para isto.
@@ -1581,6 +1595,386 @@ try {
     'e o assentamento num nó TROCADO não faz nada: sem a guarda ele lê o zero do '
     + 'órfão como "escolheu 1", marca UMA e grava — no IndexedDB, sobrevivendo à '
     + 'sessão', JSON.stringify(orfao));
+
+  // ---- O TOQUE, A CONTAGEM FORA DO SCROLLER E OS FILTROS ZERADOS (v1.8.98) ----
+  //
+  // Quatro pedidos do operador no mesmo lote, e nenhum dos quatro erra alto:
+  //
+  //  - **O TOQUE NUM NÚMERO À VISTA** — *"está no 1, mas eu vejo o 3. Se eu
+  //    tocar no 3 ele vai direto para o 3"*. A roleta só aceitava ARRASTO, e
+  //    alcançar o 40 custava atravessar trinta e nove células com o dedo. O
+  //    caminho novo é um `click`, e ele nasce com uma dívida: um gesto que ROLOU
+  //    termina com o dedo sobre uma célula, e sem guarda o `click` do fim do
+  //    arrasto escolheria essa — que quase nunca é a que o operador queria.
+  //  - **A CONTAGEM SAIU DE DENTRO DO SCROLLER** — *"ele está com uma sombra em
+  //    sua caixa, que parece que deveria ser da caixa do scroll da lista de
+  //    resultados, pois ela está sem sombra de corte por rolagem"*. A tira do
+  //    `.rola` é `z-index: 5` e mede 22px sobre uma linha de 19,5: com a lista
+  //    rolada ela pintava POR CIMA do número, e a fronteira de verdade — a
+  //    primeira linha cortada, logo abaixo — ficava sem marca nenhuma.
+  //  - **A FALA CALADA NÃO OCUPA NADA** — *"verifique o excesso de margem entre
+  //    a linha de botões de play e esse texto de número de resultados"*.
+  //  - **REABRIR ZERA OS TRÊS FILTROS E A PALAVRA**, e isto REVOGA *"sem
+  //    infantis é o único filtro que nasce ligado"*: o `sanear` continua o
+  //    ligando por omissão para quem LÊ um registro gravado, e a folha o apaga
+  //    por ESCRITO a cada abertura.
+  //
+  // A CORTINA É ESPERADA AQUI, e não no topo do arquivo, porque este é o
+  // primeiro bloco que usa o MOUSE de verdade — todo o resto chama `.click()` em
+  // nó, que não passa por hit-test nenhum. MEDIDO: com o `#splash` de pé o
+  // `elementFromPoint` do centro de TODA célula da roleta devolve a cortina, e o
+  // `pg.mouse.click` ali não chega a lugar nenhum. Este arquivo só não tropeçou
+  // nela porque demora mais que o teto de 12 s do `<head>` — depender disso é
+  // medir o relógio, que é a regra que a função existe para fechar.
+  await esperarCortina(pg);
+
+  // (L) O TOQUE NUMA CÉLULA À VISTA LEVA A ROLETA ATÉ ELA.
+  //
+  // A PREMISSA É O GESTO, e sem ela a asserção descreve outra coisa: a célula
+  // tem de estar INTEIRA na janela da roleta e ser o que o dedo alcança naquele
+  // ponto. Um `click` despachado em nó aprova igual a célula fora da vista, que
+  // é um gesto que não existe.
+  //
+  // A ESCOLHIDA É A ÚLTIMA À VISTA (o 16, com a roleta em 12), e a DISTÂNCIA é
+  // parte da régua: na vizinha, "foi para o número tocado" e "andou uma casa no
+  // fim do arremesso" desenham o mesmo pixel.
+  const tap = await pg.evaluate(() => {
+    const qh = document.getElementById('sorteioQuantidade');
+    const janela = qh.getBoundingClientRect();
+    const vistas = [...qh.children].map((c, i) => ({ c, i, b: c.getBoundingClientRect() }))
+      .filter(({ b }) => b.left >= janela.left - 0.5 && b.right <= janela.right + 0.5);
+    const alvo = vistas.filter(({ c }) => !c.classList.contains('qh-item--sel')).pop();
+    const x = alvo.b.left + alvo.b.width / 2;
+    const y = alvo.b.top + alvo.b.height / 2;
+    return {
+      vistas: vistas.length, pedido: alvo.c.textContent, i: alvo.i,
+      x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10,
+      alcanca: document.elementFromPoint(x, y) === alvo.c,
+      antes: { valor: Number(qh.dataset.valor), marcadas: sorteioMarcadas.size, scroll: qh.scrollLeft },
+    };
+  });
+  checar(tap.vistas >= 5 && tap.alcanca && tap.antes.valor === 12 && tap.pedido === '16'
+    && tap.i - (tap.antes.valor - 1) >= 3,
+    'L · a PREMISSA do toque: com a roleta em 12, a célula 16 está INTEIRA na '
+    + 'janela e É o que o dedo alcança naquele ponto — quatro casas adiante, para '
+    + 'que chegar lá não se confunda com o fim de um arremesso', tap);
+  await pg.mouse.click(tap.x, tap.y);
+  // O ARREDONDAMENTO É O FATO, e o `scrollTo` suave chega em quadros: espera-se
+  // a pista PARADA na casa pedida, nunca um prazo.
+  const pousou = await esperar(pg, (i) => {
+    const qh = document.getElementById('sorteioQuantidade');
+    return !!qh && Math.abs(qh.scrollLeft - i * QH_ITEM) < 1;
+  }, tap.i, 8000);
+  const depoisTap = await pg.evaluate(async () => {
+    await new Promise((r) => setTimeout(r, QH_ASSENTA_MS * 3));
+    const qh = document.getElementById('sorteioQuantidade');
+    const g = await AVDB.getState('sorteioPrefs');
+    return { acesa: (qh.querySelector('.qh-item--sel') || {}).textContent,
+      acesas: qh.querySelectorAll('.qh-item--sel').length,
+      valor: Number(qh.dataset.valor), marcadas: sorteioMarcadas.size,
+      quantos: sorteioPrefs.quantos, gravado: (g || {}).quantos,
+      vai: document.querySelectorAll('#sorteioList .sorteio-res-btn.vai').length };
+  });
+  checar(pousou === true && depoisTap.acesa === '16' && depoisTap.acesas === 1
+    && depoisTap.valor === 16,
+    'L · o toque LEVA a roleta à célula tocada — a acesa passa a ser o 16, e é '
+    + 'UMA só', porque(pousou) || JSON.stringify(depoisTap));
+  checar(depoisTap.marcadas === 16 && depoisTap.vai === 16
+    && depoisTap.quantos === 16 && depoisTap.gravado === 16,
+    'L · e o LOTE segue o toque: dezesseis linhas marcadas na lista e o `quantos` '
+    + 'gravado em 16 — quem conclui é o assentamento de sempre, não um segundo '
+    + 'caminho de escrita', depoisTap);
+
+  // (M) O ARRASTO NÃO É UM TOQUE — e o veículo é conferido antes de valer como
+  //     prova.
+  //
+  // A ARMADILHA AQUI É A TAUTOLOGIA: um `click` sintético que não chegue ao
+  // ouvinte (alvo errado, `bubbles` esquecido) faz a asserção do arrasto passar
+  // sem que guarda nenhuma exista. Então o MESMO despacho é exercido primeiro
+  // SEM rolagem, onde ele tem de selecionar.
+  //
+  // E ELE MEDE, DE CARONA, QUE O TOQUE NÃO GRAVA: a preferência é lida na LINHA
+  // seguinte ao despacho, na mesma tarefa e sem relógio no meio — o `qhTocar`
+  // só rola, e quem escreve é o assentamento 140 ms depois. Escrever nos dois
+  // lugares é a mesma regra em dois lugares, e elas divergem no primeiro ajuste.
+  const arrasto = await pg.evaluate(async () => {
+    const w = (ms) => new Promise((r) => setTimeout(r, ms));
+    const qh = document.getElementById('sorteioQuantidade');
+    const janela = qh.getBoundingClientRect();
+    const cabe = (c) => { const b = c.getBoundingClientRect();
+      return b.left >= janela.left - 0.5 && b.right <= janela.right + 0.5; };
+    // M1 — o veículo, sem rolagem nenhuma entre o `pointerdown` e o `click`.
+    const alvo1 = qh.children[Number(qh.dataset.valor) + 1];
+    const vis1 = cabe(alvo1);
+    const quantosAntes = sorteioPrefs.quantos;
+    qh.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    alvo1.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const logo = sorteioPrefs.quantos;   // MESMA tarefa: nada pôde assentar
+    await w(QH_ASSENTA_MS * 5);
+    const m1 = { vis1, pedido: alvo1.textContent, quantosAntes, logo,
+      valor: Number(qh.dataset.valor), marcadas: sorteioMarcadas.size };
+    // M2 — `pointerdown`, ROLAGEM, `click`. O `scroll` é esperado de fato: num
+    // arrasto de verdade ele chega muito antes do dedo sair, e despachar o
+    // `click` antes dele mediria uma ordem que o aparelho não produz.
+    qh.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    const rolou = new Promise((r) => qh.addEventListener('scroll', r, { once: true }));
+    qh.scrollLeft = 3 * QH_ITEM;
+    await rolou;
+    const alvo2 = qh.children[7];
+    const vis2 = cabe(alvo2);
+    alvo2.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await w(QH_ASSENTA_MS * 5);
+    const g = await AVDB.getState('sorteioPrefs');
+    return { m1, vis2, tocado: alvo2.textContent, valor: Number(qh.dataset.valor),
+      acesa: (qh.querySelector('.qh-item--sel') || {}).textContent,
+      marcadas: sorteioMarcadas.size, gravado: (g || {}).quantos,
+      parou: Math.round(qh.scrollLeft) };
+  });
+  checar(arrasto.m1.vis1 && arrasto.m1.valor === Number(arrasto.m1.pedido)
+    && arrasto.m1.marcadas === Number(arrasto.m1.pedido),
+    'M · a PREMISSA do arrasto: o MESMO `click` sintético SELECIONA quando nada '
+    + 'rolou antes dele (o ' + arrasto.m1.pedido + ') — sem isto a asserção de '
+    + 'baixo passaria com um despacho que nunca chegou ao ouvinte', arrasto.m1);
+  checar(arrasto.m1.logo === arrasto.m1.quantosAntes,
+    'M · e o toque NÃO grava por si: na linha seguinte ao despacho o `quantos` '
+    + 'ainda é o de antes — o `qhTocar` só rola, e a escrita é do assentamento',
+    arrasto.m1);
+  checar(arrasto.vis2 && arrasto.tocado === '8' && arrasto.parou === 3 * 44
+    && arrasto.valor === 4 && arrasto.acesa === '4' && arrasto.marcadas === 4
+    && arrasto.gravado === 4,
+    'M · mas depois de ROLAR o mesmo toque é IGNORADO: o dedo termina sobre o 8, '
+    + 'à vista, e o lote fica no 4 em que a rolagem parou — sem a guarda, todo '
+    + 'arrasto escolheria a célula onde o dedo largou', arrasto);
+
+  // (N) A CONTAGEM É IRMÃ DA LISTA, NÃO CONTEÚDO DELA.
+  //
+  // E AS DUAS TROCAM JUNTAS: o `atualizarContaSorteio` é o caminho que roda com
+  // o campo de texto em foco (o `debounce` da palavra tema), e desde este lote
+  // ele tem DOIS nós a trocar. Trocar só a lista deixaria o número descrevendo o
+  // pool de antes — um log que discorda da tela, na tela.
+  const conta = await pg.evaluate(async () => {
+    const w = (ms) => new Promise((r) => setTimeout(r, ms));
+    const ler = () => {
+      const cab = document.querySelector('#sorteioList .sorteio-res-cab');
+      const res = document.querySelector('#sorteioList .sorteio-res');
+      const cs = cab && getComputedStyle(cab);
+      return { texto: cab && cab.textContent, tag: cab && cab.tagName,
+        pos: cs && cs.position, z: cs && cs.zIndex, fundo: cs && cs.backgroundColor,
+        dentro: !!(res && cab && res.contains(cab)),
+        irma: !!(cab && cab.nextElementSibling === res),
+        pai: cab && cab.parentElement.id,
+        quantas: document.querySelectorAll('#sorteioList .sorteio-res-cab').length };
+    };
+    const antes = ler();
+    sorteioPrefs.tema = 'natal';
+    atualizarContaSorteio();
+    await w(60);
+    const depois = ler();
+    sorteioPrefs.tema = '';
+    renderSorteio();
+    await w(QH_ASSENTA_MS * 3);
+    return { antes, depois, volta: ler() };
+  });
+  checar(!conta.antes.dentro && conta.antes.irma && conta.antes.tag === 'LI'
+    && conta.antes.pai === 'sorteioList' && conta.antes.quantas === 1,
+    'N · a contagem é um `<li>` da FOLHA e a irmã IMEDIATAMENTE anterior ao '
+    + 'scroller — fora dele, e uma só', conta.antes);
+  checar(conta.antes.pos === 'static' && conta.antes.z === 'auto'
+    && /rgba\(0, 0, 0, 0\)/.test(conta.antes.fundo),
+    'N · e com ela saíram o `sticky`, o `z-index` e o fundo opaco: os três só '
+    + 'existiam para ela sobreviver à lista rolando por baixo', conta.antes);
+  checar(/^65 resultados/.test(conta.antes.texto) && /^3 resultados/.test(conta.depois.texto)
+    && /^65 resultados/.test(conta.volta.texto) && conta.depois.quantas === 1
+    && !conta.depois.dentro && conta.depois.irma,
+    'N · e o caminho LEVE troca as DUAS: com a palavra tema o número cai de 65 '
+    + 'para 3 e a contagem continua sendo a irmã anterior — trocar só a lista '
+    + 'deixaria o número descrevendo o pool de antes', conta);
+
+  // (O) COM A LISTA ROLADA, A SOMBRA NÃO ALCANÇA A CONTAGEM — E ALCANÇA A
+  //     FRONTEIRA. Medido por PIXEL, porque `getComputedStyle` não vê "pintado
+  //     por cima": as duas caixas continuam onde estão, e o que mudou é quem
+  //     pinta em cima de quem.
+  //
+  // A RÉGUA É A PRÓPRIA TIRA, LIGADA E DESLIGADA. Duas fotos do MESMO layout,
+  // com a TINTA dos pseudos anulada na segunda (`background: transparent`, nunca
+  // `display: none` — o segundo tira um item do fluxo e move o que está embaixo,
+  // e aí a comparação mediria o layout). O que diferir entre as duas é a sombra,
+  // e nada mais: MEDIDO, abaixo dos 22px da tira NENHUM pixel muda, que é a
+  // prova de que a régua é local.
+  const foto = await pg.evaluate(async () => {
+    const w = (ms) => new Promise((r) => setTimeout(r, ms));
+    const res = document.querySelector('#sorteioList .sorteio-res');
+    res.scrollTop = 300;
+    await w(300);
+    const cab = document.querySelector('#sorteioList .sorteio-res-cab');
+    const rc = cab.getBoundingClientRect(); const rr = res.getBoundingClientRect();
+    const cs = getComputedStyle(res);
+    return {
+      cab: { topo: rc.top, base: rc.bottom, esq: rc.left, dir: rc.right },
+      res: { topo: rr.top + parseFloat(cs.borderTopWidth), esq: rr.left, dir: rr.right },
+      acima: res.classList.contains('tem-acima'), semVeu: res.classList.contains('sem-veu'),
+      veuH: parseFloat(getComputedStyle(res, '::before').height) || null,
+      transborda: res.scrollHeight - res.clientHeight,
+    };
+  });
+  const comTira = lerPng(await pg.screenshot());
+  await pg.evaluate(() => {
+    const s = document.createElement('style');
+    s.id = 'semTinta';
+    s.textContent = '#sorteioList .sorteio-res::before,#sorteioList .sorteio-res::after'
+      + '{background:transparent!important;background-image:none!important}';
+    document.head.appendChild(s);
+  });
+  const semTira = lerPng(await pg.screenshot());
+  await pg.evaluate(() => { const s = document.getElementById('semTinta'); if (s) s.remove(); });
+  // A LINHA VARRIDA de borda a borda, e o veredito por linha: quantos pixels
+  // mudaram, e o quanto a tira escureceu o mais escurecido deles (luminância da
+  // WCAG, a mesma régua do `sombra-de-rolagem`).
+  const varrer = (y, esq, dir) => {
+    let mudou = 0, maxd = 0, total = 0;
+    for (let x = Math.ceil(esq) + 1; x <= Math.floor(dir) - 1; x++) {
+      const a = pixel(comTira, x, y); const b = pixel(semTira, x, y);
+      if (!a || !b) continue;
+      total++;
+      if (a.join() !== b.join()) mudou++;
+      const d = luminancia(b) - luminancia(a);
+      if (d > maxd) maxd = d;
+    }
+    return { y, mudou, total, maxd: Math.round(maxd * 10000) / 10000 };
+  };
+  const naContagem = [];
+  for (let y = Math.floor(foto.cab.topo); y <= Math.ceil(foto.cab.base); y++) {
+    naContagem.push(varrer(y, foto.cab.esq, foto.cab.dir));
+  }
+  const naFronteira = [1, 5, 9, 13, 17, 21].map((d) => varrer(Math.round(foto.res.topo) + d,
+    foto.res.esq, foto.res.dir));
+  const abaixoDaTira = [24, 30].map((d) => varrer(Math.round(foto.res.topo) + d,
+    foto.res.esq, foto.res.dir));
+  checar(foto.acima && !foto.semVeu && foto.veuH === 22 && foto.transborda > 100
+    && foto.cab.base <= foto.res.topo,
+    'O · a PREMISSA da medição: a lista está ROLADA (tira de cima ligada, '
+    + foto.transborda + 'px escondidos) e a contagem fica ACIMA do scroller — sem '
+    + 'a tira no ar, "não pinta na contagem" passaria por vácuo', foto);
+  // O ESCURECIMENTO É LIDO NO MÁXIMO DA FAIXA, e não linha a linha: o degradê vai
+  // de `rgba(0,0,0,.30)` a transparente, e o que ele muda em LUMINÂNCIA depende
+  // do que está embaixo — MEDIDO, a mesma tira dá 0,0376 sobre o texto de uma
+  // linha e 0,0022 sobre o vão entre duas. Por LINHA a régua mediria o conteúdo
+  // da lista; o que é dela, e vale nas 22, é a COBERTURA de borda a borda.
+  const tinge = Math.max(...naFronteira.map((l) => l.maxd));
+  checar(naFronteira.every((l) => l.mudou === l.total) && tinge >= 0.02
+    && abaixoDaTira.every((l) => l.mudou === 0),
+    'O · e a tira PINTA na fronteira do scroller, de borda a borda, nas 22 linhas '
+    + 'dela e em nenhum pixel abaixo — é o corte de verdade que ela passou a '
+    + 'marcar', JSON.stringify({ tinge, naFronteira, abaixoDaTira }));
+  checar(naContagem.every((l) => l.mudou === 0 && l.maxd === 0),
+    'O · e NENHUM pixel da faixa da contagem muda com a tira ligada: fora do '
+    + 'scroller ela não é mais coberta pela sombra dele — dentro, a tira de '
+    + '`z-index: 5` pintava sobre a linha de 19,5px e apagava a única marca que '
+    + 'dizia onde a lista foi cortada', JSON.stringify(naContagem));
+
+  // (P) O VÃO ENTRE A BARRA E A CONTAGEM, E A FALA QUE SÓ OCUPA QUANDO FALA.
+  //
+  // MEDIDO a 430×900: 25,9px entre a barra de ação e a contagem, dos quais 14,7
+  // eram a linha do recibo VAZIA mais os vãos da folha. Ela era reservada de
+  // propósito (a regra da v1.8.61, contra a folha que pula debaixo do dedo), e o
+  // que autoriza a reserva a cair é a POSIÇÃO: o recibo mora abaixo de todo
+  // botão, e quem cede quando ele aparece é a lista, que é `flex: 0 1 auto`.
+  // É essa segunda metade que a asserção do recibo mede junto — sem ela, o
+  // conserto do vão teria comprado um motor de pulo.
+  const calada = await pg.evaluate(() => {
+    const barra = document.querySelector('#sorteioList .sorteio-barra');
+    const fala = document.querySelector('#sorteioList .sorteio-fala');
+    const cab = document.querySelector('#sorteioList .sorteio-res-cab');
+    return { barra: Math.round(barra.getBoundingClientRect().bottom * 10) / 10,
+      existe: !!fala, texto: fala.textContent,
+      display: getComputedStyle(fala).display,
+      altura: Math.round(fala.getBoundingClientRect().height * 10) / 10,
+      vao: Math.round((cab.getBoundingClientRect().top
+        - barra.getBoundingClientRect().bottom) * 10) / 10 };
+  });
+  checar(calada.existe && calada.texto === '' && calada.display === 'none'
+    && calada.altura === 0 && calada.vao <= 8,
+    'P · calada, a linha do recibo está no DOM e não ocupa um pixel — e o vão '
+    + 'entre a barra de ação e a contagem cai a ' + calada.vao + 'px (media 25,9)',
+    calada);
+  const falando = await pg.evaluate(async () => {
+    falarNoSorteio('5 músicas acrescentadas ao fim da playlist');
+    await new Promise((r) => setTimeout(r, 60));
+    const barra = document.querySelector('#sorteioList .sorteio-barra');
+    const fala = document.querySelector('#sorteioList .sorteio-fala');
+    const cab = document.querySelector('#sorteioList .sorteio-res-cab');
+    return { barra: Math.round(barra.getBoundingClientRect().bottom * 10) / 10,
+      texto: fala.textContent.slice(0, 8),
+      display: getComputedStyle(fala).display,
+      altura: Math.round(fala.getBoundingClientRect().height * 10) / 10,
+      vao: Math.round((cab.getBoundingClientRect().top
+        - barra.getBoundingClientRect().bottom) * 10) / 10 };
+  });
+  checar(falando.display !== 'none' && falando.altura >= 10
+    && falando.vao > calada.vao && falando.barra === calada.barra,
+    'P · e com texto ela VOLTA a ocupar uma linha, sem mexer a barra de ação um '
+    + 'pixel: a regra é `:empty`, e o dia em que alguém a tirar do seletor leva '
+    + 'o recibo do lote junto — que é a única frase da folha que não repete a tela',
+    { calada, falando });
+
+  // (Q) REABRIR ZERA OS TRÊS FILTROS E A PALAVRA.
+  //
+  // Pelos CHIPS RENDERIZADOS e pelo valor do campo, nunca pelo objeto de
+  // preferências: é o que o operador vê, e um `sorteioPrefs` limpo com a folha
+  // desenhada por cima do estado velho é o mesmo defeito de sempre — a tela
+  // discordando do aparelho.
+  //
+  // A PALAVRA É PLANTADA DEPOIS DO FECHAMENTO, e isso está dito porque não é
+  // óbvio: o `fecharSorteio` já a limpa desde a v5.307, então sem o plantio a
+  // linha nova do `abrirSorteio` ficaria sem oráculo — ela é a SEGUNDA guarda, a
+  // que cobre uma reabertura que não passe pelo fechamento. Os TRÊS FILTROS não
+  // precisam de plantio nenhum: eles são gravados (`saveSorteioPrefs`) e
+  // atravessam o fechamento por construção, que é o que tornava o relato
+  // possível.
+  const reabrir = await pg.evaluate(async () => {
+    const w = (ms) => new Promise((r) => setTimeout(r, ms));
+    calarSorteio();
+    const chips = () => [...document.querySelectorAll('#sorteioList .sorteio-linha .misc-chip')];
+    const foto = async () => ({
+      acesos: chips().filter((c) => c.classList.contains('active')).map((c) => c.textContent),
+      aria: chips().map((c) => c.getAttribute('aria-pressed')),
+      campo: document.querySelector('#sorteioList .lib-search').value,
+      prefs: [sorteioPrefs.semHinario, sorteioPrefs.semInfantis, sorteioPrefs.soNoAparelho,
+        sorteioPrefs.tema],
+      gravado: await AVDB.getState('sorteioPrefs'),
+    });
+    // PELO TOQUE DE VERDADE em cada chip, que é quem grava.
+    for (const c of chips()) if (!c.classList.contains('active')) c.click();
+    await w(80);
+    const campo = document.querySelector('#sorteioList .lib-search');
+    campo.value = 'natal';
+    campo.dispatchEvent(new Event('input', { bubbles: true }));
+    await w(SEARCH_DEBOUNCE_MS + 120);
+    const antes = await foto();
+    fecharSorteio();
+    await w(40);
+    const noFechamento = await foto();
+    sorteioPrefs.tema = 'natal';
+    await abrirSorteio();
+    await w(QH_ASSENTA_MS * 3);
+    return { antes, noFechamento, depois: await foto() };
+  });
+  checar(reabrir.antes.acesos.length === 3 && reabrir.antes.campo === 'natal'
+    && reabrir.noFechamento.gravado.semHinario === true
+    && reabrir.noFechamento.gravado.semInfantis === true
+    && reabrir.noFechamento.gravado.soNoAparelho === true,
+    'Q · a PREMISSA: os três chips foram ACESOS pelo toque e a palavra escrita no '
+    + 'campo, e os três ATRAVESSAM o fechamento no registro gravado — é essa '
+    + 'sobrevivência que fazia o filtro esquecido tirar músicas do culto sem que '
+    + 'ninguém lembrasse por quê', reabrir);
+  checar(reabrir.depois.acesos.length === 0
+    && reabrir.depois.aria.join() === 'false,false,false'
+    && reabrir.depois.campo === ''
+    && JSON.stringify(reabrir.depois.prefs) === JSON.stringify([false, false, false, '']),
+    'Q · e a reabertura desenha os TRÊS apagados e o campo vazio — inclusive o '
+    + '"Sem infantis", cujo "nasce ligado" o operador revogou por extenso; o '
+    + '`sanear` segue o ligando para quem LÊ um registro, e a folha o apaga por '
+    + 'escrito a cada abertura', reabrir.depois);
 
   checar(erros.length === 0, 'nenhum erro de console', erros.slice(0, 3));
 } finally {
