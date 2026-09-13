@@ -253,11 +253,62 @@ checar(!!bloco && [...pedidos.values()].some((v) => v.some((o) => o.startsWith('
 const html = readFileSync(join(WEB, 'controle/index.html'), 'utf8');
 
 const definidos = new Map();
+const ordemDosSimbolos = [];
 {
   const re = /<symbol id="(ico[A-Za-z0-9_]*)"/g;
   for (let m; (m = re.exec(html));) {
+    ordemDosSimbolos.push(m[1]);
     definidos.set(m[1], html.slice(0, m.index).split('\n').length);
   }
+}
+
+// ===== E UM SÍMBOLO NÃO PODE ESTAR DENTRO DE OUTRO (v1.9.3) =====
+//
+// As duas varreduras acima leem NOMES, e um nome declarado duas vezes entra no
+// `Map` uma vez só: elas são cegas ao `<symbol>` que ABRE e não fecha. Isso não
+// é hipótese — a v1.9.3 saiu com `<symbol id="icoZerar" …>` DUPLICADO na mesma
+// linha (o resíduo de uma edição que trocou o vizinho de cima), e o desfecho é
+// o modo de falhar deste arquivo inteiro, um degrau mais fundo: o navegador
+// aninha o segundo dentro do primeiro, e um `<symbol>` NUNCA é desenhado como
+// filho — só instanciado por `<use>`. MEDIDO em Chromium, o `<use
+// href="#icoZerar">` do ↺ do Tempo passou a medir **0×0** enquanto os vizinhos
+// mediam 34×29 e 40×40; nada erra, e o botão de zerar sai como um vão.
+//
+// **E TODO O RESTO DO SPRITE VAI JUNTO PARA DENTRO DELE** — os quinze símbolos
+// declarados abaixo viraram descendentes do primeiro. Eles continuam desenhando
+// (o `<use>` acha o id em qualquer lugar do documento), o que é exatamente por
+// que a coisa fica calada: o app inteiro parece certo, menos um ícone.
+//
+// A régua é a PROFUNDIDADE, não o nome repetido: ela pega também o caso em que
+// alguém aninhar dois símbolos DIFERENTES, que falha igual. O nome repetido tem
+// asserção própria logo abaixo porque ele falha de outro jeito — dois desenhos
+// completos com o mesmo id dão um deles morto, e o `<use>` sempre pega o
+// primeiro.
+{
+  // A VARREDURA RODA SOBRE A MARCAÇÃO, NUNCA SOBRE A PROSA — e aqui a distinção
+  // é obrigatória, não higiene: este arquivo cita `<symbol>` DENTRO de nove
+  // comentários (a convenção de documentação do repositório), e cada citação
+  // conta como uma tag aberta. Os comentários são ESVAZIADOS preservando as
+  // quebras de linha, como o `funcao-sem-chamador.test.mjs` já faz com o JS, e
+  // por isso o saldo abaixo pode ser exigido em ZERO.
+  const marcacao = html.replace(/<!--[\s\S]*?-->/g,
+    (c) => c.replace(/[^\n]/g, ' '));
+  let fundo = 0;
+  let maisFundo = 0;
+  for (const t of marcacao.matchAll(/<(\/?)symbol\b/g)) {
+    if (t[1]) fundo--; else { fundo++; maisFundo = Math.max(maisFundo, fundo); }
+  }
+  checar(maisFundo === 1 && fundo === 0,
+    'nenhum `<symbol>` do sprite está DENTRO de outro (nem sobra tag aberta): '
+    + 'aninhado, ele deixa de ser desenhado pelo `<use>` que o pede — 0×0 na '
+    + 'tela, sem erro, sem requisição falhando',
+    JSON.stringify({ maisFundo, saldoDeTags: fundo }));
+  const repetidos = [...new Set(ordemDosSimbolos
+    .filter((n, i) => ordemDosSimbolos.indexOf(n) !== i))];
+  checar(repetidos.length === 0,
+    'e nenhum `id` do sprite é declarado duas vezes: o `<use>` resolve sempre o '
+    + 'PRIMEIRO, e o segundo desenho viaja no bundle sem nunca aparecer',
+    JSON.stringify(repetidos));
 }
 
 const usados = new Map();

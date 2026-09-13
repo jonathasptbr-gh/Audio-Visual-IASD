@@ -5536,7 +5536,10 @@ try {
       ultima: messages.length ? messages[messages.length - 1].text : null,
       // E ela CHEGA À LISTA: gravar sem redesenhar deixaria o operador tocando
       // de novo, achando que o primeiro toque não pegou.
-      naLista: [...document.querySelectorAll('.msg-item .msg-text')]
+      // A LINHA É A `.lib-item` DAS OUTRAS LISTAS desde a v1.9.3 (o `.msg-item`
+      // com os cinco botões à vista saiu inteiro): o nome mora no `.row-name`,
+      // como no Cronograma, nos Favoritos e na fila.
+      naLista: [...document.querySelectorAll('.msg-list .lib-item .row-name')]
         .some((t) => t.textContent === 'Aviso do oráculo'),
     };
   });

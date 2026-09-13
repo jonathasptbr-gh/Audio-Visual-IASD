@@ -8109,9 +8109,19 @@ function renderMsg() {
       // mensagem."* Ele é um ALTERNADOR de gaveta, e UMA por vez — duas abertas
       // na mesma lista fariam o operador perder de vista qual linha ele ajusta.
       //
-      // Ele NÃO entra em `ACOES_QUE_NAO_FECHAM`: a faixa de ações cobre o nome,
-      // e a gaveta que ele abre é logo abaixo dela — as duas juntas escondem a
-      // linha inteira.
+      // ABRIR A GAVETA FECHA A FAIXA DE AÇÕES — a faixa cobre o nome e a gaveta
+      // nasce logo abaixo dela, e as duas juntas escondem a linha inteira.
+      //
+      // **O DESFECHO É PROTEGIDO DUAS VEZES, e uma metade sozinha não o perde**
+      // (MEDIDO por reversão, três vezes, porque a leitura ingênua erra nas
+      // duas pontas): inscrever este botão em `ACOES_QUE_NAO_FECHAM` não muda um
+      // pixel, porque o `fecharAcoesDaLinha()` do topo do `renderMsg` fecha a
+      // faixa no redesenho e nada a marca para reabrir; e chamar
+      // `manterAcoesAbertas()` aqui também não, porque o ouvinte de CAPTURA da
+      // `.row-acoes` já rodou antes deste `click` e `linhaAcoesAberta` chega
+      // aqui em `null`. Só o PAR reabre a faixa — que é exatamente o que a
+      // ESTRELA tem, e por isso o caminho realista de perder isto é copiá-la
+      // por inteiro.
       const est = document.createElement('button');
       est.type = 'button';
       est.className = 'row-btn msg-estilo-btn' + (msgEstiloAberto === m.id ? ' on' : '');
