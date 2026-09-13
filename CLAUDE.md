@@ -103,6 +103,7 @@ pergunta dele é sempre a mesma: *mudou o quê, e eu preciso fazer alguma coisa?
 | **O RELATÓRIO É PARA LEIGO** | sem nome de arquivo, de função, de tecnologia ou de número interno. O que mudou, dito pelo que ele VÊ ou FAZ no app |
 | **ECONOMIA DE PALAVRAS** | frases curtas, sem preâmbulo e sem fecho de cortesia. Um relatório de dez linhas que se lê vale mais que um de cinquenta que se pula |
 | **DETALHE SÓ SOB PEDIDO** | ele pergunta, e aí vem o técnico inteiro, sem economia |
+| **ESPERAR É MUDO** | *"pode ocultar as mensagens e logs que não sejam seu relatório final"*. Enquanto um agente delegado trabalha, a sessão NÃO escreve "aguardando", "ainda rodando", "o agente continua". Isso não é narrar o trabalho: é narrar a AUSÊNCIA de trabalho, e sai dezenas de vezes seguidas |
 
 **AS DUAS COISAS QUE NUNCA SE OMITEM** — são elas que impedem "sucinto" de virar
 "só a parte boa":
