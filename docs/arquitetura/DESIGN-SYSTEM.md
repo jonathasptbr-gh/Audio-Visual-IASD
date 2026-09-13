@@ -434,7 +434,7 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
   primeiro ajuste. **Quatro botões largos violavam a primeira metade da regra**
   e foram corrigidos na v5.49 (`.import-btn`, `.msg-add-btn`, `.new-folder-btn`
   e `.folder-pick-btn` usavam `--radius-card`): a maioria dos botões largos do
-  app — `.misc-project`, `.mic-btn`, `.chrono-btn`, `.draw-go`
+  app — `.misc-project`, `.mic-btn`, `.chrono-btn`
   — sempre usou `--radius-btn`, então eram esses quatro que destoavam, e dois
   deles ("Importar arquivos" e "+ Nova mensagem") são o mesmo tipo de botão
   tracejado em telas diferentes. Na mesma passada o tracejado de `.msg-add-btn`
@@ -553,7 +553,7 @@ desde a v1.8.95, quando ESCOLHIDO e LIGADO passaram a vestir o mesmo par:
   que o app já aceitava no `.qs-tile.qs-on`, o modelo do pedido.
 
   **O DENIM FICA NOS BOTÕES** — `.chrono-btn.primary`, `.misc-project`,
-  `.draw-go`, `.diag-btn--primario`, `.song-menu-go`, `.dialog-btn.primary`,
+  `.diag-btn--primario`, `.song-menu-go`, `.dialog-btn.primary`,
   `.cast-acao`/`.cast-acao-linha`, `.ota-row--agora` —, mais o `.popup-count`,
   que é INFORMAÇÃO e já era exceção comentada no CSS. Oráculo:
   `tokens.test.mjs`, bloco *"ESCOLHIDO NÃO É O DENIM"*, que varre por SELETOR

@@ -459,7 +459,6 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      está SOZINHA no rodapé. Com irmãos ela cede para `--quad-faixa`, que é a
      regra da faixa de fecho (v1.8.61). Medida de layout, então mora aqui e não
      em tokens.css (lá só entra cor). */
-  --misc-bar-h: 56px;
 
   /* ---------- FEEDBACK DE TOQUE: RECUO ABSOLUTO, NUNCA PROPORCIONAL (v1.3.14)
      ----------
@@ -779,7 +778,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      inteiro: ver "O BLOCO RESPONDE POR LUZ".) */
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .song-menu-btn, .msg-add-btn, .msg-item,
-  .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
+  .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project,
   /* (`.lib-item` saiu na v1.7.4, pela regra do bloco — ver "O BLOCO RESPONDE
      POR LUZ". Ela é a linha de lista deste app, isto é, o outro CONTÊINER que
      hospeda controles: o `⋮`, o "Tirar do ar" na capa, a gaveta inteira.) */
@@ -6359,15 +6358,20 @@ main {
    fixa — o mesmo desenho do rodapé da fila e da playlist automática, na ordem
    canônica da tabela `DESTINOS` (Cronograma, favoritos).
 
-   E A ALTURA É UMA SÓ (a regra da v1.8.61): com irmãos na faixa, o primário
-   cede para `--quad-faixa`, que é a medida do quadrado; SOZINHO — o caso das
-   Mensagens, que não têm o que guardar — ele volta a `--misc-bar-h`, a altura
-   da barra que ele sempre foi. Escrito ao contrário (uma altura fixa para os
-   dois casos), ou o quadrado estica contra um primário de 56px, ou o primário
-   encolhe onde nada o obriga a isso. */
-.misc-foot { display: flex; gap: var(--sp-4); align-items: stretch; }
-.misc-foot .misc-project { flex: 1; min-width: 0; height: var(--misc-bar-h); }
-.misc-foot:has(.cue-save-btn) .misc-project { height: var(--quad-faixa); }
+   E A ALTURA É UMA SÓ (a regra da v1.8.61): o primário cede para `--quad-faixa`,
+   que é a medida do quadrado, em vez de esticar os vizinhos contra ele.
+
+   **O SEGUNDO DEGRAU SAIU NA v1.9.1, com o estado que ninguém alcança.** Havia
+   um `:has(.cue-save-btn)` escolhendo entre duas alturas: sozinho o primário
+   voltava a `--misc-bar-h` (56px), e o único caso "sozinho" eram as Mensagens.
+   Elas perderam o primário — quem projeta é a lista —, e as duas ferramentas
+   que ainda o têm guardam cena, logo têm sempre os dois destinos ao lado. Uma
+   regra que só pinta num estado inalcançável é armadilha: ela responde "isto
+   está coberto?" com um sim que não existe. */
+/* E A FAIXA É O CONTAINER DE CONSULTA do rótulo do primário — ver o
+   `font-size` do `.misc-project`. */
+.misc-foot { display: flex; gap: var(--sp-4); align-items: stretch; container-type: inline-size; }
+.misc-foot .misc-project { flex: 1; min-width: 0; }
 .misc-foot .cue-save-btn { width: var(--quad-faixa); height: var(--quad-faixa); }
 /* ---------- O QUE A FERRAMENTA OPERA, À ESQUERDA (v1.8.94) ----------
    Pedido do operador: o transporte do tempo e os seletores do relógio saíram do
@@ -6675,6 +6679,13 @@ main {
    de espremer o rótulo — com os botões de ícone (v5.109) o par mede ~74px e a
    linha não aperta mais, mas a quebra fica: ela não custa nada e o rótulo é
    quem diz o que os dois botões guardam. */
+/* ---------- A LEGENDA SE IDENTIFICA POR DENTRO (v1.9.1) ----------
+   Pedido do operador: *"a identificação e explicação ficara dentro da caixa,
+   não precisa do título legenda fora da caixa, aplique para as outras caixas de
+   legenda"*. Sem o `<span>` a linha tem um filho só, e o `.misc-text` já é
+   `flex: 1` — a regra existe para NOMEAR o caso, e porque tirar o rótulo tira
+   junto o nome acessível do campo (quem o devolve é o `aria-label`, no JS). */
+.misc-row--legenda { gap: 0; }
 .misc-row--save { flex-wrap: wrap; }
 .misc-save-btns { display: flex; gap: var(--sp-3); margin-left: auto; }
 .misc-num, .misc-text {
@@ -6707,10 +6718,37 @@ main {
 /* Projetar: a ação com efeito no TELÃO, por isso destacada. No ar vira
    vermelha — a cor mostra o ESTADO, o rótulo a AÇÃO. */
 .misc-project {
-  height: var(--misc-bar-h); padding: .4rem;
+  height: var(--quad-faixa); padding: .4rem;
   border-radius: var(--radius-btn);
   background: var(--accent-fill); color: var(--on-accent);
-  font-size: var(--fs-xl); font-weight: var(--fw-max); cursor: pointer;
+  /* ---------- TETO PELA LARGURA DISPONÍVEL (v1.9.1) ----------
+     O degrau fixo (`--fs-xl`) resolve o caso comum e ESTOURA a caixa nos dois
+     eixos que crescem: a faixa tem cinco filhos (dois quadrados à esquerda, o
+     primário, os dois destinos) e o primário fica com o que sobra, enquanto o
+     rótulo cresce com a fonte do sistema. MEDIDO com `scrollHeight` contra a
+     caixa, no rodapé do Tempo:
+
+     | tela | escala | transborda |
+     |---|---|---|
+     | 360 | 1,25× | **26px** |
+     | 360 | 1,5×  | **37px** |
+     | 390 | 1,25× | 4px |
+     | 430 | 1,5×  | **37px** |
+
+     Vinte e seis pixels em cima de uma caixa de 48 são a TERCEIRA linha do
+     rótulo, cortada — e cortada sem clipe que denuncie, porque a caixa não tem
+     `overflow: hidden`: o texto simplesmente sai por baixo do botão. O defeito é
+     anterior a este lote (a faixa do Tempo ganhou os dois quadrados na
+     v1.8.94), e ele entra aqui porque a v1.9.1 dá ao Sorteio a MESMA faixa —
+     consertá-lo num só deixaria a mesma peça quebrada na aba vizinha.
+
+     A régua tem de ser a LARGURA DISPONÍVEL, não a tela, que é a lição do
+     mostrador do Tempo (v1.8.89, `min(var(--fs-display-sm), 8cqw)`). MEDIDO com
+     o teto em 4,4%: ZERO transbordo em oito células (360/390/412/430 × 1 a 2×).
+     O preço é sabido e é do caso estreito: a 360px com a fonte padrão o rótulo
+     cai de 15,2px para 13,7px; de 412px em diante o teto passa do `--fs-xl` e
+     nada muda. Um rótulo 10% menor é melhor que um rótulo cortado. */
+  font-size: min(var(--fs-xl), 4.4cqw); font-weight: var(--fw-max); cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 /* No ar: a família do "está no telão agora", como PREENCHIMENTO (v5.267). É o
@@ -6736,6 +6774,29 @@ main {
 /* Rolando: esmaecido e no accent, como no telão — o contraste com o valor
    final é o que anuncia o resultado. */
 .draw-read.rolling { opacity: .55; color: var(--brand); }
+/* ---------- DUAS COLUNAS NO SORTEIO DE TEXTO (v1.9.1) ----------
+   Pedido do operador: o sorteado no topo, e abaixo *"duas colunas… na direita
+   deixe a caixa de texto dos itens a serem sorteados"*.
+
+   `align-items: stretch` é o PADRÃO e é o que se quer aqui — é ele que dá à
+   coluna da direita a altura da esquerda, para o `flex: 1` do `<textarea>` ter
+   contra o que crescer. (Onde `stretch` é defeito é num botão de símbolo, que
+   recebe a altura do irmão de rótulo — a regra da v1.8.57. Aqui as duas colunas
+   SÃO blocos, e a igualdade é o desenho.)
+
+   `min-width: 0` nas duas: o padrão de um item flex é `min-width: auto`, e um
+   `<textarea>` mede ~200px de largura intrínseca — sem a linha, a 360px as duas
+   colunas somam mais que a tela e a aba ganha rolagem HORIZONTAL. É o mesmo
+   vazamento que o `.draw-range-field` já documenta. */
+.draw-cols { display: flex; gap: var(--sp-4); }
+.draw-col {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: var(--sp-4);
+}
+/* A LISTA É QUEM ESTICA. A coluna da esquerda tem tamanho previsível (um chip,
+   o contador, os já sorteados, a legenda); a caixa de opções cresce com o que
+   se digita, e é ela que ocupa o que sobrar. */
+.draw-col--dir .draw-pool { flex: 1; min-height: 5.5rem; }
 .draw-range { display: flex; gap: var(--sp-5); }
 /* `min-width: 0` nos DOIS níveis: o padrão de um item flex é `min-width: auto`,
    que o impede de encolher abaixo da largura intrínseca do conteúdo — e um
@@ -6776,14 +6837,10 @@ main {
 /* O ÚLTIMO sorteado em destaque: é o que acabou de ser anunciado, e a lista
    está em ordem inversa justamente para ele ficar à mão. */
 .draw-hist-chip.last { background: var(--btn-accent); color: var(--text); }
-.draw-go {
-  padding: .8rem .4rem;
-  border-radius: var(--radius-btn);
-  background: var(--accent-fill); color: var(--on-accent);
-  font-size: var(--fs-xl); font-weight: var(--fw-max); letter-spacing: .02em; cursor: pointer;
-  appearance: none; -webkit-appearance: none;
-}
-.draw-go:disabled { opacity: .45; background: var(--surface); color: var(--muted); }
+/* (O `.draw-go` — o "Sortear" de largura inteira no fim do painel — saiu na
+   v1.9.1: sortear e reiniciar viraram DOIS QUADRADOS no rodapé, ao lado do
+   primário, e quem os veste é o `.chrono-btn` das abas irmãs. Ver
+   `.misc-foot-esq`.) */
 
 /* ---------- Mensagens (texto puro) ---------- */
 /* Vivem numa das ferramentas da aba Ferramentas (o painel `.misc-panel--msg`),
@@ -6797,10 +6854,56 @@ main {
   padding: .7rem; font-size: var(--fs-lg); font-weight: var(--fw-forte);
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
+/* ---------- A LINHA E A GAVETA SÃO UMA PEÇA (v1.9.1) ----------
+   O envelope existe porque a `.msg-list` é um flex com `gap`: filhas diretas,
+   a linha e a gaveta ganhariam o vão da lista entre si e leriam como dois
+   cartões. Dentro do envelope o vão é ZERO e o arredondamento é do conjunto —
+   a linha perde os cantos de baixo, a gaveta perde os de cima. */
+.msg-row { display: flex; flex-direction: column; }
+.msg-row:has(> .msg-estilo) .msg-item {
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+}
 .msg-item {
   display: flex; align-items: center; gap: var(--sp-4);
   border-radius: var(--radius-card); background: var(--camada); padding: .5rem .6rem;
 }
+/* A GAVETA DE ESTILO. `--gaveta-btn` nos chips é o que a gaveta dos Favoritos
+   já faz: dentro dela o `--surface` é um overlay que AFUNDA, e um chip na cor
+   de fora some contra o próprio fundo. */
+.msg-estilo {
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  padding: .55rem .6rem .65rem;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  /* SEPARADA POR PREENCHIMENTO, nunca por um filete: a gaveta AFUNDA dentro do
+     cartão, que é a escada de camadas do app (e é literalmente o que
+     `--gaveta-bg` existe para dar — o mesmo par que a gaveta dos Favoritos usa
+     com o `--gaveta-btn` dos chips aqui embaixo). */
+  background: var(--gaveta-bg);
+}
+/* O RÓTULO FICA ACIMA DOS CHIPS, e não ao lado como na `.misc-row` — é
+   aritmética, não gosto. MEDIDO a 360px: o rótulo come ~70px da linha, e os
+   quatro tamanhos pedem ~296px; ao lado dele, TODA linha de quatro quebra, e o
+   `margin-left: auto` do grupo a joga para a direita com um vão à esquerda. Em
+   cima, os chips têm a largura inteira e dividem em partes iguais — três linhas
+   previsíveis, que é o que a gaveta pode ter (ela empurra a lista para baixo).
+
+   `flex: 1` com `min-width: 0` nos chips: sem o segundo, o mínimo automático de
+   um item flex é o rótulo inteiro e os quatro somam mais que a caixa. O piso de
+   ALVO continua vindo do `min-height`/`min-width` do `.misc-chip`. */
+.msg-estilo-linha { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-1); }
+.msg-estilo-opcs { display: flex; gap: var(--sp-2); }
+.msg-estilo-opcs > .misc-chip {
+  flex: 1; min-width: 0; padding-inline: .2rem;
+  /* O rótulo é curto ("Pequeno", "Serifa", "Esquerda") e o chip é estreito: sem
+     centrar, o texto encosta na borda esquerda de uma pílula que já divide a
+     largura por partes iguais. */
+  text-align: center;
+}
+.msg-estilo-opcs .misc-chip { background: var(--gaveta-btn); }
+.msg-estilo-opcs .misc-chip.active { background: var(--btn-accent); color: var(--accent); }
+/* ABERTA = LIGADO, e ligado é o par de sempre (`--btn-accent` + `--accent`) — a
+   MESMA linguagem do `.fav-btn.on` na linha ao lado. */
+.msg-estilo-btn.on { background: var(--btn-accent); color: var(--accent); }
 /* NO AR — e por isso vermelho, não verde. Até a v5.47 esta linha e o versículo
    central (`.bible-vsec.cur.live`) diziam "está no telão" em VERDE enquanto
    outros quatro componentes diziam a mesma coisa em vermelho, na mesma tela;
@@ -6943,7 +7046,17 @@ main {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8; overflow: hidden;
 }
 .pv-text-sub { color: var(--stage-accent); font-weight: var(--fw-forte); font-size: 4.6cqmin; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.pv-text-content.mode-message .pv-text-main { font-size: 7.4cqmin; -webkit-line-clamp: 7; font-weight: var(--fw-medio); }
+/* Espelha `.mode-message` do Display, inclusive o ESTILO POR MENSAGEM (v1.9.1):
+   as mesmas quatro variáveis, escritas por `showPvText` a partir da mesma
+   `createStage.estiloDoCartao`. Ver o comentário longo no `display.css`. */
+.pv-text-content.mode-message .pv-text-main {
+  font-size: calc(7.4cqmin * var(--msg-escala, 1));
+  -webkit-line-clamp: var(--msg-linhas, 7);
+  font-weight: var(--fw-medio);
+  font-family: var(--msg-fonte, inherit);
+  text-align: var(--msg-alinha, center);
+  align-self: stretch;
+}
 /* Cronômetro/relógio/timer — espelha .mode-chrono do Display (display.css),
    inclusive o `tabular-nums`, sem o qual o número treme a cada segundo. */
 .pv-text-content.mode-chrono .pv-text-main {

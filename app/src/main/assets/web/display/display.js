@@ -759,11 +759,31 @@ async function pintarTextImg(cmd) {
   stage.reporGiro();
 }
 
+// O ESTILO DA MENSAGEM, escrito como VARIÁVEIS na caixa do cartão — a folha é
+// que sabe onde cada uma entra (`display.css`), e este arquivo só entrega os
+// valores que a regra COMPARTILHADA decidiu (`createStage.estiloDoCartao`).
+// Fora do modo mensagem as quatro são REMOVIDAS, e não zeradas: um versículo
+// não herda o alinhamento do aviso que estava no ar antes dele.
+function aplicarEstiloDoCartao(estilo, mensagem) {
+  const st = textContentEl.style;
+  if (!mensagem) {
+    st.removeProperty('--msg-escala'); st.removeProperty('--msg-linhas');
+    st.removeProperty('--msg-fonte'); st.removeProperty('--msg-alinha');
+    return;
+  }
+  const e = createStage.estiloDoCartao(estilo);
+  st.setProperty('--msg-escala', String(e.escala));
+  st.setProperty('--msg-linhas', String(e.linhas));
+  st.setProperty('--msg-fonte', e.fonte);
+  st.setProperty('--msg-alinha', e.alinha);
+}
+
 function showText(cmd) {
   const wallpaper = cmd.view === 'wallpaper';
   textMode = cmd.mode === 'message' ? 'message'
     : (cmd.mode === 'chrono' || cmd.mode === 'draw' || cmd.mode === 'image') ? cmd.mode : 'verse';
   textContentEl.classList.toggle('mode-message', textMode === 'message');
+  aplicarEstiloDoCartao(cmd.estilo, textMode === 'message');
   textContentEl.classList.toggle('mode-chrono', textMode === 'chrono');
   textContentEl.classList.toggle('mode-draw', textMode === 'draw');
   textEl.classList.toggle('mode-img', textMode === 'image');

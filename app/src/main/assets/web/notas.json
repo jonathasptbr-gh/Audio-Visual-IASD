@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.9.1",
+    "itens": [
+      "Mensagens: o botão de projetar saiu do rodapé — tocar na mensagem já projeta e tocar de novo tira do ar.",
+      "Mensagens: no lugar dele há um botão de parar, que apaga quando não há nada no telão.",
+      "Mensagens: cada mensagem tem um botão de estilo — tamanho da letra, tipo de letra e alinhamento.",
+      "O estilo escolhido vale só para aquela mensagem, e aparece na hora no telão e nas telas conectadas.",
+      "Sorteio: sortear e reiniciar viraram dois botões quadrados no rodapé, ao lado de projetar.",
+      "Sorteio de texto: o resultado fica no topo; embaixo, opções à esquerda e a lista de nomes à direita.",
+      "O campo de legenda do Sorteio e do Tempo perdeu o título de fora — a explicação agora fica dentro da caixa."
+    ]
+  },
+  {
     "versao": "1.9",
     "itens": [
       "Novo número de versão: a base web passa a 1.9, e sai um aplicativo novo com o mesmo número.",

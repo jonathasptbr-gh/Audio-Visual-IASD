@@ -398,8 +398,27 @@ html, body {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 /* Modo mensagem: texto maior ainda (avisos são curtos e devem ser lidos de
-   longe) e sem sublinha. */
-.text-content.mode-message .text-main { font-size: 7.4cqmin; -webkit-line-clamp: 7; font-weight: 600; }
+   longe) e sem sublinha.
+
+   E DESDE A v1.9.1 CADA MENSAGEM TEM O SEU (tamanho, fonte, alinhamento). Os
+   quatro valores chegam como VARIÁVEIS escritas na caixa por `showText`, e quem
+   os decide é a regra COMPARTILHADA com a preview (`createStage.estiloDoCartao`).
+   O `var(…, padrão)` é o que faz uma mensagem gravada antes do recurso — e a
+   ESTROFE da letra sincronizada, que entra por este mesmo modo sem estilo
+   nenhum — sair exatamente como saía.
+
+   `align-self: stretch` NÃO é enfeite: a caixa é `flex-direction: column` com
+   `align-items: center`, então o bloco de texto nasce do tamanho do conteúdo e
+   um `text-align: left` não teria contra o que alinhar — as linhas continuariam
+   centradas, e o botão pareceria quebrado. */
+.text-content.mode-message .text-main {
+  font-size: calc(7.4cqmin * var(--msg-escala, 1));
+  -webkit-line-clamp: var(--msg-linhas, 7);
+  font-weight: 600;
+  font-family: var(--msg-fonte, inherit);
+  text-align: var(--msg-alinha, center);
+  align-self: stretch;
+}
 
 /* Modo cronômetro/relógio/timer: o mesmo cartão, com o número no maior tamanho
    que a largura comporta — é para ser lido do fundo do salão, e não há prosa

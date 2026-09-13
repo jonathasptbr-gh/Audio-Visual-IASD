@@ -2072,7 +2072,7 @@ herdados por cópia em vez de escolhidos.
   oráculo pedi-la.
 - **`checar` mora em `tools/checar.mjs`, SEM uma linha de `import`**, e a
   separação NÃO é organização: o `arnes.mjs` importa o Playwright, e no workflow
-  os 17 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
+  os 21 oráculos de Node puro rodam no passo "Sanidade da base web", que vem
   **antes** do `npm ci`. Um deles importando o arnês passaria na máquina de quem
   escreve (onde `node_modules/` existe) e falharia só no runner, no passo sem
   `continue-on-error` — "a atualização não chega", por um
@@ -2106,7 +2106,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **85** e os de Node puro **19** — juntos, os 104. MEDIDO com
+Os de Chromium são **87** e os de Node puro **21** — juntos, os 108. MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -2157,7 +2157,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 105 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 108 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2749,29 +2749,27 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.9 · APK v1.9** · `SHELL_VERSION` **72** ·
-bundle com `minShell: 72` e **COM `shellTag: "v1.9"`** — o shell 72 é o **PISO**:
+**Versão atual: base web v1.9.1 · APK v1.9** · `SHELL_VERSION` **72** ·
+bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.9 DECLARA `shellTag`, e é o primeiro lote desde a v1.8.91 a pedir
-> Release** — a pedido do operador: *"atualize a versão para a 1.9, disparando
-> também uma release de 1.9 também"*. **O APK não carrega Kotlin novo**, e isso
-> está conferido: `git diff v1.8.91..HEAD` em `java/`, `res/`, no manifesto e no
-> `build.gradle.kts` volta VAZIO. Ela é uma renumeração do `versionName`, e vale
-> pelo que ele pediu — a frota deixa de mostrar um APK v1.8.91 embaixo de uma
-> base v1.9 —, não por um conserto de shell que não existe.
+> **A v1.9.1 NÃO declara `shellTag`, e a v1.9 declarou — a diferença é o que o
+> campo pergunta.** Aquela existia para DISPARAR uma Release (pedido por
+> extenso), e sem o campo o bundle sairia sozinho, deixando a frota com um APK
+> v1.8.91 embaixo de uma base v1.9. **Essa Release SAIU**: o `v1.9` está
+> publicado e o manifesto do canal já aponta para ele. Esta não toca `java/`,
+> `res/` nem o manifesto, e por isso a obrigação NÃO é herdada — o bundle sai na
+> hora, contra um shell que já está na frota. **A herança acontece no caso
+> inverso**, e vale relembrar: um lote só de web publicado DEPOIS de um lote de
+> shell ainda não lançado HERDA a obrigação, porque o CI exige
+> `shellTag == 'v' + version`.
 >
-> **O DEGRAU CONTRARIA A RÉGUA DA TABELA, e é decisão de quem PUBLICA.**
-> INCREMENTAL é *"uma seção inteiramente nova do app"*, e os lotes que este
-> número fecha não criaram lugar nenhum: reconstruíram o mostrador do Tempo, a
-> folha da playlist automática, e tiraram o microfone ao vivo. O que o degrau
-> reconhece é o ACÚMULO. A régua continua valendo para os próximos.
->
-> **E `1.9` É UM NÚMERO DE DOIS COMPONENTES**, com a armadilha que este arquivo
-> mede desde a v1.1: `1.9` e `1.9.0` são a MESMA versão para o `compareVersions`,
-> que completa com zero o que falta — republicar a `1.9` como `1.9.0` não é
-> atualização nenhuma, e o aparelho a ignora em silêncio. **O primeiro degrau
-> depois deste é o `1.9.1`.**
+> **E O DEGRAU É CORREÇÃO, que é o caso normal.** A v1.9 foi INCREMENTAL contra
+> a régua da tabela, por decisão de quem publica e com o motivo dito; o que ela
+> deixou anotado é que **`1.9` e `1.9.0` são a MESMA versão** para o
+> `compareVersions`, que completa com zero o que falta — daí o primeiro degrau
+> depois dela ser este `1.9.1`, e não um `1.9.0` que o aparelho ignoraria em
+> silêncio.
 
 > **A v1.8.99 REMOVE a coletânea de vídeos do LouvorJA, que a v1.8.97 tinha
 > acrescentado — e a razão é do operador, não técnica:** *"Eu achava que seria

@@ -19,9 +19,9 @@ cobre/revela "de graça", sem tocar em `stage.js`). São eles:
 | **Mídia visual sobre o áudio** | manual (o toque na imagem ou na apresentação) | um registro `kind:'image'` — ou `kind:'deck'`, e aí o cartão pinta `pages[page]` | `#text` / `#pvText` (modo `mode-img`) |
 
 > **Mensagens vive na aba Ferramentas** (v5.31), como uma das ferramentas do
-> seletor: lista de avisos salvos, "+ Nova mensagem" e — quando há uma
-> projetada — "Tirar do telão" (`hideMessage` → `text-hide`, que encerra só a
-> Camada de Texto; um áudio de fundo segue tocando). Tocar numa mensagem
+> seletor: lista de avisos salvos, "+ Nova mensagem" e o **PARAR** do rodapé
+> (`hideMessage` → `text-hide`, que encerra só a Camada de Texto; um áudio de
+> fundo segue tocando), apagado quando não há nada no telão. Tocar numa mensagem
 > projeta e a linha fica marcada, então passar de um aviso a outro não exige
 > reabrir nada — que era o atrito do bottom-sheet anterior. Com a mensagem fora
 > do ar mas a sessão viva, os botões de slide só MOVEM a seleção (mesma regra
@@ -618,23 +618,49 @@ aprende UM lugar em vez de um por ferramenta. De quebra, o botão de projetar
 parou de descer conforme o painel cresce (no sorteio de texto ele ficava abaixo
 da lista).
 
-- **É UMA FAIXA DE FECHO** (`renderFoot`): o "Projetar no telão" CRESCE à
-  esquerda e os dois destinos (`cue-save-btn`) ficam à direita, na ordem
-  canônica da tabela `DESTINOS`. O "guardar isto" era uma LINHA no fim de cada
-  painel (`cueSaveRow`) e descia com ele — o mesmo defeito que já tinha trazido
-  o projetar para cá. Hoje é um DESCRITOR (`cueSaveDaFerramenta`): a ferramenta
-  diz COMO montar a cena, o rodapé desenha.
-- **A ALTURA É UMA SÓ** (a regra da v1.8.61): com irmãos na faixa o primário
-  cede para `--quad-faixa`; SOZINHO — o caso das Mensagens, que devolvem `null`
-  porque já entram no Cronograma pelo caminho próprio — ele volta à barra alta e
-  ocupa a linha inteira, pela AUSÊNCIA do irmão e não por uma regra para o caso.
-- **"Projetar" age sobre a ferramenta ATIVA** (`miscProjectState`). Em Mensagens
-  ele não pode projetar sozinho — falta saber QUAL, e isso se escolhe tocando na
-  lista —, então fica **inerte com um `title` que explica**; some não, porque o
-  rodapé é um ponto fixo da tela e sumir faria a faixa mudar de altura a cada
-  troca. Com uma mensagem já selecionada ele **reexibe** a que ficou: é a ação
-  natural depois de um "Tirar do telão", e sem ela o operador teria que caçar a
-  linha certa de novo.
+- **É UMA FAIXA DE FECHO** (`renderFoot`): à esquerda a célula do que a
+  ferramenta OPERA (`.misc-foot-esq`), no meio o primário "Projetar no telão" que
+  CRESCE, à direita os dois destinos (`cue-save-btn`) na ordem canônica da tabela
+  `DESTINOS`. O "guardar isto" era uma LINHA no fim de cada painel (`cueSaveRow`)
+  e descia com ele — o mesmo defeito que já tinha trazido o projetar para cá.
+  Hoje é um DESCRITOR (`cueSaveDaFerramenta`): a ferramenta diz COMO montar a
+  cena, o rodapé desenha.
+- **A CÉLULA DA ESQUERDA É POR FERRAMENTA**, e todas as três a usam: o Tempo leva
+  o transporte (▶/↺) ou os dois seletores do Relógio (v1.8.94), o Sorteio leva
+  **sortear e reiniciar** (v1.9.1) e Mensagens leva o **PARAR** (v1.9.1). Todos
+  são QUADRADOS de `--quad-faixa`, a mesma peça — é isso que faz a faixa ter UMA
+  altura em qualquer ferramenta.
+- **A ALTURA É UMA SÓ** (a regra da v1.8.61): o primário cede para
+  `--quad-faixa`, a medida do quadrado, em vez de esticar os vizinhos contra
+  ele. **O segundo degrau saiu na v1.9.1** — havia um `:has(.cue-save-btn)` que
+  devolvia o primário à barra alta (`--misc-bar-h`, 56px) quando ele estava
+  sozinho na faixa, e o único caso "sozinho" eram as Mensagens. Sem primário
+  nelas, as duas ferramentas que ainda o têm guardam cena e portanto têm sempre
+  os dois destinos ao lado: o estado ficou inalcançável, e uma regra que só
+  pinta num estado que ninguém alcança é armadilha — ela responde *"isto está
+  coberto?"* com um sim que não existe.
+- **O RÓTULO DO PRIMÁRIO TEM TETO PELA LARGURA DISPONÍVEL** (v1.9.1):
+  `min(var(--fs-xl), 4.4cqw)`, com a `.misc-foot` como container de consulta. O
+  degrau fixo resolvia o caso comum e ESTOURAVA a caixa nos dois eixos que
+  crescem — a faixa tem cinco filhos e o primário fica com o que sobra, enquanto
+  "Projetar no telão" cresce com a fonte do sistema. MEDIDO com `scrollHeight`
+  contra a caixa: **26px** de transbordo a 360×1,25× e **37px** a 360×1,5×, isto
+  é, a TERCEIRA linha do rótulo saindo por baixo do botão — e sem clipe que
+  denuncie, porque a caixa não tem `overflow: hidden`. A régua tem de ser a
+  LARGURA DISPONÍVEL, não a tela, que é a lição do mostrador do Tempo (v1.8.89).
+  O preço é do caso estreito: a 360px com a fonte padrão o rótulo cai de 15,2px
+  para 13,7px, e de 412px em diante o teto passa do `--fs-xl` e nada muda.
+- **"Projetar" age sobre a ferramenta ATIVA** (`miscProjectState`), e desde a
+  v1.9.1 ele pode NÃO EXISTIR: em Mensagens a função devolve `null`. Pedido do
+  operador: *"na seção de mensagens, remova o botão de projetar no telão.
+  Atualmente o item selecionado fica vermelho, mas não tem um botão de stop.
+  Adicione esse botão."* Quem projeta uma mensagem é o TOQUE na linha (v5.104),
+  nos dois sentidos — e o primário tinha de responder *"projetar o QUÊ?"* com
+  uma sessão que pode não existir, então nascia **inerte com um `title` que
+  explica**. O que faltava era o contrário: a linha fica vermelha e nada na faixa
+  PARA a projeção depois que ela saiu de vista na rolagem. O `#msgPararBtn`
+  ocupa a célula da esquerda, é apagado sem nada no ar (a regra da v1.8.50, com
+  o `title` dizendo por quê) e chama `hideMessage()`.
 - (O **microfone ao vivo** era a outra metade deste rodapé, e saiu na v1.8.89.)
 
 > **Vazamento horizontal (v5.31).** A faixa "de/até" do sorteio empurrava a aba
@@ -886,6 +912,58 @@ lado faz sozinho é só a animação até ele.
   X² = 9,59 (corte de 1% = 15,09) e 5.000 em cinco nomes dão X² = 5,09 (corte
   13,28).
 
+**AS AÇÕES MORAM NO RODAPÉ, E O CORPO É DO SORTEADO** (v1.9.1). Pedido do
+operador: *"coloque o botão de sortear a esquerda do botão de projetar,
+juntamente com o botão de reiniciar, ambos usarão apenas icones e serão
+quadrados, seguindo o padrão das abas de ferramentas."* É a mesma troca que a
+v1.8.94 fez no Tempo, e pelo mesmo argumento: o que se ACIONA vive numa faixa
+fixa, e o que sobra de altura é do conteúdo.
+
+- O `.draw-go` de largura inteira e o chip "Reiniciar" saíram; entraram
+  `#drawGoBtn` (o dado, `#icoSorteio`, `.chrono-btn primary`) e `#drawResetBtn`
+  (o laço, `#icoZerar`). **São a MESMA peça do ▶/↺ do Tempo** — é isso que dá à
+  faixa uma altura só, em qualquer ferramenta.
+- **O REINICIAR É DESENHADO SEMPRE e APAGADO quando não há o que reiniciar**, e
+  essa metade é a regra da v1.8.61: o chip só existia com histórico, e uma peça
+  que aparece e some é um motor que desloca o primário **sob o dedo**.
+- **O RODAPÉ É REDESENHADO POR FORA DO PAINEL.** Os dois quadrados dependem de
+  um estado que o `renderDraw` MUDA e não desenha (o histórico, as opções que
+  restam), então cada ponto que mexe no sorteio chama `renderFoot()` ao lado do
+  `renderDraw()`. Esquecer um deixa o sortear apagado com opções na mão — ou
+  aceso com a lista vazia.
+
+**E O MODO TEXTO É DE DUAS COLUNAS** (v1.9.1): *"deixe o texto sorteado no topo
+e abaixo faça duas colunas… na direita deixe a caixa de texto dos itens a serem
+sorteados."*
+
+- O `.draw-read` fica ACIMA das colunas (é o que a sala olha), e o
+  `.draw-cols` traz `.draw-col--esq` (chip, contador, já sorteados, legenda) e
+  `.draw-col--dir` (só o `<textarea>`).
+- **A DIREITA É A QUE ESTICA**, porque ela é a lista: a caixa de opções cresce
+  com o que se digita e a esquerda tem tamanho previsível. O `align-items:
+  stretch` do flex — que num botão de símbolo é defeito (v1.8.57) — é aqui o
+  desenho: é ele que dá à coluna da direita a altura da esquerda para o
+  `flex: 1` do `<textarea>` ter contra o que crescer.
+- **`min-width: 0` nas duas**, senão um `<textarea>` mede ~200px de largura
+  intrínseca e a 360px as duas colunas somam mais que a tela — o mesmo
+  vazamento de flexbox que o `.draw-range-field` já documentava nesta aba.
+- **SÓ NO MODO TEXTO:** no Número a fonte das opções são dois campos curtos, e
+  duas colunas ali dariam uma coluna vazia.
+
+**A LEGENDA SE IDENTIFICA POR DENTRO** (v1.9.1), nos DOIS provedores: *"a
+identificação e explicação ficara dentro da caixa, não precisa do título legenda
+fora da caixa, aplique para as outras caixas de legenda."* O `<span
+class="misc-row-label">` saiu e o campo virou um só — `campoDeLegenda`, que o
+Tempo e o Sorteio chamam. Duas cópias divergiriam no primeiro ajuste, e aqui
+"ajuste" é literalmente o texto que o operador lê.
+
+- **A identificação vem PRIMEIRO no marcador** (`Legenda (opcional) — ex: …`),
+  porque é o FIM dele que um campo estreito corta: na coluna da esquerda do
+  sorteio sobra "Legenda (opcional)", que é exatamente a metade que não pode
+  faltar.
+- **O `aria-label` é obrigatório.** Sem o `<span>`, era ele ou um campo sem nome
+  acessível nenhum.
+
 ### Entradas e saídas de camada sempre com fade (`fadeLayerIn`/`fadeLayerOut`)
 
 A mídia do stage e a cortina do wallpaper já têm as próprias transições (ver
@@ -985,13 +1063,55 @@ provedor mínimo (CRUD de texto puro em `state.messages` + `projectMessage`/
 `msgStep`, análogos a `startBibleReading`/`bibleStep`), e a **Letra** tem sua
 própria seção ("Letra sincronizada").
 
+**CADA MENSAGEM TEM O SEU ESTILO** (v1.9.1) — tamanho, fonte e alinhamento.
+Pedido do operador: *"crie um botão na gaveta de opções da mensagem, que permite
+configurar o tamanho da fonte, a fonte e o alinhamento daquela mensagem."*
+
+- **A GAVETA ABRE ABAIXO DA LINHA**, e é UMA por vez. A marca é do MÓDULO
+  (`msgEstiloAberto`, pelo `id` da mensagem) e não do DOM, porque
+  `refreshDiversos` remonta o painel inteiro a cada projeção — uma classe no nó
+  não sobreviveria a isso. A linha e a gaveta ficam num ENVELOPE (`.msg-row`):
+  filhas diretas da lista, o `gap` dela as separaria, e duas superfícies com um
+  vão entre si leem como dois cartões. A gaveta se separa por PREENCHIMENTO
+  (`--gaveta-bg`, com `--gaveta-btn` nos chips), nunca por um filete.
+- **A TABELA É DO PALCO** (`createStage.CARTAO_ESTILO`, em `shared/stage.js`): o
+  rótulo que o operador toca e o valor que o telão aplica saem da MESMA linha.
+  A folha do Controle, o telão e a preview leem a mesma
+  `createStage.estiloDoCartao` — escrita duas vezes ela divergiria no primeiro
+  ajuste, e a preview existe para ESPELHAR o telão.
+- **A ESCALA GOVERNA O RECORTE**, e é o que aquela função tem de próprio: a
+  caixa do cartão NÃO cresce com a fonte. Com o `-webkit-line-clamp` parado em
+  sete, uma mensagem em "Enorme" é cortada no MEIO da linha — quem corta é o
+  `overflow: hidden` da caixa, não o clamp —, então as linhas são
+  `max(2, round(7 / escala))`.
+- **`align-self: stretch` NÃO é enfeite.** A caixa é `flex-direction: column`
+  com `align-items: center`: sem ela o bloco de texto nasce do tamanho do
+  conteúdo, um `text-align: left` não tem contra o que alinhar, e o botão parece
+  quebrado.
+- **O `estilo` VIAJA NO COMANDO**, como o `time`/`playing` do `load`: o telão e
+  as telas da rede não têm como perguntar *"qual é o estilo desta mensagem?"*, e
+  quem tem o registro na mão é o Controle no instante em que emite
+  (`projectMessage` e o reenvio de cena). Os dois lados escrevem quatro
+  variáveis na caixa do cartão — `--msg-escala`, `--msg-linhas`, `--msg-fonte`,
+  `--msg-alinha` — e as folhas as leem **com fallback**: é isso que faz uma
+  mensagem gravada antes do recurso, e a ESTROFE da letra sincronizada (que
+  entra pelo mesmo `mode: 'message'` sem estilo nenhum), saírem exatamente como
+  saíam. Fora do modo mensagem as quatro são REMOVIDAS — um versículo não herda
+  o alinhamento do aviso que estava no ar antes dele.
+- **AS FONTES SÃO AS DO APARELHO.** O bundle só embarca o subset de símbolos (31
+  codepoints); uma família baixada seria peso no OTA e um telão sem rede caindo
+  no genérico sem avisar.
+- **Mudar o estilo do que está NO AR reprojeta.** Não há um segundo caminho para
+  "só o estilo": o comando já carrega tudo, e o telão, as telas da rede e a
+  preview recebem a mudança pelo trilho que já usam.
+
 **Excluir uma mensagem mexe na SESSÃO, não só no array** (`deleteMessage`), e
 são dois casos distintos:
 
 - **A projetada** precisa ser **tirada do ar antes** de a sessão morrer:
   `clearMsgSession()` sozinho zerava `msgSession` sem mandar `text-hide`, e o
   aviso apagado continuava projetado no telão e na preview. Como a sessão
-  morria junto, o botão "Tirar do telão" ficava **desabilitado** e a linha
+  morria junto, o PARAR do rodapé nascia **apagado** e a linha
   sumia da lista — o operador não tinha mais nenhum caminho na aba para tirar o
   texto do ar, só ⏹ Parar (e desde a v1.2.0 nem ele, se houver mídia por baixo —
   ver "O Parar fala de UMA camada só") ou projetar outra coisa por cima. Hoje é

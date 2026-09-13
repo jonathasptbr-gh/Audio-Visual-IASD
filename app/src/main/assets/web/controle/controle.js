@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9';
+const WEB_VERSION = '1.9.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -658,6 +658,19 @@ const ICON = {
   folderNew: '', // create_new_folder — "trazer uma pasta"
   close: '',     // close — o MESMO glifo dos `.popup-close` (v5.191)
 };
+
+/**
+ * O `<svg>` do sprite, no idioma que este arquivo já escrevia em quatro lugares
+ * (traço, pontas redondas, `fill: none`). **A CAIXA FICA COM O CSS**: um
+ * `width`/`height` de atributo aqui coincide com o degrau certo por acidente e
+ * deixa de coincidir no dia em que alguém mexer no token — a divergência MUDA
+ * que a v1.8.68 mediu no `.crono-limpar`.
+ */
+function icoSprite(nome) {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
+    + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<use href="#' + nome + '"/></svg>';
+}
 
 // ===== A ORDEM É A DO DEDO, E ELA MUDOU (v1.8.80) =====
 //
@@ -1051,7 +1064,7 @@ const bibleCompleteVersions = new Set();
 // projeta (avisos, versículos avulsos, etc.). Cada mensagem é um slide.
 // Persistido em state 'messages'. msgSession espelha bibleSession (idx dentro
 // da lista + projecting) — passa/volta com os mesmos botões de slide.
-let messages = [];       // [{ id, text }]
+let messages = [];       // [{ id, text, estilo? }] — `estilo` = { tamanho, fonte, alinha }
 let msgSession = null;   // { idx, projecting } | null
 
 // ===== Letra avulsa (projetar a letra SEM tocar a música) =====
@@ -2899,6 +2912,23 @@ function showPvText(obj) {
   const isDraw = obj.mode === 'draw';
   const isImg = obj.mode === 'image';
   pvTextContentEl.classList.toggle('mode-message', isMsg);
+  // O ESTILO DA MENSAGEM, pela MESMA regra do telão (`createStage.estiloDoCartao`)
+  // e escrito do mesmo jeito: variáveis na caixa, a folha decide onde entram.
+  // A preview é a ILUSTRAÇÃO do telão — um cartão alinhado à esquerda lá e
+  // centrado aqui faria o operador conferir o que a congregação não vê.
+  {
+    const st = pvTextContentEl.style;
+    if (!isMsg) {
+      st.removeProperty('--msg-escala'); st.removeProperty('--msg-linhas');
+      st.removeProperty('--msg-fonte'); st.removeProperty('--msg-alinha');
+    } else {
+      const e = createStage.estiloDoCartao(obj.estilo);
+      st.setProperty('--msg-escala', String(e.escala));
+      st.setProperty('--msg-linhas', String(e.linhas));
+      st.setProperty('--msg-fonte', e.fonte);
+      st.setProperty('--msg-alinha', e.alinha);
+    }
+  }
   pvTextContentEl.classList.toggle('mode-chrono', isChrono);
   pvTextContentEl.classList.toggle('mode-draw', isDraw);
   pvTextEl.classList.toggle('mode-img', isImg);
@@ -6262,7 +6292,11 @@ function projectMessage(idx) {
   msgSession = { idx, projecting: true };
   view = 'visual';
   persistCurrent();
-  cmd({ type: 'text', mode: 'message', main: messages[idx].text, sub: '', view: 'visual' });
+  // O `estilo` VIAJA NO COMANDO, como o `time`/`playing` do `load`: o telão e as
+  // telas da rede não têm como perguntar "qual é o estilo desta mensagem?" —
+  // quem tem o registro na mão é o Controle, no instante em que emite.
+  cmd({ type: 'text', mode: 'message', main: messages[idx].text, sub: '',
+    estilo: messages[idx].estilo || null, view: 'visual' });
   renderControls();
   renderNowPlaying();
   renderSlideNav();
@@ -6350,21 +6384,25 @@ async function deleteMessage(id) {
       // TIRAR DO AR antes de anular a sessão. `clearManualText()` sozinho
       // zerava `msgSession` sem mandar `text-hide`: o aviso apagado continuava
       // projetado no telão e na preview, e — como a sessão morria junto — o
-      // botão "Tirar do telão" ficava DESABILITADO e a linha sumia da lista.
-      // O operador não tinha mais nenhum caminho na aba para tirar o texto do
-      // ar; só ⏹ Parar ou projetar outra coisa por cima.
+      // PARAR do rodapé nascia apagado e a linha sumia da lista. O operador não
+      // tinha mais nenhum caminho na aba para tirar o texto do ar; só ⏹ Parar ou
+      // projetar outra coisa por cima.
       hideMessage();
       clearMsgSession();
     } else if (msgSession.idx > i) {
       // REINDEXAR: apagar uma mensagem ACIMA da projetada deixava `idx`
       // apontando para a vizinha errada (ou para fora do array). Sintomas:
       // "Mensagem 3" numa lista de duas, nenhuma linha marcada como ativa, e
-      // "Projetar no telão" caindo no guard `idx >= messages.length` de
-      // `projectMessage` — um botão que não faz nada e não explica por quê.
+      // o reenvio de cena caindo no guard `idx >= messages.length` de
+      // `projectMessage` — o telão devolvendo o wallpaper sem dizer por quê.
       msgSession.idx--;
     }
   }
   messages.splice(i, 1);
+  // A gaveta de estilo é indexada pelo `id`, e ele acabou de deixar de existir:
+  // sem esta linha ela reabriria na mensagem que HERDAR o id — impossível hoje
+  // (`uid()`), mas o estado ficaria pendurado para sempre.
+  if (msgEstiloAberto === id) msgEstiloAberto = null;
   await saveMessages();
   refreshDiversos();
 }
@@ -6399,18 +6437,21 @@ function miscProjectState() {
     const live = chronoProjecting();
     return { live, disabled: false, hint: '', act: () => (live ? hideChrono() : projectChrono()) };
   }
-  // Mensagens: projetar exige saber QUAL, e isso se escolhe tocando na lista.
-  // O botão cobre o resto — tirar do ar, e reexibir a que ficou selecionada
-  // depois de um "Tirar do telão" (é a ação natural seguinte, e sem ela o
-  // operador teria que caçar a linha certa de novo).
-  const live = msgProjecting();
-  const podeVoltar = !!msgSession;
-  return {
-    live,
-    disabled: !live && !podeVoltar,
-    hint: !live && !podeVoltar ? 'Toque numa mensagem da lista para projetar' : '',
-    act: () => { if (live) hideMessage(); else if (msgSession) projectMessage(msgSession.idx); },
-  };
+  // ===== MENSAGENS NÃO TÊM PRIMÁRIO (v1.9.1) =====
+  // Pedido do operador: *"na seção de mensagens, remova o botão de projetar no
+  // telão. Atualmente o item selecionado fica vermelho, mas não tem um botão de
+  // stop. Adicione esse botão."*
+  //
+  // **Quem projeta é o TOQUE na mensagem**, e é assim desde a v5.104 — tocar
+  // projeta, tocar de novo tira do ar. O primário era a terceira porta para uma
+  // ação que a lista já oferece nos dois sentidos, e ele tinha de responder
+  // "projetar O QUÊ?" com uma sessão que pode não existir: nasceu APAGADO, com
+  // um `title` explicando por quê. O que faltava era o contrário — a linha fica
+  // vermelha e nada na faixa PARA a projeção.
+  //
+  // Devolver `null` é o que diz "esta ferramenta não tem primário"; o PARAR
+  // mora na célula da esquerda, com o transporte das irmãs (`renderFoot`).
+  return null;
 }
 
 /**
@@ -6505,18 +6546,71 @@ function renderFoot() {
       esq.appendChild(run); esq.appendChild(zero);
     }
   }
+  // ---- MENSAGENS: só o PARAR (v1.9.1) ----
+  // Ele é a única coisa que a lista não sabe fazer: tocar na linha projeta e
+  // tira do ar, mas com a lista rolada (ou depois de a mensagem ter entrado pelo
+  // Cronograma) a linha vermelha pode não estar à vista. APAGADO sem nada no ar,
+  // pela regra da v1.8.50 — um quadrado aceso que não faz nada é indistinguível
+  // de um quebrado.
+  if (miscTool === 'msg') {
+    const parar = document.createElement('button');
+    parar.type = 'button'; parar.id = 'msgPararBtn'; parar.className = 'chrono-btn';
+    parar.setAttribute('aria-label', 'Tirar do telão');
+    parar.innerHTML = icoSprite('icoParar');
+    parar.disabled = !msgProjecting();
+    parar.title = parar.disabled ? 'Nenhuma mensagem no telão' : 'Tirar do telão';
+    parar.addEventListener('click', hideMessage);
+    esq.appendChild(parar);
+  }
+  // ---- SORTEIO: sortear e reiniciar, os dois QUADRADOS (v1.9.1) ----
+  // Pedido do operador: *"coloque o botão de sortear a esquerda do botão de
+  // projetar, juntamente com o botão de reiniciar, ambos usarão apenas icones e
+  // serão quadrados, seguindo o padrão das abas de ferramentas"*. É a mesma
+  // troca da v1.8.94 no Tempo: o corpo da janela fica para o MOSTRADOR, e o que
+  // o operador aciona mora na faixa.
+  //
+  // **O REINICIAR É DESENHADO SEMPRE, e APAGADO quando não há o que reiniciar.**
+  // Ele era um chip que só existia com histórico — e uma peça que aparece e some
+  // é um motor que desloca o primário sob o dedo (a regra da v1.8.61). Apagado,
+  // a faixa tem uma geometria só em todos os estados que o operador alcança.
+  if (miscTool === 'draw') {
+    const restam = drawRemaining();
+    const go = document.createElement('button');
+    go.type = 'button'; go.id = 'drawGoBtn'; go.className = 'chrono-btn primary';
+    go.setAttribute('aria-label', draw.used.length || draw.value ? 'Sortear de novo' : 'Sortear');
+    go.innerHTML = icoSprite('icoSorteio');
+    go.disabled = restam <= 0;
+    go.title = go.disabled
+      ? (draw.kind === 'text' && !draw.pool.length
+        ? 'Escreva as opções antes de sortear'
+        : 'Todas as opções já saíram — toque em reiniciar')
+      : (draw.used.length || draw.value ? 'Sortear de novo' : 'Sortear');
+    go.addEventListener('click', doDraw);
+    const rst = document.createElement('button');
+    rst.type = 'button'; rst.id = 'drawResetBtn'; rst.className = 'chrono-btn';
+    rst.setAttribute('aria-label', 'Reiniciar');
+    rst.innerHTML = icoSprite('icoZerar');
+    rst.disabled = !draw.used.length && !draw.value;
+    rst.title = rst.disabled ? 'Nada sorteado ainda' : 'Reiniciar';
+    rst.addEventListener('click', drawReset);
+    esq.appendChild(go); esq.appendChild(rst);
+  }
   if (esq.children.length) row.appendChild(esq);
 
+  // O PRIMÁRIO É OPCIONAL desde a v1.9.1: `null` quer dizer "esta ferramenta não
+  // tem o que projetar por um botão" (Mensagens — ver `miscProjectState`).
   const st = miscProjectState();
-  const proj = document.createElement('button');
-  proj.type = 'button';
-  proj.id = 'miscProjectBtn';
-  proj.className = 'misc-project' + (st.live ? ' live' : '');
-  proj.textContent = st.live ? 'Tirar do telão' : 'Projetar no telão';
-  proj.disabled = st.disabled;
-  if (st.hint) proj.title = st.hint;
-  proj.addEventListener('click', st.act);
-  row.appendChild(proj);
+  if (st) {
+    const proj = document.createElement('button');
+    proj.type = 'button';
+    proj.id = 'miscProjectBtn';
+    proj.className = 'misc-project' + (st.live ? ' live' : '');
+    proj.textContent = st.live ? 'Tirar do telão' : 'Projetar no telão';
+    proj.disabled = st.disabled;
+    if (st.hint) proj.title = st.hint;
+    proj.addEventListener('click', st.act);
+    row.appendChild(proj);
+  }
 
   // OS DOIS DESTINOS, à direita e só onde há o que guardar. Mensagens devolve
   // `null` — elas já entram no Cronograma pelo caminho próprio, e dois botões
@@ -7267,29 +7361,16 @@ function renderChrono() {
   host.appendChild(linha);
 
   // ---- Sublinha do telão ----
-  const labRow = document.createElement('div');
-  labRow.className = 'misc-row';
-  const labLab = document.createElement('span');
-  labLab.className = 'misc-row-label'; labLab.textContent = 'Legenda';
-  const labInp = document.createElement('input');
-  labInp.type = 'text'; labInp.className = 'misc-text';
-  labInp.placeholder = 'opcional — ex: Início do culto';
-  labInp.maxLength = 60;
-  labInp.value = chrono.label;
-  // O TECLADO SOBREPÕE, NÃO ENCOLHE (v1.8.94) — ver `keyboardShift`. Relato do
-  // operador: *"ao tocar em digitar uma legenda… o teclado sobe, mas ele também
-  // leva o controle todo visível, o que espreme a janela das ferramentas"*. O
-  // que o app encolhe para revelar um campo que JÁ está à vista é a preview, o
-  // transporte e a própria roleta — e a roleta se mede pelo que sobra, então
-  // encolher a janela encolhe o mostrador junto.
-  labInp.dataset.teclado = 'sobrepoe';
-  labInp.addEventListener('change', () => {
-    chrono.label = labInp.value.trim();
+  // O rótulo mora DENTRO da caixa desde a v1.9.1, e o campo é o MESMO do
+  // Sorteio — ver `campoDeLegenda`. O relato que trouxe o `teclado: sobrepoe`
+  // para cá continua valendo, e agora vale nos dois de uma vez: *"ao tocar em
+  // digitar uma legenda… o teclado sobe, mas ele também leva o controle todo
+  // visível, o que espreme a janela das ferramentas"*.
+  host.appendChild(campoDeLegenda('ex: Início do culto', chrono.label, (v) => {
+    chrono.label = v;
     saveChronoPrefs();
     pushChrono();
-  });
-  labRow.appendChild(labLab); labRow.appendChild(labInp);
-  host.appendChild(labRow);
+  }));
 
   // A ORDEM É ESTA: medir a caixa (que só existe depois do `appendChild` do
   // painel), depois posicionar. Invertida, a primeira posição usa a régua
@@ -7527,7 +7608,10 @@ function doDraw() {
   if (v == null) {
     naoResta(draw.kind === 'text' && !draw.pool.length
       ? 'Escreva as opções antes de sortear.'
-      : 'Todas as opções já saíram. Toque em "Reiniciar" para sortear de novo.');
+      // SEM NOMEAR O RÓTULO: desde a v1.9.1 o reiniciar é um QUADRADO de ícone
+      // no rodapé, e uma frase que manda tocar em "Reiniciar" manda procurar
+      // uma palavra que não está em lugar nenhum da tela.
+      : 'Todas as opções já saíram — reinicie para sortear de novo.');
     return;
   }
   draw.value = String(v);
@@ -7539,6 +7623,10 @@ function doDraw() {
   saveDrawPrefs();
   pushDraw();
   renderDraw();
+  // E O RODAPÉ TAMBÉM, desde a v1.9.1: os dois quadrados moram lá, e quem
+  // decide se o reiniciar está apagado é o histórico que ESTA função acabou de
+  // mudar. `renderDraw` desenha só o painel.
+  renderFoot();
 }
 
 function drawReset() {
@@ -7548,6 +7636,7 @@ function drawReset() {
   saveDrawPrefs();
   pushDraw();
   renderDraw();
+  renderFoot();   // ver `doDraw`
 }
 
 function projectDraw() {
@@ -7614,6 +7703,24 @@ function drawChip(name, on, fn) {
   return b;
 }
 
+/**
+ * ===== O SORTEIO DE TEXTO EM DUAS COLUNAS (v1.9.1) =====
+ *
+ * Pedido do operador: *"deixe o texto sorteado no topo e abaixo faça duas
+ * colunas, na primeira a esquerda, coloque os botões de opções, sorteados e a
+ * caixa de texto da legenda… na direita deixe a caixa de texto dos itens a
+ * serem sorteados… a lógica é essa, jogar as ações no rodapé, o sorteado no
+ * principal, e duas colunas."*
+ *
+ * **A COLUNA DA DIREITA É A LISTA, e por isso ela é a que ESTICA.** A caixa de
+ * opções cresce com a lista que se digita; num painel de altura fixa (a folha
+ * não rola, ela encolhe — ver `.misc-panel--chrono`) quem tem de ceder é o
+ * resto. A da esquerda leva o que tem tamanho PREVISÍVEL: um chip, o contador,
+ * os já sorteados e a legenda.
+ *
+ * **SÓ NO MODO TEXTO.** No modo Número não há lista para digitar — a fonte das
+ * opções são dois campos curtos —, e duas colunas ali dariam uma coluna vazia.
+ */
 function renderDraw() {
   const host = document.getElementById('drawWrap');
   if (!host) return;
@@ -7638,6 +7745,7 @@ function renderDraw() {
       // por valores que nem podem sair.
       draw.used = []; draw.value = null; draw.rollUntil = 0;
       saveDrawPrefs(); pushDraw(); renderDraw();
+      renderFoot();   // os dois quadrados dependem do histórico — ver `doDraw`
     });
     modes.appendChild(b);
   });
@@ -7647,47 +7755,61 @@ function renderDraw() {
   read.className = 'draw-read'; read.id = 'drawRead';
   host.appendChild(read);
 
+  const texto = draw.kind === 'text';
+  // No modo TEXTO o corpo é de duas colunas; no Número, o empilhamento de
+  // sempre. O `destino` é quem recebe cada bloco, e é só ele que muda.
+  const cols = document.createElement('div');
+  cols.className = 'draw-cols';
+  const esq = document.createElement('div');
+  esq.className = 'draw-col draw-col--esq';
+  const dir = document.createElement('div');
+  dir.className = 'draw-col draw-col--dir';
+  if (texto) { cols.appendChild(esq); cols.appendChild(dir); host.appendChild(cols); }
+  const opcoes = texto ? esq : host;
+
   // ---- Fonte das opções ----
-  if (draw.kind === 'number') {
+  if (!texto) {
     const row = document.createElement('div');
     row.className = 'draw-range';
     const mk = (lab, val, fn) => {
       const wrap = document.createElement('label');
       wrap.className = 'draw-range-field';
-      const s = document.createElement('span'); s.className = 'misc-row-label'; s.textContent = lab;
+      const sp = document.createElement('span'); sp.className = 'misc-row-label'; sp.textContent = lab;
       const i = document.createElement('input');
       i.type = 'number'; i.inputMode = 'numeric'; i.className = 'misc-num';
       i.value = String(val);
       i.addEventListener('change', () => fn(parseInt(i.value, 10)));
-      wrap.appendChild(s); wrap.appendChild(i);
+      wrap.appendChild(sp); wrap.appendChild(i);
       return wrap;
     };
     row.appendChild(mk('De', draw.min, (v) => {
       if (!isFinite(v)) return renderDraw();
       draw.min = v; if (draw.max < draw.min) draw.max = draw.min;
       if (draw.max - draw.min + 1 > DRAW_SPAN_CAP) draw.max = draw.min + DRAW_SPAN_CAP - 1;
-      saveDrawPrefs(); renderDraw();
+      saveDrawPrefs(); renderDraw(); renderFoot();
     }));
     row.appendChild(mk('Até', draw.max, (v) => {
       if (!isFinite(v)) return renderDraw();
       draw.max = v; if (draw.max < draw.min) draw.max = draw.min;
       if (draw.max - draw.min + 1 > DRAW_SPAN_CAP) draw.max = draw.min + DRAW_SPAN_CAP - 1;
-      saveDrawPrefs(); renderDraw();
+      saveDrawPrefs(); renderDraw(); renderFoot();
     }));
     host.appendChild(row);
   } else {
     const ta = document.createElement('textarea');
     ta.className = 'draw-pool'; ta.rows = 5;
     ta.placeholder = 'Uma opção por linha\nEx.:\nMaria\nJoão\nAna';
+    ta.setAttribute('aria-label', 'Opções a sortear, uma por linha');
     ta.dataset.teclado = 'sobrepoe';   // ver a legenda do Tempo
     ta.value = draw.pool.join('\n');
     // `change` (e não `input`): reprojetar/repersistir a cada tecla escreveria
     // no IDB dezenas de vezes enquanto o operador ainda digita a lista.
     ta.addEventListener('change', () => {
-      draw.pool = ta.value.split('\n').map((s) => s.trim()).filter(Boolean);
+      draw.pool = ta.value.split('\n').map((x) => x.trim()).filter(Boolean);
       saveDrawPrefs(); renderDraw();
+      renderFoot();   // sem opções o sortear fica apagado — ver `doDraw`
     });
-    host.appendChild(ta);
+    dir.appendChild(ta);
   }
 
   // ---- Regras e histórico ----
@@ -7695,21 +7817,18 @@ function renderDraw() {
   opts.className = 'misc-opts';
   opts.appendChild(drawChip('Não repetir', draw.noRepeat, () => {
     draw.noRepeat = !draw.noRepeat; saveDrawPrefs(); renderDraw();
+    renderFoot();   // ele muda quantas opções restam — ver `doDraw`
   }));
   const left = drawRemaining();
   const info = document.createElement('span');
   info.className = 'draw-info';
   info.textContent = draw.noRepeat
-    ? left + ' de ' + (draw.kind === 'text' ? draw.pool.length : Math.max(0, draw.max - draw.min + 1)) + ' restantes'
-    : (draw.kind === 'text' ? draw.pool.length + ' opções' : Math.max(0, draw.max - draw.min + 1) + ' números');
+    ? left + ' de ' + (texto ? draw.pool.length : Math.max(0, draw.max - draw.min + 1)) + ' restantes'
+    : (texto ? draw.pool.length + ' opções' : Math.max(0, draw.max - draw.min + 1) + ' números');
   opts.appendChild(info);
-  if (draw.used.length) {
-    const rst = document.createElement('button');
-    rst.type = 'button'; rst.className = 'misc-chip'; rst.textContent = 'Reiniciar';
-    rst.addEventListener('click', drawReset);
-    opts.appendChild(rst);
-  }
-  host.appendChild(opts);
+  // (O chip "Reiniciar" saiu na v1.9.1: ele é um QUADRADO do rodapé, ao lado do
+  //  sortear — ver `renderFoot`.)
+  opcoes.appendChild(opts);
 
   // Os já sorteados, à vista: numa rifa a pergunta seguinte é sempre "quem já
   // saiu?" — e o contador sozinho não responde.
@@ -7722,33 +7841,22 @@ function renderDraw() {
       c.textContent = u;
       hist.appendChild(c);
     });
-    host.appendChild(hist);
+    opcoes.appendChild(hist);
   }
 
   // ---- Legenda ----
-  const labRow = document.createElement('div');
-  labRow.className = 'misc-row';
-  const labLab = document.createElement('span');
-  labLab.className = 'misc-row-label'; labLab.textContent = 'Legenda';
-  const labInp = document.createElement('input');
-  labInp.type = 'text'; labInp.className = 'misc-text';
-  labInp.placeholder = 'opcional — ex: Sorteio dos visitantes';
-  labInp.maxLength = 60;
-  labInp.value = draw.label;
-  labInp.dataset.teclado = 'sobrepoe';   // ver a legenda do Tempo
-  labInp.addEventListener('change', () => {
-    draw.label = labInp.value.trim(); saveDrawPrefs(); pushDraw();
-  });
-  labRow.appendChild(labLab); labRow.appendChild(labInp);
-  host.appendChild(labRow);
+  // O RÓTULO MORA DENTRO DA CAIXA (v1.9.1), a pedido do operador: *"caixa essa
+  // que a identificação e explicação ficara dentro da caixa, não precisa do
+  // título legenda fora da caixa, aplique para as outras caixas de legenda"*. A
+  // identificação vem PRIMEIRO no marcador porque é o fim dele que o campo
+  // estreito corta — na coluna da esquerda sobra "Legenda (opcional)", que é
+  // exatamente a metade que não pode faltar. E o `aria-label` é obrigatório: sem
+  // o `<span>`, era ele ou um campo sem nome acessível nenhum.
+  opcoes.appendChild(campoDeLegenda('ex: Sorteio dos visitantes', draw.label, (v) => {
+    draw.label = v; saveDrawPrefs(); pushDraw();
+  }));
 
-  // ---- Ações ----
-  const go = document.createElement('button');
-  go.type = 'button'; go.className = 'draw-go';
-  go.textContent = draw.used.length || draw.value ? 'Sortear de novo' : 'Sortear';
-  go.disabled = left <= 0;
-  go.addEventListener('click', doDraw);
-  host.appendChild(go);
+  // (O botão "Sortear" de largura inteira saiu na v1.9.1 — ver `renderFoot`.)
 
   // O sorteio guardado é a CONFIGURAÇÃO (faixa ou lista de opções), nunca um
   // resultado: projetar a cena arma o sorteio e espera o toque em "Sortear" —
@@ -7758,12 +7866,93 @@ function renderDraw() {
   startDrawPanelTimer();
 }
 
+/**
+ * O CAMPO DE LEGENDA DOS DOIS PROVEDORES, num lugar só (v1.9.1). O Tempo e o
+ * Sorteio tinham a mesma linha escrita duas vezes — rótulo fora, campo dentro —,
+ * e o pedido do operador foi mover a identificação para DENTRO da caixa nos
+ * dois. Duas cópias divergiriam no primeiro ajuste, e aqui "ajuste" é
+ * literalmente o texto que o operador lê.
+ */
+function campoDeLegenda(exemplo, valor, aoMudar) {
+  const row = document.createElement('div');
+  row.className = 'misc-row misc-row--legenda';
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.className = 'misc-text';
+  inp.placeholder = 'Legenda (opcional) — ' + exemplo;
+  inp.setAttribute('aria-label', 'Legenda do telão (opcional)');
+  inp.title = 'Sublinha do cartão no telão';
+  inp.maxLength = 60;
+  inp.value = valor;
+  // O TECLADO SOBREPÕE, NÃO ENCOLHE (v1.8.94) — ver `keyboardShift`.
+  inp.dataset.teclado = 'sobrepoe';
+  inp.addEventListener('change', () => aoMudar(inp.value.trim()));
+  row.appendChild(inp);
+  return row;
+}
+
 // ===== Mensagens na aba Ferramentas =====
 // Deixou de ser um botão flutuante sobre a preview e passou a ser uma seção
 // como as outras. O FAB fazia sentido quando Mensagens era a única ferramenta
 // avulsa; com três delas, ter uma em cima da preview e duas numa aba era a
 // mesma pergunta ("que aviso eu ponho na tela?") respondida em dois lugares
 // diferentes. E o espaço sobre a preview é justamente o que menos sobra.
+// Qual mensagem tem a gaveta de ESTILO aberta (v1.9.1). UMA por vez, como a
+// gaveta de uma linha de lista — e módulo, não do nó: `refreshDiversos` remonta
+// o painel inteiro a cada projeção, e uma marca no DOM não sobreviveria a isso.
+let msgEstiloAberto = null;
+
+/**
+ * A GAVETA DE ESTILO DE UMA MENSAGEM (v1.9.1) — três eixos, um chip por opção.
+ *
+ * **A TABELA É A DO PALCO** (`createStage.CARTAO_ESTILO`): o rótulo que o
+ * operador toca e o valor que o telão aplica saem da MESMA linha. Uma cópia aqui
+ * seria a divergência muda de sempre — um chip "Enorme" que o telão desenha em
+ * médio, sem erro em lugar nenhum.
+ *
+ * **E O QUE ESTÁ NO AR MUDA NA HORA.** Reprojetar é o caminho: o `estilo` viaja
+ * no comando (`projectMessage`), então não há um segundo caminho a manter para
+ * "só o estilo" — e o telão, as telas da rede e a preview recebem a mudança
+ * pelo mesmo trilho que já usam.
+ */
+function gavetaDeEstilo(m) {
+  const g = document.createElement('div');
+  g.className = 'msg-estilo';
+  const atual = Object.assign({}, createStage.CARTAO_PADRAO, m.estilo || {});
+  [['tamanho', 'Tamanho'], ['fonte', 'Fonte'], ['alinha', 'Alinhamento']].forEach(([eixo, rotulo]) => {
+    const linha = document.createElement('div');
+    linha.className = 'msg-estilo-linha';
+    const lab = document.createElement('span');
+    lab.className = 'misc-row-label'; lab.textContent = rotulo;
+    const opcs = document.createElement('div');
+    opcs.className = 'msg-estilo-opcs';
+    createStage.CARTAO_ESTILO[eixo].forEach((o) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'misc-chip' + (atual[eixo] === o.id ? ' active' : '');
+      b.textContent = o.nome;
+      b.setAttribute('aria-pressed', atual[eixo] === o.id ? 'true' : 'false');
+      b.addEventListener('click', () => escolherEstiloDaMensagem(m, eixo, o.id));
+      opcs.appendChild(b);
+    });
+    linha.append(lab, opcs);
+    g.appendChild(linha);
+  });
+  return g;
+}
+
+async function escolherEstiloDaMensagem(m, eixo, id) {
+  const e = Object.assign({}, createStage.CARTAO_PADRAO, m.estilo || {});
+  if (e[eixo] === id) return;
+  e[eixo] = id;
+  m.estilo = e;
+  await saveMessages();
+  // No ar, reprojeta — é isso que leva o estilo novo ao telão e às telas da
+  // rede. `projectMessage` já remonta o painel (`refreshDiversos`), e a gaveta
+  // continua aberta porque quem a guarda é o `msgEstiloAberto`, não o DOM.
+  if (msgProjecting() && messages[msgSession.idx] === m) projectMessage(msgSession.idx);
+  else renderMsg();
+}
+
 function renderMsg() {
   const host = document.getElementById('msgWrap');
   if (!host) return;
@@ -7778,6 +7967,11 @@ function renderMsg() {
   } else {
     messages.forEach((m, i) => {
       const active = msgSession && msgSession.projecting && msgSession.idx === i;
+      // ENVELOPE, e não a linha solta: a gaveta de estilo mora ABAIXO da linha e
+      // as duas são UMA peça. Filhas diretas da lista, o `gap` dela as separaria
+      // — e duas superfícies com um vão entre si leem como dois cartões.
+      const env = document.createElement('div');
+      env.className = 'msg-row';
       const row = document.createElement('div');
       row.className = 'msg-item' + (active ? ' active' : '');
       const txt = document.createElement('div');
@@ -7834,8 +8028,27 @@ function renderMsg() {
       del.type = 'button'; del.className = 'row-btn';
       del.appendChild(msym(ICON.del));
       del.addEventListener('click', (e) => { e.stopPropagation(); deleteMessage(m.id); });
-      row.append(txt, fav, add, del);
-      list.appendChild(row);
+      // ---- O ESTILO DESTA MENSAGEM (v1.9.1) ----
+      // Pedido do operador: *"crie um botão na gaveta de opções da mensagem, que
+      // permite configurar o tamanho da fonte, a fonte e o alinhamento daquela
+      // mensagem."* Ele é um ALTERNADOR de gaveta, e UMA por vez — duas abertas
+      // na mesma lista fariam o operador perder de vista qual linha ele ajusta.
+      const est = document.createElement('button');
+      est.type = 'button';
+      est.className = 'row-btn msg-estilo-btn' + (msgEstiloAberto === m.id ? ' on' : '');
+      est.title = 'Tamanho, fonte e alinhamento';
+      est.setAttribute('aria-label', 'Tamanho, fonte e alinhamento');
+      est.setAttribute('aria-expanded', msgEstiloAberto === m.id ? 'true' : 'false');
+      est.innerHTML = icoSprite('icoEstilo');
+      est.addEventListener('click', (e) => {
+        e.stopPropagation();
+        msgEstiloAberto = msgEstiloAberto === m.id ? null : m.id;
+        renderMsg();
+      });
+      row.append(txt, est, fav, add, del);
+      env.appendChild(row);
+      if (msgEstiloAberto === m.id) env.appendChild(gavetaDeEstilo(m));
+      list.appendChild(env);
     });
   }
   host.appendChild(list);
@@ -27923,7 +28136,7 @@ function pacoteMesclarValor(local, vindo) {
   }
   // LISTA DE OBJETOS COM `id` — e ela é a metade que faltava (v1.8.15).
   //
-  // `messages` é `[{id, text}]` e `folders` tem a mesma forma: não são lista de
+  // `messages` é `[{id, text, estilo?}]` e `folders` tem a mesma forma: não são lista de
   // strings (regra 2) nem mapa (regra 3), então caíam na regra 4 e **o local
   // vencia inteiro**. Num aparelho que já salvou uma mensagem, as mensagens do
   // pacote eram descartadas em silêncio — o recurso só funcionava no aparelho
@@ -35080,7 +35293,7 @@ function resendSceneToDisplay(para) {
     }
   } else if (msgProjecting()) {
     const m = messages[msgSession.idx];
-    if (m) enviar({ type: 'text', mode: 'message', main: m.text, sub: '', view });
+    if (m) enviar({ type: 'text', mode: 'message', main: m.text, sub: '', estilo: m.estilo || null, view });
   } else if (lyricProjecting()) {
     enviar({ type: 'text', mode: 'message', main: lyricSession.stanzas[lyricSession.idx], sub: '', view });
   } else if (visualSobreProjetando()) {
