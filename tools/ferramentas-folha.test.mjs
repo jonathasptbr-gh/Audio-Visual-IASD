@@ -1471,48 +1471,61 @@ try {
   }
 
 
-  // ── L. MENSAGENS: O PARAR DA LINHA, E A GAVETA DE ESTILO (v1.9.2) ───────
+  // ── L. MENSAGENS: A LINHA É UMA LINHA DE LISTA (v1.9.3) ─────────────────
   //
-  // Pedido do operador: *"o botão de stop, deve ser individual em cada item da
-  // lista de mensagens."* Ele nasceu no RODAPÉ (v1.9.1) e de lá respondia por "a
-  // mensagem no ar", que é UMA — na linha ele responde por ESTA, e o operador
-  // para o que está vendo sem procurar qual das linhas ficou vermelha. E, da
-  // mesma rodada anterior: *"crie um botão na gaveta de opções da mensagem, que
-  // permite configurar o tamanho da fonte, a fonte e o alinhamento daquela
-  // mensagem."*
+  // Pedido do operador: *"ajuste a gaveta de opções das mensagens, para que ela
+  // funcione igual a gaveta de opções do cronograma, que fica escondido em um
+  // botão de 3 pontos"* e *"coloque uma thumbnail nos itens dessa lista, e da
+  // mesma forma que no cronograma, o stop vai ficar na thumbnail"*.
   //
-  // O `boot-nativo` afirma a FAIXA de Mensagens no repouso — que não há
-  // primário, e que o único filho dela é o "+ Nova mensagem". O que falta é o
-  // CICLO do PARAR, que é onde ele de fato serve.
+  // A LINHA DEIXOU DE SER UM COMPONENTE PRÓPRIO — o `.msg-item` com os cinco
+  // botões à vista, o `.msg-text`, o grupo `.msg-acoes`, o `.msg-parar` e o
+  // envelope `.msg-row` saíram inteiros — e virou a MESMA `.lib-item > .row` do
+  // Cronograma. **O que isso apaga não é estilo, é a segunda implementação de um
+  // gesto que o operador já sabe**, e é por isso que a maior parte deste bloco
+  // mede ANATOMIA e GEOMETRIA: as duas metades que fazem a linha ser a mesma
+  // peça, e não uma cópia parecida dela.
   //
   // O que falha calado aqui, e por isso cada metade tem asserção:
   //
-  //  - **o PARAR existir SÓ na linha no ar.** Desenhado apenas ali, a fileira
-  //    ganharia um botão a mais no instante em que o operador projeta, e os
-  //    outros quatro andariam sob o dedo que acabou de tocar num deles. Ele é
-  //    desenhado em TODAS e APAGADO fora da que está no ar — a regra da
-  //    v1.8.50, com o `title` dizendo por quê.
-  //  - **o PARAR não acender.** Quem redesenha a lista é `refreshDiversos`,
-  //    chamado de dentro do `projectMessage` — uma linha invisível no diff de
-  //    um lote futuro. Sem ela a linha fica vermelha e os cinco botões dela
-  //    continuam apagados, que é EXATAMENTE o estado que o pedido do operador
-  //    descreve como defeito.
-  //  - **o PARAR responder pela linha ERRADA.** Ele chama `hideMessage()`, que
-  //    tira do ar o que estiver no ar — o que é certo porque só o da linha ATIVA
-  //    responde ao toque. É a dupla "desenhado em todas · apagado fora da ativa"
-  //    que sustenta isso, e é por isso que as duas metades são medidas juntas.
-  //  - **duas gavetas abertas.** `msgEstiloAberto` é a única coisa que impede
-  //    isso, e num painel de várias mensagens duas gavetas abertas fazem o
-  //    operador ajustar a linha errada.
-  //  - **a gaveta MORRER no redesenho.** Escolher com a mensagem no ar
-  //    REPROJETA, e reprojetar remonta o painel inteiro: se a marca morasse no
-  //    DOM, a gaveta fecharia a cada chip tocado — o operador teria de reabri-la
-  //    para escolher o segundo eixo.
-  //  - **os chips serem uma CÓPIA da tabela do palco.** O rótulo que o operador
-  //    toca e o valor que o telão aplica têm de sair da mesma linha; uma cópia
-  //    aqui dá um chip "Enorme" que o telão desenha em médio, sem erro em lugar
-  //    nenhum. A régua é a única que não é tautologia: MEXER em
-  //    `createStage.CARTAO_ESTILO` em runtime e exigir que o painel obedeça.
+  //  - **a faixa nascer ABERTA.** É o `⋮` que a revela; desenhada de saída, a
+  //    lista volta a ser a fileira que o pedido veio tirar, agora por cima do
+  //    nome.
+  //  - **a MINIATURA faltar.** Ela não é enfeite: a `.row-acoes` é posicionada
+  //    CONTRA ela (`right: calc(--thumb + 1rem)`, `min-width: 100% − 2×--thumb −
+  //    2rem`, v1.8.55), e numa linha sem capa a faixa abre por cima do texto
+  //    deixando uma FATIA dele exposta à esquerda. Nada erra: a gaveta funciona,
+  //    e o que se vê é meio nome saindo por baixo dela.
+  //  - **o PARAR sair por `retirarDoAr`.** O terceiro parâmetro do `porParar` é
+  //    o que o lote acrescentou, e ele existe porque uma mensagem não é registro
+  //    do acervo: `hideMessage` PRESERVA a sessão (`msgSession` de pé com
+  //    `projecting: false`), e é ela que faz a linha seguir selecionada. Sem o
+  //    parâmetro o toque cai no `retirarDoAr(null)`, que para a MÍDIA e deixa o
+  //    aviso projetado na frente da congregação.
+  //  - **a guarda do toque no corpo.** Os botões da faixa já chamam
+  //    `stopPropagation`, então a guarda parece redundante — e não é: a LIXEIRA
+  //    da confirmação (`.row-slot--del`, irmã do `⋮` dentro da `.row`, não da
+  //    faixa) não é botão e não para nada. Sem a guarda, tocá-la PROJETA a
+  //    mensagem que se está prestes a apagar.
+  //  - **o EXCLUIR apagar no toque.** Ele era o único destrutivo do app sem
+  //    pergunta.
+  //  - **o botão de ESTILO deixar a faixa aberta.** A faixa cobre o nome e a
+  //    gaveta nasce logo abaixo dela: as duas juntas escondem a linha inteira.
+  //    **E ESTE DESFECHO É PROTEGIDO DUAS VEZES — o oráculo só reprova quando as
+  //    DUAS somem**, o que está dito aqui porque quem tirar uma vai ver o teste
+  //    passar e concluir que ela não servia. MEDIDO em três reversões: inscrever
+  //    o `msg-estilo-btn` em `ACOES_QUE_NAO_FECHAM` não muda um pixel (o
+  //    `fecharAcoesDaLinha()` do topo do `renderMsg` fecha a faixa no redesenho,
+  //    e nada a marca para reabrir); chamar `manterAcoesAbertas()` no botão
+  //    também não (o ouvinte de CAPTURA da `.row-acoes` já rodou, e
+  //    `linhaAcoesAberta` chega ao `click` em `null`); só o PAR reabre. O
+  //    comentário do app creditava a LISTA sozinha, e foi corrigido no mesmo
+  //    lote. O caminho realista de perder o desfecho é copiar a ESTRELA por
+  //    inteiro, que é o que a reversão desta asserção faz.
+  //  - **o clamp de duas linhas virar regra do APP.** No Cronograma o
+  //    `.row-name` é o TÍTULO de uma mídia e uma linha basta; aqui ele é o TEXTO
+  //    do aviso. A régua tem de reprovar nos DOIS sentidos, senão mover a regra
+  //    para `.row-name` passa igual.
   {
     const irPara = (nome) => pg.evaluate(async (n) => {
       abrirFerramentas();
@@ -1522,110 +1535,329 @@ try {
       await new Promise((f) => setTimeout(f, 150));
     }, nome);
 
-    await pg.evaluate(async () => {
+    const plantar = (lista) => pg.evaluate(async (ms) => {
       // DUAS mensagens: com uma só, "uma gaveta por vez" não tem como reprovar.
       if (msgProjecting()) hideMessage();
       clearMsgSession();
       messages.length = 0;
-      messages.push({ id: 'ml1', text: 'Bem-vindos ao culto!' });
-      messages.push({ id: 'ml2', text: 'A reunião de pais fica para sábado.' });
+      for (const m of ms) messages.push(m);
       await saveMessages();
-    });
+      refreshDiversos();
+      await new Promise((f) => setTimeout(f, 120));
+    }, lista);
+
+    await plantar([
+      { id: 'ml1', text: 'Bem-vindos ao culto!' },
+      { id: 'ml2', text: 'A reunião de pais fica para sábado.' },
+    ]);
     await irPara('Mensagens');
 
-    const olharMsg = () => pg.evaluate(() => {
-      const linhas = [...document.querySelectorAll('.msg-item')];
-      const pp = [...document.querySelectorAll('.msg-parar')];
+    // ---- L1 · A MESMA PEÇA DAS OUTRAS LISTAS ----
+    //
+    // A ordem do DOM é medida por PAPEL e não por `className`: um `.row-mais`
+    // é `class="row-btn row-mais"`, e comparar a string inteira reprovaria uma
+    // classe acrescentada de boa-fé no lote seguinte.
+    const anatomia = await pg.evaluate(() => {
+      const papel = (e) => (e.matches('.thumb') ? 'miniatura'
+        : e.matches('.row-name') ? 'nome'
+          : e.matches('.row-acoes') ? 'faixa'
+            : e.matches('.row-mais') ? 'mais' : e.className);
+      const lis = [...document.querySelectorAll('.msg-list > .lib-item')];
+      const row = lis[0] && lis[0].querySelector(':scope > .row');
+      const caixa = row && row.querySelector('.row-acoes');
       return {
-        linhas: linhas.length,
-        // UM POR LINHA, e DENTRO dela: um botão fora da própria linha responde
-        // por outra mensagem, e a contagem sozinha não vê isso.
-        parares: pp.length,
-        naLinha: pp.every((p, i) => !!linhas[i] && linhas[i].contains(p)),
-        apagados: pp.map((p) => p.disabled),
-        titulos: pp.map((p) => p.title),
-        ativas: linhas.map((l) => l.classList.contains('active')),
-        // E NADA SOBROU NO RODAPÉ: um controle em dois lugares é o par que
-        // diverge no primeiro ajuste (a mesma pergunta do bloco K).
-        noRodape: document.querySelectorAll('#msgPararBtn, .misc-foot .msg-parar').length,
-        gavetas: document.querySelectorAll('.msg-estilo').length,
-        noAr: msgProjecting(),
+        lis: lis.length,
+        ul: (document.querySelector('.msg-list') || {}).tagName,
+        li: (lis[0] || {}).tagName,
+        papeis: row ? [...row.children].map(papel) : [],
+        // A ORDEM DOS DESTINOS é a da tabela `DESTINOS` (Cronograma, favoritos),
+        // com o estilo à frente e o excluir fechando a fileira.
+        botoes: caixa ? [...caixa.children].map((b) => (b.matches('.msg-estilo-btn') ? 'estilo'
+          : b.matches('.row-crono') ? 'cronograma'
+            : b.matches('.fav-btn') ? 'favorito'
+              : b.matches('.row-excluir') ? 'excluir' : b.className)) : [],
+        // A FAIXA NASCE ESCONDIDA — `visibility`, que já tira o toque, o foco e
+        // o leitor de tela (a marca que a revela é `acoes-abertas`, no `li`).
+        abertas: document.querySelectorAll('.msg-list .acoes-abertas').length,
+        visivel: caixa ? getComputedStyle(caixa).visibility : null,
+        // NADA DO COMPONENTE ANTIGO SOBREVIVEU: um `.msg-item` de pé ao lado da
+        // linha nova seria a fileira do pedido continuando a existir.
+        velhos: ['.msg-item', '.msg-text', '.msg-acoes', '.msg-parar', '.msg-row']
+          .map((s) => document.querySelectorAll(s).length)
+          .reduce((a, b) => a + b, 0),
+      };
+    });
+    checar(anatomia.lis === 2 && anatomia.ul === 'UL' && anatomia.li === 'LI'
+      && JSON.stringify(anatomia.papeis) === JSON.stringify(['miniatura', 'nome', 'faixa', 'mais']),
+      'L1 · a linha de mensagem É a `.lib-item > .row` das outras listas: miniatura, '
+      + 'nome, a faixa de ações e o `⋮`, nesta ordem. A faixa vem ANTES do botão que '
+      + 'a abre porque ela é absoluta (a ordem do DOM não é a do layout) e porque é '
+      + 'essa a ordem de leitura de quem usa leitor de tela',
+      JSON.stringify(anatomia));
+    checar(JSON.stringify(anatomia.botoes)
+      === JSON.stringify(['estilo', 'cronograma', 'favorito', 'excluir']),
+      'L1 · e os QUATRO botões estão atrás do `⋮`, na ordem da tabela `DESTINOS` '
+      + '(Cronograma, favoritos) com o excluir fechando a fileira',
+      JSON.stringify(anatomia.botoes));
+    checar(anatomia.abertas === 0 && anatomia.visivel === 'hidden',
+      'L1 · e a faixa NASCE escondida — é o `⋮` que a revela. Desenhada de saída, a '
+      + 'lista volta a ser a fileira que o pedido veio tirar, agora por cima do nome',
+      JSON.stringify(anatomia));
+    checar(anatomia.velhos === 0,
+      'L1 · e nada do componente antigo sobrou (`.msg-item`, `.msg-text`, '
+      + '`.msg-acoes`, `.msg-parar`, `.msg-row`): dois desenhos para a mesma linha '
+      + 'divergem no primeiro ajuste', JSON.stringify(anatomia.velhos));
+
+    // ---- L2 · A FAIXA É POSICIONADA CONTRA A MINIATURA ----
+    //
+    // Este é o argumento da v1.8.55 medido: a `.row-acoes` cobre do fim da capa
+    // ao começo do `⋮`, e é a MINIATURA que lhe dá a fronteira esquerda. Sem
+    // capa a faixa continua começando em `--thumb + 1rem` — e o nome, que passa
+    // a começar na borda, sai por baixo dela.
+    const abrirMais = (i) => pg.evaluate(async (k) => {
+      const lis = [...document.querySelectorAll('.msg-list > .lib-item')];
+      lis[k].querySelector('.row-mais').click();
+      await new Promise((f) => setTimeout(f, 260));
+    }, i);
+
+    await abrirMais(0);
+    const geo = await pg.evaluate(() => {
+      const li = document.querySelector('.msg-list > .lib-item');
+      // À PROVA DE PEÇA AUSENTE, e isso é método: a reversão que esta asserção
+      // existe para pegar é justamente a MINIATURA saindo da linha. Uma sonda
+      // que estoure ali aborta o arquivo inteiro — os blocos M em diante deixam
+      // de rodar — e o veredito chega como exceção, não como reprovação.
+      const cx = (s) => { const e = li.querySelector(s); if (!e) return null;
+        const r = e.getBoundingClientRect(); return { e: Math.round(r.left), d: Math.round(r.right) }; };
+      const caixa = li.querySelector('.row-acoes');
+      return {
+        aberta: li.classList.contains('acoes-abertas')
+          && getComputedStyle(caixa).visibility === 'visible',
+        thumb: cx('.thumb'), nome: cx('.row-name'), faixa: cx('.row-acoes'), mais: cx('.row-mais'),
+      };
+    });
+    checar(!!(geo.aberta && geo.thumb && geo.mais
+      && geo.faixa.e >= geo.thumb.d - 1 && geo.faixa.d <= geo.mais.e + 1),
+      'L2 · aberta, a faixa NÃO cobre a miniatura nem o `⋮` — as duas colunas das '
+      + 'pontas ficam de fora, que é o que permite parar a mídia e fechar o menu com '
+      + 'ele aberto', JSON.stringify(geo));
+    checar(!!(geo.nome && geo.faixa.e <= geo.nome.e + 1 && geo.faixa.d >= geo.nome.d - 1),
+      'L2 · e ela cobre o NOME inteiro: é isto que a miniatura compra. Sem capa o '
+      + 'nome começa na borda e a faixa continua começando em `--thumb + 1rem` — uma '
+      + 'fatia do texto fica exposta por baixo da gaveta, e nada erra',
+      JSON.stringify(geo));
+
+    // ---- L3 · O PARAR MORA NA MINIATURA ----
+    const olharParar = () => pg.evaluate(() => {
+      const lis = [...document.querySelectorAll('.msg-list > .lib-item')];
+      return {
+        linhas: lis.length,
+        // UM POR LINHA, e DENTRO da miniatura: fora dela ele é mais um botão de
+        // fileira, que é justamente o desenho que o pedido veio tirar.
+        naCapa: lis.every((l) => !!l.querySelector(':scope > .row > .thumb > .row-stop')),
+        mostrados: lis.map((l) => { const b = l.querySelector('.row-stop');
+          return b ? getComputedStyle(b).display : 'ausente'; }),
+        // COM O PARAR À VISTA, O ÍCONE DA CAPA SOME — senão os dois se
+        // sobrepõem no mesmo quadrado.
+        // CONTADA, e não só `every()`: sobre uma lista vazia o `every` devolve
+        // `true`, e um `cueThumb` que deixasse de desenhar o glifo aprovaria
+        // esta metade sem haver capa nenhuma para esconder.
+        capas: lis.map((l) => { const c = [...l.querySelectorAll('.thumb > :not(.row-stop)')];
+          return c.length > 0 && c.every((e) => getComputedStyle(e).display === 'none'); }),
+        noAr: lis.map((l) => l.classList.contains('no-ar')),
+        projetando: msgProjecting(),
+        sessao: msgSession ? msgSession.idx : null,
       };
     });
 
-    const repouso = await olharMsg();
-    checar(repouso.linhas === 2 && repouso.parares === 2 && repouso.naLinha
-      && repouso.noRodape === 0
-      && JSON.stringify(repouso.apagados) === JSON.stringify([true, true])
-      && JSON.stringify(repouso.ativas) === JSON.stringify([false, false])
-      && repouso.titulos.every((t) => /não está no telão/.test(t)),
-      'L · o ponto de partida: nada no ar, nenhuma linha vermelha, e o PARAR '
-      + 'DESENHADO nas DUAS linhas, apagado nas duas, com o `title` dizendo por quê. '
-      + 'Desenhá-lo só na linha ativa faria a fileira mudar de largura no instante em '
-      + 'que o operador projeta (a regra da v1.8.50 mais a da v1.8.61)',
-      JSON.stringify(repouso));
+    const antesDoAr = await olharParar();
+    checar(antesDoAr.linhas === 2 && antesDoAr.naCapa
+      && JSON.stringify(antesDoAr.mostrados) === JSON.stringify(['none', 'none'])
+      && JSON.stringify(antesDoAr.noAr) === JSON.stringify([false, false]),
+      'L3 · o PARAR é desenhado na MINIATURA de toda linha e fica ESCONDIDO fora do '
+      + 'ar — é o `.no-ar` do `li` que o mostra, em CSS. Desenhá-lo só na linha ativa '
+      + 'faria a capa aparecer e sumir sob o dedo no instante em que o operador '
+      + 'projeta', JSON.stringify(antesDoAr));
 
-    await pg.evaluate(() => document.querySelectorAll('.msg-item .msg-text')[0].click());
-    const acendeu = await esperar(pg, () => {
-      const pp = [...document.querySelectorAll('.msg-parar')];
-      return pp.length === 2 && pp[0].disabled === false;
-    }, null, 4000);
-    const noAr = await olharMsg();
-    checar(acendeu === true
-      && JSON.stringify(noAr.ativas) === JSON.stringify([true, false])
-      && JSON.stringify(noAr.apagados) === JSON.stringify([false, true])
-      && /Tirar do telão/.test(noAr.titulos[0]),
-      'L · projetada a PRIMEIRA, só o PARAR DELA acende — e é `refreshDiversos` dentro '
-      + 'do `projectMessage` que redesenha a lista. Sem essa linha a linha fica '
-      + 'vermelha e os botões continuam apagados, que é o defeito que o pedido do '
-      + 'operador nomeia. O da vizinha segue apagado: ele responde por ESTA mensagem',
-      porque(acendeu) || JSON.stringify(noAr));
+    // O TOQUE É NO CORPO DA LINHA, e a MINIATURA faz parte dele: ela hospeda o
+    // PARAR, mas fora do ar quem responde ali é a linha — como no Cronograma.
+    await pg.evaluate(() => {
+      const t = document.querySelector('.msg-list > .lib-item .thumb');
+      if (t) t.click();
+    });
+    const projetou = await esperar(pg, () => msgProjecting()
+      && !!document.querySelector('.msg-list > .lib-item.no-ar'), null, 4000);
+    const noAr = await olharParar();
+    checar(projetou === true && JSON.stringify(noAr.noAr) === JSON.stringify([true, false])
+      && noAr.mostrados[0] === 'flex' && noAr.mostrados[1] === 'none' && noAr.capas[0] === true,
+      'L3 · o toque no CORPO projeta (a capa é corpo, fora do ar), a linha fica no ar '
+      + 'e ali o PARAR aparece com o ícone da capa escondido — só nela',
+      porque(projetou) || JSON.stringify(noAr));
 
-    await pg.evaluate(() => document.querySelectorAll('.msg-parar')[0].click());
-    const saiu = await esperar(pg, () => {
-      const pp = [...document.querySelectorAll('.msg-parar')];
-      return pp.length === 2 && pp.every((p) => p.disabled) && !document.querySelector('.msg-item.active');
-    }, null, 4000);
-    const depois = await olharMsg();
-    checar(saiu === true && depois.noAr === false && depois.parares === 2,
-      'L · e tocá-lo TIRA DO AR: a linha perde o vermelho e os dois voltam a apagar — '
-      + 'o ciclo fechado, e ele fecha SEM a fileira perder um botão',
+    await pg.evaluate(() => {
+      const b = document.querySelector('.msg-list > .lib-item.no-ar .row-stop');
+      // SEM SAÍDA DE EMERGÊNCIA: um `hideMessage()` aqui tiraria a mensagem do ar
+      // por outro caminho, e a asserção de baixo passaria com o PARAR ausente —
+      // a tautologia exata que a reversão veio pegar.
+      if (b) b.click();
+    });
+    const saiu = await esperar(pg, () => !msgProjecting()
+      && !document.querySelector('.msg-list > .lib-item.no-ar'), null, 4000);
+    const depois = await olharParar();
+    checar(saiu === true && JSON.stringify(depois.noAr) === JSON.stringify([false, false])
+      && JSON.stringify(depois.mostrados) === JSON.stringify(['none', 'none']),
+      'L3 · e tocá-lo TIRA DO AR: a linha perde o `no-ar` e o PARAR volta a se '
+      + 'esconder. Sem o terceiro parâmetro do `porParar` o toque cai no '
+      + '`retirarDoAr(null)`, que para a MÍDIA e deixa o aviso projetado',
       porque(saiu) || JSON.stringify(depois));
+    checar(depois.projetando === false && depois.sessao === 0,
+      'L3 · **e a SESSÃO SOBREVIVE** — é o que separa `hideMessage` de '
+      + '`retirarDoAr`: `msgSession` fica de pé com `projecting: false`, a linha '
+      + 'segue selecionada, e é dela que o ⏮/⏭ e o reenvio de cena dependem. '
+      + 'Zerá-la faz a linha deixar de estar escolhida só por ter saído do telão',
+      JSON.stringify(depois));
+    // E UM NOVO TOQUE A DEVOLVE AO TELÃO — o alternador dos dois sentidos, que é
+    // o gesto que a sessão viva promete.
+    await pg.evaluate(() => document.querySelector('.msg-list > .lib-item > .row').click());
+    const voltou = await esperar(pg, () => msgProjecting()
+      && !!document.querySelector('.msg-list > .lib-item.no-ar'), null, 4000);
+    checar(voltou === true,
+      'L3 · e um novo toque a DEVOLVE ao telão, sem passar por lugar nenhum',
+      porque(voltou));
+    await pg.evaluate(() => { hideMessage(); });
+    await pg.waitForTimeout(150);
 
-    // ---- A GAVETA: UMA POR VEZ ----
+    // ---- L4 · O QUE NASCE NA FAIXA NÃO PROJETA ----
+    //
+    // Os quatro botões chamam `stopPropagation`, então eles fechariam o caminho
+    // sozinhos — a guarda existe pelo que NÃO é botão. A LIXEIRA da confirmação
+    // (`.row-slot--del`) é um `<span>` irmão do `⋮` DENTRO da `.row`, fora da
+    // faixa e fora de qualquer ouvinte: sem `closest('…,.row-slot,…')` o toque
+    // nela PROJETA a mensagem que o operador está prestes a apagar. É essa
+    // célula que a asserção mede — as outras passam com e sem a guarda.
+    await abrirMais(0);
+    const naFaixa = await pg.evaluate(async () => {
+      const li = document.querySelector('.msg-list > .lib-item');
+      li.querySelector('.row-crono').click();
+      await new Promise((f) => setTimeout(f, 260));
+      const aposDestino = msgProjecting();
+      const li2 = document.querySelector('.msg-list > .lib-item');
+      li2.querySelector('.row-excluir').click();
+      await new Promise((f) => setTimeout(f, 200));
+      const slot = document.querySelector('.msg-list > .lib-item .row-slot--del');
+      if (slot) slot.click();
+      await new Promise((f) => setTimeout(f, 260));
+      return { aposDestino, temSlot: !!slot, aposSlot: msgProjecting() };
+    });
+    checar(naFaixa.temSlot && naFaixa.aposSlot === false && naFaixa.aposDestino === false,
+      'L4 · um toque que nasce na FAIXA — inclusive na LIXEIRA da confirmação, que '
+      + 'não é botão e não para propagação nenhuma — não projeta. Sem a guarda '
+      + '`closest(\'.row-btn,.row-acoes,.row-slot,.row-stop\')` o operador põe no ar '
+      + 'o aviso que ele foi apagar', JSON.stringify(naFaixa));
+
+    // ---- L5 · O EXCLUIR PERGUNTA ----
+    //
+    // Ele apagava no toque, e era o único destrutivo do app sem pergunta. A
+    // pergunta é a MESMA das outras listas (`pedirConfirmacaoNaLinha`): a faixa
+    // troca de conteúdo, a linha é marcada, e a capa vira lixeira.
+    const perguntou = await pg.evaluate(() => {
+      const li = document.querySelector('.msg-list > .lib-item');
+      const cx = li.querySelector('.linha-confirma');
+      return {
+        quantas: messages.length,
+        confirma: !!cx,
+        rotulos: cx ? [...cx.querySelectorAll('.linha-confirma-btn')].map((b) => b.textContent) : [],
+        marcada: li.classList.contains('excluindo'),
+        lixeiraNaCapa: !!li.querySelector('.row-slot--del'),
+      };
+    });
+    checar(perguntou.quantas === 2 && perguntou.confirma && perguntou.marcada
+      && perguntou.lixeiraNaCapa
+      && JSON.stringify(perguntou.rotulos) === JSON.stringify(['Cancelar', 'Excluir']),
+      'L5 · o EXCLUIR PERGUNTA: o primeiro toque não apaga nada — a faixa troca de '
+      + 'conteúdo pelo par Cancelar/Excluir, a linha é marcada e a lixeira entra ao '
+      + 'lado do `⋮`', JSON.stringify(perguntou));
+
+    const cancelou = await pg.evaluate(async () => {
+      document.querySelector('.msg-list > .lib-item .linha-nao').click();
+      await new Promise((f) => setTimeout(f, 250));
+      return {
+        quantas: messages.length,
+        confirma: !!document.querySelector('.msg-list .linha-confirma'),
+      };
+    });
+    checar(cancelou.quantas === 2 && cancelou.confirma === false,
+      'L5 · e "Cancelar" desfaz a pergunta sem apagar — a saída barata de quem '
+      + 'tocou na lixeira sem querer', JSON.stringify(cancelou));
+
+    const excluiu = await pg.evaluate(async () => {
+      const li = document.querySelector('.msg-list > .lib-item');
+      li.querySelector('.row-mais').click();
+      await new Promise((f) => setTimeout(f, 260));
+      li.querySelector('.row-excluir').click();
+      await new Promise((f) => setTimeout(f, 200));
+      document.querySelector('.msg-list > .lib-item .linha-sim').click();
+      await new Promise((f) => setTimeout(f, 700));
+      return {
+        quantas: messages.length,
+        gravado: (await AVDB.getState('messages')).length,
+        nomes: [...document.querySelectorAll('.msg-list .row-name')].map((n) => n.textContent),
+      };
+    });
+    checar(excluiu.quantas === 1 && excluiu.gravado === 1
+      && JSON.stringify(excluiu.nomes) === JSON.stringify(['A reunião de pais fica para sábado.']),
+      'L5 · e só o "Excluir" apaga de fato — na memória, no IndexedDB e na lista',
+      JSON.stringify(excluiu));
+
+    // ---- L6 · O ESTILO ABRE A GAVETA E FECHA A FAIXA ----
+    await plantar([
+      { id: 'ml1', text: 'Bem-vindos ao culto!' },
+      { id: 'ml2', text: 'A reunião de pais fica para sábado.' },
+    ]);
+    await abrirMais(0);
     const g1 = await pg.evaluate(async () => {
-      document.querySelectorAll('.msg-estilo-btn')[0].click();
-      await new Promise((f) => setTimeout(f, 80));
-      const env = [...document.querySelectorAll('.msg-row')];
+      document.querySelector('.msg-list > .lib-item .msg-estilo-btn').click();
+      await new Promise((f) => setTimeout(f, 260));
+      const lis = [...document.querySelectorAll('.msg-list > .lib-item')];
+      const caixa = lis[0].querySelector('.row-acoes');
       return {
         quantas: document.querySelectorAll('.msg-estilo').length,
-        // A gaveta é irmã da linha DENTRO do envelope — filha direta da lista,
-        // o `gap` dela as separaria e as duas leriam como dois cartões.
-        naPrimeira: !!env[0].querySelector(':scope > .msg-estilo'),
-        expandido: document.querySelectorAll('.msg-estilo-btn')[0].getAttribute('aria-expanded'),
-        // Os três eixos, na ordem do pedido.
+        // A gaveta é filha do `li`, IRMÃ da `.row`: é o `.lib-item` que recorta
+        // os cantos dela (`overflow: hidden`), e por isso ela não declara raio.
+        naPrimeira: !!lis[0].querySelector(':scope > .msg-estilo'),
+        expandido: lis[0].querySelector('.msg-estilo-btn').getAttribute('aria-expanded'),
+        // E A FAIXA FECHOU: as duas juntas — a faixa cobrindo o nome e a gaveta
+        // logo abaixo — escondem a linha inteira.
+        faixaAberta: lis[0].classList.contains('acoes-abertas')
+          || getComputedStyle(caixa).visibility === 'visible',
         eixos: [...document.querySelectorAll('.msg-estilo-linha')]
           .map((l) => l.querySelector('.misc-row-label').textContent),
       };
     });
     checar(g1.quantas === 1 && g1.naPrimeira && g1.expandido === 'true',
-      'L · o botão de estilo abre UMA gaveta, dentro do envelope da própria linha',
+      'L6 · o botão de estilo abre UMA gaveta, filha da própria linha', JSON.stringify(g1));
+    checar(g1.faixaAberta === false,
+      'L6 · e ele FECHA a faixa de ações: a faixa cobre o nome e a gaveta nasce logo '
+      + 'abaixo dela — as duas juntas escondem a linha inteira. Quem fecha é o '
+      + '`fecharAcoesDaLinha()` do topo do `renderMsg`, e o jeito de perder isso é '
+      + 'chamar `manterAcoesAbertas()` aqui por simetria com a estrela',
       JSON.stringify(g1));
     checar(JSON.stringify(g1.eixos) === JSON.stringify(['Tamanho', 'Fonte', 'Alinhamento']),
-      'L · e ela tem os TRÊS eixos, nesta ordem', JSON.stringify(g1.eixos));
+      'L6 · e ela tem os TRÊS eixos, nesta ordem', JSON.stringify(g1.eixos));
 
+    await abrirMais(1);
     const g2 = await pg.evaluate(async () => {
-      document.querySelectorAll('.msg-estilo-btn')[1].click();
-      await new Promise((f) => setTimeout(f, 80));
-      const env = [...document.querySelectorAll('.msg-row')];
+      document.querySelectorAll('.msg-list > .lib-item')[1].querySelector('.msg-estilo-btn').click();
+      await new Promise((f) => setTimeout(f, 260));
+      const lis = [...document.querySelectorAll('.msg-list > .lib-item')];
       return {
         quantas: document.querySelectorAll('.msg-estilo').length,
-        naSegunda: !!env[1].querySelector(':scope > .msg-estilo'),
-        naPrimeira: !!env[0].querySelector(':scope > .msg-estilo'),
+        naSegunda: !!lis[1].querySelector(':scope > .msg-estilo'),
+        naPrimeira: !!lis[0].querySelector(':scope > .msg-estilo'),
       };
     });
     checar(g2.quantas === 1 && g2.naSegunda && !g2.naPrimeira,
-      'L · e abrir a da SEGUNDA mensagem FECHA a da primeira — uma por vez, senão o '
+      'L6 · e abrir a da SEGUNDA mensagem FECHA a da primeira — uma por vez, senão o '
       + 'operador ajusta a linha errada', JSON.stringify(g2));
 
     // ---- OS CHIPS SAEM DA TABELA DO PALCO, e a prova é MEXER NELA ----
@@ -1653,7 +1885,7 @@ try {
       return r;
     });
     checar(espelha.antes >= 3 && espelha.depois === espelha.antes + 1 && espelha.temONovo,
-      'L · e os chips SÃO a tabela do palco, não uma cópia dela: uma opção '
+      'L7 · e os chips SÃO a tabela do palco, não uma cópia dela: uma opção '
       + 'acrescentada a `createStage.CARTAO_ESTILO` em runtime aparece no painel. '
       + 'Comparar os rótulos com a tabela passaria com uma cópia idêntica ao lado — '
       + 'mexer nela é a única régua que separa os dois casos', JSON.stringify(espelha));
@@ -1662,9 +1894,15 @@ try {
     const gravou = await pg.evaluate(async () => {
       // GARANTE ABERTA, sem TOGGLE: o botão é um alternador, e um clique sobre a
       // gaveta que já está aberta a FECHA — foi assim que a primeira escrita
-      // deste bloco morreu num `undefined`.
-      if (msgEstiloAberto !== messages[1].id) document.querySelectorAll('.msg-estilo-btn')[1].click();
-      await new Promise((f) => setTimeout(f, 80));
+      // deste bloco morreu num `undefined`. O `⋮` vem antes porque o botão mora
+      // dentro da faixa desde a v1.9.3.
+      const li = () => document.querySelectorAll('.msg-list > .lib-item')[1];
+      if (msgEstiloAberto !== messages[1].id) {
+        li().querySelector('.row-mais').click();
+        await new Promise((f) => setTimeout(f, 260));
+        li().querySelector('.msg-estilo-btn').click();
+      }
+      await new Promise((f) => setTimeout(f, 200));
       const linha = [...document.querySelectorAll('.msg-estilo-linha')]
         .find((l) => l.textContent.trim().startsWith('Tamanho'));
       [...linha.querySelectorAll('.misc-chip')].find((b) => b.textContent === 'Grande').click();
@@ -1672,15 +1910,15 @@ try {
       // O REDESENHO DO PAINEL INTEIRO — o que `projectMessage` faz a cada
       // reprojeção, e o que qualquer outra ferramenta faz ao mudar de estado.
       refreshDiversos();
-      await new Promise((f) => setTimeout(f, 120));
-      const env = [...document.querySelectorAll('.msg-row')];
+      await new Promise((f) => setTimeout(f, 150));
+      const lis = [...document.querySelectorAll('.msg-list > .lib-item')];
       const linha2 = [...document.querySelectorAll('.msg-estilo-linha')]
         .find((l) => l.textContent.trim().startsWith('Tamanho'));
       return {
         memoria: messages[1].estilo,
         gravado: (await AVDB.getState('messages'))[1].estilo,
         // A gaveta CONTINUA na mesma linha depois do redesenho…
-        aindaAberta: !!env[1].querySelector(':scope > .msg-estilo'),
+        aindaAberta: !!lis[1].querySelector(':scope > .msg-estilo'),
         quantas: document.querySelectorAll('.msg-estilo').length,
         // …e o chip escolhido continua aceso, porque quem o acende é o registro.
         aceso: linha2 ? [...linha2.querySelectorAll('.misc-chip')]
@@ -1691,79 +1929,73 @@ try {
     });
     checar(gravou.memoria && gravou.memoria.tamanho === 'grande'
       && gravou.gravado && gravou.gravado.tamanho === 'grande',
-      'L · escolher GRAVA o eixo em `messages` E no IndexedDB — sem a segunda '
+      'L7 · escolher GRAVA o eixo em `messages` E no IndexedDB — sem a segunda '
       + 'metade o estilo morre ao fechar o app, e o operador reajusta todo sábado',
       JSON.stringify([gravou.memoria, gravou.gravado]));
     checar(gravou.aindaAberta && gravou.quantas === 1
       && JSON.stringify(gravou.aceso) === JSON.stringify(['Grande']),
-      'L · e SOBREVIVE ao redesenho do painel, com o chip escolhido aceso: quem '
+      'L7 · e SOBREVIVE ao redesenho do painel, com o chip escolhido aceso: quem '
       + 'guarda a gaveta aberta é `msgEstiloAberto` (módulo), não uma marca no DOM — '
       + 'no DOM ela fecharia a cada reprojeção, e o operador teria de reabri-la para '
       + 'escolher o segundo eixo', JSON.stringify(gravou));
     checar(gravou.aOutra === null,
-      'L · e o estilo é DE UMA MENSAGEM: a vizinha continua sem `estilo` nenhum',
+      'L7 · e o estilo é DE UMA MENSAGEM: a vizinha continua sem `estilo` nenhum',
       JSON.stringify(gravou.aOutra));
 
-    // ---- A FILEIRA QUEBRA ANTES DE ESMAGAR O TEXTO (v1.9.2) ----
+    // ---- L8 · O NOME CABE EM DUAS LINHAS AQUI, E UMA NO CRONOGRAMA ----
     //
-    // O PARAR virou o QUINTO botão da linha, e cinco alvos de `--hit` mais os
-    // vãos pedem ~210px. A MENSAGEM é o conteúdo da linha; os botões são o que
-    // se faz com ela — e num celular de 360px o conteúdo ficava com 83px, três
-    // ou quatro caracteres por linha num bloco de três.
-    //
-    // A CÉLULA É 360px, E ELA É A QUE DECIDE. Num tablet a linha CABE, e ali o
-    // desenho certo é não quebrar — medir só lá aprovaria o app com e sem o
-    // conserto. As duas larguras entram: a estreita prova a quebra, a larga
-    // prova que a base é um NÚMERO ESCOLHIDO (`flex: 1 1 12rem`) e não um
-    // `flex-basis: 100%`, que quebraria em toda tela.
-    //
-    // E A RÉGUA DO TEXTO É A LINHA, nunca um número de pixel: quebrada, a
-    // fileira desce inteira e o `.msg-text` fica com a largura de conteúdo do
-    // `.msg-item`. Afirmar "293px" seria medir a fonte da máquina.
-    const medirLinha = () => pg.evaluate(() => {
-      const row = document.querySelector('.msg-item');
-      const txt = row.querySelector('.msg-text');
-      const acoes = row.querySelector('.msg-acoes');
-      if (!txt || !acoes) return { faltando: [!txt && 'msg-text', !acoes && 'msg-acoes'].filter(Boolean) };
-      const cs = getComputedStyle(row);
-      const util = row.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-      const rt = txt.getBoundingClientRect();
-      const ra = acoes.getBoundingClientRect();
-      return {
-        quebrou: rt.bottom <= ra.top + 1,
-        texto: Math.round(rt.width),
-        util: Math.round(util),
-        acoes: Math.round(ra.width),
-        // OS CINCO NUM GRUPO, e não soltos na linha: soltos, o flex quebra um a
-        // um — três ao lado do texto e dois na linha de baixo.
-        filhos: [...row.children].map((e) => e.className),
-        nasAcoes: acoes.children.length,
-      };
+    // A régua é a RAZÃO entre a altura do nome LONGO e a do CURTO na mesma
+    // lista, e não um número de pixel: afirmar "40px" seria medir a fonte da
+    // máquina. Ela é cobrada nos DOIS sentidos de propósito — a metade do
+    // Cronograma é o que reprova mover a regra para `.row-name`, que passaria
+    // pela metade de cima com o app inteiro em duas linhas.
+    const LONGA = 'Culto de sábado às 9h no salão principal. Traga a Bíblia, o '
+      + 'hinário e um agasalho, porque o ar-condicionado costuma ficar frio.';
+    await plantar([
+      { id: 'ml1', text: 'Aviso curto' },
+      { id: 'ml2', text: LONGA },
+    ]);
+    const clamp = await pg.evaluate(async (t) => {
+      const alt = (e) => Math.round(e.getBoundingClientRect().height);
+      const nomes = [...document.querySelectorAll('.msg-list .row-name')];
+      const msg = { curto: alt(nomes[0]), longo: alt(nomes[1]),
+        // CORTADO, e não "cabe em duas": o clamp é o que faz a lista ter uma
+        // altura de linha só — sem o corte, o nome longo empurraria a vizinha.
+        cortado: nomes[1].scrollHeight > nomes[1].clientHeight + 1 };
+      // O MESMO `.row-name`, na LISTA DO CRONOGRAMA. As duas cenas entram pela
+      // porta de sempre (`AVDB.addCue`), e o `load()` redesenha o `#library`.
+      const a = await AVDB.addCue('message', { text: 'Aviso curto' },
+        { name: 'Aviso curto', list: 'imports' });
+      const b = await AVDB.addCue('message', { text: t }, { name: t, list: 'imports' });
+      if (!a || !b) return { msg, crono: { n: -1 } };
+      await load();
+      await new Promise((f) => setTimeout(f, 300));
+      const cr = [...document.querySelectorAll('#library .lib-item .row-name')];
+      return { msg,
+        crono: cr.length >= 2
+          ? { curto: alt(cr[cr.length - 2]), longo: alt(cr[cr.length - 1]), n: cr.length }
+          : { n: cr.length } };
+    }, LONGA);
+    checar(clamp.msg.curto > 0 && Math.round(clamp.msg.longo / clamp.msg.curto) === 2
+      && clamp.msg.cortado === true,
+      'L8 · na lista de MENSAGENS o nome cabe em DUAS linhas e é CORTADO ali: ele não '
+      + 'é o título de uma mídia, é o TEXTO do aviso — numa linha só, dois avisos que '
+      + 'começam igual viram duas linhas idênticas na tela', JSON.stringify(clamp.msg));
+    checar(clamp.crono.n >= 2 && clamp.crono.curto > 0
+      && clamp.crono.longo === clamp.crono.curto,
+      'L8 · e no CRONOGRAMA continua UMA — é esta metade que prova que o clamp é '
+      + 'desta lista e não do app inteiro: escrito em `.row-name`, ele dobraria a '
+      + 'altura de toda linha de todas as listas', JSON.stringify(clamp.crono));
+
+    await pg.evaluate(async () => {
+      // A LISTA VOLTA COMO ESTAVA: os blocos seguintes medem o Cronograma.
+      // TODA cena de mensagem, e não só as duas do L8: o `.row-crono` do bloco
+      // L4 também criou uma, e os blocos seguintes medem esta lista.
+      for (const r of (await AVDB.listItems('imports')) || []) {
+        if (r && r.cue === 'message') await AVDB.listRemove('imports', r.id);
+      }
+      await load();
     });
-
-    await pg.setViewportSize({ width: 360, height: 780 });
-    await pg.waitForTimeout(250);
-    const estreita = await medirLinha();
-    checar(estreita.filhos && estreita.filhos.length === 2 && estreita.nasAcoes === 5,
-      'L · a linha tem DOIS filhos — o texto e o GRUPO dos cinco botões. Soltos, o '
-      + 'flex os quebra um a um, e o que sai é o bloco desalinhado que ninguém '
-      + 'desenhou', JSON.stringify(estreita));
-    checar(estreita.quebrou === true && estreita.texto === estreita.util
-      && estreita.util > 0,
-      'L · a 360px a fileira QUEBRA e o texto fica com a LINHA INTEIRA (' + estreita.texto
-      + 'px): com a base do texto em 8rem os cinco botões cabiam ao lado dele e a '
-      + 'mensagem — que é o conteúdo — ficava com 83px contra os ~210 deles',
-      JSON.stringify(estreita));
-
-    await pg.setViewportSize({ width: 900, height: 780 });
-    await pg.waitForTimeout(250);
-    const larga = await medirLinha();
-    checar(larga.quebrou === false && larga.texto < larga.util && larga.acoes > 0,
-      'L · e num tablet a linha NÃO quebra: a base de 12rem é um número ESCOLHIDO, não '
-      + 'um `flex-basis: 100%` — onde os cinco cabem ao lado do texto, quebrar seria '
-      + 'jogar fora meia linha de largura', JSON.stringify(larga));
-
-    await pg.setViewportSize({ width: 412, height: 892 });
     await pg.waitForTimeout(200);
   }
 

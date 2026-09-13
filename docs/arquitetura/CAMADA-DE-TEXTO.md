@@ -19,10 +19,12 @@ cobre/revela "de graça", sem tocar em `stage.js`). São eles:
 | **Mídia visual sobre o áudio** | manual (o toque na imagem ou na apresentação) | um registro `kind:'image'` — ou `kind:'deck'`, e aí o cartão pinta `pages[page]` | `#text` / `#pvText` (modo `mode-img`) |
 
 > **Mensagens vive na aba Ferramentas** (v5.31), como uma das ferramentas do
-> seletor: a lista de avisos salvos ocupa o painel inteiro, o "+ Nova mensagem"
-> é o PRIMÁRIO do rodapé, e cada linha tem o seu **PARAR** (`hideMessage` →
-> `text-hide`, que encerra só a Camada de Texto; um áudio de fundo segue
-> tocando), apagado fora da linha que está no telão. Tocar numa mensagem
+> seletor: a lista de avisos salvos ocupa o painel inteiro e o "+ Nova mensagem"
+> é o PRIMÁRIO do rodapé. **Desde a v1.9.3 a linha é a MESMA `.lib-item > .row`
+> do Cronograma** — miniatura, nome, `⋮` e a faixa de ações atrás dele —, e o
+> **PARAR** (`hideMessage` → `text-hide`, que encerra só a Camada de Texto; um
+> áudio de fundo segue tocando) mora na MINIATURA da linha que está no telão.
+> Tocar numa mensagem
 > projeta e a linha fica marcada, então passar de um aviso a outro não exige
 > reabrir nada — que era o atrito do bottom-sheet anterior. Com a mensagem fora
 > do ar mas a sessão viva, os botões de slide só MOVEM a seleção (mesma regra
@@ -662,23 +664,17 @@ da lista).
   uma sessão que pode não existir, então nascia **inerte com um `title` que
   explica**. O que faltava era o contrário: a linha fica vermelha e nada PARA a
   projeção depois que ela saiu de vista na rolagem.
-- **E O PARAR VIROU BOTÃO DE LINHA na v1.9.2** — *"o botão de stop, deve ser
-  individual em cada item da lista de mensagens"*. No rodapé ele respondia por
-  *"a mensagem no ar"*, que é UMA; na linha ele responde por ESTA. **Desenhado
-  em todas e apagado fora da que está no ar** (a regra da v1.8.50): só na linha
-  ativa, a fileira teria um botão a mais e mudaria de largura no instante em que
-  o operador projeta. **E ele NÃO leva tinta de estado** — escrito e revogado no
-  mesmo lote: a família `--live` quer dizer *"isto está no telão"*, e um BOTÃO
-  nela diria que o botão está no telão; o que o distingue é ser o único da
-  fileira que ACENDE.
-- **A LINHA QUEBRA ANTES DE ESMAGAR O TEXTO** (v1.9.2), e essa metade é a conta,
-  não o pedido: cinco alvos de `--hit` mais os vãos pedem ~210px, e MEDIDO a
-  360px o texto caía para **83px** (56px a 1,25×). O texto é `flex: 1 1 12rem` e
-  os cinco botões são um GRUPO (`.msg-acoes`) — soltos, o flex quebra um a um, e
-  saíam três ao lado do texto e dois embaixo. A base de 12rem é MEDIDA: com ela
-  360, 412 e 430 quebram e o texto fica com 293, 345 e 363px; com 8rem as três
-  cabiam numa linha e o texto ficava com 83, 135 e 153px contra os ~210px dos
-  botões.
+- **E O PARAR VIROU BOTÃO DE LINHA na v1.9.2**, e na v1.9.3 desceu para a
+  MINIATURA — *"da mesma forma que no cronograma, o stop vai ficar na
+  thumbnail"*. É o `porParar` de toda linha do app desde a v5.259: com a
+  mensagem no ar, tirá-la de lá é a única decisão que a linha oferece, e o alvo
+  passa a ser o quadrado inteiro. Quem troca o ícone pelo ⏹ é o `.no-ar` do
+  `li`, em CSS. **O `porParar` ganhou um terceiro parâmetro** (`acao`): a
+  mensagem sai por `hideMessage()`, que PRESERVA a sessão de navegação, e não
+  por `retirarDoAr`, que a zeraria — a linha deixaria de estar selecionada só
+  por ter saído do telão.
+  **(A fileira de cinco botões da v1.9.2, com o `flex: 1 1 12rem` que a fazia
+  quebrar, saiu junto: com eles atrás do `⋮` não há fileira para quebrar.)**
 - (O **microfone ao vivo** era a outra metade deste rodapé, e saiu na v1.8.89.)
 
 > **Vazamento horizontal (v5.31).** A faixa "de/até" do sorteio empurrava a aba
@@ -1105,6 +1101,37 @@ O restante desta seção detalha o provedor **Bíblia**; as **Mensagens** são u
 provedor mínimo (CRUD de texto puro em `state.messages` + `projectMessage`/
 `msgStep`, análogos a `startBibleReading`/`bibleStep`), e a **Letra** tem sua
 própria seção ("Letra sincronizada").
+
+**A LINHA DE MENSAGEM É UMA LINHA DE LISTA** (v1.9.3) — a mesma
+`.lib-item > .row` do Cronograma, dos Favoritos e da fila. Pedido do operador:
+*"ajuste a gaveta de opções das mensagens, para que ela funcione igual a gaveta
+de opções do cronograma, que fica escondido em um botão de 3 pontos"*.
+
+- **O que isso apaga não é estilo: é a SEGUNDA implementação de um gesto que o
+  operador já sabe.** Vieram de graça, e nenhuma delas teria sido escrita num
+  componente próprio — a animação de entrada dos botões pela direita, o
+  fechamento ao tocar fora, o degrau do voltar, a reabertura da gaveta depois de
+  um redesenho (`manterAcoesAbertas`, que a estrela usa) e a pergunta da
+  exclusão dentro da linha.
+- **A MINIATURA É GEOMETRIA**, não enfeite — o argumento que a v1.8.55 mediu na
+  fila: a `.row-acoes` é posicionada CONTRA ela (*"a única coisa que fica de
+  fora"*), e numa lista sem capa a gaveta abre por cima do texto e deixa uma
+  fatia dele exposta. É o `cueThumb` da cena `message`, o mesmo desenho que a
+  mensagem já tem quando entra no Cronograma.
+- **O EXCLUIR PERGUNTA** (`pedirConfirmacaoNaLinha`): ele apagava no toque e era
+  o único destrutivo do app sem pergunta. Ele não é o `botaoExcluirDaLinha` —
+  aquele fala de LISTA (`AVDB.listRemove`), e uma mensagem mora no
+  `state.messages`; o que se compartilha é a PERGUNTA, não a remoção.
+- **O NOME CABE EM DUAS LINHAS, e é o único ponto em que esta linha se afasta
+  das outras.** No Cronograma o `.row-name` é o TÍTULO de uma mídia e uma linha
+  basta; aqui ele é o TEXTO do aviso, e é ele que distingue uma mensagem da
+  outra — MEDIDO a 360px sobram ~200px, e numa linha só dois avisos que começam
+  igual cortam no MESMO ponto. DUAS e não três: a linha ganhou a miniatura, que
+  já lhe dá 40px, e variar a altura das linhas é o que faz o dedo errar o `⋮`.
+- **E NÃO HÁ REGRA DE COR PRÓPRIA**, o que fica dito porque foi escrita e
+  revogada no mesmo lote: um `.msg-list > .lib-item { --linha: var(--camada) }`
+  parece inofensivo (é o valor que a `.lib-item` já tem) e MATA o "no ar" — ele
+  empata em especificidade com `.lib-item.no-ar` e vence por vir depois.
 
 **CADA MENSAGEM TEM O SEU ESTILO** (v1.9.1) — tamanho, fonte e alinhamento.
 Pedido do operador: *"crie um botão na gaveta de opções da mensagem, que permite

@@ -336,8 +336,11 @@ try {
     await saveMessages();
     refreshDiversos();
     await new Promise((f) => setTimeout(f, 60));
-    // O TOQUE É NO `.msg-text`: é ele que carrega o ouvinte que projeta (v5.104).
-    document.querySelector('.msg-item .msg-text').click();
+    // O TOQUE É NO CORPO DA LINHA (v1.9.3): a mensagem virou a `.lib-item > .row`
+    // das outras listas, e o ouvinte que projeta mora na `.row` — não mais num
+    // `.msg-text` só dela. A guarda dele ignora o que nasce num botão, e é por
+    // isso que o alvo tem de ser a `.row` e não um filho qualquer.
+    document.querySelector('.msg-list .lib-item > .row').click();
     const cx = document.querySelector('.pv-text-content');
     // A CAMADA TEM DE ESTAR À VISTA, e isto é uma armadilha MEDIDA, não zelo:
     // `#pvText` nasce `hidden`, e num contêiner `display: none` as unidades de
@@ -394,6 +397,13 @@ try {
   // ── B4 · COM A MENSAGEM NO AR, A GAVETA MUDA O QUE ESTÁ PROJETADO ───────
   const depois = await pg.evaluate(async (a) => {
     // Abre a gaveta desta linha e toca no chip "Pequeno" do eixo Tamanho.
+    // O CAMINHO É O DO OPERADOR, E ELE GANHOU UM DEGRAU NA v1.9.3: o botão de
+    // estilo mora DENTRO da faixa de ações, atrás do `⋮`. Tocá-lo direto ainda
+    // funciona (`.click()` não pergunta se o alvo está visível), e é justamente
+    // por isso que o degrau precisa estar escrito aqui — sem ele o oráculo
+    // aprovaria um botão que nenhum dedo alcança.
+    document.querySelector('.msg-list .lib-item .row-mais').click();
+    await new Promise((f) => setTimeout(f, 80));
     document.querySelector('.msg-estilo-btn').click();
     await new Promise((f) => setTimeout(f, 80));
     const linha = [...document.querySelectorAll('.msg-estilo-linha')]

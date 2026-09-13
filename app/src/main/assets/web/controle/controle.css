@@ -553,7 +553,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    Os VALORES moram em tokens.css: a regra é a mesma nos dois temas e só a
    intensidade muda — literais aqui dariam ao tema claro um recesso de 24% de
    preto sobre um cartão branco. */
-.row-item, .lib-item, .hymnal-card, .msg-item, .bible-vsec,
+.row-item, .lib-item, .hymnal-card, .bible-vsec,
 .dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key,
 /* A PLACA DOS FAVORITOS entrou aqui na v1.5.14, no lote em que ela passou a
    pintar `--panel` (ela é o nível 2 da seção, a irmã do `.folder-opfs`). É o
@@ -777,7 +777,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      card que não se mexia. Quem responde agora é o BLOCO, com a luz e por
      inteiro: ver "O BLOCO RESPONDE POR LUZ".) */
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
-  .song-menu-btn, .msg-add-btn, .msg-item,
+  .song-menu-btn, .msg-add-btn,
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project,
   /* (`.lib-item` saiu na v1.7.4, pela regra do bloco — ver "O BLOCO RESPONDE
      POR LUZ". Ela é a linha de lista deste app, isto é, o outro CONTÊINER que
@@ -6511,7 +6511,15 @@ main {
 }
 /* Idem: com o painel de Mensagens em `overflow: hidden`, o scroller é ESTA
    lista — então é nela que o eixo precisa ser declarado. */
-.msg-list { flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y; display: flex; flex-direction: column; gap: var(--sp-3); }
+.msg-list {
+  flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y;
+  /* `<ul>` desde a v1.9.3: as linhas são `.lib-item`, isto é, `<li>`. O
+     `list-style` sai porque a marca de lista não descreve nada aqui — quem diz
+     "isto é uma linha" é o cartão. */
+  list-style: none;
+  position: relative;
+  display: flex; flex-direction: column; gap: var(--sp-3);
+}
 /* Segmentado de ferramenta — fora da regra "ícone = ação" por natureza (não
    alterna duas ações opostas; o segmento marcado é que diz o modo). */
 .misc-modes { display: flex; gap: var(--sp-3); }
@@ -6916,46 +6924,52 @@ main {
   padding: .7rem; font-size: var(--fs-lg); font-weight: var(--fw-forte);
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
-/* ---------- A LINHA E A GAVETA SÃO UMA PEÇA (v1.9.1) ----------
-   O envelope existe porque a `.msg-list` é um flex com `gap`: filhas diretas,
-   a linha e a gaveta ganhariam o vão da lista entre si e leriam como dois
-   cartões. Dentro do envelope o vão é ZERO e o arredondamento é do conjunto —
-   a linha perde os cantos de baixo, a gaveta perde os de cima. */
-.msg-row { display: flex; flex-direction: column; }
-.msg-row:has(> .msg-estilo) .msg-item {
-  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
-}
-/* ---------- A FILEIRA QUEBRA ANTES DE ESMAGAR O TEXTO (v1.9.2) ----------
-   O PARAR virou o QUINTO botão da linha, e cinco alvos de `--hit` mais os vãos
-   pedem ~210px — MEDIDO a 360px, o texto da mensagem caía para **83px** (56px
-   com a raiz do sistema em 1,25×), isto é, três ou quatro caracteres por linha
-   num bloco de três linhas. A mensagem é o CONTEÚDO da linha; os botões são o
-   que se faz com ela.
+/* ---------- A LINHA DE MENSAGEM É UMA `.lib-item` (v1.9.3) ----------
+   Ela tinha componente próprio — `.msg-item`, `.msg-text`, `.msg-acoes`,
+   `.msg-parar` e o envelope `.msg-row` — e virou a MESMA linha de lista do
+   Cronograma: miniatura, nome, `⋮` e a faixa de ações atrás dele. Saíram junto
+   as cinco regras e o que elas resolviam à mão, porque a `.lib-item` já
+   resolve: o cartão, o `--linha`, o `overflow: hidden` que recorta a gaveta nos
+   cantos, o "no ar" em `--live-fill` e a caixa de `--thumb` dos botões.
 
-   `flex: 1 1 12rem` no texto é o que decide, e a base é um NÚMERO ESCOLHIDO:
-   com ela declarada o texto para de ceder e a fileira quebra para a linha de
-   baixo. MEDIDO em três telas de celular (360, 412, 430), a base de 12rem faz as
-   três quebrarem e o texto ficar com a largura inteira — 293, 345 e 363px. Com
-   8rem elas cabiam numa linha só e o texto ficava com 83, 135 e 153px contra os
-   ~210px dos botões: a fileira dominando o conteúdo dela. Onde a linha ainda
-   cabe (tablet), nada quebra. `justify-content: flex-end` só age na linha
-   QUEBRADA, porque na inteira o texto em `flex-grow` já consome a sobra.
+   **O QUE FICOU SEM DONO E SAIU JUNTO:** a quebra da fileira (`flex: 1 1 12rem`
+   no texto mais o grupo `.msg-acoes`, v1.9.2) era o conserto de cinco botões
+   disputando a linha com o texto — com eles escondidos atrás do `⋮` não há
+   fileira para quebrar, e a linha tem duas colunas fixas de `--thumb` como
+   qualquer outra. Uma regra que resolve um problema que deixou de existir é
+   armadilha: ela responde "isto está protegido?" com um sim que não descreve
+   nada.
 
-   **E OS CINCO SÃO UM GRUPO** (`.msg-acoes`), não cinco itens da linha: soltos,
-   o flex quebra um a um — MEDIDO a 360px, três ficavam ao lado do texto e dois
-   caíam na linha de baixo. A fileira é uma peça e quebra por inteiro. */
-.msg-item {
-  display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end;
-  gap: var(--sp-4);
-  border-radius: var(--radius-card); background: var(--camada); padding: .5rem .6rem;
+   **E NÃO HÁ REGRA DE COR AQUI**, o que fica dito porque foi escrita e
+   revogada no mesmo lote: um `.msg-list > .lib-item { --linha: var(--camada) }`
+   parece inofensivo (é o valor que a `.lib-item` já tem) e MATA o "no ar" —
+   ele empata em especificidade com `.lib-item.no-ar` e vence por vir depois.
+   MEDIDO: a linha da mensagem projetada saía em `--camada` em vez do
+   `--live-fill`, e o único sinal de que ela estava no telão era o ⏹ na capa. */
+/* ---------- O NOME DA MENSAGEM CABE EM DUAS LINHAS ----------
+   É a ÚNICA coisa em que esta linha se afasta das outras, e a razão é o que ela
+   mostra: no Cronograma o `.row-name` é o TÍTULO de uma mídia — "Hino 15",
+   "Provai e Vede" —, e uma linha basta. Aqui ele é o TEXTO do aviso, e é ele
+   que distingue uma mensagem da outra. MEDIDO a 360px com a miniatura e o `⋮`
+   nas pontas, sobram ~200px: numa linha só, "Culto de sábado às 9h. Traga a
+   Bíblia." e "Culto de sábado às 10h. Traga o hinário." cortam no MESMO ponto e
+   viram duas linhas idênticas na tela.
+
+   DUAS e não três (o que o componente antigo tinha): a linha ganhou a
+   miniatura, que já lhe dá 40px de altura, e a terceira só apareceria nas
+   mensagens mais longas — variar a altura das linhas da lista é o que faz o
+   dedo errar o `⋮` de uma delas. */
+.msg-list .row-name {
+  white-space: pre-line;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
 /* A GAVETA DE ESTILO. `--gaveta-btn` nos chips é o que a gaveta dos Favoritos
    já faz: dentro dela o `--surface` é um overlay que AFUNDA, e um chip na cor
-   de fora some contra o próprio fundo. */
+   de fora some contra o próprio fundo. O ARREDONDAMENTO é do `.lib-item`, que
+   já recorta (`overflow: hidden`) — a gaveta não declara raio nenhum. */
 .msg-estilo {
   display: flex; flex-direction: column; gap: var(--sp-3);
   padding: .55rem .6rem .65rem;
-  border-radius: 0 0 var(--radius-card) var(--radius-card);
   /* SEPARADA POR PREENCHIMENTO, nunca por um filete: a gaveta AFUNDA dentro do
      cartão, que é a escada de camadas do app (e é literalmente o que
      `--gaveta-bg` existe para dar — o mesmo par que a gaveta dos Favoritos usa
@@ -6969,40 +6983,24 @@ main {
    cima, os chips têm a largura inteira e dividem em partes iguais — três linhas
    previsíveis, que é o que a gaveta pode ter (ela empurra a lista para baixo).
 
-   `flex: 1` com `min-width: 0` nos chips: sem o segundo, o mínimo automático de
-   um item flex é o rótulo inteiro e os quatro somam mais que a caixa. O piso de
-   ALVO continua vindo do `min-height`/`min-width` do `.misc-chip`. */
+   `flex: 1 1 auto` e NÃO `flex: 1` (que é `1 1 0%`): com a base em zero os
+   quatro chips ficam para sempre na mesma linha e ENCOLHEM abaixo do próprio
+   rótulo — MEDIDO a 360px com a raiz do sistema em 1,25×, "Pequeno" transborda
+   a pílula, e a 1,5× os TRÊS eixos transbordam. Com a base no conteúdo, o
+   mínimo automático do item impede o encolhimento e a linha QUEBRA. */
 .msg-estilo-linha { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-1); }
-.msg-estilo-opcs { display: flex; gap: var(--sp-2); }
+.msg-estilo-opcs { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .msg-estilo-opcs > .misc-chip {
-  flex: 1; min-width: 0; padding-inline: .2rem;
-  /* O rótulo é curto ("Pequeno", "Serifa", "Esquerda") e o chip é estreito: sem
-     centrar, o texto encosta na borda esquerda de uma pílula que já divide a
-     largura por partes iguais. */
+  flex: 1 1 auto; padding-inline: .35rem;
+  /* O rótulo é curto ("Pequeno", "Serifa", "Esquerda") e o chip divide a largura
+     por partes iguais: sem centrar, o texto encosta na borda esquerda. */
   text-align: center;
 }
 .msg-estilo-opcs .misc-chip { background: var(--gaveta-btn); }
 .msg-estilo-opcs .misc-chip.active { background: var(--btn-accent); color: var(--accent); }
 /* ABERTA = LIGADO, e ligado é o par de sempre (`--btn-accent` + `--accent`) — a
-   MESMA linguagem do `.fav-btn.on` na linha ao lado. */
+   MESMA linguagem do `.fav-btn.on` na fileira ao lado. */
 .msg-estilo-btn.on { background: var(--btn-accent); color: var(--accent); }
-/* NO AR — e por isso vermelho, não verde. Até a v5.47 esta linha e o versículo
-   central (`.bible-vsec.cur.live`) diziam "está no telão" em VERDE enquanto
-   outros quatro componentes diziam a mesma coisa em vermelho, na mesma tela;
-   e verde, neste mesmo app, também significa "download concluído" e "telão
-   conectado". Não havia regra que o operador pudesse aprender. */
-/* O fundo é o `--live-fill` das linhas de lista (v5.267), e o texto o
-   `--live-strong` por cima dele (4,72:1). Antes eram borda saturada + tinta com
-   alfa por baixo: o argumento da v5.76 era que sobre o painel elevado o
-   vermelho saturado media 2,96:1 e precisava de uma base própria — continua
-   valendo, e agora essa base é opaca e igual em toda a tela. */
-.msg-item.active { background: var(--live-fill); }
-.msg-item.active .msg-text { color: var(--live-strong); }
-.msg-acoes { display: flex; align-items: center; gap: var(--sp-4); flex: 0 0 auto; }
-.msg-text {
-  flex: 1 1 12rem; min-width: 0; font-size: var(--fs-lg); line-height: 1.4; cursor: pointer; white-space: pre-line;
-  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
-}
 /* Indicador de salto pro capítulo/livro vizinho (preview anterior/próximo). A
    moldura TRACEJADA saiu na v5.267: quem diz que aquela seção é de outro
    capítulo é o rótulo `.bible-vsec-cross` em `--brand` — uma palavra, que é
@@ -7035,7 +7033,7 @@ main {
 .bible-vsec.adj { opacity: .6; }             /* anterior / próximo (contexto) */
 .bible-vsec.cur { background: var(--sel-fill); opacity: 1; }
 /* central EM EXIBIÇÃO ("no ar") — a MESMA cor de "no ar" do resto do app (ver
-   `.msg-item.active`); era verde, que aqui é a cor de concluído/conectado. */
+   `.lib-item.no-ar`); era verde, que aqui é a cor de concluído/conectado. */
 .bible-vsec.cur.live { background: var(--live-fill); }
 .bible-vsec.cur.live .bible-vsec-ref { color: var(--live-strong); }
 .bible-vsec.empty { opacity: .4; cursor: default; font-style: italic; }

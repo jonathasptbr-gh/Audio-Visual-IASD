@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.2';
+const WEB_VERSION = '1.9.3';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7967,35 +7967,74 @@ async function escolherEstiloDaMensagem(m, eixo, id) {
   else renderMsg();
 }
 
+/**
+ * ===== A LINHA DE MENSAGEM É UMA LINHA DE LISTA (v1.9.3) =====
+ *
+ * Pedido do operador: *"ajuste a gaveta de opções das mensagens, para que ela
+ * funcione igual a gaveta de opções do cronograma, que fica escondido em um
+ * botão de 3 pontos"*, e *"coloque uma thumbnail nos itens dessa lista, e da
+ * mesma forma que no cronograma, o stop vai ficar na thumbnail"*.
+ *
+ * **ELA DEIXOU DE SER UM COMPONENTE PRÓPRIO.** Era um `.msg-item` com os cinco
+ * botões à vista e regras só dela; hoje é a MESMA `.lib-item > .row` do
+ * Cronograma, dos Favoritos e da fila — miniatura à esquerda, nome no meio, o
+ * `⋮` à direita e a faixa de ações escondida atrás dele (`montarAcoesDaLinha`).
+ * O que isso apaga não é estilo: é a segunda implementação de um gesto que o
+ * operador já sabe. Vieram de graça, e nenhuma delas teria sido escrita aqui —
+ * a animação de entrada dos botões, o fechamento ao tocar fora, o degrau do
+ * voltar, a reabertura da gaveta depois de um redesenho e a pergunta da
+ * exclusão dentro da linha.
+ *
+ * **A MINIATURA NÃO É ENFEITE, É GEOMETRIA** — o mesmo argumento da v1.8.55 na
+ * fila: a `.row-acoes` é posicionada CONTRA a miniatura (*"a única coisa que
+ * fica de fora"*), e numa lista sem capa a gaveta abria por cima do texto e
+ * deixava uma fatia dele exposta. Ela é o `cueThumb` da cena `message`, o mesmo
+ * desenho que a mensagem já tem quando entra no Cronograma.
+ *
+ * **E O PARAR MORA NELA** (`porParar`), como em toda linha deste app desde a
+ * v5.259: com a mensagem no ar, tirá-la de lá é a única decisão que a linha
+ * oferece, e o alvo passa a ser o quadrado inteiro em vez de um botão de fileira
+ * atrás de um toque a mais. O `.no-ar` do `li` é o que troca o ícone pelo ⏹ —
+ * CSS, não JS.
+ */
 function renderMsg() {
   const host = document.getElementById('msgWrap');
   if (!host) return;
+  // A gaveta de uma linha não sobrevive ao redesenho — a mesma linha que o
+  // `renderLibraryCorpo` e o `renderFolderList` têm, pelo mesmo motivo: sem ela
+  // o `linhaAcoesAberta` fica apontando para um `li` que saiu do documento.
+  // Quem QUER que ela reabra chama `manterAcoesAbertas()` antes (é o caso da
+  // estrela), e o `montarAcoesDaLinha` consome a marca pela chave.
+  fecharAcoesDaLinha();
   host.innerHTML = '';
 
-  const list = document.createElement('div');
+  const list = document.createElement('ul');
   list.className = 'msg-list rola';
   if (!messages.length) {
-    const empty = document.createElement('div');
+    const empty = document.createElement('li');
     empty.className = 'empty'; empty.textContent = 'Nenhuma mensagem.';
     list.appendChild(empty);
   } else {
     messages.forEach((m, i) => {
-      const active = msgSession && msgSession.projecting && msgSession.idx === i;
-      // ENVELOPE, e não a linha solta: a gaveta de estilo mora ABAIXO da linha e
-      // as duas são UMA peça. Filhas diretas da lista, o `gap` dela as separaria
-      // — e duas superfícies com um vão entre si leem como dois cartões.
-      const env = document.createElement('div');
-      env.className = 'msg-row';
+      const active = msgProjecting() && msgSession.idx === i;
+      const li = document.createElement('li');
+      li.className = 'lib-item' + (active ? ' no-ar' : '');
+      li.dataset.id = m.id;
       const row = document.createElement('div');
-      row.className = 'msg-item' + (active ? ' active' : '');
-      const txt = document.createElement('div');
-      txt.className = 'msg-text'; txt.textContent = m.text;
+      row.className = 'row';
+      const thumb = cueThumb({ cue: 'message' });
+      porParar(thumb, null, hideMessage);
+      const nome = document.createElement('span');
+      nome.className = 'row-name'; nome.textContent = m.text;
       // Tocar PROJETA — e tocar de novo TIRA DO AR (v5.104), exatamente como o
-      // versículo central da Bíblia. É o mesmo gesto nos dois sentidos: quem
-      // acabou de projetar um aviso tem o dedo onde precisa para tirá-lo, sem
-      // procurar outro controle. Tirar do ar não encerra a sessão — a linha
-      // segue selecionada e um novo toque a devolve ao telão.
-      txt.addEventListener('click', () => {
+      // versículo central da Bíblia e como toda linha do Cronograma. Tirar do ar
+      // não encerra a sessão: a linha segue selecionada e um novo toque a
+      // devolve ao telão.
+      //
+      // A GUARDA É A DAS OUTRAS LISTAS, verbatim: um toque que nasceu num botão
+      // da linha, na faixa de ações ou na coluna do `⋮` não é um toque NA linha.
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('.row-btn,.row-acoes,.row-slot,.row-stop')) return;
         if (active) hideMessage(); else projectMessage(i);
       });
       // A mensagem entra no ROTEIRO (v5.103): o aviso de sempre — o convite do
@@ -8004,8 +8043,9 @@ function renderMsg() {
       // mensagem (mais o texto como reserva), então editá-la aqui atualiza o
       // que o roteiro projeta.
       const add = document.createElement('button');
-      add.type = 'button'; add.className = 'row-btn';
+      add.type = 'button'; add.className = 'row-btn row-crono';
       add.title = 'Adicionar ao Cronograma';
+      add.setAttribute('aria-label', 'Adicionar ao Cronograma');
       add.appendChild(msym(ICON.cronoAdd));
       add.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -8033,39 +8073,55 @@ function renderMsg() {
           await criarCue('message', { msgId: m.id, text: m.text },
             m.text.length > 40 ? m.text.slice(0, 40) + '…' : m.text, 'favs', fav);
         }
-        // O redesenho da aba (que troca a estrela vazada pela cheia) espera o
-        // pulso terminar: remontar a linha agora arrancaria o botão que está
-        // justamente mostrando a confirmação.
+        // A GAVETA CONTINUA ABERTA depois do redesenho (`manterAcoesAbertas`):
+        // marcar a estrela não é sair do menu, e sem isto o operador teria de
+        // reabri-lo para fazer a segunda coisa que ele foi ali fazer.
+        manterAcoesAbertas();
         setTimeout(refreshDiversos, PULSO_MS);
       });
-      const del = document.createElement('button');
-      del.type = 'button'; del.className = 'row-btn';
-      del.appendChild(msym(ICON.del));
-      del.addEventListener('click', (e) => { e.stopPropagation(); deleteMessage(m.id); });
-      // ---- O PARAR É DA LINHA (v1.9.2) ----
-      // Pedido do operador: *"o botão de stop, deve ser individual em cada item
-      // da lista de mensagens."* Ele nasceu no rodapé (v1.9.1) e de lá respondia
-      // por "a mensagem no ar", que é UMA — na linha ele responde por ESTA, e o
-      // operador para o que está vendo sem procurar qual das linhas ficou
-      // vermelha.
+      // ---- EXCLUIR PERGUNTA, como em toda lista deste app (v1.9.3) ----
+      // Ele apagava no toque, e era o único destrutivo do app sem pergunta —
+      // *"um mesmo desenho com dois alcances conforme a tela é a pior forma de
+      // oferecer um destrutivo"*. A pergunta é a MESMA
+      // (`pedirConfirmacaoNaLinha`): a faixa troca de conteúdo, a miniatura vira
+      // lixeira, e a linha SAI antes de a mensagem ser apagada.
       //
-      // **DESENHADO EM TODAS, APAGADO FORA DA QUE ESTÁ NO AR** (a regra da
-      // v1.8.50): só na linha ativa a fileira teria um botão a mais, e ela
-      // MUDARIA de largura quando o operador projeta — os outros quatro botões
-      // andando sob o dedo no exato momento em que ele acabou de tocar num
-      // deles.
-      const parar = document.createElement('button');
-      parar.type = 'button'; parar.className = 'row-btn msg-parar';
-      parar.setAttribute('aria-label', 'Tirar do telão');
-      parar.innerHTML = icoSprite('icoParar');
-      parar.disabled = !active;
-      parar.title = active ? 'Tirar do telão' : 'Esta mensagem não está no telão';
-      parar.addEventListener('click', (e) => { e.stopPropagation(); hideMessage(); });
+      // Ele não é o `botaoExcluirDaLinha`: aquele fala de LISTA
+      // (`AVDB.listRemove`), e uma mensagem não mora numa lista de acervo — ela
+      // é o `state.messages`. O que se compartilha é a pergunta, não a remoção.
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'row-btn row-excluir';
+      del.title = 'Excluir a mensagem';
+      del.setAttribute('aria-label', 'Excluir a mensagem');
+      del.appendChild(msym(ICON.del));
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pedirConfirmacaoNaLinha(del, {
+          ok: 'Excluir',
+          dica: 'Apagar esta mensagem. As cenas dela que já estão no Cronograma '
+            + 'ou nos favoritos continuam projetando o texto guardado.',
+          aoConfirmar: () => deleteMessage(m.id),
+        });
+      });
       // ---- O ESTILO DESTA MENSAGEM (v1.9.1) ----
       // Pedido do operador: *"crie um botão na gaveta de opções da mensagem, que
       // permite configurar o tamanho da fonte, a fonte e o alinhamento daquela
       // mensagem."* Ele é um ALTERNADOR de gaveta, e UMA por vez — duas abertas
       // na mesma lista fariam o operador perder de vista qual linha ele ajusta.
+      //
+      // ABRIR A GAVETA FECHA A FAIXA DE AÇÕES — a faixa cobre o nome e a gaveta
+      // nasce logo abaixo dela, e as duas juntas escondem a linha inteira.
+      //
+      // **O DESFECHO É PROTEGIDO DUAS VEZES, e uma metade sozinha não o perde**
+      // (MEDIDO por reversão, três vezes, porque a leitura ingênua erra nas
+      // duas pontas): inscrever este botão em `ACOES_QUE_NAO_FECHAM` não muda um
+      // pixel, porque o `fecharAcoesDaLinha()` do topo do `renderMsg` fecha a
+      // faixa no redesenho e nada a marca para reabrir; e chamar
+      // `manterAcoesAbertas()` aqui também não, porque o ouvinte de CAPTURA da
+      // `.row-acoes` já rodou antes deste `click` e `linhaAcoesAberta` chega
+      // aqui em `null`. Só o PAR reabre a faixa — que é exatamente o que a
+      // ESTRELA tem, e por isso o caminho realista de perder isto é copiá-la
+      // por inteiro.
       const est = document.createElement('button');
       est.type = 'button';
       est.className = 'row-btn msg-estilo-btn' + (msgEstiloAberto === m.id ? ' on' : '');
@@ -8078,17 +8134,13 @@ function renderMsg() {
         msgEstiloAberto = msgEstiloAberto === m.id ? null : m.id;
         renderMsg();
       });
-      // OS CINCO NUM GRUPO, e não soltos na linha: a fileira precisa quebrar
-      // por INTEIRO quando não couber ao lado do texto. Soltos, os itens flex
-      // quebram um a um — MEDIDO a 360px, saíam três ao lado do texto e dois na
-      // linha de baixo, que é o bloco desalinhado que ninguém desenhou.
-      const acoes = document.createElement('div');
-      acoes.className = 'msg-acoes';
-      acoes.append(parar, est, fav, add, del);
-      row.append(txt, acoes);
-      env.appendChild(row);
-      if (msgEstiloAberto === m.id) env.appendChild(gavetaDeEstilo(m));
-      list.appendChild(env);
+      // A ORDEM DOS DESTINOS é a da tabela `DESTINOS` (Cronograma, favoritos), e
+      // o excluir fecha a fileira — é o que as outras listas fazem.
+      const [caixa, mais] = montarAcoesDaLinha(li, [est, add, fav, del], 'msg:' + m.id);
+      row.append(thumb, nome, caixa, mais);
+      li.appendChild(row);
+      if (msgEstiloAberto === m.id) li.appendChild(gavetaDeEstilo(m));
+      list.appendChild(li);
     });
   }
   host.appendChild(list);
@@ -8904,7 +8956,7 @@ function botaoRenomearDaLinha(item, depois) {
  * `display-status` (~4 Hz) e só troca classes: remontar botão nesse ritmo
  * perderia listeners e trabalho à toa.
  */
-function porParar(thumb, item) {
+function porParar(thumb, item, acao) {
   const b = document.createElement('button');
   b.className = 'row-stop';
   b.title = 'Tirar do ar';
@@ -8914,7 +8966,11 @@ function porParar(thumb, item) {
   b.appendChild(msym(''));
   b.addEventListener('click', (e) => {
     e.stopPropagation();
-    retirarDoAr(item);
+    // `acao` é a saída das linhas que NÃO são um registro do acervo (v1.9.3): a
+    // mensagem da folha de Ferramentas sai por `hideMessage`, que PRESERVA a
+    // sessão de navegação — `retirarDoAr` a zeraria, e a linha deixaria de estar
+    // selecionada só por ter saído do telão.
+    if (acao) acao(); else retirarDoAr(item);
   });
   thumb.appendChild(b);
   return b;
