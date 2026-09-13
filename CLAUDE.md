@@ -2749,12 +2749,12 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.9.1 · APK v1.9** · `SHELL_VERSION` **72** ·
+**Versão atual: base web v1.9.2 · APK v1.9** · `SHELL_VERSION` **72** ·
 bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**:
 todo método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.9.1 NÃO declara `shellTag`, e a v1.9 declarou — a diferença é o que o
-> campo pergunta.** Aquela existia para DISPARAR uma Release (pedido por
+> **A v1.9.2 NÃO declara `shellTag`, como a v1.9.1 — a diferença com a v1.9 é o
+> que o campo pergunta.** Aquela existia para DISPARAR uma Release (pedido por
 > extenso), e sem o campo o bundle sairia sozinho, deixando a frota com um APK
 > v1.8.91 embaixo de uma base v1.9. **Essa Release SAIU**: o `v1.9` está
 > publicado e o manifesto do canal já aponta para ele. Esta não toca `java/`,
@@ -2764,7 +2764,9 @@ todo método da ponte existe, e não há guarda de versão no lado web.
 > shell ainda não lançado HERDA a obrigação, porque o CI exige
 > `shellTag == 'v' + version`.
 >
-> **E O DEGRAU É CORREÇÃO, que é o caso normal.** A v1.9 foi INCREMENTAL contra
+> **E O DEGRAU É CORREÇÃO, que é o caso normal** — os dois lotes depois da v1.9
+> são ajuste de superfície na folha de Ferramentas, não lugar novo. A v1.9 foi
+> INCREMENTAL contra
 > a régua da tabela, por decisão de quem publica e com o motivo dito; o que ela
 > deixou anotado é que **`1.9` e `1.9.0` são a MESMA versão** para o
 > `compareVersions`, que completa com zero o que falta — daí o primeiro degrau

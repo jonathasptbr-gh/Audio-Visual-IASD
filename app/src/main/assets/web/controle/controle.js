@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.1';
+const WEB_VERSION = '1.9.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -6546,22 +6546,6 @@ function renderFoot() {
       esq.appendChild(run); esq.appendChild(zero);
     }
   }
-  // ---- MENSAGENS: só o PARAR (v1.9.1) ----
-  // Ele é a única coisa que a lista não sabe fazer: tocar na linha projeta e
-  // tira do ar, mas com a lista rolada (ou depois de a mensagem ter entrado pelo
-  // Cronograma) a linha vermelha pode não estar à vista. APAGADO sem nada no ar,
-  // pela regra da v1.8.50 — um quadrado aceso que não faz nada é indistinguível
-  // de um quebrado.
-  if (miscTool === 'msg') {
-    const parar = document.createElement('button');
-    parar.type = 'button'; parar.id = 'msgPararBtn'; parar.className = 'chrono-btn';
-    parar.setAttribute('aria-label', 'Tirar do telão');
-    parar.innerHTML = icoSprite('icoParar');
-    parar.disabled = !msgProjecting();
-    parar.title = parar.disabled ? 'Nenhuma mensagem no telão' : 'Tirar do telão';
-    parar.addEventListener('click', hideMessage);
-    esq.appendChild(parar);
-  }
   // ---- SORTEIO: sortear e reiniciar, os dois QUADRADOS (v1.9.1) ----
   // Pedido do operador: *"coloque o botão de sortear a esquerda do botão de
   // projetar, juntamente com o botão de reiniciar, ambos usarão apenas icones e
@@ -6596,6 +6580,20 @@ function renderFoot() {
     esq.appendChild(go); esq.appendChild(rst);
   }
   if (esq.children.length) row.appendChild(esq);
+
+  // ---- MENSAGENS: O PRIMÁRIO É "+ NOVA MENSAGEM" (v1.9.2) ----
+  // Pedido do operador: *"no rodapé deve ficar o botão nova mensagem."* Ele era
+  // a última linha do painel e descia com a lista — o mesmo defeito que já tinha
+  // trazido o projetar e o "guardar isto" para cá (v1.8.89/v1.8.91). O corpo da
+  // janela fica para a LISTA, que é o que cresce, e a única ação da ferramenta
+  // ocupa a faixa. (O PARAR saiu daqui na mesma v1.9.2: ele é da LINHA agora.)
+  if (miscTool === 'msg') {
+    const nova = document.createElement('button');
+    nova.type = 'button'; nova.id = 'msgNovaBtn'; nova.className = 'msg-add-btn';
+    nova.textContent = '+ Nova mensagem';
+    nova.addEventListener('click', addMessage);
+    row.appendChild(nova);
+  }
 
   // O PRIMÁRIO É OPCIONAL desde a v1.9.1: `null` quer dizer "esta ferramenta não
   // tem o que projetar por um botão" (Mensagens — ver `miscProjectState`).
@@ -7366,7 +7364,7 @@ function renderChrono() {
   // para cá continua valendo, e agora vale nos dois de uma vez: *"ao tocar em
   // digitar uma legenda… o teclado sobe, mas ele também leva o controle todo
   // visível, o que espreme a janela das ferramentas"*.
-  host.appendChild(campoDeLegenda('ex: Início do culto', chrono.label, (v) => {
+  host.appendChild(campoDeLegenda(chrono.label, (v) => {
     chrono.label = v;
     saveChronoPrefs();
     pushChrono();
@@ -7756,16 +7754,21 @@ function renderDraw() {
   host.appendChild(read);
 
   const texto = draw.kind === 'text';
-  // No modo TEXTO o corpo é de duas colunas; no Número, o empilhamento de
-  // sempre. O `destino` é quem recebe cada bloco, e é só ele que muda.
-  const cols = document.createElement('div');
-  cols.className = 'draw-cols';
+  // O CORPO É UMA CAIXA SÓ, NOS DOIS MODOS (v1.9.2), e é ela que OCUPA a altura
+  // que sobra — sem isso o painel media o conteúdo e deixava um vão morto
+  // embaixo, com a caixa de opções pequena no meio de uma janela vazia. No modo
+  // TEXTO ela é de duas colunas; no Número, o empilhamento de sempre. A LEGENDA
+  // fica FORA dela, e por isso encosta na base: *"faça a caixa de texto da
+  // legenda ficar colada na base, logo acima dos botões de projetar no telão"*.
+  const corpo = document.createElement('div');
+  corpo.className = 'draw-corpo' + (texto ? ' draw-cols' : '');
   const esq = document.createElement('div');
   esq.className = 'draw-col draw-col--esq';
   const dir = document.createElement('div');
   dir.className = 'draw-col draw-col--dir';
-  if (texto) { cols.appendChild(esq); cols.appendChild(dir); host.appendChild(cols); }
-  const opcoes = texto ? esq : host;
+  if (texto) { corpo.appendChild(esq); corpo.appendChild(dir); }
+  host.appendChild(corpo);
+  const opcoes = texto ? esq : corpo;
 
   // ---- Fonte das opções ----
   if (!texto) {
@@ -7794,7 +7797,7 @@ function renderDraw() {
       if (draw.max - draw.min + 1 > DRAW_SPAN_CAP) draw.max = draw.min + DRAW_SPAN_CAP - 1;
       saveDrawPrefs(); renderDraw(); renderFoot();
     }));
-    host.appendChild(row);
+    corpo.appendChild(row);
   } else {
     const ta = document.createElement('textarea');
     ta.className = 'draw-pool'; ta.rows = 5;
@@ -7834,7 +7837,12 @@ function renderDraw() {
   // saiu?" — e o contador sozinho não responde.
   if (draw.used.length) {
     const hist = document.createElement('div');
-    hist.className = 'draw-hist';
+    // A MARCA `rola` entrou na v1.9.2, com a rolagem VERTICAL: enquanto ele
+    // rolava só na horizontal a sombra das bordas não descrevia nada (e o censo
+    // do `sombra-de-rolagem` o excluía por isso). Rolando no eixo em que a
+    // sombra fala, ele passou a ser um scroller como os outros — e a regra do
+    // app é que TODO scroller diz onde há conteúdo escondido.
+    hist.className = 'draw-hist rola';
     draw.used.slice().reverse().forEach((u, i) => {
       const c = document.createElement('span');
       c.className = 'draw-hist-chip' + (i === 0 ? ' last' : '');
@@ -7847,12 +7855,14 @@ function renderDraw() {
   // ---- Legenda ----
   // O RÓTULO MORA DENTRO DA CAIXA (v1.9.1), a pedido do operador: *"caixa essa
   // que a identificação e explicação ficara dentro da caixa, não precisa do
-  // título legenda fora da caixa, aplique para as outras caixas de legenda"*. A
-  // identificação vem PRIMEIRO no marcador porque é o fim dele que o campo
-  // estreito corta — na coluna da esquerda sobra "Legenda (opcional)", que é
-  // exatamente a metade que não pode faltar. E o `aria-label` é obrigatório: sem
-  // o `<span>`, era ele ou um campo sem nome acessível nenhum.
-  opcoes.appendChild(campoDeLegenda('ex: Sorteio dos visitantes', draw.label, (v) => {
+  // título legenda fora da caixa"*. O `aria-label` é obrigatório: sem o
+  // `<span>`, era ele ou um campo sem nome acessível nenhum.
+  //
+  // **E ELA É O ÚLTIMO FILHO DO PAINEL, NOS DOIS MODOS** (v1.9.2) — é o corpo
+  // acima que ocupa a sobra, então ela encosta na base, logo acima do rodapé.
+  // Dentro da coluna da esquerda ela subia junto com o conteúdo dela e ficava
+  // no meio da janela.
+  host.appendChild(campoDeLegenda(draw.label, (v) => {
     draw.label = v; saveDrawPrefs(); pushDraw();
   }));
 
@@ -7873,12 +7883,16 @@ function renderDraw() {
  * dois. Duas cópias divergiriam no primeiro ajuste, e aqui "ajuste" é
  * literalmente o texto que o operador lê.
  */
-function campoDeLegenda(exemplo, valor, aoMudar) {
+function campoDeLegenda(valor, aoMudar) {
   const row = document.createElement('div');
   row.className = 'misc-row misc-row--legenda';
   const inp = document.createElement('input');
   inp.type = 'text'; inp.className = 'misc-text';
-  inp.placeholder = 'Legenda (opcional) — ' + exemplo;
+  // SÓ "Legenda (opcional)" desde a v1.9.2, a pedido do operador. O exemplo
+  // ("ex: Sorteio dos visitantes") era a metade que o campo estreito cortava de
+  // qualquer jeito — escrevê-lo custava a leitura de todo mundo para servir
+  // ninguém.
+  inp.placeholder = 'Legenda (opcional)';
   inp.setAttribute('aria-label', 'Legenda do telão (opcional)');
   inp.title = 'Sublinha do cartão no telão';
   inp.maxLength = 60;
@@ -8028,6 +8042,25 @@ function renderMsg() {
       del.type = 'button'; del.className = 'row-btn';
       del.appendChild(msym(ICON.del));
       del.addEventListener('click', (e) => { e.stopPropagation(); deleteMessage(m.id); });
+      // ---- O PARAR É DA LINHA (v1.9.2) ----
+      // Pedido do operador: *"o botão de stop, deve ser individual em cada item
+      // da lista de mensagens."* Ele nasceu no rodapé (v1.9.1) e de lá respondia
+      // por "a mensagem no ar", que é UMA — na linha ele responde por ESTA, e o
+      // operador para o que está vendo sem procurar qual das linhas ficou
+      // vermelha.
+      //
+      // **DESENHADO EM TODAS, APAGADO FORA DA QUE ESTÁ NO AR** (a regra da
+      // v1.8.50): só na linha ativa a fileira teria um botão a mais, e ela
+      // MUDARIA de largura quando o operador projeta — os outros quatro botões
+      // andando sob o dedo no exato momento em que ele acabou de tocar num
+      // deles.
+      const parar = document.createElement('button');
+      parar.type = 'button'; parar.className = 'row-btn msg-parar';
+      parar.setAttribute('aria-label', 'Tirar do telão');
+      parar.innerHTML = icoSprite('icoParar');
+      parar.disabled = !active;
+      parar.title = active ? 'Tirar do telão' : 'Esta mensagem não está no telão';
+      parar.addEventListener('click', (e) => { e.stopPropagation(); hideMessage(); });
       // ---- O ESTILO DESTA MENSAGEM (v1.9.1) ----
       // Pedido do operador: *"crie um botão na gaveta de opções da mensagem, que
       // permite configurar o tamanho da fonte, a fonte e o alinhamento daquela
@@ -8045,20 +8078,22 @@ function renderMsg() {
         msgEstiloAberto = msgEstiloAberto === m.id ? null : m.id;
         renderMsg();
       });
-      row.append(txt, est, fav, add, del);
+      // OS CINCO NUM GRUPO, e não soltos na linha: a fileira precisa quebrar
+      // por INTEIRO quando não couber ao lado do texto. Soltos, os itens flex
+      // quebram um a um — MEDIDO a 360px, saíam três ao lado do texto e dois na
+      // linha de baixo, que é o bloco desalinhado que ninguém desenhou.
+      const acoes = document.createElement('div');
+      acoes.className = 'msg-acoes';
+      acoes.append(parar, est, fav, add, del);
+      row.append(txt, acoes);
       env.appendChild(row);
       if (msgEstiloAberto === m.id) env.appendChild(gavetaDeEstilo(m));
       list.appendChild(env);
     });
   }
   host.appendChild(list);
-
-  const add = document.createElement('button');
-  add.type = 'button'; add.className = 'msg-add-btn';
-  add.textContent = '+ Nova mensagem';
-  add.addEventListener('click', addMessage);
-  host.appendChild(add);
-
+  // (O "+ Nova mensagem" saiu daqui na v1.9.2 e é o PRIMÁRIO do rodapé — ver
+  //  `renderFoot`. O corpo da janela fica para a lista, que é o que cresce.)
 }
 
 // ===== A aba Ferramentas =====
@@ -8080,6 +8115,15 @@ const MISC_TOOLS = [
   { id: 'draw', name: 'Sorteio', wrap: 'drawWrap', render: () => renderDraw(), live: () => drawProjecting() },
 ];
 
+/**
+ * **ELE APENSA, NÃO TROCA** — quem esvazia o `#toolsBody` é o CHAMADOR
+ * (`abrirFerramentas`, `refreshDiversos` e o toque no seletor, os três com o
+ * `innerHTML = ''` antes). A pilha que sai de chamá-lo duas vezes não erra alto:
+ * o segundo painel ENTRA embaixo do primeiro, os dois dividem a altura da folha,
+ * e o que se vê é um painel espremido — foi assim que uma medição de oráculo
+ * leu 94px onde havia 238 e concluiu que o layout estava errado. Precisa de um
+ * redesenho? Chame o `refreshDiversos`.
+ */
 function renderDiversos() {
   // Só a ferramenta ATIVA é montada, e é o render dela que religa o seu timer.
   // As outras não existem no DOM — nenhum laço batendo em nó invisível.

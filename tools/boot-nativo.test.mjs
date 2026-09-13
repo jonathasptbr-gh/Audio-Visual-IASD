@@ -5383,13 +5383,23 @@ try {
 // estreita de todas — desde a v1.9.1 ela não tem primário nenhum.
 //
 // Pedido do operador: *"na seção de mensagens, remova o botão de projetar no
-// telão. Atualmente o item selecionado fica vermelho, mas não tem um botão de
-// stop. Adicione esse botão."* Quem projeta é o TOQUE na linha (v5.104), nos
-// dois sentidos; o que faltava era PARAR sem caçar a linha vermelha na lista.
+// telão."* Quem projeta é o TOQUE na linha (v5.104), nos dois sentidos.
+//
+// **O INQUILINO DA FAIXA MUDOU DE NOVO NA v1.9.2**, e o bloco trocou de sujeito
+// com ele: o `#msgPararBtn` que a v1.9.1 pôs aqui virou um botão DE CADA LINHA
+// (*"o botão de stop deve ser individual em cada item da lista de mensagens"* —
+// medido no `ferramentas-folha.test.mjs`, bloco L), e a faixa passou a hospedar
+// o **"+ Nova mensagem"** (*"no rodapé deve ficar o botão nova mensagem"*), que
+// era a última linha do painel e descia com a lista.
 //
 // AS DUAS METADES SÃO MEDIDAS, e é o par que impede a asserção de ser
-// satisfeita por acidente: em Mensagens não há `#miscProjectBtn` E há um
-// `#msgPararBtn` QUADRADO; no Tempo o primário volta, com os dois destinos.
+// satisfeita por acidente: em Mensagens não há `#miscProjectBtn` E a faixa tem
+// UM filho, o `#msgNovaBtn`; no Tempo o primário volta, com os dois destinos.
+//
+// E A ALTURA É COMPARADA CONTRA A DO TEMPO, nunca contra um número de pixel:
+// **trocar de ferramenta não pode mudar a altura do rodapé** — a faixa é a
+// mesma peça nas três, e um inquilino que se meça pelo próprio conteúdo faz a
+// fronteira do corpo subir e descer conforme a aba escolhida.
 try {
   const pgM = await ctx.newPage();
   await pgM.addInitScript(PONTE);
@@ -5406,18 +5416,19 @@ try {
     // A faixa é a mesma peça nas três ferramentas; é ela que se conta.
     const row = foot && foot.querySelector('.misc-foot');
     const body = document.getElementById('toolsBody');
-    const parar = document.getElementById('msgPararBtn');
-    const pb = parar ? parar.getBoundingClientRect() : null;
+    const nova = document.getElementById('msgNovaBtn');
     return {
       temProj: !!proj,
-      // O PARAR: existe, é quadrado, e nasce APAGADO — sem mensagem no ar ele
-      // não tem função, e a regra da v1.8.50 manda apagar em vez de deixar
-      // inerte. O `title` é o que diz por quê.
-      temParar: !!parar,
-      pararQuadrado: pb ? Math.round(pb.width) === Math.round(pb.height) : false,
-      pararLado: pb ? Math.round(pb.width) : 0,
-      pararApagado: parar ? parar.disabled : null,
-      pararTitulo: parar ? parar.title : '',
+      // O "+ NOVA MENSAGEM" (v1.9.2): a única ação da ferramenta, e o único
+      // filho da faixa. É o `id` do filho que se lê, e não só a contagem — uma
+      // faixa com um filho QUALQUER passaria a contagem sozinha.
+      temNova: !!nova,
+      filhosDaFaixa: row ? [...row.children].map((e) => e.id || e.className) : [],
+      // A LARGURA INTEIRA: com um filho só, o `flex: 1` dele é o que impede a
+      // faixa de ter um botão encolhido num canto e o resto vazio.
+      novaOcupaAFaixa: nova && row
+        ? Math.round(nova.getBoundingClientRect().width) === Math.round(row.getBoundingClientRect().width)
+        : false,
       // A LARGURA É MEDIDA CONTRA A LINHA, nunca contra um número de pixel: a
       // fonte e a densidade são da MÁQUINA, e afirmar "440px" seria medir o
       // runner.
@@ -5453,16 +5464,12 @@ try {
     + 'agravante de ter de responder "projetar o QUÊ?" com uma sessão que pode não '
     + 'existir. E não há destino: elas entram no Cronograma pelo caminho próprio',
     JSON.stringify(msg));
-  checar(msg.temParar === true && msg.pararQuadrado === true,
-    'e no lugar dele fica o PARAR, um QUADRADO na célula da esquerda — a mesma '
-    + 'peça do ▶/↺ do Tempo, que é o que a faixa oferece para "o que esta '
-    + 'ferramenta opera". Sem rótulo, logo quadrado (a regra da v1.8.57)',
-    JSON.stringify(msg));
-  checar(msg.pararApagado === true && /Nenhuma mensagem/.test(msg.pararTitulo),
-    'e ele NASCE APAGADO, com o `title` dizendo por quê: sem nada no telão ele não '
-    + 'tem função, e um quadrado aceso que não faz nada é indistinguível de um '
-    + 'quebrado (a regra da v1.8.50)',
-    JSON.stringify([msg.pararApagado, msg.pararTitulo]));
+  checar(msg.temNova === true && JSON.stringify(msg.filhosDaFaixa) === JSON.stringify(['msgNovaBtn'])
+    && msg.novaOcupaAFaixa === true,
+    'e o ÚNICO filho da faixa é o "+ Nova mensagem" (v1.9.2), ocupando-a inteira: ele '
+    + 'era a última linha do painel e descia com a lista — o mesmo defeito que já '
+    + 'tinha trazido o projetar e o "guardar isto" para cá. O corpo da janela fica '
+    + 'para a LISTA, que é o que cresce', JSON.stringify(msg));
 
   const tempo = await pgM.evaluate(async (fn) => {
     [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Tempo').click();
@@ -5490,6 +5497,54 @@ try {
     'e o primário mede o MESMO que o quadrado ao lado — não há mais "sozinho na '
     + 'faixa", logo não há mais duas alturas',
     JSON.stringify([tempo.alturaProj, tempo.alturas]));
+
+  // TROCAR DE FERRAMENTA NÃO PODE MUDAR A ALTURA DO RODAPÉ (v1.9.2). A régua é
+  // a faixa do TEMPO, medida na mesma página — nunca um número de pixel, que
+  // seria medir a fonte e a densidade da máquina. Sem a caixa da faixa
+  // (`--quad-faixa`) o "+ Nova mensagem" se mede pelo próprio `padding`, e a
+  // fronteira do corpo sobe e desce conforme a aba que o operador escolheu.
+  checar(msg.alturas.length === 1 && tempo.alturas.length === 4
+    && msg.alturas[0] === tempo.alturas[0] && msg.alturas[0] > 0,
+    'e a faixa de MENSAGENS tem a MESMA ALTURA da do Tempo: trocar de ferramenta não '
+    + 'pode mover a fronteira do corpo — a faixa é a mesma peça nas três, e o '
+    + 'inquilino é que cede para a caixa dela',
+    JSON.stringify([msg.alturas, tempo.alturas]));
+
+  // ---- E ELE CRIA UMA MENSAGEM: a ação continua sendo o `addMessage` ----
+  //
+  // O botão mudou de LUGAR (do corpo do painel para a faixa) e de CAIXA, e é
+  // aqui que se prova que não mudou de AÇÃO. O caminho é o do operador inteiro
+  // — toque, o prompt do app, o texto, o confirmar —, porque o que falha calado
+  // numa troca de lugar é o `addEventListener` que ficou para trás: um botão
+  // novo e bonito na faixa, com a ação ainda pendurada no botão que saiu.
+  const criou = await pgM.evaluate(async () => {
+    const z = (ms) => new Promise((f) => setTimeout(f, ms));
+    [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === 'Mensagens').click();
+    await z(250);
+    const antes = messages.length;
+    document.getElementById('msgNovaBtn').click();
+    await z(200);
+    const abriu = appDialogEl.classList.contains('open');
+    const titulo = (document.getElementById('appDialogTitle') || {}).textContent || '';
+    if (!abriu) return { abriu, titulo, antes };
+    appDialogInputEl.value = 'Aviso do oráculo';
+    appDialogOkEl.click();
+    await z(300);
+    return {
+      abriu, titulo, antes,
+      depois: messages.length,
+      ultima: messages.length ? messages[messages.length - 1].text : null,
+      // E ela CHEGA À LISTA: gravar sem redesenhar deixaria o operador tocando
+      // de novo, achando que o primeiro toque não pegou.
+      naLista: [...document.querySelectorAll('.msg-item .msg-text')]
+        .some((t) => t.textContent === 'Aviso do oráculo'),
+    };
+  });
+  checar(criou.abriu === true && criou.depois === criou.antes + 1
+    && criou.ultima === 'Aviso do oráculo' && criou.naLista === true,
+    'e tocá-lo CRIA a mensagem — a ação é o mesmo `addMessage` de sempre, do prompt '
+    + 'até a linha na lista. O que falha calado numa troca de lugar é a ação ficar '
+    + 'pendurada no botão que saiu', JSON.stringify(criou));
 
   await pgM.close();
 } catch (e) {

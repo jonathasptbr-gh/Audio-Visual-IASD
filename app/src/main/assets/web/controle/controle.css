@@ -6480,8 +6480,11 @@ main {
   display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-5);
   padding-bottom: .4rem;
 }
-/* Mensagens: quem rola é a LISTA, não o painel — senão "+ Nova mensagem" e
-   "Tirar do telão" sairiam de vista assim que a lista crescesse. */
+/* Mensagens: quem rola é a LISTA, não o painel. O "+ Nova mensagem" e o
+   "Tirar do telão" saíam de vista assim que a lista crescesse — desde a v1.9.2
+   nenhum dos dois mora aqui (o primeiro é o primário do rodapé, o segundo é da
+   LINHA), e a regra fica porque o painel É a lista: um scroller dentro de outro
+   é o gesto que não se sabe para quem vai. */
 .misc-panel--msg { overflow: hidden; }
 /* TEMPO: O PAINEL NÃO ROLA, ELE ENCOLHE (v1.8.92) — *"o que eu não quero é que
    tenha scroll nessa janela de ferramentas"*. O `min-height: min-content` da
@@ -6802,15 +6805,30 @@ main {
    360×1,25× a coluna de opções cai para 43px SEM rolagem nenhuma que denuncie —
    uma reversão medida ali aprovaria a remoção. É o mesmo vazamento de flexbox
    que o `.draw-range-field` já documenta nesta aba, pela outra ponta. */
-.draw-cols { display: flex; gap: var(--sp-4); }
+/* ---------- O CORPO OCUPA A ALTURA, A LEGENDA ENCOSTA NA BASE (v1.9.2) -------
+   Relato do operador: *"parece ter uma margem ou zona que está segurando todos
+   os elementos de ocuparem a altura correta"*. Não era margem: era o
+   `min-height: min-content` do `.misc-panel` (a regra base), que faz o painel
+   MEDIR o conteúdo em vez de reparti-lo — a caixa de opções ficava do tamanho
+   das cinco linhas dela no meio de uma janela vazia. O piso em zero é o mesmo
+   conserto que o painel do Tempo recebeu na v1.8.92, e pelo mesmo motivo: quem
+   cede é o conteúdo que sabe se medir.
+
+   O CORPO é a caixa que ocupa a sobra, e a LEGENDA fica FORA dela — é isso, e
+   não uma âncora, que a cola na base: *"faça a caixa de texto da legenda ficar
+   colada na base, logo acima dos botões de projetar no telão"*. */
+.misc-panel--draw { min-height: 0; }
+.draw-corpo { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-4); }
+.draw-cols { flex-direction: row; gap: var(--sp-4); }
 .draw-col {
-  flex: 1; min-width: 0;
+  flex: 1; min-width: 0; min-height: 0;
   display: flex; flex-direction: column; gap: var(--sp-4);
 }
-/* A LISTA É QUEM ESTICA. A coluna da esquerda tem tamanho previsível (um chip,
-   o contador, os já sorteados, a legenda); a caixa de opções cresce com o que
-   se digita, e é ela que ocupa o que sobrar. */
-.draw-col--dir .draw-pool { flex: 1; min-height: 5.5rem; }
+/* A LISTA É QUEM ESTICA, e ela rola POR DENTRO — *"faça ela ter um scroll só
+   nela, e não na tela toda"*. `resize: none` porque a altura passou a vir do
+   layout: uma alça de redimensionar sobre uma caixa que se mede sozinha briga
+   com ela a cada render. */
+.draw-col--dir .draw-pool { flex: 1 1 auto; min-height: 4rem; overflow-y: auto; resize: none; }
 .draw-range { display: flex; gap: var(--sp-5); }
 /* `min-width: 0` nos DOIS níveis: o padrão de um item flex é `min-width: auto`,
    que o impede de encolher abaixo da largura intrínseca do conteúdo — e um
@@ -6828,15 +6846,34 @@ main {
 .draw-info { font-size: var(--fs-md); font-weight: var(--fw-forte); color: var(--muted); align-self: center; }
 /* Já sorteados. Rola na horizontal em vez de quebrar em várias linhas: numa
    rifa longa a lista cresce sem limite e empurraria os botões para fora. */
+/* ---------- OS JÁ SORTEADOS ROLAM POR DENTRO (v1.9.2) ----------
+   Pedido do operador: *"o mesmo para a seção de itens já sorteados, se ficou
+   grande demais, ele deve ficar dentro de um scroll individual"*. Eles eram uma
+   FILEIRA que rolava na horizontal — desenho de quando o painel era uma coluna
+   larga; na coluna da esquerda, de ~160px, uma rifa de vinte nomes virava um
+   trilho que se percorre de dedo. Hoje QUEBRAM em linhas e a caixa rola na
+   VERTICAL, ocupando o que sobra da coluna.
+
+   `align-content: flex-start` não é enfeite: sem ele um `flex-wrap` com espaço
+   de sobra ESPALHA as linhas pela altura da caixa, e dois nomes ficam um no topo
+   e outro no fundo de um vão de 200px. */
 .draw-hist {
-  display: flex; gap: var(--sp-2); overflow-x: auto; padding-bottom: .2rem;
-  /* ELE NÃO É UM `.rola`, e o comentário daqui afirmou o contrário por um lote
-     inteiro: a classe sai de `hist.className = 'draw-hist'` no controle.js, sem
-     a marca. Logo o padrão nunca o alcançou, e esta linha nunca foi exceção a
-     nada — ela é a ÚNICA declaração de barra que este elemento tem, e existe
-     porque sem ela ele cairia no `auto` e desenharia uma barra HORIZONTAL.
-     (Desde a v1.8.61 a marca também diz `none`, então os dois coincidem; a
-     linha fica porque a coincidência é acidente, não herança.)
+  display: flex; flex-wrap: wrap; align-content: flex-start;
+  /* O PISO É UMA FILEIRA DE CHIP, e sem ele a caixa SOME: as duas colunas têm a
+     mesma altura (a da linha), a da direita a impõe pelo `min-height` do
+     `<textarea>`, e o que sobra para os já sorteados depois do chip e do
+     contador era **4px** a 360×1,25× — MEDIDO. Com o piso, quem cede é o painel,
+     que rola: a resposta honesta de uma janela que não cabe. */
+  flex: 1 1 auto; min-height: 2.2rem; overflow-y: auto;
+  gap: var(--sp-2); padding-bottom: .2rem;
+  /* ELE É UM `.rola` DESDE A v1.9.2, e antes não era — a marca entrou com a
+     rolagem VERTICAL. Enquanto ele rolava só na horizontal a sombra das bordas
+     não descrevia nada (é ela que diz "há conteúdo acima/abaixo"), e o censo do
+     `sombra-de-rolagem` o excluía justamente por isso. Rolando no eixo em que a
+     sombra fala, ele virou um scroller como os outros.
+     A `scrollbar-width` fica declarada aqui porque a marca também a declara
+     desde a v1.8.61: as duas coincidem, e a coincidência é acidente, não
+     herança.
      (O `::-webkit-scrollbar { display: none }` que acompanhava saiu na v1.8.60,
      pela prova que matou os outros nove: o Chromium desliga os pseudos WebKit
      quando `scrollbar-width` é diferente de `auto`, e aqui ele é `none`.) */
@@ -6857,6 +6894,17 @@ main {
    `.misc-foot-esq`.) */
 
 /* ---------- Mensagens (texto puro) ---------- */
+/* O "+ Nova mensagem" É O PRIMÁRIO DO RODAPÉ desde a v1.9.2 — a única ação da
+   ferramenta, na faixa em que todas as outras põem a sua. A caixa é a da faixa
+   (`--quad-faixa`), como o "Projetar no telão" das irmãs: trocar de ferramenta
+   não pode mudar a altura do rodapé. */
+.misc-foot > .msg-add-btn { flex: 1; min-width: 0; height: var(--quad-faixa); padding: .4rem; }
+/* O PARAR DE UMA LINHA (v1.9.2) NÃO TEM REGRA PRÓPRIA, e a ausência está dita
+   porque a tentação é real: ele é `.row-btn` como os quatro vizinhos, e vestir
+   `--live-*` na linha no ar foi escrito e revogado no mesmo lote. A família
+   `--live` quer dizer *"isto está no telão"*; um BOTÃO nela diria que o botão
+   está no telão. O que o distingue já é a única coisa que precisa distingui-lo:
+   ele é o único da fileira que ACENDE, e nas outras linhas está apagado. */
 /* Vivem numa das ferramentas da aba Ferramentas (o painel `.misc-panel--msg`),
    não numa aba própria: um aviso de texto é uma interrupção rápida, não uma
    seção da biblioteca que se navega. */
@@ -6877,8 +6925,28 @@ main {
 .msg-row:has(> .msg-estilo) .msg-item {
   border-bottom-left-radius: 0; border-bottom-right-radius: 0;
 }
+/* ---------- A FILEIRA QUEBRA ANTES DE ESMAGAR O TEXTO (v1.9.2) ----------
+   O PARAR virou o QUINTO botão da linha, e cinco alvos de `--hit` mais os vãos
+   pedem ~210px — MEDIDO a 360px, o texto da mensagem caía para **83px** (56px
+   com a raiz do sistema em 1,25×), isto é, três ou quatro caracteres por linha
+   num bloco de três linhas. A mensagem é o CONTEÚDO da linha; os botões são o
+   que se faz com ela.
+
+   `flex: 1 1 12rem` no texto é o que decide, e a base é um NÚMERO ESCOLHIDO:
+   com ela declarada o texto para de ceder e a fileira quebra para a linha de
+   baixo. MEDIDO em três telas de celular (360, 412, 430), a base de 12rem faz as
+   três quebrarem e o texto ficar com a largura inteira — 293, 345 e 363px. Com
+   8rem elas cabiam numa linha só e o texto ficava com 83, 135 e 153px contra os
+   ~210px dos botões: a fileira dominando o conteúdo dela. Onde a linha ainda
+   cabe (tablet), nada quebra. `justify-content: flex-end` só age na linha
+   QUEBRADA, porque na inteira o texto em `flex-grow` já consome a sobra.
+
+   **E OS CINCO SÃO UM GRUPO** (`.msg-acoes`), não cinco itens da linha: soltos,
+   o flex quebra um a um — MEDIDO a 360px, três ficavam ao lado do texto e dois
+   caíam na linha de baixo. A fileira é uma peça e quebra por inteiro. */
 .msg-item {
-  display: flex; align-items: center; gap: var(--sp-4);
+  display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end;
+  gap: var(--sp-4);
   border-radius: var(--radius-card); background: var(--camada); padding: .5rem .6rem;
 }
 /* A GAVETA DE ESTILO. `--gaveta-btn` nos chips é o que a gaveta dos Favoritos
@@ -6930,8 +6998,9 @@ main {
    valendo, e agora essa base é opaca e igual em toda a tela. */
 .msg-item.active { background: var(--live-fill); }
 .msg-item.active .msg-text { color: var(--live-strong); }
+.msg-acoes { display: flex; align-items: center; gap: var(--sp-4); flex: 0 0 auto; }
 .msg-text {
-  flex: 1; min-width: 0; font-size: var(--fs-lg); line-height: 1.4; cursor: pointer; white-space: pre-line;
+  flex: 1 1 12rem; min-width: 0; font-size: var(--fs-lg); line-height: 1.4; cursor: pointer; white-space: pre-line;
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
 }
 /* Indicador de salto pro capítulo/livro vizinho (preview anterior/próximo). A

@@ -19,9 +19,10 @@ cobre/revela "de graça", sem tocar em `stage.js`). São eles:
 | **Mídia visual sobre o áudio** | manual (o toque na imagem ou na apresentação) | um registro `kind:'image'` — ou `kind:'deck'`, e aí o cartão pinta `pages[page]` | `#text` / `#pvText` (modo `mode-img`) |
 
 > **Mensagens vive na aba Ferramentas** (v5.31), como uma das ferramentas do
-> seletor: lista de avisos salvos, "+ Nova mensagem" e o **PARAR** do rodapé
-> (`hideMessage` → `text-hide`, que encerra só a Camada de Texto; um áudio de
-> fundo segue tocando), apagado quando não há nada no telão. Tocar numa mensagem
+> seletor: a lista de avisos salvos ocupa o painel inteiro, o "+ Nova mensagem"
+> é o PRIMÁRIO do rodapé, e cada linha tem o seu **PARAR** (`hideMessage` →
+> `text-hide`, que encerra só a Camada de Texto; um áudio de fundo segue
+> tocando), apagado fora da linha que está no telão. Tocar numa mensagem
 > projeta e a linha fica marcada, então passar de um aviso a outro não exige
 > reabrir nada — que era o atrito do bottom-sheet anterior. Com a mensagem fora
 > do ar mas a sessão viva, os botões de slide só MOVEM a seleção (mesma regra
@@ -625,11 +626,13 @@ da lista).
   e descia com ele — o mesmo defeito que já tinha trazido o projetar para cá.
   Hoje é um DESCRITOR (`cueSaveDaFerramenta`): a ferramenta diz COMO montar a
   cena, o rodapé desenha.
-- **A CÉLULA DA ESQUERDA É POR FERRAMENTA**, e todas as três a usam: o Tempo leva
-  o transporte (▶/↺) ou os dois seletores do Relógio (v1.8.94), o Sorteio leva
-  **sortear e reiniciar** (v1.9.1) e Mensagens leva o **PARAR** (v1.9.1). Todos
-  são QUADRADOS de `--quad-faixa`, a mesma peça — é isso que faz a faixa ter UMA
-  altura em qualquer ferramenta.
+- **A CÉLULA DA ESQUERDA É POR FERRAMENTA**: o Tempo leva o transporte (▶/↺) ou
+  os dois seletores do Relógio (v1.8.94) e o Sorteio leva **sortear e reiniciar**
+  (v1.9.1) — QUADRADOS de `--quad-faixa`, a mesma peça, e é isso que faz a faixa
+  ter UMA altura em qualquer ferramenta. **Mensagens não usa a célula**: desde a
+  v1.9.2 o PARAR é da LINHA, e o que ocupa a faixa ali é o "+ Nova mensagem"
+  (`#msgNovaBtn`), a única ação da ferramenta — na mesma caixa de
+  `--quad-faixa`, porque trocar de ferramenta não pode mudar a altura do rodapé.
 - **A ALTURA É UMA SÓ** (a regra da v1.8.61): o primário cede para
   `--quad-faixa`, a medida do quadrado, em vez de esticar os vizinhos contra
   ele. **O segundo degrau saiu na v1.9.1** — havia um `:has(.cue-save-btn)` que
@@ -657,10 +660,25 @@ da lista).
   Adicione esse botão."* Quem projeta uma mensagem é o TOQUE na linha (v5.104),
   nos dois sentidos — e o primário tinha de responder *"projetar o QUÊ?"* com
   uma sessão que pode não existir, então nascia **inerte com um `title` que
-  explica**. O que faltava era o contrário: a linha fica vermelha e nada na faixa
-  PARA a projeção depois que ela saiu de vista na rolagem. O `#msgPararBtn`
-  ocupa a célula da esquerda, é apagado sem nada no ar (a regra da v1.8.50, com
-  o `title` dizendo por quê) e chama `hideMessage()`.
+  explica**. O que faltava era o contrário: a linha fica vermelha e nada PARA a
+  projeção depois que ela saiu de vista na rolagem.
+- **E O PARAR VIROU BOTÃO DE LINHA na v1.9.2** — *"o botão de stop, deve ser
+  individual em cada item da lista de mensagens"*. No rodapé ele respondia por
+  *"a mensagem no ar"*, que é UMA; na linha ele responde por ESTA. **Desenhado
+  em todas e apagado fora da que está no ar** (a regra da v1.8.50): só na linha
+  ativa, a fileira teria um botão a mais e mudaria de largura no instante em que
+  o operador projeta. **E ele NÃO leva tinta de estado** — escrito e revogado no
+  mesmo lote: a família `--live` quer dizer *"isto está no telão"*, e um BOTÃO
+  nela diria que o botão está no telão; o que o distingue é ser o único da
+  fileira que ACENDE.
+- **A LINHA QUEBRA ANTES DE ESMAGAR O TEXTO** (v1.9.2), e essa metade é a conta,
+  não o pedido: cinco alvos de `--hit` mais os vãos pedem ~210px, e MEDIDO a
+  360px o texto caía para **83px** (56px a 1,25×). O texto é `flex: 1 1 12rem` e
+  os cinco botões são um GRUPO (`.msg-acoes`) — soltos, o flex quebra um a um, e
+  saíam três ao lado do texto e dois embaixo. A base de 12rem é MEDIDA: com ela
+  360, 412 e 430 quebram e o texto fica com 293, 345 e 363px; com 8rem as três
+  cabiam numa linha e o texto ficava com 83, 135 e 153px contra os ~210px dos
+  botões.
 - (O **microfone ao vivo** era a outra metade deste rodapé, e saiu na v1.8.89.)
 
 > **Vazamento horizontal (v5.31).** A faixa "de/até" do sorteio empurrava a aba
@@ -937,13 +955,34 @@ e abaixo faça duas colunas… na direita deixe a caixa de texto dos itens a ser
 sorteados."*
 
 - O `.draw-read` fica ACIMA das colunas (é o que a sala olha), e o
-  `.draw-cols` traz `.draw-col--esq` (chip, contador, já sorteados, legenda) e
-  `.draw-col--dir` (só o `<textarea>`).
+  `.draw-cols` traz `.draw-col--esq` (chip, contador, já sorteados) e
+  `.draw-col--dir` (só o `<textarea>`). **A legenda saiu das colunas na v1.9.2**
+  — ver abaixo.
 - **A DIREITA É A QUE ESTICA**, porque ela é a lista: a caixa de opções cresce
   com o que se digita e a esquerda tem tamanho previsível. O `align-items:
   stretch` do flex — que num botão de símbolo é defeito (v1.8.57) — é aqui o
   desenho: é ele que dá à coluna da direita a altura da esquerda para o
   `flex: 1` do `<textarea>` ter contra o que crescer.
+- **O CORPO OCUPA A ALTURA, NOS DOIS MODOS** (v1.9.2). Relato do operador:
+  *"parece ter uma margem ou zona que está segurando todos os elementos de
+  ocuparem a altura correta"*. **Não era margem:** era o `min-height:
+  min-content` do `.misc-panel`, que faz o painel MEDIR o conteúdo em vez de
+  reparti-lo — a caixa de opções ficava do tamanho das cinco linhas dela no meio
+  de uma janela vazia. O piso em zero é o mesmo conserto do painel do Tempo
+  (v1.8.92). O `.draw-corpo` é a caixa que ocupa a sobra (no modo Texto ele
+  TAMBÉM é o `.draw-cols`), e a **legenda é o ÚLTIMO filho do painel** — é isso,
+  e não uma âncora, que a cola na base, logo acima do rodapé.
+- **CADA CAIXA ROLA POR DENTRO** (v1.9.2): *"faça ela ter um scroll só nela, e
+  não na tela toda"*. A caixa de opções é `overflow-y: auto` com `resize: none`
+  (a altura vem do layout, e uma alça de redimensionar briga com ela a cada
+  render). **E os já sorteados deixaram de ser um trilho HORIZONTAL** — desenho
+  de quando o painel era uma coluna larga; numa coluna de ~160px uma rifa de
+  vinte nomes virava um trilho que se percorre de dedo. Hoje quebram em linhas e
+  rolam na vertical, o que lhes deu a marca `rola` (a sombra passou a descrever
+  algo) e **tirou do app o único carrossel horizontal** com que o
+  `sombra-de-rolagem` exercia a exclusão do censo. O piso de `2.2rem` neles é
+  medido: as duas colunas têm a mesma altura, a da direita a impõe pelo
+  `min-height` da caixa de opções, e o que sobrava era **4px** a 360×1,25×.
 - **`min-width: 0` nas duas**, senão as duas colunas somam mais que a tela — e
   **quem estoura é a coluna da ESQUERDA**, não o `<textarea>` (ele tem
   `width: 100%` e é o esmagado): o mínimo intrínseco da esquerda é o do
@@ -961,10 +1000,10 @@ class="misc-row-label">` saiu e o campo virou um só — `campoDeLegenda`, que o
 Tempo e o Sorteio chamam. Duas cópias divergiriam no primeiro ajuste, e aqui
 "ajuste" é literalmente o texto que o operador lê.
 
-- **A identificação vem PRIMEIRO no marcador** (`Legenda (opcional) — ex: …`),
-  porque é o FIM dele que um campo estreito corta: na coluna da esquerda do
-  sorteio sobra "Legenda (opcional)", que é exatamente a metade que não pode
-  faltar.
+- **O marcador é só `Legenda (opcional)`** desde a v1.9.2. Ele carregava um
+  exemplo ("ex: Sorteio dos visitantes") que o campo estreito cortava de
+  qualquer jeito — escrevê-lo custava a leitura de todo mundo para servir
+  ninguém.
 - **O `aria-label` é obrigatório.** Sem o `<span>`, era ele ou um campo sem nome
   acessível nenhum.
 

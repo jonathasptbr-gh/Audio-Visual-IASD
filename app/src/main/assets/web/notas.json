@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.9.2",
+    "itens": [
+      "Mensagens: cada mensagem tem o seu botão de parar; ele acende só na que está no telão.",
+      "Mensagens: o botão “+ Nova mensagem” passou para o rodapé, junto das outras ações.",
+      "Mensagens: em telas estreitas o texto ocupa a linha inteira e os botões descem para baixo dele.",
+      "Sorteio: a caixa da lista e a dos já sorteados ocupam a altura da janela e rolam por dentro.",
+      "Sorteio: o campo de legenda ficou colado na base, logo acima dos botões.",
+      "O campo de legenda diz só “Legenda (opcional)”, no Sorteio e no Tempo."
+    ]
+  },
+  {
     "versao": "1.9.1",
     "itens": [
       "Mensagens: o botão de projetar saiu do rodapé — tocar na mensagem já projeta e tocar de novo tira do ar.",
