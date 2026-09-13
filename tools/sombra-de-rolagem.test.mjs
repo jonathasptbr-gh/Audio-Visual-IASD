@@ -33,8 +33,9 @@
 //     COLUNA nos dois estados — com a exclusão e com ela desfeita à força —,
 //     porque medir só o estado publicado aprovaria uma grade de uma coluna.
 //  3. O CARROSSEL (bloco H). `overflow-x: auto` COMPUTA `overflow-y: auto`, e
-//     um censo por estilo computado marcaria o histórico do sorteio — que rola
-//     na HORIZONTAL — com uma sombra vertical que não descreve nada.
+//     um censo por estilo computado marcaria um carrossel horizontal com uma
+//     sombra vertical que não descreve nada. O SUJEITO é plantado por este
+//     oráculo desde a v1.9.2 — ver `PLANTAR_CARROSSEL`.
 
 import path from 'node:path';
 import fs from 'node:fs';
@@ -52,14 +53,53 @@ await new Promise((r) => servidor.listen(0, r));
 const base = 'http://localhost:' + servidor.address().port + '/controle/index.html';
 const navegador = await abrirNavegador();
 
+// ===== O CARROSSEL É PLANTADO PELO ORÁCULO, E NÃO EMPRESTADO DO APP =====
+//
+// A exclusão do censo — *quem transborda em X e não em Y é carrossel* — precisa
+// de um SUJEITO na tela para ser exercida, e até a v1.9.1 esse sujeito era o
+// histórico do sorteio (`.draw-hist`), o único carrossel horizontal do app. Na
+// v1.9.2 ele deixou de ser: hoje os chips QUEBRAM em linhas e a caixa rola na
+// VERTICAL, com a marca `rola` como qualquer outro scroller. As duas asserções
+// que dependiam dele ficaram sem nada para medir — a premissa do bloco A
+// devolvia lista vazia, e o bloco H media um elemento que já não era o que o
+// nome dele dizia.
+//
+// **UM ORÁCULO QUE DEPENDE DE UM INQUILINO ESPECÍFICO MORRE COM ELE**, e morre
+// do jeito caro: as asserções continuam no arquivo, continuam sendo lidas como
+// cobertura, e não cobrem nada. O que se quer travar aqui não é o histórico do
+// sorteio — é o CENSO: que um scroller horizontal não seja marcado com uma
+// sombra vertical que não descreve nada. O sujeito passa a ser plantado por
+// este arquivo, e sobrevive ao próximo lote que mexa em qualquer painel.
+//
+// `opacity: 0` e `pointer-events: none` porque os blocos vizinhos medem PIXEL e
+// hit-test; nenhum dos dois move `scrollWidth`/`clientWidth`, que é o que o
+// censo lê. `display: none` ou `visibility: hidden` zerariam a caixa, e o que
+// se plantaria não seria carrossel nenhum.
+const PLANTAR_CARROSSEL = () => {
+  const c = document.createElement('div');
+  c.id = 'oraculoCarrossel';
+  c.style.cssText = 'position:fixed;left:0;bottom:0;width:120px;height:40px;'
+    + 'overflow-x:auto;white-space:nowrap;line-height:0;'
+    + 'opacity:0;pointer-events:none;z-index:-1';
+  // O conteúdo transborda SÓ em X: mais largo que a caixa, e mais BAIXO que
+  // ela. Um filho tão alto quanto a caixa a faria transbordar nos dois eixos e
+  // o plantio deixaria de ser o caso que a exclusão descreve.
+  const largo = document.createElement('span');
+  largo.style.cssText = 'display:inline-block;width:600px;height:10px';
+  c.appendChild(largo);
+  document.body.appendChild(c);
+};
+
 // A CENA: acervo plantado e TODA folha com scroller aberta, para que os catorze
 // estejam DESENHADOS — e três deles TRANSBORDANDO de verdade, cada um de uma
 // família diferente (a janela da Biblioteca, o bottom-sheet da playlist, o
 // popup do leitor de letra). Um scroller de caixa zero mede igual com e sem a
 // tira, e aprovaria o bloco B sem medir nada.
 //
-// O histórico do sorteio entra aqui de propósito: ele é o carrossel HORIZONTAL,
-// e é no censo do bloco A que a exclusão dele precisa estar sob medição.
+// O histórico do sorteio entra aqui de propósito, e desde a v1.9.2 pelo motivo
+// INVERSO do original: ele era o carrossel horizontal que exercia a exclusão do
+// censo, e passou a ser um scroller VERTICAL comum — é como marcado que ele
+// precisa estar na tela agora. Quem exerce a exclusão é o `PLANTAR_CARROSSEL`.
 async function cena(pg) {
   return pg.evaluate(async () => {
     const z = (ms) => new Promise((f) => setTimeout(f, ms));
@@ -73,7 +113,8 @@ async function cena(pg) {
     plItems = await AVDB.listItems('playlist');
     await load(); await z(300);
     // A folha de Ferramentas monta só a ferramenta ATIVA — o `.draw-hist` só
-    // existe com o Sorteio na frente E com algo já sorteado.
+    // existe com o Sorteio na frente E com algo já sorteado. Desde a v1.9.2 ele
+    // é um scroller VERTICAL com a marca, e entra no censo como os outros.
     miscTool = 'draw';
     draw.used = ['7', '12', '3', '21', '9', '33', '41', '2', '18', '27', '5', '14'];
     abrirFerramentas(); await z(300);
@@ -110,6 +151,7 @@ try {
     await pg.goto(base, { waitUntil: 'load' });
     await esperarCortina(pg);
     await cena(pg);
+    await pg.evaluate(PLANTAR_CARROSSEL);
 
     // ── A. O CENSO, NOS DOIS SENTIDOS ───────────────────────────────────
     //
@@ -158,9 +200,12 @@ try {
       + 'baixo da marca — é o `.misc-panel--msg { overflow: hidden }` — e uma sombra '
       + 'sobre caixa que não rola descreve algo que não existe',
       JSON.stringify(inertes));
-    checar(censo.carrossel.length >= 1,
+    checar(censo.carrossel.includes('oraculoCarrossel'),
       'A · ' + tema + ': e a cena TEM um carrossel horizontal desenhado — sem ele a '
-      + 'exclusão do censo passa sem nunca ser exercida', JSON.stringify(censo.carrossel));
+      + 'exclusão do censo passa sem nunca ser exercida. Ele é PLANTADO por este '
+      + 'arquivo desde a v1.9.2: o inquilino que o exercia (o histórico do sorteio) '
+      + 'virou scroller vertical, e as duas asserções ficaram medindo o vazio',
+      JSON.stringify(censo.carrossel));
     const fora = censo.comMarca.filter((x) =>
       x.semVeu !== (x.grade || !/auto|scroll/.test(x.oy)));
     checar(fora.length === 0,
@@ -394,13 +439,21 @@ try {
       JSON.stringify(custo));
 
     // ── H. O CARROSSEL HORIZONTAL — O DEFEITO Nº 3 ─────────────────────
-    const horiz = await pg.evaluate(async () => {
-      const z = (ms) => new Promise((f) => setTimeout(f, ms));
-      setAppMode('full'); await z(150);
-      miscTool = 'draw';
-      draw.used = ['7', '12', '3', '21', '9', '33', '41', '2', '18', '27', '5', '14'];
-      abrirFerramentas(); await z(300);
-      const h = document.querySelector('.draw-hist');
+    //
+    // O SUJEITO É PLANTADO POR ESTE ARQUIVO (v1.9.2) — a razão inteira está no
+    // `PLANTAR_CARROSSEL`, lá em cima: até aqui ele era o histórico do sorteio,
+    // que deixou de rolar na horizontal, e o bloco passou a medir um elemento
+    // que já não era o que o nome dele dizia. **Um oráculo que depende de um
+    // inquilino específico morre com ele** — e morre calado, porque as duas
+    // asserções continuam no arquivo passando por cobertura. O que se trava é o
+    // CENSO, não o histórico.
+    //
+    // O plantio é REFEITO aqui: os blocos F/G/H moram numa página própria, que
+    // nunca passou pela `cena()` — o carrossel plantado lá em cima morreu com o
+    // contexto do laço dos temas.
+    await pg.evaluate(PLANTAR_CARROSSEL);
+    const horiz = await pg.evaluate(() => {
+      const h = document.getElementById('oraculoCarrossel');
       if (!h) return { ausente: true };
       const cs = getComputedStyle(h);
       return { rola: h.classList.contains('rola'), oy: cs.overflowY, ox: cs.overflowX,
@@ -408,10 +461,10 @@ try {
                transbordaY: h.scrollHeight - h.clientHeight > 2 };
     });
     checar(!horiz.ausente && horiz.transbordaX && !horiz.transbordaY,
-      'H · o carrossel HORIZONTAL do histórico do sorteio está DESENHADO e '
-      + 'transbordando em X — ausente, a asserção abaixo não mede nada',
+      'H · o carrossel HORIZONTAL está DESENHADO e transbordando SÓ em X — ausente '
+      + '(ou transbordando nos dois eixos) a asserção abaixo não mede nada',
       JSON.stringify(horiz));
-    checar(horiz.rola === false && horiz.oy === 'auto',
+    checar(horiz.rola === false && horiz.oy === 'auto' && horiz.ox === 'auto',
       'H · e ele NÃO recebe sombra vertical, apesar de o estilo computado dizer '
       + '`overflow-y: auto` — `overflow-x: auto` COMPUTA o eixo cruzado, e um censo '
       + 'por estilo o marcaria com uma sombra que não descreve nada',
