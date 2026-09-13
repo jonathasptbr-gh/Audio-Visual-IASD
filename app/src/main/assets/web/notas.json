@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.9.3",
+    "itens": [
+      "Mensagens: os botões de cada mensagem ficam escondidos atrás do ⋮, como no Cronograma.",
+      "Mensagens: cada linha ganhou uma miniatura, e é nela que aparece o botão de parar.",
+      "Mensagens: excluir passou a pedir confirmação na própria linha, como no resto do aplicativo.",
+      "O texto da mensagem aparece em até duas linhas, para não confundir avisos parecidos."
+    ]
+  },
+  {
     "versao": "1.9.2",
     "itens": [
       "Mensagens: cada mensagem tem o seu botão de parar; ele acende só na que está no telão.",

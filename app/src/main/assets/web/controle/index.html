@@ -553,21 +553,18 @@
       <line x1="7.3" y1="12.4" x2="13.5" y2="12.4"/>
       <line x1="3.5" y1="19.4" x2="20.5" y2="19.4"/>
     </symbol>
-    <!-- PARAR — o quadrado cheio. Ele é o único transporte deste app que NÃO
-         vem do subset da fonte: `stop` não está entre os 31 codepoints (ver
-         `tools/glifos.test.mjs`), e um codepoint de fora não desenha NADA — sem
-         erro, sem requisição falhando, só um vão.
-
-         CHEIO e não vazado, ao contrário dos irmãos de traço deste sprite: um
-         quadrado de contorno lê-se como caixa de marcação, e este botão tira do
-         telão o que a congregação está vendo. O `fill`/`stroke` são declarados
-         no próprio `<rect>` porque o consumidor pinta com `fill="none"
-         stroke="currentColor"`, e sem eles o desenho sairia oco e mais gordo
-         que a caixa. -->
-    <symbol id="icoParar" viewBox="0 0 24 24">
-      <rect x="6" y="6" width="12" height="12" rx="2.4" fill="currentColor" stroke="none"/>
-    </symbol>
-    <symbol id="icoZerar" viewBox="0 0 24 24">
+    <!-- (O `#icoParar` — o quadrado cheio — saiu na v1.9.3 com o botão que o
+         usava: o PARAR das mensagens desceu para a MINIATURA da linha, e lá
+         quem desenha é o `porParar`, com o glifo `stop` do transporte.
+         **ELE NUNCA PRECISOU EXISTIR**, e isso fica registrado porque o
+         argumento que o criou (v1.9.1) era FALSO: o comentário dele afirmava
+         que `stop` não está no subset da fonte, e está — o `porParar` o escreve
+         por escape (`\ue047`) desde a v5.259, e o `glifos.test.mjs` confere
+         codepoint a codepoint que ele existe. Desenhar em SVG o que a fonte já
+         traz é duas fontes de verdade para o mesmo símbolo. Antes de acrescentar
+         um `<symbol>` para um glifo de transporte: procure o codepoint no
+         `index.html` primeiro. -->
+    <symbol id="icoZerar" viewBox="0 0 24 24">    <symbol id="icoZerar" viewBox="0 0 24 24">
       <path d="M20 12a8 8 0 1 1-2.34-5.66"/>
       <polyline points="20 3 20 8 15 8"/>
     </symbol>
@@ -2340,7 +2337,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.9.2</span>
+            <span id="appVersion" class="app-version">v1.9.3</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
