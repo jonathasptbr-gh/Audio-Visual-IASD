@@ -119,10 +119,21 @@ SQL separados por `|` para o app desktop em Pascal.
 
 ### 2.1 `GET /{lang}/collections/online` — o catálogo de vídeos
 
-Consumida por `controle/louvorja.js` → `fetchOnline(lang)`, lida por
-`controle/online.js`. Mesmo host, mesmo header `Api-Token` e mesmo cache-busting
-diário do [fetchList]. Cache de 600 s no servidor; só registros
-`status = 'validated'` são servidos.
+> **NÃO É CONSUMIDA POR ESTE APP** (desde a v1.8.98). Ela foi, por um lote: a
+> v1.8.97 a transformou numa coletânea da Biblioteca e a v1.8.98 removeu o
+> recurso a pedido do operador — *"se tornaram irrelevantes no meu app que já
+> possui o sistema de busca direta no YouTube"*. **O recurso funcionava**: o
+> Registro dele registrou 1150 vídeos em 16 playlists de 5 canais, nada
+> recusado e nada perdido. O que não se sustentou foi a utilidade, não a rota.
+>
+> A seção FICA porque este arquivo é a referência do CONTRATO DE DADOS da
+> fonte, não do que o app usa hoje — e porque o levantamento abaixo custou
+> leitura do código-fonte do `louvorja/api`. Quem for reabrir a ideia começa
+> daqui e não do zero.
+
+Mesmo host, mesmo header `Api-Token` e mesmo cache-busting diário do
+[fetchList]. Cache de 600 s no servidor; só registros `status = 'validated'`
+são servidos.
 
 ```jsonc
 {
@@ -138,7 +149,7 @@ inferidos** — os três primeiros mudam quem consome:
 | fato | consequência |
 |---|---|
 | `default_image` é uma URL absoluta do `i.ytimg.com` e cai em string **VAZIA**, nunca `null` (o `?? ''` de `app/Helpers/OnlineVideos.php`) | a guarda é `!img`, e um `img === null` deixa passar o vazio |
-| `default_image_base64` é um `data:` URI da MESMA imagem (o thumbnail `default`, 120×90), embutido | desenha sem internet — e **custa tamanho no que o aparelho guarda**. `online.js` o RECUSA quando há URL: o card não tem miniatura (o quadrado dele é a seta, v5.244) e a da faixa é ilustração |
+| `default_image_base64` é um `data:` URI da MESMA imagem (o thumbnail `default`, 120×90), embutido | desenha sem internet — e **custa tamanho em tudo o que for guardado**: um por vídeo multiplica um índice de mil itens por alguns kB cada. Quem consumir isto guarda a URL e recusa o embutido; e ele **nunca vem sozinho** (o `isset` que o preenche é o da MESMA URL), então não há recuo a escrever |
 | `playlist.channel_id` e `video.playlist_id` podem vir **`null`** (o ternário `$x->relation ? … : null` do controlador) | o vídeo órfão é caso REAL, não hipótese; a playlist sem canal fica sem subtítulo, mas não pode ser recusada |
 | `sequence` é a ordem dentro da playlist | pode FALTAR — e `Number(undefined)` é `NaN`, cujo comparador entrega a ordem ao motor |
 
