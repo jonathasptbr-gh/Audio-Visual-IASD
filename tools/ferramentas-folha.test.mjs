@@ -1471,26 +1471,36 @@ try {
   }
 
 
-  // ── L. MENSAGENS: O PARAR, E A GAVETA DE ESTILO (v1.9.1) ────────────────
+  // ── L. MENSAGENS: O PARAR DA LINHA, E A GAVETA DE ESTILO (v1.9.2) ───────
   //
-  // Pedido do operador: *"na seção de mensagens, remova o botão de projetar no
-  // telão. Atualmente o item selecionado fica vermelho, mas não tem um botão de
-  // stop. Adicione esse botão."* E, na mesma rodada: *"crie um botão na gaveta
-  // de opções da mensagem, que permite configurar o tamanho da fonte, a fonte e
-  // o alinhamento daquela mensagem."*
+  // Pedido do operador: *"o botão de stop, deve ser individual em cada item da
+  // lista de mensagens."* Ele nasceu no RODAPÉ (v1.9.1) e de lá respondia por "a
+  // mensagem no ar", que é UMA — na linha ele responde por ESTA, e o operador
+  // para o que está vendo sem procurar qual das linhas ficou vermelha. E, da
+  // mesma rodada anterior: *"crie um botão na gaveta de opções da mensagem, que
+  // permite configurar o tamanho da fonte, a fonte e o alinhamento daquela
+  // mensagem."*
   //
-  // O `boot-nativo` já afirma a FAIXA de Mensagens no repouso — que não há
-  // primário, que o PARAR é quadrado e que ele nasce apagado com o `title`
-  // dizendo por quê. O que falta é o CICLO, que é onde ele de fato serve: com
-  // uma mensagem no ar ele acende, tocá-lo tira do ar, e ele volta a apagar.
+  // O `boot-nativo` afirma a FAIXA de Mensagens no repouso — que não há
+  // primário, e que o único filho dela é o "+ Nova mensagem". O que falta é o
+  // CICLO do PARAR, que é onde ele de fato serve.
   //
   // O que falha calado aqui, e por isso cada metade tem asserção:
   //
-  //  - **o PARAR não acender.** `renderFoot` só roda de novo se alguém o
-  //    chamar: `projectMessage` chama `refreshDiversos`, e é essa linha —
-  //    invisível no diff de um lote futuro — que liga o botão. Sem ela a linha
-  //    fica vermelha e a faixa continua apagada, que é EXATAMENTE o estado que
-  //    o pedido do operador descreve como defeito.
+  //  - **o PARAR existir SÓ na linha no ar.** Desenhado apenas ali, a fileira
+  //    ganharia um botão a mais no instante em que o operador projeta, e os
+  //    outros quatro andariam sob o dedo que acabou de tocar num deles. Ele é
+  //    desenhado em TODAS e APAGADO fora da que está no ar — a regra da
+  //    v1.8.50, com o `title` dizendo por quê.
+  //  - **o PARAR não acender.** Quem redesenha a lista é `refreshDiversos`,
+  //    chamado de dentro do `projectMessage` — uma linha invisível no diff de
+  //    um lote futuro. Sem ela a linha fica vermelha e os cinco botões dela
+  //    continuam apagados, que é EXATAMENTE o estado que o pedido do operador
+  //    descreve como defeito.
+  //  - **o PARAR responder pela linha ERRADA.** Ele chama `hideMessage()`, que
+  //    tira do ar o que estiver no ar — o que é certo porque só o da linha ATIVA
+  //    responde ao toque. É a dupla "desenhado em todas · apagado fora da ativa"
+  //    que sustenta isso, e é por isso que as duas metades são medidas juntas.
   //  - **duas gavetas abertas.** `msgEstiloAberto` é a única coisa que impede
   //    isso, e num painel de várias mensagens duas gavetas abertas fazem o
   //    operador ajustar a linha errada.
@@ -1524,44 +1534,63 @@ try {
     await irPara('Mensagens');
 
     const olharMsg = () => pg.evaluate(() => {
-      const p = document.getElementById('msgPararBtn');
       const linhas = [...document.querySelectorAll('.msg-item')];
+      const pp = [...document.querySelectorAll('.msg-parar')];
       return {
-        apagado: p ? p.disabled : null,
-        titulo: p ? p.title : '',
-        ativas: linhas.filter((l) => l.classList.contains('active')).length,
+        linhas: linhas.length,
+        // UM POR LINHA, e DENTRO dela: um botão fora da própria linha responde
+        // por outra mensagem, e a contagem sozinha não vê isso.
+        parares: pp.length,
+        naLinha: pp.every((p, i) => !!linhas[i] && linhas[i].contains(p)),
+        apagados: pp.map((p) => p.disabled),
+        titulos: pp.map((p) => p.title),
+        ativas: linhas.map((l) => l.classList.contains('active')),
+        // E NADA SOBROU NO RODAPÉ: um controle em dois lugares é o par que
+        // diverge no primeiro ajuste (a mesma pergunta do bloco K).
+        noRodape: document.querySelectorAll('#msgPararBtn, .misc-foot .msg-parar').length,
         gavetas: document.querySelectorAll('.msg-estilo').length,
         noAr: msgProjecting(),
       };
     });
 
     const repouso = await olharMsg();
-    checar(repouso.apagado === true && repouso.ativas === 0,
-      'L · o ponto de partida: nada no ar, nenhuma linha vermelha, e o PARAR apagado',
+    checar(repouso.linhas === 2 && repouso.parares === 2 && repouso.naLinha
+      && repouso.noRodape === 0
+      && JSON.stringify(repouso.apagados) === JSON.stringify([true, true])
+      && JSON.stringify(repouso.ativas) === JSON.stringify([false, false])
+      && repouso.titulos.every((t) => /não está no telão/.test(t)),
+      'L · o ponto de partida: nada no ar, nenhuma linha vermelha, e o PARAR '
+      + 'DESENHADO nas DUAS linhas, apagado nas duas, com o `title` dizendo por quê. '
+      + 'Desenhá-lo só na linha ativa faria a fileira mudar de largura no instante em '
+      + 'que o operador projeta (a regra da v1.8.50 mais a da v1.8.61)',
       JSON.stringify(repouso));
 
     await pg.evaluate(() => document.querySelectorAll('.msg-item .msg-text')[0].click());
     const acendeu = await esperar(pg, () => {
-      const p = document.getElementById('msgPararBtn');
-      return !!p && p.disabled === false;
+      const pp = [...document.querySelectorAll('.msg-parar')];
+      return pp.length === 2 && pp[0].disabled === false;
     }, null, 4000);
     const noAr = await olharMsg();
-    checar(acendeu === true && noAr.ativas === 1 && /Tirar do telão/.test(noAr.titulo),
-      'L · projetada uma mensagem, o PARAR ACENDE — e é `refreshDiversos` dentro do '
-      + '`projectMessage` que redesenha a faixa. Sem essa linha a linha fica vermelha '
-      + 'e a faixa continua apagada, que é o defeito que o pedido do operador nomeia',
+    checar(acendeu === true
+      && JSON.stringify(noAr.ativas) === JSON.stringify([true, false])
+      && JSON.stringify(noAr.apagados) === JSON.stringify([false, true])
+      && /Tirar do telão/.test(noAr.titulos[0]),
+      'L · projetada a PRIMEIRA, só o PARAR DELA acende — e é `refreshDiversos` dentro '
+      + 'do `projectMessage` que redesenha a lista. Sem essa linha a linha fica '
+      + 'vermelha e os botões continuam apagados, que é o defeito que o pedido do '
+      + 'operador nomeia. O da vizinha segue apagado: ele responde por ESTA mensagem',
       porque(acendeu) || JSON.stringify(noAr));
 
-    await pg.evaluate(() => document.getElementById('msgPararBtn').click());
+    await pg.evaluate(() => document.querySelectorAll('.msg-parar')[0].click());
     const saiu = await esperar(pg, () => {
-      const p = document.getElementById('msgPararBtn');
-      return !!p && p.disabled === true && !document.querySelector('.msg-item.active');
+      const pp = [...document.querySelectorAll('.msg-parar')];
+      return pp.length === 2 && pp.every((p) => p.disabled) && !document.querySelector('.msg-item.active');
     }, null, 4000);
     const depois = await olharMsg();
-    checar(saiu === true && depois.noAr === false,
-      'L · e tocá-lo TIRA DO AR: a linha perde o vermelho e ele volta a apagar — o '
-      + 'ciclo fechado, que é o que a lista sozinha não dá quando a linha vermelha '
-      + 'está fora da vista', porque(saiu) || JSON.stringify(depois));
+    checar(saiu === true && depois.noAr === false && depois.parares === 2,
+      'L · e tocá-lo TIRA DO AR: a linha perde o vermelho e os dois voltam a apagar — '
+      + 'o ciclo fechado, e ele fecha SEM a fileira perder um botão',
+      porque(saiu) || JSON.stringify(depois));
 
     // ---- A GAVETA: UMA POR VEZ ----
     const g1 = await pg.evaluate(async () => {
@@ -1674,6 +1703,68 @@ try {
     checar(gravou.aOutra === null,
       'L · e o estilo é DE UMA MENSAGEM: a vizinha continua sem `estilo` nenhum',
       JSON.stringify(gravou.aOutra));
+
+    // ---- A FILEIRA QUEBRA ANTES DE ESMAGAR O TEXTO (v1.9.2) ----
+    //
+    // O PARAR virou o QUINTO botão da linha, e cinco alvos de `--hit` mais os
+    // vãos pedem ~210px. A MENSAGEM é o conteúdo da linha; os botões são o que
+    // se faz com ela — e num celular de 360px o conteúdo ficava com 83px, três
+    // ou quatro caracteres por linha num bloco de três.
+    //
+    // A CÉLULA É 360px, E ELA É A QUE DECIDE. Num tablet a linha CABE, e ali o
+    // desenho certo é não quebrar — medir só lá aprovaria o app com e sem o
+    // conserto. As duas larguras entram: a estreita prova a quebra, a larga
+    // prova que a base é um NÚMERO ESCOLHIDO (`flex: 1 1 12rem`) e não um
+    // `flex-basis: 100%`, que quebraria em toda tela.
+    //
+    // E A RÉGUA DO TEXTO É A LINHA, nunca um número de pixel: quebrada, a
+    // fileira desce inteira e o `.msg-text` fica com a largura de conteúdo do
+    // `.msg-item`. Afirmar "293px" seria medir a fonte da máquina.
+    const medirLinha = () => pg.evaluate(() => {
+      const row = document.querySelector('.msg-item');
+      const txt = row.querySelector('.msg-text');
+      const acoes = row.querySelector('.msg-acoes');
+      if (!txt || !acoes) return { faltando: [!txt && 'msg-text', !acoes && 'msg-acoes'].filter(Boolean) };
+      const cs = getComputedStyle(row);
+      const util = row.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const rt = txt.getBoundingClientRect();
+      const ra = acoes.getBoundingClientRect();
+      return {
+        quebrou: rt.bottom <= ra.top + 1,
+        texto: Math.round(rt.width),
+        util: Math.round(util),
+        acoes: Math.round(ra.width),
+        // OS CINCO NUM GRUPO, e não soltos na linha: soltos, o flex quebra um a
+        // um — três ao lado do texto e dois na linha de baixo.
+        filhos: [...row.children].map((e) => e.className),
+        nasAcoes: acoes.children.length,
+      };
+    });
+
+    await pg.setViewportSize({ width: 360, height: 780 });
+    await pg.waitForTimeout(250);
+    const estreita = await medirLinha();
+    checar(estreita.filhos && estreita.filhos.length === 2 && estreita.nasAcoes === 5,
+      'L · a linha tem DOIS filhos — o texto e o GRUPO dos cinco botões. Soltos, o '
+      + 'flex os quebra um a um, e o que sai é o bloco desalinhado que ninguém '
+      + 'desenhou', JSON.stringify(estreita));
+    checar(estreita.quebrou === true && estreita.texto === estreita.util
+      && estreita.util > 0,
+      'L · a 360px a fileira QUEBRA e o texto fica com a LINHA INTEIRA (' + estreita.texto
+      + 'px): com a base do texto em 8rem os cinco botões cabiam ao lado dele e a '
+      + 'mensagem — que é o conteúdo — ficava com 83px contra os ~210 deles',
+      JSON.stringify(estreita));
+
+    await pg.setViewportSize({ width: 900, height: 780 });
+    await pg.waitForTimeout(250);
+    const larga = await medirLinha();
+    checar(larga.quebrou === false && larga.texto < larga.util && larga.acoes > 0,
+      'L · e num tablet a linha NÃO quebra: a base de 12rem é um número ESCOLHIDO, não '
+      + 'um `flex-basis: 100%` — onde os cinco cabem ao lado do texto, quebrar seria '
+      + 'jogar fora meia linha de largura', JSON.stringify(larga));
+
+    await pg.setViewportSize({ width: 412, height: 892 });
+    await pg.waitForTimeout(200);
   }
 
   // ── M. SORTEIO: OS DOIS QUADRADOS, E AS DUAS COLUNAS (v1.9.1) ───────────
@@ -1840,8 +1931,10 @@ try {
         // E O SORTEADO ACIMA DAS DUAS, no fluxo e na geometria.
         acima: read.compareDocumentPosition(c) === Node.DOCUMENT_POSITION_FOLLOWING
           && rr.bottom <= rc.top + 1,
-        // A LEGENDA fica na esquerda, com o resto do que tem tamanho previsível.
-        legendaNaEsquerda: !!esq.querySelector('.misc-row--legenda'),
+        // A LEGENDA SAIU DAS COLUNAS (v1.9.2): ela é o último filho do PAINEL, e
+        // é isso — não uma âncora — que a cola na base. Dentro da coluna da
+        // esquerda ela subia junto com o conteúdo dela.
+        legendaNasColunas: !!c.querySelector('.misc-row--legenda'),
         // A da direita ESTICA: é ela que ocupa o que sobra.
         esticou: Math.round(ta.getBoundingClientRect().height)
           >= Math.round(dir.getBoundingClientRect().height) - 2,
@@ -1850,9 +1943,10 @@ try {
     checar(cols.duas && cols.naDireita,
       'M · no modo TEXTO o corpo é de DUAS colunas, com o `<textarea>` das opções na '
       + 'DIREITA', JSON.stringify(cols));
-    checar(cols.acima && cols.legendaNaEsquerda,
+    checar(cols.acima && cols.legendaNasColunas === false,
       'M · e o SORTEADO fica ACIMA das duas (no fluxo e na geometria), com a legenda '
-      + 'na coluna da esquerda, junto do que tem tamanho previsível',
+      + 'FORA delas — desde a v1.9.2 ela é o último filho do painel, e é por isso que '
+      + 'ela encosta na base em vez de subir com o conteúdo da coluna',
       JSON.stringify(cols));
     checar(cols.esticou,
       'M · e a caixa de opções é quem ESTICA: ela cresce com a lista que se digita, '
@@ -1870,6 +1964,173 @@ try {
     checar(numero.cols === false && numero.faixa === true,
       'M · e no modo NÚMERO não há duas colunas: a fonte das opções são dois campos '
       + 'curtos, e uma segunda coluna ali seria uma coluna vazia', JSON.stringify(numero));
+
+    // ---- O CORPO OCUPA A ALTURA, A LEGENDA ENCOSTA NA BASE (v1.9.2) ----
+    //
+    // Relato do operador: *"parece ter uma margem ou zona que está segurando
+    // todos os elementos de ocuparem a altura correta"* e *"faça a caixa de
+    // texto da legenda ficar colada na base, logo acima dos botões de projetar
+    // no telão"*. Não era margem: o painel MEDIA o conteúdo em vez de reparti-lo,
+    // e sobrava um vão morto embaixo com a caixa de opções pequena no meio de
+    // uma janela vazia.
+    //
+    // A RÉGUA É A DISTÂNCIA DA BASE DA LEGENDA À BASE DO PAINEL, e ela tem de
+    // ser o `padding` do painel e mais nada. O recuo é LIDO do layout, nunca
+    // transcrito — um número escrito aqui é a medida da fonte da máquina, e
+    // erra calado no dia em que o token mudar.
+    //
+    // A CÉLULA TEM DE TER SOBRA, E ELA FOI ESCOLHIDA POR MEDIÇÃO. A promessa é
+    // *"o corpo ocupa a SOBRA"*, e ela só diz alguma coisa onde há sobra: numa
+    // janela em que o conteúdo natural já passa da altura do painel, os filhos
+    // ENCOLHEM (o padrão de um item flex é `flex-shrink: 1`) e a legenda pousa
+    // na base sozinha — a asserção passa com e sem o conserto. MEDIDO com o
+    // layout da v1.9.1 no lugar, o vão em modo NÚMERO:
+    //
+    //   | tela      | vão pré-lote |
+    //   |-----------|--------------|
+    //   | 360×740   |  **6,4** (= o recuo: TAUTOLOGIA, o conteúdo já enchia) |
+    //   | 412×892   |  127,4       |
+    //   | 360×900   |  163,4       |
+    //   | 412×1200  |  447,9       |
+    //
+    // Daí ela ficar nos 412×892 do arquivo, que é onde o vão morto de 127px
+    // aparece. O `scrollHeight === clientHeight` entra como PREMISSA junto:
+    // sobre um painel TRANSBORDADO a régua devolve número negativo numa tela
+    // certa, e foi assim que a primeira escrita deste bloco reprovou o app.
+    //
+    // E NOS DOIS MODOS, porque eles falham DIFERENTE: no Número a legenda já
+    // era o último filho do painel e o que muda é o vão; no Texto ela morava
+    // DENTRO da coluna da esquerda, e ali a premissa é que reprova. Medir só um
+    // deles deixa de fora exatamente a metade que o outro nomeia.
+    const medirBase = (modo) => pg.evaluate(async (m) => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      draw.pool = ['Maria', 'João', 'Ana']; draw.used = ['Maria']; draw.value = 'Maria';
+      draw.kind = m === 'Texto' ? 'text' : 'number';
+      // `refreshDiversos` E NÃO `renderDiversos`: o segundo APENSA um painel ao
+      // corpo em vez de trocá-lo, e dois painéis dividindo a mesma caixa ficam
+      // com metade da altura cada um — a régua passaria a medir o empilhamento
+      // do oráculo, não o layout do app. MEDIDO: 238px de painel contra 94.
+      refreshDiversos(); await z(300);
+      const painel = document.querySelector('.misc-panel--draw');
+      const corpo = painel && painel.querySelector('.draw-corpo');
+      const leg = painel && painel.querySelector(':scope > .misc-row--legenda');
+      if (!painel || !corpo || !leg) {
+        return { faltando: [!painel && 'misc-panel--draw', !corpo && 'draw-corpo', !leg && 'legenda'].filter(Boolean) };
+      }
+      const pb = painel.getBoundingClientRect();
+      const cs = getComputedStyle(painel);
+      return {
+        paineis: document.querySelectorAll('.misc-panel--draw').length,
+        rola: painel.scrollHeight - painel.clientHeight,
+        ultimo: painel.lastElementChild === leg,
+        vao: +(pb.bottom - leg.getBoundingClientRect().bottom).toFixed(1),
+        recuo: +parseFloat(cs.paddingBottom).toFixed(1),
+        altura: Math.round(pb.height),
+        corpo: Math.round(corpo.getBoundingClientRect().height),
+      };
+    }, modo);
+
+    for (const modo of ['Número', 'Texto']) {
+      const b = await medirBase(modo);
+      checar(b.paineis === 1 && b.rola === 0 && b.ultimo === true
+        && b.altura > b.corpo && b.corpo > 0,
+        'M · a premissa do modo ' + modo + ': UM painel, ele CABE (rolagem zero) e a '
+        + 'legenda é o último filho dele, com um corpo de altura real acima. Sobre um '
+        + 'painel transbordado a régua abaixo devolve número negativo numa tela certa',
+        JSON.stringify(b));
+      checar(Math.abs(b.vao - b.recuo) <= 0.5,
+        'M · e a base da legenda fica a EXATAMENTE o `padding` do painel (' + b.vao
+        + 'px contra ' + b.recuo + ') no modo ' + modo + ': é o `.draw-corpo` que ocupa '
+        + 'a sobra, e sem ele o painel MEDE o conteúdo e deixa um vão morto embaixo. O '
+        + 'recuo é lido do layout, não transcrito', JSON.stringify(b));
+    }
+
+    // ---- AS DUAS CAIXAS ROLAM POR DENTRO (v1.9.2) ----
+    //
+    // Pedido do operador: *"faça ela ter um scroll só nela, e não na tela
+    // toda"* e *"o mesmo para a seção de itens já sorteados, se ficou grande
+    // demais, ele deve ficar dentro de um scroll individual"*.
+    //
+    // A TERCEIRA METADE É A QUE DÁ SENTIDO ÀS DUAS: **o painel NÃO ganha
+    // rolagem**. Duas caixas que rolam por dentro de uma janela que também rola
+    // é o gesto que não se sabe para quem vai — e a tela medida é a mesma em
+    // que o painel cabe, senão a asserção mediria a janela punitiva em vez do
+    // conserto.
+    const dentro = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      draw.kind = 'text';
+      draw.pool = Array.from({ length: 60 }, (_, i) => 'Opção ' + (i + 1));
+      draw.used = Array.from({ length: 40 }, (_, i) => 'Nome ' + (i + 1));
+      draw.value = 'Nome 40';
+      refreshDiversos(); await z(300);
+      const painel = document.querySelector('.misc-panel--draw');
+      const pool = document.querySelector('textarea.draw-pool');
+      const hist = document.querySelector('.draw-hist');
+      if (!painel || !pool || !hist) {
+        return { faltando: [!painel && 'painel', !pool && 'draw-pool', !hist && 'draw-hist'].filter(Boolean) };
+      }
+      const sobra = (el) => el.scrollHeight - el.clientHeight;
+      return {
+        pool: sobra(pool), hist: sobra(hist), painel: sobra(painel),
+        histRola: /auto|scroll/.test(getComputedStyle(hist).overflowY),
+        poolRola: /auto|scroll/.test(getComputedStyle(pool).overflowY),
+        // O HISTÓRICO QUEBRA EM LINHAS: era uma fileira que rolava de lado, e
+        // numa coluna de ~160px uma rifa de vinte nomes virava um trilho.
+        histLinhas: getComputedStyle(hist).flexWrap,
+        histDeLado: hist.scrollWidth - hist.clientWidth,
+      };
+    });
+    checar(dentro.pool > 2 && dentro.hist > 2 && dentro.poolRola && dentro.histRola,
+      'M · com conteúdo demais as DUAS caixas rolam POR DENTRO — a lista de opções e '
+      + 'os já sorteados, cada uma no próprio scroll', JSON.stringify(dentro));
+    checar(dentro.painel <= 2,
+      'M · e o PAINEL não ganha rolagem nenhuma nessa tela: um scroller dentro de '
+      + 'outro é o gesto que não se sabe para quem vai', JSON.stringify(dentro));
+    checar(dentro.histLinhas === 'wrap' && dentro.histDeLado <= 2,
+      'M · e os já sorteados QUEBRAM em linhas em vez de rolar de lado: na coluna da '
+      + 'esquerda, de ~160px, uma rifa de vinte nomes virava um trilho que se percorre '
+      + 'de dedo', JSON.stringify(dentro));
+
+    // ---- E NA JANELA QUE NÃO CABE ELE ROLA, NUNCA RECORTA ----
+    //
+    // É a metade que impede alguém de "consertar" as asserções acima com um
+    // `overflow: hidden` no painel: com o piso das duas caixas somando mais que
+    // a janela, quem cede é o painel — e ceder quer dizer ROLAR. A escolha é a
+    // mesma, escrita e medida, do `.misc-panel--chrono` na v1.8.92: *"rolar é o
+    // desfecho honesto de uma janela que não cabe; recortar é a versão calada
+    // do mesmo problema"*. Recortado, o que some é o campo de legenda —
+    // inalcançável, e sem nada dizendo por quê.
+    //
+    // A CÉLULA É 360×740 COM A RAIZ EM 1,25×, e ela foi MEDIDA: nos 412×892 dos
+    // blocos acima o painel não rola um pixel nessa mesma escala (0 contra 74),
+    // e afirmar "não recorta" ali passaria com e sem `hidden`.
+    await pg.setViewportSize({ width: 360, height: 740 });
+    await pg.waitForTimeout(200);
+    const punitiva = await pg.evaluate(async (e) => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      document.documentElement.style.fontSize = (16 * e) + 'px';
+      refreshDiversos(); await z(300);
+      const painel = document.querySelector('.misc-panel--draw');
+      const cs = getComputedStyle(painel);
+      return {
+        rola: painel.scrollHeight - painel.clientHeight,
+        oy: cs.overflowY,
+        altura: Math.round(painel.getBoundingClientRect().height),
+      };
+    }, 1.25);
+    checar(punitiva.rola > 2 && punitiva.oy !== 'hidden' && punitiva.oy !== 'clip',
+      'M · e a 360px com a raiz em 1,25× o painel do Sorteio ROLA em vez de RECORTAR ('
+      + punitiva.rola + 'px de sobra, `overflow-y: ' + punitiva.oy + '`) — a mesma '
+      + 'escolha do painel do Tempo na v1.8.92. Com `hidden` o que some é o campo de '
+      + 'legenda, inalcançável e sem nada dizendo por quê', JSON.stringify(punitiva));
+    await pg.evaluate(async () => {
+      document.documentElement.style.fontSize = '';
+      draw.pool = ['Maria', 'João', 'Ana']; draw.used = []; draw.value = null;
+      refreshDiversos();
+      await new Promise((f) => setTimeout(f, 250));
+    });
+    await pg.setViewportSize({ width: 412, height: 892 });
+    await pg.waitForTimeout(200);
 
     // ---- AS DUAS COLUNAS NÃO GANHAM UM EIXO HORIZONTAL ----
     //
@@ -1948,9 +2209,12 @@ try {
   // tirar o `<span>` tira junto o rótulo do campo, e um `<input>` sem nome é
   // anunciado como "caixa de edição" e mais nada.
   //
-  // E A IDENTIFICAÇÃO VEM NO COMEÇO do marcador, porque é o FIM dele que o campo
-  // estreito corta — na coluna da esquerda do Sorteio sobra "Legenda
-  // (opcional)", que é justamente a metade que não pode faltar.
+  // E O MARCADOR É SÓ "Legenda (opcional)" DESDE A v1.9.2, nos dois provedores:
+  // o exemplo de cada ferramenta ("ex: Início do culto", "ex: Sorteio dos
+  // visitantes") era a metade que o campo estreito cortava de qualquer jeito —
+  // escrevê-lo custava a leitura de todo mundo para servir ninguém. A asserção
+  // é de IGUALDADE EXATA, e nos dois: um `startsWith` aprovaria o exemplo de
+  // volta, que é justamente o que saiu.
   {
     const irPara = (nome) => pg.evaluate(async (n) => {
       abrirFerramentas();
@@ -1984,19 +2248,21 @@ try {
       checar(r.rotuloFora === 0 && r.filhos === 1,
         'N · a legenda do ' + onde + ' não tem rótulo FORA da caixa — a linha tem um '
         + 'filho só', JSON.stringify(r));
-      checar(/^Legenda \(opcional\) — /.test(r.marcador || ''),
-        'N · e a identificação vem NO COMEÇO do marcador, porque é o fim dele que o '
-        + 'campo estreito corta: sobra "Legenda (opcional)", a metade que não pode '
-        + 'faltar (' + onde + ')', JSON.stringify(r.marcador));
+      checar(r.marcador === 'Legenda (opcional)',
+        'N · e o marcador é EXATAMENTE "Legenda (opcional)" (' + onde + '), sem o '
+        + 'exemplo: ele era o fim da frase, que é o que o campo estreito corta — '
+        + 'leitura cobrada de todo mundo para servir ninguém. A igualdade é exata '
+        + 'porque um `startsWith` aprovaria o exemplo de volta',
+        JSON.stringify(r.marcador));
       checar(!!r.nome && r.teclado === 'sobrepoe',
         'N · e o `aria-label` devolve o nome que o `<span>` dava, com o teclado '
         + 'SOBREPONDO como antes (' + onde + ')', JSON.stringify(r));
     }
-    checar(lt.marcador !== ls.marcador,
-      'N · e o exemplo é de cada ferramenta: o campo é UM (`campoDeLegenda`), o que '
-      + 'muda é o que ele sugere — duas cópias divergiriam no primeiro ajuste, e '
-      + 'aqui "ajuste" é literalmente o texto que o operador lê',
-      JSON.stringify([lt.marcador, ls.marcador]));
+    checar(lt.marcador === ls.marcador,
+      'N · e os DOIS provedores dizem a MESMA coisa: o campo é UM (`campoDeLegenda`) e '
+      + 'desde a v1.9.2 ele não recebe mais o exemplo de cada ferramenta — o parâmetro '
+      + 'saiu, então não há a metade que se conserta num provedor e se esquece no '
+      + 'outro', JSON.stringify([lt.marcador, ls.marcador]));
   }
 
   // ── O. O RÓTULO DO PRIMÁRIO NÃO TRANSBORDA A CAIXA (v1.9.1) ─────────────

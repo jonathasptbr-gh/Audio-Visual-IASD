@@ -8115,6 +8115,15 @@ const MISC_TOOLS = [
   { id: 'draw', name: 'Sorteio', wrap: 'drawWrap', render: () => renderDraw(), live: () => drawProjecting() },
 ];
 
+/**
+ * **ELE APENSA, NÃO TROCA** — quem esvazia o `#toolsBody` é o CHAMADOR
+ * (`abrirFerramentas`, `refreshDiversos` e o toque no seletor, os três com o
+ * `innerHTML = ''` antes). A pilha que sai de chamá-lo duas vezes não erra alto:
+ * o segundo painel ENTRA embaixo do primeiro, os dois dividem a altura da folha,
+ * e o que se vê é um painel espremido — foi assim que uma medição de oráculo
+ * leu 94px onde havia 238 e concluiu que o layout estava errado. Precisa de um
+ * redesenho? Chame o `refreshDiversos`.
+ */
 function renderDiversos() {
   // Só a ferramenta ATIVA é montada, e é o render dela que religa o seu timer.
   // As outras não existem no DOM — nenhum laço batendo em nó invisível.
