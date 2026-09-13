@@ -2749,9 +2749,29 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.8.100 · APK v1.8.91** · `SHELL_VERSION` **72** ·
-bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**: todo
-método da ponte existe, e não há guarda de versão no lado web.
+**Versão atual: base web v1.9 · APK v1.9** · `SHELL_VERSION` **72** ·
+bundle com `minShell: 72` e **COM `shellTag: "v1.9"`** — o shell 72 é o **PISO**:
+todo método da ponte existe, e não há guarda de versão no lado web.
+
+> **A v1.9 DECLARA `shellTag`, e é o primeiro lote desde a v1.8.91 a pedir
+> Release** — a pedido do operador: *"atualize a versão para a 1.9, disparando
+> também uma release de 1.9 também"*. **O APK não carrega Kotlin novo**, e isso
+> está conferido: `git diff v1.8.91..HEAD` em `java/`, `res/`, no manifesto e no
+> `build.gradle.kts` volta VAZIO. Ela é uma renumeração do `versionName`, e vale
+> pelo que ele pediu — a frota deixa de mostrar um APK v1.8.91 embaixo de uma
+> base v1.9 —, não por um conserto de shell que não existe.
+>
+> **O DEGRAU CONTRARIA A RÉGUA DA TABELA, e é decisão de quem PUBLICA.**
+> INCREMENTAL é *"uma seção inteiramente nova do app"*, e os lotes que este
+> número fecha não criaram lugar nenhum: reconstruíram o mostrador do Tempo, a
+> folha da playlist automática, e tiraram o microfone ao vivo. O que o degrau
+> reconhece é o ACÚMULO. A régua continua valendo para os próximos.
+>
+> **E `1.9` É UM NÚMERO DE DOIS COMPONENTES**, com a armadilha que este arquivo
+> mede desde a v1.1: `1.9` e `1.9.0` são a MESMA versão para o `compareVersions`,
+> que completa com zero o que falta — republicar a `1.9` como `1.9.0` não é
+> atualização nenhuma, e o aparelho a ignora em silêncio. **O primeiro degrau
+> depois deste é o `1.9.1`.**
 
 > **A v1.8.99 REMOVE a coletânea de vídeos do LouvorJA, que a v1.8.97 tinha
 > acrescentado — e a razão é do operador, não técnica:** *"Eu achava que seria
