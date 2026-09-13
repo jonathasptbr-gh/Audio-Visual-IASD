@@ -122,14 +122,6 @@
     // biblioteca para outro aparelho, descoberto por quem estava justamente
     // trocando de celular.
     if (!global.AVPacote) return false;
-    // `AVOnline` fecha a lista, e o caso dele é o do `AVColetanea`: a regra é
-    // lida DENTRO do `fetchOnlineCatalog` e do `renderCollectionsListMiolo`,
-    // então um erro de topo em `online.js` não aborta nada visível — a
-    // Biblioteca desenha tudo o mais, a coletânea de vídeos simplesmente não
-    // aparece (o `onlineDisponivel()` responde `false`, que é o desfecho
-    // CORRETO para um navegador e indistinguível dele aqui), e o bundle seria
-    // carimbado como bom para sempre.
-    if (!global.AVOnline) return false;
     if (typeof global.__avBack !== 'function') return false;
     return !!document.querySelector('#playlist > li');
   }

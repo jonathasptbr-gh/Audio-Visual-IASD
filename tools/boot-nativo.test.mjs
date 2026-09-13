@@ -837,11 +837,11 @@ try {
   // de uma queda de rede — o operador tenta de novo, falha de novo, e conclui
   // que o app quebrou justamente no item que ele acabou de ver aparecer.
   //
-  // E O RELÓGIO É FIXADO, como no bloco do corte acima. `videoComoYoutube`
+  // E O RELÓGIO É FIXADO, como no bloco do corte acima. `serieComoYoutube`
   // chama `AVSerie.diasAte` SEM o terceiro argumento (o `hoje`), e o ano da
   // série é 2026 no catálogo: contra o relógio do runner, o "futuro" de 31/Dez
   // vale ZERO em 31/12/2026 e é PASSADO de 2027 em diante. Sem `dias > 0`,
-  // `videoComoYoutube` não anexa nem `avisoSeFalhar` nem `avisoOnde`, então
+  // `serieComoYoutube` não anexa nem `avisoSeFalhar` nem `avisoOnde`, então
   // as TRÊS asserções que leem `comFuturo` passariam a reprovar sozinhas, sem
   // ninguém ter mexido em nada — e sob portão isso fecharia o canal OTA no meio
   // das festas. (A quarta cobra a AUSÊNCIA da frase e continuaria passando, que
@@ -867,9 +867,9 @@ try {
       const passado = Object.assign({}, songs[0], { serieData: { dia: 1, mes: 1 } });
       const futuro = Object.assign({}, songs[0], { serieData: { dia: 31, mes: 12 } });
       return {
-        comFuturo: videoComoYoutube(c, futuro),
-        comPassado: videoComoYoutube(c, passado),
-        semData: videoComoYoutube(c, Object.assign({}, songs[0], { serieData: null })),
+        comFuturo: serieComoYoutube(c, futuro),
+        comPassado: serieComoYoutube(c, passado),
+        semData: serieComoYoutube(c, Object.assign({}, songs[0], { serieData: null })),
       };
     } finally { window.Date = Real; }
   });
