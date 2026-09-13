@@ -6784,10 +6784,24 @@ main {
    recebe a altura do irmão de rótulo — a regra da v1.8.57. Aqui as duas colunas
    SÃO blocos, e a igualdade é o desenho.)
 
-   `min-width: 0` nas duas: o padrão de um item flex é `min-width: auto`, e um
-   `<textarea>` mede ~200px de largura intrínseca — sem a linha, a 360px as duas
-   colunas somam mais que a tela e a aba ganha rolagem HORIZONTAL. É o mesmo
-   vazamento que o `.draw-range-field` já documenta. */
+   `min-width: 0` nas duas — o padrão de um item flex é `min-width: auto`, o
+   tamanho mínimo AUTOMÁTICO, e sem a linha as duas colunas somam mais que a
+   tela. **E QUEM ESTOURA É A COLUNA DA ESQUERDA, não o `<textarea>`**: ele tem
+   `width: 100%` e é o ESMAGADO; o mínimo intrínseco da esquerda é o do
+   `<input>` da legenda — MEDIDO, 198px a 1×, 247 a 1,25× e 296 a 1,5×.
+   Transbordo do painel com a linha removida:
+
+   | largura | 1× | 1,25× | 1,5× | 2× |
+   |---|---|---|---|---|
+   | 320px | 0 | 21 | 89 | 232 |
+   | **360px** | 0 | 0 | **49** | 192 |
+   | 390px | 0 | 0 | 19 | 162 |
+   | 412px | 0 | 0 | 0 | 140 |
+
+   A célula que decide é 360×1,5×; a 360×1× ela passa com e sem a linha, e a
+   360×1,25× a coluna de opções cai para 43px SEM rolagem nenhuma que denuncie —
+   uma reversão medida ali aprovaria a remoção. É o mesmo vazamento de flexbox
+   que o `.draw-range-field` já documenta nesta aba, pela outra ponta. */
 .draw-cols { display: flex; gap: var(--sp-4); }
 .draw-col {
   flex: 1; min-width: 0;

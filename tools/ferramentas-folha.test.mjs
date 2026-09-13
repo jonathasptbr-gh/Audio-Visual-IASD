@@ -47,7 +47,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas, esperar, porque } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const servidor = servirEstatico(RAIZ);
@@ -1631,7 +1631,10 @@ try {
 
     // ---- ESCOLHER GRAVA, E SOBREVIVE AO REDESENHO ----
     const gravou = await pg.evaluate(async () => {
-      document.querySelectorAll('.msg-estilo-btn')[1].click();   // reabre a da 2ª
+      // GARANTE ABERTA, sem TOGGLE: o botão é um alternador, e um clique sobre a
+      // gaveta que já está aberta a FECHA — foi assim que a primeira escrita
+      // deste bloco morreu num `undefined`.
+      if (msgEstiloAberto !== messages[1].id) document.querySelectorAll('.msg-estilo-btn')[1].click();
       await new Promise((f) => setTimeout(f, 80));
       const linha = [...document.querySelectorAll('.msg-estilo-linha')]
         .find((l) => l.textContent.trim().startsWith('Tamanho'));
@@ -1732,6 +1735,11 @@ try {
       const rst = document.getElementById('drawResetBtn');
       const esq = document.querySelector('.misc-foot-esq');
       const painel = document.querySelector('.misc-panel');
+      // FALTANDO É UM VEREDITO, NÃO UMA EXCEÇÃO. Sem esta saída, o reiniciar que
+      // volte a só existir com histórico (a peça que aparece e some) derruba o
+      // `evaluate` num `TypeError` — o arquivo inteiro morre e o log não diz qual
+      // asserção estava em jogo. MEDIDO por reversão: era assim que ela reprovava.
+      if (!go || !rst || !esq) return { faltando: [!go && 'drawGoBtn', !rst && 'drawResetBtn', !esq && 'misc-foot-esq'].filter(Boolean) };
       const cx = (b) => { const r = b.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; };
       return {
         temGo: !!go, temRst: !!rst,
@@ -1851,8 +1859,8 @@ try {
       + 'e o painel não rola — quem cede é o resto', JSON.stringify(cols));
 
     const numero = await pg.evaluate(async () => {
-      [...document.querySelectorAll('#drawWrap .misc-chip')]
-        .find((b) => b.textContent.trim() === 'Números').click();
+      [...document.querySelectorAll('#drawWrap .misc-seg')]
+        .find((b) => b.textContent.trim() === 'Número').click();
       await new Promise((f) => setTimeout(f, 200));
       return {
         cols: !!document.querySelector('.draw-cols'),
@@ -1863,32 +1871,68 @@ try {
       'M · e no modo NÚMERO não há duas colunas: a fonte das opções são dois campos '
       + 'curtos, e uma segunda coluna ali seria uma coluna vazia', JSON.stringify(numero));
 
-    // ---- NENHUMA ROLAGEM HORIZONTAL A 360px ----
-    const estreito = await (async () => {
-      await pg.setViewportSize({ width: 360, height: 780 });
-      return pg.evaluate(async () => {
-        [...document.querySelectorAll('#drawWrap .misc-chip')]
-          .find((b) => b.textContent.trim() === 'Texto').click();
-        await new Promise((f) => setTimeout(f, 250));
-        const painel = document.querySelector('.misc-panel');
-        const corpo = document.getElementById('toolsBody');
-        const de = document.documentElement;
-        return {
-          painel: painel.scrollWidth - painel.clientWidth,
-          corpo: corpo.scrollWidth - corpo.clientWidth,
-          pagina: de.scrollWidth - de.clientWidth,
-          // A PROVA DE QUE O CENÁRIO É O CERTO: as duas colunas estão na tela.
-          duas: document.querySelectorAll('.draw-col').length,
-        };
-      });
-    })();
-    checar(estreito.duas === 2 && estreito.painel <= 0 && estreito.corpo <= 0
-      && estreito.pagina <= 0,
-      'M · e a 360px NADA ROLA DE LADO: um `<textarea>` mede ~200px de largura '
-      + 'intrínseca e um item flex nasce com `min-width: auto` — sem zerá-lo nas duas '
-      + 'colunas, elas somam mais que a tela e a aba ganha um eixo horizontal',
-      JSON.stringify(estreito));
+    // ---- AS DUAS COLUNAS NÃO GANHAM UM EIXO HORIZONTAL ----
+    //
+    // A CÉLULA É MEDIDA, E NÃO ESCOLHIDA POR BOM SENSO. `min-width: 0` nas duas
+    // colunas parece "o vazamento clássico de flexbox" e a primeira escrita
+    // deste bloco o afirmou a 360px × 1×, onde ele passa COM e SEM a linha —
+    // tautologia. MEDIDO, o transbordo do painel sem a linha:
+    //
+    //   | largura | ×1 | ×1,25 | ×1,5 | ×2  |
+    //   |---------|----|-------|------|-----|
+    //   | 320px   |  0 |    21 |   89 | 232 |
+    //   | 360px   |  0 |     0 |   49 | 192 |
+    //   | 390px   |  0 |     0 |   19 | 162 |
+    //   | 412px   |  0 |     0 |    0 | 140 |
+    //
+    // E o que ESTOURA não é o `<textarea>`: ele tem `width: 100%` e é o
+    // ESMAGADO. Quem cresce é a coluna da ESQUERDA, cuja largura mínima
+    // intrínseca é a do `<input>` da legenda — 198px a ×1, 247 a ×1,25, 296 a
+    // ×1,5 — e ela empurra a de opções para 43px a 360×1,25, SEM rolagem
+    // nenhuma que denuncie. Daí as DUAS asserções: a que mede a rolagem na
+    // célula em que ela existe, e a que mede a IGUALDADE das colunas na célula
+    // em que a quebra é muda.
+    const trocarParaTexto = () => pg.evaluate(async () => {
+      const b = [...document.querySelectorAll('#drawWrap .misc-seg')]
+        .find((x) => x.textContent.trim() === 'Texto');
+      if (b && !b.classList.contains('active')) b.click();
+      await new Promise((f) => setTimeout(f, 250));
+    });
+    const medirLargo = (escala) => pg.evaluate(async (e) => {
+      document.documentElement.style.fontSize = (16 * e) + 'px';
+      await new Promise((f) => setTimeout(f, 200));
+      const painel = document.querySelector('.misc-panel');
+      const corpo = document.getElementById('toolsBody');
+      const cols = document.querySelector('.draw-cols');
+      const col = [...document.querySelectorAll('.draw-col')];
+      return {
+        painel: painel.scrollWidth - painel.clientWidth,
+        corpo: corpo.scrollWidth - corpo.clientWidth,
+        cols: cols ? cols.scrollWidth - cols.clientWidth : -1,
+        // A PROVA DE QUE O CENÁRIO É O CERTO: as duas colunas estão na tela.
+        duas: col.length,
+        larguras: col.map((c) => Math.round(c.getBoundingClientRect().width)),
+      };
+    }, escala);
+
+    await pg.setViewportSize({ width: 360, height: 780 });
+    await trocarParaTexto();
+    const largo = await medirLargo(1.5);
+    checar(largo.duas === 2 && largo.painel <= 0 && largo.corpo <= 0 && largo.cols <= 0,
+      'M · a 360px com a raiz em 1,5× NADA ROLA DE LADO: um item flex nasce com '
+      + '`min-width: auto`, e a coluna da esquerda leva um `<input>` de ~296px de '
+      + 'largura mínima nessa escala — sem zerar o mínimo nas duas, elas somam mais '
+      + 'que a tela (49px MEDIDOS) e a aba ganha um eixo que ela não tem',
+      JSON.stringify(largo));
+    const meio = await medirLargo(1.25);
+    checar(meio.larguras.length === 2 && Math.abs(meio.larguras[0] - meio.larguras[1]) <= 1,
+      'M · e a 360px × 1,25× as duas colunas continuam IGUAIS (`flex: 1` sobre um '
+      + 'mínimo zerado): nessa célula não há rolagem que denuncie nada, e sem a linha '
+      + 'a caixa de opções — que é a coluna que deveria ESTICAR — cai para 43px contra '
+      + '247px da vizinha', JSON.stringify(meio));
+    await pg.evaluate(() => { document.documentElement.style.fontSize = ''; });
     await pg.setViewportSize({ width: 412, height: 892 });
+    await pg.waitForTimeout(150);
   }
 
   // ── N. AS DUAS LEGENDAS SE IDENTIFICAM POR DENTRO (v1.9.1) ──────────────
@@ -1953,6 +1997,85 @@ try {
       + 'muda é o que ele sugere — duas cópias divergiriam no primeiro ajuste, e '
       + 'aqui "ajuste" é literalmente o texto que o operador lê',
       JSON.stringify([lt.marcador, ls.marcador]));
+  }
+
+  // ── O. O RÓTULO DO PRIMÁRIO NÃO TRANSBORDA A CAIXA (v1.9.1) ─────────────
+  //
+  // `.misc-project` tinha um degrau FIXO (`--fs-xl`), e a faixa passou a ter
+  // CINCO filhos: dois quadrados à esquerda, o primário e os dois destinos. O
+  // primário fica com o que SOBRA da largura, enquanto "Projetar no telão"
+  // cresce com a raiz do sistema — e a caixa dele tem altura fixa
+  // (`--quad-faixa`) e NENHUM `overflow: hidden` que denuncie o estouro. O que
+  // sai por baixo do botão é a terceira linha do rótulo, à vista e sem clipe.
+  //
+  // O defeito é ANTERIOR ao lote (o Tempo ganhou os dois quadrados na v1.8.94) e
+  // entra aqui porque a v1.9.1 dá ao Sorteio a MESMA faixa — de uma ferramenta
+  // afetada para duas.
+  //
+  // A CÉLULA É ESCOLHIDA, NÃO ARBITRÁRIA: a 360×1× e a 430×1× o rótulo já cabia,
+  // então essas duas passam com e sem o conserto — medi-las seria tautologia. A
+  // que decide é **360px com a raiz em 1,25×**, e ali o transbordo medido antes
+  // do conserto era de 26px sobre uma caixa de 48.
+  //
+  // E A ALTURA ÚNICA VAI NA MESMA CÉLULA (a regra da v1.8.61): é ela que o
+  // estouro estava prestes a quebrar, e afirmá-la só na largura confortável
+  // deixaria de fora exatamente o estado em que ela corre risco.
+  {
+    const irPara = (nome) => pg.evaluate(async (n) => {
+      abrirFerramentas();
+      await new Promise((f) => setTimeout(f, 120));
+      const t = [...document.querySelectorAll('.misc-tab')].find((b) => b.textContent.trim() === n);
+      if (t) t.click();
+      await new Promise((f) => setTimeout(f, 150));
+    }, nome);
+
+    await pg.setViewportSize({ width: 360, height: 780 });
+    // A ESCALA DO SISTEMA, no idioma dos outros oráculos daqui: a raiz em px.
+    await pg.evaluate((e) => { document.documentElement.style.fontSize = (16 * e) + 'px'; }, 1.25);
+    await pg.waitForTimeout(250);
+
+    for (const onde of ['Tempo', 'Sorteio']) {
+      await irPara(onde);
+      const m = await pg.evaluate(async () => {
+        // O Tempo precisa estar no CRONÔMETRO: no Relógio a célula da esquerda
+        // leva os dois seletores, e é o par de quadrados que faz o primário
+        // ficar com o resto.
+        if (miscTool === 'chrono') { chronoSetMode('stopwatch'); renderChronoEControles(); }
+        if (miscTool === 'draw') { draw.kind = 'text'; draw.pool = ['Maria', 'João']; renderDiversos(); }
+        await new Promise((f) => setTimeout(f, 200));
+        const p = document.getElementById('miscProjectBtn');
+        const faixa = document.querySelector('.misc-foot');
+        if (!p || !faixa) return { faltando: !p ? 'miscProjectBtn' : 'misc-foot' };
+        const cx = p.getBoundingClientRect();
+        return {
+          // O TRANSBORDO: o conteúdo pede mais altura do que a caixa tem. Sem
+          // `overflow: hidden` ele não é recortado — ele SAI, e ninguém vê erro.
+          transbordo: Math.round(p.scrollHeight - cx.height),
+          alturaBotao: Math.round(cx.height),
+          rotulo: p.textContent.trim(),
+          // QUATRO CÉLULAS e CINCO BOTÕES: a da esquerda é um contêiner com os
+          // dois quadrados dentro, e é a célula que a regra da altura conta.
+          filhos: faixa.children.length,
+          quadrados: faixa.querySelector('.misc-foot-esq').children.length,
+          alturas: [...faixa.children].map((e) => Math.round(e.getBoundingClientRect().height)),
+        };
+      });
+      checar(m.rotulo === 'Projetar no telão' && m.filhos === 4 && m.quadrados === 2,
+        'O · o cenário é o que estoura: a faixa de ' + onde + ' tem CINCO botões em '
+        + 'quatro células (os dois quadrados, o primário, os dois destinos) e o primário '
+        + 'leva o rótulo inteiro — sem esta metade, uma faixa que perdesse um botão '
+        + 'passaria pelo motivo errado', JSON.stringify(m));
+      checar(m.transbordo <= 0,
+        'O · e a 360px com a raiz em 1,25× o rótulo do primário NÃO TRANSBORDA a caixa '
+        + '(' + onde + '): a altura é fixa e não há `overflow: hidden` que recorte — o '
+        + 'que passa disso é a terceira linha saindo por baixo do botão, à vista',
+        JSON.stringify(m));
+      checar(m.alturas.length === 4 && new Set(m.alturas).size === 1,
+        'O · e a faixa de ' + onde + ' continua com UMA ALTURA SÓ nessa mesma célula (a '
+        + 'regra da v1.8.61) — é ela que o estouro estava prestes a quebrar, e afirmá-la '
+        + 'só na largura confortável deixaria de fora o estado em que ela corre risco',
+        JSON.stringify(m.alturas));
+    }
   }
 
   checar(erros.length === 0, 'nenhum erro de página', erros);

@@ -944,9 +944,13 @@ sorteados."*
   stretch` do flex — que num botão de símbolo é defeito (v1.8.57) — é aqui o
   desenho: é ele que dá à coluna da direita a altura da esquerda para o
   `flex: 1` do `<textarea>` ter contra o que crescer.
-- **`min-width: 0` nas duas**, senão um `<textarea>` mede ~200px de largura
-  intrínseca e a 360px as duas colunas somam mais que a tela — o mesmo
-  vazamento de flexbox que o `.draw-range-field` já documentava nesta aba.
+- **`min-width: 0` nas duas**, senão as duas colunas somam mais que a tela — e
+  **quem estoura é a coluna da ESQUERDA**, não o `<textarea>` (ele tem
+  `width: 100%` e é o esmagado): o mínimo intrínseco da esquerda é o do
+  `<input>` da legenda, MEDIDO em 198px a 1×, 247 a 1,25× e 296 a 1,5×. A célula
+  que decide é 360×1,5× (49px de transbordo); a 360×1× a asserção passa com e
+  sem a linha. É o mesmo vazamento de flexbox que o `.draw-range-field` já
+  documentava nesta aba, pela outra ponta.
 - **SÓ NO MODO TEXTO:** no Número a fonte das opções são dois campos curtos, e
   duas colunas ali dariam uma coluna vazia.
 
