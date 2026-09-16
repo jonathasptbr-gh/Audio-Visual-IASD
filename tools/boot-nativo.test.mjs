@@ -5105,7 +5105,15 @@ try {
     const corpoFav = document.querySelector('[data-fav-corpo]');
     const liPasta = corpoFav && corpoFav.querySelector('.folder-opfs');
     if (liPasta && !liPasta.classList.contains('expanded')) {
-      liPasta.querySelector('.row').click();
+      // O `.row` é LIDO antes de ser tocado, e a ausência dele é um FATO
+      // NOMEADO (v1.9.8): um `querySelector(...).click()` cru estoura em
+      // `null.click()`, e o que o placar mostrava era "o percurso terminou com
+      // exceção" — indistinguível de um defeito do app. MEDIDO: acontece sob
+      // carga (três processos), uma vez em muitas, quando um redesenho pega a
+      // linha entre o `li` achado e o toque. A asserção abaixo continua
+      // reprovando se a linha de fato não tiver corpo.
+      const rowPasta = liPasta.querySelector('.row');
+      if (rowPasta) rowPasta.click(); else r.semRowPasta = true;
       await new Promise((res) => setTimeout(res, 450));
     }
     const arqPasta = liPasta && liPasta.querySelector('.folder-itens > .lib-item');
@@ -5113,7 +5121,8 @@ try {
     if (arqPasta) {
       // A GAVETA de um arquivo de pasta abre pelo CORPO da linha (v5.285), não
       // por um `⋮`: aquela faixa é do Cronograma e da fila da playlist.
-      arqPasta.querySelector('.row').click();
+      const rowArq = arqPasta.querySelector('.row');
+      if (rowArq) rowArq.click(); else r.semRowArquivo = true;
       await new Promise((res) => setTimeout(res, 350));
       r.naPasta = !arqPasta.querySelector('.row-renomear');
       // E a metade NEGATIVA da metade negativa: a gaveta daquela linha ABRIU e
@@ -5138,6 +5147,12 @@ try {
   checar(ren.noBanco === 'Nome novo' && ren.naTela === 'Nome novo',
     'e o nome muda NO BANCO e NA TELA — sem a segunda metade a lista mentiria '
     + 'até o próximo redesenho', JSON.stringify([ren.noBanco, ren.naTela]));
+  // A AUSÊNCIA DO CORPO DA LINHA ENTRA AQUI, com nome: ela deixou de estourar em
+  // `null.click()` (ver o percurso), e é este `checar` que continua reprovando se
+  // a linha de fato não tiver `.row`.
+  checar(!ren.semRowPasta && !ren.semRowArquivo,
+    'o corpo (`.row`) das duas linhas de pasta existia no instante do toque',
+    JSON.stringify({ pasta: !!ren.semRowPasta, arquivo: !!ren.semRowArquivo }));
   checar(ren.naPasta && ren.pastaTemGaveta,
     'e ele NÃO entra na pasta do aparelho (com ' + ren.linhasPasta + ' linha(s) '
     + 'de verdade na tela e a gaveta aberta): ali o nome vem do arquivo, e um '
