@@ -775,8 +775,7 @@ nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
   - **NENHUM MUTADOR REDESENHAVA O EIXO** (medido: zero chamadas de
     `renderSlideNav` em cinco execuções), então o ▶ do par continuaria ▶ depois
     de iniciar. Quem os alcança é `renderEixoDoPar()` — só `applySlideLimits` +
-    `renderTransportAxis`, NESTA ordem, porque o desenho lê o `disabled` que os
-    limites acabaram de escrever — chamado do fim do `renderFoot` (o pulso que
+    `renderTransportAxis` — chamado do fim do `renderFoot` (o pulso que
     TODO mutador dos dois já toca) e do `atualizarChronoRun`, porque
     `chronoSetDuration` não passa pelo rodapé (a roleta está sob o dedo).
   - **E O PAR DE AÇÃO É DO PAINEL, E DE MAIS NINGUÉM** (`eixoForaDoPainel`).

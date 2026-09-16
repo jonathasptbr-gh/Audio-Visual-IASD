@@ -13208,8 +13208,12 @@ function renderTransporteHabilitado() {
  * precisa só destes dois, e um desses caminhos (`chronoSetDuration`) roda com o
  * dedo na roleta — o pulso inteiro ali reconstruiria o que não mudou.
  *
- * A ORDEM É A DE `renderSlideNav`, e não é livre: o desenho lê o `disabled` que
- * os limites acabaram de escrever.
+ * A ORDEM É A DE `renderSlideNav`, e AQUI ela não é load-bearing — MEDIDO:
+ * `renderTransportAxis` escreve `title`/`aria-label` e o desenho, e não lê
+ * `btn.disabled` em lugar nenhum (forçado `disabled` a false e a true, os dois
+ * saem idênticos). Quem lê o `disabled` recém-escrito é o `renderSimpleSlides`
+ * do pulso INTEIRO, que o ESPELHA nas teclas do Modo Fácil — e é por ele, e não
+ * por este par, que a ordem de `renderSlideNav` tem de ser respeitada.
  */
 function renderEixoDoPar() {
   const who = slideTarget();
@@ -13227,8 +13231,11 @@ function renderSlideNav() {
   const who = slideTarget(); // o que está NO AR — ver slideTarget()
   applySlideLimits(who);
   renderTransporteHabilitado();
-  // O eixo do transporte é escrito DEPOIS dos limites: ele lê o `disabled` das
-  // âncoras para dizer quando o toque curto não tem para onde ir.
+  // O eixo do transporte é escrito depois dos limites — mas NÃO porque ele os
+  // leia: MEDIDO, `renderTransportAxis` é indiferente ao `disabled` (com ele
+  // false e true o `title` e o `aria-label` saem idênticos). Quem depende da
+  // ordem é o `renderSimpleSlides` logo abaixo, que ESPELHA o `disabled` das
+  // âncoras em vez de recalculá-lo.
   renderTransportAxis(who);
   renderSimpleSlides(who);
 }
@@ -13372,7 +13379,7 @@ const SLIDE_AXIS_NEXT = {
 //
 // A tabela é de FUNÇÕES porque as duas respostas dependem do estado do momento
 // (o ▶ vira ⏸ com a contagem correndo; o sortear vira "de novo" depois do
-// primeiro). Quem as chama é `renderTransportAxis`, no mesmo pulso do `disabled`.
+// primeiro). Quem as chama é `renderTransportAxis`, no mesmo pulso dos limites.
 const EIXO_DE_ACAO = {
   chrono: () => ({
     prev: { sym: 'icoZerar', rotulo: 'Zerar a contagem' },
