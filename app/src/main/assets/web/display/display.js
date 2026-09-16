@@ -203,7 +203,10 @@ const stage = createStage({
     // A letra sai de cena junto com a música, esmaecendo — ela é uma camada
     // paralela e não participa do fade do stage. Se um próximo item vier em
     // seguida (avanço de playlist), o load dele mostra a letra nova.
-    if (currentLyrics) fadeLayerOut(lyricsEl);
+    // A LETRA AVULSA NÃO É DESTA MÚSICA (v1.9.8): o fim do louvor de fundo não
+    // pode levar a estrofe que o OPERADOR pôs no ar — é a independência
+    // áudio × texto da v5.178, aplicada à camada em que ela agora mora.
+    if (currentLyrics && !letraManual) fadeLayerOut(lyricsEl);
     const cur = stage.getCurrent();
     AVDB.sendCommand({ type: 'media-ended', mediaId: cur ? cur.id : null });
   },
@@ -236,6 +239,21 @@ let lyricTeardownTimer = null; // desmontagem atrasada da camada (ver hideLyrics
 // A LETRA AVULSA está no ar? Enquanto sim, ela é dona da camada: a letra da
 // música de fundo não entra e o relógio dela não troca a estrofe (v1.9.7).
 let letraManual = false;
+/**
+ * HÁ PROVEDOR DE TEXTO NO AR? (v1.9.8) — e a pergunta é UMA.
+ *
+ * A letra avulsa é provedor da Camada de TEXTO (o Controle a trata como
+ * versículo e mensagem: `soUmProvedorDeTexto`, `encerrarCamadaDeCima`,
+ * `text-hide`), mas desde a v1.9.7 ela DESENHA na camada da LETRA. Os caminhos
+ * do ciclo de MÍDIA (`load`, `clear`, `media-clear`, `onEnded`) derrubam a
+ * camada da letra por conta própria, e os que PROTEGEM o texto perguntavam só
+ * `textActive` — que na letra avulsa é `false`. MEDIDO, o pior desfecho: depois
+ * de projetar "apenas a letra" uma vez, a letra SINCRONIZADA de toda música
+ * seguinte deixava de aparecer no telão (a marca sobrevivia ao `load` e a
+ * guarda de precedência calava o `showLyrics`), **para o resto da sessão** — e
+ * a preview mostrava a cena certa, então o operador conferia e via tudo bem.
+ */
+function textoNoAr() { return textActive || letraManual; }
 // 'image' (PADRÃO) usa as imagens dos slides atrás do texto; 'black' as ignora
 // e mantém o fundo preto. Persistido em state.lyricsBg pelo Controle, aplicado
 // ao vivo via comando (ver setLyricsBgMode). No papel `tela` não há IndexedDB do
@@ -337,6 +355,14 @@ function mostrarLetraManual(cmd) {
   // A VIEW É A DO COMANDO, como no cartão: com o telão coberto a letra avulsa
   // não pode DESCOBRIR a mídia que o operador acabou de cobrir.
   const wallpaper = cmd.view === 'wallpaper';
+  // NÃO HÁ `setOverlay` AQUI, e a ausência é MEDIDA (v1.9.8). Ele foi escrito —
+  // o cartão declara o dele no `showText` —, ganhou asserção, e a reversão
+  // mostrou que removê-lo não muda um pixel em célula nenhuma que se consiga
+  // montar: quem faz cobrir/descobrir voltar a funcionar é o ramo `view` do
+  // `onCommand` lendo `textoNoAr()`, que declara o overlay a cada comando; e um
+  // `play` sem mídia carregada não reavalia a cortina (o stage volta cedo sem
+  // `current`). Saíram a declaração, a asserção e o comentário que a creditava —
+  // a regra da v1.8.65. Quem for reescrevê-la traz a célula que a exige.
   stage.declararView(wallpaper ? 'wallpaper' : 'visual');
   stage.instantCover(wallpaper);
   showLyrics({ lyrics: slides, hymnName: cmd.title }, Math.max(0, cmd.idx | 0), true);
@@ -910,6 +936,9 @@ function hideText(restore = true) {
   // `encerrarCamadaDeCima`), e é por isso que ela é atendida aqui — v1.9.7.
   if (letraManual) {
     letraManual = false;
+    // O `setOverlay(null)` do cartão NÃO tem par aqui: quem declarou o overlay
+    // foi o ramo `view` do `onCommand`, e ele o mantém em dia por si — ver a
+    // ausência medida no `mostrarLetraManual`.
     hideLyrics(true);
     if (restore) restoreSceneAfterText();
     return;
@@ -1523,8 +1552,12 @@ AVDB.onCommand(async (cmd) => {
   // duplicar a leitura do outro lado é garantir divergência num domingo.
 
   if (cmd.type === 'media-clear') {
-    hideLyrics(true);
-    aoSairDeCena(stage.handle({ type: textActive ? 'clear-media' : 'clear' }));
+    // A LETRA AVULSA FICA (v1.9.8): o contrato deste comando é tirar o SOM e
+    // deixar a Camada de Texto — o comentário acima o diz —, e a estrofe do
+    // operador é dela. `hideLyrics` era inofensivo enquanto a letra avulsa
+    // morava no `#text`; hoje ela É esta camada.
+    if (!letraManual) hideLyrics(true);
+    aoSairDeCena(stage.handle({ type: textoNoAr() ? 'clear-media' : 'clear' }));
     return;
   }
   // Enquanto o texto manual está em cena, ele é um OVERLAY independente:
@@ -1533,7 +1566,7 @@ AVDB.onCommand(async (cmd) => {
   //    ÁUDIO DE FUNDO (o texto não é afetado);
   //  - 'load' de ÁUDIO troca o som de fundo mantendo o texto; 'load' de VISUAL
   //    (vídeo/imagem) e 'clear' encerram o texto e seguem o fluxo.
-  if (textActive) {
+  if (textoNoAr()) {
     if (cmd.type === 'view') {
       const v = cmd.view === 'wallpaper' ? 'wallpaper' : 'visual';
       textView = v;
@@ -1558,7 +1591,7 @@ AVDB.onCommand(async (cmd) => {
       // veio buscar. `textActive` é reconferido porque o fade dura 0,6 s: se
       // nesse meio tempo o texto saiu de cena, quem manda é
       // restoreSceneAfterText.
-      if (textActive && textView === 'visual') stage.instantCover(false);
+      if (textoNoAr() && textView === 'visual') stage.instantCover(false);
       return;
     }
     if (cmd.type === 'clear') hideText(false);
@@ -1574,12 +1607,18 @@ AVDB.onCommand(async (cmd) => {
     // padrão do loadSeq do stage.js): sem isso, trocar de um hino direto pra
     // um vídeo do YouTube nunca escondia o layer de letra de verdade — só
     // ficava mascarado por sorte de ordem de pintura no DOM.
-    hideLyrics(true);
+    // A LETRA AVULSA NÃO É LETRA SINCRONIZADA (v1.9.8): este `hideLyrics` limpa
+    // a letra da música que SAI, e a estrofe do operador não é dela. Quem a
+    // encerra é o `hideText(false)` logo abaixo, e só num `load` VISUAL — a
+    // MESMA regra do cartão ("`load` de áudio o mantém"). Sem esta guarda a
+    // camada caía e a marca ficava, e a partir dali a letra sincronizada de
+    // TODA música seguinte era calada pela precedência — o resto da sessão.
+    if (!letraManual) hideLyrics(true);
     const rec = await AVDB.getMedia(cmd.mediaId);
     // Texto manual em cena: 'load' VISUAL o encerra, 'load' de áudio o mantém
     // (o som de fundo troca por baixo do cartão). Sem restaurar a cena: o
     // próprio load abaixo monta a nova (restaurar aqui faria a antiga piscar).
-    if (textActive && (!rec || rec.kind !== 'audio')) hideText(false);
+    if (textoNoAr() && (!rec || rec.kind !== 'audio')) hideText(false);
     // O ITEM DE LINK NÃO TOCA MAIS AQUI (v5.212).
     //
     // Quem o resolve — por DOWNLOAD — é o Controle, ANTES de emitir o `load`

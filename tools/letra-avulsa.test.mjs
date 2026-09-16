@@ -545,6 +545,162 @@ try {
       + 'estrofes carregam a `/m/<token>` que só a tela sabe buscar', porque(r));
   }
 
+  // ======================================================================
+  // F · O CICLO DE MÍDIA NÃO É DONO DA LETRA AVULSA (v1.9.8)
+  // ======================================================================
+  // Três regressões que a v1.9.7 trouxe, as três medidas contra o comportamento
+  // do cartão que ela substituiu. A raiz é UMA: a letra avulsa é provedor da
+  // Camada de TEXTO (o Controle a trata como versículo — `soUmProvedorDeTexto`,
+  // `encerrarCamadaDeCima`, `text-hide`) e passou a DESENHAR na camada da LETRA.
+  // Todo caminho do ciclo de MÍDIA derrubava essa camada por conta própria, e
+  // todo caminho que PROTEGE o texto perguntava só `textActive` — que na letra
+  // avulsa é `false`. A pergunta virou uma: `textoNoAr()`.
+  //
+  // A PIOR DELAS ERA PERMANENTE E MUDA: depois de projetar "apenas a letra" uma
+  // vez, a letra SINCRONIZADA de toda música seguinte era calada no telão pelo
+  // resto da sessão (a camada caía no `load` e a marca ficava, e a guarda de
+  // precedência calava o `showLyrics`) — e a preview se curava por acidente,
+  // então o operador conferia pela preview e via a cena certa.
+  {
+    const wav = 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    await tv.evaluate(async (a2) => {
+      const bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      await AVDB.fileAdd({ id: 'f-cantado', name: 'Cantado', kind: 'audio', type: 'audio/wav',
+        blob: new Blob([bytes(a2.wav)], { type: 'audio/wav' }),
+        lyrics: [{ time: 0, text: 'CANTADA estrofe 1' }] });
+      await AVDB.fileAdd({ id: 'f-foto', name: 'Foto', kind: 'image', type: 'image/png',
+        blob: new Blob([bytes(a2.png)], { type: 'image/png' }) });
+    }, { wav, png });
+
+    const AV = [{ text: 'F avulsa 1', auxText: '' }];
+    const cena = () => tv.evaluate(() => ({
+      linha: document.getElementById('lyricsLine').textContent,
+      camada: !document.getElementById('lyrics').hidden,
+      manual: letraManual,
+      cortina: getComputedStyle(document.getElementById('wallpaper')).display,
+    }));
+    const avulsa = (idx = 0) => mandar({ type: 'text', mode: 'songlyrics', view: 'visual', idx,
+      title: 'F', slides: AV });
+
+    // F1 · um `load` de ÁUDIO mantém a letra avulsa, e o `text-hide` devolve a
+    //      letra SINCRONIZADA. É a regra do cartão, aplicada à mesma camada.
+    await avulsa();
+    await tv.waitForTimeout(400);
+    await mandar({ type: 'load', mediaId: 'f-cantado', view: 'visual', muted: true, volume: 0 });
+    // A RÉGUA É O ESTADO ASSENTADO, e isto é MEDIDO: `hideLyrics(true)` ESMAECE
+    // e só põe `hidden` depois do fade, então um `esperar` por "a camada está à
+    // vista" casa no PRIMEIRO quadro e aprova a camada que está indo embora —
+    // foi assim que esta asserção nasceu tautológica. Espera-se o fade assentar
+    // e lê-se UMA vez.
+    await tv.waitForTimeout(1800);
+    {
+      const c = await cena();
+      checar(c.camada === true && c.linha.startsWith('F avulsa'),
+        'F1 · um `load` de ÁUDIO MANTÉM a letra avulsa no ar — a mesma regra do '
+        + 'cartão ("load de áudio o mantém"), e o som de fundo troca por baixo dela',
+        JSON.stringify(c));
+    }
+    await mandar({ type: 'text-hide' });
+    await tv.waitForTimeout(1800);
+    {
+      const c = await cena();
+      checar(c.linha === 'CANTADA estrofe 1' && c.camada === true,
+        'F1 · e o `text-hide` devolve a letra SINCRONIZADA da música que ficou '
+        + 'tocando. Sem esta metade, a marca presa calava a letra de TODA música '
+        + 'seguinte pelo resto da sessão, com a preview mostrando a cena certa',
+        JSON.stringify(c));
+    }
+    await mandar({ type: 'clear' });
+    await tv.waitForTimeout(700);
+
+    // F2 · "parar só a mídia" tira o SOM e DEIXA o texto — o contrato do comando.
+    await mandar({ type: 'load', mediaId: 'f-cantado', view: 'visual', muted: true, volume: 0 });
+    await tv.waitForTimeout(600);
+    await avulsa();
+    await tv.waitForTimeout(500);
+    await mandar({ type: 'media-clear' });
+    await tv.waitForTimeout(900);
+    {
+      const c = await cena();
+      checar(c.camada === true && c.linha.startsWith('F avulsa'),
+        'F2 · `media-clear` ("parar só a mídia") NÃO leva a letra avulsa: o '
+        + 'contrato dele é tirar o som e deixar a Camada de Texto, e a estrofe do '
+        + 'operador é dela. Antes, ela sumia da projeção e o Controle seguia '
+        + 'dizendo "● No ar", com o ⏮/⏭ passando estrofe num telão vazio',
+        JSON.stringify(c));
+    }
+    await mandar({ type: 'text-hide' });
+    await mandar({ type: 'clear' });
+    await tv.waitForTimeout(700);
+
+    // F3 · cobrir e descobrir, com a letra avulsa e NADA carregado — o caso
+    //      normal dela. A régua é a CORTINA, e não a camada: as duas ficavam
+    //      iguais nos dois estados, que é por que isto passou.
+    await avulsa();
+    await tv.waitForTimeout(500);
+    const antesDeCobrir = await cena();
+    await mandar({ type: 'view', view: 'wallpaper' });
+    await tv.waitForTimeout(1200);   // a cortina também ASSENTA por fade — ver a F1
+    const cobriu = await cena();
+    checar(antesDeCobrir.cortina === 'none' && cobriu.cortina !== 'none',
+      'F3 · com a letra avulsa no ar e NADA carregado, "cobrir o telão" cobre — '
+      + 'a letra avulsa declara o overlay como o cartão faz, e sem isso o '
+      + '`setViewFaded` devolvia cedo e o botão ficava MUDO nas duas direções',
+      JSON.stringify({ antes: antesDeCobrir.cortina, depois: cobriu.cortina }));
+    await mandar({ type: 'view', view: 'visual' });
+    await tv.waitForTimeout(1200);
+    {
+      const c = await cena();
+      checar(c.cortina === 'none' && c.camada === true,
+        'F3 · e "descobrir" devolve a letra — sem esta metade um `instantCover` '
+        + 'deixado de pé passaria pela asserção acima', JSON.stringify(c));
+    }
+
+    // F4 · um `load` VISUAL ENCERRA a letra avulsa. É o outro lado da F1, e sem
+    //      ele "o load de áudio a mantém" viraria "nada a encerra".
+    await mandar({ type: 'load', mediaId: 'f-foto', view: 'visual', muted: true, volume: 0 });
+    await tv.waitForTimeout(1800);
+    {
+      const c = await cena();
+      checar(c.camada === false && c.manual === false,
+        'F4 · mas um `load` VISUAL a ENCERRA, e devolve a marca — é o outro lado '
+        + 'da F1: sem ele, "o load de áudio a mantém" viraria "nada a encerra"',
+        JSON.stringify(c));
+    }
+    // (A F5 SAIU COM A DECLARAÇÃO QUE ELA CREDITAVA — v1.9.8. Ela media que um
+    // `play` não fecha a cortina por cima da letra avulsa, e passava com E sem o
+    // `setOverlay` da entrada: um `play` sem mídia carregada não reavalia a
+    // cortina. Quem sustenta cobrir/descobrir é a F3, e a peça é o ramo `view`.)
+    // F6 · O FIM NATURAL DO LOUVOR DE FUNDO NÃO LEVA A LETRA DO OPERADOR.
+    // É a independência áudio × texto da v5.178, aplicada à camada em que a
+    // letra avulsa passou a morar: o `onEnded` esmaecia a camada supondo que ela
+    // é a letra DAQUELA música.
+    await mandar({ type: 'text-hide' });
+    await mandar({ type: 'clear' });
+    await tv.waitForTimeout(800);
+    await mandar({ type: 'load', mediaId: 'f-cantado', view: 'visual', muted: true, volume: 0 });
+    await tv.waitForTimeout(900);
+    await avulsa();
+    await tv.waitForTimeout(500);
+    // O arquivo tem duração ZERO: o `play` o leva ao `ended` no ato, que é
+    // exatamente o evento que se quer exercitar (e o `esperar` confirma que ele
+    // aconteceu — sem isso a asserção seguinte passaria por nada ter ocorrido).
+    await mandar({ type: 'play' });
+    {
+      const r = await esperar(tv, () => stage.hasEnded() === true, null, 8000);
+      checar(r === true, 'F6 · PREMISSA: o louvor de fundo chegou ao fim', porque(r));
+    }
+    await tv.waitForTimeout(1500);
+    {
+      const c = await cena();
+      checar(c.camada === true && c.linha.startsWith('F avulsa'),
+        'F6 · e o FIM NATURAL do louvor de fundo não leva a letra avulsa: o '
+        + '`onEnded` fala da MÍDIA, e a estrofe é do operador — a independência '
+        + 'áudio × texto da v5.178, na camada nova', JSON.stringify(c));
+    }
+  }
+
   checar(erros.length === 0, 'nenhum erro de página nos dois lados', erros.slice(0, 4));
 } finally {
   await navegador.close();

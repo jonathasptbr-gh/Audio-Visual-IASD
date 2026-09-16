@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.7';
+const WEB_VERSION = '1.9.8';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1746,7 +1746,8 @@ const preview = createStage({
     // participa do fade do stage) — e `pvLyricsEnded` impede o slide de capa de
     // reaparecer com o currentTime zerado do replay, logo antes do wallpaper.
     pvLyricsEnded = true;
-    if (pvLyrics) pvLayerOut(pvLyricsEl);
+    // A LETRA AVULSA NÃO É DESTA MÚSICA — ver o `onEnded` do telão (v1.9.8).
+    if (pvLyrics && !pvLetraManual) pvLayerOut(pvLyricsEl);
     if (displayActive()) return;
     autoAdvance();
   },
@@ -2418,8 +2419,12 @@ function aplicarNaPreview(obj, item) {
     // Esconde a letra incondicionalmente (como o Display). O texto manual é um
     // overlay independente: só some ao carregar VISUAL; ÁUDIO toca por baixo e
     // mantém o texto (independência áudio × texto).
-    hidePvLyrics(true);
-    const keepText = pvTextActive && item && item.kind === 'audio';
+    // A LETRA AVULSA segue a regra do TEXTO, não a da letra sincronizada
+    // (v1.9.8): um `load` de ÁUDIO a mantém, e é o `hidePvText` abaixo que a
+    // encerra num `load` VISUAL — esconder a camada aqui, incondicionalmente,
+    // tirava a estrofe do operador e deixava a marca presa.
+    if (!pvLetraManual) hidePvLyrics(true);
+    const keepText = pvTextoNoAr() && item && item.kind === 'audio';
     if (!keepText) hidePvText(false); // o load abaixo já monta a cena nova
     // preview.handle() sempre roda primeiro: mantém preview.getCurrent()/
     // fallback de thumbnail em dia (stage.js já sabe lidar com kind=youtube,
@@ -2440,8 +2445,9 @@ function aplicarNaPreview(obj, item) {
   // escolha entre as duas saídas do stage repete a do Display, lida aqui pelo
   // `pvTextActive`, que é o espelho local do `textActive` de lá.
   if (obj.type === 'media-clear') {
-    hidePvLyrics(true);
-    aoSairDeCenaPv(preview.handle({ type: pvTextActive ? 'clear-media' : 'clear' }));
+    // A LETRA AVULSA FICA — ver o ramo gêmeo do telão (v1.9.8).
+    if (!pvLetraManual) hidePvLyrics(true);
+    aoSairDeCenaPv(preview.handle({ type: pvTextoNoAr() ? 'clear-media' : 'clear' }));
     return;
   }
   if (obj.type === 'lyricsbg') {
@@ -2526,6 +2532,10 @@ let pvLyricImgKey = null;
 let pvLyricTeardownTimer = null;  // ver showPvLyrics: a letra que volta cancela o teardown
 // A LETRA AVULSA no ar — o espelho do `letraManual` do telão (v1.9.7).
 let pvLetraManual = false;
+// HÁ PROVEDOR DE TEXTO NA PREVIEW? — o espelho do `textoNoAr()` do telão
+// (v1.9.8). A letra avulsa é provedor da Camada de TEXTO e desenha na camada da
+// LETRA: quem protege o texto tem de perguntar pelas DUAS.
+function pvTextoNoAr() { return pvTextActive || pvLetraManual; }
 let pvLyricImgUrl = null;
 // Fim natural da faixa (local ou reportado pelo Display): trava a troca de
 // slide até o próximo load/play/seek. Sem isso, o `currentTime = 0` que o fim
@@ -2603,6 +2613,8 @@ function mostrarPvLetraManual(obj) {
     : (Array.isArray(obj.slides) ? obj.slides : []);
   if (!slides.length) return;
   if (pvTextActive) hidePvText(false);
+  // SEM `setOverlay`, como o telão — ver a ausência medida no
+  // `mostrarLetraManual` do `display.js`.
   preview.instantCover(obj.view === 'wallpaper');
   showPvLyrics({ lyrics: slides, hymnName: obj.title }, Math.max(0, obj.idx | 0), true);
 }
@@ -3412,7 +3424,9 @@ async function load(opts) {
   // paralela e o stage da preview está sem `current` (=null), então setView
   // recobriria a cortina e o texto sumiria da preview ao trocar de aba — a
   // projeção deve ser independente da navegação, como qualquer outra mídia.
-  if (!pvTextActive) preview.setView(view);
+  // A LETRA AVULSA entra na mesma guarda (v1.9.8): ela é camada paralela
+  // exatamente como a Bíblia, e recobrir a cortina aqui a apagaria da preview.
+  if (!pvTextoNoAr()) preview.setView(view);
   preview.setMute(muted); preview.setVolume(volume);
   preview.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
   preview.setFit(mediaFit);
@@ -35948,7 +35962,8 @@ AVDB.onCommand((msg) => {
     // Mesmo tratamento do onEnded local (o Display pode chegar ao fim primeiro):
     // a letra esmaece e trava, para o slide de capa não piscar no replay.
     pvLyricsEnded = true;
-    if (pvLyrics) pvLayerOut(pvLyricsEl);
+    // A LETRA AVULSA NÃO É DESTA MÚSICA — ver o `onEnded` do telão (v1.9.8).
+    if (pvLyrics && !pvLetraManual) pvLayerOut(pvLyricsEl);
     // E A PREVIEW VOLTA AO WALLPAPER (v1.7.7). Relato do operador: *"ao
     // encerrar o tempo de uma música, a imagem no telão se encerra normalmente,
     // e volta para o wallpaper, mas na preview, ele está parando em uma tela

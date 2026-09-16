@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.9.8",
+    "itens": [
+      "Conserta três falhas que a versão anterior trouxe junto com a letra sem música.",
+      "Depois de usar a letra sem música, a letra das músicas cantadas voltava a aparecer só ao reiniciar.",
+      "Parar só a música, ou a música terminar, não tira mais a letra que você pôs no telão.",
+      "Cobrir e descobrir o telão volta a funcionar com a letra sem música no ar."
+    ]
+  },
+  {
     "versao": "1.9.7",
     "itens": [
       "A letra sem música agora aparece com as imagens de fundo, igual à letra que acompanha a música.",

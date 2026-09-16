@@ -10,9 +10,9 @@ cobre/revela "de graça", sem tocar em `stage.js`). São eles:
 
 | Provedor | Driver | Origem do texto | Camada física |
 |---|---|---|---|
-| **Bíblia** | manual (operador avança versículo) | banco LouvorJA | `#text` / `#pvText` |
+| **Bíblia** | manual (operador avança versículo) | banco LouvorJA | `#lyrics` / `#pvLyrics` |
 | **Mensagens** | manual (operador avança mensagem) | `state.messages` (texto puro) | `#text` / `#pvText` |
-| **Letra avulsa** | manual (operador avança estrofe) | acervo de letras (`songLyricStanzas`) | `#text` / `#pvText` |
+| **Letra avulsa** | manual (operador avança estrofe) | `lyricSlidesFor` (o ARQUIVO quando há ilustração; o acervo de texto quando não há) | **`#lyrics` / `#pvLyrics`** — a camada da letra CANTADA (v1.9.7) |
 | **Cronômetro/relógio/timer** | **derivado do relógio** (sem avanço) | o próprio tempo (`chronoReading`) | `#text` / `#pvText` |
 | **Sorteio** | **derivado** (rolo até assentar) | faixa numérica ou lista de opções (`drawReading`) | `#text` / `#pvText` |
 | **Letra sincronizada** | **temporizado** (segue o `currentTime` do áudio) | música do LouvorJA | `#lyrics` / `#pvLyrics` |
@@ -93,6 +93,25 @@ no tempo de uma gravação.
   áudio a mantém e um `load` visual a encerra. `resendSceneToDisplay` a reenvia
   na reconexão do telão, e `pushNowPlaying` conta ela como **cena** (o serviço de
   mídia sobe, e o processo com a `Presentation` deixa de ser descartável).
+- **E ISSO TEM DE SER PERGUNTADO PELAS DUAS MARCAS** (`textoNoAr()` =
+  `textActive || letraManual`, e o espelho `pvTextoNoAr()` — v1.9.8). A frase
+  acima era a REGRA e deixou de ser o CÓDIGO no instante em que a letra avulsa
+  mudou de camada: ela é provedor da Camada de TEXTO e passou a DESENHAR na
+  camada da LETRA, então todo caminho do ciclo de MÍDIA (`load`, `clear`,
+  `media-clear`, `onEnded`) derrubava a camada por conta própria, e todo caminho
+  que PROTEGE o texto perguntava só `textActive` — `false` nela. São quatro
+  pontos, e os quatro têm asserção com reversão medida:
+  - o `hideLyrics` do ramo `load` **não** vale para ela (quem a encerra é o
+    `hideText`, e só num `load` VISUAL). Sem isso a camada caía e a marca ficava,
+    e a partir dali a letra SINCRONIZADA de toda música seguinte era calada pela
+    precedência — **o resto da sessão**, com a preview mostrando a cena certa;
+  - o `media-clear` a DEIXA no ar: o contrato dele é tirar o som e manter a
+    Camada de Texto;
+  - o `onEnded` não a esmaece: o fim do louvor de fundo não é o fim dela (a
+    independência áudio × texto da v5.178);
+  - o ramo `view` do `onCommand` a atende, senão cobrir e descobrir ficam os dois
+    MUDOS com ela no ar e nada carregado (`computeCover()` é `!current` nas duas
+    views, e o `setViewFaded` devolve cedo).
 - O now-playing mostra `<nome da música> · <n>/<total>`: sem o número, duas
   estrofes seguidas dariam o mesmo cabeçalho e o operador perderia a única
   referência de onde está.
