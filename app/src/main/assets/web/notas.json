@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.9.7",
+    "itens": [
+      "A letra sem música agora aparece com as imagens de fundo, igual à letra que acompanha a música.",
+      "Ela ganhou também a moldura e o ajuste de tamanho da letra cantada — é a mesma tela.",
+      "As ilustrações só existem se a música estiver baixada no aparelho."
+    ]
+  },
+  {
     "versao": "1.9.6",
     "itens": [
       "Mensagens: tocar numa opção de tamanho, letra ou alinhamento não acende mais o item inteiro."

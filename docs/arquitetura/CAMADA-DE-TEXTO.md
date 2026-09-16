@@ -32,7 +32,7 @@ cobre/revela "de graça", sem tocar em `stage.js`). São eles:
 
 ### Letra avulsa (projetar a letra SEM tocar a música)
 
-`lyricSession = { title, stanzas: [string], idx, projecting }`, aberta pela
+`lyricSession = { title, slides: [{text, auxText, imageOpfsPath}], idx, projecting }`, aberta pela
 folha rápida de uma música do acervo ("**Apenas a letra**" — ver
 `hymnResultRow`). Serve o caso em que a congregação canta **ao vivo**
 (instrumentistas na frente, ou hino sem gravação no aparelho): o telão precisa
@@ -40,18 +40,49 @@ da letra, e não pode ter um áudio tocando por cima nem trocar de estrofe sozin
 no tempo de uma gravação.
 
 - **Não é uma terceira variante de `playSongVariant`.** Uma variante toca um
-  arquivo, e aqui não há arquivo nenhum: a letra vem de `songLyricStanzas`, que
-  lê o acervo de letras e funciona para músicas **nunca baixadas**.
+  arquivo, e aqui não há arquivo nenhum: a letra vem de `lyricSlidesFor`, que
+  funciona para músicas **nunca baixadas**.
+- **MAS O ARQUIVO VENCE QUANDO TEM ILUSTRAÇÃO** (v1.9.7). A imagem de fundo de
+  uma estrofe é o `imageOpfsPath` de um SLIDE do arquivo baixado — o acervo de
+  TEXTO não tem imagem nenhuma —, então `lyricSlidesFor` prefere os slides do
+  arquivo sempre que algum deles traga uma, e só aí. Sem imagem a preferência de
+  sempre continua valendo (o acervo é mais completo, e trocá-lo por nada mudaria
+  a divisão das estrofes de graça). **A CAPA fica de fora**: quem pede "apenas a
+  letra" pede a primeira estrofe, não um cartão de abertura — é a única coisa
+  que separa esta cena da cantada.
 - **Sem letra no aparelho, o caminho é o MESMO das outras duas opções da folha**
   (v5.64): baixar a música — que traz a letra junto — e tentar de novo, com o
   indicador na preview dizendo "Baixando a letra". Na v5.63 isto era um beco sem
   saída: "Letra ainda não baixada." e nada acontecia, num item que o operador
   acabara de escolher. Se ainda assim não vier letra, aí sim o aviso
   ("Letra indisponível para esta música").
-- **Uma estrofe = um slide**, e o comando é `text` com `mode: 'message'` — o
-  telão já sabe desenhar um bloco de texto centrado, que é exatamente o que uma
-  estrofe é. Um modo novo no protocolo exigiria shell e bundle novos dos dois
-  lados sem mudar um pixel do resultado.
+- **ELA USA A CAMADA DA LETRA, NÃO O CARTÃO DE TEXTO** (v1.9.7, revogando a
+  regra da v5.63). Relato do operador: *"ao selecionar apenas a letra, sem
+  música tocada, a letra é apresentada, mas não são exibidos as imagens de fundo
+  de ilustração"*. Ela saía como `mode: 'message'` — *"o telão já sabe desenhar
+  um bloco de texto centrado, que é exatamente o que uma estrofe é"* —, e o
+  argumento tinha um buraco do tamanho do pedido: o cartão de texto **não tem
+  fundo de imagem**, e ganhar um seria a SEGUNDA implementação de estrofe sobre
+  foto. Quem já desenha isso são `renderLyricSlide` (telão) e
+  `renderPvLyricSlide` (preview), com a moldura, o recorte que nunca corta a
+  letra e o interruptor de fundo — tudo veio de graça.
+  - O comando é `text` com **`mode: 'songlyrics'`**, e `showText`/`showPvText`
+    desviam no topo (`mostrarLetraManual`/`mostrarPvLetraManual`). Fica em
+    `type: 'text'` de propósito: todo o encanamento — `soUmProvedorDeTexto`, o
+    `text-hide` do `encerrarCamadaDeCima`, o reenvio de cena, o relay verbatim
+    para as telas — já atende esse tipo.
+  - **A LISTA INTEIRA VIAJA, com o `idx`.** É o que faz a reconexão do telão
+    voltar na estrofe CERTA em vez de recomeçar a letra na frente da
+    congregação, pelo mesmo comando reenviado.
+  - **A MARCA `letraManual` (e o espelho `pvLetraManual`) é quem manda na
+    camada** enquanto a letra avulsa está no ar: um `showLyrics` da música de
+    fundo volta cedo, e `updateLyricSlide` também — o relógio de uma gravação
+    não troca a estrofe que o operador escolheu. É o irmão, um nível abaixo, do
+    `if (textActive) return` que já existia.
+  - **A TELA DA REDE recebe `/m/`, nunca o caminho de OPFS** (`telaLetraAvulsa`,
+    o irmão do `telaEnriquecer`): id estável `'ly:'+caminho`, os mesmos tokens e
+    a mesma fila de bytes da letra cantada, empurrados DEPOIS do comando — a
+    estrofe aparece já, a foto entra quando chegar.
 - **A passagem é do operador**, pelos mesmos botões de slide que já passam
   mensagem e versículo: `slideTarget()` devolve `'songlyrics'` (à frente de `'message'` e
   `'bible'`), `stepSlide` cai em `lyricStep` e `applySlideLimits` desabilita nos

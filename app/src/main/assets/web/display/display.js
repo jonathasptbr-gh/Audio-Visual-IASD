@@ -233,6 +233,9 @@ let lyricLoadSeq = 0;     // descarta resoluções de imagem obsoletas (mesmo pa
 let lyricImgKey = null;   // imageOpfsPath já renderizado agora (evita recriar a object URL à toa)
 let lyricImgUrl = null;   // object URL em uso, para revogar quando trocar de fato
 let lyricTeardownTimer = null; // desmontagem atrasada da camada (ver hideLyrics/showLyrics)
+// A LETRA AVULSA está no ar? Enquanto sim, ela é dona da camada: a letra da
+// música de fundo não entra e o relógio dela não troca a estrofe (v1.9.7).
+let letraManual = false;
 // 'image' (PADRÃO) usa as imagens dos slides atrás do texto; 'black' as ignora
 // e mantém o fundo preto. Persistido em state.lyricsBg pelo Controle, aplicado
 // ao vivo via comando (ver setLyricsBgMode). No papel `tela` não há IndexedDB do
@@ -283,10 +286,14 @@ function hideLyrics(fade) {
   }
 }
 
-function showLyrics(rec) {
+function showLyrics(rec, idx = 0, manual = false) {
   // Um texto manual (Bíblia/mensagem) em cena tem precedência: a música toca de
   // fundo, mas a letra dela não substitui o texto projetado pelo operador.
   if (textActive) return;
+  // E A LETRA AVULSA MANDA ENQUANTO ESTÁ NO AR (v1.9.7): ela é o provedor da
+  // Camada de Texto naquele momento, exatamente como um versículo — a letra da
+  // música de fundo não a substitui. É o irmão da linha acima, um nível abaixo.
+  if (letraManual && !manual) return;
   // A letra VOLTOU antes do teardown agendado por hideLyrics: cancela-o de
   // forma explícita. A guarda de sequência sozinha não bastava — se a estrofe
   // que volta usa a MESMA imagem (`key === lyricImgKey`, o caso normal quando
@@ -299,8 +306,40 @@ function showLyrics(rec) {
   currentLyrics = rec.lyrics;
   currentLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack, hymnAlbum: rec.hymnAlbum };
   lyricSlideIdx = -1;
+  letraManual = manual;
   fadeLayerIn(lyricsEl);
-  renderLyricSlide(0);
+  renderLyricSlide(idx);
+}
+
+/**
+ * ===== A LETRA SEM MÚSICA (v1.9.7) =====
+ *
+ * Relato do operador: *"ao selecionar apenas a letra, sem música tocada, a letra
+ * é apresentada, mas não são exibidos as imagens de fundo de ilustração"*.
+ *
+ * Ela saía como `mode: 'message'` — o cartão de texto, que não tem fundo de
+ * imagem. Agora ela entra pela camada da LETRA, a mesma da música cantada, e a
+ * ilustração vem de graça junto com a moldura, o recorte que nunca corta a
+ * letra e o interruptor de fundo. O que muda em relação à cantada é UMA coisa:
+ * quem escolhe a estrofe é o operador (`idx` no comando), não o relógio.
+ *
+ * **O ÍNDICE VEM NO COMANDO, e a lista inteira junto.** É o que faz a reconexão
+ * do telão voltar na estrofe certa — o mesmo comando reenviado — em vez de
+ * recomeçar do começo na frente da congregação.
+ */
+function mostrarLetraManual(cmd) {
+  const slides = Array.isArray(cmd.slides) ? cmd.slides : [];
+  if (!slides.length) return;
+  // Um cartão em cena SAI, e sem restaurar: a cena que vem é esta, e deixar o
+  // `restoreSceneAfterText` remontar a letra da música de fundo no meio do
+  // caminho poria as duas na mesma camada.
+  if (textActive) hideText(false);
+  // A VIEW É A DO COMANDO, como no cartão: com o telão coberto a letra avulsa
+  // não pode DESCOBRIR a mídia que o operador acabou de cobrir.
+  const wallpaper = cmd.view === 'wallpaper';
+  stage.declararView(wallpaper ? 'wallpaper' : 'visual');
+  stage.instantCover(wallpaper);
+  showLyrics({ lyrics: slides, hymnName: cmd.title }, Math.max(0, cmd.idx | 0), true);
 }
 
 // Só mexe no DOM quando o índice realmente muda (chamado a cada tick de tempo).
@@ -544,6 +583,9 @@ function applyLyricsBgClass() {
 // Chamado a cada tick de tempo (sendStatus/onTime) — sem timer novo.
 function updateLyricSlide(t) {
   if (!currentLyrics) return;
+  // A LETRA AVULSA é do operador: quem troca a estrofe dela é o ⏮/⏭, e não o
+  // relógio de uma música que esteja tocando por baixo (v1.9.7).
+  if (letraManual) return;
   // Replay depois do fim: a letra foi esmaecida no onEnded, mas os slides
   // continuam carregados — o tempo voltar a correr a traz de volta.
   if (lyricsEl.hidden) fadeLayerIn(lyricsEl);
@@ -781,6 +823,13 @@ function aplicarEstiloDoCartao(estilo, mensagem) {
 }
 
 function showText(cmd) {
+  // A LETRA AVULSA não é um cartão — ver `mostrarLetraManual` (v1.9.7).
+  if (cmd.mode === 'songlyrics') { mostrarLetraManual(cmd); return; }
+  // E UM CARTÃO DE VERDADE ASSUME A CAMADA: a letra avulsa deixa de ser dona
+  // dela AQUI. Sem esta linha a marca sobrevivia ao versículo que a substituiu,
+  // e o `text-hide` seguinte caía no ramo dela — MEDIDO: o cartão continuava no
+  // ar, com `textActive` preso em `true`, e nada mais o tirava do telão.
+  letraManual = false;
   const wallpaper = cmd.view === 'wallpaper';
   textMode = cmd.mode === 'message' ? 'message'
     : (cmd.mode === 'chrono' || cmd.mode === 'draw' || cmd.mode === 'image') ? cmd.mode : 'verse';
@@ -857,6 +906,14 @@ function showText(cmd) {
 // cena logo em seguida (load de visual, stop, clear) — restaurar ali faria a
 // letra piscar por um instante antes de ser substituída.
 function hideText(restore = true) {
+  // A LETRA AVULSA sai pela MESMA porta (`text-hide`, o caminho genérico do
+  // `encerrarCamadaDeCima`), e é por isso que ela é atendida aqui — v1.9.7.
+  if (letraManual) {
+    letraManual = false;
+    hideLyrics(true);
+    if (restore) restoreSceneAfterText();
+    return;
+  }
   if (!textActive) return;
   textActive = false;
   soltarTextImg();

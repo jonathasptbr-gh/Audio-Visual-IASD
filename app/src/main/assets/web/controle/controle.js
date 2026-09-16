@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.6';
+const WEB_VERSION = '1.9.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1075,7 +1075,7 @@ let msgSession = null;   // { idx, projecting } | null
 // arquivo, e aqui não há arquivo: a letra vem de `songLyricStanzas`, que existe
 // mesmo para músicas nunca baixadas. Quem passa estrofe é o operador, pelos
 // mesmos ⏮/⏭ da mensagem e do versículo (ver `slideTarget`).
-let lyricSession = null;  // { title, stanzas: [string], idx, projecting } | null
+let lyricSession = null;  // { title, slides: [{text,auxText,imageOpfsPath}], idx, projecting } | null
 // Guarda de sequência da LETRA AVULSA: entre o toque e a projeção há o download
 // do ÁUDIO (a letra vem com ele), que na rede da igreja leva minutos — tempo de
 // sobra para o operador projetar outra coisa. Sem ela a estrofe 1 entrava em
@@ -2524,6 +2524,8 @@ let pvLyricSlideIdx = -1;
 let pvLyricLoadSeq = 0;
 let pvLyricImgKey = null;
 let pvLyricTeardownTimer = null;  // ver showPvLyrics: a letra que volta cancela o teardown
+// A LETRA AVULSA no ar — o espelho do `letraManual` do telão (v1.9.7).
+let pvLetraManual = false;
 let pvLyricImgUrl = null;
 // Fim natural da faixa (local ou reportado pelo Display): trava a troca de
 // slide até o próximo load/play/seek. Sem isso, o `currentTime = 0` que o fim
@@ -2558,7 +2560,7 @@ function hidePvLyrics(fade) {
   }
 }
 
-function showPvLyrics(rec) {
+function showPvLyrics(rec, idx = 0, manual = false) {
   // A letra VOLTOU antes do teardown agendado por hidePvLyrics: cancela-o de
   // forma explícita. A guarda de sequência sozinha NÃO basta — se a estrofe que
   // volta usa a MESMA imagem (`key === pvLyricImgKey`), applyPvLyricsImage
@@ -2571,13 +2573,38 @@ function showPvLyrics(rec) {
   //
   // O telão tem esta guarda desde que o defeito foi visto lá; a preview ficou
   // sem ela, e sem TV a preview É a projeção.
+  // A LETRA AVULSA manda enquanto está no ar — o espelho do telão (v1.9.7).
+  if (pvLetraManual && !manual) return;
   clearTimeout(pvLyricTeardownTimer);
   pvLyrics = rec.lyrics;
   pvLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack, hymnAlbum: rec.hymnAlbum };
   pvLyricSlideIdx = -1;
+  pvLetraManual = manual;
   pvLayerIn(pvLyricsEl);
   applyPvLyricsBgClass();
-  renderPvLyricSlide(0);
+  renderPvLyricSlide(idx);
+}
+
+// A METADE PREVIEW DA LETRA AVULSA (v1.9.7) — ver `mostrarLetraManual` no
+// `display.js`. A preview existe para ESPELHAR o telão, e um cartão de texto
+// aqui contra a letra ilustrada lá é a ilustração errada: o operador confere
+// pela preview o que a congregação vê.
+function mostrarPvLetraManual(obj) {
+  // A PREVIEW LÊ A SESSÃO, NÃO O COMANDO — e é o mesmo idioma do `currentItem`
+  // no `load`: o comando que chega aqui já passou pelo `telaLetraAvulsa`, que
+  // com uma tela da rede ativa TROCA o `imageOpfsPath` de cada estrofe pela
+  // `/m/<token>` dela. A preview resolve a ilustração pelo OPFS e não sabe ler
+  // uma rota do espelho — MEDIDO: com uma tela pareada a letra avulsa saía sem
+  // fundo nenhum na preview (`pvLyricsImg` escondida, `src` nulo), que é
+  // exatamente o defeito que este lote veio consertar, de volta pela porta da
+  // transmissão. A sessão é a fonte local da verdade e está no MESMO documento.
+  const daSessao = (lyricSession && Array.isArray(lyricSession.slides)) ? lyricSession.slides : null;
+  const slides = (daSessao && daSessao.length) ? daSessao
+    : (Array.isArray(obj.slides) ? obj.slides : []);
+  if (!slides.length) return;
+  if (pvTextActive) hidePvText(false);
+  preview.instantCover(obj.view === 'wallpaper');
+  showPvLyrics({ lyrics: slides, hymnName: obj.title }, Math.max(0, obj.idx | 0), true);
 }
 
 // ===== A PREVIEW NÃO CORTA A LETRA (v1.1.8) =====
@@ -2719,6 +2746,8 @@ function applyPvLyricsImage(slide) {
 
 function updatePvLyricSlide(t) {
   if (!pvLyrics || pvLyricsEnded) return;
+  // A LETRA AVULSA é do operador, não do relógio — o espelho do `updateLyricSlide`.
+  if (pvLetraManual) return;
   // Replay depois do fim: a letra foi esmaecida junto com a música, mas os
   // slides continuam carregados — o tempo voltar a correr a traz de volta.
   if (pvLyricsEl.hidden) pvLayerIn(pvLyricsEl);
@@ -2785,6 +2814,13 @@ function aoSairDeCenaPv(p) {
 // regra dos dois lados — 'text-hide' restaura; load visual/stop/clear não,
 // porque algo novo já vai assumir a cena).
 function hidePvText(restore = true) {
+  // A LETRA AVULSA sai pela MESMA porta — o espelho do `hideText` (v1.9.7).
+  if (pvLetraManual) {
+    pvLetraManual = false;
+    hidePvLyrics(true);
+    if (restore) restorePvSceneAfterText();
+    return;
+  }
   if (!pvTextActive && pvTextEl.hidden) return;
   pvTextActive = false;
   soltarPvTextImg();
@@ -2908,6 +2944,12 @@ async function pintarPvTextImg(obj) {
 }
 
 function showPvText(obj) {
+  // A LETRA AVULSA não é um cartão — ver `mostrarPvLetraManual` (v1.9.7).
+  if (obj.mode === 'songlyrics') { mostrarPvLetraManual(obj); return; }
+  // E um cartão de verdade ASSUME a camada — o espelho do `showText` (v1.9.7):
+  // sem isto o `hidePvText` seguinte cai no ramo da letra avulsa e o cartão
+  // fica preso na preview, que sem TV é a projeção.
+  pvLetraManual = false;
   const wallpaper = obj.view === 'wallpaper';
   const isMsg = obj.mode === 'message';
   const isChrono = obj.mode === 'chrono';
@@ -3633,7 +3675,7 @@ function renderNowPlaying() {
   // única referência de onde está na música.
   if (lyricProjecting()) {
     npNameInnerEl.textContent = lyricSession.title
-      + ' · ' + (lyricSession.idx + 1) + '/' + lyricSession.stanzas.length;
+      + ' · ' + (lyricSession.idx + 1) + '/' + lyricSession.slides.length;
     applyTitleMarquee();
     // A MESMA regra do cronômetro logo acima: o ▶/⏸ segue o áudio de fundo
     // (que continua por baixo do texto) e o seek fica com quem já o governa
@@ -5988,42 +6030,96 @@ async function projectSongLyricsOnly(coll, s) {
   const seq = ++lyricLoadSeq;
   const bg = previewBusy('Baixando a letra', songLabel(coll, s));
   try {
-    let stanzas = await lyricStanzaTexts(coll, s);
+    let slides = await lyricSlidesFor(coll, s);
     if (seq !== lyricLoadSeq) return;
-    if (!stanzas.length) {
+    if (!slides.length) {
       await ensureSongDownloaded(coll, s);
       if (seq !== lyricLoadSeq) return;
-      stanzas = await lyricStanzaTexts(coll, s);
+      slides = await lyricSlidesFor(coll, s);
       if (seq !== lyricLoadSeq) return;
     }
     // O MESMO CARTÃO que estava dizendo "Baixando…" diz por que não deu — ele
     // é sobre a preview, que é onde a letra apareceria.
-    if (!stanzas.length) { bg.falhar('esta música não tem letra'); return; }
+    if (!slides.length) { bg.falhar('esta música não tem letra'); return; }
     soUmProvedorDeTexto('songlyrics');
-    lyricSession = { title: songLabel(coll, s), stanzas, idx: 0, projecting: true };
+    lyricSession = { title: songLabel(coll, s), slides, idx: 0, projecting: true };
     projectLyricStanza(0);
   } finally {
     bg.soltar();
   }
 }
 
-// As estrofes já achatadas em texto de slide (uma string por estrofe, linhas
-// separadas por `\n`), sem as vazias.
-async function lyricStanzaTexts(coll, s) {
+/**
+ * ===== OS SLIDES DA LETRA AVULSA, NA FORMA DA LETRA CANTADA (v1.9.7) =====
+ *
+ * Relato do operador: *"ao selecionar apenas a letra, sem música tocada, a letra
+ * é apresentada, mas não são exibidos as imagens de fundo de ilustração"*.
+ *
+ * A ilustração de uma estrofe é o `imageOpfsPath` de um SLIDE do arquivo
+ * baixado, e ela era descartada três vezes antes de poder ser pintada: aqui (as
+ * estrofes viravam STRING), no `stanzasFromSlides` (que monta `{a,l}` e larga o
+ * resto) e na preferência do `songLyricStanzas`, que escolhe o acervo de TEXTO
+ * — completo, e sem imagem nenhuma — quando ele tem divisão de verdade.
+ *
+ * **O ARQUIVO VENCE QUANDO TEM ILUSTRAÇÃO, e só aí.** Ele é a ÚNICA fonte de
+ * imagem, e é literalmente o que a congregação vê quando a música toca: a letra
+ * sem música tem de ser a mesma cena. Sem imagem nenhuma a preferência de
+ * sempre continua valendo — o acervo de texto é mais completo, e trocá-lo por
+ * nada mudaria a divisão das estrofes de graça.
+ *
+ * **A FORMA É A DO SLIDE, nos dois caminhos** (`text`/`auxText`/
+ * `imageOpfsPath`): é ela que `renderLyricSlide` sabe desenhar, e converter para
+ * `{a,l}` e de volta seria a segunda escrita da mesma coisa. A CAPA fica de
+ * fora — quem pede "apenas a letra" pede a primeira estrofe, não um cartão de
+ * abertura —, e é a única coisa que separa esta cena da cantada.
+ */
+async function lyricSlidesFor(coll, s) {
+  const doArquivo = [];
+  for (const fid of [s.fileIdFull, s.fileIdPlayback]) {
+    if (!fid || doArquivo.length) continue;
+    const rec = await AVDB.fileGet(fid).catch(() => null);
+    if (!rec || !Array.isArray(rec.lyrics)) continue;
+    for (const sl of rec.lyrics) {
+      if (!sl || sl.cover) continue;
+      const texto = String(sl.text || '').trim();
+      const rotulo = String(sl.auxText || '').trim();
+      if (!texto && !rotulo) continue;
+      doArquivo.push({ text: texto, auxText: rotulo, imageOpfsPath: sl.imageOpfsPath || null });
+    }
+  }
+  if (doArquivo.some((sl) => sl.imageOpfsPath)) return doArquivo;
   const estrofes = await songLyricStanzas(coll, s);
-  return (estrofes || []).map((e) => (e.l || []).join('\n').trim()).filter((t) => t);
+  const doAcervo = (estrofes || [])
+    .map((e) => ({ text: (e.l || []).join('\n').trim(), auxText: e.a || '', imageOpfsPath: null }))
+    .filter((sl) => sl.text || sl.auxText);
+  return doAcervo.length ? doAcervo : doArquivo;
 }
 
 function projectLyricStanza(idx) {
   if (!lyricSession) return;
-  lyricSession.idx = Math.min(Math.max(idx, 0), lyricSession.stanzas.length - 1);
+  lyricSession.idx = Math.min(Math.max(idx, 0), lyricSession.slides.length - 1);
   lyricSession.projecting = true;
   view = 'visual';
   persistCurrent();
-  // `mode: 'message'` — o telão já sabe desenhar um bloco de texto centrado, que
-  // é exatamente o que uma estrofe é. Um modo novo no protocolo só para isto
-  // exigiria shell/bundle novos dos dois lados sem mudar um pixel do resultado.
-  cmd({ type: 'text', mode: 'message', main: lyricSession.stanzas[lyricSession.idx], sub: '', view: 'visual' });
+  // ===== A LETRA AVULSA USA A CAMADA DA LETRA, NÃO O CARTÃO (v1.9.7) =====
+  //
+  // Ela saía como `mode: 'message'` — o bloco de texto centrado, que é "o que
+  // uma estrofe é" menos a única coisa que o operador reclamou de não ver: **a
+  // ILUSTRAÇÃO**. O cartão de texto não tem fundo de imagem e não deve ganhar
+  // um: quem desenha estrofe sobre foto já existe dos dois lados
+  // (`renderLyricSlide` no telão, `renderPvLyricSlide` na preview), com a
+  // moldura, o recorte que nunca corta a letra e o interruptor de fundo.
+  // Escrever um segundo é a duplicação que este repositório recusa.
+  //
+  // **A LISTA INTEIRA VIAJA, e não só a estrofe da vez**: é o que faz a
+  // reconexão do telão custar nada (o `resendSceneToDisplay` reenvia o mesmo
+  // comando) e o que deixa a tela da rede resolver as imagens sozinha. São
+  // algumas dezenas de linhas de texto — o mesmo porte de um `__rec`.
+  cmd(telaLetraAvulsa({
+    type: 'text', mode: 'songlyrics', view: 'visual',
+    idx: lyricSession.idx, title: lyricSession.title,
+    slides: lyricSession.slides,
+  }));
   renderControls();
   renderNowPlaying();
   renderSlideNav();
@@ -6031,7 +6127,7 @@ function projectLyricStanza(idx) {
 
 function lyricStep(delta) {
   if (!lyricSession) return;
-  const t = Math.min(Math.max(lyricSession.idx + delta, 0), lyricSession.stanzas.length - 1);
+  const t = Math.min(Math.max(lyricSession.idx + delta, 0), lyricSession.slides.length - 1);
   if (t === lyricSession.idx) return;
   if (!lyricProjecting()) { lyricSession.idx = t; renderSlideNav(); return; }
   projectLyricStanza(t);
@@ -13281,7 +13377,7 @@ function applySlideLimits(who) {
   // Letra avulsa: passa/volta entre as estrofes da música escolhida.
   if (who === 'songlyrics') {
     slidePrevBtnEl.disabled = lyricSession.idx <= 0;
-    slideNextBtnEl.disabled = lyricSession.idx >= lyricSession.stanzas.length - 1;
+    slideNextBtnEl.disabled = lyricSession.idx >= lyricSession.slides.length - 1;
     return;
   }
   // Mensagens: passa/volta entre as mensagens salvas (nos extremos desabilita).
@@ -35656,7 +35752,11 @@ function resendSceneToDisplay(para) {
     const m = messages[msgSession.idx];
     if (m) enviar({ type: 'text', mode: 'message', main: m.text, sub: '', estilo: m.estilo || null, view });
   } else if (lyricProjecting()) {
-    enviar({ type: 'text', mode: 'message', main: lyricSession.stanzas[lyricSession.idx], sub: '', view });
+    enviar(telaLetraAvulsa({
+      type: 'text', mode: 'songlyrics', view,
+      idx: lyricSession.idx, title: lyricSession.title,
+      slides: lyricSession.slides,
+    }));
   } else if (visualSobreProjetando()) {
     // A IMAGEM SOBRE O ÁUDIO volta como as outras cinco, e precisa: ela é
     // justamente o caso que este reenvio existe para cobrir — um cartão de
@@ -36636,6 +36736,38 @@ function telaSanearRec(it, token) {
     }));
   }
   return rec;
+}
+
+/**
+ * A LETRA AVULSA PARA AS TELAS DA REDE (v1.9.7) — o irmão do `telaEnriquecer`.
+ *
+ * `imageOpfsPath` é caminho de OPFS e **nunca viaja**: uma tela da rede não tem
+ * o OPFS do celular. O que viaja é a mesma URL `/m/` por imagem DISTINTA que a
+ * letra cantada já usa (id estável `'ly:'+caminho`), e os bytes vão pela mesma
+ * fila. Sem tela ativa o comando sai como está — o telão de verdade lê o OPFS.
+ *
+ * **O QUE ESTA TROCA COBRA, e está MEDIDO:** o comando é UM só e vai a todos, e
+ * as estrofes dele saem daqui sem `imageOpfsPath`. Quem resolve a ilustração
+ * pelo OPFS e não sabe ler uma rota do espelho fica sem fundo. A PREVIEW se
+ * defende sozinha (lê `lyricSession`, ver `mostrarPvLetraManual`); o TELÃO, que
+ * é outro documento e não tem a sessão, NÃO — com uma tela da rede pareada E uma
+ * TV conectada, a `/m/<token>` não resolve no origin do app e a estrofe vai ao
+ * ar sem ilustração (a `<img>` retenta por 45 s e desiste). Consertar isso pede
+ * decisão de CONTRATO: ou o `imageOpfsPath` passa a viajar junto (e a spec §5.5
+ * diz que ele NUNCA atravessa), ou nasce um campo aditivo à moda do `__rec` com
+ * a preferência por PAPEL no `applyLyricsImage`. Não fazer nada é a opção que
+ * está aqui, e ela está escrita para o próximo leitor não a redescobrir.
+ */
+function telaLetraAvulsa(c) {
+  if (!telaAtiva()) return c;
+  const slides = c.slides.map((sl) => ({
+    text: sl.text, auxText: sl.auxText,
+    imageUrl: sl.imageOpfsPath ? telaImagemLetraUrl(sl.imageOpfsPath) : undefined,
+  }));
+  // Os BYTES depois do comando, e não antes: a estrofe tem de aparecer já, e a
+  // foto entra quando chegar (o `applyLyricsImage` da tela retenta o `/m/`).
+  telaEmpurrarImagensLetra({ lyrics: c.slides });
+  return Object.assign({}, c, { slides });
 }
 
 // Token estável por imagem de letra; devolve a URL /m/ dela (ou undefined).

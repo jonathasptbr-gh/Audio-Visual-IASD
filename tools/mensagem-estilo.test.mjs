@@ -34,8 +34,9 @@
 // ## O que mais falha calado aqui
 //
 //  - **uma mensagem SEM `estilo` mudar de aparência.** Toda mensagem gravada
-//    antes deste recurso — e a ESTROFE da letra avulsa, que entra pelo mesmo
-//    `mode: 'message'` sem estilo nenhum — tem de sair EXATAMENTE como saía. A
+//    antes deste recurso tem de sair EXATAMENTE como saía. (A ESTROFE da letra
+//    avulsa entrava pelo mesmo `mode: 'message'` sem estilo nenhum até a v1.9.7;
+//    desde ela a letra avulsa tem camada própria — ver `letra-avulsa.test.mjs`.) A
 //    régua é o próprio fallback da folha: as quatro variáveis REMOVIDAS da caixa
 //    são, literalmente, o cartão de antes do recurso.
 //  - **a escala sem o recorte.** A caixa do cartão não cresce com a fonte: com o
