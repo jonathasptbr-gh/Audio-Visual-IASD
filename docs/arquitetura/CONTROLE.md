@@ -2325,9 +2325,21 @@ investigação, e entrega o que sobra.
   componente), pela razão do `describeCastTarget`: o operador não escolhe entre
   caminhos pelo nome da tela que vai abrir, e quando ela é a errada a resposta
   tem de estar no texto que se COPIA.
-- **SÃO TRÊS PERGUNTAS, e o Registro responde as três.** *Qual PEGOU* (v1.9.9),
-  *quais EXISTEM* (v1.9.10) e *ele ABRIU* (v1.9.11) — cada uma nasceu de um
-  relato que a anterior não explicava. A terceira é **RELIDA a cada montagem do
+- **SÃO QUATRO PERGUNTAS, e o Registro responde as quatro.** *Qual PEGOU*
+  (v1.9.9), *quais EXISTEM* (v1.9.10), *ele ABRIU* (v1.9.11) e *o app ainda
+  TENTA* (v1.9.12) — cada uma nasceu de um relato que a anterior não explicava,
+  e é essa a lição da série: **um diagnóstico que responde só a pergunta anterior
+  custa um lote inteiro por relato.**
+- **O ENGOLIDO É LEMBRADO POR `versionCode`** (v1.9.12). Medido o bloqueio, o
+  candidato é PULADO: os 800 ms são o que impede o tile de ficar mudo, mas onde o
+  desfecho já é conhecido eles são espera pura, e o operador os pagava em todo
+  toque. **A memória não é permanente de propósito** — um booleano seco excluiria
+  para sempre um aparelho que passasse a permitir (atualização do sistema, troca
+  de ROM), e com o `versionCode` dentro todo APK novo re-mede UMA vez. O bloqueio
+  sai em DUAS linhas do Registro (a do candidato e a do último toque), senão *"o
+  app deixou de tentar"* seria um estado invisível. **E a queda filtra por TIPO,
+  não por posição:** o `drop(1)` da primeira escrita supunha que o broadcast é
+  sempre o primeiro, e isso é a cópia de uma ordem que mora noutro lugar. A terceira é **RELIDA a cada montagem do
   Registro**, e isso é metade do conserto: o desfecho muda a cada toque, e lê-lo
   só na carga faria o Registro dizer "nunca" para sempre.
 - **E DESDE A v1.9.10 A CADEIA INTEIRA VAI JUNTO**, uma linha por candidato com a

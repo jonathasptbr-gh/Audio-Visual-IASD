@@ -695,7 +695,9 @@ window.AVNative = {
                        //   nasceu de um relato que a anterior não explicava:
                        //   `label` é quem PEGOU, `candidatos` é quais EXISTEM, e
                        //   `desfecho` é se o diálogo ABRIU — `nunca`,
-                       //   `aguardando`, `abriu` ou `engolido`. O último muda a
+                       //   `aguardando`, `abriu`, `engolido` ou `bloqueado`
+                       //   (shell 76: o engolido LEMBRADO, por `versionCode`, e
+                       //   o candidato traz `bloqueado: true`). O último muda a
                        //   cada toque, e por isso o Registro o RELÊ a cada
                        //   montagem: lido só na carga ele diria "nunca" para
                        //   sempre. `label` traz o componente;

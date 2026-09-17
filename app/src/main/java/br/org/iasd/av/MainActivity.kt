@@ -1870,6 +1870,19 @@ class MainActivity : ComponentActivity(), BridgeHost {
     override fun openAudioOutputPicker() {
         runOnUiThread {
             for (c in audioOutputCandidates()) {
+                // ===== O QUE JÁ FOI MEDIDO COMO BLOQUEADO NÃO É TENTADO DE NOVO =====
+                //
+                // Pedido do operador, depois de o Registro dele provar que o
+                // diálogo do SystemUI é engolido NAQUELE aparelho: tirar a espera.
+                // Os 800 ms do [conferirDialogoDeSaida] são o que impede o tile de
+                // ficar mudo — mas onde o desfecho JÁ é conhecido eles são espera
+                // pura, e o operador os paga em todo toque, num culto.
+                //
+                // A memória é POR VERSÃO DO APK (ver [dialogoDeSaidaBloqueado]): um
+                // APK novo re-mede uma vez, senão um aparelho que passasse a
+                // permitir ficaria excluído para sempre — e a exclusão é escrita no
+                // Registro, para não ser um estado invisível.
+                if (c.broadcast && dialogoDeSaidaBloqueado()) continue
                 if (abrirCandidatoDeAudio(c)) return@runOnUiThread
             }
             // O laço CEGO, e ele é o PISO: as duas ações abaixo são constantes
@@ -1950,10 +1963,14 @@ class MainActivity : ComponentActivity(), BridgeHost {
     private fun conferirDialogoDeSaida() {
         if (hasWindowFocus()) {
             saidaAudioDesfecho = "engolido"
+            marcarDialogoDeSaidaBloqueado()
             Log.w(TAG, "o diálogo de saída de áudio não subiu — seguindo a cadeia")
-            // DO SEGUNDO EM DIANTE: o primeiro é o broadcast que acabou de falhar,
-            // e retentá-lo aqui seria um laço.
-            for (c in audioOutputCandidates().drop(1)) {
+            // SÓ AS TELAS: retentar o broadcast aqui seria um laço, e o filtro é
+            // por TIPO e não por POSIÇÃO — `drop(1)` supunha que o broadcast é
+            // sempre o primeiro, e essa é a cópia de uma ordem que mora noutro
+            // lugar.
+            for (c in audioOutputCandidates()) {
+                if (c.broadcast) continue
                 if (abrirCandidatoDeAudio(c)) return
             }
             for (action in listOf(Settings.ACTION_SOUND_SETTINGS, Settings.ACTION_SETTINGS)) {
@@ -1969,7 +1986,34 @@ class MainActivity : ComponentActivity(), BridgeHost {
         saidaAudioDesfecho = "abriu"
     }
 
-    override fun audioOutputLastOutcome(): String = saidaAudioDesfecho
+    override fun audioOutputLastOutcome(): String =
+        if (saidaAudioDesfecho == "nunca" && dialogoDeSaidaBloqueado()) "bloqueado" else saidaAudioDesfecho
+
+    /**
+     * O diálogo do SystemUI já foi medido como ENGOLIDO neste aparelho?
+     *
+     * **A memória é por VERSÃO DO APK, e não permanente.** Guardar só um booleano
+     * excluiria para sempre um aparelho que passasse a permitir — uma atualização
+     * do sistema, uma troca de ROM. Com o `versionCode` dentro, todo APK novo
+     * re-mede UMA vez, e o preço disso é um único toque com os 800 ms de espera
+     * depois de cada instalação.
+     */
+    private fun dialogoDeSaidaBloqueado(): Boolean =
+        getSharedPreferences(SAIDA_PREFS, MODE_PRIVATE).getLong(SAIDA_BLOQUEADO_KEY, -1L) == versaoDoApk()
+
+    private fun marcarDialogoDeSaidaBloqueado() {
+        getSharedPreferences(SAIDA_PREFS, MODE_PRIVATE).edit()
+            .putLong(SAIDA_BLOQUEADO_KEY, versaoDoApk()).apply()
+    }
+
+    /** `versionCode` do APK instalado — a chave da memória acima. */
+    @Suppress("DEPRECATION")
+    private fun versaoDoApk(): Long = try {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else info.versionCode.toLong()
+    } catch (_: Exception) {
+        0L
+    }
 
     /**
      * Para onde o tile de saída de áudio vai abrir — e, desde a v1.9.10, **a
@@ -2003,7 +2047,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
                     .put("acao", c.intent.action ?: "")
                     .put("rotulo", audioOutputLabel(c.intent.action ?: ""))
                     .put("tipo", if (c.broadcast) "broadcast" else "tela")
-                    .put("alvo", alvo ?: JSONObject.NULL),
+                    .put("alvo", alvo ?: JSONObject.NULL)
+                    // MEDIDO COMO BLOQUEADO NESTE APARELHO: o endereço existe e o
+                    // sistema recusa mostrar a janela. Sem esta linha, "o app deixou
+                    // de tentar" seria um estado INVISÍVEL — e um estado invisível
+                    // num diagnóstico lido a distância é o que este Registro existe
+                    // para não produzir.
+                    .put("bloqueado", c.broadcast && dialogoDeSaidaBloqueado()),
             )
         }
         return arr
@@ -2977,6 +3027,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
          * CÓDIGO) e o tema é preferência do operador, que deve viajar na troca
          * de aparelho como qualquer outra.
          */
+        /** A memória do diálogo de saída bloqueado — ver `dialogoDeSaidaBloqueado`. */
+        private const val SAIDA_PREFS = "saida-audio"
+        private const val SAIDA_BLOQUEADO_KEY = "dialogoBloqueadoNaVersao"
+
         private const val TEMA_PREFS = "tema"
         private const val TEMA_CLARO_KEY = "claro"
 

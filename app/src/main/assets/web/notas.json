@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.9.12",
+    "itens": [
+      "O atalho da saída de áudio abre no ato: acabou a espera antes da tela de volume.",
+      "O app agora lembra que a janela de aparelhos é bloqueada neste celular, e não insiste.",
+      "Ele volta a testar uma vez a cada aplicativo novo instalado, caso o sistema passe a permitir.",
+      "Em celulares onde aquela janela funciona, nada muda: ela continua sendo a primeira escolha.",
+      "O Registro diz quando a janela está bloqueada, para o estado não ficar invisível."
+    ]
+  },
+  {
     "versao": "1.9.11",
     "itens": [
       "Conserta o atalho da saída de áudio não abrir janela nenhuma no seu aparelho.",
