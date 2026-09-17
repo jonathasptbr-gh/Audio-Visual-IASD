@@ -62,6 +62,7 @@ const PONTE = `(() => {
   // o cenário mandar depois. É ele que responde *"o diálogo do sistema subiu?"* —
   // a terceira pergunta, que a lista de candidatos não responde.
   window.__saidaDesfecho = 'nunca';
+  window.__saidaBloqueado = false;
   const B = {
     shellVersion: () => 73,
     role: () => 'controle',
@@ -69,7 +70,13 @@ const PONTE = `(() => {
     takeShare: () => '',
     busPost: (t) => { try { (window.__enviados = window.__enviados || []).push(JSON.parse(t)); } catch (_) {} },
     otaConfirm: () => {},
-    abrirSaidaDeAudio: () => { window.__saidaAberta++; window.__saidaDesfecho = 'engolido'; },
+    abrirSaidaDeAudio: () => {
+      window.__saidaAberta++;
+      // O APARELHO DE TESTE ENGOLE, como o do operador: o primeiro toque mede, e
+      // do segundo em diante o shell já sabe e responde 'bloqueado'.
+      window.__saidaDesfecho = window.__saidaDesfecho === 'nunca' ? 'engolido' : 'bloqueado';
+      window.__saidaBloqueado = window.__saidaDesfecho === 'bloqueado';
+    },
     // O RÓTULO É VERBATIM DA FORMA QUE O KOTLIN MONTA (rótulo + componente entre
     // parênteses): a linha do Registro existe para dizer QUAL candidato pegou, e
     // um stub que devolvesse só "ok" não provaria que o componente atravessa.
@@ -86,7 +93,8 @@ const PONTE = `(() => {
             candidatos: [
               { acao: 'com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG',
                 rotulo: 'Seletor de saída (SystemUI)', tipo: 'broadcast',
-                alvo: 'com.android.systemui/.media.MediaOutputDialogReceiver' },
+                alvo: 'com.android.systemui/.media.MediaOutputDialogReceiver',
+                bloqueado: !!window.__saidaBloqueado },
               { acao: 'com.android.settings.panel.action.MEDIA_OUTPUT',
                 rotulo: 'Seletor de saída (Configurações)', tipo: 'tela', alvo: null },
               { acao: 'android.settings.panel.action.VOLUME',
@@ -356,6 +364,31 @@ try {
     'A6d · o Registro diz se o diálogo do sistema SUBIU ou foi ENGOLIDO — e relê a '
     + 'cada montagem, senão ele responderia "nunca" para sempre',
     (regDepois.match(/Saída de áudio, último toque:.*/) || ['(a linha não saiu)'])[0]);
+
+  // ===== O SEGUNDO TOQUE NÃO PAGA A ESPERA (v1.9.12) =====
+  //
+  // Pedido do operador, depois de o Registro dele PROVAR que o diálogo é engolido
+  // naquele aparelho: tirar a espera. Os 800 ms são o que impede o tile de ficar
+  // mudo, mas onde o desfecho já é conhecido eles são espera pura — e ele os paga
+  // em todo toque, num culto.
+  //
+  // A ASSERÇÃO É SOBRE O ESTADO DITO, e não sobre o relógio: medir 800 ms aqui
+  // seria medir o arnês (o shell de mentira não espera nada). O que se trava é que
+  // o app SABE que está bloqueado e DIZ isso — sem a linha, "o app deixou de
+  // tentar" é um estado invisível, e um estado invisível num diagnóstico lido a
+  // distância é o que este Registro existe para não produzir.
+  await pg.evaluate(() => { document.getElementById('saidaAudioTile').click(); });
+  await esperar(pg, () => window.__saidaAberta === 2, null, 5000);
+  const regBloq = await lerRegistro(pg);
+  checar(/último toque: o diálogo está BLOQUEADO neste aparelho/.test(regBloq),
+    'A6e · depois de medido, o Registro diz que o diálogo está BLOQUEADO e que o '
+    + 'app abre a tela seguinte NO ATO',
+    (regBloq.match(/Saída de áudio, último toque:.*/) || ['(a linha não saiu)'])[0]);
+  const linhaBloq = regBloq.split('\n').filter((x) => /^\s+· /.test(x))[0] || '';
+  checar(/BLOQUEADO — o app não tenta mais nesta versão/.test(linhaBloq),
+    'A6f · e a linha DO CANDIDATO carrega a marca: o endereço EXISTE e o sistema '
+    + 'recusa mostrar a janela, e as duas coisas juntas são o diagnóstico',
+    linhaBloq || '(sem linha)');
 
   // NO NAVEGADOR ELE NÃO EXISTE, e esta asserção precisa de um contexto SEM a
   // ponte: medir o `hidden` no app aprova o tile mesmo que ninguém o esconda

@@ -82,7 +82,9 @@ interface BridgeHost {
 
     /**
      * O desfecho do ÚLTIMO toque no tile de saída de áudio: `nunca`,
-     * `aguardando`, `abriu` ou `engolido`.
+     * `aguardando`, `abriu`, `engolido` — ou **`bloqueado`** (shell 76), que é o
+     * engolido LEMBRADO de uma sessão anterior: o app deixou de tentar aquele
+     * candidato neste aparelho, e o tile abre a tela seguinte no ato.
      *
      * Ele existe porque o primeiro candidato é um BROADCAST, e `sendBroadcast`
      * não devolve desfecho nenhum — o relato que o criou é *"dessa vez ele não
@@ -341,7 +343,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 75
+        const val SHELL_VERSION = 76
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —

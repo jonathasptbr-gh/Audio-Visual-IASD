@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.11';
+const WEB_VERSION = '1.9.12';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -25572,7 +25572,8 @@ function cabecalhoDiag() {
     l.push('Saída de áudio, último toque: ' + (
       audioDesfecho === 'abriu' ? 'o diálogo do sistema SUBIU'
         : audioDesfecho === 'engolido' ? 'o diálogo foi ENGOLIDO — a cadeia seguiu para a próxima tela'
-          : 'ainda conferindo'));
+          : audioDesfecho === 'bloqueado' ? 'o diálogo está BLOQUEADO neste aparelho (medido antes) — o app abre a tela seguinte no ato'
+            : 'ainda conferindo'));
   }
   // ===== A CADEIA INTEIRA, e não só quem pegou (v1.9.10) =====
   //
@@ -25588,7 +25589,11 @@ function cabecalhoDiag() {
   for (const c of audioCadeia) {
     if (!c) continue;
     l.push('  · ' + (c.rotulo || c.acao || '?') + ' [' + (c.tipo || '?') + ']: '
-      + (c.alvo || '— não existe neste aparelho'));
+      + (c.alvo || '— não existe neste aparelho')
+      // O BLOQUEIO É DITO NA LINHA DO CANDIDATO, e não só na do último toque: o
+      // endereço EXISTE e o sistema recusa mostrar a janela, e sem esta marca "o
+      // app deixou de tentar" seria um estado invisível.
+      + (c.bloqueado ? '  (BLOQUEADO — o app não tenta mais nesta versão)' : ''));
   }
   // A ECONOMIA DA PRÉVIA, e ela precisa da linha porque MUDA O QUE SE MEDE
   // (v1.9.9): com a imagem desligada a prévia não anda, e quem lê este Registro a

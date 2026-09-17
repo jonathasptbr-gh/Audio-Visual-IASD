@@ -643,7 +643,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **75**, e ele é o **PISO**: o bundle declara `minShell: 75`, então
+Hoje vale **76**, e ele é o **PISO**: o bundle declara `minShell: 76`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -656,7 +656,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 75 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 76 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -1777,7 +1777,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Onde o share aterrissa | idem (mesmo `importShare`) | **`focarImportado`**: fecha popups e seleção; projeta na hora no simplificado (item vai para a prateleira `avulsos`, que não tem lista visível) ou vai ao Cronograma no avançado. A preview em tela cheia só é encerrada se houver telão |
 | Estado do telão (Configurações) | atalho `window.open('../display/')` | **indicador ao vivo**, desabilitado como botão |
 | Botão de cast da preview | oculto | `AVNative.openCast()` → seletor de espelhamento (ver abaixo) |
-| **Escolher a saída de áudio** | **não existe** — o navegador não tem como abrir tela de sistema nenhuma | tile **"Saída de áudio"** em Configurações (shell 73): `abrirSaidaDeAudio` → o seletor do SISTEMA. **ELE ABRE, NÃO ROTEIA**, e o `title` diz isso: escolher o aparelho de saída é `@SystemApi` atrás de `MODIFY_AUDIO_ROUTING` (`signature|privileged|role`) — ver o espelhamento, que já levantou isso. Pedido do operador **sabendo** que a notificação de mídia já traz o seletor (*"o que eu quero é um atalho mesmo no próprio app, nas configurações, assim fica claro as opções"*): a porta que existe é invisível para quem não a conhece. A cadeia é a do `pickCastIntent` — do específico ao genérico, alvo não documentado — e difere dele em DOIS pontos: o último candidato é constante PÚBLICA (`ACTION_SOUND_SETTINGS`), então ela tem PISO; e ela **tenta TODOS**, em vez de escolher um e desistir, porque um candidato que RESOLVA mas RECUSE derrubaria a cadeia inteira. **O primeiro deles é um BROADCAST** (o diálogo do SystemUI, a lista que o ícone da notificação de mídia abre) — a v1.9.9 só sabia `startActivity` e por isso caía no painel de volume. **E ELE É CONFERIDO PELO FOCO DA JANELA, 800 ms depois** (v1.9.11): `sendBroadcast` não devolve desfecho, quem recebe pode ENGOLIR em silêncio, e foi o que aconteceu — a existência do receptor responde *"há quem receba?"*, não *"a janela abriu?"*. Com o foco ainda no app, a cadeia segue do candidato seguinte, e o tile deixa de poder ficar mudo. O alvo escolhido vai ao REGISTRO e só lá — e desde a v1.9.10 a **CADEIA INTEIRA** vai junto, um candidato por linha com a ação, o tipo e o componente (ou *"não existe neste aparelho"*): saber qual PEGOU não é a mesma pergunta que quais EXISTEM, e sem a segunda um aparelho que abre a tela errada não é diagnosticável a distância. **E com o espelhamento no ar ele não resolve o vazamento**: o áudio do Miracast é `REMOTE_SUBMIX`, a mistura do aparelho inteiro, e a combinação não foi medida em aparelho |
+| **Escolher a saída de áudio** | **não existe** — o navegador não tem como abrir tela de sistema nenhuma | tile **"Saída de áudio"** em Configurações (shell 73): `abrirSaidaDeAudio` → o seletor do SISTEMA. **ELE ABRE, NÃO ROTEIA**, e o `title` diz isso: escolher o aparelho de saída é `@SystemApi` atrás de `MODIFY_AUDIO_ROUTING` (`signature|privileged|role`) — ver o espelhamento, que já levantou isso. Pedido do operador **sabendo** que a notificação de mídia já traz o seletor (*"o que eu quero é um atalho mesmo no próprio app, nas configurações, assim fica claro as opções"*): a porta que existe é invisível para quem não a conhece. A cadeia é a do `pickCastIntent` — do específico ao genérico, alvo não documentado — e difere dele em DOIS pontos: o último candidato é constante PÚBLICA (`ACTION_SOUND_SETTINGS`), então ela tem PISO; e ela **tenta TODOS**, em vez de escolher um e desistir, porque um candidato que RESOLVA mas RECUSE derrubaria a cadeia inteira. **O primeiro deles é um BROADCAST** (o diálogo do SystemUI, a lista que o ícone da notificação de mídia abre) — a v1.9.9 só sabia `startActivity` e por isso caía no painel de volume. **E ELE É CONFERIDO PELO FOCO DA JANELA, 800 ms depois** (v1.9.11): `sendBroadcast` não devolve desfecho, quem recebe pode ENGOLIR em silêncio, e foi o que aconteceu — a existência do receptor responde *"há quem receba?"*, não *"a janela abriu?"*. Com o foco ainda no app, a cadeia segue do candidato seguinte, e o tile deixa de poder ficar mudo. **E O ENGOLIDO É LEMBRADO POR `versionCode`** (v1.9.12): onde o desfecho já foi medido a espera é pura, e o operador a pagava em todo toque — um APK novo re-mede UMA vez, senão um aparelho que passasse a permitir ficaria excluído para sempre. O bloqueio sai no Registro em DUAS linhas (a do candidato e a do último toque), senão *"o app deixou de tentar"* seria estado invisível. O alvo escolhido vai ao REGISTRO e só lá — e desde a v1.9.10 a **CADEIA INTEIRA** vai junto, um candidato por linha com a ação, o tipo e o componente (ou *"não existe neste aparelho"*): saber qual PEGOU não é a mesma pergunta que quais EXISTEM, e sem a segunda um aparelho que abre a tela errada não é diagnosticável a distância. **E com o espelhamento no ar ele não resolve o vazamento**: o áudio do Miracast é `REMOTE_SUBMIX`, a mistura do aparelho inteiro, e a combinação não foi medida em aparelho |
 | **Desligar a imagem da prévia** | idem (é `assets/web/` inteira) | tile **"Imagem da prévia"** (v1.9.9): a economia de processamento de um celular fraco. Só a DECODIFICAÇÃO para (`stage.setSuspenso`, o `pause()` dentro do `play()` — um `play` chega por caminhos que o Controle não enumera); tempo, barra, letra, transporte, `MediaSession`, o comando ao telão e o avanço da fila ficam INTEIROS. **A escolha é guardada, o veredito é DERIVADO** (`economiaAtiva` = a marcação **e** `haDestinoDeProjecao()` **e** não estar em tela cheia): sem destino a prévia É a projeção e o tile fica `disabled` com o motivo no `title`; perder a TV religa a imagem sozinho e reconectar volta a poupar. **A TELA CHEIA SUSPENDE** — ali o operador está OLHANDO para ela. Os três caminhos do avanço da fila seguem cobertos e nenhum é a prévia: `media-ended` do telão, a rede de segurança do `tela-status` (v1.8.48), e sem os dois a economia não está ativa |
 | Retomada do telão ao reconectar | idem (`resendSceneToDisplay`) | **só reenvia o que ESTAVA no ar** — a pergunta é `midiaNoAr`, nunca `currentId` (que sobrevive ao stop de propósito, para o ▶ repetir a faixa). Telão vazio também é estado: restaurá-lo é não mandar nada |
 | Girar a mídia | idem (comando `rotate`) | tile **"Girar no telão"** em Configurações, 90° por toque — o nome diz ONDE, porque "Girar" sozinho se lê como o giro da INTERFACE (v1.4.41). O motor TROCA O EIXO da caixa antes de girar, para o `object-fit` medir o retângulo em que a mídia vai de fato aparecer |
@@ -2758,21 +2758,24 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.9.11 · APK v1.9.11** · `SHELL_VERSION` **75** ·
-bundle com `minShell: 75` e **COM `shellTag: "v1.9.11"`** — o shell 75 é o
+**Versão atual: base web v1.9.12 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+bundle com `minShell: 76` e **COM `shellTag: "v1.9.12"`** — o shell 76 é o
 **PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.9.11 DECLARA `shellTag` pelo gatilho de sempre: o `java/`.** Ela conserta
-> o atalho da saída de áudio não abrir NADA — o broadcast do SystemUI era aceito
-> e engolido, e a cadeia parava achando que tinha dado certo. A superfície mudou
-> nas duas pontas (o `saidaDeAudioAlvo` ganhou `desfecho`, e o
-> `abrirSaidaDeAudio` mudou de COMPORTAMENTO: ele agora confere o foco da janela
-> e segue a cadeia), e **comportamento conta como superfície** — daí o degrau.
+> **A v1.9.12 DECLARA `shellTag` pelo gatilho de sempre: o `java/`.** Ela tira a
+> espera de 800 ms do atalho de saída de áudio onde o desfecho JÁ foi medido —
+> o aparelho do operador ENGOLE o diálogo do SystemUI, e insistir custa a ele
+> um vão em todo toque, num culto. A memória é **por `versionCode`**: um APK
+> novo re-mede uma vez, senão um aparelho que passasse a permitir ficaria
+> excluído para sempre.
 >
-> **A LIÇÃO QUE FICA É DE MÉTODO, e ela vale para o próximo `sendBroadcast`:**
-> uma guarda de EXISTÊNCIA (*"há quem receba?"*) não é uma guarda de DESFECHO
-> (*"aconteceu?"*), e usar a primeira como se fosse a segunda produz o botão que
-> não faz nada. A v1.9.10 tinha a razão certa escrita ao lado da guarda errada.
+> **A LIÇÃO DE MÉTODO DESTA SÉRIE (v1.9.9 → v1.9.12) É UMA SÓ, e vale para o
+> próximo alvo não documentado:** cada lote nasceu de um relato que o Registro
+> ANTERIOR não conseguia explicar, e o conserto de cada um foi acrescentar a
+> pergunta que faltava — *qual ele tenta* (v1.9.9), *quais existem* (v1.9.10),
+> *ele abriu* (v1.9.11), *e o app ainda tenta* (v1.9.12). Quatro rodadas, e
+> nenhuma delas foi palpite: **um diagnóstico que responde só a pergunta
+> anterior custa um lote inteiro por relato.**
 
 > **A v1.8.99 REMOVE a coletânea de vídeos do LouvorJA, que a v1.8.97 tinha
 > acrescentado — e a razão é do operador, não técnica:** *"Eu achava que seria
