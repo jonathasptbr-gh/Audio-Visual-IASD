@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.10';
+const WEB_VERSION = '1.9.11';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -25560,6 +25560,20 @@ function cabecalhoDiag() {
     : (refFonte === 'telao' ? 'o telão' : 'um computador conectado')));
   if (castAlvo) l.push('Espelhar abre: ' + castAlvo);
   if (audioAlvo) l.push('Saída de áudio abre: ' + audioAlvo);
+  // ===== O DESFECHO DO ÚLTIMO TOQUE (v1.9.11) =====
+  //
+  // Relato do operador sobre a v1.9.10: *"dessa vez ele não abriu nenhuma
+  // janela"* — e o Registro daquela versão mostrava o receptor do SystemUI
+  // PRESENTE no aparelho. Era exatamente isso: `sendBroadcast` não devolve
+  // desfecho nenhum, quem recebe pode engolir em silêncio, e a cadeia parou
+  // achando que tinha dado certo. A lista de candidatos respondia *"quais
+  // existem"*; esta linha responde *"e ele abriu?"*, que é a terceira pergunta.
+  if (audioDesfecho && audioDesfecho !== 'nunca') {
+    l.push('Saída de áudio, último toque: ' + (
+      audioDesfecho === 'abriu' ? 'o diálogo do sistema SUBIU'
+        : audioDesfecho === 'engolido' ? 'o diálogo foi ENGOLIDO — a cadeia seguiu para a próxima tela'
+          : 'ainda conferindo'));
+  }
   // ===== A CADEIA INTEIRA, e não só quem pegou (v1.9.10) =====
   //
   // Relato do operador sobre a v1.9.9: *"o atalho está abrindo essa janela 'som',
@@ -26467,6 +26481,19 @@ async function renderDiag() {
     if (meu !== diagSeq) return;
     // O FAROL na mesma ida: duas leituras de preferência, sem rede.
     try { farolDiag = await AVNative.farolEstado(); } catch (_) { farolDiag = null; }
+    if (meu !== diagSeq) return;
+    // ===== A SAÍDA DE ÁUDIO É RELIDA AQUI, e não só na abertura (v1.9.11) =====
+    //
+    // A cadeia não muda durante a sessão, mas o DESFECHO do último toque muda a
+    // cada toque — e é ele que responde *"o diálogo do sistema chegou a subir?"*.
+    // Lido só na carga, o Registro diria "nunca" para sempre, que é o mesmo
+    // defeito que a linha veio consertar: um diagnóstico que envelhece calado.
+    try {
+      const sa = await AVNative.saidaDeAudioAlvo();
+      audioAlvo = (sa && sa.label) || audioAlvo;
+      audioCadeia = (sa && sa.candidatos) || audioCadeia;
+      audioDesfecho = (sa && sa.desfecho) || 'nunca';
+    } catch (_) { /* fica o que a abertura leu */ }
     if (meu !== diagSeq) return;
   }
   const blocos = [cabecalhoDiag()];
@@ -35006,6 +35033,7 @@ wallTileEl.addEventListener('click', (e) => {
 let castAlvo = '';
 let audioAlvo = '';
 let audioCadeia = [];
+let audioDesfecho = 'nunca';
 
 // "Telão: …" para o Registro. Mesma frase que o rodapé mostrava, montada do
 // `lastDisplays` em vez de lida de um `<span>` — ver `cabecalhoDiag`.
@@ -35108,6 +35136,7 @@ if (window.__NATIVE__) {
   AVNative.saidaDeAudioAlvo().then((r) => {
     audioAlvo = (r && r.label) || '';
     audioCadeia = (r && r.candidatos) || [];
+    audioDesfecho = (r && r.desfecho) || 'nunca';
   });
 } else {
   // NO NAVEGADOR ELE FICA, e é AÇÃO, não estado: sem `Presentation` não há quem

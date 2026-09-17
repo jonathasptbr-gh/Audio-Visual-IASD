@@ -81,6 +81,18 @@ interface BridgeHost {
     fun listAudioOutputCandidates(): JSONArray
 
     /**
+     * O desfecho do ÚLTIMO toque no tile de saída de áudio: `nunca`,
+     * `aguardando`, `abriu` ou `engolido`.
+     *
+     * Ele existe porque o primeiro candidato é um BROADCAST, e `sendBroadcast`
+     * não devolve desfecho nenhum — o relato que o criou é *"dessa vez ele não
+     * abriu nenhuma janela"*, num aparelho cujo Registro mostrava o receptor
+     * PRESENTE. Sem esta memória, um aparelho em que o diálogo nunca sobe é
+     * indistinguível de um em que ele sobe.
+     */
+    fun audioOutputLastOutcome(): String
+
+    /**
      * Abre uma URL `https` FORA do app (navegador, ou o app que a reivindicar).
      * O WebView do Controle recusa navegar para outro origin — ver
      * [WebViewFactory] —, então sem esta rota um link externo não faz nada.
@@ -329,7 +341,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 74
+        const val SHELL_VERSION = 75
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1701,6 +1713,9 @@ class NativeBridge(
                 // [BridgeHost.listAudioOutputCandidates]): o Registro precisa dizer
                 // quais endereços o aparelho TEM, e não só qual pegou.
                 .put("candidatos", host?.listAudioOutputCandidates() ?: JSONArray())
+                // O DESFECHO DO ÚLTIMO TOQUE (shell 75): o primeiro candidato é um
+                // broadcast, e ele pode ser ENGOLIDO em silêncio.
+                .put("desfecho", host?.audioOutputLastOutcome() ?: "nunca")
                 .toString(),
         )
     }

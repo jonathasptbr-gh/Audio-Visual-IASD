@@ -2306,14 +2306,30 @@ investigação, e entrega o que sobra.
   notificação de mídia abre —, e ela **não é uma Activity**
   (`com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG`, tratado pelo
   `MediaOutputDialogReceiver`). A cadeia antiga só sabia `startActivity`, então
-  aquele endereço nem era candidato e ela caía no painel de volume. **O broadcast
-  tem guarda PRÓPRIA:** `sendBroadcast` não devolve desfecho nenhum, então a
-  existência do receptor é conferida antes — sem isso a cadeia "teria sucesso" sem
-  abrir nada, e o tile viraria um botão mudo.
+  aquele endereço nem era candidato e ela caía no painel de volume. **E O DESFECHO
+  DELE É CONFERIDO PELO FOCO DA JANELA** (v1.9.11), porque a guarda de EXISTÊNCIA
+  não bastava: relato do operador sobre a v1.9.10, *"dessa vez ele não abriu
+  nenhuma janela"*, com o Registro mostrando o receptor PRESENTE. `sendBroadcast`
+  não devolve desfecho nenhum, quem recebe pode ENGOLIR em silêncio, e foi o que
+  aquele aparelho fez — a cadeia parou achando que tinha dado certo. *"Há quem
+  receba?"* e *"a janela abriu?"* são perguntas diferentes, e a primeira estava
+  sendo usada como se fosse a segunda.
+- **A RÉGUA É O FOCO, e não o `onPause`:** um diálogo do sistema pousa POR CIMA da
+  Activity sem pausá-la, então `onPause` nunca chega — mas o foco de janela sai.
+  800 ms depois do envio, com o foco ainda aqui, a cadeia SEGUE do candidato
+  seguinte. O prazo é uma aposta DECLARADA: longo o bastante para um diálogo
+  subir, curto o bastante para a queda fazer parte do mesmo toque, e o erro que
+  ele pode cometer é abrir o painel por cima de um diálogo lento — visível, e
+  preferível ao botão que não faz nada.
 - **O alvo escolhido vai ao REGISTRO e só lá** (`Saída de áudio abre: …`, com o
   componente), pela razão do `describeCastTarget`: o operador não escolhe entre
   caminhos pelo nome da tela que vai abrir, e quando ela é a errada a resposta
   tem de estar no texto que se COPIA.
+- **SÃO TRÊS PERGUNTAS, e o Registro responde as três.** *Qual PEGOU* (v1.9.9),
+  *quais EXISTEM* (v1.9.10) e *ele ABRIU* (v1.9.11) — cada uma nasceu de um
+  relato que a anterior não explicava. A terceira é **RELIDA a cada montagem do
+  Registro**, e isso é metade do conserto: o desfecho muda a cada toque, e lê-lo
+  só na carga faria o Registro dizer "nunca" para sempre.
 - **E DESDE A v1.9.10 A CADEIA INTEIRA VAI JUNTO**, uma linha por candidato com a
   ação, o rótulo, o TIPO (`tela` ou `broadcast`) e o componente — ou *"— não
   existe neste aparelho"*. A primeira escrita respondia *"qual PEGOU"*, e quando o

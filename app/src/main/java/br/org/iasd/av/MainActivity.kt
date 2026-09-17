@@ -59,6 +59,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private var temaClaro = false
     private lateinit var webContainer: FrameLayout
+
+    /**
+     * O desfecho do ÚLTIMO toque no tile de saída de áudio — `nunca`,
+     * `aguardando`, `abriu` ou `engolido`. Só o REGISTRO o mostra, e ele existe
+     * porque o broadcast do SystemUI não devolve desfecho: sem esta memória, um
+     * aparelho em que o diálogo nunca sobe é indistinguível de um em que ele sobe.
+     */
+    @Volatile
+    private var saidaAudioDesfecho: String = "nunca"
     private lateinit var fullscreenContainer: KeepVisibleFrame
     private var web: WebView? = null
 
@@ -1890,14 +1899,28 @@ class MainActivity : ComponentActivity(), BridgeHost {
     private fun abrirCandidatoDeAudio(c: CandidatoDeAudio): Boolean {
         try {
             if (c.broadcast) {
-                // O DIÁLOGO DO SystemUI É UM BROADCAST, não uma Activity — e é
-                // por isso que ele não entrava na cadeia da v1.9.9, que só sabia
-                // `startActivity`. `sendBroadcast` não devolve desfecho nenhum,
-                // então a existência do receptor é conferida ANTES: sem esta
-                // guarda a cadeia "teria sucesso" sem abrir nada, e o tile viraria
-                // um botão mudo.
+                // ===== UM BROADCAST NÃO É DESFECHO, E A v1.9.10 PAGOU POR ISSO =====
+                //
+                // Relato do operador: *"dessa vez ele não abriu nenhuma janela"*, e
+                // o Registro dele explicou por quê — o receptor EXISTE
+                // (`com.android.systemui/.media.dialog.MediaOutputDialogReceiver`,
+                // num SM-S928B com Android 16), o `sendBroadcast` não lançou, e
+                // **nada apareceu**. A cadeia parou achando que tinha dado certo.
+                //
+                // `sendBroadcast` não devolve desfecho NENHUM: quem recebe pode
+                // engolir em silêncio, e aqui engole. A existência do receptor era
+                // a única guarda, e ela responde *"há quem receba?"* — não *"a
+                // janela abriu?"*. São perguntas diferentes, e só a segunda importa.
+                //
+                // O desfecho passa a ser conferido pelo FOCO, depois
+                // (ver [conferirDialogoDeSaida]): um diálogo do sistema TIRA o foco
+                // desta janela, e com o foco ainda aqui a cadeia segue do candidato
+                // SEGUINTE. Com isso o tile não tem mais como ficar mudo — o pior
+                // caso volta a ser o painel de volume, que é o PISO que já existia.
                 if (packageManager.queryBroadcastReceivers(c.intent, 0).isEmpty()) return false
                 sendBroadcast(c.intent)
+                saidaAudioDesfecho = "aguardando"
+                window.decorView.postDelayed({ conferirDialogoDeSaida() }, ESPERA_DIALOGO_MS)
                 return true
             }
             startActivity(Intent(c.intent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -1907,6 +1930,46 @@ class MainActivity : ComponentActivity(), BridgeHost {
             return false
         }
     }
+
+    /**
+     * O broadcast abriu alguma coisa?
+     *
+     * **A régua é o FOCO DA JANELA, e não o `onPause`:** um diálogo do sistema
+     * pousa POR CIMA desta Activity sem pausá-la, então `onPause` nunca chega —
+     * mas o foco de janela sai. Com o foco ainda aqui, o broadcast foi engolido.
+     *
+     * **O PRAZO É UMA APOSTA DECLARADA** ([ESPERA_DIALOGO_MS]): longo o bastante
+     * para um diálogo do sistema subir, curto o bastante para a queda fazer parte
+     * do MESMO toque. O erro que ele pode cometer é abrir o painel de volume por
+     * cima de um diálogo que demorou mais que isso — visível, e preferível ao
+     * botão que não faz nada.
+     *
+     * O desfecho fica guardado para o REGISTRO: é ele que diz, a distância, se
+     * aquele aparelho chega a mostrar o diálogo alguma vez.
+     */
+    private fun conferirDialogoDeSaida() {
+        if (hasWindowFocus()) {
+            saidaAudioDesfecho = "engolido"
+            Log.w(TAG, "o diálogo de saída de áudio não subiu — seguindo a cadeia")
+            // DO SEGUNDO EM DIANTE: o primeiro é o broadcast que acabou de falhar,
+            // e retentá-lo aqui seria um laço.
+            for (c in audioOutputCandidates().drop(1)) {
+                if (abrirCandidatoDeAudio(c)) return
+            }
+            for (action in listOf(Settings.ACTION_SOUND_SETTINGS, Settings.ACTION_SETTINGS)) {
+                try {
+                    startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    return
+                } catch (e: Exception) {
+                    Log.w(TAG, "tela de som indisponível: $action", e)
+                }
+            }
+            return
+        }
+        saidaAudioDesfecho = "abriu"
+    }
+
+    override fun audioOutputLastOutcome(): String = saidaAudioDesfecho
 
     /**
      * Para onde o tile de saída de áudio vai abrir — e, desde a v1.9.10, **a
@@ -2957,6 +3020,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
          * porque `MediaOutputConstants` é interno; faltando o receptor, a cadeia
          * do [audioOutputCandidates] segue para o candidato seguinte.
          */
+        /**
+         * Quanto se espera para saber se o diálogo do SystemUI subiu. Ver
+         * [conferirDialogoDeSaida] — é uma aposta, e ela está dita como tal.
+         */
+        private const val ESPERA_DIALOGO_MS = 800L
+
         private const val ACTION_SYSTEMUI_MEDIA_OUTPUT = "com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG"
         private const val EXTRA_SYSTEMUI_PACKAGE = "package_name"
 

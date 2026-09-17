@@ -58,6 +58,10 @@ const PONTE = `(() => {
   window.__telas = [];
   window.__espelho = { ligado: false, telas: [] };
   window.__saidaAberta = 0;
+  // O DESFECHO do último toque, como no aparelho: 'nunca' antes de tocar, e o que
+  // o cenário mandar depois. É ele que responde *"o diálogo do sistema subiu?"* —
+  // a terceira pergunta, que a lista de candidatos não responde.
+  window.__saidaDesfecho = 'nunca';
   const B = {
     shellVersion: () => 73,
     role: () => 'controle',
@@ -65,7 +69,7 @@ const PONTE = `(() => {
     takeShare: () => '',
     busPost: (t) => { try { (window.__enviados = window.__enviados || []).push(JSON.parse(t)); } catch (_) {} },
     otaConfirm: () => {},
-    abrirSaidaDeAudio: () => { window.__saidaAberta++; },
+    abrirSaidaDeAudio: () => { window.__saidaAberta++; window.__saidaDesfecho = 'engolido'; },
     // O RÓTULO É VERBATIM DA FORMA QUE O KOTLIN MONTA (rótulo + componente entre
     // parênteses): a linha do Registro existe para dizer QUAL candidato pegou, e
     // um stub que devolvesse só "ok" não provaria que o componente atravessa.
@@ -78,6 +82,7 @@ const PONTE = `(() => {
             // caso do aparelho do operador na v1.9.9, e é ele que a linha do
             // Registro existe para dizer. Um stub com tudo presente provaria a
             // lista contra o cenário que nunca dá problema.
+            desfecho: window.__saidaDesfecho,
             candidatos: [
               { acao: 'com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG',
                 rotulo: 'Seletor de saída (SystemUI)', tipo: 'broadcast',
@@ -334,6 +339,23 @@ try {
     'A6c · e o que FALTA aparece dito: é o candidato ausente que explica por que o '
     + 'atalho caiu na tela errada, e sem ele a lista não responde nada que a linha '
     + 'de cima já não respondesse', linhas[1] || '(sem linha)');
+
+  // ===== E A TERCEIRA PERGUNTA: O DIÁLOGO CHEGOU A SUBIR? (v1.9.11) =====
+  //
+  // Relato do operador sobre a v1.9.10: *"dessa vez ele não abriu nenhuma
+  // janela"*, com o Registro mostrando o receptor do SystemUI PRESENTE. A lista
+  // de candidatos responde *"quais existem"* e não *"ele abriu"* — `sendBroadcast`
+  // não devolve desfecho nenhum, e quem recebe pode engolir em silêncio.
+  //
+  // A LINHA É RELIDA a cada montagem do Registro, e é isso que esta asserção
+  // trava junto: o desfecho muda a CADA toque, e lê-lo só na carga faria o
+  // Registro dizer "nunca" para sempre — o diagnóstico que envelhece calado, que
+  // é o pior artefato que este projeto sabe produzir.
+  const regDepois = await lerRegistro(pg);
+  checar(/Saída de áudio, último toque: o diálogo foi ENGOLIDO/.test(regDepois),
+    'A6d · o Registro diz se o diálogo do sistema SUBIU ou foi ENGOLIDO — e relê a '
+    + 'cada montagem, senão ele responderia "nunca" para sempre',
+    (regDepois.match(/Saída de áudio, último toque:.*/) || ['(a linha não saiu)'])[0]);
 
   // NO NAVEGADOR ELE NÃO EXISTE, e esta asserção precisa de um contexto SEM a
   // ponte: medir o `hidden` no app aprova o tile mesmo que ninguém o esconda
