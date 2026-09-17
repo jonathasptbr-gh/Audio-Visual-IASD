@@ -807,7 +807,12 @@
 
     // Para onde o tile de saída de áudio abre, em texto — só o REGISTRO o
     // mostra, pela mesma razão do `castTarget`.
-    saidaDeAudioAlvo: () => call((id) => B.saidaDeAudioAlvo(id), CALL_TIMEOUT_MS).then((r) => (r && r.label) || ''),
+    // Desde o shell 74 ela devolve TAMBÉM a cadeia inteira (`candidatos`), cada
+    // um com a ação, o rótulo, o tipo e o componente — ou `alvo: null` quando o
+    // aparelho não tem aquele endereço. O Registro imprime a lista: saber qual
+    // pegou não responde quais EXISTEM, e sem isso o ajuste seguinte é palpite.
+    saidaDeAudioAlvo: () => call((id) => B.saidaDeAudioAlvo(id), CALL_TIMEOUT_MS)
+      .then((r) => ({ label: (r && r.label) || '', candidatos: (r && r.candidatos) || [] })),
 
     // ---------- O TELÃO POR COMANDOS ----------
     //

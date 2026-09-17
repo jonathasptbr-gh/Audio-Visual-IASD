@@ -1860,18 +1860,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     override fun openAudioOutputPicker() {
         runOnUiThread {
-            val chosen = pickAudioOutputIntent()
-            if (chosen != null) {
-                try {
-                    startActivity(chosen.first.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    return@runOnUiThread
-                } catch (e: Exception) {
-                    Log.w(TAG, "saída de áudio recusou abrir: ${chosen.second}", e)
-                }
+            for (c in audioOutputCandidates()) {
+                if (abrirCandidatoDeAudio(c)) return@runOnUiThread
             }
-            // O laço CEGO: `resolveActivity` pode devolver null por visibilidade
-            // de pacote e o `startActivity` ainda funcionar. Sem ele, um aparelho
-            // que declare a ação sem expô-la à consulta deixaria o tile mudo.
+            // O laço CEGO, e ele é o PISO: as duas ações abaixo são constantes
+            // públicas que todo aparelho declara. Sem ele o tile ficaria mudo num
+            // aparelho que filtrasse as consultas acima.
             for (action in listOf(Settings.ACTION_SOUND_SETTINGS, Settings.ACTION_SETTINGS)) {
                 try {
                     startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -1884,60 +1878,147 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * Para onde o tile de saída de áudio vai abrir, em texto — **só o REGISTRO**,
-     * pela razão do [describeCastTarget]: o operador não escolhe entre dois
-     * caminhos pelo nome da tela que vai abrir, e quando ela é a errada a
-     * resposta tem de estar no texto que se copia.
+     * Tenta UM candidato e diz se ele pegou.
+     *
+     * **A CADEIA TENTA TODOS, em vez de escolher um e desistir** (v1.9.10). A
+     * primeira escrita fazia `pickAudioOutputIntent()` → `startActivity`, e um
+     * único candidato que RESOLVA mas RECUSE (o diálogo do SystemUI lança
+     * `SecurityException` em vários aparelhos) derrubava a cadeia inteira para o
+     * laço cego. Aqui cada um é tentado de verdade, e a falha de um é a vez do
+     * seguinte.
+     */
+    private fun abrirCandidatoDeAudio(c: CandidatoDeAudio): Boolean {
+        try {
+            if (c.broadcast) {
+                // O DIÁLOGO DO SystemUI É UM BROADCAST, não uma Activity — e é
+                // por isso que ele não entrava na cadeia da v1.9.9, que só sabia
+                // `startActivity`. `sendBroadcast` não devolve desfecho nenhum,
+                // então a existência do receptor é conferida ANTES: sem esta
+                // guarda a cadeia "teria sucesso" sem abrir nada, e o tile viraria
+                // um botão mudo.
+                if (packageManager.queryBroadcastReceivers(c.intent, 0).isEmpty()) return false
+                sendBroadcast(c.intent)
+                return true
+            }
+            startActivity(Intent(c.intent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return true
+        } catch (e: Exception) {
+            Log.w(TAG, "saída de áudio recusou: ${c.intent.action}", e)
+            return false
+        }
+    }
+
+    /**
+     * Para onde o tile de saída de áudio vai abrir — e, desde a v1.9.10, **a
+     * CADEIA INTEIRA**, candidato a candidato.
+     *
+     * Relato do operador sobre a v1.9.9: *"o atalho está abrindo essa janela
+     * 'som', enquanto o 'saída de mídia' abre essa outra janela direta no seletor
+     * de saída de mídia… e mudar na janela 'som' nem sempre funciona a troca do
+     * áudio"*. O tile caiu no PAINEL DE VOLUME porque o primeiro candidato não
+     * existe naquele aparelho — e o Registro dizia só qual pegou, não quais
+     * EXISTEM. Com uma linha por candidato, uma cópia do Registro responde qual
+     * endereço aquele aparelho tem, e o ajuste seguinte deixa de ser palpite.
      */
     override fun describeAudioOutputTarget(): String =
         pickAudioOutputIntent()?.second ?: "Configurações de som (sem seletor consultável)"
 
+    /** A CADEIA em JSON, para o `controle.js` montar as linhas do Registro. */
+    override fun listAudioOutputCandidates(): JSONArray {
+        val arr = JSONArray()
+        for (c in audioOutputCandidates()) {
+            val alvo = if (c.broadcast) {
+                packageManager.queryBroadcastReceivers(c.intent, 0)
+                    .firstOrNull()?.activityInfo
+                    ?.let { shortComponent(it.packageName, it.name) }
+            } else {
+                packageManager.resolveActivity(c.intent, 0)?.activityInfo
+                    ?.let { shortComponent(it.packageName, it.name) }
+            }
+            arr.put(
+                JSONObject()
+                    .put("acao", c.intent.action ?: "")
+                    .put("rotulo", audioOutputLabel(c.intent.action ?: ""))
+                    .put("tipo", if (c.broadcast) "broadcast" else "tela")
+                    .put("alvo", alvo ?: JSONObject.NULL),
+            )
+        }
+        return arr
+    }
+
     private fun pickAudioOutputIntent(): Pair<Intent, String>? {
-        for (intent in audioOutputCandidates()) {
-            val target = packageManager.resolveActivity(intent, 0)?.activityInfo ?: continue
-            val acao = intent.action ?: ""
-            return intent to (audioOutputLabel(acao) + " (" + shortComponent(target.packageName, target.name) + ")")
+        for (c in audioOutputCandidates()) {
+            val nome = if (c.broadcast) {
+                packageManager.queryBroadcastReceivers(c.intent, 0)
+                    .firstOrNull()?.activityInfo
+                    ?.let { shortComponent(it.packageName, it.name) }
+            } else {
+                packageManager.resolveActivity(c.intent, 0)?.activityInfo
+                    ?.let { shortComponent(it.packageName, it.name) }
+            } ?: continue
+            return c.intent to (audioOutputLabel(c.intent.action ?: "") + " (" + nome + ")")
         }
         return null
     }
 
     /**
-     * O rótulo sai da AÇÃO, e não do pacote como no espelhamento: os três
-     * candidatos moram no mesmo app de Configurações, então o pacote não
+     * O rótulo sai da AÇÃO, e não do pacote como no espelhamento: os candidatos
+     * moram todos no app de Configurações ou no SystemUI, então o pacote não
      * distingue nada. O componente entra ao lado pelo motivo de sempre.
      */
     private fun audioOutputLabel(action: String): String = when (action) {
-        ACTION_MEDIA_OUTPUT_PANEL -> "Seletor de saída de áudio"
+        ACTION_SYSTEMUI_MEDIA_OUTPUT -> "Seletor de saída (SystemUI)"
+        ACTION_MEDIA_OUTPUT_PANEL -> "Seletor de saída (Configurações)"
         ACTION_VOLUME_PANEL -> "Painel de volume"
         else -> "Configurações de som"
     }
 
+    /** Um candidato da cadeia: o `Intent` e COMO ele se dispara. */
+    private class CandidatoDeAudio(val intent: Intent, val broadcast: Boolean)
+
     /**
      * Candidatos de saída de áudio, do mais específico ao mais genérico.
      *
-     * 1. **O seletor de saída de verdade** (`…panel.action.MEDIA_OUTPUT`): o
-     *    diálogo que lista alto-falante, fone, Bluetooth e os aparelhos de
-     *    transmissão — o MESMO que a notificação de mídia abre pelo ícone de
-     *    aparelho. Não é API documentada; o extra do pacote é o que o AOSP lê
-     *    para saber de quem é a sessão de mídia, e sem ele o diálogo pode abrir
-     *    sem nada a oferecer.
-     * 2. **O painel de volume** (`Settings.Panel`, API 29): documentado, e a
-     *    coisa mais próxima de uma escolha de saída que tem contrato. Nem todo
-     *    aparelho desenha a linha de saída nele — daí não ser o primeiro.
-     * 3. **Configurações de som**: constante pública, presente em todo aparelho.
-     *    É o PISO da cadeia, e é ele que garante que o tile nunca fica mudo.
+     * 1. **O DIÁLOGO DO SystemUI** (`com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG`)
+     *    — é ELE que o operador quer: a lista "Alto-falante do telefone · Fones ·
+     *    <aparelho Bluetooth>", a mesma que o ícone da notificação de mídia abre.
+     *    **Ele é um BROADCAST**, e é exatamente por isso que a v1.9.9 não o
+     *    alcançava: aquela cadeia só sabia `startActivity`.
+     * 2. **O painel de saída do app de Configurações**
+     *    (`com.android.settings.panel.action.MEDIA_OUTPUT`): o mesmo diálogo no
+     *    AOSP mais antigo. O extra do pacote é o que ele lê para saber de quem é a
+     *    sessão de mídia.
+     * 3. **O painel de volume** (`Settings.Panel`, API 29): documentado, e o que
+     *    este aparelho de fato abriu na v1.9.9. Ele traz a linha *"Play … on /
+     *    Este telefone"*, que leva ao seletor — um toque a mais, e o operador
+     *    relatou que mudar por ali *"nem sempre funciona"*.
+     * 4. **Configurações de som**: constante pública, presente em todo aparelho.
+     *    É o PISO, e é ele que garante que o tile nunca fica mudo.
      *
-     * Sem cache, ao contrário do [castCandidates]: são três `Intent` montados
-     * na hora contra um laço que consultava `GET_ACTIVITIES` de dois pacotes.
+     * NADA DISTO É API DOCUMENTADA, e por isso o Registro passou a listar a
+     * cadeia inteira (ver [listAudioOutputCandidates]): num aparelho que abra a
+     * tela errada, essa lista diz quais endereços ele TEM — e não só qual pegou.
      */
-    private fun audioOutputCandidates(): List<Intent> {
-        val out = ArrayList<Intent>(3)
+    private fun audioOutputCandidates(): List<CandidatoDeAudio> {
+        val out = ArrayList<CandidatoDeAudio>(4)
         out.add(
-            Intent(ACTION_MEDIA_OUTPUT_PANEL)
-                .putExtra(EXTRA_MEDIA_OUTPUT_PACKAGE, packageName),
+            CandidatoDeAudio(
+                Intent(ACTION_SYSTEMUI_MEDIA_OUTPUT)
+                    .putExtra(EXTRA_SYSTEMUI_PACKAGE, packageName),
+                broadcast = true,
+            ),
         )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) out.add(Intent(ACTION_VOLUME_PANEL))
-        out.add(Intent(Settings.ACTION_SOUND_SETTINGS))
+        out.add(
+            CandidatoDeAudio(
+                Intent(ACTION_MEDIA_OUTPUT_PANEL)
+                    .putExtra(EXTRA_MEDIA_OUTPUT_PACKAGE, packageName),
+                broadcast = false,
+            ),
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            out.add(CandidatoDeAudio(Intent(ACTION_VOLUME_PANEL), broadcast = false))
+        }
+        out.add(CandidatoDeAudio(Intent(Settings.ACTION_SOUND_SETTINGS), broadcast = false))
         return out
     }
 
@@ -2869,6 +2950,16 @@ class MainActivity : ComponentActivity(), BridgeHost {
          * `MediaOutputConstants` é interno ao app de Configurações. Faltando, a
          * cadeia do [audioOutputCandidates] segue para o painel de volume.
          */
+        /**
+         * O DIÁLOGO DE SAÍDA DO SystemUI — a lista de aparelhos que o ícone da
+         * notificação de mídia abre. **É um BROADCAST**, tratado pelo
+         * `MediaOutputDialogReceiver`, e o extra diz de quem é a sessão. Literais
+         * porque `MediaOutputConstants` é interno; faltando o receptor, a cadeia
+         * do [audioOutputCandidates] segue para o candidato seguinte.
+         */
+        private const val ACTION_SYSTEMUI_MEDIA_OUTPUT = "com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG"
+        private const val EXTRA_SYSTEMUI_PACKAGE = "package_name"
+
         private const val ACTION_MEDIA_OUTPUT_PANEL = "com.android.settings.panel.action.MEDIA_OUTPUT"
         private const val EXTRA_MEDIA_OUTPUT_PACKAGE = "com.android.settings.panel.extra.PACKAGE_NAME"
 

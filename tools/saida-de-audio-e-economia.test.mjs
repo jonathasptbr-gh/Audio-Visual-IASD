@@ -71,7 +71,25 @@ const PONTE = `(() => {
     // um stub que devolvesse só "ok" não provaria que o componente atravessa.
     saidaDeAudioAlvo: (id) => {
       setTimeout(() => {
-        try { window.__avResolve(id, { label: 'Seletor de saída de áudio (com.android.settings/.panel.Panel)' }); } catch (_) {}
+        try {
+          window.__avResolve(id, {
+            label: 'Seletor de saída (SystemUI) (com.android.systemui/.media.MediaOutputDialogReceiver)',
+            // UM CANDIDATO AUSENTE DE PROPÓSITO (o do app de Configurações): é o
+            // caso do aparelho do operador na v1.9.9, e é ele que a linha do
+            // Registro existe para dizer. Um stub com tudo presente provaria a
+            // lista contra o cenário que nunca dá problema.
+            candidatos: [
+              { acao: 'com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG',
+                rotulo: 'Seletor de saída (SystemUI)', tipo: 'broadcast',
+                alvo: 'com.android.systemui/.media.MediaOutputDialogReceiver' },
+              { acao: 'com.android.settings.panel.action.MEDIA_OUTPUT',
+                rotulo: 'Seletor de saída (Configurações)', tipo: 'tela', alvo: null },
+              { acao: 'android.settings.panel.action.VOLUME',
+                rotulo: 'Painel de volume', tipo: 'tela',
+                alvo: 'com.android.settings/.panel.SettingsPanelActivity' },
+            ],
+          });
+        } catch (_) {}
       }, 0);
     },
     displays: (id) => {
@@ -292,10 +310,30 @@ try {
     'A5 · o toque pede ao shell para abrir a tela do sistema, UMA vez', porque(abriu));
 
   const reg = await lerRegistro(pg);
-  checar(/Saída de áudio abre: Seletor de saída de áudio \(com\.android\.settings/.test(reg),
+  checar(/Saída de áudio abre: Seletor de saída \(SystemUI\) \(com\.android\.systemui/.test(reg),
     'A6 · e o Registro carrega o alvo COM o componente — a única resposta possível '
     + 'a distância quando o botão abre a tela errada',
     (reg.match(/Saída de áudio abre:.*/) || ['(a linha não saiu)'])[0]);
+
+  // ===== A CADEIA INTEIRA, e não só quem pegou (v1.9.10) =====
+  //
+  // A v1.9.9 abriu a tela errada no aparelho do operador, e o Registro daquela
+  // versão não tinha como responder por quê: ele dizia qual candidato PEGOU, que
+  // não é a mesma pergunta que quais EXISTEM. As duas metades desta asserção são
+  // obrigatórias — a lista tem de mostrar o que ESTÁ lá E o que FALTA, senão ela
+  // vira uma segunda cópia da linha de cima.
+  const linhas = reg.split('\n').filter((x) => /^\s+· /.test(x));
+  checar(linhas.length === 3,
+    'A6a · o Registro lista a CADEIA inteira, um candidato por linha, na ordem',
+    JSON.stringify(linhas));
+  checar(/SystemUI.*\[broadcast\].*com\.android\.systemui/.test(linhas[0] || ''),
+    'A6b · com o TIPO de cada um — o diálogo do SystemUI é um BROADCAST, e é '
+    + 'exatamente isso que a cadeia da v1.9.9 não sabia disparar',
+    linhas[0] || '(sem linha)');
+  checar(/não existe neste aparelho/.test(linhas[1] || ''),
+    'A6c · e o que FALTA aparece dito: é o candidato ausente que explica por que o '
+    + 'atalho caiu na tela errada, e sem ele a lista não responde nada que a linha '
+    + 'de cima já não respondesse', linhas[1] || '(sem linha)');
 
   // NO NAVEGADOR ELE NÃO EXISTE, e esta asserção precisa de um contexto SEM a
   // ponte: medir o `hidden` no app aprova o tile mesmo que ninguém o esconda

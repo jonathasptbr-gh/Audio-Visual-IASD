@@ -690,11 +690,16 @@ window.AVNative = {
                        //   o espelhamento no ar ele não resolve o vazamento: o
                        //   áudio do Miracast é `REMOTE_SUBMIX`, a mistura do
                        //   aparelho inteiro
-  saidaDeAudioAlvo(),  // → string: rótulo do seletor de saída deste aparelho,
-                       //   com o COMPONENTE. Só o REGISTRO o mostra, pela razão
-                       //   do `castTarget`: o alvo não é API documentada e varia
-                       //   por fabricante, e quando o botão abre a tela errada
-                       //   essa string é a única resposta possível a distância
+  saidaDeAudioAlvo(),  // → { label, candidatos: [{acao, rotulo, tipo, alvo}] }
+                       //   (shell 74). `label` é quem PEGOU, com o componente;
+                       //   `candidatos` é a CADEIA inteira, na ordem, com `alvo:
+                       //   null` no que este aparelho não tem. Só o REGISTRO os
+                       //   mostra, pela razão do `castTarget` — e a lista existe
+                       //   porque a v1.9.9 abriu a tela errada num aparelho e
+                       //   "qual pegou" não respondia por quê: quais EXISTEM é
+                       //   outra pergunta, e é a que conserta. `tipo` é `tela` ou
+                       //   `broadcast`: o diálogo do SystemUI é broadcast, e é
+                       //   isso que a cadeia da v1.9.9 não sabia disparar
   openExternal(url),   // abre uma URL https FORA do app (só o Controle)
   ytFetch(url, onProg, soAudio, altura), // → { url, name, size, type, height, seconds }
                        //   `soAudio` traz só a faixa de áudio (m4a)
