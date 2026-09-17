@@ -350,6 +350,12 @@
     // outra coisa (ver NativeBridge.openCastPicker).
     openCast() { try { B.openCast(); } catch (_) { /* ponte indisponível */ } },
 
+    // Tile "Saída de áudio" de Configurações: abre o seletor de saída do
+    // SISTEMA (alto-falante, Bluetooth, fone). É ATALHO, não controle — rotear
+    // áudio é privilégio de sistema (ver NativeBridge.openAudioOutputPicker).
+    // Síncrono e sem resposta, como o `openCast`.
+    abrirSaidaDeAudio() { try { B.abrirSaidaDeAudio(); } catch (_) { /* ponte indisponível */ } },
+
     // Vídeo do YouTube como ARQUIVO, extraído e baixado pelo PRÓPRIO APARELHO
     // (ver YoutubeGrab.kt). Resolve `{ url, name, size, type }` com uma URL
     // servível — o lado web faz `fetch` + `Blob` como faz com um share — ou
@@ -798,6 +804,10 @@
     // e não são API documentada, então o popup de Exibição mostra isso.
     // (num shell sem o método, `call` já resolve null — isto vira string vazia)
     castTarget: () => call((id) => B.castTarget(id), CALL_TIMEOUT_MS).then((r) => (r && r.label) || ''),
+
+    // Para onde o tile de saída de áudio abre, em texto — só o REGISTRO o
+    // mostra, pela mesma razão do `castTarget`.
+    saidaDeAudioAlvo: () => call((id) => B.saidaDeAudioAlvo(id), CALL_TIMEOUT_MS).then((r) => (r && r.label) || ''),
 
     // ---------- O TELÃO POR COMANDOS ----------
     //

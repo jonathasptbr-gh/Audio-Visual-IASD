@@ -142,6 +142,40 @@
     // nasce muda e solta o som no gesto do visitante (`__telaSom`). Ver
     // setForceMuted().
     let forceMuted = !!opts.forceMuted;
+    /**
+     * ===== A SUSPENSÃO: TUDO DECIDE, NADA DECODIFICA (v1.9.9) =====
+     *
+     * Só a PREVIEW liga isto, e é o motor da "Imagem da prévia" de
+     * Configurações — a economia de processamento de um celular fraco. O telão e
+     * as telas da rede nunca chamam `setSuspenso`, e não poderiam: ali o
+     * `<video>` é a projeção.
+     *
+     * **ELA MORA AQUI, e não no `controle.js`, porque o que a desfaz é o próprio
+     * `play()`.** Um comando `play` do barramento chega ao `stage` por caminhos
+     * que o Controle não enumera (o `load` com autoplay, a retomada de foco do
+     * `onBlocked`, o realinhamento), e uma guarda escrita em cada um deles seria
+     * a mesma pergunta em quatro lugares — com o quinto nascendo sem ela. É o
+     * mesmo argumento do `forceMuted`, que é reasserido por este arquivo em
+     * `applyMedia`, `play`, `rampVolume` e no `load`, e pelo mesmo motivo.
+     *
+     * **O QUE ELA NÃO TOCA É O ESTADO, e o ponto de corte é ESCOLHIDO.** A guarda
+     * é a ÚLTIMA linha do `play()`, depois do `ended = false`, do volume, do
+     * `applyMedia()` e do `instantCover()`: tudo o que ele decidia continua
+     * decidido, e só a chamada de `video.play()` não acontece.
+     *
+     * **A POSIÇÃO FOI MEDIDA E É INDISTINGUÍVEL, e isso fica dito.** Mover esta
+     * guarda para a ENTRADA do `play()` não reprova uma asserção sequer, e nenhuma
+     * célula construível os separa. Ela fica no fim por consistência do estado, e
+     * a não-medição está escrita para quem vier "otimizar" não concluir nem que a
+     * escolha era load-bearing nem que era arbitrária.
+     *
+     * O que a economia de fato não pode quebrar é OUTRA coisa, e ela não mora
+     * aqui: o Controle continua lendo `getCurrent()` e `getDuration()` para
+     * desenhar a barra, e quem os preenche é o `load` — pular a entrega do `load`
+     * à prévia é o jeito errado de implementar isto (ver o bloco D6 do
+     * `saida-de-audio-e-economia.test.mjs`).
+     */
+    let suspenso = false;
 
     let current = null;
     let view = 'visual';
@@ -448,6 +482,11 @@
       if (!forceMuted) video.volume = volume; // restaura pós fade-out
       applyMedia();
       instantCover(computeCover());
+      // ECONOMIA: o `pause()` é EXPLÍCITO e não um `return` seco. O `<video>`
+      // pode estar tocando quando a suspensão entra (ela é ligada com o louvor
+      // no ar), e um `play()` que só desiste de chamar `play()` deixaria o
+      // decodificador rodando para sempre — o recurso não faria nada.
+      if (suspenso) { video.pause(); return; }
       const p = video.play();
       // Usa `muted` (intenção interna) e não video.muted: o browser pode forçar
       // video.muted=true antes de rejeitar, ocultando o motivo real do bloqueio.
@@ -1197,6 +1236,19 @@
       // ("ResizeObserver loop") o `smoke.mjs` lê como erro de console.
       reporGiro: () => { if (rot) { giroTentativa = 0; aplicarGiroTudo(); } },
       setForceMuted,
+      /**
+       * Liga e desliga a SUSPENSÃO (ver a variável). Ligando, o `<video>` para
+       * no ato; desligando, quem o recoloca no lugar é o chamador — no Controle
+       * é o `ressincronizarPreview`, que já existe para a retomada do segundo
+       * plano e é exatamente a mesma situação: a prévia ficou parada enquanto a
+       * projeção andou.
+       */
+      setSuspenso: (v) => {
+        const alvo = !!v;
+        if (alvo === suspenso) return;
+        suspenso = alvo;
+        if (suspenso) video.pause();
+      },
       coverIn, coverOut, instantCover, fadeOutToBlack, setOverlay, declararView,
       // O FIM DA PROJEÇÃO É UM FIM, E NÃO UMA PAUSA (v1.7.7). Quem sabe que a
       // mídia acabou nem sempre é este `<video>`: com telão no ar a preview é

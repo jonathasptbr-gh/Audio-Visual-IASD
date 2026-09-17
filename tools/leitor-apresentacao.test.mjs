@@ -62,10 +62,10 @@ const PONTE = `(() => {
     takeShare: () => '', busPost: () => {}, otaConfirm: () => {},
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal',
-    'castTarget','cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',
+    'castTarget','saidaDeAudioAlvo','cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag',
     'espelhoEstado','espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolEstado',
-    'keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply','otaCheck',
+    'keepAlive','listFolder','nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply','otaCheck',
     'otaDiag','otaPending','pickDoc','pickFolder','salvarTexto','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytStream','ytPlaylist','ytSearch','ytDiag','areaTransferencia','atualizacaoEstado',

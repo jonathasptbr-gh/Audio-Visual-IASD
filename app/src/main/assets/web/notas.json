@@ -1,5 +1,19 @@
 [
   {
+    "versao": "1.9.9",
+    "itens": [
+      "Configurações tem um atalho novo: Saída de áudio, que abre a escolha do Android.",
+      "Por ele você manda o som para o alto-falante, para um fone ou para uma caixa Bluetooth.",
+      "Ele só abre a tela do sistema — quem escolhe a saída é o Android, não o app.",
+      "Com o espelhamento na TV ligado, o som do celular inteiro continua saindo na TV.",
+      "Outro botão novo: Imagem da prévia, para poupar processamento em celular fraco.",
+      "Desligada, o retângulo da prévia para de desenhar e ganha uma marca no canto.",
+      "Tudo o mais continua: tempo, barra, letra, transporte e a fila avançando sozinha.",
+      "Ele fica apagado sem TV e sem computador ligado — ali a prévia é a projeção.",
+      "Abrindo a prévia em tela cheia a imagem volta, e sair dela volta a poupar."
+    ]
+  },
+  {
     "versao": "1.9.8",
     "itens": [
       "Conserta três falhas que a versão anterior trouxe junto com a letra sem música.",

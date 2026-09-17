@@ -74,9 +74,11 @@ try {
       // O estado continua existindo — fora da tela.
       aria: t.getAttribute('aria-label') || '',
     })));
-  // NOVE desde a v1.8.16: as seis preferências da projeção e as três ações do
-  // aparelho, que entraram quando o rótulo "Este aparelho" saiu. Foram ONZE da
-  // v1.8.0 até lá, com os dois tiles do clone celular a celular.
+  // ONZE desde a v1.9.9: as seis preferências da projeção, os DOIS daquele lote
+  // (a saída de áudio e a imagem da prévia) e as três ações do aparelho, que
+  // entraram quando o rótulo "Este aparelho" saiu (v1.8.16). Foram NOVE da
+  // v1.8.16 à v1.9.8, e ONZE também da v1.8.0 à v1.8.16 — por outros dois, os do
+  // clone celular a celular.
   //
   // O NÚMERO É CONTADO DE PROPÓSITO — o que este arquivo mede é que NENHUM tile
   // tem segunda linha, e um tile novo entrando sem passar por aqui é justamente
@@ -85,8 +87,8 @@ try {
   // dois tiles e não passou por aqui, o `verificar` reprovou na `main` e o
   // `web-ota` foi PULADO — o bundle daquele lote não chegou a aparelho nenhum.
   // Mexeu na grade, este número anda junto, no MESMO lote.
-  checar(tiles.length === 9,
-    'A · a grade tem os NOVE tiles da folha', tiles.length);
+  checar(tiles.length === 11,
+    'A · a grade tem os ONZE tiles da folha', tiles.length);
   const comSobra = tiles.filter((t) => t.texto !== t.titulo.trim());
   checar(comSobra.length === 0,
     'A · e nenhum tem texto além do TÍTULO — a palavra do estado saiu de todos '

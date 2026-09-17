@@ -112,10 +112,10 @@ const PONTE = `(() => {
     nowPlaying: (s) => { try { window.__np.push(JSON.parse(s)); } catch (_) {} },
   };
   const nomes = ['apkInstalar','areaTransferencia','atualizacaoEstado','bgConcluido','bgProgress',
-    'captureVolumeKeys','castTarget','cifraDiag','cifraHtml','compartilharTexto','deckDiscard',
+    'captureVolumeKeys','castTarget','saidaDeAudioAlvo','cifraDiag','cifraHtml','compartilharTexto','deckDiscard',
     'deckExportUrl','deckPages','displays','espelhoCertApagar','espelhoCertEstado',
     'espelhoCertImportar','espelhoDerrubar','espelhoDesligar','espelhoDiag','espelhoEstado',
-    'espelhoLigar','espelhoLigarEm','farolEstado','keepAlive','listFolder','openCast',
+    'espelhoLigar','espelhoLigarEm','farolEstado','keepAlive','listFolder','openCast','abrirSaidaDeAudio',
     'openExternal','otaApply','otaCheck','otaDiag','pacoteCancelar','pacoteCompartilhar',
     'pacoteConsumirOrigem','pacoteCriar','pacoteCriarLocal','pacoteDescartarPronto','pacoteDiag',
     'pacoteEspaco','pacoteFechar','pacoteProntoEstado','pickDoc','pickFolder','projecaoLocal',

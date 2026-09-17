@@ -386,22 +386,26 @@ try {
   const ordem = await pg.$eval('.qs-grade',
     (g) => [...g.children].map((e) => e.id));
   const projecao = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow',
-    'lyricsBgTile', 'rotBtn'];
+    'lyricsBgTile', 'rotBtn', 'saidaAudioTile', 'economiaTile'];
   const aparelho = ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile'];
   checar(JSON.stringify(ordem) === JSON.stringify(projecao.concat(aparelho)),
     'as ações do APARELHO são as ÚLTIMAS da grade, e as da PROJEÇÃO as primeiras',
     JSON.stringify(ordem));
-  // A COSTURA ENTRE AS DUAS NATUREZAS CAI NUMA BORDA DE FILEIRA, e é ISSO que a
-  // metade geométrica do pedido protege. São DUAS perguntas, e com 6 + 3 elas
-  // dão a mesma resposta — a v1.8.0 as separou ao entrar com dois tiles do
-  // clone, e a v1.8.16 as juntou de volta ao removê-lo. As duas ficam
-  // escritas: a de cima é a que o pedido faz (nenhuma fileira mistura uma
-  // preferência da projeção com uma ação do aparelho), a de baixo é a que o
-  // desenho de hoje também cumpre.
-  checar(projecao.length % grade.cols === 0 && ordem.length % grade.cols === 0,
-    'e a costura entre as duas naturezas cai numa BORDA DE FILEIRA — um tile a '
-    + 'mais na metade de cima a jogaria para o meio de uma linha',
-    'tiles: ' + ordem.length + ' · colunas: ' + grade.cols);
+  // ===== A METADE ARITMÉTICA DESTA ASSERÇÃO SAIU (v1.9.9) =====
+  //
+  // Ela era `projecao.length % grade.cols === 0`, e valia enquanto a grade fosse
+  // 6 + 3 em três colunas: ali "a costura cai numa borda de fileira" e "a metade
+  // de cima é múltipla de três" davam a MESMA resposta. Com os dois tiles da
+  // v1.9.9 são 8 + 3, e a primeira continua verdadeira enquanto a segunda deixou
+  // de ser — quem a sustenta agora é o `grid-column: 1` do `#shareAppTile`, que
+  // força a fileira nova e deixa o vão no fim das preferências.
+  //
+  // A ARITMÉTICA NÃO CONSEGUE EXPRESSAR ISSO, e reescrevê-la aqui seria pior que
+  // removê-la: a pergunta é GEOMÉTRICA (nenhuma fileira mistura uma preferência
+  // com uma ação do aparelho), e **os três do aparelho são `hidden` neste
+  // contexto** — sem ponte não há caixa a medir. Ela mora onde eles existem, no
+  // `saida-de-audio-e-economia.test.mjs` (blocos A8/A9, pelo TOPO de cada caixa).
+  // Fica a de cima, que é a que este arquivo consegue responder.
 
   // ---- O MODO DO APP É UM INTERRUPTOR QUE DESLIZA (v1.4.43) ----
   //

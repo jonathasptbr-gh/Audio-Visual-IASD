@@ -1828,6 +1828,120 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
+     * ===== O ATALHO PARA A SAÍDA DE ÁUDIO DO SISTEMA (shell 73) =====
+     *
+     * Pedido do operador: *"um botão para selecionar saída de áudio (escolher
+     * entre som no smartphone, na tv conectada, no bluetooth e etc… acredito que
+     * o próprio Android já lista as opções)"*, e depois, sabendo que a
+     * notificação de mídia já traz o seletor do sistema: *"o que eu quero é um
+     * atalho mesmo no próprio app, nas configurações, assim fica claro as
+     * opções"*.
+     *
+     * **ELE ABRE, NÃO ROTEIA — e a distinção é o recurso inteiro.** Escolher o
+     * aparelho de saída é privilégio de sistema: `AudioPolicy.setUidDeviceAffinity`,
+     * `setPreferredDeviceForStrategy` e `registerAudioPolicy` são `@SystemApi`
+     * atrás de `MODIFY_AUDIO_ROUTING` (`signature|privileged|role`), e um APK
+     * assinado com a keystore deste projeto nunca as obtém. Ver a seção do
+     * espelhamento no `CLAUDE.md`, que já levantou isso — **este método não
+     * reabre aquela investigação, ele aceita a resposta dela** e entrega o que
+     * sobra: a tela do sistema, a um toque de onde o operador já está.
+     *
+     * **E COM O ESPELHAMENTO NO AR ELE NÃO RESOLVE O VAZAMENTO.** O áudio do
+     * Miracast nasce de `AUDIO_SOURCE_REMOTE_SUBMIX`, a mistura do aparelho
+     * INTEIRO — trocar a saída ali é uma combinação que não foi medida em
+     * aparelho, e por isso nada nesta cadeia promete um desfecho. O que ela
+     * promete é chegar à tela.
+     *
+     * A cadeia repete o método do [pickCastIntent] porque o problema é o mesmo —
+     * **o alvo não é API documentada** — e difere dele em um ponto que vale
+     * dizer: aqui o último candidato é uma constante PÚBLICA que todo aparelho
+     * declara (`ACTION_SOUND_SETTINGS`), então a cadeia tem PISO. Na do
+     * espelhamento não havia, e foi isso que a fez cair no Google Cast.
+     */
+    override fun openAudioOutputPicker() {
+        runOnUiThread {
+            val chosen = pickAudioOutputIntent()
+            if (chosen != null) {
+                try {
+                    startActivity(chosen.first.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    return@runOnUiThread
+                } catch (e: Exception) {
+                    Log.w(TAG, "saída de áudio recusou abrir: ${chosen.second}", e)
+                }
+            }
+            // O laço CEGO: `resolveActivity` pode devolver null por visibilidade
+            // de pacote e o `startActivity` ainda funcionar. Sem ele, um aparelho
+            // que declare a ação sem expô-la à consulta deixaria o tile mudo.
+            for (action in listOf(Settings.ACTION_SOUND_SETTINGS, Settings.ACTION_SETTINGS)) {
+                try {
+                    startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    return@runOnUiThread
+                } catch (e: Exception) {
+                    Log.w(TAG, "tela de som indisponível: $action", e)
+                }
+            }
+        }
+    }
+
+    /**
+     * Para onde o tile de saída de áudio vai abrir, em texto — **só o REGISTRO**,
+     * pela razão do [describeCastTarget]: o operador não escolhe entre dois
+     * caminhos pelo nome da tela que vai abrir, e quando ela é a errada a
+     * resposta tem de estar no texto que se copia.
+     */
+    override fun describeAudioOutputTarget(): String =
+        pickAudioOutputIntent()?.second ?: "Configurações de som (sem seletor consultável)"
+
+    private fun pickAudioOutputIntent(): Pair<Intent, String>? {
+        for (intent in audioOutputCandidates()) {
+            val target = packageManager.resolveActivity(intent, 0)?.activityInfo ?: continue
+            val acao = intent.action ?: ""
+            return intent to (audioOutputLabel(acao) + " (" + shortComponent(target.packageName, target.name) + ")")
+        }
+        return null
+    }
+
+    /**
+     * O rótulo sai da AÇÃO, e não do pacote como no espelhamento: os três
+     * candidatos moram no mesmo app de Configurações, então o pacote não
+     * distingue nada. O componente entra ao lado pelo motivo de sempre.
+     */
+    private fun audioOutputLabel(action: String): String = when (action) {
+        ACTION_MEDIA_OUTPUT_PANEL -> "Seletor de saída de áudio"
+        ACTION_VOLUME_PANEL -> "Painel de volume"
+        else -> "Configurações de som"
+    }
+
+    /**
+     * Candidatos de saída de áudio, do mais específico ao mais genérico.
+     *
+     * 1. **O seletor de saída de verdade** (`…panel.action.MEDIA_OUTPUT`): o
+     *    diálogo que lista alto-falante, fone, Bluetooth e os aparelhos de
+     *    transmissão — o MESMO que a notificação de mídia abre pelo ícone de
+     *    aparelho. Não é API documentada; o extra do pacote é o que o AOSP lê
+     *    para saber de quem é a sessão de mídia, e sem ele o diálogo pode abrir
+     *    sem nada a oferecer.
+     * 2. **O painel de volume** (`Settings.Panel`, API 29): documentado, e a
+     *    coisa mais próxima de uma escolha de saída que tem contrato. Nem todo
+     *    aparelho desenha a linha de saída nele — daí não ser o primeiro.
+     * 3. **Configurações de som**: constante pública, presente em todo aparelho.
+     *    É o PISO da cadeia, e é ele que garante que o tile nunca fica mudo.
+     *
+     * Sem cache, ao contrário do [castCandidates]: são três `Intent` montados
+     * na hora contra um laço que consultava `GET_ACTIVITIES` de dois pacotes.
+     */
+    private fun audioOutputCandidates(): List<Intent> {
+        val out = ArrayList<Intent>(3)
+        out.add(
+            Intent(ACTION_MEDIA_OUTPUT_PANEL)
+                .putExtra(EXTRA_MEDIA_OUTPUT_PACKAGE, packageName),
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) out.add(Intent(ACTION_VOLUME_PANEL))
+        out.add(Intent(Settings.ACTION_SOUND_SETTINGS))
+        return out
+    }
+
+    /**
      * Alvos de espelhamento, do mais específico ao mais genérico — e o ramo
      * específico é **por fabricante**: as entradas do Smart View só entram na
      * fila num aparelho Samsung (ver `isSamsung`); em qualquer outro a fila
@@ -2748,6 +2862,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
         private const val BACK_JS_TIMEOUT_MS = 350L
         /** `Build.MANUFACTURER`/`Build.BRAND` de um aparelho Samsung. */
         private const val SAMSUNG_VENDOR = "samsung"
+
+        /**
+         * O diálogo de SAÍDA DE ÁUDIO do sistema e o extra que diz de quem é a
+         * sessão de mídia. Literais porque **não são API documentada** —
+         * `MediaOutputConstants` é interno ao app de Configurações. Faltando, a
+         * cadeia do [audioOutputCandidates] segue para o painel de volume.
+         */
+        private const val ACTION_MEDIA_OUTPUT_PANEL = "com.android.settings.panel.action.MEDIA_OUTPUT"
+        private const val EXTRA_MEDIA_OUTPUT_PACKAGE = "com.android.settings.panel.extra.PACKAGE_NAME"
+
+        /**
+         * `Settings.Panel.ACTION_VOLUME` escrito à mão: a constante é API 29 e o
+         * `minSdk` é 26, então a referência direta exigiria um `@RequiresApi`
+         * numa lista montada em runtime. O valor é estável e o uso é guardado por
+         * `SDK_INT >= Q`.
+         */
+        private const val ACTION_VOLUME_PANEL = "android.settings.panel.action.VOLUME"
 
         /** Pacotes do Smart View conhecidos (varia por versão do One UI). */
         private val SAMSUNG_MIRROR_PACKAGES = listOf(
