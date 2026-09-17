@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.9.11",
+    "itens": [
+      "Conserta o atalho da saída de áudio não abrir janela nenhuma no seu aparelho.",
+      "O app pedia a janela ao sistema e o sistema engolia o pedido sem avisar nem abrir.",
+      "Agora ele confere se a janela apareceu de fato; não aparecendo, abre a seguinte.",
+      "Com isso o botão não tem mais como ficar mudo — no pior caso abre a tela de volume.",
+      "O Registro passa a dizer se a janela do sistema subiu ou foi engolida no último toque."
+    ]
+  },
+  {
     "versao": "1.9.10",
     "itens": [
       "Conserta o atalho da saída de áudio: ele abria a janela de volume em vez da lista de aparelhos.",

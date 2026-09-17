@@ -812,7 +812,15 @@
     // aparelho não tem aquele endereço. O Registro imprime a lista: saber qual
     // pegou não responde quais EXISTEM, e sem isso o ajuste seguinte é palpite.
     saidaDeAudioAlvo: () => call((id) => B.saidaDeAudioAlvo(id), CALL_TIMEOUT_MS)
-      .then((r) => ({ label: (r && r.label) || '', candidatos: (r && r.candidatos) || [] })),
+      .then((r) => ({
+        label: (r && r.label) || '',
+        candidatos: (r && r.candidatos) || [],
+        // O DESFECHO DO ÚLTIMO TOQUE (shell 75) — `nunca`, `aguardando`, `abriu`
+        // ou `engolido`. O primeiro candidato é um broadcast, e ele pode ser
+        // engolido em silêncio: sem este campo, um aparelho em que o diálogo
+        // nunca sobe é indistinguível de um em que ele sobe.
+        desfecho: (r && r.desfecho) || 'nunca',
+      })),
 
     // ---------- O TELÃO POR COMANDOS ----------
     //

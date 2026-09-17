@@ -690,8 +690,15 @@ window.AVNative = {
                        //   o espelhamento no ar ele não resolve o vazamento: o
                        //   áudio do Miracast é `REMOTE_SUBMIX`, a mistura do
                        //   aparelho inteiro
-  saidaDeAudioAlvo(),  // → { label, candidatos: [{acao, rotulo, tipo, alvo}] }
-                       //   (shell 74). `label` é quem PEGOU, com o componente;
+  saidaDeAudioAlvo(),  // → { label, candidatos: [{acao, rotulo, tipo, alvo}],
+                       //   desfecho } (shell 75). São TRÊS perguntas, e cada uma
+                       //   nasceu de um relato que a anterior não explicava:
+                       //   `label` é quem PEGOU, `candidatos` é quais EXISTEM, e
+                       //   `desfecho` é se o diálogo ABRIU — `nunca`,
+                       //   `aguardando`, `abriu` ou `engolido`. O último muda a
+                       //   cada toque, e por isso o Registro o RELÊ a cada
+                       //   montagem: lido só na carga ele diria "nunca" para
+                       //   sempre. `label` traz o componente;
                        //   `candidatos` é a CADEIA inteira, na ordem, com `alvo:
                        //   null` no que este aparelho não tem. Só o REGISTRO os
                        //   mostra, pela razão do `castTarget` — e a lista existe
