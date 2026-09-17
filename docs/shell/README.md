@@ -49,7 +49,7 @@ para a TV com `android.app.Presentation`.
 | `TrilhaAudio.kt` | 138 | `CLAUDE.md` — "Séries do YouTube" |
 | `SessionService.kt` | 916 | `CLAUDE.md` — "Notificação de controles" |
 | `SyncService.kt` | 550 | `CLAUDE.md` — "Trabalho em segundo plano" |
-| `MainActivity.kt` | 2.517 | `CLAUDE.md` — voltar, volume, cast, fullscreen |
+| `MainActivity.kt` | 2.992 | `CLAUDE.md` — voltar, volume, cast, saída de áudio, fullscreen |
 | `StagePresentation.kt` | 188 | `CLAUDE.md` — "Reconexão e morte do renderer" |
 | `MicChromeClient.kt` | 81 | `CLAUDE.md` — "O microfone ao vivo SAIU" (**sem consumidor desde a v1.8.89**: o recurso saiu pelo lado WEB e o Kotlin ficou, que é o lado seguro de encolher a ponte) |
 | `MicDiag.kt` | 181 | `CLAUDE.md` — "O microfone ao vivo SAIU" (idem: o `micDiag` da ponte é servido e ninguém o chama. Leitura PURA — não abre nada, não pede nada) |

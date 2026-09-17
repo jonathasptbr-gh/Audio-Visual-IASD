@@ -52,6 +52,23 @@ interface BridgeHost {
     fun describeCastTarget(): String
 
     /**
+     * Abre o seletor de **SAÍDA DE ÁUDIO** do Android (alto-falante, Bluetooth,
+     * fone) — ver [MainActivity.openAudioOutputPicker].
+     *
+     * **Isto é um ATALHO, não controle.** Quem roteia áudio é o sistema: as APIs
+     * que escolheriam o aparelho de saída ([android.media.AudioManager] e
+     * `AudioPolicy.setUidDeviceAffinity`, `setPreferredDeviceForStrategy`) são
+     * `@SystemApi` atrás de `MODIFY_AUDIO_ROUTING`
+     * (`signature|privileged|role`), inalcançáveis para um APK assinado com a
+     * keystore deste projeto. O que o app pode fazer é levar o operador à tela
+     * que o sistema já tem, sem que ele precise achá-la na aba de notificações.
+     */
+    fun openAudioOutputPicker()
+
+    /** Rótulo do seletor de saída de áudio que este aparelho oferece. */
+    fun describeAudioOutputTarget(): String
+
+    /**
      * Abre uma URL `https` FORA do app (navegador, ou o app que a reivindicar).
      * O WebView do Controle recusa navegar para outro origin — ver
      * [WebViewFactory] —, então sem esta rota um link externo não faz nada.
@@ -300,7 +317,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 72
+        const val SHELL_VERSION = 73
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1004,6 +1021,16 @@ class NativeBridge(
     }
 
     /**
+     * Tile "Saída de áudio" de Configurações: abre o seletor de saída do
+     * SISTEMA. Síncrono e sem resposta, como o [openCast] — o desfecho de uma
+     * tela do sistema é uma pessoa, não um valor.
+     */
+    @JavascriptInterface
+    fun abrirSaidaDeAudio() {
+        host?.openAudioOutputPicker()
+    }
+
+    /**
      * Abre uma URL fora do app — hoje a busca do YouTube oferecida no fim da
      * busca do acervo, quando a música não está no LouvorJA.
      *
@@ -1644,6 +1671,17 @@ class NativeBridge(
     @JavascriptInterface
     fun castTarget(callId: String) {
         resolve(callId, JSONObject().put("label", host?.describeCastTarget() ?: "").toString())
+    }
+
+    /**
+     * Para onde `abrirSaidaDeAudio()` vai abrir, em texto. Só o REGISTRO o
+     * mostra — a razão é a mesma do [castTarget]: o alvo não é API documentada
+     * e varia por fabricante, então quando o botão abre a tela errada esta
+     * string é o que responde qual candidato pegou, sem depender de logcat.
+     */
+    @JavascriptInterface
+    fun saidaDeAudioAlvo(callId: String) {
+        resolve(callId, JSONObject().put("label", host?.describeAudioOutputTarget() ?: "").toString())
     }
 
     // ---------- botões físicos de volume ----------

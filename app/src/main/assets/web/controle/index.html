@@ -444,6 +444,33 @@
       <path d="m16.4 9.8 5 4.4"/>
       <path d="m21.4 9.8-5 4.4"/>
     </symbol>
+    <!-- SAÍDA DE ÁUDIO: a CAIXA DE SOM, e não o traço de volume.
+         O `#icoSom` acima já é o volume (alto-falante com ondas), e ele
+         significa MUDO — reusá-lo aqui faria o mesmo desenho responder duas
+         perguntas. O que este tile abre é a escolha do APARELHO que vai tocar,
+         então o desenho é o aparelho: o gabinete com o alto-falante grande e o
+         tweeter. Ele também não se confunde com o `#icoCelular`, que é o
+         retângulo sem cone nenhum. -->
+    <symbol id="icoSaidaDeAudio" viewBox="0 0 24 24">
+      <rect x="5.5" y="2.8" width="13" height="18.4" rx="2.2"/>
+      <circle cx="12" cy="14.6" r="3.5"/>
+      <circle cx="12" cy="6.7" r="1.2"/>
+    </symbol>
+    <!-- A PRÉVIA, e o par dela riscado (economia de processamento).
+         O quadro com o triângulo é a prévia TOCANDO; o quadro riscado é a
+         imagem dela desligada. A barra do risco é a MESMA do `#icoImagemOff`
+         (`M3 3.5 21 20.5`) de propósito: neste app "riscado" é um idioma só, e
+         um segundo ângulo seria uma segunda convenção para a mesma ideia.
+         O quadro é o do `#icoAjustar`/`#icoPreencher` pelo mesmo motivo — ele é
+         o telão em todos eles. -->
+    <symbol id="icoPreview" viewBox="0 0 24 24">
+      <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
+      <path d="M10.4 9.1v5.8l4.8-2.9z"/>
+    </symbol>
+    <symbol id="icoPreviewOff" viewBox="0 0 24 24">
+      <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
+      <path d="M3 3.5 21 20.5"/>
+    </symbol>
     <!-- ===== PASSAR SLIDE: CHEVRON, SEM A BARRA (v1.8.51) =====
          Relato do operador: *"diferencie o icone desses botões de prossimo
          slide e anterior slide, use os botões de seta simples, sem a barra,
@@ -1338,6 +1365,29 @@
                aparecer, então é aqui que se diz que ela está a caminho — ver
                `previewBusy` em controle.js. Fica FORA da tela cheia (regra
                junto com a dos `.pv-fabs`): ali a preview É a projeção. -->
+          <!-- ===== A MARCA DA ECONOMIA (v1.9.9) =====
+               Com a imagem da prévia desligada, o que sobra no retângulo é o
+               wallpaper — e um retângulo parado é indistinguível de uma prévia
+               QUEBRADA. É a mesma regra do `disabled` da v1.8.50 aplicada a uma
+               superfície em vez de a um botão: o que não está funcionando diz
+               que não está.
+
+               ELA É CENTRADA, e a colisão se resolve pela PILHA e não por um
+               canto — MEDIDO, os QUATRO cantos da prévia têm um `.pv-fab` de 34px
+               (as duas colunas de controles têm altura inteira), e desenhar sobre
+               o símbolo de um botão o deixa ilegível. Em `z-index: 2` ela fica
+               acima da mídia e ABAIXO da letra e do texto manual, que são opacos e
+               a cobrem — o desfecho certo: a estrofe no ar vale mais que o aviso
+               de uma escolha que o operador acabou de fazer. As duas camadas
+               CONTINUAM sendo desenhadas em economia (DOM não é decodificação), e
+               é essa a metade do pedido que se erra.
+
+               SEM RÓTULO: o desenho riscado é o mesmo do tile que a ligou, e a
+               frase inteira mora no `title` dele. -->
+          <div id="pvEconomia" class="pv-economia-marca" hidden
+               title="A imagem da prévia está desligada para poupar processamento">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoPreviewOff"/></svg>
+          </div>
           <div id="pvBusy" class="pv-busy" aria-live="polite">
             <div class="pv-busy-card">
               <span class="dl-ring" aria-hidden="true">
@@ -2203,6 +2253,48 @@
                A grade fecha em TRÊS fileiras exatas nos dois arranjos — o que
                muda é onde a costura cai, e agora ela cai entre as duas
                naturezas. -->
+          <!-- ===== SAÍDA DE ÁUDIO: UM ATALHO, e ele diz isso (shell 73) =====
+               Pedido do operador: *"um botão para selecionar saída de áudio
+               (escolher entre som no smartphone, na tv conectada, no bluetooth e
+               etc…)"*, e depois, sabendo que a notificação de mídia já tem o
+               seletor do sistema: *"o que eu quero é um atalho mesmo no próprio
+               app, nas configurações, assim fica claro as opções"*.
+
+               ELE ABRE A TELA DO SISTEMA, e não escolhe nada — rotear áudio é
+               privilégio de sistema (`MODIFY_AUDIO_ROUTING`, ver
+               `NativeBridge.openAudioOutputPicker`). O `title` é o que diz isso,
+               porque um tile que parecesse decidir a saída seria lido como
+               quebrado no dia em que o aparelho não mudasse.
+
+               SÓ NO APP (`hidden` no navegador, escrito por `renderSaidaDeAudioTile`):
+               ele depende da ponte, e um botão que só sabe não funcionar é pior
+               que botão nenhum — a mesma regra dos três da fileira de baixo. -->
+          <button type="button" class="qs-tile qs-on" id="saidaAudioTile" title="Abrir a escolha de saída de som do Android — alto-falante, Bluetooth, fone">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSaidaDeAudio"/></svg>
+            <span class="qs-titulo">Saída de áudio</span>
+          </button>
+          <!-- ===== ECONOMIA: A IMAGEM DA PRÉVIA DESLIGADA (v1.9.9) =====
+               Pedido do operador: *"um botão para desativar a preview (com o
+               objetivo de reduzir o gasto de processamento para smartphones mais
+               fracos…)"* e, fechada a análise: *"vamos manter as outras conexões
+               de controle e ativar/desativar apenas a decodificação de imagem do
+               preview, que é o que realmente pesa no processamento"*.
+
+               O QUE DESLIGA É A DECODIFICAÇÃO, e só ela. Tempo, barra, letra,
+               estado, transporte e o avanço da fila continuam inteiros — ver
+               `economiaAtiva` em controle.js, que é onde a regra mora.
+
+               ELE APAGA SEM DESTINO DE PROJEÇÃO, porque ali a prévia É a
+               projeção: é a regra do `haDestinoDeProjecao`, e é `disabled` com o
+               `title` dizendo por quê (v1.8.50). O último da fileira de
+               preferências de propósito — é a única delas que fala do CELULAR e
+               não do telão, e daí ela encostar na fileira do aparelho. -->
+          <button type="button" class="qs-tile" id="economiaTile" title="Desligar a imagem da prévia para poupar processamento">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoPreview"/><use class="ico-alt" href="#icoPreviewOff"/>
+            </svg>
+            <span class="qs-titulo">Imagem da prévia</span>
+          </button>
           <button type="button" class="qs-tile qs-on" id="shareAppTile" title="Compartilhar o link para baixar o app">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCompartilhar"/></svg>
             <span class="qs-titulo">Compartilhar</span>
@@ -2337,7 +2429,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.9.8</span>
+            <span id="appVersion" class="app-version">v1.9.9</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

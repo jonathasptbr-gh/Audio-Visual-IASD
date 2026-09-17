@@ -64,7 +64,7 @@ const PONTE = `(function () {
   // pista de onde ele saiu. Resolver \`null\` é o que a ponte de verdade faz
   // quando o shell não tem resposta.
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
-    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget',
+    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget','saidaDeAudioAlvo',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','cifraDiag','farolEstado','ytCanalPlaylists','ytPlaylist',
     'ytDetalhes','areaTransferencia','salvarTexto','pacoteCriar','pacoteFechar',
@@ -80,10 +80,10 @@ const PONTE = `(function () {
     compartilharTexto: (t) => { window.__ponte.compartilhado.push(String(t)); },
     pacoteCancelar: () => { window.__ponte.cancelado++; },
   };
-  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
+  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget','saidaDeAudioAlvo',
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar','espelhoCertEstado',
     'espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado','espelhoLigar',
-    'keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply','otaCheck',
+    'keepAlive','listFolder','nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply','otaCheck',
     'otaDiag','otaPending','pickDoc','pickFolder','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
     'ytPlaylist','ytSearch','ytStream','farolEstado','projecaoLocal','cifraHtml',
@@ -360,8 +360,16 @@ try {
     });
     checar(bloco.escondidos.length === 0,
       'C · no APP os três tiles deste aparelho estão à vista', bloco);
+    // A ORDEM É A DA GRADE INTEIRA, e os dois tiles da v1.9.9 entraram no FIM
+    // das preferências: a saída de áudio ainda fala do som que sai para a
+    // congregação, e a economia da prévia fala do CELULAR — daí ela encostar na
+    // fileira do aparelho. Os três de baixo continuam juntos e por último, e
+    // quem garante que eles ficam numa FILEIRA inteira com a grade em onze é o
+    // `grid-column: 1` do `#shareAppTile` (medido por geometria no
+    // `saida-de-audio-e-economia.test.mjs`, que é onde a régua de PIXEL mora).
     checar(bloco.grade.join(',') === 'temaTile,fitTile,wallTile,histOpenRow,'
-      + 'lyricsBgTile,rotBtn,shareAppTile,pacoteExportarTile,pacoteImportarTile',
+      + 'lyricsBgTile,rotBtn,saidaAudioTile,economiaTile,'
+      + 'shareAppTile,pacoteExportarTile,pacoteImportarTile',
       'C · na MESMA grade dos outros, e na metade de BAIXO — a fileira das '
       + 'três coisas que se fazem com o APP fora da projeção',
       bloco.grade);

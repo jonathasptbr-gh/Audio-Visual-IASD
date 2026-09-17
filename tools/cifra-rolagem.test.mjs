@@ -140,10 +140,10 @@ const PONTE = `(() => {
       }, 0);
     },
   };
-  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget',
+  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget','saidaDeAudioAlvo',
     'cifraDiag','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
-    'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
+    'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply',
     'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
     'ytFetchAudio','ytPlaylist','ytSearch','ytStream','areaTransferencia','atualizacaoEstado',

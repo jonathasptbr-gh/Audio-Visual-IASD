@@ -41,7 +41,7 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    (69 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
-                                       window.AVNative  (58 métodos)
+                                       window.AVNative  (60 métodos)
                                        + 4 globais lidas direto
 ```
 
@@ -609,7 +609,7 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 
 ---
 
-## O CATÁLOGO COMPLETO — os 58 métodos, um a um
+## O CATÁLOGO COMPLETO — os 60 métodos, um a um
 
 > **O SHELL SERVE 63.** Os CINCO de diferença foram encolhidos pelo LADO WEB,
 > que é o lado seguro: o `@JavascriptInterface` de cada um continua em
@@ -681,6 +681,20 @@ window.AVNative = {
   onDisplayChange(cb),
   openCast(),          // seletor de ESPELHAMENTO DE TELA do Android (≠ Google Cast)
   castTarget(),        // → string: rótulo do alvo de espelhamento deste aparelho
+  abrirSaidaDeAudio(), // SAÍDA DE ÁUDIO (shell 73): abre o seletor do SISTEMA —
+                       //   alto-falante, fone, Bluetooth. Síncrono e sem
+                       //   resposta, como o `openCast`: o desfecho é uma pessoa.
+                       //   ELE ABRE, NÃO ROTEIA — escolher o aparelho de saída é
+                       //   `@SystemApi` atrás de `MODIFY_AUDIO_ROUTING`, e um
+                       //   APK com a keystore deste projeto nunca a obtém. E com
+                       //   o espelhamento no ar ele não resolve o vazamento: o
+                       //   áudio do Miracast é `REMOTE_SUBMIX`, a mistura do
+                       //   aparelho inteiro
+  saidaDeAudioAlvo(),  // → string: rótulo do seletor de saída deste aparelho,
+                       //   com o COMPONENTE. Só o REGISTRO o mostra, pela razão
+                       //   do `castTarget`: o alvo não é API documentada e varia
+                       //   por fabricante, e quando o botão abre a tela errada
+                       //   essa string é a única resposta possível a distância
   openExternal(url),   // abre uma URL https FORA do app (só o Controle)
   ytFetch(url, onProg, soAudio, altura), // → { url, name, size, type, height, seconds }
                        //   `soAudio` traz só a faixa de áudio (m4a)

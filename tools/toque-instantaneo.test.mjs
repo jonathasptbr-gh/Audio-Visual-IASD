@@ -95,11 +95,11 @@ const PONTE = `(() => {
       espera();
     };
   }
-  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget',
+  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget','saidaDeAudioAlvo',
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolEstado','keepAlive',
-    'listFolder','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
+    'listFolder','nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply','otaCheck','otaDiag',
     'otaPending','pickDoc','pickFolder','salvarTexto','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiscard','ytStream',
     'ytPlaylist','ytSearch','areaTransferencia','atualizacaoEstado',

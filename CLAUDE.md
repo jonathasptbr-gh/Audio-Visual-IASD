@@ -50,7 +50,7 @@ tem o que se pode quebrar sem abrir o capítulo, e o capítulo tem o resto:
 | acordes sobre a letra, sob demanda | [§](#a-aba-de-cifra-acordes-ao-lado-da-letra) | [`docs/recursos/CIFRA.md`](docs/recursos/CIFRA.md) |
 | o acervo num arquivo `.avpkg` | [§](#o-pacote-de-transferência-o-acervo-num-arquivo) | [`docs/recursos/PACOTE.md`](docs/recursos/PACOTE.md) |
 | cada par de cor medido, os pisos, o que foi revogado | [§](#a-paleta) | [`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md) |
-| o catálogo dos 58 métodos da ponte, um a um | [§](#a-ponte-windowavnative) | [`docs/shell/PONTE.md`](docs/shell/PONTE.md) |
+| o catálogo dos 60 métodos da ponte, um a um | [§](#a-ponte-windowavnative) | [`docs/shell/PONTE.md`](docs/shell/PONTE.md) |
 | os dois canais, a detecção, o watchdog, a pergunta | [§](#ota-da-base-web-atualização-sem-apk) | [`docs/shell/OTA.md`](docs/shell/OTA.md) |
 | o que cada oráculo trava | (o MÉTODO fica em [Build](#build-e-distribuição)) | [`docs/ORACULOS.md`](docs/ORACULOS.md) |
 
@@ -516,7 +516,7 @@ Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
 `NativeBridge.kt`). **Só existe quando `window.__AVBridge` existe** — no
 navegador a IIFE retorna na entrada e nada é definido, nem `__NATIVE__`.
 
-**O CATÁLOGO dos 58 métodos, um a um, está em
+**O CATÁLOGO dos 60 métodos, um a um, está em
 [`docs/shell/PONTE.md`](docs/shell/PONTE.md)** — é referência, aberta por
 método. Aqui ficam as REGRAS, que valem para todos eles.
 
@@ -557,11 +557,13 @@ atrasada da página velha resolvia a promise homônima da NOVA. Chamadas que
 dependem de **máquina** têm prazo de 60 s; `pickFolder` e `requestMic` esperam
 uma **pessoa** e ficam sem prazo.
 
-São **58 métodos**, e essa é a superfície inteira que o resto do lado web tem
-direito de usar — o SHELL serve **69** métodos `@JavascriptInterface`, e a
-diferença de 11 são os internos logo abaixo mais CINCO encolhidos pelo lado
-web: três na v1.8.71 (`ytStream`, `otaPending`, `apkProcurar` — órfãos de duas
-fusões) e dois na v1.8.89 (`requestMic`, `micDiag`, com o MICROFONE AO VIVO). O
+São **60 métodos**, e essa é a superfície inteira que o resto do lado web tem
+direito de usar — o SHELL serve **71** métodos `@JavascriptInterface`, e a
+diferença de 14 contra os 57 que têm par no Kotlin (os outros três da superfície
+são callbacks só do lado web) são os NOVE internos logo abaixo mais CINCO
+ÓRFÃOS encolhidos pelo lado web: três na v1.8.71 (`ytStream`, `otaPending`,
+`apkProcurar` — órfãos de duas fusões) e dois na v1.8.89 (`requestMic`,
+`micDiag`, com o MICROFONE AO VIVO). O
 Kotlin continua servindo os cinco, e por isso nenhum dos dois lotes pediu
 Release. **Encolher no WEB primeiro é o lado seguro** — um APK que ainda serve
 métodos que ninguém chama não custa nada ao aparelho; é a ordem inversa (base
@@ -574,9 +576,13 @@ outros dois DESTINOS do `ytFetch` — só-áudio e teto de resolução),
 `espelhoLigarEm` (a via escolhida pelo operador, por trás do `espelhoLigar`),
 `shellVersion()`/`role()`/`appVersion()` (viram as globais abaixo), `busPost()`
 (relay do barramento), `otaConfirm()` (watchdog do OTA) e `takeShare()` (consumo
-do share pendente, que alimenta o `onShare`). **A conta fecha:** 60 de
-superfície − 3 callbacks sem par no Kotlin (`onShare`, `onRemote`,
-`onDisplayChange`) + 9 internos = 66 chamados, + 3 órfãos = 69 servidos.
+do share pendente, que alimenta o `onShare`). **A conta fecha, e é MEDIDA:** 60
+de superfície − 3 callbacks sem par no Kotlin (`onShare`, `onRemote`,
+`onDisplayChange`) + 9 internos = 66 chamados, + 5 órfãos = 71 servidos. A
+varredura que a refaz é o que responde em vez da memória, porque estes números
+envelhecem a cada lote de ponte: `@JavascriptInterface` + `fun <nome>` no
+`NativeBridge.kt` contra `B.<nome>(` no `native.js`. (O texto afirmou 58 e 69 da
+v1.8.89 até aqui, e as duas metades da conta logo acima já discordavam dele.)
 
 **Quatro globais lidas direto, sem Promise:** `window.__NATIVE__`, `__AV_ROLE__`
 (`'controle'`/`'display'`; o terceiro valor, `'tela'`, é escrito por
@@ -637,7 +643,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **72**, e ele é o **PISO**: o bundle declara `minShell: 72`, então
+Hoje vale **73**, e ele é o **PISO**: o bundle declara `minShell: 73`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -650,7 +656,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 72 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 73 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -1771,6 +1777,8 @@ que ela é desenvolvida e testada fora do aparelho.
 | Onde o share aterrissa | idem (mesmo `importShare`) | **`focarImportado`**: fecha popups e seleção; projeta na hora no simplificado (item vai para a prateleira `avulsos`, que não tem lista visível) ou vai ao Cronograma no avançado. A preview em tela cheia só é encerrada se houver telão |
 | Estado do telão (Configurações) | atalho `window.open('../display/')` | **indicador ao vivo**, desabilitado como botão |
 | Botão de cast da preview | oculto | `AVNative.openCast()` → seletor de espelhamento (ver abaixo) |
+| **Escolher a saída de áudio** | **não existe** — o navegador não tem como abrir tela de sistema nenhuma | tile **"Saída de áudio"** em Configurações (shell 73): `abrirSaidaDeAudio` → o seletor do SISTEMA. **ELE ABRE, NÃO ROTEIA**, e o `title` diz isso: escolher o aparelho de saída é `@SystemApi` atrás de `MODIFY_AUDIO_ROUTING` (`signature|privileged|role`) — ver o espelhamento, que já levantou isso. Pedido do operador **sabendo** que a notificação de mídia já traz o seletor (*"o que eu quero é um atalho mesmo no próprio app, nas configurações, assim fica claro as opções"*): a porta que existe é invisível para quem não a conhece. A cadeia é a do `pickCastIntent` — do específico ao genérico, alvo não documentado — e difere num ponto: o último candidato é constante PÚBLICA (`ACTION_SOUND_SETTINGS`), então ela tem PISO. O alvo escolhido vai ao REGISTRO e só lá. **E com o espelhamento no ar ele não resolve o vazamento**: o áudio do Miracast é `REMOTE_SUBMIX`, a mistura do aparelho inteiro, e a combinação não foi medida em aparelho |
+| **Desligar a imagem da prévia** | idem (é `assets/web/` inteira) | tile **"Imagem da prévia"** (v1.9.9): a economia de processamento de um celular fraco. Só a DECODIFICAÇÃO para (`stage.setSuspenso`, o `pause()` dentro do `play()` — um `play` chega por caminhos que o Controle não enumera); tempo, barra, letra, transporte, `MediaSession`, o comando ao telão e o avanço da fila ficam INTEIROS. **A escolha é guardada, o veredito é DERIVADO** (`economiaAtiva` = a marcação **e** `haDestinoDeProjecao()` **e** não estar em tela cheia): sem destino a prévia É a projeção e o tile fica `disabled` com o motivo no `title`; perder a TV religa a imagem sozinho e reconectar volta a poupar. **A TELA CHEIA SUSPENDE** — ali o operador está OLHANDO para ela. Os três caminhos do avanço da fila seguem cobertos e nenhum é a prévia: `media-ended` do telão, a rede de segurança do `tela-status` (v1.8.48), e sem os dois a economia não está ativa |
 | Retomada do telão ao reconectar | idem (`resendSceneToDisplay`) | **só reenvia o que ESTAVA no ar** — a pergunta é `midiaNoAr`, nunca `currentId` (que sobrevive ao stop de propósito, para o ▶ repetir a faixa). Telão vazio também é estado: restaurá-lo é não mandar nada |
 | Girar a mídia | idem (comando `rotate`) | tile **"Girar no telão"** em Configurações, 90° por toque — o nome diz ONDE, porque "Girar" sozinho se lê como o giro da INTERFACE (v1.4.41). O motor TROCA O EIXO da caixa antes de girar, para o `object-fit` medir o retângulo em que a mídia vai de fato aparecer |
 | Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão. **E PERDER a projeção com mídia no ar PAUSA a mídia** (v1.8.50): a promessa acima vale para quem ABRE o app sem tela, não para quem PERDE a tela com o louvor no ar — o estado final é o mesmo, a intenção não. A régua é a PERDA (escrita como estado, ela pausaria o ensaio de quem nunca conectou nada) e é a perda de um DESTINO — `haDestinoDeProjecao()`, que lê a tela LISTADA e as SESSÕES de tela da rede, e **não** `algumaTelaConectada()`, que responde pela `Presentation`: com aquela, a oscilação do dongle pausaria o louvor a cada piscada do Miracast, que é uma interrupção de culto no lugar de um vazamento de segundos |
@@ -2107,7 +2115,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **89** e os de Node puro **21** — juntos, os 110. MEDIDO com
+Os de Chromium são **90** e os de Node puro **21** — juntos, os 111. MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -2158,7 +2166,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 110 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 111 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2750,29 +2758,33 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.9.8 · APK v1.9** · `SHELL_VERSION` **72** ·
-bundle com `minShell: 72` e **SEM `shellTag`** — o shell 72 é o **PISO**:
-todo método da ponte existe, e não há guarda de versão no lado web.
+**Versão atual: base web v1.9.9 · APK v1.9.9** · `SHELL_VERSION` **73** ·
+bundle com `minShell: 73` e **COM `shellTag: "v1.9.9"`** — o shell 73 é o
+**PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.9.8 NÃO declara `shellTag`, como as sete anteriores — a diferença com
-> a v1.9 é o que o campo pergunta.** Aquela existia para DISPARAR uma Release (pedido por
-> extenso), e sem o campo o bundle sairia sozinho, deixando a frota com um APK
-> v1.8.91 embaixo de uma base v1.9. **Essa Release SAIU**: o `v1.9` está
-> publicado e o manifesto do canal já aponta para ele. Esta não toca `java/`,
-> `res/` nem o manifesto, e por isso a obrigação NÃO é herdada — o bundle sai na
-> hora, contra um shell que já está na frota. **A herança acontece no caso
-> inverso**, e vale relembrar: um lote só de web publicado DEPOIS de um lote de
-> shell ainda não lançado HERDA a obrigação, porque o CI exige
-> `shellTag == 'v' + version`.
+> **A v1.9.9 DECLARA `shellTag`, e as oito anteriores não — o gatilho é o
+> `java/`, nunca a ponte.** Ela acrescenta DOIS métodos
+> (`abrirSaidaDeAudio`/`saidaDeAudioAlvo`) e mexe no `AndroidManifest.xml` (as
+> três ações de saída de áudio no `<queries>`, sem as quais `resolveActivity`
+> devolve null no Android 11+ e o tile cai sempre no laço cego). **Nada em
+> `java/`, `res/` ou no manifesto chega por OTA**, então o campo SEGURA o bundle
+> até a Release existir — sem ele o tile "Saída de áudio" chegaria à frota
+> chamando um método que o APK instalado não tem, o `call()` venceria os 60 s e
+> resolveria `null`: um botão tocável que não faz nada.
 >
-> **E O DEGRAU É CORREÇÃO, que é o caso normal** — os três lotes depois da v1.9
-> são ajuste de superfície na folha de Ferramentas, não lugar novo. A v1.9 foi
-> INCREMENTAL contra
-> a régua da tabela, por decisão de quem publica e com o motivo dito; o que ela
-> deixou anotado é que **`1.9` e `1.9.0` são a MESMA versão** para o
-> `compareVersions`, que completa com zero o que falta — daí o primeiro degrau
-> depois dela ser este `1.9.1`, e não um `1.9.0` que o aparelho ignoraria em
-> silêncio.
+> **A METADE WEB DO LOTE NÃO PRECISARIA DISSO** — a economia da prévia é
+> `assets/web/` inteira (o `setSuspenso` do `stage.js` viaja DENTRO do bundle,
+> como o `AVSorteio.baralhar` da v1.8.86) —, mas **o `shellTag` é do LOTE e não
+> do recurso**: o CI exige `shellTag == 'v' + version`, e a Release é UMA,
+> cortada de `main` na tag mais nova. Depois do merge: Actions → *Build APK* →
+> `release_tag` = `v1.9.9`.
+>
+> **E O DEGRAU É CORREÇÃO** — dois tiles numa folha que já existe não é "uma
+> seção inteiramente nova, com tela e fluxo próprios", que é a régua do
+> INCREMENTAL. A v1.9 foi INCREMENTAL contra essa régua, por decisão de quem
+> publica e com o motivo dito; o que ela deixou anotado é que **`1.9` e `1.9.0`
+> são a MESMA versão** para o `compareVersions`, que completa com zero o que
+> falta.
 
 > **A v1.8.99 REMOVE a coletânea de vídeos do LouvorJA, que a v1.8.97 tinha
 > acrescentado — e a razão é do operador, não técnica:** *"Eu achava que seria

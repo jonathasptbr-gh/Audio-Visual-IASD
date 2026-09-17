@@ -116,6 +116,13 @@
         <intent><action android:name="android.settings.WIFI_DISPLAY_SETTINGS" /></intent>
         <intent><action android:name="android.settings.CAST_SETTINGS" /></intent>
         <intent><action android:name="android.settings.DISPLAY_SETTINGS" /></intent>
+        <!-- SAÍDA DE ÁUDIO (shell 73): o seletor do sistema, o painel de volume e
+             a tela de som. Os três são consultados por `resolveActivity` na
+             cadeia do `audioOutputCandidates`, e sem esta declaração a consulta
+             devolve null no Android 11+ — o tile cairia sempre no laço cego. -->
+        <intent><action android:name="com.android.settings.panel.action.MEDIA_OUTPUT" /></intent>
+        <intent><action android:name="android.settings.panel.action.VOLUME" /></intent>
+        <intent><action android:name="android.settings.SOUND_SETTINGS" /></intent>
     </queries>
 
     <!-- Backup LIGADO, mas com regras: `allowBackup="true"` sozinho leva tudo

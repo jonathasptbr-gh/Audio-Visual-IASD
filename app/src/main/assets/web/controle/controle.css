@@ -1766,6 +1766,73 @@ body {
   z-index: 3;
 }
 .pv-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: var(--stage-bg); z-index: 1; }
+
+/* ===== A MARCA DA ECONOMIA (v1.9.9) =====
+   Com a imagem da prévia desligada o retângulo mostra o wallpaper — e um
+   retângulo parado é indistinguível de uma prévia QUEBRADA. Esta marca é o que
+   diz que é ESCOLHA (a regra da v1.8.50, aplicada a uma superfície em vez de a
+   um botão).
+
+   ELA É CENTRADA, e NÃO um canto — a primeira escrita a pôs em baixo à direita
+   com o argumento de que a coluna de controles "mora à direita mas em cima". Era
+   FALSO, e o oráculo mediu: `.pv-fabs` é `top: 2px; bottom: 2px; right: 2px`, uma
+   coluna de altura INTEIRA com a tela cheia empurrada para a base por
+   `margin-top: auto`, e a irmã `--esq` faz o mesmo à esquerda. **OS QUATRO
+   CANTOS TÊM UM `.pv-fab` DE 34px** (medido numa prévia de 290×163: viewToggle,
+   muteToggle, pvCastBtn, pvFullBtn), e `pointer-events: none` não conserta nada
+   disso — o toque passa, o que fica ilegível é a LEITURA, com a marca desenhada
+   por cima do desenho do botão.
+
+   O centro é livre de controles, e a colisão com o CONTEÚDO se resolve pela
+   PILHA: `z-index: 2` fica acima das camadas de mídia (`.pv-layer`, z 1) e
+   abaixo do cartão de trabalho (4) e dos controles (5). Com a letra ou o texto
+   manual no ar, a camada deles é OPACA e cobre a marca — o que é o desfecho
+   certo: a estrofe no ar vale mais que o aviso de uma escolha que o operador
+   acabou de fazer. As duas camadas CONTINUAM sendo desenhadas em economia (DOM
+   não é decodificação), e é essa a metade do pedido que se erra.
+
+   SEM RÓTULO: o desenho riscado é o mesmo do tile que a ligou, e a frase inteira
+   mora no `title`. */
+.pv-economia-marca {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  /* `--stage-text-soft` é o token que o `tokens.css` descreve como *"marca sobre
+     o wallpaper"* — é literalmente isto, e ele já carrega o alfa. Um
+     `--stage-fg` escrito aqui não existiria e o `color` cairia no valor inicial
+     da propriedade, SEM AVISO (a armadilha que o `tokens.test.mjs` cobra). E ele
+     é do bloco COMPARTILHADO: o palco não tem tema, e a marca mora sobre ele. */
+  color: var(--stage-text-soft);
+  /* `inset: 0` faz a CAIXA cobrir a prévia, e é isso que centra o desenho sem
+     uma medida escrita à mão — mas uma caixa que cobre tudo não pode receber o
+     toque, senão os quatro controles da prévia ficam inalcançáveis por baixo
+     dela. Aqui o `pointer-events: none` não é higiene, é o que mantém a prévia
+     operável: quem religa é o tile, e um segundo caminho para a mesma escolha
+     seria uma segunda fonte de verdade. */
+  pointer-events: none;
+}
+/* A ESCALA É DECLARADA (v1.8.68): um `<svg>` fora das três listas cai no
+   atributo do HTML, que pode coincidir com o degrau certo por acidente e deixar
+   de coincidir no dia em que alguém mexer no token. */
+.pv-economia-marca svg { width: var(--icon-lg); height: var(--icon-lg); }
+/* ===== E A IMAGEM SAI DE VISTA, não só do decodificador =====
+   O `setSuspenso` do `stage` PAUSA o `<video>`, e um vídeo pausado mostra o
+   quadro congelado. Com a marca ao lado dizendo "desligada", uma imagem à vista
+   é uma CONTRADIÇÃO — e é a leitura pior das duas: quem a vê conclui que a
+   prévia travou. Com o wallpaper no lugar, o retângulo diz a mesma coisa que a
+   marca.
+
+   `visibility` e nunca `display`: a caixa é a mesma, o `object-fit` e o giro
+   continuam calculados sobre ela, e o religar não recalcula layout nenhum. E a
+   regra vive no PAI porque o `applyMedia` do `stage` mexe no atributo `hidden`
+   dos dois elementos a cada carga — uma classe escrita neles seria apagada na
+   mídia seguinte.
+
+   A LETRA E O TEXTO MANUAL FICAM. Eles são DOM, não decodificação, e é a metade
+   do pedido que se erra: *"apenas a decodificação de imagem do preview"*. Sem a
+   estrofe à vista o operador perde a única leitura local de qual verso está no
+   ar. */
+.preview.pv-economia #pvImg,
+.preview.pv-economia #pvVideo { visibility: hidden; }
 /* Camada de TEXTO manual: acima de toda a mídia, opaca pelo
    `background: var(--stage-bg)` herdado de .pv-layer. Espelha o Display
    (.text-layer) — a mídia segue tocando intacta por baixo e reaparece onde
@@ -9895,6 +9962,21 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    AFUNDA (a inversão que a regra do topo deste arquivo descreve). Não é
    `--panel`: sobre a folha, que já é `--panel`, ele desapareceria. */
 .qs-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
+/* ===== A FILEIRA DO APARELHO COMEÇA UMA LINHA NOVA (v1.9.9) =====
+   Pedido do operador, na v1.7.6: *"reordene os botões: compartilhar, exportar e
+   importar devem ser os tres itens da base"*. Aquilo valia por ARITMÉTICA — a
+   grade tinha 9 tiles e 3 colunas, então os três caíam sozinhos na última
+   fileira. Com os dois de v1.9.9 são ONZE, e sem esta linha o `compartilhar`
+   fecharia a terceira fileira ao lado de uma PREFERÊNCIA, deixando
+   exportar/importar órfãos na quarta: a tríade que ele mandou manter junta sai
+   partida, e o pedido morre por um tile novo em qualquer lote futuro.
+
+   `grid-column: 1` força o item a esperar a próxima linha, e o vão que sobra no
+   fim das preferências é o que separa as duas naturezas — que é justamente o que
+   aquela ordenação dizia com a posição. No NAVEGADOR ele é `display: none`
+   (`.qs-tile[hidden]`), e uma propriedade de grade não tem efeito sobre um item
+   que não existe: a grade de lá continua se fechando sozinha. */
+#shareAppTile { grid-column: 1; }
 .qs-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: var(--sp-2); min-height: 4rem;

@@ -2270,6 +2270,119 @@ alguma tela conectada?  ── sim ──▶  preview MUDA (o som é da TV / das
   que a tela não separa — mudo, fader em zero, tela conectada sem volume, este
   aparelho calado por haver tela —, e quem lê o Registro está a distância.
 
+#### O ATALHO para a saída de áudio do sistema (v1.9.9, shell 73)
+
+Um tile em Configurações que **abre a tela do Android** e mais nada. Pedido do
+operador, e ele o repetiu **sabendo** que a notificação de mídia do app já traz o
+seletor do sistema: *"o botão aparece, e o android tem essa opção. Mas o que eu
+quero é um atalho mesmo no próprio app, nas configurações, assim fica claro as
+opções"*. A razão é boa e é de descoberta: a porta que existe é invisível para
+quem não a conhece.
+
+**AS DUAS PERGUNTAS QUE O PEDIDO JUNTA, e só uma é do app.** *Em qual TELA o som
+toca* já é respondida pela seção acima (`somLocalDeveEstar`, com a escolha manual
+do `tocarNoCelular`) — um seletor novo ali seria uma TERCEIRA fonte de verdade
+sobre a mesma pergunta. *Em qual APARELHO FÍSICO o som sai* o app **não pode**
+responder: `AudioPolicy.setUidDeviceAffinity`, `setPreferredDeviceForStrategy` e
+`registerAudioPolicy` são `@SystemApi` atrás de `MODIFY_AUDIO_ROUTING`
+(`signature|privileged|role`). A seção do espelhamento no `CLAUDE.md` já
+levantou isso; este tile **aceita aquela resposta** em vez de reabrir a
+investigação, e entrega o que sobra.
+
+- **A cadeia é a do `pickCastIntent`** — do específico ao genérico, porque o alvo
+  não é API documentada — e difere dele num ponto: o último candidato é constante
+  PÚBLICA que todo aparelho declara (`ACTION_SOUND_SETTINGS`), então ela tem
+  **PISO**. Na do espelhamento não havia, e foi isso que a fez cair no Google
+  Cast num aparelho sem o alvo AOSP.
+- **O alvo escolhido vai ao REGISTRO e só lá** (`Saída de áudio abre: …`, com o
+  componente), pela razão do `describeCastTarget`: o operador não escolhe entre
+  caminhos pelo nome da tela que vai abrir, e quando ela é a errada a resposta
+  tem de estar no texto que se COPIA.
+- **Com o espelhamento no ar ele não resolve o vazamento**, e isso está dito nos
+  dois lados: o áudio do Miracast nasce de `AUDIO_SOURCE_REMOTE_SUBMIX`, a
+  mistura do aparelho inteiro, e a combinação "trocar a saída com espelhamento
+  ligado" **não foi medida em aparelho**. A cadeia promete chegar à tela, não um
+  desfecho.
+
+#### A IMAGEM DA PRÉVIA desligável — a economia (v1.9.9)
+
+Pedido do operador, fechado depois da análise: *"o celular fraco é o operador,
+vamos manter as outras conexões de controle e ativar/desativar apenas a
+decodificação de imagem do preview, que é o que realmente pesa no
+processamento"*. As outras alavancas medidas na análise (espaçar o
+`display-status`, cortar fades, cortar as animações do app) ficaram de fora — a
+primeira é a única que remove um DECODIFICADOR, e as outras custam barra
+grosseira, transição vista pela congregação e quase nada.
+
+**O ganho não é hipótese.** O `preverPodeMexer` já existe porque a prévia tocando
+em paralelo custa ao PROCESSO — *"os três WebViews dividem UM processo, e essa
+rotatividade de decodificador rouba justamente o fio"* —, e o sintoma daquela vez
+foi o som parando de chegar a uma tela da rede. Este recurso transforma aquele
+desligamento acidental (a página oculta) numa ESCOLHA, com a página à vista.
+
+- **A escolha é GUARDADA e o veredito é DERIVADO**, a separação do
+  `tocarNoCelular` × `somLocalDeveEstar`. `economiaPreview` vem do banco — é
+  propriedade do APARELHO, e um celular fraco continua fraco na abertura
+  seguinte; `economiaAtiva()` exige três coisas: a marcação, `haDestinoDeProjecao()`
+  e **não estar em tela cheia**.
+- **Sem destino a prévia É a projeção**, e o tile fica `disabled` com o motivo no
+  `title` (a regra da v1.8.50). A régua é `haDestinoDeProjecao()` e **não**
+  `algumaTelaConectada()`: com aquela, a oscilação do dongle devolveria a imagem
+  a cada piscada do Miracast.
+- **A TELA CHEIA SUSPENDE.** Ali o operador está OLHANDO para a prévia — é o
+  único gesto do app sem outra leitura —, e um retângulo em branco recusa a única
+  pergunta que aquele gesto faz. Suspensa e não desligada: sair volta a poupar, e
+  quem reavalia é o `fullscreenchange` (num culto com a TV parada não vem outra
+  notícia de destino).
+- **A POSIÇÃO da guarda dentro do `play()` foi MEDIDA e é indistinguível.** Ela
+  está na ÚLTIMA linha, depois do `ended = false`, do volume, do `applyMedia()` e
+  do `instantCover()` — mas mover a guarda para a ENTRADA do `play()` não reprova
+  uma asserção sequer, e nenhuma célula construível os separa. Ela fica no fim por
+  consistência do estado (o `play()` decide tudo o que decidia), e isto está dito
+  **como não-medição**: quem for "otimizar" movendo-a não vai encontrar oráculo
+  contra ele, e não deve concluir daí que a escolha era arbitrária nem que era
+  load-bearing.
+- **O motor mora no `stage.js`** (`setSuspenso`), pelo argumento do `forceMuted`:
+  um `play` chega ao stage por caminhos que o Controle não enumera (o `load` com
+  autoplay, o `onBlocked`, o realinhamento), e uma guarda em cada um seria a mesma
+  pergunta em quatro lugares com o quinto nascendo sem ela. O `pause()` é
+  EXPLÍCITO dentro do `play()`: a suspensão é ligada com o louvor no ar, e
+  desistir de chamar `play()` deixaria o decodificador rodando para sempre.
+- **O QUE NÃO DESLIGA é a metade que se erra.** `current`, `ended`, a cortina, o
+  giro, o `src` e a **duração** seguem como sem ela — a prévia continua sabendo
+  QUAL mídia está no ar e por quanto tempo, que é o que a barra do Controle lê.
+  **O jeito errado de implementar isto é soltar o decodificador "de vez"**,
+  pulando a entrega do `load` à prévia: `getCurrent()` fica preso na faixa
+  ANTERIOR e a barra passa a medir a mídia errada, sem erro em lugar nenhum. É o
+  bloco D6 do oráculo, e a célula dele precisa de DUAS faixas na fila — com uma
+  só o avanço recarrega a mesma e a asserção passa por não ter o que trocar
+  (MEDIDO). O comando sai para o telão
+  e para as telas da rede, o `display-status` chega a ~4 Hz, a letra troca de
+  estrofe, a `MediaSession` publica. **E o avanço da fila tem os TRÊS caminhos
+  cobertos, nenhum deles a prévia:** com TV é o `media-ended` do telão, só com
+  telas da rede é a rede de segurança do `tela-status` (v1.8.48), e sem nenhum dos
+  dois a economia não está ativa.
+- **A imagem sai de vista por `visibility` no PAI** (`.preview.pv-economia`) e
+  nunca por classe nos elementos: o `applyMedia` do stage reescreve o `hidden` dos
+  dois a cada carga, e a classe seria apagada na mídia seguinte — a economia
+  valendo no decodificador e não na tela, com o quadro congelado de volta. **A
+  letra e o texto manual FICAM** (DOM não é decodificação), e é essa a metade do
+  pedido que se erra.
+- **A MARCA DA ECONOMIA É CENTRADA, e o canto foi MEDIDO como errado.** Ela nasceu
+  em baixo à direita com o argumento de que a coluna de controles "mora à direita
+  mas em cima" — falso: `.pv-fabs` é `top: 2px; bottom: 2px; right: 2px`, altura
+  INTEIRA, com a tela cheia empurrada para a base por `margin-top: auto`, e a irmã
+  `--esq` faz o mesmo do outro lado. MEDIDO numa prévia de 290×163, **os quatro
+  cantos têm um `.pv-fab` de 34px**, e desenhar sobre o símbolo de um botão o
+  deixa ilegível (`pointer-events: none` não conserta: o que se perde é a
+  LEITURA). Centrada, a colisão se resolve pela PILHA — `z-index: 2`, acima da
+  mídia e abaixo da letra e do texto manual, que são opacos e a cobrem. **A caixa
+  é `inset: 0`** para centrar sem medida à mão, então quem o oráculo mede é a
+  TINTA (o `<svg>` filho), e a caixa tem asserção própria de deixar o toque
+  passar.
+
+Oráculo: `saida-de-audio-e-economia.test.mjs`.
+
 #### Por que não é a "mesa de som" de volta
 
 Da v5.82 à v5.188 existiu um **modo manual** com esse nome: um ícone de

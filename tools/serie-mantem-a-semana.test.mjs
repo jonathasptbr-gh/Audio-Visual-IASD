@@ -63,7 +63,7 @@ const raiz = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app'
 // provaria o arnês.
 const PONTE = `(() => {
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
-    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget',
+    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget','saidaDeAudioAlvo',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','apkProcurar','otaPending','otaApply',
     'otaCheck','otaDiag','ytDiag','farolEstado','ytCanalPlaylists','ytPlaylist','ytDetalhes',
     'areaTransferencia','pacoteDiag','cifraHtml','espelhoRedes']);
@@ -81,7 +81,7 @@ const PONTE = `(() => {
   };
   const nomes = Object.keys(vazio).concat([...comCallId], ['apkInstalar','bgProgress',
     'bgConcluido','captureVolumeKeys','deckDiscard','espelhoDesligar','espelhoLigar','keepAlive',
-    'nowPlaying','openCast','openExternal','systemVolume','temaClaro','ytCancel','ytDiscard',
+    'nowPlaying','openCast','abrirSaidaDeAudio','openExternal','systemVolume','temaClaro','ytCancel','ytDiscard',
     'projecaoLocal','compartilharTexto','salvarTexto','copiarTexto']);
   for (const n of nomes) {
     if (B[n]) continue;

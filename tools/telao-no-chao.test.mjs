@@ -70,11 +70,11 @@ const PONTE = `(() => {
       setTimeout(() => { try { window.__avResolve(id, window.__telas); } catch (_) {} }, 0);
     },
   };
-  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget',
+  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget','saidaDeAudioAlvo',
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','espelhoLigarEm','espelhoDerrubar','farolEstado','keepAlive',
-    'listFolder','nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
+    'listFolder','nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply','otaCheck','otaDiag',
     'otaPending','pickDoc','pickFolder','salvarTexto','systemVolume','temaClaro','ytCancel',
     'ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio','ytPlaylist',
     'ytSearch','ytStream','areaTransferencia','atualizacaoEstado',

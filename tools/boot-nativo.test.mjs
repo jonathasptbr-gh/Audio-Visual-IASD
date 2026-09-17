@@ -123,7 +123,7 @@ const ponteCom = (espelho, telas) => `(() => {
     // devolve \`null\` e o Registro perderia a linha em silêncio.
     farolEstado: { conta: true, ultimo: 0, diag: 'de teste' } };
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
-    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget',
+    'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','castTarget','saidaDeAudioAlvo',
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag',
     'farolEstado',
@@ -273,10 +273,10 @@ const ponteCom = (espelho, telas) => `(() => {
   // existe num navegador, e afirmar o efeito seria afirmar o arnês.
   window.__projLocal = [];
   B.projecaoLocal = (on) => { window.__projLocal.push(!!on); };
-  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
+  const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget','saidaDeAudioAlvo',
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
-    'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
+    'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply',
     'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','systemVolume',
     'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
     'ytFetchAudio','ytPlaylist','ytSearch','ytStream','farolEstado',
@@ -2162,8 +2162,23 @@ try {
     // linha é escrita por `renderItemMenu` — que só roda no primeiro toque, como
     // as opções sempre rodaram. As sondas abaixo perguntam pelos botões DELA,
     // então o percurso tem de ser o do operador: abrir antes de medir.
-    for (const li of lista3.querySelectorAll('.fav-itens > .lib-item')) {
-      li.querySelector('.row').click();
+    // O `.row` É LIDO ANTES DE SER TOCADO, e a ausência dele é um FATO NOMEADO —
+    // nunca um `null.click()`. O laço espera 60 ms entre os itens e qualquer
+    // redesenho nessa janela troca os nós: o `li` guardado fica DETACHED, e o
+    // `querySelector` dele devolve null. Sob carga (três processos) isso acontece,
+    // e o que o placar mostrava era *"o percurso dos Favoritos terminou sem
+    // exceção"* — **indistinguível de um defeito do app**, que é a primeira classe
+    // que a campanha da v5.316 teve de corrigir uma a uma.
+    //
+    // E A LISTA É RE-CONSULTADA A CADA VOLTA, pelo ÍNDICE: guardar a coleção
+    // inteira antes do primeiro `await` é justamente o que a deixa envelhecer.
+    r.favTocados = 0;
+    r.favSemRow = 0;
+    const quantos = lista3.querySelectorAll('.fav-itens > .lib-item').length;
+    for (let i = 0; i < quantos; i++) {
+      const alvo = lista3.querySelectorAll('.fav-itens > .lib-item')[i];
+      const row = alvo && alvo.querySelector('.row');
+      if (row) { row.click(); r.favTocados++; } else { r.favSemRow++; }
       await new Promise((f) => setTimeout(f, 60));
     }
     await new Promise((f) => setTimeout(f, 120));
@@ -2245,10 +2260,16 @@ try {
     {
       const li = lista3.querySelector('.fav-itens > .lib-item');
       const plAntes = (await AVDB.listIds('playlist')).join(',');
-      li.querySelector('.row').click();
+      // O MESMO CUIDADO DO LAÇO ACIMA, e aqui ele é lido DUAS vezes (antes do
+      // toque e depois do `await` de 400 ms para a caixa): a segunda leitura é a
+      // que um redesenho invalida, e um `null.getBoundingClientRect()` mata o
+      // percurso inteiro no lugar de reprovar uma asserção.
+      const row1 = li && li.querySelector('.row');
+      if (row1) row1.click(); else r.gavetaSemRow = true;
       await new Promise((res) => setTimeout(res, 400));
       const gav = li.querySelector('.hymn-gaveta');
-      const cx = li.querySelector('.row').getBoundingClientRect();
+      const row2 = li.querySelector('.row');
+      const cx = row2 ? row2.getBoundingClientRect() : { bottom: 0 };
       const cg = gav ? gav.getBoundingClientRect() : null;
       r.gaveta = {
         abriu: li.classList.contains('expanded'),
@@ -2380,6 +2401,20 @@ try {
     // próxima varredura, e ele é a única porta para um sorteio novo.
     + 'nenhum, e é a única porta para pedir outra lista',
     JSON.stringify(facil.acoes));
+  // ===== O PERCURSO TOCOU MESMO NAS LINHAS, e isto é o par das guardas =====
+  //
+  // As duas guardas do bloco acima trocaram um `null.click()` — que mata o
+  // percurso INTEIRO e chega ao placar como *"o percurso dos Favoritos terminou
+  // sem exceção"*, **indistinguível de um defeito do app** — por um fato NOMEADO.
+  // Sem esta asserção o conserto seria pior que o defeito: um redesenho que
+  // esvaziasse a lista faria o laço tocar em ZERO linhas, e todas as sondas
+  // seguintes passariam sobre uma tela vazia.
+  checar((favs.favTocados || 0) > 0 && !(favs.favSemRow > 0) && !favs.gavetaSemRow,
+    'o percurso dos Favoritos tocou em CADA linha, e nenhuma delas perdeu o `.row` '
+    + 'entre o `querySelector` e o toque (sob carga um redesenho pega essa janela)',
+    JSON.stringify({ tocados: favs.favTocados, semRow: favs.favSemRow,
+      gavetaSemRow: !!favs.gavetaSemRow }));
+
   checar(favs.temItem,
     'OS FAVORITOS SÃO DESENHADOS DENTRO DA BIBLIOTECA, pelo mesmo '
     + '`renderFolderList` da gaveta');

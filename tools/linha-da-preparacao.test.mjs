@@ -72,11 +72,11 @@ const PONTE = `(() => {
     otaConfirm: () => {},
     bgProgress: () => {},
   };
-  const nomes = ['apkInstalar','apkProcurar','captureVolumeKeys','projecaoLocal','castTarget',
+  const nomes = ['apkInstalar','apkProcurar','captureVolumeKeys','projecaoLocal','castTarget','saidaDeAudioAlvo',
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDesligar',
     'espelhoDiag','espelhoEstado','espelhoLigar','farolEstado','keepAlive','listFolder',
-    'nowPlaying','openCast','openExternal','otaApply','otaCheck','otaDiag',
+    'nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply','otaCheck','otaDiag',
     'otaPending','pickDoc','pickFolder','salvarTexto','systemVolume','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio','ytStream',
     'ytPlaylist','ytSearch','ytDiag','areaTransferencia','atualizacaoEstado','pacoteCriar',

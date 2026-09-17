@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.8';
+const WEB_VERSION = '1.9.9';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -582,6 +582,9 @@ const fadePopupCloseEl = document.getElementById('fadePopupClose');
 const fitTileEl = document.getElementById('fitTile');
 const rotBtnEl = document.getElementById('rotBtn');
 const lyricsBgTileEl = document.getElementById('lyricsBgTile');
+const saidaAudioTileEl = document.getElementById('saidaAudioTile');
+const economiaTileEl = document.getElementById('economiaTile');
+const pvEconomiaEl = document.getElementById('pvEconomia');
 const wallFileEl = document.getElementById('wallFile');
 const wallTileEl = document.getElementById('wallTile');
 const diagSaveEl = document.getElementById('diagSave');
@@ -1935,6 +1938,26 @@ let forcarResyncAte = 0;
  * é o que a traz de volta ao lugar, e ele já existe desde a v5.173.
  */
 function preverPodeMexer() {
+  // ===== E A ECONOMIA ENTRA AQUI, na MESMA guarda (v1.9.9) =====
+  //
+  // O argumento do bloco acima vale palavra por palavra para a "Imagem da
+  // prévia" desligada: um `play()` que não vai tocar não é sincronização, é
+  // ruído — e ruído que roda a ~4 Hz num processo que a projeção divide. A
+  // diferença é só quem decide (o operador, em vez do Chromium), e por isso ela
+  // não ganha uma pergunta própria: DUAS réguas para "a prévia pode ser
+  // mexida?" divergiriam no primeiro consumidor novo.
+  //
+  // O `pause()` de verdade mora no `stage` (`setSuspenso`), porque é ele que
+  // sobrevive ao `load` com autoplay; esta linha é o que impede o realinhamento
+  // de gastar trabalho sobre um `<video>` que não vai andar.
+  //
+  // E COM ELA O RAMO DE `FIM_DA_PROJECAO_S` também não roda — o que PAUSA e
+  // REBOBINA a prévia perto do fim, para ela não parkear onde não há quadro
+  // decodificável. Isso é inofensivo aqui e vale dizer, porque é a primeira
+  // pergunta de quem ler: em economia a prévia nem chega perto do fim (ela não
+  // anda), e o avanço da fila nunca dependeu dela com projeção no ar — ver o
+  // `media-ended` do telão e a rede de segurança do `tela-status`.
+  if (economiaAtiva()) return false;
   return typeof document === 'undefined' || document.visibilityState === 'visible';
 }
 
@@ -2228,6 +2251,12 @@ function acertarSaidaDeAudio() {
   // A PROTEÇÃO É REAVALIADA SEMPRE, mesmo quando o mudo não muda: ela depende
   // também da CENA, e a cena muda sem passar por aqui.
   acertarProjecaoLocal();
+  // A ECONOMIA PEGA CARONA NO MESMO PONTO, e é o que a faz ser automática: este
+  // é o ÚNICO lugar por onde toda mudança de destino do som passa — telas,
+  // transmissão, modo do app e a janela do Display no navegador —, e o destino
+  // do som e o destino da PROJEÇÃO são a mesma notícia. Medi-la em cada chamador
+  // seria a mesma pergunta escrita quatro vezes.
+  acertarEconomiaDaPreview();
   // A PERDA É MEDIDA AQUI porque este é o ÚNICO ponto por onde toda mudança de
   // destino do som passa — telas (`renderDisplayStatus`), transmissão
   // (`lerEspelho`), modo do app e a janela do Display no navegador. Medi-la em
@@ -2250,6 +2279,136 @@ function acertarSaidaDeAudio() {
   // um corte no talo, e um corte estala na caixa de som.
   preview.setForceMuted(!somLocal);
   diagC(somLocal ? 'som: neste aparelho' : 'som: nos displays');
+}
+
+/**
+ * ===== A IMAGEM DA PRÉVIA DESLIGADA: A ECONOMIA (v1.9.9) =====
+ *
+ * Pedido do operador: *"um botão para desativar a preview (com o objetivo de
+ * reduzir o gasto de processamento para smartphones mais fracos…)"* e, fechada a
+ * análise: *"o celular fraco é o operador, vamos manter as outras conexões de
+ * controle e ativar/desativar apenas a decodificação de imagem do preview, que é
+ * o que realmente pesa no processamento"*.
+ *
+ * ## O GANHO ESTÁ MEDIDO, E A MEDIÇÃO É ANTIGA
+ *
+ * Não é hipótese: `preverPodeMexer` já existe porque a prévia tocando em
+ * paralelo custa ao PROCESSO inteiro — *"os três WebViews dividem UM processo, e
+ * essa rotatividade de decodificador rouba justamente o fio"* —, e o sintoma
+ * daquela vez foi o som parando de chegar a uma tela da rede. O que este
+ * recurso faz é transformar aquele desligamento acidental (a página oculta) numa
+ * ESCOLHA do operador, com a página à vista.
+ *
+ * ## A ESCOLHA É GUARDADA; O VEREDITO É DERIVADO
+ *
+ * Duas coisas, e é a separação do `tocarNoCelular` × `somLocalDeveEstar`:
+ * `economiaPreview` é o que o operador marcou (e que sobrevive ao fechamento do
+ * app, porque é propriedade do APARELHO); `economiaAtiva()` é o que vale agora.
+ *
+ * **SEM DESTINO DE PROJEÇÃO A ECONOMIA NÃO EXISTE**, e isso não é uma guarda a
+ * mais: sem TV e sem tela da rede a prévia É a projeção (é o `<video>` dela que
+ * a congregação vê em tela cheia), e desligar a imagem dela seria desligar o
+ * culto. A régua é `haDestinoDeProjecao()` — a MESMA da v1.8.50, a tela LISTADA
+ * mais as sessões de tela da rede —, e **não** `algumaTelaConectada()`: com
+ * aquela, a oscilação do dongle devolveria a imagem a cada piscada do Miracast,
+ * que é o defeito que a v1.8.50 já pagou uma vez.
+ *
+ * E por ser DERIVADO o desfecho é automático nas duas pontas: perder a TV no
+ * meio do culto devolve a imagem sozinho (este arquivo chama
+ * `acertarSaidaDeAudio` em toda mudança de destino, e ela chama isto), e
+ * reconectar volta a poupar sem ninguém tocar em nada. A marcação fica ligada
+ * atravessando as duas.
+ *
+ * ## O QUE **NÃO** DESLIGA — é a metade do pedido que se erra
+ *
+ * Tudo que não é decodificação: o comando sai para o telão e para as telas da
+ * rede como sempre (`cmd` não passa por aqui), o `display-status` continua
+ * chegando a ~4 Hz, `preview.getCurrent()`/`getDuration()` seguem em dia (o
+ * `play()` do `stage` decide tudo, só não liga o decodificador — ver
+ * `setSuspenso`), a barra anda, a letra troca de estrofe, o transporte responde,
+ * a `MediaSession` publica e a fila avança. **O avanço tem os três caminhos
+ * cobertos e nenhum deles é a prévia:** com TV é o `media-ended` do telão; só
+ * com telas da rede é a rede de segurança do `tela-status`; sem nenhum dos dois
+ * a economia nem está ativa, e o `onEnded` da prévia avança como sempre.
+ */
+let economiaPreview = false;
+// O que está EM VIGOR — para a troca ser idempotente. `acertarSaidaDeAudio` roda
+// em toda mudança de destino e a ~4 Hz nada disso muda; sem esta memória, cada
+// passada re-emitiria o `pause()` e o `ressincronizarPreview`.
+let economiaEmVigor = false;
+
+function economiaAtiva() {
+  if (!economiaPreview) return false;
+  // ===== A TELA CHEIA SUSPENDE A ECONOMIA =====
+  //
+  // Em tela cheia o operador está OLHANDO para a prévia — é o único gesto do app
+  // que não tem outra leitura. Com uma TV conectada, a prévia grande é *"deixa eu
+  // conferir de perto o que está indo ao ar"*, e entregar um retângulo em branco
+  // ali é o app recusando a única pergunta que aquele gesto faz.
+  //
+  // Sem destino de projeção a tela cheia É a projeção, e a linha abaixo já
+  // resolveria o caso sozinha; esta existe para o caso em que HÁ destino, que é
+  // o único em que as duas divergem. **Ela não é "economia desligada": é
+  // suspensa** — sair da tela cheia volta a poupar, sem tocar na marcação.
+  if (document.fullscreenElement === previewEl) return false;
+  return haDestinoDeProjecao();
+}
+
+function acertarEconomiaDaPreview() {
+  const alvo = economiaAtiva();
+  // O TILE É PINTADO SEMPRE, mesmo quando o vigor não muda: ele responde também
+  // ao DESTINO (é ele que o apaga sem projeção), e o destino muda sem que o
+  // vigor mude — a marcação desligada com uma TV entrando e saindo é o caso.
+  renderEconomiaTile();
+  if (alvo === economiaEmVigor) return;
+  economiaEmVigor = alvo;
+  preview.setSuspenso(alvo);
+  // A CLASSE MORA NO PAI (ver a regra no CSS): o `applyMedia` do `stage` reescreve
+  // o `hidden` de `#pvImg`/`#pvVideo` a cada carga, e uma classe escrita neles
+  // seria apagada na mídia seguinte — a economia valendo no decodificador e não
+  // na tela, com a imagem congelada de volta.
+  if (previewEl) previewEl.classList.toggle('pv-economia', alvo);
+  if (pvEconomiaEl) pvEconomiaEl.hidden = !alvo;
+  // A VOLTA É UM REALINHAMENTO, não um `play()`: a prévia ficou parada enquanto
+  // a projeção andou, que é exatamente a situação da retomada do segundo plano —
+  // e o caminho dela já existe desde a v5.173. Um `play()` seco a devolveria
+  // tocando do ponto em que ela parou, minutos atrás.
+  if (!alvo) ressincronizarPreview();
+  diagC(alvo ? 'prévia: imagem DESLIGADA (economia)' : 'prévia: imagem religada');
+}
+
+async function setEconomiaPreview(on) {
+  const alvo = !!on;
+  if (economiaPreview === alvo) return;
+  economiaPreview = alvo;
+  // PINTAR ANTES DE GRAVAR, a regra da v1.4.40: depois do `await` o tile só
+  // responderia ao toque quando a transação do IndexedDB voltasse.
+  acertarEconomiaDaPreview();
+  await AVDB.setState('economiaPreview', economiaPreview);
+}
+
+/**
+ * O tile, e o que ele diz em cada um dos TRÊS estados que ele tem.
+ *
+ * `disabled` SEM DESTINO — é a regra da v1.8.50 (*"o que não tem função agora é
+ * apagado, não deixado inerte"*), e o `title` diz POR QUÊ, senão o apagado
+ * viraria "quebrado". Não é uma classe: é o `disabled` que veste o
+ * `--op-inativo`, tira o nó da tabulação e faz o navegador engolir o toque.
+ *
+ * E O DESENHO DIZ O ESTADO (`alt`), não a cor: a grade tem UMA cor desde a
+ * v1.7.6, e o `aceso` continua significando só DISPONÍVEL.
+ */
+function renderEconomiaTile() {
+  if (!economiaTileEl) return;
+  const temDestino = haDestinoDeProjecao();
+  economiaTileEl.disabled = !temDestino;
+  economiaTileEl.title = temDestino
+    ? (economiaPreview
+      ? 'A imagem da prévia está desligada — toque para religar'
+      : 'Desligar a imagem da prévia para poupar processamento')
+    : 'Sem TV e sem computador conectado a prévia É a projeção — não há como desligá-la';
+  pintarTile(economiaTileEl, economiaPreview ? 'off' : 'on',
+    economiaPreview ? 'Imagem desligada' : 'Imagem ligada', temDestino, economiaPreview);
 }
 
 // ===== A PREVIEW QUE É A PROJEÇÃO NÃO PODE SER SUSPENSA (v1.3.12) =====
@@ -3333,6 +3492,7 @@ async function load(opts) {
   const cifraVelV = await AVDB.getState('cifraVelocidade');
   const cifraFonteCheiaV = await AVDB.getState('cifraFonteCheia');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
+  const economiaV = !!(await AVDB.getState('economiaPreview'));
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   const ytAlturaV = await AVDB.getState('ytAltura');
   const serieAutoV = await AVDB.getState('serieAuto');
@@ -3389,6 +3549,11 @@ async function load(opts) {
   cifraAdotarFonteCheia(cifraFonteCheiaV);
   aplicarTamanhoDaLetra();
   lyricsBg = lyricsBgV;
+  // A ECONOMIA É DO APARELHO, e por isso do BANCO e não da sessão (v1.9.9): o
+  // celular fraco continua fraco na abertura seguinte, e uma marcação que
+  // morresse com o app faria o operador remarcá-la em todo culto. É o oposto do
+  // `tocarNoCelular`, que é escolha de IDA e não persiste de propósito.
+  economiaPreview = economiaV;
   downloadConsent = downloadOkV;
   // A QUALIDADE DO YOUTUBE guardada — a mesma regra do `mediaRot` e do
   // `lvTamanho` logo acima: valor fora da escada cai no padrão, e não numa
@@ -3405,6 +3570,10 @@ async function load(opts) {
   if (cenaEhNossa) currentItem = currentItemV;
 
   renderLyricsBgTile();
+  // ELA ENTRA AQUI E NÃO NO `acertarSaidaDeAudio`: na carga não há transição de
+  // destino nenhuma, e sem esta linha a marcação lida do banco ficaria guardada
+  // sem estar em vigor — a prévia decodificando com a economia "ligada" na tela.
+  acertarEconomiaDaPreview();
   renderControls();
   renderNowPlaying();
   renderRepeat();
@@ -25390,6 +25559,27 @@ function cabecalhoDiag() {
     ? 'a preview — nenhuma projeção reportando agora'
     : (refFonte === 'telao' ? 'o telão' : 'um computador conectado')));
   if (castAlvo) l.push('Espelhar abre: ' + castAlvo);
+  if (audioAlvo) l.push('Saída de áudio abre: ' + audioAlvo);
+  // A ECONOMIA DA PRÉVIA, e ela precisa da linha porque MUDA O QUE SE MEDE
+  // (v1.9.9): com a imagem desligada a prévia não anda, e quem lê este Registro a
+  // distância diante de "a prévia está parada" tem de saber se é um defeito ou
+  // uma escolha. As DUAS metades saem — a marcação e o vigor —, porque marcada
+  // sem destino de projeção ela não está valendo, e é esse par que responde
+  // "então por que a imagem voltou?".
+  if (economiaPreview) {
+    // O MOTIVO TEM DE SER O CERTO, e são TRÊS estados, não dois. A primeira
+    // escrita perguntava só `economiaAtiva()` e atribuía toda suspensão à falta de
+    // destino — em tela cheia isso é uma linha FALSA num texto que é lido a
+    // distância por quem não tem o aparelho na mão, que é o pior artefato que este
+    // projeto sabe produzir. Cada ramo nomeia a SUA razão.
+    let porQue = ' (economia em vigor)';
+    if (!haDestinoDeProjecao()) {
+      porQue = ' na marcação, mas EM VIGOR não — sem destino de projeção a prévia É a projeção';
+    } else if (document.fullscreenElement === previewEl) {
+      porQue = ' na marcação, SUSPENSA agora — a prévia está em tela cheia, e ali ela é o que o operador está olhando';
+    }
+    l.push('Imagem da prévia: DESLIGADA' + porQue);
+  }
   // ONDE O SOM ESTÁ SAINDO (v5.215). "Não sai som" tem causas que a tela não
   // separa — mudo, fader em zero, tela conectada sem volume, ou este aparelho
   // calado por haver tela —, e quem lê este bloco está a distância. Ele diz o
@@ -29650,7 +29840,11 @@ function pacoteIrmaoCancela(el, acao, rotulo, descricao) {
 
 function pacoteRenderTiles() {
   const fora = !window.__NATIVE__;
-  for (const el of [shareAppTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
+  // A SAÍDA DE ÁUDIO ENTRA NESTA LISTA (v1.9.9) e não numa função própria: a
+  // pergunta é a MESMA — *"este tile depende da ponte?"* —, e a resposta dela é
+  // sim pelo mesmo motivo dos três seguintes. Um segundo lugar escrevendo
+  // `hidden` por tile divergiria no primeiro tile novo.
+  for (const el of [saidaAudioTileEl, shareAppTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
     if (el) el.hidden = fora;
   }
   if (shareAppTileEl) pintarTile(shareAppTileEl, 'app', 'O app', true, false);
@@ -33510,6 +33704,22 @@ for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
 lyricsBgTileEl.addEventListener('click', () => {
   setLyricsBg(lyricsBg === 'image' ? 'black' : 'image');
 });
+// IMAGEM DA PRÉVIA: a economia de processamento. Um tile, dois estados — e um
+// terceiro que é a ausência de função (apagado sem destino de projeção).
+if (economiaTileEl) {
+  economiaTileEl.addEventListener('click', () => { setEconomiaPreview(!economiaPreview); });
+}
+// SAÍDA DE ÁUDIO: abre a tela do SISTEMA e mais nada. Não há estado a pintar no
+// toque — quem decide a saída é o Android, e o app não tem como saber o que ele
+// decidiu (a leitura seria `AudioManager.getDevices`, que responde o que EXISTE
+// e não o que está em uso pela sessão de mídia do WebView).
+if (saidaAudioTileEl) {
+  saidaAudioTileEl.addEventListener('click', () => {
+    if (!window.__NATIVE__) return;
+    diagC('saída de áudio: abrindo a tela do sistema');
+    AVNative.abrirSaidaDeAudio();
+  });
+}
 // ===== O FADER É UMA ESPIADA, E SÓ (v1.3.9) =====
 // Ele não tem mais botão que o abra: a ÚNICA porta é a tecla física de volume,
 // e a única saída é o relógio dela. Isso é o que o operador pediu — o botão de
@@ -34637,6 +34847,11 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
     // Nada a sincronizar nos botões: dentro da tela cheia quem os esconde é o
     // CSS (nada de UI sobre a projeção), e fora dela eles são permanentes.
     if (!document.fullscreenElement) { try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch (_) {} }
+    // A ECONOMIA É SUSPENSA EM TELA CHEIA (ver `economiaAtiva`), e é este evento
+    // que a reavalia nas duas direções. Sem ele o veredito só mudaria na próxima
+    // notícia de destino — que num culto com a TV parada não vem, e o operador
+    // ficaria com a prévia grande em branco.
+    acertarEconomiaDaPreview();
   });
 
   // ---- a coluna de controles (só em fullscreen) ----
@@ -34773,6 +34988,7 @@ wallTileEl.addEventListener('click', (e) => {
 // (é assunto da folha de conexão, onde ela continua, no subtítulo do botão de
 // espelhar) e o valor passou a morar aqui. Vazio no navegador.
 let castAlvo = '';
+let audioAlvo = '';
 
 // "Telão: …" para o Registro. Mesma frase que o rodapé mostrava, montada do
 // `lastDisplays` em vez de lida de um `<span>` — ver `cabecalhoDiag`.
@@ -34868,6 +35084,11 @@ if (window.__NATIVE__) {
     // resposta está no Registro, que é o que se copia para diagnosticar.
     castAlvo = label || '';
   });
+  // O ALVO DA SAÍDA DE ÁUDIO, pela mesma senha e para o mesmo lugar: só o
+  // REGISTRO. O tile não o mostra porque o operador não escolhe entre caminhos
+  // pelo nome da tela que vai abrir — e quando ela é a errada, a resposta tem de
+  // estar no texto que se copia.
+  AVNative.saidaDeAudioAlvo().then((label) => { audioAlvo = label || ''; });
 } else {
   // NO NAVEGADOR ELE FICA, e é AÇÃO, não estado: sem `Presentation` não há quem
   // abra a tela do Display sozinho, e é assim que a base web se desenvolve fora
