@@ -120,6 +120,12 @@
              a tela de som. Os três são consultados por `resolveActivity` na
              cadeia do `audioOutputCandidates`, e sem esta declaração a consulta
              devolve null no Android 11+ — o tile cairia sempre no laço cego. -->
+        <!-- O DIÁLOGO DO SystemUI (v1.9.10) — a lista de aparelhos que o ícone da
+             notificação de mídia abre, e o que o operador de fato quer. Ele é um
+             BROADCAST, e é por isso que a v1.9.9 não o alcançava: aquela cadeia só
+             sabia `startActivity`. Sem esta declaração o
+             `queryBroadcastReceivers` devolve vazio no Android 11+. -->
+        <intent><action android:name="com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG" /></intent>
         <intent><action android:name="com.android.settings.panel.action.MEDIA_OUTPUT" /></intent>
         <intent><action android:name="android.settings.panel.action.VOLUME" /></intent>
         <intent><action android:name="android.settings.SOUND_SETTINGS" /></intent>

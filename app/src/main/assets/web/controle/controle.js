@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.9';
+const WEB_VERSION = '1.9.10';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -25560,6 +25560,22 @@ function cabecalhoDiag() {
     : (refFonte === 'telao' ? 'o telão' : 'um computador conectado')));
   if (castAlvo) l.push('Espelhar abre: ' + castAlvo);
   if (audioAlvo) l.push('Saída de áudio abre: ' + audioAlvo);
+  // ===== A CADEIA INTEIRA, e não só quem pegou (v1.9.10) =====
+  //
+  // Relato do operador sobre a v1.9.9: *"o atalho está abrindo essa janela 'som',
+  // enquanto o 'saída de mídia' abre essa outra janela direta no seletor de saída
+  // de mídia"*. O tile caiu no painel de volume porque o primeiro candidato não
+  // existe naquele aparelho — e a linha de cima dizia qual PEGOU, que não é a
+  // mesma pergunta que quais EXISTEM. Sem a lista, o ajuste seguinte é palpite:
+  // o alvo não é API documentada e muda por fabricante.
+  //
+  // Uma linha por candidato, na ORDEM da cadeia, com um traço no que falta — é
+  // uma cópia do Registro respondendo o que só o aparelho sabe.
+  for (const c of audioCadeia) {
+    if (!c) continue;
+    l.push('  · ' + (c.rotulo || c.acao || '?') + ' [' + (c.tipo || '?') + ']: '
+      + (c.alvo || '— não existe neste aparelho'));
+  }
   // A ECONOMIA DA PRÉVIA, e ela precisa da linha porque MUDA O QUE SE MEDE
   // (v1.9.9): com a imagem desligada a prévia não anda, e quem lê este Registro a
   // distância diante de "a prévia está parada" tem de saber se é um defeito ou
@@ -34989,6 +35005,7 @@ wallTileEl.addEventListener('click', (e) => {
 // espelhar) e o valor passou a morar aqui. Vazio no navegador.
 let castAlvo = '';
 let audioAlvo = '';
+let audioCadeia = [];
 
 // "Telão: …" para o Registro. Mesma frase que o rodapé mostrava, montada do
 // `lastDisplays` em vez de lida de um `<span>` — ver `cabecalhoDiag`.
@@ -35088,7 +35105,10 @@ if (window.__NATIVE__) {
   // REGISTRO. O tile não o mostra porque o operador não escolhe entre caminhos
   // pelo nome da tela que vai abrir — e quando ela é a errada, a resposta tem de
   // estar no texto que se copia.
-  AVNative.saidaDeAudioAlvo().then((label) => { audioAlvo = label || ''; });
+  AVNative.saidaDeAudioAlvo().then((r) => {
+    audioAlvo = (r && r.label) || '';
+    audioCadeia = (r && r.candidatos) || [];
+  });
 } else {
   // NO NAVEGADOR ELE FICA, e é AÇÃO, não estado: sem `Presentation` não há quem
   // abra a tela do Display sozinho, e é assim que a base web se desenvolve fora

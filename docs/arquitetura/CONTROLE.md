@@ -2290,14 +2290,37 @@ levantou isso; este tile **aceita aquela resposta** em vez de reabrir a
 investigação, e entrega o que sobra.
 
 - **A cadeia é a do `pickCastIntent`** — do específico ao genérico, porque o alvo
-  não é API documentada — e difere dele num ponto: o último candidato é constante
-  PÚBLICA que todo aparelho declara (`ACTION_SOUND_SETTINGS`), então ela tem
-  **PISO**. Na do espelhamento não havia, e foi isso que a fez cair no Google
-  Cast num aparelho sem o alvo AOSP.
+  não é API documentada — e difere dele em DOIS pontos: o último candidato é
+  constante PÚBLICA que todo aparelho declara (`ACTION_SOUND_SETTINGS`), então ela
+  tem **PISO** (na do espelhamento não havia, e foi isso que a fez cair no Google
+  Cast num aparelho sem o alvo AOSP); e ela **TENTA TODOS**, em vez de escolher um
+  e desistir — um candidato que RESOLVA mas RECUSE (o diálogo do SystemUI lança
+  `SecurityException` em vários aparelhos) derrubaria a cadeia inteira para o laço
+  cego.
+- **O PRIMEIRO CANDIDATO É UM BROADCAST, e é essa a correção da v1.9.10.** Relato
+  do operador sobre a v1.9.9, com as duas telas fotografadas: *"o atalho está
+  abrindo essa janela 'som', enquanto o 'saída de mídia' abre essa outra janela
+  direta no seletor de saída de mídia… e mudar na janela 'som' nem sempre funciona
+  a troca do áudio"*. A janela que ele quer é o diálogo do SystemUI — a lista
+  *"Alto-falante do telefone · Fones · <Bluetooth>"*, a mesma que o ícone da
+  notificação de mídia abre —, e ela **não é uma Activity**
+  (`com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG`, tratado pelo
+  `MediaOutputDialogReceiver`). A cadeia antiga só sabia `startActivity`, então
+  aquele endereço nem era candidato e ela caía no painel de volume. **O broadcast
+  tem guarda PRÓPRIA:** `sendBroadcast` não devolve desfecho nenhum, então a
+  existência do receptor é conferida antes — sem isso a cadeia "teria sucesso" sem
+  abrir nada, e o tile viraria um botão mudo.
 - **O alvo escolhido vai ao REGISTRO e só lá** (`Saída de áudio abre: …`, com o
   componente), pela razão do `describeCastTarget`: o operador não escolhe entre
   caminhos pelo nome da tela que vai abrir, e quando ela é a errada a resposta
   tem de estar no texto que se COPIA.
+- **E DESDE A v1.9.10 A CADEIA INTEIRA VAI JUNTO**, uma linha por candidato com a
+  ação, o rótulo, o TIPO (`tela` ou `broadcast`) e o componente — ou *"— não
+  existe neste aparelho"*. A primeira escrita respondia *"qual PEGOU"*, e quando o
+  atalho abriu a tela errada isso não explicava nada: **quais EXISTEM é outra
+  pergunta**, e é a que conserta. O oráculo mede as DUAS metades (o que está lá e
+  o que FALTA), porque um stub com tudo presente provaria a lista contra o cenário
+  que nunca dá problema.
 - **Com o espelhamento no ar ele não resolve o vazamento**, e isso está dito nos
   dois lados: o áudio do Miracast nasce de `AUDIO_SOURCE_REMOTE_SUBMIX`, a
   mistura do aparelho inteiro, e a combinação "trocar a saída com espelhamento

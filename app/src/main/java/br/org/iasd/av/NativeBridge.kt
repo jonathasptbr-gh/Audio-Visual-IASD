@@ -69,6 +69,18 @@ interface BridgeHost {
     fun describeAudioOutputTarget(): String
 
     /**
+     * A CADEIA de saída de áudio inteira, candidato a candidato — cada um com a
+     * ação, o rótulo, o tipo (`tela` ou `broadcast`) e o componente que o
+     * aparelho oferece, ou `null` se ele não tem esse endereço.
+     *
+     * Ela existe porque o relato da v1.9.9 não era respondível com o alvo
+     * ESCOLHIDO: *"o atalho está abrindo essa janela 'som', enquanto o 'saída de
+     * mídia' abre essa outra janela"*. Saber qual pegou não diz quais EXISTEM, e
+     * sem isso o ajuste seguinte é palpite.
+     */
+    fun listAudioOutputCandidates(): JSONArray
+
+    /**
      * Abre uma URL `https` FORA do app (navegador, ou o app que a reivindicar).
      * O WebView do Controle recusa navegar para outro origin — ver
      * [WebViewFactory] —, então sem esta rota um link externo não faz nada.
@@ -317,7 +329,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 73
+        const val SHELL_VERSION = 74
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1681,7 +1693,16 @@ class NativeBridge(
      */
     @JavascriptInterface
     fun saidaDeAudioAlvo(callId: String) {
-        resolve(callId, JSONObject().put("label", host?.describeAudioOutputTarget() ?: "").toString())
+        resolve(
+            callId,
+            JSONObject()
+                .put("label", host?.describeAudioOutputTarget() ?: "")
+                // A CADEIA INTEIRA viaja junto desde o shell 74 (ver
+                // [BridgeHost.listAudioOutputCandidates]): o Registro precisa dizer
+                // quais endereços o aparelho TEM, e não só qual pegou.
+                .put("candidatos", host?.listAudioOutputCandidates() ?: JSONArray())
+                .toString(),
+        )
     }
 
     // ---------- botões físicos de volume ----------

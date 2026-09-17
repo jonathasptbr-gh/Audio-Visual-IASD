@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.9.10",
+    "itens": [
+      "Conserta o atalho da saída de áudio: ele abria a janela de volume em vez da lista de aparelhos.",
+      "Agora ele procura primeiro a mesma janela que o ícone da notificação de música abre.",
+      "Não achando, ele desce para a janela de volume e depois para as configurações de som.",
+      "O Registro passa a listar quais dessas janelas o seu aparelho tem, e quais não tem.",
+      "É essa lista que me diz o que ajustar se ele ainda abrir a tela errada no seu celular."
+    ]
+  },
+  {
     "versao": "1.9.9",
     "itens": [
       "Configurações tem um atalho novo: Saída de áudio, que abre a escolha do Android.",
