@@ -2115,7 +2115,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **90** e os de Node puro **21** — juntos, os 111. MEDIDO com
+Os de Chromium são **91** e os de Node puro **21** — juntos, os 112. MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -2166,7 +2166,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 111 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 112 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2559,6 +2559,39 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 
 ### Diagnóstico
 
+- **UMA ROTINA DE MASSA CONTA O QUE CHEGOU AO DISCO, NUNCA O QUE ELA TENTOU**
+  (v1.9.13). O laço de `syncCollection` move a barra por `done`, que conta
+  TENTATIVAS — e enquanto `downloadCollectionSong` devolvia `undefined` em toda
+  falha abaixo do metadado (o `catch (_) { return null }` de
+  `downloadCollectionFile`), uma sincronização em que NADA foi gravado era
+  indistinguível de uma que deu certo: barra até o fim, *"Atualizado (N
+  baixado(s))"*, *"Completo"* no grupo — e o botão de baixar intacto, porque
+  nenhum `fileIdFull` tinha sido escrito. **Um trabalho de massa que falha e se
+  anuncia como sucesso é o pior artefato que este projeto sabe produzir**, e ele
+  custa o sábado: o operador vai embora convencido de que o acervo está no
+  aparelho. **A senha é a cadeia de retorno INTEIRA** — quem engole a falha
+  devolve o desfecho, e o desfecho sobe até quem escreve a frase. O irmão no
+  mesmo despacho (`downloadSerieItem`) sempre acertou, e é o modelo.
+- **E A FRASE FINAL NOMEIA A CAUSA, nunca "não deu"** — a mesma regra dos cinco
+  motivos da cifra, e pelo mesmo argumento: cada causa pede uma AÇÃO diferente de
+  quem lê. No download do acervo são TRÊS (`sem rede` · `recusada(s) pela fonte`
+  · `sem espaço no aparelho`), e *"N sem rede"* diante de um disco cheio manda
+  esperar um Wi-Fi que não resolve nada. **Misturadas, a frase não escolhe:**
+  eleger a maior esconde a outra numa linha de três palavras — quem as separa é
+  o Registro, que tem espaço e traz as contagens. E o texto de FALHA fica à vista
+  mais tempo que o de sucesso (12 s contra 4): o de sucesso não pede nada de
+  ninguém; o de falha é a única coisa na tela que explica o botão que continua ali.
+- **DUAS RÉGUAS PARA A MESMA PERGUNTA DIVERGEM NOS DOIS SENTIDOS, e os dois
+  sentidos aparecem na Biblioteca.** `songVariantsNeeded` (o que BAIXAR) pergunta
+  ao IndexedDB; `levantarColecao` (se o botão SOME) pergunta ao campo
+  `fileIdFull` do índice. Um id que não resolve mais faz a primeira dizer
+  *pendente* e a segunda dizer *feita* — **o botão some sobre uma faixa que não
+  toca**, que é o oposto do relato da v1.9.13 e igualmente ruim. Quem as mantém
+  de acordo é o `ensureSongVariant`, que APAGA do índice o id sem registro. E o
+  cabeçalho de um grupo responde pela MESMA função do botão (`grupoCompleto`),
+  nunca por uma contagem própria de álbuns que falharam: com metade das faixas
+  no disco o álbum devolve `ok:true` e o cabeçalho escrevia *"Completo"* com o
+  botão de baixar na linha de baixo.
 - **Kotlin devolve JSON; quem monta a FRASE é o `controle.js`.** É a invariante 5,
   e no espelho é o que mantém a sanitização do texto vindo da rede num ponto só.
   Um arquivo Kotlin que formata parágrafos é UI escrita do lado errado.
@@ -2758,24 +2791,34 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.9.12 · APK v1.9.12** · `SHELL_VERSION` **76** ·
-bundle com `minShell: 76` e **COM `shellTag: "v1.9.12"`** — o shell 76 é o
-**PISO**: todo método da ponte existe, e não há guarda de versão no lado web.
+**Versão atual: base web v1.9.13 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web.
 
-> **A v1.9.12 DECLARA `shellTag` pelo gatilho de sempre: o `java/`.** Ela tira a
-> espera de 800 ms do atalho de saída de áudio onde o desfecho JÁ foi medido —
-> o aparelho do operador ENGOLE o diálogo do SystemUI, e insistir custa a ele
-> um vão em todo toque, num culto. A memória é **por `versionCode`**: um APK
-> novo re-mede uma vez, senão um aparelho que passasse a permitir ficaria
-> excluído para sempre.
+> **A v1.9.13 NÃO declara `shellTag`, e a v1.9.12 declarou — a diferença é que a
+> Release DAQUELA JÁ SAIU.** Esta não toca `java/`, `res/` nem o manifesto, e o
+> APK v1.9.12 está publicado na frota: o búndle sai na hora, contra um shell que
+> já o atende. É a regra escrita mais abaixo — o `shellTag` ACOMPANHA A ÚLTIMA
+> VERSÃO, não a que mexeu no Kotlin —, aplicada pelo lado em que ela LIBERA: um
+> lote só de web herda a obrigação quando o lote de shell anterior ainda não tem
+> Release, e não herda quando tem. **Conferir a Release é parte de decidir**, e
+> não a data do último commit em `java/`.
 >
-> **A LIÇÃO DE MÉTODO DESTA SÉRIE (v1.9.9 → v1.9.12) É UMA SÓ, e vale para o
-> próximo alvo não documentado:** cada lote nasceu de um relato que o Registro
-> ANTERIOR não conseguia explicar, e o conserto de cada um foi acrescentar a
-> pergunta que faltava — *qual ele tenta* (v1.9.9), *quais existem* (v1.9.10),
-> *ele abriu* (v1.9.11), *e o app ainda tenta* (v1.9.12). Quatro rodadas, e
-> nenhuma delas foi palpite: **um diagnóstico que responde só a pergunta
-> anterior custa um lote inteiro por relato.**
+> **ELA CONSERTA O DOWNLOAD DA COLETÂNEA ANUNCIAR SUCESSO SEM UM BYTE NO DISCO**
+> — um valor de retorno que faltava (`ensureSongVariant`/`downloadCollectionSong`
+> resolviam `undefined`, e o laço lê `!== false`), com o rodapé escrevendo
+> "Atualizado (N baixado(s))" ao lado de um botão de baixar que não saiu. Ver a
+> nota no `HISTORICO.md`; a REGRA que ficou está em "Diagnóstico", logo abaixo.
+>
+> **A LIÇÃO DE MÉTODO DA SÉRIE v1.9.9 → v1.9.12 CONTINUA VALENDO, e a v1.9.13 é
+> o primeiro lote a aplicá-la ANTES de custar as rodadas:** cada um daqueles
+> nasceu de um relato que o Registro ANTERIOR não conseguia explicar, e o
+> conserto foi acrescentar a pergunta que faltava — *qual ele tenta* (v1.9.9),
+> *quais existem* (v1.9.10), *ele abriu* (v1.9.11), *e o app ainda tenta*
+> (v1.9.12). **Um diagnóstico que responde só a pergunta anterior custa um lote
+> inteiro por relato** — e o caminho de download de coleção não tinha UMA linha
+> no Registro, o que é por que este relato chegou sem nada a conferir. O bloco
+> "Download do acervo" nasceu no mesmo lote do conserto, e não no seguinte.
 
 > **A v1.8.99 REMOVE a coletânea de vídeos do LouvorJA, que a v1.8.97 tinha
 > acrescentado — e a razão é do operador, não técnica:** *"Eu achava que seria

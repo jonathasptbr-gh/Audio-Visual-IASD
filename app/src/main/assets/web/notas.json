@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.9.13",
+    "itens": [
+      "Conserta o download das coleções anunciar sucesso sem nada ter ido para o aparelho.",
+      "A barra andava até o fim e o rodapé dizia \"Atualizado\", mas o botão de baixar continuava.",
+      "Agora o app conta o que de fato foi gravado no disco, e não quantas faixas ele tentou.",
+      "E diz a causa: sem rede, recusada pela fonte, ou sem espaço — cada uma pede outra ação.",
+      "O cabeçalho da coletânea só escreve \"Completo\" quando o botão de baixar some de verdade.",
+      "O Registro ganhou o bloco \"Download do acervo\": quantos vieram, quantos ficaram e por quê."
+    ]
+  },
+  {
     "versao": "1.9.12",
     "itens": [
       "O atalho da saída de áudio abre no ato: acabou a espera antes da tela de volume.",
