@@ -597,6 +597,55 @@ try {
   checar(/Fundos da letra: 1/.test(o.status),
     'e a faixa de status DIZ o que aconteceu — um toque em sincronizar que faz algo e não conta '
     + 'é indistinguível de um que não fez nada', o.status);
+  // ---- P: O BLOCO NÃO SOME QUANDO SÓ A CAPA FALHOU (v1.9.16) --------------
+  //
+  // `tentadas` conta só VARIANTES DE ÁUDIO, e a porta do bloco era ela. Com o
+  // áudio já todo no disco — o hinário do relato — a sincronização sai por
+  // "Já completo offline", o backfill do fundo roda, MIL capas falham, e
+  // `downloadCollectionFile` nunca é chamado: `tentadas` fica em zero e o bloco
+  // inteiro desaparece do Registro. **Um diagnóstico que some justamente no caso
+  // que ele existe para explicar é pior que não existir** — quem copia o
+  // Registro conclui que não há nada a ver ali.
+  const o2 = await pg.evaluate(async () => {
+    const coll = { id: 't-bloco', name: 'Álbum Bloco', kind: 'album', source: 'fonte-de-uma' };
+    collState[coll.id] = { indexSyncedAt: 0, songs: [] };
+    // 1) o áudio desce e a capa falha — a faixa fica completa e sem fundo.
+    window.__modo = 'ok'; window.__modoImg = 'recusa'; window.__opfsQuebrado = false; window.__semFonte = false;
+    window.__imagem = '/imagens/capa-101.jpg';
+    await syncCollection(coll, { allowMobile: true });
+    // 2) O CENSO É ZERADO: é a PREMISSA, e sem ela o `tentadas` do passo 1
+    //    mantém o bloco de pé e a asserção passa com e sem o conserto.
+    Object.assign(acervoCenso, {
+      tentadas: 0, gravadas: 0, semRede: 0, recusadas: 0, semEspaco: 0,
+      capasPedidas: 0, capasPerdidas: 0, foraDoServidor: 0, truncaveis: 0,
+      porStatus: {}, albuns: {}, motivo: '', ultimoStatus: 0, ultimaUrl: '', ultimoPath: '',
+    });
+    // 3) o operador toca em sincronizar de novo: só o backfill roda.
+    await syncCollection(coll, { allowMobile: true });
+    const r = {
+      tentadas: acervoCenso.tentadas,
+      pedidas: acervoCenso.capasPedidas,
+      perdidas: acervoCenso.capasPerdidas,
+      registro: blocoAcervo(),
+    };
+    window.__imagem = null; window.__modoImg = 'ok';
+    return r;
+  });
+  checar(o2.tentadas === 0 && o2.perdidas > 0,
+    'a PREMISSA: nenhum arquivo de ÁUDIO foi buscado nesta passada (o backfill não passa pelo '
+    + '`downloadCollectionFile`) e a capa falhou — é a célula exata do hinário completo',
+    JSON.stringify([o2.tentadas, o2.perdidas]));
+  checar(o2.registro !== '',
+    'e o bloco "Download do acervo" NÃO some do Registro — era `if (!c.tentadas) return ""`, e '
+    + 'com ele o operador copiava um Registro sem uma linha sobre mil capas que não vieram',
+    JSON.stringify(o2.registro));
+  checar(/imagens de fundo pedidas: \d+/.test(o2.registro) && /não vieram/.test(o2.registro),
+    'e ele traz os DOIS números da capa: só "perdidas" lê-se como "está tudo bem" tanto onde as '
+    + 'mil chegaram quanto onde nenhuma foi pedida', o2.registro);
+  checar(!/arquivos buscados nesta sessão: 0/.test(o2.registro),
+    'e a linha do ÁUDIO não sai anunciando "0 · 0" numa passada que não buscou áudio nenhum',
+    o2.registro);
+
 } finally {
   await navegador.close();
   servidor.close();

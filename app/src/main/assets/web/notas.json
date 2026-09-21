@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.9.16",
+    "itens": [
+      "O Registro voltava SEM o bloco do acervo quando só as imagens de fundo falhavam.",
+      "Era justamente o caso do hinário já baixado — o único em que esse bloco importa.",
+      "Agora ele diz quantas imagens foram pedidas e quantas chegaram, não só as perdidas."
+    ]
+  },
+  {
     "versao": "1.9.15",
     "itens": [
       "Imagens de fundo da letra: o app passa a aceitar a foto servida por outro endereço da fonte.",
