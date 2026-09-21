@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.15';
+const WEB_VERSION = '1.9.16';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -19968,6 +19968,7 @@ const acervoCenso = {
   semRede: 0,        // o `fetch` nem respondeu (rede, CORS, DNS)
   recusadas: 0,      // respondeu com status de erro (a fonte mudou, ou negou)
   semEspaco: 0,      // o disco recusou a escrita (cota do OPFS)
+  capasPedidas: 0,   // imagens de fundo que o app foi buscar (o denominador das capas)
   capasPerdidas: 0,  // a imagem de fundo da letra falhou (o áudio pode ter vindo)
   motivo: '',        // a frase da ÚLTIMA falha, com a causa e o endereço
   // ===== O QUE A v1.9.14 ACRESCENTOU, E POR QUÊ =====
@@ -20215,6 +20216,11 @@ async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyr
 // evita baixar a capa duas vezes (uma pro fundo, outra só pra miniatura).
 async function downloadCollectionImage(folderId, url, songId, index) {
   let blob;
+  // CONTADO ANTES DE QUALQUER GUARDA (v1.9.16), inclusive antes da trava de
+  // host: o app FOI BUSCAR esta imagem, e é esse o denominador. Sem ele não há
+  // como distinguir *"nenhuma capa foi pedida"* de *"todas as capas chegaram"* —
+  // as duas imprimiam exatamente as mesmas linhas.
+  acervoCenso.capasPedidas++;
   // A CAPA PERDIDA É CONTADA À PARTE, e não entra na conta das variantes: uma
   // imagem que não vem custa o FUNDO de um slide, enquanto um áudio que não vem
   // custa a faixa. Somá-las faria o Registro dizer "8 sem rede" num álbum em que
@@ -26733,7 +26739,17 @@ function blocoPacote() {
 const ACERVO_ALBUNS_MAX = 6;
 function blocoAcervo() {
   const c = acervoCenso;
-  if (!c.tentadas) return '';
+  // ===== A PORTA É "HOUVE ATIVIDADE DE ACERVO", NÃO "HOUVE ÁUDIO" (v1.9.16) =====
+  //
+  // `tentadas` conta só VARIANTES DE ÁUDIO (é o incremento do
+  // `downloadCollectionFile`), e o backfill do fundo da letra NÃO passa por ele:
+  // com o áudio já no disco, `ensureSongVariant` resolve pelo ramo do registro
+  // existente e nenhum arquivo de áudio é buscado. **O bloco inteiro sumia do
+  // Registro** num aparelho em que MIL capas falharam — e esse é exatamente o
+  // caminho do hinário completo, que é o do relato. Um diagnóstico que
+  // desaparece justamente no caso que ele existe para explicar é pior que não
+  // existir: quem o copia conclui que não há nada a ver.
+  if (!c.tentadas && !c.capasPedidas) return '';
   // TODAS AS CINCO (v1.9.15): a linha de fecho é *"nenhuma falha"*, e ela
   // saía por cima de `1028× a imagem de fundo não veio`. Um bloco que se
   // contradiz na própria altura é o log que discorda do aparelho — e este é
@@ -26742,12 +26758,22 @@ function blocoAcervo() {
   // passa a somar é a pergunta *"houve alguma?"*.
   const falhas = c.semRede + c.recusadas + c.semEspaco + c.capasPerdidas + c.foraDoServidor;
   const linhas = [];
-  linhas.push('  arquivos buscados nesta sessão: ' + c.tentadas
-    + ' · gravados no aparelho: ' + c.gravadas);
+  if (c.tentadas) {
+    linhas.push('  arquivos buscados nesta sessão: ' + c.tentadas
+      + ' · gravados no aparelho: ' + c.gravadas);
+  }
   if (c.semRede) linhas.push('  ' + c.semRede + '× o servidor de arquivos não respondeu (rede/CORS)');
   if (c.recusadas) linhas.push('  ' + c.recusadas + '× a fonte respondeu com erro (o endereço do arquivo mudou?)');
   if (c.semEspaco) linhas.push('  ' + c.semEspaco + '× o aparelho recusou gravar (espaço?)');
-  if (c.capasPerdidas) linhas.push('  ' + c.capasPerdidas + '× a imagem de fundo da letra não veio (o áudio pode ter vindo)');
+  // AS CAPAS COM OS DOIS NÚMEROS (v1.9.16). Só a contagem de PERDIDAS não
+  // responde nada sozinha: zero perdidas lê-se como "está tudo bem" tanto onde
+  // as mil chegaram quanto onde nenhuma foi pedida. É o mesmo par
+  // buscados × gravados da linha do áudio, aplicado ao fundo da letra.
+  if (c.capasPedidas) {
+    linhas.push('  imagens de fundo pedidas: ' + c.capasPedidas
+      + ' · gravadas: ' + (c.capasPedidas - c.capasPerdidas)
+      + (c.capasPerdidas ? ' · ' + c.capasPerdidas + ' não vieram (o áudio pode ter vindo)' : ''));
+  }
   // ===== A DISTRIBUIÇÃO DE STATUS (v1.9.14) =====
   //
   // É ela que separa as famílias de causa, e um contador único não separa nada:

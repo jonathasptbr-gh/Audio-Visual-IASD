@@ -2634,6 +2634,20 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   varredura de cifras tem — um veredito POR MÚSICA gravado com data. O par disso
   é **"a origem não publica imagem" como ESTADO** (`semImagem`, a regra `semFonte`
   da v5.134 aplicada ao fundo), que se APAGA quando a origem passa a ter.
+- **A PORTA DE UM BLOCO DO REGISTRO PERGUNTA PELO QUE ELE DESCREVE, NUNCA POR UM
+  CONTADOR DE UM DOS CAMINHOS QUE ELE COBRE** (v1.9.16). O bloco "Download do
+  acervo" abria por `if (!c.tentadas) return ''`, e `tentadas` conta só
+  VARIANTES DE ÁUDIO — com o áudio já no disco, o backfill do fundo roda,
+  `ensureSongVariant` resolve pelo ramo do registro existente sem buscar arquivo
+  nenhum, e **o bloco inteiro sumia do Registro com mil capas tendo falhado**.
+  Era o caminho do hinário completo, isto é, o único em que aquele bloco
+  importa. **Um diagnóstico que some justamente no caso que ele existe para
+  explicar é pior que não existir:** quem copia o Registro conclui que não há
+  nada a ver ali. Caminho novo que alimente um bloco entra na PORTA dele no
+  mesmo lote. **E todo contador de falha carrega o DENOMINADOR**
+  (`capasPedidas` × `capasPerdidas`): *zero perdidas* lê-se como "está tudo
+  bem" tanto onde as mil chegaram quanto onde **nenhuma foi pedida**, e as duas
+  imprimiam as mesmas linhas.
 - **UM BLOCO DO REGISTRO NÃO PODE SE CONTRADIZER NA PRÓPRIA ALTURA** (v1.9.15).
   O fecho *"nenhuma falha de download nesta sessão"* saía quatro linhas abaixo de
   `1028× a imagem de fundo não veio`, porque a soma que o decide ignorava duas
@@ -2870,10 +2884,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.9.15 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.9.16 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.9.15 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.9.16 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
 **Conferir a Release é parte de decidir** — um lote só de web herda o
 `shellTag` quando o lote de shell anterior ainda não tem Release, e não herda
