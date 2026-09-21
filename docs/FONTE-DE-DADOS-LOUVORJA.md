@@ -198,16 +198,24 @@ registro traz os **paths** que resolvem no servidor de arquivos (§4).
 ## 4. Servidor de arquivos de mídia (`file`)
 
 Arquivos binários (áudios `.mp3`, imagens `.jpg`/`.png`, etc.) **não** ficam no
-banco JSON. O banco só guarda **paths**, em campos `url_*` (`url_music`,
-`url_instrumental_music`, `url_image`). A URL final é:
+banco JSON. O banco guarda o ENDEREÇO deles em campos `url_*` (`url_music`,
+`url_instrumental_music`, `url_image`), **em duas formas** — e quem resolve as
+duas é `Louvorja.fileUrl`, com oráculo em `tools/louvorja-url.test.mjs`:
 
-```
-{FILE_URL}{path}     →     https://api.louvorja.com.br/file{path}
-```
+| o campo vem como | a URL final é |
+|---|---|
+| **caminho** (começa com `/`) | `{FILE_URL}{path}` → `https://api.louvorja.com.br/file{path}` |
+| **URL absoluta** do próprio `api.louvorja.com.br` | **ela mesma**, sem prefixo nenhum |
 
-onde `{path}` é o valor **literal** do campo (já começa com `/`). Exemplo:
-`music_123.url_music = "/musics/123/cantado.mp3"` →
-`https://api.louvorja.com.br/file/musics/123/cantado.mp3`.
+Exemplos das duas, os dois observados em campo:
+`"/musics/123/cantado.mp3"` → `https://api.louvorja.com.br/file/musics/123/cantado.mp3`;
+`"https://api.louvorja.com.br/file/musics/pt/Hinário Adventista 2022/Santo, Santo, Santo! - PB.mp3"`
+→ ela mesma.
+
+> **O HOST É TRAVADO.** Aceitar URL absoluta é deixar o JSON dizer PARA ONDE o
+> `fetch` do WebView privilegiado vai. Um endereço de outro host **não** vira o
+> destino do pedido: ele cai no ramo de caminho, dá 404 e entra no censo do
+> Registro — falha FECHADA.
 
 - A **extensão** vem do próprio path (ex.: `path.split('.').pop()`), útil pra
   gravar no OPFS com o mesmo tipo. Áudios costumam ser `.mp3`; imagens `.jpg`.
@@ -420,8 +428,32 @@ podem existir, mas só `version_number` é lido.
   `[top-left, top-center, top-right, center-left, center-center, center-right,
   bottom-left, bottom-center, bottom-right]`. Default = centro. Serve pra ancorar
   a imagem de fundo do slide.
-- **Paths `url_*`**: strings que **começam com `/`**; a URL final é
-  `FILE_URL + path` (§4). Nunca são URLs absolutas.
+- **Campos `url_*`**: vêm em **DUAS formas**, e o app aceita as duas
+  (`Louvorja.fileUrl`, oráculo `tools/louvorja-url.test.mjs`):
+  - **caminho** começando com `/` — a URL final é `FILE_URL + path` (§4);
+  - **URL absoluta** do próprio `api.louvorja.com.br` — usada COMO ESTÁ.
+
+  > **A afirmação "nunca são URLs absolutas" estava aqui e DEIXOU DE SER
+  > VERDADE.** MEDIDO em 2026-09-21 no Registro de um aparelho: o campo veio
+  > `https://api.louvorja.com.br/file/musics/pt/Hinário Adventista 2022/…`.
+  > Concatenado, isso dobra o prefixo, e **o parser de URL não reclama** (no
+  > PATH STATE o `:` e o `//` não são separadores): o pedido sai bem-formado e o
+  > servidor responde 404 para 100% dos arquivos. O `json_db` não passa por ali,
+  > então o índice continua chegando — e o defeito se parece com falta de
+  > internet. Ver a v1.9.14 no `HISTORICO.md`.
+
+- **O caminho é LEGÍVEL, e isso põe o título do hino dentro da URL**
+  (`/musics/pt/<álbum>/<título>.mp3`, em vez do `/musics/<id>/cantado.mp3`
+  antigo). Espaço, acento, vírgula e `!` são inofensivos — o `fetch`
+  percent-encoda o que precisa —, mas **`?` e `#` truncam a URL sem erro
+  nenhum** (eles abrem query e fragmento). O acervo tem títulos assim
+  (*"'Stavas Lá?"*). **Não há saneamento no app, e a ausência é deliberada:**
+  dado um `?` cru não se distingue "faz parte do nome" de "a origem quis uma
+  query", e re-encodar por segmento quebra o que já vem codificado (`%` →
+  `%25`). O que existe é a CONTAGEM, no bloco "Download do acervo" do Registro.
+
+- **Nada é re-encodado pelo app.** `encodeURI`/`encodeURIComponent` sobre um
+  caminho que já tenha `%` o corrompem.
 - **Quebras de linha na letra (`lyric`/`aux_lyric`)**: a API embute quebras
   **manuais** como tags **`<br>` literais** dentro do texto. O app-ja renderiza
   com `v-html`; aqui convertemos `<br>`/`<br/>`/`<br />` → `\n` real

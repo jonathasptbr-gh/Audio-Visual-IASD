@@ -54,6 +54,11 @@ try {
     null, { timeout: 30000 },
   );
 
+  // O MODO AVANÇADO É PREMISSA DOS CASOS DO CARTÃO: no Modo Fácil sem telão o
+  // `previewBusy` devolve um STUB com `falhar` no-op (lá quem avisa é outra
+  // superfície), e uma asserção sobre o texto do cartão mediria o stub.
+  await pg.evaluate(() => { appMode = 'full'; });
+
   // O ARNÊS DA FONTE: o banco (`json_db`) sempre responde — é ele que faz a
   // lista chegar e as estimativas aparecerem, que é o fato 2 do relato. Quem
   // varia é o servidor de ARQUIVOS (`/file`), que é onde os bytes moram.
@@ -97,9 +102,15 @@ try {
         ] };
       }
       const id = Number(String(file).replace('music_', ''));
+      // O CAMINHO TEM A FORMA DO DE VERDADE: o LouvorJA devolve
+      // `/musics/pt/<Álbum>/<Música>.mp3`, com ESPAÇO e ACENTO crus — e é essa
+      // forma que faz a URL do fio diferir do caminho do banco, que é o que o
+      // Registro passou a mostrar. Um caminho só de ASCII esconderia a
+      // diferença e a asserção passaria por não ter o que medir.
+      const caminho = '/musics/pt/Hinário de Teste 2022/Hino ' + id + ' - PB.mp3';
       return {
         id_music: id,
-        url_music: window.__semFonte ? '' : '/musics/' + id + '/cantado.mp3',
+        url_music: window.__semFonte ? '' : caminho,
         url_image: null, has_instrumental_music: false,
         lyric: { 1: { show_slide: 1, order: 1, lyric: 'linha', time: '00:00:10' } },
       };
@@ -275,6 +286,11 @@ try {
     const coll = { id: 't-metade', name: 'Metade', kind: 'album', source: 'fonte-de-teste' };
     collState[coll.id] = { indexSyncedAt: 0, songs: [] };
     await syncGroup('grupo-de-teste', 'Coletanea de Teste', [coll], null);
+    // DEVOLVE O `fetch` AO ARNÊS. Este caso instala um stub PRÓPRIO (uma passa,
+    // o resto cai), e deixá-lo de pé faz todo caso seguinte medir uma rede
+    // caída — o defeito de arnês mais barato de cometer e o mais caro de ler,
+    // porque a asserção reprova descrevendo a causa errada.
+    window.fetch = real;
     return {
       baixadas: collSongs(coll.id).filter((x) => x.fileIdFull).length,
       grupoCompleto: grupoCompleto([{ id: coll.id }]),
@@ -290,6 +306,130 @@ try {
     + '`ok` do álbum e nunca a mesma pergunta do botão', h.statusDoGrupo);
   checar(/Faltou/.test(h.statusDoGrupo),
     'e ele diz que faltou parte, que é o que manda o operador abrir os cards', h.statusDoGrupo);
+
+  // ---- I: A CAUSA CHEGA AO CARTÃO DA PRÉVIA (v1.9.14) ---------------------
+  //
+  // O relato: *"não executam se selecionados individualmente, com mensagens de
+  // 'sem internet para baixar', o que eu comprovei que tenho internet"*. A
+  // fonte respondeu HTTP 404 e o cartão acusou a rede do operador — um texto
+  // FIXO no ponto em que a rede era a única falha imaginável.
+  //
+  // A CÉLULA É O 404, não a queda de rede: com o fetch falhando o texto velho
+  // estaria CERTO por acidente, e a asserção passaria com e sem o conserto.
+  const i1 = await pg.evaluate(async () => {
+    window.__modo = 'recusa'; window.__opfsQuebrado = false; window.__semFonte = false;
+    const coll = { id: 't-cartao', name: 'Cartão', kind: 'album', source: 'fonte-de-uma' };
+    collState[coll.id] = { indexSyncedAt: 0, songs: [] };
+    await fetchCollectionIndex(coll);
+    const s = collSongs(coll.id)[0];
+    const antes = acervoCenso.recusadas;
+    await playSongVariant(coll, s, 'full');
+    return {
+      cap: document.getElementById('pvBusyCap').textContent,
+      texto: document.getElementById('pvBusyLabel').textContent,
+      // A premissa é do TOQUE, não da sessão: `ultimoStatus` sobrevive aos casos
+      // anteriores, e lido sozinho ele aprova pelo motivo errado.
+      recusouAgora: acervoCenso.recusadas - antes,
+      ultimoStatus: acervoCenso.ultimoStatus,
+    };
+  });
+  checar(i1.recusouAgora === 1 && i1.ultimoStatus === 404,
+    'premissa: a fonte respondeu 404 NESTE toque',
+    JSON.stringify({ recusouAgora: i1.recusouAgora, status: i1.ultimoStatus }));
+  checar(!/sem internet/.test(i1.texto),
+    'o cartão NÃO acusa a internet do operador quando a fonte respondeu — era "sem internet '
+    + 'para baixar" sobre um HTTP 404, e mandava consertar o que não estava quebrado', i1.texto);
+  checar(/404/.test(i1.texto),
+    'e o NÚMERO vai junto: "a fonte recusou" manda procurar defeito no app, "404" diz que o '
+    + 'arquivo não está no endereço que o banco deu', i1.texto);
+  checar(/Não deu/.test(i1.cap), 'e continua sendo o cartão de falha, não um aviso', i1.cap);
+
+  // ---- J: E "SEM INTERNET" CONTINUA SENDO DITO ONDE ELE É VERDADE ---------
+  // A metade que impede o conserto de virar "nunca mais falar de rede": quando
+  // o `music_{id}` não vem, `downloadCollectionSong` desiste ANTES de pedir
+  // arquivo nenhum e o censo não se move — essa É a falha de rede.
+  const j = await pg.evaluate(async () => {
+    const real = Louvorja.fetchList;
+    const coll = { id: 't-cartao-rede', name: 'Cartão rede', kind: 'album', source: 'fonte-de-uma' };
+    collState[coll.id] = { indexSyncedAt: 0, songs: [] };
+    await fetchCollectionIndex(coll);
+    const s = collSongs(coll.id)[0];
+    // o índice já chegou; agora o BANCO cai
+    Louvorja.fetchList = async () => { throw new TypeError('Failed to fetch'); };
+    const antes = acervoCenso.tentadas;
+    try { await playSongVariant(coll, s, 'full'); } finally { Louvorja.fetchList = real; }
+    return { texto: document.getElementById('pvBusyLabel').textContent, pediuArquivo: acervoCenso.tentadas - antes };
+  });
+  checar(j.pediuArquivo === 0,
+    'premissa: sem o `music_{id}` nenhum arquivo chega a ser pedido', j.pediuArquivo);
+  checar(/sem internet/.test(j.texto),
+    'e AÍ o cartão diz "sem internet" — o ramo continua, e é o certo quando nada foi tentado',
+    j.texto);
+
+  // ---- K: "NÃO TEM LETRA" É AFIRMAÇÃO SOBRE A MÚSICA, NÃO SOBRE A TENTATIVA
+  // A letra vem no MESMO `music_{id}` que o áudio, então um download que falhou
+  // deixa a lista vazia pelo motivo errado — e o cartão dizia que o hino não
+  // tem letra quando o que houve foi a fonte recusar o arquivo.
+  const k = await pg.evaluate(async () => {
+    window.__modo = 'recusa';
+    const coll = { id: 't-letra', name: 'Letra', kind: 'album', source: 'fonte-de-uma' };
+    collState[coll.id] = { indexSyncedAt: 0, songs: [] };
+    await fetchCollectionIndex(coll);
+    const s = collSongs(coll.id)[0];
+    await projectSongLyricsOnly(coll, s);
+    return { texto: document.getElementById('pvBusyLabel').textContent };
+  });
+  checar(!/não tem letra/.test(k.texto),
+    'com a fonte recusando, o cartão NÃO afirma que a música não tem letra — só se afirma a '
+    + 'ausência quando a busca chegou ao fim', k.texto);
+  checar(/404/.test(k.texto), 'ele diz a MESMA causa das outras portas', k.texto);
+
+  // ---- L: O REGISTRO RESPONDE A PERGUNTA SEGUINTE (v1.9.14) ---------------
+  //
+  // A primeira cópia do Registro com este bloco parou na porta da pergunta que
+  // decide o conserto: 1203 falhas e UM status guardado não distinguem "tudo
+  // 404" de "uns 403 e uns 404", e um contador único não diz se o problema é de
+  // UM álbum ou da fonte inteira.
+  const l = await pg.evaluate(async () => {
+    // dois álbuns, dois status diferentes: é a célula em que um contador único
+    // e um status único respondem errado.
+    let n = 0;
+    const real = window.fetch;
+    window.fetch = async (u, o) => {
+      const str = String(u && u.url ? u.url : u);
+      if (str.includes('api.louvorja.com.br/file')) { n++; return new Response('', { status: n === 1 ? 403 : 404 }); }
+      return real(u, o);
+    };
+    const a = { id: 't-reg-a', name: 'Álbum Um', kind: 'album', source: 'fonte-de-uma' };
+    const b = { id: 't-reg-b', name: 'Álbum Dois', kind: 'album', source: 'fonte-de-teste' };
+    collState[a.id] = { indexSyncedAt: 0, songs: [] };
+    collState[b.id] = { indexSyncedAt: 0, songs: [] };
+    await syncCollection(a, { allowMobile: true });
+    await syncCollection(b, { allowMobile: true });
+    window.fetch = real;
+    return {
+      registro: blocoAcervo(),
+      // O bloco CORTA a lista em `ACERVO_ALBUNS_MAX` e diz o corte; quem guarda
+      // todos é o censo, e é nele que a conta por álbum se afirma.
+      albuns: JSON.parse(JSON.stringify(acervoCenso.albuns)),
+      porStatus: JSON.parse(JSON.stringify(acervoCenso.porStatus)),
+    };
+  });
+  checar(/respostas da fonte:/.test(l.registro) && /HTTP 404/.test(l.registro) && /HTTP 403/.test(l.registro),
+    'o Registro traz a DISTRIBUIÇÃO de status — 403 em tudo é a ROTA, 404 em tudo é o CAMINHO, '
+    + 'e um contador único não separa os dois', l.registro);
+  checar(l.albuns['Álbum Um'] === 1 && l.albuns['Álbum Dois'] === 3,
+    'e DE QUEM são as falhas, uma a uma: um álbum falhando enquanto os outros baixam é dado '
+    + 'da fonte, todos falhando é a rota', JSON.stringify(l.albuns));
+  checar(/álbuns com falha: \d+/.test(l.registro) && /\n    - .+: \d+/.test(l.registro),
+    'o bloco traz a conta e os nomes', l.registro.slice(0, 400));
+  checar(!/\u2026 e mais/.test(l.registro) || /… e mais \d+/.test(l.registro),
+    'e o CORTE É DITO quando a lista passa do teto — como em todo bloco deste Registro',
+    l.registro.slice(0, 400));
+  checar(/no fio: https:\/\/api\.louvorja\.com\.br\/file/.test(l.registro),
+    'e a URL COMO O SERVIDOR A RECEBEU — o caminho do banco vem com espaço e acento crus, e '
+    + 'colar o cru num navegador responde outra pergunta', l.registro);
+
 } finally {
   await navegador.close();
   servidor.close();

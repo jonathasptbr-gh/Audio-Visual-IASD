@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.13';
+const WEB_VERSION = '1.9.14';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -6223,10 +6223,14 @@ async function projectSongLyricsOnly(coll, s) {
   closeHymnSearch();
   const seq = ++lyricLoadSeq;
   const bg = previewBusy('Baixando a letra', songLabel(coll, s));
+  // Ver `playSongVariant`: o retrato é de ANTES da tentativa.
+  const censoAntes = retratoDoCenso();
+  let tentouBaixar = false;
   try {
     let slides = await lyricSlidesFor(coll, s);
     if (seq !== lyricLoadSeq) return;
     if (!slides.length) {
+      tentouBaixar = true;
       await ensureSongDownloaded(coll, s);
       if (seq !== lyricLoadSeq) return;
       slides = await lyricSlidesFor(coll, s);
@@ -6234,7 +6238,18 @@ async function projectSongLyricsOnly(coll, s) {
     }
     // O MESMO CARTÃO que estava dizendo "Baixando…" diz por que não deu — ele
     // é sobre a preview, que é onde a letra apareceria.
-    if (!slides.length) { bg.falhar('esta música não tem letra'); return; }
+    //
+    // **E "NÃO TEM LETRA" É UMA AFIRMAÇÃO SOBRE A MÚSICA, não sobre a tentativa**
+    // (v1.9.14). A letra vem no mesmo `music_{id}` que o áudio, então um download
+    // que falhou deixa a lista vazia pelo motivo errado — e o cartão dizia ao
+    // operador que o hino não tem letra quando o que houve foi a fonte recusar o
+    // arquivo. É o mesmo defeito do "sem internet" do `playSongVariant`, noutra
+    // porta: **só se afirma a ausência quando a busca chegou ao fim**.
+    if (!slides.length) {
+      const falhou = tentouBaixar && houveFalhaDeAcervo(censoAntes);
+      bg.falhar(falhou ? motivoDoCartao(censoAntes) : 'esta música não tem letra');
+      return;
+    }
     soUmProvedorDeTexto('songlyrics');
     lyricSession = { title: songLabel(coll, s), slides, idx: 0, projecting: true };
     projectLyricStanza(0);
@@ -19766,14 +19781,60 @@ const acervoCenso = {
   semEspaco: 0,      // o disco recusou a escrita (cota do OPFS)
   capasPerdidas: 0,  // a imagem de fundo da letra falhou (o áudio pode ter vindo)
   motivo: '',        // a frase da ÚLTIMA falha, com a causa e o endereço
+  // ===== O QUE A v1.9.14 ACRESCENTOU, E POR QUÊ =====
+  //
+  // A primeira cópia do Registro com este bloco respondeu a pergunta de
+  // ESTREIA (*"chegou ao disco?"* — não, e é erro HTTP) e parou na porta da
+  // seguinte, que é a que decide o conserto: **1203 falhas e UM status guardado
+  // não distinguem "tudo 404" de "uns 403 e uns 404"**, e um contador único não
+  // diz se o problema é de UM álbum ou da fonte inteira. É a lição da série
+  // v1.9.9→v1.9.12 cobrada uma vez a mais: *um diagnóstico que responde só a
+  // pergunta anterior custa um lote inteiro por relato*.
+  porStatus: {},     // status HTTP → quantas vezes (403 em tudo é ROTA; 404 em tudo é CAMINHO)
+  albuns: {},        // nome do álbum → quantas falhas (UM álbum, ou a fonte inteira?)
+  ultimoStatus: 0,   // o status da ÚLTIMA recusa — é ele que vai ao cartão da prévia
+  ultimaUrl: '',     // a URL COMO ELA SAI NO FIO (percent-encodada): a que se cola num navegador
+  ultimoPath: '',    // e o caminho CRU que o banco devolveu — a diferença entre os dois É o dado
+  // ===== OS DOIS CARACTERES QUE TRUNCAM (v1.9.14) =====
+  //
+  // Com o caminho LEGÍVEL (`/musics/pt/<álbum>/<título>.mp3`) o título do hino
+  // entra na URL. Espaço, acento, vírgula e `!` são inofensivos — MEDIDO —, mas
+  // `?` e `#` abrem query e fragmento e **truncam o caminho sem erro nenhum**:
+  // o acervo do operador tem *"'Stavas Lá?"*, e um 404 desses é indistinguível
+  // dos outros. **NÃO HÁ CONSERTO AQUI, e a ausência é deliberada:** dado um `?`
+  // cru, o app não distingue "faz parte do nome" de "a origem quis uma query",
+  // e re-encodar por segmento quebra o que já vem codificado. O que existe é a
+  // CONTAGEM — ela transforma o próximo palpite num número.
+  truncaveis: 0,     // campos cujo nome de arquivo contém `?` ou `#`
 };
 // UMA LINHA NA LINHA DO TEMPO POR LOTE, nunca por faixa: o anel do `diagC` tem
 // 100 entradas, e um hinário de 600 faixas sem rede as gastaria inteiras com a
 // mesma frase — apagando justamente o que veio antes e explica a causa.
 let acervoFalhaAnunciada = false;
-function acervoFalhou(causa, detalhe, urlPath) {
+// `status` só existe quando a fonte RESPONDEU; `coll` é de quem estava baixando.
+// **A URL guardada é a do FIO, não a do banco**: o caminho do LouvorJA vem com
+// espaço e acento CRUS (`/musics/pt/Hinário Adventista 2022/…`), e quem confere
+// um 404 precisa do endereço que o servidor de fato recebeu. `new URL` faz a
+// MESMA normalização que o `fetch` — MEDIDO, idêntica ao `encodeURI` para este
+// caminho —, então o que sai aqui é byte a byte o que foi pedido. **As duas
+// formas ficam**: o cru diz o que o BANCO respondeu, o do fio diz o que o
+// SERVIDOR viu, e quando um 404 nasce de codificação é a diferença entre elas
+// que o mostra.
+function acervoFalhou(causa, detalhe, urlPath, coll, status) {
   acervoCenso[causa]++;
+  // Contado no ponto da FALHA e não no do pedido: um caminho com `?` que
+  // mesmo assim baixe (a origem pode servir os dois) não é notícia.
+  if (/[?#]/.test(String(urlPath || ''))) acervoCenso.truncaveis++;
   acervoCenso.motivo = detalhe + ' — ' + urlPath;
+  acervoCenso.ultimoPath = Louvorja.fileUrl(urlPath);
+  try { acervoCenso.ultimaUrl = new URL(acervoCenso.ultimoPath).href; }
+  catch (_) { acervoCenso.ultimaUrl = ''; }
+  if (status) {
+    acervoCenso.ultimoStatus = status;
+    acervoCenso.porStatus[status] = (acervoCenso.porStatus[status] || 0) + 1;
+  }
+  const nome = (coll && coll.name) || '';
+  if (nome) acervoCenso.albuns[nome] = (acervoCenso.albuns[nome] || 0) + 1;
   if (!acervoFalhaAnunciada) {
     acervoFalhaAnunciada = true;
     diagC('acervo: o arquivo NÃO chegou ao disco (' + detalhe + ')');
@@ -19790,6 +19851,45 @@ function retratoDoCenso() {
 // MISTURADAS, ELA NÃO ESCOLHE. Duas causas no mesmo lote são duas histórias, e
 // eleger a maior esconderia a outra numa linha que cabe três palavras; quem as
 // separa é o Registro, que tem espaço e traz as três contagens.
+// ===== A CAUSA NO CARTÃO DA PRÉVIA (v1.9.14) =====
+//
+// O relato que a criou: *"não executam se selecionados individualmente, com
+// mensagens de 'sem internet para baixar', o que eu comprovei que tenho
+// internet corretamente"*. **Ele estava certo:** a fonte respondeu HTTP 404 e o
+// cartão disse "sem internet" — um texto FIXO escrito quando a rede era a
+// única falha imaginável naquele ponto. Um diagnóstico que acusa a coisa errada
+// não é só inútil: ele manda o operador consertar o que não está quebrado.
+//
+// **O RAMO "SEM INTERNET" FICA, e ele é o certo quando nada foi tentado:**
+// `downloadCollectionSong` desiste ANTES de pedir arquivo nenhum quando o
+// `music_{id}` não vem, e aí o censo não se move — essa É a falha de rede.
+//
+// O TEXTO É CURTO PORQUE A CAIXA É PEQUENA (a mesma medida do
+// `avisarResolucaoLimitada`: `-webkit-line-clamp: 2` num cartão de ~163px).
+// Alguma das três causas subiu desde o retrato? É a pergunta que separa "a
+// busca chegou ao fim e não há" de "a busca não chegou ao fim".
+function houveFalhaDeAcervo(antes) {
+  const base = antes || { semRede: 0, recusadas: 0, semEspaco: 0 };
+  return acervoCenso.semRede > base.semRede
+    || acervoCenso.recusadas > base.recusadas
+    || acervoCenso.semEspaco > base.semEspaco;
+}
+
+function motivoDoCartao(antes) {
+  const base = antes || { semRede: 0, recusadas: 0, semEspaco: 0 };
+  if (acervoCenso.semEspaco > base.semEspaco) return 'sem espaço neste aparelho';
+  if (acervoCenso.recusadas > base.recusadas) {
+    // O NÚMERO VAI JUNTO. "A fonte recusou" manda procurar um defeito no app;
+    // "404" diz que o arquivo não está no endereço que o banco deu, que é outra
+    // conversa — e é a que o operador repassa.
+    const st = acervoCenso.ultimoStatus;
+    return st ? 'a fonte respondeu ' + st + ' — não é a sua internet'
+      : 'a fonte recusou o arquivo';
+  }
+  if (acervoCenso.semRede > base.semRede) return 'o servidor de arquivos não respondeu';
+  return 'sem internet para baixar';
+}
+
 function causaDoAcervo(antes) {
   const base = antes || { semRede: 0, recusadas: 0, semEspaco: 0 };
   const rede = acervoCenso.semRede - base.semRede;
@@ -19813,14 +19913,14 @@ async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyr
     const res = await fetch(Louvorja.fileUrl(urlPath));
     // O STATUS ENTRA NA FRASE. "Não deu" e "o servidor respondeu 404" pedem
     // ações diferentes, e só a segunda diz que o problema não é do aparelho.
-    if (!res.ok) { acervoFalhou('recusadas', 'a fonte respondeu HTTP ' + res.status, urlPath); return null; }
+    if (!res.ok) { acervoFalhou('recusadas', 'a fonte respondeu HTTP ' + res.status, urlPath, coll, res.status); return null; }
     blob = await res.blob();
-  } catch (_) { acervoFalhou('semRede', 'o servidor de arquivos não respondeu', urlPath); return null; }
+  } catch (_) { acervoFalhou('semRede', 'o servidor de arquivos não respondeu', urlPath, coll, 0); return null; }
   const ext = (urlPath.split('.').pop() || 'mp3').toLowerCase().split('?')[0];
   const id = uid();
   const path = 'folders/' + coll.id + '/' + s.id_music + '-' + variantLabel.toLowerCase() + '.' + ext;
   try { await AVDB.opfsWriteFile(path, blob); }
-  catch (_) { acervoFalhou('semEspaco', 'o aparelho recusou gravar (espaço?)', urlPath); return null; }
+  catch (_) { acervoFalhou('semEspaco', 'o aparelho recusou gravar (espaço?)', urlPath, coll, 0); return null; }
   await AVDB.fileAdd({
     id, folder: coll.id, opfsPath: path,
     srcName: s.id_music + '-' + variantLabel,
@@ -19861,14 +19961,21 @@ async function downloadCollectionImage(folderId, url, songId, index) {
   // imagem que não vem custa o FUNDO de um slide, enquanto um áudio que não vem
   // custa a faixa. Somá-las faria o Registro dizer "8 sem rede" num álbum em que
   // os oito áudios chegaram — e o operador procuraria um defeito que não há.
+  //
+  // **E O STATUS E O ENDEREÇO DELA ENTRAM NO CENSO** (v1.9.14): o contador era
+  // CEGO, e ele é o SEGUNDO MAIOR número do bloco — 1028 numa cópia de campo,
+  // sem uma linha que dissesse o que a fonte respondia. A CONTA fica separada
+  // (o custo de uma capa é outro); o que passa a ser comum é a pergunta *"o que
+  // a fonte está respondendo?"*, que é a mesma para os dois.
   try {
     const res = await fetch(Louvorja.fileUrl(url));
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!res.ok) { acervoFalhou('capasPerdidas', 'a fonte respondeu HTTP ' + res.status, url, null, res.status); return null; }
     blob = await res.blob();
-  } catch (_) { acervoCenso.capasPerdidas++; return null; }
+  } catch (_) { acervoFalhou('capasPerdidas', 'o servidor de arquivos não respondeu', url, null, 0); return null; }
   const ext = (url.split('.').pop() || 'jpg').toLowerCase().split('?')[0];
   const path = 'folders/' + folderId + '/' + songId + '-img-' + index + '.' + ext;
-  try { await AVDB.opfsWriteFile(path, blob); } catch (_) { acervoCenso.capasPerdidas++; return null; }
+  try { await AVDB.opfsWriteFile(path, blob); }
+  catch (_) { acervoFalhou('capasPerdidas', 'o aparelho recusou gravar (espaço?)', url, null, 0); return null; }
   // ELAS TAMBÉM PESAM (v5.134). As imagens de fundo da letra vão para a MESMA
   // pasta dos áudios e ocupam disco como eles — mas não viram registro no
   // catálogo (são referenciadas de dentro dos slides, não são mídia da
@@ -23692,11 +23799,14 @@ async function playSongVariant(coll, s, variant) {
   closeSongMenu();
   closeHymnSearch();
   const bg = previewBusy('Baixando', songLabel(coll, s));
+  // O RETRATO ANTES DA TENTATIVA — a mesma mecânica de `syncCollection`: o censo
+  // é da SESSÃO, e a frase é DESTE toque.
+  const censoAntes = retratoDoCenso();
   try {
     const id = await resolveSongMediaId(coll, s, variant);
     // As duas falhas falam pelo MESMO cartão que estava dizendo "Baixando…", e
     // é ele que fica na tela — sobre a preview, que é onde a música apareceria.
-    if (!id) { bg.falhar('sem internet para baixar'); return; }
+    if (!id) { bg.falhar(motivoDoCartao(censoAntes)); return; }
     const rec = await AVDB.getMedia(id);
     if (!rec) { bg.falhar('não foi possível abrir a mídia'); return; }
     await replacePlaylistWith(rec);
@@ -26358,6 +26468,10 @@ function blocoPacote() {
 // em toda cópia. Com tentativas e SEM falha ele fica, porque aí ele responde a
 // outra metade da pergunta — *"o download rodou e deu certo"* é exatamente o
 // que separa "a fonte está fora" de "a conta da tela está errada".
+// Quantos álbuns saem NOMINAIS antes do corte. A pergunta é *"é um só ou são
+// todos?"*, e para respondê-la bastam os primeiros — o NÚMERO acima deles já
+// deu a resposta, e o Registro é RESUMO, não listagem.
+const ACERVO_ALBUNS_MAX = 6;
 function blocoAcervo() {
   const c = acervoCenso;
   if (!c.tentadas) return '';
@@ -26369,9 +26483,50 @@ function blocoAcervo() {
   if (c.recusadas) linhas.push('  ' + c.recusadas + '× a fonte respondeu com erro (o endereço do arquivo mudou?)');
   if (c.semEspaco) linhas.push('  ' + c.semEspaco + '× o aparelho recusou gravar (espaço?)');
   if (c.capasPerdidas) linhas.push('  ' + c.capasPerdidas + '× a imagem de fundo da letra não veio (o áudio pode ter vindo)');
+  // ===== A DISTRIBUIÇÃO DE STATUS (v1.9.14) =====
+  //
+  // É ela que separa as famílias de causa, e um contador único não separa nada:
+  // **403 em tudo é a ROTA** (a fonte passou a exigir algo, ou um WAF entrou na
+  // frente), **404 em tudo é o CAMINHO** (o endereço do arquivo mudou na origem),
+  // e MISTO é uma terceira coisa. ORDENADA PELA CONTAGEM: com um status
+  // dominante e um residual, é o dominante que descreve o problema.
+  const statuses = Object.keys(c.porStatus).sort((a, b) => c.porStatus[b] - c.porStatus[a]);
+  if (statuses.length) {
+    linhas.push('  respostas da fonte: '
+      + statuses.map((st) => 'HTTP ' + st + ' ×' + c.porStatus[st]).join(' · '));
+  }
+  // ===== E DE QUEM SÃO AS FALHAS (v1.9.14) =====
+  //
+  // A mesma pergunta pelo outro eixo, e ela é a que decide se o conserto é do
+  // app ou da origem: **um álbum falhando enquanto os outros baixam é dado da
+  // fonte; todos falhando é a rota.** Sem ela, uma única cópia do Registro não
+  // distingue os dois, e a próxima rodada volta a ser um palpite.
+  const albuns = Object.keys(c.albuns).sort((a, b) => c.albuns[b] - c.albuns[a]);
+  if (albuns.length) {
+    linhas.push('  álbuns com falha: ' + albuns.length);
+    for (const nome of albuns.slice(0, ACERVO_ALBUNS_MAX)) {
+      linhas.push('    - ' + nome + ': ' + c.albuns[nome]);
+    }
+    // O CORTE É DITO, como em todo bloco deste Registro.
+    if (albuns.length > ACERVO_ALBUNS_MAX) {
+      linhas.push('    … e mais ' + (albuns.length - ACERVO_ALBUNS_MAX));
+    }
+  }
   // O DADO CRU da última falha: a contagem diz COM QUE FREQUÊNCIA, e só o
   // endereço diz QUAL arquivo — que é o que se confere num navegador.
   if (c.motivo) linhas.push('  última: ' + c.motivo);
+  // **E A MESMA URL COMO O SERVIDOR A RECEBEU.** O caminho do banco vem com
+  // espaço e acento crus; colar o cru num navegador o reencoda e responde outra
+  // pergunta. Esta é a que se cola. Ela só aparece quando DIFERE do cru —
+  // repetir a mesma linha duas vezes é uma a mais para ler em toda cópia.
+  if (c.ultimaUrl && c.ultimaUrl !== c.ultimoPath) linhas.push('  no fio: ' + c.ultimaUrl);
+  // A MEDIÇÃO QUE O PRÓXIMO CONSERTO PEDE, e só ela: `?` e `#` no nome do
+  // arquivo truncam a URL, e a decisão de sanear (que é adivinhação) fica para
+  // quem tiver o número. Só sai quando há algum.
+  if (c.truncaveis) {
+    linhas.push('  ' + c.truncaveis + '× o nome do arquivo tem "?" ou "#" — esses cortam o '
+      + 'endereço no meio (ver o oráculo `louvorja-url`)');
+  }
   if (!falhas) linhas.push('  nenhuma falha de download nesta sessão');
   return 'Download do acervo\n' + linhas.join('\n');
 }

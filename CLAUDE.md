@@ -2115,7 +2115,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **91** e os de Node puro **21** — juntos, os 112. MEDIDO com
+Os de Chromium são **91** e os de Node puro **22** — juntos, os 113. MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -2166,7 +2166,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 112 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 113 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2572,6 +2572,31 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   aparelho. **A senha é a cadeia de retorno INTEIRA** — quem engole a falha
   devolve o desfecho, e o desfecho sobe até quem escreve a frase. O irmão no
   mesmo despacho (`downloadSerieItem`) sempre acertou, e é o modelo.
+- **UM CAMPO DE ENDEREÇO DE TERCEIRO ACEITA AS DUAS FORMAS, E TRAVA O HOST**
+  (v1.9.14). O LouvorJA devolvia CAMINHO em `url_music`/`url_image` e passou a
+  devolver a URL INTEIRA; a concatenação seca de `fileUrl` dobrou o prefixo, e
+  **o parser de URL não reclama** — no PATH STATE do WHATWG o `:` e o `//` não
+  são separadores, então o pedido sai BEM-FORMADO, chega ao host certo e a fonte
+  responde 404 para 100% dos arquivos. Três regras ficam: **aceitar as DUAS
+  formas** (a origem pode desfazer a mudança, e um app que só aceite a de hoje
+  quebra pelo mesmo caminho silencioso); **travar o HOST**, porque aceitar URL
+  absoluta é deixar o JSON dizer para onde o `fetch` do orígin privilegiado vai
+  (host estranho falha FECHADA); e **nunca re-encodar** — o `fetch` já
+  percent-encoda pelo path percent-encode set, e `encodeURI` sobre um caminho
+  já codificado produz `%25` e quebra até o que funciona. **E o que o parser
+  ENGOLE fica medido sem conserto:** `?` e `#` num nome de arquivo truncam a URL
+  sem erro nenhum, e sanear é adivinhar — o que se entrega é a CONTAGEM.
+  Oráculo: `louvorja-url.test.mjs`.
+- **UMA FALHA DE REDE DA FONTE NÃO É A REDE DE QUEM OPERA** (v1.9.14). O toque
+  individual dizia *"sem internet para baixar"* sobre um HTTP 404 — texto FIXO
+  de quando a rede era a única falha imaginável naquele ponto. **Um diagnóstico
+  que acusa a coisa errada manda o operador consertar o que não está quebrado**,
+  e ele volta dizendo que conferiu. A frase sai do CENSO (`motivoDoCartao`), com
+  o NÚMERO junto, **e o ramo "sem internet" FICA** para onde ele é verdade:
+  quando o metadado não vem, nenhum arquivo chega a ser pedido e o censo não se
+  move. **Vale para toda afirmação de AUSÊNCIA:** *"esta música não tem letra"*
+  é sobre a MÚSICA, e a letra vem no mesmo metadado que o áudio — só se afirma
+  a ausência quando a busca chegou ao FIM.
 - **E A FRASE FINAL NOMEIA A CAUSA, nunca "não deu"** — a mesma regra dos cinco
   motivos da cifra, e pelo mesmo argumento: cada causa pede uma AÇÃO diferente de
   quem lê. No download do acervo são TRÊS (`sem rede` · `recusada(s) pela fonte`
@@ -2791,34 +2816,26 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.9.13 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.9.14 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
-método da ponte existe, e não há guarda de versão no lado web.
+método da ponte existe, e não há guarda de versão no lado web. A v1.9.13 e a
+v1.9.14 não tocam `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+publicado na frota: o bundle sai na hora, contra um shell que já o atende.
+**Conferir a Release é parte de decidir** — um lote só de web herda o
+`shellTag` quando o lote de shell anterior ainda não tem Release, e não herda
+quando tem.
 
-> **A v1.9.13 NÃO declara `shellTag`, e a v1.9.12 declarou — a diferença é que a
-> Release DAQUELA JÁ SAIU.** Esta não toca `java/`, `res/` nem o manifesto, e o
-> APK v1.9.12 está publicado na frota: o búndle sai na hora, contra um shell que
-> já o atende. É a regra escrita mais abaixo — o `shellTag` ACOMPANHA A ÚLTIMA
-> VERSÃO, não a que mexeu no Kotlin —, aplicada pelo lado em que ela LIBERA: um
-> lote só de web herda a obrigação quando o lote de shell anterior ainda não tem
-> Release, e não herda quando tem. **Conferir a Release é parte de decidir**, e
-> não a data do último commit em `java/`.
->
-> **ELA CONSERTA O DOWNLOAD DA COLETÂNEA ANUNCIAR SUCESSO SEM UM BYTE NO DISCO**
-> — um valor de retorno que faltava (`ensureSongVariant`/`downloadCollectionSong`
-> resolviam `undefined`, e o laço lê `!== false`), com o rodapé escrevendo
-> "Atualizado (N baixado(s))" ao lado de um botão de baixar que não saiu. Ver a
-> nota no `HISTORICO.md`; a REGRA que ficou está em "Diagnóstico", logo abaixo.
->
-> **A LIÇÃO DE MÉTODO DA SÉRIE v1.9.9 → v1.9.12 CONTINUA VALENDO, e a v1.9.13 é
-> o primeiro lote a aplicá-la ANTES de custar as rodadas:** cada um daqueles
-> nasceu de um relato que o Registro ANTERIOR não conseguia explicar, e o
-> conserto foi acrescentar a pergunta que faltava — *qual ele tenta* (v1.9.9),
-> *quais existem* (v1.9.10), *ele abriu* (v1.9.11), *e o app ainda tenta*
-> (v1.9.12). **Um diagnóstico que responde só a pergunta anterior custa um lote
-> inteiro por relato** — e o caminho de download de coleção não tinha UMA linha
-> no Registro, o que é por que este relato chegou sem nada a conferir. O bloco
-> "Download do acervo" nasceu no mesmo lote do conserto, e não no seguinte.
+> **AS DUAS JUNTAS SÃO UMA LIÇÃO DE MÉTODO, e ela é a da série v1.9.9→v1.9.12
+> aplicada de novo.** A v1.9.13 fez o download **parar de anunciar sucesso sem
+> um byte no disco** e criou o bloco "Download do acervo"; **a PRIMEIRA cópia
+> desse Registro entregou a causa raiz** — o campo `url_*` do LouvorJA virou URL
+> ABSOLUTA e o `fileUrl` somava o prefixo por cima, e o parser de URL não
+> reclama disso (no PATH STATE o `:` e o `//` não são separadores), então o
+> pedido sai bem-formado e a fonte responde 404 para 100% dos arquivos. A
+> v1.9.14 conserta isso e leva a CAUSA às frases que a escondiam. **Duas
+> rodadas, nenhum palpite:** *um diagnóstico que responde só a pergunta anterior
+> custa um lote inteiro por relato* — e o que encurta a próxima é acrescentar a
+> pergunta que falta NO MESMO lote do conserto.
 
 > **A v1.8.99 REMOVE a coletânea de vídeos do LouvorJA, que a v1.8.97 tinha
 > acrescentado — e a razão é do operador, não técnica:** *"Eu achava que seria

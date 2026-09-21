@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.9.14",
+    "itens": [
+      "Conserta o download do acervo: nenhum arquivo chegava ao aparelho, em nenhuma coleção.",
+      "A fonte passou a devolver o endereço completo das músicas, e o app somava o dele por cima.",
+      "O pedido saía com o endereço dobrado, o servidor respondia \"não existe\", e tudo falhava.",
+      "O índice vinha por outro caminho e continuava chegando — por isso parecia falta de internet.",
+      "O app deixa de acusar a sua internet: agora ele diz o que a fonte respondeu.",
+      "A letra também: \"não tem letra\" só é dito quando a busca chegou ao fim.",
+      "O Registro passa a dizer quais respostas a fonte deu e quais álbuns falharam."
+    ]
+  },
+  {
     "versao": "1.9.13",
     "itens": [
       "Conserta o download das coleções anunciar sucesso sem nada ter ido para o aparelho.",

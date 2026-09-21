@@ -275,6 +275,7 @@ jobs:
           node tools/pacote.test.mjs
           node tools/glifos.test.mjs
           node tools/cifra.test.mjs
+          node tools/louvorja-url.test.mjs
 
       - name: Tokens de CSS que não existem (Node puro)
         run: |
