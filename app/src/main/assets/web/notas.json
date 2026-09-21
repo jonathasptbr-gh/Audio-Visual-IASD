@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.9.15",
+    "itens": [
+      "Imagens de fundo da letra: o app passa a aceitar a foto servida por outro endereço da fonte.",
+      "E o que já está no aparelho é recuperado: toque em sincronizar no hinário e os fundos entram.",
+      "Isso NÃO rebaixa as músicas — só a letra é refeita, então é rápido e não gasta seu plano.",
+      "Quando a fonte não publica foto de uma música, o app para de procurar por ela toda vez.",
+      "Se o fundo ainda não vier, o Registro agora diz o que a fonte respondeu para cada foto."
+    ]
+  },
+  {
     "versao": "1.9.14",
     "itens": [
       "Conserta o download do acervo: nenhum arquivo chegava ao aparelho, em nenhuma coleção.",

@@ -30,9 +30,9 @@ do outro. O `finally` de `withBgWork()` é o ponto crítico: uma falha de rede n
 pode deixar serviço e wake lock ligados.
 
 Pontos cobertos: `syncGroup`, `syncCollection`, `ensureSongDownloaded`,
-`syncLyrics`, `syncCifrasColecao`, `ensureBibleVersionDownloaded` e
-`syncDeviceFolder` (o único que chama `bgWorkBegin`/`bgWorkEnd` direto). No
-navegador é tudo no-op.
+`syncLyrics`, `syncCifrasColecao`, `syncImagensColecao`,
+`ensureBibleVersionDownloaded` e `syncDeviceFolder` (o único que chama
+`bgWorkBegin`/`bgWorkEnd` direto). No navegador é tudo no-op.
 
 **E AS ROTINAS DE ACERVO CEDEM A VEZ AO QUE ESTÁ NO AR** (v1.4.19,
 `rotinaDeAcervoPodeCorrer`). `syncLyrics` e `syncCifrasAcervo` saem da abertura

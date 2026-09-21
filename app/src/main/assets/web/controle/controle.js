@@ -358,7 +358,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.14';
+const WEB_VERSION = '1.9.15';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -19423,6 +19423,14 @@ async function syncCollection(coll, opts) {
       // por aqui, e era exatamente este o caminho em que o download de cifras
       // da v1.1.28 nunca acontecia. Tocar em sincronizar tem de fazer alguma
       // coisa quando ainda há o que buscar.
+      // …E OS FUNDOS DA LETRA TAMBÉM (v1.9.15). Este é o caminho do hinário
+      // cujo áudio já está todo no disco — e é justamente por aqui que sai o
+      // aparelho do relato: as músicas tocam, os slides estão sem foto, e
+      // `songVariantsNeeded` responde "nada a fazer" porque quem falhou foi a
+      // imagem, que não é variante de nada. ANTES das cifras: a cifra é para
+      // quem toca, o fundo é o que a congregação vê.
+      const fundos = await syncImagensColecao(coll).catch(() => 0);
+      if (fundos) setCollStatus(coll.id, 'Fundos da letra: ' + fundos + ' música(s)', 6000);
       await syncCifrasColecao(coll).catch(() => {});
       return { ok: true, baixados: 0, falhou: 0 };
     }
@@ -19550,7 +19558,18 @@ async function syncCollection(coll, opts) {
     // torna a folha utilizável sem rede. `await` de propósito: ela usa a mesma
     // proteção de segundo plano, e soltá-la aqui deixaria o `finally` desligar
     // o serviço com centenas de requisições ainda por fazer.
-    if (!cancelled()) await syncCifrasColecao(coll).catch(() => {});
+    if (!cancelled()) {
+      // OS FUNDOS QUE FALTAM, do que já estava no aparelho antes deste lote
+      // (v1.9.15) — o que acabou de descer já trouxe a imagem junto.
+      const fundos = await syncImagensColecao(coll, {
+        pular: new Set(pending.map((x) => x.id_music)),
+      }).catch(() => 0);
+      // A FRASE DE FALHA NÃO É SOBRESCRITA: ela é a única coisa na tela que
+      // explica o botão que continua ali (ver a nota logo acima), e "Fundos da
+      // letra: N" por cima dela apagaria a causa que o operador precisa ler.
+      if (fundos && !falhou) setCollStatus(coll.id, 'Fundos da letra: ' + fundos + ' música(s)', 6000);
+      await syncCifrasColecao(coll).catch(() => {});
+    }
     // Tudo o que se tentou falhou: para o lote isso é o mesmo que não ter
     // baixado nada, e o cabeçalho do grupo precisa saber.
     return { ok: !(falhou > 0 && falhou >= done), baixados: done - falhou, falhou };
@@ -19569,6 +19588,142 @@ async function syncCollection(coll, opts) {
     updateCollBytes(coll.id);
     refreshCollectionsIfVisible();
   }
+}
+
+// ===== O FUNDO DA LETRA CHEGA À BIBLIOTECA QUE JÁ EXISTE (v1.9.15) =====
+//
+// O RELATO: *"ele conseguiu baixar, e usar as músicas, mas não está vindo com
+// as imagens de fundo"*.
+//
+// **O CONSERTO SOZINHO NÃO ALCANÇA O ACERVO JÁ BAIXADO, e essa é a armadilha
+// inteira.** Os slides guardam `imageOpfsPath` resolvido NO MOMENTO do
+// download, e `ensureSongVariant` devolve cedo para todo registro que já tenha
+// `lyrics` — então uma faixa baixada num dia em que as imagens falhavam fica
+// sem fundo PARA SEMPRE, e re-sincronizar não reconstrói nada (a régua diz que
+// ela está completa, e ela está: o áudio chegou). A única saída do operador
+// seria excluir a coleção e rebaixar mil e duzentos arquivos para recuperar as
+// fotos.
+//
+// É o mesmo desenho do preenchimento de `hymnAlbum` (v5.220), nascido do mesmo
+// defeito noutro campo: *o conserto não alcançava a biblioteca que o operador
+// JÁ TEM, que é justamente a que ele usa*.
+//
+// **NÃO CORRE SOZINHO, e a ausência é deliberada.** Ele custa um `music_{id}`
+// por faixa sem fundo, e as faixas cuja imagem falha de verdade voltam à fila a
+// cada passada — pendurá-lo no `autoRefreshCollections` (que roda na abertura e
+// em TODO `visibilitychange`) faria centenas de requisições por abertura de app,
+// para sempre, num aparelho onde a origem não sirva imagem nenhuma. A porta é o
+// toque em sincronizar, que é ação do operador e tem fim. Para correr sozinho
+// ele precisaria do que a varredura de cifras tem: um veredito POR MÚSICA
+// gravado com data.
+let imagensSyncRodando = false;
+
+// "ESTA LETRA FICOU SEM FUNDO?" — e a pergunta é por AUSÊNCIA TOTAL, não por
+// slide. Uma linha sem imagem própria HERDA a da anterior (a regra grudenta do
+// §5.3 da fonte), então letra com fundo em parte dos slides é o normal; o que é
+// sintoma é NENHUM slide ter imagem. `lyrics` nulo (música sem letra
+// sincronizada) e lista vazia ficam de fora: ali não há fundo a recuperar.
+function letraSemImagem(rec) {
+  return !!rec && Array.isArray(rec.lyrics) && rec.lyrics.length > 0
+    && !rec.lyrics.some((x) => x && x.imageOpfsPath);
+}
+
+// As DUAS variantes, porque Cantado e Playback têm listas de slides próprias
+// (`time` × `instrumental_time`) e uma pode ter fundo sem a outra ter.
+async function faltaFundoNaFaixa(s) {
+  for (const k of ['fileIdFull', 'fileIdPlayback']) {
+    if (!s[k]) continue;
+    const rec = await AVDB.fileGet(s[k]).catch(() => null);
+    if (letraSemImagem(rec)) return true;
+  }
+  return false;
+}
+
+/**
+ * Refaz a LETRA (e só ela) das faixas já baixadas cujo fundo não chegou.
+ *
+ * Devolve quantas músicas ganharam fundo nesta passada — é esse número que a
+ * faixa de status escreve, e é ele que separa *"não havia o que fazer"* de
+ * *"tentei e continua sem"*.
+ */
+async function syncImagensColecao(coll, opts) {
+  // Uma SÉRIE não tem letra sincronizada nem imagem da origem: o item dela é um
+  // vídeo do YouTube, e `downloadCollectionSong` o despacha para outro caminho.
+  if (!coll || coll.kind === 'serie' || imagensSyncRodando) return 0;
+  // Ver `rotinaDeAcervoPodeCorrer`: a varredura é adiável, o louvor não.
+  if (!rotinaDeAcervoPodeCorrer()) return 0;
+  // A MESMA REGRA do `syncCifrasColecao`: são centenas de requisições, e o
+  // plano de dados do operador não é o lugar delas.
+  if (networkType() === 'cellular') return 0;
+
+  // A MARCA `semImagem` É O QUE IMPEDE A REVARREDURA ETERNA: a música cuja
+  // origem não publica foto nenhuma sai da fila de vez (e volta sozinha no dia
+  // em que a origem passar a ter — ver `downloadCollectionSong`).
+  //
+  // **E O QUE ESTE MESMO TOQUE ACABOU DE TENTAR FICA DE FORA** (`pular`). Sem
+  // isso, uma sincronização com as imagens falhando faz cada faixa ser buscada
+  // DUAS vezes no mesmo toque — o download, e o backfill logo atrás dele — e o
+  // censo passa a contar duas falhas onde houve uma tentativa. O caso em que o
+  // backfill serve é o INVERSO: a faixa que já estava no aparelho de antes.
+  const pular = (opts && opts.pular) || null;
+  const candidatas = collSongs(coll.id)
+    .filter((s) => !s.semImagem && (s.fileIdFull || s.fileIdPlayback)
+      && !(pular && pular.has(s.id_music)));
+  if (!candidatas.length) return 0;
+
+  // Em pedaços de 8, como a varredura de `syncCollection` e pelo mesmo motivo:
+  // num hinário de ~600 faixas isto são até 1200 leituras de IDB, e em série
+  // elas seriam o app parado antes da primeira requisição.
+  const PASSO = 8;
+  const alvos = [];
+  for (let i = 0; i < candidatas.length; i += PASSO) {
+    if (!rotinaDeAcervoPodeCorrer()) return 0;
+    const fatia = candidatas.slice(i, i + PASSO);
+    const falta = await Promise.all(fatia.map(faltaFundoNaFaixa));
+    falta.forEach((f, k) => { if (f) alvos.push(fatia[k]); });
+  }
+  if (!alvos.length) return 0;
+
+  imagensSyncRodando = true;
+  const notifId = bgTaskStart('Fundos da letra — ' + coll.name, alvos.length);
+  let done = 0;
+  let refeitas = 0;
+  try {
+    await withBgRotina(async () => {
+      try {
+        await runLimited(alvos, NET_CONCURRENCY, async (s) => {
+          if (!rotinaDeAcervoPodeCorrer()) return;
+          bgItemStart(notifId, s.name);
+          try {
+            // TODA a máquina de sempre, e nenhuma cópia dela: o cache de
+            // imagens por URL, as duas variantes, o censo do acervo e a
+            // gravação do registro. O que `refazerLetra` muda é UMA guarda —
+            // ver `ensureSongVariant`.
+            await downloadCollectionSong(coll, s, { refazerLetra: true });
+            // CONFERIDO NO DISCO, nunca pelo retorno: aquele responde pelo
+            // ÁUDIO (é a conta de variantes da v1.9.13) e volta `true` para uma
+            // faixa que continua sem fundo nenhum. Contar por ele faria esta
+            // rotina anunciar que recuperou o que não recuperou, que é
+            // exatamente o defeito que a v1.9.13 tirou do download.
+            if (!(await faltaFundoNaFaixa(s))) refeitas++;
+          } catch (_) { /* a passada seguinte tenta de novo */ }
+          finally { bgItemEnd(notifId, s.name); }
+          bgTaskStep(notifId, ++done);
+        });
+      } finally { bgTaskEnd(notifId); }
+    });
+  } finally {
+    imagensSyncRodando = false;
+    // As marcas `semImagem` são escritas no índice em memória — sem esta
+    // gravação elas morrem com a página e a passada seguinte revarre tudo.
+    try { await AVDB.setState('coll:' + coll.id, collState[coll.id]); }
+    catch (_) { /* a passada seguinte remarca */ }
+    // As imagens pesam (v5.134) e acabaram de entrar no disco: o número da tela
+    // é reconferido no fim do lote, como no `syncCollection`.
+    updateCollBytes(coll.id);
+    refreshCollectionsIfVisible();
+  }
+  return refeitas;
 }
 
 // Baixa (ou completa) uma música: busca os metadados individuais (URLs reais) e
@@ -19646,11 +19801,24 @@ async function downloadSerieItem(coll, s) {
   }
 }
 
-async function downloadCollectionSong(coll, s) {
+async function downloadCollectionSong(coll, s, opts) {
   if (coll.kind === 'serie') return downloadSerieItem(coll, s);
   let meta;
   try { meta = await Louvorja.fetchList('music_' + s.id_music); }
   catch (_) { return false; } // sem rede agora; a próxima sincronização tenta de novo
+
+  // ===== "A ORIGEM NÃO PUBLICA IMAGEM" É UM ESTADO, NÃO UMA FALHA (v1.9.15) =====
+  //
+  // A mesma regra do `semAudio`/`semPlayback` da v5.134, aplicada ao FUNDO da
+  // letra: sem esta marca o backfill de imagens revarreria para sempre toda
+  // música que a origem publica sem foto — uma busca de metadado por faixa, a
+  // cada sincronização, para redescobrir que não há o que buscar. E ela se
+  // APAGA quando a origem passa a ter: a marca diz o que o banco respondeu
+  // HOJE, nunca um veredito permanente.
+  const temImagemNaOrigem = !!meta.url_image
+    || Object.values(meta.lyric || {}).some((l) => l && l.url_image);
+  if (temImagemNaOrigem) { if (s.semImagem) delete s.semImagem; }
+  else s.semImagem = true;
 
   // Cache de imagens por URL, compartilhado entre as duas variantes (Cantado
   // e Playback quase sempre usam as mesmas imagens da letra) — evita baixar a
@@ -19672,10 +19840,10 @@ async function downloadCollectionSong(coll, s) {
   // aparelho. É a mesma conta de VARIANTES que `levantarColecao` faz para
   // decidir se o botão some — e é por elas serem a mesma conta que o rodapé
   // deixa de poder dizer "Atualizado" ao lado de um botão de baixar.
-  const okFull = await ensureSongVariant(coll, s, 'fileIdFull', meta.url_music, 'Cantado', meta, 'time', thumb, resolveImage);
+  const okFull = await ensureSongVariant(coll, s, 'fileIdFull', meta.url_music, 'Cantado', meta, 'time', thumb, resolveImage, opts);
   let okPlayback = true;
   if (s.has_instrumental_music) {
-    okPlayback = await ensureSongVariant(coll, s, 'fileIdPlayback', meta.url_instrumental_music, 'Playback', meta, 'instrumental_time', thumb, resolveImage);
+    okPlayback = await ensureSongVariant(coll, s, 'fileIdPlayback', meta.url_instrumental_music, 'Playback', meta, 'instrumental_time', thumb, resolveImage, opts);
   }
   return okFull && okPlayback;
 }
@@ -19695,7 +19863,7 @@ async function downloadCollectionSong(coll, s) {
 // "Atualizado (N baixado(s))" com zero bytes no disco. O irmão dela no mesmo
 // despacho (`downloadSerieItem`) sempre devolveu booleano — era esta metade que
 // faltava.
-async function ensureSongVariant(coll, s, fileKey, urlPath, variantLabel, meta, timeField, thumb, resolveImage) {
+async function ensureSongVariant(coll, s, fileKey, urlPath, variantLabel, meta, timeField, thumb, resolveImage, opts) {
   // "NÃO EXISTE" NÃO É "NÃO BAIXEI" (v5.134). Uma música cuja origem não traz o
   // arquivo (`url_music`/`url_instrumental_music` vazios no `music_{id}`) nunca
   // ia ganhar id de arquivo — e, como toda a tela contava a ausência do id como
@@ -19722,7 +19890,27 @@ async function ensureSongVariant(coll, s, fileKey, urlPath, variantLabel, meta, 
   // sobre uma faixa que não toca. Limpar aqui é o que mantém o índice dizendo a
   // verdade mesmo quando a rebaixa logo abaixo falhar.
   if (existingId && !existingRec) s[fileKey] = null;
-  if (existingRec && existingRec.lyrics !== undefined) {
+  // O BACKFILL NÃO BAIXA ÁUDIO (v1.9.15). Ele reescreve a letra do que JÁ está
+  // no aparelho; uma variante que nunca desceu é trabalho do `syncCollection`, e
+  // deixá-la cair no download daqui faria a notificação *"Fundos do …"* puxar
+  // megabytes que ninguém pediu — sem a pergunta de dados móveis que a
+  // sincronização faz, e sob um rótulo que diz outra coisa.
+  if (!existingRec && opts && opts.refazerLetra) return true;
+  // ===== A LETRA É MONTADA UMA VEZ, E CONGELA (v1.9.15) =====
+  //
+  // Os slides guardam `imageOpfsPath`, resolvido NO MOMENTO do download. Uma
+  // faixa baixada num dia em que as imagens falhavam fica **sem fundo para
+  // sempre**: esta guarda devolve cedo, e re-sincronizar não reconstrói nada.
+  // A única saída do operador seria apagar a coleção e rebaixar tudo — mil e
+  // duzentos arquivos para recuperar as fotos.
+  //
+  // `refazerLetra` é a porta do BACKFILL (`syncImagensColecao`), e ela reabre
+  // SÓ a letra: o ramo `existingRec` logo abaixo regrava o registro **sem
+  // rebaixar o áudio**. É o mesmo desenho do preenchimento de `hymnAlbum`
+  // (v5.220), que nasceu do mesmo defeito noutro campo — *o conserto não
+  // alcançava a biblioteca que o operador JÁ TEM, que é justamente a que ele
+  // usa*.
+  if (existingRec && existingRec.lyrics !== undefined && !(opts && opts.refazerLetra)) {
     // JÁ COMPLETO — mas pode ser anterior ao `hymnAlbum` (v5.218). Sem este
     // preenchimento, a linha do álbum só apareceria em música baixada DEPOIS
     // desta versão: a biblioteca que o operador já tem — que é justamente a
@@ -19766,10 +19954,11 @@ async function ensureSongVariant(coll, s, fileKey, urlPath, variantLabel, meta, 
 //
 // A mesma régua do `ytCenso` (v1.4.13), e pela mesma razão: um NÚMERO responde
 // *"com que frequência?"* e uma LINHA responde *"da última vez?"*. Aqui as duas
-// perguntas importam porque as três causas pedem AÇÕES OPOSTAS — esperar o
-// Wi-Fi (`sem-rede`), avisar que a fonte mudou (`recusou`), ou liberar espaço
-// no aparelho (`sem-espaco`). Uma contagem só, sem a causa, mandaria o operador
-// tentar de novo para sempre.
+// perguntas importam porque as causas pedem AÇÕES OPOSTAS — esperar o Wi-Fi
+// (`sem-rede`), avisar que a fonte mudou (`recusou`), liberar espaço no
+// aparelho (`sem-espaco`) ou ajustar a trava de endereço (`foraDoServidor`,
+// v1.9.15). Uma contagem só, sem a causa, mandaria o operador tentar de novo
+// para sempre.
 //
 // MORRE COM A PÁGINA, como o `ytCenso`: "nesta sessão" é o que a linha diz, e é
 // o que ela pode honrar sem gravar nada.
@@ -19806,6 +19995,15 @@ const acervoCenso = {
   // e re-encodar por segmento quebra o que já vem codificado. O que existe é a
   // CONTAGEM — ela transforma o próximo palpite num número.
   truncaveis: 0,     // campos cujo nome de arquivo contém `?` ou `#`
+  // ===== O ENDEREÇO DE OUTRO SERVIDOR (v1.9.15) =====
+  //
+  // A trava de host do `fileUrl` falha FECHADA — certo —, mas o que ela produz
+  // é um 404 do NOSSO host, **indistinguível de "o arquivo não existe"**. Duas
+  // causas OPOSTAS (a origem mudou de servidor × o arquivo sumiu) com a mesma
+  // linha no Registro mandam procurar no lugar errado. Contado à parte, e o
+  // pedido nem chega a sair: ele está condenado por construção.
+  foraDoServidor: 0,
+  ultimoForaDoServidor: '',
 };
 // UMA LINHA NA LINHA DO TEMPO POR LOTE, nunca por faixa: o anel do `diagC` tem
 // 100 entradas, e um hinário de 600 faixas sem rede as gastaria inteiras com a
@@ -19826,8 +20024,13 @@ function acervoFalhou(causa, detalhe, urlPath, coll, status) {
   // mesmo assim baixe (a origem pode servir os dois) não é notícia.
   if (/[?#]/.test(String(urlPath || ''))) acervoCenso.truncaveis++;
   acervoCenso.motivo = detalhe + ' — ' + urlPath;
-  acervoCenso.ultimoPath = Louvorja.fileUrl(urlPath);
-  try { acervoCenso.ultimaUrl = new URL(acervoCenso.ultimoPath).href; }
+  // O CRU, COMO O BANCO O DEVOLVEU — e o comentário do campo só passou a
+  // descrever o código na v1.9.15: até aqui ele guardava o resultado do
+  // `fileUrl`, que é meio caminho entre os dois e não responde nem a uma
+  // pergunta nem a outra. É a diferença entre ESTE e o do fio que mostra um 404
+  // nascido de codificação, e ela some quando os dois lados são o mesmo lado.
+  acervoCenso.ultimoPath = String(urlPath || '');
+  try { acervoCenso.ultimaUrl = new URL(Louvorja.fileUrl(urlPath)).href; }
   catch (_) { acervoCenso.ultimaUrl = ''; }
   if (status) {
     acervoCenso.ultimoStatus = status;
@@ -19840,9 +20043,27 @@ function acervoFalhou(causa, detalhe, urlPath, coll, status) {
     diagC('acervo: o arquivo NÃO chegou ao disco (' + detalhe + ')');
   }
 }
-// O retrato das TRÊS causas, para a frase de UM lote (ver `syncCollection`).
+// O endereço saiu do servidor de arquivos do LouvorJA. **NÃO entra em
+// `recusadas`**: aquela conta o que a FONTE respondeu, e aqui não houve pedido —
+// misturar as duas faria a distribuição de status do Registro descrever uma
+// resposta que ninguém deu.
+function acervoForaDoServidor(urlPath, coll) {
+  acervoCenso.foraDoServidor++;
+  acervoCenso.ultimoForaDoServidor = String(urlPath || '');
+  const nome = (coll && coll.name) || '';
+  if (nome) acervoCenso.albuns[nome] = (acervoCenso.albuns[nome] || 0) + 1;
+  if (!acervoFalhaAnunciada) {
+    acervoFalhaAnunciada = true;
+    diagC('acervo: o endereço do arquivo aponta para FORA do servidor conhecido');
+  }
+}
+
+// O retrato das QUATRO causas, para a frase de UM lote (ver `syncCollection`).
 function retratoDoCenso() {
-  return { semRede: acervoCenso.semRede, recusadas: acervoCenso.recusadas, semEspaco: acervoCenso.semEspaco };
+  return {
+    semRede: acervoCenso.semRede, recusadas: acervoCenso.recusadas,
+    semEspaco: acervoCenso.semEspaco, foraDoServidor: acervoCenso.foraDoServidor,
+  };
 }
 // A CAUSA EM TRÊS PALAVRAS, e ela nunca falha VAZIO — a mesma regra da cifra:
 // cada motivo pede uma ação diferente de quem lê, e uma frase genérica ("sem
@@ -19850,7 +20071,7 @@ function retratoDoCenso() {
 //
 // MISTURADAS, ELA NÃO ESCOLHE. Duas causas no mesmo lote são duas histórias, e
 // eleger a maior esconderia a outra numa linha que cabe três palavras; quem as
-// separa é o Registro, que tem espaço e traz as três contagens.
+// separa é o Registro, que tem espaço e traz as QUATRO contagens.
 // ===== A CAUSA NO CARTÃO DA PRÉVIA (v1.9.14) =====
 //
 // O relato que a criou: *"não executam se selecionados individualmente, com
@@ -19866,17 +20087,18 @@ function retratoDoCenso() {
 //
 // O TEXTO É CURTO PORQUE A CAIXA É PEQUENA (a mesma medida do
 // `avisarResolucaoLimitada`: `-webkit-line-clamp: 2` num cartão de ~163px).
-// Alguma das três causas subiu desde o retrato? É a pergunta que separa "a
+// Alguma das QUATRO causas subiu desde o retrato? É a pergunta que separa "a
 // busca chegou ao fim e não há" de "a busca não chegou ao fim".
 function houveFalhaDeAcervo(antes) {
-  const base = antes || { semRede: 0, recusadas: 0, semEspaco: 0 };
+  const base = antes || { semRede: 0, recusadas: 0, semEspaco: 0, foraDoServidor: 0 };
   return acervoCenso.semRede > base.semRede
     || acervoCenso.recusadas > base.recusadas
-    || acervoCenso.semEspaco > base.semEspaco;
+    || acervoCenso.semEspaco > base.semEspaco
+    || acervoCenso.foraDoServidor > (base.foraDoServidor || 0);
 }
 
 function motivoDoCartao(antes) {
-  const base = antes || { semRede: 0, recusadas: 0, semEspaco: 0 };
+  const base = antes || { semRede: 0, recusadas: 0, semEspaco: 0, foraDoServidor: 0 };
   if (acervoCenso.semEspaco > base.semEspaco) return 'sem espaço neste aparelho';
   if (acervoCenso.recusadas > base.recusadas) {
     // O NÚMERO VAI JUNTO. "A fonte recusou" manda procurar um defeito no app;
@@ -19887,28 +20109,64 @@ function motivoDoCartao(antes) {
       : 'a fonte recusou o arquivo';
   }
   if (acervoCenso.semRede > base.semRede) return 'o servidor de arquivos não respondeu';
+  if (acervoCenso.foraDoServidor > (base.foraDoServidor || 0)) {
+    return 'o endereço do arquivo mudou de servidor';
+  }
   return 'sem internet para baixar';
 }
 
 function causaDoAcervo(antes) {
-  const base = antes || { semRede: 0, recusadas: 0, semEspaco: 0 };
+  const base = antes || { semRede: 0, recusadas: 0, semEspaco: 0, foraDoServidor: 0 };
   const rede = acervoCenso.semRede - base.semRede;
   const recusa = acervoCenso.recusadas - base.recusadas;
   const espaco = acervoCenso.semEspaco - base.semEspaco;
-  const quantas = (rede > 0) + (recusa > 0) + (espaco > 0);
+  const fora = acervoCenso.foraDoServidor - (base.foraDoServidor || 0);
+  const quantas = (rede > 0) + (recusa > 0) + (espaco > 0) + (fora > 0);
   if (quantas > 1) return 'sem chegar ao aparelho (ver o Registro)';
   if (espaco > 0) return 'sem espaço no aparelho';
+  if (fora > 0) return 'com endereço fora do servidor';
   if (recusa > 0) return 'recusada(s) pela fonte';
   if (rede > 0) return 'sem rede';
-  // Nenhuma das três subiu e ainda assim houve falha: o `music_{id}` é que não
-  // veio (o `downloadCollectionSong` desiste antes de pedir arquivo nenhum).
+  // Nenhuma das quatro subiu e ainda assim houve falha: o `music_{id}` é que
+  // não veio (o `downloadCollectionSong` desiste antes de pedir arquivo nenhum).
   return 'sem rede';
+}
+
+// ===== A EXTENSÃO SAI DO NOME DO ARQUIVO, nunca da URL inteira (v1.9.15) =====
+//
+// `url.split('.').pop()` bastava enquanto o campo era CAMINHO
+// (`/musics/123/cantado.mp3`). Com ele virando URL ABSOLUTA, o host entra na
+// conta — e o host tem pontos. MEDIDO:
+// `https://api.louvorja.com.br/file/images/123` (sem extensão no fim) devolve
+// **`br/file/images/123`**, que é usado como extensão e vira CAMINHO no OPFS
+// (`splitPath` quebra por `/`): o arquivo se espalha por diretórios inventados,
+// e a soma de peso da pasta — que lê só os arquivos do primeiro nível — deixa
+// de contá-lo. Recortar o ÚLTIMO SEGMENTO antes fecha isso.
+//
+// E o resultado é VALIDADO, não só recortado: um nome com ponto no meio
+// (`Santo, Santo, Santo! - PB`) ou um título terminado em pontuação daria uma
+// "extensão" com espaço ou acento, e o que se quer ali é um sufixo de arquivo.
+// Não casando, cai no padrão — que é o que o campo já fazia quando não havia
+// ponto nenhum.
+function extensaoDoArquivo(url, padrao) {
+  const semQuery = String(url || '').split('?')[0].split('#')[0];
+  const nome = semQuery.split('/').pop() || '';
+  const i = nome.lastIndexOf('.');
+  const ext = i > 0 ? nome.slice(i + 1).toLowerCase() : '';
+  return /^[a-z0-9]{1,8}$/.test(ext) ? ext : padrao;
 }
 
 async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyrics) {
   if (!urlPath) return null;
   let blob;
   acervoCenso.tentadas++;
+  // CONDENADO POR CONSTRUÇÃO: a trava de host transformaria isto num 404 do
+  // nosso host, e o Registro diria "o arquivo não existe" sobre uma origem que
+  // mudou de servidor. Nem sai o pedido; sai a CAUSA.
+  if (Louvorja.foraDoServidor(urlPath)) {
+    acervoForaDoServidor(urlPath, coll);
+    return null;
+  }
   try {
     const res = await fetch(Louvorja.fileUrl(urlPath));
     // O STATUS ENTRA NA FRASE. "Não deu" e "o servidor respondeu 404" pedem
@@ -19916,7 +20174,7 @@ async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyr
     if (!res.ok) { acervoFalhou('recusadas', 'a fonte respondeu HTTP ' + res.status, urlPath, coll, res.status); return null; }
     blob = await res.blob();
   } catch (_) { acervoFalhou('semRede', 'o servidor de arquivos não respondeu', urlPath, coll, 0); return null; }
-  const ext = (urlPath.split('.').pop() || 'mp3').toLowerCase().split('?')[0];
+  const ext = extensaoDoArquivo(urlPath, 'mp3');
   const id = uid();
   const path = 'folders/' + coll.id + '/' + s.id_music + '-' + variantLabel.toLowerCase() + '.' + ext;
   try { await AVDB.opfsWriteFile(path, blob); }
@@ -19967,12 +20225,13 @@ async function downloadCollectionImage(folderId, url, songId, index) {
   // sem uma linha que dissesse o que a fonte respondia. A CONTA fica separada
   // (o custo de uma capa é outro); o que passa a ser comum é a pergunta *"o que
   // a fonte está respondendo?"*, que é a mesma para os dois.
+  if (Louvorja.foraDoServidor(url)) { acervoForaDoServidor(url, null); acervoCenso.capasPerdidas++; return null; }
   try {
     const res = await fetch(Louvorja.fileUrl(url));
     if (!res.ok) { acervoFalhou('capasPerdidas', 'a fonte respondeu HTTP ' + res.status, url, null, res.status); return null; }
     blob = await res.blob();
   } catch (_) { acervoFalhou('capasPerdidas', 'o servidor de arquivos não respondeu', url, null, 0); return null; }
-  const ext = (url.split('.').pop() || 'jpg').toLowerCase().split('?')[0];
+  const ext = extensaoDoArquivo(url, 'jpg');
   const path = 'folders/' + folderId + '/' + songId + '-img-' + index + '.' + ext;
   try { await AVDB.opfsWriteFile(path, blob); }
   catch (_) { acervoFalhou('capasPerdidas', 'o aparelho recusou gravar (espaço?)', url, null, 0); return null; }
@@ -26475,7 +26734,13 @@ const ACERVO_ALBUNS_MAX = 6;
 function blocoAcervo() {
   const c = acervoCenso;
   if (!c.tentadas) return '';
-  const falhas = c.semRede + c.recusadas + c.semEspaco;
+  // TODAS AS CINCO (v1.9.15): a linha de fecho é *"nenhuma falha"*, e ela
+  // saía por cima de `1028× a imagem de fundo não veio`. Um bloco que se
+  // contradiz na própria altura é o log que discorda do aparelho — e este é
+  // lido A DISTÂNCIA, por quem não tem como conferir. As CONTAS seguem
+  // separadas (uma capa perdida custa outra coisa que um áudio perdido); o que
+  // passa a somar é a pergunta *"houve alguma?"*.
+  const falhas = c.semRede + c.recusadas + c.semEspaco + c.capasPerdidas + c.foraDoServidor;
   const linhas = [];
   linhas.push('  arquivos buscados nesta sessão: ' + c.tentadas
     + ' · gravados no aparelho: ' + c.gravadas);
@@ -26520,6 +26785,16 @@ function blocoAcervo() {
   // pergunta. Esta é a que se cola. Ela só aparece quando DIFERE do cru —
   // repetir a mesma linha duas vezes é uma a mais para ler em toda cópia.
   if (c.ultimaUrl && c.ultimaUrl !== c.ultimoPath) linhas.push('  no fio: ' + c.ultimaUrl);
+  // O ENDEREÇO QUE APONTA PARA FORA (v1.9.15). Ele não vira pedido — está
+  // condenado por construção —, e sem esta linha o desfecho dele é
+  // indistinguível de "o arquivo não existe". Com o ÚLTIMO endereço junto:
+  // saber que aconteceu não diz para ONDE a origem apontou, e é o destino que
+  // decide se a trava do `fileUrl` precisa alcançá-lo.
+  if (c.foraDoServidor) {
+    linhas.push('  ' + c.foraDoServidor + '× o endereço aponta para FORA do servidor de '
+      + 'arquivos conhecido — o app não busca bytes noutro host');
+    linhas.push('    último: ' + c.ultimoForaDoServidor);
+  }
   // A MEDIÇÃO QUE O PRÓXIMO CONSERTO PEDE, e só ela: `?` e `#` no nome do
   // arquivo truncam a URL, e a decisão de sanear (que é adivinhação) fica para
   // quem tiver o número. Só sai quando há algum.

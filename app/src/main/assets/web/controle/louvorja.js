@@ -34,10 +34,25 @@
     return res.json();
   }
 
-  // O HOST do servidor de arquivos, DERIVADO e nunca digitado à parte: uma
-  // segunda escrita do mesmo endereço divergiria no primeiro ajuste, e o que
-  // ela trava é segurança (ver a guarda abaixo).
+  // O HOST do servidor de arquivos e o DOMÍNIO da origem, os dois DERIVADOS do
+  // endereço acima e nunca digitados à parte: uma segunda escrita do mesmo
+  // endereço divergiria no primeiro ajuste, e o que eles travam é segurança
+  // (ver a guarda abaixo).
+  //
+  // O domínio são os TRÊS ÚLTIMOS RÓTULOS, porque o sufixo é de duas partes
+  // (`com.br`) — a origem é brasileira e o endereço é constante deste arquivo,
+  // então não há aqui uma regra geral de sufixo público a acertar. Muda o
+  // endereço, muda a conta, e é por isso que ela é derivada e não digitada.
   const FILE_HOST = new URL(FILE_URL).host;
+  const DOMINIO_ORIGEM = FILE_HOST.split('.').slice(-3).join('.');
+
+  // "Este host é da ORIGEM?" — o PONTO é o que ancora a comparação. Sem ele,
+  // `endsWith('louvorja.com.br')` aceitaria `evillouvorja.com.br`, que é a
+  // invariante 2 do shell pelo outro lado do string.
+  function daOrigem(host) {
+    const h = String(host || '').toLowerCase();
+    return h === DOMINIO_ORIGEM || h.endsWith('.' + DOMINIO_ORIGEM);
+  }
 
   // Resolve o campo de mídia de um registro do banco (`url_music`,
   // `url_instrumental_music`, `url_image`) para a URL de download.
@@ -65,10 +80,24 @@
   // forma de hoje quebra no dia em que a origem desfizer a mudança — pelo mesmo
   // caminho silencioso.
   //
-  // **E O HOST É TRAVADO.** Aceitar URL absoluta é deixar o JSON dizer PARA ONDE
-  // o `fetch` vai, e quem busca é o WebView do orígin privilegiado. Um host
-  // estranho cai no ramo de sempre (vira caminho, dá 404 e entra no censo) em
-  // vez de virar um pedido para fora — falha FECHADA, que é o lado certo aqui.
+  // **E O HOST É TRAVADO — NO DOMÍNIO DA ORIGEM, não num host exato** (v1.9.15).
+  // Aceitar URL absoluta é deixar o JSON dizer PARA ONDE o `fetch` vai, e quem
+  // busca é o WebView do orígin privilegiado; um endereço de fora cai no ramo de
+  // sempre (vira caminho, dá 404 e entra no censo) em vez de virar um pedido
+  // para fora — falha FECHADA, que é o lado certo aqui.
+  //
+  // **MAS TRAVAR NO HOST EXATO É ESTREITO DEMAIS, e o preço disso é MUDO:** a
+  // origem serve o áudio e a imagem pelos campos do MESMO JSON, e nada a obriga
+  // a servi-los pelo mesmo subdomínio. Um `url_image` em outro host da
+  // louvorja.com.br era transformado em caminho, respondia 404, e o desfecho era
+  // exatamente o relato — *"conseguiu baixar e usar as músicas, mas não está
+  // vindo com as imagens de fundo"*: o áudio chega, o FUNDO da letra não, e nada
+  // na tela liga uma coisa à outra. O domínio da origem é a fronteira certa —
+  // ele continua impedindo o JSON de escolher um terceiro.
+  //
+  // **O PONTO É O QUE ANCORA A COMPARAÇÃO**, e tirá-lo é a invariante 2 pelo
+  // outro lado: `endsWith('louvorja.com.br')` aceita `evillouvorja.com.br`, um
+  // domínio que qualquer um registra.
   //
   // **NADA DE `encodeURI` NEM `encodeURIComponent`.** O `fetch` já percent-encoda
   // espaço e acento pelo path percent-encode set (MEDIDO: idêntico ao
@@ -78,9 +107,28 @@
     if (!path) return path;
     const p = String(path);
     if (!/^https?:\/\//i.test(p)) return FILE_URL + p;
-    try { return new URL(p).host === FILE_HOST ? p : FILE_URL + p; }
+    try { return daOrigem(new URL(p).host) ? p : FILE_URL + p; }
     catch (_) { return FILE_URL + p; }
   }
 
-  global.Louvorja = { fetchList, fileUrl, HYMNAL_2022_FILE, HYMNAL_1996_FILE, CATEGORIES_FILE };
+  // **O ENDEREÇO É DE OUTRO HOST?** — quem CLASSIFICA, para quem precisa DIZER.
+  //
+  // A trava de host do `fileUrl` falha FECHADA, e isso está certo. Mas o que ela
+  // produz é um pedido ao NOSSO host com um caminho absurdo, que responde 404 —
+  // **indistinguível de "o arquivo não existe"** para quem lê o Registro. Um
+  // diagnóstico que dá a mesma resposta para duas causas OPOSTAS (a origem mudou
+  // de servidor × o arquivo sumiu) manda procurar no lugar errado.
+  //
+  // Ele CLASSIFICA e não decide: o `fileUrl` continua sendo quem escolhe o
+  // destino, e este aqui só responde por que aquela escolha saiu como saiu.
+  function foraDoServidor(path) {
+    const p = String(path || '');
+    if (!/^https?:\/\//i.test(p)) return false;
+    try { return !daOrigem(new URL(p).host); } catch (_) { return true; }
+  }
+
+  global.Louvorja = {
+    fetchList, fileUrl, foraDoServidor,
+    HYMNAL_2022_FILE, HYMNAL_1996_FILE, CATEGORIES_FILE,
+  };
 })(this);

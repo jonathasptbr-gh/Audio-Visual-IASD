@@ -7094,6 +7094,29 @@ marca se a URL aparecer depois — o índice é reaproveitado in-place pelo
 `levantarColecao` a conta como `semFonte`, `songVariantsNeeded` para de pedir o
 metadado, e ela sai **dos dois lados** da fração.
 
+**E A MESMA REGRA VALE PARA O FUNDO DA LETRA** (`semImagem`, v1.9.15): a música
+cuja origem não publica foto nenhuma sai da fila do backfill de vez, e a marca se
+APAGA quando a origem passa a ter — ela diz o que o banco respondeu HOJE, nunca
+um veredito permanente.
+
+**O BACKFILL DO FUNDO (`syncImagensColecao`) EXISTE PORQUE OS SLIDES CONGELAM.**
+A letra guarda `imageOpfsPath` resolvido NO MOMENTO do download, e
+`ensureSongVariant` devolve cedo para todo registro que já tenha `lyrics`: a
+faixa baixada num dia em que as imagens falhavam fica sem fundo **para sempre**,
+e re-sincronizar não reconstrói nada — a régua diz que ela está completa, e está,
+porque o áudio chegou. A porta é `opts.refazerLetra`, que pula essa guarda e faz
+o ramo do registro existente regravar a letra **sem rebaixar o áudio** (variante
+que nunca desceu volta intacta: uma rotina rotulada *"Fundos da letra"* não puxa
+megabytes). Ele roda nos DOIS desfechos do `syncCollection` — inclusive no *"Já
+completo offline"*, que é por onde sai o hinário cujo áudio já está todo no disco
+—, **pula o que o mesmo toque acabou de tentar** (`pular`, senão cada faixa é
+buscada duas vezes e o censo conta duas falhas por uma tentativa) e **conta pelo
+DISCO**, nunca pelo retorno de `downloadCollectionSong`, que responde pelo ÁUDIO
+e diria `true` sobre uma faixa que continua sem fundo. **NÃO corre sozinho**: um
+`music_{id}` por faixa sem fundo pendurado no `autoRefreshCollections` seriam
+centenas de requisições por abertura de app, para sempre, onde a origem não sirva
+imagem.
+
 **O botão de GRUPO segue a mesma régua** (`grupoCompleto(colls)` =
 `colls.every(colecaoCompleta)`, e não uma soma de músicas, que responderia
 diferente da linha logo abaixo). O custo do toque ali é maior: `syncGroup`
