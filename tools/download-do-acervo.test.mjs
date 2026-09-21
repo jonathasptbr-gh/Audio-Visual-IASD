@@ -65,7 +65,10 @@ try {
   await pg.evaluate(() => {
     window.__fetchReal = window.fetch;
     window.__pedidos = 0;
+    window.__pedidosImg = 0;
     window.__modo = 'ok';       // ok | semRede | recusa
+    window.__modoImg = 'ok';    // ok | recusa   (a imagem de fundo da letra)
+    window.__imagem = null;     // o campo `url_image` da fixture, quando há um
     window.__opfsQuebrado = false;
     const opfsReal = AVDB.opfsWriteFile;
     AVDB.opfsWriteFile = async (p, b) => {
@@ -75,6 +78,14 @@ try {
     window.fetch = async (u, o) => {
       const s = String(u && u.url ? u.url : u);
       if (s.includes('api.louvorja.com.br/file')) {
+        // A IMAGEM TEM MODO PRÓPRIO: o caso do relato é o áudio chegando e o
+        // FUNDO não, e com um modo só ele não existe — os dois falhariam ou os
+        // dois viriam, que é justamente o par que esconde o defeito.
+        if (/\.(jpg|png|webp)$|\/imagens\//.test(s)) {
+          window.__pedidosImg++;
+          if (window.__modoImg === 'recusa') return new Response('', { status: 404 });
+          return new Response(new Blob([new Uint8Array(64)], { type: 'image/jpeg' }), { status: 200 });
+        }
         window.__pedidos++;
         if (window.__modo === 'semRede') throw new TypeError('Failed to fetch');
         if (window.__modo === 'recusa') return new Response('', { status: 404 });
@@ -111,7 +122,7 @@ try {
       return {
         id_music: id,
         url_music: window.__semFonte ? '' : caminho,
-        url_image: null, has_instrumental_music: false,
+        url_image: window.__imagem, has_instrumental_music: false,
         lyric: { 1: { show_slide: 1, order: 1, lyric: 'linha', time: '00:00:10' } },
       };
     };
@@ -430,6 +441,162 @@ try {
     'e a URL COMO O SERVIDOR A RECEBEU — o caminho do banco vem com espaço e acento crus, e '
     + 'colar o cru num navegador responde outra pergunta', l.registro);
 
+
+  // ---- M: A EXTENSÃO SAI DO NOME, NÃO DA URL INTEIRA (v1.9.15) ------------
+  //
+  // `url.split('.').pop()` bastava enquanto o campo era CAMINHO. Com ele virando
+  // URL ABSOLUTA o HOST entra na conta, e host tem ponto: um endereço sem
+  // extensão no fim devolvia `br/file/images/123` como "extensão", que vira
+  // CAMINHO no OPFS (`splitPath` quebra por `/`) e espalha o arquivo por
+  // diretórios inventados — onde a soma de peso da pasta, que lê só o primeiro
+  // nível, deixa de contá-lo.
+  // MEDIDO NO CAMINHO GRAVADO, e não na função: uma asserção que chama
+  // `extensaoDoArquivo` direto passa com e sem o conserto no CONSUMIDOR — ela
+  // prova que a função existe, não que alguém a usa. A célula é o
+  // `imageOpfsPath` do registro.
+  const m = await pg.evaluate(async () => {
+    window.__modo = 'ok'; window.__modoImg = 'ok'; window.__opfsQuebrado = false; window.__semFonte = false;
+    window.__imagem = 'https://api.louvorja.com.br/file/imagens/123';  // SEM extensão no fim
+    const coll = { id: 't-ext', name: 'Álbum Ext', kind: 'album', source: 'fonte-de-uma' };
+    collState[coll.id] = { indexSyncedAt: 0, songs: [] };
+    await syncCollection(coll, { allowMobile: true });
+    const rec = await AVDB.fileGet(collSongs(coll.id)[0].fileIdFull);
+    const caminho = (rec && rec.lyrics && rec.lyrics[0] && rec.lyrics[0].imageOpfsPath) || '';
+    window.__imagem = null;
+    return {
+      caminho,
+      segmentos: caminho.split('/').filter(Boolean).length,
+      // as bordas, medidas na função — elas não têm consumidor próprio, e o que
+      // as cobre é esta linha.
+      comExt: extensaoDoArquivo('https://api.louvorja.com.br/file/a/Hino 1 - PB.mp3', 'mp3'),
+      caminhoRelativo: extensaoDoArquivo('/musics/123/cantado.mp3', 'mp3'),
+      comQuery: extensaoDoArquivo('https://api.louvorja.com.br/file/a/x.jpg?v=1.2', 'jpg'),
+      pontoNoMeio: extensaoDoArquivo('https://api.louvorja.com.br/file/a/Hino n.1 - PB', 'mp3'),
+      velho: 'https://api.louvorja.com.br/file/imagens/123'.split('.').pop(),
+    };
+  });
+  checar(m.segmentos === 3 && /\.jpg$/.test(m.caminho),
+    'a imagem de um endereço SEM extensão é gravada num arquivo, não numa árvore de diretórios '
+    + 'inventados — `splitPath` quebra por "/", e o que estava sobrando ali era um pedaço do HOST',
+    m.caminho);
+  checar(m.velho.indexOf('/') > 0,
+    'e a MEDIÇÃO que sustenta o conserto: a conta antiga devolvia um pedaço de caminho como '
+    + '"extensão"', m.velho);
+  checar(m.comExt === 'mp3' && m.caminhoRelativo === 'mp3' && m.comQuery === 'jpg',
+    'as formas que já funcionavam continuam inteiras — absoluta com extensão, caminho relativo, '
+    + 'e a query que não faz parte do nome',
+    JSON.stringify([m.comExt, m.caminhoRelativo, m.comQuery]));
+  checar(m.pontoNoMeio === 'mp3',
+    'e um ponto NO MEIO do nome não vira extensão: o resultado é VALIDADO, não só recortado',
+    m.pontoNoMeio);
+
+  // ---- N: O ENDEREÇO DE OUTRO SERVIDOR É CAUSA COM NOME (v1.9.15) ---------
+  //
+  // A trava de host do `fileUrl` falha FECHADA, e está certo; o que ela produz é
+  // um 404 do NOSSO host — indistinguível de "o arquivo não existe". Duas causas
+  // OPOSTAS com a mesma linha mandam procurar no lugar errado.
+  const n = await pg.evaluate(async () => {
+    // O CENSO É ZERADO AQUI, e é PREMISSA: ele acumula pela sessão inteira, e
+    // os casos A–C já deixaram falhas de todas as outras colunas. A asserção do
+    // fecho — *"nenhuma falha"* não pode conviver com uma linha de falha — passa
+    // por acidente contra um censo sujo, com e sem o conserto.
+    Object.assign(acervoCenso, {
+      tentadas: 0, gravadas: 0, semRede: 0, recusadas: 0, semEspaco: 0,
+      capasPerdidas: 0, foraDoServidor: 0, truncaveis: 0,
+      porStatus: {}, albuns: {}, motivo: '', ultimoStatus: 0, ultimaUrl: '', ultimoPath: '',
+    });
+    const antes = { fora: acervoCenso.foraDoServidor, recusadas: acervoCenso.recusadas };
+    window.__modo = 'ok'; window.__modoImg = 'ok'; window.__opfsQuebrado = false; window.__semFonte = false;
+    window.__imagem = 'https://cdn.outrolugar.example/imagens/1.jpg';
+    window.__pedidos = 0; window.__pedidosImg = 0;
+    const coll = { id: 't-fora', name: 'Álbum Fora', kind: 'album', source: 'fonte-de-uma' };
+    collState[coll.id] = { indexSyncedAt: 0, songs: [] };
+    const censoAntes = retratoDoCenso();
+    const devolveu = await syncCollection(coll, { allowMobile: true });
+    const r = {
+      devolveu,
+      fora: acervoCenso.foraDoServidor - antes.fora,
+      recusadas: acervoCenso.recusadas - antes.recusadas,
+      pedidosImg: window.__pedidosImg,
+      cartao: motivoDoCartao(censoAntes),
+      registro: blocoAcervo(),
+      outras: acervoCenso.semRede + acervoCenso.recusadas + acervoCenso.semEspaco,
+    };
+    window.__imagem = null;
+    return r;
+  });
+  checar(n.fora === 1 && n.pedidosImg === 0,
+    'o endereço de fora é CONTADO e o pedido nem sai — ele está condenado por construção',
+    JSON.stringify([n.fora, n.pedidosImg]));
+  checar(n.recusadas === 0,
+    'e NÃO entra em "recusadas": aquela conta o que a FONTE respondeu, e aqui ninguém respondeu '
+    + '— misturar as duas faria a distribuição de status descrever uma resposta que não houve',
+    n.recusadas);
+  checar(/FORA do servidor/.test(n.registro) && /cdn\.outrolugar\.example/.test(n.registro),
+    'o Registro diz a causa E para onde a origem apontou — saber que aconteceu não diz se a '
+    + 'trava precisa alcançar aquele host', n.registro);
+  checar(/mudou de servidor/.test(n.cartao),
+    'e o cartão da prévia nomeia a mesma causa, em vez de acusar a internet do operador', n.cartao);
+  checar(n.devolveu.ok === true && n.devolveu.baixados === 1,
+    'o ÁUDIO chegou assim mesmo: uma capa perdida custa o fundo de um slide, não a faixa',
+    JSON.stringify(n.devolveu));
+  checar(n.outras === 0,
+    'premissa do fecho: nesta passada NENHUMA das três colunas antigas subiu — sem ela o bloco '
+    + 'já não diria "nenhuma falha" por outro motivo, e a asserção abaixo passaria por acidente',
+    n.outras);
+  checar(!/nenhuma falha de download/.test(n.registro),
+    'e o bloco NÃO se fecha dizendo "nenhuma falha" com uma linha de falha impressa acima — '
+    + 'um log que se contradiz na própria altura é o pior artefato de um diagnóstico lido a distância',
+    n.registro);
+
+  // ---- O: O FUNDO DA LETRA ALCANÇA O QUE JÁ ESTÁ NO APARELHO (v1.9.15) ----
+  //
+  // O relato: *"conseguiu baixar, e usar as músicas, mas não está vindo com as
+  // imagens de fundo"*. Os slides guardam `imageOpfsPath` resolvido NO MOMENTO
+  // do download, e `ensureSongVariant` devolve cedo para todo registro que já
+  // tenha `lyrics` — então a faixa baixada num dia em que as imagens falhavam
+  // fica sem fundo PARA SEMPRE, e re-sincronizar não reconstrói nada.
+  const o = await pg.evaluate(async () => {
+    const fundos = (rec) => (rec && Array.isArray(rec.lyrics)
+      ? rec.lyrics.filter((x) => x && x.imageOpfsPath).length : -1);
+    // 1) o áudio chega, a imagem NÃO — é a célula do relato.
+    window.__modo = 'ok'; window.__modoImg = 'recusa'; window.__opfsQuebrado = false; window.__semFonte = false;
+    window.__imagem = '/imagens/capa-101.jpg';
+    const coll = { id: 't-fundo', name: 'Álbum Fundo', kind: 'album', source: 'fonte-de-uma' };
+    collState[coll.id] = { indexSyncedAt: 0, songs: [] };
+    await syncCollection(coll, { allowMobile: true });
+    const s1 = collSongs(coll.id)[0];
+    const antes = fundos(await AVDB.fileGet(s1.fileIdFull));
+    const completaAntes = colecaoCompleta(coll.id);
+
+    // 2) a imagem passa a vir, e o operador toca em sincronizar de novo.
+    window.__modoImg = 'ok';
+    window.__pedidos = 0; window.__pedidosImg = 0;
+    await syncCollection(coll, { allowMobile: true });
+    const s2 = collSongs(coll.id)[0];
+    const depois = fundos(await AVDB.fileGet(s2.fileIdFull));
+    const r = {
+      antes, depois, completaAntes,
+      status: ui(coll.id).status,
+      audioRebaixado: window.__pedidos,
+      mesmoId: s1.fileIdFull === s2.fileIdFull,
+    };
+    window.__imagem = null;
+    return r;
+  });
+  checar(o.antes === 0 && o.completaAntes,
+    'a PREMISSA, e é ela que faz o defeito invisível: a faixa fica COMPLETA (o áudio chegou) com '
+    + 'zero slides com fundo — nenhuma régua da tela tem o que reclamar',
+    JSON.stringify([o.antes, o.completaAntes]));
+  checar(o.depois > 0,
+    'depois de sincronizar com a imagem voltando, os slides GANHAM fundo — sem isto a única saída '
+    + 'do operador seria excluir a coleção e rebaixar o hinário inteiro pelas fotos', o.depois);
+  checar(o.audioRebaixado === 0 && o.mesmoId,
+    'e o áudio NÃO é rebaixado: o mesmo arquivo continua no lugar, e a rotina dos fundos não puxa '
+    + 'megabytes sob um rótulo que diz outra coisa', JSON.stringify([o.audioRebaixado, o.mesmoId]));
+  checar(/Fundos da letra: 1/.test(o.status),
+    'e a faixa de status DIZ o que aconteceu — um toque em sincronizar que faz algo e não conta '
+    + 'é indistinguível de um que não fez nada', o.status);
 } finally {
   await navegador.close();
   servidor.close();

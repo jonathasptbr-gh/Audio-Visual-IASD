@@ -128,5 +128,45 @@ checar(new URL(BASE + '/pt/a/nº 1.mp3').pathname === '/file/pt/a/n%C2%BA%201.mp
   'e espaço e acento NÃO truncam: eles entram percent-encodados, que é o certo',
   new URL(BASE + '/pt/a/nº 1.mp3').pathname);
 
+// ---- O DOMÍNIO DA ORIGEM, E NÃO UM HOST EXATO (v1.9.15) ------------------
+// O relato que criou esta metade: *"conseguiu baixar, e usar as músicas, mas
+// não está vindo com as imagens de fundo"*. Com a trava no host EXATO, um
+// `url_image` servido por outro subdomínio da origem virava caminho, respondia
+// 404, e o desfecho era o áudio chegando e o FUNDO não — sem nada na tela que
+// ligasse as duas coisas.
+const subdominio = 'https://files.louvorja.com.br/file/images/1.jpg';
+checar(L.fileUrl(subdominio) === subdominio,
+  'um subdomínio da ORIGEM passa intacto — é o que faz a imagem de fundo poder chegar '
+  + 'quando ela não é servida pelo mesmo host do áudio', L.fileUrl(subdominio));
+checar(L.fileUrl('https://louvorja.com.br/file/x.jpg') === 'https://louvorja.com.br/file/x.jpg',
+  'e o domínio nu também é a origem', L.fileUrl('https://louvorja.com.br/file/x.jpg'));
+
+// O PONTO É O QUE ANCORA — a invariante 2 do shell pelo outro lado do string.
+const parecido = 'https://evillouvorja.com.br/x.jpg';
+checar(!/^https?:\/\/evillouvorja/i.test(L.fileUrl(parecido)),
+  'um domínio que apenas TERMINA no nome da origem não é a origem: sem o ponto ancorando, '
+  + '`evillouvorja.com.br` — que qualquer um registra — seria destino do fetch privilegiado',
+  L.fileUrl(parecido));
+
+// ---- A CLASSIFICAÇÃO EXISTE PARA O REGISTRO PODER DIZER ------------------
+// A trava falha FECHADA, e isso está certo; o que ela produz é um 404 do NOSSO
+// host, indistinguível de "o arquivo não existe". `foraDoServidor` é quem
+// separa as duas causas, que pedem ações opostas.
+checar(L.foraDoServidor('/musics/123/cantado.mp3') === false,
+  'um CAMINHO nunca é "de outro servidor" — ele nem escolhe host',
+  L.foraDoServidor('/musics/123/cantado.mp3'));
+checar(L.foraDoServidor(absoluta) === false && L.foraDoServidor(subdominio) === false,
+  'nem o host de sempre, nem um subdomínio da origem',
+  JSON.stringify([L.foraDoServidor(absoluta), L.foraDoServidor(subdominio)]));
+checar(L.foraDoServidor(estranho) === true && L.foraDoServidor(parecido) === true,
+  'e os dois que o `fileUrl` recusa são os dois que ele NOMEIA no censo',
+  JSON.stringify([L.foraDoServidor(estranho), L.foraDoServidor(parecido)]));
+checar(L.foraDoServidor('https://[não é url]/x.mp3') === true,
+  'URL absoluta ilegível conta como de fora: ela não é do nosso servidor, e é isso que '
+  + 'o Registro precisa dizer', L.foraDoServidor('https://[não é url]/x.mp3'));
+checar(L.foraDoServidor('') === false && L.foraDoServidor(null) === false,
+  'campo vazio não é falha de host nenhuma — quem responde por ele é a marca `semFonte`',
+  JSON.stringify([L.foraDoServidor(''), L.foraDoServidor(null)]));
+
 if (falhas.length) { console.error('\n' + falhas.length + ' falha(s).'); process.exit(1); }
 console.log('\nTodos passaram.');

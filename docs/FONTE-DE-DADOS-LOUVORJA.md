@@ -205,20 +205,32 @@ duas é `Louvorja.fileUrl`, com oráculo em `tools/louvorja-url.test.mjs`:
 | o campo vem como | a URL final é |
 |---|---|
 | **caminho** (começa com `/`) | `{FILE_URL}{path}` → `https://api.louvorja.com.br/file{path}` |
-| **URL absoluta** do próprio `api.louvorja.com.br` | **ela mesma**, sem prefixo nenhum |
+| **URL absoluta** de um host de `louvorja.com.br` | **ela mesma**, sem prefixo nenhum |
 
 Exemplos das duas, os dois observados em campo:
 `"/musics/123/cantado.mp3"` → `https://api.louvorja.com.br/file/musics/123/cantado.mp3`;
 `"https://api.louvorja.com.br/file/musics/pt/Hinário Adventista 2022/Santo, Santo, Santo! - PB.mp3"`
 → ela mesma.
 
-> **O HOST É TRAVADO.** Aceitar URL absoluta é deixar o JSON dizer PARA ONDE o
-> `fetch` do WebView privilegiado vai. Um endereço de outro host **não** vira o
-> destino do pedido: ele cai no ramo de caminho, dá 404 e entra no censo do
-> Registro — falha FECHADA.
+> **O DESTINO É TRAVADO NO DOMÍNIO DA ORIGEM.** Aceitar URL absoluta é deixar o
+> JSON dizer PARA ONDE o `fetch` do WebView privilegiado vai. Um endereço fora de
+> `louvorja.com.br` **não** vira o destino do pedido: ele cai no ramo de caminho,
+> dá 404 e entra no censo do Registro — falha FECHADA, **e com causa PRÓPRIA**
+> (`foraDoServidor`), porque um 404 do nosso host é indistinguível de *"o arquivo
+> não existe"*.
+>
+> **É o DOMÍNIO e não o host exato**, e a razão é o que a origem NÃO promete: ela
+> serve áudio e imagem por campos do MESMO JSON, e nada a obriga a servi-los pelo
+> mesmo subdomínio. Travado no host exato, um `url_image` noutro host dela vira
+> caminho e dá 404 — o áudio chega e o FUNDO da letra não. **O ponto ancora a
+> comparação:** sem ele, `endsWith('louvorja.com.br')` aceitaria
+> `evillouvorja.com.br`.
 
-- A **extensão** vem do próprio path (ex.: `path.split('.').pop()`), útil pra
-  gravar no OPFS com o mesmo tipo. Áudios costumam ser `.mp3`; imagens `.jpg`.
+- A **extensão** vem do NOME DO ARQUIVO, **nunca da URL inteira**: o host tem
+  pontos, e `url.split('.').pop()` sobre uma URL absoluta sem extensão devolve um
+  pedaço de CAMINHO — que vira árvore de diretórios no OPFS. Recorta-se o último
+  segmento e **valida-se** o resultado (`extensaoDoArquivo`). Áudios costumam ser
+  `.mp3`; imagens `.jpg`.
 - **Sem cache-busting** por padrão nesses arquivos (são imutáveis por path).
 - O tipo MIME real vem do `Content-Type`/`blob.type` da resposta (fallback
   usado aqui: `audio/mpeg` para áudio).

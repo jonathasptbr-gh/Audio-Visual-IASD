@@ -2579,14 +2579,68 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   são separadores, então o pedido sai BEM-FORMADO, chega ao host certo e a fonte
   responde 404 para 100% dos arquivos. Três regras ficam: **aceitar as DUAS
   formas** (a origem pode desfazer a mudança, e um app que só aceite a de hoje
-  quebra pelo mesmo caminho silencioso); **travar o HOST**, porque aceitar URL
-  absoluta é deixar o JSON dizer para onde o `fetch` do orígin privilegiado vai
-  (host estranho falha FECHADA); e **nunca re-encodar** — o `fetch` já
-  percent-encoda pelo path percent-encode set, e `encodeURI` sobre um caminho
-  já codificado produz `%25` e quebra até o que funciona. **E o que o parser
-  ENGOLE fica medido sem conserto:** `?` e `#` num nome de arquivo truncam a URL
-  sem erro nenhum, e sanear é adivinhar — o que se entrega é a CONTAGEM.
+  quebra pelo mesmo caminho silencioso); **travar no DOMÍNIO da origem**, porque
+  aceitar URL absoluta é deixar o JSON dizer para onde o `fetch` do orígin
+  privilegiado vai (endereço de fora falha FECHADA); e **nunca re-encodar** — o
+  `fetch` já percent-encoda pelo path percent-encode set, e `encodeURI` sobre um
+  caminho já codificado produz `%25` e quebra até o que funciona. **E o que o
+  parser ENGOLE fica medido sem conserto:** `?` e `#` num nome de arquivo truncam
+  a URL sem erro nenhum, e sanear é adivinhar — o que se entrega é a CONTAGEM.
+  **A TRAVA É NO DOMÍNIO E NÃO NUM HOST EXATO** (v1.9.15, corrigindo a v1.9.14):
+  a origem serve áudio e imagem por campos do MESMO JSON e nada a obriga a
+  servi-los pelo mesmo subdomínio — travado no host exato, o `url_image` em outro
+  host da origem virava caminho, respondia 404, e o desfecho era o áudio
+  chegando e o FUNDO da letra não. **O PONTO ANCORA A COMPARAÇÃO:** sem ele,
+  `endsWith('louvorja.com.br')` aceita `evillouvorja.com.br`, que qualquer um
+  registra — a invariante 2 do shell pelo outro lado do string. E o domínio é
+  DERIVADO do endereço, nunca digitado à parte. **E A TRAVA CRIA UMA CAUSA que
+  ela mesma precisa nomear:** falhar fechada produz um 404 do NOSSO host,
+  indistinguível de *"o arquivo não existe"* — duas causas OPOSTAS com a mesma
+  linha mandam procurar no lugar errado. Daí o contador `foraDoServidor`,
+  separado de `recusadas` (o pedido nem sai; somá-los faria a distribuição de
+  status descrever uma resposta que ninguém deu) e com o ÚLTIMO endereço junto,
+  que é o que diz se a trava precisa alcançar aquele host.
   Oráculo: `louvorja-url.test.mjs`.
+- **A EXTENSÃO SAI DO NOME DO ARQUIVO, NUNCA DA URL INTEIRA** (v1.9.15).
+  `url.split('.').pop()` bastava enquanto o campo era CAMINHO; com ele virando
+  URL absoluta o HOST entra na conta, e host tem ponto — MEDIDO,
+  `https://api.louvorja.com.br/file/imagens/123` devolvia **`br/file/imagens/123`**
+  como "extensão". Ela vira CAMINHO no OPFS (`splitPath` quebra por `/`): o
+  arquivo se espalha por diretórios inventados, e a soma de peso da pasta — que
+  lê só o primeiro nível — deixa de contá-lo, sem erro em lugar nenhum. Recorta-se
+  o ÚLTIMO SEGMENTO, e o resultado é **VALIDADO**, não só recortado (um ponto no
+  meio do nome não é extensão). **E a asserção mede o CAMINHO GRAVADO, nunca a
+  função:** chamá-la direto prova que ela existe, não que alguém a usa — medido,
+  passa com o consumidor revertido.
+- **UM CONSERTO QUE SÓ VALE NO MOMENTO DO DOWNLOAD NÃO ALCANÇA A BIBLIOTECA QUE
+  JÁ EXISTE — E ELA É A QUE O OPERADOR USA** (v1.9.15). Os slides de letra
+  guardam `imageOpfsPath` resolvido na hora do download, e `ensureSongVariant`
+  devolve cedo para todo registro que já tenha `lyrics`: a faixa baixada num dia
+  em que as imagens falhavam fica sem fundo **para sempre**, e re-sincronizar não
+  reconstrói nada — a régua diz que ela está completa, e está, porque o áudio
+  chegou. A única saída seria excluir a coleção e rebaixar o hinário. **Todo lote
+  que conserta um campo DERIVADO no download traz o backfill junto** — é a mesma
+  lição do preenchimento de `hymnAlbum` (v5.220), noutro campo. O backfill
+  (`syncImagensColecao`) reabre **só** a letra (`refazerLetra`), **nunca baixa
+  áudio** (variante que nunca desceu volta intacta: uma rotina rotulada *"Fundos
+  da letra"* não puxa megabytes), **pula o que o mesmo toque acabou de tentar**
+  (senão cada faixa é buscada duas vezes e o censo conta duas falhas por uma
+  tentativa) e **conta pelo DISCO, não pelo retorno** — aquele responde pelo
+  ÁUDIO e diria `true` sobre uma faixa que continua sem fundo. **E ele NÃO corre
+  sozinho, de propósito:** custa um `music_{id}` por faixa sem fundo, e pendurá-lo
+  no `autoRefreshCollections` (abertura + TODO `visibilitychange`) seria centenas
+  de requisições por abertura, para sempre, onde a origem não sirva imagem. A
+  porta é o toque em sincronizar; para correr sozinho ele precisaria do que a
+  varredura de cifras tem — um veredito POR MÚSICA gravado com data. O par disso
+  é **"a origem não publica imagem" como ESTADO** (`semImagem`, a regra `semFonte`
+  da v5.134 aplicada ao fundo), que se APAGA quando a origem passa a ter.
+- **UM BLOCO DO REGISTRO NÃO PODE SE CONTRADIZER NA PRÓPRIA ALTURA** (v1.9.15).
+  O fecho *"nenhuma falha de download nesta sessão"* saía quatro linhas abaixo de
+  `1028× a imagem de fundo não veio`, porque a soma que o decide ignorava duas
+  colunas. As CONTAS ficam separadas (uma capa perdida custa outra coisa que um
+  áudio perdido); o que soma é a pergunta *"houve alguma?"*. **E a asserção que
+  mede isso zera o censo como premissa declarada** — ele acumula pela sessão
+  inteira, e contra um censo sujo ela passa com e sem o conserto.
 - **UMA FALHA DE REDE DA FONTE NÃO É A REDE DE QUEM OPERA** (v1.9.14). O toque
   individual dizia *"sem internet para baixar"* sobre um HTTP 404 — texto FIXO
   de quando a rede era a única falha imaginável naquele ponto. **Um diagnóstico
@@ -2816,10 +2870,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.9.14 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.9.15 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
-método da ponte existe, e não há guarda de versão no lado web. A v1.9.13 e a
-v1.9.14 não tocam `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
+v1.9.15 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
 **Conferir a Release é parte de decidir** — um lote só de web herda o
 `shellTag` quando o lote de shell anterior ainda não tem Release, e não herda
@@ -2836,6 +2890,15 @@ quando tem.
 > rodadas, nenhum palpite:** *um diagnóstico que responde só a pergunta anterior
 > custa um lote inteiro por relato* — e o que encurta a próxima é acrescentar a
 > pergunta que falta NO MESMO lote do conserto.
+>
+> **E A v1.9.15 É A TERCEIRA RODADA, com a lição cobrada de dentro:** o conserto
+> da v1.9.14 travou o destino do `fetch` no host EXATO, e nada obriga a origem a
+> servir a IMAGEM pelo mesmo subdomínio do áudio — o áudio voltou, o fundo da
+> letra não. *Um
+> conserto pode criar a causa seguinte, e o diagnóstico tem de alcançá-la
+> também:* daí a trava passar a ser o DOMÍNIO da origem e o endereço de fora
+> virar causa com NOME no Registro, em vez de um 404 indistinguível de "o
+> arquivo não existe".
 
 > **A v1.8.99 REMOVE a coletânea de vídeos do LouvorJA, que a v1.8.97 tinha
 > acrescentado — e a razão é do operador, não técnica:** *"Eu achava que seria
