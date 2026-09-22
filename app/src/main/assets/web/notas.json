@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.10.5",
+    "itens": [
+      "Conserta as três conferências que acusaram problema onde não havia, no seu aparelho.",
+      "\"Há internet agora\" dizia que não, com a internet respondendo nas três linhas acima.",
+      "\"O sistema não apaga a biblioteca sozinho\" era vermelho fixo: o Android não dá essa marca a este tipo de app.",
+      "\"Os arquivos no disco batem com o catálogo\" não respondia em 6 s — agora responde, e diz se a conta é parcial.",
+      "Saiu a conferência do relógio: não há como ler a hora do servidor por esse caminho.",
+      "A conferência do fundo das letras estava CERTA: toque em sincronizar nas coleções."
+    ]
+  },
+  {
     "versao": "1.10.4",
     "itens": [
       "A Verificação passou de 34 para 41 conferências — sete áreas que ninguém checava.",

@@ -326,21 +326,23 @@ try {
     + 'um computador MORRE NO DRENO, então ali ela nunca teria resposta — um vermelho permanente',
     JSON.stringify(telao.responde));
 
-  // K3 · O RELÓGIO. O campo da hora era de módulo e nunca zerava: as checagens
-  // correm quatro de cada vez, então na PRIMEIRA rodada esta chegava antes da
-  // que o preenchia, e na SEGUNDA lia o cabeçalho da rodada ANTERIOR — minutos
-  // velho — e acusava de torto um relógio certo.
-  const relogio = await pg.evaluate(() => {
-    const fonte = TESTES.find((c) => c.id === 'relogio').fn.toString();
-    return {
-      pedeSozinho: /fetch\(/.test(fonte),
-      leCarona: /testeHoraDoServidor/.test(fonte),
-    };
-  });
-  checar(relogio.pedeSozinho && !relogio.leCarona,
-    'K3 · o relógio busca a hora NA PRÓPRIA rodada e não de carona numa variável que sobrevive à '
-    + 'anterior — acusar um relógio certo é o defeito da v1.9.14 voltando pela porta do recurso '
-    + 'que existe para pegá-lo', JSON.stringify(relogio));
+  // K3 · O RELÓGIO SAIU DA TABELA (v1.10.5), e o que fica é a MEDIÇÃO que o
+  // tirou — senão a próxima sessão o reescreve. Ele lia o cabeçalho `Date` da
+  // resposta da origem; `Date` NÃO é cabeçalho de resposta liberado por
+  // padrão no CORS, e a origem não manda `Access-Control-Expose-Headers`.
+  // MEDIDO em Chromium com servidor local em dois origins: com
+  // `Access-Control-Allow-Origin: *` o `headers.get('date')` devolve **null**;
+  // só com `Expose-Headers: Date` ele devolve a hora. No aparelho do operador
+  // a linha saiu "a internet não respondeu com a hora" — um `na` PERMANENTE,
+  // e a regra da v1.10.2 manda uma linha assim sair da tabela.
+  const semRelogio = await pg.evaluate(() => ({
+    naTabela: TESTES.some((c) => c.id === 'relogio'),
+    orfao: /testeHoraDoServidor/.test(String(window.rodarAutoteste)),
+  }));
+  checar(!semRelogio.naTabela && !semRelogio.orfao,
+    'K3 · a linha do relógio não está mais na tabela, e não sobrou campo órfão dela — ela não '
+    + 'tinha como responder: `Date` não é legível cross-origin sem o servidor o expor',
+    JSON.stringify(semRelogio));
 
   // K4 · AS TRÊS CASAS DA VERSÃO. O `renderVersionLabel()` escreve
   // `'v' + WEB_VERSION` dentro do `#appVersion` na carga: ler o nó era comparar
@@ -904,6 +906,159 @@ try {
   checar(deck.morta.v === 'falhou' && /não transformou um slide/.test(deck.morta.nota),
     'N7 · e o desenhador que devolve nada reprova com a frase do operador: PDF e PowerPoint não '
     + 'vão abrir', JSON.stringify(deck.morta));
+
+  // ===== BLOCO O · O QUE O APARELHO DO OPERADOR RESPONDEU (v1.10.5) =====
+  //
+  // A primeira rodada num Android de verdade (SM-S928B, Android 16, WebView
+  // 153, 2,6 GB de biblioteca) devolveu TRÊS falhas e uma sem resposta. Uma
+  // das falhas era verdadeira; as outras três linhas não tinham como acertar.
+  // **Nenhuma delas seria descoberta sem o aparelho** — é por isso que o
+  // Registro existe.
+
+  // O1 · "HÁ INTERNET AGORA" REPROVOU COM A INTERNET FUNCIONANDO. As três
+  // linhas da fonte passaram e a busca do OTA tinha respondido 3 s antes. A
+  // causa é o MODO do `fetch`: em `cors` (o padrão) ele REJEITA quando a rota
+  // não manda `Access-Control-Allow-Origin`, e a origem não o manda na RAIZ.
+  // MEDIDO em Chromium, servidor local em dois origins: sem CORS rejeita em
+  // `cors` e resolve OPACA em `no-cors`; endereço MORTO rejeita nos dois.
+  const netFix = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'internet');
+    const real = window.fetch;
+    const modos = [];
+    // a rota SEM CORS: rejeita em `cors`, resolve opaca em `no-cors` — o
+    // comportamento do servidor de arquivos da origem, medido.
+    window.fetch = (u, o) => {
+      modos.push((o && o.mode) || 'cors');
+      // A resposta OPACA de verdade tem `status: 0`, e o construtor de
+      // `Response` recusa esse número — o que importa para a linha é que a
+      // Promise RESOLVA com um objeto, que é o que a opaca faz.
+      return ((o && o.mode) === 'no-cors')
+        ? Promise.resolve({ ok: false, status: 0, type: 'opaque', headers: new Headers() })
+        : Promise.reject(new TypeError('Failed to fetch'));
+    };
+    const semCors = await rodarUmaChecagem(achada);
+    // e o endereço MORTO continua reprovando, senão a linha não mede nada
+    window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
+    const semSaida = await rodarUmaChecagem(achada);
+    window.fetch = real;
+    return { semCors, semSaida, modos };
+  });
+  checar(netFix.modos.length > 0 && netFix.modos.every((m) => m === 'no-cors'),
+    'O1 · a sonda vai em `no-cors` — a pergunta é *há saída?*, e ela não precisa LER a resposta '
+    + 'para respondê-la', JSON.stringify(netFix.modos));
+  checar(netFix.semCors.v === 'ok',
+    'O1 · e uma rota que o CORS recusa deixa de virar "sem internet": era o vermelho no aparelho '
+    + 'do operador, com a fonte respondendo nas três linhas de cima', JSON.stringify(netFix.semCors));
+  checar(netFix.semSaida.v === 'falhou' && /não tem saída/.test(netFix.semSaida.nota),
+    'O1 · o endereço MORTO continua reprovando — trocar o modo não pode ter trocado a pergunta '
+    + 'por um verde garantido', JSON.stringify(netFix.semSaida));
+
+  // O2 · A NEGAÇÃO DO ANDROID NÃO É FALHA. A v1.10.0 deixou escrito que esta
+  // linha não tinha sido medida num Android de verdade. O aparelho respondeu:
+  // `persist()` NEGADO, com a biblioteca intacta e o app em uso há meses — um
+  // vermelho permanente sobre o que funciona.
+  const persist = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'persistencia');
+    const st = navigator.storage;
+    const falso = {
+      persisted: async () => false,
+      persist: async () => false,
+      estimate: async () => ({ usage: 2600000000, quota: 9e10 }),
+    };
+    Object.defineProperty(navigator, 'storage', { value: falso, configurable: true });
+    const nativo = window.__NATIVE__;
+    window.__NATIVE__ = true;
+    const noApp = await rodarUmaChecagem(achada);
+    window.__NATIVE__ = false;
+    const noNavegador = await rodarUmaChecagem(achada);
+    // e concedida continua sendo OK nos dois
+    falso.persisted = async () => true;
+    window.__NATIVE__ = true;
+    const concedida = await rodarUmaChecagem(achada);
+    window.__NATIVE__ = nativo;
+    Object.defineProperty(navigator, 'storage', { value: st, configurable: true });
+    return { noApp, noNavegador, concedida };
+  });
+  checar(persist.noApp.v === 'na' && /vive no espaço do app/.test(persist.noApp.nota),
+    'O2 · no APP a negação sai NÃO SE APLICA com a razão de plataforma: a marca não é concedida a '
+    + 'um WebView, e a biblioteca só sai junto com o app', JSON.stringify(persist.noApp));
+  checar(persist.noNavegador.v === 'falhou',
+    'O2 · e no NAVEGADOR a falha FICA, porque ali o despejo é real — a guarda é do app, não da '
+    + 'pergunta', JSON.stringify(persist.noNavegador));
+  checar(persist.concedida.v === 'ok',
+    'O2 · concedida continua passando: o aparelho que dá a marca não perdeu a linha',
+    JSON.stringify(persist.concedida));
+
+  // O3 · "NÃO RESPONDEU EM 6 s" É O DESFECHO MAIS INÚTIL QUE UMA LINHA SABE
+  // PRODUZIR. A varredura do disco custa um `getFile()` por entrada e não cabe
+  // no prazo num acervo de verdade — no aparelho do operador ela estourou E
+  // foi o poste mais alto da rodada (6,2 s de 6,2 s).
+  const disco = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'acervo-arquivos');
+    const real = AVDB.opfsTodosOsArquivos; const fa = AVDB.filesAll;
+    let tetoRecebido = null;
+    AVDB.filesAll = async () => [];
+    AVDB.opfsTodosOsArquivos = async (teto) => {
+      tetoRecebido = teto;
+      const a = Array.from({ length: 4000 }, (_, i) => ({ caminho: 'm/' + i, tamanho: 10, tipo: '' }));
+      a.parcial = true;
+      return a;
+    };
+    const parcial = await rodarUmaChecagem(achada);
+    AVDB.opfsTodosOsArquivos = async () => [{ caminho: 'm/1', tamanho: 10, tipo: '' }];
+    const inteiro = await rodarUmaChecagem(achada);
+    AVDB.opfsTodosOsArquivos = real; AVDB.filesAll = fa;
+    return { parcial, inteiro, tetoRecebido };
+  });
+  checar(typeof disco.tetoRecebido === 'number' && disco.tetoRecebido > 0,
+    'O3 · a varredura do disco vai com TETO — sem ele a linha não responde num acervo de verdade',
+    String(disco.tetoRecebido));
+  checar(disco.parcial.v === 'ok' && /os primeiros/.test(disco.parcial.nota),
+    'O3 · e quando a conta é parcial a linha DIZ isso: sem a palavra, "4000 arquivos" se leria '
+    + 'como o total', JSON.stringify(disco.parcial));
+  checar(disco.inteiro.v === 'ok' && !/os primeiros/.test(disco.inteiro.nota),
+    'O3 · o acervo que cabe no teto segue sem a ressalva — ela é o que a varredura MEDIU, não um '
+    + 'aviso permanente', JSON.stringify(disco.inteiro));
+
+  // O4 · E O TETO É MEDIDO NA VARREDURA DE VERDADE, nunca num embrulho dela.
+  // A asserção de cima STUBA o `opfsTodosOsArquivos` e fabrica a marca — ela
+  // prova o CONSUMIDOR e é cega ao produtor. MEDIDO por reversão: tirar o
+  // `out.parcial` do `db.js` não reprovava nada. Esta planta arquivos de
+  // verdade no OPFS e pede um teto menor que eles.
+  const tetoReal = await pg.evaluate(async () => {
+    if (!AVDB.opfsSupported()) return { pulou: true };
+    const raiz = await navigator.storage.getDirectory();
+    const dir = await raiz.getDirectoryHandle('teste-teto', { create: true });
+    for (let i = 0; i < 12; i++) {
+      const fh = await dir.getFileHandle('a' + i + '.bin', { create: true });
+      const w = await fh.createWritable();
+      await w.write(new Uint8Array(4));
+      await w.close();
+    }
+    const cortado = await AVDB.opfsTodosOsArquivos(5);
+    const inteiro = await AVDB.opfsTodosOsArquivos(10000);
+    const semTeto = await AVDB.opfsTodosOsArquivos();
+    // LIMPA O QUE CRIOU, inclusive se a asserção reprovar depois — a regra da
+    // sonda de escrita.
+    try { await raiz.removeEntry('teste-teto', { recursive: true }); } catch (_) { /* já foi */ }
+    return {
+      cortado: { n: cortado.length, parcial: !!cortado.parcial },
+      inteiro: { n: inteiro.length, parcial: !!inteiro.parcial },
+      semTeto: { n: semTeto.length, parcial: !!semTeto.parcial },
+    };
+  });
+  if (tetoReal.pulou) {
+    checar(false, 'O4 · PREMISSA: o OPFS existe neste navegador', 'sem OPFS');
+  } else {
+    checar(tetoReal.cortado.n === 5 && tetoReal.cortado.parcial,
+      'O4 · com doze arquivos no disco e teto de cinco, a varredura PARA em cinco e se marca como '
+      + 'parcial — ela não varre tudo para cortar depois, que é o custo que o teto existe para '
+      + 'não pagar', JSON.stringify(tetoReal.cortado));
+    checar(tetoReal.inteiro.n >= 12 && !tetoReal.inteiro.parcial
+      && tetoReal.semTeto.n >= 12 && !tetoReal.semTeto.parcial,
+      'O4 · e com teto folgado (ou sem teto nenhum, que é como o coletor a chama) ela varre tudo e '
+      + 'NÃO se marca — a marca é o que a varredura mediu', JSON.stringify(tetoReal));
+  }
 
 } finally {
   await navegador.close();
