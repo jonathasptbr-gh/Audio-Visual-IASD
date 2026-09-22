@@ -9776,6 +9776,41 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: var(--surface); color: var(--accent);
 }
 .sorteio-dest svg, .sorteio-sortear svg { width: var(--icon-sm); height: var(--icon-sm); }
+
+/* ---------- O SALVAR DA VERIFICAÇÃO (v1.10.3) ----------
+   Mesma receita dos três destinos acima, e pelo MESMO motivo: a 320px com a
+   fonte do sistema a 1,5× não cabem dois rótulos na faixa — "Verificar de novo"
+   sozinho passa de 200px em ~297px de largura útil. É o caso declarado da
+   v1.8.57 (botão sem rótulo é QUADRADO, e numa faixa de fecho o número é
+   `--quad-faixa`).
+
+   AS DUAS DIMENSÕES SÃO DECLARADAS e `align-self: center` desliga o
+   esticamento — sem ele o botão sai 42,4 × altura-do-primário, que é o
+   retângulo que a v1.8.57 veio corrigir nos irmãos do sorteio.
+
+   AS DUAS ESTÃO INERTES HOJE, e isso fica MEDIDO em vez de escondido: a faixa
+   tem irmão, então o `:has(> .song-menu-btn ~ .song-menu-btn)` vinte linhas
+   acima já põe o PRIMÁRIO em `--quad-faixa` — o esticamento devolveria o mesmo
+   número, e não há linha mais alta em que centrar. Removê-las não move um
+   pixel em 320×1, 320×1,5, 390×1,25 e 430×1. **Elas ficam porque a razão não é
+   o número, é de QUEM ele vem:** sem `height` a altura deste botão passa a ser
+   decidida por uma regra que fala do vizinho, que é exatamente o "a mesma
+   caixa sai de dois tamanhos por esticamento" que a v1.8.57 veio fechar.
+
+   E O `[hidden]` NÃO PRECISA DE NADA AQUI — medido, e o contrário é a suspeita
+   natural: um `display` de autor VENCE o `[hidden]` da folha do navegador
+   (conferido em página nua: `display:flex` + `hidden` computa `flex`). Quem
+   fecha isso neste app é o `[hidden] { display: none !important }` da linha 46,
+   que existe para toda a base — e é por ele que este botão some no navegador
+   apesar do `display: flex` daqui. */
+.song-menu-go-row > .teste-salvar {
+  flex: 0 0 var(--quad-faixa); min-width: 0; padding: 0;
+  height: var(--quad-faixa); align-self: center;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); color: var(--accent);
+}
+.teste-salvar svg { width: var(--icon-sm); height: var(--icon-sm); }
+.teste-salvar:disabled { opacity: var(--op-inativo); cursor: default; }
 .sorteio-acao .song-menu-text { align-items: center; justify-content: center; min-height: var(--hit); }
 .sorteio-acao:disabled { opacity: .5; cursor: default; }
 

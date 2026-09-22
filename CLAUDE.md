@@ -2767,6 +2767,18 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   porque é lido A DISTÂNCIA por quem não tem como conferir. **E registra o dado
   CRU:** um rótulo já formado prova que a regra rodou; só a entrada dela diz por
   que ela produziu aquilo.
+- **O REGISTRO TEM DUAS PORTAS E UM ARQUIVO SÓ** (v1.10.3). O botão de
+  Configurações e o da folha da Verificação gravam o MESMO `diagTexto`, com o
+  MESMO nome (`nomeDoRegistro`) — e o resultado da verificação já viaja lá
+  dentro como um bloco. A v1.10.0 recusava o segundo botão para não produzir
+  *"dois artefatos parecidos e diferentes"*; o operador o pediu
+  (*"que essa verificação, após feita, tenha uma botão para salvar o registro
+  normal + os dados dessa verificação"*), e o argumento sobrevive à revogação
+  porque é ele que decide COMO: **porta nova é porta para o mesmo arquivo**,
+  nunca um recorte próprio. Quem salva de outra tela **monta o texto antes**
+  (`await renderDiag()`) e **recusa o vazio** — `diagTexto` nasce string vazia
+  e só é escrito ao montar, e um arquivo de zero byte que o operador manda
+  achando que mandou o Registro é o pior desfecho que este botão sabe produzir.
 - **Todo campo de LOG nasce com uma PORTA DE SAÍDA** — sem ela a alternativa é
   transcrever números à mão ou fotografar a tela. **Qual porta depende do
   TAMANHO**, e é o que a v1.4.44 separou: um valor CURTO que se digita noutro
@@ -2911,10 +2923,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.10.2 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.10.3 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.10.2 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.10.3 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
 **O DEGRAU É INCREMENTAL** porque a v1.10.0 traz uma seção que não existia — a
 Verificação do Sistema, com tile, folha e fluxo próprios —, e não um conserto.

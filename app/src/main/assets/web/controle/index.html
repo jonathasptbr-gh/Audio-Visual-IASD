@@ -1970,17 +1970,42 @@
       </div>
       <div id="testeResumo" class="teste-resumo" role="status" aria-live="polite"></div>
       <ul id="testeList" class="popup-list rola"></ul>
-      <!-- FAIXA DE FECHO com UM botão só, então ele veste a altura das linhas
-           que fecha (a regra da v5.301, e não a do quadrado da v1.8.61, que
-           vale para faixa com irmão).
+      <!-- FAIXA DE FECHO COM DOIS BOTÕES, então a altura é UMA só e é a do
+           quadrado (a regra da v1.8.61, e não a da v5.301, que vale para o
+           confirmar sozinho). Quem a aplica é o `:has(> .song-menu-btn ~
+           .song-menu-btn)` que já existe no CSS — nada a escrever aqui.
 
-           NÃO HÁ "SALVAR" AQUI, de propósito: o diagnóstico deste app tem UMA
-           porta de saída, e ela é o Registro — que já carrega este resultado
-           como um bloco. Um segundo salvar produziria dois artefatos parecidos
-           e diferentes, que é o que faz quem lê a distância perguntar qual dos
-           dois é o de verdade. -->
+           O SALVAR ENTROU NA v1.10.3, a pedido do operador: *"faça com que essa
+           verificação, após feita, tenha uma botão para salvar o registro
+           normal + os dados dessa verificação"*. Ele REVOGA a decisão da
+           v1.10.0, que dizia não haver salvar aqui de propósito — e o argumento
+           daquela decisão continua de pé e é o que decide COMO este botão
+           funciona: **o arquivo é UM só**. Ele salva o MESMO `diagTexto` do
+           Registro, com o MESMO nome, e o resultado da verificação já viaja lá
+           dentro como um bloco (`blocoAutoteste`). Não há segundo artefato —
+           há uma segunda PORTA para o mesmo, no lugar onde o operador está
+           quando termina de ler o resultado.
+
+           ELE É QUADRADO porque a 320px com a fonte do sistema a 1,5× dois
+           rótulos não cabem lado a lado — MEDIDO: "Verificar de novo" sozinho
+           passa de 200px numa faixa de ~297px. É o caso declarado da v1.8.57
+           (`--quad-faixa` numa faixa de fecho), e o ícone é o MESMO do salvar
+           do Registro, que é o vocabulário que o app já tem para esta ação.
+
+           ELE VEM ANTES do primário no DOM, como o irmão do confirmar em toda
+           outra faixa deste app (`destConfirmRow`): a ordem visual e a de foco
+           concordam, e o primário fica à direita.
+
+           NASCE `hidden` E `disabled`: sem ponte não há como gravar arquivo
+           (é a regra do `#diagSave`), e antes de uma rodada terminar não há o
+           que salvar. Quem os desarma é o `controle.js`. -->
       <div class="popup-fecho">
         <div class="song-menu-go-row">
+          <button type="button" id="testeSalvar" class="song-menu-btn teste-salvar"
+                  title="Salvar o registro com esta verificação"
+                  aria-label="Salvar o registro com esta verificação" hidden disabled>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
+          </button>
           <button type="button" id="testeRodar" class="song-menu-btn song-menu-go">Verificar de novo</button>
         </div>
       </div>
@@ -2503,7 +2528,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.10.2</span>
+            <span id="appVersion" class="app-version">v1.10.3</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
