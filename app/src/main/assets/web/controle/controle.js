@@ -310,6 +310,7 @@ const testePopupCloseEl = document.getElementById('testePopupClose');
 const testeResumoEl = document.getElementById('testeResumo');
 const testeListEl = document.getElementById('testeList');
 const testeRodarEl = document.getElementById('testeRodar');
+const testeSalvarEl = document.getElementById('testeSalvar');
 
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
@@ -366,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.10.2';
+const WEB_VERSION = '1.10.3';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -28529,6 +28530,21 @@ if (castUrlCopyEl) {
  * Só no app: gravar arquivo é `AVNative.salvarTexto` (SAF), e no navegador não
  * há ponte — o botão nasce `hidden` e quem o revela é o `renderVersionLabel`.
  */
+// O NOME DO ARQUIVO, e ele é UM SÓ para as DUAS portas (v1.10.3). O Registro
+// tem dois botões que o gravam — o de Configurações e o da folha da Verificação
+// —, e os dois salvam o MESMO texto: dois padrões de nome fariam a mesma coisa
+// chegar com duas caras na conversa em que o operador o manda, que é a pergunta
+// "qual dos dois é o de verdade?" que a v1.10.0 queria evitar.
+//
+// A DATA está no nome porque o valor de um Registro é comparar dois: dois
+// arquivos de mesmo nome viram "registro (1).txt" na pasta e ninguém sabe qual
+// é qual uma semana depois.
+function nomeDoRegistro(d) {
+  const p2 = (n) => String(n).padStart(2, '0');
+  return 'registro-av-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate())
+    + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.txt';
+}
+
 if (diagSaveEl) {
   // SÓ NO APP: gravar arquivo é a ponte (SAF), e no navegador um botão que só
   // sabe não funcionar é pior que botão nenhum.
@@ -28544,10 +28560,7 @@ if (diagSaveEl) {
   //  rótulo, o alvo — de 34px para 93,9px — e um filho a menos na faixa.)
   diagSaveEl.addEventListener('click', async () => {
     if (!window.__NATIVE__) return;
-    const d = new Date();
-    const p2 = (n) => String(n).padStart(2, '0');
-    const nome = 'registro-av-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate())
-      + '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.txt';
+    const nome = nomeDoRegistro(new Date());
     let salvo = '';
     try { salvo = await AVNative.salvarTexto(nome, diagTexto); } catch (_) { salvo = ''; }
     // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
@@ -35243,6 +35256,49 @@ function openTestePopup() {
 }
 function closeTestePopup() { testePopupEl.classList.remove('open'); }
 
+/**
+ * SALVA O REGISTRO — o mesmo arquivo de Configurações, com a verificação dentro
+ * (v1.10.3). Pedido do operador: *"faça com que essa verificação, após feita,
+ * tenha uma botão para salvar o registro normal + os dados dessa verificação"*.
+ *
+ * NÃO HÁ SEGUNDO ARTEFATO, e é isso que mantém de pé o argumento da v1.10.0 que
+ * este botão revoga: `blocoAutoteste()` já é um dos blocos do `renderDiag()`,
+ * então `diagTexto` É "o registro normal + os dados desta verificação". O que
+ * o lote acrescenta é a PORTA, no lugar onde o operador está quando acaba de
+ * ler o resultado — e não um arquivo parecido com outro.
+ *
+ * ELE MONTA O TEXTO ANTES DE SALVAR, e essa é a parte que não dá para pular:
+ * `dispararTeste` chama `renderDiag()` SEM `await` (o desenho não espera o
+ * Registro), e aquela função vai à ponte cinco vezes. Um toque logo depois da
+ * rodada pegaria o `diagTexto` da montagem ANTERIOR — ou, no primeiro uso do
+ * app, a string VAZIA com que ele nasce: um arquivo de zero byte que o operador
+ * manda achando que mandou o Registro. O `await` aqui fecha os dois.
+ *
+ * E VAZIO NUNCA É GRAVADO. `renderDiag` tem guarda de sequência e volta cedo
+ * quando outra montagem assume no meio — o desfecho é raro e inofensivo (quem
+ * assumiu escreve o texto bom), mas gravar antes dele seria o arquivo que
+ * discorda do aparelho. Sem texto, o botão responde ERRO e continua ali.
+ */
+async function salvarRegistroDaVerificacao() {
+  if (!window.__NATIVE__ || !testeSalvarEl) return;
+  testeSalvarEl.disabled = true;
+  try {
+    await renderDiag();
+    if (!diagTexto) { responder(testeSalvarEl, 'erro'); return; }
+    let salvo = '';
+    try { salvo = await AVNative.salvarTexto(nomeDoRegistro(new Date()), diagTexto); } catch (_) { salvo = ''; }
+    // VAZIO É "desistiu OU não deu", e a diferença não existe para quem opera:
+    // nos dois casos não há arquivo, e o botão continua ali para tentar de novo.
+    // Mesma regra do `#diagSave`.
+    responder(testeSalvarEl, salvo ? 'ok' : 'erro');
+  } finally {
+    // QUEM MANDA NO `disabled` É O DESENHO, e não este `finally`: a trava certa
+    // depende de haver rodada e de ela ter terminado, e essa pergunta tem UM
+    // dono. Reescrevê-la aqui faria as duas divergirem no primeiro ajuste.
+    desenharTeste();
+  }
+}
+
 async function dispararTeste() {
   if (testeRodando) return;
   // O ARO NO TILE segue girando com a folha fechada: o operador pode fechar e a
@@ -35283,6 +35339,19 @@ const TESTE_ROTULO = {
 function desenharTeste() {
   if (!testeListEl || !testeResumoEl) return;
   const r = testeResultado;
+  // O SALVAR SÓ EXISTE COM RODADA NA MÃO (v1.10.3) — "após feita", nas palavras
+  // do pedido. Durante a rodada o arquivo sairia com o resultado da ANTERIOR
+  // (ou sem nenhum, na primeira), e é a mesma classe do log que discorda do
+  // aparelho. **É `disabled` com o `title` dizendo por quê**, nunca um botão
+  // aceso que não faz nada (v1.8.50) — e o `title` é escrito aqui em vez de
+  // ficar no HTML porque ele MUDA com o estado.
+  if (testeSalvarEl) {
+    testeSalvarEl.disabled = testeRodando || !r;
+    testeSalvarEl.title = testeRodando ? 'Espere a verificação terminar'
+      : !r ? 'Nada verificado ainda'
+        : 'Salvar o registro com esta verificação';
+    testeSalvarEl.setAttribute('aria-label', testeSalvarEl.title);
+  }
   if (testeRodando) {
     testeResumoEl.textContent = 'Verificando ' + TESTES.length + ' partes do app…';
     testeResumoEl.className = 'teste-resumo teste-resumo--rodando';
@@ -35503,6 +35572,15 @@ settingsBtnEl.addEventListener('click', openFadePopup);
 histOpenRowEl.addEventListener('click', openHistPopup);
 if (testeTileEl) testeTileEl.addEventListener('click', openTestePopup);
 if (testeRodarEl) testeRodarEl.addEventListener('click', dispararTeste);
+if (testeSalvarEl) {
+  // REVELADO AQUI, e não no `renderVersionLabel` — a mesma armadilha do
+  // `#diagSave`: aquela função roda no topo do arquivo e este `const` só existe
+  // centenas de linhas acima, mas o BOTÃO só passa a existir com a folha, e
+  // quem sabe disso é esta seção. Sem ponte não há como gravar arquivo, e um
+  // botão que só sabe não funcionar é pior que botão nenhum.
+  testeSalvarEl.hidden = !window.__NATIVE__;
+  testeSalvarEl.addEventListener('click', salvarRegistroDaVerificacao);
+}
 // LIMPAR TUDO. A pergunta mora na faixa do próprio botão — mesma porta do
 // "Limpar a playlist", e por isso o `#histClearFaixa` existe (a confirmação
 // substitui os IRMÃOS de quem a pediu).

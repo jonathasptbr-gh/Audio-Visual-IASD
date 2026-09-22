@@ -7110,6 +7110,17 @@ peça do NAVEGADOR (`document.fonts.check`, `navigator.mediaSession`,
 gancho de cá que o sistema chama. **A régua é a REVERSÃO**: uma asserção que
 passa com o conserto desfeito não mede a checagem, mede a linguagem.
 
+**A FOLHA SALVA O REGISTRO, e o arquivo é UM só** (v1.10.3). O botão quadrado
+ao lado de *"Verificar de novo"* grava o MESMO `diagTexto` do botão de
+Configurações, com o MESMO nome (`nomeDoRegistro`) — a verificação já viaja lá
+dentro como um bloco. **Porta nova é porta para o mesmo arquivo:** um recorte
+próprio faria quem lê a distância perguntar qual dos dois vale, que é o
+argumento com que a v1.10.0 recusava este botão e que sobrevive à revogação
+porque é ele que decide o COMO. Ele só acende depois da rodada (`disabled` +
+`title`, v1.8.50) e **monta o texto antes de gravar**: `dispararTeste` chama
+`renderDiag()` sem `await`, então um toque imediato pegaria a montagem anterior
+— ou, na primeira abertura, a string vazia com que `diagTexto` nasce.
+
 **E UMA CHECAGEM QUE NUNCA TEM RESPOSTA SAI DA TABELA, não vira `na` fixo.** O
 relatório é lido inteiro, e uma linha que só sabe dizer *"não se aplica"* é mais
 uma para ler em toda cópia — a mesma regra do Registro, que só imprime um bloco
@@ -7123,6 +7134,7 @@ quem a autoriza é a permissão do Android, e o web não tem como perguntar.
 | a amostra | `amostrarEspalhado` | o teto das varreduras de acervo, esticado sobre a lista INTEIRA e com as duas pontas dentro |
 | a tela | `desenharTeste` | lê o MESMO objeto que o Registro escreve |
 | o Registro | `blocoAutoteste` | o bloco que o operador manda a distância |
+| o salvar | `salvarRegistroDaVerificacao` | a SEGUNDA porta do MESMO arquivo — monta o texto (`await renderDiag()`) e recusa o vazio |
 
 **As quatro regras que não se quebram** estão no `CLAUDE.md` (§Diagnóstico); o
 que vale saber aqui é onde encostar: **checagem nova é uma linha na tabela**, e

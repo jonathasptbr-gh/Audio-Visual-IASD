@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.10.3",
+    "itens": [
+      "A Verificação ganhou um botão de salvar, ao lado de \"Verificar de novo\".",
+      "Ele salva o registro completo, com o resultado da verificação dentro — é o mesmo arquivo.",
+      "Não há dois arquivos parecidos: é o mesmo que o botão de Configurações salva, com o mesmo nome.",
+      "Ele só acende depois que a verificação termina; durante a rodada fica apagado e diz por quê."
+    ]
+  },
+  {
     "versao": "1.10.2",
     "itens": [
       "A Verificação ganhou uma conferência nova: se todas as partes do app realmente ligaram.",

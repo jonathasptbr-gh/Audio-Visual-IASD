@@ -540,6 +540,148 @@ try {
     'L8 · e o aparelho que de fato não informa continua sendo "não se aplica"',
     JSON.stringify(pacote.mudo));
 
+  // ===== BLOCO M · O SALVAR DA FOLHA (v1.10.3) =====
+  //
+  // Pedido do operador: *"faça com que essa verificação, após feita, tenha uma
+  // botão para salvar o registro normal + os dados dessa verificação"*. Ele
+  // revoga a decisão da v1.10.0 de não haver salvar aqui — e o ARGUMENTO
+  // daquela decisão é o que este bloco trava: **o arquivo continua sendo UM**.
+
+  // M1 · SEM PONTE ELE NÃO EXISTE. Gravar arquivo é o SAF; um botão que só sabe
+  // não funcionar é pior que botão nenhum, e é a regra do `#diagSave`.
+  const semPonteSalvar = await pg.evaluate(() => {
+    const sv = document.getElementById('testeSalvar');
+    return { existe: !!sv, hidden: sv && sv.hidden, display: sv && getComputedStyle(sv).display,
+      largura: sv ? sv.getBoundingClientRect().width : -1, nativo: !!window.__NATIVE__ };
+  });
+  checar(semPonteSalvar.existe && !semPonteSalvar.nativo,
+    'M1 · PREMISSA: o botão está no documento e esta página não tem ponte', JSON.stringify(semPonteSalvar));
+  checar(semPonteSalvar.hidden && semPonteSalvar.display === 'none' && semPonteSalvar.largura === 0,
+    'M1 · e sem ponte ele não é desenhado nem ocupa lugar — gravar arquivo é o seletor do sistema, '
+    + 'e o navegador não o tem', JSON.stringify(semPonteSalvar));
+
+  // M2 · O QUADRADO DA FAIXA. Dois rótulos não cabem lado a lado — MEDIDO, a
+  // 320px com a fonte a 1,5× sobram 286px e só "Verificar de novo" pede 224.
+  // É o caso declarado da v1.8.57, e a faixa com irmão tem UMA altura (v1.8.61).
+  const caixa = await pg.evaluate(async () => {
+    const sv = document.getElementById('testeSalvar');
+    window.__NATIVE__ = true; sv.hidden = false;
+    openTestePopup();
+    // ESPERA O FATO, NUNCA UM PRAZO: `openTestePopup` dispara uma rodada e não a
+    // aguarda. Sob carga (o CI roda três oráculos de cada vez) um `setTimeout`
+    // curto deixa a rodada em voo, e os blocos seguintes leem o estado no meio
+    // dela — uma reprovação por carga do runner chega indistinguível de um
+    // defeito do app, que é a primeira classe que a campanha da v5.316 teve de
+    // corrigir uma a uma.
+    while (testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
+    const go = document.getElementById('testeRodar');
+    const a = sv.getBoundingClientRect(); const b = go.getBoundingClientRect();
+    const svg = sv.querySelector('svg').getBoundingClientRect();
+    return {
+      sv: [+a.width.toFixed(1), +a.height.toFixed(1)],
+      go: [+b.width.toFixed(1), +b.height.toFixed(1)],
+      svg: [+svg.width.toFixed(1), +svg.height.toFixed(1)],
+      cortou: go.scrollWidth > go.clientWidth + 1,
+    };
+  });
+  checar(Math.abs(caixa.sv[0] - caixa.sv[1]) < 0.5,
+    'M2 · ele é QUADRADO, nas duas dimensões declaradas — um botão sem rótulo não sai de dois '
+    + 'tamanhos por esticamento (v1.8.57)', JSON.stringify(caixa.sv));
+  checar(Math.abs(caixa.sv[1] - caixa.go[1]) < 0.5,
+    'M2 · e a faixa de fecho com irmão tem UMA altura só (v1.8.61)', JSON.stringify(caixa));
+  checar(!caixa.cortou && caixa.svg[0] > 0,
+    'M2 · o rótulo do primário continua inteiro ao lado dele, e o ícone DESENHA — a fonte de '
+    + 'símbolos é um subset de 31 codepoints, então aqui é `<use>` de um `<symbol>`, como no '
+    + 'salvar do Registro', JSON.stringify(caixa));
+
+  // M3 · O ARQUIVO É UM SÓ, e é o do Registro. `blocoAutoteste()` já é um bloco
+  // do `renderDiag()`: o que o botão salva É "o registro normal + os dados
+  // desta verificação". Um segundo artefato parecido faria quem lê a distância
+  // perguntar qual dos dois é o de verdade — o argumento que a v1.10.0 escreveu
+  // e que sobrevive a esta revogação.
+  const salvo = await pg.evaluate(async () => {
+    const pedidos = [];
+    const av = window.AVNative;
+    window.AVNative = Object.assign({}, av, {
+      salvarTexto: (nome, texto) => { pedidos.push({ nome, texto }); return Promise.resolve('/mnt/x/' + nome); },
+    });
+    await rodarAutoteste();
+    await salvarRegistroDaVerificacao();
+    window.AVNative = av;
+    const t = pedidos[0] ? pedidos[0].texto : '';
+    return {
+      n: pedidos.length,
+      nome: pedidos[0] ? pedidos[0].nome : '',
+      temVerificacao: /Verificação do sistema/.test(t),
+      temCabecalho: t.slice(0, 400).length > 0 && !/^Verificação do sistema/.test(t),
+      bytes: t.length,
+      igualAoRegistro: t === diagTexto,
+    };
+  });
+  checar(salvo.n === 1 && salvo.bytes > 200,
+    'M3 · um toque grava UM arquivo, com conteúdo', JSON.stringify(salvo));
+  checar(salvo.igualAoRegistro && salvo.temVerificacao && salvo.temCabecalho,
+    'M3 · e o que ele grava é o REGISTRO INTEIRO com a verificação dentro — não um segundo '
+    + 'artefato parecido, que é o que faria quem lê a distância perguntar qual dos dois vale',
+    JSON.stringify(salvo));
+  checar(/^registro-av-\d{8}-\d{4}\.txt$/.test(salvo.nome),
+    'M3 · com o MESMO nome do salvar de Configurações: duas portas, um arquivo, um padrão de nome',
+    salvo.nome);
+
+  // M4 · ELE MONTA O TEXTO ANTES DE GRAVAR. `dispararTeste` chama `renderDiag()`
+  // SEM `await`, e aquela função vai à ponte cinco vezes: um toque logo depois
+  // da rodada pegaria a montagem ANTERIOR — ou, na primeira abertura do app, a
+  // string VAZIA com que `diagTexto` nasce. Um arquivo de zero byte que o
+  // operador manda achando que mandou o Registro é o pior desfecho deste botão.
+  const frescor = await pg.evaluate(() => {
+    const f = salvarRegistroDaVerificacao.toString();
+    return { esperaOTexto: /await\s+renderDiag\(\)/.test(f), recusaVazio: /if\s*\(!diagTexto\)/.test(f) };
+  });
+  checar(frescor.esperaOTexto,
+    'M4 · ele ESPERA a montagem do Registro antes de gravar — sem isso o arquivo sai com a '
+    + 'montagem anterior, ou vazio na primeira abertura do app', JSON.stringify(frescor));
+  const vazio = await pg.evaluate(async () => {
+    const pedidos = [];
+    const av = window.AVNative; const real = window.renderDiag;
+    window.AVNative = Object.assign({}, av, {
+      salvarTexto: (nome, texto) => { pedidos.push(texto); return Promise.resolve('/mnt/x'); },
+    });
+    // a montagem devolve cedo (outra assumiu): `diagTexto` fica vazio
+    const guardado = diagTexto;
+    window.renderDiag = async () => { diagTexto = ''; };
+    await salvarRegistroDaVerificacao();
+    window.renderDiag = real; window.AVNative = av; diagTexto = guardado;
+    return { gravou: pedidos.length };
+  });
+  checar(vazio.gravou === 0,
+    'M4 · e um texto VAZIO nunca é gravado: o `renderDiag` tem guarda de sequência e volta cedo '
+    + 'quando outra montagem assume — gravar ali seria o arquivo que discorda do aparelho',
+    JSON.stringify(vazio));
+
+  // M5 · "APÓS FEITA" É A PALAVRA DO PEDIDO. Durante a rodada o arquivo sairia
+  // com o resultado da ANTERIOR; antes da primeira, sem nenhum. É `disabled`
+  // com o `title` dizendo por quê, nunca um botão aceso que não faz nada.
+  const trava = await pg.evaluate(async () => {
+    const sv = document.getElementById('testeSalvar');
+    const guardado = testeResultado;
+    testeResultado = null; desenharTeste();
+    const semRodada = { off: sv.disabled, title: sv.title };
+    const p = dispararTeste();
+    const durante = { off: sv.disabled, title: sv.title };
+    await p;
+    const depois = { off: sv.disabled, title: sv.title };
+    testeResultado = guardado;
+    return { semRodada, durante, depois };
+  });
+  checar(trava.semRodada.off && /[Nn]ada verificado/.test(trava.semRodada.title),
+    'M5 · sem rodada na mão ele é APAGADO, com o motivo no `title`', JSON.stringify(trava.semRodada));
+  checar(trava.durante.off && /[Ee]spere/.test(trava.durante.title),
+    'M5 · durante a rodada também, e a razão MUDA com o estado — salvar ali gravaria o resultado '
+    + 'da rodada anterior', JSON.stringify(trava.durante));
+  checar(!trava.depois.off,
+    'M5 · e ele acende quando a verificação termina, que é o "após feita" do pedido',
+    JSON.stringify(trava.depois));
+
 } finally {
   await navegador.close();
   servidor.close();
