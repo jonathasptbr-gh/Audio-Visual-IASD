@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.10.3';
+const WEB_VERSION = '1.10.4';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -27552,6 +27552,295 @@ const TESTES = [
         + ' · ' + (noDisco.length - soltos) + ' no catálogo');
     },
   },
+  {
+    id: 'pastas-contagem', area: 'A biblioteca', titulo: 'A pasta mostra quantos arquivos ela tem',
+    fn: async () => {
+      // SEM GUARDA DE `__NATIVE__`: a pergunta é sobre o BANCO, e ela vale
+      // igual no navegador (onde a pasta entra pelo `showDirectoryPicker`).
+      //
+      // O QUE O ZERO CUSTA, e é por isso que ele vem primeiro: a recuperação
+      // automática do app — `openFolderSource`, que pede a pasta de novo
+      // quando ela para de responder — é guardada por `count > 0`. Com o
+      // número gravado em ZERO sobre uma pasta que TEM arquivos, ela fica
+      // DESARMADA, e uma permissão revogada deixa de ser recuperável sozinha.
+      if (!opfsFolders.length) return tNa('nenhuma pasta do aparelho foi trazida');
+      // O ÚNICO ESTADO EM QUE A DIVERGÊNCIA É NORMAL: o `count` só é reescrito
+      // a cada 25 arquivos e no fim do laço.
+      if (syncBusy) return tNa('uma pasta está sincronizando agora — a contagem só fecha no fim');
+      const zeradas = []; const erradas = [];
+      let conferidas = 0; let arquivos = 0;
+      for (const f of opfsFolders) {
+        if (!f || !f.id) continue;
+        let n;
+        // O índice `folder` da store `files` — a MESMA leitura que o corpo da
+        // pasta faz ao abrir e a mesma que o laço da sincronização usa para
+        // reescrever o `count`. Uma segunda régua divergiria da tela no
+        // primeiro ajuste.
+        try { n = ((await AVDB.filesByFolder(f.id)) || []).length; } catch (_) { continue; }
+        conferidas++; arquivos += n;
+        const diz = Number(f.count || 0);
+        if (n === diz) continue;
+        if (n > 0 && diz === 0) zeradas.push('"' + f.name + '" mostra 0 e tem ' + n);
+        else erradas.push('"' + f.name + '" mostra ' + diz + ' e tem ' + n);
+      }
+      if (!conferidas) return tNa('nenhuma pasta pôde ser lida');
+      if (zeradas.length) {
+        return tFalhou(zeradas[0] + ' — com o número em zero o app não percebe quando a pasta '
+          + 'para de responder: toque em sincronizar nela');
+      }
+      if (erradas.length) return tFalhou(erradas[0] + ' — a cópia parou no meio: toque em sincronizar nela');
+      return tOk(conferidas + ' pasta(s) · ' + arquivos + ' arquivos');
+    },
+  },
+  {
+    id: 'biblia-completa', area: 'A biblioteca', titulo: 'A Bíblia marcada como completa está completa',
+    fn: async () => {
+      // A BANDEIRA E O TEXTO SÃO O MESMO FATO EM DOIS LUGARES, e nada os mantém
+      // juntos: `apagarVersaoBiblia` apaga os capítulos numa transação e
+      // reescreve `bibleComplete:<v>` em OUTRA. A segunda falhando deixa o
+      // banco VAZIO com a bandeira ligada — e `ensureBibleVersionDownloaded`
+      // devolve cedo NA BANDEIRA, então aquela versão nunca mais é rebaixada.
+      // A folha de versões diz "Completa offline", o excluir nem é desenhado
+      // (não há capítulo no aparelho) e o toque na linha não dispara nada:
+      // a versão fica EMPAREDADA, e o erro só aparece no púlpito, sem rede.
+      //
+      // A CONTA É DE CHAVES, nunca de valores — a mesma regra do recontar.
+      const versoes = bibleVersions.length ? bibleVersions : ((await AVDB.getState('bibleVersions')) || []);
+      if (!versoes.length) return tNa('a lista de versões ainda não chegou a este aparelho');
+      // OS ids REAIS DOS LIVROS, hidratados do disco: sem isso `bibleBookId`
+      // cai no índice+1 e a checagem procuraria chaves que a LEITURA não
+      // procura. É a mesma atribuição do `ensureBibleMeta`, sem rede.
+      if (!bibleBooksOnline) bibleBooksOnline = (await AVDB.getState('bibleBooks')) || null;
+      // A BANDEIRA DO DISCO, nunca o Set da memória: é o disco que o próximo
+      // lançamento lê, e é ele que o apagamento deixa para trás.
+      const marcadas = (await Promise.all(versoes.map(async (v) =>
+        (await AVDB.getState('bibleComplete:' + v.id)) ? v : null))).filter(Boolean);
+      if (!marcadas.length) return tNa('nenhuma versão está marcada como completa');
+      const todas = new Set((await AVDB.stateKeys('bible:')).map(String));
+      const total = bibliaTotalDeCapitulos();
+      for (const v of marcadas) {
+        // A chave é montada com `bibleBookId`, que é a da LEITURA. Se a origem
+        // renumerar os livros, o texto gravado deixa de ser o texto procurado
+        // e a bandeira segue de pé — a classe da v1.9.14, e esta conta a vê.
+        let faltam = 0;
+        Bible.BOOKS.forEach((b, i) => {
+          const bId = bibleBookId(i);
+          for (let c = 1; c <= b.chapters; c++) {
+            if (!todas.has('bible:' + v.id + '_' + bId + '_' + c)) faltam++;
+          }
+        });
+        if (faltam) {
+          const nome = v.name || ('versão ' + v.id);
+          // AS DUAS SAÍDAS PEDEM AÇÕES DIFERENTES, e a régua é o botão de
+          // excluir: ele só existe com algum capítulo no aparelho. Sem nenhum,
+          // mandar excluir é mandar tocar no que não está desenhado.
+          return tFalhou(nome + ' consta como completa e faltam ' + faltam + ' de ' + total
+            + ' capítulos — ' + (faltam >= total
+              ? 'escolha OUTRA versão na lista da Bíblia; esta não volta a baixar sozinha'
+              : 'exclua esta versão na lista da Bíblia e escolha-a de novo'));
+        }
+      }
+      return tOk(marcadas.length + (marcadas.length > 1 ? ' versões completas · ' : ' versão completa · ')
+        + total + ' capítulos conferidos');
+    },
+  },
+  {
+    id: 'biblia-em-uso', area: 'A biblioteca', titulo: 'A versão da Bíblia em uso está no aparelho',
+    fn: async () => {
+      // A VERSÃO QUE O APP GARANTE NÃO É A QUE ABRE NO PÚLPITO. A abertura
+      // baixa a versão PADRÃO; a leitura usa a ESCOLHA do operador. Escolhida
+      // uma segunda com a rede da igreja fora, a varredura desiste depois de
+      // 25 falhas seguidas e só é retomada por alguém ABRIR a folha da Bíblia
+      // ou tocar na linha de novo — nenhum dos dois é o caminho de uma abertura
+      // normal. O aparelho fica com a versão A completa e a B, a que vai ao
+      // telão, pela metade.
+      const vId = bibleVersionId;
+      if (vId == null) return tNa('nenhuma versão da Bíblia escolhida ainda');
+      if (bibleDl && bibleDl.running && bibleDl.versionId === vId) {
+        return tNa('baixando agora · ' + bibleDl.done + ' de ' + bibleDl.total);
+      }
+      // A LINHA DE CIMA É A DONA DA VERSÃO MARCADA, e esta se cala sobre ela:
+      // sem a guarda as duas reprovam juntas com remédios que se contradizem —
+      // na versão emparedada o "toque nela" é falso.
+      if (await AVDB.getState('bibleComplete:' + vId)) {
+        return tNa('esta versão consta como completa — quem a confere é a linha da Bíblia completa');
+      }
+      if (!bibleBooksOnline) bibleBooksOnline = (await AVDB.getState('bibleBooks')) || null;
+      const todas = new Set((await AVDB.stateKeys('bible:')).map(String));
+      const total = bibliaTotalDeCapitulos();
+      let nossa = 0;
+      Bible.BOOKS.forEach((b, i) => {
+        const bId = bibleBookId(i);
+        for (let c = 1; c <= b.chapters; c++) if (todas.has('bible:' + vId + '_' + bId + '_' + c)) nossa++;
+      });
+      const nome = ((bibleVersions.find((v) => v.id === vId) || {}).name) || ('versão ' + vId);
+      if (nossa >= total) return tOk(nome + ' · ' + total + ' capítulos no aparelho');
+      // NADA DE BÍBLIA NO APARELHO INTEIRO é o aparelho NOVO, não um defeito —
+      // o app baixa uma sozinho na primeira abertura com internet. O que
+      // denuncia ESTA versão é haver texto de OUTRA.
+      if (!todas.size) return tNa('a Bíblia ainda não foi baixada neste aparelho');
+      return tFalhou(nome + ' é a versão que abre no púlpito e tem ' + nossa + ' de ' + total
+        + ' capítulos no aparelho — abra a Bíblia e toque nela na lista de versões, com internet');
+    },
+  },
+  {
+    id: 'cifra-acervo', area: 'A biblioteca', titulo: 'As cifras do hinário estão no aparelho',
+    fn: async () => {
+      // ===== A CIFRA SOME POR UM MÊS, E O APP PARA DE PERGUNTAR =====
+      //
+      // O veredito de cada hino mora em `cifras:<coleção>` e uma AUSÊNCIA vale
+      // 30 dias. É isso que torna varrível o acervo inteiro — e é isso que faz
+      // um site que mudou de endereço sumir do app por um mês: `cifraTemFolha`
+      // devolve false, A ABA NÃO É DESENHADA (v1.8.28), e quem opera lê isso
+      // como "este hino não tem cifra".
+      //
+      // A PERGUNTA É SOBRE O ACERVO, NUNCA SOBRE A PASSADA: uma passada só
+      // cobre o que FALTA, então a proporção de ausências tende a 100% num
+      // acervo saudável. O denominador certo é o hinário inteiro.
+      //
+      // E SÓ NOS HINÁRIOS (`cifraDeduzivel`): ali o endereço sai do CATÁLOGO e
+      // toda música existe no site. Num álbum a ausência é o caso normal, e
+      // zero folhas não prova nada.
+      const PISO = 20;   // julgadas antes de a conta valer
+      const alvos = allCollections().filter((c) => cifraDeduzivel(c) && countDownloaded(c.id) > 0);
+      if (!alvos.length) return tNa('nenhum hinário baixado neste aparelho');
+      const agora = Date.now();
+      const resumo = [];
+      for (const c of alvos) {
+        const guardado = (await AVDB.getState('cifras:' + c.id).catch(() => null)) || {};
+        let folhas = 0; let julgadas = 0; let semCifra = 0; let semPagina = 0;
+        // Quem diz se um veredito ainda vale é `cifraNoDiscoVale` — a MESMA
+        // função com que a varredura monta a fila. Contar por fora discordaria
+        // do aparelho no 31º dia.
+        for (const s of collSongs(c.id)) {
+          const k = cifraChaveNoDisco(s.name);
+          const v = k ? guardado[k] : null;
+          if (!cifraNoDiscoVale(v, agora)) continue;
+          julgadas++;
+          if (v.pagina) folhas++;
+          else if (v.semCifra || v.soLetra) semCifra++;   // `soLetra` é a forma ANTIGA
+          else semPagina++;
+        }
+        // ABAIXO DO PISO a varredura está no meio (ou nunca passou): reprovar
+        // aqui seria vermelho em todo aparelho novo.
+        if (julgadas < PISO) continue;
+        if (!folhas) {
+          return tFalhou(c.name + ': ' + julgadas + ' hinos respondidos e NENHUMA cifra guardada ('
+            + semPagina + ' sem página · ' + semCifra + ' sem cifra) — no hinário toda música tem '
+            + 'cifra no site, então mudou o endereço ou a marcação; copie o Registro, '
+            + 'que traz os endereços tentados');
+        }
+        resumo.push(c.name + ': ' + folhas + ' de ' + julgadas);
+      }
+      if (!resumo.length) return tNa('a varredura de cifras ainda não passou por este aparelho');
+      return tOk(resumo.join(' · '));
+    },
+  },
+
+  // ---------- AS MINHAS LISTAS ----------
+  // AS TRÊS LISTAS QUE O OPERADOR MONTA À MÃO, e que nenhuma linha alcançava:
+  // o `acervo-ids` varre as COLEÇÕES. Aqui são os dois degraus seguidos do
+  // caminho de quem EXECUTA — *"o id resolve?"* e *"o registro que resolveu
+  // tem bytes?"* —, e por isso são duas linhas: elas pedem ações diferentes.
+  {
+    id: 'listas-sumidas', area: 'As minhas listas',
+    titulo: 'Toda linha das minhas listas aponta para algo que existe',
+    fn: async () => {
+      // A RÉGUA É A DE QUEM EXECUTA, LITERALMENTE: `AVDB.getMedia`, que é o
+      // que o envio chama antes de projetar. É a v1.9.13 pelo lado certo —
+      // uma régua só, a do executor.
+      //
+      // O QUE A TELA NÃO MOSTRA: a montagem das linhas descarta em silêncio o
+      // id que não resolve, então a linha NUNCA é desenhada — mas os conjuntos
+      // que respondem "já está no Cronograma" e "é favorito" vêm dos ids
+      // CRUS. Daí a estrela acesa e o ⊕ dizendo que o item já está lá, sobre
+      // uma linha que não existe.
+      const LISTAS = [
+        ['imports', 'Cronograma'],
+        ['favs', 'Favoritos'],
+        ['avulsos', 'projetados na hora'],
+      ];
+      const alvos = [];
+      for (const [lista, rotulo] of LISTAS) {
+        for (const id of await AVDB.listIds(lista)) alvos.push([rotulo, id]);
+      }
+      if (!alvos.length) return tNa('nenhuma lista montada ainda');
+      const TETO = 300;
+      const amostra = amostrarEspalhado(alvos, TETO);
+      const porLista = {};
+      let sumidas = 0;
+      for (const [rotulo, id] of amostra) {
+        if (!(await AVDB.getMedia(id))) {
+          sumidas++;
+          porLista[rotulo] = (porLista[rotulo] || 0) + 1;
+        }
+      }
+      const quanto = amostra.length < alvos.length
+        ? ' (amostra de ' + amostra.length + ' de ' + alvos.length + ')' : '';
+      if (sumidas) {
+        const onde = Object.keys(porLista).map((k) => k + ': ' + porLista[k]).join(', ');
+        return tFalhou(sumidas + ' de ' + amostra.length + ' linhas apontam para um item que não existe '
+          + 'mais' + quanto + ' — ' + onde
+          + '. O item foi apagado e a linha ficou: torne a baixar ou a importar esses itens');
+      }
+      return tOk(amostra.length + ' linhas conferidas' + quanto);
+    },
+  },
+  {
+    id: 'listas-arquivo', area: 'As minhas listas',
+    titulo: 'As linhas que guardam arquivo ainda têm o arquivo',
+    fn: async () => {
+      if (!AVDB.opfsSupported()) return tNa('sem armazenamento de arquivos');
+      // A IRMÃ DA LINHA ACIMA, E É OUTRA PERGUNTA: aquela é *"o id resolve?"*,
+      // esta é *"o registro que resolveu tem bytes?"*. E ela não é o
+      // `acervo-arquivos`: aquele compara DISCO → catálogo e entrega um número
+      // sem veredito; este é o sentido inverso, sobre as três listas do
+      // operador, e alcança também o que aquele não toca.
+      const LISTAS = [
+        ['imports', 'Cronograma'],
+        ['favs', 'Favoritos'],
+        ['avulsos', 'projetados na hora'],
+      ];
+      const ids = [];
+      for (const [lista, rotulo] of LISTAS) {
+        for (const id of await AVDB.listIds(lista)) ids.push([rotulo, id]);
+      }
+      if (!ids.length) return tNa('nenhuma lista montada ainda');
+      // A AMOSTRA SAI DOS IDS, NUNCA DOS REGISTROS: materializar as três
+      // listas inteiras para jogar fora 90% delas custa exatamente o que o
+      // teto existe para não pagar.
+      const TETO = 80;
+      const amostra = amostrarEspalhado(ids, TETO);
+      // SÓ QUEM GUARDA ARQUIVO. Uma cena de roteiro, um item de link, uma
+      // apresentação (páginas DENTRO do registro) e toda mídia importada como
+      // blob não têm caminho no disco — perguntar pelo arquivo delas seria
+      // inventar um defeito.
+      const alvos = [];
+      for (const [rotulo, id] of amostra) {
+        const it = await AVDB.getMedia(id);
+        if (it && it.opfsPath && !it.blob && !it.url && !it.pages) alvos.push([rotulo, it.name, it.opfsPath]);
+      }
+      if (!alvos.length) return tNa('nenhuma das linhas conferidas guarda arquivo no aparelho');
+      let mortos = 0;
+      let ex = '';
+      for (const [rotulo, nome, caminho] of alvos) {
+        // A RÉGUA DO MOTOR, e ela não CRIA nada: a leitura resolve o diretório
+        // SEM `create`, então uma pasta ausente falha em vez de nascer. Nada a
+        // limpar depois.
+        if (!(await AVDB.opfsGetFile(caminho).catch(() => null))) {
+          mortos++;
+          if (!ex) ex = rotulo + ' · ' + nome;
+        }
+      }
+      const quanto = amostra.length < ids.length
+        ? ' (amostra de ' + amostra.length + ' de ' + ids.length + ' linhas)' : '';
+      if (mortos) {
+        return tFalhou(mortos + ' de ' + alvos.length + ' sem o arquivo no aparelho' + quanto
+          + ' — ex.: ' + ex + '. Torne a baixar esses itens');
+      }
+      return tOk(alvos.length + ' com o arquivo no disco' + quanto);
+    },
+  },
 
   // ---------- A PROJEÇÃO ----------
   // "HÁ TELA" NÃO É "HÁ TELÃO", e as duas divergem exatamente durante uma
@@ -27674,6 +27963,86 @@ const TESTES = [
         try { a.load(); } catch (e) { fim(tFalhou(testeMsg(e))); }
         setTimeout(() => fim({ v: TESTE_MUDO, nota: 'o áudio de teste não abriu a tempo' }), 3000);
       });
+    },
+  },
+  {
+    id: 'desenhador', area: 'Som e mídia', titulo: 'O aparelho sabe transformar um slide em imagem',
+    fn: async () => {
+      // A APRESENTAÇÃO É O CAMINHO DESCOBERTO NO SÁBADO, e ela falha CALADA de
+      // duas formas: a página não sai, ou sai BRANCA — a mídia `blob:` não
+      // sobrevive ao `<foreignObject>` e o slide chega com o texto solto sobre
+      // papel. Nenhuma das duas emite erro em lugar nenhum, e nenhuma linha
+      // desta tabela as alcançava: os bytes do módulo chegam e ele RODA, que
+      // é tudo o que `partes-do-bundle` e `modulos` perguntam.
+      //
+      // A sonda é o PIPELINE DE VERDADE do app — não uma cópia dele — sobre
+      // uma caixa de 8 px. Nenhum arquivo é aberto, nada é baixado, nada sai
+      // do aparelho.
+      if (!window.AVDeck || typeof AVDeck.elementoParaImagem !== 'function') {
+        return tNa('a parte da apresentação não subiu — ver "Todas as partes do app RODARAM"');
+      }
+      const LADO = 8;
+      const FUNDO = [255, 0, 0];   // o que se vê se a imagem NÃO for embutida
+      const TINTA = [16, 64, 255]; // o que se vê se ela for
+      let url = '';
+      // O PALCO É O DO APP (0×0, recortado): uma caixa grande pendurada no
+      // corpo é o que fazia a tela piscar e o Cronograma sumir.
+      const palco = AVDeck.criarPalco();
+      try {
+        // A imagem de teste é `blob:`, que é EXATAMENTE o que o renderizador
+        // de `.pptx` entrega e o que o `<foreignObject>` não resolve sozinho.
+        const c = document.createElement('canvas');
+        c.width = 2; c.height = 2;
+        const x = c.getContext('2d');
+        x.fillStyle = 'rgb(' + TINTA.join(',') + ')';
+        x.fillRect(0, 0, 2, 2);
+        const b = await new Promise((r) => c.toBlob(r, 'image/png'));
+        if (!b) return tFalhou('este aparelho não gerou nem a imagem de teste');
+        url = URL.createObjectURL(b);
+        // `background-image` e NÃO `<img>`: é a forma em que o renderizador põe
+        // TODO fundo de slide, e era a que o embutimento não alcançava.
+        const cela = document.createElement('div');
+        cela.setAttribute('style', 'width:' + LADO + 'px;height:' + LADO + 'px;'
+          + 'background:rgb(' + FUNDO.join(',') + ');'
+          + 'background-image:url(' + url + ');background-size:cover');
+        palco.mesa.appendChild(cela);
+        const feita = await AVDeck.elementoParaImagem(cela, LADO, LADO, AVDeck.cacheDeRecursos());
+        if (!feita || !feita.blob || !feita.blob.size) {
+          return tFalhou('este aparelho não transformou um slide em imagem — PDF e PowerPoint não vão abrir');
+        }
+        // RELER O QUE SAIU, e não só contar bytes: a página BRANCA tem o número
+        // de páginas certo, o tamanho certo e não lança. É o DESFECHO, não a
+        // execução, que denuncia.
+        let px = null;
+        try {
+          const bmp = await createImageBitmap(feita.blob);
+          const cv = document.createElement('canvas');
+          cv.width = LADO; cv.height = LADO;
+          const cx = cv.getContext('2d');
+          cx.drawImage(bmp, 0, 0);
+          if (bmp.close) bmp.close();
+          px = cx.getImageData(LADO >> 1, LADO >> 1, 1, 1).data;
+        } catch (_) {
+          // O DESENHO FOI CONFIRMADO; só a releitura não. Dizer isso é honesto —
+          // carimbar verde mudo esconderia metade da pergunta.
+          return tOk('a página desenhou (a imagem não pôde ser relida aqui)');
+        }
+        const perto = (a, d) => Math.abs(a - d) <= 8;
+        if (perto(px[0], FUNDO[0]) && perto(px[1], FUNDO[1]) && perto(px[2], FUNDO[2])) {
+          return tFalhou('a imagem de fundo não entra na página: uma apresentação sairia com o '
+            + 'texto sobre papel branco');
+        }
+        if (!(perto(px[0], TINTA[0]) && perto(px[1], TINTA[1]) && perto(px[2], TINTA[2]))) {
+          return tFalhou('a página saiu com a cor errada (' + px[0] + ',' + px[1] + ',' + px[2] + ')');
+        }
+        return tOk(feita.tipo === 'image/png' ? 'em PNG' : 'em WebP');
+      } catch (e) {
+        return tFalhou('não deu para desenhar um slide: ' + testeMsg(e));
+      } finally {
+        // SEMPRE, inclusive falhando no meio — a regra da sonda de escrita.
+        palco.fechar();
+        if (url) URL.revokeObjectURL(url);
+      }
     },
   },
   {

@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.10.4",
+    "itens": [
+      "A Verificação passou de 34 para 41 conferências — sete áreas que ninguém checava.",
+      "Confere se a Bíblia marcada como completa está mesmo completa, e a versão que abre no púlpito.",
+      "Confere se as pastas do aparelho mostram o número certo de arquivos.",
+      "Confere se o Cronograma, os Favoritos e a prateleira apontam para coisas que ainda existem.",
+      "Confere se essas linhas ainda têm o arquivo no aparelho — a que não toca no culto.",
+      "Confere se as cifras do hinário estão guardadas, ou se o site mudou e o app parou de achar.",
+      "E confere se o aparelho sabe transformar um slide em imagem, antes do sábado."
+    ]
+  },
+  {
     "versao": "1.10.3",
     "itens": [
       "A Verificação ganhou um botão de salvar, ao lado de \"Verificar de novo\".",

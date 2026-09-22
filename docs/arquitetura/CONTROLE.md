@@ -7097,7 +7097,7 @@ metadado, e ela sai **dos dois lados** da fração.
 ##### A Verificação do Sistema
 
 O tile *"Verificar"* de Configurações abre a `#testePopup`, que roda a tabela
-`TESTES` (34 linhas, oito áreas) e lista o desfecho de cada uma. **Ela nasceu
+`TESTES` (41 linhas, nove áreas) e lista o desfecho de cada uma. **Ela nasceu
 de uma classe de defeito, não de um defeito**: o download do acervo ficou
 quebrado por semanas sem ninguém ver, porque quem já tem o acervo baixado nunca
 baixa de novo — o que só é exercitado numa BORDA falha calado.

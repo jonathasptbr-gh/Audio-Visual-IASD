@@ -2560,8 +2560,9 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 ### Diagnóstico
 
 - **A VERIFICAÇÃO DO SISTEMA TEM QUATRO DESFECHOS, E O QUARTO É O QUE A MANTÉM
-  VIVA** (v1.10.0). O tile *"Verificar"* de Configurações roda 34 checagens e
-  lista `funcionou` · `não funcionou` · `não respondeu` · `não se aplica`. Os
+  VIVA** (v1.10.0). O tile *"Verificar"* de Configurações roda 41 checagens em
+  NOVE áreas e lista `funcionou` · `não funcionou` · `não respondeu` ·
+  `não se aplica`. Os
   três primeiros o operador pediu; **o quarto é o que impede a parede
   vermelha** — sem ele um celular sem TV reprova todo o telão e um aparelho
   novo reprova toda a Biblioteca, e em duas rodadas ele aprende que o vermelho
@@ -2923,10 +2924,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.10.3 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.10.4 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.10.3 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.10.4 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
 **O DEGRAU É INCREMENTAL** porque a v1.10.0 traz uma seção que não existia — a
 Verificação do Sistema, com tile, folha e fluxo próprios —, e não um conserto.

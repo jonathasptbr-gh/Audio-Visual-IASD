@@ -682,6 +682,229 @@ try {
     'M5 · e ele acende quando a verificação termina, que é o "após feita" do pedido',
     JSON.stringify(trava.depois));
 
+  // ===== BLOCO N · AS SETE LINHAS NOVAS (v1.10.4) =====
+  //
+  // *"Deve abranger tudo que for possível"*, na segunda metade do pedido que
+  // criou o recurso. Cada uma destas sete pega um defeito que **nenhuma das 34
+  // anteriores alcançava**, e cada asserção aqui mede a CÉLULA em que ela
+  // reprova por defeito de verdade — nunca a existência da função.
+
+  // N1 · A PASTA QUE MOSTRA ZERO. O número gravado em zero sobre uma pasta que
+  // TEM arquivos desarma a recuperação automática do app: o pedido de pasta de
+  // novo é guardado por `count > 0`, então uma permissão revogada deixa de ser
+  // recuperável sozinha.
+  const pastas = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'pastas-contagem');
+    const fbf = AVDB.filesByFolder; const guardado = opfsFolders; const busy = syncBusy;
+    syncBusy = false;
+    AVDB.filesByFolder = async () => [1, 2, 3, 4, 5];
+    opfsFolders = [{ id: 'p1', name: 'Vídeos do culto', count: 5 }];
+    const certo = await rodarUmaChecagem(achada);
+    opfsFolders = [{ id: 'p1', name: 'Vídeos do culto', count: 0 }];
+    const zerada = await rodarUmaChecagem(achada);
+    opfsFolders = [{ id: 'p1', name: 'Vídeos do culto', count: 2 }];
+    const errada = await rodarUmaChecagem(achada);
+    opfsFolders = []; const semPasta = await rodarUmaChecagem(achada);
+    AVDB.filesByFolder = fbf; opfsFolders = guardado; syncBusy = busy;
+    return { certo, zerada, errada, semPasta };
+  });
+  checar(pastas.certo.v === 'ok' && pastas.semPasta.v === 'na',
+    'N1 · pasta em dia passa, e um aparelho sem pasta nenhuma sai NÃO SE APLICA — a pergunta não '
+    + 'existe ali', JSON.stringify([pastas.certo, pastas.semPasta]));
+  checar(pastas.zerada.v === 'falhou' && /zero o app não percebe/.test(pastas.zerada.nota),
+    'N1 · e a pasta que MOSTRA ZERO e tem cinco reprova nomeando o preço: com o número em zero o '
+    + 'app não pede a pasta de novo quando ela para de responder', JSON.stringify(pastas.zerada));
+  checar(pastas.errada.v === 'falhou' && /mostra 2 e tem 5/.test(pastas.errada.nota),
+    'N1 · e a contagem só errada reprova com os DOIS números — "a cópia parou no meio" é outra '
+    + 'ação que "toque em sincronizar porque o zero desarma o resgate"', JSON.stringify(pastas.errada));
+
+  // N2 · A BÍBLIA EMPAREDADA. A bandeira e o texto são o mesmo fato em dois
+  // lugares, e nada os mantém juntos: com a bandeira de pé sobre um banco
+  // vazio, a varredura devolve cedo NA BANDEIRA e a versão nunca mais é
+  // rebaixada. A folha diz "Completa offline" e o erro só aparece no púlpito.
+  const biblia = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'biblia-completa');
+    const gs = AVDB.getState; const sk = AVDB.stateKeys;
+    const vs = bibleVersions; const bb = bibleBooksOnline;
+    bibleVersions = [{ id: 1, name: 'Almeida Revista' }];
+    bibleBooksOnline = null;
+    AVDB.getState = async (k) => (k === 'bibleComplete:1' ? true : (k === 'bibleBooks' ? null : null));
+    // o banco INTEIRO no lugar
+    const todas = [];
+    Bible.BOOKS.forEach((b, i) => { for (let c = 1; c <= b.chapters; c++) todas.push('bible:1_' + (i + 1) + '_' + c); });
+    AVDB.stateKeys = async () => todas.slice();
+    const completa = await rodarUmaChecagem(achada);
+    // o EMPAREDADO: bandeira de pé, zero capítulos
+    AVDB.stateKeys = async () => [];
+    const vazia = await rodarUmaChecagem(achada);
+    // e o banco com UM buraco
+    AVDB.stateKeys = async () => todas.slice(1);
+    const furada = await rodarUmaChecagem(achada);
+    // sem bandeira nenhuma
+    AVDB.getState = async () => null;
+    AVDB.stateKeys = async () => todas.slice();
+    const semBandeira = await rodarUmaChecagem(achada);
+    AVDB.getState = gs; AVDB.stateKeys = sk; bibleVersions = vs; bibleBooksOnline = bb;
+    return { completa, vazia, furada, semBandeira, total: todas.length };
+  });
+  checar(biblia.completa.v === 'ok' && biblia.semBandeira.v === 'na',
+    'N2 · PREMISSA: com os ' + biblia.total + ' capítulos no lugar ela passa, e sem versão marcada '
+    + 'ela não se pronuncia', JSON.stringify([biblia.completa, biblia.semBandeira]));
+  checar(biblia.vazia.v === 'falhou' && /não volta a baixar sozinha/.test(biblia.vazia.nota),
+    'N2 · a versão EMPAREDADA reprova — bandeira de pé, zero capítulos — e a nota manda escolher '
+    + 'OUTRA versão, porque nesta o botão de excluir nem é desenhado', JSON.stringify(biblia.vazia));
+  checar(biblia.furada.v === 'falhou' && /faltam 1 de /.test(biblia.furada.nota)
+    && /exclua esta versão/.test(biblia.furada.nota),
+    'N2 · e um ÚNICO capítulo faltando reprova com outra ação: ali há o que excluir, e a conta diz '
+    + 'quantos', JSON.stringify(biblia.furada));
+
+  // N3 · A VERSÃO QUE ABRE NO PÚLPITO. O app garante offline a versão PADRÃO;
+  // a leitura usa a ESCOLHA do operador. Com a rede da igreja fora a varredura
+  // da escolhida desiste, e nada fora do seletor de versões diz isso.
+  const emUso = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'biblia-em-uso');
+    const gs = AVDB.getState; const sk = AVDB.stateKeys;
+    const vs = bibleVersions; const vid = bibleVersionId; const bb = bibleBooksOnline;
+    bibleVersions = [{ id: 1, name: 'Almeida' }, { id: 2, name: 'NVI' }];
+    bibleBooksOnline = null; bibleVersionId = 2;
+    AVDB.getState = async () => null;               // a 2 NÃO está marcada
+    const daOutra = [];
+    Bible.BOOKS.forEach((b, i) => { for (let c = 1; c <= b.chapters; c++) daOutra.push('bible:1_' + (i + 1) + '_' + c); });
+    AVDB.stateKeys = async () => daOutra.slice();   // só a versão 1 no disco
+    const metade = await rodarUmaChecagem(achada);
+    AVDB.stateKeys = async () => [];                // nada de Bíblia nenhuma
+    const aparelhoNovo = await rodarUmaChecagem(achada);
+    AVDB.getState = gs; AVDB.stateKeys = sk;
+    bibleVersions = vs; bibleVersionId = vid; bibleBooksOnline = bb;
+    return { metade, aparelhoNovo };
+  });
+  checar(emUso.metade.v === 'falhou' && /NVI é a versão que abre no púlpito/.test(emUso.metade.nota)
+    && / 0 de /.test(emUso.metade.nota),
+    'N3 · com o texto de OUTRA versão no disco e nenhum da escolhida, ela reprova NOMEANDO a '
+    + 'escolhida — o app garante uma e o púlpito abre a outra', JSON.stringify(emUso.metade));
+  checar(emUso.aparelhoNovo.v === 'na',
+    'N3 · e o aparelho sem Bíblia NENHUMA sai NÃO SE APLICA: ali o app ainda vai baixar uma '
+    + 'sozinho, e reprovar seria a parede vermelha do aparelho novo', JSON.stringify(emUso.aparelhoNovo));
+
+  // N4 · A CIFRA QUE SOME POR UM MÊS. Um veredito "não tem" vale 30 dias, e a
+  // aba nem é desenhada sem folha na mão (v1.8.28): um site que mudou de
+  // endereço tira a cifra do app por um mês, sem uma linha em lugar nenhum.
+  const cifra = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'cifra-acervo');
+    const ac = window.allCollections; const cs = window.collSongs;
+    const cd = window.countDownloaded; const gs = AVDB.getState;
+    const hinos = Array.from({ length: 40 }, (_, i) => ({ name: 'Hino ' + (i + 1) }));
+    // O id É O DO CATÁLOGO da cifra (`AVCifra.CATALOGO`), e não um inventado:
+    // `cifraDeduzivel` pergunta por ele, e uma coleção fora dali não entra na
+    // conta — que é justamente a regra que a linha existe para honrar.
+    window.allCollections = () => [{ id: 'hymnal-2022', name: 'Hinário 2022', kind: 'hymnal' }];
+    window.collSongs = () => hinos;
+    window.countDownloaded = () => 40;
+    const agora = Date.now();
+    const mapa = (comFolha) => {
+      const o = {};
+      hinos.forEach((h, i) => {
+        const k = cifraChaveNoDisco(h.name);
+        if (k) o[k] = comFolha && i < 30 ? { pagina: '<html>', em: agora } : { semCifra: true, em: agora };
+      });
+      return o;
+    };
+    AVDB.getState = async () => mapa(true);
+    const comCifras = await rodarUmaChecagem(achada);
+    AVDB.getState = async () => mapa(false);   // o site mudou: NENHUMA folha
+    const siteMudou = await rodarUmaChecagem(achada);
+    AVDB.getState = async () => ({});          // nunca varrido
+    const novo = await rodarUmaChecagem(achada);
+    window.allCollections = ac; window.collSongs = cs;
+    window.countDownloaded = cd; AVDB.getState = gs;
+    return { comCifras, siteMudou, novo };
+  });
+  checar(cifra.comCifras.v === 'ok' && /30 de 40/.test(cifra.comCifras.nota),
+    'N4 · PREMISSA: com 30 folhas em 40 hinos julgados ela passa, e diz a proporção',
+    JSON.stringify(cifra.comCifras));
+  checar(cifra.siteMudou.v === 'falhou' && /NENHUMA cifra guardada/.test(cifra.siteMudou.nota),
+    'N4 · e 40 hinos respondidos com ZERO folhas reprova: no hinário toda música tem cifra no '
+    + 'site, então zero é o site que mudou — não o acervo que não tem', JSON.stringify(cifra.siteMudou));
+  checar(cifra.novo.v === 'na',
+    'N4 · o aparelho que a varredura ainda não visitou sai NÃO SE APLICA — abaixo do piso a conta '
+    + 'não vale, e reprovar ali seria vermelho em todo aparelho novo', JSON.stringify(cifra.novo));
+
+  // N5 e N6 · AS TRÊS LISTAS DO OPERADOR. O `acervo-ids` varre as COLEÇÕES e
+  // não alcança o Cronograma, os Favoritos nem a prateleira. São dois degraus
+  // do MESMO caminho de quem executa — o id resolve? o registro tem bytes? —
+  // e por isso duas linhas, com ações diferentes.
+  const listas = await pg.evaluate(async () => {
+    const sumidas = TESTES.find((c) => c.id === 'listas-sumidas');
+    const arq = TESTES.find((c) => c.id === 'listas-arquivo');
+    const li = AVDB.listIds; const gm = AVDB.getMedia; const og = AVDB.opfsGetFile;
+    AVDB.listIds = async (l) => (l === 'imports' ? ['a', 'b', 'c'] : (l === 'favs' ? ['d'] : []));
+    AVDB.getMedia = async (id) => ({ id, name: 'Louvor ' + id, opfsPath: 'm/' + id + '.mp4' });
+    AVDB.opfsGetFile = async () => ({ size: 10 });
+    const idsOk = await rodarUmaChecagem(sumidas);
+    const arqOk = await rodarUmaChecagem(arq);
+    AVDB.getMedia = async (id) => (id === 'b' ? null
+      : { id, name: 'Louvor ' + id, opfsPath: 'm/' + id + '.mp4' });
+    const idSumido = await rodarUmaChecagem(sumidas);
+    AVDB.getMedia = async (id) => ({ id, name: 'Louvor ' + id, opfsPath: 'm/' + id + '.mp4' });
+    AVDB.opfsGetFile = async (c) => (c === 'm/c.mp4' ? null : { size: 10 });
+    const semArquivo = await rodarUmaChecagem(arq);
+    // e o registro que NÃO guarda arquivo não inventa defeito
+    AVDB.getMedia = async (id) => ({ id, name: 'Cena ' + id, kind: 'cue' });
+    const semCaminho = await rodarUmaChecagem(arq);
+    AVDB.listIds = async () => [];
+    const vazio = await rodarUmaChecagem(sumidas);
+    AVDB.listIds = li; AVDB.getMedia = gm; AVDB.opfsGetFile = og;
+    return { idsOk, arqOk, idSumido, semArquivo, semCaminho, vazio };
+  });
+  checar(listas.idsOk.v === 'ok' && listas.arqOk.v === 'ok' && listas.vazio.v === 'na',
+    'N5 · PREMISSA: com as quatro linhas resolvendo e com arquivo, as duas passam; sem lista '
+    + 'montada, a pergunta não existe', JSON.stringify([listas.idsOk, listas.arqOk, listas.vazio]));
+  checar(listas.idSumido.v === 'falhou' && /Cronograma: 1/.test(listas.idSumido.nota),
+    'N5 · o id que NÃO RESOLVE MAIS reprova, e a nota diz EM QUE LISTA — a linha nunca é '
+    + 'desenhada, mas a estrela e o ⊕ continuam dizendo que o item está lá',
+    JSON.stringify(listas.idSumido));
+  checar(listas.semArquivo.v === 'falhou' && /sem o arquivo no aparelho/.test(listas.semArquivo.nota),
+    'N6 · e o registro que resolve SEM os bytes reprova à parte: ali a linha está à vista e falha '
+    + 'no toque, que é outra ação', JSON.stringify(listas.semArquivo));
+  checar(listas.semCaminho.v === 'na',
+    'N6 · o que não guarda arquivo (cena de roteiro, link, apresentação) sai NÃO SE APLICA — '
+    + 'perguntar pelo arquivo deles seria inventar um defeito', JSON.stringify(listas.semCaminho));
+
+  // N7 · O SLIDE QUE SAI BRANCO. A apresentação falha CALADA de duas formas — a
+  // página não sai, ou sai com o texto sobre papel, porque a mídia `blob:` não
+  // sobrevive ao `<foreignObject>`. Os bytes do módulo chegam e ele RODA, que
+  // é tudo o que as duas linhas de "O aplicativo" perguntam.
+  const deck = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'desenhador');
+    const real = await rodarUmaChecagem(achada);
+    const orig = AVDeck.elementoParaImagem;
+    // o desenhador que devolve a página SEM a imagem embutida: 8×8 no FUNDO
+    AVDeck.elementoParaImagem = async () => {
+      const cv = document.createElement('canvas');
+      cv.width = 8; cv.height = 8;
+      const cx = cv.getContext('2d');
+      cx.fillStyle = 'rgb(255,0,0)'; cx.fillRect(0, 0, 8, 8);
+      const b = await new Promise((r) => cv.toBlob(r, 'image/png'));
+      return { blob: b, tipo: 'image/png' };
+    };
+    const branca = await rodarUmaChecagem(achada);
+    AVDeck.elementoParaImagem = async () => null;
+    const morta = await rodarUmaChecagem(achada);
+    AVDeck.elementoParaImagem = orig;
+    const sobrou = document.querySelectorAll('canvas').length;
+    return { real, branca, morta, sobrou };
+  });
+  checar(deck.real.v === 'ok',
+    'N7 · o pipeline de VERDADE do app desenha uma página de 8px e ela sai com a cor da imagem '
+    + 'embutida — não é uma cópia do desenhador, é ele', JSON.stringify(deck.real));
+  checar(deck.branca.v === 'falhou' && /texto sobre papel branco/.test(deck.branca.nota),
+    'N7 · e a página que sai SEM a imagem de fundo reprova: ela tem o tamanho certo, o número de '
+    + 'páginas certo e não lança — é o DESFECHO que denuncia, por isso a imagem é RELIDA',
+    JSON.stringify(deck.branca));
+  checar(deck.morta.v === 'falhou' && /não transformou um slide/.test(deck.morta.nota),
+    'N7 · e o desenhador que devolve nada reprova com a frase do operador: PDF e PowerPoint não '
+    + 'vão abrir', JSON.stringify(deck.morta));
+
 } finally {
   await navegador.close();
   servidor.close();
