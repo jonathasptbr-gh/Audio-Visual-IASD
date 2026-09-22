@@ -131,16 +131,26 @@
       // não agendar uma segunda saída — ele é chamado de um ponto só hoje, e
       // essa é a guarda que mantém isso barato de mudar.
       function levantar() {
+        marcar('pronto');
         if (espera) return;
         var falta = PISO_MS - (Date.now() - nasceu);
         if (falta > 0) { espera = setTimeout(sair, falta); return; }
         sair();
       }
+      // QUEM TIROU A CORTINA FICA REGISTRADO (v1.10.2), e o PRIMEIRO a escrever
+      // ganha. Sem isto não há como distinguir, depois, um app que subiu
+      // inteiro de um que foi RESGATADO pelo teto de 12 s: nos dois casos a
+      // cortina não está mais no documento, e o `#splash` ausente é a única
+      // pista que sobra. A Verificação do Sistema perguntava por esse nó e
+      // respondia VERDE nos dois — falso verde sobre o estado mais grave que
+      // este app tem. Um segundo `pronto()` depois do teto não reescreve o
+      // motivo: o que se guarda é quem tirou a cortina, não o último a falar.
+      function marcar(m) { if (window.__avSplash && !window.__avSplash.motivo) window.__avSplash.motivo = m; }
       // O TETO CHAMA `sair`, NÃO `levantar`: ele é a rede de segurança de um app
       // que não subiu, e fazê-lo passar pelo piso seria pedir ao caminho de
       // emergência que respeitasse uma regra de estética.
-      window.__avSplash = { pronto: levantar };
-      prazo = setTimeout(sair, TETO_MS);
+      window.__avSplash = { pronto: levantar, motivo: '' };
+      prazo = setTimeout(function () { marcar('prazo'); sair(); }, TETO_MS);
     })();
   </script>
 </head>
@@ -2493,7 +2503,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.10.1</span>
+            <span id="appVersion" class="app-version">v1.10.2</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

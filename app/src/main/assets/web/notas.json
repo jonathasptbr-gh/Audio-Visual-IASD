@@ -1,5 +1,18 @@
 [
   {
+    "versao": "1.10.2",
+    "itens": [
+      "A Verificação ganhou uma conferência nova: se todas as partes do app realmente ligaram.",
+      "Antes ela só via se os arquivos chegaram — um que chega e não liga deixa um recurso mudo.",
+      "\"A abertura terminou\" passa a distinguir o app que subiu do que foi resgatado pelo prazo.",
+      "\"Há internet agora\" agora testa a saída de verdade; uma rede sem internet dizia que sim.",
+      "A varredura da biblioteca alcança o fim da lista — era só o começo, e o fim é o que chegou.",
+      "Os controles fora do app e as teclas de volume testam o que o app usa, não o que o navegador tem.",
+      "A folha agora diz \"Verificando…\" enquanto roda, em vez de ficar em branco.",
+      "Saiu a linha da notificação: quem a autoriza é o Android, e o app não tem como perguntar."
+    ]
+  },
+  {
     "versao": "1.10.1",
     "itens": [
       "Conserta cinco conferências da Verificação que não tinham como acusar problema nenhum.",
