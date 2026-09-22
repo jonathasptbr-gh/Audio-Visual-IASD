@@ -364,11 +364,18 @@ try {
     // das preferências: a saída de áudio ainda fala do som que sai para a
     // congregação, e a economia da prévia fala do CELULAR — daí ela encostar na
     // fileira do aparelho. Os três de baixo continuam juntos e por último, e
-    // quem garante que eles ficam numa FILEIRA inteira com a grade em onze é o
-    // `grid-column: 1` do `#shareAppTile` (medido por geometria no
+    // quem garante que eles ficam numa FILEIRA inteira é o `grid-column: 1` do
+    // `#shareAppTile` (medido por geometria no
     // `saida-de-audio-e-economia.test.mjs`, que é onde a régua de PIXEL mora).
+    //
+    // O `#testeTile` (v1.10.0) entrou NO FIM DO GRUPO DE CIMA, e não no de
+    // baixo, e a razão é geometria contada: com ele ali o grupo de cima fecha
+    // em NOVE (três fileiras cheias) e o de baixo continua sendo a fileira de
+    // três. No grupo de baixo ele faria QUATRO, e o quarto cai sozinho numa
+    // quinta fileira — a grade tem três colunas. Semanticamente ele encosta no
+    // grupo do APP, que é o vizinho de baixo, e é aí que ele está.
     checar(bloco.grade.join(',') === 'temaTile,fitTile,wallTile,histOpenRow,'
-      + 'lyricsBgTile,rotBtn,saidaAudioTile,economiaTile,'
+      + 'lyricsBgTile,rotBtn,saidaAudioTile,economiaTile,testeTile,'
       + 'shareAppTile,pacoteExportarTile,pacoteImportarTile',
       'C · na MESMA grade dos outros, e na metade de BAIXO — a fileira das '
       + 'três coisas que se fazem com o APP fora da projeção',

@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.10.0",
+    "itens": [
+      "Novo: um botão \"Verificar\" nas Configurações, que testa o app inteiro em poucos segundos.",
+      "Ele lista o que funcionou, o que não funcionou e o que não respondeu — em 34 verificações.",
+      "O que não se aplica agora (sem TV, sem acervo) aparece apagado, não como erro.",
+      "Ele confere, entre outras coisas, se a fonte das músicas entrega arquivos de verdade.",
+      "Nada do que ele faz aparece na projeção: pode ser usado com o culto em andamento.",
+      "O resultado entra no Registro, então salvar o Registro já leva o teste junto."
+    ]
+  },
+  {
     "versao": "1.9.16",
     "itens": [
       "O Registro voltava SEM o bloco do acervo quando só as imagens de fundo falhavam.",

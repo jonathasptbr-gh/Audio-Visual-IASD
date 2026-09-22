@@ -378,7 +378,9 @@ try {
   // ela deixou de existir no mesmo lote que este pedido: nenhum tile apaga
   // mais, então não há duas naturezas de LUZ para ordenar. O que sobra é o
   // ASSUNTO — seis preferências da PROJEÇÃO, e as três coisas que se fazem com
-  // o APP fora dela, numa fileira inteira e sozinha.
+  // o APP fora dela, numa fileira inteira e sozinha. O terceiro grupo (o
+  // DIAGNÓSTICO, v1.10.0) entrou ENTRE os dois — ver o comentário ao lado da
+  // lista.
   //
   // Os três da base são `hidden` no navegador (a ponte não existe aqui) e por
   // isso continuam na ORDEM DO DOCUMENTO, que é o que esta asserção lê: um
@@ -387,9 +389,24 @@ try {
     (g) => [...g.children].map((e) => e.id));
   const projecao = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow',
     'lyricsBgTile', 'rotBtn', 'saidaAudioTile', 'economiaTile'];
+  // ===== O TERCEIRO GRUPO É DE UM TILE SÓ, E ELE TEM NOME (v1.10.0) =====
+  //
+  // A VERIFICAÇÃO não é preferência da PROJEÇÃO nem ação sobre o APP: ela é
+  // DIAGNÓSTICO — não muda nada, só pergunta. Empurrá-la para um dos dois
+  // grupos seria dizer que ela é o que ela não é, e é justamente por esta
+  // asserção existir que a pergunta teve de ser respondida em vez de resolvida
+  // por acomodação.
+  //
+  // E o LUGAR dela entre os dois não é gosto, é geometria CONTADA: a grade tem
+  // três colunas, e com ela aqui o que vem antes fecha em NOVE — três fileiras
+  // cheias —, deixando as três do aparelho numa fileira inteira e sozinha, que
+  // é o desenho que a v1.7.6 pediu. No grupo de baixo ela faria quatro, e o
+  // quarto cai sozinho numa quinta fileira.
+  const diagnostico = ['testeTile'];
   const aparelho = ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile'];
-  checar(JSON.stringify(ordem) === JSON.stringify(projecao.concat(aparelho)),
-    'as ações do APARELHO são as ÚLTIMAS da grade, e as da PROJEÇÃO as primeiras',
+  checar(JSON.stringify(ordem) === JSON.stringify(projecao.concat(diagnostico, aparelho)),
+    'as ações do APARELHO são as ÚLTIMAS da grade, as da PROJEÇÃO as primeiras, e o DIAGNÓSTICO '
+    + 'entre as duas — ele não muda nada, só pergunta',
     JSON.stringify(ordem));
   // ===== A METADE ARITMÉTICA DESTA ASSERÇÃO SAIU (v1.9.9) =====
   //

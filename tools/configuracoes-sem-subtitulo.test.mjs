@@ -78,7 +78,7 @@ try {
   // (a saída de áudio e a imagem da prévia) e as três ações do aparelho, que
   // entraram quando o rótulo "Este aparelho" saiu (v1.8.16). Foram NOVE da
   // v1.8.16 à v1.9.8, e ONZE também da v1.8.0 à v1.8.16 — por outros dois, os do
-  // clone celular a celular.
+  // clone celular a celular. O DOZE é da v1.10.0, com o "Verificar".
   //
   // O NÚMERO É CONTADO DE PROPÓSITO — o que este arquivo mede é que NENHUM tile
   // tem segunda linha, e um tile novo entrando sem passar por aqui é justamente
@@ -87,8 +87,8 @@ try {
   // dois tiles e não passou por aqui, o `verificar` reprovou na `main` e o
   // `web-ota` foi PULADO — o bundle daquele lote não chegou a aparelho nenhum.
   // Mexeu na grade, este número anda junto, no MESMO lote.
-  checar(tiles.length === 11,
-    'A · a grade tem os ONZE tiles da folha', tiles.length);
+  checar(tiles.length === 12,
+    'A · a grade tem os DOZE tiles da folha', tiles.length);
   const comSobra = tiles.filter((t) => t.texto !== t.titulo.trim());
   checar(comSobra.length === 0,
     'A · e nenhum tem texto além do TÍTULO — a palavra do estado saiu de todos '
