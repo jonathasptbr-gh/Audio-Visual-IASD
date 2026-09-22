@@ -268,6 +268,108 @@ try {
     'o voltar fecha esta folha e devolve Configurações, de onde ela nasceu — a tabela POPUPS é '
     + 'percorrida de trás para a frente, e a ordem dela diz isso', JSON.stringify(volta));
 
+  // ---- K: OS FALSOS VERDES QUE A PRIMEIRA VERSÃO NÃO PODIA VER (v1.10.1) ----
+  //
+  // Uma revisão adversarial da v1.10.0 achou checagens que **não tinham como
+  // reprovar** — e um falso verde é pior que a linha não existir, porque
+  // responde *"isso está coberto?"* com um sim que não existe. As quatro daqui
+  // foram MEDIDAS, não deduzidas.
+
+  // K1 · A FONTE DOS ÍCONES. `document.fonts.check()` devolve **true com a
+  // folha dos ícones AUSENTE** (sem `@font-face` declarada ele responde pela
+  // fonte de recuo) — medido, com `document.fonts` VAZIO. A régua que resta é a
+  // largura de avanço: o Material Symbols tem quadratura de em inteiro, então
+  // um glifo dele mede exatamente o tamanho da fonte.
+  const semFonte = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'icones');
+    const comFonte = await rodarUmaChecagem(achada);
+    // a folha é trocada por uma família que NÃO tem quadratura de em
+    const st = document.createElement('style');
+    st.textContent = '.msym { font-family: monospace !important; }';
+    document.head.appendChild(st);
+    const semEla = await rodarUmaChecagem(achada);
+    st.remove();
+    return { comFonte, semEla, checkMente: document.fonts.check('24px "Material Symbols Outlined"') };
+  });
+  checar(semFonte.comFonte.v === 'ok',
+    'K1 · com a fonte dos ícones no lugar a checagem passa', JSON.stringify(semFonte.comFonte));
+  checar(semFonte.semEla.v === 'falhou',
+    'K1 · e com os ícones caindo na fonte de recuo ela REPROVA — era um verde garantido, porque '
+    + '`document.fonts.check()` responde `true` até com a folha ausente',
+    JSON.stringify(semFonte.semEla));
+
+  // K2 · O TELÃO. `simpleDisplay()` responde *"há alguma projeção"* (TV **ou**
+  // computador da rede); a pergunta desta linha é *"a Presentation subiu?"*.
+  // Com um computador projetando e o telão da TV no chão, ela saía VERDE
+  // exatamente no estado que existe para pegar.
+  const telao = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'telao-no-ar');
+    const resp = TESTES.find((c) => c.id === 'telao-responde');
+    const nativo = window.__NATIVE__;
+    const dsp = lastDisplays;
+    const noAr = window.telaoNoAr; const daRede = window.telasDaRede;
+    window.__NATIVE__ = true;
+    lastDisplays = [{ id: 1, name: 'TV' }];
+    window.telaoNoAr = () => null;                       // a Presentation está no chão
+    window.telasDaRede = () => [{ rotulo: 'PC' }];       // e há um computador projetando
+    const r1 = await rodarUmaChecagem(achada);
+    const r2 = await rodarUmaChecagem(resp);
+    window.__NATIVE__ = nativo; lastDisplays = dsp;
+    window.telaoNoAr = noAr; window.telasDaRede = daRede;
+    return { noAr: r1, responde: r2 };
+  });
+  checar(telao.noAr.v === 'falhou',
+    'K2 · com a TV conectada e a projeção no chão a linha REPROVA, mesmo havendo um computador '
+    + 'projetando — a régua é a Presentation, não "há alguma projeção"', JSON.stringify(telao.noAr));
+  checar(telao.responde.v === 'na' && /computador/.test(telao.responde.nota),
+    'K2 · e a do "responde aos comandos" sai NÃO SE APLICA em vez de SEM RESPOSTA: o `diag-dump` de '
+    + 'um computador MORRE NO DRENO, então ali ela nunca teria resposta — um vermelho permanente',
+    JSON.stringify(telao.responde));
+
+  // K3 · O RELÓGIO. O campo da hora era de módulo e nunca zerava: as checagens
+  // correm quatro de cada vez, então na PRIMEIRA rodada esta chegava antes da
+  // que o preenchia, e na SEGUNDA lia o cabeçalho da rodada ANTERIOR — minutos
+  // velho — e acusava de torto um relógio certo.
+  const relogio = await pg.evaluate(() => {
+    const fonte = TESTES.find((c) => c.id === 'relogio').fn.toString();
+    return {
+      pedeSozinho: /fetch\(/.test(fonte),
+      leCarona: /testeHoraDoServidor/.test(fonte),
+    };
+  });
+  checar(relogio.pedeSozinho && !relogio.leCarona,
+    'K3 · o relógio busca a hora NA PRÓPRIA rodada e não de carona numa variável que sobrevive à '
+    + 'anterior — acusar um relógio certo é o defeito da v1.9.14 voltando pela porta do recurso '
+    + 'que existe para pegá-lo', JSON.stringify(relogio));
+
+  // K4 · AS TRÊS CASAS DA VERSÃO. O `renderVersionLabel()` escreve
+  // `'v' + WEB_VERSION` dentro do `#appVersion` na carga: ler o nó era comparar
+  // `WEB_VERSION` consigo mesmo. A casa de verdade é o literal do documento.
+  const versoes = await pg.evaluate(() => {
+    const fonte = TESTES.find((c) => c.id === 'versoes').fn.toString();
+    return { leDocumento: /index\.html/.test(fonte), leONo: /getElementById\('appVersion'\)/.test(fonte) };
+  });
+  checar(versoes.leDocumento && !versoes.leONo,
+    'K4 · a terceira casa da versão sai do ARQUIVO e não do nó da tela, que o próprio app reescreve '
+    + 'na carga — comparar o nó era comparar `WEB_VERSION` consigo mesmo', JSON.stringify(versoes));
+
+  // K5 · O DECODIFICADOR. O WAV da v1.10.0 tinha o bloco `data` com ZERO bytes:
+  // medido, `duration` saía `Infinity` e nenhum decodificador chegava a rodar.
+  const wav = await pg.evaluate(async () => {
+    const fonte = TESTES.find((c) => c.id === 'decodificador').fn.toString();
+    const m = fonte.match(/base64,([A-Za-z0-9+/=]+)/);
+    const bin = atob(m[1]);
+    const bytes = new Uint8Array([...bin].map((c) => c.charCodeAt(0)));
+    const tam = new DataView(bytes.buffer).getUint32(40, true);
+    return { bytes: bytes.length, amostras: tam, exigeDuracao: /isFinite\(a\.duration\)/.test(fonte) };
+  });
+  checar(wav.amostras > 0,
+    'K5 · o áudio de teste tem amostras de verdade — com o bloco `data` vazio o navegador lê 44 bytes '
+    + 'de cabeçalho e nenhum decodificador roda', JSON.stringify(wav));
+  checar(wav.exigeDuracao,
+    'K5 · e a asserção é a DURAÇÃO finita, não o mero evento: um `loadedmetadata` com `Infinity` '
+    + 'passava sem provar nada', wav.exigeDuracao);
+
 } finally {
   await navegador.close();
   servidor.close();

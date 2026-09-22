@@ -366,7 +366,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.10.0';
+const WEB_VERSION = '1.10.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -27217,18 +27217,27 @@ const TESTES = [
     id: 'persistencia', area: 'Armazenamento', titulo: 'O sistema não apaga a biblioteca sozinho',
     fn: async () => {
       if (!navigator.storage || !navigator.storage.persisted) return tNa('este navegador não informa');
-      // NÃO PEDE, só PERGUNTA: `persist()` pode abrir diálogo em alguns
-      // navegadores, e um teste que pergunta não é um teste. Quem pede é o
-      // `syncCollection`, no momento certo.
-      const p = await navigator.storage.persisted();
-      if (p) return tOk(null);
+      // ELE PEDE, E ISSO É REVISÃO DA v1.10.0 (v1.10.1). Ali a linha só
+      // PERGUNTAVA (`persisted()`), e o desfecho era um vermelho PERMANENTE e
+      // SEM AÇÃO em todo aparelho com biblioteca e sem a concessão — a pior
+      // espécie de linha nesta folha, porque ela não some e não pede nada.
+      //
+      // Pedir aqui não abre porta nova: `syncCollection` já chama `persist()` a
+      // cada download, então o autoteste não introduz superfície de diálogo
+      // nenhuma — ele ANTECIPA a mesma chamada. E o desfecho passa a ser
+      // acionável: concedido é `ok`, negado é uma falha que se resolve
+      // liberando espaço.
+      if (await navigator.storage.persisted()) return tOk(null);
+      if (navigator.storage.persist) {
+        try { if (await navigator.storage.persist()) return tOk('protegida agora'); } catch (_) { /* segue ao ramo abaixo */ }
+      }
       // SEM BIBLIOTECA NÃO HÁ O QUE RECOLHER, e a permissão só é pedida no
       // primeiro download (`syncCollection`). Reprovar um aparelho recém
       // instalado seria o falso vermelho que ensina o operador a ignorar esta
       // folha — a mesma regra `semFonte` que governa os quatro desfechos.
       const e = await navigator.storage.estimate().catch(() => null);
       if (!e || !e.usage) return tNa('nada guardado ainda — a proteção é pedida no primeiro download');
-      return tFalhou('o Android pode recolher a biblioteca sob pressão de espaço');
+      return tFalhou('o sistema não concedeu a proteção — a biblioteca pode ser recolhida se o espaço acabar');
     },
   },
 
@@ -27265,7 +27274,18 @@ const TESTES = [
       const v = await testeVersaoDoBundle();
       const doArquivo = String(v.version || '');
       const doCodigo = String(WEB_VERSION || '');
-      const daTela = String((document.getElementById('appVersion') || {}).textContent || '').replace(/^v/, '').trim();
+      // A TERCEIRA CASA VEM DO ARQUIVO, NUNCA DO DOM (v1.10.1). O
+      // `renderVersionLabel()` escreve `'v' + WEB_VERSION` dentro do
+      // `#appVersion` na carga — ler o nó era comparar `WEB_VERSION` consigo
+      // mesmo, uma tautologia que não tinha como reprovar. O literal do HTML é
+      // a casa de verdade, e ele é a ÚNICA versão visível num shell sem
+      // `appVersion()`.
+      let daTela = '';
+      try {
+        const html = await (await fetch('./index.html', { cache: 'no-store' })).text();
+        const m = html.match(/id="appVersion"[^>]*>\s*v?([0-9]+(?:\.[0-9]+){1,2})/);
+        daTela = m ? m[1] : '';
+      } catch (_) { daTela = ''; }
       // ESQUECER UMA DELAS É O DEFEITO SILENCIOSO CLÁSSICO DESTE REPOSITÓRIO:
       // o bundle novo chega e o aparelho mostra a versão antiga — justamente a
       // leitura que serve para diagnosticar se o OTA chegou.
@@ -27273,7 +27293,7 @@ const TESTES = [
         return tFalhou('o pacote diz ' + doArquivo + ' e o programa diz ' + doCodigo);
       }
       if (doCodigo && daTela && doCodigo !== daTela) {
-        return tFalhou('o programa diz ' + doCodigo + ' e a tela mostra ' + daTela);
+        return tFalhou('o programa diz ' + doCodigo + ' e o documento traz ' + daTela);
       }
       return tOk('v' + (doCodigo || doArquivo || '?'));
     },
@@ -27501,10 +27521,14 @@ const TESTES = [
     fn: async () => {
       if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
       if (!lastDisplays.length) return tNa('nenhuma TV conectada agora');
-      // O CAMPO `telao` é a Presentation DE FATO no ar; a lista crua descreve a
-      // CONEXÃO. "A TV está aí e o telão não subiu" é o estado que já calou os
-      // dois lados de um culto inteiro sem erro em lugar nenhum.
-      if (!simpleDisplay()) return tFalhou('a TV está conectada e a projeção não subiu — reconecte o espelhamento');
+      // A RÉGUA É `telaoNoAr()`, NUNCA `simpleDisplay()` (v1.10.1). Aquele
+      // devolve a Presentation DE FATO no ar; este devolve *"há alguma
+      // projeção"* — TV **ou** computador da rede. Com um computador conectado
+      // e o telão da TV no chão, `simpleDisplay()` é verdadeiro e esta linha
+      // saía VERDE **exatamente no estado que ela existe para pegar**: a TV
+      // listada, a Presentation caída, silêncio dos dois lados e o Registro
+      // dizendo "conectado".
+      if (!telaoNoAr()) return tFalhou('a TV está conectada e a projeção não subiu — reconecte o espelhamento');
       return tOk(null);
     },
   },
@@ -27513,7 +27537,16 @@ const TESTES = [
     prazo: 4000,
     fn: async () => {
       if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
-      if (!simpleDisplay() && !telasDaRede().length) return tNa('nada projetando agora');
+      // SÓ O TELÃO DE VERDADE RESPONDE (v1.10.1). O `diag-dump` de um computador
+      // da rede MORRE NO DRENO do papel `tela` — a lista de PERMISSÃO deixa
+      // subir `display-ready` e `tela-status`, e mais nada. Aceitar telas da
+      // rede aqui produzia SEM RESPOSTA em 100% das rodadas de quem projeta num
+      // computador sem TV, que é um vermelho permanente sobre um app inteiro.
+      if (!telaoNoAr()) {
+        return telasDaRede().length
+          ? tNa('projetando num computador — quem responde a este pedido é o telão da TV')
+          : tNa('nada projetando agora');
+      }
       // O `diag-ask` É O ÚNICO COMANDO SEGURO para isto: ele pede o diário e
       // não toca na cena. Nenhum `load`, nenhum `seek`, nenhum `text` — a
       // congregação não pode ver o autoteste.
@@ -27564,7 +27597,12 @@ const TESTES = [
       // isso PAUSA a mídia do telão — um autoteste que interrompe o louvor é
       // pior que nenhum. `load()` até `loadedmetadata` prova o decodificador
       // sem pedir foco a ninguém, e mesmo assim a linha é marcada `cena`.
-      const WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=';
+      // UM WAV COM AMOSTRAS DE VERDADE (v1.10.1). O anterior tinha o bloco
+      // `data` com ZERO bytes — MEDIDO: `duration` saía `Infinity` e nenhum
+      // decodificador chegava a rodar. Ele provava que o parser leu 44 bytes de
+      // cabeçalho, e mais nada. Este são 40 ms de silêncio a 8 kHz, e a
+      // asserção passou a ser a DURAÇÃO finita.
+      const WAV = 'data:audio/wav;base64,UklGRmQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
       const a = new Audio();
       a.muted = true; a.volume = 0; a.preload = 'metadata';
       return await new Promise((resolve) => {
@@ -27575,7 +27613,11 @@ const TESTES = [
           try { a.removeAttribute('src'); a.load(); } catch (_) { /* já descartado */ }
           resolve(r);
         };
-        a.addEventListener('loadedmetadata', () => fim(tOk(null)), { once: true });
+        a.addEventListener('loadedmetadata', () => fim(
+          (a.duration > 0 && isFinite(a.duration))
+            ? tOk(null)
+            : tFalhou('o aparelho abriu o áudio de teste e não achou som nele'),
+        ), { once: true });
         a.addEventListener('error', () => fim(tFalhou('o aparelho recusou abrir um áudio de teste')), { once: true });
         a.src = WAV;
         try { a.load(); } catch (e) { fim(tFalhou(testeMsg(e))); }
@@ -27592,14 +27634,22 @@ const TESTES = [
     },
   },
   {
-    id: 'segundo-plano', area: 'Som e mídia', titulo: 'Nada ficou preso em segundo plano',
+    id: 'segundo-plano', area: 'Som e mídia', titulo: 'As contagens de trabalho em segundo plano batem',
     fn: async () => {
-      // O VAZAMENTO QUE ISTO PEGA: quando o renderer morre, os `fetch` em voo
-      // morrem junto e o `finally` que desligaria o serviço nunca roda —
-      // sobravam para sempre o serviço em primeiro plano, a notificação
-      // congelada e um wake lock de 2 h, e a guarda transformava o download
-      // seguinte em nada. O `buildControleWebView` zera isso ao remontar; esta
-      // linha diz se sobrou.
+      // ===== O QUE ESTA LINHA MEDE, E O QUE ELA NÃO ALCANÇA (v1.10.1) =====
+      //
+      // Ela se chamava *"nada ficou preso em segundo plano"* e não podia
+      // cumprir: o que fica preso é do lado do SHELL — o serviço em primeiro
+      // plano, a notificação congelada e o wake lock de 2 h que sobrevivem à
+      // morte do renderer —, e o lado web não tem como perguntar. `keepAlive` e
+      // `bgProgress` são ENVIOS; não há leitura. **Um título que promete mais
+      // do que a checagem alcança é o log que discorda do aparelho**, então o
+      // título passou a dizer o que ela de fato faz: conferir que as duas
+      // contagens do lado web são COERENTES entre si.
+      //
+      // A pergunta que falta — *"o shell ainda acha que está protegendo?"* —
+      // exige método NOVO de ponte, e portanto um APK. Fica anotada aqui para
+      // quem for abrir o próximo lote de shell.
       if (bgWorkCount < 0 || bgRotinaCount < 0) {
         return tFalhou('a contagem de tarefas ficou negativa (' + bgWorkCount + '/' + bgRotinaCount + ')');
       }
@@ -27691,12 +27741,28 @@ const TESTES = [
   {
     id: 'icones', area: 'A tela', titulo: 'Os ícones desenham',
     fn: async () => {
-      // A FONTE DE SÍMBOLOS É UM SUBSET feito à mão: um codepoint de fora não
-      // desenha NADA — nem tofu, só um vão do tamanho de um ícone. Aqui a
-      // pergunta é mais rasa e é a que importa no aparelho: a fonte CARREGOU?
-      if (!document.fonts || !document.fonts.check) return tNa('este navegador não informa as fontes');
-      const ok = document.fonts.check('24px "Material Symbols Outlined"');
-      if (!ok) return tFalhou('a fonte dos ícones não carregou — botões vão aparecer sem desenho');
+      // ===== `document.fonts.check` NÃO RESPONDE ESTA PERGUNTA — MEDIDO =====
+      //
+      // Ele devolve **`true` com a folha dos ícones AUSENTE** (sem `@font-face`
+      // declarada ele responde pela fonte de recuo) e `document.fonts` sai
+      // VAZIO. Era um verde garantido: a checagem não tinha como reprovar em
+      // nenhum dos dois modos de falha, que é a definição de falso verde.
+      //
+      // A RÉGUA É A LARGURA DE AVANÇO DO GLIFO, medida no documento. O
+      // Material Symbols tem quadratura de em inteiro: um glifo dele mede
+      // EXATAMENTE o tamanho da fonte. MEDIDO neste app a 24px — 24,00 com a
+      // fonte; 18,67 com o woff2 bloqueado e 14,41 com a folha bloqueada.
+      const sonda = document.createElement('span');
+      sonda.className = 'msym';
+      sonda.textContent = '\ue14c';   // `close`, que o subset tem e a folha usa
+      sonda.style.cssText = 'position:fixed;left:-9999px;top:0;font-size:24px;line-height:1;visibility:hidden';
+      document.body.appendChild(sonda);
+      const largura = sonda.getBoundingClientRect().width;
+      sonda.remove();
+      if (!largura) return tNa('não foi possível medir os ícones agora');
+      if (Math.abs(largura - 24) > 1) {
+        return tFalhou('a fonte dos ícones não carregou — botões vão aparecer sem desenho');
+      }
       return tOk(null);
     },
   },
@@ -27716,14 +27782,26 @@ const TESTES = [
   },
   {
     id: 'relogio', area: 'O aparelho', titulo: 'O relógio do aparelho está certo',
+    prazo: TESTE_PRAZO_REDE, rede: true,
     fn: async () => {
       // POR QUE ISTO IMPORTA AQUI: o cronômetro e a playlist automática viajam
       // ao telão como DESCRITOR com o instante de origem do celular, e as telas
       // da rede corrigem o relógio pela mediana do epoch dos pings. Um relógio
       // torto não quebra nada visível — ele faz o cronômetro reaparecer no
       // segundo errado depois de uma reconexão.
-      if (!testeHoraDoServidor) return tNa('não houve resposta da internet para comparar');
-      const doServidor = Date.parse(testeHoraDoServidor);
+      // A HORA É DESTA RODADA, NUNCA DE CARONA (v1.10.1). O campo era de módulo
+      // e nunca zerava: como as checagens correm quatro de cada vez, na PRIMEIRA
+      // rodada esta chegava antes da que o preenche e saía `na`; na SEGUNDA ela
+      // lia o cabeçalho da rodada ANTERIOR — minutos velho — e acusava de torto
+      // um relógio certo. **Um diagnóstico que acusa a coisa errada manda o
+      // operador consertar o que não está quebrado**, que é o defeito da
+      // v1.9.14 voltando pela porta do recurso que existe para pegá-lo.
+      if (!navigator.onLine) return tNa('o aparelho está sem internet');
+      const res = await fetch(Louvorja.fileUrl('/'), { method: 'HEAD', cache: 'no-store' })
+        .catch(() => null);
+      const cabecalho = res && res.headers.get('date');
+      if (!cabecalho) return tNa('a internet não respondeu com a hora');
+      const doServidor = Date.parse(cabecalho);
       if (!doServidor) return tNa('a resposta não trouxe a hora');
       const desvio = Math.abs(Date.now() - doServidor);
       if (desvio > 5 * 60 * 1000) {
