@@ -372,6 +372,17 @@
          Em SVG e não em glifo: `history` (e875) NÃO está no subset de 31
          codepoints de `shared/fonts/material-symbols.woff2`, e um codepoint de
          fora do subset não desenha NADA — ver `tools/glifos.test.mjs`. -->
+    <!-- VERIFICAÇÃO DO SISTEMA: a linha de um monitor de sinais. Em SVG e não
+         em glifo pela regra dura desta lista — `shared/fonts/material-symbols.woff2`
+         é um subset de 31 codepoints feito à mão, e um codepoint de fora NÃO
+         DESENHA NADA (sem tofu, sem erro: um vão do tamanho de um ícone). Ver
+         `tools/glifos.test.mjs`, que barra o build por isso.
+
+         O desenho é a PULSAÇÃO e não um ✓: o tile abre uma folha que MEDE, e
+         um ✓ prometeria o desfecho antes de ele existir. -->
+    <symbol id="icoVerificar" viewBox="0 0 24 24">
+      <path d="M2.5 12h4l2-5.5 3.5 11 2.5-8 2 2.5h5"/>
+    </symbol>
     <symbol id="icoHistorico" viewBox="0 0 24 24">
       <path d="M5 4.4v15.2" stroke-width="1.3"/>
       <path d="M5 6.6h.01" stroke-width="4"/>
@@ -1930,6 +1941,42 @@
     </div>
   </div>
 
+  <!-- A VERIFICAÇÃO DO SISTEMA (v1.10.0). Abre de DENTRO de Configurações,
+       como o Histórico — e por isso vem depois dela na tabela `POPUPS`, que é
+       percorrida de trás para a frente pelo voltar: fechar esta folha devolve
+       o operador à folha de onde ele saiu.
+
+       O RESUMO FICA NO TOPO e não rola: ele é a resposta em uma olhada
+       (*"posso subir para a mesa de som?"*), e a lista embaixo é o detalhe de
+       quem quer saber qual linha. -->
+  <div id="testePopup" class="popup-backdrop">
+    <div class="popup-sheet">
+      <div class="popup-header">
+        <span class="popup-header-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoVerificar"/></svg>
+        </span>
+        <span class="popup-title">Verificação do sistema</span>
+        <button id="testePopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
+      </div>
+      <div id="testeResumo" class="teste-resumo" role="status" aria-live="polite"></div>
+      <ul id="testeList" class="popup-list rola"></ul>
+      <!-- FAIXA DE FECHO com UM botão só, então ele veste a altura das linhas
+           que fecha (a regra da v5.301, e não a do quadrado da v1.8.61, que
+           vale para faixa com irmão).
+
+           NÃO HÁ "SALVAR" AQUI, de propósito: o diagnóstico deste app tem UMA
+           porta de saída, e ela é o Registro — que já carrega este resultado
+           como um bloco. Um segundo salvar produziria dois artefatos parecidos
+           e diferentes, que é o que faz quem lê a distância perguntar qual dos
+           dois é o de verdade. -->
+      <div class="popup-fecho">
+        <div class="song-menu-go-row">
+          <button type="button" id="testeRodar" class="song-menu-btn song-menu-go">Verificar de novo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- CONFIGURAÇÕES (folha do TOPO desde a v1.2.3 — ela desce do teto, que é
        onde mora a engrenagem que a abre; ver `.popup-sheet--topo`).
        Era "Exibição" e guardava só como o telão
@@ -2295,6 +2342,23 @@
             </svg>
             <span class="qs-titulo">Imagem da prévia</span>
           </button>
+          <!-- VERIFICAÇÃO DO SISTEMA (v1.10.0). Pedido do operador depois de um
+               defeito que passou semanas despercebido porque só quebrava no
+               PRIMEIRO acesso: *"gostaria de criar um botão nas configurações
+               do app que faça pequenos testes rápidos de todo o sistema"*.
+
+               ELE ABRE UMA FOLHA, e não alterna nada — como o Histórico, o
+               Compartilhar e os dois do pacote. E tinha de abrir: o resultado é
+               uma LISTA de dezenas de linhas, e a regra 2 desta grade (v1.7.2)
+               diz que um tile não tem onde escrever nada além do título.
+
+               O ARO DE TRABALHO é o `.qs-trabalhando` que o Exportar já usa —
+               uma segunda opinião sobre o mesmo desenho seria a primeira a
+               divergir. -->
+          <button type="button" class="qs-tile qs-on" id="testeTile" title="Conferir se cada parte do app está respondendo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoVerificar"/></svg>
+            <span class="qs-titulo">Verificar</span>
+          </button>
           <button type="button" class="qs-tile qs-on" id="shareAppTile" title="Compartilhar o link para baixar o app">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCompartilhar"/></svg>
             <span class="qs-titulo">Compartilhar</span>
@@ -2429,7 +2493,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.9.16</span>
+            <span id="appVersion" class="app-version">v1.10.0</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

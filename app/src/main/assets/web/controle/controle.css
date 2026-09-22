@@ -7861,6 +7861,70 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 
    MEDIDO no par novo: **1,43:1** no escuro e **1,35:1** no claro — os mesmos
    números da alternância da Biblioteca, pela mesma razão. */
+/* ===== A VERIFICAÇÃO DO SISTEMA (v1.10.0) =====
+
+   AS CORES DOS QUATRO DESFECHOS, e a primeira delas é a que este app já
+   decidiu contra o instinto: **o que PASSOU é AZUL, não verde** (v1.8.55). A
+   régua é do operador — *"verde é para sinal de 'ligado'; nesses casos são
+   mensagem de conclusão, não de atividade"* —, e uma checagem que respondeu é
+   exatamente uma conclusão. O verde deste app continua tendo dois consumidores
+   só: a TV no ar e o ponto do Auxiliar.
+
+   O vermelho e o âmbar FICAM, porque *"não deu"* e *"não respondeu"* são outras
+   mensagens, não outra cor para a mesma — e elas pedem ações opostas (uma manda
+   consertar, a outra manda tentar de novo ou olhar a rede).
+
+   E o NÃO SE APLICA é APAGADO, que neste app quer dizer INDISPONÍVEL — que é o
+   que ele é: a checagem existe, e não há como fazê-la agora. */
+.teste-resumo {
+  flex-shrink: 0;
+  margin: 0 .7rem var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-card);
+  background: var(--poco);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+.teste-resumo:empty { display: none; }
+.teste-resumo--bom { background: var(--btn-accent); color: var(--accent); }
+.teste-resumo--ruim { background: var(--btn-danger); color: var(--danger-strong); }
+.teste-resumo--rodando { color: var(--muted); }
+/* O CABEÇALHO DE ÁREA é rótulo, não linha: ele não recebe toque, não tem alvo e
+   não pode parecer um item da lista que está logo abaixo dele. */
+.teste-area {
+  list-style: none;
+  padding: var(--sp-4) var(--sp-2) var(--sp-1);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-forte);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.teste-item {
+  list-style: none;
+  display: flex; align-items: flex-start; gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-2);
+}
+.teste-marca { flex-shrink: 0; display: flex; align-items: center; height: 1.3em; }
+.teste-marca svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
+.teste-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.teste-titulo { color: var(--text); font-size: var(--fs-sm); line-height: 1.3; }
+/* A NOTA É A CAUSA, e ela QUEBRA em quantas linhas precisar: cortar com
+   reticências a frase que diz o que fazer é apagar a razão de a linha existir.
+   É a mesma escolha do Registro — comprimento não custa tela nenhuma numa lista
+   que rola; o que custa é enterrar. */
+.teste-nota {
+  color: var(--muted); font-size: var(--fs-xs); line-height: 1.3;
+  margin-top: 1px;
+}
+.teste-item--ok .teste-marca { color: var(--accent); }
+.teste-item--falhou .teste-marca { color: var(--danger-strong); }
+.teste-item--falhou .teste-nota { color: var(--danger-strong); }
+.teste-item--mudo .teste-marca { color: var(--warn); }
+.teste-item--mudo .teste-nota { color: var(--warn-text); }
+.teste-item--na { opacity: var(--op-inativo); }
+
 .hist-sessao {
   background: var(--poco); border-radius: var(--radius-card);
   padding: 0 var(--sp-3) var(--sp-3);

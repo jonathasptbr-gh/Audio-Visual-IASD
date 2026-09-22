@@ -7094,6 +7094,36 @@ marca se a URL aparecer depois — o índice é reaproveitado in-place pelo
 `levantarColecao` a conta como `semFonte`, `songVariantsNeeded` para de pedir o
 metadado, e ela sai **dos dois lados** da fração.
 
+##### A Verificação do Sistema
+
+O tile *"Verificar"* de Configurações abre a `#testePopup`, que roda a tabela
+`TESTES` (34 linhas, oito áreas) e lista o desfecho de cada uma. **Ela nasceu
+de uma classe de defeito, não de um defeito**: o download do acervo ficou
+quebrado por semanas sem ninguém ver, porque quem já tem o acervo baixado nunca
+baixa de novo — o que só é exercitado numa BORDA falha calado.
+
+| peça | onde | o que faz |
+|---|---|---|
+| a tabela | `TESTES` | um descritor por checagem: `id`, `area`, `titulo`, `prazo`, `cena`, `rede`, `fn` |
+| o motor | `rodarUmaChecagem` / `rodarAutoteste` | prazo próprio por linha, captura de exceção, quatro de cada vez, ordem da TABELA |
+| a tela | `desenharTeste` | lê o MESMO objeto que o Registro escreve |
+| o Registro | `blocoAutoteste` | o bloco que o operador manda a distância |
+
+**As quatro regras que não se quebram** estão no `CLAUDE.md` (§Diagnóstico); o
+que vale saber aqui é onde encostar: **checagem nova é uma linha na tabela**, e
+ela já ganha tudo o mais. A `fn` devolve `tOk`/`tFalhou`/`tNa` — ou LANÇA, que o
+motor lê como falha com a frase do erro; uma que devolve `undefined` conta como
+FALHA, porque o silêncio dela seria um falso verde.
+
+**O prazo é PRÓPRIO e curto** (2,5 s, ou 9 s nas de rede) e não o
+`CALL_TIMEOUT_MS` de um minuto da ponte: ali ele transformaria *"o app não
+respondeu"* numa espera que o operador abandona antes de ver o resultado.
+
+**E o ouvinte do telão é um CONTADOR, não um ouvinte novo** (`testeDiagRecebidos`,
+incrementado no despacho de `diag-dump` que já existe): `AVDB.onCommand` só
+EMPILHA e não devolve como sair, então um ouvinte por rodada vazaria um a cada
+toque no botão.
+
 **E A MESMA REGRA VALE PARA O FUNDO DA LETRA** (`semImagem`, v1.9.15): a música
 cuja origem não publica foto nenhuma sai da fila do backfill de vez, e a marca se
 APAGA quando a origem passa a ter — ela diz o que o banco respondeu HOJE, nunca

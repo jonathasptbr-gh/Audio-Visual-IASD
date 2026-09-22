@@ -2115,7 +2115,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **91** e os de Node puro **22** — juntos, os 113. MEDIDO com
+Os de Chromium são **92** e os de Node puro **22** — juntos, os 114. MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -2166,7 +2166,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 113 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 114 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2559,6 +2559,33 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 
 ### Diagnóstico
 
+- **A VERIFICAÇÃO DO SISTEMA TEM QUATRO DESFECHOS, E O QUARTO É O QUE A MANTÉM
+  VIVA** (v1.10.0). O tile *"Verificar"* de Configurações roda 34 checagens e
+  lista `funcionou` · `não funcionou` · `não respondeu` · `não se aplica`. Os
+  três primeiros o operador pediu; **o quarto é o que impede a parede
+  vermelha** — sem ele um celular sem TV reprova todo o telão e um aparelho
+  novo reprova toda a Biblioteca, e em duas rodadas ele aprende que o vermelho
+  daquela folha não quer dizer nada. É a regra `semFonte` da v5.134 aplicada a
+  um diagnóstico. **E "não respondeu" nunca vira "não funcionou":** um
+  `TypeError` do `fetch` é ninguém do outro lado, um status de erro é resposta,
+  e as duas causas pedem ações opostas — trocá-las foi o defeito da v1.9.14.
+  **CHECAGEM NOVA É UMA LINHA na tabela `TESTES`** e já ganha prazo, captura de
+  exceção, ordem, contagem e entrada no Registro; ela nasce respondendo a três
+  perguntas: *pode dar falso vermelho num aparelho normal?* (então tem ramo
+  `na`), *pode dar falso verde?* (então não vale a linha) e *pode ser vista num
+  culto?* — porque o botão está a dois toques da projeção. **O QUE UMA CHECAGEM
+  NUNCA FAZ:** mudar a cena, chamar `play()` (pede foco de áudio, e o Chromium
+  PAUSA o telão), ligar o servidor das telas, pedir permissão, abrir tela do
+  sistema, ler a área de transferência (o aviso do Android 12+ é VISÍVEL, e um
+  teste que aparece não é teste), baixar megabytes ou deixar rastro — a sonda de
+  escrita apaga o que criou no `finally`. **O único comando que ela emite é
+  `diag-ask`**, e isso é ASSERÇÃO: o oráculo espiona `AVDB.sendCommand` durante
+  a rodada inteira. **Com mídia no ar ela cede A VEZ, não a rodada:** as
+  marcadas `cena` saem `na` com o motivo e o resto roda, porque um toque que não
+  faz nada é o pior desfecho de um botão. **O resultado é UM objeto**, lido pela
+  tela e pelo bloco do Registro — uma segunda contagem divergiria no primeiro
+  ajuste, e o que sairia é uma tela que discorda do arquivo que o operador
+  mandou.
 - **UMA ROTINA DE MASSA CONTA O QUE CHEGOU AO DISCO, NUNCA O QUE ELA TENTOU**
   (v1.9.13). O laço de `syncCollection` move a barra por `done`, que conta
   TENTATIVAS — e enquanto `downloadCollectionSong` devolvia `undefined` em toda
@@ -2884,11 +2911,13 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.9.16 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.10.0 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.9.16 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.10.0 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
+**O DEGRAU É INCREMENTAL** porque a v1.10.0 traz uma seção que não existia — a
+Verificação do Sistema, com tile, folha e fluxo próprios —, e não um conserto.
 **Conferir a Release é parte de decidir** — um lote só de web herda o
 `shellTag` quando o lote de shell anterior ainda não tem Release, e não herda
 quando tem.

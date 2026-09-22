@@ -302,6 +302,14 @@ const histListEl = document.getElementById('histList');
 const histPopupCloseEl = document.getElementById('histPopupClose');
 const histClearEl = document.getElementById('histClear');
 const histClearFaixaEl = document.getElementById('histClearFaixa');
+// A VERIFICAÇÃO DO SISTEMA (v1.10.0) — irmã do Histórico: mesma anatomia de
+// bottom-sheet, mesma `.popup-list`, e as duas abrem de dentro de Configurações.
+const testeTileEl = document.getElementById('testeTile');
+const testePopupEl = document.getElementById('testePopup');
+const testePopupCloseEl = document.getElementById('testePopupClose');
+const testeResumoEl = document.getElementById('testeResumo');
+const testeListEl = document.getElementById('testeList');
+const testeRodarEl = document.getElementById('testeRodar');
 
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
@@ -358,7 +366,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.9.16';
+const WEB_VERSION = '1.10.0';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -27028,6 +27036,836 @@ async function blocoSeries() {
   return linhas.length ? 'Séries do YouTube (o que a regra achou)\n' + linhas.join('\n') : '';
 }
 
+
+// ===== A VERIFICAÇÃO DO SISTEMA (v1.10.0) =====
+//
+// O RELATO QUE A CRIOU: *"esse foi um erro que passou despercebido no uso
+// cotidiano do app, só notado por que está nos primeiros acessos. Então
+// gostaria de criar um botão nas configurações do app que faça pequenos testes
+// rápidos de todo o sistema."*
+//
+// O erro era o da v1.9.13: o download do acervo quebrou por inteiro — a origem
+// passou a devolver URL absoluta e o `fileUrl` somava o prefixo por cima — e
+// **ninguém percebeu**, porque quem já tem o acervo baixado nunca baixa de
+// novo. É a classe inteira que esta folha existe para pegar: o que só é
+// exercitado na BORDA (primeiro acesso, primeira conexão, troca de aparelho) e
+// portanto falha calado por semanas.
+//
+// ## QUATRO desfechos, e o quarto é o que impede a parede vermelha
+//
+// O operador pediu dois (*"tudo que funcionou"* e *"tudo que não funcionou ou
+// não teve respostas"* — que já são três, porque **não responder é um desfecho
+// próprio**: é o `CALL_TIMEOUT_MS` da ponte, o socket que dorme, o servidor que
+// não fecha o handshake, e a ação que ele pede é OUTRA).
+//
+// O quarto é `NÃO SE APLICA`, e sem ele o recurso morre no primeiro uso: um
+// celular sem TV reprovaria tudo do telão, um aparelho sem acervo reprovaria
+// tudo da Biblioteca, e o operador aprenderia em duas rodadas que o vermelho
+// desta folha não quer dizer nada. **É a regra `semFonte` da v5.134** — "não
+// existe" não é "falhou" — aplicada a um diagnóstico.
+//
+// ## O que uma checagem NUNCA pode fazer
+//
+// Isto roda num culto, e o botão está a dois toques da projeção. Uma checagem
+// não muda a cena, não pausa nem toca mídia (um `play()` PEDE FOCO DE ÁUDIO, e
+// o Chromium pausa o telão — ver "o espelhamento leva o som do aparelho
+// inteiro"), não liga o servidor das telas, não pede permissão, não abre tela
+// do sistema, não lê a área de transferência (o aviso do Android 12+ é
+// VISÍVEL, e um teste que aparece não é teste), não baixa megabytes e não apaga
+// nada que ela não tenha criado.
+//
+// **E com mídia NO AR ela não recusa a rodada** — um toque que não faz nada é o
+// pior desfecho de um botão. As checagens marcadas `cena` saem como NÃO SE
+// APLICA com o motivo, e o resto roda. É o `rotinaDeAcervoPodeCorrer` com o
+// sinal certo: ceder A VEZ, não a rodada.
+//
+// ## Uma TABELA, e é ela o recurso
+//
+// Acrescentar uma verificação é acrescentar UMA LINHA aqui — e ela já ganha
+// prazo próprio, captura de exceção, ordem no relatório, contagem no resumo e
+// entrada no Registro. Uma segunda lista escrita à mão (a da tela, a do texto)
+// divergiria no primeiro esquecimento, que é o defeito que a tabela `DESTINOS`
+// e a `POPUPS` já resolvem neste arquivo.
+const TESTE_OK = 'ok';
+const TESTE_FALHOU = 'falhou';
+const TESTE_MUDO = 'mudo';       // venceu o prazo — a resposta literal ao "não teve resposta"
+const TESTE_NA = 'na';           // não se aplica AGORA
+// O PRAZO É PRÓPRIO E CURTO, e não o da ponte. O `CALL_TIMEOUT_MS` do
+// `native.js` é de UM MINUTO: ele existe para uma chamada de verdade sobreviver
+// a um aparelho ocupado, e aqui ele transformaria "o app não respondeu" numa
+// espera que o operador abandona antes de ver o resultado.
+const TESTE_PRAZO = 2500;
+const TESTE_PRAZO_REDE = 9000;
+// QUATRO DE CADA VEZ: as checagens são independentes e a maioria responde em
+// milissegundos; o custo real são as poucas que vão à rede. Em série a rodada
+// passaria de meio minuto, que é o oposto de "pequenos testes rápidos".
+const TESTE_CONCORRENCIA = 4;
+
+const tOk = (nota) => ({ v: TESTE_OK, nota: nota || '' });
+const tFalhou = (nota) => ({ v: TESTE_FALHOU, nota: nota || '' });
+const tNa = (nota) => ({ v: TESTE_NA, nota: nota || '' });
+
+// A FRASE DE UM ERRO, nunca o objeto. Um `[object Object]` no relatório que o
+// operador copia é uma linha gasta sem dizer nada.
+function testeMsg(e) {
+  if (!e) return 'falhou sem dizer por quê';
+  const s = (e && e.message) || String(e);
+  return s.length > 120 ? s.slice(0, 117) + '…' : s;
+}
+
+// O `version.json` DO BUNDLE SERVIDO — é ele que diz o `minShell` e a versão
+// que o aparelho está de fato rodando, que pode não ser a que o APK traz
+// embutida (o OTA troca a base sem trocar o shell).
+let testeVersaoCache = null;
+async function testeVersaoDoBundle() {
+  if (testeVersaoCache) return testeVersaoCache;
+  const res = await fetch('../version.json', { cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  testeVersaoCache = await res.json();
+  return testeVersaoCache;
+}
+
+// A HORA DO SERVIDOR, de carona na única requisição que o autoteste já faz à
+// fonte. Pedir a hora a um serviço próprio seria uma segunda dependência de
+// rede para responder uma pergunta que o cabeçalho `Date` já responde.
+let testeHoraDoServidor = '';
+// QUANTOS `diag-dump` CHEGARAM. `AVDB.onCommand` só EMPILHA ouvintes — não
+// devolve como sair —, então um ouvinte por rodada vazaria um por toque. Quem
+// conta é o despacho que já existe.
+let testeDiagRecebidos = 0;
+// O WEB PEDIU AS TECLAS DE VOLUME? Sem o pedido, o painel de volume do Android
+// desenha POR CIMA da projeção — o defeito é invisível de dentro do app.
+let volumeTeclasPedidas = false;
+
+// UM id_music QUALQUER, do índice que o aparelho já tem. Preferir o local é o
+// que mantém a checagem barata: buscar um hinário inteiro só para escolher uma
+// faixa seria um download por toque no botão.
+async function testeAlgumIdDeMusica() {
+  for (const c of allCollections()) {
+    for (const s of collSongs(c.id)) {
+      if (s && s.id_music) return s.id_music;
+    }
+  }
+  return null;
+}
+
+
+// A TABELA. `area` agrupa no relatório, `prazo` é o teto desta linha, `cena`
+// marca o que não pode correr com mídia no ar, e `fn` devolve um dos quatro
+// desfechos — ou LANÇA, que o motor lê como falha com a frase do erro.
+const TESTES = [
+  // ---------- ARMAZENAMENTO ----------
+  // É o chão de tudo: sem OPFS não há mídia, sem IndexedDB não há catálogo. E
+  // os dois falham de formas que a tela não mostra — um WebView sem contexto
+  // seguro, uma cota estourada, um perfil corrompido.
+  {
+    id: 'opfs', area: 'Armazenamento', titulo: 'Guardar arquivos no aparelho',
+    fn: async () => {
+      if (!AVDB.opfsSupported()) return tFalhou('este aparelho não oferece o armazenamento de arquivos');
+      // IDA E VOLTA DE VERDADE, não uma pergunta de capacidade: `opfsSupported`
+      // responde "a API existe", e o que quebra é a ESCRITA (cota, perfil,
+      // contexto). Gravar, reler, comparar e apagar é a única prova.
+      const dados = new Uint8Array(1024);
+      for (let i = 0; i < dados.length; i++) dados[i] = i & 255;
+      const caminho = 'autoteste/sonda.bin';
+      try {
+        await AVDB.opfsWriteFile(caminho, new Blob([dados]));
+        const f = await AVDB.opfsGetFile(caminho);
+        if (!f) return tFalhou('gravou e não releu o arquivo');
+        if (f.size !== dados.length) return tFalhou('releu ' + f.size + ' bytes de ' + dados.length);
+        const volta = new Uint8Array(await f.arrayBuffer());
+        if (volta[0] !== 0 || volta[1023] !== 255) return tFalhou('os bytes voltaram trocados');
+        return tOk(null);
+      } finally {
+        // SEMPRE, inclusive quando falhou no meio: um autoteste que suja o
+        // aparelho não pode ser tocado duas vezes.
+        try { await AVDB.opfsDeleteDir('autoteste'); } catch (_) { /* a próxima rodada reescreve */ }
+      }
+    },
+  },
+  {
+    id: 'idb', area: 'Armazenamento', titulo: 'Guardar os ajustes e o catálogo',
+    fn: async () => {
+      const chave = 'autoteste:sonda';
+      const valor = { n: 1, t: Date.now() };
+      try {
+        await AVDB.setState(chave, valor);
+        const volta = await AVDB.getState(chave);
+        if (!volta || volta.n !== 1 || volta.t !== valor.t) return tFalhou('gravou e releu outra coisa');
+        return tOk(null);
+      } finally {
+        try { await AVDB.stateApagarPrefixo('autoteste:'); } catch (_) { /* fica uma chave inerte */ }
+      }
+    },
+  },
+  {
+    id: 'espaco', area: 'Armazenamento', titulo: 'Espaço livre para baixar',
+    fn: async () => {
+      if (!navigator.storage || !navigator.storage.estimate) return tNa('este navegador não informa o espaço');
+      const e = await navigator.storage.estimate();
+      const livre = (e.quota || 0) - (e.usage || 0);
+      const txt = fmtBytes(livre) + ' livres';
+      // O PISO É OPERACIONAL, não estético: abaixo de 200 MB não cabe um
+      // hinário nem um vídeo, e o download vai falhar com "o aparelho recusou
+      // gravar" — que é a terceira causa do censo do acervo, a que mais se
+      // parece com "está tudo bem".
+      if (livre < 200 * 1024 * 1024) return tFalhou(txt + ' — não cabe um álbum');
+      return tOk(txt);
+    },
+  },
+  {
+    id: 'persistencia', area: 'Armazenamento', titulo: 'O sistema não apaga a biblioteca sozinho',
+    fn: async () => {
+      if (!navigator.storage || !navigator.storage.persisted) return tNa('este navegador não informa');
+      // NÃO PEDE, só PERGUNTA: `persist()` pode abrir diálogo em alguns
+      // navegadores, e um teste que pergunta não é um teste. Quem pede é o
+      // `syncCollection`, no momento certo.
+      const p = await navigator.storage.persisted();
+      if (p) return tOk(null);
+      // SEM BIBLIOTECA NÃO HÁ O QUE RECOLHER, e a permissão só é pedida no
+      // primeiro download (`syncCollection`). Reprovar um aparelho recém
+      // instalado seria o falso vermelho que ensina o operador a ignorar esta
+      // folha — a mesma regra `semFonte` que governa os quatro desfechos.
+      const e = await navigator.storage.estimate().catch(() => null);
+      if (!e || !e.usage) return tNa('nada guardado ainda — a proteção é pedida no primeiro download');
+      return tFalhou('o Android pode recolher a biblioteca sob pressão de espaço');
+    },
+  },
+
+  // ---------- O APLICATIVO ----------
+  {
+    id: 'ponte', area: 'O aplicativo', titulo: 'A parte Android do app responde',
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      // UMA CHAMADA DE VERDADE, e a mais barata que existe: `displays` lê o
+      // DisplayManager e volta. Se ela não voltar, a ponte inteira está parada
+      // — e é esse o estado que faz botões existirem e não fazerem nada.
+      const d = await AVNative.displays();
+      if (!Array.isArray(d)) return tFalhou('a ponte respondeu algo inesperado');
+      return tOk(null);
+    },
+  },
+  {
+    id: 'piso-shell', area: 'O aplicativo', titulo: 'O app instalado atende esta versão',
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      const v = await testeVersaoDoBundle();
+      const piso = Number(v.minShell || 0);
+      const tem = Number(window.__SHELL_VERSION__ || 0);
+      // O MODO DE FALHAR DESTA LINHA É O PIOR DO CANAL OTA: com o shell abaixo
+      // do piso o aparelho recusa TODO bundle, para sempre, e a única pista
+      // ficava numa linha do Registro. Aqui ela vira uma frase.
+      if (tem < piso) return tFalhou('precisa instalar o APK novo (o app tem ' + tem + ', esta base pede ' + piso + ')');
+      return tOk(null);
+    },
+  },
+  {
+    id: 'versoes', area: 'O aplicativo', titulo: 'As três marcas de versão batem',
+    fn: async () => {
+      const v = await testeVersaoDoBundle();
+      const doArquivo = String(v.version || '');
+      const doCodigo = String(WEB_VERSION || '');
+      const daTela = String((document.getElementById('appVersion') || {}).textContent || '').replace(/^v/, '').trim();
+      // ESQUECER UMA DELAS É O DEFEITO SILENCIOSO CLÁSSICO DESTE REPOSITÓRIO:
+      // o bundle novo chega e o aparelho mostra a versão antiga — justamente a
+      // leitura que serve para diagnosticar se o OTA chegou.
+      if (doArquivo && doCodigo && doArquivo !== doCodigo) {
+        return tFalhou('o pacote diz ' + doArquivo + ' e o programa diz ' + doCodigo);
+      }
+      if (doCodigo && daTela && doCodigo !== daTela) {
+        return tFalhou('o programa diz ' + doCodigo + ' e a tela mostra ' + daTela);
+      }
+      return tOk('v' + (doCodigo || doArquivo || '?'));
+    },
+  },
+  {
+    id: 'atualizacao', area: 'O aplicativo', titulo: 'O canal de atualização responde',
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      const e = await AVNative.atualizacaoEstado();
+      if (!e) return tFalhou('a procura por atualização não respondeu');
+      return tOk(null);
+    },
+  },
+  {
+    id: 'partes-do-bundle', area: 'O aplicativo', titulo: 'Todas as partes do app chegaram',
+    prazo: 6000,
+    fn: async () => {
+      // UM BUNDLE PELA METADE É O MODO DE FALHAR DO OTA, e ele se realimenta:
+      // trocar a base servida sem limpar o cache do WebView faz a página nascer
+      // com metade de cada versão. Aqui cada peça é pedida e conferida.
+      const partes = [
+        ['shared/db.js', 'o catálogo'], ['shared/stage.js', 'o motor de mídia'],
+        ['shared/tokens.css', 'as cores'], ['shared/native.js', 'a ponte'],
+        ['controle/coletanea.js', 'as coletâneas'], ['controle/serie.js', 'as séries'],
+        ['controle/sorteio.js', 'a playlist automática'], ['controle/cifra.js', 'a cifra'],
+        ['controle/pacote.js', 'o pacote'], ['controle/deck.js', 'a apresentação'],
+        ['controle/pptxzip.js', 'o PowerPoint'], ['controle/hinario.js', 'as seções do hinário'],
+        ['espelho/tela.js', 'a tela pela rede'], ['display/display.js', 'o telão'],
+        ['shared/wallpaper-padrao.svg', 'o fundo padrão'],
+      ];
+      const faltando = [];
+      await Promise.all(partes.map(async ([p, nome]) => {
+        try {
+          const r = await fetch('../' + p, { cache: 'no-store' });
+          if (!r.ok) { faltando.push(nome); return; }
+          const t = await r.text();
+          if (!t || t.length < 32) faltando.push(nome);
+        } catch (_) { faltando.push(nome); }
+      }));
+      if (faltando.length) return tFalhou('faltou: ' + faltando.join(', '));
+      return tOk(partes.length + ' partes');
+    },
+  },
+
+  // ---------- A FONTE DAS MÚSICAS ----------
+  // ESTA É A ÁREA DO DEFEITO QUE ORIGINOU O RECURSO. As duas metades da fonte
+  // falham SEPARADO e por caminhos diferentes — o banco (JSON) e o servidor de
+  // ARQUIVOS (bytes) —, e foi exatamente essa separação que escondeu a v1.9.13
+  // por semanas: o banco respondia, então a lista aparecia, as estimativas
+  // apareciam e a barra andava; só os BYTES não vinham.
+  {
+    id: 'fonte-banco', area: 'A fonte das músicas', titulo: 'A lista de hinos e álbuns responde',
+    prazo: TESTE_PRAZO_REDE, rede: true,
+    fn: async () => {
+      if (!navigator.onLine) return tNa('o aparelho está sem internet');
+      const cat = await Louvorja.fetchList(Louvorja.CATEGORIES_FILE);
+      const n = (cat && (cat.categories || cat).length) || 0;
+      if (!n) return tFalhou('respondeu uma lista vazia');
+      return tOk(null);
+    },
+  },
+  {
+    id: 'fonte-arquivo', area: 'A fonte das músicas', titulo: 'O servidor entrega os arquivos de música',
+    prazo: TESTE_PRAZO_REDE, rede: true,
+    fn: async () => {
+      // ===== A CHECAGEM QUE TERIA PEGO A v1.9.13 =====
+      //
+      // Ela não pergunta "o servidor está no ar": pergunta *"o endereço que o
+      // banco me deu HOJE entrega bytes?"* — que é outra coisa, e é a que
+      // ninguém fazia. Na v1.9.13 o banco respondia tudo e este pedido dava
+      // 404 para 100% dos arquivos, porque o campo `url_*` virou URL absoluta
+      // e o app somava o prefixo dele por cima.
+      //
+      // UM BYTE, e só um: `Range: bytes=0-0`. Não é economia de tempo — é a
+      // diferença entre uma checagem e um download. E se o servidor ignorar o
+      // Range (200 com o arquivo inteiro), o `res.body.cancel()` corta o resto
+      // na hora.
+      if (!navigator.onLine) return tNa('o aparelho está sem internet');
+      const id = await testeAlgumIdDeMusica();
+      if (!id) return tNa('nenhum hinário indexado ainda neste aparelho');
+      const meta = await Louvorja.fetchList('music_' + id);
+      const caminho = meta && (meta.url_music || meta.url_instrumental_music);
+      if (!caminho) return tNa('a música sorteada não tem áudio na origem');
+      if (Louvorja.foraDoServidor(caminho)) {
+        return tFalhou('a origem mudou o endereço para outro servidor: ' + String(caminho).slice(0, 60));
+      }
+      const url = Louvorja.fileUrl(caminho);
+      const res = await fetch(url, { headers: { Range: 'bytes=0-0' } });
+      try { if (res.body && res.body.cancel) res.body.cancel(); } catch (_) { /* corpo já consumido */ }
+      if (!res.ok) return tFalhou('a fonte respondeu ' + res.status + ' — o endereço do arquivo mudou na origem');
+      // O RELÓGIO DO APARELHO, de carona nesta resposta (ver a linha do relógio
+      // abaixo): o cabeçalho `Date` é a única hora confiável que este app
+      // alcança sem pedir nada a mais.
+      testeHoraDoServidor = res.headers.get('date') || testeHoraDoServidor;
+      return tOk(null);
+    },
+  },
+  {
+    id: 'fonte-biblia', area: 'A fonte das músicas', titulo: 'A Bíblia responde',
+    prazo: TESTE_PRAZO_REDE, rede: true,
+    fn: async () => {
+      if (!navigator.onLine) return tNa('o aparelho está sem internet');
+      const l = await Louvorja.fetchList('pt_bible_version');
+      if (!l) return tFalhou('respondeu vazio');
+      return tOk(null);
+    },
+  },
+
+  // ---------- A BIBLIOTECA NO APARELHO ----------
+  {
+    id: 'acervo-indice', area: 'A biblioteca', titulo: 'As coleções estão listadas',
+    fn: async () => {
+      const cs = allCollections();
+      if (!cs.length) return tNa('nenhuma coleção ainda — o app busca a lista ao abrir');
+      const comAlgo = cs.filter((c) => countDownloaded(c.id) > 0).length;
+      return tOk(cs.length + ' coleções, ' + comAlgo + ' com música baixada');
+    },
+  },
+  {
+    id: 'acervo-ids', area: 'A biblioteca', titulo: 'Toda música marcada como baixada existe',
+    fn: async () => {
+      // AS DUAS RÉGUAS QUE DIVERGEM (v1.9.13): `songVariantsNeeded` pergunta ao
+      // catálogo e `levantarColecao` pergunta ao campo do índice. Um id que não
+      // resolve mais faz a primeira dizer *pendente* e a segunda dizer *feita*
+      // — **o botão de baixar some sobre uma faixa que não toca**, e nada na
+      // tela acusa. Aqui a pergunta é feita uma vez, pelos dois lados.
+      const alvos = [];
+      for (const c of allCollections()) {
+        for (const s of collSongs(c.id)) {
+          if (s.fileIdFull) alvos.push([c.name, s.name, s.fileIdFull]);
+          if (s.fileIdPlayback) alvos.push([c.name, s.name, s.fileIdPlayback]);
+        }
+      }
+      if (!alvos.length) return tNa('nada baixado ainda');
+      // AMOSTRA, e ela é DITA: num acervo de mil e duzentas faixas a varredura
+      // inteira são milhares de leituras de catálogo, e "pequenos testes
+      // rápidos" foi o pedido. Um teto silencioso se leria como "varri tudo".
+      const TETO = 120;
+      const passo = Math.max(1, Math.floor(alvos.length / TETO));
+      const amostra = alvos.filter((_, i) => i % passo === 0).slice(0, TETO);
+      const orfaos = [];
+      for (const [col, nome, id] of amostra) {
+        const rec = await AVDB.fileGet(id).catch(() => null);
+        if (!rec) orfaos.push(col + ' · ' + nome);
+      }
+      const quanto = amostra.length < alvos.length
+        ? ' (amostra de ' + amostra.length + ' de ' + alvos.length + ')' : '';
+      if (orfaos.length) {
+        return tFalhou(orfaos.length + ' marcadas como baixadas e sem arquivo' + quanto
+          + ' — ex.: ' + orfaos[0]);
+      }
+      return tOk(amostra.length + ' conferidas' + quanto);
+    },
+  },
+  {
+    id: 'acervo-fundos', area: 'A biblioteca', titulo: 'As letras têm a imagem de fundo',
+    fn: async () => {
+      // O DEFEITO DA v1.9.15: os slides guardam o caminho da imagem resolvido
+      // NO MOMENTO do download, então a faixa baixada num dia em que as imagens
+      // falhavam fica sem fundo para sempre — e nenhuma régua da tela reclama,
+      // porque o áudio chegou e a coleção está completa.
+      const alvos = [];
+      for (const c of allCollections()) {
+        for (const s of collSongs(c.id)) {
+          if (s.fileIdFull && !s.semImagem) alvos.push([c.name, s.fileIdFull]);
+        }
+      }
+      if (!alvos.length) return tNa('nada baixado ainda');
+      const TETO = 60;
+      const passo = Math.max(1, Math.floor(alvos.length / TETO));
+      const amostra = alvos.filter((_, i) => i % passo === 0).slice(0, TETO);
+      let semFundo = 0;
+      let comLetra = 0;
+      for (const [, id] of amostra) {
+        const rec = await AVDB.fileGet(id).catch(() => null);
+        if (!rec || !Array.isArray(rec.lyrics) || !rec.lyrics.length) continue;
+        comLetra++;
+        if (!rec.lyrics.some((x) => x && x.imageOpfsPath)) semFundo++;
+      }
+      if (!comLetra) return tNa('nenhuma das conferidas tem letra sincronizada');
+      if (semFundo) {
+        return tFalhou(semFundo + ' de ' + comLetra + ' sem fundo — toque em sincronizar na coleção');
+      }
+      return tOk(comLetra + ' com fundo');
+    },
+  },
+  {
+    id: 'acervo-arquivos', area: 'A biblioteca', titulo: 'Os arquivos no disco batem com o catálogo',
+    prazo: 6000,
+    fn: async () => {
+      if (!AVDB.opfsSupported()) return tNa('sem armazenamento de arquivos');
+      const noDisco = await AVDB.opfsTodosOsArquivos();
+      if (!Array.isArray(noDisco)) return tNa('não foi possível varrer o disco');
+      if (!noDisco.length) return tNa('nada guardado ainda');
+      const regs = await AVDB.filesAll();
+      const conhecidos = new Set((regs || []).map((r) => r.opfsPath).filter(Boolean));
+      const bytes = noDisco.reduce((a, x) => a + (x.tamanho || 0), 0);
+      // As letras guardam imagens que NÃO viram registro de catálogo (elas são
+      // referenciadas de dentro dos slides), então um arquivo desconhecido não
+      // é, por si, um defeito — é o coletor que decide. O que a linha entrega é
+      // o NÚMERO, que é o que falta quando alguém pergunta "por que o app
+      // ocupa tanto?".
+      const soltos = noDisco.filter((x) => !conhecidos.has(x.caminho)).length;
+      return tOk(noDisco.length + ' arquivos · ' + fmtBytes(bytes)
+        + ' · ' + (noDisco.length - soltos) + ' no catálogo');
+    },
+  },
+
+  // ---------- A PROJEÇÃO ----------
+  // "HÁ TELA" NÃO É "HÁ TELÃO", e as duas divergem exatamente durante uma
+  // negociação de Miracast — a tela continua listada e a Presentation caiu.
+  // Por isso são DUAS linhas e não uma: elas respondem perguntas diferentes e
+  // pedem ações diferentes.
+  {
+    id: 'tv-listada', area: 'A projeção', titulo: 'Há uma TV conectada',
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      const d = await AVNative.displays();
+      if (!d || !d.length) return tNa('nenhuma TV conectada agora');
+      return tOk(d.length === 1 ? 'uma tela' : d.length + ' telas');
+    },
+  },
+  {
+    id: 'telao-no-ar', area: 'A projeção', titulo: 'O telão está de fato no ar na TV',
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      if (!lastDisplays.length) return tNa('nenhuma TV conectada agora');
+      // O CAMPO `telao` é a Presentation DE FATO no ar; a lista crua descreve a
+      // CONEXÃO. "A TV está aí e o telão não subiu" é o estado que já calou os
+      // dois lados de um culto inteiro sem erro em lugar nenhum.
+      if (!simpleDisplay()) return tFalhou('a TV está conectada e a projeção não subiu — reconecte o espelhamento');
+      return tOk(null);
+    },
+  },
+  {
+    id: 'telao-responde', area: 'A projeção', titulo: 'O telão responde aos comandos',
+    prazo: 4000,
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      if (!simpleDisplay() && !telasDaRede().length) return tNa('nada projetando agora');
+      // O `diag-ask` É O ÚNICO COMANDO SEGURO para isto: ele pede o diário e
+      // não toca na cena. Nenhum `load`, nenhum `seek`, nenhum `text` — a
+      // congregação não pode ver o autoteste.
+      // O CONTADOR, E NÃO UM OUVINTE NOVO: `AVDB.onCommand` só EMPILHA — não
+      // devolve como sair —, então um ouvinte por rodada vazaria um a cada
+      // toque. Quem conta é o despacho que já existe (`diag-dump`).
+      const antes = testeDiagRecebidos;
+      AVDB.sendCommand({ type: 'diag-ask' });
+      const ate = Date.now() + 3000;
+      while (Date.now() < ate) {
+        if (testeDiagRecebidos > antes) return tOk(null);
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      return { v: TESTE_MUDO, nota: 'a projeção não respondeu ao pedido de diagnóstico' };
+    },
+  },
+  {
+    id: 'telas-rede', area: 'A projeção', titulo: 'A transmissão para computadores',
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      // SÓ DE LEITURA. Ligar o servidor num autoteste seria abrir uma porta na
+      // rede da igreja por causa de um botão de diagnóstico — o contrato do
+      // recurso diz AUXILIAR: liga e desliga só por ação do operador.
+      const e = await AVNative.espelhoEstado();
+      if (!e) return tFalhou('o app não respondeu sobre a transmissão');
+      if (!e.ligado) return tNa('a transmissão está desligada');
+      const n = Array.isArray(e.telas) ? e.telas.length : 0;
+      return tOk('ligada em ' + (e.endereco || '?') + (n ? ' · ' + n + ' conectado(s)' : ' · ninguém conectado'));
+    },
+  },
+
+  // ---------- SOM E MÍDIA ----------
+  {
+    id: 'palco', area: 'Som e mídia', titulo: 'O motor de mídia está montado',
+    fn: async () => {
+      const faltam = ['pvVideo', 'pvImg', 'preview'].filter((id) => !document.getElementById(id));
+      if (faltam.length) return tFalhou('faltou a prévia no documento (' + faltam.join(', ') + ')');
+      if (typeof createStage !== 'function') return tFalhou('o motor de mídia não carregou');
+      if (!preview || typeof preview.load !== 'function') return tFalhou('a prévia não foi montada');
+      return tOk(null);
+    },
+  },
+  {
+    id: 'decodificador', area: 'Som e mídia', titulo: 'O aparelho sabe abrir um áudio',
+    cena: true, prazo: 4000,
+    fn: async () => {
+      // NUNCA `play()`. Um `play()` PEDE FOCO DE ÁUDIO, e MEDIDO em aparelho
+      // isso PAUSA a mídia do telão — um autoteste que interrompe o louvor é
+      // pior que nenhum. `load()` até `loadedmetadata` prova o decodificador
+      // sem pedir foco a ninguém, e mesmo assim a linha é marcada `cena`.
+      const WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=';
+      const a = new Audio();
+      a.muted = true; a.volume = 0; a.preload = 'metadata';
+      return await new Promise((resolve) => {
+        let vivo = true;
+        const fim = (r) => {
+          if (!vivo) return;
+          vivo = false;
+          try { a.removeAttribute('src'); a.load(); } catch (_) { /* já descartado */ }
+          resolve(r);
+        };
+        a.addEventListener('loadedmetadata', () => fim(tOk(null)), { once: true });
+        a.addEventListener('error', () => fim(tFalhou('o aparelho recusou abrir um áudio de teste')), { once: true });
+        a.src = WAV;
+        try { a.load(); } catch (e) { fim(tFalhou(testeMsg(e))); }
+        setTimeout(() => fim({ v: TESTE_MUDO, nota: 'o áudio de teste não abriu a tempo' }), 3000);
+      });
+    },
+  },
+  {
+    id: 'controles-fora', area: 'Som e mídia', titulo: 'Os controles fora do app',
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      if (!navigator.mediaSession) return tFalhou('este aparelho não oferece a notificação de controles');
+      return tOk(null);
+    },
+  },
+  {
+    id: 'segundo-plano', area: 'Som e mídia', titulo: 'Nada ficou preso em segundo plano',
+    fn: async () => {
+      // O VAZAMENTO QUE ISTO PEGA: quando o renderer morre, os `fetch` em voo
+      // morrem junto e o `finally` que desligaria o serviço nunca roda —
+      // sobravam para sempre o serviço em primeiro plano, a notificação
+      // congelada e um wake lock de 2 h, e a guarda transformava o download
+      // seguinte em nada. O `buildControleWebView` zera isso ao remontar; esta
+      // linha diz se sobrou.
+      if (bgWorkCount < 0 || bgRotinaCount < 0) {
+        return tFalhou('a contagem de tarefas ficou negativa (' + bgWorkCount + '/' + bgRotinaCount + ')');
+      }
+      if (bgRotinaCount > bgWorkCount) {
+        return tFalhou('as duas contagens de tarefa discordam (' + bgWorkCount + '/' + bgRotinaCount + ')');
+      }
+      // TAREFA EM CURSO NÃO É DEFEITO — um download legítimo conta aqui. O que
+      // esta linha responde é se os números são COERENTES; "preso" não se
+      // decide numa amostra só, e afirmar que sim seria um falso vermelho em
+      // cima de quem está baixando o hinário.
+      if (bgWorkCount > 0) return tOk(bgWorkCount + ' tarefa(s) em curso agora');
+      return tOk(null);
+    },
+  },
+  {
+    id: 'volume', area: 'Som e mídia', titulo: 'As teclas de volume chegam ao app',
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      // Interceptar é pedido pelo WEB no fim da carga; se o pedido não saiu, as
+      // teclas físicas desenham o painel do Android POR CIMA da projeção.
+      if (!volumeTeclasPedidas) return tFalhou('o painel de volume do Android vai aparecer sobre a projeção');
+      return tOk(null);
+    },
+  },
+
+  // ---------- A TELA ----------
+  {
+    id: 'cores', area: 'A tela', titulo: 'As cores do app carregaram',
+    fn: async () => {
+      // UM `var()` QUE APONTA PARA TOKEN INEXISTENTE COMPUTA PARA O VALOR
+      // INICIAL DA PROPRIEDADE, SEM AVISO — é o que o `tokens.test.mjs` barra
+      // no CI, e é invisível no aparelho. Se a folha de cores não chegou no
+      // bundle, TUDO fica legível-mas-errado em vez de quebrado.
+      const cs = getComputedStyle(document.documentElement);
+      const chaves = ['--bg', '--text', '--accent', '--panel', '--btn-accent', '--stage-bg'];
+      const vazios = chaves.filter((k) => !String(cs.getPropertyValue(k) || '').trim());
+      if (vazios.length) return tFalhou('faltou a folha de cores (' + vazios.join(', ') + ')');
+      return tOk(null);
+    },
+  },
+  {
+    id: 'tema', area: 'A tela', titulo: 'O tema aplicado é o que está guardado',
+    fn: async () => {
+      const atributo = document.documentElement.getAttribute('data-tema') || 'escuro';
+      let guardado = null;
+      try { guardado = localStorage.getItem('av.tema'); } catch (_) { return tNa('o aparelho não deixa ler a preferência'); }
+      const esperado = guardado === 'claro' ? 'claro' : 'escuro';
+      const tem = atributo === 'claro' ? 'claro' : 'escuro';
+      if (esperado !== tem) return tFalhou('guardado ' + esperado + ', aplicado ' + tem);
+      return tOk(tem);
+    },
+  },
+  {
+    id: 'botoes', area: 'A tela', titulo: 'Os controles principais existem',
+    fn: async () => {
+      // A CLASSE DE DEFEITO QUE ISTO PEGA: um id renomeado num lote de web faz
+      // o botão continuar na tela e parar de responder — sem erro no console,
+      // sem nada. É o mesmo desfecho do ícone fora do subset da fonte: existe,
+      // é tocável, não faz nada.
+      const essenciais = [
+        ['playpause', 'tocar e pausar'], ['stop', 'parar'], ['prev', 'anterior'], ['next', 'próxima'],
+        ['settingsBtn', 'configurações'], ['plBtn', 'a fila'], ['hymnSearchInput', 'a busca'],
+        ['muteToggle', 'o mudo'], ['volSlider', 'o volume'], ['preview', 'a prévia'],
+        ['bibleSheet', 'a Bíblia'], ['toolsSheet', 'as ferramentas'], ['castPopup', 'conectar uma tela'],
+        ['playlist', 'a lista do culto'], ['fadePopup', 'esta folha'],
+      ];
+      const faltam = essenciais.filter(([id]) => !document.getElementById(id)).map(([, n]) => n);
+      if (faltam.length) return tFalhou('faltou: ' + faltam.join(', '));
+      return tOk(essenciais.length + ' conferidos');
+    },
+  },
+  {
+    id: 'cortina', area: 'A tela', titulo: 'A abertura terminou',
+    fn: async () => {
+      // A CORTINA QUE NÃO LEVANTA É UM APP INUTILIZÁVEL. Se ela ainda está no
+      // documento quando o operador chegou às Configurações, quem a tirou foi o
+      // prazo de segurança do `<head>` — e isso quer dizer que o `controle.js`
+      // não terminou de subir.
+      if (!document.getElementById('splash')) return tOk(null);
+      // O PRAZO DE SEGURANÇA DO `<head>` É DE 12 s, e há um piso de 1,8 s antes
+      // dele: durante a abertura a cortina está na tela por DESENHO. Só depois
+      // do teto ela vira sintoma — e aí ela é o sintoma mais grave que este app
+      // tem, porque uma cortina que não levanta é um app intocável.
+      const desdeAAbertura = (performance && performance.now) ? performance.now() : 99999;
+      if (desdeAAbertura < 15000) return tNa('a abertura ainda está em curso');
+      return tFalhou('a tela de abertura não saiu — o app não subiu inteiro');
+    },
+  },
+  {
+    id: 'icones', area: 'A tela', titulo: 'Os ícones desenham',
+    fn: async () => {
+      // A FONTE DE SÍMBOLOS É UM SUBSET feito à mão: um codepoint de fora não
+      // desenha NADA — nem tofu, só um vão do tamanho de um ícone. Aqui a
+      // pergunta é mais rasa e é a que importa no aparelho: a fonte CARREGOU?
+      if (!document.fonts || !document.fonts.check) return tNa('este navegador não informa as fontes');
+      const ok = document.fonts.check('24px "Material Symbols Outlined"');
+      if (!ok) return tFalhou('a fonte dos ícones não carregou — botões vão aparecer sem desenho');
+      return tOk(null);
+    },
+  },
+
+  // ---------- O APARELHO ----------
+  {
+    id: 'internet', area: 'O aparelho', titulo: 'Há internet agora',
+    fn: async () => {
+      if (!navigator.onLine) return tFalhou('o aparelho está sem rede');
+      const t = (typeof networkType === 'function') ? networkType() : 'unknown';
+      // `connection.type` responde 'unknown' em boa parte dos aparelhos, e
+      // dizer "não é Wi-Fi" sobre um 'unknown' seria inventar.
+      if (t === 'cellular') return tOk('dados móveis — downloads em massa vão perguntar antes');
+      if (t === 'wifi' || t === 'ethernet') return tOk('Wi-Fi');
+      return tOk('conectado');
+    },
+  },
+  {
+    id: 'relogio', area: 'O aparelho', titulo: 'O relógio do aparelho está certo',
+    fn: async () => {
+      // POR QUE ISTO IMPORTA AQUI: o cronômetro e a playlist automática viajam
+      // ao telão como DESCRITOR com o instante de origem do celular, e as telas
+      // da rede corrigem o relógio pela mediana do epoch dos pings. Um relógio
+      // torto não quebra nada visível — ele faz o cronômetro reaparecer no
+      // segundo errado depois de uma reconexão.
+      if (!testeHoraDoServidor) return tNa('não houve resposta da internet para comparar');
+      const doServidor = Date.parse(testeHoraDoServidor);
+      if (!doServidor) return tNa('a resposta não trouxe a hora');
+      const desvio = Math.abs(Date.now() - doServidor);
+      if (desvio > 5 * 60 * 1000) {
+        return tFalhou('está ' + Math.round(desvio / 60000) + ' min fora do horário real');
+      }
+      return tOk(null);
+    },
+  },
+  {
+    id: 'notificacao', area: 'O aparelho', titulo: 'O app pode mostrar a notificação de controles',
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      if (typeof Notification === 'undefined') return tNa('este aparelho não informa');
+      // NÃO PEDE. `Notification.requestPermission()` abre diálogo, e um teste
+      // que pergunta não é um teste — quem pede é o fluxo que precisa.
+      if (Notification.permission === 'denied') {
+        return tFalhou('as notificações estão bloqueadas — sem os controles na tela de bloqueio');
+      }
+      if (Notification.permission === 'default') return tNa('ainda não foi pedida');
+      return tOk(null);
+    },
+  },
+  {
+    id: 'espaco-pacote', area: 'O aparelho', titulo: 'Dá para exportar a biblioteca',
+    fn: async () => {
+      if (!window.__NATIVE__) return tNa('aberto num navegador, não no app');
+      const bytes = await AVNative.pacoteEspaco();
+      if (!bytes) return tNa('o aparelho não informou o espaço próprio do app');
+      return tOk(fmtBytes(bytes) + ' no espaço do app');
+    },
+  },
+];
+
+// Roda UMA checagem com prazo próprio e captura de exceção. Uma checagem que
+// lança não pode derrubar a rodada — ela é UMA linha do relatório, e a falha
+// dela é o conteúdo daquela linha.
+async function rodarUmaChecagem(c) {
+  const t0 = Date.now();
+  const prazo = c.prazo || TESTE_PRAZO;
+  let r;
+  try {
+    r = await Promise.race([
+      Promise.resolve().then(() => c.fn()),
+      new Promise((res) => setTimeout(
+        () => res({ v: TESTE_MUDO, nota: 'não respondeu em ' + Math.round(prazo / 1000) + ' s' }), prazo,
+      )),
+    ]);
+  } catch (e) {
+    // A INTERNET QUE NÃO RESPONDE NÃO É A FONTE QUE FALHOU, e as duas pedem
+    // ações opostas: uma manda olhar o Wi-Fi, a outra manda avisar que a origem
+    // mudou. É a mesma separação que o censo do acervo faz entre *"o servidor
+    // não respondeu"* e *"a fonte respondeu HTTP 404"* — e o `fetch` as entrega
+    // já separadas: um `TypeError` é ninguém do outro lado, e um status de erro
+    // chega como resposta.
+    const semResposta = (e instanceof TypeError) || /failed to fetch|networkerror|load failed/i.test(String(e && e.message));
+    r = (c.rede && semResposta)
+      ? { v: TESTE_MUDO, nota: 'a internet não respondeu' }
+      : { v: TESTE_FALHOU, nota: testeMsg(e) };
+  }
+  if (!r || typeof r !== 'object' || !r.v) r = { v: TESTE_FALHOU, nota: 'a checagem não devolveu desfecho' };
+  return { id: c.id, area: c.area, titulo: c.titulo, v: r.v, nota: r.nota || '', ms: Date.now() - t0 };
+}
+
+let testeRodando = false;
+let testeResultado = null;
+
+/**
+ * Roda a bateria inteira e guarda o resultado. Devolve-o também, para quem
+ * quiser desenhar.
+ *
+ * A ORDEM DO RELATÓRIO É A DA TABELA, nunca a de chegada: com quatro rodando de
+ * cada vez a ordem de término é o acaso da rede, e uma lista que se reorganiza
+ * a cada toque não se lê duas vezes.
+ */
+async function rodarAutoteste() {
+  if (testeRodando) return testeResultado;
+  testeRodando = true;
+  const t0 = Date.now();
+  // FOTOGRAFADO UMA VEZ: se o operador der play no meio da rodada, metade das
+  // checagens teria visto um estado e metade o outro.
+  const haCena = midiaNoAr;
+  const ordem = new Map(TESTES.map((c, i) => [c.id, i]));
+  const itens = [];
+  try {
+    await runLimited(TESTES, TESTE_CONCORRENCIA, async (c) => {
+      if (c.cena && haCena) {
+        itens.push({
+          id: c.id, area: c.area, titulo: c.titulo, v: TESTE_NA,
+          nota: 'há mídia no ar — esta não roda durante uma projeção', ms: 0,
+        });
+        return;
+      }
+      itens.push(await rodarUmaChecagem(c));
+    });
+    // O RESULTADO É GUARDADO ANTES DE SOLTAR A TRAVA, e a ordem importa: entre
+    // `testeRodando = false` e a atribuição existe uma janela em que a folha se
+    // desenharia como "pronta" mostrando o resultado da rodada ANTERIOR — e é
+    // exatamente nessa janela que um segundo toque cairia.
+    itens.sort((a, b) => (ordem.has(a.id) ? ordem.get(a.id) : 1e9)
+      - (ordem.has(b.id) ? ordem.get(b.id) : 1e9));
+    const conta = (v) => itens.filter((x) => x.v === v).length;
+    testeResultado = {
+      em: Date.now(),
+      ms: Date.now() - t0,
+      itens,
+      ok: conta(TESTE_OK),
+      falhou: conta(TESTE_FALHOU),
+      mudo: conta(TESTE_MUDO),
+      na: conta(TESTE_NA),
+    };
+  } finally {
+    testeRodando = false;
+  }
+  // UMA LINHA NA LINHA DO TEMPO, com o placar. Ela é o que amarra "o operador
+  // testou" ao que veio depois, num Registro lido a distância.
+  diagC('verificação do sistema: ' + testeResultado.ok + ' ok · '
+    + testeResultado.falhou + ' com falha · ' + testeResultado.mudo + ' sem resposta · '
+    + testeResultado.na + ' não se aplica');
+  return testeResultado;
+}
+
+// O BLOCO DO REGISTRO. Ele é a MESMA lista da tela, montada da MESMA estrutura
+// — uma segunda escrita divergiria no primeiro ajuste, e o que sairia é um log
+// que discorda do aparelho, que é o pior artefato que este projeto sabe
+// produzir. Só sai depois de existir: uma seção de "nunca testado" seria mais
+// uma para ler em toda cópia.
+const TESTE_MARCA = { ok: 'OK ', falhou: 'FALHOU ', mudo: 'SEM RESPOSTA ', na: 'n/a ' };
+function blocoAutoteste() {
+  const r = testeResultado;
+  if (!r) return '';
+  const linhas = [];
+  linhas.push('  rodada em ' + new Date(r.em).toLocaleString() + ' · ' + (r.ms / 1000).toFixed(1) + ' s');
+  linhas.push('  ' + r.ok + ' ok · ' + r.falhou + ' com falha · ' + r.mudo
+    + ' sem resposta · ' + r.na + ' não se aplica');
+  let area = '';
+  for (const it of r.itens) {
+    if (it.area !== area) { area = it.area; linhas.push('  [' + area + ']'); }
+    linhas.push('    ' + (TESTE_MARCA[it.v] || '? ') + it.titulo + (it.nota ? ' — ' + it.nota : ''));
+  }
+  return 'Verificação do sistema\n' + linhas.join('\n');
+}
+
 // O texto INTEIRO do registro — e é ele que o botão de copiar entrega. Guardado
 // aparte do `textContent` porque a caixa pode estar rolada: copiar o que está
 // VISÍVEL seria copiar meio log, que é o defeito que esta reforma corrigiu.
@@ -27355,6 +28193,11 @@ async function renderDiag() {
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   const bpac = blocoPacote();
   if (bpac) blocos.push(bpac);
+  // A VERIFICAÇÃO DO SISTEMA fecha os blocos de recurso: ela é a única que o
+  // operador DISPARA, e o que ela diz é sobre todos os outros. Lida antes
+  // deles, seria um resumo de coisas que o leitor ainda não viu.
+  const bver = blocoAutoteste();
+  if (bver) blocos.push(bver);
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   // O TEXTO MORA NA VARIÁVEL, e não num nó do DOM (v5.207). O visor `<pre>`
   // saiu de Configurações — ver o comentário do bloco no `index.html`: ele
@@ -34177,6 +35020,114 @@ function openHistPopup() {
   renderHistorico();
   histPopupEl.classList.add('open');
 }
+
+// ===== A FOLHA DA VERIFICAÇÃO (v1.10.0) =====
+//
+// ELA RODA AO ABRIR. Um toque que abre uma lista vazia com um botão "verificar"
+// embaixo é dois toques para a mesma intenção — quem abriu esta folha já pediu
+// o teste. O "Verificar de novo" existe para a SEGUNDA rodada, que é o gesto de
+// quem acabou de consertar alguma coisa e quer confirmar.
+function openTestePopup() {
+  testePopupEl.classList.add('open');
+  desenharTeste();
+  dispararTeste();
+}
+function closeTestePopup() { testePopupEl.classList.remove('open'); }
+
+async function dispararTeste() {
+  if (testeRodando) return;
+  // O ARO NO TILE segue girando com a folha fechada: o operador pode fechar e a
+  // rodada continua — o resultado o espera na próxima abertura.
+  if (testeTileEl) testeTileEl.classList.add('qs-trabalhando');
+  if (testeRodarEl) testeRodarEl.disabled = true;
+  desenharTeste();
+  try { await rodarAutoteste(); } catch (_) { /* o desenho mostra o que houve */ }
+  if (testeTileEl) testeTileEl.classList.remove('qs-trabalhando');
+  if (testeRodarEl) testeRodarEl.disabled = false;
+  desenharTeste();
+  // O REGISTRO acompanha sem que ninguém o peça: quem abre Configurações depois
+  // de testar encontra o resultado já no texto que ele salva.
+  renderDiag();
+}
+
+// O DESENHO LÊ A MESMA ESTRUTURA QUE O REGISTRO ESCREVE. Duas leituras da mesma
+// rodada divergiriam no primeiro ajuste, e o que sairia é uma tela que discorda
+// do arquivo que o operador mandou — exatamente o artefato que este projeto
+// trata como o pior que sabe produzir.
+const TESTE_ROTULO = {
+  ok: 'funcionou', falhou: 'não funcionou', mudo: 'não respondeu', na: 'não se aplica',
+};
+function desenharTeste() {
+  if (!testeListEl || !testeResumoEl) return;
+  const r = testeResultado;
+  if (testeRodando) {
+    testeResumoEl.textContent = 'Verificando ' + TESTES.length + ' partes do app…';
+    testeResumoEl.className = 'teste-resumo teste-resumo--rodando';
+  } else if (!r) {
+    testeResumoEl.textContent = '';
+    testeResumoEl.className = 'teste-resumo';
+  } else {
+    // A FRASE DIZ O DESFECHO, e o número vem atrás. "Tudo respondeu" é o que o
+    // operador precisa ler em uma olhada; "31 ok · 0 com falha" é o que ele
+    // confere depois.
+    const ruim = r.falhou + r.mudo;
+    const partes = [r.ok + ' funcionaram'];
+    if (r.falhou) partes.push(r.falhou + ' com falha');
+    if (r.mudo) partes.push(r.mudo + ' sem resposta');
+    if (r.na) partes.push(r.na + ' não se aplicam');
+    testeResumoEl.textContent = (ruim ? 'Há o que ver — ' : 'Tudo respondeu — ') + partes.join(' · ');
+    testeResumoEl.className = 'teste-resumo ' + (ruim ? 'teste-resumo--ruim' : 'teste-resumo--bom');
+  }
+  testeListEl.innerHTML = '';
+  if (!r) return;
+  let area = '';
+  for (const it of r.itens) {
+    if (it.area !== area) {
+      area = it.area;
+      const cab = document.createElement('li');
+      cab.className = 'teste-area';
+      cab.textContent = area;
+      testeListEl.appendChild(cab);
+    }
+    const li = document.createElement('li');
+    li.className = 'teste-item teste-item--' + it.v;
+    const marca = document.createElement('span');
+    marca.className = 'teste-marca';
+    // O SÍMBOLO É DESENHADO, e não um glifo da fonte: o subset tem 31
+    // codepoints e um de fora não desenha NADA (ver `tools/glifos.test.mjs`).
+    marca.innerHTML = svgDoDesfecho(it.v);
+    marca.setAttribute('aria-hidden', 'true');
+    const txt = document.createElement('span');
+    txt.className = 'teste-texto';
+    const t = document.createElement('span');
+    t.className = 'teste-titulo';
+    t.textContent = it.titulo;
+    txt.appendChild(t);
+    if (it.nota) {
+      const n = document.createElement('span');
+      n.className = 'teste-nota';
+      n.textContent = it.nota;
+      txt.appendChild(n);
+    }
+    // O DESFECHO EM PALAVRA vai no rótulo de acessibilidade, nunca na linha: a
+    // cor e o desenho já o dizem, e repeti-lo em texto acrescentaria uma
+    // terceira cópia da mesma resposta em cada uma das trinta e quatro linhas.
+    li.setAttribute('aria-label', it.titulo + ': ' + (TESTE_ROTULO[it.v] || it.v) + (it.nota ? '. ' + it.nota : ''));
+    li.appendChild(marca);
+    li.appendChild(txt);
+    testeListEl.appendChild(li);
+  }
+}
+
+// ✓ / ✕ / — / ponto, os quatro desenhados à mão pelo motivo do comentário acima.
+function svgDoDesfecho(v) {
+  const abre = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" '
+    + 'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  if (v === TESTE_OK) return abre + '<path d="M4 12.8l5 5L20 6.5"/></svg>';
+  if (v === TESTE_FALHOU) return abre + '<path d="M6 6l12 12M18 6L6 18"/></svg>';
+  if (v === TESTE_MUDO) return abre + '<path d="M12 7v6"/><path d="M12 17h.01"/></svg>';
+  return abre + '<path d="M6 12h12"/></svg>';
+}
 function closeHistPopup() {
   // FECHAR CANCELA A PERGUNTA — a mesma regra da gaveta da linha e da folha da
   // playlist: perder a pergunta custa um toque, herdar um "sim" pendente
@@ -34327,6 +35278,8 @@ settingsBtnEl.addEventListener('click', openFadePopup);
 // Fechá-la aqui devolveria o operador à tela principal ao fechar o histórico,
 // e não à folha de onde ele saiu.
 histOpenRowEl.addEventListener('click', openHistPopup);
+if (testeTileEl) testeTileEl.addEventListener('click', openTestePopup);
+if (testeRodarEl) testeRodarEl.addEventListener('click', dispararTeste);
 // LIMPAR TUDO. A pergunta mora na faixa do próprio botão — mesma porta do
 // "Limpar a playlist", e por isso o `#histClearFaixa` existe (a confirmação
 // substitui os IRMÃOS de quem a pediu).
@@ -35300,6 +36253,7 @@ if (window.__NATIVE__) {
   };
   // Só agora — com o handler de pé — a Activity pode consumir as teclas.
   AVNative.captureVolumeKeys(true);
+  volumeTeclasPedidas = true;
 
   // ===== Controles da notificação / tela de bloqueio / botões de mídia =====
   // Tudo cai nos MESMOS botões da tela, via `.click()`: os handlers já tratam
@@ -36479,6 +37433,10 @@ const POPUPS = [
   // diz a MESMA ordem, e mudar uma sem a outra é o acaso que já cobriu um
   // popup por inteiro aqui.
   [histPopupEl, histPopupCloseEl, closeHistPopup],
+  // A VERIFICAÇÃO abre de dentro de Configurações, como o Histórico, e não abre
+  // nada por cima de si. O voltar percorre esta tabela de trás para a frente,
+  // então ela fecha antes de Configurações — que é para onde o operador volta.
+  [testePopupEl, testePopupCloseEl, closeTestePopup],
   // A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), e
   // vem antes das duas que nascem dela — o voltar percorre esta tabela de trás
   // para a frente.
@@ -36731,6 +37689,10 @@ AVDB.onCommand((msg) => {
     return;
   }
   if (msg.type === 'diag-dump') {
+    // O CONTADOR DA VERIFICAÇÃO pega carona aqui: `AVDB.onCommand` só empilha
+    // ouvintes e não devolve como sair, então um ouvinte por rodada de teste
+    // vazaria um a cada toque no botão.
+    testeDiagRecebidos++;
     juntarDiag(Array.isArray(msg.linhas) ? msg.linhas : [], msg.retomada);
     return;
   }
