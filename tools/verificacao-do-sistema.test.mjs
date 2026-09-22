@@ -370,6 +370,176 @@ try {
     'K5 · e a asserção é a DURAÇÃO finita, não o mero evento: um `loadedmetadata` com `Infinity` '
     + 'passava sem provar nada', wav.exigeDuracao);
 
+  // ===== BLOCO L · AS CHECAGENS QUE AINDA MENTIAM (v1.10.2) =====
+  //
+  // A revisão adversarial da v1.10.1 achou mais SEIS, e a classe é a mesma: uma
+  // linha que não pode reprovar responde *"isso está coberto?"* com um sim que
+  // não existe. Cada asserção aqui rodou DUAS vezes — com o conserto e com ele
+  // desfeito — e nenhuma passou nas duas.
+
+  // L1 · CHEGAR NÃO É RODAR. `partes-do-bundle` aprova pelo TAMANHO do arquivo;
+  // um erro de topo aborta só aquele script e a global nunca existe — arquivo
+  // íntegro, 200 OK, recurso mudo. É a lição da v5.121.
+  const modulos = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'modulos');
+    const inteiro = await rodarUmaChecagem(achada);
+    const guardado = window.AVSorteio;
+    delete window.AVSorteio;                 // o módulo entregou os bytes e não rodou
+    const semUm = await rodarUmaChecagem(achada);
+    window.AVSorteio = guardado;
+    return { inteiro, semUm };
+  });
+  checar(modulos.inteiro.v === 'ok',
+    'L1 · com os doze módulos de pé a checagem passa', JSON.stringify(modulos.inteiro));
+  checar(modulos.semUm.v === 'falhou' && /playlist autom/.test(modulos.semUm.nota),
+    'L1 · e um módulo que CHEGOU e não RODOU reprova, com o nome do recurso que fica mudo — o '
+    + 'arquivo continua íntegro e de tamanho cheio, então a linha de cima não tem como vê-lo',
+    JSON.stringify(modulos.semUm));
+
+  // L2 · A AMOSTRA ALCANÇA A LISTA INTEIRA. A conta anterior dava passo 1 para
+  // toda lista entre o teto e o DOBRO dele, e o `slice` entregava um bloco
+  // CONTÍGUO do começo — que nestas listas é o hinário. A coleção recém-baixada
+  // ficava fora da amostra e a linha saía verde.
+  const amostra = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'acervo-ids');
+    const cols = window.allCollections; const songs = window.collSongs;
+    const get = AVDB.fileGet;
+    // 200 faixas: as 199 primeiras resolvem, a ÚLTIMA é órfã — a que chegou por
+    // último, que é a que se quer conferir.
+    const lista = Array.from({ length: 200 }, (_, i) => ({ name: 'f' + i, fileIdFull: 'id' + i }));
+    window.allCollections = () => [{ id: 'c', name: 'Coleção' }];
+    window.collSongs = () => lista;
+    AVDB.fileGet = async (id) => (id === 'id199' ? null : { id });
+    const r = await rodarUmaChecagem(achada);
+    window.allCollections = cols; window.collSongs = songs; AVDB.fileGet = get;
+    return r;
+  });
+  checar(amostra.v === 'falhou' && /f199/.test(amostra.nota),
+    'L2 · numa lista de 200 com o teto em 120 a órfã do FIM entra na amostra — com o passo de '
+    + 'antes (floor(200/120) = 1) o corte era o bloco 0..119 e ela nunca era conferida',
+    JSON.stringify(amostra));
+
+  // L3 · QUEM TIROU A CORTINA. O nó ausente é o desfecho dos DOIS caminhos — o
+  // `pronto()` do fim do `init()` e o teto de 12 s do `<head>`, que é a rede de
+  // segurança de um app que NÃO subiu. A linha perguntava pelo nó e saía verde
+  // nos dois.
+  const cortina = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'cortina');
+    const real = window.__avSplash;
+    window.__avSplash = { motivo: 'pronto' };
+    const subiu = await rodarUmaChecagem(achada);
+    window.__avSplash = { motivo: 'prazo' };
+    const resgatado = await rodarUmaChecagem(achada);
+    window.__avSplash = { motivo: '' };
+    const emCurso = await rodarUmaChecagem(achada);
+    window.__avSplash = real;
+    return { subiu, resgatado, emCurso, noSumiu: !document.getElementById('splash') };
+  });
+  checar(cortina.noSumiu,
+    'L3 · PREMISSA: o nó da cortina já saiu do documento — é por isso que perguntar por ele não '
+    + 'distinguia nada', cortina.noSumiu);
+  checar(cortina.subiu.v === 'ok' && cortina.resgatado.v === 'falhou' && cortina.emCurso.v === 'na',
+    'L3 · e os dois caminhos passam a ser distinguíveis: `pronto()` é verde, o teto de 12 s REPROVA '
+    + '— o `controle.js` abortado no topo era o estado mais grave do app e saía como "funcionou"',
+    JSON.stringify(cortina));
+
+  // L4 · REDE NÃO É INTERNET. `navigator.onLine` responde por uma INTERFACE, e
+  // a rede da igreja é o caso em que os dois divergem: um Wi-Fi sem uplink diz
+  // `true`. O relatório se contradizia na própria altura.
+  const internet = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'internet');
+    const real = window.fetch;
+    window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
+    const semSaida = await rodarUmaChecagem(achada);
+    window.fetch = async () => new Response('', { status: 200 });
+    const comSaida = await rodarUmaChecagem(achada);
+    window.fetch = real;
+    return { semSaida, comSaida, onLine: navigator.onLine };
+  });
+  checar(internet.onLine,
+    'L4 · PREMISSA: o aparelho se diz conectado — é o estado em que a linha antiga saía verde',
+    internet.onLine);
+  checar(internet.semSaida.v === 'falhou' && internet.comSaida.v === 'ok',
+    'L4 · conectado e SEM SAÍDA reprova, conectado e com saída passa — antes as duas saíam iguais, '
+    + 'três linhas acima de quatro checagens dizendo "a internet não respondeu"',
+    JSON.stringify(internet));
+
+  // L5/L6 · OS DOIS GANCHOS QUE O SISTEMA CHAMA. `navigator.mediaSession` é de
+  // outra API, que este app não usa e que o Chromium oferece sempre; e o pedido
+  // das teclas é ENVIO MUDO, com a bandeira escrita na linha seguinte. As duas
+  // linhas eram verdes garantidos. O que pode faltar são os ganchos de CÁ.
+  const ganchos = await pg.evaluate(async () => {
+    const fora = TESTES.find((c) => c.id === 'controles-fora');
+    const vol = TESTES.find((c) => c.id === 'volume');
+    const nativo = window.__NATIVE__; const av = window.AVNative;
+    const rem = window.__avRemote; const vk = window.__avVolumeKey;
+    window.__NATIVE__ = true;
+    window.AVNative = Object.assign({}, av, { nowPlaying() {} });
+    window.__avRemote = () => {}; window.__avVolumeKey = () => {};
+    const foraOk = await rodarUmaChecagem(fora);
+    const volOk = await rodarUmaChecagem(vol);
+    delete window.__avRemote; delete window.__avVolumeKey;
+    const foraSem = await rodarUmaChecagem(fora);
+    const volSem = await rodarUmaChecagem(vol);
+    window.__NATIVE__ = nativo; window.AVNative = av;
+    window.__avRemote = rem; window.__avVolumeKey = vk;
+    return { foraOk, volOk, foraSem, volSem, temApiWeb: !!navigator.mediaSession };
+  });
+  checar(ganchos.temApiWeb,
+    'L5 · PREMISSA: o navegador oferece `navigator.mediaSession` — era isso que a linha media, e '
+    + 'é por isso que ela nunca reprovava', ganchos.temApiWeb);
+  checar(ganchos.foraOk.v === 'ok' && ganchos.foraSem.v === 'falhou',
+    'L5 · sem o gancho `__avRemote` os botões da tela de bloqueio ficam desenhados e INERTES, e a '
+    + 'linha passa a dizer isso', JSON.stringify(ganchos));
+  // L6 · A RÉGUA AQUI É A CAUSA, NÃO O DESFECHO. Fora do app a bandeira do
+  // pedido é `false` e a linha reprova pelos dois lados — o que a asserção mede
+  // é QUAL das duas causas ela nomeia, porque é isso que o conserto mudou:
+  // desfeito, as duas saem com a frase da bandeira e o gancho nunca é olhado.
+  checar(/painel de volume/.test(ganchos.volOk.nota) && /não acham quem responda/.test(ganchos.volSem.nota),
+    'L6 · com o gancho `__avVolumeKey` de pé a causa é a bandeira do pedido; SEM ele a causa passa a '
+    + 'ser o gancho — as teclas físicas não acham quem responda, que é o desfecho mais confuso dos '
+    + 'dois e o único que o envio mudo da ponte jamais acusaria', JSON.stringify(ganchos));
+
+  // L7 · O "VERIFICANDO…" EXISTE DE VERDADE. A trava só era erguida DENTRO de
+  // `rodarAutoteste`, e o desenho vinha antes da chamada: o ramo nunca
+  // executava. A folha ficava em BRANCO a rodada inteira na primeira abertura
+  // e, da segunda em diante, mostrava o veredito da rodada ANTERIOR com o aro
+  // girando por cima.
+  const durante = await pg.evaluate(async () => {
+    const p = dispararTeste();
+    const noAto = document.getElementById('testeResumo').textContent;
+    const travada = testeRodando;
+    await p;
+    return { noAto, travada, depois: document.getElementById('testeResumo').textContent };
+  });
+  checar(durante.travada && /Verificando/.test(durante.noAto),
+    'L7 · a folha diz "Verificando…" DURANTE a rodada — o prólogo de `rodarAutoteste` é síncrono, e '
+    + 'é por isso que o desenho tem de vir depois da chamada e antes do `await`',
+    JSON.stringify(durante.noAto));
+  checar(/funcionaram/.test(durante.depois),
+    'L7 · e o veredito substitui o aviso quando ela termina', JSON.stringify(durante.depois));
+
+  // L8 · ZERO É UM NÚMERO. `!bytes` engolia o disco CHEIO junto com "o aparelho
+  // não informou" — duas causas opostas na mesma linha, e a que importa saía
+  // como "não se aplica".
+  const pacote = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'espaco-pacote');
+    const nativo = window.__NATIVE__; const av = window.AVNative;
+    window.__NATIVE__ = true;
+    window.AVNative = Object.assign({}, av, { pacoteEspaco: async () => 0 });
+    const cheio = await rodarUmaChecagem(achada);
+    window.AVNative = Object.assign({}, av, { pacoteEspaco: async () => null });
+    const mudo = await rodarUmaChecagem(achada);
+    window.__NATIVE__ = nativo; window.AVNative = av;
+    return { cheio, mudo };
+  });
+  checar(pacote.cheio.v !== 'na' || !/não informou/.test(pacote.cheio.nota),
+    'L8 · disco ZERADO não é "o aparelho não informou" — com `!bytes` as duas causas opostas saíam '
+    + 'na mesma frase, e a que importa era a que sumia', JSON.stringify(pacote.cheio));
+  checar(pacote.mudo.v === 'na' && /não informou/.test(pacote.mudo.nota),
+    'L8 · e o aparelho que de fato não informa continua sendo "não se aplica"',
+    JSON.stringify(pacote.mudo));
+
 } finally {
   await navegador.close();
   servidor.close();

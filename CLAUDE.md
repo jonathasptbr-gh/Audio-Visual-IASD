@@ -2911,10 +2911,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.10.1 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.10.2 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.10.1 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.10.2 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
 **O DEGRAU É INCREMENTAL** porque a v1.10.0 traz uma seção que não existia — a
 Verificação do Sistema, com tile, folha e fluxo próprios —, e não um conserto.

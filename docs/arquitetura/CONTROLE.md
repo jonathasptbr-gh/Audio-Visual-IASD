@@ -7102,10 +7102,25 @@ de uma classe de defeito, não de um defeito**: o download do acervo ficou
 quebrado por semanas sem ninguém ver, porque quem já tem o acervo baixado nunca
 baixa de novo — o que só é exercitado numa BORDA falha calado.
 
+**CHECAGEM NOVA NASCE PERGUNTANDO O QUE PODE FALTAR, e não o que sempre
+existe.** Duas rodadas de revisão adversarial (v1.10.1, v1.10.2) acharam TREZE
+linhas que não tinham como reprovar, e todas erravam da mesma forma: mediam uma
+peça do NAVEGADOR (`document.fonts.check`, `navigator.mediaSession`,
+`Notification.permission`) ou o efeito de um ENVIO MUDO da ponte, em vez do
+gancho de cá que o sistema chama. **A régua é a REVERSÃO**: uma asserção que
+passa com o conserto desfeito não mede a checagem, mede a linguagem.
+
+**E UMA CHECAGEM QUE NUNCA TEM RESPOSTA SAI DA TABELA, não vira `na` fixo.** O
+relatório é lido inteiro, e uma linha que só sabe dizer *"não se aplica"* é mais
+uma para ler em toda cópia — a mesma regra do Registro, que só imprime um bloco
+depois de ele ter o que dizer. Foi o que tirou a linha da notificação (v1.10.2):
+quem a autoriza é a permissão do Android, e o web não tem como perguntar.
+
 | peça | onde | o que faz |
 |---|---|---|
 | a tabela | `TESTES` | um descritor por checagem: `id`, `area`, `titulo`, `prazo`, `cena`, `rede`, `fn` |
 | o motor | `rodarUmaChecagem` / `rodarAutoteste` | prazo próprio por linha, captura de exceção, quatro de cada vez, ordem da TABELA |
+| a amostra | `amostrarEspalhado` | o teto das varreduras de acervo, esticado sobre a lista INTEIRA e com as duas pontas dentro |
 | a tela | `desenharTeste` | lê o MESMO objeto que o Registro escreve |
 | o Registro | `blocoAutoteste` | o bloco que o operador manda a distância |
 
