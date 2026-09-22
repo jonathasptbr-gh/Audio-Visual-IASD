@@ -7097,7 +7097,7 @@ metadado, e ela sai **dos dois lados** da fração.
 ##### A Verificação do Sistema
 
 O tile *"Verificar"* de Configurações abre a `#testePopup`, que roda a tabela
-`TESTES` (41 linhas, nove áreas) e lista o desfecho de cada uma. **Ela nasceu
+`TESTES` (40 linhas, nove áreas) e lista o desfecho de cada uma. **Ela nasceu
 de uma classe de defeito, não de um defeito**: o download do acervo ficou
 quebrado por semanas sem ninguém ver, porque quem já tem o acervo baixado nunca
 baixa de novo — o que só é exercitado numa BORDA falha calado.
@@ -7120,6 +7120,16 @@ porque é ele que decide o COMO. Ele só acende depois da rodada (`disabled` +
 `title`, v1.8.50) e **monta o texto antes de gravar**: `dispararTeste` chama
 `renderDiag()` sem `await`, então um toque imediato pegaria a montagem anterior
 — ou, na primeira abertura, a string vazia com que `diagTexto` nasce.
+
+**E O APARELHO É A ÚLTIMA PALAVRA** (v1.10.5). Três linhas que passaram por
+projeto, cético e oráculo caíram na PRIMEIRA cópia do Registro de um Android de
+verdade: a sonda de rede ia em modo `cors` sobre uma rota que não manda CORS
+(vermelho com a internet respondendo nas três linhas de cima), a marca de
+persistência não é concedida a um WebView (vermelho permanente sobre 2,6 GB de
+biblioteca intacta) e a varredura do disco não cabe no prazo num acervo de
+verdade. **O oráculo não alcança nenhuma das três** — ele roda num Chromium
+sem ponte, com OPFS vazio e sem saída para a rede. Linha nova é dada por boa
+depois de uma rodada no aparelho, não antes.
 
 **E UMA CHECAGEM QUE NUNCA TEM RESPOSTA SAI DA TABELA, não vira `na` fixo.** O
 relatório é lido inteiro, e uma linha que só sabe dizer *"não se aplica"* é mais

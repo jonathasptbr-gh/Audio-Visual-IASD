@@ -657,23 +657,37 @@
    * Um arquivo que suma no meio da varredura é PULADO, não fatal: o operador
    * pode estar sincronizando uma coleção enquanto exporta.
    */
-  async function opfsTodosOsArquivos() {
+  // O `teto` é OPCIONAL e existe para quem PERGUNTA, não para quem COLETA
+  // (v1.10.5). A varredura custa um `getFile()` por entrada, e num acervo de
+  // verdade isso passa de seis segundos — MEDIDO no aparelho do operador, com
+  // 2,6 GB: a linha do autoteste saía "não respondeu em 6 s", que é o desfecho
+  // mais inútil que ela sabe produzir. O coletor continua chamando sem teto,
+  // porque ali varrer tudo É o trabalho; quem só quer o NÚMERO passa um teto e
+  // diz que a conta é parcial. `out.parcial` marca a diferença — um array sem
+  // a marca varreu o disco inteiro.
+  async function opfsTodosOsArquivos(teto) {
     if (!opfsSupported()) return [];
     const out = [];
+    const limite = (typeof teto === 'number' && teto > 0) ? teto : Infinity;
+    let cheio = false;
     async function andar(dir, prefixo) {
       for await (const [nome, handle] of dir.entries()) {
+        if (cheio) return;
         const caminho = prefixo ? prefixo + '/' + nome : nome;
         if (handle.kind === 'directory') {
           try { await andar(handle, caminho); } catch (_) { /* pasta que sumiu */ }
+          if (cheio) return;
           continue;
         }
         try {
           const f = await handle.getFile();
           out.push({ caminho, tamanho: f.size || 0, tipo: f.type || '' });
+          if (out.length >= limite) { cheio = true; return; }
         } catch (_) { /* arquivo que sumiu no meio */ }
       }
     }
     try { await andar(await navigator.storage.getDirectory(), ''); } catch (_) { return out; }
+    if (cheio) out.parcial = true;
     return out;
   }
 

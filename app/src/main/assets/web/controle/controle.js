@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.10.4';
+const WEB_VERSION = '1.10.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -27260,6 +27260,27 @@ const TESTES = [
       // folha — a mesma regra `semFonte` que governa os quatro desfechos.
       const e = await navigator.storage.estimate().catch(() => null);
       if (!e || !e.usage) return tNa('nada guardado ainda — a proteção é pedida no primeiro download');
+      // ===== A NEGAÇÃO DO ANDROID NÃO É FALHA, E ISSO SÓ O APARELHO PODIA
+      // DIZER (v1.10.5) =====
+      //
+      // A v1.10.0 deixou escrito que esta linha não tinha sido medida num
+      // Android de verdade, e que a primeira cópia do Registro responderia.
+      // Respondeu: SM-S928B, Android 16, WebView 153 — `persist()` NEGADO,
+      // com 2,6 GB de biblioteca intacta e o app em uso há meses. **É um
+      // vermelho permanente sobre o que funciona**, que é a espécie de linha
+      // que ensina o operador a ignorar a folha inteira.
+      //
+      // E a razão é de PLATAFORMA: num WebView a marca de persistência não é
+      // concedida a quem não é um site instalado, e ela não governa o que
+      // governa aqui — a biblioteca vive no armazenamento PRÓPRIO do app, e o
+      // Android a leva junto com o app, nunca antes dele. Quem responde por
+      // espaço é a linha do espaço livre, três acima.
+      //
+      // NO NAVEGADOR A FALHA FICA, porque ali o despejo é real.
+      if (window.__NATIVE__) {
+        return tNa('o Android não concede essa marca a um WebView — aqui a biblioteca vive no '
+          + 'espaço do app e só sai com ele');
+      }
       return tFalhou('o sistema não concedeu a proteção — a biblioteca pode ser recolhida se o espaço acabar');
     },
   },
@@ -27536,7 +27557,15 @@ const TESTES = [
     prazo: 6000,
     fn: async () => {
       if (!AVDB.opfsSupported()) return tNa('sem armazenamento de arquivos');
-      const noDisco = await AVDB.opfsTodosOsArquivos();
+      // O TETO EXISTE PORQUE A VARREDURA NÃO CABE NO PRAZO (v1.10.5). Ela
+      // custa um `getFile()` por entrada — MEDIDO no aparelho do operador,
+      // com 2,6 GB: a linha saiu "não respondeu em 6 s", que é o desfecho mais
+      // inútil que ela sabe produzir, e ainda foi o poste mais alto da rodada.
+      // Com teto ela responde SEMPRE, e diz quando a conta é parcial: um
+      // número parcial responde "por que o app ocupa tanto?" melhor que
+      // silêncio, e a linha deixa de mentir por omissão.
+      const TETO_DISCO = 4000;
+      const noDisco = await AVDB.opfsTodosOsArquivos(TETO_DISCO);
       if (!Array.isArray(noDisco)) return tNa('não foi possível varrer o disco');
       if (!noDisco.length) return tNa('nada guardado ainda');
       const regs = await AVDB.filesAll();
@@ -27548,7 +27577,10 @@ const TESTES = [
       // o NÚMERO, que é o que falta quando alguém pergunta "por que o app
       // ocupa tanto?".
       const soltos = noDisco.filter((x) => !conhecidos.has(x.caminho)).length;
-      return tOk(noDisco.length + ' arquivos · ' + fmtBytes(bytes)
+      // PARCIAL É DITO, NUNCA ENGOLIDO: sem a palavra, um acervo grande
+      // entregaria "4000 arquivos" como se fosse o total.
+      const ate = noDisco.parcial ? ' (os primeiros ' + noDisco.length + ')' : '';
+      return tOk(noDisco.length + ' arquivos' + ate + ' · ' + fmtBytes(bytes)
         + ' · ' + (noDisco.length - soltos) + ' no catálogo');
     },
   },
@@ -28262,40 +28294,22 @@ const TESTES = [
       // dizer "não é Wi-Fi" sobre um 'unknown' seria inventar.
       const como = t === 'cellular' ? 'dados móveis — downloads em massa vão perguntar antes'
         : (t === 'wifi' || t === 'ethernet') ? 'Wi-Fi' : 'conectado';
-      const res = await fetch(Louvorja.fileUrl('/'), { method: 'HEAD', cache: 'no-store' })
+      // ===== A SONDA É `no-cors`, E ISSO É MEDIÇÃO (v1.10.5) =====
+      //
+      // Em modo `cors` — o padrão — o `fetch` REJEITA quando a rota não manda
+      // `Access-Control-Allow-Origin`, e o servidor de arquivos não o manda na
+      // RAIZ (`/file/`), só nos arquivos. O desfecho foi um vermelho no
+      // aparelho do operador com a internet funcionando: as três linhas da
+      // fonte passaram e a busca do OTA tinha respondido três segundos antes.
+      //
+      // MEDIDO em Chromium, servidor local em dois origins: uma rota sem CORS
+      // REJEITA em `cors` e RESOLVE (opaca) em `no-cors`; um endereço MORTO
+      // rejeita nos dois. É exatamente a pergunta desta linha — *há saída?* —,
+      // e ela não precisa LER a resposta para respondê-la.
+      const res = await fetch(Louvorja.fileUrl('/'), { method: 'HEAD', cache: 'no-store', mode: 'no-cors' })
         .catch(() => null);
       if (!res) return tFalhou('a rede está conectada e não tem saída para a internet');
       return tOk(como);
-    },
-  },
-  {
-    id: 'relogio', area: 'O aparelho', titulo: 'O relógio do aparelho está certo',
-    prazo: TESTE_PRAZO_REDE, rede: true,
-    fn: async () => {
-      // POR QUE ISTO IMPORTA AQUI: o cronômetro e a playlist automática viajam
-      // ao telão como DESCRITOR com o instante de origem do celular, e as telas
-      // da rede corrigem o relógio pela mediana do epoch dos pings. Um relógio
-      // torto não quebra nada visível — ele faz o cronômetro reaparecer no
-      // segundo errado depois de uma reconexão.
-      // A HORA É DESTA RODADA, NUNCA DE CARONA (v1.10.1). O campo era de módulo
-      // e nunca zerava: como as checagens correm quatro de cada vez, na PRIMEIRA
-      // rodada esta chegava antes da que o preenche e saía `na`; na SEGUNDA ela
-      // lia o cabeçalho da rodada ANTERIOR — minutos velho — e acusava de torto
-      // um relógio certo. **Um diagnóstico que acusa a coisa errada manda o
-      // operador consertar o que não está quebrado**, que é o defeito da
-      // v1.9.14 voltando pela porta do recurso que existe para pegá-lo.
-      if (!navigator.onLine) return tNa('o aparelho está sem internet');
-      const res = await fetch(Louvorja.fileUrl('/'), { method: 'HEAD', cache: 'no-store' })
-        .catch(() => null);
-      const cabecalho = res && res.headers.get('date');
-      if (!cabecalho) return tNa('a internet não respondeu com a hora');
-      const doServidor = Date.parse(cabecalho);
-      if (!doServidor) return tNa('a resposta não trouxe a hora');
-      const desvio = Math.abs(Date.now() - doServidor);
-      if (desvio > 5 * 60 * 1000) {
-        return tFalhou('está ' + Math.round(desvio / 60000) + ' min fora do horário real');
-      }
-      return tOk(null);
     },
   },
   {
