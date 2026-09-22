@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.10.1",
+    "itens": [
+      "Conserta cinco conferências da Verificação que não tinham como acusar problema nenhum.",
+      "A do relógio acusava um relógio certo de estar torto — ela comparava com a hora da rodada anterior.",
+      "A do telão dava certo justamente quando a TV estava conectada e a projeção tinha caído.",
+      "Com um computador projetando e sem TV, uma delas ficava sempre em \"não respondeu\".",
+      "A dos ícones passava mesmo com a fonte deles ausente; a do som testava um áudio vazio.",
+      "E a da proteção da biblioteca agora pede a proteção, em vez de só reclamar que não há."
+    ]
+  },
+  {
     "versao": "1.10.0",
     "itens": [
       "Novo: um botão \"Verificar\" nas Configurações, que testa o app inteiro em poucos segundos.",
