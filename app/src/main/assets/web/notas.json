@@ -2,6 +2,8 @@
   {
     "versao": "1.10.7",
     "itens": [
+      "O fundo das letras volta a ser refeito sozinho um minuto depois que a música para, sem precisar sair do app.",
+      "Uma queda rápida de internet não faz mais o app desistir de uma imagem de fundo por seis dias.",
       "O fundo das letras agora é refeito na biblioteca inteira de uma vez, sem o limite de 60 por abertura.",
       "Se o servidor das músicas não responder, a correção para e o registro diz por quê.",
       "Bíblia: só acusa problema na versão que você usa, e uma versão travada volta a baixar sozinha com internet.",

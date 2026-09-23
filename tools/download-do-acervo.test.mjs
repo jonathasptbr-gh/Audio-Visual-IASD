@@ -42,6 +42,17 @@ const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: VIEWPORT });
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();
+// OS RELÓGIOS QUE A ABERTURA ARMA, pelo nome da função — o bloco U pergunta se
+// o que religa a passada dos fundos está entre eles. Só REGISTRA: o relógio
+// continua sendo o de verdade.
+await pg.addInitScript(() => {
+  const si = window.setInterval;
+  window.__intervalos = [];
+  window.setInterval = function (fn, ms, ...resto) {
+    window.__intervalos.push({ nome: (fn && fn.name) || '', ms });
+    return si.call(this, fn, ms, ...resto);
+  };
+});
 
 try {
   await pg.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
@@ -84,6 +95,7 @@ try {
         if (/\.(jpg|png|webp)$|\/imagens\//.test(s)) {
           window.__pedidosImg++;
           if (window.__modoImg === 'recusa') return new Response('', { status: 404 });
+          if (window.__modoImg === 'semRede') throw new TypeError('Failed to fetch');
           return new Response(new Blob([new Uint8Array(64)], { type: 'image/jpeg' }), { status: 200 });
         }
         window.__pedidos++;
@@ -851,7 +863,7 @@ try {
     await syncCollection(coll2, { allowMobile: true });   // três faixas, sem fundo
     await AVDB.setState(fundoChave(cid2), null);
     window.__modoImg = 'ok';
-    const orc = { conferidas: 0, tentadas: 0, refeitas: 0, comMetadado: 0, semMetadado: 0, fonteMuda: false };
+    const orc = { conferidas: 0, tentadas: 0, refeitas: 0, comResposta: 0, semResposta: 0, fonteMuda: false };
     let tentadas = 0;
     const listaReal2 = Louvorja.fetchList;
     Louvorja.fetchList = async (f) => { if (String(f).startsWith('music_')) tentadas++; return listaReal2(f); };
@@ -1132,6 +1144,188 @@ try {
   checar(tt.registro.iAc >= 0 && tt.registro.iFu > tt.registro.iAc,
     'T10 · o bloco está no REGISTRO que o operador salva, logo depois do "Download do acervo" — chamar '
     + 'a função direto provava que ela existe, não que alguém a imprime', JSON.stringify(tt.registro));
+
+  // ---- U: A PASSADA VOLTA SOZINHA, E A FOTO QUE NÃO VOLTOU NÃO CALA (v1.10.7) ----
+  //
+  // O relato: *"não houve nenhuma atualização das imagens … durante meus
+  // testes"*. MEDIDO numa sonda com a abertura DE VERDADE (recarga, cadeia
+  // inteira, nada chamado à mão): com o app parado a passada consertou as três
+  // faixas em cinco segundos; com uma música tocando na abertura ela cedeu, a
+  // cena saiu, e em um minuto de app à vista NADA aconteceu — quem a religava
+  // era só o `visibilitychange`, e testar o app é ficar nele tocando mídia.
+  const uu = await pg.evaluate(async () => {
+    const out = {};
+    const listaReal = Louvorja.fetchList;
+    const montar = async (cid) => {
+      const coll = { id: cid, name: 'Álbum ' + cid, kind: 'album', source: 'fonte-de-teste' };
+      window.__modo = 'ok'; window.__modoImg = 'recusa'; window.__semFonte = false;
+      window.__imagem = '/imagens/capa.jpg';
+      collState[cid] = { indexSyncedAt: 0, songs: [] };
+      await syncCollection(coll, { allowMobile: true });
+      await AVDB.setState(fundoChave(cid), null);
+      window.__modoImg = 'ok';
+      return coll;
+    };
+    const fundos = async (cid) => Promise.all(collSongs(cid).map((x) => estadoDoFundo(x)));
+    const novasContas = () => ({ conferidas: 0, tentadas: 0, refeitas: 0, comResposta: 0, semResposta: 0, fonteMuda: false });
+
+    // U1 · A FOTO CUJO `fetch` NÃO VOLTOU não vira veredito de seis dias — e o
+    //      CONTROLE é a mesma faixa com a fonte RESPONDENDO 404, que vira.
+    {
+      const c = await montar('u-foto');
+      const contas = novasContas();
+      window.__modoImg = 'semRede';
+      try { await syncImagensColecao(c, { auto: true, contas }); } finally { window.__modoImg = 'ok'; }
+      const semRede = (await AVDB.getState(fundoChave('u-foto'))) || {};
+      out.fotoSemRede = { vereditos: Object.keys(semRede).length, contas: { ...contas } };
+      window.__modoImg = 'recusa';
+      try { await syncImagensColecao(c, { auto: true }); } finally { window.__modoImg = 'ok'; }
+      const recusa = (await AVDB.getState(fundoChave('u-foto'))) || {};
+      out.fotoRecusa = Object.values(recusa).map((v) => v.tem);
+    }
+
+    // U2 · O SERVIDOR DE FOTOS MUDO com o banco de pé também abre o disjuntor.
+    {
+      const cid = 'u-foto-muda';
+      const songs = [];
+      for (let i = 0; i < 30; i++) {
+        const id = 'fu-' + i;
+        await AVDB.fileAdd({ id, name: 'Foto ' + i, folder: cid, kind: 'audio',
+          lyrics: [{ time: 0, text: 'linha', imageOpfsPath: null }] });
+        songs.push({ id_music: 9100 + i, name: 'Foto ' + i, track: i + 1, fileIdFull: id });
+      }
+      const cM = { id: cid, name: 'Álbum das Fotos', kind: 'album' };
+      collState[cid] = { indexSyncedAt: 0, songs };
+      await AVDB.setState(fundoChave(cid), null);
+      const ac = window.allCollections;
+      window.allCollections = () => [cM];
+      const cd = window.countDownloaded;
+      window.countDownloaded = (id) => (id === cid ? 30 : cd(id));
+      window.__imagem = '/imagens/muda.jpg';
+      window.__modoImg = 'semRede';
+      window.__pedidosImg = 0;
+      fundosProximaPassadaEm = 0;
+      try { await syncFundosAcervo(); }
+      finally { window.__modoImg = 'ok'; window.countDownloaded = cd; window.allCollections = ac; }
+      out.fotoMuda = { pedidos: window.__pedidosImg, fonteMuda: !!fundosUltimaPassada.fonteMuda,
+        teto: FUNDO_FONTE_MUDA + NET_CONCURRENCY };
+      delete collState[cid];
+    }
+
+    // U3 · A PASSADA CORTADA DEPOIS DE CONFERIR devolve o piso: o que ela
+    //      aprendeu está no disco, e segurar meia hora era a cena custando a
+    //      meia hora inteira depois de sair.
+    {
+      const c = await montar('u-corte');
+      const ac = window.allCollections;
+      window.allCollections = () => [c];
+      let n = 0;
+      Louvorja.fetchList = async (f) => {
+        if (String(f).startsWith('music_')) { n++; midiaNoAr = true; }
+        return listaReal(f);
+      };
+      fundosProximaPassadaEm = 0;
+      try { await syncFundosAcervo(); }
+      finally { Louvorja.fetchList = listaReal; midiaNoAr = false; window.allCollections = ac; }
+      out.corte = { pedidos: n, conferidas: fundosUltimaPassada.conferidas,
+        cortada: fundosUltimaPassada.cortada, piso: fundosProximaPassadaEm };
+    }
+
+    // U4 · O RELÓGIO RELIGA: a cena no ar, o tique não faz nada; a cena sai, o
+    //      tique seguinte conserta. É o cenário do relato, sem abrir e fechar
+    //      o app — e o controle de que o tique não conserta com a cena no ar é
+    //      o que impede a asserção de passar por um tique que sempre roda.
+    {
+      const c = await montar('u-religa');
+      const ac = window.allCollections;
+      window.allCollections = () => [c];
+      fundosProximaPassadaEm = 0;
+      try {
+        midiaNoAr = true;
+        await syncFundosAcervo();
+        await religarFundos();
+        out.religaComCena = await fundos('u-religa');
+        midiaNoAr = false;
+        await religarFundos();
+        out.religaSemCena = await fundos('u-religa');
+      } finally { midiaNoAr = false; window.allCollections = ac; }
+    }
+
+    // U5 · MINIMIZADO O TIQUE NÃO PARTE: quem a traz de volta é a volta ao
+    //      app. Uma passada de centenas de fotos não começa com o aparelho no
+    //      bolso.
+    {
+      const c = await montar('u-oculto');
+      const ac = window.allCollections;
+      window.allCollections = () => [c];
+      fundosProximaPassadaEm = 0;
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      try { await religarFundos(); }
+      finally { delete document.visibilityState; window.allCollections = ac; }
+      out.oculto = { fundos: await fundos('u-oculto'), visivel: document.visibilityState };
+    }
+
+    // U8 · UMA PASSADA POR VEZ, pela BANDEIRA: com o piso zerado (o relógio
+    //      corrigido para a frente no meio de uma passada longa) a segunda
+    //      não parte — e o tique agora bate a cada minuto.
+    {
+      const c = await montar('u-uma');
+      const ac = window.allCollections;
+      window.allCollections = () => [c];
+      let conferiu = 0;
+      const real = window.estadoDoFundo;
+      window.estadoDoFundo = async (x) => { conferiu++; return real(x); };
+      fundosProximaPassadaEm = 0;
+      fundosPassadaRodando = true;
+      try { await syncFundosAcervo(); }
+      finally { fundosPassadaRodando = false; window.estadoDoFundo = real; window.allCollections = ac; }
+      out.umaPorVez = conferiu;
+    }
+
+    // U6 · A ABERTURA ARMA O RELÓGIO — chamar a função direto provava que ela
+    //      existe, não que alguém a chama.
+    out.relogio = (window.__intervalos || []).filter((x) => x.nome === 'religarFundos')
+      .map((x) => x.ms);
+    out.religaMs = FUNDO_RELIGA_MS;
+
+    // U7 · A FRASE DO IMPEDIMENTO promete o que o relógio faz — era "volta na
+    //      próxima vez que o app vier à frente", e ficar no app não a trazia.
+    midiaNoAr = true;
+    try { out.frase = await blocoFundos(); } finally { midiaNoAr = false; }
+
+    window.__imagem = null;
+    return out;
+  });
+  checar(uu.fotoSemRede.vereditos === 0 && uu.fotoSemRede.contas.semResposta === 3
+    && uu.fotoSemRede.contas.comResposta === 0,
+    'U1 · a foto cujo `fetch` NÃO VOLTOU não carimba seis dias de silêncio — uma oscilação de Wi-Fi '
+    + 'não é a fonte dizendo que não tem foto — e conta como fonte MUDA', JSON.stringify(uu.fotoSemRede));
+  checar(uu.fotoRecusa.length === 3 && uu.fotoRecusa.every((t) => t === false),
+    'U1 · e o CONTROLE: com a fonte RESPONDENDO (404) o veredito é gravado, porque ali houve resposta',
+    JSON.stringify(uu.fotoRecusa));
+  checar(uu.fotoMuda.pedidos > 0 && uu.fotoMuda.pedidos <= uu.fotoMuda.teto && uu.fotoMuda.pedidos < 30
+    && uu.fotoMuda.fonteMuda,
+    'U2 · com o servidor de FOTOS mudo e o banco de pé a passada também para em doze — sem isto eram '
+    + 'duas requisições por faixa, mil faixas, a cada meia hora', JSON.stringify(uu.fotoMuda));
+  checar(uu.corte.pedidos > 0 && uu.corte.conferidas > 0 && uu.corte.cortada && uu.corte.piso === 0,
+    'U3 · a passada que a cena cortou DEPOIS de conferir devolve o piso — segurá-lo meia hora deixava '
+    + 'a cena custando a meia hora inteira depois de sair', JSON.stringify(uu.corte));
+  checar(uu.religaComCena.every((e) => e === 'falta') && uu.religaSemCena.every((e) => e === 'tem'),
+    'U4 · o RELÓGIO religa: com a cena no ar o tique não faz nada, e o primeiro tique depois de ela '
+    + 'sair conserta — sem sair do app, que é o cenário do relato',
+    JSON.stringify([uu.religaComCena, uu.religaSemCena]));
+  checar(uu.oculto.fundos.every((e) => e === 'falta') && uu.oculto.visivel === 'visible',
+    'U5 · e minimizado o tique não parte (e a PREMISSA: o documento voltou a ser visível depois)',
+    JSON.stringify(uu.oculto));
+  checar(uu.umaPorVez === 0,
+    'U8 · com uma passada no ar a segunda não parte, mesmo com o piso zerado — o piso é relógio, e um '
+    + 'relógio corrigido para a frente abriria a porta a cada tique', uu.umaPorVez);
+  checar(uu.relogio.length === 1 && uu.relogio[0] === uu.religaMs,
+    'U6 · a ABERTURA arma o relógio que religa, UMA vez, no período da constante',
+    JSON.stringify(uu.relogio));
+  checar(/confere de novo a cada minuto/.test(uu.frase) && !/vier à frente/.test(uu.frase),
+    'U7 · e o Registro promete o que o relógio faz — "a próxima vez que o app vier à frente" era a '
+    + 'promessa que deixava o operador esperando dentro do app', uu.frase);
 
 
 } finally {

@@ -19823,6 +19823,25 @@ const FUNDO_PENDENTES_MAX = 12;
  */
 const FUNDO_PASSO_MS = 30 * 60 * 1000;
 
+/**
+ * O RELÓGIO QUE RELIGA A PASSADA COM O APP À VISTA (v1.10.7).
+ *
+ * A passada cede a vez e SAI — à cena no ar, ao download pedido, à rede que
+ * não é Wi-Fi —, e quem a rearmava era só a abertura e o `visibilitychange`.
+ * O relato do operador é o buraco que isso deixa: *"não houve nenhuma
+ * atualização das imagens … durante meus testes"*. MEDIDO no arnês: com uma
+ * música tocando na abertura a passada cedeu, a cena saiu no segundo 20, e em
+ * um minuto de app parado e à vista nada aconteceu — nem um pedido. Testar o
+ * app É tocar mídia, e quem fica no app não dispara `visibilitychange` nenhum.
+ *
+ * Um minuto, e barato por construção: com um impedimento, com o piso armado ou
+ * com as letras no ar, `syncFundosAcervo` volta na primeira linha. Só o
+ * ESTADO À VISTA religa — minimizado, quem a traz de volta continua sendo a
+ * volta ao app, e uma passada de centenas de fotos não parte sozinha com o
+ * aparelho no bolso.
+ */
+const FUNDO_RELIGA_MS = 60 * 1000;
+
 /** Quando a próxima passada automática pode correr. Zera com o processo. */
 let fundosProximaPassadaEm = 0;
 
@@ -20040,7 +20059,7 @@ async function syncImagensColecao(coll, opts) {
           if (!collSongs(coll.id).includes(s)) return;
           // A FONTE MUDA PARA A PASSADA — ver `FUNDO_FONTE_MUDA`. Nenhuma
           // resposta em doze perguntas é o servidor, não a faixa.
-          if (contas && contas.semMetadado >= FUNDO_FONTE_MUDA && !contas.comMetadado) {
+          if (contas && contas.semResposta >= FUNDO_FONTE_MUDA && !contas.comResposta) {
             contas.fonteMuda = true;
             return;
           }
@@ -20064,7 +20083,13 @@ async function syncImagensColecao(coll, opts) {
             const estado = await estadoDoFundo(s);
             const tem = estado === 'tem';
             if (tem) refeitas++;
-            if (contas) { if (o.metaOk) contas.comMetadado++; else contas.semMetadado++; }
+            // "A FONTE RESPONDEU?" são DUAS perguntas: o metadado (`metaOk`) e
+            // as FOTOS (`fotoSemResposta`, a foto cujo `fetch` nem voltou). Um
+            // servidor de arquivos fora do ar com o banco de pé é a fonte muda
+            // do mesmo jeito — e sem contá-la aqui o disjuntor nunca abriria:
+            // mil faixas, duas requisições cada, a cada passada.
+            const respondeu = o.metaOk && !o.fotoSemResposta;
+            if (contas) { if (respondeu) contas.comResposta++; else contas.semResposta++; }
             // E O VEREDITO SÓ É GRAVADO SE A PERGUNTA CHEGOU A SER FEITA
             // (`metaOk`). Sem rede, `downloadCollectionSong` volta antes de
             // tocar em imagem nenhuma: gravar `tem: false` ali seria carimbar
@@ -20073,7 +20098,14 @@ async function syncImagensColecao(coll, opts) {
             // Os ids são lidos DEPOIS da chamada: `ensureSongVariant` apaga
             // do índice o id que não resolve mais, e o veredito tem de falar
             // dos arquivos que a faixa tem AGORA.
-            if (o.metaOk && estado !== '?' && collSongs(coll.id).includes(s)) {
+            //
+            // **E A FOTO QUE NÃO VOLTOU TAMBÉM NÃO É RESPOSTA** (v1.10.7): o
+            // metadado chegou, o `fetch` da foto morreu na rede, e gravar
+            // `tem: false` ali calava por SEIS DIAS uma faixa que a fonte
+            // entrega — uma oscilação de Wi-Fi valendo pela semana. `'tem'`
+            // continua valendo mesmo assim: uma foto que chegou já é fundo.
+            if (o.metaOk && estado !== '?' && (tem || !o.fotoSemResposta)
+              && collSongs(coll.id).includes(s)) {
               vereditos[s.id_music] = { v: FUNDO_VEREDITO_VERSAO, ids: fundoIdsDaFaixa(s), em: Date.now(), tem };
             }
           } catch (_) { /* a passada seguinte tenta de novo */ }
@@ -20119,6 +20151,11 @@ async function syncImagensColecao(coll, opts) {
  * música que ninguém tem.
  */
 async function syncFundosAcervo() {
+  // UMA PASSADA POR VEZ, pela bandeira e não só pelo piso: o piso é um
+  // carimbo de RELÓGIO, e um relógio corrigido para a frente no meio de uma
+  // passada longa abriria a porta para a segunda — agora que o relógio que a
+  // religa (`FUNDO_RELIGA_MS`) bate a cada minuto.
+  if (fundosPassadaRodando) return;
   const agora = Date.now();
   // O PISO. Um carimbo mais longe que o próprio passo só pode ter vindo de um
   // relógio corrigido para trás — e ele seguraria toda passada pelo salto
@@ -20150,7 +20187,7 @@ async function syncFundosAcervo() {
   if (lyricSyncRunning) return;
   fundosProximaPassadaEm = agora + FUNDO_PASSO_MS;
   const contas = {
-    conferidas: 0, tentadas: 0, refeitas: 0, comMetadado: 0, semMetadado: 0, fonteMuda: false,
+    conferidas: 0, tentadas: 0, refeitas: 0, comResposta: 0, semResposta: 0, fonteMuda: false,
   };
   // O RETRATO NASCE NA PARTIDA, e não no fim. Gravado só no fim e só com
   // trabalho feito, ele não existia no estado ESTÁVEL (tudo com veredito, nada
@@ -20177,10 +20214,12 @@ async function syncFundosAcervo() {
     fundosPassadaRodando = false;
     Object.assign(fundosUltimaPassada, contas, { emCurso: false });
     if (!rotinaDeBytesPodeCorrer()) fundosUltimaPassada.cortada = true;
-    // CORTADA ANTES DE CONFERIR UMA FAIXA, a passada não aconteceu: o piso é
-    // devolvido, senão a cena que entrou no primeiro segundo seguraria a
-    // varredura meia hora depois de sair.
-    if (fundosUltimaPassada.cortada && !contas.conferidas) fundosProximaPassadaEm = 0;
+    // A PASSADA CORTADA DEVOLVE O PISO — conferisse ela zero faixas ou mil.
+    // O que ela aprendeu já está no disco (os vereditos são gravados no corte),
+    // então retomá-la custa só o que faltou; segurá-la meia hora deixava a
+    // cena que entrou no meio da primeira passada custando a meia hora
+    // inteira depois de sair, e é o relógio (`FUNDO_RELIGA_MS`) que a retoma.
+    if (fundosUltimaPassada.cortada) fundosProximaPassadaEm = 0;
   }
 }
 
@@ -20219,6 +20258,18 @@ function fundosImpedimento() {
  * `withBgRotina`, que não conta como pedido).
  */
 function rotinaDeBytesPodeCorrer() { return rotinaDeAcervoPodeCorrer() && !bgWorkPedido(); }
+
+/** O tique do relógio — ver `FUNDO_RELIGA_MS`. */
+function religarFundos() {
+  if (document.visibilityState !== 'visible') return Promise.resolve();
+  return syncFundosAcervo().catch(() => {});
+}
+
+/** "a cada minuto" — a frase sai da constante, nunca de uma segunda escrita. */
+function fundosReligaFrase() {
+  const n = Math.round(FUNDO_RELIGA_MS / 60000);
+  return 'a cada ' + (n === 1 ? 'minuto' : n + ' minutos');
+}
 
 // Baixa (ou completa) uma música: busca os metadados individuais (URLs reais) e
 // grava áudio Cantado + Playback (se houver) + capa/letra sincronizada no
@@ -20337,7 +20388,7 @@ async function downloadCollectionSong(coll, s, opts) {
     // regrava a letra, e a miniatura seria decodificar a foto inteira e
     // desenhá-la num canvas para jogar fora — no renderer que o telão divide.
     const result = await downloadCollectionImage(coll.id, url, s.id_music, imgCache.size,
-      !!(opts && opts.refazerLetra));
+      !!(opts && opts.refazerLetra), opts);
     imgCache.set(url, result);
     return result;
   }
@@ -20724,7 +20775,10 @@ async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyr
 // Baixa uma imagem em resolução real pro OPFS (fundo dos slides de letra) e
 // gera a miniatura do catálogo (mesmo `drawThumb`) a partir do MESMO blob —
 // evita baixar a capa duas vezes (uma pro fundo, outra só pra miniatura).
-async function downloadCollectionImage(folderId, url, songId, index, semMiniatura) {
+// `marca` é o objeto POR FAIXA do chamador (o mesmo do `metaOk`): a foto cujo
+// `fetch` nem voltou o marca com `fotoSemResposta`, que é o que separa, no
+// veredito dos fundos, *"a fonte não entrega esta foto"* de *"a rede caiu"*.
+async function downloadCollectionImage(folderId, url, songId, index, semMiniatura, marca) {
   let blob;
   // CONTADO ANTES DE QUALQUER GUARDA (v1.9.16), inclusive antes da trava de
   // host: o app FOI BUSCAR esta imagem, e é esse o denominador. Sem ele não há
@@ -20746,7 +20800,11 @@ async function downloadCollectionImage(folderId, url, songId, index, semMiniatur
     const res = await fetch(Louvorja.fileUrl(url));
     if (!res.ok) { acervoFalhou('capasPerdidas', 'a fonte respondeu HTTP ' + res.status, url, null, res.status); return null; }
     blob = await res.blob();
-  } catch (_) { acervoFalhou('capasPerdidas', 'o servidor de arquivos não respondeu', url, null, 0); return null; }
+  } catch (_) {
+    if (marca) marca.fotoSemResposta = true;
+    acervoFalhou('capasPerdidas', 'o servidor de arquivos não respondeu', url, null, 0);
+    return null;
+  }
   const ext = extensaoDoArquivo(url, 'jpg');
   const path = 'folders/' + folderId + '/' + songId + '-img-' + index + '.' + ext;
   try { await AVDB.opfsWriteFile(path, blob); }
@@ -27426,9 +27484,10 @@ async function blocoFundos() {
   //
   // **E A TENTATIVA QUE FALHOU TAMBÉM**: contar só quem GANHOU fundo fazia uma
   // passada em que a fonte não respondeu sair idêntica a uma que não tentou
-  // nada — *"falhar VAZIO é proibido"*. `semMetadado` é a causa que este bloco
-  // consegue nomear sozinho (o `music_{id}` não veio); a das FOTOS mora no bloco
-  // "Download do acervo", logo acima, que conta capa por capa.
+  // nada — *"falhar VAZIO é proibido"*. `semResposta` é a fonte MUDA — o
+  // `music_{id}` que não veio ou a foto cujo `fetch` não voltou —, e por isso
+  // "continuam sem" é a fonte que RESPONDEU e não entregou; o status de cada
+  // foto mora no bloco "Download do acervo", logo acima, que conta capa por capa.
   const u = fundosUltimaPassada;
   if (u) {
     const quando = new Date(u.em || 0).toLocaleString('pt-BR');
@@ -27438,10 +27497,10 @@ async function blocoFundos() {
       linhas.push('  última passada (' + quando + '): nada a conferir — '
         + (u.cortada ? 'ela cedeu a vez antes de começar' : 'toda música baixada já tem veredito'));
     } else {
-      const semFundoAinda = u.tentadas - u.refeitas - u.semMetadado;
+      const semFundoAinda = u.tentadas - u.refeitas - u.semResposta;
       linhas.push('  última passada (' + quando + '): ' + u.conferidas + ' conferida(s), '
         + u.tentadas + ' tentada(s) — ' + u.refeitas + ' ganharam fundo'
-        + (u.semMetadado ? ', ' + u.semMetadado + ' sem resposta da fonte das músicas' : '')
+        + (u.semResposta ? ', ' + u.semResposta + ' sem resposta da fonte das músicas' : '')
         + (semFundoAinda > 0 ? ', ' + semFundoAinda + ' continuam sem (ver as capas acima)' : '')
         + (u.fonteMuda ? '; parou: a fonte das músicas não respondeu ' + FUNDO_FONTE_MUDA
           + ' perguntas seguidas' : '')
@@ -27463,8 +27522,7 @@ async function blocoFundos() {
   const impedimento = fundosImpedimento();
   if (impedimento) {
     linhas.push('  não corre agora: ' + impedimento
-      + (impedimento.indexOf('mídia no ar') >= 0 || impedimento.indexOf('download') >= 0
-        ? ' — volta na próxima vez que o app vier à frente depois disso' : ''));
+      + ' — o app confere de novo ' + fundosReligaFrase() + ', com ele aberto na tela');
   }
   if (agora < fundosProximaPassadaEm) {
     linhas.push('  a próxima passada pode correr a partir de '
@@ -28213,12 +28271,25 @@ const TESTES = [
         // cada desfecho pede uma ação diferente — achar um Wi-Fi, esperar a
         // cena sair, ou nada — e o de a FONTE não ter respondido não é nenhum
         // dos três.
+        //
+        // **E "JÁ REFAZ SOZINHO" SÓ SE DIZ DE QUEM AINDA VAI REFAZER** (v1.10.7):
+        // a fonte que RESPONDEU sem entregar a foto deixa a faixa com veredito
+        // de seis dias, e a frase antiga prometia um conserto que não vinha —
+        // o operador esperava, olhava de novo, e a linha continuava vermelha.
         const impedimento = fundosImpedimento();
         const u = fundosUltimaPassada;
+        const semFoto = u ? u.tentadas - u.refeitas - u.semResposta : 0;
         let comoEsta;
-        if (impedimento) comoEsta = ' — o app refaz sozinho, mas agora não: ' + impedimento;
-        else if (u && !u.emCurso && u.semMetadado && !u.refeitas) {
+        if (impedimento) {
+          comoEsta = ' — o app refaz sozinho, mas agora não: ' + impedimento
+            + ' (ele confere de novo ' + fundosReligaFrase() + ')';
+        } else if (u && u.emCurso) comoEsta = ' — o app está refazendo isto agora';
+        else if (u && u.semResposta && !u.refeitas) {
           comoEsta = ' — o app tenta sozinho, e na última vez a fonte das músicas não respondeu';
+        } else if (semFoto > 0) {
+          comoEsta = ' — o app tentou sozinho, e a fonte das músicas não entregou a foto de '
+            + semFoto + ' música(s); ele pergunta de novo em '
+            + Math.round(FUNDO_REVISITA_MS / 86400000) + ' dias';
         } else comoEsta = ' — o app já refaz sozinho, com o aparelho num Wi-Fi';
         return tFalhou(semFundo + ' de ' + comLetra + ' sem fundo' + comoEsta);
       }
@@ -39427,6 +39498,8 @@ document.addEventListener('visibilitychange', () => {
   // Índices das coleções em segundo plano (fire-and-forget): não atrasa a
   // abertura do app, só deixa a busca/os cards prontos assim que a resposta chegar.
   autoRefreshCollections();
+  // E A PASSADA DOS FUNDOS, RELIGADA com o app à vista — ver `FUNDO_RELIGA_MS`.
+  setInterval(religarFundos, FUNDO_RELIGA_MS);
   // A BÍBLIA BASE, garantida sozinha (v5.242) — metadados e, atrás deles, a
   // versão padrão INTEIRA, em segundo plano e resumível. Fire-and-forget pelo
   // mesmo motivo do `autoRefreshCollections` logo acima: não atrasa a abertura

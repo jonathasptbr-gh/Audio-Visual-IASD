@@ -2678,16 +2678,25 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   nomeava — **um veredito POR MÚSICA gravado com data** (`fundos:<coll>`, por
   MESCLA): `tem` vale sempre enquanto os IDS dos arquivos forem os mesmos, a
   ausência vale seis dias, e **só se grava veredito quando o metadado chegou**
-  (`metaOk`, um objeto POR FAIXA; sem rede a pergunta nem foi feita) **e quando
-  o registro foi VISTO** (`estadoDoFundo` tem três desfechos: `'?'` — registro
+  (`metaOk`, um objeto POR FAIXA; sem rede a pergunta nem foi feita), **quando
+  a FOTO respondeu** (a que o `fetch` nem trouxe de volta marca
+  `fotoSemResposta` e não vira ausência: um 404 é a fonte respondendo, a rede
+  caindo não é — v1.10.7) **e quando o registro foi VISTO** (`estadoDoFundo` tem três desfechos: `'?'` — registro
   sem `lyrics`, leitura que lançou — nunca vira `tem: true`, que seria
   permanente). **NÃO HÁ TETO POR PASSADA** (v1.10.7, revogando os 60 da
   v1.10.6 a pedido do operador: *"se ele achar necessário, ele verifica e
   atualiza toda a biblioteca baixada"*): o que limita é o que NÃO é trabalho
   necessário — o veredito (o que já respondeu não é reperguntado), o prazo da
-  ausência, e o DISJUNTOR da fonte muda (`FUNDO_FONTE_MUDA`: doze perguntas sem
-  metadado e nenhuma com, a passada para e o Registro diz). Piso de 30 min
-  entre passadas — e **a passada que cede a vez não arma o piso**. Ela só corre num **Wi-Fi CONFIRMADO** (a regra
+  ausência, e o DISJUNTOR da fonte muda (`FUNDO_FONTE_MUDA`: doze faixas sem
+  resposta — do banco OU do servidor de fotos — e nenhuma com, a passada para e
+  o Registro diz). Piso de 30 min entre passadas — **a passada que cede a vez
+  não arma o piso, e a CORTADA o devolve** (o que ela aprendeu já está no
+  disco). **E ELA SE RELIGA SOZINHA COM O APP À VISTA** (`religarFundos`, a cada
+  `FUNDO_RELIGA_MS`, v1.10.7): religada só pela abertura e pelo
+  `visibilitychange`, uma música tocando na abertura a calava enquanto o
+  operador continuasse no app — MEDIDO, a cena saiu e um minuto de app parado e
+  à vista não produziu um pedido, e *"durante meus testes"* é exatamente isso.
+  Minimizado o tique não parte. Ela só corre num **Wi-Fi CONFIRMADO** (a regra
   do episódio da semana) e cede também a um download PEDIDO (`bgWorkPedido`);
   o impedimento sai no Registro e na Verificação pela MESMA função da porta
   (`fundosImpedimento`). As letras e os fundos cedem uma à outra por bandeira

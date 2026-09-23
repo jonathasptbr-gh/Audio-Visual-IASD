@@ -1237,9 +1237,18 @@ try {
       // operador, e "já refaz sozinho" seria afirmar um trabalho que não anda.
       window.networkType = () => 'wifi';
       fundosUltimaPassada = { em: Date.now(), emCurso: false, conferidas: 3, tentadas: 3, refeitas: 0,
-        semMetadado: 3, adiadas: 0, cortada: false };
+        semResposta: 3, adiadas: 0, cortada: false };
       const fonteMuda = await rodarUmaChecagem(achada);
-      return { noWifi, naRedeMovel, semTipo, fonteMuda };
+      // A FONTE QUE RESPONDEU E NÃO ENTREGOU A FOTO (v1.10.7): as faixas ficam
+      // com veredito de seis dias, e "já refaz sozinho" prometia um conserto
+      // que não vinha.
+      fundosUltimaPassada = { em: Date.now(), emCurso: false, conferidas: 3, tentadas: 3, refeitas: 1,
+        semResposta: 0, cortada: false };
+      const semFoto = await rodarUmaChecagem(achada);
+      fundosUltimaPassada = { em: Date.now(), emCurso: true, conferidas: 3, tentadas: 0, refeitas: 0,
+        semResposta: 0, cortada: false };
+      const emCurso = await rodarUmaChecagem(achada);
+      return { noWifi, naRedeMovel, semTipo, fonteMuda, semFoto, emCurso };
     } finally {
       fundosUltimaPassada = ult;
       window.allCollections = cols; window.collSongs = songs; AVDB.fileGet = get;
@@ -1262,6 +1271,15 @@ try {
   checar(/fonte das músicas não respondeu/.test(fundos.fonteMuda.nota) && !/já refaz/.test(fundos.fonteMuda.nota),
     'P5 · e quando a última passada tentou e a FONTE não respondeu, a nota diz isso — "já refaz sozinho" '
     + 'afirmaria um trabalho que não está andando', fundos.fonteMuda.nota);
+  checar(/não entregou a foto de 2 música/.test(fundos.semFoto.nota) && /6 dias/.test(fundos.semFoto.nota)
+    && !/já refaz/.test(fundos.semFoto.nota),
+    'P6 · e quando a fonte RESPONDEU sem entregar a foto, a nota diz quantas e quando o app pergunta de '
+    + 'novo — "já refaz sozinho" deixava o operador esperando um conserto de seis dias', fundos.semFoto.nota);
+  checar(/refazendo isto agora/.test(fundos.emCurso.nota),
+    'P7 · com a passada em curso a nota diz que ela está andando', fundos.emCurso.nota);
+  checar(/confere de novo a cada minuto/.test(fundos.naRedeMovel.nota),
+    'P8 · e o impedimento promete o que o relógio faz: o app confere de novo a cada minuto, sem ser '
+    + 'preciso sair e voltar', fundos.naRedeMovel.nota);
 
 } finally {
   await navegador.close();
