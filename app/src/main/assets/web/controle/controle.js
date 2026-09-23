@@ -4821,14 +4821,6 @@ async function garantirBibliaBase() {
   } catch (_) {}
 }
 
-// Baixa a versão INTEIRA da Bíblia (todos os capítulos de todos os livros) na
-// 1ª vez que ela é usada — em segundo plano, resumível (pula o que já está em
-// cache), concorrência limitada (runLimited, 5). O texto de cada capítulo é
-// leve (só versículos, sem mídia), então o volume total é modesto. O progresso
-// (bibleDl) aparece na tela de livros; ao terminar sem falhas, marca
-// state['bibleComplete:<v>'] pra não refazer. A leitura por capítulo
-// (loadBibleChapter) continua funcionando sob demanda se o operador abrir um
-// capítulo antes de o download em massa chegar nele.
 /**
  * QUANTOS CAPÍTULOS DESTA VERSÃO A LEITURA ACHA NO APARELHO — a régua ÚNICA da
  * auto-cura abaixo e da Verificação do Sistema (v1.10.7).
@@ -4851,6 +4843,15 @@ function bibliaCapitulosLegiveis(versionId, todas) {
 // sessão — ver `ensureBibleVersionDownloaded`.
 const bibliaConferidaNaSessao = new Set();
 
+// Baixa a versão INTEIRA da Bíblia (todos os capítulos de todos os livros) na
+// 1ª vez que ela é usada — em segundo plano, resumível (pula o que já está em
+// cache), concorrência limitada (runLimited, 5). O texto de cada capítulo é
+// leve (só versículos, sem mídia), então o volume total é modesto. O progresso
+// (bibleDl) aparece na tela de livros; ao terminar sem falhas, marca
+// state['bibleComplete:<v>'] — o cache que evita refazer, reconferido contra o
+// disco na primeira chamada de cada sessão. A leitura por capítulo
+// (loadBibleChapter) continua funcionando sob demanda se o operador abrir um
+// capítulo antes de o download em massa chegar nele.
 async function ensureBibleVersionDownloaded(versionId) {
   if (versionId == null) return;
   // Já baixando esta versão: nada a fazer.
@@ -27863,9 +27864,6 @@ async function testeAlgumIdDeMusica() {
 }
 
 
-// A TABELA. `area` agrupa no relatório, `prazo` é o teto desta linha, `cena`
-// marca o que não pode correr com mídia no ar, e `fn` devolve um dos quatro
-// desfechos — ou LANÇA, que o motor lê como falha com a frase do erro.
 /**
  * AS LISTAS QUE A VERIFICAÇÃO CONFERE, com o nome que o operador lê (v1.10.7).
  *
@@ -27887,6 +27885,9 @@ const LISTAS_DA_VERIFICACAO = [
   ['favs', 'Favoritos'],
 ];
 
+// A TABELA. `area` agrupa no relatório, `prazo` é o teto desta linha, `cena`
+// marca o que não pode correr com mídia no ar, e `fn` devolve um dos quatro
+// desfechos — ou LANÇA, que o motor lê como falha com a frase do erro.
 const TESTES = [
   // ---------- ARMAZENAMENTO ----------
   // É o chão de tudo: sem OPFS não há mídia, sem IndexedDB não há catálogo. E
@@ -28287,8 +28288,12 @@ const TESTES = [
         else if (u && u.semResposta && !u.refeitas) {
           comoEsta = ' — o app tenta sozinho, e na última vez a fonte das músicas não respondeu';
         } else if (semFoto > 0) {
-          comoEsta = ' — o app tentou sozinho, e a fonte das músicas não entregou a foto de '
-            + semFoto + ' música(s); ele pergunta de novo em '
+          // A CAUSA NÃO É NOMEADA AQUI: a fonte respondendo erro e o disco
+          // recusando a gravação chegam iguais a esta conta, e acusar a fonte
+          // pelo disco cheio mandaria o operador procurar no lugar errado. Quem
+          // separa as duas é o bloco "Download do acervo" do Registro.
+          comoEsta = ' — o app tentou sozinho e a foto de ' + semFoto
+            + ' música(s) não chegou (o Registro diz por quê); ele tenta de novo em '
             + Math.round(FUNDO_REVISITA_MS / 86400000) + ' dias';
         } else comoEsta = ' — o app já refaz sozinho, com o aparelho num Wi-Fi';
         return tFalhou(semFundo + ' de ' + comLetra + ' sem fundo' + comoEsta);
