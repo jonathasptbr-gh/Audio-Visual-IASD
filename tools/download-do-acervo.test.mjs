@@ -42,6 +42,17 @@ const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: VIEWPORT });
 await semRedeExterna(ctx);
 const pg = await ctx.newPage();
+// OS RELÓGIOS QUE A ABERTURA ARMA, pelo nome da função — o bloco U pergunta se
+// o que religa a passada dos fundos está entre eles. Só REGISTRA: o relógio
+// continua sendo o de verdade.
+await pg.addInitScript(() => {
+  const si = window.setInterval;
+  window.__intervalos = [];
+  window.setInterval = function (fn, ms, ...resto) {
+    window.__intervalos.push({ nome: (fn && fn.name) || '', ms });
+    return si.call(this, fn, ms, ...resto);
+  };
+});
 
 try {
   await pg.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
@@ -84,6 +95,7 @@ try {
         if (/\.(jpg|png|webp)$|\/imagens\//.test(s)) {
           window.__pedidosImg++;
           if (window.__modoImg === 'recusa') return new Response('', { status: 404 });
+          if (window.__modoImg === 'semRede') throw new TypeError('Failed to fetch');
           return new Response(new Blob([new Uint8Array(64)], { type: 'image/jpeg' }), { status: 200 });
         }
         window.__pedidos++;
@@ -840,8 +852,9 @@ try {
     const ds = (await AVDB.getState(fundoChave(cid))) || {};
     out.semRedeGravou = Object.prototype.hasOwnProperty.call(ds, String(sr.id_music));
 
-    // O TETO É DO ACERVO e o que sobra NÃO recebe veredito: ele não foi
-    // perguntado. `adiadas` é o corte, e ele é DITO no Registro.
+    // SEM TETO (v1.10.7, pedido do operador): a passada refaz TUDO o que falta
+    // numa vez — *"se ele achar necessário, ele verifica e atualiza toda a
+    // biblioteca baixada"*.
     const cid2 = 't-teto';
     const coll2 = { id: cid2, name: 'Álbum Teto', kind: 'album', source: 'fonte-de-teste' };
     window.__modoImg = 'recusa';
@@ -849,14 +862,15 @@ try {
     await AVDB.setState(fundoChave(cid2), null);
     await syncCollection(coll2, { allowMobile: true });   // três faixas, sem fundo
     await AVDB.setState(fundoChave(cid2), null);
-    const orc = { refazer: 1, refeitas: 0, conferidas: 0, adiadas: 0 };
+    window.__modoImg = 'ok';
+    const orc = { conferidas: 0, tentadas: 0, refeitas: 0, comResposta: 0, semResposta: 0, fonteMuda: false };
     let tentadas = 0;
     const listaReal2 = Louvorja.fetchList;
     Louvorja.fetchList = async (f) => { if (String(f).startsWith('music_')) tentadas++; return listaReal2(f); };
-    try { await syncImagensColecao(coll2, { auto: true, orcamento: orc }); }
+    try { await syncImagensColecao(coll2, { auto: true, contas: orc }); }
     finally { Louvorja.fetchList = listaReal2; }
-    out.tentadasComTeto = tentadas;
-    out.adiadas = orc.adiadas;
+    out.tentadasSemTeto = tentadas;
+    out.refeitas = orc.refeitas;
     out.conferidas = orc.conferidas;
     window.__imagem = null; window.__modoImg = 'ok';
     return out;
@@ -882,10 +896,10 @@ try {
   checar(rr.semRedeGravou === false,
     'sem rede NENHUM veredito é gravado: a pergunta não chegou a ser feita, e carimbá-la custaria '
     + 'o prazo inteiro de revisita sobre uma faixa que ninguém perguntou', rr.semRedeGravou);
-  checar(rr.tentadasComTeto === 1 && rr.adiadas === 2 && rr.conferidas === 3,
-    'o teto corta o que vai à REDE e não o que é CONFERIDO: as três são conferidas, uma é refeita, '
-    + 'duas ficam para a passada seguinte — e o corte é contado, nunca silencioso',
-    JSON.stringify([rr.tentadasComTeto, rr.adiadas, rr.conferidas]));
+  checar(rr.tentadasSemTeto === 3 && rr.refeitas === 3 && rr.conferidas === 3,
+    'SEM TETO: as três faixas sem fundo são conferidas E refeitas na mesma passada — o operador pediu '
+    + 'que a biblioteca inteira seja atualizada quando for preciso, e não sessenta por vez',
+    JSON.stringify([rr.tentadasSemTeto, rr.refeitas, rr.conferidas]));
 
   // ---- S: O REGISTRO RESPONDE "as fotos vão aparecer no sábado?" ----------
   //
@@ -1034,17 +1048,47 @@ try {
       out.excluida = { music: n(), vereditos: Object.keys((await AVDB.getState(fundoChave('t-excluir'))) || {}).length };
     }
 
-    // T9 · O TETO É DO ACERVO: as duas coleções recebem o MESMO orçamento.
+    // T9 · AS CONTAS SÃO DO ACERVO: as duas coleções recebem o MESMO objeto.
     {
       const a = await montar('t-orc-a');
       const b = await montar('t-orc-b');
       window.allCollections = () => [a, b];
       const vistos = [];
       const real = window.syncImagensColecao;
-      window.syncImagensColecao = (c, o) => { vistos.push(o && o.orcamento); return real(c, o); };
+      window.syncImagensColecao = (c, o) => { vistos.push(o && o.contas); return real(c, o); };
       fundosProximaPassadaEm = 0;
       try { await syncFundosAcervo(); } finally { window.syncImagensColecao = real; }
       out.orcamento = { n: vistos.length, mesmo: vistos.length === 2 && !!vistos[0] && vistos[0] === vistos[1] };
+    }
+
+    // T11 · A FONTE MUDA PARA A PASSADA. Sem teto, trinta faixas sem fundo
+    //       com a fonte fora do ar seriam trinta perguntas sem resposta — e
+    //       mil, no acervo do relato, a cada meia hora. Doze bastam para saber.
+    {
+      const cid = 't-muda';
+      const songs = [];
+      for (let i = 0; i < 30; i++) {
+        const id = 'fm-' + i;
+        await AVDB.fileAdd({ id, name: 'Muda ' + i, folder: cid, kind: 'audio',
+          lyrics: [{ time: 0, text: 'linha', imageOpfsPath: null }] });
+        songs.push({ id_music: 9000 + i, name: 'Muda ' + i, track: i + 1, fileIdFull: id });
+      }
+      const cM = { id: cid, name: 'Álbum Mudo', kind: 'album' };
+      collState[cid] = { indexSyncedAt: 0, songs };
+      await AVDB.setState(fundoChave(cid), null);
+      window.allCollections = () => [cM];
+      const cd = window.countDownloaded;
+      window.countDownloaded = (id) => (id === cid ? 30 : cd(id));
+      let n = 0;
+      Louvorja.fetchList = async (f) => {
+        if (String(f).startsWith('music_')) { n++; throw new TypeError('Failed to fetch'); }
+        return listaReal(f);
+      };
+      fundosProximaPassadaEm = 0;
+      try { await syncFundosAcervo(); }
+      finally { Louvorja.fetchList = listaReal; window.countDownloaded = cd; }
+      out.muda = { pedidos: n, fonteMuda: !!(fundosUltimaPassada && fundosUltimaPassada.fonteMuda),
+        teto: FUNDO_FONTE_MUDA + NET_CONCURRENCY, bloco: await blocoFundos() };
     }
 
     // T10 · O BLOCO ESTÁ NO ARQUIVO QUE O OPERADOR COPIA, colado ao download.
@@ -1087,11 +1131,343 @@ try {
     'T8 · a coleção excluída no meio da refeitura é abandonada: sem isto a capa era gravada numa pasta '
     + 'recém-apagada e o peso voltava ao card de uma coleção removida', JSON.stringify(tt.excluida));
   checar(tt.orcamento.n === 2 && tt.orcamento.mesmo,
-    'T9 · o TETO é do ACERVO: as duas coleções recebem o MESMO orçamento — por coleção seriam 69 × 60 '
-    + 'faixas na primeira abertura do aparelho do relato', JSON.stringify(tt.orcamento));
+    'T9 · as CONTAS são do ACERVO: as duas coleções recebem o MESMO objeto — é nele que a fonte muda é '
+    + 'vista (doze sem resposta numa coleção não recomeçam do zero na seguinte) e dele sai o retrato',
+    JSON.stringify(tt.orcamento));
+  checar(tt.muda.pedidos > 0 && tt.muda.pedidos <= tt.muda.teto && tt.muda.pedidos < 30 && tt.muda.fonteMuda,
+    'T11 · com a fonte FORA DO AR a passada para depois de doze perguntas sem resposta (mais as que já '
+    + 'estavam em voo) — sem teto, trinta faixas seriam trinta falhas, e mil no acervo do relato',
+    JSON.stringify({ pedidos: tt.muda.pedidos, fonteMuda: tt.muda.fonteMuda }));
+  checar(/a fonte das músicas não respondeu/.test(tt.muda.bloco),
+    'T11 · e o Registro DIZ que ela parou e por quê — uma passada que para calada se lê como "a varredura '
+    + 'desistiu"', tt.muda.bloco);
   checar(tt.registro.iAc >= 0 && tt.registro.iFu > tt.registro.iAc,
     'T10 · o bloco está no REGISTRO que o operador salva, logo depois do "Download do acervo" — chamar '
     + 'a função direto provava que ela existe, não que alguém a imprime', JSON.stringify(tt.registro));
+
+  // ---- U: A PASSADA VOLTA SOZINHA, E A FOTO QUE NÃO VOLTOU NÃO CALA (v1.10.7) ----
+  //
+  // O relato: *"não houve nenhuma atualização das imagens … durante meus
+  // testes"*. MEDIDO numa sonda com a abertura DE VERDADE (recarga, cadeia
+  // inteira, nada chamado à mão): com o app parado a passada consertou as três
+  // faixas em cinco segundos; com uma música tocando na abertura ela cedeu, a
+  // cena saiu, e em um minuto de app à vista NADA aconteceu — quem a religava
+  // era só o `visibilitychange`, e testar o app é ficar nele tocando mídia.
+  const uu = await pg.evaluate(async () => {
+    const out = {};
+    const listaReal = Louvorja.fetchList;
+    const montar = async (cid) => {
+      const coll = { id: cid, name: 'Álbum ' + cid, kind: 'album', source: 'fonte-de-teste' };
+      window.__modo = 'ok'; window.__modoImg = 'recusa'; window.__semFonte = false;
+      window.__imagem = '/imagens/capa.jpg';
+      collState[cid] = { indexSyncedAt: 0, songs: [] };
+      await syncCollection(coll, { allowMobile: true });
+      await AVDB.setState(fundoChave(cid), null);
+      window.__modoImg = 'ok';
+      return coll;
+    };
+    const fundos = async (cid) => Promise.all(collSongs(cid).map((x) => estadoDoFundo(x)));
+    const novasContas = () => ({ conferidas: 0, tentadas: 0, refeitas: 0, comResposta: 0, semResposta: 0,
+      recusadas: 0, ultimoStatus: null, fonteMuda: false });
+    // N faixas BAIXADAS e sem fundo, plantadas direto (sem passar pelo download)
+    // — o molde do T11. `prefixo` separa os ids de uma célula para outra.
+    const plantar = async (cid, n, prefixo, base) => {
+      const songs = [];
+      for (let i = 0; i < n; i++) {
+        const id = prefixo + i;
+        await AVDB.fileAdd({ id, name: prefixo + i, folder: cid, kind: 'audio',
+          lyrics: [{ time: 0, text: 'linha', imageOpfsPath: null }] });
+        songs.push({ id_music: base + i, name: prefixo + i, track: i + 1, fileIdFull: id });
+      }
+      collState[cid] = { indexSyncedAt: 0, songs };
+      await AVDB.setState(fundoChave(cid), null);
+      return { id: cid, name: 'Álbum ' + cid, kind: 'album' };
+    };
+    const comAcervo = async (colls, fn) => {
+      const ac = window.allCollections; const cd = window.countDownloaded;
+      window.allCollections = () => colls;
+      window.countDownloaded = (id) => (colls.some((c) => c.id === id) ? collSongs(id).length : cd(id));
+      try { return await fn(); } finally { window.allCollections = ac; window.countDownloaded = cd; }
+    };
+
+    // U1 · A FOTO CUJO `fetch` NÃO VOLTOU não vira veredito de seis dias — e o
+    //      CONTROLE é a mesma faixa com a fonte RESPONDENDO 404, que vira.
+    {
+      const c = await montar('u-foto');
+      const contas = novasContas();
+      window.__modoImg = 'semRede';
+      try { await syncImagensColecao(c, { auto: true, contas }); } finally { window.__modoImg = 'ok'; }
+      const semRede = (await AVDB.getState(fundoChave('u-foto'))) || {};
+      out.fotoSemRede = { vereditos: Object.keys(semRede).length, contas: { ...contas } };
+      window.__modoImg = 'recusa';
+      try { await syncImagensColecao(c, { auto: true }); } finally { window.__modoImg = 'ok'; }
+      const recusa = (await AVDB.getState(fundoChave('u-foto'))) || {};
+      out.fotoRecusa = Object.values(recusa).map((v) => v.tem);
+    }
+
+    // U2 · O SERVIDOR DE FOTOS MUDO com o banco de pé também abre o disjuntor.
+    {
+      const cid = 'u-foto-muda';
+      const songs = [];
+      for (let i = 0; i < 30; i++) {
+        const id = 'fu-' + i;
+        await AVDB.fileAdd({ id, name: 'Foto ' + i, folder: cid, kind: 'audio',
+          lyrics: [{ time: 0, text: 'linha', imageOpfsPath: null }] });
+        songs.push({ id_music: 9100 + i, name: 'Foto ' + i, track: i + 1, fileIdFull: id });
+      }
+      const cM = { id: cid, name: 'Álbum das Fotos', kind: 'album' };
+      collState[cid] = { indexSyncedAt: 0, songs };
+      await AVDB.setState(fundoChave(cid), null);
+      const ac = window.allCollections;
+      window.allCollections = () => [cM];
+      const cd = window.countDownloaded;
+      window.countDownloaded = (id) => (id === cid ? 30 : cd(id));
+      window.__imagem = '/imagens/muda.jpg';
+      window.__modoImg = 'semRede';
+      window.__pedidosImg = 0;
+      fundosProximaPassadaEm = 0;
+      try { await syncFundosAcervo(); }
+      finally { window.__modoImg = 'ok'; window.countDownloaded = cd; window.allCollections = ac; }
+      out.fotoMuda = { pedidos: window.__pedidosImg, fonteMuda: !!fundosUltimaPassada.fonteMuda,
+        teto: FUNDO_FONTE_MUDA + NET_CONCURRENCY };
+      delete collState[cid];
+    }
+
+    // U3 · A PASSADA CORTADA DEPOIS DE CONFERIR devolve o piso: o que ela
+    //      aprendeu está no disco, e segurar meia hora era a cena custando a
+    //      meia hora inteira depois de sair.
+    {
+      const c = await montar('u-corte');
+      const ac = window.allCollections;
+      window.allCollections = () => [c];
+      let n = 0;
+      Louvorja.fetchList = async (f) => {
+        if (String(f).startsWith('music_')) { n++; midiaNoAr = true; }
+        return listaReal(f);
+      };
+      fundosProximaPassadaEm = 0;
+      try { await syncFundosAcervo(); }
+      finally { Louvorja.fetchList = listaReal; midiaNoAr = false; window.allCollections = ac; }
+      out.corte = { pedidos: n, conferidas: fundosUltimaPassada.conferidas,
+        cortada: fundosUltimaPassada.cortada, piso: fundosProximaPassadaEm };
+    }
+
+    // U4 · O RELÓGIO RELIGA: a cena no ar, o tique não faz nada; a cena sai, o
+    //      tique seguinte conserta. É o cenário do relato, sem abrir e fechar
+    //      o app — e o controle de que o tique não conserta com a cena no ar é
+    //      o que impede a asserção de passar por um tique que sempre roda.
+    {
+      const c = await montar('u-religa');
+      const ac = window.allCollections;
+      window.allCollections = () => [c];
+      fundosProximaPassadaEm = 0;
+      try {
+        midiaNoAr = true;
+        await syncFundosAcervo();
+        await religarFundos();
+        out.religaComCena = await fundos('u-religa');
+        midiaNoAr = false;
+        await religarFundos();
+        out.religaSemCena = await fundos('u-religa');
+      } finally { midiaNoAr = false; window.allCollections = ac; }
+    }
+
+    // U5 · MINIMIZADO O TIQUE NÃO PARTE: quem a traz de volta é a volta ao
+    //      app. Uma passada de centenas de fotos não começa com o aparelho no
+    //      bolso.
+    {
+      const c = await montar('u-oculto');
+      const ac = window.allCollections;
+      window.allCollections = () => [c];
+      fundosProximaPassadaEm = 0;
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      try { await religarFundos(); }
+      finally { delete document.visibilityState; window.allCollections = ac; }
+      out.oculto = { fundos: await fundos('u-oculto'), visivel: document.visibilityState };
+    }
+
+    // U9 · SEM TETO PELA PORTA DE VERDADE: setenta faixas — mais que os 60 da
+    //      v1.10.6 — conferidas E refeitas numa passada só de `syncFundosAcervo`.
+    //      A célula de três faixas chamando a coleção direto não reprovava um
+    //      corte de 60.
+    {
+      const c = await plantar('u-setenta', 70, 'st-', 9300);
+      window.__imagem = '/imagens/setenta.jpg';
+      fundosProximaPassadaEm = 0;
+      await comAcervo([c], () => syncFundosAcervo());
+      const u = fundosUltimaPassada;
+      out.setenta = { tentadas: u.tentadas, refeitas: u.refeitas, fonteMuda: u.fonteMuda };
+      delete collState['u-setenta'];
+    }
+
+    // U10 · A GUARDA `!comResposta` DO DISJUNTOR: a fonte MISTA — metade das
+    //       perguntas responde, metade cai — passa das doze falhas e NÃO abre
+    //       o disjuntor, porque a fonte está respondendo.
+    {
+      const c = await plantar('u-mista', 30, 'mx-', 9400);
+      let n = 0;
+      Louvorja.fetchList = async (f) => {
+        if (String(f).startsWith('music_')) {
+          n++;
+          if (Number(String(f).slice(6)) % 2) throw new TypeError('Failed to fetch');
+        }
+        return listaReal(f);
+      };
+      fundosProximaPassadaEm = 0;
+      try { await comAcervo([c], () => syncFundosAcervo()); } finally { Louvorja.fetchList = listaReal; }
+      const u = fundosUltimaPassada;
+      out.mista = { pedidos: n, tentadas: u.tentadas, fonteMuda: u.fonteMuda, semResposta: u.semResposta };
+      delete collState['u-mista'];
+    }
+
+    // U11 · UM 404 NO METADADO É RESPOSTA SOBRE A FAIXA. Dezoito faixas que a
+    //       fonte nega, NA FRENTE de cinco que ela entrega: contadas como "sem
+    //       resposta", as dezoito abriam o disjuntor em toda passada e as
+    //       cinco de trás nunca eram refeitas.
+    {
+      const a = await plantar('u-404', 18, 'nf-', 9500);
+      const b = await plantar('u-boa', 5, 'bo-', 9600);
+      window.__imagem = '/imagens/boa.jpg';
+      const pedidosA = [0, 0];
+      let passada = 0;
+      Louvorja.fetchList = async (f) => {
+        const id = Number(String(f).replace('music_', ''));
+        if (String(f).startsWith('music_') && id >= 9500 && id < 9600) {
+          pedidosA[passada]++;
+          throw new Error('HTTP 404');
+        }
+        return listaReal(f);
+      };
+      try {
+        fundosProximaPassadaEm = 0;
+        await comAcervo([a, b], () => syncFundosAcervo());
+        const boas = await fundos('u-boa');
+        const u1 = { fonteMuda: fundosUltimaPassada.fonteMuda, comResposta: fundosUltimaPassada.comResposta };
+        passada = 1;
+        fundosProximaPassadaEm = 0;
+        await comAcervo([a, b], () => syncFundosAcervo());
+        out.http404 = { boas, u1, pedidosA };
+      } finally { Louvorja.fetchList = listaReal; }
+      delete collState['u-404']; delete collState['u-boa'];
+    }
+
+    // U12 · A FONTE RECUSANDO TUDO (401 — o token trocado): o disjuntor abre, e o
+    //       Registro diz RECUSOU, com o status — "não respondeu" mandava
+    //       procurar a rede.
+    {
+      const c = await plantar('u-401', 20, 'ua-', 9700);
+      Louvorja.fetchList = async (f) => {
+        if (String(f).startsWith('music_')) throw new Error('HTTP 401');
+        return listaReal(f);
+      };
+      fundosProximaPassadaEm = 0;
+      try { await comAcervo([c], () => syncFundosAcervo()); } finally { Louvorja.fetchList = listaReal; }
+      out.h401 = { fonteMuda: fundosUltimaPassada.fonteMuda, recusadas: fundosUltimaPassada.recusadas,
+        vereditos: Object.keys((await AVDB.getState(fundoChave('u-401'))) || {}).length,
+        bloco: await comAcervo([c], () => blocoFundos()) };
+      delete collState['u-401'];
+    }
+
+    // U13 · O RETRATO SÃO AS CONTAS VIVAS: lido no meio da refeitura da
+    //       primeira coleção, ele diz o que já foi conferido e tentado — a
+    //       cópia da partida dizia "0 conferida(s)" pelos minutos da refeitura.
+    {
+      const c = await plantar('u-vivo', 4, 'vv-', 9800);
+      let visto = null;
+      Louvorja.fetchList = async (f) => {
+        if (String(f).startsWith('music_') && !visto) {
+          visto = { conferidas: fundosUltimaPassada.conferidas, tentadas: fundosUltimaPassada.tentadas,
+            bloco: await blocoFundos() };
+        }
+        return listaReal(f);
+      };
+      fundosProximaPassadaEm = 0;
+      try { await comAcervo([c], () => syncFundosAcervo()); } finally { Louvorja.fetchList = listaReal; }
+      out.vivo = visto;
+      delete collState['u-vivo'];
+    }
+
+    // U8 · UMA PASSADA POR VEZ, pela BANDEIRA: com o piso zerado (o relógio
+    //      corrigido para a frente no meio de uma passada longa) a segunda
+    //      não parte — e o tique agora bate a cada minuto.
+    {
+      const c = await montar('u-uma');
+      const ac = window.allCollections;
+      window.allCollections = () => [c];
+      let conferiu = 0;
+      const real = window.estadoDoFundo;
+      window.estadoDoFundo = async (x) => { conferiu++; return real(x); };
+      fundosProximaPassadaEm = 0;
+      fundosPassadaRodando = true;
+      try { await syncFundosAcervo(); }
+      finally { fundosPassadaRodando = false; window.estadoDoFundo = real; window.allCollections = ac; }
+      out.umaPorVez = conferiu;
+    }
+
+    // U6 · A ABERTURA ARMA O RELÓGIO — chamar a função direto provava que ela
+    //      existe, não que alguém a chama.
+    out.relogio = (window.__intervalos || []).filter((x) => x.nome === 'religarFundos')
+      .map((x) => x.ms);
+    out.religaMs = FUNDO_RELIGA_MS;
+
+    // U7 · A FRASE DO IMPEDIMENTO promete o que o relógio faz — era "volta na
+    //      próxima vez que o app vier à frente", e ficar no app não a trazia.
+    midiaNoAr = true;
+    try { out.frase = await blocoFundos(); } finally { midiaNoAr = false; }
+
+    window.__imagem = null;
+    return out;
+  });
+  checar(uu.fotoSemRede.vereditos === 0 && uu.fotoSemRede.contas.semResposta === 3
+    && uu.fotoSemRede.contas.comResposta === 0,
+    'U1 · a foto cujo `fetch` NÃO VOLTOU não carimba seis dias de silêncio — uma oscilação de Wi-Fi '
+    + 'não é a fonte dizendo que não tem foto — e conta como fonte MUDA', JSON.stringify(uu.fotoSemRede));
+  checar(uu.fotoRecusa.length === 3 && uu.fotoRecusa.every((t) => t === false),
+    'U1 · e o CONTROLE: com a fonte RESPONDENDO (404) o veredito é gravado, porque ali houve resposta',
+    JSON.stringify(uu.fotoRecusa));
+  checar(uu.fotoMuda.pedidos > 0 && uu.fotoMuda.pedidos <= uu.fotoMuda.teto && uu.fotoMuda.pedidos < 30
+    && uu.fotoMuda.fonteMuda,
+    'U2 · com o servidor de FOTOS mudo e o banco de pé a passada também para em doze — sem isto eram '
+    + 'duas requisições por faixa, mil faixas, a cada meia hora', JSON.stringify(uu.fotoMuda));
+  checar(uu.corte.pedidos > 0 && uu.corte.conferidas > 0 && uu.corte.cortada && uu.corte.piso === 0,
+    'U3 · a passada que a cena cortou DEPOIS de conferir devolve o piso — segurá-lo meia hora deixava '
+    + 'a cena custando a meia hora inteira depois de sair', JSON.stringify(uu.corte));
+  checar(uu.religaComCena.every((e) => e === 'falta') && uu.religaSemCena.every((e) => e === 'tem'),
+    'U4 · o RELÓGIO religa: com a cena no ar o tique não faz nada, e o primeiro tique depois de ela '
+    + 'sair conserta — sem sair do app, que é o cenário do relato',
+    JSON.stringify([uu.religaComCena, uu.religaSemCena]));
+  checar(uu.oculto.fundos.every((e) => e === 'falta') && uu.oculto.visivel === 'visible',
+    'U5 · e minimizado o tique não parte (e a PREMISSA: o documento voltou a ser visível depois)',
+    JSON.stringify(uu.oculto));
+  checar(uu.setenta.tentadas === 70 && uu.setenta.refeitas === 70 && !uu.setenta.fonteMuda,
+    'U9 · SEM TETO pela porta de verdade: setenta faixas sem fundo — mais que os 60 da v1.10.6 — são '
+    + 'tentadas e refeitas numa passada só', JSON.stringify(uu.setenta));
+  checar(uu.mista.pedidos === 30 && uu.mista.tentadas === 30 && !uu.mista.fonteMuda && uu.mista.semResposta >= 12,
+    'U10 · com a fonte MISTA (metade responde, metade cai) a passada vai até o fim, mesmo passando de '
+    + 'doze falhas: o disjuntor é para a fonte que NÃO responde, e esta responde', JSON.stringify(uu.mista));
+  checar(uu.http404.boas.every((e) => e === 'tem') && !uu.http404.u1.fonteMuda
+    && uu.http404.pedidosA[0] > 0 && uu.http404.pedidosA[1] === 0,
+    'U11 · um 404 no metadado é resposta sobre a FAIXA: as dezoito negadas não abrem o disjuntor, as '
+    + 'cinco de trás ganham fundo na mesma passada, e na seguinte as negadas nem são perguntadas (veredito '
+    + 'de seis dias)', JSON.stringify(uu.http404));
+  checar(uu.h401.fonteMuda && uu.h401.recusadas >= 12 && uu.h401.vereditos === 0
+    && /recusou 12 perguntas seguidas \(HTTP 401\)/.test(uu.h401.bloco) && !/não respondeu/.test(uu.h401.bloco),
+    'U12 · a fonte RECUSANDO tudo (401) abre o disjuntor sem gravar veredito, e o Registro diz "recusou", com '
+    + 'o status — "não respondeu" mandava procurar a rede', JSON.stringify({ ...uu.h401, bloco: undefined }));
+  checar(uu.vivo && uu.vivo.conferidas === 4 && uu.vivo.tentadas >= 1
+    && /4 conferida\(s\), \d+ tentada\(s\)/.test(uu.vivo.bloco),
+    'U13 · o retrato são as contas VIVAS: no meio da refeitura ele já diz o que foi conferido e tentado, e o '
+    + 'Registro imprime as duas coisas — a cópia da partida dizia "0 conferida(s)" pelos minutos da refeitura',
+    JSON.stringify(uu.vivo));
+  checar(uu.umaPorVez === 0,
+    'U8 · com uma passada no ar a segunda não parte, mesmo com o piso zerado — o piso é relógio, e um '
+    + 'relógio corrigido para a frente abriria a porta a cada tique', uu.umaPorVez);
+  checar(uu.relogio.length === 1 && uu.relogio[0] === uu.religaMs,
+    'U6 · a ABERTURA arma o relógio que religa, UMA vez, no período da constante',
+    JSON.stringify(uu.relogio));
+  checar(/confere de novo a cada minuto/.test(uu.frase) && !/vier à frente/.test(uu.frase),
+    'U7 · e o Registro promete o que o relógio faz — "a próxima vez que o app vier à frente" era a '
+    + 'promessa que deixava o operador esperando dentro do app', uu.frase);
 
 
 } finally {

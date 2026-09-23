@@ -57,6 +57,11 @@ MEDIDA DE BANDA que escolhe o degrau do louvor inteiro está sendo feita.
   24 h — parado por um culto inteiro sem baixar nada. Sair é seguro porque as
   duas são RETOMÁVEIS por construção e porque quem as rearma já existe:
   `autoRefreshCollections` roda na abertura **e em todo `visibilitychange`**.
+  **A passada dos FUNDOS tem um terceiro gatilho** (v1.10.7): um relógio de um
+  minuto com o app À VISTA (`religarFundos`), porque quem fica no app testando
+  não dispara `visibilitychange` nenhum. Ele é barato SÓ nela — a única com
+  piso e veredito por música; na de letras, que não tem piso, um tique
+  repetiria a cada minuto as faixas cujo `music_{id}` falhou.
 
 **E O CONTADOR RESPONDE A DUAS PERGUNTAS, que não são a mesma** (v1.2.28).
 `bgWorkCount` responde ao SISTEMA — *"o processo pode ser congelado?"* —, e para

@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.10.6';
+const WEB_VERSION = '1.10.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -886,6 +886,11 @@ const GRUPO_FAVORITOS = 'Favoritos';
 const ABRIR_TECLADO_MS = 260;
 let hymnFocoTimer = null;
 let syncBusy = false;      // sincronização em andamento
+// A PASTA QUE ESTÁ SINCRONIZANDO AGORA (v1.10.7) — a lixeira dela fica apagada:
+// excluí-la no meio da cópia apagava o que existia e deixava o laço gravando
+// arquivos e registros de uma pasta que já não existe, sem dono e sem porta de
+// saída (o coletor da abertura varre a store `media`, não a de pastas).
+let pastaSincronizando = null;
 // Transições visuais são INERENTES (sempre ligadas, duração fixa): fade em toda
 // troca visual — mídia, cortina do wallpaper, letra e texto bíblico.
 const fadeCfg = createStage.FADE; // fonte única, compartilhada com o Display
@@ -4651,6 +4656,10 @@ async function apagarVersaoBiblia(v) {
     await AVDB.setState('bibleComplete:' + v.id, false);
   } catch (_) { /* sem banco: a lista se corrige na próxima varredura */ }
   bibleCompleteVersions.delete(v.id);
+  // A CONFERÊNCIA DA BANDEIRA VOLTA A VALER para esta versão: se a segunda
+  // transação acima falhou, a bandeira ficou ligada sobre o banco vazio, e é a
+  // próxima chamada a `ensureBibleVersionDownloaded` que a acha e desfaz.
+  bibliaConferidaNaSessao.delete(v.id);
   // E A EXCLUSÃO É UMA INTENÇÃO, não só um apagamento. `garantirBibliaBase`
   // roda em TODA abertura e rebaixa a versão que o app escolheria
   // (`pickDefaultBibleVersion`), que pode ser justamente esta: sem registrar a
@@ -4817,20 +4826,74 @@ async function garantirBibliaBase() {
   } catch (_) {}
 }
 
+/**
+ * QUANTOS CAPÍTULOS DESTA VERSÃO A LEITURA ACHA NO APARELHO — a régua ÚNICA da
+ * auto-cura abaixo e da Verificação do Sistema (v1.10.7).
+ *
+ * A chave é montada com `bibleBookId`, que é a da LEITURA: se a origem
+ * renumerar os livros, o texto gravado deixa de ser o texto procurado, e é essa
+ * a conta que importa. `todas` é o conjunto de chaves `bible:` já lido por
+ * quem chama (uma transação só, sem desserializar valor nenhum).
+ */
+function bibliaCapitulosLegiveis(versionId, todas) {
+  let n = 0;
+  Bible.BOOKS.forEach((b, i) => {
+    const bId = bibleBookId(i);
+    for (let c = 1; c <= b.chapters; c++) if (todas.has('bible:' + versionId + '_' + bId + '_' + c)) n++;
+  });
+  return n;
+}
+
+// As versões cuja bandeira "completa" já foi CONFERIDA contra o disco nesta
+// sessão — ver `ensureBibleVersionDownloaded`.
+const bibliaConferidaNaSessao = new Set();
+
 // Baixa a versão INTEIRA da Bíblia (todos os capítulos de todos os livros) na
 // 1ª vez que ela é usada — em segundo plano, resumível (pula o que já está em
 // cache), concorrência limitada (runLimited, 5). O texto de cada capítulo é
 // leve (só versículos, sem mídia), então o volume total é modesto. O progresso
 // (bibleDl) aparece na tela de livros; ao terminar sem falhas, marca
-// state['bibleComplete:<v>'] pra não refazer. A leitura por capítulo
+// state['bibleComplete:<v>'] — o cache que evita refazer, reconferido contra o
+// disco na primeira chamada de cada sessão. A leitura por capítulo
 // (loadBibleChapter) continua funcionando sob demanda se o operador abrir um
 // capítulo antes de o download em massa chegar nele.
 async function ensureBibleVersionDownloaded(versionId) {
   if (versionId == null) return;
-  // Já baixando esta versão, ou já completa: nada a fazer.
+  // Já baixando esta versão: nada a fazer.
   if (bibleDl && bibleDl.running && bibleDl.versionId === versionId) return;
-  if (bibleCompleteVersions.has(versionId)) return;
-  if (await AVDB.getState('bibleComplete:' + versionId)) { bibleCompleteVersions.add(versionId); return; }
+  // ===== A BANDEIRA É CONFERIDA UMA VEZ POR SESSÃO (v1.10.7) =====
+  //
+  // A bandeira `bibleComplete` e o texto são o mesmo fato em dois lugares, e
+  // nada os mantinha juntos: `apagarVersaoBiblia` apaga os capítulos numa
+  // transação e a bandeira em OUTRA. A segunda falhando deixava o banco VAZIO
+  // com a bandeira ligada — e esta função devolvia cedo NA BANDEIRA, então a
+  // versão nunca mais era baixada: a folha dizia "Completa offline", o excluir
+  // nem era desenhado, e o erro só aparecia no púlpito, sem rede. A Verificação
+  // do Sistema acusava isso e não tinha o que mandar fazer.
+  //
+  // Agora, na PRIMEIRA vez de cada sessão, a bandeira é conferida contra os
+  // capítulos que a leitura acha (`bibliaCapitulosLegiveis`); não fechando, ela
+  // é rebaixada e a versão segue para o download do que falta — o caminho de
+  // sempre, que só busca o que não está no aparelho. O custo é UMA varredura de
+  // chaves por versão por sessão, e o `Set` da memória continua sendo o cache
+  // depois disso. **O Set sozinho não basta:** `ensureBibleMeta` o semeia com a
+  // bandeira do DISCO para todas as versões, então sem esta conferência a
+  // bandeira errada chegaria aqui já "confirmada".
+  if (bibleCompleteVersions.has(versionId) || await AVDB.getState('bibleComplete:' + versionId)) {
+    if (bibliaConferidaNaSessao.has(versionId)) { bibleCompleteVersions.add(versionId); return; }
+    bibliaConferidaNaSessao.add(versionId);
+    if (!bibleBooksOnline) bibleBooksOnline = (await AVDB.getState('bibleBooks')) || null;
+    let todas = null;
+    try { todas = new Set((await AVDB.stateKeys('bible:' + versionId + '_')).map(String)); } catch (_) { todas = null; }
+    // Sem como contar, a bandeira fica como está: rebaixar no escuro faria
+    // uma versão inteira ser rebaixada por um erro de leitura.
+    if (!todas || bibliaCapitulosLegiveis(versionId, todas) >= bibliaTotalDeCapitulos()) {
+      bibleCompleteVersions.add(versionId);
+      return;
+    }
+    bibleCompleteVersions.delete(versionId);
+    try { await AVDB.setState('bibleComplete:' + versionId, false); } catch (_) { /* a próxima sessão reconfere */ }
+  }
   await ensureBibleMeta(false); // garante os ids reais dos livros
 
   // Lista de todos os capítulos (livro × capítulo).
@@ -11745,6 +11808,11 @@ function renderFolderList() {
     syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncDeviceFolder(f, syncBtn); });
     const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Excluir pasta e arquivos sincronizados';
     rmBtn.appendChild(msym(ICON.del));
+    // APAGADA, e não inerte, durante a cópia desta pasta — ver `pastaSincronizando`.
+    if (pastaSincronizando === f.id) {
+      rmBtn.disabled = true;
+      rmBtn.title = 'A exclusão fica disponível quando a sincronização desta pasta terminar';
+    }
     rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteOpfsFolder(f); });
     row.append(icon, nameEl, countEl, syncBtn, rmBtn);
     li.appendChild(row);
@@ -18072,6 +18140,8 @@ async function syncDeviceFolder(existing, botao) {
 
   const source = await openFolderSource(existing, botao);
   if (!source) return;
+  // EXCLUÍDA COM O SELETOR ABERTO: nada a copiar para ela.
+  if (existing && !pastaNaLista(existing)) return;
 
   syncBusy = true;
   // Copiar uma pasta inteira do dispositivo para o OPFS é longo (vídeos
@@ -18087,11 +18157,16 @@ async function syncDeviceFolder(existing, botao) {
     // Pede armazenamento persistente para o browser não descartar os arquivos.
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
-    folder = existing || opfsFolders.find((f) => f.name === source.name);
+    // A PASTA DA LISTA DE AGORA, e não a do fecho do botão: um `load()` que
+    // não mude a assinatura da seção deixa o botão com o objeto VELHO, e a URI
+    // nova de um resgate (a pasta movida) era escrita nele — o `setState`
+    // logo abaixo gravava a lista atual com a URI morta.
+    folder = pastaNaLista(existing) || existing || opfsFolders.find((f) => f.name === source.name);
     if (!folder) {
       folder = { id: uid(), name: source.name, count: 0, syncedAt: 0 };
       opfsFolders.push(folder);
     }
+    pastaSincronizando = folder.id;
     // `handle` (web) e `uri` (nativo) cumprem o mesmo papel: acelerar o
     // re-sync sem pedir a pasta de novo.
     if (source.handle) folder.handle = source.handle;
@@ -18180,15 +18255,39 @@ async function syncDeviceFolder(existing, botao) {
       // barato (uma escrita a cada 25) e é o que faz a tela contar a verdade
       // enquanto a cópia anda.
       if (added % CHECKPOINT_PASTA === 0) {
-        folder.count = (await AVDB.filesByFolder(folder.id)).length;
-        folder.syncedAt = Date.now();
-        try { await AVDB.setState('opfs-folders', opfsFolders); } catch (_) { /* segue */ }
+        // CONTAR ANTES DE ACHAR a pasta, e nenhum `await` entre achá-la e
+        // entregar a lista ao `setState` — ver o bloco do fim do laço.
+        const n = (await AVDB.filesByFolder(folder.id)).length;
+        const alvo = pastaNaLista(folder);
+        if (alvo) {
+          alvo.count = n;
+          alvo.syncedAt = Date.now();
+          try { await AVDB.setState('opfs-folders', opfsFolders); } catch (_) { /* segue */ }
+        }
       }
     }
 
-    folder.count = (await AVDB.filesByFolder(folder.id)).length;
-    folder.syncedAt = Date.now();
-    await AVDB.setState('opfs-folders', opfsFolders);
+    // A CONTAGEM VAI PARA A PASTA QUE ESTÁ NA LISTA AGORA (v1.10.7) — ver
+    // `pastaNaLista`. A referência `folder` atravessa centenas de `await`, e um
+    // `load()` no meio (a volta ao app, uma recarga) troca `opfsFolders` por
+    // objetos NOVOS lidos do disco: escrever na referência velha não chegava à
+    // lista, e o `setState` logo abaixo gravava a lista nova com a contagem do
+    // último ponto de controle. A pasta terminava inteira e a tela dizia que a
+    // cópia tinha parado no meio.
+    //
+    // **E A CONTAGEM VEM ANTES DE ACHAR A PASTA**: achada primeiro, a
+    // referência atravessava o `await` da contagem (que desserializa todos os
+    // registros da pasta), e um `load()` caindo ali repetia o defeito numa
+    // janela menor — MEDIDO, "mostra 25, tem 30". Sem `await` entre achar e
+    // entregar ao `setState`, a lista gravada é a que contém o `alvo`.
+    const n = (await AVDB.filesByFolder(folder.id)).length;
+    const alvo = pastaNaLista(folder);
+    if (alvo) {
+      alvo.count = n;
+      alvo.syncedAt = Date.now();
+      folder.count = alvo.count; folder.syncedAt = alvo.syncedAt;
+      await AVDB.setState('opfs-folders', opfsFolders);
+    }
     // O desfecho é o que a faixa existe para dizer: "já em dia" é a resposta
     // que evita re-sincronizar à toa, e ela precisa se distinguir de "entrou".
     // O desfecho vai para o CONTADOR da própria pasta: "já em dia" é a
@@ -18209,8 +18308,10 @@ async function syncDeviceFolder(existing, botao) {
     if (folder) statusPasta(folder.id, 'erro: ' + ((e && e.name) || 'desconhecido'), 9000);
   } finally {
     syncBusy = false;
+    pastaSincronizando = null;
     bgTaskEnd(folderNotifId);
     bgWorkEnd();
+    renderFoldersSeVisivel();
   }
   load();
 }
@@ -18239,8 +18340,24 @@ async function purgeCatalogRecords(recs) {
   }
 }
 
+/**
+ * A PASTA COMO ELA ESTÁ NA LISTA AGORA — ou `null`, se ela saiu da lista.
+ *
+ * Quem segura uma pasta através de muitos `await` (a sincronização) não pode
+ * escrever na referência que pegou no começo: `load()` troca `opfsFolders`
+ * inteiro. E se a pasta SAIU da lista (excluída no meio), ela não é
+ * ressuscitada — escrever a contagem de uma pasta excluída seria pôr de volta
+ * na tela o que o operador tirou.
+ */
+function pastaNaLista(folder) {
+  return (folder && opfsFolders.find((x) => x && x.id === folder.id)) || null;
+}
+
 async function deleteOpfsFolder(f) {
+  if (pastaSincronizando === f.id) return;
   if (!(await appConfirm({ title: 'Excluir pasta', message: 'Excluir a pasta "' + f.name + '" e todos os arquivos sincronizados?', okText: 'Excluir', perigo: true }))) return;
+  // E DE NOVO DEPOIS DA PERGUNTA: a cópia pode ter começado com o diálogo aberto.
+  if (pastaSincronizando === f.id) return;
   const recs = await AVDB.filesByFolder(f.id);
   await purgeCatalogRecords(recs);
   await AVDB.opfsDeleteDir('folders/' + f.id);
@@ -19692,36 +19809,30 @@ const FUNDO_VEREDITO_VERSAO = 1;
  * manhã em que ela precisa estar pronta. Com seis, ela volta na sexta, e a
  * primeira abertura antes do culto a reencontra.
  *
- * **O CUSTO NÃO É GOVERNADO POR ESTE NÚMERO** — quem o governa é o par teto +
- * piso (`FUNDO_REFAZER_MAX`, `FUNDO_PASSO_MS`), que limita a varredura a um
- * punhado por hora qualquer que seja o prazo. O que o prazo decide é a JUSTIÇA
- * da fila: sem ele, as faixas que falham de verdade ficariam na frente para
- * sempre e o teto seria gasto nelas a cada passada, sem nunca alcançar as
- * outras.
+ * **E ELE É O QUE LIMITA O CUSTO DAS FALHAS DE VERDADE.** Sem teto por
+ * passada (v1.10.7), a faixa cuja foto não vem custa UMA requisição a cada seis
+ * dias — sem o prazo, custaria uma a cada passada, para sempre.
  */
 const FUNDO_REVISITA_MS = 6 * 24 * 60 * 60 * 1000;
 
 /**
- * QUANTAS FAIXAS A PASSADA AUTOMÁTICA REFAZ — o teto é de BYTES, não de tempo.
+ * SEM TETO POR PASSADA (v1.10.7) — a passada refaz TUDO o que falta, de uma vez.
  *
- * Conferir é local e barato (duas leituras de IndexedDB); REFAZER vai à rede e
- * traz IMAGENS, que pesam. Uma faixa custa um `music_{id}` mais de uma a três
- * fotos de fundo, e num acervo como o do relato são ~1100 faixas: sem teto, a
- * primeira abertura puxaria centenas de MB de uma vez. A OUTRA METADE é a rede:
- * são bytes que ninguém pediu naquele instante, e por isso a passada
- * automática só corre num Wi-Fi CONFIRMADO, a regra do episódio da semana
- * (`fundosImpedimento`).
+ * A v1.10.6 limitava a 60 faixas por passada, pelo peso das fotos; o operador
+ * revogou por extenso: *"ajuste o limite de 60 verificações de imagem de fundo,
+ * para que não haja limite, se ele achar necessário, ele verifica e atualiza
+ * toda a biblioteca baixada"*. O preço está dito: no acervo do relato (~1100
+ * faixas sem fundo) a primeira passada puxa de uma vez as fotos que faltam —
+ * centenas de MB, num Wi-Fi CONFIRMADO (`fundosImpedimento`), com a barra na
+ * notificação. O que continua limitando é o que NÃO é trabalho necessário:
  *
- * Sessenta é o teto, e ele vem com o piso de `FUNDO_PASSO_MS`: os dois juntos
- * limitam a varredura a 120 faixas por hora de app aberto, e nenhum dos dois
- * sozinho basta — o teto sem o piso seria refeito a cada `visibilitychange`
- * (dezenas por culto), e o piso sem o teto deixaria a primeira passada puxar o
- * acervo inteiro.
- *
- * **O CORTE NÃO É SILENCIOSO**: o que sobrou da passada sai no bloco "Fundos da
- * letra" do Registro, e o que ainda falta sai na linha da Verificação.
+ *  - a faixa que já tem resposta não é reperguntada (o veredito);
+ *  - a que falhou de verdade volta a cada seis dias, nunca a cada passada;
+ *  - e a FONTE MUDA para a passada (`FUNDO_FONTE_MUDA`): perguntar mil vezes a
+ *    um servidor que não respondeu as primeiras doze não é verificar a
+ *    biblioteca, é repetir a mesma falha.
  */
-const FUNDO_REFAZER_MAX = 60;
+const FUNDO_FONTE_MUDA = 12;
 
 /**
  * Quantas coleções com pendência o Registro NOMEIA.
@@ -19737,12 +19848,32 @@ const FUNDO_PENDENTES_MAX = 12;
  *
  * `autoRefreshCollections` roda na abertura **e em todo `visibilitychange`** —
  * isto é, toda vez que o operador volta ao app, que num culto são dezenas de
- * vezes por hora. Sem piso, o teto de 60 faixas seria cobrado a cada volta.
+ * vezes por hora. Sem piso, cada volta reconferiria o disco e reperguntaria à
+ * fonte o que ficou sem resposta minutos antes.
  *
  * É o mesmo idioma do `indiceVencido` da série (piso de meia hora) e pela mesma
  * razão: a pergunta que a rotina responde não muda em minutos.
  */
 const FUNDO_PASSO_MS = 30 * 60 * 1000;
+
+/**
+ * O RELÓGIO QUE RELIGA A PASSADA COM O APP À VISTA (v1.10.7).
+ *
+ * A passada cede a vez e SAI — à cena no ar, ao download pedido, à rede que
+ * não é Wi-Fi —, e quem a rearmava era só a abertura e o `visibilitychange`.
+ * O relato do operador é o buraco que isso deixa: *"não houve nenhuma
+ * atualização das imagens … durante meus testes"*. MEDIDO no arnês: com uma
+ * música tocando na abertura a passada cedeu, a cena saiu no segundo 20, e em
+ * um minuto de app parado e à vista nada aconteceu — nem um pedido. Testar o
+ * app É tocar mídia, e quem fica no app não dispara `visibilitychange` nenhum.
+ *
+ * Um minuto, e barato por construção: com um impedimento, com o piso armado ou
+ * com as letras no ar, `syncFundosAcervo` volta na primeira linha. Só o
+ * ESTADO À VISTA religa — minimizado, quem a traz de volta continua sendo a
+ * volta ao app, e uma passada de centenas de fotos não parte sozinha com o
+ * aparelho no bolso.
+ */
+const FUNDO_RELIGA_MS = 60 * 1000;
 
 /** Quando a próxima passada automática pode correr. Zera com o processo. */
 let fundosProximaPassadaEm = 0;
@@ -19864,13 +19995,13 @@ async function estadoDoFundo(s) {
  * *"tentei e continua sem"*.
  *
  * `opts.pular`: os ids que ESTE MESMO toque acabou de tentar.
- * `opts.auto`: a passada AUTOMÁTICA — só ela lê o veredito guardado e só ela
- *   obedece ao orçamento. Um toque em sincronizar é *"tente tudo agora"*, e
- *   fazê-lo respeitar o prazo de revisita seria um botão que não faz nada.
- * `opts.orcamento`: `{ refazer }`, COMPARTILHADO pela varredura inteira e
- *   decrementado aqui — o teto é do acervo, não de cada coleção. Com um teto
- *   por coleção, 69 coleções × 60 seriam 4140 faixas numa passada, que é o
- *   oposto do que o teto existe para fazer.
+ * `opts.auto`: a passada AUTOMÁTICA — só ela lê o veredito guardado. Um toque
+ *   em sincronizar é *"tente tudo agora"*, e fazê-lo respeitar o prazo de
+ *   revisita seria um botão que não faz nada.
+ * `opts.contas`: as contas da passada, COMPARTILHADAS pelo acervo inteiro — é
+ *   delas que sai o retrato do Registro, e é nelas que a FONTE MUDA é vista
+ *   (`FUNDO_FONTE_MUDA`): doze perguntas sem resposta numa coleção valem pela
+ *   passada, e não recomeçam na coleção seguinte.
  */
 async function syncImagensColecao(coll, opts) {
   // Uma SÉRIE não tem letra sincronizada nem imagem da origem: o item dela é um
@@ -19883,7 +20014,7 @@ async function syncImagensColecao(coll, opts) {
   if (networkType() === 'cellular') return 0;
 
   const auto = !!(opts && opts.auto);
-  const orcamento = (opts && opts.orcamento) || null;
+  const contas = (opts && opts.contas) || null;
   const agora = Date.now();
   let guardado = {};
   if (auto) {
@@ -19938,20 +20069,10 @@ async function syncImagensColecao(coll, opts) {
   // varredura automática reconferir, na abertura seguinte, um acervo inteiro
   // que o operador acabou de mandar conferir.
   await fundoDiscoMesclar(coll.id, vereditos);
-  if (orcamento) orcamento.conferidas += conferidas;
+  if (contas) contas.conferidas += conferidas;
   if (!rotinaDeAcervoPodeCorrer()) return 0;
 
-  // O TETO É DE BYTES (ver `FUNDO_REFAZER_MAX`). O que fica de fora NÃO recebe
-  // veredito: ele não foi perguntado, e carimbá-lo seria a mesma mentira que a
-  // varredura de cifras recusa gravar sobre um `sem-rede`. Ele volta na passada
-  // seguinte, à frente da fila, porque a fila é justamente "quem não tem
-  // resposta".
-  let aFazer = alvos;
-  if (orcamento) {
-    aFazer = alvos.slice(0, Math.max(0, orcamento.refazer));
-    orcamento.refazer -= aFazer.length;
-    orcamento.adiadas += alvos.length - aFazer.length;
-  }
+  const aFazer = alvos;
   if (!aFazer.length) return 0;
 
   imagensSyncRodando = true;
@@ -19969,7 +20090,13 @@ async function syncImagensColecao(coll, opts) {
           // sem esta guarda a refeitura gravava a capa numa pasta recém-apagada
           // e o peso voltava ao card de uma coleção removida.
           if (!collSongs(coll.id).includes(s)) return;
-          if (orcamento) orcamento.tentadas++;
+          // A FONTE MUDA PARA A PASSADA — ver `FUNDO_FONTE_MUDA`. Nenhuma
+          // resposta em doze perguntas é o servidor, não a faixa.
+          if (contas && contas.semResposta + contas.recusadas >= FUNDO_FONTE_MUDA && !contas.comResposta) {
+            contas.fonteMuda = true;
+            return;
+          }
+          if (contas) contas.tentadas++;
           bgItemStart(notifId, s.name);
           try {
             // TODA a máquina de sempre, e nenhuma cópia dela: o cache de
@@ -19988,8 +20115,27 @@ async function syncImagensColecao(coll, opts) {
             // exatamente o defeito que a v1.9.13 tirou do download.
             const estado = await estadoDoFundo(s);
             const tem = estado === 'tem';
-            if (tem) refeitas++;
-            if (orcamento && !o.metaOk) orcamento.semMetadado++;
+            // CONTADA AO VIVO nas contas do acervo, e não somada no fim: elas
+            // SÃO o retrato que o Registro lê com a passada em curso.
+            if (tem) { refeitas++; if (contas) contas.refeitas++; }
+            // "A FONTE RESPONDEU?" são DUAS perguntas: o metadado (`metaOk`) e
+            // as FOTOS (`fotoSemResposta`, a foto cujo `fetch` nem voltou). Um
+            // servidor de arquivos fora do ar com o banco de pé é a fonte muda
+            // do mesmo jeito — e sem contá-la aqui o disjuntor nunca abriria:
+            // mil faixas, duas requisições cada, a cada passada.
+            //
+            // E UM 404/410 NO METADADO É RESPOSTA SOBRE A FAIXA (a fonte diz que
+            // ela não existe lá), não sobre a fonte: conta como resposta e
+            // ganha o veredito de ausência. Os outros status (401, 403, 429,
+            // 5xx) são a fonte inteira recusando — alimentam o disjuntor, sem
+            // veredito, e o Registro diz "recusou", nunca "não respondeu".
+            const faixaNegada = o.metaStatus === 404 || o.metaStatus === 410;
+            const respondeu = (o.metaOk && !o.fotoSemResposta) || faixaNegada;
+            if (contas) {
+              if (respondeu) contas.comResposta++;
+              else if (o.metaStatus) { contas.recusadas++; contas.ultimoStatus = o.metaStatus; }
+              else contas.semResposta++;
+            }
             // E O VEREDITO SÓ É GRAVADO SE A PERGUNTA CHEGOU A SER FEITA
             // (`metaOk`). Sem rede, `downloadCollectionSong` volta antes de
             // tocar em imagem nenhuma: gravar `tem: false` ali seria carimbar
@@ -19998,7 +20144,14 @@ async function syncImagensColecao(coll, opts) {
             // Os ids são lidos DEPOIS da chamada: `ensureSongVariant` apaga
             // do índice o id que não resolve mais, e o veredito tem de falar
             // dos arquivos que a faixa tem AGORA.
-            if (o.metaOk && estado !== '?' && collSongs(coll.id).includes(s)) {
+            //
+            // **E A FOTO QUE NÃO VOLTOU TAMBÉM NÃO É RESPOSTA** (v1.10.7): o
+            // metadado chegou, o `fetch` da foto morreu na rede, e gravar
+            // `tem: false` ali calava por SEIS DIAS uma faixa que a fonte
+            // entrega — uma oscilação de Wi-Fi valendo pela semana. `'tem'`
+            // continua valendo mesmo assim: uma foto que chegou já é fundo.
+            if ((o.metaOk || faixaNegada) && estado !== '?' && (tem || !o.fotoSemResposta)
+              && collSongs(coll.id).includes(s)) {
               vereditos[s.id_music] = { v: FUNDO_VEREDITO_VERSAO, ids: fundoIdsDaFaixa(s), em: Date.now(), tem };
             }
           } catch (_) { /* a passada seguinte tenta de novo */ }
@@ -20022,7 +20175,6 @@ async function syncImagensColecao(coll, opts) {
     updateCollBytes(coll.id);
     refreshCollectionsIfVisible();
   }
-  if (orcamento) orcamento.refeitas += refeitas;
   return refeitas;
 }
 
@@ -20035,17 +20187,20 @@ async function syncImagensColecao(coll, opts) {
  * cifras de dentro do download pelo mesmo motivo e com a mesma medida
  * (`0 de 601` depois de o operador sincronizar).
  *
- * **O ORÇAMENTO É DO ACERVO INTEIRO**, não de cada coleção — ver
- * `FUNDO_REFAZER_MAX`. A CONFERÊNCIA não tem teto de propósito: ela é local, e
- * é ela que leva o veredito ao disco; limitá-la faria o estado estável (a
- * passada que não custa nada) demorar dezenas de aberturas a chegar, que é o
- * oposto da *"verificação rápida"* pedida.
+ * **SEM TETO** (v1.10.7, ver `FUNDO_FONTE_MUDA`): ela confere e refaz o que
+ * falta no acervo inteiro, numa passada. As CONTAS são do acervo, não de cada
+ * coleção — é delas que sai o retrato e é nelas que a fonte muda é vista.
  *
  * Uma coleção sem NADA baixado fica de fora, como no `syncCifrasAcervo`: não é
  * acervo do operador, e conferir o catálogo inteiro seria leitura de disco por
  * música que ninguém tem.
  */
 async function syncFundosAcervo() {
+  // UMA PASSADA POR VEZ, pela bandeira e não só pelo piso: o piso é um
+  // carimbo de RELÓGIO, e um relógio corrigido para a frente no meio de uma
+  // passada longa abriria a porta para a segunda — agora que o relógio que a
+  // religa (`FUNDO_RELIGA_MS`) bate a cada minuto.
+  if (fundosPassadaRodando) return;
   const agora = Date.now();
   // O PISO. Um carimbo mais longe que o próprio passo só pode ter vindo de um
   // relógio corrigido para trás — e ele seguraria toda passada pelo salto
@@ -20076,15 +20231,21 @@ async function syncFundosAcervo() {
   // termina.
   if (lyricSyncRunning) return;
   fundosProximaPassadaEm = agora + FUNDO_PASSO_MS;
-  const orcamento = {
-    refazer: FUNDO_REFAZER_MAX, refeitas: 0, conferidas: 0, adiadas: 0, tentadas: 0, semMetadado: 0,
+  const contas = {
+    conferidas: 0, tentadas: 0, refeitas: 0, comResposta: 0, semResposta: 0, recusadas: 0,
+    ultimoStatus: null, fonteMuda: false,
   };
   // O RETRATO NASCE NA PARTIDA, e não no fim. Gravado só no fim e só com
   // trabalho feito, ele não existia no estado ESTÁVEL (tudo com veredito, nada
   // a conferir) — e o Registro escrevia *"nenhuma passada automática"* duas
   // linhas acima do horário do piso que a passada tinha acabado de armar. O
   // `emCurso` é o que diz *"está andando"* numa primeira passada de minutos.
-  fundosUltimaPassada = { em: agora, emCurso: true, cortada: false, ...orcamento };
+  //
+  // **E ELE SÃO AS CONTAS VIVAS, não uma cópia** (v1.10.7): copiado na partida
+  // e atualizado só no fim de cada coleção, ele dizia *"0 conferida(s) até
+  // aqui"* durante os minutos da refeitura do hinário — e quem lê a distância
+  // conclui que a passada travou.
+  fundosUltimaPassada = Object.assign(contas, { em: agora, emCurso: true, cortada: false });
   fundosPassadaRodando = true;
   const alvos = allCollections().filter((c) => c.kind !== 'serie' && countDownloaded(c.id) > 0);
   try {
@@ -20096,17 +20257,19 @@ async function syncFundosAcervo() {
       // censo onde houve uma tentativa — e a bandeira `imagensSyncRodando` só
       // sobe DEPOIS da conferência, então ela não fecha essa janela sozinha.
       if (ui(c.id).syncBusy) continue;
-      await syncImagensColecao(c, { auto: true, orcamento }).catch(() => {});
-      Object.assign(fundosUltimaPassada, orcamento);
+      await syncImagensColecao(c, { auto: true, contas }).catch(() => {});
+      if (contas.fonteMuda) break;
     }
   } finally {
     fundosPassadaRodando = false;
-    Object.assign(fundosUltimaPassada, orcamento, { emCurso: false });
+    fundosUltimaPassada.emCurso = false;
     if (!rotinaDeBytesPodeCorrer()) fundosUltimaPassada.cortada = true;
-    // CORTADA ANTES DE CONFERIR UMA FAIXA, a passada não aconteceu: o piso é
-    // devolvido, senão a cena que entrou no primeiro segundo seguraria a
-    // varredura meia hora depois de sair.
-    if (fundosUltimaPassada.cortada && !orcamento.conferidas) fundosProximaPassadaEm = 0;
+    // A PASSADA CORTADA DEVOLVE O PISO — conferisse ela zero faixas ou mil.
+    // O que ela aprendeu já está no disco (os vereditos são gravados no corte),
+    // então retomá-la custa só o que faltou; segurá-la meia hora deixava a
+    // cena que entrou no meio da primeira passada custando a meia hora
+    // inteira depois de sair, e é o relógio (`FUNDO_RELIGA_MS`) que a retoma.
+    if (fundosUltimaPassada.cortada) fundosProximaPassadaEm = 0;
   }
 }
 
@@ -20145,6 +20308,18 @@ function fundosImpedimento() {
  * `withBgRotina`, que não conta como pedido).
  */
 function rotinaDeBytesPodeCorrer() { return rotinaDeAcervoPodeCorrer() && !bgWorkPedido(); }
+
+/** O tique do relógio — ver `FUNDO_RELIGA_MS`. */
+function religarFundos() {
+  if (document.visibilityState !== 'visible') return Promise.resolve();
+  return syncFundosAcervo().catch(() => {});
+}
+
+/** "a cada minuto" — a frase sai da constante, nunca de uma segunda escrita. */
+function fundosReligaFrase() {
+  const n = Math.round(FUNDO_RELIGA_MS / 60000);
+  return 'a cada ' + (n === 1 ? 'minuto' : n + ' minutos');
+}
 
 // Baixa (ou completa) uma música: busca os metadados individuais (URLs reais) e
 // grava áudio Cantado + Playback (se houver) + capa/letra sincronizada no
@@ -20225,7 +20400,18 @@ async function downloadCollectionSong(coll, s, opts) {
   if (coll.kind === 'serie') return downloadSerieItem(coll, s);
   let meta;
   try { meta = await Louvorja.fetchList('music_' + s.id_music); }
-  catch (_) { return false; } // sem rede agora; a próxima sincronização tenta de novo
+  catch (e) {
+    // SEM REDE e FONTE RECUSANDO não são a mesma resposta (v1.10.7): o
+    // `TypeError` do `fetch` é ninguém do outro lado; um status de erro é a
+    // fonte respondendo, e a varredura dos fundos precisa separar os dois —
+    // um 404 é sobre ESTA faixa, e contado como "sem resposta" ele abria o
+    // disjuntor nas mesmas faixas a cada passada, para sempre.
+    if (opts && !(e instanceof TypeError)) {
+      const m = /HTTP (\d+)/.exec(String(e && e.message));
+      opts.metaStatus = m ? +m[1] : 'ilegível';
+    }
+    return false; // a próxima sincronização tenta de novo
+  }
   // "A PERGUNTA CHEGOU A SER FEITA?" (v1.10.6) — e é ela que o veredito dos
   // fundos grava (ver `fundoNoDiscoVale`). Sem esta linha a varredura automática
   // não tem como separar *"tentei e continua sem fundo"* de *"a rede caiu antes
@@ -20263,7 +20449,7 @@ async function downloadCollectionSong(coll, s, opts) {
     // regrava a letra, e a miniatura seria decodificar a foto inteira e
     // desenhá-la num canvas para jogar fora — no renderer que o telão divide.
     const result = await downloadCollectionImage(coll.id, url, s.id_music, imgCache.size,
-      !!(opts && opts.refazerLetra));
+      !!(opts && opts.refazerLetra), opts);
     imgCache.set(url, result);
     return result;
   }
@@ -20650,7 +20836,10 @@ async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyr
 // Baixa uma imagem em resolução real pro OPFS (fundo dos slides de letra) e
 // gera a miniatura do catálogo (mesmo `drawThumb`) a partir do MESMO blob —
 // evita baixar a capa duas vezes (uma pro fundo, outra só pra miniatura).
-async function downloadCollectionImage(folderId, url, songId, index, semMiniatura) {
+// `marca` é o objeto POR FAIXA do chamador (o mesmo do `metaOk`): a foto cujo
+// `fetch` nem voltou o marca com `fotoSemResposta`, que é o que separa, no
+// veredito dos fundos, *"a fonte não entrega esta foto"* de *"a rede caiu"*.
+async function downloadCollectionImage(folderId, url, songId, index, semMiniatura, marca) {
   let blob;
   // CONTADO ANTES DE QUALQUER GUARDA (v1.9.16), inclusive antes da trava de
   // host: o app FOI BUSCAR esta imagem, e é esse o denominador. Sem ele não há
@@ -20672,7 +20861,11 @@ async function downloadCollectionImage(folderId, url, songId, index, semMiniatur
     const res = await fetch(Louvorja.fileUrl(url));
     if (!res.ok) { acervoFalhou('capasPerdidas', 'a fonte respondeu HTTP ' + res.status, url, null, res.status); return null; }
     blob = await res.blob();
-  } catch (_) { acervoFalhou('capasPerdidas', 'o servidor de arquivos não respondeu', url, null, 0); return null; }
+  } catch (_) {
+    if (marca) marca.fotoSemResposta = true;
+    acervoFalhou('capasPerdidas', 'o servidor de arquivos não respondeu', url, null, 0);
+    return null;
+  }
   const ext = extensaoDoArquivo(url, 'jpg');
   const path = 'folders/' + folderId + '/' + songId + '-img-' + index + '.' + ext;
   try { await AVDB.opfsWriteFile(path, blob); }
@@ -21062,8 +21255,9 @@ async function syncLyrics() {
   if (lyricSyncRunning) return;
   // A PASSADA DOS FUNDOS PEDE `music_{id}` AO MESMO HOST (v1.10.6), e as duas
   // soltas seriam doze requisições concorrentes a um servidor só. Cede e sai,
-  // como diante da cena: a volta seguinte ao app a rearma, e a passada dos
-  // fundos tem teto — termina em dezenas de segundos.
+  // como diante da cena: a volta seguinte ao app a rearma. A passada dos
+  // fundos tem fim — a PRIMEIRA, num acervo com mil faixas sem fundo, leva
+  // minutos (sem teto desde a v1.10.7); as seguintes só conferem o que mudou.
   if (fundosPassadaRodando) return;
   if (networkType() === 'cellular') return;
   // Ver `rotinaDeAcervoPodeCorrer`: a varredura é adiável, o louvor não.
@@ -27346,30 +27540,35 @@ async function blocoFundos() {
   }
   // A ÚLTIMA PASSADA. Sem ela, *"1034 por conferir"* é um mistério que volta a
   // cada cópia: é esta linha que diz que alguém está trabalhando naquilo, e
-  // quanto por vez. **O CORTE É DITO** — `adiadas` é o teto de bytes agindo, e
-  // um teto silencioso se lê como "a varredura desistiu".
+  // quanto. E quando a FONTE MUDA para a passada, isso é DITO — uma passada que
+  // parou em silêncio se lê como "a varredura desistiu".
   //
   // **E A TENTATIVA QUE FALHOU TAMBÉM**: contar só quem GANHOU fundo fazia uma
   // passada em que a fonte não respondeu sair idêntica a uma que não tentou
-  // nada — *"falhar VAZIO é proibido"*. `semMetadado` é a causa que este bloco
-  // consegue nomear sozinho (o `music_{id}` não veio); a das FOTOS mora no bloco
-  // "Download do acervo", logo acima, que conta capa por capa.
+  // nada — *"falhar VAZIO é proibido"*. `semResposta` é a fonte MUDA — o
+  // `music_{id}` que não veio ou a foto cujo `fetch` não voltou —, e por isso
+  // "continuam sem" é a fonte que RESPONDEU e não entregou; o status de cada
+  // foto mora no bloco "Download do acervo", logo acima, que conta capa por capa.
   const u = fundosUltimaPassada;
   if (u) {
     const quando = new Date(u.em || 0).toLocaleString('pt-BR');
     if (u.emCurso) {
-      linhas.push('  passada em curso desde ' + quando + ': ' + u.conferidas + ' conferida(s) até aqui');
+      linhas.push('  passada em curso desde ' + quando + ': ' + u.conferidas + ' conferida(s), '
+        + u.tentadas + ' tentada(s), ' + u.refeitas + ' ganharam fundo até aqui');
     } else if (!u.conferidas) {
       linhas.push('  última passada (' + quando + '): nada a conferir — '
         + (u.cortada ? 'ela cedeu a vez antes de começar' : 'toda música baixada já tem veredito'));
     } else {
-      const semFundoAinda = u.tentadas - u.refeitas - u.semMetadado;
+      const semFundoAinda = u.tentadas - u.refeitas - u.semResposta - u.recusadas;
       linhas.push('  última passada (' + quando + '): ' + u.conferidas + ' conferida(s), '
         + u.tentadas + ' tentada(s) — ' + u.refeitas + ' ganharam fundo'
-        + (u.semMetadado ? ', ' + u.semMetadado + ' sem resposta da fonte das músicas' : '')
+        + (u.semResposta ? ', ' + u.semResposta + ' sem resposta da fonte das músicas' : '')
+        + (u.recusadas ? ', ' + u.recusadas + ' recusada(s) pela fonte (HTTP ' + u.ultimoStatus + ')' : '')
         + (semFundoAinda > 0 ? ', ' + semFundoAinda + ' continuam sem (ver as capas acima)' : '')
-        + (u.adiadas ? '; ' + u.adiadas + ' adiada(s) pelo teto de ' + FUNDO_REFAZER_MAX
-          + ' por passada' : '')
+        + (u.fonteMuda ? '; parou: a fonte das músicas '
+          + (u.recusadas && !u.semResposta
+            ? 'recusou ' + FUNDO_FONTE_MUDA + ' perguntas seguidas (HTTP ' + u.ultimoStatus + ')'
+            : 'não respondeu ' + FUNDO_FONTE_MUDA + ' perguntas seguidas') : '')
         + (u.cortada ? '; cedeu a vez no meio' : ''));
     }
   } else {
@@ -27388,8 +27587,7 @@ async function blocoFundos() {
   const impedimento = fundosImpedimento();
   if (impedimento) {
     linhas.push('  não corre agora: ' + impedimento
-      + (impedimento.indexOf('mídia no ar') >= 0 || impedimento.indexOf('download') >= 0
-        ? ' — volta na próxima vez que o app vier à frente depois disso' : ''));
+      + ' — o app confere de novo ' + fundosReligaFrase() + ', com ele aberto na tela');
   }
   if (agora < fundosProximaPassadaEm) {
     linhas.push('  a próxima passada pode correr a partir de '
@@ -27729,6 +27927,27 @@ async function testeAlgumIdDeMusica() {
   return null;
 }
 
+
+/**
+ * AS LISTAS QUE A VERIFICAÇÃO CONFERE, com o nome que o operador lê (v1.10.7).
+ *
+ * É a TRÍADE dos destinos — Cronograma · Playlist · Favoritos, na ordem da
+ * tabela `DESTINOS` —, e UMA tabela para as duas linhas: eram duas cópias à
+ * mão, e as duas deixavam a PLAYLIST de fora — a lista que toca no culto — e
+ * punham no lugar a prateleira `avulsos`.
+ *
+ * **O QUE FICA DE FORA, e por quê — para o próximo lote não "completar" a
+ * lista com as cinco de `LISTS` do `db.js`:** `avulsos` é o rodízio de três do
+ * Modo Fácil, sem tela onde abrir, e o remédio que a linha imprime ("torne a
+ * baixar esses itens") não é executável ali — um vermelho sem ação é a classe
+ * que este recurso existe para não ter. `serie` é o detentor de tamanho UM do
+ * episódio da semana, e a própria rotina o reconstrói.
+ */
+const LISTAS_DA_VERIFICACAO = [
+  ['imports', 'Cronograma'],
+  ['playlist', 'Playlist'],
+  ['favs', 'Favoritos'],
+];
 
 // A TABELA. `area` agrupa no relatório, `prazo` é o teto desta linha, `cena`
 // marca o que não pode correr com mídia no ar, e `fn` devolve um dos quatro
@@ -28088,7 +28307,7 @@ const TESTES = [
       const alvos = [];
       for (const c of allCollections()) {
         for (const s of collSongs(c.id)) {
-          if (s.fileIdFull && !s.semImagem) alvos.push([c.name, s.fileIdFull]);
+          if (s.fileIdFull && !s.semImagem) alvos.push([c, s]);
         }
       }
       if (!alvos.length) return tNa('nada baixado ainda');
@@ -28096,11 +28315,25 @@ const TESTES = [
       const amostra = amostrarEspalhado(alvos, TETO);
       let semFundo = 0;
       let comLetra = 0;
-      for (const [, id] of amostra) {
-        const rec = await AVDB.fileGet(id).catch(() => null);
+      // QUANTAS DAS SEM FUNDO JÁ FORAM TENTADAS E ESPERAM O PRAZO — lido do
+      // VEREDITO GRAVADO, a mesma fonte do Registro, e nunca do retrato da
+      // última passada: aquele é refeito a cada passada, e a seguinte (que
+      // pula essas faixas pelo veredito) sai com zero tentadas e apagava a
+      // resposta. Cache por coleção: um `getState` por coleção da amostra.
+      const guardados = new Map();
+      let aguardando = 0;
+      const agora = Date.now();
+      for (const [c, s] of amostra) {
+        const rec = await AVDB.fileGet(s.fileIdFull).catch(() => null);
         if (!rec || !Array.isArray(rec.lyrics) || !rec.lyrics.length) continue;
         comLetra++;
-        if (!rec.lyrics.some((x) => x && x.imageOpfsPath)) semFundo++;
+        if (rec.lyrics.some((x) => x && x.imageOpfsPath)) continue;
+        semFundo++;
+        if (!guardados.has(c.id)) {
+          guardados.set(c.id, (await AVDB.getState(fundoChave(c.id)).catch(() => null)) || {});
+        }
+        const v = guardados.get(c.id)[s.id_music];
+        if (fundoNoDiscoVale(v, s, agora) && !v.tem) aguardando++;
       }
       if (!comLetra) return tNa('nenhuma das conferidas tem letra sincronizada');
       if (semFundo) {
@@ -28117,13 +28350,31 @@ const TESTES = [
         // cada desfecho pede uma ação diferente — achar um Wi-Fi, esperar a
         // cena sair, ou nada — e o de a FONTE não ter respondido não é nenhum
         // dos três.
+        //
+        // **E "JÁ REFAZ SOZINHO" SÓ SE DIZ DE QUEM AINDA VAI REFAZER** (v1.10.7):
+        // a fonte que RESPONDEU sem entregar a foto deixa a faixa com veredito
+        // de seis dias, e a frase antiga prometia um conserto que não vinha —
+        // o operador esperava, olhava de novo, e a linha continuava vermelha.
         const impedimento = fundosImpedimento();
         const u = fundosUltimaPassada;
         let comoEsta;
-        if (impedimento) comoEsta = ' — o app refaz sozinho, mas agora não: ' + impedimento;
-        else if (u && !u.emCurso && u.semMetadado && !u.refeitas) {
-          comoEsta = ' — o app tenta sozinho, e na última vez a fonte das músicas não respondeu';
-        } else comoEsta = ' — o app já refaz sozinho, até ' + FUNDO_REFAZER_MAX + ' por vez, num Wi-Fi';
+        if (impedimento) {
+          comoEsta = ' — o app refaz sozinho, mas agora não: ' + impedimento
+            + ' (ele confere de novo ' + fundosReligaFrase() + ')';
+        } else if (u && u.emCurso) comoEsta = ' — o app está refazendo isto agora';
+        else if (u && (u.semResposta || u.recusadas) && !u.refeitas) {
+          comoEsta = ' — o app tenta sozinho, e na última vez a fonte das músicas '
+            + (u.recusadas && !u.semResposta ? 'recusou os pedidos (HTTP ' + u.ultimoStatus + ')' : 'não respondeu');
+        } else if (aguardando > 0) {
+          // A CAUSA NÃO É NOMEADA AQUI: a fonte respondendo erro e o disco
+          // recusando a gravação chegam iguais a esta conta, e acusar a fonte
+          // pelo disco cheio mandaria o operador procurar no lugar errado. Quem
+          // separa as duas é o bloco "Download do acervo" do Registro.
+          comoEsta = ' — o app tentou sozinho e a foto de ' + aguardando
+            + ' destas não chegou (o Registro diz por quê); ele tenta de novo em até '
+            + Math.round(FUNDO_REVISITA_MS / 86400000) + ' dias'
+            + (aguardando < semFundo ? ', e refaz as outras sozinho' : '');
+        } else comoEsta = ' — o app já refaz sozinho, com o aparelho num Wi-Fi';
         return tFalhou(semFundo + ' de ' + comLetra + ' sem fundo' + comoEsta);
       }
       return tOk(comLetra + ' com fundo');
@@ -28176,7 +28427,18 @@ const TESTES = [
       // O ÚNICO ESTADO EM QUE A DIVERGÊNCIA É NORMAL: o `count` só é reescrito
       // a cada 25 arquivos e no fim do laço.
       if (syncBusy) return tNa('uma pasta está sincronizando agora — a contagem só fecha no fim');
-      const zeradas = []; const erradas = [];
+      // AS TRÊS DIREÇÕES TÊM PRODUTORES DIFERENTES E AÇÕES OPOSTAS (v1.10.7):
+      //  - `zeradas` (mostra 0, tem N): desarma o resgate — ver acima;
+      //  - `aMenos` (mostra menos do que tem): a CÓPIA parou no meio — a
+      //    sincronização só ACRESCENTA, e sincronizar de novo a completa;
+      //  - `aMais` (mostra mais do que tem): a EXCLUSÃO parou no meio — só
+      //    `purgeCatalogRecords` apaga registro de pasta, e mandar sincronizar
+      //    ali TRAZIA DE VOLTA os arquivos que o operador acabou de mandar
+      //    embora. A ação que fecha esse estado é excluir a pasta de novo.
+      // Uma frase só para as duas últimas mandava fazer a coisa errada numa
+      // delas, e só a PRIMEIRA pasta era nomeada: uma fora de dia e todas
+      // fora de dia imprimiam a mesma linha, byte a byte.
+      const zeradas = []; const aMenos = []; const aMais = [];
       let conferidas = 0; let arquivos = 0;
       for (const f of opfsFolders) {
         if (!f || !f.id) continue;
@@ -28190,14 +28452,28 @@ const TESTES = [
         const diz = Number(f.count || 0);
         if (n === diz) continue;
         if (n > 0 && diz === 0) zeradas.push('"' + f.name + '" mostra 0 e tem ' + n);
-        else erradas.push('"' + f.name + '" mostra ' + diz + ' e tem ' + n);
+        else if (n > diz) aMenos.push('"' + f.name + '" mostra ' + diz + ' e tem ' + n);
+        else aMais.push('"' + f.name + '" mostra ' + diz + ' e tem ' + n);
       }
       if (!conferidas) return tNa('nenhuma pasta pôde ser lida');
+      // A PRIMEIRA NOMEADA, e o NÚMERO das outras com o denominador: sem ele,
+      // o segundo toque descobre um problema que o primeiro já tinha visto.
+      const citar = (l) => l[0] + (l.length > 1 ? ' (e mais ' + (l.length - 1) + ')' : '');
+      const nela = (l) => (l.length > 1 ? 'em cada uma' : 'nela');
+      const partes = [];
       if (zeradas.length) {
-        return tFalhou(zeradas[0] + ' — com o número em zero o app não percebe quando a pasta '
-          + 'para de responder: toque em sincronizar nela');
+        partes.push(citar(zeradas) + ' — com o número em zero o app não percebe quando a pasta '
+          + 'para de responder: toque em sincronizar ' + nela(zeradas));
       }
-      if (erradas.length) return tFalhou(erradas[0] + ' — a cópia parou no meio: toque em sincronizar nela');
+      if (aMenos.length) partes.push(citar(aMenos) + ' — a cópia parou no meio: toque em sincronizar ' + nela(aMenos));
+      if (aMais.length) {
+        partes.push(citar(aMais) + ' — a exclusão da pasta parou no meio: exclua '
+          + (aMais.length > 1 ? 'cada uma' : 'a pasta') + ' de novo');
+      }
+      if (partes.length) {
+        const fora = zeradas.length + aMenos.length + aMais.length;
+        return tFalhou(fora + ' de ' + conferidas + ' pasta(s) fora de dia · ' + partes.join(' · '));
+      }
       return tOk(conferidas + ' pasta(s) · ' + arquivos + ' arquivos');
     },
   },
@@ -28227,30 +28503,33 @@ const TESTES = [
       if (!marcadas.length) return tNa('nenhuma versão está marcada como completa');
       const todas = new Set((await AVDB.stateKeys('bible:')).map(String));
       const total = bibliaTotalDeCapitulos();
+      // SÓ A VERSÃO EM USO REPROVA (v1.10.7). A corrupção que esta linha pega
+      // nasce do excluir, e o excluir é desenhado APAGADO sobre a versão em uso
+      // (`del.disabled = emUso`) — então o caso típico é uma versão FORA de
+      // uso, com a Bíblia do púlpito inteira. Reprovar ali era vermelho sobre
+      // uma Bíblia que funciona, com a instrução *"escolha OUTRA versão"* para
+      // quem já está em outra. Ela sai como AVISO na linha verde: escolhida,
+      // o app a confere e baixa o que falta (`ensureBibleVersionDownloaded`).
+      const avisos = [];
+      let inteiras = 0;
       for (const v of marcadas) {
-        // A chave é montada com `bibleBookId`, que é a da LEITURA. Se a origem
-        // renumerar os livros, o texto gravado deixa de ser o texto procurado
-        // e a bandeira segue de pé — a classe da v1.9.14, e esta conta a vê.
-        let faltam = 0;
-        Bible.BOOKS.forEach((b, i) => {
-          const bId = bibleBookId(i);
-          for (let c = 1; c <= b.chapters; c++) {
-            if (!todas.has('bible:' + v.id + '_' + bId + '_' + c)) faltam++;
-          }
-        });
-        if (faltam) {
-          const nome = v.name || ('versão ' + v.id);
-          // AS DUAS SAÍDAS PEDEM AÇÕES DIFERENTES, e a régua é o botão de
-          // excluir: ele só existe com algum capítulo no aparelho. Sem nenhum,
-          // mandar excluir é mandar tocar no que não está desenhado.
-          return tFalhou(nome + ' consta como completa e faltam ' + faltam + ' de ' + total
-            + ' capítulos — ' + (faltam >= total
-              ? 'escolha OUTRA versão na lista da Bíblia; esta não volta a baixar sozinha'
-              : 'exclua esta versão na lista da Bíblia e escolha-a de novo'));
+        const faltam = total - bibliaCapitulosLegiveis(v.id, todas);
+        const nome = v.name || ('versão ' + v.id);
+        if (!faltam) { inteiras++; continue; }
+        if (v.id === bibleVersionId) {
+          // UMA frase só, porque a ação é uma só desde a auto-cura: faltando
+          // um capítulo ou todos, abrir a Bíblia com internet refaz o que
+          // falta. As duas frases de antes mandavam tocar em botões que
+          // dependiam de outra régua (a presença de qualquer chave).
+          return tFalhou(nome + ' é a versão em uso, consta como completa e faltam ' + faltam + ' de '
+            + total + ' capítulos — abra a Bíblia com internet: o app confere e baixa de novo o que falta');
         }
+        avisos.push(nome + ' consta como completa e faltam ' + faltam
+          + ' capítulos (não é a versão em uso: se for escolhida, o app baixa o que falta)');
       }
-      return tOk(marcadas.length + (marcadas.length > 1 ? ' versões completas · ' : ' versão completa · ')
-        + total + ' capítulos conferidos');
+      if (!inteiras) return tNa(avisos.join(' · '));
+      return tOk(inteiras + (inteiras > 1 ? ' versões completas · ' : ' versão completa · ')
+        + total + ' capítulos conferidos' + (avisos.length ? ' · ' + avisos.join(' · ') : ''));
     },
   },
   {
@@ -28277,11 +28556,7 @@ const TESTES = [
       if (!bibleBooksOnline) bibleBooksOnline = (await AVDB.getState('bibleBooks')) || null;
       const todas = new Set((await AVDB.stateKeys('bible:')).map(String));
       const total = bibliaTotalDeCapitulos();
-      let nossa = 0;
-      Bible.BOOKS.forEach((b, i) => {
-        const bId = bibleBookId(i);
-        for (let c = 1; c <= b.chapters; c++) if (todas.has('bible:' + vId + '_' + bId + '_' + c)) nossa++;
-      });
+      const nossa = bibliaCapitulosLegiveis(vId, todas);
       const nome = ((bibleVersions.find((v) => v.id === vId) || {}).name) || ('versão ' + vId);
       if (nossa >= total) return tOk(nome + ' · ' + total + ' capítulos no aparelho');
       // NADA DE BÍBLIA NO APARELHO INTEIRO é o aparelho NOVO, não um defeito —
@@ -28305,12 +28580,29 @@ const TESTES = [
       //
       // A PERGUNTA É SOBRE O ACERVO, NUNCA SOBRE A PASSADA: uma passada só
       // cobre o que FALTA, então a proporção de ausências tende a 100% num
-      // acervo saudável. O denominador certo é o hinário inteiro.
+      // acervo saudável. O denominador é o que o acervo já RESPONDEU
+      // (`julgadas`) — e a frase o DIZ, junto do total do hinário, porque o
+      // bloco de cifras do Registro divide pelo catálogo inteiro e as duas
+      // linhas saem no MESMO arquivo salvo. Sem isso o Registro trazia
+      // *"282 de 601"* e *"282 de 282"* sobre o mesmo hinário, sem explicar.
+      //
+      // ===== NÃO SÓ O ZERO (v1.10.7) =====
+      //
+      // Reprovar só com NENHUMA folha deixava a linha verde sobre o hinário
+      // perdido: a FOLHA nunca vence (`cifraNoDiscoVale`), então as páginas
+      // guardadas antes de o site mudar ficam, e as ausências novas se somam a
+      // elas — quarenta folhas sobre quinhentas ausências saíam "OK · 40 de
+      // 583". O corte é por PROPORÇÃO do que foi respondido, e ele é largo de
+      // propósito: MEDIDO, os dois hinários respondem acima de 95% (os 41 "não
+      // achei" dos dois juntos; no aparelho do relato, 282 de 282 e 437 de
+      // 437). Metade é longe o bastante disso para não pintar vermelho numa
+      // coleção só menos coberta, e perto o bastante para pegar a quebra.
       //
       // E SÓ NOS HINÁRIOS (`cifraDeduzivel`): ali o endereço sai do CATÁLOGO e
       // toda música existe no site. Num álbum a ausência é o caso normal, e
       // zero folhas não prova nada.
       const PISO = 20;   // julgadas antes de a conta valer
+      const CORTE = 0.5; // folhas / julgadas abaixo disto é o site, não o acervo
       const alvos = allCollections().filter((c) => cifraDeduzivel(c) && countDownloaded(c.id) > 0);
       if (!alvos.length) return tNa('nenhum hinário baixado neste aparelho');
       const agora = Date.now();
@@ -28339,7 +28631,14 @@ const TESTES = [
             + 'cifra no site, então mudou o endereço ou a marcação; copie o Registro, '
             + 'que traz os endereços tentados');
         }
-        resumo.push(c.name + ': ' + folhas + ' de ' + julgadas);
+        if (folhas / julgadas < CORTE) {
+          return tFalhou(c.name + ': só ' + folhas + ' cifras em ' + julgadas + ' hinos já varridos ('
+            + semPagina + ' sem página · ' + semCifra + ' sem cifra) — no hinário quase toda música '
+            + 'tem cifra no site, então o endereço ou a marcação mudou DEPOIS de parte do acervo já '
+            + 'ter sido varrida; copie o Registro, que traz os endereços tentados');
+        }
+        resumo.push(c.name + ': ' + folhas + ' cifras em ' + julgadas + ' hinos já varridos (de '
+          + collSongs(c.id).length + ')');
       }
       if (!resumo.length) return tNa('a varredura de cifras ainda não passou por este aparelho');
       return tOk(resumo.join(' · '));
@@ -28347,10 +28646,11 @@ const TESTES = [
   },
 
   // ---------- AS MINHAS LISTAS ----------
-  // AS TRÊS LISTAS QUE O OPERADOR MONTA À MÃO, e que nenhuma linha alcançava:
-  // o `acervo-ids` varre as COLEÇÕES. Aqui são os dois degraus seguidos do
-  // caminho de quem EXECUTA — *"o id resolve?"* e *"o registro que resolveu
-  // tem bytes?"* —, e por isso são duas linhas: elas pedem ações diferentes.
+  // AS TRÊS LISTAS QUE O OPERADOR MONTA À MÃO (`LISTAS_DA_VERIFICACAO`), e que
+  // nenhuma linha alcançava: o `acervo-ids` varre as COLEÇÕES. Aqui são os dois
+  // degraus seguidos do caminho de quem EXECUTA — *"o id resolve?"* e *"o
+  // registro que resolveu tem bytes?"* —, e por isso são duas linhas: elas
+  // pedem ações diferentes.
   {
     id: 'listas-sumidas', area: 'As minhas listas',
     titulo: 'Toda linha das minhas listas aponta para algo que existe',
@@ -28364,13 +28664,8 @@ const TESTES = [
       // que respondem "já está no Cronograma" e "é favorito" vêm dos ids
       // CRUS. Daí a estrela acesa e o ⊕ dizendo que o item já está lá, sobre
       // uma linha que não existe.
-      const LISTAS = [
-        ['imports', 'Cronograma'],
-        ['favs', 'Favoritos'],
-        ['avulsos', 'projetados na hora'],
-      ];
       const alvos = [];
-      for (const [lista, rotulo] of LISTAS) {
+      for (const [lista, rotulo] of LISTAS_DA_VERIFICACAO) {
         for (const id of await AVDB.listIds(lista)) alvos.push([rotulo, id]);
       }
       if (!alvos.length) return tNa('nenhuma lista montada ainda');
@@ -28405,13 +28700,8 @@ const TESTES = [
       // `acervo-arquivos`: aquele compara DISCO → catálogo e entrega um número
       // sem veredito; este é o sentido inverso, sobre as três listas do
       // operador, e alcança também o que aquele não toca.
-      const LISTAS = [
-        ['imports', 'Cronograma'],
-        ['favs', 'Favoritos'],
-        ['avulsos', 'projetados na hora'],
-      ];
       const ids = [];
-      for (const [lista, rotulo] of LISTAS) {
+      for (const [lista, rotulo] of LISTAS_DA_VERIFICACAO) {
         for (const id of await AVDB.listIds(lista)) ids.push([rotulo, id]);
       }
       if (!ids.length) return tNa('nenhuma lista montada ainda');
@@ -28617,7 +28907,13 @@ const TESTES = [
         palco.mesa.appendChild(cela);
         const feita = await AVDeck.elementoParaImagem(cela, LADO, LADO, AVDeck.cacheDeRecursos());
         if (!feita || !feita.blob || !feita.blob.size) {
-          return tFalhou('este aparelho não transformou um slide em imagem — PDF e PowerPoint não vão abrir');
+          // SÓ O POWERPOINT passa por este caminho (`AVDeck`, dentro do
+          // WebView). PDF e Google Apresentações são desenhados pelo SHELL
+          // (`PdfRenderer`, `deckPages`), e a frase de antes acusava os dois —
+          // mandava o operador desconfiar do que funciona. A pergunta do PDF,
+          // se um dia for feita, é outra linha e é ao shell.
+          return tFalhou('este aparelho não transformou um slide em imagem — uma apresentação de '
+            + 'PowerPoint não vai abrir');
         }
         // RELER O QUE SAIU, e não só contar bytes: a página BRANCA tem o número
         // de páginas certo, o tamanho certo e não lança. É o DESFECHO, não a
@@ -28638,8 +28934,8 @@ const TESTES = [
         }
         const perto = (a, d) => Math.abs(a - d) <= 8;
         if (perto(px[0], FUNDO[0]) && perto(px[1], FUNDO[1]) && perto(px[2], FUNDO[2])) {
-          return tFalhou('a imagem de fundo não entra na página: uma apresentação sairia com o '
-            + 'texto sobre papel branco');
+          return tFalhou('a imagem de fundo não entra na página: uma apresentação de PowerPoint '
+            + 'sairia com o texto sobre papel branco');
         }
         if (!(perto(px[0], TINTA[0]) && perto(px[1], TINTA[1]) && perto(px[2], TINTA[2]))) {
           return tFalhou('a página saiu com a cor errada (' + px[0] + ',' + px[1] + ',' + px[2] + ')');
@@ -39286,6 +39582,8 @@ document.addEventListener('visibilitychange', () => {
   // Índices das coleções em segundo plano (fire-and-forget): não atrasa a
   // abertura do app, só deixa a busca/os cards prontos assim que a resposta chegar.
   autoRefreshCollections();
+  // E A PASSADA DOS FUNDOS, RELIGADA com o app à vista — ver `FUNDO_RELIGA_MS`.
+  setInterval(religarFundos, FUNDO_RELIGA_MS);
   // A BÍBLIA BASE, garantida sozinha (v5.242) — metadados e, atrás deles, a
   // versão padrão INTEIRA, em segundo plano e resumível. Fire-and-forget pelo
   // mesmo motivo do `autoRefreshCollections` logo acima: não atrasa a abertura
