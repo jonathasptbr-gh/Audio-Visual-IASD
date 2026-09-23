@@ -1060,6 +1060,43 @@ try {
       + 'NÃO se marca — a marca é o que a varredura mediu', JSON.stringify(tetoReal));
   }
 
+  // ===== BLOCO P · A LINHA DOS FUNDOS NÃO MANDA TOCAR NUM BOTÃO QUE NÃO EXISTE (v1.10.6) =====
+  //
+  // A nota terminava em *"toque em sincronizar na coleção"*, e o operador
+  // respondeu: *"Não há um botão de sincronizar as coleções"*. Ele está certo —
+  // o botão de baixar só é desenhado com a coleção INCOMPLETA, e este defeito
+  // mora na coleção completa. **Uma instrução que o aparelho não pode cumprir é
+  // pior que nenhuma.** A célula é a do relato: uma faixa baixada, com letra, e
+  // NENHUM slide com fundo.
+  const fundos = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'acervo-fundos');
+    const cols = window.allCollections; const songs = window.collSongs;
+    const get = AVDB.fileGet; const rede = window.networkType;
+    window.allCollections = () => [{ id: 'c-fundo', name: 'Coleção' }];
+    window.collSongs = () => [{ name: 'Faixa', fileIdFull: 'f1' }];
+    AVDB.fileGet = async () => ({ id: 'f1', lyrics: [{ text: 'linha', imageOpfsPath: null }] });
+    try {
+      window.networkType = () => 'wifi';
+      const noWifi = await rodarUmaChecagem(achada);
+      window.networkType = () => 'cellular';
+      const naRedeMovel = await rodarUmaChecagem(achada);
+      return { noWifi, naRedeMovel };
+    } finally {
+      window.allCollections = cols; window.collSongs = songs; AVDB.fileGet = get;
+      window.networkType = rede;
+    }
+  });
+  checar(fundos.noWifi.v === 'falhou' && fundos.naRedeMovel.v === 'falhou',
+    'P1 · a PREMISSA: a faixa sem fundo continua reprovando — o conserto é da FRASE, não do veredito',
+    JSON.stringify(fundos));
+  checar(!/sincroniz/i.test(fundos.noWifi.nota) && !/sincroniz/i.test(fundos.naRedeMovel.nota),
+    'P2 · e a nota NÃO manda tocar em sincronizar: o botão só existe com a coleção incompleta, e '
+    + 'este defeito mora na completa — o operador procurou e não achou', JSON.stringify(fundos));
+  checar(/sozinho/.test(fundos.noWifi.nota) && /rede móvel/.test(fundos.naRedeMovel.nota)
+    && !/rede móvel/.test(fundos.noWifi.nota),
+    'P3 · ela diz o que ACONTECE, e as duas frases são diferentes porque pedem ações opostas: '
+    + 'fora da rede móvel não há o que fazer; nela, é preciso achar um Wi-Fi', JSON.stringify(fundos));
+
 } finally {
   await navegador.close();
   servidor.close();

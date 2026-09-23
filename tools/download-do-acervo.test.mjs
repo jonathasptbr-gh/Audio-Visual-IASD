@@ -646,6 +646,238 @@ try {
     'e a linha do ÁUDIO não sai anunciando "0 · 0" numa passada que não buscou áudio nenhum',
     o2.registro);
 
+  // ---- Q: A VARREDURA DOS FUNDOS CORRE SOZINHA (v1.10.6) -----------------
+  //
+  // O relato: *"Não há um botão de sincronizar as coleções"* — e ele está
+  // certo. O botão de baixar só é desenhado com a coleção INCOMPLETA
+  // (`if ((u.syncBusy || !complete) …)`), que é justamente o estado em que o
+  // backfill da v1.9.15 NÃO serve: o defeito do fundo mora na coleção
+  // completa. MEDIDO no Registro dele: 3556 músicas baixadas e `19 de 60 sem
+  // fundo` na Verificação — cerca de mil e cem faixas que nenhum toque
+  // alcançava.
+  //
+  // O que torna a varredura automática possível é o VEREDITO POR MÚSICA com
+  // data — a peça que o KDoc da v1.9.15 já nomeava como o que faltava. Sem
+  // ele, cada abertura do app custaria ~7100 leituras de IndexedDB só para
+  // redescobrir o que já se sabia.
+  const q = await pg.evaluate(async () => {
+    const out = {};
+    const cid = 't-auto';
+    const coll = { id: cid, name: 'Álbum Auto', kind: 'album', source: 'fonte-de-uma' };
+    window.__modo = 'ok'; window.__opfsQuebrado = false; window.__semFonte = false;
+    window.__imagem = '/imagens/capa-101.jpg';
+
+    // 1) O ÁUDIO DESCE E A FOTO FALHA — a faixa fica completa e sem fundo.
+    window.__modoImg = 'recusa';
+    collState[cid] = { indexSyncedAt: 0, songs: [] };
+    await AVDB.setState(fundoChave(cid), null);
+    await syncCollection(coll, { allowMobile: true });
+    const s = collSongs(cid)[0];
+    out.semFundo = !!(await faltaFundoNaFaixa(s));
+
+    // 2) A SEGUNDA SINCRONIZAÇÃO sai por "Já completo offline" e é ela que
+    //    CONFERE — e a conferência, com a foto voltando, vira veredito.
+    window.__modoImg = 'ok';
+    await syncCollection(coll, { allowMobile: true });
+    out.temFundo = !(await faltaFundoNaFaixa(s));
+    const disco = (await AVDB.getState(fundoChave(cid))) || {};
+    out.veredito = disco[s.id_music] || null;
+    out.versao = FUNDO_VEREDITO_VERSAO;
+    out.idsDaFaixa = fundoIdsDaFaixa(s);
+
+    // 3) COM O VEREDITO NO DISCO, a passada AUTOMÁTICA não confere nem vai à
+    //    rede. É esta a "verificação rápida": o estado estável custa zero.
+    //    A RÉGUA SÃO AS CONFERÊNCIAS, não os metadados: esta faixa TEM fundo,
+    //    e sem o veredito ela seria relida do disco mas não iria à rede — uma
+    //    asserção por metadados passaria com o veredito ignorado.
+    window.allCollections = () => [coll];
+    let conferiu = 0;
+    const realConferir = window.faltaFundoNaFaixa;
+    window.faltaFundoNaFaixa = async (x) => { conferiu++; return realConferir(x); };
+    try {
+      fundosProximaPassadaEm = 0;
+      await syncFundosAcervo();
+      out.conferiuComVeredito = conferiu;
+
+      // 4) A CONFERÊNCIA QUE PASSA VIRA VEREDITO SOZINHA — sem refazer nada.
+      //    O disco é limpo antes (a PREMISSA): o veredito do passo 2 veio da
+      //    REFEITURA, e sem limpar esta asserção não distinguiria as duas.
+      await AVDB.setState(fundoChave(cid), null);
+      fundosProximaPassadaEm = 0;
+      conferiu = 0;
+      await syncFundosAcervo();
+      out.conferiuNaPrimeira = conferiu;
+      const d4 = (await AVDB.getState(fundoChave(cid))) || {};
+      out.vereditoDaConferencia = d4[s.id_music] || null;
+
+      // 5) O PISO ENTRE PASSADAS: a segunda chamada seguida volta na porta.
+      //    O disco é limpo DE NOVO: com o veredito do passo 4 no lugar, a
+      //    segunda passada não conferiria nada com piso ou sem ele — e a
+      //    asserção do piso seria uma tautologia.
+      await AVDB.setState(fundoChave(cid), null);
+      conferiu = 0;
+      await syncFundosAcervo();
+      out.conferiuNaSegunda = conferiu;
+
+      // 6) A COLEÇÃO EM DOWNLOAD FICA DE FORA: o `syncCollection` dela já
+      //    chama o backfill no fim, com o `pular` do que acabou de tentar.
+      fundosProximaPassadaEm = 0;
+      conferiu = 0;
+      ui(cid).syncBusy = true;
+      try { await syncFundosAcervo(); } finally { ui(cid).syncBusy = false; }
+      out.conferiuComDownload = conferiu;
+    } finally { window.faltaFundoNaFaixa = realConferir; }
+    return out;
+  });
+  checar(q.semFundo === true && q.temFundo === true,
+    'a PREMISSA do bloco: a faixa desce sem fundo e a conferência seguinte, com a foto voltando, '
+    + 'a recupera — é o cenário do relato, de ponta a ponta', JSON.stringify([q.semFundo, q.temFundo]));
+  checar(!!q.veredito && q.veredito.tem === true && q.veredito.v === q.versao
+    && q.veredito.ids === q.idsDaFaixa,
+    'e a conferência VIRA VEREDITO no disco, com versão e data — sem ele a varredura recomeça do '
+    + 'zero em toda abertura, que são ~7100 leituras de IndexedDB no acervo do relato',
+    JSON.stringify(q.veredito));
+  checar(q.conferiuComVeredito === 0,
+    'com o veredito no disco a passada automática não relê UMA faixa — é esta a "verificação '
+    + 'rápida" pedida: o estado estável custa zero, contra ~7100 leituras por abertura no acervo '
+    + 'do relato', q.conferiuComVeredito);
+  checar(q.conferiuNaPrimeira > 0 && !!q.vereditoDaConferencia && q.vereditoDaConferencia.tem === true,
+    'e a conferência que PASSA vira veredito sozinha, sem refazer nada — sem isto o veredito só '
+    + 'guardaria o que foi refeito, e o acervo sadio seria relido em toda abertura para sempre',
+    JSON.stringify([q.conferiuNaPrimeira, q.vereditoDaConferencia]));
+  checar(q.conferiuNaSegunda === 0,
+    'e há PISO entre duas passadas: `autoRefreshCollections` roda em todo `visibilitychange` — '
+    + 'dezenas de vezes por culto —, e sem o piso o teto de bytes seria cobrado a cada volta ao app',
+    q.conferiuNaSegunda);
+  checar(q.conferiuComDownload === 0,
+    'e a coleção EM DOWNLOAD fica de fora: o download dela já chama o backfill no fim, e entrar ao '
+    + 'mesmo tempo buscaria a mesma faixa duas vezes e contaria duas falhas por uma tentativa',
+    q.conferiuComDownload);
+
+  // ---- R: O QUE O VEREDITO NÃO PODE AFIRMAR ------------------------------
+  //
+  // As três regras que o separam de um carimbo: a ausência VENCE, a gravação
+  // MESCLA, e uma pergunta que não chegou a ser feita NÃO vira resposta.
+  const rr = await pg.evaluate(async () => {
+    const out = {};
+    const agora = Date.now();
+    const DIA = 24 * 60 * 60 * 1000;
+    const s = { id_music: 9, fileIdFull: 'a1', fileIdPlayback: null };
+    const ids = fundoIdsDaFaixa(s);
+    const V = (em, tem, extra) => ({ v: FUNDO_VEREDITO_VERSAO, ids, em, tem, ...(extra || {}) });
+    // O PRAZO: `tem: true` vale sempre; `tem: false` vale SEIS dias — a falha
+    // de um sábado volta à fila na sexta, antes do culto seguinte.
+    out.temVale = fundoNoDiscoVale(V(agora - 400 * DIA, true), s, agora);
+    out.faltaNova = fundoNoDiscoVale(V(agora - 5 * DIA, false), s, agora);
+    out.faltaDeUmaSemana = fundoNoDiscoVale(V(agora - 7 * DIA, false), s, agora);
+    // A VERSÃO: entrada de código antigo não segura o prazo dele.
+    out.versaoVelha = fundoNoDiscoVale(V(agora, true, { v: FUNDO_VEREDITO_VERSAO - 1 }), s, agora);
+    // OS ARQUIVOS: excluir e rebaixar a coleção cria registros NOVOS, e um
+    // "tem fundo" do registro anterior não pode calar a faixa nova.
+    out.outroArquivo = fundoNoDiscoVale(V(agora, true),
+      { id_music: 9, fileIdFull: 'b2', fileIdPlayback: null }, agora);
+
+    // A MESCLA NUNCA SUBSTITUI — a lição do `275 de 601` que virou `0 de 601`.
+    await AVDB.setState('fundos:t-mescla', {
+      1: { v: FUNDO_VEREDITO_VERSAO, em: 1, tem: true },
+      2: { v: FUNDO_VEREDITO_VERSAO, em: 1, tem: true },
+      3: { v: FUNDO_VEREDITO_VERSAO, em: 1, tem: false },
+    });
+    const novos = { 4: { v: FUNDO_VEREDITO_VERSAO, em: 2, tem: true } };
+    await fundoDiscoMesclar('t-mescla', novos);
+    const d = (await AVDB.getState('fundos:t-mescla')) || {};
+    out.chaves = Object.keys(d).sort().join(',');
+    out.sobrouPendente = Object.keys(novos).length;
+
+    // SEM REDE NÃO SE GRAVA VEREDITO. A pergunta nem chegou a ser feita, e
+    // carimbá-la custaria a semana inteira de revisita — a regra que a
+    // varredura de cifras já escreveu para o `sem-rede`.
+    const cid = 't-semrede';
+    const coll = { id: cid, name: 'Álbum Sem Rede', kind: 'album', source: 'fonte-de-uma' };
+    window.__modo = 'ok'; window.__modoImg = 'recusa'; window.__semFonte = false;
+    window.__imagem = '/imagens/capa-101.jpg';
+    collState[cid] = { indexSyncedAt: 0, songs: [] };
+    await AVDB.setState(fundoChave(cid), null);
+    await syncCollection(coll, { allowMobile: true });    // desce sem fundo
+    await AVDB.setState(fundoChave(cid), null);           // a premissa: disco limpo
+    const sr = collSongs(cid)[0];
+    const listaReal = Louvorja.fetchList;
+    Louvorja.fetchList = async () => { throw new TypeError('Failed to fetch'); };
+    try { await syncImagensColecao(coll, { auto: true }); }
+    finally { Louvorja.fetchList = listaReal; }
+    const ds = (await AVDB.getState(fundoChave(cid))) || {};
+    out.semRedeGravou = Object.prototype.hasOwnProperty.call(ds, String(sr.id_music));
+
+    // O TETO É DO ACERVO e o que sobra NÃO recebe veredito: ele não foi
+    // perguntado. `adiadas` é o corte, e ele é DITO no Registro.
+    const cid2 = 't-teto';
+    const coll2 = { id: cid2, name: 'Álbum Teto', kind: 'album', source: 'fonte-de-teste' };
+    window.__modoImg = 'recusa';
+    collState[cid2] = { indexSyncedAt: 0, songs: [] };
+    await AVDB.setState(fundoChave(cid2), null);
+    await syncCollection(coll2, { allowMobile: true });   // três faixas, sem fundo
+    await AVDB.setState(fundoChave(cid2), null);
+    const orc = { refazer: 1, refeitas: 0, conferidas: 0, adiadas: 0 };
+    let tentadas = 0;
+    const listaReal2 = Louvorja.fetchList;
+    Louvorja.fetchList = async (f) => { if (String(f).startsWith('music_')) tentadas++; return listaReal2(f); };
+    try { await syncImagensColecao(coll2, { auto: true, orcamento: orc }); }
+    finally { Louvorja.fetchList = listaReal2; }
+    out.tentadasComTeto = tentadas;
+    out.adiadas = orc.adiadas;
+    out.conferidas = orc.conferidas;
+    window.__imagem = null; window.__modoImg = 'ok';
+    return out;
+  });
+  checar(rr.temVale === true && rr.faltaNova === true && rr.faltaDeUmaSemana === false,
+    'o veredito tem DOIS prazos opostos: "tem fundo" vale sempre (o arquivo está lá), e "ainda sem" '
+    + 'vence ANTES de uma semana — a falha de um sábado tem de voltar à fila antes do sábado seguinte',
+    JSON.stringify([rr.temVale, rr.faltaNova, rr.faltaDeUmaSemana]));
+  checar(rr.outroArquivo === false,
+    'e o veredito é do REGISTRO, não da música: excluir e rebaixar a coleção cria arquivos novos, e um '
+    + '"tem fundo" herdado calaria para sempre uma faixa que desceu sem fundo na segunda vez',
+    rr.outroArquivo);
+  checar(rr.versaoVelha === false,
+    'e entrada de versão antiga não vale: um lote que mude o que conta como "tem fundo" não pode '
+    + 'ficar esperando o prazo escrito pelo código que ele veio substituir', rr.versaoVelha);
+  checar(rr.chaves === '1,2,3,4' && rr.sobrouPendente === 0,
+    'a gravação MESCLA e esvazia a fila — a lição do `275 de 601` que virou `0 de 601`: uma '
+    + 'substituição pode produzir zero a partir de centenas, uma mescla não pode',
+    JSON.stringify([rr.chaves, rr.sobrouPendente]));
+  checar(rr.semRedeGravou === false,
+    'sem rede NENHUM veredito é gravado: a pergunta não chegou a ser feita, e carimbá-la custaria '
+    + 'o prazo inteiro de revisita sobre uma faixa que ninguém perguntou', rr.semRedeGravou);
+  checar(rr.tentadasComTeto === 1 && rr.adiadas === 2 && rr.conferidas === 3,
+    'o teto corta o que vai à REDE e não o que é CONFERIDO: as três são conferidas, uma é refeita, '
+    + 'duas ficam para a passada seguinte — e o corte é contado, nunca silencioso',
+    JSON.stringify([rr.tentadasComTeto, rr.adiadas, rr.conferidas]));
+
+  // ---- S: O REGISTRO RESPONDE "as fotos vão aparecer no sábado?" ----------
+  //
+  // A PORTA PERGUNTA PELO QUE O BLOCO DESCREVE (a regra da v1.9.16): ele abre
+  // com MÚSICA BAIXADA, e não quando uma passada aconteceu — o aparelho que
+  // ainda não teve passada nenhuma é exatamente o que precisa aparecer aqui.
+  const ss = await pg.evaluate(async () => {
+    const coll = { id: 't-auto', name: 'Álbum Auto', kind: 'album', source: 'fonte-de-uma' };
+    window.allCollections = () => [coll];
+    const guardado = fundosUltimaPassada;
+    fundosUltimaPassada = null;
+    const semPassada = await blocoFundos();
+    fundosUltimaPassada = guardado;
+    return { semPassada, comPassada: await blocoFundos() };
+  });
+  checar(/^Fundos da letra/.test(ss.semPassada),
+    'o bloco existe no Registro de um aparelho que ainda não teve passada automática nenhuma — '
+    + 'a porta pergunta por MÚSICA BAIXADA, que é o que ele descreve', ss.semPassada);
+  checar(/\d+ música\(s\) baixada\(s\)/.test(ss.semPassada),
+    'e a conta viaja com o DENOMINADOR: "0 sem fundo" lê-se como "está tudo bem" tanto onde as '
+    + 'três mil chegaram quanto onde nenhuma foi conferida', ss.semPassada);
+  checar(/nenhuma passada automática nesta sessão ainda/.test(ss.semPassada)
+    && /última passada/.test(ss.comPassada),
+    'e ele diz QUAL dos dois estados é o do aparelho — "N por conferir" sem essa linha é um '
+    + 'mistério que volta a cada cópia do Registro', JSON.stringify([ss.semPassada, ss.comPassada]));
+
+
 } finally {
   await navegador.close();
   servidor.close();

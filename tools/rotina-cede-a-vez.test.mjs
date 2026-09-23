@@ -184,6 +184,69 @@ try {
   checar(ordem.gate >= 0 && ordem.gate < ordem.bandeira,
     'e a guarda de porta dele vem ANTES de `collectionsRefreshing = true`, senão '
     + 'a bandeira fica presa e a função morre pelo resto da sessão', ordem);
+
+  // ── 4. OS FUNDOS DA LETRA (v1.10.6) cedem a vez do mesmo jeito ──────────
+  //
+  // A rotina nova corre sozinha na abertura, atrás das letras, e é a única das
+  // irmãs com PISO entre passadas. Isso cobra uma asserção que as outras não
+  // precisam: **uma passada que CEDE a vez não pode ARMAR o piso.** No culto o
+  // operador volta ao app dezenas de vezes com a mídia no ar; se cada volta
+  // armasse o piso, a varredura só correria meia hora depois da ÚLTIMA troca
+  // de app — e a régua é o carimbo, não a bandeira, porque a passada que cede
+  // não levanta bandeira nenhuma.
+  const fundos = await pg.evaluate(async () => {
+    const coll = { id: 't-cede', name: 'Álbum Cede', kind: 'album' };
+    collState[coll.id] = { indexSyncedAt: Date.now(),
+      songs: [{ id_music: 1, name: 'Faixa', track: 1, fileIdFull: 'f-cede' }] };
+    const ac = window.allCollections;
+    window.allCollections = () => [coll];
+    let conferiu = 0;
+    const real = window.faltaFundoNaFaixa;
+    window.faltaFundoNaFaixa = async (x) => { conferiu++; return real(x); };
+    const antes = midiaNoAr;
+    try {
+      fundosProximaPassadaEm = 0;
+      midiaNoAr = true;
+      await syncFundosAcervo();
+      return { conferiu, piso: fundosProximaPassadaEm };
+    } finally {
+      midiaNoAr = antes;
+      window.allCollections = ac;
+      window.faltaFundoNaFaixa = real;
+      delete collState[coll.id];
+      fundosProximaPassadaEm = 0;
+    }
+  });
+  checar(fundos.conferiu === 0,
+    'com cena no ar a varredura dos fundos não relê UMA faixa do disco', fundos);
+  checar(fundos.piso === 0,
+    'e a passada que cedeu a vez NÃO arma o piso — senão cada volta ao app durante o culto '
+    + 'empurraria a próxima passada meia hora para a frente', fundos);
+
+  // A FORMA: o gate está na PORTA e DENTRO dos dois laços (o da conferência e
+  // o da rede) — o caso normal é a cena entrar DEPOIS de a varredura partir.
+  // E A ORDEM NA ABERTURA: letras → fundos no MESMO fio, porque as duas pedem
+  // `music_{id}` ao MESMO host. Soltas seriam 12 requisições concorrentes a um
+  // servidor só. A medição é sobre o CÓDIGO, nunca sobre o texto: os
+  // comentários da função citam os dois nomes.
+  const formaFundos = await pg.evaluate(() => {
+    const g = /rotinaDeAcervoPodeCorrer\(\)/g;
+    const conta = (f) => (String(f).match(g) || []).length;
+    const sem = String(autoRefreshCollections)
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    return {
+      acervo: conta(syncFundosAcervo),
+      colecao: conta(syncImagensColecao),
+      encadeada: /syncLyrics\(\)\.catch\(\(\) => \{\}\)\s*\.then\(\(\) => syncFundosAcervo\(\)\)/.test(sem),
+      solta: /;\s*syncFundosAcervo\(\)/.test(sem),
+    };
+  });
+  checar(formaFundos.acervo >= 2 && formaFundos.colecao >= 3,
+    'o gate está na porta da varredura, entre uma coleção e a seguinte, na conferência e na fila '
+    + 'de rede', formaFundos);
+  checar(formaFundos.encadeada && !formaFundos.solta,
+    'e na abertura os fundos correm NO MESMO FIO das letras, depois delas — o mesmo host, e o '
+    + 'teto por host continua 6 em vez de 12', formaFundos);
 } finally {
   await navegador.close();
   servidor.close();

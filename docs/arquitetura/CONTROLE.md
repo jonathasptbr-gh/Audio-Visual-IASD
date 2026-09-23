@@ -7179,10 +7179,29 @@ completo offline"*, que é por onde sai o hinário cujo áudio já está todo no
 —, **pula o que o mesmo toque acabou de tentar** (`pular`, senão cada faixa é
 buscada duas vezes e o censo conta duas falhas por uma tentativa) e **conta pelo
 DISCO**, nunca pelo retorno de `downloadCollectionSong`, que responde pelo ÁUDIO
-e diria `true` sobre uma faixa que continua sem fundo. **NÃO corre sozinho**: um
-`music_{id}` por faixa sem fundo pendurado no `autoRefreshCollections` seriam
-centenas de requisições por abertura de app, para sempre, onde a origem não sirva
-imagem.
+e diria `true` sobre uma faixa que continua sem fundo.
+
+**E ELE CORRE SOZINHO DESDE A v1.10.6** (`syncFundosAcervo`), porque a porta
+anterior — o toque em sincronizar — não é desenhada numa coleção COMPLETA, que é
+onde este defeito mora. O que torna isso barato é o **veredito por música**
+(`fundos:<coll>` = `{ [id_music]: { v, ids, em, tem } }`, gravado por MESCLA
+com `updateState`, a lição do `275 de 601 → 0` das cifras):
+
+| peça | regra | por quê |
+|---|---|---|
+| `tem: true` | vale SEMPRE, enquanto `ids` (os arquivos das duas variantes) for o mesmo | errar calando UMA faixa é recuperável (a Verificação lê o DISCO); um "tem" que vence faria o aparelho SADIO reconferir o acervo inteiro periodicamente. Excluir e rebaixar cria arquivos novos, e o veredito deixa de valer sozinho |
+| `tem: false` | vale SEIS dias (`FUNDO_REVISITA_MS`) | a falha de um sábado volta à fila na sexta, antes do culto seguinte; o prazo decide a JUSTIÇA da fila, não o custo |
+| `metaOk` | só se grava veredito da refeitura se o `music_{id}` CHEGOU | sem rede a pergunta nem foi feita; carimbá-la custaria o prazo inteiro |
+| teto | 60 faixas refeitas por passada, do ACERVO inteiro | o custo é de bytes (fotos); por coleção seriam 69 × 60 |
+| conferência | SEM teto | é local, e é ela que leva o veredito ao disco — limitá-la atrasaria o estado estável (zero leituras) em dezenas de aberturas |
+| piso | 30 min entre passadas; a que CEDE a vez não o arma | o `autoRefreshCollections` roda em todo `visibilitychange` |
+| ordem | no fio de `syncLyrics`, DEPOIS dela | mesmo host (`music_{id}`); o acúmulo só existe onde a letra já está toda guardada |
+
+Só a passada AUTOMÁTICA lê o veredito; o toque à mão ignora e grava. A coleção
+em download fica de fora (o `syncCollection` dela já chama o backfill com o
+`pular`). O bloco *"Fundos da letra"* do Registro conta pelo veredito (a MESMA
+`fundoNoDiscoVale` da fila) e DECLARA isso na primeira linha — quem lê o disco é
+a Verificação do Sistema.
 
 **O botão de GRUPO segue a mesma régua** (`grupoCompleto(colls)` =
 `colls.every(colecaoCompleta)`, e não uma soma de músicas, que responderia

@@ -2660,14 +2660,24 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   da letra"* não puxa megabytes), **pula o que o mesmo toque acabou de tentar**
   (senão cada faixa é buscada duas vezes e o censo conta duas falhas por uma
   tentativa) e **conta pelo DISCO, não pelo retorno** — aquele responde pelo
-  ÁUDIO e diria `true` sobre uma faixa que continua sem fundo. **E ele NÃO corre
-  sozinho, de propósito:** custa um `music_{id}` por faixa sem fundo, e pendurá-lo
-  no `autoRefreshCollections` (abertura + TODO `visibilitychange`) seria centenas
-  de requisições por abertura, para sempre, onde a origem não sirva imagem. A
-  porta é o toque em sincronizar; para correr sozinho ele precisaria do que a
-  varredura de cifras tem — um veredito POR MÚSICA gravado com data. O par disso
-  é **"a origem não publica imagem" como ESTADO** (`semImagem`, a regra `semFonte`
+  ÁUDIO e diria `true` sobre uma faixa que continua sem fundo. O par disso é
+  **"a origem não publica imagem" como ESTADO** (`semImagem`, a regra `semFonte`
   da v5.134 aplicada ao fundo), que se APAGA quando a origem passa a ter.
+- **UM CONSERTO CUJA ÚNICA PORTA É UM BOTÃO TEM DE CONFERIR QUE O BOTÃO EXISTE
+  NO ESTADO EM QUE O DEFEITO MORA** (v1.10.6). A porta do backfill era o toque em
+  sincronizar, e o botão de baixar só é desenhado com a coleção INCOMPLETA — o
+  defeito do fundo mora na COMPLETA. O operador respondeu por extenso: *"Não há
+  um botão de sincronizar as coleções"*. Hoje ele corre SOZINHO
+  (`syncFundosAcervo`, no fio das letras e depois delas: as duas pedem
+  `music_{id}` ao mesmo host), e o que torna isso possível é o que a v1.9.15 já
+  nomeava — **um veredito POR MÚSICA gravado com data** (`fundos:<coll>`, por
+  MESCLA): `tem` vale sempre enquanto os IDS dos arquivos forem os mesmos, a
+  ausência vale seis dias, e **só se grava veredito quando o metadado chegou**
+  (`metaOk`; sem rede a pergunta nem foi feita). O custo é de BYTES, não de
+  leituras: a conferência não tem teto (é ela que leva o veredito ao disco); a
+  REDE tem teto de 60 faixas por passada do acervo inteiro e piso de 30 min
+  entre passadas — e **a passada que cede a vez não arma o piso**. Só a passada
+  automática LÊ o veredito; o toque à mão o ignora e o grava.
 - **A PORTA DE UM BLOCO DO REGISTRO PERGUNTA PELO QUE ELE DESCREVE, NUNCA POR UM
   CONTADOR DE UM DOS CAMINHOS QUE ELE COBRE** (v1.9.16). O bloco "Download do
   acervo" abria por `if (!c.tentadas) return ''`, e `tentadas` conta só
@@ -2930,10 +2940,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.10.5 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.10.6 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.10.5 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.10.6 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
 **O DEGRAU É INCREMENTAL** porque a v1.10.0 traz uma seção que não existia — a
 Verificação do Sistema, com tile, folha e fluxo próprios —, e não um conserto.

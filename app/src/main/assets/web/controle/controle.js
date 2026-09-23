@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.10.5';
+const WEB_VERSION = '1.10.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -19326,7 +19326,27 @@ async function autoRefreshCollections() {
     // índice sozinho não responde "qual hino fala em…". Fire-and-forget: é
     // longa (uma requisição por música) e nada na tela espera por ela; o
     // progresso vai para a notificação, como qualquer trabalho de massa.
-    syncLyrics().catch(() => {});
+    //
+    // Fase 3b: OS FUNDOS DA LETRA das coleções já baixadas (v1.10.6), NO MESMO
+    // FIO das letras e DEPOIS delas.
+    //
+    // **O MESMO FIO porque é o MESMO HOST.** As duas pedem `music_{id}` ao
+    // LouvorJA com `NET_CONCURRENCY` (6) cada: soltas, seriam 12 requisições
+    // concorrentes ao mesmo servidor — o dobro do que o KDoc de
+    // `rotinaDeAcervoPodeCorrer` já descreve como o problema, e agora com bytes
+    // de IMAGEM atrás. Encadeadas, o teto por host continua 6. As cifras (fase
+    // 4) seguem soltas porque não disputam nada disso: quem faz o GET delas é o
+    // shell, na fila `cifra`, e o host é outro.
+    //
+    // **DEPOIS das letras, e a ordem custa zero no caso que importa.** O
+    // acúmulo de faixas sem fundo só existe em aparelho que baixou o acervo
+    // ANTES da v1.9.15 — e esse é justamente o aparelho cuja letra já está
+    // toda guardada, onde `syncLyrics` volta sem uma requisição. Num aparelho
+    // novo a ordem inversa também não ganharia nada: o que ele baixa hoje já
+    // desce com fundo, e não há fila para a rotina atender.
+    syncLyrics().catch(() => {})
+      .then(() => syncFundosAcervo())
+      .catch(() => {});
     // Fase 4: as CIFRAS dos hinários, pelo mesmo motivo e pelo mesmo caminho.
     //
     // ELA PRECISOU SAIR DO DOWNLOAD (v1.1.30). Pendurada no fim do
@@ -19335,7 +19355,9 @@ async function autoRefreshCollections() {
     // muito antes do gancho. MEDIDO em dois Registros seguidos: `0 de 601`
     // depois de o operador tocar a sincronização. Aqui é como o `syncLyrics`
     // sempre foi — informação padrão do acervo, uma vez por sessão, em segundo
-    // plano —, e o download deixa de ser a única porta.
+    // plano —, e o download deixa de ser a única porta. (O fundo da letra
+    // repetiu a mesma lição um degrau acima na v1.10.6: lá o botão de
+    // sincronizar nem é desenhado com a coleção completa.)
     syncCifrasAcervo().catch(() => {});
     // Fase 5: O EPISÓDIO DA SEMANA das séries marcadas (v1.8.87), pelo mesmo
     // caminho e pelo mesmo motivo das duas acima — e DEPOIS delas de propósito:
@@ -19617,15 +19639,170 @@ async function syncCollection(coll, opts) {
 // defeito noutro campo: *o conserto não alcançava a biblioteca que o operador
 // JÁ TEM, que é justamente a que ele usa*.
 //
-// **NÃO CORRE SOZINHO, e a ausência é deliberada.** Ele custa um `music_{id}`
-// por faixa sem fundo, e as faixas cuja imagem falha de verdade voltam à fila a
-// cada passada — pendurá-lo no `autoRefreshCollections` (que roda na abertura e
-// em TODO `visibilitychange`) faria centenas de requisições por abertura de app,
-// para sempre, num aparelho onde a origem não sirva imagem nenhuma. A porta é o
-// toque em sincronizar, que é ação do operador e tem fim. Para correr sozinho
-// ele precisaria do que a varredura de cifras tem: um veredito POR MÚSICA
-// gravado com data.
+// ===== E ELE PASSOU A CORRER SOZINHO (v1.10.6) =====
+//
+// A v1.9.15 deixou escrito que ele NÃO corria sozinho e o que faltava para
+// isso: *"Para correr sozinho ele precisaria do que a varredura de cifras tem:
+// um veredito POR MÚSICA gravado com data."* O que provou que a porta única não
+// bastava foi o operador: *"Não há um botão de sincronizar as coleções"* — e
+// ele está certo, o botão de baixar só é desenhado com a coleção INCOMPLETA
+// (`if ((u.syncBusy || !complete) …)`), que é o estado em que o backfill não
+// serve. **Num aparelho com tudo baixado — o aparelho do relato — o conserto da
+// v1.9.15 era inalcançável.**
+//
+// MEDIDO no Registro dele: 3556 músicas baixadas em 69 coleções, e a
+// Verificação do Sistema respondendo `19 de 60 sem fundo` — cerca de MIL E CEM
+// faixas que nenhum toque alcançava.
+//
+// O veredito é o que torna a varredura automática possível, e ele é o mesmo
+// desenho da cifra por um motivo de custo: sem memória, cada abertura do app
+// custaria ~7100 leituras de IndexedDB (duas variantes × 3556 faixas) só para
+// redescobrir o que já se sabia. Com ele, a passada seguinte custa ZERO sobre o
+// que já foi conferido — que é a *"verificação rápida"* pedida.
 let imagensSyncRodando = false;
+
+/**
+ * A VERSÃO DO VEREDITO, e ela existe pelo mesmo motivo da `CIFRA_PASSADA_VERSAO`.
+ *
+ * Um lote que mude o que conta como "tem fundo" — ou o que a passada guarda —
+ * não pode ficar esperando o prazo escrito pelo código antigo: a correção
+ * chegaria por OTA e não rodaria. Entrada de versão diferente é IGNORADA, e a
+ * música volta para a fila com o código novo, que é o que se quis publicar.
+ */
+const FUNDO_VEREDITO_VERSAO = 1;
+
+/**
+ * QUANTO VALE UM "AINDA SEM FUNDO" — e o número NÃO é o da cifra.
+ *
+ * Lá são 30 dias porque a variável é um TERCEIRO PUBLICAR: o site pode ganhar
+ * uma cifra que não tinha, e isso acontece no calendário dele. **Aqui a
+ * variável é a NOSSA rede.** A origem tem a imagem (se não tivesse, a marca
+ * `semImagem` já teria tirado a música da fila); o que falhou foi o caminho
+ * até ela — a Wi-Fi da igreja, o servidor de arquivos, o disco.
+ *
+ * O prazo precisa de duas coisas ao mesmo tempo: ser longo o bastante para a
+ * retentativa cair numa SESSÃO DE REDE DIFERENTE (repetir na mesma Wi-Fi
+ * minutos depois é a tentativa com menos chance de mudar de resposta, e custa a
+ * mesma requisição), e curto o bastante para a falha voltar à fila ANTES do
+ * culto seguinte. **Seis dias, e não sete, por causa da segunda:** com sete, a
+ * faixa que falhou num sábado só voltaria a valer no sábado seguinte — na mesma
+ * manhã em que ela precisa estar pronta. Com seis, ela volta na sexta, e a
+ * primeira abertura antes do culto a reencontra.
+ *
+ * **O CUSTO NÃO É GOVERNADO POR ESTE NÚMERO** — quem o governa é o par teto +
+ * piso (`FUNDO_REFAZER_MAX`, `FUNDO_PASSO_MS`), que limita a varredura a um
+ * punhado por hora qualquer que seja o prazo. O que o prazo decide é a JUSTIÇA
+ * da fila: sem ele, as faixas que falham de verdade ficariam na frente para
+ * sempre e o teto seria gasto nelas a cada passada, sem nunca alcançar as
+ * outras.
+ */
+const FUNDO_REVISITA_MS = 6 * 24 * 60 * 60 * 1000;
+
+/**
+ * QUANTAS FAIXAS A PASSADA AUTOMÁTICA REFAZ — o teto é de BYTES, não de tempo.
+ *
+ * Conferir é local e barato (duas leituras de IndexedDB); REFAZER vai à rede e
+ * traz IMAGENS, que pesam. Uma faixa custa um `music_{id}` mais de uma a três
+ * fotos de fundo, e num acervo como o do relato são ~1100 faixas: sem teto, a
+ * primeira abertura num Wi-Fi puxaria centenas de MB que ninguém pediu naquele
+ * instante — o dano que o `isConfirmedWifi` do episódio da semana existe para
+ * evitar, por outro caminho.
+ *
+ * Sessenta é o teto, e ele vem com o piso de `FUNDO_PASSO_MS`: os dois juntos
+ * limitam a varredura a 120 faixas por hora de app aberto, e nenhum dos dois
+ * sozinho basta — o teto sem o piso seria refeito a cada `visibilitychange`
+ * (dezenas por culto), e o piso sem o teto deixaria a primeira passada puxar o
+ * acervo inteiro.
+ *
+ * **O CORTE NÃO É SILENCIOSO**: o que sobrou da passada sai no bloco "Fundos da
+ * letra" do Registro, e o que ainda falta sai na linha da Verificação.
+ */
+const FUNDO_REFAZER_MAX = 60;
+
+/**
+ * Quantas coleções com pendência o Registro NOMEIA.
+ *
+ * Doze: o acervo do relato tem 69 coleções, e listá-las todas repetiria o que
+ * o bloco das cifras já custa em 150 linhas. O corte é DITO na própria linha,
+ * e o que sai dela continua contado no total acima.
+ */
+const FUNDO_PENDENTES_MAX = 12;
+
+/**
+ * O PISO ENTRE DUAS PASSADAS AUTOMÁTICAS.
+ *
+ * `autoRefreshCollections` roda na abertura **e em todo `visibilitychange`** —
+ * isto é, toda vez que o operador volta ao app, que num culto são dezenas de
+ * vezes por hora. Sem piso, o teto de 60 faixas seria cobrado a cada volta.
+ *
+ * É o mesmo idioma do `indiceVencido` da série (piso de meia hora) e pela mesma
+ * razão: a pergunta que a rotina responde não muda em minutos.
+ */
+const FUNDO_PASSO_MS = 30 * 60 * 1000;
+
+/** Quando a próxima passada automática pode correr. Zera com o processo. */
+let fundosProximaPassadaEm = 0;
+
+/** O retrato da última passada automática — lido pelo Registro. */
+let fundosUltimaPassada = null;
+
+/** A chave do veredito de uma coleção: `{ [id_music]: { v, ids, em, tem } }`. */
+function fundoChave(collId) { return 'fundos:' + collId; }
+
+/**
+ * DE QUAIS ARQUIVOS o veredito fala — os ids das duas variantes da faixa.
+ *
+ * O veredito é sobre um REGISTRO, não sobre uma música: excluir a coleção e
+ * baixá-la de novo cria registros novos, e um `tem: true` herdado do anterior
+ * calaria para sempre uma faixa que desceu SEM fundo na segunda vez.
+ * `deleteCollection` não apaga esta chave (nem a das cifras), e não precisa:
+ * com os ids amarrados, o veredito de um registro que já não existe simplesmente
+ * deixa de valer.
+ */
+function fundoIdsDaFaixa(s) {
+  return (s.fileIdFull || '') + '|' + (s.fileIdPlayback || '');
+}
+
+/**
+ * A ENTRADA GUARDADA AINDA RESPONDE? — e as duas metades têm prazos opostos.
+ *
+ * `tem: true` vale SEMPRE, enquanto os ARQUIVOS forem os mesmos (ver
+ * `fundoIdsDaFaixa`): errar nessa direção cala UMA faixa, que a Verificação do
+ * Sistema continua acusando (ela lê o DISCO, nunca este veredito); errar na
+ * outra — um "tem fundo" que vence — faria o aparelho SADIO reconferir o acervo
+ * inteiro de tempos em tempos, para sempre, que é o custo que este veredito
+ * existe para matar. `tem: false` vale seis dias — ver `FUNDO_REVISITA_MS`.
+ *
+ * Entrada de versão antiga NÃO vale: é a válvula que faz um lote novo não
+ * esperar o prazo escrito pelo código anterior.
+ */
+function fundoNoDiscoVale(v, s, agora) {
+  if (!v || v.v !== FUNDO_VEREDITO_VERSAO) return false;
+  if (v.ids !== fundoIdsDaFaixa(s)) return false;
+  if (v.tem) return true;
+  return (agora - (v.em || 0)) < FUNDO_REVISITA_MS;
+}
+
+/**
+ * MESCLA os vereditos novos no que já está guardado — nunca SUBSTITUI.
+ *
+ * A mesma regra (e o mesmo motivo) do `cifraDiscoMesclar`: `updateState` lê,
+ * calcula e grava numa transação só, com `fn` SÍNCRONA. O par
+ * `getState` + calcular + `setState` é o defeito, não o atalho — duas
+ * transações com um vão entre elas, e quem lê primeiro grava por último. Lá
+ * isso já custou um `275 de 601` virar `0 de 601` num aparelho de verdade, e
+ * aqui o desfecho seria pior de ler: o acervo inteiro voltaria à fila e a
+ * varredura recomeçaria do zero a cada abertura, sem erro em lugar nenhum.
+ */
+async function fundoDiscoMesclar(collId, novos) {
+  const chaves = Object.keys(novos);
+  if (!chaves.length) return;
+  try {
+    await AVDB.updateState(fundoChave(collId), (atual) =>
+      Object.assign((atual && typeof atual === 'object') ? atual : {}, novos));
+  } catch (_) { /* a passada seguinte reconfere */ }
+  for (const k of chaves) delete novos[k];
+}
 
 // "ESTA LETRA FICOU SEM FUNDO?" — e a pergunta é por AUSÊNCIA TOTAL, não por
 // slide. Uma linha sem imagem própria HERDA a da anterior (a regra grudenta do
@@ -19654,6 +19831,15 @@ async function faltaFundoNaFaixa(s) {
  * Devolve quantas músicas ganharam fundo nesta passada — é esse número que a
  * faixa de status escreve, e é ele que separa *"não havia o que fazer"* de
  * *"tentei e continua sem"*.
+ *
+ * `opts.pular`: os ids que ESTE MESMO toque acabou de tentar.
+ * `opts.auto`: a passada AUTOMÁTICA — só ela lê o veredito guardado e só ela
+ *   obedece ao orçamento. Um toque em sincronizar é *"tente tudo agora"*, e
+ *   fazê-lo respeitar o prazo de revisita seria um botão que não faz nada.
+ * `opts.orcamento`: `{ refazer }`, COMPARTILHADO pela varredura inteira e
+ *   decrementado aqui — o teto é do acervo, não de cada coleção. Com um teto
+ *   por coleção, 69 coleções × 60 seriam 4140 faixas numa passada, que é o
+ *   oposto do que o teto existe para fazer.
  */
 async function syncImagensColecao(coll, opts) {
   // Uma SÉRIE não tem letra sincronizada nem imagem da origem: o item dela é um
@@ -19664,6 +19850,14 @@ async function syncImagensColecao(coll, opts) {
   // A MESMA REGRA do `syncCifrasColecao`: são centenas de requisições, e o
   // plano de dados do operador não é o lugar delas.
   if (networkType() === 'cellular') return 0;
+
+  const auto = !!(opts && opts.auto);
+  const orcamento = (opts && opts.orcamento) || null;
+  const agora = Date.now();
+  let guardado = {};
+  if (auto) {
+    try { guardado = (await AVDB.getState(fundoChave(coll.id))) || {}; } catch (_) { guardado = {}; }
+  }
 
   // A MARCA `semImagem` É O QUE IMPEDE A REVARREDURA ETERNA: a música cuja
   // origem não publica foto nenhuma sai da fila de vez (e volta sozinha no dia
@@ -19677,7 +19871,8 @@ async function syncImagensColecao(coll, opts) {
   const pular = (opts && opts.pular) || null;
   const candidatas = collSongs(coll.id)
     .filter((s) => !s.semImagem && (s.fileIdFull || s.fileIdPlayback)
-      && !(pular && pular.has(s.id_music)));
+      && !(pular && pular.has(s.id_music))
+      && !(auto && fundoNoDiscoVale(guardado[s.id_music], s, agora)));
   if (!candidatas.length) return 0;
 
   // Em pedaços de 8, como a varredura de `syncCollection` e pelo mesmo motivo:
@@ -19685,22 +19880,54 @@ async function syncImagensColecao(coll, opts) {
   // elas seriam o app parado antes da primeira requisição.
   const PASSO = 8;
   const alvos = [];
+  // O QUE A CONFERÊNCIA APRENDEU, e ela é a metade que se paga: a faixa que JÁ
+  // tem fundo é resposta final, e gravá-la é o que faz a passada seguinte
+  // custar zero sobre ela. Sem isto o veredito só guardaria fracasso, e o
+  // acervo inteiro seria reconferido em toda abertura para sempre.
+  const vereditos = {};
+  let conferidas = 0;
   for (let i = 0; i < candidatas.length; i += PASSO) {
-    if (!rotinaDeAcervoPodeCorrer()) return 0;
+    // CEDE A VEZ E SAI — mas o que já foi aprendido vai para o disco (o
+    // `fundoDiscoMesclar` logo abaixo). Descartá-lo faria uma cena no ar no meio
+    // da conferência custar a passada inteira, e a retomada recomeçaria do zero.
+    if (!rotinaDeAcervoPodeCorrer()) break;
     const fatia = candidatas.slice(i, i + PASSO);
     const falta = await Promise.all(fatia.map(faltaFundoNaFaixa));
-    falta.forEach((f, k) => { if (f) alvos.push(fatia[k]); });
+    falta.forEach((f, k) => {
+      conferidas++;
+      if (f) alvos.push(fatia[k]);
+      else vereditos[fatia[k].id_music] = { v: FUNDO_VEREDITO_VERSAO, ids: fundoIdsDaFaixa(fatia[k]), em: agora, tem: true };
+    });
   }
-  if (!alvos.length) return 0;
+  // E O TOQUE À MÃO GRAVA O VEREDITO TAMBÉM — ele só não o LÊ. O que a
+  // conferência dele aprendeu é a mesma verdade, e jogá-la fora faria a
+  // varredura automática reconferir, na abertura seguinte, um acervo inteiro
+  // que o operador acabou de mandar conferir.
+  await fundoDiscoMesclar(coll.id, vereditos);
+  if (orcamento) orcamento.conferidas += conferidas;
+  if (!rotinaDeAcervoPodeCorrer()) return 0;
+
+  // O TETO É DE BYTES (ver `FUNDO_REFAZER_MAX`). O que fica de fora NÃO recebe
+  // veredito: ele não foi perguntado, e carimbá-lo seria a mesma mentira que a
+  // varredura de cifras recusa gravar sobre um `sem-rede`. Ele volta na passada
+  // seguinte, à frente da fila, porque a fila é justamente "quem não tem
+  // resposta".
+  let aFazer = alvos;
+  if (orcamento) {
+    aFazer = alvos.slice(0, Math.max(0, orcamento.refazer));
+    orcamento.refazer -= aFazer.length;
+    orcamento.adiadas += alvos.length - aFazer.length;
+  }
+  if (!aFazer.length) return 0;
 
   imagensSyncRodando = true;
-  const notifId = bgTaskStart('Fundos da letra — ' + coll.name, alvos.length);
+  const notifId = bgTaskStart('Fundos da letra — ' + coll.name, aFazer.length);
   let done = 0;
   let refeitas = 0;
   try {
     await withBgRotina(async () => {
       try {
-        await runLimited(alvos, NET_CONCURRENCY, async (s) => {
+        await runLimited(aFazer, NET_CONCURRENCY, async (s) => {
           if (!rotinaDeAcervoPodeCorrer()) return;
           bgItemStart(notifId, s.name);
           try {
@@ -19708,13 +19935,29 @@ async function syncImagensColecao(coll, opts) {
             // imagens por URL, as duas variantes, o censo do acervo e a
             // gravação do registro. O que `refazerLetra` muda é UMA guarda —
             // ver `ensureSongVariant`.
-            await downloadCollectionSong(coll, s, { refazerLetra: true });
+            //
+            // O objeto é NOVO a cada faixa: `metaOk` é a resposta desta
+            // pergunta, e seis faixas correm ao mesmo tempo.
+            const o = { refazerLetra: true };
+            await downloadCollectionSong(coll, s, o);
             // CONFERIDO NO DISCO, nunca pelo retorno: aquele responde pelo
             // ÁUDIO (é a conta de variantes da v1.9.13) e volta `true` para uma
             // faixa que continua sem fundo nenhum. Contar por ele faria esta
             // rotina anunciar que recuperou o que não recuperou, que é
             // exatamente o defeito que a v1.9.13 tirou do download.
-            if (!(await faltaFundoNaFaixa(s))) refeitas++;
+            const tem = !(await faltaFundoNaFaixa(s));
+            if (tem) refeitas++;
+            // E O VEREDITO SÓ É GRAVADO SE A PERGUNTA CHEGOU A SER FEITA
+            // (`metaOk`). Sem rede, `downloadCollectionSong` volta antes de
+            // tocar em imagem nenhuma: gravar `tem: false` ali seria carimbar
+            // o prazo inteiro de silêncio sobre uma pergunta que ninguém fez — a
+            // regra que a varredura de cifras escreveu para o `sem-rede`.
+            // Os ids são lidos DEPOIS da chamada: `ensureSongVariant` apaga
+            // do índice o id que não resolve mais, e o veredito tem de falar
+            // dos arquivos que a faixa tem AGORA.
+            if (o.metaOk) {
+              vereditos[s.id_music] = { v: FUNDO_VEREDITO_VERSAO, ids: fundoIdsDaFaixa(s), em: Date.now(), tem };
+            }
           } catch (_) { /* a passada seguinte tenta de novo */ }
           finally { bgItemEnd(notifId, s.name); }
           bgTaskStep(notifId, ++done);
@@ -19723,6 +19966,10 @@ async function syncImagensColecao(coll, opts) {
     });
   } finally {
     imagensSyncRodando = false;
+    // OS VEREDITOS DA REFEITURA, no `finally` porque uma passada interrompida
+    // no meio aprendeu o que aprendeu — e reperguntar o que já foi respondido é
+    // o custo que este arquivo existe para não pagar.
+    await fundoDiscoMesclar(coll.id, vereditos);
     // As marcas `semImagem` são escritas no índice em memória — sem esta
     // gravação elas morrem com a página e a passada seguinte revarre tudo.
     try { await AVDB.setState('coll:' + coll.id, collState[coll.id]); }
@@ -19732,7 +19979,58 @@ async function syncImagensColecao(coll, opts) {
     updateCollBytes(coll.id);
     refreshCollectionsIfVisible();
   }
+  if (orcamento) orcamento.refeitas += refeitas;
   return refeitas;
+}
+
+/**
+ * A VARREDURA AUTOMÁTICA DOS FUNDOS — a irmã do `syncCifrasAcervo`.
+ *
+ * Ela existe porque o caminho à mão não alcança quem mais precisa dele: o botão
+ * de sincronizar só é desenhado com a coleção INCOMPLETA, e o defeito do fundo
+ * vive justamente na coleção COMPLETA. É a mesma lição da v1.1.30, que tirou as
+ * cifras de dentro do download pelo mesmo motivo e com a mesma medida
+ * (`0 de 601` depois de o operador sincronizar).
+ *
+ * **O ORÇAMENTO É DO ACERVO INTEIRO**, não de cada coleção — ver
+ * `FUNDO_REFAZER_MAX`. A CONFERÊNCIA não tem teto de propósito: ela é local, e
+ * é ela que leva o veredito ao disco; limitá-la faria o estado estável (a
+ * passada que não custa nada) demorar dezenas de aberturas a chegar, que é o
+ * oposto da *"verificação rápida"* pedida.
+ *
+ * Uma coleção sem NADA baixado fica de fora, como no `syncCifrasAcervo`: não é
+ * acervo do operador, e conferir o catálogo inteiro seria leitura de disco por
+ * música que ninguém tem.
+ */
+async function syncFundosAcervo() {
+  const agora = Date.now();
+  if (agora < fundosProximaPassadaEm) return;
+  // A PASSADA QUE NÃO PODE CORRER NÃO ARMA O PISO. As duas guardas moram
+  // também dentro de `syncImagensColecao`, mas é AQUI que elas têm de vir antes
+  // do carimbo: no culto o operador volta ao app dezenas de vezes com a mídia
+  // no ar, e cada volta que só cedesse a vez empurraria o piso meia hora para
+  // a frente — a varredura só voltaria a correr meia hora depois da ÚLTIMA
+  // troca de app, e não da última passada.
+  if (!rotinaDeAcervoPodeCorrer() || networkType() === 'cellular') return;
+  fundosProximaPassadaEm = agora + FUNDO_PASSO_MS;
+  const orcamento = { refazer: FUNDO_REFAZER_MAX, refeitas: 0, conferidas: 0, adiadas: 0 };
+  const alvos = allCollections().filter((c) => c.kind !== 'serie' && countDownloaded(c.id) > 0);
+  for (const c of alvos) {
+    if (!rotinaDeAcervoPodeCorrer()) break;
+    // A COLEÇÃO EM DOWNLOAD FICA DE FORA: o `syncCollection` dela já chama o
+    // backfill no fim, com o `pular` do que acabou de tentar. Entrar aqui ao
+    // mesmo tempo buscaria a mesma faixa duas vezes e contaria duas falhas no
+    // censo onde houve uma tentativa — e a bandeira `imagensSyncRodando` só
+    // sobe DEPOIS da conferência, então ela não fecha essa janela sozinha.
+    if (ui(c.id).syncBusy) continue;
+    await syncImagensColecao(c, { auto: true, orcamento }).catch(() => {});
+  }
+  // O RETRATO DA PASSADA, e ele só é guardado quando houve o que dizer: uma
+  // linha de zeros é mais uma para ler em toda cópia do Registro (a regra do
+  // `ytCenso`). Quem o lê é o bloco "Fundos da letra".
+  if (orcamento.conferidas || orcamento.refeitas || orcamento.adiadas) {
+    fundosUltimaPassada = { em: agora, ...orcamento };
+  }
 }
 
 // Baixa (ou completa) uma música: busca os metadados individuais (URLs reais) e
@@ -19815,6 +20113,18 @@ async function downloadCollectionSong(coll, s, opts) {
   let meta;
   try { meta = await Louvorja.fetchList('music_' + s.id_music); }
   catch (_) { return false; } // sem rede agora; a próxima sincronização tenta de novo
+  // "A PERGUNTA CHEGOU A SER FEITA?" (v1.10.6) — e é ela que o veredito dos
+  // fundos grava (ver `fundoNoDiscoVale`). Sem esta linha a varredura automática
+  // não tem como separar *"tentei e continua sem fundo"* de *"a rede caiu antes
+  // de eu perguntar"*, e carimbar a segunda como resposta é o que a varredura de
+  // cifras proíbe por escrito: gravar um `sem-rede` como veredito é responder
+  // por uma pergunta que ninguém fez — e custa o prazo inteiro de revisita.
+  //
+  // O campo é do CHAMADOR, num objeto POR FAIXA, e nunca um contador
+  // compartilhado: `runLimited` roda seis faixas ao mesmo tempo, e um contador
+  // global faria a resposta de uma valer pela outra numa rede intermitente,
+  // que é justamente a rede em que a distinção importa.
+  if (opts) opts.metaOk = true;
 
   // ===== "A ORIGEM NÃO PUBLICA IMAGEM" É UM ESTADO, NÃO UMA FALHA (v1.9.15) =====
   //
@@ -26841,6 +27151,110 @@ function blocoAcervo() {
   return 'Download do acervo\n' + linhas.join('\n');
 }
 
+/**
+ * OS FUNDOS DA LETRA — o que a varredura automática já respondeu (v1.10.6).
+ *
+ * A pergunta que ele responde é a do operador: *"as fotos atrás da letra vão
+ * aparecer no sábado?"*. Ela não tinha onde ser respondida — a linha da
+ * Verificação do Sistema diz quantas de uma AMOSTRA estão sem fundo, e uma
+ * amostra não diz se alguém está trabalhando naquilo.
+ *
+ * **A PORTA PERGUNTA PELO QUE O BLOCO DESCREVE** (a regra da v1.9.16, nascida
+ * de um bloco que sumia justamente no caso que ele existia para explicar): ele
+ * abre quando há MÚSICA BAIXADA, e não quando uma passada aconteceu. Um
+ * aparelho que ainda não teve passada nenhuma é exatamente o que precisa
+ * aparecer aqui.
+ *
+ * **E ELE É RESUMO, NÃO LISTAGEM.** O bloco das cifras imprime uma linha por
+ * coleção e no aparelho do relato isso são 150 linhas; repetir o formato aqui
+ * enterraria os dois. As contagens são do ACERVO, e o detalhe por coleção sai
+ * só para quem tem pendência, com o corte DITO.
+ */
+async function blocoFundos() {
+  const alvos = allCollections().filter((c) => c.kind !== 'serie' && countDownloaded(c.id) > 0);
+  if (!alvos.length) return '';
+  const agora = Date.now();
+  let baixadas = 0;
+  let com = 0;
+  let sem = 0;
+  let porConferir = 0;
+  let semFonte = 0;
+  const pendentes = [];
+  for (const c of alvos) {
+    let guardado = {};
+    try { guardado = (await AVDB.getState(fundoChave(c.id))) || {}; } catch (_) { guardado = {}; }
+    let semDaColecao = 0;
+    for (const s of collSongs(c.id)) {
+      if (!s.fileIdFull && !s.fileIdPlayback) continue;
+      baixadas++;
+      // "A ORIGEM NÃO PUBLICA FOTO" É UM ESTADO, não uma pendência (a regra
+      // `semFonte` da v5.134): somá-lo às que faltam faria o número prometer
+      // fundos que não existem em lugar nenhum.
+      if (s.semImagem) { semFonte++; continue; }
+      // E QUEM DIZ SE UMA ENTRADA AINDA VALE É `fundoNoDiscoVale`, a MESMA
+      // função com que a varredura monta a fila. Uma segunda conta escrita aqui
+      // passaria a discordar do aparelho no oitavo dia — o log que discorda do
+      // aparelho, lido A DISTÂNCIA, é o pior artefato deste projeto.
+      const v = guardado[s.id_music];
+      if (!fundoNoDiscoVale(v, s, agora)) { porConferir++; continue; }
+      if (v.tem) com++;
+      else { sem++; semDaColecao++; }
+    }
+    if (semDaColecao) pendentes.push({ nome: c.name, n: semDaColecao });
+  }
+  const linhas = [];
+  // A FONTE É DECLARADA: estas contas são o que a VARREDURA registrou, não uma
+  // leitura do disco — a v1.10.5 mediu que varrer o disco inteiro não cabe no
+  // prazo num acervo de 2,6 GB, e o `renderDiag` roda duas vezes por cópia.
+  // Quem lê o disco é a linha "As letras têm a imagem de fundo" da Verificação.
+  // **Apagar esta linha faz as duas parecerem discordar sem explicação.**
+  linhas.push('(pelo que a varredura registrou — quem lê o disco é a Verificação do Sistema)');
+  // O DENOMINADOR VIAJA COM A CONTA: *"0 sem fundo"* lê-se como "está tudo bem"
+  // tanto onde as três mil chegaram quanto onde nenhuma foi conferida.
+  linhas.push(baixadas + ' música(s) baixada(s): ' + com + ' com fundo · ' + sem
+    + ' sem fundo (repergunto em ' + Math.round(FUNDO_REVISITA_MS / 86400000) + ' dias) · ' + porConferir + ' por conferir'
+    + (semFonte ? ' · ' + semFonte + ' sem foto na origem' : ''));
+  if (pendentes.length) {
+    pendentes.sort((a, b) => b.n - a.n);
+    linhas.push('  sem fundo, por coleção: '
+      + pendentes.slice(0, FUNDO_PENDENTES_MAX).map((x) => x.nome + ': ' + x.n).join(' · ')
+      + (pendentes.length > FUNDO_PENDENTES_MAX
+        ? ' … e mais ' + (pendentes.length - FUNDO_PENDENTES_MAX) : ''));
+  }
+  // A ÚLTIMA PASSADA. Sem ela, *"1034 por conferir"* é um mistério que volta a
+  // cada cópia: é esta linha que diz que alguém está trabalhando naquilo, e
+  // quanto por vez. **O CORTE É DITO** — `adiadas` é o teto de bytes agindo, e
+  // um teto silencioso se lê como "a varredura desistiu".
+  if (fundosUltimaPassada) {
+    const u = fundosUltimaPassada;
+    linhas.push('  última passada (' + new Date(u.em || 0).toLocaleString('pt-BR') + '): '
+      + u.conferidas + ' conferida(s), ' + u.refeitas + ' refeita(s)'
+      + (u.adiadas ? ', ' + u.adiadas + ' adiada(s) pelo teto de ' + FUNDO_REFAZER_MAX
+        + ' por passada' : ''));
+  } else {
+    linhas.push('  nenhuma passada automática nesta sessão ainda');
+  }
+  // A REDE QUE O APARELHO DIZ TER. O Registro não a imprimia em lugar nenhum,
+  // e sem ela *"os fundos não chegam"* num aparelho em dados móveis é
+  // indistinguível de uma rotina quebrada. `unknown` sai como está: é a
+  // resposta de boa parte dos Androids, e a rotina CORRE nele (a guarda só
+  // barra `cellular` — ver `syncImagensColecao`).
+  linhas.push('  rede informada pelo aparelho: ' + networkType());
+  // POR QUE ELA NÃO ESTÁ CORRENDO AGORA, quando não está. As três causas pedem
+  // ações opostas — esperar, achar um Wi-Fi, ou nada —, e um silêncio único
+  // sobre as três manda procurar defeito onde não há.
+  if (networkType() === 'cellular') {
+    linhas.push('  em rede móvel a varredura NÃO corre — as fotos pesam, e o plano de '
+      + 'dados não é o lugar delas');
+  } else if (!rotinaDeAcervoPodeCorrer()) {
+    linhas.push('  com mídia no ar ela cede a vez — recomeça sozinha quando a cena sair');
+  } else if (agora < fundosProximaPassadaEm) {
+    linhas.push('  a próxima passada pode correr a partir de '
+      + new Date(fundosProximaPassadaEm).toLocaleTimeString('pt-BR'));
+  }
+  return 'Fundos da letra (as fotos atrás da letra)\n' + linhas.join('\n');
+}
+
 function blocoColetaneas() {
   if (!window.AVColetanea) return '';
   const cats = (albumCatalog && albumCatalog.categories) || [];
@@ -27547,7 +27961,21 @@ const TESTES = [
       }
       if (!comLetra) return tNa('nenhuma das conferidas tem letra sincronizada');
       if (semFundo) {
-        return tFalhou(semFundo + ' de ' + comLetra + ' sem fundo — toque em sincronizar na coleção');
+        // A NOTA MANDAVA TOCAR NUM BOTÃO QUE NÃO EXISTE (v1.10.6). Ela dizia
+        // *"toque em sincronizar na coleção"*, e o operador respondeu o que o
+        // código confirma: `if ((u.syncBusy || !complete) …)` — o botão de
+        // baixar só é desenhado com a coleção INCOMPLETA, que é justamente o
+        // estado em que este defeito NÃO mora. **Uma instrução que o aparelho
+        // não pode cumprir é pior que nenhuma**: ele procura o botão, não
+        // acha, e conclui que a folha não sabe do que está falando.
+        //
+        // As DUAS frases existem porque pedem ações opostas: numa rede móvel
+        // ele precisa achar um Wi-Fi; fora dela não há o que fazer além de
+        // deixar o app aberto.
+        const comoEstaARede = networkType() === 'cellular'
+          ? ' — o app refaz sozinho num Wi-Fi, e agora está em rede móvel, onde as fotos não são buscadas'
+          : ' — o app já refaz sozinho, um punhado por vez, com o aparelho num Wi-Fi';
+        return tFalhou(semFundo + ' de ' + comLetra + ' sem fundo' + comoEstaARede);
       }
       return tOk(comLetra + ' com fundo');
     },
@@ -28772,6 +29200,14 @@ async function renderDiag() {
   // Separá-los por oitenta linhas faria o operador copiar o Registro duas vezes.
   const bac = blocoAcervo();
   if (bac) blocos.push(bac);
+  // OS FUNDOS DA LETRA vêm COLADOS no download do acervo, e não noutro canto:
+  // as duas perguntas são a mesma dividida em duas metades — *"o que não chegou
+  // ao aparelho?"* (acima) e *"as fotos atrás da letra já chegaram, e alguém
+  // está trabalhando nisso?"* (aqui). Ele é `await` porque lê o veredito de
+  // cada coleção, como o bloco das cifras.
+  const bfun = await blocoFundos();
+  if (meu !== diagSeq) return;   // outro render assumiu durante a espera
+  if (bfun) blocos.push(bfun);
   // O LADO DO SHELL vem ANTES de montar o bloco, e é `await` como as outras
   // leituras de ponte deste render. Ele é o único que sabe se há um pronto no
   // disco e o que o seletor respondeu.
