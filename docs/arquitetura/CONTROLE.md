@@ -7131,6 +7131,17 @@ verdade. **O oráculo não alcança nenhuma das três** — ele roda num Chromiu
 sem ponte, com OPFS vazio e sem saída para a rede. Linha nova é dada por boa
 depois de uma rodada no aparelho, não antes.
 
+**O VERMELHO É SOBRE O QUE O OPERADOR USA, E A NOTA MANDA A AÇÃO QUE FECHA O
+ESTADO** (v1.10.7, a terceira revisão adversarial, sobre as sete linhas da
+v1.10.4). Quatro das linhas erravam por essas duas regras:
+
+| linha | o que errava | como ficou |
+|---|---|---|
+| `biblia-completa` | reprovava por QUALQUER versão marcada — e o caso típico é a emparedada FORA de uso, porque o excluir é apagado sobre a em uso | só a versão EM USO reprova; a outra sai como AVISO na linha verde. E a auto-cura (`ensureBibleVersionDownloaded` confere a bandeira contra `bibliaCapitulosLegiveis` uma vez por sessão) dá à nota uma ação só: abrir a Bíblia com internet |
+| `cifra-acervo` | só reprovava em ZERO folhas, e a folha nunca vence — as guardadas antes de o site mudar seguravam o verde | reprova abaixo de METADE do que o acervo já respondeu (medido: os hinários respondem acima de 95%), e a frase diz os DOIS denominadores, porque o bloco de cifras do Registro divide pelo hinário inteiro no mesmo arquivo |
+| `listas-*` | deixavam a PLAYLIST de fora e punham no lugar a prateleira `avulsos`, sem tela onde agir | `LISTAS_DA_VERIFICACAO`: a tríade dos destinos, uma tabela para as duas linhas |
+| `pastas-contagem` | uma frase para as duas direções — e na de "mostra a mais" mandar sincronizar TRAZIA DE VOLTA o que o operador acabou de excluir | três direções com três ações, e a conta com denominador. A causa de "a cópia parou" sobre uma cópia inteira era de ORIGEM: `syncDeviceFolder` escrevia a contagem numa referência que o `load()` tinha trocado (`pastaNaLista`) |
+
 **E UMA CHECAGEM QUE NUNCA TEM RESPOSTA SAI DA TABELA, não vira `na` fixo.** O
 relatório é lido inteiro, e uma linha que só sabe dizer *"não se aplica"* é mais
 uma para ler em toda cópia — a mesma regra do Registro, que só imprime um bloco
@@ -7194,7 +7205,8 @@ com `updateState`, a lição do `275 de 601 → 0` das cifras):
 | `metaOk` | só se grava veredito da refeitura se o `music_{id}` CHEGOU — num objeto POR FAIXA | sem rede a pergunta nem foi feita; carimbá-la custaria o prazo inteiro. Compartilhado, a resposta de uma faixa valeria pela vizinha |
 | `estadoDoFundo` | três desfechos: `'tem'`, `'falta'` e `'?'` (registro sem `lyrics`, leitura que lançou); `'?'` não vira veredito | colapsado em "não falta", ele gravava um `tem` PERMANENTE sem ter visto fundo — e o registro antigo recebe a letra depois, com o mesmo id |
 | rede | a passada automática só corre num Wi-Fi CONFIRMADO, e cede a um download PEDIDO | fotos que ninguém pediu agora; o impedimento é DITO (`fundosImpedimento`, a mesma função da porta, do Registro e da Verificação) |
-| teto | 60 faixas refeitas por passada, do ACERVO inteiro | o custo é de bytes (fotos); por coleção seriam 69 × 60 |
+| teto | NENHUM desde a v1.10.7 — a passada refaz tudo o que falta; as CONTAS são do acervo inteiro | pedido do operador (*"se ele achar necessário, ele verifica e atualiza toda a biblioteca baixada"*); o preço é a primeira passada puxar de uma vez as fotos que faltam, num Wi-Fi confirmado |
+| fonte muda | doze perguntas sem metadado e nenhuma com: a passada PARA (`FUNDO_FONTE_MUDA`), e o Registro diz | sem teto, mil faixas com a fonte fora do ar seriam mil falhas a cada passada |
 | conferência | SEM teto | é local, e é ela que leva o veredito ao disco — limitá-la atrasaria o estado estável (zero leituras) em dezenas de aberturas |
 | piso | 30 min entre passadas; a que CEDE a vez não o arma | o `autoRefreshCollections` roda em todo `visibilitychange` |
 | ordem | no fio de `syncLyrics`, DEPOIS dela, e cada uma CEDE à outra por bandeira | mesmo host (`music_{id}`); o encadeamento só serializa a primeira chamada, e uma volta ao app com a outra no ar juntaria as duas |

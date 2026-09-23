@@ -706,9 +706,17 @@ try {
     const zerada = await rodarUmaChecagem(achada);
     opfsFolders = [{ id: 'p1', name: 'Vídeos do culto', count: 2 }];
     const errada = await rodarUmaChecagem(achada);
+    // N1b · A OUTRA DIREÇÃO: mostra MAIS do que tem. Só a exclusão apaga
+    // registro de pasta, então é ela que parou no meio — e sincronizar ali
+    // traria de volta o que o operador acabou de mandar embora.
+    opfsFolders = [{ id: 'p1', name: 'Vídeos do culto', count: 8 }];
+    const aMais = await rodarUmaChecagem(achada);
+    // N1c · DUAS PASTAS FORA DE DIA: a frase era a mesma de uma, byte a byte.
+    opfsFolders = [{ id: 'p1', name: 'Vídeos do culto', count: 2 }, { id: 'p2', name: 'Fotos', count: 1 }];
+    const duas = await rodarUmaChecagem(achada);
     opfsFolders = []; const semPasta = await rodarUmaChecagem(achada);
     AVDB.filesByFolder = fbf; opfsFolders = guardado; syncBusy = busy;
-    return { certo, zerada, errada, semPasta };
+    return { certo, zerada, errada, aMais, duas, semPasta };
   });
   checar(pastas.certo.v === 'ok' && pastas.semPasta.v === 'na',
     'N1 · pasta em dia passa, e um aparelho sem pasta nenhuma sai NÃO SE APLICA — a pergunta não '
@@ -716,9 +724,56 @@ try {
   checar(pastas.zerada.v === 'falhou' && /zero o app não percebe/.test(pastas.zerada.nota),
     'N1 · e a pasta que MOSTRA ZERO e tem cinco reprova nomeando o preço: com o número em zero o '
     + 'app não pede a pasta de novo quando ela para de responder', JSON.stringify(pastas.zerada));
-  checar(pastas.errada.v === 'falhou' && /mostra 2 e tem 5/.test(pastas.errada.nota),
-    'N1 · e a contagem só errada reprova com os DOIS números — "a cópia parou no meio" é outra '
-    + 'ação que "toque em sincronizar porque o zero desarma o resgate"', JSON.stringify(pastas.errada));
+  checar(pastas.errada.v === 'falhou' && /mostra 2 e tem 5/.test(pastas.errada.nota)
+    && /a cópia parou no meio/.test(pastas.errada.nota),
+    'N1 · e a contagem A MENOS reprova com os DOIS números — a cópia parou no meio, e sincronizar '
+    + 'a completa', JSON.stringify(pastas.errada));
+  checar(pastas.aMais.v === 'falhou' && /exclusão da pasta parou no meio/.test(pastas.aMais.nota)
+    && !/sincronizar/.test(pastas.aMais.nota),
+    'N1b · e a contagem A MAIS manda EXCLUIR de novo, nunca sincronizar: só a exclusão apaga registro '
+    + 'de pasta, e sincronizar traria de volta o que o operador acabou de tirar', JSON.stringify(pastas.aMais));
+  checar(pastas.duas.v === 'falhou' && /^2 de 2 pasta\(s\) fora de dia/.test(pastas.duas.nota)
+    && /\(e mais 1\)/.test(pastas.duas.nota) && /em cada uma/.test(pastas.duas.nota),
+    'N1c · e DUAS pastas fora de dia dizem quantas, com o denominador — uma e todas imprimiam a mesma '
+    + 'frase, e o segundo toque descobria o que o primeiro já tinha visto', JSON.stringify(pastas.duas));
+
+  // N1d · A CAUSA DE ORIGEM: um `load()` no meio da sincronização troca
+  // `opfsFolders` por objetos NOVOS lidos do disco, e a contagem era escrita
+  // na referência VELHA. A pasta terminava inteira e a tela mostrava o número
+  // do último ponto de controle — medido: "mostra 0 e tem 30". A troca aqui é
+  // a MESMA que o `load()` faz com a lista (ler do disco, objetos novos), sem
+  // o resto do `load()`, que não é o que se mede.
+  const troca = await pg.evaluate(async () => {
+    const nat = window.__NATIVE__; const busy = syncBusy; const origem = window.openFolderSource;
+    window.__NATIVE__ = false; syncBusy = false;
+    const nome = 'Pasta da troca';
+    const entries = Array.from({ length: 30 }, (_, i) => ({
+      name: 'faixa-' + i + '.mp3',
+      stat: async () => ({ size: 100 + i, mtime: 1 }),
+      read: async () => {
+        if (i === 10) opfsFolders = JSON.parse(JSON.stringify((await AVDB.getState('opfs-folders')) || []));
+        return new Blob([new Uint8Array(16)], { type: 'audio/mpeg' });
+      },
+    }));
+    window.openFolderSource = async () => ({ name: nome, entries });
+    try { await syncDeviceFolder(null, null); } finally { window.openFolderSource = origem; }
+    const noDisco = ((await AVDB.getState('opfs-folders')) || []).find((x) => x && x.name === nome);
+    const n = noDisco ? (await AVDB.filesByFolder(noDisco.id)).length : -1;
+    const r = { mostra: noDisco ? noDisco.count : null, tem: n };
+    // LIMPA O QUE CRIOU: registros, arquivos e a entrada da pasta.
+    if (noDisco) {
+      await purgeCatalogRecords(await AVDB.filesByFolder(noDisco.id));
+      await AVDB.opfsDeleteDir('folders/' + noDisco.id).catch(() => {});
+      opfsFolders = opfsFolders.filter((x) => x.id !== noDisco.id);
+      await AVDB.setState('opfs-folders', opfsFolders);
+    }
+    window.__NATIVE__ = nat; syncBusy = busy;
+    return r;
+  });
+  checar(troca.tem === 30 && troca.mostra === 30,
+    'N1d · com um `load()` no meio da cópia, a pasta que terminou inteira MOSTRA o que tem — a contagem '
+    + 'vai para a pasta que está na lista agora, não para a referência que atravessou o laço',
+    JSON.stringify(troca));
 
   // N2 · A BÍBLIA EMPAREDADA. A bandeira e o texto são o mesmo fato em dois
   // lugares, e nada os mantém juntos: com a bandeira de pé sobre um banco
@@ -727,9 +782,11 @@ try {
   const biblia = await pg.evaluate(async () => {
     const achada = TESTES.find((c) => c.id === 'biblia-completa');
     const gs = AVDB.getState; const sk = AVDB.stateKeys;
-    const vs = bibleVersions; const bb = bibleBooksOnline;
+    const vs = bibleVersions; const bb = bibleBooksOnline; const vid = bibleVersionId;
     bibleVersions = [{ id: 1, name: 'Almeida Revista' }];
     bibleBooksOnline = null;
+    // A VERSÃO EM USO É A MARCADA: é a única que reprova desde a v1.10.7.
+    bibleVersionId = 1;
     AVDB.getState = async (k) => (k === 'bibleComplete:1' ? true : (k === 'bibleBooks' ? null : null));
     // o banco INTEIRO no lugar
     const todas = [];
@@ -746,19 +803,75 @@ try {
     AVDB.getState = async () => null;
     AVDB.stateKeys = async () => todas.slice();
     const semBandeira = await rodarUmaChecagem(achada);
-    AVDB.getState = gs; AVDB.stateKeys = sk; bibleVersions = vs; bibleBooksOnline = bb;
-    return { completa, vazia, furada, semBandeira, total: todas.length };
+    // N2b · A EMPAREDADA FORA DE USO — o caso TÍPICO, porque o excluir é
+    // apagado sobre a versão em uso. A do púlpito (1) está inteira; a 2 tem a
+    // bandeira de pé sobre o banco vazio.
+    bibleVersions = [{ id: 1, name: 'Almeida Revista' }, { id: 2, name: 'NVI' }];
+    AVDB.getState = async (k) => (k === 'bibleComplete:1' || k === 'bibleComplete:2' ? true : null);
+    AVDB.stateKeys = async () => todas.slice();
+    const foraDeUso = await rodarUmaChecagem(achada);
+    AVDB.getState = gs; AVDB.stateKeys = sk; bibleVersions = vs; bibleBooksOnline = bb; bibleVersionId = vid;
+    return { completa, vazia, furada, semBandeira, foraDeUso, total: todas.length };
   });
   checar(biblia.completa.v === 'ok' && biblia.semBandeira.v === 'na',
     'N2 · PREMISSA: com os ' + biblia.total + ' capítulos no lugar ela passa, e sem versão marcada '
     + 'ela não se pronuncia', JSON.stringify([biblia.completa, biblia.semBandeira]));
-  checar(biblia.vazia.v === 'falhou' && /não volta a baixar sozinha/.test(biblia.vazia.nota),
-    'N2 · a versão EMPAREDADA reprova — bandeira de pé, zero capítulos — e a nota manda escolher '
-    + 'OUTRA versão, porque nesta o botão de excluir nem é desenhado', JSON.stringify(biblia.vazia));
+  checar(biblia.vazia.v === 'falhou' && /versão em uso/.test(biblia.vazia.nota)
+    && /abra a Bíblia com internet/.test(biblia.vazia.nota),
+    'N2 · a versão EM USO emparedada reprova — bandeira de pé, zero capítulos — e a nota manda abrir '
+    + 'a Bíblia com internet: desde a v1.10.7 o app confere a bandeira e baixa de novo o que falta',
+    JSON.stringify(biblia.vazia));
   checar(biblia.furada.v === 'falhou' && /faltam 1 de /.test(biblia.furada.nota)
-    && /exclua esta versão/.test(biblia.furada.nota),
-    'N2 · e um ÚNICO capítulo faltando reprova com outra ação: ali há o que excluir, e a conta diz '
-    + 'quantos', JSON.stringify(biblia.furada));
+    && /abra a Bíblia com internet/.test(biblia.furada.nota),
+    'N2 · e um ÚNICO capítulo faltando reprova com a MESMA ação e a conta dizendo quantos — as duas '
+    + 'frases de antes dependiam de uma régua (a presença de qualquer chave) que não era a da linha',
+    JSON.stringify(biblia.furada));
+  checar(biblia.foraDeUso.v === 'ok' && /NVI consta como completa e faltam/.test(biblia.foraDeUso.nota)
+    && /não é a versão em uso/.test(biblia.foraDeUso.nota),
+    'N2b · e a emparedada FORA DE USO não pinta a linha de vermelho sobre a Bíblia do púlpito inteira '
+    + '— ela sai como AVISO na linha verde, dizendo que escolhida ela é baixada de novo',
+    JSON.stringify(biblia.foraDeUso));
+
+  // N2c · A AUTO-CURA (v1.10.7): a bandeira de pé sobre o banco vazio é
+  // CONFERIDA na primeira chamada da sessão e rebaixada. Sem isto a versão
+  // nunca mais era baixada — `ensureBibleVersionDownloaded` devolvia cedo na
+  // bandeira, e o `Set` que `ensureBibleMeta` semeia do disco a confirmava.
+  const cura = await pg.evaluate(async () => {
+    const vid = 777;
+    const guard = bibleDl;
+    // SEM PONTE, de propósito: com `__NATIVE__` ligado por um bloco anterior e
+    // nenhum `AVNative` de verdade, o `bgWorkBegin` do download LANÇA antes do
+    // `try` do `withBgWork` e deixa a contagem de trabalho PEDIDO presa — o
+    // que calaria a varredura dos fundos no bloco P, bem longe daqui.
+    const nat = window.__NATIVE__; const [bw, br] = [bgWorkCount, bgRotinaCount];
+    window.__NATIVE__ = false;
+    await AVDB.setState('bibleComplete:' + vid, true);
+    await AVDB.stateApagarPrefixo('bible:' + vid + '_');
+    bibleCompleteVersions.add(vid);                 // o Set semeado do disco
+    bibliaConferidaNaSessao.delete(vid);
+    // A REDE FORA: o download que se segue desiste nas falhas seguidas; o que
+    // se mede é a BANDEIRA, antes de ele começar.
+    const fb = Bible.fetchChapter;
+    Bible.fetchChapter = async () => { throw new TypeError('Failed to fetch'); };
+    const prom = ensureBibleVersionDownloaded(vid);
+    // A bandeira é rebaixada antes da primeira ida à rede; espera-se pelo FATO.
+    let bandeira = true;
+    for (let i = 0; i < 100 && bandeira; i++) {
+      bandeira = !!(await AVDB.getState('bibleComplete:' + vid));
+      if (bandeira) await new Promise((r) => setTimeout(r, 20));
+    }
+    try { await prom; } catch (_) { /* a varredura sem rede desiste, e está certo */ }
+    Bible.fetchChapter = fb;
+    const noSet = bibleCompleteVersions.has(vid);
+    await AVDB.setState('bibleComplete:' + vid, null);
+    bibleDl = guard;
+    window.__NATIVE__ = nat; bgWorkCount = bw; bgRotinaCount = br;
+    return { bandeira, noSet };
+  });
+  checar(cura.bandeira === false && cura.noSet === false,
+    'N2c · a bandeira "completa" sobre um banco VAZIO é conferida na primeira chamada da sessão e '
+    + 'REBAIXADA — sem isto a versão ficava emparedada para sempre, e a linha acima não tinha o que '
+    + 'mandar fazer', JSON.stringify(cura));
 
   // N3 · A VERSÃO QUE ABRE NO PÚLPITO. O app garante offline a versão PADRÃO;
   // a leitura usa a ESCOLHA do operador. Com a rede da igreja fora a varredura
@@ -803,27 +916,36 @@ try {
     window.collSongs = () => hinos;
     window.countDownloaded = () => 40;
     const agora = Date.now();
-    const mapa = (comFolha) => {
+    const mapa = (nFolhas, ausencia) => {
       const o = {};
       hinos.forEach((h, i) => {
         const k = cifraChaveNoDisco(h.name);
-        if (k) o[k] = comFolha && i < 30 ? { pagina: '<html>', em: agora } : { semCifra: true, em: agora };
+        if (k) o[k] = i < nFolhas ? { pagina: '<html>', em: agora } : (ausencia || { semCifra: true, em: agora });
       });
       return o;
     };
-    AVDB.getState = async () => mapa(true);
+    AVDB.getState = async () => mapa(30);
     const comCifras = await rodarUmaChecagem(achada);
-    AVDB.getState = async () => mapa(false);   // o site mudou: NENHUMA folha
+    AVDB.getState = async () => mapa(0);       // o site mudou: NENHUMA folha
     const siteMudou = await rodarUmaChecagem(achada);
+    // N4b · O HINÁRIO PERDIDO COM FOLHAS SOBREVIVENTES. A folha nunca vence:
+    // as cinco guardadas antes de o site mudar ficam, e as trinta e cinco
+    // ausências novas se somam a elas. Só o zero reprovava — e cinco não é zero.
+    AVDB.getState = async () => mapa(5, { em: agora });
+    const sobreviventes = await rodarUmaChecagem(achada);
     AVDB.getState = async () => ({});          // nunca varrido
     const novo = await rodarUmaChecagem(achada);
     window.allCollections = ac; window.collSongs = cs;
     window.countDownloaded = cd; AVDB.getState = gs;
-    return { comCifras, siteMudou, novo };
+    return { comCifras, siteMudou, sobreviventes, novo };
   });
-  checar(cifra.comCifras.v === 'ok' && /30 de 40/.test(cifra.comCifras.nota),
-    'N4 · PREMISSA: com 30 folhas em 40 hinos julgados ela passa, e diz a proporção',
-    JSON.stringify(cifra.comCifras));
+  checar(cifra.comCifras.v === 'ok' && /30 cifras em 40 hinos já varridos \(de 40\)/.test(cifra.comCifras.nota),
+    'N4 · PREMISSA: com 30 folhas em 40 hinos julgados ela passa, e diz a proporção COM os dois '
+    + 'denominadores — "282 de 282" aqui e "282 de 601" no bloco de cifras, no mesmo arquivo salvo, '
+    + 'pareciam dois aparelhos', JSON.stringify(cifra.comCifras));
+  checar(cifra.sobreviventes.v === 'falhou' && /só 5 cifras em 40/.test(cifra.sobreviventes.nota),
+    'N4b · e CINCO folhas sobreviventes sobre trinta e cinco ausências reprova: a folha nunca vence, '
+    + 'então só-o-zero deixava a linha verde sobre o hinário perdido', JSON.stringify(cifra.sobreviventes));
   checar(cifra.siteMudou.v === 'falhou' && /NENHUMA cifra guardada/.test(cifra.siteMudou.nota),
     'N4 · e 40 hinos respondidos com ZERO folhas reprova: no hinário toda música tem cifra no '
     + 'site, então zero é o site que mudou — não o acervo que não tem', JSON.stringify(cifra.siteMudou));
@@ -832,7 +954,7 @@ try {
     + 'não vale, e reprovar ali seria vermelho em todo aparelho novo', JSON.stringify(cifra.novo));
 
   // N5 e N6 · AS TRÊS LISTAS DO OPERADOR. O `acervo-ids` varre as COLEÇÕES e
-  // não alcança o Cronograma, os Favoritos nem a prateleira. São dois degraus
+  // não alcança o Cronograma, a Playlist nem os Favoritos. São dois degraus
   // do MESMO caminho de quem executa — o id resolve? o registro tem bytes? —
   // e por isso duas linhas, com ações diferentes.
   const listas = await pg.evaluate(async () => {
@@ -855,8 +977,21 @@ try {
     const semCaminho = await rodarUmaChecagem(arq);
     AVDB.listIds = async () => [];
     const vazio = await rodarUmaChecagem(sumidas);
+    // N5b · A PLAYLIST — a lista que toca no culto — ficava FORA das duas
+    // linhas: ids mortos só nela saíam "nenhuma lista montada ainda".
+    AVDB.listIds = async (l) => (l === 'playlist' ? ['p1', 'p2'] : []);
+    AVDB.getMedia = async () => null;
+    const playlistMorta = await rodarUmaChecagem(sumidas);
+    AVDB.getMedia = async (id) => ({ id, name: 'Louvor ' + id, opfsPath: 'm/' + id + '.mp4' });
+    AVDB.opfsGetFile = async () => null;
+    const playlistSemArquivo = await rodarUmaChecagem(arq);
+    // E A PRATELEIRA `avulsos` SAIU: sem tela onde abrir, o remédio que a
+    // linha imprime não é executável — um vermelho sem ação.
+    AVDB.listIds = async (l) => (l === 'avulsos' ? ['v1'] : []);
+    AVDB.getMedia = async () => null;
+    const soAvulsos = await rodarUmaChecagem(sumidas);
     AVDB.listIds = li; AVDB.getMedia = gm; AVDB.opfsGetFile = og;
-    return { idsOk, arqOk, idSumido, semArquivo, semCaminho, vazio };
+    return { idsOk, arqOk, idSumido, semArquivo, semCaminho, vazio, playlistMorta, playlistSemArquivo, soAvulsos };
   });
   checar(listas.idsOk.v === 'ok' && listas.arqOk.v === 'ok' && listas.vazio.v === 'na',
     'N5 · PREMISSA: com as quatro linhas resolvendo e com arquivo, as duas passam; sem lista '
@@ -868,6 +1003,13 @@ try {
   checar(listas.semArquivo.v === 'falhou' && /sem o arquivo no aparelho/.test(listas.semArquivo.nota),
     'N6 · e o registro que resolve SEM os bytes reprova à parte: ali a linha está à vista e falha '
     + 'no toque, que é outra ação', JSON.stringify(listas.semArquivo));
+  checar(listas.playlistMorta.v === 'falhou' && /Playlist: 2/.test(listas.playlistMorta.nota)
+    && listas.playlistSemArquivo.v === 'falhou',
+    'N5b · a PLAYLIST entra nas duas linhas — ela é a lista que toca no culto, e ids mortos só nela '
+    + 'saíam "nenhuma lista montada ainda"', JSON.stringify([listas.playlistMorta, listas.playlistSemArquivo]));
+  checar(listas.soAvulsos.v === 'na',
+    'N5b · e a prateleira `avulsos` saiu: sem tela onde abrir, o remédio impresso não é executável ali',
+    JSON.stringify(listas.soAvulsos));
   checar(listas.semCaminho.v === 'na',
     'N6 · o que não guarda arquivo (cena de roteiro, link, apresentação) sai NÃO SE APLICA — '
     + 'perguntar pelo arquivo deles seria inventar um defeito', JSON.stringify(listas.semCaminho));
@@ -893,7 +1035,10 @@ try {
     AVDeck.elementoParaImagem = async () => null;
     const morta = await rodarUmaChecagem(achada);
     AVDeck.elementoParaImagem = orig;
-    const sobrou = document.querySelectorAll('canvas').length;
+    // O RASTRO DA RODADA NO DOM é o palco do desenhador, e o seletor é o dele
+    // (`deck.js`). Contar `canvas` media ZERO com seis palcos pendurados — a
+    // medida não podia reprovar nada.
+    const sobrou = document.querySelectorAll('[data-palco-de-slides]').length;
     return { real, branca, morta, sobrou };
   });
   checar(deck.real.v === 'ok',
@@ -903,9 +1048,13 @@ try {
     'N7 · e a página que sai SEM a imagem de fundo reprova: ela tem o tamanho certo, o número de '
     + 'páginas certo e não lança — é o DESFECHO que denuncia, por isso a imagem é RELIDA',
     JSON.stringify(deck.branca));
-  checar(deck.morta.v === 'falhou' && /não transformou um slide/.test(deck.morta.nota),
-    'N7 · e o desenhador que devolve nada reprova com a frase do operador: PDF e PowerPoint não '
-    + 'vão abrir', JSON.stringify(deck.morta));
+  checar(deck.morta.v === 'falhou' && /não transformou um slide/.test(deck.morta.nota)
+    && /PowerPoint/.test(deck.morta.nota) && !/PDF/.test(deck.morta.nota),
+    'N7 · e o desenhador que devolve nada reprova nomeando SÓ o PowerPoint — PDF e Google Apresentações '
+    + 'são desenhados pelo shell, e acusá-los mandava desconfiar do que funciona', JSON.stringify(deck.morta));
+  checar(deck.sobrou === 0,
+    'N7 · e as três rodadas (inclusive as duas que falham) não deixam palco pendurado no corpo — o '
+    + '`finally` do desenhador é o único ponto que o tira, e nada mais no app o varre', deck.sobrou);
 
   // ===== BLOCO O · O QUE O APARELHO DO OPERADOR RESPONDEU (v1.10.5) =====
   //

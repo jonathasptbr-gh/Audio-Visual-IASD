@@ -2568,7 +2568,12 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   (vermelho com a internet funcionando), a marca de persistência que um
   WebView não recebe (vermelho permanente sobre uma biblioteca intacta) e a
   varredura do disco que não cabe no prazo num acervo de 2,6 GB. **Linha nova
-  só é dada por boa depois de uma cópia do Registro DELE.** Os
+  só é dada por boa depois de uma cópia do Registro DELE.** **E O VERMELHO É
+  SOBRE O QUE O OPERADOR USA, com a nota mandando a ação que FECHA o estado**
+  (v1.10.7): a Bíblia reprova pela versão EM USO (a emparedada fora de uso é
+  aviso), e a pasta que "mostra a mais" manda EXCLUIR de novo — sincronizar ali
+  trazia de volta o que ele acabou de tirar. O detalhe está no capítulo do
+  Controle, "A Verificação do Sistema". Os
   três primeiros o operador pediu; **o quarto é o que impede a parede
   vermelha** — sem ele um celular sem TV reprova todo o telão e um aparelho
   novo reprova toda a Biblioteca, e em duas rodadas ele aprende que o vermelho
@@ -2676,10 +2681,13 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   (`metaOk`, um objeto POR FAIXA; sem rede a pergunta nem foi feita) **e quando
   o registro foi VISTO** (`estadoDoFundo` tem três desfechos: `'?'` — registro
   sem `lyrics`, leitura que lançou — nunca vira `tem: true`, que seria
-  permanente). O custo é de BYTES, não de leituras: a conferência não tem teto
-  (é ela que leva o veredito ao disco); a REDE tem teto de 60 faixas por
-  passada do acervo inteiro e piso de 30 min entre passadas — e **a passada que
-  cede a vez não arma o piso**. Ela só corre num **Wi-Fi CONFIRMADO** (a regra
+  permanente). **NÃO HÁ TETO POR PASSADA** (v1.10.7, revogando os 60 da
+  v1.10.6 a pedido do operador: *"se ele achar necessário, ele verifica e
+  atualiza toda a biblioteca baixada"*): o que limita é o que NÃO é trabalho
+  necessário — o veredito (o que já respondeu não é reperguntado), o prazo da
+  ausência, e o DISJUNTOR da fonte muda (`FUNDO_FONTE_MUDA`: doze perguntas sem
+  metadado e nenhuma com, a passada para e o Registro diz). Piso de 30 min
+  entre passadas — e **a passada que cede a vez não arma o piso**. Ela só corre num **Wi-Fi CONFIRMADO** (a regra
   do episódio da semana) e cede também a um download PEDIDO (`bgWorkPedido`);
   o impedimento sai no Registro e na Verificação pela MESMA função da porta
   (`fundosImpedimento`). As letras e os fundos cedem uma à outra por bandeira
@@ -2948,10 +2956,10 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.10.6 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.10.7 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.10.6 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.10.7 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
 **O DEGRAU É INCREMENTAL** porque a v1.10.0 traz uma seção que não existia — a
 Verificação do Sistema, com tile, folha e fluxo próprios —, e não um conserto.

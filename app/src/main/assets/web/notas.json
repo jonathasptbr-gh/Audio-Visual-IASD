@@ -1,5 +1,18 @@
 [
   {
+    "versao": "1.10.7",
+    "itens": [
+      "O fundo das letras agora é refeito na biblioteca inteira de uma vez, sem o limite de 60 por abertura.",
+      "Se o servidor das músicas não responder, a correção para e o registro diz por quê.",
+      "Bíblia: só acusa problema na versão que você usa, e uma versão travada volta a baixar sozinha com internet.",
+      "Cifras: acusa quando o hinário perde a maioria das cifras, não só quando perde todas.",
+      "Listas: a conferência passou a incluir a playlist.",
+      "Pastas: diz se foi a cópia ou a exclusão que parou no meio, e o que fazer em cada caso.",
+      "Pastas: o número de arquivos não fica mais para trás quando o app é reaberto durante a cópia.",
+      "Slides: a conferência não acusa mais o PDF, que não passa por aquele caminho."
+    ]
+  },
+  {
     "versao": "1.10.6",
     "itens": [
       "O fundo que faltava nas letras agora é refeito sozinho, sem precisar de botão.",

@@ -840,8 +840,9 @@ try {
     const ds = (await AVDB.getState(fundoChave(cid))) || {};
     out.semRedeGravou = Object.prototype.hasOwnProperty.call(ds, String(sr.id_music));
 
-    // O TETO É DO ACERVO e o que sobra NÃO recebe veredito: ele não foi
-    // perguntado. `adiadas` é o corte, e ele é DITO no Registro.
+    // SEM TETO (v1.10.7, pedido do operador): a passada refaz TUDO o que falta
+    // numa vez — *"se ele achar necessário, ele verifica e atualiza toda a
+    // biblioteca baixada"*.
     const cid2 = 't-teto';
     const coll2 = { id: cid2, name: 'Álbum Teto', kind: 'album', source: 'fonte-de-teste' };
     window.__modoImg = 'recusa';
@@ -849,14 +850,15 @@ try {
     await AVDB.setState(fundoChave(cid2), null);
     await syncCollection(coll2, { allowMobile: true });   // três faixas, sem fundo
     await AVDB.setState(fundoChave(cid2), null);
-    const orc = { refazer: 1, refeitas: 0, conferidas: 0, adiadas: 0 };
+    window.__modoImg = 'ok';
+    const orc = { conferidas: 0, tentadas: 0, refeitas: 0, comMetadado: 0, semMetadado: 0, fonteMuda: false };
     let tentadas = 0;
     const listaReal2 = Louvorja.fetchList;
     Louvorja.fetchList = async (f) => { if (String(f).startsWith('music_')) tentadas++; return listaReal2(f); };
-    try { await syncImagensColecao(coll2, { auto: true, orcamento: orc }); }
+    try { await syncImagensColecao(coll2, { auto: true, contas: orc }); }
     finally { Louvorja.fetchList = listaReal2; }
-    out.tentadasComTeto = tentadas;
-    out.adiadas = orc.adiadas;
+    out.tentadasSemTeto = tentadas;
+    out.refeitas = orc.refeitas;
     out.conferidas = orc.conferidas;
     window.__imagem = null; window.__modoImg = 'ok';
     return out;
@@ -882,10 +884,10 @@ try {
   checar(rr.semRedeGravou === false,
     'sem rede NENHUM veredito é gravado: a pergunta não chegou a ser feita, e carimbá-la custaria '
     + 'o prazo inteiro de revisita sobre uma faixa que ninguém perguntou', rr.semRedeGravou);
-  checar(rr.tentadasComTeto === 1 && rr.adiadas === 2 && rr.conferidas === 3,
-    'o teto corta o que vai à REDE e não o que é CONFERIDO: as três são conferidas, uma é refeita, '
-    + 'duas ficam para a passada seguinte — e o corte é contado, nunca silencioso',
-    JSON.stringify([rr.tentadasComTeto, rr.adiadas, rr.conferidas]));
+  checar(rr.tentadasSemTeto === 3 && rr.refeitas === 3 && rr.conferidas === 3,
+    'SEM TETO: as três faixas sem fundo são conferidas E refeitas na mesma passada — o operador pediu '
+    + 'que a biblioteca inteira seja atualizada quando for preciso, e não sessenta por vez',
+    JSON.stringify([rr.tentadasSemTeto, rr.refeitas, rr.conferidas]));
 
   // ---- S: O REGISTRO RESPONDE "as fotos vão aparecer no sábado?" ----------
   //
@@ -1034,17 +1036,47 @@ try {
       out.excluida = { music: n(), vereditos: Object.keys((await AVDB.getState(fundoChave('t-excluir'))) || {}).length };
     }
 
-    // T9 · O TETO É DO ACERVO: as duas coleções recebem o MESMO orçamento.
+    // T9 · AS CONTAS SÃO DO ACERVO: as duas coleções recebem o MESMO objeto.
     {
       const a = await montar('t-orc-a');
       const b = await montar('t-orc-b');
       window.allCollections = () => [a, b];
       const vistos = [];
       const real = window.syncImagensColecao;
-      window.syncImagensColecao = (c, o) => { vistos.push(o && o.orcamento); return real(c, o); };
+      window.syncImagensColecao = (c, o) => { vistos.push(o && o.contas); return real(c, o); };
       fundosProximaPassadaEm = 0;
       try { await syncFundosAcervo(); } finally { window.syncImagensColecao = real; }
       out.orcamento = { n: vistos.length, mesmo: vistos.length === 2 && !!vistos[0] && vistos[0] === vistos[1] };
+    }
+
+    // T11 · A FONTE MUDA PARA A PASSADA. Sem teto, trinta faixas sem fundo
+    //       com a fonte fora do ar seriam trinta perguntas sem resposta — e
+    //       mil, no acervo do relato, a cada meia hora. Doze bastam para saber.
+    {
+      const cid = 't-muda';
+      const songs = [];
+      for (let i = 0; i < 30; i++) {
+        const id = 'fm-' + i;
+        await AVDB.fileAdd({ id, name: 'Muda ' + i, folder: cid, kind: 'audio',
+          lyrics: [{ time: 0, text: 'linha', imageOpfsPath: null }] });
+        songs.push({ id_music: 9000 + i, name: 'Muda ' + i, track: i + 1, fileIdFull: id });
+      }
+      const cM = { id: cid, name: 'Álbum Mudo', kind: 'album' };
+      collState[cid] = { indexSyncedAt: 0, songs };
+      await AVDB.setState(fundoChave(cid), null);
+      window.allCollections = () => [cM];
+      const cd = window.countDownloaded;
+      window.countDownloaded = (id) => (id === cid ? 30 : cd(id));
+      let n = 0;
+      Louvorja.fetchList = async (f) => {
+        if (String(f).startsWith('music_')) { n++; throw new TypeError('Failed to fetch'); }
+        return listaReal(f);
+      };
+      fundosProximaPassadaEm = 0;
+      try { await syncFundosAcervo(); }
+      finally { Louvorja.fetchList = listaReal; window.countDownloaded = cd; }
+      out.muda = { pedidos: n, fonteMuda: !!(fundosUltimaPassada && fundosUltimaPassada.fonteMuda),
+        teto: FUNDO_FONTE_MUDA + NET_CONCURRENCY, bloco: await blocoFundos() };
     }
 
     // T10 · O BLOCO ESTÁ NO ARQUIVO QUE O OPERADOR COPIA, colado ao download.
@@ -1087,8 +1119,16 @@ try {
     'T8 · a coleção excluída no meio da refeitura é abandonada: sem isto a capa era gravada numa pasta '
     + 'recém-apagada e o peso voltava ao card de uma coleção removida', JSON.stringify(tt.excluida));
   checar(tt.orcamento.n === 2 && tt.orcamento.mesmo,
-    'T9 · o TETO é do ACERVO: as duas coleções recebem o MESMO orçamento — por coleção seriam 69 × 60 '
-    + 'faixas na primeira abertura do aparelho do relato', JSON.stringify(tt.orcamento));
+    'T9 · as CONTAS são do ACERVO: as duas coleções recebem o MESMO objeto — é nele que a fonte muda é '
+    + 'vista (doze sem resposta numa coleção não recomeçam do zero na seguinte) e dele sai o retrato',
+    JSON.stringify(tt.orcamento));
+  checar(tt.muda.pedidos > 0 && tt.muda.pedidos <= tt.muda.teto && tt.muda.pedidos < 30 && tt.muda.fonteMuda,
+    'T11 · com a fonte FORA DO AR a passada para depois de doze perguntas sem resposta (mais as que já '
+    + 'estavam em voo) — sem teto, trinta faixas seriam trinta falhas, e mil no acervo do relato',
+    JSON.stringify({ pedidos: tt.muda.pedidos, fonteMuda: tt.muda.fonteMuda }));
+  checar(/a fonte das músicas não respondeu/.test(tt.muda.bloco),
+    'T11 · e o Registro DIZ que ela parou e por quê — uma passada que para calada se lê como "a varredura '
+    + 'desistiu"', tt.muda.bloco);
   checar(tt.registro.iAc >= 0 && tt.registro.iFu > tt.registro.iAc,
     'T10 · o bloco está no REGISTRO que o operador salva, logo depois do "Download do acervo" — chamar '
     + 'a função direto provava que ela existe, não que alguém a imprime', JSON.stringify(tt.registro));
