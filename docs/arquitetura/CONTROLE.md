@@ -7191,15 +7191,21 @@ com `updateState`, a lição do `275 de 601 → 0` das cifras):
 |---|---|---|
 | `tem: true` | vale SEMPRE, enquanto `ids` (os arquivos das duas variantes) for o mesmo | errar calando UMA faixa é recuperável (a Verificação lê o DISCO); um "tem" que vence faria o aparelho SADIO reconferir o acervo inteiro periodicamente. Excluir e rebaixar cria arquivos novos, e o veredito deixa de valer sozinho |
 | `tem: false` | vale SEIS dias (`FUNDO_REVISITA_MS`) | a falha de um sábado volta à fila na sexta, antes do culto seguinte; o prazo decide a JUSTIÇA da fila, não o custo |
-| `metaOk` | só se grava veredito da refeitura se o `music_{id}` CHEGOU | sem rede a pergunta nem foi feita; carimbá-la custaria o prazo inteiro |
+| `metaOk` | só se grava veredito da refeitura se o `music_{id}` CHEGOU — num objeto POR FAIXA | sem rede a pergunta nem foi feita; carimbá-la custaria o prazo inteiro. Compartilhado, a resposta de uma faixa valeria pela vizinha |
+| `estadoDoFundo` | três desfechos: `'tem'`, `'falta'` e `'?'` (registro sem `lyrics`, leitura que lançou); `'?'` não vira veredito | colapsado em "não falta", ele gravava um `tem` PERMANENTE sem ter visto fundo — e o registro antigo recebe a letra depois, com o mesmo id |
+| rede | a passada automática só corre num Wi-Fi CONFIRMADO, e cede a um download PEDIDO | fotos que ninguém pediu agora; o impedimento é DITO (`fundosImpedimento`, a mesma função da porta, do Registro e da Verificação) |
 | teto | 60 faixas refeitas por passada, do ACERVO inteiro | o custo é de bytes (fotos); por coleção seriam 69 × 60 |
 | conferência | SEM teto | é local, e é ela que leva o veredito ao disco — limitá-la atrasaria o estado estável (zero leituras) em dezenas de aberturas |
 | piso | 30 min entre passadas; a que CEDE a vez não o arma | o `autoRefreshCollections` roda em todo `visibilitychange` |
-| ordem | no fio de `syncLyrics`, DEPOIS dela | mesmo host (`music_{id}`); o acúmulo só existe onde a letra já está toda guardada |
+| ordem | no fio de `syncLyrics`, DEPOIS dela, e cada uma CEDE à outra por bandeira | mesmo host (`music_{id}`); o encadeamento só serializa a primeira chamada, e uma volta ao app com a outra no ar juntaria as duas |
 
 Só a passada AUTOMÁTICA lê o veredito; o toque à mão ignora e grava. A coleção
 em download fica de fora (o `syncCollection` dela já chama o backfill com o
-`pular`). O bloco *"Fundos da letra"* do Registro conta pelo veredito (a MESMA
+`pular`), a faixa que SAI da coleção no meio da refeitura é abandonada (a lixeira
+troca o array do índice; sem isso a capa era regravada numa pasta recém-apagada),
+e a refeitura não gera miniatura (o ramo do registro existente não a usa). O
+retrato da passada nasce na PARTIDA, com `emCurso` — gravado só no fim e só com
+trabalho, o Registro dizia *"nenhuma passada"* no estado estável. O bloco *"Fundos da letra"* do Registro conta pelo veredito (a MESMA
 `fundoNoDiscoVale` da fila) e DECLARA isso na primeira linha — quem lê o disco é
 a Verificação do Sistema.
 

@@ -19334,7 +19334,10 @@ async function autoRefreshCollections() {
     // LouvorJA com `NET_CONCURRENCY` (6) cada: soltas, seriam 12 requisições
     // concorrentes ao mesmo servidor — o dobro do que o KDoc de
     // `rotinaDeAcervoPodeCorrer` já descreve como o problema, e agora com bytes
-    // de IMAGEM atrás. Encadeadas, o teto por host continua 6. As cifras (fase
+    // de IMAGEM atrás. Encadeadas, o teto por host continua 6 — e como o
+    // encadeamento só serializa a PRIMEIRA chamada, cada uma cede à outra por
+    // bandeira (`lyricSyncRunning` na porta dos fundos, `fundosPassadaRodando`
+    // na das letras) numa volta ao app com a outra ainda no ar. As cifras (fase
     // 4) seguem soltas porque não disputam nada disso: quem faz o GET delas é o
     // shell, na fila `cifra`, e o host é outro.
     //
@@ -19704,9 +19707,10 @@ const FUNDO_REVISITA_MS = 6 * 24 * 60 * 60 * 1000;
  * Conferir é local e barato (duas leituras de IndexedDB); REFAZER vai à rede e
  * traz IMAGENS, que pesam. Uma faixa custa um `music_{id}` mais de uma a três
  * fotos de fundo, e num acervo como o do relato são ~1100 faixas: sem teto, a
- * primeira abertura num Wi-Fi puxaria centenas de MB que ninguém pediu naquele
- * instante — o dano que o `isConfirmedWifi` do episódio da semana existe para
- * evitar, por outro caminho.
+ * primeira abertura puxaria centenas de MB de uma vez. A OUTRA METADE é a rede:
+ * são bytes que ninguém pediu naquele instante, e por isso a passada
+ * automática só corre num Wi-Fi CONFIRMADO, a regra do episódio da semana
+ * (`fundosImpedimento`).
  *
  * Sessenta é o teto, e ele vem com o piso de `FUNDO_PASSO_MS`: os dois juntos
  * limitam a varredura a 120 faixas por hora de app aberto, e nenhum dos dois
@@ -19742,6 +19746,9 @@ const FUNDO_PASSO_MS = 30 * 60 * 1000;
 
 /** Quando a próxima passada automática pode correr. Zera com o processo. */
 let fundosProximaPassadaEm = 0;
+
+/** A passada automática está andando — `syncLyrics` cede a ela (o mesmo host). */
+let fundosPassadaRodando = false;
 
 /** O retrato da última passada automática — lido pelo Registro. */
 let fundosUltimaPassada = null;
@@ -19780,7 +19787,10 @@ function fundoNoDiscoVale(v, s, agora) {
   if (!v || v.v !== FUNDO_VEREDITO_VERSAO) return false;
   if (v.ids !== fundoIdsDaFaixa(s)) return false;
   if (v.tem) return true;
-  return (agora - (v.em || 0)) < FUNDO_REVISITA_MS;
+  // IDADE NEGATIVA É VENCIDA: um relógio corrigido para trás faria a ausência
+  // valer o salto inteiro a mais, com o Registro dizendo "seis dias".
+  const idade = agora - (v.em || 0);
+  return idade >= 0 && idade < FUNDO_REVISITA_MS;
 }
 
 /**
@@ -19814,15 +19824,36 @@ function letraSemImagem(rec) {
     && !rec.lyrics.some((x) => x && x.imageOpfsPath);
 }
 
-// As DUAS variantes, porque Cantado e Playback têm listas de slides próprias
-// (`time` × `instrumental_time`) e uma pode ter fundo sem a outra ter.
-async function faltaFundoNaFaixa(s) {
+/**
+ * O FUNDO DESTA FAIXA, EM TRÊS DESFECHOS — e o terceiro é o que o veredito
+ * precisa (v1.10.6). As DUAS variantes são lidas, porque Cantado e Playback têm
+ * listas de slides próprias (`time` × `instrumental_time`) e uma pode ter fundo
+ * sem a outra ter.
+ *
+ * `'falta'`: alguma variante tem letra e nenhum slide com foto. `'tem'`: TODA
+ * variante foi lida sem erro e ou tem foto, ou não tem letra a enfeitar
+ * (`lyrics` nulo ou vazio, estado que nenhum caminho reabre). `'?'`: não houve
+ * como ver — registro ausente, leitura que lançou, ou `lyrics === undefined`
+ * (o registro antigo, anterior à letra, que o toque para tocar ainda monta).
+ *
+ * **O `'?'` NUNCA vira `tem: true`.** Colapsado em "não falta", ele gravava um
+ * veredito PERMANENTE sem ter visto fundo nenhum — e o registro antigo recebe a
+ * letra DEPOIS, com o MESMO id: se as fotos falhassem naquela hora, a faixa
+ * ficava sem fundo e calada para sempre (medido com uma sonda no arnês do
+ * `download-do-acervo`). Não se sabe é resposta nenhuma, a regra que a
+ * varredura de cifras escreveu para o `sem-rede`.
+ */
+async function estadoDoFundo(s) {
+  let viu = false;
   for (const k of ['fileIdFull', 'fileIdPlayback']) {
     if (!s[k]) continue;
-    const rec = await AVDB.fileGet(s[k]).catch(() => null);
-    if (letraSemImagem(rec)) return true;
+    let rec;
+    try { rec = await AVDB.fileGet(s[k]); } catch (_) { return '?'; }
+    if (!rec || rec.lyrics === undefined) return '?';
+    if (letraSemImagem(rec)) return 'falta';
+    viu = true;
   }
-  return false;
+  return viu ? 'tem' : '?';
 }
 
 /**
@@ -19892,11 +19923,14 @@ async function syncImagensColecao(coll, opts) {
     // da conferência custar a passada inteira, e a retomada recomeçaria do zero.
     if (!rotinaDeAcervoPodeCorrer()) break;
     const fatia = candidatas.slice(i, i + PASSO);
-    const falta = await Promise.all(fatia.map(faltaFundoNaFaixa));
-    falta.forEach((f, k) => {
+    const estados = await Promise.all(fatia.map(estadoDoFundo));
+    estados.forEach((e, k) => {
       conferidas++;
-      if (f) alvos.push(fatia[k]);
-      else vereditos[fatia[k].id_music] = { v: FUNDO_VEREDITO_VERSAO, ids: fundoIdsDaFaixa(fatia[k]), em: agora, tem: true };
+      if (e === 'falta') alvos.push(fatia[k]);
+      else if (e === 'tem') {
+        vereditos[fatia[k].id_music] = { v: FUNDO_VEREDITO_VERSAO, ids: fundoIdsDaFaixa(fatia[k]), em: agora, tem: true };
+      }
+      // `'?'`: nem alvo nem veredito — ver `estadoDoFundo`.
     });
   }
   // E O TOQUE À MÃO GRAVA O VEREDITO TAMBÉM — ele só não o LÊ. O que a
@@ -19928,7 +19962,14 @@ async function syncImagensColecao(coll, opts) {
     await withBgRotina(async () => {
       try {
         await runLimited(aFazer, NET_CONCURRENCY, async (s) => {
-          if (!rotinaDeAcervoPodeCorrer()) return;
+          if (!(auto ? rotinaDeBytesPodeCorrer() : rotinaDeAcervoPodeCorrer())) return;
+          // A FAIXA QUE SAIU DA COLEÇÃO NO MEIO DA PASSADA É ABANDONADA. Excluir
+          // a coleção troca o array do índice (o `fetchCollectionIndex`
+          // reaproveita os objetos, então a IDENTIDADE separa os dois casos), e
+          // sem esta guarda a refeitura gravava a capa numa pasta recém-apagada
+          // e o peso voltava ao card de uma coleção removida.
+          if (!collSongs(coll.id).includes(s)) return;
+          if (orcamento) orcamento.tentadas++;
           bgItemStart(notifId, s.name);
           try {
             // TODA a máquina de sempre, e nenhuma cópia dela: o cache de
@@ -19945,8 +19986,10 @@ async function syncImagensColecao(coll, opts) {
             // faixa que continua sem fundo nenhum. Contar por ele faria esta
             // rotina anunciar que recuperou o que não recuperou, que é
             // exatamente o defeito que a v1.9.13 tirou do download.
-            const tem = !(await faltaFundoNaFaixa(s));
+            const estado = await estadoDoFundo(s);
+            const tem = estado === 'tem';
             if (tem) refeitas++;
+            if (orcamento && !o.metaOk) orcamento.semMetadado++;
             // E O VEREDITO SÓ É GRAVADO SE A PERGUNTA CHEGOU A SER FEITA
             // (`metaOk`). Sem rede, `downloadCollectionSong` volta antes de
             // tocar em imagem nenhuma: gravar `tem: false` ali seria carimbar
@@ -19955,7 +19998,7 @@ async function syncImagensColecao(coll, opts) {
             // Os ids são lidos DEPOIS da chamada: `ensureSongVariant` apaga
             // do índice o id que não resolve mais, e o veredito tem de falar
             // dos arquivos que a faixa tem AGORA.
-            if (o.metaOk) {
+            if (o.metaOk && estado !== '?' && collSongs(coll.id).includes(s)) {
               vereditos[s.id_music] = { v: FUNDO_VEREDITO_VERSAO, ids: fundoIdsDaFaixa(s), em: Date.now(), tem };
             }
           } catch (_) { /* a passada seguinte tenta de novo */ }
@@ -20004,34 +20047,104 @@ async function syncImagensColecao(coll, opts) {
  */
 async function syncFundosAcervo() {
   const agora = Date.now();
-  if (agora < fundosProximaPassadaEm) return;
-  // A PASSADA QUE NÃO PODE CORRER NÃO ARMA O PISO. As duas guardas moram
-  // também dentro de `syncImagensColecao`, mas é AQUI que elas têm de vir antes
-  // do carimbo: no culto o operador volta ao app dezenas de vezes com a mídia
-  // no ar, e cada volta que só cedesse a vez empurraria o piso meia hora para
-  // a frente — a varredura só voltaria a correr meia hora depois da ÚLTIMA
-  // troca de app, e não da última passada.
-  if (!rotinaDeAcervoPodeCorrer() || networkType() === 'cellular') return;
+  // O PISO. Um carimbo mais longe que o próprio passo só pode ter vindo de um
+  // relógio corrigido para trás — e ele seguraria toda passada pelo salto
+  // inteiro, pela vida do processo (que o app mantém viva).
+  if (agora < fundosProximaPassadaEm && fundosProximaPassadaEm - agora <= FUNDO_PASSO_MS) return;
+  // A PASSADA QUE NÃO PODE CORRER NÃO ARMA O PISO, e nenhuma destas guardas
+  // pode vir depois do carimbo: no culto o operador volta ao app dezenas de
+  // vezes com a mídia no ar, e cada volta que só cedesse a vez empurraria o
+  // piso meia hora para a frente.
+  //
+  // **WI-FI CONFIRMADO, e não "não é rede móvel"** — a regra do episódio da
+  // semana (`manterSeriesDaSemana`), e pelo mesmo argumento: são FOTOS que
+  // ninguém pediu agora, dezenas de MB por passada. No APP as duas guardas
+  // quase sempre coincidem: o WebView lê o tipo no `ConnectivityManager`
+  // (`AwNetworkChangeNotifier`, com o `ACCESS_NETWORK_STATE` do manifesto), e a
+  // frase *"`unknown` em boa parte dos aparelhos"* deste arquivo vem da época
+  // do PWA, nunca foi medida aqui. O que as separa é o raro — um `unknown`, um
+  // `other` num roteamento incomum —, e errar ali para o lado estrito custa uma
+  // rotina parada que o Registro e a Verificação DIZEM (com o tipo informado);
+  // para o lado frouxo, custaria o plano de dados em silêncio. O toque à mão
+  // continua com a guarda antiga, porque ali quem decide é o operador.
+  if (fundosImpedimento()) return;
+  // O MESMO FIO DAS LETRAS, de verdade. O encadeamento na abertura só serializa
+  // a PRIMEIRA chamada: numa volta ao app com a varredura de letras ainda em
+  // curso, o `syncLyrics()` da segunda chamada volta na hora (a bandeira dela) e
+  // o `.then` chegaria aqui com as letras no ar — seis e seis ao mesmo host.
+  // Sai sem armar o piso: a cadeia dona daquela varredura chama esta quando ela
+  // termina.
+  if (lyricSyncRunning) return;
   fundosProximaPassadaEm = agora + FUNDO_PASSO_MS;
-  const orcamento = { refazer: FUNDO_REFAZER_MAX, refeitas: 0, conferidas: 0, adiadas: 0 };
+  const orcamento = {
+    refazer: FUNDO_REFAZER_MAX, refeitas: 0, conferidas: 0, adiadas: 0, tentadas: 0, semMetadado: 0,
+  };
+  // O RETRATO NASCE NA PARTIDA, e não no fim. Gravado só no fim e só com
+  // trabalho feito, ele não existia no estado ESTÁVEL (tudo com veredito, nada
+  // a conferir) — e o Registro escrevia *"nenhuma passada automática"* duas
+  // linhas acima do horário do piso que a passada tinha acabado de armar. O
+  // `emCurso` é o que diz *"está andando"* numa primeira passada de minutos.
+  fundosUltimaPassada = { em: agora, emCurso: true, cortada: false, ...orcamento };
+  fundosPassadaRodando = true;
   const alvos = allCollections().filter((c) => c.kind !== 'serie' && countDownloaded(c.id) > 0);
-  for (const c of alvos) {
-    if (!rotinaDeAcervoPodeCorrer()) break;
-    // A COLEÇÃO EM DOWNLOAD FICA DE FORA: o `syncCollection` dela já chama o
-    // backfill no fim, com o `pular` do que acabou de tentar. Entrar aqui ao
-    // mesmo tempo buscaria a mesma faixa duas vezes e contaria duas falhas no
-    // censo onde houve uma tentativa — e a bandeira `imagensSyncRodando` só
-    // sobe DEPOIS da conferência, então ela não fecha essa janela sozinha.
-    if (ui(c.id).syncBusy) continue;
-    await syncImagensColecao(c, { auto: true, orcamento }).catch(() => {});
-  }
-  // O RETRATO DA PASSADA, e ele só é guardado quando houve o que dizer: uma
-  // linha de zeros é mais uma para ler em toda cópia do Registro (a regra do
-  // `ytCenso`). Quem o lê é o bloco "Fundos da letra".
-  if (orcamento.conferidas || orcamento.refeitas || orcamento.adiadas) {
-    fundosUltimaPassada = { em: agora, ...orcamento };
+  try {
+    for (const c of alvos) {
+      if (!rotinaDeBytesPodeCorrer()) { fundosUltimaPassada.cortada = true; break; }
+      // A COLEÇÃO EM DOWNLOAD FICA DE FORA: o `syncCollection` dela já chama o
+      // backfill no fim, com o `pular` do que acabou de tentar. Entrar aqui ao
+      // mesmo tempo buscaria a mesma faixa duas vezes e contaria duas falhas no
+      // censo onde houve uma tentativa — e a bandeira `imagensSyncRodando` só
+      // sobe DEPOIS da conferência, então ela não fecha essa janela sozinha.
+      if (ui(c.id).syncBusy) continue;
+      await syncImagensColecao(c, { auto: true, orcamento }).catch(() => {});
+      Object.assign(fundosUltimaPassada, orcamento);
+    }
+  } finally {
+    fundosPassadaRodando = false;
+    Object.assign(fundosUltimaPassada, orcamento, { emCurso: false });
+    if (!rotinaDeBytesPodeCorrer()) fundosUltimaPassada.cortada = true;
+    // CORTADA ANTES DE CONFERIR UMA FAIXA, a passada não aconteceu: o piso é
+    // devolvido, senão a cena que entrou no primeiro segundo seguraria a
+    // varredura meia hora depois de sair.
+    if (fundosUltimaPassada.cortada && !orcamento.conferidas) fundosProximaPassadaEm = 0;
   }
 }
+
+/**
+ * POR QUE A VARREDURA AUTOMÁTICA NÃO PODE CORRER AGORA — ou `''`.
+ *
+ * UMA função para as TRÊS bocas: a porta de `syncFundosAcervo`, o bloco do
+ * Registro e a nota da Verificação. Escrita três vezes, a primeira que mudasse
+ * faria o Registro dizer "vai correr" sobre uma porta que diz não.
+ *
+ * **A CENA E O PEDIDO SÃO PERGUNTADOS DUAS VEZES** — aqui, na porta, e em
+ * `rotinaDeBytesPodeCorrer`, no laço —, e o "não arma o piso" também tem duas
+ * metades (esta porta e a devolução do piso no `finally` de uma passada cortada
+ * antes de conferir). As duas são legítimas: a porta cobre o começo, a outra
+ * cobre a cena que entra no primeiro segundo. **O oráculo só reprova quando as
+ * duas somem** (medido por reversão): quem tirar uma vai ver o teste passar e
+ * concluir que ela não servia.
+ */
+function fundosImpedimento() {
+  if (!rotinaDeAcervoPodeCorrer()) return 'com mídia no ar ela cede a vez';
+  if (bgWorkPedido()) return 'um download que você pediu está em curso, e ela cede a vez a ele';
+  if (!isConfirmedWifi()) {
+    return 'ela só corre num Wi-Fi confirmado, e o aparelho informa "' + networkType() + '"';
+  }
+  return '';
+}
+
+/**
+ * A ROTINA QUE BAIXA ARQUIVO CEDE TAMBÉM AO DOWNLOAD QUE O OPERADOR PEDIU.
+ *
+ * `midiaNoAr` fica falso durante todo o download de um "Tocar agora" do
+ * YouTube — ele só vira verdadeiro no envio, depois que o arquivo chegou —, e
+ * é esse o download que o operador acompanha de olho na barra. As fotos da
+ * varredura disputariam a Wi-Fi com ele. `bgWorkPedido()` responde exatamente
+ * *"há trabalho que o operador pediu?"* (a própria varredura corre dentro de
+ * `withBgRotina`, que não conta como pedido).
+ */
+function rotinaDeBytesPodeCorrer() { return rotinaDeAcervoPodeCorrer() && !bgWorkPedido(); }
 
 // Baixa (ou completa) uma música: busca os metadados individuais (URLs reais) e
 // grava áudio Cantado + Playback (se houver) + capa/letra sincronizada no
@@ -20146,7 +20259,11 @@ async function downloadCollectionSong(coll, s, opts) {
   async function resolveImage(url) {
     if (!url) return null;
     if (imgCache.has(url)) return imgCache.get(url);
-    const result = await downloadCollectionImage(coll.id, url, s.id_music, imgCache.size);
+    // A REFEITURA NÃO GUARDA MINIATURA: o ramo do registro existente só
+    // regrava a letra, e a miniatura seria decodificar a foto inteira e
+    // desenhá-la num canvas para jogar fora — no renderer que o telão divide.
+    const result = await downloadCollectionImage(coll.id, url, s.id_music, imgCache.size,
+      !!(opts && opts.refazerLetra));
     imgCache.set(url, result);
     return result;
   }
@@ -20533,7 +20650,7 @@ async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyr
 // Baixa uma imagem em resolução real pro OPFS (fundo dos slides de letra) e
 // gera a miniatura do catálogo (mesmo `drawThumb`) a partir do MESMO blob —
 // evita baixar a capa duas vezes (uma pro fundo, outra só pra miniatura).
-async function downloadCollectionImage(folderId, url, songId, index) {
+async function downloadCollectionImage(folderId, url, songId, index, semMiniatura) {
   let blob;
   // CONTADO ANTES DE QUALQUER GUARDA (v1.9.16), inclusive antes da trava de
   // host: o app FOI BUSCAR esta imagem, e é esse o denominador. Sem ele não há
@@ -20572,6 +20689,7 @@ async function downloadCollectionImage(folderId, url, songId, index) {
 
   let thumbBlob = null;
   let objUrl = null;
+  if (semMiniatura) return { opfsPath: path, thumbBlob };
   try {
     objUrl = URL.createObjectURL(blob);
     const img = await new Promise((resolve, reject) => {
@@ -20942,6 +21060,11 @@ function songsMissingLyric(coll) {
 
 async function syncLyrics() {
   if (lyricSyncRunning) return;
+  // A PASSADA DOS FUNDOS PEDE `music_{id}` AO MESMO HOST (v1.10.6), e as duas
+  // soltas seriam doze requisições concorrentes a um servidor só. Cede e sai,
+  // como diante da cena: a volta seguinte ao app a rearma, e a passada dos
+  // fundos tem teto — termina em dezenas de segundos.
+  if (fundosPassadaRodando) return;
   if (networkType() === 'cellular') return;
   // Ver `rotinaDeAcervoPodeCorrer`: a varredura é adiável, o louvor não.
   if (!rotinaDeAcervoPodeCorrer()) return;
@@ -27225,32 +27348,52 @@ async function blocoFundos() {
   // cada cópia: é esta linha que diz que alguém está trabalhando naquilo, e
   // quanto por vez. **O CORTE É DITO** — `adiadas` é o teto de bytes agindo, e
   // um teto silencioso se lê como "a varredura desistiu".
-  if (fundosUltimaPassada) {
-    const u = fundosUltimaPassada;
-    linhas.push('  última passada (' + new Date(u.em || 0).toLocaleString('pt-BR') + '): '
-      + u.conferidas + ' conferida(s), ' + u.refeitas + ' refeita(s)'
-      + (u.adiadas ? ', ' + u.adiadas + ' adiada(s) pelo teto de ' + FUNDO_REFAZER_MAX
-        + ' por passada' : ''));
+  //
+  // **E A TENTATIVA QUE FALHOU TAMBÉM**: contar só quem GANHOU fundo fazia uma
+  // passada em que a fonte não respondeu sair idêntica a uma que não tentou
+  // nada — *"falhar VAZIO é proibido"*. `semMetadado` é a causa que este bloco
+  // consegue nomear sozinho (o `music_{id}` não veio); a das FOTOS mora no bloco
+  // "Download do acervo", logo acima, que conta capa por capa.
+  const u = fundosUltimaPassada;
+  if (u) {
+    const quando = new Date(u.em || 0).toLocaleString('pt-BR');
+    if (u.emCurso) {
+      linhas.push('  passada em curso desde ' + quando + ': ' + u.conferidas + ' conferida(s) até aqui');
+    } else if (!u.conferidas) {
+      linhas.push('  última passada (' + quando + '): nada a conferir — '
+        + (u.cortada ? 'ela cedeu a vez antes de começar' : 'toda música baixada já tem veredito'));
+    } else {
+      const semFundoAinda = u.tentadas - u.refeitas - u.semMetadado;
+      linhas.push('  última passada (' + quando + '): ' + u.conferidas + ' conferida(s), '
+        + u.tentadas + ' tentada(s) — ' + u.refeitas + ' ganharam fundo'
+        + (u.semMetadado ? ', ' + u.semMetadado + ' sem resposta da fonte das músicas' : '')
+        + (semFundoAinda > 0 ? ', ' + semFundoAinda + ' continuam sem (ver as capas acima)' : '')
+        + (u.adiadas ? '; ' + u.adiadas + ' adiada(s) pelo teto de ' + FUNDO_REFAZER_MAX
+          + ' por passada' : '')
+        + (u.cortada ? '; cedeu a vez no meio' : ''));
+    }
   } else {
     linhas.push('  nenhuma passada automática nesta sessão ainda');
   }
   // A REDE QUE O APARELHO DIZ TER. O Registro não a imprimia em lugar nenhum,
-  // e sem ela *"os fundos não chegam"* num aparelho em dados móveis é
-  // indistinguível de uma rotina quebrada. `unknown` sai como está: é a
-  // resposta de boa parte dos Androids, e a rotina CORRE nele (a guarda só
-  // barra `cellular` — ver `syncImagensColecao`).
+  // e é ela que decide se a varredura corre: só num Wi-Fi CONFIRMADO. Um
+  // aparelho que responda `unknown` fica parado, e esta linha é a que diz
+  // isso a distância.
   linhas.push('  rede informada pelo aparelho: ' + networkType());
-  // POR QUE ELA NÃO ESTÁ CORRENDO AGORA, quando não está. As três causas pedem
-  // ações opostas — esperar, achar um Wi-Fi, ou nada —, e um silêncio único
-  // sobre as três manda procurar defeito onde não há.
-  if (networkType() === 'cellular') {
-    linhas.push('  em rede móvel a varredura NÃO corre — as fotos pesam, e o plano de '
-      + 'dados não é o lugar delas');
-  } else if (!rotinaDeAcervoPodeCorrer()) {
-    linhas.push('  com mídia no ar ela cede a vez — recomeça sozinha quando a cena sair');
-  } else if (agora < fundosProximaPassadaEm) {
+  // POR QUE ELA NÃO ESTÁ CORRENDO AGORA, quando não está — a MESMA função da
+  // porta (`fundosImpedimento`), nunca uma segunda escrita das guardas. E o
+  // horário do piso sai À PARTE, porque as duas coisas não se excluem: com a
+  // mídia no ar E o piso armado, esconder o piso fazia a frase prometer uma
+  // volta que ainda não podia acontecer.
+  const impedimento = fundosImpedimento();
+  if (impedimento) {
+    linhas.push('  não corre agora: ' + impedimento
+      + (impedimento.indexOf('mídia no ar') >= 0 || impedimento.indexOf('download') >= 0
+        ? ' — volta na próxima vez que o app vier à frente depois disso' : ''));
+  }
+  if (agora < fundosProximaPassadaEm) {
     linhas.push('  a próxima passada pode correr a partir de '
-      + new Date(fundosProximaPassadaEm).toLocaleTimeString('pt-BR'));
+      + new Date(fundosProximaPassadaEm).toLocaleString('pt-BR'));
   }
   return 'Fundos da letra (as fotos atrás da letra)\n' + linhas.join('\n');
 }
@@ -27969,13 +28112,19 @@ const TESTES = [
         // não pode cumprir é pior que nenhuma**: ele procura o botão, não
         // acha, e conclui que a folha não sabe do que está falando.
         //
-        // As DUAS frases existem porque pedem ações opostas: numa rede móvel
-        // ele precisa achar um Wi-Fi; fora dela não há o que fazer além de
-        // deixar o app aberto.
-        const comoEstaARede = networkType() === 'cellular'
-          ? ' — o app refaz sozinho num Wi-Fi, e agora está em rede móvel, onde as fotos não são buscadas'
-          : ' — o app já refaz sozinho, um punhado por vez, com o aparelho num Wi-Fi';
-        return tFalhou(semFundo + ' de ' + comLetra + ' sem fundo' + comoEstaARede);
+        // AS FRASES SAEM DA MESMA PERGUNTA DA PORTA (`fundosImpedimento`) e do
+        // retrato da última passada, nunca de uma segunda escrita das guardas:
+        // cada desfecho pede uma ação diferente — achar um Wi-Fi, esperar a
+        // cena sair, ou nada — e o de a FONTE não ter respondido não é nenhum
+        // dos três.
+        const impedimento = fundosImpedimento();
+        const u = fundosUltimaPassada;
+        let comoEsta;
+        if (impedimento) comoEsta = ' — o app refaz sozinho, mas agora não: ' + impedimento;
+        else if (u && !u.emCurso && u.semMetadado && !u.refeitas) {
+          comoEsta = ' — o app tenta sozinho, e na última vez a fonte das músicas não respondeu';
+        } else comoEsta = ' — o app já refaz sozinho, até ' + FUNDO_REFAZER_MAX + ' por vez, num Wi-Fi';
+        return tFalhou(semFundo + ' de ' + comLetra + ' sem fundo' + comoEsta);
       }
       return tOk(comLetra + ' com fundo');
     },

@@ -201,18 +201,32 @@ try {
     const ac = window.allCollections;
     window.allCollections = () => [coll];
     let conferiu = 0;
-    const real = window.faltaFundoNaFaixa;
-    window.faltaFundoNaFaixa = async (x) => { conferiu++; return real(x); };
+    const real = window.estadoDoFundo;
+    window.estadoDoFundo = async (x) => { conferiu++; return real(x); };
     const antes = midiaNoAr;
+    const rede = window.networkType;
     try {
+      // A CENA NO AR, com a rede CERTA — senão a porta fecharia pela rede e a
+      // asserção da cena passaria pelo motivo errado.
+      window.networkType = () => 'wifi';
       fundosProximaPassadaEm = 0;
       midiaNoAr = true;
       await syncFundosAcervo();
-      return { conferiu, piso: fundosProximaPassadaEm };
+      const cena = { conferiu, piso: fundosProximaPassadaEm };
+      midiaNoAr = false;
+      // A REDE MÓVEL: o operador abre o app no 4G a caminho da igreja. Se esta
+      // porta armasse o piso, ao chegar no Wi-Fi a passada ficaria bloqueada
+      // até completar meia hora da abertura no 4G.
+      conferiu = 0;
+      window.networkType = () => 'cellular';
+      await syncFundosAcervo();
+      const movel = { conferiu, piso: fundosProximaPassadaEm };
+      return { ...cena, movel };
     } finally {
+      window.networkType = rede;
       midiaNoAr = antes;
       window.allCollections = ac;
-      window.faltaFundoNaFaixa = real;
+      window.estadoDoFundo = real;
       delete collState[coll.id];
       fundosProximaPassadaEm = 0;
     }
@@ -222,6 +236,9 @@ try {
   checar(fundos.piso === 0,
     'e a passada que cedeu a vez NÃO arma o piso — senão cada volta ao app durante o culto '
     + 'empurraria a próxima passada meia hora para a frente', fundos);
+  checar(fundos.movel.conferiu === 0 && fundos.movel.piso === 0,
+    'e na REDE MÓVEL também não: nem confere, nem arma — senão a chegada ao Wi-Fi esperaria meia hora '
+    + 'contada da abertura no 4G', fundos.movel);
 
   // A FORMA: o gate está na PORTA e DENTRO dos dois laços (o da conferência e
   // o da rede) — o caso normal é a cena entrar DEPOIS de a varredura partir.
@@ -234,14 +251,28 @@ try {
     const conta = (f) => (String(f).match(g) || []).length;
     const sem = String(autoRefreshCollections)
       .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    // NA COLEÇÃO, CADA GATE PELO SEU LUGAR, sobre o código sem comentários: uma
+    // contagem com piso (`>= 3`) aprovava a função de ANTES do lote e aprovava
+    // também a remoção de qualquer um dos quatro.
+    const col = String(syncImagensColecao)
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
     return {
-      acervo: conta(syncFundosAcervo),
-      colecao: conta(syncImagensColecao),
+      acervo: (() => {
+        const f = String(syncFundosAcervo).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+        return { porta: /if \(fundosImpedimento\(\)\) return;/.test(f),
+          laco: /if \(!rotinaDeBytesPodeCorrer\(\)\) \{/.test(f) };
+      })(),
+      colecao: {
+        porta: (col.match(/if \(!rotinaDeAcervoPodeCorrer\(\)\) return 0;/g) || []).length,
+        conferencia: /if \(!rotinaDeAcervoPodeCorrer\(\)\) break;/.test(col),
+        rede: /rotinaDeBytesPodeCorrer\(\) : rotinaDeAcervoPodeCorrer\(\)\)\) return;/.test(col),
+      },
       encadeada: /syncLyrics\(\)\.catch\(\(\) => \{\}\)\s*\.then\(\(\) => syncFundosAcervo\(\)\)/.test(sem),
       solta: /;\s*syncFundosAcervo\(\)/.test(sem),
     };
   });
-  checar(formaFundos.acervo >= 2 && formaFundos.colecao >= 3,
+  checar(formaFundos.acervo.porta && formaFundos.acervo.laco && formaFundos.colecao.porta === 2 && formaFundos.colecao.conferencia
+    && formaFundos.colecao.rede,
     'o gate está na porta da varredura, entre uma coleção e a seguinte, na conferência e na fila '
     + 'de rede', formaFundos);
   checar(formaFundos.encadeada && !formaFundos.solta,

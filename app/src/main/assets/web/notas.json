@@ -3,8 +3,8 @@
     "versao": "1.10.6",
     "itens": [
       "O fundo que faltava nas letras agora é refeito sozinho, sem precisar de botão.",
-      "Fora dos dados móveis e sem nada tocando, o app refaz até 60 músicas a cada abertura (no máximo a cada meia hora).",
-      "Em dados móveis ele não busca as fotos: elas pesam.",
+      "Num Wi-Fi e sem nada tocando, o app refaz até 60 músicas a cada abertura (no máximo a cada meia hora).",
+      "Fora do Wi-Fi ele não busca as fotos, e a conferência do sistema diz por que está parado.",
       "Corrige a versão anterior: ela mandava tocar em sincronizar, e esse botão não aparece em coleção completa.",
       "A conferência do fundo das letras agora diz o que está acontecendo, em vez de mandar tocar num botão.",
       "O Registro ganhou um bloco dizendo quantas músicas já têm fundo e quantas ainda faltam."
