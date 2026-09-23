@@ -1167,7 +1167,28 @@ try {
       return coll;
     };
     const fundos = async (cid) => Promise.all(collSongs(cid).map((x) => estadoDoFundo(x)));
-    const novasContas = () => ({ conferidas: 0, tentadas: 0, refeitas: 0, comResposta: 0, semResposta: 0, fonteMuda: false });
+    const novasContas = () => ({ conferidas: 0, tentadas: 0, refeitas: 0, comResposta: 0, semResposta: 0,
+      recusadas: 0, ultimoStatus: null, fonteMuda: false });
+    // N faixas BAIXADAS e sem fundo, plantadas direto (sem passar pelo download)
+    // — o molde do T11. `prefixo` separa os ids de uma célula para outra.
+    const plantar = async (cid, n, prefixo, base) => {
+      const songs = [];
+      for (let i = 0; i < n; i++) {
+        const id = prefixo + i;
+        await AVDB.fileAdd({ id, name: prefixo + i, folder: cid, kind: 'audio',
+          lyrics: [{ time: 0, text: 'linha', imageOpfsPath: null }] });
+        songs.push({ id_music: base + i, name: prefixo + i, track: i + 1, fileIdFull: id });
+      }
+      collState[cid] = { indexSyncedAt: 0, songs };
+      await AVDB.setState(fundoChave(cid), null);
+      return { id: cid, name: 'Álbum ' + cid, kind: 'album' };
+    };
+    const comAcervo = async (colls, fn) => {
+      const ac = window.allCollections; const cd = window.countDownloaded;
+      window.allCollections = () => colls;
+      window.countDownloaded = (id) => (colls.some((c) => c.id === id) ? collSongs(id).length : cd(id));
+      try { return await fn(); } finally { window.allCollections = ac; window.countDownloaded = cd; }
+    };
 
     // U1 · A FOTO CUJO `fetch` NÃO VOLTOU não vira veredito de seis dias — e o
     //      CONTROLE é a mesma faixa com a fonte RESPONDENDO 404, que vira.
@@ -1265,6 +1286,107 @@ try {
       out.oculto = { fundos: await fundos('u-oculto'), visivel: document.visibilityState };
     }
 
+    // U9 · SEM TETO PELA PORTA DE VERDADE: setenta faixas — mais que os 60 da
+    //      v1.10.6 — conferidas E refeitas numa passada só de `syncFundosAcervo`.
+    //      A célula de três faixas chamando a coleção direto não reprovava um
+    //      corte de 60.
+    {
+      const c = await plantar('u-setenta', 70, 'st-', 9300);
+      window.__imagem = '/imagens/setenta.jpg';
+      fundosProximaPassadaEm = 0;
+      await comAcervo([c], () => syncFundosAcervo());
+      const u = fundosUltimaPassada;
+      out.setenta = { tentadas: u.tentadas, refeitas: u.refeitas, fonteMuda: u.fonteMuda };
+      delete collState['u-setenta'];
+    }
+
+    // U10 · A GUARDA `!comResposta` DO DISJUNTOR: a fonte MISTA — metade das
+    //       perguntas responde, metade cai — passa das doze falhas e NÃO abre
+    //       o disjuntor, porque a fonte está respondendo.
+    {
+      const c = await plantar('u-mista', 30, 'mx-', 9400);
+      let n = 0;
+      Louvorja.fetchList = async (f) => {
+        if (String(f).startsWith('music_')) {
+          n++;
+          if (Number(String(f).slice(6)) % 2) throw new TypeError('Failed to fetch');
+        }
+        return listaReal(f);
+      };
+      fundosProximaPassadaEm = 0;
+      try { await comAcervo([c], () => syncFundosAcervo()); } finally { Louvorja.fetchList = listaReal; }
+      const u = fundosUltimaPassada;
+      out.mista = { pedidos: n, tentadas: u.tentadas, fonteMuda: u.fonteMuda, semResposta: u.semResposta };
+      delete collState['u-mista'];
+    }
+
+    // U11 · UM 404 NO METADADO É RESPOSTA SOBRE A FAIXA. Dezoito faixas que a
+    //       fonte nega, NA FRENTE de cinco que ela entrega: contadas como "sem
+    //       resposta", as dezoito abriam o disjuntor em toda passada e as
+    //       cinco de trás nunca eram refeitas.
+    {
+      const a = await plantar('u-404', 18, 'nf-', 9500);
+      const b = await plantar('u-boa', 5, 'bo-', 9600);
+      window.__imagem = '/imagens/boa.jpg';
+      const pedidosA = [0, 0];
+      let passada = 0;
+      Louvorja.fetchList = async (f) => {
+        const id = Number(String(f).replace('music_', ''));
+        if (String(f).startsWith('music_') && id >= 9500 && id < 9600) {
+          pedidosA[passada]++;
+          throw new Error('HTTP 404');
+        }
+        return listaReal(f);
+      };
+      try {
+        fundosProximaPassadaEm = 0;
+        await comAcervo([a, b], () => syncFundosAcervo());
+        const boas = await fundos('u-boa');
+        const u1 = { fonteMuda: fundosUltimaPassada.fonteMuda, comResposta: fundosUltimaPassada.comResposta };
+        passada = 1;
+        fundosProximaPassadaEm = 0;
+        await comAcervo([a, b], () => syncFundosAcervo());
+        out.http404 = { boas, u1, pedidosA };
+      } finally { Louvorja.fetchList = listaReal; }
+      delete collState['u-404']; delete collState['u-boa'];
+    }
+
+    // U12 · A FONTE RECUSANDO TUDO (401 — o token trocado): o disjuntor abre, e o
+    //       Registro diz RECUSOU, com o status — "não respondeu" mandava
+    //       procurar a rede.
+    {
+      const c = await plantar('u-401', 20, 'ua-', 9700);
+      Louvorja.fetchList = async (f) => {
+        if (String(f).startsWith('music_')) throw new Error('HTTP 401');
+        return listaReal(f);
+      };
+      fundosProximaPassadaEm = 0;
+      try { await comAcervo([c], () => syncFundosAcervo()); } finally { Louvorja.fetchList = listaReal; }
+      out.h401 = { fonteMuda: fundosUltimaPassada.fonteMuda, recusadas: fundosUltimaPassada.recusadas,
+        vereditos: Object.keys((await AVDB.getState(fundoChave('u-401'))) || {}).length,
+        bloco: await comAcervo([c], () => blocoFundos()) };
+      delete collState['u-401'];
+    }
+
+    // U13 · O RETRATO SÃO AS CONTAS VIVAS: lido no meio da refeitura da
+    //       primeira coleção, ele diz o que já foi conferido e tentado — a
+    //       cópia da partida dizia "0 conferida(s)" pelos minutos da refeitura.
+    {
+      const c = await plantar('u-vivo', 4, 'vv-', 9800);
+      let visto = null;
+      Louvorja.fetchList = async (f) => {
+        if (String(f).startsWith('music_') && !visto) {
+          visto = { conferidas: fundosUltimaPassada.conferidas, tentadas: fundosUltimaPassada.tentadas,
+            bloco: await blocoFundos() };
+        }
+        return listaReal(f);
+      };
+      fundosProximaPassadaEm = 0;
+      try { await comAcervo([c], () => syncFundosAcervo()); } finally { Louvorja.fetchList = listaReal; }
+      out.vivo = visto;
+      delete collState['u-vivo'];
+    }
+
     // U8 · UMA PASSADA POR VEZ, pela BANDEIRA: com o piso zerado (o relógio
     //      corrigido para a frente no meio de uma passada longa) a segunda
     //      não parte — e o tique agora bate a cada minuto.
@@ -1317,6 +1439,26 @@ try {
   checar(uu.oculto.fundos.every((e) => e === 'falta') && uu.oculto.visivel === 'visible',
     'U5 · e minimizado o tique não parte (e a PREMISSA: o documento voltou a ser visível depois)',
     JSON.stringify(uu.oculto));
+  checar(uu.setenta.tentadas === 70 && uu.setenta.refeitas === 70 && !uu.setenta.fonteMuda,
+    'U9 · SEM TETO pela porta de verdade: setenta faixas sem fundo — mais que os 60 da v1.10.6 — são '
+    + 'tentadas e refeitas numa passada só', JSON.stringify(uu.setenta));
+  checar(uu.mista.pedidos === 30 && uu.mista.tentadas === 30 && !uu.mista.fonteMuda && uu.mista.semResposta >= 12,
+    'U10 · com a fonte MISTA (metade responde, metade cai) a passada vai até o fim, mesmo passando de '
+    + 'doze falhas: o disjuntor é para a fonte que NÃO responde, e esta responde', JSON.stringify(uu.mista));
+  checar(uu.http404.boas.every((e) => e === 'tem') && !uu.http404.u1.fonteMuda
+    && uu.http404.pedidosA[0] > 0 && uu.http404.pedidosA[1] === 0,
+    'U11 · um 404 no metadado é resposta sobre a FAIXA: as dezoito negadas não abrem o disjuntor, as '
+    + 'cinco de trás ganham fundo na mesma passada, e na seguinte as negadas nem são perguntadas (veredito '
+    + 'de seis dias)', JSON.stringify(uu.http404));
+  checar(uu.h401.fonteMuda && uu.h401.recusadas >= 12 && uu.h401.vereditos === 0
+    && /recusou 12 perguntas seguidas \(HTTP 401\)/.test(uu.h401.bloco) && !/não respondeu/.test(uu.h401.bloco),
+    'U12 · a fonte RECUSANDO tudo (401) abre o disjuntor sem gravar veredito, e o Registro diz "recusou", com '
+    + 'o status — "não respondeu" mandava procurar a rede', JSON.stringify({ ...uu.h401, bloco: undefined }));
+  checar(uu.vivo && uu.vivo.conferidas === 4 && uu.vivo.tentadas >= 1
+    && /4 conferida\(s\), \d+ tentada\(s\)/.test(uu.vivo.bloco),
+    'U13 · o retrato são as contas VIVAS: no meio da refeitura ele já diz o que foi conferido e tentado, e o '
+    + 'Registro imprime as duas coisas — a cópia da partida dizia "0 conferida(s)" pelos minutos da refeitura',
+    JSON.stringify(uu.vivo));
   checar(uu.umaPorVez === 0,
     'U8 · com uma passada no ar a segunda não parte, mesmo com o piso zerado — o piso é relógio, e um '
     + 'relógio corrigido para a frente abriria a porta a cada tique', uu.umaPorVez);

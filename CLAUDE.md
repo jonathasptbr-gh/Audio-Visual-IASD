@@ -2688,8 +2688,13 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   atualiza toda a biblioteca baixada"*): o que limita é o que NÃO é trabalho
   necessário — o veredito (o que já respondeu não é reperguntado), o prazo da
   ausência, e o DISJUNTOR da fonte muda (`FUNDO_FONTE_MUDA`: doze faixas sem
-  resposta — do banco OU do servidor de fotos — e nenhuma com, a passada para e
-  o Registro diz). Piso de 30 min entre passadas — **a passada que cede a vez
+  resposta — do banco OU do servidor de fotos — ou RECUSADAS pela fonte, e
+  nenhuma com resposta, a passada para e o Registro diz qual dos dois). **Um
+  404/410 no METADADO é resposta sobre a FAIXA**, não mudez da fonte: ganha a
+  ausência de seis dias (`metaStatus`) — contado como mudez, ele abria o
+  disjuntor nas MESMAS faixas a cada passada e o resto do acervo nunca era
+  refeito. Os outros status (401, 403, 429, 5xx) são a fonte inteira
+  recusando: alimentam o disjuntor, sem veredito, e a frase diz *"recusou"*. Piso de 30 min entre passadas — **a passada que cede a vez
   não arma o piso, e a CORTADA o devolve** (o que ela aprendeu já está no
   disco). **E ELA SE RELIGA SOZINHA COM O APP À VISTA** (`religarFundos`, a cada
   `FUNDO_RELIGA_MS`, v1.10.7): religada só pela abertura e pelo

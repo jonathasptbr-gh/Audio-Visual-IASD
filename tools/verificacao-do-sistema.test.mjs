@@ -775,6 +775,113 @@ try {
     + 'vai para a pasta que está na lista agora, não para a referência que atravessou o laço',
     JSON.stringify(troca));
 
+  // N1e/N1f/N1g · O QUE A REVISÃO DA v1.10.7 ACHOU NA MESMA CÓPIA (v1.10.7).
+  //   N1e · EXCLUIR A PASTA DURANTE A PRÓPRIA CÓPIA: a lixeira apagava o que
+  //         existia e o laço seguia gravando arquivos e registros de uma pasta
+  //         que já não existe — medido: 20 registros órfãos, invisíveis.
+  //   N1f · A JANELA DO FIM: a pasta era achada ANTES do `await` da contagem, e
+  //         um `load()` caindo nele gravava o número velho — "mostra 25, tem 30".
+  //   N1g · A URI NOVA DO RESGATE ia para o objeto VELHO do fecho do botão, e o
+  //         disco ficava com a URI morta.
+  const pastasRev = await pg.evaluate(async () => {
+    const nat = window.__NATIVE__; const busy = syncBusy; const origem = window.openFolderSource;
+    const confirmar = window.appConfirm; const fbf = AVDB.filesByFolder; const host = favHost;
+    window.__NATIVE__ = false; syncBusy = false;
+    const out = {};
+    const entradas = (n, antes) => Array.from({ length: n }, (_, i) => ({
+      name: 'faixa-' + i + '.mp3',
+      stat: async () => ({ size: 100 + i, mtime: 1 }),
+      read: async () => { if (antes) await antes(i); return new Blob([new Uint8Array(16)], { type: 'audio/mpeg' }); },
+    }));
+    const limpar = async (nome) => {
+      const p = ((await AVDB.getState('opfs-folders')) || []).find((x) => x && x.name === nome)
+        || opfsFolders.find((x) => x && x.name === nome);
+      const id = p && p.id;
+      if (id) {
+        await purgeCatalogRecords(await fbf(id));
+        await AVDB.opfsDeleteDir('folders/' + id).catch(() => {});
+        opfsFolders = opfsFolders.filter((x) => x.id !== id);
+        await AVDB.setState('opfs-folders', opfsFolders);
+      }
+    };
+    try {
+      // N1e
+      {
+        const nome = 'Pasta da exclusão';
+        let pasta = null;
+        const es = entradas(30, async (i) => {
+          if (i !== 10) return;
+          pasta = opfsFolders.find((x) => x && x.name === nome);
+          window.appConfirm = async () => true;
+          await deleteOpfsFolder(pasta);
+          out.naListaNoMeio = opfsFolders.some((x) => x && x.id === pasta.id);
+          favHost = document.createElement('ul');
+          renderFolderList();
+          const linha = [...favHost.querySelectorAll('li')].find((li) => li.textContent.includes(nome));
+          const lixeira = linha && [...linha.querySelectorAll('button')].pop();
+          out.lixeiraApagada = !!(lixeira && lixeira.disabled);
+          favHost = host;
+        });
+        window.openFolderSource = async () => ({ name: nome, entries: es });
+        await syncDeviceFolder(null, null);
+        const noDisco = ((await AVDB.getState('opfs-folders')) || []).find((x) => x && x.name === nome);
+        out.exclusao = { naLista: !!noDisco, mostra: noDisco ? noDisco.count : null,
+          tem: pasta ? (await fbf(pasta.id)).length : -1, naListaNoMeio: out.naListaNoMeio,
+          lixeiraApagada: out.lixeiraApagada, livreDepois: pastaSincronizando === null };
+        await limpar(nome);
+      }
+      // N1f
+      {
+        const nome = 'Pasta da janela do fim';
+        let chamadas = 0;
+        AVDB.filesByFolder = async (id) => {
+          const r = await fbf(id);
+          if (++chamadas === 3) {
+            opfsFolders = JSON.parse(JSON.stringify((await AVDB.getState('opfs-folders')) || []));
+          }
+          return r;
+        };
+        window.openFolderSource = async () => ({ name: nome, entries: entradas(30) });
+        try { await syncDeviceFolder(null, null); } finally { AVDB.filesByFolder = fbf; }
+        const noDisco = ((await AVDB.getState('opfs-folders')) || []).find((x) => x && x.name === nome);
+        out.janela = { chamadas, mostra: noDisco ? noDisco.count : null,
+          tem: noDisco ? (await fbf(noDisco.id)).length : -1 };
+        await limpar(nome);
+      }
+      // N1g
+      {
+        const nome = 'Pasta do resgate';
+        const velha = { id: 'pf-resgate', name: nome, count: 0, syncedAt: 0, uri: 'content://velha' };
+        opfsFolders.push(velha);
+        await AVDB.setState('opfs-folders', opfsFolders);
+        // O `load()` que não muda a assinatura da seção: objetos NOVOS na
+        // lista, e o botão segurando o velho.
+        opfsFolders = JSON.parse(JSON.stringify((await AVDB.getState('opfs-folders')) || []));
+        window.openFolderSource = async () => ({ name: nome, uri: 'content://nova', entries: entradas(3) });
+        await syncDeviceFolder(velha, null);
+        const noDisco = ((await AVDB.getState('opfs-folders')) || []).find((x) => x && x.id === 'pf-resgate');
+        out.resgate = { uri: noDisco ? noDisco.uri : null, mostra: noDisco ? noDisco.count : null };
+        await limpar(nome);
+      }
+    } finally {
+      window.openFolderSource = origem; window.appConfirm = confirmar; AVDB.filesByFolder = fbf; favHost = host;
+      window.__NATIVE__ = nat; syncBusy = busy;
+    }
+    return out;
+  });
+  checar(pastasRev.exclusao.naListaNoMeio && pastasRev.exclusao.lixeiraApagada
+    && pastasRev.exclusao.naLista && pastasRev.exclusao.mostra === 30 && pastasRev.exclusao.tem === 30
+    && pastasRev.exclusao.livreDepois,
+    'N1e · a pasta que está sincronizando NÃO é excluída no meio da cópia (a lixeira fica APAGADA): '
+    + 'excluída, o laço seguia gravando arquivos e registros sem dono', JSON.stringify(pastasRev.exclusao));
+  checar(pastasRev.janela.chamadas >= 3 && pastasRev.janela.tem === 30 && pastasRev.janela.mostra === 30,
+    'N1f · com o `load()` caindo DENTRO da contagem final, a pasta ainda mostra o que tem — conta primeiro, '
+    + 'acha a pasta depois, sem `await` entre achar e gravar', JSON.stringify(pastasRev.janela));
+  checar(pastasRev.resgate.uri === 'content://nova' && pastasRev.resgate.mostra === 3,
+    'N1g · a URI NOVA de um resgate vai para a pasta da lista de agora, não para o objeto velho que o '
+    + 'botão segurava — senão o disco ficava com a URI morta e o resgate nunca se fixava',
+    JSON.stringify(pastasRev.resgate));
+
   // N2 · A BÍBLIA EMPAREDADA. A bandeira e o texto são o mesmo fato em dois
   // lugares, e nada os mantém juntos: com a bandeira de pé sobre um banco
   // vazio, a varredura devolve cedo NA BANDEIRA e a versão nunca mais é
@@ -1222,7 +1329,7 @@ try {
     const cols = window.allCollections; const songs = window.collSongs;
     const get = AVDB.fileGet; const rede = window.networkType;
     window.allCollections = () => [{ id: 'c-fundo', name: 'Coleção' }];
-    window.collSongs = () => [{ name: 'Faixa', fileIdFull: 'f1' }];
+    window.collSongs = () => [{ id_music: 7, name: 'Faixa', fileIdFull: 'f1' }];
     AVDB.fileGet = async () => ({ id: 'f1', lyrics: [{ text: 'linha', imageOpfsPath: null }] });
     const ult = fundosUltimaPassada;
     try {
@@ -1239,16 +1346,25 @@ try {
       fundosUltimaPassada = { em: Date.now(), emCurso: false, conferidas: 3, tentadas: 3, refeitas: 0,
         semResposta: 3, adiadas: 0, cortada: false };
       const fonteMuda = await rodarUmaChecagem(achada);
-      // A FONTE QUE RESPONDEU E NÃO ENTREGOU A FOTO (v1.10.7): as faixas ficam
-      // com veredito de seis dias, e "já refaz sozinho" prometia um conserto
-      // que não vinha.
-      fundosUltimaPassada = { em: Date.now(), emCurso: false, conferidas: 3, tentadas: 3, refeitas: 1,
-        semResposta: 0, cortada: false };
+      // A FONTE QUE RESPONDEU E A FOTO NÃO CHEGOU (v1.10.7): a faixa fica com
+      // veredito de seis dias, e "já refaz sozinho" prometia um conserto que
+      // não vinha. A CÉLULA É A DA PASSADA SEGUINTE — o retrato com ZERO
+      // tentadas, porque ela pula a faixa pelo veredito: lida do retrato, a
+      // resposta sumia meia hora depois de dada.
+      fundosUltimaPassada = { em: Date.now(), emCurso: false, conferidas: 0, tentadas: 0, refeitas: 0,
+        semResposta: 0, recusadas: 0, cortada: false };
+      await AVDB.setState(fundoChave('c-fundo'),
+        { 7: { v: FUNDO_VEREDITO_VERSAO, ids: 'f1|', em: Date.now(), tem: false } });
       const semFoto = await rodarUmaChecagem(achada);
+      await AVDB.setState(fundoChave('c-fundo'), null);
+      // A FONTE RECUSANDO (HTTP) não é a fonte muda: a frase diz "recusou".
+      fundosUltimaPassada = { em: Date.now(), emCurso: false, conferidas: 3, tentadas: 3, refeitas: 0,
+        semResposta: 0, recusadas: 3, ultimoStatus: 401, cortada: false };
+      const recusou = await rodarUmaChecagem(achada);
       fundosUltimaPassada = { em: Date.now(), emCurso: true, conferidas: 3, tentadas: 0, refeitas: 0,
         semResposta: 0, cortada: false };
       const emCurso = await rodarUmaChecagem(achada);
-      return { noWifi, naRedeMovel, semTipo, fonteMuda, semFoto, emCurso };
+      return { noWifi, naRedeMovel, semTipo, fonteMuda, semFoto, emCurso, recusou };
     } finally {
       fundosUltimaPassada = ult;
       window.allCollections = cols; window.collSongs = songs; AVDB.fileGet = get;
@@ -1271,10 +1387,14 @@ try {
   checar(/fonte das músicas não respondeu/.test(fundos.fonteMuda.nota) && !/já refaz/.test(fundos.fonteMuda.nota),
     'P5 · e quando a última passada tentou e a FONTE não respondeu, a nota diz isso — "já refaz sozinho" '
     + 'afirmaria um trabalho que não está andando', fundos.fonteMuda.nota);
-  checar(/a foto de 2 música\(s\) não chegou/.test(fundos.semFoto.nota) && /6 dias/.test(fundos.semFoto.nota)
+  checar(/a foto de 1 destas não chegou/.test(fundos.semFoto.nota) && /até 6 dias/.test(fundos.semFoto.nota)
     && !/já refaz/.test(fundos.semFoto.nota),
-    'P6 · e quando a fonte RESPONDEU e a foto não chegou, a nota diz quantas e quando o app tenta de '
-    + 'novo — "já refaz sozinho" deixava o operador esperando um conserto de seis dias', fundos.semFoto.nota);
+    'P6 · e quando a foto não chegou e a faixa espera o prazo, a nota diz quantas e quando o app tenta de '
+    + 'novo — lido do VEREDITO, porque a passada seguinte pula a faixa e sai com zero tentadas',
+    fundos.semFoto.nota);
+  checar(/recusou os pedidos \(HTTP 401\)/.test(fundos.recusou.nota) && !/não respondeu/.test(fundos.recusou.nota),
+    'P9 · e a fonte que RECUSA (HTTP) não é a fonte muda: a nota diz "recusou", com o status — são '
+    + 'ações diferentes, e trocá-las foi o defeito da v1.9.14', fundos.recusou.nota);
   checar(/refazendo isto agora/.test(fundos.emCurso.nota),
     'P7 · com a passada em curso a nota diz que ela está andando', fundos.emCurso.nota);
   checar(/confere de novo a cada minuto/.test(fundos.naRedeMovel.nota),

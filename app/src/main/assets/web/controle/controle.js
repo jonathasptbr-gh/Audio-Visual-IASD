@@ -886,6 +886,11 @@ const GRUPO_FAVORITOS = 'Favoritos';
 const ABRIR_TECLADO_MS = 260;
 let hymnFocoTimer = null;
 let syncBusy = false;      // sincronização em andamento
+// A PASTA QUE ESTÁ SINCRONIZANDO AGORA (v1.10.7) — a lixeira dela fica apagada:
+// excluí-la no meio da cópia apagava o que existia e deixava o laço gravando
+// arquivos e registros de uma pasta que já não existe, sem dono e sem porta de
+// saída (o coletor da abertura varre a store `media`, não a de pastas).
+let pastaSincronizando = null;
 // Transições visuais são INERENTES (sempre ligadas, duração fixa): fade em toda
 // troca visual — mídia, cortina do wallpaper, letra e texto bíblico.
 const fadeCfg = createStage.FADE; // fonte única, compartilhada com o Display
@@ -11803,6 +11808,11 @@ function renderFolderList() {
     syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncDeviceFolder(f, syncBtn); });
     const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Excluir pasta e arquivos sincronizados';
     rmBtn.appendChild(msym(ICON.del));
+    // APAGADA, e não inerte, durante a cópia desta pasta — ver `pastaSincronizando`.
+    if (pastaSincronizando === f.id) {
+      rmBtn.disabled = true;
+      rmBtn.title = 'A exclusão fica disponível quando a sincronização desta pasta terminar';
+    }
     rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteOpfsFolder(f); });
     row.append(icon, nameEl, countEl, syncBtn, rmBtn);
     li.appendChild(row);
@@ -18130,6 +18140,8 @@ async function syncDeviceFolder(existing, botao) {
 
   const source = await openFolderSource(existing, botao);
   if (!source) return;
+  // EXCLUÍDA COM O SELETOR ABERTO: nada a copiar para ela.
+  if (existing && !pastaNaLista(existing)) return;
 
   syncBusy = true;
   // Copiar uma pasta inteira do dispositivo para o OPFS é longo (vídeos
@@ -18145,11 +18157,16 @@ async function syncDeviceFolder(existing, botao) {
     // Pede armazenamento persistente para o browser não descartar os arquivos.
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
-    folder = existing || opfsFolders.find((f) => f.name === source.name);
+    // A PASTA DA LISTA DE AGORA, e não a do fecho do botão: um `load()` que
+    // não mude a assinatura da seção deixa o botão com o objeto VELHO, e a URI
+    // nova de um resgate (a pasta movida) era escrita nele — o `setState`
+    // logo abaixo gravava a lista atual com a URI morta.
+    folder = pastaNaLista(existing) || existing || opfsFolders.find((f) => f.name === source.name);
     if (!folder) {
       folder = { id: uid(), name: source.name, count: 0, syncedAt: 0 };
       opfsFolders.push(folder);
     }
+    pastaSincronizando = folder.id;
     // `handle` (web) e `uri` (nativo) cumprem o mesmo papel: acelerar o
     // re-sync sem pedir a pasta de novo.
     if (source.handle) folder.handle = source.handle;
@@ -18238,9 +18255,12 @@ async function syncDeviceFolder(existing, botao) {
       // barato (uma escrita a cada 25) e é o que faz a tela contar a verdade
       // enquanto a cópia anda.
       if (added % CHECKPOINT_PASTA === 0) {
+        // CONTAR ANTES DE ACHAR a pasta, e nenhum `await` entre achá-la e
+        // entregar a lista ao `setState` — ver o bloco do fim do laço.
+        const n = (await AVDB.filesByFolder(folder.id)).length;
         const alvo = pastaNaLista(folder);
         if (alvo) {
-          alvo.count = (await AVDB.filesByFolder(folder.id)).length;
+          alvo.count = n;
           alvo.syncedAt = Date.now();
           try { await AVDB.setState('opfs-folders', opfsFolders); } catch (_) { /* segue */ }
         }
@@ -18254,9 +18274,16 @@ async function syncDeviceFolder(existing, botao) {
     // lista, e o `setState` logo abaixo gravava a lista nova com a contagem do
     // último ponto de controle. A pasta terminava inteira e a tela dizia que a
     // cópia tinha parado no meio.
+    //
+    // **E A CONTAGEM VEM ANTES DE ACHAR A PASTA**: achada primeiro, a
+    // referência atravessava o `await` da contagem (que desserializa todos os
+    // registros da pasta), e um `load()` caindo ali repetia o defeito numa
+    // janela menor — MEDIDO, "mostra 25, tem 30". Sem `await` entre achar e
+    // entregar ao `setState`, a lista gravada é a que contém o `alvo`.
+    const n = (await AVDB.filesByFolder(folder.id)).length;
     const alvo = pastaNaLista(folder);
     if (alvo) {
-      alvo.count = (await AVDB.filesByFolder(folder.id)).length;
+      alvo.count = n;
       alvo.syncedAt = Date.now();
       folder.count = alvo.count; folder.syncedAt = alvo.syncedAt;
       await AVDB.setState('opfs-folders', opfsFolders);
@@ -18281,8 +18308,10 @@ async function syncDeviceFolder(existing, botao) {
     if (folder) statusPasta(folder.id, 'erro: ' + ((e && e.name) || 'desconhecido'), 9000);
   } finally {
     syncBusy = false;
+    pastaSincronizando = null;
     bgTaskEnd(folderNotifId);
     bgWorkEnd();
+    renderFoldersSeVisivel();
   }
   load();
 }
@@ -18325,7 +18354,10 @@ function pastaNaLista(folder) {
 }
 
 async function deleteOpfsFolder(f) {
+  if (pastaSincronizando === f.id) return;
   if (!(await appConfirm({ title: 'Excluir pasta', message: 'Excluir a pasta "' + f.name + '" e todos os arquivos sincronizados?', okText: 'Excluir', perigo: true }))) return;
+  // E DE NOVO DEPOIS DA PERGUNTA: a cópia pode ter começado com o diálogo aberto.
+  if (pastaSincronizando === f.id) return;
   const recs = await AVDB.filesByFolder(f.id);
   await purgeCatalogRecords(recs);
   await AVDB.opfsDeleteDir('folders/' + f.id);
@@ -20060,7 +20092,7 @@ async function syncImagensColecao(coll, opts) {
           if (!collSongs(coll.id).includes(s)) return;
           // A FONTE MUDA PARA A PASSADA — ver `FUNDO_FONTE_MUDA`. Nenhuma
           // resposta em doze perguntas é o servidor, não a faixa.
-          if (contas && contas.semResposta >= FUNDO_FONTE_MUDA && !contas.comResposta) {
+          if (contas && contas.semResposta + contas.recusadas >= FUNDO_FONTE_MUDA && !contas.comResposta) {
             contas.fonteMuda = true;
             return;
           }
@@ -20083,14 +20115,27 @@ async function syncImagensColecao(coll, opts) {
             // exatamente o defeito que a v1.9.13 tirou do download.
             const estado = await estadoDoFundo(s);
             const tem = estado === 'tem';
-            if (tem) refeitas++;
+            // CONTADA AO VIVO nas contas do acervo, e não somada no fim: elas
+            // SÃO o retrato que o Registro lê com a passada em curso.
+            if (tem) { refeitas++; if (contas) contas.refeitas++; }
             // "A FONTE RESPONDEU?" são DUAS perguntas: o metadado (`metaOk`) e
             // as FOTOS (`fotoSemResposta`, a foto cujo `fetch` nem voltou). Um
             // servidor de arquivos fora do ar com o banco de pé é a fonte muda
             // do mesmo jeito — e sem contá-la aqui o disjuntor nunca abriria:
             // mil faixas, duas requisições cada, a cada passada.
-            const respondeu = o.metaOk && !o.fotoSemResposta;
-            if (contas) { if (respondeu) contas.comResposta++; else contas.semResposta++; }
+            //
+            // E UM 404/410 NO METADADO É RESPOSTA SOBRE A FAIXA (a fonte diz que
+            // ela não existe lá), não sobre a fonte: conta como resposta e
+            // ganha o veredito de ausência. Os outros status (401, 403, 429,
+            // 5xx) são a fonte inteira recusando — alimentam o disjuntor, sem
+            // veredito, e o Registro diz "recusou", nunca "não respondeu".
+            const faixaNegada = o.metaStatus === 404 || o.metaStatus === 410;
+            const respondeu = (o.metaOk && !o.fotoSemResposta) || faixaNegada;
+            if (contas) {
+              if (respondeu) contas.comResposta++;
+              else if (o.metaStatus) { contas.recusadas++; contas.ultimoStatus = o.metaStatus; }
+              else contas.semResposta++;
+            }
             // E O VEREDITO SÓ É GRAVADO SE A PERGUNTA CHEGOU A SER FEITA
             // (`metaOk`). Sem rede, `downloadCollectionSong` volta antes de
             // tocar em imagem nenhuma: gravar `tem: false` ali seria carimbar
@@ -20105,7 +20150,7 @@ async function syncImagensColecao(coll, opts) {
             // `tem: false` ali calava por SEIS DIAS uma faixa que a fonte
             // entrega — uma oscilação de Wi-Fi valendo pela semana. `'tem'`
             // continua valendo mesmo assim: uma foto que chegou já é fundo.
-            if (o.metaOk && estado !== '?' && (tem || !o.fotoSemResposta)
+            if ((o.metaOk || faixaNegada) && estado !== '?' && (tem || !o.fotoSemResposta)
               && collSongs(coll.id).includes(s)) {
               vereditos[s.id_music] = { v: FUNDO_VEREDITO_VERSAO, ids: fundoIdsDaFaixa(s), em: Date.now(), tem };
             }
@@ -20130,7 +20175,6 @@ async function syncImagensColecao(coll, opts) {
     updateCollBytes(coll.id);
     refreshCollectionsIfVisible();
   }
-  if (contas) contas.refeitas += refeitas;
   return refeitas;
 }
 
@@ -20188,14 +20232,20 @@ async function syncFundosAcervo() {
   if (lyricSyncRunning) return;
   fundosProximaPassadaEm = agora + FUNDO_PASSO_MS;
   const contas = {
-    conferidas: 0, tentadas: 0, refeitas: 0, comResposta: 0, semResposta: 0, fonteMuda: false,
+    conferidas: 0, tentadas: 0, refeitas: 0, comResposta: 0, semResposta: 0, recusadas: 0,
+    ultimoStatus: null, fonteMuda: false,
   };
   // O RETRATO NASCE NA PARTIDA, e não no fim. Gravado só no fim e só com
   // trabalho feito, ele não existia no estado ESTÁVEL (tudo com veredito, nada
   // a conferir) — e o Registro escrevia *"nenhuma passada automática"* duas
   // linhas acima do horário do piso que a passada tinha acabado de armar. O
   // `emCurso` é o que diz *"está andando"* numa primeira passada de minutos.
-  fundosUltimaPassada = { em: agora, emCurso: true, cortada: false, ...contas };
+  //
+  // **E ELE SÃO AS CONTAS VIVAS, não uma cópia** (v1.10.7): copiado na partida
+  // e atualizado só no fim de cada coleção, ele dizia *"0 conferida(s) até
+  // aqui"* durante os minutos da refeitura do hinário — e quem lê a distância
+  // conclui que a passada travou.
+  fundosUltimaPassada = Object.assign(contas, { em: agora, emCurso: true, cortada: false });
   fundosPassadaRodando = true;
   const alvos = allCollections().filter((c) => c.kind !== 'serie' && countDownloaded(c.id) > 0);
   try {
@@ -20208,12 +20258,11 @@ async function syncFundosAcervo() {
       // sobe DEPOIS da conferência, então ela não fecha essa janela sozinha.
       if (ui(c.id).syncBusy) continue;
       await syncImagensColecao(c, { auto: true, contas }).catch(() => {});
-      Object.assign(fundosUltimaPassada, contas);
       if (contas.fonteMuda) break;
     }
   } finally {
     fundosPassadaRodando = false;
-    Object.assign(fundosUltimaPassada, contas, { emCurso: false });
+    fundosUltimaPassada.emCurso = false;
     if (!rotinaDeBytesPodeCorrer()) fundosUltimaPassada.cortada = true;
     // A PASSADA CORTADA DEVOLVE O PISO — conferisse ela zero faixas ou mil.
     // O que ela aprendeu já está no disco (os vereditos são gravados no corte),
@@ -20351,7 +20400,18 @@ async function downloadCollectionSong(coll, s, opts) {
   if (coll.kind === 'serie') return downloadSerieItem(coll, s);
   let meta;
   try { meta = await Louvorja.fetchList('music_' + s.id_music); }
-  catch (_) { return false; } // sem rede agora; a próxima sincronização tenta de novo
+  catch (e) {
+    // SEM REDE e FONTE RECUSANDO não são a mesma resposta (v1.10.7): o
+    // `TypeError` do `fetch` é ninguém do outro lado; um status de erro é a
+    // fonte respondendo, e a varredura dos fundos precisa separar os dois —
+    // um 404 é sobre ESTA faixa, e contado como "sem resposta" ele abria o
+    // disjuntor nas mesmas faixas a cada passada, para sempre.
+    if (opts && !(e instanceof TypeError)) {
+      const m = /HTTP (\d+)/.exec(String(e && e.message));
+      opts.metaStatus = m ? +m[1] : 'ilegível';
+    }
+    return false; // a próxima sincronização tenta de novo
+  }
   // "A PERGUNTA CHEGOU A SER FEITA?" (v1.10.6) — e é ela que o veredito dos
   // fundos grava (ver `fundoNoDiscoVale`). Sem esta linha a varredura automática
   // não tem como separar *"tentei e continua sem fundo"* de *"a rede caiu antes
@@ -27493,18 +27553,22 @@ async function blocoFundos() {
   if (u) {
     const quando = new Date(u.em || 0).toLocaleString('pt-BR');
     if (u.emCurso) {
-      linhas.push('  passada em curso desde ' + quando + ': ' + u.conferidas + ' conferida(s) até aqui');
+      linhas.push('  passada em curso desde ' + quando + ': ' + u.conferidas + ' conferida(s), '
+        + u.tentadas + ' tentada(s), ' + u.refeitas + ' ganharam fundo até aqui');
     } else if (!u.conferidas) {
       linhas.push('  última passada (' + quando + '): nada a conferir — '
         + (u.cortada ? 'ela cedeu a vez antes de começar' : 'toda música baixada já tem veredito'));
     } else {
-      const semFundoAinda = u.tentadas - u.refeitas - u.semResposta;
+      const semFundoAinda = u.tentadas - u.refeitas - u.semResposta - u.recusadas;
       linhas.push('  última passada (' + quando + '): ' + u.conferidas + ' conferida(s), '
         + u.tentadas + ' tentada(s) — ' + u.refeitas + ' ganharam fundo'
         + (u.semResposta ? ', ' + u.semResposta + ' sem resposta da fonte das músicas' : '')
+        + (u.recusadas ? ', ' + u.recusadas + ' recusada(s) pela fonte (HTTP ' + u.ultimoStatus + ')' : '')
         + (semFundoAinda > 0 ? ', ' + semFundoAinda + ' continuam sem (ver as capas acima)' : '')
-        + (u.fonteMuda ? '; parou: a fonte das músicas não respondeu ' + FUNDO_FONTE_MUDA
-          + ' perguntas seguidas' : '')
+        + (u.fonteMuda ? '; parou: a fonte das músicas '
+          + (u.recusadas && !u.semResposta
+            ? 'recusou ' + FUNDO_FONTE_MUDA + ' perguntas seguidas (HTTP ' + u.ultimoStatus + ')'
+            : 'não respondeu ' + FUNDO_FONTE_MUDA + ' perguntas seguidas') : '')
         + (u.cortada ? '; cedeu a vez no meio' : ''));
     }
   } else {
@@ -28243,7 +28307,7 @@ const TESTES = [
       const alvos = [];
       for (const c of allCollections()) {
         for (const s of collSongs(c.id)) {
-          if (s.fileIdFull && !s.semImagem) alvos.push([c.name, s.fileIdFull]);
+          if (s.fileIdFull && !s.semImagem) alvos.push([c, s]);
         }
       }
       if (!alvos.length) return tNa('nada baixado ainda');
@@ -28251,11 +28315,25 @@ const TESTES = [
       const amostra = amostrarEspalhado(alvos, TETO);
       let semFundo = 0;
       let comLetra = 0;
-      for (const [, id] of amostra) {
-        const rec = await AVDB.fileGet(id).catch(() => null);
+      // QUANTAS DAS SEM FUNDO JÁ FORAM TENTADAS E ESPERAM O PRAZO — lido do
+      // VEREDITO GRAVADO, a mesma fonte do Registro, e nunca do retrato da
+      // última passada: aquele é refeito a cada passada, e a seguinte (que
+      // pula essas faixas pelo veredito) sai com zero tentadas e apagava a
+      // resposta. Cache por coleção: um `getState` por coleção da amostra.
+      const guardados = new Map();
+      let aguardando = 0;
+      const agora = Date.now();
+      for (const [c, s] of amostra) {
+        const rec = await AVDB.fileGet(s.fileIdFull).catch(() => null);
         if (!rec || !Array.isArray(rec.lyrics) || !rec.lyrics.length) continue;
         comLetra++;
-        if (!rec.lyrics.some((x) => x && x.imageOpfsPath)) semFundo++;
+        if (rec.lyrics.some((x) => x && x.imageOpfsPath)) continue;
+        semFundo++;
+        if (!guardados.has(c.id)) {
+          guardados.set(c.id, (await AVDB.getState(fundoChave(c.id)).catch(() => null)) || {});
+        }
+        const v = guardados.get(c.id)[s.id_music];
+        if (fundoNoDiscoVale(v, s, agora) && !v.tem) aguardando++;
       }
       if (!comLetra) return tNa('nenhuma das conferidas tem letra sincronizada');
       if (semFundo) {
@@ -28279,22 +28357,23 @@ const TESTES = [
         // o operador esperava, olhava de novo, e a linha continuava vermelha.
         const impedimento = fundosImpedimento();
         const u = fundosUltimaPassada;
-        const semFoto = u ? u.tentadas - u.refeitas - u.semResposta : 0;
         let comoEsta;
         if (impedimento) {
           comoEsta = ' — o app refaz sozinho, mas agora não: ' + impedimento
             + ' (ele confere de novo ' + fundosReligaFrase() + ')';
         } else if (u && u.emCurso) comoEsta = ' — o app está refazendo isto agora';
-        else if (u && u.semResposta && !u.refeitas) {
-          comoEsta = ' — o app tenta sozinho, e na última vez a fonte das músicas não respondeu';
-        } else if (semFoto > 0) {
+        else if (u && (u.semResposta || u.recusadas) && !u.refeitas) {
+          comoEsta = ' — o app tenta sozinho, e na última vez a fonte das músicas '
+            + (u.recusadas && !u.semResposta ? 'recusou os pedidos (HTTP ' + u.ultimoStatus + ')' : 'não respondeu');
+        } else if (aguardando > 0) {
           // A CAUSA NÃO É NOMEADA AQUI: a fonte respondendo erro e o disco
           // recusando a gravação chegam iguais a esta conta, e acusar a fonte
           // pelo disco cheio mandaria o operador procurar no lugar errado. Quem
           // separa as duas é o bloco "Download do acervo" do Registro.
-          comoEsta = ' — o app tentou sozinho e a foto de ' + semFoto
-            + ' música(s) não chegou (o Registro diz por quê); ele tenta de novo em '
-            + Math.round(FUNDO_REVISITA_MS / 86400000) + ' dias';
+          comoEsta = ' — o app tentou sozinho e a foto de ' + aguardando
+            + ' destas não chegou (o Registro diz por quê); ele tenta de novo em até '
+            + Math.round(FUNDO_REVISITA_MS / 86400000) + ' dias'
+            + (aguardando < semFundo ? ', e refaz as outras sozinho' : '');
         } else comoEsta = ' — o app já refaz sozinho, com o aparelho num Wi-Fi';
         return tFalhou(semFundo + ' de ' + comLetra + ' sem fundo' + comoEsta);
       }
