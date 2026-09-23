@@ -38,7 +38,12 @@ Pontos cobertos: `syncGroup`, `syncCollection`, `ensureSongDownloaded`,
 `rotinaDeAcervoPodeCorrer`). `syncLyrics` e `syncCifrasAcervo` saem da abertura
 SEM `await`, então correm juntas: `NET_CONCURRENCY` é 6, e são até **12
 requisições concorrentes** a dois hosts de terceiros sobre o acervo inteiro
-(MEDIDO: 309 + 145 hinos numa passada). O único freio era rede móvel — nada
+(MEDIDO: 309 + 145 hinos numa passada). **A terceira, a dos FUNDOS da letra
+(`syncFundosAcervo`, v1.10.6), corre no fio das letras e DEPOIS delas** — as duas
+pedem `music_{id}` ao mesmo host, e soltas seriam 12 só ali; como o encadeamento
+só serializa a primeira chamada, cada uma CEDE à outra por bandeira. Ela só corre
+num Wi-Fi confirmado e cede também a um download PEDIDO (`bgWorkPedido`), que é
+o que o operador acompanha na barra. O único freio era rede móvel — nada
 consultava a cena. **Isso é estabilidade, não desempenho:** o uso normal é abrir
 o app minutos antes do culto e tocar o primeiro item, e nesse instante os
 fragmentos do MSE disputam a Wi-Fi da igreja com as 12 — justamente quando a

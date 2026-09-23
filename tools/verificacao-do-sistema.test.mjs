@@ -1060,6 +1060,60 @@ try {
       + 'NÃO se marca — a marca é o que a varredura mediu', JSON.stringify(tetoReal));
   }
 
+  // ===== BLOCO P · A LINHA DOS FUNDOS NÃO MANDA TOCAR NUM BOTÃO QUE NÃO EXISTE (v1.10.6) =====
+  //
+  // A nota terminava em *"toque em sincronizar na coleção"*, e o operador
+  // respondeu: *"Não há um botão de sincronizar as coleções"*. Ele está certo —
+  // o botão de baixar só é desenhado com a coleção INCOMPLETA, e este defeito
+  // mora na coleção completa. **Uma instrução que o aparelho não pode cumprir é
+  // pior que nenhuma.** A célula é a do relato: uma faixa baixada, com letra, e
+  // NENHUM slide com fundo.
+  const fundos = await pg.evaluate(async () => {
+    const achada = TESTES.find((c) => c.id === 'acervo-fundos');
+    const cols = window.allCollections; const songs = window.collSongs;
+    const get = AVDB.fileGet; const rede = window.networkType;
+    window.allCollections = () => [{ id: 'c-fundo', name: 'Coleção' }];
+    window.collSongs = () => [{ name: 'Faixa', fileIdFull: 'f1' }];
+    AVDB.fileGet = async () => ({ id: 'f1', lyrics: [{ text: 'linha', imageOpfsPath: null }] });
+    const ult = fundosUltimaPassada;
+    try {
+      fundosUltimaPassada = null;
+      window.networkType = () => 'wifi';
+      const noWifi = await rodarUmaChecagem(achada);
+      window.networkType = () => 'cellular';
+      const naRedeMovel = await rodarUmaChecagem(achada);
+      window.networkType = () => 'unknown';
+      const semTipo = await rodarUmaChecagem(achada);
+      // A FONTE QUE NÃO RESPONDEU na última passada: a causa não é a rede do
+      // operador, e "já refaz sozinho" seria afirmar um trabalho que não anda.
+      window.networkType = () => 'wifi';
+      fundosUltimaPassada = { em: Date.now(), emCurso: false, conferidas: 3, tentadas: 3, refeitas: 0,
+        semMetadado: 3, adiadas: 0, cortada: false };
+      const fonteMuda = await rodarUmaChecagem(achada);
+      return { noWifi, naRedeMovel, semTipo, fonteMuda };
+    } finally {
+      fundosUltimaPassada = ult;
+      window.allCollections = cols; window.collSongs = songs; AVDB.fileGet = get;
+      window.networkType = rede;
+    }
+  });
+  checar(fundos.noWifi.v === 'falhou' && fundos.naRedeMovel.v === 'falhou',
+    'P1 · a PREMISSA: a faixa sem fundo continua reprovando — o conserto é da FRASE, não do veredito',
+    JSON.stringify(fundos));
+  checar(!/sincroniz/i.test(fundos.noWifi.nota) && !/sincroniz/i.test(fundos.naRedeMovel.nota),
+    'P2 · e a nota NÃO manda tocar em sincronizar: o botão só existe com a coleção incompleta, e '
+    + 'este defeito mora na completa — o operador procurou e não achou', JSON.stringify(fundos));
+  checar(/já refaz sozinho/.test(fundos.noWifi.nota) && !/Wi-Fi confirmado/.test(fundos.noWifi.nota)
+    && /Wi-Fi confirmado/.test(fundos.naRedeMovel.nota) && /"cellular"/.test(fundos.naRedeMovel.nota),
+    'P3 · ela diz o que ACONTECE, e as frases são diferentes porque pedem ações opostas: num Wi-Fi '
+    + 'não há o que fazer; fora dele, é preciso achar um — com o que o aparelho informa', JSON.stringify(fundos));
+  checar(/Wi-Fi confirmado/.test(fundos.semTipo.nota) && /"unknown"/.test(fundos.semTipo.nota),
+    'P4 · e o aparelho que não informa o tipo de rede sai com a MESMA frase de quem está no 4G, com o '
+    + '"unknown" à vista — é a linha que diz a distância por que a rotina não corre ali', fundos.semTipo.nota);
+  checar(/fonte das músicas não respondeu/.test(fundos.fonteMuda.nota) && !/já refaz/.test(fundos.fonteMuda.nota),
+    'P5 · e quando a última passada tentou e a FONTE não respondeu, a nota diz isso — "já refaz sozinho" '
+    + 'afirmaria um trabalho que não está andando', fundos.fonteMuda.nota);
+
 } finally {
   await navegador.close();
   servidor.close();
