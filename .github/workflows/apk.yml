@@ -576,6 +576,7 @@ jobs:
           rodar tools/serie-mantem-a-semana.test.mjs
           rodar tools/som-nao-vaza-ao-perder-a-tela.test.mjs
           rodar tools/saida-de-audio-e-economia.test.mjs
+          rodar tools/dados-moveis.test.mjs
           rodar tools/imagem-sobre-audio.test.mjs
           rodar tools/slides-sobre-audio.test.mjs
           rodar tools/pptx-video-na-pagina.test.mjs

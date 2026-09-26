@@ -301,9 +301,9 @@ try {
       }
       return real(u, o);
     };
-    // O Wi-Fi CONFIRMADO tira do caminho o diálogo de dados móveis do
-    // `syncGroup` (ele pergunta uma vez pelo LOTE, e essa pergunta espera uma
-    // PESSOA — sem prazo, como toda espera por gesto deste app).
+    // O Wi-Fi CONFIRMADO tira do caminho a espera de rede do `syncGroup`
+    // (v1.11.0: sem Wi-Fi e sem "Dados móveis" ligado nas Configurações, ele
+    // não pergunta mais — só espera, sem baixar nada).
     if (!navigator.connection) Object.defineProperty(navigator, 'connection', { value: {}, configurable: true });
     Object.defineProperty(navigator.connection, 'type', { value: 'wifi', configurable: true });
     const coll = { id: 't-metade', name: 'Metade', kind: 'album', source: 'fonte-de-teste' };

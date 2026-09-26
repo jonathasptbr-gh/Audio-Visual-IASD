@@ -388,7 +388,7 @@ try {
   const ordem = await pg.$eval('.qs-grade',
     (g) => [...g.children].map((e) => e.id));
   const projecao = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow',
-    'lyricsBgTile', 'rotBtn', 'saidaAudioTile', 'economiaTile'];
+    'lyricsBgTile', 'rotBtn', 'saidaAudioTile', 'economiaTile', 'dadosMoveisTile'];
   // ===== O TERCEIRO GRUPO É DE UM TILE SÓ, E ELE TEM NOME (v1.10.0) =====
   //
   // A VERIFICAÇÃO não é preferência da PROJEÇÃO nem ação sobre o APP: ela é
@@ -397,11 +397,18 @@ try {
   // asserção existir que a pergunta teve de ser respondida em vez de resolvida
   // por acomodação.
   //
-  // E o LUGAR dela entre os dois não é gosto, é geometria CONTADA: a grade tem
-  // três colunas, e com ela aqui o que vem antes fecha em NOVE — três fileiras
-  // cheias —, deixando as três do aparelho numa fileira inteira e sozinha, que
-  // é o desenho que a v1.7.6 pediu. No grupo de baixo ela faria quatro, e o
-  // quarto cai sozinho numa quinta fileira.
+  // E o LUGAR dela entre os dois não é gosto, é GEOMETRIA — a mesma que a
+  // v1.9.9 já tinha concedido não caber em aritmética (ver a nota logo
+  // abaixo): o que importa não é a conta de fileiras cheias, é que NENHUMA
+  // fileira mistura uma preferência com uma ação do aparelho. Testada com
+  // "Dados móveis" (v1.11.0) — a NONA preferência —, as nove de cima mais o
+  // diagnóstico já não fecham mais em três fileiras exatas (são dez, não
+  // nove); o que continua valendo é `#shareAppTile` forçando fileira nova por
+  // conta própria (`grid-column: 1`), então o aparelho nunca herda a sobra de
+  // quem vem antes. Colocar o diagnóstico DEPOIS do aparelho, em vez de antes,
+  // seria pior: o grupo do aparelho ganharia um QUARTO item, e esse sim
+  // cairia sozinho numa fileira à parte — o mesmo defeito, só que colado à
+  // fileira que a v1.7.6 pediu para ficar limpa.
   const diagnostico = ['testeTile'];
   const aparelho = ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile'];
   checar(JSON.stringify(ordem) === JSON.stringify(projecao.concat(diagnostico, aparelho)),

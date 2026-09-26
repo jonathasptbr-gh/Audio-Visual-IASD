@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.11.0",
+    "itens": [
+      "Nova opção em Configurações: permitir ou não o uso de dados móveis para baixar o acervo.",
+      "Por padrão ela vem desligada, e isso já protege o episódio da semana e as fotos de fundo."
+    ]
+  },
+  {
     "versao": "1.10.10",
     "itens": [
       "Excluir uma coleção mostra que está trabalhando, e a lista se atualiza sozinha depois.",

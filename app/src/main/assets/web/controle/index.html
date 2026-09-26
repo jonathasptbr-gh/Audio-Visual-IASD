@@ -492,6 +492,21 @@
       <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
       <path d="M3 3.5 21 20.5"/>
     </symbol>
+    <!-- DADOS MÓVEIS: as barras de sinal, o desenho que já significa "rede
+         celular" antes de qualquer legenda. O par riscado é o MESMO idioma do
+         `#icoPreviewOff`/`#icoImagemOff` (`M3 3.5 21 20.5`) — "riscado" é uma
+         convenção só neste app, e um ângulo próprio aqui seria uma segunda. -->
+    <symbol id="icoDadosMoveis" viewBox="0 0 24 24">
+      <path d="M5 17v-3.2"/>
+      <path d="M10.5 17v-6.7"/>
+      <path d="M16 17V6.7"/>
+    </symbol>
+    <symbol id="icoDadosMoveisOff" viewBox="0 0 24 24">
+      <path d="M5 17v-3.2"/>
+      <path d="M10.5 17v-6.7"/>
+      <path d="M16 17V6.7"/>
+      <path d="M3 3.5 21 20.5"/>
+    </symbol>
     <!-- ===== PASSAR SLIDE: CHEVRON, SEM A BARRA (v1.8.51) =====
          Relato do operador: *"diferencie o icone desses botões de prossimo
          slide e anterior slide, use os botões de seta simples, sem a barra,
@@ -2381,6 +2396,40 @@
             </svg>
             <span class="qs-titulo">Imagem da prévia</span>
           </button>
+          <!-- ===== DADOS MÓVEIS: PERMITIR OU NÃO, PARA O ACERVO E OS DOIS
+               AUTOMÁTICOS (v1.11.0) =====
+               Pedido do operador: *"crie uma opção para permitir ou não o uso
+               de dados móveis para as funções do app"*.
+
+               O QUE ELA GOVERNA: a sincronização em massa de um álbum/grupo
+               (`syncCollection`/`syncGroup` — antes um diálogo POR TOQUE,
+               *"Baixar usando dados móveis?"*, que não virava preferência
+               nenhuma de propósito) e os DOIS automáticos que já eram
+               Wi-Fi-only (o episódio da semana de uma série, os fundos da
+               letra) — os três se perguntavam a MESMA coisa
+               (`isConfirmedWifi`) e cada um respondia diferente (um
+               perguntava, dois recusavam calados). Ver `redeLiberadaParaBaixar`
+               em controle.js, onde a regra mora.
+
+               O QUE ELA NÃO GOVERNA, de propósito: um download AVULSO (tocar
+               numa música, adicionar ao Cronograma/Favoritos) e um vídeo do
+               YouTube — os dois já são *"a música/o vídeo que o operador
+               pediu pra usar, nunca o acervo inteiro de uma vez"`
+               (`ensureSongDownloaded`), e o operador confirmou que devem
+               continuar como estão.
+
+               DESLIGADA POR PADRÃO — a mesma régua conservadora que os dois
+               automáticos já tinham: ninguém que não abrir esta folha vê
+               consumo novo de dados móveis aparecer sozinho.
+
+               SEMPRE CLICÁVEL, aceso, com o estado só no ÍCONE (a regra da
+               v1.7.6) — o mesmo padrão do `#economiaTile` ao lado. -->
+          <button type="button" class="qs-tile" id="dadosMoveisTile" title="Permitir que o acervo e os downloads automáticos usem dados móveis">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoDadosMoveisOff"/><use class="ico-alt" href="#icoDadosMoveis"/>
+            </svg>
+            <span class="qs-titulo">Dados móveis</span>
+          </button>
           <!-- VERIFICAÇÃO DO SISTEMA (v1.10.0). Pedido do operador depois de um
                defeito que passou semanas despercebido porque só quebrava no
                PRIMEIRO acesso: *"gostaria de criar um botão nas configurações
@@ -2532,7 +2581,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.10.10</span>
+            <span id="appVersion" class="app-version">v1.11.0</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
