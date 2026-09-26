@@ -2970,16 +2970,37 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.10.8 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.10.9 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.10.8 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.10.9 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO** — a v1.10.8 conserta duas frases erradas do Registro e
-da Verificação (a causa da foto sem fundo e o falso vermelho das cifras), não
-abre seção nenhuma. **Conferir a Release é parte de decidir** — um lote só de
-web herda o `shellTag` quando o lote de shell anterior ainda não tem Release,
-e não herda quando tem.
+**O DEGRAU É CORREÇÃO** — a v1.10.9 pina um host de CDN que a origem passou a
+usar para as fotos do Hinário 2022, não abre seção nenhuma. **Conferir a
+Release é parte de decidir** — um lote só de web herda o `shellTag` quando o
+lote de shell anterior ainda não tem Release, e não herda quando tem.
+
+> **A v1.10.9 É A QUINTA RODADA da mesma série, e confirma o palpite do
+> OPERADOR.** Com a causa da v1.10.8 já viajando no veredito, o Registro
+> seguinte respondeu direto: as 601 fotos sem fundo do Hinário 2022 têm todas a
+> MESMA causa — `fora` —, com o endereço exemplo apontando para
+> `pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev`, um bucket Cloudflare R2. O
+> operador tinha avisado, antes de o Registro confirmar: *"pode estar
+> relacionado com o formato do endereçamento dos arquivos na origem,
+> considerando que as músicas também tiveram esse problema um tempo atrás"* —
+> e é a MESMA classe de defeito da v1.9.14/v1.9.15 (a origem move um campo do
+> JSON para um host novo), agora um domínio INTEIRO diferente, não um
+> subdomínio. **A trava por domínio (v1.9.15) recusou o host corretamente** —
+> ele não é `louvorja.com.br` nem subdomínio dele —, mas ele É a origem de
+> verdade das fotos daquele hinário. A resposta não é abrir a trava para
+> qualquer host (o JSON voltaria a escolher o destino do fetch privilegiado,
+> o problema que ela existe para impedir): é um SEGUNDO host PINADO POR NOME
+> (`Louvorja.CDN_HOSTS_CONHECIDOS`), do mesmo jeito que `AVCifra.CATALOGO` pina
+> os dois hinários — uma exceção nomeada e medida, nunca um sufixo `.r2.dev`
+> (que aceitaria bucket de qualquer cliente da Cloudflare). O `FUNDO_VEREDITO_VERSAO`
+> sobe de novo (2 → 3), pelo mesmo motivo da v1.10.8: as 601 ausências gravadas
+> sob a regra antiga não podem esperar os seis dias de prazo para serem
+> reavaliadas sob a regra nova.
 
 > **A v1.10.8 É A QUARTA RODADA da mesma série (v1.9.13→v1.9.15), e desta vez
 > quem apontou a causa foi o OPERADOR, não uma segunda cópia do Registro.**

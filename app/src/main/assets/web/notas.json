@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.10.9",
+    "itens": [
+      "Fotos que faltam no Hinário 2022: o app agora sabe buscá-las no novo endereço da origem."
+    ]
+  },
+  {
     "versao": "1.10.8",
     "itens": [
       "Cifras: a conferência não acusa mais hinários normais com menos da metade das músicas com cifra no site.",

@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.10.8';
+const WEB_VERSION = '1.10.9';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -19816,8 +19816,15 @@ let imagensSyncRodando = false;
  * chance de refazer. Subir a versão IGNORA todo veredito antigo e repergunta
  * o acervo inteiro na próxima passada — é o que faz este lote alcançar quem
  * já tinha `tem:false` gravado, e não só quem baixar depois dele.
+ *
+ * **SUBIU PARA 3 na v1.10.9**, pelo mesmo motivo, outra causa: o Hinário 2022
+ * gravou `tem:false, causa:'fora'` para as 601 fotos dele porque a origem as
+ * serve por um CDN (Cloudflare R2) que `Louvorja.daOrigem` não reconhecia —
+ * ver o KDoc de `louvorja.js`. Esse veredito ficaria valendo seis dias mesmo
+ * depois de o host entrar na lista de exceções; subir a versão faz a próxima
+ * passada repetir as 601 SOB A REGRA NOVA, sem esperar o prazo.
  */
-const FUNDO_VEREDITO_VERSAO = 2;
+const FUNDO_VEREDITO_VERSAO = 3;
 
 /**
  * QUANTO VALE UM "AINDA SEM FUNDO" — e o número NÃO é o da cifra.
