@@ -279,16 +279,29 @@ try {
   // que permite investigá-la: nome, veredito e ENDEREÇO. Sem o endereço a lista
   // não serve para nada — é abrindo a página que se descobre se o erro é o
   // endereço que montamos ou a leitura que fazemos dele.
+  // A MISTURA REAL (v1.10.8): a maioria SEM CIFRA (resposta normal e comum num
+  // hinário — o operador relatou justamente isto, "não são todos os hinos que
+  // têm cifra") ao lado de uma minoria SEM PÁGINA nenhuma (404 no catálogo E
+  // nos dois artistas padrão — a cadeia CONTINUA porque `fechadoPeloCatalogo`
+  // só trava no `sem-cifra`, nunca no 404). O `sem-cifra` teria dominado a
+  // lista de EXEMPLOS até a v1.10.7: aqui ela é a maioria (6 de 10) e não pode
+  // aparecer nenhuma vez lá.
   const comExemplos = await pg.evaluate(async () => {
     await AVDB.setState('cifras:hymnal-2022', {});
     cifraDiscoColl = ''; cifraDisco = null; cifraSyncRodando = false;
     await AVDB.setState('cifras-passada:hymnal-2022', null);
     const nomes = Array.from({ length: 10 }, (_, i) => '00' + (i + 1) + '. Hino De Marcador ' + (i + 1));
     collState['hymnal-2022'] = { songs: nomes.map((n, i) => ({ id_music: 'h' + i, name: n })) };
-    // TODAS voltam como página de letra — o caso que o teto recusava.
-    window.__rota = () => ({
-      status: 200, html: '<title>X (letra da música)</title><h1>X</h1><p>letra</p>',
-    });
+    const semPagina = new Set([7, 8, 9, 10]);
+    window.__rota = (url) => {
+      const m = /\/novo-hinario-adventista\/hino-de-marcador-(\d+)\//.exec(url);
+      if (m && !semPagina.has(Number(m[1]))) {
+        return { status: 200, html: '<title>X (letra da música)</title><h1>X</h1><p>letra</p>' };
+      }
+      // 404 para o catálogo dos quatro sem página, e para os dois artistas
+      // padrão de TODOS — nenhum deles tem a folha neste cenário.
+      return { status: 404, html: '' };
+    };
     const coll = allCollections().find((c) => c.id === 'hymnal-2022');
     await syncCifrasColecao(coll);
     window.__rota = null;
@@ -297,22 +310,26 @@ try {
     return { diario: d, guardadas: Object.keys(disco).length };
   });
   checar(comExemplos.guardadas === 10,
-    'uma passada TODA de páginas sem cifra GRAVA as dez — o teto que as recusava saiu '
-    + '(v1.2.21): ele era estruturalmente errado, porque a passada só cobre o que FALTA '
-    + 'e a proporção de ausências tende a 100% num acervo saudável', comExemplos.guardadas);
-  checar(comExemplos.diario.semCifra === 10,
-    'e o diário conta o que a passada de fato encontrou', comExemplos.diario);
+    'a passada GRAVA os dez vereditos — os seis sem cifra e os quatro sem página '
+    + '(o teto por passada saiu na v1.2.21: a proporção de ausências tende a 100% '
+    + 'num acervo saudável)', comExemplos.guardadas);
+  checar(comExemplos.diario.semCifra === 6 && comExemplos.diario.naoTem === 4,
+    'e o diário separa as DUAS respostas — sem-cifra não é a mesma coisa que sem-página',
+    comExemplos.diario);
   const ex = comExemplos.diario.exemplos || [];
-  checar(ex.length > 0 && ex.length <= 12,
-    'e ele guarda EXEMPLOS do que não saiu com folha', ex.length);
+  checar(ex.length === 4,
+    'e os EXEMPLOS são só os SEM PÁGINA — o sem-cifra é maioria (6 de 10) neste '
+    + 'cenário e não pode encher as vagas: ele é resposta normal, não pista de defeito',
+    ex.length);
   checar(ex.every((e) => /^\d+\./.test(e.nome)),
     'com o NÚMERO do hino no nome — é por ele que o operador acha a página no site',
     ex.map((e) => e.nome));
   checar(ex.every((e) => /^https:\/\/www\.cifraclub\.com\.br\//.test(e.url)),
     'e com o ENDEREÇO tentado: sem ele não há como ver se o erro é o endereço ou a leitura',
     ex.map((e) => e.url));
-  checar(ex.every((e) => e.motivo === 'sem-cifra'),
-    'e o veredito de cada um', ex.map((e) => e.motivo));
+  checar(ex.every((e) => e.motivo === 'nao-tem'),
+    'e o veredito de cada um — nunca sem-cifra, mesmo sendo a resposta mais comum',
+    ex.map((e) => e.motivo));
 
   const poucas = await passada(2, 20);
   checar(poucas.cifras === 18 && poucas.semCifra === 2,

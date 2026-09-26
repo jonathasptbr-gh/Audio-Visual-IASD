@@ -2970,16 +2970,37 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.10.7 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.10.8 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.10.7 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.10.8 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É INCREMENTAL** porque a v1.10.0 traz uma seção que não existia — a
-Verificação do Sistema, com tile, folha e fluxo próprios —, e não um conserto.
-**Conferir a Release é parte de decidir** — um lote só de web herda o
-`shellTag` quando o lote de shell anterior ainda não tem Release, e não herda
-quando tem.
+**O DEGRAU É CORREÇÃO** — a v1.10.8 conserta duas frases erradas do Registro e
+da Verificação (a causa da foto sem fundo e o falso vermelho das cifras), não
+abre seção nenhuma. **Conferir a Release é parte de decidir** — um lote só de
+web herda o `shellTag` quando o lote de shell anterior ainda não tem Release,
+e não herda quando tem.
+
+> **A v1.10.8 É A QUARTA RODADA da mesma série (v1.9.13→v1.9.15), e desta vez
+> quem apontou a causa foi o OPERADOR, não uma segunda cópia do Registro.**
+> Duas frases erradas, nenhuma delas nova: **a primeira** é a premissa de
+> `cifra-acervo` (v1.10.7) — *"quase toda música tem cifra"* — que o operador
+> desmentiu por extenso (*"não são todos os hinos que tem cifras, não sei
+> quantos são na realidade"*) e que o Registro dele confirmou: 286 folhas contra
+> 305 `sem-cifra` no Hinário 2022, ~48%, abaixo do corte de 50% que a v1.10.7
+> introduziu. A checagem reprovava um acervo são todo sábado. **O sinal de
+> verdade não é quanto o site TEM** (pergunta que só o site responde) **— é
+> quanto ficou SEM PÁGINA nenhuma** (`naoTem` de `cifraProcurar`: todo endereço
+> dedutível respondeu 404, o sinal de catálogo quebrado). **A segunda** é o
+> defeito que o relato "ainda não estão apresentando imagens" expôs: a
+> conferência dos fundos sabia dizer QUANTAS faltavam, mas não POR QUÊ — a
+> causa (erro HTTP, endereço fora do servidor, disco recusando gravar, ou a
+> fonte de fotos muda) morria com a sessão em que a passada rodou, e só
+> sobrevivia ali quem tivesse copiado o Registro na hora certa. Ela passa a
+> viajar NO VEREDITO (`causa`/`status`/`url`), ao lado de `tem`, e alcança
+> tanto o Registro (`blocoFundos`, a distribuição por causa mais um exemplo com
+> endereço) quanto a Verificação do Sistema (a frase nomeia a causa direto, sem
+> mandar esperar o Registro de uma passada futura).
 
 > **AS DUAS JUNTAS SÃO UMA LIÇÃO DE MÉTODO, e ela é a da série v1.9.9→v1.9.12
 > aplicada de novo.** A v1.9.13 fez o download **parar de anunciar sucesso sem

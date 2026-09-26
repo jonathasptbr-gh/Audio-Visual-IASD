@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.10.8",
+    "itens": [
+      "Cifras: a conferência não acusa mais hinários normais com menos da metade das músicas com cifra no site.",
+      "Fotos que faltam atrás da letra: o Registro e a Verificação agora dizem por que cada uma não chegou."
+    ]
+  },
+  {
     "versao": "1.10.7",
     "itens": [
       "O fundo das letras volta a ser refeito sozinho um minuto depois que a música para, sem precisar sair do app.",
