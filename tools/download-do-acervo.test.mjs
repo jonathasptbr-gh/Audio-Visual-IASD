@@ -1235,7 +1235,7 @@ try {
       try { await syncFundosAcervo(); }
       finally { window.__modoImg = 'ok'; window.countDownloaded = cd; window.allCollections = ac; }
       out.fotoMuda = { pedidos: window.__pedidosImg, fonteMuda: !!fundosUltimaPassada.fonteMuda,
-        teto: FUNDO_FONTE_MUDA + NET_CONCURRENCY };
+        teto: FUNDO_FONTE_MUDA + NET_CONCURRENCY, piso: fundosProximaPassadaEm };
       delete collState[cid];
     }
 
@@ -1369,6 +1369,7 @@ try {
       fundosProximaPassadaEm = 0;
       try { await comAcervo([c], () => syncFundosAcervo()); } finally { Louvorja.fetchList = listaReal; }
       out.h401 = { fonteMuda: fundosUltimaPassada.fonteMuda, recusadas: fundosUltimaPassada.recusadas,
+        semResposta: fundosUltimaPassada.semResposta, piso: fundosProximaPassadaEm,
         vereditos: Object.keys((await AVDB.getState(fundoChave('u-401'))) || {}).length,
         bloco: await comAcervo([c], () => blocoFundos()) };
       delete collState['u-401'];
@@ -1445,6 +1446,10 @@ try {
     && uu.fotoMuda.fonteMuda,
     'U2 · com o servidor de FOTOS mudo e o banco de pé a passada também para em doze — sem isto eram '
     + 'duas requisições por faixa, mil faixas, a cada meia hora', JSON.stringify(uu.fotoMuda));
+  checar(uu.fotoMuda.piso === 0,
+    'U2b · e a FONTE MUDA POR REDE devolve o piso (v1.11.1) — sem isto o relógio de um minuto '
+    + '(FUNDO_RELIGA_MS) nunca chegava a bater, porque a passada arma meia hora ANTES dele existir '
+    + 'chance de retomar', JSON.stringify(uu.fotoMuda));
   checar(uu.corte.pedidos > 0 && uu.corte.conferidas > 0 && uu.corte.cortada && uu.corte.piso === 0,
     'U3 · a passada que a cena cortou DEPOIS de conferir devolve o piso — segurá-lo meia hora deixava '
     + 'a cena custando a meia hora inteira depois de sair', JSON.stringify(uu.corte));
@@ -1470,6 +1475,10 @@ try {
     && /recusou 12 perguntas seguidas \(HTTP 401\)/.test(uu.h401.bloco) && !/não respondeu/.test(uu.h401.bloco),
     'U12 · a fonte RECUSANDO tudo (401) abre o disjuntor sem gravar veredito, e o Registro diz "recusou", com '
     + 'o status — "não respondeu" mandava procurar a rede', JSON.stringify({ ...uu.h401, bloco: undefined }));
+  checar(uu.h401.semResposta === 0 && uu.h401.piso > 0,
+    'U12b · e a fonte RECUSANDO (HTTP) NÃO devolve o piso (v1.11.1) — ali bater a cada minuto arrisca '
+    + 'piorar um bloqueio de verdade (autenticação, limite de taxa); só a falta de RESPOSTA é tratada '
+    + 'como transitória', JSON.stringify({ semResposta: uu.h401.semResposta, piso: uu.h401.piso }));
   checar(uu.vivo && uu.vivo.conferidas === 4 && uu.vivo.tentadas >= 1
     && /4 conferida\(s\), \d+ tentada\(s\)/.test(uu.vivo.bloco),
     'U13 · o retrato são as contas VIVAS: no meio da refeitura ele já diz o que foi conferido e tentado, e o '

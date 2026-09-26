@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.0';
+const WEB_VERSION = '1.11.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -19938,7 +19938,13 @@ const FUNDO_REVISITA_MS = 6 * 24 * 60 * 60 * 1000;
  *  - a que falhou de verdade volta a cada seis dias, nunca a cada passada;
  *  - e a FONTE MUDA para a passada (`FUNDO_FONTE_MUDA`): perguntar mil vezes a
  *    um servidor que não respondeu as primeiras doze não é verificar a
- *    biblioteca, é repetir a mesma falha.
+ *    biblioteca, é repetir a mesma falha. **Mas SEM RESPOSTA não é o mesmo
+ *    fim que RECUSA** (v1.11.1): a primeira é o retrato de uma rede que ainda
+ *    não achou rota (o caso normal de um boot frio) e devolve o piso na hora —
+ *    é o `FUNDO_RELIGA_MS` que tenta de novo, um minuto depois, com a rede já
+ *    de pé; a segunda é a fonte respondendo que recusa (401/403/429/5xx), e aí
+ *    o piso de meia hora fica de pé, porque bater a cada minuto num bloqueio
+ *    de verdade só piora.
  */
 const FUNDO_FONTE_MUDA = 12;
 
@@ -19980,6 +19986,15 @@ const FUNDO_PASSO_MS = 30 * 60 * 1000;
  * ESTADO À VISTA religa — minimizado, quem a traz de volta continua sendo a
  * volta ao app, e uma passada de centenas de fotos não parte sozinha com o
  * aparelho no bolso.
+ *
+ * **E ELE SÓ TEM O QUE FAZER se o piso não estiver de pé** (v1.11.1): a
+ * passada armava meia hora de piso ANTES de este relógio bater a primeira
+ * vez, então "religar" um minuto depois caía direto na guarda do piso e não
+ * fazia nada — foi o defeito por trás do MESMO relato acima, numa rodada
+ * seguinte: a rede que faltava no boot volta em segundos, mas a passada só
+ * era retentada meia hora depois. Ver `fonteMudaPorRede` em
+ * `syncFundosAcervo`, que devolve o piso quando o disjuntor abriu por FALTA
+ * DE RESPOSTA — é isso que dá trabalho a este relógio de fato.
  */
 const FUNDO_RELIGA_MS = 60 * 1000;
 
@@ -20388,7 +20403,19 @@ async function syncFundosAcervo() {
     // então retomá-la custa só o que faltou; segurá-la meia hora deixava a
     // cena que entrou no meio da primeira passada custando a meia hora
     // inteira depois de sair, e é o relógio (`FUNDO_RELIGA_MS`) que a retoma.
-    if (fundosUltimaPassada.cortada) fundosProximaPassadaEm = 0;
+    //
+    // **E A FONTE MUDA POR FALTA DE RESPOSTA TAMBÉM DEVOLVE** (v1.11.1): sem
+    // isto, um disjuntor que abre cedo (rede instável na abertura do app,
+    // ainda sem rota — o caso mais comum de todos) trancava a passada na meia
+    // hora inteira, e o relógio de um minuto (`FUNDO_RELIGA_MS`) nunca chegava
+    // a bater, porque o PISO era armado ANTES da primeira retomada. Uma fonte
+    // que RECUSA (HTTP puro, sem `semResposta`) fica de fora — ali a recusa é
+    // provavelmente um bloqueio de verdade (autenticação, limite de taxa), e
+    // retentar a cada minuto arrisca piorar; o piso de meia hora é o certo. A
+    // mesma distinção já existe no texto do Registro (`u.recusadas &&
+    // !u.semResposta`), aqui aplicada ao relógio, não à frase.
+    const fonteMudaPorRede = contas.fonteMuda && contas.semResposta > 0;
+    if (fundosUltimaPassada.cortada || fonteMudaPorRede) fundosProximaPassadaEm = 0;
   }
 }
 
