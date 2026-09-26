@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.1';
+const WEB_VERSION = '1.11.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -28463,6 +28463,38 @@ const TESTES = [
       // O RELÓGIO DO APARELHO, de carona nesta resposta (ver a linha do relógio
       // abaixo): o cabeçalho `Date` é a única hora confiável que este app
       // alcança sem pedir nada a mais.
+      return tOk(null);
+    },
+  },
+  {
+    id: 'fonte-arquivo-imagem', area: 'A fonte das músicas', titulo: 'O servidor entrega as imagens de fundo',
+    prazo: TESTE_PRAZO_REDE, rede: true,
+    fn: async () => {
+      // ===== A CHECAGEM QUE FALTAVA — O ÁUDIO E A FOTO SÃO DOIS HOSTS =====
+      //
+      // "O servidor entrega os arquivos de música" (acima) só prova o host do
+      // ÁUDIO. O Hinário Adventista 2022 serve as FOTOS por um bucket à parte
+      // (`Louvorja.daOrigem`/`CDN_HOSTS_CONHECIDOS`, v1.10.9) — um relato do
+      // operador mostrou esse segundo host mudo enquanto o áudio, a Bíblia e o
+      // catálogo respondiam bem no MESMO minuto, e nenhuma linha do Registro
+      // dizia isso: a checagem de cima aprova, e o vermelho real (a varredura
+      // dos fundos parando por falta de resposta) fica sem ligação nenhuma com
+      // a linha que deveria acusá-lo. É a lição da v1.9.13 (chegar não é
+      // responder) aplicada ao segundo host da origem.
+      if (!navigator.onLine) return tNa('o aparelho está sem internet');
+      const id = await testeAlgumIdDeMusica();
+      if (!id) return tNa('nenhum hinário indexado ainda neste aparelho');
+      const meta = await Louvorja.fetchList('music_' + id);
+      const caminho = meta && (meta.url_image
+        || Object.values(meta.lyric || {}).map((l) => l && l.url_image).find(Boolean));
+      if (!caminho) return tNa('a música sorteada não tem imagem de fundo na origem');
+      if (Louvorja.foraDoServidor(caminho)) {
+        return tFalhou('a origem mudou o endereço para outro servidor: ' + String(caminho).slice(0, 60));
+      }
+      const url = Louvorja.fileUrl(caminho);
+      const res = await fetch(url, { headers: { Range: 'bytes=0-0' } });
+      try { if (res.body && res.body.cancel) res.body.cancel(); } catch (_) { /* corpo já consumido */ }
+      if (!res.ok) return tFalhou('a fonte respondeu ' + res.status + ' — o endereço da imagem mudou na origem');
       return tOk(null);
     },
   },

@@ -192,6 +192,55 @@ try {
     + 'mostrado a v1.9.13 no primeiro toque, em vez de semanas depois',
     JSON.stringify(comoNaV19013.arquivo));
 
+  // ---- G2: O SEGUNDO HOST DA ORIGEM (as FOTOS) TEM CHECAGEM PRÓPRIA (v1.11.2) ----
+  //
+  // Sem isto, o bloco G acima só prova o host do ÁUDIO — um Registro de operador
+  // mostrou esse host respondendo bem enquanto o bucket das FOTOS do Hinário 2022
+  // ficava mudo, sem NENHUMA linha da Verificação que dissesse isso.
+  const imagemCasos = await pg.evaluate(async () => {
+    const real = window.fetch;
+    const hinario = allCollections()[0].id;
+    const guardado = collState[hinario];
+    const achada = TESTES.find((c) => c.id === 'fonte-arquivo-imagem');
+    const rodar = async (meta, arquivoResp) => {
+      window.fetch = async (u) => {
+        const s = String(u && u.url ? u.url : u);
+        if (s.includes('api.louvorja.com.br/json_db/music_')) {
+          return new Response(JSON.stringify(meta), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+        if (arquivoResp && s.startsWith(arquivoResp.url)) return new Response('', { status: arquivoResp.status });
+        if (s.includes('api.louvorja.com.br/file')) return new Response('', { status: 404 });
+        return new Response('', { status: 599 });
+      };
+      collState[hinario] = { indexSyncedAt: Date.now(), songs: [{ id_music: 1, name: 'Hino', track: 1 }] };
+      const r = await rodarUmaChecagem(achada);
+      window.fetch = real;
+      return r;
+    };
+    // G2a · a música sorteada não tem `url_image` nem imagem por estrofe.
+    const semImagem = await rodar({ id_music: 1, url_music: '/musics/1/x.mp3', lyric: {} });
+    // G2b · o bucket R2 PINADO (a mesma exceção nomeada da v1.10.9) responde OK.
+    const pinado = await rodar(
+      { id_music: 1, url_music: '/musics/1/x.mp3', lyric: {},
+        url_image: 'https://pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev/images/x.jpg' },
+      { url: 'https://pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev/images/x.jpg', status: 200 },
+    );
+    // G2c · um host de fotos que não é a origem nem o bucket pinado.
+    const estranho = await rodar({ id_music: 1, url_music: '/musics/1/x.mp3', lyric: {},
+      url_image: 'https://evil-cdn.example.com/images/x.jpg' });
+    if (guardado) collState[hinario] = guardado; else delete collState[hinario];
+    return { semImagem, pinado, estranho };
+  });
+  checar(imagemCasos.semImagem.v === 'na' && /não tem imagem de fundo/.test(imagemCasos.semImagem.nota),
+    'G2a · sem `url_image` nem imagem por estrofe, a checagem NÃO REPROVA — é a música sorteada que não '
+    + 'tem foto na origem, não a fonte falhando', JSON.stringify(imagemCasos.semImagem));
+  checar(imagemCasos.pinado.v === 'ok',
+    'G2b · o bucket R2 PINADO (a mesma exceção nomeada da v1.10.9) responde OK — a checagem alcança o '
+    + 'host de fotos de verdade, não um endereço qualquer', JSON.stringify(imagemCasos.pinado));
+  checar(imagemCasos.estranho.v === 'falhou' && /outro servidor/.test(imagemCasos.estranho.nota),
+    'G2c · um host de fotos que não é nem a origem nem o bucket pinado REPROVA, nomeado — o mesmo '
+    + 'travamento por domínio que protege o áudio, aplicado à imagem', JSON.stringify(imagemCasos.estranho));
+
   // ---- H: COM MÍDIA NO AR, O QUE TOCA A CENA NÃO RODA -------------------
   const emCulto = await pg.evaluate(async () => {
     const antes = midiaNoAr;

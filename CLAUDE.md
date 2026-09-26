@@ -2560,7 +2560,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 ### Diagnóstico
 
 - **A VERIFICAÇÃO DO SISTEMA TEM QUATRO DESFECHOS, E O QUARTO É O QUE A MANTÉM
-  VIVA** (v1.10.0). O tile *"Verificar"* de Configurações roda 40 checagens em
+  VIVA** (v1.10.0). O tile *"Verificar"* de Configurações roda 41 checagens em
   NOVE áreas e lista `funcionou` · `não funcionou` · `não respondeu` ·
   `não se aplica`. **E O APARELHO É A ÚLTIMA PALAVRA** (v1.10.5): a primeira
   rodada num Android de verdade derrubou TRÊS linhas que nenhum oráculo
@@ -2970,20 +2970,20 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.11.1 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.11.2 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.11.1 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.11.2 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO** — a v1.11.1 conserta o gatilho da varredura automática
-dos fundos da letra: quando o disjuntor (`FUNDO_FONTE_MUDA`) abria por FALTA DE
-RESPOSTA (rede ainda sem rota no boot, o caso normal), o piso de meia hora
-ficava de pé e o relógio de um minuto (`FUNDO_RELIGA_MS`) nunca chegava a
-bater — agora o piso é devolvido nesse caso, e continua de pé quando a fonte
-RECUSA (HTTP). Não toca em `AVNative`, `java/`, `res/` nem no manifesto.
-**Conferir a Release é parte de decidir** — um lote só de web herda o
-`shellTag` quando o lote de shell anterior ainda não tem Release, e não herda
-quando tem.
+**O DEGRAU É CORREÇÃO** — a v1.11.2 acrescenta à Verificação do Sistema uma
+checagem própria para o host de FOTOS do Hinário 2022 (o bucket R2 pinado desde
+a v1.10.9), separada da checagem de ÁUDIO que já existia: um Registro de
+operador mostrou o host de fotos mudo enquanto o áudio, a Bíblia e o catálogo
+respondiam bem, sem nenhuma linha que dissesse isso — a checagem de áudio
+aprovava, e o host que interessa para os fundos da letra nunca era testado.
+Não toca em `AVNative`, `java/`, `res/` nem no manifesto. **Conferir a Release
+é parte de decidir** — um lote só de web herda o `shellTag` quando o lote de
+shell anterior ainda não tem Release, e não herda quando tem.
 
 > **A v1.10.9 É A QUINTA RODADA da mesma série, e confirma o palpite do
 > OPERADOR.** Com a causa da v1.10.8 já viajando no veredito, o Registro
