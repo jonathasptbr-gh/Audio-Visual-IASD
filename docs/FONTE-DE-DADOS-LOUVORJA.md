@@ -206,16 +206,20 @@ duas é `Louvorja.fileUrl`, com oráculo em `tools/louvorja-url.test.mjs`:
 |---|---|
 | **caminho** (começa com `/`) | `{FILE_URL}{path}` → `https://api.louvorja.com.br/file{path}` |
 | **URL absoluta** de um host de `louvorja.com.br` | **ela mesma**, sem prefixo nenhum |
+| **URL absoluta** de um host da lista `CDN_HOSTS_CONHECIDOS` | **ela mesma**, sem prefixo nenhum |
 
-Exemplos das duas, os dois observados em campo:
+Exemplos, todos observados em campo:
 `"/musics/123/cantado.mp3"` → `https://api.louvorja.com.br/file/musics/123/cantado.mp3`;
 `"https://api.louvorja.com.br/file/musics/pt/Hinário Adventista 2022/Santo, Santo, Santo! - PB.mp3"`
-→ ela mesma.
+→ ela mesma;
+`"https://pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev/images/hasd_018.jpg"` → ela mesma
+(o `url_image` do Hinário 2022 inteiro, desde algum momento antes de 26/09/2026).
 
-> **O DESTINO É TRAVADO NO DOMÍNIO DA ORIGEM.** Aceitar URL absoluta é deixar o
-> JSON dizer PARA ONDE o `fetch` do WebView privilegiado vai. Um endereço fora de
-> `louvorja.com.br` **não** vira o destino do pedido: ele cai no ramo de caminho,
-> dá 404 e entra no censo do Registro — falha FECHADA, **e com causa PRÓPRIA**
+> **O DESTINO É TRAVADO NO DOMÍNIO DA ORIGEM, MAIS UMA LISTA DE HOSTS PINADOS
+> (v1.10.9).** Aceitar URL absoluta é deixar o JSON dizer PARA ONDE o `fetch` do
+> WebView privilegiado vai. Um endereço fora de `louvorja.com.br` **e** fora da
+> lista **não** vira o destino do pedido: ele cai no ramo de caminho, dá 404 e
+> entra no censo do Registro — falha FECHADA, **e com causa PRÓPRIA**
 > (`foraDoServidor`), porque um 404 do nosso host é indistinguível de *"o arquivo
 > não existe"*.
 >
@@ -225,6 +229,19 @@ Exemplos das duas, os dois observados em campo:
 > caminho e dá 404 — o áudio chega e o FUNDO da letra não. **O ponto ancora a
 > comparação:** sem ele, `endsWith('louvorja.com.br')` aceitaria
 > `evillouvorja.com.br`.
+>
+> **E ÀS VEZES A ORIGEM SERVE UM CAMPO POR UM HOST QUE NÃO É SUBDOMÍNIO NENHUM
+> DELA** — medido: o `url_image` do Hinário 2022 passou a apontar para um
+> bucket Cloudflare R2 (`pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev`), que a
+> trava por domínio recusava corretamente, mas que É a origem de verdade das
+> fotos daquele hinário. A resposta **não é abrir para qualquer host** — o
+> JSON escolheria o destino do fetch privilegiado, o problema que a trava
+> existe para impedir — **é pinar o host EXATO** em `CDN_HOSTS_CONHECIDOS`
+> (`louvorja.js`), do mesmo jeito que `AVCifra.CATALOGO` pina os dois
+> hinários: uma exceção nomeada e medida, nunca um sufixo (`.r2.dev` sozinho
+> aceitaria bucket de qualquer cliente da Cloudflare). Host novo que a origem
+> passe a usar entra nesta lista pelo mesmo caminho, quando medido num
+> Registro real.
 
 - A **extensão** vem do NOME DO ARQUIVO, **nunca da URL inteira**: o host tem
   pontos, e `url.split('.').pop()` sobre uma URL absoluta sem extensão devolve um

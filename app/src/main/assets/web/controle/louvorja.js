@@ -49,9 +49,34 @@
   // "Este host é da ORIGEM?" — o PONTO é o que ancora a comparação. Sem ele,
   // `endsWith('louvorja.com.br')` aceitaria `evillouvorja.com.br`, que é a
   // invariante 2 do shell pelo outro lado do string.
+  //
+  // ===== A ORIGEM SERVE AS FOTOS DO HINÁRIO 2022 POR UM CDN À PARTE (v1.10.9) =====
+  //
+  // Não é subdomínio de `louvorja.com.br` — é um bucket público da Cloudflare
+  // R2, medido no Registro do operador: as 601 fotos do Hinário Adventista
+  // 2022 vêm todas de `https://pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev/
+  // images/…`, e a trava por DOMÍNIO (v1.9.15) as recusa corretamente — aquele
+  // host não é louvorja.com.br nem subdomínio dele. O operador viu o padrão se
+  // repetir e avisou: *"pode estar relacionado com o formato do
+  // endereçamento dos arquivos na origem, considerando que as músicas também
+  // tiveram esse problema um tempo atrás"* — mesma classe de defeito da
+  // v1.9.14/v1.9.15 (a origem mudou de onde serve um campo do JSON), agora um
+  // host INTEIRO diferente, não só um subdomínio.
+  //
+  // A resposta não é abrir para qualquer host — o JSON escolheria o destino
+  // do fetch do orígin privilegiado, o problema que a trava existe para
+  // impedir. É um SEGUNDO host PINADO, do mesmo jeito que o `CATALOGO` da
+  // cifra pina os dois hinários: uma lista de exceções NOMEADAS, cada uma
+  // medida antes de entrar, e qualquer host fora dela continua falhando
+  // FECHADA.
+  const CDN_HOSTS_CONHECIDOS = [
+    'pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev',
+  ];
+
   function daOrigem(host) {
     const h = String(host || '').toLowerCase();
-    return h === DOMINIO_ORIGEM || h.endsWith('.' + DOMINIO_ORIGEM);
+    if (h === DOMINIO_ORIGEM || h.endsWith('.' + DOMINIO_ORIGEM)) return true;
+    return CDN_HOSTS_CONHECIDOS.includes(h);
   }
 
   // Resolve o campo de mídia de um registro do banco (`url_music`,

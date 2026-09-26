@@ -148,6 +148,29 @@ checar(!/^https?:\/\/evillouvorja/i.test(L.fileUrl(parecido)),
   + '`evillouvorja.com.br` — que qualquer um registra — seria destino do fetch privilegiado',
   L.fileUrl(parecido));
 
+// ---- O CDN DAS FOTOS DO HINÁRIO 2022, PINADO POR NOME (v1.10.9) ----------
+// O relato: as 601 fotos do Hinário 2022 vêm de um bucket Cloudflare R2, fora
+// do domínio da origem — a trava por domínio (v1.9.15) as recusava, certo por
+// não ser subdomínio nenhum. A resposta é um SEGUNDO host PINADO, nunca um
+// sufixo `.r2.dev`: qualquer cliente da Cloudflare tem um host desses, e um
+// sufixo aceitaria bucket nenhum-a-ver com a origem.
+const r2Conhecido = 'https://pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev/images/hasd_018.jpg';
+checar(L.fileUrl(r2Conhecido) === r2Conhecido,
+  'o bucket R2 conhecido passa intacto — é de lá que a origem serve as fotos do Hinário 2022',
+  L.fileUrl(r2Conhecido));
+checar(L.foraDoServidor(r2Conhecido) === false,
+  'e não conta como "fora do servidor": é uma exceção NOMEADA, não um host qualquer',
+  L.foraDoServidor(r2Conhecido));
+// E A PROVA DE QUE NÃO É UM SUFIXO: outro bucket R2 (mesmo domínio-pai, hash
+// diferente) continua sendo estranho — senão qualquer cliente da Cloudflare
+// seria destino aceito do fetch privilegiado.
+const r2Estranho = 'https://pub-0000000000000000000000000000000000.r2.dev/x.jpg';
+checar(L.foraDoServidor(r2Estranho) === true
+  && new URL(L.fileUrl(r2Estranho)).host === 'api.louvorja.com.br',
+  'e OUTRO bucket R2 (hash diferente) continua fora — a exceção é o HOST exato, nunca o '
+  + 'sufixo `.r2.dev` (que qualquer cliente da Cloudflare tem)',
+  JSON.stringify({ fora: L.foraDoServidor(r2Estranho), url: L.fileUrl(r2Estranho) }));
+
 // ---- A CLASSIFICAÇÃO EXISTE PARA O REGISTRO PODER DIZER ------------------
 // A trava falha FECHADA, e isso está certo; o que ela produz é um 404 do NOSSO
 // host, indistinguível de "o arquivo não existe". `foraDoServidor` é quem
