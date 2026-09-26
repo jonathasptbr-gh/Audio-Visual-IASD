@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.11.2",
+    "itens": [
+      "O Registro agora diz se o servidor das fotos de fundo está fora do ar, separado do servidor de áudio.",
+      "Antes, o Registro dizia que a fonte estava OK mesmo quando só o servidor de fotos estava com problema."
+    ]
+  },
+  {
     "versao": "1.11.1",
     "itens": [
       "Corrigido: fotos de fundo das músicas voltam a tentar em 1 minuto se a rede estava instável na abertura.",
