@@ -256,6 +256,54 @@ try {
   checar(/funcionaram/.test(tela.resumo),
     'o resumo responde em UMA olhada, que é o que se lê antes de subir para a mesa de som', tela.resumo);
 
+  // ---- I2: A CAMADA — ela abre SOBRE Configurações, não atrás (v1.10.10) ----
+  //
+  // Relato do operador: *"atualmente ela fica atrás das configurações, exigindo
+  // um toque extra para fechar as configurações para poder analisar a
+  // verificação. Ela deve abrir sobre as configurações"*. A tabela `POPUPS` já
+  // tinha a ORDEM certa (o voltar sempre devolveu Configurações — bloco J,
+  // abaixo); o que faltava era o `z-index`, que com o mesmo degrau de todo
+  // `.popup-backdrop` deixava a ORDEM DO DOCUMENTO decidir — e `#testePopup`
+  // está declarado ANTES de `#fadePopup` no HTML.
+  //
+  // A PROVA É HIT-TEST, nunca o `z-index` computado lido de volta: um número
+  // escrito na folha prova que ela declara o que declara, não que o navegador
+  // pinta na ordem certa — a mesma régua que `biblioteca-camadas.test.mjs` já
+  // cobra para a pilha da Biblioteca. O ponto medido é o CABEÇALHO da folha de
+  // Verificação (onde as duas folhas — a de cima, ancorada no teto, e a de
+  // baixo, ancorada na base — comprovadamente se sobrepõem: a de Configurações
+  // mede até 80% da tela a partir do topo).
+  // A TRANSIÇÃO `transform` de CADA folha (`var(--dur-lenta)`) precisa ter
+  // ASSENTADO antes de medir — a régua do `abertura-e-transferencia.test.mjs`:
+  // `getAnimations()` + `finished`, nunca duas amostras iguais em quadros
+  // seguidos. Sem isto o retângulo mede a folha NO MEIO do deslizar, ainda
+  // fora do lugar de repouso — que é justamente por que a asserção mede uma
+  // GEOMETRIA e não confia em `waitForSelector('.open')` sozinho.
+  await pg.evaluate(async () => {
+    const parar = (sel) => Promise.all(document.querySelector(sel)
+      .getAnimations().map((a) => a.finished.catch(() => {})));
+    await Promise.all([parar('#testePopup .popup-sheet'), parar('#fadePopup .popup-sheet')]);
+  });
+  const camada = await pg.evaluate(() => {
+    const sheet = document.querySelector('#testePopup .popup-sheet');
+    const r = sheet.getBoundingClientRect();
+    const fr = document.getElementById('fadePopup').querySelector('.popup-sheet').getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + 10;
+    const el = document.elementFromPoint(cx, cy);
+    const dono = el && el.closest('.popup-backdrop');
+    return {
+      donoId: dono ? dono.id : null,
+      dentroDaFadePopup: cy < fr.bottom,
+    };
+  });
+  checar(camada.dentroDaFadePopup === true,
+    'PREMISSA: o ponto medido está DENTRO da área da folha de Configurações — '
+    + 'senão a medição não prova nada sobre a disputa das duas camadas', camada);
+  checar(camada.donoId === 'testePopup',
+    'A VERIFICAÇÃO PINTA POR CIMA DE CONFIGURAÇÕES: o toque no cabeçalho dela '
+    + 'alcança a PRÓPRIA folha, não a que ficava por baixo antes deste lote',
+    camada);
+
   // ---- J: O VOLTAR DEVOLVE CONFIGURAÇÕES --------------------------------
   const volta = await pg.evaluate(() => {
     window.__avBack();

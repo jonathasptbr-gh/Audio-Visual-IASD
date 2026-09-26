@@ -24,9 +24,14 @@
 //
 // ## 2. A IMAGEM DA PRÉVIA — as cinco metades, e por que nenhuma basta
 //
-//  1. **APAGADO SEM DESTINO DE PROJEÇÃO.** Sem TV e sem computador conectado a
-//     prévia É a projeção: é o `<video>` dela em tela cheia que a congregação
-//     vê. Um tile que aceitasse o toque ali desligaria o culto.
+//  1. **SEMPRE CLICÁVEL, mesmo sem destino de projeção** (v1.10.10, revogando
+//     o `disabled` da v1.8.50 PARA ESTE TILE). Pedido do operador: *"ele deve
+//     estar 'clicável' mesmo sem uma tela conectada... sendo exclusivo para
+//     quando há algo conectado, mas é uma opção selecionável desde sempre"* —
+//     e a mesma azul "sempre ativa" das outras preferências, com o estado só
+//     no ÍCONE. A escolha grava sem destino (arma a preferência); só o EFEITO
+//     (`economiaAtiva`, abaixo) continua exclusivo de quando há para onde
+//     projetar — ela não mudou, só deixou de travar o botão que a arma.
 //  2. **LIGADO, O DECODIFICADOR PARA — E FICA PARADO.** O `pause()` mora no
 //     `play()` do `stage` (`setSuspenso`) porque um `play` chega por caminhos
 //     que o Controle não enumera. A asserção que separa "pausou uma vez" de
@@ -244,6 +249,7 @@ const lerTudo = (pg) => pg.evaluate(() => {
         && r.left >= p.left - 0.5 && r.top >= p.top - 0.5;
     })(),
     tileApagado: !!tile.disabled,
+    tileAceso: tile.classList.contains('qs-on'),
     tileAlt: tile.classList.contains('qs-alt'),
     tileTitulo: tile.title,
     marcacao: !!economiaPreview,
@@ -430,22 +436,39 @@ try {
     + 'diz sem gastar uma linha de texto', fileira);
 
   // =========================================================================
-  // B · A ECONOMIA SEM DESTINO DE PROJEÇÃO: o tile APAGADO
+  // B · A ECONOMIA SEM DESTINO DE PROJEÇÃO: o tile SEMPRE CLICÁVEL (v1.10.10)
   // =========================================================================
   const semDestino = await lerTudo(pg);
-  checar(semDestino.tileApagado === true,
-    'B1 · SEM TV e sem computador conectado o tile está APAGADO: ali a prévia É a '
-    + 'projeção, e aceitar o toque desligaria o culto', semDestino);
-  checar(/prévia É a projeção/.test(semDestino.tileTitulo),
-    'B2 · e o `title` diz POR QUÊ — apagado sem motivo se lê como quebrado '
-    + '(a regra da v1.8.50)', semDestino.tileTitulo);
+  checar(semDestino.tileApagado === false,
+    'B1 · SEM TV e sem computador conectado o tile NÃO fica apagado — a opção '
+    + 'é selecionável desde sempre, mesmo com o EFEITO ainda exclusivo de '
+    + 'quando há para onde projetar', semDestino);
+  checar(semDestino.tileAceso === true,
+    'B2 · e ele é ACESO como todo tile da grade (v1.7.6) — a diferença de '
+    + 'estado é só do ÍCONE, nunca da cor', semDestino);
+  checar(/vale quando houver TV ou computador/.test(semDestino.tileTitulo),
+    'B3 · e o `title` continua explicando a MESMA função (o efeito é exclusivo '
+    + 'de quando há destino) — sem dizer que o controle está indisponível',
+    semDestino.tileTitulo);
 
-  // O toque não passa: `disabled` é o que faz o navegador ENGOLIR o evento, e é
-  // por isso que ele não é uma classe.
+  // O TOQUE PASSA, e GRAVA A PREFERÊNCIA — mesmo sem destino: é a metade do
+  // pedido que a v1.8.50 proibia (*"é uma opção selecionável desde sempre"*).
   await pg.evaluate(() => { document.getElementById('economiaTile').click(); });
-  const naoPassou = await lerTudo(pg);
-  checar(naoPassou.marcacao === false,
-    'B3 · e o toque nele não marca nada', naoPassou);
+  const tocouSemDestino = await esperar(pg, () => economiaPreview === true, null, 5000);
+  checar(tocouSemDestino === true,
+    'B4 · e o toque MARCA a escolha mesmo sem destino — ela fica pré-armada '
+    + 'para quando uma TV ou computador entrar', porque(tocouSemDestino));
+  const depoisDoToque = await lerTudo(pg);
+  checar(depoisDoToque.vigor === false,
+    'B5 · mas o EFEITO continua exclusivo de quando há destino — sem TV e sem '
+    + 'computador a prévia É a projeção, e ela não pode ficar suspensa',
+    depoisDoToque);
+  checar(depoisDoToque.tileApagado === false,
+    'B6 · e o tile CONTINUA clicável depois do toque — desmarcar não pode '
+    + 'ficar mais difícil que marcar', depoisDoToque);
+  // Desfaz a marcação: os blocos seguintes partem do estado limpo de sempre.
+  await pg.evaluate(() => { document.getElementById('economiaTile').click(); });
+  await esperar(pg, () => economiaPreview === false, null, 5000);
 
   // =========================================================================
   // C · COM DESTINO: liga, e o DECODIFICADOR PARA
@@ -463,7 +486,8 @@ try {
 
   const destravou = await lerTudo(pg);
   checar(destravou.tileApagado === false,
-    'C2 · com a TV conectada o tile DESTRAVA', destravou);
+    'C2 · com a TV conectada o tile continua clicável — nunca esteve travado '
+    + '(v1.10.10)', destravou);
 
   await pg.evaluate(() => { document.getElementById('economiaTile').click(); });
   const ligou = await esperar(pg, () => economiaAtiva() === true, null, 5000);
@@ -619,8 +643,9 @@ try {
   checar(semTvAgora.marcacao === true,
     'E3 · MAS A MARCAÇÃO FICA: ela é a escolha do operador, e reconectar a TV tem '
     + 'de voltar a poupar sem ele tocar em nada', semTvAgora);
-  checar(semTvAgora.tileApagado === true,
-    'E4 · o tile volta a apagar, porque a pergunta dele é o DESTINO', semTvAgora);
+  checar(semTvAgora.tileApagado === false,
+    'E4 · e o tile CONTINUA clicável sem TV — só o EFEITO (`economiaAtiva`) '
+    + 'responde à pergunta do destino, nunca o `disabled` (v1.10.10)', semTvAgora);
 
   await trocarTelas(pg, TV);
   const voltou = await esperar(pg, () => economiaAtiva() === true, null, 5000);

@@ -7356,6 +7356,17 @@ main {
    por inteiro aqui. A tabela `POPUPS` diz a MESMA ordem, e mudar uma sem a
    outra é o defeito. */
 #histPopup { z-index: 205; }
+/* A VERIFICAÇÃO abre de DENTRO de Configurações, exatamente como o Histórico
+   acima — e nasceu com o MESMO acaso (v1.10.10). Relato do operador: *"atualmente
+   ela fica atrás das configurações, exigindo um toque extra para fechar as
+   configurações para poder analisar a verificação"*. A tabela `POPUPS` já
+   tinha a ordem certa desde que a folha nasceu (`testePopupEl` depois de
+   `fadePopupEl`, para o voltar devolver ao lugar certo); só o `z-index` ficou
+   no 200 padrão, e com o mesmo degrau de quem a abre quem decide é a ORDEM DO
+   DOCUMENTO — e `#testePopup` está declarado ANTES de `#fadePopup` no HTML.
+   Mesmo degrau do Histórico porque a pergunta é a mesma (abre de Configurações,
+   não abre nada por cima de si) e as duas nunca estão abertas ao mesmo tempo. */
+#testePopup { z-index: 205; }
 /* A folha da PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca, como a da música
    — daí o degrau que o comentário abaixo reservava. Ela NÃO abre a folha da
    música por cima de si, então é a última linha de POPUPS e o degrau mais alto

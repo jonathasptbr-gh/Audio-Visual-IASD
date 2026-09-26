@@ -2366,11 +2366,15 @@
                estado, transporte e o avanço da fila continuam inteiros — ver
                `economiaAtiva` em controle.js, que é onde a regra mora.
 
-               ELE APAGA SEM DESTINO DE PROJEÇÃO, porque ali a prévia É a
-               projeção: é a regra do `haDestinoDeProjecao`, e é `disabled` com o
-               `title` dizendo por quê (v1.8.50). O último da fileira de
-               preferências de propósito — é a única delas que fala do CELULAR e
-               não do telão, e daí ela encostar na fileira do aparelho. -->
+               SEMPRE CLICÁVEL, mesmo sem destino de projeção (v1.10.10,
+               revogando o `disabled` da v1.8.50 PARA ESTE TILE): pedido do
+               operador — *"ele deve estar 'clicável' mesmo sem uma tela
+               conectada... é uma opção selecionável desde sempre"*. A escolha
+               grava sem destino; só o EFEITO (`economiaAtiva`) continua
+               exclusivo de quando há para onde projetar. O último da fileira
+               de preferências de propósito — é a única delas que fala do
+               CELULAR e não do telão, e daí ela encostar na fileira do
+               aparelho. -->
           <button type="button" class="qs-tile" id="economiaTile" title="Desligar a imagem da prévia para poupar processamento">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <use class="ico-base" href="#icoPreview"/><use class="ico-alt" href="#icoPreviewOff"/>
@@ -2528,7 +2532,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.10.9</span>
+            <span id="appVersion" class="app-version">v1.10.10</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
