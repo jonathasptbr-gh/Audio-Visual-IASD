@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.11.1",
+    "itens": [
+      "Corrigido: fotos de fundo das músicas voltam a tentar em 1 minuto se a rede estava instável na abertura.",
+      "Antes, uma rede lenta no início podia travar essa atualização por meia hora sem motivo."
+    ]
+  },
+  {
     "versao": "1.11.0",
     "itens": [
       "Nova opção em Configurações: permitir ou não o uso de dados móveis para baixar o acervo.",
