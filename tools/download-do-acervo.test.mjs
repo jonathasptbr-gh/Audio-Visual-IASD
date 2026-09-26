@@ -1202,7 +1202,13 @@ try {
       window.__modoImg = 'recusa';
       try { await syncImagensColecao(c, { auto: true }); } finally { window.__modoImg = 'ok'; }
       const recusa = (await AVDB.getState(fundoChave('u-foto'))) || {};
-      out.fotoRecusa = Object.values(recusa).map((v) => v.tem);
+      const valsRecusa = Object.values(recusa);
+      out.fotoRecusa = valsRecusa.map((v) => v.tem);
+      // U1b · A CAUSA VIAJA NO VEREDITO (v1.10.8) — não só o "não tem", mas
+      // POR QUÊ, para sobreviver ao fechar o app e alcançar o Registro da
+      // PRÓXIMA sessão, quando é ela que vê a passada ter de fato rodado.
+      out.fotoRecusaCausa = valsRecusa.map((v) => ({ causa: v.causa, status: v.status, url: v.url }));
+      out.blocoRecusa = await comAcervo([c], () => blocoFundos());
     }
 
     // U2 · O SERVIDOR DE FOTOS MUDO com o banco de pé também abre o disjuntor.
@@ -1425,6 +1431,16 @@ try {
   checar(uu.fotoRecusa.length === 3 && uu.fotoRecusa.every((t) => t === false),
     'U1 · e o CONTROLE: com a fonte RESPONDENDO (404) o veredito é gravado, porque ali houve resposta',
     JSON.stringify(uu.fotoRecusa));
+  checar(uu.fotoRecusaCausa.length === 3
+    && uu.fotoRecusaCausa.every((v) => v.causa === 'http' && v.status === 404 && /\/imagens\//.test(v.url)),
+    'U1b · e o VEREDITO carrega a causa, o status e o endereço tentado (v1.10.8) — não só "não tem", '
+    + 'para a causa sobreviver ao fechar o app e alcançar o Registro da sessão em que a passada rodou',
+    JSON.stringify(uu.fotoRecusaCausa));
+  checar(/causa do que já foi tentado: 3× a fonte respondeu com erro/.test(uu.blocoRecusa)
+    && /exemplo: HTTP 404 — .*\/imagens\//.test(uu.blocoRecusa),
+    'U1c · e o "Fundos da letra" do Registro soma a DISTRIBUIÇÃO das causas, com um exemplo com '
+    + 'endereço — sem isto o operador só tinha "o Registro diz por quê, quando a passada tiver '
+    + 'rodado de novo", indefinidamente', uu.blocoRecusa);
   checar(uu.fotoMuda.pedidos > 0 && uu.fotoMuda.pedidos <= uu.fotoMuda.teto && uu.fotoMuda.pedidos < 30
     && uu.fotoMuda.fonteMuda,
     'U2 · com o servidor de FOTOS mudo e o banco de pé a passada também para em doze — sem isto eram '

@@ -1033,29 +1033,59 @@ try {
     };
     AVDB.getState = async () => mapa(30);
     const comCifras = await rodarUmaChecagem(achada);
-    AVDB.getState = async () => mapa(0);       // o site mudou: NENHUMA folha
+    // N4c · O FALSO VERMELHO QUE O OPERADOR APONTOU (v1.10.8). Ele escreveu por
+    // extenso: *"não são todos os hinos que tem cifras, não sei quantos são na
+    // realidade"* — e o Registro dele MEDIU 286 folhas contra 305 sem-cifra no
+    // Hinário 2022, uma proporção de ~48%. O corte antigo (`folhas/julgadas <
+    // 0,5`, revogado) reprovava exatamente este acervo saudável. Aqui: 15
+    // folhas, 23 sem-cifra (37,5% — abaixo dos 50% antigos) e só 2 sem página
+    // nenhuma (5%, dentro do piso saudável medido). A conta nova não olha mais
+    // para a proporção de folhas — só para o quanto ficou SEM PÁGINA.
+    const mapaTres = (nFolhas, nSemCifra, nSemPagina) => {
+      const o = {};
+      hinos.forEach((h, i) => {
+        const k = cifraChaveNoDisco(h.name);
+        if (!k) return;
+        if (i < nFolhas) o[k] = { pagina: '<html>', em: agora };
+        else if (i < nFolhas + nSemCifra) o[k] = { semCifra: true, em: agora };
+        else if (i < nFolhas + nSemCifra + nSemPagina) o[k] = { em: agora };
+      });
+      return o;
+    };
+    AVDB.getState = async () => mapaTres(15, 23, 2);
+    const maioriaSemCifra = await rodarUmaChecagem(achada);
+    AVDB.getState = async () => mapa(0);       // o catálogo não respondeu: NENHUMA folha
     const siteMudou = await rodarUmaChecagem(achada);
     // N4b · O HINÁRIO PERDIDO COM FOLHAS SOBREVIVENTES. A folha nunca vence:
-    // as cinco guardadas antes de o site mudar ficam, e as trinta e cinco
-    // ausências novas se somam a elas. Só o zero reprovava — e cinco não é zero.
+    // as cinco guardadas antes de o catálogo quebrar ficam, e as trinta e cinco
+    // tentativas seguintes não acham página NENHUMA (o `{ em: agora }` sem
+    // `pagina` nem `semCifra` é exatamente isso) — o sinal de catálogo
+    // quebrado, não de site com pouca cobertura.
     AVDB.getState = async () => mapa(5, { em: agora });
     const sobreviventes = await rodarUmaChecagem(achada);
     AVDB.getState = async () => ({});          // nunca varrido
     const novo = await rodarUmaChecagem(achada);
     window.allCollections = ac; window.collSongs = cs;
     window.countDownloaded = cd; AVDB.getState = gs;
-    return { comCifras, siteMudou, sobreviventes, novo };
+    return { comCifras, maioriaSemCifra, siteMudou, sobreviventes, novo };
   });
-  checar(cifra.comCifras.v === 'ok' && /30 cifras em 40 hinos já varridos \(de 40\)/.test(cifra.comCifras.nota),
+  checar(cifra.comCifras.v === 'ok' && /30 cifra\(s\) · 10 sem cifra no site \(de 40 de 40 já varridos\)/.test(cifra.comCifras.nota),
     'N4 · PREMISSA: com 30 folhas em 40 hinos julgados ela passa, e diz a proporção COM os dois '
     + 'denominadores — "282 de 282" aqui e "282 de 601" no bloco de cifras, no mesmo arquivo salvo, '
     + 'pareciam dois aparelhos', JSON.stringify(cifra.comCifras));
-  checar(cifra.sobreviventes.v === 'falhou' && /só 5 cifras em 40/.test(cifra.sobreviventes.nota),
-    'N4b · e CINCO folhas sobreviventes sobre trinta e cinco ausências reprova: a folha nunca vence, '
-    + 'então só-o-zero deixava a linha verde sobre o hinário perdido', JSON.stringify(cifra.sobreviventes));
+  checar(cifra.maioriaSemCifra.v === 'ok'
+    && /15 cifra\(s\) · 23 sem cifra no site \(de 40 de 40 já varridos\)/.test(cifra.maioriaSemCifra.nota),
+    'N4c · e MENOS DE METADE com cifra (15 de 40, como o acervo real do operador) PASSA — o corte '
+    + 'antigo por proporção de folhas reprovava isto todo sábado; o que decide agora é só o '
+    + 'quanto ficou sem página nenhuma (2 de 40, saudável)', JSON.stringify(cifra.maioriaSemCifra));
+  checar(cifra.sobreviventes.v === 'falhou' && /35 de 40 hinos SEM PÁGINA nenhuma no site/.test(cifra.sobreviventes.nota),
+    'N4b · e CINCO folhas sobreviventes sobre trinta e cinco SEM PÁGINA reprova: a folha nunca '
+    + 'vence, e o que reprova agora é a fração sem página — não mais "poucas folhas"',
+    JSON.stringify(cifra.sobreviventes));
   checar(cifra.siteMudou.v === 'falhou' && /NENHUMA cifra guardada/.test(cifra.siteMudou.nota),
-    'N4 · e 40 hinos respondidos com ZERO folhas reprova: no hinário toda música tem cifra no '
-    + 'site, então zero é o site que mudou — não o acervo que não tem', JSON.stringify(cifra.siteMudou));
+    'N4 · e 40 hinos respondidos com ZERO folhas reprova: nenhum hinário real fica sem UMA cifra '
+    + 'sequer, não importa quantos hinos o site cobre — zero é o catálogo quebrado, não uma '
+    + 'cobertura baixa', JSON.stringify(cifra.siteMudou));
   checar(cifra.novo.v === 'na',
     'N4 · o aparelho que a varredura ainda não visitou sai NÃO SE APLICA — abaixo do piso a conta '
     + 'não vale, e reprovar ali seria vermelho em todo aparelho novo', JSON.stringify(cifra.novo));

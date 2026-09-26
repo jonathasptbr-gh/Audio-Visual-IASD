@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.10.7';
+const WEB_VERSION = '1.10.8';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15063,6 +15063,15 @@ async function syncCifrasColecao(coll) {
   // dizendo que a passada não achou nada.
   let okDaPassada = 0;
   let naoTemDaPassada = 0;
+  // ILEGÍVEL E RECUSOU, CONTADOS (v1.10.8) — antes eram só amostra nos
+  // `exemplos` (até `CIFRA_EXEMPLOS_MAX`), sem denominador: o diário não tinha
+  // como dizer se um `ilegivel` era um hino raro ou o site inteiro mudando de
+  // marcação. `ilegivel` é o mais grave dos dois — a página respondeu e o
+  // parser não a entendeu —, e como nenhum dos dois GRAVA veredito, a mesma
+  // música é tentada de novo em toda passada: o contador da ÚLTIMA passada
+  // já é uma amostra viva do estado ATUAL do site.
+  let ilegivelDaPassada = 0;
+  let recusouDaPassada = 0;
   // OS EXEMPLOS DO QUE NÃO SAIU COM FOLHA — número, nome, veredito e o ENDEREÇO
   // tentado. É o que responde a pergunta que nenhum contador responde: *"quais
   // hinos, e o que a página deles tem?"*. Sem o endereço a lista não serve para
@@ -15118,15 +15127,23 @@ async function syncCifrasColecao(coll) {
               // alguém publicar a cifra: daí o prazo, e não o silêncio eterno.
               pendentes[h.chave] = { naoTem: true, em: Date.now() };
               naoTemDaPassada++;
+            } else if (d.motivo === AVCifra.MOTIVO_ILEGIVEL) {
+              ilegivelDaPassada++;
+            } else if (d.motivo === AVCifra.MOTIVO_RECUSOU) {
+              recusouDaPassada++;
             }
-            // `sem-rede`, `recusou` e `ilegivel` NÃO gravam nada: os dois
-            // primeiros não são resposta do site, e o terceiro é defeito do
-            // nosso parser. A passada seguinte tenta de novo.
-            // O EXEMPLO, para o que NÃO saiu com folha. `sem-rede` fica de fora:
+            // `sem-rede`, `recusou` e `ilegivel` NÃO gravam veredito: o
+            // primeiro não é resposta do site, e os outros dois são contados
+            // acima mas não fixados no disco — a passada seguinte tenta de
+            // novo, e o contador se refaz a cada vez.
+            // O EXEMPLO, para o que NÃO saiu com folha — e **NUNCA `sem-cifra`**
+            // (v1.10.8): ele é a resposta MAIS COMUM num hinário real (metade
+            // do 2022, no relato), e enchia as doze vagas antes de qualquer
+            // `ilegivel`/`recusou`/`naoTem` — que são justamente os três que
+            // valem a pena abrir no navegador. `sem-rede` também fica de fora:
             // ali não houve resposta do site, e um endereço sem resposta não é
-            // pista de nada — mandaria o operador abrir uma página que o app
-            // nem chegou a ver.
-            if (!d.ok && d.motivo !== AVCifra.MOTIVO_SEM_REDE
+            // pista de nada.
+            if (!d.ok && d.motivo !== AVCifra.MOTIVO_SEM_REDE && d.motivo !== AVCifra.MOTIVO_SEM_CIFRA
                 && exemplos.length < CIFRA_EXEMPLOS_MAX) {
               exemplos.push({ nome: h.nome, motivo: d.motivo, url: d.url || '' });
             }
@@ -15156,6 +15173,7 @@ async function syncCifrasColecao(coll) {
       em: Date.now(), tentadas: faltam.length,
       ok: okDaPassada, naoTem: naoTemDaPassada,
       semCifra: quantos,
+      ilegivel: ilegivelDaPassada, recusou: recusouDaPassada,
       exemplos,
     }).catch(() => {});
     cifraSyncRodando = false;
@@ -19788,8 +19806,18 @@ let imagensSyncRodando = false;
  * não pode ficar esperando o prazo escrito pelo código antigo: a correção
  * chegaria por OTA e não rodaria. Entrada de versão diferente é IGNORADA, e a
  * música volta para a fila com o código novo, que é o que se quis publicar.
+ *
+ * **SUBIU PARA 2 na v1.10.8**, e não é o formato do campo que mudou — é a
+ * REGRA que decidiu `tem:false` até aqui: a v1.10.7 passou a excluir a foto
+ * cujo `fetch` não voltou (`fotoSemResposta`) do que conta como resposta, mas
+ * um veredito gravado ANTES dela (v1.10.6, ou a própria v1.10.7 antes deste
+ * lote) pode ter marcado `tem:false` por uma causa que hoje não fecharia mais
+ * — e ficaria valendo os seis dias inteiros sem que este lote tivesse
+ * chance de refazer. Subir a versão IGNORA todo veredito antigo e repergunta
+ * o acervo inteiro na próxima passada — é o que faz este lote alcançar quem
+ * já tinha `tem:false` gravado, e não só quem baixar depois dele.
  */
-const FUNDO_VEREDITO_VERSAO = 1;
+const FUNDO_VEREDITO_VERSAO = 2;
 
 /**
  * QUANTO VALE UM "AINDA SEM FUNDO" — e o número NÃO é o da cifra.
@@ -20152,7 +20180,18 @@ async function syncImagensColecao(coll, opts) {
             // continua valendo mesmo assim: uma foto que chegou já é fundo.
             if ((o.metaOk || faixaNegada) && estado !== '?' && (tem || !o.fotoSemResposta)
               && collSongs(coll.id).includes(s)) {
-              vereditos[s.id_music] = { v: FUNDO_VEREDITO_VERSAO, ids: fundoIdsDaFaixa(s), em: Date.now(), tem };
+              const v = { v: FUNDO_VEREDITO_VERSAO, ids: fundoIdsDaFaixa(s), em: Date.now(), tem };
+              // A CAUSA VAI JUNTO, SÓ QUANDO A FOTO FALTOU (v1.10.8) — ver o
+              // KDoc de `downloadCollectionImage`. É o que faz o Registro (e a
+              // própria Verificação) dizerem POR QUE, sem esperar a sessão em
+              // que a passada rodou: o censo (`acervoCenso`) morre com a
+              // página, o veredito não.
+              if (!tem && o.fotoCausa) {
+                v.causa = o.fotoCausa;
+                if (o.fotoStatus) v.status = o.fotoStatus;
+                if (o.fotoUrl) v.url = o.fotoUrl;
+              }
+              vereditos[s.id_music] = v;
             }
           } catch (_) { /* a passada seguinte tenta de novo */ }
           finally { bgItemEnd(notifId, s.name); }
@@ -20839,6 +20878,16 @@ async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyr
 // `marca` é o objeto POR FAIXA do chamador (o mesmo do `metaOk`): a foto cujo
 // `fetch` nem voltou o marca com `fotoSemResposta`, que é o que separa, no
 // veredito dos fundos, *"a fonte não entrega esta foto"* de *"a rede caiu"*.
+//
+// **E `marca` GANHA A CAUSA (v1.10.8)** — `fotoCausa` ('fora'|'http'|'disco'|
+// 'sem-resposta'), `fotoStatus` (o HTTP, só na causa 'http') e `fotoUrl` (a
+// URL NO FIO, como `acervoFalhou` já guarda para o Registro). Sem isto, o
+// veredito `tem:false` de uma faixa dizia SÓ QUE faltou, nunca POR QUE — e a
+// única resposta morria no censo da sessão (`acervoCenso`), que a próxima
+// abertura apaga. Com a causa NO VEREDITO, ela sobrevive ao fechar o app e
+// chega ao Registro do dia em que a passada de fato rodou. Última falha
+// vence, como o resto do censo: uma foto que falha e outra que chega no
+// mesmo `resolveImage` não some — é a MESMA regra do `fotoSemResposta`.
 async function downloadCollectionImage(folderId, url, songId, index, semMiniatura, marca) {
   let blob;
   // CONTADO ANTES DE QUALQUER GUARDA (v1.9.16), inclusive antes da trava de
@@ -20856,20 +20905,35 @@ async function downloadCollectionImage(folderId, url, songId, index, semMiniatur
   // sem uma linha que dissesse o que a fonte respondia. A CONTA fica separada
   // (o custo de uma capa é outro); o que passa a ser comum é a pergunta *"o que
   // a fonte está respondendo?"*, que é a mesma para os dois.
-  if (Louvorja.foraDoServidor(url)) { acervoForaDoServidor(url, null); acervoCenso.capasPerdidas++; return null; }
+  if (Louvorja.foraDoServidor(url)) {
+    acervoForaDoServidor(url, null); acervoCenso.capasPerdidas++;
+    if (marca) { marca.fotoCausa = 'fora'; marca.fotoUrl = String(url || ''); }
+    return null;
+  }
   try {
     const res = await fetch(Louvorja.fileUrl(url));
-    if (!res.ok) { acervoFalhou('capasPerdidas', 'a fonte respondeu HTTP ' + res.status, url, null, res.status); return null; }
+    if (!res.ok) {
+      acervoFalhou('capasPerdidas', 'a fonte respondeu HTTP ' + res.status, url, null, res.status);
+      if (marca) {
+        marca.fotoCausa = 'http'; marca.fotoStatus = res.status;
+        try { marca.fotoUrl = new URL(Louvorja.fileUrl(url)).href; } catch (_) { marca.fotoUrl = String(url || ''); }
+      }
+      return null;
+    }
     blob = await res.blob();
   } catch (_) {
-    if (marca) marca.fotoSemResposta = true;
+    if (marca) { marca.fotoSemResposta = true; marca.fotoCausa = 'sem-resposta'; marca.fotoUrl = String(url || ''); }
     acervoFalhou('capasPerdidas', 'o servidor de arquivos não respondeu', url, null, 0);
     return null;
   }
   const ext = extensaoDoArquivo(url, 'jpg');
   const path = 'folders/' + folderId + '/' + songId + '-img-' + index + '.' + ext;
   try { await AVDB.opfsWriteFile(path, blob); }
-  catch (_) { acervoFalhou('capasPerdidas', 'o aparelho recusou gravar (espaço?)', url, null, 0); return null; }
+  catch (_) {
+    acervoFalhou('capasPerdidas', 'o aparelho recusou gravar (espaço?)', url, null, 0);
+    if (marca) { marca.fotoCausa = 'disco'; marca.fotoUrl = String(url || ''); }
+    return null;
+  }
   // ELAS TAMBÉM PESAM (v5.134). As imagens de fundo da letra vão para a MESMA
   // pasta dos áudios e ocupam disco como eles — mas não viram registro no
   // catálogo (são referenciadas de dentro dos slides, não são mídia da
@@ -27497,6 +27561,13 @@ async function blocoFundos() {
   let porConferir = 0;
   let semFonte = 0;
   const pendentes = [];
+  // A DISTRIBUIÇÃO DE CAUSAS (v1.10.8), lida do MESMO veredito — ver o KDoc de
+  // `downloadCollectionImage`. `causaExemplo` guarda o PRIMEIRO veredito com
+  // causa que o laço encontra, para o "exemplo:" abaixo; não é o mais recente
+  // nem o mais frequente, só o primeiro na ordem do acervo — o bastante para
+  // abrir o endereço e ver o que ele é.
+  const causas = {};
+  let causaExemplo = null;
   for (const c of alvos) {
     let guardado = {};
     try { guardado = (await AVDB.getState(fundoChave(c.id))) || {}; } catch (_) { guardado = {}; }
@@ -27515,7 +27586,13 @@ async function blocoFundos() {
       const v = guardado[s.id_music];
       if (!fundoNoDiscoVale(v, s, agora)) { porConferir++; continue; }
       if (v.tem) com++;
-      else { sem++; semDaColecao++; }
+      else {
+        sem++; semDaColecao++;
+        if (v.causa) {
+          causas[v.causa] = (causas[v.causa] || 0) + 1;
+          if (!causaExemplo) causaExemplo = v;
+        }
+      }
     }
     if (semDaColecao) pendentes.push({ nome: c.name, n: semDaColecao });
   }
@@ -27537,6 +27614,22 @@ async function blocoFundos() {
       + pendentes.slice(0, FUNDO_PENDENTES_MAX).map((x) => x.nome + ': ' + x.n).join(' · ')
       + (pendentes.length > FUNDO_PENDENTES_MAX
         ? ' … e mais ' + (pendentes.length - FUNDO_PENDENTES_MAX) : ''));
+    // A CAUSA, PARA QUEM JÁ TEM (v1.10.8) — nem todo "sem fundo" tem causa: um
+    // veredito de ANTES deste lote não a guarda, e fica de fora da conta sem
+    // aparecer como zero, que se leria como "sem causa nenhuma".
+    const nomeCausa = {
+      http: 'a fonte respondeu com erro', fora: 'o endereço aponta para fora do servidor',
+      disco: 'o aparelho recusou gravar', 'sem-resposta': 'o servidor de arquivos não respondeu',
+    };
+    const chavesCausa = Object.keys(causas);
+    if (chavesCausa.length) {
+      linhas.push('  causa do que já foi tentado: '
+        + chavesCausa.map((k) => causas[k] + '× ' + (nomeCausa[k] || k)).join(' · '));
+      if (causaExemplo) {
+        linhas.push('    exemplo: ' + (causaExemplo.status ? 'HTTP ' + causaExemplo.status + ' — ' : '')
+          + (causaExemplo.url || ''));
+      }
+    }
   }
   // A ÚLTIMA PASSADA. Sem ela, *"1034 por conferir"* é um mistério que volta a
   // cada cópia: é esta linha que diz que alguém está trabalhando naquilo, e
@@ -28322,6 +28415,11 @@ const TESTES = [
       // resposta. Cache por coleção: um `getState` por coleção da amostra.
       const guardados = new Map();
       let aguardando = 0;
+      // A CAUSA DO PRIMEIRO VEREDITO COM RESPOSTA, na amostra (v1.10.8) — ver o
+      // KDoc de `downloadCollectionImage`. Ela substitui a indireção *"o
+      // Registro diz por quê"* pela resposta DIRETA, aqui mesmo, quando o
+      // veredito já a guarda.
+      let causaExemplo = null;
       const agora = Date.now();
       for (const [c, s] of amostra) {
         const rec = await AVDB.fileGet(s.fileIdFull).catch(() => null);
@@ -28333,7 +28431,10 @@ const TESTES = [
           guardados.set(c.id, (await AVDB.getState(fundoChave(c.id)).catch(() => null)) || {});
         }
         const v = guardados.get(c.id)[s.id_music];
-        if (fundoNoDiscoVale(v, s, agora) && !v.tem) aguardando++;
+        if (fundoNoDiscoVale(v, s, agora) && !v.tem) {
+          aguardando++;
+          if (!causaExemplo && v.causa) causaExemplo = v;
+        }
       }
       if (!comLetra) return tNa('nenhuma das conferidas tem letra sincronizada');
       if (semFundo) {
@@ -28366,12 +28467,22 @@ const TESTES = [
           comoEsta = ' — o app tenta sozinho, e na última vez a fonte das músicas '
             + (u.recusadas && !u.semResposta ? 'recusou os pedidos (HTTP ' + u.ultimoStatus + ')' : 'não respondeu');
         } else if (aguardando > 0) {
-          // A CAUSA NÃO É NOMEADA AQUI: a fonte respondendo erro e o disco
-          // recusando a gravação chegam iguais a esta conta, e acusar a fonte
-          // pelo disco cheio mandaria o operador procurar no lugar errado. Quem
-          // separa as duas é o bloco "Download do acervo" do Registro.
+          // **A CAUSA É NOMEADA QUANDO O VEREDITO A TEM** (v1.10.8): antes
+          // disso, a fonte respondendo erro e o disco recusando a gravação
+          // chegavam iguais a esta conta, e a nota não tinha como separá-las
+          // sem esperar o Registro da mesma sessão em que a passada rodou —
+          // o veredito sobrevive ao fechar o app, o censo da sessão não.
+          const NOME_CAUSA = {
+            http: 'a fonte respondeu com erro' + (causaExemplo && causaExemplo.status ? ' (HTTP ' + causaExemplo.status + ')' : ''),
+            fora: 'o endereço da foto aponta para fora do servidor conhecido',
+            disco: 'o aparelho recusou gravar (espaço?)',
+            'sem-resposta': 'o servidor de arquivos não respondeu à foto',
+          };
+          const causaTxt = causaExemplo
+            ? ' — última tentativa: ' + (NOME_CAUSA[causaExemplo.causa] || causaExemplo.causa)
+            : ' (o Registro diz por quê, quando a passada tiver rodado de novo)';
           comoEsta = ' — o app tentou sozinho e a foto de ' + aguardando
-            + ' destas não chegou (o Registro diz por quê); ele tenta de novo em até '
+            + ' destas não chegou' + causaTxt + '; ele tenta de novo em até '
             + Math.round(FUNDO_REVISITA_MS / 86400000) + ' dias'
             + (aguardando < semFundo ? ', e refaz as outras sozinho' : '');
         } else comoEsta = ' — o app já refaz sozinho, com o aparelho num Wi-Fi';
@@ -28586,23 +28697,34 @@ const TESTES = [
       // linhas saem no MESMO arquivo salvo. Sem isso o Registro trazia
       // *"282 de 601"* e *"282 de 282"* sobre o mesmo hinário, sem explicar.
       //
-      // ===== NÃO SÓ O ZERO (v1.10.7) =====
+      // ===== "QUASE TODA MÚSICA TEM CIFRA" ERA FALSO (v1.10.8, revogando a
+      // v1.10.7) =====
       //
-      // Reprovar só com NENHUMA folha deixava a linha verde sobre o hinário
-      // perdido: a FOLHA nunca vence (`cifraNoDiscoVale`), então as páginas
-      // guardadas antes de o site mudar ficam, e as ausências novas se somam a
-      // elas — quarenta folhas sobre quinhentas ausências saíam "OK · 40 de
-      // 583". O corte é por PROPORÇÃO do que foi respondido, e ele é largo de
-      // propósito: MEDIDO, os dois hinários respondem acima de 95% (os 41 "não
-      // achei" dos dois juntos; no aparelho do relato, 282 de 282 e 437 de
-      // 437). Metade é longe o bastante disso para não pintar vermelho numa
-      // coleção só menos coberta, e perto o bastante para pegar a quebra.
+      // O operador corrigiu a premissa por extenso: *"não são todos os hinos
+      // que tem cifras, não sei quantos são na realidade, então a confirmação
+      // desse número não é certa"*. MEDIDO no Registro dele: Hinário 2022 tem
+      // 286 folhas e 305 `sem-cifra` — o SITE respondendo que a página é só
+      // letra ou partitura, mais da METADE do hinário — e o corte por
+      // proporção da v1.10.7 (`folhas/julgadas < 0,5`) reprovava esse acervo
+      // SADIO todo sábado. Ela media o quê o site TEM, não se a busca
+      // funciona, e o app não tem como saber quantos hinos têm cifra de
+      // verdade — só o site sabe.
+      //
+      // **O SINAL DE VERDADE NÃO É QUANTOS TÊM — é quantos NÃO TÊM PÁGINA
+      // NENHUMA** (`semPagina`, o `naoTem` de `cifraProcurar`: todo endereço
+      // dedutível respondeu 404). Isso também é resposta do site, mas ela só
+      // deveria acontecer para o hino que o site genuinamente não guarda sob
+      // NOME NENHUM — e um endereço quebrado (o catálogo mudou de rota, ou a
+      // dedução de artista/álbum parou de bater) faz TODO hino falhar assim,
+      // não só metade. MEDIDO no Registro do relato — um acervo SADIO —, a
+      // proporção fica em 1,7% (2022) e 5,1% (1996); o corte é oito vezes o
+      // maior dos dois, folgado para não confundir um hino raro com o
+      // catálogo quebrado.
       //
       // E SÓ NOS HINÁRIOS (`cifraDeduzivel`): ali o endereço sai do CATÁLOGO e
-      // toda música existe no site. Num álbum a ausência é o caso normal, e
-      // zero folhas não prova nada.
-      const PISO = 20;   // julgadas antes de a conta valer
-      const CORTE = 0.5; // folhas / julgadas abaixo disto é o site, não o acervo
+      // toda música é dedutível. Num álbum a ausência é o caso normal.
+      const PISO = 20;            // julgadas antes de a conta valer
+      const SEM_PAGINA_CORTE = 0.15; // semPagina/julgadas acima disto é o catálogo, não o site
       const alvos = allCollections().filter((c) => cifraDeduzivel(c) && countDownloaded(c.id) > 0);
       if (!alvos.length) return tNa('nenhum hinário baixado neste aparelho');
       const agora = Date.now();
@@ -28625,20 +28747,25 @@ const TESTES = [
         // ABAIXO DO PISO a varredura está no meio (ou nunca passou): reprovar
         // aqui seria vermelho em todo aparelho novo.
         if (julgadas < PISO) continue;
+        // ZERO FOLHAS SOBREVIVE À REVOGAÇÃO: nenhum hinário real fica sem UMA
+        // cifra sequer, e não depende de saber quantos hinos o site cobre — é
+        // o único ramo que a proporção antiga acertava.
         if (!folhas) {
           return tFalhou(c.name + ': ' + julgadas + ' hinos respondidos e NENHUMA cifra guardada ('
-            + semPagina + ' sem página · ' + semCifra + ' sem cifra) — no hinário toda música tem '
-            + 'cifra no site, então mudou o endereço ou a marcação; copie o Registro, '
-            + 'que traz os endereços tentados');
+            + semPagina + ' sem página · ' + semCifra + ' sem cifra) — mesmo hinários com pouca '
+            + 'cobertura no site não ficam assim; copie o Registro, que traz os endereços tentados');
         }
-        if (folhas / julgadas < CORTE) {
-          return tFalhou(c.name + ': só ' + folhas + ' cifras em ' + julgadas + ' hinos já varridos ('
-            + semPagina + ' sem página · ' + semCifra + ' sem cifra) — no hinário quase toda música '
-            + 'tem cifra no site, então o endereço ou a marcação mudou DEPOIS de parte do acervo já '
-            + 'ter sido varrida; copie o Registro, que traz os endereços tentados');
+        if (semPagina / julgadas >= SEM_PAGINA_CORTE) {
+          return tFalhou(c.name + ': ' + semPagina + ' de ' + julgadas + ' hinos SEM PÁGINA nenhuma no '
+            + 'site (nenhum endereço testado respondeu) — num acervo saudável isso fica bem abaixo '
+            + 'disso; o endereço do catálogo pode ter mudado; copie o Registro, que traz os '
+            + 'endereços tentados');
         }
-        resumo.push(c.name + ': ' + folhas + ' cifras em ' + julgadas + ' hinos já varridos (de '
-          + collSongs(c.id).length + ')');
+        // O QUE O SITE TEM É DELE DECIDIR, não deste app: `folhas` + `semCifra`
+        // JUNTOS são resposta do site, e é só essa soma que se pode afirmar —
+        // nunca "quase todo hino tem cifra", que o operador já desmentiu.
+        resumo.push(c.name + ': ' + folhas + ' cifra(s) · ' + semCifra + ' sem cifra no site (de '
+          + julgadas + ' de ' + collSongs(c.id).length + ' já varridos)');
       }
       if (!resumo.length) return tNa('a varredura de cifras ainda não passou por este aparelho');
       return tOk(resumo.join(' · '));
@@ -29541,11 +29668,19 @@ async function renderDiag() {
       // ela diz quantas foram tentadas e o que cada desfecho respondeu.
       let passada = null;
       try { passada = await AVDB.getState(cifraPassadaChave(c.id)); } catch (_) { passada = null; }
-      if (passada && (passada.exemplos || []).length) {
+      // A LINHA APARECE COM A PASSADA, NÃO COM O EXEMPLO (v1.10.8, corrigindo
+      // a v1.9.13): o guardião era `(passada.exemplos||[]).length`, e o
+      // exemplo excluiu o `sem-cifra` no mesmo lote — uma passada saudável
+      // (a maioria `sem-cifra`, pouco `naoTem`) passou a ter ZERO exemplos e
+      // sumia inteira, tentadas e achadas juntas. `tentadas` é o sinal certo
+      // de que uma passada de fato rodou.
+      if (passada && passada.tentadas) {
         linhas.push('    última passada (' + new Date(passada.em || 0).toLocaleDateString('pt-BR')
           + '): ' + passada.tentadas + ' tentada(s), ' + passada.ok + ' achada(s), '
           + (passada.semCifra || 0) + ' sem cifra no site, '
-          + (passada.naoTem || 0) + ' sem página.');
+          + (passada.naoTem || 0) + ' sem página'
+          + (passada.ilegivel ? ', ' + passada.ilegivel + ' página(s) que o app não entendeu' : '')
+          + (passada.recusou ? ', ' + passada.recusou + ' recusada(s) pelo site' : '') + '.');
       }
       // OS EXEMPLOS, COM O ENDEREÇO — é isto que permite abrir a página no
       // navegador e ver o que ela é. Um nome sozinho não serve: o que se quer
