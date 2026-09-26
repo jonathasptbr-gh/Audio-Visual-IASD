@@ -1791,7 +1791,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | **Só o ÁUDIO** em "Tocar agora" | **não toca** | baixado pelo `ytFetchAudio`, como nos destinos que guardam — a transmissão dele saiu na v1.7.7 junto com a do vídeo. Entra como `kind:'audio'` (o telão mantém o wallpaper) |
 | **Só o ÁUDIO** guardado | — | **`ytFetchAudio`** (shell ≥ 23), pelo mesmo seletor Cantada/Playback. `kind:'audio'` e sem miniatura — é o *kind*, não o contêiner, que faz o telão manter o wallpaper. Único caminho sem o teto de 720p do progressivo. Fila de três candidatos na ordem do cliente que funciona, progressivo no fim |
 | **Séries do YouTube** | **não existe** | **um álbum por SÉRIE** (shell 41) — ver a seção do recurso. O ITEM é um vídeo do YouTube, não faixa de hinário: mesma folha (sem "Só áudio"), "Tocar agora" transmite, download só nos destinos que guardam. Não há "baixar o álbum" (~300 MB/episódio) |
-| **Manter o episódio da SEMANA baixado** | **não existe** — não há rotina de segundo plano nem coletor de referência a que pendurar um detentor | **uma caixa de marcação no topo do card** da série (v1.8.87): o episódio do sábado desce sozinho no **Wi-Fi confirmado** (`isConfirmedWifi`, não "não é celular" — são ~300 MB que ninguém pediu agora), na qualidade do operador, e as semanas passadas saem do aparelho. O álbum de série **continua não retendo arquivo**: o que retém é a lista `serie` de `db.js`, um detentor de tamanho UM por série, e **ela só ENCOLHE com o substituto na mão** — a ordem "baixar, depois limpar" não bastava, e com o download falhando (o caso normal de segunda a sexta) a limpeza levava os DOIS episódios. Sem Wi-Fi confirmado a rotina não roda, e **a linha DIZ isso**: `connection.type` responde `'unknown'` em boa parte dos aparelhos, e um no-op silencioso seria a opção marcada com nada acontecendo, para sempre |
+| **Manter o episódio da SEMANA baixado** | **não existe** — não há rotina de segundo plano nem coletor de referência a que pendurar um detentor | **uma caixa de marcação no topo do card** da série (v1.8.87): o episódio do sábado desce sozinho no **Wi-Fi confirmado, ou com "Dados móveis" ligado nas Configurações** (`redeLiberadaParaBaixar`, não "não é celular" — são ~300 MB que ninguém pediu agora, e por isso a opção nasce DESLIGADA, v1.11.0), na qualidade do operador, e as semanas passadas saem do aparelho. O álbum de série **continua não retendo arquivo**: o que retém é a lista `serie` de `db.js`, um detentor de tamanho UM por série, e **ela só ENCOLHE com o substituto na mão** — a ordem "baixar, depois limpar" não bastava, e com o download falhando (o caso normal de segunda a sexta) a limpeza levava os DOIS episódios. Sem Wi-Fi confirmado e sem a opção a rotina não roda, e **a linha DIZ isso**: `connection.type` responde `'unknown'` em boa parte dos aparelhos, e um no-op silencioso seria a opção marcada com nada acontecendo, para sempre |
 | Buscar no YouTube | não existe: abre o YouTube numa aba | **busca dentro da Biblioteca** (`ytSearch` → `YoutubeGrab.pesquisar`), resultados na mesma lista e mesma folha de destinos. Em **português**: passar localização ao `NewPipe.init` NÃO resolve (o serviço filtra por uma lista que só tem `en-GB`) — quem resolve é o `forceLocalization` do próprio `Extractor`. Iframe é recusado pelo `X-Frame-Options`; a API oficial exigiria chave com cota |
 | Link para fora do app | `window.open` | **`openExternal(url)`** → `ACTION_VIEW` em tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2): sem esse método um link externo não faz nada, nem erro no console |
 | Sem tela conectada (simplificado) | mesmo bloqueio, com a janela do Display no lugar da `Presentation` | **modo bloqueado**: cortina embaçada, seção de conexão no centro, saída para o avançado na frente. **Não é incondicional**: o "Tocar neste celular" da folha (`tocarNoCelular`) desbloqueia e manda o som para este aparelho. **Caminho só de IDA e sem persistência**: o bloqueio se rearma ao fechar o app, ao passar pelo modo avançado (`setAppMode`) ou quando uma tela entra — e por isso o botão SOME depois do toque, em vez de oferecer o desfazer |
@@ -2115,7 +2115,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **93** e os de Node puro **22** — juntos, os 115. MEDIDO com
+Os de Chromium são **94** e os de Node puro **22** — juntos, os 116. MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -2166,7 +2166,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 115 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 116 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2970,16 +2970,18 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.10.10 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.11.0 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.10.10 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.11.0 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO** — a v1.10.10 corrige três defeitos de interface
-(feedback do excluir coleção, o tile da economia de prévia sempre clicável, a
-camada da Verificação do Sistema), não abre seção nenhuma. **Conferir a
-Release é parte de decidir** — um lote só de web herda o `shellTag` quando o
-lote de shell anterior ainda não tem Release, e não herda quando tem.
+**O DEGRAU É INCREMENTAL** — a v1.11.0 acrescenta a opção "Dados móveis" nas
+Configurações (o mesmo degrau que a v1.9.9 usou para a saída de áudio e a
+economia de prévia, preferências novas na mesma tela), não pede Release: a
+opção não toca em `AVNative`, só reorganiza uma decisão que já existia
+(Wi-Fi × dados móveis) sob um interruptor persistente. **Conferir a Release é
+parte de decidir** — um lote só de web herda o `shellTag` quando o lote de
+shell anterior ainda não tem Release, e não herda quando tem.
 
 > **A v1.10.9 É A QUINTA RODADA da mesma série, e confirma o palpite do
 > OPERADOR.** Com a causa da v1.10.8 já viajando no veredito, o Registro

@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.10.10';
+const WEB_VERSION = '1.11.0';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -593,6 +593,7 @@ const rotBtnEl = document.getElementById('rotBtn');
 const lyricsBgTileEl = document.getElementById('lyricsBgTile');
 const saidaAudioTileEl = document.getElementById('saidaAudioTile');
 const economiaTileEl = document.getElementById('economiaTile');
+const dadosMoveisTileEl = document.getElementById('dadosMoveisTile');
 const pvEconomiaEl = document.getElementById('pvEconomia');
 const wallFileEl = document.getElementById('wallFile');
 const wallTileEl = document.getElementById('wallTile');
@@ -1213,8 +1214,14 @@ function setGroupStatus(key, text, autoClearMs) {
 // Baixar um GRUPO inteiro, UM ÁLBUM POR VEZ: cada `syncCollection` já baixa
 // várias músicas simultâneas, e multiplicar isso por uma dúzia de álbuns
 // saturaria a rede sem terminar nenhum deles.
-// A pergunta de rede é feita UMA VEZ para o lote (por álbum seriam doze diálogos
-// seguidos, que ninguém lê) e repassada em `allowMobile`.
+// A pergunta de rede é feita UMA VEZ para o lote (por álbum seriam doze
+// checagens repetidas) e repassada como `allowMobile: true` — ver
+// `redeLiberadaParaBaixar` para a regra (Wi-Fi confirmado, ou "Dados móveis"
+// ligado nas Configurações). ATÉ A v1.10.10 ela era um DIÁLOGO por toque
+// (*"Baixar usando dados móveis?"*), e o próprio comentário desta função dizia
+// que a escolha *"não vira uma preferência do app"* — virou, a pedido do
+// operador, e o diálogo saiu: sem Wi-Fi e sem a opção ligada, o lote não
+// pergunta mais, só espera.
 async function syncGroup(key, label, colls, opts) {
   const g = gui(key);
   // O cancelamento vale a partir da PRÓXIMA MÚSICA, não do próximo álbum: com
@@ -1223,20 +1230,9 @@ async function syncGroup(key, label, colls, opts) {
   if (!colls.length) return;
   if (!AVDB.opfsSupported()) { setGroupStatus(key, 'OPFS indisponível', 5000); return; }
 
-  let allowMobile = true;
-  if (!isConfirmedWifi()) {
-    // Estimativa do lote pela mesma medida do álbum avulso (ver
-    // `medirColecao`): duração do que falta × a taxa medida no aparelho.
-    let est = 0;
-    for (const coll of colls) est += estimatePendingBytes(coll);
-    allowMobile = await appConfirm({
-      title: 'Baixar usando dados móveis?',
-      message: 'Você não está numa rede Wi-Fi confirmada. Baixar "' + label + '" são '
-        + colls.length + ' álbum(ns)' + (est ? ', aproximadamente ' + fmtBytes(est) : '')
-        + '.\n\nEsta escolha vale só para este download, agora.',
-      okText: 'Usar dados móveis', cancelText: 'Só no Wi-Fi',
-    });
-    if (!allowMobile) { setGroupStatus(key, 'Aguardando Wi-Fi', 5000); return; }
+  if (!redeLiberadaParaBaixar()) {
+    setGroupStatus(key, 'Aguardando Wi-Fi (ligue "Dados móveis" nas Configurações para baixar agora)', 6000);
+    return;
   }
 
   g.busy = true; g.cancel = false;
@@ -1524,11 +1520,6 @@ function medirColecao(id) {
   return { noAparelho, falta, total: noAparelho + falta, exato: l.falta === 0 };
 }
 
-// Quanto, mais ou menos, falta baixar. Mantida como função própria porque é a
-// pergunta dos diálogos de confirmação (rede e escala), onde o número precisa
-// bater com o que o painel do álbum mostra.
-function estimatePendingBytes(coll) { return medirColecao(coll.id).falta; }
-
 // A FRAÇÃO QUE SE LÊ ANTES DE BAIXAR É DE PESO, NÃO DE FAIXAS (v5.94).
 //
 // "2/4" e "137/600" respondem "quantas já tenho", que é a pergunta de DEPOIS.
@@ -1593,14 +1584,13 @@ function fmtFracBytes(a, b) {
 const songDownloadInFlight = new Map();
 
 // ===== Detecção de rede (Wi-Fi vs dados móveis) =====
-// Só afeta a sincronização em MASSA do Hinário 2022 (baixar tudo de uma vez)
-// — nunca o download individual disparado por tocar/adicionar um hino
-// específico, que é sempre permitido (é exatamente o uso que gera o gasto de
-// dados, não um download em massa não solicitado). Network Information API
-// (Chrome/Android, onde os dois apps sempre rodam); sem suporte no navegador
-// cai em 'unknown', tratado como "Wi-Fi não confirmado" — mais conservador
-// (evita presumir Wi-Fi e gastar dados móveis à toa) do que assumir Wi-Fi por
-// falta de informação.
+// Network Information API (Chrome/Android, onde os dois apps sempre rodam);
+// sem suporte no navegador cai em 'unknown', tratado como "Wi-Fi não
+// confirmado" — mais conservador (evita presumir Wi-Fi e gastar dados móveis
+// à toa) do que assumir Wi-Fi por falta de informação. QUEM DECIDE se isto
+// basta, ou se dados móveis também valem, é `redeLiberadaParaBaixar()`
+// (abaixo) — ver a opção "Dados móveis" logo abaixo, com a lista do que ela
+// cobre e do que ela deixa de propósito fora.
 function networkConnection() {
   // Só `navigator.connection`: os prefixos moz/webkit eram herança de PWA —
   // este bundle roda em Chromium (WebView/Chrome), onde o nome é o padrão.
@@ -1613,6 +1603,53 @@ function networkType() {
 function isConfirmedWifi() {
   const t = networkType();
   return t === 'wifi' || t === 'ethernet';
+}
+
+/**
+ * A OPÇÃO "DADOS MÓVEIS" (v1.11.0). Pedido do operador: *"crie uma opção
+ * para permitir ou não o uso de dados móveis para as funções do app"*.
+ *
+ * DESLIGADA POR PADRÃO (a chave ausente é `false`) — é a régua conservadora
+ * que os dois automáticos abaixo já seguiam sozinhos; ninguém que não abrir
+ * Configurações vê consumo novo de dados móveis aparecer sozinho.
+ *
+ * O QUE ELA GOVERNA — sempre pelo helper `redeLiberadaParaBaixar()`, nunca por
+ * `isConfirmedWifi()` direto: a sincronização em MASSA de um álbum/grupo
+ * (`syncCollection`/`syncGroup`, que ANTES perguntava por diálogo a cada toque
+ * — *"Baixar usando dados móveis?"* — e o comentário de origem já dizia que
+ * isso *"não vira uma preferência do app"*; virou, a pedido) e os DOIS
+ * automáticos que já eram Wi-Fi-only (o episódio da semana de uma série, os
+ * fundos da letra) — os três perguntavam a MESMA coisa e respondiam
+ * diferente: um com diálogo, dois calados. Ligada, os dois automáticos
+ * passam a poder rodar em dados móveis também — foi perguntado, e a resposta
+ * do operador foi incluir os dois.
+ *
+ * O QUE ELA NÃO GOVERNA, de propósito: um download AVULSO (tocar, adicionar
+ * ao Cronograma/Favoritos — `ensureSongDownloaded`) e um vídeo do YouTube
+ * (`ytArquivo`/`ytBaixarNativo`) — os dois já são *"a música/o vídeo que o
+ * operador pediu pra usar, nunca o acervo inteiro de uma vez"*, e ficam de
+ * fora porque foi perguntado e a resposta foi deixá-los como estão. A cifra
+ * (`AVNative.cifraHtml`) também fica de fora: é texto, não mídia — o mesmo
+ * motivo que já a deixa fora do consentimento de download do Modo Fácil.
+ */
+let permitirDadosMoveis = false;
+function redeLiberadaParaBaixar() { return isConfirmedWifi() || permitirDadosMoveis; }
+
+async function setPermitirDadosMoveis(on) {
+  const alvo = !!on;
+  if (permitirDadosMoveis === alvo) return;
+  permitirDadosMoveis = alvo;
+  renderDadosMoveisTile();
+  await AVDB.setState('permitirDadosMoveis', permitirDadosMoveis);
+}
+
+function renderDadosMoveisTile() {
+  if (!dadosMoveisTileEl) return;
+  dadosMoveisTileEl.title = permitirDadosMoveis
+    ? 'Dados móveis permitidos para o acervo e os downloads automáticos — toque para restringir ao Wi-Fi'
+    : 'Permitir que o acervo e os downloads automáticos usem dados móveis';
+  pintarTile(dadosMoveisTileEl, permitirDadosMoveis ? 'on' : 'off',
+    permitirDadosMoveis ? 'Permitidos' : 'Só no Wi-Fi', true, permitirDadosMoveis);
 }
 let mediaFit = 'contain'; // preenchimento da mídia (persistido em state 'fit')
 let ytEnded = false;       // YouTube terminou/parou sem player tocando: ▶ recarrega
@@ -3527,6 +3564,7 @@ async function load(opts) {
   const cifraFonteCheiaV = await AVDB.getState('cifraFonteCheia');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'black' ? 'black' : 'image';
   const economiaV = !!(await AVDB.getState('economiaPreview'));
+  const permitirDadosMoveisV = !!(await AVDB.getState('permitirDadosMoveis'));
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   const ytAlturaV = await AVDB.getState('ytAltura');
   const serieAutoV = await AVDB.getState('serieAuto');
@@ -3588,6 +3626,9 @@ async function load(opts) {
   // morresse com o app faria o operador remarcá-la em todo culto. É o oposto do
   // `tocarNoCelular`, que é escolha de IDA e não persiste de propósito.
   economiaPreview = economiaV;
+  // DESLIGADA POR PADRÃO, e do BANCO pela mesma razão da economia — ver a
+  // opção "Dados móveis" em `redeLiberadaParaBaixar`, acima.
+  permitirDadosMoveis = permitirDadosMoveisV;
   downloadConsent = downloadOkV;
   // A QUALIDADE DO YOUTUBE guardada — a mesma regra do `mediaRot` e do
   // `lvTamanho` logo acima: valor fora da escada cai no padrão, e não numa
@@ -3608,6 +3649,7 @@ async function load(opts) {
   // destino nenhuma, e sem esta linha a marcação lida do banco ficaria guardada
   // sem estar em vigor — a prévia decodificando com a economia "ligada" na tela.
   acertarEconomiaDaPreview();
+  renderDadosMoveisTile();
   renderControls();
   renderNowPlaying();
   renderRepeat();
@@ -9358,11 +9400,12 @@ function countDownloaded(id) {
 }
 
 // (O ícone de antena `wifiIconEl()` saiu na v5.73 com o chip "Rede" das opções
-// do álbum, seu único consumidor. A regra de rede não mudou: quem decide se a
-// sincronização em massa pergunta antes de usar dados móveis continua sendo
-// `isConfirmedWifi()`, e ela o diz na hora, no diálogo — que é onde a
-// informação tem consequência. Um chip permanente repetindo o estado da rede
-// em cada álbum aberto era ruído entre dados sobre o ÁLBUM.)
+// do álbum, seu único consumidor. Um chip permanente repetindo o estado da
+// rede em cada álbum aberto era ruído entre dados sobre o ÁLBUM. Quem decide
+// se a sincronização em massa espera o Wi-Fi é `redeLiberadaParaBaixar()`
+// desde a v1.11.0 — o diálogo por toque que existia até ali saiu junto com a
+// opção "Dados móveis" das Configurações, que é onde a decisão passou a
+// morar.)
 
 // ===== OS BOTÕES DA LINHA VIRAM UM SÓ =====
 //
@@ -19006,14 +19049,16 @@ function serieTemODaSemana(c, agora) {
 //
 // ## As três guardas, e por que cada uma
 //
-//  1. **Wi-Fi CONFIRMADO** (`isConfirmedWifi`), e não "não é celular" como o
-//     `syncLyrics`. A assimetria é a que o próprio `syncLyrics` documenta pelo
-//     outro lado: lá são alguns kB de JSON e "na dúvida, baixa" é o certo; aqui
-//     são ~300 MB que NINGUÉM PEDIU AGORA, e gastar o plano de dados de quem
-//     não olhou a tela é o pior desfecho que este recurso sabe produzir.
+//  1. **Wi-Fi CONFIRMADO, OU "DADOS MÓVEIS" LIGADO** (`redeLiberadaParaBaixar`),
+//     e não "não é celular" como o `syncLyrics`. A assimetria é a que o próprio
+//     `syncLyrics` documenta pelo outro lado: lá são alguns kB de JSON e "na
+//     dúvida, baixa" é o certo; aqui são ~300 MB que NINGUÉM PEDIU AGORA — e
+//     é por isso que a opção nasce DESLIGADA (v1.11.0): sem o operador abrir
+//     Configurações e ligá-la, gastar o plano de dados dele é o pior desfecho
+//     que este recurso sabe produzir.
 //     **O preço está dito e é REAL:** `navigator.connection.type` devolve
-//     `'unknown'` em boa parte dos aparelhos, e nesses a rotina nunca roda. É
-//     por isso que O CARD DIZ ISSO, na linha de status
+//     `'unknown'` em boa parte dos aparelhos, e nesses a rotina só roda com a
+//     opção ligada. É por isso que O CARD DIZ ISSO, na linha de status
 //     (`serieAutoImpedimento`): um no-op silencioso seria a opção marcada e
 //     nada acontecendo, para sempre, sem nada na tela. O caminho à mão (a
 //     folha de destinos) continua inteiro.
@@ -19118,7 +19163,10 @@ function serieAutoImpedimento(coll, epi, rec) {
   if (!serieAutoLigada(coll) || rec || !epi) return '';
   if (!window.__NATIVE__) return '';
   if (serieAutoRodando) return '';
-  if (!isConfirmedWifi()) return 'Esperando uma rede Wi-Fi para baixar o episódio desta semana';
+  if (!redeLiberadaParaBaixar()) {
+    return 'Esperando uma rede Wi-Fi (ou "Dados móveis" ligado nas Configurações) '
+      + 'para baixar o episódio desta semana';
+  }
   return '';
 }
 
@@ -19277,7 +19325,7 @@ async function manterSeriesDaSemana() {
       // BAIXAR é o caminho da EXCEÇÃO aqui: o caso normal, semana após semana, é
       // o arquivo já estar no aparelho e esta função só reescrever a lista.
       if (!rec && window.__NATIVE__
-          && isConfirmedWifi() && rotinaDeAcervoPodeCorrer()) {
+          && redeLiberadaParaBaixar() && rotinaDeAcervoPodeCorrer()) {
         // O `serieComoYoutube` é o MESMO objeto que a folha de opções monta: é
         // ele que carrega `semSoAudio`, a duração, o canal, a chave da linha (o
         // anel de download do quadrado à esquerda) e o aviso da janela de
@@ -19612,6 +19660,16 @@ async function syncCollection(coll, opts) {
       const flags = await Promise.all(fatia.map((s) => songVariantsNeeded(coll, s)));
       flags.forEach((f, k) => { if (f.needsFull || f.needsPlayback) pending.push(fatia[k]); });
     }
+    // Fora do Wi-Fi e sem "Dados móveis" ligado nas Configurações, a
+    // sincronização em massa ESPERA, sem perguntar (v1.11.0, revogando o
+    // diálogo por toque — *"Baixar usando dados móveis?"* — que a v1.9.9
+    // tinha escrito; o comentário de origem dizia que a escolha *"não vira
+    // uma preferência do app"*, e o operador pediu exatamente isso). A escolha
+    // vale para o app inteiro, feita uma vez nas Configurações — `allowMobile`
+    // continua existindo para o LOTE (`syncGroup`), que já decidiu por conta
+    // própria e não deve perguntar de novo por álbum.
+    const podeUsarRede = redeLiberadaParaBaixar() || allowMobile;
+
     if (pending.length === 0) {
       setCollStatus(coll.id, 'Já completo offline', 4000);
       // …mas as CIFRAS podem faltar. Um hinário com todo o áudio no disco sai
@@ -19624,34 +19682,23 @@ async function syncCollection(coll, opts) {
       // `songVariantsNeeded` responde "nada a fazer" porque quem falhou foi a
       // imagem, que não é variante de nada. ANTES das cifras: a cifra é para
       // quem toca, o fundo é o que a congregação vê.
-      const fundos = await syncImagensColecao(coll).catch(() => 0);
-      if (fundos) setCollStatus(coll.id, 'Fundos da letra: ' + fundos + ' música(s)', 6000);
-      await syncCifrasColecao(coll).catch(() => {});
+      //
+      // OS DOIS CEDEM À MESMA REGRA DE REDE (v1.11.0): sem ela, um toque
+      // manual em "sincronizar" sobre um hinário já completo baixaria fotos de
+      // fundo em dados móveis sem perguntar nada — o auto de `syncFundosAcervo`
+      // fecha essa lacuna sozinho depois, quando a rede permitir.
+      if (podeUsarRede) {
+        const fundos = await syncImagensColecao(coll).catch(() => 0);
+        if (fundos) setCollStatus(coll.id, 'Fundos da letra: ' + fundos + ' música(s)', 6000);
+        await syncCifrasColecao(coll).catch(() => {});
+      }
       return { ok: true, baixados: 0, falhou: 0 };
     }
     if (cancelled()) { setCollStatus(coll.id, 'Cancelado', 4000); return { ok: true, baixados: 0, falhou: 0 }; }
 
-    // Fora do Wi-Fi a sincronização em massa NÃO é bloqueada — ela pergunta.
-    // Baixar um hinário inteiro pode ser bastante coisa, e só o operador sabe
-    // se o plano dele aguenta; o que o app não pode é decidir sozinho por ele,
-    // em nenhuma das duas direções. A escolha vale **só para esta
-    // sincronização deste álbum**: não vira uma preferência do app, e o
-    // próximo álbum pergunta de novo.
-    if (!isConfirmedWifi() && !allowMobile) {
-      const est = estimatePendingBytes(coll);
-      const proceed = await appConfirm({
-        title: 'Baixar usando dados móveis?',
-        message: 'Você não está numa rede Wi-Fi confirmada. Baixar ' + pending.length
-          + ' música(s) pendente(s) de "' + coll.name + '" agora vai usar a internet móvel'
-          + (est ? ' (aproximadamente ' + fmtBytes(est) + ')' : '') + '.\n\n'
-          + 'Esta escolha vale só para este álbum, agora. Se preferir esperar o Wi-Fi, a lista '
-          + 'já foi atualizada e cada música continua sendo baixada sozinha quando você tocá-la.',
-        okText: 'Usar dados móveis', cancelText: 'Só no Wi-Fi',
-      });
-      if (!proceed) {
-        setCollStatus(coll.id, 'Lista atualizada', 5000);
-        return { ok: true, baixados: 0, falhou: 0 };
-      }
+    if (!podeUsarRede) {
+      setCollStatus(coll.id, 'Aguardando Wi-Fi (ligue "Dados móveis" nas Configurações para baixar agora)', 6000);
+      return { ok: true, baixados: 0, falhou: 0 };
     }
 
     let done = 0, falhou = 0;
@@ -20363,8 +20410,9 @@ async function syncFundosAcervo() {
 function fundosImpedimento() {
   if (!rotinaDeAcervoPodeCorrer()) return 'com mídia no ar ela cede a vez';
   if (bgWorkPedido()) return 'um download que você pediu está em curso, e ela cede a vez a ele';
-  if (!isConfirmedWifi()) {
-    return 'ela só corre num Wi-Fi confirmado, e o aparelho informa "' + networkType() + '"';
+  if (!redeLiberadaParaBaixar()) {
+    return 'ela só corre num Wi-Fi confirmado (ou com "Dados móveis" ligado nas '
+      + 'Configurações), e o aparelho informa "' + networkType() + '"';
   }
   return '';
 }
@@ -29349,7 +29397,14 @@ const TESTES = [
       const t = (typeof networkType === 'function') ? networkType() : 'unknown';
       // `connection.type` responde 'unknown' em boa parte dos aparelhos, e
       // dizer "não é Wi-Fi" sobre um 'unknown' seria inventar.
-      const como = t === 'cellular' ? 'dados móveis — downloads em massa vão perguntar antes'
+      //
+      // A FRASE SEGUE A OPÇÃO "DADOS MÓVEIS" (v1.11.0): o diálogo por toque
+      // que ela descrevia saiu com a opção nas Configurações — ver
+      // `redeLiberadaParaBaixar`.
+      const como = t === 'cellular'
+        ? ('dados móveis' + (permitirDadosMoveis
+          ? ' — liberados nas Configurações para o acervo e os automáticos'
+          : ' — downloads em massa esperam o Wi-Fi (ou "Dados móveis" nas Configurações)'))
         : (t === 'wifi' || t === 'ethernet') ? 'Wi-Fi' : 'conectado';
       // ===== A SONDA É `no-cors`, E ISSO É MEDIÇÃO (v1.10.5) =====
       //
@@ -37098,10 +37153,15 @@ for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
 lyricsBgTileEl.addEventListener('click', () => {
   setLyricsBg(lyricsBg === 'image' ? 'black' : 'image');
 });
-// IMAGEM DA PRÉVIA: a economia de processamento. Um tile, dois estados — e um
-// terceiro que é a ausência de função (apagado sem destino de projeção).
+// IMAGEM DA PRÉVIA: a economia de processamento. Um tile, dois estados —
+// sempre clicável desde a v1.10.10, mesmo sem destino de projeção.
 if (economiaTileEl) {
   economiaTileEl.addEventListener('click', () => { setEconomiaPreview(!economiaPreview); });
+}
+// DADOS MÓVEIS: permitir ou não, para o acervo e os dois automáticos — ver
+// `redeLiberadaParaBaixar`, onde a regra e o que ela cobre estão.
+if (dadosMoveisTileEl) {
+  dadosMoveisTileEl.addEventListener('click', () => { setPermitirDadosMoveis(!permitirDadosMoveis); });
 }
 // SAÍDA DE ÁUDIO: abre a tela do SISTEMA e mais nada. Não há estado a pintar no
 // toque — quem decide a saída é o Android, e o app não tem como saber o que ele

@@ -31,10 +31,13 @@
 //     (rede, vídeo ainda não liberado pelo canal) deixaria o operador sem
 //     NENHUM dos dois episódios. Medida com o download FALHANDO.
 //  G. **SEM WI-FI CONFIRMADO NÃO BAIXA, E A LINHA DIZ ISSO.** A guarda é
-//     `isConfirmedWifi` e não "não é celular" como o `syncLyrics`: aqui são
-//     ~300 MB que ninguém pediu agora. O preço é que `connection.type` devolve
-//     `'unknown'` em boa parte dos aparelhos e nesses a rotina nunca roda — a
-//     FRASE é o que impede isso de ser um no-op silencioso.
+//     `redeLiberadaParaBaixar` e não "não é celular" como o `syncLyrics`: aqui
+//     são ~300 MB que ninguém pediu agora. O preço é que `connection.type`
+//     devolve `'unknown'` em boa parte dos aparelhos e nesses a rotina nunca
+//     roda sem a opção — a FRASE é o que impede isso de ser um no-op
+//     silencioso. **E "DADOS MÓVEIS" LIGADO NAS CONFIGURAÇÕES LIBERA** (v1.11.0,
+//     bloco G2) — pedido do operador, perguntado se o interruptor novo
+//     deveria alcançar este automático: *"Sim, incluir os dois"*.
 //  H. **DESMARCAR SOLTA O ARQUIVO**, pela mesma rotina (o `listSet` recalcula a
 //     lista a partir de quem está marcado) e não por um caminho próprio.
 //  I. **A FOLHA DE UM EPISÓDIO JÁ BAIXADO OMITE A QUALIDADE** — *"não precisa
@@ -404,6 +407,24 @@ try {
     'e o CARD DIZ ISSO na linha de status — `connection.type` responde '
     + '`unknown` em boa parte dos aparelhos, e sem a frase a opção ficaria '
     + 'marcada sem nada acontecer, para sempre', statusMovel);
+
+  // ── G2. "DADOS MÓVEIS" LIGADO NAS CONFIGURAÇÕES LIBERA O DOWNLOAD (v1.11.0) ──
+  //
+  // Pedido do operador, perguntado se o interruptor novo (*"permitir ou não o
+  // uso de dados móveis para as funções do app"*) deveria alcançar este
+  // automático também: *"Sim, incluir os dois"*. A REDE continua 'cellular' —
+  // a premissa do bloco G não muda, e é o que prova que quem libera aqui é a
+  // OPÇÃO, não a rede — só `permitirDadosMoveis` liga.
+  await pg.evaluate(() => setPermitirDadosMoveis(true));
+  await armarDownload(true);
+  await pg.evaluate(() => manterSeriesDaSemana());
+  await esperar(pg, () => !serieAutoRodando && (window.__baixados || []).length > 0, null, 10000);
+  const comDadosMoveis = await ler();
+  checar(comDadosMoveis.baixados.length === 1 && comDadosMoveis.semana === true,
+    'G2 · com "Dados móveis" ligado, a rotina BAIXA mesmo em rede móvel — a '
+    + 'opção nova cobre este automático, por pedido explícito do operador',
+    comDadosMoveis);
+  await pg.evaluate(() => setPermitirDadosMoveis(false));
   await rede('wifi');
 
   // ── H. DESMARCAR SOLTA O ARQUIVO ────────────────────────────────────────
