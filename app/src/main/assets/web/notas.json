@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.10.10",
+    "itens": [
+      "Excluir uma coleção mostra que está trabalhando, e a lista se atualiza sozinha depois.",
+      "A imagem da prévia pode ser desligada mesmo sem tela ou computador conectado ainda.",
+      "A Verificação do Sistema agora abre por cima das Configurações, sem precisar fechá-las."
+    ]
+  },
+  {
     "versao": "1.10.9",
     "itens": [
       "Fotos que faltam no Hinário 2022: o app agora sabe buscá-las no novo endereço da origem."

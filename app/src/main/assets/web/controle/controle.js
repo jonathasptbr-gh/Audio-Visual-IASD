@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.10.9';
+const WEB_VERSION = '1.10.10';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2381,9 +2381,10 @@ function economiaAtiva() {
 
 function acertarEconomiaDaPreview() {
   const alvo = economiaAtiva();
-  // O TILE É PINTADO SEMPRE, mesmo quando o vigor não muda: ele responde também
-  // ao DESTINO (é ele que o apaga sem projeção), e o destino muda sem que o
-  // vigor mude — a marcação desligada com uma TV entrando e saindo é o caso.
+  // O TILE É PINTADO SEMPRE, mesmo quando o vigor não muda: o `title` responde
+  // ao DESTINO (diz se a escolha já vale ou só vai valer quando houver TV ou
+  // computador), e o destino muda sem que o vigor mude — a marcação continua a
+  // mesma com uma TV entrando e saindo, só o EFEITO liga e desliga sozinho.
   renderEconomiaTile();
   if (alvo === economiaEmVigor) return;
   economiaEmVigor = alvo;
@@ -2413,27 +2414,35 @@ async function setEconomiaPreview(on) {
 }
 
 /**
- * O tile, e o que ele diz em cada um dos TRÊS estados que ele tem.
+ * O tile, e o que ele diz em cada um dos DOIS estados que ele tem.
  *
- * `disabled` SEM DESTINO — é a regra da v1.8.50 (*"o que não tem função agora é
- * apagado, não deixado inerte"*), e o `title` diz POR QUÊ, senão o apagado
- * viraria "quebrado". Não é uma classe: é o `disabled` que veste o
- * `--op-inativo`, tira o nó da tabulação e faz o navegador engolir o toque.
+ * SEMPRE CLICÁVEL, mesmo sem destino de projeção (v1.10.10, revogando a
+ * v1.8.50 PARA ESTE TILE): pedido do operador — *"ele deve estar 'clicável'
+ * mesmo sem uma tela conectada... sendo exclusivo para quando há algo
+ * conectado, mas é uma opção selecionável desde sempre"*. A ESCOLHA se grava
+ * sem destino (o mesmo `setEconomiaPreview` de sempre); só o EFEITO
+ * (`economiaAtiva`, que suspende de fato a decodificação) continua exclusivo
+ * de quando há para onde projetar — a regra dela não mudou, só deixou de
+ * travar o botão que a arma. `disabled` fica reservado para o que não tem
+ * função NENHUMA (v1.8.50 continua valendo para os outros tiles da fileira).
  *
- * E O DESENHO DIZ O ESTADO (`alt`), não a cor: a grade tem UMA cor desde a
- * v1.7.6, e o `aceso` continua significando só DISPONÍVEL.
+ * E O DESENHO DIZ O ESTADO (`alt`), não a cor: `aceso` é `true` sempre, como
+ * todo tile da grade desde a v1.7.6 (*"todos os botões devem ter o mesmo azul
+ * de ativo... toda diferença de estado é pelo icone, não pela cor"*).
  */
 function renderEconomiaTile() {
   if (!economiaTileEl) return;
   const temDestino = haDestinoDeProjecao();
-  economiaTileEl.disabled = !temDestino;
-  economiaTileEl.title = temDestino
-    ? (economiaPreview
+  economiaTileEl.disabled = false;
+  economiaTileEl.title = economiaPreview
+    ? (temDestino
       ? 'A imagem da prévia está desligada — toque para religar'
-      : 'Desligar a imagem da prévia para poupar processamento')
-    : 'Sem TV e sem computador conectado a prévia É a projeção — não há como desligá-la';
+      : 'A imagem da prévia está desligada — vale quando houver TV ou computador conectado')
+    : (temDestino
+      ? 'Desligar a imagem da prévia para poupar processamento'
+      : 'Desligar a imagem da prévia para poupar processamento — vale quando houver TV ou computador conectado');
   pintarTile(economiaTileEl, economiaPreview ? 'off' : 'on',
-    economiaPreview ? 'Imagem desligada' : 'Imagem ligada', temDestino, economiaPreview);
+    economiaPreview ? 'Imagem desligada' : 'Imagem ligada', true, economiaPreview);
 }
 
 // ===== A PREVIEW QUE É A PROJEÇÃO NÃO PODE SER SUSPENSA (v1.3.12) =====
@@ -11005,10 +11014,27 @@ function renderCollectionCard(coll, ctx) {
     // "Remover do dispositivo", e não "Excluir": o que sai é o que ocupa espaço
     // NESTE aparelho, e o álbum continua no acervo para ser baixado de novo.
     // "Excluir" prometeria um dano maior do que o que a ação faz.
-    rm.className = 'coll-bar-dl coll-bar-rm';
-    rm.title = 'Remover do dispositivo';
-    rm.setAttribute('aria-label', 'Remover do dispositivo');
-    rm.appendChild(msym(ICON.del));
+    //
+    // **`u.delBusy` DIZ QUE ESTÁ TRABALHANDO** (v1.10.10) — o operador relatou
+    // que o botão não dava nenhum sinal entre o "sim" da confirmação e a coleção
+    // sumir do disco, que numa pasta grande é tempo suficiente para parecer
+    // travado. `.coll-bar-dl.busy` já existe (o irmão de sincronizar a usa) e
+    // vence `.coll-bar-rm` por especificidade (duas classes contra uma), então o
+    // vermelho destrutivo cede ao âmbar de "em andamento" sem CSS novo. O aro é
+    // o `.dl-ring` SEM seta — o mesmo "aguarde" que o tile de Configurações em
+    // trabalho usa —, porque a seta afirmaria "bytes chegando", o oposto do que
+    // está acontecendo aqui.
+    rm.className = 'coll-bar-dl coll-bar-rm' + (u.delBusy ? ' busy' : '');
+    rm.title = u.delBusy ? 'Excluindo…' : 'Remover do dispositivo';
+    rm.setAttribute('aria-label', rm.title);
+    rm.disabled = !!u.delBusy;
+    if (u.delBusy) {
+      const anel = document.createElement('span');
+      anel.className = 'dl-ring'; anel.style.setProperty('--dl-ring', '19px');
+      rm.appendChild(anel);
+    } else {
+      rm.appendChild(msym(ICON.del));
+    }
     // `stopPropagation` como no irmão ao lado: sem ele o toque borbulha até o
     // card e FECHA o álbum — debaixo do diálogo de confirmação que acabou de
     // abrir.
@@ -21039,17 +21065,41 @@ async function buildLyricSlides(meta, timeField, resolveImage) {
   return slides;
 }
 
+/**
+ * O TOQUE NÃO DAVA SINAL NENHUM, E O CARD NÃO SUMIA SOZINHO (v1.10.10).
+ *
+ * Numa pasta grande, `purgeCatalogRecords` + `opfsDeleteDir` demoram — e entre
+ * o "sim" da confirmação e o fim deles o botão continuava parecendo comum,
+ * tocável, sem nada dizendo que o toque já tinha sido aceito. `u.delBusy`
+ * arma o aro de espera (`renderCollectionCard`) ANTES do primeiro `await`, e o
+ * `finally` o desarma mesmo se algo lançar no meio — senão um erro deixaria o
+ * botão desabilitado para sempre.
+ *
+ * E `renderCollectionsNow()` no fim é o que faltava para o card se atualizar
+ * SOZINHO: `load()` reidrata o Cronograma e a Biblioteca (`renderLibrary`),
+ * mas quem redesenha os CARDS de coleção é outra função, que nenhum dos dois
+ * caminhos deste método chamava — o card ficava com o peso e o estado antigos
+ * até o operador fechar e reabrir a Biblioteca.
+ */
 async function deleteCollection(coll) {
   if (!(await appConfirm({ title: 'Excluir ' + coll.name, message: 'Excluir o que foi baixado de "' + coll.name + '" (áudios e capas) e a lista offline?', okText: 'Excluir', perigo: true }))) return;
-  const recs = await AVDB.filesByFolder(coll.id);
-  await purgeCatalogRecords(recs);
-  await AVDB.opfsDeleteDir('folders/' + coll.id);
-  collState[coll.id] = { indexSyncedAt: 0, songs: [] };
-  await AVDB.setState('coll:' + coll.id, collState[coll.id]);
-  const u = ui(coll.id); u.bytes = 0;
-  pesoConferido.add(coll.id);   // zerado por exclusão, não por falta de medida
-  salvarPesos();
-  load();
+  const u = ui(coll.id);
+  u.delBusy = true;
+  renderCollectionsNow();
+  try {
+    const recs = await AVDB.filesByFolder(coll.id);
+    await purgeCatalogRecords(recs);
+    await AVDB.opfsDeleteDir('folders/' + coll.id);
+    collState[coll.id] = { indexSyncedAt: 0, songs: [] };
+    await AVDB.setState('coll:' + coll.id, collState[coll.id]);
+    u.bytes = 0;
+    pesoConferido.add(coll.id);   // zerado por exclusão, não por falta de medida
+    salvarPesos();
+  } finally {
+    u.delBusy = false;
+    load();
+    renderCollectionsNow();
+  }
 }
 
 // ---- popup de busca ----

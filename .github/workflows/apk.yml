@@ -607,6 +607,7 @@ jobs:
 
           rodar tools/biblioteca-camadas.test.mjs
           rodar tools/titulo-da-colecao-nao-anda.test.mjs
+          rodar tools/excluir-colecao.test.mjs
 
           rodar tools/aviso-de-importacao.test.mjs
           rodar tools/apresentacao.test.mjs

@@ -1778,7 +1778,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Estado do telão (Configurações) | atalho `window.open('../display/')` | **indicador ao vivo**, desabilitado como botão |
 | Botão de cast da preview | oculto | `AVNative.openCast()` → seletor de espelhamento (ver abaixo) |
 | **Escolher a saída de áudio** | **não existe** — o navegador não tem como abrir tela de sistema nenhuma | tile **"Saída de áudio"** em Configurações (shell 73): `abrirSaidaDeAudio` → o seletor do SISTEMA. **ELE ABRE, NÃO ROTEIA**, e o `title` diz isso: escolher o aparelho de saída é `@SystemApi` atrás de `MODIFY_AUDIO_ROUTING` (`signature|privileged|role`) — ver o espelhamento, que já levantou isso. Pedido do operador **sabendo** que a notificação de mídia já traz o seletor (*"o que eu quero é um atalho mesmo no próprio app, nas configurações, assim fica claro as opções"*): a porta que existe é invisível para quem não a conhece. A cadeia é a do `pickCastIntent` — do específico ao genérico, alvo não documentado — e difere dele em DOIS pontos: o último candidato é constante PÚBLICA (`ACTION_SOUND_SETTINGS`), então ela tem PISO; e ela **tenta TODOS**, em vez de escolher um e desistir, porque um candidato que RESOLVA mas RECUSE derrubaria a cadeia inteira. **O primeiro deles é um BROADCAST** (o diálogo do SystemUI, a lista que o ícone da notificação de mídia abre) — a v1.9.9 só sabia `startActivity` e por isso caía no painel de volume. **E ELE É CONFERIDO PELO FOCO DA JANELA, 800 ms depois** (v1.9.11): `sendBroadcast` não devolve desfecho, quem recebe pode ENGOLIR em silêncio, e foi o que aconteceu — a existência do receptor responde *"há quem receba?"*, não *"a janela abriu?"*. Com o foco ainda no app, a cadeia segue do candidato seguinte, e o tile deixa de poder ficar mudo. **E O ENGOLIDO É LEMBRADO POR `versionCode`** (v1.9.12): onde o desfecho já foi medido a espera é pura, e o operador a pagava em todo toque — um APK novo re-mede UMA vez, senão um aparelho que passasse a permitir ficaria excluído para sempre. O bloqueio sai no Registro em DUAS linhas (a do candidato e a do último toque), senão *"o app deixou de tentar"* seria estado invisível. O alvo escolhido vai ao REGISTRO e só lá — e desde a v1.9.10 a **CADEIA INTEIRA** vai junto, um candidato por linha com a ação, o tipo e o componente (ou *"não existe neste aparelho"*): saber qual PEGOU não é a mesma pergunta que quais EXISTEM, e sem a segunda um aparelho que abre a tela errada não é diagnosticável a distância. **E com o espelhamento no ar ele não resolve o vazamento**: o áudio do Miracast é `REMOTE_SUBMIX`, a mistura do aparelho inteiro, e a combinação não foi medida em aparelho |
-| **Desligar a imagem da prévia** | idem (é `assets/web/` inteira) | tile **"Imagem da prévia"** (v1.9.9): a economia de processamento de um celular fraco. Só a DECODIFICAÇÃO para (`stage.setSuspenso`, o `pause()` dentro do `play()` — um `play` chega por caminhos que o Controle não enumera); tempo, barra, letra, transporte, `MediaSession`, o comando ao telão e o avanço da fila ficam INTEIROS. **A escolha é guardada, o veredito é DERIVADO** (`economiaAtiva` = a marcação **e** `haDestinoDeProjecao()` **e** não estar em tela cheia): sem destino a prévia É a projeção e o tile fica `disabled` com o motivo no `title`; perder a TV religa a imagem sozinho e reconectar volta a poupar. **A TELA CHEIA SUSPENDE** — ali o operador está OLHANDO para ela. Os três caminhos do avanço da fila seguem cobertos e nenhum é a prévia: `media-ended` do telão, a rede de segurança do `tela-status` (v1.8.48), e sem os dois a economia não está ativa |
+| **Desligar a imagem da prévia** | idem (é `assets/web/` inteira) | tile **"Imagem da prévia"** (v1.9.9): a economia de processamento de um celular fraco. Só a DECODIFICAÇÃO para (`stage.setSuspenso`, o `pause()` dentro do `play()` — um `play` chega por caminhos que o Controle não enumera); tempo, barra, letra, transporte, `MediaSession`, o comando ao telão e o avanço da fila ficam INTEIROS. **A escolha é guardada, o veredito é DERIVADO** (`economiaAtiva` = a marcação **e** `haDestinoDeProjecao()` **e** não estar em tela cheia): sem destino a prévia É a projeção e o EFEITO não entra em vigor, mas o tile continua CLICÁVEL (v1.10.10, revogando o `disabled` da v1.8.50 para este tile — pedido do operador: *"é uma opção selecionável desde sempre"*) — a marcação grava pré-armada, o `title` diz que ela só vale com TV ou computador conectado, e perder a TV religa a imagem sozinho e reconectar volta a poupar. **A TELA CHEIA SUSPENDE** — ali o operador está OLHANDO para ela. Os três caminhos do avanço da fila seguem cobertos e nenhum é a prévia: `media-ended` do telão, a rede de segurança do `tela-status` (v1.8.48), e sem os dois a economia não está ativa |
 | Retomada do telão ao reconectar | idem (`resendSceneToDisplay`) | **só reenvia o que ESTAVA no ar** — a pergunta é `midiaNoAr`, nunca `currentId` (que sobrevive ao stop de propósito, para o ▶ repetir a faixa). Telão vazio também é estado: restaurá-lo é não mandar nada |
 | Girar a mídia | idem (comando `rotate`) | tile **"Girar no telão"** em Configurações, 90° por toque — o nome diz ONDE, porque "Girar" sozinho se lê como o giro da INTERFACE (v1.4.41). O motor TROCA O EIXO da caixa antes de girar, para o `object-fit` medir o retângulo em que a mídia vai de fato aparecer |
 | Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão. **E PERDER a projeção com mídia no ar PAUSA a mídia** (v1.8.50): a promessa acima vale para quem ABRE o app sem tela, não para quem PERDE a tela com o louvor no ar — o estado final é o mesmo, a intenção não. A régua é a PERDA (escrita como estado, ela pausaria o ensaio de quem nunca conectou nada) e é a perda de um DESTINO — `haDestinoDeProjecao()`, que lê a tela LISTADA e as SESSÕES de tela da rede, e **não** `algumaTelaConectada()`, que responde pela `Presentation`: com aquela, a oscilação do dongle pausaria o louvor a cada piscada do Miracast, que é uma interrupção de culto no lugar de um vazamento de segundos |
@@ -2115,7 +2115,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **92** e os de Node puro **22** — juntos, os 114. MEDIDO com
+Os de Chromium são **93** e os de Node puro **22** — juntos, os 115. MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -2166,7 +2166,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 114 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 115 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2970,13 +2970,14 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.10.9 · APK v1.9.12** · `SHELL_VERSION` **76** ·
+**Versão atual: base web v1.10.10 · APK v1.9.12** · `SHELL_VERSION` **76** ·
 bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.10.9 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
+v1.10.10 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO** — a v1.10.9 pina um host de CDN que a origem passou a
-usar para as fotos do Hinário 2022, não abre seção nenhuma. **Conferir a
+**O DEGRAU É CORREÇÃO** — a v1.10.10 corrige três defeitos de interface
+(feedback do excluir coleção, o tile da economia de prévia sempre clicável, a
+camada da Verificação do Sistema), não abre seção nenhuma. **Conferir a
 Release é parte de decidir** — um lote só de web herda o `shellTag` quando o
 lote de shell anterior ainda não tem Release, e não herda quando tem.
 
