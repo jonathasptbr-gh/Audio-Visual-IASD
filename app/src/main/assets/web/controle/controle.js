@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.2';
+const WEB_VERSION = '1.11.3';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -20980,6 +20980,54 @@ async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyr
   return id;
 }
 
+// O DESVIO DE CORS do bucket de fotos que não manda
+// `Access-Control-Allow-Origin` (v1.11.3) — ver `Louvorja.ehCdnSemCors` e o
+// KDoc de `R2ImagemFonte.kt`. Um Registro de operador mediu o MESMO `fetch()`
+// falhando sempre contra aquele host (`TypeError`, minutos depois da
+// abertura, isolado de qualquer outra rede em curso) enquanto a MESMA URL
+// abria normalmente numa navegação de topo — que nunca passa pela checagem de
+// CORS, a diferença exata entre os dois.
+//
+// NO APP, a URL do host pinado passa pelo shell (`AVNative.r2Imagem`), que
+// busca os bytes por fora do WebView — CORS é regra do NAVEGADOR, não existe
+// num cliente HTTP nativo — e devolve uma URL SERVÍVEL do PRÓPRIO origin; só
+// então este `fetch()` local lê os bytes, exatamente como já faz com um
+// arquivo do SAF ou do OPFS (a ponte entrega URLs, nunca bytes). NO NAVEGADOR
+// não há esse caminho (a Web Platform não tem "cliente HTTP sem CORS"), e o
+// `fetch()` direto é o único que existe — falha do mesmo jeito que falhava
+// antes, sem conserto possível ali.
+//
+// Uma falha HTTP do shell vira uma exceção com `.httpStatus` — o mesmo
+// desfecho que um `!res.ok` já produz no caminho direto —, e uma falha de
+// rede vira um `TypeError` de verdade: quem chama (aqui e na Verificação do
+// Sistema) distingue as duas sem precisar de um segundo canal.
+async function fetchImagemDaOrigem(alvo) {
+  let host = '';
+  try { host = new URL(alvo).host; } catch (_) { /* alvo não é URL absoluta — cai no fetch direto */ }
+  if (window.__NATIVE__ && Louvorja.ehCdnSemCors(host)) {
+    const r = await AVNative.r2Imagem(alvo);
+    if (r && r.url) return fetch(r.url);
+    if (r && r.status) {
+      const erro = new Error('a fonte respondeu HTTP ' + r.status);
+      erro.httpStatus = r.status;
+      throw erro;
+    }
+    throw new TypeError('Failed to fetch');
+  }
+  return fetch(alvo);
+}
+
+// A MESMA marcação de falha HTTP, dos dois caminhos possíveis (`!res.ok` do
+// `fetch()` direto, `.httpStatus` do desvio nativo) — uma única escrita para
+// não deixar as duas divergirem no primeiro ajuste.
+function marcarFalhaDeImagem(marca, url, status) {
+  acervoFalhou('capasPerdidas', 'a fonte respondeu HTTP ' + status, url, null, status);
+  if (marca) {
+    marca.fotoCausa = 'http'; marca.fotoStatus = status;
+    try { marca.fotoUrl = new URL(Louvorja.fileUrl(url)).href; } catch (_) { marca.fotoUrl = String(url || ''); }
+  }
+}
+
 // Baixa uma imagem em resolução real pro OPFS (fundo dos slides de letra) e
 // gera a miniatura do catálogo (mesmo `drawThumb`) a partir do MESMO blob —
 // evita baixar a capa duas vezes (uma pro fundo, outra só pra miniatura).
@@ -21019,17 +21067,11 @@ async function downloadCollectionImage(folderId, url, songId, index, semMiniatur
     return null;
   }
   try {
-    const res = await fetch(Louvorja.fileUrl(url));
-    if (!res.ok) {
-      acervoFalhou('capasPerdidas', 'a fonte respondeu HTTP ' + res.status, url, null, res.status);
-      if (marca) {
-        marca.fotoCausa = 'http'; marca.fotoStatus = res.status;
-        try { marca.fotoUrl = new URL(Louvorja.fileUrl(url)).href; } catch (_) { marca.fotoUrl = String(url || ''); }
-      }
-      return null;
-    }
+    const res = await fetchImagemDaOrigem(Louvorja.fileUrl(url));
+    if (!res.ok) { marcarFalhaDeImagem(marca, url, res.status); return null; }
     blob = await res.blob();
-  } catch (_) {
+  } catch (e) {
+    if (e && e.httpStatus) { marcarFalhaDeImagem(marca, url, e.httpStatus); return null; }
     if (marca) { marca.fotoSemResposta = true; marca.fotoCausa = 'sem-resposta'; marca.fotoUrl = String(url || ''); }
     acervoFalhou('capasPerdidas', 'o servidor de arquivos não respondeu', url, null, 0);
     return null;
@@ -28481,6 +28523,12 @@ const TESTES = [
       // dos fundos parando por falta de resposta) fica sem ligação nenhuma com
       // a linha que deveria acusá-lo. É a lição da v1.9.13 (chegar não é
       // responder) aplicada ao segundo host da origem.
+      //
+      // **E ELA PASSA PELO MESMO DESVIO DE CORS (v1.11.3)** — `fetchImagemDaOrigem`
+      // é a MESMA função que `downloadCollectionImage` usa para baixar de
+      // verdade, então esta linha prova o caminho INTEIRO (bucket + shell +
+      // `/r2img/`), não só se o host responde a um pedido cru que o app nem
+      // usa mais.
       if (!navigator.onLine) return tNa('o aparelho está sem internet');
       const id = await testeAlgumIdDeMusica();
       if (!id) return tNa('nenhum hinário indexado ainda neste aparelho');
@@ -28492,7 +28540,12 @@ const TESTES = [
         return tFalhou('a origem mudou o endereço para outro servidor: ' + String(caminho).slice(0, 60));
       }
       const url = Louvorja.fileUrl(caminho);
-      const res = await fetch(url, { headers: { Range: 'bytes=0-0' } });
+      let res;
+      try { res = await fetchImagemDaOrigem(url); }
+      catch (e) {
+        if (e && e.httpStatus) return tFalhou('a fonte respondeu ' + e.httpStatus + ' — o endereço da imagem mudou na origem');
+        throw e;
+      }
       try { if (res.body && res.body.cancel) res.body.cancel(); } catch (_) { /* corpo já consumido */ }
       if (!res.ok) return tFalhou('a fonte respondeu ' + res.status + ' — o endereço da imagem mudou na origem');
       return tOk(null);

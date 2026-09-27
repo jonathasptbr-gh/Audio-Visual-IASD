@@ -347,6 +347,50 @@ try {
     'acima de 2³¹ ms a linha do tempo NÃO vira negativa (o defeito irmão do bgProgress)',
     l.positionMs + '/' + l.durationMs);
 
+  // ---- r2Imagem: o desvio de CORS das fotos de fundo (v1.11.3) ------------
+  //
+  // Mesmo par de campos do `cifraHtml`, e pelo mesmo motivo: `status 0` é
+  // "não houve resposta" e qualquer outro status é a fonte respondendo de
+  // verdade — a aba lê as duas causas com ações opostas. Aqui o segundo campo
+  // é `url` (uma URL servível do próprio origin), nunca os bytes.
+  const chamadasR2 = [];
+  const okR2 = await pg.evaluate(async () => {
+    window.__r2urls = [];
+    window.__AVBridge.r2Imagem = (id, url) => {
+      window.__r2urls.push(url);
+      window.__avResolve(id, { status: 200, url: 'https://appassets.androidplatform.net/r2img/abc123' });
+    };
+    const r = await AVNative.r2Imagem('https://pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev/images/x.jpg');
+    return { r, urls: window.__r2urls.slice() };
+  });
+  chamadasR2.push(...okR2.urls);
+  checar(okR2.r.status === 200 && okR2.r.url === 'https://appassets.androidplatform.net/r2img/abc123',
+    'com sucesso, `status` e `url` chegam intactos — a URL é do PRÓPRIO origin, nunca bytes',
+    JSON.stringify(okR2.r));
+  checar(chamadasR2[0] === 'https://pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev/images/x.jpg',
+    'e a URL pedida chega ao shell EXATAMENTE como o lado web a montou',
+    chamadasR2[0]);
+
+  // A FALHA HTTP (status real, sem `url`) e a QUEDA DO `call()` (nada
+  // resolvido, como um shell velho sem este método) degradam para o MESMO
+  // formato — sem isso cada chamador teria de conferir `null` antes de ler
+  // `.status`, o mesmo risco que o comentário do `cifraHtml` já nomeia.
+  const falhouR2 = await pg.evaluate(async () => {
+    window.__AVBridge.r2Imagem = (id) => { window.__avResolve(id, { status: 404, url: null }); };
+    return AVNative.r2Imagem('https://pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev/images/sumiu.jpg');
+  });
+  checar(falhouR2.status === 404 && falhouR2.url === null,
+    'uma resposta HTTP de erro chega com o status e `url` nulo',
+    JSON.stringify(falhouR2));
+  const semR2 = await pg.evaluate(async () => {
+    delete window.__AVBridge.r2Imagem;
+    return AVNative.r2Imagem('https://pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev/images/x.jpg');
+  });
+  checar(semR2.status === 0 && semR2.url === null,
+    'e um shell sem o método (ou que nunca responde) degrada para `{status:0,url:null}` — '
+    + 'nunca `null` cru, que obrigaria todo chamador a lembrar de checar antes de ler `.status`',
+    JSON.stringify(semR2));
+
   // ---- o RELAY do barramento, sem dreno nenhum (E7) -----------------------
   //
   // O papel `espelho` morreu com o espelho de pixels (docs/TELAO-POR-COMANDOS.md):

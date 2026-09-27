@@ -5,7 +5,7 @@ para a TV com `android.app.Presentation`.
 
 > **Este diretório é o irmão de [`../arquitetura/`](../arquitetura/).** Aquele
 > cobre a base web (`assets/web/`); este cobre o Kotlin
-> (`app/src/main/java/br/org/iasd/av/`, 32 arquivos). As regras que valem para
+> (`app/src/main/java/br/org/iasd/av/`, 33 arquivos). As regras que valem para
 > o app inteiro — invariantes, paleta, entrega, divergências web × nativo —
 > ficam em [`../../CLAUDE.md`](../../CLAUDE.md), que continua sendo a **leitura
 > obrigatória**; aqui está o detalhe que ela aponta.
@@ -23,7 +23,7 @@ para a TV com `android.app.Presentation`.
 > build/assinatura/backup) vive nas seções correspondentes do `CLAUDE.md` mais o
 > KDoc dos arquivos.
 
-## Os 34 arquivos, e onde cada um é explicado
+## Os 33 arquivos, e onde cada um é explicado
 
 | arquivo | linhas | onde |
 |---|---|---|
@@ -60,6 +60,7 @@ para a TV com `android.app.Presentation`.
 | `SlideDeck.kt` | 321 | [`../arquitetura/DOCUMENTO-EM-CENA.md`](../arquitetura/DOCUMENTO-EM-CENA.md) |
 | `Farol.kt` | 244 | [`../MEDICAO-DE-ALCANCE.md`](../MEDICAO-DE-ALCANCE.md) — uma busca por dia, agregada, sem id nenhum |
 | `CifraFonte.kt` | 178 | `CLAUDE.md` — "A aba de cifra" (transporte só; quem lê o HTML é `controle/cifra.js`) |
+| `R2ImagemFonte.kt` | 249 | [`PONTE.md`](PONTE.md) — o método `r2Imagem`; o desvio de CORS do bucket R2 de fotos (mesma classe do `StreamProxy.kt`; token `/r2img/` consumido uma vez, como o `/saf/`) |
 
 > **Números envelhecem a cada commit.** Meça antes de citá-los:
 > `wc -l app/src/main/java/br/org/iasd/av/*.kt`.

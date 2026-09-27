@@ -152,8 +152,22 @@
     try { return !daOrigem(new URL(p).host); } catch (_) { return true; }
   }
 
+  // **ESTE HOST É O BUCKET SEM CORS?** (v1.11.3) — nem toda URL "da origem" é
+  // igual: `api.louvorja.com.br` manda `Access-Control-Allow-Origin` de
+  // verdade (o `fetch()` direto sempre funcionou dali), mas o bucket R2 das
+  // fotos do Hinário 2022 NÃO manda — um Registro de operador mediu o mesmo
+  // `fetch()` falhando sempre (`TypeError`) contra aquele host, minutos depois
+  // da abertura, isolado de qualquer outra rede em curso, enquanto a MESMA URL
+  // abria normalmente numa navegação de topo (que nunca passa por CORS). Só
+  // este host pede o desvio pelo shell (`AVNative.r2Imagem`, ver
+  // `fetchImagemDaOrigem` em `controle.js`) — o resto da origem segue por
+  // `fetch()` direto, que já funciona.
+  function ehCdnSemCors(host) {
+    return CDN_HOSTS_CONHECIDOS.includes(String(host || '').toLowerCase());
+  }
+
   global.Louvorja = {
-    fetchList, fileUrl, foraDoServidor,
+    fetchList, fileUrl, foraDoServidor, ehCdnSemCors,
     HYMNAL_2022_FILE, HYMNAL_1996_FILE, CATEGORIES_FILE,
   };
 })(this);

@@ -608,6 +608,15 @@
     // Vazio antes da primeira busca, como o `ytDiag`.
     cifraDiag: () => call((id) => B.cifraDiag(id), CALL_TIMEOUT_MS).then((r) => r || ''),
 
+    // O DESVIO DE CORS das fotos de fundo (v1.11.3) — o shell busca a imagem
+    // (sem CORS, por não ser navegador) e devolve uma URL SERVÍVEL do próprio
+    // origin, nunca os bytes. A remontagem trata `status 0` (sem resposta) do
+    // mesmo jeito que o `cifraHtml`, e `null`/ausente vira `{status:0,url:null}`
+    // por queda do `call()`, para o chamador nunca precisar checar `null` antes
+    // de ler `.status`.
+    r2Imagem: (url) => call((id) => B.r2Imagem(id, String(url)), CALL_TIMEOUT_MS)
+      .then((r) => ({ status: (r && r.status) | 0, url: (r && r.url) || null })),
+
     // Apaga o arquivo intermediário depois que os bytes já foram para a
     // biblioteca — senão o vídeo fica DUAS vezes no aparelho.
     ytDiscard(url) { try { B.ytDiscard(String(url)); } catch (_) { /* ponte indisponível */ } },

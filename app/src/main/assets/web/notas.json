@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.11.3",
+    "itens": [
+      "As fotos de fundo do Hinário 2022 agora baixam de verdade — o problema era o servidor de fotos.",
+      "Esta correção só funciona depois de instalar a nova versão do aplicativo (o app vai avisar)."
+    ]
+  },
+  {
     "versao": "1.11.2",
     "itens": [
       "O Registro agora diz se o servidor das fotos de fundo está fora do ar, separado do servidor de áudio.",

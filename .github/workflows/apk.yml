@@ -560,6 +560,7 @@ jobs:
           rodar tools/acervo.test.mjs
           rodar tools/download-do-acervo.test.mjs
           rodar tools/verificacao-do-sistema.test.mjs
+          rodar tools/desvio-cors-fotos.test.mjs
           rodar tools/ponte.test.mjs
           rodar tools/recusa-transmissao.test.mjs
           rodar tools/display-smoke.mjs
