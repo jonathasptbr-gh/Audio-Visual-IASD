@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.11.4",
+    "itens": [
+      "Corrigido: excluir uma coleção não some mais com a lista de músicas dela.",
+      "Agora só o que estava baixado é apagado — a lista continua para baixar de novo."
+    ]
+  },
+  {
     "versao": "1.11.3",
     "itens": [
       "As fotos de fundo do Hinário 2022 agora baixam de verdade — o problema era o servidor de fotos.",

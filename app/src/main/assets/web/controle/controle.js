@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.3';
+const WEB_VERSION = '1.11.4';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21197,9 +21197,31 @@ async function buildLyricSlides(meta, timeField, resolveImage) {
  * mas quem redesenha os CARDS de coleção é outra função, que nenhum dos dois
  * caminhos deste método chamava — o card ficava com o peso e o estado antigos
  * até o operador fechar e reabrir a Biblioteca.
+ *
+ * ===== A LISTAGEM NÃO É O QUE FOI BAIXADO (relato do operador) =====
+ *
+ * Até aqui, o fim da exclusão gravava `collState[coll.id] = { indexSyncedAt:
+ * 0, songs: [] }` — apagando o ÍNDICE inteiro, não só os bytes. `collSongs` é
+ * o que a busca e a lista aberta do álbum percorrem (`renderSearchResults`,
+ * `levantarColecao`), então a coleção ficava VAZIA por dentro até o próximo
+ * `autoRefreshCollections` (abertura do app ou `visibilitychange`) buscar o
+ * índice de novo — com internet. É o relato do operador: *"ele simplesmente
+ * apaga a lista de itens na coleção"*, quando a listagem (o CATÁLOGO — quais
+ * músicas existem, seus nomes e durações) é independente de ter ou não os
+ * áudios baixados.
+ *
+ * O conserto preserva `songs` (e `indexSyncedAt`, que não precisa de
+ * ressincronização forçada — o catálogo não mudou) e só apaga, POR FAIXA, os
+ * ponteiros que a exclusão de fato invalidou: `fileIdFull`/`fileIdPlayback`
+ * apontavam para os registros que `purgeCatalogRecords` acabou de remover do
+ * catálogo OPFS. Sem isso, `levantarColecao` (que lê esses campos DIRETO, sem
+ * ir ao IndexedDB) continuaria contando a faixa como baixada — o oposto do
+ * relato, e igualmente errado: a tela diria "completo" sobre um áudio que já
+ * não existe. `semAudio`/`semPlayback` (a origem não publica a variante) NÃO
+ * são tocados aqui: são fato sobre a ORIGEM, não sobre o download.
  */
 async function deleteCollection(coll) {
-  if (!(await appConfirm({ title: 'Excluir ' + coll.name, message: 'Excluir o que foi baixado de "' + coll.name + '" (áudios e capas) e a lista offline?', okText: 'Excluir', perigo: true }))) return;
+  if (!(await appConfirm({ title: 'Excluir ' + coll.name, message: 'Excluir o que foi baixado de "' + coll.name + '" (áudios e capas)? A lista de músicas continua no aparelho.', okText: 'Excluir', perigo: true }))) return;
   const u = ui(coll.id);
   u.delBusy = true;
   renderCollectionsNow();
@@ -21207,8 +21229,11 @@ async function deleteCollection(coll) {
     const recs = await AVDB.filesByFolder(coll.id);
     await purgeCatalogRecords(recs);
     await AVDB.opfsDeleteDir('folders/' + coll.id);
-    collState[coll.id] = { indexSyncedAt: 0, songs: [] };
-    await AVDB.setState('coll:' + coll.id, collState[coll.id]);
+    const st = collState[coll.id];
+    if (st && st.songs && st.songs.length) {
+      for (const s of st.songs) { s.fileIdFull = null; s.fileIdPlayback = null; }
+      await AVDB.setState('coll:' + coll.id, st);
+    }
     u.bytes = 0;
     pesoConferido.add(coll.id);   // zerado por exclusão, não por falta de medida
     salvarPesos();
@@ -32147,13 +32172,16 @@ function pacoteMesclarValor(local, vindo) {
   // devolve `''` pelo `!v.length`; e `mapa([])` é falso por ser Array. Sobrava
   // o `return local` do fim — o vazio comendo a lista que chegou.
   //
-  // MEDIDO, e o caminho é o uso normal do recurso: `deleteCollection` grava
-  // `{indexSyncedAt: 0, songs: []}` no `state`, então "apago a coleção para
-  // liberar espaço, depois importo o pacote" fazia entrar os BYTES e os
-  // registros e descartar o ÍNDICE. A coleção aparecia VAZIA na Biblioteca,
-  // nada tocava, o `gcOrfaos` da abertura seguinte recolhia os gigabytes, e o
-  // relatório nem a mencionava (`if (!songs.length) continue`). Zero erro.
-  // Vale igual para `messages` e `folders`, que também são gravados vazios.
+  // MEDIDO, e o caminho era o uso normal do recurso: até a v1.11.4,
+  // `deleteCollection` gravava `{indexSyncedAt: 0, songs: []}` no `state`
+  // (ela preserva `songs` desde então — ver o KDoc de `deleteCollection`),
+  // então "apago a coleção para liberar espaço, depois importo o pacote"
+  // fazia entrar os BYTES e os registros e descartar o ÍNDICE. A coleção
+  // aparecia VAZIA na Biblioteca, nada tocava, o `gcOrfaos` da abertura
+  // seguinte recolhia os gigabytes, e o relatório nem a mencionava
+  // (`if (!songs.length) continue`). Zero erro. A REGRA FICA: `messages` e
+  // `folders` também são gravados vazios por outros caminhos, e um objeto
+  // novo qualquer que zere uma lista tem o mesmo risco no primeiro merge.
   //
   // Devolve `local` quando os DOIS estão vazios: a identidade é o que diz
   // "nada mudou" ao chamador, e um objeto novo faria a chave ser reescrita e

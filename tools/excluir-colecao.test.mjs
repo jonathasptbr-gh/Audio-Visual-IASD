@@ -36,13 +36,28 @@
 //     reabrir a Biblioteca, que continua a mesma instância aberta desde o
 //     início.
 //  3. **DEPOIS** (o portão liberado e a exclusão terminando): o card se
-//     redesenha SOZINHO — a lixeira some (não há mais o que remover) e o peso
-//     antigo desaparece (sem índice não há o que medir) — sem um único
+//     redesenha SOZINHO — o peso antigo desaparece (sem bytes no aparelho, o
+//     que sobra é a ESTIMATIVA do que custaria baixar de novo) — sem um único
 //     fechar/reabrir da lista.
 //
+// ## A LISTAGEM NÃO É O QUE FOI BAIXADO (v1.11.4, relato do operador)
+//
+// *"Ao excluir o hinário ou o que for, ele simplesmente apaga a lista de
+// itens na coleção. Não deixe que isso aconteça, pois a listagem é
+// independente de ter ou não os itens baixados."*
+//
+// Até a v1.11.4, o fim da exclusão gravava `{ indexSyncedAt: 0, songs: [] }`
+// — o CATÁLOGO (nomes, faixas, durações) ia junto com os bytes, e a lista
+// aberta do álbum ficava vazia até o próximo `autoRefreshCollections` buscar
+// o índice de novo, com internet. O bloco 4 mede exatamente isso: com o card
+// ainda aberto (acordeão), a lista de hinos (`.coll-songs .hymn-result`)
+// continua com as MESMAS duas faixas depois da exclusão — só o que ocupava
+// espaço saiu, o catálogo fica.
+//
 // A REVERSÃO (as duas linhas de `renderCollectionCard`/`deleteCollection`
-// desfeitas) faz o bloco 2 reprovar (o botão nunca ganha `.busy`) e o bloco 3
-// reprovar (a lixeira e o peso antigo continuam na tela).
+// desfeitas) faz o bloco 2 reprovar (o botão nunca ganha `.busy`), o bloco 3
+// reprovar (o peso antigo continua na tela) e o bloco 4 reprovar (a lista
+// de hinos e o catálogo em memória somem).
 //
 //   node tools/excluir-colecao.test.mjs
 // ============================================================================
@@ -188,15 +203,48 @@ try {
 
   // ── 4. DEPOIS: o card se atualiza SOZINHO, sem fechar/reabrir a lista ───
   const depois = await medirCard();
-  checar(!!depois && !depois.temLixeira,
-    'DEPOIS, sem fechar nem reabrir a Biblioteca: a lixeira SOME sozinha — não '
-    + 'sobrou nada do Hinário 2022 no aparelho para remover de novo',
+  // A lixeira SEGUE ali — o card continua com um catálogo (`total > 0`), e
+  // essa condição não muda com o download; ela responde "há o que oferecer
+  // baixar de novo?", não "há algo para remover agora?".
+  checar(!!depois && depois.temLixeira,
+    'DEPOIS: a lixeira continua na barra — o álbum tem catálogo conhecido, e '
+    + 'a ação "remover do dispositivo" segue oferecida (mesmo sem nada '
+    + 'baixado no momento, o operador pode repetir o toque sem susto)',
     JSON.stringify(depois));
-  checar(!!depois && depois.peso === '',
-    'e o peso deixa de mostrar o número antigo — sem índice não há o que medir, '
-    + 'e o card conta de novo (não o número de antes), sem depender de o '
-    + 'operador fechar e reabrir a lista',
+  checar(!!depois && depois.peso !== '',
+    'e o peso deixa de mostrar o número ANTIGO, mas não fica em branco: o '
+    + 'card volta a estimar o custo de baixar de novo — o catálogo continua '
+    + 'sabendo QUANTAS faixas e QUANTO elas pesam',
     JSON.stringify(depois && depois.peso));
+
+  // ===== A LISTAGEM NÃO É O QUE FOI BAIXADO (v1.11.4, relato do operador) ===
+  //
+  // "Ao excluir o hinário ou o que for, ele simplesmente apaga a lista de
+  // itens na coleção. Não deixe que isso aconteça, pois a listagem é
+  // independente de ter ou não os itens baixados." — a prova é o CATÁLOGO em
+  // memória (`collSongs`) e a LISTA DE VERDADE, ainda na tela, com o card
+  // continuando aberto desde o início do oráculo (nenhum fechar/reabrir).
+  const catalogoENoLista = await pg.evaluate(() => {
+    const songs = collSongs('hymnal-2022');
+    const linhas = document.querySelectorAll(
+      '#hymnResults .hymnal-card .coll-open .coll-songs .hymn-result');
+    return {
+      songsNoCatalogo: songs.length,
+      fileIdFull: songs.map((s) => s.fileIdFull),
+      linhasNaTela: linhas.length,
+    };
+  });
+  checar(catalogoENoLista.songsNoCatalogo === 2,
+    'e o CATÁLOGO continua com as duas faixas — excluir é esvaziar o '
+    + 'aparelho, nunca a listagem', JSON.stringify(catalogoENoLista));
+  checar(catalogoENoLista.fileIdFull.every((v) => v === null),
+    'e cada faixa perde o PONTEIRO para o arquivo apagado (`fileIdFull: '
+    + 'null`) — sem isso a tela contaria como baixada uma música cujo '
+    + 'registro `purgeCatalogRecords` acabou de remover', JSON.stringify(catalogoENoLista.fileIdFull));
+  checar(catalogoENoLista.linhasNaTela === 2,
+    'e a LISTA ABERTA na tela continua mostrando as duas faixas — é a "lista '
+    + 'de itens na coleção" do relato, e ela não pode sumir só porque o '
+    + 'áudio baixado saiu', JSON.stringify(catalogoENoLista));
 
   // A promessa do recurso continua de pé: excluir é ESVAZIAR o aparelho, não
   // o catálogo — a coleção segue existindo, pronta para sincronizar de novo.
