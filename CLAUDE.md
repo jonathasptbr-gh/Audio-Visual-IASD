@@ -2970,28 +2970,31 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.11.3 · APK v1.11.3** · `SHELL_VERSION` **77** ·
-bundle com `minShell: 77` e `shellTag: "v1.11.3"` — o shell 77 é o **PISO**:
-todo método da ponte existe, e não há guarda de versão no lado web.
-**ESTE LOTE PEDE RELEASE**, a primeira desde a v1.9.12: a ponte ganhou UM
-método (`r2Imagem`) e o `WebViewFactory` um `PathHandler` novo (`/r2img/`) —
-nada disso chega por OTA. O `shellTag` SEGURA o bundle até a Release existir,
-e é por isso que este lote — ao contrário de todos os outros da série
-v1.9.13→v1.11.2 — obriga a INSTALAR UM APK NOVO, não só esperar o OTA.
-**O QUE ISTO CONSERTA:** o bucket Cloudflare R2 que serve as fotos de fundo do
-Hinário Adventista 2022 (pinado desde a v1.10.9) não manda
-`Access-Control-Allow-Origin` — um `fetch()` daquele host, de dentro do
-WebView, falha SEMPRE (`TypeError`), enquanto a MESMA URL abre normalmente
-numa navegação de topo (o operador confirmou isso testando no navegador do
-próprio aparelho). CORS é regra do NAVEGADOR, não existe num cliente HTTP
-nativo — a mesma classe de defeito que o `StreamProxy.kt` já resolveu para o
-googlevideo. `fetchImagemDaOrigem` (`controle.js`) desvia SÓ o host pinado
-pelo shell (`AVNative.r2Imagem`, que busca fora do WebView e devolve uma URL
-SERVÍVEL do próprio origin — nunca bytes pela ponte, o mesmo princípio do
-`SafPathHandler`); qualquer outro host continua no `fetch()` direto de sempre.
-**Conferir a Release é parte de decidir** — um lote só de web herda o
-`shellTag` quando o lote de shell anterior ainda não tem Release, e não herda
-quando tem.
+**Versão atual: base web v1.11.4 · APK v1.11.3** · `SHELL_VERSION` **77** ·
+bundle com `minShell: 77` e **SEM `shellTag`** — o shell 77 é o **PISO**: todo
+método da ponte existe, e não há guarda de versão no lado web. Nada em
+`java/`, `res/` ou no manifesto muda neste lote, e o APK v1.11.3 está
+publicado na frota: o bundle sai na hora, contra um shell que já o atende.
+**O DEGRAU É CORREÇÃO** — a v1.11.4 corrige `deleteCollection`: excluir o
+baixado de uma coleção gravava `{ indexSyncedAt: 0, songs: [] }`, apagando o
+CATÁLOGO (o que a busca e a lista aberta do álbum percorrem) junto com os
+bytes. Pedido do operador, por extenso: *"ao excluir o hinário ou o que for,
+ele simplesmente apaga a lista de itens na coleção. Não deixe que isso
+aconteça, pois a listagem é independente de ter ou não os itens baixados"*.
+O conserto preserva `songs` e só apaga, por faixa, os ponteiros que a
+exclusão de fato invalidou (`fileIdFull`/`fileIdPlayback`, que apontavam para
+os registros que `purgeCatalogRecords` acabou de remover) — sem isso,
+`levantarColecao` continuaria contando a faixa como baixada, o oposto do
+relato e igualmente errado. **Conferir a Release é parte de decidir** — um
+lote só de web herda o `shellTag` quando o lote de shell anterior ainda não
+tem Release, e não herda quando tem.
+
+> **A v1.11.3 pediu Release** — a ponte ganhou UM método (`r2Imagem`) e o
+> `WebViewFactory` um `PathHandler` novo (`/r2img/`), para desviar de CORS no
+> bucket R2 de fotos do Hinário 2022 (que não manda
+> `Access-Control-Allow-Origin`) por fora do WebView. Foi a primeira Release
+> desde a v1.9.12, com `shellTag: "v1.11.3"` segurando o bundle até ela sair —
+> e ela já saiu, publicada na frota.
 
 > **A v1.10.9 É A QUINTA RODADA da mesma série, e confirma o palpite do
 > OPERADOR.** Com a causa da v1.10.8 já viajando no veredito, o Registro
