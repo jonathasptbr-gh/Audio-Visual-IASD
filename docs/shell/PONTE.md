@@ -41,7 +41,7 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    (69 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
-                                       window.AVNative  (60 métodos)
+                                       window.AVNative  (61 métodos)
                                        + 4 globais lidas direto
 ```
 
@@ -609,9 +609,9 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 
 ---
 
-## O CATÁLOGO COMPLETO — os 60 métodos, um a um
+## O CATÁLOGO COMPLETO — os 61 métodos, um a um
 
-> **O SHELL SERVE 63.** Os CINCO de diferença foram encolhidos pelo LADO WEB,
+> **O SHELL SERVE 72.** Os CINCO de diferença foram encolhidos pelo LADO WEB,
 > que é o lado seguro: o `@JavascriptInterface` de cada um continua em
 > `NativeBridge.kt`, então nenhum dos dois lotes pediu Release.
 > `ytStream`, `otaPending` e `apkProcurar` perderam o consumidor em duas fusões
@@ -619,6 +619,10 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 > separadas do OTA) e saíram na **v1.8.71**; `requestMic` e `micDiag` saíram na
 > **v1.8.89** com o MICROFONE AO VIVO. Voltar a usar qualquer um é escrever o
 > embrulho de novo no `native.js` — nada do shell precisa mudar.
+>
+> Números envelhecem a cada lote de ponte — a varredura que os refaz é a mesma
+> do `CLAUDE.md`: `@JavascriptInterface` + `fun <nome>` no `NativeBridge.kt`
+> contra `B.<nome>(` no `native.js`.
 
 <!-- Extraído do `CLAUDE.md` na faxina de 2026-09-07. -->
 
@@ -946,6 +950,24 @@ window.AVNative = {
                        //   sem erro, sem arquivo. Sem prazo: quem responde é
                        //   uma pessoa no seletor
   cifraDiag(),         // → string: o que a última busca de cifra recebeu
+  // ---- O DESVIO DE CORS DAS FOTOS DE FUNDO — ver "A ponte" no CLAUDE.md ----
+  r2Imagem(url),       // → { status, url }: busca uma imagem de um host da
+                       //   allowlist de `R2ImagemFonte.kt` (hoje só o bucket
+                       //   R2 do Hinário 2022) POR FORA do WebView — CORS é
+                       //   regra do navegador, não existe num cliente HTTP
+                       //   nativo — e devolve uma URL SERVÍVEL do PRÓPRIO
+                       //   origin (`/r2img/<token>`), nunca os bytes pela
+                       //   ponte. Mesma distinção de status do `cifraHtml`:
+                       //   `status 0` é "não houve resposta", um HTTP de erro
+                       //   é resposta de verdade. Host TRAVADO (a mesma
+                       //   invariante 2), com redirecionamentos DESLIGADOS —
+                       //   ao contrário do `cifraHtml`, aqui não há motivo
+                       //   nenhum para um bucket estático redirecionar. Fila
+                       //   própria (`r2img`, thread única): a varredura dos
+                       //   fundos pede até seis de uma vez, e misturar com a
+                       //   `extracao` faria a mesma fila do "Tocar agora"
+                       //   ficar atrás de uma varredura de massa — o motivo
+                       //   exato que já separou a `cifra`
   // ---- A MEDIÇÃO DE ALCANCE — ver `docs/MEDICAO-DE-ALCANCE.md` ----
   farolEstado(),       // → { conta, ultimo, diag }: SÓ LEITURA, e o consumidor
                        //   é a linha "Alcance:" do Registro, que responde "o

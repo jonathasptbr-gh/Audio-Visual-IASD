@@ -50,7 +50,7 @@ tem o que se pode quebrar sem abrir o capítulo, e o capítulo tem o resto:
 | acordes sobre a letra, sob demanda | [§](#a-aba-de-cifra-acordes-ao-lado-da-letra) | [`docs/recursos/CIFRA.md`](docs/recursos/CIFRA.md) |
 | o acervo num arquivo `.avpkg` | [§](#o-pacote-de-transferência-o-acervo-num-arquivo) | [`docs/recursos/PACOTE.md`](docs/recursos/PACOTE.md) |
 | cada par de cor medido, os pisos, o que foi revogado | [§](#a-paleta) | [`docs/arquitetura/DESIGN-SYSTEM.md`](docs/arquitetura/DESIGN-SYSTEM.md) |
-| o catálogo dos 60 métodos da ponte, um a um | [§](#a-ponte-windowavnative) | [`docs/shell/PONTE.md`](docs/shell/PONTE.md) |
+| o catálogo dos 61 métodos da ponte, um a um | [§](#a-ponte-windowavnative) | [`docs/shell/PONTE.md`](docs/shell/PONTE.md) |
 | os dois canais, a detecção, o watchdog, a pergunta | [§](#ota-da-base-web-atualização-sem-apk) | [`docs/shell/OTA.md`](docs/shell/OTA.md) |
 | o que cada oráculo trava | (o MÉTODO fica em [Build](#build-e-distribuição)) | [`docs/ORACULOS.md`](docs/ORACULOS.md) |
 
@@ -320,7 +320,7 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**32 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**33 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
@@ -516,7 +516,7 @@ Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
 `NativeBridge.kt`). **Só existe quando `window.__AVBridge` existe** — no
 navegador a IIFE retorna na entrada e nada é definido, nem `__NATIVE__`.
 
-**O CATÁLOGO dos 60 métodos, um a um, está em
+**O CATÁLOGO dos 61 métodos, um a um, está em
 [`docs/shell/PONTE.md`](docs/shell/PONTE.md)** — é referência, aberta por
 método. Aqui ficam as REGRAS, que valem para todos eles.
 
@@ -557,9 +557,9 @@ atrasada da página velha resolvia a promise homônima da NOVA. Chamadas que
 dependem de **máquina** têm prazo de 60 s; `pickFolder` e `requestMic` esperam
 uma **pessoa** e ficam sem prazo.
 
-São **60 métodos**, e essa é a superfície inteira que o resto do lado web tem
-direito de usar — o SHELL serve **71** métodos `@JavascriptInterface`, e a
-diferença de 14 contra os 57 que têm par no Kotlin (os outros três da superfície
+São **61 métodos**, e essa é a superfície inteira que o resto do lado web tem
+direito de usar — o SHELL serve **72** métodos `@JavascriptInterface`, e a
+diferença de 14 contra os 58 que têm par no Kotlin (os outros três da superfície
 são callbacks só do lado web) são os NOVE internos logo abaixo mais CINCO
 ÓRFÃOS encolhidos pelo lado web: três na v1.8.71 (`ytStream`, `otaPending`,
 `apkProcurar` — órfãos de duas fusões) e dois na v1.8.89 (`requestMic`,
@@ -576,9 +576,9 @@ outros dois DESTINOS do `ytFetch` — só-áudio e teto de resolução),
 `espelhoLigarEm` (a via escolhida pelo operador, por trás do `espelhoLigar`),
 `shellVersion()`/`role()`/`appVersion()` (viram as globais abaixo), `busPost()`
 (relay do barramento), `otaConfirm()` (watchdog do OTA) e `takeShare()` (consumo
-do share pendente, que alimenta o `onShare`). **A conta fecha, e é MEDIDA:** 60
+do share pendente, que alimenta o `onShare`). **A conta fecha, e é MEDIDA:** 61
 de superfície − 3 callbacks sem par no Kotlin (`onShare`, `onRemote`,
-`onDisplayChange`) + 9 internos = 66 chamados, + 5 órfãos = 71 servidos. A
+`onDisplayChange`) + 9 internos = 67 chamados, + 5 órfãos = 72 servidos. A
 varredura que a refaz é o que responde em vez da memória, porque estes números
 envelhecem a cada lote de ponte: `@JavascriptInterface` + `fun <nome>` no
 `NativeBridge.kt` contra `B.<nome>(` no `native.js`. (O texto afirmou 58 e 69 da
@@ -643,7 +643,7 @@ prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **76**, e ele é o **PISO**: o bundle declara `minShell: 76`, então
+Hoje vale **77**, e ele é o **PISO**: o bundle declara `minShell: 77`, então
 todo método da ponte existe sempre e **não há guarda de versão no lado web**.
 "Superfície" inclui **forma de retorno** e **comportamento**, não só assinatura:
 um campo que some, um contrato de URL que muda ou um método que passa a fazer
@@ -656,7 +656,7 @@ escondia. Sem guardas, o web chama um método que o APK instalado não tem: o
 existe, é tocável e não faz nada. Por isso mudança de ponte é um lote
 **APK + web publicado JUNTO**, com `shellTag` no `version.json`.
 
-> A tabela dos 76 degraus está em `docs/HISTORICO.md` — ela é história do
+> A tabela dos 77 degraus está em `docs/HISTORICO.md` — ela é história do
 > contrato, e história mora lá.
 
 ### As QUATRO filas da ponte — escolher a errada é uma regressão muda
@@ -2115,7 +2115,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **94** e os de Node puro **22** — juntos, os 116. MEDIDO com
+Os de Chromium são **95** e os de Node puro **22** — juntos, os 117. MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -2166,7 +2166,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 116 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 117 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2970,20 +2970,28 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.11.2 · APK v1.9.12** · `SHELL_VERSION` **76** ·
-bundle com `minShell: 76` e **SEM `shellTag`** — o shell 76 é o **PISO**: todo
-método da ponte existe, e não há guarda de versão no lado web. Da v1.9.13 à
-v1.11.2 nada toca `java/`, `res/` nem o manifesto, e o APK v1.9.12 está
-publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO** — a v1.11.2 acrescenta à Verificação do Sistema uma
-checagem própria para o host de FOTOS do Hinário 2022 (o bucket R2 pinado desde
-a v1.10.9), separada da checagem de ÁUDIO que já existia: um Registro de
-operador mostrou o host de fotos mudo enquanto o áudio, a Bíblia e o catálogo
-respondiam bem, sem nenhuma linha que dissesse isso — a checagem de áudio
-aprovava, e o host que interessa para os fundos da letra nunca era testado.
-Não toca em `AVNative`, `java/`, `res/` nem no manifesto. **Conferir a Release
-é parte de decidir** — um lote só de web herda o `shellTag` quando o lote de
-shell anterior ainda não tem Release, e não herda quando tem.
+**Versão atual: base web v1.11.3 · APK v1.11.3** · `SHELL_VERSION` **77** ·
+bundle com `minShell: 77` e `shellTag: "v1.11.3"` — o shell 77 é o **PISO**:
+todo método da ponte existe, e não há guarda de versão no lado web.
+**ESTE LOTE PEDE RELEASE**, a primeira desde a v1.9.12: a ponte ganhou UM
+método (`r2Imagem`) e o `WebViewFactory` um `PathHandler` novo (`/r2img/`) —
+nada disso chega por OTA. O `shellTag` SEGURA o bundle até a Release existir,
+e é por isso que este lote — ao contrário de todos os outros da série
+v1.9.13→v1.11.2 — obriga a INSTALAR UM APK NOVO, não só esperar o OTA.
+**O QUE ISTO CONSERTA:** o bucket Cloudflare R2 que serve as fotos de fundo do
+Hinário Adventista 2022 (pinado desde a v1.10.9) não manda
+`Access-Control-Allow-Origin` — um `fetch()` daquele host, de dentro do
+WebView, falha SEMPRE (`TypeError`), enquanto a MESMA URL abre normalmente
+numa navegação de topo (o operador confirmou isso testando no navegador do
+próprio aparelho). CORS é regra do NAVEGADOR, não existe num cliente HTTP
+nativo — a mesma classe de defeito que o `StreamProxy.kt` já resolveu para o
+googlevideo. `fetchImagemDaOrigem` (`controle.js`) desvia SÓ o host pinado
+pelo shell (`AVNative.r2Imagem`, que busca fora do WebView e devolve uma URL
+SERVÍVEL do próprio origin — nunca bytes pela ponte, o mesmo princípio do
+`SafPathHandler`); qualquer outro host continua no `fetch()` direto de sempre.
+**Conferir a Release é parte de decidir** — um lote só de web herda o
+`shellTag` quando o lote de shell anterior ainda não tem Release, e não herda
+quando tem.
 
 > **A v1.10.9 É A QUINTA RODADA da mesma série, e confirma o palpite do
 > OPERADOR.** Com a causa da v1.10.8 já viajando no veredito, o Registro

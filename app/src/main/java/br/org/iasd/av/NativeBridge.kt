@@ -343,7 +343,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 76
+        const val SHELL_VERSION = 77
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -563,6 +563,24 @@ class NativeBridge(
          */
         private val cifra = Executors.newSingleThreadExecutor { r ->
             Thread(r, "av-bridge-cifra").apply { isDaemon = true }
+        }
+
+        /**
+         * A fila do DESVIO DE CORS das fotos de fundo ([r2Imagem]) — mesmo
+         * motivo da [cifra], pelo mesmo argumento: o trabalho dela é de MASSA
+         * (a varredura automática dos fundos busca até `NET_CONCURRENCY` — 6 —
+         * fotos concorrentes do lado web) e a da [extracao] é de TOQUE.
+         * Compartilhar [extracao] faria um "Tocar agora" de vídeo esperar
+         * atrás de uma fila de centenas de fotos, e o `busca do canal` de uma
+         * série na frente de quem chegasse depois.
+         *
+         * Própria e não a [cifra]: são hosts, protocolos e cargas diferentes
+         * (imagem binária × HTML), e nada aqui toca `CifraFonte.ultimaTentativa`
+         * nem o inverso — dois vereditos de diagnóstico independentes que uma
+         * fila só faria colidir.
+         */
+        private val r2img = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "av-bridge-r2img").apply { isDaemon = true }
         }
     }
 
@@ -1603,6 +1621,37 @@ class NativeBridge(
     fun cifraDiag(callId: String) {
         val texto = if (host == null) "" else CifraFonte.ultimaTentativa
         resolve(callId, JSONObject.quote(texto))
+    }
+
+    /**
+     * O DESVIO DE CORS das fotos de fundo (v1.11.3) — ver o KDoc de
+     * [R2ImagemFonte]. `GET url` **no shell** (sem CORS, porque CORS é regra do
+     * navegador) e devolve `{ status, url }`: `url` é uma URL SERVÍVEL do
+     * próprio origin (`/r2img/<token>`), nunca os bytes — o mesmo princípio do
+     * `SafPathHandler`. `status 0` é "não houve resposta"; qualquer outro
+     * status é resposta de verdade, e os dois pedem frases opostas do lado web
+     * (a mesma distinção do `cifraHtml`).
+     *
+     * Fila [r2img], própria — ver o KDoc dela para o porquê. **Privilégio do
+     * Controle** (`host == null` no telão), pela mesma razão do `cifraHtml`:
+     * sem a guarda, o Display ganharia um cliente HTTP de saída.
+     */
+    @JavascriptInterface
+    fun r2Imagem(callId: String, url: String) {
+        if (host == null) { resolve(callId, "null"); return }
+        r2img.execute {
+            val resultado: Triple<Int, ByteArray?, String?> = try {
+                R2ImagemFonte.buscar(url)
+            } catch (_: Exception) {
+                Triple(0, null, null)
+            }
+            val (status, bytes, mime) = resultado
+            val servivel = if (bytes != null && mime != null) R2ImagemRegistry.store(bytes, mime) else null
+            resolve(
+                callId,
+                JSONObject().put("status", status).put("url", servivel ?: JSONObject.NULL).toString(),
+            )
+        }
     }
 
     /**

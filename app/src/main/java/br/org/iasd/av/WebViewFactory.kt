@@ -55,21 +55,27 @@ object WebViewFactory {
      * assets do APK — nos dois casos pelo MESMO origin, então IndexedDB,
      * OPFS e a ponte nativa não notam diferença nenhuma.
      *
-     * @param withSaf registra o handler `/saf/`. Só o **Controle** precisa
-     *   dele: os dois consumidores de arquivo do dispositivo são `importShare`
-     *   e `syncDeviceFolder`, e os dois copiam os bytes para o OPFS antes de
-     *   qualquer coisa chegar ao telão — o Display nunca busca um `/saf/`.
-     *   Deixá-lo fora do loader da `Presentation` é a INVARIANTE 9, não
-     *   higiene: com o handler registrado, qualquer script que rodasse naquele
-     *   documento ganharia um servidor de bytes de todas as pastas que o
-     *   operador já concedeu. (O embed do YouTube — que carregava script de
+     * @param withSaf registra os handlers `/saf/` e `/r2img/`. Só o
+     *   **Controle** precisa deles: os dois consumidores de arquivo do
+     *   dispositivo são `importShare` e `syncDeviceFolder`, e os dois copiam os
+     *   bytes para o OPFS antes de qualquer coisa chegar ao telão — o Display
+     *   nunca busca um `/saf/`. `/r2img/` é a mesma invariante aplicada ao
+     *   [R2ImagemPathHandler] (v1.11.3, o desvio de CORS do bucket de fotos):
+     *   ele serve bytes já baixados pelo shell, e é privilégio do Controle pela
+     *   MESMA razão. Deixá-los fora do loader da `Presentation` é a INVARIANTE
+     *   9, não higiene: com o handler registrado, qualquer script que rodasse
+     *   naquele documento ganharia um servidor de bytes de todas as pastas que
+     *   o operador já concedeu. (O embed do YouTube — que carregava script de
      *   terceiro ali por design — saiu na v5.212; a guarda não depende dele,
      *   e é `tools/ponte.test.mjs` que a trava.)
      */
     fun assetLoader(ctx: Context, withSaf: Boolean = true): WebViewAssetLoader =
         WebViewAssetLoader.Builder()
             .apply {
-                if (withSaf) addPathHandler("/saf/", SafPathHandler(ctx.applicationContext))
+                if (withSaf) {
+                    addPathHandler("/saf/", SafPathHandler(ctx.applicationContext))
+                    addPathHandler("/r2img/", R2ImagemPathHandler())
+                }
             }
             .addPathHandler("/", WebPathHandler(ctx.applicationContext))
             .build()

@@ -171,6 +171,27 @@ checar(L.foraDoServidor(r2Estranho) === true
   + 'sufixo `.r2.dev` (que qualquer cliente da Cloudflare tem)',
   JSON.stringify({ fora: L.foraDoServidor(r2Estranho), url: L.fileUrl(r2Estranho) }));
 
+// ---- O BUCKET NÃO MANDA CORS, E SÓ ELE PEDE O DESVIO PELO SHELL (v1.11.3) --
+// `fetch()` daquele host falhava SEMPRE de dentro do WebView (TypeError),
+// mesmo minutos depois da abertura e isolado de qualquer outra rede em curso
+// — enquanto a MESMA URL abria normalmente numa navegação de topo, que nunca
+// passa por CORS. `ehCdnSemCors` é quem decide, do lado web, qual URL precisa
+// do desvio nativo (`AVNative.r2Imagem`) e qual segue por `fetch()` direto.
+checar(L.ehCdnSemCors('pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev') === true,
+  'o bucket R2 pinado precisa do desvio — é o host que não manda CORS',
+  L.ehCdnSemCors('pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev'));
+checar(L.ehCdnSemCors('api.louvorja.com.br') === false,
+  'a origem principal NÃO precisa do desvio — ela já manda CORS de verdade, e o `fetch()` '
+  + 'direto sempre funcionou dali',
+  L.ehCdnSemCors('api.louvorja.com.br'));
+checar(L.ehCdnSemCors(r2Estranho.split('/')[2]) === false,
+  'e um bucket R2 ESTRANHO (mesmo sufixo, hash diferente) também não — a exceção é o HOST '
+  + 'exato, nunca o sufixo `.r2.dev`',
+  L.ehCdnSemCors(r2Estranho.split('/')[2]));
+checar(L.ehCdnSemCors('PUB-8C0E123C55A14CDFA0C52FA182688782.R2.DEV') === true,
+  'e a comparação não distingue maiúsculas — um host chega como veio da URL, não normalizado',
+  L.ehCdnSemCors('PUB-8C0E123C55A14CDFA0C52FA182688782.R2.DEV'));
+
 // ---- A CLASSIFICAÇÃO EXISTE PARA O REGISTRO PODER DIZER ------------------
 // A trava falha FECHADA, e isso está certo; o que ela produz é um 404 do NOSSO
 // host, indistinguível de "o arquivo não existe". `foraDoServidor` é quem
