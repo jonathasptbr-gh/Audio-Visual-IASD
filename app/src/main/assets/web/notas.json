@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.11.5",
+    "itens": [
+      "Corrigido: a checagem 'Os arquivos no disco batem com o catálogo' não trava mais em 'não respondeu'.",
+      "Isso não era uma falha real — só uma checagem lenta demais num acervo grande, agora mais rápida."
+    ]
+  },
+  {
     "versao": "1.11.4",
     "itens": [
       "Corrigido: excluir uma coleção não some mais com a lista de músicas dela.",

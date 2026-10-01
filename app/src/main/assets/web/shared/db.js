@@ -665,10 +665,20 @@
   // porque ali varrer tudo É o trabalho; quem só quer o NÚMERO passa um teto e
   // diz que a conta é parcial. `out.parcial` marca a diferença — um array sem
   // a marca varreu o disco inteiro.
-  async function opfsTodosOsArquivos(teto) {
+  //
+  // E UM TETO DE ENTRADAS SÓ PROTEGE QUEM O MEDIU (v1.11.5): no mesmo
+  // aparelho, com o mesmo teto de 4000, a linha voltou a "não respondeu em
+  // 6 s" — contar arquivos não sabe prever TEMPO, porque o custo por entrada
+  // varia com o disco e com a profundidade da pasta. `prazoMs` é a SEGUNDA
+  // trava, em milissegundos de relógio real, independente da primeira:
+  // qualquer uma das duas que bater primeiro para a varredura. Omitida, ela
+  // não entra em jogo — o coletor sem teto nem prazo continua sem pressa.
+  async function opfsTodosOsArquivos(teto, prazoMs) {
     if (!opfsSupported()) return [];
     const out = [];
     const limite = (typeof teto === 'number' && teto > 0) ? teto : Infinity;
+    const limiteMs = (typeof prazoMs === 'number' && prazoMs >= 0) ? prazoMs : Infinity;
+    const inicio = Date.now();
     let cheio = false;
     async function andar(dir, prefixo) {
       for await (const [nome, handle] of dir.entries()) {
@@ -682,7 +692,7 @@
         try {
           const f = await handle.getFile();
           out.push({ caminho, tamanho: f.size || 0, tipo: f.type || '' });
-          if (out.length >= limite) { cheio = true; return; }
+          if (out.length >= limite || (Date.now() - inicio) >= limiteMs) { cheio = true; return; }
         } catch (_) { /* arquivo que sumiu no meio */ }
       }
     }
