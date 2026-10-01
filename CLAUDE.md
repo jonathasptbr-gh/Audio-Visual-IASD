@@ -2970,24 +2970,40 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.11.4 · APK v1.11.3** · `SHELL_VERSION` **77** ·
+**Versão atual: base web v1.11.5 · APK v1.11.3** · `SHELL_VERSION` **77** ·
 bundle com `minShell: 77` e **SEM `shellTag`** — o shell 77 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Nada em
 `java/`, `res/` ou no manifesto muda neste lote, e o APK v1.11.3 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO** — a v1.11.4 corrige `deleteCollection`: excluir o
-baixado de uma coleção gravava `{ indexSyncedAt: 0, songs: [] }`, apagando o
-CATÁLOGO (o que a busca e a lista aberta do álbum percorrem) junto com os
-bytes. Pedido do operador, por extenso: *"ao excluir o hinário ou o que for,
-ele simplesmente apaga a lista de itens na coleção. Não deixe que isso
-aconteça, pois a listagem é independente de ter ou não os itens baixados"*.
-O conserto preserva `songs` e só apaga, por faixa, os ponteiros que a
-exclusão de fato invalidou (`fileIdFull`/`fileIdPlayback`, que apontavam para
-os registros que `purgeCatalogRecords` acabou de remover) — sem isso,
-`levantarColecao` continuaria contando a faixa como baixada, o oposto do
-relato e igualmente errado. **Conferir a Release é parte de decidir** — um
-lote só de web herda o `shellTag` quando o lote de shell anterior ainda não
-tem Release, e não herda quando tem.
+**O DEGRAU É CORREÇÃO** — a v1.11.5 corrige `opfsTodosOsArquivos`
+(`shared/db.js`), a varredura por trás da checagem "Os arquivos no disco
+batem com o catálogo" (Verificação do Sistema, área "A biblioteca"). O
+operador mandou um Registro perguntando por "falhas na verificação"; na
+contagem (`33 ok · 0 com falha · 1 sem resposta · 7 não se aplica`) não havia
+falha nenhuma — só essa linha em `não respondeu em 6 s`, que a v1.10.5 já
+tinha visto uma vez e tentado consertar com um TETO de 4000 ENTRADAS na
+varredura. **Contar arquivos não prevê TEMPO**: 4000 `getFile()` custam
+menos de 6 s num disco e mais noutro, e no mesmo aparelho o teto de contagem
+estourou de novo. `opfsTodosOsArquivos` ganha um segundo parâmetro,
+`prazoMs` — uma trava de RELÓGIO REAL, independente da de contagem —, e a
+checagem passa as duas (`TETO_DISCO` e `PRAZO_DISCO_MS`, ambos 4000): a
+varredura para na que bater primeiro. Os outros dois chamadores (coletor do
+pacote, backfill de ponteiros) não passam `prazoMs` e continuam sem pressa,
+como antes — o parâmetro é opcional e por omissão não trava nada. Oráculo:
+bloco O5 em `verificacao-do-sistema.test.mjs`, determinístico por construção
+(`prazoMs: 0` vence sempre no primeiro arquivo, porque o tempo decorrido
+nunca é negativo), com QUATRO REVERSÕES MEDIDAS. **Conferir a Release é
+parte de decidir** — um lote só de web herda o `shellTag` quando o lote de
+shell anterior ainda não tem Release, e não herda quando tem.
+
+> **A v1.11.4 corrige `deleteCollection`**: excluir o baixado de uma coleção
+> gravava `{ indexSyncedAt: 0, songs: [] }`, apagando o CATÁLOGO (o que a
+> busca e a lista aberta do álbum percorrem) junto com os bytes. Pedido do
+> operador, por extenso: *"ao excluir o hinário ou o que for, ele simplesmente
+> apaga a lista de itens na coleção. Não deixe que isso aconteça, pois a
+> listagem é independente de ter ou não os itens baixados"*. O conserto
+> preserva `songs` e só apaga, por faixa, os ponteiros que a exclusão de fato
+> invalidou (`fileIdFull`/`fileIdPlayback`). Lote só de web.
 
 > **A v1.11.3 pediu Release** — a ponte ganhou UM método (`r2Imagem`) e o
 > `WebViewFactory` um `PathHandler` novo (`/r2img/`), para desviar de CORS no

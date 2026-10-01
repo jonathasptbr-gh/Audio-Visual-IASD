@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.4';
+const WEB_VERSION = '1.11.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -28742,11 +28742,19 @@ const TESTES = [
       // custa um `getFile()` por entrada — MEDIDO no aparelho do operador,
       // com 2,6 GB: a linha saiu "não respondeu em 6 s", que é o desfecho mais
       // inútil que ela sabe produzir, e ainda foi o poste mais alto da rodada.
-      // Com teto ela responde SEMPRE, e diz quando a conta é parcial: um
-      // número parcial responde "por que o app ocupa tanto?" melhor que
-      // silêncio, e a linha deixa de mentir por omissão.
+      //
+      // MAS CONTAR ARQUIVOS NÃO É CONTAR TEMPO (v1.11.5): no mesmo aparelho,
+      // com os mesmos 4000 de teto, a linha voltou a "não respondeu em 6 s" —
+      // 4000 `getFile()` custam menos que 6 s nalgum disco, mais que isso
+      // noutro, e a contagem não sabe prever qual. `PRAZO_DISCO_MS` é a
+      // SEGUNDA trava, em milissegundos de relógio real: a varredura para na
+      // que bater primeiro. Com as duas, ela responde SEMPRE dentro do
+      // orçamento, e diz quando a conta é parcial: um número parcial responde
+      // "por que o app ocupa tanto?" melhor que silêncio, e a linha deixa de
+      // mentir por omissão.
       const TETO_DISCO = 4000;
-      const noDisco = await AVDB.opfsTodosOsArquivos(TETO_DISCO);
+      const PRAZO_DISCO_MS = 4000;
+      const noDisco = await AVDB.opfsTodosOsArquivos(TETO_DISCO, PRAZO_DISCO_MS);
       if (!Array.isArray(noDisco)) return tNa('não foi possível varrer o disco');
       if (!noDisco.length) return tNa('nada guardado ainda');
       const regs = await AVDB.filesAll();

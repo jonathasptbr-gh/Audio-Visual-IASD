@@ -1421,6 +1421,17 @@ try {
     const cortado = await AVDB.opfsTodosOsArquivos(5);
     const inteiro = await AVDB.opfsTodosOsArquivos(10000);
     const semTeto = await AVDB.opfsTodosOsArquivos();
+    // O5 · A SEGUNDA TRAVA É DE RELÓGIO, NÃO DE CONTAGEM (v1.11.5). Contar
+    // arquivos não prevê tempo — no aparelho do operador, 4000 de teto
+    // voltaram a "não respondeu em 6 s". `prazoMs: 0` força o relógio a
+    // vencer no PRIMEIRO arquivo, sempre: o tempo decorrido desde `inicio`
+    // nunca é negativo, então `0 >= 0` já é verdade depois do primeiro
+    // `getFile()` — é um jeito determinístico de testar uma trava de tempo
+    // sem depender da velocidade real do disco.
+    const porPrazo = await AVDB.opfsTodosOsArquivos(undefined, 0);
+    const prazoFolgado = await AVDB.opfsTodosOsArquivos(undefined, 60000);
+    const quemBatePrimeiro = await AVDB.opfsTodosOsArquivos(3, 60000);
+    const prazoVenceOTeto = await AVDB.opfsTodosOsArquivos(9999, 0);
     // LIMPA O QUE CRIOU, inclusive se a asserção reprovar depois — a regra da
     // sonda de escrita.
     try { await raiz.removeEntry('teste-teto', { recursive: true }); } catch (_) { /* já foi */ }
@@ -1428,6 +1439,10 @@ try {
       cortado: { n: cortado.length, parcial: !!cortado.parcial },
       inteiro: { n: inteiro.length, parcial: !!inteiro.parcial },
       semTeto: { n: semTeto.length, parcial: !!semTeto.parcial },
+      porPrazo: { n: porPrazo.length, parcial: !!porPrazo.parcial },
+      prazoFolgado: { n: prazoFolgado.length, parcial: !!prazoFolgado.parcial },
+      quemBatePrimeiro: { n: quemBatePrimeiro.length, parcial: !!quemBatePrimeiro.parcial },
+      prazoVenceOTeto: { n: prazoVenceOTeto.length, parcial: !!prazoVenceOTeto.parcial },
     };
   });
   if (tetoReal.pulou) {
@@ -1441,6 +1456,18 @@ try {
       && tetoReal.semTeto.n >= 12 && !tetoReal.semTeto.parcial,
       'O4 · e com teto folgado (ou sem teto nenhum, que é como o coletor a chama) ela varre tudo e '
       + 'NÃO se marca — a marca é o que a varredura mediu', JSON.stringify(tetoReal));
+    checar(tetoReal.porPrazo.n === 1 && tetoReal.porPrazo.parcial,
+      'O5 · sem teto de contagem mas com prazo de 0 ms, a varredura para no PRIMEIRO arquivo e se '
+      + 'marca parcial — contagem não é a única trava', JSON.stringify(tetoReal.porPrazo));
+    checar(tetoReal.prazoFolgado.n >= 12 && !tetoReal.prazoFolgado.parcial,
+      'O5 · e com prazo folgado ela varre tudo e não se marca — o prazo só corta quando vence',
+      JSON.stringify(tetoReal.prazoFolgado));
+    checar(tetoReal.quemBatePrimeiro.n === 3 && tetoReal.quemBatePrimeiro.parcial,
+      'O5 · com as duas travas juntas, quem bate primeiro decide — teto de 3 contra prazo de 60 s '
+      + 'para em 3', JSON.stringify(tetoReal.quemBatePrimeiro));
+    checar(tetoReal.prazoVenceOTeto.n === 1 && tetoReal.prazoVenceOTeto.parcial,
+      'O5 · e invertido — teto de 9999 contra prazo de 0 ms para em 1, porque o relógio bateu '
+      + 'primeiro', JSON.stringify(tetoReal.prazoVenceOTeto));
   }
 
   // ===== BLOCO P · A LINHA DOS FUNDOS NÃO MANDA TOCAR NUM BOTÃO QUE NÃO EXISTE (v1.10.6) =====
