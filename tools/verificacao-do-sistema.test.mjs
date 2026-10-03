@@ -241,6 +241,90 @@ try {
     'G2c · um host de fotos que não é nem a origem nem o bucket pinado REPROVA, nomeado — o mesmo '
     + 'travamento por domínio que protege o áudio, aplicado à imagem', JSON.stringify(imagemCasos.estranho));
 
+  // ---- G3: A CHECAGEM DAS FOTOS DIZ QUAL SALTO NÃO RESPONDEU (v1.11.6) ----
+  //
+  // O RELATO: um aparelho com internet por hotspot 4G e a TV por espelhamento
+  // mandou *"O servidor entrega as imagens de fundo — não respondeu em 9 s"*, e
+  // a linha não dizia mais nada. São DOIS pedidos em série (o catálogo e a foto)
+  // sob UM prazo, e o texto do temporizador da rodada não nomeia qual calou — a
+  // única pista era uma OUTRA linha, que tinha passado na mesma rodada. A
+  // checagem passa a ter o PRÓPRIO relógio, um fôlego abaixo do da rodada, e o
+  // desfecho nomeia o salto. O prazo da linha é reduzido aqui só para o oráculo
+  // não esperar nove segundos de verdade.
+  const fotoSemResposta = await pg.evaluate(async () => {
+    const real = window.fetch;
+    const realFoto = window.fetchImagemDaOrigem;
+    const hinario = allCollections()[0].id;
+    const guardado = collState[hinario];
+    const achada = TESTES.find((c) => c.id === 'fonte-arquivo-imagem');
+    const prazoReal = achada.prazo;
+    const meta = { id_music: 1, url_music: '/musics/1/x.mp3', lyric: {},
+      url_image: 'https://pub-8c0e123c55a14cdfa0c52fa182688782.r2.dev/images/x.jpg' };
+    window.fetch = async (u) => {
+      const s = String(u && u.url ? u.url : u);
+      if (s.includes('api.louvorja.com.br/json_db/music_')) {
+        return new Response(JSON.stringify(meta), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return new Response('', { status: 599 });
+    };
+    collState[hinario] = { indexSyncedAt: Date.now(), songs: [{ id_music: 1, name: 'Hino', track: 1 }] };
+    achada.prazo = 1800;
+    // (a) a foto NUNCA volta — o hotspot lento ou o bucket mudo.
+    window.fetchImagemDaOrigem = () => new Promise(() => {});
+    const calou = await rodarUmaChecagem(achada);
+    // (b) o shell devolve status 0 (ninguém do outro lado): `TypeError`.
+    window.fetchImagemDaOrigem = async () => { throw new TypeError('Failed to fetch'); };
+    const caiu = await rodarUmaChecagem(achada);
+    achada.prazo = prazoReal;
+    window.fetch = real;
+    window.fetchImagemDaOrigem = realFoto;
+    if (guardado) collState[hinario] = guardado; else delete collState[hinario];
+    return { calou, caiu };
+  });
+  checar(fotoSemResposta.calou.v === 'mudo'
+      && /^o catálogo respondeu em [\d,]+ s, mas o servidor das fotos não respondeu em [\d,]+ s$/.test(fotoSemResposta.calou.nota),
+    'G3a · a foto que NUNCA volta sai SEM RESPOSTA nomeando o salto — o catálogo respondeu e as fotos não: '
+    + 'o texto do temporizador da rodada ("não respondeu em N s") não dizia qual dos dois pedidos calou',
+    JSON.stringify(fotoSemResposta.calou));
+  checar(fotoSemResposta.calou.ms < 1800,
+    'G3b · e quem respondeu foi a PRÓPRIA checagem, com o relógio dela, antes do temporizador da rodada',
+    String(fotoSemResposta.calou.ms));
+  checar(fotoSemResposta.caiu.v === 'mudo'
+      && /o servidor das fotos não respondeu/.test(fotoSemResposta.caiu.nota)
+      && !/a internet não respondeu/.test(fotoSemResposta.caiu.nota),
+    'G3c · e o status 0 do shell (ninguém do outro lado) NÃO vira "a internet não respondeu" — o catálogo '
+    + 'acabou de responder pela mesma internet, então ela não é o que está calado',
+    JSON.stringify(fotoSemResposta.caiu));
+
+  // ---- G4: O REGISTRO IMPRIME O TEMPO DA LINHA LENTA QUE RESPONDEU (v1.11.6) ----
+  //
+  // `rodarUmaChecagem` já media `ms`, e a linha impressa o descartava: "OK" e
+  // "OK, mas levou 8 s" eram a mesma frase, e é essa a diferença entre uma rede
+  // boa e uma que quase não respondeu. Só a lenta (2 s ou mais) e só a que
+  // respondeu — a que não respondeu já diz o prazo na nota, e uma rodada de 41
+  // linhas com o tempo de todas seria ruído em toda cópia.
+  const tempoNoRegistro = await pg.evaluate(() => {
+    const guardado = testeResultado;
+    testeResultado = {
+      em: Date.now(), ms: 100, ok: 2, falhou: 0, mudo: 1, na: 0,
+      itens: [
+        { id: 'a', area: 'Teste', titulo: 'Rápida', v: 'ok', nota: '', ms: 40 },
+        { id: 'b', area: 'Teste', titulo: 'Lenta mas respondeu', v: 'ok', nota: '', ms: 3400 },
+        { id: 'c', area: 'Teste', titulo: 'Não respondeu', v: 'mudo', nota: 'não respondeu em 9 s', ms: 9000 },
+      ],
+    };
+    const texto = blocoAutoteste();
+    testeResultado = guardado;
+    return texto;
+  });
+  const linhaDe = (rotulo) => tempoNoRegistro.split('\n').find((l) => l.includes(rotulo));
+  checar(linhaDe('Lenta mas respondeu') === '    OK Lenta mas respondeu · 3.4 s',
+    'G4a · a linha que respondeu devagar traz o tempo — 3,4 s contra "OK" seco', linhaDe('Lenta mas respondeu'));
+  checar(linhaDe('Rápida') === '    OK Rápida',
+    'G4b · a rápida não ganha tempo nenhum: 41 linhas com "40 ms" seriam ruído em toda cópia', linhaDe('Rápida'));
+  checar(linhaDe('Não respondeu') === '    SEM RESPOSTA Não respondeu — não respondeu em 9 s',
+    'G4c · e a que NÃO respondeu continua só com o prazo da nota, sem repetir "9.0 s"', linhaDe('Não respondeu'));
+
   // ---- H: COM MÍDIA NO AR, O QUE TOCA A CENA NÃO RODA -------------------
   const emCulto = await pg.evaluate(async () => {
     const antes = midiaNoAr;

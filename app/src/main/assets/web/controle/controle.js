@@ -367,7 +367,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.5';
+const WEB_VERSION = '1.11.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -4066,6 +4066,16 @@ function cenaNoAr() {
     || lyricProjecting()
     || chronoProjecting()
     || drawProjecting();
+}
+
+// HÁ O QUE PARAR? A pergunta que o comentário acima aponta, com nome (v1.11.6):
+// o Parar (`renderTransporteHabilitado`) e a hora de PERGUNTAR sobre a
+// atualização (`horaRuimParaPerguntar`) leem a MESMA resposta — duas escritas
+// divergiriam, e divergiram: a segunda lia `cenaNoAr()`, o `!!currentId` nunca
+// voltava a false depois da primeira mídia, e o aparelho ficava para sempre na
+// versão antiga com o telão vazio.
+function haOQueParar() {
+  return midiaNoAr || cenaDeRoteiroNoAr();
 }
 
 function pushNowPlaying() {
@@ -13615,7 +13625,7 @@ function renderTransporteHabilitado() {
   // depois da primeira mídia do dia, que é exatamente o botão sem função que
   // este bloco existe para apagar.
   if (stopEl) {
-    const semCena = !midiaNoAr && !cenaDeRoteiroNoAr();
+    const semCena = !haOQueParar();
     stopEl.disabled = semCena;
     stopEl.title = semCena ? 'Não há nada no ar para parar' : 'Parar e limpar';
   }
@@ -14908,13 +14918,13 @@ const CIFRA_FALTANDO_MAX = 20;
 
 
 /**
- * A VERSÃO DO DIÁRIO, e ela existe por causa do PRAZO.
- *
- * Um diário recusado põe a coleção em prazo de uma semana. Um lote novo que
- * mude o que a passada faz — ou o que ela GUARDA — não pode ficar esperando o
- * prazo escrito pelo código antigo: a correção chegaria por OTA e não rodaria.
- * Diário de versão diferente é IGNORADO, e a passada recomeça com o código
- * novo, que é o que se quis publicar.
+ * A VERSÃO DO DIÁRIO. GRAVADA, NÃO LIDA: ela nasceu para o prazo de uma semana
+ * da passada recusada, que saiu na v1.2.21 — nenhum leitor a compara hoje, e o
+ * comentário que dizia *"diário de versão diferente é IGNORADO"* prometia uma
+ * regra que não existe. Ela fica no registro só para quem lê o estado cru saber
+ * que código o escreveu. Os contadores de v1.11.6 (`semRede`, `adiadas`,
+ * `excecoes`) NÃO a subiram, de propósito: a leitura (`cifraSemDesfecho`) trata
+ * a ausência deles, e um diário antigo continua legível.
  */
 const CIFRA_PASSADA_VERSAO = 2;
 
@@ -14923,6 +14933,29 @@ const CIFRA_EXEMPLOS_MAX = 12;
 
 /** A chave do diário de uma passada de varredura. */
 function cifraPassadaChave(collId) { return 'cifras-passada:' + collId; }
+
+/**
+ * O QUE A ÚLTIMA PASSADA NÃO CHEGOU A DECIDIR, para a linha do Registro
+ * (v1.11.6). Os três contadores novos dizem a CAUSA (`semRede`, `adiadas`,
+ * `excecoes`); um diário gravado antes deles só permite a CONTA — tentadas
+ * menos tudo o que teve desfecho —, e ela só fecha de `ilegivel` em diante
+ * (v1.10.8): antes disso o diário não contava `recusou`, e o resto sairia
+ * inflado. Sem esta parte, uma passada INTEIRA sem rede saía como *"N
+ * tentada(s), 0 achada(s), 0 sem cifra, 0 sem página"* — zero respostas e
+ * nenhuma frase dizendo que o problema era não ter havido resposta.
+ */
+function cifraSemDesfecho(p) {
+  const partes = [];
+  if (p.semRede) partes.push(p.semRede + ' sem resposta do site (rede)');
+  if (p.adiadas) partes.push(p.adiadas + ' adiada(s) por haver mídia no ar');
+  if (p.excecoes) partes.push(p.excecoes + ' com erro');
+  if (typeof p.semRede !== 'number' && typeof p.ilegivel === 'number') {
+    const resto = (p.tentadas || 0)
+      - ((p.ok || 0) + (p.semCifra || 0) + (p.naoTem || 0) + (p.ilegivel || 0) + (p.recusou || 0));
+    if (resto > 0) partes.push(resto + ' sem desfecho (rede, mídia no ar ou erro — diário de antes da v1.11.6)');
+  }
+  return partes.length ? ', ' + partes.join(', ') : '';
+}
 
 /** A entrada guardada ainda vale? Uma FOLHA vale sempre; uma ausência, 30 dias. */
 function cifraNoDiscoVale(v, agora) {
@@ -15141,6 +15174,15 @@ async function syncCifrasColecao(coll) {
   // já é uma amostra viva do estado ATUAL do site.
   let ilegivelDaPassada = 0;
   let recusouDaPassada = 0;
+  // O QUE NÃO CHEGOU A TER DESFECHO, CONTADO (v1.11.6). Três coisas que a
+  // passada engolia em silêncio — o site não respondeu (`sem-rede`), a cena
+  // entrou e a música foi adiada, e a exceção que o `catch` abaixo descarta —,
+  // e que juntas faziam uma passada INTEIRA sem rede sair do diário como
+  // *"N tentada(s), 0 achada(s), 0 sem cifra, 0 sem página"*: zero respostas, e
+  // nenhuma linha dizendo que o problema era não ter havido resposta.
+  let semRedeDaPassada = 0;
+  let adiadasDaPassada = 0;
+  let excecoesDaPassada = 0;
   // OS EXEMPLOS DO QUE NÃO SAIU COM FOLHA — número, nome, veredito e o ENDEREÇO
   // tentado. É o que responde a pergunta que nenhum contador responde: *"quais
   // hinos, e o que a página deles tem?"*. Sem o endereço a lista não serve para
@@ -15157,7 +15199,7 @@ async function syncCifrasColecao(coll) {
         await runLimited(faltam, NET_CONCURRENCY, async (h) => {
           // O gêmeo do `syncLyrics`, e pelo mesmo motivo — ver
           // `rotinaDeAcervoPodeCorrer`.
-          if (!rotinaDeAcervoPodeCorrer()) return;
+          if (!rotinaDeAcervoPodeCorrer()) { adiadasDaPassada++; return; }
           bgItemStart(notifId, h.nome);
           try {
             // A CADEIA INTEIRA, e não só o catálogo (v1.2.14). É ela que faz o
@@ -15200,6 +15242,8 @@ async function syncCifrasColecao(coll) {
               ilegivelDaPassada++;
             } else if (d.motivo === AVCifra.MOTIVO_RECUSOU) {
               recusouDaPassada++;
+            } else if (d.motivo === AVCifra.MOTIVO_SEM_REDE) {
+              semRedeDaPassada++;
             }
             // `sem-rede`, `recusou` e `ilegivel` NÃO gravam veredito: o
             // primeiro não é resposta do site, e os outros dois são contados
@@ -15216,7 +15260,7 @@ async function syncCifrasColecao(coll) {
                 && exemplos.length < CIFRA_EXEMPLOS_MAX) {
               exemplos.push({ nome: h.nome, motivo: d.motivo, url: d.url || '' });
             }
-          } catch (_) { /* rede: a próxima passada tenta de novo */ }
+          } catch (_) { excecoesDaPassada++; /* a próxima passada tenta de novo */ }
           finally { bgItemEnd(notifId, h.nome); }
           done++;
           bgTaskStep(notifId, done);
@@ -15243,6 +15287,7 @@ async function syncCifrasColecao(coll) {
       ok: okDaPassada, naoTem: naoTemDaPassada,
       semCifra: quantos,
       ilegivel: ilegivelDaPassada, recusou: recusouDaPassada,
+      semRede: semRedeDaPassada, adiadas: adiadasDaPassada, excecoes: excecoesDaPassada,
       exemplos,
     }).catch(() => {});
     cifraSyncRodando = false;
@@ -20132,9 +20177,16 @@ async function syncImagensColecao(coll, opts) {
   if (!coll || coll.kind === 'serie' || imagensSyncRodando) return 0;
   // Ver `rotinaDeAcervoPodeCorrer`: a varredura é adiável, o louvor não.
   if (!rotinaDeAcervoPodeCorrer()) return 0;
-  // A MESMA REGRA do `syncCifrasColecao`: são centenas de requisições, e o
-  // plano de dados do operador não é o lugar delas.
-  if (networkType() === 'cellular') return 0;
+  // REDE MÓVEL ADIA, A NÃO SER QUE O OPERADOR A TENHA LIBERADO (v1.11.6). A
+  // guarda era `networkType() === 'cellular'` seca — a regra de ANTES da opção
+  // "Dados móveis" (v1.11.0) —, e por isso ela desfazia por dentro o que a
+  // porta (`fundosImpedimento`, que lê `redeLiberadaParaBaixar`) acabara de
+  // liberar: com a opção ligada e em rede móvel a passada automática passava
+  // pela porta, armava o piso de meia hora e saía sem conferir uma faixa — e o
+  // Registro dizia *"nada a conferir"*. O operador tinha pedido os fundos
+  // dentro da opção ("Sim, incluir os dois", v1.11.0). O `unknown` continua
+  // passando, como sempre: ali o app não sabe, e na dúvida baixa.
+  if (networkType() === 'cellular' && !permitirDadosMoveis) return 0;
 
   const auto = !!(opts && opts.auto);
   const contas = (opts && opts.contas) || null;
@@ -20355,7 +20407,8 @@ async function syncFundosAcervo() {
   // `other` num roteamento incomum —, e errar ali para o lado estrito custa uma
   // rotina parada que o Registro e a Verificação DIZEM (com o tipo informado);
   // para o lado frouxo, custaria o plano de dados em silêncio. O toque à mão
-  // continua com a guarda antiga, porque ali quem decide é o operador.
+  // continua com a guarda mais frouxa — só o `cellular` adia, e a opção "Dados
+  // móveis" o libera (v1.11.6) —, porque ali quem decide é o operador.
   if (fundosImpedimento()) return;
   // O MESMO FIO DAS LETRAS, de verdade. O encadeamento na abertura só serializa
   // a PRIMEIRA chamada: numa volta ao app com a varredura de letras ainda em
@@ -27073,7 +27126,7 @@ function cabecalhoDiag() {
     else if (otaAdiadas.has(loteReg.chave)) porque = 'o operador adiou nesta sessão';
     else if (apkBaixando) porque = 'baixando o app agora';
     else if (otaPerguntando) porque = 'perguntando agora';
-    else if (cenaNoAr()) porque = 'esperando a cena sair do ar';
+    else if (haOQueParar()) porque = 'esperando a cena sair do ar';
     // O QUE O OPERADOR PEDIU, e não a rotina (v1.2.28): a varredura de cifras e
     // a de letras rodam sozinhas sobre o acervo inteiro e não seguram mais a
     // pergunta. Dizer "download" sobre elas mandaria procurar um download que
@@ -28152,6 +28205,7 @@ const TESTE_CONCORRENCIA = 4;
 const tOk = (nota) => ({ v: TESTE_OK, nota: nota || '' });
 const tFalhou = (nota) => ({ v: TESTE_FALHOU, nota: nota || '' });
 const tNa = (nota) => ({ v: TESTE_NA, nota: nota || '' });
+const tMudo = (nota) => ({ v: TESTE_MUDO, nota: nota || '' });
 
 // A FRASE DE UM ERRO, nunca o objeto. Um `[object Object]` no relatório que o
 // operador copia é uma linha gasta sem dizer nada.
@@ -28557,7 +28611,9 @@ const TESTES = [
       if (!navigator.onLine) return tNa('o aparelho está sem internet');
       const id = await testeAlgumIdDeMusica();
       if (!id) return tNa('nenhum hinário indexado ainda neste aparelho');
+      const t0 = Date.now();
       const meta = await Louvorja.fetchList('music_' + id);
+      const msCatalogo = Date.now() - t0;
       const caminho = meta && (meta.url_image
         || Object.values(meta.lyric || {}).map((l) => l && l.url_image).find(Boolean));
       if (!caminho) return tNa('a música sorteada não tem imagem de fundo na origem');
@@ -28565,12 +28621,45 @@ const TESTES = [
         return tFalhou('a origem mudou o endereço para outro servidor: ' + String(caminho).slice(0, 60));
       }
       const url = Louvorja.fileUrl(caminho);
-      let res;
-      try { res = await fetchImagemDaOrigem(url); }
-      catch (e) {
+      // ===== A CHECAGEM DIZ QUAL DOS DOIS SALTOS NÃO RESPONDEU (v1.11.6) =====
+      //
+      // São DOIS pedidos em série dentro de UM prazo — o catálogo (acima) e a
+      // foto —, e o "não respondeu em 9 s" do temporizador da rodada não diz
+      // qual deles ficou calado. Num Registro de um aparelho com hotspot 4G a
+      // linha saiu assim, e a única pista era uma OUTRA linha (a do arquivo de
+      // música) que passou na mesma rodada: lento × morto, e catálogo × foto,
+      // ficaram indecidíveis. A checagem passa a ter o PRÓPRIO relógio, um
+      // fôlego abaixo do da rodada, e o desfecho nomeia o salto — com o tempo
+      // que o catálogo levou, que é a metade que respondeu.
+      //
+      // O QUE ELA NÃO FAZ É ESTICAR O PRAZO: `não respondeu` já é o desfecho
+      // certo (a regra dos quatro desfechos), e esticá-lo só moveria o limiar.
+      // E um TypeError aqui (o shell devolveu status 0: ninguém do outro lado)
+      // deixa de virar *"a internet não respondeu"* — o catálogo ACABOU de
+      // responder, então a internet não é o que está calado.
+      const seg = (ms) => (Math.round(ms / 100) / 10).toString().replace('.', ',') + ' s';
+      const semFoto = (quando) => tMudo('o catálogo respondeu em ' + seg(msCatalogo)
+        + ', mas o servidor das fotos não respondeu' + (quando || ''));
+      // O RELÓGIO SEGUE O PRAZO DECLARADO DA PRÓPRIA LINHA, não uma segunda
+      // cópia do número: quem o ajusta (o oráculo, num dia) ajusta os dois.
+      const eu = TESTES.find((c) => c.id === 'fonte-arquivo-imagem');
+      const sobra = Math.max(((eu && eu.prazo) || TESTE_PRAZO_REDE) - 500 - (Date.now() - t0), 500);
+      let timer;
+      const veio = await Promise.race([
+        fetchImagemDaOrigem(url).then((res) => ({ res }), (e) => ({ e })),
+        new Promise((ok) => { timer = setTimeout(() => ok(null), sobra); }),
+      ]);
+      clearTimeout(timer);
+      if (!veio) return semFoto(' em ' + seg(sobra));
+      if (veio.e) {
+        const e = veio.e;
         if (e && e.httpStatus) return tFalhou('a fonte respondeu ' + e.httpStatus + ' — o endereço da imagem mudou na origem');
+        if ((e instanceof TypeError) || /failed to fetch|networkerror|load failed/i.test(String(e && e.message))) {
+          return semFoto('');
+        }
         throw e;
       }
+      const res = veio.res;
       try { if (res.body && res.body.cancel) res.body.cancel(); } catch (_) { /* corpo já consumido */ }
       if (!res.ok) return tFalhou('a fonte respondeu ' + res.status + ' — o endereço da imagem mudou na origem');
       return tOk(null);
@@ -29711,7 +29800,13 @@ function blocoAutoteste() {
   let area = '';
   for (const it of r.itens) {
     if (it.area !== area) { area = it.area; linhas.push('  [' + area + ']'); }
-    linhas.push('    ' + (TESTE_MARCA[it.v] || '? ') + it.titulo + (it.nota ? ' — ' + it.nota : ''));
+    // O TEMPO SÓ DA LINHA LENTA QUE RESPONDEU (v1.11.6). `rodarUmaChecagem` já o
+    // media e a linha não o imprimia: *"não respondeu em 9 s"* num aparelho e
+    // *OK* noutro eram indistinguíveis de *"quase não respondeu"* — e é essa a
+    // diferença entre lento e morto. Abaixo de 2 s é ruído (41 linhas a mais por
+    // cópia); a que NÃO respondeu já diz o prazo na nota.
+    const lenta = it.v !== 'mudo' && it.ms >= 2000 ? ' · ' + (it.ms / 1000).toFixed(1) + ' s' : '';
+    linhas.push('    ' + (TESTE_MARCA[it.v] || '? ') + it.titulo + (it.nota ? ' — ' + it.nota : '') + lenta);
   }
   return 'Verificação do sistema\n' + linhas.join('\n');
 }
@@ -29937,7 +30032,8 @@ async function renderDiag() {
           + (passada.semCifra || 0) + ' sem cifra no site, '
           + (passada.naoTem || 0) + ' sem página'
           + (passada.ilegivel ? ', ' + passada.ilegivel + ' página(s) que o app não entendeu' : '')
-          + (passada.recusou ? ', ' + passada.recusou + ' recusada(s) pelo site' : '') + '.');
+          + (passada.recusou ? ', ' + passada.recusou + ' recusada(s) pelo site' : '')
+          + cifraSemDesfecho(passada) + '.');
       }
       // OS EXEMPLOS, COM O ENDEREÇO — é isto que permite abrir a página no
       // navegador e ver o que ela é. Um nome sozinho não serve: o que se quer
@@ -40095,8 +40191,15 @@ const OTA_INTENCAO_MAX_MS = 6 * 60 * 60 * 1000;
 // perguntar. O espelho custa uma tela da rede com a página antiga em memória
 // até alguém recarregá-la; a cena e o download custam a projeção e o hinário
 // pela metade, que é outra ordem de grandeza.
+//
+// **A CENA É `haOQueParar()`, E NÃO `cenaNoAr()`** (v1.11.6). Esta começa por
+// `!!currentId`, que sobrevive ao Parar e ao fim natural DE PROPÓSITO (é ele que
+// deixa o ▶ repetir a faixa) — lida aqui, a pergunta nunca voltava a ser boa
+// depois da primeira mídia da sessão, e o Registro dizia *"esperando a cena
+// sair do ar"* sobre um telão vazio. Um aparelho aberto de um sábado ao outro
+// ficava na versão antiga para sempre; só fechar e reabrir o app o soltava.
 function horaRuimParaPerguntar() {
-  return cenaNoAr() || bgWorkPedido();
+  return haOQueParar() || bgWorkPedido();
 }
 
 // Momento ruim para INSTALAR O APK: aqui o espelho volta a contar, porque
@@ -40105,7 +40208,7 @@ function horaRuimParaPerguntar() {
 // v5.242), e é o que o
 // Registro mostra.
 function horaRuimParaAtualizar() {
-  return cenaNoAr() || bgWorkPedido() || espelhoLigado();
+  return haOQueParar() || bgWorkPedido() || espelhoLigado();
 }
 
 // O que está esperando, numa forma só. `null` quando não há nada.
@@ -40185,8 +40288,8 @@ function decidirAtualizacao() {
   if (otaAdiadas.has(lote.chave)) return;
   if (lote.web && otaRecusadas.has(lote.web)) return;
   // A pergunta espera o que acaba (ver `horaRuimParaPerguntar`). Ela não se
-  // perde: a enquete de dez segundos volta, e o rótulo de versão já está
-  // dizendo que há algo esperando.
+  // perde: a enquete de dez segundos volta, e o Registro diz que há um lote
+  // esperando e por quê (o rótulo de versão não marca mais nada).
   if (horaRuimParaPerguntar()) return;
   perguntarAtualizacao(lote);
 }

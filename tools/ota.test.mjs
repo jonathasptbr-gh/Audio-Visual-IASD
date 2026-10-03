@@ -103,6 +103,10 @@ const ponte = ({ web = '', shell = '', bytes = 0, espelho = false, shellName = '
     shell: ${JSON.stringify(shell)}, shellBytes: ${bytes}, shellAtual: ${JSON.stringify(shellName)},
     webNotas: ${JSON.stringify(notas)},
     diag: 'web v5.230 · shell v${shellName} · última busca há 2s: nada novo' };
+  // O estado é EXPOSTO para o bloco 9 o mudar DEPOIS de a mídia entrar no ar:
+  // aberta já com o lote, a página pergunta nos primeiros segundos e a mídia
+  // chegaria depois do diálogo — a ordem que o bloco não quer medir.
+  window.__estadoOta = estado;
   const vazio = { displays: [], listFolder: [], pickDoc: [], ytSearch: [],
     espelhoEstado: { ligado: ${espelho}, endereco: '192.168.0.5:8787', telas: [] },
     espelhoDiag: {}, espelhoCertEstado: { temCert: false },
@@ -249,8 +253,8 @@ const navegador = await abrirNavegador();
 // Sobe a base com a ponte dada e espera o app ficar DE PÉ — o mesmo critério do
 // watchdog do OTA. Sem essa espera, tudo o que vier depois mediria uma página
 // que ainda está montando, e o resultado dependeria da velocidade do runner.
-async function abrir(cfg, intencao) {
-  const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
+async function abrir(cfg, intencao, nav = navegador) {
+  const ctx = await nav.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
   await semRedeExterna(ctx);
   const pg = await ctx.newPage();
   await pg.addInitScript(ponte(cfg));
@@ -786,6 +790,131 @@ try {
     checar(!!d && /recarregam/.test(d.rodape || ''),
       'o rodapé continua dizendo o que vai acontecer');
     await ctx.close();
+  }
+
+  // ── 9. A PERGUNTA ESPERA SÓ O QUE ACABA, E UMA FAIXA ESCOLHIDA NÃO ACABA (v1.11.6) ──
+  //
+  // O RELATO: um segundo aparelho, em uso, ficou na v1.11.3 enquanto a v1.11.4 e a
+  // v1.11.5 já estavam publicadas, e o Registro dizia *"esperando a cena sair do
+  // ar"* com o telão VAZIO. A hora de perguntar lia `cenaNoAr()`, que começa por
+  // `!!currentId` — e o `currentId` sobrevive ao Parar e ao fim natural de
+  // propósito (é ele que deixa o ▶ repetir a faixa). Depois da PRIMEIRA mídia da
+  // sessão a pergunta nunca mais abria; só fechar e reabrir o app a soltava.
+  //
+  // Os blocos acima não pegavam isto: nenhum deles tocava uma mídia. Este toca
+  // de verdade (um WAV semeado no OPFS), e mede nos DOIS sentidos: com a mídia
+  // no ar a pergunta CONTINUA esperando — é o que a regra sempre quis —, e
+  // depois do Parar ou do fim natural ela abre.
+  {
+    // O navegador à parte existe pelo autoplay: sem o gesto, o `<video>` do
+    // Controle não toca, e `midiaNoAr` fica falso por um motivo que não é o
+    // que o bloco mede.
+    const navMidia = await abrirNavegador({ args: ['--autoplay-policy=no-user-gesture-required'] });
+    const SEMEAR = (secs) => `
+      const wav = (secs) => {
+        const sr = 8000, n = sr * secs;
+        const buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf);
+        const wr = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+        wr(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); wr(8, 'WAVEfmt ');
+        dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+        dv.setUint32(24, sr, true); dv.setUint32(28, sr * 2, true);
+        dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+        wr(36, 'data'); dv.setUint32(40, n * 2, true);
+        for (let i = 0; i < n; i++) dv.setInt16(44 + i * 2, Math.sin(i / 20) * 3000, true);
+        return new Blob([buf], { type: 'audio/wav' });
+      };
+      const caminho = 'folders/teste/hino-um.wav';
+      await AVDB.opfsWriteFile(caminho, wav(${secs}));
+      await AVDB.fileAdd({ id: 'hino-um', folder: 'teste', opfsPath: caminho, srcName: 'hino-um',
+        name: 'HINO-UM', type: 'audio/wav', kind: 'audio', size: 1, mtime: 1,
+        thumb: null, blob: null, url: null, addedAt: 1, lyrics: null });
+    `;
+    const tocarFaixa = async (pg, secs) => {
+      await pg.evaluate('(async () => { setAppMode("full");' + SEMEAR(secs) + 'await load(); await send("hino-um"); })()');
+      return esperar(pg, () => !!midiaNoAr, null, PRAZO_CURTO_MS);
+    };
+    // O lote chega DEPOIS da mídia: o estado da ponte muda e o shell empurra,
+    // que é como uma versão nova de fato chega a um aparelho aberto.
+    const chegarLote = async (pg) => {
+      await pg.evaluate(() => { window.__estadoOta.web = '5.999'; });
+      await empurrar(pg, { web: '5.999' });
+    };
+    const aberto = (pg) => pg.evaluate(() => {
+      const d = document.getElementById('appDialog');
+      return !!(d && d.classList.contains('open'));
+    });
+    const linhaDoRegistro = (pg) => pg.evaluate(() => cabecalhoDiag().split('\n').find((l) => /^Atualiza/.test(l)) || '');
+    try {
+      // 9a · TOCANDO espera; PARAR abre.
+      {
+        const { ctx, pg } = await abrir({ web: '' }, null, navMidia);
+        const noAr = await tocarFaixa(pg, 60);
+        checar(noAr === true, '9a · PREMISSA: a faixa entrou no ar (midiaNoAr)', porque(noAr));
+        await chegarLote(pg);
+        checar(await pg.evaluate(() => loteDaAtualizacao() !== null && horaRuimParaPerguntar() === true),
+          '9a · PREMISSA: há um lote esperando e a hora é ruim — a mídia está no ar');
+        checar(!(await aberto(pg)),
+          '9a · com a mídia NO AR a pergunta espera: o telão em uso não leva um modal por cima');
+        checar(/esperando a cena sair do ar/.test(await linhaDoRegistro(pg)),
+          '9a · e o Registro diz o porquê, que aí é verdade');
+        await pg.evaluate(() => stopClear());
+        const parou = await esperar(pg, () => midiaNoAr === false, null, PRAZO_CURTO_MS);
+        checar(parou === true, '9a · PREMISSA: o Parar tirou a mídia do ar', porque(parou));
+        checar(await pg.evaluate(() => !!currentId),
+          '9a · PREMISSA: o `currentId` SOBREVIVE ao Parar — é ele que a pergunta lia, e o ▶ precisa dele');
+        // Uma volta da enquete, sem esperar os dez segundos dela: o que o bloco
+        // mede é a RESPOSTA da decisão, não a cadência do relógio.
+        await pg.evaluate(() => ofertarAtualizacao());
+        checar(await aberto(pg),
+          '9a · depois do PARAR, com o telão vazio, a pergunta ABRE — antes ela esperava para sempre');
+        checar(!/esperando a cena sair do ar/.test(await linhaDoRegistro(pg)),
+          '9a · e o Registro deixa de dizer que espera uma cena que já saiu');
+        await ctx.close();
+      }
+
+      // 9b · o FIM NATURAL tira a mídia do ar do mesmo jeito.
+      {
+        const { ctx, pg } = await abrir({ web: '' }, null, navMidia);
+        const noAr = await tocarFaixa(pg, 2);
+        checar(noAr === true, '9b · PREMISSA: a faixa de 2 s entrou no ar', porque(noAr));
+        await chegarLote(pg);
+        const acabou = await esperar(pg, () => midiaNoAr === false, null, PRAZO_MS);
+        checar(acabou === true, '9b · PREMISSA: a faixa acabou sozinha', porque(acabou));
+        await pg.evaluate(() => ofertarAtualizacao());
+        checar(await aberto(pg),
+          '9b · depois do FIM NATURAL a pergunta abre — era a segunda porta que o `currentId` fechava');
+        await ctx.close();
+      }
+
+      // 9c · "DEIXAR PARA DEPOIS", tocar e parar não deixa o botão apagado para sempre.
+      {
+        const { ctx, pg } = await abrir({ web: '' }, null, navMidia);
+        await chegarLote(pg);
+        const abriu = await esperar(pg, () => {
+          const d = document.getElementById('appDialog');
+          return !!(d && d.classList.contains('open'));
+        }, null, PRAZO_CURTO_MS);
+        checar(abriu === true, '9c · PREMISSA: sem mídia no ar a pergunta abre', porque(abriu));
+        await pg.evaluate(() => document.getElementById('appDialogCancel').click());
+        const noAr = await tocarFaixa(pg, 20);
+        checar(noAr === true, '9c · PREMISSA: a faixa entrou no ar', porque(noAr));
+        await pg.evaluate(() => stopClear());
+        const parou = await esperar(pg, () => midiaNoAr === false, null, PRAZO_CURTO_MS);
+        checar(parou === true, '9c · PREMISSA: o Parar tirou a mídia do ar', porque(parou));
+        const botao = await pg.evaluate(() => {
+          renderOtaRow();
+          const e = document.getElementById('otaRow');
+          return { oculto: e.hidden, apagado: e.disabled, texto: e.textContent };
+        });
+        checar(!botao.oculto && !botao.apagado,
+          '9c · quem adiou e depois parou a mídia encontra o botão TOCÁVEL em Configurações — com o '
+          + '`currentId` vivo ele ficava apagado ("espere a cena") até reabrir o app',
+          JSON.stringify(botao));
+        await ctx.close();
+      }
+    } finally {
+      await navMidia.close();
+    }
   }
 
 } finally {

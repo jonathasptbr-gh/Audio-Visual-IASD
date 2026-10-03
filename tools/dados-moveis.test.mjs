@@ -266,6 +266,45 @@ try {
     window.syncCifrasColecao = window.__syncCifrasReal;
   });
 
+  // =========================================================================
+  // E · A VARREDURA DOS FUNDOS OBEDECE À OPÇÃO TAMBÉM POR DENTRO (v1.11.6)
+  // =========================================================================
+  //
+  // O C2 acima conta CHAMADAS a `syncImagensColecao`, e não o que ela faz: a
+  // função tinha uma guarda própria, `networkType() === 'cellular'` seca, que
+  // desfazia por dentro o que `fundosImpedimento` (a porta, que lê
+  // `redeLiberadaParaBaixar`) liberara por fora. Com a opção LIGADA e em rede
+  // móvel a passada automática passava pela porta, armava o piso de meia hora e
+  // saía sem conferir uma faixa — o contador de chamadas do C2 não vê isso.
+  // Aqui se mede o que a função FEZ: ela só chega a ler a lista de faixas da
+  // coleção (a linha logo depois das guardas) quando as guardas deixaram.
+  const lerFaixas = (opcao, tipo) => pg.evaluate(async ({ opcao, tipo }) => {
+    if (!navigator.connection) Object.defineProperty(navigator, 'connection', { value: {}, configurable: true });
+    Object.defineProperty(navigator.connection, 'type', { value: tipo, configurable: true });
+    await setPermitirDadosMoveis(opcao);
+    const real = window.collSongs;
+    let leu = 0;
+    window.collSongs = function () { leu++; return real.apply(this, arguments); };
+    const coll = { id: 'dm-c1', name: 'Álbum DM C', kind: 'album', source: 'fonte-dm' };
+    await syncImagensColecao(coll, { auto: true });
+    window.collSongs = real;
+    return leu;
+  }, { opcao, tipo });
+
+  const eSemOpcao = await lerFaixas(false, 'cellular');
+  checar(eSemOpcao === 0,
+    'E1 · em rede móvel e SEM a opção a varredura dos fundos nem lê a lista de faixas — a guarda segura, '
+    + 'como sempre', eSemOpcao);
+  const eComOpcao = await lerFaixas(true, 'cellular');
+  checar(eComOpcao > 0,
+    'E2 · em rede móvel e COM a opção ela PASSA e lê a lista — antes a guarda seca desfazia por dentro o '
+    + 'que a porta liberara, e o operador que ligou "Dados móveis" para os fundos (v1.11.0) ficava sem '
+    + 'eles em silêncio', eComOpcao);
+  const eDesconhecida = await lerFaixas(false, 'unknown');
+  checar(eDesconhecida > 0,
+    'E3 · e o tipo `unknown` continua passando sem a opção — ali o app não sabe, e na dúvida baixa '
+    + '(o contorno do `unknown` é a razão de a guarda mirar só o `cellular`)', eDesconhecida);
+
   await pg.evaluate(() => { setPermitirDadosMoveis(false); });
   await rede('wifi');
 } finally {

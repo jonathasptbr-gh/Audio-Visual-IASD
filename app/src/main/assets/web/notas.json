@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.11.6",
+    "itens": [
+      "Corrigido: a atualização do app voltou a aparecer depois de você tocar uma música e parar.",
+      "A Verificação agora mostra quanto tempo demorou cada teste lento e qual servidor não respondeu.",
+      "Com 'Dados móveis' ligado, as fotos de fundo agora também baixam em rede móvel."
+    ]
+  },
+  {
     "versao": "1.11.5",
     "itens": [
       "Corrigido: a checagem 'Os arquivos no disco batem com o catálogo' não trava mais em 'não respondeu'.",
