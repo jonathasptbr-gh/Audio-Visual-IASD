@@ -1422,7 +1422,10 @@ nenhum**, e por isso ficam aqui.
   o `title` dizendo POR QUÊ. **A pergunta é a MESMA que a de quem executa** —
   reescrevê-la faz as duas divergirem no primeiro ajuste —, e ela pede cuidado:
   `cenaNoAr()` parece "há algo no ar" e começa por `!!currentId`, que sobrevive
-  ao stop de propósito. **E o que NÃO se apaga entra na lista escrita ao lado**,
+  ao stop de propósito — **e a pergunta certa tem nome, `haOQueParar()`
+  (v1.11.6)**: lida como `cenaNoAr()`, a pergunta da ATUALIZAÇÃO ficava fechada
+  depois da primeira mídia da sessão, e o aparelho aberto de sábado a sábado
+  nunca a recebia. **E o que NÃO se apaga entra na lista escrita ao lado**,
   senão o lote seguinte "completa" a varredura e leva um recurso junto — hoje
   sobra UM na lista, o ▶ parado, que repete a faixa. **E a lista se ENCOLHE
   quando o operador revoga**: a playlist saiu dela na v1.8.51 e a REPETIÇÃO na
@@ -2611,6 +2614,16 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   aparelho. **A senha é a cadeia de retorno INTEIRA** — quem engole a falha
   devolve o desfecho, e o desfecho sobe até quem escreve a frase. O irmão no
   mesmo despacho (`downloadSerieItem`) sempre acertou, e é o modelo.
+- **UM CONTADOR DE DESFECHOS TEM DE FECHAR A CONTA, e o que não é resposta do
+  outro lado também é desfecho** (v1.11.6). O diário das cifras contava os cinco
+  desfechos que o SITE dá e ignorava a rede que não respondeu, a música adiada
+  por uma mídia e a exceção engolida: uma passada INTEIRA sem rede saía como
+  *"968 tentadas, 0 achadas, 0 sem cifra, 0 sem página"* — a mesma linha de uma
+  passada que nem rodou, e cada uma sobrescrevia a anterior com zeros. A soma
+  dos desfechos com `tentadas` tem de fechar sem sobra; quando não fecha, o
+  resto é impresso, nunca calado. **E uma linha que mede TEMPO imprime o tempo
+  da que respondeu devagar**: *"OK"* e *"OK, mas levou 8 s"* são a diferença
+  entre rede boa e rede que quase não respondeu.
 - **UM CAMPO DE ENDEREÇO DE TERCEIRO ACEITA AS DUAS FORMAS, E TRAVA O HOST**
   (v1.9.14). O LouvorJA devolvia CAMINHO em `url_music`/`url_image` e passou a
   devolver a URL INTEIRA; a concatenação seca de `fileUrl` dobrou o prefixo, e
@@ -2970,31 +2983,36 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.11.5 · APK v1.11.3** · `SHELL_VERSION` **77** ·
+**Versão atual: base web v1.11.6 · APK v1.11.3** · `SHELL_VERSION` **77** ·
 bundle com `minShell: 77` e **SEM `shellTag`** — o shell 77 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Nada em
 `java/`, `res/` ou no manifesto muda neste lote, e o APK v1.11.3 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO** — a v1.11.5 corrige `opfsTodosOsArquivos`
-(`shared/db.js`), a varredura por trás da checagem "Os arquivos no disco
-batem com o catálogo" (Verificação do Sistema, área "A biblioteca"). O
-operador mandou um Registro perguntando por "falhas na verificação"; na
-contagem (`33 ok · 0 com falha · 1 sem resposta · 7 não se aplica`) não havia
-falha nenhuma — só essa linha em `não respondeu em 6 s`, que a v1.10.5 já
-tinha visto uma vez e tentado consertar com um TETO de 4000 ENTRADAS na
-varredura. **Contar arquivos não prevê TEMPO**: 4000 `getFile()` custam
-menos de 6 s num disco e mais noutro, e no mesmo aparelho o teto de contagem
-estourou de novo. `opfsTodosOsArquivos` ganha um segundo parâmetro,
-`prazoMs` — uma trava de RELÓGIO REAL, independente da de contagem —, e a
-checagem passa as duas (`TETO_DISCO` e `PRAZO_DISCO_MS`, ambos 4000): a
-varredura para na que bater primeiro. Os outros dois chamadores (coletor do
-pacote, backfill de ponteiros) não passam `prazoMs` e continuam sem pressa,
-como antes — o parâmetro é opcional e por omissão não trava nada. Oráculo:
-bloco O5 em `verificacao-do-sistema.test.mjs`, determinístico por construção
-(`prazoMs: 0` vence sempre no primeiro arquivo, porque o tempo decorrido
-nunca é negativo), com QUATRO REVERSÕES MEDIDAS. **Conferir a Release é
-parte de decidir** — um lote só de web herda o `shellTag` quando o lote de
-shell anterior ainda não tem Release, e não herda quando tem.
+**O DEGRAU É CORREÇÃO, e o defeito que ele fecha é o que não tem sintoma:** a
+pergunta da atualização lia `cenaNoAr()`, que começa por `!!currentId` — e o
+`currentId` sobrevive ao Parar e ao fim natural de propósito (o ▶ repete a
+faixa). Depois da PRIMEIRA mídia da sessão a hora de perguntar ficava ruim
+para sempre, com o telão vazio, e um aparelho aberto de sábado a sábado ficava
+na versão antiga (o Registro dizia *"esperando a cena sair do ar"* sobre um
+palco vazio). A pergunta certa tem nome, `haOQueParar()` =
+`midiaNoAr || cenaDeRoteiroNoAr()`, e é a que o Parar já lia; **`cenaNoAr()`
+só serve onde o `currentId` é a pergunta**. Junto: a guarda de rede móvel dos
+fundos obedece à opção "Dados móveis" (era `cellular` seca e desfazia por
+dentro o que `fundosImpedimento` liberava), a checagem das fotos nomeia o salto
+que não respondeu (catálogo × foto) e o Registro imprime o tempo da linha lenta
+que respondeu, e o diário das cifras conta `semRede`/`adiadas`/`excecoes` (uma
+passada inteira sem rede saía como zeros). **EM ABERTO, decisão do operador:**
+o app trata o hotspot de outro celular como Wi-Fi comum — não há tratamento de
+rede tarifada em lugar nenhum (ver `docs/HISTORICO.md`, v1.11.6). **Conferir a
+Release é parte de decidir** — um lote só de web herda o `shellTag` quando o
+lote de shell anterior ainda não tem Release, e não herda quando tem.
+
+> **A v1.11.5 corrigiu `opfsTodosOsArquivos`** (`shared/db.js`): o teto de 4000
+> ENTRADAS da v1.10.5 não é teto de TEMPO, e a checagem "Os arquivos no disco
+> batem com o catálogo" voltou a dar *"não respondeu em 6 s"*. Ganhou o segundo
+> parâmetro `prazoMs`, uma trava de RELÓGIO REAL independente da de contagem; a
+> varredura para na que bater primeiro, e os outros chamadores (sem `prazoMs`)
+> seguem sem pressa. Lote só de web.
 
 > **A v1.11.4 corrige `deleteCollection`**: excluir o baixado de uma coleção
 > gravava `{ indexSyncedAt: 0, songs: [] }`, apagando o CATÁLOGO (o que a

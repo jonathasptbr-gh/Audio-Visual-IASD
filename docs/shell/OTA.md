@@ -236,6 +236,12 @@ cobre a `Presentation`.
   supressão permanente. **Instalar o APK espera os três**
   (`horaRuimParaAtualizar`), porque derruba o app e leva o servidor da rede
   junto.
+  **"Cena" é `haOQueParar()` (`midiaNoAr || cenaDeRoteiroNoAr()`), nunca
+  `cenaNoAr()`** (v1.11.6): este começa por `!!currentId`, que sobrevive ao Parar
+  e ao fim natural de propósito (o ▶ repete a faixa), e lido aqui deixava a
+  pergunta fechada depois da PRIMEIRA mídia da sessão — um aparelho aberto de
+  sábado a sábado ficava na versão antiga, e o Registro dizia *"esperando a cena
+  sair do ar"* sobre o telão vazio. Só fechar e reabrir o app o soltava.
 - **"Depois" cala o diálogo, não o FATO.** O `#otaRow` de Configurações passa a
   dizer por extenso o que espera e aplica no toque.
 - **Toque fora do diálogo NÃO responde por ele** (`appDialogFixo`): um toque em
@@ -449,7 +455,9 @@ O job `web-ota` (todo push em `main`) empacota `assets/web/` num
   **espelho não segura**: ele fica ligado o culto inteiro, e incluí-lo tornava a
   supressão permanente (foi por isso que a v5.151 desistiu de perguntar).
   **Instalar o APK espera os três** (`horaRuimParaAtualizar`), porque derruba o
-  app e leva o servidor da rede junto.
+  app e leva o servidor da rede junto. **A cena é `haOQueParar()`, nunca
+  `cenaNoAr()`** (v1.11.6): o `!!currentId` do segundo sobrevive ao Parar, e a
+  pergunta nunca voltava a abrir depois da primeira mídia da sessão.
 - **"Depois" cala o diálogo, não o FATO** — e cala só ESTA sessão. `otaAdiadas`
   é um `Set` em memória que morre com a página: minimizar mantém o adiamento (é
   a mesma sessão), FECHAR e reabrir o desfaz, porque o `onCreate` reconstrói o

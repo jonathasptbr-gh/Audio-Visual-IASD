@@ -529,6 +529,75 @@ try {
   checar(rede.reperguntou > 0 && rede.estado2 === 'ok',
     'com a rede de volta, a mesma música repergunta e acha a folha', rede);
 
+  // ---- UMA PASSADA SEM RESPOSTA DIZ QUE NÃO HOUVE RESPOSTA (v1.11.6) -------
+  //
+  // O RELATO: o Registro de um aparelho com internet por hotspot 4G trazia, para
+  // TODAS as coleções, *"N tentada(s), 0 achada(s), 0 sem cifra no site, 0 sem
+  // página"* — 968 músicas e nenhuma resposta do site. O diário contava os
+  // cinco desfechos que o site dá e IGNORAVA os que não são dele: o `sem-rede`
+  // (ninguém respondeu), a música adiada porque uma mídia entrou no ar, e a
+  // exceção que o `catch` descarta. Uma passada INTEIRA sem rede e uma passada
+  // que nem rodou saíam como a mesma linha de zeros, e quem a lia a distância
+  // não tinha como saber que o problema era a ausência de resposta.
+  const semResposta = await pg.evaluate(async () => {
+    await AVDB.setState('cifras:hymnal-2022', {});
+    cifraDiscoColl = ''; cifraDisco = null; cifraSyncRodando = false;
+    await AVDB.setState('cifras-passada:hymnal-2022', null);
+    const nomes = Array.from({ length: 10 }, (_, i) => '00' + (i + 1) + '. Hino Sem Rede ' + (i + 1));
+    // `fileIdFull`: o bloco do Registro só percorre a coleção que tem música baixada.
+    collState['hymnal-2022'] = { songs: nomes.map((n, i) => ({ id_music: 'h' + i, name: n, fileIdFull: 'x' + i })) };
+    window.__rota = null;                      // a ponte responde status 0: ninguém do outro lado
+    const coll = allCollections().find((c) => c.id === 'hymnal-2022');
+    await syncCifrasColecao(coll);
+    const diario = (await AVDB.getState('cifras-passada:hymnal-2022')) || {};
+    await renderDiag();
+    return { diario, linha: diagTexto.split('\n').find((l) => /última passada/.test(l)) || '' };
+  });
+  checar(semResposta.diario.tentadas === 10 && semResposta.diario.ok === 0
+      && semResposta.diario.semCifra === 0 && semResposta.diario.naoTem === 0
+      && semResposta.diario.semRede === 10,
+    'a passada em que NINGUÉM respondeu grava a causa — dez tentadas, nenhuma resposta, dez SEM REDE: '
+    + 'sem o contador, ela era indistinguível de uma passada que não rodou', semResposta.diario);
+  checar(/10 sem resposta do site \(rede\)/.test(semResposta.linha),
+    'e o Registro DIZ isso na própria linha da passada — a linha de zeros sozinha parecia um site '
+    + 'que respondeu "nada"', semResposta.linha);
+
+  // O DIÁRIO DE ANTES DESTE LOTE (sem `semRede`) também ganha a conta: tentadas
+  // menos tudo o que teve desfecho. Só vale de `ilegivel` em diante (v1.10.8),
+  // que é quando a soma passou a fechar.
+  const diarioAntigo = await pg.evaluate(async () => {
+    await AVDB.setState('cifras-passada:hymnal-2022', {
+      v: 1, em: Date.now(), tentadas: 10, ok: 2, naoTem: 1, semCifra: 3, ilegivel: 0, recusou: 0, exemplos: [],
+    });
+    await renderDiag();
+    return diagTexto.split('\n').find((l) => /última passada/.test(l)) || '';
+  });
+  checar(/4 sem desfecho \(rede, mídia no ar ou erro/.test(diarioAntigo),
+    'o diário gravado ANTES do lote mostra o resto da conta (10 − 2 − 1 − 3 = 4) — o aparelho do relato '
+    + 'só ia mostrar a causa depois de rodar uma passada nova', diarioAntigo);
+  checar(!/sem resposta do site/.test(diarioAntigo),
+    'e sem inventar a causa: o diário antigo não sabe se foi rede, mídia ou erro', diarioAntigo);
+
+  // A passada ADIADA POR MÍDIA: a cena entra no meio e as músicas que ainda
+  // não tinham começado saem sem desfecho.
+  const adiada = await pg.evaluate(async () => {
+    await AVDB.setState('cifras:hymnal-2022', {});
+    cifraDiscoColl = ''; cifraDisco = null; cifraSyncRodando = false;
+    await AVDB.setState('cifras-passada:hymnal-2022', null);
+    const nomes = Array.from({ length: 14 }, (_, i) => '00' + (i + 1) + '. Hino Adiado ' + (i + 1));
+    collState['hymnal-2022'] = { songs: nomes.map((n, i) => ({ id_music: 'h' + i, name: n, fileIdFull: 'x' + i })) };
+    // A primeira requisição põe uma mídia no ar: quem ainda não começou cede a vez.
+    window.__rota = () => { midiaNoAr = true; return { status: 0, html: '' }; };
+    const coll = allCollections().find((c) => c.id === 'hymnal-2022');
+    await syncCifrasColecao(coll);
+    window.__rota = null;
+    midiaNoAr = false;
+    return (await AVDB.getState('cifras-passada:hymnal-2022')) || {};
+  });
+  checar(adiada.adiadas > 0 && adiada.adiadas + adiada.semRede === adiada.tentadas,
+    'a passada em que uma mídia entrou no meio conta as ADIADAS à parte das sem rede — e as duas somam '
+    + 'as tentadas, sem sobrar nem faltar uma música', adiada);
+
 } finally {
   await navegador.close();
   servidor.close();
