@@ -57,7 +57,7 @@ try {
     () => window.AVDB && window.createStage && typeof window.__avBack === 'function',
     null, { timeout: 20000 },
   );
-  // O app ABRE no simplificado (ver `storedAppMode`), e as folhas de destino são
+  // O app ABRE SEMPRE no simplificado, e as folhas de destino são
   // do avançado — é lá que existem Cronograma e playlist para escolher.
   await pg.evaluate(() => setAppMode('full'));
 

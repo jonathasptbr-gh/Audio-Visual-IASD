@@ -24,7 +24,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, esperar, porque, checar, falhas, lerPng, pixel } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, esperar, porque, checar, falhas, lerPng, pixel, comModoAvancado } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 
@@ -368,27 +368,25 @@ try {
     'e o GIRO acende A 0° — o estado em que ele era o único apagado da grade',
     JSON.stringify(giro));
 
-  // ---- E A ORDEM É POR ASSUNTO: a projeção em cima, o app na base (v1.7.6) ----
+  // ---- E A ORDEM É POR ASSUNTO: o que se ajusta em cima, o app na base ----
   // *"reordene os botões: compartilhar, exportar e importar devem ser os tres
-  // itens da base"*. A asserção é sobre a ORDEM DO DOCUMENTO, que numa grade
-  // row-major é a ordem que se lê — e não sobre a posição em pixels, que
-  // mediria a largura da tela junto.
+  // itens da base"* (v1.7.6) — hoje Compartilhar e Transferir, porque exportar
+  // e importar viraram um tile só (v1.11.7). A asserção é sobre a ORDEM DO
+  // DOCUMENTO, que numa grade row-major é a ordem que se lê — e não sobre a
+  // posição em pixels, que mediria a largura da tela junto.
   //
-  // A ORDEM ANTERIOR ERA POR NATUREZA (os sempre-acesos no topo, v1.4.40), e
-  // ela deixou de existir no mesmo lote que este pedido: nenhum tile apaga
-  // mais, então não há duas naturezas de LUZ para ordenar. O que sobra é o
-  // ASSUNTO — seis preferências da PROJEÇÃO, e as três coisas que se fazem com
-  // o APP fora dela, numa fileira inteira e sozinha. O terceiro grupo (o
-  // DIAGNÓSTICO, v1.10.0) entrou ENTRE os dois — ver o comentário ao lado da
-  // lista.
+  // O que sobra é o ASSUNTO — as preferências de ajuste (o tema, a janela da
+  // Tela, o histórico, a saída de áudio, os dados móveis), o DIAGNÓSTICO (a
+  // Verificação, v1.10.0) e as duas coisas que se fazem com o APP fora da
+  // projeção, numa fileira inteira e sozinha. O que mora DENTRO das janelas da
+  // Tela e do Transferir está no `configuracoes-janelas.test.mjs`.
   //
-  // Os três da base são `hidden` no navegador (a ponte não existe aqui) e por
-  // isso continuam na ORDEM DO DOCUMENTO, que é o que esta asserção lê: um
-  // `hidden` sai da tela, não da árvore.
+  // Os da base são `hidden` no navegador (a ponte não existe aqui) e por isso
+  // continuam na ORDEM DO DOCUMENTO, que é o que esta asserção lê: um `hidden`
+  // sai da tela, não da árvore.
   const ordem = await pg.$eval('.qs-grade',
     (g) => [...g.children].map((e) => e.id));
-  const projecao = ['temaTile', 'fitTile', 'wallTile', 'histOpenRow',
-    'lyricsBgTile', 'rotBtn', 'saidaAudioTile', 'economiaTile', 'dadosMoveisTile'];
+  const projecao = ['temaTile', 'telaTile', 'histOpenRow', 'saidaAudioTile', 'dadosMoveisTile'];
   // ===== O TERCEIRO GRUPO É DE UM TILE SÓ, E ELE TEM NOME (v1.10.0) =====
   //
   // A VERIFICAÇÃO não é preferência da PROJEÇÃO nem ação sobre o APP: ela é
@@ -397,20 +395,16 @@ try {
   // asserção existir que a pergunta teve de ser respondida em vez de resolvida
   // por acomodação.
   //
-  // E o LUGAR dela entre os dois não é gosto, é GEOMETRIA — a mesma que a
-  // v1.9.9 já tinha concedido não caber em aritmética (ver a nota logo
-  // abaixo): o que importa não é a conta de fileiras cheias, é que NENHUMA
-  // fileira mistura uma preferência com uma ação do aparelho. Testada com
-  // "Dados móveis" (v1.11.0) — a NONA preferência —, as nove de cima mais o
-  // diagnóstico já não fecham mais em três fileiras exatas (são dez, não
-  // nove); o que continua valendo é `#shareAppTile` forçando fileira nova por
-  // conta própria (`grid-column: 1`), então o aparelho nunca herda a sobra de
-  // quem vem antes. Colocar o diagnóstico DEPOIS do aparelho, em vez de antes,
-  // seria pior: o grupo do aparelho ganharia um QUARTO item, e esse sim
-  // cairia sozinho numa fileira à parte — o mesmo defeito, só que colado à
-  // fileira que a v1.7.6 pediu para ficar limpa.
+  // E o LUGAR dela entre os dois não é gosto, é GEOMETRIA: o que importa não é
+  // a conta de fileiras cheias, é que NENHUMA fileira mistura uma preferência
+  // com uma ação do aparelho — quem garante é `#shareAppTile` forçando fileira
+  // nova por conta própria (`grid-column: 1`), então o aparelho nunca herda a
+  // sobra de quem vem antes. Colocar o diagnóstico DEPOIS do aparelho, em vez
+  // de antes, seria pior: o grupo do aparelho ganharia um TERCEIRO item, e
+  // esse cairia sozinho numa fileira à parte — colado à fileira que a v1.7.6
+  // pediu para ficar limpa.
   const diagnostico = ['testeTile'];
-  const aparelho = ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile'];
+  const aparelho = ['shareAppTile', 'pacoteTile'];
   checar(JSON.stringify(ordem) === JSON.stringify(projecao.concat(diagnostico, aparelho)),
     'as ações do APARELHO são as ÚLTIMAS da grade, as da PROJEÇÃO as primeiras, e o DIAGNÓSTICO '
     + 'entre as duas — ele não muda nada, só pergunta',
@@ -426,8 +420,8 @@ try {
   //
   // A ARITMÉTICA NÃO CONSEGUE EXPRESSAR ISSO, e reescrevê-la aqui seria pior que
   // removê-la: a pergunta é GEOMÉTRICA (nenhuma fileira mistura uma preferência
-  // com uma ação do aparelho), e **os três do aparelho são `hidden` neste
-  // contexto** — sem ponte não há caixa a medir. Ela mora onde eles existem, no
+  // com uma ação do aparelho), e **os do aparelho são `hidden` neste contexto**
+  // — sem ponte não há caixa a medir. Ela mora onde eles existem, no
   // `saida-de-audio-e-economia.test.mjs` (blocos A8/A9, pelo TOPO de cada caixa).
   // Fica a de cima, que é a que este arquivo consegue responder.
 
@@ -724,6 +718,10 @@ try {
   for (const [abrir, sel, nome] of [
     [() => openPlPopup(), '#plPopup', 'a playlist'],
     [() => openHistPopup(), '#histPopup', 'o histórico'],
+    // As duas janelas de Configurações (v1.11.7) sobem da base como o Histórico,
+    // de onde o botão que as abre já não importa: elas são folhas de baixo.
+    [() => openTelaPopup(), '#telaPopup', 'a janela da Tela'],
+    [() => openPacotePopup(), '#pacotePopup', 'a janela do Transferir'],
   ]) {
     await pg.evaluate(abrir);
     const g = await gaveta(sel);
@@ -5732,6 +5730,11 @@ try {
 // existe quando o ouvinte é posto.
 try {
   const pg2 = await ctx.newPage();
+  // O modo vale pela SESSÃO (`sessionStorage`, por aba): esta página é uma aba
+  // nova e nasceria no Modo Fácil. Este bloco mede a janela do avançado, então
+  // DECLARA de que modo parte — antes ele o herdava, calado, do `localStorage`
+  // que o `setAppMode` dos blocos anteriores deixava no contexto.
+  await comModoAvancado(pg2);
   await pg2.addInitScript(() => {
     window.__libTransicoes = 0;
     document.addEventListener('transitionrun', (e) => {

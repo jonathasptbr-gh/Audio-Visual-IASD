@@ -1256,8 +1256,8 @@ O que vale sem abrir o capítulo:
 
 ## A abertura por trás dos panos
 
-O app piscava ao abrir: o tema escuro aparecia antes do claro, o Modo Fácil
-antes do avançado, a lista vazia antes do Cronograma. **O lado nativo já estava
+O app piscava ao abrir: o tema escuro aparecia antes do claro, a lista vazia
+antes do Cronograma. **O lado nativo já estava
 certo** — `windowBackground`, a raiz da Activity e o próprio WebView nascem na
 cor do tema guardado —; o que piscava era o DOCUMENTO, entre o primeiro quadro e
 a última linha do `init()`.
@@ -1781,7 +1781,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Estado do telão (Configurações) | atalho `window.open('../display/')` | **indicador ao vivo**, desabilitado como botão |
 | Botão de cast da preview | oculto | `AVNative.openCast()` → seletor de espelhamento (ver abaixo) |
 | **Escolher a saída de áudio** | **não existe** — o navegador não tem como abrir tela de sistema nenhuma | tile **"Saída de áudio"** em Configurações (shell 73): `abrirSaidaDeAudio` → o seletor do SISTEMA. **ELE ABRE, NÃO ROTEIA**, e o `title` diz isso: escolher o aparelho de saída é `@SystemApi` atrás de `MODIFY_AUDIO_ROUTING` (`signature|privileged|role`) — ver o espelhamento, que já levantou isso. Pedido do operador **sabendo** que a notificação de mídia já traz o seletor (*"o que eu quero é um atalho mesmo no próprio app, nas configurações, assim fica claro as opções"*): a porta que existe é invisível para quem não a conhece. A cadeia é a do `pickCastIntent` — do específico ao genérico, alvo não documentado — e difere dele em DOIS pontos: o último candidato é constante PÚBLICA (`ACTION_SOUND_SETTINGS`), então ela tem PISO; e ela **tenta TODOS**, em vez de escolher um e desistir, porque um candidato que RESOLVA mas RECUSE derrubaria a cadeia inteira. **O primeiro deles é um BROADCAST** (o diálogo do SystemUI, a lista que o ícone da notificação de mídia abre) — a v1.9.9 só sabia `startActivity` e por isso caía no painel de volume. **E ELE É CONFERIDO PELO FOCO DA JANELA, 800 ms depois** (v1.9.11): `sendBroadcast` não devolve desfecho, quem recebe pode ENGOLIR em silêncio, e foi o que aconteceu — a existência do receptor responde *"há quem receba?"*, não *"a janela abriu?"*. Com o foco ainda no app, a cadeia segue do candidato seguinte, e o tile deixa de poder ficar mudo. **E O ENGOLIDO É LEMBRADO POR `versionCode`** (v1.9.12): onde o desfecho já foi medido a espera é pura, e o operador a pagava em todo toque — um APK novo re-mede UMA vez, senão um aparelho que passasse a permitir ficaria excluído para sempre. O bloqueio sai no Registro em DUAS linhas (a do candidato e a do último toque), senão *"o app deixou de tentar"* seria estado invisível. O alvo escolhido vai ao REGISTRO e só lá — e desde a v1.9.10 a **CADEIA INTEIRA** vai junto, um candidato por linha com a ação, o tipo e o componente (ou *"não existe neste aparelho"*): saber qual PEGOU não é a mesma pergunta que quais EXISTEM, e sem a segunda um aparelho que abre a tela errada não é diagnosticável a distância. **E com o espelhamento no ar ele não resolve o vazamento**: o áudio do Miracast é `REMOTE_SUBMIX`, a mistura do aparelho inteiro, e a combinação não foi medida em aparelho |
-| **Desligar a imagem da prévia** | idem (é `assets/web/` inteira) | tile **"Imagem da prévia"** (v1.9.9): a economia de processamento de um celular fraco. Só a DECODIFICAÇÃO para (`stage.setSuspenso`, o `pause()` dentro do `play()` — um `play` chega por caminhos que o Controle não enumera); tempo, barra, letra, transporte, `MediaSession`, o comando ao telão e o avanço da fila ficam INTEIROS. **A escolha é guardada, o veredito é DERIVADO** (`economiaAtiva` = a marcação **e** `haDestinoDeProjecao()` **e** não estar em tela cheia): sem destino a prévia É a projeção e o EFEITO não entra em vigor, mas o tile continua CLICÁVEL (v1.10.10, revogando o `disabled` da v1.8.50 para este tile — pedido do operador: *"é uma opção selecionável desde sempre"*) — a marcação grava pré-armada, o `title` diz que ela só vale com TV ou computador conectado, e perder a TV religa a imagem sozinho e reconectar volta a poupar. **A TELA CHEIA SUSPENDE** — ali o operador está OLHANDO para ela. Os três caminhos do avanço da fila seguem cobertos e nenhum é a prévia: `media-ended` do telão, a rede de segurança do `tela-status` (v1.8.48), e sem os dois a economia não está ativa |
+| **Recolher a prévia** | idem (é `assets/web/` inteira) | **uma SETA no topo da própria prévia** (v1.11.7; era o tile "Imagem da prévia" de Configurações, v1.9.9) que recolhe a prévia na menor altura em que os botões dela cabem sem apertar — 38 px, ou 72 com o selo de camadas ou o giro à vista, MEDIDA pelo navegador (grade em fluxo, nenhum número escrito) — e carrega junto a economia de processamento de um celular fraco. **TRÊS coisas, e as duas últimas não são a mesma régua**: a MARCAÇÃO (`economiaPreview`, do banco), a GEOMETRIA (`pv-recolhida`, que segue a marcação no ato, também sem TV) e o VEREDITO da decodificação (`economiaAtiva` = a marcação **e** `haDestinoDeProjecao()` **e** não estar em tela cheia, que é o que pára o `<video>` pelo `stage.setSuspenso`). Sem destino a prévia É a projeção: a decodificação não pára e a seta continua clicável (v1.10.10) — o `title` diz que só vale com TV ou computador conectado. **O CSS recolhido fica de fora da TELA CHEIA e do CARTÃO DE ESPERA** (`:not(:fullscreen)`, `:not(:has(.pv-busy.on))`): sem a primeira o telão em tela cheia sem TV fica em branco, e o cartão (a única porta de cancelar um download) não cabe em 38 px. **No Modo Fácil a seta fica no canto superior esquerdo** — ao centro ela colidia com o selo e o giro numa prévia de 60 px. **No avançado ela SAI da frente do cartão** (`visibility: hidden` enquanto `.pv-busy.on`: no centro do topo ela cobria o texto do download), e o cartão sai SEM fade quando a prévia volta a recolher. **Limite aceito:** com celular de 320–360 px + TV 21:9 + giro/selo à vista, recolher no Modo Fácil pode AUMENTAR a prévia (72 px contra 60/68) — a expandida já espreme os botões nesse par. Tempo, barra, letra, transporte, `MediaSession`, o comando ao telão e o avanço da fila ficam INTEIROS; os três caminhos do avanço seguem cobertos e nenhum é a prévia (`media-ended` do telão, a rede de segurança do `tela-status` da v1.8.48, e sem os dois a economia não está ativa) |
 | Retomada do telão ao reconectar | idem (`resendSceneToDisplay`) | **só reenvia o que ESTAVA no ar** — a pergunta é `midiaNoAr`, nunca `currentId` (que sobrevive ao stop de propósito, para o ▶ repetir a faixa). Telão vazio também é estado: restaurá-lo é não mandar nada |
 | Girar a mídia | idem (comando `rotate`) | tile **"Girar no telão"** em Configurações, 90° por toque — o nome diz ONDE, porque "Girar" sozinho se lê como o giro da INTERFACE (v1.4.41). O motor TROCA O EIXO da caixa antes de girar, para o `object-fit` medir o retângulo em que a mídia vai de fato aparecer |
 | Som da preview | com a janela do Display aberta é muda; sem ela toca (sujeito a autoplay) | **sem tela nenhuma conectada, o som sai DESTE aparelho** (`acertarSaidaDeAudio`). No avançado é DERIVADO da conexão (`simpleDisplay` = TV **ou** tela da rede); no Modo Fácil é ESCOLHA (`tocarNoCelular`, o "Tocar neste celular" da folha de conexão), porque lá o padrão é bloquear — escolha de IDA, sem persistência, que se rearma ao fechar o app, ao passar pelo avançado ou quando uma tela entra. Com qualquer tela conectada este aparelho fica mudo nos dois modos — os WebViews dividem o processo e a saída de áudio, e a preview roubava o foco do player do telão. **E PERDER a projeção com mídia no ar PAUSA a mídia** (v1.8.50): a promessa acima vale para quem ABRE o app sem tela, não para quem PERDE a tela com o louvor no ar — o estado final é o mesmo, a intenção não. A régua é a PERDA (escrita como estado, ela pausaria o ensaio de quem nunca conectou nada) e é a perda de um DESTINO — `haDestinoDeProjecao()`, que lê a tela LISTADA e as SESSÕES de tela da rede, e **não** `algumaTelaConectada()`, que responde pela `Presentation`: com aquela, a oscilação do dongle pausaria o louvor a cada piscada do Miracast, que é uma interrupção de culto no lugar de um vazamento de segundos |
@@ -1805,9 +1805,9 @@ que ela é desenvolvida e testada fora do aparelho.
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
 | Download minimizado | a aba continua baixando | **foreground service + wake lock**; sem isso o processo é congelado |
-| **Levar a biblioteca para outro aparelho** | **não existe** (não há SAF nem canal de bytes: um `<a download>` sobre um Blob de gigabytes não é caminho) | **um arquivo `.avpkg`** (shell 63) — ver a seção do recurso. Exportar abre direto o SELETOR DE COMPARTILHAMENTO (shell 67), que é por onde ele de fato atravessa (Quick Share): o pacote é escrito no armazenamento próprio e oferecido ali. Não cabendo — a conta é `espaco − bytes > 512 MB`, feita pelo WEB —, ele volta ao "Salvar como" do sistema, que é o caminho do cartão. Nos dois, os bytes vão pelo canal `__avPacote`; importar entra por `pickDoc` e lê o arquivo por JANELAS (`/saf/<token>?r=<ini>-<fim>`, shell 64) — nunca inteiro, porque o caminho `/saf/` tem teto de 2 GB e um `resp.blob()` de quinze gigabytes não cabe em lugar nenhum. **Só ACRESCENTA**: nada que já esteja no aparelho é substituído |
+| **Levar a biblioteca para outro aparelho** | **não existe** (não há SAF nem canal de bytes: um `<a download>` sobre um Blob de gigabytes não é caminho) | **um arquivo `.avpkg`** (shell 63) — ver a seção do recurso. **Exportar e Importar são UM tile, "Transferir"** (v1.11.7), que abre uma janela com os dois botões; a listagem da biblioteca atual vem DENTRO de cada caminho, antes de a ação começar (exportar: a folha "O que levar"; importar: a MESMA folha em leitura, com frase de estado vazio — o aparelho novo é o caso de uso), e o tile da grade é o SINAL do trabalho com a janela fechada (aro, "pronto para enviar"). Exportar abre direto o SELETOR DE COMPARTILHAMENTO (shell 67), que é por onde ele de fato atravessa (Quick Share): o pacote é escrito no armazenamento próprio e oferecido ali. Não cabendo — a conta é `espaco − bytes > 512 MB`, feita pelo WEB —, ele volta ao "Salvar como" do sistema, que é o caminho do cartão. Nos dois, os bytes vão pelo canal `__avPacote`; importar entra por `pickDoc` e lê o arquivo por JANELAS (`/saf/<token>?r=<ini>-<fim>`, shell 64) — nunca inteiro, porque o caminho `/saf/` tem teto de 2 GB e um `resp.blob()` de quinze gigabytes não cabe em lugar nenhum. **Só ACRESCENTA**: nada que já esteja no aparelho é substituído |
 | **Compartilhar o link do app** | `navigator.share`, onde o navegador o tiver | **`compartilharTexto`** (shell 63) → `ACTION_SEND` + `createChooser`. O WebView do Android **não** implementa a Web Share API, então este era o único caminho — e sem ele não havia, de dentro do app, forma nenhuma de passá-lo adiante |
-| Abertura do app | a página pisca igual, e ninguém tem o que fazer a respeito | **a CORTINA** (`#splash`) mais o `data-tema` escrito no `<head>` antes do primeiro quadro. O prazo que a levanta mora no mesmo script inline, e não no `controle.js`: um bundle que nem chega a ser parseado tem de terminar com o app À VISTA |
+| Abertura do app | a página pisca igual, e ninguém tem o que fazer a respeito | **a CORTINA** (`#splash`) mais o `data-tema` escrito no `<head>` antes do primeiro quadro. O prazo que a levanta mora no mesmo script inline, e não no `controle.js`: um bundle que nem chega a ser parseado tem de terminar com o app À VISTA. **E ELA É SEMPRE NO MODO FÁCIL** (v1.11.7, pedido do operador: *"sempre iniciar o app no modo simples"*): o modo mora em `sessionStorage`, que atravessa só a recarga do documento (a atualização aceita, o `location.reload()` da importação) e morre com o app. Consequência dita: um compartilhamento recebido com o app FECHADO cai no ramo do simplificado (link do YouTube vira "tocar agora" sem pergunta; arquivos vão para `avulsos` e projetam) |
 | Atualização da base web | recarregar a página | **OTA** |
 | Contagem de uso | **não existe** — nada é contado num navegador, e não há chave nenhuma a desenhar | **o farol** (shell 58): uma busca por dia a um asset de contagem, agregada e sem id. Pega carona na ronda do OTA. **SEMPRE ATIVO desde a v1.4.42**: a chave de exclusão saiu (com o `farolContar` da ponte), e o que sobra é o BUILD DEBUGGÁVEL, que acende num contador separado por construção. O preço está no painel — a página de alcance avisa que os números incluem o uso próprio |
 | Atualização do APP | — | **o app baixa e instala**; o diálogo do Android é obrigatório e está certo que seja |
@@ -2091,6 +2091,16 @@ herdados por cópia em vez de escolhidos.
   `ERR_MODULE_NOT_FOUND` que nada no arquivo explica.
 - **`esperar(pg, fn)` e `esperarDb(pg, fn)`** — ver abaixo. `porque(r)` devolve a
   frase do prazo para o terceiro argumento do `checar`.
+- **`comTema(ctx, tema)` e `comModoAvancado(alvo)`** — os dois DECLARAM de que
+  estado o oráculo parte, antes da primeira linha do app: o app abre sempre
+  escuro-ou-o-guardado e SEMPRE no Modo Fácil, e quem mede uma tela do avançado
+  diz que parte dele (escreve `sessionStorage` por `addInitScript`; `alvo` é um
+  contexto ou uma página — o `sessionStorage` é por ABA). Ligar o avançado por
+  `evaluate` depois da carga é uma corrida contra o `setAppMode(appMode)` do
+  `init()`. O CONTRATO do modo (a chave legada ignorada, gravação só na sessão, a
+  recarga atravessa, o app novo nasce simples) é o bloco D do
+  `abertura-e-transferencia`, porque os onze que o declaram passariam também num
+  app que voltasse a lembrar o modo.
 - **Viewport e `args` são PARÂMETRO**, com o padrão do projeto (430×900). Quem
   quer outro o escreve, e aí está dito que foi escolha.
 
@@ -2118,7 +2128,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **95** e os de Node puro **22** — juntos, os 117. MEDIDO com
+Os de Chromium são **97** e os de Node puro **22** — juntos, os 119. MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -2169,7 +2179,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 117 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 119 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2983,27 +2993,25 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.11.6 · APK v1.11.3** · `SHELL_VERSION` **77** ·
+**Versão atual: base web v1.11.7 · APK v1.11.3** · `SHELL_VERSION` **77** ·
 bundle com `minShell: 77` e **SEM `shellTag`** — o shell 77 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Nada em
 `java/`, `res/` ou no manifesto muda neste lote, e o APK v1.11.3 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO, e o defeito que ele fecha é o que não tem sintoma:** a
-pergunta da atualização lia `cenaNoAr()`, que começa por `!!currentId` — e o
-`currentId` sobrevive ao Parar e ao fim natural de propósito (o ▶ repete a
-faixa). Depois da PRIMEIRA mídia da sessão a hora de perguntar ficava ruim
-para sempre, com o telão vazio, e um aparelho aberto de sábado a sábado ficava
-na versão antiga (o Registro dizia *"esperando a cena sair do ar"* sobre um
-palco vazio). A pergunta certa tem nome, `haOQueParar()` =
-`midiaNoAr || cenaDeRoteiroNoAr()`, e é a que o Parar já lia; **`cenaNoAr()`
-só serve onde o `currentId` é a pergunta**. Junto: a guarda de rede móvel dos
-fundos obedece à opção "Dados móveis" (era `cellular` seca e desfazia por
-dentro o que `fundosImpedimento` liberava), a checagem das fotos nomeia o salto
-que não respondeu (catálogo × foto) e o Registro imprime o tempo da linha lenta
-que respondeu, e o diário das cifras conta `semRede`/`adiadas`/`excecoes` (uma
-passada inteira sem rede saía como zeros). **O hotspot de
-outro celular conta como Wi-Fi comum, e isso está DECIDIDO** (ver a linha
-"Manter o episódio da SEMANA baixado" da tabela de divergências).
+**O DEGRAU É CORREÇÃO, e o lote junta QUATRO pedidos do operador, todos de
+superfície:** (1) a **seta no topo da prévia** que a recolhe na menor altura em
+que os botões dela cabem (substitui o tile "Imagem da prévia"; ver a linha
+"Recolher a prévia" da tabela de divergências); (2) o app **SEMPRE abre no Modo
+Fácil** — o modo vale pela sessão (`sessionStorage`), atravessa a recarga do
+documento e morre com o app; (3) a janela da **Tela** (`#telaPopup`:
+preenchimento, wallpaper, fundo da letra e giro) e (4) a janela do
+**Transferir** (`#pacotePopup`: exportar e importar, com a listagem da
+biblioteca antes de cada caminho) — a grade de Configurações passou de 13 para
+8 tiles. **Se a numeração o contrariar:** a tabela do número manda
+INCREMENTAL para "uma seção inteiramente nova do app"; as duas janelas
+reagrupam o que já existia, e por isso o degrau ficou em CORREÇÃO. **O
+hotspot de outro celular conta como Wi-Fi comum, e isso está DECIDIDO** (ver a
+linha "Manter o episódio da SEMANA baixado" da tabela de divergências).
 **Conferir a Release é parte de decidir** — um lote só de web herda o `shellTag` quando o
 lote de shell anterior ainda não tem Release, e não herda quando tem.
 

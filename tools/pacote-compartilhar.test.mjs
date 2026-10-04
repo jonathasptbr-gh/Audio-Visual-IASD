@@ -36,7 +36,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperar, porque, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperar, esperarCortina, porque, checar, falhas } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
@@ -189,18 +189,31 @@ async function aparelho(opts) {
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
   await pg.addInitScript(ponte(opts));
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
-  await esperar(pg, () => !document.getElementById('splash'), null, 30000);
+  await esperarCortina(pg);
   await pg.evaluate(() => setAppMode('full'));
-  // A FOLHA DE CONFIGURAÇÕES ABERTA, porque este oráculo TOCA no tile — e um
-  // tile de folha fechada está fora da viewport, onde o `click` do Playwright
-  // retenta até vencer o prazo. A versão anterior chamava `exportarPacote()`
-  // por dentro e nunca precisou dela; o que a v1.8.19 acrescentou acontece no
-  // DEDO, e é o dedo que ela mede.
+  // A JANELA DO TRANSFERIR ABERTA, porque este oráculo TOCA nos dois botões — e
+  // um botão de janela fechada está fora da viewport, onde o `click` do
+  // Playwright retenta até vencer o prazo. Desde a v1.11.7 os dois moram em
+  // `#pacotePopup`, que abre de Configurações pelo tile `#pacoteTile`: o
+  // caminho é o do DEDO (Configurações → tile → janela), e é o dedo que ela
+  // mede. A versão anterior chamava `exportarPacote()` por dentro e nunca
+  // precisou dela; o que a v1.8.19 acrescentou acontece no toque.
   await pg.evaluate(() => { document.getElementById('simpleSettingsBtn').click(); });
   await esperar(pg, () => {
     const d = document.getElementById('fadePopup');
     return !!d && d.classList.contains('open');
   }, null, 10000);
+  await pg.click('#pacoteTile');
+  await esperar(pg, () => {
+    const d = document.getElementById('pacotePopup');
+    return !!d && d.classList.contains('open');
+  }, null, 10000);
+  // A TRANSIÇÃO TEM DE TER ASSENTADO: um botão que ainda desliza sob o dedo faz
+  // o `click` do Playwright medir "estável" no quadro errado.
+  await pg.evaluate(async () => {
+    await Promise.all(['#pacotePopup .popup-sheet', '#fadePopup .popup-sheet']
+      .flatMap((s) => document.querySelector(s).getAnimations().map((a) => a.finished.catch(() => {}))));
+  });
   return { ctx, pg };
 }
 
@@ -230,7 +243,19 @@ const lerTile = (pg) => pg.evaluate(() => {
     .filter((u) => getComputedStyle(u).display !== 'none')
     .map((u) => u.getAttribute('href'));
   const d = document.getElementById('appDialog');
+  // O TILE DA GRADE (`#pacoteTile`) é o SINAL do que os dois botões da janela
+  // dizem — ver `pacoteSinal` —, e é o único que se vê com a janela fechada.
+  const g = document.getElementById('pacoteTile');
+  const grade = {
+    estado: g.dataset.estado || '',
+    alt: g.classList.contains('qs-alt'),
+    aro: g.classList.contains('qs-trabalhando'),
+    desenho: [...g.querySelectorAll('use')]
+      .filter((u) => getComputedStyle(u).display !== 'none')
+      .map((u) => u.getAttribute('href')),
+  };
   return {
+    grade,
     titulo: (el.querySelector('.qs-titulo') || {}).textContent || '',
     alt: el.classList.contains('qs-alt'),
     aceso: el.classList.contains('qs-on'),
@@ -318,6 +343,16 @@ try {
   checar(/toque para enviar/i.test(cheio.tile.aria) && /\d/.test(cheio.tile.aria),
     'A · e o `aria-label` diz o tamanho e o que o toque faz — a informação que '
     + 'saiu do diálogo não saiu do app', cheio.tile.aria);
+  // O SINAL NA GRADE (v1.11.7): os dois botões moram numa janela que pode estar
+  // fechada, e o tile de Configurações é o que continua à vista. Pronto = o
+  // desenho de COMPARTILHAR e `data-estado` "pronto-para-enviar", SEM aro. Sem
+  // `pacoteSinal()` em `pacoteRenderTiles()` o tile fica em "ocioso" com
+  // gigabytes prontos no disco.
+  checar(cheio.tile.grade.estado === 'pronto-para-enviar' && cheio.tile.grade.alt === true
+      && cheio.tile.grade.aro === false
+      && cheio.tile.grade.desenho.length === 1 && cheio.tile.grade.desenho[0] === '#icoCompartilhar',
+    'A · e o TILE DA GRADE diz o mesmo com a janela fechada: "pronto-para-enviar", '
+    + 'desenho de compartilhar, sem aro', JSON.stringify(cheio.tile.grade));
 
   // ---- E O MESMO ARQUIVO SAI QUANTAS VEZES O OPERADOR PEDIR ----
   //
@@ -407,6 +442,13 @@ try {
     return !!t && t.textContent.trim() !== '100%'
       && !!i && i.textContent.trim() !== 'Descartar';
   }, null, 20000);
+  const graDescartado = await esperar(cheio.pg, () => {
+    const g = document.getElementById('pacoteTile');
+    return g.dataset.estado === 'ocioso' && !g.classList.contains('qs-alt');
+  }, null, 20000);
+  checar(graDescartado === true,
+    'A · e o TILE DA GRADE volta a "ocioso", sem o desenho de compartilhar — o '
+    + 'sinal acompanha o descarte, e não só o envio', porque(graDescartado));
   checar(voltouAoRepouso === true,
     'A · e o PAR volta ao repouso: o exportar deixa de dizer 100% e o importar '
     + 'volta a ser o importar — sem esta metade o botão continuaria oferecendo '
@@ -474,6 +516,11 @@ try {
   checar(semEspaco.tile.desenho[0] === '#icoExportar' && semEspaco.tile.titulo !== '100%',
     'B · e o botão VOLTA a ser o de exportar — o pronto é só do caminho local',
     JSON.stringify(semEspaco.tile));
+  checar(semEspaco.tile.grade.estado === 'ocioso' && semEspaco.tile.grade.alt === false
+      && semEspaco.tile.grade.aro === false,
+    'B · e o TILE DA GRADE também fica OCIOSO — o pronto é só do caminho local, e '
+    + 'um sinal de "pronto para enviar" sobre um arquivo que já é do operador '
+    + 'ofereceria o que o app não tem mais na mão', JSON.stringify(semEspaco.tile.grade));
   await semEspaco.ctx.close();
 
   // =========================================================================
@@ -519,6 +566,13 @@ try {
     'D · o `-1` devolve o botão a "Exportar" — o pronto sumiu do disco, e '
     + 'continuar oferecendo o envio seria um toque que não faz nada',
     porque(desistiu));
+  const gradeSumiu = await esperar(sumiu.pg, () => {
+    const g = document.getElementById('pacoteTile');
+    return g.dataset.estado === 'ocioso' && !g.classList.contains('qs-alt');
+  }, null, 20000);
+  checar(gradeSumiu === true,
+    'D · e o TILE DA GRADE desiste junto: "ocioso", sem o desenho de compartilhar',
+    porque(gradeSumiu));
   await sumiu.ctx.close();
 
 // ===========================================================================
@@ -540,7 +594,7 @@ try {
   const pg = await ctx.newPage();
   await pg.addInitScript(ponte(50 * 1024 * 1024 * 1024));
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
-  await esperar(pg, () => !document.getElementById('splash'), null, 30000);
+  await esperarCortina(pg);
   // A EXPORTAÇÃO DE VERDADE, SEGURADA NO PRIMEIRO BLOCO. As bandeiras são de
   // módulo — escrevê-las de fora não existe —, então o estado é montado pelo
   // caminho que o dedo percorre.
@@ -572,7 +626,10 @@ try {
         travado: !!el.disabled,
       };
     };
-    return { exp: visto(exp), imp: visto(imp) };
+    const g = document.getElementById('pacoteTile');
+    return { exp: visto(exp), imp: visto(imp),
+      grade: { estado: g.dataset.estado || '', aro: g.classList.contains('qs-trabalhando'),
+        alt: g.classList.contains('qs-alt'), aroPintado: getComputedStyle(g, '::after').content } };
   });
   checar(r.imp.estado === 'cancelar',
     'E · com a exportação em curso, o tile ocioso vira o CANCELAR', JSON.stringify(r.imp));
@@ -593,6 +650,15 @@ try {
   // dois passaria em tudo o mais.
   checar(r.exp.estado === 'ocupado',
     'E · enquanto o que TRABALHA continua sendo o que trabalha', JSON.stringify(r.exp));
+  // O TILE DA GRADE É O SINAL DO TRABALHO: com a janela fechada (aqui ela nunca
+  // abriu) o aro e o data-estado "ocupado" são a única coisa que diz que há
+  // exportação andando. O `pacoteSinal()` que `pacoteRenderTiles()` chama é o
+  // que os escreve.
+  checar(r.grade.estado === 'ocupado' && r.grade.aro === true && r.grade.alt === false
+      && r.grade.aroPintado !== 'none' && r.grade.aroPintado !== 'normal',
+    'E · e o TILE DA GRADE mostra o trabalho: "ocupado" e o aro PINTADO — sem '
+    + 'isso uma exportação de minutos corre sem sinal nenhum à vista',
+    JSON.stringify(r.grade));
   // O TOQUE NELE PARA DE VERDADE — sem esta, o botão é um desenho.
   const parou = await pg.evaluate(async () => {
     document.getElementById('pacoteImportarTile').click();
@@ -604,6 +670,13 @@ try {
   });
   checar(parou !== 'cancelar' && parou !== 'ocupado',
     'E · e o toque nele PARA a exportação', parou);
+  const gradeParou = await esperar(pg, () => {
+    const g = document.getElementById('pacoteTile');
+    return g.dataset.estado !== 'ocupado' && !g.classList.contains('qs-trabalhando');
+  }, null, 20000);
+  checar(gradeParou === true,
+    'E · e o TILE DA GRADE apaga o aro junto — um aro girando sobre um trabalho '
+    + 'que parou é a tela afirmando o que não é', porque(gradeParou));
   await ctx.close();
 }
 
@@ -631,6 +704,7 @@ try {
       bytes: pacotePronto && pacotePronto.bytes,
       perguntou: window.__chamadas.indexOf('prontoEstado') >= 0,
       rotulo: (document.querySelector('#pacoteExportarTile .qs-titulo') || {}).textContent || '',
+      grade: (document.getElementById('pacoteTile') || {}).dataset.estado,
     }));
     checar(comPronto.nome === 'acervo-de-antes.avpkg' && comPronto.bytes === 4096,
       'E · a página nova reencontra o pacote pronto que o shell guardou',
@@ -638,14 +712,21 @@ try {
     checar(comPronto.perguntou === true,
       'E · e quem respondeu foi o SHELL — a página não teria como saber sozinha',
       JSON.stringify(comPronto));
+    checar(comPronto.grade === 'pronto-para-enviar',
+      'E · e o TILE DA GRADE também reencontra o pronto, depois da recarga — o '
+      + '`lerPacotePronto` do `init()` termina em `pacoteRenderTiles()`, que é o '
+      + 'que chama o sinal', String(comPronto.grade));
     await p.ctx.close();
 
     const q = await aparelho();
     await q.pg.evaluate(() => new Promise((r) => setTimeout(r, 400)));
     const semPronto = await q.pg.evaluate(() => ({
+      grade: document.getElementById('pacoteTile').dataset.estado,
       pronto: pacotePronto,
       perguntou: window.__chamadas.indexOf('prontoEstado') >= 0,
     }));
+    checar(semPronto.grade === 'ocioso',
+      'E · e sem pronto o tile da grade está OCIOSO', String(semPronto.grade));
     checar(semPronto.pronto === null && semPronto.perguntou === true,
       'E · e sem pronto no shell ela não inventa um: perguntou e o tile segue '
       + 'oferecendo "Exportar"', JSON.stringify(semPronto));

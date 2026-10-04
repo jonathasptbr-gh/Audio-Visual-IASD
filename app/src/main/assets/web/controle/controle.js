@@ -56,27 +56,35 @@ const simpleVolUpEl = document.getElementById('simpleVolUp');
 const simpleVolDownEl = document.getElementById('simpleVolDown');
 const simpleVolValueEl = document.getElementById('simpleVolValue');
 
-// ===== O modo LEMBRADO =====
-// Em `localStorage`, e NÃO no IndexedDB como o resto do estado: esta chave é
+// ===== O MODO VALE PELA SESSÃO — toda abertura nasce no Modo Fácil =====
+// Em `sessionStorage`, e NÃO no IndexedDB como o resto do estado: esta chave é
 // lida ANTES DO PRIMEIRO QUADRO (o `<body>` nasce `mode-simple` para a tela
 // certa aparecer sem esperar JS, e uma leitura do IDB é assíncrona — quem
-// deixou o avançado veria a tela errada trocar embaixo do dedo). `localStorage`
-// é síncrono e vive no mesmo `app_webview/`. UMA fonte, nunca duas.
+// estivesse no avançado veria a tela errada trocar embaixo do dedo).
+// `sessionStorage` é síncrono e morre com o app: abrir o app de novo é SEMPRE o
+// Modo Fácil, e é isso que o operador pediu. O que ele atravessa é a recarga do
+// documento DENTRO do mesmo WebView (a atualização aceita em "Atualizar agora",
+// o `location.reload()` da importação) — quem está no avançado no meio do culto
+// não cai no Modo Fácil por uma atualização. **O que ele NÃO atravessa é o
+// WebView recriado** (morte do renderer → `onRendererGone` remonta o Controle):
+// o sessionStorage nasce vazio e o app volta ao Modo Fácil, com o culto de pé.
+// É o lado seguro do erro (o Modo Fácil sempre funciona), e está dito para
+// ninguém prometer mais que isto. A chave de mesmo nome que as versões
+// anteriores gravaram em `localStorage` NUNCA é lida. UMA fonte.
 const APP_MODE_KEY = 'av.appMode';
-function storedAppMode() {
-  // `localStorage` lança com o armazenamento bloqueado (aba anônima). O padrão
-  // do app é o simplificado, então o `catch` já é a resposta certa.
-  try { return localStorage.getItem(APP_MODE_KEY) === 'full' ? 'full' : 'simple'; }
+function appModeDaSessao() {
+  // `sessionStorage` lança com o armazenamento bloqueado. O padrão do app é o
+  // simplificado, então o `catch` já é a resposta certa.
+  try { return sessionStorage.getItem(APP_MODE_KEY) === 'full' ? 'full' : 'simple'; }
   catch (_) { return 'simple'; }
 }
-let appMode = storedAppMode();
+let appMode = appModeDaSessao();
 // Só a PINTURA aqui: é a única parte que não pode esperar. O resto de
 // `setAppMode` roda no `init()`, quando o módulo já existe e a faixa de abas já
 // tem largura para ser medida.
 document.body.classList.toggle('mode-simple', appMode === 'simple');
 simpleModeEl.classList.toggle('open', appMode === 'simple');
 
-// ===== O TEMA (claro × escuro) — mesma gaveta, mesma razão =====
 // ===== O TEMA (claro × escuro) — mesma gaveta, mesma razão =====
 // Vale o parágrafo do `APP_MODE_KEY`, e aqui o preço de errar é maior: o modo
 // troca a TELA, o tema troca a COR DE TUDO.
@@ -307,6 +315,16 @@ const histClearFaixaEl = document.getElementById('histClearFaixa');
 const testeTileEl = document.getElementById('testeTile');
 const testePopupEl = document.getElementById('testePopup');
 const testePopupCloseEl = document.getElementById('testePopupClose');
+// A TELA e o TRANSFERIR (v1.11.7) — duas janelas irmãs, com a mesma anatomia e a
+// mesma origem (abrem de dentro de Configurações). Declaradas AQUI, no bloco do
+// topo, e não perto dos pintores: `pacoteRenderTiles()` roda na CARGA, e uma
+// constante lida antes da linha em que nasce é uma zona morta temporal.
+const telaTileEl = document.getElementById('telaTile');
+const telaPopupEl = document.getElementById('telaPopup');
+const telaPopupCloseEl = document.getElementById('telaPopupClose');
+const pacoteTileEl = document.getElementById('pacoteTile');
+const pacotePopupEl = document.getElementById('pacotePopup');
+const pacotePopupCloseEl = document.getElementById('pacotePopupClose');
 const testeResumoEl = document.getElementById('testeResumo');
 const testeListEl = document.getElementById('testeList');
 const testeRodarEl = document.getElementById('testeRodar');
@@ -367,7 +385,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.6';
+const WEB_VERSION = '1.11.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -592,9 +610,8 @@ const fitTileEl = document.getElementById('fitTile');
 const rotBtnEl = document.getElementById('rotBtn');
 const lyricsBgTileEl = document.getElementById('lyricsBgTile');
 const saidaAudioTileEl = document.getElementById('saidaAudioTile');
-const economiaTileEl = document.getElementById('economiaTile');
 const dadosMoveisTileEl = document.getElementById('dadosMoveisTile');
-const pvEconomiaEl = document.getElementById('pvEconomia');
+const pvRecolherEl = document.getElementById('pvRecolherBtn');
 const wallFileEl = document.getElementById('wallFile');
 const wallTileEl = document.getElementById('wallTile');
 const diagSaveEl = document.getElementById('diagSave');
@@ -2344,13 +2361,15 @@ function acertarSaidaDeAudio() {
 }
 
 /**
- * ===== A IMAGEM DA PRÉVIA DESLIGADA: A ECONOMIA (v1.9.9) =====
+ * ===== A PRÉVIA RECOLHIDA E A ECONOMIA QUE VAI JUNTO (v1.9.9 / v1.11.7) =====
  *
  * Pedido do operador: *"um botão para desativar a preview (com o objetivo de
  * reduzir o gasto de processamento para smartphones mais fracos…)"* e, fechada a
  * análise: *"o celular fraco é o operador, vamos manter as outras conexões de
  * controle e ativar/desativar apenas a decodificação de imagem do preview, que é
- * o que realmente pesa no processamento"*.
+ * o que realmente pesa no processamento"*. Depois, o botão passou a ser uma SETA
+ * no topo da própria prévia: *"um botão na preview que compacte verticalmente
+ * ela e substitua o botão de desativar a imagem de preview"*.
  *
  * ## O GANHO ESTÁ MEDIDO, E A MEDIÇÃO É ANTIGA
  *
@@ -2361,27 +2380,35 @@ function acertarSaidaDeAudio() {
  * recurso faz é transformar aquele desligamento acidental (a página oculta) numa
  * ESCOLHA do operador, com a página à vista.
  *
- * ## A ESCOLHA É GUARDADA; O VEREDITO É DERIVADO
+ * ## A ESCOLHA É GUARDADA; A GEOMETRIA SEGUE A ESCOLHA; O VEREDITO É DERIVADO
  *
- * Duas coisas, e é a separação do `tocarNoCelular` × `somLocalDeveEstar`:
+ * Três coisas, e é a separação do `tocarNoCelular` × `somLocalDeveEstar`:
  * `economiaPreview` é o que o operador marcou (e que sobrevive ao fechamento do
- * app, porque é propriedade do APARELHO); `economiaAtiva()` é o que vale agora.
+ * app, porque é propriedade do APARELHO) — a chave do banco é a de sempre, e é
+ * por isso que quem tinha a imagem desligada abre com a prévia recolhida;
+ * `pv-recolhida` é a GEOMETRIA, e segue a marcação NO ATO, também sem TV (é o
+ * "sempre clicável" da v1.10.10: a seta tem de fazer algo visível); e
+ * `economiaAtiva()` é o que vale agora para a DECODIFICAÇÃO. **As duas últimas
+ * não são a mesma régua de propósito:** ligar a decodificação à marcação pararia
+ * o `<video>` da prévia, que sem tela é a fonte do som; ligar a geometria ao
+ * veredito faria a seta não fazer nada visível sem TV.
  *
- * **SEM DESTINO DE PROJEÇÃO A ECONOMIA NÃO EXISTE**, e isso não é uma guarda a
+ * **SEM DESTINO DE PROJEÇÃO A DECODIFICAÇÃO NÃO PARA**, e isso não é uma guarda a
  * mais: sem TV e sem tela da rede a prévia É a projeção (é o `<video>` dela que
  * a congregação vê em tela cheia), e desligar a imagem dela seria desligar o
- * culto. A régua é `haDestinoDeProjecao()` — a MESMA da v1.8.50, a tela LISTADA
+ * culto. A prévia recolhida fora da tela cheia é só um espelho, e a tela cheia
+ * não é recolhida (o CSS exclui `:fullscreen`). A régua é `haDestinoDeProjecao()` — a MESMA da v1.8.50, a tela LISTADA
  * mais as sessões de tela da rede —, e **não** `algumaTelaConectada()`: com
  * aquela, a oscilação do dongle devolveria a imagem a cada piscada do Miracast,
  * que é o defeito que a v1.8.50 já pagou uma vez.
  *
  * E por ser DERIVADO o desfecho é automático nas duas pontas: perder a TV no
- * meio do culto devolve a imagem sozinho (este arquivo chama
+ * meio do culto religa a decodificação sozinho (este arquivo chama
  * `acertarSaidaDeAudio` em toda mudança de destino, e ela chama isto), e
- * reconectar volta a poupar sem ninguém tocar em nada. A marcação fica ligada
- * atravessando as duas.
+ * reconectar volta a poupar sem ninguém tocar em nada. A marcação — e a
+ * prévia recolhida — ficam atravessando as duas.
  *
- * ## O QUE **NÃO** DESLIGA — é a metade do pedido que se erra
+ * ## O QUE **NÃO** PARA — é a metade do pedido que se erra
  *
  * Tudo que não é decodificação: o comando sai para o telão e para as telas da
  * rede como sempre (`cmd` não passa por aqui), o `display-status` continua
@@ -2418,11 +2445,18 @@ function economiaAtiva() {
 
 function acertarEconomiaDaPreview() {
   const alvo = economiaAtiva();
-  // O TILE É PINTADO SEMPRE, mesmo quando o vigor não muda: o `title` responde
-  // ao DESTINO (diz se a escolha já vale ou só vai valer quando houver TV ou
-  // computador), e o destino muda sem que o vigor mude — a marcação continua a
-  // mesma com uma TV entrando e saindo, só o EFEITO liga e desliga sozinho.
-  renderEconomiaTile();
+  // A GEOMETRIA SEGUE A MARCAÇÃO, e por isso vem ANTES do `return` de igualdade
+  // abaixo: o vigor não muda quando não há destino (a decodificação segue
+  // tocando), mas a prévia recolhe do mesmo jeito — é o que faz a seta fazer
+  // algo visível sem TV. Quem a cala em tela cheia é o CSS (`:not(:fullscreen)`),
+  // sem o atraso de um quadro do `fullscreenchange`.
+  if (previewEl) previewEl.classList.toggle('pv-recolhida', economiaPreview);
+  // A SETA É PINTADA SEMPRE, mesmo quando o vigor não muda: o `title` responde
+  // ao DESTINO (diz se a escolha já poupa processamento ou só vai poupar quando
+  // houver TV ou computador), e o destino muda sem que o vigor mude — a
+  // marcação continua a mesma com uma TV entrando e saindo, só o EFEITO liga e
+  // desliga sozinho.
+  renderRecolherBtn();
   if (alvo === economiaEmVigor) return;
   economiaEmVigor = alvo;
   preview.setSuspenso(alvo);
@@ -2431,7 +2465,6 @@ function acertarEconomiaDaPreview() {
   // seria apagada na mídia seguinte — a economia valendo no decodificador e não
   // na tela, com a imagem congelada de volta.
   if (previewEl) previewEl.classList.toggle('pv-economia', alvo);
-  if (pvEconomiaEl) pvEconomiaEl.hidden = !alvo;
   // A VOLTA É UM REALINHAMENTO, não um `play()`: a prévia ficou parada enquanto
   // a projeção andou, que é exatamente a situação da retomada do segundo plano —
   // e o caminho dela já existe desde a v5.173. Um `play()` seco a devolveria
@@ -2444,42 +2477,41 @@ async function setEconomiaPreview(on) {
   const alvo = !!on;
   if (economiaPreview === alvo) return;
   economiaPreview = alvo;
-  // PINTAR ANTES DE GRAVAR, a regra da v1.4.40: depois do `await` o tile só
+  // PINTAR ANTES DE GRAVAR, a regra da v1.4.40: depois do `await` a seta só
   // responderia ao toque quando a transação do IndexedDB voltasse.
   acertarEconomiaDaPreview();
+  diagC('prévia: ' + (economiaPreview ? 'RECOLHIDA' : 'expandida'));
   await AVDB.setState('economiaPreview', economiaPreview);
 }
 
 /**
- * O tile, e o que ele diz em cada um dos DOIS estados que ele tem.
+ * A seta, e o que ela diz em cada um dos DOIS estados que ela tem.
  *
- * SEMPRE CLICÁVEL, mesmo sem destino de projeção (v1.10.10, revogando a
- * v1.8.50 PARA ESTE TILE): pedido do operador — *"ele deve estar 'clicável'
- * mesmo sem uma tela conectada... sendo exclusivo para quando há algo
- * conectado, mas é uma opção selecionável desde sempre"*. A ESCOLHA se grava
- * sem destino (o mesmo `setEconomiaPreview` de sempre); só o EFEITO
- * (`economiaAtiva`, que suspende de fato a decodificação) continua exclusivo
- * de quando há para onde projetar — a regra dela não mudou, só deixou de
- * travar o botão que a arma. `disabled` fica reservado para o que não tem
- * função NENHUMA (v1.8.50 continua valendo para os outros tiles da fileira).
+ * SEMPRE CLICÁVEL, mesmo sem destino de projeção (v1.10.10): pedido do
+ * operador — *"ele deve estar 'clicável' mesmo sem uma tela conectada... sendo
+ * exclusivo para quando há algo conectado, mas é uma opção selecionável desde
+ * sempre"*. A ESCOLHA se grava sem destino (o mesmo `setEconomiaPreview` de
+ * sempre) e a prévia recolhe do mesmo jeito; só o EFEITO sobre a decodificação
+ * (`economiaAtiva`) é exclusivo de quando há para onde projetar. `disabled`
+ * fica reservado para o que não tem função NENHUMA (v1.8.50) — e a seta tem
+ * sempre.
  *
- * E O DESENHO DIZ O ESTADO (`alt`), não a cor: `aceso` é `true` sempre, como
- * todo tile da grade desde a v1.7.6 (*"todos os botões devem ter o mesmo azul
- * de ativo... toda diferença de estado é pelo icone, não pela cor"*).
+ * O DESENHO DIZ O ESTADO, não a cor: `.alternado` troca o chevron (para baixo
+ * recolhe, para cima expande) e o `title` diz a AÇÃO — a mesma divisão do
+ * `#viewToggle` e do `#muteToggle`. O desenho diz a MARCAÇÃO, e não a geometria
+ * do instante: com o cartão de espera no ar a prévia está expandida e a seta
+ * continua dizendo "expandir".
  */
-function renderEconomiaTile() {
-  if (!economiaTileEl) return;
+function renderRecolherBtn() {
+  if (!pvRecolherEl) return;
   const temDestino = haDestinoDeProjecao();
-  economiaTileEl.disabled = false;
-  economiaTileEl.title = economiaPreview
-    ? (temDestino
-      ? 'A imagem da prévia está desligada — toque para religar'
-      : 'A imagem da prévia está desligada — vale quando houver TV ou computador conectado')
-    : (temDestino
-      ? 'Desligar a imagem da prévia para poupar processamento'
-      : 'Desligar a imagem da prévia para poupar processamento — vale quando houver TV ou computador conectado');
-  pintarTile(economiaTileEl, economiaPreview ? 'off' : 'on',
-    economiaPreview ? 'Imagem desligada' : 'Imagem ligada', true, economiaPreview);
+  const acao = economiaPreview ? 'Expandir a prévia' : 'Recolher a prévia';
+  pvRecolherEl.classList.toggle('alternado', economiaPreview);
+  pvRecolherEl.setAttribute('aria-expanded', String(!economiaPreview));
+  pvRecolherEl.setAttribute('aria-label', acao);
+  pvRecolherEl.title = temDestino
+    ? (economiaPreview ? acao : acao + ' — a imagem para de ser decodificada, e isso poupa processamento')
+    : acao + ' — a imagem só deixa de ser decodificada com TV ou computador conectado';
 }
 
 // ===== A PREVIEW QUE É A PROJEÇÃO NÃO PODE SER SUSPENSA (v1.3.12) =====
@@ -26913,10 +26945,6 @@ async function montarFilaSorteada(escolhidos) {
 function openFadePopup() {
   renderAppModeSeg();
   renderTemaTile();
-  renderFitTile();
-  renderRotBtn();
-  renderLyricsBgTile();
-  renderWallTile();
   // O estado do espelho é relido ao ABRIR (e depois só enquanto a folha dele
   // estiver aberta): a linha precisa dizer a verdade no instante em que o
   // operador olha para ela, e o espelho pode ter saído do ar sozinho por uma
@@ -27060,25 +27088,25 @@ function cabecalhoDiag() {
       // app deixou de tentar" seria um estado invisível.
       + (c.bloqueado ? '  (BLOQUEADO — o app não tenta mais nesta versão)' : ''));
   }
-  // A ECONOMIA DA PRÉVIA, e ela precisa da linha porque MUDA O QUE SE MEDE
-  // (v1.9.9): com a imagem desligada a prévia não anda, e quem lê este Registro a
+  // A PRÉVIA RECOLHIDA, e ela precisa da linha porque MUDA O QUE SE MEDE
+  // (v1.9.9): com a imagem parada a prévia não anda, e quem lê este Registro a
   // distância diante de "a prévia está parada" tem de saber se é um defeito ou
   // uma escolha. As DUAS metades saem — a marcação e o vigor —, porque marcada
-  // sem destino de projeção ela não está valendo, e é esse par que responde
-  // "então por que a imagem voltou?".
+  // sem destino de projeção a decodificação continua rodando, e é esse par que
+  // responde "então por que a imagem não parou?".
   if (economiaPreview) {
     // O MOTIVO TEM DE SER O CERTO, e são TRÊS estados, não dois. A primeira
     // escrita perguntava só `economiaAtiva()` e atribuía toda suspensão à falta de
     // destino — em tela cheia isso é uma linha FALSA num texto que é lido a
     // distância por quem não tem o aparelho na mão, que é o pior artefato que este
     // projeto sabe produzir. Cada ramo nomeia a SUA razão.
-    let porQue = ' (economia em vigor)';
+    let porQue = ' — a decodificação da imagem está parada (economia em vigor)';
     if (!haDestinoDeProjecao()) {
-      porQue = ' na marcação, mas EM VIGOR não — sem destino de projeção a prévia É a projeção';
+      porQue = ' na marcação, mas a decodificação NÃO está parada — sem destino de projeção a prévia É a projeção';
     } else if (document.fullscreenElement === previewEl) {
       porQue = ' na marcação, SUSPENSA agora — a prévia está em tela cheia, e ali ela é o que o operador está olhando';
     }
-    l.push('Imagem da prévia: DESLIGADA' + porQue);
+    l.push('Prévia: RECOLHIDA' + porQue);
   }
   // ONDE O SOM ESTÁ SAINDO (v5.215). "Não sai som" tem causas que a tela não
   // separa — mudo, fader em zero, tela conectada sem volume, ou este aparelho
@@ -30493,6 +30521,12 @@ let pacoteCancelar = false;
 // ocupada?" (e trava os dois tiles); este responde "o que está acontecendo?", e
 // é ele que decide qual tile fala e qual aceita o toque de cancelar.
 let pacoteExportando = false;
+// A MEDIÇÃO DE VERDADE (a varredura do disco que vem DEPOIS da folha de escolha,
+// até o "Salvar como" responder): é trabalho andando — o aro gira — mas ainda
+// não é `pacoteExportando`, que só sobe com o arquivo aberto. O tile da grade
+// (`pacoteSinal`) precisa saber dela para não ficar parado durante os segundos
+// em que o acervo é medido.
+let pacoteMedindo = false;
 let pacoteResposta = null;
 
 // Detecção por PRESENÇA, nunca por versão de shell — a mesma regra do
@@ -31350,6 +31384,34 @@ function escolherGruposDoPacote(plano) {
   });
 }
 
+/**
+ * A MESMA FOLHA, EM LEITURA, ANTES DE IMPORTAR (v1.11.7).
+ *
+ * Pedido do operador: *"junto com o sistema que já temos de listagem da
+ * biblioteca atual antes da exportação, afinal, para importação também é bom
+ * saber o que já se tem"*. A listagem é do que o APARELHO TEM — ela não lê o
+ * arquivo, só o que a Biblioteca já guarda —, e o caso de uso da importação é
+ * justamente o aparelho novo, que pode não ter nada: por isso o estado VAZIO
+ * tem frase, e não uma folha em branco.
+ *
+ * É a promessa do `escolherGruposDoPacote` (`pacoteGruposResolve`), e fechar por
+ * ✕, pelo fundo ou pelo voltar resolve `null` — desistir é não importar. O
+ * `true` é o "Escolher o arquivo". NENHUMA linha daqui toca em `destMarcados`:
+ * é leitura, e o estado de marcação é o da folha de destinos, que é a mesma
+ * `#songMenuList`.
+ */
+function mostrarAcervoParaImportar(plano) {
+  return new Promise((resolve) => {
+    pacoteGruposResolve = resolve;
+    destLimpar();
+    pacoteSecaoAberta = '';
+    songMenuFor = { pacoteGrupos: true, leitura: true };
+    songMenuTitleEl.textContent = 'O que já está neste aparelho';
+    renderPacoteGrupos(plano, { leitura: true });
+    songMenuPopupEl.classList.add('open');
+  });
+}
+
 /** O que está marcado, MAIS o que é fixo. */
 function pacoteSelecao(plano) {
   const sel = new Set(destMarcados);
@@ -31383,9 +31445,13 @@ function pacoteCheckGrupo(estado) {
   return cx;
 }
 
-function renderPacoteGrupos(plano) {
+function renderPacoteGrupos(plano, opts = {}) {
   limparFolha(songMenuListEl);
-  const remontar = () => renderPacoteGrupos(plano);
+  // EM LEITURA (v1.11.7) a folha é a do IMPORTAR: lista o que o aparelho já tem,
+  // sem caixa, sem marca e sem o "Salvar X" — as linhas não respondem a toque e
+  // as seções só abrem e fecham.
+  const leitura = !!opts.leitura;
+  const remontar = () => renderPacoteGrupos(plano, opts);
   destRemontar = remontar;
   const porChave = new Map(plano.grupos.map((g) => [g.chave, g]));
 
@@ -31408,6 +31474,29 @@ function renderPacoteGrupos(plano) {
 
   const linhaDeGrupo = (g) => {
     const peso = pacotePeso(g.bytes, g.aprox);
+    if (leitura) {
+      // UMA LINHA QUE NÃO FAZ NADA NÃO É UM BOTÃO (a regra da v1.8.50): um
+      // `<button>` sem ação seria o botão aceso que não responde, e é o que o
+      // toque tenta duas vezes antes de concluir que o app quebrou.
+      const li = document.createElement('li');
+      li.className = 'pacote-linha';
+      const row = document.createElement('div');
+      row.className = 'song-menu-btn pacote-leitura';
+      const ic = document.createElement('span');
+      ic.className = 'song-menu-icon coll-bar-icon';
+      // `msym` devolve um ELEMENTO: atribuí-lo a `innerHTML` o converte na
+      // string "[object HTMLSpanElement]", que é o que a linha mostrava.
+      ic.appendChild((g.chave === 'midia' || g.sobreposto) ? msym(ICON.import) : msym(ICON.music));
+      const txt = document.createElement('span'); txt.className = 'song-menu-text';
+      const t = document.createElement('span'); t.className = 'song-menu-label'; t.textContent = g.rotulo;
+      const d = document.createElement('span'); d.className = 'song-menu-sub';
+      d.textContent = (g.sub ? g.sub + ' · ' : '') + peso
+        + (g.sobreposto ? ' · pode estar em outro grupo' : '');
+      txt.append(t, d);
+      row.append(ic, txt);
+      li.appendChild(row);
+      return li;
+    }
     // O AVISO DA SOBREPOSIÇÃO (v1.8.38). Os grupos por lista se sobrepõem, e o
     // peso deles pode contar o mesmo item duas vezes — o que a folha NÃO pode
     // fazer é mostrar dois números que não somam e calar sobre isso. O total do
@@ -31453,7 +31542,7 @@ function renderPacoteGrupos(plano) {
     const aberta = pacoteSecaoAberta === item.nome;
     const li = document.createElement('li');
     const bar = document.createElement('div');
-    bar.className = 'song-menu-btn song-menu-sel song-menu-grupo';
+    bar.className = 'song-menu-btn song-menu-grupo' + (leitura ? '' : ' song-menu-sel');
     bar.setAttribute('role', 'button');
     bar.setAttribute('tabindex', '0');
     // A SETA É A DA BIBLIOTECA, E É LITERALMENTE A DELA (v1.8.41).
@@ -31515,10 +31604,15 @@ function renderPacoteGrupos(plano) {
     // UNIÃO, e é o mesmo que o confirmar usa — dois jeitos de somar a mesma
     // coisa divergem no primeiro grupo que se sobrepuser.
     const marcadas = item.chaves.filter((k) => destMarcados.has(k));
-    d.textContent = marcadas.length + ' de ' + item.chaves.length
-      + ' · ' + pacotePeso(pacoteBytesDe(plano, new Set(marcadas)), plano.aprox);
+    // EM LEITURA o peso é o da seção INTEIRA (a união, pelo mesmo
+    // `pacoteBytesDe`) e não há "N de M": nada está marcado, nada vai a lugar
+    // nenhum.
+    d.textContent = leitura
+      ? pacotePeso(pacoteBytesDe(plano, new Set(item.chaves)), plano.aprox)
+      : marcadas.length + ' de ' + item.chaves.length
+        + ' · ' + pacotePeso(pacoteBytesDe(plano, new Set(marcadas)), plano.aprox);
     txt.append(t, d);
-    bar.append(seta, txt, pacoteCheckGrupo(estado));
+    if (leitura) bar.append(seta, txt); else bar.append(seta, txt, pacoteCheckGrupo(estado));
     const marcarGrupo = () => {
       // PARCIAL VAI PARA CHEIO, e não para vazio: o toque numa marca parcial é
       // "quero este grupo", e quem quer tirar toca de novo. O contrário faria o
@@ -31527,9 +31621,11 @@ function renderPacoteGrupos(plano) {
       else for (const k of item.chaves) destMarcados.add(k);
       remontar();
     };
-    bar.addEventListener('click', marcarGrupo);
+    // EM LEITURA a barra ABRE E FECHA, como a seta: marcar não existe aqui.
+    const aoToque = leitura ? () => seta.click() : marcarGrupo;
+    bar.addEventListener('click', aoToque);
     bar.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); marcarGrupo(); }
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); aoToque(); }
     });
     // O CORPO MORA DENTRO DO BLOCO (v1.8.40), e não como irmão dele.
     //
@@ -31565,19 +31661,32 @@ function renderPacoteGrupos(plano) {
     songMenuListEl.appendChild(li);
   }
 
+  // UM APARELHO NOVO NÃO TEM NADA, e é o caso de uso da importação: a lista
+  // vazia diz isso, e o botão de seguir continua lá. Falhar vazio é proibido.
+  if (leitura && !plano.folha.length) {
+    const vazio = document.createElement('li');
+    vazio.className = 'empty';
+    vazio.textContent = 'Este aparelho ainda não tem biblioteca baixada.';
+    songMenuListEl.appendChild(vazio);
+  }
   const li = document.createElement('li');
   li.className = 'song-menu-go-row';
   const go = document.createElement('button');
   go.type = 'button'; go.className = 'song-menu-btn song-menu-go';
   const txt = document.createElement('span'); txt.className = 'song-menu-text';
   const t = document.createElement('span'); t.className = 'song-menu-label';
-  const sel = pacoteSelecao(plano);
-  // O PESO DO QUE FOI ESCOLHIDO, no próprio botão: é a única pergunta que o
-  // operador tem depois de marcar ("cabe no cartão?"), e ela muda a cada toque.
-  t.textContent = 'Salvar ' + pacotePeso(pacoteBytesDe(plano, sel), plano.aprox);
+  if (leitura) {
+    t.textContent = 'Escolher o arquivo';
+    go.addEventListener('click', () => fecharPacoteGrupos(true));
+  } else {
+    const sel = pacoteSelecao(plano);
+    // O PESO DO QUE FOI ESCOLHIDO, no próprio botão: é a única pergunta que o
+    // operador tem depois de marcar ("cabe no cartão?"), e ela muda a cada toque.
+    t.textContent = 'Salvar ' + pacotePeso(pacoteBytesDe(plano, sel), plano.aprox);
+    go.addEventListener('click', () => fecharPacoteGrupos(pacoteSelecao(plano)));
+  }
   txt.appendChild(t);
   go.appendChild(txt);
-  go.addEventListener('click', () => fecharPacoteGrupos(pacoteSelecao(plano)));
   li.appendChild(go);
   porFecho(songMenuListEl, li);
 }
@@ -31666,8 +31775,8 @@ async function exportarPacote() {
   if (!esboco) {
     pacoteEmCurso = false;
     pacoteRenderTiles();
-    pulsar(pacoteExportarTileEl, 'erro');
-    falarNoTile(pacoteExportarTileEl, 'Não deu', 4000);
+    pacotePulsar(pacoteExportarTileEl, 'erro');
+    pacoteFalar(pacoteExportarTileEl, 'Não deu', 4000);
     return;
   }
   pacotePlanoAtual = esboco;
@@ -31695,6 +31804,8 @@ async function exportarPacote() {
   pacoteCancelar = false;
   pacotePercentualDito = -1;
   pacoteExportarTileEl.classList.add('qs-trabalhando');
+  pacoteMedindo = true;
+  pacoteSinal();
   pacoteFalarPercentual(pacoteExportarTileEl, 0);
   try {
     plano = await pacotePlano((f) => {
@@ -31706,11 +31817,12 @@ async function exportarPacote() {
   if (!plano) {
     pacotePlanoAtual = null;
     pacoteExportarTileEl.classList.remove('qs-trabalhando');
+    pacoteMedindo = false;
     pacoteEmCurso = false;
-    calarTile(pacoteExportarTileEl);
+    pacoteCalar(pacoteExportarTileEl);
     pacoteRenderTiles();
-    pulsar(pacoteExportarTileEl, 'erro');
-    falarNoTile(pacoteExportarTileEl, 'Não deu', 4000);
+    pacotePulsar(pacoteExportarTileEl, 'erro');
+    pacoteFalar(pacoteExportarTileEl, 'Não deu', 4000);
     return;
   }
   pacotePlanoAtual = plano;
@@ -31750,11 +31862,13 @@ async function exportarPacote() {
   if (!nome) {
     pacotePlanoAtual = null;
     pacoteExportarTileEl.classList.remove('qs-trabalhando');
+    pacoteMedindo = false;
     pacoteEmCurso = false;
-    calarTile(pacoteExportarTileEl);
+    pacoteCalar(pacoteExportarTileEl);
     pacoteRenderTiles();
     return;
   }
+  pacoteMedindo = false;
   pacoteExportando = true;
   pacoteRenderTiles();
   let erro = '';
@@ -31940,20 +32054,21 @@ async function exportarPacote() {
     if (erro) { try { AVNative.pacoteCancelar(); } catch (_) { /* ponte */ } }
     pacoteEmCurso = false;
     pacoteExportando = false;
+    pacoteMedindo = false;
     pacoteCancelar = false;
     pacotePlanoAtual = null;
-    calarTile(pacoteExportarTileEl);
+    pacoteCalar(pacoteExportarTileEl);
     pacoteRenderTiles();
   }
   // DESISTIR NÃO É FALHAR, e por isso não abre diálogo de erro: o operador
   // acabou de tocar no botão e sabe o que aconteceu. O parcial já foi apagado
   // pelo caminho acima — e o BOTÃO confirma, que é onde ele tocou.
   if (erro === PACOTE_CANCELADO) {
-    falarNoTile(pacoteExportarTileEl, 'Cancelado', 3000);
+    pacoteFalar(pacoteExportarTileEl, 'Cancelado', 3000);
     return;
   }
   if (erro) {
-    pulsar(pacoteExportarTileEl, 'erro');
+    pacotePulsar(pacoteExportarTileEl, 'erro');
     await openAppDialog({ title: 'Não deu para exportar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
@@ -31969,8 +32084,9 @@ async function exportarPacote() {
   // O DIÁLOGO ERA UM PASSO A MAIS NO MEIO DE UMA AÇÃO QUE JÁ TINHA ACABADO, e
   // ele existia para dizer duas coisas: o tamanho e o que fazer em seguida. O
   // tamanho continua no botão; o "o que fazer" virou o PRÓPRIO BOTÃO — ele
-  // para em 100% e o toque manda.
-  pulsar(pacoteExportarTileEl, 'ok');
+  // para em 100% e o toque manda. (Desde a v1.11.7 os dois botões moram numa
+  // janela, e o desfecho vai também para o tile da grade — `pacotePulsar`.)
+  pacotePulsar(pacoteExportarTileEl, 'ok');
   // ===== O CARTÃO DE CONCLUSÃO, COM O CHECK (v1.8.31) =====
   //
   // Pedido do operador: *"ao terminar o processo de exportar ou importar, o
@@ -31991,7 +32107,7 @@ async function exportarPacote() {
   }
   // NO CAMINHO DO SAF NÃO HÁ O QUE MANDAR: o arquivo já é do operador, na
   // pasta que ELE escolheu. O botão diz quanto pesou e volta ao que era.
-  falarNoTile(pacoteExportarTileEl, fmtBytes(gravados), 5000);
+  pacoteFalar(pacoteExportarTileEl, fmtBytes(gravados), 5000);
 }
 
 // ---------------------------------------------------------------------------
@@ -32683,7 +32799,30 @@ function pacoteFalarPercentual(el, fracao) {
   // do freio de 700 ms da notificação, na superfície que não tem freio nenhum.
   if (pct === pacotePercentualDito) return;
   pacotePercentualDito = pct;
-  falarNoTile(el, pct + '%', 0);
+  pacoteFalar(el, pct + '%', 0);
+}
+
+// ===== O FEEDBACK DE EXPORTAR/IMPORTAR TAMBÉM VAI PARA O TILE DA GRADE (v1.11.7)
+//
+// Os dois botões moram numa janela, e ela pode estar FECHADA durante os minutos
+// de uma exportação: `pulsar` recusa um nó dentro de `.popup-backdrop:not(.open)`
+// e a frase emprestada num nó oculto não se vê. O tile da grade (`#pacoteTile`)
+// é o que continua à vista com Configurações aberta, então todo desfecho que
+// vai para um dos dois passa por aqui e vai para ele também. O que NÃO passa por
+// aqui é o rótulo de PAPEL do irmão ("Cancelar", "Descartar"): ele diz o que o
+// toque faz naquele botão, e no tile da grade seria uma mentira.
+function pacoteFalar(el, texto, ms) {
+  falarNoTile(el, texto, ms);
+  falarNoTile(pacoteTileEl, texto, ms);
+}
+function pacoteCalar(el) {
+  calarTile(el);
+  calarTile(pacoteTileEl);
+}
+function pacotePulsar(el, tipo) {
+  const dele = pulsar(el, tipo);
+  const daGrade = pulsar(pacoteTileEl, tipo);
+  return dele || daGrade;
 }
 
 async function pacoteConferir(fonte, aoAndar) {
@@ -33031,7 +33170,7 @@ async function importarPacote() {
   // A CONFERÊNCIA vem antes do primeiro byte gravado e lê o arquivo inteiro
   // pelos cabeçalhos: num pacote de gigabytes ela leva segundos, e sem esta
   // linha o botão fica parado enquanto ela roda.
-  falarNoTile(pacoteImportarTileEl, 'Conferindo…', 0);
+  pacoteFalar(pacoteImportarTileEl, 'Conferindo…', 0);
   let erro = '';
   const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0, recusadas: 0 };
   try {
@@ -33141,7 +33280,7 @@ async function importarPacote() {
   } finally {
     pacoteEmCurso = false;
     pacoteImportando = false;
-    calarTile(pacoteImportarTileEl);
+    pacoteCalar(pacoteImportarTileEl);
     pacoteRenderTiles();
   }
   if (pacoteCancelarImport) {
@@ -33158,7 +33297,7 @@ async function importarPacote() {
     return;
   }
   if (erro) {
-    pulsar(pacoteImportarTileEl, 'erro');
+    pacotePulsar(pacoteImportarTileEl, 'erro');
     await openAppDialog({ title: 'Não deu para importar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
@@ -33188,7 +33327,7 @@ async function importarPacote() {
     consumo = 'O arquivo do pacote continua no aparelho.';
   }
 
-  pulsar(pacoteImportarTileEl, 'ok');
+  pacotePulsar(pacoteImportarTileEl, 'ok');
   bgConcluido('Acervo importado', 'A biblioteca já está no aparelho.');
   // A REHIDRATAÇÃO VEM ANTES DO RELATÓRIO (v1.8.43), e a ordem é o que o
   // relatório diz. Ele nomeia as coleções por `allCollections()`, que lê o
@@ -33342,13 +33481,56 @@ function pacoteIrmaoCancela(el, acao, rotulo, descricao) {
   el.onclick = (ev) => { ev.preventDefault(); acao(); };
 }
 
+// Os dois botões da janela (a coreografia inteira) e o sinal do tile da grade:
+// QUEM PINTA UM, PINTA O OUTRO — são 15 chamadores, e um chamador que esquecesse
+// o tile da grade deixaria um trabalho de minutos sem sinal nenhum com a janela
+// fechada. O corpo é o de sempre, e `pacoteRenderPar` é o nome dele.
 function pacoteRenderTiles() {
+  pacoteRenderPar();
+  pacoteSinal();
+}
+
+/**
+ * O TILE DA GRADE É O SINAL, não só a porta (v1.11.7).
+ *
+ * Ele diz, com a janela fechada, as duas coisas que a coreografia dos botões
+ * dizia: HÁ TRABALHO ANDANDO (o aro, no lugar do ícone) e HÁ UM PACOTE PRONTO
+ * (o desenho de compartilhar). O que o toque faz é o mesmo nos dois casos —
+ * abrir a janela, onde o botão certo espera: o Exportar que envia, o Importar
+ * que descarta, o que cancela.
+ *
+ * O ARO GIRA ONDE HÁ TRABALHO, e não onde há `pacoteEmCurso` (a regra da
+ * v1.8.28: ele sobe no primeiro toque, antes da medição e durante a folha de
+ * escolha, quando nada está andando). A importação TAMBÉM ganha aro aqui — no
+ * botão dela ela vira o Cancelar, mas o tile da grade não tem irmão, e o
+ * trabalho precisa de uma cara.
+ *
+ * NUNCA `disabled`: tocar nele é a única forma de chegar ao cancelar, ao enviar
+ * e ao descartar.
+ */
+function pacoteSinal() {
+  if (!pacoteTileEl) return;
+  const trabalhando = !!(pacoteExportando || pacoteImportando || pacoteMedindo);
+  const pronto = !!pacotePronto && !trabalhando;
+  pacoteTileEl.classList.toggle('qs-trabalhando', trabalhando);
+  pacoteTileEl.disabled = false;
+  const nome = pacoteExportando || pacoteMedindo ? 'exportando' : (pacoteImportando ? 'importando' : '');
+  pintarTile(pacoteTileEl, trabalhando ? 'ocupado' : (pronto ? 'pronto-para-enviar' : 'ocioso'),
+    trabalhando ? nome : (pronto ? 'pronto, ' + fmtBytes(pacotePronto.bytes) : ''), true, pronto);
+  pacoteTileEl.title = pronto
+    ? 'Pacote pronto (' + fmtBytes(pacotePronto.bytes) + ') — toque para enviar ou descartar'
+    : (trabalhando
+      ? (nome === 'importando' ? 'Importando — toque para ver ou parar' : 'Exportando — toque para ver ou parar')
+      : 'Levar a biblioteca e os ajustes para outro aparelho, ou trazê-los de um arquivo');
+}
+
+function pacoteRenderPar() {
   const fora = !window.__NATIVE__;
   // A SAÍDA DE ÁUDIO ENTRA NESTA LISTA (v1.9.9) e não numa função própria: a
   // pergunta é a MESMA — *"este tile depende da ponte?"* —, e a resposta dela é
   // sim pelo mesmo motivo dos três seguintes. Um segundo lugar escrevendo
   // `hidden` por tile divergiria no primeiro tile novo.
-  for (const el of [saidaAudioTileEl, shareAppTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
+  for (const el of [saidaAudioTileEl, shareAppTileEl, pacoteTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
     if (el) el.hidden = fora;
   }
   if (shareAppTileEl) pintarTile(shareAppTileEl, 'app', 'O app', true, false);
@@ -33401,7 +33583,7 @@ function pacoteRenderTiles() {
     pacoteTrabalhando(pacoteExportarTileEl, true, 'em curso', true);
     pacoteIrmaoCancela(pacoteImportarTileEl, () => {
       pacoteCancelar = true;
-      falarNoTile(pacoteExportarTileEl, 'Parando…', 0);
+      pacoteFalar(pacoteExportarTileEl, 'Parando…', 0);
     });
     return;
   }
@@ -33417,20 +33599,36 @@ function pacoteRenderTiles() {
     // de gigabytes de fato acontece).
     pacoteIrmaoCancela(pacoteImportarTileEl, () => {
       pacoteCancelarImport = true;
-      falarNoTile(pacoteImportarTileEl, 'Parando…', 0);
+      pacoteFalar(pacoteImportarTileEl, 'Parando…', 0);
     });
     pacoteTrabalhando(pacoteExportarTileEl, false, 'o acervo', false);
     pacoteExportarTileEl.disabled = true;
     return;
   }
 
-  // NADA ANDANDO. `pacoteEmCurso` ainda pode estar de pé (a medição, a folha de
+  // A MEDIÇÃO É TRABALHO ANDANDO (`pacoteMedindo`, a mesma pergunta do tile da
+  // grade): a janela pode ser fechada e reaberta durante os segundos dela, e
+  // cair no ramo ocioso apagava o aro e o percentual do Exportar — que o tile da
+  // grade, ao lado, continuava mostrando. Não há o que cancelar (nenhum byte foi
+  // escrito), então o Exportar trabalha INDISPONÍVEL e o irmão fica parado. O
+  // `calarTile` é o do irmão, não o `pacoteCalar`: este também cala o tile da
+  // grade, e o número dele é o que não pode se perder.
+  if (pacoteMedindo) {
+    pacoteTrabalhando(pacoteExportarTileEl, true, 'em curso', false);
+    pacoteImportarTileEl.onclick = null;
+    calarTile(pacoteImportarTileEl);
+    pacoteTrabalhando(pacoteImportarTileEl, false, 'o acervo', false);
+    pacoteImportarTileEl.disabled = true;
+    return;
+  }
+
+  // NADA ANDANDO. `pacoteEmCurso` ainda pode estar de pé (a folha de
   // escolha, o seletor do sistema): os tiles ficam PARADOS e indisponíveis, que
   // é a verdade — não há trabalho a mostrar e não há toque a aceitar.
   pacoteImportarTileEl.onclick = null;
   pacoteExportarTileEl.onclick = null;
-  calarTile(pacoteExportarTileEl);
-  calarTile(pacoteImportarTileEl);
+  pacoteCalar(pacoteExportarTileEl);
+  pacoteCalar(pacoteImportarTileEl);
   pacoteTrabalhando(pacoteExportarTileEl, false, 'o acervo', false);
   pacoteTrabalhando(pacoteImportarTileEl, false, 'o acervo', false);
   pacoteExportarTileEl.disabled = pacoteEmCurso;
@@ -33467,7 +33665,7 @@ if (pacoteExportarTileEl) {
     // parcial é apagado e o arquivo escolhido some.
     if (pacoteExportando) {
       pacoteCancelar = true;
-      falarNoTile(pacoteExportarTileEl, 'Parando…', 0);
+      pacoteFalar(pacoteExportarTileEl, 'Parando…', 0);
       return;
     }
     // A MEDIÇÃO e a folha de escolha caem aqui: não escreveram byte nenhum,
@@ -33496,8 +33694,8 @@ async function enviarPacotePronto() {
     pacoteAnotar('enviou', 'o shell recusou o envio (-1) — o pronto foi descartado');
     pacotePronto = null;
     pacoteRenderTiles();
-    pulsar(pacoteExportarTileEl, 'erro');
-    falarNoTile(pacoteExportarTileEl, 'Refaça', 4000);
+    pacotePulsar(pacoteExportarTileEl, 'erro');
+    pacoteFalar(pacoteExportarTileEl, 'Refaça', 4000);
     return;
   }
   pacoteAnotar('enviou', 'seletor aberto com ' + fmtBytes(bytes));
@@ -33546,7 +33744,41 @@ function pacoteDescartarPronto() {
   try { AVNative.pacoteDescartarPronto(); } catch (_) { /* ponte */ }
   pacoteRenderTiles();
 }
-if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => { importarPacote(); });
+/**
+ * O TOQUE NO IMPORTAR: PRIMEIRO O QUE O APARELHO JÁ TEM, DEPOIS O ARQUIVO.
+ *
+ * A listagem mora AQUI, no toque, e NÃO dentro de `importarPacote`: aquela é
+ * chamada direto por dezenas de pontos de oráculo com um `pickDoc` de mentira,
+ * e um `await` de folha dentro dela os penduraria todos esperando um toque que
+ * ninguém dá. O mesmo vale para o `exportarPacote`, que continua sem argumentos
+ * e com a folha "O que levar" por dentro.
+ *
+ * A GUARDA É A DA v1.8.42, COPIADA (`importarPacote` explica o porquê): o
+ * ouvinte permanente roda JUNTO com o `onclick` que `pacoteIrmaoCancela`
+ * instala, e sem `pacotePronto` aqui um toque em "Descartar" abriria a
+ * listagem por cima da confirmação.
+ *
+ * `pacoteEmCurso` sobe durante a folha e desce antes do seletor: ele só protege
+ * contra um segundo toque (os dois botões ficam `disabled`), e segurá-lo até
+ * dentro do `importarPacote` o barraria na própria guarda. A listagem que falha
+ * em montar NÃO bloqueia a importação — ela informa, não autoriza.
+ */
+async function importarPeloTile() {
+  if (!window.__NATIVE__ || pacoteEmCurso || pacotePronto) return;
+  pacoteEmCurso = true;
+  pacoteRenderTiles();
+  let seguir = true;
+  try {
+    let plano = null;
+    try { plano = await pacotePlanoAproximado(); } catch (_) { plano = null; }
+    if (plano) seguir = !!(await mostrarAcervoParaImportar(plano));
+  } finally {
+    pacoteEmCurso = false;
+    pacoteRenderTiles();
+  }
+  if (seguir) importarPacote();
+}
+if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => { importarPeloTile(); });
 // Na CARGA, e não só ao abrir a folha: é este toque que revela (ou esconde) o
 // bloco inteiro, e uma folha aberta antes dele mostraria um rótulo sozinho.
 pacoteRenderTiles();
@@ -34891,9 +35123,11 @@ async function handleSharedUrl(url, title) {
 // é o slot avulso, que segura a mídia enquanto ela é a cena e a solta quando
 // outra entra.
 //
-// Vale para LINK, não para arquivo. Um share de arquivos pode trazer vários de
-// uma vez, e com um slot só cada um apagaria o anterior — ali o Cronograma
-// continua sendo o destino nos dois modos.
+// Os ARQUIVOS seguem a mesma prateleira, mas por LOTE: um share pode trazer
+// vários de uma vez, e `fixarAvulso` os segura juntos (rodízio de `AVULSO_MAX`)
+// em vez de cada um apagar o anterior. **Como o app abre SEMPRE no simplificado,
+// um share recebido com o app FECHADO cai neste ramo** — o link toca e os
+// arquivos vão à prateleira e à projeção, sem passar pelo Cronograma.
 function simplificado() { return appMode === 'simple'; }
 
 // OS DESTINOS DO LOTE QUE ESTÁ ENTRANDO (v5.141). No avançado quem os escolhe é
@@ -35294,8 +35528,12 @@ async function conferirLinkCopiado() {
     await AVDB.updateState(CLIP_ESTADO, () => achado.carimbo);
     const usar = await appConfirm({
       title: 'Link do YouTube copiado',
+      // No Modo Fácil (o modo de TODA abertura) o "sim" não abre folha de
+      // escolhas: o vídeo é baixado e PROJETADO. A pergunta é a única barreira, e
+      // por isso ela diz o que vai acontecer — "usar" sozinho não diria.
       message: 'Você tem um link do YouTube na área de transferência. '
-        + 'Quer usá-lo agora?\n\n' + achado.texto,
+        + (simplificado() ? 'Quer baixá-lo e projetá-lo agora?' : 'Quer usá-lo agora?')
+        + '\n\n' + achado.texto,
       okText: 'Usar o link', cancelText: 'Agora não',
     });
     if (!usar) return;
@@ -37011,6 +37249,32 @@ function openTestePopup() {
 }
 function closeTestePopup() { testePopupEl.classList.remove('open'); }
 
+// ===== AS JANELAS DA TELA E DO TRANSFERIR (v1.11.7) =====
+//
+// Abrem de DENTRO de Configurações, como o Histórico e a Verificação, e por isso
+// têm linha na tabela `POPUPS` (✕, toque no fundo e o degrau do voltar) logo
+// depois dela. NÃO FECHAM AO TOCAR NUM TILE: quem alterna o preenchimento olha
+// para a prévia, não para a janela, e o Tema já era assim.
+//
+// OS PINTORES RODAM NA ABERTURA, e é só um ajuste fino: o `data-estado` dos tiles
+// já está certo com a janela fechada (`load()` os pinta na carga, e
+// `applyPvWallpaper` repinta o do wallpaper) — a janela fechada é `opacity: 0`, e
+// não `display: none`, então o nó existe e responde. O que a abertura refaz é o
+// que depende de um instante, como a largura do ícone do giro.
+function openTelaPopup() {
+  renderFitTile();
+  renderRotBtn();
+  renderLyricsBgTile();
+  renderWallTile();
+  telaPopupEl.classList.add('open');
+}
+function closeTelaPopup() { telaPopupEl.classList.remove('open'); }
+function openPacotePopup() {
+  pacoteRenderTiles();
+  pacotePopupEl.classList.add('open');
+}
+function closePacotePopup() { pacotePopupEl.classList.remove('open'); }
+
 /**
  * SALVA O REGISTRO — o mesmo arquivo de Configurações, com a verificação dentro
  * (v1.10.3). Pedido do operador: *"faça com que essa verificação, após feita,
@@ -37326,6 +37590,8 @@ settingsBtnEl.addEventListener('click', openFadePopup);
 // e não à folha de onde ele saiu.
 histOpenRowEl.addEventListener('click', openHistPopup);
 if (testeTileEl) testeTileEl.addEventListener('click', openTestePopup);
+if (telaTileEl) telaTileEl.addEventListener('click', openTelaPopup);
+if (pacoteTileEl) pacoteTileEl.addEventListener('click', openPacotePopup);
 if (testeRodarEl) testeRodarEl.addEventListener('click', dispararTeste);
 if (testeSalvarEl) {
   // REVELADO AQUI, e não no `renderVersionLabel` — a mesma armadilha do
@@ -37397,10 +37663,11 @@ for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
 lyricsBgTileEl.addEventListener('click', () => {
   setLyricsBg(lyricsBg === 'image' ? 'black' : 'image');
 });
-// IMAGEM DA PRÉVIA: a economia de processamento. Um tile, dois estados —
-// sempre clicável desde a v1.10.10, mesmo sem destino de projeção.
-if (economiaTileEl) {
-  economiaTileEl.addEventListener('click', () => { setEconomiaPreview(!economiaPreview); });
+// A SETA DA PRÉVIA: recolhe e expande, e carrega junto a economia de
+// processamento. Dois estados — sempre clicável desde a v1.10.10, mesmo sem
+// destino de projeção.
+if (pvRecolherEl) {
+  pvRecolherEl.addEventListener('click', () => { setEconomiaPreview(!economiaPreview); });
 }
 // DADOS MÓVEIS: permitir ou não, para o acervo e os dois automáticos — ver
 // `redeLiberadaParaBaixar`, onde a regra e o que ela cobre estão.
@@ -37647,9 +37914,11 @@ function volumeProximo(atual, dir) {
 // Duas pessoas: quem só conecta a tela e toca um louvor, e o sonoplasta que
 // opera o culto inteiro.
 //
-// Abre no ÚLTIMO MODO USADO (`storedAppMode`), nunca por pergunta na abertura —
-// ela cobraria um toque de quem nem sabe que há dois modos. Cair no avançado
-// sem querer custa um toque no "← Modo simplificado" do cabeçalho.
+// Abre SEMPRE no simplificado (`appModeDaSessao`), nunca por pergunta na
+// abertura — ela cobraria um toque de quem nem sabe que há dois modos. Ir ao
+// avançado é um toque em Configurações, e a recarga do documento no mesmo
+// WebView (atualização aceita, importação) o mantém: a escolha mora em
+// `sessionStorage`, que o WebView recriado por uma morte de renderer perde.
 //
 // O simplificado NÃO é uma segunda implementação do transporte: os botões
 // acionam os MESMOS controles do avançado por `.click()` (o padrão da
@@ -37669,8 +37938,10 @@ function setAppMode(mode) {
   // não há botão de desfazer — este é um dos três caminhos de volta, e o único
   // que o operador percorre de propósito.
   tocarNoCelular = false;
-  // A escolha é do operador, e ele não deveria refazê-la a cada abertura.
-  try { localStorage.setItem(APP_MODE_KEY, appMode); } catch (_) { /* storage bloqueado */ }
+  // Só a SESSÃO lembra (ver `appModeDaSessao`): a recarga do documento no mesmo
+  // WebView devolve o modo em que o operador estava; abrir o app de novo, ou um
+  // WebView recriado, devolve o Modo Fácil.
+  try { sessionStorage.setItem(APP_MODE_KEY, appMode); } catch (_) { /* storage bloqueado */ }
   document.body.classList.toggle('mode-simple', appMode === 'simple');
   simpleModeEl.classList.toggle('open', appMode === 'simple');
   // A preview troca de casa junto com o modo (ver hostPreview) — antes dos
@@ -38276,13 +38547,12 @@ holdRepeat(simpleVolDownEl, () => simpleVolStep(-1));
 // nada (v5.199), porque o que ela destravava deixou de estar trancado. Ficasse,
 // seria um gesto secreto de 5 s cujo efeito é indistinguível do estado normal
 // da tela.)
-// Fecha o ciclo com o HTML: as classes já vêm do documento (e, no modo
-// lembrado, já foram corrigidas no topo do arquivo), aqui o estado do JS
+// Fecha o ciclo com o HTML: as classes já vêm do documento (e, numa recarga
+// dentro da sessão, já foram corrigidas no topo do arquivo), aqui o estado do JS
 // (segmento do popup, espelho dos controles) nasce igual a elas.
-// `appMode`, e NÃO a constante `'simple'` que estava aqui: com o modo lembrado
-// essa linha reescrevia o `localStorage` para "simple" em toda abertura, e o
-// avançado nunca sobrevivia a fechar o app — o defeito era invisível, porque a
-// tela ainda pintava certo até esta linha rodar.
+// `appMode`, e NÃO a constante `'simple'`: a constante reescreveria a chave da
+// sessão em toda carga e uma recarga no avançado cairia no Modo Fácil — o
+// defeito é invisível, porque a tela ainda pinta certo até esta linha rodar.
 setAppMode(appMode);
 // Mesa de som nasce desligada (não é persistida); o segmento precisa nascer
 // dizendo isso, senão a primeira abertura de Configurações mostra dois botões
@@ -39498,6 +39768,12 @@ const POPUPS = [
   // nada por cima de si. O voltar percorre esta tabela de trás para a frente,
   // então ela fecha antes de Configurações — que é para onde o operador volta.
   [testePopupEl, testePopupCloseEl, closeTestePopup],
+  // A TELA e o TRANSFERIR abrem de dentro de Configurações (v1.11.7), como a
+  // Verificação logo acima — e o `z-index` de `#telaPopup`/`#pacotePopup` diz a
+  // mesma ordem. A folha "O que levar" do exportar (`#songMenuPopup`) vem DEPOIS
+  // e abre por cima da janela do Transferir.
+  [telaPopupEl, telaPopupCloseEl, closeTelaPopup],
+  [pacotePopupEl, pacotePopupCloseEl, closePacotePopup],
   // A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), e
   // vem antes das duas que nascem dela — o voltar percorre esta tabela de trás
   // para a frente.
@@ -39994,11 +40270,9 @@ document.addEventListener('visibilitychange', () => {
   // ANTES do load(): é ele que lê `current` e monta a tela a partir dela.
   await clearCurrentSelection();
   await load();
-  // A SEGUNDA METADE do modo lembrado. A classe do `<body>` já foi escrita no
+  // A SEGUNDA METADE do modo da sessão. A classe do `<body>` já foi escrita no
   // topo do arquivo (antes do primeiro quadro); falta o que depende do módulo
-  // pronto: o segmento das Configurações, os renders do simplificado e — no
-  // avançado — o vazado da faixa de abas, que só pode ser POSICIONADO agora,
-  // porque medir a faixa antes de `load()` a desenhar daria zero.
+  // pronto: o segmento das Configurações e os renders do simplificado.
   setAppMode(appMode);
   // Wallpaper escolhido pelo operador (a preview espelha o telão).
   await applyPvWallpaper();

@@ -29,7 +29,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas, comModoAvancado } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const servidor = servirEstatico(RAIZ);
@@ -43,9 +43,7 @@ const EXTERNO = /ERR_TUNNEL_CONNECTION_FAILED|ERR_NAME_NOT_RESOLVED|ERR_INTERNET
 try {
   const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
   await semRedeExterna(ctx);
-  await ctx.addInitScript(() => {
-    try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* storage bloqueado */ }
-  });
+  await comModoAvancado(ctx);
   const pg = await ctx.newPage();
   pg.on('console', (m) => {
     if (m.type() !== 'error') return;

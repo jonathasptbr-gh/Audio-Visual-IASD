@@ -57,7 +57,7 @@
 //   node tools/deslize-nao-vaza.test.mjs
 // ============================================================================
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperar, esperarCortina, checar, falhas, porque, RAIZ_WEB }
+import { servirEstatico, abrirNavegador, esperar, esperarCortina, checar, falhas, porque, RAIZ_WEB, comModoAvancado }
   from './arnes.mjs';
 
 const servidor = servirEstatico(RAIZ_WEB);
@@ -66,9 +66,7 @@ const base = 'http://localhost:' + servidor.address().port;
 const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: { width: 393, height: 786 } });
 await semRedeExterna(ctx);
-await ctx.addInitScript(() => {
-  try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* storage bloqueado */ }
-});
+await comModoAvancado(ctx);
 const pg = await ctx.newPage();
 const erros = [];
 pg.on('pageerror', (e) => erros.push(e.message));

@@ -1264,6 +1264,22 @@ body {
   left: 0; right: 0; top: auto; bottom: 2px;
   flex-direction: row; justify-content: center;
 }
+/* A SETA QUE RECOLHE A PRÉVIA mora no TOPO, AO CENTRO (v1.11.7): o espelho
+   exato do selo da base. Entre a cortina (canto superior esquerdo) e o cast
+   (canto superior direito) sobram 71 a 150px livres, medido de 320 a 430px de
+   largura e de 1,2 a 2,4 de proporção — não colide com nenhum dos dois. */
+.pv-fabs--topo {
+  left: 0; right: 0; top: 2px; bottom: auto;
+  flex-direction: row; justify-content: center;
+}
+/* NO MODO FÁCIL A SETA VAI PARA O CANTO SUPERIOR ESQUERDO: lá a coluna da
+   esquerda não existe (a regra logo abaixo a esconde), o canto é livre, e a
+   prévia pode ser MUITO baixa — 144x60 num telefone de 320 com uma TV 21:9, e
+   MEDIDO, com o selo ou o giro à vista (centro da base) uma seta ao centro do
+   topo se sobrepunha a eles em 12px. No canto ela não encontra nenhum dos dois,
+   em altura nenhuma. O avançado não tem o problema (a prévia mais baixa mede
+   88px) e fica no centro. */
+.simple-stage .pv-fabs--topo { left: 2px; right: auto; justify-content: flex-start; }
 /* A COLUNA DE OPERAÇÃO, à esquerda: leitura auxiliar, cortina e mudo (v1.3.5).
    TOPO, MEIO e BASE (`space-between`), o alinhamento da coluna do player ao
    lado: o de cima encosta na altura do cast, o de baixo na do tela cheia. Em
@@ -1436,6 +1452,92 @@ body {
 .pv-fab--mute.blocked {
   color: var(--warn-text);
   animation: mute-blocked-pulse 1.2s ease-in-out infinite;
+}
+/* ===== A PRÉVIA RECOLHIDA (v1.11.7) =====
+   Pedido do operador: *"compacte verticalmente ela… mantendo os botões de
+   interação dentro da preview, mas a preview na menor altura possível sem
+   apertar esses botões"*.
+
+   A ALTURA MÍNIMA É A DO CONTEÚDO, e ninguém a escreve: recolhida, a prévia deixa
+   de ser um retângulo com botões POR CIMA (as três colunas de `.pv-fabs` são
+   `position: absolute`, e a altura delas não conta para o pai) e vira uma GRADE
+   em fluxo — `height: auto`, sem `aspect-ratio`, os grupos `static` em linha. O
+   navegador mede sozinho: 38px (um botão de `--hit` mais os 2px de recuo de
+   cada lado) e, quando o selo de camadas ou o giro estão à vista, uma segunda
+   linha por baixo. Um número declarado aqui assumiria dois botões empilhados e
+   quebraria no terceiro; e `flex: 0 1` com `min-height: 24px` espremeria a
+   cortina e o mudo, que é exatamente o que o pedido proíbe.
+
+   `1fr auto 1fr`, e NÃO `auto 1fr auto`: com o cast oculto (o navegador) ou a
+   coluna da esquerda fora (Modo Fácil) as laterais ficam desiguais, e a seta
+   sairia do centro. Cada lateral leva `justify-self` explícito.
+
+   O SELO e o GIRO (`.pv-fabs--base`) não cabem ao lado da seta em 360px (soma
+   229 a 266px contra 211 a 240px de prévia), e por isso descem para a linha 2.
+
+   AS CAMADAS FICAM `visibility: hidden`, e nunca `display: none`: a caixa é a
+   mesma, o `object-fit` e o giro continuam calculados sobre ela, e o religar não
+   recalcula layout nenhum (o `ResizeObserver` do stage remede ao expandir).
+   Isto é a GEOMETRIA — quem para a DECODIFICAÇÃO é `economiaAtiva` (só com
+   destino de projeção), e as duas réguas não são a mesma de propósito: sem TV
+   esta prévia é a fonte do som, e pausá-la calaria o culto.
+
+   TUDO ISTO FICA DE FORA DA TELA CHEIA E DO CARTÃO DE ESPERA, e as duas
+   exclusões não são enfeite. Em tela cheia sem TV a prévia É a projeção: uma
+   regra sem o `:not(:fullscreen)` deixaria o telão em branco, sem erro algum. E
+   o cartão `#pvBusy` (progresso e falha do download, e a ÚNICA porta de
+   cancelar) mede 43 a 58px e não cabe em 38 — com ele no ar a prévia volta à
+   altura natural, e recolhe sozinha quando ele sai. O custo é um salto de layout
+   num download lento.
+
+   O desenho da seta diz a MARCAÇÃO (o que o toque faz), não a geometria do
+   instante: com o cartão no ar a prévia está expandida e a seta continua dizendo
+   "expandir" — mas, no avançado, ela some enquanto o cartão está à vista (regra
+   logo abaixo da grade: no centro do topo ela cobria o texto do download). */
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: 2px; height: auto; aspect-ratio: auto;
+}
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs {
+  position: static; flex-direction: row;
+}
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs--esq {
+  grid-column: 1; grid-row: 1; justify-self: start;
+}
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs--topo {
+  grid-column: 2; grid-row: 1;
+}
+/* No Modo Fácil a seta fica no canto, também recolhida: ela não pode trocar de
+   lugar quando o toque muda o estado — quem toca duas vezes a procuraria. */
+.simple-stage .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs--topo {
+  grid-column: 1; justify-self: start;
+}
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on))
+  .pv-fabs:not(.pv-fabs--esq):not(.pv-fabs--base):not(.pv-fabs--topo) {
+  grid-column: 3; grid-row: 1; justify-self: end;
+}
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs--base {
+  grid-column: 1 / -1; grid-row: 2; justify-content: center;
+}
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) :is(.pv-layer, .pv-wall) {
+  visibility: hidden;
+}
+/* O CARTÃO SAI NO ATO quando a prévia volta a recolher: a grade acima é
+   desfeita no instante em que o `.on` cai, e com o fade de 200ms do `.pv-busy`
+   o cartão (52px) ainda estava à vista, cortado, numa tira de 38px — MEDIDO:
+   opacidade 1 em t+0 e 0,13 em t+100ms. Sem transição ele some no mesmo quadro
+   em que a prévia encolhe. A entrada não muda (a regra deixa de valer com `.on`). */
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-busy {
+  transition: none;
+}
+/* COM O CARTÃO NO AR A SETA SAI DA FRENTE, no avançado: ela é um quarto controle
+   no centro do topo e o cartão centrado a cobria — MEDIDO a 360px, 3 a 26px de
+   sobreposição conforme a proporção da TV, com o ícone desenhado sobre o texto
+   do download. A prévia está expandida por causa do cartão e a marcação continua
+   gravada; a seta volta quando ele sai. No Modo Fácil ela mora no canto e o
+   cartão já reserva as laterais (`.simple-stage .pv-busy`), então ali fica. */
+body:not(.mode-simple) .preview:has(.pv-busy.on) .pv-fabs--topo {
+  visibility: hidden; pointer-events: none;
 }
 /* Em tela cheia a preview É a projeção (quando não há TV conectada): os botões
    PERMANENTES saem de cena, ou iriam junto para o telão. Quem os substitui lá é
@@ -1767,59 +1869,13 @@ body {
 }
 .pv-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: var(--stage-bg); z-index: 1; }
 
-/* ===== A MARCA DA ECONOMIA (v1.9.9) =====
-   Com a imagem da prévia desligada o retângulo mostra o wallpaper — e um
-   retângulo parado é indistinguível de uma prévia QUEBRADA. Esta marca é o que
-   diz que é ESCOLHA (a regra da v1.8.50, aplicada a uma superfície em vez de a
-   um botão).
-
-   ELA É CENTRADA, e NÃO um canto — a primeira escrita a pôs em baixo à direita
-   com o argumento de que a coluna de controles "mora à direita mas em cima". Era
-   FALSO, e o oráculo mediu: `.pv-fabs` é `top: 2px; bottom: 2px; right: 2px`, uma
-   coluna de altura INTEIRA com a tela cheia empurrada para a base por
-   `margin-top: auto`, e a irmã `--esq` faz o mesmo à esquerda. **OS QUATRO
-   CANTOS TÊM UM `.pv-fab` DE 34px** (medido numa prévia de 290×163: viewToggle,
-   muteToggle, pvCastBtn, pvFullBtn), e `pointer-events: none` não conserta nada
-   disso — o toque passa, o que fica ilegível é a LEITURA, com a marca desenhada
-   por cima do desenho do botão.
-
-   O centro é livre de controles, e a colisão com o CONTEÚDO se resolve pela
-   PILHA: `z-index: 2` fica acima das camadas de mídia (`.pv-layer`, z 1) e
-   abaixo do cartão de trabalho (4) e dos controles (5). Com a letra ou o texto
-   manual no ar, a camada deles é OPACA e cobre a marca — o que é o desfecho
-   certo: a estrofe no ar vale mais que o aviso de uma escolha que o operador
-   acabou de fazer. As duas camadas CONTINUAM sendo desenhadas em economia (DOM
-   não é decodificação), e é essa a metade do pedido que se erra.
-
-   SEM RÓTULO: o desenho riscado é o mesmo do tile que a ligou, e a frase inteira
-   mora no `title`. */
-.pv-economia-marca {
-  position: absolute; inset: 0; z-index: 2;
-  display: flex; align-items: center; justify-content: center;
-  /* `--stage-text-soft` é o token que o `tokens.css` descreve como *"marca sobre
-     o wallpaper"* — é literalmente isto, e ele já carrega o alfa. Um
-     `--stage-fg` escrito aqui não existiria e o `color` cairia no valor inicial
-     da propriedade, SEM AVISO (a armadilha que o `tokens.test.mjs` cobra). E ele
-     é do bloco COMPARTILHADO: o palco não tem tema, e a marca mora sobre ele. */
-  color: var(--stage-text-soft);
-  /* `inset: 0` faz a CAIXA cobrir a prévia, e é isso que centra o desenho sem
-     uma medida escrita à mão — mas uma caixa que cobre tudo não pode receber o
-     toque, senão os quatro controles da prévia ficam inalcançáveis por baixo
-     dela. Aqui o `pointer-events: none` não é higiene, é o que mantém a prévia
-     operável: quem religa é o tile, e um segundo caminho para a mesma escolha
-     seria uma segunda fonte de verdade. */
-  pointer-events: none;
-}
-/* A ESCALA É DECLARADA (v1.8.68): um `<svg>` fora das três listas cai no
-   atributo do HTML, que pode coincidir com o degrau certo por acidente e deixar
-   de coincidir no dia em que alguém mexer no token. */
-.pv-economia-marca svg { width: var(--icon-lg); height: var(--icon-lg); }
-/* ===== E A IMAGEM SAI DE VISTA, não só do decodificador =====
+/* ===== COM A DECODIFICAÇÃO PARADA, A IMAGEM SAI DE VISTA =====
    O `setSuspenso` do `stage` PAUSA o `<video>`, e um vídeo pausado mostra o
-   quadro congelado. Com a marca ao lado dizendo "desligada", uma imagem à vista
-   é uma CONTRADIÇÃO — e é a leitura pior das duas: quem a vê conclui que a
-   prévia travou. Com o wallpaper no lugar, o retângulo diz a mesma coisa que a
-   marca.
+   quadro congelado — uma imagem à vista que não anda lê-se como prévia
+   TRAVADA, e é a leitura pior das duas. Com a prévia RECOLHIDA as camadas já
+   saem de vista pela regra do bloco da prévia recolhida; esta cobre o outro
+   caso em que a economia está em vigor: a prévia EXPANDIDA, que é o que o
+   cartão de espera no ar devolve (ele não cabe na altura recolhida).
 
    `visibility` e nunca `display`: a caixa é a mesma, o `object-fit` e o giro
    continuam calculados sobre ela, e o religar não recalcula layout nenhum. E a
@@ -1827,10 +1883,10 @@ body {
    dos dois elementos a cada carga — uma classe escrita neles seria apagada na
    mídia seguinte.
 
-   A LETRA E O TEXTO MANUAL FICAM. Eles são DOM, não decodificação, e é a metade
-   do pedido que se erra: *"apenas a decodificação de imagem do preview"*. Sem a
-   estrofe à vista o operador perde a única leitura local de qual verso está no
-   ar. */
+   A LETRA E O TEXTO MANUAL FICAM aqui: eles são DOM, não decodificação, e a
+   metade do pedido que se erra é *"apenas a decodificação de imagem do
+   preview"*. Recolhida, eles saem junto com o resto — 12px de altura útil não
+   leem nada, e a leitura local do verso continua no Auxiliar de leitura. */
 .preview.pv-economia #pvImg,
 .preview.pv-economia #pvVideo { visibility: hidden; }
 /* Camada de TEXTO manual: acima de toda a mídia, opaca pelo
@@ -7367,6 +7423,15 @@ main {
    Mesmo degrau do Histórico porque a pergunta é a mesma (abre de Configurações,
    não abre nada por cima de si) e as duas nunca estão abertas ao mesmo tempo. */
 #testePopup { z-index: 205; }
+/* AS DUAS JANELAS DE CONFIGURAÇÕES (v1.11.7) — a da Tela e a do Transferir —
+   abrem de DENTRO dela como o Histórico e a Verificação, e nascem declaradas
+   ANTES de `#fadePopup` no HTML: no degrau padrão (200) quem decidiria a ordem
+   seria o documento, e as duas abririam ATRÁS. Mesmo degrau pela mesma
+   pergunta (abre de Configurações, nada por cima de si — a folha "O que levar"
+   do exportar, `#songMenuPopup`, é 210 e abre POR CIMA da janela do Transferir),
+   e as quatro nunca estão abertas ao mesmo tempo. */
+#telaPopup { z-index: 205; }
+#pacotePopup { z-index: 205; }
 /* A folha da PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca, como a da música
    — daí o degrau que o comentário abaixo reservava. Ela NÃO abre a folha da
    música por cima de si, então é a última linha de POPUPS e o degrau mais alto
@@ -9312,6 +9377,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    escopar pela `.pacote-linha` é (0,2,0) e não toca nas outras folhas. Sem ela
    o que sai é um quadrado de 24px sob uma seta de 34, e os nomes fora de prumo. */
 .pacote-linha .song-menu-icon { width: var(--hit); height: var(--hit); }
+/* A LINHA EM LEITURA (a listagem antes de importar, v1.11.7) é um `<div>` e não
+   responde a toque: sem a mão do ponteiro e sem o recuo de feedback, que é o
+   que diria "aperte aqui" sobre uma linha que não faz nada. O recuo vem de uma
+   lista de guardas por `:is(…):active` (0,2,0); este vale (0,3,0). */
+.song-menu-btn.pacote-leitura { cursor: default; }
+.song-menu-btn.pacote-leitura:active { transform: none; filter: none; }
 :is(.pacote-grupo, .pacote-linha) > .song-menu-btn.song-menu-sel:is(
   :has(.song-menu-check.on), :has(.song-menu-check.parcial)
 ),
@@ -10064,22 +10135,30 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    colunas pela largura do aparelho, e com isso a MESMA folha teria duas
    colunas num celular estreito e quatro num tablet — quem opera este app o
    opera sempre no mesmo aparelho, e o que ele memoriza é ONDE cada tile fica.
-   Três é o que cabe com o título mais longo desta lista ("Preenchimento") numa
-   linha só a 360px de tela, e é o que fecha sete opções em três fileiras.
+   Três é o que cabe com os títulos desta lista a 360px de tela ("Saída de
+   áudio" é o único que quebra em duas linhas), e são oito tiles em três
+   fileiras — a última, a do aparelho, tem dois e começa sozinha.
 
    O TOM É `--surface`, o mesmo que o `.fit-opt` desta folha sempre teve: o
    tile é um CONTROLE dentro de um cartão, e dentro de um cartão a superfície
    AFUNDA (a inversão que a regra do topo deste arquivo descreve). Não é
    `--panel`: sobre a folha, que já é `--panel`, ele desapareceria. */
 .qs-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
+/* A GRADE DAS JANELAS (v1.11.7): o mesmo tile, a mesma folga, e DUAS colunas — a
+   janela da Tela leva quatro tiles (2x2 exato) e a do Transferir, dois. NÃO É
+   `.qs-grade`: o `document.querySelector('.qs-grade')` dos oráculos devolve o
+   PRIMEIRO no documento, e as janelas vêm antes de Configurações. */
+.qs-grade-folha { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+/* A nota da janela do Transferir: uma frase, na tinta de apoio. */
+.pacote-nota { margin: 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
 /* ===== A FILEIRA DO APARELHO COMEÇA UMA LINHA NOVA (v1.9.9) =====
    Pedido do operador, na v1.7.6: *"reordene os botões: compartilhar, exportar e
-   importar devem ser os tres itens da base"*. Aquilo valia por ARITMÉTICA — a
-   grade tinha 9 tiles e 3 colunas, então os três caíam sozinhos na última
-   fileira. Com os dois de v1.9.9 são ONZE, e sem esta linha o `compartilhar`
-   fecharia a terceira fileira ao lado de uma PREFERÊNCIA, deixando
-   exportar/importar órfãos na quarta: a tríade que ele mandou manter junta sai
-   partida, e o pedido morre por um tile novo em qualquer lote futuro.
+   importar devem ser os tres itens da base"*, e hoje são DOIS (Compartilhar e
+   Transferir). Aquilo valia por ARITMÉTICA — a grade tinha 9 tiles e 3 colunas,
+   então os três caíam sozinhos na última fileira —, e a aritmética não é uma
+   regra: com seis tiles de ajuste e o `compartilhar` na sétima casa, sem esta
+   linha ele fecharia a segunda fileira ao lado de uma PREFERÊNCIA, e um tile novo
+   em qualquer lote futuro o empurraria de volta.
 
    `grid-column: 1` força o item a esperar a próxima linha, e o vão que sobra no
    fim das preferências é o que separa as duas naturezas — que é justamente o que

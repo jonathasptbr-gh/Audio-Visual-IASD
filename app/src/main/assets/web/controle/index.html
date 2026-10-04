@@ -39,24 +39,21 @@
        o `windowBackground`, a raiz da Activity e o próprio WebView já nascem na
        cor do tema guardado (ver `MainActivity.onCreate` e `WebViewFactory`). O
        que pisca é o DOCUMENTO — entre o primeiro quadro e a última linha do
-       `init()` ele passa por três estados que não são o do operador:
+       `init()` ele passa por dois estados que não são o do operador:
 
          1. o TEMA. `pintarTema()` escreve `data-tema` no `controle.js`, que é o
             ÚLTIMO dos quinze scripts do `<body>`: até ele rodar, quem pinta é o
             `:root` sem atributo, isto é, o tema ESCURO. Quem escolheu o claro
             abre o app num flash de preto — foi o exemplo do relato.
-         2. o MODO. O `<body>` nasce `mode-simple` (é o padrão de quem nunca
-            escolheu); quem deixou o avançado vê a tela errada trocar embaixo do
-            dedo, no mesmo instante.
-         3. o CONTEÚDO. `init()` é assíncrono e lê o IndexedDB: a lista nasce
+         2. o CONTEÚDO. `init()` é assíncrono e lê o IndexedDB: a lista nasce
             vazia, o nome da cena diz "Nada tocando", a preview não tem
             wallpaper. Tudo isso se resolve sozinho — DEPOIS de aparecer.
 
        O 1 tem conserto próprio (o `dataset.tema` abaixo, escrito antes de
        existir primeiro quadro, e é a ÚNICA leitura de `av.tema` do app — o
-       `storedTema()` do `controle.js` lê o atributo que sai daqui). O 2 e o 3
-       não têm: eles dependem de trabalho que leva o tempo que leva. Para eles a
-       resposta é a cortina — o `#splash`, primeiro filho do `<body>`, opaco e no
+       `storedTema()` do `controle.js` lê o atributo que sai daqui). O 2 não tem:
+       ele depende de trabalho que leva o tempo que leva. Para ele a resposta é
+       a cortina — o `#splash`, primeiro filho do `<body>`, opaco e no
        topo da pilha, que só levanta quando o `init()` termina.
 
        ===== O PRAZO É ARMADO AQUI, E NÃO NO `controle.js` =====
@@ -155,15 +152,15 @@
   </script>
 </head>
 <!-- A classe vem no HTML para a tela certa aparecer sem esperar JS/IndexedDB —
-     o simplificado é o padrão de quem nunca escolheu. Quem escolheu reabre no
-     ÚLTIMO modo usado, e a troca acontece no topo do controle.js, numa leitura
-     SÍNCRONA (localStorage): uma leitura do IDB chegaria tarde e a tela trocaria
-     embaixo do dedo. Ver "Modos de uso".
+     toda abertura nasce no simplificado. Só uma recarga do documento DENTRO da
+     sessão devolve o avançado, e a troca acontece no topo do controle.js, numa
+     leitura SÍNCRONA (sessionStorage): uma leitura do IDB chegaria tarde e a
+     tela trocaria embaixo do dedo. Ver "Modos de uso".
 
-     "SÍNCRONA" NÃO É "ANTES DO PRIMEIRO QUADRO", e a frase dizia isso até a
-     v1.7.0: o `controle.js` é o ÚLTIMO dos quinze scripts do fim deste corpo, e
-     entre o primeiro quadro e ele o app fica na tela de quem NUNCA escolheu.
-     Quem cobre esse vão é a cortina de abertura logo abaixo. -->
+     "SÍNCRONA" NÃO É "ANTES DO PRIMEIRO QUADRO": o `controle.js` é o ÚLTIMO dos
+     quinze scripts do fim deste corpo, e entre o primeiro quadro e ele o app
+     fica na tela do simplificado. Quem cobre esse vão é a cortina de abertura
+     logo abaixo. -->
 <body class="mode-simple">
   <!-- ===== A CORTINA (v1.7.0) — ver o script do `<head>` para o porquê =====
        PRIMEIRO FILHO do corpo de propósito: é o que garante que ela exista no
@@ -477,24 +474,40 @@
       <circle cx="12" cy="14.6" r="3.5"/>
       <circle cx="12" cy="6.7" r="1.2"/>
     </symbol>
-    <!-- A PRÉVIA, e o par dela riscado (economia de processamento).
-         O quadro com o triângulo é a prévia TOCANDO; o quadro riscado é a
-         imagem dela desligada. A barra do risco é a MESMA do `#icoImagemOff`
-         (`M3 3.5 21 20.5`) de propósito: neste app "riscado" é um idioma só, e
-         um segundo ângulo seria uma segunda convenção para a mesma ideia.
-         O quadro é o do `#icoAjustar`/`#icoPreencher` pelo mesmo motivo — ele é
-         o telão em todos eles. -->
-    <symbol id="icoPreview" viewBox="0 0 24 24">
-      <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
-      <path d="M10.4 9.1v5.8l4.8-2.9z"/>
+    <!-- A TELA (v1.11.7): o monitor com o pé. Ele diz "a tela onde o culto
+         aparece" — o mesmo retângulo de proporção larga do `#icoAjustar` e do
+         `#icoPreencher`, que são o telão em todos eles, mais o pé que o separa
+         de uma moldura de imagem. O peso do traço fica com quem consome. -->
+    <symbol id="icoTela" viewBox="0 0 24 24">
+      <rect x="2.5" y="4" width="19" height="12.5" rx="2"/>
+      <path d="M8 20.5h8M12 16.5v4"/>
     </symbol>
-    <symbol id="icoPreviewOff" viewBox="0 0 24 24">
-      <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
-      <path d="M3 3.5 21 20.5"/>
+    <!-- TRANSFERIR (v1.11.7): as duas setas opostas, uma para cada lado — leva e
+         traz, que é o que o par exportar/importar faz. É um símbolo à parte dos
+         dois (`#icoExportar` sobe, `#icoImportar` desce): este diz o PAR, e o
+         verbo de cada metade continua sendo o desenho do seu próprio botão. -->
+    <symbol id="icoTransferir" viewBox="0 0 24 24">
+      <path d="M4 8h13"/><polyline points="14 5 17 8 14 11"/>
+      <path d="M20 16H7"/><polyline points="10 13 7 16 10 19"/>
+    </symbol>
+    <!-- RECOLHER / EXPANDIR A PRÉVIA (v1.11.7): o chevron para BAIXO é "recolher"
+         e o para CIMA é "expandir", e a direção vem do lugar onde a prévia mora —
+         a caixa de controles é ancorada na BASE da tela, então a borda de cima
+         da prévia, que é onde o botão fica, DESCE quando ela encolhe e SOBE
+         quando ela volta. Mesma primitiva do `chevronDirSvg` (o par ↑↓ de abrir e
+         fechar) e do `#icoSlidePrev`, no eixo vertical: uma segunda arte para a
+         mesma ideia é a divergência que a fonte única existe para não ter.
+         O ESTADO MORA NO DESENHO (`.alternado` troca o par), e o `title` diz a
+         AÇÃO. O peso do traço fica com quem consome. -->
+    <symbol id="icoRecolher" viewBox="0 0 24 24">
+      <polyline points="6 9 12 15 18 9"/>
+    </symbol>
+    <symbol id="icoExpandir" viewBox="0 0 24 24">
+      <polyline points="6 15 12 9 18 15"/>
     </symbol>
     <!-- DADOS MÓVEIS: as barras de sinal, o desenho que já significa "rede
          celular" antes de qualquer legenda. O par riscado é o MESMO idioma do
-         `#icoPreviewOff`/`#icoImagemOff` (`M3 3.5 21 20.5`) — "riscado" é uma
+         `#icoImagemOff` (`M3 3.5 21 20.5`) — "riscado" é uma
          convenção só neste app, e um ângulo próprio aqui seria uma segunda. -->
     <symbol id="icoDadosMoveis" viewBox="0 0 24 24">
       <path d="M5 17v-3.2"/>
@@ -1401,29 +1414,6 @@
                aparecer, então é aqui que se diz que ela está a caminho — ver
                `previewBusy` em controle.js. Fica FORA da tela cheia (regra
                junto com a dos `.pv-fabs`): ali a preview É a projeção. -->
-          <!-- ===== A MARCA DA ECONOMIA (v1.9.9) =====
-               Com a imagem da prévia desligada, o que sobra no retângulo é o
-               wallpaper — e um retângulo parado é indistinguível de uma prévia
-               QUEBRADA. É a mesma regra do `disabled` da v1.8.50 aplicada a uma
-               superfície em vez de a um botão: o que não está funcionando diz
-               que não está.
-
-               ELA É CENTRADA, e a colisão se resolve pela PILHA e não por um
-               canto — MEDIDO, os QUATRO cantos da prévia têm um `.pv-fab` de 34px
-               (as duas colunas de controles têm altura inteira), e desenhar sobre
-               o símbolo de um botão o deixa ilegível. Em `z-index: 2` ela fica
-               acima da mídia e ABAIXO da letra e do texto manual, que são opacos e
-               a cobrem — o desfecho certo: a estrofe no ar vale mais que o aviso
-               de uma escolha que o operador acabou de fazer. As duas camadas
-               CONTINUAM sendo desenhadas em economia (DOM não é decodificação), e
-               é essa a metade do pedido que se erra.
-
-               SEM RÓTULO: o desenho riscado é o mesmo do tile que a ligou, e a
-               frase inteira mora no `title` dele. -->
-          <div id="pvEconomia" class="pv-economia-marca" hidden
-               title="A imagem da prévia está desligada para poupar processamento">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoPreviewOff"/></svg>
-          </div>
           <div id="pvBusy" class="pv-busy" aria-live="polite">
             <div class="pv-busy-card">
               <span class="dl-ring" aria-hidden="true">
@@ -1658,6 +1648,30 @@
                 <path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9"/>
                 <path d="M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15"/>
                 <path d="M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/>
+              </svg>
+            </button>
+          </div>
+          <!-- ===== A SETA QUE RECOLHE A PRÉVIA (v1.11.7) =====
+               Pedido do operador: *"um botão na preview que compacte
+               verticalmente ela e substitua o botão de desativar a imagem de
+               preview. Será uma seta no topo que encolhe ela, mantendo os botões
+               de interação dentro da preview, mas a preview na menor altura
+               possível sem apertar esses botões"*.
+
+               ELA É O ÚNICO CONTROLE DESTE ESTADO e mora no TOPO, ao CENTRO (o
+               quarto grupo de `.pv-fabs`, irmão do selo de camadas da base).
+               Existe nos DOIS modos: a preview é um nó só e muda de casa
+               (`hostPreview`) — e é por ela estar na preview, e não numa folha,
+               que o Modo Fácil também alcança a escolha.
+
+               O ESTADO É O DESENHO: chevron para BAIXO recolhe, para CIMA
+               expande (ver `#icoRecolher`). Nunca `disabled` — a escolha se
+               grava mesmo sem TV (v1.10.10), e o `title` diz o que ela vale. Quem
+               pinta é `renderRecolherBtn`; o clique é `setEconomiaPreview`. -->
+          <div class="pv-fabs pv-fabs--topo">
+            <button id="pvRecolherBtn" class="pv-fab" type="button" title="Recolher a prévia" aria-label="Recolher a prévia" aria-expanded="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <use class="ico-base" href="#icoRecolher"/><use class="ico-alt" href="#icoExpandir"/>
               </svg>
             </button>
           </div>
@@ -2027,6 +2041,162 @@
     </div>
   </div>
 
+  <!-- ===== A JANELA DA TELA (v1.11.7) =====
+       Abre de DENTRO de Configurações, como o Histórico e a Verificação — e por
+       isso vem depois dela na tabela `POPUPS`, que o voltar percorre de trás
+       para a frente: fechar esta janela devolve o operador a Configurações.
+
+       OS QUATRO TILES SÃO OS MESMOS DE ANTES (mesmos ids, mesmo markup), só
+       mudaram de casa: os pintores (`renderFitTile` e companhia) e quase todos
+       os oráculos os alcançam por id. O WALLPAPER continua sendo um `<label>`
+       com o `<input type=file>` DENTRO: a ativação nativa do rótulo é o que abre
+       o seletor do WebView (invariante 6), e um botão que chamasse `.click()` no
+       input perderia o `onShowFileChooser`.
+
+       A GRADE DA JANELA NÃO É `.qs-grade`: `document.querySelector('.qs-grade')`
+       devolve o PRIMEIRO no documento, e esta janela vem antes de Configurações.
+       DUAS COLUNAS, e quatro tiles fecham 2x2 — três deixariam um órfão e
+       quatro não comportam "Preenchimento" a 360px. -->
+  <div id="telaPopup" class="popup-backdrop">
+    <div class="popup-sheet">
+      <div class="popup-header">
+        <span class="popup-header-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTela"/></svg>
+        </span>
+        <span class="popup-title">Tela</span>
+        <button id="telaPopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
+      </div>
+      <div class="fade-opts rola">
+        <div class="qs-grade-folha">
+          <!-- PREENCHIMENTO. "Esticar" saiu na v5.142 — ele distorcia a
+               proporção, e distorção não é uma escolha de exibição: é o defeito
+               que as outras duas existem para evitar. Sobraram DUAS, e duas é
+               exatamente o que um tile alterna. -->
+          <button type="button" class="qs-tile" id="fitTile" title="Como a mídia ocupa o telão">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoAjustar"/><use class="ico-alt" href="#icoPreencher"/>
+            </svg>
+            <span class="qs-titulo">Preenchimento</span>
+          </button>
+          <!-- WALLPAPER: a cortina que cobre o telão fora das mídias. Uma
+               imagem própria substitui o gradiente padrão (e a marca).
+
+               ELE É UM `<label>`, e isso não é enfeite: o seletor de arquivo do
+               WebView é aberto pela ATIVAÇÃO NATIVA do rótulo sobre o `<input
+               type="file">` que ele embrulha (invariante 6 — sem o
+               `onShowFileChooser` do `ControleChromeClient` o toque não faria
+               nada, sem erro no console). Com a imagem própria no ar o toque
+               VOLTA AO PADRÃO, e quem cancela a ativação do rótulo é um
+               `preventDefault()` no ouvinte — ver `wallTileEl` em controle.js.
+               Trocar uma imagem por outra são dois toques (voltar ao padrão,
+               escolher de novo), e esse é o preço declarado de o wallpaper
+               caber num tile como os outros.
+
+               ELE GANHOU O PAR DE DESENHOS na v1.7.2, e ele só existe porque a
+               palavra do estado saiu: com "Padrão"/"Própria" na tela, um rolo
+               só bastava. Sem ela o rolo VAZIO e o rolo CHEIO são o estado
+               inteiro — ver o `<symbol>` de cada um. -->
+          <label class="qs-tile" id="wallTile" title="Escolher a imagem que cobre o telão">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoWallpaper"/><use class="ico-alt" href="#icoWallpaperProprio"/>
+            </svg>
+            <span class="qs-titulo">Wallpaper</span>
+            <input id="wallFile" type="file" accept="image/*" hidden>
+          </label>
+          <!-- IMAGENS DOS SLIDES DA MÚSICA: cada estrofe do hino traz uma
+               imagem de fundo baixada com ele. Removê-las deixa a letra sobre
+               preto.
+               QUEM DIZ O ESTADO É O DESENHO — imagem inteira × imagem riscada.
+               Ele foi o último tile a apagar junto com a função (v1.7.6): com o
+               par de desenhos à vista, a luz era a segunda cópia da mesma
+               resposta, dita na tinta que este app reserva para INDISPONÍVEL. -->
+          <button type="button" class="qs-tile" id="lyricsBgTile" title="Mostrar ou remover a imagem de fundo das estrofes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoImagem"/><use class="ico-alt" href="#icoImagemOff"/>
+            </svg>
+            <span class="qs-titulo">Fundo da letra</span>
+          </button>
+          <!-- GIRAR: a mesma AÇÃO de sempre, que avança 90° por toque e dá a
+               volta. Ninguém pensa em "270°", pensa em "gira mais uma vez até
+               ficar de pé".
+
+               O ÍCONE GIRA COM A MÍDIA (v1.7.2), e desde a v1.7.6 ele é o
+               QUADRO DE PAISAGEM. O rótulo dizia o ângulo e ele saiu com a
+               palavra do estado; a resposta não é um desenho novo — a v1.4.38
+               já tinha medido que quatro desenhos parecidos não se distinguem a
+               22px — mas o MESMO desenho na posição que ele descreve, e ela
+               chega pelo movimento: o quadro VIRA sob o dedo, que é o que o
+               toque faz com o telão. Ver o `#icoPaisagem` no sprite.
+
+               ELE NÃO APAGA A 0°, como nenhum outro (v1.7.6). O apagado
+               tentava dizer "no padrão" na única tinta que este app já usa para
+               INDISPONÍVEL, e aqui era ainda mais barato perdê-lo: o ângulo já
+               está no desenho, e o desfazer mora sobre a preview, com a
+               projeção à vista.
+
+               O TÍTULO DIZ ONDE (v1.4.41), a pedido do operador: *"adicione no
+               título 'girar' algo que deixe claro que está girando a
+               visualização do telão e não o aplicativo ou a tela do celular"*. -->
+          <button type="button" class="qs-tile" id="rotBtn" title="Girar a mídia no telão — não gira o app nem a tela do celular">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoPaisagem"/></svg>
+            <span class="qs-titulo">Girar no telão</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== A JANELA DO TRANSFERIR (v1.11.7) =====
+       A ESCOLHA entre exportar e importar. Os dois tiles são os de sempre
+       (mesmos ids, mesmo markup, mesmos três desenhos): toda a coreografia de
+       `pacoteRenderTiles` — o aro, o pronto-para-enviar, o irmão que vira
+       Cancelar ou Descartar — continua pintando ELES, e o tile da grade
+       (`#pacoteTile`) só espelha o resultado.
+
+       A LISTAGEM DA BIBLIOTECA ATUAL aparece DENTRO de cada caminho, antes de
+       a ação começar: ao exportar, a folha "O que levar no arquivo" (que é
+       também a escolha do que levar); ao importar, a mesma folha em leitura —
+       *"para importação também é bom saber o que já se tem"*. Abrir esta
+       janela não desenha lista nenhuma.
+
+       Sem `.rola`-scroller próprio: o corpo é curto. A classe da grade é a da
+       janela da Tela, pelas mesmas razões. -->
+  <div id="pacotePopup" class="popup-backdrop">
+    <div class="popup-sheet">
+      <div class="popup-header">
+        <span class="popup-header-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTransferir"/></svg>
+        </span>
+        <span class="popup-title">Transferir a biblioteca</span>
+        <button id="pacotePopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
+      </div>
+      <div class="fade-opts rola">
+        <div class="qs-grade-folha">
+          <button type="button" class="qs-tile qs-on" id="pacoteExportarTile" title="Salvar a biblioteca e os ajustes num arquivo">
+            <!-- DOIS DESENHOS (v1.8.19): a seta de exportar, e a de
+                 COMPARTILHAR quando o pacote está pronto. O estado mora no
+                 desenho — é a regra da v1.7.6, e é o que faz o botão dizer que
+                 o toque mudou de significado. O símbolo é o MESMO do tile de
+                 compartilhar o app, de propósito: os dois abrem o seletor do
+                 sistema, e um segundo desenho para a mesma coisa seria uma
+                 segunda opinião. -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoExportar"/><use class="ico-alt" href="#icoCompartilhar"/><use class="ico-irmao" href="#icoCancelar"/>
+            </svg>
+            <span class="qs-titulo">Exportar</span>
+          </button>
+          <button type="button" class="qs-tile qs-on" id="pacoteImportarTile" title="Trazer a biblioteca e os ajustes de um arquivo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use class="ico-base" href="#icoImportar"/><use class="ico-irmao" href="#icoCancelar"/>
+            </svg>
+            <span class="qs-titulo">Importar</span>
+          </button>
+        </div>
+        <p class="pacote-nota">Antes de exportar ou importar, o app mostra o que já está neste aparelho. Importar só acrescenta: nada do que já está aqui é apagado.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- CONFIGURAÇÕES (folha do TOPO desde a v1.2.3 — ela desce do teto, que é
        onde mora a engrenagem que a abre; ver `.popup-sheet--topo`).
        Era "Exibição" e guardava só como o telão
@@ -2092,8 +2262,8 @@
               **Isto reforça a regra 2:** com a palavra fora e a cor fora, o
               desenho é o único canal que sobrou.
 
-           O HISTÓRICO, o COMPARTILHAR, o EXPORTAR e o IMPORTAR não alternam
-           nada — eles ABREM uma coisa. Ficam na grade mesmo assim porque o
+           O HISTÓRICO, a TELA, a VERIFICAÇÃO, o COMPARTILHAR e o TRANSFERIR não
+           alternam nada — eles ABREM uma coisa. Ficam na grade mesmo assim porque o
            operador não procura "o botão que alterna", procura "a coisa do
            histórico", e um segundo formato de botão nesta folha é a densidade
            que o painel rápido acabou de tirar dela. -->
@@ -2149,7 +2319,7 @@
              aqui é o RÓTULO na tela, e só ele — `data-mode="simple"` é o mesmo
              valor de sempre, que é o que o app e os oráculos leem. -->
         <div class="fade-row fade-row--fit fade-row--modo">
-          <div class="fit-seg qs-modo" id="appModeSeg" data-modo="full">
+          <div class="fit-seg qs-modo" id="appModeSeg" data-modo="simple">
             <button type="button" class="fit-opt" data-mode="simple">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoModoFacil"/></svg>
               <span>Modo simples</span>
@@ -2160,66 +2330,44 @@
             </button>
           </div>
         </div>
-        <!-- A GRADE. Três colunas fixas: é o que cabe num aparelho de 360px
-             com o título mais longo desta lista ("Preenchimento") numa linha
-             só, e é o número que faz sete opções fecharem em três fileiras.
-             Quem pinta cada tile é `pintarTile()` — o `data-estado` é escrito
-             lá e é por ele que os oráculos perguntam, nunca pela classe.
+        <!-- A GRADE. Três colunas fixas, e OITO tiles no app (cinco no navegador,
+             onde Saída de áudio, Compartilhar e Transferir são `hidden`): é o que
+             cabe num aparelho de 360px com o título mais longo desta lista
+             ("Saída de áudio") numa linha só. Quem pinta cada tile é `pintarTile()`
+             — o `data-estado` é escrito lá e é por ele que os oráculos perguntam,
+             nunca pela classe.
 
-             A ORDEM É POR ASSUNTO (v1.7.6), e foi pedida: *"reordene os
-             botões: compartilhar, exportar e importar devem ser os tres itens
-             da base"*. As SEIS preferências da PROJEÇÃO em cima — tema,
-             preenchimento, wallpaper, histórico, fundo da letra, girar —, e as
-             TRÊS coisas que se fazem com o APP fora dela embaixo, numa fileira
-             inteira e sozinha.
+             A ORDEM É POR ASSUNTO. Em cima, o que se AJUSTA: o tema do app, a
+             janela da Tela, o Histórico, a Saída de áudio, os Dados móveis e a
+             Verificação. Embaixo, numa fileira própria, as duas coisas que se
+             fazem com o APP fora da projeção — Compartilhar e Transferir (pedido
+             do operador, v1.7.6: *"compartilhar, exportar e importar devem ser os
+             tres itens da base"*, e as duas últimas viraram uma). O que faz essa
+             fileira começar sozinha, com a ponte ou sem ela, é o
+             `#shareAppTile { grid-column: 1 }` do CSS.
 
-             ELA ERA POR NATUREZA (v1.4.40: primeiro os que não têm desligado,
-             depois os que ligam e desligam), e essa ordem deixou de existir no
-             MESMO lote — nenhum tile apaga mais, então não há duas naturezas de
-             LUZ para ordenar.
-
-             UMA GRADE SÓ, e não duas com um respiro entre elas: um respiro
-             seria uma segunda maneira de dizer o que a fileira já diz, e uma
-             grade própria para um dos grupos deixaria buracos no meio do painel
-             — que se leem como defeito, não como separação.
-
-             NOVE TILES desde a v1.7.2, e é por isso que a grade fecha em TRÊS
-             fileiras exatas: as três ações DESTE APARELHO desceram para cá
-             quando o rótulo "Este aparelho" saiu, a pedido do operador. Elas
-             são a mesma peça — ícone e título, o mesmo gesto. **A costura entre
-             as duas naturezas cai exatamente entre duas fileiras**, e é isso
-             que um décimo tile quebraria: o `smoke.mjs` cobra a divisão exata.
+             O QUE SE DECIDE SOBRE O TELÃO MORA NUMA JANELA, e não na grade
+             (v1.11.7): Preenchimento, Wallpaper, Fundo da letra e Girar no telão
+             são o que a Tela mostra, e eram quatro tiles soltos entre o resto. O
+             TEMA fica aqui: é a cor do APP, e o palco não tem tema. Exportar e
+             Importar moram na janela do Transferir, pela mesma razão.
 
              SEM A PALAVRA DO ESTADO (v1.7.2), a pedido: *"remova o subtítulo dos
              botões das configurações, todo tipo de informação além do nome deve
-             ser representada pelo ícone"*. Isso REVOGA o ponto 2 acima, que
-             estava escrito aqui desde a v1.4.38, e o que ele defendia era real:
-             um ícone sozinho responde por CONVENÇÃO, e convenção é o que se erra
-             num app aberto três vezes por semana. A resposta não foi tirar a
-             informação — foi mudá-la de canal, tile a tile:
-
-               · tema, preenchimento e fundo da letra JÁ tinham o par de
-                 desenhos (`.ico-base`/`.ico-alt`); para eles a palavra era a
-                 segunda cópia da mesma resposta;
-               · o WALLPAPER ganhou o par agora (rolo vazio × rolo cheio) — ele
-                 não tinha, e sem ele "padrão" e "própria" ficariam iguais;
-               · o GIRO passou a girar o próprio ícone, que é a única das quatro
-                 posições que se lê a 22px sem virar quatro desenhos;
-               · o HISTÓRICO e o COMPARTILHAR não tinham estado nenhum — a
-                 palavra deles ("Abrir", "O app") era enchimento;
-               · EXPORTAR e IMPORTAR mostravam o "42%", e o número mudou de casa:
-                 aqui fica o ARO (o trabalho em curso), e o número vai para o
-                 cartão sobre a preview e para a notificação do sistema, que são
-                 as duas superfícies que continuam existindo com o app
-                 minimizado — que é justamente quando uma exportação de
-                 gigabytes está correndo.
-
-             O que se perde está dito: o `title` continua sendo a única frase
-             longa, e num celular ele não aparece. -->
+             ser representada pelo ícone"*. Um ícone sozinho responde por
+             CONVENÇÃO, e convenção é o que se erra num app aberto três vezes por
+             semana — a resposta não foi tirar a informação, foi mudá-la de canal,
+             tile a tile: tema e fundo da letra têm o par de desenhos
+             (`.ico-base`/`.ico-alt`), o wallpaper tem o rolo vazio × cheio, o giro
+             gira o próprio ícone, e o TRANSFERIR mostra o ARO enquanto trabalha e
+             o desenho de compartilhar quando há um pacote pronto. O que se perde
+             está dito: o `title` continua sendo a única frase longa, e num celular
+             ele não aparece. -->
         <div class="qs-grade">
           <!-- TEMA (v5.192, tile na v1.4.38). Primeiro da grade porque é a
                mesma classe de decisão do modo do app logo acima — "como este
-               app se apresenta" — e as duas são LEMBRADAS entre aberturas.
+               app se apresenta" —, e é o que ele LEMBRA entre aberturas (o modo
+               vale só pela sessão).
                Trocar aqui NÃO fecha a folha, ao contrário do modo do app: é
                olhando para esta folha, que acabou de mudar de cor, que o
                operador decide se ficou bom. -->
@@ -2229,41 +2377,20 @@
             </svg>
             <span class="qs-titulo">Tema</span>
           </button>
-          <!-- PREENCHIMENTO. "Esticar" saiu na v5.142 — ele distorcia a
-               proporção, e distorção não é uma escolha de exibição: é o defeito
-               que as outras duas existem para evitar. Sobraram DUAS, e duas é
-               exatamente o que um tile alterna. -->
-          <button type="button" class="qs-tile" id="fitTile" title="Como a mídia ocupa o telão">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoAjustar"/><use class="ico-alt" href="#icoPreencher"/>
-            </svg>
-            <span class="qs-titulo">Preenchimento</span>
+          <!-- ===== A TELA (v1.11.7) =====
+               Pedido do operador: *"centralizar opções que se referem a tela em
+               um botão nas configurações, que abre uma janela com as opções"*.
+
+               ELE ABRE UMA JANELA e não alterna nada — como o Histórico e a
+               Verificação —, e é por isso que o `qs-on` está no HTML: nenhuma
+               função o pinta. A janela (`#telaPopup`) leva as quatro coisas que
+               se decidem sobre COMO O TELÃO SE PARECE: preenchimento, wallpaper,
+               fundo da letra e giro. Ele existe no navegador também — as quatro
+               valem lá. -->
+          <button type="button" class="qs-tile qs-on" id="telaTile" title="Como o telão se parece: preenchimento, wallpaper, fundo da letra e giro">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTela"/></svg>
+            <span class="qs-titulo">Tela</span>
           </button>
-          <!-- WALLPAPER: a cortina que cobre o telão fora das mídias. Uma
-               imagem própria substitui o gradiente padrão (e a marca).
-
-               ELE É UM `<label>`, e isso não é enfeite: o seletor de arquivo do
-               WebView é aberto pela ATIVAÇÃO NATIVA do rótulo sobre o `<input
-               type="file">` que ele embrulha (invariante 6 — sem o
-               `onShowFileChooser` do `ControleChromeClient` o toque não faria
-               nada, sem erro no console). Com a imagem própria no ar o toque
-               VOLTA AO PADRÃO, e quem cancela a ativação do rótulo é um
-               `preventDefault()` no ouvinte — ver `wallTileEl` em controle.js.
-               Trocar uma imagem por outra são dois toques (voltar ao padrão,
-               escolher de novo), e esse é o preço declarado de o wallpaper
-               caber num tile como os outros.
-
-               ELE GANHOU O PAR DE DESENHOS na v1.7.2, e ele só existe porque a
-               palavra do estado saiu: com "Padrão"/"Própria" na tela, um rolo
-               só bastava. Sem ela o rolo VAZIO e o rolo CHEIO são o estado
-               inteiro — ver o `<symbol>` de cada um. -->
-          <label class="qs-tile" id="wallTile" title="Escolher a imagem que cobre o telão">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoWallpaper"/><use class="ico-alt" href="#icoWallpaperProprio"/>
-            </svg>
-            <span class="qs-titulo">Wallpaper</span>
-            <input id="wallFile" type="file" accept="image/*" hidden>
-          </label>
           <!-- ===== O HISTÓRICO DO CULTO MORA AQUI (v1.4.31) =====
                Pedido do operador: *"coloque a função do histórico de mídias
                tocadas, dentro das configurações"*. Ele era a sétima célula da
@@ -2280,76 +2407,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoHistorico"/></svg>
             <span class="qs-titulo">Histórico</span>
           </button>
-          <!-- IMAGENS DOS SLIDES DA MÚSICA: cada estrofe do hino traz uma
-               imagem de fundo baixada com ele. Removê-las deixa a letra sobre
-               preto.
-               QUEM DIZ O ESTADO É O DESENHO — imagem inteira × imagem riscada.
-               Ele foi o último tile a apagar junto com a função (v1.7.6): com o
-               par de desenhos à vista, a luz era a segunda cópia da mesma
-               resposta, dita na tinta que este app reserva para INDISPONÍVEL. -->
-          <button type="button" class="qs-tile" id="lyricsBgTile" title="Mostrar ou remover a imagem de fundo das estrofes">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoImagem"/><use class="ico-alt" href="#icoImagemOff"/>
-            </svg>
-            <span class="qs-titulo">Fundo da letra</span>
-          </button>
-          <!-- GIRAR: a mesma AÇÃO de sempre, que avança 90° por toque e dá a
-               volta. Ninguém pensa em "270°", pensa em "gira mais uma vez até
-               ficar de pé".
-
-               O ÍCONE GIRA COM A MÍDIA (v1.7.2), e desde a v1.7.6 ele é o
-               QUADRO DE PAISAGEM. O rótulo dizia o ângulo e ele saiu com a
-               palavra do estado; a resposta não é um desenho novo — a v1.4.38
-               já tinha medido que quatro desenhos parecidos não se distinguem a
-               22px — mas o MESMO desenho na posição que ele descreve, e ela
-               chega pelo movimento: o quadro VIRA sob o dedo, que é o que o
-               toque faz com o telão. Ver o `#icoPaisagem` no sprite.
-
-               ELE NÃO APAGA A 0°, como nenhum outro (v1.7.6). O apagado
-               tentava dizer "no padrão" na única tinta que este app já usa para
-               INDISPONÍVEL, e aqui era ainda mais barato perdê-lo: o ângulo já
-               está no desenho, e o desfazer mora sobre a preview, com a
-               projeção à vista.
-
-               O TÍTULO DIZ ONDE (v1.4.41), a pedido do operador: *"adicione no
-               título 'girar' algo que deixe claro que está girando a
-               visualização do telão e não o aplicativo ou a tela do celular"*. -->
-          <button type="button" class="qs-tile" id="rotBtn" title="Girar a mídia no telão — não gira o app nem a tela do celular">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoPaisagem"/></svg>
-            <span class="qs-titulo">Girar no telão</span>
-          </button>
-          <!-- ===== AS TRÊS AÇÕES DESTE APARELHO — na MESMA grade (v1.7.2) =====
-               Elas moravam num bloco à parte, sob o rótulo "Este aparelho", e o
-               rótulo saiu a pedido: *"remova também o texto 'este aparelho' que
-               divide as configurações. Todos os blocos ficam em uma grade só,
-               não precisa de agrupamentos especiais"*.
-
-               A separação era de ASSUNTO (a projeção × o que se faz com o app
-               fora dela) e ela custava uma linha de texto e um vão para dizer o
-               que a POSIÇÃO já diz: a grade é lida de cima para baixo, e o que
-               não é preferência de projeção está no fim dela. Os tiles já eram
-               a mesma peça — ícone e título, o mesmo gesto —, então unificar
-               não mudou uma linha do desenho deles.
-
-               OS TRÊS SÓ EXISTEM NO APP (`hidden` no navegador, escrito por
-               `pacoteRenderTiles`), e agora um a um em vez de por um bloco: os
-               três dependem da ponte — o chooser do Android, o "Salvar como" do
-               SAF e o canal de bytes —, e um botão que só sabe não funcionar é
-               pior que botão nenhum.
-
-               ELES SÃO A ÚLTIMA FILEIRA (v1.7.6), a pedido: *"reordene os
-               botões: compartilhar, exportar e importar devem ser os tres itens
-               da base"*. Eles estavam ANTES dos dois que então apagavam, pela
-               ordem por natureza da v1.4.40 (primeiro os sempre acesos, depois
-               os que ligam e desligam) — e essa ordem deixou de existir no mesmo
-               lote, porque nenhum tile apaga mais. Sem ela sobra a ordem por
-               ASSUNTO, que é a que o pedido nomeia: as seis preferências da
-               PROJEÇÃO em cima, o que se faz com o APP fora dela embaixo, numa
-               fileira inteira e sozinha.
-
-               A grade fecha em TRÊS fileiras exatas nos dois arranjos — o que
-               muda é onde a costura cai, e agora ela cai entre as duas
-               naturezas. -->
           <!-- ===== SAÍDA DE ÁUDIO: UM ATALHO, e ele diz isso (shell 73) =====
                Pedido do operador: *"um botão para selecionar saída de áudio
                (escolher entre som no smartphone, na tv conectada, no bluetooth e
@@ -2369,32 +2426,6 @@
           <button type="button" class="qs-tile qs-on" id="saidaAudioTile" title="Abrir a escolha de saída de som do Android — alto-falante, Bluetooth, fone">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSaidaDeAudio"/></svg>
             <span class="qs-titulo">Saída de áudio</span>
-          </button>
-          <!-- ===== ECONOMIA: A IMAGEM DA PRÉVIA DESLIGADA (v1.9.9) =====
-               Pedido do operador: *"um botão para desativar a preview (com o
-               objetivo de reduzir o gasto de processamento para smartphones mais
-               fracos…)"* e, fechada a análise: *"vamos manter as outras conexões
-               de controle e ativar/desativar apenas a decodificação de imagem do
-               preview, que é o que realmente pesa no processamento"*.
-
-               O QUE DESLIGA É A DECODIFICAÇÃO, e só ela. Tempo, barra, letra,
-               estado, transporte e o avanço da fila continuam inteiros — ver
-               `economiaAtiva` em controle.js, que é onde a regra mora.
-
-               SEMPRE CLICÁVEL, mesmo sem destino de projeção (v1.10.10,
-               revogando o `disabled` da v1.8.50 PARA ESTE TILE): pedido do
-               operador — *"ele deve estar 'clicável' mesmo sem uma tela
-               conectada... é uma opção selecionável desde sempre"*. A escolha
-               grava sem destino; só o EFEITO (`economiaAtiva`) continua
-               exclusivo de quando há para onde projetar. O último da fileira
-               de preferências de propósito — é a única delas que fala do
-               CELULAR e não do telão, e daí ela encostar na fileira do
-               aparelho. -->
-          <button type="button" class="qs-tile" id="economiaTile" title="Desligar a imagem da prévia para poupar processamento">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoPreview"/><use class="ico-alt" href="#icoPreviewOff"/>
-            </svg>
-            <span class="qs-titulo">Imagem da prévia</span>
           </button>
           <!-- ===== DADOS MÓVEIS: PERMITIR OU NÃO, PARA O ACERVO E OS DOIS
                AUTOMÁTICOS (v1.11.0) =====
@@ -2423,7 +2454,7 @@
                consumo novo de dados móveis aparecer sozinho.
 
                SEMPRE CLICÁVEL, aceso, com o estado só no ÍCONE (a regra da
-               v1.7.6) — o mesmo padrão do `#economiaTile` ao lado. -->
+               v1.7.6). -->
           <button type="button" class="qs-tile" id="dadosMoveisTile" title="Permitir que o acervo e os downloads automáticos usem dados móveis">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <use class="ico-base" href="#icoDadosMoveisOff"/><use class="ico-alt" href="#icoDadosMoveis"/>
@@ -2451,36 +2482,32 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCompartilhar"/></svg>
             <span class="qs-titulo">Compartilhar</span>
           </button>
-          <!-- EXPORTAR / IMPORTAR o acervo. O peso do app é de megabytes; o da
-               biblioteca, de gigabytes baixados um a um da internet — e a Wi-Fi
-               de uma igreja no sábado de manhã é o pior lugar possível para
-               refazer isso num aparelho novo. Ver o bloco do PACOTE DE
+          <!-- ===== TRANSFERIR: EXPORTAR E IMPORTAR NUMA JANELA SÓ (v1.11.7) =====
+               Pedido do operador: *"os botões de exportar e importar, para que
+               sejam um único botão, e depois na janela aberta teremos a escolha
+               de exportar ou importar dados"*. O peso do app é de megabytes; o
+               da biblioteca, de gigabytes baixados um a um da internet — e a
+               Wi-Fi de uma igreja no sábado de manhã é o pior lugar possível
+               para refazer isso num aparelho novo. Ver o bloco do PACOTE DE
                TRANSFERÊNCIA em controle.js.
 
-               O ARO NO LUGAR DO ÍCONE é o que diz "estou trabalhando" (v1.7.2):
-               com a palavra do estado fora, era ela que mostrava o "42%". O aro
-               é o mesmo `.dl-ring` da linha e do cartão, e SEM SETA — exportar
-               não baixa byte nenhum, que é a regra da v1.4.19. O NÚMERO fica
-               onde ele serve com o app minimizado: o cartão sobre a preview e a
-               notificação do sistema. -->
-          <button type="button" class="qs-tile qs-on" id="pacoteExportarTile" title="Salvar a biblioteca e os ajustes num arquivo">
-            <!-- DOIS DESENHOS (v1.8.19): a seta de exportar, e a de
-                 COMPARTILHAR quando o pacote está pronto. O estado mora no
-                 desenho — é a regra da v1.7.6, e é o que faz o botão dizer que
-                 o toque mudou de significado. O símbolo é o MESMO do tile de
-                 compartilhar o app, de propósito: os dois abrem o seletor do
-                 sistema, e um segundo desenho para a mesma coisa seria uma
-                 segunda opinião. -->
+               ELE É O SINAL DO TRABALHO, e não só a porta: exportar leva
+               minutos e a janela pode estar fechada, então o ARO no lugar do
+               ícone (o `.dl-ring` da linha e do cartão, SEM SETA — exportar não
+               baixa byte nenhum) e o desenho de COMPARTILHAR quando há um pacote
+               pronto moram AQUI também (ver `pacoteSinal`). O número fica onde
+               ele serve com o app minimizado: o cartão sobre a preview e a
+               notificação do sistema.
+
+               SÓ EXISTE NO APP (`hidden` no navegador, escrito por
+               `pacoteRenderTiles`): os dois botões da janela dependem da ponte —
+               o chooser do Android, o "Salvar como" do SAF e o canal de bytes —,
+               e um botão que só sabe não funcionar é pior que botão nenhum. -->
+          <button type="button" class="qs-tile qs-on" id="pacoteTile" title="Levar a biblioteca e os ajustes para outro aparelho, ou trazê-los de um arquivo">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoExportar"/><use class="ico-alt" href="#icoCompartilhar"/><use class="ico-irmao" href="#icoCancelar"/>
+              <use class="ico-base" href="#icoTransferir"/><use class="ico-alt" href="#icoCompartilhar"/>
             </svg>
-            <span class="qs-titulo">Exportar</span>
-          </button>
-          <button type="button" class="qs-tile qs-on" id="pacoteImportarTile" title="Trazer a biblioteca e os ajustes de um arquivo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoImportar"/><use class="ico-irmao" href="#icoCancelar"/>
-            </svg>
-            <span class="qs-titulo">Importar</span>
+            <span class="qs-titulo">Transferir</span>
           </button>
         </div>
         <!-- O REGISTRO, e é UM só (v5.121). Ele nasceu como a caixa-preta do
@@ -2581,7 +2608,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.11.6</span>
+            <span id="appVersion" class="app-version">v1.11.7</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

@@ -55,7 +55,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperar, esperarCortina, checar, falhas, porque } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperar, esperarCortina, checar, falhas, porque, comModoAvancado } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)),
   '..', 'app', 'src', 'main', 'assets', 'web');
@@ -86,9 +86,7 @@ const erros = [];
 async function medir(t) {
   const ctx = await navegador.newContext({ viewport: { width: t.w, height: t.h } });
   await semRedeExterna(ctx);
-  await ctx.addInitScript(() => {
-    try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* storage bloqueado */ }
-  });
+  await comModoAvancado(ctx);
   const pg = await ctx.newPage();
   pg.on('pageerror', (e) => erros.push(t.nome + ' · pageerror: ' + e.message));
   if (t.fonte) {

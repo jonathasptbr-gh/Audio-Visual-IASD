@@ -60,7 +60,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas, comModoAvancado } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 
@@ -78,17 +78,16 @@ const porta = servidor.address().port;
 const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
 await semRedeExterna(ctx);
-// O MODO AVANÇADO É SEMEADO ANTES DA PRIMEIRA LINHA DO APP, e isto não é
-// conveniência: o app nasce no simplificado, `init()` chama `setAppMode(appMode)`
-// depois do `load()` — e `setAppMode`, em avançado, chama `closeHymnSearch()`.
-// Ligar o modo por `evaluate` depois da carga é uma CORRIDA contra essa chamada:
-// vencendo, a Biblioteca que este oráculo acabou de abrir fecha sozinha, e o que
-// o log mostra são asserções sobre uma tela que não está mais lá. MEDIDO — foi o
-// que aconteceu com a máquina sob carga. Semeado, o app já boota em avançado e
-// aquele `setAppMode` não muda nada.
-await ctx.addInitScript(() => {
-  try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* storage bloqueado */ }
-});
+// O MODO AVANÇADO É DECLARADO ANTES DA PRIMEIRA LINHA DO APP
+// (`comModoAvancado`), e isto não é conveniência: o app nasce no simplificado,
+// `init()` chama `setAppMode(appMode)` depois do `load()` — e `setAppMode`, em
+// avançado, chama `closeHymnSearch()`. Ligar o modo por `evaluate` depois da
+// carga é uma CORRIDA contra essa chamada: vencendo, a Biblioteca que este
+// oráculo acabou de abrir fecha sozinha, e o que o log mostra são asserções
+// sobre uma tela que não está mais lá. MEDIDO — foi o que aconteceu com a
+// máquina sob carga. Declarado, o app já boota em avançado e aquele
+// `setAppMode` não muda nada.
+await comModoAvancado(ctx);
 const pg = await ctx.newPage();
 const base = `http://localhost:${porta}`;
 

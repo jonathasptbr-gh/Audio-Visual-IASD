@@ -42,8 +42,9 @@ a cor DO PRÓPRIO POPUP, e é olhando para ele — que acabou de mudar — que o
 operador decide se gostou.
 
 **A escolha é lida do `localStorage` (`av.tema`) no topo do `controle.js`**,
-antes do primeiro quadro, exatamente pela razão do `av.appMode` logo abaixo: uma
-leitura do IndexedDB é assíncrona e chega depois de o app já ter pintado. Aqui o
+antes do primeiro quadro, exatamente pela razão do `av.appMode` logo abaixo (que
+vive em `sessionStorage`, pelo mesmo motivo de ser síncrono): uma leitura do
+IndexedDB é assíncrona e chega depois de o app já ter pintado. Aqui o
 preço de errar é maior, não menor — o modo troca a TELA, o tema troca a COR DE
 TUDO, e um flash do app inteiro em preto antes de virar claro se vê a cada
 abertura.
@@ -69,14 +70,14 @@ louvor**; a outra opera o culto inteiro. A tela que serve bem à segunda é
 excessiva para a primeira, e esconder recursos atrás de uma configuração só
 empurraria a escolha para um lugar onde ninguém procura.
 
-**O app abre no ÚLTIMO MODO USADO**, e no simplificado para quem nunca escolheu —
-nunca por um seletor na abertura, que cobraria um toque de todo mundo, inclusive
-de quem nem sabe que há dois modos, antes de mostrar qualquer coisa útil. A
+**O app SEMPRE abre no simplificado** — nunca por um seletor na abertura, que
+cobraria um toque de todo mundo, inclusive de quem nem sabe que há dois modos,
+antes de mostrar qualquer coisa útil. A
 classe `mode-simple` **já vem no `<body>` do HTML** (e `.open` no `#simpleMode`),
 então a tela certa aparece sem esperar JS ou IndexedDB.
 
 **A troca mora em Configurações, nos DOIS modos** (segmento "Modo do app",
-`#appModeSeg`) — é ele que GUARDA a escolha entre aberturas. Os botões de
+`#appModeSeg`) — e vale pela SESSÃO (ver a subseção abaixo). Os botões de
 cabeçalho que faziam o mesmo saíram: eram dois controles para uma decisão só, e
 o do avançado ocupava a esquerda de uma faixa com largura de celular (e
 empurrava o título 63px para fora do centro, medido). No Modo Fácil o cabeçalho
@@ -90,27 +91,45 @@ em que a mesma porta se abre.
 > inteira — tirar os dois de uma vez teria TRANCADO o operador aqui. Primeiro se
 > cria o caminho, depois se remove o atalho.
 
-#### O modo é LEMBRADO entre aberturas
+#### O modo vale pela SESSÃO, e toda abertura nasce no Modo Fácil
 
-- **Fica em `localStorage`** (`av.appMode`), e não no IndexedDB como TODO o resto
-  do estado. O motivo é decisivo: esta chave precisa ser lida **antes do primeiro
-  quadro**. Uma leitura do IDB é assíncrona — ela volta depois de o app já ter
-  pintado o simplificado, e quem tivesse deixado o avançado veria a tela errada
-  trocar embaixo do dedo. `localStorage` é síncrono e mora no mesmo
-  `app_webview/`: mesma durabilidade, mesma regra de backup.
+Pedido do operador (v1.11.7): *"sempre iniciar o app no modo simples"*.
+
+- **Fica em `sessionStorage`** (`av.appMode`), e não no IndexedDB como TODO o
+  resto do estado. O motivo é decisivo: esta chave precisa ser lida **antes do
+  primeiro quadro**. Uma leitura do IDB é assíncrona — ela volta depois de o app
+  já ter pintado o simplificado, e quem estivesse no avançado veria a tela errada
+  trocar embaixo do dedo. `sessionStorage` é síncrono e MORRE COM O APP: abrir o
+  app de novo é sempre o Modo Fácil. A chave de mesmo nome que as versões
+  anteriores gravaram em `localStorage` fica órfã e **nunca é lida**.
+- **O que ele atravessa é a RECARGA DO DOCUMENTO dentro do mesmo WebView**: a
+  atualização aceita em "Atualizar agora" (`applyWebUpdate` recarrega o MESMO
+  WebView) e o `location.reload()` da importação. Quem opera o culto no avançado
+  não cai no Modo Fácil por uma atualização. O que ele NÃO atravessa: o app
+  aberto de novo e a remontagem do WebView depois que o renderer morre — ali o
+  Modo Fácil volta, e sem TV a cortina de "sem tela" volta junto.
+- **Consequências que o pedido traz e que ficam ditas:** um compartilhamento
+  recebido com o app FECHADO (o `ACTION_SEND` por partida a frio) cai sempre no
+  ramo do simplificado — o link do YouTube vira "tocar agora" sem a pergunta e os
+  arquivos vão para `avulsos` e são projetados; e um app que ficou em memória
+  (o processo não morreu) volta como estava, porque isso é retomar, não abrir.
 - **UMA fonte, não duas.** Gravar nos dois lugares "por garantia" só cria o dia
   em que eles discordam e ninguém sabe qual vale.
 - **A restauração é em duas metades.** No TOPO do `controle.js` vai só a pintura
   (a classe do `<body>` e o `.open` do `#simpleMode`), que é a parte que não pode
   esperar; o resto (`setAppMode(appMode)`) roda no `init()`, **depois do
-  `load()`** — no avançado ele posiciona o vazado da faixa de abas
-  (`moveTabIndicator`), e medir a faixa antes de `load()` desenhá-la dá zero.
+  `load()`**.
 - **ARMADILHA:** um `setAppMode('simple')` literal no fim do módulo (que existia
-  "para fechar o ciclo com o HTML") passou a reescrever o `localStorage` em toda
-  abertura, e o avançado nunca sobrevivia a fechar o app — invisível no diff,
-  porque a tela ainda pintava certo até aquela linha rodar.
-- **`localStorage` pode LANÇAR** (armazenamento bloqueado): leitura e escrita em
-  `try`, e o padrão do app já é a resposta certa no `catch`.
+  "para fechar o ciclo com o HTML") reescreve a chave da sessão em toda carga, e
+  uma recarga no avançado cairia no Modo Fácil — invisível no diff, porque a tela
+  ainda pinta certo até aquela linha rodar. É por isso que ela passa `appMode`.
+- **`sessionStorage` pode LANÇAR** (armazenamento bloqueado): leitura e escrita
+  em `try`, e o padrão do app já é a resposta certa no `catch`.
+- **Oráculos:** quem mede uma tela do avançado DECLARA que parte dele
+  (`comModoAvancado`, no arnês, irmão do `comTema`) — o app não abre mais nele. O
+  contrato em si (chave legada ignorada, gravação só na sessão, recarga
+  atravessa, app novo nasce simples) é o bloco D de
+  `abertura-e-transferencia.test.mjs`.
 
 **O simplificado NÃO é uma segunda implementação.** A tela avançada continua no
 DOM, só oculta (`body.mode-simple`), e os controles daqui **acionam os botões
@@ -835,7 +854,7 @@ local comanda a barra de progresso e o avanço automático da playlist. Para ite
 YouTube, `cmd()` também dirige um segundo `YT.Player` próprio da preview (mudo,
 qualidade mínima) — ver seção do YouTube no Display para os detalhes.
 
-**Controles sobre a preview** (`.pv-fabs`, `setupPreviewGestures`): **três
+**Controles sobre a preview** (`.pv-fabs`, `setupPreviewGestures`): **quatro
 grupos**, todos só-ícone, sem moldura, com a mesma `drop-shadow` tripla no traço
 (ver "Layout de player", abaixo). Cada botão ocupa uma caixa de `--hit`, e o
 tamanho do ícone vem do CSS (`24px`), não do atributo do `<svg>`.
@@ -845,6 +864,7 @@ tamanho do ícone vem do CSS (`24px`), não do atributo do `<svg>`.
 | `.pv-fabs` | coluna DIREITA | cast em cima, tela cheia embaixo | *para onde eu mando isto?* |
 | `.pv-fabs--esq` | coluna ESQUERDA (v1.3.5) | letra → cortina → mudo | *como eu opero a cena?* |
 | `.pv-fabs--base` | BASE, ao centro (v1.3.10) | o que está FORA DO PADRÃO agora: o selo de camadas (`#pvCamadaBtn`) e o desfazer do giro (`#pvGiroBtn`) | *o que eu desfaço daqui?* |
+| `.pv-fabs--topo` | TOPO, ao centro (no Modo Fácil, no canto esquerdo) (v1.11.7) | a seta que recolhe e expande a prévia (`#pvRecolherBtn`) | *quanto de tela a prévia ocupa?* |
 
 > O selo já morou no canto superior esquerdo, e no topo ao centro (v1.3.5).
 > Desceu para a base a pedido do operador. Em qualquer das três posições a regra
@@ -1082,73 +1102,129 @@ altura. Hoje é uma **grade de três colunas** de tiles: **ícone e título curt
 e o toque **alterna** — o painel rápido de um celular. (A palavra do estado, que
 era uma segunda linha em cada tile, saiu na v1.7.2; ver a regra 2 abaixo.)
 
-**A ORDEM DA GRADE É POR ASSUNTO** (v1.7.6), e ela é a tabela abaixo, de cima
-para baixo: as **seis preferências da PROJEÇÃO**, e depois as **três coisas que
-se fazem com o APP fora dela**, numa fileira inteira e sozinha. Pedido do
-operador: *"reordene os botões: compartilhar, exportar e importar devem ser os
-tres itens da base"*.
+**A GRADE TEM OITO TILES E TRÊS COLUNAS** (v1.11.7), na ordem da tabela, de cima
+para baixo: o que se **ajusta** (seis) e, numa fileira própria, o que se faz com
+o **APP fora da projeção** (dois). Pedido do operador (v1.7.6): *"reordene os
+botões: compartilhar, exportar e importar devem ser os tres itens da base"* — e
+hoje são **Compartilhar e Transferir**, porque exportar e importar viraram um
+tile só (ver abaixo). O que faz a fileira do aparelho começar sozinha, com a
+ponte ou sem ela, é `#shareAppTile { grid-column: 1 }` no CSS.
 
-**A ordem anterior era por NATUREZA** (v1.4.40: primeiro os que não têm
-"desligado", depois os que ligam e desligam), e ela **deixou de existir no mesmo
-lote** — nenhum tile apaga mais, então não há duas naturezas de LUZ para
-ordenar. A grade fecha em três fileiras exatas nos dois arranjos; o que muda é
-onde a costura cai, e agora ela cai entre as duas naturezas. Numa grade só, e
-não em duas com um respiro entre elas: o respiro seria uma segunda maneira de
-dizer o que a fileira já diz.
+Em nativo as fileiras são `[Tema · Tela · Histórico]` `[Saída de áudio · Dados
+móveis · Verificar]` `[Compartilhar · Transferir]`; no navegador (Saída de
+áudio, Compartilhar e Transferir são `hidden`) são cinco tiles.
 
 | tile | id | estado (`data-estado`) | aceso | ícone |
 |---|---|---|---|---|
 | Tema | `#temaTile` | `escuro` · `claro` | **sempre** | `#icoLua` / `#icoSol` |
-| Preenchimento | `#fitTile` | `contain` · `cover` (ver `stage.setFit()`) | **sempre** | `#icoAjustar` / `#icoPreencher` |
-| Wallpaper | `#wallTile` | `padrao` · `propria` | **sempre** | `#icoWallpaper` / `#icoWallpaperProprio` |
+| **Tela** | `#telaTile` | — (abre a janela da Tela) | **sempre** (classe no HTML) | `#icoTela` |
 | Histórico | `#histOpenRow` | — (abre a folha) | **sempre** (classe no HTML) | `#icoHistorico` |
-| Fundo da letra | `#lyricsBgTile` | `image` · `black` (ver "Fundo preto vs. imagens dos slides") | **sempre** | `#icoImagem` / `#icoImagemOff` |
-| Girar no telão | `#rotBtn` | `0` `90` `180` `270` | **sempre** | `#icoPaisagem`, GIRADO pelo `data-estado` |
+| Saída de áudio | `#saidaAudioTile` | — (abre o seletor do sistema) | **sempre** | `#icoSaidaDeAudio` |
+| Dados móveis | `#dadosMoveisTile` | `on` · `off` | **sempre** | `#icoDadosMoveisOff` / `#icoDadosMoveis` |
+| Verificar | `#testeTile` | — (abre a folha) | **sempre** | `#icoVerificar` |
 | Compartilhar | `#shareAppTile` | `app` | **sempre** | `#icoCompartilhar` |
-| Exportar | `#pacoteExportarTile` | `pronto` · `ocupado` | **sempre** | `#icoExportar` (o ARO no lugar dele em curso) |
-| Importar | `#pacoteImportarTile` | `pronto` · `ocupado` | **sempre** | `#icoImportar` (idem) |
-| Ceder | `#cloneCederTile` | `parado` · `cedendo` | **quando ligado** | `#icoCeder` / `#icoCelular` |
-| Clonar | `#cloneReceberTile` | `pronto` | **sempre** (só apaga cedendo, que é INDISPONÍVEL de verdade) | `#icoClonar` (o ARO no lugar dele em curso) |
+| **Transferir** | `#pacoteTile` | `ocioso` · `ocupado` · `pronto-para-enviar` | **sempre** | `#icoTransferir` / `#icoCompartilhar` (pronto) · o ARO no lugar dele em curso |
 
-**A COLUNA "ACESO" DIZ "SEMPRE" EM QUASE TODAS, e a exceção é NOMEADA**
-(v1.7.6). Pedido do operador: *"todos os botões devem ter o mesmo azul de ativo,
-não temos mais essa diferença, toda diferença de estado é pelo icone, não pela
-cor"*. A v1.4.40 acendeu os tiles sem "desligado" e deixou dois apagando (o
-fundo da letra e o giro); os dois já tinham o estado no DESENHO, então a luz era
-a segunda cópia da mesma resposta — dita na única tinta que este app já reserva
-para outra coisa. **Apagado aqui quer dizer INDISPONÍVEL** (`opacity: .3` +
-`disabled`), e é a queixa da v1.4.25.
+##### A janela da TELA (v1.11.7)
+
+Pedido do operador: *"centralizar opções que se referem a tela em um botão nas
+configurações, que abre uma janela com as opções"*. Quatro tiles que eram da
+grade moram agora em `#telaPopup`, com os **mesmos ids e o mesmo markup**
+(pintores, `data-estado` e quase todos os oráculos os alcançam por id): ela abre
+de dentro de Configurações como o Histórico e a Verificação, tem linha na tabela
+`POPUPS` e `z-index: 205`.
+
+| tile | id | estado (`data-estado`) | ícone |
+|---|---|---|---|
+| Preenchimento | `#fitTile` | `contain` · `cover` (ver `stage.setFit()`) | `#icoAjustar` / `#icoPreencher` |
+| Wallpaper | `#wallTile` | `padrao` · `propria` | `#icoWallpaper` / `#icoWallpaperProprio` |
+| Fundo da letra | `#lyricsBgTile` | `image` · `black` (ver "Fundo preto vs. imagens dos slides") | `#icoImagem` / `#icoImagemOff` |
+| Girar no telão | `#rotBtn` | `0` `90` `180` `270` | `#icoPaisagem`, GIRADO pelo `data-estado` |
+
+- **O Tema FICA na grade:** é a cor do APP, e o palco não tem tema — pô-lo numa
+  janela chamada "Tela" induziria a lê-lo como o tema do telão. O Histórico (o
+  que foi ao ar), a Saída de áudio (o som) e os Dados móveis (a rede) também não
+  descrevem a aparência do telão.
+- **O WALLPAPER continua sendo um `<label>` com o `<input type=file>` DENTRO**
+  (invariante 6 do shell): a ativação nativa do rótulo é o que abre o
+  `onShowFileChooser`. Tocar num tile NÃO fecha a janela.
+- **A grade da janela é `.qs-grade-folha`, DUAS colunas** (4 tiles fecham 2×2; 3
+  deixariam um órfão e 4 não comportam "Preenchimento" a 360px). **Não é
+  `.qs-grade`**: `document.querySelector('.qs-grade')` devolve o PRIMEIRO no
+  documento, e as janelas vêm antes de Configurações no HTML.
+- **A janela fechada é `opacity: 0`, não `display: none`:** o nó existe e
+  responde, e é por isso que `load()` pinta o `data-estado` dos quatro na carga
+  e que `getAnimations()` do giro continua valendo. `openTelaPopup` só refaz o
+  que depende de um instante.
+
+##### A janela do TRANSFERIR (v1.11.7)
+
+Pedido do operador: *"os botões de exportar e importar, para que sejam um único
+botão, e depois na janela aberta teremos a escolha de exportar ou importar
+dados, junto com o sistema que já temos de listagem da biblioteca atual antes da
+exportação, afinal, para importação também é bom saber o que já se tem"*.
+
+- **`#pacoteTile` abre `#pacotePopup`**, que leva os DOIS botões de sempre
+  (`#pacoteExportarTile`, `#pacoteImportarTile`, mesmos ids, mesmo markup, mesmos
+  três desenhos) e uma nota. Toda a coreografia de `pacoteRenderTiles` — o aro, o
+  pronto-para-enviar, o irmão que vira Cancelar ou Descartar — continua pintando
+  ELES: `pacoteRenderTiles()` é `pacoteRenderPar()` (o corpo de antes) mais
+  `pacoteSinal()`.
+- **A LISTAGEM DA BIBLIOTECA ATUAL aparece DENTRO de cada caminho, antes de a
+  ação começar**: ao exportar, a folha "O que levar no arquivo"
+  (`escolherGruposDoPacote`, que também é a escolha do que levar); ao importar, a
+  MESMA folha em **leitura** (`renderPacoteGrupos(plano, { leitura: true })` via
+  `mostrarAcervoParaImportar`): linhas sem caixa e sem ação (`<div>`, nunca um
+  `<button>` que não faz nada), seções que só abrem e fecham, o botão "Escolher o
+  arquivo", e — o caso de uso da importação é o aparelho NOVO — uma frase de
+  estado vazio. Abrir a janela não desenha lista nenhuma.
+- **`importarPeloTile()` é o toque** (guarda da v1.8.42 copiada: `!__NATIVE__ ||
+  pacoteEmCurso || pacotePronto`); **`importarPacote()` e `exportarPacote()` NÃO
+  MUDARAM** — a listagem é um `await` de folha e eles são chamados direto, com um
+  `pickDoc` de mentira, por dezenas de pontos de oráculo. A listagem informa, não
+  autoriza: se ela falha em montar, a importação segue.
+- **O TILE DA GRADE É O SINAL, não só a porta** (`pacoteSinal`): com a janela
+  fechada durante os minutos de uma exportação, o aro gira nele
+  (`pacoteExportando || pacoteImportando || pacoteMedindo` — NUNCA
+  `pacoteEmCurso`, que sobe no primeiro toque) e o desenho de compartilhar
+  aparece quando há um pacote pronto. A importação também ganha aro ali (no
+  botão dela ela vira o Cancelar, mas o tile da grade não tem irmão). Nunca
+  `disabled`: tocar nele é a única forma de chegar ao cancelar, ao enviar e ao
+  descartar.
+- **O feedback dos dois botões é espelhado no tile da grade**
+  (`pacoteFalar`/`pacoteCalar`/`pacotePulsar`): `pulsar` recusa um nó dentro de
+  `.popup-backdrop:not(.open)` e uma frase emprestada num nó oculto não se vê.
+  O rótulo de PAPEL do irmão ("Cancelar", "Descartar") NÃO é espelhado — no tile
+  da grade seria uma mentira.
+- **Fechar a janela com uma exportação em curso não cancela nada:** o estado é de
+  módulo (`pacoteExportando`, `pacotePronto`…) e o trabalho roda sob `withBgWork`
+  + notificação. Cancelar é tocar no tile que trabalha.
+- **A folha "O que levar" (`#songMenuPopup`, z 210) abre POR CIMA da janela
+  (z 205).**
+
+**A COLUNA "ACESO" DIZ "SEMPRE"**, e a regra é a da v1.7.6. Pedido do operador:
+*"todos os botões devem ter o mesmo azul de ativo, não temos mais essa diferença,
+toda diferença de estado é pelo icone, não pela cor"*. A v1.4.40 acendeu os
+tiles sem "desligado" e deixou dois apagando (o fundo da letra e o giro); os dois
+já tinham o estado no DESENHO, então a luz era a segunda cópia da mesma resposta
+— dita na única tinta que este app já reserva para outra coisa. **Apagado aqui
+quer dizer INDISPONÍVEL** (`opacity: .3` + `disabled`), e é a queixa da v1.4.25.
 
 **A consequência para o próximo tile é dura, e é a soma das duas remoções:** a
-palavra do estado saiu na v1.7.2, a cor saiu agora, e o desenho é o único canal
-que sobrou. *Um estado que não caiba num desenho não cabe nesta grade.*
+palavra do estado saiu na v1.7.2, a cor saiu na v1.7.6, e o desenho é o único
+canal que sobrou. *Um estado que não caiba num desenho não cabe nesta grade.*
 
-**O "CEDER" É A ÚNICA EXCEÇÃO À LUZ, e ela é legítima** (v1.8.0): ele é um
-INTERRUPTOR DE VERDADE — ligado, este aparelho está se anunciando na rede e
-oferecendo a biblioteca; desligado, não. `qs-on` responde *"está ligado?"* e
-`qs-alt` responde *"qual desenho?"*, que é a distinção da v1.4.40, e aqui as
-duas têm resposta. O que a regra acima proíbe é apagar um tile que **não tem
-desligado** — ali apagado significaria INDISPONÍVEL, e mentiria.
+**A fileira do aparelho começa sozinha** (`#shareAppTile { grid-column: 1 }`): a
+v1.7.6 media a última fileira CHEIA, e aquilo era um atalho verdadeiro enquanto o
+grupo do aparelho tinha exatamente três tiles. O oráculo mede a propriedade (o
+grupo do aparelho começa uma fileira nova), não o atalho.
 
-**ONZE TILES desde a v1.8.0** — seis preferências da PROJEÇÃO e cinco ações do
-APARELHO. A grade tem três colunas, então a costura entre as duas naturezas cai
-numa BORDA DE FILEIRA (6 é múltiplo de 3) e a última fileira tem um vão no fim,
-que é o que toda grade faz quando a lista não fecha. **A v1.7.6 media a última
-fileira CHEIA**, e aquilo era um atalho verdadeiro enquanto o grupo do aparelho
-tinha exatamente três tiles: com 6 + 3 as duas perguntas dão a mesma resposta.
-Elas se separaram quando o clone entrou com dois, e o oráculo passou a medir a
-propriedade em vez do atalho.
-
-As três
-AÇÕES DESTE APARELHO moravam num bloco à parte, sob o rótulo "Este aparelho", e
-ele saiu a pedido do operador: *"remova também o texto 'este aparelho' que divide
-as configurações. Todos os blocos ficam em uma grade só"*. A separação era de
-ASSUNTO e custava uma linha de texto e um vão para dizer o que a POSIÇÃO já diz —
-e hoje a posição diz exatamente isso, porque elas são a fileira da base.
-**Elas são `hidden` uma a uma fora do app** (`pacoteRenderTiles`), e
-não mais por um bloco: as três dependem da ponte. A **contagem de uso** saiu
-daqui na v1.4.41 e, uma versão depois, saiu do app inteiro: ver "A contagem de
-uso" abaixo.
+**Os tiles que dependem da ponte são `hidden` um a um fora do app**
+(`pacoteRenderTiles`): Saída de áudio, Compartilhar e Transferir — o seletor do
+Android, o "Salvar como" do SAF e o canal de bytes só existem lá, e um botão que
+só sabe não funcionar é pior que botão nenhum. A **contagem de uso** saiu daqui
+na v1.4.41 e, uma versão depois, saiu do app inteiro: ver "A contagem de uso"
+abaixo.
 
 **O TÍTULO DO GIRO DIZ ONDE** (v1.4.41): *"Girar no telão"*, e o `title`
 completa pela negativa (*"não gira o app nem a tela do celular"*). "Girar"
@@ -2355,9 +2431,9 @@ investigação, e entrega o que sobra.
   ligado" **não foi medida em aparelho**. A cadeia promete chegar à tela, não um
   desfecho.
 
-#### A IMAGEM DA PRÉVIA desligável — a economia (v1.9.9)
+#### A PRÉVIA RECOLHÍVEL e a economia que vai junto (v1.9.9 / v1.11.7)
 
-Pedido do operador, fechado depois da análise: *"o celular fraco é o operador,
+Pedido do operador (v1.9.9), fechado depois da análise: *"o celular fraco é o operador,
 vamos manter as outras conexões de controle e ativar/desativar apenas a
 decodificação de imagem do preview, que é o que realmente pesa no
 processamento"*. As outras alavancas medidas na análise (espaçar o
@@ -2371,15 +2447,73 @@ rotatividade de decodificador rouba justamente o fio"* —, e o sintoma daquela 
 foi o som parando de chegar a uma tela da rede. Este recurso transforma aquele
 desligamento acidental (a página oculta) numa ESCOLHA, com a página à vista.
 
+**Na v1.11.7 o tile "Imagem da prévia" de Configurações saiu e a escolha virou
+uma SETA no topo da própria prévia** (`#pvRecolherBtn`): *"um botão na preview
+que compacte verticalmente ela e substitua o botão de desativar a imagem de
+preview… mantendo os botões de interação dentro da preview, mas a preview na
+menor altura possível sem apertar esses botões"*. A máquina da economia é a
+MESMA (chave `economiaPreview`, `economiaAtiva`, `setSuspenso`, `preverPodeMexer`
+e as quarenta asserções que a travam); o que mudou é a superfície de controle e
+que ela ganhou GEOMETRIA.
+
+- **TRÊS coisas, e as duas últimas não são a mesma régua de propósito.** A
+  MARCAÇÃO (`economiaPreview`, do banco — propriedade do APARELHO, e quem estava
+  com "Imagem desligada" passa a abrir com a prévia recolhida); a GEOMETRIA
+  (`pv-recolhida`, que segue a marcação NO ATO, também sem TV — é o "sempre
+  clicável" da v1.10.10: a seta tem de fazer algo visível); e o VEREDITO da
+  decodificação (`economiaAtiva()`: a marcação, `haDestinoDeProjecao()` e **não
+  estar em tela cheia**). Ligar a decodificação à marcação pararia o `<video>` da
+  prévia, que sem tela é a fonte do som; ligar a geometria ao veredito faria a
+  seta não fazer nada visível sem TV.
+- **A altura mínima é a do CONTEÚDO, e ninguém a escreve.** Recolhida, a prévia
+  deixa de ser um retângulo com botões POR CIMA (as colunas `.pv-fabs` são
+  `position: absolute`, e a altura delas não conta) e vira uma GRADE em fluxo:
+  `height: auto`, sem `aspect-ratio`, `grid-template-columns: 1fr auto 1fr`, os
+  grupos `static` em linha. MEDIDO de 320 a 430px de largura e de 1,2 a 2,4 de
+  proporção, nos dois modos: **38px** (34 de `--hit` mais 2px de recuo de cada
+  lado) e **72px** quando o selo de camadas ou o giro estão à vista (a segunda
+  linha — eles não cabem ao lado da seta em 360px). Nenhum botão apertado,
+  nenhum fora, nenhuma sobreposição, seta centrada. Um número declarado
+  assumiria dois botões empilhados e quebraria no terceiro; `flex: 0 1` com
+  `min-height: 24px` espremeria a cortina e o mudo, que o pedido proíbe. O
+  oráculo é quem MEDE (`previa-recolhida.test.mjs`).
+- **`1fr auto 1fr`, e não `auto 1fr auto`:** com o cast oculto (o navegador) ou a
+  coluna da esquerda fora (Modo Fácil) as laterais ficam desiguais e a seta
+  sairia do centro.
+- **NO MODO FÁCIL A SETA FICA NO CANTO SUPERIOR ESQUERDO** (`.simple-stage
+  .pv-fabs--topo`), expandida e recolhida — não troca de lugar com o toque. Lá a
+  coluna esquerda não existe e a prévia pode ser MUITO baixa (144×60 num telefone
+  de 320 com uma TV 21:9): MEDIDO, com o selo ou o giro à vista (centro da base)
+  uma seta ao centro do topo se sobrepunha a eles em 12px. O avançado não tem o
+  problema (a prévia mais baixa mede 88px) e fica no centro.
+- **O CSS recolhido fica de fora da TELA CHEIA e do CARTÃO DE ESPERA**
+  (`:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on))`). Em tela
+  cheia sem TV a prévia É a projeção: uma regra sem o `:not(:fullscreen)` deixa o
+  telão em branco, sem erro algum (e ao sair a prévia volta recolhida, sem
+  alternar a marcação). O cartão `#pvBusy` mede 43 a 58px, não cabe em 38, e é o
+  ÚNICO canal de falha do download no ato do "tocar" e a única porta de
+  CANCELAR: com ele no ar a prévia volta à altura natural e recolhe sozinha 700ms
+  depois (`PV_BUSY_SAIDA_MS`). O custo é um salto de layout num download lento.
+  O desenho da seta diz a MARCAÇÃO, não a geometria do instante.
+- **A seta é um `.pv-fab`** (caixa quadrada `--hit`, ícone 24px, a mesma
+  `drop-shadow` tripla), no quarto grupo `.pv-fabs--topo`. **Chevron para BAIXO =
+  recolher, para CIMA = expandir** (`#icoRecolher`/`#icoExpandir`, `.alternado`):
+  a caixa de controles é ancorada na base da tela, então a borda de cima da
+  prévia — onde a seta mora — desce quando ela encolhe. Sem cor de estado, sem
+  rótulo, sem `disabled`.
+- **Efeitos que o operador vê:** a caixa de controles encolhe (304 → 204px em
+  430×900) e a lista do Cronograma ganha a diferença (`--lib-caixa-h` acompanha
+  pelo `ResizeObserver` que já existia); os botões de passar slide, que têm a
+  altura da faixa da prévia, caem de 88–241px para 38px (continuam ≥ `--hit`); o
+  fader fica com ~12px de curso — serve para MOSTRAR o número na espiada da tecla
+  física, e arrastar com o dedo deixa de ser prático.
 - **A escolha é GUARDADA e o veredito é DERIVADO**, a separação do
-  `tocarNoCelular` × `somLocalDeveEstar`. `economiaPreview` vem do banco — é
-  propriedade do APARELHO, e um celular fraco continua fraco na abertura
-  seguinte; `economiaAtiva()` exige três coisas: a marcação, `haDestinoDeProjecao()`
-  e **não estar em tela cheia**.
-- **Sem destino a prévia É a projeção**, e o tile fica `disabled` com o motivo no
-  `title` (a regra da v1.8.50). A régua é `haDestinoDeProjecao()` e **não**
-  `algumaTelaConectada()`: com aquela, a oscilação do dongle devolveria a imagem
-  a cada piscada do Miracast.
+  `tocarNoCelular` × `somLocalDeveEstar`. `economiaAtiva()` exige três coisas: a
+  marcação, `haDestinoDeProjecao()` e **não estar em tela cheia**.
+- **Sem destino a prévia É a projeção**, e a decodificação não para (a seta
+  continua clicável e o `title` diz que só vale com TV ou computador conectado).
+  A régua é `haDestinoDeProjecao()` e **não** `algumaTelaConectada()`: com
+  aquela, a oscilação do dongle devolveria a imagem a cada piscada do Miracast.
 - **A TELA CHEIA SUSPENDE.** Ali o operador está OLHANDO para a prévia — é o
   único gesto do app sem outra leitura —, e um retângulo em branco recusa a única
   pergunta que aquele gesto faz. Suspensa e não desligada: sair volta a poupar, e
@@ -2416,23 +2550,16 @@ desligamento acidental (a página oculta) numa ESCOLHA, com a página à vista.
 - **A imagem sai de vista por `visibility` no PAI** (`.preview.pv-economia`) e
   nunca por classe nos elementos: o `applyMedia` do stage reescreve o `hidden` dos
   dois a cada carga, e a classe seria apagada na mídia seguinte — a economia
-  valendo no decodificador e não na tela, com o quadro congelado de volta. **A
-  letra e o texto manual FICAM** (DOM não é decodificação), e é essa a metade do
-  pedido que se erra.
-- **A MARCA DA ECONOMIA É CENTRADA, e o canto foi MEDIDO como errado.** Ela nasceu
-  em baixo à direita com o argumento de que a coluna de controles "mora à direita
-  mas em cima" — falso: `.pv-fabs` é `top: 2px; bottom: 2px; right: 2px`, altura
-  INTEIRA, com a tela cheia empurrada para a base por `margin-top: auto`, e a irmã
-  `--esq` faz o mesmo do outro lado. MEDIDO numa prévia de 290×163, **os quatro
-  cantos têm um `.pv-fab` de 34px**, e desenhar sobre o símbolo de um botão o
-  deixa ilegível (`pointer-events: none` não conserta: o que se perde é a
-  LEITURA). Centrada, a colisão se resolve pela PILHA — `z-index: 2`, acima da
-  mídia e abaixo da letra e do texto manual, que são opacos e a cobrem. **A caixa
-  é `inset: 0`** para centrar sem medida à mão, então quem o oráculo mede é a
-  TINTA (o `<svg>` filho), e a caixa tem asserção própria de deixar o toque
-  passar.
+  valendo no decodificador e não na tela, com o quadro congelado de volta. Com a
+  prévia RECOLHIDA as camadas (`.pv-layer`, `.pv-wall`) saem de vista pela regra
+  do bloco recolhido; a regra do `pv-economia` cobre o caso em que a economia
+  está em vigor com a prévia EXPANDIDA (o cartão de espera no ar). **A letra e o
+  texto manual FICAM** com a prévia expandida (DOM não é decodificação), e saem
+  junto quando ela recolhe: 12px de altura útil não leem nada, e a leitura local
+  do verso continua no Auxiliar de leitura.
 
-Oráculo: `saida-de-audio-e-economia.test.mjs`.
+Oráculos: `saida-de-audio-e-economia.test.mjs` (a máquina da economia) e
+`previa-recolhida.test.mjs` (a geometria da seta).
 
 #### Por que não é a "mesa de som" de volta
 

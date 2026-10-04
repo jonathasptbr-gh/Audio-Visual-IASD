@@ -57,7 +57,7 @@ import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
 import {
   servirEstatico, abrirNavegador, esperarCortina, checar, falhas,
-  lerPng as decodificarPng, pixel,
+  lerPng as decodificarPng, pixel, comModoAvancado,
 } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
@@ -129,12 +129,10 @@ const porta = servidor.address().port;
 const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
 await semRedeExterna(ctx);
-// O modo avançado SEMEADO antes da primeira linha do app: ligá-lo por
-// `evaluate` depois da carga é uma corrida contra o `setAppMode(appMode)` do
-// `init()`, que chama `closeHymnSearch()`.
-await ctx.addInitScript(() => {
-  try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* storage bloqueado */ }
-});
+// O modo avançado DECLARADO antes da primeira linha do app (`comModoAvancado`):
+// ligá-lo por `evaluate` depois da carga é uma corrida contra o
+// `setAppMode(appMode)` do `init()`, que chama `closeHymnSearch()`.
+await comModoAvancado(ctx);
 const pg = await ctx.newPage();
 
 const erros = [];
@@ -1004,9 +1002,7 @@ try {
   for (const tela of TELAS_D5) {
     const c2 = await navegador.newContext({ viewport: tela.vp, hasTouch: true });
     await semRedeExterna(c2);
-    await c2.addInitScript(() => {
-      try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* storage bloqueado */ }
-    });
+    await comModoAvancado(c2);
     const p2 = await c2.newPage();
     await p2.goto(`http://localhost:${porta}/controle/`, { waitUntil: 'domcontentloaded' });
     // A CORTINA cobre a tela por 1,8 s (v1.7.2) e ela é o topo da pilha: sem esta
@@ -1374,9 +1370,7 @@ try {
   for (const tela of TELAS_F) {
     const cF = await navegador.newContext({ viewport: tela.vp, hasTouch: true });
     await semRedeExterna(cF);
-    await cF.addInitScript(() => {
-      try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* storage bloqueado */ }
-    });
+    await comModoAvancado(cF);
     await cF.addInitScript(REGUA_TAMPA);
     const pF = await cF.newPage();
     // Espera pelo FATO; estourando, devolve a FRASE e nunca um veredito sobre a

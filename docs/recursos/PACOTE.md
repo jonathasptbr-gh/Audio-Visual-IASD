@@ -178,6 +178,38 @@ nenhum, e o cursor tropeça no meio de um registro. Ver `pacoteFonteDaUrl` e o
 do Kotlin (`PacoteCanal.kt`). É a divisão do `pptxzip.js` × `deck.js`, e pelo
 mesmo motivo — a regra é o que erra, e a regra se conserta por OTA em minutos.
 
+### Onde os botões moram: a janela do Transferir (v1.11.7)
+
+Exportar e Importar deixaram de ser dois tiles da grade de Configurações e viraram
+**UM tile, "Transferir"** (`#pacoteTile`), que abre `#pacotePopup`: os dois botões
+de sempre (`#pacoteExportarTile`, `#pacoteImportarTile` — mesmos ids, mesmo
+markup, mesmos três desenhos) e uma nota. Tudo o que este capítulo diz sobre "o
+botão" vale para eles, na janela; o que mudou é a porta e o sinal:
+
+- **`pacoteRenderTiles()` = `pacoteRenderPar()` + `pacoteSinal()`.** O par é a
+  coreografia de sempre; `pacoteSinal` pinta o tile da GRADE — aro enquanto há
+  trabalho (`pacoteExportando || pacoteImportando || pacoteMedindo`, nunca
+  `pacoteEmCurso`), o desenho de compartilhar com um pacote pronto, nunca
+  `disabled`. `pacoteMedindo` cobre a varredura do disco que vem depois da folha
+  de escolha, até o "Salvar como" responder.
+- **O feedback dos dois botões é espelhado no tile da grade**
+  (`pacoteFalar`/`pacoteCalar`/`pacotePulsar`): `pulsar` recusa um nó dentro de
+  `.popup-backdrop:not(.open)`, e a janela pode estar fechada durante os minutos de
+  uma exportação. O rótulo de PAPEL do irmão ("Cancelar", "Descartar") não é
+  espelhado.
+- **A listagem da biblioteca atual vem antes de a ação começar, DENTRO de cada
+  caminho:** exportar abre "O que levar no arquivo" (a escolha); **importar abre a
+  MESMA folha em leitura** — pedido do operador: *"para importação também é bom
+  saber o que já se tem"*. `importarPeloTile()` é o toque (a guarda da v1.8.42
+  copiada), `mostrarAcervoParaImportar` desenha a folha
+  (`renderPacoteGrupos(plano, { leitura: true })`), e só o "Escolher o arquivo"
+  chama `importarPacote()`. A listagem é do que o APARELHO tem e não lê o arquivo;
+  o aparelho novo — o caso de uso da importação — tem estado vazio com frase.
+- **`importarPacote()` e `exportarPacote()` NÃO mudaram, de propósito:** os
+  oráculos os chamam direto com um `pickDoc` de mentira, e um `await` de folha
+  dentro deles os penduraria. A listagem informa, não autoriza: se ela falha em
+  montar, a importação segue.
+
 ### As decisões que precisam estar ditas
 
 - **O formato é SEQUENCIAL, não zip.** Um acervo passa de gigabytes, e um zip

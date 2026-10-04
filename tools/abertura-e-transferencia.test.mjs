@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// A ABERTURA POR TRÁS DOS PANOS, A BADGE E OS TRÊS TILES DE "ESTE APARELHO".
+// A ABERTURA POR TRÁS DOS PANOS, A BADGE E OS TILES DE "ESTE APARELHO".
 //
 // ## Por que este oráculo existe
 //
@@ -18,9 +18,16 @@
 //     diferentes é o defeito que o operador repassa como fato ao pedir ajuda.
 //     E o índice do SHELL saiu da tela **e ficou no Registro** — tirar dos dois
 //     lugares é a regressão silenciosa deste lote.
-//  3. **O BLOCO que só existe no app.** Os três tiles dependem da ponte (o
-//     chooser do Android, o "Salvar como" do SAF e o canal de bytes), e no
-//     navegador eles sabem apenas não funcionar.
+//  3. **O BLOCO que só existe no app.** Os tiles do aparelho (Compartilhar e
+//     Transferir, e a Saída de áudio) dependem da ponte (o chooser do Android, o
+//     "Salvar como" do SAF e o canal de bytes), e no navegador eles sabem
+//     apenas não funcionar.
+//
+//  4. **O MODO que vale pela SESSÃO** (v1.11.7). Toda abertura nasce no Modo
+//     Fácil; a escolha do avançado mora em `sessionStorage` e atravessa só a
+//     recarga do documento. É o contrato que NENHUM outro oráculo afirma: os
+//     onze que partem do avançado o DECLARAM (`comModoAvancado`), e por isso
+//     passariam também num app que voltasse a lembrar o modo entre aberturas.
 //
 //   node tools/abertura-e-transferencia.test.mjs
 // ============================================================================
@@ -28,7 +35,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperar, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperar, esperarCortina, checar, falhas } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
@@ -324,7 +331,7 @@ try {
   }
 
   // =========================================================================
-  // C · OS TRÊS TILES DE "ESTE APARELHO"
+  // C · OS TILES DE "ESTE APARELHO"
   // =========================================================================
   {
     const { ctx, pg } = await abrirApp({});
@@ -341,46 +348,38 @@ try {
       return !!f && f.classList.contains('open');
     }) === true, 'C · a engrenagem do Modo Fácil abre Configurações');
 
-    // O RÓTULO "ESTE APARELHO" SAIU na v1.7.2 e os três tiles entraram na grade
+    // O RÓTULO "ESTE APARELHO" SAIU na v1.7.2 e os tiles entraram na grade
     // única, a pedido do operador. O que este bloco guarda não mudou de
     // natureza — eles existem no APP e não no navegador —, mudou de PORTA: a
     // pergunta passou a ser sobre cada tile, porque não há mais um bloco para
     // esconder de uma vez.
     const bloco = await pg.evaluate(() => {
-      const ids = ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile'];
+      const ids = ['shareAppTile', 'pacoteTile'];
       const grade = document.querySelector('.qs-grade');
       return {
         escondidos: ids.filter((id) => (document.getElementById(id) || {}).hidden !== false),
         // A ORDEM DENTRO DA GRADE, e não a existência: eles são a ÚLTIMA
-        // FILEIRA (v1.7.6) — as seis preferências da PROJEÇÃO em cima, o que se
-        // faz com o APP fora dela embaixo. Ler a grade inteira é o que prova
-        // que eles não voltaram a morar num bloco à parte.
+        // FILEIRA — o que se ajusta em cima, o que se faz com o APP fora da
+        // projeção embaixo. Ler a grade inteira é o que prova que eles não
+        // voltaram a morar num bloco à parte.
         grade: grade ? [...grade.children].map((e) => e.id) : [],
       };
     });
     checar(bloco.escondidos.length === 0,
-      'C · no APP os três tiles deste aparelho estão à vista', bloco);
-    // A ORDEM É A DA GRADE INTEIRA, e os dois tiles da v1.9.9 entraram no FIM
-    // das preferências: a saída de áudio ainda fala do som que sai para a
-    // congregação, e a economia da prévia fala do CELULAR — daí ela encostar na
-    // fileira do aparelho. O `#dadosMoveisTile` (v1.11.0) entra logo depois
-    // dela, pelo mesmo motivo — fala do aparelho, não do telão. Os três de
-    // baixo continuam juntos e por último, e quem garante que eles ficam numa
-    // FILEIRA inteira é o `grid-column: 1` do `#shareAppTile` (medido por
+      'C · no APP os dois tiles deste aparelho estão à vista', bloco);
+    // A ORDEM É A DA GRADE INTEIRA (v1.11.7: oito tiles). O que se ajusta vem
+    // primeiro — o tema do app, a janela da Tela, o Histórico, a saída de áudio,
+    // os dados móveis e a verificação — e as duas coisas que se fazem com o APP
+    // fora da projeção ficam juntas e por último. Quem garante que elas ficam
+    // numa FILEIRA inteira é o `grid-column: 1` do `#shareAppTile` (medido por
     // geometria no `saida-de-audio-e-economia.test.mjs`, que é onde a régua de
-    // PIXEL mora — e independe de quantas preferências vêm antes).
-    //
-    // O `#testeTile` (v1.10.0) entrou NO FIM DO GRUPO DE CIMA, e não no de
-    // baixo, e a razão é geometria contada: com ele ali o grupo de cima fecha
-    // em NOVE (três fileiras cheias) e o de baixo continua sendo a fileira de
-    // três. No grupo de baixo ele faria QUATRO, e o quarto cai sozinho numa
-    // quinta fileira — a grade tem três colunas. Semanticamente ele encosta no
-    // grupo do APP, que é o vizinho de baixo, e é aí que ele está.
-    checar(bloco.grade.join(',') === 'temaTile,fitTile,wallTile,histOpenRow,'
-      + 'lyricsBgTile,rotBtn,saidaAudioTile,economiaTile,dadosMoveisTile,testeTile,'
-      + 'shareAppTile,pacoteExportarTile,pacoteImportarTile',
+    // PIXEL mora — e independe de quantas preferências vêm antes). O que mora
+    // DENTRO das janelas (a Tela e o Transferir) está no
+    // `configuracoes-janelas.test.mjs`.
+    checar(bloco.grade.join(',') === 'temaTile,telaTile,histOpenRow,'
+      + 'saidaAudioTile,dadosMoveisTile,testeTile,shareAppTile,pacoteTile',
       'C · na MESMA grade dos outros, e na metade de BAIXO — a fileira das '
-      + 'três coisas que se fazem com o APP fora da projeção',
+      + 'duas coisas que se fazem com o APP fora da projeção',
       bloco.grade);
 
     // O COMPARTILHAR CHEGA À PONTE COM O ENDEREÇO DENTRO. A asserção é sobre o
@@ -399,16 +398,83 @@ try {
   // ── C2. A REVERSÃO: sem ponte, o bloco INTEIRO não existe ───────────────
   //
   // Sem ela, revelar os tiles sempre passaria em tudo o mais — e o que sairia
-  // no navegador seriam três botões que só sabem não funcionar.
+  // no navegador seriam botões que só sabem não funcionar.
   {
     const { ctx, pg } = await abrirApp({ semPonte: true });
     await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
     await esperar(pg, () => !document.getElementById('splash'), null, 30000);
-    const visiveis = await pg.evaluate(() => ['shareAppTile', 'pacoteExportarTile', 'pacoteImportarTile']
+    const visiveis = await pg.evaluate(() => ['shareAppTile', 'pacoteTile', 'pacoteExportarTile', 'pacoteImportarTile']
       .filter((id) => (document.getElementById(id) || {}).hidden === false));
     checar(visiveis.length === 0,
-      'C2 · sem ponte os três são `hidden`, um a um — eles dependem do shell, e '
+      'C2 · sem ponte os tiles do aparelho são `hidden`, um a um — eles dependem do shell, e '
       + 'um botão que só sabe não funcionar é pior que botão nenhum', visiveis);
+    await ctx.close();
+  }
+
+  // =========================================================================
+  // D · O MODO VALE PELA SESSÃO
+  // =========================================================================
+  //
+  // Pedido do operador: *"sempre iniciar o app no modo simples"*. Três
+  // premissas, cada uma com a sua asserção — e a PRIMEIRA começa com a chave que
+  // as versões anteriores gravavam em `localStorage` já lá, porque é o estado
+  // real de todo aparelho que um dia usou o avançado: sem a chave legada, "o app
+  // não a lê" é uma tautologia (um app que nunca lembrou o modo passa igual).
+  {
+    const { ctx, pg } = await abrirApp({});
+    await pg.addInitScript(`try { localStorage.setItem('av.appMode', 'full'); } catch (e) {}`);
+    await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pg);
+    const d1 = await pg.evaluate(() => ({
+      modo: appMode,
+      corpo: document.body.classList.contains('mode-simple'),
+      trilho: document.getElementById('appModeSeg').dataset.modo,
+    }));
+    checar(d1.modo === 'simple' && d1.corpo === true && d1.trilho === 'simple',
+      'D1 · com a chave LEGADA `av.appMode=full` em `localStorage` o app abre no Modo '
+      + 'Fácil: o modo, o corpo e o trilho de Configurações dizem o mesmo', JSON.stringify(d1));
+    await ctx.close();
+  }
+  {
+    // SEM a chave legada: é o que torna a leitura da asserção seguinte honesta.
+    const { ctx, pg } = await abrirApp({});
+    await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pg);
+    await pg.evaluate(() => setAppMode('full'));
+    const d2 = await pg.evaluate(() => ({
+      local: localStorage.getItem('av.appMode'),
+      sessao: sessionStorage.getItem('av.appMode'),
+    }));
+    checar(d2.local === null && d2.sessao === 'full',
+      'D2 · ir ao avançado grava SÓ na sessão — `localStorage` segue sem a chave, '
+      + 'senão o app voltaria a lembrar o modo entre aberturas', JSON.stringify(d2));
+    // A RECARGA DENTRO DA SESSÃO (a atualização aceita, o `location.reload()` da
+    // importação) devolve o avançado: quem opera o culto nele não cai no Modo
+    // Fácil por uma atualização.
+    await pg.reload({ waitUntil: 'domcontentloaded' });
+    await esperarCortina(pg);
+    const d3 = await pg.evaluate(() => ({
+      modo: appMode,
+      corpo: document.body.classList.contains('mode-simple'),
+      trilho: document.getElementById('appModeSeg').dataset.modo,
+    }));
+    checar(d3.modo === 'full' && d3.corpo === false && d3.trilho === 'full',
+      'D3 · a recarga do documento DENTRO da sessão devolve o avançado', JSON.stringify(d3));
+    // E O APP ABERTO DE NOVO — uma aba nova no mesmo contexto tem um
+    // `sessionStorage` vazio, que é o que o app tem depois de ser fechado — nasce
+    // no Modo Fácil de novo.
+    const pg2 = await ctx.newPage();
+    vigiar(pg2);
+    await pg2.addInitScript(PONTE);
+    await pg2.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pg2);
+    const d4 = await pg2.evaluate(() => ({
+      modo: appMode,
+      corpo: document.body.classList.contains('mode-simple'),
+    }));
+    checar(d4.modo === 'simple' && d4.corpo === true,
+      'D4 · o app aberto de novo (sessão nova) nasce no Modo Fácil, mesmo com o '
+      + 'avançado escolhido na sessão anterior', JSON.stringify(d4));
     await ctx.close();
   }
 
