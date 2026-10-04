@@ -586,10 +586,20 @@ try {
   // sem trocar de lugar quando o toque muda o estado. Há TV, então o Modo Fácil
   // está destravado e a prévia tem caixa.
   await pg.evaluate(() => { setAppMode('simple'); });
+  // ASSENTADO, e o fato é o TOQUE: logo depois de `setAppMode('simple')` a janela
+  // da Biblioteca (`#hymnResults`, fechada) ainda está re-assentando a base — a
+  // caixa de controles some junto com o modo — e por alguns quadros é o alvo do
+  // `elementFromPoint` sobre a seta (MEDIDO: 1 de 4 a 5 rodadas, também antes
+  // do lote da revisão). Medir cedo transforma essa janela em reprovação por
+  // corrida; o predicado espera a seta RECEBER o toque, e uma seta coberta de
+  // verdade estoura o prazo e reprova do mesmo jeito.
   const facil = await esperar(pg, () => {
     const r = document.getElementById('preview').getBoundingClientRect();
-    return r.height > 0 && r.height <= 80
-      && document.getElementById('simpleStage').contains(document.getElementById('preview'));
+    if (!(r.height > 0 && r.height <= 80
+      && document.getElementById('simpleStage').contains(document.getElementById('preview')))) return false;
+    const b = document.getElementById('pvRecolherBtn').getBoundingClientRect();
+    const alvo = document.elementFromPoint((b.left + b.right) / 2, (b.top + b.bottom) / 2);
+    return !!(alvo && alvo.closest('#pvRecolherBtn'));
   }, null, 5000);
   const fabsFacil = await medirFabs(pg);
   const posFacil = await pg.evaluate(() => {
