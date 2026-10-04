@@ -32078,7 +32078,8 @@ async function exportarPacote() {
   // O DIÁLOGO ERA UM PASSO A MAIS NO MEIO DE UMA AÇÃO QUE JÁ TINHA ACABADO, e
   // ele existia para dizer duas coisas: o tamanho e o que fazer em seguida. O
   // tamanho continua no botão; o "o que fazer" virou o PRÓPRIO BOTÃO — ele
-  // para em 100% e o toque manda.
+  // para em 100% e o toque manda. (Desde a v1.11.7 os dois botões moram numa
+  // janela, e o desfecho vai também para o tile da grade — `pacotePulsar`.)
   pacotePulsar(pacoteExportarTileEl, 'ok');
   // ===== O CARTÃO DE CONCLUSÃO, COM O CHECK (v1.8.31) =====
   //
