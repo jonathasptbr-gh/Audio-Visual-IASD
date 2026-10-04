@@ -122,8 +122,8 @@ try {
     + 'seguiam sozinhos: ninguém que não abrir esta folha vê consumo novo de '
     + 'dados móveis aparecer sozinho', antes);
   checar(antes.apagado === false && antes.aceso === true,
-    'A2 · SEMPRE clicável e ACESO — o mesmo padrão do "Imagem da prévia" ao '
-    + 'lado (a regra da v1.7.6: estado só no ícone, nunca na cor)', antes);
+    'A2 · SEMPRE clicável e ACESO — o mesmo padrão dos outros tiles da grade '
+    + '(a regra da v1.7.6: estado só no ícone, nunca na cor)', antes);
   checar(/Permitir que o acervo/.test(antes.titulo),
     'A3 · o título explica o que ele liga', antes.titulo);
 

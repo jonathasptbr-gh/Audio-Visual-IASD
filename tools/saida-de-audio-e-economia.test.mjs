@@ -468,6 +468,14 @@ try {
   // =========================================================================
   // B · A SETA SEM DESTINO DE PROJEÇÃO: SEMPRE CLICÁVEL, E RECOLHE (v1.10.10)
   // =========================================================================
+  // O AVANÇADO, porque a geometria só é MEDIDA onde a prévia tem caixa: no Modo
+  // Fácil sem tela o app está bloqueado e a prévia mede 0 — `altura <= 80` seria
+  // verdade por ausência, a tautologia que esta seção existe para não repetir.
+  await pg.evaluate(() => { setAppMode('full'); });
+  const caixa = await esperar(pg, () => document.getElementById('preview').getBoundingClientRect().height > 80, null, 5000);
+  checar(caixa === true,
+    'B0 · PREMISSA: no avançado, sem destino, a prévia tem caixa (altura natural) '
+    + '— é nela que a geometria se mede', porque(caixa));
   const semDestino = await lerTudo(pg);
   checar(semDestino.setaApagada === false,
     'B1 · SEM TV e sem computador conectado a seta NÃO fica apagada — a opção '
@@ -573,6 +581,32 @@ try {
     + 'andar — a MESMA guarda da página oculta, e não uma segunda régua',
     comEconomia);
 
+  // O MODO FÁCIL TAMBÉM RECOLHE, E A SETA FICA NO CANTO: a prévia é UM nó que
+  // muda de casa (`hostPreview`), e a seta tem de continuar à vista e tocável lá,
+  // sem trocar de lugar quando o toque muda o estado. Há TV, então o Modo Fácil
+  // está destravado e a prévia tem caixa.
+  await pg.evaluate(() => { setAppMode('simple'); });
+  const facil = await esperar(pg, () => {
+    const r = document.getElementById('preview').getBoundingClientRect();
+    return r.height > 0 && r.height <= 80
+      && document.getElementById('simpleStage').contains(document.getElementById('preview'));
+  }, null, 5000);
+  const fabsFacil = await medirFabs(pg);
+  const posFacil = await pg.evaluate(() => {
+    const p = document.getElementById('preview').getBoundingClientRect();
+    const s = document.getElementById('pvRecolherBtn').getBoundingClientRect();
+    return { esq: Math.round(s.left - p.left), centroDaPrevia: Math.round((p.width - s.width) / 2) };
+  });
+  checar(facil === true && fabsFacil.fora.length === 0 && fabsFacil.sobrepostos.length === 0
+    && fabsFacil.espremidos.length === 0 && fabsFacil.setaCoberta === false
+    && posFacil.esq < posFacil.centroDaPrevia,
+    'C8 · no MODO FÁCIL a prévia recolhida também mede até 80px, a seta fica no '
+    + 'CANTO (não no centro) e nenhum botão colide, sai ou é espremido',
+    { facil: porque(facil) || facil, fabsFacil, posFacil });
+  await pg.evaluate(() => { setAppMode('full'); });
+  await esperar(pg, () => document.getElementById('preview').getBoundingClientRect().height > 0
+    && !document.getElementById('simpleStage').contains(document.getElementById('preview')), null, 5000);
+
   // =========================================================================
   // D · O QUE **NÃO** DESLIGA — a metade do pedido que se erra
   // =========================================================================
@@ -676,13 +710,16 @@ try {
     + 'sem isso o operador ficaria num culto sem TV com a projeção apagada',
     porque(perdeu));
 
-  // A DECODIFICAÇÃO RELIGA (o `ressincronizarPreview` é assíncrono por dentro, e o
-  // `<video>` volta a andar um instante depois): espera-se pelo FATO.
+  // A SUSPENSÃO SAIU DO `stage`: o inverso exato do D2. O `<video>` não volta a
+  // andar sozinho (o realinhamento só age com um telão mandando status, e aqui
+  // ele é de mentira), então a pergunta é se um `play` que CHEGA agora é
+  // obedecido — com a suspensão ainda no `stage`, ele continuaria parado.
+  await pg.evaluate(() => { cmd({ type: 'play' }); });
   const religou = await esperar(pg, () => !document.getElementById('pvVideo').paused, null, 5000);
   checar(religou === true,
-    'E2a · e o `<video>` da prévia VOLTA a decodificar no ato — sem TV ela é a '
-    + 'fonte do que a congregação ouve, e parada seria o culto calado',
-    porque(religou));
+    'E2a · e a decodificação RELIGA no ato: um `play` que chega depois é obedecido '
+    + '(o inverso do D2) — sem TV a prévia é a fonte do que a congregação ouve, e '
+    + 'a suspensão presa seria o culto calado', porque(religou));
   const semTvAgora = await lerTudo(pg);
   checar(semTvAgora.classe === false,
     'E2 · e a economia sai de vigor (`pv-economia` some)', semTvAgora);

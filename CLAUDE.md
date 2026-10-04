@@ -2993,27 +2993,25 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.11.6 · APK v1.11.3** · `SHELL_VERSION` **77** ·
+**Versão atual: base web v1.11.7 · APK v1.11.3** · `SHELL_VERSION` **77** ·
 bundle com `minShell: 77` e **SEM `shellTag`** — o shell 77 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Nada em
 `java/`, `res/` ou no manifesto muda neste lote, e o APK v1.11.3 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO, e o defeito que ele fecha é o que não tem sintoma:** a
-pergunta da atualização lia `cenaNoAr()`, que começa por `!!currentId` — e o
-`currentId` sobrevive ao Parar e ao fim natural de propósito (o ▶ repete a
-faixa). Depois da PRIMEIRA mídia da sessão a hora de perguntar ficava ruim
-para sempre, com o telão vazio, e um aparelho aberto de sábado a sábado ficava
-na versão antiga (o Registro dizia *"esperando a cena sair do ar"* sobre um
-palco vazio). A pergunta certa tem nome, `haOQueParar()` =
-`midiaNoAr || cenaDeRoteiroNoAr()`, e é a que o Parar já lia; **`cenaNoAr()`
-só serve onde o `currentId` é a pergunta**. Junto: a guarda de rede móvel dos
-fundos obedece à opção "Dados móveis" (era `cellular` seca e desfazia por
-dentro o que `fundosImpedimento` liberava), a checagem das fotos nomeia o salto
-que não respondeu (catálogo × foto) e o Registro imprime o tempo da linha lenta
-que respondeu, e o diário das cifras conta `semRede`/`adiadas`/`excecoes` (uma
-passada inteira sem rede saía como zeros). **O hotspot de
-outro celular conta como Wi-Fi comum, e isso está DECIDIDO** (ver a linha
-"Manter o episódio da SEMANA baixado" da tabela de divergências).
+**O DEGRAU É CORREÇÃO, e o lote junta QUATRO pedidos do operador, todos de
+superfície:** (1) a **seta no topo da prévia** que a recolhe na menor altura em
+que os botões dela cabem (substitui o tile "Imagem da prévia"; ver a linha
+"Recolher a prévia" da tabela de divergências); (2) o app **SEMPRE abre no Modo
+Fácil** — o modo vale pela sessão (`sessionStorage`), atravessa a recarga do
+documento e morre com o app; (3) a janela da **Tela** (`#telaPopup`:
+preenchimento, wallpaper, fundo da letra e giro) e (4) a janela do
+**Transferir** (`#pacotePopup`: exportar e importar, com a listagem da
+biblioteca antes de cada caminho) — a grade de Configurações passou de 13 para
+8 tiles. **Se a numeração o contrariar:** a tabela do número manda
+INCREMENTAL para "uma seção inteiramente nova do app"; as duas janelas
+reagrupam o que já existia, e por isso o degrau ficou em CORREÇÃO. **O
+hotspot de outro celular conta como Wi-Fi comum, e isso está DECIDIDO** (ver a
+linha "Manter o episódio da SEMANA baixado" da tabela de divergências).
 **Conferir a Release é parte de decidir** — um lote só de web herda o `shellTag` quando o
 lote de shell anterior ainda não tem Release, e não herda quando tem.
 
