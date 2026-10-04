@@ -57,9 +57,23 @@
   //   4. `__avBack` (perto do FIM do controle.js) — só existe se o arquivo foi
   //      parseado inteiro. É a mesma função que o `handleBack()` consulta: um
   //      contrato que já existe, não um marcador inventado aqui.
-  //   5. um `<li>` dentro de `#playlist` — o HTML entrega o `<ul>` VAZIO, e quem
-  //      o preenche é `renderPlaylist()`, dentro do `init()` assíncrono. Prova
-  //      que a inicialização terminou.
+  //   5. `__avSplash.terminou` — o `init()` chegou à ÚLTIMA linha que muda o que
+  //      se vê (o `pronto()` da cortina, depois do `applyPvWallpaper`). Prova que
+  //      a inicialização terminou, e é o ÚNICO sinal dela que não depende do
+  //      CONTEÚDO do aparelho.
+  //
+  //      **ELE SUBSTITUIU "há um `<li>` em `#playlist`", e a troca é a correção
+  //      de um defeito que vinha da v1.8.54** (até a v1.11.7): com a fila VAZIA a
+  //      lista não desenha nada — não há `<li>`, nem o de "fila vazia", que saiu
+  //      a pedido do operador —, então o watchdog NUNCA confirmava num aparelho
+  //      de fila vazia. O bundle novo era descartado no lançamento seguinte, o
+  //      app voltava ao embutido (1.11.3), oferecia a atualização de novo, e
+  //      assim para sempre — sem erro em lugar nenhum. A regra para a próxima
+  //      peça deste watchdog: **prova de que o app subiu NUNCA pode ser a
+  //      presença de um item de lista**, porque lista vazia é um estado normal.
+  //      (O `motivo` da cortina não serve no lugar: o primeiro a escrever ganha,
+  //      e um aparelho lento que estoura o teto de 12 s ficaria `'prazo'` para
+  //      sempre.)
   //
   // POLLING e não checagem única no `load`: o `init()` é assíncrono e termina
   // DEPOIS dele — uma checagem única rejeitaria todo bundle bom.
@@ -123,7 +137,9 @@
     // trocando de celular.
     if (!global.AVPacote) return false;
     if (typeof global.__avBack !== 'function') return false;
-    return !!document.querySelector('#playlist > li');
+    // O `init()` terminou (item 5 acima). `__avSplash` nasce no `<head>` do
+    // Controle, antes de qualquer script; ausente aqui é um bundle sem ele.
+    return !!global.__avSplash && global.__avSplash.terminou === true;
   }
 
   global.addEventListener('load', function () {
