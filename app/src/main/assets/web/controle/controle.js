@@ -65,8 +65,12 @@ const simpleVolValueEl = document.getElementById('simpleVolValue');
 // Modo Fácil, e é isso que o operador pediu. O que ele atravessa é a recarga do
 // documento DENTRO do mesmo WebView (a atualização aceita em "Atualizar agora",
 // o `location.reload()` da importação) — quem está no avançado no meio do culto
-// não cai no Modo Fácil por uma atualização. A chave de mesmo nome que as
-// versões anteriores gravaram em `localStorage` NUNCA é lida. UMA fonte.
+// não cai no Modo Fácil por uma atualização. **O que ele NÃO atravessa é o
+// WebView recriado** (morte do renderer → `onRendererGone` remonta o Controle):
+// o sessionStorage nasce vazio e o app volta ao Modo Fácil, com o culto de pé.
+// É o lado seguro do erro (o Modo Fácil sempre funciona), e está dito para
+// ninguém prometer mais que isto. A chave de mesmo nome que as versões
+// anteriores gravaram em `localStorage` NUNCA é lida. UMA fonte.
 const APP_MODE_KEY = 'av.appMode';
 function appModeDaSessao() {
   // `sessionStorage` lança com o armazenamento bloqueado. O padrão do app é o
@@ -35101,9 +35105,11 @@ async function handleSharedUrl(url, title) {
 // é o slot avulso, que segura a mídia enquanto ela é a cena e a solta quando
 // outra entra.
 //
-// Vale para LINK, não para arquivo. Um share de arquivos pode trazer vários de
-// uma vez, e com um slot só cada um apagaria o anterior — ali o Cronograma
-// continua sendo o destino nos dois modos.
+// Os ARQUIVOS seguem a mesma prateleira, mas por LOTE: um share pode trazer
+// vários de uma vez, e `fixarAvulso` os segura juntos (rodízio de `AVULSO_MAX`)
+// em vez de cada um apagar o anterior. **Como o app abre SEMPRE no simplificado,
+// um share recebido com o app FECHADO cai neste ramo** — o link toca e os
+// arquivos vão à prateleira e à projeção, sem passar pelo Cronograma.
 function simplificado() { return appMode === 'simple'; }
 
 // OS DESTINOS DO LOTE QUE ESTÁ ENTRANDO (v5.141). No avançado quem os escolhe é
@@ -35504,8 +35510,12 @@ async function conferirLinkCopiado() {
     await AVDB.updateState(CLIP_ESTADO, () => achado.carimbo);
     const usar = await appConfirm({
       title: 'Link do YouTube copiado',
+      // No Modo Fácil (o modo de TODA abertura) o "sim" não abre folha de
+      // escolhas: o vídeo é baixado e PROJETADO. A pergunta é a única barreira, e
+      // por isso ela diz o que vai acontecer — "usar" sozinho não diria.
       message: 'Você tem um link do YouTube na área de transferência. '
-        + 'Quer usá-lo agora?\n\n' + achado.texto,
+        + (simplificado() ? 'Quer baixá-lo e projetá-lo agora?' : 'Quer usá-lo agora?')
+        + '\n\n' + achado.texto,
       okText: 'Usar o link', cancelText: 'Agora não',
     });
     if (!usar) return;
@@ -37888,8 +37898,9 @@ function volumeProximo(atual, dir) {
 //
 // Abre SEMPRE no simplificado (`appModeDaSessao`), nunca por pergunta na
 // abertura — ela cobraria um toque de quem nem sabe que há dois modos. Ir ao
-// avançado é um toque em Configurações, e a recarga do documento no meio do
-// culto o devolve (a escolha mora em `sessionStorage`).
+// avançado é um toque em Configurações, e a recarga do documento no mesmo
+// WebView (atualização aceita, importação) o mantém: a escolha mora em
+// `sessionStorage`, que o WebView recriado por uma morte de renderer perde.
 //
 // O simplificado NÃO é uma segunda implementação do transporte: os botões
 // acionam os MESMOS controles do avançado por `.click()` (o padrão da
@@ -37909,9 +37920,9 @@ function setAppMode(mode) {
   // não há botão de desfazer — este é um dos três caminhos de volta, e o único
   // que o operador percorre de propósito.
   tocarNoCelular = false;
-  // Só a SESSÃO lembra (ver `appModeDaSessao`): uma recarga do documento no
-  // meio do culto devolve o modo em que o operador estava, e abrir o app de novo
-  // devolve o Modo Fácil.
+  // Só a SESSÃO lembra (ver `appModeDaSessao`): a recarga do documento no mesmo
+  // WebView devolve o modo em que o operador estava; abrir o app de novo, ou um
+  // WebView recriado, devolve o Modo Fácil.
   try { sessionStorage.setItem(APP_MODE_KEY, appMode); } catch (_) { /* storage bloqueado */ }
   document.body.classList.toggle('mode-simple', appMode === 'simple');
   simpleModeEl.classList.toggle('open', appMode === 'simple');
