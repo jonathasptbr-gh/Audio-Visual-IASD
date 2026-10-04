@@ -98,7 +98,7 @@ for (const t of TELAS) {
     }, t.fonte);
   }
   // UMA PÁGINA POR TELA, e não uma por superfície: montar o app inteiro custa
-  // ~10s (a cortina tem piso de 1,8s), e 16 superfícies × 4 telas seriam 11
+  // ~10s (a cortina tem piso de 1,8s), e 19 superfícies × 4 telas seriam 13
   // minutos de portão. O reset entre uma e outra é o `__avBack()` do PRÓPRIO
   // app — a mesma fila que o botão voltar do Android percorre —, e não uma
   // lista de closers escrita aqui, que envelheceria à parte.
@@ -125,10 +125,16 @@ for (const t of TELAS) {
     // fechada recorta o que guardou. O reset devolve a página ao estado que uma
     // recém-carregada tem — se não fizesse isso, toda superfície aberta DEPOIS
     // da Biblioteca herdaria um "corte" que é dela.
-    await pg.evaluate(() => {
+    //
+    // E DEVOLVE A PRÉVIA À ALTURA DE FÁBRICA: a superfície "prévia recolhida"
+    // grava a marcação (`economiaPreview`, que persiste), e sem este passo toda
+    // superfície aberta DEPOIS dela seria medida com a tira no lugar da prévia
+    // — um achado que seria dela, atribuído às outras.
+    await pg.evaluate(async () => {
       for (let i = 0; i < 8 && window.__avBack(); i++) { /* fecha */ }
       const lista = document.getElementById('hymnResults');
       if (lista) lista.innerHTML = '';
+      if (typeof setEconomiaPreview === 'function') await setEconomiaPreview(false);
     });
     await pg.evaluate(s.abrir).catch((e) => { naoAbriu.push(s.nome + ' @ ' + t.nome + ': ' + e.message); });
     // ASSENTAR É `getAnimations()`, nunca um relógio: uma folha medida no meio
@@ -209,18 +215,33 @@ checar(t4.length === 0,
     #fora{position:absolute;left:340px;width:120px;height:30px;background:#ddd}
     #fixa{position:fixed;left:0;top:520px;width:200px;height:200px;background:#eee}
     #alvo{width:20px;height:20px}
+    #caixa{width:200px;height:30px;overflow:hidden;position:relative}
+    #escondido{visibility:hidden;height:60px}
+    #caixa2{width:200px;height:30px;overflow:hidden}
+    #visivel{height:60px}
   </style>
   <div id="linha"><div id="a">esquerda</div><div id="b">direita</div></div>
   <div id="corte">uma linha, outra linha, e mais uma que não cabe de jeito nenhum</div>
   <div id="fora">passa da borda</div>
   <div id="fixa">camada fixa que passa da base</div>
-  <button id="alvo">x</button>`);
+  <button id="alvo">x</button>
+  <div id="caixa"><div id="escondido">cartão apagado</div></div>
+  <div id="caixa2"><div id="visivel">filho pintado que passa</div></div>`);
   const r = await pg.evaluate(SONDA, { pisos: [] });
   const viu = new Set(r.achados.map((a) => a.t));
   for (const t of ['T1', 'T2', 'T3', 'T4', 'T5']) {
     checar(viu.has(t), 'a sonda ' + t + ' (' + ROTULO[t] + ') DISPARA diante do defeito dela',
       [...viu].join(','));
   }
+  // E O DESCONTO DO T3 É ESTREITO: o excesso de um filho que não é pintado não
+  // é corte (a prévia recolhida guarda o cartão de espera apagado), e o de um
+  // filho PINTADO continua sendo. Sem a segunda metade o desconto seria uma
+  // porta aberta para o corte de verdade.
+  const t3 = r.achados.filter((a) => a.t === 'T3').map((a) => a.onde);
+  checar(!t3.some((o) => /#caixa$/.test(o)),
+    'o T3 NÃO acusa o excesso de um descendente apagado (`visibility: hidden`)', t3.join(' | '));
+  checar(t3.some((o) => /#caixa2$/.test(o)),
+    'e ACUSA o de um descendente pintado', t3.join(' | '));
   await ctx.close();
 }
 

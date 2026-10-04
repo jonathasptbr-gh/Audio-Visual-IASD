@@ -490,6 +490,33 @@ try {
     + 'não é lido por ninguém', { ...cartaoFalha, prazo: porque(falhou) });
   await esperar(pg, () => !document.getElementById('pvBusy').classList.contains('on'), null, 12000);
 
+  // O MODO FÁCIL tem regra própria para o cartão (a `.simple-stage .preview` de
+  // 0,2,0 e um cartão de 48,8 px): a mesma pergunta, no outro modo.
+  await pg.evaluate(() => setAppMode('simple'));
+  await esperar(pg, () => appMode === 'simple', null, 5000);
+  await pg.evaluate(() => { window.__busy = previewBusy('Baixando vídeo', 'LOUVOR LONGO DEMAIS PARA CABER NUMA TIRA', () => {}); });
+  const acendeuFacil = await esperar(pg, () => {
+    const b = document.getElementById('pvBusy');
+    return b.classList.contains('on') && getComputedStyle(b).opacity === '1';
+  }, null, 5000);
+  const cartaoFacil = await lerCartao();
+  const naturalFacil = await pg.evaluate(() => {
+    const pv = document.getElementById('preview');
+    const antes = pv.className;
+    pv.classList.remove('pv-recolhida');
+    const h = pv.getBoundingClientRect().height;
+    pv.className = antes;
+    return h;
+  });
+  checar(acendeuFacil === true && cartaoFacil.recolhida && cartaoFacil.cartaoDentro
+    && cartaoFacil.cancelAlcancavel && Math.abs(cartaoFacil.h - naturalFacil) <= 1,
+    'E7 · no MODO FÁCIL o cartão também devolve a altura, cabe inteiro e o cancelar é alcançável',
+    { ...cartaoFacil, natural: naturalFacil, prazo: porque(acendeuFacil) });
+  await pg.evaluate(() => { window.__busy.soltar(); });
+  await esperar(pg, () => !document.getElementById('pvBusy').classList.contains('on'), null, 5000);
+  await pg.evaluate(() => setAppMode('full'));
+  await esperar(pg, () => appMode === 'full', null, 5000);
+
   // =========================================================================
   // F · TELA CHEIA COM A MARCAÇÃO LIGADA: A PRÉVIA É A PROJEÇÃO
   // =========================================================================

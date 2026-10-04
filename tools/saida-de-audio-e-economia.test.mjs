@@ -603,6 +603,23 @@ try {
     'C8 · no MODO FÁCIL a prévia recolhida também mede até 80px, a seta fica no '
     + 'CANTO (não no centro) e nenhum botão colide, sai ou é espremido',
     { facil: porque(facil) || facil, fabsFacil, posFacil });
+  // A MESMA SETA, EXPANDIDA: ela não pode trocar de lugar quando o toque muda o
+  // estado (quem toca duas vezes a procuraria). As duas regras de CSS que a põem
+  // no canto são diferentes (a da prévia aberta e a da recolhida), e cada uma só
+  // se prova no estado dela.
+  await pg.evaluate(() => { setEconomiaPreview(false); });
+  const abertaFacil = await esperar(pg, () => document.getElementById('preview').getBoundingClientRect().height > 80, null, 5000);
+  const posAberta = await pg.evaluate(() => {
+    const p = document.getElementById('preview').getBoundingClientRect();
+    const s = document.getElementById('pvRecolherBtn').getBoundingClientRect();
+    return { esq: Math.round(s.left - p.left), top: Math.round(s.top - p.top) };
+  });
+  checar(abertaFacil === true && posAberta.esq === posFacil.esq && posAberta.top <= 4,
+    'C8b · e a seta do Modo Fácil EXPANDIDA fica no MESMO canto (esquerda e no '
+    + 'topo) — não troca de lugar quando o toque muda o estado',
+    { abertaFacil: porque(abertaFacil) || abertaFacil, posAberta, posFacil });
+  await pg.evaluate(() => { setEconomiaPreview(true); });
+  await esperar(pg, () => economiaAtiva() === true, null, 5000);
   await pg.evaluate(() => { setAppMode('full'); });
   await esperar(pg, () => document.getElementById('preview').getBoundingClientRect().height > 0
     && !document.getElementById('simpleStage').contains(document.getElementById('preview')), null, 5000);

@@ -67,12 +67,39 @@ export const TELAS = [
 // antes de medir. A ordem é a de uso: a tela, depois o que sobe dela.
 export const SUPERFICIES = [
   { nome: 'principal · avançado', abrir: () => { setAppMode('full'); }, alvo: '#playlist' },
+  {
+    // A PRÉVIA RECOLHIDA (v1.11.7): a seta do topo a faz virar uma tira em fluxo
+    // de grade (`.preview.pv-recolhida`), e é a ÚNICA superfície em que a caixa
+    // da prévia mede o que os botões dela medem em vez da proporção do telão —
+    // o terreno das sondas T2 (a seta e as colunas na mesma linha) e T4 (o
+    // alvo de toque dentro de uma caixa de 38px). O portão devolve a marcação
+    // ao estado de fábrica entre uma superfície e outra.
+    nome: 'principal · avançado · prévia recolhida',
+    abrir: async () => { setAppMode('full'); await setEconomiaPreview(true); },
+    alvo: '.preview.pv-recolhida',
+  },
   { nome: 'principal · simplificado', abrir: () => { setAppMode('simple'); }, alvo: '.simple-np' },
   { nome: 'biblioteca', abrir: () => { setAppMode('full'); openHymnSearch(false); }, alvo: '.popup-sheet--lib' },
   { nome: 'playlist automática', abrir: () => { setAppMode('full'); abrirSorteio(); }, alvo: '#sorteioPopup.open' },
   { nome: 'fila da playlist', abrir: () => { setAppMode('full'); openPlPopup(); }, alvo: '#plPopup.open' },
   { nome: 'ferramentas', abrir: () => { setAppMode('full'); abrirFerramentas(); }, alvo: '#toolsSheet:not([hidden])' },
   { nome: 'configurações', abrir: () => { setAppMode('full'); openFadePopup(); }, alvo: '#fadePopup.open' },
+  // As duas JANELAS que sobem de Configurações (v1.11.7): a das opções do
+  // telão (Preenchimento, Papel de parede, Fundo da letra, Girar) e a da
+  // transferência da biblioteca (Exportar, Importar). O portão não monta ponte
+  // nativa, e fora do app os dois tiles da segunda nascem `hidden` — a janela
+  // abriria VAZIA (só o título e a nota) e as sondas aprovariam uma caixa sem
+  // nada para medir, que é o placar limpo que não vale. Por isso o `abrir` os
+  // desoculta, como o `selo` do oráculo do deck: no app eles são os dois moradores.
+  { nome: 'tela (opções do telão)', abrir: () => { setAppMode('full'); openTelaPopup(); }, alvo: '#telaPopup.open' },
+  {
+    nome: 'transferir (exportar e importar)',
+    abrir: () => {
+      setAppMode('full'); openPacotePopup();
+      for (const id of ['pacoteExportarTile', 'pacoteImportarTile']) document.getElementById(id).hidden = false;
+    },
+    alvo: '#pacotePopup.open #pacoteExportarTile:not([hidden])',
+  },
   { nome: 'histórico', abrir: () => { setAppMode('full'); openHistPopup(); }, alvo: '#histPopup.open' },
   { nome: 'conexão (cast)', abrir: () => { setAppMode('full'); abrirCast(); }, alvo: '#castPopup.open' },
   { nome: 'bíblia · livros', abrir: () => { setAppMode('full'); abrirBiblia(); }, alvo: '#bibleSheet:not([hidden])' },
@@ -200,6 +227,20 @@ export const SONDA = (cfg) => {
     const excesso = el.scrollHeight - el.clientHeight;
     if (excesso <= 1) continue;
     if (!(el.textContent || '').trim()) continue;
+    // O EXCESSO QUE NINGUÉM VÊ NÃO É CORTE (v1.11.7). `scrollHeight` conta
+    // descendentes que não são PINTADOS (`visibility: hidden`, `opacity: 0`): a
+    // prévia recolhida (38px) guarda o cartão de espera apagado, que mede 44,6px
+    // a 1,3× de fonte, e o oráculo a acusava de cortar texto que não está na
+    // tela. Só se desconta quando o elemento NÃO tem texto próprio (um texto dele
+    // que estoura é o defeito de sempre) e NENHUM descendente PINTADO passa da
+    // caixa — um filho visível que passa continua sendo reportado.
+    const textoProprio = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+    if (!textoProprio) {
+      const limite = el.getBoundingClientRect().top + el.clientHeight + 0.5;
+      const pintadoPassa = [...el.querySelectorAll('*')].some((d) => vistos.has(d)
+        && d.getBoundingClientRect().bottom > limite + 0.5);
+      if (!pintadoPassa) continue;
+    }
     const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
     const cabem = Math.floor((el.clientHeight + 0.5) / lh);
     const clamp = parseInt(cs.webkitLineClamp, 10);

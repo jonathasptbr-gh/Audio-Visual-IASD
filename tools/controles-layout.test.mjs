@@ -336,6 +336,160 @@ try {
   }
   await pg.evaluate(() => document.documentElement.style.removeProperty('--pv-ar'));
 
+  // ── 1-bis. O MESMO DECK, COM A PRÉVIA RECOLHIDA (v1.11.7) ──────────────
+  //
+  // A seta do topo da prévia (`#pvRecolherBtn`) a faz virar uma TIRA: a caixa
+  // sai da proporção do telão e passa a medir o que os botões dela medem, em
+  // fluxo. O deck é uma grade cuja faixa do meio é `auto`, então os dois botões
+  // de slide, a barra de progresso e os vãos têm de ACOMPANHAR a tira — e o
+  // que se afirma é a MESMA invariante do bloco 1, medida com a altura nova.
+  //
+  // **A PROPORÇÃO NÃO VALE RECOLHIDA, e a asserção é o contrário dela:** a
+  // altura da tira é a MESMA nas duas proporções de telão. Se a tira ainda
+  // obedecesse a `--pv-ar` ela mediria 80 num e 135 no outro, e o resto deste
+  // bloco (botões de slide == prévia) passaria igual, porque eles acompanham
+  // qualquer altura que a prévia tenha.
+  // ASSENTAR É O FATO, NÃO UM RELÓGIO: dois quadros mais NENHUMA animação
+  // rodando. Medida no meio do movimento a prévia está meia altura acima do
+  // lugar dela, e o hit-test pega o que passa por baixo (visto: a lista da
+  // Biblioteca, em 1 de cada 5 rodadas — a asserção reprovava a seta sem ela
+  // ter defeito algum).
+  const quadro = () => pg.evaluate(async () => {
+    const q = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await q();
+    for (let i = 0; i < 120; i++) {
+      const rodando = document.getAnimations().some((a) => a.playState === 'running'
+        && a.effect && a.effect.getComputedTiming().iterations !== Infinity);
+      if (!rodando) break;
+      await q();
+    }
+  });
+  const recolher = async (on) => {
+    await pg.evaluate((v) => setEconomiaPreview(v), on);
+    await pg.waitForFunction((v) => document.querySelector('.preview')
+      .classList.contains('pv-recolhida') === v, on, { timeout: 5000 });
+    await quadro();
+  };
+  // A GEOMETRIA DA PRÉVIA E DOS BOTÕES QUE MORAM NELA. Tudo é LIDO do layout: o
+  // `--hit` do `:root`, o recuo da caixa e a altura de cada botão. Declarar
+  // "38" aqui seria afirmar o número da folha contra a folha — a asserção
+  // certa é que a tira mede o que os botões que ela guarda medem.
+  const geoPv = () => pg.evaluate(() => {
+    const pv = document.querySelector('.preview');
+    const R = pv.getBoundingClientRect();
+    const cs = getComputedStyle(pv);
+    const hit = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit'));
+    const visivel = (el) => {
+      const c = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      return c.display !== 'none' && c.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+    };
+    const fabs = [...pv.querySelectorAll('.pv-fab')].filter(visivel).map((el) => {
+      const r = el.getBoundingClientRect();
+      return { id: el.id, l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height };
+    });
+    const sobrepostos = [];
+    for (let i = 0; i < fabs.length; i++) {
+      for (let j = i + 1; j < fabs.length; j++) {
+        const a = fabs[i]; const b = fabs[j];
+        const dx = Math.min(a.r, b.r) - Math.max(a.l, b.l);
+        const dy = Math.min(a.b, b.b) - Math.max(a.t, b.t);
+        if (dx > 0.5 && dy > 0.5) sobrepostos.push(a.id + ' x ' + b.id + ' (' + dx.toFixed(1) + '×' + dy.toFixed(1) + ')');
+      }
+    }
+    const fora = fabs.filter((f) => f.l < R.left - 0.5 || f.r > R.right + 0.5
+      || f.t < R.top - 0.5 || f.b > R.bottom + 0.5).map((f) => f.id);
+    const seta = fabs.find((f) => f.id === 'pvRecolherBtn') || null;
+    return {
+      hit, recolhida: pv.classList.contains('pv-recolhida'), display: cs.display,
+      alto: +R.height.toFixed(2), larg: +R.width.toFixed(2), esq: R.left, dir: R.right, topo: R.top, base: R.bottom,
+      pad: parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom),
+      maiorBotao: Math.max(0, ...fabs.map((f) => f.h)),
+      linhas: new Set(fabs.map((f) => Math.round(f.t))).size,
+      fabs, sobrepostos, fora, seta,
+      desvioDaSeta: seta ? +((seta.l + seta.w / 2) - (R.left + R.width / 2)).toFixed(2) : null,
+      bottombar: document.querySelector('.bottombar').getBoundingClientRect().height,
+    };
+  });
+
+  const alturaExpandida = (await geoPv()).alto;
+  const barraExpandida = (await geoPv()).bottombar;
+  await recolher(true);
+  const tiras = [];
+  for (const ar of ['2.16', '1.7778']) {
+    const nome = 'RECOLHIDA · ' + (ar === '2.16' ? 'TV 2,16:1' : 'TV 16:9');
+    await pg.evaluate((v) => document.documentElement.style.setProperty('--pv-ar', v), ar);
+    await quadro();
+    const g = await medirDeck();
+    const p = await geoPv();
+    tiras.push(p.alto);
+
+    checar(p.recolhida && p.display === 'grid',
+      `a prévia está RECOLHIDA, em fluxo de grade (${nome})`, { recolhida: p.recolhida, display: p.display });
+    // A TIRA MEDE O QUE SEUS BOTÕES MEDEM: o maior `.pv-fab` mais o recuo, e
+    // nada além. Mais que isso é uma altura DECLARADA (que assume dois botões
+    // empilhados e quebra no terceiro); menos é um botão cortado.
+    checar(Math.abs(p.alto - (p.maiorBotao + p.pad)) <= 0.6,
+      `a tira mede o maior botão + o recuo — a altura sai do CONTEÚDO, não de um número (${nome})`,
+      { alto: p.alto, maiorBotao: p.maiorBotao, recuo: p.pad });
+    checar(p.alto < alturaExpandida - 20,
+      `e é bem mais baixa que a prévia expandida (${nome})`, { recolhida: p.alto, expandida: alturaExpandida });
+    checar(p.sobrepostos.length === 0 && p.fora.length === 0,
+      `nenhum botão da prévia se sobrepõe a outro nem sai dela (${nome})`,
+      { sobrepostos: p.sobrepostos, fora: p.fora });
+    checar(p.seta && Math.abs(p.desvioDaSeta) < 1,
+      `e a seta está CENTRADA no avançado (${nome})`, p.desvioDaSeta);
+
+    // O DECK ACOMPANHA A TIRA, e é a invariante do bloco 1 com a altura nova.
+    for (const [q, b] of [['VOLTAR', g.ant], ['PASSAR', g.prox]]) {
+      checar(perto(b.alto, g.pv.alto) && perto(b.topo, g.pv.topo) && perto(b.base, g.pv.base),
+        `o botão de ${q} tem a ALTURA da prévia recolhida, topo e base juntos (${nome})`,
+        { botao: [b.topo, b.base, b.alto], preview: [g.pv.topo, g.pv.base, g.pv.alto] });
+      checar(b.alto >= p.hit - 0.5,
+        `e ela ainda é um alvo de toque: o botão de ${q} não cai abaixo de \`--hit\` (${nome})`,
+        { alto: b.alto, hit: p.hit });
+    }
+    checar(g.ant.dir <= g.pv.esq && g.prox.esq >= g.pv.dir,
+      `a prévia continua FLANQUEADA pelos dois botões de slide (${nome})`, g);
+    checar(perto(g.seek.esq, g.pv.esq) && perto(g.seek.dir, g.pv.dir),
+      `a BARRA continua começando e terminando com a prévia (${nome})`,
+      { seek: [g.seek.esq, g.seek.dir], preview: [g.pv.esq, g.pv.dir] });
+    for (const [onde, v] of Object.entries({
+      'nowplaying→prévia': g.pv.topo - g.np.base,
+      'prévia→transporte': g.tr.topo - g.pv.base,
+      'voltar→prévia': g.pv.esq - g.ant.dir,
+      'prévia→passar': g.prox.esq - g.pv.dir,
+    })) {
+      checar(perto(v, g.vao), `o vão ${onde} segue sendo o do deck (${nome})`,
+        { medido: +v.toFixed(2), esperado: g.vao });
+    }
+    // A CAIXA DE CONTROLES ENCOLHE com a tira — é o ganho que o operador pediu
+    // (mais lista na tela) e a medida de que a prévia não ficou com a altura
+    // reservada por baixo.
+    checar(p.bottombar < barraExpandida - 20,
+      `a caixa de controles encolhe junto (${nome})`, { recolhida: p.bottombar, expandida: barraExpandida });
+  }
+  checar(Math.abs(tiras[0] - tiras[1]) < 0.6,
+    'a altura da tira NÃO depende da proporção do telão — recolhida, a `--pv-ar` não manda nela', tiras);
+  await pg.evaluate(() => document.documentElement.style.removeProperty('--pv-ar'));
+
+  // O TOQUE NA SETA VOLTA À ALTURA DE ANTES: a ida e a volta são o mesmo gesto,
+  // e ela é o único controle da tira que o operador vai procurar duas vezes.
+  await pg.click('#pvRecolherBtn');
+  await pg.waitForFunction(() => !document.querySelector('.preview').classList.contains('pv-recolhida'),
+    null, { timeout: 5000 });
+  await quadro();
+  const volta = await geoPv();
+  checar(Math.abs(volta.alto - alturaExpandida) <= 0.6,
+    'tocar na seta de novo EXPANDE: a prévia volta à altura que tinha', { antes: alturaExpandida, depois: volta.alto });
+  await pg.click('#pvRecolherBtn');
+  await pg.waitForFunction(() => document.querySelector('.preview').classList.contains('pv-recolhida'),
+    null, { timeout: 5000 });
+  await quadro();
+  checar((await geoPv()).alto < alturaExpandida - 20,
+    'e o primeiro toque RECOLHE pelo clique de verdade — a seta é alcançável (o hit-test do Playwright passou por ela)');
+  await recolher(false);
+
   // ── 2. A COLUNA DE OPERAÇÃO, SOBRE a preview e à esquerda ───────────────
   //
   // SÃO DOIS DESDE A v1.4.31 — a leitura auxiliar saiu para a sétima célula do
@@ -431,7 +585,7 @@ try {
   //  · e o botão DA BARRA continua afundando — sem esta, apagar o `--press` do
   //    app inteiro passaria nas duas primeiras.
   const toque = await (async () => {
-    const alvos = ['#viewToggle', '#muteToggle', '#pvFullBtn'];
+    const alvos = ['#viewToggle', '#muteToggle', '#pvFullBtn', '#pvRecolherBtn'];
     const out = {};
     for (const sel of alvos) {
       const caixa = (s2) => pg.evaluate((x) => {
@@ -1250,6 +1404,171 @@ try {
     'e ele não passa por baixo de NENHUMA das duas colunas de `.pv-fab` — elas '
     + 'são `z-index: 5` contra 4, então o que invade não é coberto: é coberto '
     + 'POR ELAS', cartao);
+  // ── 8. A PRÉVIA RECOLHIDA NAS SUPERFÍCIES QUE MEDEM A PRÉVIA (v1.11.7) ─
+  //
+  // Cinco lugares leem a altura ou o conteúdo da prévia, e cada um já tinha a
+  // asserção dele no estado EXPANDIDO (o padrão). O que a tira muda em cada um:
+  //
+  //  A. O SELO e o GIRO moram na base e NÃO cabem ao lado da seta em 320 px
+  //     (somam mais que a largura da prévia): vão para uma SEGUNDA linha. É o
+  //     único caso em que a tira mede mais que um botão, e é DURADOURO — o giro
+  //     persiste enquanto o ângulo não é zero.
+  //  B. O FADER ocupa a faixa da prévia, e a faixa agora tem a altura de um botão.
+  //  C. O MODO FÁCIL, onde a seta vai para o canto superior ESQUERDO.
+  //  D. O CARTÃO DE ESPERA, que não cabe na tira e é o único canal de falha do
+  //     "tocar" e a única porta de cancelar um download.
+  //
+  // A·1 · O SELO + O GIRO, a 430 e a 320.
+  for (const largura of [430, 320]) {
+    const nome = largura + ' px';
+    await pg.setViewportSize({ width: largura, height: 900 });
+    await pg.evaluate(async () => {
+      await applyRotate(270);          // o número mais largo ("270°") é o pior caso
+      document.getElementById('pvCamadaBtn').hidden = false;
+    });
+    await recolher(true);
+    const g = await geoPv();
+    const seta = g.seta;
+    const abaixo = g.fabs.filter((f) => f.id === 'pvGiroBtn' || f.id === 'pvCamadaBtn');
+    checar(abaixo.length === 2,
+      `o selo e o giro estão à vista com a prévia recolhida (${nome})`, g.fabs.map((f) => f.id));
+    checar(abaixo.every((f) => f.t >= seta.b - 0.5),
+      `e descem para uma SEGUNDA linha, abaixo da seta — ao lado dela não cabem (${nome})`,
+      { seta: [seta.t, seta.b], abaixo: abaixo.map((f) => [f.id, f.t, f.b]) });
+    checar(g.alto >= 2 * g.hit + g.pad - 0.6,
+      `a tira cresce para duas linhas de botão — e mede só isso (${nome})`, { alto: g.alto, hit: g.hit, recuo: g.pad });
+    checar(g.sobrepostos.length === 0 && g.fora.length === 0,
+      `nenhum botão se sobrepõe a outro nem sai da prévia (${nome})`,
+      { sobrepostos: g.sobrepostos, fora: g.fora });
+    checar(Math.abs(g.desvioDaSeta) < 1,
+      `e a seta continua no CENTRO com a segunda linha presente (${nome})`, g.desvioDaSeta);
+    // O deck acompanha também a tira de duas linhas.
+    const d = await medirDeck();
+    checar(perto(d.ant.alto, d.pv.alto) && perto(d.prox.alto, d.pv.alto),
+      `e os botões de slide têm a altura dela (${nome})`, { ant: d.ant.alto, prox: d.prox.alto, pv: d.pv.alto });
+    // Sem o giro nem o selo a tira volta a UMA linha: a segunda não é reserva.
+    await pg.evaluate(async () => {
+      await applyRotate(0);
+      document.getElementById('pvCamadaBtn').hidden = true;
+    });
+    await quadro();
+    const so1 = await geoPv();
+    checar(so1.alto < g.alto - 20 && so1.linhas === 1,
+      `e some quando os dois somem: a linha de baixo não é reserva, ela existe quando há o que pôr nela (${nome})`,
+      { com: g.alto, sem: so1.alto, linhas: so1.linhas });
+    await recolher(false);
+  }
+  await pg.setViewportSize({ width: 430, height: 900 });
+
+  // B · O FADER, recolhida.
+  await recolher(true);
+  await pg.evaluate(() => peekVolume());
+  await pg.waitForFunction(() => {
+    const t = getComputedStyle(document.querySelector('.fader-wrap')).transform;
+    return t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)';
+  }, null, { timeout: 5000 }).catch(() => {});
+  const fa = await faderCx();
+  checar(fa.fader.vis && perto(fa.fader.topo, fa.pv.topo) && perto(fa.fader.base, fa.pv.base),
+    'RECOLHIDA, o fader ocupa exatamente a faixa da prévia — a tira, não a altura de antes',
+    { fader: [fa.fader.topo, fa.fader.base], pv: [fa.pv.topo, fa.pv.base] });
+  checar(fa.fader.dir <= fa.pv.esq + 1 && fa.ant.vis === false && fa.prox.vis,
+    'e continua À ESQUERDA, no lugar do voltar, com o passar slide no ar', fa);
+  await pg.evaluate(() => fecharFader());
+  await pg.waitForFunction(() => !document.querySelector('.deck').classList.contains('vol-open'),
+    null, { timeout: 5000 }).catch(() => {});
+  await recolher(false);
+
+  // C · O MODO FÁCIL, nos dois estados da marcação.
+  for (const rec of [false, true]) {
+    const nome = rec ? 'RECOLHIDA' : 'expandida';
+    await recolher(rec);
+    // SEM TELA o Modo Fácil esconde a prévia (`.sem-tela`); "Tocar neste
+    // celular" é o jeito de a ter à vista sem inventar uma TV.
+    await pg.evaluate(() => { setAppMode('simple'); setTocarNoCelular(true); });
+    await quadro();
+    const g = await geoPv();
+    const f = await pg.evaluate(() => {
+      const b = document.getElementById('pvRecolherBtn');
+      const r = b.getBoundingClientRect();
+      const topo = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { alcanca: !!(topo && topo.closest('#pvRecolherBtn')),
+        naCasa: document.querySelector('.preview').closest('.simple-stage') !== null,
+        aria: b.getAttribute('aria-expanded') };
+    });
+    checar(f.naCasa && g.seta !== null,
+      `no Modo Fácil a seta está à vista (${nome})`, { naCasa: f.naCasa, seta: g.seta });
+    checar(f.alcanca,
+      `e é ALCANÇÁVEL pelo toque: nada por cima dela (${nome}) — sem ela o Modo Fácil perderia a única `
+      + 'porta de desfazer a economia', f);
+    checar(f.aria === String(!rec),
+      `e diz o estado em \`aria-expanded\` (${nome})`, f);
+    // O CANTO SUPERIOR ESQUERDO, nos dois estados: ela não troca de lugar
+    // quando o toque muda o estado — quem toca duas vezes a procuraria.
+    checar(g.seta.l - g.esq <= 6 && g.seta.t - g.topo <= 6,
+      `no canto SUPERIOR ESQUERDO da prévia (${nome})`,
+      { dx: +(g.seta.l - g.esq).toFixed(1), dy: +(g.seta.t - g.topo).toFixed(1) });
+    checar(g.sobrepostos.length === 0 && g.fora.length === 0,
+      `sem sobrepor outro botão nem sair dela (${nome})`, { sobrepostos: g.sobrepostos, fora: g.fora });
+    if (rec) {
+      checar(Math.abs(g.alto - (g.maiorBotao + g.pad)) <= 0.6,
+        `a tira do Modo Fácil mede um botão + o recuo (${nome})`,
+        { alto: g.alto, maiorBotao: g.maiorBotao, recuo: g.pad });
+    }
+    await pg.evaluate(() => { setTocarNoCelular(false); setAppMode('full'); });
+    await quadro();
+  }
+  await recolher(false);
+
+  // D · O CARTÃO DE ESPERA, com a prévia recolhida. A marcação continua ligada
+  // e a ALTURA volta ao natural enquanto o cartão está no ar: ele mede 43 a
+  // 58 px e não cabe na tira — engolido, a falha de um download e a única porta
+  // de cancelar sumiriam sem erro algum.
+  for (const modo of ['full', 'simple']) {
+    const nome = modo === 'full' ? 'avançado' : 'Modo Fácil';
+    await pg.evaluate((m) => { setAppMode(m); if (m === 'simple') setTocarNoCelular(true); }, modo);
+    await recolher(true);
+    const tira = await geoPv();
+    const c = await pg.evaluate(async () => {
+      const el = document.getElementById('pvBusy');
+      el.classList.add('on');
+      document.getElementById('pvBusyLabel').textContent = 'Provai e Vede 2026 — o episódio de sábado';
+      document.getElementById('pvBusyCancel').hidden = false;
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const pv = document.querySelector('.preview');
+      const R = pv.getBoundingClientRect();
+      const k = document.querySelector('.pv-busy-card').getBoundingClientRect();
+      const b = document.getElementById('pvBusyCancel').getBoundingClientRect();
+      const topo = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+      const r = {
+        recolhidaMarcada: pv.classList.contains('pv-recolhida'),
+        alto: R.height,
+        dentro: k.left >= R.left - 0.5 && k.right <= R.right + 0.5
+          && k.top >= R.top - 0.5 && k.bottom <= R.bottom + 0.5,
+        cartao: [+k.top.toFixed(1), +k.bottom.toFixed(1)], previa: [+R.top.toFixed(1), +R.bottom.toFixed(1)],
+        cancelaAlcanca: !!(topo && topo.closest('#pvBusyCancel')),
+        cancelaDentro: b.top >= R.top - 0.5 && b.bottom <= R.bottom + 0.5,
+      };
+      el.classList.remove('on');
+      document.getElementById('pvBusyLabel').textContent = '';
+      document.getElementById('pvBusyCancel').hidden = true;
+      return r;
+    });
+    checar(c.recolhidaMarcada && c.alto > tira.alto + 4,
+      `com o cartão no ar a prévia volta à altura natural, mesmo marcada como recolhida (${nome})`,
+      { tira: tira.alto, comCartao: c.alto });
+    checar(c.dentro,
+      `o cartão de espera cabe INTEIRO dentro da prévia — nada dele é recortado (${nome})`, c);
+    checar(c.cancelaDentro && c.cancelaAlcanca,
+      `e o botão de CANCELAR é alcançável pelo toque (${nome}): é a única porta de cancelar um download`, c);
+    await quadro();
+    const sai = await geoPv();
+    checar(sai.recolhida && Math.abs(sai.alto - tira.alto) <= 0.6,
+      `e quando o cartão sai a prévia recolhe de novo sozinha, na altura de antes (${nome})`,
+      { antes: tira.alto, depois: sai.alto });
+    await recolher(false);
+  }
+  await pg.evaluate(() => { setTocarNoCelular(false); setAppMode('full'); });
+
   // ── 7. O PASSO DO VOLUME É FINO ABAIXO DE 10 (v1.8.90) ─────────────────
   //
   // Pedido do operador: *"ajuste o slider de volume para ele ser mais sensível
