@@ -596,9 +596,8 @@ const fitTileEl = document.getElementById('fitTile');
 const rotBtnEl = document.getElementById('rotBtn');
 const lyricsBgTileEl = document.getElementById('lyricsBgTile');
 const saidaAudioTileEl = document.getElementById('saidaAudioTile');
-const economiaTileEl = document.getElementById('economiaTile');
 const dadosMoveisTileEl = document.getElementById('dadosMoveisTile');
-const pvEconomiaEl = document.getElementById('pvEconomia');
+const pvRecolherEl = document.getElementById('pvRecolherBtn');
 const wallFileEl = document.getElementById('wallFile');
 const wallTileEl = document.getElementById('wallTile');
 const diagSaveEl = document.getElementById('diagSave');
@@ -2348,13 +2347,15 @@ function acertarSaidaDeAudio() {
 }
 
 /**
- * ===== A IMAGEM DA PRÉVIA DESLIGADA: A ECONOMIA (v1.9.9) =====
+ * ===== A PRÉVIA RECOLHIDA E A ECONOMIA QUE VAI JUNTO (v1.9.9 / v1.11.7) =====
  *
  * Pedido do operador: *"um botão para desativar a preview (com o objetivo de
  * reduzir o gasto de processamento para smartphones mais fracos…)"* e, fechada a
  * análise: *"o celular fraco é o operador, vamos manter as outras conexões de
  * controle e ativar/desativar apenas a decodificação de imagem do preview, que é
- * o que realmente pesa no processamento"*.
+ * o que realmente pesa no processamento"*. Depois, o botão passou a ser uma SETA
+ * no topo da própria prévia: *"um botão na preview que compacte verticalmente
+ * ela e substitua o botão de desativar a imagem de preview"*.
  *
  * ## O GANHO ESTÁ MEDIDO, E A MEDIÇÃO É ANTIGA
  *
@@ -2365,27 +2366,35 @@ function acertarSaidaDeAudio() {
  * recurso faz é transformar aquele desligamento acidental (a página oculta) numa
  * ESCOLHA do operador, com a página à vista.
  *
- * ## A ESCOLHA É GUARDADA; O VEREDITO É DERIVADO
+ * ## A ESCOLHA É GUARDADA; A GEOMETRIA SEGUE A ESCOLHA; O VEREDITO É DERIVADO
  *
- * Duas coisas, e é a separação do `tocarNoCelular` × `somLocalDeveEstar`:
+ * Três coisas, e é a separação do `tocarNoCelular` × `somLocalDeveEstar`:
  * `economiaPreview` é o que o operador marcou (e que sobrevive ao fechamento do
- * app, porque é propriedade do APARELHO); `economiaAtiva()` é o que vale agora.
+ * app, porque é propriedade do APARELHO) — a chave do banco é a de sempre, e é
+ * por isso que quem tinha a imagem desligada abre com a prévia recolhida;
+ * `pv-recolhida` é a GEOMETRIA, e segue a marcação NO ATO, também sem TV (é o
+ * "sempre clicável" da v1.10.10: a seta tem de fazer algo visível); e
+ * `economiaAtiva()` é o que vale agora para a DECODIFICAÇÃO. **As duas últimas
+ * não são a mesma régua de propósito:** ligar a decodificação à marcação pararia
+ * o `<video>` da prévia, que sem tela é a fonte do som; ligar a geometria ao
+ * veredito faria a seta não fazer nada visível sem TV.
  *
- * **SEM DESTINO DE PROJEÇÃO A ECONOMIA NÃO EXISTE**, e isso não é uma guarda a
+ * **SEM DESTINO DE PROJEÇÃO A DECODIFICAÇÃO NÃO PARA**, e isso não é uma guarda a
  * mais: sem TV e sem tela da rede a prévia É a projeção (é o `<video>` dela que
  * a congregação vê em tela cheia), e desligar a imagem dela seria desligar o
- * culto. A régua é `haDestinoDeProjecao()` — a MESMA da v1.8.50, a tela LISTADA
+ * culto. A prévia recolhida fora da tela cheia é só um espelho, e a tela cheia
+ * não é recolhida (o CSS exclui `:fullscreen`). A régua é `haDestinoDeProjecao()` — a MESMA da v1.8.50, a tela LISTADA
  * mais as sessões de tela da rede —, e **não** `algumaTelaConectada()`: com
  * aquela, a oscilação do dongle devolveria a imagem a cada piscada do Miracast,
  * que é o defeito que a v1.8.50 já pagou uma vez.
  *
  * E por ser DERIVADO o desfecho é automático nas duas pontas: perder a TV no
- * meio do culto devolve a imagem sozinho (este arquivo chama
+ * meio do culto religa a decodificação sozinho (este arquivo chama
  * `acertarSaidaDeAudio` em toda mudança de destino, e ela chama isto), e
- * reconectar volta a poupar sem ninguém tocar em nada. A marcação fica ligada
- * atravessando as duas.
+ * reconectar volta a poupar sem ninguém tocar em nada. A marcação — e a
+ * prévia recolhida — ficam atravessando as duas.
  *
- * ## O QUE **NÃO** DESLIGA — é a metade do pedido que se erra
+ * ## O QUE **NÃO** PARA — é a metade do pedido que se erra
  *
  * Tudo que não é decodificação: o comando sai para o telão e para as telas da
  * rede como sempre (`cmd` não passa por aqui), o `display-status` continua
@@ -2422,11 +2431,18 @@ function economiaAtiva() {
 
 function acertarEconomiaDaPreview() {
   const alvo = economiaAtiva();
-  // O TILE É PINTADO SEMPRE, mesmo quando o vigor não muda: o `title` responde
-  // ao DESTINO (diz se a escolha já vale ou só vai valer quando houver TV ou
-  // computador), e o destino muda sem que o vigor mude — a marcação continua a
-  // mesma com uma TV entrando e saindo, só o EFEITO liga e desliga sozinho.
-  renderEconomiaTile();
+  // A GEOMETRIA SEGUE A MARCAÇÃO, e por isso vem ANTES do `return` de igualdade
+  // abaixo: o vigor não muda quando não há destino (a decodificação segue
+  // tocando), mas a prévia recolhe do mesmo jeito — é o que faz a seta fazer
+  // algo visível sem TV. Quem a cala em tela cheia é o CSS (`:not(:fullscreen)`),
+  // sem o atraso de um quadro do `fullscreenchange`.
+  if (previewEl) previewEl.classList.toggle('pv-recolhida', economiaPreview);
+  // A SETA É PINTADA SEMPRE, mesmo quando o vigor não muda: o `title` responde
+  // ao DESTINO (diz se a escolha já poupa processamento ou só vai poupar quando
+  // houver TV ou computador), e o destino muda sem que o vigor mude — a
+  // marcação continua a mesma com uma TV entrando e saindo, só o EFEITO liga e
+  // desliga sozinho.
+  renderRecolherBtn();
   if (alvo === economiaEmVigor) return;
   economiaEmVigor = alvo;
   preview.setSuspenso(alvo);
@@ -2435,7 +2451,6 @@ function acertarEconomiaDaPreview() {
   // seria apagada na mídia seguinte — a economia valendo no decodificador e não
   // na tela, com a imagem congelada de volta.
   if (previewEl) previewEl.classList.toggle('pv-economia', alvo);
-  if (pvEconomiaEl) pvEconomiaEl.hidden = !alvo;
   // A VOLTA É UM REALINHAMENTO, não um `play()`: a prévia ficou parada enquanto
   // a projeção andou, que é exatamente a situação da retomada do segundo plano —
   // e o caminho dela já existe desde a v5.173. Um `play()` seco a devolveria
@@ -2448,42 +2463,41 @@ async function setEconomiaPreview(on) {
   const alvo = !!on;
   if (economiaPreview === alvo) return;
   economiaPreview = alvo;
-  // PINTAR ANTES DE GRAVAR, a regra da v1.4.40: depois do `await` o tile só
+  // PINTAR ANTES DE GRAVAR, a regra da v1.4.40: depois do `await` a seta só
   // responderia ao toque quando a transação do IndexedDB voltasse.
   acertarEconomiaDaPreview();
+  diagC('prévia: ' + (economiaPreview ? 'RECOLHIDA' : 'expandida'));
   await AVDB.setState('economiaPreview', economiaPreview);
 }
 
 /**
- * O tile, e o que ele diz em cada um dos DOIS estados que ele tem.
+ * A seta, e o que ela diz em cada um dos DOIS estados que ela tem.
  *
- * SEMPRE CLICÁVEL, mesmo sem destino de projeção (v1.10.10, revogando a
- * v1.8.50 PARA ESTE TILE): pedido do operador — *"ele deve estar 'clicável'
- * mesmo sem uma tela conectada... sendo exclusivo para quando há algo
- * conectado, mas é uma opção selecionável desde sempre"*. A ESCOLHA se grava
- * sem destino (o mesmo `setEconomiaPreview` de sempre); só o EFEITO
- * (`economiaAtiva`, que suspende de fato a decodificação) continua exclusivo
- * de quando há para onde projetar — a regra dela não mudou, só deixou de
- * travar o botão que a arma. `disabled` fica reservado para o que não tem
- * função NENHUMA (v1.8.50 continua valendo para os outros tiles da fileira).
+ * SEMPRE CLICÁVEL, mesmo sem destino de projeção (v1.10.10): pedido do
+ * operador — *"ele deve estar 'clicável' mesmo sem uma tela conectada... sendo
+ * exclusivo para quando há algo conectado, mas é uma opção selecionável desde
+ * sempre"*. A ESCOLHA se grava sem destino (o mesmo `setEconomiaPreview` de
+ * sempre) e a prévia recolhe do mesmo jeito; só o EFEITO sobre a decodificação
+ * (`economiaAtiva`) é exclusivo de quando há para onde projetar. `disabled`
+ * fica reservado para o que não tem função NENHUMA (v1.8.50) — e a seta tem
+ * sempre.
  *
- * E O DESENHO DIZ O ESTADO (`alt`), não a cor: `aceso` é `true` sempre, como
- * todo tile da grade desde a v1.7.6 (*"todos os botões devem ter o mesmo azul
- * de ativo... toda diferença de estado é pelo icone, não pela cor"*).
+ * O DESENHO DIZ O ESTADO, não a cor: `.alternado` troca o chevron (para baixo
+ * recolhe, para cima expande) e o `title` diz a AÇÃO — a mesma divisão do
+ * `#viewToggle` e do `#muteToggle`. O desenho diz a MARCAÇÃO, e não a geometria
+ * do instante: com o cartão de espera no ar a prévia está expandida e a seta
+ * continua dizendo "expandir".
  */
-function renderEconomiaTile() {
-  if (!economiaTileEl) return;
+function renderRecolherBtn() {
+  if (!pvRecolherEl) return;
   const temDestino = haDestinoDeProjecao();
-  economiaTileEl.disabled = false;
-  economiaTileEl.title = economiaPreview
-    ? (temDestino
-      ? 'A imagem da prévia está desligada — toque para religar'
-      : 'A imagem da prévia está desligada — vale quando houver TV ou computador conectado')
-    : (temDestino
-      ? 'Desligar a imagem da prévia para poupar processamento'
-      : 'Desligar a imagem da prévia para poupar processamento — vale quando houver TV ou computador conectado');
-  pintarTile(economiaTileEl, economiaPreview ? 'off' : 'on',
-    economiaPreview ? 'Imagem desligada' : 'Imagem ligada', true, economiaPreview);
+  const acao = economiaPreview ? 'Expandir a prévia' : 'Recolher a prévia';
+  pvRecolherEl.classList.toggle('alternado', economiaPreview);
+  pvRecolherEl.setAttribute('aria-expanded', String(!economiaPreview));
+  pvRecolherEl.setAttribute('aria-label', acao);
+  pvRecolherEl.title = temDestino
+    ? (economiaPreview ? acao : acao + ' — a imagem para de ser decodificada, e isso poupa processamento')
+    : acao + ' — a imagem só deixa de ser decodificada com TV ou computador conectado';
 }
 
 // ===== A PREVIEW QUE É A PROJEÇÃO NÃO PODE SER SUSPENSA (v1.3.12) =====
@@ -27064,25 +27078,25 @@ function cabecalhoDiag() {
       // app deixou de tentar" seria um estado invisível.
       + (c.bloqueado ? '  (BLOQUEADO — o app não tenta mais nesta versão)' : ''));
   }
-  // A ECONOMIA DA PRÉVIA, e ela precisa da linha porque MUDA O QUE SE MEDE
-  // (v1.9.9): com a imagem desligada a prévia não anda, e quem lê este Registro a
+  // A PRÉVIA RECOLHIDA, e ela precisa da linha porque MUDA O QUE SE MEDE
+  // (v1.9.9): com a imagem parada a prévia não anda, e quem lê este Registro a
   // distância diante de "a prévia está parada" tem de saber se é um defeito ou
   // uma escolha. As DUAS metades saem — a marcação e o vigor —, porque marcada
-  // sem destino de projeção ela não está valendo, e é esse par que responde
-  // "então por que a imagem voltou?".
+  // sem destino de projeção a decodificação continua rodando, e é esse par que
+  // responde "então por que a imagem não parou?".
   if (economiaPreview) {
     // O MOTIVO TEM DE SER O CERTO, e são TRÊS estados, não dois. A primeira
     // escrita perguntava só `economiaAtiva()` e atribuía toda suspensão à falta de
     // destino — em tela cheia isso é uma linha FALSA num texto que é lido a
     // distância por quem não tem o aparelho na mão, que é o pior artefato que este
     // projeto sabe produzir. Cada ramo nomeia a SUA razão.
-    let porQue = ' (economia em vigor)';
+    let porQue = ' — a decodificação da imagem está parada (economia em vigor)';
     if (!haDestinoDeProjecao()) {
-      porQue = ' na marcação, mas EM VIGOR não — sem destino de projeção a prévia É a projeção';
+      porQue = ' na marcação, mas a decodificação NÃO está parada — sem destino de projeção a prévia É a projeção';
     } else if (document.fullscreenElement === previewEl) {
       porQue = ' na marcação, SUSPENSA agora — a prévia está em tela cheia, e ali ela é o que o operador está olhando';
     }
-    l.push('Imagem da prévia: DESLIGADA' + porQue);
+    l.push('Prévia: RECOLHIDA' + porQue);
   }
   // ONDE O SOM ESTÁ SAINDO (v5.215). "Não sai som" tem causas que a tela não
   // separa — mudo, fader em zero, tela conectada sem volume, ou este aparelho
@@ -37401,10 +37415,11 @@ for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
 lyricsBgTileEl.addEventListener('click', () => {
   setLyricsBg(lyricsBg === 'image' ? 'black' : 'image');
 });
-// IMAGEM DA PRÉVIA: a economia de processamento. Um tile, dois estados —
-// sempre clicável desde a v1.10.10, mesmo sem destino de projeção.
-if (economiaTileEl) {
-  economiaTileEl.addEventListener('click', () => { setEconomiaPreview(!economiaPreview); });
+// A SETA DA PRÉVIA: recolhe e expande, e carrega junto a economia de
+// processamento. Dois estados — sempre clicável desde a v1.10.10, mesmo sem
+// destino de projeção.
+if (pvRecolherEl) {
+  pvRecolherEl.addEventListener('click', () => { setEconomiaPreview(!economiaPreview); });
 }
 // DADOS MÓVEIS: permitir ou não, para o acervo e os dois automáticos — ver
 // `redeLiberadaParaBaixar`, onde a regra e o que ela cobre estão.

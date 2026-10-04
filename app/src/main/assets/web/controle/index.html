@@ -474,24 +474,24 @@
       <circle cx="12" cy="14.6" r="3.5"/>
       <circle cx="12" cy="6.7" r="1.2"/>
     </symbol>
-    <!-- A PRÉVIA, e o par dela riscado (economia de processamento).
-         O quadro com o triângulo é a prévia TOCANDO; o quadro riscado é a
-         imagem dela desligada. A barra do risco é a MESMA do `#icoImagemOff`
-         (`M3 3.5 21 20.5`) de propósito: neste app "riscado" é um idioma só, e
-         um segundo ângulo seria uma segunda convenção para a mesma ideia.
-         O quadro é o do `#icoAjustar`/`#icoPreencher` pelo mesmo motivo — ele é
-         o telão em todos eles. -->
-    <symbol id="icoPreview" viewBox="0 0 24 24">
-      <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
-      <path d="M10.4 9.1v5.8l4.8-2.9z"/>
+    <!-- RECOLHER / EXPANDIR A PRÉVIA (v1.11.7): o chevron para BAIXO é "recolher"
+         e o para CIMA é "expandir", e a direção vem do lugar onde a prévia mora —
+         a caixa de controles é ancorada na BASE da tela, então a borda de cima
+         da prévia, que é onde o botão fica, DESCE quando ela encolhe e SOBE
+         quando ela volta. Mesma primitiva do `chevronDirSvg` (o par ↑↓ de abrir e
+         fechar) e do `#icoSlidePrev`, no eixo vertical: uma segunda arte para a
+         mesma ideia é a divergência que a fonte única existe para não ter.
+         O ESTADO MORA NO DESENHO (`.alternado` troca o par), e o `title` diz a
+         AÇÃO. O peso do traço fica com quem consome. -->
+    <symbol id="icoRecolher" viewBox="0 0 24 24">
+      <polyline points="6 9 12 15 18 9"/>
     </symbol>
-    <symbol id="icoPreviewOff" viewBox="0 0 24 24">
-      <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
-      <path d="M3 3.5 21 20.5"/>
+    <symbol id="icoExpandir" viewBox="0 0 24 24">
+      <polyline points="6 15 12 9 18 15"/>
     </symbol>
     <!-- DADOS MÓVEIS: as barras de sinal, o desenho que já significa "rede
          celular" antes de qualquer legenda. O par riscado é o MESMO idioma do
-         `#icoPreviewOff`/`#icoImagemOff` (`M3 3.5 21 20.5`) — "riscado" é uma
+         `#icoImagemOff` (`M3 3.5 21 20.5`) — "riscado" é uma
          convenção só neste app, e um ângulo próprio aqui seria uma segunda. -->
     <symbol id="icoDadosMoveis" viewBox="0 0 24 24">
       <path d="M5 17v-3.2"/>
@@ -1398,29 +1398,6 @@
                aparecer, então é aqui que se diz que ela está a caminho — ver
                `previewBusy` em controle.js. Fica FORA da tela cheia (regra
                junto com a dos `.pv-fabs`): ali a preview É a projeção. -->
-          <!-- ===== A MARCA DA ECONOMIA (v1.9.9) =====
-               Com a imagem da prévia desligada, o que sobra no retângulo é o
-               wallpaper — e um retângulo parado é indistinguível de uma prévia
-               QUEBRADA. É a mesma regra do `disabled` da v1.8.50 aplicada a uma
-               superfície em vez de a um botão: o que não está funcionando diz
-               que não está.
-
-               ELA É CENTRADA, e a colisão se resolve pela PILHA e não por um
-               canto — MEDIDO, os QUATRO cantos da prévia têm um `.pv-fab` de 34px
-               (as duas colunas de controles têm altura inteira), e desenhar sobre
-               o símbolo de um botão o deixa ilegível. Em `z-index: 2` ela fica
-               acima da mídia e ABAIXO da letra e do texto manual, que são opacos e
-               a cobrem — o desfecho certo: a estrofe no ar vale mais que o aviso
-               de uma escolha que o operador acabou de fazer. As duas camadas
-               CONTINUAM sendo desenhadas em economia (DOM não é decodificação), e
-               é essa a metade do pedido que se erra.
-
-               SEM RÓTULO: o desenho riscado é o mesmo do tile que a ligou, e a
-               frase inteira mora no `title` dele. -->
-          <div id="pvEconomia" class="pv-economia-marca" hidden
-               title="A imagem da prévia está desligada para poupar processamento">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoPreviewOff"/></svg>
-          </div>
           <div id="pvBusy" class="pv-busy" aria-live="polite">
             <div class="pv-busy-card">
               <span class="dl-ring" aria-hidden="true">
@@ -1655,6 +1632,30 @@
                 <path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9"/>
                 <path d="M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15"/>
                 <path d="M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/>
+              </svg>
+            </button>
+          </div>
+          <!-- ===== A SETA QUE RECOLHE A PRÉVIA (v1.11.7) =====
+               Pedido do operador: *"um botão na preview que compacte
+               verticalmente ela e substitua o botão de desativar a imagem de
+               preview. Será uma seta no topo que encolhe ela, mantendo os botões
+               de interação dentro da preview, mas a preview na menor altura
+               possível sem apertar esses botões"*.
+
+               ELA É O ÚNICO CONTROLE DESTE ESTADO e mora no TOPO, ao CENTRO (o
+               quarto grupo de `.pv-fabs`, irmão do selo de camadas da base).
+               Existe nos DOIS modos: a preview é um nó só e muda de casa
+               (`hostPreview`) — e é por ela estar na preview, e não numa folha,
+               que o Modo Fácil também alcança a escolha.
+
+               O ESTADO É O DESENHO: chevron para BAIXO recolhe, para CIMA
+               expande (ver `#icoRecolher`). Nunca `disabled` — a escolha se
+               grava mesmo sem TV (v1.10.10), e o `title` diz o que ela vale. Quem
+               pinta é `renderRecolherBtn`; o clique é `setEconomiaPreview`. -->
+          <div class="pv-fabs pv-fabs--topo">
+            <button id="pvRecolherBtn" class="pv-fab" type="button" title="Recolher a prévia" aria-label="Recolher a prévia" aria-expanded="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <use class="ico-base" href="#icoRecolher"/><use class="ico-alt" href="#icoExpandir"/>
               </svg>
             </button>
           </div>
@@ -2367,32 +2368,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSaidaDeAudio"/></svg>
             <span class="qs-titulo">Saída de áudio</span>
           </button>
-          <!-- ===== ECONOMIA: A IMAGEM DA PRÉVIA DESLIGADA (v1.9.9) =====
-               Pedido do operador: *"um botão para desativar a preview (com o
-               objetivo de reduzir o gasto de processamento para smartphones mais
-               fracos…)"* e, fechada a análise: *"vamos manter as outras conexões
-               de controle e ativar/desativar apenas a decodificação de imagem do
-               preview, que é o que realmente pesa no processamento"*.
-
-               O QUE DESLIGA É A DECODIFICAÇÃO, e só ela. Tempo, barra, letra,
-               estado, transporte e o avanço da fila continuam inteiros — ver
-               `economiaAtiva` em controle.js, que é onde a regra mora.
-
-               SEMPRE CLICÁVEL, mesmo sem destino de projeção (v1.10.10,
-               revogando o `disabled` da v1.8.50 PARA ESTE TILE): pedido do
-               operador — *"ele deve estar 'clicável' mesmo sem uma tela
-               conectada... é uma opção selecionável desde sempre"*. A escolha
-               grava sem destino; só o EFEITO (`economiaAtiva`) continua
-               exclusivo de quando há para onde projetar. O último da fileira
-               de preferências de propósito — é a única delas que fala do
-               CELULAR e não do telão, e daí ela encostar na fileira do
-               aparelho. -->
-          <button type="button" class="qs-tile" id="economiaTile" title="Desligar a imagem da prévia para poupar processamento">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <use class="ico-base" href="#icoPreview"/><use class="ico-alt" href="#icoPreviewOff"/>
-            </svg>
-            <span class="qs-titulo">Imagem da prévia</span>
-          </button>
           <!-- ===== DADOS MÓVEIS: PERMITIR OU NÃO, PARA O ACERVO E OS DOIS
                AUTOMÁTICOS (v1.11.0) =====
                Pedido do operador: *"crie uma opção para permitir ou não o uso
@@ -2420,7 +2395,7 @@
                consumo novo de dados móveis aparecer sozinho.
 
                SEMPRE CLICÁVEL, aceso, com o estado só no ÍCONE (a regra da
-               v1.7.6) — o mesmo padrão do `#economiaTile` ao lado. -->
+               v1.7.6). -->
           <button type="button" class="qs-tile" id="dadosMoveisTile" title="Permitir que o acervo e os downloads automáticos usem dados móveis">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <use class="ico-base" href="#icoDadosMoveisOff"/><use class="ico-alt" href="#icoDadosMoveis"/>
