@@ -311,6 +311,16 @@ const histClearFaixaEl = document.getElementById('histClearFaixa');
 const testeTileEl = document.getElementById('testeTile');
 const testePopupEl = document.getElementById('testePopup');
 const testePopupCloseEl = document.getElementById('testePopupClose');
+// A TELA e o TRANSFERIR (v1.11.7) — duas janelas irmãs, com a mesma anatomia e a
+// mesma origem (abrem de dentro de Configurações). Declaradas AQUI, no bloco do
+// topo, e não perto dos pintores: `pacoteRenderTiles()` roda na CARGA, e uma
+// constante lida antes da linha em que nasce é uma zona morta temporal.
+const telaTileEl = document.getElementById('telaTile');
+const telaPopupEl = document.getElementById('telaPopup');
+const telaPopupCloseEl = document.getElementById('telaPopupClose');
+const pacoteTileEl = document.getElementById('pacoteTile');
+const pacotePopupEl = document.getElementById('pacotePopup');
+const pacotePopupCloseEl = document.getElementById('pacotePopupClose');
 const testeResumoEl = document.getElementById('testeResumo');
 const testeListEl = document.getElementById('testeList');
 const testeRodarEl = document.getElementById('testeRodar');
@@ -26931,10 +26941,6 @@ async function montarFilaSorteada(escolhidos) {
 function openFadePopup() {
   renderAppModeSeg();
   renderTemaTile();
-  renderFitTile();
-  renderRotBtn();
-  renderLyricsBgTile();
-  renderWallTile();
   // O estado do espelho é relido ao ABRIR (e depois só enquanto a folha dele
   // estiver aberta): a linha precisa dizer a verdade no instante em que o
   // operador olha para ela, e o espelho pode ter saído do ar sozinho por uma
@@ -37029,6 +37035,32 @@ function openTestePopup() {
 }
 function closeTestePopup() { testePopupEl.classList.remove('open'); }
 
+// ===== AS JANELAS DA TELA E DO TRANSFERIR (v1.11.7) =====
+//
+// Abrem de DENTRO de Configurações, como o Histórico e a Verificação, e por isso
+// têm linha na tabela `POPUPS` (✕, toque no fundo e o degrau do voltar) logo
+// depois dela. NÃO FECHAM AO TOCAR NUM TILE: quem alterna o preenchimento olha
+// para a prévia, não para a janela, e o Tema já era assim.
+//
+// OS PINTORES RODAM NA ABERTURA, e é só um ajuste fino: o `data-estado` dos tiles
+// já está certo com a janela fechada (`load()` os pinta na carga, e
+// `applyPvWallpaper` repinta o do wallpaper) — a janela fechada é `opacity: 0`, e
+// não `display: none`, então o nó existe e responde. O que a abertura refaz é o
+// que depende de um instante, como a largura do ícone do giro.
+function openTelaPopup() {
+  renderFitTile();
+  renderRotBtn();
+  renderLyricsBgTile();
+  renderWallTile();
+  telaPopupEl.classList.add('open');
+}
+function closeTelaPopup() { telaPopupEl.classList.remove('open'); }
+function openPacotePopup() {
+  pacoteRenderTiles();
+  pacotePopupEl.classList.add('open');
+}
+function closePacotePopup() { pacotePopupEl.classList.remove('open'); }
+
 /**
  * SALVA O REGISTRO — o mesmo arquivo de Configurações, com a verificação dentro
  * (v1.10.3). Pedido do operador: *"faça com que essa verificação, após feita,
@@ -37344,6 +37376,8 @@ settingsBtnEl.addEventListener('click', openFadePopup);
 // e não à folha de onde ele saiu.
 histOpenRowEl.addEventListener('click', openHistPopup);
 if (testeTileEl) testeTileEl.addEventListener('click', openTestePopup);
+if (telaTileEl) telaTileEl.addEventListener('click', openTelaPopup);
+if (pacoteTileEl) pacoteTileEl.addEventListener('click', openPacotePopup);
 if (testeRodarEl) testeRodarEl.addEventListener('click', dispararTeste);
 if (testeSalvarEl) {
   // REVELADO AQUI, e não no `renderVersionLabel` — a mesma armadilha do
@@ -39519,6 +39553,12 @@ const POPUPS = [
   // nada por cima de si. O voltar percorre esta tabela de trás para a frente,
   // então ela fecha antes de Configurações — que é para onde o operador volta.
   [testePopupEl, testePopupCloseEl, closeTestePopup],
+  // A TELA e o TRANSFERIR abrem de dentro de Configurações (v1.11.7), como a
+  // Verificação logo acima — e o `z-index` de `#telaPopup`/`#pacotePopup` diz a
+  // mesma ordem. A folha "O que levar" do exportar (`#songMenuPopup`) vem DEPOIS
+  // e abre por cima da janela do Transferir.
+  [telaPopupEl, telaPopupCloseEl, closeTelaPopup],
+  [pacotePopupEl, pacotePopupCloseEl, closePacotePopup],
   // A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), e
   // vem antes das duas que nascem dela — o voltar percorre esta tabela de trás
   // para a frente.

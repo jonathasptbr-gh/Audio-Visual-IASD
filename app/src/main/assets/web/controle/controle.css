@@ -7405,6 +7405,15 @@ main {
    Mesmo degrau do Histórico porque a pergunta é a mesma (abre de Configurações,
    não abre nada por cima de si) e as duas nunca estão abertas ao mesmo tempo. */
 #testePopup { z-index: 205; }
+/* AS DUAS JANELAS DE CONFIGURAÇÕES (v1.11.7) — a da Tela e a do Transferir —
+   abrem de DENTRO dela como o Histórico e a Verificação, e nascem declaradas
+   ANTES de `#fadePopup` no HTML: no degrau padrão (200) quem decidiria a ordem
+   seria o documento, e as duas abririam ATRÁS. Mesmo degrau pela mesma
+   pergunta (abre de Configurações, nada por cima de si — a folha "O que levar"
+   do exportar, `#songMenuPopup`, é 210 e abre POR CIMA da janela do Transferir),
+   e as quatro nunca estão abertas ao mesmo tempo. */
+#telaPopup { z-index: 205; }
+#pacotePopup { z-index: 205; }
 /* A folha da PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca, como a da música
    — daí o degrau que o comentário abaixo reservava. Ela NÃO abre a folha da
    música por cima de si, então é a última linha de POPUPS e o degrau mais alto
@@ -10102,22 +10111,30 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    colunas pela largura do aparelho, e com isso a MESMA folha teria duas
    colunas num celular estreito e quatro num tablet — quem opera este app o
    opera sempre no mesmo aparelho, e o que ele memoriza é ONDE cada tile fica.
-   Três é o que cabe com o título mais longo desta lista ("Preenchimento") numa
-   linha só a 360px de tela, e é o que fecha sete opções em três fileiras.
+   Três é o que cabe com os títulos desta lista a 360px de tela ("Saída de
+   áudio" é o único que quebra em duas linhas), e são oito tiles em três
+   fileiras — a última, a do aparelho, tem dois e começa sozinha.
 
    O TOM É `--surface`, o mesmo que o `.fit-opt` desta folha sempre teve: o
    tile é um CONTROLE dentro de um cartão, e dentro de um cartão a superfície
    AFUNDA (a inversão que a regra do topo deste arquivo descreve). Não é
    `--panel`: sobre a folha, que já é `--panel`, ele desapareceria. */
 .qs-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
+/* A GRADE DAS JANELAS (v1.11.7): o mesmo tile, a mesma folga, e DUAS colunas — a
+   janela da Tela leva quatro tiles (2x2 exato) e a do Transferir, dois. NÃO É
+   `.qs-grade`: o `document.querySelector('.qs-grade')` dos oráculos devolve o
+   PRIMEIRO no documento, e as janelas vêm antes de Configurações. */
+.qs-grade-folha { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+/* A nota da janela do Transferir: uma frase, na tinta de apoio. */
+.pacote-nota { margin: 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
 /* ===== A FILEIRA DO APARELHO COMEÇA UMA LINHA NOVA (v1.9.9) =====
    Pedido do operador, na v1.7.6: *"reordene os botões: compartilhar, exportar e
-   importar devem ser os tres itens da base"*. Aquilo valia por ARITMÉTICA — a
-   grade tinha 9 tiles e 3 colunas, então os três caíam sozinhos na última
-   fileira. Com os dois de v1.9.9 são ONZE, e sem esta linha o `compartilhar`
-   fecharia a terceira fileira ao lado de uma PREFERÊNCIA, deixando
-   exportar/importar órfãos na quarta: a tríade que ele mandou manter junta sai
-   partida, e o pedido morre por um tile novo em qualquer lote futuro.
+   importar devem ser os tres itens da base"*, e hoje são DOIS (Compartilhar e
+   Transferir). Aquilo valia por ARITMÉTICA — a grade tinha 9 tiles e 3 colunas,
+   então os três caíam sozinhos na última fileira —, e a aritmética não é uma
+   regra: com seis tiles de ajuste e o `compartilhar` na sétima casa, sem esta
+   linha ele fecharia a segunda fileira ao lado de uma PREFERÊNCIA, e um tile novo
+   em qualquer lote futuro o empurraria de volta.
 
    `grid-column: 1` força o item a esperar a próxima linha, e o vão que sobra no
    fim das preferências é o que separa as duas naturezas — que é justamente o que
