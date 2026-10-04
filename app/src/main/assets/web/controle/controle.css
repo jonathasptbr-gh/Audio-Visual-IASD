@@ -9359,6 +9359,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    escopar pela `.pacote-linha` é (0,2,0) e não toca nas outras folhas. Sem ela
    o que sai é um quadrado de 24px sob uma seta de 34, e os nomes fora de prumo. */
 .pacote-linha .song-menu-icon { width: var(--hit); height: var(--hit); }
+/* A LINHA EM LEITURA (a listagem antes de importar, v1.11.7) é um `<div>` e não
+   responde a toque: sem a mão do ponteiro e sem o recuo de feedback, que é o
+   que diria "aperte aqui" sobre uma linha que não faz nada. O recuo vem de uma
+   lista de guardas por `:is(…):active` (0,2,0); este vale (0,3,0). */
+.song-menu-btn.pacote-leitura { cursor: default; }
+.song-menu-btn.pacote-leitura:active { transform: none; filter: none; }
 :is(.pacote-grupo, .pacote-linha) > .song-menu-btn.song-menu-sel:is(
   :has(.song-menu-check.on), :has(.song-menu-check.parcial)
 ),

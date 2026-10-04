@@ -30517,6 +30517,12 @@ let pacoteCancelar = false;
 // ocupada?" (e trava os dois tiles); este responde "o que está acontecendo?", e
 // é ele que decide qual tile fala e qual aceita o toque de cancelar.
 let pacoteExportando = false;
+// A MEDIÇÃO DE VERDADE (a varredura do disco que vem DEPOIS da folha de escolha,
+// até o "Salvar como" responder): é trabalho andando — o aro gira — mas ainda
+// não é `pacoteExportando`, que só sobe com o arquivo aberto. O tile da grade
+// (`pacoteSinal`) precisa saber dela para não ficar parado durante os segundos
+// em que o acervo é medido.
+let pacoteMedindo = false;
 let pacoteResposta = null;
 
 // Detecção por PRESENÇA, nunca por versão de shell — a mesma regra do
@@ -31374,6 +31380,34 @@ function escolherGruposDoPacote(plano) {
   });
 }
 
+/**
+ * A MESMA FOLHA, EM LEITURA, ANTES DE IMPORTAR (v1.11.7).
+ *
+ * Pedido do operador: *"junto com o sistema que já temos de listagem da
+ * biblioteca atual antes da exportação, afinal, para importação também é bom
+ * saber o que já se tem"*. A listagem é do que o APARELHO TEM — ela não lê o
+ * arquivo, só o que a Biblioteca já guarda —, e o caso de uso da importação é
+ * justamente o aparelho novo, que pode não ter nada: por isso o estado VAZIO
+ * tem frase, e não uma folha em branco.
+ *
+ * É a promessa do `escolherGruposDoPacote` (`pacoteGruposResolve`), e fechar por
+ * ✕, pelo fundo ou pelo voltar resolve `null` — desistir é não importar. O
+ * `true` é o "Escolher o arquivo". NENHUMA linha daqui toca em `destMarcados`:
+ * é leitura, e o estado de marcação é o da folha de destinos, que é a mesma
+ * `#songMenuList`.
+ */
+function mostrarAcervoParaImportar(plano) {
+  return new Promise((resolve) => {
+    pacoteGruposResolve = resolve;
+    destLimpar();
+    pacoteSecaoAberta = '';
+    songMenuFor = { pacoteGrupos: true, leitura: true };
+    songMenuTitleEl.textContent = 'O que já está neste aparelho';
+    renderPacoteGrupos(plano, { leitura: true });
+    songMenuPopupEl.classList.add('open');
+  });
+}
+
 /** O que está marcado, MAIS o que é fixo. */
 function pacoteSelecao(plano) {
   const sel = new Set(destMarcados);
@@ -31407,9 +31441,13 @@ function pacoteCheckGrupo(estado) {
   return cx;
 }
 
-function renderPacoteGrupos(plano) {
+function renderPacoteGrupos(plano, opts = {}) {
   limparFolha(songMenuListEl);
-  const remontar = () => renderPacoteGrupos(plano);
+  // EM LEITURA (v1.11.7) a folha é a do IMPORTAR: lista o que o aparelho já tem,
+  // sem caixa, sem marca e sem o "Salvar X" — as linhas não respondem a toque e
+  // as seções só abrem e fecham.
+  const leitura = !!opts.leitura;
+  const remontar = () => renderPacoteGrupos(plano, opts);
   destRemontar = remontar;
   const porChave = new Map(plano.grupos.map((g) => [g.chave, g]));
 
@@ -31432,6 +31470,27 @@ function renderPacoteGrupos(plano) {
 
   const linhaDeGrupo = (g) => {
     const peso = pacotePeso(g.bytes, g.aprox);
+    if (leitura) {
+      // UMA LINHA QUE NÃO FAZ NADA NÃO É UM BOTÃO (a regra da v1.8.50): um
+      // `<button>` sem ação seria o botão aceso que não responde, e é o que o
+      // toque tenta duas vezes antes de concluir que o app quebrou.
+      const li = document.createElement('li');
+      li.className = 'pacote-linha';
+      const row = document.createElement('div');
+      row.className = 'song-menu-btn pacote-leitura';
+      const ic = document.createElement('span');
+      ic.className = 'song-menu-icon coll-bar-icon';
+      ic.innerHTML = (g.chave === 'midia' || g.sobreposto) ? msym(ICON.import) : msym(ICON.music);
+      const txt = document.createElement('span'); txt.className = 'song-menu-text';
+      const t = document.createElement('span'); t.className = 'song-menu-label'; t.textContent = g.rotulo;
+      const d = document.createElement('span'); d.className = 'song-menu-sub';
+      d.textContent = (g.sub ? g.sub + ' · ' : '') + peso
+        + (g.sobreposto ? ' · pode estar em outro grupo' : '');
+      txt.append(t, d);
+      row.append(ic, txt);
+      li.appendChild(row);
+      return li;
+    }
     // O AVISO DA SOBREPOSIÇÃO (v1.8.38). Os grupos por lista se sobrepõem, e o
     // peso deles pode contar o mesmo item duas vezes — o que a folha NÃO pode
     // fazer é mostrar dois números que não somam e calar sobre isso. O total do
@@ -31477,7 +31536,7 @@ function renderPacoteGrupos(plano) {
     const aberta = pacoteSecaoAberta === item.nome;
     const li = document.createElement('li');
     const bar = document.createElement('div');
-    bar.className = 'song-menu-btn song-menu-sel song-menu-grupo';
+    bar.className = 'song-menu-btn song-menu-grupo' + (leitura ? '' : ' song-menu-sel');
     bar.setAttribute('role', 'button');
     bar.setAttribute('tabindex', '0');
     // A SETA É A DA BIBLIOTECA, E É LITERALMENTE A DELA (v1.8.41).
@@ -31539,10 +31598,15 @@ function renderPacoteGrupos(plano) {
     // UNIÃO, e é o mesmo que o confirmar usa — dois jeitos de somar a mesma
     // coisa divergem no primeiro grupo que se sobrepuser.
     const marcadas = item.chaves.filter((k) => destMarcados.has(k));
-    d.textContent = marcadas.length + ' de ' + item.chaves.length
-      + ' · ' + pacotePeso(pacoteBytesDe(plano, new Set(marcadas)), plano.aprox);
+    // EM LEITURA o peso é o da seção INTEIRA (a união, pelo mesmo
+    // `pacoteBytesDe`) e não há "N de M": nada está marcado, nada vai a lugar
+    // nenhum.
+    d.textContent = leitura
+      ? pacotePeso(pacoteBytesDe(plano, new Set(item.chaves)), plano.aprox)
+      : marcadas.length + ' de ' + item.chaves.length
+        + ' · ' + pacotePeso(pacoteBytesDe(plano, new Set(marcadas)), plano.aprox);
     txt.append(t, d);
-    bar.append(seta, txt, pacoteCheckGrupo(estado));
+    if (leitura) bar.append(seta, txt); else bar.append(seta, txt, pacoteCheckGrupo(estado));
     const marcarGrupo = () => {
       // PARCIAL VAI PARA CHEIO, e não para vazio: o toque numa marca parcial é
       // "quero este grupo", e quem quer tirar toca de novo. O contrário faria o
@@ -31551,9 +31615,11 @@ function renderPacoteGrupos(plano) {
       else for (const k of item.chaves) destMarcados.add(k);
       remontar();
     };
-    bar.addEventListener('click', marcarGrupo);
+    // EM LEITURA a barra ABRE E FECHA, como a seta: marcar não existe aqui.
+    const aoToque = leitura ? () => seta.click() : marcarGrupo;
+    bar.addEventListener('click', aoToque);
     bar.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); marcarGrupo(); }
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); aoToque(); }
     });
     // O CORPO MORA DENTRO DO BLOCO (v1.8.40), e não como irmão dele.
     //
@@ -31589,19 +31655,32 @@ function renderPacoteGrupos(plano) {
     songMenuListEl.appendChild(li);
   }
 
+  // UM APARELHO NOVO NÃO TEM NADA, e é o caso de uso da importação: a lista
+  // vazia diz isso, e o botão de seguir continua lá. Falhar vazio é proibido.
+  if (leitura && !plano.folha.length) {
+    const vazio = document.createElement('li');
+    vazio.className = 'empty';
+    vazio.textContent = 'Este aparelho ainda não tem biblioteca baixada.';
+    songMenuListEl.appendChild(vazio);
+  }
   const li = document.createElement('li');
   li.className = 'song-menu-go-row';
   const go = document.createElement('button');
   go.type = 'button'; go.className = 'song-menu-btn song-menu-go';
   const txt = document.createElement('span'); txt.className = 'song-menu-text';
   const t = document.createElement('span'); t.className = 'song-menu-label';
-  const sel = pacoteSelecao(plano);
-  // O PESO DO QUE FOI ESCOLHIDO, no próprio botão: é a única pergunta que o
-  // operador tem depois de marcar ("cabe no cartão?"), e ela muda a cada toque.
-  t.textContent = 'Salvar ' + pacotePeso(pacoteBytesDe(plano, sel), plano.aprox);
+  if (leitura) {
+    t.textContent = 'Escolher o arquivo';
+    go.addEventListener('click', () => fecharPacoteGrupos(true));
+  } else {
+    const sel = pacoteSelecao(plano);
+    // O PESO DO QUE FOI ESCOLHIDO, no próprio botão: é a única pergunta que o
+    // operador tem depois de marcar ("cabe no cartão?"), e ela muda a cada toque.
+    t.textContent = 'Salvar ' + pacotePeso(pacoteBytesDe(plano, sel), plano.aprox);
+    go.addEventListener('click', () => fecharPacoteGrupos(pacoteSelecao(plano)));
+  }
   txt.appendChild(t);
   go.appendChild(txt);
-  go.addEventListener('click', () => fecharPacoteGrupos(pacoteSelecao(plano)));
   li.appendChild(go);
   porFecho(songMenuListEl, li);
 }
@@ -31690,8 +31769,8 @@ async function exportarPacote() {
   if (!esboco) {
     pacoteEmCurso = false;
     pacoteRenderTiles();
-    pulsar(pacoteExportarTileEl, 'erro');
-    falarNoTile(pacoteExportarTileEl, 'Não deu', 4000);
+    pacotePulsar(pacoteExportarTileEl, 'erro');
+    pacoteFalar(pacoteExportarTileEl, 'Não deu', 4000);
     return;
   }
   pacotePlanoAtual = esboco;
@@ -31719,6 +31798,8 @@ async function exportarPacote() {
   pacoteCancelar = false;
   pacotePercentualDito = -1;
   pacoteExportarTileEl.classList.add('qs-trabalhando');
+  pacoteMedindo = true;
+  pacoteSinal();
   pacoteFalarPercentual(pacoteExportarTileEl, 0);
   try {
     plano = await pacotePlano((f) => {
@@ -31730,11 +31811,12 @@ async function exportarPacote() {
   if (!plano) {
     pacotePlanoAtual = null;
     pacoteExportarTileEl.classList.remove('qs-trabalhando');
+    pacoteMedindo = false;
     pacoteEmCurso = false;
-    calarTile(pacoteExportarTileEl);
+    pacoteCalar(pacoteExportarTileEl);
     pacoteRenderTiles();
-    pulsar(pacoteExportarTileEl, 'erro');
-    falarNoTile(pacoteExportarTileEl, 'Não deu', 4000);
+    pacotePulsar(pacoteExportarTileEl, 'erro');
+    pacoteFalar(pacoteExportarTileEl, 'Não deu', 4000);
     return;
   }
   pacotePlanoAtual = plano;
@@ -31774,11 +31856,13 @@ async function exportarPacote() {
   if (!nome) {
     pacotePlanoAtual = null;
     pacoteExportarTileEl.classList.remove('qs-trabalhando');
+    pacoteMedindo = false;
     pacoteEmCurso = false;
-    calarTile(pacoteExportarTileEl);
+    pacoteCalar(pacoteExportarTileEl);
     pacoteRenderTiles();
     return;
   }
+  pacoteMedindo = false;
   pacoteExportando = true;
   pacoteRenderTiles();
   let erro = '';
@@ -31964,20 +32048,21 @@ async function exportarPacote() {
     if (erro) { try { AVNative.pacoteCancelar(); } catch (_) { /* ponte */ } }
     pacoteEmCurso = false;
     pacoteExportando = false;
+    pacoteMedindo = false;
     pacoteCancelar = false;
     pacotePlanoAtual = null;
-    calarTile(pacoteExportarTileEl);
+    pacoteCalar(pacoteExportarTileEl);
     pacoteRenderTiles();
   }
   // DESISTIR NÃO É FALHAR, e por isso não abre diálogo de erro: o operador
   // acabou de tocar no botão e sabe o que aconteceu. O parcial já foi apagado
   // pelo caminho acima — e o BOTÃO confirma, que é onde ele tocou.
   if (erro === PACOTE_CANCELADO) {
-    falarNoTile(pacoteExportarTileEl, 'Cancelado', 3000);
+    pacoteFalar(pacoteExportarTileEl, 'Cancelado', 3000);
     return;
   }
   if (erro) {
-    pulsar(pacoteExportarTileEl, 'erro');
+    pacotePulsar(pacoteExportarTileEl, 'erro');
     await openAppDialog({ title: 'Não deu para exportar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
@@ -31994,7 +32079,7 @@ async function exportarPacote() {
   // ele existia para dizer duas coisas: o tamanho e o que fazer em seguida. O
   // tamanho continua no botão; o "o que fazer" virou o PRÓPRIO BOTÃO — ele
   // para em 100% e o toque manda.
-  pulsar(pacoteExportarTileEl, 'ok');
+  pacotePulsar(pacoteExportarTileEl, 'ok');
   // ===== O CARTÃO DE CONCLUSÃO, COM O CHECK (v1.8.31) =====
   //
   // Pedido do operador: *"ao terminar o processo de exportar ou importar, o
@@ -32015,7 +32100,7 @@ async function exportarPacote() {
   }
   // NO CAMINHO DO SAF NÃO HÁ O QUE MANDAR: o arquivo já é do operador, na
   // pasta que ELE escolheu. O botão diz quanto pesou e volta ao que era.
-  falarNoTile(pacoteExportarTileEl, fmtBytes(gravados), 5000);
+  pacoteFalar(pacoteExportarTileEl, fmtBytes(gravados), 5000);
 }
 
 // ---------------------------------------------------------------------------
@@ -32707,7 +32792,30 @@ function pacoteFalarPercentual(el, fracao) {
   // do freio de 700 ms da notificação, na superfície que não tem freio nenhum.
   if (pct === pacotePercentualDito) return;
   pacotePercentualDito = pct;
-  falarNoTile(el, pct + '%', 0);
+  pacoteFalar(el, pct + '%', 0);
+}
+
+// ===== O FEEDBACK DE EXPORTAR/IMPORTAR TAMBÉM VAI PARA O TILE DA GRADE (v1.11.7)
+//
+// Os dois botões moram numa janela, e ela pode estar FECHADA durante os minutos
+// de uma exportação: `pulsar` recusa um nó dentro de `.popup-backdrop:not(.open)`
+// e a frase emprestada num nó oculto não se vê. O tile da grade (`#pacoteTile`)
+// é o que continua à vista com Configurações aberta, então todo desfecho que
+// vai para um dos dois passa por aqui e vai para ele também. O que NÃO passa por
+// aqui é o rótulo de PAPEL do irmão ("Cancelar", "Descartar"): ele diz o que o
+// toque faz naquele botão, e no tile da grade seria uma mentira.
+function pacoteFalar(el, texto, ms) {
+  falarNoTile(el, texto, ms);
+  falarNoTile(pacoteTileEl, texto, ms);
+}
+function pacoteCalar(el) {
+  calarTile(el);
+  calarTile(pacoteTileEl);
+}
+function pacotePulsar(el, tipo) {
+  const dele = pulsar(el, tipo);
+  const daGrade = pulsar(pacoteTileEl, tipo);
+  return dele || daGrade;
 }
 
 async function pacoteConferir(fonte, aoAndar) {
@@ -33055,7 +33163,7 @@ async function importarPacote() {
   // A CONFERÊNCIA vem antes do primeiro byte gravado e lê o arquivo inteiro
   // pelos cabeçalhos: num pacote de gigabytes ela leva segundos, e sem esta
   // linha o botão fica parado enquanto ela roda.
-  falarNoTile(pacoteImportarTileEl, 'Conferindo…', 0);
+  pacoteFalar(pacoteImportarTileEl, 'Conferindo…', 0);
   let erro = '';
   const contagem = { media: 0, arquivos: 0, chaves: 0, opfs: 0, repetidos: 0, recusadas: 0 };
   try {
@@ -33165,7 +33273,7 @@ async function importarPacote() {
   } finally {
     pacoteEmCurso = false;
     pacoteImportando = false;
-    calarTile(pacoteImportarTileEl);
+    pacoteCalar(pacoteImportarTileEl);
     pacoteRenderTiles();
   }
   if (pacoteCancelarImport) {
@@ -33182,7 +33290,7 @@ async function importarPacote() {
     return;
   }
   if (erro) {
-    pulsar(pacoteImportarTileEl, 'erro');
+    pacotePulsar(pacoteImportarTileEl, 'erro');
     await openAppDialog({ title: 'Não deu para importar', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
@@ -33212,7 +33320,7 @@ async function importarPacote() {
     consumo = 'O arquivo do pacote continua no aparelho.';
   }
 
-  pulsar(pacoteImportarTileEl, 'ok');
+  pacotePulsar(pacoteImportarTileEl, 'ok');
   bgConcluido('Acervo importado', 'A biblioteca já está no aparelho.');
   // A REHIDRATAÇÃO VEM ANTES DO RELATÓRIO (v1.8.43), e a ordem é o que o
   // relatório diz. Ele nomeia as coleções por `allCollections()`, que lê o
@@ -33366,13 +33474,56 @@ function pacoteIrmaoCancela(el, acao, rotulo, descricao) {
   el.onclick = (ev) => { ev.preventDefault(); acao(); };
 }
 
+// Os dois botões da janela (a coreografia inteira) e o sinal do tile da grade:
+// QUEM PINTA UM, PINTA O OUTRO — são 15 chamadores, e um chamador que esquecesse
+// o tile da grade deixaria um trabalho de minutos sem sinal nenhum com a janela
+// fechada. O corpo é o de sempre, e `pacoteRenderPar` é o nome dele.
 function pacoteRenderTiles() {
+  pacoteRenderPar();
+  pacoteSinal();
+}
+
+/**
+ * O TILE DA GRADE É O SINAL, não só a porta (v1.11.7).
+ *
+ * Ele diz, com a janela fechada, as duas coisas que a coreografia dos botões
+ * dizia: HÁ TRABALHO ANDANDO (o aro, no lugar do ícone) e HÁ UM PACOTE PRONTO
+ * (o desenho de compartilhar). O que o toque faz é o mesmo nos dois casos —
+ * abrir a janela, onde o botão certo espera: o Exportar que envia, o Importar
+ * que descarta, o que cancela.
+ *
+ * O ARO GIRA ONDE HÁ TRABALHO, e não onde há `pacoteEmCurso` (a regra da
+ * v1.8.28: ele sobe no primeiro toque, antes da medição e durante a folha de
+ * escolha, quando nada está andando). A importação TAMBÉM ganha aro aqui — no
+ * botão dela ela vira o Cancelar, mas o tile da grade não tem irmão, e o
+ * trabalho precisa de uma cara.
+ *
+ * NUNCA `disabled`: tocar nele é a única forma de chegar ao cancelar, ao enviar
+ * e ao descartar.
+ */
+function pacoteSinal() {
+  if (!pacoteTileEl) return;
+  const trabalhando = !!(pacoteExportando || pacoteImportando || pacoteMedindo);
+  const pronto = !!pacotePronto && !trabalhando;
+  pacoteTileEl.classList.toggle('qs-trabalhando', trabalhando);
+  pacoteTileEl.disabled = false;
+  const nome = pacoteExportando || pacoteMedindo ? 'exportando' : (pacoteImportando ? 'importando' : '');
+  pintarTile(pacoteTileEl, trabalhando ? 'ocupado' : (pronto ? 'pronto-para-enviar' : 'ocioso'),
+    trabalhando ? nome : (pronto ? 'pronto, ' + fmtBytes(pacotePronto.bytes) : ''), true, pronto);
+  pacoteTileEl.title = pronto
+    ? 'Pacote pronto (' + fmtBytes(pacotePronto.bytes) + ') — toque para enviar ou descartar'
+    : (trabalhando
+      ? (nome === 'importando' ? 'Importando — toque para ver ou parar' : 'Exportando — toque para ver ou parar')
+      : 'Levar a biblioteca e os ajustes para outro aparelho, ou trazê-los de um arquivo');
+}
+
+function pacoteRenderPar() {
   const fora = !window.__NATIVE__;
   // A SAÍDA DE ÁUDIO ENTRA NESTA LISTA (v1.9.9) e não numa função própria: a
   // pergunta é a MESMA — *"este tile depende da ponte?"* —, e a resposta dela é
   // sim pelo mesmo motivo dos três seguintes. Um segundo lugar escrevendo
   // `hidden` por tile divergiria no primeiro tile novo.
-  for (const el of [saidaAudioTileEl, shareAppTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
+  for (const el of [saidaAudioTileEl, shareAppTileEl, pacoteTileEl, pacoteExportarTileEl, pacoteImportarTileEl]) {
     if (el) el.hidden = fora;
   }
   if (shareAppTileEl) pintarTile(shareAppTileEl, 'app', 'O app', true, false);
@@ -33425,7 +33576,7 @@ function pacoteRenderTiles() {
     pacoteTrabalhando(pacoteExportarTileEl, true, 'em curso', true);
     pacoteIrmaoCancela(pacoteImportarTileEl, () => {
       pacoteCancelar = true;
-      falarNoTile(pacoteExportarTileEl, 'Parando…', 0);
+      pacoteFalar(pacoteExportarTileEl, 'Parando…', 0);
     });
     return;
   }
@@ -33441,7 +33592,7 @@ function pacoteRenderTiles() {
     // de gigabytes de fato acontece).
     pacoteIrmaoCancela(pacoteImportarTileEl, () => {
       pacoteCancelarImport = true;
-      falarNoTile(pacoteImportarTileEl, 'Parando…', 0);
+      pacoteFalar(pacoteImportarTileEl, 'Parando…', 0);
     });
     pacoteTrabalhando(pacoteExportarTileEl, false, 'o acervo', false);
     pacoteExportarTileEl.disabled = true;
@@ -33453,8 +33604,8 @@ function pacoteRenderTiles() {
   // é a verdade — não há trabalho a mostrar e não há toque a aceitar.
   pacoteImportarTileEl.onclick = null;
   pacoteExportarTileEl.onclick = null;
-  calarTile(pacoteExportarTileEl);
-  calarTile(pacoteImportarTileEl);
+  pacoteCalar(pacoteExportarTileEl);
+  pacoteCalar(pacoteImportarTileEl);
   pacoteTrabalhando(pacoteExportarTileEl, false, 'o acervo', false);
   pacoteTrabalhando(pacoteImportarTileEl, false, 'o acervo', false);
   pacoteExportarTileEl.disabled = pacoteEmCurso;
@@ -33491,7 +33642,7 @@ if (pacoteExportarTileEl) {
     // parcial é apagado e o arquivo escolhido some.
     if (pacoteExportando) {
       pacoteCancelar = true;
-      falarNoTile(pacoteExportarTileEl, 'Parando…', 0);
+      pacoteFalar(pacoteExportarTileEl, 'Parando…', 0);
       return;
     }
     // A MEDIÇÃO e a folha de escolha caem aqui: não escreveram byte nenhum,
@@ -33520,8 +33671,8 @@ async function enviarPacotePronto() {
     pacoteAnotar('enviou', 'o shell recusou o envio (-1) — o pronto foi descartado');
     pacotePronto = null;
     pacoteRenderTiles();
-    pulsar(pacoteExportarTileEl, 'erro');
-    falarNoTile(pacoteExportarTileEl, 'Refaça', 4000);
+    pacotePulsar(pacoteExportarTileEl, 'erro');
+    pacoteFalar(pacoteExportarTileEl, 'Refaça', 4000);
     return;
   }
   pacoteAnotar('enviou', 'seletor aberto com ' + fmtBytes(bytes));
@@ -33570,7 +33721,41 @@ function pacoteDescartarPronto() {
   try { AVNative.pacoteDescartarPronto(); } catch (_) { /* ponte */ }
   pacoteRenderTiles();
 }
-if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => { importarPacote(); });
+/**
+ * O TOQUE NO IMPORTAR: PRIMEIRO O QUE O APARELHO JÁ TEM, DEPOIS O ARQUIVO.
+ *
+ * A listagem mora AQUI, no toque, e NÃO dentro de `importarPacote`: aquela é
+ * chamada direto por dezenas de pontos de oráculo com um `pickDoc` de mentira,
+ * e um `await` de folha dentro dela os penduraria todos esperando um toque que
+ * ninguém dá. O mesmo vale para o `exportarPacote`, que continua sem argumentos
+ * e com a folha "O que levar" por dentro.
+ *
+ * A GUARDA É A DA v1.8.42, COPIADA (`importarPacote` explica o porquê): o
+ * ouvinte permanente roda JUNTO com o `onclick` que `pacoteIrmaoCancela`
+ * instala, e sem `pacotePronto` aqui um toque em "Descartar" abriria a
+ * listagem por cima da confirmação.
+ *
+ * `pacoteEmCurso` sobe durante a folha e desce antes do seletor: ele só protege
+ * contra um segundo toque (os dois botões ficam `disabled`), e segurá-lo até
+ * dentro do `importarPacote` o barraria na própria guarda. A listagem que falha
+ * em montar NÃO bloqueia a importação — ela informa, não autoriza.
+ */
+async function importarPeloTile() {
+  if (!window.__NATIVE__ || pacoteEmCurso || pacotePronto) return;
+  pacoteEmCurso = true;
+  pacoteRenderTiles();
+  let seguir = true;
+  try {
+    let plano = null;
+    try { plano = await pacotePlanoAproximado(); } catch (_) { plano = null; }
+    if (plano) seguir = !!(await mostrarAcervoParaImportar(plano));
+  } finally {
+    pacoteEmCurso = false;
+    pacoteRenderTiles();
+  }
+  if (seguir) importarPacote();
+}
+if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => { importarPeloTile(); });
 // Na CARGA, e não só ao abrir a folha: é este toque que revela (ou esconde) o
 // bloco inteiro, e uma folha aberta antes dele mostraria um rótulo sozinho.
 pacoteRenderTiles();
