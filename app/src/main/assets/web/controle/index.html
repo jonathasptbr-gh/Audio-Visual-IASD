@@ -39,24 +39,21 @@
        o `windowBackground`, a raiz da Activity e o próprio WebView já nascem na
        cor do tema guardado (ver `MainActivity.onCreate` e `WebViewFactory`). O
        que pisca é o DOCUMENTO — entre o primeiro quadro e a última linha do
-       `init()` ele passa por três estados que não são o do operador:
+       `init()` ele passa por dois estados que não são o do operador:
 
          1. o TEMA. `pintarTema()` escreve `data-tema` no `controle.js`, que é o
             ÚLTIMO dos quinze scripts do `<body>`: até ele rodar, quem pinta é o
             `:root` sem atributo, isto é, o tema ESCURO. Quem escolheu o claro
             abre o app num flash de preto — foi o exemplo do relato.
-         2. o MODO. O `<body>` nasce `mode-simple` (é o padrão de quem nunca
-            escolheu); quem deixou o avançado vê a tela errada trocar embaixo do
-            dedo, no mesmo instante.
-         3. o CONTEÚDO. `init()` é assíncrono e lê o IndexedDB: a lista nasce
+         2. o CONTEÚDO. `init()` é assíncrono e lê o IndexedDB: a lista nasce
             vazia, o nome da cena diz "Nada tocando", a preview não tem
             wallpaper. Tudo isso se resolve sozinho — DEPOIS de aparecer.
 
        O 1 tem conserto próprio (o `dataset.tema` abaixo, escrito antes de
        existir primeiro quadro, e é a ÚNICA leitura de `av.tema` do app — o
-       `storedTema()` do `controle.js` lê o atributo que sai daqui). O 2 e o 3
-       não têm: eles dependem de trabalho que leva o tempo que leva. Para eles a
-       resposta é a cortina — o `#splash`, primeiro filho do `<body>`, opaco e no
+       `storedTema()` do `controle.js` lê o atributo que sai daqui). O 2 não tem:
+       ele depende de trabalho que leva o tempo que leva. Para ele a resposta é
+       a cortina — o `#splash`, primeiro filho do `<body>`, opaco e no
        topo da pilha, que só levanta quando o `init()` termina.
 
        ===== O PRAZO É ARMADO AQUI, E NÃO NO `controle.js` =====
@@ -155,15 +152,15 @@
   </script>
 </head>
 <!-- A classe vem no HTML para a tela certa aparecer sem esperar JS/IndexedDB —
-     o simplificado é o padrão de quem nunca escolheu. Quem escolheu reabre no
-     ÚLTIMO modo usado, e a troca acontece no topo do controle.js, numa leitura
-     SÍNCRONA (localStorage): uma leitura do IDB chegaria tarde e a tela trocaria
-     embaixo do dedo. Ver "Modos de uso".
+     toda abertura nasce no simplificado. Só uma recarga do documento DENTRO da
+     sessão devolve o avançado, e a troca acontece no topo do controle.js, numa
+     leitura SÍNCRONA (sessionStorage): uma leitura do IDB chegaria tarde e a
+     tela trocaria embaixo do dedo. Ver "Modos de uso".
 
-     "SÍNCRONA" NÃO É "ANTES DO PRIMEIRO QUADRO", e a frase dizia isso até a
-     v1.7.0: o `controle.js` é o ÚLTIMO dos quinze scripts do fim deste corpo, e
-     entre o primeiro quadro e ele o app fica na tela de quem NUNCA escolheu.
-     Quem cobre esse vão é a cortina de abertura logo abaixo. -->
+     "SÍNCRONA" NÃO É "ANTES DO PRIMEIRO QUADRO": o `controle.js` é o ÚLTIMO dos
+     quinze scripts do fim deste corpo, e entre o primeiro quadro e ele o app
+     fica na tela do simplificado. Quem cobre esse vão é a cortina de abertura
+     logo abaixo. -->
 <body class="mode-simple">
   <!-- ===== A CORTINA (v1.7.0) — ver o script do `<head>` para o porquê =====
        PRIMEIRO FILHO do corpo de propósito: é o que garante que ela exista no
@@ -2149,7 +2146,7 @@
              aqui é o RÓTULO na tela, e só ele — `data-mode="simple"` é o mesmo
              valor de sempre, que é o que o app e os oráculos leem. -->
         <div class="fade-row fade-row--fit fade-row--modo">
-          <div class="fit-seg qs-modo" id="appModeSeg" data-modo="full">
+          <div class="fit-seg qs-modo" id="appModeSeg" data-modo="simple">
             <button type="button" class="fit-opt" data-mode="simple">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoModoFacil"/></svg>
               <span>Modo simples</span>

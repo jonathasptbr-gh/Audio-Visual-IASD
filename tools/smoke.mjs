@@ -24,7 +24,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperarCortina, esperar, porque, checar, falhas, lerPng, pixel } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperarCortina, esperar, porque, checar, falhas, lerPng, pixel, comModoAvancado } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 
@@ -5732,6 +5732,11 @@ try {
 // existe quando o ouvinte é posto.
 try {
   const pg2 = await ctx.newPage();
+  // O modo vale pela SESSÃO (`sessionStorage`, por aba): esta página é uma aba
+  // nova e nasceria no Modo Fácil. Este bloco mede a janela do avançado, então
+  // DECLARA de que modo parte — antes ele o herdava, calado, do `localStorage`
+  // que o `setAppMode` dos blocos anteriores deixava no contexto.
+  await comModoAvancado(pg2);
   await pg2.addInitScript(() => {
     window.__libTransicoes = 0;
     document.addEventListener('transitionrun', (e) => {

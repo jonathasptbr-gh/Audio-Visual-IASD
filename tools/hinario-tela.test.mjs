@@ -38,7 +38,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, checar, falhas, comModoAvancado } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
 const servidor = servirEstatico(RAIZ);
@@ -54,12 +54,11 @@ const porta = servidor.address().port;
 const navegador = await abrirNavegador();
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
 await semRedeExterna(ctx);
-// O modo avançado SEMEADO antes da primeira linha do app: ligá-lo por
-// `evaluate` depois da carga é uma corrida contra o `setAppMode(appMode)` do
-// `init()`, que chama `closeHymnSearch()`. MEDIDO noutro oráculo deste repo.
-await ctx.addInitScript(() => {
-  try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* storage bloqueado */ }
-});
+// O modo avançado DECLARADO antes da primeira linha do app (`comModoAvancado`):
+// ligá-lo por `evaluate` depois da carga é uma corrida contra o
+// `setAppMode(appMode)` do `init()`, que chama `closeHymnSearch()`. MEDIDO
+// noutro oráculo deste repo.
+await comModoAvancado(ctx);
 const pg = await ctx.newPage();
 
 const erros = [];

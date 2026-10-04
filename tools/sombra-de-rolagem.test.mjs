@@ -43,7 +43,7 @@ import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
 import {
   servirEstatico, abrirNavegador, esperarCortina, checar, falhas,
-  lerPng, pixel, luminancia, comTema,
+  lerPng, pixel, luminancia, comTema, comModoAvancado,
 } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
@@ -668,7 +668,7 @@ try {
   {
     const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
     await semRedeExterna(ctx);
-    await ctx.addInitScript(() => { try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* modo padrão */ } });
+    await comModoAvancado(ctx);
     const pg = await ctx.newPage();
     await pg.goto(base, { waitUntil: 'load' });
     await esperarCortina(pg);

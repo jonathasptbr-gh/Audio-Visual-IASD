@@ -56,27 +56,31 @@ const simpleVolUpEl = document.getElementById('simpleVolUp');
 const simpleVolDownEl = document.getElementById('simpleVolDown');
 const simpleVolValueEl = document.getElementById('simpleVolValue');
 
-// ===== O modo LEMBRADO =====
-// Em `localStorage`, e NÃO no IndexedDB como o resto do estado: esta chave é
+// ===== O MODO VALE PELA SESSÃO — toda abertura nasce no Modo Fácil =====
+// Em `sessionStorage`, e NÃO no IndexedDB como o resto do estado: esta chave é
 // lida ANTES DO PRIMEIRO QUADRO (o `<body>` nasce `mode-simple` para a tela
 // certa aparecer sem esperar JS, e uma leitura do IDB é assíncrona — quem
-// deixou o avançado veria a tela errada trocar embaixo do dedo). `localStorage`
-// é síncrono e vive no mesmo `app_webview/`. UMA fonte, nunca duas.
+// estivesse no avançado veria a tela errada trocar embaixo do dedo).
+// `sessionStorage` é síncrono e morre com o app: abrir o app de novo é SEMPRE o
+// Modo Fácil, e é isso que o operador pediu. O que ele atravessa é a recarga do
+// documento DENTRO do mesmo WebView (a atualização aceita em "Atualizar agora",
+// o `location.reload()` da importação) — quem está no avançado no meio do culto
+// não cai no Modo Fácil por uma atualização. A chave de mesmo nome que as
+// versões anteriores gravaram em `localStorage` NUNCA é lida. UMA fonte.
 const APP_MODE_KEY = 'av.appMode';
-function storedAppMode() {
-  // `localStorage` lança com o armazenamento bloqueado (aba anônima). O padrão
-  // do app é o simplificado, então o `catch` já é a resposta certa.
-  try { return localStorage.getItem(APP_MODE_KEY) === 'full' ? 'full' : 'simple'; }
+function appModeDaSessao() {
+  // `sessionStorage` lança com o armazenamento bloqueado. O padrão do app é o
+  // simplificado, então o `catch` já é a resposta certa.
+  try { return sessionStorage.getItem(APP_MODE_KEY) === 'full' ? 'full' : 'simple'; }
   catch (_) { return 'simple'; }
 }
-let appMode = storedAppMode();
+let appMode = appModeDaSessao();
 // Só a PINTURA aqui: é a única parte que não pode esperar. O resto de
 // `setAppMode` roda no `init()`, quando o módulo já existe e a faixa de abas já
 // tem largura para ser medida.
 document.body.classList.toggle('mode-simple', appMode === 'simple');
 simpleModeEl.classList.toggle('open', appMode === 'simple');
 
-// ===== O TEMA (claro × escuro) — mesma gaveta, mesma razão =====
 // ===== O TEMA (claro × escuro) — mesma gaveta, mesma razão =====
 // Vale o parágrafo do `APP_MODE_KEY`, e aqui o preço de errar é maior: o modo
 // troca a TELA, o tema troca a COR DE TUDO.
@@ -37647,9 +37651,10 @@ function volumeProximo(atual, dir) {
 // Duas pessoas: quem só conecta a tela e toca um louvor, e o sonoplasta que
 // opera o culto inteiro.
 //
-// Abre no ÚLTIMO MODO USADO (`storedAppMode`), nunca por pergunta na abertura —
-// ela cobraria um toque de quem nem sabe que há dois modos. Cair no avançado
-// sem querer custa um toque no "← Modo simplificado" do cabeçalho.
+// Abre SEMPRE no simplificado (`appModeDaSessao`), nunca por pergunta na
+// abertura — ela cobraria um toque de quem nem sabe que há dois modos. Ir ao
+// avançado é um toque em Configurações, e a recarga do documento no meio do
+// culto o devolve (a escolha mora em `sessionStorage`).
 //
 // O simplificado NÃO é uma segunda implementação do transporte: os botões
 // acionam os MESMOS controles do avançado por `.click()` (o padrão da
@@ -37669,8 +37674,10 @@ function setAppMode(mode) {
   // não há botão de desfazer — este é um dos três caminhos de volta, e o único
   // que o operador percorre de propósito.
   tocarNoCelular = false;
-  // A escolha é do operador, e ele não deveria refazê-la a cada abertura.
-  try { localStorage.setItem(APP_MODE_KEY, appMode); } catch (_) { /* storage bloqueado */ }
+  // Só a SESSÃO lembra (ver `appModeDaSessao`): uma recarga do documento no
+  // meio do culto devolve o modo em que o operador estava, e abrir o app de novo
+  // devolve o Modo Fácil.
+  try { sessionStorage.setItem(APP_MODE_KEY, appMode); } catch (_) { /* storage bloqueado */ }
   document.body.classList.toggle('mode-simple', appMode === 'simple');
   simpleModeEl.classList.toggle('open', appMode === 'simple');
   // A preview troca de casa junto com o modo (ver hostPreview) — antes dos
@@ -38276,13 +38283,12 @@ holdRepeat(simpleVolDownEl, () => simpleVolStep(-1));
 // nada (v5.199), porque o que ela destravava deixou de estar trancado. Ficasse,
 // seria um gesto secreto de 5 s cujo efeito é indistinguível do estado normal
 // da tela.)
-// Fecha o ciclo com o HTML: as classes já vêm do documento (e, no modo
-// lembrado, já foram corrigidas no topo do arquivo), aqui o estado do JS
+// Fecha o ciclo com o HTML: as classes já vêm do documento (e, numa recarga
+// dentro da sessão, já foram corrigidas no topo do arquivo), aqui o estado do JS
 // (segmento do popup, espelho dos controles) nasce igual a elas.
-// `appMode`, e NÃO a constante `'simple'` que estava aqui: com o modo lembrado
-// essa linha reescrevia o `localStorage` para "simple" em toda abertura, e o
-// avançado nunca sobrevivia a fechar o app — o defeito era invisível, porque a
-// tela ainda pintava certo até esta linha rodar.
+// `appMode`, e NÃO a constante `'simple'`: a constante reescreveria a chave da
+// sessão em toda carga e uma recarga no avançado cairia no Modo Fácil — o
+// defeito é invisível, porque a tela ainda pinta certo até esta linha rodar.
 setAppMode(appMode);
 // Mesa de som nasce desligada (não é persistida); o segmento precisa nascer
 // dizendo isso, senão a primeira abertura de Configurações mostra dois botões
@@ -39994,11 +40000,9 @@ document.addEventListener('visibilitychange', () => {
   // ANTES do load(): é ele que lê `current` e monta a tela a partir dela.
   await clearCurrentSelection();
   await load();
-  // A SEGUNDA METADE do modo lembrado. A classe do `<body>` já foi escrita no
+  // A SEGUNDA METADE do modo da sessão. A classe do `<body>` já foi escrita no
   // topo do arquivo (antes do primeiro quadro); falta o que depende do módulo
-  // pronto: o segmento das Configurações, os renders do simplificado e — no
-  // avançado — o vazado da faixa de abas, que só pode ser POSICIONADO agora,
-  // porque medir a faixa antes de `load()` a desenhar daria zero.
+  // pronto: o segmento das Configurações e os renders do simplificado.
   setAppMode(appMode);
   // Wallpaper escolhido pelo operador (a preview espelha o telão).
   await applyPvWallpaper();

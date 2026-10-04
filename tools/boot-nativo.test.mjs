@@ -918,7 +918,7 @@ try {
   // ÍNDICE, e o que faltava era o DESENHO. É por isso que este bloco pergunta
   // ao DOM, e não a uma função.
   // ===== OS DOIS BLOCOS ABAIXO MEDEM O MODO AVANÇADO (v1.0.7) =====
-  // O padrão do app é o MODO FÁCIL (`storedAppMode`), e a seção de Favoritos
+  // O padrão do app é o MODO FÁCIL (toda abertura nasce nele), e a seção de Favoritos
   // deixou de existir lá — a pedido do operador, porque aquele modo não tem aba
   // nem lista onde o que se GUARDA possa ser visto depois. Sem esta troca, tudo
   // o que estes blocos afirmam sobre os Favoritos passaria a medir o modo em que
@@ -1812,7 +1812,7 @@ try {
   // "colapsado" seria só um `display: none`, e a tela continuaria pagando o DOM
   // de dezenas de álbuns a cada redesenho) **e** o toque no cabeçalho abre.
   // ===== OS DOIS BLOCOS ABAIXO MEDEM O MODO AVANÇADO (v1.0.7) =====
-  // O padrão do app é o MODO FÁCIL (`storedAppMode`), e a seção de Favoritos
+  // O padrão do app é o MODO FÁCIL (toda abertura nasce nele), e a seção de Favoritos
   // deixou de existir lá — a pedido do operador, porque aquele modo não tem aba
   // nem lista onde o que se GUARDA possa ser visto depois. Sem esta troca, tudo
   // o que estes blocos afirmam sobre os Favoritos passaria a medir o modo em que
@@ -3893,8 +3893,8 @@ try {
   //
   // O segundo caso é o portão de MODO: voltar ao Modo Fácil emudece, porque lá
   // sem tela a cortina já cobre tudo (o caso acima) e som atrás dela seria a
-  // única coisa acontecendo. Ele também devolve o `localStorage` ao
-  // simplificado — é dele que a página seguinte parte.
+  // única coisa acontecendo. Ele também devolve o modo da sessão ao
+  // simplificado — é dele que a recarga seguinte parte.
   const somSemTela = await pg.evaluate(() => {
     const v = document.getElementById('pvVideo');
     setAppMode('full');
@@ -3964,7 +3964,7 @@ try {
     const fechou = !document.getElementById('castPopup').classList.contains('open');
     mirrorEstado = null;
     fecharCast();
-    setAppMode('simple');   // devolve o `localStorage` — a página seguinte parte daqui
+    setAppMode('simple');   // devolve o modo da sessão — a recarga seguinte parte daqui
     return { abriu, fechou };
   });
   checar(fechaAoEntrar.abriu && fechaAoEntrar.fechou,

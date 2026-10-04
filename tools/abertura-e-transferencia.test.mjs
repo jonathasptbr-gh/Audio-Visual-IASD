@@ -22,13 +22,19 @@
 //     chooser do Android, o "Salvar como" do SAF e o canal de bytes), e no
 //     navegador eles sabem apenas não funcionar.
 //
+//  4. **O MODO que vale pela SESSÃO** (v1.11.7). Toda abertura nasce no Modo
+//     Fácil; a escolha do avançado mora em `sessionStorage` e atravessa só a
+//     recarga do documento. É o contrato que NENHUM outro oráculo afirma: os
+//     onze que partem do avançado o DECLARAM (`comModoAvancado`), e por isso
+//     passariam também num app que voltasse a lembrar o modo entre aberturas.
+//
 //   node tools/abertura-e-transferencia.test.mjs
 // ============================================================================
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperar, checar, falhas } from './arnes.mjs';
+import { servirEstatico, abrirNavegador, esperar, esperarCortina, checar, falhas } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
@@ -409,6 +415,73 @@ try {
     checar(visiveis.length === 0,
       'C2 · sem ponte os três são `hidden`, um a um — eles dependem do shell, e '
       + 'um botão que só sabe não funcionar é pior que botão nenhum', visiveis);
+    await ctx.close();
+  }
+
+  // =========================================================================
+  // D · O MODO VALE PELA SESSÃO
+  // =========================================================================
+  //
+  // Pedido do operador: *"sempre iniciar o app no modo simples"*. Três
+  // premissas, cada uma com a sua asserção — e a PRIMEIRA começa com a chave que
+  // as versões anteriores gravavam em `localStorage` já lá, porque é o estado
+  // real de todo aparelho que um dia usou o avançado: sem a chave legada, "o app
+  // não a lê" é uma tautologia (um app que nunca lembrou o modo passa igual).
+  {
+    const { ctx, pg } = await abrirApp({});
+    await pg.addInitScript(`try { localStorage.setItem('av.appMode', 'full'); } catch (e) {}`);
+    await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pg);
+    const d1 = await pg.evaluate(() => ({
+      modo: appMode,
+      corpo: document.body.classList.contains('mode-simple'),
+      trilho: document.getElementById('appModeSeg').dataset.modo,
+    }));
+    checar(d1.modo === 'simple' && d1.corpo === true && d1.trilho === 'simple',
+      'D1 · com a chave LEGADA `av.appMode=full` em `localStorage` o app abre no Modo '
+      + 'Fácil: o modo, o corpo e o trilho de Configurações dizem o mesmo', JSON.stringify(d1));
+    await ctx.close();
+  }
+  {
+    // SEM a chave legada: é o que torna a leitura da asserção seguinte honesta.
+    const { ctx, pg } = await abrirApp({});
+    await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pg);
+    await pg.evaluate(() => setAppMode('full'));
+    const d2 = await pg.evaluate(() => ({
+      local: localStorage.getItem('av.appMode'),
+      sessao: sessionStorage.getItem('av.appMode'),
+    }));
+    checar(d2.local === null && d2.sessao === 'full',
+      'D2 · ir ao avançado grava SÓ na sessão — `localStorage` segue sem a chave, '
+      + 'senão o app voltaria a lembrar o modo entre aberturas', JSON.stringify(d2));
+    // A RECARGA DENTRO DA SESSÃO (a atualização aceita, o `location.reload()` da
+    // importação) devolve o avançado: quem opera o culto nele não cai no Modo
+    // Fácil por uma atualização.
+    await pg.reload({ waitUntil: 'domcontentloaded' });
+    await esperarCortina(pg);
+    const d3 = await pg.evaluate(() => ({
+      modo: appMode,
+      corpo: document.body.classList.contains('mode-simple'),
+      trilho: document.getElementById('appModeSeg').dataset.modo,
+    }));
+    checar(d3.modo === 'full' && d3.corpo === false && d3.trilho === 'full',
+      'D3 · a recarga do documento DENTRO da sessão devolve o avançado', JSON.stringify(d3));
+    // E O APP ABERTO DE NOVO — uma aba nova no mesmo contexto tem um
+    // `sessionStorage` vazio, que é o que o app tem depois de ser fechado — nasce
+    // no Modo Fácil de novo.
+    const pg2 = await ctx.newPage();
+    vigiar(pg2);
+    await pg2.addInitScript(PONTE);
+    await pg2.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pg2);
+    const d4 = await pg2.evaluate(() => ({
+      modo: appMode,
+      corpo: document.body.classList.contains('mode-simple'),
+    }));
+    checar(d4.modo === 'simple' && d4.corpo === true,
+      'D4 · o app aberto de novo (sessão nova) nasce no Modo Fácil, mesmo com o '
+      + 'avançado escolhido na sessão anterior', JSON.stringify(d4));
     await ctx.close();
   }
 

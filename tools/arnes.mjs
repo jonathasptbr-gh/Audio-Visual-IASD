@@ -365,3 +365,25 @@ export function comTema(ctx, tema) {
     try { localStorage.setItem('av.tema', t); } catch (_) { /* armazenamento bloqueado */ }
   }, (tema === 'light' || tema === 'claro') ? 'claro' : 'escuro');
 }
+
+/**
+ * Declara que o oráculo parte do MODO AVANÇADO. O app SEMPRE abre no Modo Fácil
+ * (o modo vale pela sessão: `sessionStorage`, lido no topo do `controle.js`),
+ * então quem mede uma tela do avançado precisa DIZER que parte dele — e dizê-lo
+ * antes da primeira linha do app, porque ligá-lo por `evaluate` depois da carga
+ * é uma corrida contra o `setAppMode(appMode)` do `init()`, que em avançado
+ * chama `closeHymnSearch()`.
+ *
+ * `alvo` é um contexto OU uma página. O `sessionStorage` é por ABA: um contexto
+ * declarado vale para todas as páginas dele (o script roda em cada documento),
+ * e uma página nova num contexto NÃO declarado nasce no Modo Fácil — que é a
+ * premissa que o `smoke.mjs` precisa declarar em cada página que abre.
+ *
+ * Irmão do `comTema`, e fica FORA do `checar.mjs` pelo mesmo motivo dele: o
+ * arnês importa o Playwright.
+ */
+export function comModoAvancado(alvo) {
+  return alvo.addInitScript(() => {
+    try { sessionStorage.setItem('av.appMode', 'full'); } catch (_) { /* armazenamento bloqueado */ }
+  });
+}

@@ -52,7 +52,7 @@
 //   node tools/geometria.test.mjs
 // ============================================================================
 import { semRedeExterna } from './sem-rede.mjs';
-import { servirEstatico, abrirNavegador, esperar, esperarCortina, checar, falhas, porque, RAIZ_WEB }
+import { servirEstatico, abrirNavegador, esperar, esperarCortina, checar, falhas, porque, RAIZ_WEB, comModoAvancado }
   from './arnes.mjs';
 import { SUPERFICIES, SONDA, SEMENTE, ROTULO, PISOS } from './geometria.mjs';
 
@@ -89,9 +89,7 @@ const erros = [];
 for (const t of TELAS) {
   const ctx = await navegador.newContext({ viewport: { width: t.w, height: t.h } });
   await semRedeExterna(ctx);
-  await ctx.addInitScript(() => {
-    try { localStorage.setItem('av.appMode', 'full'); } catch (_) { /* storage bloqueado */ }
-  });
+  await comModoAvancado(ctx);
   if (t.fonte) {
     await ctx.addInitScript((f) => {
       addEventListener('DOMContentLoaded', () => {
