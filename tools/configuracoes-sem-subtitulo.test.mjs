@@ -63,7 +63,12 @@ try {
   const a = await abrirConfig(430);
   checar(a.abriu === true, 'A · a folha de Configurações abre', porque(a.abriu));
 
-  const tiles = await a.pg.evaluate(() => [...document.querySelectorAll('.qs-grade .qs-tile')]
+  // A GRADE E AS DUAS JANELAS (v1.11.7): quatro tiles moram em `#telaPopup` e
+  // dois em `#pacotePopup`, e a regra "nenhum tile tem segunda linha" vale para
+  // todos — varrer só `.qs-grade` deixaria a palavra do estado voltar por uma
+  // porta que esta asserção não olha.
+  const tiles = await a.pg.evaluate(() => [...document.querySelectorAll(
+    '.qs-grade .qs-tile, #telaPopup .qs-tile, #pacotePopup .qs-tile')]
     .map((t) => ({
       id: t.id,
       // O TEXTO INTEIRO do tile, e não a ausência de uma classe: `.qs-estado`
@@ -74,13 +79,10 @@ try {
       // O estado continua existindo — fora da tela.
       aria: t.getAttribute('aria-label') || '',
     })));
-  // ONZE desde a v1.9.9: as seis preferências da projeção, os DOIS daquele lote
-  // (a saída de áudio e a imagem da prévia) e as três ações do aparelho, que
-  // entraram quando o rótulo "Este aparelho" saiu (v1.8.16). Foram NOVE da
-  // v1.8.16 à v1.9.8, e ONZE também da v1.8.0 à v1.8.16 — por outros dois, os do
-  // clone celular a celular. O DOZE é da v1.10.0, com o "Verificar". O TREZE é
-  // da v1.11.0, com "Dados móveis" — mais uma preferência de propósito, ao lado
-  // da imagem da prévia.
+  // CATORZE desde a v1.11.7: os oito da grade (tema, tela, histórico, saída de
+  // áudio, dados móveis, verificar, compartilhar e transferir), os quatro da
+  // janela da Tela (preenchimento, wallpaper, fundo da letra e giro) e os dois
+  // da janela do Transferir (exportar e importar).
   //
   // O NÚMERO É CONTADO DE PROPÓSITO — o que este arquivo mede é que NENHUM tile
   // tem segunda linha, e um tile novo entrando sem passar por aqui é justamente
@@ -89,8 +91,8 @@ try {
   // dois tiles e não passou por aqui, o `verificar` reprovou na `main` e o
   // `web-ota` foi PULADO — o bundle daquele lote não chegou a aparelho nenhum.
   // Mexeu na grade, este número anda junto, no MESMO lote.
-  checar(tiles.length === 13,
-    'A · a grade tem os TREZE tiles da folha', tiles.length);
+  checar(tiles.length === 14,
+    'A · a grade e as duas janelas têm os CATORZE tiles', tiles.length);
   const comSobra = tiles.filter((t) => t.texto !== t.titulo.trim());
   checar(comSobra.length === 0,
     'A · e nenhum tem texto além do TÍTULO — a palavra do estado saiu de todos '

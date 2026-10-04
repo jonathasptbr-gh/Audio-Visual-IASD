@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// O ATALHO DA SAÍDA DE ÁUDIO, E A IMAGEM DA PRÉVIA DESLIGÁVEL (v1.9.9)
+// O ATALHO DA SAÍDA DE ÁUDIO, E A SETA QUE RECOLHE A PRÉVIA (v1.9.9 / v1.11.7)
 //
 // Dois recursos num arquivo porque eles compartilham o CENÁRIO — a folha de
 // Configurações com a ponte de mentira e uma lista de telas mutável —, e montar
@@ -13,40 +13,55 @@
 // classe de botão tem um modo de falhar próprio: no navegador ele não tem ponte
 // nenhuma a chamar, e um tile aceso que não liga nada é indistinguível de um
 // quebrado (a regra da v1.8.50). A guarda é `hidden` fora do app, e ela mora
-// numa LISTA COMPARTILHADA com os três do aparelho (`pacoteRenderTiles`) —
-// tirá-lo de lá não quebra nada visível no aparelho, o que é exatamente por que
-// ninguém veria.
+// numa LISTA COMPARTILHADA com os do aparelho (`pacoteRenderTiles`) — tirá-lo de
+// lá não quebra nada visível no aparelho, o que é exatamente por que ninguém
+// veria.
 //
 // A terceira asserção é a linha do REGISTRO. O alvo não é API documentada e
 // varia por fabricante: quando o botão abre a tela errada, essa string é a ÚNICA
 // resposta possível a distância — e ela some sem sintoma, porque o Registro é
 // lido por alguém que não tem o aparelho na mão.
 //
-// ## 2. A IMAGEM DA PRÉVIA — as cinco metades, e por que nenhuma basta
+// A FILEIRA DO APARELHO (A8/A9): `shareAppTile` e `pacoteTile` fecham a grade de
+// Configurações e começam fileira nova abaixo das preferências. A aritmética
+// (6 preferências em 3 colunas) já os põe lá sozinha, e é por isso que a regra
+// de CSS (`grid-column: 1`) só se prova numa célula em que a aritmética falha —
+// uma preferência a menos (A9b).
 //
-//  1. **SEMPRE CLICÁVEL, mesmo sem destino de projeção** (v1.10.10, revogando
-//     o `disabled` da v1.8.50 PARA ESTE TILE). Pedido do operador: *"ele deve
-//     estar 'clicável' mesmo sem uma tela conectada... sendo exclusivo para
-//     quando há algo conectado, mas é uma opção selecionável desde sempre"* —
-//     e a mesma azul "sempre ativa" das outras preferências, com o estado só
-//     no ÍCONE. A escolha grava sem destino (arma a preferência); só o EFEITO
-//     (`economiaAtiva`, abaixo) continua exclusivo de quando há para onde
-//     projetar — ela não mudou, só deixou de travar o botão que a arma.
-//  2. **LIGADO, O DECODIFICADOR PARA — E FICA PARADO.** O `pause()` mora no
-//     `play()` do `stage` (`setSuspenso`) porque um `play` chega por caminhos
-//     que o Controle não enumera. A asserção que separa "pausou uma vez" de
-//     "está suspenso" é a que manda um `play` DEPOIS.
-//  3. **O QUE NÃO DESLIGA.** É a metade do pedido que se erra
+// ## 2. A SETA QUE RECOLHE A PRÉVIA — as seis metades, e por que nenhuma basta
+//
+// A seta (`#pvRecolherBtn`, no topo da própria prévia, nos DOIS modos) tomou o
+// lugar do tile "Imagem da prévia". Ela faz DUAS coisas com réguas diferentes de
+// propósito: a GEOMETRIA (`pv-recolhida`) segue a MARCAÇÃO, e a DECODIFICAÇÃO
+// (`economiaAtiva`) segue a marcação E o destino de projeção E o fora-da-tela-
+// cheia. Ligar a decodificação à marcação pararia o `<video>` que, sem TV, é a
+// fonte do som; ligar a geometria ao veredito faria a seta não fazer nada visível
+// sem TV.
+//
+//  1. **SEMPRE CLICÁVEL, mesmo sem destino de projeção, E RECOLHE** (v1.10.10,
+//     mantido): a escolha grava sem destino, e a prévia recolhe — é o que faz o
+//     toque ter efeito à vista. Só o EFEITO sobre a decodificação continua
+//     exclusivo de quando há para onde projetar.
+//  2. **RECOLHIDA, A PRÉVIA MEDE POUCO E NENHUM BOTÃO SE PERDE.** A altura
+//     medida cabe em 80px (38 sem selo/giro, 72 com) e todo `.pv-fab` fica
+//     DENTRO dela, sem sobrepor outro e sem espremer. A reversão é tirar a regra
+//     de CSS do recolhido.
+//  3. **LIGADO, O DECODIFICADOR PARA — E FICA PARADO.** O `pause()` mora no
+//     `play()` do `stage` (`setSuspenso`) porque um `play` chega por caminhos que
+//     o Controle não enumera. A asserção que separa "pausou uma vez" de "está
+//     suspenso" é a que manda um `play` DEPOIS.
+//  4. **O QUE NÃO DESLIGA.** É a metade do pedido que se erra
 //     (*"mantenha as outras conexões de controle"*): `getCurrent()` e a DURAÇÃO
 //     continuam em dia — sem isso a barra do Controle mede uma mídia sem
 //     duração —, e o comando continua saindo para o telão.
-//  4. **PERDER O DESTINO RELIGA SOZINHO, E A MARCAÇÃO FICA.** O veredito é
-//     derivado (`economiaAtiva`), então a TV saindo devolve a imagem sem
-//     ninguém tocar em nada, e a TV voltando volta a poupar. Se isto quebrar, o
-//     desfecho é o operador sem prévia num culto sem TV — a projeção apagada.
-//  5. **A TELA CHEIA SUSPENDE.** Em tela cheia o operador está OLHANDO para a
-//     prévia, e um retângulo em branco ali recusa a única pergunta que aquele
-//     gesto faz. Suspensa e não desligada: sair volta a poupar.
+//  5. **PERDER O DESTINO RELIGA A DECODIFICAÇÃO, E A PRÉVIA CONTINUA RECOLHIDA.**
+//     O veredito é derivado (`economiaAtiva`), então a TV saindo devolve o
+//     `<video>` ao ar sem ninguém tocar em nada, mas a geometria é escolha do
+//     operador: ela e a marcação ficam, e a TV voltando volta a poupar.
+//  6. **A TELA CHEIA NÃO É RECOLHIDA.** Em tela cheia o operador está OLHANDO
+//     para a prévia (e sem TV ela É a projeção): o CSS recolhido exclui
+//     `:fullscreen`, a decodificação é suspensa, e sair volta recolhida sem
+//     alternar a marcação.
 //
 //   node tools/saida-de-audio-e-economia.test.mjs
 // ============================================================================
@@ -192,66 +207,25 @@ const navegador = await abrirNavegador({ args: ['--autoplay-policy=no-user-gestu
 const erros = [];
 
 // O ESTADO INTEIRO NUMA LEITURA. `pvVideo.paused` é o DESFECHO (o decodificador),
-// a classe e a marca são o que o operador VÊ, e `getDuration`/`getCurrent` são a
+// as classes e a seta são o que o operador VÊ, e `getDuration`/`getCurrent` são a
 // metade que não pode ter desligado junto.
 const lerTudo = (pg) => pg.evaluate(() => {
   const v = document.getElementById('pvVideo');
   const pv = document.getElementById('preview');
-  const tile = document.getElementById('economiaTile');
+  const seta = document.getElementById('pvRecolherBtn');
   const dur = preview.getDuration();
   return {
     pausado: !!v.paused,
     invisivel: getComputedStyle(v).visibility === 'hidden',
     classe: pv.classList.contains('pv-economia'),
-    // A RÉGUA É O RENDERIZADO, não o atributo. `.pv-economia-marca` declara
-    // `display: flex`, e um `display` de autor atropela o `[hidden]` da folha do
-    // agente EM SILÊNCIO — é a armadilha que o `.qs-tile[hidden]` deste app já
-    // paga por escrito. Aqui quem a fecha é o `[hidden] { display: none
-    // !important }` do topo do `controle.css`, e medir o atributo aprovaria a
-    // marca mesmo que ela ficasse acesa nos dois estados.
-    marca: (() => {
-      const m = document.getElementById('pvEconomia');
-      const r = m.getBoundingClientRect();
-      return getComputedStyle(m).display !== 'none' && r.width > 0 && r.height > 0;
-    })(),
-    // A CAIXA DELA COBRE A PRÉVIA INTEIRA (`inset: 0`, para centrar o desenho sem
-    // uma medida à mão), então a régua de posição e de colisão é a TINTA — o
-    // `<svg>` filho. Medir a caixa reprovaria sempre, e por um motivo que não é
-    // defeito nenhum.
-    tinta: (() => {
-      const g = document.querySelector('#pvEconomia svg');
-      if (!g) return null;
-      const b = g.getBoundingClientRect();
-      return { x: b.left, y: b.top, w: b.width, h: b.height, r: b.right, b: b.bottom };
-    })(),
-    // E A CAIXA NÃO PODE RECEBER O TOQUE: ela cobre os quatro controles da prévia,
-    // e sem o `pointer-events: none` eles ficam inalcançáveis por baixo dela.
-    marcaAtravessa: (() => {
-      const m = document.getElementById('pvEconomia');
-      return getComputedStyle(m).pointerEvents === 'none';
-    })(),
-    // E ELA TEM DE CABER DENTRO DA PRÉVIA: `#preview` recorta, e uma marca fora
-    // da caixa some sem erro nenhum.
-    //
-    // A SEGUNDA RÉGUA É A COLISÃO, e ela existe porque a primeira escrita deste
-    // comentário CREDITAVA A PEÇA ERRADA: dizia que *"a coluna de `.pv-fab` mora à
-    // direita mas EM CIMA"*, e `.pv-fabs` é `top: 2px; bottom: 2px; right: 2px` —
-    // uma coluna de altura INTEIRA, com a tela cheia empurrada para a base por
-    // `margin-top: auto`. Se algum controle estiver à vista naquele canto, a marca
-    // é desenhada por cima do desenho dele, e `pointer-events: none` não conserta
-    // nada disso: o toque passa, a leitura é que fica ilegível.
-    marcaDentro: (() => {
-      const g = document.querySelector('#pvEconomia svg');
-      if (!g) return false;
-      const r = g.getBoundingClientRect();
-      const p = document.getElementById('preview').getBoundingClientRect();
-      return r.width > 0 && r.right <= p.right + 0.5 && r.bottom <= p.bottom + 0.5
-        && r.left >= p.left - 0.5 && r.top >= p.top - 0.5;
-    })(),
-    tileApagado: !!tile.disabled,
-    tileAceso: tile.classList.contains('qs-on'),
-    tileAlt: tile.classList.contains('qs-alt'),
-    tileTitulo: tile.title,
+    // A GEOMETRIA: a classe que o CSS lê, e a altura RENDERIZADA — a primeira
+    // sozinha aprovaria uma regra de CSS apagada.
+    recolhida: pv.classList.contains('pv-recolhida'),
+    altura: pv.getBoundingClientRect().height,
+    setaApagada: !!seta.disabled,
+    setaAlternada: seta.classList.contains('alternado'),
+    setaExpandida: seta.getAttribute('aria-expanded'),
+    setaTitulo: seta.title,
     marcacao: !!economiaPreview,
     vigor: !!economiaAtiva(),
     // A metade que não pode ter desligado junto com a imagem.
@@ -260,6 +234,42 @@ const lerTudo = (pg) => pg.evaluate(() => {
     duracao: Number.isFinite(dur) && dur > 0,
     podeMexer: !!preverPodeMexer(),
   };
+});
+
+// OS CONTROLES DA PRÉVIA, MEDIDOS. Recolhida, a prévia vira uma grade de uma ou
+// duas linhas, e o defeito que ela pode ter não é de estado: é um botão que
+// sai da caixa (`#preview` recorta, e some sem erro), cai sobre outro, ou é
+// espremido abaixo de um alvo de toque. A régua é o RENDERIZADO de cada
+// `.pv-fab` visível, e a seta tem de receber o toque no centro dela.
+const medirFabs = (pg) => pg.evaluate(() => {
+  const pv = document.getElementById('preview').getBoundingClientRect();
+  const visiveis = [...document.querySelectorAll('.pv-fab')].filter((e) => {
+    const cs = getComputedStyle(e);
+    if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) return false;
+    const b = e.getBoundingClientRect();
+    return b.width > 0 && b.height > 0;
+  }).map((e) => {
+    const b = e.getBoundingClientRect();
+    return { id: e.id || e.className, l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height };
+  });
+  const T = 0.5;
+  const fora = visiveis.filter((f) => f.l < pv.left - T || f.t < pv.top - T || f.r > pv.right + T || f.b > pv.bottom + T)
+    .map((f) => f.id);
+  const sobrepostos = [];
+  for (let i = 0; i < visiveis.length; i++) {
+    for (let j = i + 1; j < visiveis.length; j++) {
+      const a = visiveis[i], b = visiveis[j];
+      if (!(a.r <= b.l + T || b.r <= a.l + T || a.b <= b.t + T || b.b <= a.t + T)) sobrepostos.push(a.id + ' x ' + b.id);
+    }
+  }
+  const espremidos = visiveis.filter((f) => f.w < 33.5 || f.h < 33.5).map((f) => f.id + ' ' + Math.round(f.w) + 'x' + Math.round(f.h));
+  const seta = visiveis.find((f) => f.id === 'pvRecolherBtn');
+  let setaCoberta = null;
+  if (seta) {
+    const alvo = document.elementFromPoint((seta.l + seta.r) / 2, (seta.t + seta.b) / 2);
+    setaCoberta = !(alvo && alvo.closest('#pvRecolherBtn'));
+  }
+  return { n: visiveis.length, ids: visiveis.map((f) => f.id), fora, sobrepostos, espremidos, setaCoberta, altura: pv.height };
 });
 
 async function abrir() {
@@ -414,61 +424,97 @@ try {
     + 'um tile que só sabe não funcionar é pior que tile nenhum',
     noNavegador);
 
-  // A FILEIRA DO APARELHO CONTINUA INTEIRA com a grade em onze tiles. O pedido da
-  // v1.7.6 valia por ARITMÉTICA (9 em 3 colunas), e sem o `grid-column: 1` o
-  // `compartilhar` fecharia a terceira fileira ao lado de uma PREFERÊNCIA,
-  // deixando exportar/importar órfãos na quarta — a tríade sai partida e o pedido
-  // morre por um tile novo em qualquer lote futuro. A régua é o TOPO de cada
-  // caixa: classe nenhuma descreve "estão na mesma fileira".
-  const fileira = await pg.evaluate(() => {
-    const t = (id) => document.getElementById(id).getBoundingClientRect().top;
-    return { compartilhar: Math.round(t('shareAppTile')), exportar: Math.round(t('pacoteExportarTile')),
-      importar: Math.round(t('pacoteImportarTile')), economia: Math.round(t('economiaTile')) };
+  // A FILEIRA DO APARELHO, com a grade em OITO tiles (v1.11.7): preferências
+  // (tema, tela, histórico, saída de áudio, dados móveis, verificar) e depois o
+  // grupo do aparelho (compartilhar, transferir). A régua é o TOPO de cada caixa:
+  // classe nenhuma descreve "estão na mesma fileira". Os tiles de dentro das
+  // janelas (fit/wallpaper/fundo/giro, exportar/importar) NÃO estão na grade.
+  const topos = () => pg.evaluate(() => {
+    const t = (id) => Math.round(document.getElementById(id).getBoundingClientRect().top);
+    const grade = document.querySelector('.qs-grade');
+    const ids = [...grade.querySelectorAll('.qs-tile')]
+      .filter((e) => !e.hidden && e.getBoundingClientRect().width > 0).map((e) => e.id);
+    return {
+      compartilhar: t('shareAppTile'), transferir: t('pacoteTile'),
+      saida: t('saidaAudioTile'), dados: t('dadosMoveisTile'), verificar: t('testeTile'),
+      ids,
+    };
   });
-  checar(fileira.compartilhar === fileira.exportar && fileira.exportar === fileira.importar,
-    'A8 · os TRÊS do aparelho ficam na MESMA fileira com a grade em onze tiles '
-    + '(*"compartilhar, exportar e importar devem ser os tres itens da base"*)',
-    fileira);
-  await ctxWeb.close();
-
-  checar(fileira.economia < fileira.compartilhar,
+  const fileira = await topos();
+  checar(fileira.ids.length === 8,
+    'A8a · a grade de Configurações tem os OITO tiles que o desenho pede (os '
+    + 'quatro ajustes do telão e o exportar/importar moram nas janelas)', fileira.ids);
+  checar(fileira.compartilhar === fileira.transferir,
+    'A8 · os DOIS do aparelho (compartilhar e transferir) ficam na MESMA fileira '
+    + '(*"compartilhar, exportar e importar devem ser os itens da base"*)', fileira);
+  checar(fileira.saida < fileira.compartilhar && fileira.dados < fileira.compartilhar
+    && fileira.verificar < fileira.compartilhar,
     'A9 · e as preferências ficam ACIMA deles — é a ordem por ASSUNTO que a posição '
     + 'diz sem gastar uma linha de texto', fileira);
+  // A CÉLULA EM QUE A ARITMÉTICA FALHA: com seis preferências em três colunas os
+  // dois do aparelho caem sozinhos na terceira fileira, e a regra de CSS não é
+  // exercida. Uma preferência a menos (cinco) deixa um vão na segunda fileira, e
+  // sem o `grid-column: 1` o `compartilhar` o ocuparia, ao lado de uma PREFERÊNCIA.
+  await pg.evaluate(() => { document.getElementById('testeTile').hidden = true; });
+  const cinco = await topos();
+  checar(cinco.compartilhar === cinco.transferir && cinco.saida < cinco.compartilhar
+    && cinco.dados < cinco.compartilhar,
+    'A9b · e continuam começando fileira NOVA com uma preferência a menos: nenhuma '
+    + 'fileira mistura preferência com ação do aparelho (a aritmética não é a regra)',
+    cinco);
+  await pg.evaluate(() => { document.getElementById('testeTile').hidden = false; });
+  await ctxWeb.close();
 
   // =========================================================================
-  // B · A ECONOMIA SEM DESTINO DE PROJEÇÃO: o tile SEMPRE CLICÁVEL (v1.10.10)
+  // B · A SETA SEM DESTINO DE PROJEÇÃO: SEMPRE CLICÁVEL, E RECOLHE (v1.10.10)
   // =========================================================================
   const semDestino = await lerTudo(pg);
-  checar(semDestino.tileApagado === false,
-    'B1 · SEM TV e sem computador conectado o tile NÃO fica apagado — a opção '
-    + 'é selecionável desde sempre, mesmo com o EFEITO ainda exclusivo de '
-    + 'quando há para onde projetar', semDestino);
-  checar(semDestino.tileAceso === true,
-    'B2 · e ele é ACESO como todo tile da grade (v1.7.6) — a diferença de '
-    + 'estado é só do ÍCONE, nunca da cor', semDestino);
-  checar(/vale quando houver TV ou computador/.test(semDestino.tileTitulo),
-    'B3 · e o `title` continua explicando a MESMA função (o efeito é exclusivo '
-    + 'de quando há destino) — sem dizer que o controle está indisponível',
-    semDestino.tileTitulo);
+  checar(semDestino.setaApagada === false,
+    'B1 · SEM TV e sem computador conectado a seta NÃO fica apagada — a opção '
+    + 'é selecionável desde sempre, mesmo com o EFEITO sobre a decodificação '
+    + 'ainda exclusivo de quando há para onde projetar', semDestino);
+  checar(semDestino.setaAlternada === false && semDestino.setaExpandida === 'true'
+    && semDestino.recolhida === false,
+    'B2 · e ela nasce no estado EXPANDIDO — o desenho (`alternado`) e o '
+    + '`aria-expanded` dizem a MARCAÇÃO, e a prévia está na altura natural',
+    semDestino);
+  checar(/só deixa de ser decodificada com TV ou computador/.test(semDestino.setaTitulo),
+    'B3 · e o `title` diz a AÇÃO e explica que o efeito sobre a imagem é exclusivo '
+    + 'de quando há destino — sem dizer que o controle está indisponível',
+    semDestino.setaTitulo);
 
-  // O TOQUE PASSA, e GRAVA A PREFERÊNCIA — mesmo sem destino: é a metade do
-  // pedido que a v1.8.50 proibia (*"é uma opção selecionável desde sempre"*).
-  await pg.evaluate(() => { document.getElementById('economiaTile').click(); });
+  // O TOQUE PASSA, GRAVA A PREFERÊNCIA E RECOLHE — mesmo sem destino: é a metade
+  // do pedido que a v1.8.50 proibia (*"é uma opção selecionável desde sempre"*).
+  await pg.evaluate(() => { document.getElementById('pvRecolherBtn').click(); });
   const tocouSemDestino = await esperar(pg, () => economiaPreview === true, null, 5000);
   checar(tocouSemDestino === true,
     'B4 · e o toque MARCA a escolha mesmo sem destino — ela fica pré-armada '
     + 'para quando uma TV ou computador entrar', porque(tocouSemDestino));
   const depoisDoToque = await lerTudo(pg);
-  checar(depoisDoToque.vigor === false,
-    'B5 · mas o EFEITO continua exclusivo de quando há destino — sem TV e sem '
-    + 'computador a prévia É a projeção, e ela não pode ficar suspensa',
-    depoisDoToque);
-  checar(depoisDoToque.tileApagado === false,
-    'B6 · e o tile CONTINUA clicável depois do toque — desmarcar não pode '
-    + 'ficar mais difícil que marcar', depoisDoToque);
+  checar(depoisDoToque.vigor === false && depoisDoToque.classe === false,
+    'B5 · mas o EFEITO sobre a decodificação continua exclusivo de quando há '
+    + 'destino — sem TV e sem computador a prévia É a projeção, e ela não pode '
+    + 'ficar suspensa', depoisDoToque);
+  checar(depoisDoToque.recolhida === true && depoisDoToque.altura <= 80,
+    'B5b · MAS A GEOMETRIA SEGUE A MARCAÇÃO: a prévia recolhe mesmo sem destino '
+    + '(é o que faz a seta ter efeito à vista), e mede no máximo 80px — 38 sem '
+    + 'selo/giro, 72 com', depoisDoToque);
+  checar(depoisDoToque.setaApagada === false && depoisDoToque.setaAlternada === true
+    && depoisDoToque.setaExpandida === 'false',
+    'B6 · e a seta CONTINUA clicável depois do toque, com o desenho trocado — '
+    + 'desmarcar não pode ficar mais difícil que marcar', depoisDoToque);
+  const fabsB = await medirFabs(pg);
+  checar(fabsB.n >= 1 && fabsB.fora.length === 0 && fabsB.sobrepostos.length === 0
+    && fabsB.espremidos.length === 0 && fabsB.setaCoberta === false,
+    'B6b · e, recolhida, todo botão da prévia fica DENTRO dela, sem sobrepor outro, '
+    + 'sem ser espremido, e a seta recebe o toque no centro dela', fabsB);
   // Desfaz a marcação: os blocos seguintes partem do estado limpo de sempre.
-  await pg.evaluate(() => { document.getElementById('economiaTile').click(); });
+  await pg.evaluate(() => { document.getElementById('pvRecolherBtn').click(); });
   await esperar(pg, () => economiaPreview === false, null, 5000);
+  const expandiu = await lerTudo(pg);
+  checar(expandiu.recolhida === false && expandiu.altura > 80 && expandiu.setaAlternada === false,
+    'B7 · e o segundo toque EXPANDE de volta: a classe sai e a prévia recupera a '
+    + 'altura natural', expandiu);
 
   // =========================================================================
   // C · COM DESTINO: liga, e o DECODIFICADOR PARA
@@ -485,11 +531,11 @@ try {
     porque(tocou));
 
   const destravou = await lerTudo(pg);
-  checar(destravou.tileApagado === false,
-    'C2 · com a TV conectada o tile continua clicável — nunca esteve travado '
-    + '(v1.10.10)', destravou);
+  checar(destravou.setaApagada === false && destravou.recolhida === false,
+    'C2 · com a TV conectada a seta continua clicável — nunca esteve travada '
+    + '(v1.10.10) — e a prévia segue expandida até o toque', destravou);
 
-  await pg.evaluate(() => { document.getElementById('economiaTile').click(); });
+  await pg.evaluate(() => { document.getElementById('pvRecolherBtn').click(); });
   const ligou = await esperar(pg, () => economiaAtiva() === true, null, 5000);
   checar(ligou === true, 'C3 · e o toque liga a economia', porque(ligou));
 
@@ -500,35 +546,28 @@ try {
     comEconomia);
   checar(comEconomia.invisivel === true,
     'C5 · e a imagem SAI DE VISTA: um vídeo pausado mostra o quadro congelado, e '
-    + 'uma imagem à vista ao lado da marca "desligada" se lê como prévia TRAVADA',
+    + 'uma imagem à vista numa prévia recolhida se lê como prévia TRAVADA',
     comEconomia);
-  checar(comEconomia.marca === true && comEconomia.tileAlt === true,
-    'C6 · a marca aparece (RENDERIZADA, não só sem o atributo) e o tile '
-    + 'troca de DESENHO (a grade tem uma cor só desde a v1.7.6 — estado é desenho, '
-    + 'nunca luz)', comEconomia);
-  checar(comEconomia.marcaDentro === true,
-    'C6b · e ela cabe DENTRO da prévia: `#preview` recorta, e uma marca fora da '
-    + 'caixa some sem erro nenhum', comEconomia);
-  const colisao = await pg.evaluate(() => {
-    const mr = document.querySelector('#pvEconomia svg').getBoundingClientRect();
-    return [...document.querySelectorAll('.pv-fab')].filter((e) => {
-      const cs = getComputedStyle(e);
-      if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) return false;
-      const b = e.getBoundingClientRect();
-      if (!b.width || !b.height) return false;
-      return !(b.right <= mr.left || b.left >= mr.right || b.bottom <= mr.top || b.top >= mr.bottom);
-    }).map((e) => e.id || e.className);
-  });
-  checar(colisao.length === 0,
-    'C6c · e a TINTA dela não cai SOBRE nenhum controle da prévia: MEDIDO, os '
-    + 'QUATRO cantos têm um `.pv-fab` de 34px (as duas colunas de controles têm '
-    + 'altura inteira), e desenhar sobre o símbolo de um botão o deixa ilegível — '
-    + '`pointer-events: none` não conserta isso, porque o que se perde é a LEITURA',
-    colisao.join(', ') || '(nenhum)');
-  checar(comEconomia.marcaAtravessa === true,
-    'C6d · e a CAIXA dela deixa o toque passar: ela cobre a prévia inteira para '
-    + 'centrar o desenho, e sem isso os quatro controles ficam inalcançáveis por '
-    + 'baixo dela', comEconomia.marcaAtravessa);
+  checar(comEconomia.recolhida === true && comEconomia.classe === true
+    && comEconomia.setaAlternada === true && comEconomia.setaExpandida === 'false',
+    'C6 · a prévia RECOLHE (`pv-recolhida`) e a economia entra em vigor '
+    + '(`pv-economia`), e a seta troca de DESENHO — estado é desenho, nunca luz',
+    comEconomia);
+  checar(comEconomia.altura <= 80,
+    'C6a · e a altura RENDERIZADA cabe em 80px — a classe sozinha aprovaria uma '
+    + 'regra de CSS apagada, que é o defeito que esta asserção existe para pegar',
+    comEconomia.altura);
+  const fabs = await medirFabs(pg);
+  checar(fabs.n >= 3 && fabs.fora.length === 0,
+    'C6b · todo botão da prévia fica DENTRO da caixa recolhida: `#preview` recorta, '
+    + 'e um botão fora dela some sem erro nenhum', fabs);
+  checar(fabs.sobrepostos.length === 0 && fabs.espremidos.length === 0,
+    'C6c · nenhum botão cai SOBRE outro nem é ESPREMIDO abaixo de um alvo de toque: '
+    + 'recolhida, as três colunas viram uma linha, e é ali que um deles se perderia',
+    fabs);
+  checar(fabs.setaCoberta === false,
+    'C6d · e a seta recebe o toque no centro dela (nada a cobre) — sem isso o '
+    + 'operador recolhe e não consegue expandir', fabs);
   checar(comEconomia.podeMexer === false,
     'C7 · e o realinhamento para de gastar trabalho sobre um `<video>` que não vai '
     + 'andar — a MESMA guarda da página oculta, e não uma segunda régua',
@@ -637,14 +676,26 @@ try {
     + 'sem isso o operador ficaria num culto sem TV com a projeção apagada',
     porque(perdeu));
 
+  // A DECODIFICAÇÃO RELIGA (o `ressincronizarPreview` é assíncrono por dentro, e o
+  // `<video>` volta a andar um instante depois): espera-se pelo FATO.
+  const religou = await esperar(pg, () => !document.getElementById('pvVideo').paused, null, 5000);
+  checar(religou === true,
+    'E2a · e o `<video>` da prévia VOLTA a decodificar no ato — sem TV ela é a '
+    + 'fonte do que a congregação ouve, e parada seria o culto calado',
+    porque(religou));
   const semTvAgora = await lerTudo(pg);
-  checar(semTvAgora.classe === false && semTvAgora.invisivel === false && semTvAgora.marca === false,
-    'E2 · e a imagem volta à vista no ato', semTvAgora);
+  checar(semTvAgora.classe === false,
+    'E2 · e a economia sai de vigor (`pv-economia` some)', semTvAgora);
+  checar(semTvAgora.recolhida === true && semTvAgora.altura <= 80
+    && semTvAgora.setaAlternada === true,
+    'E2b · MAS A PRÉVIA CONTINUA RECOLHIDA: a geometria é escolha do operador e não '
+    + 'responde ao destino — perder a TV religa a decodificação, nunca expande a '
+    + 'prévia por conta própria', semTvAgora);
   checar(semTvAgora.marcacao === true,
-    'E3 · MAS A MARCAÇÃO FICA: ela é a escolha do operador, e reconectar a TV tem '
+    'E3 · e A MARCAÇÃO FICA: ela é a escolha do operador, e reconectar a TV tem '
     + 'de voltar a poupar sem ele tocar em nada', semTvAgora);
-  checar(semTvAgora.tileApagado === false,
-    'E4 · e o tile CONTINUA clicável sem TV — só o EFEITO (`economiaAtiva`) '
+  checar(semTvAgora.setaApagada === false,
+    'E4 · e a seta CONTINUA sem `disabled` sem TV — só o EFEITO (`economiaAtiva`) '
     + 'responde à pergunta do destino, nunca o `disabled` (v1.10.10)', semTvAgora);
 
   await trocarTelas(pg, TV);
@@ -662,11 +713,18 @@ try {
   await pg.reload({ waitUntil: 'load' });
   await pg.waitForFunction(() => window.__NATIVE__ === true && window.AVDB, null, { timeout: 30000 });
   await esperarCortina(pg);
-  const depoisDaRecarga = await pg.evaluate(() => ({ marcacao: !!economiaPreview }));
+  const depoisDaRecarga = await pg.evaluate(() => ({
+    marcacao: !!economiaPreview,
+    recolhida: document.getElementById('preview').classList.contains('pv-recolhida'),
+    seta: document.getElementById('pvRecolherBtn').classList.contains('alternado'),
+  }));
   checar(depoisDaRecarga.marcacao === true,
     'F1 · a marcação vem do BANCO e não da sessão: o celular fraco continua fraco '
     + 'na abertura seguinte, e remarcá-la em todo culto é o oposto do pedido',
     depoisDaRecarga);
+  checar(depoisDaRecarga.recolhida === true && depoisDaRecarga.seta === true,
+    'F2 · e a prévia NASCE recolhida e a seta com o desenho trocado: a geometria '
+    + 'segue a marcação lida do banco, não só o clique da sessão', depoisDaRecarga);
 
   // =========================================================================
   // G · A TELA CHEIA SUSPENDE A ECONOMIA
@@ -675,6 +733,13 @@ try {
   await trocarTelas(pg, TV);
   await pg.evaluate(() => send('louvor-economia'));
   await esperar(pg, () => economiaAtiva() === true, null, 8000);
+  // A PREMISSA DA CÉLULA: a prévia chega à tela cheia RECOLHIDA. Sem ela as
+  // asserções de geometria abaixo medem uma prévia que nunca esteve recolhida e
+  // passariam com ou sem a exclusão `:fullscreen` do CSS.
+  const recolhidaAntes = await lerTudo(pg);
+  checar(recolhidaAntes.recolhida === true && recolhidaAntes.altura <= 80,
+    'G0 · PREMISSA: a prévia está RECOLHIDA (marcação lida do banco) antes de '
+    + 'entrar em tela cheia', recolhidaAntes);
 
   // O gesto é um CLIQUE de verdade (`requestFullscreen` exige ativação do
   // usuário), e a PREMISSA é uma asserção própria: sem ela, um runner que recuse
@@ -706,13 +771,28 @@ try {
       + 'pergunta que aquele gesto faz', cheia);
     checar(cheia.marcacao === true,
       'G3 · SUSPENSA e não desligada — a marcação atravessa', cheia);
+    // A TELA CHEIA NÃO É RECOLHIDA: sem TV ela É a projeção, e uma regra de CSS
+    // sem a exclusão `:fullscreen` deixaria o telão em 38px, sem erro algum. A
+    // classe (a marcação) FICA — é o CSS que a cala, sem o atraso de um quadro.
+    const geomCheia = await pg.evaluate(() => {
+      const r = document.getElementById('preview').getBoundingClientRect();
+      const v = getComputedStyle(document.getElementById('pvVideo')).visibility;
+      return { w: Math.round(r.width), h: Math.round(r.height), iw: innerWidth, ih: innerHeight, video: v,
+        classe: document.getElementById('preview').classList.contains('pv-recolhida') };
+    });
+    checar(geomCheia.w >= geomCheia.iw - 1 && geomCheia.h >= geomCheia.ih - 1,
+      'G2b · em tela cheia a prévia OCUPA a viewport inteira — o recolhido não vale '
+      + 'ali', geomCheia);
+    checar(geomCheia.video === 'visible' && geomCheia.classe === true,
+      'G2c · e o `<video>` está VISÍVEL (as camadas não ficam `visibility: hidden`) '
+      + 'com a marcação ainda ligada', geomCheia);
     // O REGISTRO TEM DE DIZER A RAZÃO CERTA, e são TRÊS estados. A primeira
     // escrita perguntava só "está em vigor?" e atribuía toda suspensão à falta de
     // destino — em tela cheia isso é uma linha FALSA num texto lido A DISTÂNCIA
     // por quem não tem o aparelho na mão, que é o pior artefato que este projeto
     // sabe produzir. Aqui HÁ destino, e a razão é a tela cheia.
     const regCheia = await lerRegistro(pg);
-    const linhaCheia = (regCheia.match(/Imagem da prévia:.*/) || [''])[0];
+    const linhaCheia = (regCheia.match(/Prévia: RECOLHIDA.*/) || [''])[0];
     checar(/SUSPENSA agora/.test(linhaCheia) && /tela cheia/.test(linhaCheia)
       && !/sem destino/.test(linhaCheia),
       'G3b · e o Registro nomeia a razão CERTA (a tela cheia), não a falta de '
@@ -724,6 +804,17 @@ try {
       'G4 · e sair da tela cheia volta a poupar — quem reavalia é o '
       + '`fullscreenchange`, porque num culto com a TV parada não vem outra '
       + 'notícia de destino', porque(saiu));
+    // E A GEOMETRIA VOLTA RECOLHIDA, SEM ALTERNAR A MARCAÇÃO: sair da tela cheia
+    // não é um toque na seta, e a marcação que o operador escolheu atravessa.
+    const voltouRecolhida = await esperar(pg, () => {
+      const r = document.getElementById('preview').getBoundingClientRect();
+      return r.height <= 80 && r.height > 0;
+    }, null, 5000);
+    const depoisDeSair = await lerTudo(pg);
+    checar(voltouRecolhida === true && depoisDeSair.recolhida === true
+      && depoisDeSair.marcacao === true && depoisDeSair.setaAlternada === true,
+      'G5 · e sair da tela cheia volta RECOLHIDA, sem alternar a marcação',
+      porque(voltouRecolhida) || depoisDeSair);
   }
 
   checar(erros.length === 0, 'H · nenhum erro de página em todo o percurso', erros.join(' | '));
