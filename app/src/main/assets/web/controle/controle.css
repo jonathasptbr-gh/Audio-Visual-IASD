@@ -1492,7 +1492,8 @@ body {
 
    O desenho da seta diz a MARCAÇÃO (o que o toque faz), não a geometria do
    instante: com o cartão no ar a prévia está expandida e a seta continua dizendo
-   "expandir". */
+   "expandir" — mas, no avançado, ela some enquanto o cartão está à vista (regra
+   logo abaixo da grade: no centro do topo ela cobria o texto do download). */
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) {
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   padding: 2px; height: auto; aspect-ratio: auto;
@@ -1520,6 +1521,23 @@ body {
 }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) :is(.pv-layer, .pv-wall) {
   visibility: hidden;
+}
+/* O CARTÃO SAI NO ATO quando a prévia volta a recolher: a grade acima é
+   desfeita no instante em que o `.on` cai, e com o fade de 200ms do `.pv-busy`
+   o cartão (52px) ainda estava à vista, cortado, numa tira de 38px — MEDIDO:
+   opacidade 1 em t+0 e 0,13 em t+100ms. Sem transição ele some no mesmo quadro
+   em que a prévia encolhe. A entrada não muda (a regra deixa de valer com `.on`). */
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-busy {
+  transition: none;
+}
+/* COM O CARTÃO NO AR A SETA SAI DA FRENTE, no avançado: ela é um quarto controle
+   no centro do topo e o cartão centrado a cobria — MEDIDO a 360px, 3 a 26px de
+   sobreposição conforme a proporção da TV, com o ícone desenhado sobre o texto
+   do download. A prévia está expandida por causa do cartão e a marcação continua
+   gravada; a seta volta quando ele sai. No Modo Fácil ela mora no canto e o
+   cartão já reserva as laterais (`.simple-stage .pv-busy`), então ali fica. */
+body:not(.mode-simple) .preview:has(.pv-busy.on) .pv-fabs--topo {
+  visibility: hidden; pointer-events: none;
 }
 /* Em tela cheia a preview É a projeção (quando não há TV conectada): os botões
    PERMANENTES saem de cena, ou iriam junto para o telão. Quem os substitui lá é

@@ -472,7 +472,44 @@ try {
   checar(comCartao.cancelVisivel && comCartao.cancelDentro && comCartao.cancelAlcancavel,
     'E4 · e o botão de CANCELAR — a única porta de parar um download — está à vista, dentro e '
     + 'ALCANÇÁVEL (`elementFromPoint` acha o botão, não um `.pv-fab`)', comCartao);
-  await pg.evaluate(() => { window.__busy.soltar(); });
+  // A SETA SAI DA FRENTE DO CARTÃO no avançado: ela é um quarto controle no
+  // centro do topo, e o cartão centrado a cobria (MEDIDO a 360 px, 3 a 26 px).
+  // A asserção é o FATO — `visibility` e `pointer-events`, que tiram a seta da
+  // vista e do toque — e a ausência de interseção entre o que se VÊ e o cartão.
+  const setaComCartao = await pg.evaluate(() => {
+    const seta = document.getElementById('pvRecolherBtn');
+    const cs = getComputedStyle(seta.closest('.pv-fabs'));
+    const S = seta.getBoundingClientRect();
+    const C = document.querySelector('#pvBusy .pv-busy-card').getBoundingClientRect();
+    const cruza = S.left < C.right && S.right > C.left && S.top < C.bottom && S.bottom > C.top;
+    return { visibility: cs.visibility, pe: cs.pointerEvents, cruza };
+  });
+  checar(setaComCartao.visibility === 'hidden' && setaComCartao.pe === 'none',
+    'E4b · COM O CARTÃO NO AR a seta sai da frente dele (avançado): `visibility: hidden` e fora do '
+    + 'toque — ela cobria o texto do download em 3 a 26 px, conforme a proporção da TV', setaComCartao);
+  // O CARTÃO SAI NO ATO: a grade é desfeita no instante em que o `.on` cai, e com
+  // o fade de 200 ms o cartão (52 px) ainda aparecia cortado numa tira de 38 px.
+  // A leitura é feita DENTRO da mutação da classe — um `esperar` que a leia depois
+  // mede o quadro seguinte, e o fade já teria andado.
+  const saida = await pg.evaluate(() => new Promise((resolve) => {
+    const b = document.getElementById('pvBusy');
+    const pv = document.getElementById('preview');
+    const mo = new MutationObserver(() => {
+      if (b.classList.contains('on')) return;
+      mo.disconnect();
+      resolve({
+        opacidade: parseFloat(getComputedStyle(b).opacity),
+        recolhida: pv.classList.contains('pv-recolhida'),
+        h: pv.getBoundingClientRect().height,
+      });
+    });
+    mo.observe(b, { attributes: true, attributeFilter: ['class'] });
+    window.__busy.soltar();
+  }));
+  checar(saida.recolhida === true && saida.opacidade < 0.05,
+    'E4c · e quando o cartão SAI com a prévia recolhida ele some NO ATO (opacidade ~0 na própria '
+    + 'mutação da classe): com o fade de 200 ms ele aparecia espremido numa tira de 38 px',
+    saida);
   const saiu = await esperar(pg, () => !document.getElementById('pvBusy').classList.contains('on'), null, 5000);
   const depoisDoCartao = await lerCartao();
   checar(saiu === true && depoisDoCartao.recolhida && depoisDoCartao.h < comCartao.h - 20,
@@ -512,6 +549,16 @@ try {
     && cartaoFacil.cancelAlcancavel && Math.abs(cartaoFacil.h - naturalFacil) <= 1,
     'E7 · no MODO FÁCIL o cartão também devolve a altura, cabe inteiro e o cancelar é alcançável',
     { ...cartaoFacil, natural: naturalFacil, prazo: porque(acendeuFacil) });
+  const setaFacil = await pg.evaluate(() => {
+    const seta = document.getElementById('pvRecolherBtn');
+    const cs = getComputedStyle(seta.closest('.pv-fabs'));
+    const S = seta.getBoundingClientRect();
+    const C = document.querySelector('#pvBusy .pv-busy-card').getBoundingClientRect();
+    return { visibility: cs.visibility, cruza: S.left < C.right && S.right > C.left && S.top < C.bottom && S.bottom > C.top };
+  });
+  checar(setaFacil.visibility === 'visible' && setaFacil.cruza === false,
+    'E7b · no MODO FÁCIL a seta FICA (mora no canto) e não cruza o cartão — a regra que a esconde é '
+    + 'só do avançado', setaFacil);
   await pg.evaluate(() => { window.__busy.soltar(); });
   await esperar(pg, () => !document.getElementById('pvBusy').classList.contains('on'), null, 5000);
   await pg.evaluate(() => setAppMode('full'));

@@ -438,6 +438,10 @@ try {
       tags: [...new Set(linhas.map((l) => l.tagName))],
       botoesDeLinha: linhas.filter((l) => l.closest('button')).length,
       textos: linhas.map((l) => l.textContent),
+      icones: linhas.map((l) => {
+        const ic = l.querySelector('.song-menu-icon');
+        return { filho: !!(ic && ic.querySelector(':scope > .msym')), texto: ic ? ic.textContent : '' };
+      }),
       vazio: (pop.querySelector('li.empty') || {}).textContent || '',
       ir: (pop.querySelector('.song-menu-go') || {}).textContent || '',
       secoes: pop.querySelectorAll('.song-menu-grupo').length,
@@ -539,6 +543,15 @@ try {
     + 'telas não divergirem', JSON.stringify(cheia.textos));
   checar(cheia.caixas === 0 && !cheia.vazio,
     'D · sem nenhuma caixa e sem a frase de vazio', JSON.stringify(cheia));
+  // O ÍCONE É UM ELEMENTO, não um texto: `msym()` devolve um <span>, e atribuí-lo
+  // a `innerHTML` o converte em "[object HTMLSpanElement]" — o que cada linha
+  // mostrava, e que a folha VAZIA (a única exercitada antes) não revela.
+  checar(cheia.icones.length >= 2 && cheia.icones.every((i) => i.filho && !/object/i.test(i.texto)),
+    'D · cada linha traz o ÍCONE (um `.msym` dentro de `.song-menu-icon`) e nunca o texto '
+    + '"[object HTMLSpanElement]": `msym()` devolve um elemento, e `innerHTML` o transforma em string',
+    JSON.stringify(cheia.icones));
+  checar(cheia.textos.every((t) => !/\[object/.test(t)),
+    'D · e o texto da linha não contém "[object …]" em ponto nenhum', JSON.stringify(cheia.textos));
   checar(cheia.tags.length === 1 && cheia.tags[0] === 'DIV' && cheia.botoesDeLinha === 0,
     'D · as linhas são <div>, NÃO <button>: um botão que não faz nada é o botão '
     + 'aceso que o toque tenta duas vezes antes de concluir que o app quebrou '
@@ -712,6 +725,43 @@ try {
   checar(rep.estado === 'ocioso' && !rep.aro && !rep.alt && !rep.oculto,
     'F · sem nada em curso o tile está OCIOSO — sem aro, sem desenho de compartilhar',
     JSON.stringify(rep));
+
+  // =========================================================================
+  // G · REABRIR A JANELA DURANTE A MEDIÇÃO NÃO APAGA O SINAL
+  // =========================================================================
+  // A medição leva segundos num acervo grande, e é TRABALHO ANDANDO
+  // (`pacoteMedindo`): o tile da grade já o dizia, mas `openPacotePopup` chama
+  // `pacoteRenderTiles` e o ramo ocioso do `pacoteRenderPar` apagava o aro e o
+  // percentual do Exportar — a janela discordava da grade ao lado.
+  // O estado é posto como o início da medição o põe (`exportarPacote`), e a janela
+  // é aberta DEPOIS: é a reabertura que se mede.
+  await repouso.pg.evaluate(() => {
+    pacoteEmCurso = true; pacoteMedindo = true; pacotePercentualDito = -1;
+    pacoteExportarTileEl.classList.add('qs-trabalhando');
+    pacoteSinal();
+    pacoteFalarPercentual(pacoteExportarTileEl, 0.37);
+  });
+  await abrirJanela(repouso.pg, '#pacoteTile', 'pacotePopup');
+  const medindo = await repouso.pg.evaluate(() => {
+    const ex = document.getElementById('pacoteExportarTile');
+    const im = document.getElementById('pacoteImportarTile');
+    const gr = document.getElementById('pacoteTile');
+    const t = (el) => (el.querySelector('.qs-titulo') || {}).textContent || '';
+    return {
+      exportar: { aro: ex.classList.contains('qs-trabalhando'), titulo: t(ex), off: ex.disabled },
+      importar: { aro: im.classList.contains('qs-trabalhando'), off: im.disabled },
+      grade: { aro: gr.classList.contains('qs-trabalhando'), titulo: t(gr), estado: gr.dataset.estado },
+    };
+  });
+  checar(medindo.exportar.aro === true && /37%/.test(medindo.exportar.titulo) && medindo.exportar.off === true,
+    'G · reabrir a janela DURANTE A MEDIÇÃO mantém o ARO e o percentual no Exportar '
+    + '(indisponível: não há o que cancelar) — o ramo ocioso os apagava',
+    JSON.stringify(medindo));
+  checar(medindo.importar.aro === false && medindo.importar.off === true,
+    'G · e o Importar fica parado e indisponível, sem aro — ele não trabalha', JSON.stringify(medindo));
+  checar(medindo.grade.aro === true && medindo.grade.estado === 'ocupado' && /37%/.test(medindo.grade.titulo),
+    'G · e o tile da GRADE não perde o número: a janela e a grade dizem a MESMA coisa',
+    JSON.stringify(medindo));
   await repouso.ctx.close();
 
   checar(erros.length === 0, 'nenhum erro de console', erros.join(' | '));

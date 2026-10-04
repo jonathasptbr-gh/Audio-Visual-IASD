@@ -2,12 +2,13 @@
   {
     "versao": "1.11.7",
     "itens": [
-      "O app agora sempre abre no Modo simples.",
+      "Ao abrir o app do zero, ele sempre começa no Modo simples.",
       "Nova seta no topo da prévia: ela encolhe a prévia e deixa mais espaço na tela.",
       "A seta substitui o botão 'Imagem da prévia' das Configurações.",
       "Nas Configurações, preenchimento, wallpaper, fundo da letra e giro ficam agora no botão 'Tela'.",
       "Exportar e Importar viraram um botão só: 'Transferir'.",
-      "Ao importar, o app mostra antes o que a biblioteca já tem no aparelho."
+      "Ao importar, o app mostra antes o que a biblioteca já tem no aparelho.",
+      "Compartilhar um arquivo com o app fechado agora o projeta direto na tela."
     ]
   },
   {

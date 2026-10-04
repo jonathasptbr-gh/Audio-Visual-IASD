@@ -31484,7 +31484,9 @@ function renderPacoteGrupos(plano, opts = {}) {
       row.className = 'song-menu-btn pacote-leitura';
       const ic = document.createElement('span');
       ic.className = 'song-menu-icon coll-bar-icon';
-      ic.innerHTML = (g.chave === 'midia' || g.sobreposto) ? msym(ICON.import) : msym(ICON.music);
+      // `msym` devolve um ELEMENTO: atribuí-lo a `innerHTML` o converte na
+      // string "[object HTMLSpanElement]", que é o que a linha mostrava.
+      ic.appendChild((g.chave === 'midia' || g.sobreposto) ? msym(ICON.import) : msym(ICON.music));
       const txt = document.createElement('span'); txt.className = 'song-menu-text';
       const t = document.createElement('span'); t.className = 'song-menu-label'; t.textContent = g.rotulo;
       const d = document.createElement('span'); d.className = 'song-menu-sub';
@@ -33604,7 +33606,23 @@ function pacoteRenderPar() {
     return;
   }
 
-  // NADA ANDANDO. `pacoteEmCurso` ainda pode estar de pé (a medição, a folha de
+  // A MEDIÇÃO É TRABALHO ANDANDO (`pacoteMedindo`, a mesma pergunta do tile da
+  // grade): a janela pode ser fechada e reaberta durante os segundos dela, e
+  // cair no ramo ocioso apagava o aro e o percentual do Exportar — que o tile da
+  // grade, ao lado, continuava mostrando. Não há o que cancelar (nenhum byte foi
+  // escrito), então o Exportar trabalha INDISPONÍVEL e o irmão fica parado. O
+  // `calarTile` é o do irmão, não o `pacoteCalar`: este também cala o tile da
+  // grade, e o número dele é o que não pode se perder.
+  if (pacoteMedindo) {
+    pacoteTrabalhando(pacoteExportarTileEl, true, 'em curso', false);
+    pacoteImportarTileEl.onclick = null;
+    calarTile(pacoteImportarTileEl);
+    pacoteTrabalhando(pacoteImportarTileEl, false, 'o acervo', false);
+    pacoteImportarTileEl.disabled = true;
+    return;
+  }
+
+  // NADA ANDANDO. `pacoteEmCurso` ainda pode estar de pé (a folha de
   // escolha, o seletor do sistema): os tiles ficam PARADOS e indisponíveis, que
   // é a verdade — não há trabalho a mostrar e não há toque a aceitar.
   pacoteImportarTileEl.onclick = null;
