@@ -24,6 +24,7 @@ const simpleSettingsBtnEl = document.getElementById('simpleSettingsBtn');
 const simpleCastBtnEl = document.getElementById('simpleCastBtn');
 const simpleVeilEl = document.getElementById('simpleVeil');
 const simpleBusySlotEl = document.getElementById('simpleBusySlot');
+const simpleBarraEl = document.getElementById('simpleBarra');
 const simpleSongEl = document.querySelector('#simpleMode .simple-song');
 // A preview e a casa dela no modo avançado: são módulo-nível porque o nó MUDA
 // DE PAI conforme o modo (ver hostPreview).
@@ -1702,6 +1703,17 @@ let fimJaTratado = false;
 //
 // Uma variável, três defeitos: o estado que faltava era esse.
 let midiaNoAr = false;
+// ===== A COREOGRAFIA DA ESCOLHA NO MODO FÁCIL (v1.11.12) — o estado mora AQUI, no topo,
+// porque `closeHymnSearch` roda durante a CARGA do módulo (via `renderSimpleGate`) e um
+// `let` declarado depois dela seria zona morta temporal. `simpleSel` é a linha que o
+// operador acabou de tocar; os tempos estão em `SIMPLE_FEEDBACK_MS` e vizinhos.
+const SIMPLE_FEEDBACK_MS = 420;   // quanto a linha escolhida FICA marcada antes de a tela sair
+const SIMPLE_SAIDA_MS = 320;      // a Biblioteca recolhe (o `--pop-anim` da janela, com folga)
+const SIMPLE_ENTRADA_MS = 520;    // a leitura entra (atraso + duração da animação)
+const SIMPLE_SEL_JANELA_MS = 3000;
+let simpleSel = { em: 0, chave: '' };
+let simpleSaidaTimer = null;
+let simpleVigiaTimer = null;
 // QUAL mídia está no telão — o par de `cueNoArId`, e pelo mesmo motivo.
 //
 // `midiaNoAr` responde "há mídia no ar?" e `currentId` responde "qual é o item
@@ -22030,7 +22042,12 @@ function resetarBiblioteca() {
   }
 }
 
-function closeHymnSearch() {
+function closeHymnSearch(opts) {
+  const calma = !!(opts && opts.calma);
+  // A ESCOLHA DE UMA MÚSICA NÃO FECHA NADA NA HORA (v1.11.12). `playSongVariant` e os
+  // outros chamam isto no instante do toque, e fechar ali trocava a tela debaixo do
+  // dedo. Com uma linha TOCADA há pouco, a saída vira coreografia (`simpleAguardarSaida`).
+  if (!calma && simpleSelecaoFresca()) { simpleAguardarSaida(); return; }
   // O FOCO PENDENTE MORRE COM A TELA, e isto não é higiene: fechar a Biblioteca
   // dentro da janela do adiamento deixaria o `focus()` cair num campo que já
   // saiu de cena — o teclado subiria sozinho por cima do app, sem nada na tela
@@ -22039,11 +22056,11 @@ function closeHymnSearch() {
   hymnFocoTimer = null;
   // ===== ENCAIXADA, "FECHAR" É REINICIAR (v1.11.11) =====
   // No Modo Fácil sem mídia no ar a Biblioteca É a tela (`simplesBibliotecaDocada`),
-  // e quem fecha o acervo na pressa do toque — `playSongVariant`, `ytAcao`,
-  // `projectSongLyricsOnly`, `montarFilaSorteada` — o faz ANTES de a mídia existir:
-  // fechar de verdade deixaria o corpo VAZIO (a leitura está escondida por baixo)
-  // durante o download, e para sempre se ele falhasse. Quem tira a janela de cena
-  // é `renderSimpleCorpo`, quando a mídia entra no ar e a pergunta muda.
+  // e quem fecha o acervo na pressa do toque — `ytAcao`, `projectSongLyricsOnly`,
+  // `montarFilaSorteada` — o faz ANTES de a mídia existir: fechar de verdade
+  // deixaria o corpo VAZIO (a leitura está escondida por baixo) durante o download,
+  // e para sempre se ele falhasse. Quem a tira de cena é `renderSimpleCorpo`,
+  // quando a mídia entra no ar e a pergunta muda.
   const docada = simplesBibliotecaDocada();
   if (!docada) {
     hymnSearchPopupEl.classList.remove('open');
@@ -22068,18 +22085,28 @@ function closeHymnSearch() {
   // É a mesma razão que já trouxe o `resetarBiblioteca` para cá, e agora vale
   // para o texto pelo motivo oposto: aquele se faz no fechamento para não ser
   // VISTO acontecendo, este para não ficar VISÍVEL depois.
-  hymnSearchInputEl.value = '';
-  renderBuscaLimpar();
+  //
   // FECHAR é o momento certo, e não abrir: aqui a tela já saiu de cena, então
   // nada do que se colapsa é visto colapsando. No `openHymnSearch` o mesmo
   // trabalho apareceria como a Biblioteca se desmontando na frente do operador.
-  resetarBiblioteca();
-  // ENCAIXADA a janela continua À VISTA, então o acervo é REDESENHADO no estado
-  // padrão — senão ela mostraria os resultados de um termo que o campo já não tem.
-  if (docada) {
-    renderSearchResults('');
-    hymnResultsEl.scrollTop = 0;
-  }
+  const limpar = () => {
+    hymnSearchInputEl.value = '';
+    renderBuscaLimpar();
+    resetarBiblioteca();
+    // ENCAIXADA a janela continua À VISTA, então o acervo é REDESENHADO no estado
+    // padrão — senão ela mostraria os resultados de um termo que o campo já não tem.
+    if (docada) {
+      renderSearchResults('');
+      hymnResultsEl.scrollTop = 0;
+    }
+  };
+  // COM CALMA (a saída depois de uma escolha), a janela está RECOLHENDO: apagar o
+  // campo e recolher o acervo agora seria a lista saltando para o estado padrão na
+  // frente de quem a acabou de tocar. Espera a saída (e só limpa se ela continua fechada).
+  if (!calma) { limpar(); return; }
+  setTimeout(() => {
+    if (!hymnSearchPopupEl.classList.contains('open')) limpar();
+  }, SIMPLE_SAIDA_MS);
 }
 
 // Duas telas no mesmo popup, e **o campo é a chave**: vazio = o ACERVO (as
@@ -23378,6 +23405,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   // música depois de um redesenho (ver setSongRowBusy).
   const chave = songRowKey(coll, s);
   li.dataset.song = chave;
+  if (simpleLinhaSelecionada(chave)) li.classList.add('selecionando');
 
   const row = document.createElement('div'); row.className = 'row hymn-row';
   // O QUADRADO DA ESQUERDA DEIXOU DE SER UM BOTÃO (v5.285) e virou um
@@ -23766,7 +23794,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
 
   row.addEventListener('click', async () => {
     // No simplificado a linha TOCA — não abre gaveta nenhuma.
-    if (appMode === 'simple') { simplePlaySong(coll, s); return; }
+    if (appMode === 'simple') { simpleSelecionarLinha(li); simplePlaySong(coll, s); return; }
     const aberta = li.classList.contains('expanded');
     // Acordeão: abrir uma fecha a anterior — duas linhas abertas ao mesmo
     // tempo empurrariam a lista e tirariam do lugar o que o operador mira. O
@@ -38482,55 +38510,154 @@ function acertarEnqueteDaConexao() {
 // porque o `stage` dele é quem toca o áudio quando o som é deste aparelho
 // (`tocarNoCelular`). Dois `createStage` decodificariam o MESMO vídeo duas vezes
 // num aparelho que já roda dois WebViews, e por isso não se cria um segundo.
-// ===== A BIBLIOTECA É A TELA PRINCIPAL DO MODO FÁCIL (v1.11.11) =====
-// Pedido do operador: *"sem mídia tocando, a biblioteca é a tela principal, com
-// mídia tocando, o auxiliar de leitura é a tela principal"*.
+// ===== A BIBLIOTECA NO MODO FÁCIL: BARRA SEMPRE À VISTA, E TELA PRINCIPAL SEM MÍDIA =====
+// v1.11.11, pedido do operador: *"sem mídia tocando, a biblioteca é a tela principal,
+// com mídia tocando, o auxiliar de leitura é a tela principal"*. v1.11.12: *"mantenha a
+// barra de buscas da biblioteca sempre visível no modo simples … quando o foco for
+// para a caixa de buscas, a tela principal muda do auxiliar de leitura para a
+// biblioteca. A caixa de buscas é o gatilho para abrir a biblioteca durante a exibição
+// de uma mídia"*.
 //
-// A MESMA janela da Biblioteca, ENCAIXADA na caixa da zona de leitura
-// (`.simple-song`): a camada `fixed` ocupa as quatro medidas dela
-// (`medirCorpoSimples`) e a zona de leitura fica `visibility: hidden` por baixo,
-// para o controle remoto não subir. Sem nó novo e sem segunda implementação da
-// busca — o campo, o ✕ e o acervo são os de sempre.
-//
-// A pergunta é a MESMA do Parar (`haOQueParar`): "há o que parar?" decide, e um
-// pause não conta — a mídia pausada continua a tela de leitura. Sem tela
-// conectada a cortina cobre o modo, e a Biblioteca nem abre (`renderSimpleGate`).
+// É a MESMA janela da Biblioteca (`#hymnSearchPopup`, fixa), sem nó novo e sem segunda
+// implementação da busca. Com TELA conectada (`simplesComBarra`) ela pousa sobre o
+// espaço da barra (`.simple-barra`) e tem TRÊS estados, escolhidos pela pergunta do
+// Parar (`haOQueParar` — pausar não troca de tela):
+//   · sem mídia no ar: PRINCIPAL — aberta, ocupando barra + zona de leitura;
+//   · com mídia no ar: FECHADA, só a barra à vista (o campo é o gatilho: o foco chama
+//     `openHymnSearch`) — ou ABERTA SOBRE A LEITURA, com o ✕ e o voltar para fechar.
+// Sem tela a cortina cobre o modo e a janela nem existe (`renderSimpleGate`).
+function simplesComBarra() {
+  return appMode === 'simple' && !simpleModeEl.classList.contains('sem-tela');
+}
+
 function simplesBibliotecaDocada() {
-  return appMode === 'simple'
-    && !simpleModeEl.classList.contains('sem-tela')
-    && !haOQueParar();
+  return simplesComBarra() && !haOQueParar();
 }
 
 function renderSimpleCorpo() {
-  const docar = simplesBibliotecaDocada();
-  const ja = document.body.classList.contains('simples-biblioteca');
-  document.body.classList.toggle('simples-biblioteca', docar);
-  simpleModeEl.classList.toggle('corpo-biblioteca', docar);
-  if (docar) {
-    medirCorpoSimples();
+  const barra = simplesComBarra();
+  const principal = simplesBibliotecaDocada();
+  const corpo = document.body;
+  const eraPrincipal = corpo.classList.contains('simples-principal');
+  // A SAÍDA DEPOIS DE UMA ESCOLHA ESPERA O FEEDBACK: a mídia pode entrar no ar em
+  // alguns milissegundos (já baixada), e trocar a tela nesse instante é o "piscar"
+  // do relato. A linha tocada fica marcada pelo menos `SIMPLE_FEEDBACK_MS`.
+  if (barra && eraPrincipal && !principal && simpleSelecaoFresca()) {
+    const falta = simpleSel.em + SIMPLE_FEEDBACK_MS - performance.now();
+    if (falta > 0) {
+      clearTimeout(simpleSaidaTimer);
+      simpleSaidaTimer = setTimeout(renderSimpleCorpo, falta);
+      return;
+    }
+  }
+  corpo.classList.toggle('simples-barra', barra);
+  corpo.classList.toggle('simples-principal', principal);
+  simpleModeEl.classList.toggle('corpo-biblioteca', principal);
+  if (barra) medirCorpoSimples();
+  const aberta = hymnSearchPopupEl.classList.contains('open');
+  if (principal) {
     // A janela abre SEM foco: é a tela, não uma busca iniciada (o teclado
     // subiria sozinho a cada Parar). O toque no campo a mantém aberta.
-    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch(false);
-  } else if (ja && hymnSearchPopupEl.classList.contains('open')) {
-    // Saiu do estado encaixado (entrou mídia, ou saiu do Modo Fácil): a janela
-    // volta a ser um modal que se abre de propósito, e aqui não foi aberta.
-    closeHymnSearch();
+    if (!aberta) openHymnSearch(false);
+  } else if (barra && eraPrincipal && aberta) {
+    // Entrou mídia (ou a escolha acabou): a Biblioteca RECOLHE para a barra e a
+    // leitura entra — com calma, quando veio de uma escolha.
+    simpleSairDaBiblioteca();
   }
 }
 
-// As quatro medidas da caixa da zona de leitura, LIDAS do layout e nunca
-// escritas: ela muda de altura com o cartão de "Baixando…", com a linha de
-// slides e com o corpo de fonte do sistema.
+// ---- A ESCOLHA DE UMA MÚSICA: toque, saída e entrada, nessa ordem (v1.11.12) ----
+// Relato do operador: *"a tela muda rápido demais, sem nem sequer o feedback tátil para
+// a percepção de que tocou no item certo … faça o feedback do toque, com calma, depois
+// a animação de fechamento da tela da biblioteca e a animação de entrada do auxiliar de
+// leitura. Atualmente a tela está simplesmente piscando … a tela muda sobre seus dedos
+// sem entender nada"*.
+//   1. `simpleSelecionarLinha`: a linha tocada assume o estado de SELECIONADA e fica
+//      assim por `SIMPLE_FEEDBACK_MS`;
+//   2. `simpleSairDaBiblioteca`: a Biblioteca recolhe para a barra (a transição do
+//      `bottom` da camada) e a leitura entra por baixo (`.simple-song.entrando`);
+//   3. só então o campo é limpo e o acervo volta ao estado padrão (`closeHymnSearch`).
+function simpleSelecionarLinha(li) {
+  if (!li || !li.dataset) return;
+  hymnResultsEl.querySelectorAll('.hymn-result.selecionando').forEach((el) => {
+    if (el !== li) el.classList.remove('selecionando');
+  });
+  simpleSel = { em: performance.now(), chave: li.dataset.song || '' };
+  li.classList.add('selecionando');
+}
+
+function simpleSelecaoFresca() {
+  return simplesComBarra() && !!simpleSel.em
+    && (performance.now() - simpleSel.em) < SIMPLE_SEL_JANELA_MS;
+}
+
+/** A linha redesenhada (o acervo se refaz a cada pulso de download) volta marcada. */
+function simpleLinhaSelecionada(chave) {
+  // Vale enquanto a escolha estiver de pé (até a saída ou o vigia a desfazerem): um
+  // download longo redesenha o acervo muitas vezes, e a marca não pode sumir no meio.
+  return !!chave && simpleSel.chave === chave && !!simpleSel.em && simplesComBarra();
+}
+
+function simpleLimparSelecao() {
+  simpleSel = { em: 0, chave: '' };
+  clearTimeout(simpleSaidaTimer); simpleSaidaTimer = null;
+  clearInterval(simpleVigiaTimer); simpleVigiaTimer = null;
+  hymnResultsEl.querySelectorAll('.hymn-result.selecionando').forEach((el) => el.classList.remove('selecionando'));
+}
+
+// Quem fechava a Biblioteca na hora do toque (`closeHymnSearch`) cai aqui quando houve
+// uma escolha: SOBRE A LEITURA ela sai depois do feedback; como PRINCIPAL ela fica até
+// a mídia entrar no ar (`renderSimpleCorpo`) — e um vigia desfaz a marca se a escolha
+// não deu em mídia (falhou, ou o cartão de espera foi cancelado).
+function simpleAguardarSaida() {
+  if (simplesBibliotecaDocada()) {
+    clearInterval(simpleVigiaTimer);
+    simpleVigiaTimer = setInterval(() => {
+      if (!simpleSel.em) { clearInterval(simpleVigiaTimer); simpleVigiaTimer = null; return; }
+      if (haOQueParar() || pvBusyEl.classList.contains('on')) return;
+      if (performance.now() - simpleSel.em < 4000) return;   // dá tempo ao download começar
+      simpleLimparSelecao();
+      closeHymnSearch();   // principal: REINICIA (campo limpo, acervo no padrão)
+    }, 1000);
+    return;
+  }
+  const falta = simpleSel.em + SIMPLE_FEEDBACK_MS - performance.now();
+  clearTimeout(simpleSaidaTimer);
+  simpleSaidaTimer = setTimeout(simpleSairDaBiblioteca, Math.max(0, falta));
+}
+
+function simpleSairDaBiblioteca() {
+  simpleLimparSelecaoTimers();
+  if (simpleSongEl) {
+    simpleSongEl.classList.add('entrando');
+    setTimeout(() => simpleSongEl.classList.remove('entrando'), SIMPLE_ENTRADA_MS);
+  }
+  closeHymnSearch({ calma: true });
+  // A marca sai com a janela já recolhida — a linha é a última coisa que se vê dela.
+  setTimeout(() => simpleLimparSelecao(), SIMPLE_SAIDA_MS);
+}
+
+function simpleLimparSelecaoTimers() {
+  clearTimeout(simpleSaidaTimer); simpleSaidaTimer = null;
+  clearInterval(simpleVigiaTimer); simpleVigiaTimer = null;
+}
+
+// As medidas do espaço da barra e da zona de leitura, LIDAS do layout e nunca escritas:
+// elas mudam com o cartão de "Baixando…", a linha de slides e o corpo de fonte do sistema.
 let corpoSimplesMedido = '';
 function medirCorpoSimples() {
-  if (!simpleSongEl) return;
+  if (!simpleSongEl || !simpleBarraEl) return;
+  // A altura da barra vem primeiro: o espaço reserva `--lib-bar-h`, e medir antes de
+  // escrevê-la mediria um espaço de altura zero.
+  medirBarraDaBiblioteca();
+  const b = simpleBarraEl.getBoundingClientRect();
   const r = simpleSongEl.getBoundingClientRect();
   // Modo escondido ou ainda sem layout: zero não é medida, é a AUSÊNCIA de uma.
   if (!r.width || !r.height) return;
   const vw = document.documentElement.clientWidth;
   const vh = window.innerHeight;
   const m = {
-    '--simple-corpo-topo': Math.round(r.top) + 'px',
+    '--simple-barra-topo': Math.round(b.top) + 'px',
     '--simple-corpo-esq': Math.round(r.left) + 'px',
     '--simple-corpo-dir': Math.round(vw - r.right) + 'px',
     '--simple-corpo-base': Math.round(vh - r.bottom) + 'px',
@@ -38540,13 +38667,16 @@ function medirCorpoSimples() {
   corpoSimplesMedido = chave;
   const raiz = document.documentElement;
   for (const k of Object.keys(m)) raiz.style.setProperty(k, m[k]);
-  medirBarraDaBiblioteca();
+  // MEDIDA NOVA NÃO ANIMA: sem isto a camada corria até o lugar novo.
+  semAnimarAJanela();
 }
 if (simpleSongEl && typeof ResizeObserver === 'function') {
-  new ResizeObserver(() => { if (simplesBibliotecaDocada()) medirCorpoSimples(); })
-    .observe(simpleSongEl);
+  const vigia = new ResizeObserver(() => { if (simplesComBarra()) medirCorpoSimples(); });
+  for (const el of [simpleSongEl, simpleBarraEl, document.querySelector('#simpleMode .simple-head')]) {
+    if (el) vigia.observe(el);
+  }
 }
-window.addEventListener('resize', () => { if (simplesBibliotecaDocada()) medirCorpoSimples(); });
+window.addEventListener('resize', () => { if (simplesComBarra()) medirCorpoSimples(); });
 
 // A CASA ORIGINAL do cartão de "Baixando…": o `.preview` do avançado, logo antes
 // da coluna de botões do player. Capturada na carga, antes de qualquer mudança.

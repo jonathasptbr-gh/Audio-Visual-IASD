@@ -7708,37 +7708,72 @@ body.lib-aberta.teclado .popup-backdrop--lib {
    scroller E até o véu de baixo, que anula o mesmo número. */
 body.mode-simple,
 body.lib-aberta.teclado { --lib-lista-base: calc(var(--sp-5) + env(safe-area-inset-bottom)); }
-/* ===== NO MODO FÁCIL, SEM MÍDIA NO AR, A BIBLIOTECA É A TELA (v1.11.11) =====
-   Pedido do operador: *"manter diretamente exposto a barra de busca no topo e a
-   biblioteca no corpo onde é hoje o corpo do campo de leitura … sem mídia
-   tocando, a biblioteca é a tela principal, com mídia tocando, o auxiliar de
-   leitura é a tela principal"*.
+/* ===== NO MODO FÁCIL A BARRA DA BIBLIOTECA É SEMPRE VISÍVEL (v1.11.12) =====
+   Pedido do operador: *"mantenha a barra de buscas da biblioteca sempre visível
+   no modo simples … quando o foco for para a caixa de buscas, a tela principal
+   muda do auxiliar de leitura da mídia atual para a biblioteca"* — e, desde a
+   v1.11.11, *"sem mídia tocando, a biblioteca é a tela principal"*.
 
-   É A MESMA JANELA, ENCAIXADA: a camada continua `fixed` e a Biblioteca não ganha
-   nó novo, mas em vez de tela cheia ela ocupa EXATAMENTE a caixa da zona de
-   leitura (`.simple-song`, que fica `visibility: hidden` por baixo, para o
-   controle remoto não subir). As quatro medidas saem do layout
-   (`medirCorpoSimples`) e NUNCA são escritas aqui: a zona de leitura muda de
-   altura com o cartão de "Baixando…" e com a linha de slides. O teclado manda
-   no `bottom` quando é maior que a base (`max`).
-
-   SEM CENA, SEM SETA E SEM FECHAR: a janela não é mais um modal que se abre e
-   se fecha — o ↑/✕ da barra some, e o voltar do Android não a fecha
-   (`window.__avBack`). */
-body.simples-biblioteca .popup-backdrop--lib {
-  top: var(--simple-corpo-topo, 0px);
+   É A MESMA JANELA (`#hymnSearchPopup`, fixa), nos TRÊS estados do Modo Fácil com
+   tela. As medidas saem do layout (`medirCorpoSimples`) e NUNCA são escritas aqui:
+   o espaço da barra (`.simple-barra`) mais a zona de leitura (`.simple-song`)
+   formam a CAIXA da Biblioteca aberta.
+     · FECHADA (com mídia no ar): a camada tem a altura da barra e pousa sobre o
+       espaço dela; o resto da janela é recortado (`overflow: hidden`);
+     · ABERTA: a camada cresce até a base da zona de leitura. O teclado manda no
+       `bottom` quando é maior que a base (`max`);
+     · PRINCIPAL (sem mídia no ar): aberta, e a leitura fica escondida por baixo.
+   Abrir e fechar ANIMAM só o `bottom` (a mesma duração e curva do resto da
+   janela, desligadas numa remedição — ver `semAnimarAJanela`). */
+.simple-barra { flex: none; display: none; height: var(--lib-bar-h, 0px); }
+body.simples-barra .simple-barra { display: block; }
+body.simples-barra .popup-backdrop--lib {
+  top: var(--simple-barra-topo, 0px);
   left: var(--simple-corpo-esq, 0px);
   right: var(--simple-corpo-dir, 0px);
+  bottom: calc(100% - var(--simple-barra-topo, 0px) - var(--lib-bar-h, 0px));
+  transition: bottom var(--lib-anim, 0s) cubic-bezier(.2, .7, .3, 1);
+}
+body.simples-barra .popup-backdrop--lib.open {
   bottom: max(var(--simple-corpo-base, 0px), var(--kb, 0px));
 }
-body.simples-biblioteca .popup-backdrop--lib::before { display: none; }
-body.simples-biblioteca .popup-backdrop--lib .popup-sheet--lib,
-body.simples-biblioteca .popup-backdrop--lib.open .popup-sheet--lib {
+body.simples-barra .popup-backdrop--lib::before { display: none; }
+body.simples-barra .popup-backdrop--lib .popup-sheet--lib,
+body.simples-barra .popup-backdrop--lib.open .popup-sheet--lib,
+/* `.mode-simple` na conta: a regra que desce a janela FECHADA para fora da tela
+   (`body.mode-simple .popup-backdrop--lib:not(.open) …`, logo abaixo) tem a mesma
+   especificidade e vem DEPOIS — sem este grau a barra sumia com a janela fechada. */
+body.mode-simple.simples-barra .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   transform: none; height: 100%;
 }
-body.simples-biblioteca .lib-toggle { display: none; }
-body.simples-biblioteca { --lib-lista-base: var(--sp-5); }
+/* A SETA/✕ da janela só existe quando há o que fechar: ABERTA SOBRE A LEITURA. Como
+   PRINCIPAL ela é a tela (não se fecha), e fechada o campo é quem abre. */
+body.simples-barra .lib-toggle { display: none; }
+body.simples-barra:not(.simples-principal) .popup-backdrop--lib.open .lib-toggle { display: flex; }
+body.simples-barra { --lib-lista-base: var(--sp-5); }
 .simple.corpo-biblioteca .simple-song { visibility: hidden; }
+/* A LEITURA ENTRA (v1.11.12): quando a Biblioteca recolhe depois de uma escolha, o
+   auxiliar de leitura SOBE e aparece, em vez de estar lá de repente. O atraso é a
+   Biblioteca já ter começado a sair; `both` segura o quadro inicial (transparente)
+   durante ele. */
+.simple-song.entrando {
+  animation: simple-leitura-entra .38s cubic-bezier(.2, .7, .3, 1) .12s both;
+}
+@keyframes simple-leitura-entra {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .simple-song.entrando { animation: none; }
+}
+/* O TOQUE NA LINHA ESCOLHIDA FICA (v1.11.12): a tela trocava debaixo do dedo antes
+   de se perceber que o item certo recebeu o toque. A linha assume o preenchimento
+   de SELECIONADA e o recuo do toque, e os mantém até a Biblioteca sair. */
+.lib-item.hymn-result { transition: transform .14s ease, filter .14s ease, background-color .2s ease; }
+.lib-item.hymn-result.selecionando {
+  --linha: var(--sel-fill);
+  transform: translateY(2px); filter: var(--press-luz);
+}
 /* E A CAIXA DE CONTROLES SAI DE CENA — só com a Biblioteca ABERTA e o teclado no
    ar. As duas condições são necessárias: sozinho, o teclado não justifica tirar
    o transporte de quem está operando o culto (ele sobe pela Bíblia, pelo

@@ -276,7 +276,7 @@ try {
       // leitura à vista que o par é usado de verdade.
       await pg.evaluate(() => { midiaNoAr = true; renderTransporteHabilitado(); });
       await esperar(pg,
-        () => !document.body.classList.contains('simples-biblioteca')
+        () => !document.body.classList.contains('simples-principal')
           && getComputedStyle(document.querySelector('.simple-song')).visibility !== 'hidden',
         'a leitura é a tela (mídia no ar) [' + cfg + ']');
       await pg.evaluate(async () => {
