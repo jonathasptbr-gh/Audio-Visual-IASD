@@ -57,9 +57,18 @@
   //   4. `__avBack` (perto do FIM do controle.js) — só existe se o arquivo foi
   //      parseado inteiro. É a mesma função que o `handleBack()` consulta: um
   //      contrato que já existe, não um marcador inventado aqui.
-  //   5. um `<li>` dentro de `#playlist` — o HTML entrega o `<ul>` VAZIO, e quem
-  //      o preenche é `renderPlaylist()`, dentro do `init()` assíncrono. Prova
-  //      que a inicialização terminou.
+  //   5. `__avSplash.terminou` — o `init()` chegou à ÚLTIMA linha que muda o que
+  //      se vê (o `pronto()` da cortina, depois do `applyPvWallpaper`). Prova que
+  //      a inicialização terminou, e é o ÚNICO sinal dela que não depende do
+  //      CONTEÚDO do aparelho.
+  //
+  //      **Prova de que o app subiu NUNCA pode ser a presença de um item de lista
+  //      ou de registro**: lista vazia é estado normal (com a fila vazia não há
+  //      `<li>` em `#playlist`), e um watchdog que a exige nunca confirma — o
+  //      bundle é descartado a cada lançamento e o app oferece a mesma
+  //      atualização para sempre. Também não serve o `motivo` da cortina: o
+  //      primeiro a escrever ganha, e o teto de 12 s o grava como `'prazo'` num
+  //      aparelho lento que subiu bem. Daí o campo `terminou`, à parte.
   //
   // POLLING e não checagem única no `load`: o `init()` é assíncrono e termina
   // DEPOIS dele — uma checagem única rejeitaria todo bundle bom.
@@ -123,7 +132,9 @@
     // trocando de celular.
     if (!global.AVPacote) return false;
     if (typeof global.__avBack !== 'function') return false;
-    return !!document.querySelector('#playlist > li');
+    // O `init()` terminou (item 5 acima). `__avSplash` nasce no `<head>` do
+    // Controle, antes de qualquer script; ausente aqui é um bundle sem ele.
+    return !!global.__avSplash && global.__avSplash.terminou === true;
   }
 
   global.addEventListener('load', function () {

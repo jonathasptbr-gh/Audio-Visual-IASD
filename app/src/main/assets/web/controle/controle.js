@@ -385,7 +385,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.7';
+const WEB_VERSION = '1.11.8';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -29600,6 +29600,9 @@ const TESTES = [
       const sp = window.__avSplash;
       if (!sp || typeof sp.motivo !== 'string') return tNa('esta versão do app não informa');
       if (sp.motivo === 'prazo') {
+        // `terminou` é o critério do watchdog do OTA: o `init()` chegou ao fim,
+        // só depois do teto de 12 s — o app subiu devagar, não quebrado.
+        if (sp.terminou === true) return tOk('subiu devagar: passou do prazo de segurança de 12 s');
         return tFalhou('a tela de abertura saiu pelo prazo de segurança — o app não terminou de subir');
       }
       if (!sp.motivo) return tNa('a abertura ainda está em curso');

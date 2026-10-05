@@ -129,6 +129,14 @@
       // essa é a guarda que mantém isso barato de mudar.
       function levantar() {
         marcar('pronto');
+        // O FATO QUE O WATCHDOG DO OTA LÊ (`otaAppIsUp`, em `shared/native.js`):
+        // "o `init()` chegou ao fim". É um campo À PARTE do `motivo` porque o
+        // `motivo` guarda QUEM tirou a cortina e o primeiro a escrever ganha — um
+        // aparelho lento que estoura o teto de 12 s fica com `motivo: 'prazo'` para
+        // sempre, e confirmar um bundle bom só porque ele levou 13 s é o oposto do
+        // que o watchdog existe para fazer. Escrito ANTES do piso (`espera`): o
+        // piso é estética, e não pode atrasar uma confirmação.
+        if (window.__avSplash) window.__avSplash.terminou = true;
         if (espera) return;
         var falta = PISO_MS - (Date.now() - nasceu);
         if (falta > 0) { espera = setTimeout(sair, falta); return; }
@@ -2608,7 +2616,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.11.7</span>
+            <span id="appVersion" class="app-version">v1.11.8</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

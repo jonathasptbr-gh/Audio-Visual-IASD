@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.11.8",
+    "itens": [
+      "Corrigido: o app descartava a atualização ao fechar e voltava à versão antiga, pedindo de novo.",
+      "A atualização agora fica guardada mesmo quando a fila de reprodução está vazia."
+    ]
+  },
+  {
     "versao": "1.11.7",
     "itens": [
       "Ao abrir o app do zero, ele sempre começa no Modo simples.",

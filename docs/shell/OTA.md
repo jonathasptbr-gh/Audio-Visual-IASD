@@ -167,7 +167,7 @@ Ordem dos scripts do Controle: `native.js` → `db.js` → `stage.js` →
 `controle.js`.
 
 As CINCO condições: papel `controle` · `AVDB`/`createStage` ·
-`__avBack` · um `<li>` em `#playlist` · **os dez módulos do Controle**
+`__avBack` · o fim do `init()` (`__avSplash.terminou`) · **os dez módulos do Controle**
 (`Louvorja`, `Bible`, `AVSerie`, `AVSorteio`, `AVCifra`, `AVHinario`,
 `AVColetanea`, `AVPptxZip`, `AVDeck`, `AVPacote`). Por **polling** (250 ms,
 desistindo em 30 s), porque o `init()` é assíncrono e termina DEPOIS do `load`.
@@ -605,9 +605,13 @@ cada uma cobrindo o que a anterior não cobre:
 3. **`__avBack`** (perto do fim do `controle.js`) — só existe se o arquivo foi
    parseado inteiro. É a mesma função que `handleBack()` consulta: contrato que
    já existe, não marcador inventado.
-4. **um `<li>` dentro de `#playlist`** — o HTML entrega o `<ul>` VAZIO; quem o
-   preenche é `renderPlaylist()`, dentro do `init()` assíncrono, que começa por
-   `loadCollections()`. Prova que a inicialização terminou.
+4. **o fim do `init()`** (`__avSplash.terminou`, escrito pelo `levantar()` da
+   cortina no `<head>` do Controle — a última linha do `init()` que muda o que
+   se vê). **Prova de boot NUNCA é a presença de um item de lista ou registro**:
+   com a fila vazia não há `<li>` em `#playlist`, e a condição antiga nunca
+   confirmava — o bundle era descartado a cada lançamento. O `motivo` da cortina
+   não serve (o teto de 12 s o grava como `'prazo'` num aparelho lento). Oráculo:
+   `ota-confirma.test.mjs`.
 
 5. **`Louvorja` · `Bible` · `AVSerie` · `AVSorteio` · `AVCifra` · `AVHinario` ·
    `AVDeck` · `AVColetanea` · `AVPptxZip` · `AVPacote`** — os dez

@@ -2128,7 +2128,7 @@ estilo do fade fora limpo — MEDIDO, ele é limpo em **3,1 s**.
 
 #### EM PARALELO, TRÊS DE CADA VEZ
 
-Os de Chromium são **97** e os de Node puro **22** — juntos, os 119. MEDIDO com
+Os de Chromium são **98** e os de Node puro **22** — juntos, os 120. MEDIDO com
 82 deles: **~13 min em série** e **~4,3 min nos três processos** (4 vCPU, o mesmo
 do runner); os de Node puro somam **8 s**. **Os números moram no `apk.yml`**, ao
 lado do passo que descrevem, e esta é a cópia — divergiram uma vez (79/99 aqui
@@ -2179,7 +2179,7 @@ por `call()` contra a allowlist de cada oráculo. Um arquivo que demore um múlt
 redondo de 60 s é este defeito até prova em contrário.
 
 **As tabelas — o que cada oráculo trava — moram em
-[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 119 linhas de REFERÊNCIA: ninguém as
+[`docs/ORACULOS.md`](docs/ORACULOS.md).** São 120 linhas de REFERÊNCIA: ninguém as
 lê inteiras, e ninguém deveria. Abra o capítulo para mexer num oráculo, escrever
 um novo, ou entender por que uma asserção existe antes de "consertá-la". O que
 fica aqui é o MÉTODO, que vale para todos eles.
@@ -2993,13 +2993,13 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.11.7 · APK v1.11.3** · `SHELL_VERSION` **77** ·
+**Versão atual: base web v1.11.8 · APK v1.11.3** · `SHELL_VERSION` **77** ·
 bundle com `minShell: 77` e **SEM `shellTag`** — o shell 77 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Nada em
 `java/`, `res/` ou no manifesto muda neste lote, e o APK v1.11.3 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO, e o lote junta QUATRO pedidos do operador, todos de
-superfície:** (1) a **seta no topo da prévia** que a recolhe na menor altura em
+**O DEGRAU É CORREÇÃO. A v1.11.7 (anterior) juntou QUATRO pedidos do operador,
+todos de superfície:** (1) a **seta no topo da prévia** que a recolhe na menor altura em
 que os botões dela cabem (substitui o tile "Imagem da prévia"; ver a linha
 "Recolher a prévia" da tabela de divergências); (2) o app **SEMPRE abre no Modo
 Fácil** — o modo vale pela sessão (`sessionStorage`), atravessa a recarga do
@@ -3014,6 +3014,12 @@ hotspot de outro celular conta como Wi-Fi comum, e isso está DECIDIDO** (ver a
 linha "Manter o episódio da SEMANA baixado" da tabela de divergências).
 **Conferir a Release é parte de decidir** — um lote só de web herda o `shellTag` quando o
 lote de shell anterior ainda não tem Release, e não herda quando tem.
+
+> **A v1.11.8 CONSERTA O WATCHDOG DO OTA** (lote só de web, sem `shellTag`): `otaAppIsUp` exigia
+> um `<li>` em `#playlist`, que não existe com a fila vazia (v1.8.54 em diante) — o bundle OTA nunca era
+> confirmado nesses aparelhos, era descartado no lançamento seguinte e o app voltava ao embutido (1.11.3),
+> oferecendo a mesma atualização. Agora é `__avSplash.terminou` (fim do `init()`); a regra e o oráculo
+> (`ota-confirma`) estão em `docs/shell/OTA.md`. **Prova de boot nunca é item de lista.**
 
 > **A v1.11.5 corrigiu `opfsTodosOsArquivos`** (`shared/db.js`): o teto de 4000
 > ENTRADAS da v1.10.5 não é teto de TEMPO, e a checagem "Os arquivos no disco

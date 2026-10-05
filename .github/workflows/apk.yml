@@ -589,6 +589,7 @@ jobs:
           rodar tools/tela-rede.test.mjs
           rodar tools/registro.test.mjs
           rodar tools/ota.test.mjs
+          rodar tools/ota-confirma.test.mjs
           rodar tools/gaveta-no-download.test.mjs
           rodar tools/hinario-tela.test.mjs
           rodar tools/parar-por-camada.test.mjs
