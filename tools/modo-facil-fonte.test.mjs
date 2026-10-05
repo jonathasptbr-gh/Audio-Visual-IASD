@@ -1,53 +1,36 @@
 #!/usr/bin/env node
 // ============================================================================
-// O A+/A− DO MODO FÁCIL: A LINHA RESERVA A ALTURA DO PAR (v1.5.19)
+// O A+/A− DO MODO FÁCIL: DOIS BOTÕES FLUTUANTES NO CANTO DA LEITURA (v1.11.15)
 //
-// Relato do operador: *"ajuste a margem dos botões de aumentar e diminuir a
-// fonte no modo simples, eles estão colados nos elementos abaixo dele"*.
+// Pedido do operador, verbatim: *"ajuste os dois botões de aumentar e diminuir letra para que
+// sejam colocados como dois botões FAB dentro da caixa do auxiliar de leitura, sendo os dois
+// no canto inferior direito, um acima do outro, em uma coluna. Sem molduras, apenas os
+// botões"*.
 //
-// ## O que estava acontecendo, e por que "colados" era otimista
+// ## O que isto substitui
 //
-// `.lv-fonte-ctl` é `position: absolute` dentro da `.simple-np-linha` — é assim
-// que o nome continua CENTRADO com um par de botões pendurado à direita. A
-// outra metade do `absolute` é que uma caixa fora de fluxo **não conta para a
-// altura do pai**: quem dava altura àquela linha era o `.simple-np` sozinho
-// (`--fs-xl`, 18px), e o botão mede `--hit` (34px). A linha continha 34 dentro
-// de 18, e o par transbordava 8px para cada lado. Os `gap` que a folha declara
-// (`--sp-3` embaixo, `--sp-5` em cima) são medidos a partir da LINHA, não do
-// botão: o respiro real virava **−2,40px** embaixo.
-//
-// Respiro NEGATIVO não é aperto, é SOBREPOSIÇÃO — e ela decide o hit-test
-// contra o botão: `.simple-lyrics` é `position: relative` (o offsetParent do
-// `lvScroll`) e vem DEPOIS no documento, então a placa pinta e RECEBE o toque
-// nos 2,4px de baixo do par. Com a linha do tempo à vista o vizinho é pior: o
-// `#simpleTimeHit`, o scrubber que salta o louvor no ar, perdia 27% da margem
-// de toque dele para um botão de tamanho de fonte.
+// O par morava PENDURADO na linha do nome (`.simple-np-linha`, `position: absolute`), e
+// por isso a linha reservava a altura dele (v1.5.19: *"eles estão colados nos elementos
+// abaixo dele"*). Tudo isso saiu com a linha: o nome é o `.simple-np` solto, e o par virou
+// uma coluna no canto de baixo da placa da letra. As cinco asserções que guardavam o respiro
+// da linha deixaram de ter o que medir; o que ficou delas é o ALVO (`--hit`) e a outra casa do
+// par, o cabeçalho do `#lyricsPopup`, que não mudou.
 //
 // ## Por que isto precisa de oráculo
 //
-// **Nada disso lança, nada aparece no console e nada quebra um fluxo.** O que
-// sai é uma tela que continua funcionando: os botões estão lá, desenhados,
-// respondendo na maior parte da área. O único sinal é geométrico, e ele mora em
-// duas propriedades (`position` e `min-height`) que qualquer lote futuro pode
-// mexer por outro motivo.
+// **Nada disso lança, nada aparece no console e nada quebra um fluxo.** Os botões estão lá,
+// desenhados, respondendo — e o que falha é GEOMETRIA e HIT-TEST: um botão fora do canto, um
+// par lado a lado, uma moldura que volta, a última estrofe presa SOB a coluna no fim da
+// rolagem, ou a placa da letra recebendo o toque que era do botão.
 //
-// ## As três réguas deste arquivo
+// ## As réguas deste arquivo
 //
-//  1. **NENHUM NÚMERO DE ESPAÇO ESCRITO AQUI.** O respiro é comparado contra o
-//     `row-gap` COMPUTADO do próprio contêiner, e a altura do botão contra o
-//     `--hit` resolvido. Escrever `5,60` mediria o `font-size` da raiz do
-//     runner pela porta dos fundos — e os dois lados de cada comparação são
-//     medidas do MESMO desenho.
-//  2. **O ALVO É O QUE IMPEDE O REMENDO.** As asserções de espaço PASSAM com o
-//     botão encolhido a 18px — que é o conserto barato, e o que a folha proíbe
-//     por escrito (*"encolher o alvo junto seria trocar discrição por erro de
-//     toque"*). Por isso o `--hit` tem asserção própria, e nas DUAS casas do
-//     par (o Modo Fácil e o `#lyricsPopup`).
-//  3. **O MODO SE DESTRAVA PELO CAMINHO REAL.** `setTocarNoCelular(true)`, e
-//     nunca arrancando `.sem-tela` e escondendo o `#simpleVeil` à mão: isso
-//     produz um DOM que o app não gera (o `renderSimpleGate` não roda, o cartão
-//     de conexão fica parado na faixa de ações e a zona sai ~170px menor). É a
-//     classe "o oráculo correndo contra o app".
+//  1. **NENHUM NÚMERO DE ESPAÇO ESCRITO AQUI.** O recuo é comparado entre os DOIS eixos e o
+//     alvo contra o `--hit` resolvido; as medidas são do mesmo desenho dos dois lados.
+//  2. **O ALVO É O QUE IMPEDE O REMENDO.** Encolher os botões para caber passa em toda a
+//     geometria — por isso o `--hit` tem asserção própria, nas DUAS casas do par.
+//  3. **O MODO SE DESTRAVA PELO CAMINHO REAL.** `setTocarNoCelular(true)`, e nunca arrancando
+//     `.sem-tela` à mão: isso produz um DOM que o app não gera.
 //
 //   node tools/modo-facil-fonte.test.mjs
 // ============================================================================
@@ -71,11 +54,9 @@ async function esperar(pg, fn, msg, arg, ms = 15000) {
   }
 }
 
-// AS TELAS e OS TEMAS. Duas larguras porque a `.simple-np-linha` é a única
-// linha deste modo cuja altura NÃO depende da largura — se ela dependesse, uma
-// tela só provaria uma coluna. Dois temas porque a folha do Modo Fácil tem
-// regras próprias no claro e o par vive sobre a placa da letra, que é branco
-// PLENO ali: é onde a sobreposição literalmente APAGA o botão.
+// AS TELAS e OS TEMAS. Duas larguras porque o recuo e a coluna se medem contra a placa da
+// letra, que muda de largura; dois temas porque os botões vestem `--surface-porta` e `--accent`,
+// e é no claro que a placa é branco PLENO — onde um botão sem preenchimento próprio sumiria.
 const TELAS = [{ w: 430, h: 900 }, { w: 360, h: 740 }];
 const TEMAS = ['escuro', 'claro'];
 
@@ -140,13 +121,19 @@ pg.on('console', (m) => {
 });
 pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
 
-// A tolerância de meio pixel. Ela não é folga preguiçosa: a linha inteira acima
-// do par tem altura de TEXTO, então o topo dela cai em coordenada fracionária e
-// o arredondamento de layout do Chromium anda até ~0,4px. Os desvios que este
-// arquivo procura são de 8px para cima.
+// A tolerância de meio pixel: o layout do Chromium anda até ~0,4px em coordenada fracionária, e
+// os desvios que este arquivo procura são de vários pixels.
 const PERTO = 0.5;
 const perto = (a, b) => Math.abs(a - b) <= PERTO;
 const n2 = (v) => Number(v.toFixed(2));
+// Luminância relativa e razão de contraste (WCAG) sobre `rgb(a, b, c)` RENDERIZADO.
+const lum = (c) => {
+  const [r, g, b] = (c.match(/[\d.]+/g) || [0, 0, 0]).slice(0, 3).map(Number).map((v) => {
+    v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const razao = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
 try {
   await pg.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
@@ -162,62 +149,52 @@ try {
   const idAudio = await pg.evaluate(new Function(
     'return (async () => { setAppMode("full");' + SEMEAR + 'await load(); return a.id; })()'));
 
-  // ---- A MEDIÇÃO DA CASA 1: a linha do nome do Modo Fácil ----------------
-  // Tudo o que ela devolve é uma medida do desenho ou um token resolvido: não
-  // há número de espaço escrito no oráculo, e por isso um ajuste legítimo de
-  // `--sp-3`/`--sp-5`/`--hit` não a reprova.
+  // ---- A MEDIÇÃO DA CASA 1: os dois botões da zona de leitura do Modo Fácil -----------
   const medirFacil = () => pg.evaluate(() => {
-    const linha = document.querySelector('.simple-np-linha');
-    const nome = document.getElementById('simpleNpName');
-    const [menos, mais] = [...linha.querySelectorAll('.lv-fonte-btn')];
-    const lyrics = document.getElementById('simpleLyrics');
-    const head = document.querySelector('.simple-head');
-    // O VIZINHO DE CIMA da zona de leitura: desde a v1.11.12 é o ESPAÇO DA BARRA da
-    // Biblioteca (sempre à vista com tela), e só sem ele é o cabeçalho.
-    const barraEl = document.getElementById('simpleBarra');
-    const vizinhoAcima = (barraEl && getComputedStyle(barraEl).display !== 'none') ? barraEl : head;
     const song = document.querySelector('.simple-song');
-    const simple = document.getElementById('simpleMode');
-    const tempoHit = document.getElementById('simpleTimeHit');
-    const tempo = document.getElementById('simpleTime');
-    const cx = (e) => { const b = e.getBoundingClientRect(); return b.left + b.width / 2; };
+    const grupo = song.querySelector('.simple-fabs');
+    const [mais, menos] = [...grupo.querySelectorAll('.lv-fonte-btn')];
+    const lyrics = document.getElementById('simpleLyrics');
+    const nome = document.getElementById('simpleNpName');
     const r = (e) => {
       const b = e.getBoundingClientRect();
       return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, h: b.height, w: b.width };
     };
-    // O NOME PINTADO, e não a caixa dele: a caixa é `flex: 1` e ocupa a linha
-    // inteira nas duas versões, então medi-la aprovaria um rótulo colado numa
-    // das bordas. O `Range` mede o texto.
+    const cx = (e) => { const b = e.getBoundingClientRect(); return b.left + b.width / 2; };
+    const cy = (e) => { const b = e.getBoundingClientRect(); return b.top + b.height / 2; };
+    const quem = (e) => {
+      const el = document.elementFromPoint(cx(e), cy(e));
+      if (!el) return null;
+      if (el === mais || el === menos || mais.contains(el) || menos.contains(el)) return 'lv-fonte-btn';
+      return el.id || (typeof el.className === 'string' ? el.className : '') || el.tagName;
+    };
+    const csG = getComputedStyle(grupo);
+    const csM = getComputedStyle(mais);
+    // O NOME PINTADO (o `Range` mede o texto, não a caixa `flex: 1`).
     const rng = document.createRange();
     rng.selectNodeContents(nome);
     const t = rng.getBoundingClientRect();
-    // O hit-test devolve um NOME estável: `elementFromPoint` responde com o
-    // elemento, e o que interessa é se ele é o próprio botão ou a placa.
-    const quem = (x, y) => {
-      const el = document.elementFromPoint(x, y);
-      if (!el) return null;
-      if (el === mais || el === menos) return 'lv-fonte-btn';
-      return el.id || (typeof el.className === 'string' ? el.className : '') || el.tagName;
-    };
-    const rm = r(mais);
     return {
-      linha: r(linha), mais: rm, menos: r(menos), lyrics: r(lyrics), head: r(head), acimaDe: r(vizinhoAcima),
-      tempoHit: tempoHit ? r(tempoHit) : null,
-      tempoAVista: !!(tempo && !tempo.hidden),
-      gapSong: parseFloat(getComputedStyle(song).rowGap) || 0,
-      gapSimple: parseFloat(getComputedStyle(simple).rowGap) || 0,
-      hitToken: parseFloat(getComputedStyle(document.documentElement)
-        .getPropertyValue('--hit')) || 0,
-      alvos: [1, 2, 3].map((d) => quem(cx(mais), rm.bottom - d)),
-      noCentro: quem(cx(mais), rm.top + rm.h / 2),
+      mais: r(mais), menos: r(menos), lyrics: r(lyrics), song: r(song), grupo: r(grupo),
+      doMesmoPai: mais.parentElement === menos.parentElement && grupo.parentElement === song,
+      ordem: [...grupo.children].map((b) => b.classList.contains('lv-fonte-mais') ? '+' : '−').join(''),
+      centroXMais: cx(mais), centroXMenos: cx(menos),
+      semMoldura: {
+        fundo: csG.backgroundColor, borda: csG.borderTopWidth + '/' + csG.borderLeftWidth,
+        sombra: csG.boxShadow, padding: csG.padding,
+      },
+      botao: {
+        raio: csM.borderTopLeftRadius, w: mais.getBoundingClientRect().width,
+        sombra: csM.boxShadow, fundo: csM.backgroundColor, traco: csM.color,
+      },
+      alvos: [quem(mais), quem(menos)],
+      hitToken: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')) || 0,
+      semLinhaDoNome: document.querySelector('.simple-np-linha') === null,
+      nomeAltura: r(nome).h,
       nomeTexto: nome.textContent,
-      // A PREMISSA da asserção de centralização, medida e não suposta: o
-      // `.simple-np` é `nowrap` + `ellipsis`, e um nome que não caiba faz o
-      // `Range` medir o texto INTEIRO, fora da caixa.
       nomeRecortado: nome.scrollWidth > nome.clientWidth + 1,
       nomeCentro: (t.left + t.right) / 2,
-      linhaCentro: r(linha).left + r(linha).w / 2,
-      semTela: document.getElementById('simpleMode').classList.contains('sem-tela'),
+      songCentro: r(song).left + r(song).w / 2,
     };
   });
 
@@ -293,122 +270,95 @@ try {
 
       const m = await medirFacil();
 
-      // ── 1. A LINHA RESERVA A ALTURA DO PAR ──────────────────────────────
-      // REVERSÃO PROVADA: `.simple-np-linha { min-height: 0 }` — a linha volta
-      // a medir o `.simple-np` sozinho (18,00) contra os 34,00 do botão. É a
-      // reversão das asserções 1 a 4 e 6: elas são as cinco faces do MESMO
-      // defeito, e uma reversão que derrubasse só uma delas estaria descrevendo
-      // outra coisa.
-      checar(m.linha.h + 0.01 >= m.mais.h,
-        'A LINHA DO NOME RESERVA A ALTURA DO PAR: uma caixa `absolute` não conta '
-        + 'para a altura do pai, e sem a reserva a linha contém 34 dentro de 18 '
-        + '[' + cfg + ']',
-        { linha: n2(m.linha.h), botao: n2(m.mais.h) });
+      // ── 1. DENTRO DA CAIXA DA LETRA, NO CANTO INFERIOR DIREITO ───────────
+      // O recuo é o MESMO nos dois eixos: o botão assenta no canto, não flutua perto dele. A
+      // régua é a PLACA (`#simpleLyrics`), e não a zona: é "dentro da caixa do auxiliar de
+      // leitura" que o pedido diz.
+      const dentro = (b) => b.left >= m.lyrics.left - 0.01 && b.right <= m.lyrics.right + 0.01
+        && b.top >= m.lyrics.top - 0.01 && b.bottom <= m.lyrics.bottom + 0.01;
+      const recuoD = m.lyrics.right - m.mais.right;
+      const recuoB = m.lyrics.bottom - m.menos.bottom;
+      checar(m.doMesmoPai && dentro(m.mais) && dentro(m.menos),
+        'OS DOIS BOTÕES ESTÃO DENTRO DA CAIXA DA LETRA, e são irmãos na mesma coluna — pendurados na '
+        + 'linha do nome eles já não estão [' + cfg + ']',
+        { mais: m.mais, menos: m.menos, placa: m.lyrics });
+      checar(recuoD > 0 && recuoB > 0 && perto(recuoD, recuoB) && recuoD < m.mais.w,
+        'e no CANTO INFERIOR DIREITO: o recuo até a borda de baixo e o até a da direita são o mesmo '
+        + '(o botão assenta no canto) e menores que o próprio botão [' + cfg + ']',
+        { direita: n2(recuoD), baixo: n2(recuoB), botao: n2(m.mais.w) });
 
-      // ── 2. O RESPIRO ABAIXO É O `gap` DECLARADO ─────────────────────────
-      // A régua é o `row-gap` COMPUTADO do `.simple-song`, nunca o número: o
-      // defeito é o par transbordar para FORA do vão, e a folha continua
-      // declarando o mesmo vão nas duas versões.
-      // REVERSÃO PROVADA: `.simple-np-linha { min-height: 0 }` → −2,41px, isto
-      // é, o botão POR BAIXO da placa da letra.
-      const abaixo = m.lyrics.top - m.mais.bottom;
-      checar(perto(abaixo, m.gapSong),
-        'e o RESPIRO ABAIXO do par vale o `gap` que a folha declara — respiro '
-        + 'NEGATIVO não é aperto, é a placa da letra pintando por cima do botão '
-        + '[' + cfg + ']',
-        { respiro: n2(abaixo), gapDoSong: n2(m.gapSong) });
+      // ── 2. UM ACIMA DO OUTRO, EM COLUNA, A+ EM CIMA ──────────────────────
+      const vao = m.menos.top - m.mais.bottom;
+      checar(perto(m.centroXMais, m.centroXMenos) && vao > 0 && vao < m.mais.h && m.ordem === '+−',
+        'UM ACIMA DO OUTRO, em coluna: o mesmo eixo vertical, o A+ em cima do A−, com um vão entre eles '
+        + '(e a ordem do DOM é a da tela) [' + cfg + ']',
+        { xMais: n2(m.centroXMais), xMenos: n2(m.centroXMenos), vao: n2(vao), ordem: m.ordem });
 
-      // ── 3. O RESPIRO ACIMA IDEM, E CONTRA O `.simple-head` ──────────────
-      // A régua é o CABEÇALHO, e não a engrenagem que mora nele: os dois
-      // coincidem hoje só porque o `.settings-btn` é a coisa mais alta daquela
-      // linha, e a asserção é sobre o LAYOUT — medir a engrenagem passaria a
-      // responder por um botão no dia em que outra coisa crescer ali.
-      // REVERSÃO PROVADA: `.simple-np-linha { min-height: 0 }` → +1,59px (o par
-      // comendo 8,00 dos 9,60 do vão).
-      const acima = m.mais.top - m.acimaDe.bottom;
-      checar(perto(acima, m.gapSimple),
-        'e o RESPIRO ACIMA vale o `gap` do `.simple`, medido do vizinho de cima (o espaço da barra da '
-        + 'Biblioteca, desde a v1.11.12; o `.simple-head` sem ele) '
-        + '[' + cfg + ']',
-        { respiro: n2(acima), gapDoSimple: n2(m.gapSimple) });
+      // ── 3. SEM MOLDURA ───────────────────────────────────────────────────
+      // O grupo não pinta nada (fundo transparente, sem borda, sem sombra, sem recuo); cada botão
+      // é a própria superfície, com a sombra dele.
+      checar(m.semMoldura.fundo === 'rgba(0, 0, 0, 0)' && /^0px\/0px$/.test(m.semMoldura.borda)
+          && m.semMoldura.sombra === 'none' && /^0px/.test(m.semMoldura.padding)
+          && m.botao.sombra !== 'none',
+        'SEM MOLDURAS, apenas os botões: o grupo não tem fundo, borda, sombra nem recuo, e cada botão é a '
+        + 'sua superfície (com a sombra dele) [' + cfg + ']',
+        m.semMoldura);
 
-      // ── 4. O BOTÃO RESPONDE AO DEDO NA BASE DELE ────────────────────────
-      // A metade que a geometria sozinha não diz: `.lv-fonte-ctl` e
-      // `.simple-lyrics` são as DUAS posicionadas, e a placa vem depois no
-      // documento — ela ganha o hit-test onde encosta. Um teste de `top`/
-      // `bottom` aprova um desenho em que o botão está lá e não é tocável.
-      // REVERSÃO PROVADA: `.simple-np-linha { min-height: 0 }` → os três pontos
-      // devolvem `simpleLyrics`.
+      // ── 4. REDONDOS, E O ALVO CONTINUA `--hit` ───────────────────────────
+      // ESTA É A ASSERÇÃO QUE IMPEDE O REMENDO: tudo acima passa com o botão encolhido, e a folha
+      // proíbe isso por escrito (*"encolher o alvo seria trocar discrição por erro de toque"*).
+      const redondo = /%$/.test(m.botao.raio) ? parseFloat(m.botao.raio) >= 50 : parseFloat(m.botao.raio) >= m.botao.w / 2 - 0.01;
+      checar(redondo && m.mais.w + 0.01 >= m.hitToken && m.mais.h + 0.01 >= m.hitToken
+          && m.menos.w + 0.01 >= m.hitToken && m.menos.h + 0.01 >= m.hitToken,
+        'REDONDOS (FAB) e com o ALVO no mínimo `--hit`: um botão flutuante que encolhe para caber '
+        + 'vira erro de toque [' + cfg + ']',
+        { raio: m.botao.raio, mais: [n2(m.mais.w), n2(m.mais.h)], menos: [n2(m.menos.w), n2(m.menos.h)], hit: m.hitToken });
+
+      // ── 5. RESPONDEM AO DEDO ─────────────────────────────────────────────
+      // O hit-test no CENTRO de cada um: a placa da letra é `position: relative` e vem antes no
+      // documento, e um botão que ela cobrisse estaria lá, desenhado e intocável.
       checar(m.alvos.every((a) => a === 'lv-fonte-btn'),
-        'e o BOTÃO RESPONDE AO DEDO na base dele: a `.simple-lyrics` é a outra '
-        + 'posicionada da zona e vem depois no documento — onde ela encosta, é '
-        + 'ela que recebe o toque [' + cfg + ']',
-        { em1e2e3: m.alvos });
+        'e RESPONDEM AO DEDO: no centro de cada um quem recebe o toque é o botão, não a placa da '
+        + 'letra [' + cfg + ']', { aMais: m.alvos[0], aMenos: m.alvos[1] });
 
-      // ── 5. O ALVO CONTINUA `--hit` (a casa do Modo Fácil) ───────────────
-      // ESTA É A ASSERÇÃO QUE IMPEDE O REMENDO. As quatro de cima PASSAM com o
-      // botão encolhido a 18px, e a folha proíbe isso por escrito: *"encolher o
-      // alvo junto seria trocar discrição por erro de toque"*.
-      // REVERSÃO PROVADA (o remendo): `.simple-np-linha { min-height: 0 }` mais
-      // `.simple-np-linha .lv-fonte-btn { width: 18px; height: 18px }` — as
-      // asserções 1 a 4, 6, 7 e 9 continuam TODAS verdes e só esta reprova
-      // (18,00 contra o `--hit` de 34,00). Escrito sem o escopo, o remendo
-      // alcança a regra COMPARTILHADA e derruba junto as duas asserções do
-      // `#lyricsPopup` — o que é o argumento delas, não um efeito colateral.
-      checar(perto(m.mais.h, m.hitToken) && perto(m.menos.h, m.hitToken),
-        'e o ALVO CONTINUA `--hit` no Modo Fácil — as quatro asserções acima '
-        + 'passam com o botão encolhido, que é o conserto barato que a folha '
-        + 'proíbe [' + cfg + ']',
-        { aMais: n2(m.mais.h), aMenos: n2(m.menos.h), hit: m.hitToken });
+      // ── 6. LEGÍVEIS: O TRAÇO SOBRE O PREENCHIMENTO DELES ─────────────────
+      // O par `--accent` sobre `--surface-porta` é o declarado do azul de "ativado" (5,37:1 no
+      // escuro, 6,37:1 no claro); o piso aqui é o AA de texto.
+      const rz = razao(m.botao.traco, m.botao.fundo);
+      checar(rz >= 4.5,
+        'LEGÍVEIS: o traço do A+/A− sobre o preenchimento do botão passa de 4,5:1 nos dois temas [' + cfg + ']',
+        { traco: m.botao.traco, fundo: m.botao.fundo, razao: n2(rz) });
 
-      // ── 7. A CENTRALIZAÇÃO DO NOME NÃO MUDOU ────────────────────────────
-      // O `absolute` FICA — ele é o que mantém o nome no centro com o par
-      // pendurado à direita —, e a reserva de altura não podia custar isso.
-      // Ela mede o texto PINTADO (`Range`), e por isso EXIGE nome curto: com um
-      // nome que não caiba, o `Range` mede o texto não recortado e o desvio sai
-      // em centenas de pixels em TODAS as variantes, inclusive nas corretas —
-      // a asserção passaria a aprovar um rótulo descentrado. A premissa é
-      // COBRADA (`nomeRecortado`), e não suposta: assim um rótulo que cresça
-      // num lote futuro reprova aqui em vez de calar a asserção.
-      // REVERSÃO PROVADA: `.simple-np-linha > .simple-np { padding: 0 0 0
-      // calc(var(--hit) * 2 + 2px) }` (a folga reservada só de um lado) → o
-      // texto anda 34,99px para a direita, e só esta reprova.
-      const desvio = m.nomeCentro - m.linhaCentro;
-      checar(!m.nomeRecortado && Math.abs(desvio) <= 1,
-        'e o NOME CONTINUA CENTRADO: a folga é reservada dos DOIS lados, e é '
-        + 'isso que o `absolute` do par existe para preservar [' + cfg + ']',
-        { desvio: n2(desvio), nome: m.nomeTexto, recortado: m.nomeRecortado });
+      // ── 7. O NOME É O NOME: SEM LINHA, SEM RESERVA, CENTRADO ─────────────
+      // A linha `.simple-np-linha` e a folga que ela guardava dos dois lados saíram: o nome ocupa a
+      // largura inteira, centrado, e a altura dele é a do TEXTO (menor que o alvo `--hit` que a
+      // linha reservava).
+      // O nome pintado é o do PLACEHOLDER, e a premissa é cobrada (`nomeRecortado`), não suposta.
+      const desvio = m.nomeCentro - m.songCentro;
+      checar(m.semLinhaDoNome && !m.nomeRecortado && Math.abs(desvio) <= 1 && m.nomeAltura < m.hitToken,
+        'O NOME É O NOME: sem a linha que reservava a altura do par, centrado na zona, e mais baixo que o '
+        + 'alvo `--hit` que a linha guardava [' + cfg + ']',
+        { semLinha: m.semLinhaDoNome, desvio: n2(desvio), alturaDoNome: n2(m.nomeAltura), nome: m.nomeTexto, recortado: m.nomeRecortado });
 
-      // ── 9. E NO ESTADO PADRÃO O PAR É INTOCÁVEL ─────────────────────────
-      // Sem TV o `#simpleVeil` (`inset: 0; z-index: 1`) cobre a zona e só o
-      // `.simple-head` é içado — o par não é alcançável ali, com ou sem a
-      // reserva de altura. Ela existe porque é o próximo relato provável, e
-      // porque é ela que obriga o hit-test da asserção 4 a rodar no estado
-      // DESTRAVADO: medi-lo aqui responderia sempre `simpleVeil`, aprovando as
-      // duas versões.
-      // REVERSÃO PROVADA: `.simple.sem-tela .simple-song { position: relative;
-      // z-index: 2 }` — içar a zona da letra junto com o cabeçalho, que é o
-      // engano plausível — e o hit-test passa a devolver o BOTÃO. (Mexer no
-      // `z-index` da própria cortina NÃO serve de reversão: ela é posicionada e
-      // vem depois no documento, então continua pintando por cima da zona.)
+      // ── 9. E NO ESTADO PADRÃO OS BOTÕES SÃO INTOCÁVEIS ───────────────────
+      // Sem TV o `#simpleVeil` (`inset: 0; z-index: 1`) cobre a zona e só o `.simple-head` é içado.
+      // Ela obriga o hit-test da asserção 5 a rodar no estado DESTRAVADO: medi-lo aqui responderia
+      // sempre `simpleVeil`.
       await pg.evaluate(() => { setTocarNoCelular(false); });
       const travou = await esperar(pg,
         () => document.getElementById('simpleMode').classList.contains('sem-tela')
           && !document.getElementById('simpleVeil').hidden,
         'o Modo Fácil volta a travar [' + cfg + ']');
       if (travou) {
-        // A janela da Biblioteca sai ANIMADA ao cair a tela; medir no meio do
-        // deslize acertaria uma linha dela, não a cortina.
         await pg.evaluate(async () => {
           const f = document.querySelector('#hymnSearchPopup .popup-sheet');
           await Promise.all(f.getAnimations().map((a) => a.finished.catch(() => {})));
         });
         const t = await medirFacil();
-        checar(t.noCentro === 'simpleVeil',
-          'e NO ESTADO PADRÃO (sem TV) o par é INTOCÁVEL: a cortina cobre a zona '
-          + 'e só o cabeçalho é içado — é por isso que o hit-test acima roda '
-          + 'DESTRAVADO [' + cfg + ']',
-          { noCentroDoBotao: t.noCentro });
+        checar(t.alvos[0] === 'simpleVeil',
+          'e NO ESTADO PADRÃO (sem TV) os botões são INTOCÁVEIS: a cortina cobre a zona e só o cabeçalho é '
+          + 'içado — é por isso que o hit-test acima roda DESTRAVADO [' + cfg + ']',
+          { noCentroDoBotao: t.alvos[0] });
       }
 
       // ── A OUTRA CASA: o cabeçalho do `#lyricsPopup` ─────────────────────
@@ -462,13 +412,12 @@ try {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // PASSE B — COM MÍDIA NO AR, O VIZINHO DE BAIXO É UM CONTROLE
+  // PASSE B — COM MÍDIA NO AR: A LETRA ROLA PARA CIMA DOS BOTÕES, E O SCRUBBER FICA LIVRE
   //
-  // A metade FUNCIONAL do relato. Com a linha do tempo à vista o par encosta no
-  // `#simpleTimeHit` — o scrubber que salta o louvor no ar, cujo alvo tem
-  // `padding: .55rem` de propósito (*"4px é metade do que um dedo acerta"*). O
-  // par sobrepunha 35,44 × 2,41px dele, e ali o `absolute` inverte quem ganha o
-  // hit-test: o botão de tamanho de fonte rouba alvo do seek.
+  // A metade FUNCIONAL. Os botões flutuam sobre a placa, então no fim da rolagem a última
+  // estrofe tem de poder subir ACIMA da coluna (a folga é a margem do último item) — sem ela
+  // ela ficaria presa embaixo deles, ilegível. E com a linha do tempo à vista os botões não
+  // chegam ao `#simpleTimeHit`, o scrubber que salta o louvor no ar.
   // ═══════════════════════════════════════════════════════════════════════
   await pg.evaluate((id) => { setAppMode('simple'); setTocarNoCelular(true); send(id); }, idAudio);
   for (const tela of TELAS) {
@@ -476,39 +425,67 @@ try {
     for (const tema of TEMAS) {
       const cfg = tela.w + '×' + tela.h + ' ' + tema;
       await pg.evaluate((t) => { setTema(t); setAppMode('simple'); setTocarNoCelular(true); }, tema);
-      // A MEDIDA É TIRADA DENTRO DA PRÓPRIA ESPERA, e não depois dela: o
-      // `renderSimpleTime` esconde a faixa em todo quadro em que a preview
-      // ainda não tem duração, e medir "logo após" a espera é uma aposta na
-      // máquina — MEDIDO, uma das quatro configurações leu o `#simpleTimeHit`
-      // já escondido de novo e reprovou com 88px de sobreposição inventada.
+      // A MEDIDA É TIRADA DENTRO DA PRÓPRIA ESPERA: o `renderSimpleTime` esconde a faixa em todo
+      // quadro em que a preview ainda não tem duração.
       const emCena = await esperar(pg, () => {
         const t = document.getElementById('simpleTime');
         const hit = document.getElementById('simpleTimeHit');
-        const linha = document.querySelector('.simple-np-linha');
-        const menos = linha && linha.querySelector('.lv-fonte-btn');
-        if (!t || t.hidden || !hit || !menos) return false;
+        const mais = document.querySelector('.simple-fabs .lv-fonte-mais');
+        if (!t || t.hidden || !hit || !mais) return false;
         const rh = hit.getBoundingClientRect();
         if (!(rh.height > 0)) return false;
-        const rb = menos.getBoundingClientRect();
-        window.__folga = {
-          folga: rh.top - rb.bottom,
-          gapDoSong: parseFloat(getComputedStyle(
-            document.querySelector('.simple-song')).rowGap) || 0,
-        };
+        window.__folga = mais.getBoundingClientRect().top - rh.bottom;
         return true;
       }, 'a linha do tempo entra em cena com a mídia no ar [' + cfg + ']');
       if (!emCena) continue;
-      const f = await pg.evaluate(() => window.__folga);
-      // ── 6. O PAR NÃO INVADE O SCRUBBER ─────────────────────────────────
-      // REVERSÃO PROVADA: `.simple-np-linha { min-height: 0 }` → −2,41px, e a
-      // sobreposição de 35,44 × 2,41px sobre o alvo do seek.
-      checar(f.folga >= -0.01,
-        'COM MÍDIA NO AR o par NÃO INVADE o `#simpleTimeHit`: o scrubber que '
-        + 'salta o louvor perdia 27% da margem de toque dele para um botão de '
-        + 'tamanho de fonte [' + cfg + ']',
-        { folga: n2(f.folga), gapDoSong: n2(f.gapDoSong) });
+      const folga = await pg.evaluate(() => window.__folga);
+      checar(folga > 0,
+        'COM MÍDIA NO AR os botões ficam ABAIXO do `#simpleTimeHit`: o scrubber que salta o louvor no ar '
+        + 'não perde alvo para um botão de tamanho de fonte [' + cfg + ']',
+        { folga: n2(folga) });
+
+      // A LETRA LONGA: rola até o fim e a última linha tem de ficar ACIMA do botão de cima.
+      const rolagem = await pg.evaluate(async () => {
+        currentItem.lyrics = [{ cover: true }, ...Array.from({ length: 40 }, (_, i) =>
+          ({ time: i * 2, text: 'Estrofe ' + (i + 1) + ' do louvor para a congregação cantar junto' }))];
+        refreshSimpleLyrics();
+        await new Promise((r) => setTimeout(r, 200));
+        const z = document.getElementById('simpleLyrics');
+        z.scrollTop = z.scrollHeight;
+        await new Promise((r) => setTimeout(r, 200));
+        const linhas = [...z.querySelectorAll('.lv-row')];
+        const ultima = linhas[linhas.length - 1].getBoundingClientRect();
+        const mais = document.querySelector('.simple-fabs .lv-fonte-mais').getBoundingClientRect();
+        return { linhas: linhas.length, rola: z.scrollHeight > z.clientHeight + 1,
+          ultimaBase: ultima.bottom, topoDoBotao: mais.top };
+      });
+      // REVERSÃO PROVADA: sem a margem do último item (`.simple-lyrics > :last-child`) a base da última
+      // linha passa do topo do botão de cima — a estrofe fica sob a coluna.
+      checar(rolagem.rola && rolagem.linhas > 20 && rolagem.ultimaBase <= rolagem.topoDoBotao + 0.5,
+        'NO FIM DA ROLAGEM a última estrofe fica ACIMA da coluna de botões: a folga é a margem do último '
+        + 'item, e sem ela a letra ficaria presa sob eles [' + cfg + ']',
+        rolagem);
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // PASSE C — O TOQUE FUNCIONA: A+ AUMENTA, A− DIMINUI
+  // ═══════════════════════════════════════════════════════════════════════
+  await pg.setViewportSize({ width: TELAS[0].w, height: TELAS[0].h });
+  await pg.evaluate(() => { setTema('escuro'); setAppMode('simple'); setTocarNoCelular(true); });
+  await esperar(pg, () => !!document.querySelector('.simple-fabs .lv-fonte-mais')
+    && getComputedStyle(document.querySelector('.simple-song')).visibility !== 'hidden'
+    && !document.querySelector('.simple-song.entrando'), 'a leitura está à vista para o toque');
+  const lerFonte = () => pg.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lv-fonte')));
+  const f0 = await lerFonte();
+  await pg.click('.simple-fabs .lv-fonte-mais');
+  const f1 = await lerFonte();
+  await pg.click('.simple-fabs .lv-fonte-menos');
+  await pg.click('.simple-fabs .lv-fonte-menos');
+  const f2 = await lerFonte();
+  checar(f1 > f0 && f2 < f1,
+    'o TOQUE funciona: A+ aumenta a letra e A− diminui — a mesma escada das duas casas do par',
+    { inicial: f0, depoisDoMais: f1, depoisDeDoisMenos: f2 });
 
   checar(erros.length === 0, 'nenhum erro de console durante a bateria', erros.slice(0, 4));
 } finally {

@@ -273,7 +273,7 @@ try {
   }
 
   // =========================================================================
-  // B · A BADGE, E O ÍNDICE DO SHELL
+  // B · O NÚMERO (SÓ NO RODAPÉ, DESDE A v1.11.15), E O ÍNDICE DO SHELL
   // =========================================================================
   {
     const { ctx, pg } = await abrirApp({});
@@ -298,18 +298,23 @@ try {
     // (*"considere abreviar a versão para dar espaço a um botão mais claro em
     // sua função"*). O que esta asserção guarda nunca foi a marca — é o NÚMERO
     // ser um só, escrito por um escritor só.
-    checar(textos.simples === esperado && textos.rodape === esperado,
-      'B · as DUAS casas dizem o MESMO número, e ele é a versão do `version.json` (' + esperado + ') — '
-      + 'um escritor só é o que impede duas telas de anunciarem versões diferentes', textos);
+    // A BADGE DO MODO FÁCIL SAIU (v1.11.15, pedido do operador: *"pode remover o número da versão
+    // dessa tela"*): o número mora no rodapé de Configurações, e a tela do Modo Fácil não o escreve.
+    // Medida pela AUSÊNCIA, como a do cabeçalho do Cronograma: um `#simpleVersion` que volte é um
+    // segundo escritor do mesmo número.
+    checar(textos.simples === undefined && textos.rodape === esperado,
+      'B · o número é UM, no rodapé de Configurações, e ele é a versão do `version.json` (' + esperado + ') — '
+      + 'a badge do Modo Fácil não existe mais, e um escritor só é o que impede duas telas de anunciarem '
+      + 'versões diferentes', textos);
     checar(textos.cabecalho === false,
-      'B · e a TERCEIRA casa não existe mais: a badge do cabeçalho do Cronograma '
+      'B · e a casa do cabeçalho do Cronograma também não existe: a badge dele '
       + 'saiu na v1.8.66 para o botão de limpar, e o número dela não migrou para '
-      + 'lugar nenhum — ele já estava nas outras duas', textos.cabecalho);
+      + 'lugar nenhum', textos.cabecalho);
 
     // O PEDIDO, ao pé da letra: *"apenas um número, sem o 'web'"*.
-    const juntos = [textos.simples, textos.rodape].join(' ');
+    const juntos = String(textos.rodape);
     checar(!/web|shell/i.test(juntos),
-      'B · e nenhuma delas escreve "Web" ou "Shell" — é um número, não uma tabela de canais', juntos);
+      'B · e ele não escreve "Web" nem "Shell" — é um número, não uma tabela de canais', juntos);
     checar(!juntos.includes(SHELL_NOME),
       'B · nem o índice do SHELL, que era o segundo número da mesma linha', juntos);
 

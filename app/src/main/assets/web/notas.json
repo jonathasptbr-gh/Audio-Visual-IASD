@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.11.15",
+    "itens": [
+      "Modo Fácil: o topo agora tem o botão de tela à esquerda, o nome do app no centro e a engrenagem à direita.",
+      "Modo Fácil: A+ e A− viraram dois botões redondos no canto de baixo da letra, um sobre o outro.",
+      "Modo Fácil: saiu o botão de playlist automática e o número da versão dessa tela."
+    ]
+  },
+  {
     "versao": "1.11.14",
     "itens": [
       "Transferir: Provai e Vede e Informativo levam só o vídeo da semana, e a linha mostra o peso dele.",

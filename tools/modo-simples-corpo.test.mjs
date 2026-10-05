@@ -33,6 +33,9 @@
 //     dá em mídia, o vigia desfaz a marca e reinicia a Biblioteca.
 //  G. Sair do Modo Fácil desencaixa; a caixa acompanha o layout; o ícone de cast do
 //     cabeçalho existe com tela, some sem ela e chama `abrirCast`.
+//  I. O CABEÇALHO É CAST · NOME · ENGRENAGEM (v1.11.15): o nome do app no centro da barra
+//     de topo, com ou sem TV, sem a badge de versão; e SEM o botão de playlist automática
+//     (só no Modo Fácil — no avançado ele continua).
 //
 //   node tools/modo-simples-corpo.test.mjs
 // ============================================================================
@@ -367,6 +370,39 @@ try {
   await pg.evaluate(() => { document.getElementById('hymnSearchPopup').style.bottom = ''; });
   await quadros();
 
+  // I · O CABEÇALHO: CAST À ESQUERDA, NOME NO CENTRO, ENGRENAGEM À DIREITA (v1.11.15)
+  // Pedido do operador: *"coloque o nome do app na tela do modo simples, centralizado na barra de
+  // topo, e pode remover o número da versão dessa tela … o botão de espelhamento/cast no topo
+  // esquerdo … cast à esquerda, nome centralizado e botão de configurações na direita"* · *"aproveite
+  // para remover o botão de playlist automática no modo simples"*.
+  const lerCab = () => pg.evaluate(() => {
+    const r = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, w: b.width }; };
+    const cast = document.getElementById('simpleCastBtn');
+    const marca = document.querySelector('.simple-brand');
+    const eng = document.getElementById('simpleSettingsBtn');
+    const rng = document.createRange(); rng.selectNodeContents(marca);
+    const t = rng.getBoundingClientRect();
+    return {
+      cast: r(cast), marca: r(marca), eng: r(eng),
+      castVisivel: getComputedStyle(cast).display !== 'none',
+      textoCentro: (t.left + t.right) / 2, vw: document.documentElement.clientWidth,
+      texto: marca.textContent.replace(/\s+/g, ' ').trim(),
+      semBadge: document.getElementById('simpleVersion') === null && document.querySelector('.ver-badge') === null,
+      sorteio: getComputedStyle(document.getElementById('sorteioBtn')).display,
+    };
+  });
+  const cab1 = await lerCab();
+  checar(cab1.castVisivel && cab1.cast.r <= cab1.marca.l + 0.5 && cab1.marca.r <= cab1.eng.l + 0.5,
+    'I1 · o topo é CAST à esquerda, NOME no meio e ENGRENAGEM à direita, nessa ordem', JSON.stringify(cab1));
+  checar(Math.abs(cab1.textoCentro - cab1.vw / 2) <= 1 && cab1.texto === 'Audio Visual IASD',
+    'I2 · o NOME do app está CENTRALIZADO na barra de topo (o centro do texto é o centro da tela)', JSON.stringify(cab1));
+  checar(cab1.semBadge,
+    'I3 · e a badge de versão não existe mais nesta tela — o número mora só no rodapé de Configurações',
+    JSON.stringify(cab1));
+  checar(cab1.sorteio === 'none',
+    'I4 · o botão de PLAYLIST AUTOMÁTICA não é desenhado no Modo Fácil — a barra fica com o campo',
+    cab1.sorteio);
+
   // G · avançado desencaixa; a caixa acompanha o layout; a tela cai
   await pg.setViewportSize({ width: 360, height: 640 });
   await esperar(pg, () => window.innerHeight === 640, null, 5000);
@@ -383,6 +419,9 @@ try {
   const g1 = await ler();
   checar(g1.barraCls === false && g1.principal === false && g1.aberta === false,
     'G3 · no modo avançado a Biblioteca volta a ser uma janela fechada (desencaixa)', JSON.stringify(g1));
+  const sorteioAvancado = await pg.evaluate(() => getComputedStyle(document.getElementById('sorteioBtn')).display);
+  checar(sorteioAvancado !== 'none',
+    'G3b · e no avançado o botão de playlist automática CONTINUA: a regra é só do Modo Fácil', sorteioAvancado);
   await pg.evaluate(() => { setAppMode('simple'); });
   await quadros();
   const g2 = await ler();
@@ -393,6 +432,9 @@ try {
   const i2 = await ler();
   checar(i2.semTela === true && i2.aberta === false && i2.castVisivel === false && i2.barraCls === false,
     'G5 · se a tela cai, a cortina volta, a Biblioteca e a barra saem e o ícone de cast some', JSON.stringify(i2));
+  const cab2 = await lerCab();
+  checar(cab2.castVisivel === false && Math.abs(cab2.textoCentro - cab2.vw / 2) <= 1,
+    'G5b · SEM TV o cast some e o NOME continua no centro: cada peça do topo tem a coluna dela', JSON.stringify(cab2));
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 } finally {

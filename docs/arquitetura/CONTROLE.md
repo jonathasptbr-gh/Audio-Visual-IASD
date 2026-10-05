@@ -97,7 +97,7 @@ Pedidos do operador: *"para um usuário simples, a própria tela conectada já s
 o visor"* (v1.11.11) · *"mantenha a barra de buscas da biblioteca sempre visível
 … o foco na caixa de buscas muda a tela principal do auxiliar de leitura para a
 biblioteca"* (v1.11.12). A tela do Modo Fácil é, de cima para baixo: cabeçalho
-(marca, badge de versão, ícone de cast `#simpleCastBtn`, engrenagem) · **espaço
+(ícone de cast `#simpleCastBtn` à esquerda, marca no centro, engrenagem à direita — v1.11.15) · **espaço
 da barra** (`#simpleBarra`) · **zona de leitura** (`.simple-song`) · cartão de
 "Baixando…" (`#simpleBusySlot`, só com `.on`) · teclas · volume.
 
@@ -2037,9 +2037,13 @@ dos panos"; o que interessa a este capítulo é onde ela mora e o que ela cobre:
   um bundle cujo `controle.js` não é parseado precisa terminar com o app à
   vista, não atrás de uma cortina.
 
-**A BADGE.** `renderVersionLabel()` é o escritor ÚNICO de DUAS casas — a badge do
-Modo Fácil (colada na marca) e o rodapé de Configurações. As duas dizem
-`v<base web>`, e só isso: o índice do shell saiu da tela e ficou no Registro.
+**A BADGE.** `renderVersionLabel()` é o escritor ÚNICO do número — hoje só o rodapé de
+Configurações (já foram três casas). Ele diz `v<base web>`, e só isso: o índice do
+shell saiu da tela e ficou no Registro. **A badge do Modo Fácil saiu na v1.11.15**,
+a pedido do operador (*"pode remover o número da versão dessa tela"*), e o nome do
+app ficou no CENTRO do topo (o `.simple-head` é uma grade `--hit · 1fr · --hit`:
+cast à esquerda, que some sem tela sem tirar o nome do centro, e engrenagem à
+direita). Um `#simpleVersion` que volte é um segundo escritor do mesmo número.
 
 - **A TERCEIRA CASA SAIU na v1.8.66.** A badge do avançado morava na trilha 1 da
   `.list-header` — vaga desde a v1.5.0 — e deu lugar ao botão de LIMPAR O
@@ -2055,11 +2059,9 @@ Modo Fácil (colada na marca) e o rodapé de Configurações. As duas dizem
   ser necessário; ele fica porque o que ele garante continua verdade e mexer na
   grade para tirar o que já não atrapalha é risco sem contrapartida. MEDIDO
   depois da troca: o centro do título fica a **0,01px** do centro da faixa.
-- **No Modo Fácil a marca deixou de comer a sobra** (`flex: 0 1 auto`), para a
-  badge poder ficar colada nela; quem empurra a engrenagem para a outra ponta é
-  o `margin-right: auto` da badge. O encolher e o `min-width: 0` ficam — num
-  aparelho estreito é a MARCA que cede, nunca o número. (Esta metade é da badge
-  do Modo Fácil, que ficou.)
+- **No Modo Fácil a marca é o centro de uma grade** (v1.11.15; era `flex: 0 1 auto`
+  colada à badge): `min-width: 0` e as reticências ficam — num aparelho estreito é a
+  MARCA que cede, nunca as duas portas.
 
 **E O QUE ENTROU NO LUGAR: LIMPAR O CRONOGRAMA (v1.8.66).** Pedido do operador:
 *"substitua o badge de versão que temos na barra do topo do cronograma, a
@@ -3092,8 +3094,8 @@ e ler *"Nada em exibição"*.
   fazer; as regras puras (a janela da rolagem, a quebra do par) estão em
   `controle/cifra.js`, com oráculo.
 - **O TAMANHO DA LETRA É DO OPERADOR** (v1.1.6): um par **A+ / A−** no cabeçalho
-  desta folha **e** na linha do nome do Modo Fácil — duas casas, um estado, o
-  token `--lv-fonte`. *"Aproveite para criar dois botões de A+ e A− nestas seções
+  desta folha **e** como dois FABs na zona de leitura do Modo Fácil — duas casas, um
+  estado, o token `--lv-fonte`. *"Aproveite para criar dois botões de A+ e A− nestas seções
   de letras… sendo é claro o tamanho salvo na memória do app."* A escada é
   DISCRETA (`LV_TAMANHOS`, de `1rem` a `2.4rem`) e não um fator: dois toques em
   A+ chegam sempre no mesmo lugar, um percentual acumularia erro e produziria
@@ -3105,47 +3107,28 @@ e ler *"Nada em exibição"*.
   seguinte). O ouvinte é UM, delegado por classe: uma terceira casa entra sem
   tocar no JS.
 
-  **E AS DUAS CASAS DIVERGIAM NUMA COISA, que custou o relato da v1.5.19:**
-  *"ajuste a margem dos botões de aumentar e diminuir a fonte no modo simples,
-  eles estão colados nos elementos abaixo dele."* No `#lyricsPopup` o
-  `.lv-fonte-ctl` é `position: static` — item de flex do cabeçalho, logo CONTA
-  para a altura dele. **No Modo Fácil ele é `absolute`**, e uma caixa absoluta
-  não conta: quem dava altura à `.simple-np-linha` era o `.simple-np` sozinho
-  (`--fs-xl`, MEDIDO 18,00px), e o botão mede `--hit` (34,00px). A linha continha
-  34 dentro de 18 e o par **transbordava 8,00px para cada lado**; os `gap` do
-  `.simple-song` (5,60) e do `.simple` (9,60) são medidos a partir da LINHA, e o
-  respiro real virava **−2,40px** embaixo e +1,59 em cima.
-
-  **E O SINAL NÃO ERA "APERTADO", ERA SOBREPOSIÇÃO.** O `.lv-fonte-ctl` e a
-  `.simple-lyrics` (`position: relative`, o offsetParent do `lvScroll`) são as
-  duas posicionadas, e a placa vem DEPOIS no documento: ela pintava POR CIMA de
-  **2,41px** da base do botão. MEDIDO, `elementFromPoint` devolvia
-  `simple-lyrics` em `bottom−1`, `−2` e `−3`. No tema CLARO isso é literalmente
-  sumir — a superfície do botão é branco a .70 e a placa é branco PLENO.
-
-  **E COM MÍDIA NO AR O VIZINHO É UM CONTROLE**, o que muda a natureza do
-  defeito: com a linha do tempo à vista, o A− encostava com ZERO pixel no
-  `#simpleTimeHit` — o scrubber que salta o louvor no ar —, sobrepondo
-  **35,44 × 2,41px** e comendo **27%** do `padding: .55rem` que aquele alvo tem
-  de propósito (*"4px é metade do que um dedo acerta"*). Ali o `absolute`
-  inverte quem ganha o hit-test: o botão de tamanho de fonte roubava alvo do
-  seek. O operador escreveu *"os elementos abaixo"* no PLURAL, e são três: a
-  placa da letra, o `#simpleTimeHit` e o número da duração.
-
-  `min-height: var(--hit)` na linha — ela passa a reservar o que contém, e os
-  DOIS lados voltam ao `gap` que a folha já declara (+5,60 e +9,59), **sem
-  inventar número de espaço nenhum**. O valor sai do MESMO token de que a altura
-  do botão sai, e por isso os dois não têm como divergir num lote futuro. O
-  `absolute` FICA: o desvio do nome continua 0,00px, e a folga reservada dos dois
-  lados continua sendo o que mantém o centro no centro. **CUSTO MEDIDO:** 16,00px
-  da zona de leitura, o mesmo em toda tela (−3,0% a 430×900, −7,4% a 320×568).
-
-  **DOIS ADJACENTES QUE O LOTE NÃO FECHA, e ficam ditos:** no estado PADRÃO do
-  Modo Fácil (`sem-tela`, sem TV) o par é **intocável** — o `#simpleVeil`
-  (`inset: 0; z-index: 1`) cobre a zona e só o `.simple-head` é içado —, e na
-  cena de APRESENTAÇÃO ele é **inerte** (a `.lv-grade` não lê `--lv-fonte`),
-  onde o leitor do avançado o esconde por regra. O `min-height` passa a cobrar
-  16px por ele nessa cena.
+  **NO MODO FÁCIL O PAR É DOIS FABs REDONDOS NO CANTO DA PLACA DA LETRA** (v1.11.15) —
+  pedido do operador: *"dois botões FAB dentro da caixa do auxiliar de leitura, os
+  dois no canto inferior direito, um acima do outro, em uma coluna. Sem molduras,
+  apenas os botões"*. O `.lv-fonte-ctl.simple-fabs` é irmão da `.simple-lyrics`
+  dentro de `.simple-song` (`position: relative`), `absolute` no canto, em coluna
+  (A+ em cima, A− embaixo: a ordem do DOM é a da tela), com o recuo `--sp-5` nos
+  dois eixos. **O GRUPO NÃO PINTA NADA** — cada botão é a sua superfície: redondo,
+  `--thumb` (acima do piso `--hit`), `--surface-porta` + `--accent` (o par do azul de
+  "ativado", 5,37:1 / 6,37:1) e a sombra das portas flutuantes do Cronograma.
+  **A letra tem de poder rolar PARA CIMA deles:** `.simple-lyrics > :last-child`
+  leva `margin-bottom` do tamanho da coluna — margem do último item e **nunca
+  `padding` do scroller** (a tira de sombra das bordas pede o padding box). Saíram
+  com a linha do nome (`.simple-np-linha`, v1.1.6) o `position: absolute` do par
+  pendurado, o `min-height: var(--hit)` que reservava a altura dele (v1.5.19) e a
+  folga de `--hit × 2` dos dois lados do nome: o nome é o `.simple-np` solto e a
+  zona de leitura ganhou 16px. **A OUTRA CASA — o cabeçalho do `#lyricsPopup` —
+  não mudou:** lá o `.lv-fonte-ctl` é `position: static`, conta para a altura do
+  cabeçalho, e o respiro abaixo dele é o `padding-bottom` do cabeçalho.
+  Oráculo: `modo-facil-fonte.test.mjs`. Adjacentes ditos: no estado PADRÃO do Modo
+  Fácil (`sem-tela`, sem TV) os botões são **intocáveis** — o `#simpleVeil` cobre a
+  zona e só o `.simple-head` é içado —, e na cena de APRESENTAÇÃO eles são
+  **inertes** (a `.lv-grade` não lê `--lv-fonte`).
 - **O PADRÃO É `1.4rem`** (contra `.95rem` até a v1.1.3). Pedido do operador: *"pode dobrar o tamanho da fonte nos campos de
   leitura de letra das músicas que estão sendo transmitidas; atual está muito
   pequeno e só sobrando espaço lateral na linha"*. Ele descreve a MEDIDA: a

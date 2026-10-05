@@ -822,46 +822,25 @@
        são os mesmos botões do modo completo acionados por `.click()` (ver
        controle.js) — nenhuma regra de transporte é reescrita aqui. -->
   <div id="simpleMode" class="simple open">
-    <!-- A ENGRENAGEM, no lugar do antigo "Modo avançado" (v5.250, pedido do
-         operador). Ela fecha o que a v5.247 deixou em aberto: aquela versão
-         tirou a troca de modo do cabeçalho do avançado porque a MESMA escolha
-         mora em Configurações, e não podia tirar a daqui porque daqui não havia
-         como chegar a Configurações — a outra engrenagem vive na coluna do
-         mixer, dentro da `.bottombar`, que este modo esconde por inteiro.
+    <!-- O CABEÇALHO É TRÊS CÉLULAS (v1.11.15, pedido do operador): *"coloque o nome do app
+         na tela do modo simples, centralizado na barra de topo, e pode remover o número da
+         versão dessa tela … o botão de espelhamento/cast no topo esquerdo … o topo ficaria
+         botão de cast à esquerda, nome centralizado e botão de configurações na direita"*.
+         As colunas são FIXAS (`.simple-head` é uma grade de `--hit · 1fr · --hit`): o cast some
+         sem tela (`hidden`) e o nome continua no centro, porque a coluna dele existe de
+         qualquer jeito. A BADGE DE VERSÃO saiu desta tela — o número mora no rodapé de
+         Configurações e no Registro.
 
-         Agora o caminho é um só nos dois modos: engrenagem → "Modo do app". E
-         é o caminho MELHOR, porque é ele que GUARDA a escolha entre aberturas
-         (v5.66) — o botão que saiu não guardava nada. De quebra, este modo
-         ganhou tudo o mais que morava atrás da engrenagem: tema, wallpaper,
-         preenchimento, o estado do telão, o Registro e a atualização.
+         O CAST é a porta da tela (v1.11.11): a prévia saiu do Modo Fácil — *"a própria tela
+         conectada já será o visor"* — e levou o ícone que trocava de tela ou desconectava.
+         O MESMO `abrirCast()`. Verde com tela recebendo (a TV no ar é ATIVIDADE) e some sem
+         tela — ali a seção de conexão já é a tela inteira.
 
-         Ela fica ACIMA da cortina do modo bloqueado sem regra nova: o
-         `.simple.sem-tela .simple-head` já iça o cabeçalho inteiro
-         (`z-index: 2`), e é isso que impede o operador de ficar preso quando
+         A ENGRENAGEM (v5.250) é o caminho único até Configurações nos dois modos, e fica ACIMA
+         da cortina do modo bloqueado sem regra nova: o `.simple.sem-tela .simple-head` já iça o
+         cabeçalho inteiro (`z-index: 2`), e é isso que impede o operador de ficar preso quando
          não há tela conectada. -->
     <div class="simple-head">
-      <span class="simple-brand">Audio Visual <b>IASD</b></span>
-      <!-- A BADGE DE VERSÃO (v1.7.0, pedido do operador: *"coloque uma nova
-           badge de versão na tela principal, após o título áudio visual iasd (no
-           modo simples) e no canto superior esquerdo (no modo avançado)"*).
-
-           ELA MOSTRA UM NÚMERO SÓ, e isso também é pedido: *"na exibição da
-           badge da versão, coloque apenas ela, e apenas um número, sem o
-           'web'"*. Os DOIS índices continuam existindo e continuam divergindo
-           por construção (a base chega por OTA em minutos, o shell só
-           instalando um APK) — o que mudou é quem os lê: o Registro, que é o
-           artefato de diagnóstico, e não a tela de quem opera o culto.
-
-           Preenchida por `renderVersionLabel`, junto com a irmã do avançado e o
-           rodapé de Configurações: um escritor só para as três casas é o que
-           impede duas delas de anunciarem versões diferentes. -->
-      <span class="ver-badge" id="simpleVersion" title="Versão do aplicativo"></span>
-      <!-- A PORTA DA TELA (v1.11.11). A prévia saiu do Modo Fácil — *"a própria
-           tela conectada já será o visor"* — e levou o ícone de cast que era por
-           onde se trocava de tela ou se desconectava. Esta é a casa nova dele: o
-           MESMO `abrirCast()`, na mesma linha da engrenagem. Verde com tela
-           recebendo (a TV no ar é ATIVIDADE) e some sem tela — ali a seção de
-           conexão já é a tela inteira. -->
       <button type="button" id="simpleCastBtn" class="settings-btn" title="Conectar uma TV" aria-label="Conectar uma TV" hidden>
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 19a2 2 0 0 1 2 2"/>
@@ -870,6 +849,7 @@
           <path d="M8.5 5h10A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5H16"/>
         </svg>
       </button>
+      <span class="simple-brand">Audio Visual <b>IASD</b></span>
       <button type="button" id="simpleSettingsBtn" class="settings-btn" title="Configurações" aria-label="Configurações">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGear"/></svg>
       </button>
@@ -887,18 +867,7 @@
     <div class="simple-barra" id="simpleBarra" aria-hidden="true"></div>
 
     <div class="simple-song">
-      <!-- A linha do nome hospeda o par A+/A− (v1.1.6). Ele mora AQUI e não
-           dentro da caixa da letra por uma razão de altura: naquele modo a
-           letra é a tela inteira, e um controle dentro dela custaria linhas
-           lidas. O nome continua centrado — o par é absoluto e a folga é
-           reservada dos DOIS lados. -->
-      <div class="simple-np-linha">
-        <div class="simple-np" id="simpleNpName">Nada tocando</div>
-        <div class="lv-fonte-ctl">
-          <button type="button" class="lv-fonte-btn lv-fonte-menos" title="Diminuir a letra" aria-label="Diminuir a letra">A&#8722;</button>
-          <button type="button" class="lv-fonte-btn lv-fonte-mais" title="Aumentar a letra" aria-label="Aumentar a letra">A+</button>
-        </div>
-      </div>
+      <div class="simple-np" id="simpleNpName">Nada tocando</div>
       <!-- Linha do tempo da música: decorrido, barra e duração. É só LEITURA —
            neste modo não se arrasta nada (o volume também virou tecla); quem
            precisa saltar no tempo usa o modo avançado. Some quando o que está
@@ -918,6 +887,16 @@
         <span class="simple-time-num" id="simpleTimeDur">0:00</span>
       </div>
       <div class="simple-lyrics rola" id="simpleLyrics"></div>
+      <!-- A+ / A− COMO DOIS BOTÕES FLUTUANTES (v1.11.15, pedido do operador): *"dois botões FAB
+           dentro da caixa do auxiliar de leitura, os dois no canto inferior direito, um acima
+           do outro, em uma coluna. Sem molduras, apenas os botões"*. Moram na ZONA de leitura
+           (`.simple-song` é o `position: relative`), depois da placa da letra, e o grupo não
+           pinta nada: cada botão é a sua própria superfície. A+ em cima e A− embaixo, a ordem do
+           DOM é a ordem da tela. Antes eram um par pendurado na linha do nome (v1.1.6). -->
+      <div class="lv-fonte-ctl simple-fabs">
+        <button type="button" class="lv-fonte-btn lv-fonte-mais" title="Aumentar a letra" aria-label="Aumentar a letra">A+</button>
+        <button type="button" class="lv-fonte-btn lv-fonte-menos" title="Diminuir a letra" aria-label="Diminuir a letra">A&#8722;</button>
+      </div>
     </div>
 
     <!-- A BIBLIOTECA É A TELA PRINCIPAL (v1.11.11). Sem mídia no ar, a janela da
@@ -2614,7 +2593,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.11.14</span>
+            <span id="appVersion" class="app-version">v1.11.15</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

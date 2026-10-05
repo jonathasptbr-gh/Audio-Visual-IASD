@@ -552,9 +552,10 @@ try {
       canal: null, stream: null, lyrics: null, createdAt: 3 });
     await AVDB.setState('favs', ['meu-fav']);
   });
+  // A janela JÁ está aberta (o `importarPelaJanela` a abriu): reabri-la aqui disparava um SEGUNDO plano, que
+  // ao chegar volta as marcas ao padrão (`pacoteMarcarPadrao`) por cima das que o oráculo acabou de tirar —
+  // uma corrida que só aparecia sob carga.
   const rC = await importarPelaJanela(fav.pg, async () => {
-    await fav.pg.evaluate(() => openPacotePopup());
-    await esperar(fav.pg, () => !!document.querySelector('#pacoteLista li'), null, 30000);
     for (const n of Object.keys(await marcadas(fav.pg))) {
       if (n !== 'Favoritos') await tocarLinha(fav.pg, n);
     }
