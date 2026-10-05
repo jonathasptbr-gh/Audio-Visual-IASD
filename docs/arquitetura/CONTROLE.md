@@ -91,47 +91,70 @@ em que a mesma porta se abre.
 > inteira — tirar os dois de uma vez teria TRANCADO o operador aqui. Primeiro se
 > cria o caminho, depois se remove o atalho.
 
-#### O Modo Fácil sem prévia: a Biblioteca ou a leitura é a tela (v1.11.11)
+#### O Modo Fácil sem prévia: a barra sempre à vista, a Biblioteca ou a leitura como tela (v1.11.11–v1.11.12)
 
-Pedido do operador: *"para um usuário simples, a própria tela conectada já será
-o visor, e para o uso próprio, já tem a letra em exibição ou no telão ou no
-leitor"*. A tela do Modo Fácil é, de cima para baixo: cabeçalho (marca, badge de
-versão, ícone de cast `#simpleCastBtn`, engrenagem) · **CORPO** · cartão de
+Pedidos do operador: *"para um usuário simples, a própria tela conectada já será
+o visor"* (v1.11.11) · *"mantenha a barra de buscas da biblioteca sempre visível
+… o foco na caixa de buscas muda a tela principal do auxiliar de leitura para a
+biblioteca"* (v1.11.12). A tela do Modo Fácil é, de cima para baixo: cabeçalho
+(marca, badge de versão, ícone de cast `#simpleCastBtn`, engrenagem) · **espaço
+da barra** (`#simpleBarra`) · **zona de leitura** (`.simple-song`) · cartão de
 "Baixando…" (`#simpleBusySlot`, só com `.on`) · teclas · volume.
 
-- **O corpo é UM dos dois, e quem escolhe é `simplesBibliotecaDocada()`** = Modo
-  Fácil **e** com tela **e** `!haOQueParar()` — a MESMA pergunta do Parar
-  (`midiaNoAr || cenaDeRoteiroNoAr()`), nunca `cenaNoAr()` (que começa por
-  `!!currentId`, e o `currentId` sobrevive ao stop). Pausar NÃO troca de tela; o
-  fim natural de uma mídia (`resetAfterEnd`) e o Parar devolvem a Biblioteca.
-- **A Biblioteca é a MESMA janela `#hymnSearchPopup`, ENCAIXADA** na caixa da
-  zona de leitura (`.simple-song`, `visibility: hidden` por baixo): `body.simples-biblioteca`
-  troca o `top/left/right/bottom` da camada por `--simple-corpo-topo/esq/dir/base`,
-  que `medirCorpoSimples` LÊ do layout (nunca escritas no CSS: a zona muda de
-  altura com o cartão de download e com a linha de slides) e re-lê por
-  `ResizeObserver` e `resize`. O teclado manda no `bottom` quando é maior que a
-  base (`max(..., var(--kb))`). Aberta SEM foco; sem a seta (`.lib-toggle`); o
-  `window.__avBack` pula a janela encaixada (ela é a tela, fechá-la deixaria o
-  corpo vazio).
+- **É a MESMA janela `#hymnSearchPopup`** (fixa, `z-index: 190`), pousada sobre o
+  espaço da barra, e não há nó novo nem segunda implementação da busca. O espaço só
+  RESERVA a altura da barra (`--lib-bar-h`, lida do layout por
+  `medirBarraDaBiblioteca`).
+- **Três estados com tela conectada (`body.simples-barra`), escolhidos por
+  `simplesBibliotecaDocada()`** = Modo Fácil + com tela + `!haOQueParar()` — a MESMA
+  pergunta do Parar (`midiaNoAr || cenaDeRoteiroNoAr()`), nunca `cenaNoAr()`:
+  - **PRINCIPAL** (`simples-principal`, sem mídia no ar): aberta, a camada cobre
+    espaço + leitura; a leitura fica `visibility: hidden` por baixo
+    (`.simple.corpo-biblioteca`). Sem ✕, aberta SEM foco, o `__avBack` a pula, e
+    `closeHymnSearch` REINICIA em vez de fechar (quem fecha o acervo na pressa do
+    toque o faz antes de a mídia existir; fechar de verdade deixaria o corpo vazio
+    durante o download, e para sempre se ele falhasse).
+  - **FECHADA** (com mídia no ar): a camada tem a altura da barra e pousa sobre o
+    espaço; o resto da janela é recortado (`overflow: hidden`). O campo é o
+    GATILHO: o `focus` já chamava `openHymnSearch(true)`.
+  - **ABERTA SOBRE A LEITURA**: a camada cresce da barra até a base da zona de
+    leitura; o ✕ (`.lib-toggle`, só aqui) e o voltar do Android a fecham.
+- **Só o `bottom` da camada anima** (`transition: bottom var(--lib-anim)`), com as
+  medidas `--simple-barra-topo`/`--simple-corpo-esq|dir|base` LIDAS por
+  `medirCorpoSimples` (nunca escritas no CSS) e re-lidas por `ResizeObserver`
+  (zona, espaço e cabeçalho) e `resize`; uma medida nova NÃO anima
+  (`semAnimarAJanela`). O teclado manda no `bottom` quando é maior que a base
+  (`max`). **A armadilha de especificidade:** `body.mode-simple …:not(.open)
+  .popup-sheet--lib` desce a janela fechada para fora da tela e tem a mesma
+  especificidade da regra nova, vindo depois — por isso a regra do estado fechado
+  leva `.mode-simple` na conta.
 - **`renderSimpleCorpo` roda em três pulsos:** `renderSimpleGate` (tela entrou ou
   saiu, troca de modo), `renderTransporteHabilitado` (cena mudou) e `setAppMode`.
-  Ao desencaixar fecha a janela por `closeHymnSearch`, que limpa o campo e
-  recolhe o acervo — a palavra de antes não volta com a tela de leitura.
-- **`closeHymnSearch` ENCAIXADA É REINICIAR, não fechar:** quem toca numa música
-  (`playSongVariant`, `ytAcao`, `projectSongLyricsOnly`, `montarFilaSorteada`) fecha
-  o acervo ANTES de a mídia existir; fechar de verdade deixaria o corpo vazio
-  durante o download — e para sempre se ele falhasse. Encaixada, a janela fica, o
-  campo volta limpo e o acervo é redesenhado no estado padrão; quem a tira de cena
-  é `renderSimpleCorpo` quando a mídia entra no ar.
-- **Sem tela a cortina manda** (`.sem-tela`): a Biblioteca não abre por trás
-  dela, e o ícone de cast do cabeçalho some (a seção de conexão já é a tela).
+- **A ESCOLHA DE UMA MÚSICA É UMA COREOGRAFIA (v1.11.12)** — relato: *"a tela muda
+  rápido demais, sem nem sequer o feedback tátil … a tela está simplesmente
+  piscando"*. Três tempos: (1) `simpleSelecionarLinha` (no toque da linha, na
+  Biblioteca e nos resultados do YouTube) marca a linha — `.selecionando`:
+  `--sel-fill` e o recuo do toque, que FICAM — por `SIMPLE_FEEDBACK_MS`; o
+  `closeHymnSearch` que `playSongVariant` e vizinhos chamam no instante do toque
+  não fecha nada com uma escolha fresca (`simpleAguardarSaida`), e o
+  `renderSimpleCorpo` espera o mesmo prazo antes de trocar a tela quando a mídia
+  entra no ar depressa; (2) `simpleSairDaBiblioteca` recolhe a camada para a barra;
+  (3) a leitura ENTRA (`.simple-song.entrando`: 14 px para cima com fade, com
+  atraso). Só depois o campo é limpo e o acervo volta ao padrão
+  (`closeHymnSearch({ calma: true })` adia a limpeza por `SIMPLE_SAIDA_MS`). Se a
+  escolha não vira mídia, um vigia de 1 s desfaz a marca e REINICIA a Biblioteca
+  (cartão de espera cancelado, falha). A marca sobrevive aos redesenhos do acervo
+  (`simpleLinhaSelecionada`, por chave da música ou `yt:<id>`) — um download longo
+  refaz a lista muitas vezes. **O estado mora no TOPO do arquivo:** `let` depois do
+  `closeHymnSearch` seria zona morta, porque ele roda na carga via
+  `renderSimpleGate`. Fora do alcance, dito: as escolhas que não passam por uma
+  linha do acervo (o sorteio, a folha de destinos) fecham na hora, como antes.
 - **O que a prévia levava, e onde está:** o cartão `#pvBusy` (única porta de
   CANCELAR um download no Modo Fácil) é o MESMO nó, movido por `hostPreview` para
   `#simpleBusySlot` — e de volta à casa de origem (`pvBusyOrigem`) no avançado; o
   ícone de cast é o `#simpleCastBtn` (espelha classe e `title` do `#pvCastBtn`
   em `renderCastBtn`, e chama o mesmo `abrirCast`).
-- **O que se perde, aceito:** com mídia no ar não há busca no Modo Fácil até
-  Parar; o selo de camadas não existe lá (o Parar encerra tudo).
+- **Aceito:** o selo de camadas não existe no Modo Fácil (o Parar encerra tudo).
 - **Séries:** no Modo Fácil o card de Provai e Vede e Informativo Mundial mostra
   só a seção da semana (`soASemana`), nunca a lista completa.
 

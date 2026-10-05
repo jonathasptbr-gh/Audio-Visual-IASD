@@ -199,12 +199,38 @@ botão" vale para eles, na janela; o que mudou é a porta e o sinal:
   espelhado.
 - **A lista da biblioteca atual É A JANELA (v1.11.9):** ela já está desenhada
   quando a janela abre — pedido do operador: *"em ambos os casos a lista será
-  vista, então já pode tornar ela visível diretamente e ter apenas os dois
-  botões de ações na base"*. As caixas escolhem o que o **Exportar** leva (o toque
-  nele é a confirmação, sem folha por cima); o **Importar** não lê a marca, abre o
-  seletor de arquivos na hora e chama `importarPacote()`. A lista é do que o
-  APARELHO tem e não lê o arquivo; o aparelho novo — o caso de uso da importação
-  — tem frase de vazio, e a nota abaixo da lista só fala do que serve a ele.
+  vista, então já pode tornar ela visível diretamente e ter apenas os dois botões
+  de ações na base"*. As caixas escolhem o que o **Exportar** leva (o toque nele é
+  a confirmação, sem folha por cima) **e, desde a v1.11.12, o que o Importar traz
+  do pacote** (ver abaixo). O Importar abre o seletor de arquivos na hora e chama
+  `importarPacote()`.
+- **A SELEÇÃO VALE TAMBÉM PARA IMPORTAR (v1.11.12).** Pedido do operador: *"os
+  itens selecionados são os itens que ele de fato vai importar … se eu selecionar
+  apenas o hinário, ele vai importar apenas o hinário desse pacote e, como sempre,
+  vai consumir o arquivo. Assim a listagem tem função em ambos os processos"*.
+  `pacoteFiltroDeImportacao()` lê as marcas ANTES do seletor e devolve `null` — o
+  pacote INTEIRO, como sempre — quando a lista não está à vista (os oráculos
+  chamam `importarPacote()` direto) ou quando TUDO está marcado, o padrão da
+  janela. Com qualquer marca tirada o filtro é **ESTRITO**: o que não está marcado
+  não entra, inclusive o grupo que a lista nem oferecia (ele estreitou a escolha;
+  trazer o que ele não viu seria o contrário do pedido). O cursor aceita uma
+  FUNÇÃO da cabeça (`proximo(comCorpo(cab))`), então o registro que fica de fora é
+  PULADO pelo `bytes` sem ler o corpo; `opfs` e `arquivo` decidem por
+  `AVPacote.grupoDoCaminho` (a MESMA função da saída, com os ids do catálogo do
+  destino), `media` pela lista `favs` que o PRÓPRIO pacote traz (o estado vem
+  antes das mídias no arquivo) ou pelo grupo `midia`, e miniaturas e páginas vão
+  atrás da mãe. **"Ajustes e catálogos" é fixo e sempre entra** — é ele que faz os
+  arquivos importados aparecerem na Biblioteca. O relatório conta o que ficou de
+  fora, e a frase do consumo diz que o arquivo foi apagado COM o que não estava
+  marcado: o consumo é o de sempre, e o que não entrou se perde com ele.
+- **O APARELHO NOVO TEM O QUE MARCAR (v1.11.12).** `pacoteMontarFolha` lista
+  sempre os hinários e as séries (`pacoteColecaoDeBase`), com "nada baixado neste
+  aparelho" e sem peso (`vazio: true`) — sem isso a lista de um aparelho novo, o
+  caso de uso da importação, seria vazia e a seleção não teria função. Os álbuns do
+  catálogo, que são centenas, só entram com bytes: **um álbum que o aparelho não
+  tem não aparece e, com a seleção estreitada, não entra.** Com nada baixado a nota
+  fala só do Importar, sem peso de exportação; o `info` do pacote omite os grupos
+  vazios.
 - **`exportarPacote()` e `importarPacote()` seguem chamáveis DIRETO, de
   propósito:** os oráculos os chamam com um `pickDoc` de mentira. Sem a janela
   aberta, `exportarPacote()` monta o plano e marca TUDO — o padrão da lista.

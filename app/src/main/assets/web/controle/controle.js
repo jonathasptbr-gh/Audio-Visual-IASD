@@ -389,7 +389,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.11';
+const WEB_VERSION = '1.11.12';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23136,6 +23136,7 @@ function ytResultRow(r) {
   const li = document.createElement('li');
   li.className = 'lib-item hymn-result yt-result';
   li.dataset.yt = r.id;
+  if (simpleLinhaSelecionada('yt:' + r.id)) li.classList.add('selecionando');
 
   const row = document.createElement('div'); row.className = 'row hymn-row';
   const thumb = document.createElement('div'); thumb.className = 'thumb yt-thumb';
@@ -23185,7 +23186,7 @@ function ytResultRow(r) {
     // simplificado — deixá-lo implícito (undefined) fazia o mesmo "tocar"
     // viajar ora com altura, ora sem, e a diferença só aparecia em quem lê o
     // parâmetro lá na frente.
-    if (appMode === 'simple') { ytAcao(r, 'tocar', null, false, ytAlturaPadrao()); return; }
+    if (appMode === 'simple') { simpleSelecionarLinha(li); ytAcao(r, 'tocar', null, false, ytAlturaPadrao()); return; }
     openYtMenu(r);
   });
   return li;
@@ -38582,7 +38583,7 @@ function simpleSelecionarLinha(li) {
   hymnResultsEl.querySelectorAll('.hymn-result.selecionando').forEach((el) => {
     if (el !== li) el.classList.remove('selecionando');
   });
-  simpleSel = { em: performance.now(), chave: li.dataset.song || '' };
+  simpleSel = { em: performance.now(), chave: li.dataset.song || (li.dataset.yt ? 'yt:' + li.dataset.yt : '') };
   li.classList.add('selecionando');
 }
 
