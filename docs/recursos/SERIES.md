@@ -231,6 +231,15 @@ ser diagnosticável.
   que sobrou da linha é o AVISO (`serieAutoAviso`), na linha de status do card,
   quando a rede não deixa baixar.
 
+  **NO MODO FÁCIL O CARD MOSTRA SÓ A SEMANA** (v1.11.11, pedido do operador: *"exiba
+  apenas a seção do vídeo da semana, e não a lista completa"*): `soASemana =
+  simplificado() && !!dest` em `renderCollectionCard` esconde a lista inteira de
+  episódios quando há uma seção da semana para mostrar; o avançado continua com a
+  lista. `dest` só existe em SÉRIE (o destaque da semana, que sem episódio diz
+  "Aguardando lançamento" e por isso nunca deixa o card vazio): os hinários e os
+  outros álbuns seguem com a lista nos dois modos. Oráculo:
+  `serie-mantem-a-semana.test.mjs`, bloco J.
+
   **O álbum de série continua não retendo arquivo**, e a regra da v1.1.21 não
   mudou: não há botão de baixar em lote, a barra não anuncia peso, e a série
   segue fora de "Baixar toda a biblioteca". O que entra é um detentor NOVO de
