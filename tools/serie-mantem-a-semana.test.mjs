@@ -456,6 +456,34 @@ try {
     + 'de fato é gravar um padrão novo para o PRÓXIMO vídeo, calado',
     escada.baixado);
 
+  // ── J. NO MODO FÁCIL A SÉRIE MOSTRA SÓ A SEMANA (v1.11.11) ──────────────
+  // *"exiba apenas a seção do vídeo da semana, e não a lista completa"*. As DUAS
+  // metades, porque uma sozinha aprovaria o card sem lista em TODO modo: o
+  // avançado segue com a lista inteira (menos o episódio em destaque, que sai
+  // dela), e o Modo Fácil fica só com o destaque.
+  const cartaoDoModo = (modo) => pg.evaluate((a) => {
+    setAppMode(a.modo);
+    const coll = allCollections().find((c) => c.id === a.id);
+    ui(a.id).expanded = true; ui(a.id).shown = 100;
+    const aberto = renderCollectionCard(coll).querySelector('.coll-open');
+    return {
+      destaque: !!aberto.querySelector('.serie-destaque'),
+      lista: aberto.querySelectorAll(':scope > ul.coll-songs > li').length,
+      semana: aberto.querySelectorAll('.serie-destaque .lib-item, .serie-destaque li').length,
+    };
+  }, { modo, id: SERIE });
+  const noAvancado = await cartaoDoModo('full');
+  const noFacil = await cartaoDoModo('simple');
+  await pg.evaluate(() => setAppMode('full'));
+  checar(noAvancado.destaque && noAvancado.semana >= 1 && noAvancado.lista >= 2,
+    'J · no AVANÇADO o card tem o destaque E a lista dos outros episódios — a '
+    + 'restrição é só do Modo Fácil, e sem esta metade "sem lista em todo modo" passaria',
+    noAvancado);
+  checar(noFacil.destaque && noFacil.semana >= 1 && noFacil.lista === 0,
+    'J · no MODO FÁCIL o card tem SÓ o destaque da semana: nenhuma linha da lista '
+    + 'completa (a semana passada e a seguinte, que estão no índice, não aparecem)',
+    noFacil);
+
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));

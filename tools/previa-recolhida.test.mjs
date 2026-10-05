@@ -213,15 +213,15 @@ try {
   await trocarTelas(pg, TV);
 
   // =========================================================================
-  // A · A SETA EXISTE NOS DOIS MODOS, QUADRADA E NO LUGAR CERTO
+  // A · A SETA, QUADRADA E NO LUGAR CERTO (só no avançado: o Modo Fácil não tem prévia, v1.11.11)
   // B · RECOLHER: A ALTURA É A MENOR POSSÍVEL (a folga), SEM BOTÃO APERTADO
   // H · COM SELO E GIRO À VISTA A TIRA TEM DUAS LINHAS, SEM SOBREPOSIÇÃO
   // =========================================================================
-  // Uma varredura só: 2 modos x 3 larguras x 2 proporções, e em cada célula três
+  // Uma varredura só: 3 larguras x 2 proporções, e em cada célula três
   // estados (expandida, recolhida e recolhida com o giro à vista). A largura
   // mexe no que CABE na linha, e a proporção na altura natural da prévia — e é
   // só a 320 px que selo e giro deixam de caber ao lado da seta.
-    for (const modo of ['full', 'simple']) {
+    for (const modo of ['full']) {
     await pg.evaluate((m) => setAppMode(m), modo);
     const modoOk = await esperar(pg, (m) => appMode === m, modo, 5000);
     checar(modoOk === true, 'A0 · PREMISSA: o modo ' + modo + ' está de pé', porque(modoOk));
@@ -285,17 +285,6 @@ try {
         if (rec.seta && modo === 'full') {
           checar(Math.abs(rec.cx) < 1, 'B6 · a seta continua CENTRADA recolhida [' + tag + ']',
             'cx ' + rec.cx.toFixed(2));
-        }
-        if (rec.seta && modo === 'simple') {
-          // I · o Modo Fácil recolhido é uma TIRA de uma linha: a seta no canto
-          // esquerdo e o cast à direita, na mesma altura.
-          checar(rec.linhas === 1 && rec.esquerdaDaSeta <= 4 && rec.cast && rec.cast.l > rec.seta.l
-            && Math.abs(rec.cast.t - rec.seta.t) < 1,
-            'I1 · Modo Fácil recolhido: UMA linha, seta no canto esquerdo e cast à direita [' + tag + ']',
-            { linhas: rec.linhas, ids: rec.ids, esq: rec.esquerdaDaSeta });
-          checar(rec.P.h <= rec.hit + 2 * 2.5,
-            'I2 · e a tira mede `--hit` mais o recuo, nada além [' + tag + ']',
-            rec.P.h.toFixed(1) + ' contra --hit ' + rec.hit);
         }
 
         // ---- H: com o giro à vista (o selo da camada mora na mesma linha) ----
@@ -527,8 +516,8 @@ try {
     + 'não é lido por ninguém', { ...cartaoFalha, prazo: porque(falhou) });
   await esperar(pg, () => !document.getElementById('pvBusy').classList.contains('on'), null, 12000);
 
-  // O MODO FÁCIL tem regra própria para o cartão (a `.simple-stage .preview` de
-  // 0,2,0 e um cartão de 48,8 px): a mesma pergunta, no outro modo.
+  // NO MODO FÁCIL o cartão mora no `#simpleBusySlot` (v1.11.11): não há prévia
+  // para devolver altura, e o que importa é que ele caiba e o cancelar alcance.
   await pg.evaluate(() => setAppMode('simple'));
   await esperar(pg, () => appMode === 'simple', null, 5000);
   await pg.evaluate(() => { window.__busy = previewBusy('Baixando vídeo', 'LOUVOR LONGO DEMAIS PARA CABER NUMA TIRA', () => {}); });
@@ -536,29 +525,21 @@ try {
     const b = document.getElementById('pvBusy');
     return b.classList.contains('on') && getComputedStyle(b).opacity === '1';
   }, null, 5000);
-  const cartaoFacil = await lerCartao();
-  const naturalFacil = await pg.evaluate(() => {
-    const pv = document.getElementById('preview');
-    const antes = pv.className;
-    pv.classList.remove('pv-recolhida');
-    const h = pv.getBoundingClientRect().height;
-    pv.className = antes;
-    return h;
+  const cartaoFacil = await pg.evaluate(() => {
+    const slot = document.getElementById('simpleBusySlot');
+    const S = slot.getBoundingClientRect();
+    const k = document.querySelector('#pvBusy .pv-busy-card').getBoundingClientRect();
+    const b = document.getElementById('pvBusyCancel').getBoundingClientRect();
+    const topo = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    return {
+      moraNoSlot: document.getElementById('pvBusy').parentElement === slot,
+      dentro: k.left >= S.left - 0.5 && k.right <= S.right + 0.5 && k.top >= S.top - 0.5 && k.bottom <= S.bottom + 0.5,
+      cancelaAlcanca: !!(topo && topo.closest('#pvBusyCancel')),
+    };
   });
-  checar(acendeuFacil === true && cartaoFacil.recolhida && cartaoFacil.cartaoDentro
-    && cartaoFacil.cancelAlcancavel && Math.abs(cartaoFacil.h - naturalFacil) <= 1,
-    'E7 · no MODO FÁCIL o cartão também devolve a altura, cabe inteiro e o cancelar é alcançável',
-    { ...cartaoFacil, natural: naturalFacil, prazo: porque(acendeuFacil) });
-  const setaFacil = await pg.evaluate(() => {
-    const seta = document.getElementById('pvRecolherBtn');
-    const cs = getComputedStyle(seta.closest('.pv-fabs'));
-    const S = seta.getBoundingClientRect();
-    const C = document.querySelector('#pvBusy .pv-busy-card').getBoundingClientRect();
-    return { visibility: cs.visibility, cruza: S.left < C.right && S.right > C.left && S.top < C.bottom && S.bottom > C.top };
-  });
-  checar(setaFacil.visibility === 'visible' && setaFacil.cruza === false,
-    'E7b · no MODO FÁCIL a seta FICA (mora no canto) e não cruza o cartão — a regra que a esconde é '
-    + 'só do avançado', setaFacil);
+  checar(acendeuFacil === true && cartaoFacil.moraNoSlot && cartaoFacil.dentro && cartaoFacil.cancelaAlcanca,
+    'E7 · no MODO FÁCIL o cartão mora no `#simpleBusySlot`, cabe inteiro e o cancelar é alcançável',
+    { ...cartaoFacil, prazo: porque(acendeuFacil) });
   await pg.evaluate(() => { window.__busy.soltar(); });
   await esperar(pg, () => !document.getElementById('pvBusy').classList.contains('on'), null, 5000);
   await pg.evaluate(() => setAppMode('full'));

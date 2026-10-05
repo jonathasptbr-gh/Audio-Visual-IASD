@@ -856,6 +856,20 @@
            rodapé de Configurações: um escritor só para as três casas é o que
            impede duas delas de anunciarem versões diferentes. -->
       <span class="ver-badge" id="simpleVersion" title="Versão do aplicativo"></span>
+      <!-- A PORTA DA TELA (v1.11.11). A prévia saiu do Modo Fácil — *"a própria
+           tela conectada já será o visor"* — e levou o ícone de cast que era por
+           onde se trocava de tela ou se desconectava. Esta é a casa nova dele: o
+           MESMO `abrirCast()`, na mesma linha da engrenagem. Verde com tela
+           recebendo (a TV no ar é ATIVIDADE) e some sem tela — ali a seção de
+           conexão já é a tela inteira. -->
+      <button type="button" id="simpleCastBtn" class="settings-btn" title="Conectar uma TV" aria-label="Conectar uma TV" hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 19a2 2 0 0 1 2 2"/>
+          <path d="M3 15.5a5.5 5.5 0 0 1 5.5 5.5"/>
+          <path d="M3 12a9 9 0 0 1 9 9"/>
+          <path d="M8.5 5h10A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5H16"/>
+        </svg>
+      </button>
       <button type="button" id="simpleSettingsBtn" class="settings-btn" title="Configurações" aria-label="Configurações">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGear"/></svg>
       </button>
@@ -899,52 +913,24 @@
       <div class="simple-lyrics rola" id="simpleLyrics"></div>
     </div>
 
-    <!-- A FAIXA DE AÇÕES — preview + buscar, lado a lado, NA ZONA DE BAIXO
-         (v5.201). Ela nasceu no alto da tela e desceu para cá: o topo é da
-         LETRA, que é o que se lê durante o louvor, e estas duas são o que se
-         OPERA — a busca a milímetros do ▶ que vem logo depois de escolher, e a
-         preview onde o olho já está quando se confere o que saiu.
-         O par voltou a dividir a linha: a v5.200 os tinha separado (a busca
-         larga aqui embaixo, a preview sozinha no alto), e é a forma emparelhada
-         que o operador pediu de volta. -->
+    <!-- A BIBLIOTECA É A TELA PRINCIPAL (v1.11.11). Sem mídia no ar, a janela da
+         Biblioteca fica ENCAIXADA no lugar desta zona de leitura: a barra de
+         busca no topo e o acervo no corpo (ver `renderSimpleCorpo`). Com mídia no
+         ar (e sem Parar), a zona de leitura acima volta a ser a tela. O botão
+         "Buscar música" e a PRÉVIA saíram do Modo Fácil: a tela conectada é o
+         visor, e quem quer ler tem a letra aqui.
+
+         O CARTÃO DE "BAIXANDO…" mora aqui (`#simpleBusySlot`), e é o MESMO nó
+         que fica sobre a prévia no avançado (`hostPreview` o move): ele é a única
+         porta de CANCELAR um download no Modo Fácil, e sem prévia ele precisa de
+         uma casa. Vazio e escondido, o slot não custa um pixel. -->
+    <div class="simple-busy-slot" id="simpleBusySlot"></div>
+
+    <!-- A SEÇÃO DE CONEXÃO. SEM TELA, ela ocupa o CENTRO da tela por cima da
+         cortina (ver `.simple.sem-tela .simple-actions`); com tela ela não existe.
+         Vazio no HTML de propósito — quem o preenche é `hostCastConn()`. -->
     <div class="simple-actions">
-      <!-- Com uma tela CONECTADA, a PREVIEW ocupa esta célula: ela é o sinal de
-           conexão (não há o que dizer melhor sobre "está conectado?" do que
-           mostrar o que a TV exibe) e o ícone de cast no canto dela é por onde
-           se troca de tela ou se desconecta. SEM tela ela some, a faixa vira
-           uma coluna só (a busca) e quem responde "conectar" é a seção do alto.
-           O nó da preview é O MESMO do modo avançado — ele é MOVIDO para cá e
-           de volta (ver `hostPreview` em controle.js), pelo mesmo padrão do
-           `#selbar` e do `<input type=file>`: dois nós divergiriam no primeiro
-           ajuste, e dois `createStage` decodificariam o mesmo vídeo duas vezes
-           num aparelho que já roda dois WebViews.
-           Vazio no HTML de propósito: quem o preenche é o `hostPreview`. -->
-      <!-- SEM TELA, A CONEXÃO OCUPA A CÉLULA DA PREVIEW — e, com a cortina de
-           volta (v5.203), a faixa inteira é IÇADA para o centro vertical da
-           tela: a preview e a busca somem, a grade vira uma coluna só, e o que
-           sobra é o cartão de conexão em cima do vidro fosco. Ver
-           `.simple.sem-tela .simple-actions`, que é quem manda aqui.
-
-           A ordem das versões, porque ela se inverteu duas vezes: v5.201 pôs a
-           conexão NO TOPO (acima da letra); a v5.202 a desceu para a zona de
-           baixo, no fluxo; a v5.203 trouxe a cortina de volta e, com ela, o
-           içamento para o centro — que é o estado atual. Esta última troca não
-           foi anotada aqui na época, e o comentário ficou descrevendo por três
-           versões um layout no fluxo que o CSS já não desenhava.
-
-           Vazio no HTML de propósito — quem o preenche é `hostCastConn()`. -->
       <div class="simple-conn rola" id="simpleConn" hidden></div>
-      <div class="simple-stage" id="simpleStage"></div>
-      <button type="button" id="simpleSearchBtn" class="simple-key simple-action">
-        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="7"/>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <span class="simple-key-label">Buscar música</span>
-        <!-- O subtítulo saiu na v5.195 ("Hinários e álbuns"): ele nomeava onde
-             a busca procura, e não há segunda busca neste modo para escolher
-             entre elas. -->
-      </button>
     </div>
 
     <!-- O "controle remoto": teclas grandes, nada de arrastar. -->
@@ -1609,9 +1595,8 @@
                vermelho de TRAÇO do palco, o mesmo do selo de camadas) e o
                bloqueio de áudio veste `--warn-text`, com a pulsação de sempre.
 
-               NÃO APARECE NO MODO FÁCIL: a preview é UM nó só e MUDA DE CASA
-               (ver `hostPreview`), e lá o mudo já é uma tecla grande própria
-               (`#simpleMute`). Quem a esconde é `.simple-stage .pv-fabs--esq`. -->
+               NÃO APARECE NO MODO FÁCIL: a prévia nem é desenhada lá (v1.11.11),
+               e o mudo já é uma tecla grande própria (`#simpleMute`). -->
           <div class="pv-fabs pv-fabs--esq">
             <!-- ===== A CORTINA SUBIU PARA O CANTO (v1.4.31) =====
                  Pedido do operador: *"na preview, pode subir o botão do
@@ -2622,7 +2607,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.11.10</span>
+            <span id="appVersion" class="app-version">v1.11.11</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

@@ -230,6 +230,9 @@ try {
     // um pintar o próprio fundo: a superfície subiu para o envelope, e o verde
     // com ela. É o mesmo estado, no mesmo momento — não um consumidor novo.
     '.cast-acao-linha:has(> .cast-acao.connected)',
+    // O ÍCONE DE CAST DO CABEÇALHO DO MODO FÁCIL (v1.11.11): a MESMA "TV no ar",
+    // agora que a prévia (e o `#pvCastBtn`) saiu desse modo. Estado, não desfecho.
+    '.simple-head #simpleCastBtn.connected',
   ];
   const sobrando = consumidores.filter((c) => !ESPERADOS.includes(c));
   checar(sobrando.length === 0,

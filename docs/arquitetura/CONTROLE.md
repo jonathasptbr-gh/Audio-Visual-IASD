@@ -91,6 +91,52 @@ em que a mesma porta se abre.
 > inteira — tirar os dois de uma vez teria TRANCADO o operador aqui. Primeiro se
 > cria o caminho, depois se remove o atalho.
 
+#### O Modo Fácil sem prévia: a Biblioteca ou a leitura é a tela (v1.11.11)
+
+Pedido do operador: *"para um usuário simples, a própria tela conectada já será
+o visor, e para o uso próprio, já tem a letra em exibição ou no telão ou no
+leitor"*. A tela do Modo Fácil é, de cima para baixo: cabeçalho (marca, badge de
+versão, ícone de cast `#simpleCastBtn`, engrenagem) · **CORPO** · cartão de
+"Baixando…" (`#simpleBusySlot`, só com `.on`) · teclas · volume.
+
+- **O corpo é UM dos dois, e quem escolhe é `simplesBibliotecaDocada()`** = Modo
+  Fácil **e** com tela **e** `!haOQueParar()` — a MESMA pergunta do Parar
+  (`midiaNoAr || cenaDeRoteiroNoAr()`), nunca `cenaNoAr()` (que começa por
+  `!!currentId`, e o `currentId` sobrevive ao stop). Pausar NÃO troca de tela; o
+  fim natural de uma mídia (`resetAfterEnd`) e o Parar devolvem a Biblioteca.
+- **A Biblioteca é a MESMA janela `#hymnSearchPopup`, ENCAIXADA** na caixa da
+  zona de leitura (`.simple-song`, `visibility: hidden` por baixo): `body.simples-biblioteca`
+  troca o `top/left/right/bottom` da camada por `--simple-corpo-topo/esq/dir/base`,
+  que `medirCorpoSimples` LÊ do layout (nunca escritas no CSS: a zona muda de
+  altura com o cartão de download e com a linha de slides) e re-lê por
+  `ResizeObserver` e `resize`. O teclado manda no `bottom` quando é maior que a
+  base (`max(..., var(--kb))`). Aberta SEM foco; sem a seta (`.lib-toggle`); o
+  `window.__avBack` pula a janela encaixada (ela é a tela, fechá-la deixaria o
+  corpo vazio).
+- **`renderSimpleCorpo` roda em três pulsos:** `renderSimpleGate` (tela entrou ou
+  saiu, troca de modo), `renderTransporteHabilitado` (cena mudou) e `setAppMode`.
+  Ao desencaixar fecha a janela por `closeHymnSearch`, que limpa o campo e
+  recolhe o acervo — a palavra de antes não volta com a tela de leitura.
+- **`closeHymnSearch` ENCAIXADA É REINICIAR, não fechar:** quem toca numa música
+  (`playSongVariant`, `ytAcao`, `projectSongLyricsOnly`, `montarFilaSorteada`) fecha
+  o acervo ANTES de a mídia existir; fechar de verdade deixaria o corpo vazio
+  durante o download — e para sempre se ele falhasse. Encaixada, a janela fica, o
+  campo volta limpo e o acervo é redesenhado no estado padrão; quem a tira de cena
+  é `renderSimpleCorpo` quando a mídia entra no ar.
+- **Sem tela a cortina manda** (`.sem-tela`): a Biblioteca não abre por trás
+  dela, e o ícone de cast do cabeçalho some (a seção de conexão já é a tela).
+- **O que a prévia levava, e onde está:** o cartão `#pvBusy` (única porta de
+  CANCELAR um download no Modo Fácil) é o MESMO nó, movido por `hostPreview` para
+  `#simpleBusySlot` — e de volta à casa de origem (`pvBusyOrigem`) no avançado; o
+  ícone de cast é o `#simpleCastBtn` (espelha classe e `title` do `#pvCastBtn`
+  em `renderCastBtn`, e chama o mesmo `abrirCast`).
+- **O que se perde, aceito:** com mídia no ar não há busca no Modo Fácil até
+  Parar; o selo de camadas não existe lá (o Parar encerra tudo).
+- **Séries:** no Modo Fácil o card de Provai e Vede e Informativo Mundial mostra
+  só a seção da semana (`soASemana`), nunca a lista completa.
+
+Oráculo: `modo-simples-corpo.test.mjs`.
+
 #### O modo vale pela SESSÃO, e toda abertura nasce no Modo Fácil
 
 Pedido do operador (v1.11.7): *"sempre iniciar o app no modo simples"*.
@@ -150,8 +196,8 @@ do app e o `:active` que afunda.
 | Elemento | O que faz |
 |---|---|
 | **Seção de conexão** (`#simpleConn`) | as duas formas de conectar — espelhar para a TV e transmitir para navegador, **dois botões irmãos** (ligada, a segunda perde o preenchimento, fica no vermelho contornado e nomeia o desligamento). Ligar e desligar ANIMAM: a folha cresce primeiro e o endereço entra depois (`grid-template-rows: 0fr → 1fr` no `#castLive`, com os atrasos invertidos no fechamento), e a lista de telas é um DIFF por rótulo — refeita por inteiro, ela recomeçaria a animação a cada leitura de 2,5 s e recriaria o botão "Desconectar" debaixo do dedo. Só SEM tela conectada, e ali é a ÚNICA coisa legível: a faixa de ações é içada para o centro da tela, por cima da cortina. É o MESMO nó da folha de "Conectar uma tela" (`#castConn`), movido por `hostCastConn` |
-| **Preview** (`.simple-stage`) | a projeção em miniatura, **só com tela conectada**. Mora na faixa de baixo, dividindo a linha com "Buscar música"; o topo da tela é da LETRA, que é o que se lê durante o louvor |
-| **Buscar música** (`#simpleSearchBtn`) | o MESMO popup do acervo (`openHymnSearch`); um toque na linha **toca a versão Cantada direto**. Fica na ZONA DE BAIXO — buscar é o começo de OPERAR, então pertence ao transporte, a milímetros do ▶ que vem depois de escolher. Sem tela a preview some e a grade vira uma coluna, com a busca inteira |
+| **Corpo** (`.simple-song` ou a Biblioteca encaixada) | **UM dos dois** (v1.11.11): sem mídia no ar a BIBLIOTECA com a barra de busca no topo; com mídia no ar a LEITURA (nome, linha do tempo, letra). Quem escolhe é `simplesBibliotecaDocada()` — ver "O Modo Fácil sem prévia". **Não há prévia nem "Buscar música"**: a tela conectada é o visor |
+| **Cartão de download** (`#simpleBusySlot`) | o `#pvBusy` movido para cá no Modo Fácil — a única porta de cancelar um download; vazio, não ocupa lugar |
 | **Linha do tempo** (`#simpleTime`) | decorrido · barra · duração, espelhando a `#seek` do avançado; some quando o item não tem duração. **Interativa**: tocar salta, arrastar procura — voltar o refrão é a coisa mais comum num louvor, e mandar o operador SAIR do modo para isso é o oposto do que o modo dá. O alvo é a FAIXA (`.simple-time-hit`), não o traço de 4px. O comando sai no `pointerup` (um `seek` por quadro engasgaria a mídia) e `simpleSeeking` impede o `timeupdate` de puxar o preenchimento debaixo do dedo |
 | **Letra** (`#simpleLyrics`) | a letra INTEIRA da música em cena, com o mesmo destaque da leitura auxiliar do avançado |
 | **Play/pause, parar e mudo** | `.click()` em `#playpause` / `#stop` / `#muteToggle`. O parar é a outra metade do transporte — sem ele, tirar a mídia do telão obrigava a ir ao avançado, que é o que se faz no fim de cada louvor |
@@ -385,8 +431,8 @@ duas vezes num aparelho que já roda dois WebViews.
 - **`appendChild` de um nó já anexado é remoção e inserção atômicas**, então o
   "removido do documento" que pausaria o vídeo nunca chega a valer.
 
-**O cartão de "Baixando…" aparece aqui também** — é a mesma preview, logo o mesmo
-`previewBusy`. Ele volta `visivel: false` no simplificado **sem tela conectada**,
+**No Modo Fácil o cartão mora no `#simpleBusySlot`** (v1.11.11) — o mesmo nó e o mesmo
+`previewBusy`; o parágrafo abaixo descreve a medida que ele tinha SOBRE a prévia. Ele volta `visivel: false` no simplificado **sem tela conectada**,
 quando a preview não está na tela. As medidas são reduzidas por `.simple-stage`
 (anel de 22px, fontes menores) e reservam os 38px do `.pv-fab` **dos dois
 lados** — à direita porque senão ele transborda a miniatura e passa por baixo do
@@ -864,7 +910,7 @@ tamanho do ícone vem do CSS (`24px`), não do atributo do `<svg>`.
 | `.pv-fabs` | coluna DIREITA | cast em cima, tela cheia embaixo | *para onde eu mando isto?* |
 | `.pv-fabs--esq` | coluna ESQUERDA (v1.3.5) | letra → cortina → mudo | *como eu opero a cena?* |
 | `.pv-fabs--base` | BASE, ao centro (v1.3.10) | o que está FORA DO PADRÃO agora: o selo de camadas (`#pvCamadaBtn`) e o desfazer do giro (`#pvGiroBtn`) | *o que eu desfaço daqui?* |
-| `.pv-fabs--topo` | TOPO, ao centro (no Modo Fácil, no canto esquerdo) (v1.11.7) | a seta que recolhe e expande a prévia (`#pvRecolherBtn`) | *quanto de tela a prévia ocupa?* |
+| `.pv-fabs--topo` | TOPO, ao centro (v1.11.7) | a seta que recolhe e expande a prévia (`#pvRecolherBtn`) | *quanto de tela a prévia ocupa?* |
 
 > O selo já morou no canto superior esquerdo, e no topo ao centro (v1.3.5).
 > Desceu para a base a pedido do operador. Em qualquer das três posições a regra
@@ -964,12 +1010,11 @@ virou o `#slideNextBtn`. Quatro consequências, e nenhuma é cosmética:
   tem tema), e o áudio bloqueado veste `--warn-text` com a pulsação de sempre.
   A tecla grande do Modo Fácil, que TEM moldura, continua com o par
   fundo-suave + cor.
-- **Eles NÃO aparecem no Modo Fácil.** A preview é UM nó só e MUDA DE CASA
-  (`hostPreview`), então tudo o que se pendura nela viaja junto; lá o mudo já é
-  uma tecla grande própria (`#simpleMute`) e o resto do modo existe para não ter
-  controles. Quem os esconde é `.simple-stage .pv-fabs--esq`. **O selo de
-  camadas fica** — ele é a única saída da camada de cima, e não há gêmeo dele
-  lá.
+- **Eles NÃO aparecem no Modo Fácil, e desde a v1.11.11 nada da prévia aparece lá.** A prévia
+  não muda mais de casa (`hostPreview`): o nó fica na casa do avançado, escondido
+  pelo `<main>`, só porque o `stage` dele toca o som quando o som é deste aparelho.
+  O selo de camadas, a seta e o ícone de cast da prévia não existem lá — ver
+  "O Modo Fácil sem prévia", abaixo.
 
 **A ARMADILHA DO `<use>`, e ela é a razão de cada estado ser um símbolo
 separado.** A cortina e o mudo trocam de desenho por `.ico-base`/`.ico-alt`,
@@ -2495,12 +2540,7 @@ que ela ganhou GEOMETRIA.
 - **`1fr auto 1fr`, e não `auto 1fr auto`:** com o cast oculto (o navegador) ou a
   coluna da esquerda fora (Modo Fácil) as laterais ficam desiguais e a seta
   sairia do centro.
-- **NO MODO FÁCIL A SETA FICA NO CANTO SUPERIOR ESQUERDO** (`.simple-stage
-  .pv-fabs--topo`), expandida e recolhida — não troca de lugar com o toque. Lá a
-  coluna esquerda não existe e a prévia pode ser MUITO baixa (144×60 num telefone
-  de 320 com uma TV 21:9): MEDIDO, com o selo ou o giro à vista (centro da base)
-  uma seta ao centro do topo se sobrepunha a eles em 12px. O avançado não tem o
-  problema (a prévia mais baixa mede 88px) e fica no centro.
+- **O Modo Fácil NÃO TEM A SETA** (v1.11.11): sem prévia não há o que recolher; o canto superior esquerdo que a v1.11.7 lhe dava saiu junto.
 - **O CSS recolhido fica de fora da TELA CHEIA e do CARTÃO DE ESPERA**
   (`:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on))`). Em tela
   cheia sem TV a prévia É a projeção: uma regra sem o `:not(:fullscreen)` deixa o

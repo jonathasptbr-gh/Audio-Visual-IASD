@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.11.11",
+    "itens": [
+      "Modo Fácil: a biblioteca é a tela principal, com a busca no topo, quando não há mídia no ar.",
+      "Com mídia no ar, volta a tela de leitura; ao parar, a biblioteca volta.",
+      "A prévia e o botão 'Buscar música' saíram do Modo Fácil.",
+      "No Modo Fácil o ícone de conectar tela ficou no topo, ao lado da engrenagem.",
+      "Provai e Vede e Informativo Mundial: no Modo Fácil aparece só o vídeo da semana."
+    ]
+  },
+  {
     "versao": "1.11.10",
     "itens": [
       "Na busca da Biblioteca, um 'x' dentro da caixa apaga a palavra e já deixa digitar outra.",

@@ -1323,30 +1323,44 @@ try {
     'e a sétima veste a MESMA caixa dos vizinhos — um chapado sozinho numa fileira de seis com fundo lê como um que ficou de fora',
     linha);
 
-  // ── 7. O MODO FÁCIL NÃO HERDA A COLUNA DE OPERAÇÃO ──────────────────────
-  // A preview é UM nó só e MUDA DE CASA: tudo o que se pendura nela viaja.
+  // ── 7. O MODO FÁCIL NÃO TEM PRÉVIA (v1.11.11) ───────────────────────────
+  // Pedido do operador: *"para um usuário simples, a própria tela conectada já
+  // será o visor"*. A prévia deixou de MUDAR DE CASA: ela fica no `<main>`
+  // escondido, e nada do que se pendura nela é desenhado no Modo Fácil — nem a
+  // coluna de operação, nem o selo, nem a seta de recolher, nem o ícone de cast
+  // (que mudou para o cabeçalho).
   const facil = await pg.evaluate(() => {
     setAppMode('simple');
     const vis = (sel) => {
       const el = document.querySelector(sel);
       if (!el) return false;
       const cs = getComputedStyle(el);
-      return cs.display !== 'none' && cs.visibility !== 'hidden';
+      const r = el.getBoundingClientRect();
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 0 && r.height > 0;
     };
     const r = {
-      mudouDeCasa: document.querySelector('.preview').closest('.simple-stage') !== null,
+      previaDesenhada: vis('.preview'),
       operacao: vis('.pv-fabs--esq'),
       selo: vis('.pv-fabs--base'),
+      seta: vis('#pvRecolherBtn'),
+      castDaPrevia: vis('#pvCastBtn'),
       teclaPropria: vis('#simpleMute'),
+      semFaixaDePrevia: document.getElementById('simpleStage') === null,
+      semBuscar: document.getElementById('simpleSearchBtn') === null,
+      previaFora: document.querySelector('.preview').closest('.simple') === null,
     };
     setAppMode('full');
     return r;
   });
-  checar(facil.mudouDeCasa, 'a preview de fato mudou de casa no Modo Fácil', facil);
-  checar(facil.operacao === false && facil.teclaPropria,
-    'e a coluna de operação NÃO foi junto — lá o mudo já é uma tecla grande própria', facil);
-  checar(facil.selo,
-    'o SELO de camadas fica: ele é a única saída da camada de cima, e não há gêmeo dele lá', facil);
+  checar(facil.previaDesenhada === false && facil.previaFora && facil.semFaixaDePrevia,
+    'o Modo Fácil NÃO desenha a prévia — o nó fica na casa do avançado (o `stage` dele toca o som '
+    + 'quando ele é deste aparelho) e a faixa que a hospedava não existe mais', facil);
+  checar(facil.operacao === false && facil.selo === false && facil.seta === false
+      && facil.castDaPrevia === false && facil.teclaPropria,
+    'e nada que se pendurava nela aparece: coluna de operação, selo, seta e ícone de cast — o mudo '
+    + 'é a tecla grande própria', facil);
+  checar(facil.semBuscar,
+    'e o botão "Buscar música" saiu: a Biblioteca é a tela, não uma porta para ela', facil);
 
   // ---- O CARTÃO DE ESPERA É CENTRADO NA PREVIEW (v1.4.9) --------------------
   //
@@ -1478,42 +1492,20 @@ try {
     null, { timeout: 5000 }).catch(() => {});
   await recolher(false);
 
-  // C · O MODO FÁCIL, nos dois estados da marcação.
+  // C · O MODO FÁCIL NÃO TEM A SETA (v1.11.11): sem prévia não há o que recolher,
+  // nos dois estados da marcação.
   for (const rec of [false, true]) {
     const nome = rec ? 'RECOLHIDA' : 'expandida';
     await recolher(rec);
-    // SEM TELA o Modo Fácil esconde a prévia (`.sem-tela`); "Tocar neste
-    // celular" é o jeito de a ter à vista sem inventar uma TV.
     await pg.evaluate(() => { setAppMode('simple'); setTocarNoCelular(true); });
     await quadro();
-    const g = await geoPv();
     const f = await pg.evaluate(() => {
       const b = document.getElementById('pvRecolherBtn');
       const r = b.getBoundingClientRect();
-      const topo = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-      return { alcanca: !!(topo && topo.closest('#pvRecolherBtn')),
-        naCasa: document.querySelector('.preview').closest('.simple-stage') !== null,
-        aria: b.getAttribute('aria-expanded') };
+      return { desenhada: r.width > 0 && r.height > 0 && getComputedStyle(b).display !== 'none' };
     });
-    checar(f.naCasa && g.seta !== null,
-      `no Modo Fácil a seta está à vista (${nome})`, { naCasa: f.naCasa, seta: g.seta });
-    checar(f.alcanca,
-      `e é ALCANÇÁVEL pelo toque: nada por cima dela (${nome}) — sem ela o Modo Fácil perderia a única `
-      + 'porta de desfazer a economia', f);
-    checar(f.aria === String(!rec),
-      `e diz o estado em \`aria-expanded\` (${nome})`, f);
-    // O CANTO SUPERIOR ESQUERDO, nos dois estados: ela não troca de lugar
-    // quando o toque muda o estado — quem toca duas vezes a procuraria.
-    checar(g.seta.l - g.esq <= 6 && g.seta.t - g.topo <= 6,
-      `no canto SUPERIOR ESQUERDO da prévia (${nome})`,
-      { dx: +(g.seta.l - g.esq).toFixed(1), dy: +(g.seta.t - g.topo).toFixed(1) });
-    checar(g.sobrepostos.length === 0 && g.fora.length === 0,
-      `sem sobrepor outro botão nem sair dela (${nome})`, { sobrepostos: g.sobrepostos, fora: g.fora });
-    if (rec) {
-      checar(Math.abs(g.alto - (g.maiorBotao + g.pad)) <= 0.6,
-        `a tira do Modo Fácil mede um botão + o recuo (${nome})`,
-        { alto: g.alto, maiorBotao: g.maiorBotao, recuo: g.pad });
-    }
+    checar(f.desenhada === false,
+      `no Modo Fácil a seta de recolher NÃO é desenhada (${nome}) — a prévia não existe lá`, f);
     await pg.evaluate(() => { setTocarNoCelular(false); setAppMode('full'); });
     await quadro();
   }
@@ -1523,9 +1515,9 @@ try {
   // e a ALTURA volta ao natural enquanto o cartão está no ar: ele mede 43 a
   // 58 px e não cabe na tira — engolido, a falha de um download e a única porta
   // de cancelar sumiriam sem erro algum.
-  for (const modo of ['full', 'simple']) {
-    const nome = modo === 'full' ? 'avançado' : 'Modo Fácil';
-    await pg.evaluate((m) => { setAppMode(m); if (m === 'simple') setTocarNoCelular(true); }, modo);
+  for (const modo of ['full']) {
+    const nome = 'avançado';
+    await pg.evaluate((m) => { setAppMode(m); }, modo);
     await recolher(true);
     const tira = await geoPv();
     const c = await pg.evaluate(async () => {
@@ -1567,6 +1559,42 @@ try {
       { antes: tira.alto, depois: sai.alto });
     await recolher(false);
   }
+  // D2 · NO MODO FÁCIL O CARTÃO MORA NO `#simpleBusySlot` (v1.11.11): sem prévia,
+  // ele é o MESMO nó e continua sendo a única porta de CANCELAR um download.
+  await pg.evaluate(() => { setAppMode('simple'); setTocarNoCelular(true); });
+  await quadro();
+  const d2 = await pg.evaluate(async () => {
+    const slot = document.getElementById('simpleBusySlot');
+    const el = document.getElementById('pvBusy');
+    const antes = slot.getBoundingClientRect().height;
+    el.classList.add('on');
+    document.getElementById('pvBusyLabel').textContent = 'Provai e Vede 2026 — o episódio de sábado';
+    document.getElementById('pvBusyCancel').hidden = false;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const S = slot.getBoundingClientRect();
+    const k = document.querySelector('.pv-busy-card').getBoundingClientRect();
+    const b = document.getElementById('pvBusyCancel').getBoundingClientRect();
+    const topo = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    const r = {
+      moraNoSlot: el.parentElement === slot,
+      antes, alto: S.height,
+      dentro: k.left >= S.left - 0.5 && k.right <= S.right + 0.5 && k.top >= S.top - 0.5 && k.bottom <= S.bottom + 0.5,
+      cancelaAlcanca: !!(topo && topo.closest('#pvBusyCancel')),
+    };
+    el.classList.remove('on');
+    document.getElementById('pvBusyLabel').textContent = '';
+    document.getElementById('pvBusyCancel').hidden = true;
+    await new Promise((r2) => requestAnimationFrame(() => requestAnimationFrame(r2)));
+    r.depois = slot.getBoundingClientRect().height;
+    return r;
+  });
+  checar(d2.moraNoSlot && d2.antes === 0 && d2.alto > 0 && d2.dentro,
+    'no Modo Fácil o cartão de espera está no `#simpleBusySlot`, cabe inteiro nele, e o slot só ocupa '
+    + 'lugar com o cartão no ar', d2);
+  checar(d2.cancelaAlcanca,
+    'e o botão de CANCELAR é alcançável pelo toque — a única porta de cancelar um download no Modo Fácil', d2);
+  checar(d2.depois === 0,
+    'e o slot volta a zero quando o cartão sai: o corpo da tela recupera a altura', d2);
   await pg.evaluate(() => { setTocarNoCelular(false); setAppMode('full'); });
 
   // ── 7. O PASSO DO VOLUME É FINO ABAIXO DE 10 (v1.8.90) ─────────────────

@@ -5648,29 +5648,24 @@ try {
   checar(false, 'a medição da abertura da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ---- NO MODO FÁCIL A BARRA NÃO FICA À VISTA (v1.5.1) ----
+// ---- NO MODO FÁCIL SEM TELA A BARRA NÃO FICA À VISTA (v1.5.1, v1.11.11) ----
 //
 // Aquele modo esconde a caixa de controles inteira (`body.mode-simple
-// .bottombar`) porque ele não tem cromo de operação na base — a porta da
-// Biblioteca lá é a LUPA da zona de leitura. Enquanto a barra morava DENTRO da
-// caixa (v1.5.0) ela sumia de carona; com ela dentro da janela, sumir virou uma
-// regra que alguém precisa escrever — e a falha é visível mas MUDA: uma faixa de
-// busca na base do modo que existe para não ter faixa nenhuma, sem erro em lugar
-// nenhum.
+// .bottombar`) porque ele não tem cromo de operação na base. Enquanto a barra
+// morava DENTRO da caixa (v1.5.0) ela sumia de carona; com ela dentro da janela,
+// sumir virou uma regra que alguém precisa escrever — e a falha é visível mas
+// MUDA: uma faixa de busca na base do modo que existe para não ter faixa nenhuma.
 //
-// TRÊS metades: ela sai INTEIRA (a janela recebe toque também fechada, e uma
-// faixa transparente engolindo o dedo na base é pior que a faixa à vista), a
-// LUPA continua abrindo a janela de tela cheia com a barra no topo — sem esta,
-// esconder a janela no modo fácil apagaria a Biblioteca de lá —, e ela abre SEM
-// FOCO, porque é um BOTÃO (a regra das duas portas da v1.5.0; o ouvinte
-// registrado por REFERÊNCIA passava o `PointerEvent` como `comFoco`, e um evento
-// é truthy).
+// SEM TELA é o estado em que este navegador de teste está (não há `Presentation`
+// nem janela do Display), e é nele que a Biblioteca fica FECHADA e a barra fora
+// da tela. A metade COM tela — a Biblioteca ENCAIXADA como tela principal,
+// aberta sem foco e sem seta — é do `modo-simples-corpo.test.mjs` (v1.11.11);
+// a "lupa" que a abria saiu junto com o botão "Buscar música".
 try {
   const facil = await pg.evaluate(async () => {
     const camada = document.getElementById('hymnSearchPopup');
     const folha = camada.querySelector('.popup-sheet');
     const barra = document.querySelector('.lib-bar');
-    const campo = document.getElementById('hymnSearchInput');
     const pousar = () => Promise.all(folha.getAnimations().map((a) => a.finished))
       .catch(() => {});
     const modoAntes = appMode;
@@ -5678,32 +5673,14 @@ try {
     setAppMode('simple');
     await pousar();
     const fechada = Math.round(barra.getBoundingClientRect().top);
-    campo.blur();
-    document.getElementById('simpleSearchBtn').click();
-    await pousar();
-    const aberta = {
-      barra: Math.round(barra.getBoundingClientRect().top),
-      folha: Math.round(folha.getBoundingClientRect().top),
-      // NO MESMO TURNO da espera: o foco da porta com teclado é adiado
-      // (`ABRIR_TECLADO_MS`), então a leitura depois do pouso já o pegaria.
-      focado: document.activeElement === campo,
-    };
-    closeHymnSearch();
     setAppMode(modoAntes);
     await pousar();
-    return { fechada, aberta, altura: window.innerHeight };
+    return { fechada, altura: window.innerHeight };
   });
   checar(facil.fechada >= facil.altura - 1,
-    'no MODO FÁCIL a barra de busca sai INTEIRA da tela com a Biblioteca '
+    'no MODO FÁCIL SEM TELA a barra de busca sai INTEIRA da tela com a Biblioteca '
     + 'fechada: aquele modo não tem cromo de operação na base',
     facil.fechada + 'px de ' + facil.altura);
-  checar(facil.aberta.folha <= 1 && facil.aberta.barra <= 1,
-    'e a LUPA de lá continua abrindo a janela inteira, com a barra no topo — '
-    + 'esconder a barra não pode apagar a Biblioteca do Modo Fácil',
-    JSON.stringify(facil.aberta));
-  checar(facil.aberta.focado === false,
-    'e ela abre SEM foco: é um BOTÃO, e botão abre sem teclado ("ver o que eu '
-    + 'tenho")');
 } catch (e) {
   checar(false, 'a medição da Biblioteca no Modo Fácil terminou sem exceção ('
     + (e && e.message) + ')');
