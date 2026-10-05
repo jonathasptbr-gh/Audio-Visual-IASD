@@ -38353,6 +38353,72 @@ function acertarEnqueteDaConexao() {
 // porque o `stage` dele é quem toca o áudio quando o som é deste aparelho
 // (`tocarNoCelular`). Dois `createStage` decodificariam o MESMO vídeo duas vezes
 // num aparelho que já roda dois WebViews, e por isso não se cria um segundo.
+// ===== A BIBLIOTECA É A TELA PRINCIPAL DO MODO FÁCIL (v1.11.11) =====
+// Pedido do operador: *"sem mídia tocando, a biblioteca é a tela principal, com
+// mídia tocando, o auxiliar de leitura é a tela principal"*.
+//
+// A MESMA janela da Biblioteca, ENCAIXADA na caixa da zona de leitura
+// (`.simple-song`): a camada `fixed` ocupa as quatro medidas dela
+// (`medirCorpoSimples`) e a zona de leitura fica `visibility: hidden` por baixo,
+// para o controle remoto não subir. Sem nó novo e sem segunda implementação da
+// busca — o campo, o ✕ e o acervo são os de sempre.
+//
+// A pergunta é a MESMA do Parar (`haOQueParar`): "há o que parar?" decide, e um
+// pause não conta — a mídia pausada continua a tela de leitura. Sem tela
+// conectada a cortina cobre o modo, e a Biblioteca nem abre (`renderSimpleGate`).
+function simplesBibliotecaDocada() {
+  return appMode === 'simple'
+    && !simpleModeEl.classList.contains('sem-tela')
+    && !haOQueParar();
+}
+
+function renderSimpleCorpo() {
+  const docar = simplesBibliotecaDocada();
+  const ja = document.body.classList.contains('simples-biblioteca');
+  document.body.classList.toggle('simples-biblioteca', docar);
+  simpleModeEl.classList.toggle('corpo-biblioteca', docar);
+  if (docar) {
+    medirCorpoSimples();
+    // A janela abre SEM foco: é a tela, não uma busca iniciada (o teclado
+    // subiria sozinho a cada Parar). O toque no campo a mantém aberta.
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch(false);
+  } else if (ja && hymnSearchPopupEl.classList.contains('open')) {
+    // Saiu do estado encaixado (entrou mídia, ou saiu do Modo Fácil): a janela
+    // volta a ser um modal que se abre de propósito, e aqui não foi aberta.
+    closeHymnSearch();
+  }
+}
+
+// As quatro medidas da caixa da zona de leitura, LIDAS do layout e nunca
+// escritas: ela muda de altura com o cartão de "Baixando…", com a linha de
+// slides e com o corpo de fonte do sistema.
+let corpoSimplesMedido = '';
+function medirCorpoSimples() {
+  if (!simpleSongEl) return;
+  const r = simpleSongEl.getBoundingClientRect();
+  // Modo escondido ou ainda sem layout: zero não é medida, é a AUSÊNCIA de uma.
+  if (!r.width || !r.height) return;
+  const vw = document.documentElement.clientWidth;
+  const vh = window.innerHeight;
+  const m = {
+    '--simple-corpo-topo': Math.round(r.top) + 'px',
+    '--simple-corpo-esq': Math.round(r.left) + 'px',
+    '--simple-corpo-dir': Math.round(vw - r.right) + 'px',
+    '--simple-corpo-base': Math.round(vh - r.bottom) + 'px',
+  };
+  const chave = JSON.stringify(m);
+  if (chave === corpoSimplesMedido) return;   // só o que mudou (ResizeObserver)
+  corpoSimplesMedido = chave;
+  const raiz = document.documentElement;
+  for (const k of Object.keys(m)) raiz.style.setProperty(k, m[k]);
+  medirBarraDaBiblioteca();
+}
+if (simpleSongEl && typeof ResizeObserver === 'function') {
+  new ResizeObserver(() => { if (simplesBibliotecaDocada()) medirCorpoSimples(); })
+    .observe(simpleSongEl);
+}
+window.addEventListener('resize', () => { if (simplesBibliotecaDocada()) medirCorpoSimples(); });
+
 // A CASA ORIGINAL do cartão de "Baixando…": o `.preview` do avançado, logo antes
 // da coluna de botões do player. Capturada na carga, antes de qualquer mudança.
 const pvBusyOrigem = { pai: pvBusyEl.parentElement, depois: pvBusyEl.nextElementSibling };
