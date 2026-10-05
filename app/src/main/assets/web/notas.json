@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.11.13",
+    "itens": [
+      "Modo Fácil: ao parar a música, a biblioteca volta ocupando a altura toda, sem espaço sobrando."
+    ]
+  },
+  {
     "versao": "1.11.12",
     "itens": [
       "Modo Fácil: a barra de busca fica sempre à vista; tocar nela abre a biblioteca mesmo com música tocando.",

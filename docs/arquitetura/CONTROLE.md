@@ -149,6 +149,23 @@ da barra** (`#simpleBarra`) · **zona de leitura** (`.simple-song`) · cartão d
   `closeHymnSearch` seria zona morta, porque ele roda na carga via
   `renderSimpleGate`. Fora do alcance, dito: as escolhas que não passam por uma
   linha do acervo (o sorteio, a folha de destinos) fecham na hora, como antes.
+- **A CAIXA DA BIBLIOTECA É MEDIDA PELO LAYOUT, E CONFERIDA (v1.11.13)** — relato:
+  *"quando dou stop … a biblioteca volta … encolhida verticalmente … espaço sobrando
+  abaixo. Ao interagir na biblioteca, ela se atualiza"*. A camada aberta termina em
+  `bottom: max(--simple-corpo-base, --kb)`; um dos dois fora do lugar é o defeito, e a
+  interação do operador (teclado, `resize`) é uma REMEDIÇÃO — por isso ela conserta.
+  O que está certo hoje: `medirCorpoSimples` lê `offsetTop`/`offsetHeight` (layout) contra
+  `simpleModeEl.clientHeight`, nunca `getBoundingClientRect`/`innerHeight` — **a
+  `transform` da entrada da leitura (`translateY(14px)`) movia a base 14 px e o
+  `ResizeObserver` não vê transformação**; compara com o que está ESCRITO na raiz, não
+  com um cache; toda entrada de estado agenda uma segunda leitura (`medirCorpoSimplesDepois`,
+  dois quadros) e `resize`/`visualViewport.resize`/`focusout` também; na volta da tela
+  principal o `--kb` é reconferido (`aplicarTeclado`, o `apply` do `keyboardShift`). E
+  `conferirCaixaDaBiblioteca` escreve UMA linha no Registro com os números quando a camada
+  aberta não termina onde devia (±2 px, só quando a discordância muda). **Reproduzido em
+  mesa foi o lado "mais ALTA" (14 px); o "mais CURTA" do relato não foi** — se ele voltar,
+  a linha do Registro diz qual conta discorda. Estado novo (`corpoSimplesRaf`,
+  `aplicarTeclado`) mora no TOPO do arquivo, pelo mesmo motivo do `simpleSel`.
 - **O que a prévia levava, e onde está:** o cartão `#pvBusy` (única porta de
   CANCELAR um download no Modo Fácil) é o MESMO nó, movido por `hostPreview` para
   `#simpleBusySlot` — e de volta à casa de origem (`pvBusyOrigem`) no avançado; o
