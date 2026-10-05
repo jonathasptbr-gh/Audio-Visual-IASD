@@ -5067,29 +5067,6 @@ main {
    `tokens.css` — opaco de propósito, para valer o mesmo em qualquer nível da
    escada). Ele não é `--live`: nada aqui está NO AR, e vermelho ao lado de uma
    lista de episódios prometeria projeção. */
-/* ---------- "MANTER O EPISÓDIO DA SEMANA BAIXADO" (v1.8.87) ----------
-   A linha da opção, no TOPO do card aberto da série. AS PEÇAS SÃO AS QUE JÁ
-   EXISTEM — `.song-menu-btn`, `.song-menu-text`, `.song-menu-check` e o
-   `--sel-fill` de marcado —, e é o mesmo reuso da folha de grupos da exportação
-   (v1.7.3): é uma CAIXA DE MARCAÇÃO, o idioma deste app para "esta linha está
-   marcada", e um interruptor próprio daria duas gramáticas para o mesmo gesto.
-
-   O RÓTULO QUEBRA EM DUAS LINHAS de propósito — ele é a frase do operador
-   inteira, e encurtá-la seria escrever outra coisa. `align-items: flex-start`
-   no botão é o que mantém a caixa de marcação no alto em vez de centrada contra
-   um parágrafo: centrada, ela flutua longe do começo da frase que ela governa.
-
-   O RECUO É O DO `.serie-destaque` logo abaixo, que é o vizinho: dois blocos
-   empilhados com recuos diferentes leem como dois níveis de hierarquia, e aqui
-   eles são irmãos. */
-.serie-auto { margin: .4rem 0 .1rem; }
-.serie-auto > .song-menu-btn { align-items: flex-start; }
-.serie-auto .song-menu-label { font-size: var(--fs-md); }
-/* A caixa VOLTA À ALTURA DE UMA LINHA. Ela é `align-self: center` na regra base
-   (a folha, onde o rótulo é curto); aqui o texto tem duas ou três linhas, e o
-   centro delas não é onde o olho procura a marca. */
-.serie-auto .song-menu-check { align-self: flex-start; }
-
 .serie-destaque {
   margin: .4rem 0 .1rem;
   padding: .45rem .5rem .5rem;

@@ -221,10 +221,15 @@ ser diagnosticável.
   LouvorJA com um id do YouTube; como falha de rede não grava `LYRIC_NONE` de
   propósito, eram ~52 requisições perdidas **por abertura, para sempre**,
   infladas no total da notificação.
-- **MANTER O EPISÓDIO DA SEMANA BAIXADO** (v1.8.87). Uma caixa de marcação no
-  **topo** do card aberto — acima do destaque do sábado, porque é ela que
-  governa o que aquele bloco mostra —, e uma rotina na fase 5 do
-  `autoRefreshCollections` (`manterSeriesDaSemana`).
+- **MANTER O EPISÓDIO DA SEMANA BAIXADO** (v1.8.87). Uma rotina na fase 5 do
+  `autoRefreshCollections` (`manterSeriesDaSemana`). **Ela nasceu com uma caixa
+  de marcação no topo do card e hoje NÃO TEM SELETOR** (v1.11.10, pedido do
+  operador: *"Remova o seletor e faça com que seja o padrão do app sempre
+  baixar os vídeos da semana"*): vale para toda série, a chave `serieAuto` que um
+  aparelho antigo tenha gravado fica no banco e ninguém a lê, e o que protege o
+  plano de dados é a guarda de rede abaixo — não um interruptor por série. O
+  que sobrou da linha é o AVISO (`serieAutoAviso`), na linha de status do card,
+  quando a rede não deixa baixar.
 
   **O álbum de série continua não retendo arquivo**, e a regra da v1.1.21 não
   mudou: não há botão de baixar em lote, a barra não anuncia peso, e a série
@@ -248,18 +253,15 @@ ser diagnosticável.
     episódio a mais no aparelho até o download vir.
   - **A guarda de rede é `isConfirmedWifi`**, e não "não é celular" como o
     `syncLyrics`: lá são alguns kB de JSON e "na dúvida, baixa" é o certo; aqui
-    são ~300 MB que ninguém pediu agora. **O preço é real, e por isso a LINHA o
-    diz:** `connection.type` devolve `'unknown'` em boa parte dos aparelhos, e
-    nesses a rotina nunca roda — um no-op silencioso seria a opção marcada com
-    nada acontecendo, para sempre.
+    são ~300 MB que ninguém pediu agora. **O preço é real, e por isso o CARD o
+    diz** (`serieAutoAviso`): `connection.type` devolve `'unknown'` em boa parte
+    dos aparelhos, e nesses a rotina nunca roda sem "Dados móveis" ligado — um
+    no-op silencioso seria um recurso que nunca roda, sem nada na tela.
   - **A qualidade é a do OPERADOR** (`ytAlturaPadrao`), não um teto próprio da
     rotina.
   - **E a folha de um episódio JÁ BAIXADO omite a qualidade** (`semQualidade`),
     pela mesma régua que já a tira no caminho de só-áudio: com bytes no aparelho
     o `ytArquivo` reaproveita o registro e o teto não é consultado.
-  - **O nome na frase não é o `coll.name`.** *"Manter o Provai e Vede 2026 da
-    semana"* põe duas escalas de tempo na mesma linha; o nome sem o ano é
-    `serie.rotulo || serie.prefixo`.
 
   Oráculo: `serie-mantem-a-semana.test.mjs`.
 - **O CARD DA SÉRIE TEM UM BOTÃO SÓ** (v1.1.21), e é o de **atualizar a lista**

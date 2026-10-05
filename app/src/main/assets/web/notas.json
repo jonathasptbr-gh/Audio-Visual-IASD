@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.11.10",
+    "itens": [
+      "Na busca da Biblioteca, um 'x' dentro da caixa apaga a palavra e já deixa digitar outra.",
+      "A letra aberta pela Biblioteca agora sempre começa no topo, em qualquer música.",
+      "Provai e Vede e Informativo Mundial: o vídeo da semana baixa sozinho, sem precisar marcar.",
+      "A caixa 'Manter o ... da semana baixado' foi removida."
+    ]
+  },
+  {
     "versao": "1.11.9",
     "itens": [
       "Em 'Transferir', a lista da biblioteca já aparece ao abrir a janela.",
