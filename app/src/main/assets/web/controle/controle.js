@@ -11218,7 +11218,16 @@ function renderCollectionCard(coll, ctx) {
     // qualquer hinário. É o mesmo `hymnResultRow` da busca, sem o subtítulo da
     // coleção (que é o próprio card em volta). Ela só chega em PÁGINAS de
     // `COLL_PAGE`, à medida que o scroll alcança o fim — ver `fillSongList`.
-    if (total > 0) {
+    // NO MODO FÁCIL A SÉRIE MOSTRA SÓ A SEMANA (v1.11.11). Pedido do operador:
+    // *"para o Provai e Vede e o Informativo Mundial das Missões, exiba apenas a
+    // seção do vídeo da semana, e não a lista completa"*. A lista inteira (52
+    // episódios) é a coisa de quem folheia o acervo, e o Modo Fácil existe para
+    // quem só quer o vídeo do sábado. **Só a APRESENTAÇÃO muda**: nada é apagado,
+    // o avançado segue com a lista, e a busca por palavra-chave continua achando
+    // qualquer episódio. Sem episódio da semana o destaque diz "Aguardando
+    // lançamento" (`blocoDestaque`), então o card nunca abre vazio.
+    const soASemana = simplificado() && !!dest;
+    if (total > 0 && !soASemana) {
       const lista = document.createElement('ul'); lista.className = 'coll-songs';
       // O ÍNDICE ANTES da lista, e FECHADO (ver `indiceDeSecoes`).
       const indice = indiceDeSecoes(coll, u, lista);
