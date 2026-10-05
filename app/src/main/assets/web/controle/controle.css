@@ -11453,7 +11453,13 @@ body.mode-simple .bottombar { display: none; }
 .simple-busy-slot { flex: none; display: none; }
 .simple-busy-slot:has(.pv-busy.on) { display: flex; justify-content: center; }
 .simple-busy-slot .pv-busy { position: static; inset: auto; padding: 0; }
-.simple-busy-slot .pv-busy-card { background: var(--panel); }
+.simple-busy-slot .pv-busy-card {
+  background: var(--panel);
+  /* R1 NA PRÓPRIA REGRA (o caminho da `.simple-conn`): quem pinta `--panel`
+     afunda a superfície dos filhos — aqui, o botão de CANCELAR. */
+  --surface: var(--surface-sunk);
+  --surface-2: var(--surface-2-sunk);
+}
 /* CONECTADO ele fica VERMELHO, e isso não é o estado — é a AÇÃO. Quem diz que
    há tela recebendo é a própria preview (que só existe aqui quando há); o que o
    ícone tem a dizer é o que o toque faz, e ele DESCONECTA.

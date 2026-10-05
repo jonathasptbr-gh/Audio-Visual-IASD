@@ -136,6 +136,28 @@ try {
   checar(comTexto.aberta === true && comTexto.corpo === true,
     'B10 · digitar no campo mantém a Biblioteca encaixada (o ✕ de limpar aparece junto)', JSON.stringify(comTexto));
 
+  // B11 · FECHAR com a Biblioteca encaixada é REINICIAR: quem toca numa música
+  // chama `closeHymnSearch` antes de a mídia existir (`playSongVariant`, `ytAcao`…),
+  // e fechar de verdade deixaria o corpo VAZIO durante o download — e para sempre
+  // se ele falhasse. A janela fica, o campo volta limpo e o acervo no estado padrão.
+  const reinicio = await pg.evaluate(async () => {
+    closeHymnSearch();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return {
+      aberta: document.getElementById('hymnSearchPopup').classList.contains('open'),
+      corpo: document.body.classList.contains('simples-biblioteca'),
+      campo: document.getElementById('hymnSearchInput').value,
+      limpar: document.getElementById('hymnSearchLimpar').hidden,
+      acervo: !!document.querySelector('#hymnResults .coll-group, #hymnResults .lib-item, #hymnResults .hymnal-card, #hymnResults .coll-card'),
+    };
+  });
+  checar(reinicio.aberta === true && reinicio.corpo === true && reinicio.campo === '' && reinicio.limpar === true,
+    'B11 · `closeHymnSearch` com a Biblioteca ENCAIXADA a reinicia em vez de fechá-la: o corpo '
+    + 'não pode ficar vazio durante um download que ainda não pôs a mídia no ar', JSON.stringify(reinicio));
+  checar(reinicio.acervo === true,
+    'B12 · e o acervo volta ao estado padrão — não fica nos resultados de um termo que o campo já não tem',
+    JSON.stringify(reinicio));
+
   // C · mídia no ar: a leitura é a tela
   await pg.evaluate(() => { midiaNoAr = true; renderTransporteHabilitado(); });
   await quadros();

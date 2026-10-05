@@ -22037,9 +22037,19 @@ function closeHymnSearch() {
   // que o explicasse, e a única saída seria o voltar do Android.
   clearTimeout(hymnFocoTimer);
   hymnFocoTimer = null;
-  hymnSearchPopupEl.classList.remove('open');
-  document.body.classList.remove('lib-aberta');
-  renderLibToggle();
+  // ===== ENCAIXADA, "FECHAR" É REINICIAR (v1.11.11) =====
+  // No Modo Fácil sem mídia no ar a Biblioteca É a tela (`simplesBibliotecaDocada`),
+  // e quem fecha o acervo na pressa do toque — `playSongVariant`, `ytAcao`,
+  // `projectSongLyricsOnly`, `montarFilaSorteada` — o faz ANTES de a mídia existir:
+  // fechar de verdade deixaria o corpo VAZIO (a leitura está escondida por baixo)
+  // durante o download, e para sempre se ele falhasse. Quem tira a janela de cena
+  // é `renderSimpleCorpo`, quando a mídia entra no ar e a pergunta muda.
+  const docada = simplesBibliotecaDocada();
+  if (!docada) {
+    hymnSearchPopupEl.classList.remove('open');
+    document.body.classList.remove('lib-aberta');
+    renderLibToggle();
+  }
   // O CAMPO PERDE O FOCO ao fechar: sem isto o teclado fica de pé sobre o app
   // com a janela já fora de cena — a mesma classe de defeito do foco pendente
   // logo acima, pelo outro caminho.
@@ -22064,6 +22074,12 @@ function closeHymnSearch() {
   // nada do que se colapsa é visto colapsando. No `openHymnSearch` o mesmo
   // trabalho apareceria como a Biblioteca se desmontando na frente do operador.
   resetarBiblioteca();
+  // ENCAIXADA a janela continua À VISTA, então o acervo é REDESENHADO no estado
+  // padrão — senão ela mostraria os resultados de um termo que o campo já não tem.
+  if (docada) {
+    renderSearchResults('');
+    hymnResultsEl.scrollTop = 0;
+  }
 }
 
 // Duas telas no mesmo popup, e **o campo é a chave**: vazio = o ACERVO (as

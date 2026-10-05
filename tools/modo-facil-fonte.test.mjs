@@ -271,6 +271,18 @@ try {
           && document.getElementById('simpleTime').hidden,
         'o Modo Fácil destrava pelo caminho real, em repouso [' + cfg + ']');
       if (!destravou) continue;
+      // COM MÍDIA NO AR (v1.11.11): sem ela a Biblioteca ENCAIXADA é o corpo e
+      // cobre a zona de leitura — onde moram os botões A−/A+ —, e é com a
+      // leitura à vista que o par é usado de verdade.
+      await pg.evaluate(() => { midiaNoAr = true; renderTransporteHabilitado(); });
+      await esperar(pg,
+        () => !document.body.classList.contains('simples-biblioteca')
+          && getComputedStyle(document.querySelector('.simple-song')).visibility !== 'hidden',
+        'a leitura é a tela (mídia no ar) [' + cfg + ']');
+      await pg.evaluate(async () => {
+        const f = document.querySelector('#hymnSearchPopup .popup-sheet');
+        await Promise.all(f.getAnimations().map((a) => a.finished.catch(() => {})));
+      });
 
       const m = await medirFacil();
 
@@ -377,6 +389,12 @@ try {
           && !document.getElementById('simpleVeil').hidden,
         'o Modo Fácil volta a travar [' + cfg + ']');
       if (travou) {
+        // A janela da Biblioteca sai ANIMADA ao cair a tela; medir no meio do
+        // deslize acertaria uma linha dela, não a cortina.
+        await pg.evaluate(async () => {
+          const f = document.querySelector('#hymnSearchPopup .popup-sheet');
+          await Promise.all(f.getAnimations().map((a) => a.finished.catch(() => {})));
+        });
         const t = await medirFacil();
         checar(t.noCentro === 'simpleVeil',
           'e NO ESTADO PADRÃO (sem TV) o par é INTOCÁVEL: a cortina cobre a zona '
