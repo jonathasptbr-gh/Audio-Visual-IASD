@@ -362,6 +362,10 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      tokenizá-los custaria dois tokens novos consumidos em duas pontas cada.
      Quem fecha a conta é o oráculo, que mede o RESULTADO. */
   --faixa-coluna-texto: calc(.5rem + 38px + var(--sp-4));
+  /* A largura da miniatura de um vídeo do YouTube na lista de resultados (a 16:9 da
+     `.yt-thumb`). Token porque duas regras a leem: a própria miniatura e a coluna do texto
+     do vídeo, onde a divisória entre resultados começa (v1.11.16). */
+  --yt-thumb-w: 82px;
   /* ---------- A ALTURA DA SOMBRA DE UM SCROLL (v1.5.16 · v1.8.58) ----------
      Pedido do operador, duas vezes: *"um efeito de blur na borda interna
      superior ou inferior, quando algum elemento da tela ir para debaixo dessa
@@ -554,7 +558,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    intensidade muda — literais aqui dariam ao tema claro um recesso de 24% de
    preto sobre um cartão branco. */
 .row-item, .lib-item, .hymnal-card, .bible-vsec,
-.dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key,
+.dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key, .simple-nowplaying,
 /* A PLACA DOS FAVORITOS entrou aqui na v1.5.14, no lote em que ela passou a
    pintar `--panel` (ela é o nível 2 da seção, a irmã do `.folder-opfs`). É o
    modo de falhar que esta lista existe para fechar, acontecendo pela terceira
@@ -5096,7 +5100,7 @@ main {
    16:9 de verdade, porque é o quadro do vídeo — um recorte quadrado cortaria
    justamente o que identifica o louvor. */
 .yt-result .yt-thumb {
-  position: relative; width: 82px; height: 46px; flex-shrink: 0;
+  position: relative; width: var(--yt-thumb-w); height: 46px; flex-shrink: 0;
   border-radius: var(--radius-btn); overflow: hidden; background: var(--surface);
 }
 .yt-result .yt-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -5889,10 +5893,42 @@ main {
    os ~8px finais do traço somem no canto. É o mesmo canto que o preenchimento
    de estado já respeita, e o efeito é a divisória parando antes da curva. */
 .acervo .coll-songs > .hymn-result + .hymn-result::before,
-#hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item + .lib-item::before {
+#hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item + .lib-item::before,
+#hymnResults > .hymn-result + .hymn-result::before {
   content: ''; position: absolute; pointer-events: none;
   top: 0; left: var(--faixa-coluna-texto); right: 0; height: 1px;
   background: var(--divisoria);
+}
+/* ---------- E A LISTA DE RESULTADOS DA BUSCA TAMBÉM TEM A DIVISÓRIA (v1.11.16) ----------
+   Pedido do operador: *"durante a pesquisa na biblioteca, a listagem de itens de
+   resultados não possui uma linha divisória entre os resultados. Adicione essa linha
+   divisória para melhorar a interpretação da lista"*.
+
+   É a MESMA receita das faixas de um álbum, porque o problema é o mesmo: com o campo
+   preenchido, as linhas (`<li class="lib-item hymn-result">`, e os vídeos do YouTube, que
+   são `hymn-result yt-result`) são FILHAS DIRETAS de `#hymnResults` e pintam a cor da
+   própria placa — o vão de `--sp-5` entre duas delas lê 1,00:1 contra os dois lados, isto
+   é, separação nenhuma. Quem separa é o traço de `--divisoria`, só entre IRMÃS (`+`): nada
+   acima da primeira, nada abaixo da última, e nada entre o `.yt-head` ("Resultados do
+   YouTube:") e o primeiro vídeo, que não é `.hymn-result` e portanto não casa.
+
+   O TRAÇO É O MEIO DO VÃO, não o limite inferior: `.lib-item` é `overflow: hidden` e um
+   traço desenhado no vão seria RECORTADO. Metade do vão entra na caixa (`padding-top`) e
+   o `margin-top` negativo devolve o conteúdo ao lugar — a lista não muda de altura nem o
+   que está dentro dela anda. O número é METADE do `gap` da lista e sai do MESMO token
+   (`--sp-5`): dois literais divergiriam no primeiro ajuste de um deles. VALE PARA TODA
+   LINHA, e não só para a que tem irmã acima, senão o preenchimento de estado (a escolha
+   do Modo Fácil, a gaveta aberta) mudaria de altura conforme a posição da linha.
+
+   O RECUO É A COLUNA DO TEXTO DA LINHA, e ela não é a mesma nos dois tipos: a música tem a
+   miniatura de 38px (`--faixa-coluna-texto`, o default) e o vídeo tem a de `--yt-thumb-w`.
+   A conta do vídeo reusa o token da largura da própria miniatura. */
+#hymnResults > .hymn-result {
+  margin-top: calc(var(--sp-5) / -2);
+  padding-top: calc(var(--sp-5) / 2);
+}
+#hymnResults > .yt-result {
+  --faixa-coluna-texto: calc(.5rem + var(--yt-thumb-w) + var(--sp-4));
 }
 /* ---------- A SOMBRA DAS BORDAS DE UM SCROLL (v1.5.16 · v1.8.58) ----------
    Pedido do operador, duas vezes. Na v1.5.16, para a Biblioteca: *"um efeito de
@@ -11580,7 +11616,31 @@ body.mode-simple .bottombar { display: none; }
 
 /* Letra da música em cena — ocupa o espaço que sobra entre as ações e as
    teclas. Mesmas linhas da leitura auxiliar do modo avançado (.lv-row). */
-.simple-song { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.simple-song { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-5); }
+/* ---------- O NOME E A BARRA DE PROGRESSO SÃO UM CARD (v1.11.16) ----------
+   Pedido do operador: *"colocar a seção de nome de mídia atual e barra de progresso … dentro
+   de um card. Semelhante ao que já é feito na seção controles do modo avançado. Onde cada
+   seção fica em um card"*.
+
+   O MODO AVANÇADO JÁ FAZ ISSO (`.nowplaying`: superfície, `--radius-card`, o nome e a barra
+   empilhados), e o Modo Fácil era o único lugar do app em que o nome flutuava sobre o fundo
+   enquanto a placa da letra, as teclas e a seção de conexão eram cartões. A SUPERFÍCIE é a
+   das vizinhas daqui (`--panel`, a da placa da letra e a das teclas), e NÃO o tom de
+   "controle inativo" do `.nowplaying`: aquele é um recesso dentro da caixa de controles, e
+   aqui o cartão pousa direto sobre o fundo do app, como as outras seções desta tela.
+
+   O CARD NÃO MUDA A CAIXA DA LEITURA: ele é irmão da placa dentro de `.simple-song`, que é
+   quem a Biblioteca mede (`medirCorpoSimples` lê a zona inteira, e não o que há dentro dela).
+   O vão entre os dois cartões é o das outras seções desta tela (`--sp-5`), e não mais o
+   `--sp-3` de quando o nome e o tempo eram linhas soltas. Sem a barra (imagem, texto: o
+   `#simpleTime` fica `hidden`) o card encolhe para o nome. Dentro dele a superfície AFUNDA,
+   como em todo cartão (a lista do topo desta folha) — é o que dá ao trilho da barra um tom
+   próprio contra o card. */
+.simple-nowplaying {
+  flex: none; display: flex; flex-direction: column; gap: var(--sp-2);
+  padding: .5rem .8rem;
+  background: var(--panel); border-radius: var(--radius-card);
+}
 .simple-np {
   flex: none; text-align: center; font-size: var(--fs-xl); font-weight: var(--fw-forte); color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

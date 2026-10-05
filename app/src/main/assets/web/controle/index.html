@@ -867,24 +867,32 @@
     <div class="simple-barra" id="simpleBarra" aria-hidden="true"></div>
 
     <div class="simple-song">
-      <div class="simple-np" id="simpleNpName">Nada tocando</div>
-      <!-- Linha do tempo da música: decorrido, barra e duração. É só LEITURA —
-           neste modo não se arrasta nada (o volume também virou tecla); quem
-           precisa saltar no tempo usa o modo avançado. Some quando o que está
-           em cena não tem duração (imagem, texto). -->
-      <!-- A BARRA VIROU INTERATIVA na v5.142 (o comentário acima dizia que
-           "neste modo não se arrasta nada" — e mandava usar o modo avançado para
-           saltar no tempo, que é sair do modo justamente para fazer a coisa mais
-           comum durante um louvor). Tocar salta para o ponto; arrastar procura.
-           O alvo de toque é a FAIXA inteira (`.simple-time-hit`, com folga em
-           cima e embaixo), não o traço de 4px — ver `.simple-time-bar`. -->
-      <div class="simple-time" id="simpleTime" hidden>
-        <span class="simple-time-num" id="simpleTimeCur">0:00</span>
-        <div class="simple-time-hit" id="simpleTimeHit" role="slider" tabindex="0"
-             aria-label="Posição da mídia" aria-valuemin="0" aria-valuenow="0">
-          <div class="simple-time-bar"><div class="simple-time-fill" id="simpleTimeFill"></div></div>
+      <!-- O NOME E A BARRA DE PROGRESSO FORMAM UM CARD (v1.11.16), pedido do operador:
+           *"colocar a seção de nome de mídia atual e barra de progresso … dentro de um card.
+           Semelhante ao que já é feito na seção controles do modo avançado. Onde cada seção
+           fica em um card"*. É o `.nowplaying` do modo avançado numa tela que já pinta cada
+           seção como um cartão (a placa da letra, as teclas, a seção de conexão): o nome e o
+           tempo deixam de flutuar sobre o fundo do app. -->
+      <div class="simple-nowplaying">
+        <div class="simple-np" id="simpleNpName">Nada tocando</div>
+        <!-- Linha do tempo da música: decorrido, barra e duração. É só LEITURA —
+             neste modo não se arrasta nada (o volume também virou tecla); quem
+             precisa saltar no tempo usa o modo avançado. Some quando o que está
+             em cena não tem duração (imagem, texto). -->
+        <!-- A BARRA VIROU INTERATIVA na v5.142 (o comentário acima dizia que
+             "neste modo não se arrasta nada" — e mandava usar o modo avançado para
+             saltar no tempo, que é sair do modo justamente para fazer a coisa mais
+             comum durante um louvor). Tocar salta para o ponto; arrastar procura.
+             O alvo de toque é a FAIXA inteira (`.simple-time-hit`, com folga em
+             cima e embaixo), não o traço de 4px — ver `.simple-time-bar`. -->
+        <div class="simple-time" id="simpleTime" hidden>
+          <span class="simple-time-num" id="simpleTimeCur">0:00</span>
+          <div class="simple-time-hit" id="simpleTimeHit" role="slider" tabindex="0"
+               aria-label="Posição da mídia" aria-valuemin="0" aria-valuenow="0">
+            <div class="simple-time-bar"><div class="simple-time-fill" id="simpleTimeFill"></div></div>
+          </div>
+          <span class="simple-time-num" id="simpleTimeDur">0:00</span>
         </div>
-        <span class="simple-time-num" id="simpleTimeDur">0:00</span>
       </div>
       <div class="simple-lyrics rola" id="simpleLyrics"></div>
       <!-- A+ / A− COMO DOIS BOTÕES FLUTUANTES (v1.11.15, pedido do operador): *"dois botões FAB
@@ -2593,7 +2601,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.11.15</span>
+            <span id="appVersion" class="app-version">v1.11.16</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
