@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.11.14",
+    "itens": [
+      "Transferir: Provai e Vede e Informativo levam só o vídeo da semana, e a linha mostra o peso dele.",
+      "No lugar de \"nada baixado\", a série diz \"sem vídeo da semana baixado\" quando não há vídeo para levar."
+    ]
+  },
+  {
     "versao": "1.11.13",
     "itens": [
       "Modo Fácil: ao parar a música, a biblioteca volta ocupando a altura toda, sem espaço sobrando."

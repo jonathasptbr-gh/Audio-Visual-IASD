@@ -20,8 +20,25 @@
 //  C. SÓ FAVORITOS MARCADO: a mídia vem pelo GRUPO que a contém (a lista do PRÓPRIO
 //     pacote), com a miniatura; a que não é favorita e os hinários ficam fora.
 //  D. UM APARELHO NOVO TEM O QUE MARCAR: os hinários e as séries aparecem na lista
-//     com "nada baixado neste aparelho", senão a seleção não teria função onde a
-//     importação mais acontece.
+//     (os hinários com "nada baixado neste aparelho", as séries com "sem vídeo da
+//     semana baixado"), senão a seleção não teria função onde a importação mais acontece.
+//
+// E AS SÉRIES (v1.11.14). Pedido do operador: *"na exportação, em específico do
+// informativo e do provai e vede, faça ele exportar apenas o vídeo da semana. E
+// verifique que atualmente ele diz 'nada baixado neste aparelho', provavelmente se
+// referindo à lista completa, que não vamos usar na exportação"*:
+//  E. A LINHA DA SÉRIE É O VÍDEO DA SEMANA: na origem ela diz "vídeo da semana" (ou
+//     "último vídeo baixado", quando o retido não é o desta semana) com o peso do
+//     EPISÓDIO — nunca "nada baixado neste aparelho", que falava da lista completa.
+//  F. SÓ O VÍDEO VIAJA: os dois episódios retidos entram no destino, e o arquivo
+//     que sobrou na pasta antiga do álbum (`folders/<série>/`) NÃO — nem os bytes,
+//     nem o catálogo dele.
+//  G. DESMARCAR A SÉRIE NA EXPORTAÇÃO tira o episódio do pacote — ele não pode cair
+//     em "Outros itens", que seguiria marcado e o levaria de qualquer jeito.
+//  H. NA IMPORTAÇÃO, o episódio entra pelo grupo da SÉRIE (o pacote o nomeia): só a
+//     série marcada traz o vídeo dela, e as outras mídias não vêm.
+//  I. SEM EPISÓDIO RETIDO a linha diz "sem vídeo da semana baixado" (sem peso) e o
+//     arquivo velho da pasta do álbum não viaja mesmo com tudo marcado.
 //
 //   node tools/pacote-importar-marcados.test.mjs
 // ============================================================================
@@ -354,6 +371,8 @@ const lerDestino = (pg) => pg.evaluate(async () => {
     h96Arquivo: await tem('folders/hymnal-1996/001.m4a'),
     h22Catalogo: !!(await AVDB.fileGet('arq-22')),
     h96Catalogo: !!(await AVDB.fileGet('arq-96')),
+    antigoArquivo: await tem('folders/serie-provai-vede-2026/antigo.mp4'),
+    antigoCatalogo: !!(await AVDB.fileGet('arq-antigo')),
     midia: (await AVDB.mediaResumo()).map((m) => m.id).sort(),
     miniatura: await (async () => { try { const r = await AVDB.getMedia('fav-item'); return !!(r && r.thumb); } catch (_) { return false; } })(),
     bibleVersion: await AVDB.getState('bibleVersion'),
@@ -378,6 +397,28 @@ async function importarPelaJanela(pg, aoMarcar) {
   return { antes, texto };
 }
 
+// A lista como TEXTO, linha a linha — o que o operador lê.
+const textosDaLista = (pg) => pg.evaluate(() => Object.fromEntries([...document.querySelectorAll('#pacoteLista li')]
+  .filter((li) => li.querySelector('.song-menu-label') && !li.querySelector('.song-menu-grupo'))
+  .map((li) => [li.querySelector('.song-menu-label').textContent,
+    ((li.querySelector('.song-menu-sub') || {}).textContent || '').replace(/\s+/g, ' ').trim()])));
+const saidaDe = (pg) => pg.evaluate(() => {
+  let n = 0; for (const p of window.__saida) n += p.length;
+  const u8 = new Uint8Array(n); let o = 0;
+  for (const p of window.__saida) { u8.set(p, o); o += p.length; }
+  return Array.from(u8);
+});
+// Exporta DESMARCANDO linhas pelo nome — o toque de verdade em cada uma, e depois em Exportar.
+async function exportarSem(pg, nomes) {
+  await pg.evaluate(() => openPacotePopup());
+  const abriu = await esperar(pg, () => !!document.querySelector('#pacoteLista li'), null, 60000);
+  if (abriu !== true) return { erro: porque(abriu) };
+  for (const n of nomes) await tocarLinha(pg, n);
+  const antes = await marcadas(pg);
+  await pg.click('#pacoteExportarTile');
+  return { antes, fim: await fimDaExportacao(pg) };
+}
+
 const SEMENTE = async (pg) => {
   await pg.evaluate(async () => {
     const bytes = (n, v) => new Blob([new Uint8Array(n).fill(v)], { type: 'audio/mp4' });
@@ -390,6 +431,27 @@ const SEMENTE = async (pg) => {
       youtubeId: null, height: null, seconds: 9, canal: null, stream: null, lyrics: null, createdAt: 2 });
     await AVDB.setState('favs', ['fav-item']);
     await AVDB.setState('bibleVersion', 'versao-de-teste');
+    // AS SÉRIES (v1.11.14): cada uma retém UM episódio na lista `serie`. O do Provai e Vede é o
+    // desta semana; o do Informativo é de uma semana que já passou (o da semana ainda não veio).
+    const video = (id, nome, yt, n, v) => AVDB.mediaAdd({ id, name: nome, kind: 'video', type: 'video/mp4',
+      blob: new Blob([new Uint8Array(n).fill(v)], { type: 'video/mp4' }), thumb: mini(v), url: null,
+      pages: null, videos: null, cue: null, data: null, youtubeId: yt, height: 720, seconds: 300,
+      canal: 'Canal', stream: null, lyrics: null, createdAt: 4 });
+    await video('epi-pv', 'Provai e Vede — desta semana', 'yt-semana', 3000, 6);
+    await video('epi-inf', 'Informativo — semana passada', 'yt-velho', 2500, 2);
+    await AVDB.setState('serie', ['epi-pv', 'epi-inf']);
+    const sab = AVSerie.sabadoDaSemana();
+    const pv = allCollections().find((c) => c.id === 'serie-provai-vede-2026');
+    const inf = allCollections().find((c) => c.id === 'serie-informativo-missoes-2026');
+    const quando = (c, n) => { const d = new Date(c.serie.ano, sab.mes - 1, sab.dia + n); return { mes: d.getMonth() + 1, dia: d.getDate() }; };
+    const faixa = (id, quandoDe) => ({ id_music: id, name: id, ytUrl: 'y/' + id, seconds: 300, canal: 'Canal', serieData: quandoDe });
+    collState[pv.id] = { indexSyncedAt: Date.now(), serieDiarioEm: Date.now(), songs: [faixa('yt-semana', quando(pv, 0))] };
+    collState[inf.id] = { indexSyncedAt: Date.now(), serieDiarioEm: Date.now(),
+      songs: [faixa('yt-velho', quando(inf, -7)), faixa('yt-novo', quando(inf, 0))] };
+    // O ARQUIVO QUE SOBROU NA PASTA ANTIGA DO ÁLBUM: não é o vídeo da semana e não viaja.
+    await AVDB.opfsWriteFile('folders/serie-provai-vede-2026/antigo.mp4', bytes(1800, 9));
+    await AVDB.fileAdd({ id: 'arq-antigo', folder: 'serie-provai-vede-2026', opfsPath: 'folders/serie-provai-vede-2026/antigo.mp4',
+      srcName: 'antigo', name: 'Episódio antigo', type: 'video/mp4', kind: 'video', size: 1800, thumb: mini(9), blob: null, url: null, addedAt: 1 });
     for (const [pasta, id, v] of [[HYMNAL_2022_ID, 'arq-22', 3], ['hymnal-1996', 'arq-96', 4]]) {
       await AVDB.opfsWriteFile('folders/' + pasta + '/001.m4a', bytes(1200, v));
       await AVDB.fileAdd({ id, folder: pasta, opfsPath: 'folders/' + pasta + '/001.m4a', srcName: '001',
@@ -402,23 +464,36 @@ try {
   // ---- a ORIGEM: um aparelho com tudo, exportado inteiro --------------------
   const a = await aparelho(null);
   await SEMENTE(a.pg);
+  // E · a lista da ORIGEM, lida antes de exportar: o que o operador vê em cada série
+  await a.pg.evaluate(() => openPacotePopup());
+  await esperar(a.pg, () => !!document.querySelector('#pacoteLista li'), null, 60000);
+  const textosA = await textosDaLista(a.pg);
+  const linhaPV = textosA['Provai e Vede 2026'] || '';
+  const linhaINF = textosA['Informativo Mundial das Missões 2026'] || '';
+  checar(/^vídeo da semana · até /.test(linhaPV) && !/nada baixado/.test(linhaPV),
+    'E · a linha do Provai e Vede é o VÍDEO DA SEMANA, com o peso do episódio — não "nada baixado neste '
+    + 'aparelho", que falava da lista completa', JSON.stringify(textosA));
+  checar(/^último vídeo baixado · até /.test(linhaINF) && !/nada baixado/.test(linhaINF),
+    'E · e a do Informativo, que retém um episódio que NÃO é o desta semana, diz "último vídeo baixado" — '
+    + 'chamá-lo "da semana" seria a linha mentindo antes de o operador mandar', JSON.stringify(textosA));
   const linhasA = await confirmarGrupos(a.pg);
   checar(Array.isArray(linhasA) && linhasA.length >= 4,
     'PREMISSA: a origem tem a lista com os grupos (hinários, favoritos, outros)', JSON.stringify(linhasA));
   const fim = await fimDaExportacao(a.pg);
   checar(fim && fim.dialogo === false, 'PREMISSA: a exportação inteira termina', JSON.stringify(fim));
-  const saida = await a.pg.evaluate(() => {
-    let n = 0; for (const p of window.__saida) n += p.length;
-    const u8 = new Uint8Array(n); let o = 0;
-    for (const p of window.__saida) { u8.set(p, o); o += p.length; }
-    return Array.from(u8);
-  });
+  const saida = await saidaDe(a.pg);
   await a.ctx.close();
 
   // ---- D · UM APARELHO NOVO TEM O QUE MARCAR ---------------------------------
   const novo = await aparelho(saida);
   await novo.pg.evaluate(() => openPacotePopup());
   await esperar(novo.pg, () => !!document.querySelector('#pacoteLista li'), null, 30000);
+  const textosNovo = await textosDaLista(novo.pg);
+  checar(/sem vídeo da semana baixado/.test(textosNovo['Provai e Vede 2026'] || '')
+      && /sem vídeo da semana baixado/.test(textosNovo['Informativo Mundial das Missões 2026'] || '')
+      && /nada baixado neste aparelho/.test(textosNovo['Hinário Adventista 2022'] || ''),
+    'D · e no aparelho novo as SÉRIES dizem "sem vídeo da semana baixado" e os hinários "nada baixado '
+    + 'neste aparelho" — cada linha fala do que ela de fato leva', JSON.stringify(textosNovo));
   const listaNovo = await marcadas(novo.pg);
   checar(['Hinário Adventista 2022', 'Hinário Adventista 1996'].every((n) => n in listaNovo)
       && Object.values(listaNovo).every(Boolean),
@@ -457,9 +532,12 @@ try {
   const rB = await importarPelaJanela(todo.pg, null);
   const dB = await lerDestino(todo.pg);
   checar(dB.h22Arquivo && dB.h96Arquivo && dB.h22Catalogo && dB.h96Catalogo
-      && dB.midia.join() === 'fav-item,solto-item',
-    'B · com TUDO marcado (o padrão) entra o pacote inteiro, como sempre — sem filtro nenhum',
-    JSON.stringify(dB));
+      && dB.midia.join() === 'epi-inf,epi-pv,fav-item,solto-item',
+    'B · com TUDO marcado (o padrão) entra o pacote inteiro, como sempre — sem filtro nenhum — e os '
+    + 'dois episódios retidos das séries vêm junto', JSON.stringify(dB));
+  checar(!dB.antigoArquivo && !dB.antigoCatalogo,
+    'F · o arquivo que sobrou na pasta antiga do ÁLBUM da série NÃO viaja — nem os bytes nem o catálogo: '
+    + 'a série leva só o vídeo da semana', JSON.stringify(dB));
   checar(!/ficaram de fora/.test(rB.texto || '') && /acervo agora está na biblioteca/.test(rB.texto || ''),
     'B · e o relatório não fala de nada de fora', JSON.stringify(rB.texto));
   await todo.ctx.close();
@@ -490,6 +568,64 @@ try {
   checar(!dC.h22Arquivo && !dC.h96Arquivo && !dC.h22Catalogo && !dC.h96Catalogo,
     'C · e nenhum hinário entra: não estavam marcados', JSON.stringify(dC));
   await fav.ctx.close();
+
+  // ---- G · DESMARCAR A SÉRIE NA EXPORTAÇÃO TIRA O EPISÓDIO DO PACOTE ----------
+  const o2 = await aparelho(null);
+  await SEMENTE(o2.pg);
+  const ex2 = await exportarSem(o2.pg, ['Provai e Vede 2026']);
+  checar(ex2.antes && ex2.antes['Provai e Vede 2026'] === false && ex2.antes['Informativo Mundial das Missões 2026'] === true,
+    'G · PREMISSA: o Provai e Vede foi desmarcado e o Informativo continua marcado na hora de exportar',
+    JSON.stringify(ex2.antes));
+  const saida2 = await saidaDe(o2.pg);
+  await o2.ctx.close();
+  const d2 = await aparelho(saida2);
+  await importarPelaJanela(d2.pg, null);
+  const dG = await lerDestino(d2.pg);
+  checar(dG.midia.join() === 'epi-inf,fav-item,solto-item',
+    'G · o episódio do Provai e Vede, desmarcado, NÃO está no pacote — e não caiu em "Outros itens", que '
+    + 'seguia marcado e o levaria de qualquer jeito. O resto da mídia (e o episódio do Informativo) vem',
+    JSON.stringify(dG.midia));
+  await d2.ctx.close();
+
+  // ---- H · NA IMPORTAÇÃO, O EPISÓDIO ENTRA PELO GRUPO DA SÉRIE -----------------
+  const so = await aparelho(saida);
+  const rH = await importarPelaJanela(so.pg, async () => {
+    for (const n of Object.keys(await marcadas(so.pg))) {
+      if (n !== 'Provai e Vede 2026') await tocarLinha(so.pg, n);
+    }
+  });
+  const dH = await lerDestino(so.pg);
+  checar(rH.antes && rH.antes['Provai e Vede 2026'] === true
+      && Object.entries(rH.antes).filter(([, v]) => v).length === 1,
+    'H · PREMISSA: só o Provai e Vede está marcado na hora do Importar', JSON.stringify(rH.antes));
+  checar(dH.midia.join() === 'epi-pv',
+    'H · com só a série marcada chega o episódio DELA (o pacote o nomeia no grupo da série) e nenhuma '
+    + 'outra mídia: nem o do Informativo, nem o favorito, nem o solto', JSON.stringify(dH.midia));
+  await so.ctx.close();
+
+  // ---- I · SEM EPISÓDIO RETIDO, A LINHA DIZ ISSO — E A PASTA ANTIGA NÃO VIAJA --
+  // O caso do relato: a série não tem vídeo e a pasta do álbum tem um arquivo velho. Antes a linha
+  // media a PASTA; agora ela mede o vídeo da semana, que não há.
+  const o3 = await aparelho(null);
+  await SEMENTE(o3.pg);
+  await o3.pg.evaluate(async () => { await AVDB.setState('serie', []); });
+  await o3.pg.evaluate(() => openPacotePopup());
+  await esperar(o3.pg, () => !!document.querySelector('#pacoteLista li'), null, 60000);
+  const textosI = await textosDaLista(o3.pg);
+  checar(textosI['Provai e Vede 2026'] === 'sem vídeo da semana baixado',
+    'I · sem episódio retido a linha diz "sem vídeo da semana baixado", SEM peso — o arquivo velho da pasta '
+    + 'do álbum não conta', JSON.stringify(textosI));
+  await o3.pg.click('#pacoteExportarTile');
+  await fimDaExportacao(o3.pg);
+  const saida3 = await saidaDe(o3.pg);
+  await o3.ctx.close();
+  const d3 = await aparelho(saida3);
+  await importarPelaJanela(d3.pg, null);
+  const dI = await lerDestino(d3.pg);
+  checar(!dI.antigoArquivo && !dI.antigoCatalogo,
+    'I · e o arquivo velho da pasta do álbum não viaja mesmo com TUDO marcado e a série SEM vídeo — a série '
+    + 'leva só o vídeo da semana, e quando não há, não leva nada', JSON.stringify(dI));
+  await d3.ctx.close();
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 } finally {

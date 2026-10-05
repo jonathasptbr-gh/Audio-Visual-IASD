@@ -467,11 +467,13 @@ try {
     'D · a janela abre JÁ com a lista desenhada — sem toque nenhum', porque(abriuVazia));
   const vazia = await lerLista(novo.pg);
   checar(vazia.caixas === 4 && vazia.marcadas === 4
-      && vazia.textos.every((t) => /nada baixado neste aparelho/.test(t)),
-    'D · um aparelho NOVO — o caso de uso do importar — mostra as coleções de BASE '
-    + '(séries e hinários) com "nada baixado neste aparelho" e TODAS marcadas: a seleção '
-    + 'agora vale também para IMPORTAR (v1.11.12), e uma lista em branco não deixaria '
-    + 'marcar nada', JSON.stringify(vazia));
+      && vazia.textos.slice(0, 2).every((t) => /sem vídeo da semana baixado/.test(t) && !/nada baixado/.test(t))
+      && vazia.textos.slice(2).every((t) => /nada baixado neste aparelho/.test(t)),
+    'D · um aparelho NOVO — o caso de uso do importar — mostra as coleções de BASE e TODAS '
+    + 'marcadas: as SÉRIES com "sem vídeo da semana baixado" (a linha delas é o vídeo da semana, '
+    + 'não a lista completa — v1.11.14) e os hinários com "nada baixado neste aparelho". A '
+    + 'seleção vale também para IMPORTAR (v1.11.12), e uma lista em branco não deixaria marcar '
+    + 'nada', JSON.stringify(vazia));
   checar(/ainda não tem biblioteca baixada/.test(vazia.nota) && /traz só o que estiver marcado/.test(vazia.nota)
       && !/Exportar leva/.test(vazia.nota),
     'D · e a nota abaixo da lista fala só do que serve a um aparelho novo '
@@ -529,7 +531,7 @@ try {
   checar(cheia.textos.some((t) => /Álbum Um/.test(t)) && cheia.textos.some((t) => /Álbum Dois/.test(t)),
     'D · a lista nomeia cada coleção do aparelho, uma linha por coleção',
     JSON.stringify(cheia.textos));
-  checar(cheia.textos.filter((t) => !/nada baixado/.test(t)).every((t) => /até /.test(t)),
+  checar(cheia.textos.filter((t) => !/nada baixado|sem vídeo da semana/.test(t)).every((t) => /até /.test(t)),
     'D · com o peso por linha em "até X", o teto', JSON.stringify(cheia.textos));
   // O ÍCONE É UM ELEMENTO, não um texto: `msym()` devolve um <span>, e atribuí-lo
   // a `innerHTML` o converte em "[object HTMLSpanElement]".
