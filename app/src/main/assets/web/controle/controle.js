@@ -31037,6 +31037,11 @@ async function pacotePlanoAproximado() {
   return { grupos, folha, aprox: true, midiaPorGrupo, midiaBytes };
 }
 
+/** As coleções que o app sempre conhece: os hinários e as séries (ver `pacoteMontarFolha`). */
+function pacoteColecaoDeBase(c) {
+  return !!c && (c.kind === 'serie' || FIXED_COLLECTIONS.some((f) => f.id === c.id));
+}
+
 /**
  * A MONTAGEM DA FOLHA — a mesma para a medida APROXIMADA e para a EXATA.
  *
@@ -31078,15 +31083,24 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
     const g = porGrupo.get(AVPacote.GRUPO_COL + c.id);
     // SEM LISTA DE ARQUIVOS mas COM PESO é a versão aproximada: ela sai do que
     // a Biblioteca já tem em memória, e não da varredura do disco.
-    if (!g || (!g.arquivos.length && !g.bytes)) continue;
+    // OS HINÁRIOS E AS SÉRIES ENTRAM SEMPRE, mesmo sem um byte baixado (v1.11.12):
+    // a seleção da janela agora vale também para IMPORTAR, e num aparelho novo —
+    // o caso de uso da importação — a lista seria vazia e não haveria o que
+    // marcar. Eles são o que o app SEMPRE conhece; os álbuns do catálogo, que são
+    // centenas, só entram quando têm o que levar.
+    const vazio = !g || (!g.arquivos.length && !g.bytes);
+    if (vazio && !pacoteColecaoDeBase(c)) continue;
+    const gg = g || { arquivos: [], bytes: 0 };
     const item = {
       chave: AVPacote.GRUPO_COL + c.id,
       rotulo: c.name || c.id,
-      sub: g.arquivos.length
-        ? g.arquivos.length + (g.arquivos.length === 1 ? ' arquivo' : ' arquivos')
-        : '',
-      bytes: g.bytes,
+      sub: vazio ? 'nada baixado neste aparelho'
+        : gg.arquivos.length
+          ? gg.arquivos.length + (gg.arquivos.length === 1 ? ' arquivo' : ' arquivos')
+          : '',
+      bytes: gg.bytes,
       fixo: false,
+      vazio,
     };
     grupos.push(item);
     porColecao.set(c.id, item);
@@ -31316,7 +31330,7 @@ let pacoteEsboco = null;
 let pacoteListaSeq = 0;
 // A frase que vale para o aparelho SEM biblioteca também: é o caso de uso da
 // importação, e a nota nunca fica vazia.
-const PACOTE_NOTA_IMPORTAR = 'Importar só acrescenta: nada do que já está aqui é apagado.';
+const PACOTE_NOTA_IMPORTAR = 'Importar traz só o que estiver marcado e só acrescenta: nada do que já está aqui é apagado.';
 // UMA seção aberta por vez, como na Biblioteca (`grupoAberto`): com todas
 // abertas a folha vira a lista inteira de álbuns, que é o que a seção existe
 // para não ser. Ela nasce vazia — TUDO colapsado —, porque a folha abre com
@@ -31440,12 +31454,12 @@ function renderPacoteGrupos(plano) {
   // botão de confirmar, que é onde a pergunta ("cabe no cartão?") é feita.
 
   const linhaDeGrupo = (g) => {
-    const peso = pacotePeso(g.bytes, g.aprox);
+    const peso = g.vazio ? '' : pacotePeso(g.bytes, g.aprox);
     // O AVISO DA SOBREPOSIÇÃO (v1.8.38). Os grupos por lista se sobrepõem, e o
     // peso deles pode contar o mesmo item duas vezes — o que a folha NÃO pode
     // fazer é mostrar dois números que não somam e calar sobre isso. O total do
     // confirmar continua sendo a UNIÃO, e é ele que responde "cabe no cartão?".
-    const sub = (g.sub ? g.sub + ' · ' : '') + peso
+    const sub = (g.sub ? g.sub + (peso ? ' · ' : '') : '') + peso
       + (g.sobreposto ? ' · pode estar em outro grupo' : '');
     const li = songMenuItem(
       (g.chave === 'midia' || g.sobreposto) ? msym(ICON.import) : msym(ICON.music),
@@ -31615,9 +31629,15 @@ function renderPacoteGrupos(plano) {
   // O PESO DO QUE FOI ESCOLHIDO, na nota acima dos botões: é a única pergunta
   // que o operador tem depois de marcar ("cabe no cartão?"), e ela muda a cada
   // toque.
-  pacoteNotaEl.textContent = 'Exportar leva '
-    + pacotePeso(pacoteBytesDe(plano, pacoteSelecao(plano)), plano.aprox)
-    + '. ' + PACOTE_NOTA_IMPORTAR;
+  // Sem nada baixado aqui (só as coleções de base, com "nada baixado") não há o que
+  // exportar, e um peso de "até 56 KB" de ajustes seria ruído: a nota fala só do
+  // que serve a um aparelho novo — o Importar.
+  const temAlgo = plano.grupos.some((g) => !g.fixo && !g.vazio);
+  pacoteNotaEl.textContent = !temAlgo
+    ? 'Este aparelho ainda não tem biblioteca baixada. ' + PACOTE_NOTA_IMPORTAR
+    : 'Exportar leva '
+      + pacotePeso(pacoteBytesDe(plano, pacoteSelecao(plano)), plano.aprox)
+      + '. ' + PACOTE_NOTA_IMPORTAR;
 }
 
 const PACOTE_CANCELADO = 'cancelado';
@@ -31866,7 +31886,7 @@ async function exportarPacote() {
           app: 'audio-visual-iasd',
           web: WEB_VERSION,
           criadoEm: Date.now(),
-          grupos: escolhidos.map((g) => g.rotulo),
+          grupos: escolhidos.filter((g) => !g.vazio).map((g) => g.rotulo),
           bytes: total,
         })], { type: 'application/json' });
         await esc.registro({ t: 'info', bytes: info.size }, info);
@@ -32223,11 +32243,15 @@ function pacoteCursor(fonte) {
       const cab = AVPacote.cabecalhoDeBytes(await fonte.bytes(cabIni, cabIni + n));
       const corpoIni = cabIni + n;
       if (corpoIni + cab.bytes > fonte.size) throw new Error('pacote: acabou no meio de um registro');
-      const corpo = (comCorpo !== false && cab.bytes)
+      // `comCorpo` também pode ser uma FUNÇÃO da cabeça (v1.11.12): a importação
+      // por seleção decide pelo registro se vale buscar o corpo, e um registro
+      // que ficou de fora é PULADO pelo `bytes` — o mesmo caminho da conferência.
+      const ler = typeof comCorpo === 'function' ? comCorpo(cab) !== false : comCorpo !== false;
+      const corpo = (ler && cab.bytes)
         ? await fonte.blob(corpoIni, corpoIni + cab.bytes, cab.tipo || '', aoLer)
         : null;
       pos = corpoIni + cab.bytes;
-      return { cab, corpo };
+      return { cab, corpo, pulado: !ler };
     },
   };
 }
@@ -32418,7 +32442,7 @@ function pacoteMesclarValor(local, vindo) {
  * um pacote inteiro de um cortado no meio. Quem exige esse `true` é o
  * `importarPacote`.
  */
-async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
+async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
   let viuFim = false;
   // AS CHAVES DE `state` VÃO EM LOTE (v1.8.25). Uma transação por chave era o
   // que a Bíblia cobrava caro: ela mora aqui com uma chave POR CAPÍTULO, e
@@ -32444,6 +32468,22 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
   };
   // O NOME DE UM ARQUIVO DO OPFS vem do registro de CATÁLOGO dele, que o
   // exportador escreve ANTES dos bytes. Ver o porquê em `nomeDoRegistro`.
+  // A SELEÇÃO DA JANELA (v1.11.12): com `filtro`, só entra o que está marcado — os
+  // registros de fora são PULADOS pelo cabeçalho e as miniaturas e páginas vão
+  // atrás da mãe. `pulando` guarda isso entre dois registros.
+  let pulando = false;
+  const decidir = (cab) => {
+    if (!filtro) return true;
+    switch (cab.t) {
+      case 'media-thumb': case 'media-pagina': case 'arquivo-thumb': return !pulando;
+      case 'media': pulando = !pacoteMidiaEntra(filtro, cab.rec); return !pulando;
+      case 'arquivo': pulando = !pacoteArquivoEntra(filtro, cab.rec); return !pulando;
+      case 'opfs':
+        pulando = !filtro.marcados.has(AVPacote.grupoDoCaminho(cab.caminho, filtro.ids));
+        return !pulando;
+      default: pulando = false; return true;   // info, state, state-blob, fim
+    }
+  };
   const nomePorCaminho = new Map();
   // AS COLEÇÕES QUE O PACOTE TOCOU. É delas que sai o relatório do fim — ver
   // `pacoteResumoDasColecoes`.
@@ -32506,13 +32546,23 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
     // apareça. Sem NOME, de propósito: quem nomeia é o fim do registro, e
     // inventar um nome a meio caminho mostraria o item errado.
     const base = cursor.pos;
-    const r = await cursor.proximo(true, (lidos) => {
+    const r = await cursor.proximo(decidir, (lidos) => {
       if (aoAndar) aoAndar(base + lidos, null);
     });
     // FIM DOS BYTES SEM O REGISTRO `fim` — o pacote acabou no meio. Quem
     // reprova é o chamador, pelo valor devolvido.
     if (!r) break;
     const { cab, corpo } = r;
+    if (r.pulado) {
+      // Um registro DEIXADO DE FORA pela seleção: fecha o que estava pendente e
+      // segue. Só as mães contam (miniatura e página vão atrás delas).
+      await fechar();
+      if (cab.t === 'media' || cab.t === 'arquivo' || cab.t === 'opfs') {
+        contagem.fora = (contagem.fora || 0) + 1;
+      }
+      if (aoAndar) aoAndar(cursor.pos, null);
+      continue;
+    }
     // O NOME SAI DE QUEM CARREGA OS BYTES (v1.8.25), e é aqui que a v1.8.23
     // errou. Ela nomeava os registros de CATÁLOGO — que têm `bytes: 0` —, então
     // os 1200 nomes de um hinário passavam num piscar, durante a fração de
@@ -32610,6 +32660,16 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar) {
       // `depois === atual` é a mescla devolvendo o LOCAL por IDENTIDADE: nada
       // mudou. Contá-lo faria a tela anunciar ajustes que não entraram, e
       // gravá-lo seria reescrever no disco exatamente o que já estava lá.
+      if (filtro && Array.isArray(valor)) {
+        // As listas do PACOTE dizem a que grupo cada mídia pertence (o estado vem
+        // antes das mídias no arquivo): é daqui que `pacoteMidiaEntra` lê.
+        for (const L of PACOTE_LISTAS) {
+          if (cab.chave === L.lista) {
+            filtro.listas.set(AVPacote.GRUPO_LISTA + L.lista,
+              new Set(valor.filter((x) => typeof x === 'string')));
+          }
+        }
+      }
       loteEstado.push({ chave: cab.chave, valor });
       if (loteEstado.length >= PACOTE_LOTE_ESTADO) await escoarEstado();
       continue;
@@ -32706,6 +32766,48 @@ const PACOTE_FATIA_CONFERE = 0.15;   // importação: conferir o pacote
 // MEDIDO duas vezes: 3,3 kB por chave num acervo real de 3.600 e 4,1 kB num
 // sintético de 1.003. Fica o MAIOR — ver `pacotePlanoAproximado`.
 const PACOTE_ESTADO_POR_CHAVE = 4200;
+
+/**
+ * A SELEÇÃO DA JANELA VALE TAMBÉM PARA IMPORTAR (v1.11.12). Pedido do operador:
+ * *"os itens selecionados são os itens que ele de fato vai importar. Mesmo que o
+ * pacote tenha a biblioteca inteira … se eu selecionar apenas o hinário, ele vai
+ * importar apenas o hinário desse pacote e, como sempre, vai consumir o arquivo.
+ * Assim a listagem tem função em ambos os processos"*.
+ *
+ * Devolve `null` — o pacote INTEIRO, o comportamento de sempre — quando a lista
+ * não está à vista (os oráculos chamam `importarPacote()` direto) ou quando TUDO
+ * está marcado, que é o padrão da janela. Só há filtro quando o operador tirou
+ * alguma marca, e aí ele é ESTRITO: o que não está marcado não entra, inclusive
+ * o grupo que a lista nem oferecia (ele estreitou a escolha; trazer o que ele não
+ * viu seria o contrário do pedido). "Ajustes e catálogos" é fixo e sempre entra:
+ * é ele que faz os arquivos importados aparecerem na Biblioteca.
+ */
+function pacoteFiltroDeImportacao() {
+  const plano = pacoteEsboco;
+  if (!plano || !Array.isArray(plano.grupos)) return null;
+  const oferecidos = plano.grupos.filter((g) => !g.fixo);
+  if (!oferecidos.length || oferecidos.every((g) => destMarcados.has(g.chave))) return null;
+  return {
+    marcados: pacoteSelecao(plano),
+    ids: new Set(allCollections().map((c) => c.id)),
+    listas: new Map(),
+  };
+}
+
+/** Uma mídia entra se QUALQUER grupo que a contém está marcado — a regra da saída. */
+function pacoteMidiaEntra(filtro, rec) {
+  const id = rec && rec.id;
+  const grupos = [];
+  for (const [chave, ids] of filtro.listas) if (ids.has(id)) grupos.push(chave);
+  if (!grupos.length) grupos.push('midia');
+  return grupos.some((g) => filtro.marcados.has(g));
+}
+
+/** O catálogo de arquivos segue os bytes, pela MESMA função da saída. */
+function pacoteArquivoEntra(filtro, rec) {
+  if (!rec || !rec.opfsPath) return true;
+  return filtro.marcados.has(AVPacote.grupoDoCaminho(rec.opfsPath, filtro.ids));
+}
 
 /** A fração (0..1) de UMA etapa dentro da barra do processo inteiro. */
 function pacoteFatia(inicio, tamanho, pos, total) {
@@ -33030,7 +33132,13 @@ async function pacoteRelatorio(contagem, consumo) {
   if (contagem.media) {
     linhas.push(contagem.media + ' mídia(s) no Cronograma e nos Favoritos');
   }
-  if (!linhas.length) linhas.push('O acervo do arquivo já estava todo aqui');
+  if (!linhas.length) {
+    linhas.push(contagem.fora ? 'Nada do que estava marcado era novo aqui'
+      : 'O acervo do arquivo já estava todo aqui');
+  }
+  if (contagem.fora) {
+    linhas.push(contagem.fora + ' item(ns) do pacote ficaram de fora: não estavam marcados');
+  }
   // ===== A RECUSA SAI NA FRASE, e ela é a ÚNICA contagem interna que sai =====
   //
   // A v1.8.15 fechou o `chaveViaja` na ENTRADA com um argumento explícito —
@@ -33095,6 +33203,9 @@ async function importarPacote() {
   // A guarda é a leitura literal do desenho: com um pacote pronto na mão,
   // aquele botão NÃO é o importador — ele é a saída para fazer outro.
   if (!window.__NATIVE__ || pacoteEmCurso || pacotePronto) return;
+  // A SELEÇÃO É LIDA ANTES DO SELETOR: é o que estava marcado quando o operador
+  // tocou em Importar (ver `pacoteFiltroDeImportacao`).
+  const filtro = pacoteFiltroDeImportacao();
   const escolhidos = await AVNative.pickDoc(['*/*']);
   const alvo = (escolhidos && escolhidos[0]) || null;
   if (!alvo || !alvo.url) return;
@@ -33192,7 +33303,7 @@ async function importarPacote() {
           if (nome) bgItemStart(tarefa, nome);
           andarNaBarra(pacoteFatia(PACOTE_FATIA_CONFERE, 1 - PACOTE_FATIA_CONFERE,
             pos, fonte.size));
-        });
+        }, filtro);
         // O `false` daqui é inalcançável: `pacoteConferir` já provou que o
         // arquivo chega ao `fim`. A guarda fica porque ela é a diferença entre
         // um pacote inteiro e um cortado no meio, e é o dia em que alguém
@@ -33257,7 +33368,9 @@ async function importarPacote() {
     const motivo = await AVNative.pacoteConsumirOrigem(alvo.url);
     consumo = motivo
       ? 'O arquivo do pacote continua no aparelho: ' + motivo + '.'
-      : 'O arquivo do pacote foi apagado — o acervo agora está na biblioteca.';
+      : (filtro
+        ? 'O arquivo do pacote foi apagado — com o que não estava marcado.'
+        : 'O arquivo do pacote foi apagado — o acervo agora está na biblioteca.');
   } catch (_) {
     consumo = 'O arquivo do pacote continua no aparelho.';
   }
