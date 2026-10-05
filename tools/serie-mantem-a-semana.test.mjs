@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // ============================================================================
-// MANTER O EPISÓDIO DA SEMANA BAIXADO (v1.8.87)
+// MANTER O EPISÓDIO DA SEMANA BAIXADO (v1.8.87; sem seletor desde a v1.11.10)
 //
-// Pedido do operador: *"faça uma opção de marcar nas coleções de provai e vede e
+// Pedido do operador (v1.8.87, a caixa que saiu na v1.11.10): *"faça uma opção de marcar nas coleções de provai e vede e
 // do informativo mundial das missões. Essa opção fica no topo e nela diz, manter
 // o provai e vede da semana baixado e atualizado na biblioteca… O sistema
 // automaticamente verifica se o arquivo já existe e limpa os arquivos de semanas
@@ -10,16 +10,17 @@
 //
 // ## O que ele trava, e por que cada metade existe
 //
-//  A. **A LINHA FICA NO TOPO**, acima do destaque do sábado, com a frase do
-//     operador e o nome da série SEM o ano (o card se chama "Provai e Vede
-//     2026", e *"manter o Provai e Vede 2026 da semana"* põe duas escalas de
-//     tempo na mesma frase).
-//  B. **DESMARCADA, NADA BAIXA.** É a metade que reprova um lote que ligue o
-//     recurso por padrão — ~300 MB por episódio, sem ninguém pedir.
-//  C. **MARCADA, BAIXA O DA SEMANA E SÓ ELE**, na qualidade padrão do operador
-//     (`ytAlturaPadrao`), pela lista de retenção (`serie`). A metade "e só ele"
-//     é a que separa isto do download em lote que a v1.1.21 recusou: o episódio
-//     da semana PASSADA e o da SEGUINTE estão na mesma lista e não podem entrar.
+//  A. **SEM SELETOR (v1.11.10).** O operador pediu: *"Remova o seletor e faça
+//     com que seja o padrão do app sempre baixar os vídeos da semana."* O card
+//     não tem mais a linha "Manter o … da semana baixado" (nem classe, nem
+//     caixa), e as peças do alternador saíram do código.
+//  B. **SEM MARCAR NADA, BAIXA O DA SEMANA E SÓ ELE** — mesmo com a chave
+//     antiga `serieAuto` gravada como DESMARCADA num aparelho que a tinha
+//     usado: o padrão é ligado, e uma chave velha não pode desligá-lo calada.
+//     Na qualidade padrão do operador (`ytAlturaPadrao`), pela lista de
+//     retenção (`serie`). A metade "e só ele" é a que separa isto do download
+//     em lote que a v1.1.21 recusou: o episódio da semana PASSADA e o da
+//     SEGUINTE estão na mesma lista e não podem entrar.
 //  D. **A LIMPEZA TIRA AS SEMANAS PASSADAS**, e o blob morre com o último
 //     detentor — é o `listSet` do `db.js` fazendo o trabalho, não uma varredura
 //     nossa.
@@ -34,7 +35,7 @@
 //     `redeLiberadaParaBaixar` e não "não é celular" como o `syncLyrics`: aqui
 //     são ~300 MB que ninguém pediu agora. O preço é que `connection.type`
 //     devolve `'unknown'` em boa parte dos aparelhos e nesses a rotina nunca
-//     roda sem a opção — a FRASE é o que impede isso de ser um no-op
+//     roda sem os "Dados móveis" ligados — a FRASE é o que impede isso de ser um no-op
 //     silencioso. **E "DADOS MÓVEIS" LIGADO NAS CONFIGURAÇÕES LIBERA** (v1.11.0,
 //     bloco G2) — pedido do operador, perguntado se o interruptor novo
 //     deveria alcançar este automático: *"Sim, incluir os dois"*.
@@ -182,8 +183,6 @@ const ler = () => pg.evaluate(async (ids) => {
     passada: await existe('passada'),
     semana: await existe('semana'),
     seguinte: await existe('seguinte'),
-    marcada: serieAuto.has(ids.serie),
-    outraMarcada: serieAuto.has(ids.outra),
   };
 }, { serie: SERIE, outra: OUTRA });
 
@@ -199,20 +198,14 @@ const cartao = () => pg.evaluate((id) => {
   const li = renderCollectionCard(coll);
   const aberto = li.querySelector('.coll-open');
   if (!aberto) return null;
-  const auto = aberto.querySelector('.serie-auto');
   const dest = aberto.querySelector('.serie-destaque');
   return {
-    temAuto: !!auto,
-    // A ORDEM: *"essa opção fica no topo"*. `compareDocumentPosition` e não o
-    // índice dos filhos, porque o invólucro pode ganhar irmãos.
-    autoAntesDoDestaque: !!(auto && dest
-      && (auto.compareDocumentPosition(dest) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0),
+    // SEM A CAIXA (v1.11.10): nem a classe da linha, nem uma caixa de marcação
+    // no topo do card — o seletor saiu a pedido do operador.
+    temAuto: !!aberto.querySelector('.serie-auto'),
+    temCaixa: !!aberto.querySelector('[role="checkbox"], .song-menu-check'),
+    temDestaque: !!dest,
     primeiro: aberto.firstElementChild ? aberto.firstElementChild.className : '',
-    rotulo: auto ? (auto.querySelector('.song-menu-label').textContent || '').trim() : '',
-    // SÓ O TÍTULO desde a v1.8.88 — a ausência do subtítulo é asserção, não
-    // omissão: ele voltar é o defeito que o operador pediu para tirar.
-    temSub: !!(auto && auto.querySelector('.song-menu-sub')),
-    marcado: !!(auto && auto.querySelector('.song-menu-check.on')),
   };
 }, SERIE);
 
@@ -242,44 +235,37 @@ try {
     + 'veredito do `ehDoSabadoAtual`, nunca de um calendário escrito aqui',
     datas);
 
-  // ── A. A LINHA NO TOPO ──────────────────────────────────────────────────
+  // ── A. SEM SELETOR (v1.11.10) ───────────────────────────────────────────
+  // *"Remova o seletor e faça com que seja o padrão do app sempre baixar os
+  // vídeos da semana."* A linha de opção que ocupava o topo do card saiu inteira.
   const cx = await cartao();
-  checar(cx && cx.temAuto && cx.primeiro === 'serie-auto',
-    'A LINHA DA OPÇÃO é o PRIMEIRO filho do card aberto — *"essa opção fica no '
-    + 'topo"*', cx);
-  checar(cx.autoAntesDoDestaque,
-    'e ela vem ANTES do destaque do sábado: é ela que governa se aquele bloco '
-    + 'mostra um episódio já no aparelho', cx);
-  checar(/^Manter o Provai e Vede da semana baixado e atualizado na biblioteca$/.test(cx.rotulo),
-    'com a frase do operador, e o nome da série SEM O ANO — o card se chama '
-    + '"Provai e Vede 2026", e o ano no meio dela põe duas escalas de tempo na '
-    + 'mesma linha', cx.rotulo);
-  checar(cx.marcado === false,
-    'e ela nasce DESMARCADA: ~300 MB por episódio não se liga por padrão', cx);
-  checar(cx.temSub === false,
-    'e a linha tem SÓ O TÍTULO (v1.8.88) — *"remova esse subtitulo, não '
-    + 'precisamos dos detalhes, apenas o titulo descrevendo a função"*. O que '
-    + 'era subtexto vira status do card, e só quando há o que dizer',
-    cx);
+  checar(cx && cx.temAuto === false && cx.temCaixa === false,
+    'A · o card aberto da série NÃO tem mais a linha "Manter o … da semana '
+    + 'baixado" — nem a classe dela, nem uma caixa de marcação', cx);
+  checar(cx.temDestaque && cx.primeiro === 'serie-destaque',
+    'e o destaque do sábado passou a ser o PRIMEIRO filho do card', cx);
+  const semFuncoes = await pg.evaluate(() => ({
+    linha: typeof serieAutoLinha, alterna: typeof alternarSerieAuto, conjunto: typeof serieAuto,
+  }));
+  checar(semFuncoes.linha === 'undefined' && semFuncoes.alterna === 'undefined'
+      && semFuncoes.conjunto === 'undefined',
+    'e as peças da caixa saíram do código (`serieAutoLinha`, `alternarSerieAuto` '
+    + 'e o Set `serieAuto`): um alternador que ninguém desenha é código morto que '
+    + 'convida o próximo lote a religá-lo', semFuncoes);
 
-  // ── B. DESMARCADA, NADA BAIXA ───────────────────────────────────────────
+  // ── B. SEM MARCAR NADA, BAIXA O DA SEMANA E SÓ ELE ──────────────────────
+  // A chave ANTIGA, de um aparelho em que o operador tinha DESMARCADO a opção, é
+  // ignorada: o padrão é ligado, e uma chave velha não pode desligá-lo calada.
+  await pg.evaluate((id) => AVDB.setState('serieAuto', { [id]: false }), SERIE);
   await armarDownload(true);
   await pg.evaluate(() => manterSeriesDaSemana());
-  const frio = await ler();
-  checar(frio.baixados.length === 0 && frio.semana === false,
-    'DESMARCADA a rotina não baixa NADA — a metade que reprova um lote que '
-    + 'ligue o recurso por padrão', frio);
-
-  // ── C. MARCADA, BAIXA O DA SEMANA E SÓ ELE ──────────────────────────────
-  await pg.evaluate((id) => alternarSerieAuto(allCollections().find((c) => c.id === id)), SERIE);
   await esperar(pg, () => !serieAutoRodando && (window.__baixados || []).length > 0, null, 10000);
   const quente = await ler();
-  checar(quente.marcada === true && quente.outraMarcada === false,
-    'a marca é POR COLEÇÃO: marcar uma série não liga a outra', quente);
   checar(quente.baixados.length === 1 && quente.baixados[0].id === 'semana',
-    'e baixa O EPISÓDIO DESTA SEMANA, um só — a semana PASSADA e a SEGUINTE '
-    + 'estão na mesma lista e não entram. É o que separa isto do download em '
-    + 'lote que a v1.1.21 recusou', quente.baixados);
+    'B · SEM NENHUMA MARCA — e com a chave antiga `serieAuto` gravada como '
+    + 'DESMARCADA — a rotina baixa O EPISÓDIO DESTA SEMANA, um só: a semana '
+    + 'PASSADA e a SEGUINTE estão na mesma lista e não entram. É o que separa isto '
+    + 'do download em lote que a v1.1.21 recusou', quente.baixados);
   const teto = await pg.evaluate(() => ytAlturaPadrao());
   checar(quente.baixados[0].altura === teto,
     'na QUALIDADE PADRÃO do operador (`ytAlturaPadrao`), e não num teto próprio '
@@ -395,9 +381,9 @@ try {
   // única das antigas que sobrevive, e por um motivo que não é decoração —
   // sem ela o recurso é uma marca acesa com nada acontecendo, para sempre.
   const statusMovel = await pg.evaluate(async (id) => {
-    // O caminho de verdade: montar a linha é o que dispara a leitura do disco
+    // O caminho de verdade: o aviso do card é o que dispara a leitura do disco
     // e, com ela, o impedimento.
-    serieAutoLinha(allCollections().find((c) => c.id === id));
+    serieAutoAviso(allCollections().find((c) => c.id === id));
     await new Promise((f) => setTimeout(f, 200));
     // `ui(id).status` é onde o `setCollStatus` grava — a MESMA fonte que o card
     // desenha, e não uma segunda leitura da tela.
@@ -405,8 +391,8 @@ try {
   }, SERIE);
   checar(/Wi-Fi/i.test(statusMovel),
     'e o CARD DIZ ISSO na linha de status — `connection.type` responde '
-    + '`unknown` em boa parte dos aparelhos, e sem a frase a opção ficaria '
-    + 'marcada sem nada acontecer, para sempre', statusMovel);
+    + '`unknown` em boa parte dos aparelhos, e sem a frase o download '
+    + 'automático seria um recurso que nunca roda, sem nada na tela', statusMovel);
 
   // ── G2. "DADOS MÓVEIS" LIGADO NAS CONFIGURAÇÕES LIBERA O DOWNLOAD (v1.11.0) ──
   //
@@ -426,21 +412,6 @@ try {
     comDadosMoveis);
   await pg.evaluate(() => setPermitirDadosMoveis(false));
   await rede('wifi');
-
-  // ── H. DESMARCAR SOLTA O ARQUIVO ────────────────────────────────────────
-  await armarDownload(true);
-  await pg.evaluate(() => manterSeriesDaSemana());
-  await esperar(pg, () => !serieAutoRodando, null, 10000);
-  const comArquivo = await ler();
-  checar(comArquivo.semana === true && comArquivo.retidos.length === 1,
-    'A PREMISSA: o episódio da semana está retido de novo', comArquivo);
-  await pg.evaluate((id) => alternarSerieAuto(allCollections().find((c) => c.id === id)), SERIE);
-  await esperar(pg, async () => (await AVDB.listIds('serie')).length === 0, null, 10000);
-  const solto = await ler();
-  checar(solto.marcada === false && solto.retidos.length === 0 && solto.semana === false,
-    'DESMARCAR solta o arquivo pela MESMA rotina — o `listSet` recalcula a '
-    + 'lista a partir de quem está marcado, e um `listRemove` próprio aqui '
-    + 'seria a segunda escrita da mesma regra', solto);
 
   // ── I. A FOLHA DE UM EPISÓDIO BAIXADO OMITE A QUALIDADE ─────────────────
   // As DUAS metades: sem arquivo a escada continua na folha. Uma sozinha

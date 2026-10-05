@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.9';
+const WEB_VERSION = '1.11.10';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -651,6 +651,7 @@ const songMenuCloseEl = document.getElementById('songMenuClose');
 //  fechada. Ver `renderLibToggle`.)
 const hymnSearchPopupEl = document.getElementById('hymnSearchPopup');
 const hymnSearchInputEl = document.getElementById('hymnSearchInput');
+const hymnSearchLimparEl = document.getElementById('hymnSearchLimpar');
 const hymnResultsEl = document.getElementById('hymnResults');
 const bibleVerPopupEl = document.getElementById('bibleVerPopup');
 const bibleVerListEl = document.getElementById('bibleVerList');
@@ -1029,10 +1030,10 @@ function collSongs(id) { return (collState[id] && collState[id].songs) || []; }
 // série" — mas CINCO lugares perguntam por ele querendo dizer OUTRA coisa:**
 // *"esta coleção tem um CALENDÁRIO semanal?"*. São o destaque do sábado no topo
 // do card (`destaqueDaSerie`), o episódio da semana (`serieEpisodioDaSemana`), a
-// caixa "Manter o … da semana baixado" (`serieAutoLinha`) e o alternador dela
-// (`alternarSerieAuto`). Com uma segunda família respondendo `true` a `ehLink`,
-// cada card dela herda aquela caixa: um interruptor MARCÁVEL para uma rotina
-// que procura uma data que aqueles vídeos não têm, sobre um `coll.serie` que não
+// rotina do download automático (`serieAutoLigada`, que perguntava por
+// `ehLink`) e o aviso dela (`serieAutoAviso`). Com uma segunda família
+// respondendo `true` a `ehLink`, cada card dela herdaria a rotina: uma busca
+// por uma data que aqueles vídeos não têm, sobre um `coll.serie` que não
 // existe — e que nunca baixaria nada, sem erro em lugar nenhum.
 //
 // O conserto é a capacidade escrita pelo DADO de que a rotina depende
@@ -3601,7 +3602,6 @@ async function load(opts) {
   const permitirDadosMoveisV = !!(await AVDB.getState('permitirDadosMoveis'));
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   const ytAlturaV = await AVDB.getState('ytAltura');
-  const serieAutoV = await AVDB.getState('serieAuto');
   // A LISTA DA TELA É SEMPRE O CRONOGRAMA (v1.5.0). Ela era `listItems(activeTab)`
   // dentro de uma guarda, porque a aba podia ser a Bíblia — e ali a leitura
   // tinha de ser pulada: `'bible'` não é lista de mídia, e passá-la por
@@ -3668,10 +3668,6 @@ async function load(opts) {
   // `lvTamanho` logo acima: valor fora da escada cai no padrão, e não numa
   // altura que ninguém escolheu.
   ytAlturaPreferida = YT_ALTURAS.includes(ytAlturaV | 0) ? (ytAlturaV | 0) : YT_ALTURA_PADRAO;
-  // O "MANTER BAIXADO" DE CADA SÉRIE (v1.8.87). Ele é do BANCO e não da sessão:
-  // a promessa é *"manter baixado e atualizado"*, e uma marca que morre com o
-  // app faria a semana seguinte chegar sem nada — sem erro em lugar nenhum.
-  serieAuto = new Set(Object.keys(serieAutoV || {}).filter((k) => (serieAutoV || {})[k]));
   libItems = libItemsV;
   // O PAR do `currentId` acima, e pela mesma senha: `currentItemV` foi lido com
   // o id de ANTES do toque, então aplicá-lo deixaria a linha "no ar", o título
@@ -11209,13 +11205,9 @@ function renderCollectionCard(coll, ctx) {
     // sincronização de um álbum que já está aberto na tela era uma camada a
     // mais sobre outra camada — o acervo já é um popup de tela cheia. Aqui elas
     // ficam onde o assunto está, e fechar é o mesmo toque que abriu.
-    // ===== O "MANTER BAIXADO" VEM ANTES DO DESTAQUE (v1.8.87) =====
-    // *"essa opção fica no topo"*, e o topo é ACIMA do destaque do sábado: é ela
-    // que governa se aquele bloco mostra um episódio já no aparelho ou um que
-    // ainda precisa ser baixado a pedido. Abaixo dele, ela seria uma opção
-    // depois da consequência dela.
-    const auto = serieAutoLinha(coll);
-    if (auto) aberto.appendChild(auto);
+    // O AVISO DO DOWNLOAD AUTOMÁTICO (v1.11.10): sem a caixa que havia aqui, só o
+    // impedimento de rede sobrevive — e vai para a linha de status do card.
+    serieAutoAviso(coll);
 
     // O DESTAQUE DO SÁBADO, acima da lista e só na série (ver `blocoDestaque`).
     const dest = blocoDestaque(coll);
@@ -14216,6 +14208,16 @@ function openLyricsPopup(item) {
   lvFrenteVista = frente;
   lvFollow = true; // toda abertura começa acompanhando o que está no ar
   renderLyricsView();
+  // UMA LEITURA NOVA COMEÇA NO TOPO (v1.11.10). Relato do operador: *"a posição
+  // está se mantendo entre buscas e leituras de diferentes músicas, não voltando
+  // para o topo do scroll e início da música"*. O corpo é UM nó reaproveitado: o
+  // `innerHTML = ''` do render troca o conteúdo mas NÃO zera o `scrollTop`
+  // (o navegador só o limita à altura nova), e uma música da Biblioteca não tem
+  // estrofe corrente — o `lvScroll` sai sem achar `.lv-row.current` e ninguém o
+  // reposiciona. Só o ALVO da Biblioteca zera: o que está em cena se posiciona
+  // sozinho na estrofe do ar logo abaixo (`lvScrollToCurrent`), e zerar ali seria
+  // trabalho inútil.
+  if (novo) lyricsViewBodyEl.scrollTop = 0;
   lyricsPopupEl.classList.add('open');
   // Depois de aberto (a folha ainda está subindo): o scroll só é possível com
   // o elemento já medido — e a MEDIDA da cifra também. No `renderLyricsView`
@@ -19112,7 +19114,22 @@ function serieTemODaSemana(c, agora) {
 // automaticamente verifica se o arquivo já existe e limpa os arquivos de
 // semanas passadas e baixa se necessário apenas a mídia da semana."*
 //
+// ## SEM SELETOR: É O PADRÃO DO APP (v1.11.10)
+//
+// Pedido do operador: *"Hoje ele tem um seletor para ativar a função de download
+// automático. Remova o seletor e faça com que seja o padrão do app sempre
+// baixar os vídeos da semana do Informativo e do Provai e Vede."* A caixa de
+// marcação saiu, e com ela `serieAutoLinha`, `alternarSerieAuto`, o Set
+// `serieAuto` e a leitura de `state['serieAuto']`: `serieAutoLigada` passou a
+// responder só *"é uma série?"*. **A chave `serieAuto` que um aparelho já tenha
+// gravado fica no banco e NINGUÉM a lê** — marcada ou desmarcada, o padrão é
+// ligado. O que protege o plano de dados do operador deixou de ser um seletor
+// por série e é a guarda de rede do item 1 abaixo, que continua inteira: sem
+// Wi-Fi confirmado e sem "Dados móveis" ligado a rotina NÃO RODA, e o card diz
+// por quê (`serieAutoAviso`).
+//
 // ## O que isto muda no modelo da série, e o que NÃO muda
+//
 //
 // **O álbum de série não retém arquivo** — é a regra que tirou dele o "baixar
 // em lote" e a lixeira (v1.1.21): um episódio só existe no aparelho enquanto
@@ -19164,28 +19181,13 @@ function serieTemODaSemana(c, agora) {
 // que o Display e as telas da rede também carregam.
 const SERIE_LISTA = 'serie';
 
-// As séries com a opção marcada. Espelho em memória de `state['serieAuto']`,
-// lido no `load()` — e um SET porque a pergunta é sempre "esta coleção está
-// marcada?", nunca "quais estão".
-let serieAuto = new Set();
 let serieAutoRodando = false;
 
+// A rotina vale para TODA série (v1.11.10). A pergunta é a mesma das outras
+// capacidades do calendário semanal: `ehLink` — com uma só família de vídeo,
+// "é link" e "tem episódio da semana" são a mesma resposta (ver `tipoDaColecao`).
 function serieAutoLigada(coll) {
-  return !!coll && serieAuto.has(coll.id);
-}
-
-/**
- * O NOME DA SÉRIE NA FRASE, e ele não é o `coll.name`.
- *
- * O card se chama "Provai e Vede 2026", e *"manter o Provai e Vede 2026 da
- * semana"* põe o ANO no meio de uma frase que fala de UMA semana — duas escalas
- * de tempo na mesma linha. O catálogo já tem o nome sem o ano em `rotulo` (o
- * Informativo o declara para as listas do culto, v5.271); onde ele não existe,
- * o `prefixo` É o nome ("Provai e Vede").
- */
-function serieNomeCurto(coll) {
-  const se = coll && coll.serie;
-  return (se && (se.rotulo || se.prefixo)) || (coll && coll.name) || 'a série';
+  return !!coll && ehLink(coll);
 }
 
 /**
@@ -19250,87 +19252,21 @@ function serieAutoImpedimento(coll, epi, rec) {
 }
 
 /**
- * A LINHA DA OPÇÃO, no TOPO do card aberto da série — *"essa opção fica no
- * topo"*, e o topo é acima do destaque do sábado: ela governa o que aquele
- * bloco mostra.
- *
- * AS PEÇAS SÃO AS QUE JÁ EXISTEM (`.song-menu-btn`, `.song-menu-check`,
- * `.song-menu-sel`), como na folha de grupos da exportação e pelo mesmo motivo:
- * é uma CAIXA DE MARCAÇÃO, o idioma do app para "esta linha está marcada", e
- * inventar um interruptor próprio daria duas gramáticas para o mesmo gesto.
- *
- * **SÓ O TÍTULO** (v1.8.88, pedido do operador) — o rótulo descreve a função e
- * mais nada. O que era subtítulo virou linha de status do card, e só quando há
- * o que dizer: ver `serieAutoImpedimento`.
+ * O AVISO DO CARD (v1.11.10). Ele era a linha de opção — a caixa "Manter o … da
+ * semana baixado" — e o que sobra dela é a única coisa que não podia sair: o
+ * IMPEDIMENTO. Chamado a cada abertura do card, ele pergunta ao disco se o
+ * episódio da semana já está no aparelho e, se não está e a rede não deixa, diz
+ * por quê na linha de status (`setCollStatus`), que é transitória por
+ * construção. Sem isto o desfecho seria o download automático que nunca roda,
+ * para sempre, sem nada na tela.
  */
-function serieAutoLinha(coll) {
-  if (!ehLink(coll)) return null;
-  const cx = document.createElement('div');
-  cx.className = 'serie-auto';
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'song-menu-btn song-menu-sel';
-  const txt = document.createElement('span'); txt.className = 'song-menu-text';
-  const rot = document.createElement('span'); rot.className = 'song-menu-label';
-  rot.textContent = 'Manter o ' + serieNomeCurto(coll)
-    + ' da semana baixado e atualizado na biblioteca';
-  txt.append(rot);
-  const chk = document.createElement('span');
-  chk.className = 'song-menu-check' + (serieAutoLigada(coll) ? ' on' : '');
-  chk.setAttribute('role', 'checkbox');
-  btn.append(txt, chk);
-  cx.appendChild(btn);
-
-  // A MARCA é de MEMÓRIA e sai na hora — a linha nunca muda de altura depois de
-  // desenhada, que é o que uma leitura de IndexedDB no meio produziria.
-  btn.setAttribute('aria-checked', serieAutoLigada(coll) ? 'true' : 'false');
-  // O IMPEDIMENTO depende do DISCO (há arquivo?), então ele pousa depois — na
-  // LINHA DE STATUS do card, não na linha da opção: ela não muda de tamanho, e
-  // o status é transitório por construção.
+function serieAutoAviso(coll) {
+  if (!serieAutoLigada(coll)) return;
   const epi = serieEpisodioDaSemana(coll);
   serieArquivoDoEpisodio(epi).then((rec) => {
     const porque = serieAutoImpedimento(coll, epi, rec);
     if (porque) setCollStatus(coll.id, porque, 6000);
   }).catch(() => {});
-
-  btn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await alternarSerieAuto(coll);
-  });
-  return cx;
-}
-
-/**
- * MARCAR E DESMARCAR.
- *
- * `updateState` e não `getState` + `setState`: são DUAS séries hoje, e o
- * operador pode marcar as duas antes de a primeira transação fechar — o par
- * lido-calculado-gravado tem um vão em que quem lê primeiro grava por último e
- * leva a marca do outro junto. É a regra escrita do projeto para toda chave de
- * `state`, e o sintoma dela é a AUSÊNCIA de sintoma.
- *
- * MARCAR DISPARA A ROTINA NA HORA. A alternativa seria esperar o próximo
- * `visibilitychange`, e o instante em que o operador marca é exatamente o
- * instante em que ele quer o vídeo — pedir uma troca de app para isso acontecer
- * seria cobrar um gesto que não explica nada.
- *
- * DESMARCAR SOLTA O ARQUIVO pela mesma rotina, e não por um caminho próprio: o
- * `listSet` dela recalcula a lista inteira a partir de quem está marcado, então
- * a série que saiu deixa de contribuir e o blob morre na mesma transação — se
- * nenhuma outra lista o segurar. Um `listRemove` aqui seria a segunda escrita
- * da mesma regra.
- */
-async function alternarSerieAuto(coll) {
-  if (!coll || !ehLink(coll)) return;
-  const liga = !serieAutoLigada(coll);
-  if (liga) serieAuto.add(coll.id); else serieAuto.delete(coll.id);
-  await AVDB.updateState('serieAuto', (v) => {
-    const m = Object.assign({}, v || {});
-    if (liga) m[coll.id] = true; else delete m[coll.id];
-    return m;
-  }).catch(() => {});
-  renderCollectionsNow();
-  manterSeriesDaSemana().catch(() => {});
 }
 
 /**
@@ -19355,9 +19291,9 @@ async function alternarSerieAuto(coll) {
  * ORDEM continua importando — ela é o que faz o passo 2 ver o arquivo que o
  * passo 1 acabou de trazer —, mas quem fecha o caso é esta regra.
  *
- * E ELA RODA COM A OPÇÃO DESMARCADA TAMBÉM — chamada por `alternarSerieAuto` e
- * pelo `autoRefreshCollections`, sempre. É o passo 2 que precisa disso: sem uma
- * passada com a série já fora de `serieAuto`, desmarcar não soltaria nada.
+ * ELA É CHAMADA pelo `autoRefreshCollections`, sempre, e é o passo 2 que a
+ * mantém viva a cada abertura: a lista de retenção é recalculada a partir da
+ * semana corrente, e é isso que solta o que saiu.
  */
 /**
  * OS IDS QUE ESTA SÉRIE JÁ RETÉM — a metade que impede a limpeza de apagar a
@@ -19392,9 +19328,6 @@ async function manterSeriesDaSemana() {
     const guardar = [];
     const retidos = await AVDB.listIds(SERIE_LISTA).catch(() => []);
     for (const coll of series) {
-      // DESMARCADA, ela não contribui com nada — e é isso que faz desmarcar
-      // soltar o arquivo, sem um caminho próprio para isso.
-      if (!serieAutoLigada(coll)) continue;
       const epi = serieEpisodioDaSemana(coll);
       // SEM EPISÓDIO DA SEMANA (a lista ainda não o trouxe), o que esta série já
       // retém FICA: encolher aqui apagaria o da semana passada por causa de um
@@ -22113,6 +22046,7 @@ function closeHymnSearch() {
   // para o texto pelo motivo oposto: aquele se faz no fechamento para não ser
   // VISTO acontecendo, este para não ficar VISÍVEL depois.
   hymnSearchInputEl.value = '';
+  renderBuscaLimpar();
   // FECHAR é o momento certo, e não abrir: aqui a tela já saiu de cena, então
   // nada do que se colapsa é visto colapsando. No `openHymnSearch` o mesmo
   // trabalho apareceria como a Biblioteca se desmontando na frente do operador.
@@ -38669,6 +38603,28 @@ if (window.ResizeObserver && bottombarEl) {
 }
 sorteioBtnEl.addEventListener('click', abrirSorteio);
 hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(hymnSearchInputEl.value), SEARCH_DEBOUNCE_MS));
+// O ✕ DO CAMPO (v1.11.10): aparece com texto, apaga e devolve o foco. Segue o
+// valor do campo por TODOS os caminhos que o escrevem — a digitação (`input`) e
+// o `value = ''` do fechar da Biblioteca, que não dispara evento nenhum —, e por
+// isso a visibilidade sai de uma função só, chamada nos dois.
+function renderBuscaLimpar() {
+  if (hymnSearchLimparEl) hymnSearchLimparEl.hidden = !hymnSearchInputEl.value;
+}
+hymnSearchInputEl.addEventListener('input', renderBuscaLimpar);
+if (hymnSearchLimparEl) {
+  // `pointerdown` não rouba o foco do campo (o `preventDefault` evita o blur que
+  // fecharia o teclado e o reabriria): o teclado fica de pé do começo ao fim.
+  hymnSearchLimparEl.addEventListener('pointerdown', (ev) => ev.preventDefault());
+  hymnSearchLimparEl.addEventListener('click', () => {
+    hymnSearchInputEl.value = '';
+    renderBuscaLimpar();
+    // A MESMA atualização da digitação, SEM o debounce: quem apagou espera a
+    // lista inteira de volta, não `SEARCH_DEBOUNCE_MS` depois.
+    renderSearchResults('');
+    hymnSearchInputEl.focus();
+  });
+}
+renderBuscaLimpar();
 
 // Mantém o indicador de Wi-Fi/dados móveis dos cards de coleção atualizado
 // em tempo real (o navegador dispara 'change' quando o tipo de conexão muda).

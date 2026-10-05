@@ -796,6 +796,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      ao toque enquanto o outro fica parado lê-se como um deles quebrado. */
   .cue-save-btn, .pl-pack, .pl-clear, .yt-search-btn, .log-copy, .diag-btn, .hino-indice-chip,
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol,
+  .lib-search-limpar,
   /* A linha de slide que PROJETA, no auxiliar de leitura (v1.4.26). */
   .lv-row--tocavel,
   /* O ✓ do renomear, na coluna do `⋮` (v1.4.27). A LIXEIRA fica de fora: ela é
@@ -5066,29 +5067,6 @@ main {
    `tokens.css` — opaco de propósito, para valer o mesmo em qualquer nível da
    escada). Ele não é `--live`: nada aqui está NO AR, e vermelho ao lado de uma
    lista de episódios prometeria projeção. */
-/* ---------- "MANTER O EPISÓDIO DA SEMANA BAIXADO" (v1.8.87) ----------
-   A linha da opção, no TOPO do card aberto da série. AS PEÇAS SÃO AS QUE JÁ
-   EXISTEM — `.song-menu-btn`, `.song-menu-text`, `.song-menu-check` e o
-   `--sel-fill` de marcado —, e é o mesmo reuso da folha de grupos da exportação
-   (v1.7.3): é uma CAIXA DE MARCAÇÃO, o idioma deste app para "esta linha está
-   marcada", e um interruptor próprio daria duas gramáticas para o mesmo gesto.
-
-   O RÓTULO QUEBRA EM DUAS LINHAS de propósito — ele é a frase do operador
-   inteira, e encurtá-la seria escrever outra coisa. `align-items: flex-start`
-   no botão é o que mantém a caixa de marcação no alto em vez de centrada contra
-   um parágrafo: centrada, ela flutua longe do começo da frase que ela governa.
-
-   O RECUO É O DO `.serie-destaque` logo abaixo, que é o vizinho: dois blocos
-   empilhados com recuos diferentes leem como dois níveis de hierarquia, e aqui
-   eles são irmãos. */
-.serie-auto { margin: .4rem 0 .1rem; }
-.serie-auto > .song-menu-btn { align-items: flex-start; }
-.serie-auto .song-menu-label { font-size: var(--fs-md); }
-/* A caixa VOLTA À ALTURA DE UMA LINHA. Ela é `align-self: center` na regra base
-   (a folha, onde o rótulo é curto); aqui o texto tem duas ou três linhas, e o
-   centro delas não é onde o olho procura a marca. */
-.serie-auto .song-menu-check { align-self: flex-start; }
-
 .serie-destaque {
   margin: .4rem 0 .1rem;
   padding: .45rem .5rem .5rem;
@@ -8514,6 +8492,30 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    o que ela nomeia. Daí a casca relativa — o `.lib-search` é `flex: 1` e
    precisa de um pai que ocupe o lugar dele na barra. */
 .lib-search-campo { position: relative; flex: 1; min-width: 0; display: flex; }
+/* ---------- O ✕ DENTRO DO CAMPO (v1.11.10) ----------
+   Apaga a palavra e devolve o foco. Mora no CANTO DIREITO do campo, do mesmo
+   modo que a lupa mora no esquerdo, e só aparece com texto (`hidden`).
+   Posicionado por `top: 0; bottom: 0; margin: auto 0` e NUNCA por
+   `translateY(-50%)`: o recuo do toque é `transform` (`--press`), e uma
+   `transform` de centragem seria apagada por ele, com o botão pulando a cada
+   toque. O alvo é a altura do campo menos a borda de 2px, e a largura é
+   `--hit`; o ícone é `--icon-sm`, a escala de ícone de botão de linha. A tinta
+   é `--field-muted`, a da lupa: o campo é claro nos dois temas e o resto do app
+   não tem a luz dele. */
+.lib-search-limpar {
+  position: absolute; right: 2px; top: 0; bottom: 0; margin: auto 0;
+  width: var(--hit); height: var(--hit);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; border: none; background: transparent;
+  color: var(--field-muted); cursor: pointer;
+  border-radius: var(--radius-btn);
+}
+.lib-search-limpar[hidden] { display: none; }
+.lib-search-limpar svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
+/* Com o ✕ à vista o texto para ANTES dele: sem esta folga a palavra passaria
+   por baixo do botão. A regra é do campo da Biblioteca (`#hymnSearchInput`),
+   que é o único com o ✕. */
+.lib-search-campo:has(> .lib-search-limpar:not([hidden])) > #hymnSearchInput { padding-right: calc(var(--hit) + 8px); }
 .lib-search-lupa {
   position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
   width: 18px; height: 18px; color: var(--muted);
