@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.11.12",
+    "itens": [
+      "Modo Fácil: a barra de busca fica sempre à vista; tocar nela abre a biblioteca mesmo com música tocando.",
+      "Ao escolher uma música, a linha fica marcada, a biblioteca recolhe e a leitura entra com calma.",
+      "Importar: só entra do pacote o que estiver marcado na lista, e o arquivo é apagado como sempre.",
+      "A lista do Transferir sempre mostra os hinários e as séries, mesmo num aparelho novo."
+    ]
+  },
+  {
     "versao": "1.11.11",
     "itens": [
       "Modo Fácil: a biblioteca é a tela principal, com a busca no topo, quando não há mídia no ar.",

@@ -172,6 +172,10 @@ try {
     const [menos, mais] = [...linha.querySelectorAll('.lv-fonte-btn')];
     const lyrics = document.getElementById('simpleLyrics');
     const head = document.querySelector('.simple-head');
+    // O VIZINHO DE CIMA da zona de leitura: desde a v1.11.12 é o ESPAÇO DA BARRA da
+    // Biblioteca (sempre à vista com tela), e só sem ele é o cabeçalho.
+    const barraEl = document.getElementById('simpleBarra');
+    const vizinhoAcima = (barraEl && getComputedStyle(barraEl).display !== 'none') ? barraEl : head;
     const song = document.querySelector('.simple-song');
     const simple = document.getElementById('simpleMode');
     const tempoHit = document.getElementById('simpleTimeHit');
@@ -197,7 +201,7 @@ try {
     };
     const rm = r(mais);
     return {
-      linha: r(linha), mais: rm, menos: r(menos), lyrics: r(lyrics), head: r(head),
+      linha: r(linha), mais: rm, menos: r(menos), lyrics: r(lyrics), head: r(head), acimaDe: r(vizinhoAcima),
       tempoHit: tempoHit ? r(tempoHit) : null,
       tempoAVista: !!(tempo && !tempo.hidden),
       gapSong: parseFloat(getComputedStyle(song).rowGap) || 0,
@@ -276,8 +280,11 @@ try {
       // leitura à vista que o par é usado de verdade.
       await pg.evaluate(() => { midiaNoAr = true; renderTransporteHabilitado(); });
       await esperar(pg,
-        () => !document.body.classList.contains('simples-biblioteca')
-          && getComputedStyle(document.querySelector('.simple-song')).visibility !== 'hidden',
+        () => !document.body.classList.contains('simples-principal')
+          && getComputedStyle(document.querySelector('.simple-song')).visibility !== 'hidden'
+          // A LEITURA ENTRA ANIMADA (v1.11.12): medir geometria no meio do deslize leria um
+          // deslocamento que não é do layout.
+          && !document.querySelector('.simple-song.entrando'),
         'a leitura é a tela (mídia no ar) [' + cfg + ']');
       await pg.evaluate(async () => {
         const f = document.querySelector('#hymnSearchPopup .popup-sheet');
@@ -318,9 +325,10 @@ try {
       // responder por um botão no dia em que outra coisa crescer ali.
       // REVERSÃO PROVADA: `.simple-np-linha { min-height: 0 }` → +1,59px (o par
       // comendo 8,00 dos 9,60 do vão).
-      const acima = m.mais.top - m.head.bottom;
+      const acima = m.mais.top - m.acimaDe.bottom;
       checar(perto(acima, m.gapSimple),
-        'e o RESPIRO ACIMA vale o `gap` do `.simple`, medido do `.simple-head` '
+        'e o RESPIRO ACIMA vale o `gap` do `.simple`, medido do vizinho de cima (o espaço da barra da '
+        + 'Biblioteca, desde a v1.11.12; o `.simple-head` sem ele) '
         + '[' + cfg + ']',
         { respiro: n2(acima), gapDoSimple: n2(m.gapSimple) });
 

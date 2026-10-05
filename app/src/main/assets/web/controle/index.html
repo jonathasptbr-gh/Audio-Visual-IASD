@@ -879,6 +879,13 @@
     <!-- Letra completa da música em cena: o espaço que sobrava entre as ações
          e as teclas. Mesmas linhas (.lv-row) da leitura auxiliar do modo
          avançado, com o mesmo destaque e o mesmo acompanhamento automático. -->
+    <!-- O ESPAÇO DA BARRA DA BIBLIOTECA (v1.11.12). A barra de busca fica SEMPRE à
+         vista no Modo Fácil, também com mídia no ar: é a janela da Biblioteca
+         (`#hymnSearchPopup`, fixa) que pousa sobre este espaço, e ele só reserva a
+         altura dela (`--lib-bar-h`, lida do layout). Tocar no campo abre a
+         Biblioteca por cima da leitura; ✕ ou o voltar a fecham. -->
+    <div class="simple-barra" id="simpleBarra" aria-hidden="true"></div>
+
     <div class="simple-song">
       <!-- A linha do nome hospeda o par A+/A− (v1.1.6). Ele mora AQUI e não
            dentro da caixa da letra por uma razão de altura: naquele modo a
@@ -2607,7 +2614,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.11.11</span>
+            <span id="appVersion" class="app-version">v1.11.12</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

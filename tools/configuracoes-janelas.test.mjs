@@ -466,13 +466,16 @@ try {
   checar(abriuVazia === true,
     'D · a janela abre JÁ com a lista desenhada — sem toque nenhum', porque(abriuVazia));
   const vazia = await lerLista(novo.pg);
-  checar(/ainda não tem biblioteca/.test(vazia.vazio),
-    'D · um aparelho NOVO — o caso de uso do importar — mostra uma FRASE de '
-    + 'estado vazio (`<li class="empty">`), e não uma lista em branco: falhar '
-    + 'vazio é proibido', JSON.stringify(vazia));
-  checar(vazia.caixas === 0 && /Importar só acrescenta/.test(vazia.nota) && !/Exportar leva/.test(vazia.nota),
-    'D · e a nota abaixo da lista fala só do que serve a um aparelho vazio '
-    + '(a promessa do Importar), sem peso nenhum a exportar', JSON.stringify(vazia));
+  checar(vazia.caixas === 4 && vazia.marcadas === 4
+      && vazia.textos.every((t) => /nada baixado neste aparelho/.test(t)),
+    'D · um aparelho NOVO — o caso de uso do importar — mostra as coleções de BASE '
+    + '(séries e hinários) com "nada baixado neste aparelho" e TODAS marcadas: a seleção '
+    + 'agora vale também para IMPORTAR (v1.11.12), e uma lista em branco não deixaria '
+    + 'marcar nada', JSON.stringify(vazia));
+  checar(/ainda não tem biblioteca baixada/.test(vazia.nota) && /traz só o que estiver marcado/.test(vazia.nota)
+      && !/Exportar leva/.test(vazia.nota),
+    'D · e a nota abaixo da lista fala só do que serve a um aparelho novo '
+    + '(a promessa do Importar, com a seleção), sem peso nenhum a exportar', JSON.stringify(vazia));
   checar(vazia.folhaAntigaAberta === false && (await pickDocs(novo.pg)) === 0,
     'D · e nada mais abriu: a folha "O que levar" e o seletor de arquivos não '
     + 'existem antes de um toque', JSON.stringify(vazia));
@@ -517,7 +520,7 @@ try {
   checar(fechada.secoes === 1 && fechada.marcadas === fechada.caixas && fechada.caixas > 0,
     'D · a seção da Biblioteca nasce FECHADA e com TUDO marcado — o que se faz '
     + 'aqui é tirar', JSON.stringify(fechada));
-  checar(/^Exportar leva até /.test(fechada.nota) && /Importar só acrescenta/.test(fechada.nota),
+  checar(/^Exportar leva até /.test(fechada.nota) && /só acrescenta/.test(fechada.nota),
     'D · e a nota acima dos botões diz o PESO do que vai ("até X", o teto) e a '
     + 'promessa do Importar', fechada.nota);
   await tocar(com.pg, '#pacoteLista .pacote-seta');
@@ -526,7 +529,7 @@ try {
   checar(cheia.textos.some((t) => /Álbum Um/.test(t)) && cheia.textos.some((t) => /Álbum Dois/.test(t)),
     'D · a lista nomeia cada coleção do aparelho, uma linha por coleção',
     JSON.stringify(cheia.textos));
-  checar(cheia.textos.every((t) => /até /.test(t)),
+  checar(cheia.textos.filter((t) => !/nada baixado/.test(t)).every((t) => /até /.test(t)),
     'D · com o peso por linha em "até X", o teto', JSON.stringify(cheia.textos));
   // O ÍCONE É UM ELEMENTO, não um texto: `msym()` devolve um <span>, e atribuí-lo
   // a `innerHTML` o converte em "[object HTMLSpanElement]".
