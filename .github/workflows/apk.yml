@@ -639,6 +639,8 @@ jobs:
           rodar tools/leitor-letra-topo.test.mjs
           rodar tools/modo-simples-corpo.test.mjs
           rodar tools/pacote-importar-marcados.test.mjs
+          rodar tools/busca-divisoria.test.mjs
+          rodar tools/modo-facil-card.test.mjs
           rodar tools/geometria.test.mjs
           rodar tools/deslize-nao-vaza.test.mjs
           # SEGUNDA vez que um lote entrega um oráculo e não o registra (a

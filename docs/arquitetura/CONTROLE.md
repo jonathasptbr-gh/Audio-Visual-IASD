@@ -236,7 +236,7 @@ do app e o `:active` que afunda.
 | Elemento | O que faz |
 |---|---|
 | **Seção de conexão** (`#simpleConn`) | as duas formas de conectar — espelhar para a TV e transmitir para navegador, **dois botões irmãos** (ligada, a segunda perde o preenchimento, fica no vermelho contornado e nomeia o desligamento). Ligar e desligar ANIMAM: a folha cresce primeiro e o endereço entra depois (`grid-template-rows: 0fr → 1fr` no `#castLive`, com os atrasos invertidos no fechamento), e a lista de telas é um DIFF por rótulo — refeita por inteiro, ela recomeçaria a animação a cada leitura de 2,5 s e recriaria o botão "Desconectar" debaixo do dedo. Só SEM tela conectada, e ali é a ÚNICA coisa legível: a faixa de ações é içada para o centro da tela, por cima da cortina. É o MESMO nó da folha de "Conectar uma tela" (`#castConn`), movido por `hostCastConn` |
-| **Corpo** (`.simple-song` ou a Biblioteca encaixada) | **UM dos dois** (v1.11.11): sem mídia no ar a BIBLIOTECA com a barra de busca no topo; com mídia no ar a LEITURA (nome, linha do tempo, letra). Quem escolhe é `simplesBibliotecaDocada()` — ver "O Modo Fácil sem prévia". **Não há prévia nem "Buscar música"**: a tela conectada é o visor |
+| **Corpo** (`.simple-song` ou a Biblioteca encaixada) | **UM dos dois** (v1.11.11): sem mídia no ar a BIBLIOTECA com a barra de busca no topo; com mídia no ar a LEITURA (um CARD com o nome e a linha do tempo — `.simple-nowplaying`, v1.11.16 — e a placa da letra). Quem escolhe é `simplesBibliotecaDocada()` — ver "O Modo Fácil sem prévia". **Não há prévia nem "Buscar música"**: a tela conectada é o visor |
 | **Cartão de download** (`#simpleBusySlot`) | o `#pvBusy` movido para cá no Modo Fácil — a única porta de cancelar um download; vazio, não ocupa lugar |
 | **Linha do tempo** (`#simpleTime`) | decorrido · barra · duração, espelhando a `#seek` do avançado; some quando o item não tem duração. **Interativa**: tocar salta, arrastar procura — voltar o refrão é a coisa mais comum num louvor, e mandar o operador SAIR do modo para isso é o oposto do que o modo dá. O alvo é a FAIXA (`.simple-time-hit`), não o traço de 4px. O comando sai no `pointerup` (um `seek` por quadro engasgaria a mídia) e `simpleSeeking` impede o `timeupdate` de puxar o preenchimento debaixo do dedo |
 | **Letra** (`#simpleLyrics`) | a letra INTEIRA da música em cena, com o mesmo destaque da leitura auxiliar do avançado |
@@ -5392,6 +5392,17 @@ itens."*
   e uma POSITIVA exigindo que `--divisoria` tenha um consumidor só. Sem elas o
   precedente que entraria no repositório seria *"filete pode, desde que não se
   chame border"*.
+- **A LISTA DE RESULTADOS DA BUSCA TAMBÉM A TEM (v1.11.16)** — pedido do operador: *"durante a pesquisa na
+  biblioteca, a listagem de itens de resultados não possui uma linha divisória entre os resultados"*. Com o campo
+  preenchido as linhas (`hymn-result`, e os vídeos do YouTube, `hymn-result yt-result`) são filhas DIRETAS de
+  `#hymnResults`, na cor da placa, e o vão de `--sp-5` lê 1,00:1. É a MESMA receita: o seletor
+  `#hymnResults > .hymn-result + .hymn-result::before` entrou na regra do traço, e a metade do vão mora dentro da
+  caixa (`padding-top` = `margin-top` negativo = `--sp-5 / 2`) — para TODA linha, senão o preenchimento de estado
+  (a escolha do Modo Fácil, a gaveta aberta) mudaria de altura com a posição. **A primeira linha cola no topo do
+  scroller com a caixa 4,8px acima dele (recortada) e o conteúdo no mesmo lugar** — MEDIDO: os `.row` ficam nos
+  mesmos y de antes. Nada entre o `.yt-head`/botão do YouTube e o primeiro vídeo (não é `.hymn-result`). **O recuo
+  é a coluna do texto de CADA tipo:** a música usa `--faixa-coluna-texto`; o vídeo, miniatura de `--yt-thumb-w`
+  (82px), sobrescreve o token em `#hymnResults > .yt-result`. Oráculo: `busca-divisoria.test.mjs`.
 - **Ela fica ABAIXO da linha, e isso é a regra escrita**: a `.row` é
   `z-index: 1` e pinta `--linha`, então o traço SOME quando aquela faixa ganha um
   preenchimento opaco de estado — ali quem separa é o preenchimento, e duas

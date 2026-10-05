@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.11.16",
+    "itens": [
+      "Biblioteca: agora há uma linha divisória entre os resultados da busca.",
+      "Modo Fácil: o nome da mídia e a barra de progresso ficam juntos num card."
+    ]
+  },
+  {
     "versao": "1.11.15",
     "itens": [
       "Modo Fácil: o topo agora tem o botão de tela à esquerda, o nome do app no centro e a engrenagem à direita.",
