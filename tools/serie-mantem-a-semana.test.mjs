@@ -235,6 +235,19 @@ try {
     + 'veredito do `ehDoSabadoAtual`, nunca de um calendário escrito aqui',
     datas);
 
+  // A ROTINA É UMA SÓ POR VEZ (`if (serieAutoRodando) return`), e a de ABERTURA
+  // do app (fase 5 do `autoRefreshCollections`) corre sozinha: numa máquina
+  // carregada ela ainda está de pé quando o oráculo chama a dele, e a chamada vira
+  // um no-op calado — o `baixados` fica vazio e o bloco reprova por PRAZO (medido: 1
+  // em 8 com oito processos em paralelo; no CI, uma reprovação). Esperar a de
+  // abertura acabar e chamar no MESMO turno do JS (sem `await` entre a pergunta e a
+  // chamada) fecha a janela. Sem isso, os blocos "não baixa" também passariam por
+  // acaso: a rotina nem teria rodado.
+  const rodarRotina = () => pg.evaluate(async () => {
+    for (let i = 0; i < 400 && serieAutoRodando; i++) await new Promise((r) => setTimeout(r, 50));
+    await manterSeriesDaSemana();
+  });
+
   // ── A. SEM SELETOR (v1.11.10) ───────────────────────────────────────────
   // *"Remova o seletor e faça com que seja o padrão do app sempre baixar os
   // vídeos da semana."* A linha de opção que ocupava o topo do card saiu inteira.
@@ -258,7 +271,7 @@ try {
   // ignorada: o padrão é ligado, e uma chave velha não pode desligá-lo calada.
   await pg.evaluate((id) => AVDB.setState('serieAuto', { [id]: false }), SERIE);
   await armarDownload(true);
-  await pg.evaluate(() => manterSeriesDaSemana());
+  await rodarRotina();
   await esperar(pg, () => !serieAutoRodando && (window.__baixados || []).length > 0, null, 10000);
   const quente = await ler();
   checar(quente.baixados.length === 1 && quente.baixados[0].id === 'semana',
@@ -303,7 +316,7 @@ try {
   // *"o sistema automaticamente verifica se o arquivo já existe"*. Sem esta
   // metade a rotina rebaixaria o mesmo episódio a cada `visibilitychange`.
   await armarDownload(true);
-  await pg.evaluate(() => manterSeriesDaSemana());
+  await rodarRotina();
   const denovo = await ler();
   checar(denovo.baixados.length === 0 && denovo.semana === true,
     'com o arquivo JÁ NO APARELHO a rotina não baixa nada — ela é chamada em '
@@ -319,7 +332,7 @@ try {
     'A PREMISSA: os DOIS episódios estão retidos, como no sábado seguinte',
     antesDaLimpeza);
   await armarDownload(true);
-  await pg.evaluate(() => manterSeriesDaSemana());
+  await rodarRotina();
   const limpo = await ler();
   checar(limpo.retidos.length === 1 && limpo.semana === true,
     'a rotina RETÉM só o da semana corrente — *"limpa os arquivos de semanas '
@@ -335,7 +348,7 @@ try {
     return rec.id;
   });
   await armarDownload(true);
-  await pg.evaluate(() => manterSeriesDaSemana());
+  await rodarRotina();
   const comDono = await ler();
   checar(comDono.seguinte === true && !comDono.retidos.includes(doCronograma),
     'a limpeza SOLTA o episódio que outra lista segura, e o blob FICA: um vídeo '
@@ -356,7 +369,7 @@ try {
   checar(antesDaFalha.passada === true && antesDaFalha.semana === false,
     'A PREMISSA da ordem: só a semana passada está no aparelho', antesDaFalha);
   await armarDownload(false);
-  await pg.evaluate(() => manterSeriesDaSemana());
+  await rodarRotina();
   const falhou = await ler();
   checar(falhou.baixados.length === 1 && falhou.semana === false,
     'o download foi TENTADO e falhou', falhou);
@@ -370,7 +383,7 @@ try {
   // ── G. SEM WI-FI CONFIRMADO NÃO BAIXA, E A LINHA DIZ ISSO ───────────────
   await rede('cellular');
   await armarDownload(true);
-  await pg.evaluate(() => manterSeriesDaSemana());
+  await rodarRotina();
   const movel = await ler();
   checar(movel.baixados.length === 0,
     'EM REDE MÓVEL a rotina não baixa: são ~300 MB que ninguém pediu agora, e '
@@ -403,7 +416,7 @@ try {
   // OPÇÃO, não a rede — só `permitirDadosMoveis` liga.
   await pg.evaluate(() => setPermitirDadosMoveis(true));
   await armarDownload(true);
-  await pg.evaluate(() => manterSeriesDaSemana());
+  await rodarRotina();
   await esperar(pg, () => !serieAutoRodando && (window.__baixados || []).length > 0, null, 10000);
   const comDadosMoveis = await ler();
   checar(comDadosMoveis.baixados.length === 1 && comDadosMoveis.semana === true,
