@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.11.18",
+    "itens": [
+      "Biblioteca: o espaço entre a caixa de busca e os botões dos lados ficou igual ao dos controles de baixo.",
+      "Controles: o nome da mídia e a barra de progresso voltaram para cima da prévia."
+    ]
+  },
+  {
     "versao": "1.11.17",
     "itens": [
       "Biblioteca: a linha divisória dos resultados vai de lado a lado, passando por baixo do play.",

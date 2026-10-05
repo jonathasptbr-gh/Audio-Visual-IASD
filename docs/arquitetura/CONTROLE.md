@@ -593,15 +593,8 @@ navegação por gestos.
 **Grade real (CSS Grid), não flex aproximado:** `.deck` é um `grid` de **3
 colunas** (`var(--deck-col)` / `minmax(0, 1fr)` / `var(--deck-col)`) × 3 linhas
 (todas `auto`), com **sete itens DIRETOS** e nenhuma grade aninhada:
-`.preview-row`, `.slide-side` e `.slide-side--dir` (linha 1), `.nowplaying`
-(linha 2, atravessa as três), `.transport` (linha 3, atravessa as duas
-primeiras) e `#lyricsViewBtn`. **A ORDEM É preview, nowplaying, transporte
-(v1.11.17, um EXPERIMENTO pedido pelo operador)** — até a v1.11.16 o nome da
-mídia com a barra era a linha 1, ACIMA da preview. Desfazer é trocar três
-`grid-row` (`.nowplaying`, `.preview-row`, `.slide-side`/`.fader-wrap`) e mover o
-bloco `.nowplaying` do `index.html` de volta; o DOM acompanha a ordem visual para
-o foco do teclado andar de cima para baixo. Os vãos verticais do deck são os dois
-novos (preview→nowplaying, nowplaying→transporte), e o `controles-layout` os mede.
+`.nowplaying` (atravessa as três), `.slide-side`, `.preview-row`,
+`.slide-side--dir`, `.transport` (atravessa as duas primeiras) e `#historyBtn`.
 Desde a v1.3.8 não há `subgrid`: cada botão da coluna da direita cai na faixa do
 vizinho da esquerda por estar na MESMA linha da grade, não por um alinhamento
 calculado à parte.
@@ -3896,6 +3889,16 @@ levou a barra INTEIRA para o tom dos botões, e o campo não é um botão.
 `--lib-bar-h` mais o respiro): a janela é `fixed` e a barra pousa por cima. A
 ÁREA SEGURA de baixo voltou para a caixa, que é quem encosta na barra de gestos
 outra vez.
+
+**O vão entre o campo e os dois quadrados é o `--deck-gap` (v1.11.18).** Era
+`--sp-4` (8px) contra os 5,6px do deck: MEDIDO a 390px o campo ia de 66,9 a 323,1
+e a preview, a dois níveis dele, de 64,5 a 325,5 — 2,4px de cada lado, o bastante
+para o olho lê-lo como item fora da coluna (*"essas margens estão diferentes das
+margens entre os itens da seção de controles… deixando os itens desalinhados em
+relação a seus vizinhos"*). Os quadrados já tinham a largura da coluna lateral
+(`--deck-col`); com o MESMO vão o campo tem a da coluna do meio e a barra e o deck
+são uma grade só. Oráculo: `controles-layout.test.mjs` (medido contra a preview e
+os botões de slide RENDERIZADOS, a 430px).
 
 #### A camada dela é o CHÃO da pilha, não o teto (v1.5.6)
 

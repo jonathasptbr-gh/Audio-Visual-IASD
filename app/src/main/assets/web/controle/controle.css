@@ -967,7 +967,7 @@ body {
 
 /* ---------- Deck: os controles ---------- */
 /* Grade real (CSS Grid), não flex aproximado: 3 colunas (lateral / conteúdo /
-   lateral) × 3 linhas (preview / nowplaying / transporte), com SETE itens
+   lateral) × 3 linhas (nowplaying / preview / transporte), com SETE itens
    DIRETOS e nenhuma grade aninhada. Desde a v1.3.8 não há `subgrid`: a coluna
    da direita virou dois botões soltos, um em cada linha, e cada um cai na
    faixa do vizinho da esquerda por estar na MESMA linha da grade — não por um
@@ -1034,13 +1034,9 @@ body {
    se recusaria a encolher abaixo do próprio min-content dentro da faixa. */
 /* A BARRA DE PROGRESSO ATRAVESSA AS TRÊS COLUNAS (v1.3.8). Ela parava na 2
    porque a 3 era do histórico; com ele na linha de baixo, ela usa a largura
-   inteira — e o que está dentro dela cai nas colunas do deck (ver `.np-seek`).
-   DESDE A v1.11.17 ELA É A LINHA 2, ABAIXO DA PREVIEW (a linha 1) — um
-   experimento do operador: a faixa com a miniatura e os botões de slide sobe, e
-   o nome da mídia com a barra desce para o meio, entre ela e o transporte. As
-   três linhas continuam `auto`, e a ordem é só de posicionamento. */
-.nowplaying  { grid-column: 1 / 4; grid-row: 2; min-width: 0; }
-.preview-row { grid-column: 2; grid-row: 1; min-width: 0; }
+   inteira — e o que está dentro dela cai nas colunas do deck (ver `.np-seek`). */
+.nowplaying  { grid-column: 1 / 4; grid-row: 1; min-width: 0; }
+.preview-row { grid-column: 2; grid-row: 2; min-width: 0; }
 .transport   { grid-column: 1 / 3; grid-row: 3; min-width: 0; }
 /* A coluna do VOLTAR UM SLIDE. SEM respiro próprio: a coluna JÁ tem a largura
    do botão, e o que a separa da preview é o vão da grade — o mesmo que separa
@@ -1050,7 +1046,7 @@ body {
    `stretch` (o padrão do flex) é o que dá ao botão a altura da faixa, e a
    faixa É a preview. A coluna da direita é a MESMA regra com outra coluna
    (`.slide-side--dir`), o que é o que garante os dois gêmeos. */
-.slide-side { grid-column: 1; grid-row: 1; display: flex; min-width: 0; min-height: 0; }
+.slide-side { grid-column: 1; grid-row: 2; display: flex; min-width: 0; min-height: 0; }
 .slide-side--dir { grid-column: 3; }
 
 /* Linha da preview: só a miniatura. Os botões de slide que a flanqueiam desde
@@ -1122,7 +1118,7 @@ body {
    sermão inteiro, com a mão parada no mesmo ponto da tela; voltar é a
    correção, que se faz olhando. O fader come 2,8 s da célula que ele cobre, e
    cobrir a célula do gesto repetido é interromper o sermão a cada espiada. */
-.fader-wrap { display: none; grid-column: 1; grid-row: 1; min-height: 0; position: relative; }
+.fader-wrap { display: none; grid-column: 1; grid-row: 2; min-height: 0; position: relative; }
 .deck.vol-open .fader-wrap { display: block; }
 .deck.vol-open .slide-side:not(.slide-side--dir) { display: none; }
 .deck.vol-open:not(.vol-closing) .fader-wrap { animation: vol-slide-in .2s ease both; }
@@ -2630,8 +2626,17 @@ main {
    alinhar com os botões que ficam embaixo dela. A área segura NÃO entra aqui:
    fechada, quem encosta na base da tela é a caixa; aberta, quem desconta o
    topo é a folha (`padding-top` da `.popup-sheet--lib`). */
+/* O VÃO ENTRE O CAMPO E OS DOIS QUADRADOS É O DO DECK (`--deck-gap`, v1.11.18).
+   Era `--sp-4` (8px) contra os 5,6px que separam os botões da caixa de controles
+   logo abaixo — pedido do operador: *"essas margens estão diferentes das margens
+   entre os itens da seção de controles… deixando os itens desalinhados em
+   relação a seus vizinhos"*. MEDIDO a 390px: o campo ia de 66,9 a 323,1 e a
+   preview, dois níveis abaixo, de 64,5 a 325,5 — 2,4px de cada lado, o suficiente
+   para o olho ler o campo como um item fora da coluna. Os quadrados já tinham a
+   largura da coluna (`--deck-col`); com o MESMO vão o campo passa a ter a da
+   coluna do meio, e a barra e o deck viram a mesma grade. */
 .lib-bar {
-  display: flex; align-items: center; gap: var(--sp-4); flex-shrink: 0;
+  display: flex; align-items: center; gap: var(--deck-gap); flex-shrink: 0;
   padding: .35rem .7rem;
   background: none;
 }
