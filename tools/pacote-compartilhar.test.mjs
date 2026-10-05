@@ -217,9 +217,11 @@ async function aparelho(opts) {
   return { ctx, pg };
 }
 
+// A lista é a JANELA do Transferir (v1.11.9), já aberta pelo `aparelho()`: o que
+// se espera é ela ter desenhado as linhas (ou a frase de aparelho vazio).
 const abriuFolha = (pg) => esperar(pg, () => {
-  const d = document.getElementById('songMenuPopup');
-  return !!d && d.classList.contains('open') && !!d.querySelector('.song-menu-go');
+  const d = document.getElementById('pacotePopup');
+  return !!d && d.classList.contains('open') && !!document.querySelector('#pacoteLista li');
 }, null, 60000);
 
 async function responderDialogo(pg) {
@@ -277,10 +279,9 @@ async function exportar(espaco) {
   await a.pg.evaluate(async () => {
     for (let i = 0; i < 8; i++) await AVDB.setState('bible:tst_gn_' + i, [{ v: 1, t: 'x' }]);
   });
-  await a.pg.evaluate(() => { window.__fim = exportarPacote(); });
   const abriu = await abriuFolha(a.pg);
   if (abriu !== true) { await a.ctx.close(); return { erro: porque(abriu) }; }
-  await a.pg.click('#songMenuPopup .song-menu-go');
+  await a.pg.click('#pacoteExportarTile');
   // ESPERA PELO FECHO, e não pela promessa da exportação — e a diferença é a
   // asserção do diálogo lá embaixo. Com um `openAppDialog` de volta no fim do
   // caminho a promessa NUNCA resolve (ela espera um toque), e um
@@ -449,6 +450,13 @@ try {
   checar(graDescartado === true,
     'A · e o TILE DA GRADE volta a "ocioso", sem o desenho de compartilhar — o '
     + 'sinal acompanha o descarte, e não só o envio', porque(graDescartado));
+  // E A LISTA DESTRAVA (v1.11.9): travada com o pacote pronto, ela devolve a
+  // escolha ao operador no mesmo instante em que o pronto é descartado.
+  const destravou = await esperar(cheio.pg,
+    () => !document.getElementById('pacoteLista').classList.contains('travada'), null, 20000);
+  checar(destravou === true,
+    'A · e a LISTA da janela destrava junto: descartar devolve ao operador a '
+    + 'escolha do que levar', porque(destravou));
   checar(voltouAoRepouso === true,
     'A · e o PAR volta ao repouso: o exportar deixa de dizer 100% e o importar '
     + 'volta a ser o importar — sem esta metade o botão continuaria oferecendo '
@@ -457,10 +465,10 @@ try {
   // E A FOLHA DE GRUPOS **NÃO** ABRE: descartar não é reexportar. Sem esta
   // asserção, encadear as duas coisas passaria em tudo o mais.
   const naoRecomecou = await cheio.pg.evaluate(
-    () => !document.querySelector('#songMenu.open'));
+    () => !document.querySelector('#songMenuPopup.open'));
   checar(naoRecomecou === true,
     'A · e ele NÃO recomeça a exportação sozinho — quem escolhe o que levar é '
-    + 'a folha, e ela é do próximo toque em Exportar',
+    + 'a lista, e ela é do próximo toque em Exportar',
     String(naoRecomecou));
 
   // ---- E O REGISTRO SABE O QUE ACONTECEU (v1.8.20) ----
@@ -602,13 +610,9 @@ try {
     await AVDB.opfsWriteFile('folders/x/a.m4a',
       new Blob([new Uint8Array(400000).fill(7)], { type: 'audio/mp4' }));
     window.__segurar = true;
+    // Direto, sem a janela: sem lista aberta a função marca TUDO (o padrão).
     window.__fim = exportarPacote();
   });
-  await esperar(pg, () => {
-    const d = document.getElementById('songMenuPopup');
-    return !!d && d.classList.contains('open') && !!d.querySelector('.song-menu-go');
-  }, null, 60000);
-  await pg.click('#songMenuPopup .song-menu-go');
   await esperar(pg, () => (window.__presos || []).length > 0, null, 30000);
 
   const r = await pg.evaluate(() => {

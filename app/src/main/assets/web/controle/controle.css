@@ -7427,9 +7427,8 @@ main {
    abrem de DENTRO dela como o Histórico e a Verificação, e nascem declaradas
    ANTES de `#fadePopup` no HTML: no degrau padrão (200) quem decidiria a ordem
    seria o documento, e as duas abririam ATRÁS. Mesmo degrau pela mesma
-   pergunta (abre de Configurações, nada por cima de si — a folha "O que levar"
-   do exportar, `#songMenuPopup`, é 210 e abre POR CIMA da janela do Transferir),
-   e as quatro nunca estão abertas ao mesmo tempo. */
+   pergunta (abre de Configurações, e nada abre por cima de si), e as quatro
+   nunca estão abertas ao mesmo tempo. */
 #telaPopup { z-index: 205; }
 #pacotePopup { z-index: 205; }
 /* A folha da PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca, como a da música
@@ -9342,7 +9341,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `--accent` com o traço por cima (`.song-menu-check.on`), o mesmo desenho da
    folha de destinos. Nada se perde — o que sai é a segunda cópia da resposta,
    justamente a que custa a hierarquia. */
-:where(#songMenuList) > .pacote-grupo {
+:where(#songMenuList, #pacoteLista) > .pacote-grupo {
   background: var(--poco);
   border-radius: var(--radius-card);
   overflow: hidden;
@@ -10149,8 +10148,16 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `.qs-grade`: o `document.querySelector('.qs-grade')` dos oráculos devolve o
    PRIMEIRO no documento, e as janelas vêm antes de Configurações. */
 .qs-grade-folha { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
-/* A nota da janela do Transferir: uma frase, na tinta de apoio. */
-.pacote-nota { margin: 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
+/* A nota da janela do Transferir: o peso do que está marcado e a promessa da
+   importação, na tinta de apoio, entre a lista e os botões. Fora do scroller —
+   o peso é a pergunta que se faz depois de marcar, e rolar para vê-lo seria
+   escondê-lo. As margens são as do rodapé (`.popup-fecho`): a nota se alinha a
+   ele, não à lista. */
+.pacote-nota { margin: var(--sp-3) .7rem 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
+#pacotePopup .popup-fecho { margin-top: var(--sp-3); }
+/* COM TRABALHO ANDANDO (ou um pacote pronto) a lista é só para olhar: as caixas
+   apagam — INDISPONÍVEL, nunca "desligado" — e as seções continuam abrindo. */
+#pacoteLista.travada .song-menu-check { opacity: var(--op-inativo); }
 /* ===== A FILEIRA DO APARELHO COMEÇA UMA LINHA NOVA (v1.9.9) =====
    Pedido do operador, na v1.7.6: *"reordene os botões: compartilhar, exportar e
    importar devem ser os tres itens da base"*, e hoje são DOIS (Compartilhar e

@@ -424,85 +424,69 @@ try {
   await c.ctx.close();
 
   // =========================================================================
-  // D · O TRANSFERIR: A LISTAGEM DO QUE O APARELHO TEM, ANTES DO ARQUIVO
+  // D · O TRANSFERIR: A LISTA JÁ ESTÁ À VISTA, E OS DOIS BOTÕES MORAM NA BASE
   // =========================================================================
-  const TITULO_LEITURA = 'O que já está neste aparelho';
-  const lerLeitura = (pg) => pg.evaluate(() => {
-    const pop = document.getElementById('songMenuPopup');
-    const linhas = [...pop.querySelectorAll('.pacote-leitura')];
+  // Pedido do operador (v1.11.9), verbatim: *"inicialmente visível a lista de
+  // coletâneas, e abaixo as duas opções de exportar/salvar e importar … em
+  // ambos os casos a lista será vista, então já pode tornar ela visível
+  // diretamente e ter apenas os dois botões de ações na base"*. A v1.11.7 abria
+  // a lista DEPOIS do toque em cada botão (uma folha por cima da janela).
+  const pickDocs = (pg) => pg.evaluate(() => window.__chamadas.filter((x) => x === 'pickDoc').length);
+  const lerLista = (pg) => pg.evaluate(() => {
+    const ul = document.getElementById('pacoteLista');
+    const linhas = [...ul.querySelectorAll('.pacote-linha')];
     return {
-      aberta: pop.classList.contains('open'),
-      titulo: (document.getElementById('songMenuTitle') || {}).textContent || '',
-      caixas: pop.querySelectorAll('.song-menu-check').length,
       linhas: linhas.length,
-      tags: [...new Set(linhas.map((l) => l.tagName))],
-      botoesDeLinha: linhas.filter((l) => l.closest('button')).length,
+      secoes: ul.querySelectorAll('.song-menu-grupo').length,
+      caixas: ul.querySelectorAll('.song-menu-check').length,
+      marcadas: ul.querySelectorAll('.song-menu-check.on').length,
       textos: linhas.map((l) => l.textContent),
       icones: linhas.map((l) => {
         const ic = l.querySelector('.song-menu-icon');
-        return { filho: !!(ic && ic.querySelector(':scope > .msym')), texto: ic ? ic.textContent : '' };
+        // A linha de seleção (`songMenuItem`) recebe o `msym` e o PROMOVE a
+        // `.song-menu-icon`: o ícone é o próprio <span>, não um filho dele.
+        return { filho: !!(ic && (ic.classList.contains('msym') || ic.querySelector(':scope > .msym'))), texto: ic ? ic.textContent : '' };
       }),
-      vazio: (pop.querySelector('li.empty') || {}).textContent || '',
-      ir: (pop.querySelector('.song-menu-go') || {}).textContent || '',
-      secoes: pop.querySelectorAll('.song-menu-grupo').length,
+      vazio: (ul.querySelector('li.empty') || {}).textContent || '',
+      nota: (document.getElementById('pacoteNota') || {}).textContent || '',
+      folhaAntigaAberta: document.getElementById('songMenuPopup').classList.contains('open'),
     };
   });
-  const pickDocs = (pg) => pg.evaluate(() => window.__chamadas.filter((x) => x === 'pickDoc').length);
+  const linhaPeloNome = (pg, nome) => pg.evaluate((n) => {
+    const li = [...document.querySelectorAll('#pacoteLista li')]
+      .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === n);
+    return !!li;
+  }, nome);
 
-  // ---- D1 · APARELHO NOVO: A LISTA DIZ QUE ESTÁ VAZIA, E O ARQUIVO AINDA É OFERECIDO ----
+  // ---- D1 · APARELHO NOVO: A LISTA DIZ QUE ESTÁ VAZIA, E OS DOIS BOTÕES ESTÃO LÁ ----
   const novo = await aparelho({});
   await abrirConfiguracoes(novo.pg);
   await abrirJanela(novo.pg, '#pacoteTile', 'pacotePopup');
-  await tocar(novo.pg, '#pacoteImportarTile');
-  const abriuVazia = await esperar(novo.pg, () => {
-    const p = document.getElementById('songMenuPopup');
-    return p.classList.contains('open') && !!p.querySelector('.song-menu-go');
-  }, null, 20000);
+  const abriuVazia = await esperar(novo.pg, () => !!document.querySelector('#pacoteLista li'), null, 20000);
   checar(abriuVazia === true,
-    'D · Importar abre a LISTAGEM antes do seletor de arquivos', porque(abriuVazia));
-  const vazia = await lerLeitura(novo.pg);
-  checar(vazia.titulo === TITULO_LEITURA,
-    'D · com o título "' + TITULO_LEITURA + '" — é o que diferencia a leitura da '
-    + 'folha "O que levar no arquivo"', vazia.titulo);
+    'D · a janela abre JÁ com a lista desenhada — sem toque nenhum', porque(abriuVazia));
+  const vazia = await lerLista(novo.pg);
   checar(/ainda não tem biblioteca/.test(vazia.vazio),
     'D · um aparelho NOVO — o caso de uso do importar — mostra uma FRASE de '
-    + 'estado vazio (`<li class="empty">`), e não uma folha em branco: falhar '
+    + 'estado vazio (`<li class="empty">`), e não uma lista em branco: falhar '
     + 'vazio é proibido', JSON.stringify(vazia));
-  checar(vazia.caixas === 0,
-    'D · e nenhuma caixa de marcação: é LEITURA, o que se escolhe aqui é o '
-    + 'arquivo, não o que viaja', vazia.caixas);
-  checar(/Escolher o arquivo/.test(vazia.ir),
-    'D · e o botão de seguir continua lá, mesmo com a lista vazia', vazia.ir);
-  checar((await pickDocs(novo.pg)) === 0,
-    'D · e o seletor de arquivos NÃO abriu ainda — a listagem vem ANTES dele',
-    await pickDocs(novo.pg));
+  checar(vazia.caixas === 0 && /Importar só acrescenta/.test(vazia.nota) && !/Exportar leva/.test(vazia.nota),
+    'D · e a nota abaixo da lista fala só do que serve a um aparelho vazio '
+    + '(a promessa do Importar), sem peso nenhum a exportar', JSON.stringify(vazia));
+  checar(vazia.folhaAntigaAberta === false && (await pickDocs(novo.pg)) === 0,
+    'D · e nada mais abriu: a folha "O que levar" e o seletor de arquivos não '
+    + 'existem antes de um toque', JSON.stringify(vazia));
 
-  // O ✕ DESISTE: não importar. A metade que impede "abrir o seletor de qualquer jeito".
-  await tocar(novo.pg, '#songMenuClose');
-  await esperar(novo.pg, () => !document.getElementById('songMenuPopup').classList.contains('open'), null, 10000);
-  await novo.pg.evaluate(() => new Promise((r) => setTimeout(r, 250)));
-  checar((await pickDocs(novo.pg)) === 0,
-    'D · fechar a listagem pelo ✕ é DESISTIR: o seletor de arquivos NÃO abre',
-    await pickDocs(novo.pg));
-  const livre = await novo.pg.evaluate(() => ({ emCurso: pacoteEmCurso,
-    importar: document.getElementById('pacoteImportarTile').disabled }));
-  checar(livre.emCurso === false && livre.importar === false,
-    'D · e o Importar volta a ser tocável — a guarda que segura o segundo toque '
-    + 'durante a listagem desce junto', JSON.stringify(livre));
-
-  // O "ESCOLHER O ARQUIVO" ABRE O SELETOR — UMA vez.
+  // IMPORTAR É UM TOQUE SÓ, direto no seletor de arquivos — a listagem já foi vista.
   await tocar(novo.pg, '#pacoteImportarTile');
-  await esperar(novo.pg, () => {
-    const p = document.getElementById('songMenuPopup');
-    return p.classList.contains('open') && !!p.querySelector('.song-menu-go');
-  }, null, 20000);
-  await tocar(novo.pg, '#songMenuPopup .song-menu-go');
   const seguiu = await esperar(novo.pg, () => window.__chamadas.includes('pickDoc'), null, 20000);
-  checar(seguiu === true && (await pickDocs(novo.pg)) === 1,
-    'D · "Escolher o arquivo" abre o seletor, UMA vez', porque(seguiu) || await pickDocs(novo.pg));
+  const antiga = await novo.pg.evaluate(() => document.getElementById('songMenuPopup').classList.contains('open'));
+  checar(seguiu === true && (await pickDocs(novo.pg)) === 1 && antiga === false,
+    'D · tocar em Importar abre o seletor de arquivos NA HORA, UMA vez — a lista '
+    + 'que vinha antes dele é a própria janela', porque(seguiu) || await pickDocs(novo.pg));
   await novo.ctx.close();
 
-  // ---- D2 · COM UMA COLEÇÃO DE PESO: AS LINHAS EXISTEM, EM LEITURA ----
+  // ---- D2 · COM COLEÇÕES: AS LINHAS ESTÃO NA JANELA, COM CAIXA, E A NOTA DIZ O PESO ----
   // O catálogo de álbuns mora no `state` e é dele que `allCollections()` monta
   // a lista: semear pelo caminho de verdade, e recarregar para ele ser lido.
   const com = await aparelho({}, async (pg) => {
@@ -524,80 +508,79 @@ try {
   });
   await abrirConfiguracoes(com.pg);
   await abrirJanela(com.pg, '#pacoteTile', 'pacotePopup');
-  await tocar(com.pg, '#pacoteImportarTile');
-  await esperar(com.pg, () => {
-    const p = document.getElementById('songMenuPopup');
-    return p.classList.contains('open') && !!p.querySelector('.song-menu-grupo');
-  }, null, 20000);
-  // A seção nasce FECHADA: abrir pela barra (que em leitura só abre e fecha).
-  await tocar(com.pg, '#songMenuPopup .song-menu-grupo');
-  await esperar(com.pg, () => document.querySelectorAll('#songMenuPopup .pacote-leitura').length >= 2, null, 10000);
-  const cheia = await lerLeitura(com.pg);
-  checar(cheia.titulo === TITULO_LEITURA && cheia.linhas >= 2,
-    'D · com coleções no aparelho a listagem as nomeia, uma linha por coleção',
-    JSON.stringify(cheia));
+  // PREMISSA: as linhas aparecem SEM nenhum toque — é o pedido inteiro.
+  const apareceu = await esperar(com.pg, () => !!document.querySelector('#pacoteLista .song-menu-grupo'), null, 20000);
+  checar(apareceu === true,
+    'D · com coleções no aparelho a lista aparece sozinha, assim que a janela abre',
+    porque(apareceu));
+  const fechada = await lerLista(com.pg);
+  checar(fechada.secoes === 1 && fechada.marcadas === fechada.caixas && fechada.caixas > 0,
+    'D · a seção da Biblioteca nasce FECHADA e com TUDO marcado — o que se faz '
+    + 'aqui é tirar', JSON.stringify(fechada));
+  checar(/^Exportar leva até /.test(fechada.nota) && /Importar só acrescenta/.test(fechada.nota),
+    'D · e a nota acima dos botões diz o PESO do que vai ("até X", o teto) e a '
+    + 'promessa do Importar', fechada.nota);
+  await tocar(com.pg, '#pacoteLista .pacote-seta');
+  await esperar(com.pg, () => document.querySelectorAll('#pacoteLista .pacote-grupo-corpo .pacote-linha').length >= 2, null, 10000);
+  const cheia = await lerLista(com.pg);
   checar(cheia.textos.some((t) => /Álbum Um/.test(t)) && cheia.textos.some((t) => /Álbum Dois/.test(t)),
-    'D · pelo NOME de cada uma', JSON.stringify(cheia.textos));
+    'D · a lista nomeia cada coleção do aparelho, uma linha por coleção',
+    JSON.stringify(cheia.textos));
   checar(cheia.textos.every((t) => /até /.test(t)),
-    'D · com o peso no mesmo formato da folha de exportar ("até X"), para as duas '
-    + 'telas não divergirem', JSON.stringify(cheia.textos));
-  checar(cheia.caixas === 0 && !cheia.vazio,
-    'D · sem nenhuma caixa e sem a frase de vazio', JSON.stringify(cheia));
+    'D · com o peso por linha em "até X", o teto', JSON.stringify(cheia.textos));
   // O ÍCONE É UM ELEMENTO, não um texto: `msym()` devolve um <span>, e atribuí-lo
-  // a `innerHTML` o converte em "[object HTMLSpanElement]" — o que cada linha
-  // mostrava, e que a folha VAZIA (a única exercitada antes) não revela.
+  // a `innerHTML` o converte em "[object HTMLSpanElement]".
   checar(cheia.icones.length >= 2 && cheia.icones.every((i) => i.filho && !/object/i.test(i.texto)),
-    'D · cada linha traz o ÍCONE (um `.msym` dentro de `.song-menu-icon`) e nunca o texto '
-    + '"[object HTMLSpanElement]": `msym()` devolve um elemento, e `innerHTML` o transforma em string',
-    JSON.stringify(cheia.icones));
+    'D · cada linha traz o ÍCONE (um `.msym` que veste `.song-menu-icon`) e nunca '
+    + 'o texto "[object HTMLSpanElement]"', JSON.stringify(cheia.icones));
   checar(cheia.textos.every((t) => !/\[object/.test(t)),
     'D · e o texto da linha não contém "[object …]" em ponto nenhum', JSON.stringify(cheia.textos));
-  checar(cheia.tags.length === 1 && cheia.tags[0] === 'DIV' && cheia.botoesDeLinha === 0,
-    'D · as linhas são <div>, NÃO <button>: um botão que não faz nada é o botão '
-    + 'aceso que o toque tenta duas vezes antes de concluir que o app quebrou '
-    + '(a regra da v1.8.50)', JSON.stringify([cheia.tags, cheia.botoesDeLinha]));
-  // O toque numa linha de leitura NÃO fecha a folha (o `songMenuItem` sem destino
-  // fecha ao toque, e fechar aqui é DESISTIR de importar).
-  await tocar(com.pg, '#songMenuPopup .pacote-leitura');
-  await com.pg.evaluate(() => new Promise((r) => setTimeout(r, 150)));
-  const aindaAberta = await aberta(com.pg, 'songMenuPopup');
-  checar(aindaAberta === true && (await pickDocs(com.pg)) === 0,
-    'D · e tocar numa linha NÃO faz nada: a folha continua aberta e o seletor '
-    + 'fechado — nenhuma linha é "desistir" nem "seguir"', String(aindaAberta));
-  await tocar(com.pg, '#songMenuPopup .song-menu-go');
-  const seguiu2 = await esperar(com.pg, () => window.__chamadas.includes('pickDoc'), null, 20000);
-  checar(seguiu2 === true,
-    'D · e "Escolher o arquivo" segue para o seletor também com a lista cheia',
-    porque(seguiu2));
-
-  // ---- D3 · EXPORTAR NÃO MUDOU: A FOLHA É A "O QUE LEVAR", POR CIMA DA JANELA ----
-  await com.pg.evaluate(async () => {
-    await new Promise((r) => setTimeout(r, 100));
-    if (document.getElementById('songMenuPopup').classList.contains('open')) closeSongMenu();
+  // TIRAR UMA COLEÇÃO MUDA A NOTA: é a pergunta "cabe no cartão?" respondida a
+  // cada toque, e sem ela a nota seria uma frase fixa.
+  const notaAntes = cheia.nota;
+  await com.pg.evaluate(() => {
+    const li = [...document.querySelectorAll('#pacoteLista .pacote-linha')]
+      .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Álbum Dois');
+    li.querySelector('button').click();
   });
+  const mudou = await esperar(com.pg, (antes) => document.getElementById('pacoteNota').textContent !== antes, notaAntes, 10000);
+  const depois = await lerLista(com.pg);
+  checar(mudou === true && depois.marcadas < cheia.marcadas,
+    'D · desmarcar uma coleção MUDA o peso da nota — ela acompanha a escolha',
+    porque(mudou) || JSON.stringify([notaAntes, depois.nota]));
+
+  // ---- D3 · OS DOIS BOTÕES MORAM NA BASE, FORA DO SCROLLER, LADO A LADO ----
+  const baseJ = await com.pg.evaluate(() => {
+    const lista = document.getElementById('pacoteLista');
+    const ex = document.getElementById('pacoteExportarTile');
+    const im = document.getElementById('pacoteImportarTile');
+    const re = ex.getBoundingClientRect(), ri = im.getBoundingClientRect(), rl = lista.getBoundingClientRect();
+    return {
+      mesmoFecho: !!ex.closest('.popup-fecho') && ex.closest('.popup-fecho') === im.closest('.popup-fecho'),
+      foraDaLista: !lista.contains(ex) && !lista.contains(im),
+      abaixoDaLista: +Math.min(re.top, ri.top).toFixed(1) - +rl.bottom.toFixed(1) >= 0,
+      ladoALado: Math.abs(re.top - ri.top) < 1 && re.left < ri.left,
+      mesmaAltura: Math.abs(re.height - ri.height) < 1,
+      naTela: re.bottom <= innerHeight + 1 && ri.bottom <= innerHeight + 1 && re.height > 0,
+      rotulos: [(ex.querySelector('.qs-titulo') || {}).textContent, (im.querySelector('.qs-titulo') || {}).textContent],
+    };
+  });
+  checar(baseJ.mesmoFecho && baseJ.foraDaLista && baseJ.abaixoDaLista && baseJ.naTela,
+    'D · Exportar e Importar são os dois botões da BASE: no `.popup-fecho`, FORA '
+    + 'do scroller da lista e abaixo dela — com o acervo inteiro à vista eles não rolam',
+    JSON.stringify(baseJ));
+  checar(baseJ.ladoALado && baseJ.mesmaAltura && baseJ.rotulos[0] === 'Exportar' && baseJ.rotulos[1] === 'Importar',
+    'D · lado a lado, na mesma altura (uma faixa de fecho com dois botões tem UMA '
+    + 'altura), e com os rótulos de sempre', JSON.stringify(baseJ));
+
+  // EXPORTAR É UM TOQUE SÓ, e leva o que está marcado: nenhuma folha abre por cima.
   await tocar(com.pg, '#pacoteExportarTile');
-  const levar = await esperar(com.pg, () => {
-    const p = document.getElementById('songMenuPopup');
-    return p.classList.contains('open') && !!p.querySelector('.song-menu-go');
-  }, null, 60000);
-  checar(levar === true, 'D · Exportar continua abrindo a folha de escolha', porque(levar));
-  await assentar(com.pg, ['#songMenuPopup .popup-sheet']);
-  const folhaExp = await com.pg.evaluate(() => ({
-    titulo: document.getElementById('songMenuTitle').textContent,
-    caixas: document.querySelectorAll('#songMenuPopup .song-menu-check').length,
-    leitura: document.querySelectorAll('#songMenuPopup .pacote-leitura').length,
-    ir: document.querySelector('#songMenuPopup .song-menu-go').textContent,
-  }));
-  checar(folhaExp.titulo === 'O que levar no arquivo' && folhaExp.caixas > 0 && folhaExp.leitura === 0
-      && /^Salvar /.test(folhaExp.ir.trim()),
-    'D · "O que levar no arquivo", com caixas e "Salvar X": a leitura é só do '
-    + 'Importar — as duas folhas compartilham o mesmo contêiner, e a de exportar '
-    + 'não pode herdar a leitura', JSON.stringify(folhaExp));
-  const porCima = await donoDoCabecalho(com.pg, '#songMenuPopup');
-  checar(porCima.dono === 'songMenuPopup',
-    'D · e ela abre POR CIMA da janela do Transferir (z 210 contra 205) — era o '
-    + 'que a janela precisava não quebrar', JSON.stringify(porCima));
-  await tocar(com.pg, '#songMenuClose');
+  const exportou = await esperar(com.pg,
+    () => window.__chamadas.includes('criar') || window.__chamadas.includes('criarLocal'), null, 60000);
+  const antigaExp = await com.pg.evaluate(() => document.getElementById('songMenuPopup').classList.contains('open'));
+  checar(exportou === true && antigaExp === false,
+    'D · tocar em Exportar começa a exportação NA HORA, sem folha por cima: a '
+    + 'escolha é a marca que a lista já mostra', porque(exportou));
   await com.ctx.close();
 
   // =========================================================================
@@ -637,7 +620,7 @@ try {
   const listou = await aberta(pronto.pg, 'songMenuPopup');
   checar(perguntou === true && listou === false && (await pickDocs(pronto.pg)) === 0,
     'E · tocar nele PERGUNTA se descarta — e NÃO abre a listagem nem o seletor '
-    + '(a guarda de `importarPeloTile`)', JSON.stringify([porque(perguntou), listou]));
+    + '(a guarda do `importarPacote`)', JSON.stringify([porque(perguntou), listou]));
   await pronto.pg.click('#appDialogCancel');
   await pronto.ctx.close();
 
@@ -648,14 +631,14 @@ try {
   await f.pg.evaluate(async () => {
     await AVDB.opfsWriteFile('folders/x/a.m4a',
       new Blob([new Uint8Array(400000).fill(7)], { type: 'audio/mp4' }));
+    // Um registro na pasta: sem ele o aparelho não tem biblioteca, a lista é a
+    // frase de vazio, e não há linha nenhuma para a trava alcançar.
+    await AVDB.fileAdd({ id: 'f-x', folder: 'x', opfsPath: 'folders/x/a.m4a', name: 'a',
+      type: 'audio/mp4', kind: 'audio', size: 400000, thumb: null, blob: null, url: null, addedAt: 1 });
     window.__segurar = true;
+    // Direto, sem a janela: sem lista aberta a função marca TUDO (o padrão).
     window.__fim = exportarPacote();
   });
-  await esperar(f.pg, () => {
-    const d = document.getElementById('songMenuPopup');
-    return !!d && d.classList.contains('open') && !!d.querySelector('.song-menu-go');
-  }, null, 60000);
-  await tocar(f.pg, '#songMenuPopup .song-menu-go');
   await esperar(f.pg, () => (window.__presos || []).length > 0, null, 30000);
   await abrirConfiguracoes(f.pg);
   // A JANELA NUNCA FOI ABERTA: os dois botões estão dentro de um backdrop sem
@@ -687,6 +670,21 @@ try {
 
   // FECHAR A JANELA NO MEIO NÃO CANCELA: o trabalho é do módulo, não da janela.
   await abrirJanela(f.pg, '#pacoteTile', 'pacotePopup');
+  // COM TRABALHO ANDANDO A LISTA SÓ SE OLHA (v1.11.9): as caixas apagam
+  // (INDISPONÍVEL) e as linhas de marcar não respondem — mudar a escolha de
+  // uma exportação que já está escrevendo seria uma mentira da tela.
+  await esperar(f.pg, () => !!document.querySelector('#pacoteLista .pacote-linha'), null, 20000);
+  const travada = await f.pg.evaluate(() => {
+    const ul = document.getElementById('pacoteLista');
+    const botoes = [...ul.querySelectorAll('.pacote-linha > button')];
+    const cx = ul.querySelector('.song-menu-check');
+    return { classe: ul.classList.contains('travada'), botoes: botoes.length,
+      todosOff: botoes.every((b) => b.disabled),
+      opacidade: cx ? +getComputedStyle(cx).opacity : -1 };
+  });
+  checar(travada.classe && travada.botoes > 0 && travada.todosOff && travada.opacidade < 0.5,
+    'F · com a exportação andando a lista TRAVA: as linhas de marcar ficam '
+    + '`disabled` e as caixas apagam (--op-inativo)', JSON.stringify(travada));
   await tocar(f.pg, '#pacotePopupClose');
   await esperar(f.pg, () => !document.getElementById('pacotePopup').classList.contains('open'), null, 10000);
   const depoisDeFechar = await lerSinal();
@@ -708,6 +706,11 @@ try {
   }, null, 60000);
   const fim = await lerSinal();
   const fimAlt = await f.pg.evaluate(() => document.getElementById('pacoteTile').classList.contains('qs-alt'));
+  const aindaTravada = await f.pg.evaluate(
+    () => document.getElementById('pacoteLista').classList.contains('travada'));
+  checar(aindaTravada === true,
+    'F · e com o pacote PRONTO a lista continua travada: a escolha é a do pacote '
+    + 'que espera para ser enviado, e só descartá-lo a devolve', String(aindaTravada));
   checar(terminou === true && fim.aro === false && fimAlt === true,
     'F · ao terminar o aro APAGA e o tile vira o pronto (desenho de compartilhar) '
     + '— os três estados do tile da grade: ocioso, ocupado, pronto',
