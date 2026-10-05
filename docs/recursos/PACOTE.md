@@ -223,9 +223,32 @@ botão" vale para eles, na janela; o que mudou é a porta e o sinal:
   arquivos importados aparecerem na Biblioteca. O relatório conta o que ficou de
   fora, e a frase do consumo diz que o arquivo foi apagado COM o que não estava
   marcado: o consumo é o de sempre, e o que não entrou se perde com ele.
+- **UMA SÉRIE LEVA SÓ O VÍDEO DA SEMANA (v1.11.14).** Pedido do operador: *"na
+  exportação, em específico do informativo e do provai e vede, faça ele exportar
+  apenas o vídeo da semana. E verifique que atualmente ele diz 'nada baixado neste
+  aparelho', provavelmente se referindo à lista completa, que não vamos usar na
+  exportação"*. A linha `col:<série>` NÃO mede a pasta do álbum (o álbum de série
+  nunca é baixado — a frase falava da lista completa): ela é o episódio que a série
+  RETÉM na lista `serie` (`serieVideosDoPacote`, por `serieRetidosDa`), com o peso
+  dele. A frase é **"vídeo da semana"** quando o retido é o desta semana
+  (`serieEpisodioDaSemana`), **"último vídeo baixado"** quando é de uma semana que
+  passou (o da semana ainda não veio — chamá-lo "da semana" seria a linha mentindo
+  antes de o operador mandar) e **"sem vídeo da semana baixado"**, sem peso, quando
+  não há. **O episódio SAI de "Outros itens"** (`cobertos` em
+  `pacoteGruposDeMidia`): senão desmarcar a série não o tiraria do pacote. Ele se
+  sobrepõe aos Favoritos como todo grupo de mídia (viaja se QUALQUER um estiver
+  marcado). **A pasta `folders/<série>/` não viaja** — nem os bytes (`porGrupo` da
+  série sai do plano exato) nem o catálogo (`plano.seriesIds`). **O pacote NOMEIA os
+  grupos de cada mídia** (`grupos: [...]` no cabeçalho do registro `media`; um leitor
+  antigo ignora o campo): é a única forma de a IMPORTAÇÃO por marcas saber que um
+  vídeo é de uma série, porque ele não está em lista nenhuma do `state` que o
+  pacote traga (`pacoteMidiaEntra(filtro, rec, grupos)`); um pacote antigo, sem o
+  campo, cai nas listas e em `midia`, como antes. O que sobrar numa pasta antiga de
+  série no aparelho de origem deixa de viajar — foi decisão do operador, e o
+  álbum nunca foi baixado por este app.
 - **O APARELHO NOVO TEM O QUE MARCAR (v1.11.12).** `pacoteMontarFolha` lista
   sempre os hinários e as séries (`pacoteColecaoDeBase`), com "nada baixado neste
-  aparelho" e sem peso (`vazio: true`) — sem isso a lista de um aparelho novo, o
+  aparelho" (os hinários; as séries, "sem vídeo da semana baixado") e sem peso (`vazio: true`) — sem isso a lista de um aparelho novo, o
   caso de uso da importação, seria vazia e a seleção não teria função. Os álbuns do
   catálogo, que são centenas, só entram com bytes: **um álbum que o aparelho não
   tem não aparece e, com a seleção estreitada, não entra.** Com nada baixado a nota

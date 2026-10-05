@@ -75,7 +75,8 @@
     'info',        // o cabeçalho humano do pacote (corpo: JSON)
     'state',       // uma chave de `state` cujo valor é JSON
     'state-blob',  // uma chave de `state` cujo valor é um Blob (o wallpaper)
-    'media',       // um registro de "media"; o corpo é o blob principal
+    'media',       // um registro de "media"; o corpo é o blob principal. O cabeçalho pode
+                   // trazer `grupos` (v1.11.14): as chaves de grupo da folha a que o item pertence
     'media-thumb', // a miniatura daquele registro
     'media-pagina',// uma página de uma apresentação (kind 'deck')
     'arquivo',     // um registro do catálogo OPFS ("files"); sem corpo
