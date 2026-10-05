@@ -2996,12 +2996,12 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.11.12 · APK v1.11.3** · `SHELL_VERSION` **77** ·
+**Versão atual: base web v1.11.13 · APK v1.11.3** · `SHELL_VERSION` **77** ·
 bundle com `minShell: 77` e **SEM `shellTag`** — o shell 77 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Nada em
 `java/`, `res/` ou no manifesto muda neste lote, e o APK v1.11.3 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO. A v1.11.12 trouxe TRÊS ajustes** (a barra da Biblioteca sempre à vista no Modo Fácil, a escolha de uma música com feedback calmo, e a seleção da janela do Transferir valendo também para IMPORTAR — ver as linhas "Modo Fácil: a TELA PRINCIPAL" e "Levar a biblioteca" da tabela de divergências). **A v1.11.11 REESTRUTUROU O MODO FÁCIL** (sem prévia, sem "Buscar música"; a Biblioteca é a tela principal sem mídia no ar e a leitura é a tela com mídia no ar; séries só com a semana — ver as linhas "Modo Fácil" e "Recolher a prévia" da tabela de divergências). **A v1.11.10 traz TRÊS ajustes de superfície** (o ✕ dentro do campo de busca da Biblioteca, a letra aberta da Biblioteca que começa no topo, e o download automático das séries SEM seletor — ver a linha "Manter o episódio da SEMANA baixado" da tabela de divergências). **A v1.11.9 refez a janela do Transferir** (a lista de
+**O DEGRAU É CORREÇÃO. A v1.11.13 CONSERTA A ALTURA DA BIBLIOTECA DEPOIS DO PARAR no Modo Fácil** (a caixa é medida pelo LAYOUT e remedida depois de assentar, e a Verificação do Registro ganha a linha dos números se ela sair do lugar — ver o capítulo do Controle). **A v1.11.12 trouxe TRÊS ajustes** (a barra da Biblioteca sempre à vista no Modo Fácil, a escolha de uma música com feedback calmo, e a seleção da janela do Transferir valendo também para IMPORTAR — ver as linhas "Modo Fácil: a TELA PRINCIPAL" e "Levar a biblioteca" da tabela de divergências). **A v1.11.11 REESTRUTUROU O MODO FÁCIL** (sem prévia, sem "Buscar música"; a Biblioteca é a tela principal sem mídia no ar e a leitura é a tela com mídia no ar; séries só com a semana — ver as linhas "Modo Fácil" e "Recolher a prévia" da tabela de divergências). **A v1.11.10 traz TRÊS ajustes de superfície** (o ✕ dentro do campo de busca da Biblioteca, a letra aberta da Biblioteca que começa no topo, e o download automático das séries SEM seletor — ver a linha "Manter o episódio da SEMANA baixado" da tabela de divergências). **A v1.11.9 refez a janela do Transferir** (a lista de
 coletâneas sempre à vista, e Exportar/Importar como os dois botões da base —
 ver a linha "Levar a biblioteca" da tabela de divergências). **A v1.11.7
 juntou QUATRO pedidos do operador,
