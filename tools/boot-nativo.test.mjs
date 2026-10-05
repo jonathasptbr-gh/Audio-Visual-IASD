@@ -5239,11 +5239,11 @@ try {
       maisOff: !!document.querySelector('#lyricsPopup .lv-fonte-mais').disabled,
     });
     const r = { padrao: ler() };
-    // AS DUAS CASAS existem: a folha de leitura e a linha do nome do Modo Fácil.
+    // AS DUAS CASAS existem: a folha de leitura e o par flutuante da zona de leitura do Modo Fácil.
     // Um par só serviria metade dos operadores — e o Modo Fácil não tem a folha.
     r.pares = document.querySelectorAll('.lv-fonte-ctl').length;
     r.naFolha = !!document.querySelector('#lyricsPopup .lv-fonte-ctl');
-    r.noSimples = !!document.querySelector('.simple-np-linha .lv-fonte-ctl');
+    r.noSimples = !!document.querySelector('.simple-song .simple-fabs.lv-fonte-ctl');
     // UM PASSO, e ele é DISCRETO: o valor seguinte é o da escada, não o anterior
     // vezes um fator.
     await passoTamanhoDaLetra(1);
