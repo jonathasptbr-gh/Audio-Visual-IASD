@@ -651,6 +651,7 @@ const songMenuCloseEl = document.getElementById('songMenuClose');
 //  fechada. Ver `renderLibToggle`.)
 const hymnSearchPopupEl = document.getElementById('hymnSearchPopup');
 const hymnSearchInputEl = document.getElementById('hymnSearchInput');
+const hymnSearchLimparEl = document.getElementById('hymnSearchLimpar');
 const hymnResultsEl = document.getElementById('hymnResults');
 const bibleVerPopupEl = document.getElementById('bibleVerPopup');
 const bibleVerListEl = document.getElementById('bibleVerList');
@@ -14216,6 +14217,16 @@ function openLyricsPopup(item) {
   lvFrenteVista = frente;
   lvFollow = true; // toda abertura começa acompanhando o que está no ar
   renderLyricsView();
+  // UMA LEITURA NOVA COMEÇA NO TOPO (v1.11.10). Relato do operador: *"a posição
+  // está se mantendo entre buscas e leituras de diferentes músicas, não voltando
+  // para o topo do scroll e início da música"*. O corpo é UM nó reaproveitado: o
+  // `innerHTML = ''` do render troca o conteúdo mas NÃO zera o `scrollTop`
+  // (o navegador só o limita à altura nova), e uma música da Biblioteca não tem
+  // estrofe corrente — o `lvScroll` sai sem achar `.lv-row.current` e ninguém o
+  // reposiciona. Só o ALVO da Biblioteca zera: o que está em cena se posiciona
+  // sozinho na estrofe do ar logo abaixo (`lvScrollToCurrent`), e zerar ali seria
+  // trabalho inútil.
+  if (novo) lyricsViewBodyEl.scrollTop = 0;
   lyricsPopupEl.classList.add('open');
   // Depois de aberto (a folha ainda está subindo): o scroll só é possível com
   // o elemento já medido — e a MEDIDA da cifra também. No `renderLyricsView`
@@ -22113,6 +22124,7 @@ function closeHymnSearch() {
   // para o texto pelo motivo oposto: aquele se faz no fechamento para não ser
   // VISTO acontecendo, este para não ficar VISÍVEL depois.
   hymnSearchInputEl.value = '';
+  renderBuscaLimpar();
   // FECHAR é o momento certo, e não abrir: aqui a tela já saiu de cena, então
   // nada do que se colapsa é visto colapsando. No `openHymnSearch` o mesmo
   // trabalho apareceria como a Biblioteca se desmontando na frente do operador.
@@ -38669,6 +38681,28 @@ if (window.ResizeObserver && bottombarEl) {
 }
 sorteioBtnEl.addEventListener('click', abrirSorteio);
 hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(hymnSearchInputEl.value), SEARCH_DEBOUNCE_MS));
+// O ✕ DO CAMPO (v1.11.10): aparece com texto, apaga e devolve o foco. Segue o
+// valor do campo por TODOS os caminhos que o escrevem — a digitação (`input`) e
+// o `value = ''` do fechar da Biblioteca, que não dispara evento nenhum —, e por
+// isso a visibilidade sai de uma função só, chamada nos dois.
+function renderBuscaLimpar() {
+  if (hymnSearchLimparEl) hymnSearchLimparEl.hidden = !hymnSearchInputEl.value;
+}
+hymnSearchInputEl.addEventListener('input', renderBuscaLimpar);
+if (hymnSearchLimparEl) {
+  // `pointerdown` não rouba o foco do campo (o `preventDefault` evita o blur que
+  // fecharia o teclado e o reabriria): o teclado fica de pé do começo ao fim.
+  hymnSearchLimparEl.addEventListener('pointerdown', (ev) => ev.preventDefault());
+  hymnSearchLimparEl.addEventListener('click', () => {
+    hymnSearchInputEl.value = '';
+    renderBuscaLimpar();
+    // A MESMA atualização da digitação, SEM o debounce: quem apagou espera a
+    // lista inteira de volta, não `SEARCH_DEBOUNCE_MS` depois.
+    renderSearchResults('');
+    hymnSearchInputEl.focus();
+  });
+}
+renderBuscaLimpar();
 
 // Mantém o indicador de Wi-Fi/dados móveis dos cards de coleção atualizado
 // em tempo real (o navegador dispara 'change' quando o tipo de conexão muda).

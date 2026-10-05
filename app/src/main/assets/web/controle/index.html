@@ -3120,6 +3120,16 @@
                exatamente onde o dedo mira. -->
           <svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>
           <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar por nome ou número…">
+          <!-- O ✕ DENTRO DO CAMPO (v1.11.10, pedido do operador: *"preciso de um
+               'x' dentro da caixa de texto que permita apagar a palavra atual e
+               diretamente digitar uma nova palavra"*). Só existe com texto
+               (`hidden` sem ele — falhar mudo é um botão que não faz nada), e o
+               toque limpa E devolve o foco, que é o "diretamente digitar". O
+               ✕ nativo do `type="search"` é suprimido no CSS: um segundo ✕ no
+               mesmo campo seria duas respostas para o mesmo gesto. -->
+          <button id="hymnSearchLimpar" class="lib-search-limpar" type="button" title="Apagar a busca" aria-label="Apagar a busca" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCancelar"/></svg>
+          </button>
         </div>
         <button id="hymnSearchToggle" class="popup-close lib-toggle" type="button" title="Abrir a Biblioteca" aria-label="Abrir a Biblioteca">
           <svg class="ico-base" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
