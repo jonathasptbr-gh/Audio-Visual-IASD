@@ -140,9 +140,13 @@ const trocarTelas = async (pg, telas) => {
 // espera entre escrever o estado e medir). `--hit` e o recuo saem do ESTILO —
 // o oráculo não conhece 34 nem 2. "Visível" é o que o operador alcança: sem
 // `display: none`, sem `visibility: hidden` e com caixa.
-const MEDIR = () => {
+const MEDIR = (tirarFallback) => {
   const r = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, t: b.top, w: b.width, h: b.height }; };
   const pv = document.getElementById('preview');
+  // `tirarFallback`: mede COMO SERIA com a linha única à força (a classe é devolvida ao fim da
+  // própria leitura, antes de qualquer quadro) — é o que prova que o fallback só liga quando precisa.
+  const tinhaFallback = pv.classList.contains('pv-extras-baixo');
+  if (tirarFallback) pv.classList.remove('pv-extras-baixo');
   const cs = getComputedStyle(pv);
   const hit = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit'));
   const vis = (e) => {
@@ -184,6 +188,7 @@ const MEDIR = () => {
     folga = P.h - (base - topo) - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
   }
   const linhas = new Set(fabs.map((f) => Math.round(f.t / 4))).size;
+  if (tirarFallback) pv.classList.toggle('pv-extras-baixo', tinhaFallback);
   return {
     hit, P, cls: pv.className, fabs, ids: fabs.map((f) => f.id).join(','), seta, cx,
     fora, sobre, diferentes, folga, linhas,
@@ -194,7 +199,7 @@ const MEDIR = () => {
 };
 
 async function abrir(largura = 430, altura = 900) {
-  const ctx = await navegador.newContext({ viewport: { width: largura, height: altura } });
+  const ctx = await navegador.newContext({ viewport: { width: largura, height: altura }, reducedMotion: 'reduce' });
   await semRedeExterna(ctx);
   const pg = await ctx.newPage();
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
@@ -215,7 +220,7 @@ try {
   // =========================================================================
   // A · A SETA, QUADRADA E NO LUGAR CERTO (só no avançado: o Modo Fácil não tem prévia, v1.11.11)
   // B · RECOLHER: A ALTURA É A MENOR POSSÍVEL (a folga), SEM BOTÃO APERTADO
-  // H · COM SELO E GIRO À VISTA A TIRA TEM DUAS LINHAS, SEM SOBREPOSIÇÃO
+  // H · COM SELO E GIRO À VISTA: LINHA ÚNICA, OU DUAS SE NÃO CABE (v1.11.17), SEM SOBREPOSIÇÃO
   // =========================================================================
   // Uma varredura só: 3 larguras x 2 proporções, e em cada célula três
   // estados (expandida, recolhida e recolhida com o giro à vista). A largura
@@ -288,7 +293,11 @@ try {
         }
 
         // ---- H: com o giro à vista (o selo da camada mora na mesma linha) ----
+        // O GIRO ENTRA NA LINHA ÚNICA OU, SE NÃO CABE, DESCE COM O SELO (v1.11.17): quem decide é o
+        // `ResizeObserver` do `acertarExtrasDaPrevia`, que roda ANTES da pintura mas depois do
+        // layout — duas rodadas de quadro bastam para o veredito assentar.
         await pg.evaluate(() => { mediaRot = 270; renderRotBtn(); });
+        await pg.evaluate(() => new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f))));
         const gir = await pg.evaluate(MEDIR);
         checar(/pvGiroBtn/.test(gir.ids),
           'H0 · PREMISSA: o giro está à vista (`mediaRot` 270) [' + tag + ']', gir.ids);
@@ -296,12 +305,32 @@ try {
           'H1 · com o giro à vista: todo botão é `--hit`, dentro e SEM sobreposição [' + tag + ']',
           { diferentes: gir.diferentes, fora: gir.fora, sobre: gir.sobre });
         checar(gir.folga !== null && gir.folga <= 2.5,
-          'H2 · e a altura segue a MENOR POSSÍVEL com a segunda linha (folga <= 2,5 px) [' + tag + ']',
+          'H2 · e a altura segue a MENOR POSSÍVEL (folga <= 2,5 px) [' + tag + ']',
           'folga ' + (gir.folga == null ? '?' : gir.folga.toFixed(1)) + 'px, altura ' + gir.P.h.toFixed(1));
+        const desceu = /\bpv-extras-baixo\b/.test(gir.cls);
+        // H4 · O FALLBACK SÓ LIGA QUANDO A LINHA ÚNICA NÃO CABERIA: com a classe tirada na hora,
+        // a mesma prévia tem de estourar (fora ou sobreposição). Sem esta asserção um
+        // `pv-extras-baixo` sempre ligado passaria em tudo acima, e a linha única — o pedido —
+        // nunca existiria.
+        const forcada = await pg.evaluate(MEDIR, true);
+        if (desceu) {
+          checar(forcada.fora.length > 0 || forcada.sobre.length > 0,
+            'H4 · o fallback só liga quando a linha única NÃO caberia: com a classe tirada na hora a prévia estoura '
+            + '(fora ou sobreposição) [' + tag + ']', { fora: forcada.fora, sobre: forcada.sobre });
+        } else {
+          checar(forcada.fora.length === 0 && forcada.sobre.length === 0 && forcada.linhas === 1,
+            'H4 · e, sem o fallback, a linha única é uma linha só e cabe inteira [' + tag + ']',
+            { linhas: forcada.linhas, fora: forcada.fora, sobre: forcada.sobre });
+        }
         if (modo === 'full' && largura === 320) {
-          checar(gir.linhas === 2 && gir.P.h > rec.P.h + gir.hit - 2,
-            'H3 · a 320 px o giro NÃO cabe ao lado da seta: ele desce para a SEGUNDA linha [' + tag + ']',
-            { linhas: gir.linhas, sem: rec.P.h.toFixed(1), com: gir.P.h.toFixed(1) });
+          checar(desceu && gir.linhas === 2 && gir.P.h > rec.P.h + gir.hit - 2,
+            'H3 · a 320 px o giro NÃO cabe ao lado da seta: a linha DESCE (`pv-extras-baixo`) e a prévia ganha a segunda [' + tag + ']',
+            { desceu, linhas: gir.linhas, sem: rec.P.h.toFixed(1), com: gir.P.h.toFixed(1) });
+        }
+        if (modo === 'full' && largura === 430) {
+          checar(!desceu && gir.linhas === 1 && Math.abs(gir.P.h - rec.P.h) <= 0.5,
+            'H3b · a 430 px tudo cabe NUMA linha: selo, seta e giro lado a lado, e a prévia NÃO ganha altura nenhuma [' + tag + ']',
+            { desceu, linhas: gir.linhas, sem: rec.P.h.toFixed(1), com: gir.P.h.toFixed(1) });
         }
         await pg.evaluate(() => { mediaRot = 0; renderRotBtn(); });
       }

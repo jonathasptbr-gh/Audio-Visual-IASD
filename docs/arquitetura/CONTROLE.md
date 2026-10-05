@@ -593,8 +593,15 @@ navegação por gestos.
 **Grade real (CSS Grid), não flex aproximado:** `.deck` é um `grid` de **3
 colunas** (`var(--deck-col)` / `minmax(0, 1fr)` / `var(--deck-col)`) × 3 linhas
 (todas `auto`), com **sete itens DIRETOS** e nenhuma grade aninhada:
-`.nowplaying` (atravessa as três), `.slide-side`, `.preview-row`,
-`.slide-side--dir`, `.transport` (atravessa as duas primeiras) e `#historyBtn`.
+`.preview-row`, `.slide-side` e `.slide-side--dir` (linha 1), `.nowplaying`
+(linha 2, atravessa as três), `.transport` (linha 3, atravessa as duas
+primeiras) e `#lyricsViewBtn`. **A ORDEM É preview, nowplaying, transporte
+(v1.11.17, um EXPERIMENTO pedido pelo operador)** — até a v1.11.16 o nome da
+mídia com a barra era a linha 1, ACIMA da preview. Desfazer é trocar três
+`grid-row` (`.nowplaying`, `.preview-row`, `.slide-side`/`.fader-wrap`) e mover o
+bloco `.nowplaying` do `index.html` de volta; o DOM acompanha a ordem visual para
+o foco do teclado andar de cima para baixo. Os vãos verticais do deck são os dois
+novos (preview→nowplaying, nowplaying→transporte), e o `controles-layout` os mede.
 Desde a v1.3.8 não há `subgrid`: cada botão da coluna da direita cai na faixa do
 vizinho da esquerda por estar na MESMA linha da grade, não por um alinhamento
 calculado à parte.
@@ -2570,15 +2577,50 @@ que ela ganhou GEOMETRIA.
 - **A altura mínima é a do CONTEÚDO, e ninguém a escreve.** Recolhida, a prévia
   deixa de ser um retângulo com botões POR CIMA (as colunas `.pv-fabs` são
   `position: absolute`, e a altura delas não conta) e vira uma GRADE em fluxo:
-  `height: auto`, sem `aspect-ratio`, `grid-template-columns: 1fr auto 1fr`, os
-  grupos `static` em linha. MEDIDO de 320 a 430px de largura e de 1,2 a 2,4 de
-  proporção, nos dois modos: **38px** (34 de `--hit` mais 2px de recuo de cada
-  lado) e **72px** quando o selo de camadas ou o giro estão à vista (a segunda
-  linha — eles não cabem ao lado da seta em 360px). Nenhum botão apertado,
-  nenhum fora, nenhuma sobreposição, seta centrada. Um número declarado
-  assumiria dois botões empilhados e quebraria no terceiro; `flex: 0 1` com
-  `min-height: 24px` espremeria a cortina e o mudo, que o pedido proíbe. O
-  oráculo é quem MEDE (`previa-recolhida.test.mjs`).
+  `height: auto`, sem `aspect-ratio`, os grupos `static` em linha. MEDIDO de 320
+  a 430px de largura e de 1,2 a 2,4 de proporção, nos dois modos: **38px** (34 de
+  `--hit` mais 2px de recuo de cada lado). Nenhum botão apertado, nenhum fora,
+  nenhuma sobreposição. Um número declarado assumiria dois botões empilhados e
+  quebraria no terceiro; `flex: 0 1` com `min-height: 24px` espremeria a cortina
+  e o mudo, que o pedido proíbe. O oráculo é quem MEDE (`previa-recolhida.test.mjs`).
+- **UMA LINHA SÓ, CINCO COLUNAS (v1.11.17).** O selo de camadas e o desfazer do
+  giro moravam numa SEGUNDA linha (72px) — pedido do operador: *"esses botões
+  fiquem lado a lado com o próprio botão de descolapsar, não criando altura
+  desnecessária apenas para esses botões"*. Hoje a grade é
+  `minmax(0,1fr) auto auto auto minmax(0,1fr)`: laterais nos extremos, selo ·
+  seta · giro no miolo (`.pv-fabs--base` é `display: contents`, os dois botões
+  viram células). Com extras à vista a seta anda até ~23px do centro (o bloco
+  selo+seta+giro é que fica centrado); sem extras ela segue exatamente no centro.
+  **A ORDEM DOS GRUPOS LATERAIS espelha a da prévia aberta:** o grupo esquerdo é
+  `row-reverse` (o HTML é cortina, mudo), então o MUDO é o canto esquerdo e a TELA
+  CHEIA o direito nos DOIS estados — *"na esquerda o botão de mudo não está
+  mantendo a mesma posição relativa de antes e depois de colapsar, diferente do
+  botão de tela cheia, que se mantém imóvel"*. **O fallback `pv-extras-baixo`:** em
+  360px a prévia mede 211–240px e a soma dos botões à vista (250 com cast + selo +
+  giro) passa disso. `acertarExtrasDaPrevia` mede a SOMA contra a largura (nenhum
+  número escrito: o giro tem a largura do ângulo e o cast some no navegador) por um
+  `ResizeObserver` na prévia e em cada botão, e a linha desce para o desenho
+  antigo — tudo ou nada. Decidir não realimenta a decisão: a classe muda só a
+  ALTURA da prévia, nunca a largura. O oráculo prova o limite pelos dois lados
+  (`H4`: tirada a classe à força, a linha única estoura onde o fallback ligou e
+  cabe onde não ligou).
+- **A ANIMAÇÃO (v1.11.17)** — *"faça uma animação para a colapsação da preview,
+  ao invés de piscar e mudar de tamanho"*. `animarRecolhimentoDaPrevia`, chamada
+  só por `setEconomiaPreview` (o TOQUE: mede ANTES e anima DEPOIS; a abertura, a
+  troca de destino e a saída da tela cheia chamam `acertarEconomiaDaPreview` direto
+  e assentam no ato). O estado final vale no primeiro quadro; WAAPI desenha o
+  caminho: `height` do medido antes ao medido depois, cada botão em FLIP no eixo X
+  (de onde estava até onde ficou) e as camadas desvanecendo. **O eixo Y não precisa
+  de movimento:** o de cima fica a 2px do topo e o de baixo a 2px da base nas duas
+  geometrias, e `pv-animando` ancora cada um enquanto a altura corre (grade:
+  `align-self: start`/`end`; ao EXPANDIR a coluna de 34px não comporta dois botões
+  de 34, e o mudo/tela cheia ficam `position: absolute; bottom: 0` — MEDIDO, sem
+  isso o mudo caía a −12px da base nos primeiros quadros). `--dur-lenta` lida do
+  token; `semMovimento()` e tela cheia não animam; um segundo toque no meio parte de
+  onde a prévia está (`getBoundingClientRect` já inclui a animação em curso, e
+  `cancelarAnimacaoDaPrevia` roda ENTRE as duas medidas). No fallback anima só a
+  altura e o desvanecer. **Oráculo que clica a seta e mede NO ATO abre o contexto
+  com `reducedMotion: 'reduce'`**; o caminho animado é do `previa-animacao.test.mjs`.
 - **`1fr auto 1fr`, e não `auto 1fr auto`:** com o cast oculto (o navegador) ou a
   coluna da esquerda fora (Modo Fácil) as laterais ficam desiguais e a seta
   sairia do centro.
@@ -5392,7 +5434,7 @@ itens."*
   e uma POSITIVA exigindo que `--divisoria` tenha um consumidor só. Sem elas o
   precedente que entraria no repositório seria *"filete pode, desde que não se
   chame border"*.
-- **A LISTA DE RESULTADOS DA BUSCA TAMBÉM A TEM (v1.11.16)** — pedido do operador: *"durante a pesquisa na
+- **A LISTA DE RESULTADOS DA BUSCA TAMBÉM A TEM (v1.11.16, de lado a lado na v1.11.17)** — pedido do operador: *"durante a pesquisa na
   biblioteca, a listagem de itens de resultados não possui uma linha divisória entre os resultados"*. Com o campo
   preenchido as linhas (`hymn-result`, e os vídeos do YouTube, `hymn-result yt-result`) são filhas DIRETAS de
   `#hymnResults`, na cor da placa, e o vão de `--sp-5` lê 1,00:1. É a MESMA receita: o seletor
@@ -5400,9 +5442,16 @@ itens."*
   caixa (`padding-top` = `margin-top` negativo = `--sp-5 / 2`) — para TODA linha, senão o preenchimento de estado
   (a escolha do Modo Fácil, a gaveta aberta) mudaria de altura com a posição. **A primeira linha cola no topo do
   scroller com a caixa 4,8px acima dele (recortada) e o conteúdo no mesmo lugar** — MEDIDO: os `.row` ficam nos
-  mesmos y de antes. Nada entre o `.yt-head`/botão do YouTube e o primeiro vídeo (não é `.hymn-result`). **O recuo
-  é a coluna do texto de CADA tipo:** a música usa `--faixa-coluna-texto`; o vídeo, miniatura de `--yt-thumb-w`
-  (82px), sobrescreve o token em `#hymnResults > .yt-result`. Oráculo: `busca-divisoria.test.mjs`.
+  mesmos y de antes. Nada entre o `.yt-head`/botão do YouTube e o primeiro vídeo (não é `.hymn-result`). **DE LADO A
+  LADO (v1.11.17):** a v1.11.16 a recuava até a coluna do texto de cada tipo; o operador pediu *"uma linha de lado a
+  lado, passa do botão de play/thumbnail"*, e `#hymnResults > .hymn-result + .hymn-result::before { left: 0 }` a leva à
+  borda da linha (a regra compartilhada segue com `--faixa-coluna-texto` nas faixas de álbum e favoritos, onde a
+  miniatura é parte do desenho). Saiu o `--yt-thumb-w`. **O RESPIRO DO TOPO:** com a primeira linha subindo meio-vão
+  dentro da caixa (margem negativa), o primeiro conteúdo nascia a 0px da barra — a regra A0b (v1.5.20) manda `--sp-5`
+  abaixo do box. `#hymnResults > :first-child:not(.hymn-result)` ganha `margin-top: var(--sp-5)` e a primeira
+  `.hymn-result` `calc(var(--sp-5) / 2)` (a outra metade é o `padding-top` que a primeira linha não pinta): nos quatro
+  estados (Fácil × avançado, navegando × buscando) são 9,6px da barra ao conteúdo e 15,2px do campo.
+  Oráculo: `busca-divisoria.test.mjs` (A5 de lado a lado, A6 o respiro).
 - **Ela fica ABAIXO da linha, e isso é a regra escrita**: a `.row` é
   `z-index: 1` e pinta `--linha`, então o traço SOME quando aquela faixa ganha um
   preenchimento opaco de estado — ali quem separa é o preenchimento, e duas

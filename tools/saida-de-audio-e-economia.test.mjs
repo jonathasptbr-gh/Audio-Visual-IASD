@@ -273,7 +273,7 @@ const medirFabs = (pg) => pg.evaluate(() => {
 });
 
 async function abrir() {
-  const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
+  const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, reducedMotion: 'reduce' });
   await semRedeExterna(ctx);
   const pg = await ctx.newPage();
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
@@ -410,7 +410,7 @@ try {
   // ponte: medir o `hidden` no app aprova o tile mesmo que ninguém o esconda
   // nunca (lá ele é `false` das duas formas). O defeito vive só do outro lado —
   // um tile aceso que não liga nada, que é a regra da v1.8.50.
-  const ctxWeb = await navegador.newContext({ viewport: { width: 430, height: 900 } });
+  const ctxWeb = await navegador.newContext({ viewport: { width: 430, height: 900 }, reducedMotion: 'reduce' });
   await semRedeExterna(ctxWeb);
   const pgWeb = await ctxWeb.newPage();
   await pgWeb.goto(base + '/controle/', { waitUntil: 'load' });

@@ -388,7 +388,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.16';
+const WEB_VERSION = '1.11.17';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2496,9 +2496,15 @@ async function setEconomiaPreview(on) {
   const alvo = !!on;
   if (economiaPreview === alvo) return;
   economiaPreview = alvo;
+  // MEDIR ANTES, ANIMAR DEPOIS (v1.11.17): só o TOQUE anima — a abertura, a troca de
+  // destino e a saída da tela cheia chamam `acertarEconomiaDaPreview` direto e a
+  // prévia aparece no estado final, sem movimento.
+  const antes = medirPrevia();
+  cancelarAnimacaoDaPrevia();
   // PINTAR ANTES DE GRAVAR, a regra da v1.4.40: depois do `await` a seta só
   // responderia ao toque quando a transação do IndexedDB voltasse.
   acertarEconomiaDaPreview();
+  animarRecolhimentoDaPrevia(antes);
   diagC('prévia: ' + (economiaPreview ? 'RECOLHIDA' : 'expandida'));
   await AVDB.setState('economiaPreview', economiaPreview);
 }
@@ -2531,6 +2537,108 @@ function renderRecolherBtn() {
   pvRecolherEl.title = temDestino
     ? (economiaPreview ? acao : acao + ' — a imagem para de ser decodificada, e isso poupa processamento')
     : acao + ' — a imagem só deixa de ser decodificada com TV ou computador conectado';
+}
+
+/**
+ * A LINHA ÚNICA DA PRÉVIA RECOLHIDA CABE? (v1.11.17)
+ *
+ * Recolhida, a prévia põe tudo numa linha: os dois grupos laterais, a seta e, quando
+ * existem, o selo de camadas e o desfazer do giro (o CSS está em `.pv-recolhida`).
+ * Em tela estreita a soma passa da largura — 250px contra 211 a 240 em 360px — e a
+ * linha DESCE (`pv-extras-baixo`: os dois extras numa segunda linha, o desenho de
+ * antes). **A pergunta é medida, nunca declarada:** o giro tem a largura do ângulo
+ * ("0°" a "270°") e o cast some no navegador, então nenhum número escrito aqui
+ * valeria por mais de um aparelho.
+ *
+ * A SOMA É A DOS BOTÕES À VISTA (`hidden` fica de fora) contra a largura da prévia
+ * menos o recuo de 2px de cada lado. A largura de um botão não depende do layout em
+ * que ele está (`flex: none` e `width: var(--hit)`; o giro cresce só pelo conteúdo),
+ * e a prévia não muda de LARGURA quando a classe liga ou desliga — só de altura —,
+ * então decidir não realimenta a decisão. Quem a refaz é o `ResizeObserver`, que
+ * enxerga a largura da prévia e cada botão (um `hidden` que cai, o ângulo que muda).
+ */
+function acertarExtrasDaPrevia() {
+  if (!previewEl) return;
+  let soma = 0;
+  previewEl.querySelectorAll('.pv-fabs .pv-fab').forEach((b) => {
+    if (!b.hidden) soma += b.getBoundingClientRect().width;
+  });
+  const folga = previewEl.clientWidth - 4;
+  previewEl.classList.toggle('pv-extras-baixo', soma > folga + 0.5);
+}
+if (previewEl && typeof ResizeObserver === 'function') {
+  const roPrevia = new ResizeObserver(() => acertarExtrasDaPrevia());
+  roPrevia.observe(previewEl);
+  previewEl.querySelectorAll('.pv-fabs .pv-fab').forEach((b) => roPrevia.observe(b));
+}
+acertarExtrasDaPrevia();
+
+/**
+ * O RECOLHER ANIMA (v1.11.17). Pedido do operador: *"faça uma animação para a
+ * colapsação da preview, ao invés de piscar e mudar de tamanho"*.
+ *
+ * O ESTADO FINAL É O DE SEMPRE e vale no primeiro quadro (a classe e a geometria
+ * mudam no ato, e é o estado que o oráculo e a decodificação leem); o que a
+ * animação faz é DESENHAR O CAMINHO até ele, em duas peças:
+ *  - a ALTURA da prévia, do valor medido antes ao medido depois (`height` em px dos
+ *    dois lados: a prévia aberta tem a altura da proporção do telão e a recolhida a
+ *    do conteúdo, e nenhuma delas é um número que se possa escrever);
+ *  - cada BOTÃO, de onde estava até onde ficou, no eixo X — o que o operador vê é a
+ *    seta, o selo e os dois grupos andando para a linha única. O eixo Y não precisa
+ *    de movimento nenhum: o que era de cima fica a 2px do topo e o que era de baixo
+ *    a 2px da base nas DUAS geometrias, e a classe `pv-animando` mantém cada um
+ *    ancorado onde estava enquanto a altura corre.
+ * As camadas (mídia, wallpaper, letra) desvanecem junto, senão sumiriam de uma vez
+ * no último quadro.
+ *
+ * MEDIDA POR `getBoundingClientRect`, que já leva em conta a animação em curso: um
+ * segundo toque no meio do movimento parte de onde a prévia está, não de onde ela
+ * ia chegar (`cancelarAnimacaoDaPrevia` é chamada ENTRE as duas medidas, de
+ * propósito: a de antes enxerga a animação, a de depois não).
+ *
+ * `semMovimento()` e a tela cheia ficam sem animação; o fallback `pv-extras-baixo`
+ * anima só a altura e o desvanecer (a segunda linha mexeria o eixo Y de todos).
+ */
+let pvAnimacoes = [];
+function medirPrevia() {
+  if (!previewEl) return null;
+  const pr = previewEl.getBoundingClientRect();
+  const x = new Map();
+  previewEl.querySelectorAll('.pv-fabs .pv-fab').forEach((b) => {
+    if (!b.hidden) x.set(b, b.getBoundingClientRect().left - pr.left);
+  });
+  return { h: pr.height, x };
+}
+function cancelarAnimacaoDaPrevia() {
+  const em = pvAnimacoes;
+  pvAnimacoes = [];
+  em.forEach((a) => { try { a.cancel(); } catch (_) {} });
+  if (previewEl) previewEl.classList.remove('pv-animando');
+}
+function animarRecolhimentoDaPrevia(antes) {
+  if (!antes || !previewEl || typeof previewEl.animate !== 'function') return;
+  if (semMovimento() || document.fullscreenElement === previewEl) return;
+  const depois = medirPrevia();
+  if (!depois || Math.abs(depois.h - antes.h) < 1) return;
+  const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dur-lenta')) * 1000 || 300;
+  const opts = { duration: ms, easing: ACC_EASE };
+  const recolhendo = depois.h < antes.h;
+  previewEl.classList.add('pv-animando');
+  const anims = [previewEl.animate([{ height: antes.h + 'px' }, { height: depois.h + 'px' }], opts)];
+  previewEl.querySelectorAll('.pv-layer, .pv-wall').forEach((c) => {
+    anims.push(c.animate(recolhendo ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: 1 }], opts));
+  });
+  if (!previewEl.classList.contains('pv-extras-baixo')) {
+    depois.x.forEach((nx, b) => {
+      const ox = antes.x.get(b);
+      if (ox == null || Math.abs(ox - nx) < 0.5) return;
+      anims.push(b.animate([{ transform: 'translateX(' + (ox - nx) + 'px)' }, { transform: 'translateX(0)' }], opts));
+    });
+  }
+  pvAnimacoes = anims;
+  Promise.all(anims.map((a) => a.finished.catch(() => {}))).then(() => {
+    if (pvAnimacoes === anims) { pvAnimacoes = []; previewEl.classList.remove('pv-animando'); }
+  });
 }
 
 // ===== A PREVIEW QUE É A PROJEÇÃO NÃO PODE SER SUSPENSA (v1.3.12) =====

@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.11.17",
+    "itens": [
+      "Biblioteca: a linha divisória dos resultados vai de lado a lado, passando por baixo do play.",
+      "Biblioteca: o espaço entre a barra de busca e o primeiro resultado ficou igual ao espaço entre as linhas.",
+      "Prévia recolhida: cancelar giro e remover camada ficam ao lado da seta, sem altura a mais.",
+      "Prévia: recolher e expandir agora é animado; mudo e tela cheia ficam sempre nos cantos.",
+      "Experimento: o nome da mídia e a barra de progresso desceram para baixo da prévia."
+    ]
+  },
+  {
     "versao": "1.11.16",
     "itens": [
       "Biblioteca: agora há uma linha divisória entre os resultados da busca.",
