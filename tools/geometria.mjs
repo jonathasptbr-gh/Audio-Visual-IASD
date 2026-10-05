@@ -88,7 +88,7 @@ export const SUPERFICIES = [
   // telão (Preenchimento, Papel de parede, Fundo da letra, Girar) e a da
   // transferência da biblioteca (Exportar, Importar). O portão não monta ponte
   // nativa, e fora do app os dois tiles da segunda nascem `hidden` — a janela
-  // abriria VAZIA (só o título e a nota) e as sondas aprovariam uma caixa sem
+  // abriria SEM OS BOTÕES (a lista também nasce vazia sem ponte) e as sondas aprovariam uma caixa sem
   // nada para medir, que é o placar limpo que não vale. Por isso o `abrir` os
   // desoculta, como o `selo` do oráculo do deck: no app eles são os dois moradores.
   { nome: 'tela (opções do telão)', abrir: () => { setAppMode('full'); openTelaPopup(); }, alvo: '#telaPopup.open' },

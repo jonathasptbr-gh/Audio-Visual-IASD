@@ -197,18 +197,17 @@ botão" vale para eles, na janela; o que mudou é a porta e o sinal:
   `.popup-backdrop:not(.open)`, e a janela pode estar fechada durante os minutos de
   uma exportação. O rótulo de PAPEL do irmão ("Cancelar", "Descartar") não é
   espelhado.
-- **A listagem da biblioteca atual vem antes de a ação começar, DENTRO de cada
-  caminho:** exportar abre "O que levar no arquivo" (a escolha); **importar abre a
-  MESMA folha em leitura** — pedido do operador: *"para importação também é bom
-  saber o que já se tem"*. `importarPeloTile()` é o toque (a guarda da v1.8.42
-  copiada), `mostrarAcervoParaImportar` desenha a folha
-  (`renderPacoteGrupos(plano, { leitura: true })`), e só o "Escolher o arquivo"
-  chama `importarPacote()`. A listagem é do que o APARELHO tem e não lê o arquivo;
-  o aparelho novo — o caso de uso da importação — tem estado vazio com frase.
-- **`importarPacote()` e `exportarPacote()` NÃO mudaram, de propósito:** os
-  oráculos os chamam direto com um `pickDoc` de mentira, e um `await` de folha
-  dentro deles os penduraria. A listagem informa, não autoriza: se ela falha em
-  montar, a importação segue.
+- **A lista da biblioteca atual É A JANELA (v1.11.9):** ela já está desenhada
+  quando a janela abre — pedido do operador: *"em ambos os casos a lista será
+  vista, então já pode tornar ela visível diretamente e ter apenas os dois
+  botões de ações na base"*. As caixas escolhem o que o **Exportar** leva (o toque
+  nele é a confirmação, sem folha por cima); o **Importar** não lê a marca, abre o
+  seletor de arquivos na hora e chama `importarPacote()`. A lista é do que o
+  APARELHO tem e não lê o arquivo; o aparelho novo — o caso de uso da importação
+  — tem frase de vazio, e a nota abaixo da lista só fala do que serve a ele.
+- **`exportarPacote()` e `importarPacote()` seguem chamáveis DIRETO, de
+  propósito:** os oráculos os chamam com um `pickDoc` de mentira. Sem a janela
+  aberta, `exportarPacote()` monta o plano e marca TUDO — o padrão da lista.
 
 ### As decisões que precisam estar ditas
 
@@ -509,7 +508,7 @@ para 512 kB.
   barra anunciava "0 de 1" por quase um segundo antes de dizer o que ela era —
   num pacote de gigabytes é o primeiro número que o operador lê.
 
-### O que levar: a folha de grupos (v1.7.2)
+### O que levar: a lista de grupos (v1.7.2; a janela do Transferir desde a v1.11.9)
 
 Pedido do operador: *"pode fazer ele de forma segmentada, por coleção? … caso o
 usuário não queira levar toda a biblioteca … permita um popup com um check list
@@ -520,10 +519,11 @@ de grupos para a exportação"*.
   DEPOIS do "Salvar como", em silêncio absoluto. Hoje ele roda antes da folha —
   que precisa dos tamanhos de qualquer jeito — com o cartão da preview dizendo
   "Medindo o acervo", e a exportação começa com tudo já conhecido.
-- **A FOLHA É A MESMA do seletor de destinos** (`escolherDestinos`): as mesmas
-  linhas selecionáveis de corpo inteiro, a mesma caixa como indicador, o mesmo
-  confirmar sempre visível — que mostra o PESO do que foi marcado, porque é a
-  única pergunta que sobra depois de escolher. Um segundo formato de folha de
+- **AS LINHAS SÃO AS do seletor de destinos** (`songMenuItem`): as mesmas
+  linhas selecionáveis de corpo inteiro e a mesma caixa como indicador. Até a
+  v1.11.8 elas viviam numa folha com o confirmar "Salvar X"; hoje vivem na janela
+  do Transferir e o PESO do que foi marcado mora na nota acima dos botões
+  (`#pacoteNota`), porque é a única pergunta que sobra depois de escolher. Um segundo formato de folha de
   múltipla escolha seria a divergência que a v5.252 gastou um lote para tirar.
 - **TUDO NASCE MARCADO:** o caso normal é levar o acervo inteiro, e a folha
   existe para PODER tirar.
