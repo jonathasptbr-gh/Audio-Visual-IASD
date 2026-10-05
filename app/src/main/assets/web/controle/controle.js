@@ -21,9 +21,10 @@ const appModeSegEl = document.getElementById('appModeSeg');
 const temaTileEl = document.getElementById('temaTile');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleSettingsBtnEl = document.getElementById('simpleSettingsBtn');
-const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
+const simpleCastBtnEl = document.getElementById('simpleCastBtn');
 const simpleVeilEl = document.getElementById('simpleVeil');
-const simpleStageEl = document.getElementById('simpleStage');
+const simpleBusySlotEl = document.getElementById('simpleBusySlot');
+const simpleSongEl = document.querySelector('#simpleMode .simple-song');
 // A preview e a casa dela no modo avançado: são módulo-nível porque o nó MUDA
 // DE PAI conforme o modo (ver hostPreview).
 const previewEl = document.getElementById('preview');
@@ -13692,6 +13693,9 @@ function renderTransporteHabilitado() {
   // depende do degrau — ver lá); o que este bloco faz é pô-la no MESMO pulso
   // dos outros quatro, que é o que a faz acompanhar a fila e a cena.
   renderRepeat();
+  // O MODO FÁCIL TROCA DE TELA PRINCIPAL pela MESMA pergunta do Parar
+  // (`haOQueParar`): este é o pulso que já acompanha a fila e a cena.
+  renderSimpleCorpo();
 }
 
 // Habilita/desabilita os botões de estrofe conforme o item atual tem letra
@@ -37843,6 +37847,7 @@ function setAppMode(mode) {
   // Sair do simplificado com a busca aberta deixaria o popup por cima da tela
   // completa sem nada que explicasse por quê.
   if (appMode === 'full') closeHymnSearch();
+  renderSimpleCorpo();   // depois do fechar: sair do simples desencaixa a janela
   // E AS MINIATURAS DA APRESENTAÇÃO SAEM COM O MODO (v1.4.30). `refreshSimpleLyrics`
   // volta cedo fora do simplificado, então ninguém mais passaria por elas: uma
   // apresentação são dezenas de Blobs segurados pelo resto da sessão, num
@@ -38101,6 +38106,13 @@ function renderCastBtn() {
       : naRede
         ? naRedeTxt + ' recebendo — toque para ver quem está conectado'
         : 'Conectar uma TV';
+  // O ÍCONE DO CABEÇALHO DO MODO FÁCIL (v1.11.11) espelha o da prévia: mesma
+  // classe, mesmo `title`. Dois escritores do mesmo fato divergiriam; aqui há um.
+  if (simpleCastBtnEl) {
+    simpleCastBtnEl.classList.toggle('connected', pvCastBtnEl.classList.contains('connected'));
+    simpleCastBtnEl.title = pvCastBtnEl.title;
+    simpleCastBtnEl.setAttribute('aria-label', pvCastBtnEl.title);
+  }
 }
 
 // O QUE SOBROU DE "renderizar a conexão no Modo Fácil" (v5.197): o ícone de
@@ -38232,6 +38244,9 @@ function renderSimpleGate() {
   // a própria escolha —, e é chamada por todas as três.
   renderCastLocal();
   simpleModeEl.classList.toggle('sem-tela', semTela);
+  // O ÍCONE DE CAST DO CABEÇALHO: com tela ele é a porta de trocar/desconectar;
+  // sem tela a seção de conexão já é a tela inteira, e o ícone só repetiria ela.
+  if (simpleCastBtnEl) simpleCastBtnEl.hidden = appMode !== 'simple' || semTela;
   // A CORTINA VOLTOU na v5.203 (ver o comentário do `.simple-veil`): sem tela
   // este modo não projeta nada — nem imagem nem som, desde que a mesa saiu na
   // v5.189 —, e o bloqueio é o que diz isso sem depender de ninguém ler um
@@ -38242,6 +38257,8 @@ function renderSimpleGate() {
   // coisa nenhuma.
   if (semTela) closeHymnSearch();
   hostCastConn(semTela);
+  // A BIBLIOTECA ENCAIXADA depende de haver tela (a cortina a cobre sem ela).
+  renderSimpleCorpo();
   // ALGUMA TELA ENTROU COM A FOLHA ABERTA: ela fecha. Vale para os dois
   // caminhos (TV e navegador) e nos dois modos — quem acabou de conectar
   // terminou o que veio fazer ali. No Modo Fácil o bloco está DENTRO da tela, e
@@ -38329,44 +38346,35 @@ function acertarEnqueteDaConexao() {
   mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
 }
 
-// ===== A PREVIEW é UM nó só, e ele MUDA DE CASA =====
-// No avançado ela mora na faixa do deck; no simplificado, no lugar que era do
-// botão de conectar. Move-se o mesmo elemento em vez de existirem duas, pelo
-// mesmo padrão do `#selbar` e do `<input type=file>`: duas divergiriam no
-// primeiro ajuste, e dois `createStage` decodificariam o MESMO vídeo duas
-// vezes num aparelho que já roda dois WebViews.
-//
-// A troca acontece só na mudança de MODO — não ao conectar/desconectar. Com a
-// tela bloqueada a faixa some por CSS (`.simple.sem-tela .simple-stage`), e um
-// `display:none` não custa nada; mover o nó a cada conexão, sim (ver abaixo).
-// (O seletor citado aqui dizia `.simple.locked` — uma classe que nunca chegou a
-// existir nesta folha: quem marca o estado é `.sem-tela`, escrita pelo
-// `renderSimpleGate`. Um comentário que aponta para um seletor inexistente é
-// pior que nenhum: ele faz o próximo leitor procurar a regra no lugar errado.)
+// ===== A PREVIEW É UM nó só, e desde a v1.11.11 ele NÃO MUDA MAIS DE CASA =====
+// Até a v1.11.10 ela era MOVIDA entre a faixa do deck (avançado) e a célula do
+// Modo Fácil. Sem prévia no Modo Fácil, ela fica sempre na casa do avançado, e o
+// `<main>` escondido por `body.mode-simple` a cala — o nó continua no documento
+// porque o `stage` dele é quem toca o áudio quando o som é deste aparelho
+// (`tocarNoCelular`). Dois `createStage` decodificariam o MESMO vídeo duas vezes
+// num aparelho que já roda dois WebViews, e por isso não se cria um segundo.
+// A CASA ORIGINAL do cartão de "Baixando…": o `.preview` do avançado, logo antes
+// da coluna de botões do player. Capturada na carga, antes de qualquer mudança.
+const pvBusyOrigem = { pai: pvBusyEl.parentElement, depois: pvBusyEl.nextElementSibling };
+
 function hostPreview() {
-  const alvo = appMode === 'simple' ? simpleStageEl : previewRowEl;
-  if (previewEl.parentElement === alvo) {
-    pvCastBtnEl.hidden = !(appMode === 'simple' || window.__NATIVE__);
-    return;
-  }
-  // Reparentar um `<video>` NÃO interrompe a reprodução desde que ele volte ao
-  // documento no mesmo passo — e `appendChild` de um nó já anexado é remoção e
-  // inserção atômicas, então o "removido do documento" nunca chega a valer.
-  // Quem manda no botão de cast é o CONTEXTO: no simplificado ele é o sinal de
-  // conexão e a porta de saída, então existe sempre; no avançado continua sendo
-  // um atalho para um intent do Android, e some no navegador.
+  // A PRÉVIA NÃO TEM LUGAR NO MODO FÁCIL (v1.11.11). Pedido do operador: *"para
+  // um usuário simples, a própria tela conectada já será o visor, e para o uso
+  // próprio, já tem a letra em exibição ou no telão ou no leitor"*. O nó NÃO
+  // sai do documento — o `stage` dele continua sendo quem toca o áudio quando o
+  // som é deste aparelho (`tocarNoCelular`) — e fica sempre na casa do avançado,
+  // onde o `<main>` escondido o cala.
+  if (previewEl.parentElement !== previewRowEl) previewRowEl.appendChild(previewEl);
   pvCastBtnEl.hidden = !(appMode === 'simple' || window.__NATIVE__);
-  alvo.appendChild(previewEl);
-  // (Havia aqui a remontagem do player do YouTube: um IFRAME, ao contrário de
-  //  um `<video>`, RECARREGA ao mudar de pai, e o player morria junto — então
-  //  ele era reconstruído no segundo em que estava. Sem embed sobra só o
-  //  `<video>`, que o `appendChild` acima preserva por construção.)
+  // O CARTÃO DE ESPERA SEGUE O MODO: no Modo Fácil ele é a única porta de
+  // CANCELAR um download e, sem a prévia, mora no `#simpleBusySlot`.
+  if (appMode === 'simple') {
+    if (pvBusyEl.parentElement !== simpleBusySlotEl) simpleBusySlotEl.appendChild(pvBusyEl);
+  } else if (pvBusyEl.parentElement !== pvBusyOrigem.pai) {
+    pvBusyOrigem.pai.insertBefore(pvBusyEl, pvBusyOrigem.depois);
+  }
 }
 
-// Abre a tela do Display no navegador e acompanha a janela: fechá-la é o
-// equivalente a desconectar o telão, e a cortina precisa voltar. `closed` só
-// se descobre olhando — não há evento — então o relógio existe apenas
-// enquanto a janela existe.
 function openWebDisplay() {
   webDisplayWin = window.open('../display/', 'avDisplay');
   renderSimpleCast();
@@ -38407,12 +38415,9 @@ appModeSegEl.addEventListener('click', (e) => {
 // estados não escolhe — ele vai para o outro. Todo toque muda a cor, que é o
 // que o terceiro estado da v1.8.49 não conseguia prometer.
 temaTileEl.addEventListener('click', () => { setTema(tema === 'claro' ? 'escuro' : 'claro'); });
-// SEM FOCO, e o `() =>` é o ponto: registrado por REFERÊNCIA, o ouvinte chama
-// `openHymnSearch(evento)` — e um `PointerEvent` é truthy, então a lupa do Modo
-// Fácil abria com o teclado por cima da lista. É um BOTÃO, e a regra das duas
-// portas (v1.5.0) diz que botão abre sem foco: *"ver o que eu tenho"*. Mesma
-// armadilha que a v1.4.31 pagou no `openLyricsPopup`.
-simpleSearchBtnEl.addEventListener('click', () => openHymnSearch(false));
+// A PORTA DA TELA do Modo Fácil (v1.11.11): o MESMO `abrirCast()` do ícone da
+// prévia, que não existe mais neste modo.
+simpleCastBtnEl.addEventListener('click', () => abrirCast());
 // Os controles do simplificado são os do modo completo, acionados por click():
 // um botão `disabled` continua sendo um no-op natural, e as bordas ficam num
 // lugar só.
@@ -39746,6 +39751,9 @@ window.__avBack = function () {
   //    há um só, mas se houver dois o de cima é o que o operador vê.
   for (let i = POPUPS.length - 1; i >= 0; i--) {
     const [backdrop, , close] = POPUPS[i];
+    // A BIBLIOTECA ENCAIXADA DO MODO FÁCIL É A TELA, não uma janela: o voltar não
+    // a fecha (fechada, o corpo ficaria vazio) e segue para a fila de baixo.
+    if (backdrop === hymnSearchPopupEl && simplesBibliotecaDocada()) continue;
     if (backdrop.classList.contains('open')) { close(); return true; }
   }
   // 2.5. A folha de Ferramentas. Depois dos bottom-sheets porque um deles pode

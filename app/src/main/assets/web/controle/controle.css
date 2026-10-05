@@ -795,7 +795,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      lado a lado: os dois botões do rodapé da playlist são um PAR, e um recuando
      ao toque enquanto o outro fica parado lê-se como um deles quebrado. */
   .cue-save-btn, .pl-pack, .pl-clear, .yt-search-btn, .log-copy, .diag-btn, .hino-indice-chip,
-  .simple-key, .simple-action, .simple-key--big, .simple-key--vol,
+  .simple-key, .simple-key--big, .simple-key--vol,
   .lib-search-limpar,
   /* A linha de slide que PROJETA, no auxiliar de leitura (v1.4.26). */
   .lv-row--tocavel,
@@ -1273,14 +1273,6 @@ body {
   left: 0; right: 0; top: 2px; bottom: auto;
   flex-direction: row; justify-content: center;
 }
-/* NO MODO FÁCIL A SETA VAI PARA O CANTO SUPERIOR ESQUERDO: lá a coluna da
-   esquerda não existe (a regra logo abaixo a esconde), o canto é livre, e a
-   prévia pode ser MUITO baixa — 144x60 num telefone de 320 com uma TV 21:9, e
-   MEDIDO, com o selo ou o giro à vista (centro da base) uma seta ao centro do
-   topo se sobrepunha a eles em 12px. No canto ela não encontra nenhum dos dois,
-   em altura nenhuma. O avançado não tem o problema (a prévia mais baixa mede
-   88px) e fica no centro. */
-.simple-stage .pv-fabs--topo { left: 2px; right: auto; justify-content: flex-start; }
 /* A COLUNA DE OPERAÇÃO, à esquerda: leitura auxiliar, cortina e mudo (v1.3.5).
    TOPO, MEIO e BASE (`space-between`), o alinhamento da coluna do player ao
    lado: o de cima encosta na altura do cast, o de baixo na do tela cheia. Em
@@ -1309,11 +1301,6 @@ body {
   justify-content: space-between;
 }
 .pv-fabs--esq .pv-fab { flex: 0 1 var(--hit); min-height: 24px; }
-/* No Modo Fácil a preview é o MESMO nó (ver `hostPreview`), e lá estes três não
-   têm o que fazer: o mudo já é uma tecla grande da própria tela e o resto do
-   modo existe justamente para não ter controles. O selo de camadas FICA — ele
-   é a única saída da camada de cima, e não há gêmeo dele lá. */
-.simple-stage .pv-fabs--esq { display: none; }
 /* A tela cheia é a ÚLTIMA da coluna e vai para o rodapé por `margin-top: auto`,
    não por `justify-content: space-between`: no navegador o cast nem existe
    (`[hidden]`), e com um item só o `space-between` o jogaria de volta para o
@@ -1508,11 +1495,6 @@ body {
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs--topo {
   grid-column: 2; grid-row: 1;
 }
-/* No Modo Fácil a seta fica no canto, também recolhida: ela não pode trocar de
-   lugar quando o toque muda o estado — quem toca duas vezes a procuraria. */
-.simple-stage .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on)) .pv-fabs--topo {
-  grid-column: 1; justify-self: start;
-}
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(:has(.pv-busy.on))
   .pv-fabs:not(.pv-fabs--esq):not(.pv-fabs--base):not(.pv-fabs--topo) {
   grid-column: 3; grid-row: 1; justify-self: end;
@@ -1535,9 +1517,8 @@ body {
    no centro do topo e o cartão centrado a cobria — MEDIDO a 360px, 3 a 26px de
    sobreposição conforme a proporção da TV, com o ícone desenhado sobre o texto
    do download. A prévia está expandida por causa do cartão e a marcação continua
-   gravada; a seta volta quando ele sai. No Modo Fácil ela mora no canto e o
-   cartão já reserva as laterais (`.simple-stage .pv-busy`), então ali fica. */
-body:not(.mode-simple) .preview:has(.pv-busy.on) .pv-fabs--topo {
+   gravada; a seta volta quando ele sai. */
+.preview:has(.pv-busy.on) .pv-fabs--topo {
   visibility: hidden; pointer-events: none;
 }
 /* Em tela cheia a preview É a projeção (quando não há TV conectada): os botões
@@ -2565,6 +2546,16 @@ main {
   width: var(--hit); height: var(--hit); min-height: 0;
   color: var(--accent);
 }
+/* NO CABEÇALHO DO MODO FÁCIL SÃO DUAS PORTAS (v1.11.11) — a tela (cast) e a
+   engrenagem — e quem empurra as duas para a direita é a badge de versão
+   (`margin-right: auto`). O `margin-left: auto` da regra acima, com dois
+   botões, repartiria a sobra entre eles e a badge e deixaria o cast flutuando
+   no meio do cabeçalho. A TV recebendo é ATIVIDADE e veste `--ok`, como a
+   `.cast-acao.connected`: a cor diz que há tela no ar, e o toque abre a folha
+   onde se troca de tela ou se desconecta. */
+.simple-head .settings-btn { margin-left: 0; }
+.simple-head #simpleCastBtn[hidden] { display: none; }
+.simple-head #simpleCastBtn.connected { color: var(--ok); }
 /* O voltar continua "chapado" (sem fundo) — só o alvo cresceu. */
 .back-btn { background: none; color: var(--accent); }
 .back-btn .msym { font-size: var(--icon-sm); }
@@ -7717,6 +7708,37 @@ body.lib-aberta.teclado .popup-backdrop--lib {
    scroller E até o véu de baixo, que anula o mesmo número. */
 body.mode-simple,
 body.lib-aberta.teclado { --lib-lista-base: calc(var(--sp-5) + env(safe-area-inset-bottom)); }
+/* ===== NO MODO FÁCIL, SEM MÍDIA NO AR, A BIBLIOTECA É A TELA (v1.11.11) =====
+   Pedido do operador: *"manter diretamente exposto a barra de busca no topo e a
+   biblioteca no corpo onde é hoje o corpo do campo de leitura … sem mídia
+   tocando, a biblioteca é a tela principal, com mídia tocando, o auxiliar de
+   leitura é a tela principal"*.
+
+   É A MESMA JANELA, ENCAIXADA: a camada continua `fixed` e a Biblioteca não ganha
+   nó novo, mas em vez de tela cheia ela ocupa EXATAMENTE a caixa da zona de
+   leitura (`.simple-song`, que fica `visibility: hidden` por baixo, para o
+   controle remoto não subir). As quatro medidas saem do layout
+   (`medirCorpoSimples`) e NUNCA são escritas aqui: a zona de leitura muda de
+   altura com o cartão de "Baixando…" e com a linha de slides. O teclado manda
+   no `bottom` quando é maior que a base (`max`).
+
+   SEM CENA, SEM SETA E SEM FECHAR: a janela não é mais um modal que se abre e
+   se fecha — o ↑/✕ da barra some, e o voltar do Android não a fecha
+   (`window.__avBack`). */
+body.simples-biblioteca .popup-backdrop--lib {
+  top: var(--simple-corpo-topo, 0px);
+  left: var(--simple-corpo-esq, 0px);
+  right: var(--simple-corpo-dir, 0px);
+  bottom: max(var(--simple-corpo-base, 0px), var(--kb, 0px));
+}
+body.simples-biblioteca .popup-backdrop--lib::before { display: none; }
+body.simples-biblioteca .popup-backdrop--lib .popup-sheet--lib,
+body.simples-biblioteca .popup-backdrop--lib.open .popup-sheet--lib {
+  transform: none; height: 100%;
+}
+body.simples-biblioteca .lib-toggle { display: none; }
+body.simples-biblioteca { --lib-lista-base: var(--sp-5); }
+.simple.corpo-biblioteca .simple-song { visibility: hidden; }
 /* E A CAIXA DE CONTROLES SAI DE CENA — só com a Biblioteca ABERTA e o teclado no
    ar. As duas condições são necessárias: sozinho, o teclado não justifica tirar
    o transporte de quem está operando o culto (ele sobe pela Bíblia, pelo
@@ -11419,51 +11441,19 @@ body.mode-simple .bottombar { display: none; }
    foi removido na v5.195 — "Hinários e álbuns" embaixo de "Buscar música"
    nomeava onde a busca procura, e não há segunda busca aqui para escolher entre
    elas —, e a regra ficou para trás sem nenhum elemento para vestir. */
-/* DUAS COLUNAS (v5.201), e na ZONA DE BAIXO: preview | buscar.
-   A v5.199 fez a faixa virar coluna sem tela, a v5.200 separou o par de vez, e
-   é a forma emparelhada que o operador pediu de volta — só que embaixo, com o
-   topo da tela reservado à letra. Este é o estado DESTRAVADO, o único em que
-   estas duas células existem: sem tela a faixa inteira é içada para o centro,
-   com só o cartão de conexão dentro (ver `.simple.sem-tela`). */
-.simple-actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5); }
-.simple-action { padding: .8rem .5rem; }
-/* Telão conectado: o ícone confirma sem precisar ler o subtítulo. */
-
-/* ----- A PREVIEW no lugar do botão de conectar (v5.71) -----
-   Conectado, não há nada melhor a dizer sobre "está conectado?" do que MOSTRAR
-   o que a TV está exibindo: o botão de conectar sai e a preview toma o lugar
-   dele, com o ícone de cast no canto fazendo os dois papéis que sobraram —
-   sinalizar a conexão (pela cor) e ser a porta para trocar de tela ou
-   desconectar. Com isso a faixa de ações fica só com "Buscar música", que passa
-   a ocupar a largura inteira.
-   O nó é o MESMO do modo avançado, movido para cá por `hostPreview`. */
-/* Ela é UMA CÉLULA da grade de ações, no lugar exato que era do botão de
-   conectar — os dois nunca coexistem. Então nada de altura própria: a largura é
-   a da coluna e a altura vem da proporção do telão, que é o ponto de a preview
-   existir. A grade estica as duas células à mesma altura sozinha, e como a
-   preview a 16:9 nessa largura sai um pouco mais alta que a tecla ao lado, é
-   ela quem define a linha — e "Buscar música" acompanha. */
-.simple-stage { min-width: 0; display: flex; align-items: center; justify-content: center; }
-/* (O teto de altura da v5.200 saiu com a razão dele: a preview voltou a dividir
-   a linha com "Buscar música", então a largura da célula já a limita.) */
-.simple-stage .preview { width: 100%; height: auto; max-width: 100%; max-height: 100%; }
-/* O cartão de "Baixando…" foi desenhado para a preview do deck, que é quase o
-   dobro desta: aqui ele transbordava a miniatura e passava por baixo do ícone
-   de cast. Mesmo cartão, medidas menores — a folga da direita continua sendo a
-   largura do `.pv-fab`, porque o cartão é centrado e o ícone fica no canto de
-   cima, mas numa caixa de ~83px de altura os dois se cruzam na vertical. */
-/* Os mesmos 38px da regra base, e IGUAIS DOS DOIS LADOS pelo motivo de lá: a
-   folga assimétrica descentrava o cartão. Aqui a coluna da esquerda nem existe
-   (`.pv-fabs--esq` é `display: none` neste modo), então o que a simetria compra
-   é só o centro — que é justamente o que ela precisa comprar. */
-.simple-stage .pv-busy { padding: .3rem 38px; }
-.simple-stage .pv-busy-card { gap: var(--sp-3); padding: .3rem .45rem .3rem .35rem; }
-.simple-stage .pv-busy-card .dl-ring { --dl-ring: 22px; }
-.simple-stage .pv-busy-cap { font-size: var(--fs-2xs); letter-spacing: .06em; }
-.simple-stage .pv-busy-label { font-size: var(--fs-xs); }
-/* Só o cast. Tela cheia aqui não faz sentido: neste modo há um telão conectado
-   (é o que faz esta faixa existir), e a projeção está nele. */
-.simple-stage #pvFullBtn { display: none; }
+/* A SEÇÃO DE CONEXÃO (v1.11.11) é a única coisa que sobrou desta faixa: a prévia
+   e o "Buscar música" saíram do Modo Fácil. Com tela ela não existe (`display:
+   none`); sem tela ela é içada para o CENTRO da tela (ver `.simple.sem-tela`). */
+.simple-actions { flex: none; display: none; }
+/* O CARTÃO DE "BAIXANDO…" no Modo Fácil (v1.11.11). É o MESMO nó que fica sobre a
+   prévia no avançado (`hostPreview` o move para cá), e a única porta de CANCELAR
+   um download neste modo. Escondido ele não ocupa lugar nenhum: só aparece com
+   `.on`, e o `:has()` é quem liga o slot — uma classe no slot seria um segundo
+   estado a manter em dia com o do cartão. */
+.simple-busy-slot { flex: none; display: none; }
+.simple-busy-slot:has(.pv-busy.on) { display: flex; justify-content: center; }
+.simple-busy-slot .pv-busy { position: static; inset: auto; padding: 0; }
+.simple-busy-slot .pv-busy-card { background: var(--panel); }
 /* CONECTADO ele fica VERMELHO, e isso não é o estado — é a AÇÃO. Quem diz que
    há tela recebendo é a própria preview (que só existe aqui quando há); o que o
    ícone tem a dizer é o que o toque faz, e ele DESCONECTA.
@@ -11533,9 +11523,8 @@ body.mode-simple .bottombar { display: none; }
    somem e a faixa de ações deixa de ser faixa — vira o cartão de conexão
    sozinho, no CENTRO da tela, que é onde o olho já está. Centralizar o bloco
    inteiro dispensa medir a altura de um elemento para posicionar o outro. */
-.simple.sem-tela .simple-stage,
-.simple.sem-tela #simpleSearchBtn { display: none; }
 .simple.sem-tela .simple-actions {
+  display: grid;
   position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
   z-index: 2;
   grid-template-columns: 1fr;
