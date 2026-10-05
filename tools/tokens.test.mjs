@@ -272,14 +272,17 @@ checar(orfaos.length === 0,
 // PROVADO POR REVERSÃO: trocar o seletor da exceção por outro qualquer, ou
 // acrescentar um segundo bloco de 1px pintado em qualquer lugar da base, reprova.
 {
-  // A EXCEÇÃO É UMA REGRA SÓ, com DUAS listas na frente (v1.5.18): a faixa de um
-  // álbum e a linha de um favorito. O operador pediu a segunda ao ver que ela
-  // faltava, e ela entrou no MESMO bloco de declaração de propósito — é isso
+  // A EXCEÇÃO É UMA REGRA SÓ, com TRÊS listas na frente: a faixa de um álbum, a
+  // linha de um favorito (v1.5.18) e a lista de RESULTADOS DA BUSCA (v1.11.16, a
+  // pedido do operador: *"não possui uma linha divisória entre os resultados"*).
+  // Cada lista nova entrou no MESMO bloco de declaração de propósito — é isso
   // que mantém `--divisoria` com um consumidor único, que é a metade positiva
   // logo abaixo. Uma segunda regra com o mesmo `background` passaria por esta
-  // varredura e reprovaria naquela, que é o desenho certo do par.
+  // varredura e reprovaria naquela, que é o desenho certo do par. Acrescentar
+  // uma quarta lista é editar ESTA constante: o nome é o que segura a lista.
   const EXCECAO = '.acervo .coll-songs > .hymn-result + .hymn-result::before,'
-    + ' #hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item + .lib-item::before';
+    + ' #hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item + .lib-item::before,'
+    + ' #hymnResults > .hymn-result + .hymn-result::before';
   const tracos = [];
   let consumidores = 0;
   for (const f of arquivos) {
