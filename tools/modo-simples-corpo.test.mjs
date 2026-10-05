@@ -300,6 +300,73 @@ try {
   const f8 = await ler();
   checar(f8.principal && f8.aberta, 'F9 · e a Biblioteca segue como tela principal', JSON.stringify(f8));
 
+  // H · O PARAR DEVOLVE A BIBLIOTECA NO TAMANHO CERTO (v1.11.13)
+  // Relato do operador: *"quando dou stop em uma música … a biblioteca volta … mais encolhida
+  // verticalmente do que deveria, deixando espaço sobrando abaixo. Mas ao interagir … ela se
+  // atualiza e ocupa o tamanho correto"*. A caixa tem de terminar onde a zona de leitura termina,
+  // SEM interação nenhuma — o que se mede é a camada contra a leitura, depois do Parar.
+  const idMidia = await pg.evaluate(async () => (await AVDB.addMedia(new Blob(['x'], { type: 'audio/wav' }),
+    { name: 'Louvor de Fundo', type: 'audio/wav', kind: 'audio', list: 'imports' })).id);
+  const subirMidia = () => pg.evaluate(async (id) => {
+    await send(id);
+    currentItem.lyrics = [{ cover: true }, { time: 0, text: 'primeira' }, { time: 5, text: 'segunda' }];
+    renderSlideNav();
+  }, idMidia);
+  const parar = () => pg.evaluate(() => { document.getElementById('simpleStop').click(); });
+  const fimDaCaixa = (l) => [l.camada[3], l.song[3]];
+
+  // H1 · o Parar DENTRO da animação de entrada da leitura (a medida tirada com a leitura 14 px
+  // abaixo do lugar dela ficava para sempre: o `ResizeObserver` vê tamanho, não transformação)
+  await subirMidia();
+  await pg.waitForTimeout(40);
+  const h1pre = await pg.evaluate(() => ({ entrando: document.querySelector('.simple-song').classList.contains('entrando'),
+    midia: midiaNoAr === true }));
+  checar(h1pre.entrando === true && h1pre.midia === true,
+    'H1.0 · premissa: a mídia está no ar e a leitura ainda está ENTRANDO (animação de 14 px)', JSON.stringify(h1pre));
+  await parar();
+  await quadros();
+  const h1 = await ler();
+  checar(h1.principal === true && h1.aberta === true && Math.abs(h1.camada[3] - h1.song[3]) <= 2,
+    'H1 · Parar com a leitura ainda entrando: a Biblioteca termina onde a zona de leitura termina '
+    + '(a medida não leva a animação junto)', 'camada ' + fimDaCaixa(h1)[0] + ' contra leitura ' + fimDaCaixa(h1)[1]);
+
+  // H2 · `--kb` ALTO SEM TECLADO (um evento de viewport perdido) não sobrevive à volta da tela
+  // principal: `bottom` é `max(base, kb)`, e o excesso é o "espaço sobrando abaixo"
+  await subirMidia();
+  await quadros();
+  await pg.evaluate(() => { document.documentElement.style.setProperty('--kb', '280px'); });
+  await parar();
+  await quadros();
+  const h2 = await ler();
+  const h2kb = await pg.evaluate(() => document.documentElement.style.getPropertyValue('--kb'));
+  checar(h2.principal === true && Math.abs(h2.camada[3] - h2.song[3]) <= 2 && parseFloat(h2kb) === 0,
+    'H2 · um `--kb` que ficou alto sem teclado é reconferido na volta da tela principal: a caixa ocupa a '
+    + 'altura toda, sem 280 px de sobra', 'camada ' + fimDaCaixa(h2) + ' --kb ' + h2kb);
+
+  // H3 · a medida é comparada com o que está ESCRITO na raiz, não com um cache em JS
+  await pg.evaluate(() => { document.documentElement.style.removeProperty('--simple-corpo-base'); });
+  const h3pre = await pg.evaluate(() => document.documentElement.style.getPropertyValue('--simple-corpo-base'));
+  await pg.evaluate(() => { medirCorpoSimples(); });
+  const h3 = await pg.evaluate(() => document.documentElement.style.getPropertyValue('--simple-corpo-base'));
+  checar(h3pre === '' && /^\d+px$/.test(h3),
+    'H3 · se a medida some da raiz, a remedição a ESCREVE de volta — um cache que discorda do documento '
+    + 'seria uma medida que ninguém reescreve', JSON.stringify({ antes: h3pre, depois: h3 }));
+
+  // H4 · e se a caixa AINDA assim sair do lugar, o Registro diz os números (e só quando muda)
+  const linhasDaCaixa = () => pg.evaluate(() => diarioC.filter((x) => String(x.ev).includes('a caixa termina')).length);
+  checar(await linhasDaCaixa() === 0,
+    'H4.0 · os caminhos normais acima (parar, entrar, teclado perdido) NÃO produzem a linha de caixa fora do lugar',
+    String(await linhasDaCaixa()));
+  await pg.evaluate(() => { document.getElementById('hymnSearchPopup').style.bottom = '260px'; });
+  await quadros();
+  await pg.evaluate(() => { conferirCaixaDaBiblioteca(); conferirCaixaDaBiblioteca(); });
+  const h4 = await pg.evaluate(() => diarioC.filter((x) => String(x.ev).includes('a caixa termina')).map((x) => x.ev));
+  checar(h4.length === 1 && /base da leitura \d+, teclado \d+, altura da tela \d+/.test(h4[0]),
+    'H4 · com a caixa fora do lugar o Registro ganha UMA linha com os números (base, teclado, altura da tela)',
+    JSON.stringify(h4));
+  await pg.evaluate(() => { document.getElementById('hymnSearchPopup').style.bottom = ''; });
+  await quadros();
+
   // G · avançado desencaixa; a caixa acompanha o layout; a tela cai
   await pg.setViewportSize({ width: 360, height: 640 });
   await esperar(pg, () => window.innerHeight === 640, null, 5000);

@@ -1714,6 +1714,11 @@ const SIMPLE_SEL_JANELA_MS = 3000;
 let simpleSel = { em: 0, chave: '' };
 let simpleSaidaTimer = null;
 let simpleVigiaTimer = null;
+// A CAIXA DA BIBLIOTECA NO MODO FÁCIL é MEDIDA (v1.11.13) — o estado da remedição mora aqui
+// pelo mesmo motivo dos de cima (o `renderSimpleCorpo` roda na carga do módulo).
+let corpoSimplesRaf = 0;
+let corpoSimplesFoco = null;
+let aplicarTeclado = null;        // o `apply` do `keyboardShift`, para reconferir `--kb` na entrada
 // QUAL mídia está no telão — o par de `cueNoArId`, e pelo mesmo motivo.
 //
 // `midiaNoAr` responde "há mídia no ar?" e `currentId` responde "qual é o item
@@ -37905,6 +37910,7 @@ window.addEventListener('resize', () => {
   // último valor — o app encolhido, sem teclado nenhum na tela.
   document.addEventListener('focusin', schedule);
   document.addEventListener('focusout', schedule);
+  aplicarTeclado = apply;
   apply();
 })();
 
@@ -38554,7 +38560,12 @@ function renderSimpleCorpo() {
   corpo.classList.toggle('simples-barra', barra);
   corpo.classList.toggle('simples-principal', principal);
   simpleModeEl.classList.toggle('corpo-biblioteca', principal);
-  if (barra) medirCorpoSimples();
+  // `--kb` ALTO SEM TECLADO é o "espaço sobrando abaixo": `bottom` da janela é `max(base, kb)`.
+  // Ela é recalculada por eventos (foco, viewport); aqui, na ENTRADA da tela principal, ela é
+  // reconferida contra o que de fato há — uma conta idempotente, e que não deixa o erro de um
+  // evento perdido sobreviver até a próxima interação.
+  if (barra && principal && aplicarTeclado) aplicarTeclado();
+  if (barra) { medirCorpoSimples(); medirCorpoSimplesDepois(); }
   const aberta = hymnSearchPopupEl.classList.contains('open');
   if (principal) {
     // A janela abre SEM foco: é a tela, não uma busca iniciada (o teclado
@@ -38645,39 +38656,108 @@ function simpleLimparSelecaoTimers() {
 
 // As medidas do espaço da barra e da zona de leitura, LIDAS do layout e nunca escritas:
 // elas mudam com o cartão de "Baixando…", a linha de slides e o corpo de fonte do sistema.
-let corpoSimplesMedido = '';
+//
+// ===== LIDAS DO LAYOUT, NÃO DA PINTURA (v1.11.13) =====
+// Relato do operador: *"quando dou stop em uma música no modo simples e a biblioteca volta,
+// ela fica mais encolhida verticalmente do que deveria, deixando espaço sobrando abaixo. Mas
+// ao interagir na biblioteca, ela se atualiza e ocupa o tamanho correto"*. Três causas de
+// uma medida FORA DE LUGAR que só uma remedição conserta (e a interação do operador — o
+// teclado, a rotação — é justamente o que dispara uma):
+//   1. `getBoundingClientRect` inclui a TRANSFORMAÇÃO: com a leitura ainda na animação de
+//      entrada (`.simple-song.entrando`, `translateY`), a base saía 14 px menor e FICAVA assim
+//      — o `ResizeObserver` só vê tamanho, e uma transformação não muda nenhum. MEDIDO: a
+//      camada passava 14 px da base da zona de leitura, e a medida não voltava sozinha.
+//      Aqui se lê a geometria de LAYOUT (`offsetTop`/`offsetHeight`), que a animação não move.
+//   2. A referência era `window.innerHeight`, e a camada da Biblioteca se ancora na caixa
+//      FIXA do `.simple` (`inset: 0`). As duas coincidem — até uma viewport que o WebView
+//      reporta antes (ou depois) do layout, quando a diferença é o tamanho do teclado. Agora
+//      a conta sai da MESMA caixa em que a camada é posicionada.
+//   3. A remedição só rodava com `ResizeObserver`, no instante da mudança — e uma medida
+//      tirada no meio de uma sequência de renders ficava para sempre. Agora toda entrada de
+//      estado agenda uma SEGUNDA leitura, depois que o layout assentou (`medirCorpoSimplesDepois`).
 function medirCorpoSimples() {
   if (!simpleSongEl || !simpleBarraEl) return;
   // A altura da barra vem primeiro: o espaço reserva `--lib-bar-h`, e medir antes de
   // escrevê-la mediria um espaço de altura zero.
   medirBarraDaBiblioteca();
-  const b = simpleBarraEl.getBoundingClientRect();
-  const r = simpleSongEl.getBoundingClientRect();
+  const largura = simpleModeEl.clientWidth;
+  const altura = simpleModeEl.clientHeight;
+  const w = simpleSongEl.offsetWidth;
+  const h = simpleSongEl.offsetHeight;
   // Modo escondido ou ainda sem layout: zero não é medida, é a AUSÊNCIA de uma.
-  if (!r.width || !r.height) return;
-  const vw = document.documentElement.clientWidth;
-  const vh = window.innerHeight;
+  if (!w || !h || !altura) return;
   const m = {
-    '--simple-barra-topo': Math.round(b.top) + 'px',
-    '--simple-corpo-esq': Math.round(r.left) + 'px',
-    '--simple-corpo-dir': Math.round(vw - r.right) + 'px',
-    '--simple-corpo-base': Math.round(vh - r.bottom) + 'px',
+    '--simple-barra-topo': simpleBarraEl.offsetTop + 'px',
+    '--simple-corpo-esq': simpleSongEl.offsetLeft + 'px',
+    '--simple-corpo-dir': (largura - simpleSongEl.offsetLeft - w) + 'px',
+    '--simple-corpo-base': (altura - simpleSongEl.offsetTop - h) + 'px',
   };
-  const chave = JSON.stringify(m);
-  if (chave === corpoSimplesMedido) return;   // só o que mudou (ResizeObserver)
-  corpoSimplesMedido = chave;
   const raiz = document.documentElement;
-  for (const k of Object.keys(m)) raiz.style.setProperty(k, m[k]);
+  // COMPARA COM O QUE ESTÁ ESCRITO NA RAIZ, e não com um cache em JS: um cache que discorda do
+  // documento é uma medida que ninguém reescreve.
+  let mudou = false;
+  for (const k of Object.keys(m)) {
+    if (raiz.style.getPropertyValue(k) === m[k]) continue;
+    raiz.style.setProperty(k, m[k]);
+    mudou = true;
+  }
   // MEDIDA NOVA NÃO ANIMA: sem isto a camada corria até o lugar novo.
-  semAnimarAJanela();
+  if (mudou) semAnimarAJanela();
 }
+function medirCorpoSimplesDepois() {
+  cancelAnimationFrame(corpoSimplesRaf);
+  corpoSimplesRaf = requestAnimationFrame(() => {
+    corpoSimplesRaf = requestAnimationFrame(() => {
+      corpoSimplesRaf = 0;
+      if (simplesComBarra()) { medirCorpoSimples(); conferirCaixaDaBiblioteca(); }
+    });
+  });
+}
+// A CONFERÊNCIA: a camada ABERTA tem de terminar onde a zona de leitura termina (ou onde o
+// teclado começa — é o `max()` do CSS). Se não termina, a medida acima NÃO era a causa, e o
+// que o operador copia do Registro passa a dizer qual das três contas discorda — em vez de
+// um "ela fica encolhida" sem número nenhum. Só anota quando a discordância MUDA: o anel tem
+// 200 linhas, e a mesma queixa a cada quadro o esvaziaria.
+let caixaDaBibliotecaVista = '';
+function conferirCaixaDaBiblioteca() {
+  if (!simplesComBarra() || !hymnSearchPopupEl.classList.contains('open')) { caixaDaBibliotecaVista = ''; return; }
+  // Ainda ANDANDO (a transição do `bottom`): o fim dela chama esta conferência de novo.
+  if (typeof hymnSearchPopupEl.getAnimations === 'function'
+      && hymnSearchPopupEl.getAnimations().some((a) => a.playState === 'running')) return;
+  const altura = simpleModeEl.clientHeight;
+  const base = altura - simpleSongEl.offsetTop - simpleSongEl.offsetHeight;
+  const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb')) || 0;
+  const esperado = altura - Math.max(base, kb);
+  const real = hymnSearchPopupEl.getBoundingClientRect().bottom;
+  if (Math.abs(real - esperado) <= 2) { caixaDaBibliotecaVista = ''; return; }
+  const sinal = Math.round(real) + '/' + Math.round(esperado);
+  if (sinal === caixaDaBibliotecaVista) return;
+  caixaDaBibliotecaVista = sinal;
+  diagC('biblioteca (Modo Fácil): a caixa termina em ' + Math.round(real) + ' px e devia terminar em '
+    + Math.round(esperado) + ' (base da leitura ' + Math.round(base) + ', teclado ' + Math.round(kb)
+    + ', altura da tela ' + altura + ', innerHeight ' + window.innerHeight + ')');
+}
+hymnSearchPopupEl.addEventListener('transitionend', (e) => {
+  if (e.target === hymnSearchPopupEl && e.propertyName === 'bottom') conferirCaixaDaBiblioteca();
+});
 if (simpleSongEl && typeof ResizeObserver === 'function') {
   const vigia = new ResizeObserver(() => { if (simplesComBarra()) medirCorpoSimples(); });
   for (const el of [simpleSongEl, simpleBarraEl, document.querySelector('#simpleMode .simple-head')]) {
     if (el) vigia.observe(el);
   }
 }
-window.addEventListener('resize', () => { if (simplesComBarra()) medirCorpoSimples(); });
+window.addEventListener('resize', () => { if (simplesComBarra()) { medirCorpoSimples(); medirCorpoSimplesDepois(); } });
+// O TECLADO que FECHA muda a viewport DEPOIS do `focusout` (a animação dele), e o evento de
+// viewport pode chegar antes de o layout assentar: uma leitura logo e outra com folga.
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => { if (simplesComBarra()) { medirCorpoSimples(); medirCorpoSimplesDepois(); } });
+}
+document.addEventListener('focusout', () => {
+  if (!simplesComBarra()) return;
+  medirCorpoSimplesDepois();
+  clearTimeout(corpoSimplesFoco);
+  corpoSimplesFoco = setTimeout(() => { if (simplesComBarra()) medirCorpoSimples(); }, 450);
+});
 
 // A CASA ORIGINAL do cartão de "Baixando…": o `.preview` do avançado, logo antes
 // da coluna de botões do player. Capturada na carga, antes de qualquer mudança.
