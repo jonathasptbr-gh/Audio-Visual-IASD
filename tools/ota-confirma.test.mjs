@@ -89,7 +89,7 @@ const INIT_QUE_NAO_TERMINA = () => {
   Object.defineProperty(window, '__avSplash', {
     configurable: true,
     get() { return v; },
-    set(x) { v = x; if (x) x.pronto = () => {}; },
+    set(x) { v = x; if (x) { window.__prontoOriginal = x.pronto; x.pronto = () => {}; } },
   });
 };
 
@@ -209,6 +209,14 @@ try {
       + 'da inicialização não pode ser carimbado como bom, mesmo com a fila desenhada. É a '
       + 'metade que reprova o conserto preguiçoso (apagar a condição, ou trocá-la por uma que '
       + 'o HTML já satisfaz)', depois);
+    // E O PORTÃO É ESTE CAMPO: devolvido o fim do `init()` (o `pronto()` original,
+    // guardado pelo gancho), a MESMA página passa a confirmar — sem isso C1 poderia
+    // estar passando por outro motivo.
+    await pg.evaluate(() => window.__prontoOriginal());
+    const confirmouDepois = await esperar(pg, () => window.__confirmou > 0, null, 10000);
+    checar(confirmouDepois === true,
+      'C2 · e quando o `init()` enfim chega ao fim (`pronto()` original) o watchdog CONFIRMA a '
+      + 'mesma página — `__avSplash.terminou` é o único portão', { ...(await estado(pg)), prazo: porque(confirmouDepois) });
     await ctx.close();
   }
 

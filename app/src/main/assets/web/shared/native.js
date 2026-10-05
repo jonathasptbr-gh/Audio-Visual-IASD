@@ -62,18 +62,13 @@
   //      a inicialização terminou, e é o ÚNICO sinal dela que não depende do
   //      CONTEÚDO do aparelho.
   //
-  //      **ELE SUBSTITUIU "há um `<li>` em `#playlist`", e a troca é a correção
-  //      de um defeito que vinha da v1.8.54** (até a v1.11.7): com a fila VAZIA a
-  //      lista não desenha nada — não há `<li>`, nem o de "fila vazia", que saiu
-  //      a pedido do operador —, então o watchdog NUNCA confirmava num aparelho
-  //      de fila vazia. O bundle novo era descartado no lançamento seguinte, o
-  //      app voltava ao embutido (1.11.3), oferecia a atualização de novo, e
-  //      assim para sempre — sem erro em lugar nenhum. A regra para a próxima
-  //      peça deste watchdog: **prova de que o app subiu NUNCA pode ser a
-  //      presença de um item de lista**, porque lista vazia é um estado normal.
-  //      (O `motivo` da cortina não serve no lugar: o primeiro a escrever ganha,
-  //      e um aparelho lento que estoura o teto de 12 s ficaria `'prazo'` para
-  //      sempre.)
+  //      **Prova de que o app subiu NUNCA pode ser a presença de um item de lista
+  //      ou de registro**: lista vazia é estado normal (com a fila vazia não há
+  //      `<li>` em `#playlist`), e um watchdog que a exige nunca confirma — o
+  //      bundle é descartado a cada lançamento e o app oferece a mesma
+  //      atualização para sempre. Também não serve o `motivo` da cortina: o
+  //      primeiro a escrever ganha, e o teto de 12 s o grava como `'prazo'` num
+  //      aparelho lento que subiu bem. Daí o campo `terminou`, à parte.
   //
   // POLLING e não checagem única no `load`: o `init()` é assíncrono e termina
   // DEPOIS dele — uma checagem única rejeitaria todo bundle bom.

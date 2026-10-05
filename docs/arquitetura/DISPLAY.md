@@ -389,12 +389,9 @@ que a anterior não cobre:
    inteiro **e** executado até quase o fim. É a mesma função que o botão voltar
    do Android consulta, ou seja, um contrato que já existe, não um marcador
    inventado para o watchdog.
-4. **um `<li>` dentro de `#playlist`** — o HTML entrega esse `<ul>` **vazio**;
-   quem o preenche é `renderPlaylist()`, chamado por `load()` dentro do `init()`
-   assíncrono. É o que prova que a inicialização terminou de verdade: `init()`
-   começa por `loadCollections()` (louvorja.js) e só então monta a tela, então
-   uma quebra em `louvorja.js` ou `bible.js` derruba o `init()` antes daqui e o
-   marcador nunca aparece.
+4. **o fim do `init()`** — `__avSplash.terminou`, escrito pelo `levantar()` da
+   cortina (a última linha do `init()` que muda o que se vê). Nunca a presença de
+   um item de lista: com a fila vazia não há `<li>`, e o watchdog não confirmaria.
 
 **Por polling, e não por uma checagem única no `load`:** o `init()` do Controle
 é assíncrono (várias leituras de IndexedDB) e termina DEPOIS do `load`. Uma
@@ -409,9 +406,8 @@ app volta ao embutido e o OTA baixa de novo na abertura seguinte. O erro do
 outro lado, carimbar um bundle quebrado, não tem volta sem publicar uma versão
 nova.
 
-> **Consequência prática:** mover `__avBack` para outro arquivo, renomear
-> `#playlist` ou adiar a primeira renderização da playlist para depois de uma
-> interação **quebra o watchdog** — o app deixa de confirmar e todo bundle OTA
+> **Consequência prática:** mover `__avBack` para outro arquivo ou deixar de
+> chamar o `pronto()` da cortina no fim do `init()` **quebra o watchdog** — o app deixa de confirmar e todo bundle OTA
 > passa a ser descartado no lançamento seguinte, silenciosamente.
 
 ### Chamadas à ponte: época e prazo

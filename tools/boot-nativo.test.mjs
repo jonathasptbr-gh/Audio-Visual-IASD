@@ -134,7 +134,7 @@ const ponteCom = (espelho, telas) => `(() => {
     appVersion: () => '1.98-teste',
     takeShare: () => '',
     busPost: (t) => { try { (window.__enviados = window.__enviados || []).push(JSON.parse(t)); } catch (_) {} },
-    otaConfirm: () => {},
+    otaConfirm: () => { window.__otaOk = (window.__otaOk || 0) + 1; },
     // AS SÉRIES (shell 41), com resposta POR URL — o genérico abaixo devolve um
     // valor fixo por método, e aqui cada playlist precisa dos itens dela.
     //
@@ -347,6 +347,12 @@ try {
     deuPe = true;
   } catch (_) { deuPe = false; }
   checar(deuPe, 'O APP FICOU DE PÉ com a ponte presente (o critério do watchdog do OTA)');
+  // O EFEITO, e não uma cópia da pergunta: o watchdog de VERDADE (`native.js`)
+  // confirmou — `otaConfirm` chegou à ponte. A cópia acima diverge dele por
+  // construção (foi assim que a fila vazia passou despercebida na v1.8.54).
+  const confirmou = await pg.waitForFunction(() => window.__otaOk > 0, null, { timeout: 20000 })
+    .then(() => true, () => false);
+  checar(confirmou, 'e o watchdog do OTA de verdade CONFIRMOU o boot (`otaConfirm` chegou à ponte)');
 
   // ===== A BIBLIOTECA COM A SEÇÃO DOS FAVORITOS ABERTA =====
   // Desde a v1.1.4 a Biblioteca abre TODA FECHADA (`resetarBiblioteca`), e uma
