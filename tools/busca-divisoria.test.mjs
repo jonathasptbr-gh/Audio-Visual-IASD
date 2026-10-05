@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// A DIVISÓRIA ENTRE OS RESULTADOS DA BUSCA DA BIBLIOTECA (v1.11.16)
+// A DIVISÓRIA ENTRE OS RESULTADOS DA BUSCA DA BIBLIOTECA (v1.11.16, de lado a lado na v1.11.17)
 //
 // Pedido do operador, verbatim: *"durante a pesquisa na biblioteca, a listagem de itens de
 // resultados não possui uma linha divisória entre os resultados. Adicione essa linha
@@ -22,9 +22,12 @@
 //       da lista, isto é, nada do conteúdo andou para fazer o traço caber.
 //  A4 · ela APARECE na tinta (um pseudo-elemento contado no DOM não prova pixel), e a primeira
 //       linha não tem nenhuma.
-//  A5 · ela começa na COLUNA DO TEXTO da linha — e a do vídeo (miniatura de 16:9) não é a da
-//       música (quadrado de 38px).
-//  A6 · as duas linhas de uma lista de resultados andam juntas nos dois temas e nos dois modos.
+//  A5 · ela vai de LADO A LADO: começa na borda esquerda da linha e passa por baixo do play/da
+//       miniatura, na música E no vídeo (a v1.11.16 a recuava até a coluna do texto, e o operador
+//       pediu: *"faça ela uma linha de lado a lado, passa do botão de play/thumbnail"*).
+//  A6 · o RESPIRO do topo: da barra de busca à primeira linha vale o mesmo que entre duas linhas
+//       (o `gap`), e nada se mexe quando o primeiro filho não é resultado.
+//  A7 · as duas linhas de uma lista de resultados andam juntas nos dois temas e nos dois modos.
 //
 //   node tools/busca-divisoria.test.mjs
 // ============================================================================
@@ -108,6 +111,7 @@ async function passe(rotulo, { tema, avancado }) {
       const lis = [...ul.children].filter((e) => e.classList.contains('hymn-result'));
       return {
         gap,
+        barraBase: document.getElementById('libBar').getBoundingClientRect().bottom,
         modo: document.body.classList.contains('mode-simple') ? 'facil' : 'avancado',
         linhas: lis.map((li) => {
           const r = li.getBoundingClientRect();
@@ -118,13 +122,14 @@ async function passe(rotulo, { tema, avancado }) {
           const b = getComputedStyle(li, '::before');
           return {
             yt: li.classList.contains('yt-result'),
-            topo: r.top, base: r.bottom, esq: r.left,
+            topo: r.top, base: r.bottom, esq: r.left, dir: r.right,
             rowTopo: row.top, rowBase: row.bottom,
             par, pintado: pintado(li),
             prevRowBase: par ? prev.querySelector('.row').getBoundingClientRect().bottom : null,
             prevBase: par ? prev.getBoundingClientRect().bottom : null,
             nome,
             tracoEsq: r.left + (parseFloat(b.left) || 0),
+            tracoDir: r.right - (parseFloat(b.right) || 0),
             depois: getComputedStyle(li, '::after').content !== 'none',
           };
         }),
@@ -158,15 +163,24 @@ async function passe(rotulo, { tema, avancado }) {
       'A3 · ' + rotulo + ' · o conteúdo NÃO andou: o espaço entre duas `.row` continua sendo o `gap` '
       + 'da lista (' + d.gap + 'px) — metade do vão entrou na caixa, a lista não cresceu', JSON.stringify({ vaos, gap: d.gap }));
 
-    // ---- A5 · A COLUNA DO TEXTO, DE CADA TIPO -----------------------------
-    const recuos = pares.map((l) => +(l.tracoEsq - l.nome).toFixed(2));
+    // ---- A5 · DE LADO A LADO ----------------------------------------------
+    const recuos = pares.map((l) => +(l.tracoEsq - l.esq).toFixed(2));
     checar(recuos.every((x) => Math.abs(x) <= 1),
-      'A5 · ' + rotulo + ' · o traço começa onde o NOME da linha começa (±1px), na música E no vídeo — '
-      + 'as duas colunas saem do desenho, nenhuma é um número escrito aqui', JSON.stringify(recuos));
-    const colunas = new Set([musicas, videos].map((g) => +(g[1].nome - g[1].esq).toFixed(1)));
-    checar(colunas.size === 2,
-      'A5 · ' + rotulo + ' · PREMISSA: a coluna do texto do vídeo NÃO é a da música (senão o recuo '
-      + 'por tipo não provaria nada)', JSON.stringify([...colunas]));
+      'A5 · ' + rotulo + ' · o traço começa na BORDA ESQUERDA da linha (±1px), na música E no vídeo — '
+      + 'passa por baixo do play e da miniatura, e nenhuma coluna é um número escrito aqui', JSON.stringify(recuos));
+    checar(pares.every((l) => l.nome - l.esq > 20),
+      'A5 · ' + rotulo + ' · PREMISSA: o nome começa bem depois da borda (há play/miniatura entre os dois), '
+      + 'senão "de lado a lado" não se distinguiria do recuo antigo', JSON.stringify(pares.map((l) => +(l.nome - l.esq).toFixed(1))));
+    const dirs = pares.map((l) => +(l.tracoDir - l.dir).toFixed(2));
+    checar(dirs.every((x) => Math.abs(x) <= 1),
+      'A5 · ' + rotulo + ' · e termina na borda DIREITA', JSON.stringify(dirs));
+
+    // ---- A6 · O RESPIRO DO TOPO -------------------------------------------
+    const bar = d.barraBase;
+    const prim = d.linhas[0];
+    checar(Math.abs((prim.rowTopo - bar) - d.gap) <= 0.6,
+      'A6 · ' + rotulo + ' · da base da barra de busca ao conteúdo da primeira linha há o MESMO espaço que entre '
+      + 'duas linhas (o `gap`, ' + d.gap + 'px) — era menor que o espaço entre coleções', JSON.stringify({ barraAoPrimeiro: +(prim.rowTopo - bar).toFixed(2), gap: d.gap }));
 
     // ---- A4 · NA TINTA ----------------------------------------------------
     // A linha é trazida ao meio da lista (longe das tiras de sombra das bordas) e a sonda lê a
@@ -182,34 +196,34 @@ async function passe(rotulo, { tema, avancado }) {
       const l = (await ler()).linhas[idx];
       return { l, img: lerPng(await pg.screenshot()) };
     };
-    const forca = (img, y, l) => {
-      const fora = Math.round(l.esq + (l.nome - l.esq) / 2);
-      const dentro = Math.round(l.nome) + 20;
+    // A força é a diferença entre o pixel NO traço e o do vão logo acima (3px mais alto), lida em
+    // DOIS x: sobre o play/miniatura (esquerda da coluna do texto) e sobre o texto. Com a divisória
+    // recuada só o segundo acenderia; de lado a lado os dois.
+    const forca = (img, y, l, x) => {
       let m = 0;
+      const vao = pixel(img, x, y - 3);
       for (let dy = -1; dy <= 1; dy++) {
-        const a = pixel(img, fora, y + dy), c = pixel(img, dentro, y + dy);
-        if (a && c) m = Math.max(m, dif(a, c));
+        const a = pixel(img, x, y + dy);
+        if (a && vao) m = Math.max(m, dif(a, vao));
       }
       return m;
     };
+    const xsDe = (l) => [Math.round(l.esq + 12), Math.round(l.nome) + 20];
     const iMusica = 4;                                   // uma música do meio da corrida
     const iVideo = d.linhas.findIndex((l) => l.yt && l.par);
     const fm = await foto(iMusica);
     const fv = await foto(iVideo);
-    const forcaM = forca(fm.img, Math.round(fm.l.topo), fm.l);
-    const forcaV = forca(fv.img, Math.round(fv.l.topo), fv.l);
-    checar(forcaM >= HA_TRACO && forcaV >= HA_TRACO,
-      'A4 · ' + rotulo + ' · o traço APARECE na tinta, entre duas músicas e entre dois vídeos '
-      + '(contraste da banda, esquerda × direita da coluna do texto)', JSON.stringify({ forcaM, forcaV }));
+    const forcaM = xsDe(fm.l).map((x) => forca(fm.img, Math.round(fm.l.topo), fm.l, x));
+    const forcaV = xsDe(fv.l).map((x) => forca(fv.img, Math.round(fv.l.topo), fv.l, x));
+    checar(forcaM.every((f) => f >= HA_TRACO) && forcaV.every((f) => f >= HA_TRACO),
+      'A4 · ' + rotulo + ' · o traço APARECE na tinta, entre duas músicas e entre dois vídeos, SOBRE o play/a '
+      + 'miniatura e sobre o texto (contraste do traço contra o vão logo acima, nos dois x)', JSON.stringify({ forcaM, forcaV }));
     // A PRIMEIRA música: nada acima. Ela é trazida à vista com o topo da lista.
     await pg.evaluate(() => { document.getElementById('hymnResults').scrollTop = 0; });
     await pg.evaluate(() => new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f))));
     const l0 = (await ler()).linhas[0];
     const img0 = lerPng(await pg.screenshot());
-    // O topo da caixa da primeira cai 1 meio-vão ACIMA do scroller (recortado); o que se lê é a
-    // banda onde um traço estaria, logo acima da `.row`.
-    const y0 = Math.round(l0.rowTopo - (l0.rowTopo - l0.topo));
-    const forca0 = forca(img0, Math.max(y0, 0), l0);
+    const forca0 = Math.max(...xsDe(l0).map((x) => forca(img0, Math.round(l0.topo), l0, x)));
     checar(forca0 <= SEM_TRACO,
       'A4 · ' + rotulo + ' · e a PRIMEIRA música não tem nada acima dela, na tinta', forca0);
     return d;

@@ -548,6 +548,7 @@ jobs:
           rodar tools/configuracoes-sem-subtitulo.test.mjs
           rodar tools/configuracoes-janelas.test.mjs
           rodar tools/previa-recolhida.test.mjs
+          rodar tools/previa-animacao.test.mjs
           rodar tools/versao-o-que-mudou.test.mjs
           rodar tools/limpar-cronograma.test.mjs
           rodar tools/linha-da-preparacao.test.mjs

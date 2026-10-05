@@ -214,12 +214,14 @@ try {
 
     // TODO vão do deck é o mesmo — os cinco que cercam a preview mais o que
     // separa a sétima célula do botão de voltar.
+    // (v1.11.17: a faixa do nome e da barra desceu para ABAIXO da preview — a ordem do deck é
+    // preview, nowplaying, transporte —, então os vãos verticais são os dois novos.)
     const vaos = {
-      'nowplaying→preview': g.pv.topo - g.np.base,
-      'preview→transporte': g.tr.topo - g.pv.base,
+      'preview→nowplaying': g.np.topo - g.pv.base,
+      'nowplaying→transporte': g.tr.topo - g.np.base,
       'voltar→preview': g.pv.esq - g.ant.dir,
       'preview→passar': g.prox.esq - g.pv.dir,
-      'passar→sétima': g.hist.topo - g.prox.base,
+      'nowplaying→sétima': g.hist.topo - g.np.base,
       'transporte→sétima': g.hist.esq - g.seis[5].dir,
       'entre dois do transporte': g.seis[1].esq - g.seis[0].dir,
     };
@@ -455,8 +457,8 @@ try {
       `a BARRA continua começando e terminando com a prévia (${nome})`,
       { seek: [g.seek.esq, g.seek.dir], preview: [g.pv.esq, g.pv.dir] });
     for (const [onde, v] of Object.entries({
-      'nowplaying→prévia': g.pv.topo - g.np.base,
-      'prévia→transporte': g.tr.topo - g.pv.base,
+      'prévia→nowplaying': g.np.topo - g.pv.base,
+      'nowplaying→transporte': g.tr.topo - g.np.base,
       'voltar→prévia': g.pv.esq - g.ant.dir,
       'prévia→passar': g.prox.esq - g.pv.dir,
     })) {
@@ -1423,18 +1425,19 @@ try {
   // Cinco lugares leem a altura ou o conteúdo da prévia, e cada um já tinha a
   // asserção dele no estado EXPANDIDO (o padrão). O que a tira muda em cada um:
   //
-  //  A. O SELO e o GIRO moram na base e NÃO cabem ao lado da seta em 320 px
-  //     (somam mais que a largura da prévia): vão para uma SEGUNDA linha. É o
-  //     único caso em que a tira mede mais que um botão, e é DURADOURO — o giro
-  //     persiste enquanto o ângulo não é zero.
+  //  A. O SELO e o GIRO moram LADO A LADO COM A SETA, na mesma linha (v1.11.17: eles
+  //     moravam numa segunda linha e criavam altura só para dois botões que nem
+  //     sempre existem). Só quando a soma passa da largura da prévia — 320 px —
+  //     a linha desce, o desenho de antes (`pv-extras-baixo`).
   //  B. O FADER ocupa a faixa da prévia, e a faixa agora tem a altura de um botão.
   //  C. O MODO FÁCIL, onde a seta vai para o canto superior ESQUERDO.
   //  D. O CARTÃO DE ESPERA, que não cabe na tira e é o único canal de falha do
   //     "tocar" e a única porta de cancelar um download.
   //
-  // A·1 · O SELO + O GIRO, a 430 e a 320.
+  // A·1 · O SELO + O GIRO, a 430 (linha ÚNICA) e a 320 (a linha desce).
   for (const largura of [430, 320]) {
     const nome = largura + ' px';
+    const umaLinha = largura === 430;
     await pg.setViewportSize({ width: largura, height: 900 });
     await pg.evaluate(async () => {
       await applyRotate(270);          // o número mais largo ("270°") é o pior caso
@@ -1443,20 +1446,33 @@ try {
     await recolher(true);
     const g = await geoPv();
     const seta = g.seta;
-    const abaixo = g.fabs.filter((f) => f.id === 'pvGiroBtn' || f.id === 'pvCamadaBtn');
+    const camada = g.fabs.find((f) => f.id === 'pvCamadaBtn');
+    const giro = g.fabs.find((f) => f.id === 'pvGiroBtn');
+    const abaixo = [camada, giro].filter(Boolean);
     checar(abaixo.length === 2,
       `o selo e o giro estão à vista com a prévia recolhida (${nome})`, g.fabs.map((f) => f.id));
-    checar(abaixo.every((f) => f.t >= seta.b - 0.5),
-      `e descem para uma SEGUNDA linha, abaixo da seta — ao lado dela não cabem (${nome})`,
-      { seta: [seta.t, seta.b], abaixo: abaixo.map((f) => [f.id, f.t, f.b]) });
-    checar(g.alto >= 2 * g.hit + g.pad - 0.6,
-      `a tira cresce para duas linhas de botão — e mede só isso (${nome})`, { alto: g.alto, hit: g.hit, recuo: g.pad });
+    if (umaLinha) {
+      checar(abaixo.every((f) => Math.abs(f.t - seta.t) <= 0.5),
+        `e ficam NA MESMA LINHA da seta — nenhuma altura a mais para dois botões (${nome})`,
+        { seta: [seta.t, seta.b], extras: abaixo.map((f) => [f.id, f.t, f.b]) });
+      checar(camada.r <= seta.l + 0.5 && seta.r <= giro.l + 0.5,
+        `o selo à ESQUERDA da seta e o giro à DIREITA, lado a lado com ela (${nome})`,
+        { camada: [camada.l, camada.r], seta: [seta.l, seta.r], giro: [giro.l, giro.r] });
+      checar(Math.abs(g.alto - (g.hit + g.pad)) <= 0.6,
+        `e a tira continua medindo UM botão mais o recuo (${nome})`, { alto: g.alto, hit: g.hit, recuo: g.pad });
+    } else {
+      checar(abaixo.every((f) => f.t >= seta.b - 0.5),
+        `e descem para uma SEGUNDA linha, abaixo da seta — ao lado dela não cabem (${nome})`,
+        { seta: [seta.t, seta.b], abaixo: abaixo.map((f) => [f.id, f.t, f.b]) });
+      checar(g.alto >= 2 * g.hit + g.pad - 0.6,
+        `a tira cresce para duas linhas de botão — e mede só isso (${nome})`, { alto: g.alto, hit: g.hit, recuo: g.pad });
+      checar(Math.abs(g.desvioDaSeta) < 1,
+        `e a seta continua no CENTRO com a segunda linha presente (${nome})`, g.desvioDaSeta);
+    }
     checar(g.sobrepostos.length === 0 && g.fora.length === 0,
       `nenhum botão se sobrepõe a outro nem sai da prévia (${nome})`,
       { sobrepostos: g.sobrepostos, fora: g.fora });
-    checar(Math.abs(g.desvioDaSeta) < 1,
-      `e a seta continua no CENTRO com a segunda linha presente (${nome})`, g.desvioDaSeta);
-    // O deck acompanha também a tira de duas linhas.
+    // O deck acompanha também a tira.
     const d = await medirDeck();
     checar(perto(d.ant.alto, d.pv.alto) && perto(d.prox.alto, d.pv.alto),
       `e os botões de slide têm a altura dela (${nome})`, { ant: d.ant.alto, prox: d.prox.alto, pv: d.pv.alto });
@@ -1467,9 +1483,14 @@ try {
     });
     await quadro();
     const so1 = await geoPv();
-    checar(so1.alto < g.alto - 20 && so1.linhas === 1,
-      `e some quando os dois somem: a linha de baixo não é reserva, ela existe quando há o que pôr nela (${nome})`,
-      { com: g.alto, sem: so1.alto, linhas: so1.linhas });
+    if (umaLinha) {
+      checar(Math.abs(so1.alto - g.alto) <= 0.6 && so1.linhas === 1,
+        `a linha única não muda de altura quando os dois somem (${nome})`, { com: g.alto, sem: so1.alto, linhas: so1.linhas });
+    } else {
+      checar(so1.alto < g.alto - 20 && so1.linhas === 1,
+        `e some quando os dois somem: a linha de baixo não é reserva, ela existe quando há o que pôr nela (${nome})`,
+        { com: g.alto, sem: so1.alto, linhas: so1.linhas });
+    }
     await recolher(false);
   }
   await pg.setViewportSize({ width: 430, height: 900 });

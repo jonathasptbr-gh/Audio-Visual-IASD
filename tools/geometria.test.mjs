@@ -87,7 +87,7 @@ const naoAbriu = [];
 const erros = [];
 
 for (const t of TELAS) {
-  const ctx = await navegador.newContext({ viewport: { width: t.w, height: t.h } });
+  const ctx = await navegador.newContext({ viewport: { width: t.w, height: t.h }, reducedMotion: 'reduce' });
   await semRedeExterna(ctx);
   await comModoAvancado(ctx);
   if (t.fonte) {
@@ -203,7 +203,7 @@ checar(t4.length === 0,
 // sondas foram vistas disparando antes de a régua valer (ver `geometria.mjs`);
 // esta é a metade que continua sendo verificada a cada execução.
 {
-  const ctx = await navegador.newContext({ viewport: { width: 360, height: 640 } });
+  const ctx = await navegador.newContext({ viewport: { width: 360, height: 640 }, reducedMotion: 'reduce' });
   const pg = await ctx.newPage();
   await pg.setContent(`<style>
     :root{--hit:34px}

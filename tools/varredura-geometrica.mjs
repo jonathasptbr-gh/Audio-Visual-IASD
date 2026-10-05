@@ -75,7 +75,7 @@ const navegador = await abrirNavegador();
 // ---------------------------------------------------------------------------
 const relatorio = [];
 for (const t of TELAS) {
-  const ctx = await navegador.newContext({ viewport: { width: t.w, height: t.h } });
+  const ctx = await navegador.newContext({ viewport: { width: t.w, height: t.h }, reducedMotion: 'reduce' });
   await semRedeExterna(ctx);
   await comModoAvancado(ctx);
   if (t.fonte) {
