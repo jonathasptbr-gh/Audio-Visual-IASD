@@ -373,10 +373,9 @@ const appVersionEl = document.getElementById('appVersion');
 // declaradas junto do resto do cromo, centenas de linhas abaixo, seriam zona
 // morta temporal — o `ReferenceError` aborta o `controle.js` inteiro e o
 // watchdog do OTA descarta o bundle sem nada na tela dizer por quê.
-const simpleVersionEl = document.getElementById('simpleVersion');
-// (A TERCEIRA CASA saiu na v1.8.66: a badge do cabeçalho do Cronograma deu
-//  lugar ao botão de LIMPAR. O número continua em DUAS — a do Modo Fácil e o
-//  rodapé de Configurações —, escritas pelo mesmo `renderVersionLabel`.)
+// (AS BADGES SAÍRAM: a do cabeçalho do Cronograma na v1.8.66 (deu lugar ao botão de LIMPAR) e a
+//  do Modo Fácil na v1.11.15 (a pedido do operador, que pôs o NOME do app no topo dessa tela).
+//  O número mora no rodapé de Configurações, escrito pelo `renderVersionLabel`.)
 // O botão que ficou no lugar dela é declarado AQUI pela razão do bloco acima:
 // `renderCronoLimpar` o lê milhares de linhas antes de onde o cromo é ligado, e
 // um `const` lido antes da própria declaração é `ReferenceError` — que aborta o
@@ -426,12 +425,12 @@ let apkBaixando = false;
 // pergunta de voltar na abertura seguinte, que é o comportamento pedido.
 const otaAdiadas = new Set();
 
-// ===== UM NÚMERO SÓ, EM TRÊS CASAS (v1.7.0) =====
+// ===== UM NÚMERO SÓ, UM ESCRITOR (v1.7.0; hoje só o rodapé de Configurações) =====
 //
-// Escrita UMA vez, na carga, e ela é o ESCRITOR ÚNICO das três superfícies que
-// dizem a versão: a badge do Modo Fácil, a badge do avançado e o rodapé de
-// Configurações. Três escritores seriam três chances de o app afirmar duas
-// versões diferentes na mesma sessão.
+// Escrita UMA vez, na carga, e ela é o ESCRITOR ÚNICO do número da versão — que já esteve em
+// três superfícies (as badges do Modo Fácil e do avançado, e o rodapé de Configurações) e hoje
+// mora só no rodapé. Dois escritores seriam duas chances de o app afirmar duas versões
+// diferentes na mesma sessão.
 //
 // O ÍNDICE DO SHELL SAIU DA TELA, a pedido do operador: *"remova da ui a
 // informação nas configurações do shell, essa numeração é interna, pode estar
@@ -479,10 +478,9 @@ function renderVersionLabel() {
   // E NOMEAR O APP DENTRO DELE ERA A PALAVRA MAIS DISPENSÁVEL DA FAIXA. Quem
   // ainda precisa da marca é o que SAI daqui — o rascunho do WhatsApp e o
   // `compartilharTexto` —, e os dois continuam a escrever por conta própria.
-  for (const el of [simpleVersionEl, appVersionEl]) {
-    if (!el) continue;
-    el.textContent = rotulo;
-    el.title = 'Versão do aplicativo';
+  if (appVersionEl) {
+    appVersionEl.textContent = rotulo;
+    appVersionEl.title = 'Versão do aplicativo';
   }
 }
 

@@ -2436,34 +2436,6 @@ main {
    animação teria o que ligar. */
 .crono-limpar:disabled { opacity: .5; cursor: default; }
 .list-header > .list-title { grid-column: 2; }
-/* ---------- A BADGE DE VERSÃO (v1.7.0) ----------
-   Duas casas, UMA regra: o canto superior esquerdo do avançado e o lugar logo
-   depois da marca no Modo Fácil. Escrever a mesma pastilha duas vezes seria
-   dar-lhes duas chances de divergir no primeiro ajuste — e é a mesma razão do
-   esqueleto de `--hit` logo abaixo.
-
-   É UM CHIP, o que `--surface-2` nomeia por extenso em `tokens.css` ("chip /
-   campo / badge SOBRE o fundo do app") — e é o token certo porque as duas casas
-   pintam `--bg`: a faixa do avançado e o `.simple`, que também é `--bg`.
-
-   MEDIDO nos dois temas, sobre a composição de verdade: `--muted` sobre
-   `--surface-2` dá **5,83:1** no escuro e **6,53:1** no claro (AA com folga), e o
-   degrau da pastilha contra o fundo é 1,71:1 / 1,27:1 — ela se vê sem pedir
-   contorno nenhum. `--muted` e não `--text` porque isto é NÚMERO, que é
-   exatamente o papel que a paleta reserva a ele.
-
-   `--fs-2xs` e `tabular-nums`: ela é metadado, não um rótulo de navegação, e
-   não pode disputar com o nome da tela ao lado — nem mudar de largura quando o
-   número virar de 1.9.9 para 1.10.0. */
-.ver-badge {
-  flex: 0 0 auto;
-  padding: .1rem .35rem;
-  border-radius: var(--radius-pill);
-  background: var(--surface-2); color: var(--muted);
-  font-size: var(--fs-2xs); font-weight: var(--fw-forte);
-  font-variant-numeric: tabular-nums; letter-spacing: .02em;
-  white-space: nowrap;
-}
 /* A TRILHA 3 era um VÃO reservado (v5.309, para o título não sair do eixo
    quando o voltar aparece) e virou a casa da ENGRENAGEM na v1.2.0 — o vão
    previa isto por escrito. A trilha já mede `--hit`, que é a caixa do botão. */
@@ -2546,14 +2518,14 @@ main {
   width: var(--hit); height: var(--hit); min-height: 0;
   color: var(--accent);
 }
-/* NO CABEÇALHO DO MODO FÁCIL SÃO DUAS PORTAS (v1.11.11) — a tela (cast) e a
-   engrenagem — e quem empurra as duas para a direita é a badge de versão
-   (`margin-right: auto`). O `margin-left: auto` da regra acima, com dois
-   botões, repartiria a sobra entre eles e a badge e deixaria o cast flutuando
-   no meio do cabeçalho. A TV recebendo é ATIVIDADE e veste `--ok`, como a
-   `.cast-acao.connected`: a cor diz que há tela no ar, e o toque abre a folha
-   onde se troca de tela ou se desconecta. */
+/* NO CABEÇALHO DO MODO FÁCIL SÃO DUAS PORTAS — a tela (cast, à ESQUERDA desde a v1.11.15) e
+   a engrenagem (à direita) —, cada uma na coluna da grade do `.simple-head`: o
+   `margin-left: auto` da regra acima não tem o que empurrar numa grade. A TV recebendo é
+   ATIVIDADE e veste `--ok`, como a `.cast-acao.connected`: a cor diz que há tela no ar, e o
+   toque abre a folha onde se troca de tela ou se desconecta. */
 .simple-head .settings-btn { margin-left: 0; }
+.simple-head #simpleCastBtn { grid-column: 1; justify-self: start; }
+.simple-head #simpleSettingsBtn { grid-column: 3; justify-self: end; }
 .simple-head #simpleCastBtn[hidden] { display: none; }
 .simple-head #simpleCastBtn.connected { color: var(--ok); }
 /* O voltar continua "chapado" (sem fundo) — só o alvo cresceu. */
@@ -7748,6 +7720,11 @@ body.mode-simple.simples-barra .popup-backdrop--lib:not(.open) .popup-sheet--lib
 }
 /* A SETA/✕ da janela só existe quando há o que fechar: ABERTA SOBRE A LEITURA. Como
    PRINCIPAL ela é a tela (não se fecha), e fechada o campo é quem abre. */
+/* SEM A PLAYLIST AUTOMÁTICA NO MODO FÁCIL (v1.11.15), pedido do operador: *"aproveite para
+   remover o botão de playlist automática no modo simples"*. É o quadrado da esquerda da barra
+   (`#sorteioBtn`); a barra fica com o campo (e o ✕ quando aberta sobre a leitura). Só some
+   aqui: no avançado ele continua sendo a porta do sorteio. */
+body.mode-simple #sorteioBtn { display: none; }
 body.simples-barra .lib-toggle { display: none; }
 body.simples-barra:not(.simples-principal) .popup-backdrop--lib.open .lib-toggle { display: flex; }
 body.simples-barra { --lib-lista-base: var(--sp-5); }
@@ -10567,48 +10544,42 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .lv-cheia-btn { background: var(--surface); color: var(--text); }
 .lv-cheia-btn[hidden] { display: none; }
 
-/* A LINHA DO NOME do Modo Fácil hospeda o par sem deslocar o nome: ele é
-   absoluto, e a folga vem reservada dos DOIS lados para o centro continuar
-   sendo o centro.
+/* ===== A+ / A− NO MODO FÁCIL SÃO DOIS BOTÕES FLUTUANTES (v1.11.15) =====
+   Pedido do operador: *"dois botões FAB dentro da caixa do auxiliar de leitura, os dois no
+   canto inferior direito, um acima do outro, em uma coluna. Sem molduras, apenas os botões"*.
 
-   ---------- E A LINHA RESERVA A ALTURA DELE (v1.5.19) ----------
-   Relato do operador: *"ajuste a margem dos botões de aumentar e diminuir a
-   fonte no modo simples, eles estão colados nos elementos abaixo dele"*.
+   Antes eram um par pendurado na linha do nome (`.simple-np-linha`, v1.1.6): `absolute`, e por
+   isso uma linha que RESERVAVA a altura dele (`min-height: var(--hit)`, v1.5.19) e folgas dos
+   dois lados para o nome continuar centrado. Tudo isso saiu junto com a linha — o nome é o
+   `.simple-np` solto, e a zona de leitura ganhou de volta os 16px.
 
-   A OUTRA METADE DO `absolute`, que o comentário acima não dizia: uma caixa
-   absoluta não conta para a altura do pai. Quem dava altura a esta linha era o
-   `.simple-np` sozinho — `--fs-xl` com `line-height: normal` MEDE 18,00px —, e
-   o botão mede `--hit` (34,00px). Logo a linha continha 34 dentro de 18, e o
-   par TRANSBORDAVA 8,00px para cada lado. Os `gap` do `.simple-song` (`--sp-3`,
-   5,60px) e do `.simple` (`--sp-5`, 9,60px) são medidos a partir da LINHA, não
-   do botão: o respiro real virava **−2,40px** embaixo e +1,59px em cima.
+   O GRUPO NÃO PINTA NADA: é só a coluna (`.lv-fonte-ctl` é flex, e aqui vira coluna). Cada botão
+   é a própria superfície — a mesma das portas flutuantes do Cronograma (`--surface-porta`, o azul
+   de "ativado", opaco, com o traço `--accent` que é o par declarado dele e a sombra de cada
+   uma). Opaca porque a letra corre POR BAIXO: tinta com alfa mudaria de cor a cada quadro.
+   REDONDO (`border-radius: 50%`) e no alvo `--thumb`, acima do piso `--hit`: é um botão que
+   se acha de relance, no meio de um culto, com o polegar.
 
-   E O SINAL NÃO É "APERTADO", É SOBREPOSIÇÃO. `.lv-fonte-ctl` (absoluta) e
-   `.simple-lyrics` (`position: relative`, o offsetParent do `lvScroll`) são as
-   duas posicionadas, e a placa vem DEPOIS no documento: ela pinta POR CIMA de
-   2,41px da base do botão. MEDIDO, `elementFromPoint` devolve `simple-lyrics`
-   em `bottom−1`, `−2` e `−3`. No tema CLARO isso é literalmente sumir — a
-   superfície do botão é branco a .70 e a placa é branco PLENO.
-
-   E COM MÍDIA NO AR O VIZINHO É UM CONTROLE. Com a linha do tempo à vista, o
-   A− encosta com ZERO pixel no `#simpleTimeHit` — o scrubber que salta o louvor
-   no ar —, sobrepondo 35,44 × 2,41px e comendo 27% do `padding: .55rem` que
-   aquele alvo tem de propósito (*"4px é metade do que um dedo acerta"*). Ali o
-   `absolute` inverte quem ganha o hit-test: o botão de tamanho de fonte rouba
-   alvo do seek.
-
-   `min-height: var(--hit)` — a linha reserva o que ela contém, e os DOIS lados
-   voltam ao `gap` que a folha já declara (+5,60 e +9,59), sem inventar número
-   de espaço nenhum. O valor sai do MESMO token de que a altura do botão sai, e
-   por isso os dois não têm como divergir num lote futuro. Custo MEDIDO: 16,00px
-   da zona de leitura (−3,0% a 430×900, −7,4% a 320×568), o mesmo em toda tela.
-   O `absolute` FICA: o desvio do nome continua 0,00px. */
-.simple-np-linha {
-  flex: none; position: relative; display: flex; align-items: center;
-  min-height: var(--hit);
+   `.simple-song` é o `position: relative` (a placa da letra é a última peça dele e vai até o
+   fundo), e o recuo é o MESMO nos dois eixos — o botão assenta no canto, não flutua perto dele. */
+.simple-song { position: relative; }
+.simple-fabs {
+  position: absolute; right: var(--sp-5); bottom: var(--sp-5);
+  flex-direction: column; gap: var(--sp-4);
 }
-.simple-np-linha > .simple-np { flex: 1; min-width: 0; padding: 0 calc(var(--hit) * 2 + 2px); }
-.simple-np-linha > .lv-fonte-ctl { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+.simple-fabs .lv-fonte-btn {
+  width: var(--thumb); height: var(--thumb); border-radius: 50%;
+  background: var(--surface-porta); color: var(--accent);
+  box-shadow: 0 2px 8px var(--shadow-card);
+  font-size: var(--fs-lg);
+}
+/* A letra tem de poder rolar PARA CIMA DOS BOTÕES: sem folga no fim, a última estrofe ficaria
+   sob a coluna no máximo da rolagem. A margem é do ÚLTIMO ITEM e nunca `padding` do scroller
+   (a tira de sombra das bordas pede o padding box — ver "TODO SCROLLER TEM A SOMBRA"). O
+   tamanho sai da própria coluna: dois botões, o vão entre eles e o recuo de baixo. */
+.simple-lyrics > :last-child {
+  margin-bottom: calc(var(--thumb) * 2 + var(--sp-4) + var(--sp-5));
+}
 
 /* OS SATÉLITES SOBEM MENOS QUE O CORPO (v1.1.4). Eles são RÓTULO — a capa, o
    "Estrofe 2", o número do versículo —, e dobrá-los junto faria um metadado
@@ -11443,18 +11414,22 @@ body.mode-simple .bottombar { display: none; }
   padding: calc(env(safe-area-inset-top) + .7rem) calc(env(safe-area-inset-right) + .7rem) max(env(safe-area-inset-bottom), 12px) calc(env(safe-area-inset-left) + .7rem);
 }
 .simple.open { display: flex; }
-.simple-head { display: flex; align-items: center; gap: var(--sp-4); flex: none; }
-/* `flex: 0 1 auto` desde a v1.7.0 (era `1`): a marca deixou de comer a sobra
-   para a BADGE DE VERSÃO poder ficar COLADA nela — que é o pedido, *"após o
-   título áudio visual iasd"*. Quem empurra a engrenagem para a outra ponta
-   passou a ser o `margin-right: auto` da badge, logo abaixo. O encolher (o `1`
-   do meio) e o `min-width: 0` ficam: são as duas metades das reticências, e num
-   aparelho estreito é a marca que cede, nunca o número. */
-.simple-brand { flex: 0 1 auto; min-width: 0; font-size: var(--fs-lg); font-weight: var(--fw-max); letter-spacing: .03em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.simple-head {
+  /* TRÊS COLUNAS FIXAS (v1.11.15): cast · nome · engrenagem. A grade e não um flex porque o
+     cast some sem tela (`hidden`): num flex o nome andaria uma casa, e aqui cada peça tem a
+     SUA coluna — o nome fica no centro da tela com ou sem TV. As duas colunas dos botões
+     medem o mesmo `--hit`, então o centro da coluna do meio é o centro do aparelho. */
+  display: grid; grid-template-columns: var(--hit) minmax(0, 1fr) var(--hit);
+  align-items: center; gap: var(--sp-4); flex: none;
+}
+/* O NOME É O CENTRO: `min-width: 0` e as reticências ficam — num aparelho estreito é a marca
+   que cede, e as duas portas nunca. */
+.simple-brand {
+  grid-column: 2; justify-self: center; max-width: 100%; min-width: 0;
+  font-size: var(--fs-lg); font-weight: var(--fw-max); letter-spacing: .03em; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .simple-brand b { color: var(--brand); }
-/* A BADGE encosta na marca e joga a engrenagem para a outra ponta. O desenho
-   dela mora numa regra só, ao lado da `.list-header` — ver `.ver-badge`. */
-.simple-head .ver-badge { margin-right: auto; }
 
 /* Tecla: a peça única deste modo. Fundo próprio e alvo grande o bastante para
    o polegar sem mirar.
