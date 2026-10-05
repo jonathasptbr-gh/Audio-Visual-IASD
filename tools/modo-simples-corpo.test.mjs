@@ -132,6 +132,10 @@ try {
   // busca de verdade funciona no corpo encaixado
   await pg.fill('#hymnSearchInput', 'zzzzqq');
   await esperar(pg, () => !document.getElementById('hymnSearchLimpar').hidden, null, 10000);
+  // PREMISSA do B11/B12: a lista de fato saiu do acervo (a busca é DEBOUNCED, e o ✕
+  // aparece antes dela — sem esperar, o B12 mediria um acervo que nunca saiu).
+  const nasBuscas = await esperar(pg, () => !document.querySelector('#hymnResults .hymnal-card, #hymnResults .coll-group'), null, 10000);
+  checar(nasBuscas === true, 'B10b · PREMISSA: com o termo digitado a lista saiu do acervo', porque(nasBuscas));
   const comTexto = await ler();
   checar(comTexto.aberta === true && comTexto.corpo === true,
     'B10 · digitar no campo mantém a Biblioteca encaixada (o ✕ de limpar aparece junto)', JSON.stringify(comTexto));
@@ -142,13 +146,16 @@ try {
   // se ele falhasse. A janela fica, o campo volta limpo e o acervo no estado padrão.
   const reinicio = await pg.evaluate(async () => {
     closeHymnSearch();
+    // NO MESMO TURNO: um redesenho vindo de outro caminho (o acervo re-lê o
+    // catálogo por conta própria) esconderia a falta do `renderSearchResults('')`.
+    const acervo = !!document.querySelector('#hymnResults .hymnal-card, #hymnResults .coll-group');
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     return {
       aberta: document.getElementById('hymnSearchPopup').classList.contains('open'),
       corpo: document.body.classList.contains('simples-biblioteca'),
       campo: document.getElementById('hymnSearchInput').value,
       limpar: document.getElementById('hymnSearchLimpar').hidden,
-      acervo: !!document.querySelector('#hymnResults .coll-group, #hymnResults .lib-item, #hymnResults .hymnal-card, #hymnResults .coll-card'),
+      acervo,
     };
   });
   checar(reinicio.aberta === true && reinicio.corpo === true && reinicio.campo === '' && reinicio.limpar === true,

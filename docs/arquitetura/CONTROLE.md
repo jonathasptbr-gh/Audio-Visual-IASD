@@ -117,6 +117,12 @@ versão, ícone de cast `#simpleCastBtn`, engrenagem) · **CORPO** · cartão de
   saiu, troca de modo), `renderTransporteHabilitado` (cena mudou) e `setAppMode`.
   Ao desencaixar fecha a janela por `closeHymnSearch`, que limpa o campo e
   recolhe o acervo — a palavra de antes não volta com a tela de leitura.
+- **`closeHymnSearch` ENCAIXADA É REINICIAR, não fechar:** quem toca numa música
+  (`playSongVariant`, `ytAcao`, `projectSongLyricsOnly`, `montarFilaSorteada`) fecha
+  o acervo ANTES de a mídia existir; fechar de verdade deixaria o corpo vazio
+  durante o download — e para sempre se ele falhasse. Encaixada, a janela fica, o
+  campo volta limpo e o acervo é redesenhado no estado padrão; quem a tira de cena
+  é `renderSimpleCorpo` quando a mídia entra no ar.
 - **Sem tela a cortina manda** (`.sem-tela`): a Biblioteca não abre por trás
   dela, e o ícone de cast do cabeçalho some (a seção de conexão já é a tela).
 - **O que a prévia levava, e onde está:** o cartão `#pvBusy` (única porta de
