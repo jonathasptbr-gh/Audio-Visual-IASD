@@ -19349,6 +19349,31 @@ async function serieRetidosDa(coll, retidos) {
   return meus;
 }
 
+/**
+ * O VÍDEO QUE UMA SÉRIE LEVA NO PACOTE (v1.11.14): o episódio que ela RETÉM, e só ele.
+ *
+ * Pedido do operador: *"na exportação, em específico do informativo e do provai e vede,
+ * faça ele exportar apenas o vídeo da semana"*. A lista completa do álbum nunca foi baixada
+ * (o álbum de série não retém arquivo), e a linha dizia "nada baixado neste aparelho" sobre
+ * ela. O que a série de fato guarda é o episódio da lista de retenção (`SERIE_LISTA`), e é
+ * ele que a linha da folha mede, mostra e leva.
+ *
+ * `daSemana` diz se é o episódio desta semana: sem o dizer, um episódio que ficou retido
+ * porque o da semana ainda não saiu seria chamado de "vídeo da semana" — e a linha da folha
+ * é a única coisa que o operador lê antes de mandar.
+ */
+async function serieVideosDoPacote(coll, retidos) {
+  const epi = serieEpisodioDaSemana(coll);
+  const ids = [];
+  let daSemana = false;
+  for (const id of await serieRetidosDa(coll, retidos)) {
+    ids.push(id);
+    const rec = await AVDB.getMedia(id).catch(() => null);
+    if (epi && rec && rec.youtubeId === epi.id_music) daSemana = true;
+  }
+  return { ids, daSemana };
+}
+
 async function manterSeriesDaSemana() {
   if (serieAutoRodando) return;
   const series = allCollections().filter((c) => c.kind === 'serie');
@@ -30825,10 +30850,30 @@ async function pacoteGruposDeMidia(midia) {
     for (const id of ids) if (bytes.has(id)) { s.add(id); cobertos.add(id); }
     if (s.size) porGrupo.set(AVPacote.GRUPO_LISTA + L.lista, s);
   }
+  // ===== O GRUPO DE UMA SÉRIE É O VÍDEO DA SEMANA DELA (v1.11.14) =====
+  // `col:<id>` de uma série não mede o álbum (que nunca é baixado): mede o episódio que ela
+  // retém, e esse episódio SAI de "Outros itens" — senão desmarcar a série não o tiraria do
+  // pacote. Ele se sobrepõe aos Favoritos como todo grupo de mídia (viaja se QUALQUER um
+  // estiver marcado). `serieSub` leva à folha a frase que diz de que semana é o vídeo.
+  const serieSub = new Map();
+  const series = allCollections().filter((c) => c.kind === 'serie');
+  if (series.length) {
+    let retidos = [];
+    try { retidos = await AVDB.listIds(SERIE_LISTA); } catch (_) { retidos = []; }
+    for (const c of series) {
+      let v = { ids: [], daSemana: false };
+      try { v = await serieVideosDoPacote(c, retidos); } catch (_) { /* sem vídeo: linha vazia */ }
+      const s = new Set();
+      for (const id of v.ids) if (bytes.has(id)) { s.add(id); cobertos.add(id); }
+      const chave = AVPacote.GRUPO_COL + c.id;
+      if (s.size) porGrupo.set(chave, s);
+      serieSub.set(chave, s.size ? (v.daSemana ? 'vídeo da semana' : 'último vídeo baixado') : '');
+    }
+  }
   const sobra = new Set();
   for (const m of midia) if (!cobertos.has(m.id)) sobra.add(m.id);
   if (sobra.size) porGrupo.set('midia', sobra);
-  return { porGrupo, bytes };
+  return { porGrupo, bytes, serieSub };
 }
 
 async function pacotePlano(aoAndar) {
@@ -30910,16 +30955,22 @@ async function pacotePlano(aoAndar) {
     porGrupo.set(g, atual);
   }
 
+  // A SÉRIE NÃO LEVA ARQUIVOS DE PASTA (v1.11.14): o que ela leva é o vídeo da semana, que é
+  // mídia (`pacoteGruposDeMidia`). Uma pasta `folders/<série>/` que sobrou de uma versão
+  // antiga não entra na conta nem na escrita — nem o catálogo dela (`seriesIds`).
+  const seriesIds = new Set(cols.filter((c) => c.kind === 'serie').map((c) => c.id));
+  for (const id of seriesIds) porGrupo.delete(AVPacote.GRUPO_COL + id);
+
   andou();
-  const { porGrupo: midiaPorGrupo, bytes: midiaBytes } = await pacoteGruposDeMidia(midia);
+  const { porGrupo: midiaPorGrupo, bytes: midiaBytes, serieSub } = await pacoteGruposDeMidia(midia);
   const { grupos, folha } = pacoteMontarFolha({
-    cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBytes,
+    cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBytes, serieSub,
   });
   andou();
 
   return {
     estado, midia, porGrupo, nomes, ids, caminhoViaja, grupos, folha,
-    midiaPorGrupo, midiaBytes,
+    midiaPorGrupo, midiaBytes, seriesIds,
   };
 }
 
@@ -31028,7 +31079,7 @@ async function pacotePlanoAproximado() {
   // milhares —, e sem ela o grupo não teria peso nenhum para mostrar.
   let midia = [];
   try { midia = await AVDB.mediaResumo(); } catch (_) { midia = []; }
-  const { porGrupo: midiaPorGrupo, bytes: midiaBytes } = await pacoteGruposDeMidia(midia);
+  const { porGrupo: midiaPorGrupo, bytes: midiaBytes, serieSub } = await pacoteGruposDeMidia(midia);
   // ===== O ESTADO DEIXOU DE VALER ZERO (v1.8.40) =====
   //
   // Relato do operador: *"verifique o sistema de peso dos arquivos para
@@ -31055,7 +31106,7 @@ async function pacotePlanoAproximado() {
   try { chavesEstado = (await AVDB.stateKeys('')).length; } catch (_) { chavesEstado = 0; }
   const { grupos, folha } = pacoteMontarFolha({
     cols, porGrupo, bytesEstado: chavesEstado * PACOTE_ESTADO_POR_CHAVE,
-    midiaPorGrupo, midiaBytes,
+    midiaPorGrupo, midiaBytes, serieSub,
   });
   // A MARCA VALE PARA TODO GRUPO, e é escrita num lugar só: por item ela se
   // perderia no próximo grupo que alguém acrescentasse à montagem, e o que sai
@@ -31088,7 +31139,7 @@ function pacoteColecaoDeBase(c) {
  * Quem marca os grupos como aproximados é ela, DEPOIS: uma marca por item se
  * perde no próximo grupo que alguém acrescentar aqui.
  */
-function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBytes }) {
+function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBytes, serieSub }) {
   // A LISTA DA FOLHA. As coleções na ordem do catálogo (a mesma da Biblioteca —
   // o operador as procura ali), a mídia, e "outros" por último, que é o grupo
   // de escape.
@@ -31122,6 +31173,28 @@ function pacoteMontarFolha({ cols, porGrupo, bytesEstado, midiaPorGrupo, midiaBy
     // o caso de uso da importação — a lista seria vazia e não haveria o que
     // marcar. Eles são o que o app SEMPRE conhece; os álbuns do catálogo, que são
     // centenas, só entram quando têm o que levar.
+    // A SÉRIE É OUTRA CONTA (v1.11.14): a linha dela é o VÍDEO DA SEMANA — peso, frase e
+    // "vazio" saem da mídia que ela retém (`pacoteGruposDeMidia`), nunca da pasta do álbum.
+    if (c.kind === 'serie') {
+      const chave = AVPacote.GRUPO_COL + c.id;
+      const ids = midiaPorGrupo && midiaPorGrupo.get(chave);
+      let bytes = 0;
+      if (ids) for (const id of ids) bytes += (midiaBytes && midiaBytes.get(id)) || 0;
+      const temVideo = !!(ids && ids.size);
+      const itemSerie = {
+        chave,
+        rotulo: c.name || c.id,
+        sub: temVideo
+          ? ((serieSub && serieSub.get(chave)) || 'vídeo da semana')
+          : 'sem vídeo da semana baixado',
+        bytes,
+        fixo: false,
+        vazio: !temVideo,
+      };
+      grupos.push(itemSerie);
+      porColecao.set(c.id, itemSerie);
+      continue;
+    }
     const vazio = !g || (!g.arquivos.length && !g.bytes);
     if (vazio && !pacoteColecaoDeBase(c)) continue;
     const gg = g || { arquivos: [], bytes: 0 };
@@ -31958,8 +32031,15 @@ async function exportarPacote() {
             try { rec = await AVDB.getMedia(m.id); } catch (_) { continue; }
             if (!rec) continue;
             const corpo = rec.blob || null;
+            // `grupos`: de QUE grupos da folha este item é — é o que deixa a IMPORTAÇÃO por
+            // marcas decidir sobre ele (um vídeo de série não está em lista nenhuma do
+            // `state`, e só o grupo da série o nomeia). Um leitor antigo ignora o campo.
+            const grupos = [];
+            if (plano.midiaPorGrupo) {
+              for (const [chave, conj] of plano.midiaPorGrupo) if (conj.has(m.id)) grupos.push(chave);
+            }
             await esc.registro({
-              t: 'media', rec: AVPacote.sanearMedia(rec), bytes: corpo ? corpo.size : 0,
+              t: 'media', rec: AVPacote.sanearMedia(rec), bytes: corpo ? corpo.size : 0, grupos,
             }, corpo);
             if (rec.thumb) await esc.registro({ t: 'media-thumb', bytes: rec.thumb.size }, rec.thumb);
             if (Array.isArray(rec.pages)) {
@@ -31986,7 +32066,10 @@ async function exportarPacote() {
         for (const rec of await AVDB.filesAll()) {
           if (!rec || !rec.id) continue;
           if (rec.opfsPath && !plano.caminhoViaja(rec.opfsPath)) continue;
-          if (rec.opfsPath && !sel.has(AVPacote.grupoDoCaminho(rec.opfsPath, plano.ids))) continue;
+          const gDoArquivo = rec.opfsPath ? AVPacote.grupoDoCaminho(rec.opfsPath, plano.ids) : '';
+          if (rec.opfsPath && !sel.has(gDoArquivo)) continue;
+          // O catálogo de uma pasta de SÉRIE não viaja: os bytes dela também não (v1.11.14).
+          if (gDoArquivo && plano.seriesIds && plano.seriesIds.has(AVPacote.colecaoDoGrupo(gDoArquivo))) continue;
           await esc.registro({ t: 'arquivo', rec: AVPacote.sanearArquivo(rec), bytes: 0 });
           if (rec.thumb) await esc.registro({ t: 'arquivo-thumb', bytes: rec.thumb.size }, rec.thumb);
         }
@@ -32510,7 +32593,7 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     if (!filtro) return true;
     switch (cab.t) {
       case 'media-thumb': case 'media-pagina': case 'arquivo-thumb': return !pulando;
-      case 'media': pulando = !pacoteMidiaEntra(filtro, cab.rec); return !pulando;
+      case 'media': pulando = !pacoteMidiaEntra(filtro, cab.rec, cab.grupos); return !pulando;
       case 'arquivo': pulando = !pacoteArquivoEntra(filtro, cab.rec); return !pulando;
       case 'opfs':
         pulando = !filtro.marcados.has(AVPacote.grupoDoCaminho(cab.caminho, filtro.ids));
@@ -32829,12 +32912,15 @@ function pacoteFiltroDeImportacao() {
 }
 
 /** Uma mídia entra se QUALQUER grupo que a contém está marcado — a regra da saída. */
-function pacoteMidiaEntra(filtro, rec) {
+function pacoteMidiaEntra(filtro, rec, doPacote) {
   const id = rec && rec.id;
-  const grupos = [];
-  for (const [chave, ids] of filtro.listas) if (ids.has(id)) grupos.push(chave);
-  if (!grupos.length) grupos.push('midia');
-  return grupos.some((g) => filtro.marcados.has(g));
+  const grupos = new Set();
+  // OS GRUPOS QUE O PACOTE NOMEOU (v1.11.14) — o vídeo de uma série só tem este caminho. Um
+  // pacote antigo não traz o campo, e aí vale só o que as listas do `state` dizem.
+  if (Array.isArray(doPacote)) for (const g of doPacote) if (typeof g === 'string') grupos.add(g);
+  for (const [chave, ids] of filtro.listas) if (ids.has(id)) grupos.add(chave);
+  if (!grupos.size) grupos.add('midia');
+  return [...grupos].some((g) => filtro.marcados.has(g));
 }
 
 /** O catálogo de arquivos segue os bytes, pela MESMA função da saída. */
