@@ -313,19 +313,20 @@ async function responderDialogo(pg) {
   return texto;
 }
 
-// A FOLHA DE ESCOLHA (v1.7.2) abre ANTES do "Salvar como", e ela é uma
-// resposta: a Promise do `exportarPacote` fica esperando por ela. O oráculo
-// aperta o confirmar de VERDADE, que é o que quem opera faz — e assim o
-// caminho da folha entra na cobertura deste percurso de graça.
+// A LISTA DA JANELA (v1.11.9) já está à vista quando ela abre, e o toque em
+// Exportar é a confirmação: o oráculo abre a janela e aperta o botão de VERDADE,
+// que é o que quem opera faz — e assim o caminho da lista entra na cobertura
+// deste percurso de graça.
 async function confirmarGrupos(pg) {
+  await pg.evaluate(() => openPacotePopup());
   const abriu = await esperar(pg, () => {
-    const d = document.getElementById('songMenuPopup');
-    return !!d && d.classList.contains('open') && !!d.querySelector('.song-menu-go');
+    const d = document.getElementById('pacotePopup');
+    return !!d && d.classList.contains('open') && !!document.querySelector('#pacoteLista li');
   }, null, 60000);
   if (abriu !== true) return abriu;
-  const linhas = await pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
+  const linhas = await pg.evaluate(() => [...document.querySelectorAll('#pacoteLista li')]
     .map((li) => (li.textContent || '').replace(/\s+/g, ' ').trim()));
-  await pg.click('#songMenuPopup .song-menu-go');
+  await pg.click('#pacoteExportarTile');
   return linhas;
 }
 
@@ -407,7 +408,6 @@ try {
       new Blob([new Uint8Array(700).fill(2)], { type: 'video/mp4' }));
   });
 
-  await a.pg.evaluate(() => { window.__fim = exportarPacote(); });
   const grupos = await confirmarGrupos(a.pg);
   checar(Array.isArray(grupos) && grupos.length >= 2,
     '1 · a folha de escolha abre com os grupos e o confirmar', JSON.stringify(grupos));

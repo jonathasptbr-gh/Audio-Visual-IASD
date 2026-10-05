@@ -1805,7 +1805,7 @@ que ela é desenvolvida e testada fora do aparelho.
 | Botão voltar | — | **fecha o que estiver aberto** antes de minimizar (ver abaixo) |
 | Controles fora do app | — | `MediaSession`: notificação, tela de bloqueio, botões de mídia |
 | Download minimizado | a aba continua baixando | **foreground service + wake lock**; sem isso o processo é congelado |
-| **Levar a biblioteca para outro aparelho** | **não existe** (não há SAF nem canal de bytes: um `<a download>` sobre um Blob de gigabytes não é caminho) | **um arquivo `.avpkg`** (shell 63) — ver a seção do recurso. **Exportar e Importar são UM tile, "Transferir"** (v1.11.7), que abre uma janela com os dois botões; a listagem da biblioteca atual vem DENTRO de cada caminho, antes de a ação começar (exportar: a folha "O que levar"; importar: a MESMA folha em leitura, com frase de estado vazio — o aparelho novo é o caso de uso), e o tile da grade é o SINAL do trabalho com a janela fechada (aro, "pronto para enviar"). Exportar abre direto o SELETOR DE COMPARTILHAMENTO (shell 67), que é por onde ele de fato atravessa (Quick Share): o pacote é escrito no armazenamento próprio e oferecido ali. Não cabendo — a conta é `espaco − bytes > 512 MB`, feita pelo WEB —, ele volta ao "Salvar como" do sistema, que é o caminho do cartão. Nos dois, os bytes vão pelo canal `__avPacote`; importar entra por `pickDoc` e lê o arquivo por JANELAS (`/saf/<token>?r=<ini>-<fim>`, shell 64) — nunca inteiro, porque o caminho `/saf/` tem teto de 2 GB e um `resp.blob()` de quinze gigabytes não cabe em lugar nenhum. **Só ACRESCENTA**: nada que já esteja no aparelho é substituído |
+| **Levar a biblioteca para outro aparelho** | **não existe** (não há SAF nem canal de bytes: um `<a download>` sobre um Blob de gigabytes não é caminho) | **um arquivo `.avpkg`** (shell 63) — ver a seção do recurso. **Exportar e Importar são UM tile, "Transferir"** (v1.11.7), que abre uma janela com os dois botões; a LISTA da biblioteca atual já está à vista quando a janela abre (v1.11.9: as caixas escolhem o que o Exportar leva, a nota acima dos botões diz o peso, e frase de vazio no aparelho novo — o caso de uso do Importar), os dois botões moram na base da janela (o toque no Exportar é a confirmação; o Importar abre o seletor na hora) e o tile da grade é o SINAL do trabalho com a janela fechada (aro, "pronto para enviar"). Com trabalho andando ou um pacote pronto a lista TRAVA. Exportar abre direto o SELETOR DE COMPARTILHAMENTO (shell 67), que é por onde ele de fato atravessa (Quick Share): o pacote é escrito no armazenamento próprio e oferecido ali. Não cabendo — a conta é `espaco − bytes > 512 MB`, feita pelo WEB —, ele volta ao "Salvar como" do sistema, que é o caminho do cartão. Nos dois, os bytes vão pelo canal `__avPacote`; importar entra por `pickDoc` e lê o arquivo por JANELAS (`/saf/<token>?r=<ini>-<fim>`, shell 64) — nunca inteiro, porque o caminho `/saf/` tem teto de 2 GB e um `resp.blob()` de quinze gigabytes não cabe em lugar nenhum. **Só ACRESCENTA**: nada que já esteja no aparelho é substituído |
 | **Compartilhar o link do app** | `navigator.share`, onde o navegador o tiver | **`compartilharTexto`** (shell 63) → `ACTION_SEND` + `createChooser`. O WebView do Android **não** implementa a Web Share API, então este era o único caminho — e sem ele não havia, de dentro do app, forma nenhuma de passá-lo adiante |
 | Abertura do app | a página pisca igual, e ninguém tem o que fazer a respeito | **a CORTINA** (`#splash`) mais o `data-tema` escrito no `<head>` antes do primeiro quadro. O prazo que a levanta mora no mesmo script inline, e não no `controle.js`: um bundle que nem chega a ser parseado tem de terminar com o app À VISTA. **E ELA É SEMPRE NO MODO FÁCIL** (v1.11.7, pedido do operador: *"sempre iniciar o app no modo simples"*): o modo mora em `sessionStorage`, que atravessa só a recarga do documento (a atualização aceita, o `location.reload()` da importação) e morre com o app. Consequência dita: um compartilhamento recebido com o app FECHADO cai no ramo do simplificado (link do YouTube vira "tocar agora" sem pergunta; arquivos vão para `avulsos` e projetam) |
 | Atualização da base web | recarregar a página | **OTA** |
@@ -2993,20 +2993,22 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: base web v1.11.8 · APK v1.11.3** · `SHELL_VERSION` **77** ·
+**Versão atual: base web v1.11.9 · APK v1.11.3** · `SHELL_VERSION` **77** ·
 bundle com `minShell: 77` e **SEM `shellTag`** — o shell 77 é o **PISO**: todo
 método da ponte existe, e não há guarda de versão no lado web. Nada em
 `java/`, `res/` ou no manifesto muda neste lote, e o APK v1.11.3 está
 publicado na frota: o bundle sai na hora, contra um shell que já o atende.
-**O DEGRAU É CORREÇÃO. A v1.11.7 (anterior) juntou QUATRO pedidos do operador,
+**O DEGRAU É CORREÇÃO. A v1.11.9 refaz a janela do Transferir** (a lista de
+coletâneas sempre à vista, e Exportar/Importar como os dois botões da base —
+ver a linha "Levar a biblioteca" da tabela de divergências). **A v1.11.7
+juntou QUATRO pedidos do operador,
 todos de superfície:** (1) a **seta no topo da prévia** que a recolhe na menor altura em
 que os botões dela cabem (substitui o tile "Imagem da prévia"; ver a linha
 "Recolher a prévia" da tabela de divergências); (2) o app **SEMPRE abre no Modo
 Fácil** — o modo vale pela sessão (`sessionStorage`), atravessa a recarga do
 documento e morre com o app; (3) a janela da **Tela** (`#telaPopup`:
 preenchimento, wallpaper, fundo da letra e giro) e (4) a janela do
-**Transferir** (`#pacotePopup`: exportar e importar, com a listagem da
-biblioteca antes de cada caminho) — a grade de Configurações passou de 13 para
+**Transferir** (`#pacotePopup`: exportar e importar, refeita na v1.11.9) — a grade de Configurações passou de 13 para
 8 tiles. **Se a numeração o contrariar:** a tabela do número manda
 INCREMENTAL para "uma seção inteiramente nova do app"; as duas janelas
 reagrupam o que já existia, e por isso o degrau ficou em CORREÇÃO. **O
@@ -3014,6 +3016,13 @@ hotspot de outro celular conta como Wi-Fi comum, e isso está DECIDIDO** (ver a
 linha "Manter o episódio da SEMANA baixado" da tabela de divergências).
 **Conferir a Release é parte de decidir** — um lote só de web herda o `shellTag` quando o
 lote de shell anterior ainda não tem Release, e não herda quando tem.
+
+> **A v1.11.9 TIROU A FOLHA "O QUE LEVAR" E A LISTAGEM EM LEITURA** (lote só de
+> web, sem `shellTag`): a lista é a janela do Transferir (`#pacoteLista`) e o
+> peso do que está marcado mora na nota `#pacoteNota`. `exportarPacote()` chamado
+> direto (sem a janela) marca TUDO. **`renderPacoteGrupos` limpa por
+> `innerHTML = ''`, nunca por `limparFolha`**: ela esvaziaria o `.popup-fecho`
+> irmão, onde moram os dois botões.
 
 > **A v1.11.8 CONSERTA O WATCHDOG DO OTA** (lote só de web, sem `shellTag`): `otaAppIsUp` exigia
 > um `<li>` em `#playlist`, que não existe com a fila vazia (v1.8.54 em diante) — o bundle OTA nunca era

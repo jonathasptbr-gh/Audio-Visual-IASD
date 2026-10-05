@@ -1157,32 +1157,47 @@ de dentro de Configurações como o Histórico e a Verificação, tem linha na t
   e que `getAnimations()` do giro continua valendo. `openTelaPopup` só refaz o
   que depende de um instante.
 
-##### A janela do TRANSFERIR (v1.11.7)
+##### A janela do TRANSFERIR (v1.11.7; a lista sempre à vista, v1.11.9)
 
-Pedido do operador: *"os botões de exportar e importar, para que sejam um único
-botão, e depois na janela aberta teremos a escolha de exportar ou importar
-dados, junto com o sistema que já temos de listagem da biblioteca atual antes da
-exportação, afinal, para importação também é bom saber o que já se tem"*.
+Pedido do operador (v1.11.7): *"os botões de exportar e importar, para que sejam
+um único botão, e depois na janela aberta teremos a escolha de exportar ou
+importar dados, junto com o sistema que já temos de listagem da biblioteca atual
+antes da exportação, afinal, para importação também é bom saber o que já se
+tem"*. E a v1.11.9, sobre a primeira entrega: *"em ambos os casos a lista será
+vista, então já pode tornar ela visível diretamente e ter apenas os dois botões
+de ações na base"*.
 
-- **`#pacoteTile` abre `#pacotePopup`**, que leva os DOIS botões de sempre
-  (`#pacoteExportarTile`, `#pacoteImportarTile`, mesmos ids, mesmo markup, mesmos
-  três desenhos) e uma nota. Toda a coreografia de `pacoteRenderTiles` — o aro, o
-  pronto-para-enviar, o irmão que vira Cancelar ou Descartar — continua pintando
-  ELES: `pacoteRenderTiles()` é `pacoteRenderPar()` (o corpo de antes) mais
-  `pacoteSinal()`.
-- **A LISTAGEM DA BIBLIOTECA ATUAL aparece DENTRO de cada caminho, antes de a
-  ação começar**: ao exportar, a folha "O que levar no arquivo"
-  (`escolherGruposDoPacote`, que também é a escolha do que levar); ao importar, a
-  MESMA folha em **leitura** (`renderPacoteGrupos(plano, { leitura: true })` via
-  `mostrarAcervoParaImportar`): linhas sem caixa e sem ação (`<div>`, nunca um
-  `<button>` que não faz nada), seções que só abrem e fecham, o botão "Escolher o
-  arquivo", e — o caso de uso da importação é o aparelho NOVO — uma frase de
-  estado vazio. Abrir a janela não desenha lista nenhuma.
-- **`importarPeloTile()` é o toque** (guarda da v1.8.42 copiada: `!__NATIVE__ ||
-  pacoteEmCurso || pacotePronto`); **`importarPacote()` e `exportarPacote()` NÃO
-  MUDARAM** — a listagem é um `await` de folha e eles são chamados direto, com um
-  `pickDoc` de mentira, por dezenas de pontos de oráculo. A listagem informa, não
-  autoriza: se ela falha em montar, a importação segue.
+- **`#pacoteTile` abre `#pacotePopup`**: cabeçalho, a LISTA (`#pacoteLista`), a
+  nota (`#pacoteNota`) e, no `.popup-fecho` — fora do scroller, como o confirmar
+  de toda folha —, os DOIS botões de sempre (`#pacoteExportarTile`,
+  `#pacoteImportarTile`, mesmos ids, mesmo markup, mesmos três desenhos, lado a
+  lado). Toda a coreografia de `pacoteRenderTiles` — o aro, o pronto-para-enviar,
+  o irmão que vira Cancelar ou Descartar — continua pintando ELES:
+  `pacoteRenderTiles()` é `pacoteRenderPar()` (o corpo de antes) mais
+  `pacoteSinal()` mais `pacoteRedesenharLista()`.
+- **A LISTA JÁ ESTÁ NA JANELA, e é a escolha do que levar.** `openPacotePopup()`
+  chama `pacoteAbrirLista()`: o plano APROXIMADO (`pacotePlanoAproximado`, o que
+  a Biblioteca já sabe) vai para `pacoteEsboco` e `renderPacoteGrupos(plano)`
+  desenha as mesmas linhas do seletor de destinos (`songMenuItem`, o Set
+  `destMarcados`), **tudo marcado** (`pacoteMarcarPadrao`). A nota diz o peso do
+  que está marcado (*"Exportar leva até X"*, o teto) e a promessa do Importar;
+  num aparelho sem biblioteca a lista é uma frase de vazio (`li.empty`) e a nota
+  só fala do Importar. **Importar não lê a marca**: traz o que o arquivo tiver.
+- **O toque no Exportar É a confirmação:** `exportarPacote()` lê
+  `pacoteSelecao(pacoteEsboco)` na hora e segue para a medição, o destino e a
+  escrita — sem folha por cima. **Chamada direta, sem a janela aberta** (os
+  oráculos), ela monta o plano e marca TUDO, que é o padrão da lista. O toque no
+  Importar chama `importarPacote()` direto: o seletor de arquivos abre na hora.
+  A folha "O que levar" (`escolherGruposDoPacote`), a listagem em leitura
+  (`mostrarAcervoParaImportar`, `renderPacoteGrupos(plano, { leitura })`) e o
+  `importarPeloTile` SAÍRAM com este lote.
+- **COM TRABALHO ANDANDO OU UM PACOTE PRONTO A LISTA TRAVA**
+  (`pacoteOcupado()`: `pacoteEmCurso || pacoteExportando || pacoteImportando ||
+  pacoteMedindo || pacotePronto`): `#pacoteLista.travada`, as linhas de marcar
+  `disabled`, a barra da seção `aria-disabled` e as caixas em `--op-inativo` —
+  INDISPONÍVEL, nunca "desligado". As seções continuam abrindo. Descartar o
+  pronto a destrava. **`innerHTML = ''`, nunca `limparFolha`**, ao redesenhar: a
+  `limparFolha` esvazia o `.popup-fecho` irmão — onde moram os dois botões.
 - **O TILE DA GRADE É O SINAL, não só a porta** (`pacoteSinal`): com a janela
   fechada durante os minutos de uma exportação, o aro gira nele
   (`pacoteExportando || pacoteImportando || pacoteMedindo` — NUNCA

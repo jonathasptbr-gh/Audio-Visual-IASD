@@ -149,14 +149,17 @@ async function aparelho() {
 }
 
 // A folha de escolha, respondida pelos CONTROLES — como quem opera.
+// (v1.11.9: a lista é a JANELA do Transferir, e os controles são os dois botões
+// da base dela. "Abrir a folha" é abrir a janela e esperar as linhas.)
 const abriuFolha = (pg) => esperar(pg, () => {
-  const d = document.getElementById('songMenuPopup');
-  return !!d && d.classList.contains('open') && !!d.querySelector('.song-menu-go');
+  const d = document.getElementById('pacotePopup');
+  return !!d && d.classList.contains('open')
+    && !!document.querySelector('#pacoteLista li');
 }, null, 60000);
 
 // O que a folha mostra AGORA: cada linha com o rótulo, o estado da caixa e se
 // ela está dentro de uma seção.
-const lerFolha = (pg) => pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
+const lerFolha = (pg) => pg.evaluate(() => [...document.querySelectorAll('#pacoteLista li')]
   .map((li) => {
     const b = li.firstElementChild;
     const cx = li.querySelector('.song-menu-check');
@@ -174,7 +177,7 @@ const lerFolha = (pg) => pg.evaluate(() => [...document.querySelectorAll('#songM
 // Toca no CORPO de uma linha (marca/desmarca) ou na SETA dela (abre a seção) —
 // pelo rótulo, que é como o operador a encontra.
 const tocar = (pg, rotulo, alvo) => pg.evaluate(([r, a]) => {
-  const li = [...document.querySelectorAll('#songMenuList li')]
+  const li = [...document.querySelectorAll('#pacoteLista li')]
     .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === r);
   if (!li) throw new Error('linha não encontrada: ' + r);
   (a === 'seta' ? li.querySelector('.pacote-seta') : li.firstElementChild).click();
@@ -184,13 +187,13 @@ async function escolher(pg, passos) {
   const abriu = await abriuFolha(pg);
   if (abriu !== true) return abriu;
   for (const [rotulo, alvo] of (passos || [])) await tocar(pg, rotulo, alvo);
-  const linhas = await pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
+  const linhas = await pg.evaluate(() => [...document.querySelectorAll('#pacoteLista li')]
     .map((li) => (li.textContent || '').replace(/\s+/g, ' ').trim()));
-  await pg.click('#songMenuPopup .song-menu-go');
+  await pg.click('#pacoteExportarTile');
   return linhas;
 }
 
-const pg2linhas = (pg) => pg.evaluate(() => [...document.querySelectorAll('#songMenuList li')]
+const pg2linhas = (pg) => pg.evaluate(() => [...document.querySelectorAll('#pacoteLista li')]
   .map((li) => (li.textContent || '').replace(/\s+/g, ' ').trim()));
 
 // O FIM DA EXPORTAÇÃO, e ele deixou de ser um DIÁLOGO (v1.8.19). O popup
@@ -259,7 +262,7 @@ try {
     new MutationObserver(() => window.__rotulos.push(alvo.textContent))
       .observe(alvo, { childList: true, characterData: true, subtree: true });
   });
-  await a.pg.evaluate(() => { window.__fim = exportarPacote(); });
+  await a.pg.evaluate(() => { openPacotePopup(); });
   const listaA = await escolher(a.pg, []);
   checar(Array.isArray(listaA), 'A · a folha de escolha abre', porque(listaA));
   const fimA = await fimDaExportacao(a.pg);
@@ -471,7 +474,7 @@ try {
       thumb: null, blob: null, url: null, addedAt: 1,
     });
   });
-  await b.pg.evaluate(() => { window.__fim = exportarPacote(); });
+  await b.pg.evaluate(() => { openPacotePopup(); });
   const abriuB = await abriuFolha(b.pg);
   checar(abriuB === true, 'B · a folha de escolha abre', porque(abriuB));
 
@@ -533,7 +536,7 @@ try {
   const listaB = await pg2linhas(b.pg);
   checar(listaB.some((t) => /Álbum Um/.test(t)) && listaB.some((t) => /Álbum Dois/.test(t)),
     'B · a folha nomeia cada coleção do aparelho', JSON.stringify(listaB));
-  await b.pg.click('#songMenuPopup .song-menu-go');
+  await b.pg.click('#pacoteExportarTile');
   const fimB = await fimDaExportacao(b.pg);
   checar(fimB && fimB.dialogo === false && /\d/.test(fimB.titulo),
     'B · e a exportação termina no próprio botão, sem diálogo',
@@ -653,7 +656,7 @@ try {
       await AVDB.listAdd('imports', 'nos-dois');
       await AVDB.listAdd('imports', 'so-cron');
     });
-    await d.pg.evaluate(() => { window.__fim = exportarPacote(); });
+    await d.pg.evaluate(() => { openPacotePopup(); });
     const linhas = await abriuFolha(d.pg);
     checar(linhas === true, 'D · a folha abre', porque(linhas));
     const rotulos = (await lerFolha(d.pg)).map((x) => x.rotulo);
@@ -680,7 +683,7 @@ try {
       JSON.stringify(favLinha));
     // A UNIÃO: desmarcar Favoritos NÃO pode tirar o item que o Cronograma pede.
     await tocar(d.pg, 'Favoritos');
-    await d.pg.click('#songMenuPopup .song-menu-go');
+    await d.pg.click('#pacoteExportarTile');
     const fim = await fimDaExportacao(d.pg);
     checar(fim && fim.dialogo === false, 'D · a exportação termina', JSON.stringify(fim));
     const dentro = await d.pg.evaluate(() => {
@@ -797,7 +800,7 @@ try {
       await AVDB.updateStateLote(lote, (_atual, novo) => novo);
       return { escrito };
     });
-    await e.pg.evaluate(() => { window.__fim = exportarPacote(); });
+    await e.pg.evaluate(() => { openPacotePopup(); });
     const abriuE = await abriuFolha(e.pg);
     checar(abriuE === true, 'E · a folha abre', porque(abriuE));
 
@@ -847,7 +850,7 @@ try {
     // a hierarquia. Ele saiu nesta folha (ver o bloco de baixo); a medição
     // continua sendo feita desmarcada porque é ali que o tom é o que se vê.
     const marcada = await e.pg.evaluate(() => {
-      const li = [...document.querySelectorAll('#songMenuList li')]
+      const li = [...document.querySelectorAll('#pacoteLista li')]
         .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Favoritos');
       return getComputedStyle(li.querySelector('.song-menu-btn')).backgroundColor;
     });
@@ -859,7 +862,7 @@ try {
       const cor = (el) => (cs(el) || {}).backgroundColor;
       const rot = (x) => ((x.querySelector('.song-menu-label') || {}).textContent || '');
       // ---- A FOLHA ----
-      const li = [...document.querySelectorAll('#songMenuList li')];
+      const li = [...document.querySelectorAll('#pacoteLista li')];
       // PELO RÓTULO, e nunca "o primeiro `.pacote-grupo`": a folha tem duas
       // seções e a aberta é a segunda (medido: com o índice, o oráculo lia o
       // bloco FECHADO e a linha de dentro vinha nula).
@@ -970,7 +973,7 @@ try {
       + 'carrega a marca é o ✓, e o preenchimento de escolhido pintava 100% '
       + 'das linhas desta folha', JSON.stringify({ marcada, desmarcada: par.folha.raiz }));
     const check = await e.pg.evaluate(() => {
-      const li = [...document.querySelectorAll('#songMenuList li')]
+      const li = [...document.querySelectorAll('#pacoteLista li')]
         .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Favoritos');
       const c = li.querySelector('.song-menu-check');
       return { on: c.classList.contains('on'), tinta: getComputedStyle(c, '::before').backgroundColor };
@@ -984,7 +987,7 @@ try {
     // `.pacote-*` — montada na mesma lista: ali o `--sel-fill` continua sendo a
     // resposta, porque lá nada começa marcado.
     const outraFolha = await e.pg.evaluate(() => {
-      const ul = document.getElementById('songMenuList');
+      const ul = document.getElementById('pacoteLista');
       const li = document.createElement('li');
       li.innerHTML = '<button class="song-menu-btn song-menu-sel">'
         + '<span class="song-menu-check on"></span></button>';
@@ -1020,11 +1023,11 @@ try {
     // que faltou alguma coisa.
     {
       const abrir = await e.pg.evaluate(async () => {
-        const li = [...document.querySelectorAll('#songMenuList li')]
+        const li = [...document.querySelectorAll('#pacoteLista li')]
           .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
         li.querySelector('.pacote-seta').click();
         await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
-        const novo = [...document.querySelectorAll('#songMenuList li')]
+        const novo = [...document.querySelectorAll('#pacoteLista li')]
           .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
         const corpo = novo && novo.querySelector('.pacote-grupo-corpo');
         const anims = corpo ? corpo.getAnimations().filter((a) => a.playState === 'running') : [];
@@ -1050,7 +1053,7 @@ try {
       // animando. Sem a metade que anima ANTES de remontar, o redesenho o apaga
       // no mesmo quadro e o que se mede é a ausência.
       const fechar = await e.pg.evaluate(async () => {
-        const li = [...document.querySelectorAll('#songMenuList li')]
+        const li = [...document.querySelectorAll('#pacoteLista li')]
           .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
         const corpo = li.querySelector('.pacote-grupo-corpo');
         li.querySelector('.pacote-seta').click();
@@ -1066,7 +1069,7 @@ try {
       // E ELE SOME NO FIM: sem esta, "nunca remontar" passaria na de cima e a
       // seção ficaria aberta para sempre.
       const sumiu = await esperar(e.pg, () => {
-        const li = [...document.querySelectorAll('#songMenuList li')]
+        const li = [...document.querySelectorAll('#pacoteLista li')]
           .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Adoradores');
         return !!li && !li.querySelector('.pacote-grupo-corpo');
       }, null, 4000);
@@ -1108,15 +1111,15 @@ try {
     // que ele vai escrever. MEDIDO antes do lote: com `bytesEstado: 0` a folha
     // mostrava 14,7% da realidade neste mesmo cenário.
     const prometido = await e.pg.evaluate(() => {
-      const t = (document.querySelector('#songMenuPopup .song-menu-go') || {}).textContent || '';
+      const t = (document.getElementById('pacoteNota') || {}).textContent || '';
       const m = /([\d.,]+)\s*(B|KB|MB|GB)/.exec(t);
       if (!m) return -1;
       const u = { B: 1, KB: 1024, MB: 1024 * 1024, GB: 1024 * 1024 * 1024 }[m[2]];
       return Number(String(m[1]).replace('.', '').replace(',', '.')) * u;
     });
     checar(prometido > 0,
-      'E · o confirmar da folha diz um peso', String(prometido));
-    await e.pg.click('#songMenuPopup .song-menu-go');
+      'E · a nota acima dos botões diz o peso do que vai no arquivo', String(prometido));
+    await e.pg.click('#pacoteExportarTile');
     const fimE = await fimDaExportacao(e.pg);
     checar(fimE && fimE.dialogo === false, 'E · a exportação termina', JSON.stringify(fimE));
     const escreveu = await e.pg.evaluate(() => {
@@ -1205,14 +1208,14 @@ try {
         await AVDB.setState('coll:album-' + id, { songs: [{ id_music: 1, fileIdFull: 'f-' + id }] });
       }
     }, ALBUNS);
-    await f.pg.evaluate(() => { window.__fimF = exportarPacote(); });
+    await f.pg.evaluate(() => { openPacotePopup(); });
     const abriu = await abriuFolha(f.pg);
     checar(abriu === true, 'F · a folha de grupos abriu', porque(abriu));
     const pos = await f.pg.evaluate(async () => {
       const z = (ms) => new Promise((r) => setTimeout(r, ms));
-      const lista = document.getElementById('songMenuList');
-      const go = document.querySelector('#songMenuPopup .song-menu-go');
-      if (!go) return { erro: 'sem botão de salvar' };
+      const lista = document.getElementById('pacoteLista');
+      const go = document.querySelector('#pacoteExportarTile');
+      if (!go) return { erro: 'sem botão de exportar' };
       // ROLA ATÉ O TOPO: é o estado em que o defeito aparece — com a lista no
       // fim o botão estava à vista mesmo antes do conserto.
       lista.scrollTop = 0; await z(300);
@@ -1225,7 +1228,7 @@ try {
         // O botão está inteiro ABAIXO da base da lista, isto é, no rodapé.
         abaixoDaLista: +(gr.top - lr.bottom).toFixed(2),
         visivel: gr.height > 0 && gr.bottom <= innerHeight + 1 && gr.top >= 0,
-        alturaFolha: +document.querySelector('#songMenuPopup .popup-sheet')
+        alturaFolha: +document.querySelector('#pacotePopup .popup-sheet')
           .getBoundingClientRect().height.toFixed(2),
       };
     });

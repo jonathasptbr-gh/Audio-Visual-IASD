@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.11.9",
+    "itens": [
+      "Em 'Transferir', a lista da biblioteca já aparece ao abrir a janela.",
+      "Exportar e Importar ficam como os dois botões na base da janela.",
+      "Marque na lista o que levar; o peso do que vai no arquivo aparece acima dos botões.",
+      "Ao importar, não há mais uma tela intermediária: o seletor de arquivos abre direto."
+    ]
+  },
+  {
     "versao": "1.11.8",
     "itens": [
       "Corrigido: o app descartava a atualização ao fechar e voltava à versão antiga, pedindo de novo.",

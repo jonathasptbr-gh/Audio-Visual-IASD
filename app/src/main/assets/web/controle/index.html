@@ -2154,21 +2154,26 @@
     </div>
   </div>
 
-  <!-- ===== A JANELA DO TRANSFERIR (v1.11.7) =====
-       A ESCOLHA entre exportar e importar. Os dois tiles são os de sempre
-       (mesmos ids, mesmo markup, mesmos três desenhos): toda a coreografia de
-       `pacoteRenderTiles` — o aro, o pronto-para-enviar, o irmão que vira
-       Cancelar ou Descartar — continua pintando ELES, e o tile da grade
-       (`#pacoteTile`) só espelha o resultado.
+  <!-- ===== A JANELA DO TRANSFERIR (v1.11.7, a lista sempre à vista na v1.11.9) =====
+       A LISTA DA BIBLIOTECA ATUAL É A PRIMEIRA COISA DA JANELA, e os dois botões
+       de ação moram na base. Exportar e importar passam pela mesma pergunta —
+       *"o que este aparelho tem?"* —, então a lista não espera uma escolha para
+       aparecer: ela já está aqui quando a janela abre. As caixas dizem o que
+       LEVAR ao exportar; importar traz o que o arquivo tiver e só acrescenta.
 
-       A LISTAGEM DA BIBLIOTECA ATUAL aparece DENTRO de cada caminho, antes de
-       a ação começar: ao exportar, a folha "O que levar no arquivo" (que é
-       também a escolha do que levar); ao importar, a mesma folha em leitura —
-       *"para importação também é bom saber o que já se tem"*. Abrir esta
-       janela não desenha lista nenhuma.
+       Os dois botões são os tiles de sempre (mesmos ids, mesmo markup, mesmos
+       três desenhos): toda a coreografia de `pacoteRenderTiles` — o aro, o
+       pronto-para-enviar, o irmão que vira Cancelar ou Descartar — continua
+       pintando ELES, e o tile da grade (`#pacoteTile`) só espelha o resultado.
+       Eles moram no `.popup-fecho`, FORA do scroller, como o confirmar de toda
+       folha do app (v1.8.60): com o acervo inteiro à vista a base não rola.
 
-       Sem `.rola`-scroller próprio: o corpo é curto. A classe da grade é a da
-       janela da Tela, pelas mesmas razões. -->
+       A lista é `.song-menu-list` pelo mesmo motivo de sempre: as linhas são as
+       da folha de destinos (`songMenuItem`), e a lista de uma janela é um molde
+       vazio que o `renderPacoteGrupos` preenche. O `#pacoteNota` leva o PESO do
+       que está marcado — a pergunta que o operador tem depois de marcar é
+       *"cabe no cartão?"*, e ela muda a cada toque. A classe da grade é a da
+       janela da Tela. -->
   <div id="pacotePopup" class="popup-backdrop">
     <div class="popup-sheet">
       <div class="popup-header">
@@ -2178,7 +2183,9 @@
         <span class="popup-title">Transferir a biblioteca</span>
         <button id="pacotePopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
-      <div class="fade-opts rola">
+      <ul id="pacoteLista" class="popup-list song-menu-list rola"></ul>
+      <p id="pacoteNota" class="pacote-nota"></p>
+      <div class="popup-fecho">
         <div class="qs-grade-folha">
           <button type="button" class="qs-tile qs-on" id="pacoteExportarTile" title="Salvar a biblioteca e os ajustes num arquivo">
             <!-- DOIS DESENHOS (v1.8.19): a seta de exportar, e a de
@@ -2200,7 +2207,6 @@
             <span class="qs-titulo">Importar</span>
           </button>
         </div>
-        <p class="pacote-nota">Antes de exportar ou importar, o app mostra o que já está neste aparelho. Importar só acrescenta: nada do que já está aqui é apagado.</p>
       </div>
     </div>
   </div>
@@ -2616,7 +2622,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.11.8</span>
+            <span id="appVersion" class="app-version">v1.11.9</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

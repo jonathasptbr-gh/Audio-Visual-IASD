@@ -325,6 +325,8 @@ const telaPopupCloseEl = document.getElementById('telaPopupClose');
 const pacoteTileEl = document.getElementById('pacoteTile');
 const pacotePopupEl = document.getElementById('pacotePopup');
 const pacotePopupCloseEl = document.getElementById('pacotePopupClose');
+const pacoteListaEl = document.getElementById('pacoteLista');
+const pacoteNotaEl = document.getElementById('pacoteNota');
 const testeResumoEl = document.getElementById('testeResumo');
 const testeListEl = document.getElementById('testeList');
 const testeRodarEl = document.getElementById('testeRodar');
@@ -385,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.8';
+const WEB_VERSION = '1.11.9';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -23993,10 +23995,6 @@ function closeSongMenu() {
   // pelo botão voltar do aparelho entra todo aqui, então é aqui que a
   // desistência é dita.
   if (destPromptResolve) { fecharDestPrompt(null); return; }
-  // A folha de GRUPOS DA EXPORTAÇÃO (v1.7.2) é a mesma coisa pelo mesmo motivo:
-  // uma promessa pendente que ninguém resolve deixa o `exportarPacote` esperando
-  // para sempre — e com o plano inteiro na memória.
-  if (pacoteGruposResolve) { fecharPacoteGrupos(null); return; }
   // A LISTA DO CLONE não resolve promessa nenhuma, mas tem efeito colateral: o
   // mDNS fica varrendo a rede enquanto ela está aberta. Fechar sem desligá-lo
   // deixaria a procura girando pelo resto da sessão, sem nada na tela.
@@ -31333,23 +31331,29 @@ function pacoteMidiaSelecionada(plano, sel) {
   return ids;
 }
 
-// ===== A FOLHA DE ESCOLHA (v1.7.2) =====
+// ===== A LISTA DA JANELA DO TRANSFERIR (v1.7.2 → v1.11.9) =====
 //
-// Pedido do operador: *"caso o usuário não queira levar toda a biblioteca …
-// permita um popup com um check list de grupos para a exportação"*.
+// Pedido do operador (v1.7.2): *"caso o usuário não queira levar toda a
+// biblioteca … permita um popup com um check list de grupos para a exportação"*.
+// Era uma FOLHA que subia depois do toque em Exportar, e a v1.11.7 deu à
+// importação a mesma lista em leitura. A v1.11.9 desfez a duplicação a pedido
+// do operador: *"em ambos os casos a lista será vista, então já pode tornar ela
+// visível diretamente e ter apenas os dois botões de ações na base"*. Hoje a
+// lista É a janela (`#pacoteLista`), e Exportar e Importar são os dois botões
+// da base dela.
 //
-// Ela é a MESMA folha do seletor de destinos (`escolherDestinos`): as mesmas
-// linhas selecionáveis de corpo inteiro, a mesma caixa como INDICADOR, o mesmo
-// confirmar sempre visível. Um segundo formato de folha de múltipla escolha
-// seria a divergência que a v5.252 gastou um lote para tirar do app.
+// As linhas são as do seletor de destinos (`songMenuItem`): a mesma caixa como
+// INDICADOR, o mesmo Set `destMarcados`. As caixas dizem o que LEVAR ao
+// exportar; importar traz o que o arquivo tiver e não lê a marca.
 //
-// A LINHA FIXA NÃO É UM BOTÃO. "Ajustes e catálogos" viaja sempre (as listas do
-// app moram em `state`, e mídia sem a lista que a referencia é órfã — o
-// `gcOrfaos` do destino a apaga na abertura seguinte), e um botão que não
-// responde ao toque é um ponto morto no meio de uma lista de alvos. Ela é uma
-// `<div>` com a mesma roupa e a marca já acesa, e o `sub` diz por que ela está
-// ali sem ser escolha.
-let pacoteGruposResolve = null;
+// O plano aproximado que a lista desenha — o que a Biblioteca já tem em
+// memória (ver `pacotePlanoAproximado`).
+let pacoteEsboco = null;
+// Uma resposta atrasada de uma abertura anterior não desenha por cima da seguinte.
+let pacoteListaSeq = 0;
+// A frase que vale para o aparelho SEM biblioteca também: é o caso de uso da
+// importação, e a nota nunca fica vazia.
+const PACOTE_NOTA_IMPORTAR = 'Importar só acrescenta: nada do que já está aqui é apagado.';
 // UMA seção aberta por vez, como na Biblioteca (`grupoAberto`): com todas
 // abertas a folha vira a lista inteira de álbuns, que é o que a seção existe
 // para não ser. Ela nasce vazia — TUDO colapsado —, porque a folha abre com
@@ -31363,56 +31367,52 @@ let pacoteSecaoAberta = '';
 // folha inteira). Uma variável e não um `Set`: aqui só há uma aberta por vez.
 let pacoteAnimarSecao = '';
 
-function fecharPacoteGrupos(valor) {
-  const r = pacoteGruposResolve;
-  pacoteGruposResolve = null;
-  destLimpar();
-  songMenuFor = null;
-  songMenuPopupEl.classList.remove('open');
-  if (r) r(valor);
-}
-
-function escolherGruposDoPacote(plano) {
-  return new Promise((resolve) => {
-    pacoteGruposResolve = resolve;
-    destLimpar();
-    pacoteSecaoAberta = '';
-    // TUDO MARCADO por padrão: o caso normal é levar o acervo inteiro, e a
-    // folha existe para PODER tirar, não para obrigar a montar.
-    for (const g of plano.grupos) if (!g.fixo) destMarcados.add(g.chave);
-    songMenuFor = { pacoteGrupos: true };
-    songMenuTitleEl.textContent = 'O que levar no arquivo';
-    renderPacoteGrupos(plano);
-    songMenuPopupEl.classList.add('open');
-  });
+/** Há trabalho andando ou um pacote à espera: a lista não aceita marca nova. */
+function pacoteOcupado() {
+  return !!(pacoteEmCurso || pacoteExportando || pacoteImportando || pacoteMedindo || pacotePronto);
 }
 
 /**
- * A MESMA FOLHA, EM LEITURA, ANTES DE IMPORTAR (v1.11.7).
- *
- * Pedido do operador: *"junto com o sistema que já temos de listagem da
- * biblioteca atual antes da exportação, afinal, para importação também é bom
- * saber o que já se tem"*. A listagem é do que o APARELHO TEM — ela não lê o
- * arquivo, só o que a Biblioteca já guarda —, e o caso de uso da importação é
- * justamente o aparelho novo, que pode não ter nada: por isso o estado VAZIO
- * tem frase, e não uma folha em branco.
- *
- * É a promessa do `escolherGruposDoPacote` (`pacoteGruposResolve`), e fechar por
- * ✕, pelo fundo ou pelo voltar resolve `null` — desistir é não importar. O
- * `true` é o "Escolher o arquivo". NENHUMA linha daqui toca em `destMarcados`:
- * é leitura, e o estado de marcação é o da folha de destinos, que é a mesma
- * `#songMenuList`.
+ * TUDO MARCADO por padrão: o caso normal é levar o acervo inteiro, e a lista
+ * existe para PODER tirar, não para obrigar a montar.
  */
-function mostrarAcervoParaImportar(plano) {
-  return new Promise((resolve) => {
-    pacoteGruposResolve = resolve;
-    destLimpar();
-    pacoteSecaoAberta = '';
-    songMenuFor = { pacoteGrupos: true, leitura: true };
-    songMenuTitleEl.textContent = 'O que já está neste aparelho';
-    renderPacoteGrupos(plano, { leitura: true });
-    songMenuPopupEl.classList.add('open');
-  });
+function pacoteMarcarPadrao(plano) {
+  destLimpar();
+  for (const g of plano.grupos) if (!g.fixo) destMarcados.add(g.chave);
+}
+
+/**
+ * A lista na ABERTURA da janela. Com trabalho andando ou um pacote pronto a
+ * marca que já existe é a escolha DELE e fica; só uma marca que sumiu (o
+ * seletor de destinos de outra folha a limpa) volta ao padrão.
+ *
+ * Falhar vazio é proibido: o plano que não veio diz isso na própria lista, e os
+ * dois botões continuam ali (importar não depende dele).
+ */
+async function pacoteAbrirLista() {
+  if (!window.__NATIVE__) return;
+  const seq = ++pacoteListaSeq;
+  let plano = null;
+  try { plano = await pacotePlanoAproximado(); } catch (_) { plano = null; }
+  if (seq !== pacoteListaSeq) return;
+  pacoteEsboco = plano;
+  if (!plano) {
+    pacoteListaEl.innerHTML = '';
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = 'Não foi possível ler a biblioteca deste aparelho.';
+    pacoteListaEl.appendChild(li);
+    pacoteNotaEl.textContent = PACOTE_NOTA_IMPORTAR;
+    return;
+  }
+  if (!pacoteOcupado() || !destMarcados.size) pacoteMarcarPadrao(plano);
+  pacoteSecaoAberta = '';
+  renderPacoteGrupos(plano);
+}
+
+/** O estado de ocupado mudou (`pacoteRenderTiles`): a lista acompanha. */
+function pacoteRedesenharLista() {
+  if (pacoteEsboco) renderPacoteGrupos(pacoteEsboco);
 }
 
 /** O que está marcado, MAIS o que é fixo. */
@@ -31448,14 +31448,15 @@ function pacoteCheckGrupo(estado) {
   return cx;
 }
 
-function renderPacoteGrupos(plano, opts = {}) {
-  limparFolha(songMenuListEl);
-  // EM LEITURA (v1.11.7) a folha é a do IMPORTAR: lista o que o aparelho já tem,
-  // sem caixa, sem marca e sem o "Salvar X" — as linhas não respondem a toque e
-  // as seções só abrem e fecham.
-  const leitura = !!opts.leitura;
-  const remontar = () => renderPacoteGrupos(plano, opts);
-  destRemontar = remontar;
+function renderPacoteGrupos(plano) {
+  // `innerHTML` e não `limparFolha`: o `.popup-fecho` irmão desta lista guarda
+  // os dois botões da janela, e a `limparFolha` o esvaziaria junto.
+  pacoteListaEl.innerHTML = '';
+  // COM TRABALHO ANDANDO OU UM PACOTE PRONTO a lista é só para olhar: as marcas
+  // apagam (INDISPONÍVEL, a regra da v1.8.50) e as seções continuam abrindo.
+  const travada = pacoteOcupado();
+  pacoteListaEl.classList.toggle('travada', travada);
+  const remontar = () => renderPacoteGrupos(plano);
   const porChave = new Map(plano.grupos.map((g) => [g.chave, g]));
 
   // ===== NÃO HÁ LINHA DE "TUDO", E ELA EXISTIU (v1.7.3 → v1.7.9) =====
@@ -31477,29 +31478,6 @@ function renderPacoteGrupos(plano, opts = {}) {
 
   const linhaDeGrupo = (g) => {
     const peso = pacotePeso(g.bytes, g.aprox);
-    if (leitura) {
-      // UMA LINHA QUE NÃO FAZ NADA NÃO É UM BOTÃO (a regra da v1.8.50): um
-      // `<button>` sem ação seria o botão aceso que não responde, e é o que o
-      // toque tenta duas vezes antes de concluir que o app quebrou.
-      const li = document.createElement('li');
-      li.className = 'pacote-linha';
-      const row = document.createElement('div');
-      row.className = 'song-menu-btn pacote-leitura';
-      const ic = document.createElement('span');
-      ic.className = 'song-menu-icon coll-bar-icon';
-      // `msym` devolve um ELEMENTO: atribuí-lo a `innerHTML` o converte na
-      // string "[object HTMLSpanElement]", que é o que a linha mostrava.
-      ic.appendChild((g.chave === 'midia' || g.sobreposto) ? msym(ICON.import) : msym(ICON.music));
-      const txt = document.createElement('span'); txt.className = 'song-menu-text';
-      const t = document.createElement('span'); t.className = 'song-menu-label'; t.textContent = g.rotulo;
-      const d = document.createElement('span'); d.className = 'song-menu-sub';
-      d.textContent = (g.sub ? g.sub + ' · ' : '') + peso
-        + (g.sobreposto ? ' · pode estar em outro grupo' : '');
-      txt.append(t, d);
-      row.append(ic, txt);
-      li.appendChild(row);
-      return li;
-    }
     // O AVISO DA SOBREPOSIÇÃO (v1.8.38). Os grupos por lista se sobrepõem, e o
     // peso deles pode contar o mesmo item duas vezes — o que a folha NÃO pode
     // fazer é mostrar dois números que não somam e calar sobre isso. O total do
@@ -31509,6 +31487,8 @@ function renderPacoteGrupos(plano, opts = {}) {
     const li = songMenuItem(
       (g.chave === 'midia' || g.sobreposto) ? msym(ICON.import) : msym(ICON.music),
       g.rotulo, sub, () => {}, g.chave, remontar);
+    const btnLinha = li.querySelector('button');
+    if (btnLinha) btnLinha.disabled = travada;
     // AS CLASSES QUE LEVAM O DESENHO DA BIBLIOTECA (v1.8.40) — ver o CSS. Elas
     // são PRÓPRIAS desta folha (a `#songMenuList` é a mesma da folha de
     // destinos e do menu de uma música), e é isso que escopa o tom novo sem uma
@@ -31528,7 +31508,7 @@ function renderPacoteGrupos(plano, opts = {}) {
   for (const item of plano.folha) {
     if (item.tipo === 'linha') {
       const g = porChave.get(item.chave);
-      if (g) songMenuListEl.appendChild(linhaDeGrupo(g));
+      if (g) pacoteListaEl.appendChild(linhaDeGrupo(g));
       continue;
     }
     // ===== UMA SEÇÃO =====
@@ -31545,7 +31525,8 @@ function renderPacoteGrupos(plano, opts = {}) {
     const aberta = pacoteSecaoAberta === item.nome;
     const li = document.createElement('li');
     const bar = document.createElement('div');
-    bar.className = 'song-menu-btn song-menu-grupo' + (leitura ? '' : ' song-menu-sel');
+    bar.className = 'song-menu-btn song-menu-grupo song-menu-sel';
+    if (travada) bar.setAttribute('aria-disabled', 'true');
     bar.setAttribute('role', 'button');
     bar.setAttribute('tabindex', '0');
     // A SETA É A DA BIBLIOTECA, E É LITERALMENTE A DELA (v1.8.41).
@@ -31607,16 +31588,12 @@ function renderPacoteGrupos(plano, opts = {}) {
     // UNIÃO, e é o mesmo que o confirmar usa — dois jeitos de somar a mesma
     // coisa divergem no primeiro grupo que se sobrepuser.
     const marcadas = item.chaves.filter((k) => destMarcados.has(k));
-    // EM LEITURA o peso é o da seção INTEIRA (a união, pelo mesmo
-    // `pacoteBytesDe`) e não há "N de M": nada está marcado, nada vai a lugar
-    // nenhum.
-    d.textContent = leitura
-      ? pacotePeso(pacoteBytesDe(plano, new Set(item.chaves)), plano.aprox)
-      : marcadas.length + ' de ' + item.chaves.length
-        + ' · ' + pacotePeso(pacoteBytesDe(plano, new Set(marcadas)), plano.aprox);
+    d.textContent = marcadas.length + ' de ' + item.chaves.length
+      + ' · ' + pacotePeso(pacoteBytesDe(plano, new Set(marcadas)), plano.aprox);
     txt.append(t, d);
-    if (leitura) bar.append(seta, txt); else bar.append(seta, txt, pacoteCheckGrupo(estado));
+    bar.append(seta, txt, pacoteCheckGrupo(estado));
     const marcarGrupo = () => {
+      if (travada) return;
       // PARCIAL VAI PARA CHEIO, e não para vazio: o toque numa marca parcial é
       // "quero este grupo", e quem quer tirar toca de novo. O contrário faria o
       // primeiro toque DESFAZER o que o operador acabou de marcar à mão.
@@ -31624,11 +31601,9 @@ function renderPacoteGrupos(plano, opts = {}) {
       else for (const k of item.chaves) destMarcados.add(k);
       remontar();
     };
-    // EM LEITURA a barra ABRE E FECHA, como a seta: marcar não existe aqui.
-    const aoToque = leitura ? () => seta.click() : marcarGrupo;
-    bar.addEventListener('click', aoToque);
+    bar.addEventListener('click', marcarGrupo);
     bar.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); aoToque(); }
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); marcarGrupo(); }
     });
     // O CORPO MORA DENTRO DO BLOCO (v1.8.40), e não como irmão dele.
     //
@@ -31661,37 +31636,25 @@ function renderPacoteGrupos(plano, opts = {}) {
         requestAnimationFrame(() => expandAccordion(corpo));
       }
     }
-    songMenuListEl.appendChild(li);
+    pacoteListaEl.appendChild(li);
   }
 
   // UM APARELHO NOVO NÃO TEM NADA, e é o caso de uso da importação: a lista
-  // vazia diz isso, e o botão de seguir continua lá. Falhar vazio é proibido.
-  if (leitura && !plano.folha.length) {
+  // vazia diz isso, e os dois botões continuam lá. Falhar vazio é proibido.
+  if (!plano.folha.length) {
     const vazio = document.createElement('li');
     vazio.className = 'empty';
     vazio.textContent = 'Este aparelho ainda não tem biblioteca baixada.';
-    songMenuListEl.appendChild(vazio);
+    pacoteListaEl.appendChild(vazio);
+    pacoteNotaEl.textContent = PACOTE_NOTA_IMPORTAR;
+    return;
   }
-  const li = document.createElement('li');
-  li.className = 'song-menu-go-row';
-  const go = document.createElement('button');
-  go.type = 'button'; go.className = 'song-menu-btn song-menu-go';
-  const txt = document.createElement('span'); txt.className = 'song-menu-text';
-  const t = document.createElement('span'); t.className = 'song-menu-label';
-  if (leitura) {
-    t.textContent = 'Escolher o arquivo';
-    go.addEventListener('click', () => fecharPacoteGrupos(true));
-  } else {
-    const sel = pacoteSelecao(plano);
-    // O PESO DO QUE FOI ESCOLHIDO, no próprio botão: é a única pergunta que o
-    // operador tem depois de marcar ("cabe no cartão?"), e ela muda a cada toque.
-    t.textContent = 'Salvar ' + pacotePeso(pacoteBytesDe(plano, sel), plano.aprox);
-    go.addEventListener('click', () => fecharPacoteGrupos(pacoteSelecao(plano)));
-  }
-  txt.appendChild(t);
-  go.appendChild(txt);
-  li.appendChild(go);
-  porFecho(songMenuListEl, li);
+  // O PESO DO QUE FOI ESCOLHIDO, na nota acima dos botões: é a única pergunta
+  // que o operador tem depois de marcar ("cabe no cartão?"), e ela muda a cada
+  // toque.
+  pacoteNotaEl.textContent = 'Exportar leva '
+    + pacotePeso(pacoteBytesDe(plano, pacoteSelecao(plano)), plano.aprox)
+    + '. ' + PACOTE_NOTA_IMPORTAR;
 }
 
 const PACOTE_CANCELADO = 'cancelado';
@@ -31771,10 +31734,16 @@ async function exportarPacote() {
   // "Salvar como", em silêncio absoluto; a v1.7.2 a mostrou no cartão sobre a
   // PREVIEW, e a v1.7.3 a trouxe para cá: a ação acontece no botão, e é nele
   // que ela responde (ver `falarNoTile`).
-  // A FOLHA ABRE NA HORA, com o peso que a Biblioteca já tem (v1.8.26). A
-  // varredura do disco corre DEPOIS da escolha — ver `pacotePlanoAproximado`.
-  let esboco = null;
-  try { esboco = await pacotePlanoAproximado(); } catch (_) { esboco = null; }
+  // A LISTA JÁ ESTÁ NA JANELA (v1.11.9), com o peso que a Biblioteca já tem, e a
+  // escolha é a marca que ela mostra. Sem janela aberta (um oráculo, ou a
+  // própria função chamada de fora) o plano sai agora e entra TUDO MARCADO — o
+  // padrão da lista. A varredura do disco corre DEPOIS — ver
+  // `pacotePlanoAproximado`.
+  let esboco = pacoteEsboco;
+  if (!esboco) {
+    try { esboco = await pacotePlanoAproximado(); } catch (_) { esboco = null; }
+    if (esboco) pacoteMarcarPadrao(esboco);
+  }
   if (!esboco) {
     pacoteEmCurso = false;
     pacoteRenderTiles();
@@ -31784,9 +31753,9 @@ async function exportarPacote() {
   }
   pacotePlanoAtual = esboco;
 
-  const sel = await escolherGruposDoPacote(esboco);
-  // Desistir na folha é desistir: nada foi aberto, nada foi escrito.
-  if (!sel) { pacotePlanoAtual = null; pacoteEmCurso = false; pacoteRenderTiles(); return; }
+  // O QUE ESTÁ MARCADO, mais o que é fixo — lido AGORA, no toque. A lista trava
+  // em seguida (`pacoteOcupado`), então a escolha não muda sob a exportação.
+  const sel = pacoteSelecao(esboco);
 
   // ===== AGORA A MEDIÇÃO DE VERDADE =====
   // Ela varre o OPFS inteiro, percorre a store de mídia e lê as chaves de
@@ -33487,10 +33456,13 @@ function pacoteIrmaoCancela(el, acao, rotulo, descricao) {
 // Os dois botões da janela (a coreografia inteira) e o sinal do tile da grade:
 // QUEM PINTA UM, PINTA O OUTRO — são 15 chamadores, e um chamador que esquecesse
 // o tile da grade deixaria um trabalho de minutos sem sinal nenhum com a janela
-// fechada. O corpo é o de sempre, e `pacoteRenderPar` é o nome dele.
+// fechada. O corpo é o de sempre, e `pacoteRenderPar` é o nome dele. A lista da
+// janela acompanha o mesmo estado (`pacoteOcupado`): com trabalho andando ela só
+// se olha.
 function pacoteRenderTiles() {
   pacoteRenderPar();
   pacoteSinal();
+  pacoteRedesenharLista();
 }
 
 /**
@@ -33747,41 +33719,7 @@ function pacoteDescartarPronto() {
   try { AVNative.pacoteDescartarPronto(); } catch (_) { /* ponte */ }
   pacoteRenderTiles();
 }
-/**
- * O TOQUE NO IMPORTAR: PRIMEIRO O QUE O APARELHO JÁ TEM, DEPOIS O ARQUIVO.
- *
- * A listagem mora AQUI, no toque, e NÃO dentro de `importarPacote`: aquela é
- * chamada direto por dezenas de pontos de oráculo com um `pickDoc` de mentira,
- * e um `await` de folha dentro dela os penduraria todos esperando um toque que
- * ninguém dá. O mesmo vale para o `exportarPacote`, que continua sem argumentos
- * e com a folha "O que levar" por dentro.
- *
- * A GUARDA É A DA v1.8.42, COPIADA (`importarPacote` explica o porquê): o
- * ouvinte permanente roda JUNTO com o `onclick` que `pacoteIrmaoCancela`
- * instala, e sem `pacotePronto` aqui um toque em "Descartar" abriria a
- * listagem por cima da confirmação.
- *
- * `pacoteEmCurso` sobe durante a folha e desce antes do seletor: ele só protege
- * contra um segundo toque (os dois botões ficam `disabled`), e segurá-lo até
- * dentro do `importarPacote` o barraria na própria guarda. A listagem que falha
- * em montar NÃO bloqueia a importação — ela informa, não autoriza.
- */
-async function importarPeloTile() {
-  if (!window.__NATIVE__ || pacoteEmCurso || pacotePronto) return;
-  pacoteEmCurso = true;
-  pacoteRenderTiles();
-  let seguir = true;
-  try {
-    let plano = null;
-    try { plano = await pacotePlanoAproximado(); } catch (_) { plano = null; }
-    if (plano) seguir = !!(await mostrarAcervoParaImportar(plano));
-  } finally {
-    pacoteEmCurso = false;
-    pacoteRenderTiles();
-  }
-  if (seguir) importarPacote();
-}
-if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => { importarPeloTile(); });
+if (pacoteImportarTileEl) pacoteImportarTileEl.addEventListener('click', () => { importarPacote(); });
 // Na CARGA, e não só ao abrir a folha: é este toque que revela (ou esconde) o
 // bloco inteiro, e uma folha aberta antes dele mostraria um rótulo sozinho.
 pacoteRenderTiles();
@@ -37275,6 +37213,7 @@ function closeTelaPopup() { telaPopupEl.classList.remove('open'); }
 function openPacotePopup() {
   pacoteRenderTiles();
   pacotePopupEl.classList.add('open');
+  pacoteAbrirLista();
 }
 function closePacotePopup() { pacotePopupEl.classList.remove('open'); }
 
@@ -39773,8 +39712,7 @@ const POPUPS = [
   [testePopupEl, testePopupCloseEl, closeTestePopup],
   // A TELA e o TRANSFERIR abrem de dentro de Configurações (v1.11.7), como a
   // Verificação logo acima — e o `z-index` de `#telaPopup`/`#pacotePopup` diz a
-  // mesma ordem. A folha "O que levar" do exportar (`#songMenuPopup`) vem DEPOIS
-  // e abre por cima da janela do Transferir.
+  // mesma ordem. Nada abre por cima do Transferir.
   [telaPopupEl, telaPopupCloseEl, closeTelaPopup],
   [pacotePopupEl, pacotePopupCloseEl, closePacotePopup],
   // A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), e
