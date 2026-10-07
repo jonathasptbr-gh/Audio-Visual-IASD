@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.21';
+const WEB_VERSION = '1.12.0';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -18659,6 +18659,10 @@ async function syncDeviceFolder(existing, botao) {
 // ou o Hinário inteiro — os bytes já são apagados em bloco por opfsDeleteDir,
 // então aqui não é preciso opfsDeleteFile por registro.
 async function purgeCatalogRecords(recs) {
+  // O ORIGINAL DE UM ITEM EDITADO NÃO SE PERDE: o que algum item editado usa
+  // sai do catálogo para a store de mídia (sem lista, invisível) ANTES de os
+  // bytes do OPFS serem apagados em bloco por quem chamou.
+  try { await AVDB.adotarBases(recs); } catch (e) { console.warn('[edicao] adotarBases falhou:', e); }
   for (const r of recs) {
     await AVDB.fileDelete(r.id);
     // `favs` entra junto: um arquivo de pasta favoritado e depois excluído
@@ -24456,7 +24460,12 @@ function fecharDestPrompt(valor) {
   if (r) r(valor);
 }
 
-function escolherDestinos(titulo, padrao) {
+// `rotulo` é o verbo do botão de confirmar ("Importar" é o de sempre; o item
+// editado diz "Guardar"). Vai para uma variável porque o `remontar` da folha
+// refaz a lista a cada marca, e o rótulo tem de sobreviver a isso.
+let destRotuloGo = 'Importar';
+function escolherDestinos(titulo, padrao, rotulo) {
+  destRotuloGo = rotulo || 'Importar';
   // No simplificado não existe Cronograma nem playlist: perguntar por listas que
   // a tela não tem seria pior que não perguntar (a mesma regra do link
   // compartilhado ali). Quem chama já sabe disso, mas a guarda fica: uma folha
@@ -24495,7 +24504,7 @@ function renderDestPrompt() {
   const txt = document.createElement('span'); txt.className = 'song-menu-text';
   const t = document.createElement('span'); t.className = 'song-menu-label';
   const escolhidos = destUniao(null);
-  t.textContent = escolhidos.length ? 'Importar' : 'Escolha um destino';
+  t.textContent = escolhidos.length ? destRotuloGo : 'Escolha um destino';
   txt.appendChild(t);
   go.appendChild(txt);
   go.disabled = !escolhidos.length;
@@ -31047,10 +31056,58 @@ async function pacoteGruposDeMidia(midia) {
       serieSub.set(chave, s.size ? (v.daSemana ? 'vídeo da semana' : 'último vídeo baixado') : '');
     }
   }
+  // O ORIGINAL DE UM ITEM EDITADO que não está em lista nenhuma é invisível para o operador
+  // (foi "excluído"): não entra em "Outros itens". Ele viaja SEMPRE junto do item editado
+  // (`pacoteBases`), e só junto dele.
+  const origens = new Set(midia.map((m) => m.edicaoOrigem).filter(Boolean));
+  if (origens.size) {
+    // Só some o que NENHUMA lista segura: um original que ainda está no Cronograma ou na
+    // playlist é um item como outro qualquer e segue em "Outros itens".
+    for (const nome of ['imports', 'playlist', 'avulsos', 'favs', 'serie']) {
+      let ids = [];
+      try { ids = await AVDB.listIds(nome); } catch (_) { ids = []; }
+      for (const id of ids) origens.delete(id);
+    }
+  }
   const sobra = new Set();
-  for (const m of midia) if (!cobertos.has(m.id)) sobra.add(m.id);
+  for (const m of midia) if (!cobertos.has(m.id) && !origens.has(m.id)) sobra.add(m.id);
   if (sobra.size) porGrupo.set('midia', sobra);
   return { porGrupo, bytes, serieSub };
+}
+
+/**
+ * OS ORIGINAIS DOS ITENS EDITADOS QUE VÃO NO PACOTE — escondidos (v1.12.0).
+ *
+ * Um item editado não guarda bytes: sem o original ele não toca. Então o original viaja
+ * SEMPRE com o editado, mesmo que o grupo dele (um hinário, a lista onde ele estava) esteja
+ * desmarcado — e chega ao destino sem lista nem coleção, só como o vínculo do editado.
+ * Fica de fora o que já viaja pelo caminho normal: a mídia dos grupos marcados e o arquivo de
+ * uma coleção marcada (aí o catálogo e os bytes dela já são o original).
+ */
+async function pacoteBases(plano, sel) {
+  const idsMidia = pacoteMidiaSelecionada(plano, sel);
+  const origens = new Set();
+  for (const m of plano.midia) if (idsMidia.has(m.id) && m.edicaoOrigem) origens.add(m.edicaoOrigem);
+  const lista = [];
+  for (const id of origens) {
+    if (idsMidia.has(id)) continue;
+    let rec = null;
+    try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
+    if (!rec || rec.edicao) continue;
+    if (rec.opfsPath) {
+      const g = AVPacote.grupoDoCaminho(rec.opfsPath, plano.ids);
+      const serie = plano.seriesIds && plano.seriesIds.has(AVPacote.colecaoDoGrupo(g));
+      if (plano.caminhoViaja(rec.opfsPath) && sel.has(g) && !serie) continue;
+    }
+    let b = null;
+    try { b = await AVDB.baseDe(id); } catch (_) { b = null; }
+    if (!b) continue;
+    lista.push({
+      rec: b.rec, corpo: b.corpo,
+      tamanho: (b.corpo ? b.corpo.size : 0) + (b.rec.thumb ? b.rec.thumb.size : 0),
+    });
+  }
+  return lista;
 }
 
 async function pacotePlano(aoAndar) {
@@ -32089,7 +32146,10 @@ async function exportarPacote() {
   // armazenamento próprio, e encher o aparelho até o último byte quebra o
   // WebView, o IndexedDB e a projeção junto. Encher o aparelho para exportar
   // uma biblioteca é o oposto do que este botão promete.
-  const bytesDoPacote = pacoteBytesDe(plano, sel);
+  let bases = [];
+  try { bases = await pacoteBases(plano, sel); } catch (_) { bases = []; }
+  const bytesBases = bases.reduce((t, b) => t + b.tamanho, 0);
+  const bytesDoPacote = pacoteBytesDe(plano, sel) + bytesBases;
   const espaco = await AVNative.pacoteEspaco();
   const cabeLocal = espaco > 0 && espaco - bytesDoPacote > PACOTE_FOLGA_BYTES;
   const nome = cabeLocal
@@ -32112,7 +32172,7 @@ async function exportarPacote() {
   pacoteRenderTiles();
   let erro = '';
   let gravados = -1;
-  const total = Math.max(pacoteBytesDe(plano, sel), 1);
+  const total = Math.max(pacoteBytesDe(plano, sel) + bytesBases, 1);
   try {
     await withBgWork(async () => {
       const tarefa = bgTaskStart('Exportando o acervo', 1, 'enviar');
@@ -32205,7 +32265,9 @@ async function exportarPacote() {
           for (const m of plano.midia) {
             if (!idsMidia.has(m.id)) continue;
             let rec = null;
-            try { rec = await AVDB.getMedia(m.id); } catch (_) { continue; }
+            // CRU: um item editado viaja como o registro que ele é (sem os bytes do original,
+            // que a leitura resolvida traria junto). O original vai pelo `pacoteBases`.
+            try { rec = await AVDB.getMediaCru(m.id); } catch (_) { continue; }
             if (!rec) continue;
             const corpo = rec.blob || null;
             // `grupos`: de QUE grupos da folha este item é — é o que deixa a IMPORTAÇÃO por
@@ -32226,6 +32288,21 @@ async function exportarPacote() {
                 await esc.registro({ t: 'media-pagina', i, tipo: pg.type || '', bytes: pg.size }, pg);
               }
             }
+          }
+        }
+
+        // OS ORIGINAIS ESCONDIDOS dos itens editados (ver `pacoteBases`): `base: true` no
+        // cabeçalho é o que deixa a importação por marcas decidir — entram só se o editado
+        // entrou.
+        if (bases.length) {
+          etapa = 'Originais dos itens editados';
+          bgItemOnly(tarefa, etapa);
+          for (const b of bases) {
+            await esc.registro({
+              t: 'media', rec: AVPacote.sanearMedia(b.rec), bytes: b.corpo ? b.corpo.size : 0,
+              grupos: [], base: true,
+            }, b.corpo || null);
+            if (b.rec.thumb) await esc.registro({ t: 'media-thumb', bytes: b.rec.thumb.size }, b.rec.thumb);
           }
         }
 
@@ -32770,7 +32847,13 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     if (!filtro) return true;
     switch (cab.t) {
       case 'media-thumb': case 'media-pagina': case 'arquivo-thumb': return !pulando;
-      case 'media': pulando = !pacoteMidiaEntra(filtro, cab.rec, cab.grupos); return !pulando;
+      case 'media':
+        // O ORIGINAL ESCONDIDO entra se o item editado que o usa entrou (ele vem DEPOIS, por
+        // contrato do exportador); o editado, ao entrar, registra o original dele.
+        pulando = cab.base ? !filtro.bases.has(cab.rec && cab.rec.id)
+          : !pacoteMidiaEntra(filtro, cab.rec, cab.grupos);
+        if (!pulando && cab.rec && cab.rec.edicao && cab.rec.edicao.origem) filtro.bases.add(cab.rec.edicao.origem);
+        return !pulando;
       case 'arquivo': pulando = !pacoteArquivoEntra(filtro, cab.rec); return !pulando;
       case 'opfs':
         pulando = !filtro.marcados.has(AVPacote.grupoDoCaminho(cab.caminho, filtro.ids));
@@ -32800,7 +32883,11 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     // a frase mais tranquilizadora possível sobre a falha mais destrutiva
     // possível. O ramo do OPFS, dez linhas abaixo, já fazia o certo.
     if (p.tipo === 'media') {
-      try { await AVDB.mediaAdd(p.rec); contagem.media++; } catch (e) {
+      try {
+        await AVDB.mediaAdd(p.rec);
+        // O original escondido não é "um item que entrou": o relatório conta o que o operador vê.
+        if (p.base) contagem.bases = (contagem.bases || 0) + 1; else contagem.media++;
+      } catch (e) {
         if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
         contagem.repetidos++;
       }
@@ -32899,7 +32986,7 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
       // ele sempre foi — resolvido no primeiro toque, pelo caminho que já
       // existe.
       const rec = Object.assign({}, cab.rec, { blob: corpo, thumb: null, pages: null });
-      pendente = { tipo: 'media', rec };
+      pendente = { tipo: 'media', rec, base: !!cab.base };
       continue;
     }
     if (cab.t === 'arquivo') {
@@ -33085,6 +33172,7 @@ function pacoteFiltroDeImportacao() {
     marcados: pacoteSelecao(plano),
     ids: new Set(allCollections().map((c) => c.id)),
     listas: new Map(),
+    bases: new Set(),
   };
 }
 
@@ -37590,6 +37678,316 @@ function openPacotePopup() {
 }
 function closePacotePopup() { pacotePopupEl.classList.remove('open'); }
 
+// ===== EDITAR MÍDIA (v1.12.0) =====
+//
+// O item editado é VIRTUAL: guarda só `edicao` (origem, início, fim, fades,
+// "só o áudio") e aponta para o original, que o coletor segura enquanto o item
+// existir em qualquer lugar (ver `lerDetentores`). Quem aplica o recorte e os
+// fades é o `stage.js`, na hora de tocar. Esta janela é só o formulário:
+// seletor de mídia, sliders de tempo e três marcas — sem player. O operador
+// anota os pontos tocando o ORIGINAL na prévia e volta aqui; por isso o
+// rascunho é gravado a cada ajuste e reaparece na reabertura.
+const edicaoTileEl = document.getElementById('edicaoTile');
+const edicaoPopupEl = document.getElementById('edicaoPopup');
+const edicaoPopupCloseEl = document.getElementById('edicaoPopupClose');
+const edicaoBuscaEl = document.getElementById('edicaoBusca');
+const edicaoItemEl = document.getElementById('edicaoItem');
+const edicaoInfoEl = document.getElementById('edicaoInfo');
+const edicaoControlesEl = document.getElementById('edicaoControles');
+const edicaoIniEl = document.getElementById('edicaoIni');
+const edicaoFimEl = document.getElementById('edicaoFim');
+const edicaoIniValEl = document.getElementById('edicaoIniVal');
+const edicaoFimValEl = document.getElementById('edicaoFimVal');
+const edicaoFadeInEl = document.getElementById('edicaoFadeIn');
+const edicaoFadeOutEl = document.getElementById('edicaoFadeOut');
+const edicaoSoAudioEl = document.getElementById('edicaoSoAudio');
+const edicaoSoAudioRotuloEl = document.getElementById('edicaoSoAudioRotulo');
+const edicaoNomeEl = document.getElementById('edicaoNome');
+const edicaoDescartarEl = document.getElementById('edicaoDescartar');
+const edicaoCriarEl = document.getElementById('edicaoCriar');
+
+const EDICAO_RASCUNHO = 'edicaoRascunho';
+const EDICAO_MAX_OPCOES = 150;     // uma lista de milhares de nomes não é seletor
+const EDICAO_PASSO = 1;            // os botões −1 s / +1 s
+const EDICAO_VAO_MIN = 1;          // o trecho tem de ter ao menos 1 s
+let edicaoCands = [];              // { id, nome, kind, seconds } das mídias elegíveis
+let edicaoOrigem = null;           // o registro CRU do original escolhido
+let edicaoDur = 0;                 // duração do original (s); 0 = ainda sem escolha
+// O fim do slider é a duração ARREDONDADA PARA CIMA no passo (0,5 s): um `max`
+// fora da grade do passo é inalcançável, e o slider pararia meio passo antes do
+// fim do arquivo — o que `edicaoLer` leria como um corte de verdade.
+let edicaoTeto = 0;
+let edicaoSeq = 0;
+let edicaoSalvarTimer = null;
+
+// Só áudio e vídeo COM BYTES: link do YouTube, imagem, apresentação e cena de
+// roteiro não têm linha do tempo para cortar, e um item editado não se edita de
+// novo (cada edição parte sempre do original).
+function edicaoElegivel(r) {
+  return !!r && !r.edicao && (r.kind === 'video' || r.kind === 'audio')
+    && !!(r.blob || r.opfsPath || r.url);
+}
+
+function edicaoFmt(t) {
+  t = Math.max(0, +t || 0);
+  const meio = (t % 1) >= 0.5 ? ',5' : '';
+  const i = Math.floor(t);
+  const h = Math.floor(i / 3600);
+  const m = Math.floor((i % 3600) / 60);
+  const sg = String(i % 60).padStart(2, '0');
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + sg + meio;
+}
+
+function edicaoDizer(texto) { edicaoInfoEl.textContent = texto || ''; }
+
+async function edicaoCarregarCands() {
+  const mapa = new Map();
+  for (const lista of ['imports', 'playlist', 'favs']) {
+    let itens = [];
+    try { itens = await AVDB.listItems(lista); } catch (_) { itens = []; }
+    for (const r of itens) if (edicaoElegivel(r)) mapa.set(r.id, r);
+  }
+  // O acervo baixado (hinários, pastas): vive no catálogo de arquivos e só
+  // entra em lista quando alguém o adiciona — mas é biblioteca, e se edita.
+  try {
+    for (const r of await AVDB.filesAll()) if (!mapa.has(r.id) && edicaoElegivel(r)) mapa.set(r.id, r);
+  } catch (_) { /* sem o catálogo ficam as listas */ }
+  edicaoCands = [...mapa.values()]
+    .map((r) => ({ id: r.id, nome: r.name || 'sem nome', kind: r.kind, seconds: r.seconds || 0 }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
+}
+
+function edicaoRotuloOpcao(c) {
+  return c.nome + ' · ' + (c.kind === 'video' ? 'vídeo' : 'áudio') + (c.seconds ? ' · ' + fmtTime(c.seconds) : '');
+}
+
+function edicaoRenderOpcoes(manter) {
+  const q = (edicaoBuscaEl.value || '').trim().toLowerCase();
+  const todas = q ? edicaoCands.filter((c) => c.nome.toLowerCase().includes(q)) : edicaoCands;
+  let lista = todas.slice(0, EDICAO_MAX_OPCOES);
+  // A mídia escolhida fica na lista mesmo que a busca não a alcance.
+  if (manter && !lista.some((c) => c.id === manter)) {
+    const c = edicaoCands.find((x) => x.id === manter);
+    if (c) lista = [c, ...lista];
+  }
+  edicaoItemEl.innerHTML = '';
+  const vazio = document.createElement('option');
+  vazio.value = '';
+  vazio.textContent = todas.length ? 'Escolha a mídia…' : (edicaoCands.length ? 'Nenhuma mídia com esse nome' : 'Nenhuma mídia de áudio ou vídeo no aparelho');
+  edicaoItemEl.appendChild(vazio);
+  for (const c of lista) {
+    const o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = edicaoRotuloOpcao(c);
+    edicaoItemEl.appendChild(o);
+  }
+  edicaoItemEl.value = manter && lista.some((c) => c.id === manter) ? manter : '';
+  if (todas.length > EDICAO_MAX_OPCOES) edicaoDizer('Mostrando ' + EDICAO_MAX_OPCOES + ' de ' + todas.length + ' — escreva parte do nome para refinar.');
+}
+
+// A duração do original: o campo gravado quando existe; senão lê os metadados
+// (sem tocar nada). Zero = não foi possível medir.
+async function edicaoDuracao(rec) {
+  if (rec.seconds > 0) return rec.seconds;
+  let src = null, revogar = null;
+  try {
+    if (rec.blob) { src = URL.createObjectURL(rec.blob); revogar = src; }
+    else if (rec.opfsPath) {
+      const f = await AVDB.opfsGetFile(rec.opfsPath);
+      if (f) { src = URL.createObjectURL(f); revogar = src; }
+    } else if (rec.url) src = rec.url;
+  } catch (_) { src = null; }
+  if (!src) return 0;
+  return new Promise((resolve) => {
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.muted = true;
+    let t = null;
+    const fim = (d) => {
+      clearTimeout(t);
+      v.removeAttribute('src'); v.load();
+      if (revogar) URL.revokeObjectURL(revogar);
+      resolve(isFinite(d) && d > 0 ? d : 0);
+    };
+    t = setTimeout(() => fim(0), 8000);
+    v.addEventListener('loadedmetadata', () => fim(v.duration), { once: true });
+    v.addEventListener('error', () => fim(0), { once: true });
+    v.src = src;
+  });
+}
+
+function edicaoLer() {
+  if (!edicaoOrigem || !(edicaoDur > 0)) return null;
+  const ini = +edicaoIniEl.value || 0;
+  const fim = +edicaoFimEl.value || edicaoDur;
+  return {
+    origem: edicaoOrigem.id,
+    inicio: ini,
+    // No fim do arquivo não há corte final: `null` deixa o `ended` ser o real.
+    fim: fim >= edicaoDur - 0.01 ? null : fim,
+    fadeEntrada: edicaoFadeInEl.checked,
+    fadeSaida: edicaoFadeOutEl.checked,
+    soAudio: edicaoSoAudioEl.checked && edicaoOrigem.kind === 'video',
+    nome: edicaoNomeEl.value,
+  };
+}
+
+// Algo a criar? Sem nenhuma marca o item seria uma cópia do original.
+function edicaoMudou(e) {
+  return !!e && (e.inicio > 0 || e.fim != null || e.fadeEntrada || e.fadeSaida || e.soAudio);
+}
+
+function edicaoAtualizar() {
+  const e = edicaoLer();
+  if (e) {
+    edicaoIniValEl.textContent = edicaoFmt(e.inicio);
+    edicaoFimValEl.textContent = edicaoFmt(e.fim == null ? edicaoDur : e.fim);
+    const trecho = (e.fim == null ? edicaoDur : e.fim) - e.inicio;
+    edicaoDizer('Original: ' + edicaoFmt(edicaoDur) + ' · o item fica com ' + edicaoFmt(trecho)
+      + (e.soAudio ? ' · só o áudio' : ''));
+  }
+  edicaoCriarEl.disabled = !edicaoMudou(e);
+}
+
+function edicaoSalvarJa() {
+  clearTimeout(edicaoSalvarTimer); edicaoSalvarTimer = null;
+  const e = edicaoLer();
+  const busca = edicaoBuscaEl.value || '';
+  const v = e ? Object.assign({}, e, { busca }) : (busca ? { busca } : null);
+  AVDB.setState(EDICAO_RASCUNHO, v).catch(() => {});
+}
+function edicaoSalvarLogo() {
+  clearTimeout(edicaoSalvarTimer);
+  edicaoSalvarTimer = setTimeout(edicaoSalvarJa, 250);
+}
+
+function edicaoMudouCampo(qual) {
+  // Os dois sliders se respeitam: o trecho nunca fica com menos de 1 s.
+  let ini = +edicaoIniEl.value, fim = +edicaoFimEl.value;
+  if (qual === 'ini' && ini > fim - EDICAO_VAO_MIN) { ini = Math.max(0, fim - EDICAO_VAO_MIN); edicaoIniEl.value = ini; }
+  if (qual === 'fim' && fim < ini + EDICAO_VAO_MIN) { fim = Math.min(edicaoTeto, ini + EDICAO_VAO_MIN); edicaoFimEl.value = fim; }
+  edicaoAtualizar();
+  edicaoSalvarLogo();
+}
+
+function edicaoPassar(qual, delta) {
+  const el = qual === 'ini' ? edicaoIniEl : edicaoFimEl;
+  el.value = Math.min(edicaoTeto, Math.max(0, +el.value + delta));
+  edicaoMudouCampo(qual);
+}
+
+// Escolhe o original e monta os controles. `valores` (o rascunho) é opcional:
+// sem ele os sliders abrem no arquivo inteiro.
+async function edicaoEscolher(id, valores) {
+  const seq = ++edicaoSeq;
+  edicaoOrigem = null; edicaoDur = 0;
+  edicaoControlesEl.hidden = true;
+  edicaoCriarEl.disabled = true;
+  if (!id) { if (!edicaoInfoEl.textContent) edicaoDizer(''); return; }
+  let rec = null;
+  try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
+  if (seq !== edicaoSeq) return;
+  if (!edicaoElegivel(rec)) { edicaoDizer('Essa mídia não está mais no aparelho.'); return; }
+  edicaoDizer('Lendo a duração…');
+  const dur = await edicaoDuracao(rec);
+  if (seq !== edicaoSeq) return;
+  if (!(dur > 0)) { edicaoDizer('Não foi possível ler a duração desta mídia.'); return; }
+  const v = valores || {};
+  edicaoOrigem = rec; edicaoDur = dur;
+  edicaoTeto = Math.ceil(dur * 2) / 2;
+  for (const el of [edicaoIniEl, edicaoFimEl]) { el.max = String(edicaoTeto); }
+  const ini = Math.min(Math.max(0, +v.inicio || 0), Math.max(0, dur - EDICAO_VAO_MIN));
+  const fim = v.fim > ini + EDICAO_VAO_MIN - 0.01 && v.fim < dur ? +v.fim : edicaoTeto;
+  edicaoIniEl.value = ini; edicaoFimEl.value = fim;
+  edicaoFadeInEl.checked = !!v.fadeEntrada;
+  edicaoFadeOutEl.checked = !!v.fadeSaida;
+  const video = rec.kind === 'video';
+  edicaoSoAudioRotuloEl.hidden = !video;
+  edicaoSoAudioEl.checked = video && !!v.soAudio;
+  edicaoNomeEl.value = (v.nome && String(v.nome).trim()) ? v.nome : ((rec.name || 'sem nome') + ' (editado)');
+  edicaoControlesEl.hidden = false;
+  edicaoAtualizar();
+}
+
+async function openEdicaoPopup() {
+  if (simplificado()) return;
+  edicaoPopupEl.classList.add('open');
+  edicaoDizer('');
+  await edicaoCarregarCands();
+  let r = null;
+  try { r = await AVDB.getState(EDICAO_RASCUNHO); } catch (_) { r = null; }
+  edicaoBuscaEl.value = (r && r.busca) || '';
+  // O original do rascunho pode ter saído das listas (e continua no banco,
+  // segurado por quem o edita): a janela o acha mesmo assim.
+  if (r && r.origem && !edicaoCands.some((c) => c.id === r.origem)) {
+    let o = null;
+    try { o = await AVDB.getMediaCru(r.origem); } catch (_) { o = null; }
+    if (edicaoElegivel(o)) edicaoCands.push({ id: o.id, nome: o.name || 'sem nome', kind: o.kind, seconds: o.seconds || 0 });
+  }
+  edicaoRenderOpcoes(r && r.origem);
+  await edicaoEscolher(edicaoItemEl.value || null, r);
+}
+function closeEdicaoPopup() {
+  edicaoSalvarJa();
+  edicaoPopupEl.classList.remove('open');
+}
+
+async function edicaoDescartar() {
+  clearTimeout(edicaoSalvarTimer); edicaoSalvarTimer = null;
+  try { await AVDB.setState(EDICAO_RASCUNHO, null); } catch (_) { /* nada */ }
+  edicaoBuscaEl.value = '';
+  edicaoRenderOpcoes(null);
+  await edicaoEscolher(null);
+  edicaoDizer('');
+}
+
+async function edicaoCriar() {
+  const e = edicaoLer();
+  if (!edicaoMudou(e)) return;
+  // Desistir da pergunta de destino DESISTE de criar: o item é uma decisão
+  // explícita, não um arquivo que chegou e não pode se perder.
+  const escolha = await escolherDestinos('Guardar o item editado', ['cronograma'], 'Guardar');
+  if (!escolha || !escolha.length) return;
+  const listas = listasDosDestinos(escolha);
+  edicaoCriarEl.disabled = true;
+  let rec = null;
+  // Nasce na prateleira avulsa (já detentora do original) e só sai dela com os
+  // destinos escolhidos gravados — o mesmo caminho do `guardarShare`.
+  try { rec = await AVDB.addEdicao(e, 'avulsos'); } catch (_) { rec = null; }
+  if (!rec) {
+    edicaoDizer('Não foi possível criar o item: a mídia original mudou ou o trecho ficou vazio.');
+    edicaoAtualizar();
+    return;
+  }
+  await adicionarNasListas(listas, rec.id, rec.name, edicaoCriarEl);
+  try { await AVDB.listRemove('avulsos', rec.id); } catch (_) { /* fica na prateleira: sem dano */ }
+  // Pronto: o rascunho cumpriu o papel. O próximo item parte do zero.
+  const nome = rec.name;
+  await edicaoDescartar();
+  edicaoDizer('Item criado: ' + nome + '.');
+}
+
+edicaoBuscaEl.addEventListener('input', () => {
+  edicaoRenderOpcoes(edicaoOrigem && edicaoOrigem.id);
+  edicaoSalvarLogo();
+});
+edicaoItemEl.addEventListener('change', async () => {
+  // Trocar de mídia começa um rascunho novo (os pontos do outro não valem).
+  await edicaoEscolher(edicaoItemEl.value || null);
+  edicaoSalvarJa();
+});
+edicaoIniEl.addEventListener('input', () => edicaoMudouCampo('ini'));
+edicaoFimEl.addEventListener('input', () => edicaoMudouCampo('fim'));
+document.getElementById('edicaoIniMenos').addEventListener('click', () => edicaoPassar('ini', -EDICAO_PASSO));
+document.getElementById('edicaoIniMais').addEventListener('click', () => edicaoPassar('ini', EDICAO_PASSO));
+document.getElementById('edicaoFimMenos').addEventListener('click', () => edicaoPassar('fim', -EDICAO_PASSO));
+document.getElementById('edicaoFimMais').addEventListener('click', () => edicaoPassar('fim', EDICAO_PASSO));
+for (const el of [edicaoFadeInEl, edicaoFadeOutEl, edicaoSoAudioEl]) el.addEventListener('change', () => { edicaoAtualizar(); edicaoSalvarLogo(); });
+edicaoNomeEl.addEventListener('input', edicaoSalvarLogo);
+edicaoDescartarEl.addEventListener('click', edicaoDescartar);
+edicaoCriarEl.addEventListener('click', edicaoCriar);
+if (edicaoTileEl) edicaoTileEl.addEventListener('click', openEdicaoPopup);
+
 /**
  * SALVA O REGISTRO — o mesmo arquivo de Configurações, com a verificação dentro
  * (v1.10.3). Pedido do operador: *"faça com que essa verificação, após feita,
@@ -40451,6 +40849,9 @@ const POPUPS = [
   // mesma ordem. Nada abre por cima do Transferir.
   [telaPopupEl, telaPopupCloseEl, closeTelaPopup],
   [pacotePopupEl, pacotePopupCloseEl, closePacotePopup],
+  // EDITAR MÍDIA abre de Configurações como as duas acima (v1.12.0), e a pergunta
+  // de destino (`#songMenuPopup`, degrau 210) abre POR CIMA dela.
+  [edicaoPopupEl, edicaoPopupCloseEl, closeEdicaoPopup],
   // A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), e
   // vem antes das duas que nascem dela — o voltar percorre esta tabela de trás
   // para a frente.
@@ -41630,6 +42031,13 @@ function telaSanearRec(it, token) {
   // cunhar um token que ninguém busca custaria mais do que paga.
   const pgs = telaDeckUrls(it);
   if (pgs) rec.pages = pgs;
+  // O ITEM EDITADO viaja como DADOS: os bytes são os do original (o `url`
+  // acima), e quem corta e esmaece é o `stage.js` da própria tela, pelo mesmo
+  // `rec.edicao`. A letra já chega deslocada (ver `AVDB.getMedia`).
+  if (it.edicao) {
+    rec.edicao = { inicio: it.edicao.inicio || 0, fim: it.edicao.fim == null ? null : it.edicao.fim,
+      fadeEntrada: !!it.edicao.fadeEntrada, fadeSaida: !!it.edicao.fadeSaida };
+  }
   if (it.hymnName) rec.hymnName = it.hymnName;
   if (it.hymnTrack) rec.hymnTrack = it.hymnTrack;
   if (it.hymnAlbum) rec.hymnAlbum = it.hymnAlbum;

@@ -706,3 +706,14 @@ dois*; o terceiro existe porque o que ele mede não tem sintoma — uma exporta�
 lenta e muda continua produzindo o arquivo certo.
 
 ---
+
+## O original escondido do item editado (v1.12.0)
+
+Um item editado (`edicao.origem`) não guarda bytes, então o original viaja SEMPRE com ele:
+`pacoteBases` (controle.js) lista os originais dos itens editados que vão no pacote e que não
+viajam por outro caminho (mídia de grupo marcado, arquivo de coleção marcada). Cada um sai como
+registro `media` com `base: true` no cabeçalho — na forma de mídia, com os bytes como corpo, mesmo
+que viva no catálogo (`AVDB.baseDe`). Na importação por marcas ele entra só se o editado entrou
+(`filtro.bases`) e é contado em `contagem.bases`, não em `media`. Fora do plano visível: um original
+sem lista não é "Outros itens" (`pacoteGruposDeMidia`). A exportação lê o item editado CRU
+(`getMediaCru`), nunca o resolvido.

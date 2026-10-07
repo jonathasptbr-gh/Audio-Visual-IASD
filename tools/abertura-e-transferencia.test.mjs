@@ -382,7 +382,7 @@ try {
     // DENTRO das janelas (a Tela e o Transferir) está no
     // `configuracoes-janelas.test.mjs`.
     checar(bloco.grade.join(',') === 'temaTile,telaTile,histOpenRow,'
-      + 'saidaAudioTile,dadosMoveisTile,testeTile,shareAppTile,pacoteTile',
+      + 'saidaAudioTile,dadosMoveisTile,edicaoTile,testeTile,shareAppTile,pacoteTile',
       'C · na MESMA grade dos outros, e na metade de BAIXO — a fileira das '
       + 'duas coisas que se fazem com o APP fora da projeção',
       bloco.grade);

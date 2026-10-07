@@ -542,6 +542,7 @@ jobs:
           rodar tools/smoke.mjs
           rodar tools/boot-nativo.test.mjs
           rodar tools/abertura-e-transferencia.test.mjs
+          rodar tools/edicao-de-midia.test.mjs
           rodar tools/pacote-ida-e-volta.test.mjs
           rodar tools/pacote-por-grupos.test.mjs
           rodar tools/pacote-compartilhar.test.mjs

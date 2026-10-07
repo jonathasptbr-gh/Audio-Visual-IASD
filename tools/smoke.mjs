@@ -386,7 +386,7 @@ try {
   // sai da tela, não da árvore.
   const ordem = await pg.$eval('.qs-grade',
     (g) => [...g.children].map((e) => e.id));
-  const projecao = ['temaTile', 'telaTile', 'histOpenRow', 'saidaAudioTile', 'dadosMoveisTile'];
+  const projecao = ['temaTile', 'telaTile', 'histOpenRow', 'saidaAudioTile', 'dadosMoveisTile', 'edicaoTile'];
   // ===== O TERCEIRO GRUPO É DE UM TILE SÓ, E ELE TEM NOME (v1.10.0) =====
   //
   // A VERIFICAÇÃO não é preferência da PROJEÇÃO nem ação sobre o APP: ela é

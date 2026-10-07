@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.0",
+    "itens": [
+      "Configurações: novo \"Editar mídia\" — corta o começo e o fim, esmaece a entrada e a saída, ou separa o áudio.",
+      "O original não é alterado nem copiado: o item novo guarda só as marcações e vai ao Cronograma, playlist ou Favoritos.",
+      "A janela guarda o rascunho: dá para sair, tocar o original na prévia e voltar ao mesmo ponto.",
+      "O original fica guardado e escondido enquanto o item editado existir, e vai junto na exportação."
+    ]
+  },
+  {
     "versao": "1.11.21",
     "itens": [
       "Auxiliar de leitura: o título da música agora fica no começo do texto, e o topo da janela diz só o nome dela.",
