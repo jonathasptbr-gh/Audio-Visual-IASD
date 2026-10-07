@@ -302,6 +302,129 @@ checar(!noCrono.rasc || !noCrono.rasc.origem,
   'C · e o rascunho é limpo depois de criar (o próximo item parte do zero)', JSON.stringify(noCrono.rasc));
 checar(noCrono.avulsoVazio, 'C · o item não fica na prateleira avulsa (só nos destinos escolhidos)');
 
+
+// =========================================================================
+// D · O ORIGINAL É SEMPRE VINCULADO — hinário, vídeo baixado, exportação
+// =========================================================================
+// D1 · o original do CATÁLOGO (hinário/pasta) sobrevive à exclusão da coleção.
+const d1 = await app.evaluate(async (b64) => {
+  const bin = atob(b64); const u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  const A = window.AVDB;
+  await A.opfsWriteFile('folders/hinD/1.wav', new Blob([u], { type: 'audio/wav' }));
+  await A.fileAdd({ id: 'cat-hino-1', folder: 'hinD', opfsPath: 'folders/hinD/1.wav', name: 'Hino 1',
+    type: 'audio/wav', kind: 'audio', size: u.length, seconds: 6, blob: null, url: null,
+    lyrics: [{ time: 0, text: 'a' }, { time: 3, text: 'b' }] });
+  await A.listAdd('imports', 'cat-hino-1');
+  const ed = await A.addEdicao({ origem: 'cat-hino-1', inicio: 1, fim: 5 }, 'favs');
+  // o que "Excluir a coleção" faz: purge do catálogo + apagar a pasta do OPFS
+  const recs = await A.filesByFolder('hinD');
+  await window.purgeCatalogRecords(recs);
+  await A.opfsDeleteDir('folders/hinD');
+  const lido = await A.getMedia(ed.id);
+  const emLista = [];
+  for (const l of ['imports', 'playlist', 'favs', 'avulsos']) if ((await A.listIds(l)).includes('cat-hino-1')) emLista.push(l);
+  const base = await A.getMediaCru('cat-hino-1');
+  await window.AVDB.listRemove('favs', ed.id);      // o último lugar do editado
+  await A.gcOrfaos();
+  return { tocavel: !!(lido && lido.blob && lido.blob.size === u.length), seconds: lido && lido.seconds,
+    letra: lido && lido.lyrics.map((l) => l.time), fileSumiu: !(await A.fileGet('cat-hino-1')),
+    baseNaMedia: !!(base && base.base && !base.opfsPath), emLista,
+    baseColetada: !(await A.getMediaCru('cat-hino-1')) };
+}, wav);
+checar(d1.fileSumiu && d1.tocavel && d1.seconds === 4,
+  'D · excluir a coleção do hinário NÃO tira o original do item editado: ele continua tocável, com os bytes',
+  JSON.stringify(d1));
+checar(d1.baseNaMedia && d1.emLista.length === 0,
+  'D · e o original passa a ser interno: fora de toda lista, invisível para o operador', JSON.stringify(d1));
+checar(d1.baseColetada,
+  'D · sem o item editado em lugar nenhum, o original interno é coletado (não vaza)', JSON.stringify(d1));
+
+// D2 · o plano do pacote: o original viaja ESCONDIDO com o editado, e não vira "Outros itens".
+const d2 = await app.evaluate(async (b64) => {
+  const bin = atob(b64); const u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  const A = window.AVDB;
+  const wav = () => new Blob([u], { type: 'audio/wav' });
+  await A.opfsWriteFile('folders/hinE/1.wav', wav());
+  await A.fileAdd({ id: 'cat-E', folder: 'hinE', opfsPath: 'folders/hinE/1.wav', name: 'Hino E',
+    type: 'audio/wav', kind: 'audio', size: u.length, seconds: 6, blob: null, url: null });
+  const emLista = await A.addMedia(wav(), { name: 'Na lista', kind: 'audio', list: 'imports', seconds: 6 });
+  const escondido = await A.addMedia(wav(), { name: 'Excluido', kind: 'audio', list: 'imports', seconds: 6 });
+  const e1 = await A.addEdicao({ origem: 'cat-E', inicio: 1 }, 'favs');
+  const e2 = await A.addEdicao({ origem: emLista.id, inicio: 1 }, 'favs');
+  const e3 = await A.addEdicao({ origem: escondido.id, inicio: 1 }, 'favs');
+  await A.listRemove('imports', escondido.id);          // "excluído" das listas
+  const plano = await window.pacotePlano();
+  const soFavs = new Set(['lst:favs']);
+  const bases = await window.pacoteBases(plano, soFavs);
+  const ids = bases.map((b) => b.rec.id).sort();
+  const outros = plano.midiaPorGrupo.get('midia');
+  const cat = bases.find((b) => b.rec.id === 'cat-E');
+  const comImports = await window.pacoteBases(plano, new Set(['lst:favs', 'midia']));
+  return {
+    ids, esperado: ['cat-E', emLista.id, escondido.id].sort(),
+    outrosTemEscondido: !!(outros && outros.has(escondido.id)),
+    catForma: cat && { base: cat.rec.base, opfs: cat.rec.opfsPath, tam: cat.corpo && cat.corpo.size, cheio: u.length },
+    comImports: comImports.map((b) => b.rec.id).sort(), comImportsNomes: comImports.map((b) => b.rec.name),
+    escondidoId: escondido.id, listaId: emLista.id,
+  };
+}, wav);
+checar(JSON.stringify(d2.ids) === JSON.stringify(d2.esperado),
+  'D · exportando só os Favoritos, os TRÊS originais vão junto (catálogo, item de lista e item "excluído")',
+  JSON.stringify(d2));
+checar(d2.catForma && d2.catForma.base === true && d2.catForma.opfs === null && d2.catForma.tam === d2.catForma.cheio,
+  'D · o original do catálogo viaja na forma de mídia, com os bytes (o destino não tem a coleção)', JSON.stringify(d2.catForma));
+checar(!d2.outrosTemEscondido,
+  'D · o original "excluído" não aparece em "Outros itens": para o operador ele não existe', JSON.stringify(d2));
+checar(!d2.comImports.includes(d2.listaId),
+  'D · com o grupo do original marcado ("Outros itens") ele viaja pelo caminho normal, não duas vezes', JSON.stringify(d2));
+
+// D3 · a importação por marcas: o original escondido entra SE o editado entrou.
+const ctx3 = await navegador.newContext({ viewport: { width: 430, height: 900 } });
+await semRedeExterna(ctx3);
+const dest = await ctx3.newPage();
+dest.on('pageerror', (e) => erros.push('destino: ' + e.message));
+await comModoAvancado(dest);
+await dest.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+await esperarCortina(dest);
+const d3 = await dest.evaluate(async (b64) => {
+  const bin = atob(b64); const corpo = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) corpo[i] = bin.charCodeAt(i);
+  const P = window.AVPacote;
+  const partes = [P.assinatura()];
+  const reg = (cab, c) => { partes.push(P.cabecalhoParaBytes(cab)); if (c) partes.push(c); };
+  const edit = { id: 'ED1', kind: 'audio', type: 'audio/wav', name: 'Editado', edicao: { origem: 'BASE1', inicio: 1, fim: null } };
+  const base = { id: 'BASE1', kind: 'audio', type: 'audio/wav', name: 'Original', base: true };
+  const outro = { id: 'OUTRO', kind: 'audio', type: 'audio/wav', name: 'De fora' };
+  reg({ t: 'media', rec: edit, bytes: 0, grupos: ['lst:favs'] });
+  reg({ t: 'media', rec: outro, bytes: corpo.length, grupos: [] }, corpo);
+  reg({ t: 'media', rec: base, bytes: corpo.length, grupos: [], base: true }, corpo);
+  reg({ t: 'fim', bytes: 0 });
+  const total = partes.reduce((t, x) => t + x.length, 0);
+  const u8 = new Uint8Array(total); let o = 0;
+  for (const x of partes) { u8.set(x, o); o += x.length; }
+  const fonte = { size: u8.length,
+    bytes: async (a, b) => u8.slice(a, b),
+    blob: async (a, b, tipo) => new Blob([u8.slice(a, b)], { type: tipo || '' }) };
+  const filtro = { marcados: new Set(['lst:favs']), ids: new Set(), listas: new Map([['lst:favs', new Set(['ED1'])]]), bases: new Set() };
+  const contagem = { media: 0, repetidos: 0, arquivos: 0, opfs: 0, chaves: 0, recusadas: 0 };
+  await window.pacoteAplicarFluxo(window.pacoteCursor(fonte), contagem, null, filtro);
+  const tem = async (id) => !!(await window.AVDB.getMediaCru(id));
+  return { ed: await tem('ED1'), base: await tem('BASE1'), outro: await tem('OUTRO'),
+    media: contagem.media, bases: contagem.bases || 0 };
+}, wav);
+checar(d3.ed && d3.base && !d3.outro && d3.media === 1 && d3.bases === 1,
+  'D · importando só os Favoritos entram o editado e o original ESCONDIDO (contado à parte), e o resto fica de fora',
+  JSON.stringify(d3));
+const d4 = await dest.evaluate(async () => {
+  // o mesmo pacote, sem marcar nada: nem o editado nem o original podem entrar
+  const A = window.AVDB;
+  const lista = await A.listIds('favs');
+  return { favs: lista.length, baseVisivel: (await A.listIds('imports')).includes('BASE1') };
+});
+checar(!d4.baseVisivel, 'D · o original importado não entra em lista nenhuma', JSON.stringify(d4));
+
 checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 
 servidor.close();

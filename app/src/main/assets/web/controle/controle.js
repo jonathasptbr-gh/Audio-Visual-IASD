@@ -18632,6 +18632,10 @@ async function syncDeviceFolder(existing, botao) {
 // ou o Hinário inteiro — os bytes já são apagados em bloco por opfsDeleteDir,
 // então aqui não é preciso opfsDeleteFile por registro.
 async function purgeCatalogRecords(recs) {
+  // O ORIGINAL DE UM ITEM EDITADO NÃO SE PERDE: o que algum item editado usa
+  // sai do catálogo para a store de mídia (sem lista, invisível) ANTES de os
+  // bytes do OPFS serem apagados em bloco por quem chamou.
+  try { await AVDB.adotarBases(recs); } catch (e) { console.warn('[edicao] adotarBases falhou:', e); }
   for (const r of recs) {
     await AVDB.fileDelete(r.id);
     // `favs` entra junto: um arquivo de pasta favoritado e depois excluído
@@ -31025,10 +31029,58 @@ async function pacoteGruposDeMidia(midia) {
       serieSub.set(chave, s.size ? (v.daSemana ? 'vídeo da semana' : 'último vídeo baixado') : '');
     }
   }
+  // O ORIGINAL DE UM ITEM EDITADO que não está em lista nenhuma é invisível para o operador
+  // (foi "excluído"): não entra em "Outros itens". Ele viaja SEMPRE junto do item editado
+  // (`pacoteBases`), e só junto dele.
+  const origens = new Set(midia.map((m) => m.edicaoOrigem).filter(Boolean));
+  if (origens.size) {
+    // Só some o que NENHUMA lista segura: um original que ainda está no Cronograma ou na
+    // playlist é um item como outro qualquer e segue em "Outros itens".
+    for (const nome of ['imports', 'playlist', 'avulsos', 'favs', 'serie']) {
+      let ids = [];
+      try { ids = await AVDB.listIds(nome); } catch (_) { ids = []; }
+      for (const id of ids) origens.delete(id);
+    }
+  }
   const sobra = new Set();
-  for (const m of midia) if (!cobertos.has(m.id)) sobra.add(m.id);
+  for (const m of midia) if (!cobertos.has(m.id) && !origens.has(m.id)) sobra.add(m.id);
   if (sobra.size) porGrupo.set('midia', sobra);
   return { porGrupo, bytes, serieSub };
+}
+
+/**
+ * OS ORIGINAIS DOS ITENS EDITADOS QUE VÃO NO PACOTE — escondidos (v1.12.0).
+ *
+ * Um item editado não guarda bytes: sem o original ele não toca. Então o original viaja
+ * SEMPRE com o editado, mesmo que o grupo dele (um hinário, a lista onde ele estava) esteja
+ * desmarcado — e chega ao destino sem lista nem coleção, só como o vínculo do editado.
+ * Fica de fora o que já viaja pelo caminho normal: a mídia dos grupos marcados e o arquivo de
+ * uma coleção marcada (aí o catálogo e os bytes dela já são o original).
+ */
+async function pacoteBases(plano, sel) {
+  const idsMidia = pacoteMidiaSelecionada(plano, sel);
+  const origens = new Set();
+  for (const m of plano.midia) if (idsMidia.has(m.id) && m.edicaoOrigem) origens.add(m.edicaoOrigem);
+  const lista = [];
+  for (const id of origens) {
+    if (idsMidia.has(id)) continue;
+    let rec = null;
+    try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
+    if (!rec || rec.edicao) continue;
+    if (rec.opfsPath) {
+      const g = AVPacote.grupoDoCaminho(rec.opfsPath, plano.ids);
+      const serie = plano.seriesIds && plano.seriesIds.has(AVPacote.colecaoDoGrupo(g));
+      if (plano.caminhoViaja(rec.opfsPath) && sel.has(g) && !serie) continue;
+    }
+    let b = null;
+    try { b = await AVDB.baseDe(id); } catch (_) { b = null; }
+    if (!b) continue;
+    lista.push({
+      rec: b.rec, corpo: b.corpo,
+      tamanho: (b.corpo ? b.corpo.size : 0) + (b.rec.thumb ? b.rec.thumb.size : 0),
+    });
+  }
+  return lista;
 }
 
 async function pacotePlano(aoAndar) {
@@ -32067,7 +32119,10 @@ async function exportarPacote() {
   // armazenamento próprio, e encher o aparelho até o último byte quebra o
   // WebView, o IndexedDB e a projeção junto. Encher o aparelho para exportar
   // uma biblioteca é o oposto do que este botão promete.
-  const bytesDoPacote = pacoteBytesDe(plano, sel);
+  let bases = [];
+  try { bases = await pacoteBases(plano, sel); } catch (_) { bases = []; }
+  const bytesBases = bases.reduce((t, b) => t + b.tamanho, 0);
+  const bytesDoPacote = pacoteBytesDe(plano, sel) + bytesBases;
   const espaco = await AVNative.pacoteEspaco();
   const cabeLocal = espaco > 0 && espaco - bytesDoPacote > PACOTE_FOLGA_BYTES;
   const nome = cabeLocal
@@ -32090,7 +32145,7 @@ async function exportarPacote() {
   pacoteRenderTiles();
   let erro = '';
   let gravados = -1;
-  const total = Math.max(pacoteBytesDe(plano, sel), 1);
+  const total = Math.max(pacoteBytesDe(plano, sel) + bytesBases, 1);
   try {
     await withBgWork(async () => {
       const tarefa = bgTaskStart('Exportando o acervo', 1, 'enviar');
@@ -32183,7 +32238,9 @@ async function exportarPacote() {
           for (const m of plano.midia) {
             if (!idsMidia.has(m.id)) continue;
             let rec = null;
-            try { rec = await AVDB.getMedia(m.id); } catch (_) { continue; }
+            // CRU: um item editado viaja como o registro que ele é (sem os bytes do original,
+            // que a leitura resolvida traria junto). O original vai pelo `pacoteBases`.
+            try { rec = await AVDB.getMediaCru(m.id); } catch (_) { continue; }
             if (!rec) continue;
             const corpo = rec.blob || null;
             // `grupos`: de QUE grupos da folha este item é — é o que deixa a IMPORTAÇÃO por
@@ -32204,6 +32261,21 @@ async function exportarPacote() {
                 await esc.registro({ t: 'media-pagina', i, tipo: pg.type || '', bytes: pg.size }, pg);
               }
             }
+          }
+        }
+
+        // OS ORIGINAIS ESCONDIDOS dos itens editados (ver `pacoteBases`): `base: true` no
+        // cabeçalho é o que deixa a importação por marcas decidir — entram só se o editado
+        // entrou.
+        if (bases.length) {
+          etapa = 'Originais dos itens editados';
+          bgItemOnly(tarefa, etapa);
+          for (const b of bases) {
+            await esc.registro({
+              t: 'media', rec: AVPacote.sanearMedia(b.rec), bytes: b.corpo ? b.corpo.size : 0,
+              grupos: [], base: true,
+            }, b.corpo || null);
+            if (b.rec.thumb) await esc.registro({ t: 'media-thumb', bytes: b.rec.thumb.size }, b.rec.thumb);
           }
         }
 
@@ -32748,7 +32820,13 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     if (!filtro) return true;
     switch (cab.t) {
       case 'media-thumb': case 'media-pagina': case 'arquivo-thumb': return !pulando;
-      case 'media': pulando = !pacoteMidiaEntra(filtro, cab.rec, cab.grupos); return !pulando;
+      case 'media':
+        // O ORIGINAL ESCONDIDO entra se o item editado que o usa entrou (ele vem DEPOIS, por
+        // contrato do exportador); o editado, ao entrar, registra o original dele.
+        pulando = cab.base ? !filtro.bases.has(cab.rec && cab.rec.id)
+          : !pacoteMidiaEntra(filtro, cab.rec, cab.grupos);
+        if (!pulando && cab.rec && cab.rec.edicao && cab.rec.edicao.origem) filtro.bases.add(cab.rec.edicao.origem);
+        return !pulando;
       case 'arquivo': pulando = !pacoteArquivoEntra(filtro, cab.rec); return !pulando;
       case 'opfs':
         pulando = !filtro.marcados.has(AVPacote.grupoDoCaminho(cab.caminho, filtro.ids));
@@ -32778,7 +32856,11 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     // a frase mais tranquilizadora possível sobre a falha mais destrutiva
     // possível. O ramo do OPFS, dez linhas abaixo, já fazia o certo.
     if (p.tipo === 'media') {
-      try { await AVDB.mediaAdd(p.rec); contagem.media++; } catch (e) {
+      try {
+        await AVDB.mediaAdd(p.rec);
+        // O original escondido não é "um item que entrou": o relatório conta o que o operador vê.
+        if (p.base) contagem.bases = (contagem.bases || 0) + 1; else contagem.media++;
+      } catch (e) {
         if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
         contagem.repetidos++;
       }
@@ -32877,7 +32959,7 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
       // ele sempre foi — resolvido no primeiro toque, pelo caminho que já
       // existe.
       const rec = Object.assign({}, cab.rec, { blob: corpo, thumb: null, pages: null });
-      pendente = { tipo: 'media', rec };
+      pendente = { tipo: 'media', rec, base: !!cab.base };
       continue;
     }
     if (cab.t === 'arquivo') {
@@ -33063,6 +33145,7 @@ function pacoteFiltroDeImportacao() {
     marcados: pacoteSelecao(plano),
     ids: new Set(allCollections().map((c) => c.id)),
     listas: new Map(),
+    bases: new Set(),
   };
 }
 

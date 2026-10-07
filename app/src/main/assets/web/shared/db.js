@@ -613,6 +613,65 @@
         fadeEntrada: !!ed.fadeEntrada, fadeSaida: !!ed.fadeSaida, soAudio: !!ed.soAudio },
     });
   }
+  // ===== O ORIGINAL É SEMPRE VINCULADO AO EDITADO =====
+  //
+  // Dois lugares guardam um original: a store `media` (download do YouTube,
+  // importação, série) — que o coletor já segura, ver `lerDetentores` — e o
+  // catálogo `files` (hinário, pasta do aparelho), que o coletor NÃO governa e
+  // cujos bytes moram no OPFS, apagados em bloco quando a coleção é excluída.
+  //
+  // `baseDe` devolve o original NA FORMA DE MÍDIA — `{ rec, corpo }` — para os
+  // dois: o catálogo vira um registro de `media` com os bytes como corpo (sem
+  // `opfsPath`, sem `folder`). É a forma em que ele é ADOTADO ao sair do
+  // catálogo (`adotarBases`) e em que viaja no pacote.
+  async function baseDe(id) {
+    const rec = await getMediaCru(id);
+    if (!rec || rec.edicao) return null;
+    if (!rec.opfsPath) return { rec, corpo: rec.blob || null };
+    let f = null;
+    try { f = await opfsGetFile(rec.opfsPath); } catch (_) { f = null; }
+    if (!f) return null;
+    const out = Object.assign({}, rec, { blob: null, url: null, opfsPath: null, base: true,
+      type: rec.type || f.type });
+    delete out.folder;
+    return { rec: out, corpo: f };
+  }
+  // Os ids que algum item editado tem por original.
+  async function origensEditadas() {
+    const s = await store(STORE_MEDIA, 'readonly');
+    return new Promise((resolve, reject) => {
+      const out = new Set();
+      const req = s.openCursor();
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) { resolve(out); return; }
+        const e = c.value && c.value.edicao;
+        if (e && e.origem) out.add(e.origem);
+        c.continue();
+      };
+    });
+  }
+  // Chamada ANTES de apagar registros do catálogo (coleção, pasta): o que algum
+  // item editado usa como original passa para a store `media` — com os bytes —,
+  // que o coletor segura. Fica fora de toda lista, então para o operador o
+  // arquivo foi excluído; para o item editado ele continua existindo.
+  // Devolve quantos adotou.
+  async function adotarBases(recs) {
+    const origens = await origensEditadas();
+    if (!origens.size) return 0;
+    let n = 0;
+    for (const r of (recs || [])) {
+      if (!r || !origens.has(r.id)) continue;
+      const s = await store(STORE_MEDIA, 'readonly');
+      if (await asPromise(s.get(r.id))) continue;     // já é mídia: o coletor o segura
+      const b = await baseDe(r.id);
+      if (!b || !b.corpo) { console.warn('[edicao] original não pôde ser guardado:', r.id); continue; }
+      try { await mediaAdd(Object.assign({}, b.rec, { blob: b.corpo })); n++; } catch (_) { /* já existia */ }
+    }
+    return n;
+  }
+
   // Cria o item editado numa lista (ver `addMediaToList`: registro e lista na
   // MESMA transação, para o item nunca nascer órfão). Devolve o registro
   // RESOLVIDO, ou `null` quando o original não serve (sumiu, já é editado, não
@@ -697,7 +756,7 @@
         if (r.blob) bytes += r.blob.size || 0;
         if (r.thumb) bytes += r.thumb.size || 0;
         if (Array.isArray(r.pages)) for (const pg of r.pages) if (pg) bytes += pg.size || 0;
-        out.push({ id: c.key, bytes });
+        out.push({ id: c.key, bytes, edicaoOrigem: r.edicao ? r.edicao.origem : null });
         c.continue();
       };
     });
@@ -1339,7 +1398,7 @@
     setState, getState, updateState, updateStateLote, stateKeys, stateVarrer,
     stateApagarPrefixo,
     addMedia, addUrlMedia, addDeck, addCue,
-    getMedia, getMediaCru, addEdicao, mediaByYoutube, renameMedia,
+    getMedia, getMediaCru, addEdicao, baseDe, adotarBases, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,
     filesPastas,
