@@ -498,6 +498,12 @@
       <path d="M4 8h13"/><polyline points="14 5 17 8 14 11"/>
       <path d="M20 16H7"/><polyline points="10 13 7 16 10 19"/>
     </symbol>
+    <!-- EDITAR MÍDIA (v1.12.0): a tesoura — o verbo do recurso é CORTAR, e é o
+         desenho que o operador reconhece antes de ler o título do tile. -->
+    <symbol id="icoEditar" viewBox="0 0 24 24">
+      <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+      <path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/>
+    </symbol>
     <!-- RECOLHER / EXPANDIR A PRÉVIA (v1.11.7): o chevron para BAIXO é "recolher"
          e o para CIMA é "expandir", e a direção vem do lugar onde a prévia mora —
          a caixa de controles é ancorada na BASE da tela, então a borda de cima
@@ -2190,6 +2196,60 @@
     </div>
   </div>
 
+  <!-- ===== EDITAR MÍDIA (v1.12.0) =====
+       Abre de dentro de Configurações, como a Tela e o Transferir, e por isso
+       nasce ANTES de `#fadePopup` (o degrau 205 do CSS diz a mesma ordem). É
+       um formulário de PLANEJAMENTO, não um editor: não toca a mídia. O
+       rascunho é gravado a cada ajuste (`edicaoRascunho`) e volta quando a
+       janela reabre — o operador sai, toca o original na prévia para achar os
+       pontos, e retorna ao mesmo item com os mesmos valores. -->
+  <div id="edicaoPopup" class="popup-backdrop">
+    <div class="popup-sheet">
+      <div class="popup-header">
+        <span class="popup-header-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoEditar"/></svg>
+        </span>
+        <span class="popup-title">Editar mídia</span>
+        <button id="edicaoPopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
+      </div>
+      <div class="edicao-corpo rola">
+        <input type="search" id="edicaoBusca" class="edicao-campo" placeholder="Buscar a mídia pelo nome" autocomplete="off" enterkeyhint="search">
+        <select id="edicaoItem" class="edicao-campo" aria-label="Mídia a editar"></select>
+        <p id="edicaoInfo" class="pacote-nota"></p>
+        <div id="edicaoControles" class="edicao-controles" hidden>
+          <div class="edicao-linha">
+            <span class="edicao-rotulo">Início</span><output id="edicaoIniVal" class="edicao-valor">0:00</output>
+            <button type="button" class="edicao-passo" id="edicaoIniMenos" aria-label="Início 1 segundo antes">−1 s</button>
+            <input type="range" id="edicaoIni" min="0" max="0" step="0.5" value="0" aria-label="Início do trecho">
+            <button type="button" class="edicao-passo" id="edicaoIniMais" aria-label="Início 1 segundo depois">+1 s</button>
+          </div>
+          <div class="edicao-linha">
+            <span class="edicao-rotulo">Fim</span><output id="edicaoFimVal" class="edicao-valor">0:00</output>
+            <button type="button" class="edicao-passo" id="edicaoFimMenos" aria-label="Fim 1 segundo antes">−1 s</button>
+            <input type="range" id="edicaoFim" min="0" max="0" step="0.5" value="0" aria-label="Fim do trecho">
+            <button type="button" class="edicao-passo" id="edicaoFimMais" aria-label="Fim 1 segundo depois">+1 s</button>
+          </div>
+          <label class="edicao-marca"><input type="checkbox" id="edicaoFadeIn"><span>Fade de entrada</span></label>
+          <label class="edicao-marca"><input type="checkbox" id="edicaoFadeOut"><span>Fade de saída</span></label>
+          <label class="edicao-marca" id="edicaoSoAudioRotulo"><input type="checkbox" id="edicaoSoAudio"><span>Só o áudio (o vídeo fica de fora)</span></label>
+          <input type="text" id="edicaoNome" class="edicao-campo" placeholder="Nome do item novo" autocomplete="off" maxlength="120" aria-label="Nome do item novo">
+        </div>
+      </div>
+      <div class="popup-fecho">
+        <div class="qs-grade-folha">
+          <button type="button" class="qs-tile qs-on" id="edicaoDescartar" title="Apagar o rascunho e começar de novo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoZerar"/></svg>
+            <span class="qs-titulo">Descartar</span>
+          </button>
+          <button type="button" class="qs-tile qs-on" id="edicaoCriar" title="Criar o item editado e escolher onde guardá-lo" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoEditar"/></svg>
+            <span class="qs-titulo">Criar item</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- CONFIGURAÇÕES (folha do TOPO desde a v1.2.3 — ela desce do teto, que é
        onde mora a engrenagem que a abre; ver `.popup-sheet--topo`).
        Era "Exibição" e guardava só como o telão
@@ -2467,6 +2527,18 @@
                O ARO DE TRABALHO é o `.qs-trabalhando` que o Exportar já usa —
                uma segunda opinião sobre o mesmo desenho seria a primeira a
                divergir. -->
+          <!-- ===== EDITAR MÍDIA (v1.12.0) =====
+               Recorte do início e do fim, fade de entrada e de saída e "só o
+               áudio" — tudo VIRTUAL: o arquivo original não é tocado nem
+               copiado, o item novo guarda só as marcações e o motor de
+               exibição as aplica na hora de tocar. É um painel de comandos
+               frios (seletor e sliders), sem player: o operador anota o tempo
+               tocando o original e volta aqui para registrar. Só no avançado —
+               o Modo Fácil não tem listas para guardar o item. -->
+          <button type="button" class="qs-tile qs-on" id="edicaoTile" title="Cortar o começo ou o fim de uma mídia, esmaecer a entrada e a saída, ou separar o áudio — sem alterar o arquivo original">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoEditar"/></svg>
+            <span class="qs-titulo">Editar mídia</span>
+          </button>
           <button type="button" class="qs-tile qs-on" id="testeTile" title="Conferir se cada parte do app está respondendo">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoVerificar"/></svg>
             <span class="qs-titulo">Verificar</span>
@@ -2601,7 +2673,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.11.20</span>
+            <span id="appVersion" class="app-version">v1.12.0</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

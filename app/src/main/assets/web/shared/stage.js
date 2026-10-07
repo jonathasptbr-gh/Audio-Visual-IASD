@@ -210,9 +210,20 @@
     let loadsEmVoo = 0;
     let viewSeq = 0; // troca de view (cortina) — independente do loadSeq
     // Transições de entrada/saída (config vem do Controle via comando 'fade').
+    // `fadeIn`/`fadeOut` são os EFETIVOS da mídia em cena: a configuração do
+    // operador (`fadeInCfg`/`fadeOutCfg`) OU a marca do item editado
+    // (`edicao.fadeEntrada`/`fadeSaida`). A duração é sempre a `fadeTime` da
+    // tela — o item só liga ou desliga. Ver `recalcFades`.
     let fadeIn = false;
     let fadeOut = false;
+    let fadeInCfg = false;
+    let fadeOutCfg = false;
     let fadeTime = 1; // segundos
+    // O ITEM EDITADO (virtual, ver db.js `resolverEdicao`): `edicao` do registro
+    // em cena, ou null. Ler SEMPRE daqui — ele acompanha `current` sozinho.
+    const edAtual = () => (current && current.edicao) || null;
+    let corteTimer = null;   // o encerramento preciso no `fim` do recorte
+    let saidaItem = false;   // a rampa de saída do item já começou
     let rampTimer = null;
     let muteApplyTimer = null;
 
@@ -223,9 +234,20 @@
 
 
     function setFade(cfg) {
-      if (typeof cfg.fadeIn === 'boolean') fadeIn = cfg.fadeIn;
-      if (typeof cfg.fadeOut === 'boolean') fadeOut = cfg.fadeOut;
+      if (typeof cfg.fadeIn === 'boolean') fadeInCfg = cfg.fadeIn;
+      if (typeof cfg.fadeOut === 'boolean') fadeOutCfg = cfg.fadeOut;
       if (typeof cfg.time === 'number' && cfg.time > 0) fadeTime = cfg.time;
+      recalcFades();
+    }
+    // Chamada em TODO ponto onde `current` muda. No `load` ela roda DEPOIS do
+    // fade de saída do item anterior (que usou as marcas dele) e ANTES da
+    // entrada do novo.
+    function recalcFades() {
+      const e = edAtual();
+      fadeIn = fadeInCfg || !!(e && e.fadeEntrada);
+      fadeOut = fadeOutCfg || !!(e && e.fadeSaida);
+      saidaItem = false;
+      clearTimeout(corteTimer); corteTimer = null;
     }
 
     // Cortina (wallpaper) — instantânea ou com fade. Não mexe em current/
@@ -476,6 +498,7 @@
 
     function play() {
       if (!current || (current.kind !== 'video' && current.kind !== 'audio')) return;
+      if (ended) saidaItem = false;
       ended = false;
       clearInterval(rampTimer);
       clearTimeout(muteApplyTimer);
@@ -500,7 +523,21 @@
       });
     }
     function pause() { video.pause(); }
-    function seek(t) { if (isFinite(t)) video.currentTime = t; }
+    function seek(t) {
+      if (!isFinite(t)) return;
+      const e = edAtual();
+      if (e) {
+        // Voltar para antes da rampa de saída desfaz a rampa.
+        if (saidaItem) {
+          saidaItem = false;
+          clearInterval(rampTimer);
+          clearFadeStyle(video);
+          if (!forceMuted) video.volume = volume;
+        }
+        clearTimeout(corteTimer); corteTimer = null;
+      }
+      video.currentTime = t + (e ? e.inicio : 0);
+    }
     function setView(v) { view = v; instantCover(computeCover()); applyMedia(); }
     // Troca de view com transição: visual→wallpaper cobre, wallpaper→visual
     // revela. Só a CORTINA transiciona — o áudio (que segue tocando com o
@@ -859,6 +896,7 @@
       if (seq !== loadSeq) return;
       if (!rec) { clear(); return; }
       current = rec;
+      recalcFades();
 
       _revokeUrl();
 
@@ -922,11 +960,14 @@
         // volta pausado no início ficava no pôster — e, sem atributo de pôster,
         // no retângulo cinza com o play do WebView. Um vídeo que vai TOCAR não
         // precisa disto: o `play()` desliga a bandeira sozinho.
-        const precisaSeek = (typeof startAt === 'number' && startAt > 0) || autoplay === false;
+        // O ITEM EDITADO ENTRA NO `inicio` DELE: `startAt` é sempre tempo do
+        // TRECHO (o que o status reporta), e o arquivo começa `inicio` antes.
+        const baseEd = edAtual() ? edAtual().inicio : 0;
+        const precisaSeek = (typeof startAt === 'number' && startAt > 0) || autoplay === false || baseEd > 0;
         if (precisaSeek) {
           video.addEventListener('loadedmetadata', () => {
             if (seq !== loadSeq) return;   // outro load assumiu durante a espera
-            const alvoT = (typeof startAt === 'number' && isFinite(startAt) && startAt > 0) ? startAt : 0;
+            const alvoT = baseEd + ((typeof startAt === 'number' && isFinite(startAt) && startAt > 0) ? startAt : 0);
             try { video.currentTime = alvoT; } catch (_) { /* fonte sem seek */ }
           }, { once: true });
         }
@@ -1033,6 +1074,7 @@
 
     function clear() {
       current = null;
+      recalcFades();
       deckIdx = 0;
       ended = false;
       resetMediaDom();
@@ -1074,6 +1116,7 @@
         if (seq !== loadSeq) return;
       }
       current = null;
+      recalcFades();
       ended = false;
       resetMediaDom();
       applyMedia();
@@ -1158,7 +1201,10 @@
       // quando o `media-ended` chega ao Controle.
       if (loadsEmVoo > 0) return;
       const seq = ++loadSeq;
-      await runFadeOut(false);
+      // O item editado com rampa de saída já esmaeceu antes do corte (ver
+      // `vigiarCorte`); os outros esmaecem aqui, e o editado leva o som junto
+      // porque o `<video>` ainda está tocando no `fim` do recorte.
+      if (!saidaItem) await runFadeOut(!!edAtual());
       if (seq !== loadSeq) return;
       ended = true;
       // PAUSA EXPLÍCITA, e ela só importa para o chamador DE FORA (v1.7.7): no
@@ -1169,7 +1215,7 @@
       // baixo de uma cortina que está descendo. MEDIDO: `currentTime` em 0,18 s
       // e subindo, com `ended` já verdadeiro.
       try { video.pause(); } catch (_) {}
-      video.currentTime = 0;
+      video.currentTime = edAtual() ? edAtual().inicio : 0;
       clearFadeStyle(video);
       applyMedia();
       setTimeout(() => {
@@ -1182,6 +1228,45 @@
       }, 400);
     }
     video.addEventListener('ended', marcarFimNatural);
+
+    // O CORTE DO ITEM EDITADO (fim do recorte e rampa de saída). O `<video>`
+    // não sabe do `fim`: ele só emite `ended` no fim do ARQUIVO. Aqui, quando o
+    // recorte acaba antes, o `ended` é SINTÉTICO — dispara os mesmos ouvintes do
+    // real (o fim natural do stage e o `onEnded` que avança a fila), pela mesma
+    // sequência. `timeupdate` chega a ~4 Hz; nos últimos 0,5 s um temporizador
+    // fecha a conta no ponto certo, e ele se confere ao disparar (um seek para
+    // trás entre o armar e o disparar só rearma).
+    function vigiarCorte() {
+      const e = edAtual();
+      if (!e || ended || loadsEmVoo > 0 || video.paused) return;
+      const fimArq = isFinite(video.duration) ? video.duration : null;
+      const fim = e.fim != null ? e.fim : fimArq;
+      if (fim == null) return;
+      const resta = fim - video.currentTime;
+      if (e.fadeSaida && !saidaItem && resta > 0 && resta <= fadeTime) {
+        saidaItem = true;
+        if (!forceMuted && !video.muted) rampVolume(video.volume, 0, resta);
+        if (visibleEl() === video) {
+          video.style.transition = 'opacity ' + resta + 's ease';
+          video.style.opacity = '0';
+        }
+      }
+      if (e.fim == null) return;   // o fim é o do arquivo: o `ended` é o real
+      if (resta <= 0.05) { encerrarNoCorte(); return; }
+      if (resta <= 0.5 && !corteTimer) {
+        corteTimer = setTimeout(() => {
+          corteTimer = null;
+          const ed2 = edAtual();
+          if (!ed2 || ed2.fim == null || video.paused) return;
+          if (video.currentTime >= ed2.fim - 0.05) encerrarNoCorte(); else vigiarCorte();
+        }, Math.max(0, resta * 1000 - 20));
+      }
+    }
+    function encerrarNoCorte() {
+      clearTimeout(corteTimer); corteTimer = null;
+      video.dispatchEvent(new Event('ended'));
+    }
+    video.addEventListener('timeupdate', vigiarCorte);
 
     // O PÔSTER VAZIO FICA. PARA SEMPRE. (v5.142)
     //
@@ -1271,8 +1356,20 @@
       // regra divergiriam no primeiro caso novo. Ver `computeCover`.
       shouldCover: computeCover,
       isTimed: () => !!current && (current.kind === 'video' || current.kind === 'audio'),
-      getTime: () => video.currentTime,
-      getDuration: () => video.duration,
+      // TEMPO DO TRECHO, não do arquivo: o item editado começa em `inicio` e
+      // acaba em `fim`. Tudo que consome o tempo (status, barra, letra
+      // deslocada, notificação) enxerga o item como se ele fosse o arquivo.
+      getTime: () => {
+        const e = edAtual();
+        return e ? Math.max(0, video.currentTime - e.inicio) : video.currentTime;
+      },
+      getDuration: () => {
+        const e = edAtual();
+        const d = video.duration;
+        if (!e || !isFinite(d)) return d;
+        const f = (e.fim != null && e.fim < d) ? e.fim : d;
+        return Math.max(0, f - e.inicio);
+      },
       getMuted: () => (forceMuted ? muted : video.muted),
       getVolume: () => volume,
       // `getPage`/`getFit`/`isForceMuted` saíram da superfície: nunca tiveram

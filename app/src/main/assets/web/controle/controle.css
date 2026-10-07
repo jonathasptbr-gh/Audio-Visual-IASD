@@ -7474,6 +7474,9 @@ main {
    nunca estão abertas ao mesmo tempo. */
 #telaPopup { z-index: 205; }
 #pacotePopup { z-index: 205; }
+/* EDITAR MÍDIA (v1.12.0): mesma família e mesmo degrau das duas acima. A pergunta
+   de destino que ela abre é o `#songMenuPopup` (210), que sobe por cima. */
+#edicaoPopup { z-index: 205; }
 /* A folha da PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca, como a da música
    — daí o degrau que o comentário abaixo reservava. Ela NÃO abre a folha da
    música por cima de si, então é a última linha de POPUPS e o degrau mais alto
@@ -10346,6 +10349,36 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    ele, não à lista. */
 .pacote-nota { margin: var(--sp-3) .7rem 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
 #pacotePopup .popup-fecho { margin-top: var(--sp-3); }
+
+/* ===== EDITAR MÍDIA (v1.12.0) =====
+   Um formulário: campos, dois sliders de tempo e três marcas. O `.rola` do corpo
+   é o scroller (a janela cabe em 360×640 com o teclado aberto). Nenhum contorno,
+   nenhuma cor nova: campo no par `--field-*`, o resto no papel da folha. */
+#edicaoPopup .popup-fecho { margin-top: var(--sp-3); }
+#edicaoPopup .popup-sheet { max-height: 92%; }
+.edicao-corpo { display: flex; flex-direction: column; gap: var(--sp-3); padding: 0 .7rem; overflow-y: auto; min-height: 0; }
+.edicao-campo {
+  width: 100%; min-width: 0; box-sizing: border-box; border: 0;
+  background: var(--field-bg); color: var(--field-text);
+  border-radius: var(--radius-card); padding: .6rem .75rem; font: inherit; font-size: var(--fs-md, 1rem);
+}
+.edicao-campo::placeholder { color: var(--field-muted); }
+.edicao-corpo .pacote-nota { margin: 0; }
+.edicao-controles { display: flex; flex-direction: column; gap: var(--sp-3); }
+.edicao-controles[hidden] { display: none; }
+.edicao-linha { display: grid; grid-template-columns: 3.2rem 4.6rem auto 1fr auto; align-items: center; column-gap: var(--sp-2); }
+.edicao-rotulo { color: var(--muted); font-size: var(--fs-sm); }
+.edicao-valor { color: var(--text); font-variant-numeric: tabular-nums; font-size: var(--fs-md, 1rem); }
+.edicao-linha input[type="range"] { width: 100%; min-width: 0; accent-color: var(--accent); }
+.edicao-passo {
+  border: 0; background: var(--btn-accent); color: var(--accent); border-radius: var(--radius-card);
+  min-width: var(--hit); height: var(--hit); padding: 0 .5rem; font: inherit; font-size: var(--fs-sm);
+}
+.edicao-marca { display: flex; align-items: center; gap: var(--sp-3); color: var(--text); min-height: var(--hit); }
+.edicao-marca[hidden] { display: none; }
+.edicao-marca input { width: 1.25rem; height: 1.25rem; accent-color: var(--accent); }
+/* O Modo Fácil não tem Cronograma, playlist nem favoritos para guardar o item. */
+.mode-simple #edicaoTile { display: none; }
 /* COM TRABALHO ANDANDO (ou um pacote pronto) a lista é só para olhar: as caixas
    apagam — INDISPONÍVEL, nunca "desligado" — e as seções continuam abrindo. */
 #pacoteLista.travada .song-menu-check { opacity: var(--op-inativo); }
