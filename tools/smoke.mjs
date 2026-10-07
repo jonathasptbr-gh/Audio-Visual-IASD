@@ -5671,6 +5671,11 @@ try {
     const modoAntes = appMode;
     closeHymnSearch();
     setAppMode('simple');
+    // O GATE BLOQUEADO é o estado que se mede aqui, e desde a v1.11.19 a ida do
+    // avançado com mídia no ar (que este arquivo deixa tocando de cenários
+    // anteriores) liga o "tocar neste celular" e o destrava. O caminho que
+    // devolve o bloqueio é o mesmo que o operador tem: desligar a escolha.
+    setTocarNoCelular(false);
     await pousar();
     const fechada = Math.round(barra.getBoundingClientRect().top);
     setAppMode(modoAntes);
