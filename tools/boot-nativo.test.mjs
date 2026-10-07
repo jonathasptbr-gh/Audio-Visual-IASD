@@ -3845,6 +3845,12 @@ try {
 
   // E o bloco de conexão do Modo Fácil, que é o caminho que a v5.195 quebrou:
   // com shell >= 32 ele mostra as DUAS formas de conectar, não só o espelhar.
+  //
+  // O GATE BLOQUEADO é o que se mede daqui até o fim do bloco de som, e este
+  // arquivo deixa MÍDIA NO AR dos cenários anteriores: desde a v1.11.19 a ida do
+  // avançado com mídia e sem tela liga o "tocar neste celular" e destrava o modo.
+  // Desligar a escolha é o caminho real de volta ao bloqueio.
+  await pg.evaluate(() => { setTocarNoCelular(false); });
   const conn = await pg.evaluate(() => {
     const c = document.getElementById('castConn');
     const rede = document.getElementById('castNetBtn');
@@ -3906,13 +3912,23 @@ try {
     setAppMode('full');
     const avancado = { local: somLocal, mudo: v.muted };
     setAppMode('simple');
+    // COM MÍDIA NO AR (a do cenário) a ida segue tocando AQUI (v1.11.19) — o
+    // mesmo estado do avançado, visto do outro modo; o oráculo dessa regra é o
+    // bloco 7 do `som-nao-vaza-ao-perder-a-tela`.
+    const facilComMidia = { local: somLocal, mudo: v.muted };
+    // E COM O GATE BLOQUEADO (a escolha desligada) a prévia é muda: lá a cortina
+    // cobre tudo, e som atrás dela seria a única coisa acontecendo.
+    setTocarNoCelular(false);
     const facil = { local: somLocal, mudo: v.muted };
-    return { avancado, facil };
+    return { avancado, facil, facilComMidia };
   });
   checar(somSemTela.avancado.local && !somSemTela.avancado.mudo,
     'NO AVANÇADO SEM TELA a preview deixa de ser muda — o som é deste aparelho');
+  checar(somSemTela.facilComMidia.local && !somSemTela.facilComMidia.mudo,
+    'e a ida ao Modo Fácil COM MÍDIA NO AR não a emudece: segue tocando neste '
+    + 'celular, que é o que ele já fazia no avançado (v1.11.19)', somSemTela.facilComMidia);
   checar(!somSemTela.facil.local && somSemTela.facil.mudo,
-    'e no Modo Fácil ela volta a ser muda (lá a cortina cobre tudo)');
+    'e com o Modo Fácil BLOQUEADO ela é muda (lá a cortina cobre tudo)');
 
   // ---- A PREVIEW QUE É A PROJEÇÃO NÃO PODE SER SUSPENSA (v1.3.12) --------
   //

@@ -262,6 +262,107 @@ try {
   const linhas = await pg.evaluate(() => diarioC.map((l) => l.ev).join('\n'));
   checar(/proje[çc][ãa]o PERDIDA com m[íi]dia no ar/.test(linhas),
     'e a linha do tempo DIZ que foi o app quem pausou, e por quê', linhas.slice(-400));
+
+  // ── 7. A IDA AO MODO FÁCIL, COM MÍDIA NO AR, NÃO A INTERROMPE (v1.11.19) ─
+  //
+  // Relato do operador: *"ao estar tocando algo, estando no modo avançado e ir
+  // para o modo simples, atualmente ele pausa o som e mostra as 3 opções
+  // iniciais do modo simples. Gostaria que ele não interrompesse a mídia, pois
+  // se está tocando é porque foi feito pelo usuário; nesse caso, se não houver
+  // tela conectada, apenas vá para o modo 'tocar neste celular'"*.
+  //
+  // O que se mede é o que ele OUVE e VÊ, e não a regra: `pvVideo.paused`, o som
+  // local e a cortina do gate. As cinco células separam o conserto das duas
+  // regressões que ele pode causar — destravar o que não devia (sem mídia, ou
+  // com tela) e ficar preso depois que uma tela entra.
+  //
+  // REVERSÃO MEDIDA (a linha `tocarNoCelular = manterTocandoAqui` de volta a
+  // `false`): reprovam as asserções de A (som e cortina), B e a premissa de E. O
+  // `<video>` em si CONTINUA avançando mesmo sem o conserto — a cortina só
+  // emudece a prévia, e é por isso que o que o operador percebia como "pausou"
+  // é medido pelo som local (`somLocalDeveEstar`) e pela cortina, não só pelo
+  // `paused`.
+  const modo = () => pg.evaluate(() => ({
+    tocarAqui: tocarNoCelular,
+    somLocal: somLocalDeveEstar(),
+    semTela: document.getElementById('simpleMode').classList.contains('sem-tela'),
+    veu: !document.getElementById('simpleVeil').hidden,
+    pausado: !!document.getElementById('pvVideo').paused,
+    noAr: !!midiaNoAr,
+    appMode,
+  }));
+  // O PONTO DE PARTIDA: o avançado, sem tela, o louvor tocando — o cenário do
+  // relato, com o histórico das seções acima zerado.
+  await pg.evaluate(async () => {
+    window.__espelho = { ligado: false, telas: [] };
+    await window.lerEspelho();
+    setAppMode('full');
+  });
+  await trocarTelas([]);
+  const retomar = async () => {
+    await pg.evaluate(() => send('louvor-longo'));
+    return esperar(pg, () => {
+      const v = document.getElementById('pvVideo');
+      return !v.paused && v.currentTime > 0.15 && midiaNoAr === true;
+    }, null, 8000);
+  };
+  checar(await retomar() === true, '7 · PREMISSA: o louvor volta ao ar no avançado, sem tela');
+
+  // A · TOCANDO, SEM TELA: a mídia SEGUE, o som é daqui e a cortina não desce.
+  const t0 = (await ler()).tempo;
+  await pg.evaluate(() => setAppMode('simple'));
+  const seguiu = await esperar(pg, (t) => {
+    const v = document.getElementById('pvVideo');
+    return !v.paused && v.currentTime > t + 0.3;
+  }, t0, 8000);
+  const a = await modo();
+  checar(seguiu === true && a.pausado === false,
+    '7 · A · tocando e sem tela, a ida ao Modo Fácil NÃO interrompe a mídia — ela '
+    + 'segue avançando', { seguiu: porque(seguiu), a });
+  checar(a.tocarAqui === true && a.somLocal === true && a.semTela === false && a.veu === false,
+    '7 · A · e o app entra em "tocar neste celular": o som é deste aparelho e as '
+    + '3 opções de conexão (a cortina) NÃO descem', a);
+
+  // B · PAUSADA TAMBÉM: a cena continua sendo do operador, e a cortina a
+  // esconderia do mesmo jeito.
+  await pg.evaluate(() => { setAppMode('full'); playPauseEl.click(); });
+  await esperar(pg, () => document.getElementById('pvVideo').paused === true, null, 5000);
+  await pg.evaluate(() => setAppMode('simple'));
+  const b = await modo();
+  checar(b.noAr === true && b.tocarAqui === true && b.semTela === false,
+    '7 · B · com a mídia PAUSADA no ar vale o mesmo: ela é cena, e é do operador', b);
+
+  // C · SEM MÍDIA NENHUMA: nada mudou — o gate bloqueia como sempre, e é a
+  // regressão que um "sempre libere" produziria.
+  await pg.evaluate(() => { setAppMode('full'); stopEl.click(); });
+  await esperar(pg, () => midiaNoAr === false, null, 5000);
+  await pg.evaluate(() => setAppMode('simple'));
+  const c = await modo();
+  checar(c.noAr === false && c.tocarAqui === false && c.semTela === true && c.veu === true,
+    '7 · C · SEM mídia no ar o Modo Fácil continua bloqueando sem tela — o conserto '
+    + 'é para quem estava tocando, não um destrave geral', c);
+
+  // D · COM TELA: ela já recebe o som, o gate nem existe, e a mídia não para.
+  await pg.evaluate(() => setAppMode('full'));
+  await trocarTelas([{ id: 7, name: 'TV do templo', w: 1920, h: 1080, density: 320, telao: true }]);
+  await retomar();
+  await pg.evaluate(() => setAppMode('simple'));
+  const d = await modo();
+  checar(d.tocarAqui === false && d.somLocal === false && d.pausado === false && d.semTela === false,
+    '7 · D · com TV conectada a escolha de tocar aqui NÃO é ligada (o som é do telão) '
+    + 'e a mídia segue', d);
+
+  // E · UMA TELA QUE ENTRA DEPOIS DESFAZ A ESCOLHA, como sempre — e não pausa.
+  await pg.evaluate(() => setAppMode('full'));
+  await trocarTelas([]);
+  await retomar();
+  await pg.evaluate(() => setAppMode('simple'));
+  checar((await modo()).tocarAqui === true, '7 · E · PREMISSA: de novo tocando aqui, sem tela');
+  await trocarTelas([{ id: 7, name: 'TV do templo', w: 1920, h: 1080, density: 320, telao: true }]);
+  const e = await modo();
+  checar(e.tocarAqui === false && e.somLocal === false && e.pausado === false,
+    '7 · E · e quando uma TELA ENTRA a escolha morre sozinha (o som vai para ela) '
+    + 'sem pausar a mídia', e);
 } finally {
   await navegador.close();
   await new Promise((r) => servidor.close(r));

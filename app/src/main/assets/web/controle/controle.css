@@ -9759,8 +9759,20 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    teto de sempre), a base não anda em nenhum estado, e o que sobra de altura
    é da lista. */
 #sorteioPopup .popup-sheet { height: 80%; }
+/* O VÃO ENTRE O CARTÃO DA LISTA E A RODA DA QUANTIDADE É O DO RESTO DA FOLHA
+   (v1.11.19). Relato do operador: *"verifique a margem abaixo dessa lista, antes
+   da linha de quantidades marcadas, me parece que há espaço extra ali em relação
+   às outras margens nessa seção"* — MEDIDO a 390×800: **22,4px**, contra os 5,6
+   (`--sp-3`) de todo outro vão da folha. Eram duas folgas empilhadas, cada uma
+   certa no tempo em que existia sozinha: o `padding-bottom` da `.popup-list`
+   (`.8rem`, o respiro de uma lista que rola) e o `margin-top` do `.popup-fecho`
+   (`--sp-5`, a distância de um rodapé à lista). Aqui a lista termina num cartão
+   e o rodapé começa numa roda: o vão é UM, o do `gap` da folha, e fica na lista
+   (o respiro de quando ela rola) — o fecho entra com margem zero. */
+#sorteioList { padding-bottom: var(--sp-3); }
 #sorteioPopup .popup-fecho:not(:empty) {
   display: flex; flex-direction: column; gap: var(--sp-3);
+  margin-top: 0;
 }
 .sorteio-barra {
   /* ===== CINCO PEÇAS NÃO CABEM NUMA LINHA DE 320px (v1.8.84) =====
@@ -9921,6 +9933,35 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* VAZIA ELA NÃO RESERVA NADA. O piso existe para uma lista que rola; sobre a
    frase do vazio ele é um buraco de 9rem entre os filtros e a base da folha. */
 .popup-list > .sorteio-res.vazio { min-height: 0; overflow: visible; }
+/* ===== A LISTA DE RESULTADOS É UM CARTÃO (v1.11.19) =====
+   Pedido do operador: *"na aba de playlist automática, na lista de opções dos
+   resultados: coloque toda essa lista dentro de um card, para melhor demarcar
+   suas fronteiras, tome cuidado para não errar nas sombras de fronteiras"*.
+
+   O CARTÃO É O PRÓPRIO SCROLLER, e não um invólucro: um nó só, que o
+   `atualizarContaSorteio` já sabe trocar por `replaceWith` e cuja `scrollTop` ele
+   já preserva. O tom é o `--camada` — o nível que o `.popup-sheet` reserva para
+   um bloco filho dele, o MESMO do cartão da frase do vazio logo abaixo —, e
+   dentro dele não há nível 3: as linhas seguem em recesso (`--surface`, já
+   afundado pelo `.popup-sheet`), que é a doutrina da escada de camadas.
+
+   **AS SOMBRAS DE FRONTEIRA SÃO AS DO `.rola`, e é ESTE o motivo de o cartão ser
+   o scroller:** as duas tiras `sticky` moram no padding box de quem rola, e um
+   scroller com recuo e raio as recebe do lado de dentro, recortadas pelo arco
+   (o acabamento da v1.8.59). Um invólucro com raio por fora deixaria a tira
+   pintando sobre o fundo da folha, num retângulo que não é o do cartão — a
+   fronteira que o operador pediu para marcar. As cinco medidas da tira são
+   LIDAS do layout (`--veu-*`), então o `padding` daqui não pede número nenhum.
+
+   O RECUO (`--sp-3`) é o vão entre linhas da folha: sem ele as linhas encostam
+   no arco do cartão e o raio some debaixo delas. Vazia, a lista não leva
+   cartão: a frase dela já é um (`.sorteio-res-vazio`), e dois um dentro do outro
+   seriam o nível 3 que a escada proíbe. */
+.popup-list > .sorteio-res:not(.vazio) {
+  background: var(--camada);
+  border-radius: var(--radius-card);
+  padding: var(--sp-3);
+}
 /* AQUECENDO ELA JÁ OCUPA O LUGAR DA LISTA, e centra o aro (v1.8.100). O piso
    grande não é enfeite: o aquecimento só existe quando o pool passa de UMA
    página (ver `sorteioAquecer`). A ALTURA DA FOLHA não é mais segurada aqui
