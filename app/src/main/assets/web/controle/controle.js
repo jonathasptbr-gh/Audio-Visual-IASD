@@ -2285,7 +2285,9 @@ function haDestinoDeProjecao() {
  *
  * - **o app fecha** — nada foi gravado, então a abertura seguinte nasce
  *   bloqueada;
- * - **ida e volta pelo modo avançado** (`setAppMode`, que a zera em toda troca);
+ * - **ida e volta pelo modo avançado** (`setAppMode`, que a zera em toda troca —
+ *   menos a ida ao Modo Fácil com mídia no ar e sem tela, que a LIGA: v1.11.19,
+ *   ver lá);
  * - **uma tela entra** (`renderSimpleGate`) — aí há para onde mandar o som, e é
  *   para lá que ele vai.
  *
@@ -22070,6 +22072,25 @@ function openHymnSearch(comFoco) {
  */
 function medirBarraDaBiblioteca() {
   if (!libBarEl || !bottombarEl) return;
+  // ===== EM TELA CHEIA A CAIXA NÃO É A CAIXA (v1.11.19) =====
+  //
+  // Relato do operador: *"ao voltar da tela cheia da preview, toda a seção da
+  // preview perde o espaçamento com a seção acima de busca, encostando a barra
+  // de busca na preview"*. A preview em tela cheia SAI DO FLUXO, e a caixa de
+  // controles encolhe junto (MEDIDO a 390×800: 293 → 201px) — uma medida feita
+  // ali descreve uma caixa que não existe, e é a `--lib-caixa-h` que posiciona
+  // a barra. O `resize` da rotação a escreve (o app gira para paisagem na tela
+  // cheia), e na volta quem a corrigiria seria o `ResizeObserver`... que só
+  // responde à MUDANÇA contra a última medida que ELE viu: o Controle fica
+  // escondido pelo shell enquanto a tela cheia está no ar (`webContainer` GONE),
+  // sem quadros, e a caixa que volta com 293px é igual à que ele guardou. A
+  // barra fica 92px abaixo do lugar dela, por cima do nome da mídia e da
+  // preview, até alguma coisa mexer no tamanho da caixa.
+  //
+  // O QUE FECHA É NÃO ESCREVER, e não remedir depois: a medida boa que já está
+  // na raiz é a resposta certa durante a tela cheia, e o `fullscreenchange` de
+  // saída (abaixo, junto dos `resize`) a reconfere quando a caixa volta.
+  if (document.fullscreenElement) return;
   const alturaDaBarra = libBarEl.offsetHeight;
   // Barra sem altura = folha ainda não montada, ou o app escondido. Escrever 0
   // encostaria a janela inteira na tela e tiraria a reserva da caixa de
@@ -38174,12 +38195,36 @@ function volumeProximo(atual, dir) {
 // janela do Display, observada por relógio próprio.)
 
 function setAppMode(mode) {
+  const eraAvancado = appMode === 'full';
   appMode = mode === 'simple' ? 'simple' : 'full';
   // O "tocar neste celular" VALE O USO ATUAL, e uma ida ao avançado encerra
   // esse uso: voltar ao Modo Fácil devolve a tela de bloqueio. É por isto que
   // não há botão de desfazer — este é um dos três caminhos de volta, e o único
   // que o operador percorre de propósito.
-  tocarNoCelular = false;
+  //
+  // ===== A EXCEÇÃO: A MÍDIA QUE ELE COLOCOU NO AR NÃO É INTERROMPIDA (v1.11.19) =====
+  //
+  // Relato do operador: *"ao estar tocando algo, estando no modo avançado e ir
+  // para o modo simples, atualmente ele pausa o som e mostra as 3 opções
+  // iniciais do modo simples. Gostaria que ele não interrompesse a mídia, pois
+  // se está tocando é porque foi feito pelo usuário; nesse caso, se não houver
+  // tela conectada, apenas vá para o modo 'tocar neste celular', pois
+  // tecnicamente é isso que o usuário estava fazendo no modo avançado"*.
+  //
+  // É O MESMO ESTADO, visto de dois modos: sem tela, o avançado já toca AQUI
+  // (`somLocalDeveEstar`), e a cortina do simples emudecia a prévia por uma
+  // diferença de MODO, não de intenção. A regra é a ida AVANÇADO → SIMPLES com
+  // mídia no ar (`midiaNoAr`, que inclui a pausada: ela é cena, e a cortina a
+  // esconderia do mesmo jeito) e SEM tela (`algumaTelaConectada`: com tela o som
+  // já está lá fora e o gate nem existe).
+  //
+  // CONTINUA VALENDO SÓ O USO ATUAL: escrita aqui, e nunca gravada. Uma tela que
+  // entra (`renderSimpleGate`), outra ida e volta pelo avançado ou o app fechado
+  // a desfazem como sempre — e sem mídia no ar nada mudou, o gate bloqueia.
+  const manterTocandoAqui = eraAvancado && appMode === 'simple'
+    && midiaNoAr && !algumaTelaConectada();
+  tocarNoCelular = manterTocandoAqui;
+  if (manterTocandoAqui) diagC('modo fácil: a mídia no ar segue tocando neste celular');
   // Só a SESSÃO lembra (ver `appModeDaSessao`): a recarga do documento no mesmo
   // WebView devolve o modo em que o operador estava; abrir o app de novo, ou um
   // WebView recriado, devolve o Modo Fácil.
@@ -39189,6 +39234,17 @@ if (hymnSearchToggleEl) {
 // enquete — é a régua de uma caixa que só se mexe quando algo a empurra.
 window.addEventListener('resize', medirBarraDaBiblioteca);
 window.addEventListener('orientationchange', medirBarraDaBiblioteca);
+// A SAÍDA DA TELA CHEIA RECONFERE A CAIXA (v1.11.19), em três tempos: já, depois
+// de dois quadros (a rotação de volta ao retrato chega DEPOIS do evento, e o
+// `resize` dela mede a caixa já assentada) e a 400 ms (o piso, para o aparelho
+// que demora mais). Só escreve o que mudou, então as três chamadas são baratas.
+// Não é o `ResizeObserver` que cobre isto — ver `medirBarraDaBiblioteca`.
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement) return;
+  medirBarraDaBiblioteca();
+  requestAnimationFrame(() => requestAnimationFrame(medirBarraDaBiblioteca));
+  setTimeout(medirBarraDaBiblioteca, 400);
+});
 // NA CARGA, e não só na abertura (v1.5.1): a barra fica à vista com a Biblioteca
 // FECHADA, e a caixa de controles reserva a altura dela desde o primeiro quadro.
 // Sem esta linha o app abria com a última fileira de botões coberta pela barra

@@ -1695,6 +1695,106 @@ try {
   checar(escada.fora['97'].join() === '100,95' && escada.fora['3'].join() === '4,2',
     'a grade vale nos dois trechos e nos dois sentidos', JSON.stringify(escada.fora));
 
+  // ── 9. A VOLTA DA TELA CHEIA DEVOLVE A BARRA AO LUGAR DELA (v1.11.19) ───
+  //
+  // Relato do operador: *"ao voltar da tela cheia da preview, toda a seção da
+  // preview perde o espaçamento com a seção acima de busca, encostando a barra de
+  // busca na preview"*.
+  //
+  // O MECANISMO: em tela cheia a preview sai do fluxo e a caixa de controles
+  // encolhe (293 → 201 a 390×800). O `resize` da rotação fazia o
+  // `medirBarraDaBiblioteca` escrever essa altura em `--lib-caixa-h`, que é o que
+  // posiciona a barra — e quem corrigiria na volta seria o `ResizeObserver`, que
+  // só dispara na MUDANÇA contra o que ele guardou, e o Controle fica escondido
+  // pelo shell durante a tela cheia (sem quadros).
+  //
+  // **A PREMISSA É EMULADA, e está dita:** este arnês desenha quadros o tempo
+  // todo, então o `ResizeObserver` dele sempre vê a volta. O contexto abaixo o
+  // troca por um no-op — é a ausência dele que reproduz o aparelho — e a sequência
+  // é a do aparelho: tela cheia, rotação para paisagem, rotação de volta ENQUANTO
+  // o documento ainda está em tela cheia, e só então a saída.
+  //
+  // AS DUAS PEÇAS DO CONSERTO, e cada uma tem a sua reversão:
+  //   · o `return` de `document.fullscreenElement` no `medirBarraDaBiblioteca`
+  //     (a medida encolhida nunca é escrita) — sem ele reprova a asserção do
+  //     MEIO; e, sem as duas peças, a barra fica 92px abaixo do topo da caixa;
+  //   · o ouvinte do `fullscreenchange` de SAÍDA (a reconferência na volta) —
+  //     sem ele reprovam as duas da VOLTA. Ele só tem o que fazer quando a
+  //     largura mudou durante a tela cheia (a caixa cresce e encolhe com a
+  //     proporção da preview), e é por isso que o retrato de volta é 390 e não
+  //     os 430 de onde se saiu: com a MESMA largura a medida guardada ainda é
+  //     boa, e a reversão do ouvinte passaria calada — foi o que a primeira
+  //     versão deste bloco provou.
+  {
+    const ctxFs = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
+    await semRedeExterna(ctxFs);
+    await ctxFs.addInitScript(PONTE);
+    await ctxFs.addInitScript(() => {
+      window.ResizeObserver = class {
+        observe() {} unobserve() {} disconnect() {}
+      };
+    });
+    const pf = await ctxFs.newPage();
+    await pf.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pf);
+    await pf.waitForFunction(
+      () => window.__NATIVE__ === true && window.AVDB && typeof window.__avBack === 'function',
+      null, { timeout: 30000 });
+    await pf.evaluate(() => setAppMode('full'));
+    // SEM O OBSERVADOR, a caixa que acaba de aparecer (o app nasce no Modo Fácil,
+    // onde ela está escondida) não tem quem a meça: o `resize` faz esse papel,
+    // que é o que o aparelho recebe do sistema ao abrir.
+    await pf.evaluate(() => window.dispatchEvent(new Event('resize')));
+    const ler = () => pf.evaluate(() => {
+      const raiz = document.documentElement.style;
+      const caixa = document.querySelector('.bottombar');
+      const barra = document.getElementById('libBar');
+      return {
+        caixaH: parseFloat(raiz.getPropertyValue('--lib-caixa-h')),
+        caixaReal: caixa.offsetHeight,
+        barraTopo: +barra.getBoundingClientRect().top.toFixed(1),
+        caixaTopo: +caixa.getBoundingClientRect().top.toFixed(1),
+        fs: !!document.fullscreenElement,
+      };
+    });
+    // O ASSENTAMENTO, não um instante: a barra é medida no segundo quadro.
+    await pf.waitForFunction(() => document.body.classList.contains('lib-pronta'), null, { timeout: 5000 });
+    const antes = await ler();
+    checar(Math.abs(antes.caixaH - antes.caixaReal) <= 1 && Math.abs(antes.barraTopo - antes.caixaTopo) <= 1,
+      '9 · PREMISSA: antes da tela cheia a barra pousa no topo da caixa e a medida é a real',
+      JSON.stringify(antes));
+    await pf.click('#pvFullBtn');
+    const entrou = await pf.waitForFunction(
+      () => document.fullscreenElement === document.getElementById('preview'),
+      null, { timeout: 5000 }).then(() => true, () => false);
+    checar(entrou === true, '9 · PREMISSA: a prévia entra em tela cheia de verdade neste runner', entrou);
+    if (entrou) {
+      // Paisagem e DE VOLTA ao retrato ainda dentro da tela cheia: é a ordem do
+      // aparelho (a Activity gira antes de o documento sair).
+      await pf.setViewportSize({ width: 900, height: 430 });
+      await pf.waitForTimeout(250);
+      await pf.setViewportSize({ width: 390, height: 800 });
+      await pf.waitForTimeout(250);
+      const dentro = await ler();
+      checar(dentro.fs && Math.abs(dentro.caixaH - antes.caixaH) <= 1,
+        '9 · durante a tela cheia a `--lib-caixa-h` NÃO assume a altura da caixa encolhida '
+        + '(' + dentro.caixaReal + 'px): a medida boa fica na raiz', JSON.stringify({ antes, dentro }));
+      await pf.evaluate(() => document.exitFullscreen());
+      await pf.waitForFunction(() => !document.fullscreenElement, null, { timeout: 5000 });
+      // Os 400 ms do ouvinte de saída, mais folga: o PISO dele é o que está em prova.
+      await pf.waitForTimeout(700);
+      const depois = await ler();
+      checar(Math.abs(depois.caixaH - depois.caixaReal) <= 1,
+        '9 · na volta a `--lib-caixa-h` é a altura REAL da caixa (' + depois.caixaReal + 'px)',
+        JSON.stringify(depois));
+      checar(Math.abs(depois.barraTopo - depois.caixaTopo) <= 1,
+        '9 · e a barra de busca está no TOPO da caixa — com a medida presa na altura da tela '
+        + 'cheia ela ficava abaixo dele, por cima do nome da mídia e da prévia',
+        JSON.stringify({ depois, deslocamento: +(depois.barraTopo - depois.caixaTopo).toFixed(1) }));
+    }
+    await ctxFs.close();
+  }
+
 } finally {
   await navegador.close();
   servidor.close();
