@@ -8373,6 +8373,40 @@ na lista; roleta e barra de ação no `.popup-fecho` — fica onde está.
   - Oráculos: bloco B do `playlist-automatica-estavel` (a base não anda, a folha
     tem uma altura só, as peças moram no fecho abaixo do scroller), bloco P do
     `sorteio-tela` (o recibo acima da roleta) e bloco S do `sombra-de-rolagem`.
+- **O AUXILIAR DE LEITURA LEVA O TÍTULO DA OBRA NO CORPO, E O MODO FÁCIL REORDENA A TELA (v1.11.21).**
+  Pedidos do operador: título da música DENTRO do auxiliar, no início, e fora do topo da
+  janela do avançado (*"pode colocar apenas 'Auxiliar de leitura'"*); no Modo Fácil, o card
+  do nome *"abaixo do auxiliar de leitura"*; e, para uma mídia que não usa o auxiliar,
+  *"a área do auxiliar pode ser substituída pela exibição aberta da biblioteca"*.
+  - **AVANÇADO:** `#lyricsPopupTitle` é estático ("Auxiliar de leitura") e o `renderLyricsView`
+    não o escreve mais. O título entra por `lvCabecalhoDaObra` (`.lv-cab`, centrado, corpo e
+    peso do título da cifra, segue o A+/A−) como PRIMEIRA linha do corpo que rola — para letra,
+    capítulo da Bíblia (`Gênesis 1 · ARA`) e apresentação, não só a letra: um cabeçalho que
+    dissesse "Auxiliar de leitura" numa fonte e o capítulo noutra seria inconsistente. A cifra
+    já tinha o seu (`.lv-cifra-cab`). **Não mora no `lvBuildSong`**: ele é o construtor
+    compartilhado com a zona do Modo Fácil, que não tem título (o nome é o card). Não é
+    `.lv-row`, então destaque, `lvScroll` e ⏮/⏭ não o veem.
+  - **MODO FÁCIL, O CARD:** `.simple-nowplaying` saiu de dentro de `.simple-song` e é seu IRMÃO,
+    depois dele. A Biblioteca mede `.simple-song` (`medirCorpoSimples`), então o card fica
+    FORA da medida e continua à vista com ela aberta. `.simple:not(.com-midia)` o esconde
+    (`display: none`: sem mídia o corpo é a Biblioteca, e "Nada tocando" embaixo dela é ruído);
+    a classe é escrita por `renderSimpleCorpo` pela pergunta do Parar. O `.simple-song.entrando`
+    não o anima (ele não é filho).
+  - **MODO FÁCIL, A MÍDIA SEM LEITURA:** `leituraDoModoFacil()` é a pergunta única — `{deck, lyrics}`
+    — de quem desenha a placa (`refreshSimpleLyrics`) e de `simplesSemLeitura()`.
+    `simplesBibliotecaDocada()` passou a ser `simplesComBarra() && (!haOQueParar() ||
+    simplesSemLeitura())`, e tudo que dependia dela (não fechar, sem ✕, o voltar não a fecha,
+    `closeHymnSearch` REINICIA) vale para os dois casos. Letra que chega à mídia a faz sair
+    (a coreografia de sempre); letra que some a faz voltar. **O vigia da escolha** (`simpleAguardarSaida`)
+    espera só com LEITURA no ar: com a Biblioteca seguindo como tela depois de escolher outra
+    mídia sem letra, é ele que desfaz a marca da linha (antes `haOQueParar()` o calava para
+    sempre). **A `currentItem` sobrevive ao Parar** (para o ▶ repetir), mas sem mídia no ar a
+    pergunta nem chega a ser feita (curto-circuito).
+  - **Oráculos:** bloco J do `modo-simples-corpo` (vídeo sem letra → Biblioteca ocupa a zona,
+    card à vista ABAIXO e fora da camada, o voltar não fecha, ida e volta com letra, vigia, card
+    ausente sem mídia), com três reversões separadas; `modo-facil-card` (B1/B4/B6/B9 na posição
+    nova), `modo-facil-fonte`, `leitor-*` (título no corpo e cabeçalho fixo). **Não testado em
+    aparelho.**
 - **A LISTA DE RESULTADOS É UM CARTÃO, E O VÃO ABAIXO DELA É O DA FOLHA (v1.11.19).**
   Pedido do operador: *"coloque toda essa lista dentro de um card, para melhor
   demarcar suas fronteiras, tome cuidado para não errar nas sombras de
