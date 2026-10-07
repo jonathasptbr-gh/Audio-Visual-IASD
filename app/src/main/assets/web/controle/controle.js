@@ -157,7 +157,6 @@ const lyricsFonteCtlEl = document.getElementById('lyricsPopup').querySelector('.
 // (a cifra "buscando" e a que falhou). Ver `lvBuildCifra` e `cifraCheiaAlternar`.
 const cifraCheiaBtnEl = document.getElementById('cifraCheiaBtn');
 const lyricsPopupEl = document.getElementById('lyricsPopup');
-const lyricsPopupTitleEl = document.getElementById('lyricsPopupTitle');
 const lyricsPopupCloseEl = document.getElementById('lyricsPopupClose');
 const lyricsViewSegEl = document.getElementById('lyricsViewSeg');
 const lyricsViewBodyEl = document.getElementById('lyricsViewBody');
@@ -14497,7 +14496,6 @@ function renderLyricsView() {
   lyricsCifraCtlEl.hidden = true;
   lyricsPopupEl.classList.remove('lv-cifra-cabecalho');
   if (!src) {
-    lyricsPopupTitleEl.textContent = 'Letra';
     const empty = document.createElement('div');
     empty.className = 'empty';
     empty.textContent = 'Nada em exibição com letra ou texto bíblico.';
@@ -14507,7 +14505,7 @@ function renderLyricsView() {
   if (src === 'lyrics') {
     const a = lvItem();
     const track = a.hymnTrack ? a.hymnTrack + '. ' : '';
-    lyricsPopupTitleEl.textContent = track + (a.hymnName || a.name || 'Letra');
+    lvCabecalhoDaObra(lyricsViewBodyEl, track + (a.hymnName || a.name || 'Letra'));
     lvBuildSong(lyricsViewBodyEl, lvCurIdx);
   } else if (src === 'deck') {
     const a = lvItem();
@@ -14516,14 +14514,13 @@ function renderLyricsView() {
     // escreve "· 3/27". Repetir o número num terceiro lugar é criar mais uma
     // fonte para divergir — a mesma razão pela qual o título da Bíblia é o
     // CAPÍTULO e não o versículo corrente.
-    lyricsPopupTitleEl.textContent = a.name || 'Apresentação';
+    lvCabecalhoDaObra(lyricsViewBodyEl, a.name || 'Apresentação');
     lvBuildDeck(lyricsViewBodyEl, lvCurIdx, lvDeckUrls);
   } else if (src === 'cifra') {
-    // O TÍTULO DA CIFRA NÃO MORA MAIS AQUI (v1.6.3): ele desceu para dentro da
-    // caixa que rola, onde é a primeira linha do que se lê. O `textContent`
-    // continua sendo escrito porque ele é o que o leitor de tela anuncia ao
-    // abrir a folha — quem o tira da vista é a classe, no CSS.
-    lyricsPopupTitleEl.textContent = cifraNomeDoItem(lvItem()) || 'Cifra';
+    // O TÍTULO DA CIFRA JÁ MORA DENTRO DA CAIXA QUE ROLA (v1.6.3, `lvBuildCifra`), e
+    // desde a v1.11.21 o das outras três fontes também: o cabeçalho da folha só diz
+    // "Auxiliar de leitura". Aqui a classe tira da vista o ícone e esse rótulo, para a
+    // fila de controles da cifra caber.
     lyricsPopupEl.classList.add('lv-cifra-cabecalho');
     lvBuildCifra(lyricsViewBodyEl);
   } else {
@@ -14532,7 +14529,7 @@ function renderLyricsView() {
     // ela `bibleVersionAbbr` devolve o rótulo genérico "Versão", que no título
     // seria só ruído.
     const abbr = bibleVersionName(b.versionId) ? ' · ' + bibleVersionAbbr(b.versionId) : '';
-    lyricsPopupTitleEl.textContent = b.bookName + ' ' + b.chapter + abbr;
+    lvCabecalhoDaObra(lyricsViewBodyEl, b.bookName + ' ' + b.chapter + abbr);
     lvBuildBible(lyricsViewBodyEl, lvCurIdx);
   }
 }
@@ -16934,6 +16931,27 @@ function lvBuildCifra(el) {
   el.appendChild(rodape);
 }
 
+// ===== O TÍTULO DA OBRA É A PRIMEIRA LINHA DO CORPO QUE ROLA (v1.11.21) =====
+//
+// Pedido do operador: *"no auxiliar de leitura, o título da música a qual pertence a
+// letra, também seja colocado dentro do auxiliar de leitura, no início. E pode remover
+// no modo avançado o título da música que fica fora do auxiliar de leitura, no topo da
+// janela … pode colocar apenas 'Auxiliar de leitura'"*.
+//
+// Só a FOLHA do modo avançado a escreve, e por isso ela NÃO mora no `lvBuildSong`: ele
+// é o MESMO construtor da zona de leitura do Modo Fácil, que não tem título (o nome da
+// mídia mora no card abaixo dela). A cifra já tinha o dela (`.lv-cifra-cab`, v1.6.3);
+// letra, Bíblia e apresentação passam a ter o mesmo, e o cabeçalho da folha deixa de
+// carregar um título que mudava de uma fonte para outra. Não é `.lv-row`: o destaque, o
+// acompanhamento (`lvScroll`) e o ⏮/⏭ andam só pelas linhas.
+function lvCabecalhoDaObra(el, texto) {
+  if (!texto) return;
+  const cab = document.createElement('div');
+  cab.className = 'lv-cab';
+  cab.textContent = texto;
+  el.appendChild(cab);
+}
+
 // Desenha as estrofes da música em cena dentro de `el`, destacando `cur`.
 function lvBuildSong(el, cur) {
   const lyrics = lvItem().lyrics;
@@ -17182,11 +17200,20 @@ let lvSimpleFollow = true;
 // imagens da outra, e uma `<img>` com `src` revogado não pinta nem erra.
 const lvSimpleDeckUrls = [];
 
-function refreshSimpleLyrics() {
-  if (appMode !== 'simple') return;
+// O QUE A ZONA DE LEITURA MOSTRARIA AGORA — uma pergunta, dois consumidores (v1.11.21): quem
+// DESENHA a placa (`refreshSimpleLyrics`) e quem a SUBSTITUI pela Biblioteca quando não há o que
+// desenhar (`simplesSemLeitura`). Duas escritas dela divergiriam no primeiro ajuste, e o
+// resultado seria uma placa vazia coberta pela Biblioteca num caso e descoberta no outro.
+function leituraDoModoFacil() {
   const deck = deckNoAr();
   const lyrics = (!deck && currentItem && Array.isArray(currentItem.lyrics)
     && currentItem.lyrics.length) ? currentItem.lyrics : null;
+  return { deck, lyrics };
+}
+
+function refreshSimpleLyrics() {
+  if (appMode !== 'simple') return;
+  const { deck, lyrics } = leituraDoModoFacil();
   // A PÁGINA FICA FORA DA ASSINATURA, pela razão do `lvSignature`: o destaque
   // anda por classe, e com ela aqui dentro cada toque no ⏭ revogaria e
   // recriaria as miniaturas de uma apresentação inteira no meio do sermão.
@@ -38797,8 +38824,20 @@ function simplesComBarra() {
   return appMode === 'simple' && !simpleModeEl.classList.contains('sem-tela');
 }
 
+// A MÍDIA NO AR NÃO USA O AUXILIAR DE LEITURA (v1.11.21): nem letra nem páginas — um vídeo, uma
+// imagem, um áudio sem letra, uma cena de roteiro. A placa ficaria vazia ("A letra da música
+// aparece aqui."), e uma seção sem conteúdo à vista é o que o operador pediu para não manter.
+function simplesSemLeitura() {
+  const { deck, lyrics } = leituraDoModoFacil();
+  return !deck && !lyrics;
+}
+
+// A BIBLIOTECA É A TELA PRINCIPAL quando não há leitura a mostrar: sem mídia no ar (v1.11.11) OU
+// com mídia que não usa o auxiliar (v1.11.21). É a MESMA janela nos dois casos, e por isso tudo
+// que dependia da primeira pergunta — não fechar, não ter ✕, reiniciar em vez de fechar — vale
+// também para a segunda.
 function simplesBibliotecaDocada() {
-  return simplesComBarra() && !haOQueParar();
+  return simplesComBarra() && (!haOQueParar() || simplesSemLeitura());
 }
 
 function renderSimpleCorpo() {
@@ -38820,6 +38859,9 @@ function renderSimpleCorpo() {
   corpo.classList.toggle('simples-barra', barra);
   corpo.classList.toggle('simples-principal', principal);
   simpleModeEl.classList.toggle('corpo-biblioteca', principal);
+  // O card do nome e da barra só existe com algo no ar (`.simple:not(.com-midia)`), e a pergunta é
+  // a do Parar — a mesma que decide a tela principal. Escrita aqui para andar no MESMO pulso.
+  simpleModeEl.classList.toggle('com-midia', haOQueParar());
   // `--kb` ALTO SEM TECLADO é o "espaço sobrando abaixo": `bottom` da janela é `max(base, kb)`.
   // Ela é recalculada por eventos (foco, viewport); aqui, na ENTRADA da tela principal, ela é
   // reconferida contra o que de fato há — uma conta idempotente, e que não deixa o erro de um
@@ -38886,7 +38928,12 @@ function simpleAguardarSaida() {
     clearInterval(simpleVigiaTimer);
     simpleVigiaTimer = setInterval(() => {
       if (!simpleSel.em) { clearInterval(simpleVigiaTimer); simpleVigiaTimer = null; return; }
-      if (haOQueParar() || pvBusyEl.classList.contains('on')) return;
+      if (pvBusyEl.classList.contains('on')) return;
+      // COM LEITURA NO AR a saída está a caminho (`renderSimpleCorpo` a faz) e o vigia espera.
+      // SEM LEITURA (nada no ar, ou uma mídia que não usa o auxiliar — v1.11.21) a Biblioteca
+      // CONTINUA sendo a tela depois da escolha, e o vigia é quem a reinicia: a linha marcada
+      // não pode ficar marcada para sempre sobre uma tela que nunca vai sair.
+      if (haOQueParar() && !simplesSemLeitura()) return;
       if (performance.now() - simpleSel.em < 4000) return;   // dá tempo ao download começar
       simpleLimparSelecao();
       closeHymnSearch();   // principal: REINICIA (campo limpo, acervo no padrão)

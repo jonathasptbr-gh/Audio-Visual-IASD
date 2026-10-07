@@ -295,7 +295,9 @@ try {
     alvoEhEvento: !!(lvAlvo && typeof Event !== 'undefined' && lvAlvo instanceof Event),
     linhas: lyricsViewBodyEl.querySelectorAll('.lv-row').length,
     vazio: (lyricsViewBodyEl.querySelector('.empty') || {}).textContent || '',
-    titulo: lyricsPopupTitleEl.textContent,
+    cabecalho: document.getElementById('lyricsPopupTitle').textContent,
+    titulo: (lyricsViewBodyEl.firstElementChild || {}).className === 'lv-cab'
+      ? lyricsViewBodyEl.firstElementChild.textContent : '',
   }));
   checar(cena.fonte === 'lyrics',
     'o botão do transporte abre a folha na LETRA da música em cena', cena.fonte);
@@ -308,7 +310,9 @@ try {
   checar(cena.linhas === 3,
     'e as três linhas da letra estão desenhadas (a capa conta como posição)', cena.linhas);
   checar(cena.titulo === 'Louvor Em Cena',
-    'o título da folha é o da música em cena', cena.titulo);
+    'o título da música em cena é a PRIMEIRA linha do corpo que rola (v1.11.21)', cena.titulo);
+  checar(cena.cabecalho === 'Auxiliar de leitura',
+    'e o cabeçalho da folha diz só "Auxiliar de leitura" — o título saiu de lá', cena.cabecalho);
 
   // ── 1b. AS ABAS PREENCHEM A FAIXA, E EM PARTES IGUAIS (v1.4.39) ─────────
   //
@@ -427,7 +431,10 @@ try {
   await pg.evaluate(() => closeLyricsPopup());
   await pg.click('#lyricsViewBtn');
   await pg.waitForFunction(() => lyricsPopupEl.classList.contains('open'), null, { timeout: 5000 });
-  const devolta = await pg.evaluate(() => ({ naCena: lvNaCena(), titulo: lyricsPopupTitleEl.textContent }));
+  const devolta = await pg.evaluate(() => ({
+    naCena: lvNaCena(),
+    titulo: (lyricsViewBodyEl.querySelector('.lv-cab') || {}).textContent || '',
+  }));
   checar(devolta.naCena === true && devolta.titulo === 'Louvor Em Cena',
     'fechada a folha, o botão do transporte volta a mostrar a CENA', devolta);
 } finally {

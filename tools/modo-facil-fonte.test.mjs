@@ -255,7 +255,12 @@ try {
       // COM MÍDIA NO AR (v1.11.11): sem ela a Biblioteca ENCAIXADA é o corpo e
       // cobre a zona de leitura — onde moram os botões A−/A+ —, e é com a
       // leitura à vista que o par é usado de verdade.
-      await pg.evaluate(() => { midiaNoAr = true; renderTransporteHabilitado(); });
+      // COM LETRA (v1.11.21): uma mídia sem letra e sem páginas não usa o auxiliar, e aí a Biblioteca
+      // ocupa o lugar da placa — que não é o que este passe mede.
+      await pg.evaluate(() => {
+        currentItem = { id: 'm-fonte', name: 'Louvor', kind: 'audio', lyrics: [{ cover: true }, { time: 0, text: 'primeira' }] };
+        midiaNoAr = true; renderTransporteHabilitado();
+      });
       await esperar(pg,
         () => !document.body.classList.contains('simples-principal')
           && getComputedStyle(document.querySelector('.simple-song')).visibility !== 'hidden'
@@ -355,7 +360,10 @@ try {
           await Promise.all(f.getAnimations().map((a) => a.finished.catch(() => {})));
         });
         const t = await medirFacil();
-        checar(t.alvos[0] === 'simpleVeil',
+        // QUEM RECEBE O TOQUE é a cortina ou o cartão de conexão (içado sobre ela, e que numa tela
+        // estreita cai no centro do botão — v1.11.21, com o card do nome abaixo da zona): o que a
+        // asserção afirma é que NÃO é o botão.
+        checar(t.alvos[0] === 'simpleVeil' || t.alvos[0] === 'castConn',
           'e NO ESTADO PADRÃO (sem TV) os botões são INTOCÁVEIS: a cortina cobre a zona e só o cabeçalho é '
           + 'içado — é por isso que o hit-test acima roda DESTRAVADO [' + cfg + ']',
           { noCentroDoBotao: t.alvos[0] });
@@ -434,21 +442,22 @@ try {
         if (!t || t.hidden || !hit || !mais) return false;
         const rh = hit.getBoundingClientRect();
         if (!(rh.height > 0)) return false;
-        window.__folga = mais.getBoundingClientRect().top - rh.bottom;
+        window.__folga = rh.top - mais.getBoundingClientRect().bottom;
         return true;
       }, 'a linha do tempo entra em cena com a mídia no ar [' + cfg + ']');
       if (!emCena) continue;
       const folga = await pg.evaluate(() => window.__folga);
       checar(folga > 0,
-        'COM MÍDIA NO AR os botões ficam ABAIXO do `#simpleTimeHit`: o scrubber que salta o louvor no ar '
-        + 'não perde alvo para um botão de tamanho de fonte [' + cfg + ']',
+        'COM MÍDIA NO AR os botões (dentro da zona de leitura) ficam ACIMA do `#simpleTimeHit`, que desde a '
+        + 'v1.11.21 mora no card ABAIXO da zona: o scrubber que salta o louvor no ar nunca perde alvo para '
+        + 'um botão de tamanho de fonte [' + cfg + ']',
         { folga: n2(folga) });
 
       // A LETRA LONGA: rola até o fim e a última linha tem de ficar ACIMA do botão de cima.
       const rolagem = await pg.evaluate(async () => {
         currentItem.lyrics = [{ cover: true }, ...Array.from({ length: 40 }, (_, i) =>
           ({ time: i * 2, text: 'Estrofe ' + (i + 1) + ' do louvor para a congregação cantar junto' }))];
-        refreshSimpleLyrics();
+        refreshSimpleLyrics(); renderSlideNav();
         await new Promise((r) => setTimeout(r, 200));
         const z = document.getElementById('simpleLyrics');
         z.scrollTop = z.scrollHeight;

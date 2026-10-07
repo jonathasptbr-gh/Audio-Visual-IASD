@@ -180,7 +180,7 @@ try {
       await new Promise((f) => setTimeout(f, 25));
     }
     const r = {
-      titulo: lyricsPopupTitleEl.textContent,
+      titulo: (lyricsViewBodyEl.querySelector('.lv-cab') || {}).textContent || '',
       fonte: lvActiveSource(),
       naCena: lvNaCena(),
       nome: cifraNomeDoItem(lvItem()),
