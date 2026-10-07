@@ -586,13 +586,11 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    demais, o outro lado do mesmo erro.) O botão medido saiu na v1.8.89 com o
    microfone; a folha fica, e os moradores dela hoje são o rodapé e os painéis.
 
-   A `.sorteio-barra` entrou na v1.8.84 pelo MESMO motivo, e o oráculo a pegou no
-   lote em que ela nasceu: ela é `sticky` sobre uma lista que rola por baixo,
-   então precisa de fundo OPACO e o fundo dela é o da folha — e ela hospeda
-   quatro controles (a pílula, o primário e os três destinos), que é o que a põe
-   nesta lista em vez de na exceção dos rótulos. */
-.tools-sheet,
-.sorteio-barra {
+   (A `.sorteio-barra` esteve aqui da v1.8.84 à v1.11.17, pelo MESMO motivo: ela
+   era `sticky` e pintava `--panel` sobre uma lista que rola. Ela voltou ao
+   `.popup-fecho` e não pinta mais nada — o `--surface` afundado dos botões dela
+   vem agora do `.popup-sheet`, que já está na lista de cima.) */
+.tools-sheet {
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
 }
@@ -967,7 +965,7 @@ body {
 
 /* ---------- Deck: os controles ---------- */
 /* Grade real (CSS Grid), não flex aproximado: 3 colunas (lateral / conteúdo /
-   lateral) × 3 linhas (preview / nowplaying / transporte), com SETE itens
+   lateral) × 3 linhas (nowplaying / preview / transporte), com SETE itens
    DIRETOS e nenhuma grade aninhada. Desde a v1.3.8 não há `subgrid`: a coluna
    da direita virou dois botões soltos, um em cada linha, e cada um cai na
    faixa do vizinho da esquerda por estar na MESMA linha da grade — não por um
@@ -1034,13 +1032,9 @@ body {
    se recusaria a encolher abaixo do próprio min-content dentro da faixa. */
 /* A BARRA DE PROGRESSO ATRAVESSA AS TRÊS COLUNAS (v1.3.8). Ela parava na 2
    porque a 3 era do histórico; com ele na linha de baixo, ela usa a largura
-   inteira — e o que está dentro dela cai nas colunas do deck (ver `.np-seek`).
-   DESDE A v1.11.17 ELA É A LINHA 2, ABAIXO DA PREVIEW (a linha 1) — um
-   experimento do operador: a faixa com a miniatura e os botões de slide sobe, e
-   o nome da mídia com a barra desce para o meio, entre ela e o transporte. As
-   três linhas continuam `auto`, e a ordem é só de posicionamento. */
-.nowplaying  { grid-column: 1 / 4; grid-row: 2; min-width: 0; }
-.preview-row { grid-column: 2; grid-row: 1; min-width: 0; }
+   inteira — e o que está dentro dela cai nas colunas do deck (ver `.np-seek`). */
+.nowplaying  { grid-column: 1 / 4; grid-row: 1; min-width: 0; }
+.preview-row { grid-column: 2; grid-row: 2; min-width: 0; }
 .transport   { grid-column: 1 / 3; grid-row: 3; min-width: 0; }
 /* A coluna do VOLTAR UM SLIDE. SEM respiro próprio: a coluna JÁ tem a largura
    do botão, e o que a separa da preview é o vão da grade — o mesmo que separa
@@ -1050,7 +1044,7 @@ body {
    `stretch` (o padrão do flex) é o que dá ao botão a altura da faixa, e a
    faixa É a preview. A coluna da direita é a MESMA regra com outra coluna
    (`.slide-side--dir`), o que é o que garante os dois gêmeos. */
-.slide-side { grid-column: 1; grid-row: 1; display: flex; min-width: 0; min-height: 0; }
+.slide-side { grid-column: 1; grid-row: 2; display: flex; min-width: 0; min-height: 0; }
 .slide-side--dir { grid-column: 3; }
 
 /* Linha da preview: só a miniatura. Os botões de slide que a flanqueiam desde
@@ -1122,7 +1116,7 @@ body {
    sermão inteiro, com a mão parada no mesmo ponto da tela; voltar é a
    correção, que se faz olhando. O fader come 2,8 s da célula que ele cobre, e
    cobrir a célula do gesto repetido é interromper o sermão a cada espiada. */
-.fader-wrap { display: none; grid-column: 1; grid-row: 1; min-height: 0; position: relative; }
+.fader-wrap { display: none; grid-column: 1; grid-row: 2; min-height: 0; position: relative; }
 .deck.vol-open .fader-wrap { display: block; }
 .deck.vol-open .slide-side:not(.slide-side--dir) { display: none; }
 .deck.vol-open:not(.vol-closing) .fader-wrap { animation: vol-slide-in .2s ease both; }
@@ -2630,8 +2624,17 @@ main {
    alinhar com os botões que ficam embaixo dela. A área segura NÃO entra aqui:
    fechada, quem encosta na base da tela é a caixa; aberta, quem desconta o
    topo é a folha (`padding-top` da `.popup-sheet--lib`). */
+/* O VÃO ENTRE O CAMPO E OS DOIS QUADRADOS É O DO DECK (`--deck-gap`, v1.11.18).
+   Era `--sp-4` (8px) contra os 5,6px que separam os botões da caixa de controles
+   logo abaixo — pedido do operador: *"essas margens estão diferentes das margens
+   entre os itens da seção de controles… deixando os itens desalinhados em
+   relação a seus vizinhos"*. MEDIDO a 390px: o campo ia de 66,9 a 323,1 e a
+   preview, dois níveis abaixo, de 64,5 a 325,5 — 2,4px de cada lado, o suficiente
+   para o olho ler o campo como um item fora da coluna. Os quadrados já tinham a
+   largura da coluna (`--deck-col`); com o MESMO vão o campo passa a ter a da
+   coluna do meio, e a barra e o deck viram a mesma grade. */
 .lib-bar {
-  display: flex; align-items: center; gap: var(--sp-4); flex-shrink: 0;
+  display: flex; align-items: center; gap: var(--deck-gap); flex-shrink: 0;
   padding: .35rem .7rem;
   background: none;
 }
@@ -9732,30 +9735,34 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   opacity: 1;
   background: var(--btn-accent); color: var(--accent);
 }
-/* ===== A BARRA DE AÇÃO FICA GRUDADA NO TOPO DA LISTA (v1.8.84) =====
-   Pedido do operador: *"mova a barra de opções de play para cima dessa sessão de
-   resultados"*. Ela morava no `.popup-fecho` (o rodapé que não rola); com a
-   lista de resultados abaixo dela, o fecho a poria DEPOIS dos resultados.
+/* ===== A BASE DA FOLHA: ROLETA E BARRA DE AÇÃO NO `.popup-fecho` (v1.11.18) =====
+   Pedido do operador: *"na aba de playlist automática, temos o seletor de
+   quantidade e os botões de decisão acima da lista de músicas disponíveis…
+   coloque eles na base dessa aba, abaixo do scroll com as opções de músicas"*.
 
-   `sticky` e não estática, e desde a v1.8.85 ela é a REDE: quem mantém a barra
-   à vista no caso normal é a estrutura — só a lista de resultados rola, e ela
-   fica ABAIXO desta faixa. O `sticky` cobre o caso em que a folha inteira
-   transborda (tela baixa com a fonte do sistema grande), que é o mesmo caso que
-   o piso da `.sorteio-res` deixa acontecer de propósito. Ela é o primário desta
-   folha — perder de vista o "Tocar agora" é perder o recurso.
+   REVOGA a v1.8.84, que pôs a barra ACIMA da lista, grudada por `sticky`: ela
+   volta ao rodapé que não rola (o `.popup-fecho`, irmão da `.popup-list`), com
+   a roleta da quantidade acima dela e o recibo do lote acima da roleta. Sem
+   `sticky`, sem `z-index` e sem fundo próprio — o fecho não é filho do scroller,
+   então nada passa por baixo dele, e o chão é o `--panel` do `.popup-sheet`.
 
-   O FUNDO É OPACO, e é o `--panel` que a própria folha pinta: a lista passa POR
-   BAIXO dela, e tinta com alfa sobre uma lista que rola muda de cor a cada
-   quadro (a medição da v1.8.61: 1343 de 3192 amostras). Pintar `--panel` cobra
-   AFUNDAR a superfície dos filhos — ver a lista do `.tools-sheet` lá em cima,
-   onde ela está.
+   O FECHO É UMA COLUNA COM O VÃO DA LISTA (`--sp-3`), que era o `gap` do
+   `.popup-list` quando a roleta e a barra moravam lá dentro. O `:not(:empty)`
+   é o que impede a regra de vencer o `display: none` do fecho vazio (a
+   especificidade de um id ganharia dele).
 
-   `z-index: 4` fica ABAIXO da tira de sombra da `.rola` (que é 5): a sombra
-   marca a fronteira do scroller, e é ela que diz que há conteúdo escondido. */
+   **A FOLHA TEM UMA ALTURA SÓ**, e é isso que paga o pedido: com os botões na
+   base, uma folha que encolhe com a lista (poucos resultados) leva a barra para
+   cima junto, e uma que cresce com o recibo a leva para baixo — o oposto do que
+   o operador pediu na v1.8.61 (*"para não ficar movendo a posição relativa de
+   seus botões na tela, atrapalhando o toque"*). Fixa em 80% da caixa (o mesmo
+   teto de sempre), a base não anda em nenhum estado, e o que sobra de altura
+   é da lista. */
+#sorteioPopup .popup-sheet { height: 80%; }
+#sorteioPopup .popup-fecho:not(:empty) {
+  display: flex; flex-direction: column; gap: var(--sp-3);
+}
 .sorteio-barra {
-  position: sticky; top: 0; z-index: 4;
-  background: var(--panel);
-  padding-block: var(--sp-2);
   /* ===== CINCO PEÇAS NÃO CABEM NUMA LINHA DE 320px (v1.8.84) =====
      A pílula entrou numa faixa que já era apertada: o limite DECLARADO pela
      v1.8.62 era *"a 320px com a fonte do sistema acima de 1× o rótulo
@@ -9853,10 +9860,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   text-align: center;
 }
 /* ===== O RECIBO DO LOTE (v1.8.84) =====
-   A única frase do cartão antigo que não repetia a tela. **Sempre desenhada**,
-   vazia quando não há fala: uma linha que aparece e some é um motor de pulo da
-   folha (v1.8.61), e o espaço que ela reserva se paga duas vezes — calada, é o
-   respiro entre a barra e a lista. */
+   A única frase do cartão antigo que não repetia a tela. Desde a v1.11.18 ele é
+   a PRIMEIRA linha do `.popup-fecho`, logo acima da roleta: colado nos botões
+   que acabaram de produzi-lo. */
 .sorteio-fala {
   min-height: 1.35em; line-height: 1.35;
   font-size: var(--fs-xs); color: var(--accent); text-align: center;
@@ -9868,9 +9874,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    eram esta linha vazia mais os dois vãos da folha.
 
    O QUE A RESERVA PROTEGIA CONTINUA PROTEGIDO, e é por isso que ela pode cair:
-   a regra da v1.8.61 é sobre BOTÃO que se mexe debaixo do dedo, e esta linha
-   mora ABAIXO de todos eles — quem cede quando ela aparece é a lista, que é
-   `flex: 0 1 auto`. A barra de ação não anda um pixel. */
+   a regra da v1.8.61 é sobre BOTÃO que se mexe debaixo do dedo. Com a folha de
+   altura fixa (v1.11.18) a base do fecho não anda, e o recibo, que é a linha de
+   CIMA do fecho, cresce para cima — quem cede é a lista, que é `flex: 0 1
+   auto`. A roleta e a barra de ação não andam um pixel. */
 .sorteio-fala:empty { display: none; }
 /* ===== A LISTA DOS RESULTADOS (v1.8.84) =====
    *"agora ele será a lista dos resultados, listando cada música disponível
@@ -9883,16 +9890,17 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    DUAS peças que aquela folha não tem — a posição no lote e o preenchimento de
    quem vai tocar.
 
-   ELA NÃO ROLA POR CONTA PRÓPRIA. Um scroller dentro de outro é o gesto que não
-   se sabe para quem vai; quem rola é a folha, e a barra acima fica grudada. */
+   QUEM ROLA É SÓ ELA (v1.8.85, ver abaixo): os filtros ficam à vista no alto e
+   a roleta com a barra de ação ficam à vista na base (v1.11.18). */
 /* ===== SÓ A LISTA ROLA (v1.8.85) =====
    Pedido do operador: *"sobre o scroll, mantenha as opções dos filtros sempre
    visíveis e deixe apenas a lista dos resultados como scroll."*
 
    `flex: 0 1 auto` sobre a `.popup-list` (que já é coluna) faz esta caixa ser a
-   ÚNICA que cede: com a folha no teto de 80vh, tudo o que sobra é descontado
-   daqui e o resto — palavra, variante, filtros, quantidade e a barra de ação —
-   fica onde está. `.popup-list > li` declara `flex-shrink: 0`, então o `1` do
+   ÚNICA que cede: com a folha na altura dela (80%), tudo o que sobra é
+   descontado daqui e o resto — palavra, variante e filtros na lista; roleta e
+   barra de ação no fecho — fica onde está. `.popup-list > li` declara
+   `flex-shrink: 0`, então o `1` do
    meio é a metade que faz a regra existir — **e o seletor precisa nomear o
    PAI**: MEDIDO, `.sorteio-res` sozinho é (0,1,0) contra os (0,1,1) daquela
    regra, e perde. A lista ficava com 1323px dentro de uma folha de 720, e quem
@@ -9911,18 +9919,14 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   overflow-y: auto; overscroll-behavior: contain;
 }
 /* VAZIA ELA NÃO RESERVA NADA. O piso existe para uma lista que rola; sobre a
-   frase do vazio ele é um buraco de 9rem entre a barra e o fim da folha. */
+   frase do vazio ele é um buraco de 9rem entre os filtros e a base da folha. */
 .popup-list > .sorteio-res.vazio { min-height: 0; overflow: visible; }
 /* AQUECENDO ELA JÁ OCUPA O LUGAR DA LISTA, e centra o aro (v1.8.100). O piso
    grande não é enfeite: o aquecimento só existe quando o pool passa de UMA
-   página (ver `sorteioAquecer`), e cem linhas estouram o teto de 80vh da folha
-   em qualquer tela — então a folha VAI abrir no teto de qualquer jeito. Sem
-   reservar, ela abriria curta e cresceria um segundo depois, que é a folha
-   mudando de tamanho entre dois estados que o operador alcança (a regra da
-   v1.8.61) por um conserto de desempenho. MEDIDO a 412×892: 480px de folha
-   contra 714px, com a barra de ação parada nos dois — o que se movia era só a
-   base. */
-#sorteioPopup.aquecendo .popup-sheet { height: 80vh; }
+   página (ver `sorteioAquecer`). A ALTURA DA FOLHA não é mais segurada aqui
+   (a regra `#sorteioPopup.aquecendo .popup-sheet { height: 80vh }` saiu na
+   v1.11.18): ela é fixa em qualquer estado, ver `#sorteioPopup .popup-sheet`
+   acima. O que sobra desta regra é só o lugar do aro dentro da lista. */
 .popup-list > .sorteio-res.aquecendo {
   /* `flex: 1` só AQUI: ela toma o mesmo lugar que a lista vai tomar, e o aro
      fica no meio dele. Com o `0 1 auto` de sempre a caixa ficava no piso de
@@ -10088,25 +10092,19 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    declarava para o par curto ("Sortear" reticenciava a 320×1,5), um degrau de
    fonte abaixo. Perseguir o 1,2px seria medir o runner: as métricas de fonte do
    WebView do aparelho não são as do Chromium do CI. */
-/* E A `.sorteio-barra` ENTRA NO MESMO ESCOPO (v1.8.84), porque a faixa dela
-   SAIU do `.popup-fecho`: ela subiu para cima da lista de resultados, e o
-   prefixo que a alcançava foi embora junto. MEDIDO na entrada do lote, a 320,
-   390 e 430px: 53,2px do primário contra 42,4 dos quatro irmãos — a v1.8.61
-   inteira de volta, e por um caminho que nenhuma daquelas asserções cobria
-   (elas leem o `.popup-fecho`). **É `.sorteio-barra` e não uma classe nova
-   porque a pergunta continua sendo a MESMA — *"há irmão nesta faixa?"* —, e o
-   `:has()` que a faz continua idêntico; o que mudou foi o ancestral.** */
-.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go,
-.sorteio-barra:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go {
+/* (A `.sorteio-barra` teve um seletor próprio aqui da v1.8.84 à v1.11.17,
+   porque a faixa dela tinha saído do `.popup-fecho` para cima da lista e o
+   prefixo que a alcançava foi embora. Ela voltou ao fecho, e as três regras
+   abaixo a alcançam de novo pelo mesmo `:has()` — a pergunta continua sendo
+   *"há irmão nesta faixa?"*, e o oráculo mede a altura de cada peça.) */
+.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go {
   height: var(--quad-faixa);
   padding: 0;
 }
-.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-text,
-.sorteio-barra:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-text {
+.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-text {
   min-height: 0;
 }
-.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-label,
-.sorteio-barra:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-label {
+.popup-fecho .song-menu-go-row:has(> .song-menu-btn ~ .song-menu-btn) > .song-menu-go .song-menu-label {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 

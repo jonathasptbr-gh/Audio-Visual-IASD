@@ -718,7 +718,7 @@ try {
       filaIgual: JSON.stringify(await AVDB.listIds('playlist')) === JSON.stringify(filaAntes),
       noArIgual: currentId === noArAntes,
       aberta: document.getElementById('sorteioPopup').classList.contains('open'),
-      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
+      fala: (document.querySelector('#sorteioPopup .sorteio-fala') || {}).textContent,
     };
   });
   checar(guardou.cronograma === 1 && guardou.ehPacote && guardou.quantosNoPacote === 3,
@@ -826,7 +826,7 @@ try {
     return {
       total: itens.length,
       pacotes: itens.filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
-      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
+      fala: (document.querySelector('#sorteioPopup .sorteio-fala') || {}).textContent,
     };
   });
   // UM SORTEIO NOVO É UM PACOTE NOVO. Antes a dedução era por id e um segundo
@@ -861,7 +861,7 @@ try {
       pacotes: itens.filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
       nome: itens[0] ? itens[0].name : '',
       aberta: document.getElementById('sorteioPopup').classList.contains('open'),
-      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
+      fala: (document.querySelector('#sorteioPopup .sorteio-fala') || {}).textContent,
     };
   });
   checar(solta.total === 1 && solta.pacotes === 0 && !/playlist/i.test(solta.nome),
@@ -900,7 +900,7 @@ try {
       dentro: pac && Array.isArray(pac.data.ids) ? pac.data.ids.length : 0,
       noArIgual: currentId === noArAntes,
       filaIgual: JSON.stringify(await AVDB.listIds('playlist')) === JSON.stringify(filaAntes),
-      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
+      fala: (document.querySelector('#sorteioPopup .sorteio-fala') || {}).textContent,
     };
   });
   checar(favs.quantos === 1 && favs.ehPacote && favs.dentro === 3,
@@ -940,7 +940,7 @@ try {
       pacotes: (await AVDB.listItems('playlist'))
         .filter((r) => r && r.kind === 'cue' && r.cue === 'group').length,
       noArIgual: currentId === noArAntes,
-      fala: (document.querySelector('#sorteioList .sorteio-fala') || {}).textContent,
+      fala: (document.querySelector('#sorteioPopup .sorteio-fala') || {}).textContent,
     };
   });
   checar(naFila.antes.length === 1 && naFila.depois.length > naFila.antes.length
@@ -1207,7 +1207,7 @@ try {
         // A LINHA DA QUANTIDADE NÃO TEM MAIS PÍLULA NENHUMA: a roleta ENTROU no
         // lugar delas, e as duas convivendo seria a folha oferecendo o mesmo
         // controle duas vezes.
-        pilulas: document.querySelectorAll('#sorteioList .sorteio-linha--quantas .misc-chip').length,
+        pilulas: document.querySelectorAll('#sorteioPopup .sorteio-linha--quantas .misc-chip').length,
         celulas: qh.children.length,
         textos: [...qh.children].map((c) => c.textContent),
         teto: Number(qh.dataset.teto),
@@ -1258,8 +1258,11 @@ try {
         return Math.round(rg.getBoundingClientRect().height * 10) / 10;
       });
       return {
-        rotulos: document.querySelectorAll('#sorteioList .sorteio-rotulo').length,
-        textoRotulo: /Filtros|Quantas/.test(document.getElementById('sorteioList').textContent),
+        // O ESCOPO É A FOLHA, e não a lista: desde a v1.11.18 a linha da
+        // quantidade mora no `.popup-fecho`, irmão dela — um título "Quantas"
+        // escrito ali passaria por uma varredura que só lesse a lista.
+        rotulos: document.querySelectorAll('#sorteioPopup .sorteio-rotulo').length,
+        textoRotulo: /Filtros|Quantas/.test(document.querySelector('#sorteioPopup .popup-sheet').textContent),
         quantos: chips.length,
         // DA BORDA À BORDA: a soma das três mais os dois vãos é a fileira
         // inteira. Medida contra a FILEIRA, e não contra a folha — é ela que o
@@ -1872,49 +1875,53 @@ try {
     + '`z-index: 5` pintava sobre a linha de 19,5px e apagava a única marca que '
     + 'dizia onde a lista foi cortada', JSON.stringify(naContagem));
 
-  // (P) O VÃO ENTRE A BARRA E A CONTAGEM, E A FALA QUE SÓ OCUPA QUANDO FALA.
+  // (P) A FALA QUE SÓ OCUPA QUANDO FALA — E ELA MORA NO TOPO DO FECHO (v1.11.18).
   //
-  // MEDIDO a 430×900: 25,9px entre a barra de ação e a contagem, dos quais 14,7
-  // eram a linha do recibo VAZIA mais os vãos da folha. Ela era reservada de
-  // propósito (a regra da v1.8.61, contra a folha que pula debaixo do dedo), e o
-  // que autoriza a reserva a cair é a POSIÇÃO: o recibo mora abaixo de todo
-  // botão, e quem cede quando ele aparece é a lista, que é `flex: 0 1 auto`.
-  // É essa segunda metade que a asserção do recibo mede junto — sem ela, o
-  // conserto do vão teria comprado um motor de pulo.
-  const calada = await pg.evaluate(() => {
-    const barra = document.querySelector('#sorteioList .sorteio-barra');
-    const fala = document.querySelector('#sorteioList .sorteio-fala');
-    const cab = document.querySelector('#sorteioList .sorteio-res-cab');
-    return { barra: Math.round(barra.getBoundingClientRect().bottom * 10) / 10,
-      existe: !!fala, texto: fala.textContent,
-      display: getComputedStyle(fala).display,
-      altura: Math.round(fala.getBoundingClientRect().height * 10) / 10,
-      vao: Math.round((cab.getBoundingClientRect().top
-        - barra.getBoundingClientRect().bottom) * 10) / 10 };
-  });
+  // Ela era reservada de propósito (a regra da v1.8.61, contra a folha que pula
+  // debaixo do dedo), e a v1.8.98 a fez cair quando calada: MEDIDO a 430×900,
+  // 14,7 dos 25,9px entre a barra e a contagem eram esta linha vazia mais os
+  // vãos da folha. O que autoriza a reserva a cair é a POSIÇÃO — e desde a
+  // v1.11.18 ela é a linha de CIMA do `.popup-fecho`, acima da roleta: a base da
+  // folha é fixa, o recibo cresce PARA CIMA e quem cede é a lista. É essa
+  // segunda metade que a asserção do recibo mede junto — sem ela, deixar a linha
+  // cair teria comprado um motor de pulo: roleta e barra descendo sob o dedo.
+  const medirFecho = () => {
+    const pop = document.getElementById('sorteioPopup');
+    const fecho = pop.querySelector('.popup-fecho');
+    const barra = fecho.querySelector('.sorteio-barra');
+    const fala = fecho.querySelector('.sorteio-fala');
+    const roleta = fecho.querySelector('.roleta-h');
+    const r1 = (n) => Math.round(n * 10) / 10;
+    return {
+      existe: !!fala, texto: fala ? fala.textContent : null,
+      display: fala ? getComputedStyle(fala).display : null,
+      altura: fala ? r1(fala.getBoundingClientRect().height) : null,
+      barra: r1(barra.getBoundingClientRect().bottom),
+      roleta: r1(roleta.getBoundingClientRect().top),
+      // ACIMA da roleta e DENTRO do fecho, e não em qualquer lugar da folha.
+      acimaDaRoleta: !!fala && fala.getBoundingClientRect().bottom
+        <= roleta.getBoundingClientRect().top + 0.5,
+      lista: r1(document.getElementById('sorteioList').getBoundingClientRect().bottom),
+    };
+  };
+  const calada = await pg.evaluate(medirFecho);
   checar(calada.existe && calada.texto === '' && calada.display === 'none'
-    && calada.altura === 0 && calada.vao <= 8,
-    'P · calada, a linha do recibo está no DOM e não ocupa um pixel — e o vão '
-    + 'entre a barra de ação e a contagem cai a ' + calada.vao + 'px (media 25,9)',
-    calada);
-  const falando = await pg.evaluate(async () => {
+    && calada.altura === 0,
+    'P · calada, a linha do recibo está no DOM, dentro do `.popup-fecho`, e não '
+    + 'ocupa um pixel', calada);
+  const falando = await pg.evaluate(async (fnSrc) => {
     falarNoSorteio('5 músicas acrescentadas ao fim da playlist');
     await new Promise((r) => setTimeout(r, 60));
-    const barra = document.querySelector('#sorteioList .sorteio-barra');
-    const fala = document.querySelector('#sorteioList .sorteio-fala');
-    const cab = document.querySelector('#sorteioList .sorteio-res-cab');
-    return { barra: Math.round(barra.getBoundingClientRect().bottom * 10) / 10,
-      texto: fala.textContent.slice(0, 8),
-      display: getComputedStyle(fala).display,
-      altura: Math.round(fala.getBoundingClientRect().height * 10) / 10,
-      vao: Math.round((cab.getBoundingClientRect().top
-        - barra.getBoundingClientRect().bottom) * 10) / 10 };
-  });
-  checar(falando.display !== 'none' && falando.altura >= 10
-    && falando.vao > calada.vao && falando.barra === calada.barra,
-    'P · e com texto ela VOLTA a ocupar uma linha, sem mexer a barra de ação um '
-    + 'pixel: a regra é `:empty`, e o dia em que alguém a tirar do seletor leva '
-    + 'o recibo do lote junto — que é a única frase da folha que não repete a tela',
+    // eslint-disable-next-line no-new-func
+    return (new Function('return (' + fnSrc + ')'))()();
+  }, medirFecho.toString());
+  checar(falando.display !== 'none' && falando.altura >= 10 && falando.acimaDaRoleta
+    && falando.barra === calada.barra && falando.roleta === calada.roleta
+    && falando.lista < calada.lista,
+    'P · e com texto ela VOLTA a ocupar uma linha ACIMA da roleta, sem mexer a '
+    + 'roleta nem a barra de ação um pixel — quem cede é a lista, que encolhe: a '
+    + 'regra é `:empty`, e o dia em que alguém a tirar do seletor leva o recibo '
+    + 'do lote junto — que é a única frase da folha que não repete a tela',
     { calada, falando });
 
   // (Q) REABRIR ZERA OS TRÊS FILTROS E A PALAVRA.

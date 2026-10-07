@@ -410,7 +410,7 @@ try {
   const rolagem = await pg.evaluate(() => {
     const folha = document.getElementById('sorteioList');
     const res = document.querySelector('#sorteioList .sorteio-res');
-    const barra = document.querySelector('#sorteioList .sorteio-barra');
+    const barra = document.querySelector('#sorteioPopup .sorteio-barra');
     return {
       linhas: document.querySelectorAll('#sorteioList .sorteio-res-btn').length,
       folhaRola: folha.scrollHeight > folha.clientHeight + 1,
@@ -419,8 +419,8 @@ try {
     };
   });
   checar(rolagem.linhas > 40 && rolagem.resRola && !rolagem.folhaRola,
-    'F · quem rola é a LISTA, e a folha não — os filtros, a quantidade e a barra '
-    + 'de ação ficam onde estão. A cena é obrigada a transbordar: sobre uma '
+    'F · quem rola é a LISTA, e a folha não — os filtros no alto e a quantidade '
+    + 'com a barra de ação na base (v1.11.18) ficam onde estão. A cena é obrigada a transbordar: sobre uma '
     + 'folha que cabe, as duas metades passam sem medir nada',
     JSON.stringify(rolagem));
   // E A ROLAGEM SOBREVIVE A UMA MARCA. O caminho leve redesenha a lista inteira
@@ -435,7 +435,7 @@ try {
       .find((b) => b.getBoundingClientRect().top > res().getBoundingClientRect().top + 10);
     alvo.click();
     await new Promise((r) => setTimeout(r, 200));
-    const barra = document.querySelector('#sorteioList .sorteio-barra');
+    const barra = document.querySelector('#sorteioPopup .sorteio-barra');
     return { antes, depois: res().scrollTop, barra: +barra.getBoundingClientRect().top.toFixed(1) };
   });
   checar(marcou.antes > 100 && marcou.depois === marcou.antes,
@@ -463,10 +463,10 @@ try {
     // cobra continua sendo o LUGAR — imediatamente acima da lista —, e a régua
     // passou a ser a IRMÃ, que é onde o lugar agora se lê.
     const cab = document.querySelector('#sorteioList > .sorteio-res-cab');
-    const go = document.querySelector('#sorteioList .sorteio-barra .song-menu-go');
+    const go = document.querySelector('#sorteioPopup .sorteio-barra .song-menu-go');
     const res = document.querySelector('#sorteioList .sorteio-res');
     return {
-      pilulaNaBarra: !!document.querySelector('#sorteioList .sorteio-barra .sorteio-pilula'),
+      pilulaNaBarra: !!document.querySelector('#sorteioPopup .sorteio-barra .sorteio-pilula'),
       texto: cab ? cab.textContent.trim() : null,
       // ELA É A IRMÃ IMEDIATAMENTE ANTERIOR à lista: *"uma linha no topo"*.
       antesDaLista: !!cab && cab.nextElementSibling === res,
@@ -518,7 +518,7 @@ try {
     'G2 · A PREMISSA: há lista suficiente para uma ordem nova ser distinguível '
     + 'da anterior', antesDoSorteio.ordem.length);
   const depoisDoSorteio = await pg.evaluate(async () => {
-    document.querySelector('#sorteioList .sorteio-sortear').click();
+    document.querySelector('#sorteioPopup .sorteio-sortear').click();
     await new Promise((f) => setTimeout(f, 120));
     return {
       ordem: [...document.querySelectorAll('#sorteioList .sorteio-res-lista li')]
@@ -543,7 +543,7 @@ try {
   if (!mudou) {
     mudou = await pg.evaluate(async (antes) => {
       for (let i = 0; i < 6; i++) {
-        document.querySelector('#sorteioList .sorteio-sortear').click();
+        document.querySelector('#sorteioPopup .sorteio-sortear').click();
         await new Promise((f) => setTimeout(f, 80));
         const agora = [...document.querySelectorAll('#sorteioList .sorteio-res-lista li')]
           .map((li) => (li.querySelector('.song-menu-label') || {}).textContent || '');

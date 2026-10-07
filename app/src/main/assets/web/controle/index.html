@@ -1275,7 +1275,7 @@
   </div>
 
     <!-- Grade real (CSS Grid): 3 colunas (lateral / conteúdo / lateral) x 3
-         linhas (preview / nowplaying / transporte), com SETE itens diretos e
+         linhas (nowplaying / preview / transporte), com SETE itens diretos e
          nenhum aninhamento de grade. As colunas laterais valem exatamente a
          largura de um botão do transporte, que é o que faz as sete células da
          linha de baixo saírem idênticas — a demonstração está em controle.css.
@@ -1318,6 +1318,25 @@
              `pointer-events:none` no CSS: quem recebe o arrasto é o input.
              `aria-hidden`: o valor já é anunciado pelo próprio range. -->
         <span id="volValue" class="fader-value" aria-hidden="true">100</span>
+      </div>
+      <!-- ===== A BARRA DE PROGRESSO SEGUE A GRADE DO DECK (v1.3.8) =====
+           Ela atravessa as TRÊS colunas, e o que está dentro dela cai nas
+           mesmas: o tempo decorrido sobre o botão de voltar slide, a barra
+           sobre a preview, o tempo total sobre o botão de passar. Antes ela
+           parava na coluna 2 (o histórico ocupava a 3), então a barra não
+           batia com a miniatura logo abaixo e o título nascia descentrado —
+           centrado numa caixa que não era a do deck.
+           O TÍTULO é o único que ignora as colunas: ele é centrado na largura
+           INTEIRA, que é onde o olho o procura. -->
+      <div class="nowplaying">
+        <div class="np-name" id="npName"><span class="np-name-inner" id="npNameInner">Nada em exibição</span></div>
+        <div class="np-seek">
+          <span id="curTime" class="np-time">0:00</span>
+          <!-- `aria-label` porque um range sem nome acessível é anunciado só
+               como "controle deslizante", sem dizer de quê. -->
+          <input type="range" id="seek" min="0" max="0" value="0" step="0.1" aria-label="Posição da mídia" disabled>
+          <span id="durTime" class="np-time">0:00</span>
+        </div>
       </div>
       <!-- ===== OS DOIS BOTÕES DE SLIDE VOLTARAM À TELA (v1.3.5) =====
            `#slidePrevBtn`/`#slideNextBtn` são os mesmos de sempre — o ponto
@@ -1721,32 +1740,6 @@
            ANTES do `title`: sem o aria-hidden o title nunca era consultado e o
            leitor de tela anunciava o caractere PUA. Esconder a decoração é o
            que faz o title voltar a valer como nome. -->
-      <!-- ===== A BARRA DE PROGRESSO SEGUE A GRADE DO DECK (v1.3.8) =====
-           Ela atravessa as TRÊS colunas, e o que está dentro dela cai nas
-           mesmas: o tempo decorrido sob o botão de voltar slide, a barra sob
-           a preview, o tempo total sob o botão de passar. Antes ela parava na
-           coluna 2 (o histórico ocupava a 3), então a barra não batia com a
-           miniatura e o título nascia descentrado — centrado numa caixa que
-           não era a do deck.
-           O TÍTULO é o único que ignora as colunas: ele é centrado na largura
-           INTEIRA, que é onde o olho o procura.
-
-           ELA MORA ABAIXO DA PREVIEW (v1.11.17, um EXPERIMENTO pedido pelo
-           operador: *"troque de lugar a seção de mídia atual e barra de
-           progresso com a linha da preview e botões de anterior e próximo,
-           deixando a seção de mídia atual e barra de progresso abaixo do
-           preview"*). A ordem do DOM acompanha a da tela, para o foco do
-           teclado e dos leitores de tela andar de cima para baixo. -->
-      <div class="nowplaying">
-        <div class="np-name" id="npName"><span class="np-name-inner" id="npNameInner">Nada em exibição</span></div>
-        <div class="np-seek">
-          <span id="curTime" class="np-time">0:00</span>
-          <!-- `aria-label` porque um range sem nome acessível é anunciado só
-               como "controle deslizante", sem dizer de quê. -->
-          <input type="range" id="seek" min="0" max="0" value="0" step="0.1" aria-label="Posição da mídia" disabled>
-          <span id="durTime" class="np-time">0:00</span>
-        </div>
-      </div>
       <!-- A ORDEM DA LINHA DE BAIXO (v1.3.9), a pedido do operador: repetir,
            playlist, anterior, play, parar, próximo, e a sétima célula. Os dois
            que ABREM uma folha ficam nas PONTAS — playlist logo depois do
@@ -2608,7 +2601,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.11.17</span>
+            <span id="appVersion" class="app-version">v1.11.18</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

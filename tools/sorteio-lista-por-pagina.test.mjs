@@ -67,7 +67,7 @@ const foto = () => pg.evaluate(() => {
   const res = document.querySelector('#sorteioList .sorteio-res');
   const cab = document.querySelector('#sorteioList .sorteio-res-cab');
   const sheet = document.querySelector('#sorteioPopup .popup-sheet');
-  const barra = document.querySelector('#sorteioList .sorteio-barra');
+  const barra = document.querySelector('#sorteioPopup .sorteio-barra');
   const lista = document.getElementById('sorteioList');   // ele É a `.popup-list`
   return {
     aro: !!(res && res.querySelector('.dl-ring')),
@@ -125,8 +125,9 @@ try {
   checar(durante.folha === depois.folha && durante.barraTopo === depois.barraTopo
     && durante.folhaRola === 0,
     'A · e a FOLHA mede o mesmo nos dois estados, com a barra de ação parada e '
-    + 'sem rolar por fora: a altura é reservada NA FOLHA, e um piso escrito na '
-    + 'lista passaria do que sobra e poria a `.popup-list` a rolar',
+    + 'sem rolar por fora: desde a v1.11.18 a altura da folha é FIXA em qualquer '
+    + 'estado (a barra mora na base, e uma folha que encolhesse a levaria junto), '
+    + 'e um piso escrito na lista passaria do que sobra e poria a `.popup-list` a rolar',
     JSON.stringify({ durante, depois }));
 
   // ── B. E A PÁGINA CRESCE NO FIM DA ROLAGEM, SEM REMONTAR ────────────────

@@ -214,14 +214,12 @@ try {
 
     // TODO vão do deck é o mesmo — os cinco que cercam a preview mais o que
     // separa a sétima célula do botão de voltar.
-    // (v1.11.17: a faixa do nome e da barra desceu para ABAIXO da preview — a ordem do deck é
-    // preview, nowplaying, transporte —, então os vãos verticais são os dois novos.)
     const vaos = {
-      'preview→nowplaying': g.np.topo - g.pv.base,
-      'nowplaying→transporte': g.tr.topo - g.np.base,
+      'nowplaying→preview': g.pv.topo - g.np.base,
+      'preview→transporte': g.tr.topo - g.pv.base,
       'voltar→preview': g.pv.esq - g.ant.dir,
       'preview→passar': g.prox.esq - g.pv.dir,
-      'nowplaying→sétima': g.hist.topo - g.np.base,
+      'passar→sétima': g.hist.topo - g.prox.base,
       'transporte→sétima': g.hist.esq - g.seis[5].dir,
       'entre dois do transporte': g.seis[1].esq - g.seis[0].dir,
     };
@@ -229,6 +227,29 @@ try {
       checar(perto(v, g.vao), `o vão ${onde} é o do deck (${nome})`,
         { medido: +v.toFixed(2), esperado: g.vao });
     }
+
+    // A BARRA DA BIBLIOTECA É A MESMA GRADE DO DECK (v1.11.18). Os dois quadrados (sortear e
+    // abrir) têm a largura da coluna lateral, e o vão entre eles e o campo era `--sp-4` (8px)
+    // contra os 5,6px do deck — o campo ficava 2,4px para dentro da coluna da prévia de cada
+    // lado, e o olho o lia como um item fora do alinhamento dos vizinhos de baixo. Medido
+    // contra os vizinhos RENDERIZADOS (a prévia e os dois botões de slide), nunca contra um
+    // número escrito aqui.
+    const barra = await pg.evaluate(() => {
+      const r = (sel) => { const b = document.querySelector(sel).getBoundingClientRect();
+        return { esq: +b.left.toFixed(2), dir: +b.right.toFixed(2), larg: +b.width.toFixed(2) }; };
+      return { dado: r('#sorteioBtn'), campo: r('.lib-search-campo'), seta: r('#hymnSearchToggle'),
+        gap: parseFloat(getComputedStyle(document.getElementById('libBar')).columnGap) };
+    });
+    checar(perto(barra.campo.esq - barra.dado.dir, g.vao) && perto(barra.seta.esq - barra.campo.dir, g.vao),
+      `o vão entre o campo de busca e cada quadrado é o do deck (${nome})`,
+      { esq: +(barra.campo.esq - barra.dado.dir).toFixed(2), dir: +(barra.seta.esq - barra.campo.dir).toFixed(2), deck: g.vao });
+    checar(perto(barra.campo.esq, g.pv.esq) && perto(barra.campo.dir, g.pv.dir),
+      `e o campo tem as bordas da PRÉVIA: a mesma coluna, em cima e embaixo (${nome})`,
+      { campo: [barra.campo.esq, barra.campo.dir], preview: [g.pv.esq, g.pv.dir] });
+    checar(perto(barra.dado.esq, g.ant.esq) && perto(barra.dado.dir, g.ant.dir)
+        && perto(barra.seta.esq, g.prox.esq) && perto(barra.seta.dir, g.prox.dir),
+      `e os quadrados da barra caem sobre os botões de slide (${nome})`,
+      { dado: [barra.dado.esq, barra.dado.dir], voltar: [g.ant.esq, g.ant.dir], seta: [barra.seta.esq, barra.seta.dir], passar: [g.prox.esq, g.prox.dir] });
 
     // AS SETE CÉLULAS DA LINHA DE BAIXO. Com a coluna lateral em 56px fixos os
     // seis do transporte mediam 52,3 e o do volume 44,8 — e o vão até ele era
@@ -457,8 +478,8 @@ try {
       `a BARRA continua começando e terminando com a prévia (${nome})`,
       { seek: [g.seek.esq, g.seek.dir], preview: [g.pv.esq, g.pv.dir] });
     for (const [onde, v] of Object.entries({
-      'prévia→nowplaying': g.np.topo - g.pv.base,
-      'nowplaying→transporte': g.tr.topo - g.np.base,
+      'nowplaying→prévia': g.pv.topo - g.np.base,
+      'prévia→transporte': g.tr.topo - g.pv.base,
       'voltar→prévia': g.pv.esq - g.ant.dir,
       'prévia→passar': g.prox.esq - g.pv.dir,
     })) {
