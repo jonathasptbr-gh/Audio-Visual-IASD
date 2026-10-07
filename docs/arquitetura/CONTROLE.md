@@ -4234,6 +4234,35 @@ conta que põe a barra no lugar.
   evento). Cada peça tem a sua reversão no bloco 9 do `controles-layout`; a
   premissa ("o observador não vê a volta") é **EMULADA** — o arnês desenha quadros
   o tempo todo —, e a causa foi lida do código, **não reproduzida em aparelho**.
+  - **E A SAÍDA TEM DUAS PEÇAS A MAIS (v1.11.20).** Relato do operador sobre o
+    conserto acima: *"ele volta ao estado correto … mas está com um pequeno
+    deslocamento, como se ao sair da tela cheia ele volte no estado com o bug, e
+    no mesmo instante ele se ajusta"*. GRAVADO QUADRO A QUADRO, a ordem do aparelho
+    é a OUTRA do bloco 9: o `fullscreenchange` de saída chega com a janela AINDA
+    deitada, e a rotação de volta vem depois. Dois defeitos, o segundo MASCARADO
+    pelo primeiro:
+    · **o ouvinte de saída gravava a altura da PAISAGEM** (436px a 390×800, contra
+      os 293 do retrato) — a barra no lugar errado até o `resize` do retrato
+      corrigir. Fechado pela trava `libAssentando`: depois da saída só vale uma
+      medida na MESMA orientação da última medida boa (`libOrientacaoMedida`), e
+      uma rede de 1,5 s solta a trava para o aparelho que ficou deitado de verdade;
+    · **a barra DESLIZAVA** (380px em 280 ms a 360×740) do lugar da paisagem ao do
+      retrato: a posição dela é `translateY(100svh - …)` com transição, e a
+      transição não distingue abrir/fechar de a altura da tela ter mudado. Antes
+      isso ficava escondido — a medida de volta MUDAVA (paisagem e depois
+      retrato), e quem grava desarma a transição de carona; sem a gravação errada a
+      barra passou a deslizar. Fechado pelo `libAoGirar`: na MUDANÇA DE
+      ORIENTAÇÃO (o teclado também dispara `resize`, e cortar a animação de
+      fechar a Biblioteca seria defeito novo) tira o `lib-pronta` **e termina
+      (`finish()`) a transição que já nasceu** — só a classe não basta, porque o
+      `offsetHeight` do próprio `medirBarraDaBiblioteca` força o recálculo de
+      estilo com a altura nova antes de ela sair.
+    Bloco 10 do `controles-layout`, POR QUADRO e na ordem do aparelho, com o
+    retrato de volta na MESMA largura de onde se saiu (com outra, a medida muda e
+    o disfarce volta — foi o que a primeira versão do bloco provou). Reversões:
+    sem a trava reprova a (A), sem o `libAoGirar` e sem o `finish()` reprova a (B)
+    com 470px; só a ORDEM dos ouvintes não reprova nada (o `finish()` a torna
+    irrelevante). **Também sem reprodução em aparelho.**
 - **E A ÁREA SEGURA DO TOPO TEM NOME** (`--sa-topo`). O app é
   `viewport-fit=cover`, então `env(safe-area-inset-top)` vale no aparelho e é
   ZERO em todo navegador de mesa. Enquanto ela apareceu LITERAL nas duas fórmulas
@@ -8350,10 +8379,23 @@ na lista; roleta e barra de ação no `.popup-fecho` — fica onde está.
   fronteiras"* — e, na mesma frase, *"verifique a margem abaixo dessa lista, antes
   da linha de quantidades marcadas, me parece que há espaço extra"*.
   - **O CARTÃO É O PRÓPRIO SCROLLER** (`.popup-list > .sorteio-res:not(.vazio)`):
-    `--camada` (o nível que o `.popup-sheet` reserva a um filho, o mesmo cartão da
-    frase do vazio), `--radius-card` e recuo `--sp-3`. Dentro dele não há nível 3 —
-    as linhas seguem em recesso. **Vazia, a lista não leva cartão**: a frase dela já
-    é um, e dois um dentro do outro seriam o nível que a escada proíbe.
+    `--gaveta-bg` (v1.11.20; a v1.11.19 saiu com `--camada`), `--radius-card` e
+    recuo `--sp-3`. **Vazia, a lista não leva cartão**: a frase dela já é um, e dois
+    um dentro do outro seriam o nível que a escada proíbe.
+  - **O TOM É O POÇO DA GAVETA, E NÃO O `--camada` (v1.11.20).** Relato do operador:
+    *"me parece que está ficando pouco contraste entre o corpo do item selecionado e
+    o fundo do card da lista"*. MEDIDO: `--sel-fill` × `--camada` (= `--panel-2`) deu
+    **1,02:1 no escuro e 1,07:1 no claro** — dois tons de MESMA luminância, e só a
+    matiz sobrava. O `--sel-fill` foi desenhado para pousar sobre o `--panel`
+    (1,35 · 1,31), e um cartão MAIS CLARO que a folha não serve a ele no escuro: o
+    cartão DESCE, como a gaveta da Biblioteca já faz, e as linhas voltam a ser
+    botões (`--gaveta-btn`; o `--surface` é um overlay e sobre o tom mais escuro do
+    app não dá degrau). Medido (escuro · claro): cartão × linha marcada **1,86 ·
+    1,41**, cartão × linha fora do lote **1,38 · 1,85**, folha × cartão **1,38 ·
+    1,85**, uma linha × outra **1,35 · 1,31** — todos acima do piso de 1,28. As
+    sombras de fronteira seguem visíveis (o bloco R mede por pixel que a tira pinta
+    dentro do cartão); o bloco R2 mede os pares nos DOIS temas e a reversão
+    reprova com os 1,02 e 1,07.
   - **AS SOMBRAS DE FRONTEIRA SÃO O MOTIVO DE SER O SCROLLER**: as tiras do `.rola`
     moram no padding box de quem rola, e um scroller com raio as recorta pelo arco
     (o acabamento da v1.8.59). Um invólucro com raio por fora deixaria a tira
