@@ -296,8 +296,9 @@ try {
     linhas: lyricsViewBodyEl.querySelectorAll('.lv-row').length,
     vazio: (lyricsViewBodyEl.querySelector('.empty') || {}).textContent || '',
     cabecalho: document.getElementById('lyricsPopupTitle').textContent,
-    titulo: (lyricsViewBodyEl.firstElementChild || {}).className === 'lv-cab'
-      ? lyricsViewBodyEl.firstElementChild.textContent : '',
+    titulo: (lyricsViewBodyEl.firstElementChild || {}).textContent || '',
+    primeiraEhCapa: lyricsViewBodyEl.firstElementChild.classList.contains('lv-row--cover'),
+    semInicio: !/in[ií]cio/i.test(lyricsViewBodyEl.textContent),
   }));
   checar(cena.fonte === 'lyrics',
     'o botão do transporte abre a folha na LETRA da música em cena', cena.fonte);
@@ -311,6 +312,9 @@ try {
     'e as três linhas da letra estão desenhadas (a capa conta como posição)', cena.linhas);
   checar(cena.titulo === 'Louvor Em Cena',
     'o título da música em cena é a PRIMEIRA linha do corpo que rola (v1.11.21)', cena.titulo);
+  checar(cena.primeiraEhCapa && cena.semInicio,
+    'v1.11.22 · o título É a linha de capa (a mesma posição, o mesmo destaque) e a palavra "Início" não existe mais',
+    cena);
   checar(cena.cabecalho === 'Auxiliar de leitura',
     'e o cabeçalho da folha diz só "Auxiliar de leitura" — o título saiu de lá', cena.cabecalho);
 
@@ -433,7 +437,7 @@ try {
   await pg.waitForFunction(() => lyricsPopupEl.classList.contains('open'), null, { timeout: 5000 });
   const devolta = await pg.evaluate(() => ({
     naCena: lvNaCena(),
-    titulo: (lyricsViewBodyEl.querySelector('.lv-cab') || {}).textContent || '',
+    titulo: (lyricsViewBodyEl.querySelector('.lv-row--cover, .lv-cab') || {}).textContent || '',
   }));
   checar(devolta.naCena === true && devolta.titulo === 'Louvor Em Cena',
     'fechada a folha, o botão do transporte volta a mostrar a CENA', devolta);
