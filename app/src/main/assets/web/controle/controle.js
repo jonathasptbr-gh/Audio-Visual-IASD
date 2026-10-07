@@ -14503,10 +14503,7 @@ function renderLyricsView() {
     return;
   }
   if (src === 'lyrics') {
-    const a = lvItem();
-    const track = a.hymnTrack ? a.hymnTrack + '. ' : '';
-    lvCabecalhoDaObra(lyricsViewBodyEl, track + (a.hymnName || a.name || 'Letra'));
-    lvBuildSong(lyricsViewBodyEl, lvCurIdx);
+    lvBuildSong(lyricsViewBodyEl, lvCurIdx, lvTituloDaLetra(lvItem()));
   } else if (src === 'deck') {
     const a = lvItem();
     // O TÍTULO É O NOME, e a posição NÃO entra nele: quem diz qual página está
@@ -16952,9 +16949,33 @@ function lvCabecalhoDaObra(el, texto) {
   el.appendChild(cab);
 }
 
+// O TÍTULO DA LETRA (v1.11.22) — "12. Firme nas promessas". Uma escrita, dois consumidores: a
+// folha do avançado e a zona do Modo Fácil.
+function lvTituloDaLetra(item) {
+  const a = item || {};
+  return (a.hymnTrack ? a.hymnTrack + '. ' : '') + (a.hymnName || a.name || 'Letra');
+}
+
 // Desenha as estrofes da música em cena dentro de `el`, destacando `cur`.
-function lvBuildSong(el, cur) {
+//
+// ===== O TÍTULO É A LINHA DE CAPA, E A PALAVRA "INÍCIO" SAIU (v1.11.22) =====
+//
+// Pedido do operador: *"deixe duas linhas de espaço entre o título e o resto da letra … remover a
+// palavra 'início' desse auxiliar de leitura, mas transfira a formatação atual dessa palavra para o
+// título da música, assim fica claro que o título não é letra da música e sim o topo do texto"*.
+//
+// A linha de capa (`slide.cover`) JÁ ERA o topo do texto e uma posição real da música — é ela que
+// fica destacada durante a introdução —, então o título ocupa o lugar dela: a mesma linha, o mesmo
+// `data-i`, o mesmo destaque, com a formatação de `.lv-row--cover`. Sem linha de capa o título entra
+// como um bloco a mais com o MESMO desenho (`.lv-cab--letra`), que não é posição nenhuma.
+function lvBuildSong(el, cur, titulo) {
   const lyrics = lvItem().lyrics;
+  if (titulo && !lyrics.some((sl) => sl && sl.cover)) {
+    const cab = document.createElement('div');
+    cab.className = 'lv-cab lv-cab--letra';
+    cab.textContent = titulo;
+    el.appendChild(cab);
+  }
   lyrics.forEach((slide, i) => {
     // O slide de capa não tem letra (no telão é o título do hino). Vira uma
     // linha curta "Início": some do texto, mas continua sendo uma posição real
@@ -16970,7 +16991,7 @@ function lvBuildSong(el, cur) {
     row.className = 'lv-row lv-row--letra' + (slide.cover ? ' lv-row--cover' : '');
     row.dataset.i = String(i);
     if (slide.cover) {
-      row.textContent = 'Início';
+      row.textContent = titulo || '';
     } else {
       if (slide.auxText) {
         const aux = document.createElement('div');
@@ -17240,7 +17261,7 @@ function refreshSimpleLyrics() {
     // desenho.
     simpleLyricsEl.classList.toggle('lv-grade', !!deck);
     if (deck) lvBuildDeck(simpleLyricsEl, lvSimpleIdx, lvSimpleDeckUrls);
-    else lvBuildSong(simpleLyricsEl, lvSimpleIdx);
+    else lvBuildSong(simpleLyricsEl, lvSimpleIdx, lvTituloDaLetra(lvItem()));
     requestAnimationFrame(() => lvScroll(simpleLyricsEl, lvSimpleFollow, false));
     return;
   }

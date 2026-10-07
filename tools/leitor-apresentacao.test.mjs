@@ -162,7 +162,7 @@ try {
     return {
       fontes: lyricsViewSources(),
       ativa: lvActiveSource(),
-      titulo: (document.querySelector('#lyricsViewBody .lv-cab') || {}).textContent || '',
+      titulo: (document.querySelector('#lyricsViewBody .lv-row--cover, #lyricsViewBody .lv-cab') || {}).textContent || '',
       cabecalho: document.getElementById('lyricsPopupTitle').textContent,
       linhas: linhas.length,
       numeros: linhas.map((l) => l.querySelector('.lv-num').textContent),

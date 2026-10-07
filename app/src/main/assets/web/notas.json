@@ -9,6 +9,13 @@
     ]
   },
   {
+    "versao": "1.11.22",
+    "itens": [
+      "Auxiliar de leitura: o título da música fica no topo da caixa da letra também no Modo Fácil.",
+      "O título ganhou o estilo da antiga palavra \"Início\", que saiu, e há duas linhas de espaço até a letra."
+    ]
+  },
+  {
     "versao": "1.11.21",
     "itens": [
       "Auxiliar de leitura: o título da música agora fica no começo do texto, e o topo da janela diz só o nome dela.",

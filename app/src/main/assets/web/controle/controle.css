@@ -10773,7 +10773,16 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    "Estrofe 2", o número do versículo —, e dobrá-los junto faria um metadado
    ficar maior que a letra que o campo existe para mostrar. Sobem o bastante para
    não virarem pó ao lado de 1.9rem, e ficam um degrau abaixo dela. */
-.lv-row--cover { color: var(--muted); font-size: var(--fs-3xl); letter-spacing: .04em; text-transform: uppercase; }
+.lv-row--cover, .lv-cab.lv-cab--letra {
+  color: var(--muted); font-size: var(--fs-3xl); letter-spacing: .04em; text-transform: uppercase;
+  /* O TÍTULO É A LINHA DE CAPA (v1.11.22): a formatação que era da palavra "Início" é a do título
+     da música, e DUAS LINHAS DA LETRA separam o título do resto — o `gap` da caixa já põe uma
+     estrofe (`--lv-estrofe-gap`), e a margem completa o que falta para 2 × (corpo × 1,5). */
+  margin-bottom: max(0px, calc(var(--lv-fonte) * 3 - var(--lv-estrofe-gap)));
+}
+/* `.lv-cab--letra` é o título SEM linha de capa para ocupar: o mesmo desenho, e por isso o seletor
+   é DOBRADO — o `.lv-cab` base (corpo e peso do título da cifra) vem depois no arquivo e venceria. */
+.lv-cab.lv-cab--letra { font-weight: var(--fw-normal, 400); line-height: 1.5; }
 .lv-aux {
   font-size: var(--fs-2xl); font-weight: var(--fw-forte); letter-spacing: .04em; text-transform: uppercase;
   color: var(--muted);

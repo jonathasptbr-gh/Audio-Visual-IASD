@@ -8373,6 +8373,20 @@ na lista; roleta e barra de ação no `.popup-fecho` — fica onde está.
   - Oráculos: bloco B do `playlist-automatica-estavel` (a base não anda, a folha
     tem uma altura só, as peças moram no fecho abaixo do scroller), bloco P do
     `sorteio-tela` (o recibo acima da roleta) e bloco S do `sombra-de-rolagem`.
+- **O TÍTULO DA MÚSICA É A LINHA DE CAPA, NOS DOIS MODOS (v1.11.22).** Pedido do operador: o
+  Modo Fácil *"não ganhou o título dentro da caixa da letra"*, *"duas linhas de espaço entre o
+  título e o resto"* e *"remover a palavra 'início' … transfira a formatação atual dessa palavra
+  para o título … assim fica claro que o título não é letra da música e sim o topo do texto"*.
+  (A v1.11.21 leu "modo simples" como "só o card desce" — leitura errada, corrigida aqui.)
+  `lvBuildSong(el, cur, titulo)`: a linha de capa (`slide.cover`) passa a escrever o TÍTULO
+  (`lvTituloDaLetra`: `12. Nome`) em vez de "Início" — a mesma linha, o mesmo `data-i` e o mesmo
+  destaque durante a introdução, com a formatação de `.lv-row--cover`. Sem linha de capa o título
+  entra como `.lv-cab.lv-cab--letra` (mesmo desenho, não é posição; seletor DOBRADO porque o
+  `.lv-cab` base vem depois no arquivo). O vão é `max(0, 3 × --lv-fonte − --lv-estrofe-gap)` de
+  margem: o `gap` da caixa já põe uma estrofe, e o total é 2 × (corpo × 1,5) = duas linhas da
+  letra. Só a LETRA: capítulo da Bíblia e apresentação seguem com o `.lv-cab` da v1.11.21.
+  Bloco K do `modo-simples-corpo` (título na caixa, formatação, 2 linhas) com reversões do
+  "Início" e do espaço; `leitor-do-transporte` afirma capa = título e ausência de "Início".
 - **O AUXILIAR DE LEITURA LEVA O TÍTULO DA OBRA NO CORPO, E O MODO FÁCIL REORDENA A TELA (v1.11.21).**
   Pedidos do operador: título da música DENTRO do auxiliar, no início, e fora do topo da
   janela do avançado (*"pode colocar apenas 'Auxiliar de leitura'"*); no Modo Fácil, o card

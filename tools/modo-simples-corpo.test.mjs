@@ -388,6 +388,43 @@ try {
   await pg.evaluate(() => { document.getElementById('hymnSearchPopup').style.bottom = ''; });
   await quadros();
 
+  // K · O TÍTULO DENTRO DA CAIXA DA LETRA, NO MODO FÁCIL TAMBÉM (v1.11.22)
+  // Pedido do operador: *"o auxiliar de leitura no modo simples … não ganhou o título dentro da caixa da
+  // letra. … deixe duas linhas de espaço entre o título e o resto da letra … remover a palavra 'início' …
+  // transfira a formatação atual dessa palavra para o título"*.
+  await noAr({ id: 'm-k', name: 'Firme nas promessas', hymnTrack: 12, hymnName: 'Firme nas promessas', kind: 'audio',
+    lyrics: [{ cover: true }, { time: 0, text: 'primeira estrofe' }, { time: 5, text: 'segunda estrofe' }] });
+  // A assinatura da zona é por `currentId`: sem trocá-lo a placa da mídia anterior seria reaproveitada.
+  await pg.evaluate(() => { currentId = 'm-k'; refreshSimpleLyrics(); });
+  await quadros();
+  const k = await pg.evaluate(() => {
+    const z = document.getElementById('simpleLyrics');
+    const capa = z.querySelector('.lv-row--cover');
+    const prox = capa && capa.nextElementSibling;
+    const cs = capa && getComputedStyle(capa);
+    const linha = parseFloat(getComputedStyle(z.querySelector('.lv-row--letra:not(.lv-row--cover)')).lineHeight);
+    const fonte = parseFloat(getComputedStyle(z.querySelector('.lv-row--letra:not(.lv-row--cover)')).fontSize);
+    return {
+      primeiraEhCapa: z.firstElementChild === capa,
+      texto: capa && capa.textContent,
+      semInicio: !/in[ií]cio/i.test(z.textContent),
+      caixa: !!capa && z.contains(capa),
+      maiusculas: cs && cs.textTransform, cor: cs && cs.color,
+      vao: prox ? prox.getBoundingClientRect().top - capa.getBoundingClientRect().bottom : null,
+      duasLinhas: linha * 2, fonte,
+    };
+  });
+  checar(k.caixa && k.primeiraEhCapa && k.texto === '12. Firme nas promessas' && k.semInicio,
+    'K1 · no Modo Fácil o TÍTULO é a primeira linha DENTRO da caixa da letra (a linha de capa) e a palavra '
+    + '"Início" não existe', JSON.stringify(k));
+  checar(k.maiusculas === 'uppercase',
+    'K2 · e ele ganhou a formatação que era da palavra "Início" (a da linha de capa)', JSON.stringify(k));
+  checar(k.vao !== null && Math.abs(k.vao - k.duasLinhas) <= 1.5,
+    'K3 · e há DUAS LINHAS da letra de espaço entre o título e o resto (' + (k.vao && k.vao.toFixed(1)) + 'px contra '
+    + k.duasLinhas.toFixed(1) + ')', JSON.stringify(k));
+  await pg.evaluate(() => { midiaNoAr = false; renderSimple(); renderTransporteHabilitado(); });
+  await quadros();
+
   // J · A MÍDIA QUE NÃO USA O AUXILIAR DE LEITURA (v1.11.21)
   // Pedido do operador: *"vamos aproveitar para aprimorar a experiência durante a exibição de um
   // vídeo ou mídia que não usa o auxiliar de leitura. Nesses casos, a área do auxiliar de leitura
