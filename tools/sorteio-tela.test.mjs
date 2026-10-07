@@ -1814,7 +1814,11 @@ try {
     const cs = getComputedStyle(res);
     return {
       cab: { topo: rc.top, base: rc.bottom, esq: rc.left, dir: rc.right },
-      res: { topo: rr.top + parseFloat(cs.borderTopWidth), esq: rr.left, dir: rr.right },
+      // O RAIO entra desde a v1.11.19: a lista é um cartão, e nos cantos a tira é
+      // RECORTADA pelo arco (provado por pixel no bloco R). A varredura "de borda
+      // a borda" passa a ser do TRECHO RETO da borda — entre os dois arcos.
+      res: { topo: rr.top + parseFloat(cs.borderTopWidth), esq: rr.left, dir: rr.right,
+        raio: parseFloat(cs.borderTopLeftRadius) || 0 },
       acima: res.classList.contains('tem-acima'), semVeu: res.classList.contains('sem-veu'),
       veuH: parseFloat(getComputedStyle(res, '::before').height) || null,
       transborda: res.scrollHeight - res.clientHeight,
@@ -1850,7 +1854,7 @@ try {
     naContagem.push(varrer(y, foto.cab.esq, foto.cab.dir));
   }
   const naFronteira = [1, 5, 9, 13, 17, 21].map((d) => varrer(Math.round(foto.res.topo) + d,
-    foto.res.esq, foto.res.dir));
+    foto.res.esq + foto.res.raio, foto.res.dir - foto.res.raio));
   const abaixoDaTira = [24, 30].map((d) => varrer(Math.round(foto.res.topo) + d,
     foto.res.esq, foto.res.dir));
   checar(foto.acima && !foto.semVeu && foto.veuH === 22 && foto.transborda > 100
@@ -1923,6 +1927,104 @@ try {
     + 'regra é `:empty`, e o dia em que alguém a tirar do seletor leva o recibo '
     + 'do lote junto — que é a única frase da folha que não repete a tela',
     { calada, falando });
+
+  // (R) A LISTA DE RESULTADOS É UM CARTÃO, E O VÃO ABAIXO DELA É O DA FOLHA (v1.11.19).
+  //
+  // Dois pedidos do operador na mesma frase: *"coloque toda essa lista dentro de um
+  // card, para melhor demarcar suas fronteiras, tome cuidado para não errar nas
+  // sombras de fronteiras"* e *"verifique a margem abaixo dessa lista, antes da
+  // linha de quantidades marcadas, me parece que há espaço extra ali"* (MEDIDO:
+  // 22,4px contra os 5,6 de todo outro vão da folha).
+  //
+  // O CARTÃO É MEDIDO NO QUE O OPERADOR VÊ: a cor é a do `--camada` do `.popup-sheet`
+  // (o mesmo cartão da frase do vazio) e DIFERE da da folha — sem isso o "cartão"
+  // seria um nome para a mesma superfície —, o raio é o `--radius-card`, e o canto
+  // é medido por PIXEL: com o raio o pixel de FORA do arco é o da folha, e a
+  // sombra de fronteira (a tira do `.rola`, ligada e desligada na mesma tela) não
+  // pinta lá — o vazamento da tira para fora do arco era o erro que o pedido
+  // nomeia.
+  await pg.evaluate(async () => {
+    // O RECIBO DO BLOCO P CALA ANTES: com texto ele é a primeira linha do rodapé e
+    // fica ENTRE o cartão e a roleta — o vão que se mede é o do rodapé quieto.
+    calarSorteio();
+    renderSorteio();
+    await new Promise((r) => setTimeout(r, 300));
+    document.querySelector('#sorteioList .sorteio-res').scrollTop = 300;
+    await new Promise((r) => setTimeout(r, 300));
+  });
+  const cart = await pg.evaluate(() => {
+    const res = document.querySelector('#sorteioList .sorteio-res');
+    const sheet = document.querySelector('#sorteioPopup .popup-sheet');
+    const roleta = document.querySelector('#sorteioPopup .sorteio-linha--quantas');
+    const lista = document.getElementById('sorteioList');
+    // O TOKEN RESOLVIDO por um elemento de prova dentro da folha: a cor que o
+    // `var(--camada)` dá ali, e não a de um literal copiado do `tokens.css`.
+    const prova = document.createElement('div');
+    prova.style.cssText = 'background:var(--camada);border-radius:var(--radius-card)';
+    sheet.appendChild(prova);
+    const ps = getComputedStyle(prova);
+    const esperado = { bg: ps.backgroundColor, raio: ps.borderTopLeftRadius };
+    prova.remove();
+    const cs = getComputedStyle(res);
+    const rr = res.getBoundingClientRect();
+    const primeira = res.querySelector('.sorteio-res-btn').getBoundingClientRect();
+    return {
+      esperado,
+      bg: cs.backgroundColor, raio: cs.borderTopLeftRadius,
+      folhaBg: getComputedStyle(sheet).backgroundColor,
+      recuo: parseFloat(cs.paddingLeft),
+      folgaLinha: +(primeira.left - rr.left).toFixed(2),
+      vaoAbaixo: +(roleta.getBoundingClientRect().top - rr.bottom).toFixed(2),
+      vaoDaFolha: parseFloat(getComputedStyle(lista).rowGap),
+      esq: rr.left, topo: rr.top, base: rr.bottom, dir: rr.right,
+      folhaTopo: sheet.getBoundingClientRect().top,
+    };
+  });
+  checar(cart.bg === cart.esperado.bg && cart.bg !== cart.folhaBg
+    && cart.raio === cart.esperado.raio && parseFloat(cart.raio) > 0,
+    'R · a lista é um CARTÃO: a cor é a do `--camada` da folha (' + cart.esperado.bg
+    + '), diferente da própria folha (' + cart.folhaBg + '), com o raio do cartão '
+    + '(' + cart.esperado.raio + ')', cart);
+  checar(cart.recuo > 0 && cart.folgaLinha >= cart.recuo - 0.5,
+    'R · e as linhas não encostam na borda dele: há recuo de ' + cart.recuo + 'px — '
+    + 'sem ele o arco do cartão some debaixo da primeira linha', cart);
+  checar(Math.abs(cart.vaoAbaixo - cart.vaoDaFolha) <= 0.5 && cart.vaoDaFolha > 0,
+    'R · e o vão entre o cartão e a linha da quantidade (' + cart.vaoAbaixo + 'px) é '
+    + 'o MESMO de todo outro vão da folha (' + cart.vaoDaFolha + 'px) — eram dois '
+    + 'respiros empilhados, o `padding-bottom` da lista e a margem do rodapé', cart);
+  // O CANTO, POR PIXEL: dois pontos DENTRO do quadrado do canto e FORA do arco.
+  const ponto = { x: Math.round(cart.esq) + 1, y: Math.round(cart.topo) + 1 };
+  const pontoB = { x: Math.round(cart.esq) + 1, y: Math.round(cart.base) - 2 };
+  const ligada = lerPng(await pg.screenshot());
+  await pg.evaluate(() => {
+    const s = document.createElement('style');
+    s.id = 'semTintaR';
+    s.textContent = '#sorteioList .sorteio-res::before,#sorteioList .sorteio-res::after'
+      + '{background:transparent!important;background-image:none!important}';
+    document.head.appendChild(s);
+  });
+  const desligada = lerPng(await pg.screenshot());
+  await pg.evaluate(() => { const s = document.getElementById('semTintaR'); if (s) s.remove(); });
+  const folhaRef = pixel(ligada, 3, Math.round(cart.topo) + 40);
+  const cantoCima = pixel(ligada, ponto.x, ponto.y);
+  const cantoBaixo = pixel(ligada, pontoB.x, pontoB.y);
+  const cantoCimaSem = pixel(desligada, ponto.x, ponto.y);
+  const cantoBaixoSem = pixel(desligada, pontoB.x, pontoB.y);
+  const dentro = pixel(ligada, Math.round((cart.esq + cart.dir) / 2), Math.round(cart.topo) + 3);
+  const dentroSem = pixel(desligada, Math.round((cart.esq + cart.dir) / 2), Math.round(cart.topo) + 3);
+  checar(!!cantoCima && !!folhaRef && cantoCima.join() === folhaRef.join()
+    && cantoBaixo.join() === folhaRef.join(),
+    'R · o canto é REDONDO: os pixels de fora do arco, nos cantos de cima e de baixo, '
+    + 'são os da folha (' + (folhaRef || []).join(',') + ') e não os do cartão',
+    { cantoCima, cantoBaixo, folhaRef });
+  checar(cantoCima.join() === cantoCimaSem.join() && cantoBaixo.join() === cantoBaixoSem.join(),
+    'R · e a SOMBRA DE FRONTEIRA não vaza para fora do arco: com a tira do `.rola` '
+    + 'ligada e desligada os dois cantos são o mesmo pixel',
+    { cantoCima, cantoCimaSem, cantoBaixo, cantoBaixoSem });
+  checar(!!dentro && !!dentroSem && dentro.join() !== dentroSem.join(),
+    'R · e a mesma tira PINTA dentro do cartão, na borda de cima — a sombra existe e '
+    + 'foi recortada, não removida (rolada a lista, é ela que diz que há mais acima)',
+    { dentro, dentroSem });
 
   // (Q) REABRIR ZERA OS TRÊS FILTROS E A PALAVRA.
   //

@@ -388,8 +388,25 @@ substituem o botão de desfazer:
 | o que acontece | onde |
 |---|---|
 | o app fecha | nada foi gravado — a abertura seguinte nasce bloqueada |
-| ida e volta pelo modo avançado | `setAppMode`, que zera em toda troca |
+| ida e volta pelo modo avançado | `setAppMode`, que zera em toda troca — **menos a ida AO Modo Fácil com mídia no ar e sem tela, que a LIGA** (v1.11.19, abaixo) |
 | uma tela entra | `renderSimpleGate` — há para onde mandar o som, e é para lá que ele vai |
+
+**A EXCEÇÃO DA IDA COM MÍDIA NO AR (v1.11.19).** Relato do operador: *"ao estar
+tocando algo, estando no modo avançado e ir para o modo simples, atualmente ele
+pausa o som e mostra as 3 opções iniciais do modo simples. Gostaria que ele não
+interrompesse a mídia, pois se está tocando é porque foi feito pelo usuário; nesse
+caso, se não houver tela conectada, apenas vá para o modo 'tocar neste celular',
+pois tecnicamente é isso que o usuário estava fazendo no modo avançado"*. É o
+MESMO estado visto de dois modos: sem tela o avançado já toca AQUI, e a cortina do
+simples emudecia a prévia por uma diferença de MODO, não de intenção. A regra, em
+`setAppMode`, é a ida **avançado → simples** com `midiaNoAr` (a pausada conta: é
+cena, e a cortina a esconderia do mesmo jeito) e **sem tela** (`algumaTelaConectada`
+— com tela o som já está lá fora e o gate nem existe). Continua valendo SÓ o uso
+atual (escrita no `let`, nunca gravada): uma tela que entra, outra ida e volta ou o
+app fechado a desfazem como sempre, e **sem mídia no ar nada mudou — o gate
+bloqueia**. MEDIDO: sem a regra o `<video>` seguia avançando (a cortina só
+emudece), então o que o operador ouvia como "pausou" é o som local e a cortina —
+é o que o oráculo (`som-nao-vaza-ao-perder-a-tela`, bloco 7) mede.
 
 Daí o botão SUMIR depois do toque, em vez de trocar de rótulo: a tela
 desbloqueada e o som saindo já dizem que ele foi tocado.
@@ -4201,6 +4218,22 @@ conta que põe a barra no lugar.
   reflui o layout, quem compensa é `--kb`), o app remede com ele no ar, o teclado
   some — e a barra fica **290px acima do lugar, flutuando sobre a lista**.
   Medindo só alturas, o instrumento e a grandeza passam a ser a mesma coisa.
+- **EM TELA CHEIA NÃO SE MEDE** (v1.11.19). Relato do operador: *"ao voltar da tela
+  cheia da preview, toda a seção da preview perde o espaçamento com a seção acima
+  de busca, encostando a barra de busca na preview"*. A preview em tela cheia SAI
+  DO FLUXO e a caixa de controles encolhe junto (MEDIDO a 390×800: 293 → 201px) —
+  uma medida feita ali descreve uma caixa que não existe, e é a `--lib-caixa-h` que
+  POSICIONA a barra. O `resize` da rotação a escrevia, e na volta quem a corrigiria
+  seria o `ResizeObserver`, que só dispara na MUDANÇA contra a última medida que
+  ELE viu: o shell esconde o Controle durante a tela cheia (`webContainer` GONE,
+  sem quadros), e a caixa que volta com 293px é igual à que ele guardou — a barra
+  ficava 92px abaixo do lugar, por cima do nome da mídia e da preview. **O conserto
+  é não escrever** (`if (document.fullscreenElement) return` no
+  `medirBarraDaBiblioteca`) **mais reconferir na saída** (`fullscreenchange`, em
+  três tempos: já, dois quadros, 400 ms — a rotação de volta chega depois do
+  evento). Cada peça tem a sua reversão no bloco 9 do `controles-layout`; a
+  premissa ("o observador não vê a volta") é **EMULADA** — o arnês desenha quadros
+  o tempo todo —, e a causa foi lida do código, **não reproduzida em aparelho**.
 - **E A ÁREA SEGURA DO TOPO TEM NOME** (`--sa-topo`). O app é
   `viewport-fit=cover`, então `env(safe-area-inset-top)` vale no aparelho e é
   ZERO em todo navegador de mesa. Enquanto ela apareceu LITERAL nas duas fórmulas
@@ -8311,6 +8344,31 @@ na lista; roleta e barra de ação no `.popup-fecho` — fica onde está.
   - Oráculos: bloco B do `playlist-automatica-estavel` (a base não anda, a folha
     tem uma altura só, as peças moram no fecho abaixo do scroller), bloco P do
     `sorteio-tela` (o recibo acima da roleta) e bloco S do `sombra-de-rolagem`.
+- **A LISTA DE RESULTADOS É UM CARTÃO, E O VÃO ABAIXO DELA É O DA FOLHA (v1.11.19).**
+  Pedido do operador: *"coloque toda essa lista dentro de um card, para melhor
+  demarcar suas fronteiras, tome cuidado para não errar nas sombras de
+  fronteiras"* — e, na mesma frase, *"verifique a margem abaixo dessa lista, antes
+  da linha de quantidades marcadas, me parece que há espaço extra"*.
+  - **O CARTÃO É O PRÓPRIO SCROLLER** (`.popup-list > .sorteio-res:not(.vazio)`):
+    `--camada` (o nível que o `.popup-sheet` reserva a um filho, o mesmo cartão da
+    frase do vazio), `--radius-card` e recuo `--sp-3`. Dentro dele não há nível 3 —
+    as linhas seguem em recesso. **Vazia, a lista não leva cartão**: a frase dela já
+    é um, e dois um dentro do outro seriam o nível que a escada proíbe.
+  - **AS SOMBRAS DE FRONTEIRA SÃO O MOTIVO DE SER O SCROLLER**: as tiras do `.rola`
+    moram no padding box de quem rola, e um scroller com raio as recorta pelo arco
+    (o acabamento da v1.8.59). Um invólucro com raio por fora deixaria a tira
+    pintando sobre a folha, num retângulo que não é o do cartão. MEDIDO por pixel
+    (ligada × desligada, no mesmo quadro): os dois cantos são o pixel da folha e a
+    tira pinta dentro. **Consequência no oráculo:** a varredura "de borda a borda"
+    do bloco O do `sorteio-tela` passou a ser do trecho RETO da borda, entre os
+    arcos (os 3–4 pixels de cada canto são recorte, não falha).
+  - **O VÃO ABAIXO ERA 22,4px, CONTRA 5,6 DE TODO OUTRO** (`--sp-3`): duas folgas
+    empilhadas — o `padding-bottom` da `.popup-list` (`.8rem`) e o `margin-top` do
+    `.popup-fecho` (`--sp-5`). Ficou UMA, a da lista (`#sorteioList
+    { padding-bottom: --sp-3 }`), e o fecho entra com margem zero. A régua do
+    oráculo é o `row-gap` da própria lista, não um número. **Com o recibo à vista o
+    vão até a ROLETA é maior de propósito** — a primeira linha do fecho é ele —, e
+    por isso o bloco R o cala antes de medir.
 - **E CINCO PEÇAS NÃO CABEM NUMA LINHA DE 320px**, que é o que a pílula custou e
   onde este lote gastou a maior parte da medição. Ela vale 68,5px a 1× e 90,8 a
   1,5×, e sem quebra o primário é o único que encolhe (`flex: 1; min-width: 0`):
