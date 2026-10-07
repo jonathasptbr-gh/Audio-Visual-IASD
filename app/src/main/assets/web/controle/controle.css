@@ -9940,10 +9940,21 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 
    O CARTÃO É O PRÓPRIO SCROLLER, e não um invólucro: um nó só, que o
    `atualizarContaSorteio` já sabe trocar por `replaceWith` e cuja `scrollTop` ele
-   já preserva. O tom é o `--camada` — o nível que o `.popup-sheet` reserva para
-   um bloco filho dele, o MESMO do cartão da frase do vazio logo abaixo —, e
-   dentro dele não há nível 3: as linhas seguem em recesso (`--surface`, já
-   afundado pelo `.popup-sheet`), que é a doutrina da escada de camadas.
+   já preserva.
+
+   **O TOM É O POÇO DA GAVETA (`--gaveta-bg`), E NÃO O `--camada` (v1.11.20).** A
+   v1.11.19 vestiu o cartão de `--camada` (= `--panel-2`), e o operador reparou:
+   *"pouco contraste entre o corpo do item selecionado e o fundo do card"*.
+   MEDIDO, o `--sel-fill` da linha marcada contra aquele cartão dava **1,02:1 no
+   escuro e 1,07:1 no claro** — dois tons de MESMA luminância, e só a matiz
+   sobrava. O `--sel-fill` pousa sobre o `--panel` (1,35 · 1,31); um cartão MAIS
+   CLARO que a folha não serve a ele no escuro, então o cartão DESCE, que é o que
+   a gaveta da Biblioteca já faz (`--gaveta-bg`, com os botões em `--gaveta-btn`).
+   Medido: cartão × linha marcada **1,86 · 1,41**, cartão × linha fora do lote
+   **1,38 · 1,85**, folha × cartão **1,38 · 1,85**, uma linha × outra **1,35 ·
+   1,31** (escuro · claro; piso de superfície, 1,28). As linhas NÃO vestem o
+   `--surface`: ele é um overlay, e sobre o tom mais escuro do app não dá degrau
+   (a razão está no `.hymn-opcoes`).
 
    **AS SOMBRAS DE FRONTEIRA SÃO AS DO `.rola`, e é ESTE o motivo de o cartão ser
    o scroller:** as duas tiras `sticky` moram no padding box de quem rola, e um
@@ -9958,10 +9969,16 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    cartão: a frase dela já é um (`.sorteio-res-vazio`), e dois um dentro do outro
    seriam o nível 3 que a escada proíbe. */
 .popup-list > .sorteio-res:not(.vazio) {
-  background: var(--camada);
+  background: var(--gaveta-bg);
+  --camada: var(--gaveta-btn);
   border-radius: var(--radius-card);
   padding: var(--sp-3);
 }
+/* AS LINHAS DO CARTÃO DESCANSAM NO POÇO, no mesmo tom dos botões da gaveta
+   (`--gaveta-btn`): `--surface` é um OVERLAY, e sobre um poço que já é o tom
+   mais escuro do app ele não produz degrau (a razão está no `.hymn-opcoes`). A
+   linha MARCADA (`.vai`) continua em `--sel-fill`. */
+.sorteio-res:not(.vazio) .sorteio-res-btn:not(.vai) { background: var(--gaveta-btn); }
 /* AQUECENDO ELA JÁ OCUPA O LUGAR DA LISTA, e centra o aro (v1.8.100). O piso
    grande não é enfeite: o aquecimento só existe quando o pool passa de UMA
    página (ver `sorteioAquecer`). A ALTURA DA FOLHA não é mais segurada aqui
