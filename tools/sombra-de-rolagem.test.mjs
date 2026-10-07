@@ -1303,11 +1303,15 @@ try {
       // rodapé, e a folha desce do topo, então crescer empurrava o rodapé.
       //
       // A v1.8.84 tirou os botões de lá: eles subiram para a `.sorteio-barra`,
-      // ACIMA da lista de resultados, e a lista é a única coisa que cresce. A
-      // folha voltou a variar (110 a 338px) e **nenhum botão se move** — MEDIDO,
-      // deslocamento ZERO da barra em todas as 33 células. Continuar medindo a
-      // folha reprovaria um estado que satisfaz o pedido melhor do que o
-      // anterior; a peça certa é a BARRA, que é onde os botões estão.
+      // ACIMA da lista de resultados, e a lista era a única coisa que crescia. A
+      // folha voltou a variar (110 a 338px) e **nenhum botão se movia** — MEDIDO,
+      // deslocamento ZERO da barra em todas as 33 células.
+      //
+      // DESDE A v1.11.18 ELES VOLTARAM À BASE (`.popup-fecho`), e a régua
+      // continua sendo a BARRA — o que a segura é outra coisa: a folha tem uma
+      // altura FIXA (`#sorteioPopup .popup-sheet`), porque numa folha que
+      // encolhesse com a lista a base subiria junto. A reversão é essa
+      // declaração: sem ela, `zzzznadaaqui` encolhe a folha e a barra anda.
       const barra = () => +document.querySelector('#sorteioPopup .sorteio-barra')
         .getBoundingClientRect().top.toFixed(1);
       // O RÓTULO DO PRIMÁRIO, medido nas MESMAS células (v1.8.62): ele é um só
@@ -1374,9 +1378,9 @@ try {
     const piores = Object.values(r.porEscala);
     checar(piores.every((p) => p.barra <= 1),
       'S · ' + w + 'px: NENHUM BOTÃO SE MOVE entre os onze estados que o operador '
-      + 'alcança, nas TRÊS escalas de fonte — a régua é a BARRA e não mais a '
-      + 'altura da folha (v1.8.84), porque foi para lá que os botões subiram; o '
-      + 'que cresce agora é a lista ABAIXO deles',
+      + 'alcança, nas TRÊS escalas de fonte — a régua é a BARRA e não a altura '
+      + 'da folha (v1.8.84); na base desde a v1.11.18, o que a segura é a altura '
+      + 'FIXA da folha',
       JSON.stringify(r.porEscala));
     checar(r.n === 5 && new Set(r.alturasBotoes).size === 1,
       'S · ' + w + 'px: e as CINCO peças da faixa têm a mesma altura — o primário '

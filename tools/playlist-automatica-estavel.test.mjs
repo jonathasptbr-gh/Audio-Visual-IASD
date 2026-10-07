@@ -45,11 +45,22 @@
 // a folha ANDANDO é o que o operador vê. Uma asserção só sobre a conta aprovaria
 // um conserto que a congelasse e deixasse outro motor solto.
 //
+// ## BLOCO B DESDE A v1.11.18 — A BASE DA FOLHA É UM LUGAR SÓ
+//
+// Pedido do operador: *"coloque o seletor e os botões de resortear, tocar agora,
+// adicionar ao cronograma e etc… na base dessa aba, abaixo do scroll com as
+// opções de músicas"*. A roleta e a barra de ação moram no `.popup-fecho`, e o
+// que o bloco mede passou a ser o que o pedido cobra de uma base: ela não anda.
+// A régua é a distância da barra até o FUNDO da folha (a v1.8.84 a media até o
+// topo, quando a barra era a de cima), e a altura da folha entra junto — uma
+// folha que encolhesse com a lista levaria os botões embora com ela.
+//
 // REVERSÃO MEDIDA. Devolvendo o `renderSorteio()` ao `finally` do
 // `executarSorteio`, as três asserções do bloco A reprovam com 0 ms de
-// exposição. Devolvendo a barra ao `.popup-fecho` (`porFecho(alvo, liGo)`), o
-// bloco B reprova nas quatro células — sem a barra dentro da lista não há
-// `.sorteio-barra` no lugar em que ela tem de estar.
+// exposição. Tirando a altura fixa da folha (`#sorteioPopup .popup-sheet`), o
+// bloco B reprova nas células em que a lista muda de tamanho entre os estados.
+// Devolvendo a barra à lista (`alvo.appendChild(liGo)`), ele reprova nas quatro
+// células — ela deixa de estar no `.popup-fecho`, abaixo do scroller.
 //
 //   node tools/playlist-automatica-estavel.test.mjs
 // ============================================================================
@@ -220,27 +231,35 @@ try {
       }, fn.toString());
       await pg.waitForTimeout(70);
       const m = await pg.evaluate(() => {
-        const barra = document.querySelector('#sorteioList .sorteio-barra');
-        const sh = document.querySelector('#sorteioPopup .popup-sheet');
+        const pop = document.getElementById('sorteioPopup');
+        const barra = pop.querySelector('.sorteio-barra');
+        const roleta = pop.querySelector('.roleta-h');
+        const sh = pop.querySelector('.popup-sheet');
+        const fecho = pop.querySelector('.popup-fecho');
+        const lista = document.getElementById('sorteioList');
         // A vaga da pílula é do botão de SORTEAR desde a v1.8.88 — o que este
         // bloco mede é a largura de UMA peça fixa na ponta esquerda da barra,
         // e ela continua existindo, só que como botão.
-        const pil = document.querySelector('#sorteioList .sorteio-sortear');
-        const cs = getComputedStyle(barra);
-        const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+        const pil = pop.querySelector('.sorteio-sortear');
         const rb = barra.getBoundingClientRect();
+        const rr = roleta.getBoundingClientRect();
         const rs = sh.getBoundingClientRect();
         return {
-          // A POSIÇÃO DA BARRA DENTRO DA FOLHA — é ela que o dedo procura, e é
-          // dela que a promessa passou a ser (ver o cabeçalho).
-          barraTopo: +(rb.top - rs.top).toFixed(1),
+          // A BASE: a distância até o FUNDO da folha (v1.11.18). É ela que o dedo
+          // procura, e a de cima mudaria com qualquer coisa acima.
+          barraBase: +(rs.bottom - rb.bottom).toFixed(1),
+          roletaBase: +(rs.bottom - rr.bottom).toFixed(1),
           barraAlt: +rb.height.toFixed(1),
           pecaLarg: +pil.getBoundingClientRect().width.toFixed(1),
           folha: +rs.height.toFixed(1),
-          // A barra é `sticky` sobre uma lista que rola por baixo: sem fundo
-          // OPACO o texto das linhas atravessa os botões.
-          sticky: cs.position,
-          fundoAlfa: rgb(cs.backgroundColor).length < 4 ? 1 : rgb(cs.backgroundColor)[3],
+          // ONDE ELAS MORAM: no fecho, que é irmão do scroller e vem depois dele.
+          noFecho: !!barra.closest('.popup-fecho') && !!roleta.closest('.popup-fecho')
+            && barra.closest('.popup-fecho') === fecho,
+          abaixoDaLista: rr.top >= lista.getBoundingClientRect().bottom - 0.5
+            && rb.top >= lista.getBoundingClientRect().bottom - 0.5,
+          roletaAcima: rr.bottom <= rb.top + 0.5,
+          foraDoScroller: !lista.contains(barra) && !lista.contains(roleta),
+          posicao: getComputedStyle(barra).position,
         };
       });
       medidas.push({ largura, escala, estado: nome, ...m });
@@ -250,14 +269,21 @@ try {
 
   for (const [largura, escala] of CELULAS) {
     const sub = medidas.filter((m) => m.largura === largura && m.escala === escala);
-    const topos = [...new Set(sub.map((m) => m.barraTopo))];
+    const bases = [...new Set(sub.map((m) => m.barraBase))];
+    const basesRoleta = [...new Set(sub.map((m) => m.roletaBase))];
+    const folhas = [...new Set(sub.map((m) => m.folha))];
     const alturas = [...new Set(sub.map((m) => m.barraAlt))];
     const larguras = [...new Set(sub.map((m) => m.pecaLarg))];
-    checar(topos.length === 1 && alturas.length === 1,
-      `${largura}×${escala}: a BARRA DE AÇÃO fica no mesmo ponto da folha nos `
-      + `${sub.length} estados — é ela que o dedo procura, e agora ela não `
-      + 'depende do resultado: os quatro controles acima dela não mudam de altura',
-      { topos, alturas });
+    checar(bases.length === 1 && alturas.length === 1 && basesRoleta.length === 1,
+      `${largura}×${escala}: a BARRA DE AÇÃO e a ROLETA ficam no mesmo ponto da `
+      + `base da folha nos ${sub.length} estados — é o que o dedo procura, e a base `
+      + 'não depende do resultado nem do recibo',
+      { bases, basesRoleta, alturas });
+    checar(folhas.length === 1,
+      '  ↳ e a FOLHA tem uma altura só nos onze estados: com os botões na base, '
+      + 'uma folha que encolhesse com a lista (poucos resultados) os levaria para '
+      + 'cima, e uma que crescesse com o recibo os levaria para baixo',
+      { folhas });
     checar(larguras.length === 1,
       '  ↳ e a PEÇA DA PONTA tem uma largura só, com 1 e com 1.000 resultados. '
       + 'O pedido que a criou falava da pílula (*"um tamanho fixo independente '
@@ -267,15 +293,20 @@ try {
       larguras.concat(sub.map((m) => m.estado)).slice(0, 8));
   }
 
-  checar(medidas.every((m) => m.sticky === 'sticky'),
-    'a barra é `sticky`: acima dos resultados como se pediu, e à vista com a '
-    + 'lista rolando por baixo — o `.popup-fecho` dava essa segunda metade de '
-    + 'graça, e uma barra solta a perderia na primeira rolagem',
-    [...new Set(medidas.map((m) => m.sticky))]);
-  checar(medidas.every((m) => m.fundoAlfa === 1),
-    '  ↳ com fundo OPACO, porque a lista passa POR BAIXO dela: tinta com alfa '
-    + 'sobre uma lista que rola muda de cor a cada quadro (v1.8.61)',
-    [...new Set(medidas.map((m) => m.fundoAlfa))]);
+  checar(medidas.every((m) => m.noFecho && m.foraDoScroller && m.abaixoDaLista),
+    'a roleta e a barra moram no `.popup-fecho`, FORA do scroller e ABAIXO dele '
+    + '(v1.11.18) — *"na base dessa aba, abaixo do scroll com as opções de '
+    + 'músicas"*',
+    medidas.filter((m) => !(m.noFecho && m.foraDoScroller && m.abaixoDaLista))
+      .slice(0, 3).map((m) => m.estado));
+  checar(medidas.every((m) => m.roletaAcima),
+    '  ↳ e a roleta fica ACIMA da barra, como era na lista: o que se escolhe '
+    + '(quantas) vem antes do que se faz (tocar, guardar)',
+    medidas.filter((m) => !m.roletaAcima).slice(0, 3).map((m) => m.estado));
+  checar(medidas.every((m) => m.posicao !== 'sticky'),
+    '  ↳ e a barra não é mais `sticky`: o `sticky` era a rede de uma barra DENTRO '
+    + 'do scroller, e o fecho não é filho dele',
+    [...new Set(medidas.map((m) => m.posicao))]);
 
   checar(erros.length === 0, 'nenhum erro de console', erros);
 } catch (e) {

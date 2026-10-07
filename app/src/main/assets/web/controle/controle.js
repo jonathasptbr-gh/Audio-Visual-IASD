@@ -25612,14 +25612,12 @@ function sorteioAquecer() {
   clearTimeout(sorteioAqueceTimer);
   if (sorteioPool().itens.length <= SORTEIO_PAGINA) { sorteioPararAquecimento(); return; }
   sorteioAquecendo = true;
-  // A MARCA VAI NO POPUP, e não na lista: quem precisa segurar a altura é a
-  // FOLHA (ver o CSS). Na lista, o piso que a fizesse ocupar o lugar da de
-  // verdade passaria do que sobra e poria a `.popup-list` a rolar — e "só a
-  // lista rola" é a regra da v1.8.85.
-  sorteioPopupEl.classList.add('aquecendo');
+  // (A ALTURA DA FOLHA NÃO DEPENDE MAIS DO AQUECIMENTO: desde a v1.11.18 ela é
+  // fixa em qualquer estado — ver o CSS —, e a marca `aquecendo` no popup, que
+  // só existia para segurá-la, saiu. A que fica é a da LISTA, em
+  // `sorteioListaDeResultados`.)
   sorteioAqueceTimer = setTimeout(() => {
     sorteioAquecendo = false;
-    sorteioPopupEl.classList.remove('aquecendo');
     if (sorteioPopupEl.classList.contains('open')) atualizarContaSorteio();
   }, SORTEIO_AQUECE_MS);
 }
@@ -25628,7 +25626,6 @@ function sorteioPararAquecimento() {
   clearTimeout(sorteioAqueceTimer);
   sorteioAqueceTimer = null;
   sorteioAquecendo = false;
-  if (sorteioPopupEl) sorteioPopupEl.classList.remove('aquecendo');
 }
 
 function sorteioPool() {
@@ -25725,9 +25722,13 @@ function atualizarContaSorteio() {
   //
   // Ele é o único que roda com o CAMPO DE TEXTO EM FOCO (o `debounce` da palavra
   // tema), e remontar a folha ali apagaria o foco no meio da palavra. Então ele
-  // troca só o que fica DEPOIS dos controles: a pílula da conta, a fala e a
+  // troca só o que fica DEPOIS dos controles: o botão de sortear, a fala e a
   // lista — que é justamente tudo o que a palavra muda.
-  const sortear = sorteioListEl.querySelector('.sorteio-sortear');
+  //
+  // O SORTEAR, A ROLETA E A FALA MORAM NO `.popup-fecho` (v1.11.18), irmão da
+  // lista — daí `sorteioPopupEl` e não `sorteioListEl` nas três buscas. A lista
+  // continua sendo onde mora a contagem e os resultados.
+  const sortear = sorteioPopupEl.querySelector('.sorteio-sortear');
   if (sortear) sortear.replaceWith(sorteioBotaoDeSortear(pool));
   // ...E A ROLETA DA QUANTIDADE, que é controle e ainda assim entra aqui
   // (v1.8.96). Ela é a exceção porque não hospeda foco de teclado: o que este
@@ -25738,7 +25739,7 @@ function atualizarContaSorteio() {
   //
   // REMONTA SÓ QUANDO O TETO MUDA. Remontar a cada tecla jogaria a roleta de
   // volta ao começo no meio do gesto, e o `qhMostrar` é idempotente por posição.
-  const qh = sorteioListEl.querySelector('.roleta-h');
+  const qh = sorteioPopupEl.querySelector('.roleta-h');
   if (qh) {
     const teto = sorteioQuantidadeTeto(pool);
     if (Number(qh.dataset.teto) !== teto) {
@@ -25749,7 +25750,7 @@ function atualizarContaSorteio() {
       qhMostrar(qh, n);
     }
   }
-  const fala = sorteioListEl.querySelector('.sorteio-fala');
+  const fala = sorteioPopupEl.querySelector('.sorteio-fala');
   if (fala) fala.textContent = sorteioFala;
   // A ROLAGEM DA LISTA SOBREVIVE (v1.8.85), porque desde este lote ela é a
   // ÚNICA coisa que rola na folha e este caminho roda a cada MARCA. Sem isto,
@@ -26201,18 +26202,30 @@ function renderSorteio() {
   // lote pelo mesmo motivo — marcar quatro linhas na mão leva a roleta ao 4, e
   // é assim que o operador vê que a escolha continua sendo dele.
   const pool = sorteioPool();
-  alvo.appendChild(sorteioQuantidadeLinha(pool));
 
-  // ---- A BARRA DE AÇÃO, E DEPOIS DELA A LISTA (v1.8.84) ----
+  // ===== A BASE DA FOLHA: O RECIBO, A QUANTIDADE E A BARRA (v1.11.18) =====
   //
-  // Pedido do operador: *"mova a barra de opções de play para cima dessa sessão
-  // de resultados"*, e o cartão de resultados vira *"a lista dos resultados,
-  // listando cada música disponível naquele resultado"*.
+  // Pedido do operador: *"na aba de playlist automática, temos o seletor de
+  // quantidade e os botões de decisão acima da lista de músicas disponíveis…
+  // coloque eles na base dessa aba, abaixo do scroll com as opções de músicas"*.
   //
-  // A ORDEM DA FOLHA passou a ser: o que se ESCOLHE (palavra, variante, filtros,
-  // quantidade), o que se FAZ (esta barra) e o que vai ACONTECER (a lista). Ela
-  // é a ordem da decisão, e é o que tira a barra de baixo de uma lista que pode
-  // ter mil linhas.
+  // REVOGA a ordem da v1.8.84 (a barra ACIMA da lista, grudada por `sticky`) e
+  // devolve os dois ao `.popup-fecho`, que é onde a barra morava até aquele
+  // lote. A ordem da folha passa a ser: o que se ESCOLHE no alto (palavra,
+  // variante, filtros), o que VAI ACONTECER no meio (a lista, a única coisa que
+  // rola) e o que se DECIDE embaixo (quantas, e a barra) — junto do polegar, e
+  // sem depender de `sticky`: o fecho não é filho do scroller.
+  //
+  // O RECIBO MORA NO TOPO DO FECHO, colado nos botões que acabaram de produzi-lo,
+  // e não no meio da lista: o fecho cresce PARA CIMA (a base da folha é fixa), e
+  // quem cede quando ele aparece é a lista. A linha é sempre desenhada, vazia
+  // quando não há fala (`:empty` a tira do fluxo).
+  const liFala = document.createElement('li');
+  liFala.className = 'sorteio-fala';
+  liFala.textContent = sorteioFala;
+  porFecho(alvo, liFala);
+  porFecho(alvo, sorteioQuantidadeLinha(pool));
+
   const lista = sorteioLista(pool, AVSorteio.sanear(sorteioPrefs));
   const escolhidos = sorteioEscolhidos(lista);
 
@@ -26332,30 +26345,14 @@ function renderSorteio() {
       liGo.appendChild(b);
     }
   }
-  // ===== A BARRA NÃO MORA MAIS NO `.popup-fecho` (v1.8.84) =====
-  //
-  // Ela era `porFecho(alvo, liGo)` — o rodapé que não rola, irmão da lista. Com
-  // a lista de resultados abaixo dela, o fecho a poria DEPOIS dos resultados, que
-  // é o oposto do pedido. Ela entra na própria lista e fica GRUDADA no topo
-  // (`position: sticky`): acima dos resultados, como se pediu, e à vista com a
-  // lista rolando por baixo — que é a propriedade que o fecho dava de graça e
-  // que uma barra solta perderia na primeira rolagem.
-  alvo.appendChild(liGo);
+  // A BARRA É A ÚLTIMA PEÇA DO FECHO (v1.11.18): depois do recibo e da roleta, e
+  // com a base da folha fixa embaixo dela. Ver o bloco "A BASE DA FOLHA" acima.
+  porFecho(alvo, liGo);
 
-  // ---- A FALA: o recibo do lote guardado ----
-  //
-  // Ela é a única coisa do cartão antigo que NÃO repetia a tela — *"5 músicas
-  // acrescentadas ao fim da playlist"*, *"todas as 5 já estavam"* —, e a segunda
-  // metade dela não tem outro jeito de ser dita: a lista mostra as cinco saindo
-  // do baralho, mas não distingue "entraram" de "já estavam lá".
-  //
-  // **A LINHA É SEMPRE DESENHADA**, vazia quando não há fala. Uma linha que
-  // aparece e some é um motor de pulo da folha (v1.8.61), e o espaço que ela
-  // reserva se paga duas vezes: calada, é o respiro entre a barra e a lista.
-  const liFala = document.createElement('li');
-  liFala.className = 'sorteio-fala';
-  liFala.textContent = sorteioFala;
-  alvo.appendChild(liFala);
+  // (O RECIBO DO LOTE — *"5 músicas acrescentadas ao fim da playlist"*, *"todas
+  // as 5 já estavam"* — é montado lá em cima, no topo do fecho. Ele é a única
+  // frase da folha que não repete a tela: a lista mostra as cinco saindo do
+  // baralho, mas não distingue "entraram" de "já estavam lá".)
 
   // ---- A LISTA DOS RESULTADOS ----
   //

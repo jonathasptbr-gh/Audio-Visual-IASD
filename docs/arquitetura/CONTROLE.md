@@ -7836,9 +7836,9 @@ limpo, e o gradiente começando no topo do scroller.
 eram 25,9px entre a barra e a contagem, dos quais 14,7 eram a linha vazia mais os
 dois vãos da folha; hoje são 5,6px. **O que a reserva protegia continua
 protegido**, e é por isso que ela pôde cair: a regra da v1.8.61 é sobre BOTÃO que
-se mexe debaixo do dedo, e esta linha mora ABAIXO de todos eles — quem cede
-quando ela aparece é a lista (`flex: 0 1 auto`), e a barra de ação não anda um
-pixel.
+se mexe debaixo do dedo. Desde a v1.11.18 a linha é a de CIMA do `.popup-fecho`,
+acima da roleta, e a base da folha é fixa — o recibo cresce PARA CIMA, quem cede
+é a lista (`flex: 0 1 auto`), e nem a roleta nem a barra de ação andam um pixel.
 
 **A palavra vale no MESMO toque.** O `debounce` cobria a atribuição também, e
 digitar e tocar no botão dentro dos 130 ms sorteava com a palavra ANTERIOR — sem
@@ -8228,13 +8228,13 @@ São dois consertos independentes, e cada um resolve uma metade:
   número certo na tela.
 - **Ela cresce por APÊNDICE**, no fim da rolagem: remontar para mostrar mais cem
   devolveria a lista ao topo, que é o defeito que a v1.8.85 consertou.
-- **A ALTURA É RESERVADA NA FOLHA, nunca na lista** — a marca vai no popup
-  (`#sorteioPopup.aquecendo .popup-sheet { height: 80vh }`) e a lista aquecendo
-  ganha `flex: 1` para o aro pousar no meio do lugar que a lista vai ocupar. Um
-  piso escrito na LISTA passaria do que sobra e poria a `.popup-list` a rolar, e
-  *"só a lista rola"* é a regra abaixo. MEDIDO a 412×892: folha de 714px nos DOIS
-  estados, com a barra de ação parada — sem a reserva ela abria com 480 e crescia
-  um segundo depois.
+- **A ALTURA É DA FOLHA, nunca da lista** — desde a v1.11.18 ela é FIXA em
+  qualquer estado (`#sorteioPopup .popup-sheet { height: 80% }`), e a lista
+  aquecendo ganha `flex: 1` só para o aro pousar no meio do lugar que a lista vai
+  ocupar. Antes disso a reserva era a marca `aquecendo` no popup
+  (`height: 80vh`), que existia só durante o aquecimento; a marca saiu com a
+  altura fixa. Um piso escrito na LISTA passaria do que sobra e poria a
+  `.popup-list` a rolar, e *"só a lista rola"* é a regra abaixo.
 - **A contagem NÃO espera.** Ela é a resposta a *"quantos são?"*, já está na mão,
   e segurá-la deixaria o operador um segundo sem resposta nenhuma.
 
@@ -8246,9 +8246,9 @@ Oráculo: `sorteio-lista-por-pagina.test.mjs`.
 a lista dos resultados como scroll."*
 
 A `.popup-list` já é uma coluna flex; o que mudou é **quem cede**: a
-`.sorteio-res` é o único item com `flex-shrink: 1`, então tudo o que passa do
-teto de 80vh é descontado dela e o resto — palavra, variante, filtros,
-quantidade e a barra de ação — fica onde está.
+`.sorteio-res` é o único item com `flex-shrink: 1`, então tudo o que passa da
+altura da folha (80%) é descontado dela e o resto — palavra, variante e filtros
+na lista; roleta e barra de ação no `.popup-fecho` — fica onde está.
 
 - **O SELETOR PRECISA NOMEAR O PAI.** `.popup-list > li` declara `flex-shrink: 0`
   e é (0,1,1); `.sorteio-res` sozinho é (0,1,0) e PERDE. MEDIDO: a lista ficava
@@ -8262,9 +8262,9 @@ quantidade e a barra de ação — fica onde está.
 - **A `.rola` MUDOU DE DONO**: a sombra das bordas é da lista de resultados, que
   é quem rola. A `.popup-list` continua com a marca e o observador a lê como
   `sem-veu` enquanto ela não rolar, que é o caso normal.
-- **E a `.sorteio-barra` continua `sticky`, agora como REDE**: quem a mantém à
-  vista no caso normal é a estrutura (ela está ACIMA do scroller). O `sticky`
-  cobre o mesmo caso que o piso deixa acontecer de propósito.
+- **(A `.sorteio-barra` foi `sticky` da v1.8.84 à v1.11.17**, como REDE de uma
+  barra que morava dentro do scroller. Ela voltou ao `.popup-fecho` e não é mais
+  — ver "A BARRA DE AÇÕES VOLTOU À BASE", abaixo.)
 
 - **A PÍLULA NÃO É UM BOTÃO**, e é um `<span>` de propósito. Ela não faz nada, e
   a v1.8.50 diz que o que não tem função agora não fica aceso esperando toque —
@@ -8280,11 +8280,37 @@ quantidade e a barra de ação — fica onde está.
   "Tocar agora" subiu de 6,1px para 34,9 — o que MELHOROU o número e não
   resolveu, e as duas metades ficam escritas porque a primeira convida a
   desfazer a segunda (a quebra da faixa continua obrigatória).
-- **A BARRA DE AÇÕES SUBIU** para cima dos resultados (*"mova a barra de opções
-  de play para cima dessa sessão de resultados"*) e por isso saiu do
-  `porFecho` — o rodapé que não rola a poria DEPOIS da lista. Ela entra na
-  própria lista e fica GRUDADA no topo (`sticky`), que é o que devolve a
-  propriedade do fecho: à vista com os resultados rolando por baixo.
+- **A BARRA DE AÇÕES VOLTOU À BASE (v1.11.18)**, e a roleta da quantidade foi
+  com ela. Pedido do operador: *"na aba de playlist automática, temos o seletor
+  de quantidade e os botões de decisão acima da lista de músicas disponíveis…
+  coloque eles na base dessa aba, abaixo do scroll com as opções de músicas"*.
+  Isto REVOGA a v1.8.84, que a pusera ACIMA dos resultados (*"mova a barra de
+  opções de play para cima dessa sessão de resultados"*) grudada por `sticky`.
+  A ordem da folha passou a ser: o que se ESCOLHE no alto (palavra, variante,
+  filtros), o que VAI ACONTECER no meio (a lista, a única que rola) e o que se
+  DECIDE embaixo (recibo, quantas, barra) — tudo no `.popup-fecho`, irmão do
+  scroller, que nasce vazio e que `limparFolha` esvazia junto com a lista.
+  - **A FOLHA TEM UMA ALTURA SÓ** (`#sorteioPopup .popup-sheet { height: 80% }`),
+    e é isso que paga o pedido: com os botões na base, uma folha que encolhesse
+    com a lista (poucos resultados) os levaria para cima, e uma que crescesse
+    com o recibo os levaria para baixo — o oposto da v1.8.61. O preço é um vazio
+    entre a lista curta e a base, aceito. MEDIDO a 390×800: a barra fica em
+    584,8–627,2 nos estados de 300, 3 e 0 resultados e com o recibo à mostra.
+  - **O RECIBO É A LINHA DE CIMA DO FECHO**, acima da roleta: cresce para cima e
+    a lista cede. O fecho é uma coluna com o vão da lista (`--sp-3`), e o
+    `:not(:empty)` impede a regra de id de vencer o `display: none` do fecho
+    vazio.
+  - **O CAMINHO LEVE ACHA AS TRÊS PEÇAS PELO POPUP**, não pela lista
+    (`atualizarContaSorteio`): `.sorteio-sortear`, `.roleta-h` e `.sorteio-fala`
+    moram no fecho. Uma busca em `sorteioListEl` não acha nenhuma — o que se vê é
+    a roleta que não acompanha o teto e o sortear que não é trocado, sem erro.
+  - **O `sticky`, o `z-index` e o fundo próprio da barra saíram**, e com eles a
+    entrada dela na lista de R1 (o `--surface` afundado vem do `.popup-sheet`) e
+    os três seletores `.sorteio-barra:has(...)` da altura única — o
+    `.popup-fecho .song-menu-go-row:has(...)` já a alcança.
+  - Oráculos: bloco B do `playlist-automatica-estavel` (a base não anda, a folha
+    tem uma altura só, as peças moram no fecho abaixo do scroller), bloco P do
+    `sorteio-tela` (o recibo acima da roleta) e bloco S do `sombra-de-rolagem`.
 - **E CINCO PEÇAS NÃO CABEM NUMA LINHA DE 320px**, que é o que a pílula custou e
   onde este lote gastou a maior parte da medição. Ela vale 68,5px a 1× e 90,8 a
   1,5×, e sem quebra o primário é o único que encolhe (`flex: 1; min-width: 0`):
@@ -8295,7 +8321,7 @@ quantidade e a barra de ação — fica onde está.
   |---|---|---|
   | `flex-wrap: wrap` na faixa | permite a segunda linha | **sozinho não faz nada**: um item que pode encolher até zero nunca força a quebra |
   | `min-width: 11em` no primário | é quem FORÇA a quebra, e quem escolhe quem cede | os três destinos descem, que é a ordem certa — o "Tocar agora" é o botão do culto. Nunca `max-content`: o `overflow: hidden` do rótulo zera o tamanho mínimo automático do item |
-  | a regra de altura única da v1.8.61 | ganhou o novo ancestral | escopada em `.popup-fecho`, ela não alcançava a barra que saiu de lá — MEDIDO, 53,2px do primário contra 42,4 dos irmãos, a v1.8.61 inteira de volta |
+  | a regra de altura única da v1.8.61 | ganhou o novo ancestral na v1.8.84 e o perdeu na v1.11.18 | escopada em `.popup-fecho`, ela não alcançava a barra enquanto esta morou na lista — MEDIDO, 53,2px do primário contra 42,4 dos irmãos; com a barra de volta ao fecho, o seletor original a alcança de novo |
 
   **O número 11em é medido**: é o primeiro degrau com ZERO reticências nas nove
   células (3 larguras × 3 escalas da fonte do sistema), e com ele **cai o limite
@@ -8310,8 +8336,8 @@ quantidade e a barra de ação — fica onde está.
   estavam"*. A segunda metade não tem outro jeito de ser dita — a lista mostra
   as cinco saindo do baralho, mas não distingue "entraram" de "já estavam lá".
   **A linha é SEMPRE desenhada**, vazia quando não há fala: uma linha que aparece
-  e some é um motor de pulo da folha (v1.8.61), e o espaço que ela reserva se
-  paga duas vezes — calada, é o respiro entre a barra e a lista.
+  e some é um motor de pulo da folha (v1.8.61) — calada (`:empty`) ela não ocupa
+  nada, e desde a v1.11.18 ela é a linha de cima do `.popup-fecho`.
 - **E o clampe da palavra tema FICOU** (`temaNaFrase`, 24 caracteres), embora o
   cartão que o pedia tenha saído: a frase do VAZIO ainda a carrega, e ela
   continua sendo a única entrada sem limite que chega a uma frase desta folha.
