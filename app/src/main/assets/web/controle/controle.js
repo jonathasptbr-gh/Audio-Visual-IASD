@@ -388,7 +388,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.19';
+const WEB_VERSION = '1.11.20';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -22070,6 +22070,12 @@ function openHymnSearch(comFoco) {
  * NA RAIZ e não no popup: quem lê `--lib-bar-h` é a `.bottombar`, que não é
  * descendente dele.
  */
+// A ORIENTAÇÃO DA ÚLTIMA MEDIDA GRAVADA e a trava de depois da tela cheia — ver
+// o bloco `libAssentando` dentro da função.
+let libOrientacaoMedida = null;
+let libAssentando = false;
+let libAssentarTimer = 0;
+const libEmPaisagem = () => window.innerWidth > window.innerHeight;
 function medirBarraDaBiblioteca() {
   if (!libBarEl || !bottombarEl) return;
   // ===== EM TELA CHEIA A CAIXA NÃO É A CAIXA (v1.11.19) =====
@@ -22091,6 +22097,23 @@ function medirBarraDaBiblioteca() {
   // na raiz é a resposta certa durante a tela cheia, e o `fullscreenchange` de
   // saída (abaixo, junto dos `resize`) a reconfere quando a caixa volta.
   if (document.fullscreenElement) return;
+  // ===== E LOGO DEPOIS DELA A CAIXA AINDA NÃO ASSENTOU (v1.11.20) =====
+  //
+  // O `fullscreenchange` de saída chega ANTES da rotação de volta ao retrato: o
+  // documento já saiu da tela cheia mas a janela ainda é a paisagem — MEDIDO a
+  // 390×800, a caixa mede 436px ali (contra os 293 do retrato), porque a
+  // preview deitada é larga. Gravar isso era a barra de busca indo para o
+  // lugar errado por um instante, até o `resize` do retrato a corrigir: o
+  // "volta com o defeito e no mesmo instante se ajusta" que o operador viu na
+  // v1.11.19. **Enquanto `libAssentando`, só vale uma medida na MESMA
+  // orientação da última medida boa**; a rede de segurança (`libAssentarTimer`)
+  // solta a trava depois de 1,5 s, para o aparelho que de fato ficou deitado
+  // medir como sempre mediu.
+  if (libAssentando) {
+    if (libOrientacaoMedida !== null && libEmPaisagem() !== libOrientacaoMedida) return;
+    libAssentando = false;
+    clearTimeout(libAssentarTimer);
+  }
   const alturaDaBarra = libBarEl.offsetHeight;
   // Barra sem altura = folha ainda não montada, ou o app escondido. Escrever 0
   // encostaria a janela inteira na tela e tiraria a reserva da caixa de
@@ -22117,7 +22140,10 @@ function medirBarraDaBiblioteca() {
   // que já está no lugar é a resposta certa para quando a caixa voltar. Quem
   // responde por esses dois estados é o CSS, que manda a janela até a base sem
   // consultar este número.
-  if (alturaDaCaixa) escrever('--lib-caixa-h', alturaDaCaixa);
+  if (alturaDaCaixa) {
+    escrever('--lib-caixa-h', alturaDaCaixa);
+    libOrientacaoMedida = libEmPaisagem();
+  }
   // FORA do `if`: uma mudança só na altura da BARRA também precisa desarmar a
   // transição, e ficar presa atrás da caixa oculta era o mesmo defeito por outra
   // porta.
@@ -39234,13 +39260,55 @@ if (hymnSearchToggleEl) {
 // enquete — é a régua de uma caixa que só se mexe quando algo a empurra.
 window.addEventListener('resize', medirBarraDaBiblioteca);
 window.addEventListener('orientationchange', medirBarraDaBiblioteca);
+// GIRAR A JANELA NÃO É ABRIR NEM FECHAR A BIBLIOTECA (v1.11.20). A posição de
+// repouso da barra é `translateY(100svh - …)`, e uma transição não distingue um
+// valor que muda porque a janela abriu de um que muda porque a ALTURA DA TELA
+// mudou: na volta da tela cheia (paisagem → retrato) a barra ficava DESLIZANDO
+// de onde estava na paisagem até o lugar certo — MEDIDO a 360×740, 380px em
+// 280 ms —, o "pequeno deslocamento" que o operador viu mesmo com a medida já
+// certa. Só a MUDANÇA DE ORIENTAÇÃO conta: o teclado também dispara `resize`, e
+// cortar a animação de fechar a Biblioteca quando ele recolhe seria um defeito
+// novo.
+//
+// **O `finish()` É QUEM SUSTENTA ISTO** (MEDIDO por reversão: sem ele a barra
+// desliza 470px, e só `semAnimarAJanela` não basta). A classe sai, mas o `resize`
+// chega DEPOIS de algo já ter forçado o recálculo de estilo com a altura nova —
+// o `offsetHeight` do `medirBarraDaBiblioteca`, logo acima, é um —, e a
+// transição nasce com a duração ainda ligada. Terminá-la leva a barra ao valor de
+// chegada, que é o certo, e torna a ordem dos ouvintes irrelevante.
+//
+// Por que isto não aparecia antes: a medida de volta MUDAVA (o ouvinte de saída
+// gravava a altura da paisagem e depois a do retrato), e quem grava desarma a
+// transição de carona. O `libAssentando` acabou com a gravação errada — e com
+// ela, o disfarce.
+let libPaisagemVista = libEmPaisagem();
+function libAoGirar() {
+  const paisagem = libEmPaisagem();
+  if (paisagem === libPaisagemVista) return;
+  libPaisagemVista = paisagem;
+  semAnimarAJanela();
+  const folha = hymnSearchPopupEl && hymnSearchPopupEl.querySelector('.popup-sheet--lib');
+  if (folha && folha.getAnimations) {
+    for (const a of folha.getAnimations()) { try { a.finish(); } catch (_) { /* já acabou */ } }
+  }
+}
+window.addEventListener('resize', libAoGirar);
+window.addEventListener('orientationchange', libAoGirar);
 // A SAÍDA DA TELA CHEIA RECONFERE A CAIXA (v1.11.19), em três tempos: já, depois
-// de dois quadros (a rotação de volta ao retrato chega DEPOIS do evento, e o
-// `resize` dela mede a caixa já assentada) e a 400 ms (o piso, para o aparelho
-// que demora mais). Só escreve o que mudou, então as três chamadas são baratas.
-// Não é o `ResizeObserver` que cobre isto — ver `medirBarraDaBiblioteca`.
+// de dois quadros e a 400 ms (o piso, para o aparelho que demora mais). Só
+// escreve o que mudou, então as três chamadas são baratas. Não é o
+// `ResizeObserver` que cobre isto — ver `medirBarraDaBiblioteca`. **E ELAS SÓ
+// VALEM NA ORIENTAÇÃO DE ANTES (v1.11.20)**: o evento chega antes da rotação de
+// volta, e a trava `libAssentando` segura a medida até o retrato voltar — quem a
+// faz é o `resize` da rotação, já com a caixa assentada.
 document.addEventListener('fullscreenchange', () => {
   if (document.fullscreenElement) return;
+  libAssentando = true;
+  clearTimeout(libAssentarTimer);
+  libAssentarTimer = setTimeout(() => {
+    libAssentando = false;
+    medirBarraDaBiblioteca();
+  }, 1500);
   medirBarraDaBiblioteca();
   requestAnimationFrame(() => requestAnimationFrame(medirBarraDaBiblioteca));
   setTimeout(medirBarraDaBiblioteca, 400);

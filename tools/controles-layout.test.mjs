@@ -1795,6 +1795,107 @@ try {
     await ctxFs.close();
   }
 
+  // ── 10. A SAÍDA DA TELA CHEIA NÃO MOSTRA A BARRA NO LUGAR ERRADO (v1.11.20) ───
+  //
+  // Relato do operador, sobre o conserto do bloco 9: *"ele volta ao estado correto
+  // … mas está com um pequeno deslocamento, como se ao sair da tela cheia ele
+  // volte no estado com o bug, e no mesmo instante ele se ajusta"*.
+  //
+  // A ORDEM É A DO APARELHO, e é a OUTRA do bloco 9: o `fullscreenchange` de saída
+  // chega com a janela AINDA deitada, e só depois vem a rotação de volta ao retrato
+  // (o bloco 9 gira de volta antes de sair, que é o caso em que nada disto
+  // aparece). MEDIDO quadro a quadro, esta ordem tinha DOIS defeitos:
+  //   · o ouvinte de saída medindo na paisagem e GRAVANDO a altura dela (436px a
+  //     390×800, contra os 293 do retrato) — a barra no lugar errado até o
+  //     `resize` do retrato corrigir. Quem fecha é a trava `libAssentando`;
+  //   · a barra DESLIZANDO 380px em 280 ms do lugar da paisagem até o do retrato,
+  //     porque a posição dela depende da altura da tela (`100svh`) e a transição
+  //     de abrir/fechar a janela não distingue um valor que mudou por girar.
+  //     Quem fecha é o `libAoGirar`.
+  //
+  // A RÉGUA É POR QUADRO, não por estado final: o estado final estava certo antes
+  // do lote, e é por isso que o relato existe. Cada quadro de `requestAnimationFrame`
+  // grava a janela, a `--lib-caixa-h` e o topo da barra. O ResizeObserver é o no-op
+  // do bloco 9 (a ausência dele é o aparelho).
+  {
+    const ctxQ = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
+    await semRedeExterna(ctxQ);
+    await ctxQ.addInitScript(PONTE);
+    await ctxQ.addInitScript(() => {
+      window.ResizeObserver = class {
+        observe() {} unobserve() {} disconnect() {}
+      };
+    });
+    const pq = await ctxQ.newPage();
+    await pq.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+    await esperarCortina(pq);
+    await pq.waitForFunction(
+      () => window.__NATIVE__ === true && window.AVDB && typeof window.__avBack === 'function',
+      null, { timeout: 30000 });
+    await pq.evaluate(() => setAppMode('full'));
+    await pq.evaluate(() => window.dispatchEvent(new Event('resize')));
+    await pq.waitForFunction(() => document.body.classList.contains('lib-pronta'), null, { timeout: 5000 });
+    await pq.evaluate(() => {
+      window.__quadros = [];
+      const barra = document.getElementById('libBar');
+      const laco = () => {
+        window.__quadros.push({
+          larg: innerWidth, alt: innerHeight, fs: !!document.fullscreenElement,
+          caixaH: parseFloat(document.documentElement.style.getPropertyValue('--lib-caixa-h')),
+          barraTopo: +barra.getBoundingClientRect().top.toFixed(1),
+        });
+        requestAnimationFrame(laco);
+      };
+      requestAnimationFrame(laco);
+    });
+    const caixaBoa = await pq.evaluate(() => parseFloat(document.documentElement.style.getPropertyValue('--lib-caixa-h')));
+    await pq.click('#pvFullBtn');
+    const entrou2 = await pq.waitForFunction(
+      () => document.fullscreenElement === document.getElementById('preview'),
+      null, { timeout: 5000 }).then(() => true, () => false);
+    checar(entrou2 === true, '10 · PREMISSA: a prévia entra em tela cheia de verdade neste runner', entrou2);
+    if (entrou2) {
+      await pq.setViewportSize({ width: 900, height: 430 });
+      await pq.waitForTimeout(300);
+      const caixaDentro = await pq.evaluate(() => parseFloat(document.documentElement.style.getPropertyValue('--lib-caixa-h')));
+      await pq.evaluate(() => { window.__quadros.length = 0; });
+      // A SAÍDA PRIMEIRO, a rotação 150 ms DEPOIS: a ordem do aparelho.
+      await pq.evaluate(() => document.exitFullscreen());
+      await pq.waitForTimeout(150);
+      // O RETRATO DE VOLTA É O MESMO DE ONDE SE SAIU (430), e isso é a premissa: com
+      // OUTRA largura a caixa mede outra altura, a medida MUDA, e quem a grava
+      // desarma a transição de carona — mascarando o deslizamento (foi o que a
+      // primeira versão deste bloco provou: a reversão do `libAoGirar` passava).
+      await pq.setViewportSize({ width: 430, height: 900 });
+      await pq.waitForTimeout(1200);
+      const quadros = await pq.evaluate(() => window.__quadros);
+      const deitados = quadros.filter((q) => q.larg > q.alt && !q.fs);
+      const emPe = quadros.filter((q) => q.larg < q.alt && !q.fs);
+      checar(deitados.length >= 3 && emPe.length >= 10,
+        '10 · PREMISSA: o arnês viu quadros SEM tela cheia nas duas orientações (' + deitados.length
+        + ' deitados, ' + emPe.length + ' em pé) — sem eles o bloco não mede nada',
+        { deitados: deitados.length, emPe: emPe.length });
+      // (A) Nenhuma medida da PAISAGEM é gravada: a janela deitada e fora da tela cheia
+      // é o instante em que a caixa mede outra altura (436px a 390×800), e a raiz tem
+      // de seguir com a boa em TODOS os quadros da saída.
+      const gravadas = [...new Set(quadros.map((q) => q.caixaH))];
+      checar(gravadas.length === 1 && Math.abs(gravadas[0] - caixaBoa) <= 1 && Math.abs(caixaDentro - caixaBoa) <= 1,
+        '10 · em NENHUM quadro da saída a `--lib-caixa-h` deixa a medida boa (' + caixaBoa
+        + 'px) — nem com a janela ainda DEITADA e fora da tela cheia, que é quando a caixa mede '
+        + 'outra altura',
+        { caixaBoa, caixaDentro, gravadas });
+      // (B) Em NENHUM quadro de retrato a barra está longe do lugar final.
+      const final = emPe[emPe.length - 1].barraTopo;
+      const pior = Math.max(...emPe.map((q) => Math.abs(q.barraTopo - final)));
+      checar(pior <= 1,
+        '10 · e do PRIMEIRO quadro em retrato em diante a barra já está no lugar final (' + final
+        + 'px): o desvio máximo em ' + emPe.length + ' quadros é ' + pior.toFixed(1)
+        + 'px — deslizando de onde estava na paisagem ele passa de 300',
+        { final, pior: +pior.toFixed(1), primeiros: emPe.slice(0, 4).map((q) => q.barraTopo) });
+    }
+    await ctxQ.close();
+  }
+
 } finally {
   await navegador.close();
   servidor.close();

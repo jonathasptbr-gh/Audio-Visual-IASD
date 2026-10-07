@@ -1936,9 +1936,10 @@ try {
   // linha de quantidades marcadas, me parece que há espaço extra ali"* (MEDIDO:
   // 22,4px contra os 5,6 de todo outro vão da folha).
   //
-  // O CARTÃO É MEDIDO NO QUE O OPERADOR VÊ: a cor é a do `--camada` do `.popup-sheet`
-  // (o mesmo cartão da frase do vazio) e DIFERE da da folha — sem isso o "cartão"
-  // seria um nome para a mesma superfície —, o raio é o `--radius-card`, e o canto
+  // O CARTÃO É MEDIDO NO QUE O OPERADOR VÊ: a cor é a do `--gaveta-bg` (o POÇO que o
+  // app já usa na gaveta da Biblioteca; a v1.11.19 saiu com o `--camada` e a v1.11.20
+  // o trocou, ver o bloco R2) e DIFERE da da folha — sem isso o "cartão" seria um
+  // nome para a mesma superfície —, o raio é o `--radius-card`, e o canto
   // é medido por PIXEL: com o raio o pixel de FORA do arco é o da folha, e a
   // sombra de fronteira (a tira do `.rola`, ligada e desligada na mesma tela) não
   // pinta lá — o vazamento da tira para fora do arco era o erro que o pedido
@@ -1958,9 +1959,9 @@ try {
     const roleta = document.querySelector('#sorteioPopup .sorteio-linha--quantas');
     const lista = document.getElementById('sorteioList');
     // O TOKEN RESOLVIDO por um elemento de prova dentro da folha: a cor que o
-    // `var(--camada)` dá ali, e não a de um literal copiado do `tokens.css`.
+    // `var(--gaveta-bg)` dá ali, e não a de um literal copiado do `tokens.css`.
     const prova = document.createElement('div');
-    prova.style.cssText = 'background:var(--camada);border-radius:var(--radius-card)';
+    prova.style.cssText = 'background:var(--gaveta-bg);border-radius:var(--radius-card)';
     sheet.appendChild(prova);
     const ps = getComputedStyle(prova);
     const esperado = { bg: ps.backgroundColor, raio: ps.borderTopLeftRadius };
@@ -1982,7 +1983,7 @@ try {
   });
   checar(cart.bg === cart.esperado.bg && cart.bg !== cart.folhaBg
     && cart.raio === cart.esperado.raio && parseFloat(cart.raio) > 0,
-    'R · a lista é um CARTÃO: a cor é a do `--camada` da folha (' + cart.esperado.bg
+    'R · a lista é um CARTÃO: a cor é a do poço da gaveta (`--gaveta-bg`, ' + cart.esperado.bg
     + '), diferente da própria folha (' + cart.folhaBg + '), com o raio do cartão '
     + '(' + cart.esperado.raio + ')', cart);
   checar(cart.recuo > 0 && cart.folgaLinha >= cart.recuo - 0.5,
@@ -2025,6 +2026,74 @@ try {
     'R · e a mesma tira PINTA dentro do cartão, na borda de cima — a sombra existe e '
     + 'foi recortada, não removida (rolada a lista, é ela que diz que há mais acima)',
     { dentro, dentroSem });
+
+  // (R2) O CORPO DA LINHA MARCADA SE LÊ CONTRA O CARTÃO, NOS DOIS TEMAS (v1.11.20).
+  //
+  // Pedido do operador: *"me parece que está ficando pouco contraste entre o corpo do
+  // item selecionado e o fundo do card da lista"*. Ele estava certo, e por MEDIÇÃO: a
+  // v1.11.19 vestiu o cartão de `--camada` (= `--panel-2`) e o preenchimento de
+  // marcado é `--sel-fill`, dois tons de MESMA luminância — **1,02:1 no escuro e
+  // 1,07:1 no claro**, o corpo da linha marcada se perdia no cartão e só a matiz
+  // sobrava. O `--sel-fill` foi desenhado para pousar sobre o `--panel` (1,35 · 1,31)
+  // e a conta não deixa um cartão MAIS CLARO que a folha servir a ele no escuro: ou o
+  // cartão desce, ou a linha some. O cartão desce para o poço da gaveta
+  // (`--gaveta-bg`), e as linhas voltam a ser botões (`--gaveta-btn`) como as da gaveta.
+  //
+  // O PISO É O DE SUPERFÍCIE DA CASA, 1,28:1, e vale para os TRÊS pares que o operador
+  // vê: cartão × linha marcada, cartão × linha fora do lote e folha × cartão (a
+  // fronteira que o pedido da v1.11.19 mandou marcar). A diferença ENTRE as duas linhas
+  // (marcada × fora) é o par do app inteiro, `--sel-fill` × painel.
+  //
+  // O tema viaja só em `data-tema` (ver `comTema` no arnês): os dois são lidos na MESMA
+  // página, trocando o atributo, com as transições desligadas — uma cor lida no meio de
+  // `transition` é a de um instante, não a do estado.
+  const par = await pg.evaluate(async () => {
+    const raiz = document.documentElement;
+    const antes = raiz.getAttribute('data-tema');
+    const estilo = document.createElement('style');
+    estilo.textContent = '*{transition:none!important}';
+    document.head.appendChild(estilo);
+    const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const lum = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+    const razao = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const res = document.querySelector('#sorteioList .sorteio-res');
+    const folha = document.querySelector('#sorteioPopup .popup-sheet');
+    const vai = res.querySelector('.sorteio-res-btn.vai');
+    const fora = res.querySelector('.sorteio-res-btn:not(.vai)');
+    const saida = { premissa: !!vai && !!fora, temas: {} };
+    for (const tema of ['escuro', 'claro']) {
+      if (tema === 'claro') raiz.setAttribute('data-tema', 'claro'); else raiz.removeAttribute('data-tema');
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const c = {
+        cartao: rgb(getComputedStyle(res).backgroundColor),
+        marcada: rgb(getComputedStyle(vai).backgroundColor),
+        fora: rgb(getComputedStyle(fora).backgroundColor),
+        folha: rgb(getComputedStyle(folha).backgroundColor),
+      };
+      saida.temas[tema] = {
+        opacas: [c.cartao, c.marcada, c.fora, c.folha].every((x) => x.length < 4 || x[3] === 1),
+        cartaoMarcada: +razao(c.cartao, c.marcada).toFixed(2),
+        cartaoFora: +razao(c.cartao, c.fora).toFixed(2),
+        folhaCartao: +razao(c.folha, c.cartao).toFixed(2),
+        marcadaFora: +razao(c.marcada, c.fora).toFixed(2),
+        cores: c,
+      };
+    }
+    if (antes === null) raiz.removeAttribute('data-tema'); else raiz.setAttribute('data-tema', antes);
+    estilo.remove();
+    return saida;
+  });
+  checar(par.premissa, 'R2 · premissa: a lista tem uma linha MARCADA e uma FORA do lote', par);
+  for (const tema of ['escuro', 'claro']) {
+    const t = par.temas[tema];
+    checar(t.opacas && t.cartaoMarcada >= 1.28 && t.cartaoFora >= 1.28 && t.folhaCartao >= 1.28
+      && t.marcadaFora >= 1.28,
+      'R2 · tema ' + tema + ': o corpo da linha MARCADA contra o cartão mede ' + t.cartaoMarcada
+      + ':1 e o da linha FORA do lote ' + t.cartaoFora + ':1, o cartão contra a folha '
+      + t.folhaCartao + ':1 e uma linha contra a outra ' + t.marcadaFora + ':1 — todos '
+      + 'acima do piso de 1,28:1, e todas as superfícies OPACAS (tinta com alfa empilha)', t);
+  }
 
   // (Q) REABRIR ZERA OS TRÊS FILTROS E A PALAVRA.
   //

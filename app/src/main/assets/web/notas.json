@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.11.20",
+    "itens": [
+      "Playlist automática: o cartão da lista ficou mais escuro, e o item marcado se destaca bem dele.",
+      "Prévia: ao sair da tela cheia, a barra de busca já volta no lugar certo, sem se mexer."
+    ]
+  },
+  {
     "versao": "1.11.19",
     "itens": [
       "Playlist automática: a lista de resultados ficou dentro de um cartão, e o espaço abaixo dela diminuiu.",
