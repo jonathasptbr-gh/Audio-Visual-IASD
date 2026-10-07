@@ -11,8 +11,8 @@
 // placa da letra e as teclas eram cartões.
 //
 // O que este arquivo trava, e cada uma falha CALADA (a tela continua tocando):
-//  B1 · o nome e a barra moram DENTRO de `.simple-nowplaying`, e ele é irmão da placa da letra,
-//       ACIMA dela, dentro de `.simple-song` — a zona que a Biblioteca mede.
+//  B1 · o nome e a barra moram DENTRO de `.simple-nowplaying`, e ele é irmão da zona de leitura,
+//       ABAIXO dela (v1.11.21), fora de `.simple-song` — a zona que a Biblioteca mede.
 //  B2 · o card PINTA: superfície opaca igual à da placa da letra (a das vizinhas desta tela),
 //       com o mesmo raio de cartão, e diferente do fundo do app.
 //  B3 · o conteúdo respira dentro dele (o nome e a barra não encostam nas bordas) e o card
@@ -23,7 +23,7 @@
 //  B6 · a placa da letra continua preenchendo o que sobra (nada vazou nem sobrou vão embaixo).
 //  B7 · um nome longo é cortado com reticências DENTRO do card, num celular estreito.
 //  B8 · a barra segue interativa: tocar no trilho salta para o ponto.
-//  B9 · a Biblioteca como tela principal esconde o card junto com a leitura.
+//  B9 · sem mídia no ar o card não existe (a Biblioteca é a tela principal).
 //
 //   node tools/modo-facil-card.test.mjs
 // ============================================================================
@@ -77,6 +77,9 @@ async function projetar(pg, nome, comDuracao) {
   }, id);
   const ok = await esperar(pg, (n) => document.getElementById('simpleNpName').textContent === n
     && getComputedStyle(document.querySelector('.simple-song')).visibility !== 'hidden', nome, 15000);
+  // A leitura ENTRA animada (`.simple-song.entrando`, translateY de 14px): o `getBoundingClientRect` leva a
+  // transformação junto, e o card — que agora fica FORA da zona — não anda com ela. Espera assentar.
+  await pg.evaluate(() => new Promise((r) => setTimeout(r, 800)));
   return ok;
 }
 
@@ -103,8 +106,8 @@ const medir = (pg) => pg.evaluate(() => {
   const cs = getComputedStyle(card);
   return {
     existe: !!card,
-    pai: card && card.parentElement === song,
-    antesDaPlaca: card && lyr && (card.compareDocumentPosition(lyr) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+    irmaoDaZona: card && card.parentElement === song.parentElement && !song.contains(card),
+    depoisDaPlaca: card && lyr && (card.compareDocumentPosition(lyr) & Node.DOCUMENT_POSITION_PRECEDING) !== 0,
     nomeDentro: card && card.contains(nome),
     tempoDentro: card && card.contains(tempo),
     bg: cs.backgroundColor, raio: cs.borderTopLeftRadius,
@@ -131,8 +134,8 @@ try {
       checar(barra === true, tema + ' · PREMISSA: a barra de progresso aparece (a mídia tem duração)', porque(barra));
       const m = await medir(pg);
 
-      checar(m.existe && m.pai && m.antesDaPlaca,
-        'B1 · ' + tema + ' · existe `.simple-nowplaying`, filho de `.simple-song` e ACIMA da placa da letra', JSON.stringify(m));
+      checar(m.existe && m.irmaoDaZona && m.depoisDaPlaca,
+        'B1 · ' + tema + ' · existe `.simple-nowplaying`, IRMÃO de `.simple-song` e ABAIXO da placa da letra (v1.11.21)', JSON.stringify(m));
       checar(m.nomeDentro && m.tempoDentro,
         'B1 · ' + tema + ' · o NOME e a BARRA moram dentro dele', JSON.stringify({ n: m.nomeDentro, t: m.tempoDentro }));
       const transparente = /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)|transparent/.test(m.bg);
@@ -148,17 +151,17 @@ try {
       checar(!m.tempoOculto && m.tempoR.t >= m.nome.b - 0.5,
         'B3 · ' + tema + ' · a barra fica ABAIXO do nome, dentro do mesmo card', JSON.stringify({ nomeB: m.nome.b, tempoT: m.tempoR.t }));
 
-      checar(Math.abs((m.lyr.t - m.card.b) - m.gapApp) <= 0.6 && Math.abs(m.gapSong - m.gapApp) <= 0.1,
-        'B4 · ' + tema + ' · o vão entre o card e a placa é o das outras seções desta tela (um só)',
-        JSON.stringify({ vao: m.lyr.t - m.card.b, secoes: m.gapApp, song: m.gapSong }));
+      checar(Math.abs((m.card.t - m.lyr.b) - m.gapApp) <= 0.6,
+        'B4 · ' + tema + ' · o vão entre a placa e o card é o das outras seções desta tela (um só)',
+        JSON.stringify({ vao: m.card.t - m.lyr.b, secoes: m.gapApp }));
 
       checar(m.trilho === m.sunk && m.sunk !== m.flutuante,
         'B5 · ' + tema + ' · dentro do card a superfície AFUNDA: o trilho da barra é o `--surface-sunk` e não '
         + 'o `--surface` flutuante de fora do cartão (que sobre ele pinta outro tom)', JSON.stringify({ trilho: m.trilho, sunk: m.sunk, flutuante: m.flutuante }));
 
-      checar(Math.abs(m.lyr.b - m.song.b) <= 0.6 && m.card.t - m.song.t <= 0.6,
-        'B6 · ' + tema + ' · o card abre a zona de leitura e a placa vai até o fundo dela (nada vazou, '
-        + 'nada sobrou)', JSON.stringify({ placaB: m.lyr.b, zonaB: m.song.b, cardT: m.card.t, zonaT: m.song.t }));
+      checar(Math.abs(m.lyr.b - m.song.b) <= 0.6 && Math.abs(m.lyr.t - m.song.t) <= 0.6 && m.card.t >= m.song.b - 0.6,
+        'B6 · ' + tema + ' · a placa preenche a zona de leitura inteira e o card fica FORA dela, abaixo '
+        + '(a Biblioteca mede a zona, e o card não entra na medida)', JSON.stringify({ placaB: m.lyr.b, zonaB: m.song.b, cardT: m.card.t, zonaT: m.song.t }));
 
       // B8 · tocar no trilho SALTA — o card não pode ter tirado a interatividade.
       const salto = await pg.evaluate(async () => {
@@ -201,19 +204,19 @@ try {
     } finally { await ctx.close(); }
   }
 
-  // B9 · SEM MÍDIA, A BIBLIOTECA É A TELA PRINCIPAL e a leitura inteira (o card junto) fica por baixo.
+  // B9 · SEM MÍDIA, A BIBLIOTECA É A TELA PRINCIPAL: a leitura fica por baixo e o card NÃO EXISTE.
   {
     const { ctx, pg } = await abrir('escuro', 390);
     try {
       await pg.waitForTimeout(600);
       const v = await pg.evaluate(() => ({
-        card: getComputedStyle(document.querySelector('.simple-nowplaying')).visibility,
+        card: getComputedStyle(document.querySelector('.simple-nowplaying')).display,
         song: getComputedStyle(document.querySelector('.simple-song')).visibility,
         principal: document.body.classList.contains('simples-principal'),
       }));
-      checar(v.principal && v.song === 'hidden' && v.card === 'hidden',
-        'B9 · sem mídia no ar a Biblioteca é a tela principal e o card some junto com a leitura '
-        + '(`visibility` herdada de `.simple-song`)', JSON.stringify(v));
+      checar(v.principal && v.song === 'hidden' && v.card === 'none',
+        'B9 · sem mídia no ar a Biblioteca é a tela principal, a leitura fica escondida e o card não existe '
+        + '(`.simple:not(.com-midia)`) — "Nada tocando" sob a Biblioteca seria ruído', JSON.stringify(v));
     } finally { await ctx.close(); }
   }
 

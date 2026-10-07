@@ -10974,8 +10974,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    328px numa tela de 360 — com o título no lugar seriam 343,6px, que estoura por
    15,6. O ícone acompanhava o título e não sobrevive sozinho a ele.
 
-   O `#lyricsPopupTitle` continua ESCRITO — é o que o leitor de tela anuncia ao
-   abrir a folha; quem o tira da vista é esta regra, não um `textContent` vazio. */
+   O `#lyricsPopupTitle` continua ESCRITO ("Auxiliar de leitura", fixo desde a
+   v1.11.21) — é o que o leitor de tela anuncia ao abrir a folha; quem o tira da
+   vista é esta regra, não um `textContent` vazio. */
 #lyricsPopup.lv-cifra-cabecalho .popup-title,
 #lyricsPopup.lv-cifra-cabecalho .popup-header-icon { display: none; }
 /* E QUEM EMPURRAVA O A+/A− E O ✕ PARA A DIREITA ERA O TÍTULO (v1.6.4): ele é
@@ -11005,6 +11006,16 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    no `.lyricsview-body` para os dois filhos herdarem a MESMA conta — duas
    escritas do mesmo número divergiriam no primeiro ajuste do A+/A−. */
 .lv-cifra-cab { color: var(--text); margin-bottom: calc(var(--cifra-linha) * 2); }
+/* O TÍTULO DA OBRA DAS OUTRAS TRÊS FONTES (v1.11.21) — a letra, o capítulo da Bíblia e a
+   apresentação. O MESMO corpo e peso do título da cifra (`.lv-cifra-cab-titulo`), e por
+   isso também ele segue o A+/A−; CENTRADO como a letra que ele encabeça. O espaço até a
+   primeira linha é o `gap` da própria caixa (`--lv-estrofe-gap`), que já separa as
+   estrofes. `flex-shrink: 0` como o `.lv-row`: a caixa é uma coluna que rola, e o título
+   não pode ceder altura a quem o segue. */
+.lv-cab {
+  flex-shrink: 0; text-align: center; color: var(--text);
+  font-size: calc(var(--lv-fonte) * .95); font-weight: var(--fw-forte); line-height: 1.3;
+}
 /* ===== E O CORPO DELES SEGUE O A+/A− TAMBÉM (v1.8.31) =====
 
    Os dois vestiam `--fs-xl`/`--fs-lg`, a escala tipográfica FIXA do app, e só
@@ -11748,18 +11759,26 @@ body.mode-simple .bottombar { display: none; }
    "controle inativo" do `.nowplaying`: aquele é um recesso dentro da caixa de controles, e
    aqui o cartão pousa direto sobre o fundo do app, como as outras seções desta tela.
 
-   O CARD NÃO MUDA A CAIXA DA LEITURA: ele é irmão da placa dentro de `.simple-song`, que é
-   quem a Biblioteca mede (`medirCorpoSimples` lê a zona inteira, e não o que há dentro dela).
-   O vão entre os dois cartões é o das outras seções desta tela (`--sp-5`), e não mais o
-   `--sp-3` de quando o nome e o tempo eram linhas soltas. Sem a barra (imagem, texto: o
-   `#simpleTime` fica `hidden`) o card encolhe para o nome. Dentro dele a superfície AFUNDA,
-   como em todo cartão (a lista do topo desta folha) — é o que dá ao trilho da barra um tom
-   próprio contra o card. */
+   **ELE MORA ABAIXO DA ZONA DE LEITURA, E FORA DELA (v1.11.21).** Pedido do operador: *"essa
+   seção de mídia em exibição, vamos colocar ela abaixo do auxiliar de leitura"*. Era filho de
+   `.simple-song`, ACIMA da placa (v1.11.16); agora é irmão dele, depois dele. O que isso
+   compra é o card ficar à vista quando a Biblioteca ocupa a zona de leitura: a janela
+   mede `.simple-song` (`medirCorpoSimples` lê a zona, e não o que há dentro dela), e o card,
+   de fora, não entra na medida. O vão até a placa é o das outras seções desta tela (`--sp-5`,
+   o `gap` do `.simple`). Sem a barra (imagem, texto: o `#simpleTime` fica `hidden`) o card
+   encolhe para o nome. Dentro dele a superfície AFUNDA, como em todo cartão (a lista do topo
+   desta folha) — é o que dá ao trilho da barra um tom próprio contra o card.
+
+   **SEM MÍDIA NO AR ELE NÃO EXISTE** (`.simple:not(.com-midia)`, escrito por
+   `renderSimpleCorpo` pela pergunta do Parar): o corpo é a Biblioteca, e um card dizendo
+   "Nada tocando" embaixo dela é ruído. `display: none` e não `visibility`: ele não pode
+   reservar altura nem o vão do `gap`. */
 .simple-nowplaying {
   flex: none; display: flex; flex-direction: column; gap: var(--sp-2);
   padding: .5rem .8rem;
   background: var(--panel); border-radius: var(--radius-card);
 }
+.simple:not(.com-midia) .simple-nowplaying { display: none; }
 .simple-np {
   flex: none; text-align: center; font-size: var(--fs-xl); font-weight: var(--fw-forte); color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

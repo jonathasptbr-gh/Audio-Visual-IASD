@@ -162,7 +162,8 @@ try {
     return {
       fontes: lyricsViewSources(),
       ativa: lvActiveSource(),
-      titulo: document.getElementById('lyricsPopupTitle').textContent,
+      titulo: (document.querySelector('#lyricsViewBody .lv-cab') || {}).textContent || '',
+      cabecalho: document.getElementById('lyricsPopupTitle').textContent,
       linhas: linhas.length,
       numeros: linhas.map((l) => l.querySelector('.lv-num').textContent),
       atual: linhas.findIndex((l) => l.classList.contains('current')),
@@ -187,8 +188,10 @@ try {
     '  ↳ e a PÁGINA EM CENA é a marcada — é a referência que o pedido nomeia',
     dado.atual);
   checar(dado.titulo === 'Semana da Familia',
-    '  ↳ o título é o nome da apresentação (a posição já está no transporte, e '
-    + 'repeti-la é criar uma segunda fonte para divergir)', dado.titulo);
+    '  ↳ o título é o nome da apresentação, na primeira linha do corpo (a posição já '
+    + 'está no transporte, e repeti-la é criar uma segunda fonte para divergir)', dado.titulo);
+  checar(dado.cabecalho === 'Auxiliar de leitura',
+    '  ↳ e o cabeçalho da folha diz só "Auxiliar de leitura" (v1.11.21)', dado.cabecalho);
 
   checar(dado.fontes.length === 1 && dado.fontes[0] === 'deck' && dado.ativa === 'deck',
     'A APRESENTAÇÃO É A ÚNICA FONTE — o pedido ao pé da letra', dado);

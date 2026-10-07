@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.11.21",
+    "itens": [
+      "Auxiliar de leitura: o título da música agora fica no começo do texto, e o topo da janela diz só o nome dela.",
+      "Modo Fácil: o nome da mídia e a barra de progresso ficam abaixo do auxiliar de leitura.",
+      "Modo Fácil: vídeo ou mídia sem letra mostra a biblioteca aberta no lugar do auxiliar de leitura."
+    ]
+  },
+  {
     "versao": "1.11.20",
     "itens": [
       "Playlist automática: o cartão da lista ficou mais escuro, e o item marcado se destaca bem dele.",

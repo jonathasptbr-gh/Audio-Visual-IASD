@@ -33,6 +33,9 @@
 //     dá em mídia, o vigia desfaz a marca e reinicia a Biblioteca.
 //  G. Sair do Modo Fácil desencaixa; a caixa acompanha o layout; o ícone de cast do
 //     cabeçalho existe com tela, some sem ela e chama `abrirCast`.
+//  J. A MÍDIA QUE NÃO USA O AUXILIAR DE LEITURA (v1.11.21): sem letra e sem páginas (vídeo,
+//     imagem, áudio sem letra) a Biblioteca ocupa o lugar da placa vazia — a mesma tela principal
+//     de quando nada toca —, com o card do nome à vista ABAIXO dela; o card não existe sem mídia.
 //  I. O CABEÇALHO É CAST · NOME · ENGRENAGEM (v1.11.15): o nome do app no centro da barra
 //     de topo, com ou sem TV, sem a badge de versão; e SEM o botão de playlist automática
 //     (só no Modo Fácil — no avançado ele continua).
@@ -92,6 +95,9 @@ try {
       semBuscar: document.getElementById('simpleSearchBtn') === null,
       semFaixa: document.getElementById('simpleStage') === null,
       castVisivel: vis(cast), castConectado: cast.classList.contains('connected'),
+      card: caixa(document.querySelector('.simple-nowplaying')),
+      cardVisivel: vis(document.querySelector('.simple-nowplaying')),
+      cardNome: document.getElementById('simpleNpName').textContent,
     };
   });
   const igual = (a, b, t) => a.every((n, i) => Math.abs(n - b[i]) <= t);
@@ -170,8 +176,16 @@ try {
     'B12 · e o acervo volta ao estado padrão — não fica nos resultados de um termo que o campo já não tem',
     JSON.stringify(reinicio));
 
-  // C · mídia no ar: a leitura é a tela, e a BARRA continua à vista
-  await pg.evaluate(() => { midiaNoAr = true; renderTransporteHabilitado(); });
+  // C · mídia no ar COM LETRA: a leitura é a tela, e a BARRA continua à vista
+  // (Sem letra e sem páginas a mídia não usa o auxiliar, e a Biblioteca fica — ver o bloco J.)
+  const LETRA = { id: 'm-letra', name: 'Louvor de Fundo', kind: 'audio',
+    lyrics: [{ cover: true }, { time: 0, text: 'primeira' }, { time: 5, text: 'segunda' }] };
+  // O NOME vem do `.nowplaying` do avançado, que o Modo Fácil espelha em `renderSimple`.
+  const noAr = (item) => pg.evaluate((it) => {
+    currentItem = it; midiaNoAr = true; npNameInnerEl.textContent = it.name;
+    renderSimple(); renderTransporteHabilitado();
+  }, item);
+  await noAr(LETRA);
   await quadros();
   const c = await ler();
   checar(c.principal === false && c.aberta === false && c.songVisivel === true,
@@ -183,6 +197,9 @@ try {
     'C4 · e a leitura fica ABAIXO da barra, sem ser coberta por ela', JSON.stringify({ song: c.song, espaco: c.espaco }));
   checar(c.toggle === false,
     'C5 · fechada, a seta não aparece: o campo é o gatilho', JSON.stringify(c));
+  checar(c.cardVisivel === true && c.card[0] >= c.song[3] - 1 && c.cardNome === 'Louvor de Fundo',
+    'C6 · o card do NOME e da barra mora ABAIXO da zona de leitura (v1.11.21), e não mais acima da placa',
+    JSON.stringify({ card: c.card, song: c.song, nome: c.cardNome }));
   await pg.evaluate(() => { setPlaying(false); renderTransporteHabilitado(); });
   await quadros();
   const cp = await ler();
@@ -251,7 +268,8 @@ try {
   await quadros();
   await plantar();
   await pg.evaluate(() => { document.getElementById('hymnSearchInput').value = 'amor'; });
-  await pg.evaluate(() => { simpleSelecionarLinha(window.__li); closeHymnSearch(); midiaNoAr = true; renderTransporteHabilitado(); });
+  await pg.evaluate(() => { simpleSelecionarLinha(window.__li); closeHymnSearch(); });
+  await noAr(LETRA);
   await pg.evaluate(() => new Promise((r) => setTimeout(r, 120)));
   const f1 = await estado();
   checar(f1.sel && f1.aberta && !f1.entrando && f1.campo === 'amor',
@@ -368,6 +386,66 @@ try {
     'H4 · com a caixa fora do lugar o Registro ganha UMA linha com os números (base, teclado, altura da tela)',
     JSON.stringify(h4));
   await pg.evaluate(() => { document.getElementById('hymnSearchPopup').style.bottom = ''; });
+  await quadros();
+
+  // J · A MÍDIA QUE NÃO USA O AUXILIAR DE LEITURA (v1.11.21)
+  // Pedido do operador: *"vamos aproveitar para aprimorar a experiência durante a exibição de um
+  // vídeo ou mídia que não usa o auxiliar de leitura. Nesses casos, a área do auxiliar de leitura
+  // pode ser substituída pela exibição aberta da biblioteca, para não manter uma seção sem
+  // conteúdo visível para o usuário"* — e *"essa seção de mídia em exibição, vamos colocar ela
+  // abaixo do auxiliar de leitura"*.
+  // Sem letra e sem páginas (um vídeo, uma imagem, um áudio sem letra) a placa ficaria vazia; a
+  // Biblioteca ocupa o lugar dela — a MESMA tela principal de quando nada toca — e o card do nome
+  // fica à vista logo abaixo. É a pergunta do Parar MAIS a pergunta da zona de leitura.
+  const VIDEO = { id: 'v-sem-letra', name: 'Vídeo do Culto', kind: 'video' };
+  await pg.evaluate(() => { document.getElementById('simpleStop').click(); });
+  await quadros();
+  const j0 = await ler();
+  checar(j0.cardVisivel === false,
+    'J0 · sem mídia no ar o card do nome NÃO existe: "Nada tocando" sob a Biblioteca seria só ruído',
+    JSON.stringify(j0));
+  await noAr(VIDEO);
+  await quadros();
+  const j1 = await ler();
+  checar(j1.principal === true && j1.aberta === true && j1.songVisivel === false && igual(j1.camada, caixaCheia(j1), 2),
+    'J1 · com um vídeo (sem letra e sem páginas) no ar a Biblioteca OCUPA a zona de leitura: aberta, '
+    + 'encaixada nas quatro bordas e com a placa vazia escondida por baixo', JSON.stringify(j1));
+  checar(j1.cardVisivel === true && j1.cardNome === 'Vídeo do Culto' && j1.card[0] >= j1.song[3] - 1
+      && j1.card[0] >= j1.camada[3] - 1,
+    'J2 · e o card do NOME fica à vista ABAIXO dela — fora da medida da Biblioteca, que não o cobre',
+    JSON.stringify({ card: j1.card, camada: j1.camada, song: j1.song, nome: j1.cardNome }));
+  checar(j1.toggle === false && j1.foco !== 'hymnSearchInput',
+    'J3 · como tela principal ela abre SEM foco e sem a seta/✕ — não é uma janela que se fecha', JSON.stringify(j1));
+  const voltarJ = await pg.evaluate(() => ({ r: window.__avBack(), aberta: document.getElementById('hymnSearchPopup').classList.contains('open') }));
+  checar(voltarJ.r === false && voltarJ.aberta === true,
+    'J4 · o voltar do Android NÃO a fecha: fechada, o corpo ficaria vazio', JSON.stringify(voltarJ));
+  // Letra chega à mídia: a leitura volta a ser a tela, a Biblioteca recolhe para a barra
+  await pg.evaluate(() => { currentItem = Object.assign({}, currentItem, { lyrics: [{ cover: true }, { time: 0, text: 'x' }] }); renderSlideNav(); });
+  await quadros();
+  const j5 = await ler();
+  checar(j5.principal === false && j5.aberta === false && j5.songVisivel === true && igual(j5.camada, caixaBarra(j5), 2),
+    'J5 · se a mídia passa a ter letra a Biblioteca sai e a leitura volta a ser a tela, com a barra à vista',
+    JSON.stringify(j5));
+  checar(j5.cardVisivel === true && j5.card[0] >= j5.song[3] - 1,
+    'J6 · e o card segue ABAIXO da leitura nos dois estados', JSON.stringify({ card: j5.card, song: j5.song }));
+  await pg.evaluate(() => { currentItem = Object.assign({}, currentItem, { lyrics: undefined }); renderSlideNav(); });
+  await quadros();
+  const j7 = await ler();
+  checar(j7.principal === true && j7.aberta === true && igual(j7.camada, caixaCheia(j7), 2),
+    'J7 · e sem letra de novo a Biblioteca volta a ocupar o lugar da placa (ida e volta, sem estado preso)',
+    JSON.stringify(j7));
+  // J8 · escolher OUTRA mídia sem letra, estando numa: a Biblioteca segue a tela, e o vigia desfaz a marca
+  await plantar();
+  await pg.evaluate(() => { document.getElementById('hymnSearchInput').value = 'amor'; });
+  await pg.evaluate(() => { simpleSelecionarLinha(window.__li); closeHymnSearch(); simpleSel.em -= 6000; });
+  const desfezJ = await esperar(pg, () => !document.querySelector('.hymn-result.selecionando')
+    && document.getElementById('hymnSearchInput').value === '', null, 15000);
+  checar(desfezJ === true,
+    'J8 · escolher outra mídia sem letra com uma já no ar: a Biblioteca CONTINUA a tela e o vigia a '
+    + 'reinicia — a linha não fica marcada para sempre sobre uma tela que nunca vai sair', porque(desfezJ));
+  const j8 = await ler();
+  checar(j8.principal && j8.aberta, 'J9 · e ela segue como tela principal', JSON.stringify(j8));
+  await pg.evaluate(() => { midiaNoAr = false; renderSimple(); renderTransporteHabilitado(); });
   await quadros();
 
   // I · O CABEÇALHO: CAST À ESQUERDA, NOME NO CENTRO, ENGRENAGEM À DIREITA (v1.11.15)
