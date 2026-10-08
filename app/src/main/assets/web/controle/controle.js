@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.17';
+const WEB_VERSION = '1.12.18';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -39136,37 +39136,43 @@ const VOL_FINO_ATE = 10;      // % abaixo do qual o passo é de 1
 const VOL_PASSO_FINO = 1;
 const VOL_PASSO = 5;
 
-// ===== A PASSAGEM DO VOLUME: o sistema sobe um degrau, o app cede (v1.12.17) =====
+// ===== A PASSAGEM DO VOLUME: o sistema sobe, o app cede o mesmo (v1.12.18) =====
 // Pedido do operador: com os dois em 0, o app ia a 100% e DEPOIS o sistema subia — e quando o
-// sistema chegava a ~60% o som já estava no máximo, sem folga. Agora, com o app JÁ em 100% e o
-// sistema ABAIXO de `VOL_SIS_ALVO`, a tecla de cima sobe um degrau do sistema e baixa o app o
-// bastante para o som subir só meio degrau (`volumeCede`): o app deixa de estar no teto e as teclas
-// seguintes voltam a mexer só nele, até o teto de novo. A conta usa o volume REAL do sistema
-// (`AVNative.systemVolumeStep` devolve antes/depois/max, shell 78) — não há contagem de degraus,
-// janela de tempo nem estado a zerar: o par acontece no instante em que o app bate no teto e
-// acaba ali. Do alvo em diante (ou com o degrau recusado) vale a válvula de sempre.
-const VOL_SIS_ALVO = 0.6;       // fração do volume do sistema até onde a passagem compensa
-const VOL_CEDE_FRACAO = 0.5;    // quanto do degrau do sistema o som de fato sobe (o resto o app cede)
+// sistema chegava a ~60% o som já estava no máximo, sem folga. Agora o app, no teto, entrega o
+// volume ao sistema em DOIS CICLOS, e em cada toque o sistema sobe um degrau e o app desce o MESMO
+// tanto (`volumePassa`): 1) até o sistema chegar a `VOL_SIS_ALVO` (60%); aí as teclas voltam a mexer
+// só no app, que sobe até o teto de novo; 2) do teto de novo até o sistema chegar ao máximo, com
+// o app cedendo outra vez; e as teclas voltam ao app. Uma passagem em curso (`volPassagem`) segue
+// a cada toque de cima, mesmo com o app abaixo de 100% — é ela que impede o recuo "a cada vez
+// menor" da v1.12.17. A conta usa o volume REAL do sistema (`AVNative.systemVolumeStep` devolve
+// antes/depois/max, shell 78); mexer no fader do app no meio dela (a tecla de baixo inclusive)
+// a encerra, e o próximo teto começa outra do volume que o sistema de fato tem.
+const VOL_SIS_ALVO = 0.6;       // fração do volume do sistema onde termina o primeiro ciclo
 let volSistemaEmVoo = false;    // um passo no sistema está sendo respondido; o toque seguinte espera
-// PURA. `antes`/`depois`/`max` em degraus do volume de mídia; devolve o volume novo do app (0..1)
-// ou `null` quando o app não deve ceder (degrau recusado, ou sistema já no alvo).
-function volumeCede(antes, depois, max) {
+let volPassagem = null;         // { limite, exato, app } enquanto uma passagem está em curso
+// PURA. Onde termina a passagem que começa com o sistema em `fracao` (0..1): no alvo, se ele
+// ainda não foi alcançado, senão no máximo.
+function volumeLimite(fracao) {
+  return fracao < VOL_SIS_ALVO - 1e-9 ? VOL_SIS_ALVO : 1;
+}
+// PURA. `antes`/`depois`/`max` em degraus do volume de mídia e `app` em 0..1; devolve o volume do
+// app depois do degrau (o que o sistema subiu, em fração do seu máximo, o app desce) ou `null`
+// quando o sistema recusou o degrau (já no máximo, volume fixo) e o app não deve ceder.
+function volumePassa(antes, depois, max, app) {
   if (!(max > 0) || !(depois > antes)) return null;
-  if (antes / max >= VOL_SIS_ALVO) return null;
-  const u = 1 / max;
-  const novo = (antes / max + VOL_CEDE_FRACAO * u) / (depois / max);
-  return Math.max(0.05, Math.min(1, Math.round(novo * 100) / 100));
+  return Math.max(0, app - (depois - antes) / max);
 }
 async function volSistemaSobe() {
   if (volSistemaEmVoo) return;
   volSistemaEmVoo = true;
   try {
     const r = await AVNative.systemVolumeStep(1);
-    if (!r) return;
-    const cede = volumeCede(r.antes, r.depois, r.max);
-    if (cede == null) return;
-    applyVolume(cede);
+    const exato = r ? volumePassa(r.antes, r.depois, r.max, volPassagem ? volPassagem.exato : volume) : null;
+    if (exato == null) { volPassagem = null; return; }
+    const limite = volPassagem ? volPassagem.limite : volumeLimite(r.antes / r.max);
+    applyVolume(Math.round(exato * 100) / 100);
     persistCurrent();
+    volPassagem = r.depois / r.max >= limite - 1e-9 ? null : { limite, exato, app: volume };
   } finally {
     volSistemaEmVoo = false;
   }
@@ -40152,9 +40158,12 @@ if (window.__NATIVE__) {
     // sistema: o fader no máximo/zero é justamente a resposta para "por que o
     // volume do app não muda?".
     peekVolume();
-    // No teto do fader, a tecla de cima vai ao SISTEMA e o app cede o bastante para o som subir
-    // devagar (v1.12.17, ver `volumeCede`); o resto do tempo as teclas mexem só no app.
-    if (step > 0 && volume >= 1) {
+    // A passagem em curso só vale se ninguém mexeu no fader do app depois do último degrau — a tecla
+    // de baixo também o move, e por isso a encerra.
+    if (volPassagem && Math.abs(volume - volPassagem.app) > 0.006) volPassagem = null;
+    // No teto do fader — ou no meio de uma passagem — a tecla de cima vai ao SISTEMA e o app cede
+    // o mesmo tanto (v1.12.18, ver `volumePassa`); o resto do tempo as teclas mexem só no app.
+    if (step > 0 && (volume >= 1 || volPassagem)) {
       volSistemaSobe();
       return;
     }

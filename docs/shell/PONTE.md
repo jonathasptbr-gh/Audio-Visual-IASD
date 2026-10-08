@@ -794,7 +794,7 @@ window.AVNative = {
   systemVolume(step),  // um passo no volume do SISTEMA, sem leitura (o zero do app: a tecla de baixo)
   systemVolumeStep(step), // o mesmo passo COM a leitura (shell 78): Promise<{antes, depois, max}|null>, em
                        //   degraus de STREAM_MUSIC. É o que deixa o web decidir quanto o app cede
-                       //   (`volumeCede`, controle.js) pelo volume REAL — sem contar degraus às cegas
+                       //   (`volumePassa`, controle.js) pelo volume REAL — sem contar degraus às cegas
   temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
   // requestMic() e micDiag() — SERVIDOS PELO KOTLIN, SEM CHAMADOR desde a
   // v1.8.89: o MICROFONE AO VIVO saiu pelo lado WEB e os dois deixaram o

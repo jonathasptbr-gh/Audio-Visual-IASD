@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.18",
+    "itens": [
+      "Botões de volume: no 100% do app, cada toque sobe o sistema e baixa o app o mesmo tanto, até o sistema chegar a 60%.",
+      "Aí as teclas sobem só o app até 100%; de novo no teto, o sistema sobe até o máximo e o app cede outra vez."
+    ]
+  },
+  {
     "versao": "1.12.17",
     "itens": [
       "Botões de volume: o app agora lê o volume real do celular (precisa instalar o APK novo).",
