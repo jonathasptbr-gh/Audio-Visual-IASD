@@ -7485,6 +7485,9 @@ main {
    nunca estão abertas ao mesmo tempo. */
 #telaPopup { z-index: 205; }
 #pacotePopup { z-index: 205; }
+/* EDITAR MÍDIA (v1.12.0): mesma família e mesmo degrau das duas acima. A pergunta
+   de destino que ela abre é o `#songMenuPopup` (210), que sobe por cima. */
+#edicaoPopup { z-index: 205; }
 /* A folha da PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca, como a da música
    — daí o degrau que o comentário abaixo reservava. Ela NÃO abre a folha da
    música por cima de si, então é a última linha de POPUPS e o degrau mais alto
@@ -9490,7 +9493,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `--accent` com o traço por cima (`.song-menu-check.on`), o mesmo desenho da
    folha de destinos. Nada se perde — o que sai é a segunda cópia da resposta,
    justamente a que custa a hierarquia. */
-:where(#songMenuList, #pacoteLista) > .pacote-grupo {
+:where(#songMenuList, #pacoteLista, #edicaoLista) > .pacote-grupo {
   background: var(--poco);
   border-radius: var(--radius-card);
   overflow: hidden;
@@ -10357,24 +10360,78 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    ele, não à lista. */
 .pacote-nota { margin: var(--sp-3) .7rem 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
 #pacotePopup .popup-fecho { margin-top: var(--sp-3); }
+
+/* ===== EDITAR MÍDIA (v1.12.1) =====
+   Duas vistas na mesma folha: o FORMULÁRIO e o SELETOR (grupos como a exportação).
+   O scroller é a própria `.popup-list` (`rola`); a folha tem altura fixa para os
+   botões da base não andarem entre as vistas. Nada de cor nova: cartões em `--poco`
+   sobre o `--panel` da folha (a escada de camadas), campo no par `--field-*`,
+   estados no par `--btn-accent`/`--accent`. */
+#edicaoPopup .popup-sheet { height: 80%; max-height: 92%; }
+#edicaoPopup .popup-fecho { margin-top: var(--sp-3); }
+.edicao-busca { padding: 0 .7rem; }
+.edicao-busca[hidden] { display: none; }
+#edicaoNota { margin: var(--sp-3) .7rem 0; }
+#edicaoNota:empty { display: none; }
+.edicao-secao { color: var(--muted); font-size: var(--fs-sm); padding: var(--sp-2) .2rem 0; }
+.edicao-bloco {
+  background: var(--poco); border-radius: var(--radius-card);
+  padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3);
+}
+.edicao-cab { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.edicao-tit { color: var(--text); font-weight: 600; }
+.edicao-resumo, .edicao-rotulo { color: var(--muted); font-size: var(--fs-sm); }
+.edicao-valor { color: var(--text); font-variant-numeric: tabular-nums; font-size: var(--fs-md, 1rem); }
+.edicao-nome { padding: 0; }
+.edicao-nome .lib-search { width: 100%; box-sizing: border-box; padding-left: 14px; }
+/* UMA FAIXA, DUAS PONTAS: dois `range` empilhados na mesma caixa. A caixa dos inputs
+   deixa o toque passar e só os polegares o pegam, então cada ponta se arrasta sozinha;
+   `--r1`/`--r2` (0..1) pintam o trecho escolhido entre elas. */
+.edicao-faixa { position: relative; height: var(--hit); }
+.edicao-trilho, .edicao-trecho {
+  position: absolute; top: 50%; height: .5rem; margin-top: -.25rem; border-radius: 999px;
+}
+.edicao-trilho { left: 0; right: 0; background: var(--bg); }
+.edicao-trecho {
+  left: calc(var(--r1, 0) * (100% - 1.5rem) + .75rem);
+  right: calc((1 - var(--r2, 1)) * (100% - 1.5rem) + .75rem);
+  background: var(--accent);
+}
+.edicao-faixa input[type="range"] {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0;
+  background: none; appearance: none; -webkit-appearance: none; pointer-events: none;
+}
+.edicao-faixa.ini-por-cima #edicaoIni { z-index: 2; }
+.edicao-faixa input[type="range"]::-webkit-slider-runnable-track { background: none; height: 100%; }
+.edicao-faixa input[type="range"]::-moz-range-track { background: none; height: 100%; }
+.edicao-faixa input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; pointer-events: auto;
+  width: 1.5rem; height: 1.5rem; margin-top: calc((var(--hit) - 1.5rem) / 2);
+  border-radius: 50%; border: 0; background: var(--btn-accent); box-shadow: 0 0 0 .3rem var(--accent) inset;
+}
+.edicao-faixa input[type="range"]::-moz-range-thumb {
+  pointer-events: auto; width: 1.5rem; height: 1.5rem; border-radius: 50%; border: 0;
+  background: var(--btn-accent); box-shadow: 0 0 0 .3rem var(--accent) inset;
+}
+.edicao-pontas { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+/* Rótulo, tempo e os dois botões ficam CENTRADOS na coluna da ponta: o tempo cai no meio do par −1 s / +1 s. */
+.edicao-ponta { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--sp-2); min-width: 0; }
+.edicao-passos { display: flex; gap: var(--sp-2); align-self: stretch; }
+/* A troca entre o formulário e o seletor (e a lista, ao carregar) ENTRA em vez de piscar. */
+@keyframes edicao-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.edicao-entra { animation: edicao-entra var(--dur-lenta) ease-out both; }
+.edicao-carga { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-3); flex: 1; color: var(--muted); font-size: var(--fs-sm); min-height: 8rem; }
+.edicao-spin { color: var(--accent); animation: dl-ring-spin .9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .edicao-entra, .edicao-spin { animation: none; } }
+.edicao-passo { flex: 1; min-height: var(--hit); }
 /* COM TRABALHO ANDANDO (ou um pacote pronto) a lista é só para olhar: as caixas
    apagam — INDISPONÍVEL, nunca "desligado" — e as seções continuam abrindo. */
 #pacoteLista.travada .song-menu-check { opacity: var(--op-inativo); }
-/* ===== A FILEIRA DO APARELHO COMEÇA UMA LINHA NOVA (v1.9.9) =====
-   Pedido do operador, na v1.7.6: *"reordene os botões: compartilhar, exportar e
-   importar devem ser os tres itens da base"*, e hoje são DOIS (Compartilhar e
-   Transferir). Aquilo valia por ARITMÉTICA — a grade tinha 9 tiles e 3 colunas,
-   então os três caíam sozinhos na última fileira —, e a aritmética não é uma
-   regra: com seis tiles de ajuste e o `compartilhar` na sétima casa, sem esta
-   linha ele fecharia a segunda fileira ao lado de uma PREFERÊNCIA, e um tile novo
-   em qualquer lote futuro o empurraria de volta.
-
-   `grid-column: 1` força o item a esperar a próxima linha, e o vão que sobra no
-   fim das preferências é o que separa as duas naturezas — que é justamente o que
-   aquela ordenação dizia com a posição. No NAVEGADOR ele é `display: none`
-   (`.qs-tile[hidden]`), e uma propriedade de grade não tem efeito sobre um item
-   que não existe: a grade de lá continua se fechando sozinha. */
-#shareAppTile { grid-column: 1; }
+/* A GRADE DE CONFIGURAÇÕES (v1.12.1): 9 tiles em 3 colunas, por ASSUNTO, uma fileira
+   por assunto — aparência e saída (Tema, Tela, Saída de áudio), dados e mídia (Dados
+   móveis, Editar mídia, Histórico) e o aparelho (Verificar, Compartilhar, Transferir) —,
+   e sem coluna forçada: com 9 a grade se fecha sozinha, e um `grid-column` num tile que some (o
+   Compartilhar, no navegador) abriria um vão. */
 .qs-tile {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: var(--sp-2); min-height: 4rem;

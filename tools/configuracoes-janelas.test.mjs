@@ -226,10 +226,10 @@ const donoDoCabecalho = (pg, sel) => pg.evaluate((s) => {
 
 try {
   // =========================================================================
-  // A · A GRADE: OITO TILES, NA ORDEM, E O QUE É SÓ DO APP NÃO EXISTE NO NAVEGADOR
+  // A · A GRADE: NOVE TILES, NA ORDEM, E O QUE É SÓ DO APP NÃO EXISTE NO NAVEGADOR
   // =========================================================================
-  const ORDEM = ['temaTile', 'telaTile', 'histOpenRow', 'saidaAudioTile', 'dadosMoveisTile',
-    'testeTile', 'shareAppTile', 'pacoteTile'];
+  const ORDEM = ['temaTile', 'telaTile', 'saidaAudioTile', 'dadosMoveisTile',
+    'edicaoTile', 'histOpenRow', 'testeTile', 'shareAppTile', 'pacoteTile'];
   const lerGrade = (pg) => pg.evaluate(() => {
     // `#fadePopup .qs-grade`, e não `.qs-grade` solto: as janelas vêm ANTES de
     // Configurações no documento, e é por isso que a classe delas é OUTRA.
@@ -248,7 +248,7 @@ try {
   await abrirConfiguracoes(app.pg);
   const gNativa = await lerGrade(app.pg);
   checar(JSON.stringify(gNativa.ids) === JSON.stringify(ORDEM),
-    'A · a grade de Configurações tem os OITO tiles, nesta ordem: preferências e '
+    'A · a grade de Configurações tem os NOVE tiles, nesta ordem: preferências e '
     + 'telas primeiro, o grupo do APARELHO (compartilhar, transferir) por último',
     JSON.stringify(gNativa.ids));
   checar(gNativa.escondidos.length === 0,
@@ -299,7 +299,7 @@ try {
   checar(JSON.stringify(gNav.escondidos.slice().sort())
       === JSON.stringify(['pacoteTile', 'saidaAudioTile', 'shareAppTile']),
     'A · sem ponte ficam escondidos Saída de áudio, Compartilhar e Transferir — '
-    + 'CINCO tiles visíveis, e um tile que chamasse a ponte sem ela seria um '
+    + 'SEIS tiles visíveis, e um tile que chamasse a ponte sem ela seria um '
     + 'botão que não faz nada', JSON.stringify(gNav.escondidos));
   checar((await nav.pg.evaluate(() => !!window.__NATIVE__)) === false,
     'A · PREMISSA: esta página NÃO tem ponte', 'tem');

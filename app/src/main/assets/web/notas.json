@@ -1,10 +1,40 @@
 [
   {
-    "versao": "1.11.23",
+    "versao": "1.12.3",
     "itens": [
       "Modo Fácil: a sombra do auxiliar de leitura não aparece mais por cima do desfoque do bloqueio.",
       "O título dentro do auxiliar de leitura cresce junto com a letra no A+ e A−.",
       "Biblioteca: a sombra de cima da lista não cola mais na caixa de busca."
+    ]
+  },
+  {
+    "versao": "1.12.2",
+    "itens": [
+      "Editar mídia: a lista de escolha não tem mais caixinhas — tocou, selecionou.",
+      "As trocas de tela do editor entram suavemente, sem piscar.",
+      "Ao voltar para a lista, aparece um spinner de 1 segundo em vez de uma lista vazia.",
+      "Os tempos de início e fim ficam centralizados sobre os botões de −1 e +1 segundo.",
+      "\"Só o áudio\" agora também vale para músicas da biblioteca: tira a letra e a imagem."
+    ]
+  },
+  {
+    "versao": "1.12.1",
+    "itens": [
+      "Editar mídia agora está nas Configurações também no Modo Fácil.",
+      "A mídia a editar se escolhe por grupos, como na exportação: Cronograma, playlist, favoritos e biblioteca.",
+      "Novo \"Importar arquivo\" dentro do editor: o arquivo fica só para edição, sem entrar em lista.",
+      "Dá para ajustar um item já editado e gerar outro novo, sem refazer a edição nem mudar o primeiro.",
+      "O corte do início e do fim virou uma barra só, com duas pontas.",
+      "Visual do editor refeito no padrão do app; botões de Configurações reordenados por assunto."
+    ]
+  },
+  {
+    "versao": "1.12.0",
+    "itens": [
+      "Configurações: novo \"Editar mídia\" — corta o começo e o fim, esmaece a entrada e a saída, ou separa o áudio.",
+      "O original não é alterado nem copiado: o item novo guarda só as marcações e vai ao Cronograma, playlist ou Favoritos.",
+      "A janela guarda o rascunho: dá para sair, tocar o original na prévia e voltar ao mesmo ponto.",
+      "O original fica guardado e escondido enquanto o item editado existir, e vai junto na exportação."
     ]
   },
   {

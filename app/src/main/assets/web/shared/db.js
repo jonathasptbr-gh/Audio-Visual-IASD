@@ -556,10 +556,185 @@
   // de arquivo sincronizado pode entrar em listas/pastas e tocar no Display
   // sem cópia temporária.
   async function getMedia(id) {
+    const rec = await getMediaCru(id);
+    if (rec && rec.edicao) return resolverEdicao(rec);
+    return rec;
+  }
+  // O registro COMO ESTÁ GRAVADO. Só a tela de edição e o coletor precisam dele:
+  // todo o resto do app lê `getMedia`, que já devolve o item editado resolvido.
+  async function getMediaCru(id) {
     const s = await store(STORE_MEDIA, 'readonly');
     const rec = await asPromise(s.get(id));
     if (rec) return rec;
     return fileGet(id);
+  }
+
+  // ===== O ITEM EDITADO É VIRTUAL =====
+  //
+  // Um item editado NÃO guarda bytes: é um registro pequeno com `edicao`
+  // (`{ origem, inicio, fim, fadeEntrada, fadeSaida, soAudio }`) que aponta para
+  // o original. `getMedia` o devolve RESOLVIDO — os bytes do original, o nome, o
+  // tipo e a duração do trecho, a letra deslocada — e o resto do app (listas,
+  // preview, telão, telas da rede) o trata como uma mídia comum. Quem aplica o
+  // recorte e os fades na hora de tocar é o `stage.js`, que lê `rec.edicao`.
+  //
+  // O ORIGINAL É SEGURADO enquanto o item existir em qualquer lugar: ver o ramo
+  // `edicao` de `lerDetentores`. Um item editado não se edita de novo (cada
+  // edição é única e parte sempre do original), então a cadeia tem um degrau só.
+  function deslocarLetra(lyrics, ini) {
+    if (!Array.isArray(lyrics) || !(ini > 0)) return lyrics;
+    // A estrofe que estava no ar em `ini` vira a primeira (tempo 0); as que
+    // ficaram antes do corte saem. Sem nenhuma anterior, só se desloca.
+    let k = -1;
+    for (let i = 0; i < lyrics.length; i++) {
+      if ((lyrics[i] && lyrics[i].time || 0) <= ini) k = i; else break;
+    }
+    return lyrics.slice(Math.max(0, k)).map((sl) =>
+      Object.assign({}, sl, { time: Math.max(0, (sl.time || 0) - ini) }));
+  }
+  // Vídeo (some a imagem) ou áudio COM letra (some a letra e o fundo): o que "só o áudio" tem a tirar.
+  function soAudioValido(r) {
+    return r.kind === 'video' || (r.kind === 'audio' && Array.isArray(r.lyrics) && r.lyrics.length > 0);
+  }
+  async function resolverEdicao(rec) {
+    const ed = rec.edicao;
+    const orig = ed && await getMediaCru(ed.origem);
+    // Original sumido (ou ele próprio editado): o item não tem o que tocar.
+    // `null` é o mesmo desfecho de um id sem registro — `listItems` o descarta.
+    if (!orig || orig.edicao) return null;
+    const ini = ed.inicio > 0 ? ed.inicio : 0;
+    const fim = ed.fim > ini ? ed.fim : null;
+    const total = fim != null ? fim : (orig.seconds || null);
+    return Object.assign({}, orig, {
+      id: rec.id,
+      name: rec.name,
+      createdAt: rec.createdAt,
+      kind: ed.soAudio && orig.kind === 'video' ? 'audio' : orig.kind,
+      seconds: total != null ? Math.max(0, total - ini) : null,
+      youtubeId: null,
+      // "Só o áudio" de um ÁUDIO com letra (hinário): sem letra e sem fundo, o telão fica no wallpaper.
+      lyrics: ed.soAudio && orig.kind === 'audio' ? null : deslocarLetra(orig.lyrics, ini),
+      edicao: { origem: ed.origem, inicio: ini, fim,
+        fadeEntrada: !!ed.fadeEntrada, fadeSaida: !!ed.fadeSaida, soAudio: !!ed.soAudio },
+    });
+  }
+  // ===== O ORIGINAL É SEMPRE VINCULADO AO EDITADO =====
+  //
+  // Dois lugares guardam um original: a store `media` (download do YouTube,
+  // importação, série) — que o coletor já segura, ver `lerDetentores` — e o
+  // catálogo `files` (hinário, pasta do aparelho), que o coletor NÃO governa e
+  // cujos bytes moram no OPFS, apagados em bloco quando a coleção é excluída.
+  //
+  // `baseDe` devolve o original NA FORMA DE MÍDIA — `{ rec, corpo }` — para os
+  // dois: o catálogo vira um registro de `media` com os bytes como corpo (sem
+  // `opfsPath`, sem `folder`). É a forma em que ele é ADOTADO ao sair do
+  // catálogo (`adotarBases`) e em que viaja no pacote.
+  async function baseDe(id) {
+    const rec = await getMediaCru(id);
+    if (!rec || rec.edicao) return null;
+    if (!rec.opfsPath) return { rec, corpo: rec.blob || null };
+    let f = null;
+    try { f = await opfsGetFile(rec.opfsPath); } catch (_) { f = null; }
+    if (!f) return null;
+    const out = Object.assign({}, rec, { blob: null, url: null, opfsPath: null, base: true,
+      type: rec.type || f.type });
+    delete out.folder;
+    return { rec: out, corpo: f };
+  }
+  // Os ids que algum item editado tem por original.
+  async function origensEditadas() {
+    const s = await store(STORE_MEDIA, 'readonly');
+    return new Promise((resolve, reject) => {
+      const out = new Set();
+      const req = s.openCursor();
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) { resolve(out); return; }
+        const e = c.value && c.value.edicao;
+        if (e && e.origem) out.add(e.origem);
+        c.continue();
+      };
+    });
+  }
+  // Chamada ANTES de apagar registros do catálogo (coleção, pasta): o que algum
+  // item editado usa como original passa para a store `media` — com os bytes —,
+  // que o coletor segura. Fica fora de toda lista, então para o operador o
+  // arquivo foi excluído; para o item editado ele continua existindo.
+  // Devolve quantos adotou.
+  async function adotarBases(recs) {
+    const origens = await origensEditadas();
+    if (!origens.size) return 0;
+    let n = 0;
+    for (const r of (recs || [])) {
+      if (!r || !origens.has(r.id)) continue;
+      const s = await store(STORE_MEDIA, 'readonly');
+      if (await asPromise(s.get(r.id))) continue;     // já é mídia: o coletor o segura
+      const b = await baseDe(r.id);
+      if (!b || !b.corpo) { console.warn('[edicao] original não pôde ser guardado:', r.id); continue; }
+      try { await mediaAdd(Object.assign({}, b.rec, { blob: b.corpo })); n++; } catch (_) { /* já existia */ }
+    }
+    return n;
+  }
+
+  // Um arquivo importado SÓ PARA O EDITOR: vira registro de mídia sem lista nenhuma, marcado
+  // `base`/`doEditor` — invisível ao operador, segurado pelo rascunho (`lerDetentores`) e depois
+  // pelos itens editados que partirem dele. Devolve o registro.
+  async function addBase(blob, meta) {
+    const type = (meta && meta.type) || blob.type;
+    const record = makeMediaRecord({
+      blob, type,
+      kind: (meta && meta.kind) || kindFromType(type),
+      thumb: (meta && meta.thumb) || null,
+      name: (meta && meta.name) || 'sem-nome',
+      height: (meta && meta.height) || null,
+      seconds: (meta && meta.seconds) || null,
+      base: true, doEditor: true,
+    });
+    await mediaAdd(record);
+    return record;
+  }
+  // Os arquivos que o operador importou para o editor e ainda existem (para escolhê-los de novo).
+  async function basesDoEditor() {
+    const s = await store(STORE_MEDIA, 'readonly');
+    return new Promise((resolve, reject) => {
+      const out = [];
+      const req = s.openCursor();
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) { resolve(out); return; }
+        const r = c.value || {};
+        if (r.doEditor && !r.edicao) out.push({ id: c.key, name: r.name, kind: r.kind, seconds: r.seconds || 0 });
+        c.continue();
+      };
+    });
+  }
+
+  // Cria o item editado numa lista (ver `addMediaToList`: registro e lista na
+  // MESMA transação, para o item nunca nascer órfão). Devolve o registro
+  // RESOLVIDO, ou `null` quando o original não serve (sumiu, já é editado, não
+  // é áudio/vídeo com bytes) ou o trecho é vazio.
+  async function addEdicao(e, listName) {
+    const orig = e && await getMediaCru(e.origem);
+    if (!orig || orig.edicao) return null;
+    if (orig.kind !== 'video' && orig.kind !== 'audio') return null;
+    if (!(orig.blob || orig.opfsPath || orig.url)) return null;
+    const ini = e.inicio > 0 ? +e.inicio : 0;
+    const fim = e.fim > 0 ? +e.fim : null;
+    if (fim != null && fim <= ini + 0.5) return null;
+    if (orig.seconds && ini >= orig.seconds - 0.5) return null;
+    const edicao = { origem: orig.id, inicio: ini, fim,
+      fadeEntrada: !!e.fadeEntrada, fadeSaida: !!e.fadeSaida,
+      soAudio: !!e.soAudio && soAudioValido(orig) };
+    const record = makeMediaRecord({
+      kind: edicao.soAudio && orig.kind === 'video' ? 'audio' : orig.kind,
+      type: orig.type,
+      name: (e.nome && String(e.nome).trim()) || ((orig.name || 'sem-nome') + ' (editado)'),
+      edicao,
+    });
+    await addMediaToList(record, listName || 'imports');
+    return resolverEdicao(record);
   }
   // Um registro de mídia que não entre em LISTA nenhuma nasce sem detentor, e
   // é o `gcOrfaos` da abertura seguinte que o apaga. Quem precisar de um usa
@@ -620,7 +795,7 @@
         if (r.blob) bytes += r.blob.size || 0;
         if (r.thumb) bytes += r.thumb.size || 0;
         if (Array.isArray(r.pages)) for (const pg of r.pages) if (pg) bytes += pg.size || 0;
-        out.push({ id: c.key, bytes });
+        out.push({ id: c.key, bytes, edicaoOrigem: r.edicao ? r.edicao.origem : null, base: !!r.base });
         c.continue();
       };
     });
@@ -1035,7 +1210,17 @@
       if (rec.kind === 'deck' && rec.videos) {
         for (const p in rec.videos) if (rec.videos[p]) donos.add(rec.videos[p]);
       }
+      // UM ITEM EDITADO É DETENTOR DO ORIGINAL (a mesma passada, o mesmo
+      // argumento do deck): ele não guarda bytes, só aponta. Sem esta linha o
+      // original sairia da última lista, morreria no `gcOrfaos` seguinte e o
+      // item editado continuaria na lista sem nada para tocar.
+      if (rec.edicao && rec.edicao.origem) donos.add(rec.edicao.origem);
     }
+    // O RASCUNHO DO EDITOR TAMBÉM É DETENTOR do original que ele está editando: um arquivo
+    // importado só para o editor (`addBase`) não está em lista nenhuma, e sem esta linha o
+    // coletor da abertura seguinte o apagaria com o rascunho ainda de pé.
+    const rasc = await asPromise(stateStore.get('edicaoRascunho'));
+    if (rasc && rasc.origem) donos.add(rasc.origem);
     return donos;
   }
 
@@ -1257,7 +1442,7 @@
     setState, getState, updateState, updateStateLote, stateKeys, stateVarrer,
     stateApagarPrefixo,
     addMedia, addUrlMedia, addDeck, addCue,
-    getMedia, mediaByYoutube, renameMedia,
+    getMedia, getMediaCru, addEdicao, addBase, basesDoEditor, baseDe, adotarBases, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,
     filesPastas,

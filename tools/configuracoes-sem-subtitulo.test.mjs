@@ -79,7 +79,7 @@ try {
       // O estado continua existindo — fora da tela.
       aria: t.getAttribute('aria-label') || '',
     })));
-  // CATORZE desde a v1.11.7: os oito da grade (tema, tela, histórico, saída de
+  // QUINZE desde a v1.12.0 (Editar mídia entrou na grade); CATORZE na v1.11.7: os oito da grade (tema, tela, histórico, saída de
   // áudio, dados móveis, verificar, compartilhar e transferir), os quatro da
   // janela da Tela (preenchimento, wallpaper, fundo da letra e giro) e os dois
   // da janela do Transferir (exportar e importar).
@@ -91,8 +91,8 @@ try {
   // dois tiles e não passou por aqui, o `verificar` reprovou na `main` e o
   // `web-ota` foi PULADO — o bundle daquele lote não chegou a aparelho nenhum.
   // Mexeu na grade, este número anda junto, no MESMO lote.
-  checar(tiles.length === 14,
-    'A · a grade e as duas janelas têm os CATORZE tiles', tiles.length);
+  checar(tiles.length === 15,
+    'A · a grade e as duas janelas têm os QUINZE tiles', tiles.length);
   const comSobra = tiles.filter((t) => t.texto !== t.titulo.trim());
   checar(comSobra.length === 0,
     'A · e nenhum tem texto além do TÍTULO — a palavra do estado saiu de todos '

@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.11.23';
+const WEB_VERSION = '1.12.3';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -18680,6 +18680,10 @@ async function syncDeviceFolder(existing, botao) {
 // ou o Hinário inteiro — os bytes já são apagados em bloco por opfsDeleteDir,
 // então aqui não é preciso opfsDeleteFile por registro.
 async function purgeCatalogRecords(recs) {
+  // O ORIGINAL DE UM ITEM EDITADO NÃO SE PERDE: o que algum item editado usa
+  // sai do catálogo para a store de mídia (sem lista, invisível) ANTES de os
+  // bytes do OPFS serem apagados em bloco por quem chamou.
+  try { await AVDB.adotarBases(recs); } catch (e) { console.warn('[edicao] adotarBases falhou:', e); }
   for (const r of recs) {
     await AVDB.fileDelete(r.id);
     // `favs` entra junto: um arquivo de pasta favoritado e depois excluído
@@ -24477,7 +24481,12 @@ function fecharDestPrompt(valor) {
   if (r) r(valor);
 }
 
-function escolherDestinos(titulo, padrao) {
+// `rotulo` é o verbo do botão de confirmar ("Importar" é o de sempre; o item
+// editado diz "Guardar"). Vai para uma variável porque o `remontar` da folha
+// refaz a lista a cada marca, e o rótulo tem de sobreviver a isso.
+let destRotuloGo = 'Importar';
+function escolherDestinos(titulo, padrao, rotulo) {
+  destRotuloGo = rotulo || 'Importar';
   // No simplificado não existe Cronograma nem playlist: perguntar por listas que
   // a tela não tem seria pior que não perguntar (a mesma regra do link
   // compartilhado ali). Quem chama já sabe disso, mas a guarda fica: uma folha
@@ -24516,7 +24525,7 @@ function renderDestPrompt() {
   const txt = document.createElement('span'); txt.className = 'song-menu-text';
   const t = document.createElement('span'); t.className = 'song-menu-label';
   const escolhidos = destUniao(null);
-  t.textContent = escolhidos.length ? 'Importar' : 'Escolha um destino';
+  t.textContent = escolhidos.length ? destRotuloGo : 'Escolha um destino';
   txt.appendChild(t);
   go.appendChild(txt);
   go.disabled = !escolhidos.length;
@@ -31068,10 +31077,58 @@ async function pacoteGruposDeMidia(midia) {
       serieSub.set(chave, s.size ? (v.daSemana ? 'vídeo da semana' : 'último vídeo baixado') : '');
     }
   }
+  // O ORIGINAL DE UM ITEM EDITADO que não está em lista nenhuma é invisível para o operador
+  // (foi "excluído"): não entra em "Outros itens". Ele viaja SEMPRE junto do item editado
+  // (`pacoteBases`), e só junto dele.
+  const origens = new Set(midia.map((m) => m.edicaoOrigem).filter(Boolean));
+  if (origens.size) {
+    // Só some o que NENHUMA lista segura: um original que ainda está no Cronograma ou na
+    // playlist é um item como outro qualquer e segue em "Outros itens".
+    for (const nome of ['imports', 'playlist', 'avulsos', 'favs', 'serie']) {
+      let ids = [];
+      try { ids = await AVDB.listIds(nome); } catch (_) { ids = []; }
+      for (const id of ids) origens.delete(id);
+    }
+  }
   const sobra = new Set();
-  for (const m of midia) if (!cobertos.has(m.id)) sobra.add(m.id);
+  for (const m of midia) if (!cobertos.has(m.id) && !origens.has(m.id) && !m.base) sobra.add(m.id);
   if (sobra.size) porGrupo.set('midia', sobra);
   return { porGrupo, bytes, serieSub };
+}
+
+/**
+ * OS ORIGINAIS DOS ITENS EDITADOS QUE VÃO NO PACOTE — escondidos (v1.12.0).
+ *
+ * Um item editado não guarda bytes: sem o original ele não toca. Então o original viaja
+ * SEMPRE com o editado, mesmo que o grupo dele (um hinário, a lista onde ele estava) esteja
+ * desmarcado — e chega ao destino sem lista nem coleção, só como o vínculo do editado.
+ * Fica de fora o que já viaja pelo caminho normal: a mídia dos grupos marcados e o arquivo de
+ * uma coleção marcada (aí o catálogo e os bytes dela já são o original).
+ */
+async function pacoteBases(plano, sel) {
+  const idsMidia = pacoteMidiaSelecionada(plano, sel);
+  const origens = new Set();
+  for (const m of plano.midia) if (idsMidia.has(m.id) && m.edicaoOrigem) origens.add(m.edicaoOrigem);
+  const lista = [];
+  for (const id of origens) {
+    if (idsMidia.has(id)) continue;
+    let rec = null;
+    try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
+    if (!rec || rec.edicao) continue;
+    if (rec.opfsPath) {
+      const g = AVPacote.grupoDoCaminho(rec.opfsPath, plano.ids);
+      const serie = plano.seriesIds && plano.seriesIds.has(AVPacote.colecaoDoGrupo(g));
+      if (plano.caminhoViaja(rec.opfsPath) && sel.has(g) && !serie) continue;
+    }
+    let b = null;
+    try { b = await AVDB.baseDe(id); } catch (_) { b = null; }
+    if (!b) continue;
+    lista.push({
+      rec: b.rec, corpo: b.corpo,
+      tamanho: (b.corpo ? b.corpo.size : 0) + (b.rec.thumb ? b.rec.thumb.size : 0),
+    });
+  }
+  return lista;
 }
 
 async function pacotePlano(aoAndar) {
@@ -32110,7 +32167,10 @@ async function exportarPacote() {
   // armazenamento próprio, e encher o aparelho até o último byte quebra o
   // WebView, o IndexedDB e a projeção junto. Encher o aparelho para exportar
   // uma biblioteca é o oposto do que este botão promete.
-  const bytesDoPacote = pacoteBytesDe(plano, sel);
+  let bases = [];
+  try { bases = await pacoteBases(plano, sel); } catch (_) { bases = []; }
+  const bytesBases = bases.reduce((t, b) => t + b.tamanho, 0);
+  const bytesDoPacote = pacoteBytesDe(plano, sel) + bytesBases;
   const espaco = await AVNative.pacoteEspaco();
   const cabeLocal = espaco > 0 && espaco - bytesDoPacote > PACOTE_FOLGA_BYTES;
   const nome = cabeLocal
@@ -32133,7 +32193,7 @@ async function exportarPacote() {
   pacoteRenderTiles();
   let erro = '';
   let gravados = -1;
-  const total = Math.max(pacoteBytesDe(plano, sel), 1);
+  const total = Math.max(pacoteBytesDe(plano, sel) + bytesBases, 1);
   try {
     await withBgWork(async () => {
       const tarefa = bgTaskStart('Exportando o acervo', 1, 'enviar');
@@ -32226,7 +32286,9 @@ async function exportarPacote() {
           for (const m of plano.midia) {
             if (!idsMidia.has(m.id)) continue;
             let rec = null;
-            try { rec = await AVDB.getMedia(m.id); } catch (_) { continue; }
+            // CRU: um item editado viaja como o registro que ele é (sem os bytes do original,
+            // que a leitura resolvida traria junto). O original vai pelo `pacoteBases`.
+            try { rec = await AVDB.getMediaCru(m.id); } catch (_) { continue; }
             if (!rec) continue;
             const corpo = rec.blob || null;
             // `grupos`: de QUE grupos da folha este item é — é o que deixa a IMPORTAÇÃO por
@@ -32247,6 +32309,21 @@ async function exportarPacote() {
                 await esc.registro({ t: 'media-pagina', i, tipo: pg.type || '', bytes: pg.size }, pg);
               }
             }
+          }
+        }
+
+        // OS ORIGINAIS ESCONDIDOS dos itens editados (ver `pacoteBases`): `base: true` no
+        // cabeçalho é o que deixa a importação por marcas decidir — entram só se o editado
+        // entrou.
+        if (bases.length) {
+          etapa = 'Originais dos itens editados';
+          bgItemOnly(tarefa, etapa);
+          for (const b of bases) {
+            await esc.registro({
+              t: 'media', rec: AVPacote.sanearMedia(b.rec), bytes: b.corpo ? b.corpo.size : 0,
+              grupos: [], base: true,
+            }, b.corpo || null);
+            if (b.rec.thumb) await esc.registro({ t: 'media-thumb', bytes: b.rec.thumb.size }, b.rec.thumb);
           }
         }
 
@@ -32791,7 +32868,13 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     if (!filtro) return true;
     switch (cab.t) {
       case 'media-thumb': case 'media-pagina': case 'arquivo-thumb': return !pulando;
-      case 'media': pulando = !pacoteMidiaEntra(filtro, cab.rec, cab.grupos); return !pulando;
+      case 'media':
+        // O ORIGINAL ESCONDIDO entra se o item editado que o usa entrou (ele vem DEPOIS, por
+        // contrato do exportador); o editado, ao entrar, registra o original dele.
+        pulando = cab.base ? !filtro.bases.has(cab.rec && cab.rec.id)
+          : !pacoteMidiaEntra(filtro, cab.rec, cab.grupos);
+        if (!pulando && cab.rec && cab.rec.edicao && cab.rec.edicao.origem) filtro.bases.add(cab.rec.edicao.origem);
+        return !pulando;
       case 'arquivo': pulando = !pacoteArquivoEntra(filtro, cab.rec); return !pulando;
       case 'opfs':
         pulando = !filtro.marcados.has(AVPacote.grupoDoCaminho(cab.caminho, filtro.ids));
@@ -32821,7 +32904,11 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     // a frase mais tranquilizadora possível sobre a falha mais destrutiva
     // possível. O ramo do OPFS, dez linhas abaixo, já fazia o certo.
     if (p.tipo === 'media') {
-      try { await AVDB.mediaAdd(p.rec); contagem.media++; } catch (e) {
+      try {
+        await AVDB.mediaAdd(p.rec);
+        // O original escondido não é "um item que entrou": o relatório conta o que o operador vê.
+        if (p.base) contagem.bases = (contagem.bases || 0) + 1; else contagem.media++;
+      } catch (e) {
         if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
         contagem.repetidos++;
       }
@@ -32920,7 +33007,7 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
       // ele sempre foi — resolvido no primeiro toque, pelo caminho que já
       // existe.
       const rec = Object.assign({}, cab.rec, { blob: corpo, thumb: null, pages: null });
-      pendente = { tipo: 'media', rec };
+      pendente = { tipo: 'media', rec, base: !!cab.base };
       continue;
     }
     if (cab.t === 'arquivo') {
@@ -33106,6 +33193,7 @@ function pacoteFiltroDeImportacao() {
     marcados: pacoteSelecao(plano),
     ids: new Set(allCollections().map((c) => c.id)),
     listas: new Map(),
+    bases: new Set(),
   };
 }
 
@@ -37611,6 +37699,642 @@ function openPacotePopup() {
 }
 function closePacotePopup() { pacotePopupEl.classList.remove('open'); }
 
+// ===== EDITAR MÍDIA (v1.12.0) =====
+//
+// O item editado é VIRTUAL: guarda só `edicao` (origem, início, fim, fades, "só o áudio") e
+// aponta para o original, que o coletor segura enquanto o item existir em qualquer lugar (ver
+// `lerDetentores`). Quem aplica o recorte e os fades é o `stage.js`, na hora de tocar. Esta
+// janela é só o formulário — sem player. O operador anota os pontos tocando o ORIGINAL na
+// prévia e volta aqui; por isso o rascunho é gravado a cada ajuste e reaparece na reabertura.
+//
+// DUAS VISTAS NA MESMA FOLHA (a folha não muda de altura entre elas): o FORMULÁRIO e o SELETOR
+// DE MÍDIA, que é a lista de grupos da exportação (Cronograma, Playlist, Favoritos e a
+// Biblioteca por coletânea), com um "Importar arquivo" que traz o arquivo SÓ para o editor.
+// Escolher um item JÁ EDITADO parte dos valores dele para um ajuste fino: o que se cria é
+// sempre um item NOVO, que aponta para o mesmo original — o editado de partida não muda.
+const edicaoTileEl = document.getElementById('edicaoTile');
+const edicaoPopupEl = document.getElementById('edicaoPopup');
+const edicaoPopupCloseEl = document.getElementById('edicaoPopupClose');
+const edicaoTituloEl = document.getElementById('edicaoTitulo');
+const edicaoBuscaCaixaEl = document.getElementById('edicaoBuscaCaixa');
+const edicaoBuscaEl = document.getElementById('edicaoBusca');
+const edicaoListaEl = document.getElementById('edicaoLista');
+const edicaoNotaEl = document.getElementById('edicaoNota');
+const edicaoFechoFormEl = document.getElementById('edicaoFechoForm');
+const edicaoFechoEscolhaEl = document.getElementById('edicaoFechoEscolha');
+const edicaoDescartarEl = document.getElementById('edicaoDescartar');
+const edicaoCriarEl = document.getElementById('edicaoCriar');
+const edicaoVoltarEl = document.getElementById('edicaoVoltar');
+const edicaoImportarEl = document.getElementById('edicaoImportar');
+
+const EDICAO_RASCUNHO = 'edicaoRascunho';
+const EDICAO_PASSO = 1;            // os botões −1 s / +1 s do ajuste fino
+const EDICAO_VAO_MIN = 1;          // o trecho tem de ter ao menos 1 s
+const EDICAO_PASSO_FAIXA = 0.5;    // o passo da faixa (o fino é o dos botões)
+let edicaoVista = 'form';          // 'form' | 'escolha'
+let edicaoOrigem = null;           // o registro CRU do original escolhido
+let edicaoPartida = '';            // o nome do item editado de que se partiu (ajuste fino)
+let edicaoDur = 0;                 // duração do original (s); 0 = sem escolha
+// O fim da faixa é a duração ARREDONDADA PARA CIMA no passo: um `max` fora da grade do passo é
+// inalcançável, e a faixa pararia meio passo antes do fim do arquivo — o que `edicaoLer` leria
+// como um corte de verdade.
+let edicaoTeto = 0;
+let edicaoVals = { inicio: 0, fim: 0, fadeEntrada: false, fadeSaida: false, soAudio: false, nome: '' };
+let edicaoSelId = '';              // a linha marcada no seletor
+let edicaoGrupos = [];             // os grupos do seletor, já lidos
+const edicaoAbertos = new Set();   // os grupos abertos (uma sessão)
+let edicaoSeq = 0;
+let edicaoCarregando = false;      // a lista do seletor está sendo lida (spinner)
+let edicaoSalvarTimer = null;
+let edicaoEls = null;              // os nós do formulário que mudam sem remontar
+
+// Só áudio e vídeo COM BYTES: link do YouTube, imagem, apresentação e cena de roteiro não têm
+// linha do tempo para cortar. O item JÁ EDITADO entra na lista como ponto de PARTIDA.
+function edicaoElegivel(r) {
+  return !!r && !r.edicao && (r.kind === 'video' || r.kind === 'audio')
+    && !!(r.blob || r.opfsPath || r.url);
+}
+function edicaoUsavel(r) {
+  return !!r && (r.kind === 'video' || r.kind === 'audio') && (!!r.edicao || edicaoElegivel(r));
+}
+
+// "Só o áudio" tem o que tirar num VÍDEO (a imagem) e num ÁUDIO com letra (a letra e o fundo dela).
+function edicaoPodeSoAudio(r) {
+  return !!r && (r.kind === 'video' || (r.kind === 'audio' && Array.isArray(r.lyrics) && r.lyrics.length > 0));
+}
+
+function edicaoFmt(t) {
+  t = Math.max(0, +t || 0);
+  const meio = (t % 1) >= 0.5 ? ',5' : '';
+  const i = Math.floor(t);
+  const h = Math.floor(i / 3600);
+  const m = Math.floor((i % 3600) / 60);
+  const sg = String(i % 60).padStart(2, '0');
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + sg + meio;
+}
+function edicaoDizer(texto) { edicaoNotaEl.textContent = texto || ''; }
+
+// A duração do original: o campo gravado quando existe; senão lê os metadados (sem tocar nada).
+async function edicaoDuracao(rec) {
+  if (rec.seconds > 0) return rec.seconds;
+  let src = null, revogar = null;
+  try {
+    if (rec.blob) { src = URL.createObjectURL(rec.blob); revogar = src; }
+    else if (rec.opfsPath) {
+      const f = await AVDB.opfsGetFile(rec.opfsPath);
+      if (f) { src = URL.createObjectURL(f); revogar = src; }
+    } else if (rec.url) src = rec.url;
+  } catch (_) { src = null; }
+  if (!src) return 0;
+  return new Promise((resolve) => {
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.muted = true;
+    let t = null;
+    const fim = (d) => {
+      clearTimeout(t);
+      v.removeAttribute('src'); v.load();
+      if (revogar) URL.revokeObjectURL(revogar);
+      resolve(isFinite(d) && d > 0 ? d : 0);
+    };
+    t = setTimeout(() => fim(0), 8000);
+    v.addEventListener('loadedmetadata', () => fim(v.duration), { once: true });
+    v.addEventListener('error', () => fim(0), { once: true });
+    v.src = src;
+  });
+}
+
+// ---------- os grupos do seletor ----------
+async function edicaoMontarGrupos() {
+  const grupos = [];
+  const item = (r) => ({ id: r.id, nome: r.name || 'sem nome', kind: r.kind, seconds: r.seconds || 0, editado: !!r.edicao });
+  const porNome = (a, b) => a.nome.localeCompare(b.nome, 'pt', { numeric: true });
+  for (const [chave, lista, nome] of [['lst:imports', 'imports', 'Cronograma'],
+    ['lst:playlist', 'playlist', 'Playlist'], ['lst:favs', 'favs', 'Favoritos']]) {
+    let itens = [];
+    try { itens = (await AVDB.listItems(lista)).filter(edicaoUsavel).map(item); } catch (_) { itens = []; }
+    grupos.push({ chave, nome, itens });
+  }
+  // A BIBLIOTECA, por coletânea: o que foi baixado mora no catálogo de arquivos, por pasta.
+  let arquivos = [];
+  try {
+    arquivos = (await AVDB.filesAll()).filter((r) => (r.kind === 'video' || r.kind === 'audio') && r.opfsPath);
+  } catch (_) { arquivos = []; }
+  const porPasta = new Map();
+  for (const r of arquivos) {
+    if (!porPasta.has(r.folder)) porPasta.set(r.folder, []);
+    porPasta.get(r.folder).push(item(r));
+  }
+  const vistas = new Set();
+  for (const c of allCollections()) {
+    vistas.add(c.id);
+    const its = porPasta.get(c.id);
+    if (its && its.length) grupos.push({ chave: 'col:' + c.id, nome: c.name || c.id, secao: 'Biblioteca', itens: its.sort(porNome) });
+  }
+  for (const [pasta, its] of porPasta) {
+    if (vistas.has(pasta)) continue;
+    const f = opfsFolders.find((x) => x && x.id === pasta);
+    grupos.push({ chave: 'col:' + pasta, nome: f ? f.name : 'Arquivos sem coleção', secao: 'Biblioteca', itens: its.sort(porNome) });
+  }
+  let importados = [];
+  try { importados = await AVDB.basesDoEditor(); } catch (_) { importados = []; }
+  if (importados.length) {
+    grupos.push({
+      chave: 'doEditor', nome: 'Importados para edição', secao: 'Biblioteca',
+      itens: importados.map((r) => ({ id: r.id, nome: r.name || 'sem nome', kind: r.kind, seconds: r.seconds || 0, editado: false })).sort(porNome),
+    });
+  }
+  return grupos;
+}
+
+function edicaoSubDoItem(it) {
+  return (it.editado ? 'Editado · ' : '') + (it.kind === 'video' ? 'Vídeo' : 'Áudio')
+    + (it.seconds ? ' · ' + fmtTime(it.seconds) : '');
+}
+
+// UMA LINHA do seletor, no desenho da linha da exportação (`.pacote-linha`): o quadrado do
+// ícone, o nome, a segunda linha e a MARCA à direita — aqui de uma escolha só.
+function edicaoLinha(icone, rotulo, sub, marcado, aoToque) {
+  const li = document.createElement('li');
+  li.className = 'pacote-linha';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'song-menu-btn song-menu-sel';
+  const ic = icone; ic.classList.add('song-menu-icon', 'coll-bar-icon');
+  const txt = document.createElement('span'); txt.className = 'song-menu-text';
+  const t = document.createElement('span'); t.className = 'song-menu-label'; t.textContent = rotulo;
+  txt.appendChild(t);
+  if (sub) {
+    const d = document.createElement('span'); d.className = 'song-menu-sub'; d.textContent = sub;
+    txt.appendChild(d);
+  }
+  const cx = document.createElement('span');
+  cx.className = 'song-menu-check' + (marcado ? ' on' : '');
+  cx.setAttribute('role', 'checkbox');
+  cx.setAttribute('aria-checked', marcado ? 'true' : 'false');
+  // `marcado === null`: escolha de UM item (toque e pronto) — caixa de marcação é de múltipla escolha.
+  if (marcado === null) btn.append(ic, txt); else btn.append(ic, txt, cx);
+  btn.addEventListener('click', () => aoToque(btn, cx));
+  li.appendChild(btn);
+  return li;
+}
+
+function renderEdicaoEscolha() {
+  edicaoListaEl.innerHTML = '';
+  if (edicaoCarregando) {
+    const c = document.createElement('li');
+    c.className = 'edicao-carga';
+    c.innerHTML = '<svg class="edicao-spin" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke-dasharray="40 100"/></svg><span>Carregando a lista…</span>';
+    edicaoListaEl.appendChild(c);
+    return;
+  }
+  const q = (edicaoBuscaEl.value || '').trim().toLowerCase();
+  let desenhou = 0;
+  let secaoDita = '';
+  for (const g of edicaoGrupos) {
+    const itens = q ? g.itens.filter((i) => i.nome.toLowerCase().includes(q)) : g.itens;
+    if (q && !itens.length) continue;
+    if (g.secao && g.secao !== secaoDita) {
+      secaoDita = g.secao;
+      const cab = document.createElement('li');
+      cab.className = 'edicao-secao';
+      cab.textContent = g.secao;
+      edicaoListaEl.appendChild(cab);
+    }
+    desenhou++;
+    const aberta = q ? true : edicaoAbertos.has(g.chave);
+    const li = document.createElement('li');
+    li.className = 'pacote-grupo' + (aberta ? ' aberto' : '');
+    const bar = document.createElement('div');
+    bar.className = 'song-menu-btn song-menu-grupo song-menu-sel';
+    bar.setAttribute('role', 'button');
+    bar.setAttribute('tabindex', '0');
+    const seta = document.createElement('button');
+    seta.type = 'button';
+    seta.className = 'coll-group-icon pacote-seta' + (aberta ? ' aberta' : '');
+    seta.innerHTML = chevronUpIconSvg();
+    seta.setAttribute('aria-label', (aberta ? 'Fechar ' : 'Abrir ') + g.nome);
+    seta.setAttribute('aria-expanded', aberta ? 'true' : 'false');
+    const txt = document.createElement('span'); txt.className = 'song-menu-text';
+    const t = document.createElement('span'); t.className = 'song-menu-label'; t.textContent = g.nome;
+    const d = document.createElement('span'); d.className = 'song-menu-sub';
+    d.textContent = itens.length + (itens.length === 1 ? ' mídia' : ' mídias');
+    txt.append(t, d);
+    bar.append(seta, txt);
+    // A barra INTEIRA abre e fecha (aqui não há o que marcar num grupo), com a animação da
+    // Biblioteca: fechando anima ANTES de remontar, abrindo remonta e anima no quadro seguinte.
+    const alternar = () => {
+      if (q) return;
+      const abrindo = !aberta;
+      const aplicar = () => {
+        if (abrindo) edicaoAbertos.add(g.chave); else edicaoAbertos.delete(g.chave);
+        renderEdicaoEscolha();
+        if (abrindo) {
+          const novo = edicaoListaEl.querySelector('[data-grupo="' + CSS.escape(g.chave) + '"] .pacote-grupo-corpo');
+          requestAnimationFrame(() => expandAccordion(novo));
+        }
+      };
+      if (!abrindo) { collapseAccordion(li.querySelector('.pacote-grupo-corpo'), aplicar); return; }
+      aplicar();
+    };
+    bar.addEventListener('click', alternar);
+    bar.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); alternar(); } });
+    li.dataset.grupo = g.chave;
+    li.appendChild(bar);
+    if (aberta) {
+      const corpo = document.createElement('ul');
+      corpo.className = 'pacote-grupo-corpo';
+      if (!itens.length) {
+        const vazio = document.createElement('li');
+        vazio.className = 'empty';
+        vazio.textContent = 'Nenhuma mídia de áudio ou vídeo aqui.';
+        corpo.appendChild(vazio);
+      }
+      for (const it of itens) {
+        corpo.appendChild(edicaoLinha(msym(ICON.music), it.nome, edicaoSubDoItem(it), null,
+          () => { edicaoEscolherItem(it); }));
+      }
+      li.appendChild(corpo);
+    }
+    edicaoListaEl.appendChild(li);
+  }
+  if (!desenhou) {
+    const vazio = document.createElement('li');
+    vazio.className = 'empty';
+    vazio.textContent = q ? 'Nenhuma mídia com esse nome.'
+      : 'Nenhuma mídia de áudio ou vídeo neste aparelho. Use “Importar arquivo”.';
+    edicaoListaEl.appendChild(vazio);
+  }
+}
+
+// ---------- o formulário ----------
+function edicaoLer() {
+  if (!edicaoOrigem || !(edicaoDur > 0)) return null;
+  const v = edicaoVals;
+  return {
+    origem: edicaoOrigem.id,
+    inicio: v.inicio,
+    // No fim do arquivo não há corte final: `null` deixa o `ended` ser o real.
+    fim: v.fim >= edicaoDur - 0.01 ? null : v.fim,
+    fadeEntrada: v.fadeEntrada,
+    fadeSaida: v.fadeSaida,
+    soAudio: v.soAudio && edicaoPodeSoAudio(edicaoOrigem),
+    nome: v.nome,
+  };
+}
+// Algo a criar? Sem nenhuma marca o item seria uma cópia do original.
+function edicaoMudou(e) {
+  return !!e && (e.inicio > 0 || e.fim != null || e.fadeEntrada || e.fadeSaida || e.soAudio);
+}
+
+function edicaoSalvarJa() {
+  clearTimeout(edicaoSalvarTimer); edicaoSalvarTimer = null;
+  const e = edicaoLer();
+  AVDB.setState(EDICAO_RASCUNHO, e ? Object.assign({}, e, { partida: edicaoPartida }) : null).catch(() => {});
+}
+function edicaoSalvarLogo() {
+  clearTimeout(edicaoSalvarTimer);
+  edicaoSalvarTimer = setTimeout(edicaoSalvarJa, 250);
+}
+
+// O que muda a cada toque na faixa: os números, o preenchimento entre as pontas, o resumo, o
+// botão de criar. Nada é remontado — remontar no meio do arrasto o soltaria.
+function edicaoAtualizar() {
+  const e = edicaoLer();
+  const v = edicaoVals;
+  if (edicaoEls) {
+    const r1 = edicaoTeto > 0 ? v.inicio / edicaoTeto : 0;
+    const r2 = edicaoTeto > 0 ? Math.min(1, v.fim / edicaoTeto) : 1;
+    edicaoEls.faixa.style.setProperty('--r1', String(r1));
+    edicaoEls.faixa.style.setProperty('--r2', String(r2));
+    edicaoEls.faixa.classList.toggle('ini-por-cima', r1 > 0.5);
+    edicaoEls.ini.value = String(v.inicio);
+    edicaoEls.fim.value = String(v.fim);
+    edicaoEls.iniVal.textContent = edicaoFmt(v.inicio);
+    edicaoEls.fimVal.textContent = edicaoFmt(e && e.fim == null ? edicaoDur : v.fim);
+    edicaoEls.resumo.textContent = 'fica com ' + edicaoFmt((e && e.fim == null ? edicaoDur : v.fim) - v.inicio);
+  }
+  if (e) {
+    edicaoDizer('Original: ' + edicaoFmt(edicaoDur) + (e.soAudio ? ' · só o áudio' : '')
+      + (edicaoPartida ? ' · ajuste sobre “' + edicaoPartida + '”' : ''));
+  }
+  edicaoCriarEl.disabled = !edicaoMudou(e);
+}
+
+function edicaoMudouFaixa(qual, valor) {
+  const v = edicaoVals;
+  if (qual === 'ini') v.inicio = Math.min(Math.max(0, valor), Math.max(0, v.fim - EDICAO_VAO_MIN));
+  else v.fim = Math.max(Math.min(edicaoTeto, valor), Math.min(edicaoTeto, v.inicio + EDICAO_VAO_MIN));
+  edicaoAtualizar();
+  edicaoSalvarLogo();
+}
+
+// Uma marca (liga/desliga) no desenho das linhas da folha: o quadrado do ícone, o texto e a
+// caixa à direita. É uma linha de ESCOLHA (`--sel-fill` quando marcada), não um interruptor solto.
+function edicaoMarca(icone, rotulo, sub, campo) {
+  const li = edicaoLinha(icone, rotulo, sub, edicaoVals[campo], (btn, cx) => {
+    edicaoVals[campo] = !edicaoVals[campo];
+    cx.classList.toggle('on', edicaoVals[campo]);
+    cx.setAttribute('aria-checked', edicaoVals[campo] ? 'true' : 'false');
+    edicaoAtualizar();
+    edicaoSalvarLogo();
+  });
+  return li;
+}
+
+function renderEdicaoForm() {
+  edicaoListaEl.innerHTML = '';
+  edicaoEls = null;
+  if (!edicaoOrigem) {
+    const vazio = document.createElement('li');
+    vazio.className = 'empty';
+    vazio.textContent = 'Escolha a mídia que será editada.';
+    edicaoListaEl.appendChild(vazio);
+    edicaoListaEl.appendChild(edicaoLinha(msym(ICON.import), 'Escolher a mídia', 'Cronograma, playlist, favoritos ou biblioteca', null,
+      () => { edicaoAbrirEscolha(); }));
+    edicaoCriarEl.disabled = true;
+    return;
+  }
+  const v = edicaoVals;
+  // 1 · A MÍDIA (um toque troca): a linha da mídia escolhida no desenho do seletor.
+  const mid = edicaoLinha(msym(ICON.music), edicaoOrigem.name || 'sem nome',
+    (edicaoOrigem.kind === 'video' ? 'Vídeo' : 'Áudio') + ' · ' + edicaoFmt(edicaoDur) + ' · toque para trocar',
+    null, () => { edicaoAbrirEscolha(); });
+  edicaoListaEl.appendChild(mid);
+
+  // 2 · O TRECHO: UMA faixa com duas pontas.
+  const bloco = document.createElement('li');
+  bloco.className = 'edicao-bloco';
+  const cab = document.createElement('div'); cab.className = 'edicao-cab';
+  const tit = document.createElement('span'); tit.className = 'edicao-tit'; tit.textContent = 'Trecho';
+  const resumo = document.createElement('span'); resumo.className = 'edicao-resumo';
+  cab.append(tit, resumo);
+  const faixa = document.createElement('div'); faixa.className = 'edicao-faixa';
+  const trilho = document.createElement('div'); trilho.className = 'edicao-trilho';
+  const trecho = document.createElement('div'); trecho.className = 'edicao-trecho';
+  const mk = (id, rotulo) => {
+    const el = document.createElement('input');
+    el.type = 'range'; el.id = id; el.min = '0'; el.max = String(edicaoTeto); el.step = String(EDICAO_PASSO_FAIXA);
+    el.setAttribute('aria-label', rotulo);
+    return el;
+  };
+  const ini = mk('edicaoIni', 'Início do trecho');
+  const fim = mk('edicaoFim', 'Fim do trecho');
+  faixa.append(trilho, trecho, ini, fim);
+  ini.addEventListener('input', () => edicaoMudouFaixa('ini', +ini.value));
+  fim.addEventListener('input', () => edicaoMudouFaixa('fim', +fim.value));
+  // As DUAS PONTAS, uma coluna cada: o rótulo, o tempo e o ajuste fino. O passo da faixa é de
+  // meio segundo, e a precisão de um segundo por toque mora nos botões — numa hora de áudio a
+  // faixa sozinha não chega ao segundo.
+  const pontas = document.createElement('div'); pontas.className = 'edicao-pontas';
+  const ponta = (qual, rotulo) => {
+    const w = document.createElement('div'); w.className = 'edicao-ponta';
+    const r = document.createElement('span'); r.className = 'edicao-rotulo'; r.textContent = rotulo;
+    const o = document.createElement('output'); o.className = 'edicao-valor';
+    const g = document.createElement('div'); g.className = 'edicao-passos';
+    const mais = (delta, txt) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'misc-chip edicao-passo';
+      b.textContent = txt;
+      b.setAttribute('aria-label', rotulo + ' ' + txt.replace('−', 'menos ').replace('+', 'mais '));
+      b.addEventListener('click', () => edicaoMudouFaixa(qual, (qual === 'ini' ? edicaoVals.inicio : edicaoVals.fim) + delta));
+      return b;
+    };
+    g.append(mais(-EDICAO_PASSO, '−1 s'), mais(EDICAO_PASSO, '+1 s'));
+    w.append(r, o, g);
+    return { w, o };
+  };
+  const pIni = ponta('ini', 'Início'); const pFim = ponta('fim', 'Fim');
+  pontas.append(pIni.w, pFim.w);
+  bloco.append(cab, faixa, pontas);
+  edicaoListaEl.appendChild(bloco);
+  edicaoEls = { faixa, ini, fim, iniVal: pIni.o, fimVal: pFim.o, resumo };
+
+  // 3 · AS MARCAS
+  edicaoListaEl.appendChild(edicaoMarca(msym(ICON.volOn), 'Fade de entrada', 'o som e a imagem sobem ao começar', 'fadeEntrada'));
+  edicaoListaEl.appendChild(edicaoMarca(msym(ICON.volOff), 'Fade de saída', 'o som e a imagem descem antes do corte', 'fadeSaida'));
+  if (edicaoPodeSoAudio(edicaoOrigem)) {
+    edicaoListaEl.appendChild(edicaoMarca(msym(ICON.music), 'Só o áudio',
+      edicaoOrigem.kind === 'video' ? 'o vídeo fica de fora' : 'sem letra e sem imagem: o telão fica no wallpaper', 'soAudio'));
+  }
+
+  // 4 · O NOME
+  const nome = document.createElement('li');
+  nome.className = 'edicao-bloco';
+  const rn = document.createElement('span'); rn.className = 'edicao-rotulo'; rn.textContent = 'Nome do item novo';
+  const campo = document.createElement('div'); campo.className = 'sorteio-campo edicao-nome';
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.className = 'lib-search'; inp.maxLength = 120; inp.autocomplete = 'off';
+  inp.value = v.nome; inp.setAttribute('aria-label', 'Nome do item novo');
+  inp.addEventListener('input', () => { edicaoVals.nome = inp.value; edicaoSalvarLogo(); });
+  campo.appendChild(inp);
+  nome.append(rn, campo);
+  edicaoListaEl.appendChild(nome);
+  edicaoAtualizar();
+}
+
+function edicaoRender() {
+  const escolha = edicaoVista === 'escolha';
+  edicaoTituloEl.textContent = escolha ? 'Escolher a mídia' : 'Editar mídia';
+  edicaoBuscaCaixaEl.hidden = !escolha;
+  edicaoFechoFormEl.hidden = escolha;
+  edicaoFechoEscolhaEl.hidden = !escolha;
+  edicaoVoltarEl.disabled = !edicaoOrigem;
+  if (escolha) { edicaoDizer(''); renderEdicaoEscolha(); } else renderEdicaoForm();
+  edicaoEntrar();
+}
+
+// Ler os grupos leva um instante e a lista vazia piscava "nenhuma mídia": o seletor mostra um
+// spinner por UM SEGUNDO (padrão pedido) e só então a lista, com a mesma entrada suave.
+const EDICAO_CARGA_MS = 1000;
+async function edicaoCarregarLista() {
+  const seq = ++edicaoSeqLista;
+  edicaoCarregando = true;
+  renderEdicaoEscolha();
+  const espera = new Promise((r) => setTimeout(r, EDICAO_CARGA_MS));
+  let grupos = [];
+  try { grupos = await edicaoMontarGrupos(); } catch (_) { grupos = []; }
+  await espera;
+  if (seq !== edicaoSeqLista) return;
+  edicaoGrupos = grupos;
+  edicaoCarregando = false;
+  if (edicaoVista === 'escolha') { renderEdicaoEscolha(); edicaoEntrar(); }
+}
+let edicaoSeqLista = 0;
+// Reinicia a animação de entrada do corpo da folha.
+function edicaoEntrar() {
+  edicaoListaEl.classList.remove('edicao-entra');
+  void edicaoListaEl.offsetWidth;
+  edicaoListaEl.classList.add('edicao-entra');
+}
+
+async function edicaoAbrirEscolha() {
+  edicaoSalvarJa();
+  edicaoVista = 'escolha';
+  edicaoBuscaEl.value = '';
+  edicaoGrupos = [];
+  edicaoCarregando = true;
+  edicaoRender();
+  await edicaoCarregarLista();
+}
+
+// Carrega o original e deixa o formulário pronto. `valores` (o rascunho, ou os de um item já
+// editado) é opcional: sem ele a faixa abre no arquivo inteiro.
+async function edicaoCarregarOrigem(id, valores, partida) {
+  const seq = ++edicaoSeq;
+  let rec = null;
+  try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
+  if (seq !== edicaoSeq) return false;
+  if (!edicaoElegivel(rec)) { edicaoDizer('Essa mídia não está mais no aparelho.'); return false; }
+  edicaoDizer('Lendo a duração…');
+  const dur = await edicaoDuracao(rec);
+  if (seq !== edicaoSeq) return false;
+  if (!(dur > 0)) { edicaoDizer('Não foi possível ler a duração desta mídia.'); return false; }
+  edicaoOrigem = rec; edicaoDur = dur; edicaoPartida = partida || '';
+  edicaoTeto = Math.ceil(dur * 2) / 2;
+  const v = valores || {};
+  const ini = Math.min(Math.max(0, +v.inicio || 0), Math.max(0, dur - EDICAO_VAO_MIN));
+  const fim = v.fim > ini + EDICAO_VAO_MIN - 0.01 && v.fim < dur ? +v.fim : edicaoTeto;
+  edicaoVals = {
+    inicio: ini, fim,
+    fadeEntrada: !!v.fadeEntrada, fadeSaida: !!v.fadeSaida,
+    soAudio: edicaoPodeSoAudio(rec) && !!v.soAudio,
+    nome: (v.nome && String(v.nome).trim()) ? v.nome : ((rec.name || 'sem nome') + ' (editado)'),
+  };
+  return true;
+}
+
+// Tocou numa linha do seletor. Um item JÁ EDITADO parte dos valores dele (ajuste fino).
+async function edicaoEscolherItem(it) {
+  edicaoSelId = it.id;
+  let origem = it.id, valores = null, partida = '';
+  if (it.editado) {
+    let cru = null;
+    try { cru = await AVDB.getMediaCru(it.id); } catch (_) { cru = null; }
+    if (!cru || !cru.edicao) { edicaoDizer('Esse item não está mais no aparelho.'); return; }
+    origem = cru.edicao.origem;
+    partida = cru.name || '';
+    valores = Object.assign({}, cru.edicao, { nome: proximoNomeDeAjuste(cru.name || 'sem nome') });
+  }
+  const ok = await edicaoCarregarOrigem(origem, valores, partida);
+  if (!ok) { renderEdicaoEscolha(); return; }
+  edicaoVista = 'form';
+  edicaoRender();
+  edicaoSalvarJa();
+}
+
+// "Hino" → "Hino (2)"; "Hino (2)" → "Hino (3)": o nome do item novo de um ajuste nunca é igual ao do
+// que já existe, e o operador só escreve se quiser outro.
+function proximoNomeDeAjuste(nome) {
+  const m = /^(.*?)\s*\((\d+)\)\s*$/.exec(nome);
+  return m ? m[1] + ' (' + (+m[2] + 1) + ')' : nome + ' (2)';
+}
+
+async function openEdicaoPopup() {
+  edicaoPopupEl.classList.add('open');
+  edicaoDizer('');
+  let r = null;
+  try { r = await AVDB.getState(EDICAO_RASCUNHO); } catch (_) { r = null; }
+  if (r && r.origem && (!edicaoOrigem || edicaoOrigem.id !== r.origem)) {
+    if (await edicaoCarregarOrigem(r.origem, r, r.partida)) edicaoSelId = r.origem;
+  }
+  edicaoVista = edicaoOrigem ? 'form' : 'escolha';
+  if (edicaoVista === 'escolha') { edicaoCarregando = true; edicaoRender(); await edicaoCarregarLista(); }
+  else edicaoRender();
+}
+function closeEdicaoPopup() {
+  edicaoSalvarJa();
+  edicaoPopupEl.classList.remove('open');
+}
+
+async function edicaoDescartar() {
+  clearTimeout(edicaoSalvarTimer); edicaoSalvarTimer = null;
+  try { await AVDB.setState(EDICAO_RASCUNHO, null); } catch (_) { /* nada */ }
+  edicaoSeq++;
+  edicaoOrigem = null; edicaoDur = 0; edicaoSelId = ''; edicaoPartida = '';
+  edicaoVals = { inicio: 0, fim: 0, fadeEntrada: false, fadeSaida: false, soAudio: false, nome: '' };
+  await edicaoAbrirEscolha();
+}
+
+// Importar para o editor: o MESMO seletor de arquivos da importação do Cronograma, mas o arquivo
+// não entra em lista nenhuma — vira o original oculto do item editado.
+async function edicaoPedirArquivo() {
+  if (window.__NATIVE__) {
+    const l = await AVNative.pickDoc('audio/*,video/*');
+    return (l && l[0]) || null;
+  }
+  return new Promise((resolve) => {
+    const i = document.createElement('input');
+    i.type = 'file'; i.accept = 'audio/*,video/*';
+    i.addEventListener('change', () => resolve(i.files[0] || null), { once: true });
+    i.addEventListener('cancel', () => resolve(null), { once: true });
+    i.click();
+  });
+}
+async function edicaoImportar() {
+  edicaoImportarEl.disabled = true;
+  try {
+    const item = await edicaoPedirArquivo();
+    if (!item) return;
+    let blob = item instanceof Blob ? item : null;
+    const nome = item.name || 'arquivo';
+    if (!blob && item.url) {
+      try { const res = await fetch(item.url); if (res.ok) blob = await res.blob(); } catch (_) { blob = null; }
+    }
+    if (!blob) { edicaoDizer('Não deu para ler o arquivo.'); return; }
+    const type = guessMediaType(nome) !== 'application/octet-stream' ? guessMediaType(nome) : blob.type;
+    const kind = AVDB.kindFromType(type);
+    if (kind !== 'video' && kind !== 'audio') { edicaoDizer('O editor só recebe áudio ou vídeo.'); return; }
+    edicaoDizer('Lendo o arquivo…');
+    const { thumb, height, seconds } = await prepararMidia(blob, kind);
+    const rec = await AVDB.addBase(blob, { name: nomeSemExtensao(nome), type, kind, thumb, height, seconds });
+    edicaoGrupos = await edicaoMontarGrupos();
+    edicaoAbertos.add('doEditor');
+    await edicaoEscolherItem({ id: rec.id, nome: rec.name, kind, seconds: rec.seconds || 0, editado: false });
+  } finally {
+    edicaoImportarEl.disabled = false;
+  }
+}
+
+async function edicaoCriar() {
+  const e = edicaoLer();
+  if (!edicaoMudou(e)) return;
+  // No avançado, a pergunta de destino (a mesma folha da importação, com o Cronograma marcado);
+  // desistir DESISTE de criar. No Modo Fácil não há listas à vista para perguntar: o item vai
+  // ao Cronograma e aos Favoritos, e aparece quando o avançado for aberto.
+  let listas;
+  if (simplificado()) listas = listasDosDestinos(['cronograma', 'favoritos']);
+  else {
+    const escolha = await escolherDestinos('Guardar o item editado', ['cronograma'], 'Guardar');
+    if (!escolha || !escolha.length) return;
+    listas = listasDosDestinos(escolha);
+  }
+  edicaoCriarEl.disabled = true;
+  let rec = null;
+  // Nasce na prateleira avulsa (já detentora do original) e só sai dela com os destinos gravados.
+  try { rec = await AVDB.addEdicao(e, 'avulsos'); } catch (_) { rec = null; }
+  if (!rec) {
+    edicaoDizer('Não foi possível criar o item: a mídia original mudou ou o trecho ficou vazio.');
+    edicaoAtualizar();
+    return;
+  }
+  await adicionarNasListas(listas, rec.id, rec.name, edicaoCriarEl);
+  try { await AVDB.listRemove('avulsos', rec.id); } catch (_) { /* fica na prateleira: sem dano */ }
+  // O FORMULÁRIO FICA COMO ESTAVA (o rascunho segue valendo): outro item com um ajuste a mais
+  // é só mudar e criar de novo. O nome avança para não repetir o que acabou de nascer.
+  edicaoPartida = rec.name;
+  edicaoVals.nome = proximoNomeDeAjuste(rec.name);
+  edicaoSalvarJa();
+  edicaoRender();
+  edicaoDizer('Item criado: ' + rec.name + (simplificado() ? ' — está no Cronograma e nos Favoritos.' : '.'));
+}
+
+edicaoBuscaEl.addEventListener('input', () => { if (edicaoVista === 'escolha') renderEdicaoEscolha(); });
+edicaoDescartarEl.addEventListener('click', edicaoDescartar);
+edicaoCriarEl.addEventListener('click', edicaoCriar);
+edicaoVoltarEl.addEventListener('click', () => { if (!edicaoOrigem) return; edicaoVista = 'form'; edicaoRender(); });
+edicaoImportarEl.addEventListener('click', edicaoImportar);
+if (edicaoTileEl) edicaoTileEl.addEventListener('click', openEdicaoPopup);
+
 /**
  * SALVA O REGISTRO — o mesmo arquivo de Configurações, com a verificação dentro
  * (v1.10.3). Pedido do operador: *"faça com que essa verificação, após feita,
@@ -40472,6 +41196,9 @@ const POPUPS = [
   // mesma ordem. Nada abre por cima do Transferir.
   [telaPopupEl, telaPopupCloseEl, closeTelaPopup],
   [pacotePopupEl, pacotePopupCloseEl, closePacotePopup],
+  // EDITAR MÍDIA abre de Configurações como as duas acima (v1.12.0), e a pergunta
+  // de destino (`#songMenuPopup`, degrau 210) abre POR CIMA dela.
+  [edicaoPopupEl, edicaoPopupCloseEl, closeEdicaoPopup],
   // A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), e
   // vem antes das duas que nascem dela — o voltar percorre esta tabela de trás
   // para a frente.
@@ -41651,6 +42378,13 @@ function telaSanearRec(it, token) {
   // cunhar um token que ninguém busca custaria mais do que paga.
   const pgs = telaDeckUrls(it);
   if (pgs) rec.pages = pgs;
+  // O ITEM EDITADO viaja como DADOS: os bytes são os do original (o `url`
+  // acima), e quem corta e esmaece é o `stage.js` da própria tela, pelo mesmo
+  // `rec.edicao`. A letra já chega deslocada (ver `AVDB.getMedia`).
+  if (it.edicao) {
+    rec.edicao = { inicio: it.edicao.inicio || 0, fim: it.edicao.fim == null ? null : it.edicao.fim,
+      fadeEntrada: !!it.edicao.fadeEntrada, fadeSaida: !!it.edicao.fadeSaida };
+  }
   if (it.hymnName) rec.hymnName = it.hymnName;
   if (it.hymnTrack) rec.hymnTrack = it.hymnTrack;
   if (it.hymnAlbum) rec.hymnAlbum = it.hymnAlbum;
