@@ -313,6 +313,17 @@ checar(folgaBusca.campoAteLista >= 14,
   'C · a lista do seletor começa ≥ 14px abaixo do CAMPO de busca (eram 5,6px, e a sombra de cima colava nele)',
   JSON.stringify(folgaBusca));
 
+// C1c · "Importar arquivo" é um botão BAIXO, do tamanho dos botões do fecho do formulário (v1.12.7): ícone
+// e texto LADO A LADO, não empilhados na altura de uma linha de lista.
+const impBotao = await app.evaluate(() => {
+  const b = document.getElementById('edicaoImportar').getBoundingClientRect();
+  const svg = document.querySelector('#edicaoImportar svg').getBoundingClientRect();
+  const lab = document.querySelector('#edicaoImportar .song-menu-label').getBoundingClientRect();
+  return { h: +b.height.toFixed(1), mesmaLinha: Math.abs((svg.top + svg.height / 2) - (lab.top + lab.height / 2)) < 3 && svg.right <= lab.left + 1 };
+});
+checar(impBotao.h <= 46 && impBotao.mesmaLinha === true,
+  'C · "Importar arquivo" é um botão baixo (≤ 46px) com o ícone ao LADO do texto, como os botões do formulário', JSON.stringify(impBotao));
+
 // C2 · escolher a mídia abre o formulário, com UMA faixa de duas pontas.
 const montou = await escolher('lst:imports', 'Hino Cinco');
 const faixa = await app.evaluate(() => ({
@@ -326,6 +337,16 @@ checar(montou === true && faixa.faixas === 1 && faixa.ranges === 2 && faixa.max[
     && faixa.fim === '6' && faixa.criar === true,
   'C · o corte é UMA faixa com duas pontas (dois controles na mesma barra), cobre os 6 s e "Confirmar" fica apagado até ajustar',
   porque(montou) || JSON.stringify(faixa));
+
+// C2b · sem a linha "Original: …" na base, e a faixa de corte com MARGEM LATERAL (v1.12.7): colada na
+// borda, o gesto de voltar do Android (deslizar da borda) disputava o arrasto da ponta.
+await esperar(app, () => !/Lendo/.test(document.getElementById('edicaoNota').textContent), null, 8000);
+const lateral = await app.evaluate(() => {
+  const ini = document.getElementById('edicaoIni').getBoundingClientRect();
+  return { nota: document.getElementById('edicaoNota').textContent, esq: +ini.left.toFixed(1), dir: +(window.innerWidth - ini.right).toFixed(1) };
+});
+checar(!/Original/.test(lateral.nota) && lateral.esq >= 28 && lateral.dir >= 28,
+  'C · sem a linha "Original: …" e com ≥ 28px de margem entre a faixa de corte e as bordas da tela', JSON.stringify(lateral));
 
 // as pontas não se cruzam: o início nunca passa de fim − 1 s
 await mexer(app, 5.5, null);
@@ -484,6 +505,13 @@ const carga = await app.evaluate(() => ({
   spinner: !!document.querySelector('#edicaoLista .edicao-carga .edicao-spin'),
   vazio: !!document.querySelector('#edicaoLista .empty'),
 }));
+const cargaMed = await app.evaluate(() => {
+  const c = document.querySelector('#edicaoLista .edicao-carga');
+  const sp = c && c.querySelector('.edicao-spin');
+  return { texto: c ? c.textContent.trim() : null, w: sp ? Math.round(sp.getBoundingClientRect().width) : 0 };
+});
+checar(cargaMed.texto === '' && cargaMed.w >= 56,
+  'C · o spinner da carga não leva texto explicativo e é grande (≥ 56px; eram 32)', JSON.stringify(cargaMed));
 checar(carga.spinner && !carga.vazio,
   'C · voltando ao seletor pelo X do card, aparece o SPINNER de carga e não a lista vazia piscando', JSON.stringify(carga));
 const listou = await esperar(app, () => !document.querySelector('#edicaoLista .edicao-carga')

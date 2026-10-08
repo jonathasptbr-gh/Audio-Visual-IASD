@@ -2242,10 +2242,14 @@
             <span class="song-menu-text"><span class="song-menu-label">Confirmar</span></span>
           </button>
         </div>
-        <div id="edicaoFechoEscolha" class="qs-grade-folha" hidden>
-          <button type="button" class="qs-tile qs-on" id="edicaoImportar" title="Trazer um arquivo só para o editor — ele não entra em lista nenhuma">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoImportar"/></svg>
-            <span class="qs-titulo">Importar arquivo</span>
+        <!-- O FECHO DA ESCOLHA: um botão só, na altura dos da barra do formulário (v1.12.7) — o ícone ao
+             lado do texto, não em cima. -->
+        <div id="edicaoFechoEscolha" class="song-menu-go-row sorteio-barra" hidden>
+          <button type="button" class="song-menu-btn sorteio-acao song-menu-go edicao-importar" id="edicaoImportar" title="Trazer um arquivo só para o editor — ele não entra em lista nenhuma">
+            <span class="song-menu-text">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoImportar"/></svg>
+              <span class="song-menu-label">Importar arquivo</span>
+            </span>
           </button>
         </div>
       </div>
@@ -2675,7 +2679,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.12.6</span>
+            <span id="appVersion" class="app-version">v1.12.7</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

@@ -10366,9 +10366,14 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    scroller começava na base do campo, só o `.35rem` do `.sorteio-campo` entre os dois. A folga vale
    quando o campo existe (`:not([hidden])`): sem ele a lista segue o cabeçalho como sempre. */
 .edicao-busca:not([hidden]) + #edicaoLista { margin-top: var(--sp-5); }
-/* O FECHO DA ESCOLHA TEM UM BOTÃO SÓ (v1.12.6): o "Voltar" saiu — o card do item no formulário já é
-   a porta de ida e volta —, e o "Importar arquivo" ocupa a faixa inteira em vez de metade da grade. */
-#edicaoFechoEscolha { grid-template-columns: 1fr; }
+/* O FECHO DA ESCOLHA TEM UM BOTÃO SÓ: o "Voltar" saiu na v1.12.6 — o card do item no formulário já é a
+   porta de ida e volta. Desde a v1.12.7 ele é UM BOTÃO DA BARRA (o primário da `.sorteio-barra`), na altura
+   dos botões do formulário (`--quad-faixa`) e com o ÍCONE AO LADO do texto: a v1.12.6 o deixara um tile de
+   duas linhas (ícone em cima), bem mais alto que o resto. Sozinho na faixa, o `:has(> … ~ …)` da altura única
+   não o alcança, então a altura vem daqui. */
+.edicao-importar { height: var(--quad-faixa); padding: 0; }
+.edicao-importar .song-menu-text { min-height: 0; flex-direction: row; gap: var(--sp-3); }
+.edicao-importar svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
 /* O X VERMELHO DO CARD (v1.12.6): cancela a edição, no CANTO DIREITO do próprio card do item — tocar o
    card leva ao seletor, então o cancelamento mora na mesma área. É a CAIXA DE LINHA DE LISTA do app
    (`--thumb`, a medida da capa ao lado), as DUAS dimensões declaradas, centrada pelo `margin-block:
@@ -10404,6 +10409,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    deixa o toque passar e só os polegares o pegam, então cada ponta se arrasta sozinha;
    `--r1`/`--r2` (0..1) pintam o trecho escolhido entre elas. */
 .edicao-faixa { position: relative; height: var(--hit); }
+/* MARGENS LATERAIS NA FAIXA (v1.12.7): com os polegares nas pontas da faixa a 17px da borda da tela, o
+   gesto de voltar do Android (deslizar da borda) pegava o arrasto. Os polegares param a ~36px da borda; o
+   recuo é da FAIXA e os dois botões −1 s/+1 s embaixo seguem na largura toda. */
+.edicao-faixa { margin-inline: calc(var(--sp-6) + var(--sp-3)); }
 .edicao-trilho, .edicao-trecho {
   position: absolute; top: 50%; height: .5rem; margin-top: -.25rem; border-radius: 999px;
 }
@@ -10436,8 +10445,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* A troca entre o formulário e o seletor (e a lista, ao carregar) ENTRA em vez de piscar. */
 @keyframes edicao-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .edicao-entra { animation: edicao-entra var(--dur-lenta) ease-out both; }
-.edicao-carga { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-3); flex: 1; color: var(--muted); font-size: var(--fs-sm); min-height: 8rem; }
-.edicao-spin { color: var(--accent); animation: dl-ring-spin .9s linear infinite; }
+.edicao-carga { display: flex; align-items: center; justify-content: center; flex: 1; min-height: 8rem; }
+.edicao-spin { width: 64px; height: 64px; color: var(--accent); animation: dl-ring-spin .9s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .edicao-entra, .edicao-spin { animation: none; } }
 .edicao-passo { flex: 1; min-height: var(--hit); }
 /* COM TRABALHO ANDANDO (ou um pacote pronto) a lista é só para olhar: as caixas

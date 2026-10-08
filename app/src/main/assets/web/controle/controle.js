@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.6';
+const WEB_VERSION = '1.12.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -37885,7 +37885,7 @@ function renderEdicaoEscolha() {
   if (edicaoCarregando) {
     const c = document.createElement('li');
     c.className = 'edicao-carga';
-    c.innerHTML = '<svg class="edicao-spin" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke-dasharray="40 100"/></svg><span>Carregando a lista…</span>';
+    c.innerHTML = '<svg class="edicao-spin" viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" role="img" aria-label="Carregando a lista"><circle cx="12" cy="12" r="9" stroke-dasharray="40 100"/></svg>';
     edicaoListaEl.appendChild(c);
     return;
   }
@@ -38042,6 +38042,8 @@ function edicaoSalvarJa() {
   AVDB.setState(EDICAO_RASCUNHO, e ? Object.assign({}, e, { editandoId: edicaoEditandoId }) : null).catch(() => {});
 }
 function edicaoSalvarLogo() {
+  // Mexeu: o recado do toque anterior ("Item criado…") já cumpriu o papel.
+  edicaoDizer('');
   clearTimeout(edicaoSalvarTimer);
   edicaoSalvarTimer = setTimeout(edicaoSalvarJa, 250);
 }
@@ -38062,10 +38064,6 @@ function edicaoAtualizar() {
     edicaoEls.iniVal.textContent = edicaoFmt(v.inicio);
     edicaoEls.fimVal.textContent = edicaoFmt(e && e.fim == null ? edicaoDur : v.fim);
     edicaoEls.resumo.textContent = 'fica com ' + edicaoFmt((e && e.fim == null ? edicaoDur : v.fim) - v.inicio);
-  }
-  if (e) {
-    edicaoDizer('Original: ' + edicaoFmt(edicaoDur) + (e.soAudio ? ' · só o áudio' : '')
-      + (edicaoEditandoId ? ' · editando “' + edicaoEditandoNome + '”' : ''));
   }
   edicaoAtualizarBotoes(e);
 }
