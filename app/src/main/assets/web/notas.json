@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.15",
+    "itens": [
+      "Botões de volume: depois dos 100% do app, cada toque sobe o do sistema e baixa o do app ao mesmo tempo.",
+      "Ao descer, o par é desfeito passo a passo; o app para de ceder em 25%."
+    ]
+  },
+  {
     "versao": "1.12.14",
     "itens": [
       "Modo Fácil: depois de parar a mídia, as coleções da biblioteca voltam na altura certa, sem ficar encolhidas."
