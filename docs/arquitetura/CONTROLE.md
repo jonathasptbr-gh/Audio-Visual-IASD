@@ -9828,6 +9828,10 @@ do `CLAUDE.md`.
 
 ---
 
+## A troca leitura ↔ Biblioteca no Modo Fácil anima (v1.12.12)
+
+Parar e "mídia entra" mudam a base da leitura (o card do nome aparece/some) no mesmo pulso em que a janela abre/fecha. `medirCorpoSimples({ troca: true })` — só `renderSimpleCorpo` o usa — NÃO conta a mudança de `--simple-corpo-base` como remedição (que zeraria `--lib-anim` e faria a janela pular); abrindo, a janela anima da posição fechada até a base nova. `.simple-song` esconde por `visibility` com atraso de `--lib-anim`, para a janela cobri-lo antes. Oráculo: `modo-simples-corpo` bloco O.
+
 ## O card do nome no Modo Fácil tem UMA altura (v1.12.11)
 
 `.simple-nowplaying` (nome + linha do tempo) não muda de altura enquanto há mídia no ar: `#simpleTime[hidden]` vira `visibility:hidden` mantendo o lugar e `.simple-np:empty` mantém a linha. Sem isso o topo do card andava ~26 px e a zona de leitura (e a caixa da Biblioteca, medida nela) crescia/encolhia. Sem mídia o card continua `display:none`. Oráculo: `modo-simples-corpo` bloco N. O título da letra (`.lv-cab--letra`, `.lv-row--cover`) fica a UMA linha da letra (K3).

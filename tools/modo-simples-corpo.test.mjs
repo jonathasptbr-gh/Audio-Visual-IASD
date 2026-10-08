@@ -524,6 +524,43 @@ try {
     'N3 · abrir e fechar a Biblioteca sobre a leitura não mexe no card (topo igual nos três estados)',
     JSON.stringify({ n0, n3, n4, n5 }));
 
+  // O · A TROCA ENTRE A LEITURA E A BIBLIOTECA ANIMA, NÃO PISCA (v1.12.12)
+  // Pedido do operador: *"melhore as animações de alternância entre o auxiliar de leitura no modo
+  // simples e a biblioteca, está sem animação, apenas pisca a troca de telas"*. A medida da base da
+  // leitura mudava no mesmo pulso da troca (o card do nome aparece/some) e desligava a transição da
+  // janela: ela PULAVA num quadro. E a leitura sumia no ato, antes de a janela descer sobre ela.
+  // A prova é de TRAJETÓRIA: a base da janela por quadro tem de passar por posições intermediárias.
+  const trajeto = async (acao) => {
+    await pg.evaluate(() => {
+      const pop = document.getElementById('hymnSearchPopup'); const song = document.querySelector('.simple-song');
+      window.__traj = { amostras: [], fim: false };
+      const laco = () => { window.__traj.amostras.push({ b: Math.round(pop.getBoundingClientRect().bottom), v: getComputedStyle(song).visibility });
+        if (!window.__traj.fim) requestAnimationFrame(laco); };
+      laco();
+    });
+    await acao();
+    await pg.waitForTimeout(900);
+    return pg.evaluate(() => {
+      window.__traj.fim = true;
+      const am = window.__traj.amostras; const bs = am.map((x) => x.b);
+      const ini = bs[0], fi = bs[bs.length - 1];
+      const lo = Math.min(ini, fi), hi = Math.max(ini, fi);
+      return { ini, fi, intermediarias: new Set(bs.filter((b) => b > lo + 20 && b < hi - 20)).size,
+        escondeuCedo: fi > ini && am.some((x) => x.v === 'hidden' && x.b < fi - 20) };
+    });
+  };
+  await subirMidia();
+  await quadros();
+  const o1 = await trajeto(parar);
+  checar(o1.fi - o1.ini > 300 && o1.intermediarias >= 5,
+    'O1 · Parar: a Biblioteca DESCE passando por posições intermediárias (não pula num quadro)', JSON.stringify(o1));
+  checar(o1.escondeuCedo === false,
+    'O2 · e a leitura só é escondida quando a janela já a cobriu (não some antes dela chegar)', JSON.stringify(o1));
+  const o3 = await trajeto(subirMidia);
+  checar(o3.ini - o3.fi > 300 && o3.intermediarias >= 5,
+    'O3 · a mídia que entra: a Biblioteca SOBE recolhendo para a barra, também passando por posições intermediárias',
+    JSON.stringify(o3));
+
   // J · A MÍDIA QUE NÃO USA O AUXILIAR DE LEITURA (v1.11.21)
   // Pedido do operador: *"vamos aproveitar para aprimorar a experiência durante a exibição de um
   // vídeo ou mídia que não usa o auxiliar de leitura. Nesses casos, a área do auxiliar de leitura
