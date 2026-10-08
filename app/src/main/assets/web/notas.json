@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.11",
+    "itens": [
+      "Auxiliar de leitura: entre o título e a letra agora há uma linha de espaço, não duas.",
+      "Modo Fácil: o card da mídia no ar não sobe nem desce mais quando a barra de tempo aparece ou some."
+    ]
+  },
+  {
     "versao": "1.12.10",
     "itens": [
       "Editar mídia: saíram todos os textos de estado do rodapé (“Item criado”, “Item atualizado”, avisos de erro).",

@@ -177,7 +177,7 @@ try {
     } finally { await ctx.close(); }
   }
 
-  // B3b · SEM DURAÇÃO (imagem, texto, mídia ainda sem metadados) a barra sai e o card ENCOLHE para o nome.
+  // B3b · SEM DURAÇÃO (imagem, texto, mídia ainda sem metadados) a barra some DA VISTA mas o card MANTÉM a altura (v1.12.11: era 'encolhe para o nome' até a v1.12.10 — o topo do card andava 26 px).
   {
     const { ctx, pg } = await abrir('escuro', 390);
     try {
@@ -186,9 +186,12 @@ try {
       const m = await medir(pg);
       checar(m.tempoOculto && m.card.h > 0,
         'B3b · sem duração o `#simpleTime` fica escondido e o card CONTINUA (só o nome)', JSON.stringify({ oculto: m.tempoOculto, h: m.card.h }));
-      checar(m.nome.t - m.card.t >= 4 && m.card.b - m.nome.b >= 4 && m.card.h < 50,
-        'B3b · e ele ENCOLHE para o nome, com folga dos dois lados (nada de vão onde a barra estava)',
-        JSON.stringify({ topo: m.nome.t - m.card.t, base: m.card.b - m.nome.b, h: m.card.h }));
+      const ok2 = await projetar(pg, 'Com Duração', true);
+      checar(ok2 === true, 'B3b · PREMISSA: a mesma mídia com duração entra no ar', porque(ok2));
+      const m2 = await medir(pg);
+      checar(!m2.tempoOculto && Math.abs(m2.card.h - m.card.h) <= .5 && Math.abs(m2.card.t - m.card.t) <= .5,
+        'B3b · e o card tem a MESMA altura e o mesmo topo com e sem a barra: ela só some da vista (v1.12.11)',
+        JSON.stringify({ semBarra: m.card, comBarra: m2.card }));
     } finally { await ctx.close(); }
   }
 

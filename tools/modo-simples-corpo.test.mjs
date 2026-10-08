@@ -411,7 +411,7 @@ try {
       caixa: !!capa && z.contains(capa),
       maiusculas: cs && cs.textTransform, cor: cs && cs.color,
       vao: prox ? prox.getBoundingClientRect().top - capa.getBoundingClientRect().bottom : null,
-      duasLinhas: linha * 2, fonte,
+      umaLinha: linha, fonte,
     };
   });
   checar(k.caixa && k.primeiraEhCapa && k.texto === '12. Firme nas promessas' && k.semInicio,
@@ -419,9 +419,9 @@ try {
     + '"Início" não existe', JSON.stringify(k));
   checar(k.maiusculas === 'uppercase',
     'K2 · e ele ganhou a formatação que era da palavra "Início" (a da linha de capa)', JSON.stringify(k));
-  checar(k.vao !== null && Math.abs(k.vao - k.duasLinhas) <= 1.5,
-    'K3 · e há DUAS LINHAS da letra de espaço entre o título e o resto (' + (k.vao && k.vao.toFixed(1)) + 'px contra '
-    + k.duasLinhas.toFixed(1) + ')', JSON.stringify(k));
+  checar(k.vao !== null && Math.abs(k.vao - k.umaLinha) <= 1.5,
+    'K3 · e há UMA LINHA da letra de espaço entre o título e o resto (' + (k.vao && k.vao.toFixed(1)) + 'px contra '
+    + k.umaLinha.toFixed(1) + '; eram duas até a v1.12.10)', JSON.stringify(k));
   // L · O TÍTULO ACOMPANHA O A+/A− (v1.11.23)
   // Pedido do operador: *"o título dentro do auxiliar de leitura não aumenta proporcionalmente quando
   // se aumenta a fonte do texto da letra"*. O corpo do título era `--fs-3xl` fixo; agora é um fator do
@@ -475,6 +475,54 @@ try {
   await quadros();
   await pg.evaluate(() => { midiaNoAr = false; renderSimple(); renderTransporteHabilitado(); });
   await quadros();
+
+  // N · O CARD DO NOME NÃO SE MEXE (v1.12.11)
+  // Pedido do operador: *"verifique no modo simples um deslocamento vertical não intencional no card
+  // de mídia atual … devido aos ajustes de altura da caixa do auxiliar de leitura e da biblioteca"*.
+  // O card tem UMA altura enquanto há mídia no ar: a linha do tempo some da vista (carregando a
+  // duração, mídia sem duração) mas continua OCUPANDO o lugar, e um nome ainda vazio mantém a linha.
+  // Antes ele encolhia 25,6 px sem barra (e 18 px sem nome): o topo dele andava, a zona de leitura
+  // crescia e encolhia, e com ela a caixa da Biblioteca.
+  await noAr(LETRA);
+  await pg.evaluate(() => { seekEl.disabled = false; seekEl.max = '120'; renderSimpleTime(); });
+  await quadros();
+  const medirN = () => pg.evaluate(() => {
+    const c = document.querySelector('.simple-nowplaying').getBoundingClientRect();
+    const sg = document.querySelector('.simple-song').getBoundingClientRect();
+    const bar = document.getElementById('simpleTime');
+    const cs = getComputedStyle(bar);
+    return { cardTop: +c.top.toFixed(1), cardH: +c.height.toFixed(1), songH: +sg.height.toFixed(1),
+      barraOcupa: bar.getBoundingClientRect().height > 0, barraVisivel: cs.visibility !== 'hidden' };
+  });
+  const n0 = await medirN();
+  await pg.evaluate(() => { seekEl.disabled = true; renderSimpleTime(); });
+  await quadros();
+  const n1 = await medirN();
+  checar(n0.barraVisivel && n0.cardH > 50 && n1.barraVisivel === false && n1.barraOcupa === true,
+    'N0 · PREMISSA: com duração a barra está à vista; sem ela some da vista e continua OCUPANDO o lugar',
+    JSON.stringify({ n0, n1 }));
+  checar(Math.abs(n1.cardTop - n0.cardTop) <= .5 && Math.abs(n1.cardH - n0.cardH) <= .5 && Math.abs(n1.songH - n0.songH) <= .5,
+    'N1 · a linha do tempo ir e vir NÃO move o card nem muda a zona de leitura (topo, altura do card e '
+    + 'altura da leitura iguais)', JSON.stringify({ n0, n1 }));
+  await pg.evaluate(() => { document.getElementById('simpleNpName').textContent = ''; });
+  await quadros();
+  const n2 = await medirN();
+  checar(Math.abs(n2.cardTop - n0.cardTop) <= .5 && Math.abs(n2.cardH - n0.cardH) <= .5,
+    'N2 · e o nome ainda vazio (a troca de mídia escreve depois) mantém a linha: o card não encolhe',
+    JSON.stringify({ n0, n2 }));
+  await pg.evaluate(() => { seekEl.disabled = false; seekEl.max = '120'; renderSimpleTime(); document.getElementById('simpleNpName').textContent = 'Louvor de Fundo'; });
+  await quadros();
+  const n3 = await medirN();
+  // A caixa da Biblioteca aberta sobre a leitura mede a MESMA zona antes e depois.
+  await pg.evaluate(() => { document.getElementById('hymnSearchInput').focus(); });
+  await quadros();
+  const n4 = await medirN();
+  await pg.evaluate(() => { closeHymnSearch(); document.activeElement && document.activeElement.blur(); });
+  await quadros();
+  const n5 = await medirN();
+  checar([n3, n4, n5].every((n) => Math.abs(n.cardTop - n0.cardTop) <= .5),
+    'N3 · abrir e fechar a Biblioteca sobre a leitura não mexe no card (topo igual nos três estados)',
+    JSON.stringify({ n0, n3, n4, n5 }));
 
   // J · A MÍDIA QUE NÃO USA O AUXILIAR DE LEITURA (v1.11.21)
   // Pedido do operador: *"vamos aproveitar para aprimorar a experiência durante a exibição de um
