@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.12",
+    "itens": [
+      "Modo Fácil: a troca entre o auxiliar de leitura e a biblioteca agora tem animação, não pisca mais.",
+      "Ao parar a mídia a biblioteca desce sobre a leitura; ao entrar mídia ela sobe e a leitura aparece."
+    ]
+  },
+  {
     "versao": "1.12.11",
     "itens": [
       "Auxiliar de leitura: entre o título e a letra agora há uma linha de espaço, não duas.",

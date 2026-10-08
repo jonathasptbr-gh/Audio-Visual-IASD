@@ -7834,6 +7834,12 @@ body.simples-barra .lib-toggle { display: none; }
 body.simples-barra:not(.simples-principal) .popup-backdrop--lib.open .lib-toggle { display: flex; }
 body.simples-barra { --lib-lista-base: var(--sp-5); }
 .simple.corpo-biblioteca .simple-song { visibility: hidden; }
+/* A LEITURA SÓ SOME QUANDO A JANELA JÁ A COBRIU (v1.12.12). `visibility` troca no ato, e a janela
+   leva `--pop-anim` para descer: a leitura desaparecia num quadro e a janela chegava depois, sobre
+   o vazio — o "piscar" do Parar. O atraso vale só para ESCONDER (a regra de baixo o zera para
+   voltar a aparecer: quem entra já tem animação própria, `.simple-song.entrando`). */
+.simple-song { transition: visibility 0s linear var(--lib-anim, 0s); }
+.simple:not(.corpo-biblioteca) .simple-song { transition-delay: 0s; }
 /* A LEITURA ENTRA (v1.11.12): quando a Biblioteca recolhe depois de uma escolha, o
    auxiliar de leitura SOBE e aparece, em vez de estar lá de repente. O atraso é a
    Biblioteca já ter começado a sair; `both` segura o quadro inicial (transparente)

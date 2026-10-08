@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.11';
+const WEB_VERSION = '1.12.12';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -39762,7 +39762,9 @@ function renderSimpleCorpo() {
   // reconferida contra o que de fato há — uma conta idempotente, e que não deixa o erro de um
   // evento perdido sobreviver até a próxima interação.
   if (barra && principal && aplicarTeclado) aplicarTeclado();
-  if (barra) { medirCorpoSimples(); medirCorpoSimplesDepois(); }
+  // `troca: true` — a medida muda PORQUE a tela está trocando (o card do nome aparece ou some), e a
+  // troca da Biblioteca TEM de animar: ver `medirCorpoSimples`.
+  if (barra) { medirCorpoSimples({ troca: true }); medirCorpoSimplesDepois(); }
   const aberta = hymnSearchPopupEl.classList.contains('open');
   if (principal) {
     // A janela abre SEM foco: é a tela, não uma busca iniciada (o teclado
@@ -39877,7 +39879,7 @@ function simpleLimparSelecaoTimers() {
 //   3. A remedição só rodava com `ResizeObserver`, no instante da mudança — e uma medida
 //      tirada no meio de uma sequência de renders ficava para sempre. Agora toda entrada de
 //      estado agenda uma SEGUNDA leitura, depois que o layout assentou (`medirCorpoSimplesDepois`).
-function medirCorpoSimples() {
+function medirCorpoSimples(opts) {
   if (!simpleSongEl || !simpleBarraEl) return;
   // A altura da barra vem primeiro: o espaço reserva `--lib-bar-h`, e medir antes de
   // escrevê-la mediria um espaço de altura zero.
@@ -39901,6 +39903,13 @@ function medirCorpoSimples() {
   for (const k of Object.keys(m)) {
     if (raiz.style.getPropertyValue(k) === m[k]) continue;
     raiz.style.setProperty(k, m[k]);
+    // A BASE DA LEITURA só é o destino da janela ABERTA. Numa TROCA de tela (v1.12.12: Parar, ou a
+    // mídia que entra) ela muda porque o card do nome aparece ou some, no mesmo pulso em que a
+    // janela abre ou fecha — e desligar o tempo ali fazia a janela PULAR em um quadro, com a
+    // leitura aparecendo ou sumindo ao lado: o "piscar" da troca. Abrindo, a janela anima da
+    // posição fechada até a base NOVA (a transição usa o valor computado depois da mudança);
+    // fechando, a base nova nem é lida.
+    if (k === '--simple-corpo-base' && opts && opts.troca) continue;
     mudou = true;
   }
   // MEDIDA NOVA NÃO ANIMA: sem isto a camada corria até o lugar novo.
