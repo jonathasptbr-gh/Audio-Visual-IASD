@@ -8,8 +8,10 @@
 //       (que avança a fila), o tempo reportado é o do TRECHO, e os fades de
 //       entrada e saída são marcas do item sobre a duração que a tela já tem;
 //   C · a JANELA (v1.12.1): seletor em grupos, faixa de duas pontas, rascunho que
-//       PERSISTE (inclusive depois de criar), ajuste fino que gera item NOVO,
-//       importar arquivo só para o editor, e o tile também no Modo Fácil.
+//       PERSISTE (inclusive depois de criar), importar arquivo só para o editor, e o
+//       tile também no Modo Fácil. v1.12.6: o fecho é "Confirmar" + os quadrados dos
+//       destinos; o X vermelho do card cancela; e escolher um item JÁ EDITADO o edita
+//       NO LUGAR (o mesmo id, em todas as listas onde ele está).
 //
 //   node tools/edicao-de-midia.test.mjs
 import fs from 'node:fs';
@@ -273,11 +275,11 @@ const estado = (pg2) => pg2.evaluate(() => {
   return { ini: document.getElementById('edicaoIni') && document.getElementById('edicaoIni').value,
     fim: document.getElementById('edicaoFim') && document.getElementById('edicaoFim').value,
     nome: nm && nm.value, fi: on('Fade de entrada'), fo: on('Fade de saída'),
-    criar: document.getElementById('edicaoCriar').disabled,
+    criar: document.getElementById('edicaoConfirmar').disabled,
     titulo: document.getElementById('edicaoTitulo').textContent };
 });
 const criarEGuardar = async (pg2) => {
-  await pg2.click('#edicaoCriar');
+  await pg2.click('#edicaoConfirmar');
   const folha = await esperar(pg2, () => document.getElementById('songMenuPopup').classList.contains('open'), null, 10000);
   await pg2.evaluate(() => document.querySelector('#songMenuPopup .song-menu-go').click());
   return { folha, criado: await esperar(pg2, () => /Item criado/.test(document.getElementById('edicaoNota').textContent), null, 15000) };
@@ -289,13 +291,13 @@ await esperar(app, () => !!document.querySelector('#edicaoLista [data-grupo="lst
 const vista = await app.evaluate(() => ({
   titulo: document.getElementById('edicaoTitulo').textContent,
   grupos: [...document.querySelectorAll('#edicaoLista [data-grupo]')].map((e) => e.dataset.grupo),
-  voltar: document.getElementById('edicaoVoltar').disabled,
+  semVoltar: !document.getElementById('edicaoVoltar') && !document.getElementById('edicaoDescartar') && !document.getElementById('edicaoCriar'),
   busca: !document.getElementById('edicaoBuscaCaixa').hidden,
   importar: !!document.getElementById('edicaoImportar') && !document.getElementById('edicaoFechoEscolha').hidden,
 }));
-checar(aberta === true && vista.titulo === 'Escolher a mídia' && vista.busca && vista.importar && vista.voltar === true
+checar(aberta === true && vista.titulo === 'Escolher a mídia' && vista.busca && vista.importar && vista.semVoltar === true
     && ['lst:imports', 'lst:playlist', 'lst:favs'].every((g) => vista.grupos.includes(g)),
-  'C · a janela abre no SELETOR em grupos (Cronograma, Playlist, Favoritos…), com busca e "Importar arquivo"',
+  'C · a janela abre no SELETOR em grupos (Cronograma, Playlist, Favoritos…), com busca e "Importar arquivo" — e SEM o botão "Voltar" (nem os antigos Descartar/Criar item)',
   porque(aberta) || JSON.stringify(vista));
 
 // C1b · A SOMBRA DE CIMA DA LISTA TEM FOLGA DA CAIXA DE BUSCA (v1.12.3). Relato do operador: *"na lista
@@ -317,12 +319,12 @@ const faixa = await app.evaluate(() => ({
   faixas: document.querySelectorAll('#edicaoLista .edicao-faixa').length,
   ranges: document.querySelectorAll('#edicaoLista input[type=range]').length,
   max: [+document.getElementById('edicaoIni').max, +document.getElementById('edicaoFim').max],
-  criar: document.getElementById('edicaoCriar').disabled,
+  criar: document.getElementById('edicaoConfirmar').disabled,
   fim: document.getElementById('edicaoFim').value,
 }));
 checar(montou === true && faixa.faixas === 1 && faixa.ranges === 2 && faixa.max[0] === 6 && faixa.max[1] === 6
     && faixa.fim === '6' && faixa.criar === true,
-  'C · o corte é UMA faixa com duas pontas (dois controles na mesma barra), cobre os 6 s e "Criar item" fica apagado até ajustar',
+  'C · o corte é UMA faixa com duas pontas (dois controles na mesma barra), cobre os 6 s e "Confirmar" fica apagado até ajustar',
   porque(montou) || JSON.stringify(faixa));
 
 // as pontas não se cruzam: o início nunca passa de fim − 1 s
@@ -333,8 +335,23 @@ checar(+trava.ini <= 5 && +trava.fim === 6, 'C · a ponta de início não passa 
 await mexer(app, 2, 5);
 await marca(app, 'Fade de saída');
 await nomear(app, 'Hino Cinco sem a introdução');
-const habil = await esperar(app, () => !document.getElementById('edicaoCriar').disabled, null, 5000);
-checar(habil === true, 'C · ajustar qualquer coisa acende "Criar item"', porque(habil));
+const habil = await esperar(app, () => !document.getElementById('edicaoConfirmar').disabled, null, 5000);
+checar(habil === true, 'C · ajustar qualquer coisa acende "Confirmar"', porque(habil));
+// O FECHO é o "Confirmar" que cresce + os três quadrados, na ordem da tabela de destinos.
+const fecho = await app.evaluate(() => {
+  const f = document.getElementById('edicaoFechoForm');
+  const c = document.getElementById('edicaoConfirmar').getBoundingClientRect();
+  const q = [...f.querySelectorAll('.sorteio-dest')];
+  const r = q.map((b) => b.getBoundingClientRect());
+  return { dest: q.map((b) => b.dataset.dest), desabilitado: q.map((b) => b.disabled),
+    quadrados: r.every((x) => Math.abs(x.width - x.height) < 1.5), larg: r.map((x) => Math.round(x.width)),
+    direita: r.every((x) => x.left >= c.right - 1), confirmaMaior: c.width > 2 * r[0].width,
+    rotulo: document.querySelector('#edicaoConfirmar .song-menu-label').textContent };
+});
+checar(fecho.dest.join() === 'cronograma,playlist,favoritos' && fecho.quadrados && fecho.direita && fecho.confirmaMaior
+    && fecho.rotulo === 'Confirmar' && fecho.desabilitado.every((d) => d === false),
+  'C · o fecho é "Confirmar" (que cresce) + os quadrados Cronograma · playlist · favoritos À DIREITA, acesos com a edição',
+  JSON.stringify(fecho));
 
 // C3 · PERSISTÊNCIA do rascunho: fechar e recarregar o app.
 await app.waitForTimeout(400);   // o gravar do rascunho é adiado em 250 ms de propósito
@@ -359,32 +376,84 @@ const noCrono = await app.evaluate(async () => {
 });
 checar(c1.folha === true && c1.criado === true && noCrono.achou && noCrono.seconds === 3
     && noCrono.edicao.inicio === 2 && noCrono.edicao.fim === 5 && noCrono.edicao.fadeSaida === true,
-  'C · "Criar item" pergunta ONDE guardar e cria no Cronograma, com o trecho e a marca de saída', JSON.stringify([c1, noCrono]));
+  'C · "Confirmar" (item novo) pergunta ONDE guardar e cria no Cronograma, com o trecho e a marca de saída', JSON.stringify([c1, noCrono]));
 checar(noCrono.avulsoVazio, 'C · o item não fica na prateleira avulsa (só nos destinos escolhidos)');
 const depois = await estado(app);
 const rascDepois = await app.evaluate(() => window.AVDB.getState('edicaoRascunho'));
-checar(depois.ini === '2' && depois.fim === '5' && depois.nome === 'Hino Cinco sem a introdução (2)'
-    && rascDepois && rascDepois.origem,
-  'C · depois de criar o formulário e o rascunho PERSISTEM (o nome avança), para o próximo ajuste', JSON.stringify([depois, rascDepois]));
+checar(depois.ini === '2' && depois.fim === '5' && depois.nome === 'Hino Cinco sem a introdução'
+    && rascDepois && rascDepois.origem && rascDepois.editandoId,
+  'C · depois de criar o formulário e o rascunho PERSISTEM, agora sobre o item NOVO (rascunho com `editandoId`): o próximo "Confirmar" o atualiza',
+  JSON.stringify([depois, rascDepois]));
 
-// C5 · AJUSTE FINO sobre o item já editado: cria um item NOVO e o primeiro não muda.
-await app.click('#edicaoLista .pacote-linha .song-menu-btn');   // a linha da mídia: troca
+// C5 · EDITAR UM ITEM JÁ EDITADO É NO LUGAR (v1.12.6): o mesmo item, em TODAS as listas onde está.
+const idEditado = await app.evaluate(async () => {
+  const it = (await window.AVDB.listItems('imports')).find((m) => m.name === 'Hino Cinco sem a introdução');
+  await window.AVDB.listAdd('favs', it.id);                    // o mesmo item no Cronograma E nos Favoritos
+  return it.id;
+});
+await app.click('#edicaoLista .pacote-linha .song-menu-btn');   // o card: troca de mídia
 await esperar(app, () => document.getElementById('edicaoTitulo').textContent === 'Escolher a mídia', null, 10000);
 const c5a = await escolher('lst:imports', 'Hino Cinco sem a introdução');
 const parte = await estado(app);
-checar(c5a === true && parte.ini === '2' && parte.fim === '5' && parte.fo === true && parte.nome === 'Hino Cinco sem a introdução (2)',
-  'C · escolher um item JÁ EDITADO parte dos valores dele (ajuste fino), com nome novo', porque(c5a) || JSON.stringify(parte));
+const emEdicao = await app.evaluate(() => ({
+  rotuloNome: document.querySelector('#edicaoLista .edicao-bloco .edicao-rotulo:last-of-type') && null,
+  nomeLabel: [...document.querySelectorAll('#edicaoLista .edicao-rotulo')].map((e) => e.textContent).filter((t) => /Nome/.test(t))[0],
+  confirmar: document.getElementById('edicaoConfirmar').disabled,
+  card: document.querySelector('#edicaoLista .edicao-card .song-menu-label').textContent,
+}));
+checar(c5a === true && parte.ini === '2' && parte.fim === '5' && parte.fo === true && parte.nome === 'Hino Cinco sem a introdução'
+    && emEdicao.nomeLabel === 'Nome do item' && emEdicao.confirmar === true && emEdicao.card === 'Hino Cinco sem a introdução',
+  'C · escolher um item JÁ EDITADO o abre PARA EDITAR (com o nome dele, "Confirmar" apagado até mudar algo)', porque(c5a) || JSON.stringify([parte, emEdicao]));
 await mexer(app, null, 4);
 await nomear(app, 'Hino Cinco curto');
-const c2 = await criarEGuardar(app);
-const dois = await app.evaluate(async () => {
-  const todos = await window.AVDB.listItems('imports');
-  const a = todos.find((m) => m.name === 'Hino Cinco sem a introdução');
-  const b = todos.find((m) => m.name === 'Hino Cinco curto');
-  return { a: a && a.edicao, b: b && b.edicao, origemIgual: !!(a && b && a.edicao.origem === b.edicao.origem) };
+const nada = await app.evaluate(() => document.getElementById('edicaoConfirmar').disabled);
+await app.click('#edicaoConfirmar');
+const salvou = await esperar(app, () => /Item atualizado/.test(document.getElementById('edicaoNota').textContent), null, 15000);
+const noLugar = await app.evaluate(async (id) => {
+  const imp = await window.AVDB.listItems('imports');
+  const fav = await window.AVDB.listItems('favs');
+  const a = imp.find((m) => m.id === id), b = fav.find((m) => m.id === id);
+  return { mesmoId: !!a && !!b, nomeA: a && a.name, nomeB: b && b.name, fimA: a && a.edicao.fim, fimB: b && b.edicao.fim,
+    secA: a && a.seconds, antigo: imp.some((m) => m.name === 'Hino Cinco sem a introdução'),
+    quantos: imp.filter((m) => m.edicao).length,
+    outrosFavs: fav.filter((m) => m.edicao).length };
+}, idEditado);
+checar(nada === false && salvou === true && noLugar.mesmoId && noLugar.nomeA === 'Hino Cinco curto' && noLugar.nomeB === 'Hino Cinco curto'
+    && noLugar.fimA === 4 && noLugar.fimB === 4 && noLugar.secA === 2 && !noLugar.antigo && noLugar.quantos === 1 && noLugar.outrosFavs === 1,
+  'C · "Confirmar" num item JÁ EDITADO o atualiza NO LUGAR: o mesmo id muda no Cronograma E nos Favoritos (fim 4 s, nome novo) e NENHUM item novo nasce',
+  porque(salvou) || JSON.stringify([nada, noLugar]));
+const aposSalvar = await app.evaluate(() => ({ confirmar: document.getElementById('edicaoConfirmar').disabled,
+  card: document.querySelector('#edicaoLista .edicao-card .song-menu-label').textContent }));
+checar(aposSalvar.confirmar === true && aposSalvar.card === 'Hino Cinco curto',
+  'C · depois de salvar o formulário segue no item (card com o nome novo) e o "Confirmar" apaga de novo', JSON.stringify(aposSalvar));
+
+// C5b · O ITEM SUMIU: o "Confirmar" não inventa — avisa e passa a criar um novo.
+const sumiu = await app.evaluate(async (id) => {
+  const A = window.AVDB;
+  const r = await A.atualizarEdicao('id-que-nao-existe', { inicio: 1, fim: 3 });
+  const dobra = await A.atualizarEdicao(id, { inicio: 3, fim: 3.2 });          // trecho vazio
+  const cru = await A.getMediaCru(id);
+  return { r, dobra, intacto: cru.edicao.inicio === 2 && cru.edicao.fim === 4 };
+}, idEditado);
+checar(sumiu.r === null && sumiu.dobra === null && sumiu.intacto,
+  'C · `atualizarEdicao` recusa id inexistente e trecho vazio — e nada é gravado', JSON.stringify(sumiu));
+
+// (o item sai dos Favoritos: os blocos abaixo contam o que há nos Favoritos)
+await app.evaluate((id) => window.AVDB.listRemove('favs', id), idEditado);
+
+// C5c · O X VERMELHO NO CARD cancela a edição: à direita do próprio card, e o toque no card NÃO cancela.
+const xi = await app.evaluate(() => {
+  const card = document.querySelector('#edicaoLista .edicao-card').getBoundingClientRect();
+  const x = document.querySelector('#edicaoLista .edicao-card .edicao-x');
+  const r = x.getBoundingClientRect();
+  const cor = getComputedStyle(x);
+  return { dentro: r.right <= card.right + 0.5 && r.left > card.left + card.width / 2, centrado: Math.abs((r.top + r.bottom) / 2 - (card.top + card.bottom) / 2) < 1.5,
+    quadrado: Math.abs(r.width - r.height) < 1, fundo: cor.backgroundColor, tinta: cor.color,
+    semDescartar: !document.getElementById('edicaoDescartar') };
 });
-checar(c2.criado === true && dois.a && dois.a.fim === 5 && dois.b && dois.b.fim === 4 && dois.b.inicio === 2 && dois.origemIgual,
-  'C · o ajuste gera um item NOVO (fim 4 s) sobre o MESMO original, e o primeiro continua com fim 5 s', JSON.stringify([c2, dois]));
+const tintaVermelha = (c) => { const m = /rgba?\((\d+), (\d+), (\d+)/.exec(c); return !!m && +m[1] > +m[2] + 20 && +m[1] > +m[3] + 20; };
+checar(xi.dentro && xi.centrado && xi.quadrado && tintaVermelha(xi.tinta) && xi.semDescartar,
+  'C · o X vermelho mora no CANTO DIREITO do card do item (quadrado, centrado), e o botão "Descartar" não existe mais', JSON.stringify(xi));
 
 // C6 · IMPORTAR ARQUIVO: entra só no editor — em lista nenhuma — e o rascunho o segura.
 await app.click('#edicaoLista .pacote-linha .song-menu-btn');
@@ -410,13 +479,13 @@ checar(importou === true && imp.achou && imp.emLista.length === 0 && imp.segura,
   'C · "Importar arquivo" traz o arquivo SÓ para o editor (fora de toda lista) e o rascunho o segura contra o coletor',
   porque(importou) || JSON.stringify(imp));
 // descartado e sem edição, o importado volta a ser coletável
-await app.evaluate(() => document.getElementById('edicaoDescartar').click());
+await app.evaluate(() => document.querySelector('#edicaoLista .edicao-card .edicao-x').click());
 const carga = await app.evaluate(() => ({
   spinner: !!document.querySelector('#edicaoLista .edicao-carga .edicao-spin'),
   vazio: !!document.querySelector('#edicaoLista .empty'),
 }));
 checar(carga.spinner && !carga.vazio,
-  'C · voltando ao seletor depois de descartar, aparece o SPINNER de carga e não a lista vazia piscando', JSON.stringify(carga));
+  'C · voltando ao seletor pelo X do card, aparece o SPINNER de carga e não a lista vazia piscando', JSON.stringify(carga));
 const listou = await esperar(app, () => !document.querySelector('#edicaoLista .edicao-carga')
   && !!document.querySelector('#edicaoLista [data-grupo="lst:imports"]'), null, 10000);
 checar(listou === true, 'C · e passada a carga a lista dos grupos aparece', porque(listou));
@@ -446,7 +515,6 @@ await app.evaluate(async (b64) => {
     lyrics: [{ time: 0, text: 'a' }, { time: 3, text: 'b' }] });
 }, wav);
 await app.fill('#edicaoBusca', '');
-await app.evaluate(() => document.getElementById('edicaoVoltar').click());
 await app.evaluate(() => document.getElementById('edicaoPopupClose').click());
 await abrir();
 await esperar(app, () => !document.querySelector('.edicao-carga') && !!document.querySelector('#edicaoLista [data-grupo="col:hinC"]'), null, 10000);
@@ -463,6 +531,45 @@ const semLetra = await app.evaluate(async () => {
 });
 checar(semLetra && semLetra.so === true && semLetra.lyrics === null,
   'C · e o item criado projeta só o áudio: sem letra e sem fundo', JSON.stringify(semLetra));
+
+// C7c · OS QUADRADOS DE DESTINO: enviam direto, sem a pergunta de destino.
+//  · sobre um item JÁ EDITADO (o que acabou de ser criado): põe o MESMO item na lista — nenhum item novo;
+//  · sobre o ORIGINAL (item novo): cria o item e o põe SÓ naquela lista.
+const quad = await app.evaluate(async () => {
+  document.querySelector('#edicaoFechoForm .sorteio-dest[data-dest="playlist"]').click();
+  await new Promise((r) => setTimeout(r, 800));
+  const A = window.AVDB;
+  const pl = await A.listItems('playlist');
+  const imp = await A.listItems('imports');
+  const it = imp.find((m) => m.name === 'Hino Letra cantado');
+  return { naPlaylist: pl.filter((m) => m.name === 'Hino Letra cantado').length, mesmoId: !!it && pl.some((m) => m.id === it.id),
+    folha: document.getElementById('songMenuPopup').classList.contains('open'),
+    quantos: imp.filter((m) => m.name === 'Hino Letra cantado').length };
+});
+checar(quad.naPlaylist === 1 && quad.mesmoId && quad.quantos === 1 && quad.folha === false,
+  'C · o quadrado "playlist" sobre um item JÁ EDITADO põe o MESMO item na playlist (sem pergunta de destino e sem item novo)', JSON.stringify(quad));
+await app.evaluate(() => document.querySelector('#edicaoLista .edicao-card .edicao-x').click());
+await esperar(app, () => !document.querySelector('.edicao-carga') && !!document.querySelector('#edicaoLista [data-grupo="col:hinC"]'), null, 10000);
+const c7d = await escolher('col:hinC', 'Hino Letra');
+await marca(app, 'Fade de entrada');
+await nomear(app, 'Hino Letra só nos favoritos');
+await app.evaluate(() => document.querySelector('#edicaoFechoForm .sorteio-dest[data-dest="favoritos"]').click());
+const quad2 = await esperar(app, () => /Item criado/.test(document.getElementById('edicaoNota').textContent), null, 15000);
+const so = await app.evaluate(async () => {
+  const A = window.AVDB; const onde = [];
+  for (const l of ['imports', 'playlist', 'favs', 'avulsos']) {
+    if ((await A.listItems(l)).some((m) => m.name === 'Hino Letra só nos favoritos')) onde.push(l);
+  }
+  return { onde, nomeLabel: [...document.querySelectorAll('#edicaoLista .edicao-rotulo')].map((e) => e.textContent).filter((t) => /Nome/.test(t))[0] };
+});
+checar(c7d === true && quad2 === true && so.onde.join() === 'favs' && so.nomeLabel === 'Nome do item',
+  'C · o quadrado "favoritos" sobre o ORIGINAL cria o item SÓ nos favoritos, e o formulário passa a editar esse item', porque(quad2) || JSON.stringify(so));
+// (limpa o que os dois blocos acima deixaram nos Favoritos: o bloco D conta o que há neles)
+await app.evaluate(async () => {
+  const A = window.AVDB;
+  for (const m of await A.listItems('favs')) if (m.edicao) await A.listRemove('favs', m.id);
+  for (const m of await A.listItems('playlist')) if (m.edicao) await A.listRemove('playlist', m.id);
+});
 
 // C8 · MODO FÁCIL: o tile existe e a janela abre (sem a pergunta de destino).
 const ctx4 = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
@@ -482,6 +589,13 @@ checar(modo === true && visivel === true, 'C · no MODO FÁCIL o tile "Editar m�
 await facil.click('#edicaoTile');
 const abriuFacil = await esperar(facil, () => document.getElementById('edicaoPopup').classList.contains('open'), null, 10000);
 checar(abriuFacil === true, 'C · e abre a janela do editor no Modo Fácil', porque(abriuFacil));
+const semQuad = await facil.evaluate(() => {
+  edicaoAtualizarBotoes(null);              // o que o desenho do formulário faz a cada passada
+  const q = [...document.querySelectorAll('#edicaoFechoForm .sorteio-dest')];
+  return { n: q.length, escondidos: q.every((b) => b.hidden === true) };
+});
+checar(semQuad.n === 3 && semQuad.escondidos,
+  'C · no Modo Fácil os quadrados de destino NÃO aparecem (não há Cronograma nem favoritos à vista): só o "Confirmar"', JSON.stringify(semQuad));
 await ctx4.close();
 
 

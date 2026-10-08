@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.5';
+const WEB_VERSION = '1.12.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -37710,8 +37710,9 @@ function closePacotePopup() { pacotePopupEl.classList.remove('open'); }
 // DUAS VISTAS NA MESMA FOLHA (a folha não muda de altura entre elas): o FORMULÁRIO e o SELETOR
 // DE MÍDIA, que é a lista de grupos da exportação (Cronograma, Playlist, Favoritos e a
 // Biblioteca por coletânea), com um "Importar arquivo" que traz o arquivo SÓ para o editor.
-// Escolher um item JÁ EDITADO parte dos valores dele para um ajuste fino: o que se cria é
-// sempre um item NOVO, que aponta para o mesmo original — o editado de partida não muda.
+// Escolher um item JÁ EDITADO o edita NO LUGAR (v1.12.6): o mesmo registro e o mesmo id, então toda
+// lista que o tem (Cronograma, playlist, favoritos) passa a mostrar a edição nova — `AVDB.atualizarEdicao`.
+// Escolher o ORIGINAL cria um item novo. O fecho é o "Confirmar" + os quadrados dos destinos.
 const edicaoTileEl = document.getElementById('edicaoTile');
 const edicaoPopupEl = document.getElementById('edicaoPopup');
 const edicaoPopupCloseEl = document.getElementById('edicaoPopupClose');
@@ -37722,9 +37723,7 @@ const edicaoListaEl = document.getElementById('edicaoLista');
 const edicaoNotaEl = document.getElementById('edicaoNota');
 const edicaoFechoFormEl = document.getElementById('edicaoFechoForm');
 const edicaoFechoEscolhaEl = document.getElementById('edicaoFechoEscolha');
-const edicaoDescartarEl = document.getElementById('edicaoDescartar');
-const edicaoCriarEl = document.getElementById('edicaoCriar');
-const edicaoVoltarEl = document.getElementById('edicaoVoltar');
+const edicaoConfirmarEl = document.getElementById('edicaoConfirmar');
 const edicaoImportarEl = document.getElementById('edicaoImportar');
 
 const EDICAO_RASCUNHO = 'edicaoRascunho';
@@ -37733,7 +37732,9 @@ const EDICAO_VAO_MIN = 1;          // o trecho tem de ter ao menos 1 s
 const EDICAO_PASSO_FAIXA = 0.5;    // o passo da faixa (o fino é o dos botões)
 let edicaoVista = 'form';          // 'form' | 'escolha'
 let edicaoOrigem = null;           // o registro CRU do original escolhido
-let edicaoPartida = '';            // o nome do item editado de que se partiu (ajuste fino)
+let edicaoEditandoId = '';         // o item JÁ EDITADO que está sendo editado no lugar ('' = item novo)
+let edicaoEditandoNome = '';       // o nome gravado dele (o rótulo do card)
+let edicaoBase = null;             // os valores GRAVADOS dele — o que o "Confirmar" compara
 let edicaoDur = 0;                 // duração do original (s); 0 = sem escolha
 // O fim da faixa é a duração ARREDONDADA PARA CIMA no passo: um `max` fora da grade do passo é
 // inalcançável, e a faixa pararia meio passo antes do fim do arquivo — o que `edicaoLer` leria
@@ -37986,11 +37987,59 @@ function edicaoLer() {
 function edicaoMudou(e) {
   return !!e && (e.inicio > 0 || e.fim != null || e.fadeEntrada || e.fadeSaida || e.soAudio);
 }
+// Os valores GRAVADOS de um item editado, na forma de `edicaoLer` (fim `null` = até o fim).
+function edicaoBaseDe(rec) {
+  const ed = (rec && rec.edicao) || {};
+  return { inicio: ed.inicio > 0 ? +ed.inicio : 0, fim: ed.fim > 0 ? +ed.fim : null,
+    fadeEntrada: !!ed.fadeEntrada, fadeSaida: !!ed.fadeSaida, soAudio: !!ed.soAudio, nome: (rec && rec.name) || '' };
+}
+// Editando no lugar: o formulário difere do que está gravado? (Nome incluído.)
+function edicaoDifereDaBase(e) {
+  const b = edicaoBase;
+  if (!e || !b) return !!e;
+  return Math.abs(e.inicio - b.inicio) > 0.001 || (e.fim == null) !== (b.fim == null)
+    || (e.fim != null && Math.abs(e.fim - b.fim) > 0.001)
+    || e.fadeEntrada !== b.fadeEntrada || e.fadeSaida !== b.fadeSaida || e.soAudio !== b.soAudio
+    || (String(e.nome || '').trim() || b.nome) !== b.nome;
+}
+// Os quadrados dos destinos, ao lado do "Confirmar": um por entrada de `DESTINOS` (a ORDEM é a da
+// tabela). Não existem no Modo Fácil — ali não há Cronograma nem favoritos à vista, e o que fosse
+// guardado só reapareceria para quem trocasse de modo (a mesma regra da playlist automática).
+const edicaoDestEls = DESTINOS.map((d) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'song-menu-btn sorteio-acao sorteio-dest';
+  b.dataset.dest = d.chave;
+  b.innerHTML = SORTEIO_ICONE[d.chave]();
+  b.disabled = true;
+  edicaoFechoFormEl.appendChild(b);
+  return b;
+});
+// Os botões da base acompanham o estado: sem mudança não há o que confirmar, e um item NOVO sem
+// nenhuma marca seria uma cópia do original (nem os destinos o criam).
+function edicaoAtualizarBotoes(e) {
+  const ok = !!e;
+  const confirma = edicaoEditandoId ? ok && edicaoDifereDaBase(e) : edicaoMudou(e);
+  const destino = edicaoEditandoId ? ok : edicaoMudou(e);
+  edicaoConfirmarEl.disabled = !confirma;
+  edicaoConfirmarEl.title = edicaoEditandoId ? 'Salvar a edição neste item — vale em todas as listas onde ele está'
+    : 'Criar o item editado e escolher onde guardá-lo';
+  const simples = simplificado();
+  for (const b of edicaoDestEls) {
+    b.hidden = simples;
+    b.disabled = !destino;
+    const d = destinoPorChave(b.dataset.dest);
+    const frase = (edicaoEditandoId ? 'Salvar a edição e enviar ' : 'Criar o item editado e enviar ')
+      + (LISTA_ROTULO[d.lista] || ROTULO_PADRAO).em;
+    b.title = frase;
+    b.setAttribute('aria-label', frase);
+  }
+}
 
 function edicaoSalvarJa() {
   clearTimeout(edicaoSalvarTimer); edicaoSalvarTimer = null;
   const e = edicaoLer();
-  AVDB.setState(EDICAO_RASCUNHO, e ? Object.assign({}, e, { partida: edicaoPartida }) : null).catch(() => {});
+  AVDB.setState(EDICAO_RASCUNHO, e ? Object.assign({}, e, { editandoId: edicaoEditandoId }) : null).catch(() => {});
 }
 function edicaoSalvarLogo() {
   clearTimeout(edicaoSalvarTimer);
@@ -38016,9 +38065,9 @@ function edicaoAtualizar() {
   }
   if (e) {
     edicaoDizer('Original: ' + edicaoFmt(edicaoDur) + (e.soAudio ? ' · só o áudio' : '')
-      + (edicaoPartida ? ' · ajuste sobre “' + edicaoPartida + '”' : ''));
+      + (edicaoEditandoId ? ' · editando “' + edicaoEditandoNome + '”' : ''));
   }
-  edicaoCriarEl.disabled = !edicaoMudou(e);
+  edicaoAtualizarBotoes(e);
 }
 
 function edicaoMudouFaixa(qual, valor) {
@@ -38052,14 +38101,30 @@ function renderEdicaoForm() {
     edicaoListaEl.appendChild(vazio);
     edicaoListaEl.appendChild(edicaoLinha(msym(ICON.import), 'Escolher a mídia', 'Cronograma, playlist, favoritos ou biblioteca', null,
       () => { edicaoAbrirEscolha(); }));
-    edicaoCriarEl.disabled = true;
+    edicaoAtualizarBotoes(null);
     return;
   }
   const v = edicaoVals;
-  // 1 · A MÍDIA (um toque troca): a linha da mídia escolhida no desenho do seletor.
-  const mid = edicaoLinha(msym(ICON.music), edicaoOrigem.name || 'sem nome',
-    (edicaoOrigem.kind === 'video' ? 'Vídeo' : 'Áudio') + ' · ' + edicaoFmt(edicaoDur) + ' · toque para trocar',
+  // 1 · A MÍDIA (um toque troca): a linha da mídia escolhida no desenho do seletor — o item JÁ
+  // EDITADO que está sendo editado no lugar, ou o original de um item novo. O X vermelho à direita
+  // CANCELA a edição (apaga o rascunho e volta ao seletor): tocar o card já leva para lá, então é ali
+  // que o cancelamento mora.
+  const tipo = edicaoOrigem.kind === 'video' ? 'Vídeo' : 'Áudio';
+  const mid = edicaoLinha(msym(ICON.music),
+    edicaoEditandoId ? (edicaoEditandoNome || 'sem nome') : (edicaoOrigem.name || 'sem nome'),
+    edicaoEditandoId ? 'Item editado · ' + tipo + ' · toque para trocar'
+      : tipo + ' · ' + edicaoFmt(edicaoDur) + ' · toque para trocar',
     null, () => { edicaoAbrirEscolha(); });
+  mid.classList.add('edicao-card');
+  const x = document.createElement('button');
+  x.type = 'button';
+  x.className = 'edicao-x';
+  const fraseX = edicaoEditandoId ? 'Cancelar a edição deste item' : 'Descartar esta edição';
+  x.title = fraseX;
+  x.setAttribute('aria-label', fraseX);
+  x.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCancelar"/></svg>';
+  x.addEventListener('click', () => { edicaoDescartar(); });
+  mid.appendChild(x);
   edicaoListaEl.appendChild(mid);
 
   // 2 · O TRECHO: UMA faixa com duas pontas.
@@ -38120,11 +38185,11 @@ function renderEdicaoForm() {
   // 4 · O NOME
   const nome = document.createElement('li');
   nome.className = 'edicao-bloco';
-  const rn = document.createElement('span'); rn.className = 'edicao-rotulo'; rn.textContent = 'Nome do item novo';
+  const rn = document.createElement('span'); rn.className = 'edicao-rotulo'; rn.textContent = edicaoEditandoId ? 'Nome do item' : 'Nome do item novo';
   const campo = document.createElement('div'); campo.className = 'sorteio-campo edicao-nome';
   const inp = document.createElement('input');
   inp.type = 'text'; inp.className = 'lib-search'; inp.maxLength = 120; inp.autocomplete = 'off';
-  inp.value = v.nome; inp.setAttribute('aria-label', 'Nome do item novo');
+  inp.value = v.nome; inp.setAttribute('aria-label', edicaoEditandoId ? 'Nome do item' : 'Nome do item novo');
   inp.addEventListener('input', () => { edicaoVals.nome = inp.value; edicaoSalvarLogo(); });
   campo.appendChild(inp);
   nome.append(rn, campo);
@@ -38138,7 +38203,6 @@ function edicaoRender() {
   edicaoBuscaCaixaEl.hidden = !escolha;
   edicaoFechoFormEl.hidden = escolha;
   edicaoFechoEscolhaEl.hidden = !escolha;
-  edicaoVoltarEl.disabled = !edicaoOrigem;
   if (escolha) { edicaoDizer(''); renderEdicaoEscolha(); } else renderEdicaoForm();
   edicaoEntrar();
 }
@@ -38178,8 +38242,9 @@ async function edicaoAbrirEscolha() {
 }
 
 // Carrega o original e deixa o formulário pronto. `valores` (o rascunho, ou os de um item já
-// editado) é opcional: sem ele a faixa abre no arquivo inteiro.
-async function edicaoCarregarOrigem(id, valores, partida) {
+// editado) é opcional: sem ele a faixa abre no arquivo inteiro. `editando` (`{ id, nome, base }`)
+// diz que se está editando NO LUGAR esse item já editado; sem ele o formulário cria um item novo.
+async function edicaoCarregarOrigem(id, valores, editando) {
   const seq = ++edicaoSeq;
   let rec = null;
   try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
@@ -38189,7 +38254,10 @@ async function edicaoCarregarOrigem(id, valores, partida) {
   const dur = await edicaoDuracao(rec);
   if (seq !== edicaoSeq) return false;
   if (!(dur > 0)) { edicaoDizer('Não foi possível ler a duração desta mídia.'); return false; }
-  edicaoOrigem = rec; edicaoDur = dur; edicaoPartida = partida || '';
+  edicaoOrigem = rec; edicaoDur = dur;
+  edicaoEditandoId = editando ? editando.id : '';
+  edicaoEditandoNome = editando ? editando.nome : '';
+  edicaoBase = editando ? editando.base : null;
   edicaoTeto = Math.ceil(dur * 2) / 2;
   const v = valores || {};
   const ini = Math.min(Math.max(0, +v.inicio || 0), Math.max(0, dur - EDICAO_VAO_MIN));
@@ -38203,30 +38271,24 @@ async function edicaoCarregarOrigem(id, valores, partida) {
   return true;
 }
 
-// Tocou numa linha do seletor. Um item JÁ EDITADO parte dos valores dele (ajuste fino).
+// Tocou numa linha do seletor. Um item JÁ EDITADO é editado NO LUGAR (parte dos valores gravados dele,
+// com o nome dele); o original é editado para um item NOVO.
 async function edicaoEscolherItem(it) {
   edicaoSelId = it.id;
-  let origem = it.id, valores = null, partida = '';
+  let origem = it.id, valores = null, editando = null;
   if (it.editado) {
     let cru = null;
     try { cru = await AVDB.getMediaCru(it.id); } catch (_) { cru = null; }
     if (!cru || !cru.edicao) { edicaoDizer('Esse item não está mais no aparelho.'); return; }
     origem = cru.edicao.origem;
-    partida = cru.name || '';
-    valores = Object.assign({}, cru.edicao, { nome: proximoNomeDeAjuste(cru.name || 'sem nome') });
+    valores = Object.assign({}, cru.edicao, { nome: cru.name || '' });
+    editando = { id: cru.id, nome: cru.name || '', base: edicaoBaseDe(cru) };
   }
-  const ok = await edicaoCarregarOrigem(origem, valores, partida);
+  const ok = await edicaoCarregarOrigem(origem, valores, editando);
   if (!ok) { renderEdicaoEscolha(); return; }
   edicaoVista = 'form';
   edicaoRender();
   edicaoSalvarJa();
-}
-
-// "Hino" → "Hino (2)"; "Hino (2)" → "Hino (3)": o nome do item novo de um ajuste nunca é igual ao do
-// que já existe, e o operador só escreve se quiser outro.
-function proximoNomeDeAjuste(nome) {
-  const m = /^(.*?)\s*\((\d+)\)\s*$/.exec(nome);
-  return m ? m[1] + ' (' + (+m[2] + 1) + ')' : nome + ' (2)';
 }
 
 async function openEdicaoPopup() {
@@ -38235,7 +38297,17 @@ async function openEdicaoPopup() {
   let r = null;
   try { r = await AVDB.getState(EDICAO_RASCUNHO); } catch (_) { r = null; }
   if (r && r.origem && (!edicaoOrigem || edicaoOrigem.id !== r.origem)) {
-    if (await edicaoCarregarOrigem(r.origem, r, r.partida)) edicaoSelId = r.origem;
+    // O item que se editava no lugar PODE TER SUMIDO (apagado, ou o original saiu): aí o rascunho
+    // vira um item novo, e o "Confirmar" volta a criar.
+    let editando = null;
+    if (r.editandoId) {
+      let cru = null;
+      try { cru = await AVDB.getMediaCru(r.editandoId); } catch (_) { cru = null; }
+      if (cru && cru.edicao && cru.edicao.origem === r.origem) {
+        editando = { id: cru.id, nome: cru.name || '', base: edicaoBaseDe(cru) };
+      }
+    }
+    if (await edicaoCarregarOrigem(r.origem, r, editando)) edicaoSelId = r.origem;
   }
   edicaoVista = edicaoOrigem ? 'form' : 'escolha';
   if (edicaoVista === 'escolha') { edicaoCarregando = true; edicaoRender(); await edicaoCarregarLista(); }
@@ -38250,7 +38322,7 @@ async function edicaoDescartar() {
   clearTimeout(edicaoSalvarTimer); edicaoSalvarTimer = null;
   try { await AVDB.setState(EDICAO_RASCUNHO, null); } catch (_) { /* nada */ }
   edicaoSeq++;
-  edicaoOrigem = null; edicaoDur = 0; edicaoSelId = ''; edicaoPartida = '';
+  edicaoOrigem = null; edicaoDur = 0; edicaoSelId = ''; edicaoEditandoId = ''; edicaoEditandoNome = ''; edicaoBase = null;
   edicaoVals = { inicio: 0, fim: 0, fadeEntrada: false, fadeSaida: false, soAudio: false, nome: '' };
   await edicaoAbrirEscolha();
 }
@@ -38295,20 +38367,47 @@ async function edicaoImportar() {
   }
 }
 
-async function edicaoCriar() {
+// O QUE UM TOQUE NO "CONFIRMAR" OU NUM QUADRADO DE DESTINO FAZ (`chave` é o destino, ou `''` no
+// Confirmar): item NOVO → cria; item JÁ EDITADO → grava a edição NO LUGAR.
+async function edicaoConfirmar(chave, btn) {
   const e = edicaoLer();
+  if (!e) return;
+  if (edicaoEditandoId) await edicaoAplicarNoLugar(e, chave, btn);
+  else await edicaoCriar(e, chave, btn);
+}
+
+// Recarrega as três listas: um item editado no lugar muda em TODAS as que o têm, e quem desenha
+// cada uma leu o registro antes.
+async function edicaoRecarregarListas() {
+  await load();
+  await recarregarFavoritos();
+  plItems = await AVDB.listItems('playlist');
+  renderPlaylist();
+}
+
+// Passa a editar NO LUGAR o item que acabou de nascer (ou de ser salvo): o próximo "Confirmar"
+// o atualiza em vez de criar um segundo.
+function edicaoFixarNoItem(rec) {
+  edicaoEditandoId = rec.id; edicaoEditandoNome = rec.name;
+  edicaoBase = edicaoBaseDe(rec);
+  edicaoVals.nome = rec.name;
+}
+
+async function edicaoCriar(e, chave, btn) {
   if (!edicaoMudou(e)) return;
-  // No avançado, a pergunta de destino (a mesma folha da importação, com o Cronograma marcado);
-  // desistir DESISTE de criar. No Modo Fácil não há listas à vista para perguntar: o item vai
-  // ao Cronograma e aos Favoritos, e aparece quando o avançado for aberto.
+  // `chave` é um quadrado de destino: vai direto para aquela lista. Sem ela (o "Confirmar"), no
+  // avançado a pergunta de destino (a mesma folha da importação, com o Cronograma marcado) — desistir
+  // DESISTE de criar —; no Modo Fácil não há listas à vista para perguntar: o item vai ao Cronograma
+  // e aos Favoritos, e aparece quando o avançado for aberto.
   let listas;
-  if (simplificado()) listas = listasDosDestinos(['cronograma', 'favoritos']);
+  if (chave) listas = listasDosDestinos([chave]);
+  else if (simplificado()) listas = listasDosDestinos(['cronograma', 'favoritos']);
   else {
     const escolha = await escolherDestinos('Guardar o item editado', ['cronograma'], 'Guardar');
     if (!escolha || !escolha.length) return;
     listas = listasDosDestinos(escolha);
   }
-  edicaoCriarEl.disabled = true;
+  edicaoConfirmarEl.disabled = true;
   let rec = null;
   // Nasce na prateleira avulsa (já detentora do original) e só sai dela com os destinos gravados.
   try { rec = await AVDB.addEdicao(e, 'avulsos'); } catch (_) { rec = null; }
@@ -38317,21 +38416,48 @@ async function edicaoCriar() {
     edicaoAtualizar();
     return;
   }
-  await adicionarNasListas(listas, rec.id, rec.name, edicaoCriarEl);
+  await adicionarNasListas(listas, rec.id, rec.name, btn || edicaoConfirmarEl);
   try { await AVDB.listRemove('avulsos', rec.id); } catch (_) { /* fica na prateleira: sem dano */ }
-  // O FORMULÁRIO FICA COMO ESTAVA (o rascunho segue valendo): outro item com um ajuste a mais
-  // é só mudar e criar de novo. O nome avança para não repetir o que acabou de nascer.
-  edicaoPartida = rec.name;
-  edicaoVals.nome = proximoNomeDeAjuste(rec.name);
+  // O FORMULÁRIO FICA, AGORA SOBRE O ITEM NOVO (o rascunho segue valendo): mexer e confirmar de novo
+  // o atualiza no lugar. Outro item a partir do mesmo original é escolher o original outra vez.
+  edicaoFixarNoItem(rec);
   edicaoSalvarJa();
   edicaoRender();
-  edicaoDizer('Item criado: ' + rec.name + (simplificado() ? ' — está no Cronograma e nos Favoritos.' : '.'));
+  edicaoDizer('Item criado: ' + rec.name + (!chave && simplificado() ? ' — está no Cronograma e nos Favoritos.' : '.'));
+}
+
+async function edicaoAplicarNoLugar(e, chave, btn) {
+  edicaoConfirmarEl.disabled = true;
+  let rec = null;
+  try { rec = await AVDB.atualizarEdicao(edicaoEditandoId, e); } catch (_) { rec = null; }
+  if (!rec) {
+    // O item sumiu (ou o original, ou o trecho ficou vazio): nada foi gravado. Sem item para
+    // editar, o formulário passa a criar um novo.
+    let ainda = null;
+    try { ainda = await AVDB.getMediaCru(edicaoEditandoId); } catch (_) { ainda = null; }
+    if (!ainda || !ainda.edicao) {
+      edicaoEditandoId = ''; edicaoEditandoNome = ''; edicaoBase = null;
+      edicaoSalvarJa();
+      edicaoRender();
+      edicaoDizer('Esse item não está mais no aparelho — “Confirmar” cria um novo.');
+    } else {
+      edicaoDizer('Não foi possível salvar: o trecho ficou vazio.');
+      edicaoAtualizar();
+    }
+    return;
+  }
+  edicaoFixarNoItem(rec);
+  await edicaoRecarregarListas();
+  if (chave) await adicionarNasListas(listasDosDestinos([chave]), rec.id, rec.name, btn || edicaoConfirmarEl);
+  else responder(btn || edicaoConfirmarEl, 'ok');
+  edicaoSalvarJa();
+  edicaoRender();
+  edicaoDizer('Item atualizado: ' + rec.name + ' — vale em todas as listas onde ele está.');
 }
 
 edicaoBuscaEl.addEventListener('input', () => { if (edicaoVista === 'escolha') renderEdicaoEscolha(); });
-edicaoDescartarEl.addEventListener('click', edicaoDescartar);
-edicaoCriarEl.addEventListener('click', edicaoCriar);
-edicaoVoltarEl.addEventListener('click', () => { if (!edicaoOrigem) return; edicaoVista = 'form'; edicaoRender(); });
+edicaoConfirmarEl.addEventListener('click', () => edicaoConfirmar('', edicaoConfirmarEl));
+edicaoDestEls.forEach((b) => b.addEventListener('click', () => edicaoConfirmar(b.dataset.dest, b)));
 edicaoImportarEl.addEventListener('click', edicaoImportar);
 if (edicaoTileEl) edicaoTileEl.addEventListener('click', openEdicaoPopup);
 

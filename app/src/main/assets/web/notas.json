@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.12.6",
+    "itens": [
+      "Editar mídia: editar um item já editado agora muda o próprio item, em todas as listas onde ele está.",
+      "O botão de confirmar substitui o criar item, e ao lado ficam os botões de enviar ao cronograma, playlist e favoritos.",
+      "Um X vermelho no card do item cancela a edição; saíram os botões descartar e voltar."
+    ]
+  },
+  {
     "versao": "1.12.5",
     "itens": [
       "Playlist automática: a palavra-chave agora procura só no título e na letra da música, não no nome do álbum."

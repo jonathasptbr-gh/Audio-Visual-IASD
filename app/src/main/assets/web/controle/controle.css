@@ -10366,6 +10366,27 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    scroller começava na base do campo, só o `.35rem` do `.sorteio-campo` entre os dois. A folga vale
    quando o campo existe (`:not([hidden])`): sem ele a lista segue o cabeçalho como sempre. */
 .edicao-busca:not([hidden]) + #edicaoLista { margin-top: var(--sp-5); }
+/* O FECHO DA ESCOLHA TEM UM BOTÃO SÓ (v1.12.6): o "Voltar" saiu — o card do item no formulário já é
+   a porta de ida e volta —, e o "Importar arquivo" ocupa a faixa inteira em vez de metade da grade. */
+#edicaoFechoEscolha { grid-template-columns: 1fr; }
+/* O X VERMELHO DO CARD (v1.12.6): cancela a edição, no CANTO DIREITO do próprio card do item — tocar o
+   card leva ao seletor, então o cancelamento mora na mesma área. É a CAIXA DE LINHA DE LISTA do app
+   (`--thumb`, a medida da capa ao lado), as DUAS dimensões declaradas, centrada pelo `margin-block:
+   auto` entre `top`/`bottom: 0` (um `transform` aqui brigaria com o recuo de toque). O par é o
+   destrutivo de sempre: `--danger-strong` sobre `--btn-danger`, opaco. O card reserva o lugar dele no
+   `padding-right`, para o texto nunca correr por baixo. */
+.edicao-card { position: relative; }
+.edicao-card > .song-menu-btn { padding-right: calc(var(--thumb) + var(--sp-3) * 2); }
+.edicao-x {
+  position: absolute; right: var(--sp-3); top: 0; bottom: 0; margin-block: auto;
+  width: var(--thumb); height: var(--thumb);
+  display: flex; align-items: center; justify-content: center; padding: 0;
+  border: none; appearance: none; -webkit-appearance: none; cursor: pointer;
+  border-radius: var(--radius-btn);
+  background: var(--btn-danger); color: var(--danger-strong);
+}
+.edicao-x svg { width: var(--icon-sm); height: var(--icon-sm); }
+.edicao-x:not(:disabled):active { transform: var(--press); filter: var(--press-luz); }
 #edicaoNota { margin: var(--sp-3) .7rem 0; }
 #edicaoNota:empty { display: none; }
 .edicao-secao { color: var(--muted); font-size: var(--fs-sm); padding: var(--sp-2) .2rem 0; }

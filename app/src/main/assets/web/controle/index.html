@@ -2234,21 +2234,15 @@
       <ul id="edicaoLista" class="popup-list song-menu-list rola"></ul>
       <p id="edicaoNota" class="pacote-nota"></p>
       <div class="popup-fecho">
-        <div id="edicaoFechoForm" class="qs-grade-folha">
-          <button type="button" class="qs-tile qs-on" id="edicaoDescartar" title="Apagar o rascunho e começar de novo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoZerar"/></svg>
-            <span class="qs-titulo">Descartar</span>
-          </button>
-          <button type="button" class="qs-tile qs-on" id="edicaoCriar" title="Criar o item editado e escolher onde guardá-lo" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoEditar"/></svg>
-            <span class="qs-titulo">Criar item</span>
+        <!-- O FECHO DO FORMULÁRIO É A BARRA DE SEMPRE (v1.12.6): o primário "Confirmar" que CRESCE e,
+             à direita, os quadrados dos destinos (Cronograma · playlist · favoritos) montados pelo JS
+             a partir da tabela `DESTINOS` — o desenho do rodapé da playlist automática. -->
+        <div id="edicaoFechoForm" class="song-menu-go-row sorteio-barra">
+          <button type="button" class="song-menu-btn sorteio-acao song-menu-go" id="edicaoConfirmar" title="Confirmar a edição" disabled>
+            <span class="song-menu-text"><span class="song-menu-label">Confirmar</span></span>
           </button>
         </div>
         <div id="edicaoFechoEscolha" class="qs-grade-folha" hidden>
-          <button type="button" class="qs-tile qs-on" id="edicaoVoltar" title="Voltar ao que estava sendo editado">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCancelar"/></svg>
-            <span class="qs-titulo">Voltar</span>
-          </button>
           <button type="button" class="qs-tile qs-on" id="edicaoImportar" title="Trazer um arquivo só para o editor — ele não entra em lista nenhuma">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoImportar"/></svg>
             <span class="qs-titulo">Importar arquivo</span>
@@ -2681,7 +2675,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.12.5</span>
+            <span id="appVersion" class="app-version">v1.12.6</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar
