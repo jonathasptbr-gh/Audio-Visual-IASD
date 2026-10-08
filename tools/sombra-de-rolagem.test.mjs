@@ -698,6 +698,28 @@ try {
         z: topo ? getComputedStyle(topo.closest('.coll-group-bar, .coll-bar') || topo).zIndex : 'auto',
         rola: el.scrollHeight - el.clientHeight > 2 };
     });
+    // V · A TIRA DE CIMA TEM FOLGA DA CAIXA DE BUSCA (v1.11.23). Relato do operador: *"a sombra de corte
+    // superior da fronteira da lista está sem margem com a caixa de texto da busca; a sombra está colando
+    // na caixa"*. A lista começava na base da `.lib-bar` e só o `.35rem` dela separava campo e sombra; a
+    // caixa da lista desce `--lib-vao-sombra`. O primeiro bloco em REPOUSO não anda (a margem dele
+    // subtrai o mesmo token), e é por isso que o vão a olho da lista não muda.
+    const folga = await pg.evaluate(async () => {
+      const el = document.getElementById('hymnResults');
+      el.scrollTop = 0;
+      await new Promise((f) => setTimeout(f, 300));
+      const campo = document.querySelector('.lib-search-campo').getBoundingClientRect();
+      const lista = el.getBoundingClientRect();
+      const bloco = el.firstElementChild.getBoundingClientRect();
+      const barra = document.querySelector('.lib-bar').getBoundingClientRect();
+      el.scrollTop = Math.floor(el.scrollHeight / 2);
+      await new Promise((f) => setTimeout(f, 300));
+      return { campoAteLista: lista.top - campo.bottom, blocoAbaixoDaBarra: bloco.top - barra.bottom,
+        sp5: parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.6 };
+    });
+    checar(folga.campoAteLista >= 10.5 && Math.abs(folga.blocoAbaixoDaBarra - folga.sp5) <= 1,
+      'V · a lista da Biblioteca começa ≥ 10,5px abaixo do CAMPO (5,6px era o vão que colava a sombra), '
+      + 'e o primeiro bloco em repouso segue a `--sp-5` abaixo da barra (' + folga.sp5.toFixed(1) + 'px)',
+      JSON.stringify(folga));
     const foto = async () => lerPng(await pg.screenshot());
     const comTira = await foto();
     await pg.addStyleTag({ content: '.rola::before,.rola::after{display:none!important}' });

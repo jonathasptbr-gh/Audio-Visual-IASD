@@ -8373,6 +8373,19 @@ na lista; roleta e barra de ação no `.popup-fecho` — fica onde está.
   - Oráculos: bloco B do `playlist-automatica-estavel` (a base não anda, a folha
     tem uma altura só, as peças moram no fecho abaixo do scroller), bloco P do
     `sorteio-tela` (o recibo acima da roleta) e bloco S do `sombra-de-rolagem`.
+- **TRÊS AJUSTES DE SOMBRA E TAMANHO (v1.11.23).** (1) *"no modo simples durante o bloqueio de tela
+  inicial, a sombra inferior do auxiliar de leitura fica sobre o blur do desfoque"*: as tiras de
+  `.rola` têm `z-index: 5` e `.simple-song` (`position: relative`) NÃO criava contexto de
+  empilhamento, então a tira de baixo da placa concorria com o `.simple-veil` (z 1) na raiz e
+  vencia. `.simple-song { isolation: isolate }` prende o índice dentro da zona. Prova de PIXEL (bloco
+  M do `modo-simples-corpo`): véu opaco magenta e a base da placa tem de ler magenta. (2) *"o título
+  não aumenta proporcionalmente quando se aumenta a fonte"*: `.lv-row--cover`/`.lv-cab--letra`
+  usavam `--fs-3xl` fixo; agora `calc(var(--lv-fonte) * .82)` (1,15rem sobre 1,4rem: o degrau base
+  é o mesmo). Bloco L. (3) *"a sombra de corte superior da lista está sem margem com a caixa de
+  busca"*: `#hymnResults` começava na base da `.lib-bar` (5,6px do campo). `margin-top:
+  var(--lib-vao-sombra)` (`--sp-3`, no `:root`) desce a caixa, e as duas margens do primeiro bloco
+  subtraem o mesmo token com `max(0px, …)` — o repouso não anda (a primeira linha de busca
+  repousa 0,8px mais baixo). Vão campo → sombra: 5,6 → 11,2px. Bloco V do `sombra-de-rolagem`.
 - **O TÍTULO DA MÚSICA É A LINHA DE CAPA, NOS DOIS MODOS (v1.11.22).** Pedido do operador: o
   Modo Fácil *"não ganhou o título dentro da caixa da letra"*, *"duas linhas de espaço entre o
   título e o resto"* e *"remover a palavra 'início' … transfira a formatação atual dessa palavra

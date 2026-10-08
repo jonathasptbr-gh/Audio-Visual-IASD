@@ -46,7 +46,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
 import {
-  servirEstatico, abrirNavegador, esperar, esperarCortina, porque, checar, falhas,
+  servirEstatico, abrirNavegador, esperar, esperarCortina, porque, checar, falhas, lerPng, pixel,
 } from './arnes.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'app', 'src', 'main', 'assets', 'web');
@@ -422,6 +422,57 @@ try {
   checar(k.vao !== null && Math.abs(k.vao - k.duasLinhas) <= 1.5,
     'K3 · e há DUAS LINHAS da letra de espaço entre o título e o resto (' + (k.vao && k.vao.toFixed(1)) + 'px contra '
     + k.duasLinhas.toFixed(1) + ')', JSON.stringify(k));
+  // L · O TÍTULO ACOMPANHA O A+/A− (v1.11.23)
+  // Pedido do operador: *"o título dentro do auxiliar de leitura não aumenta proporcionalmente quando
+  // se aumenta a fonte do texto da letra"*. O corpo do título era `--fs-3xl` fixo; agora é um fator do
+  // `--lv-fonte`, o mesmo token que o A+/A− escreve — o degrau base não muda (1,15rem sobre 1,4rem).
+  const fontesL = () => pg.evaluate(() => {
+    const z = document.getElementById('simpleLyrics');
+    const t = parseFloat(getComputedStyle(z.querySelector('.lv-row--cover')).fontSize);
+    const c = parseFloat(getComputedStyle(z.querySelector('.lv-row--letra:not(.lv-row--cover)')).fontSize);
+    return { titulo: t, corpo: c };
+  });
+  const l0 = await fontesL();
+  await pg.evaluate(() => { document.documentElement.style.setProperty('--lv-fonte', '2.1rem'); });
+  await quadros();
+  const l1 = await fontesL();
+  await pg.evaluate(() => { document.documentElement.style.setProperty('--lv-fonte', '1.4rem'); });
+  checar(Math.abs(l0.titulo / l0.corpo - 0.82) < 0.02 && Math.abs(l0.titulo - 18.4) < 0.6,
+    'L1 · no degrau BASE o título segue com 1,15rem (18,4px): o desenho de sempre não mudou',
+    JSON.stringify(l0));
+  checar(l1.titulo > l0.titulo * 1.4 && Math.abs(l1.titulo / l1.corpo - l0.titulo / l0.corpo) < 0.02,
+    'L2 · e ele CRESCE junto com a letra quando o A+ sobe o `--lv-fonte` (a razão título/corpo se mantém)',
+    JSON.stringify({ base: l0, grande: l1 }));
+
+  // M · A SOMBRA DA PLACA FICA POR BAIXO DO BLOQUEIO "SEM TELA" (v1.11.23)
+  // Pedido do operador: *"no modo simples durante o bloqueio de tela inicial, a sombra inferior do
+  // auxiliar de leitura fica sobre o blur do desfoque, aparecendo perdida na tela"*. A tira de sombra
+  // (`.rola::after`, z-index 5) escapava da zona de leitura e vencia o véu (z 1). A prova é de PIXEL
+  // e não de ordem: com o véu OPACO nada que esteja sob ele pode aparecer, então a base da placa tem
+  // de ler exatamente a cor do véu — a tira, se escapasse, escureceria aquelas linhas.
+  await pg.evaluate(() => {
+    const linhas = [{ cover: true }];
+    for (let i = 0; i < 40; i++) linhas.push({ time: i * 4, text: 'estrofe número ' + i + ' da letra em teste' });
+    currentItem = Object.assign({}, currentItem, { lyrics: linhas });
+    webDisplayWin = null; renderSimpleCast(); refreshSimpleLyrics();
+  });
+  await quadros();
+  await pg.addStyleTag({ content: '.simple-veil{background:#ff00ff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}' });
+  const m = await pg.evaluate(() => {
+    const z = document.getElementById('simpleLyrics');
+    const r = z.getBoundingClientRect();
+    return { semTela: document.getElementById('simpleMode').classList.contains('sem-tela'),
+      temAbaixo: z.classList.contains('tem-abaixo'), esq: r.left, base: r.bottom, topo: r.top, larg: r.width };
+  });
+  const png = lerPng(await pg.screenshot());
+  const amostras = [6, 12, 18].map((d) => pixel(png, Math.round(m.esq + m.larg / 2), Math.round(m.base - d)));
+  const magenta = (c) => c[0] > 240 && c[1] < 15 && c[2] > 240;
+  checar(m.semTela && m.temAbaixo && amostras.every(magenta),
+    'M1 · sem tela, com o véu opaco a BASE da placa lê só a cor do véu: a sombra de baixo da leitura fica POR BAIXO '
+    + 'dele (`.simple-song` isola o `z-index` da tira)', JSON.stringify({ m, amostras }));
+  await pg.evaluate(() => { webDisplayWin = { closed: false }; renderSimpleCast(); });
+  await pg.evaluate(() => { currentItem = Object.assign({}, currentItem, { lyrics: [{ cover: true }, { time: 0, text: 'primeira estrofe' }, { time: 5, text: 'segunda estrofe' }] }); refreshSimpleLyrics(); });
+  await quadros();
   await pg.evaluate(() => { midiaNoAr = false; renderSimple(); renderTransporteHabilitado(); });
   await quadros();
 
