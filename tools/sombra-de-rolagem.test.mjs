@@ -716,8 +716,8 @@ try {
       return { campoAteLista: lista.top - campo.bottom, blocoAbaixoDaBarra: bloco.top - barra.bottom,
         sp5: parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.6 };
     });
-    checar(folga.campoAteLista >= 10.5 && Math.abs(folga.blocoAbaixoDaBarra - folga.sp5) <= 1,
-      'V · a lista da Biblioteca começa ≥ 10,5px abaixo do CAMPO (5,6px era o vão que colava a sombra), '
+    checar(folga.campoAteLista >= 10 && Math.abs(folga.blocoAbaixoDaBarra - folga.sp5) <= 1,
+      'V · a lista da Biblioteca começa ≥ 10px abaixo do CAMPO (5,6px era o vão que colava a sombra), '
       + 'e o primeiro bloco em repouso segue a `--sp-5` abaixo da barra (' + folga.sp5.toFixed(1) + 'px)',
       JSON.stringify(folga));
     const foto = async () => lerPng(await pg.screenshot());

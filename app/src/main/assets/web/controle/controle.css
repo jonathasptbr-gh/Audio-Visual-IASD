@@ -82,7 +82,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      em branco"), não a derivação. */
   --lv-fonte: 1.4rem;
   --lv-estrofe-gap: calc(var(--lv-fonte) * .86);
-  --lib-vao-sombra: var(--sp-3);  /* folga entre o campo da Biblioteca e a sombra de cima da lista */
+  --lib-vao-sombra: calc(var(--sp-5) / 2);  /* folga entre o campo da Biblioteca e a sombra de cima da lista */
 
   /* ---------- Raios ----------
      Dois degraus (controle × cartão) e três exceções nomeadas. Um raio literal
@@ -5988,17 +5988,17 @@ main {
    de uma tampa grudada); e a primeira LINHA já carrega o `margin-top` negativo da receita acima
    (metade do vão dentro da caixa), então o dela é o que falta para o conteúdo cair em `--sp-5`:
    metade do vão, positiva. */
-#hymnResults > :first-child:not(.hymn-result) { margin-top: max(0px, calc(var(--sp-5) - var(--lib-vao-sombra))); }
-#hymnResults > .hymn-result:first-child { margin-top: max(0px, calc(var(--sp-5) / 2 - var(--lib-vao-sombra))); }
+#hymnResults > :first-child:not(.hymn-result) { margin-top: calc(var(--sp-5) - var(--lib-vao-sombra)); }
+#hymnResults > .hymn-result:first-child { margin-top: calc(var(--sp-5) / 2 - var(--lib-vao-sombra)); }
 /* A SOMBRA DE CIMA TEM UMA FOLGA DA CAIXA DA BARRA (v1.11.23, pedido do operador: *"a sombra de corte
    superior da fronteira da lista está sem margem com a caixa de texto da busca; a sombra está colando
    na caixa"*). A tira mora no topo do scroller, e o scroller começava na base da `.lib-bar` — só o
    `.35rem` de baixo dela (5,6px) separava o campo da sombra. A caixa da lista desce `--lib-vao-sombra`
-   e o vão campo → sombra passa de 5,6 para 11,2px. O repouso quase NÃO anda: o primeiro bloco perde da
+   e o vão campo → sombra passa de 5,6 para 10,4px. O repouso NÃO anda: o primeiro bloco perde da
    própria margem o que a caixa ganhou (a soma segue `--sp-5` abaixo da barra), e é por isso que as duas
-   regras acima subtraem o mesmo token — sem isso a lista inteira desceria. O `max(0px, …)` existe porque
-   a primeira LINHA de busca só tem `--sp-5 / 2` de margem: negativa, ela recortaria o preenchimento de
-   estado dela contra o topo (a linha repousa 0,8px mais baixo, e é o preço). */
+   regras acima subtraem o mesmo token — sem isso a lista inteira desceria. O token vale `--sp-5 / 2`
+   DE PROPÓSITO: é a margem da primeira LINHA de busca, e um valor maior a deixaria NEGATIVA — o
+   preenchimento de estado dela seria recortado contra o topo. */
 #hymnResults { margin-top: var(--lib-vao-sombra); }
 /* DE LADO A LADO (v1.11.17, pedido do operador: *"atualmente a linha divisória fica apenas na
    zona do texto, faça ela uma linha de lado a lado, passa do botão de play/thumbnail"*). Aqui o

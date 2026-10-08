@@ -8383,9 +8383,8 @@ na lista; roleta e barra de ação no `.popup-fecho` — fica onde está.
   usavam `--fs-3xl` fixo; agora `calc(var(--lv-fonte) * .82)` (1,15rem sobre 1,4rem: o degrau base
   é o mesmo). Bloco L. (3) *"a sombra de corte superior da lista está sem margem com a caixa de
   busca"*: `#hymnResults` começava na base da `.lib-bar` (5,6px do campo). `margin-top:
-  var(--lib-vao-sombra)` (`--sp-3`, no `:root`) desce a caixa, e as duas margens do primeiro bloco
-  subtraem o mesmo token com `max(0px, …)` — o repouso não anda (a primeira linha de busca
-  repousa 0,8px mais baixo). Vão campo → sombra: 5,6 → 11,2px. Bloco V do `sombra-de-rolagem`.
+  var(--lib-vao-sombra)` (`--sp-5 / 2`, no `:root`) desce a caixa, e as duas margens do primeiro bloco
+  subtraem o mesmo token — o repouso não anda. Vão campo → sombra: 5,6 → 10,4px. Bloco V do `sombra-de-rolagem`.
 - **O TÍTULO DA MÚSICA É A LINHA DE CAPA, NOS DOIS MODOS (v1.11.22).** Pedido do operador: o
   Modo Fácil *"não ganhou o título dentro da caixa da letra"*, *"duas linhas de espaço entre o
   título e o resto"* e *"remover a palavra 'início' … transfira a formatação atual dessa palavra
