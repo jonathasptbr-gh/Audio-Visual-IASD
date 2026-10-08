@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.12.7",
+    "itens": [
+      "Editar mídia: saiu a linha “Original” da base, e o botão Importar arquivo ficou baixo, com o ícone ao lado do texto.",
+      "A faixa de ajuste do corte ganhou margens laterais, para o gesto de voltar na borda não atrapalhar.",
+      "O carregamento da lista de edição agora é só um indicador maior, sem texto."
+    ]
+  },
+  {
     "versao": "1.12.6",
     "itens": [
       "Editar mídia: editar um item já editado agora muda o próprio item, em todas as listas onde ele está.",
