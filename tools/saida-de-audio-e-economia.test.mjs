@@ -424,45 +424,34 @@ try {
     + 'um tile que só sabe não funcionar é pior que tile nenhum',
     noNavegador);
 
-  // A FILEIRA DO APARELHO, com a grade em OITO tiles (v1.11.7): preferências
-  // (tema, tela, histórico, saída de áudio, dados móveis, verificar) e depois o
-  // grupo do aparelho (compartilhar, transferir). A régua é o TOPO de cada caixa:
-  // classe nenhuma descreve "estão na mesma fileira". Os tiles de dentro das
-  // janelas (fit/wallpaper/fundo/giro, exportar/importar) NÃO estão na grade.
+  // A FILEIRA DO APARELHO, com a grade em NOVE tiles (v1.12.1): três fileiras por assunto —
+  // aparência e saída (tema, tela, saída de áudio), dados e mídia (dados móveis, editar mídia,
+  // histórico) e o aparelho (verificar, compartilhar, transferir). Sem coluna forçada: 9 em 3
+  // colunas se fecham sozinhos. A régua é o TOPO de cada caixa.
   const topos = () => pg.evaluate(() => {
     const t = (id) => Math.round(document.getElementById(id).getBoundingClientRect().top);
     const grade = document.querySelector('.qs-grade');
     const ids = [...grade.querySelectorAll('.qs-tile')]
       .filter((e) => !e.hidden && e.getBoundingClientRect().width > 0).map((e) => e.id);
     return {
-      compartilhar: t('shareAppTile'), transferir: t('pacoteTile'),
-      saida: t('saidaAudioTile'), dados: t('dadosMoveisTile'), verificar: t('testeTile'),
+      compartilhar: t('shareAppTile'), transferir: t('pacoteTile'), verificar: t('testeTile'),
+      saida: t('saidaAudioTile'), dados: t('dadosMoveisTile'), edicao: t('edicaoTile'),
+      tema: t('temaTile'), tela: t('telaTile'), hist: t('histOpenRow'),
       ids,
     };
   });
   const fileira = await topos();
-  checar(fileira.ids.length === 8,
-    'A8a · a grade de Configurações tem os OITO tiles que o desenho pede (os '
-    + 'quatro ajustes do telão e o exportar/importar moram nas janelas)', fileira.ids);
-  checar(fileira.compartilhar === fileira.transferir,
-    'A8 · os DOIS do aparelho (compartilhar e transferir) ficam na MESMA fileira '
+  checar(fileira.ids.length === 9,
+    'A8a · a grade de Configurações tem os NOVE tiles que o desenho pede (os '
+    + 'ajustes do telão e o exportar/importar moram nas janelas)', fileira.ids);
+  checar(fileira.compartilhar === fileira.transferir && fileira.verificar === fileira.transferir,
+    'A8 · Verificar, Compartilhar e Transferir fecham a grade na MESMA fileira '
     + '(*"compartilhar, exportar e importar devem ser os itens da base"*)', fileira);
-  checar(fileira.saida < fileira.compartilhar && fileira.dados < fileira.compartilhar
-    && fileira.verificar < fileira.compartilhar,
-    'A9 · e as preferências ficam ACIMA deles — é a ordem por ASSUNTO que a posição '
-    + 'diz sem gastar uma linha de texto', fileira);
-  // A CÉLULA EM QUE A ARITMÉTICA FALHA: com seis preferências em três colunas os
-  // dois do aparelho caem sozinhos na terceira fileira, e a regra de CSS não é
-  // exercida. Uma preferência a menos (cinco) deixa um vão na segunda fileira, e
-  // sem o `grid-column: 1` o `compartilhar` o ocuparia, ao lado de uma PREFERÊNCIA.
-  await pg.evaluate(() => { document.getElementById('testeTile').hidden = true; });
-  const cinco = await topos();
-  checar(cinco.compartilhar === cinco.transferir && cinco.saida < cinco.compartilhar
-    && cinco.dados < cinco.compartilhar,
-    'A9b · e continuam começando fileira NOVA com uma preferência a menos: nenhuma '
-    + 'fileira mistura preferência com ação do aparelho (a aritmética não é a regra)',
-    cinco);
-  await pg.evaluate(() => { document.getElementById('testeTile').hidden = false; });
+  checar(fileira.tema === fileira.tela && fileira.tela === fileira.saida
+    && fileira.dados === fileira.edicao && fileira.edicao === fileira.hist
+    && fileira.saida < fileira.dados && fileira.hist < fileira.verificar,
+    'A9 · e as outras duas fileiras são por ASSUNTO, na ordem de cima para baixo: '
+    + 'aparência e saída, depois dados e mídia', fileira);
   await ctxWeb.close();
 
   // =========================================================================

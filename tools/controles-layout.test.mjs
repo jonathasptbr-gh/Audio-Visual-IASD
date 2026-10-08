@@ -237,7 +237,7 @@ try {
     const barra = await pg.evaluate(() => {
       const r = (sel) => { const b = document.querySelector(sel).getBoundingClientRect();
         return { esq: +b.left.toFixed(2), dir: +b.right.toFixed(2), larg: +b.width.toFixed(2) }; };
-      return { dado: r('#sorteioBtn'), campo: r('.lib-search-campo'), seta: r('#hymnSearchToggle'),
+      return { dado: r('#sorteioBtn'), campo: r('#libBar .lib-search-campo'), seta: r('#hymnSearchToggle'),
         gap: parseFloat(getComputedStyle(document.getElementById('libBar')).columnGap) };
     });
     checar(perto(barra.campo.esq - barra.dado.dir, g.vao) && perto(barra.seta.esq - barra.campo.dir, g.vao),

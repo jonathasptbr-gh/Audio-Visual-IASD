@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.0';
+const WEB_VERSION = '1.12.1';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -31091,7 +31091,7 @@ async function pacoteGruposDeMidia(midia) {
     }
   }
   const sobra = new Set();
-  for (const m of midia) if (!cobertos.has(m.id) && !origens.has(m.id)) sobra.add(m.id);
+  for (const m of midia) if (!cobertos.has(m.id) && !origens.has(m.id) && !m.base) sobra.add(m.id);
   if (sobra.size) porGrupo.set('midia', sobra);
   return { porGrupo, bytes, serieSub };
 }
@@ -37701,52 +37701,60 @@ function closePacotePopup() { pacotePopupEl.classList.remove('open'); }
 
 // ===== EDITAR MÍDIA (v1.12.0) =====
 //
-// O item editado é VIRTUAL: guarda só `edicao` (origem, início, fim, fades,
-// "só o áudio") e aponta para o original, que o coletor segura enquanto o item
-// existir em qualquer lugar (ver `lerDetentores`). Quem aplica o recorte e os
-// fades é o `stage.js`, na hora de tocar. Esta janela é só o formulário:
-// seletor de mídia, sliders de tempo e três marcas — sem player. O operador
-// anota os pontos tocando o ORIGINAL na prévia e volta aqui; por isso o
-// rascunho é gravado a cada ajuste e reaparece na reabertura.
+// O item editado é VIRTUAL: guarda só `edicao` (origem, início, fim, fades, "só o áudio") e
+// aponta para o original, que o coletor segura enquanto o item existir em qualquer lugar (ver
+// `lerDetentores`). Quem aplica o recorte e os fades é o `stage.js`, na hora de tocar. Esta
+// janela é só o formulário — sem player. O operador anota os pontos tocando o ORIGINAL na
+// prévia e volta aqui; por isso o rascunho é gravado a cada ajuste e reaparece na reabertura.
+//
+// DUAS VISTAS NA MESMA FOLHA (a folha não muda de altura entre elas): o FORMULÁRIO e o SELETOR
+// DE MÍDIA, que é a lista de grupos da exportação (Cronograma, Playlist, Favoritos e a
+// Biblioteca por coletânea), com um "Importar arquivo" que traz o arquivo SÓ para o editor.
+// Escolher um item JÁ EDITADO parte dos valores dele para um ajuste fino: o que se cria é
+// sempre um item NOVO, que aponta para o mesmo original — o editado de partida não muda.
 const edicaoTileEl = document.getElementById('edicaoTile');
 const edicaoPopupEl = document.getElementById('edicaoPopup');
 const edicaoPopupCloseEl = document.getElementById('edicaoPopupClose');
+const edicaoTituloEl = document.getElementById('edicaoTitulo');
+const edicaoBuscaCaixaEl = document.getElementById('edicaoBuscaCaixa');
 const edicaoBuscaEl = document.getElementById('edicaoBusca');
-const edicaoItemEl = document.getElementById('edicaoItem');
-const edicaoInfoEl = document.getElementById('edicaoInfo');
-const edicaoControlesEl = document.getElementById('edicaoControles');
-const edicaoIniEl = document.getElementById('edicaoIni');
-const edicaoFimEl = document.getElementById('edicaoFim');
-const edicaoIniValEl = document.getElementById('edicaoIniVal');
-const edicaoFimValEl = document.getElementById('edicaoFimVal');
-const edicaoFadeInEl = document.getElementById('edicaoFadeIn');
-const edicaoFadeOutEl = document.getElementById('edicaoFadeOut');
-const edicaoSoAudioEl = document.getElementById('edicaoSoAudio');
-const edicaoSoAudioRotuloEl = document.getElementById('edicaoSoAudioRotulo');
-const edicaoNomeEl = document.getElementById('edicaoNome');
+const edicaoListaEl = document.getElementById('edicaoLista');
+const edicaoNotaEl = document.getElementById('edicaoNota');
+const edicaoFechoFormEl = document.getElementById('edicaoFechoForm');
+const edicaoFechoEscolhaEl = document.getElementById('edicaoFechoEscolha');
 const edicaoDescartarEl = document.getElementById('edicaoDescartar');
 const edicaoCriarEl = document.getElementById('edicaoCriar');
+const edicaoVoltarEl = document.getElementById('edicaoVoltar');
+const edicaoImportarEl = document.getElementById('edicaoImportar');
 
 const EDICAO_RASCUNHO = 'edicaoRascunho';
-const EDICAO_MAX_OPCOES = 150;     // uma lista de milhares de nomes não é seletor
-const EDICAO_PASSO = 1;            // os botões −1 s / +1 s
+const EDICAO_PASSO = 1;            // os botões −1 s / +1 s do ajuste fino
 const EDICAO_VAO_MIN = 1;          // o trecho tem de ter ao menos 1 s
-let edicaoCands = [];              // { id, nome, kind, seconds } das mídias elegíveis
+const EDICAO_PASSO_FAIXA = 0.5;    // o passo da faixa (o fino é o dos botões)
+let edicaoVista = 'form';          // 'form' | 'escolha'
 let edicaoOrigem = null;           // o registro CRU do original escolhido
-let edicaoDur = 0;                 // duração do original (s); 0 = ainda sem escolha
-// O fim do slider é a duração ARREDONDADA PARA CIMA no passo (0,5 s): um `max`
-// fora da grade do passo é inalcançável, e o slider pararia meio passo antes do
-// fim do arquivo — o que `edicaoLer` leria como um corte de verdade.
+let edicaoPartida = '';            // o nome do item editado de que se partiu (ajuste fino)
+let edicaoDur = 0;                 // duração do original (s); 0 = sem escolha
+// O fim da faixa é a duração ARREDONDADA PARA CIMA no passo: um `max` fora da grade do passo é
+// inalcançável, e a faixa pararia meio passo antes do fim do arquivo — o que `edicaoLer` leria
+// como um corte de verdade.
 let edicaoTeto = 0;
+let edicaoVals = { inicio: 0, fim: 0, fadeEntrada: false, fadeSaida: false, soAudio: false, nome: '' };
+let edicaoSelId = '';              // a linha marcada no seletor
+let edicaoGrupos = [];             // os grupos do seletor, já lidos
+const edicaoAbertos = new Set();   // os grupos abertos (uma sessão)
 let edicaoSeq = 0;
 let edicaoSalvarTimer = null;
+let edicaoEls = null;              // os nós do formulário que mudam sem remontar
 
-// Só áudio e vídeo COM BYTES: link do YouTube, imagem, apresentação e cena de
-// roteiro não têm linha do tempo para cortar, e um item editado não se edita de
-// novo (cada edição parte sempre do original).
+// Só áudio e vídeo COM BYTES: link do YouTube, imagem, apresentação e cena de roteiro não têm
+// linha do tempo para cortar. O item JÁ EDITADO entra na lista como ponto de PARTIDA.
 function edicaoElegivel(r) {
   return !!r && !r.edicao && (r.kind === 'video' || r.kind === 'audio')
     && !!(r.blob || r.opfsPath || r.url);
+}
+function edicaoUsavel(r) {
+  return !!r && (r.kind === 'video' || r.kind === 'audio') && (!!r.edicao || edicaoElegivel(r));
 }
 
 function edicaoFmt(t) {
@@ -37758,56 +37766,9 @@ function edicaoFmt(t) {
   const sg = String(i % 60).padStart(2, '0');
   return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + sg + meio;
 }
+function edicaoDizer(texto) { edicaoNotaEl.textContent = texto || ''; }
 
-function edicaoDizer(texto) { edicaoInfoEl.textContent = texto || ''; }
-
-async function edicaoCarregarCands() {
-  const mapa = new Map();
-  for (const lista of ['imports', 'playlist', 'favs']) {
-    let itens = [];
-    try { itens = await AVDB.listItems(lista); } catch (_) { itens = []; }
-    for (const r of itens) if (edicaoElegivel(r)) mapa.set(r.id, r);
-  }
-  // O acervo baixado (hinários, pastas): vive no catálogo de arquivos e só
-  // entra em lista quando alguém o adiciona — mas é biblioteca, e se edita.
-  try {
-    for (const r of await AVDB.filesAll()) if (!mapa.has(r.id) && edicaoElegivel(r)) mapa.set(r.id, r);
-  } catch (_) { /* sem o catálogo ficam as listas */ }
-  edicaoCands = [...mapa.values()]
-    .map((r) => ({ id: r.id, nome: r.name || 'sem nome', kind: r.kind, seconds: r.seconds || 0 }))
-    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
-}
-
-function edicaoRotuloOpcao(c) {
-  return c.nome + ' · ' + (c.kind === 'video' ? 'vídeo' : 'áudio') + (c.seconds ? ' · ' + fmtTime(c.seconds) : '');
-}
-
-function edicaoRenderOpcoes(manter) {
-  const q = (edicaoBuscaEl.value || '').trim().toLowerCase();
-  const todas = q ? edicaoCands.filter((c) => c.nome.toLowerCase().includes(q)) : edicaoCands;
-  let lista = todas.slice(0, EDICAO_MAX_OPCOES);
-  // A mídia escolhida fica na lista mesmo que a busca não a alcance.
-  if (manter && !lista.some((c) => c.id === manter)) {
-    const c = edicaoCands.find((x) => x.id === manter);
-    if (c) lista = [c, ...lista];
-  }
-  edicaoItemEl.innerHTML = '';
-  const vazio = document.createElement('option');
-  vazio.value = '';
-  vazio.textContent = todas.length ? 'Escolha a mídia…' : (edicaoCands.length ? 'Nenhuma mídia com esse nome' : 'Nenhuma mídia de áudio ou vídeo no aparelho');
-  edicaoItemEl.appendChild(vazio);
-  for (const c of lista) {
-    const o = document.createElement('option');
-    o.value = c.id;
-    o.textContent = edicaoRotuloOpcao(c);
-    edicaoItemEl.appendChild(o);
-  }
-  edicaoItemEl.value = manter && lista.some((c) => c.id === manter) ? manter : '';
-  if (todas.length > EDICAO_MAX_OPCOES) edicaoDizer('Mostrando ' + EDICAO_MAX_OPCOES + ' de ' + todas.length + ' — escreva parte do nome para refinar.');
-}
-
-// A duração do original: o campo gravado quando existe; senão lê os metadados
-// (sem tocar nada). Zero = não foi possível medir.
+// A duração do original: o campo gravado quando existe; senão lê os metadados (sem tocar nada).
 async function edicaoDuracao(rec) {
   if (rec.seconds > 0) return rec.seconds;
   let src = null, revogar = null;
@@ -37837,116 +37798,409 @@ async function edicaoDuracao(rec) {
   });
 }
 
-function edicaoLer() {
-  if (!edicaoOrigem || !(edicaoDur > 0)) return null;
-  const ini = +edicaoIniEl.value || 0;
-  const fim = +edicaoFimEl.value || edicaoDur;
-  return {
-    origem: edicaoOrigem.id,
-    inicio: ini,
-    // No fim do arquivo não há corte final: `null` deixa o `ended` ser o real.
-    fim: fim >= edicaoDur - 0.01 ? null : fim,
-    fadeEntrada: edicaoFadeInEl.checked,
-    fadeSaida: edicaoFadeOutEl.checked,
-    soAudio: edicaoSoAudioEl.checked && edicaoOrigem.kind === 'video',
-    nome: edicaoNomeEl.value,
-  };
+// ---------- os grupos do seletor ----------
+async function edicaoMontarGrupos() {
+  const grupos = [];
+  const item = (r) => ({ id: r.id, nome: r.name || 'sem nome', kind: r.kind, seconds: r.seconds || 0, editado: !!r.edicao });
+  const porNome = (a, b) => a.nome.localeCompare(b.nome, 'pt', { numeric: true });
+  for (const [chave, lista, nome] of [['lst:imports', 'imports', 'Cronograma'],
+    ['lst:playlist', 'playlist', 'Playlist'], ['lst:favs', 'favs', 'Favoritos']]) {
+    let itens = [];
+    try { itens = (await AVDB.listItems(lista)).filter(edicaoUsavel).map(item); } catch (_) { itens = []; }
+    grupos.push({ chave, nome, itens });
+  }
+  // A BIBLIOTECA, por coletânea: o que foi baixado mora no catálogo de arquivos, por pasta.
+  let arquivos = [];
+  try {
+    arquivos = (await AVDB.filesAll()).filter((r) => (r.kind === 'video' || r.kind === 'audio') && r.opfsPath);
+  } catch (_) { arquivos = []; }
+  const porPasta = new Map();
+  for (const r of arquivos) {
+    if (!porPasta.has(r.folder)) porPasta.set(r.folder, []);
+    porPasta.get(r.folder).push(item(r));
+  }
+  const vistas = new Set();
+  for (const c of allCollections()) {
+    vistas.add(c.id);
+    const its = porPasta.get(c.id);
+    if (its && its.length) grupos.push({ chave: 'col:' + c.id, nome: c.name || c.id, secao: 'Biblioteca', itens: its.sort(porNome) });
+  }
+  for (const [pasta, its] of porPasta) {
+    if (vistas.has(pasta)) continue;
+    const f = opfsFolders.find((x) => x && x.id === pasta);
+    grupos.push({ chave: 'col:' + pasta, nome: f ? f.name : 'Arquivos sem coleção', secao: 'Biblioteca', itens: its.sort(porNome) });
+  }
+  let importados = [];
+  try { importados = await AVDB.basesDoEditor(); } catch (_) { importados = []; }
+  if (importados.length) {
+    grupos.push({
+      chave: 'doEditor', nome: 'Importados para edição', secao: 'Biblioteca',
+      itens: importados.map((r) => ({ id: r.id, nome: r.name || 'sem nome', kind: r.kind, seconds: r.seconds || 0, editado: false })).sort(porNome),
+    });
+  }
+  return grupos;
 }
 
+function edicaoSubDoItem(it) {
+  return (it.editado ? 'Editado · ' : '') + (it.kind === 'video' ? 'Vídeo' : 'Áudio')
+    + (it.seconds ? ' · ' + fmtTime(it.seconds) : '');
+}
+
+// UMA LINHA do seletor, no desenho da linha da exportação (`.pacote-linha`): o quadrado do
+// ícone, o nome, a segunda linha e a MARCA à direita — aqui de uma escolha só.
+function edicaoLinha(icone, rotulo, sub, marcado, aoToque) {
+  const li = document.createElement('li');
+  li.className = 'pacote-linha';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'song-menu-btn song-menu-sel';
+  const ic = icone; ic.classList.add('song-menu-icon', 'coll-bar-icon');
+  const txt = document.createElement('span'); txt.className = 'song-menu-text';
+  const t = document.createElement('span'); t.className = 'song-menu-label'; t.textContent = rotulo;
+  txt.appendChild(t);
+  if (sub) {
+    const d = document.createElement('span'); d.className = 'song-menu-sub'; d.textContent = sub;
+    txt.appendChild(d);
+  }
+  const cx = document.createElement('span');
+  cx.className = 'song-menu-check' + (marcado ? ' on' : '');
+  cx.setAttribute('role', 'checkbox');
+  cx.setAttribute('aria-checked', marcado ? 'true' : 'false');
+  btn.append(ic, txt, cx);
+  btn.addEventListener('click', () => aoToque(btn, cx));
+  li.appendChild(btn);
+  return li;
+}
+
+function renderEdicaoEscolha() {
+  edicaoListaEl.innerHTML = '';
+  const q = (edicaoBuscaEl.value || '').trim().toLowerCase();
+  let desenhou = 0;
+  let secaoDita = '';
+  for (const g of edicaoGrupos) {
+    const itens = q ? g.itens.filter((i) => i.nome.toLowerCase().includes(q)) : g.itens;
+    if (q && !itens.length) continue;
+    if (g.secao && g.secao !== secaoDita) {
+      secaoDita = g.secao;
+      const cab = document.createElement('li');
+      cab.className = 'edicao-secao';
+      cab.textContent = g.secao;
+      edicaoListaEl.appendChild(cab);
+    }
+    desenhou++;
+    const aberta = q ? true : edicaoAbertos.has(g.chave);
+    const li = document.createElement('li');
+    li.className = 'pacote-grupo' + (aberta ? ' aberto' : '');
+    const bar = document.createElement('div');
+    bar.className = 'song-menu-btn song-menu-grupo song-menu-sel';
+    bar.setAttribute('role', 'button');
+    bar.setAttribute('tabindex', '0');
+    const seta = document.createElement('button');
+    seta.type = 'button';
+    seta.className = 'coll-group-icon pacote-seta' + (aberta ? ' aberta' : '');
+    seta.innerHTML = chevronUpIconSvg();
+    seta.setAttribute('aria-label', (aberta ? 'Fechar ' : 'Abrir ') + g.nome);
+    seta.setAttribute('aria-expanded', aberta ? 'true' : 'false');
+    const txt = document.createElement('span'); txt.className = 'song-menu-text';
+    const t = document.createElement('span'); t.className = 'song-menu-label'; t.textContent = g.nome;
+    const d = document.createElement('span'); d.className = 'song-menu-sub';
+    d.textContent = itens.length + (itens.length === 1 ? ' mídia' : ' mídias');
+    txt.append(t, d);
+    bar.append(seta, txt);
+    // A barra INTEIRA abre e fecha (aqui não há o que marcar num grupo), com a animação da
+    // Biblioteca: fechando anima ANTES de remontar, abrindo remonta e anima no quadro seguinte.
+    const alternar = () => {
+      if (q) return;
+      const abrindo = !aberta;
+      const aplicar = () => {
+        if (abrindo) edicaoAbertos.add(g.chave); else edicaoAbertos.delete(g.chave);
+        renderEdicaoEscolha();
+        if (abrindo) {
+          const novo = edicaoListaEl.querySelector('[data-grupo="' + CSS.escape(g.chave) + '"] .pacote-grupo-corpo');
+          requestAnimationFrame(() => expandAccordion(novo));
+        }
+      };
+      if (!abrindo) { collapseAccordion(li.querySelector('.pacote-grupo-corpo'), aplicar); return; }
+      aplicar();
+    };
+    bar.addEventListener('click', alternar);
+    bar.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); alternar(); } });
+    li.dataset.grupo = g.chave;
+    li.appendChild(bar);
+    if (aberta) {
+      const corpo = document.createElement('ul');
+      corpo.className = 'pacote-grupo-corpo';
+      if (!itens.length) {
+        const vazio = document.createElement('li');
+        vazio.className = 'empty';
+        vazio.textContent = 'Nenhuma mídia de áudio ou vídeo aqui.';
+        corpo.appendChild(vazio);
+      }
+      for (const it of itens) {
+        corpo.appendChild(edicaoLinha(msym(ICON.music), it.nome, edicaoSubDoItem(it), it.id === edicaoSelId,
+          () => { edicaoEscolherItem(it); }));
+      }
+      li.appendChild(corpo);
+    }
+    edicaoListaEl.appendChild(li);
+  }
+  if (!desenhou) {
+    const vazio = document.createElement('li');
+    vazio.className = 'empty';
+    vazio.textContent = q ? 'Nenhuma mídia com esse nome.'
+      : 'Nenhuma mídia de áudio ou vídeo neste aparelho. Use “Importar arquivo”.';
+    edicaoListaEl.appendChild(vazio);
+  }
+}
+
+// ---------- o formulário ----------
+function edicaoLer() {
+  if (!edicaoOrigem || !(edicaoDur > 0)) return null;
+  const v = edicaoVals;
+  return {
+    origem: edicaoOrigem.id,
+    inicio: v.inicio,
+    // No fim do arquivo não há corte final: `null` deixa o `ended` ser o real.
+    fim: v.fim >= edicaoDur - 0.01 ? null : v.fim,
+    fadeEntrada: v.fadeEntrada,
+    fadeSaida: v.fadeSaida,
+    soAudio: v.soAudio && edicaoOrigem.kind === 'video',
+    nome: v.nome,
+  };
+}
 // Algo a criar? Sem nenhuma marca o item seria uma cópia do original.
 function edicaoMudou(e) {
   return !!e && (e.inicio > 0 || e.fim != null || e.fadeEntrada || e.fadeSaida || e.soAudio);
 }
 
-function edicaoAtualizar() {
-  const e = edicaoLer();
-  if (e) {
-    edicaoIniValEl.textContent = edicaoFmt(e.inicio);
-    edicaoFimValEl.textContent = edicaoFmt(e.fim == null ? edicaoDur : e.fim);
-    const trecho = (e.fim == null ? edicaoDur : e.fim) - e.inicio;
-    edicaoDizer('Original: ' + edicaoFmt(edicaoDur) + ' · o item fica com ' + edicaoFmt(trecho)
-      + (e.soAudio ? ' · só o áudio' : ''));
-  }
-  edicaoCriarEl.disabled = !edicaoMudou(e);
-}
-
 function edicaoSalvarJa() {
   clearTimeout(edicaoSalvarTimer); edicaoSalvarTimer = null;
   const e = edicaoLer();
-  const busca = edicaoBuscaEl.value || '';
-  const v = e ? Object.assign({}, e, { busca }) : (busca ? { busca } : null);
-  AVDB.setState(EDICAO_RASCUNHO, v).catch(() => {});
+  AVDB.setState(EDICAO_RASCUNHO, e ? Object.assign({}, e, { partida: edicaoPartida }) : null).catch(() => {});
 }
 function edicaoSalvarLogo() {
   clearTimeout(edicaoSalvarTimer);
   edicaoSalvarTimer = setTimeout(edicaoSalvarJa, 250);
 }
 
-function edicaoMudouCampo(qual) {
-  // Os dois sliders se respeitam: o trecho nunca fica com menos de 1 s.
-  let ini = +edicaoIniEl.value, fim = +edicaoFimEl.value;
-  if (qual === 'ini' && ini > fim - EDICAO_VAO_MIN) { ini = Math.max(0, fim - EDICAO_VAO_MIN); edicaoIniEl.value = ini; }
-  if (qual === 'fim' && fim < ini + EDICAO_VAO_MIN) { fim = Math.min(edicaoTeto, ini + EDICAO_VAO_MIN); edicaoFimEl.value = fim; }
+// O que muda a cada toque na faixa: os números, o preenchimento entre as pontas, o resumo, o
+// botão de criar. Nada é remontado — remontar no meio do arrasto o soltaria.
+function edicaoAtualizar() {
+  const e = edicaoLer();
+  const v = edicaoVals;
+  if (edicaoEls) {
+    const r1 = edicaoTeto > 0 ? v.inicio / edicaoTeto : 0;
+    const r2 = edicaoTeto > 0 ? Math.min(1, v.fim / edicaoTeto) : 1;
+    edicaoEls.faixa.style.setProperty('--r1', String(r1));
+    edicaoEls.faixa.style.setProperty('--r2', String(r2));
+    edicaoEls.faixa.classList.toggle('ini-por-cima', r1 > 0.5);
+    edicaoEls.ini.value = String(v.inicio);
+    edicaoEls.fim.value = String(v.fim);
+    edicaoEls.iniVal.textContent = edicaoFmt(v.inicio);
+    edicaoEls.fimVal.textContent = edicaoFmt(e && e.fim == null ? edicaoDur : v.fim);
+    edicaoEls.resumo.textContent = 'fica com ' + edicaoFmt((e && e.fim == null ? edicaoDur : v.fim) - v.inicio);
+  }
+  if (e) {
+    edicaoDizer('Original: ' + edicaoFmt(edicaoDur) + (e.soAudio ? ' · só o áudio' : '')
+      + (edicaoPartida ? ' · ajuste sobre “' + edicaoPartida + '”' : ''));
+  }
+  edicaoCriarEl.disabled = !edicaoMudou(e);
+}
+
+function edicaoMudouFaixa(qual, valor) {
+  const v = edicaoVals;
+  if (qual === 'ini') v.inicio = Math.min(Math.max(0, valor), Math.max(0, v.fim - EDICAO_VAO_MIN));
+  else v.fim = Math.max(Math.min(edicaoTeto, valor), Math.min(edicaoTeto, v.inicio + EDICAO_VAO_MIN));
   edicaoAtualizar();
   edicaoSalvarLogo();
 }
 
-function edicaoPassar(qual, delta) {
-  const el = qual === 'ini' ? edicaoIniEl : edicaoFimEl;
-  el.value = Math.min(edicaoTeto, Math.max(0, +el.value + delta));
-  edicaoMudouCampo(qual);
+// Uma marca (liga/desliga) no desenho das linhas da folha: o quadrado do ícone, o texto e a
+// caixa à direita. É uma linha de ESCOLHA (`--sel-fill` quando marcada), não um interruptor solto.
+function edicaoMarca(icone, rotulo, sub, campo) {
+  const li = edicaoLinha(icone, rotulo, sub, edicaoVals[campo], (btn, cx) => {
+    edicaoVals[campo] = !edicaoVals[campo];
+    cx.classList.toggle('on', edicaoVals[campo]);
+    cx.setAttribute('aria-checked', edicaoVals[campo] ? 'true' : 'false');
+    edicaoAtualizar();
+    edicaoSalvarLogo();
+  });
+  return li;
 }
 
-// Escolhe o original e monta os controles. `valores` (o rascunho) é opcional:
-// sem ele os sliders abrem no arquivo inteiro.
-async function edicaoEscolher(id, valores) {
-  const seq = ++edicaoSeq;
-  edicaoOrigem = null; edicaoDur = 0;
-  edicaoControlesEl.hidden = true;
-  edicaoCriarEl.disabled = true;
-  if (!id) { if (!edicaoInfoEl.textContent) edicaoDizer(''); return; }
-  let rec = null;
-  try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
-  if (seq !== edicaoSeq) return;
-  if (!edicaoElegivel(rec)) { edicaoDizer('Essa mídia não está mais no aparelho.'); return; }
-  edicaoDizer('Lendo a duração…');
-  const dur = await edicaoDuracao(rec);
-  if (seq !== edicaoSeq) return;
-  if (!(dur > 0)) { edicaoDizer('Não foi possível ler a duração desta mídia.'); return; }
-  const v = valores || {};
-  edicaoOrigem = rec; edicaoDur = dur;
-  edicaoTeto = Math.ceil(dur * 2) / 2;
-  for (const el of [edicaoIniEl, edicaoFimEl]) { el.max = String(edicaoTeto); }
-  const ini = Math.min(Math.max(0, +v.inicio || 0), Math.max(0, dur - EDICAO_VAO_MIN));
-  const fim = v.fim > ini + EDICAO_VAO_MIN - 0.01 && v.fim < dur ? +v.fim : edicaoTeto;
-  edicaoIniEl.value = ini; edicaoFimEl.value = fim;
-  edicaoFadeInEl.checked = !!v.fadeEntrada;
-  edicaoFadeOutEl.checked = !!v.fadeSaida;
-  const video = rec.kind === 'video';
-  edicaoSoAudioRotuloEl.hidden = !video;
-  edicaoSoAudioEl.checked = video && !!v.soAudio;
-  edicaoNomeEl.value = (v.nome && String(v.nome).trim()) ? v.nome : ((rec.name || 'sem nome') + ' (editado)');
-  edicaoControlesEl.hidden = false;
+function renderEdicaoForm() {
+  edicaoListaEl.innerHTML = '';
+  edicaoEls = null;
+  if (!edicaoOrigem) {
+    const vazio = document.createElement('li');
+    vazio.className = 'empty';
+    vazio.textContent = 'Escolha a mídia que será editada.';
+    edicaoListaEl.appendChild(vazio);
+    edicaoListaEl.appendChild(edicaoLinha(msym(ICON.import), 'Escolher a mídia', 'Cronograma, playlist, favoritos ou biblioteca', false,
+      () => { edicaoAbrirEscolha(); }));
+    edicaoCriarEl.disabled = true;
+    return;
+  }
+  const v = edicaoVals;
+  // 1 · A MÍDIA (um toque troca): a linha da mídia escolhida no desenho do seletor.
+  const mid = edicaoLinha(msym(ICON.music), edicaoOrigem.name || 'sem nome',
+    (edicaoOrigem.kind === 'video' ? 'Vídeo' : 'Áudio') + ' · ' + edicaoFmt(edicaoDur) + ' · toque para trocar',
+    false, () => { edicaoAbrirEscolha(); });
+  mid.querySelector('.song-menu-check').remove();
+  edicaoListaEl.appendChild(mid);
+
+  // 2 · O TRECHO: UMA faixa com duas pontas.
+  const bloco = document.createElement('li');
+  bloco.className = 'edicao-bloco';
+  const cab = document.createElement('div'); cab.className = 'edicao-cab';
+  const tit = document.createElement('span'); tit.className = 'edicao-tit'; tit.textContent = 'Trecho';
+  const resumo = document.createElement('span'); resumo.className = 'edicao-resumo';
+  cab.append(tit, resumo);
+  const faixa = document.createElement('div'); faixa.className = 'edicao-faixa';
+  const trilho = document.createElement('div'); trilho.className = 'edicao-trilho';
+  const trecho = document.createElement('div'); trecho.className = 'edicao-trecho';
+  const mk = (id, rotulo) => {
+    const el = document.createElement('input');
+    el.type = 'range'; el.id = id; el.min = '0'; el.max = String(edicaoTeto); el.step = String(EDICAO_PASSO_FAIXA);
+    el.setAttribute('aria-label', rotulo);
+    return el;
+  };
+  const ini = mk('edicaoIni', 'Início do trecho');
+  const fim = mk('edicaoFim', 'Fim do trecho');
+  faixa.append(trilho, trecho, ini, fim);
+  ini.addEventListener('input', () => edicaoMudouFaixa('ini', +ini.value));
+  fim.addEventListener('input', () => edicaoMudouFaixa('fim', +fim.value));
+  // As DUAS PONTAS, uma coluna cada: o rótulo, o tempo e o ajuste fino. O passo da faixa é de
+  // meio segundo, e a precisão de um segundo por toque mora nos botões — numa hora de áudio a
+  // faixa sozinha não chega ao segundo.
+  const pontas = document.createElement('div'); pontas.className = 'edicao-pontas';
+  const ponta = (qual, rotulo) => {
+    const w = document.createElement('div'); w.className = 'edicao-ponta';
+    const r = document.createElement('span'); r.className = 'edicao-rotulo'; r.textContent = rotulo;
+    const o = document.createElement('output'); o.className = 'edicao-valor';
+    const g = document.createElement('div'); g.className = 'edicao-passos';
+    const mais = (delta, txt) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'misc-chip edicao-passo';
+      b.textContent = txt;
+      b.setAttribute('aria-label', rotulo + ' ' + txt.replace('−', 'menos ').replace('+', 'mais '));
+      b.addEventListener('click', () => edicaoMudouFaixa(qual, (qual === 'ini' ? edicaoVals.inicio : edicaoVals.fim) + delta));
+      return b;
+    };
+    g.append(mais(-EDICAO_PASSO, '−1 s'), mais(EDICAO_PASSO, '+1 s'));
+    w.append(r, o, g);
+    return { w, o };
+  };
+  const pIni = ponta('ini', 'Início'); const pFim = ponta('fim', 'Fim');
+  pontas.append(pIni.w, pFim.w);
+  bloco.append(cab, faixa, pontas);
+  edicaoListaEl.appendChild(bloco);
+  edicaoEls = { faixa, ini, fim, iniVal: pIni.o, fimVal: pFim.o, resumo };
+
+  // 3 · AS MARCAS
+  edicaoListaEl.appendChild(edicaoMarca(msym(ICON.volOn), 'Fade de entrada', 'o som e a imagem sobem ao começar', 'fadeEntrada'));
+  edicaoListaEl.appendChild(edicaoMarca(msym(ICON.volOff), 'Fade de saída', 'o som e a imagem descem antes do corte', 'fadeSaida'));
+  if (edicaoOrigem.kind === 'video') {
+    edicaoListaEl.appendChild(edicaoMarca(msym(ICON.music), 'Só o áudio', 'o vídeo fica de fora', 'soAudio'));
+  }
+
+  // 4 · O NOME
+  const nome = document.createElement('li');
+  nome.className = 'edicao-bloco';
+  const rn = document.createElement('span'); rn.className = 'edicao-rotulo'; rn.textContent = 'Nome do item novo';
+  const campo = document.createElement('div'); campo.className = 'sorteio-campo edicao-nome';
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.className = 'lib-search'; inp.maxLength = 120; inp.autocomplete = 'off';
+  inp.value = v.nome; inp.setAttribute('aria-label', 'Nome do item novo');
+  inp.addEventListener('input', () => { edicaoVals.nome = inp.value; edicaoSalvarLogo(); });
+  campo.appendChild(inp);
+  nome.append(rn, campo);
+  edicaoListaEl.appendChild(nome);
   edicaoAtualizar();
 }
 
+function edicaoRender() {
+  const escolha = edicaoVista === 'escolha';
+  edicaoTituloEl.textContent = escolha ? 'Escolher a mídia' : 'Editar mídia';
+  edicaoBuscaCaixaEl.hidden = !escolha;
+  edicaoFechoFormEl.hidden = escolha;
+  edicaoFechoEscolhaEl.hidden = !escolha;
+  edicaoVoltarEl.disabled = !edicaoOrigem;
+  if (escolha) { edicaoDizer(''); renderEdicaoEscolha(); } else renderEdicaoForm();
+}
+
+async function edicaoAbrirEscolha() {
+  edicaoSalvarJa();
+  edicaoVista = 'escolha';
+  edicaoBuscaEl.value = '';
+  edicaoGrupos = [];
+  edicaoRender();
+  edicaoGrupos = await edicaoMontarGrupos();
+  if (edicaoVista === 'escolha') renderEdicaoEscolha();
+}
+
+// Carrega o original e deixa o formulário pronto. `valores` (o rascunho, ou os de um item já
+// editado) é opcional: sem ele a faixa abre no arquivo inteiro.
+async function edicaoCarregarOrigem(id, valores, partida) {
+  const seq = ++edicaoSeq;
+  let rec = null;
+  try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
+  if (seq !== edicaoSeq) return false;
+  if (!edicaoElegivel(rec)) { edicaoDizer('Essa mídia não está mais no aparelho.'); return false; }
+  edicaoDizer('Lendo a duração…');
+  const dur = await edicaoDuracao(rec);
+  if (seq !== edicaoSeq) return false;
+  if (!(dur > 0)) { edicaoDizer('Não foi possível ler a duração desta mídia.'); return false; }
+  edicaoOrigem = rec; edicaoDur = dur; edicaoPartida = partida || '';
+  edicaoTeto = Math.ceil(dur * 2) / 2;
+  const v = valores || {};
+  const ini = Math.min(Math.max(0, +v.inicio || 0), Math.max(0, dur - EDICAO_VAO_MIN));
+  const fim = v.fim > ini + EDICAO_VAO_MIN - 0.01 && v.fim < dur ? +v.fim : edicaoTeto;
+  edicaoVals = {
+    inicio: ini, fim,
+    fadeEntrada: !!v.fadeEntrada, fadeSaida: !!v.fadeSaida,
+    soAudio: rec.kind === 'video' && !!v.soAudio,
+    nome: (v.nome && String(v.nome).trim()) ? v.nome : ((rec.name || 'sem nome') + ' (editado)'),
+  };
+  return true;
+}
+
+// Tocou numa linha do seletor. Um item JÁ EDITADO parte dos valores dele (ajuste fino).
+async function edicaoEscolherItem(it) {
+  edicaoSelId = it.id;
+  let origem = it.id, valores = null, partida = '';
+  if (it.editado) {
+    let cru = null;
+    try { cru = await AVDB.getMediaCru(it.id); } catch (_) { cru = null; }
+    if (!cru || !cru.edicao) { edicaoDizer('Esse item não está mais no aparelho.'); return; }
+    origem = cru.edicao.origem;
+    partida = cru.name || '';
+    valores = Object.assign({}, cru.edicao, { nome: proximoNomeDeAjuste(cru.name || 'sem nome') });
+  }
+  const ok = await edicaoCarregarOrigem(origem, valores, partida);
+  if (!ok) { renderEdicaoEscolha(); return; }
+  edicaoVista = 'form';
+  edicaoRender();
+  edicaoSalvarJa();
+}
+
+// "Hino" → "Hino (2)"; "Hino (2)" → "Hino (3)": o nome do item novo de um ajuste nunca é igual ao do
+// que já existe, e o operador só escreve se quiser outro.
+function proximoNomeDeAjuste(nome) {
+  const m = /^(.*?)\s*\((\d+)\)\s*$/.exec(nome);
+  return m ? m[1] + ' (' + (+m[2] + 1) + ')' : nome + ' (2)';
+}
+
 async function openEdicaoPopup() {
-  if (simplificado()) return;
   edicaoPopupEl.classList.add('open');
   edicaoDizer('');
-  await edicaoCarregarCands();
   let r = null;
   try { r = await AVDB.getState(EDICAO_RASCUNHO); } catch (_) { r = null; }
-  edicaoBuscaEl.value = (r && r.busca) || '';
-  // O original do rascunho pode ter saído das listas (e continua no banco,
-  // segurado por quem o edita): a janela o acha mesmo assim.
-  if (r && r.origem && !edicaoCands.some((c) => c.id === r.origem)) {
-    let o = null;
-    try { o = await AVDB.getMediaCru(r.origem); } catch (_) { o = null; }
-    if (edicaoElegivel(o)) edicaoCands.push({ id: o.id, nome: o.name || 'sem nome', kind: o.kind, seconds: o.seconds || 0 });
+  if (r && r.origem && (!edicaoOrigem || edicaoOrigem.id !== r.origem)) {
+    if (await edicaoCarregarOrigem(r.origem, r, r.partida)) edicaoSelId = r.origem;
   }
-  edicaoRenderOpcoes(r && r.origem);
-  await edicaoEscolher(edicaoItemEl.value || null, r);
+  edicaoVista = edicaoOrigem ? 'form' : 'escolha';
+  if (edicaoVista === 'escolha') { edicaoRender(); edicaoGrupos = await edicaoMontarGrupos(); if (edicaoVista === 'escolha') renderEdicaoEscolha(); }
+  else edicaoRender();
 }
 function closeEdicaoPopup() {
   edicaoSalvarJa();
@@ -37956,24 +38210,68 @@ function closeEdicaoPopup() {
 async function edicaoDescartar() {
   clearTimeout(edicaoSalvarTimer); edicaoSalvarTimer = null;
   try { await AVDB.setState(EDICAO_RASCUNHO, null); } catch (_) { /* nada */ }
-  edicaoBuscaEl.value = '';
-  edicaoRenderOpcoes(null);
-  await edicaoEscolher(null);
-  edicaoDizer('');
+  edicaoSeq++;
+  edicaoOrigem = null; edicaoDur = 0; edicaoSelId = ''; edicaoPartida = '';
+  edicaoVals = { inicio: 0, fim: 0, fadeEntrada: false, fadeSaida: false, soAudio: false, nome: '' };
+  await edicaoAbrirEscolha();
+}
+
+// Importar para o editor: o MESMO seletor de arquivos da importação do Cronograma, mas o arquivo
+// não entra em lista nenhuma — vira o original oculto do item editado.
+async function edicaoPedirArquivo() {
+  if (window.__NATIVE__) {
+    const l = await AVNative.pickDoc('audio/*,video/*');
+    return (l && l[0]) || null;
+  }
+  return new Promise((resolve) => {
+    const i = document.createElement('input');
+    i.type = 'file'; i.accept = 'audio/*,video/*';
+    i.addEventListener('change', () => resolve(i.files[0] || null), { once: true });
+    i.addEventListener('cancel', () => resolve(null), { once: true });
+    i.click();
+  });
+}
+async function edicaoImportar() {
+  edicaoImportarEl.disabled = true;
+  try {
+    const item = await edicaoPedirArquivo();
+    if (!item) return;
+    let blob = item instanceof Blob ? item : null;
+    const nome = item.name || 'arquivo';
+    if (!blob && item.url) {
+      try { const res = await fetch(item.url); if (res.ok) blob = await res.blob(); } catch (_) { blob = null; }
+    }
+    if (!blob) { edicaoDizer('Não deu para ler o arquivo.'); return; }
+    const type = guessMediaType(nome) !== 'application/octet-stream' ? guessMediaType(nome) : blob.type;
+    const kind = AVDB.kindFromType(type);
+    if (kind !== 'video' && kind !== 'audio') { edicaoDizer('O editor só recebe áudio ou vídeo.'); return; }
+    edicaoDizer('Lendo o arquivo…');
+    const { thumb, height, seconds } = await prepararMidia(blob, kind);
+    const rec = await AVDB.addBase(blob, { name: nomeSemExtensao(nome), type, kind, thumb, height, seconds });
+    edicaoGrupos = await edicaoMontarGrupos();
+    edicaoAbertos.add('doEditor');
+    await edicaoEscolherItem({ id: rec.id, nome: rec.name, kind, seconds: rec.seconds || 0, editado: false });
+  } finally {
+    edicaoImportarEl.disabled = false;
+  }
 }
 
 async function edicaoCriar() {
   const e = edicaoLer();
   if (!edicaoMudou(e)) return;
-  // Desistir da pergunta de destino DESISTE de criar: o item é uma decisão
-  // explícita, não um arquivo que chegou e não pode se perder.
-  const escolha = await escolherDestinos('Guardar o item editado', ['cronograma'], 'Guardar');
-  if (!escolha || !escolha.length) return;
-  const listas = listasDosDestinos(escolha);
+  // No avançado, a pergunta de destino (a mesma folha da importação, com o Cronograma marcado);
+  // desistir DESISTE de criar. No Modo Fácil não há listas à vista para perguntar: o item vai
+  // ao Cronograma e aos Favoritos, e aparece quando o avançado for aberto.
+  let listas;
+  if (simplificado()) listas = listasDosDestinos(['cronograma', 'favoritos']);
+  else {
+    const escolha = await escolherDestinos('Guardar o item editado', ['cronograma'], 'Guardar');
+    if (!escolha || !escolha.length) return;
+    listas = listasDosDestinos(escolha);
+  }
   edicaoCriarEl.disabled = true;
   let rec = null;
-  // Nasce na prateleira avulsa (já detentora do original) e só sai dela com os
-  // destinos escolhidos gravados — o mesmo caminho do `guardarShare`.
+  // Nasce na prateleira avulsa (já detentora do original) e só sai dela com os destinos gravados.
   try { rec = await AVDB.addEdicao(e, 'avulsos'); } catch (_) { rec = null; }
   if (!rec) {
     edicaoDizer('Não foi possível criar o item: a mídia original mudou ou o trecho ficou vazio.');
@@ -37982,31 +38280,20 @@ async function edicaoCriar() {
   }
   await adicionarNasListas(listas, rec.id, rec.name, edicaoCriarEl);
   try { await AVDB.listRemove('avulsos', rec.id); } catch (_) { /* fica na prateleira: sem dano */ }
-  // Pronto: o rascunho cumpriu o papel. O próximo item parte do zero.
-  const nome = rec.name;
-  await edicaoDescartar();
-  edicaoDizer('Item criado: ' + nome + '.');
+  // O FORMULÁRIO FICA COMO ESTAVA (o rascunho segue valendo): outro item com um ajuste a mais
+  // é só mudar e criar de novo. O nome avança para não repetir o que acabou de nascer.
+  edicaoPartida = rec.name;
+  edicaoVals.nome = proximoNomeDeAjuste(rec.name);
+  edicaoSalvarJa();
+  edicaoRender();
+  edicaoDizer('Item criado: ' + rec.name + (simplificado() ? ' — está no Cronograma e nos Favoritos.' : '.'));
 }
 
-edicaoBuscaEl.addEventListener('input', () => {
-  edicaoRenderOpcoes(edicaoOrigem && edicaoOrigem.id);
-  edicaoSalvarLogo();
-});
-edicaoItemEl.addEventListener('change', async () => {
-  // Trocar de mídia começa um rascunho novo (os pontos do outro não valem).
-  await edicaoEscolher(edicaoItemEl.value || null);
-  edicaoSalvarJa();
-});
-edicaoIniEl.addEventListener('input', () => edicaoMudouCampo('ini'));
-edicaoFimEl.addEventListener('input', () => edicaoMudouCampo('fim'));
-document.getElementById('edicaoIniMenos').addEventListener('click', () => edicaoPassar('ini', -EDICAO_PASSO));
-document.getElementById('edicaoIniMais').addEventListener('click', () => edicaoPassar('ini', EDICAO_PASSO));
-document.getElementById('edicaoFimMenos').addEventListener('click', () => edicaoPassar('fim', -EDICAO_PASSO));
-document.getElementById('edicaoFimMais').addEventListener('click', () => edicaoPassar('fim', EDICAO_PASSO));
-for (const el of [edicaoFadeInEl, edicaoFadeOutEl, edicaoSoAudioEl]) el.addEventListener('change', () => { edicaoAtualizar(); edicaoSalvarLogo(); });
-edicaoNomeEl.addEventListener('input', edicaoSalvarLogo);
+edicaoBuscaEl.addEventListener('input', () => { if (edicaoVista === 'escolha') renderEdicaoEscolha(); });
 edicaoDescartarEl.addEventListener('click', edicaoDescartar);
 edicaoCriarEl.addEventListener('click', edicaoCriar);
+edicaoVoltarEl.addEventListener('click', () => { if (!edicaoOrigem) return; edicaoVista = 'form'; edicaoRender(); });
+edicaoImportarEl.addEventListener('click', edicaoImportar);
 if (edicaoTileEl) edicaoTileEl.addEventListener('click', openEdicaoPopup);
 
 /**

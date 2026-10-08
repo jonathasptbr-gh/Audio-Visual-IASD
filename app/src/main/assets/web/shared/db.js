@@ -672,6 +672,40 @@
     return n;
   }
 
+  // Um arquivo importado SÓ PARA O EDITOR: vira registro de mídia sem lista nenhuma, marcado
+  // `base`/`doEditor` — invisível ao operador, segurado pelo rascunho (`lerDetentores`) e depois
+  // pelos itens editados que partirem dele. Devolve o registro.
+  async function addBase(blob, meta) {
+    const type = (meta && meta.type) || blob.type;
+    const record = makeMediaRecord({
+      blob, type,
+      kind: (meta && meta.kind) || kindFromType(type),
+      thumb: (meta && meta.thumb) || null,
+      name: (meta && meta.name) || 'sem-nome',
+      height: (meta && meta.height) || null,
+      seconds: (meta && meta.seconds) || null,
+      base: true, doEditor: true,
+    });
+    await mediaAdd(record);
+    return record;
+  }
+  // Os arquivos que o operador importou para o editor e ainda existem (para escolhê-los de novo).
+  async function basesDoEditor() {
+    const s = await store(STORE_MEDIA, 'readonly');
+    return new Promise((resolve, reject) => {
+      const out = [];
+      const req = s.openCursor();
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) { resolve(out); return; }
+        const r = c.value || {};
+        if (r.doEditor && !r.edicao) out.push({ id: c.key, name: r.name, kind: r.kind, seconds: r.seconds || 0 });
+        c.continue();
+      };
+    });
+  }
+
   // Cria o item editado numa lista (ver `addMediaToList`: registro e lista na
   // MESMA transação, para o item nunca nascer órfão). Devolve o registro
   // RESOLVIDO, ou `null` quando o original não serve (sumiu, já é editado, não
@@ -756,7 +790,7 @@
         if (r.blob) bytes += r.blob.size || 0;
         if (r.thumb) bytes += r.thumb.size || 0;
         if (Array.isArray(r.pages)) for (const pg of r.pages) if (pg) bytes += pg.size || 0;
-        out.push({ id: c.key, bytes, edicaoOrigem: r.edicao ? r.edicao.origem : null });
+        out.push({ id: c.key, bytes, edicaoOrigem: r.edicao ? r.edicao.origem : null, base: !!r.base });
         c.continue();
       };
     });
@@ -1177,6 +1211,11 @@
       // item editado continuaria na lista sem nada para tocar.
       if (rec.edicao && rec.edicao.origem) donos.add(rec.edicao.origem);
     }
+    // O RASCUNHO DO EDITOR TAMBÉM É DETENTOR do original que ele está editando: um arquivo
+    // importado só para o editor (`addBase`) não está em lista nenhuma, e sem esta linha o
+    // coletor da abertura seguinte o apagaria com o rascunho ainda de pé.
+    const rasc = await asPromise(stateStore.get('edicaoRascunho'));
+    if (rasc && rasc.origem) donos.add(rasc.origem);
     return donos;
   }
 
@@ -1398,7 +1437,7 @@
     setState, getState, updateState, updateStateLote, stateKeys, stateVarrer,
     stateApagarPrefixo,
     addMedia, addUrlMedia, addDeck, addCue,
-    getMedia, getMediaCru, addEdicao, baseDe, adotarBases, mediaByYoutube, renameMedia,
+    getMedia, getMediaCru, addEdicao, addBase, basesDoEditor, baseDe, adotarBases, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,
     filesPastas,

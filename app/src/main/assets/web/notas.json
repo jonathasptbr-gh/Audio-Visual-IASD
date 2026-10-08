@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.12.1",
+    "itens": [
+      "Editar mídia agora está nas Configurações também no Modo Fácil.",
+      "A mídia a editar se escolhe por grupos, como na exportação: Cronograma, playlist, favoritos e biblioteca.",
+      "Novo \"Importar arquivo\" dentro do editor: o arquivo fica só para edição, sem entrar em lista.",
+      "Dá para ajustar um item já editado e gerar outro novo, sem refazer a edição nem mudar o primeiro.",
+      "O corte do início e do fim virou uma barra só, com duas pontas.",
+      "Visual do editor refeito no padrão do app; botões de Configurações reordenados por assunto."
+    ]
+  },
+  {
     "versao": "1.12.0",
     "itens": [
       "Configurações: novo \"Editar mídia\" — corta o começo e o fim, esmaece a entrada e a saída, ou separa o áudio.",

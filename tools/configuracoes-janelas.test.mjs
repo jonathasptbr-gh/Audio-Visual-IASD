@@ -228,8 +228,8 @@ try {
   // =========================================================================
   // A · A GRADE: NOVE TILES, NA ORDEM, E O QUE É SÓ DO APP NÃO EXISTE NO NAVEGADOR
   // =========================================================================
-  const ORDEM = ['temaTile', 'telaTile', 'histOpenRow', 'saidaAudioTile', 'dadosMoveisTile',
-    'edicaoTile', 'testeTile', 'shareAppTile', 'pacoteTile'];
+  const ORDEM = ['temaTile', 'telaTile', 'saidaAudioTile', 'dadosMoveisTile',
+    'edicaoTile', 'histOpenRow', 'testeTile', 'shareAppTile', 'pacoteTile'];
   const lerGrade = (pg) => pg.evaluate(() => {
     // `#fadePopup .qs-grade`, e não `.qs-grade` solto: as janelas vêm ANTES de
     // Configurações no documento, e é por isso que a classe delas é OUTRA.
