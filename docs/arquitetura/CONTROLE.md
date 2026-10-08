@@ -7907,11 +7907,14 @@ digitar e tocar no botão dentro dos 130 ms sorteava com a palavra ANTERIOR — 
 erro e com a conta mostrando o número certo, porque ela e o sorteio liam a mesma
 variável defasada. Hoje só o RECONTAR é adiado.
 
-A palavra tema casa em **três lugares, do mais específico ao mais amplo**: nome
-da faixa → nome do ÁLBUM → letra. O álbum no meio é a diferença entre "busca" e
-"tema": um álbum chamado "Natal" **é** o tema, e as faixas dele raramente repetem
-a palavra no título. A letra só é varrida acima do piso do `LYRIC_MIN_Q`, o mesmo
-da busca.
+A palavra tema casa em **DOIS lugares, do mais específico ao mais amplo**: o
+TÍTULO da faixa → a LETRA. **O nome do álbum NÃO entra** (v1.12.5, pedido do
+operador: *"considere apenas o título da música e a letra … se eu filtro por
+'fé', obrigatoriamente a música vai ter fé como assunto"*): era um terceiro lugar
+(`CASOU_ALBUM`) que trazia toda faixa de um álbum "Fé e Ação" sem a palavra em
+lugar nenhum dela. Diverge de propósito da busca da Biblioteca, onde o álbum é o
+que se procura. A letra só é varrida acima do piso do `LYRIC_MIN_Q`, o mesmo da
+busca; o `casou` que o Registro conta é `nome` ou `letra`.
 
 #### O que já está no aparelho vem PRIMEIRO, sempre
 

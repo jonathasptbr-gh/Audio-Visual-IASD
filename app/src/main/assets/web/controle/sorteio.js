@@ -131,7 +131,6 @@
   // única coisa que explica ao operador por que um louvor que ele não associa
   // ao tema apareceu na fila.
   const CASOU_NOME = 'nome';
-  const CASOU_ALBUM = 'album';
   const CASOU_LETRA = 'letra';
   const CASOU_SEM_TEMA = 'sem-tema';        // sem palavra digitada: o acervo todo
 
@@ -245,22 +244,21 @@
 
   // ---- ONDE O TEMA CASA ----
   //
-  // Três lugares, do mais específico ao mais amplo — e a ordem é a mesma da
-  // busca da Biblioteca (título antes de letra), pela mesma razão: quem digita
-  // "natal" quer primeiro o louvor CHAMADO Natal.
-  //
-  // O ÁLBUM no meio é a diferença entre "busca" e "tema": um álbum inteiro
-  // chamado "Natal" É o tema, e as faixas dele raramente repetem a palavra no
-  // título. `temaNoAlbum` é calculado UMA vez por coleção pelo chamador — aqui
-  // ele chega pronto, senão seriam N normalizações do mesmo nome.
+  // DOIS lugares, do mais específico ao mais amplo: o TÍTULO da faixa e a LETRA
+  // dela. Pedido do operador (v1.12.5): *"considere apenas o título da música e
+  // a letra da música. Assim se eu filtro por 'fé', obrigatoriamente a música
+  // vai ter fé como assunto em algum momento"*. O NOME DO ÁLBUM/COLETÂNEA NÃO
+  // ENTRA — era um terceiro lugar entre os dois, e trazia toda faixa de um
+  // álbum chamado "Fé e Ação" mesmo sem a palavra no título nem na letra. Uma
+  // faixa só entra por algo que ELA diz. (Isto diverge de propósito da busca da
+  // Biblioteca, que procura o álbum: lá o operador quer achar o álbum.)
   //
   // A LETRA é a mais cara e a mais frouxa, e quem a limita é o `cap.letraCasa`
   // (o `lyricMatch`, que já recusa buscas curtas demais pelo `LYRIC_MIN_Q`).
   // Sem esse piso, "de" e "ao" casariam em quase todo hino do acervo.
-  function ondeCasa(coll, s, q, temaNoAlbum, cap) {
+  function ondeCasa(coll, s, q, cap) {
     if (!q) return CASOU_SEM_TEMA;
     if (cap.nomeNorm(s).includes(q)) return CASOU_NOME;
-    if (temaNoAlbum) return CASOU_ALBUM;
     if (cap.letraCasa(coll, s, q)) return CASOU_LETRA;
     return '';
   }
@@ -275,7 +273,7 @@
   // `noAparelho` é DEVOLVIDO mesmo quando a faixa é recusada por ele: é o que
   // permite ao contador dizer "12 casam · 3 já no aparelho" e ao operador
   // entender o que o filtro está custando.
-  function avaliarFaixa(coll, s, filtros, cap, q, temaNoAlbum) {
+  function avaliarFaixa(coll, s, filtros, cap, q) {
     // O INFANTIL VEM PRIMEIRO, e a ordem é a mesma decisão de sempre: o motivo
     // que sai é o que o operador pode AGIR sobre. Este filtro nasce ligado, ou
     // seja, é o único que pode estar recusando sem que ninguém o tenha tocado —
@@ -287,7 +285,7 @@
     if (!temVariante(s, filtros.variante)) {
       return { entra: false, motivo: MOTIVO_VARIANTE, casou: '', noAparelho: false };
     }
-    const casou = ondeCasa(coll, s, q, temaNoAlbum, cap);
+    const casou = ondeCasa(coll, s, q, cap);
     if (!casou) return { entra: false, motivo: MOTIVO_TEMA, casou: '', noAparelho: false };
     const noAparelho = !!cap.noAparelho(coll, s, filtros.variante);
     if (filtros.soNoAparelho && !noAparelho) {
@@ -326,13 +324,9 @@
         continue;
       }
       colecoesUsadas++;
-      // UMA normalização por coleção, não uma por faixa: `coll.name` não muda
-      // dentro do laço, e a busca da Biblioteca já pagou esse preço uma vez
-      // (é a razão de o `_norm` da faixa existir).
-      const temaNoAlbum = !!q && cap.norm(coll.name || '').includes(q);
       for (const s of cap.faixas(coll)) {
         faixasVistas++;
-        const r = avaliarFaixa(coll, s, f, cap, q, temaNoAlbum);
+        const r = avaliarFaixa(coll, s, f, cap, q);
         if (!r.entra) {
           recusas[r.motivo] = (recusas[r.motivo] || 0) + 1;
           continue;
@@ -417,7 +411,7 @@
     MOTIVO_SEM_MUSICA, MOTIVO_HINARIO, MOTIVO_SEM_INDICE,
     MOTIVO_VARIANTE, MOTIVO_TEMA, MOTIVO_FORA, MOTIVO_INFANTIL,
     INFANTIL_DE, INFANTIL_ATE,
-    CASOU_NOME, CASOU_ALBUM, CASOU_LETRA, CASOU_SEM_TEMA,
+    CASOU_NOME, CASOU_LETRA, CASOU_SEM_TEMA,
     QUANTIDADE_MIN, QUANTIDADE_MAX, QUANTIDADE_PADRAO,
     sanear, temVariante, avaliarColecao, ondeCasa, avaliarFaixa,
     montarPool, embaralhar, baralhar, sortear,
