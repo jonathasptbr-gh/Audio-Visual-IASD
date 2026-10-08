@@ -9828,6 +9828,10 @@ do `CLAUDE.md`.
 
 ---
 
+## O card do nome no Modo Fácil tem UMA altura (v1.12.11)
+
+`.simple-nowplaying` (nome + linha do tempo) não muda de altura enquanto há mídia no ar: `#simpleTime[hidden]` vira `visibility:hidden` mantendo o lugar e `.simple-np:empty` mantém a linha. Sem isso o topo do card andava ~26 px e a zona de leitura (e a caixa da Biblioteca, medida nela) crescia/encolhia. Sem mídia o card continua `display:none`. Oráculo: `modo-simples-corpo` bloco N. O título da letra (`.lv-cab--letra`, `.lv-row--cover`) fica a UMA linha da letra (K3).
+
 ## Editar mídia (v1.12.0 → v1.12.10)
 
 Janela `#edicaoPopup` aberta pelo tile "Editar mídia" de Configurações (nos DOIS modos). Módulo `// ===== EDITAR MÍDIA` do `controle.js`; banco em `shared/db.js` (`addEdicao`, `resolverEdicao`, `baseDe`, `adotarBases`, `addBase`, `basesDoEditor`); motor em `shared/stage.js`.

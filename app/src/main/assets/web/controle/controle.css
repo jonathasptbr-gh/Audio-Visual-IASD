@@ -10858,9 +10858,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
      fixo até a v1.11.22 — 1,15rem, MENOR que os 1,4rem da letra —, e `.82` na v1.12.3, que só
      escalava o erro.) */
   /* O TÍTULO É A LINHA DE CAPA (v1.11.22): a formatação que era da palavra "Início" é a do título
-     da música, e DUAS LINHAS DA LETRA separam o título do resto — o `gap` da caixa já põe uma
-     estrofe (`--lv-estrofe-gap`), e a margem completa o que falta para 2 × (corpo × 1,5). */
-  margin-bottom: max(0px, calc(var(--lv-fonte) * 3 - var(--lv-estrofe-gap)));
+     da música, e UMA LINHA DA LETRA separa o título do resto (v1.12.11; eram duas até a v1.12.10, e o
+     operador pediu *"apenas um espaço ao invés de dois"*) — o `gap` da caixa já põe uma estrofe
+     (`--lv-estrofe-gap`), e a margem completa o que falta para 1 × (corpo × 1,5). */
+  margin-bottom: max(0px, calc(var(--lv-fonte) * 1.5 - var(--lv-estrofe-gap)));
 }
 /* `.lv-cab--letra` é o título SEM linha de capa para ocupar: o mesmo desenho, e por isso o seletor
    é DOBRADO — o `.lv-cab` base (corpo e peso do título da cifra) vem depois no arquivo e venceria. */
@@ -11890,7 +11891,7 @@ body.mode-simple .bottombar { display: none; }
    mede `.simple-song` (`medirCorpoSimples` lê a zona, e não o que há dentro dela), e o card,
    de fora, não entra na medida. O vão até a placa é o das outras seções desta tela (`--sp-5`,
    o `gap` do `.simple`). Sem a barra (imagem, texto: o `#simpleTime` fica `hidden`) o card
-   encolhe para o nome. Dentro dele a superfície AFUNDA, como em todo cartão (a lista do topo
+   MANTÉM a altura (v1.12.11, regra abaixo). Dentro dele a superfície AFUNDA, como em todo cartão (a lista do topo
    desta folha) — é o que dá ao trilho da barra um tom próprio contra o card.
 
    **SEM MÍDIA NO AR ELE NÃO EXISTE** (`.simple:not(.com-midia)`, escrito por
@@ -11903,10 +11904,20 @@ body.mode-simple .bottombar { display: none; }
   background: var(--panel); border-radius: var(--radius-card);
 }
 .simple:not(.com-midia) .simple-nowplaying { display: none; }
+/* O CARD TEM UMA ALTURA SÓ ENQUANTO HÁ MÍDIA NO AR (v1.12.11). A linha do tempo vem e vai pelo
+   `hidden` (carregando a duração, mídia sem duração, seek desabilitado) e, escondida de verdade,
+   o card encolhia ~26 px: o topo dele subia e descia, a zona de leitura (`.simple-song`, `flex: 1`)
+   crescia e encolhia junto — e com ela a caixa da Biblioteca, que se mede nessa zona. A linha
+   continua OCUPANDO o lugar e só some da vista (`visibility`, que também tira o toque). O seletor
+   vence o `[hidden] { display: none !important }` do topo pela especificidade. */
+.simple-nowplaying .simple-time[hidden] { display: flex !important; visibility: hidden; }
 .simple-np {
   flex: none; text-align: center; font-size: var(--fs-xl); font-weight: var(--fw-forte); color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Nome ainda vazio (a troca de mídia escreve o texto depois): uma div vazia tem altura ZERO e o
+   card encolhia uma linha inteira (18 px) até o nome chegar. O espaço de largura zero dá a linha. */
+.simple-np:empty::before { content: "\200b"; }
 /* Linha do tempo: fina, sem alça e sem alvo de toque — é um indicador, não um
    controle (ver o comentário no index.html). Os números flanqueiam a barra
    para não roubarem altura da letra. */
