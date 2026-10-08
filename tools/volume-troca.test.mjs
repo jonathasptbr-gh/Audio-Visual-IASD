@@ -14,7 +14,9 @@
 //  C. a troca continua enquanto houver degraus, e o app para no PISO (o sistema segue subindo);
 //  D. descendo desfaz o par, degrau por degrau, e volta ao comportamento de sempre;
 //  E. mexer no fader entre as teclas ZERA a troca (o par deixou de valer);
-//  F. no zero do app, sem troca, a tecla de baixo continua indo ao sistema (a válvula).
+//  F. no zero do app, sem troca, a tecla de baixo continua indo ao sistema (a válvula);
+//  G. a troca SÓ vale enquanto o painel do sistema está à vista (3 s): passada a janela as teclas mexem
+//     só no app, e o sistema só se move de novo ao bater no limite (v1.12.16).
 //
 //   node tools/volume-troca.test.mjs
 // ============================================================================
@@ -119,6 +121,28 @@ try {
   await tecla(-1);
   checar(await pct() === 0 && JSON.stringify(await sys()) === '[-1]',
     'F · com o app no zero e sem troca a tecla de baixo vai ao sistema, como sempre', JSON.stringify({ app: await pct(), sys: await sys() }));
+
+  // G · a troca é limitada à janela do painel do sistema
+  await zerar(1);
+  await tecla(1); await tecla(1);                       // app 90, sistema +2, troca de pé
+  await pg.waitForTimeout(3300);                        // o painel do sistema sumiu
+  await pg.evaluate(() => { window.__sysCalls.length = 0; });
+  await tecla(1);
+  checar(await pct() === 95 && (await sys()).length === 0,
+    'G1 · passada a janela a tecla de cima sobe só o APP (90% → 95%): o sistema não é tocado',
+    JSON.stringify({ app: await pct(), sys: await sys() }));
+  await tecla(1);
+  checar(await pct() === 100 && (await sys()).length === 0,
+    'G2 · e continua só no app até os 100%', JSON.stringify({ app: await pct(), sys: await sys() }));
+  await tecla(1);
+  checar(await pct() === 95 && JSON.stringify(await sys()) === '[1]',
+    'G3 · ao bater nos 100% de novo o gatilho volta: sobe um degrau do sistema e o app cede', JSON.stringify({ app: await pct(), sys: await sys() }));
+  await pg.waitForTimeout(3300);
+  await pg.evaluate(() => { window.__sysCalls.length = 0; });
+  await tecla(-1);
+  checar(await pct() === 90 && (await sys()).length === 0,
+    'G4 · e a tecla de baixo, depois da janela, baixa só o app (95% → 90%) em vez de desfazer o par no sistema',
+    JSON.stringify({ app: await pct(), sys: await sys() }));
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 } finally {
