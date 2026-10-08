@@ -579,8 +579,10 @@
   // recorte e os fades na hora de tocar é o `stage.js`, que lê `rec.edicao`.
   //
   // O ORIGINAL É SEGURADO enquanto o item existir em qualquer lugar: ver o ramo
-  // `edicao` de `lerDetentores`. Um item editado não se edita de novo (cada
-  // edição é única e parte sempre do original), então a cadeia tem um degrau só.
+  // `edicao` de `lerDetentores`. A cadeia tem um degrau só: o item editado aponta
+  // para o ORIGINAL, nunca para outro editado. Editar de novo um item já editado é
+  // reescrever o `edicao` dele NO LUGAR (`atualizarEdicao`) — as listas guardam só
+  // o id, então toda lista que o tem passa a mostrar a edição nova.
   function deslocarLetra(lyrics, ini) {
     if (!Array.isArray(lyrics) || !(ini > 0)) return lyrics;
     // A estrofe que estava no ar em `ini` vira a primeira (tempo 0); as que
@@ -734,6 +736,38 @@
       edicao,
     });
     await addMediaToList(record, listName || 'imports');
+    return resolverEdicao(record);
+  }
+  // EDITA UM ITEM JÁ EDITADO NO LUGAR (v1.12.6): o mesmo registro, o mesmo id — então ele
+  // continua em TODAS as listas em que está (Cronograma, playlist, favoritos), todas passando
+  // a mostrar a edição nova, sem criar item nenhum. O original NÃO muda (a cadeia é de um
+  // degrau só): um `e.origem` diferente do gravado é ignorado. Sem `e.nome` o nome fica.
+  // Devolve o registro RESOLVIDO, ou `null` (o item sumiu, não é editado, o original sumiu ou
+  // o trecho ficou vazio) — nesse caso nada foi gravado.
+  async function atualizarEdicao(id, e) {
+    const cru = await getMediaCru(id);
+    if (!cru || !cru.edicao || !e) return null;
+    const orig = await getMediaCru(cru.edicao.origem);
+    if (!orig || orig.edicao) return null;
+    if (orig.kind !== 'video' && orig.kind !== 'audio') return null;
+    const ini = e.inicio > 0 ? +e.inicio : 0;
+    const fim = e.fim > 0 ? +e.fim : null;
+    if (fim != null && fim <= ini + 0.5) return null;
+    if (orig.seconds && ini >= orig.seconds - 0.5) return null;
+    const edicao = { origem: orig.id, inicio: ini, fim,
+      fadeEntrada: !!e.fadeEntrada, fadeSaida: !!e.fadeSaida,
+      soAudio: !!e.soAudio && soAudioValido(orig) };
+    // get + put na MESMA transação, depois de todas as leituras de fora: um `await` sobre outra
+    // transação no meio deixaria esta fechar sozinha.
+    const [s, tx] = await storeTx(STORE_MEDIA, 'readwrite');
+    const record = await asPromise(s.get(id));
+    if (!record || !record.edicao) return null;
+    record.edicao = edicao;
+    record.kind = edicao.soAudio && orig.kind === 'video' ? 'audio' : orig.kind;
+    const nome = e.nome && String(e.nome).trim();
+    if (nome) record.name = nome;
+    await asPromise(s.put(record));
+    await txDone(tx);
     return resolverEdicao(record);
   }
   // Um registro de mídia que não entre em LISTA nenhuma nasce sem detentor, e
@@ -1442,7 +1476,7 @@
     setState, getState, updateState, updateStateLote, stateKeys, stateVarrer,
     stateApagarPrefixo,
     addMedia, addUrlMedia, addDeck, addCue,
-    getMedia, getMediaCru, addEdicao, addBase, basesDoEditor, baseDe, adotarBases, mediaByYoutube, renameMedia,
+    getMedia, getMediaCru, addEdicao, atualizarEdicao, addBase, basesDoEditor, baseDe, adotarBases, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,
     filesPastas,
