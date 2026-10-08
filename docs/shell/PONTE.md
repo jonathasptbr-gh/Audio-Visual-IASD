@@ -791,7 +791,7 @@ window.AVNative = {
                        //   pausa o de uma página oculta — com o app minimizado o
                        //   louvor calava. CONDICIONAL de propósito: com telão no
                        //   ar o Controle DEVE ser estrangulado em segundo plano
-  systemVolume(step),  // devolve um passo ao volume do sistema (fader no limite)
+  systemVolume(step),  // um passo no volume do SISTEMA (a troca das teclas, v1.12.15, ou o zero do app)
   temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
   // requestMic() e micDiag() — SERVIDOS PELO KOTLIN, SEM CHAMADOR desde a
   // v1.8.89: o MICROFONE AO VIVO saiu pelo lado WEB e os dois deixaram o
