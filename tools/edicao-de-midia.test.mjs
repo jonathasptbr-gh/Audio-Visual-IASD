@@ -348,6 +348,29 @@ const lateral = await app.evaluate(() => {
 checar(!/Original/.test(lateral.nota) && lateral.esq >= 28 && lateral.dir >= 28,
   'C · sem a linha "Original: …" e com ≥ 28px de margem entre a faixa de corte e as bordas da tela', JSON.stringify(lateral));
 
+// C2c · acabamento do formulário (v1.12.7): sem o recado "fica com…" na faixa, o tempo de cada ponta À
+// DIREITA do rótulo (uma linha só), "Trecho" centrado e o rótulo do nome alinhado ao texto do campo.
+const acab = await app.evaluate(() => {
+  const L = document.getElementById('edicaoLista');
+  const r = (e) => e.getBoundingClientRect();
+  const tit = L.querySelector('.edicao-tit'); const bloco = tit.closest('.edicao-bloco');
+  const pontas = [...L.querySelectorAll('.edicao-ponta')].map((w) => {
+    const rot = r(w.querySelector('.edicao-rotulo')); const val = r(w.querySelector('.edicao-valor'));
+    return { mesmaLinha: Math.abs((rot.top + rot.height / 2) - (val.top + val.height / 2)) < 6, aDireita: val.left >= rot.right - 1 };
+  });
+  const rn = L.querySelector('.edicao-rotulo-nome'); const campo = L.querySelector('.edicao-nome input');
+  return {
+    fica: /fica com/.test(L.textContent),
+    centroTit: +((r(tit).left + r(tit).right) / 2 - (r(bloco).left + r(bloco).right) / 2).toFixed(1),
+    pontas,
+    nomeRecuo: +(r(rn).left + parseFloat(getComputedStyle(rn).paddingLeft) - r(campo).left).toFixed(1),
+  };
+});
+checar(acab.fica === false && Math.abs(acab.centroTit) <= 2 && acab.pontas.length === 2
+    && acab.pontas.every((p) => p.mesmaLinha && p.aDireita) && acab.nomeRecuo >= 10,
+  'C · sem "fica com…", tempo À DIREITA do rótulo, "Trecho" centrado e o rótulo do nome com recuo (não colado à borda do card)',
+  JSON.stringify(acab));
+
 // as pontas não se cruzam: o início nunca passa de fim − 1 s
 await mexer(app, 5.5, null);
 const trava = await estado(app);

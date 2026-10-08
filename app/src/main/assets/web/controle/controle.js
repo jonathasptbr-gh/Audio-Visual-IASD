@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.7';
+const WEB_VERSION = '1.12.8';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -38063,7 +38063,6 @@ function edicaoAtualizar() {
     edicaoEls.fim.value = String(v.fim);
     edicaoEls.iniVal.textContent = edicaoFmt(v.inicio);
     edicaoEls.fimVal.textContent = edicaoFmt(e && e.fim == null ? edicaoDur : v.fim);
-    edicaoEls.resumo.textContent = 'fica com ' + edicaoFmt((e && e.fim == null ? edicaoDur : v.fim) - v.inicio);
   }
   edicaoAtualizarBotoes(e);
 }
@@ -38130,8 +38129,7 @@ function renderEdicaoForm() {
   bloco.className = 'edicao-bloco';
   const cab = document.createElement('div'); cab.className = 'edicao-cab';
   const tit = document.createElement('span'); tit.className = 'edicao-tit'; tit.textContent = 'Trecho';
-  const resumo = document.createElement('span'); resumo.className = 'edicao-resumo';
-  cab.append(tit, resumo);
+  cab.append(tit);
   const faixa = document.createElement('div'); faixa.className = 'edicao-faixa';
   const trilho = document.createElement('div'); trilho.className = 'edicao-trilho';
   const trecho = document.createElement('div'); trecho.className = 'edicao-trecho';
@@ -38154,6 +38152,7 @@ function renderEdicaoForm() {
     const w = document.createElement('div'); w.className = 'edicao-ponta';
     const r = document.createElement('span'); r.className = 'edicao-rotulo'; r.textContent = rotulo;
     const o = document.createElement('output'); o.className = 'edicao-valor';
+    const t = document.createElement('div'); t.className = 'edicao-ponta-cab'; t.append(r, o);
     const g = document.createElement('div'); g.className = 'edicao-passos';
     const mais = (delta, txt) => {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'misc-chip edicao-passo';
@@ -38163,14 +38162,14 @@ function renderEdicaoForm() {
       return b;
     };
     g.append(mais(-EDICAO_PASSO, '−1 s'), mais(EDICAO_PASSO, '+1 s'));
-    w.append(r, o, g);
+    w.append(t, g);
     return { w, o };
   };
   const pIni = ponta('ini', 'Início'); const pFim = ponta('fim', 'Fim');
   pontas.append(pIni.w, pFim.w);
   bloco.append(cab, faixa, pontas);
   edicaoListaEl.appendChild(bloco);
-  edicaoEls = { faixa, ini, fim, iniVal: pIni.o, fimVal: pFim.o, resumo };
+  edicaoEls = { faixa, ini, fim, iniVal: pIni.o, fimVal: pFim.o };
 
   // 3 · AS MARCAS
   edicaoListaEl.appendChild(edicaoMarca(msym(ICON.volOn), 'Fade de entrada', 'o som e a imagem sobem ao começar', 'fadeEntrada'));
@@ -38183,7 +38182,7 @@ function renderEdicaoForm() {
   // 4 · O NOME
   const nome = document.createElement('li');
   nome.className = 'edicao-bloco';
-  const rn = document.createElement('span'); rn.className = 'edicao-rotulo'; rn.textContent = edicaoEditandoId ? 'Nome do item' : 'Nome do item novo';
+  const rn = document.createElement('span'); rn.className = 'edicao-rotulo edicao-rotulo-nome'; rn.textContent = edicaoEditandoId ? 'Nome do item' : 'Nome do item novo';
   const campo = document.createElement('div'); campo.className = 'sorteio-campo edicao-nome';
   const inp = document.createElement('input');
   inp.type = 'text'; inp.className = 'lib-search'; inp.maxLength = 120; inp.autocomplete = 'off';
@@ -38248,7 +38247,6 @@ async function edicaoCarregarOrigem(id, valores, editando) {
   try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
   if (seq !== edicaoSeq) return false;
   if (!edicaoElegivel(rec)) { edicaoDizer('Essa mídia não está mais no aparelho.'); return false; }
-  edicaoDizer('Lendo a duração…');
   const dur = await edicaoDuracao(rec);
   if (seq !== edicaoSeq) return false;
   if (!(dur > 0)) { edicaoDizer('Não foi possível ler a duração desta mídia.'); return false; }
@@ -38354,7 +38352,6 @@ async function edicaoImportar() {
     const type = guessMediaType(nome) !== 'application/octet-stream' ? guessMediaType(nome) : blob.type;
     const kind = AVDB.kindFromType(type);
     if (kind !== 'video' && kind !== 'audio') { edicaoDizer('O editor só recebe áudio ou vídeo.'); return; }
-    edicaoDizer('Lendo o arquivo…');
     const { thumb, height, seconds } = await prepararMidia(blob, kind);
     const rec = await AVDB.addBase(blob, { name: nomeSemExtensao(nome), type, kind, thumb, height, seconds });
     edicaoGrupos = await edicaoMontarGrupos();

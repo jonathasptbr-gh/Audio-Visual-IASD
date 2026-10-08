@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.12.8",
+    "itens": [
+      "Editar mídia: saíram os textos “Lendo a duração” e “fica com…”, que repetiam informação já à vista.",
+      "O tempo de início e de fim ficou ao lado do nome, e o título “Trecho” ficou centralizado.",
+      "O rótulo “Nome do item novo” ganhou recuo e não fica mais colado na borda do card."
+    ]
+  },
+  {
     "versao": "1.12.7",
     "itens": [
       "Editar mídia: saiu a linha “Original” da base, e o botão Importar arquivo ficou baixo, com o ícone ao lado do texto.",
