@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.8';
+const WEB_VERSION = '1.12.9';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -38113,6 +38113,17 @@ function renderEdicaoForm() {
       : tipo + ' · ' + edicaoFmt(edicaoDur) + ' · toque para trocar',
     null, () => { edicaoAbrirEscolha(); });
   mid.classList.add('edicao-card');
+  // Nome e linha de apoio ficam em UMA linha cada, e o que não cabe ROLA (ping-pong) em vez de quebrar:
+  // o card nunca muda de altura, qualquer que seja o título.
+  for (const sel of ['.song-menu-label', '.song-menu-sub']) {
+    const el = mid.querySelector(sel);
+    if (!el) continue;
+    const dentro = document.createElement('span');
+    dentro.className = 'edicao-rolante';
+    dentro.textContent = el.textContent;
+    el.textContent = '';
+    el.appendChild(dentro);
+  }
   const x = document.createElement('button');
   x.type = 'button';
   x.className = 'edicao-x';
@@ -38194,13 +38205,40 @@ function renderEdicaoForm() {
   edicaoAtualizar();
 }
 
+// Liga o ping-pong nos textos do card que não cabem na largura (a mesma conta do título da mídia no ar:
+// distância = o excesso + folga, duração a velocidade ~constante). Mede no estado parado.
+function edicaoRolarTextos() {
+  edicaoListaEl.querySelectorAll('.edicao-rolante').forEach((i) => {
+    i.classList.remove('edicao-rolando');
+    i.style.removeProperty('--np-shift');
+    i.style.removeProperty('--np-dur');
+    const sobra = i.scrollWidth - i.parentElement.clientWidth;
+    if (sobra > 4) {
+      const passo = sobra + 12;
+      i.style.setProperty('--np-shift', (-passo) + 'px');
+      i.style.setProperty('--np-dur', Math.max(5, passo / 32 + 2).toFixed(1) + 's');
+      i.classList.add('edicao-rolando');
+    }
+  });
+}
+// A folha tem a altura do FORMULÁRIO (que é o conteúdo natural dela); o seletor a reusa para os botões da
+// base não andarem entre as vistas. Mede a folha já desenhada, sem o recado de baixo (que vem e vai).
+function edicaoMedirFolha() {
+  const folha = edicaoPopupEl.querySelector('.popup-sheet');
+  const nota = edicaoNotaEl.offsetParent ? edicaoNotaEl.offsetHeight + parseFloat(getComputedStyle(edicaoNotaEl).marginTop || 0) : 0;
+  const h = folha.getBoundingClientRect().height - nota;
+  if (h > 0) edicaoPopupEl.style.setProperty('--edicao-h', Math.round(h) + 'px');
+}
+window.addEventListener('resize', () => { if (edicaoVista === 'form') edicaoRolarTextos(); });
+
 function edicaoRender() {
   const escolha = edicaoVista === 'escolha';
+  edicaoPopupEl.dataset.vista = escolha ? 'escolha' : 'form';
   edicaoTituloEl.textContent = escolha ? 'Escolher a mídia' : 'Editar mídia';
   edicaoBuscaCaixaEl.hidden = !escolha;
   edicaoFechoFormEl.hidden = escolha;
   edicaoFechoEscolhaEl.hidden = !escolha;
-  if (escolha) { edicaoDizer(''); renderEdicaoEscolha(); } else renderEdicaoForm();
+  if (escolha) { edicaoDizer(''); renderEdicaoEscolha(); } else { renderEdicaoForm(); edicaoRolarTextos(); edicaoMedirFolha(); }
   edicaoEntrar();
 }
 
