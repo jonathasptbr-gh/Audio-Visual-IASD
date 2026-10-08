@@ -1,24 +1,21 @@
 #!/usr/bin/env node
 // ============================================================================
-// A PASSAGEM DO VOLUME NAS TECLAS FÍSICAS: NO TETO DO APP, O SISTEMA SOBE UM DEGRAU E O APP CEDE (v1.12.17)
+// A PASSAGEM DO VOLUME NAS TECLAS FÍSICAS: DOIS CICLOS, O SISTEMA SOBE E O APP CEDE O MESMO (v1.12.18)
 //
-// Pedido do operador: *"ao chegar em 100% no app, ele começa a aumentar o volume do sistema … se
-// ambos estão em 0, ele vai para 100% do app e começa a aumentar o do sistema. O ideal é o volume do
-// sistema estar na média e o do app ser o único modificado"* e, depois: *"o volume do sistema só deve
-// ser alterado quando batemos os limites … limitado apenas ao momento em que ele acabou de bater nos
-// 100%"*. Com o shell 78 o app LÊ o volume do sistema (`systemVolumeStep` → antes/depois/max), então a
-// regra deixou de contar degraus e de estimar janela de tempo. O que este arquivo trava, e cada uma
-// falha CALADA:
+// Pedido do operador: *"depois que bate 100% no app, cada % que sobe no sistema, desce o mesmo no app,
+// até o som do sistema chegar a 60% — aí ele sobe apenas no app até o app chegar em 100% novamente,
+// então ele permite o sistema subir até o máximo, ainda baixando o app novamente. Então teria dois
+// ciclos."* (a v1.12.17 recuava o app a ~50% a cada degrau e o recuo ia ficando menor). O app LÊ o
+// volume do sistema (`systemVolumeStep` → antes/depois/max, shell 78). O que este arquivo trava, e
+// cada uma falha CALADA:
 //  A. antes dos 100% a tecla só mexe no app, e o sistema não é tocado;
-//  B. nos 100%, com o sistema abaixo do alvo (60%), a tecla sobe um degrau do sistema E o app cede
-//     (a conta é do volume REAL: o som sobe meio degrau, não pula);
-//  C. as teclas seguintes mexem só no app — o par acontece só no instante do teto;
-//  D. do alvo em diante o sistema sobe sozinho, sem o app ceder (a válvula de sempre);
-//  E. um degrau RECUSADO (sistema no máximo, volume fixo) não faz o app ceder — era o defeito da
-//     contagem às cegas: o app caía sem o sistema subir;
-//  F. no zero do app a tecla de baixo continua indo ao sistema, e com o app acima de zero só mexe nele;
-//  G. a subida inteira (sistema e app em 0 → tudo acima) tem o som monotônico e sem salto, e o sistema
-//     para na faixa do alvo enquanto o app é o único modificado.
+//  B. 1º ciclo: nos 100% cada toque sobe UM degrau do sistema e baixa o app o MESMO tanto (a soma
+//     app + sistema fica em 100%), e a passagem SEGUE com o app abaixo do teto, até o sistema chegar a 60%;
+//  C. no alvo ela acaba: as teclas voltam a mexer só no app, até o teto;
+//  D. 2º ciclo: do teto de novo o sistema sobe até o máximo, com o app cedendo outra vez, e acaba no máximo;
+//  E. com o sistema no máximo, ou recusando o degrau, o app NÃO cede (não cai sem o sistema subir);
+//  F. mexer no fader no meio da passagem a encerra (o par deixou de valer);
+//  G. a tecla de baixo mexe só no app, e no zero vai ao sistema (a válvula de sempre).
 //
 //   node tools/volume-troca.test.mjs
 // ============================================================================
@@ -93,75 +90,86 @@ try {
     applyVolume(a); window.__sis.cur = c; window.__sis.fixo = f; window.__sysCalls.length = 0;
   }, [app, cur, fixo]);
 
+  const estado = () => pg.evaluate(() => ({ app: Math.round(volume * 100), cur: window.__sis.cur, max: window.__sis.max, calls: window.__sysCalls.length }));
+  const soma = (e) => e.app + Math.round((e.cur / e.max) * 100);
+
   // A · antes dos 100% só o app
   await zerar(0.9, 3);
   await tecla(1);
   checar(await pct() === 95 && (await calls()).length === 0,
     'A · com o app em 90% a tecla de cima sobe o APP (95%) e não toca no sistema', JSON.stringify({ app: await pct(), sys: await calls() }));
 
-  // B · no teto, sistema abaixo do alvo: o sistema sobe um degrau e o app cede o bastante
-  await zerar(1, 3);                                   // sistema 3/15 = 20%
-  await tecla(1);
-  const b = { app: await pct(), sis: await sis(), calls: await calls() };
-  checar(b.sis === 4 && b.calls.length === 1 && (b.app === 87 || b.app === 88),
-    'B · app em 100% e sistema em 3/15: a tecla sobe o sistema (4/15) e o app cede para ~88% (o som sobe meio degrau)', JSON.stringify(b));
-  const luzAntes = (3 / 15) * 1, luzDepois = (4 / 15) * (b.app / 100);
-  checar(luzDepois > luzAntes && luzDepois - luzAntes < 0.05,
-    'B · e o SOM sobe, devagar: nem cai nem pula (cerca de meio degrau do sistema)', JSON.stringify({ luzAntes, luzDepois }));
+  // B · 1º ciclo: nove toques levam o sistema de 0 a 60% (9/15) e o app de 100% a 40%, em lockstep
+  await zerar(1, 0);
+  const ciclo1 = [];
+  for (let i = 0; i < 9; i++) { await tecla(1); ciclo1.push(await estado()); }
+  const lockstep = ciclo1.every((e) => Math.abs(soma(e) - 100) <= 1);
+  checar(lockstep && ciclo1.every((e, i) => e.cur === i + 1),
+    'B · em cada toque o sistema sobe UM degrau e o app desce o MESMO tanto (app + sistema = 100%), mesmo com o app abaixo do teto', JSON.stringify(ciclo1.map((e) => [e.app, e.cur])));
+  const fim1 = ciclo1[8];
+  checar(fim1.cur === 9 && fim1.app === 40,
+    'B · no 9º toque o sistema chega a 60% (9/15) e o app a 40% — e a passagem acaba aí', JSON.stringify(fim1));
 
-  // C · as teclas seguintes mexem só no app
+  // C · de volta ao app: sobe só ele, até o teto
   await tecla(1);
-  checar(await pct() === 90 && (await calls()).length === 1 && await sis() === 4,
-    'C · a tecla seguinte sobe só o APP (88% → 90%) — o par foi só no instante do teto', JSON.stringify({ app: await pct(), sis: await sis(), calls: await calls() }));
+  const c1 = await estado();
+  checar(c1.app === 45 && c1.cur === 9 && c1.calls === 9,
+    'C · o toque seguinte sobe só o APP (40% → 45%): o sistema fica em 60% e não é tocado', JSON.stringify(c1));
+  for (let i = 0; i < 11; i++) await tecla(1);
+  const c2 = await estado();
+  checar(c2.app === 100 && c2.cur === 9 && c2.calls === 9,
+    'C · e o app sobe sozinho até 100%', JSON.stringify(c2));
 
-  // D · do alvo em diante o sistema sobe sozinho
-  await zerar(1, 9);                                   // 9/15 = 60% = o alvo
+  // D · 2º ciclo: do teto de novo o sistema sobe até o máximo, e o app cede o mesmo
+  const ciclo2 = [];
+  for (let i = 0; i < 6; i++) { await tecla(1); ciclo2.push(await estado()); }
+  checar(ciclo2.every((e, i) => e.cur === 10 + i) && ciclo2.every((e) => Math.abs(soma(e) - 160) <= 1),
+    'D · 2º ciclo: o sistema sobe de 60% ao máximo, um degrau por toque, e o app desce o mesmo (de 100% a 60%)', JSON.stringify(ciclo2.map((e) => [e.app, e.cur])));
   await tecla(1);
-  checar(await sis() === 10 && await pct() === 100,
-    'D · com o sistema já no alvo (60%) a tecla no teto sobe só o sistema e o app fica em 100%', JSON.stringify({ app: await pct(), sis: await sis() }));
+  const d1 = await estado();
+  checar(d1.app === 65 && d1.cur === 15 && d1.calls === 15,
+    'D · e depois do máximo o toque sobe só o APP (60% → 65%)', JSON.stringify(d1));
+  for (let i = 0; i < 7; i++) await tecla(1);
+  await tecla(1);
+  const d2 = await estado();
+  checar(d2.app === 100 && d2.cur === 15,
+    'E · com o app em 100% e o sistema no máximo o app não cede (o pedido ao sistema é inofensivo: ele já está no máximo)', JSON.stringify(d2));
 
   // E · degrau recusado
-  await zerar(1, 3, true);                             // volume fixo: o degrau não acontece
+  await zerar(1, 3, true);
   await tecla(1);
   checar(await pct() === 100 && await sis() === 3,
-    'E · se o sistema RECUSA o degrau, o app não cede (fica em 100%)', JSON.stringify({ app: await pct(), sis: await sis() }));
-  await zerar(1, 15);                                  // sistema no máximo
+    'E · se o sistema RECUSA o degrau (volume fixo), o app não cede', JSON.stringify({ app: await pct(), sis: await sis() }));
+  await pg.evaluate(() => { window.__sis.fixo = false; });
   await tecla(1);
-  checar(await pct() === 100 && await sis() === 15,
-    'E · e com o sistema já no máximo o app também fica em 100%', JSON.stringify({ app: await pct(), sis: await sis() }));
+  const e1 = await estado();
+  checar(e1.cur === 4 && e1.app === 93,
+    'E · e a recusa não deixa passagem pendurada: o toque seguinte começa uma nova (4/15, app 93%)', JSON.stringify(e1));
 
-  // F · a válvula do zero
-  await zerar(0, 8);
-  await tecla(-1);
-  checar(await pct() === 0 && await sis() === 7,
-    'F · com o app no zero a tecla de baixo vai ao sistema (8 → 7)', JSON.stringify({ app: await pct(), sis: await sis() }));
+  // F · fader no meio da passagem
+  await zerar(1, 0);
+  await tecla(1); await tecla(1);                       // sistema 2/15, app ~87%
+  await pg.evaluate(() => { applyVolume(0.5); });       // o operador arrasta o fader
+  await tecla(1);
+  const f1 = await estado();
+  checar(f1.app === 55 && f1.cur === 2,
+    'F · se o fader foi mexido no meio da passagem, o toque seguinte sobe só o app (50% → 55%) e o sistema fica onde estava', JSON.stringify(f1));
+
+  // G · a tecla de baixo
   await zerar(0.5, 8);
   await tecla(-1);
   checar(await pct() === 45 && await sis() === 8,
-    'F · com o app acima de zero a tecla de baixo mexe só nele (50% → 45%)', JSON.stringify({ app: await pct(), sis: await sis() }));
-
-  // G · a subida inteira, do zero ao máximo
-  await zerar(0, 0);
-  const trilha = [];
-  for (let i = 0; i < 80; i++) {
-    await tecla(1);
-    trilha.push(await pg.evaluate(() => ({ app: volume, cur: window.__sis.cur, max: window.__sis.max })));
-  }
-  let saltoMax = 0; let desceu = false; let prev = 0;
-  for (const t of trilha) {
-    const luz = (t.cur / t.max) * t.app;
-    if (luz < prev - 1e-9) desceu = true;
-    saltoMax = Math.max(saltoMax, luz - prev);
-    prev = luz;
-  }
-  const fim = trilha[trilha.length - 1];
-  // o primeiro degrau do sistema (0 → 1) parte do silêncio: o único salto legítimo maior
-  checar(!desceu, 'G · subindo tudo o som NUNCA cai no meio do caminho', JSON.stringify(trilha.slice(0, 12)));
-  checar(saltoMax < 0.12, 'G · e nenhum toque pula o som (maior salto < 12% do máximo)', String(saltoMax));
-  checar(fim.cur === 15 && fim.app === 1, 'G · insistindo, chega ao máximo dos dois (a válvula além do alvo)', JSON.stringify(fim));
-  const noAlvo = trilha.find((t) => t.cur >= 9);
-  checar(noAlvo && noAlvo.app >= 0.5,
-    'G · e ao chegar na faixa do alvo o app está de volta a um volume alto — ele é quem fica sendo mexido', JSON.stringify(noAlvo));
+    'G · com o app acima de zero a tecla de baixo mexe só nele (50% → 45%)', JSON.stringify({ app: await pct(), sis: await sis() }));
+  await zerar(0, 8);
+  await tecla(-1);
+  checar(await pct() === 0 && await sis() === 7,
+    'G · com o app no zero a tecla de baixo vai ao sistema (8 → 7), como sempre', JSON.stringify({ app: await pct(), sis: await sis() }));
+  await zerar(1, 0);
+  await tecla(1); await tecla(-1);                      // a de baixo encerra a passagem
+  await tecla(1);
+  const g1 = await estado();
+  checar(g1.cur === 1 && g1.app === 95,
+    'G · e a tecla de baixo encerra a passagem: depois dela a de cima sobe só o app (93% → 90% → 95%, sistema parado em 1/15)', JSON.stringify(g1));
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 } finally {
