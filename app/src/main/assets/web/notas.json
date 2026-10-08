@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.12.4",
+    "itens": [
+      "Auxiliar de leitura: o título da música agora é sempre maior que a letra, também ao usar o A+ e o A−."
+    ]
+  },
+  {
     "versao": "1.12.3",
     "itens": [
       "Modo Fácil: a sombra do auxiliar de leitura não aparece mais por cima do desfoque do bloqueio.",

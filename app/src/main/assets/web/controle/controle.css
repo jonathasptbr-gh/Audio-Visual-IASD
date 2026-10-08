@@ -10808,9 +10808,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    ficar maior que a letra que o campo existe para mostrar. Sobem o bastante para
    não virarem pó ao lado de 1.9rem, e ficam um degrau abaixo dela. */
 .lv-row--cover, .lv-cab.lv-cab--letra {
-  color: var(--muted); font-size: calc(var(--lv-fonte) * .82); letter-spacing: .04em; text-transform: uppercase;
-  /* O TÍTULO ACOMPANHA O A+/A−: `.82` é o 1,15rem de `--fs-3xl` sobre o 1,4rem base (v1.11.23: era fixo, e
-     o título ficava do mesmo tamanho enquanto a letra crescia). O DEGRAU BASE não muda. */
+  color: var(--muted); font-size: calc(var(--lv-fonte) * 1.2); letter-spacing: .04em; text-transform: uppercase;
+  /* O TÍTULO É SEMPRE MAIOR QUE A LETRA, NA MESMA PROPORÇÃO (v1.12.4, pedido do operador: *"o título
+     tenha a fonte maior que o texto da letra … que ele mantivesse sempre essa diferença"*): `1.2` do
+     `--lv-fonte`, o token do A+/A−, então a diferença se mantém em todos os degraus. (Era `--fs-3xl`
+     fixo até a v1.11.22 — 1,15rem, MENOR que os 1,4rem da letra —, e `.82` na v1.12.3, que só
+     escalava o erro.) */
   /* O TÍTULO É A LINHA DE CAPA (v1.11.22): a formatação que era da palavra "Início" é a do título
      da música, e DUAS LINHAS DA LETRA separam o título do resto — o `gap` da caixa já põe uma
      estrofe (`--lv-estrofe-gap`), e a margem completa o que falta para 2 × (corpo × 1,5). */
