@@ -6132,8 +6132,6 @@ try {
       folha: caixa('#hymnSearchPopup .popup-sheet'),
       barra: caixa('.lib-bar'),
       lista: caixa('#hymnResults'),
-      // a caixa da lista desce `--lib-vao-sombra` (v1.11.23): é a folga entre o campo e a sombra de cima
-      vao: parseFloat(getComputedStyle(document.getElementById('hymnResults')).marginTop) || 0,
     });
     setAppMode('full');
     openHymnSearch(false);
@@ -6159,9 +6157,9 @@ try {
   // reprovar nada.
   checar(!!geo.sem.barra && !!geo.sem.folha && perto(geo.sem.barra.top, geo.sem.folha.top),
     'sem teclado, a BARRA é o topo da janela — ela subiu com ela');
-  checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.barra.bottom + geo.sem.vao) && geo.sem.vao > 0
+  checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.barra.bottom)
     && perto(geo.sem.lista.bottom, geo.sem.folha.bottom),
-    'e a lista começa onde a barra termina (mais a folga da sombra, `--lib-vao-sombra`) e vai até a base — a rolagem passa por '
+    'e a lista começa onde a barra termina e vai até a base — a rolagem passa por '
     + 'BAIXO dela');
   // O TECLADO SOBREPÕE E A CAMADA NÃO PERSEGUE NADA (v5.280). A v5.278 fazia a
   // folha descer junto com a viewport visual para a barra não sair pelo topo; o
@@ -6175,7 +6173,7 @@ try {
     + Math.round(geo.sem.folha.height) + 'px → ' + Math.round(geo.com.folha.height) + 'px)');
   checar(!!geo.com.barra && !!geo.com.lista
     && perto(geo.com.barra.top, geo.com.folha.top)
-    && perto(geo.com.lista.top, geo.com.barra.bottom + geo.com.vao),
+    && perto(geo.com.lista.top, geo.com.barra.bottom),
     'e a ordem de cima continua colada: janela → barra → lista');
 } catch (e) {
   checar(false, 'a medição da busca com teclado terminou sem exceção (' + (e && e.message) + ')');

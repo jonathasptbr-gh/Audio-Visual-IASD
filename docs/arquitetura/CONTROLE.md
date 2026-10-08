@@ -8381,10 +8381,12 @@ na lista; roleta e barra de ação no `.popup-fecho` — fica onde está.
   M do `modo-simples-corpo`): véu opaco magenta e a base da placa tem de ler magenta. (2) *"o título
   não aumenta proporcionalmente quando se aumenta a fonte"*: `.lv-row--cover`/`.lv-cab--letra`
   usavam `--fs-3xl` fixo; agora `calc(var(--lv-fonte) * .82)` (1,15rem sobre 1,4rem: o degrau base
-  é o mesmo). Bloco L. (3) *"a sombra de corte superior da lista está sem margem com a caixa de
-  busca"*: `#hymnResults` começava na base da `.lib-bar` (5,6px do campo). `margin-top:
-  var(--lib-vao-sombra)` (`--sp-5 / 2`, no `:root`) desce a caixa, e as duas margens do primeiro bloco
-  subtraem o mesmo token — o repouso não anda. Vão campo → sombra: 5,6 → 10,4px. Bloco V do `sombra-de-rolagem`.
+  é o mesmo). Bloco L. (3) *"na lista para escolher a mídia para edição, a sombra de corte superior … está sem margem com a
+  caixa de texto da busca"*: é o SELETOR do editor (`#edicaoLista`, `.rola`), que começava 5,6px abaixo do
+  campo (o `.35rem` do `.sorteio-campo`). `.edicao-busca:not([hidden]) + #edicaoLista { margin-top:
+  var(--sp-5) }` — só com o campo à vista; sem ele a lista segue o cabeçalho. Vão campo → lista: 15,2px.
+  (Uma primeira leitura aplicou isto à lista da Biblioteca, e foi desfeita: não era a lista do pedido.)
+  Bloco C1b do `edicao-de-midia`.
 - **O TÍTULO DA MÚSICA É A LINHA DE CAPA, NOS DOIS MODOS (v1.11.22).** Pedido do operador: o
   Modo Fácil *"não ganhou o título dentro da caixa da letra"*, *"duas linhas de espaço entre o
   título e o resto"* e *"remover a palavra 'início' … transfira a formatação atual dessa palavra
