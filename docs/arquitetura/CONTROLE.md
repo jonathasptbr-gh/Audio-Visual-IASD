@@ -9828,6 +9828,10 @@ do `CLAUDE.md`.
 
 ---
 
+## A tampa das coleções acompanha a altura da lista (v1.12.14)
+
+`medirTampa` (`--tampa-h`, a altura de cada bloco de raiz do acervo, de `--bar-raiz-max` até a barra) lê `lista.clientHeight`. Além do fim de cada render (`acertarTampa`), um `ResizeObserver` em `#hymnResults` a refaz quando a altura da lista muda com a janela da Biblioteca ABERTA — no Modo Fácil o render do Parar roda com a janela fechada (lista ~10 px) e a janela cresce depois. Fechada, não mede (a lista encolhida encolheria os blocos na saída). Oráculo: `modo-simples-corpo` bloco Q.
+
 ## A troca leitura ↔ Biblioteca no Modo Fácil anima (v1.12.12)
 
 Parar e "mídia entra" mudam a base da leitura (o card do nome aparece/some) no mesmo pulso em que a janela abre/fecha. `medirCorpoSimples({ troca: true })` — só `renderSimpleCorpo` o usa — NÃO conta a mudança de `--simple-corpo-base` como remedição (que zeraria `--lib-anim` e faria a janela pular); abrindo, a janela anima da posição fechada até a base nova. `.simple-song` esconde por `visibility` com atraso de `--lib-anim`, para a janela cobri-lo antes. Oráculo: `modo-simples-corpo` bloco O.

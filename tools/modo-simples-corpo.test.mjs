@@ -584,6 +584,26 @@ try {
     'P1 · a medida velha da raiz E um `--kb` alto sem teclado são refeitos quando a janela assenta: a caixa '
     + 'volta a ir até a base da leitura, sem interação nenhuma', 'camada ' + p1.camada + ' contra ' + p1.song);
 
+  // Q · AS COLEÇÕES VOLTAM NA ALTURA CERTA DEPOIS DO PARAR (v1.12.14)
+  // Relato do operador (com Registro): *"após dar stop … a biblioteca volta, e sua caixa cobre o vão
+  // certo, mas seu interior, as coleções, ficam encolhidas ainda. Abrir uma coleção faz ele atualizar"*.
+  // A caixa estava certa (o bloco H/P a trava); o que ficava para trás era `--tampa-h`, medido no
+  // render com a janela ainda FECHADA (lista de ~10 px: a sobra dá zero e cada coleção sai com a altura
+  // da barra, 45 px, em vez dos 66 do teto). A prova compara com o que um render novo daria.
+  await subirMidia();
+  await quadros();
+  await parar();
+  await quadros();
+  const alturasQ = () => pg.evaluate(() => [...document.querySelectorAll('#hymnResults > .hymnal-card')]
+    .map((c) => +c.getBoundingClientRect().height.toFixed(1)));
+  const q1 = await alturasQ();
+  await pg.evaluate(() => { renderSearchResults(''); });
+  await quadros();
+  const q2 = await alturasQ();
+  checar(q1.length >= 1 && q1.length === q2.length && q1.every((h, i) => Math.abs(h - q2[i]) <= 0.5),
+    'Q1 · depois do Parar as coleções já têm a altura que um render novo daria (não ficam encolhidas até alguém tocar)',
+    JSON.stringify({ aposParar: q1, aposRender: q2 }));
+
   // J · A MÍDIA QUE NÃO USA O AUXILIAR DE LEITURA (v1.11.21)
   // Pedido do operador: *"vamos aproveitar para aprimorar a experiência durante a exibição de um
   // vídeo ou mídia que não usa o auxiliar de leitura. Nesses casos, a área do auxiliar de leitura

@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.13';
+const WEB_VERSION = '1.12.14';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -13010,6 +13010,32 @@ function acertarVaoDosFavoritos(corpoDado) {
 function acertarTampa(lista) {
   if (!lista) return;
   requestAnimationFrame(() => { if (lista.isConnected) medirTampa(lista); });
+}
+
+// ===== A TAMPA ACOMPANHA A ALTURA DA LISTA, não só o render (v1.12.14) =====
+// Relato do operador, com o Registro: *"após dar stop … a biblioteca volta, e sua caixa cobre o vão
+// certo, mas seu interior, as coleções, ficam encolhidas … abrir uma coleção faz ele atualizar"*.
+// `medirTampa` reparte a SOBRA da lista entre os blocos (até o teto de 66 px) e roda ao fim de
+// cada render. No Modo Fácil a Biblioteca volta (Parar) com o render DENTRO da janela que ainda
+// está fechada — a lista mede ~10 px, a sobra dá zero e cada coleção sai com a altura da barra
+// (45 px) — e a janela cresce DEPOIS, sem render nenhum: as coleções ficavam encolhidas até um
+// toque (um render novo) remedir. Agora a medida segue a altura da lista (teclado, rotação e a
+// janela crescendo). Só com a janela ABERTA: fechando, a lista encolhe e a medida de uma lista
+// que ninguém vê encolheria os blocos na saída.
+let tampaAlturaVista = 0;
+let tampaRaf = 0;
+if (typeof ResizeObserver === 'function' && hymnResultsEl) {
+  new ResizeObserver(() => {
+    const h = hymnResultsEl.clientHeight;
+    if (h === tampaAlturaVista) return;
+    tampaAlturaVista = h;
+    if (!hymnSearchPopupEl.classList.contains('open')) return;
+    cancelAnimationFrame(tampaRaf);
+    tampaRaf = requestAnimationFrame(() => {
+      tampaRaf = 0;
+      if (hymnResultsEl.isConnected && hymnResultsEl.classList.contains('acervo')) medirTampa(hymnResultsEl);
+    });
+  }).observe(hymnResultsEl);
 }
 
 // O botão de estrela de uma linha. `.on` = favoritado (a cor faz o estado, como
