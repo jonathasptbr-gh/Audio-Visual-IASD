@@ -41,7 +41,7 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    (69 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
-                                       window.AVNative  (61 métodos)
+                                       window.AVNative  (62 métodos)
                                        + 4 globais lidas direto
 ```
 
@@ -609,9 +609,9 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 
 ---
 
-## O CATÁLOGO COMPLETO — os 61 métodos, um a um
+## O CATÁLOGO COMPLETO — os 62 métodos, um a um
 
-> **O SHELL SERVE 72.** Os CINCO de diferença foram encolhidos pelo LADO WEB,
+> **O SHELL SERVE 73.** Os CINCO de diferença foram encolhidos pelo LADO WEB,
 > que é o lado seguro: o `@JavascriptInterface` de cada um continua em
 > `NativeBridge.kt`, então nenhum dos dois lotes pediu Release.
 > `ytStream`, `otaPending` e `apkProcurar` perderam o consumidor em duas fusões
@@ -791,7 +791,10 @@ window.AVNative = {
                        //   pausa o de uma página oculta — com o app minimizado o
                        //   louvor calava. CONDICIONAL de propósito: com telão no
                        //   ar o Controle DEVE ser estrangulado em segundo plano
-  systemVolume(step),  // um passo no volume do SISTEMA (a troca das teclas, v1.12.15, ou o zero do app)
+  systemVolume(step),  // um passo no volume do SISTEMA, sem leitura (o zero do app: a tecla de baixo)
+  systemVolumeStep(step), // o mesmo passo COM a leitura (shell 78): Promise<{antes, depois, max}|null>, em
+                       //   degraus de STREAM_MUSIC. É o que deixa o web decidir quanto o app cede
+                       //   (`volumeCede`, controle.js) pelo volume REAL — sem contar degraus às cegas
   temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
   // requestMic() e micDiag() — SERVIDOS PELO KOTLIN, SEM CHAMADOR desde a
   // v1.8.89: o MICROFONE AO VIVO saiu pelo lado WEB e os dois deixaram o

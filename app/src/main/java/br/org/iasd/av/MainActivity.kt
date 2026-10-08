@@ -2443,6 +2443,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
+    override fun stepSystemVolume(step: Int, done: (JSONObject) -> Unit) {
+        runOnUiThread {
+            val am = getSystemService(AudioManager::class.java)
+            if (am == null) { done(JSONObject().put("antes", 0).put("depois", 0).put("max", 0)); return@runOnUiThread }
+            val antes = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val dir = if (step > 0) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER
+            am.adjustStreamVolume(AudioManager.STREAM_MUSIC, dir, AudioManager.FLAG_SHOW_UI)
+            val depois = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            done(
+                JSONObject()
+                    .put("antes", antes)
+                    .put("depois", depois)
+                    .put("max", am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)),
+            )
+        }
+    }
+
     override fun takePendingShare(): JSONObject? = pendingShare.getAndSet(null)
 
     /**
