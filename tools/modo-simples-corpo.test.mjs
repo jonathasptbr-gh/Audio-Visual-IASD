@@ -561,6 +561,29 @@ try {
     'O3 · a mídia que entra: a Biblioteca SOBE recolhendo para a barra, também passando por posições intermediárias',
     JSON.stringify(o3));
 
+  // P · A CAIXA SE CURA SOZINHA DEPOIS DE ASSENTAR (v1.12.13)
+  // Relato do operador: *"verifique o ajuste de altura disponível para a biblioteca no modo simples,
+  // após o stop, pois ela está ficando encurtada, ao que parece, no mesmo tamanho de quando há
+  // teclado aberto"*. Não reproduzido em mesa (o Parar sai certo, com e sem teclado simulado); o
+  // que sustenta o lote é a conferência que roda DEPOIS da animação: ela reconfere o teclado e, se
+  // a medida da raiz ficou para trás, a REFAZ — antes só anotava no Registro, e a caixa ficava
+  // curta até uma interação qualquer. A prova injeta as duas causas, sem foco e sem interação.
+  await pg.evaluate(() => { currentItem = null; midiaNoAr = false; renderSimple(); renderTransporteHabilitado(); });
+  await quadros();
+  const p0 = await ler();
+  checar(p0.principal === true && Math.abs(p0.camada[3] - p0.song[3]) <= 2,
+    'P0 · PREMISSA: a Biblioteca está como tela principal, com a base na base da leitura', JSON.stringify(p0));
+  await pg.evaluate(() => {
+    document.documentElement.style.setProperty('--simple-corpo-base', '300px');
+    document.documentElement.style.setProperty('--kb', '280px');
+    hymnSearchPopupEl.dispatchEvent(new TransitionEvent('transitionend', { propertyName: 'bottom' }));
+  });
+  await quadros();
+  const p1 = await ler();
+  checar(Math.abs(p1.camada[3] - p1.song[3]) <= 2,
+    'P1 · a medida velha da raiz E um `--kb` alto sem teclado são refeitos quando a janela assenta: a caixa '
+    + 'volta a ir até a base da leitura, sem interação nenhuma', 'camada ' + p1.camada + ' contra ' + p1.song);
+
   // J · A MÍDIA QUE NÃO USA O AUXILIAR DE LEITURA (v1.11.21)
   // Pedido do operador: *"vamos aproveitar para aprimorar a experiência durante a exibição de um
   // vídeo ou mídia que não usa o auxiliar de leitura. Nesses casos, a área do auxiliar de leitura

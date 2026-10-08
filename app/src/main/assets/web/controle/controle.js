@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.12';
+const WEB_VERSION = '1.12.13';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -39935,18 +39935,29 @@ function conferirCaixaDaBiblioteca() {
   // Ainda ANDANDO (a transição do `bottom`): o fim dela chama esta conferência de novo.
   if (typeof hymnSearchPopupEl.getAnimations === 'function'
       && hymnSearchPopupEl.getAnimations().some((a) => a.playState === 'running')) return;
+  // O TECLADO É RECONFERIDO ANTES (v1.12.13): um `--kb` alto sem teclado é a caixa "do tamanho de
+  // quando o teclado está aberto" — e esta é a única conferência que roda DEPOIS de a janela
+  // assentar, que é quando o operador vê o defeito. Sem campo em foco a conta dá zero.
+  if (aplicarTeclado) aplicarTeclado();
   const altura = simpleModeEl.clientHeight;
   const base = altura - simpleSongEl.offsetTop - simpleSongEl.offsetHeight;
   const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb')) || 0;
   const esperado = altura - Math.max(base, kb);
   const real = hymnSearchPopupEl.getBoundingClientRect().bottom;
   if (Math.abs(real - esperado) <= 2) { caixaDaBibliotecaVista = ''; return; }
+  // A MEDIDA VELHA SE REFAZ, em vez de só ser anotada (v1.12.13): a conferência tira `base` da
+  // geometria de agora, e a camada lê a variável da raiz — se discordam, a variável ficou para
+  // trás. A remedição a reescreve e a camada acompanha, sem esperar o operador "interagir".
+  const antes = document.documentElement.style.getPropertyValue('--simple-corpo-base');
+  medirCorpoSimples();
+  const refeita = antes !== document.documentElement.style.getPropertyValue('--simple-corpo-base');
   const sinal = Math.round(real) + '/' + Math.round(esperado);
   if (sinal === caixaDaBibliotecaVista) return;
   caixaDaBibliotecaVista = sinal;
   diagC('biblioteca (Modo Fácil): a caixa termina em ' + Math.round(real) + ' px e devia terminar em '
     + Math.round(esperado) + ' (base da leitura ' + Math.round(base) + ', teclado ' + Math.round(kb)
-    + ', altura da tela ' + altura + ', innerHeight ' + window.innerHeight + ')');
+    + ', altura da tela ' + altura + ', innerHeight ' + window.innerHeight + ')'
+    + (refeita ? ' — a medida estava velha e foi refeita' : ''));
 }
 hymnSearchPopupEl.addEventListener('transitionend', (e) => {
   if (e.target === hymnSearchPopupEl && e.propertyName === 'bottom') conferirCaixaDaBiblioteca();
