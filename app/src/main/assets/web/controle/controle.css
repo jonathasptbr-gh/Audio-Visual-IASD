@@ -10399,9 +10399,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: var(--poco); border-radius: var(--radius-card);
   padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3);
 }
-.edicao-cab { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.edicao-cab { display: flex; align-items: baseline; justify-content: center; gap: var(--sp-3); }
 .edicao-tit { color: var(--text); font-weight: 600; }
-.edicao-resumo, .edicao-rotulo { color: var(--muted); font-size: var(--fs-sm); }
+.edicao-rotulo { color: var(--muted); font-size: var(--fs-sm); }
 .edicao-valor { color: var(--text); font-variant-numeric: tabular-nums; font-size: var(--fs-md, 1rem); }
 .edicao-nome { padding: 0; }
 .edicao-nome .lib-search { width: 100%; box-sizing: border-box; padding-left: 14px; }
@@ -10438,9 +10438,13 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   pointer-events: auto; width: 1.5rem; height: 1.5rem; border-radius: 50%; border: 0;
   background: var(--btn-accent); box-shadow: 0 0 0 .3rem var(--accent) inset;
 }
+/* O rótulo do campo de nome alinha com o TEXTO do campo (que tem 14px de recuo), não com a borda do card. */
+.edicao-rotulo-nome { padding-inline-start: 14px; }
 .edicao-pontas { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
-/* Rótulo, tempo e os dois botões ficam CENTRADOS na coluna da ponta: o tempo cai no meio do par −1 s / +1 s. */
+/* Rótulo + tempo (uma linha) e os dois botões ficam CENTRADOS na coluna da ponta. */
 .edicao-ponta { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--sp-2); min-width: 0; }
+/* O tempo fica À DIREITA do rótulo (uma linha só): empilhado ele gastava altura e deixava a lateral vazia. */
+.edicao-ponta-cab { display: flex; align-items: baseline; justify-content: center; gap: var(--sp-2); }
 .edicao-passos { display: flex; gap: var(--sp-2); align-self: stretch; }
 /* A troca entre o formulário e o seletor (e a lista, ao carregar) ENTRA em vez de piscar. */
 @keyframes edicao-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
