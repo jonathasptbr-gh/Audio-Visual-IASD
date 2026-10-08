@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.12.13",
+    "itens": [
+      "Modo Fácil: a biblioteca depois de parar a mídia se corrige sozinha se ficar curta, sem precisar tocar na tela."
+    ]
+  },
+  {
     "versao": "1.12.12",
     "itens": [
       "Modo Fácil: a troca entre o auxiliar de leitura e a biblioteca agora tem animação, não pisca mais.",
