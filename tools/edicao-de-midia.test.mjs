@@ -523,16 +523,25 @@ checar(importou === true && imp.achou && imp.emLista.length === 0 && imp.segura,
   'C · "Importar arquivo" traz o arquivo SÓ para o editor (fora de toda lista) e o rascunho o segura contra o coletor',
   porque(importou) || JSON.stringify(imp));
 // descartado e sem edição, o importado volta a ser coletável
-await app.evaluate(() => document.querySelector('#edicaoLista .edicao-card .edicao-x').click());
-const carga = await app.evaluate(() => ({
-  spinner: !!document.querySelector('#edicaoLista .edicao-carga .edicao-spin'),
-  vazio: !!document.querySelector('#edicaoLista .empty'),
-}));
-const cargaMed = await app.evaluate(() => {
+// clique e leitura no MESMO turno síncrono: o spinner dura ~1 s e, em dois turnos, um runner lento já o tinha tirado
+const cargaTudo = await app.evaluate(async () => {
+  document.querySelector('#edicaoLista .edicao-card .edicao-x').click();
+  // o spinner entra um quadro depois do clique: leitura quadro a quadro, no instante em que ele aparece
+  const ate = performance.now() + 1500;
+  while (!document.querySelector('#edicaoLista .edicao-carga .edicao-spin') && performance.now() < ate) {
+    await new Promise((r) => requestAnimationFrame(r));
+  }
   const c = document.querySelector('#edicaoLista .edicao-carga');
   const sp = c && c.querySelector('.edicao-spin');
-  return { texto: c ? c.textContent.trim() : null, w: sp ? Math.round(sp.getBoundingClientRect().width) : 0 };
+  return {
+    spinner: !!document.querySelector('#edicaoLista .edicao-carga .edicao-spin'),
+    vazio: !!document.querySelector('#edicaoLista .empty'),
+    texto: c ? c.textContent.trim() : null,
+    w: sp ? Math.round(sp.getBoundingClientRect().width) : 0,
+  };
 });
+const carga = { spinner: cargaTudo.spinner, vazio: cargaTudo.vazio };
+const cargaMed = { texto: cargaTudo.texto, w: cargaTudo.w };
 checar(cargaMed.texto === '' && cargaMed.w >= 56,
   'C · o spinner da carga não leva texto explicativo e é grande (≥ 56px; eram 32)', JSON.stringify(cargaMed));
 checar(carga.spinner && !carga.vazio,
