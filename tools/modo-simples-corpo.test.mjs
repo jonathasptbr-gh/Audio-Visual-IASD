@@ -425,7 +425,7 @@ try {
   // L · O TÍTULO ACOMPANHA O A+/A− (v1.11.23)
   // Pedido do operador: *"o título dentro do auxiliar de leitura não aumenta proporcionalmente quando
   // se aumenta a fonte do texto da letra"*. O corpo do título era `--fs-3xl` fixo; agora é um fator do
-  // `--lv-fonte`, o mesmo token que o A+/A− escreve — o degrau base não muda (1,15rem sobre 1,4rem).
+  // `--lv-fonte`, o mesmo token que o A+/A− escreve — e é SEMPRE maior que o corpo da letra, na proporção 1,2 (v1.12.4: a v1.12.3 o escalava mas o deixava MENOR).
   const fontesL = () => pg.evaluate(() => {
     const z = document.getElementById('simpleLyrics');
     const t = parseFloat(getComputedStyle(z.querySelector('.lv-row--cover')).fontSize);
@@ -437,11 +437,11 @@ try {
   await quadros();
   const l1 = await fontesL();
   await pg.evaluate(() => { document.documentElement.style.setProperty('--lv-fonte', '1.4rem'); });
-  checar(Math.abs(l0.titulo / l0.corpo - 0.82) < 0.02 && Math.abs(l0.titulo - 18.4) < 0.6,
-    'L1 · no degrau BASE o título segue com 1,15rem (18,4px): o desenho de sempre não mudou',
+  checar(l0.titulo > l0.corpo * 1.1 && Math.abs(l0.titulo / l0.corpo - 1.2) < 0.02,
+    'L1 · no degrau BASE o título é MAIOR que a letra (razão 1,2): era 18,4px contra 22,4px da letra',
     JSON.stringify(l0));
-  checar(l1.titulo > l0.titulo * 1.4 && Math.abs(l1.titulo / l1.corpo - l0.titulo / l0.corpo) < 0.02,
-    'L2 · e ele CRESCE junto com a letra quando o A+ sobe o `--lv-fonte` (a razão título/corpo se mantém)',
+  checar(l1.titulo > l0.titulo * 1.4 && l1.titulo > l1.corpo * 1.1 && Math.abs(l1.titulo / l1.corpo - l0.titulo / l0.corpo) < 0.02,
+    'L2 · e ele CRESCE junto com a letra quando o A+ sobe o `--lv-fonte`, seguindo MAIOR que ela (a razão título/corpo se mantém)',
     JSON.stringify({ base: l0, grande: l1 }));
 
   // M · A SOMBRA DA PLACA FICA POR BAIXO DO BLOQUEIO "SEM TELA" (v1.11.23)

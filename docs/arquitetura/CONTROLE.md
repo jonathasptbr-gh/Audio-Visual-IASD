@@ -8380,8 +8380,8 @@ na lista; roleta e barra de ação no `.popup-fecho` — fica onde está.
   vencia. `.simple-song { isolation: isolate }` prende o índice dentro da zona. Prova de PIXEL (bloco
   M do `modo-simples-corpo`): véu opaco magenta e a base da placa tem de ler magenta. (2) *"o título
   não aumenta proporcionalmente quando se aumenta a fonte"*: `.lv-row--cover`/`.lv-cab--letra`
-  usavam `--fs-3xl` fixo; agora `calc(var(--lv-fonte) * .82)` (1,15rem sobre 1,4rem: o degrau base
-  é o mesmo). Bloco L. (3) *"na lista para escolher a mídia para edição, a sombra de corte superior … está sem margem com a
+  usavam `--fs-3xl` fixo; v1.12.4: `calc(var(--lv-fonte) * 1.2)` — SEMPRE maior que a letra, na mesma
+  proporção em todo degrau do A+/A− (a v1.12.3 pôs `.82`, que escalava mas seguia MENOR). Bloco L. (3) *"na lista para escolher a mídia para edição, a sombra de corte superior … está sem margem com a
   caixa de texto da busca"*: é o SELETOR do editor (`#edicaoLista`, `.rola`), que começava 5,6px abaixo do
   campo (o `.35rem` do `.sorteio-campo`). `.edicao-busca:not([hidden]) + #edicaoLista { margin-top:
   var(--sp-5) }` — só com o campo à vista; sem ele a lista segue o cabeçalho. Vão campo → lista: 15,2px.
