@@ -10403,8 +10403,6 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .edicao-x svg { width: var(--icon-sm); height: var(--icon-sm); }
 .edicao-x:not(:disabled):active { transform: var(--press); filter: var(--press-luz); }
-#edicaoNota { margin: var(--sp-3) .7rem 0; }
-#edicaoNota:empty { display: none; }
 .edicao-secao { color: var(--muted); font-size: var(--fs-sm); padding: var(--sp-2) .2rem 0; }
 .edicao-bloco {
   background: var(--poco); border-radius: var(--radius-card);
