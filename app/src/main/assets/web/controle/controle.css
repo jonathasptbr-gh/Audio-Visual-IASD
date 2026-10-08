@@ -10356,7 +10356,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    botões da base não andarem entre as vistas. Nada de cor nova: cartões em `--poco`
    sobre o `--panel` da folha (a escada de camadas), campo no par `--field-*`,
    estados no par `--btn-accent`/`--accent`. */
-#edicaoPopup .popup-sheet { height: 80%; max-height: 92%; }
+/* ALTURA (v1.12.9): a folha tem a do FORMULÁRIO — o conteúdo natural dela, sem o vão que a altura fixa de 80%
+   deixava abaixo do campo de nome. O JS (`edicaoMedirFolha`) guarda essa altura em `--edicao-h`, e o SELETOR a
+   reusa para os botões da base não andarem entre as vistas; antes da primeira medição (o seletor abre
+   primeiro) vale o palpite em rem, que pode ficar um pouco abaixo ou acima. */
+#edicaoPopup .popup-sheet { height: auto; max-height: 92%; }
+#edicaoPopup[data-vista="escolha"] .popup-sheet { height: min(var(--edicao-h, 32rem), 92%); }
 #edicaoPopup .popup-fecho { margin-top: var(--sp-3); }
 .edicao-busca { padding: 0 .7rem; }
 .edicao-busca[hidden] { display: none; }
@@ -10382,6 +10387,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `padding-right`, para o texto nunca correr por baixo. */
 .edicao-card { position: relative; }
 .edicao-card > .song-menu-btn { padding-right: calc(var(--thumb) + var(--sp-3) * 2); }
+/* O texto do card NUNCA quebra: uma linha por rótulo, e o que passa da largura rola em ping-pong (a animação
+   do título da mídia no ar). O `overflow: hidden` fica no rótulo, que é a caixa de largura conhecida. */
+.edicao-card .song-menu-label, .edicao-card .song-menu-sub { white-space: nowrap; overflow: hidden; }
+.edicao-rolante { display: inline-block; }
+.edicao-rolante.edicao-rolando { animation: np-marquee var(--np-dur, 8s) linear infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .edicao-rolante.edicao-rolando { animation: none; display: block; overflow: hidden; text-overflow: ellipsis; } }
 .edicao-x {
   position: absolute; right: var(--sp-3); top: 0; bottom: 0; margin-block: auto;
   width: var(--thumb); height: var(--thumb);

@@ -236,6 +236,7 @@ const ids = await app.evaluate(async (b64) => {
   for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
   const rec = await window.AVDB.addMedia(new Blob([u], { type: 'audio/wav' }), { name: 'Hino Cinco', kind: 'audio', list: 'imports', seconds: 6 });
   await window.AVDB.addMedia(new Blob([u], { type: 'audio/wav' }), { name: 'Outro Louvor', kind: 'audio', list: 'imports', seconds: 6 });
+  await window.AVDB.addMedia(new Blob([u], { type: 'audio/wav' }), { name: 'Louvor com um nome tão comprido que jamais caberia na largura do card do item', kind: 'audio', list: 'imports', seconds: 6 });
   return { rec: rec.id };
 }, wav);
 
@@ -548,6 +549,34 @@ const solto = await app.evaluate(async () => {
   return (await window.AVDB.basesDoEditor()).some((x) => x.name === 'Trilha Externa');
 });
 checar(solto === false, 'C · descartar sem criar nada solta o arquivo importado (o coletor o leva, não vaza)', String(solto));
+
+// C2d · ALTURA E CARD ESTÁVEIS (v1.12.9): a folha tem a altura do FORMULÁRIO (sem vão sobrando abaixo do
+// campo de nome), o seletor a reusa, e o card do item NÃO muda de altura com um título comprido — o texto
+// rola em ping-pong em vez de quebrar a linha.
+await esperar(app, () => !!document.querySelector('#edicaoLista [data-grupo="lst:imports"]'), null, 10000);
+const curtoCard = await app.evaluate(() => document.querySelector('#edicaoLista .edicao-card') ? document.querySelector('#edicaoLista .edicao-card').getBoundingClientRect().height : 0);
+const alturaLista = await app.evaluate(() => document.querySelector('#edicaoPopup .popup-sheet').getBoundingClientRect().height);
+const longoNome = 'Louvor com um nome tão comprido que jamais caberia na largura do card do item';
+const longoOk = await escolher('lst:imports', longoNome);
+const longo = await app.evaluate(() => {
+  const L = document.getElementById('edicaoLista');
+  const card = L.querySelector('.edicao-card').getBoundingClientRect();
+  const nome = L.querySelector('.edicao-bloco:last-of-type').getBoundingClientRect();
+  const fecho = document.querySelector('#edicaoPopup .popup-fecho').getBoundingClientRect();
+  const folha = document.querySelector('#edicaoPopup .popup-sheet').getBoundingClientRect();
+  const lab = L.querySelector('.edicao-card .song-menu-label');
+  const ro = L.querySelector('.edicao-card .edicao-rolante');
+  return { card: +card.height.toFixed(1), vao: +(fecho.top - nome.bottom).toFixed(1), folha: +folha.height.toFixed(1),
+    rolando: !!(ro && ro.classList.contains('edicao-rolando')), animado: ro ? getComputedStyle(ro).animationName : '', uma: lab.getBoundingClientRect().height < 40 };
+});
+checar(longoOk === true && longo.rolando === true && longo.animado === 'np-marquee' && longo.uma === true && Math.abs(longo.card - 53.2) < 6,
+  'C · com um título comprido o card segue de UMA linha (mesma altura) e o texto ROLA em ping-pong', porque(longoOk) || JSON.stringify(longo));
+checar(longo.vao <= 40, 'C · a folha acompanha o formulário: sem espaço sobrando entre o campo de nome e a base (≤ 40px)', JSON.stringify(longo));
+await app.evaluate(() => document.querySelector('#edicaoLista .edicao-card .edicao-x').click());
+await esperar(app, () => !document.querySelector('.edicao-carga') && !!document.querySelector('#edicaoLista [data-grupo]'), null, 10000);
+const lista2 = await app.evaluate(() => document.querySelector('#edicaoPopup .popup-sheet').getBoundingClientRect().height);
+checar(Math.abs(lista2 - longo.folha) <= 2,
+  'C · o seletor tem a MESMA altura do formulário (os botões da base não andam entre as vistas)', JSON.stringify({ lista2, form: longo.folha, antes: alturaLista, curtoCard }));
 
 // C7 · BUSCA no seletor
 await esperar(app, () => !document.querySelector('.edicao-carga') && !!document.querySelector('#edicaoLista [data-grupo]'), null, 10000);

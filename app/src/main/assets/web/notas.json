@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.12.9",
+    "itens": [
+      "Editar mídia: a janela tem a altura da edição, sem espaço sobrando embaixo do campo de nome.",
+      "O card do item não quebra mais a linha com título longo: o texto passa rolando de um lado ao outro.",
+      "A lista de escolha da mídia usa a mesma altura da edição, e os botões da base ficam parados."
+    ]
+  },
+  {
     "versao": "1.12.8",
     "itens": [
       "Editar mídia: saíram os textos “Lendo a duração” e “fica com…”, que repetiam informação já à vista.",
