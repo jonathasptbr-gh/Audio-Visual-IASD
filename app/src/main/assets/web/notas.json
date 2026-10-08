@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.12.5",
+    "itens": [
+      "Playlist automática: a palavra-chave agora procura só no título e na letra da música, não no nome do álbum."
+    ]
+  },
+  {
     "versao": "1.12.4",
     "itens": [
       "Auxiliar de leitura: o título da música agora é sempre maior que a letra, também ao usar o A+ e o A−."

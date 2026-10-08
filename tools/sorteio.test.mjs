@@ -80,7 +80,8 @@ const ACERVO = {
       fileIdFull: 'f-h4', fileIdPlayback: null },
   ],
   'album-9': [
-    // Casa pelo ÁLBUM: o nome da faixa não diz "natal" em lugar nenhum.
+    // O nome do ÁLBUM diz "natal", mas a faixa não diz em lugar nenhum (nem título, nem letra):
+    // desde a v1.12.5 o álbum NÃO prova o tema — é a armadilha que o operador apontou.
     { id_music: 'a1', name: 'A Estrela do Oriente', has_instrumental_music: true,
       fileIdFull: null, fileIdPlayback: null },
     { id_music: 'a2', name: 'Anjos Cantam', has_instrumental_music: true,
@@ -184,12 +185,15 @@ checar(!S.temVariante({ semAudio: true }, 'full'),
 checar(S.temVariante({}, 'full'),
   'e uma faixa sem marca nenhuma tem a cantada — é o caso normal');
 
-// ── 4. O tema: os três lugares em que ele casa, na ordem ────────────────────
+// ── 4. O tema: os DOIS lugares em que ele casa (título e letra), na ordem ───
 const poolNatal = S.montarPool(TODAS, { tema: 'natal' }, cap);
-checar(chaves(poolNatal).includes('album-9:a1'),
-  'o ÁLBUM prova o tema: "A Estrela do Oriente" entra pelo nome do álbum Natal');
-checar(poolNatal.itens.find((i) => i.s.id_music === 'a1').casou === S.CASOU_ALBUM,
-  '…e o veredito diz que foi pelo álbum', poolNatal.itens.find((i) => i.s.id_music === 'a1').casou);
+checar(!chaves(poolNatal).includes('album-9:a1') && !chaves(poolNatal).includes('album-9:a2'),
+  'o NOME DO ÁLBUM não prova o tema: as faixas do álbum "Natal" que não dizem a palavra (título nem letra) FICAM DE FORA',
+  chaves(poolNatal));
+checar(S.CASOU_ALBUM === undefined && poolNatal.casaram.album === undefined,
+  '…e já não existe veredito "álbum": o tema casa no título ou na letra, e só', poolNatal.casaram);
+checar(poolNatal.recusas[S.MOTIVO_TEMA] >= 2,
+  '…e a recusa é NOMEADA como tema que não casa (o operador sabe por que a faixa não veio)', poolNatal.recusas);
 checar(poolNatal.itens.find((i) => i.s.id_music === 'h1').casou === S.CASOU_NOME,
   'o NOME vence a letra quando os dois casam (a mesma ordem da busca)');
 const poolGrat = S.montarPool(TODAS, { tema: 'gratidão' }, cap);

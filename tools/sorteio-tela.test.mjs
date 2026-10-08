@@ -92,7 +92,7 @@ try {
     // cobre o que está baixado no aparelho.
     await arquivo('f-h2', 'Firme nas Promessas',
       [{ text: 'Sou peregrino nesta terra\nRumo à pátria celestial', auxText: 'Estrofe 1' }]);
-    await arquivo('f-a1', 'A Estrela do Oriente');
+    await arquivo('f-a1', 'Estrela de Natal');
     await arquivo('f-h3', 'Castelo Forte');
     await arquivo('p-h3', 'Castelo Forte (playback)');
     collState['hymnal-2022'] = { songs: [
@@ -109,9 +109,9 @@ try {
         has_instrumental_music: true, fileIdFull: 'f-h3', fileIdPlayback: 'p-h3' },
     ] };
     collState['album-9'] = { songs: [
-      { id_music: 'a1', name: 'A Estrela do Oriente', duration: '3:00',
+      { id_music: 'a1', name: 'Estrela de Natal', duration: '3:00',
         has_instrumental_music: true, fileIdFull: 'f-a1', fileIdPlayback: null },
-      { id_music: 'a2', name: 'Anjos Cantam', duration: '3:00',
+      { id_music: 'a2', name: 'Anjos do Natal', duration: '3:00',
         has_instrumental_music: true, fileIdFull: null, fileIdPlayback: null },
     ] };
     // `allCollections()` monta os cards de álbum a partir DAQUI — sem esta
@@ -192,7 +192,7 @@ try {
 
   // ---- E O CAMINHO SÓ-PELA-LETRA CHEGA AO POOL -----------------------------
   // O ponteiro conferido acima prova a LIGAÇÃO; esta linha prova o DESFECHO.
-  // `ondeCasa` tenta nome, álbum e letra nessa ordem, e o `casou` que sai dali é
+  // `ondeCasa` tenta título e letra nessa ordem, e o `casou` que sai dali é
   // o que a folha e o Registro mostram ao operador ("casou na letra"). Sem ela,
   // um `letraCasa` certo e um `ondeCasa` que nunca o consultasse passariam
   // iguais.
@@ -428,9 +428,10 @@ try {
     valor: document.querySelector('#sorteioList .lib-search').value,
   }));
   comTema.res = await lerResultado();
-  // "natal" casa no NOME de h1 e no ÁLBUM das duas faixas de album-9.
+  // "natal" casa no TÍTULO das três faixas (desde a v1.12.5 o nome do álbum não conta: as duas de
+  // album-9 só entram porque o título delas diz "Natal"; o decoy sem a palavra mora no `sorteio.test`).
   checar(comTema.res.n === 3 && comTema.res.linhas === 3,
-    'a palavra tema filtra: três — o nome de uma e o álbum das outras duas',
+    'a palavra tema filtra: três — o título de cada uma diz "natal"',
     comTema.res);
   checar(comTema.focado && comTema.valor === 'natal',
     'e o campo NÃO perde o foco a cada tecla — a conta muda sem remontar a folha', comTema);
