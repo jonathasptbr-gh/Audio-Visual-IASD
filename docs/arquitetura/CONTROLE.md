@@ -9808,3 +9808,18 @@ título é só rótulo") — está no topo do `serie.js` e na seção "Séries d
 do `CLAUDE.md`.
 
 ---
+
+---
+
+## Editar mídia (v1.12.0 → v1.12.2)
+
+Janela `#edicaoPopup` aberta pelo tile "Editar mídia" de Configurações (nos DOIS modos). Módulo `// ===== EDITAR MÍDIA` do `controle.js`; banco em `shared/db.js` (`addEdicao`, `resolverEdicao`, `baseDe`, `adotarBases`, `addBase`, `basesDoEditor`); motor em `shared/stage.js`.
+
+- **Item virtual:** registro `media` com `edicao {origem, inicio, fim, fadeEntrada, fadeSaida, soAudio}`; `getMedia` o devolve RESOLVIDO (bytes do original, duração do trecho, letra deslocada), `getMediaCru` devolve o registro. O original é segurado por `lerDetentores` (também pelo rascunho `edicaoRascunho`); o do catálogo `files` é adotado para `media` por `adotarBases` antes de `purgeCatalogRecords` apagar os bytes. A origem nunca encadeia.
+- **Duas vistas na mesma folha** (altura fixa): formulário e seletor. O seletor é a lista de grupos da exportação (Cronograma, Playlist, Favoritos, Biblioteca por coletânea, "Importados para edição"), com busca e "Importar arquivo" (`addBase`: bytes só para o editor, fora de toda lista). Linhas SEM caixa de marcação (escolha de um; `edicaoLinha(..., null, ...)`).
+- **Carga:** `edicaoCarregarLista` mostra spinner por `EDICAO_CARGA_MS` (1 s) antes da lista; sem ele a leitura assíncrona dos grupos aparecia como "nenhuma mídia". Trocas de vista entram por `edicaoEntrar` (`@keyframes edicao-entra`).
+- **Ajuste fino:** escolher um item já editado abre o formulário com os valores dele e cria um item NOVO (nome "(2)", "(3)"); o formulário e o rascunho ficam depois de criar.
+- **Corte:** UMA faixa com dois `range` sobrepostos (`--r1/--r2` pintam o trecho; só os polegares recebem toque), mais −1 s/+1 s por ponta, centrados sob o tempo.
+- **"Só o áudio":** vale para vídeo (some a imagem) e para ÁUDIO COM LETRA (`soAudioValido`/`edicaoPodeSoAudio`: o item sai com `lyrics: null`, telão no wallpaper). Áudio sem letra ignora a marca.
+- **Modo Fácil:** sem pergunta de destino; o item vai ao Cronograma e aos Favoritos.
+- Oráculo: `tools/edicao-de-midia.test.mjs` (banco, palco, janela, original vinculado e pacote).
