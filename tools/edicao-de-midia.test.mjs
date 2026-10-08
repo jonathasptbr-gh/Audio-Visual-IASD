@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
-import { abrirNavegador, checar, falhas, esperar, porque, servirEstatico, RAIZ_WEB, comModoAvancado, esperarCortina } from './arnes.mjs';
+import { abrirNavegador, checar, falhas, esperar, esperarDb, porque, servirEstatico, RAIZ_WEB, comModoAvancado, esperarCortina } from './arnes.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const WEB = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web');
@@ -283,7 +283,7 @@ const criarEGuardar = async (pg2) => {
   await pg2.click('#edicaoConfirmar');
   const folha = await esperar(pg2, () => document.getElementById('songMenuPopup').classList.contains('open'), null, 10000);
   await pg2.evaluate(() => document.querySelector('#songMenuPopup .song-menu-go').click());
-  return { folha, criado: await esperar(pg2, () => /Item criado/.test(document.getElementById('edicaoNota').textContent), null, 15000) };
+  return { folha, criado: await esperar(pg2, () => [...document.querySelectorAll('#edicaoLista .edicao-rotulo')].some((e) => e.textContent === 'Nome do item'), null, 15000) };
 };
 
 // C1 · SEM rascunho a janela abre no SELETOR, com os grupos das listas.
@@ -341,13 +341,12 @@ checar(montou === true && faixa.faixas === 1 && faixa.ranges === 2 && faixa.max[
 
 // C2b · sem a linha "Original: …" na base, e a faixa de corte com MARGEM LATERAL (v1.12.7): colada na
 // borda, o gesto de voltar do Android (deslizar da borda) disputava o arrasto da ponta.
-await esperar(app, () => !/Lendo/.test(document.getElementById('edicaoNota').textContent), null, 8000);
 const lateral = await app.evaluate(() => {
   const ini = document.getElementById('edicaoIni').getBoundingClientRect();
-  return { nota: document.getElementById('edicaoNota').textContent, esq: +ini.left.toFixed(1), dir: +(window.innerWidth - ini.right).toFixed(1) };
+  return { nota: !!document.getElementById('edicaoNota'), esq: +ini.left.toFixed(1), dir: +(window.innerWidth - ini.right).toFixed(1) };
 });
-checar(!/Original/.test(lateral.nota) && lateral.esq >= 28 && lateral.dir >= 28,
-  'C · sem a linha "Original: …" e com ≥ 28px de margem entre a faixa de corte e as bordas da tela', JSON.stringify(lateral));
+checar(lateral.nota === false && lateral.esq >= 28 && lateral.dir >= 28,
+  'C · sem texto de estado no rodapé (nem "Original", nem "Lendo…") e com ≥ 28px de margem entre a faixa de corte e as bordas da tela', JSON.stringify(lateral));
 
 // C2c · acabamento do formulário (v1.12.7): sem o recado "fica com…" na faixa, o tempo de cada ponta À
 // DIREITA do rótulo (uma linha só), "Trecho" centrado e o rótulo do nome alinhado ao texto do campo.
@@ -453,7 +452,7 @@ await mexer(app, null, 4);
 await nomear(app, 'Hino Cinco curto');
 const nada = await app.evaluate(() => document.getElementById('edicaoConfirmar').disabled);
 await app.click('#edicaoConfirmar');
-const salvou = await esperar(app, () => /Item atualizado/.test(document.getElementById('edicaoNota').textContent), null, 15000);
+const salvou = await esperarDb(app, async (id) => { const m = await window.AVDB.getMediaCru(id); return !!m && m.edicao && m.edicao.fim === 4; }, idEditado, 15000);
 const noLugar = await app.evaluate(async (id) => {
   const imp = await window.AVDB.listItems('imports');
   const fav = await window.AVDB.listItems('favs');
@@ -467,6 +466,7 @@ checar(nada === false && salvou === true && noLugar.mesmoId && noLugar.nomeA ===
     && noLugar.fimA === 4 && noLugar.fimB === 4 && noLugar.secA === 2 && !noLugar.antigo && noLugar.quantos === 1 && noLugar.outrosFavs === 1,
   'C · "Confirmar" num item JÁ EDITADO o atualiza NO LUGAR: o mesmo id muda no Cronograma E nos Favoritos (fim 4 s, nome novo) e NENHUM item novo nasce',
   porque(salvou) || JSON.stringify([nada, noLugar]));
+await esperar(app, () => { const l = document.querySelector('#edicaoLista .edicao-card .song-menu-label'); return !!l && l.textContent === 'Hino Cinco curto' && document.getElementById('edicaoConfirmar').disabled; }, null, 10000);
 const aposSalvar = await app.evaluate(() => ({ confirmar: document.getElementById('edicaoConfirmar').disabled,
   card: document.querySelector('#edicaoLista .edicao-card .song-menu-label').textContent }));
 checar(aposSalvar.confirmar === true && aposSalvar.card === 'Hino Cinco curto',
@@ -517,8 +517,7 @@ const imp = await app.evaluate(async () => {
   const emLista = [];
   if (b) for (const l of ['imports', 'playlist', 'favs', 'avulsos']) if ((await window.AVDB.listIds(l)).includes(b.id)) emLista.push(l);
   await window.AVDB.gcOrfaos();
-  return { achou: !!b, emLista, segura: !!(b && await window.AVDB.getMediaCru(b.id)),
-    nota: document.getElementById('edicaoNota').textContent };
+  return { achou: !!b, emLista, segura: !!(b && await window.AVDB.getMediaCru(b.id)) };
 });
 checar(importou === true && imp.achou && imp.emLista.length === 0 && imp.segura,
   'C · "Importar arquivo" traz o arquivo SÓ para o editor (fora de toda lista) e o rascunho o segura contra o coletor',
@@ -634,7 +633,7 @@ const c7d = await escolher('col:hinC', 'Hino Letra');
 await marca(app, 'Fade de entrada');
 await nomear(app, 'Hino Letra só nos favoritos');
 await app.evaluate(() => document.querySelector('#edicaoFechoForm .sorteio-dest[data-dest="favoritos"]').click());
-const quad2 = await esperar(app, () => /Item criado/.test(document.getElementById('edicaoNota').textContent), null, 15000);
+const quad2 = await esperar(app, () => [...document.querySelectorAll('#edicaoLista .edicao-rotulo')].some((e) => e.textContent === 'Nome do item'), null, 15000);
 const so = await app.evaluate(async () => {
   const A = window.AVDB; const onde = [];
   for (const l of ['imports', 'playlist', 'favs', 'avulsos']) {

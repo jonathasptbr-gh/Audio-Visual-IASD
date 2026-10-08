@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.10",
+    "itens": [
+      "Editar mídia: saíram todos os textos de estado do rodapé (“Item criado”, “Item atualizado”, avisos de erro).",
+      "O retorno fica só nos botões: pulso de confirmação ao salvar e pulso de erro quando algo não pôde ser feito."
+    ]
+  },
+  {
     "versao": "1.12.9",
     "itens": [
       "Editar mídia: a janela tem a altura da edição, sem espaço sobrando embaixo do campo de nome.",

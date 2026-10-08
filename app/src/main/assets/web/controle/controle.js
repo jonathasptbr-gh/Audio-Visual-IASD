@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.9';
+const WEB_VERSION = '1.12.10';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -37720,7 +37720,6 @@ const edicaoTituloEl = document.getElementById('edicaoTitulo');
 const edicaoBuscaCaixaEl = document.getElementById('edicaoBuscaCaixa');
 const edicaoBuscaEl = document.getElementById('edicaoBusca');
 const edicaoListaEl = document.getElementById('edicaoLista');
-const edicaoNotaEl = document.getElementById('edicaoNota');
 const edicaoFechoFormEl = document.getElementById('edicaoFechoForm');
 const edicaoFechoEscolhaEl = document.getElementById('edicaoFechoEscolha');
 const edicaoConfirmarEl = document.getElementById('edicaoConfirmar');
@@ -37773,7 +37772,6 @@ function edicaoFmt(t) {
   const sg = String(i % 60).padStart(2, '0');
   return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + sg + meio;
 }
-function edicaoDizer(texto) { edicaoNotaEl.textContent = texto || ''; }
 
 // A duração do original: o campo gravado quando existe; senão lê os metadados (sem tocar nada).
 async function edicaoDuracao(rec) {
@@ -38042,8 +38040,6 @@ function edicaoSalvarJa() {
   AVDB.setState(EDICAO_RASCUNHO, e ? Object.assign({}, e, { editandoId: edicaoEditandoId }) : null).catch(() => {});
 }
 function edicaoSalvarLogo() {
-  // Mexeu: o recado do toque anterior ("Item criado…") já cumpriu o papel.
-  edicaoDizer('');
   clearTimeout(edicaoSalvarTimer);
   edicaoSalvarTimer = setTimeout(edicaoSalvarJa, 250);
 }
@@ -38222,11 +38218,10 @@ function edicaoRolarTextos() {
   });
 }
 // A folha tem a altura do FORMULÁRIO (que é o conteúdo natural dela); o seletor a reusa para os botões da
-// base não andarem entre as vistas. Mede a folha já desenhada, sem o recado de baixo (que vem e vai).
+// base não andarem entre as vistas. Mede a folha já desenhada.
 function edicaoMedirFolha() {
   const folha = edicaoPopupEl.querySelector('.popup-sheet');
-  const nota = edicaoNotaEl.offsetParent ? edicaoNotaEl.offsetHeight + parseFloat(getComputedStyle(edicaoNotaEl).marginTop || 0) : 0;
-  const h = folha.getBoundingClientRect().height - nota;
+  const h = folha.getBoundingClientRect().height;
   if (h > 0) edicaoPopupEl.style.setProperty('--edicao-h', Math.round(h) + 'px');
 }
 window.addEventListener('resize', () => { if (edicaoVista === 'form') edicaoRolarTextos(); });
@@ -38238,7 +38233,7 @@ function edicaoRender() {
   edicaoBuscaCaixaEl.hidden = !escolha;
   edicaoFechoFormEl.hidden = escolha;
   edicaoFechoEscolhaEl.hidden = !escolha;
-  if (escolha) { edicaoDizer(''); renderEdicaoEscolha(); } else { renderEdicaoForm(); edicaoRolarTextos(); edicaoMedirFolha(); }
+  if (escolha) { renderEdicaoEscolha(); } else { renderEdicaoForm(); edicaoRolarTextos(); edicaoMedirFolha(); }
   edicaoEntrar();
 }
 
@@ -38284,10 +38279,10 @@ async function edicaoCarregarOrigem(id, valores, editando) {
   let rec = null;
   try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
   if (seq !== edicaoSeq) return false;
-  if (!edicaoElegivel(rec)) { edicaoDizer('Essa mídia não está mais no aparelho.'); return false; }
+  if (!edicaoElegivel(rec)) return false;
   const dur = await edicaoDuracao(rec);
   if (seq !== edicaoSeq) return false;
-  if (!(dur > 0)) { edicaoDizer('Não foi possível ler a duração desta mídia.'); return false; }
+  if (!(dur > 0)) return false;
   edicaoOrigem = rec; edicaoDur = dur;
   edicaoEditandoId = editando ? editando.id : '';
   edicaoEditandoNome = editando ? editando.nome : '';
@@ -38313,7 +38308,7 @@ async function edicaoEscolherItem(it) {
   if (it.editado) {
     let cru = null;
     try { cru = await AVDB.getMediaCru(it.id); } catch (_) { cru = null; }
-    if (!cru || !cru.edicao) { edicaoDizer('Esse item não está mais no aparelho.'); return; }
+    if (!cru || !cru.edicao) return;
     origem = cru.edicao.origem;
     valores = Object.assign({}, cru.edicao, { nome: cru.name || '' });
     editando = { id: cru.id, nome: cru.name || '', base: edicaoBaseDe(cru) };
@@ -38327,7 +38322,6 @@ async function edicaoEscolherItem(it) {
 
 async function openEdicaoPopup() {
   edicaoPopupEl.classList.add('open');
-  edicaoDizer('');
   let r = null;
   try { r = await AVDB.getState(EDICAO_RASCUNHO); } catch (_) { r = null; }
   if (r && r.origem && (!edicaoOrigem || edicaoOrigem.id !== r.origem)) {
@@ -38386,10 +38380,10 @@ async function edicaoImportar() {
     if (!blob && item.url) {
       try { const res = await fetch(item.url); if (res.ok) blob = await res.blob(); } catch (_) { blob = null; }
     }
-    if (!blob) { edicaoDizer('Não deu para ler o arquivo.'); return; }
+    if (!blob) { responder(edicaoImportarEl, 'erro'); return; }
     const type = guessMediaType(nome) !== 'application/octet-stream' ? guessMediaType(nome) : blob.type;
     const kind = AVDB.kindFromType(type);
-    if (kind !== 'video' && kind !== 'audio') { edicaoDizer('O editor só recebe áudio ou vídeo.'); return; }
+    if (kind !== 'video' && kind !== 'audio') { responder(edicaoImportarEl, 'erro'); return; }
     const { thumb, height, seconds } = await prepararMidia(blob, kind);
     const rec = await AVDB.addBase(blob, { name: nomeSemExtensao(nome), type, kind, thumb, height, seconds });
     edicaoGrupos = await edicaoMontarGrupos();
@@ -38445,8 +38439,8 @@ async function edicaoCriar(e, chave, btn) {
   // Nasce na prateleira avulsa (já detentora do original) e só sai dela com os destinos gravados.
   try { rec = await AVDB.addEdicao(e, 'avulsos'); } catch (_) { rec = null; }
   if (!rec) {
-    edicaoDizer('Não foi possível criar o item: a mídia original mudou ou o trecho ficou vazio.');
     edicaoAtualizar();
+    responder(btn || edicaoConfirmarEl, 'erro');
     return;
   }
   await adicionarNasListas(listas, rec.id, rec.name, btn || edicaoConfirmarEl);
@@ -38456,7 +38450,6 @@ async function edicaoCriar(e, chave, btn) {
   edicaoFixarNoItem(rec);
   edicaoSalvarJa();
   edicaoRender();
-  edicaoDizer('Item criado: ' + rec.name + (!chave && simplificado() ? ' — está no Cronograma e nos Favoritos.' : '.'));
 }
 
 async function edicaoAplicarNoLugar(e, chave, btn) {
@@ -38472,11 +38465,10 @@ async function edicaoAplicarNoLugar(e, chave, btn) {
       edicaoEditandoId = ''; edicaoEditandoNome = ''; edicaoBase = null;
       edicaoSalvarJa();
       edicaoRender();
-      edicaoDizer('Esse item não está mais no aparelho — “Confirmar” cria um novo.');
     } else {
-      edicaoDizer('Não foi possível salvar: o trecho ficou vazio.');
       edicaoAtualizar();
     }
+    responder(btn || edicaoConfirmarEl, 'erro');
     return;
   }
   edicaoFixarNoItem(rec);
@@ -38485,7 +38477,6 @@ async function edicaoAplicarNoLugar(e, chave, btn) {
   else responder(btn || edicaoConfirmarEl, 'ok');
   edicaoSalvarJa();
   edicaoRender();
-  edicaoDizer('Item atualizado: ' + rec.name + ' — vale em todas as listas onde ele está.');
 }
 
 edicaoBuscaEl.addEventListener('input', () => { if (edicaoVista === 'escolha') renderEdicaoEscolha(); });
