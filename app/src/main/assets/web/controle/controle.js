@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.1';
+const WEB_VERSION = '1.12.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -37744,6 +37744,7 @@ let edicaoSelId = '';              // a linha marcada no seletor
 let edicaoGrupos = [];             // os grupos do seletor, já lidos
 const edicaoAbertos = new Set();   // os grupos abertos (uma sessão)
 let edicaoSeq = 0;
+let edicaoCarregando = false;      // a lista do seletor está sendo lida (spinner)
 let edicaoSalvarTimer = null;
 let edicaoEls = null;              // os nós do formulário que mudam sem remontar
 
@@ -37755,6 +37756,11 @@ function edicaoElegivel(r) {
 }
 function edicaoUsavel(r) {
   return !!r && (r.kind === 'video' || r.kind === 'audio') && (!!r.edicao || edicaoElegivel(r));
+}
+
+// "Só o áudio" tem o que tirar num VÍDEO (a imagem) e num ÁUDIO com letra (a letra e o fundo dela).
+function edicaoPodeSoAudio(r) {
+  return !!r && (r.kind === 'video' || (r.kind === 'audio' && Array.isArray(r.lyrics) && r.lyrics.length > 0));
 }
 
 function edicaoFmt(t) {
@@ -37866,7 +37872,8 @@ function edicaoLinha(icone, rotulo, sub, marcado, aoToque) {
   cx.className = 'song-menu-check' + (marcado ? ' on' : '');
   cx.setAttribute('role', 'checkbox');
   cx.setAttribute('aria-checked', marcado ? 'true' : 'false');
-  btn.append(ic, txt, cx);
+  // `marcado === null`: escolha de UM item (toque e pronto) — caixa de marcação é de múltipla escolha.
+  if (marcado === null) btn.append(ic, txt); else btn.append(ic, txt, cx);
   btn.addEventListener('click', () => aoToque(btn, cx));
   li.appendChild(btn);
   return li;
@@ -37874,6 +37881,13 @@ function edicaoLinha(icone, rotulo, sub, marcado, aoToque) {
 
 function renderEdicaoEscolha() {
   edicaoListaEl.innerHTML = '';
+  if (edicaoCarregando) {
+    const c = document.createElement('li');
+    c.className = 'edicao-carga';
+    c.innerHTML = '<svg class="edicao-spin" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke-dasharray="40 100"/></svg><span>Carregando a lista…</span>';
+    edicaoListaEl.appendChild(c);
+    return;
+  }
   const q = (edicaoBuscaEl.value || '').trim().toLowerCase();
   let desenhou = 0;
   let secaoDita = '';
@@ -37937,7 +37951,7 @@ function renderEdicaoEscolha() {
         corpo.appendChild(vazio);
       }
       for (const it of itens) {
-        corpo.appendChild(edicaoLinha(msym(ICON.music), it.nome, edicaoSubDoItem(it), it.id === edicaoSelId,
+        corpo.appendChild(edicaoLinha(msym(ICON.music), it.nome, edicaoSubDoItem(it), null,
           () => { edicaoEscolherItem(it); }));
       }
       li.appendChild(corpo);
@@ -37964,7 +37978,7 @@ function edicaoLer() {
     fim: v.fim >= edicaoDur - 0.01 ? null : v.fim,
     fadeEntrada: v.fadeEntrada,
     fadeSaida: v.fadeSaida,
-    soAudio: v.soAudio && edicaoOrigem.kind === 'video',
+    soAudio: v.soAudio && edicaoPodeSoAudio(edicaoOrigem),
     nome: v.nome,
   };
 }
@@ -38036,7 +38050,7 @@ function renderEdicaoForm() {
     vazio.className = 'empty';
     vazio.textContent = 'Escolha a mídia que será editada.';
     edicaoListaEl.appendChild(vazio);
-    edicaoListaEl.appendChild(edicaoLinha(msym(ICON.import), 'Escolher a mídia', 'Cronograma, playlist, favoritos ou biblioteca', false,
+    edicaoListaEl.appendChild(edicaoLinha(msym(ICON.import), 'Escolher a mídia', 'Cronograma, playlist, favoritos ou biblioteca', null,
       () => { edicaoAbrirEscolha(); }));
     edicaoCriarEl.disabled = true;
     return;
@@ -38045,8 +38059,7 @@ function renderEdicaoForm() {
   // 1 · A MÍDIA (um toque troca): a linha da mídia escolhida no desenho do seletor.
   const mid = edicaoLinha(msym(ICON.music), edicaoOrigem.name || 'sem nome',
     (edicaoOrigem.kind === 'video' ? 'Vídeo' : 'Áudio') + ' · ' + edicaoFmt(edicaoDur) + ' · toque para trocar',
-    false, () => { edicaoAbrirEscolha(); });
-  mid.querySelector('.song-menu-check').remove();
+    null, () => { edicaoAbrirEscolha(); });
   edicaoListaEl.appendChild(mid);
 
   // 2 · O TRECHO: UMA faixa com duas pontas.
@@ -38099,8 +38112,9 @@ function renderEdicaoForm() {
   // 3 · AS MARCAS
   edicaoListaEl.appendChild(edicaoMarca(msym(ICON.volOn), 'Fade de entrada', 'o som e a imagem sobem ao começar', 'fadeEntrada'));
   edicaoListaEl.appendChild(edicaoMarca(msym(ICON.volOff), 'Fade de saída', 'o som e a imagem descem antes do corte', 'fadeSaida'));
-  if (edicaoOrigem.kind === 'video') {
-    edicaoListaEl.appendChild(edicaoMarca(msym(ICON.music), 'Só o áudio', 'o vídeo fica de fora', 'soAudio'));
+  if (edicaoPodeSoAudio(edicaoOrigem)) {
+    edicaoListaEl.appendChild(edicaoMarca(msym(ICON.music), 'Só o áudio',
+      edicaoOrigem.kind === 'video' ? 'o vídeo fica de fora' : 'sem letra e sem imagem: o telão fica no wallpaper', 'soAudio'));
   }
 
   // 4 · O NOME
@@ -38126,6 +38140,31 @@ function edicaoRender() {
   edicaoFechoEscolhaEl.hidden = !escolha;
   edicaoVoltarEl.disabled = !edicaoOrigem;
   if (escolha) { edicaoDizer(''); renderEdicaoEscolha(); } else renderEdicaoForm();
+  edicaoEntrar();
+}
+
+// Ler os grupos leva um instante e a lista vazia piscava "nenhuma mídia": o seletor mostra um
+// spinner por UM SEGUNDO (padrão pedido) e só então a lista, com a mesma entrada suave.
+const EDICAO_CARGA_MS = 1000;
+async function edicaoCarregarLista() {
+  const seq = ++edicaoSeqLista;
+  edicaoCarregando = true;
+  renderEdicaoEscolha();
+  const espera = new Promise((r) => setTimeout(r, EDICAO_CARGA_MS));
+  let grupos = [];
+  try { grupos = await edicaoMontarGrupos(); } catch (_) { grupos = []; }
+  await espera;
+  if (seq !== edicaoSeqLista) return;
+  edicaoGrupos = grupos;
+  edicaoCarregando = false;
+  if (edicaoVista === 'escolha') { renderEdicaoEscolha(); edicaoEntrar(); }
+}
+let edicaoSeqLista = 0;
+// Reinicia a animação de entrada do corpo da folha.
+function edicaoEntrar() {
+  edicaoListaEl.classList.remove('edicao-entra');
+  void edicaoListaEl.offsetWidth;
+  edicaoListaEl.classList.add('edicao-entra');
 }
 
 async function edicaoAbrirEscolha() {
@@ -38133,9 +38172,9 @@ async function edicaoAbrirEscolha() {
   edicaoVista = 'escolha';
   edicaoBuscaEl.value = '';
   edicaoGrupos = [];
+  edicaoCarregando = true;
   edicaoRender();
-  edicaoGrupos = await edicaoMontarGrupos();
-  if (edicaoVista === 'escolha') renderEdicaoEscolha();
+  await edicaoCarregarLista();
 }
 
 // Carrega o original e deixa o formulário pronto. `valores` (o rascunho, ou os de um item já
@@ -38158,7 +38197,7 @@ async function edicaoCarregarOrigem(id, valores, partida) {
   edicaoVals = {
     inicio: ini, fim,
     fadeEntrada: !!v.fadeEntrada, fadeSaida: !!v.fadeSaida,
-    soAudio: rec.kind === 'video' && !!v.soAudio,
+    soAudio: edicaoPodeSoAudio(rec) && !!v.soAudio,
     nome: (v.nome && String(v.nome).trim()) ? v.nome : ((rec.name || 'sem nome') + ' (editado)'),
   };
   return true;
@@ -38199,7 +38238,7 @@ async function openEdicaoPopup() {
     if (await edicaoCarregarOrigem(r.origem, r, r.partida)) edicaoSelId = r.origem;
   }
   edicaoVista = edicaoOrigem ? 'form' : 'escolha';
-  if (edicaoVista === 'escolha') { edicaoRender(); edicaoGrupos = await edicaoMontarGrupos(); if (edicaoVista === 'escolha') renderEdicaoEscolha(); }
+  if (edicaoVista === 'escolha') { edicaoCarregando = true; edicaoRender(); await edicaoCarregarLista(); }
   else edicaoRender();
 }
 function closeEdicaoPopup() {

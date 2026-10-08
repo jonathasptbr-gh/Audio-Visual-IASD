@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.12.2",
+    "itens": [
+      "Editar mídia: a lista de escolha não tem mais caixinhas — tocou, selecionou.",
+      "As trocas de tela do editor entram suavemente, sem piscar.",
+      "Ao voltar para a lista, aparece um spinner de 1 segundo em vez de uma lista vazia.",
+      "Os tempos de início e fim ficam centralizados sobre os botões de −1 e +1 segundo.",
+      "\"Só o áudio\" agora também vale para músicas da biblioteca: tira a letra e a imagem."
+    ]
+  },
+  {
     "versao": "1.12.1",
     "itens": [
       "Editar mídia agora está nas Configurações também no Modo Fácil.",

@@ -10403,8 +10403,15 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background: var(--btn-accent); box-shadow: 0 0 0 .3rem var(--accent) inset;
 }
 .edicao-pontas { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
-.edicao-ponta { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
-.edicao-passos { display: flex; gap: var(--sp-2); }
+/* Rótulo, tempo e os dois botões ficam CENTRADOS na coluna da ponta: o tempo cai no meio do par −1 s / +1 s. */
+.edicao-ponta { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--sp-2); min-width: 0; }
+.edicao-passos { display: flex; gap: var(--sp-2); align-self: stretch; }
+/* A troca entre o formulário e o seletor (e a lista, ao carregar) ENTRA em vez de piscar. */
+@keyframes edicao-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.edicao-entra { animation: edicao-entra var(--dur-lenta) ease-out both; }
+.edicao-carga { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-3); flex: 1; color: var(--muted); font-size: var(--fs-sm); min-height: 8rem; }
+.edicao-spin { color: var(--accent); animation: dl-ring-spin .9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .edicao-entra, .edicao-spin { animation: none; } }
 .edicao-passo { flex: 1; min-height: var(--hit); }
 /* COM TRABALHO ANDANDO (ou um pacote pronto) a lista é só para olhar: as caixas
    apagam — INDISPONÍVEL, nunca "desligado" — e as seções continuam abrindo. */

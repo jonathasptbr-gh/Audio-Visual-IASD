@@ -592,6 +592,10 @@
     return lyrics.slice(Math.max(0, k)).map((sl) =>
       Object.assign({}, sl, { time: Math.max(0, (sl.time || 0) - ini) }));
   }
+  // Vídeo (some a imagem) ou áudio COM letra (some a letra e o fundo): o que "só o áudio" tem a tirar.
+  function soAudioValido(r) {
+    return r.kind === 'video' || (r.kind === 'audio' && Array.isArray(r.lyrics) && r.lyrics.length > 0);
+  }
   async function resolverEdicao(rec) {
     const ed = rec.edicao;
     const orig = ed && await getMediaCru(ed.origem);
@@ -608,7 +612,8 @@
       kind: ed.soAudio && orig.kind === 'video' ? 'audio' : orig.kind,
       seconds: total != null ? Math.max(0, total - ini) : null,
       youtubeId: null,
-      lyrics: deslocarLetra(orig.lyrics, ini),
+      // "Só o áudio" de um ÁUDIO com letra (hinário): sem letra e sem fundo, o telão fica no wallpaper.
+      lyrics: ed.soAudio && orig.kind === 'audio' ? null : deslocarLetra(orig.lyrics, ini),
       edicao: { origem: ed.origem, inicio: ini, fim,
         fadeEntrada: !!ed.fadeEntrada, fadeSaida: !!ed.fadeSaida, soAudio: !!ed.soAudio },
     });
@@ -721,9 +726,9 @@
     if (orig.seconds && ini >= orig.seconds - 0.5) return null;
     const edicao = { origem: orig.id, inicio: ini, fim,
       fadeEntrada: !!e.fadeEntrada, fadeSaida: !!e.fadeSaida,
-      soAudio: !!e.soAudio && orig.kind === 'video' };
+      soAudio: !!e.soAudio && soAudioValido(orig) };
     const record = makeMediaRecord({
-      kind: edicao.soAudio ? 'audio' : orig.kind,
+      kind: edicao.soAudio && orig.kind === 'video' ? 'audio' : orig.kind,
       type: orig.type,
       name: (e.nome && String(e.nome).trim()) || ((orig.name || 'sem-nome') + ' (editado)'),
       edicao,

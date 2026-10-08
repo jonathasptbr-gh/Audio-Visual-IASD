@@ -84,12 +84,16 @@ const r2 = await pg.evaluate(async (s) => {
   const A = window.AVDB;
   const v = await A.addEdicao({ origem: s.vid, inicio: 0, fim: 3, soAudio: true }, 'avulsos');
   const a = await A.addEdicao({ origem: s.aud, inicio: 0, fim: 3, soAudio: true }, 'avulsos');
-  return { vKind: v && v.kind, vSo: v && v.edicao.soAudio, aKind: a && a.kind, aSo: a && a.edicao.soAudio };
+  const lisa = await A.addMedia(window.__wav(), { name: 'Sem letra', kind: 'audio', list: 'avulsos', seconds: 6 });
+  const l = await A.addEdicao({ origem: lisa.id, inicio: 0, fim: 3, soAudio: true }, 'avulsos');
+  return { vKind: v && v.kind, vSo: v && v.edicao.soAudio, aKind: a && a.kind, aSo: a && a.edicao.soAudio,
+    aLetra: a && a.lyrics, vLetra: v && v.lyrics && v.lyrics.length, lSo: l && l.edicao.soAudio };
 }, semeado);
 checar(r2.vKind === 'audio' && r2.vSo === true,
   'A · "só o áudio" de um VÍDEO vira item de áudio (o telão mantém o wallpaper)', JSON.stringify(r2));
-checar(r2.aKind === 'audio' && r2.aSo === false,
-  'A · e num áudio a marca é ignorada', JSON.stringify(r2));
+checar(r2.aKind === 'audio' && r2.aSo === true && r2.aLetra === null,
+  'A · "só o áudio" de um ÁUDIO COM LETRA (hinário) tira a letra e o fundo: o telão fica no wallpaper', JSON.stringify(r2));
+checar(r2.lSo === false, 'A · e num áudio SEM letra a marca é ignorada (não há o que tirar)', JSON.stringify(r2));
 
 const r3 = await pg.evaluate(async (s) => {
   const A = window.AVDB;
@@ -394,7 +398,18 @@ checar(importou === true && imp.achou && imp.emLista.length === 0 && imp.segura,
   porque(importou) || JSON.stringify(imp));
 // descartado e sem edição, o importado volta a ser coletável
 await app.evaluate(() => document.getElementById('edicaoDescartar').click());
-await esperar(app, () => document.getElementById('edicaoTitulo').textContent === 'Escolher a mídia', null, 10000);
+const carga = await app.evaluate(() => ({
+  spinner: !!document.querySelector('#edicaoLista .edicao-carga .edicao-spin'),
+  vazio: !!document.querySelector('#edicaoLista .empty'),
+}));
+checar(carga.spinner && !carga.vazio,
+  'C · voltando ao seletor depois de descartar, aparece o SPINNER de carga e não a lista vazia piscando', JSON.stringify(carga));
+const listou = await esperar(app, () => !document.querySelector('#edicaoLista .edicao-carga')
+  && !!document.querySelector('#edicaoLista [data-grupo="lst:imports"]'), null, 10000);
+checar(listou === true, 'C · e passada a carga a lista dos grupos aparece', porque(listou));
+await app.click('#edicaoLista [data-grupo="lst:imports"] > .song-menu-grupo').catch(() => {});
+const semCheck = await app.evaluate(() => document.querySelectorAll('#edicaoLista .pacote-grupo-corpo .song-menu-check').length);
+checar(semCheck === 0, 'C · as linhas do seletor NÃO têm caixa de marcação (é escolha de um item, toque e pronto)', String(semCheck));
 const solto = await app.evaluate(async () => {
   await window.AVDB.gcOrfaos();
   return (await window.AVDB.basesDoEditor()).some((x) => x.name === 'Trilha Externa');
@@ -402,9 +417,39 @@ const solto = await app.evaluate(async () => {
 checar(solto === false, 'C · descartar sem criar nada solta o arquivo importado (o coletor o leva, não vaza)', String(solto));
 
 // C7 · BUSCA no seletor
+await esperar(app, () => !document.querySelector('.edicao-carga') && !!document.querySelector('#edicaoLista [data-grupo]'), null, 10000);
 await app.fill('#edicaoBusca', 'curto');
 const achados = await app.evaluate(() => [...document.querySelectorAll('#edicaoLista .song-menu-label')].map((e) => e.textContent).filter((t) => /Hino/.test(t)));
 checar(achados.length === 1 && achados[0] === 'Hino Cinco curto', 'C · a busca filtra as linhas pelo nome (e abre os grupos que casam)', JSON.stringify(achados));
+
+// C7b · "Só o áudio" também para um item da BIBLIOTECA (áudio com letra): tira a letra e o fundo.
+await app.evaluate(async (b64) => {
+  const bin = atob(b64); const u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  const A = window.AVDB;
+  await A.opfsWriteFile('folders/hinC/1.wav', new Blob([u], { type: 'audio/wav' }));
+  await A.fileAdd({ id: 'cat-letra', folder: 'hinC', opfsPath: 'folders/hinC/1.wav', name: 'Hino Letra',
+    type: 'audio/wav', kind: 'audio', size: u.length, seconds: 6, blob: null, url: null,
+    lyrics: [{ time: 0, text: 'a' }, { time: 3, text: 'b' }] });
+}, wav);
+await app.fill('#edicaoBusca', '');
+await app.evaluate(() => document.getElementById('edicaoVoltar').click());
+await app.evaluate(() => document.getElementById('edicaoPopupClose').click());
+await abrir();
+await esperar(app, () => !document.querySelector('.edicao-carga') && !!document.querySelector('#edicaoLista [data-grupo="col:hinC"]'), null, 10000);
+const c7 = await escolher('col:hinC', 'Hino Letra');
+const soA = await app.evaluate(() => [...document.querySelectorAll('#edicaoLista .song-menu-label')].some((e) => e.textContent === 'Só o áudio'));
+checar(c7 === true && soA, 'C · um item da biblioteca com letra oferece "Só o áudio"', porque(c7));
+await marca(app, 'Só o áudio');
+await nomear(app, 'Hino Letra cantado');
+await criarEGuardar(app);
+const semLetra = await app.evaluate(async () => {
+  const todos = await window.AVDB.listItems('imports');
+  const it = todos.find((m) => m.name === 'Hino Letra cantado');
+  return it && { lyrics: it.lyrics, so: it.edicao.soAudio };
+});
+checar(semLetra && semLetra.so === true && semLetra.lyrics === null,
+  'C · e o item criado projeta só o áudio: sem letra e sem fundo', JSON.stringify(semLetra));
 
 // C8 · MODO FÁCIL: o tile existe e a janela abre (sem a pergunta de destino).
 const ctx4 = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
