@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.15';
+const WEB_VERSION = '1.12.16';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -39142,14 +39142,21 @@ const VOL_PASSO = 5;
 // sobe um degrau do sistema E baixa o app em `VOL_TROCA_PASSO`, até `VOL_TROCA_PISO`; descendo
 // desfaz o par. O app NÃO lê o volume do sistema (a ponte só o AJUSTA), então a conta é do que
 // esta função deu — `volTrocaN` degraus —, e não de uma leitura: qualquer mexida do operador no
-// fader a zera (ver `__avVolumeKey`). Só vale para as teclas físicas; o ± do Modo Fácil e o
+// fader a zera, e a janela de `VOL_TROCA_JANELA_MS` (o painel do sistema à vista) a zera sozinha
+// (ver `__avVolumeKey`). Só vale para as teclas físicas; o ± do Modo Fácil e o
 // fader continuam mexendo só no app.
 const VOL_TROCA_PASSO = 0.05;   // quanto o app cede por degrau do sistema
 const VOL_TROCA_PISO = 0.25;    // até onde ele cede; abaixo disso só o sistema sobe
 let volTrocaN = 0;              // degraus de sistema dados em troca (sobe com +, desce com −)
 let volTrocaApp = 1;            // o volume do app que a última troca deixou
+let volTrocaAte = 0;            // até quando (performance.now) o painel do sistema ainda está à vista
+// O painel de volume do Android fica à vista ~3 s depois do último degrau, e o app não tem como
+// observá-lo: a janela é a ESTIMATIVA dele. A troca só existe nesse intervalo — fora dele o app
+// volta a ser a única coisa que as teclas mexem, e o sistema só se move ao bater nos limites.
+const VOL_TROCA_JANELA_MS = 3000;
 function volTrocar(step) {
   AVNative.systemVolume(step);
+  volTrocaAte = performance.now() + VOL_TROCA_JANELA_MS;
   const sobe = step > 0;
   volTrocaN += sobe ? 1 : -1;
   const alvo = volume + (sobe ? -VOL_TROCA_PASSO : VOL_TROCA_PASSO);
@@ -40141,6 +40148,9 @@ if (window.__NATIVE__) {
     // Alguém mexeu no fader do app (arrasto, ± do Modo Fácil) depois da última troca: o par
     // sistema/app que ela fez deixou de valer, e a troca recomeça do zero.
     if (volTrocaN > 0 && Math.abs(volume - volTrocaApp) > 0.005) volTrocaN = 0;
+    // A TROCA só vale enquanto o painel de volume do SISTEMA está à vista (v1.12.16): passada a
+    // janela, o par é esquecido e as teclas voltam a mexer só no app.
+    if (volTrocaN > 0 && performance.now() > volTrocaAte) volTrocaN = 0;
     // A TROCA (v1.12.15): depois dos 100% do app, cada toque que sobe o SISTEMA baixa o app ao
     // mesmo tempo (`VOL_TROCA_PASSO`, até `VOL_TROCA_PISO`) — o sistema sobe e o app cede, em vez
     // de o app ficar em 100% sobre um sistema que sobe. Descendo é o inverso, degrau por degrau,

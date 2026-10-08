@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.12.16",
+    "itens": [
+      "Botões de volume: o sistema só mexe ao bater nos 100% (ou 0%) do app; fora disso só o volume do app muda.",
+      "O par sistema sobe / app desce vale só por uns 3 s depois do toque, enquanto o painel do sistema está à vista."
+    ]
+  },
+  {
     "versao": "1.12.15",
     "itens": [
       "Botões de volume: depois dos 100% do app, cada toque sobe o do sistema e baixa o do app ao mesmo tempo.",
