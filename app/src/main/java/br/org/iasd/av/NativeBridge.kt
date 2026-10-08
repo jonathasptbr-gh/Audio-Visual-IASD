@@ -151,6 +151,15 @@ interface BridgeHost {
     fun adjustSystemVolume(step: Int)
 
     /**
+     * Um passo no volume do SISTEMA que DEVOLVE o que aconteceu: `antes`,
+     * `depois` e `max`, em degraus de `STREAM_MUSIC`. É a leitura que o
+     * `adjustSystemVolume` não dá — sem ela o lado web só podia CONTAR os
+     * degraus que pedira, e um degrau recusado (já no máximo, volume fixo)
+     * parecia um degrau dado.
+     */
+    fun stepSystemVolume(step: Int, done: (JSONObject) -> Unit)
+
+    /**
      * O tema escolhido no Controle. Ver [NativeBridge.temaClaro] — o CSS não
      * alcança nem os ícones das barras de sistema nem o `windowBackground`.
      */
@@ -343,7 +352,7 @@ class NativeBridge(
          *
          * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
-        const val SHELL_VERSION = 77
+        const val SHELL_VERSION = 78
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1819,6 +1828,19 @@ class NativeBridge(
     @JavascriptInterface
     fun systemVolume(step: Int) {
         host?.adjustSystemVolume(step)
+    }
+
+    /**
+     * O mesmo passo, com a LEITURA (shell 78): resolve `{antes, depois, max}`
+     * em degraus do volume de mídia, ou `null` sem host. A decisão do que fazer
+     * com o fader do app é do lado web (invariante 5) — aqui só se mexe e se
+     * diz o que mexeu.
+     */
+    @JavascriptInterface
+    fun systemVolumeStep(callId: String, step: Int) {
+        val h = host
+        if (h == null) { resolve(callId, "null"); return }
+        h.stepSystemVolume(step) { json -> resolve(callId, json.toString()) }
     }
 
     // ---------- tema (claro × escuro) ----------

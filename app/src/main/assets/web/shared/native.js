@@ -898,6 +898,10 @@
     captureVolumeKeys(on) { try { B.captureVolumeKeys(!!on); } catch (_) { /* ponte indisponível */ } },
     // Fader já no limite: devolve o passo ao volume do sistema.
     systemVolume(step) { try { B.systemVolume(step | 0); } catch (_) { /* ponte indisponível */ } },
+    // O mesmo passo COM a leitura (shell 78): resolve { antes, depois, max } em degraus do volume
+    // de mídia do sistema, ou null. Quem decide o que o fader do app faz com isso é o controle.js.
+    systemVolumeStep: (step) => call((id) => B.systemVolumeStep(id, step | 0), CALL_TIMEOUT_MS)
+      .then((r) => (r && typeof r === 'object' ? r : null)),
 
     // A PROJEÇÃO É ESTE APARELHO (shell 56): não há tela conectada e há cena no
     // ar, então quem projeta é o `<video>` da PREVIEW — neste WebView. O

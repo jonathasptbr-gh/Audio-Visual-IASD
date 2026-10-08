@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.16';
+const WEB_VERSION = '1.12.17';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -39136,33 +39136,40 @@ const VOL_FINO_ATE = 10;      // % abaixo do qual o passo é de 1
 const VOL_PASSO_FINO = 1;
 const VOL_PASSO = 5;
 
-// ===== A TROCA DO VOLUME: sistema sobe, app cede (v1.12.15) =====
+// ===== A PASSAGEM DO VOLUME: o sistema sobe um degrau, o app cede (v1.12.17) =====
 // Pedido do operador: com os dois em 0, o app ia a 100% e DEPOIS o sistema subia — e quando o
-// sistema chegava a ~60% o som já estava no máximo, sem folga. Depois dos 100% do app cada toque
-// sobe um degrau do sistema E baixa o app em `VOL_TROCA_PASSO`, até `VOL_TROCA_PISO`; descendo
-// desfaz o par. O app NÃO lê o volume do sistema (a ponte só o AJUSTA), então a conta é do que
-// esta função deu — `volTrocaN` degraus —, e não de uma leitura: qualquer mexida do operador no
-// fader a zera, e a janela de `VOL_TROCA_JANELA_MS` (o painel do sistema à vista) a zera sozinha
-// (ver `__avVolumeKey`). Só vale para as teclas físicas; o ± do Modo Fácil e o
-// fader continuam mexendo só no app.
-const VOL_TROCA_PASSO = 0.05;   // quanto o app cede por degrau do sistema
-const VOL_TROCA_PISO = 0.25;    // até onde ele cede; abaixo disso só o sistema sobe
-let volTrocaN = 0;              // degraus de sistema dados em troca (sobe com +, desce com −)
-let volTrocaApp = 1;            // o volume do app que a última troca deixou
-let volTrocaAte = 0;            // até quando (performance.now) o painel do sistema ainda está à vista
-// O painel de volume do Android fica à vista ~3 s depois do último degrau, e o app não tem como
-// observá-lo: a janela é a ESTIMATIVA dele. A troca só existe nesse intervalo — fora dele o app
-// volta a ser a única coisa que as teclas mexem, e o sistema só se move ao bater nos limites.
-const VOL_TROCA_JANELA_MS = 3000;
-function volTrocar(step) {
-  AVNative.systemVolume(step);
-  volTrocaAte = performance.now() + VOL_TROCA_JANELA_MS;
-  const sobe = step > 0;
-  volTrocaN += sobe ? 1 : -1;
-  const alvo = volume + (sobe ? -VOL_TROCA_PASSO : VOL_TROCA_PASSO);
-  applyVolume(Math.max(VOL_TROCA_PISO, Math.min(1, Math.round(alvo * 100) / 100)));
-  volTrocaApp = volume;
-  persistCurrent();
+// sistema chegava a ~60% o som já estava no máximo, sem folga. Agora, com o app JÁ em 100% e o
+// sistema ABAIXO de `VOL_SIS_ALVO`, a tecla de cima sobe um degrau do sistema e baixa o app o
+// bastante para o som subir só meio degrau (`volumeCede`): o app deixa de estar no teto e as teclas
+// seguintes voltam a mexer só nele, até o teto de novo. A conta usa o volume REAL do sistema
+// (`AVNative.systemVolumeStep` devolve antes/depois/max, shell 78) — não há contagem de degraus,
+// janela de tempo nem estado a zerar: o par acontece no instante em que o app bate no teto e
+// acaba ali. Do alvo em diante (ou com o degrau recusado) vale a válvula de sempre.
+const VOL_SIS_ALVO = 0.6;       // fração do volume do sistema até onde a passagem compensa
+const VOL_CEDE_FRACAO = 0.5;    // quanto do degrau do sistema o som de fato sobe (o resto o app cede)
+let volSistemaEmVoo = false;    // um passo no sistema está sendo respondido; o toque seguinte espera
+// PURA. `antes`/`depois`/`max` em degraus do volume de mídia; devolve o volume novo do app (0..1)
+// ou `null` quando o app não deve ceder (degrau recusado, ou sistema já no alvo).
+function volumeCede(antes, depois, max) {
+  if (!(max > 0) || !(depois > antes)) return null;
+  if (antes / max >= VOL_SIS_ALVO) return null;
+  const u = 1 / max;
+  const novo = (antes / max + VOL_CEDE_FRACAO * u) / (depois / max);
+  return Math.max(0.05, Math.min(1, Math.round(novo * 100) / 100));
+}
+async function volSistemaSobe() {
+  if (volSistemaEmVoo) return;
+  volSistemaEmVoo = true;
+  try {
+    const r = await AVNative.systemVolumeStep(1);
+    if (!r) return;
+    const cede = volumeCede(r.antes, r.depois, r.max);
+    if (cede == null) return;
+    applyVolume(cede);
+    persistCurrent();
+  } finally {
+    volSistemaEmVoo = false;
+  }
 }
 
 function volumeProximo(atual, dir) {
@@ -40145,18 +40152,10 @@ if (window.__NATIVE__) {
     // sistema: o fader no máximo/zero é justamente a resposta para "por que o
     // volume do app não muda?".
     peekVolume();
-    // Alguém mexeu no fader do app (arrasto, ± do Modo Fácil) depois da última troca: o par
-    // sistema/app que ela fez deixou de valer, e a troca recomeça do zero.
-    if (volTrocaN > 0 && Math.abs(volume - volTrocaApp) > 0.005) volTrocaN = 0;
-    // A TROCA só vale enquanto o painel de volume do SISTEMA está à vista (v1.12.16): passada a
-    // janela, o par é esquecido e as teclas voltam a mexer só no app.
-    if (volTrocaN > 0 && performance.now() > volTrocaAte) volTrocaN = 0;
-    // A TROCA (v1.12.15): depois dos 100% do app, cada toque que sobe o SISTEMA baixa o app ao
-    // mesmo tempo (`VOL_TROCA_PASSO`, até `VOL_TROCA_PISO`) — o sistema sobe e o app cede, em vez
-    // de o app ficar em 100% sobre um sistema que sobe. Descendo é o inverso, degrau por degrau,
-    // até o sistema voltar de onde saiu (`volTrocaN` chega a zero). Ver `volTrocar`.
-    if ((step > 0 && (volume >= 1 || volTrocaN > 0)) || (step < 0 && volTrocaN > 0)) {
-      volTrocar(step);
+    // No teto do fader, a tecla de cima vai ao SISTEMA e o app cede o bastante para o som subir
+    // devagar (v1.12.17, ver `volumeCede`); o resto do tempo as teclas mexem só no app.
+    if (step > 0 && volume >= 1) {
+      volSistemaSobe();
       return;
     }
     // Já no zero do fader: devolve a tecla ao sistema (com a UI de volume do Android), senão um

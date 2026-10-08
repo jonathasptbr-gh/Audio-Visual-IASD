@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.12.17",
+    "itens": [
+      "Botões de volume: o app agora lê o volume real do celular (precisa instalar o APK novo).",
+      "No 100% do app, a tecla sobe o volume do celular e baixa o app o bastante para o som subir devagar.",
+      "As teclas seguintes voltam a mexer só no app; o celular sobe sozinho a partir de 60%."
+    ]
+  },
+  {
     "versao": "1.12.16",
     "itens": [
       "Botões de volume: o sistema só mexe ao bater nos 100% (ou 0%) do app; fora disso só o volume do app muda.",

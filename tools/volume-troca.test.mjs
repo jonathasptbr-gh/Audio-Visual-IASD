@@ -1,22 +1,24 @@
 #!/usr/bin/env node
 // ============================================================================
-// A TROCA DO VOLUME NAS TECLAS FÍSICAS: DEPOIS DOS 100% DO APP, O SISTEMA SOBE E O APP CEDE (v1.12.15)
+// A PASSAGEM DO VOLUME NAS TECLAS FÍSICAS: NO TETO DO APP, O SISTEMA SOBE UM DEGRAU E O APP CEDE (v1.12.17)
 //
 // Pedido do operador: *"ao chegar em 100% no app, ele começa a aumentar o volume do sistema … se
 // ambos estão em 0, ele vai para 100% do app e começa a aumentar o do sistema. O ideal é o volume do
-// sistema estar na média e o do app ser o único modificado … Tem como, após chegar nos 100% do app,
-// e eu estiver aumentando o volume do sistema, ele ao mesmo tempo ir baixando o volume do app?"*
-//
-// O app não LÊ o volume do sistema (a ponte só o ajusta), então a troca conta os degraus que ELA
-// deu. O que este arquivo trava, e cada uma falha CALADA:
+// sistema estar na média e o do app ser o único modificado"* e, depois: *"o volume do sistema só deve
+// ser alterado quando batemos os limites … limitado apenas ao momento em que ele acabou de bater nos
+// 100%"*. Com o shell 78 o app LÊ o volume do sistema (`systemVolumeStep` → antes/depois/max), então a
+// regra deixou de contar degraus e de estimar janela de tempo. O que este arquivo trava, e cada uma
+// falha CALADA:
 //  A. antes dos 100% a tecla só mexe no app, e o sistema não é tocado;
-//  B. nos 100% a tecla sobe um degrau do sistema E baixa o app;
-//  C. a troca continua enquanto houver degraus, e o app para no PISO (o sistema segue subindo);
-//  D. descendo desfaz o par, degrau por degrau, e volta ao comportamento de sempre;
-//  E. mexer no fader entre as teclas ZERA a troca (o par deixou de valer);
-//  F. no zero do app, sem troca, a tecla de baixo continua indo ao sistema (a válvula);
-//  G. a troca SÓ vale enquanto o painel do sistema está à vista (3 s): passada a janela as teclas mexem
-//     só no app, e o sistema só se move de novo ao bater no limite (v1.12.16).
+//  B. nos 100%, com o sistema abaixo do alvo (60%), a tecla sobe um degrau do sistema E o app cede
+//     (a conta é do volume REAL: o som sobe meio degrau, não pula);
+//  C. as teclas seguintes mexem só no app — o par acontece só no instante do teto;
+//  D. do alvo em diante o sistema sobe sozinho, sem o app ceder (a válvula de sempre);
+//  E. um degrau RECUSADO (sistema no máximo, volume fixo) não faz o app ceder — era o defeito da
+//     contagem às cegas: o app caía sem o sistema subir;
+//  F. no zero do app a tecla de baixo continua indo ao sistema, e com o app acima de zero só mexe nele;
+//  G. a subida inteira (sistema e app em 0 → tudo acima) tem o som monotônico e sem salto, e o sistema
+//     para na faixa do alvo enquanto o app é o único modificado.
 //
 //   node tools/volume-troca.test.mjs
 // ============================================================================
@@ -26,11 +28,23 @@ import { semRedeExterna } from './sem-rede.mjs';
 import { servirEstatico, abrirNavegador, esperarCortina, checar } from './arnes.mjs';
 
 const PONTE = `(() => {
+  // O sistema falso: 15 degraus. \`fixo\` simula um volume que o app não consegue mexer.
+  window.__sis = { cur: 3, max: 15, fixo: false };
   window.__sysCalls = [];
+  const passo = (s) => {
+    const antes = window.__sis.cur;
+    if (!window.__sis.fixo) window.__sis.cur = Math.max(0, Math.min(window.__sis.max, antes + (s > 0 ? 1 : -1)));
+    return { antes, depois: window.__sis.cur, max: window.__sis.max };
+  };
   const B = {
-    shellVersion: () => 77, role: () => 'controle', appVersion: () => '1.98-teste',
+    shellVersion: () => 78, role: () => 'controle', appVersion: () => '1.98-teste',
     takeShare: () => '', busPost: () => {}, otaConfirm: () => {},
-    systemVolume: (s) => { window.__sysCalls.push(s | 0); },
+    systemVolume: (s) => { window.__sysCalls.push(s | 0); passo(s | 0); },
+    systemVolumeStep: (id, s) => {
+      window.__sysCalls.push(s | 0);
+      const r = passo(s | 0);
+      setTimeout(() => { try { window.__avResolve(id, r); } catch (_) {} }, 0);
+    },
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget','saidaDeAudioAlvo',
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',
@@ -68,81 +82,86 @@ try {
   await pg.waitForFunction(() => window.__NATIVE__ === true && typeof window.__avVolumeKey === 'function', null, { timeout: 30000 });
 
   const pct = () => pg.evaluate(() => Math.round(volume * 100));
-  const sys = () => pg.evaluate(() => window.__sysCalls.slice());
-  const tecla = (n) => pg.evaluate((k) => { window.__avVolumeKey(k); }, n);
-  const zerar = (v) => pg.evaluate((x) => { applyVolume(x); window.__sysCalls.length = 0; volTrocaN = 0; }, v);
+  const sis = () => pg.evaluate(() => window.__sis.cur);
+  const calls = () => pg.evaluate(() => window.__sysCalls.slice());
+  // A tecla e a espera pela resposta do sistema (o passo é assíncrono: uma ida e volta da ponte).
+  const tecla = async (n) => {
+    await pg.evaluate((k) => { window.__avVolumeKey(k); }, n);
+    await pg.waitForFunction(() => !volSistemaEmVoo, null, { timeout: 5000 });
+  };
+  const zerar = (app, cur, fixo = false) => pg.evaluate(([a, c, f]) => {
+    applyVolume(a); window.__sis.cur = c; window.__sis.fixo = f; window.__sysCalls.length = 0;
+  }, [app, cur, fixo]);
 
   // A · antes dos 100% só o app
-  await zerar(0.9);
+  await zerar(0.9, 3);
   await tecla(1);
-  checar(await pct() === 95 && (await sys()).length === 0,
-    'A · com o app em 90% a tecla de cima sobe o APP (95%) e não toca no sistema', JSON.stringify({ app: await pct(), sys: await sys() }));
+  checar(await pct() === 95 && (await calls()).length === 0,
+    'A · com o app em 90% a tecla de cima sobe o APP (95%) e não toca no sistema', JSON.stringify({ app: await pct(), sys: await calls() }));
 
-  // B · nos 100% a tecla sobe o sistema E baixa o app
-  await zerar(1);
+  // B · no teto, sistema abaixo do alvo: o sistema sobe um degrau e o app cede o bastante
+  await zerar(1, 3);                                   // sistema 3/15 = 20%
   await tecla(1);
-  checar(await pct() === 95 && JSON.stringify(await sys()) === '[1]',
-    'B · com o app em 100% a tecla de cima sobe UM degrau do sistema e baixa o app para 95%',
-    JSON.stringify({ app: await pct(), sys: await sys() }));
+  const b = { app: await pct(), sis: await sis(), calls: await calls() };
+  checar(b.sis === 4 && b.calls.length === 1 && (b.app === 87 || b.app === 88),
+    'B · app em 100% e sistema em 3/15: a tecla sobe o sistema (4/15) e o app cede para ~88% (o som sobe meio degrau)', JSON.stringify(b));
+  const luzAntes = (3 / 15) * 1, luzDepois = (4 / 15) * (b.app / 100);
+  checar(luzDepois > luzAntes && luzDepois - luzAntes < 0.05,
+    'B · e o SOM sobe, devagar: nem cai nem pula (cerca de meio degrau do sistema)', JSON.stringify({ luzAntes, luzDepois }));
 
-  // C · continua trocando, e o app para no piso
-  await tecla(1); await tecla(1);
-  checar(await pct() === 85 && (await sys()).length === 3,
-    'C1 · a troca CONTINUA nos toques seguintes: 3 degraus de sistema, app em 85% (e não volta a subir o app)',
-    JSON.stringify({ app: await pct(), sys: await sys() }));
-  for (let i = 0; i < 20; i++) await tecla(1);
-  checar(await pct() === 25 && (await sys()).length === 23,
-    'C2 · o app cede só até o PISO (25%) e o sistema segue subindo a cada toque', JSON.stringify({ app: await pct(), sys: (await sys()).length }));
-
-  // D · descendo desfaz o par
-  await tecla(-1);
-  const d1 = { app: await pct(), sys: (await sys()).slice(-1) };
-  checar(d1.app === 30 && JSON.stringify(d1.sys) === '[-1]',
-    'D1 · a tecla de baixo DESFAZ um par: o sistema desce um degrau e o app sobe 5%', JSON.stringify(d1));
-  for (let i = 0; i < 22; i++) await tecla(-1);
-  const d2 = await sys();
-  checar(await pct() === 100 && d2.filter((x) => x > 0).length === 23 && d2.filter((x) => x < 0).length === 23,
-    'D2 · voltando tudo, o app está em 100% e o sistema desceu exatamente os degraus que subiu (sem passar)',
-    JSON.stringify({ app: await pct(), subiu: d2.filter((x) => x > 0).length, desceu: d2.filter((x) => x < 0).length }));
-  await tecla(-1);
-  checar(await pct() === 95, 'D3 · e depois disso a tecla de baixo volta a mexer só no app', String(await pct()));
-
-  // E · mexer no fader entre as teclas zera a troca
-  await zerar(1);
-  await tecla(1); await tecla(1);                       // app 90, sistema +2
-  await pg.evaluate(() => { applyVolume(0.6); window.__sysCalls.length = 0; });   // o operador arrasta o fader
-  await tecla(-1);
-  checar(await pct() === 55 && (await sys()).length === 0,
-    'E · depois de mexer no fader a tecla de baixo mexe só no app (a troca foi esquecida): 60% → 55%, sistema intocado',
-    JSON.stringify({ app: await pct(), sys: await sys() }));
-
-  // F · a válvula do zero continua
-  await zerar(0);
-  await tecla(-1);
-  checar(await pct() === 0 && JSON.stringify(await sys()) === '[-1]',
-    'F · com o app no zero e sem troca a tecla de baixo vai ao sistema, como sempre', JSON.stringify({ app: await pct(), sys: await sys() }));
-
-  // G · a troca é limitada à janela do painel do sistema
-  await zerar(1);
-  await tecla(1); await tecla(1);                       // app 90, sistema +2, troca de pé
-  await pg.waitForTimeout(3300);                        // o painel do sistema sumiu
-  await pg.evaluate(() => { window.__sysCalls.length = 0; });
+  // C · as teclas seguintes mexem só no app
   await tecla(1);
-  checar(await pct() === 95 && (await sys()).length === 0,
-    'G1 · passada a janela a tecla de cima sobe só o APP (90% → 95%): o sistema não é tocado',
-    JSON.stringify({ app: await pct(), sys: await sys() }));
+  checar(await pct() === 90 && (await calls()).length === 1 && await sis() === 4,
+    'C · a tecla seguinte sobe só o APP (88% → 90%) — o par foi só no instante do teto', JSON.stringify({ app: await pct(), sis: await sis(), calls: await calls() }));
+
+  // D · do alvo em diante o sistema sobe sozinho
+  await zerar(1, 9);                                   // 9/15 = 60% = o alvo
   await tecla(1);
-  checar(await pct() === 100 && (await sys()).length === 0,
-    'G2 · e continua só no app até os 100%', JSON.stringify({ app: await pct(), sys: await sys() }));
+  checar(await sis() === 10 && await pct() === 100,
+    'D · com o sistema já no alvo (60%) a tecla no teto sobe só o sistema e o app fica em 100%', JSON.stringify({ app: await pct(), sis: await sis() }));
+
+  // E · degrau recusado
+  await zerar(1, 3, true);                             // volume fixo: o degrau não acontece
   await tecla(1);
-  checar(await pct() === 95 && JSON.stringify(await sys()) === '[1]',
-    'G3 · ao bater nos 100% de novo o gatilho volta: sobe um degrau do sistema e o app cede', JSON.stringify({ app: await pct(), sys: await sys() }));
-  await pg.waitForTimeout(3300);
-  await pg.evaluate(() => { window.__sysCalls.length = 0; });
+  checar(await pct() === 100 && await sis() === 3,
+    'E · se o sistema RECUSA o degrau, o app não cede (fica em 100%)', JSON.stringify({ app: await pct(), sis: await sis() }));
+  await zerar(1, 15);                                  // sistema no máximo
+  await tecla(1);
+  checar(await pct() === 100 && await sis() === 15,
+    'E · e com o sistema já no máximo o app também fica em 100%', JSON.stringify({ app: await pct(), sis: await sis() }));
+
+  // F · a válvula do zero
+  await zerar(0, 8);
   await tecla(-1);
-  checar(await pct() === 90 && (await sys()).length === 0,
-    'G4 · e a tecla de baixo, depois da janela, baixa só o app (95% → 90%) em vez de desfazer o par no sistema',
-    JSON.stringify({ app: await pct(), sys: await sys() }));
+  checar(await pct() === 0 && await sis() === 7,
+    'F · com o app no zero a tecla de baixo vai ao sistema (8 → 7)', JSON.stringify({ app: await pct(), sis: await sis() }));
+  await zerar(0.5, 8);
+  await tecla(-1);
+  checar(await pct() === 45 && await sis() === 8,
+    'F · com o app acima de zero a tecla de baixo mexe só nele (50% → 45%)', JSON.stringify({ app: await pct(), sis: await sis() }));
+
+  // G · a subida inteira, do zero ao máximo
+  await zerar(0, 0);
+  const trilha = [];
+  for (let i = 0; i < 80; i++) {
+    await tecla(1);
+    trilha.push(await pg.evaluate(() => ({ app: volume, cur: window.__sis.cur, max: window.__sis.max })));
+  }
+  let saltoMax = 0; let desceu = false; let prev = 0;
+  for (const t of trilha) {
+    const luz = (t.cur / t.max) * t.app;
+    if (luz < prev - 1e-9) desceu = true;
+    saltoMax = Math.max(saltoMax, luz - prev);
+    prev = luz;
+  }
+  const fim = trilha[trilha.length - 1];
+  // o primeiro degrau do sistema (0 → 1) parte do silêncio: o único salto legítimo maior
+  checar(!desceu, 'G · subindo tudo o som NUNCA cai no meio do caminho', JSON.stringify(trilha.slice(0, 12)));
+  checar(saltoMax < 0.12, 'G · e nenhum toque pula o som (maior salto < 12% do máximo)', String(saltoMax));
+  checar(fim.cur === 15 && fim.app === 1, 'G · insistindo, chega ao máximo dos dois (a válvula além do alvo)', JSON.stringify(fim));
+  const noAlvo = trilha.find((t) => t.cur >= 9);
+  checar(noAlvo && noAlvo.app >= 0.5,
+    'G · e ao chegar na faixa do alvo o app está de volta a um volume alto — ele é quem fica sendo mexido', JSON.stringify(noAlvo));
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 } finally {
