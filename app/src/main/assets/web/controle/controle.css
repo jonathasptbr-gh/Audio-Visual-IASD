@@ -10360,6 +10360,12 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 #edicaoPopup .popup-fecho { margin-top: var(--sp-3); }
 .edicao-busca { padding: 0 .7rem; }
 .edicao-busca[hidden] { display: none; }
+/* A SOMBRA DE CIMA DA LISTA TEM FOLGA DA CAIXA DE BUSCA (v1.12.3, pedido do operador: *"na lista para
+   escolher a mídia para edição, a sombra de corte superior da fronteira da lista está sem margem com a
+   caixa de texto da busca; a sombra está colando na caixa"*). A tira mora no topo do scroller e o
+   scroller começava na base do campo, só o `.35rem` do `.sorteio-campo` entre os dois. A folga vale
+   quando o campo existe (`:not([hidden])`): sem ele a lista segue o cabeçalho como sempre. */
+.edicao-busca:not([hidden]) + #edicaoLista { margin-top: var(--sp-5); }
 #edicaoNota { margin: var(--sp-3) .7rem 0; }
 #edicaoNota:empty { display: none; }
 .edicao-secao { color: var(--muted); font-size: var(--fs-sm); padding: var(--sp-2) .2rem 0; }
@@ -10774,7 +10780,11 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 
    `.simple-song` é o `position: relative` (a placa da letra é a última peça dele e vai até o
    fundo), e o recuo é o MESMO nos dois eixos — o botão assenta no canto, não flutua perto dele. */
-.simple-song { position: relative; }
+/* `isolation: isolate` PRENDE o `z-index: 5` das tiras de sombra (`.rola::before/::after`) DENTRO da
+   zona de leitura. Sem ele `.simple-song` não cria contexto de empilhamento e a tira de baixo da placa
+   concorre com o `.simple-veil` (z 1) na RAIZ da tela: no bloqueio "sem tela" a sombra pintava POR CIMA
+   do embaçado, solta, enquanto o resto da leitura ficava sob ele. */
+.simple-song { position: relative; isolation: isolate; }
 .simple-fabs {
   position: absolute; right: var(--sp-5); bottom: var(--sp-5);
   flex-direction: column; gap: var(--sp-4);
@@ -10798,7 +10808,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    ficar maior que a letra que o campo existe para mostrar. Sobem o bastante para
    não virarem pó ao lado de 1.9rem, e ficam um degrau abaixo dela. */
 .lv-row--cover, .lv-cab.lv-cab--letra {
-  color: var(--muted); font-size: var(--fs-3xl); letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted); font-size: calc(var(--lv-fonte) * .82); letter-spacing: .04em; text-transform: uppercase;
+  /* O TÍTULO ACOMPANHA O A+/A−: `.82` é o 1,15rem de `--fs-3xl` sobre o 1,4rem base (v1.11.23: era fixo, e
+     o título ficava do mesmo tamanho enquanto a letra crescia). O DEGRAU BASE não muda. */
   /* O TÍTULO É A LINHA DE CAPA (v1.11.22): a formatação que era da palavra "Início" é a do título
      da música, e DUAS LINHAS DA LETRA separam o título do resto — o `gap` da caixa já põe uma
      estrofe (`--lv-estrofe-gap`), e a margem completa o que falta para 2 × (corpo × 1,5). */

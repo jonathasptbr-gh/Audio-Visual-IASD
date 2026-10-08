@@ -298,6 +298,19 @@ checar(aberta === true && vista.titulo === 'Escolher a mídia' && vista.busca &&
   'C · a janela abre no SELETOR em grupos (Cronograma, Playlist, Favoritos…), com busca e "Importar arquivo"',
   porque(aberta) || JSON.stringify(vista));
 
+// C1b · A SOMBRA DE CIMA DA LISTA TEM FOLGA DA CAIXA DE BUSCA (v1.12.3). Relato do operador: *"na lista
+// para escolher a mídia para edição, a sombra de corte superior da fronteira da lista está sem margem
+// com a caixa de texto da busca; a sombra está colando na caixa"* — a tira mora no topo do scroller, e
+// o scroller começava 5,6px abaixo do campo.
+const folgaBusca = await app.evaluate(() => {
+  const campo = document.querySelector('#edicaoBuscaCaixa .lib-search-campo').getBoundingClientRect();
+  const lista = document.getElementById('edicaoLista').getBoundingClientRect();
+  return { campoAteLista: +(lista.top - campo.bottom).toFixed(1) };
+});
+checar(folgaBusca.campoAteLista >= 14,
+  'C · a lista do seletor começa ≥ 14px abaixo do CAMPO de busca (eram 5,6px, e a sombra de cima colava nele)',
+  JSON.stringify(folgaBusca));
+
 // C2 · escolher a mídia abre o formulário, com UMA faixa de duas pontas.
 const montou = await escolher('lst:imports', 'Hino Cinco');
 const faixa = await app.evaluate(() => ({

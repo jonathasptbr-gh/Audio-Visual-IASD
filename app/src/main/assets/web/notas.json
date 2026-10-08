@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.12.3",
+    "itens": [
+      "Modo Fácil: a sombra do auxiliar de leitura não aparece mais por cima do desfoque do bloqueio.",
+      "O título dentro do auxiliar de leitura cresce junto com a letra no A+ e A−.",
+      "Editar mídia: a sombra de cima da lista não cola mais na caixa de busca."
+    ]
+  },
+  {
     "versao": "1.12.2",
     "itens": [
       "Editar mídia: a lista de escolha não tem mais caixinhas — tocou, selecionou.",
