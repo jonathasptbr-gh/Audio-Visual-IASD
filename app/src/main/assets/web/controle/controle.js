@@ -31975,7 +31975,11 @@ function renderPacoteGrupos(plano) {
       };
       if (!abrindo) {
         const corpo = li.querySelector('.pacote-grupo-corpo');
-        collapseAccordion(corpo, aplicar);
+        // O FECHO CHEGA DEPOIS DA ANIMAÇÃO (ACC_MS) e pode achar OUTRA seção aberta no meio
+        // tempo — o toque na seta seguinte não espera. Ele só vale se esta continua a aberta:
+        // sem a guarda, o fecho atrasado fechava a seção que o operador acabou de abrir
+        // (MEDIDO sob carga, v1.12.22: o `pacote-por-grupos` lia a seção vazia).
+        collapseAccordion(corpo, () => { if (pacoteSecaoAberta === item.nome) aplicar(); });
         return;
       }
       aplicar();
