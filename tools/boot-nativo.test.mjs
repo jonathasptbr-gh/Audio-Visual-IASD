@@ -5124,7 +5124,16 @@ try {
     const linhaAVista = cx.height > 0 && cx.width > 0;
     const valorInicial = campo.value;
     campo.value = 'Nome novo';
-    li.querySelector('.row-slot--ok').click();
+    // O confirmar é lido ANTES de ser tocado, e a ausência dele é um FATO NOMEADO (como o `.row` do
+    // percurso abaixo): um `null.click()` aqui chegou ao placar do CI como "o percurso dos Favoritos
+    // terminou sem exceção" — indistinguível de defeito do app, e sem dizer o que a linha tinha.
+    const confirmar = li.querySelector('.row-slot--ok');
+    if (!confirmar) {
+      return { erro: 'o confirmar do renomear (`.row-slot--ok`) não existia no instante do toque',
+        temLapis, svg, semModal, ligada: li.isConnected,
+        acoes: (li.querySelector('.row-acoes') || {}).outerHTML || 'sem .row-acoes' };
+    }
+    confirmar.click();
     await new Promise((r) => setTimeout(r, 450));
     const rec = await AVDB.getMedia(m.id);
     const linha = document.querySelector('#library .lib-item[data-id="' + m.id + '"] .row-name');
