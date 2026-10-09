@@ -2815,6 +2815,16 @@ main {
    de sempre, então JS que falhe deixa o desenho de antes. `:is()` e dois
    seletores de classe vencem a regra agrupada acima sem `!important`. */
 .list-foot.livre :is(.tools-btn, .lib-foot-btn, .import-btn) { box-shadow: none; }
+/* ...E ELA ENTRA E SAI AOS POUCOS (v1.12.20). Pedido do operador: *"a sombra dos
+   botões surgir de forma gradual, ou mais sutil"*. A troca `none` ↔ `0 2px 8px`
+   é interpolável (o navegador a completa com a mesma forma, transparente), então
+   basta declarar a transição; o `.livre` muda quando a lista cresce, encolhe ou
+   passa de rolagem, e um corte seco ali era o que chamava o olho. Sem movimento
+   com `prefers-reduced-motion`. */
+.tools-btn, .lib-foot-btn, .import-btn { transition: box-shadow var(--dur-lenta) ease; }
+@media (prefers-reduced-motion: reduce) {
+  .tools-btn, .lib-foot-btn, .import-btn { transition: none; }
+}
 /* ===== AS TRÊS PORTAS DO CRONOGRAMA, EM PARTES IGUAIS (v1.5.0) =====
    Bíblia · Importar arquivos · Ferramentas, e as três com RÓTULO — o pedido do
    operador foi *"coloque um texto no botão de ferramentas"*, e o argumento que
