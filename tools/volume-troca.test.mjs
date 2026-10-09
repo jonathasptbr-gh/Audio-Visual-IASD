@@ -15,7 +15,10 @@
 //  D. 2º ciclo: do teto de novo o sistema sobe até o máximo, com o app cedendo outra vez, e acaba no máximo;
 //  E. com o sistema no máximo, ou recusando o degrau, o app NÃO cede (não cai sem o sistema subir);
 //  F. mexer no fader no meio da passagem a encerra (o par deixou de valer);
-//  G. a tecla de baixo mexe só no app, e no zero vai ao sistema (a válvula de sempre).
+//  G. a tecla de baixo mexe só no app, e no zero vai ao sistema (a válvula de sempre);
+//  H. sem TV no ar e com telas da rede recebendo, as telas SÃO a projeção e o volume do sistema não as
+//     alcança: no teto a tecla de cima vai ao sistema SEM o app ceder (v1.12.22) — e com a TV no ar
+//     junto, a passagem volta a valer.
 //
 //   node tools/volume-troca.test.mjs
 // ============================================================================
@@ -36,6 +39,7 @@ const PONTE = `(() => {
   const B = {
     shellVersion: () => 78, role: () => 'controle', appVersion: () => '1.98-teste',
     takeShare: () => '', busPost: () => {}, otaConfirm: () => {},
+    espelhoEstado: (id) => { setTimeout(() => { try { window.__avResolve(id, window.__espelho || null); } catch (_) {} }, 0); },
     systemVolume: (s) => { window.__sysCalls.push(s | 0); passo(s | 0); },
     systemVolumeStep: (id, s) => {
       window.__sysCalls.push(s | 0);
@@ -46,7 +50,7 @@ const PONTE = `(() => {
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget','saidaDeAudioAlvo',
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDerrubar',
-    'espelhoDesligar','espelhoDiag','espelhoEstado','espelhoLigar','keepAlive','listFolder',
+    'espelhoDesligar','espelhoDiag','espelhoLigar','keepAlive','listFolder',
     'nowPlaying','openCast','abrirSaidaDeAudio','openExternal','otaApply','otaCheck','otaDiag',
     'otaPending','pickDoc','pickFolder','salvarTexto','temaClaro',
     'ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio',
@@ -170,6 +174,26 @@ try {
   const g1 = await estado();
   checar(g1.cur === 1 && g1.app === 95,
     'G · e a tecla de baixo encerra a passagem: depois dela a de cima sobe só o app (93% → 90% → 95%, sistema parado em 1/15)', JSON.stringify(g1));
+
+  // H · telas da rede sem TV: o comando `volume` desce para elas, e o sistema daqui não as alcança
+  const comTelas = (tv) => pg.evaluate((t) => {
+    window.__espelho = { ligado: true, telas: [{ rotulo: 'tela A', pronta: true }] };
+    mirrorEstado = window.__espelho;
+    lastDisplays = t ? [{ id: 1, name: 'TV', telao: true }] : [];
+  }, tv);
+  await zerar(1, 3);
+  await comTelas(false);
+  for (let i = 0; i < 3; i++) await tecla(1);
+  const h1 = await estado();
+  checar(h1.app === 100 && h1.cur === 6 && h1.calls === 3,
+    'H · sem TV e com uma tela da rede recebendo, no teto a tecla de cima sobe o SISTEMA e o app NÃO cede (as telas continuam em 100%)', JSON.stringify(h1));
+  await zerar(1, 3);
+  await comTelas(true);
+  await tecla(1);
+  const h2 = await estado();
+  checar(h2.cur === 4 && h2.app === 93,
+    'H · com a TV no ar junto, o som sai deste processo e a passagem volta a valer (4/15, app 93%)', JSON.stringify(h2));
+  await pg.evaluate(() => { window.__espelho = null; mirrorEstado = null; lastDisplays = []; });
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 } finally {

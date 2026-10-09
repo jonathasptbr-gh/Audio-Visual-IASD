@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.21';
+const WEB_VERSION = '1.12.22';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -24284,12 +24284,13 @@ function closeSongMenu() {
 // A caixa de marcação de uma linha de destino. `stopPropagation` porque ela vive
 // DENTRO do botão da linha: sem isso, marcar dispararia a ação da linha e a
 // folha fecharia — o oposto exato do que a caixa existe para permitir.
-function destCheck(chave) {
+function destCheck(chave, marcados) {
+  const m = marcados || destMarcados;
   const cx = document.createElement('span');
-  cx.className = 'song-menu-check' + (destMarcados.has(chave) ? ' on' : '');
+  cx.className = 'song-menu-check' + (m.has(chave) ? ' on' : '');
   cx.setAttribute('role', 'checkbox');
-  cx.setAttribute('aria-checked', destMarcados.has(chave) ? 'true' : 'false');
-  cx.title = destMarcados.has(chave) ? 'Marcado — tocar para desmarcar' : 'Tocar para marcar';
+  cx.setAttribute('aria-checked', m.has(chave) ? 'true' : 'false');
+  cx.title = m.has(chave) ? 'Marcado — tocar para desmarcar' : 'Tocar para marcar';
   // ELA NÃO TEM MAIS OUVINTE PRÓPRIO (v5.252). Quem alterna é a LINHA, e a caixa
   // é o indicador dentro dela: um `stopPropagation` aqui faria o toque que cai
   // exatamente nos 20px da caixa não fazer nada, que é o pior lugar possível
@@ -24302,7 +24303,9 @@ function destCheck(chave) {
 // Uma linha da folha: ícone + rótulo + (às vezes) uma segunda linha explicando.
 // `destino` (opcional) é a chave da tabela `DESTINOS`: com ela a linha ganha a
 // caixa de marcação e a ação recebe a UNIÃO do marcado com esta linha.
-function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar) {
+// `marcados` (opcional) é o Set de quem a usa FORA da folha de destinos — a lista
+// do Transferir tem o dela (`pacoteMarcados`, v1.12.22).
+function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar, marcados) {
   const li = document.createElement('li');
   const btn = document.createElement('button'); btn.className = 'song-menu-btn';
   if (typeof icone === 'string') {
@@ -24344,9 +24347,10 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar) {
   // seria manter a exceção que o pedido veio remover.
   if (destino) {
     btn.classList.add('song-menu-sel');
-    btn.appendChild(destCheck(destino));
+    const m = marcados || destMarcados;
+    btn.appendChild(destCheck(destino, m));
     const marcar = () => {
-      if (destMarcados.has(destino)) destMarcados.delete(destino); else destMarcados.add(destino);
+      if (m.has(destino)) m.delete(destino); else m.add(destino);
       const redesenhar = aoMudar || destRemontar;
       if (redesenhar) redesenhar();
     };
@@ -31166,7 +31170,8 @@ async function pacoteBases(plano, sel) {
     let rec = null;
     try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
     if (!rec || rec.edicao) continue;
-    if (rec.opfsPath) {
+    // Um original já ADOTADO (`bases/`) não viaja por grupo nenhum: só por aqui.
+    if (rec.opfsPath && !AVDB.ehCaminhoDeBase(rec.opfsPath)) {
       const g = AVPacote.grupoDoCaminho(rec.opfsPath, plano.ids);
       const serie = plano.seriesIds && plano.seriesIds.has(AVPacote.colecaoDoGrupo(g));
       if (plano.caminhoViaja(rec.opfsPath) && sel.has(g) && !serie) continue;
@@ -31248,8 +31253,10 @@ async function pacotePlano(aoAndar) {
   // A comparação é NUMÉRICA (`numeric: true`), e não alfabética crua: os
   // caminhos são `folders/<coleção>/<número>-<variante>.<ext>`, e como texto o
   // 100 vem antes do 2. Com ela, um hinário sai na ordem dos hinos.
+  // Os originais adotados (`bases/`) não são "arquivos sem coleção": viajam como
+  // `media` com `base: true`, só junto do item editado (`pacoteBases`).
   const arquivos = (await AVDB.opfsTodosOsArquivos())
-    .filter((a) => caminhoViaja(a.caminho))
+    .filter((a) => caminhoViaja(a.caminho) && !AVDB.ehCaminhoDeBase(a.caminho))
     .sort((x, y) => String(x.caminho).localeCompare(String(y.caminho), 'pt-BR',
       { numeric: true, sensitivity: 'base' }));
   const porGrupo = new Map();
@@ -31733,8 +31740,16 @@ function pacoteMidiaSelecionada(plano, sel) {
 // da base dela.
 //
 // As linhas são as do seletor de destinos (`songMenuItem`): a mesma caixa como
-// INDICADOR, o mesmo Set `destMarcados`. As caixas dizem o que LEVAR ao
-// exportar; importar traz o que o arquivo tiver e não lê a marca.
+// INDICADOR, mas o Set é PRÓPRIO (`pacoteMarcados`). As caixas dizem o que LEVAR
+// ao exportar e o que TRAZER ao importar (v1.11.12).
+//
+// O SET NÃO É O DA FOLHA DE DESTINOS (v1.12.22). Ele foi o mesmo `destMarcados`
+// até aqui, e a outra folha o deixa com `{'tocar'}` ou `{'cronograma'}` ao abrir
+// (`renderItemMenu`, `escolherDestinos`): com um pacote pronto, abrir a gaveta de
+// qualquer item e voltar ao Transferir encontrava o Set "não vazio", não
+// remarcava, e a lista abria SEM marca nenhuma — o Importar montava
+// `['tocar', 'ajustes']`, só os ajustes entravam e o arquivo era consumido.
+const pacoteMarcados = new Set();
 //
 // O plano aproximado que a lista desenha — o que a Biblioteca já tem em
 // memória (ver `pacotePlanoAproximado`).
@@ -31767,14 +31782,14 @@ function pacoteOcupado() {
  * existe para PODER tirar, não para obrigar a montar.
  */
 function pacoteMarcarPadrao(plano) {
-  destLimpar();
-  for (const g of plano.grupos) if (!g.fixo) destMarcados.add(g.chave);
+  pacoteMarcados.clear();
+  for (const g of plano.grupos) if (!g.fixo) pacoteMarcados.add(g.chave);
 }
 
 /**
  * A lista na ABERTURA da janela. Com trabalho andando ou um pacote pronto a
- * marca que já existe é a escolha DELE e fica; só uma marca que sumiu (o
- * seletor de destinos de outra folha a limpa) volta ao padrão.
+ * marca que já existe é a escolha DELE e fica; sem marca nenhuma (a primeira
+ * abertura da sessão) ela volta ao padrão.
  *
  * Falhar vazio é proibido: o plano que não veio diz isso na própria lista, e os
  * dois botões continuam ali (importar não depende dele).
@@ -31795,7 +31810,7 @@ async function pacoteAbrirLista() {
     pacoteNotaEl.textContent = PACOTE_NOTA_IMPORTAR;
     return;
   }
-  if (!pacoteOcupado() || !destMarcados.size) pacoteMarcarPadrao(plano);
+  if (!pacoteOcupado() || !pacoteMarcados.size) pacoteMarcarPadrao(plano);
   pacoteSecaoAberta = '';
   renderPacoteGrupos(plano);
 }
@@ -31807,7 +31822,7 @@ function pacoteRedesenharLista() {
 
 /** O que está marcado, MAIS o que é fixo. */
 function pacoteSelecao(plano) {
-  const sel = new Set(destMarcados);
+  const sel = new Set(pacoteMarcados);
   for (const g of plano.grupos) if (g.fixo) sel.add(g.chave);
   return sel;
 }
@@ -31823,7 +31838,7 @@ function pacoteSelecao(plano) {
  */
 function pacoteEstadoDe(chaves) {
   let marcadas = 0;
-  for (const k of chaves) if (destMarcados.has(k)) marcadas++;
+  for (const k of chaves) if (pacoteMarcados.has(k)) marcadas++;
   if (!marcadas) return 'nenhuma';
   return marcadas === chaves.length ? 'todas' : 'parte';
 }
@@ -31876,7 +31891,7 @@ function renderPacoteGrupos(plano) {
       + (g.sobreposto ? ' · pode estar em outro grupo' : '');
     const li = songMenuItem(
       (g.chave === 'midia' || g.sobreposto) ? msym(ICON.import) : msym(ICON.music),
-      g.rotulo, sub, () => {}, g.chave, remontar);
+      g.rotulo, sub, () => {}, g.chave, remontar, pacoteMarcados);
     const btnLinha = li.querySelector('button');
     if (btnLinha) btnLinha.disabled = travada;
     // AS CLASSES QUE LEVAM O DESENHO DA BIBLIOTECA (v1.8.40) — ver o CSS. Elas
@@ -31977,7 +31992,7 @@ function renderPacoteGrupos(plano) {
     // Pelo `pacoteBytesDe` e não pelo `pacotePesoDe`: aquele é o que sabe a
     // UNIÃO, e é o mesmo que o confirmar usa — dois jeitos de somar a mesma
     // coisa divergem no primeiro grupo que se sobrepuser.
-    const marcadas = item.chaves.filter((k) => destMarcados.has(k));
+    const marcadas = item.chaves.filter((k) => pacoteMarcados.has(k));
     d.textContent = marcadas.length + ' de ' + item.chaves.length
       + ' · ' + pacotePeso(pacoteBytesDe(plano, new Set(marcadas)), plano.aprox);
     txt.append(t, d);
@@ -31987,8 +32002,8 @@ function renderPacoteGrupos(plano) {
       // PARCIAL VAI PARA CHEIO, e não para vazio: o toque numa marca parcial é
       // "quero este grupo", e quem quer tirar toca de novo. O contrário faria o
       // primeiro toque DESFAZER o que o operador acabou de marcar à mão.
-      if (estado === 'todas') for (const k of item.chaves) destMarcados.delete(k);
-      else for (const k of item.chaves) destMarcados.add(k);
+      if (estado === 'todas') for (const k of item.chaves) pacoteMarcados.delete(k);
+      else for (const k of item.chaves) pacoteMarcados.add(k);
       remontar();
     };
     bar.addEventListener('click', marcarGrupo);
@@ -32920,15 +32935,24 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     switch (cab.t) {
       case 'media-thumb': case 'media-pagina': case 'arquivo-thumb': return !pulando;
       case 'media':
-        // O ORIGINAL ESCONDIDO entra se o item editado que o usa entrou (ele vem DEPOIS, por
-        // contrato do exportador); o editado, ao entrar, registra o original dele.
+        // O ORIGINAL de um editado admitido entra SEMPRE — escondido (`base`) ou pelo caminho
+        // normal (a conferência já juntou os de todo o pacote, ver `pacotePreverBase`); o
+        // editado, ao entrar, registra o original dele (o fluxo aplicado sem conferência).
         pulando = cab.base ? !filtro.bases.has(cab.rec && cab.rec.id)
-          : !pacoteMidiaEntra(filtro, cab.rec, cab.grupos);
+          : !(filtro.bases.has(cab.rec && cab.rec.id) || pacoteMidiaEntra(filtro, cab.rec, cab.grupos));
         if (!pulando && cab.rec && cab.rec.edicao && cab.rec.edicao.origem) filtro.bases.add(cab.rec.edicao.origem);
         return !pulando;
-      case 'arquivo': pulando = !pacoteArquivoEntra(filtro, cab.rec); return !pulando;
+      case 'arquivo':
+        // O original que é faixa de COLEÇÃO: o catálogo dele entra, e os bytes que ele aponta também.
+        if (cab.rec && filtro.bases.has(cab.rec.id)) {
+          pacoteLembrarCaminhosBase(filtro, cab.rec);
+          pulando = false;
+          return true;
+        }
+        pulando = !pacoteArquivoEntra(filtro, cab.rec); return !pulando;
       case 'opfs':
-        pulando = !filtro.marcados.has(AVPacote.grupoDoCaminho(cab.caminho, filtro.ids));
+        pulando = !(filtro.marcados.has(AVPacote.grupoDoCaminho(cab.caminho, filtro.ids))
+          || (filtro.caminhosBase && filtro.caminhosBase.has(cab.caminho)));
         return !pulando;
       default: pulando = false; return true;   // info, state, state-blob, fim
     }
@@ -33239,13 +33263,53 @@ function pacoteFiltroDeImportacao() {
   const plano = pacoteEsboco;
   if (!plano || !Array.isArray(plano.grupos)) return null;
   const oferecidos = plano.grupos.filter((g) => !g.fixo);
-  if (!oferecidos.length || oferecidos.every((g) => destMarcados.has(g.chave))) return null;
+  if (!oferecidos.length || oferecidos.every((g) => pacoteMarcados.has(g.chave))) return null;
   return {
     marcados: pacoteSelecao(plano),
     ids: new Set(allCollections().map((c) => c.id)),
     listas: new Map(),
     bases: new Set(),
+    caminhosBase: new Set(),
   };
+}
+
+/**
+ * O ORIGINAL DE UM EDITADO ADMITIDO ENTRA SEMPRE (v1.12.22).
+ *
+ * `base: true` cobre só o original ESCONDIDO. O que viaja pelo caminho normal — uma mídia de
+ * um grupo marcado na exportação, ou o `arquivo`/`opfs` de uma coleção marcada — era julgado
+ * pelos GRUPOS dele: com o Cronograma (ou o hinário) desmarcado na importação, o editado
+ * entrava, o original não, `resolverEdicao` devolvia `null` e o item sumia calado (contado
+ * como "1 entrou"). E a ordem do arquivo não ajuda: a mídia sai na ordem das chaves, e o
+ * original pode vir ANTES do editado. Por isso a conferência — que já lê o pacote inteiro
+ * pelos cabeçalhos antes de uma linha ser gravada — junta os originais dos editados que vão
+ * entrar (`pacotePreverBase`), e a decisão de cada registro os consulta.
+ */
+function pacotePreverBase(filtro, cab, corpoTexto) {
+  if (!filtro || !cab) return;
+  if (cab.t === 'state' && corpoTexto != null) {
+    let valor;
+    try { valor = JSON.parse(corpoTexto); } catch (_) { return; }
+    if (!Array.isArray(valor)) return;
+    for (const L of PACOTE_LISTAS) {
+      if (cab.chave === L.lista) {
+        filtro.listas.set(AVPacote.GRUPO_LISTA + L.lista, new Set(valor.filter((x) => typeof x === 'string')));
+      }
+    }
+    return;
+  }
+  if (cab.t === 'media' && !cab.base && cab.rec && cab.rec.edicao && cab.rec.edicao.origem
+      && pacoteMidiaEntra(filtro, cab.rec, cab.grupos)) {
+    filtro.bases.add(cab.rec.edicao.origem);
+  }
+}
+/** O caminho dos bytes de um original admitido (o áudio e as imagens de fundo da letra). */
+function pacoteLembrarCaminhosBase(filtro, rec) {
+  if (!filtro.caminhosBase) filtro.caminhosBase = new Set();
+  if (rec && rec.opfsPath) filtro.caminhosBase.add(rec.opfsPath);
+  if (rec && Array.isArray(rec.lyrics)) {
+    for (const sl of rec.lyrics) if (sl && sl.imageOpfsPath) filtro.caminhosBase.add(sl.imageOpfsPath);
+  }
 }
 
 /** Uma mídia entra se QUALQUER grupo que a contém está marcado — a regra da saída. */
@@ -33319,8 +33383,11 @@ function pacotePulsar(el, tipo) {
   return dele || daGrade;
 }
 
-async function pacoteConferir(fonte, aoAndar) {
+async function pacoteConferir(fonte, aoAndar, filtro) {
   const cursor = pacoteCursor(fonte);
+  // Com `filtro` ela também lê o corpo das LISTAS do pacote (são poucos ids): é delas que
+  // `pacotePreverBase` sabe se um editado entra.
+  const lerLista = (cab) => !!filtro && cab.t === 'state' && PACOTE_LISTAS.some((L) => L.lista === cab.chave);
   try {
     for (;;) {
       // SEM CORPO: ela lê cabeçalhos e PULA os bytes de cada um. Sobre um
@@ -33328,8 +33395,9 @@ async function pacoteConferir(fonte, aoAndar) {
       // lida por JANELAS, buscar um corpo que ninguém vai usar leria o pacote
       // inteiro duas vezes.
       if (pacoteCancelarImport) return;
-      const r = await cursor.proximo(false);
+      const r = await cursor.proximo(lerLista);
       if (!r) break;               // os bytes acabaram sem o registro `fim`
+      if (filtro) pacotePreverBase(filtro, r.cab, r.corpo ? await r.corpo.text() : null);
       // ELA ANDA (v1.8.23). A conferência percorre o arquivo INTEIRO pelos
       // cabeçalhos — minutos num acervo grande — e não reportava nada: o
       // operador via a palavra "Conferindo…" parada, que é indistinguível de
@@ -33736,7 +33804,7 @@ async function importarPacote() {
       // inteiro, em vez de entrar pela metade.
       await pacoteConferir(fonte, (pos) => {
         andarNaBarra(pacoteFatia(0, PACOTE_FATIA_CONFERE, pos, fonte.size));
-      });
+      }, filtro);
       // O NÚMERO MORA NO PRÓPRIO BOTÃO (v1.7.3), aqui como na exportação: a
       // ação nasceu nele. O NOME do arquivo vai para a notificação, que é a
       // superfície com espaço.
@@ -39187,6 +39255,16 @@ function volumePassa(antes, depois, max, app) {
   if (!(max > 0) || !(depois > antes)) return null;
   return Math.max(0, app - (depois - antes) / max);
 }
+// A PASSAGEM SÓ VALE ONDE O VOLUME DO SISTEMA ALCANÇA O SOM (v1.12.22). O som sai DESTE processo
+// quando toca a prévia ou o telão (a `Presentation`, que roda aqui e cuja saída o volume do sistema
+// governa). Sem TV no ar e com telas da rede recebendo, as telas SÃO a projeção (este aparelho fica
+// mudo, `somLocalDeveEstar`) e o comando `volume` desce para elas — o sistema daqui não as alcança, e
+// cada toque em "aumentar" as deixava mais BAIXAS (100 → 93 → … → 40%). A pergunta é a do campo
+// `telao` (`telaoNoAr`), nunca a lista crua: TV listada com a `Presentation` no chão devolve o som
+// ao celular. E a das telas é `telasDaRede()`, a mesma que decide o mudo.
+function passagemAlcancaOSom() {
+  return !!telaoNoAr() || !telasDaRede().length;
+}
 async function volSistemaSobe() {
   if (volSistemaEmVoo) return;
   volSistemaEmVoo = true;
@@ -40186,10 +40264,18 @@ if (window.__NATIVE__) {
     // A passagem em curso só vale se ninguém mexeu no fader do app depois do último degrau — a tecla
     // de baixo também o move, e por isso a encerra.
     if (volPassagem && Math.abs(volume - volPassagem.app) > 0.006) volPassagem = null;
+    const passa = passagemAlcancaOSom();
+    if (!passa) volPassagem = null;
     // No teto do fader — ou no meio de uma passagem — a tecla de cima vai ao SISTEMA e o app cede
     // o mesmo tanto (v1.12.18, ver `volumePassa`); o resto do tempo as teclas mexem só no app.
-    if (step > 0 && (volume >= 1 || volPassagem)) {
+    if (step > 0 && passa && (volume >= 1 || volPassagem)) {
       volSistemaSobe();
+      return;
+    }
+    // Projeção só pelas telas da rede: no teto o passo vai ao sistema SEM o app ceder (o de antes
+    // da v1.12.15) — o volume daqui não chega às telas, e baixar o fader as baixaria.
+    if (step > 0 && volume >= 1) {
+      AVNative.systemVolume(step);
       return;
     }
     // Já no zero do fader: devolve a tecla ao sistema (com a UI de volume do Android), senão um

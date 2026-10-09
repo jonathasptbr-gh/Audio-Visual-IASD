@@ -212,6 +212,20 @@ const vol2 = await pg.evaluate(() => { clearInterval(window.__volT); return wind
 checar(vol2.filter(([t]) => t > 0.05).every(([, v]) => v > 0.95),
   'B · item SEM marcas de fade e fade da tela desligado: o volume não se mexe', JSON.stringify(vol2.slice(0, 6)));
 
+// B5 · o corte com os fades REAIS do app (o `FADE` fixo: entrada e saída, 0,6 s) e SEM a marca de
+// saída no item (v1.12.22). O fim natural espera o fade de saída do palco antes de marcar `ended`; o
+// `<video>` segue tocando nesse meio-tempo, e cada `timeupdate` achava `resta < 0` e despachava OUTRO
+// `ended` — MEDIDO, ~17 avisos (cada um avançando a fila) até o fim do ARQUIVO. Um aviso só.
+await pg.evaluate(() => window.__stage.setFade({ fadeIn: true, fadeOut: true, time: 0.6 }));
+const idReal = await criar({ inicio: 0, fim: 2 });
+await pg.evaluate((id) => { window.__fins.length = 0; return window.__stage.handle({ type: 'load', mediaId: id, view: 'visual', muted: false, volume: 1 }); }, idReal);
+const parou = await esperar(pg, () => window.__fins.length > 0 && window.__stage.hasEnded() && window.__v.paused, null, 12000);
+const finsReal = await pg.evaluate(() => ({ n: window.__fins.length, em: window.__fins.map((t) => +t.toFixed(2)), c: window.__v.currentTime }));
+checar(parou === true && finsReal.n === 1,
+  'B · com os fades reais da tela (0,6 s) e sem a marca de saída, o corte dá UM `ended` só — não um por `timeupdate` durante o fade',
+  porque(parou) || JSON.stringify(finsReal));
+await pg.evaluate(() => window.__stage.setFade({ fadeIn: false, fadeOut: false, time: 1 }));
+
 // =========================================================================
 // C · A JANELA (o app inteiro, no Modo Avançado)
 // =========================================================================
@@ -690,11 +704,23 @@ await ctx4.close();
 // =========================================================================
 // D · O ORIGINAL É SEMPRE VINCULADO — hinário, vídeo baixado, exportação
 // =========================================================================
-// D1 · o original do CATÁLOGO (hinário/pasta) sobrevive à exclusão da coleção.
+// D1 · o original do CATÁLOGO (hinário/pasta) sobrevive à exclusão da coleção — e com os BYTES
+// LEGÍVEIS (v1.12.22): o `File` do OPFS gravado no IndexedDB vai POR REFERÊNCIA, e apagada a pasta o
+// `size` continua certo enquanto o `arrayBuffer()` lança `NotFoundError`. Por isso aqui se LÊ.
 const d1 = await app.evaluate(async (b64) => {
   const bin = atob(b64); const u = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
   const A = window.AVDB;
+  // Os bytes como o palco os acha: blob, ou o arquivo do `opfsPath`. `null` = ilegível.
+  const ler = async (r) => {
+    try {
+      const c = r && (r.blob || (r.opfsPath ? await A.opfsGetFile(r.opfsPath) : null));
+      if (!c) return null;
+      const ab = new Uint8Array(await c.arrayBuffer());
+      return ab.length === u.length && ab.every((x, i) => x === u[i]);
+    } catch (e) { return null; }
+  };
+  const existe = async (caminho) => { try { await A.opfsGetFile(caminho); return true; } catch (_) { return false; } };
   await A.opfsWriteFile('folders/hinD/1.wav', new Blob([u], { type: 'audio/wav' }));
   await A.fileAdd({ id: 'cat-hino-1', folder: 'hinD', opfsPath: 'folders/hinD/1.wav', name: 'Hino 1',
     type: 'audio/wav', kind: 'audio', size: u.length, seconds: 6, blob: null, url: null,
@@ -706,23 +732,40 @@ const d1 = await app.evaluate(async (b64) => {
   await window.purgeCatalogRecords(recs);
   await A.opfsDeleteDir('folders/hinD');
   const lido = await A.getMedia(ed.id);
+  const legivel = await ler(lido);
   const emLista = [];
   for (const l of ['imports', 'playlist', 'favs', 'avulsos']) if ((await A.listIds(l)).includes('cat-hino-1')) emLista.push(l);
   const base = await A.getMediaCru('cat-hino-1');
+  // a exportação do pacote: o original viaja com bytes LEGÍVEIS (não o blob morto)
+  const plano = await window.pacotePlano();
+  const exp = (await window.pacoteBases(plano, new Set(['lst:favs']))).find((b) => b.rec.id === 'cat-hino-1');
+  const exportaLegivel = exp ? await ler({ blob: exp.corpo }) : 'não exportou';
+  const caminhoBase = base && base.opfsPath;
+  const outrosTemBase = [...plano.porGrupo.values()].some((g) => g.arquivos.some((a) => a.caminho === caminhoBase));
   await window.AVDB.listRemove('favs', ed.id);      // o último lugar do editado
   await A.gcOrfaos();
-  return { tocavel: !!(lido && lido.blob && lido.blob.size === u.length), seconds: lido && lido.seconds,
+  const arquivoNaCarencia = caminhoBase ? await existe(caminhoBase) : null;
+  // passada a carência de uma adoção em curso (o relógio do coletor adiantado dois minutos)
+  const relogio = Date.now;
+  Date.now = () => relogio() + 120000;
+  try { await A.gcOrfaos(); } finally { Date.now = relogio; }
+  return { legivel, seconds: lido && lido.seconds,
     letra: lido && lido.lyrics.map((l) => l.time), fileSumiu: !(await A.fileGet('cat-hino-1')),
-    baseNaMedia: !!(base && base.base && !base.opfsPath), emLista,
-    baseColetada: !(await A.getMediaCru('cat-hino-1')) };
+    baseNaMedia: !!(base && base.base && !base.folder), emLista, caminhoBase,
+    exportaLegivel, outrosTemBase,
+    baseColetada: !(await A.getMediaCru('cat-hino-1')), arquivoNaCarencia,
+    arquivoColetado: caminhoBase ? !(await existe(caminhoBase)) : null };
 }, wav);
-checar(d1.fileSumiu && d1.tocavel && d1.seconds === 4,
-  'D · excluir a coleção do hinário NÃO tira o original do item editado: ele continua tocável, com os bytes',
+checar(d1.fileSumiu && d1.legivel === true && d1.seconds === 4,
+  'D · excluir a coleção do hinário NÃO tira o original do item editado: ele continua tocável, e os bytes se LEEM depois de a pasta sumir',
   JSON.stringify(d1));
+checar(d1.exportaLegivel === true && !d1.outrosTemBase,
+  'D · e o pacote exporta o original adotado com bytes legíveis, só pelo vínculo (não como "arquivo sem coleção")', JSON.stringify(d1));
 checar(d1.baseNaMedia && d1.emLista.length === 0,
   'D · e o original passa a ser interno: fora de toda lista, invisível para o operador', JSON.stringify(d1));
-checar(d1.baseColetada,
-  'D · sem o item editado em lugar nenhum, o original interno é coletado (não vaza)', JSON.stringify(d1));
+checar(d1.baseColetada && d1.arquivoNaCarencia === true && d1.arquivoColetado === true,
+  'D · sem o item editado em lugar nenhum, o original interno é coletado — o registro e, pelo MESMO `gcOrfaos`, o ARQUIVO dele no OPFS (passada a carência)',
+  JSON.stringify(d1));
 
 // D2 · o plano do pacote: o original viaja ESCONDIDO com o editado, e não vira "Outros itens".
 const d2 = await app.evaluate(async (b64) => {
