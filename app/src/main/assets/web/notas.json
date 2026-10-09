@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.12.21",
+    "itens": [
+      "Modo Fácil: ao fechar a biblioteca, a moldura mantém os cantos arredondados em vez de ficar quadrada."
+    ]
+  },
+  {
     "versao": "1.12.20",
     "itens": [
       "Cronograma: a sombra dos botões Bíblia, Importar e Ferramentas agora aparece e some aos poucos, sem corte seco."
