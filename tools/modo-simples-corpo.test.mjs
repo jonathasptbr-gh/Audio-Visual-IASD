@@ -561,6 +561,46 @@ try {
     'O3 · a mídia que entra: a Biblioteca SOBE recolhendo para a barra, também passando por posições intermediárias',
     JSON.stringify(o3));
 
+  // R · A MOLDURA NÃO FICA QUADRADA NO MEIO DO CAMINHO (v1.12.21)
+  // Relato do operador: *"no modo simples, durante a animação de fechamento da biblioteca, a moldura
+  // da biblioteca fica quadrada ao redor da caixa de buscas, contrastando com sua forma normal de
+  // cantos arredondados"*. O fundo da folha anda no relógio do recorte (some só no FIM da descida),
+  // mas o RAIO não andava: zerava no primeiro quadro e o painel descia com cantos retos. A prova é
+  // de TRAJETÓRIA: em todo quadro em que a folha ainda pinta o painel, o raio tem de ser o do cartão.
+  const moldura = async (acao) => {
+    await pg.evaluate(() => {
+      const sh = document.querySelector('#hymnSearchPopup .popup-sheet--lib');
+      window.__mol = { am: [], fim: false };
+      const laco = () => { const cs = getComputedStyle(sh);
+        window.__mol.am.push({ bg: cs.backgroundColor, raio: parseFloat(cs.borderTopLeftRadius) || 0 });
+        if (!window.__mol.fim) requestAnimationFrame(laco); };
+      laco();
+    });
+    await acao();
+    await pg.waitForTimeout(900);
+    return pg.evaluate(() => {
+      window.__mol.fim = true;
+      const am = window.__mol.am;
+      const pinta = am.filter((x) => x.bg !== 'rgba(0, 0, 0, 0)' && x.bg !== 'transparent');
+      return { quadros: am.length, pintados: pinta.length, retos: pinta.filter((x) => x.raio < 1).length,
+        raioMax: Math.max(...am.map((x) => x.raio)), raioFinal: am[am.length - 1].raio, bgFinal: am[am.length - 1].bg };
+    });
+  };
+  await pg.evaluate(() => { document.getElementById('simpleStop').click(); });
+  await quadros();
+  await subirMidia();
+  await quadros();
+  const r1 = await moldura(parar);
+  checar(r1.pintados >= 5 && r1.retos === 0 && r1.raioMax > 4,
+    'R1 · Parar: enquanto a Biblioteca desce, TODO quadro com o painel pintado tem os cantos arredondados do cartão',
+    JSON.stringify(r1));
+  const r2 = await moldura(subirMidia);
+  checar(r2.pintados >= 5 && r2.retos === 0 && r2.raioMax > 4,
+    'R2 · a mídia que entra: ao recolher para a barra o painel também desce com os cantos arredondados',
+    JSON.stringify(r2));
+  checar(r2.raioFinal === 0 && /rgba\(0, 0, 0, 0\)|transparent/.test(r2.bgFinal),
+    'R3 · e FECHADA a folha volta a não pintar nada (a barra é só uma linha da caixa)', JSON.stringify(r2));
+
   // P · A CAIXA SE CURA SOZINHA DEPOIS DE ASSENTAR (v1.12.13)
   // Relato do operador: *"verifique o ajuste de altura disponível para a biblioteca no modo simples,
   // após o stop, pois ela está ficando encurtada, ao que parece, no mesmo tamanho de quando há

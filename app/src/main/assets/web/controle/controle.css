@@ -7731,9 +7731,14 @@ main {
      a tela na abertura do app.
      O FUNDO ANDA NO MESMO RELÓGIO DO RECORTE (0s de duração, atraso de uma
      animação): fechada a folha não pinta, senão sobraria um retângulo `--bg`
-     atrás da faixa da barra — o "zoneamento" que a v1.5.2 veio tirar. */
+     atrás da faixa da barra — o "zoneamento" que a v1.5.2 veio tirar.
+     **O RAIO ANDA NO MESMO RELÓGIO DO FUNDO** (v1.12.21): sem isso ele zerava no
+     primeiro quadro do fechamento e o painel, ainda pintado, descia com cantos
+     retos até sumir — a "moldura quadrada" do Modo Fácil. Abrir não tem atraso
+     (`.open` zera os três). */
   transition: transform var(--lib-anim, 0s) cubic-bezier(.2, .7, .3, 1),
-              background-color 0s linear var(--lib-anim, 0s);
+              background-color 0s linear var(--lib-anim, 0s),
+              border-radius 0s linear var(--lib-anim, 0s);
 }
 body.lib-pronta { --lib-anim: var(--pop-anim); }
 .popup-backdrop--lib.open .popup-sheet--lib {
@@ -7758,7 +7763,7 @@ body.lib-pronta { --lib-anim: var(--pop-anim); }
      (`inset: 0` + `height`), e é do topo que a barra parte. Um `bottom` moveria
      a origem da translação junto. */
   height: calc(100% - var(--sa-topo) - var(--lib-fresta));
-  transition-delay: 0s, 0s;
+  transition-delay: 0s, 0s, 0s;
 }
 /* NO MODO FÁCIL A BARRA NÃO FICA À VISTA, e a razão é a mesma que esconde a
    caixa de controles inteira lá (`body.mode-simple .bottombar`): aquele modo não
