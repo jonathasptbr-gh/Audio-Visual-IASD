@@ -1005,6 +1005,14 @@ try {
     // DE VOLTA AO ESTADO EM QUE A FOLHA NASCEU: as asserções de baixo exportam,
     // e o que elas medem é o pacote INTEIRO.
     await tocar(e.pg, 'Diversas', 'seta');
+    // FECHAR ANIMA, e o fecho só remonta no FIM da animação: espera-se o corpo SAIR antes de
+    // seguir — sem esta espera, sob carga o fecho atrasado caía no meio do bloco seguinte.
+    const fechouDiversas = await esperar(e.pg, () => {
+      const li = [...document.querySelectorAll('#pacoteLista li')]
+        .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === 'Diversas');
+      return !!li && !li.querySelector('.pacote-grupo-corpo');
+    }, null, 4000);
+    checar(fechouDiversas === true, 'E · PREMISSA: a seção Diversas fechou', porque(fechouDiversas));
     await tocar(e.pg, 'Diversas');
     await tocar(e.pg, 'Favoritos');
 
@@ -1077,6 +1085,38 @@ try {
       checar(sumiu === true,
         'E · e o corpo SOME quando a animação termina — sem esta, "nunca '
         + 'remontar" passaria na de cima', porque(sumiu));
+    }
+
+    // ===== O FECHO ATRASADO NÃO FECHA A SEÇÃO QUE ABRIU DEPOIS (v1.12.22) =====
+    // Fechar anima e só remonta no fim (ACC_MS). Um toque na seta de OUTRA seção nesse meio
+    // tempo a abre — e o fecho atrasado, sem guarda, zerava a seção aberta e a fechava junto.
+    // Os dois toques vão no MESMO quadro, e a régua é o fim da animação do corpo que fechou.
+    {
+      const corrida = await e.pg.evaluate(async () => {
+        const acha = (n) => [...document.querySelectorAll('#pacoteLista li')]
+          .find((x) => ((x.querySelector('.song-menu-label') || {}).textContent || '') === n);
+        acha('Diversas').querySelector('.pacote-seta').click();          // abre Diversas
+        await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+        const corpo = acha('Diversas').querySelector('.pacote-grupo-corpo');
+        await Promise.all(corpo.getAnimations().map((a) => a.finished.catch(() => {})));
+        acha('Diversas').querySelector('.pacote-seta').click();          // fecha (animando)
+        const anims = corpo.getAnimations();
+        acha('Adoradores').querySelector('.pacote-seta').click();        // e abre outra já
+        await Promise.all(anims.map((a) => a.finished.catch(() => {})));
+        await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+        const ad = acha('Adoradores');
+        return { animou: anims.length, aberta: pacoteSecaoAberta,
+          corpo: !!(ad && ad.querySelector('.pacote-grupo-corpo')) };
+      });
+      checar(corrida.animou > 0, 'E · PREMISSA: o fechar de Diversas animou', JSON.stringify(corrida));
+      checar(corrida.aberta === 'Adoradores' && corrida.corpo === true,
+        'E · fechar uma seção e abrir OUTRA antes de a animação acabar deixa a outra ABERTA — o fecho '
+        + 'atrasado só vale para a seção que ainda é a aberta', JSON.stringify(corrida));
+      // de volta ao estado sem seção aberta
+      await tocar(e.pg, 'Adoradores', 'seta');
+      const voltou = await esperar(e.pg, () => pacoteSecaoAberta === ''
+        && ![...document.querySelectorAll('#pacoteLista .pacote-grupo-corpo')].length, null, 4000);
+      checar(voltou === true, 'E · PREMISSA: nenhuma seção aberta de novo', porque(voltou));
     }
 
     // ===== A ALFABÉTICA, NAS DUAS COLETÂNEAS =====

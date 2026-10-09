@@ -576,6 +576,9 @@ de grupos para a exportação"*.
   múltipla escolha seria a divergência que a v5.252 gastou um lote para tirar.
 - **TUDO NASCE MARCADO:** o caso normal é levar o acervo inteiro, e a folha
   existe para PODER tirar.
+- **O FECHO ATRASADO DE UMA SEÇÃO SÓ VALE SE ELA AINDA É A ABERTA** (v1.12.22):
+  fechar anima (`collapseAccordion`) e só remonta no fim; um toque na seta de
+  outra seção nesse meio tempo a abre, e sem a guarda o fecho atrasado a fechava.
 - **O SET DAS MARCAS É DA JANELA** (`pacoteMarcados`, v1.12.22), passado ao
   `songMenuItem` pelo último argumento. Ele foi o `destMarcados` da folha de
   destinos até a v1.12.21, e aquela folha o deixa com `{'tocar'}`/`{'cronograma'}`
