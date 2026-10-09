@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.22';
+const WEB_VERSION = '1.12.23';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -33151,7 +33151,7 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
           }
         }
       }
-      loteEstado.push({ chave: cab.chave, valor });
+      loteEstado.push({ chave: cab.chave, valor: pacoteListaAdmitida(filtro, cab.chave, valor) });
       if (loteEstado.length >= PACOTE_LOTE_ESTADO) await escoarEstado();
       continue;
     }
@@ -33302,10 +33302,25 @@ function pacotePreverBase(filtro, cab, corpoTexto) {
     }
     return;
   }
-  if (cab.t === 'media' && !cab.base && cab.rec && cab.rec.edicao && cab.rec.edicao.origem
-      && pacoteMidiaEntra(filtro, cab.rec, cab.grupos)) {
-    filtro.bases.add(cab.rec.edicao.origem);
+  // OS QUE ENTRAM PELAS PRÓPRIAS MARCAS (v1.12.23) — é por eles que as LISTAS do pacote são
+  // filtradas ao aplicar (ver `pacoteListaAdmitida`). O original que entra só como vínculo de
+  // um editado (`bases`) fica fora daqui: ele chega sem lista, como `pacoteBases` promete.
+  if (!filtro.admitidos) filtro.admitidos = new Set();
+  if (cab.t === 'media' && !cab.base && cab.rec && pacoteMidiaEntra(filtro, cab.rec, cab.grupos)) {
+    filtro.admitidos.add(cab.rec.id);
+    if (cab.rec.edicao && cab.rec.edicao.origem) filtro.bases.add(cab.rec.edicao.origem);
   }
+  if (cab.t === 'arquivo' && cab.rec && pacoteArquivoEntra(filtro, cab.rec)) filtro.admitidos.add(cab.rec.id);
+}
+/**
+ * UMA LISTA DO PACOTE (Cronograma, playlist, favoritos, séries, avulsos) SÓ TRAZ O QUE ENTROU
+ * (v1.12.23). O `state` dela viajava inteiro: com o grupo desmarcado o item ficava de fora e o
+ * id entrava na lista do destino, pendurado — invisível hoje, e reaparecendo no dia em que uma
+ * importação futura trouxesse o item. A conferência já leu o pacote inteiro e sabe quem entra.
+ */
+function pacoteListaAdmitida(filtro, chave, valor) {
+  if (!filtro || !filtro.admitidos || !Array.isArray(valor) || !AVDB.LISTS.includes(chave)) return valor;
+  return valor.filter((id) => typeof id === 'string' && filtro.admitidos.has(id));
 }
 /** O caminho dos bytes de um original admitido (o áudio e as imagens de fundo da letra). */
 function pacoteLembrarCaminhosBase(filtro, rec) {
@@ -37298,9 +37313,16 @@ let histGravaTimer = 0;
  * SEM RECEITA fica o que só existe porque um arquivo foi importado ou
  * compartilhado — exatamente o que o coletor recolhe, e exatamente o que o
  * operador não quer ser obrigado a manter.
+ *
+ * E O ITEM EDITADO É O PRÓPRIO ITEM (v1.12.23): o resolvido herda `folder`/
+ * `srcName` do ORIGINAL (`resolverEdicao`), e a receita de acervo trazia de
+ * volta o HINO INTEIRO no lugar do trecho. A receita `item` só aponta para o
+ * id — estável, porque um editado nunca é rebaixado —, e sumido ele, falha
+ * FECHADA (`histResolver` devolve `null`).
  */
 function histReceita(item) {
   if (!item) return null;
+  if (item.edicao) return { t: 'item' };
   if (isCue(item)) return { t: 'cena', c: item.cue, d: item.data || {} };
   if (item.kind === 'youtube' && item.url) {
     return { t: 'link', u: item.url, y: item.youtubeId || null };
@@ -37447,6 +37469,8 @@ async function histResolver(h, destino) {
   if (vivo) return { rec: vivo, criado: false };
   const r = h.rec;
   if (!r) return null;
+  // O editado só existe pelo id, que já foi perguntado acima: sem ele, nada.
+  if (r.t === 'item') return null;
   if (r.t === 'acervo') {
     let irmaos = [];
     try { irmaos = await AVDB.filesByFolder(r.f); } catch (_) { return null; }
@@ -37863,7 +37887,6 @@ let edicaoDur = 0;                 // duração do original (s); 0 = sem escolha
 // como um corte de verdade.
 let edicaoTeto = 0;
 let edicaoVals = { inicio: 0, fim: 0, fadeEntrada: false, fadeSaida: false, soAudio: false, nome: '' };
-let edicaoSelId = '';              // a linha marcada no seletor
 let edicaoGrupos = [];             // os grupos do seletor, já lidos
 const edicaoAbertos = new Set();   // os grupos abertos (uma sessão)
 let edicaoSeq = 0;
@@ -38167,8 +38190,8 @@ function edicaoSalvarLogo() {
   edicaoSalvarTimer = setTimeout(edicaoSalvarJa, 250);
 }
 
-// O que muda a cada toque na faixa: os números, o preenchimento entre as pontas, o resumo, o
-// botão de criar. Nada é remontado — remontar no meio do arrasto o soltaria.
+// O que muda a cada toque na faixa: os números, o preenchimento entre as pontas, o "Confirmar" e
+// os destinos. Nada é remontado — remontar no meio do arrasto o soltaria.
 function edicaoAtualizar() {
   const e = edicaoLer();
   const v = edicaoVals;
@@ -38426,7 +38449,6 @@ async function edicaoCarregarOrigem(id, valores, editando) {
 // Tocou numa linha do seletor. Um item JÁ EDITADO é editado NO LUGAR (parte dos valores gravados dele,
 // com o nome dele); o original é editado para um item NOVO.
 async function edicaoEscolherItem(it) {
-  edicaoSelId = it.id;
   let origem = it.id, valores = null, editando = null;
   if (it.editado) {
     let cru = null;
@@ -38458,7 +38480,7 @@ async function openEdicaoPopup() {
         editando = { id: cru.id, nome: cru.name || '', base: edicaoBaseDe(cru) };
       }
     }
-    if (await edicaoCarregarOrigem(r.origem, r, editando)) edicaoSelId = r.origem;
+    await edicaoCarregarOrigem(r.origem, r, editando);
   }
   edicaoVista = edicaoOrigem ? 'form' : 'escolha';
   if (edicaoVista === 'escolha') { edicaoCarregando = true; edicaoRender(); await edicaoCarregarLista(); }
@@ -38473,7 +38495,7 @@ async function edicaoDescartar() {
   clearTimeout(edicaoSalvarTimer); edicaoSalvarTimer = null;
   try { await AVDB.setState(EDICAO_RASCUNHO, null); } catch (_) { /* nada */ }
   edicaoSeq++;
-  edicaoOrigem = null; edicaoDur = 0; edicaoSelId = ''; edicaoEditandoId = ''; edicaoEditandoNome = ''; edicaoBase = null;
+  edicaoOrigem = null; edicaoDur = 0; edicaoEditandoId = ''; edicaoEditandoNome = ''; edicaoBase = null;
   edicaoVals = { inicio: 0, fim: 0, fadeEntrada: false, fadeSaida: false, soAudio: false, nome: '' };
   await edicaoAbrirEscolha();
 }
@@ -39245,7 +39267,7 @@ const VOL_PASSO = 5;
 // antes/depois/max, shell 78); mexer no fader do app no meio dela (a tecla de baixo inclusive)
 // a encerra, e o próximo teto começa outra do volume que o sistema de fato tem.
 const VOL_SIS_ALVO = 0.6;       // fração do volume do sistema onde termina o primeiro ciclo
-let volSistemaEmVoo = false;    // um passo no sistema está sendo respondido; o toque seguinte espera
+let volSistemaEmVoo = false;    // um passo no sistema está sendo respondido; o toque que chega nesse meio é DESCARTADO
 let volPassagem = null;         // { limite, exato, app } enquanto uma passagem está em curso
 // PURA. Onde termina a passagem que começa com o sistema em `fracao` (0..1): no alvo, se ele
 // ainda não foi alcançado, senão no máximo.

@@ -1564,7 +1564,7 @@
     stateApagarPrefixo,
     addMedia, addUrlMedia, addDeck, addCue,
     getMedia, getMediaCru, addEdicao, atualizarEdicao, addBase, basesDoEditor, baseDe, adotarBases, ehCaminhoDeBase, mediaByYoutube, renameMedia,
-    listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
+    LISTS, listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,
     filesPastas,
     opfsSupported, opfsGetFile, opfsWriteFile, opfsDeleteDir, opfsFolderSize,

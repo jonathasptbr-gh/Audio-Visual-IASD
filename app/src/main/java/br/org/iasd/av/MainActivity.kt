@@ -1061,10 +1061,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * reage à soltura) o evento vira um passo no `#volSlider`, como arrastar o
      * fader.
      *
-     * **Válvula de escape:** com o fader no máximo (ou no zero), o lado web
-     * devolve a tecla via `adjustSystemVolume()` e ela volta a valer para o
-     * sistema, com a UI de volume do Android. Sem isso, um aparelho com o volume
-     * de mídia baixo ficaria sem jeito de subir com o app aberto.
+     * **Nas pontas do fader a tecla volta ao SISTEMA, e quem decide como é o
+     * lado web** (invariante 5), sempre com a UI de volume do Android. No
+     * MÁXIMO, a tecla de cima entra na PASSAGEM (`systemVolumeStep` →
+     * [stepSystemVolume]: o sistema sobe um degrau e o app cede o mesmo tanto)
+     * ou, quando o volume daqui não alcança o som (projeção só pelas telas da
+     * rede), vai por `systemVolume(+1)` → [adjustSystemVolume] sem o app ceder.
+     * No ZERO, a tecla de baixo vai por `systemVolume(-1)`. Sem isso, um
+     * aparelho com o volume de mídia baixo ficaria sem jeito de subir com o app
+     * aberto.
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (captureVolumeKeys && isVolumeKey(keyCode)) {

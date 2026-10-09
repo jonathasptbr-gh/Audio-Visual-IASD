@@ -48,6 +48,10 @@
 //     Cronograma, uma faixa de hinário) com o grupo dele DESMARCADO na importação, e mesmo vindo ANTES do
 //     editado no arquivo. Sem ele o editado entrava, não tocava e sumia calado.
 //
+// E AS LISTAS SÓ TRAZEM O QUE ENTROU (v1.12.23):
+//  L. Com um grupo desmarcado, o `state` das listas (favoritos, séries, Cronograma…) viajava
+//     INTEIRO e deixava no destino ids de mídia que ficou de fora — pendurados.
+//
 //   node tools/pacote-importar-marcados.test.mjs
 // ============================================================================
 import path from 'node:path';
@@ -385,6 +389,22 @@ const lerDestino = (pg) => pg.evaluate(async () => {
     miniatura: await (async () => { try { const r = await AVDB.getMedia('fav-item'); return !!(r && r.thumb); } catch (_) { return false; } })(),
     bibleVersion: await AVDB.getState('bibleVersion'),
     consumiu: (window.__consumiu || []).length,
+    // AS LISTAS do destino, com os ids que NÃO têm registro (L, v1.12.23).
+    pendurados: await (async () => {
+      const out = {};
+      for (const l of ['favs', 'imports', 'playlist', 'serie', 'avulsos']) {
+        const ids = (await AVDB.getState(l)) || [];
+        const mortos = [];
+        for (const id of ids) if (!(await AVDB.getMediaCru(id))) mortos.push(id);
+        if (mortos.length) out[l] = mortos;
+      }
+      return out;
+    })(),
+    listas: {
+      favs: (await AVDB.getState('favs')) || [],
+      imports: (await AVDB.getState('imports')) || [],
+      serie: (await AVDB.getState('serie')) || [],
+    },
   };
 });
 
@@ -525,6 +545,9 @@ try {
     JSON.stringify(dA));
   checar(dA.midia.length === 0,
     'A · e a mídia (favorito e solto) não entra: o grupo dela não estava marcado', JSON.stringify(dA.midia));
+  checar(!Object.keys(dA.pendurados).length,
+    'L · as LISTAS do pacote não entram com ids de mídia que ficou de fora: nenhum favorito nem episódio '
+    + 'de série pendurado (uma importação futura do item os faria reaparecer)', JSON.stringify(dA.pendurados));
   checar(dA.bibleVersion === 'versao-de-teste',
     'A · os ajustes e catálogos (fixos) chegam sempre: são eles que fazem os arquivos aparecerem na Biblioteca',
     JSON.stringify(dA.bibleVersion));
@@ -574,6 +597,10 @@ try {
   checar(dC.midia.join() === 'fav-item,meu-fav' && dC.miniatura,
     'C · o favorito do PACOTE entra pela lista que o contém (e leva a miniatura); o item solto não',
     JSON.stringify(dC));
+  checar(dC.listas.favs.includes('fav-item') && dC.listas.favs.includes('meu-fav')
+      && !Object.keys(dC.pendurados).length,
+    'L · e a lista do grupo MARCADO chega com o que entrou (o favorito do pacote se junta ao do destino), sem '
+    + 'id pendurado — o filtro das listas não esvazia o que foi admitido', JSON.stringify({ l: dC.listas, p: dC.pendurados }));
   checar(!dC.h22Arquivo && !dC.h96Arquivo && !dC.h22Catalogo && !dC.h96Catalogo,
     'C · e nenhum hinário entra: não estavam marcados', JSON.stringify(dC));
   await fav.ctx.close();
@@ -610,6 +637,9 @@ try {
   checar(dH.midia.join() === 'epi-pv',
     'H · com só a série marcada chega o episódio DELA (o pacote o nomeia no grupo da série) e nenhuma '
     + 'outra mídia: nem o do Informativo, nem o favorito, nem o solto', JSON.stringify(dH.midia));
+  checar(dH.listas.serie.join() === 'epi-pv' && !dH.listas.favs.length && !Object.keys(dH.pendurados).length,
+    'L · e a lista das séries traz só o episódio que entrou; a dos favoritos não traz o favorito que ficou de fora',
+    JSON.stringify({ l: dH.listas, p: dH.pendurados }));
   await so.ctx.close();
 
   // ---- I · SEM EPISÓDIO RETIDO, A LINHA DIZ ISSO — E A PASTA ANTIGA NÃO VIAJA --

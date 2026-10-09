@@ -38,7 +38,7 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    NativeBridge.kt                     shared/native.js
    ───────────────                     ────────────────
    @JavascriptInterface  ──injetado──►  window.__AVBridge
-   (69 métodos)          addJavascript      │
+   (73 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
                                        window.AVNative  (62 métodos)
