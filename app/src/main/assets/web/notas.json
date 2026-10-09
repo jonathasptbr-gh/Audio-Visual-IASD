@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.12.23",
+    "itens": [
+      "Item editado: o fim do corte não aparece mais no Registro como pausa inesperada do telão.",
+      "Histórico: um item editado que foi apagado não traz mais o hino inteiro no lugar do trecho.",
+      "Transferir: importar só parte do pacote não deixa mais nos favoritos itens que ficaram de fora."
+    ]
+  },
+  {
     "versao": "1.12.22",
     "itens": [
       "Botões de volume: com o computador conectado e sem TV, aumentar no 100% não abaixa mais o som do computador.",

@@ -209,7 +209,8 @@
     // primeiro, mas a promise dele só se resolve depois.
     let loadsEmVoo = 0;
     let viewSeq = 0; // troca de view (cortina) — independente do loadSeq
-    // Transições de entrada/saída (config vem do Controle via comando 'fade').
+    // Transições de entrada/saída (config FIXA: `createStage.FADE`, aplicada por quem monta o
+    // palco com `setFade` — não há comando de barramento para ela).
     // `fadeIn`/`fadeOut` são os EFETIVOS da mídia em cena: a configuração do
     // operador (`fadeInCfg`/`fadeOutCfg`) OU a marca do item editado
     // (`edicao.fadeEntrada`/`fadeSaida`). A duração é sempre a `fadeTime` da

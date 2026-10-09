@@ -694,6 +694,63 @@ try {
   checar(false, 'a retomada pôde ser medida', String(e && e.message));
 }
 
+// 7-A-quater. O CORTE DO ITEM EDITADO TAMBÉM É FIM NATURAL (v1.12.23).
+//
+//    O `ended` de um item editado é SINTÉTICO: o `<video>` para no `fim` do
+//    recorte pelo `pause()` de `marcarFimNatural`, com `v.ended` FALSO e longe
+//    do fim do ARQUIVO — e o carimbo do 7-A-bis saía "PAUSA ESPONTÂNEA" no fim
+//    de TODO item editado. Aqui ele toca DE VERDADE (um WAV de 4 s cortado em
+//    1,5 s), sem forjar getter nenhum: o que se mede é a sequência real do
+//    palco, que é onde a bandeira sobe antes do evento chegar.
+try {
+  const corte = await telao.evaluate(async () => {
+    const bc = new BroadcastChannel('av-iasd');
+    const pedirDiario = () => new Promise((resolve) => {
+      const ouvir = (ev) => {
+        const m = ev && ev.data;
+        if (!m || m.type !== 'diag-dump') return;
+        bc.removeEventListener('message', ouvir);
+        resolve(Array.isArray(m.linhas) ? m.linhas : []);
+      };
+      bc.addEventListener('message', ouvir);
+      bc.postMessage({ type: 'diag-ask' });
+    });
+    const n = 8000 * 4;
+    const b = new Uint8Array(44 + n).fill(128);
+    const dv = new DataView(b.buffer);
+    const s = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+    s(0, 'RIFF'); dv.setUint32(4, 36 + n, true); s(8, 'WAVE'); s(12, 'fmt ');
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, 8000, true); dv.setUint32(28, 8000, true); dv.setUint16(32, 1, true);
+    dv.setUint16(34, 8, true); s(36, 'data'); dv.setUint32(40, n, true);
+    const orig = await AVDB.addMedia(new Blob([b], { type: 'audio/wav' }),
+      { name: 'Original', type: 'audio/wav', kind: 'audio', list: 'imports', seconds: 4 });
+    const ed = await AVDB.addEdicao({ origem: orig.id, inicio: 0, fim: 1.5 }, 'avulsos');
+    const v = document.querySelector('video');
+    // A PAUSA DO CORTE é a que vem com a bandeira do palco já de pé; ela é
+    // esperada pelo FATO (o evento), com um teto que só existe para não pendurar.
+    const pausou = new Promise((resolve) => {
+      const ouvir = () => { if (stage.hasEnded()) { v.removeEventListener('pause', ouvir); resolve(true); } };
+      v.addEventListener('pause', ouvir);
+      setTimeout(() => resolve(false), 12000);
+    });
+    bc.postMessage({ type: 'load', mediaId: ed.id, view: 'visual', muted: true, volume: 0 });
+    const chegou = await pausou;
+    const t = v.currentTime;
+    const linhas = await pedirDiario();
+    bc.close();
+    const pausas = linhas.map((l) => String(l.ev || ''))
+      .filter((ev) => ev === 'fim natural' || ev === 'PAUSA ESPONTÂNEA' || ev === 'pausa (comando)');
+    return { chegou, t: +t.toFixed(2), dur: v.duration, ultima: pausas.length ? pausas[pausas.length - 1] : '(nenhuma)' };
+  });
+  checar(corte.chegou === true && corte.t < corte.dur - 1,
+    'a montagem funcionou: o item editado parou no CORTE, longe do fim do arquivo', JSON.stringify(corte));
+  checar(corte.ultima === 'fim natural',
+    'e o corte do item editado é carimbado FIM NATURAL, não "PAUSA ESPONTÂNEA"', JSON.stringify(corte));
+} catch (e) {
+  checar(false, 'o carimbo do corte do item editado pôde ser medido', String(e && e.message));
+}
+
 // 7-B. A CORTINA NÃO ENGOLE A CAMADA DE TEXTO.
 //
 //    O stage decide a cortina sozinho em três pontos que não sabiam do cartão

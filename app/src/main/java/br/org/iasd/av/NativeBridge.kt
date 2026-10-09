@@ -1821,9 +1821,12 @@ class NativeBridge(
     }
 
     /**
-     * Válvula de escape: com o fader do app já no máximo (ou no zero), a
-     * tecla volta a valer para o volume do sistema. Sem isto, um aparelho com
-     * o volume de mídia baixo ficaria sem como subir com o app aberto.
+     * O passo no volume do sistema SEM leitura: a tecla de baixo com o fader
+     * do app no zero, e a de cima no máximo quando a passagem não vale (a
+     * projeção só pelas telas da rede, que o volume daqui não alcança). No
+     * máximo com a passagem valendo, quem sobe é [systemVolumeStep]. Sem isto,
+     * um aparelho com o volume de mídia baixo ficaria sem como subir com o app
+     * aberto.
      */
     @JavascriptInterface
     fun systemVolume(step: Int) {

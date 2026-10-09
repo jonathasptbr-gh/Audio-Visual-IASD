@@ -1422,7 +1422,13 @@ function agendarRetomada(v) {
     //
     // O teto por `duration` é cinto sobre suspensório: cobre o quadro em que a
     // bandeira ainda não subiu e o aparelho que entrega `duration` com folga.
-    const fim = v.ended || (v.duration > 0 && v.currentTime >= v.duration - 0.25);
+    //
+    // E O CORTE DE UM ITEM EDITADO TAMBÉM É FIM NATURAL (v1.12.23): o `ended`
+    // ali é SINTÉTICO, o `<video>` para no `fim` do recorte (longe do fim do
+    // ARQUIVO e com `v.ended` falso) pelo `pause()` de `marcarFimNatural` — que
+    // levanta a bandeira do palco ANTES de pausar, e o evento só chega depois.
+    const fim = v.ended || stage.hasEnded()
+      || (v.duration > 0 && v.currentTime >= v.duration - 0.25);
     const meu = Date.now() - pausaComandada < (fadeCfg.time * 1000 + 400);
     diag(fim ? 'fim natural' : (meu ? 'pausa (comando)' : 'PAUSA ESPONTÂNEA'),
       { t2: Math.round(v.currentTime) });

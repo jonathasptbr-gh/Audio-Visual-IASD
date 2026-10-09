@@ -657,6 +657,35 @@ try {
     'a folha volta a EXPLICAR que está vazia, e a faixa do limpar some com a '
     + 'lista — um destrutivo sobre nada é um alvo que só pode errar', limpouTudo);
 
+  // ── O ITEM EDITADO NÃO VOLTA COMO O ORIGINAL (v1.12.23) ────────────────
+  // O resolvido de um item editado herda `folder`/`srcName` do original (é um
+  // trecho de um hino do catálogo), e a receita saía `acervo`: com o editado
+  // apagado, o Histórico achava o HINO INTEIRO pelo par e o mandava ao telão
+  // no lugar do trecho. A receita aponta para o próprio item e falha FECHADA.
+  const editado = await pg.evaluate(async () => {
+    const hino = { id: 'hino-original', folder: 'hinario-ed', srcName: '007-cantada',
+      opfsPath: 'folders/hinario-ed/007.mp3', name: 'Hino sete', kind: 'audio',
+      type: 'audio/mpeg', size: 1, mtime: Date.now(), blob: null, url: null, addedAt: Date.now(), seconds: 60 };
+    await AVDB.fileAdd(hino);
+    const ed = await AVDB.addEdicao({ origem: hino.id, inicio: 10, fim: 20 }, 'imports');
+    const receita = histReceita(ed);
+    const h = { id: ed.id, nome: ed.name, rec: receita };
+    const vivo = await histResolver(h, 'imports');
+    await AVDB.listRemove('imports', ed.id);
+    await AVDB.gcOrfaos();
+    const sumiu = !(await AVDB.getMediaCru(ed.id));
+    const depois = await histResolver(h, 'imports');
+    return { herdouPar: !!(ed.folder && ed.srcName), receita, acionavel: histAcionavel(h, false),
+      vivoEhEle: !!(vivo && vivo.rec && vivo.rec.id === ed.id && vivo.rec.edicao),
+      sumiu, depois: depois && depois.rec ? depois.rec.id : null };
+  });
+  checar(editado.herdouPar && editado.sumiu,
+    'o cenário está montado: o editado herdou o par folder/srcName do hino, e depois foi apagado', editado);
+  checar(editado.acionavel && editado.vivoEhEle,
+    'enquanto existe, a linha de um item editado continua acionável e traz O PRÓPRIO trecho', editado);
+  checar(editado.depois === null,
+    'e apagado o editado, o Histórico NÃO traz o hino original inteiro no lugar dele — falha fechada', editado);
+
   checar(erros.length === 0, 'nenhum erro de console', erros);
 } finally {
   await navegador.close();
