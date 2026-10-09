@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.12.20",
+    "itens": [
+      "Cronograma: a sombra dos botões Bíblia, Importar e Ferramentas agora aparece e some aos poucos, sem corte seco."
+    ]
+  },
+  {
     "versao": "1.12.19",
     "itens": [
       "Cronograma: as sombras dos botões Bíblia, Importar e Ferramentas só aparecem quando há item da lista por baixo deles."
