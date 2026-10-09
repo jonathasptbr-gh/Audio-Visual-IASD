@@ -387,7 +387,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.18';
+const WEB_VERSION = '1.12.19';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -9420,6 +9420,7 @@ function medirRodapeDaLista() {
   if (corpo.style.getPropertyValue('--rodape-h') !== v) {
     corpo.style.setProperty('--rodape-h', v);
   }
+  acertarSombraDasPortas();
 }
 
 function renderListFoot() {
@@ -21920,6 +21921,26 @@ function acertarVeu(el) {
   if (el.classList.contains('tem-acima') !== acima) el.classList.toggle('tem-acima', acima);
   if (el.classList.contains('tem-abaixo') !== abaixo) el.classList.toggle('tem-abaixo', abaixo);
 }
+// ===== A SOMBRA DAS PORTAS SÓ EXISTE COM ITEM POR BAIXO DELAS (v1.12.19) =====
+//
+// Pedido do operador: as sombras das três portas do Cronograma ficam muito marcantes quando não há
+// item nenhum atrás delas. A sombra descreve SOBREPOSIÇÃO ("o botão flutua sobre a lista"); sem
+// lista por baixo ela só suja o fundo liso. A pergunta é geométrica: o fim do ÚLTIMO item (a borda
+// de baixo, sem a folga que a margem dele reserva) passou do topo das portas? Lista vazia, lista
+// curta e lista rolada até o fim respondem NÃO — neste último o último item para uma folga ACIMA
+// das portas, de propósito (ver a margem do `> :last-child` em `controle.css`).
+// FALHA ABERTA: a marca é `livre`, a AUSÊNCIA de sombra, e sem JS a sombra é a de sempre.
+// Escreve só quando o booleano vira, como o `acertarVeu` — roda a cada quadro de rolagem.
+function acertarSombraDasPortas() {
+  if (!listFootEl || !libraryEl) return;
+  const porta = listFootEl.querySelector('.import-row');
+  const ultimo = libraryEl.lastElementChild;
+  let livre = true;
+  if (porta && ultimo && !listFootEl.hidden && !ultimo.classList.contains('empty')) {
+    livre = ultimo.getBoundingClientRect().bottom <= porta.getBoundingClientRect().top + 0.5;
+  }
+  if (listFootEl.classList.contains('livre') !== livre) listFootEl.classList.toggle('livre', livre);
+}
 // ===== UM CONJUNTO SÓ, E ELE SE MANTÉM SOZINHO =====
 //
 // O `ResizeObserver` é RELIGADO só quando o CONJUNTO de `.rola` muda — não a
@@ -21998,6 +22019,7 @@ function acertarVeus() {
     if (el.classList.contains('sem-veu') !== fora) el.classList.toggle('sem-veu', fora);
   });
   for (const el of alvos) acertarVeu(el);
+  acertarSombraDasPortas();
 }
 // Coalescido por quadro: o `scroll` de um gesto chega mais de uma vez por quadro
 // e a conta lê `scrollHeight`, que força layout.
@@ -22018,7 +22040,10 @@ function pedirVeus() {
 // adiantar a rolagem.
 document.addEventListener('scroll', (e) => {
   const el = e.target;
-  if (el && el.nodeType === 1 && el.classList && el.classList.contains('rola')) acertarVeu(el);
+  if (el && el.nodeType === 1 && el.classList && el.classList.contains('rola')) {
+    acertarVeu(el);
+    if (el === libraryEl) acertarSombraDasPortas();
+  }
 }, { capture: true, passive: true });
 
 // ===== E A ROLAGEM NÃO É O ÚNICO JEITO DE A RESPOSTA MUDAR =====

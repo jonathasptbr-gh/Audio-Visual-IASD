@@ -2806,6 +2806,15 @@ main {
   background: var(--surface-porta); color: var(--accent);
   box-shadow: 0 2px 8px var(--shadow-card);
 }
+/* ---------- A SOMBRA SÓ EXISTE COM LISTA POR BAIXO (v1.12.19) ----------
+   Pedido do operador: *"as sombras são muito marcantes quando não há itens atrás
+   desses botões"*. Ela descreve SOBREPOSIÇÃO; sem item por baixo (lista vazia,
+   curta, ou rolada até o fim — onde o último item para uma folga ACIMA das
+   portas) não há sobre o que flutuar. Quem decide é `acertarSombraDasPortas`
+   (controle.js), que escreve `.livre` no rodapé; a AUSÊNCIA da marca é a sombra
+   de sempre, então JS que falhe deixa o desenho de antes. `:is()` e dois
+   seletores de classe vencem a regra agrupada acima sem `!important`. */
+.list-foot.livre :is(.tools-btn, .lib-foot-btn, .import-btn) { box-shadow: none; }
 /* ===== AS TRÊS PORTAS DO CRONOGRAMA, EM PARTES IGUAIS (v1.5.0) =====
    Bíblia · Importar arquivos · Ferramentas, e as três com RÓTULO — o pedido do
    operador foi *"coloque um texto no botão de ferramentas"*, e o argumento que

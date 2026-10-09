@@ -1,5 +1,11 @@
 [
   {
+    "versao": "1.12.19",
+    "itens": [
+      "Cronograma: as sombras dos botões Bíblia, Importar e Ferramentas só aparecem quando há item da lista por baixo deles."
+    ]
+  },
+  {
     "versao": "1.12.18",
     "itens": [
       "Botões de volume: no 100% do app, cada toque sobe o sistema e baixa o app o mesmo tanto, até o sistema chegar a 60%.",
