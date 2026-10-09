@@ -664,6 +664,16 @@
   // que o coletor segura. Fica fora de toda lista, então para o operador o
   // arquivo foi excluído; para o item editado ele continua existindo.
   // Devolve quantos adotou.
+  //
+  // OS BYTES SÃO COPIADOS NO OPFS, NUNCA GRAVADOS COMO BLOB (v1.12.22). O `File`
+  // que o OPFS devolve vai para o IndexedDB POR REFERÊNCIA: apagado o arquivo
+  // (o `opfsDeleteDir` logo depois), `blob.size` continua certo e o
+  // `arrayBuffer()` lança `NotFoundError` — o item editado continuava na lista
+  // e não tocava, e o pacote exportava o blob morto. A cópia vai EM FLUXO
+  // (`stream().pipeTo`, sem materializar o vídeo) para `bases/<id>`, o registro
+  // adotado guarda o `opfsPath` dela, e quem apaga o arquivo quando o registro
+  // sai é o coletor (`varrerBases`, no fim do `gcOrfaos`). Ela termina ANTES
+  // de esta função voltar, então antes do `opfsDeleteDir` de quem chamou.
   async function adotarBases(recs) {
     const origens = await origensEditadas();
     if (!origens.size) return 0;
@@ -674,7 +684,82 @@
       if (await asPromise(s.get(r.id))) continue;     // já é mídia: o coletor o segura
       const b = await baseDe(r.id);
       if (!b || !b.corpo) { console.warn('[edicao] original não pôde ser guardado:', r.id); continue; }
-      try { await mediaAdd(Object.assign({}, b.rec, { blob: b.corpo })); n++; } catch (_) { /* já existia */ }
+      const cru = await getMediaCru(r.id);
+      if (!(cru && cru.opfsPath)) {
+        try { await mediaAdd(Object.assign({}, b.rec, { blob: b.corpo })); n++; } catch (_) { /* já existia */ }
+        continue;
+      }
+      const caminho = caminhoDeBase(r.id);
+      try { await opfsCopiar(b.corpo, caminho); } catch (e) {
+        console.warn('[edicao] original não pôde ser copiado:', r.id, e);
+        continue;
+      }
+      try {
+        await mediaAdd(Object.assign({}, b.rec, { blob: null, opfsPath: caminho }));
+        n++;
+      } catch (_) { /* já existia */ }
+    }
+    return n;
+  }
+  // O LUGAR DOS ORIGINAIS ADOTADOS no OPFS — fora de `folders/`, então fora de
+  // toda coleção e de toda pasta (o pacote não os conta como "outros arquivos":
+  // eles viajam como `media` com `base: true`, ver `pacoteBases`).
+  const BASES_DIR = 'bases';
+  function caminhoDeBase(id) {
+    return BASES_DIR + '/' + String(id).replace(/[^A-Za-z0-9_.-]/g, '_');
+  }
+  function ehCaminhoDeBase(caminho) {
+    return String(caminho || '').indexOf(BASES_DIR + '/') === 0;
+  }
+  // Copia um arquivo para o OPFS em FLUXO: o `pipeTo` fecha o destino no fim e o
+  // aborta numa falha (o resto parcial é apagado aqui).
+  async function opfsCopiar(origem, destino) {
+    const parts = splitPath(destino);
+    const name = parts.pop();
+    const dir = await opfsDir(parts, true);
+    const fh = await dir.getFileHandle(name, { create: true });
+    const w = await fh.createWritable();
+    try {
+      await origem.stream().pipeTo(w);
+    } catch (e) {
+      try { await dir.removeEntry(name); } catch (_) {}
+      throw e;
+    }
+  }
+  // O COLETOR DOS ORIGINAIS ADOTADOS: apaga de `bases/` o arquivo que nenhum
+  // registro de `media` aponta. Um arquivo do último minuto
+  // é pulado — é uma adoção em curso, cujo registro nasce DEPOIS da cópia.
+  // Devolve quantos apagou.
+  async function varrerBases() {
+    const carencia = 60000;
+    if (!opfsSupported()) return 0;
+    let dir;
+    try { dir = await opfsDir([BASES_DIR], false); } catch (_) { return 0; }
+    const vivos = new Set();
+    const s = await store(STORE_MEDIA, 'readonly');
+    await new Promise((resolve, reject) => {
+      const req = s.openCursor();
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) { resolve(); return; }
+        const p = c.value && c.value.opfsPath;
+        if (ehCaminhoDeBase(p)) vivos.add(splitPath(p).pop());
+        c.continue();
+      };
+    });
+    const mortos = [];
+    for await (const [nome, handle] of dir.entries()) {
+      if (handle.kind !== 'file' || vivos.has(nome)) continue;
+      try {
+        const f = await handle.getFile();
+        if (Date.now() - (f.lastModified || 0) < carencia) continue;
+      } catch (_) { /* sumiu no meio: tenta apagar mesmo assim */ }
+      mortos.push(nome);
+    }
+    let n = 0;
+    for (const nome of mortos) {
+      try { await dir.removeEntry(nome); n++; } catch (_) {}
     }
     return n;
   }
@@ -1354,6 +1439,8 @@
       apagados++;
     }
     await txDone(tx);
+    // Os bytes de um original adotado moram no OPFS, fora da transação: saem depois dela.
+    try { await varrerBases(); } catch (e) { console.warn('[edicao] varrerBases falhou:', e); }
     return apagados;
   }
 
@@ -1476,7 +1563,7 @@
     setState, getState, updateState, updateStateLote, stateKeys, stateVarrer,
     stateApagarPrefixo,
     addMedia, addUrlMedia, addDeck, addCue,
-    getMedia, getMediaCru, addEdicao, atualizarEdicao, addBase, basesDoEditor, baseDe, adotarBases, mediaByYoutube, renameMedia,
+    getMedia, getMediaCru, addEdicao, atualizarEdicao, addBase, basesDoEditor, baseDe, adotarBases, ehCaminhoDeBase, mediaByYoutube, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,
     filesPastas,

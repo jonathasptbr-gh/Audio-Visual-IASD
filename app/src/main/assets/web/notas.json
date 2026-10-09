@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.12.22",
+    "itens": [
+      "Botões de volume: com o computador conectado e sem TV, aumentar no 100% não abaixa mais o som do computador.",
+      "Item editado: no fim do corte o app avança uma vez só para o próximo, em vez de repetir o aviso de fim.",
+      "Item editado de um hino continua tocando depois de excluir o hinário baixado.",
+      "Transferir: abrir um item antes de importar não desmarca mais a lista da janela.",
+      "Transferir: ao importar um item editado, a mídia original vem junto mesmo com o grupo dela desmarcado."
+    ]
+  },
+  {
     "versao": "1.12.21",
     "itens": [
       "Modo Fácil: ao fechar a biblioteca, a moldura mantém os cantos arredondados em vez de ficar quadrada."

@@ -576,6 +576,12 @@ de grupos para a exportação"*.
   múltipla escolha seria a divergência que a v5.252 gastou um lote para tirar.
 - **TUDO NASCE MARCADO:** o caso normal é levar o acervo inteiro, e a folha
   existe para PODER tirar.
+- **O SET DAS MARCAS É DA JANELA** (`pacoteMarcados`, v1.12.22), passado ao
+  `songMenuItem` pelo último argumento. Ele foi o `destMarcados` da folha de
+  destinos até a v1.12.21, e aquela folha o deixa com `{'tocar'}`/`{'cronograma'}`
+  ao abrir: com um pacote pronto, abrir a gaveta de um item e voltar ao Transferir
+  achava o Set "não vazio", não remarcava, e a lista abria sem marca — o Importar
+  trazia só os ajustes e consumia o arquivo. Oráculo: J do `pacote-importar-marcados`.
 - **"TUDO" É UM ALTERNADOR** (v1.7.3), na primeira linha: com tudo marcado ele
   LIMPA, com qualquer coisa fora ele MARCA TUDO, e o rótulo diz qual das duas o
   toque vai fazer. Dois botões seriam um deles sempre inútil.
@@ -717,3 +723,20 @@ que viva no catálogo (`AVDB.baseDe`). Na importação por marcas ele entra só 
 (`filtro.bases`) e é contado em `contagem.bases`, não em `media`. Fora do plano visível: um original
 sem lista não é "Outros itens" (`pacoteGruposDeMidia`). A exportação lê o item editado CRU
 (`getMediaCru`), nunca o resolvido.
+
+**O ORIGINAL DE UM EDITADO ADMITIDO ENTRA SEMPRE, também pelo caminho normal (v1.12.22).** `base: true`
+cobre só o original ESCONDIDO; o que viaja como mídia de um grupo marcado na exportação, ou como
+`arquivo`/`opfs` de uma coleção marcada, era julgado pelos GRUPOS dele — desmarcado na importação, o
+editado entrava, o original não, `resolverEdicao` devolvia `null` e o item sumia calado (contado como
+entrado). A ordem do arquivo não resolve: a mídia sai na ordem das chaves e o original pode vir ANTES
+do editado. Quem resolve é a CONFERÊNCIA (`pacoteConferir(fonte, aoAndar, filtro)`), que já percorre
+os cabeçalhos do pacote inteiro antes de gravar: com `filtro` ela lê o corpo das listas de
+`PACOTE_LISTAS` e, para cada `media` editado que `pacoteMidiaEntra` admite, põe a origem em
+`filtro.bases` (`pacotePreverBase`). No fluxo, `media` entra se `filtro.bases.has(id)` OU pelos grupos;
+`arquivo` cujo id está em `filtro.bases` entra e lembra os caminhos dele em `filtro.caminhosBase` (o
+`opfsPath` e os `imageOpfsPath` da letra), e o `opfs` desses caminhos entra também. Oráculo: K do
+`pacote-importar-marcados` (reversão sem a pré-varredura reprova o original que vem antes).
+
+**O original ADOTADO (`bases/<id>`, ver o capítulo do Controle) viaja só pelo `pacoteBases`:** o
+`pacotePlano` tira `bases/` da varredura do OPFS (não é "arquivo sem coleção") e o `pacoteBases` não
+o pula por grupo.

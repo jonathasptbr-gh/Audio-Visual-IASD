@@ -224,6 +224,12 @@
     const edAtual = () => (current && current.edicao) || null;
     let corteTimer = null;   // o encerramento preciso no `fim` do recorte
     let saidaItem = false;   // a rampa de saída do item já começou
+    // O FIM ESTÁ EM CURSO: `marcarFimNatural` esperando o fade de saída, antes de `ended`. Sem ela,
+    // no corte de um item editado o `<video>` segue tocando durante o fade, cada `timeupdate` acha
+    // `resta < 0` e despacha outro `ended` sintético — que rebumpa o `loadSeq`, reinicia o fade e
+    // avisa o `onEnded` de novo: MEDIDO, ~17 avisos até o fim do arquivo (v1.12.22). Ela nasce no
+    // INÍCIO do fim (antes do `await`) e morre onde uma reprodução recomeça (`ended = false`, `seek`).
+    let fimEmCurso = false;
     let rampTimer = null;
     let muteApplyTimer = null;
 
@@ -500,6 +506,7 @@
       if (!current || (current.kind !== 'video' && current.kind !== 'audio')) return;
       if (ended) saidaItem = false;
       ended = false;
+      fimEmCurso = false;
       clearInterval(rampTimer);
       clearTimeout(muteApplyTimer);
       if (!forceMuted) video.volume = volume; // restaura pós fade-out
@@ -536,6 +543,7 @@
         }
         clearTimeout(corteTimer); corteTimer = null;
       }
+      fimEmCurso = false;
       video.currentTime = t + (e ? e.inicio : 0);
     }
     function setView(v) { view = v; instantCover(computeCover()); applyMedia(); }
@@ -874,6 +882,7 @@
       await runFadeOut(true);
       if (seq !== loadSeq) return;
       ended = false;
+      fimEmCurso = false;
       if (willFade) {
         // Esconde as camadas ainda esmaecidas ANTES de restaurar a opacidade
         // (evita a mídia antiga reaparecer durante o getMedia).
@@ -1077,6 +1086,7 @@
       recalcFades();
       deckIdx = 0;
       ended = false;
+      fimEmCurso = false;
       resetMediaDom();
       instantCover(true); // current=null: cobre sempre, independente da view
       applyMedia();
@@ -1118,6 +1128,7 @@
       current = null;
       recalcFades();
       ended = false;
+      fimEmCurso = false;
       resetMediaDom();
       applyMedia();
     }
@@ -1200,13 +1211,17 @@
       // há load em voo (`loadsEmVoo == 0`) — o load do avanço nasce DEPOIS,
       // quando o `media-ended` chega ao Controle.
       if (loadsEmVoo > 0) return;
+      // UM FIM SÓ: o `ended` repetido enquanto este espera o fade não recomeça nada (ver `fimEmCurso`).
+      if (fimEmCurso) return;
+      fimEmCurso = true;
       const seq = ++loadSeq;
       // O item editado com rampa de saída já esmaeceu antes do corte (ver
       // `vigiarCorte`); os outros esmaecem aqui, e o editado leva o som junto
       // porque o `<video>` ainda está tocando no `fim` do recorte.
       if (!saidaItem) await runFadeOut(!!edAtual());
-      if (seq !== loadSeq) return;
+      if (seq !== loadSeq) { fimEmCurso = false; return; }
       ended = true;
+      fimEmCurso = false;
       // PAUSA EXPLÍCITA, e ela só importa para o chamador DE FORA (v1.7.7): no
       // caminho do evento o `<video>` já parou sozinho — `ended` implica
       // `paused` —, mas quem avisa que a PROJEÇÃO acabou pega este elemento
@@ -1238,7 +1253,7 @@
     // trás entre o armar e o disparar só rearma).
     function vigiarCorte() {
       const e = edAtual();
-      if (!e || ended || loadsEmVoo > 0 || video.paused) return;
+      if (!e || ended || fimEmCurso || loadsEmVoo > 0 || video.paused) return;
       const fimArq = isFinite(video.duration) ? video.duration : null;
       const fim = e.fim != null ? e.fim : fimArq;
       if (fim == null) return;
@@ -1264,6 +1279,7 @@
     }
     function encerrarNoCorte() {
       clearTimeout(corteTimer); corteTimer = null;
+      if (ended || fimEmCurso) return;
       video.dispatchEvent(new Event('ended'));
     }
     video.addEventListener('timeupdate', vigiarCorte);

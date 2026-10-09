@@ -40,6 +40,14 @@
 //  I. SEM EPISÓDIO RETIDO a linha diz "sem vídeo da semana baixado" (sem peso) e o
 //     arquivo velho da pasta do álbum não viaja mesmo com tudo marcado.
 //
+// E O SET DAS MARCAS É DA JANELA (v1.12.22):
+//  J. COM UM PACOTE PRONTO, ABRIR A GAVETA DE UM ITEM NÃO APAGA AS MARCAS: a folha de destinos deixava
+//     o Set compartilhado com {'tocar'}, a janela abria SEM marca nenhuma e o Importar trazia só os ajustes
+//     (consumindo o arquivo).
+//  K. O ORIGINAL DE UM EDITADO QUE ENTRA, ENTRA JUNTO — mesmo viajando pelo caminho NORMAL (uma mídia do
+//     Cronograma, uma faixa de hinário) com o grupo dele DESMARCADO na importação, e mesmo vindo ANTES do
+//     editado no arquivo. Sem ele o editado entrava, não tocava e sumia calado.
+//
 //   node tools/pacote-importar-marcados.test.mjs
 // ============================================================================
 import path from 'node:path';
@@ -627,6 +635,88 @@ try {
     'I · e o arquivo velho da pasta do álbum não viaja mesmo com TUDO marcado e a série SEM vídeo — a série '
     + 'leva só o vídeo da semana, e quando não há, não leva nada', JSON.stringify(dI));
   await d3.ctx.close();
+
+  // ---- J · O PACOTE PRONTO E A GAVETA DE UM ITEM NÃO DIVIDEM AS MARCAS ---------
+  const j = await aparelho(saida);
+  const jLista = await j.pg.evaluate(async () => {
+    pacotePronto = { bytes: 1234 };            // exportado e ainda não enviado: a lista fica travada
+    destLimpar(); destPadraoTocar();           // o que abrir a gaveta de um item faz à folha de destinos
+    openPacotePopup();
+    return null;
+  });
+  await esperar(j.pg, () => !!document.querySelector('#pacoteLista li'), null, 60000);
+  const jMarcas = await marcadas(j.pg);
+  checar(Object.keys(jMarcas).length >= 4 && Object.values(jMarcas).every(Boolean),
+    'J · com um pacote PRONTO, abrir a gaveta de um item e depois o Transferir mostra a lista TODA marcada '
+    + '(a folha de destinos não tem como apagar as marcas da janela)', JSON.stringify({ jLista, jMarcas }));
+  // descarta o pronto SEM reabrir a janela e importa: tudo marcado, o pacote inteiro entra
+  await j.pg.evaluate(() => { pacotePronto = null; pacoteRenderTiles(); window.__fim = null; });
+  await j.pg.click('#pacoteImportarTile');
+  const jTexto = await responderDialogo(j.pg);
+  const dJ = await lerDestino(j.pg);
+  checar(dJ.h22Arquivo && dJ.h96Arquivo && dJ.midia.join() === 'epi-inf,epi-pv,fav-item,solto-item'
+      && !/ficaram de fora/.test(jTexto || ''),
+    'J · e o Importar seguinte traz o pacote INTEIRO — não só os ajustes', JSON.stringify({ dJ, jTexto }));
+  await j.ctx.close();
+
+  // ---- K · O ORIGINAL DE UM EDITADO ADMITIDO ENTRA, AINDA QUE O GRUPO DELE NÃO ---------
+  const ok = await aparelho(null);
+  await SEMENTE(ok.pg);
+  await ok.pg.evaluate(async () => {
+    // `aa-orig` vem ANTES de `zz-ed1` na ordem das chaves, que é a ordem em que a mídia sai no arquivo.
+    await AVDB.mediaAdd({ id: 'aa-orig', name: 'Original do Cronograma', kind: 'audio', type: 'audio/mp4',
+      blob: new Blob([new Uint8Array(1700).fill(4)], { type: 'audio/mp4' }), thumb: null, url: null, pages: null,
+      videos: null, cue: null, data: null, youtubeId: null, height: null, seconds: 10, canal: null, stream: null,
+      lyrics: null, createdAt: 5 });
+    await AVDB.setState('imports', ['aa-orig', 'solto-item']);
+    const ed = (id, origem) => AVDB.mediaAdd({ id, name: 'Editado de ' + origem, kind: 'audio', type: 'audio/mp4',
+      blob: null, thumb: null, url: null, pages: null, videos: null, cue: null, data: null, youtubeId: null,
+      height: null, seconds: null, canal: null, stream: null, lyrics: null, createdAt: 6,
+      edicao: { origem, inicio: 1, fim: null, fadeEntrada: false, fadeSaida: false, soAudio: false } });
+    await ed('zz-ed1', 'aa-orig');
+    await ed('zz-ed2', 'arq-22');
+    await AVDB.setState('favs', ['fav-item', 'zz-ed1', 'zz-ed2']);
+  });
+  await confirmarGrupos(ok.pg);
+  await fimDaExportacao(ok.pg);
+  const saidaK = await saidaDe(ok.pg);
+  await ok.ctx.close();
+  const k = await aparelho(saidaK);
+  await k.pg.evaluate(async () => {
+    await AVDB.mediaAdd({ id: 'meu-fav', name: 'Meu', kind: 'audio', type: 'audio/mp4',
+      blob: new Blob([new Uint8Array(500).fill(1)], { type: 'audio/mp4' }), thumb: null, url: null,
+      pages: null, videos: null, cue: null, data: null, youtubeId: null, height: null, seconds: 5,
+      canal: null, stream: null, lyrics: null, createdAt: 3 });
+    await AVDB.setState('favs', ['meu-fav']);
+  });
+  const rK = await importarPelaJanela(k.pg, async () => {
+    for (const n of Object.keys(await marcadas(k.pg))) {
+      if (n !== 'Favoritos') await tocarLinha(k.pg, n);
+    }
+  });
+  const dK = await k.pg.evaluate(async () => {
+    const bytes = async (r) => {
+      try {
+        const c = r && (r.blob || (r.opfsPath ? await AVDB.opfsGetFile(r.opfsPath) : null));
+        return c ? (await c.arrayBuffer()).byteLength : null;
+      } catch (_) { return null; }
+    };
+    const e1 = await AVDB.getMedia('zz-ed1');
+    const e2 = await AVDB.getMedia('zz-ed2');
+    return { ed1: !!e1, ed1Bytes: await bytes(e1), ed2: !!e2, ed2Bytes: await bytes(e2),
+      h96: !!(await AVDB.fileGet('arq-96')), solto: !!(await AVDB.getMediaCru('solto-item')) };
+  });
+  checar(rK.antes && rK.antes['Favoritos'] === true && Object.entries(rK.antes).filter(([, v]) => v).length === 1,
+    'K · PREMISSA: só os Favoritos estão marcados na hora do Importar', JSON.stringify(rK.antes));
+  checar(dK.ed1 && dK.ed1Bytes === 1700,
+    'K · o editado cujo original estava no Cronograma (grupo desmarcado, e vindo ANTES dele no arquivo) entra '
+    + 'TOCÁVEL: o original entra junto', JSON.stringify(dK));
+  checar(dK.ed2 && dK.ed2Bytes === 1200,
+    'K · o editado cujo original é faixa de HINÁRIO (desmarcado) entra tocável: o catálogo e os bytes da faixa '
+    + 'entram junto', JSON.stringify(dK));
+  checar(!dK.h96 && !dK.solto,
+    'K · e o resto do que estava desmarcado continua de fora (o outro hinário, o item solto)', JSON.stringify(dK));
+  await k.ctx.close();
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));
 } finally {
