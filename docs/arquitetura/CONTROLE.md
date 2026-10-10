@@ -1528,19 +1528,31 @@ não gasta degrau da escada de camadas.
   POLEGAR; esmaecer o não escolhido diria "indisponível", que nesta paleta é
   outra palavra.
 
-**E A FOLHA NÃO FECHA MAIS** (v1.4.43): *"verifique para que a aba de
-configurações permaneça na tela imóvel ao alternar entre fácil e avançado, para
-não se perder a localização atual na visão do usuário"*. Ela fechava por decisão
-— *"a escolha já mudou a tela inteira atrás do popup"* —, e é justamente esse o
-problema: quem trocava perdia a folha, o lugar dela e o caminho de volta, porque
-a engrenagem que a abre mora em outro canto em cada modo.
+**A TROCA FECHA A FOLHA, DEPOIS DO POLEGAR** (v1.12.29, revogando a v1.4.43,
+que a mantinha aberta): *"Ao trocar entre o modo simples e o modo avançado,
+feche a janela de configurações. Mas tome cuidado para que o fechamento da
+janela só aconteça depois da animação de movimento do botão … Para que a tela
+não pisque de repente"*. `trocarModoPelaFolha` faz em três tempos:
 
-**Ela fica IMÓVEL por onde MORA**, e isso não é acidente: o `#fadePopup` é
+| tempo | o que acontece |
+|---|---|
+| toque | o POLEGAR desliza (só `data-modo`/`.active` do trilho; `appMode` ainda é o antigo) |
+| fim da transição do polegar | `setAppMode` **e** `closeFadePopup` no MESMO quadro: a tela troca por baixo do véu, que esmaece com a folha |
+| `--dur-lenta` depois | a folha saiu pela transição de sempre |
+
+- **O prazo é LIDO do CSS** (`msDaTransicao(trilho, '::before')`: duração +
+  atraso), nunca escrito no JS. Com `prefers-reduced-motion` a folha zera a
+  transição do polegar e a troca é imediata.
+- **Trocar DEPOIS de a folha sair é o defeito do pedido:** a tela velha aparece
+  e troca seca.
+- **Um segundo toque na janela re-mira**; de volta ao modo em vigor, nada troca
+  e a folha fica.
+
+**A folha não se mexe enquanto o polegar anda** por onde MORA: o `#fadePopup` é
 `position: fixed` e vive **fora do `<main>`**, que é o que o
-`body.mode-simple main { display: none }` esconde. Mover o `#fadePopup` para
-dentro do `<main>` mantém a classe `open` e apaga a folha da tela, sem erro em
-lugar nenhum — daí o `smoke.mjs` medir a CAIXA dela antes e depois, e não só a
-classe.
+`body.mode-simple main { display: none }` esconde. Oráculo: o bloco da troca de
+modo do `smoke.mjs` (a ordem: modo antigo e folha aberta no meio do polegar;
+modo novo e folha fechando no fim; prazo igual ao lido do CSS).
 
 ##### O cartão invisível, e o rótulo que era o único texto solto (v1.4.44)
 
@@ -1594,8 +1606,10 @@ filhos (`--hit`, por regra do `.diag-btn`).
 | na fileira | o quê |
 |---|---|
 | 1º | `#versaoBtn` — o número em `--fw-forte`, e o toque abre *"O que mudou"* |
-| 2º | `#diagSave` — "Registro", ícone à direita |
-| 3º | `#contatoBtn` — "Pedir ajuda", ícone à direita |
+| 2º | `#contatoBtn` — "Pedir ajuda", ícone à direita |
+
+(O `#diagSave` — "Registro" — foi o 2º até a v1.12.29, quando saiu a pedido do
+operador: a porta do Registro é só a da folha da Verificação.)
 
 - **A divisão é `flex: 1 1 0`, base ZERO** — é o que iguala. `1 1 auto` daria a
   cada um a própria largura mais um pedaço, e "Pedir ajuda" sairia sempre maior
@@ -7485,8 +7499,8 @@ quem a autoriza é a permissão do Android, e o web não tem como perguntar.
 | o motor | `rodarUmaChecagem` / `rodarAutoteste` | prazo próprio por linha, captura de exceção, quatro de cada vez, ordem da TABELA |
 | a amostra | `amostrarEspalhado` | o teto das varreduras de acervo, esticado sobre a lista INTEIRA e com as duas pontas dentro |
 | a tela | `desenharTeste` | lê o MESMO objeto que o Registro escreve |
-| o Registro | `blocoAutoteste` | o bloco que o operador manda a distância |
-| o salvar | `salvarRegistroDaVerificacao` | a SEGUNDA porta do MESMO arquivo — monta o texto (`await renderDiag()`) e recusa o vazio |
+| o Registro | `blocoAutoteste` | o bloco que o operador manda a distância. O carimbo da COMPLETA diz as duas horas — a da leve (`em`) e a do fim do download (`emCompleta`), v1.12.29 — e a linha "caminho:" do detalhe leva a extração INTEIRA (era cortada em 160 caracteres, no meio de um `{…}`) |
+| o salvar | `salvarRegistroDaVerificacao` | a ÚNICA porta do Registro desde a v1.12.29 (o `#diagSave` do rodapé de Configurações saiu), rotulada "Registro" (ícone + palavra, largura do conteúdo, altura `--quad-faixa`) — monta o texto (`await renderDiag()`) e recusa o vazio |
 
 **A LEVE E A COMPLETA** (v1.12.27). Pedido do operador: *"faça que o app baixe
 aleatoriamente um dos vídeos anteriores do Provai e Vede que ainda não estão no
@@ -7494,7 +7508,7 @@ sistema, e acompanhe todo o processo registrando tamanho, duração do vídeo,
 tempo de download… Após o download, finalize a verificação e então exclua o
 arquivo… faça dois botões: leve e completa"*, e na v1.12.28 *"o leve já roda
 ao tocar em Verificar, o botão Leve não precisa existir"*. A faixa de fecho é
-**salvar · Verificação completa**: a abertura da folha roda a LEVE
+**Registro · Verificação completa**: a abertura da folha roda a LEVE
 (`rodarAutoteste`, a tabela `TESTES`, que NUNCA baixa nada), e a COMPLETA é
 `rodarDownloadDeTeste` — SÓ a linha `TESTE_DL` (área *"Download do YouTube"*),
 posta no MESMO `testeResultado` da leve (substitui a de uma completa anterior),

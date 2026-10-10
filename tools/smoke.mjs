@@ -600,7 +600,9 @@ try {
       // transmissão é curto e existe para ser digitado noutro aparelho.
       copiarSobrevive: !!document.getElementById('castUrlCopy') && typeof copiarTexto === 'function',
       versaoDentro: faixa.contains(document.getElementById('appVersion')),
-      salvarDentro: faixa.contains(document.getElementById('diagSave')),
+      // O REGISTRO SAIU DAQUI (v1.12.29): a porta dele é só a Verificação.
+      salvarNaFaixa: !!document.getElementById('diagSave'),
+      salvarNaVerificacao: !!document.querySelector('#testePopup #testeSalvar'),
       // A faixa mede a mesma coisa que a grade — ela é a última linha da folha.
       faixa: cx(faixa), grade: grade ? cx(grade) : null,
     };
@@ -637,15 +639,17 @@ try {
     'o rodapé deixou de ser uma SUPERFÍCIE: a faixa não pinta nada — o cinza '
     + 'saiu a pedido do operador, e com ele a pastilha que a v1.4.44 criou',
     rodape && JSON.stringify({ faixaPinta: rodape.faixaPinta }));
-  checar(rodape && rodape.primarios.length === 3
-    && rodape.primarios.join(',') === 'versaoBtn,diagSave,contatoBtn'
-    && rodape.filhosQuePintam.length === 3,
-    'e os TRÊS botões pintam, os três iguais — a exceção de UM da v1.8.51 caiu '
+  checar(rodape && rodape.primarios.length === 2
+    && rodape.primarios.join(',') === 'versaoBtn,contatoBtn'
+    && rodape.filhosQuePintam.length === 2,
+    'e os DOIS botões pintam, os dois iguais (o Registro saiu na v1.12.29) — a exceção de UM da v1.8.51 caiu '
     + 'com a faixa que a justificava. O teto continua: nada mais pinta ali, e '
     + 'uma quarta superfície solta é a "segunda caixa" que a regra nomeava',
     rodape && JSON.stringify({ pintam: rodape.filhosQuePintam, primarios: rodape.primarios }));
-  checar(rodape && rodape.versaoDentro && rodape.salvarDentro,
-    'e a versão e o salvar do Registro moram os dois nela');
+  checar(rodape && rodape.versaoDentro && !rodape.salvarNaFaixa && rodape.salvarNaVerificacao,
+    'e a versão mora nela, e o salvar do Registro NÃO (v1.12.29: "agora vamos usar expressamente o método via '
+    + 'verificador") — a porta dele é a da folha da Verificação',
+    rodape && JSON.stringify({ naFaixa: rodape.salvarNaFaixa, naVerificacao: rodape.salvarNaVerificacao }));
   checar(rodape && rodape.faixa.l === rodape.grade.l && rodape.faixa.r === rodape.grade.r,
     'e ela mede a mesma coisa que a grade — o rodapé é a última linha da folha, '
     + 'não um bloco com recuo próprio',
@@ -3844,16 +3848,14 @@ try {
   // a folha troca o modo. Sem esta metade, apagar o botão passaria nas de cima
   // e trancaria o operador — que é exatamente o risco desta sequência.
   //
-  // E A FOLHA FICA (v1.4.43). Ela fechava ao trocar de modo, e o pedido foi o
-  // contrário: *"verifique para que a aba de configurações permaneça na tela
-  // imóvel ao alternar entre fácil e avançado, para não se perder a localização
-  // atual na visão do usuário"*. São DUAS asserções e não uma, porque elas
-  // falham por caminhos diferentes: a folha ABERTA responde ao `closeFadePopup`
-  // que saiu do ouvinte, e a folha IMÓVEL responde ao `<main>` — a caixa dela é
-  // `position: fixed` e mora FORA dele, e é isso que a faz sobreviver ao
-  // `body.mode-simple main { display: none }`. Mover o `#fadePopup` para dentro
-  // do `<main>` mantém a primeira e apaga a segunda, sem erro em lugar nenhum:
-  // o operador toca "Fácil" e a folha some com o modo antigo.
+  // E A FOLHA FECHA, DEPOIS DO POLEGAR (v1.12.29, revogando a v1.4.43, que a
+  // mantinha aberta): *"feche a janela de configurações … só depois da animação
+  // de movimento do botão … para que a tela não pisque de repente"*. São TRÊS
+  // asserções, e cada uma reprova uma escrita diferente: a troca IMEDIATA (o
+  // modo muda no toque, com o polegar ainda no meio), a folha que FICA, e a
+  // folha que fecha ANTES do polegar. O prazo é comparado com o que o próprio
+  // CSS declara para o `::before` do trilho — escrito à mão aqui, ele seria a
+  // cópia que envelhece no primeiro ajuste do token.
   //
   // A caixa é lida DEPOIS de assentar (duas amostras iguais em quadros
   // seguidos), nunca por prazo fixo: a folha entra por transição, e um
@@ -3891,41 +3893,57 @@ try {
     // Null-safe pela disciplina do `ota.test.mjs`: num bundle sem a engrenagem
     // isto é um RESULTADO, não um acidente — e um `evaluate` que lança aqui
     // levaria junto as asserções seguintes, escondendo o que elas mediriam.
-    if (!eng) { setAppMode('full'); return { visivel: false, abriu: false, saiu: false, ficou: false, imovel: false }; }
+    if (!eng) { setAppMode('full'); return { visivel: false, abriu: false, saiu: false, meio: null, durCss: 0, tTroca: -1, fechandoNaTroca: false, fechou: false }; }
     // O toque é o do operador: a engrenagem tem de estar VISÍVEL e por cima da
     // tela do Modo Fácil (a folha é z-index 200; o modo, 90).
     const cs = getComputedStyle(eng);
     const visivel = cs.display !== 'none' && cs.visibility !== 'hidden' && eng.offsetParent !== null;
     eng.click();
-    const antes = await assentar(caixaDaFolha);
+    await assentar(caixaDaFolha);
     const abriu = folha.classList.contains('open');
+    const trilho = document.getElementById('appModeSeg');
+    const pseudo = getComputedStyle(trilho, '::before');
+    const seg = (v) => String(v).split(',').map((t) => parseFloat(t) * (/ms\s*$/.test(t) ? 1 : 1000));
+    const durCss = Math.max(...seg(pseudo.transitionDuration).map((d, k) => d + (seg(pseudo.transitionDelay)[k] || 0)));
+    const t0 = performance.now();
     document.querySelector('#appModeSeg .fit-opt[data-mode="full"]').click();
-    const depois = await assentar(caixaDaFolha);
+    // NO MEIO DO POLEGAR: ele já está do lado novo, o modo ainda é o antigo e a
+    // folha ainda está de pé.
+    await quadro();
+    const meio = {
+      polegar: trilho.dataset.modo,
+      modoAntigo: document.body.classList.contains('mode-simple'),
+      aberta: folha.classList.contains('open'),
+    };
+    // O instante em que o modo troca, medido por quadro.
+    let tTroca = -1;
+    for (let i = 0; i < 120; i++) {
+      if (!document.body.classList.contains('mode-simple')) { tTroca = performance.now() - t0; break; }
+      await quadro();
+    }
+    const fechandoNaTroca = !folha.classList.contains('open');
+    await assentar(caixaDaFolha);
     const saiu = !document.body.classList.contains('mode-simple');
-    const ficou = folha.classList.contains('open')
-      && getComputedStyle(caixaDaFolha).display !== 'none'
-      && caixaDaFolha.getBoundingClientRect().height > 0;
+    const fechou = !folha.classList.contains('open');
     setAppMode('full');
-    // HIGIENE DO ORÁCULO, e ela virou obrigatória com a folha que FICA: até a
-    // v1.4.42 quem a fechava era o próprio ouvinte da troca de modo, e as
-    // dezenas de medições seguintes herdavam a tela limpa por acidente. Com a
-    // folha aberta por cima, um `elementFromPoint` de qualquer toque adiante
-    // acha a cortina — e o que reprova é uma asserção do Cronograma, a três mil
-    // linhas daqui, sem nada apontando para cá.
-    closeFadePopup();
-    await new Promise((r) => setTimeout(r, 300));
-    return { visivel, abriu, saiu, ficou, imovel: antes === depois, antes, depois };
+    return { visivel, abriu, meio, durCss, tTroca, fechandoNaTroca, saiu, fechou };
   });
   checar(saida.visivel, 'e ela está à vista no Modo Fácil, não escondida atrás dele');
   checar(saida.abriu, 'o toque nela ABRE Configurações');
   checar(saida.saiu,
     'e de lá o operador SAI do Modo Fácil — o caminho que a engrenagem precisava existir para dar');
-  checar(saida.ficou,
-    'e a folha CONTINUA ABERTA depois da troca — ela fechava, e reabri-la é achar de novo '
-    + 'uma engrenagem que no outro modo mora em outro canto');
-  checar(saida.imovel,
-    'e ela não se mexe: a caixa é a mesma antes e depois ('
-    + saida.antes + ' → ' + saida.depois + ')');
+  checar(saida.durCss > 0,
+    'o polegar do trilho TEM transição declarada no CSS (premissa: sem ela a ordem abaixo não se mede)',
+    String(saida.durCss));
+  checar(saida.meio && saida.meio.polegar === 'full' && saida.meio.modoAntigo && saida.meio.aberta,
+    'no MEIO do polegar o modo ainda é o antigo e a folha ainda está aberta — a troca espera a animação do botão',
+    JSON.stringify(saida.meio));
+  checar(saida.tTroca >= saida.durCss - 20 && saida.tTroca <= saida.durCss + 400,
+    'o modo troca quando a transição do polegar ACABA (o prazo é o do CSS: '
+    + Math.round(saida.durCss) + ' ms; trocou em ' + Math.round(saida.tTroca) + ' ms)');
+  checar(saida.fechandoNaTroca && saida.fechou,
+    'e a folha começa a fechar no MESMO quadro da troca, e termina fechada — a tela muda sob o véu, nunca seca',
+    JSON.stringify({ naTroca: saida.fechandoNaTroca, fim: saida.fechou }));
 } catch (e) {
   checar(false, 'a medição da troca de modo terminou sem exceção (' + (e && e.message) + ')');
 }

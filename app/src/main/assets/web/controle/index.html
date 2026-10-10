@@ -2044,17 +2044,18 @@
            há uma segunda PORTA para o mesmo, no lugar onde o operador está
            quando termina de ler o resultado.
 
-           ELE É QUADRADO porque a 320px com a fonte do sistema a 1,5× o
-           primário ("Verificação completa") pede a faixa quase inteira. É o caso declarado da v1.8.57
-           (`--quad-faixa` numa faixa de fecho), e o ícone é o MESMO do salvar
-           do Registro, que é o vocabulário que o app já tem para esta ação.
+           ELE TEM RÓTULO desde a v1.12.29 (*"adicione o texto 'registro' ao
+           invés de apenas o ícone"*) — e é a ÚNICA porta do Registro desde o
+           mesmo lote (o botão do rodapé de Configurações saiu). Ícone ao lado
+           do texto, como o "Importar arquivo" do editor; a altura continua a
+           da faixa (`--quad-faixa`), e a largura é o conteúdo.
 
            ELE VEM ANTES do primário no DOM, como o irmão do confirmar em toda
            outra faixa deste app (`destConfirmRow`): a ordem visual e a de foco
            concordam, e o primário fica à direita.
 
            NASCE `hidden` E `disabled`: sem ponte não há como gravar arquivo
-           (é a regra do `#diagSave`), e antes de uma rodada terminar não há o
+           (`salvarTexto` é SAF), e antes de uma rodada terminar não há o
            que salvar. Quem os desarma é o `controle.js`. -->
       <div class="popup-fecho">
         <div class="song-menu-go-row">
@@ -2062,6 +2063,7 @@
                   title="Salvar o registro com esta verificação"
                   aria-label="Salvar o registro com esta verificação" hidden disabled>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
+            <span>Registro</span>
           </button>
           <!-- A VERIFICAÇÃO COMPLETA (v1.12.27; sozinha desde a v1.12.28). A leve
                roda ao abrir a folha, e o botão "Leve" saiu a pedido do
@@ -2658,8 +2660,8 @@
              um vão entre elas ainda se leem como dois assuntos, e o assunto é
              UM — *"que versão eu tenho, e o que eu mando para quem vai me
              ajudar?"*. Agora a superfície é a FAIXA, e o que mora dentro dela é
-             texto e um alvo: a versão à esquerda (o fato), o Registro à direita
-             (o rótulo e a ação).
+             texto e um alvo. (Desde a v1.12.29 são DOIS botões — a versão e o
+             pedir ajuda —: o Registro saiu para a folha da Verificação.)
 
              O COPIAR SAIU (v1.4.44), a pedido: *"pode remover o sistema de
              copiar registro. o registro está cada vez maior e mais completo e
@@ -2668,13 +2670,6 @@
              meio sem avisar — foi o relato que criou o salvar em arquivo na
              v1.2.16 —, e o Registro só cresceu desde então. Fica a porta que não
              corta.
-
-             CONSEQUÊNCIA DECLARADA: num NAVEGADOR o rodapé não tem mais como
-             exportar o Registro (o salvar depende da ponte, e é `hidden` fora do
-             app — quem o revela é `renderVersionLabel`). É o certo: o Registro
-             descreve um culto num aparelho, e no navegador metade dos blocos
-             dele nem existe. O rótulo acompanha o botão pelo mesmo motivo — uma
-             palavra sozinha, sem alvo ao lado, é um controle que não existe.
 
              O `copiarTexto`, o `.log-copy` e o `#icoCopiar` FICAM: quem os usa
              agora é o `#castUrlCopy`, o endereço da transmissão — que é curto,
@@ -2707,27 +2702,14 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.12.28</span>
+            <span id="appVersion" class="app-version">v1.12.29</span>
           </button>
-            <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
-                 Registro passa de setenta linhas só na seção de cifras, e copiar
-                 e colar é o caminho que corta o texto no meio SEM AVISAR — foi o
-                 relato que abriu aquele lote. Um arquivo não corta. Desde a
-                 v1.4.44 ele é a ÚNICA porta.
-
-                 O RÓTULO ENTROU NO BOTÃO (v1.8.51). Ele era um `<span>` ao lado
-                 (`#diagRot`), e existia porque *"uma palavra sozinha, sem alvo
-                 ao lado, é um controle que não existe"* — o que descrevia o
-                 problema pela metade: a palavra JÁ era o rótulo deste botão,
-                 escrito fora dele. Dentro, o alvo passa de 34px a 93,9px
-                 (medido) e a faixa perde um filho.
-
-                 ELE FICA QUIETO, sem fundo próprio, e é isso que o separa do
-                 irmão: guardar o Registro é o PASSO, falar é o DESTINO. -->
-          <button id="diagSave" class="diag-btn diag-btn--primario" title="Salvar o registro num arquivo" aria-label="Salvar o registro num arquivo" hidden>
-            <span>Registro</span>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
-          </button>
+            <!-- O REGISTRO SAIU DESTA FAIXA (v1.12.29), a pedido do operador:
+                 *"Remova a opção de registro que tem avulsa na base das
+                 configurações, agora vamos usar expressamente o método via
+                 verificador"*. A ÚNICA porta do Registro é o `#testeSalvar` da
+                 folha da Verificação, que grava o MESMO `diagTexto` com o
+                 resultado dentro. -->
             <!-- PEDIR AJUDA (v1.8.49, refeito na v1.8.51). Ele mora NESTA faixa,
                  e não numa linha própria, porque é a MESMA conversa que os
                  vizinhos: *"que versão eu tenho, o que eu mando para quem vai me

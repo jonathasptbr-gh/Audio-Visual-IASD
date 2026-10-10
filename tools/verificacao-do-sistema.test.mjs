@@ -731,7 +731,7 @@ try {
   // daquela decisão é o que este bloco trava: **o arquivo continua sendo UM**.
 
   // M1 · SEM PONTE ELE NÃO EXISTE. Gravar arquivo é o SAF; um botão que só sabe
-  // não funcionar é pior que botão nenhum, e é a regra do `#diagSave`.
+  // não funcionar é pior que botão nenhum.
   const semPonteSalvar = await pg.evaluate(() => {
     const sv = document.getElementById('testeSalvar');
     return { existe: !!sv, hidden: sv && sv.hidden, display: sv && getComputedStyle(sv).display,
@@ -743,9 +743,10 @@ try {
     'M1 · e sem ponte ele não é desenhado nem ocupa lugar — gravar arquivo é o seletor do sistema, '
     + 'e o navegador não o tem', JSON.stringify(semPonteSalvar));
 
-  // M2 · O QUADRADO DA FAIXA. Dois rótulos não cabem lado a lado — o primário
-  // ("Verificação completa", v1.12.28) pede quase a faixa inteira.
-  // É o caso declarado da v1.8.57, e a faixa com irmão tem UMA altura (v1.8.61).
+  // M2 · O RÓTULO "Registro" (v1.12.29, pedido do operador: *"adicione o texto
+  // 'registro' ao invés de apenas o ícone"*). Era um quadrado de ícone; agora é
+  // ícone E palavra, a largura é o conteúdo, e a faixa com irmão continua com
+  // UMA altura (v1.8.61). É também a ÚNICA porta do Registro desde o mesmo lote.
   const caixa = await pg.evaluate(async () => {
     const sv = document.getElementById('testeSalvar');
     window.__NATIVE__ = true; sv.hidden = false;
@@ -760,22 +761,28 @@ try {
     const go = document.getElementById('testeCompleta');
     const a = sv.getBoundingClientRect(); const b = go.getBoundingClientRect();
     const svg = sv.querySelector('svg').getBoundingClientRect();
+    const rot = sv.querySelector('span');
     return {
       sv: [+a.width.toFixed(1), +a.height.toFixed(1)],
       go: [+b.width.toFixed(1), +b.height.toFixed(1)],
       svg: [+svg.width.toFixed(1), +svg.height.toFixed(1)],
+      rotulo: rot ? rot.textContent.trim() : '',
+      rotuloVisivel: rot ? rot.getBoundingClientRect().width > 0 : false,
+      rotuloCortado: sv.scrollWidth > sv.clientWidth + 1,
       cortou: go.scrollWidth > go.clientWidth + 1,
+      unicaPorta: !document.getElementById('diagSave'),
     };
   });
-  checar(Math.abs(caixa.sv[0] - caixa.sv[1]) < 0.5,
-    'M2 · ele é QUADRADO, nas duas dimensões declaradas — um botão sem rótulo não sai de dois '
-    + 'tamanhos por esticamento (v1.8.57)', JSON.stringify(caixa.sv));
+  checar(caixa.rotulo === 'Registro' && caixa.rotuloVisivel && !caixa.rotuloCortado,
+    'M2 · o botão DIZ "Registro", inteiro e à vista — não é mais só o ícone', JSON.stringify(caixa));
   checar(Math.abs(caixa.sv[1] - caixa.go[1]) < 0.5,
     'M2 · e a faixa de fecho com irmão tem UMA altura só (v1.8.61)', JSON.stringify(caixa));
   checar(!caixa.cortou && caixa.svg[0] > 0,
     'M2 · o rótulo do primário continua inteiro ao lado dele, e o ícone DESENHA — a fonte de '
-    + 'símbolos é um subset de 31 codepoints, então aqui é `<use>` de um `<symbol>`, como no '
-    + 'salvar do Registro', JSON.stringify(caixa));
+    + 'símbolos é um subset de 31 codepoints, então aqui é `<use>` de um `<symbol>`', JSON.stringify(caixa));
+  checar(caixa.unicaPorta,
+    'M2 · e é a ÚNICA porta do Registro: o botão do rodapé de Configurações saiu (v1.12.29)',
+    JSON.stringify(caixa.unicaPorta));
 
   // M3 · O ARQUIVO É UM SÓ, e é o do Registro. `blocoAutoteste()` já é um bloco
   // do `renderDiag()`: o que o botão salva É "o registro normal + os dados

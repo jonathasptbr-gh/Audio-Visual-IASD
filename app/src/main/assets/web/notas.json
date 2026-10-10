@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.12.29",
+    "itens": [
+      "Trocar entre modo simples e avançado fecha as Configurações, depois que o botão termina de deslizar.",
+      "O botão de Registro saiu do rodapé das Configurações: o registro agora é salvo pela Verificação.",
+      "Na Verificação, o botão de salvar diz \"Registro\" ao lado do ícone.",
+      "Registro: a Verificação completa mostra a hora da verificação e a hora em que o download terminou.",
+      "Registro: a linha do caminho do download de teste aparece inteira."
+    ]
+  },
+  {
     "versao": "1.12.28",
     "itens": [
       "Verificação: a lista aparece inteira na hora, e cada item ganha o check quando é conferido.",

@@ -8516,8 +8516,9 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   margin-top: .45rem;
   font-size: var(--fs-diag);
 }
-/* OS TRÊS EM PARTES IGUAIS (v1.8.65): *"coloque a versão, o registro e o pedir
-   ajuda igualmente distribuídos horizontalmente"*. `flex: 1 1 0` é o que iguala
+/* EM PARTES IGUAIS (v1.8.65): *"coloque a versão, o registro e o pedir
+   ajuda igualmente distribuídos horizontalmente"*. (Desde a v1.12.29 são DOIS:
+   o Registro saiu para a folha da Verificação, e a regra vale igual.) `flex: 1 1 0` é o que iguala
    — a base é ZERO nos três, então o que cada um recebe é a mesma fatia do
    espaço, e não a própria largura mais um pedaço (que é o que `1 1 auto` dá, e
    ali "Pedir ajuda" sairia sempre maior que "v1.8.65"). MEDIDO a 390×1×:
@@ -8614,9 +8615,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    `--on-accent` sobre ele dá **6,54:1** e **7,70:1** — os dois com folga sobre
    AA para texto pequeno.
 
-   E SÓ UM DELES O VESTE: guardar o Registro é o PASSO, falar é o DESTINO. Dois
-   preenchidos lado a lado seriam duas ações primárias na mesma faixa, e o que o
-   operador não conseguia ver era justamente qual das duas é a porta. */
+   (A v1.8.51 o dava a UM só; a v1.8.65 o deu a todos os da faixa — ver a
+   `.footer-diag` acima.) */
 .diag-btn--primario { background: var(--accent-fill); color: var(--on-accent); }
 
 /* (`.folder-pick-btn` saiu na v5.254, com o popup de seleção de pasta: os
@@ -10140,39 +10140,30 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .sorteio-dest svg, .sorteio-sortear svg { width: var(--icon-sm); height: var(--icon-sm); }
 
-/* ---------- O SALVAR DA VERIFICAÇÃO (v1.10.3) ----------
-   Mesma receita dos três destinos acima, e pelo MESMO motivo: a 320px com a
-   fonte do sistema a 1,5× o primário ("Verificação completa", v1.12.28) pede
-   quase toda a largura útil (~297px), e um segundo rótulo não cabe. É o caso declarado da
-   v1.8.57 (botão sem rótulo é QUADRADO, e numa faixa de fecho o número é
-   `--quad-faixa`).
+/* ---------- O SALVAR DA VERIFICAÇÃO: ÍCONE **E** RÓTULO (v1.12.29) ----------
+   Era um QUADRADO de ícone (v1.10.3); o operador pediu a palavra: *"adicione o
+   texto 'registro' ao invés de apenas o ícone"*. Desde o mesmo lote ele é a
+   ÚNICA porta do Registro.
 
-   AS DUAS DIMENSÕES SÃO DECLARADAS e `align-self: center` desliga o
-   esticamento — sem ele o botão sai 42,4 × altura-do-primário, que é o
-   retângulo que a v1.8.57 veio corrigir nos irmãos do sorteio.
+   A LARGURA É O CONTEÚDO (`flex: 0 0 auto`) e o primário fica com a sobra
+   (`flex: 1`, `min-width: 0`). A ALTURA É DECLARADA (`--quad-faixa`) e
+   `align-self: center` desliga o esticamento: a faixa tem irmão, então o
+   `:has(> .song-menu-btn ~ .song-menu-btn)` já põe o primário na mesma altura —
+   uma altura só, a regra da v1.8.61, sem que ela dependa do vizinho.
 
-   AS DUAS ESTÃO INERTES HOJE, e isso fica MEDIDO em vez de escondido: a faixa
-   tem irmão, então o `:has(> .song-menu-btn ~ .song-menu-btn)` vinte linhas
-   acima já põe o PRIMÁRIO em `--quad-faixa` — o esticamento devolveria o mesmo
-   número, e não há linha mais alta em que centrar. Removê-las não move um
-   pixel em 320×1, 320×1,5, 390×1,25 e 430×1. **Elas ficam porque a razão não é
-   o número, é de QUEM ele vem:** sem `height` a altura deste botão passa a ser
-   decidida por uma regra que fala do vizinho, que é exatamente o "a mesma
-   caixa sai de dois tamanhos por esticamento" que a v1.8.57 veio fechar.
+   ÍCONE ANTES DO TEXTO, como o "Importar arquivo" do editor (o par da faixa de
+   fecho deste app), e `--sp-3` entre os dois.
 
-   E O `[hidden]` NÃO PRECISA DE NADA AQUI — medido, e o contrário é a suspeita
-   natural: um `display` de autor VENCE o `[hidden]` da folha do navegador
-   (conferido em página nua: `display:flex` + `hidden` computa `flex`). Quem
-   fecha isso neste app é o `[hidden] { display: none !important }` da linha 46,
-   que existe para toda a base — e é por ele que este botão some no navegador
-   apesar do `display: flex` daqui. */
+   O `[hidden]` é fechado pelo `[hidden] { display: none !important }` da base
+   (um `display` de autor venceria o da folha do navegador). */
 .song-menu-go-row > .teste-salvar {
-  flex: 0 0 var(--quad-faixa); min-width: 0; padding: 0;
+  flex: 0 0 auto; width: auto; min-width: 0; padding: 0 var(--sp-5);
   height: var(--quad-faixa); align-self: center;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
+  white-space: nowrap;
   background: var(--surface); color: var(--accent);
 }
-.teste-salvar svg { width: var(--icon-sm); height: var(--icon-sm); }
+.teste-salvar svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
 .teste-salvar:disabled { opacity: var(--op-inativo); cursor: default; }
 /* O CANCELAR DA VERIFICAÇÃO COMPLETA (v1.12.27): é o mesmo botão da
    "Completa" enquanto o download de teste anda — mesma caixa, então a faixa não

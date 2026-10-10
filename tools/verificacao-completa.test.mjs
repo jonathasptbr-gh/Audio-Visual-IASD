@@ -116,8 +116,13 @@ const PONTE = `(function () {
       const m = /\\/shell\\/([a-z0-9]+)\\.wav/.exec(url);
       if (m) fetch('/descartar/' + m[1]);
     },
+    // A LINHA DE EXTRAÇÃO É A DE UM REGISTRO REAL, longa e com chaves no meio: o
+    // slice(-160) que a cortava no meio de um par de chaves (v1.12.29) só
+    // aparece com uma linha maior que o corte.
     ytDiag: (id) => setTimeout(() => window.__avResolve(id,
-      'download: id → juntou 720p (mp4, 136/V)'), 0),
+      'download: áudio 10 [m4a 4, webm 6] {en-US dublado 5, pt-BR 5} · vídeo-só 12 [mp4 6 (1080p), '
+      + 'webm 6 (1080p)] · prog 1 [mp4 1 (360p)] · clientes VISIONOS 22, ANDROID 1 → juntou 720p '
+      + '(mp4, 136@VISIONOS/V)'), 0),
   };
   const nomes = ['apkInstalar','apkProcurar','captureVolumeKeys','castTarget','saidaDeAudioAlvo',
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoCertApagar','espelhoCertEstado',
@@ -261,12 +266,24 @@ try {
     const f = await pg.evaluate(() => {
       const m = (id) => { const e = document.getElementById(id); const r = e.getBoundingClientRect();
         return { w: +r.width.toFixed(1), h: +r.height.toFixed(1), cortou: e.scrollWidth > e.clientWidth + 1 }; };
-      return { salvar: m('testeSalvar'), completa: m('testeCompleta') };
+      const fx = document.getElementById('testeSalvar').parentElement;
+      // LINHAS DE TEXTO por Range: um rótulo que QUEBRA não transborda
+      // (`scrollWidth` fica igual), então a régua do corte sozinha aprova a quebra.
+      const linhas = (el) => { const rg = document.createRange(); rg.selectNodeContents(el);
+        return new Set([...rg.getClientRects()].map((q) => Math.round(q.top))).size; };
+      return { salvar: m('testeSalvar'), completa: m('testeCompleta'),
+        linhasCompleta: linhas(document.getElementById('testeCompleta')),
+        linhasSalvar: linhas(document.getElementById('testeSalvar').querySelector('span')),
+        faixaVaza: fx.scrollWidth > fx.clientWidth + 1 };
     });
     checar(!f.completa.cortou,
       'A5 · a 320px com a fonte a 1,5× "Verificação completa" cabe inteiro', JSON.stringify(f));
     checar(Math.abs(f.salvar.h - f.completa.h) < 0.5,
-      'A5 · e a faixa tem UMA altura (o salvar quadrado e o primário)', JSON.stringify(f));
+      'A5 · e a faixa tem UMA altura (o "Registro" e o primário)', JSON.stringify(f));
+    checar(!f.salvar.cortou && !f.faixaVaza && f.linhasCompleta === 1 && f.linhasSalvar === 1,
+      'A5 · e o "Registro" (v1.12.29: ícone E palavra) também cabe inteiro, sem a faixa transbordar e '
+      + 'sem nenhum dos dois rótulos quebrar em duas linhas',
+      JSON.stringify(f));
     await ctx.close();
   }
 
@@ -307,6 +324,8 @@ try {
         contas: m.contas, limpeza: m.limpeza, amostras: m.amostras.length,
         nota: testeResultado.itens.find((x) => x.id === 'yt-download').nota,
         registro: blocoAutoteste(),
+        hLeve: new Date(testeResultado.em).toLocaleString(),
+        hCompleta: new Date(testeResultado.emCompleta).toLocaleString(),
       };
     });
     const pedidos = d.chamadas.filter((c) => /^ytFetch/.test(c.n));
@@ -330,6 +349,20 @@ try {
       && /não medido \(só com APK novo\)/.test(d.registro),
       'B6 · o Registro (o MESMO texto que o "Salvar" grava) traz a medida inteira, a limpeza e o que '
       + 'não se mede sem APK', d.registro.split('\n').filter((l) => /Download|duração|limpeza|tempos/.test(l)).join(' | '));
+    // B6b · O CAMINHO VAI INTEIRO (v1.12.29): o corte de 160 caracteres pegava o
+    // MEIO de um `{…}` e o Registro saía com "—  dublado 5, pt-BR 5} · …".
+    const caminho = d.registro.split('\n').find((l) => /^\s+caminho: /.test(l)) || '';
+    checar(/ — áudio 10 \[m4a 4, webm 6\] \{en-US dublado 5, pt-BR 5\} · vídeo-só 12 /.test(caminho)
+      && / → juntou 720p \(mp4, 136@VISIONOS\/V\)$/.test(caminho) && !/download:/.test(caminho),
+      'B6b · a linha "caminho:" do Registro traz a extração INTEIRA, do começo ao fim, sem o prefixo do diário',
+      caminho);
+    // B6c · O CARIMBO DIZ AS DUAS HORAS (v1.12.29): a completa soma uma linha à
+    // leve, e o `r.em` sozinho a datava com a hora da LEVE.
+    const carimbo = d.registro.split('\n')[1] || '';
+    checar(carimbo.startsWith('  COMPLETA — leve rodada em ' + d.hLeve + ' · ')
+      && carimbo.endsWith(' · download de teste terminado em ' + d.hCompleta),
+      'B6c · o carimbo da completa diz a hora da leve E a hora em que o download de teste terminou',
+      JSON.stringify({ carimbo, leve: d.hLeve, completa: d.hCompleta }));
     const s = await sobras(pg, d.ep && d.ep.id);
     checar(!s.rec && s.avulsos === 0 && d.limpeza.registro === true && d.limpeza.arquivoDoShell === true,
       'B7 · e NADA fica: nem o registro com os bytes, nem a prateleira, nem o arquivo do shell',
