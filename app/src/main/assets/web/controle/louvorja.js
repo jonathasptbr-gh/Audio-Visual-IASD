@@ -34,6 +34,21 @@
     return res.json();
   }
 
+  // O BANCO ESTÁ DO OUTRO LADO? (v1.12.28) — a pergunta que separa as duas
+  // causas de um `TypeError` no `fetchList`: ninguém respondeu, ou o servidor
+  // respondeu e o navegador não deixou o app LER (a resposta veio sem a
+  // permissão de CORS — um erro do servidor costuma vir assim). Em `no-cors`,
+  // sem o cabeçalho que pede a pré-checagem, qualquer resposta HTTP resolve
+  // (opaca) e só a falta de resposta rejeita. Não lê nada: só responde se há
+  // alguém lá.
+  async function sondarBanco() {
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    try {
+      await fetch(`${DB_URL}/${CATEGORIES_FILE}?${date}`, { mode: 'no-cors', cache: 'no-store' });
+      return true;
+    } catch (_) { return false; }
+  }
+
   // O HOST do servidor de arquivos e o DOMÍNIO da origem, os dois DERIVADOS do
   // endereço acima e nunca digitados à parte: uma segunda escrita do mesmo
   // endereço divergiria no primeiro ajuste, e o que eles travam é segurança
@@ -167,7 +182,7 @@
   }
 
   global.Louvorja = {
-    fetchList, fileUrl, foraDoServidor, ehCdnSemCors,
+    fetchList, sondarBanco, fileUrl, foraDoServidor, ehCdnSemCors,
     HYMNAL_2022_FILE, HYMNAL_1996_FILE, CATEGORIES_FILE,
   };
 })(this);

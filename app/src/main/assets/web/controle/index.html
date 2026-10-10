@@ -2044,9 +2044,8 @@
            há uma segunda PORTA para o mesmo, no lugar onde o operador está
            quando termina de ler o resultado.
 
-           ELE É QUADRADO porque a 320px com a fonte do sistema a 1,5× a faixa
-           não tem lugar para um terceiro rótulo — ela já carrega os dois
-           primários (Leve · Completa, v1.12.27). É o caso declarado da v1.8.57
+           ELE É QUADRADO porque a 320px com a fonte do sistema a 1,5× o
+           primário ("Verificação completa") pede a faixa quase inteira. É o caso declarado da v1.8.57
            (`--quad-faixa` numa faixa de fecho), e o ícone é o MESMO do salvar
            do Registro, que é o vocabulário que o app já tem para esta ação.
 
@@ -2064,15 +2063,12 @@
                   aria-label="Salvar o registro com esta verificação" hidden disabled>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSalvar"/></svg>
           </button>
-          <!-- AS DUAS VERIFICAÇÕES (v1.12.27). A LEVE é a de sempre (a que roda ao
-               abrir); a COMPLETA é ela mais um download de teste, medido e
-               apagado — e enquanto ela anda o MESMO botão vira "Cancelar". As
-               duas têm a MESMA largura (`.song-menu-go`, flex 1), então a troca
-               de rótulo não move nada na faixa. -->
-          <button type="button" id="testeRodar" class="song-menu-btn song-menu-go"
-                  title="Verificação leve: confere cada parte do app em segundos, sem baixar nada">Leve</button>
+          <!-- A VERIFICAÇÃO COMPLETA (v1.12.27; sozinha desde a v1.12.28). A leve
+               roda ao abrir a folha, e o botão "Leve" saiu a pedido do
+               operador. Este roda SÓ o download de teste por cima do resultado
+               da leve, e enquanto ele anda o MESMO botão vira "Cancelar". -->
           <button type="button" id="testeCompleta" class="song-menu-btn song-menu-go"
-                  title="Verificação completa: a leve, mais o download de um episódio anterior do Provai e Vede, medido e apagado no fim">Completa</button>
+                  title="Verificação completa: baixa um episódio anterior do Provai e Vede, mede o download e o apaga no fim">Verificação completa</button>
         </div>
       </div>
     </div>
@@ -2711,7 +2707,7 @@
                conteúdo do botão: `--fw-forte`, o peso que o app já dá a "nome
                de item, botão". -->
           <button id="versaoBtn" class="diag-btn diag-btn--primario" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-            <span id="appVersion" class="app-version">v1.12.27</span>
+            <span id="appVersion" class="app-version">v1.12.28</span>
           </button>
             <!-- SALVAR EM ARQUIVO (v1.2.16). Com o acervo inteiro varrido o
                  Registro passa de setenta linhas só na seção de cifras, e copiar

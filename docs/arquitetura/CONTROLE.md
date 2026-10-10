@@ -7441,7 +7441,7 @@ gancho de cá que o sistema chama. **A régua é a REVERSÃO**: uma asserção q
 passa com o conserto desfeito não mede a checagem, mede a linguagem.
 
 **A FOLHA SALVA O REGISTRO, e o arquivo é UM só** (v1.10.3). O botão quadrado
-ao lado de *"Leve"* e *"Completa"* grava o MESMO `diagTexto` do botão de
+ao lado de *"Verificação completa"* grava o MESMO `diagTexto` do botão de
 Configurações, com o MESMO nome (`nomeDoRegistro`) — a verificação já viaja lá
 dentro como um bloco. **Porta nova é porta para o mesmo arquivo:** um recorte
 próprio faria quem lê a distância perguntar qual dos dois vale, que é o
@@ -7492,20 +7492,41 @@ quem a autoriza é a permissão do Android, e o web não tem como perguntar.
 aleatoriamente um dos vídeos anteriores do Provai e Vede que ainda não estão no
 sistema, e acompanhe todo o processo registrando tamanho, duração do vídeo,
 tempo de download… Após o download, finalize a verificação e então exclua o
-arquivo… faça dois botões: leve e completa"*. A faixa de fecho é **salvar ·
-Leve · Completa**, os dois primários com a MESMA largura (`.song-menu-go`): a
-abertura da folha roda a LEVE (a tabela `TESTES`, que NUNCA baixa nada), e a
-COMPLETA é `rodarAutoteste({ completa: true })` — a leve inteira e, DEPOIS
-dela e sozinha, a linha `TESTE_DL` (área *"Download do YouTube"*). Enquanto a
-completa anda, o MESMO botão vira *"Cancelar"* (`.teste-cancelar`, o par do
-`.teste-resumo--ruim`), e o resumo mostra o progresso (`testeDlResumo`).
+arquivo… faça dois botões: leve e completa"*, e na v1.12.28 *"o leve já roda
+ao tocar em Verificar, o botão Leve não precisa existir"*. A faixa de fecho é
+**salvar · Verificação completa**: a abertura da folha roda a LEVE
+(`rodarAutoteste`, a tabela `TESTES`, que NUNCA baixa nada), e a COMPLETA é
+`rodarDownloadDeTeste` — SÓ a linha `TESTE_DL` (área *"Download do YouTube"*),
+posta no MESMO `testeResultado` da leve (substitui a de uma completa anterior),
+com as contas refeitas (`testeContar`) e `completa`/`emCompleta` marcados. O
+botão fica APAGADO até a leve terminar e, enquanto a completa anda, vira
+*"Cancelar"* (`.teste-cancelar`, o par do `.teste-resumo--ruim`). Reabrir a
+folha roda a leve de novo, e o resultado novo não traz a linha do download.
+
+**A LISTA EXISTE DESDE O COMEÇO** (v1.12.28): `montarListaDoTeste` desenha as
+linhas da tabela mais a do download ao abrir; durante a leve cada resposta
+entra em `testeParcial` e `atualizarLinhaDoTeste` pinta SÓ aquela linha
+(`estadoDaLinhaDoTeste` é a única pergunta por linha). Três estados são só da
+TELA e nunca entram no resultado: `pendente` (círculo vazio), `curso` (o arco
+que gira; o progresso do download na nota e no resumo) e `espera` (a linha do
+download antes de a completa ser pedida). **O RESUMO** é *"N funcionaram · M
+com falha"* (`desenharResumoDoTeste`) — sem resposta e não se aplica ficam na
+própria linha, e o Registro segue com as quatro contas.
+
+**A FONTE QUE RESPONDE E RECUSA** (v1.12.28): as quatro linhas da LouvorJA
+levam `fonte: true`. No `TypeError` do `fetchList` (que leva o `Api-Token` e
+por isso pré-checagem de CORS) `testeFonteSemResposta` pergunta ao banco em
+`no-cors` (`Louvorja.sondarBanco`, 5 s): resolveu → FALHA (o servidor
+respondeu e o app não pôde ler: o catálogo, as músicas novas e a Bíblia param);
+rejeitou → *"o servidor da LouvorJA não respondeu"*. Era *"a internet não
+respondeu"*, ao lado de uma linha de internet verde que sonda o MESMO host.
 
 | peça | o que faz |
 |---|---|
 | `testeEscolherEpisodio` | sorteia entre os episódios ANTERIORES à semana (`AVSerie.diasAte < -getDay()`) que não estão no aparelho em forma NENHUMA (`mediaByYoutube` sem `kind`: arquivo ou link). O da semana fica de fora (é o que o aparelho guarda sozinho, e a limpeza o apagaria); um já guardado não baixaria. Vazio → `na` com o motivo |
 | `testeDownloadCompleto` | as guardas (sem ponte, `midiaNoAr`, `bgWorkPedido()`/`serieAutoRodando`, `redeLiberadaParaBaixar()`), o download e a limpeza num `finally` que roda em TODO desfecho |
 | `ytBaixarNativo(…, { medida, semResgate })` | o MESMO caminho do "Tocar agora" da busca no Modo Fácil — teto `ytAlturaPadrao()` (720p → `ytFetchAte`), prateleira `avulsos` — com duas opções novas: `medida` é carimbada em cada fase (`tInicio`, uma amostra `[t, lidos, total]` por megabyte, `tNativo` + o `r` do shell, `tCopia`, `tMiniatura`, `tGravado`) e `semResgate` não grava intenção (um teste levado pelo renderer não volta a baixar na abertura). O aviso é `'nenhum'`: nada vai à prévia |
-| `testeDlContas` | PURA: até o 1º byte, baixando (até a primeira amostra com `lidos >= total`), junção/fecho (dali até o shell devolver), cópia, miniatura, gravação, total; Mbit/s médio e por janelas de 2 s (`TESTE_DL_JANELA_MS`), o maior vão e as paradas de 5 s ou mais; a razão duração ÷ total |
+| `testeDlContas` | PURA: até o 1º byte, baixando (até a primeira amostra com `lidos >= total`), junção/fecho (dali até o shell devolver), cópia, miniatura, gravação, total; Mbit/s médio e por janelas de 2 s (`TESTE_DL_JANELA_MS`), o maior vão, o vão MEDIANO e as paradas — vão ≥ 3× o mediano e ≥ 5 s (v1.12.28: o shell avisa por MB, e a régua fixa contava o compasso como parada); a razão duração ÷ total |
 | `testeMetadados` | a DURAÇÃO e as dimensões lidas do arquivo GRAVADO, num `<video>` fora do documento, só metadados — nunca `play()` (pediria foco de áudio, e o Chromium pausaria o telão) |
 | `testeArquivoDoShellSumiu` | o `ytDiscard` é dispara-e-esquece: a sonda refaz o `fetch` do `/saf/` do intermediário por até 6 s, abortando o corpo, até ele deixar de responder |
 | `blocoDownloadDeTeste` | o detalhe no Registro (episódio, rede no início e no fim, teto × o que veio, caminho lido do `ytDiag` — *juntou* ou *veio* —, tamanho, duração, tempos, velocidade, limpeza) e a linha do que NÃO se mede sem APK |

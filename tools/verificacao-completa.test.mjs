@@ -206,10 +206,10 @@ const assentar = (pg) => pg.evaluate(async () => {
 });
 async function rodarCompletaPeloBotao(pg) {
   await assentar(pg);
-  await pg.evaluate(() => { window.__antes = testeResultado; });
+  await pg.evaluate(() => { window.__antes = Date.now(); });
   await pg.click('#testeCompleta');
-  return esperar(pg, () => !testeRodando && testeResultado && testeResultado !== window.__antes
-    && testeResultado.completa, null, 60000);
+  return esperar(pg, () => !testeRodando && testeResultado && testeResultado.completa
+    && testeResultado.emCompleta >= window.__antes, null, 60000);
 }
 const itemDl = (pg) => pg.evaluate(() => {
   const it = testeResultado && testeResultado.itens.find((x) => x.id === 'yt-download');
@@ -221,34 +221,38 @@ const sobras = (pg, vid) => pg.evaluate(async (v) => {
 }, vid);
 
 try {
-  // ---- A: OS DOIS BOTÕES, E A LEVE NÃO BAIXA NADA ------------------------
+  // ---- A: UM BOTÃO SÓ, E A LEVE (que roda ao abrir) NÃO BAIXA NADA -------
   {
     const { ctx, pg } = await aparelho();
-    await pg.evaluate(() => openTestePopup());
+    const durante = await pg.evaluate(() => {
+      openTestePopup();
+      const b = document.getElementById('testeCompleta');
+      return { dis: b.disabled, title: b.title };
+    });
+    checar(durante.dis && /[Ee]spere/.test(durante.title),
+      'A0 · enquanto a leve roda, a completa fica APAGADA, com o motivo — ela é "além do que já foi '
+      + 'feito", e sem o feito não há o que somar', JSON.stringify(durante));
     const r = await esperar(pg, () => !testeRodando && testeResultado, null, 30000);
     checar(r === true, 'A0 · a folha abre e a rodada LEVE de sempre termina', porque(r));
     const a = await pg.evaluate(() => ({
-      leve: document.getElementById('testeRodar').textContent.trim(),
+      leve: !!document.getElementById('testeRodar'),
+      botoes: [...document.querySelectorAll('#testePopup .popup-fecho button:not([hidden])')].map((x) => x.id),
       completa: document.getElementById('testeCompleta').textContent.trim(),
       completaAtiva: !document.getElementById('testeCompleta').disabled,
       res: { completa: testeResultado.completa, temDl: testeResultado.itens.some((x) => x.id === 'yt-download') },
       baixou: window.__chamadas.filter((c) => /^ytFetch/.test(c.n)).length,
     }));
-    checar(a.leve === 'Leve' && a.completa === 'Completa',
-      'A1 · a faixa tem os DOIS botões que o operador pediu: Leve e Completa', JSON.stringify(a));
+    checar(!a.leve && a.completa === 'Verificação completa',
+      'A1 · o botão "Leve" SAIU (a leve roda ao abrir) e o que sobra é "Verificação completa"',
+      JSON.stringify(a));
     checar(a.res.completa === false && !a.res.temDl && a.baixou === 0,
-      'A2 · a rodada que abre a folha é a LEVE: nenhuma linha de download e nenhum pedido de vídeo à '
-      + 'ponte — a leve nunca baixa megabytes', JSON.stringify(a));
-    checar(a.completaAtiva, 'A3 · com a ponte, a Completa é tocável', JSON.stringify(a));
-    await assentar(pg);
-    await pg.click('#testeRodar');
-    await esperar(pg, () => !testeRodando && testeResultado, null, 30000);
-    const b = await pg.evaluate(() => window.__chamadas.filter((c) => /^ytFetch/.test(c.n)).length);
-    checar(b === 0, 'A4 · e o toque em "Leve" também não baixa nada', b);
+      'A2 · a rodada que abre a folha é a LEVE: nenhuma linha de download no resultado e nenhum pedido de '
+      + 'vídeo à ponte — a leve nunca baixa megabytes', JSON.stringify(a));
+    checar(a.completaAtiva, 'A3 · terminada a leve, com a ponte, a Completa é tocável', JSON.stringify(a));
     await ctx.close();
   }
 
-  // ---- A5: A FAIXA A 320 × 1,5 — nenhum rótulo cortado, uma altura só ----
+  // ---- A5: A FAIXA A 320 × 1,5 — o rótulo inteiro, uma altura só -----------
   {
     const { ctx, pg } = await aparelho({ width: 320, height: 640 });
     await pg.evaluate(() => { document.documentElement.style.fontSize = '150%'; window.__NATIVE__ = true; });
@@ -257,14 +261,12 @@ try {
     const f = await pg.evaluate(() => {
       const m = (id) => { const e = document.getElementById(id); const r = e.getBoundingClientRect();
         return { w: +r.width.toFixed(1), h: +r.height.toFixed(1), cortou: e.scrollWidth > e.clientWidth + 1 }; };
-      return { salvar: m('testeSalvar'), leve: m('testeRodar'), completa: m('testeCompleta') };
+      return { salvar: m('testeSalvar'), completa: m('testeCompleta') };
     });
-    checar(!f.leve.cortou && !f.completa.cortou,
-      'A5 · a 320px com a fonte a 1,5× os dois rótulos cabem inteiros', JSON.stringify(f));
-    checar(Math.abs(f.leve.h - f.completa.h) < 0.5 && Math.abs(f.salvar.h - f.leve.h) < 0.5
-      && Math.abs(f.leve.w - f.completa.w) < 0.5,
-      'A5 · e a faixa tem UMA altura, com Leve e Completa da MESMA largura — trocar o rótulo para '
-      + '"Cancelar" não move nada', JSON.stringify(f));
+    checar(!f.completa.cortou,
+      'A5 · a 320px com a fonte a 1,5× "Verificação completa" cabe inteiro', JSON.stringify(f));
+    checar(Math.abs(f.salvar.h - f.completa.h) < 0.5,
+      'A5 · e a faixa tem UMA altura (o salvar quadrado e o primário)', JSON.stringify(f));
     await ctx.close();
   }
 
@@ -273,9 +275,26 @@ try {
     const { ctx, pg } = await aparelho();
     await pg.evaluate(() => openTestePopup());
     await esperar(pg, () => !testeRodando && testeResultado, null, 30000);
-    await pg.evaluate(() => { window.__chamadas.length = 0; window.__cmds.length = 0; window.__estados.length = 0; });
+    await pg.evaluate(() => {
+      window.__chamadas.length = 0; window.__cmds.length = 0; window.__estados.length = 0;
+      window.__leve = { em: testeResultado.em, itens: testeResultado.itens.slice(), n: testeResultado.itens.length };
+      window.__rodadas = 0;
+      const real = window.rodarUmaChecagem;
+      window.rodarUmaChecagem = (c) => { window.__rodadas++; return real(c); };
+    });
     const r = await rodarCompletaPeloBotao(pg);
     checar(r === true, 'B0 · a rodada completa termina', porque(r));
+    const so = await pg.evaluate(() => ({
+      rodadas: window.__rodadas, mesmoEm: testeResultado.em === window.__leve.em,
+      mesmas: window.__leve.itens.every((x) => testeResultado.itens.includes(x)),
+      n: testeResultado.itens.length, antes: window.__leve.n,
+      dl: testeResultado.itens.filter((x) => x.id === 'yt-download').length,
+      contas: testeResultado.ok + testeResultado.falhou + testeResultado.mudo + testeResultado.na,
+    }));
+    checar(so.rodadas === 1 && so.mesmoEm && so.mesmas && so.n === so.antes + 1 && so.dl === 1
+      && so.contas === so.n,
+      'B0 · a completa roda SÓ a linha do download, por cima da leve: as 41 não rodam de novo, o '
+      + 'resultado é o MESMO objeto com UMA linha a mais, e as contas são refeitas com ela', JSON.stringify(so));
     const it = await itemDl(pg);
     checar(it && it.v === 'ok', 'B1 · a linha do download PASSA, com a nota dizendo o que veio', JSON.stringify(it));
     const d = await pg.evaluate(() => {
@@ -335,24 +354,29 @@ try {
     await pg.evaluate(() => { window.__yt.passos = 200; window.__yt.intervalo = 50; openTestePopup(); });
     await esperar(pg, () => !testeRodando && testeResultado, null, 30000);
     await assentar(pg);
-    await pg.evaluate(() => { window.__antes = testeResultado; window.__chamadas.length = 0; });
+    await pg.evaluate(() => { window.__antes = Date.now(); window.__chamadas.length = 0; });
     const antes = await pg.evaluate(() => { const r = document.getElementById('testeCompleta').getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; });
     await pg.click('#testeCompleta');
     const andando = await esperar(pg, () => testeDl && testeDl.amostras.length > 3, null, 30000);
     checar(andando === true, 'C0 · o download de teste começa e o progresso chega', porque(andando));
     const meio = await pg.evaluate(() => {
       const b = document.getElementById('testeCompleta'); const r = b.getBoundingClientRect();
-      return { txt: b.textContent.trim(), dis: b.disabled, leveDis: document.getElementById('testeRodar').disabled,
+      const linha = document.querySelector('[data-teste="yt-download"]');
+      return { txt: b.textContent.trim(), dis: b.disabled, leveDis: true,
+        linha: linha && linha.className, nota: linha && linha.querySelector('.teste-nota').textContent,
         rect: [r.x, r.y, r.width, r.height], resumo: document.getElementById('testeResumo').textContent };
     });
     checar(meio.txt === 'Cancelar' && !meio.dis && meio.leveDis,
-      'C1 · enquanto anda, a Completa vira "Cancelar" (e a Leve espera)', JSON.stringify(meio));
+      'C1 · enquanto anda, a Completa vira "Cancelar"', JSON.stringify(meio));
+    checar(/teste-item--curso/.test(meio.linha || '') && /^Download de teste: \d+% · /.test(meio.nota || ''),
+      'C1b · e a LINHA do download, que existia desde a abertura, mostra o andamento — pendente → '
+      + 'progresso → resultado, no mesmo lugar', JSON.stringify(meio));
     checar(JSON.stringify(meio.rect) === JSON.stringify(antes),
       'C2 · no MESMO lugar e do MESMO tamanho — a faixa não se move', JSON.stringify({ antes, depois: meio.rect }));
     checar(/^Download de teste: \d+% · /.test(meio.resumo),
       'C3 · e o resumo mostra o PROGRESSO do download, não um "Verificando…" parado', meio.resumo);
     await pg.click('#testeCompleta');
-    const fim = await esperar(pg, () => !testeRodando && testeResultado !== window.__antes, null, 30000);
+    const fim = await esperar(pg, () => !testeRodando && testeResultado.emCompleta >= window.__antes, null, 30000);
     checar(fim === true, 'C4 · cancelado, a rodada termina', porque(fim));
     const it = await itemDl(pg);
     const x = await pg.evaluate(() => ({ chamadas: window.__chamadas.map((c) => c.n), ep: testeResultado.download.episodio.id,
@@ -361,9 +385,9 @@ try {
       'C5 · a linha diz que FOI CANCELADO (não é falha), e o pedido de parar chegou ao shell',
       JSON.stringify({ it, x }));
     const s = await sobras(pg, x.ep);
-    checar(!s.rec && s.avulsos === 0 && s.cancelados === 0 && x.txt === 'Completa',
+    checar(!s.rec && s.avulsos === 0 && s.cancelados === 0 && x.txt === 'Verificação completa',
       'C6 · e nada fica para trás — nem registro, nem a marca de cancelado que armaria o próximo download '
-      + 'deste vídeo —, e o botão volta a ser "Completa"', JSON.stringify({ s, txt: x.txt }));
+      + 'deste vídeo —, e o botão volta a ser "Verificação completa"', JSON.stringify({ s, txt: x.txt }));
     await ctx.close();
   }
 
@@ -414,7 +438,8 @@ try {
       bgWorkBegin(); out.fila = await testeDownloadCompleto(); bgWorkEnd();
       out.pedidos = pedidos();
       // pela rodada: com mídia no ar a linha sai "não se aplica" sem chamar a função
-      midiaNoAr = true; const res = await rodarAutoteste({ completa: true }); midiaNoAr = false;
+      await rodarAutoteste();
+      midiaNoAr = true; const res = await rodarDownloadDeTeste(); midiaNoAr = false;
       out.rodada = res.itens.find((x) => x.id === 'yt-download');
       out.pedidos2 = pedidos();
       return out;
@@ -477,6 +502,111 @@ try {
       'G2 · a parada de 6 s é contada e aparece como a JANELA mais lenta (0 Mbit/s); a mais rápida é 16 Mbit/s',
       JSON.stringify(c));
     checar(Math.abs(c.razao - 20) < 1e-9, 'G3 · e 640 s de vídeo em 32 s de processo é 20× a duração', c.razao);
+    // G4 · O COMPASSO DE 1 MB NÃO É PARADA (v1.12.28). O Registro de 10/10:
+    // 16 MB em 168 s, um aviso por MB a cada ~9 s, e a régua fixa de 5 s contou
+    // "12 paradas" que eram só o compasso. Aqui: 15 vãos de 9 s e UM de 30 s.
+    const lento = await pg.evaluate(() => {
+      const am = []; let t = 1000;
+      for (let i = 0; i <= 16; i++) { am.push([t, i * 1e6, 16e6]); t += (i === 8 ? 30000 : 9000); }
+      return testeDlContas({ tInicio: 0, amostras: am });
+    });
+    checar(lento.paradas === 1 && lento.vaoMediano === 9000,
+      'G4 · a um aviso por MB a cada 9 s, só o vão de 30 s é parada — a régua é relativa ao vão mediano '
+      + 'daquele download, com o piso de 5 s', JSON.stringify(lento));
+    await ctx.close();
+  }
+
+  // ---- H: A LISTA EXISTE DESDE O COMEÇO, E CADA LINHA ACENDE QUANDO CHEGA ----
+  // Pedido do operador: *"mantenha a lista dos itens a serem verificados
+  // visível, dando o check conforme cada um é verificado"*. As linhas nascem
+  // pendentes (com a do download à espera) e cada uma troca de marca quando a
+  // dela chega. (A rolagem NÃO é asserção: medido pela reversão, recriar a
+  // lista inteira a cada resposta também a preserva no Chromium — o layout só
+  // roda depois do laço.)
+  {
+    const { ctx, pg } = await aparelho({ width: 430, height: 640 });
+    const h = await pg.evaluate(async () => {
+      // UMA checagem LENTA de propósito, para a rodada ter um "meio" medível.
+      const lenta = { id: 'z-lenta', area: 'Teste', titulo: 'uma lenta', fn: () => new Promise((r) => setTimeout(() => r(tOk('')), 1500)) };
+      TESTES.push(lenta);
+      testePopupEl.classList.add('open');
+      const p = dispararTeste();
+      const lis = () => [...document.querySelectorAll('#testeList [data-teste]')];
+      const inicio = { n: lis().length, pend: lis().filter((l) => l.classList.contains('teste-item--pendente')).length,
+        dl: (document.querySelector('[data-teste="yt-download"]') || {}).className };
+      const ordemInicio = lis().map((l) => l.dataset.teste).join(',');
+      // espera o MEIO: algumas já chegaram, a lenta ainda não
+      let meio = null;
+      for (let i = 0; i < 200 && !meio; i++) {
+        await new Promise((r) => setTimeout(r, 20));
+        const feitas = lis().filter((l) => !/--pendente|--espera/.test(l.className)).length;
+        if (testeRodando && feitas > 3) meio = { feitas, pend: lis().filter((l) => l.classList.contains('teste-item--pendente')).length };
+      }
+      await p;
+      const fim = { n: lis().length, pend: lis().filter((l) => l.classList.contains('teste-item--pendente')).length,
+        ordem: lis().map((l) => l.dataset.teste).join(',') === ordemInicio };
+      TESTES.pop();
+      return { inicio, meio, fim, total: TESTES.length + 1 };
+    });
+    checar(h.inicio.n === h.total + 1 && h.inicio.pend === h.total && /--espera/.test(h.inicio.dl || ''),
+      'H1 · no ato do toque a lista INTEIRA já está na tela, cada linha pendente — e a do download à '
+      + 'espera da completa', JSON.stringify(h.inicio));
+    checar(h.meio && h.meio.feitas > 3 && h.meio.pend > 0,
+      'H2 · no meio da rodada umas já acenderam e outras ainda esperam — o check chega linha a linha',
+      JSON.stringify(h.meio));
+    checar(h.fim.n === h.inicio.n && h.fim.pend === 0 && h.fim.ordem,
+      'H3 · no fim são as MESMAS linhas, na mesma ordem, nenhuma pendente', JSON.stringify(h.fim));
+    await ctx.close();
+  }
+
+  // ---- I: O RESUMO SÓ DIZ QUANTAS FUNCIONARAM E QUANTAS FALHARAM -----------
+  {
+    const { ctx, pg } = await aparelho();
+    const r = await pg.evaluate(async () => {
+      testePopupEl.classList.add('open');
+      await dispararTeste();
+      return { resumo: testeResumoEl.textContent, mudo: testeResultado.mudo, na: testeResultado.na,
+        ok: testeResultado.ok, falhou: testeResultado.falhou,
+        linhasNa: document.querySelectorAll('#testeList .teste-item--na, #testeList .teste-item--mudo').length,
+        registro: blocoAutoteste().split('\n')[2] };
+    });
+    checar(r.na + r.mudo > 0,
+      'I0 · PREMISSA: a rodada tem linhas "não se aplica" ou "sem resposta" — senão o resumo nada provaria',
+      JSON.stringify(r));
+    checar(r.resumo === r.ok + ' funcionaram · ' + r.falhou + ' com falha',
+      'I1 · o resumo da tela diz SÓ quantas funcionaram e quantas falharam — "não se aplica" e "sem '
+      + 'resposta" saíram dele', JSON.stringify(r.resumo));
+    checar(r.linhasNa === r.na + r.mudo && /sem resposta · \d+ não se aplica/.test(r.registro),
+      'I2 · mas as linhas seguem na lista com a marca delas, e o Registro segue com as QUATRO contas',
+      JSON.stringify(r));
+    await ctx.close();
+  }
+
+  // ---- J: "A INTERNET NÃO RESPONDEU" NÃO É A FRASE DA FONTE ------------------
+  // O Registro de 10/10 trouxe as quatro linhas da LouvorJA em "a internet não
+  // respondeu" com "Há internet agora" verde, sondando o MESMO servidor.
+  {
+    const { ctx, pg } = await aparelho();
+    const j = await pg.evaluate(async () => {
+      const c = TESTES.find((x) => x.id === 'fonte-banco');
+      const real = Louvorja.fetchList; const sonda = Louvorja.sondarBanco;
+      Louvorja.fetchList = () => Promise.reject(new TypeError('Failed to fetch'));
+      Louvorja.sondarBanco = async () => true;
+      const responde = await rodarUmaChecagem(c);
+      Louvorja.sondarBanco = async () => false;
+      const calado = await rodarUmaChecagem(c);
+      Louvorja.fetchList = real; Louvorja.sondarBanco = sonda;
+      const marcadas = TESTES.filter((x) => x.fonte).map((x) => x.id).sort();
+      return { responde, calado, marcadas };
+    });
+    checar(j.responde.v === 'falhou' && /LouvorJA respondeu/.test(j.responde.nota) && /não baixam/.test(j.responde.nota),
+      'J1 · o banco que RESPONDE mas não deixa o app ler (CORS, ou erro sem permissão) é FALHA com nome — '
+      + 'é o app inteiro sem catálogo, músicas novas e Bíblia, e não o Wi-Fi', JSON.stringify(j.responde));
+    checar(j.calado.v === 'mudo' && /servidor da LouvorJA não respondeu/.test(j.calado.nota),
+      'J2 · e o que não responde segue SEM RESPOSTA, nomeando o servidor — nunca "a internet"',
+      JSON.stringify(j.calado));
+    checar(j.marcadas.join(',') === 'fonte-arquivo,fonte-arquivo-imagem,fonte-banco,fonte-biblia',
+      'J3 · as QUATRO linhas da fonte passam pela sonda', JSON.stringify(j.marcadas));
     await ctx.close();
   }
 
