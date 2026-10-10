@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.12.27",
+    "itens": [
+      "Verificação: dois botões, Leve (a de sempre) e Completa.",
+      "A Completa baixa um episódio antigo do Provai e Vede, mede o download e apaga o arquivo no fim.",
+      "Ela não roda com mídia no ar e para sozinha se algo entrar no ar; dá para cancelar no mesmo botão.",
+      "Sem Wi-Fi, ela só baixa com \"Dados móveis\" ligado nas Configurações."
+    ]
+  },
+  {
     "versao": "1.12.26",
     "itens": [
       "Modo Fácil: o vídeo só abre em tela cheia no celular quando não há TV nem computador conectado.",

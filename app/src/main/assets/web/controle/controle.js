@@ -337,6 +337,7 @@ const testeResumoEl = document.getElementById('testeResumo');
 const testeListEl = document.getElementById('testeList');
 const testeRodarEl = document.getElementById('testeRodar');
 const testeSalvarEl = document.getElementById('testeSalvar');
+const testeCompletaEl = document.getElementById('testeCompleta');
 
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
@@ -392,7 +393,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.26';
+const WEB_VERSION = '1.12.27';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -30055,6 +30056,345 @@ async function rodarUmaChecagem(c) {
   return { id: c.id, area: c.area, titulo: c.titulo, v: r.v, nota: r.nota || '', ms: Date.now() - t0 };
 }
 
+// ===== A VERIFICAÇÃO COMPLETA: um download DE VERDADE (v1.12.27) =====
+//
+// Pedido do operador: *"faça que o app baixe aleatoriamente um dos vídeos
+// anteriores do Provai e Vede que ainda não estão no sistema, e acompanhe todo
+// o processo registrando tamanho, duração do vídeo, tempo de download… Após o
+// download, finalize a verificação e então exclua o arquivo"*. A LEVE é a de
+// sempre e nunca baixa nada; a COMPLETA é ela mais esta linha, e é a ÚNICA
+// exceção à regra "uma checagem não baixa megabytes" — pedida, e cercada:
+//
+//  - o caminho é o MESMO do "Tocar agora" da busca no Modo Fácil
+//    (`ytBaixarNativo` com o teto do operador, `ytAlturaPadrao()`, na
+//    prateleira `avulsos`) — só observado por `opts.medida`; o que muda é o
+//    aviso (`'nenhum'`: nada vai à prévia, porque nada vai ao telão) e a
+//    intenção de resgate (um teste não volta sozinho na abertura seguinte);
+//  - não muda a cena e não chama `play()`: a duração sai dos METADADOS do
+//    arquivo gravado, num `<video>` que nunca entra no documento;
+//  - não começa com mídia no ar, com outro download andando ou com a rede que
+//    o operador não liberou — e se uma mídia ENTRA no ar no meio, ele se cancela;
+//  - tem prazo próprio (10 min) e cancelamento pelo mesmo botão;
+//  - e apaga TUDO o que criou num `finally`, conferindo depois: o registro (com
+//    os bytes) e o arquivo intermediário do shell. O que sobrar é falha.
+const TESTE_DL_PRAZO = 10 * 60 * 1000;
+const TESTE_DL_SERIE = 'Provai e Vede';
+// Uma JANELA de velocidade: amostras a cada megabyte dão picos absurdos entre
+// duas que chegam juntas; dois segundos é o menor trecho que mede a rede.
+const TESTE_DL_JANELA_MS = 2000;
+// Um vão MAIOR que isto entre dois megabytes é uma PARADA — o que o operador
+// sente como "travou".
+const TESTE_DL_PARADA_MS = 5000;
+
+const TESTE_DL = {
+  id: 'yt-download', area: 'Download do YouTube', titulo: 'Baixar um episódio anterior do Provai e Vede',
+  // O prazo de fora é uma rede de segurança: quem encerra no prazo é o
+  // próprio teste (`TESTE_DL_PRAZO`), cancelando o download e limpando.
+  prazo: TESTE_DL_PRAZO + 60000,
+  rede: true,
+  fn: () => testeDownloadCompleto(),
+};
+
+let testeCompleta = false;     // a rodada em curso é a COMPLETA
+let testeDl = null;            // a medida da rodada em curso (e o progresso que o resumo lê)
+let testeDlCancelar = null;    // o cancelamento do download, só enquanto ele anda
+let testeDlCanceladoAntes = false;
+
+function testeRede() {
+  const c = networkConnection();
+  return {
+    tipo: networkType(),
+    efetivo: (c && c.effectiveType) || '',
+    mbps: c && typeof c.downlink === 'number' ? c.downlink : null,
+  };
+}
+
+/**
+ * O EPISÓDIO DO TESTE: um ANTERIOR à semana corrente (o da semana é o que o
+ * aparelho guarda sozinho, e testá-lo apagaria o do sábado), sorteado entre os
+ * que NÃO estão no aparelho em forma nenhuma — nem arquivo, nem link. Um que já
+ * estivesse aqui não baixaria (`ytArquivo` o reaproveita) e a limpeza apagaria
+ * o que o operador guardou.
+ */
+async function testeEscolherEpisodio() {
+  const coll = serieCollections().find((c) => c.serie && c.serie.prefixo === TESTE_DL_SERIE);
+  if (!coll) return { motivo: 'a série ' + TESTE_DL_SERIE + ' não existe neste aparelho' };
+  const songs = collSongs(coll.id);
+  if (!songs.length) {
+    return { motivo: 'a lista do ' + TESTE_DL_SERIE + ' ainda não foi lida neste aparelho — abra a Biblioteca com internet' };
+  }
+  const hoje = new Date();
+  const anteriores = songs.filter((s) => s && s.id_music && s.ytUrl && s.serieData
+    && AVSerie.diasAte(s.serieData, coll.serie, hoje) < -hoje.getDay());
+  const livres = [];
+  for (const s of anteriores) {
+    let rec = null;
+    try { rec = await AVDB.mediaByYoutube(s.id_music); } catch (_) { rec = null; }
+    if (!rec) livres.push(s);
+  }
+  if (!livres.length) {
+    return { motivo: anteriores.length
+      ? 'todos os ' + anteriores.length + ' episódios anteriores já estão no aparelho'
+      : 'não há episódio anterior à semana na lista do ' + TESTE_DL_SERIE };
+  }
+  const i = Math.min(livres.length - 1, Math.floor(Math.random() * livres.length));
+  return { coll, s: livres[i], anteriores: anteriores.length, livres: livres.length };
+}
+
+// A DURAÇÃO DE VERDADE, lida do ARQUIVO GRAVADO: um `<video>` fora do
+// documento, só metadados, sem `play()` — tocar pediria foco de áudio, e o
+// Chromium pausaria o telão por isso.
+function testeMetadados(blob) {
+  return new Promise((res) => {
+    const v = document.createElement('video');
+    v.muted = true; v.preload = 'metadata';
+    const url = URL.createObjectURL(blob);
+    let feito = false;
+    const fim = (x) => {
+      if (feito) return; feito = true;
+      clearTimeout(t);
+      v.removeAttribute('src'); try { v.load(); } catch (_) {}
+      URL.revokeObjectURL(url);
+      res(x);
+    };
+    const t = setTimeout(() => fim(null), 15000);
+    v.addEventListener('loadedmetadata', () => fim({
+      segundos: isFinite(v.duration) ? v.duration : null, largura: v.videoWidth | 0, altura: v.videoHeight | 0,
+    }), { once: true });
+    v.addEventListener('error', () => fim(null), { once: true });
+    v.src = url;
+  });
+}
+
+// O ARQUIVO DO SHELL SUMIU? `ytDiscard` é dispara-e-esquece (roda na fila de
+// transferência), então a pergunta é feita de novo por alguns segundos: o
+// endereço `/saf/` que respondia o arquivo deve deixar de responder.
+async function testeArquivoDoShellSumiu(url) {
+  const ate = Date.now() + 6000;
+  for (;;) {
+    const ab = new AbortController();
+    let existe = false;
+    try {
+      const res = await fetch(url, { signal: ab.signal, cache: 'no-store' });
+      existe = res.ok;
+    } catch (_) { existe = false; }
+    try { ab.abort(); } catch (_) {}
+    if (!existe) return true;
+    if (Date.now() >= ate) return false;
+    await new Promise((r) => setTimeout(r, 400));
+  }
+}
+
+/**
+ * As CONTAS de uma medida já fechada. Puras: o Registro e a nota da linha
+ * leem a MESMA, e o oráculo a alimenta com amostras escritas à mão.
+ */
+function testeDlContas(m) {
+  const a = (m && m.amostras) || [];
+  const c = { amostras: a.length };
+  if (m.tInicio != null && a.length) c.ateOPrimeiroByte = a[0][0] - m.tInicio;
+  // O FIM DA REDE é a primeira amostra com `lidos >= total`: depois dela o
+  // shell junta as faixas (ou só fecha o arquivo) e não há progresso honesto.
+  let fimRede = null;
+  for (const x of a) { if (x[2] > 0 && x[1] >= x[2]) { fimRede = x; break; } }
+  if (!fimRede && a.length) fimRede = a[a.length - 1];
+  if (fimRede && a.length) {
+    c.baixando = fimRede[0] - a[0][0];
+    c.bytesDaRede = fimRede[1];
+    if (c.baixando > 0) c.mbpsMedia = (fimRede[1] * 8) / (c.baixando / 1000) / 1e6;
+    if (m.tNativo != null) c.juncao = m.tNativo - fimRede[0];
+    // JANELAS de no mínimo dois segundos, e a PARADA mais longa.
+    let ini = a[0];
+    let maior = 0; let paradas = 0;
+    for (let i = 1; i < a.length; i++) {
+      const gap = a[i][0] - a[i - 1][0];
+      if (a[i][0] > fimRede[0]) break;
+      if (gap > maior) maior = gap;
+      if (gap >= TESTE_DL_PARADA_MS) paradas++;
+      const dt = a[i][0] - ini[0];
+      if (dt >= TESTE_DL_JANELA_MS) {
+        const v = ((a[i][1] - ini[1]) * 8) / (dt / 1000) / 1e6;
+        if (v >= 0) {
+          c.mbpsMin = c.mbpsMin == null ? v : Math.min(c.mbpsMin, v);
+          c.mbpsMax = c.mbpsMax == null ? v : Math.max(c.mbpsMax, v);
+        }
+        ini = a[i];
+      }
+    }
+    c.maiorVao = maior; c.paradas = paradas;
+  }
+  const tem = (x) => typeof x === 'number';
+  if (tem(m.tNativo) && tem(m.tCopia)) c.copia = m.tCopia - m.tNativo;
+  if (tem(m.tCopia) && tem(m.tMiniatura)) c.miniatura = m.tMiniatura - m.tCopia;
+  if (tem(m.tMiniatura) && tem(m.tGravado)) c.gravacao = m.tGravado - m.tMiniatura;
+  if (tem(m.tInicio) && tem(m.tGravado)) c.total = m.tGravado - m.tInicio;
+  const seg = (m.meta && m.meta.segundos) || (m.r && m.r.seconds) || 0;
+  if (seg && c.total) c.razao = seg / (c.total / 1000);
+  return c;
+}
+
+const fmtSeg = (ms) => (ms == null ? '?' : ms < 10000 ? (ms / 1000).toFixed(1) + ' s' : fmtDur(Math.round(ms / 1000)));
+const fmtMbps = (v) => (v == null ? '?' : v.toFixed(1).replace('.', ',') + ' Mbit/s');
+
+async function testeDownloadCompleto() {
+  const m = { amostras: [], em: Date.now() };
+  testeDl = m;
+  if (testeDlCanceladoAntes) { m.cancelado = 'você'; return tNa('cancelado por você antes de começar'); }
+  if (!window.__NATIVE__) return tNa('o download do YouTube é feito pelo app Android');
+  if (midiaNoAr) return tNa('há mídia no ar — o download de teste não roda durante uma projeção');
+  if (bgWorkPedido() || serieAutoRodando) {
+    return tNa('há um download em andamento — o teste mediria a fila, e não a rede');
+  }
+  if (!redeLiberadaParaBaixar()) {
+    return tNa('sem Wi-Fi confirmado e com "Dados móveis" desligado nas Configurações — o teste baixaria um vídeo inteiro');
+  }
+  const esc = await testeEscolherEpisodio();
+  if (!esc.s) return tNa(esc.motivo);
+  const s = esc.s;
+  const vid = s.id_music;
+  m.episodio = { id: vid, titulo: s.name || '', data: AVSerie.rotuloData(s.serieData) || '' };
+  m.sorteio = { anteriores: esc.anteriores, livres: esc.livres };
+  m.teto = ytAlturaPadrao();
+  m.redeInicio = testeRede();
+  m.diagAntes = '';
+  let rec = null;
+  let relogio = null; let vigia = null;
+  const parar = (porque) => {
+    if (m.cancelado) return;
+    m.cancelado = porque;
+    ytCancelados.add(vid);
+    try { AVNative.ytCancel(s.ytUrl); } catch (_) {}
+  };
+  testeDlCancelar = () => parar('você');
+  try {
+    relogio = setTimeout(() => parar('prazo'), TESTE_DL_PRAZO);
+    // SE UMA MÍDIA ENTRA NO AR, o teste sai da frente: centenas de megabytes
+    // disputando a rede com a projeção é o oposto de não atrapalhar um culto.
+    vigia = setInterval(() => { if (midiaNoAr) parar('mídia no ar'); }, 1000);
+    rec = await ytBaixarNativo(s.ytUrl, s.name || '', {
+      youtubeId: vid, canal: s.canal || null, lista: 'avulsos', somenteAudio: false,
+      altura: m.teto, aviso: 'nenhum', medida: m, semResgate: true,
+      // SÓ O RESUMO: redesenhar a lista inteira a cada megabyte seria trabalho
+      // à toa, e o resto da folha não muda enquanto o download anda.
+      onPct: () => { if (testeResumoEl && testeRodando) testeResumoEl.textContent = testeDlResumo(); },
+    });
+    try { m.diag = String((await AVNative.ytDiag()) || ''); } catch (_) { m.diag = ''; }
+    if (rec) {
+      let cru = null;
+      try { cru = await AVDB.getMediaCru(rec.id); } catch (_) { cru = null; }
+      if (cru && cru.blob) {
+        const t = Date.now();
+        m.meta = await testeMetadados(cru.blob);
+        m.tMetadados = Date.now() - t;
+      }
+    }
+  } finally {
+    clearTimeout(relogio); clearInterval(vigia);
+    testeDlCancelar = null;
+    ytCancelados.delete(vid);
+    m.redeFim = testeRede();
+    // ===== A LIMPEZA, que roda em TODO desfecho =====
+    const t = Date.now();
+    m.limpeza = { registro: null, arquivoDoShell: null };
+    try {
+      if (rec) await AVDB.listRemove('avulsos', rec.id);
+      let sobra = null;
+      try { sobra = rec ? await AVDB.getMediaCru(rec.id) : null; } catch (_) { sobra = null; }
+      m.limpeza.registro = rec ? !sobra : null;
+      if (sobra) {
+        const listas = [];
+        for (const [l, nome] of LISTAS_DA_VERIFICACAO) {
+          try { if (await AVDB.listHas(l, rec.id)) listas.push(nome); } catch (_) {}
+        }
+        m.limpeza.seguradoPor = listas;
+      }
+    } catch (e) { m.limpeza.erro = testeMsg(e); }
+    if (m.r && m.r.url) m.limpeza.arquivoDoShell = await testeArquivoDoShellSumiu(m.r.url);
+    m.limpeza.ms = Date.now() - t;
+  }
+  const c = testeDlContas(m);
+  m.contas = c;
+  const caminho = /→ juntou/.test(m.diag || '') ? 'juntou' : /→ veio/.test(m.diag || '') ? 'veio' : '';
+  m.caminho = caminho;
+  const sobrou = (m.limpeza.registro === false && !(m.limpeza.seguradoPor || []).length)
+    || m.limpeza.arquivoDoShell === false || m.limpeza.erro;
+  if (sobrou) {
+    return tFalhou('o arquivo de teste não foi apagado'
+      + (m.limpeza.registro === false ? ' (o registro ficou na biblioteca)' : '')
+      + (m.limpeza.arquivoDoShell === false ? ' (o arquivo do shell ficou no cache)' : '')
+      + (m.limpeza.erro ? ' — ' + m.limpeza.erro : ''));
+  }
+  if (m.cancelado === 'você') return tNa('cancelado por você aos ' + fmtSeg(Date.now() - m.em));
+  if (m.cancelado === 'mídia no ar') return tNa('uma mídia entrou no ar — o download de teste parou e foi apagado');
+  if (m.cancelado === 'prazo') return tMudo('não terminou em ' + Math.round(TESTE_DL_PRAZO / 60000) + ' min — parado e apagado');
+  if (!rec) return tFalhou((await motivoDaRecusa('o vídeo não baixou')) + ' — ' + (m.episodio.titulo || vid));
+  const h = (m.r && m.r.height) || (m.meta && m.meta.altura) || 0;
+  const seg = (m.meta && m.meta.segundos) || (m.r && m.r.seconds) || 0;
+  return tOk((h ? h + 'p' : '?') + ' · ' + fmtBytes(m.bytes || 0) + ' em ' + fmtSeg(c.total)
+    + ' (' + fmtMbps(c.mbpsMedia) + ')'
+    + (seg ? ' · vídeo de ' + fmtDur(Math.round(seg)) : '')
+    + (c.razao ? ' · ' + c.razao.toFixed(1).replace('.', ',') + '× a duração' : '')
+    + ' · apagado');
+}
+
+// O BLOCO DO DOWNLOAD NO REGISTRO: a medida inteira, uma pergunta por linha.
+function blocoDownloadDeTeste(m) {
+  if (!m) return [];
+  const c = m.contas || testeDlContas(m);
+  const l = [];
+  const ep = m.episodio;
+  l.push('  [Download de teste — detalhe]');
+  if (!ep) return l.concat(['    (não começou)']);
+  l.push('    episódio: ' + (ep.titulo || '?') + (ep.data ? ' (' + ep.data + ')' : '') + ' · id ' + ep.id
+    + ' · sorteado entre ' + (m.sorteio ? m.sorteio.livres + ' de ' + m.sorteio.anteriores + ' anteriores fora do aparelho' : '?'));
+  const red = (r) => (r ? r.tipo + (r.efetivo ? ' ' + r.efetivo : '') + (r.mbps != null ? ' ~' + r.mbps + ' Mbit/s' : '') : '?');
+  l.push('    rede: início ' + red(m.redeInicio) + ' · fim ' + red(m.redeFim));
+  l.push('    pedido: teto ' + m.teto + 'p (o padrão do operador, como o "Tocar agora")'
+    + ' · veio: ' + (m.r ? (m.r.height ? m.r.height + 'p' : '?') + ' ' + (m.r.type || '') : 'nada')
+    + (m.meta ? ' · arquivo ' + m.meta.largura + '×' + m.meta.altura : ''));
+  const linhaDiag = String(m.diag || '').split('\n').find((x) => x.includes('→')) || '';
+  l.push('    caminho: ' + (m.caminho === 'juntou' ? 'vídeo e áudio separados, juntados no aparelho'
+    : m.caminho === 'veio' ? 'arquivo único (progressivo)' : 'não identificado')
+    + (linhaDiag ? ' — ' + linhaDiag.trim().slice(-160) : ''));
+  l.push('    tamanho: ' + fmtBytes(m.bytes || 0) + (c.bytesDaRede ? ' · da rede ' + fmtBytes(c.bytesDaRede) : ''));
+  const seg = (m.meta && m.meta.segundos) || 0;
+  l.push('    duração do vídeo: ' + (seg ? fmtDur(Math.round(seg)) : '?')
+    + (m.r && m.r.seconds ? ' (o YouTube disse ' + fmtDur(m.r.seconds) + ')' : ''));
+  l.push('    tempos: até o 1º byte ' + fmtSeg(c.ateOPrimeiroByte) + ' · baixando ' + fmtSeg(c.baixando)
+    + ' · junção/fecho ' + fmtSeg(c.juncao) + ' · cópia para o app ' + fmtSeg(c.copia)
+    + ' · miniatura ' + fmtSeg(c.miniatura) + ' · gravação ' + fmtSeg(c.gravacao)
+    + ' · TOTAL ' + fmtSeg(c.total));
+  l.push('    velocidade: média ' + fmtMbps(c.mbpsMedia) + ' · janelas de 2 s: mín ' + fmtMbps(c.mbpsMin)
+    + ' · máx ' + fmtMbps(c.mbpsMax) + ' · maior vão ' + fmtSeg(c.maiorVao)
+    + ' · paradas de 5 s ou mais: ' + (c.paradas == null ? '?' : c.paradas) + ' · ' + c.amostras + ' amostras');
+  if (c.razao) l.push('    razão: baixou ' + c.razao.toFixed(1).replace('.', ',') + '× mais rápido que a duração do vídeo');
+  if (m.cancelado) l.push('    cancelado: ' + m.cancelado);
+  const lp = m.limpeza || {};
+  l.push('    limpeza: registro ' + (lp.registro == null ? 'não houve' : lp.registro ? 'apagado' : 'FICOU'
+    + (lp.seguradoPor && lp.seguradoPor.length ? ' (segurado por ' + lp.seguradoPor.join(', ') + ')' : ''))
+    + ' · arquivo do shell ' + (lp.arquivoDoShell == null ? 'não houve' : lp.arquivoDoShell ? 'apagado' : 'FICOU')
+    + (lp.ms != null ? ' · ' + fmtSeg(lp.ms) : '') + (lp.erro ? ' · erro: ' + lp.erro : ''));
+  // O QUE ESTA MEDIDA NÃO ALCANÇA sem um APK novo — escrito, para ninguém ler
+  // o silêncio como "não acontece".
+  l.push('    não medido (só com APK novo): a extração separada da conexão (o "até o 1º byte" soma as duas),'
+    + ' quais candidatos o shell tentou antes do que pegou, a junção isolada da escrita do arquivo,'
+    + ' e o parcial que uma FALHA deixa no cache do shell (o cancelamento o apaga; a falha não)');
+  return l;
+}
+
+// O PROGRESSO NA LINHA DE RESUMO enquanto o download anda.
+function testeDlResumo() {
+  const m = testeDl;
+  if (!m || !m.episodio) return 'Verificação completa: preparando o download de teste…';
+  const a = m.amostras;
+  if (!a.length) return 'Baixando "' + (m.episodio.titulo || 'episódio') + '"… procurando o vídeo';
+  const ult = a[a.length - 1];
+  const pct = ult[2] ? Math.floor((ult[1] / ult[2]) * 100) : null;
+  if (pct != null && pct >= 100 && !m.tGravado) return 'Download de teste: juntando e gravando…';
+  return 'Download de teste: ' + (pct != null ? pct + '% · ' : '') + fmtBytes(ult[1])
+    + (ult[2] ? ' de ' + fmtBytes(ult[2]) : '');
+}
+
 let testeRodando = false;
 let testeResultado = null;
 
@@ -30065,10 +30405,18 @@ let testeResultado = null;
  * A ORDEM DO RELATÓRIO É A DA TABELA, nunca a de chegada: com quatro rodando de
  * cada vez a ordem de término é o acaso da rede, e uma lista que se reorganiza
  * a cada toque não se lê duas vezes.
+ *
+ * `opts.completa` (v1.12.27) acrescenta, DEPOIS da bateria leve e sozinha, o
+ * download de teste (`TESTE_DL`) — e é a única diferença: a leve é a mesma
+ * tabela de sempre, e nunca baixa nada.
  */
-async function rodarAutoteste() {
+async function rodarAutoteste(opts) {
   if (testeRodando) return testeResultado;
   testeRodando = true;
+  const completa = !!(opts && opts.completa);
+  testeCompleta = completa;
+  testeDl = null;
+  testeDlCanceladoAntes = false;
   const t0 = Date.now();
   // FOTOGRAFADO UMA VEZ: se o operador der play no meio da rodada, metade das
   // checagens teria visto um estado e metade o outro.
@@ -30086,6 +30434,17 @@ async function rodarAutoteste() {
       }
       itens.push(await rodarUmaChecagem(c));
     });
+    // EM SÉRIE, DEPOIS DA LEVE: a bateria leve mede o app parado, e um download
+    // de centenas de megabytes ao lado mudaria o que ela mede (rede, disco).
+    if (completa) {
+      desenharTeste();
+      if (haCena) {
+        itens.push({ id: TESTE_DL.id, area: TESTE_DL.area, titulo: TESTE_DL.titulo, v: TESTE_NA,
+          nota: 'há mídia no ar — o download de teste não roda durante uma projeção', ms: 0 });
+      } else {
+        itens.push(await rodarUmaChecagem(TESTE_DL));
+      }
+    }
     // O RESULTADO É GUARDADO ANTES DE SOLTAR A TRAVA, e a ordem importa: entre
     // `testeRodando = false` e a atribuição existe uma janela em que a folha se
     // desenharia como "pronta" mostrando o resultado da rodada ANTERIOR — e é
@@ -30096,6 +30455,10 @@ async function rodarAutoteste() {
     testeResultado = {
       em: Date.now(),
       ms: Date.now() - t0,
+      completa,
+      // A MEDIDA do download, quando houve rodada completa — o objeto que a
+      // linha resume e o Registro detalha (`blocoDownloadDeTeste`).
+      download: completa ? testeDl : null,
       itens,
       ok: conta(TESTE_OK),
       falhou: conta(TESTE_FALHOU),
@@ -30104,10 +30467,11 @@ async function rodarAutoteste() {
     };
   } finally {
     testeRodando = false;
+    testeCompleta = false;
   }
   // UMA LINHA NA LINHA DO TEMPO, com o placar. Ela é o que amarra "o operador
   // testou" ao que veio depois, num Registro lido a distância.
-  diagC('verificação do sistema: ' + testeResultado.ok + ' ok · '
+  diagC('verificação ' + (completa ? 'completa' : 'leve') + ' do sistema: ' + testeResultado.ok + ' ok · '
     + testeResultado.falhou + ' com falha · ' + testeResultado.mudo + ' sem resposta · '
     + testeResultado.na + ' não se aplica');
   return testeResultado;
@@ -30123,7 +30487,8 @@ function blocoAutoteste() {
   const r = testeResultado;
   if (!r) return '';
   const linhas = [];
-  linhas.push('  rodada em ' + new Date(r.em).toLocaleString() + ' · ' + (r.ms / 1000).toFixed(1) + ' s');
+  linhas.push('  ' + (r.completa ? 'COMPLETA' : 'leve') + ', rodada em ' + new Date(r.em).toLocaleString()
+    + ' · ' + (r.ms / 1000).toFixed(1) + ' s');
   linhas.push('  ' + r.ok + ' ok · ' + r.falhou + ' com falha · ' + r.mudo
     + ' sem resposta · ' + r.na + ' não se aplica');
   let area = '';
@@ -30137,6 +30502,7 @@ function blocoAutoteste() {
     const lenta = it.v !== 'mudo' && it.ms >= 2000 ? ' · ' + (it.ms / 1000).toFixed(1) + ' s' : '';
     linhas.push('    ' + (TESTE_MARCA[it.v] || '? ') + it.titulo + (it.nota ? ' — ' + it.nota : '') + lenta);
   }
+  if (r.completa) for (const x of blocoDownloadDeTeste(r.download)) linhas.push(x);
   return 'Verificação do sistema\n' + linhas.join('\n');
 }
 
@@ -34663,10 +35029,18 @@ async function ytBaixarNativo(link, nome, opts) {
   // é a única tela que existe. Uma tarefa de um item só nunca chega a trocar de
   // nome, então o compasso não tem o que fazer aqui — vai direto.
   bgItemOnly(notif, rotulo);
+  // A RÉGUA DA VERIFICAÇÃO COMPLETA (v1.12.27): `opts.medida` é um objeto que
+  // esta função CARIMBA em cada fase (o primeiro byte, cada megabyte, o fim no
+  // shell, a cópia, a miniatura, a gravação) — o download é o MESMO de um
+  // "Tocar agora", só observado. `opts.semResgate` tira a intenção: um teste
+  // que o renderer leve junto não pode voltar a baixar sozinho na abertura.
+  const medida = (opts && opts.medida) || null;
+  const semResgate = !!(opts && opts.semResgate);
+  if (medida) { medida.tInicio = Date.now(); medida.amostras = medida.amostras || []; }
   // A INTENÇÃO, GRAVADA ANTES DE COMEÇAR. É o que permite reclamar o download
   // se esta página morrer no meio dele (ver `resgatarDownloads`) — e por isso
   // ela precisa estar no banco ANTES do primeiro byte, não depois.
-  await lembrarIntencao({
+  if (!semResgate) await lembrarIntencao({
     link,
     nome: rotulo,
     youtubeId: (opts && opts.youtubeId) || null,
@@ -34681,6 +35055,7 @@ async function ytBaixarNativo(link, nome, opts) {
   try {
     return await withBgWork(async () => {
       const r = await AVNative.ytFetch(link, (lidos, total) => {
+        if (medida && medida.amostras.length < 20000) medida.amostras.push([Date.now(), lidos, total]);
         const pct = total ? Math.floor((lidos / total) * 100) : -1;
         bg.atualizar(pct >= 0
           ? rotuloBaixando + ' · ' + pct + '%'
@@ -34692,6 +35067,11 @@ async function ytBaixarNativo(link, nome, opts) {
         bgTaskBytes(notif, lidos, total);
         if (opts && opts.onPct) opts.onPct(pct);
       }, soAudio, altura);
+      if (medida) {
+        medida.tNativo = Date.now();
+        medida.r = r ? { url: r.url || '', size: r.size || 0, type: r.type || '', height: r.height | 0,
+          seconds: r.seconds | 0, audioOnly: !!r.audioOnly } : null;
+      }
       if (!r || !r.url) return null;
       // CANCELADO NO ÚLTIMO SEGUNDO. O shell para o laço de cópia, mas há uma
       // janela em que ele já terminou de baixar e está juntando as faixas
@@ -34715,12 +35095,14 @@ async function ytBaixarNativo(link, nome, opts) {
         const res = await fetch(r.url);
         if (!res.ok) return null;
         const blob = await res.blob();
+        if (medida) { medida.tCopia = Date.now(); medida.bytes = blob.size; }
         if (!blob.size) return null;
         // SEM MINIATURA quando é só áudio, e isso não é economia: a miniatura
         // de um áudio seria a "capa" que não pode existir. O registro entra com
         // `kind: 'audio'`, e é o kind que faz o telão manter o wallpaper em vez
         // de trocar de imagem (ver `semVisual` em stage.js).
         const thumb = soAudio ? null : await makeThumb(blob, 'video');
+        if (medida) medida.tMiniatura = Date.now();
         // O AVISO MORA ONDE O RESULTADO VAI APARECER — a régua da v5.84, e ela
         // decide este `if`. `aviso === 'preview'` é o download que vai ENTRAR EM
         // CENA; nos outros destinos o resultado é uma LINHA, e ali a altura já
@@ -34731,7 +35113,7 @@ async function ytBaixarNativo(link, nome, opts) {
         // Vem ANTES do `addMedia` porque a gravação do blob pode demorar, e o
         // cartão que ainda está no ar é o mesmo que vai falar.
         if (!soAudio && aviso === 'preview') avisarResolucaoLimitada(r.height, altura);
-        return await AVDB.addMedia(blob, {
+        const gravado = await AVDB.addMedia(blob, {
           // O sufixo é a MESMA convenção das músicas do acervo, que já se
           // chamam "(Cantado)"/"(Playback)": sem ele, o vídeo e o áudio do
           // mesmo link viram duas linhas com o nome idêntico na lista.
@@ -34765,6 +35147,8 @@ async function ytBaixarNativo(link, nome, opts) {
           // pertence ao Cronograma (ver `ytAcao`).
           list: (opts && opts.lista) || 'imports',
         });
+        if (medida) medida.tGravado = Date.now();
+        return gravado;
       } finally {
         // No `finally`: mesmo que a cópia falhe, o arquivo do cache não pode
         // ficar para trás — ninguém mais tem o token dele.
@@ -34783,7 +35167,7 @@ async function ytBaixarNativo(link, nome, opts) {
     // contar. É justamente por ela NÃO chegar aqui — o renderer morreu no meio
     // — que a intenção sobrevive e é reclamada na abertura seguinte (ver
     // `resgatarDownloads`).
-    await esquecerIntencao(link, soAudio);
+    if (!semResgate) await esquecerIntencao(link, soAudio);
   }
 }
 
@@ -37826,8 +38210,9 @@ function openHistPopup() {
 //
 // ELA RODA AO ABRIR. Um toque que abre uma lista vazia com um botão "verificar"
 // embaixo é dois toques para a mesma intenção — quem abriu esta folha já pediu
-// o teste. O "Verificar de novo" existe para a SEGUNDA rodada, que é o gesto de
-// quem acabou de consertar alguma coisa e quer confirmar.
+// o teste (a LEVE). O botão "Leve" existe para a SEGUNDA rodada, que é o gesto
+// de quem acabou de consertar alguma coisa e quer confirmar; a "Completa" só
+// roda pedida, porque baixa um vídeo inteiro (v1.12.27).
 function openTestePopup() {
   testePopupEl.classList.add('open');
   desenharTeste();
@@ -38689,12 +39074,11 @@ async function salvarRegistroDaVerificacao() {
   }
 }
 
-async function dispararTeste() {
+async function dispararTeste(completa) {
   if (testeRodando) return;
   // O ARO NO TILE segue girando com a folha fechada: o operador pode fechar e a
   // rodada continua — o resultado o espera na próxima abertura.
   if (testeTileEl) testeTileEl.classList.add('qs-trabalhando');
-  if (testeRodarEl) testeRodarEl.disabled = true;
   // ===== A RODADA COMEÇA ANTES DO DESENHO, E A ORDEM É O RECURSO (v1.10.2) =====
   //
   // `testeRodando` só é erguida DENTRO de `rodarAutoteste`, e o desenho vinha
@@ -38708,11 +39092,10 @@ async function dispararTeste() {
   // esperar já ergue a trava, e é por isso que o desenho vem depois da
   // chamada e antes do `await`. Guardar a Promise é o que mantém o `await`
   // sobre a MESMA rodada — um segundo `rodarAutoteste()` devolveria a trava.
-  const rodada = rodarAutoteste();
+  const rodada = rodarAutoteste({ completa: completa === true });
   desenharTeste();
   try { await rodada; } catch (_) { /* o desenho mostra o que houve */ }
   if (testeTileEl) testeTileEl.classList.remove('qs-trabalhando');
-  if (testeRodarEl) testeRodarEl.disabled = false;
   desenharTeste();
   // O REGISTRO acompanha sem que ninguém o peça: quem abre Configurações depois
   // de testar encontra o resultado já no texto que ele salva.
@@ -38742,8 +39125,14 @@ function desenharTeste() {
         : 'Salvar o registro com esta verificação';
     testeSalvarEl.setAttribute('aria-label', testeSalvarEl.title);
   }
+  desenharBotoesDoTeste();
   if (testeRodando) {
-    testeResumoEl.textContent = 'Verificando ' + TESTES.length + ' partes do app…';
+    // NA COMPLETA, depois da bateria leve, o resumo vira o PROGRESSO do download
+    // — é a única coisa andando, e minutos de "Verificando…" parado se leriam
+    // como travado.
+    testeResumoEl.textContent = testeCompleta && testeDl
+      ? testeDlResumo()
+      : 'Verificando ' + TESTES.length + ' partes do app' + (testeCompleta ? ' (completa: depois, um download de teste)' : '') + '…';
     testeResumoEl.className = 'teste-resumo teste-resumo--rodando';
   } else if (!r) {
     testeResumoEl.textContent = '';
@@ -38799,6 +39188,35 @@ function desenharTeste() {
     li.appendChild(txt);
     testeListEl.appendChild(li);
   }
+}
+
+// OS DOIS BOTÕES DA FAIXA (v1.12.27). A LEVE é a bateria de sempre; a COMPLETA
+// é ela mais o download de teste — e, enquanto a completa anda, o MESMO botão
+// vira "Cancelar" (mesma caixa, então nada na faixa se move). Fora do app não
+// há download a testar: a completa fica APAGADA, com o `title` dizendo por quê.
+function desenharBotoesDoTeste() {
+  if (testeRodarEl) {
+    testeRodarEl.disabled = testeRodando;
+    testeRodarEl.title = testeRodando ? 'Espere a verificação terminar'
+      : 'Verificação leve: confere cada parte do app em segundos, sem baixar nada';
+  }
+  if (!testeCompletaEl) return;
+  const cancela = testeRodando && testeCompleta;
+  testeCompletaEl.textContent = cancela ? 'Cancelar' : 'Completa';
+  testeCompletaEl.classList.toggle('teste-cancelar', cancela);
+  testeCompletaEl.disabled = cancela ? false : (testeRodando || !window.__NATIVE__);
+  testeCompletaEl.title = cancela ? 'Parar a verificação completa e apagar o download de teste'
+    : !window.__NATIVE__ ? 'O download de teste só existe no app Android'
+      : testeRodando ? 'Espere a verificação terminar'
+        : 'Verificação completa: a leve, mais o download de um episódio anterior do Provai e Vede, medido e apagado no fim';
+  testeCompletaEl.setAttribute('aria-label', testeCompletaEl.title);
+}
+
+function cancelarTesteCompleto() {
+  if (!(testeRodando && testeCompleta)) return;
+  if (testeDlCancelar) testeDlCancelar();
+  else testeDlCanceladoAntes = true;
+  desenharTeste();
 }
 
 // ✓ / ✕ / — / ponto, os quatro desenhados à mão pelo motivo do comentário acima.
@@ -38963,7 +39381,11 @@ histOpenRowEl.addEventListener('click', openHistPopup);
 if (testeTileEl) testeTileEl.addEventListener('click', openTestePopup);
 if (telaTileEl) telaTileEl.addEventListener('click', openTelaPopup);
 if (pacoteTileEl) pacoteTileEl.addEventListener('click', openPacotePopup);
-if (testeRodarEl) testeRodarEl.addEventListener('click', dispararTeste);
+if (testeRodarEl) testeRodarEl.addEventListener('click', () => dispararTeste(false));
+if (testeCompletaEl) testeCompletaEl.addEventListener('click', () => {
+  if (testeRodando && testeCompleta) cancelarTesteCompleto();
+  else dispararTeste(true);
+});
 if (testeSalvarEl) {
   // REVELADO AQUI, e não no `renderVersionLabel` — a mesma armadilha do
   // `#diagSave`: aquela função roda no topo do arquivo e este `const` só existe

@@ -10129,8 +10129,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 
 /* ---------- O SALVAR DA VERIFICAÇÃO (v1.10.3) ----------
    Mesma receita dos três destinos acima, e pelo MESMO motivo: a 320px com a
-   fonte do sistema a 1,5× não cabem dois rótulos na faixa — "Verificar de novo"
-   sozinho passa de 200px em ~297px de largura útil. É o caso declarado da
+   fonte do sistema a 1,5× a faixa já carrega dois rótulos (Leve · Completa,
+   v1.12.27) em ~297px de largura útil, e um terceiro não cabe. É o caso declarado da
    v1.8.57 (botão sem rótulo é QUADRADO, e numa faixa de fecho o número é
    `--quad-faixa`).
 
@@ -10161,6 +10161,10 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 }
 .teste-salvar svg { width: var(--icon-sm); height: var(--icon-sm); }
 .teste-salvar:disabled { opacity: var(--op-inativo); cursor: default; }
+/* O CANCELAR DA VERIFICAÇÃO COMPLETA (v1.12.27): é o mesmo botão da
+   "Completa" enquanto o download de teste anda — mesma caixa, então a faixa não
+   se move —, vestido como ação que DESFAZ (o par do `.teste-resumo--ruim`). */
+.song-menu-go.teste-cancelar { background: var(--btn-danger); color: var(--danger-strong); }
 .sorteio-acao .song-menu-text { align-items: center; justify-content: center; min-height: var(--hit); }
 .sorteio-acao:disabled { opacity: .5; cursor: default; }
 

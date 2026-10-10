@@ -7441,7 +7441,7 @@ gancho de cá que o sistema chama. **A régua é a REVERSÃO**: uma asserção q
 passa com o conserto desfeito não mede a checagem, mede a linguagem.
 
 **A FOLHA SALVA O REGISTRO, e o arquivo é UM só** (v1.10.3). O botão quadrado
-ao lado de *"Verificar de novo"* grava o MESMO `diagTexto` do botão de
+ao lado de *"Leve"* e *"Completa"* grava o MESMO `diagTexto` do botão de
 Configurações, com o MESMO nome (`nomeDoRegistro`) — a verificação já viaja lá
 dentro como um bloco. **Porta nova é porta para o mesmo arquivo:** um recorte
 próprio faria quem lê a distância perguntar qual dos dois vale, que é o
@@ -7487,6 +7487,44 @@ quem a autoriza é a permissão do Android, e o web não tem como perguntar.
 | a tela | `desenharTeste` | lê o MESMO objeto que o Registro escreve |
 | o Registro | `blocoAutoteste` | o bloco que o operador manda a distância |
 | o salvar | `salvarRegistroDaVerificacao` | a SEGUNDA porta do MESMO arquivo — monta o texto (`await renderDiag()`) e recusa o vazio |
+
+**A LEVE E A COMPLETA** (v1.12.27). Pedido do operador: *"faça que o app baixe
+aleatoriamente um dos vídeos anteriores do Provai e Vede que ainda não estão no
+sistema, e acompanhe todo o processo registrando tamanho, duração do vídeo,
+tempo de download… Após o download, finalize a verificação e então exclua o
+arquivo… faça dois botões: leve e completa"*. A faixa de fecho é **salvar ·
+Leve · Completa**, os dois primários com a MESMA largura (`.song-menu-go`): a
+abertura da folha roda a LEVE (a tabela `TESTES`, que NUNCA baixa nada), e a
+COMPLETA é `rodarAutoteste({ completa: true })` — a leve inteira e, DEPOIS
+dela e sozinha, a linha `TESTE_DL` (área *"Download do YouTube"*). Enquanto a
+completa anda, o MESMO botão vira *"Cancelar"* (`.teste-cancelar`, o par do
+`.teste-resumo--ruim`), e o resumo mostra o progresso (`testeDlResumo`).
+
+| peça | o que faz |
+|---|---|
+| `testeEscolherEpisodio` | sorteia entre os episódios ANTERIORES à semana (`AVSerie.diasAte < -getDay()`) que não estão no aparelho em forma NENHUMA (`mediaByYoutube` sem `kind`: arquivo ou link). O da semana fica de fora (é o que o aparelho guarda sozinho, e a limpeza o apagaria); um já guardado não baixaria. Vazio → `na` com o motivo |
+| `testeDownloadCompleto` | as guardas (sem ponte, `midiaNoAr`, `bgWorkPedido()`/`serieAutoRodando`, `redeLiberadaParaBaixar()`), o download e a limpeza num `finally` que roda em TODO desfecho |
+| `ytBaixarNativo(…, { medida, semResgate })` | o MESMO caminho do "Tocar agora" da busca no Modo Fácil — teto `ytAlturaPadrao()` (720p → `ytFetchAte`), prateleira `avulsos` — com duas opções novas: `medida` é carimbada em cada fase (`tInicio`, uma amostra `[t, lidos, total]` por megabyte, `tNativo` + o `r` do shell, `tCopia`, `tMiniatura`, `tGravado`) e `semResgate` não grava intenção (um teste levado pelo renderer não volta a baixar na abertura). O aviso é `'nenhum'`: nada vai à prévia |
+| `testeDlContas` | PURA: até o 1º byte, baixando (até a primeira amostra com `lidos >= total`), junção/fecho (dali até o shell devolver), cópia, miniatura, gravação, total; Mbit/s médio e por janelas de 2 s (`TESTE_DL_JANELA_MS`), o maior vão e as paradas de 5 s ou mais; a razão duração ÷ total |
+| `testeMetadados` | a DURAÇÃO e as dimensões lidas do arquivo GRAVADO, num `<video>` fora do documento, só metadados — nunca `play()` (pediria foco de áudio, e o Chromium pausaria o telão) |
+| `testeArquivoDoShellSumiu` | o `ytDiscard` é dispara-e-esquece: a sonda refaz o `fetch` do `/saf/` do intermediário por até 6 s, abortando o corpo, até ele deixar de responder |
+| `blocoDownloadDeTeste` | o detalhe no Registro (episódio, rede no início e no fim, teto × o que veio, caminho lido do `ytDiag` — *juntou* ou *veio* —, tamanho, duração, tempos, velocidade, limpeza) e a linha do que NÃO se mede sem APK |
+
+- **Os desfechos:** veio e foi apagado = `ok`, com a nota em uma olhada
+  (*"720p · 132 MB em 1:42 (10,4 Mbit/s) · vídeo de 28:15 · 16,6× a duração ·
+  apagado"*); o shell não entregou = falha (com o `motivoDaRecusa`); cancelado
+  por quem opera, ou por uma mídia que ENTROU no ar no meio (o vigia de 1 s), =
+  `na`; o prazo (`TESTE_DL_PRAZO`, 10 min) = sem resposta. **E O QUE SOBROU É
+  FALHA, por cima de qualquer outro desfecho**: o registro na biblioteca ou o
+  intermediário no cache do shell.
+- **O cancelamento é `ytCancelados` + `AVNative.ytCancel`**, sem a pergunta do
+  `cancelarDownload` (é um teste, e quem o pediu está olhando a folha); a marca
+  sai no `finally`, senão armaria o próximo download do mesmo vídeo.
+- **O que fica sem medir até um APK novo** — e está escrito no Registro para
+  ninguém ler o silêncio como "não acontece": a extração separada da conexão (o
+  *"até o 1º byte"* soma as duas), quais candidatos o shell tentou antes do que
+  pegou, a junção isolada da escrita do arquivo, e o parcial que uma FALHA deixa
+  no cache do shell (o cancelamento o apaga, a falha não, e o web não tem como).
 
 **As quatro regras que não se quebram** estão no `CLAUDE.md` (§Diagnóstico); o
 que vale saber aqui é onde encostar: **checagem nova é uma linha na tabela**, e
