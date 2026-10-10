@@ -214,7 +214,7 @@
     // `fadeIn`/`fadeOut` são os EFETIVOS da mídia em cena: a configuração do
     // operador (`fadeInCfg`/`fadeOutCfg`) OU a marca do item editado
     // (`edicao.fadeEntrada`/`fadeSaida`). A DURAÇÃO é a `fadeTime` da tela, e a
-    // marca a DOBRA na ponta que ela nomeia (v1.12.24) — ver `fadeDaMarca`.
+    // marca a DOBRA na ponta que ela nomeia (v1.12.25) — ver `fadeDaMarca`.
     let fadeIn = false;
     let fadeOut = false;
     let fadeInCfg = false;
@@ -259,7 +259,7 @@
       clearTimeout(saidaTimer); saidaTimer = null;
     }
 
-    // A MARCA DO ITEM EDITADO DOBRA O FADE (v1.12.24). Pedido do operador: *"o
+    // A MARCA DO ITEM EDITADO DOBRA O FADE (v1.12.25). Pedido do operador: *"o
     // fade de entrada quanto o de saída do editor, serem o dobro do tempo do
     // fade comum"*. O `FADE` da tela já liga entrada e saída em todo item, então
     // a marca não LIGA nada — ela ALONGA a ponta que nomeia para 2 × `fadeTime`
@@ -458,7 +458,7 @@
         // O REFLOW registra esse 0 como o estilo de PARTIDA. O elemento acabou de
         // sair do `hidden` (display: none), e sem um cálculo de estilo entre o
         // revelar e o 1 não há "antes" para a transição: MEDIDO, a mídia entrava
-        // no talo quando o `loadeddata` chegava antes do quadro seguinte (v1.12.24).
+        // no talo quando o `loadeddata` chegava antes do quadro seguinte (v1.12.25).
         void el.offsetWidth;
         el.style.transition = 'opacity ' + t + 's ease';
         el.style.opacity = '1';
@@ -1031,7 +1031,7 @@
       // limpa o rampTimer), e o `applyMedia()` logo abaixo TAMBÉM o escreve — por
       // isso a rampa vem DEPOIS dos dois. Antes dele, o primeiro passo dela era
       // atropelado: MEDIDO, o volume ficava em 1 por ~50 ms no início de cada
-      // entrada (v1.12.24). Ela mesma escreve o 0 inicial.
+      // entrada (v1.12.25). Ela mesma escreve o 0 inicial.
       const rampaEntrada = (rec.kind === 'video' || rec.kind === 'audio')
         && fadeIn && !forceMuted && !video.muted && volume > 0;
       // A OPACIDADE ZERO É ESCRITA ANTES DE REVELAR. `applyMedia()` tira o

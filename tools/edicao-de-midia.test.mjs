@@ -6,7 +6,7 @@
 //       tem como ser editado é recusado;
 //   B · o PALCO: o recorte começa em `inicio`, acaba em `fim` com o `ended`
 //       (que avança a fila), o tempo reportado é o do TRECHO, e as marcas de
-//       fade de entrada e saída DOBRAM o fade da tela na ponta que nomeiam (v1.12.24);
+//       fade de entrada e saída DOBRAM o fade da tela na ponta que nomeiam (v1.12.25);
 //   C · a JANELA (v1.12.1): seletor em grupos, faixa de duas pontas, rascunho que
 //       PERSISTE (inclusive depois de criar), importar arquivo só para o editor, e o
 //       tile também no Modo Fácil. v1.12.6: o fecho é "Confirmar" + os quadrados dos
@@ -176,7 +176,7 @@ checar(Math.abs(sk.c - 1.5) < 0.1 && Math.abs(sk.t - 0.5) < 0.1,
   'B · `seek(t)` é em tempo do TRECHO (0,5 → 1,5 s do arquivo)', JSON.stringify(sk));
 
 // B3 · os fades do item, com os fades da tela DESLIGADOS: a marca basta, e a
-// duração é o DOBRO da que a tela tem (0,5 s → 1 s; v1.12.24).
+// duração é o DOBRO da que a tela tem (0,5 s → 1 s; v1.12.25).
 await pg.evaluate(() => window.__stage.setFade({ fadeIn: false, fadeOut: false, time: 0.5 }));
 const idFade = await criar({ inicio: 0, fim: 4, fadeEntrada: true, fadeSaida: true });
 await pg.evaluate((id) => {
@@ -227,7 +227,7 @@ checar(parou === true && finsReal.n === 1,
   'B · com os fades reais da tela (0,6 s) e sem a marca de saída, o corte dá UM `ended` só — não um por `timeupdate` durante o fade',
   porque(parou) || JSON.stringify(finsReal));
 
-// B6 · AS MARCAS DOBRAM O FADE (v1.12.24), medidas com o `FADE` REAL do app (entrada e saída
+// B6 · AS MARCAS DOBRAM O FADE (v1.12.25), medidas com o `FADE` REAL do app (entrada e saída
 // ligadas, 0,6 s). Pedido do operador: *"o fade de entrada quanto o de saída do editor, serem o
 // dobro do tempo do fade comum"*. Mede-se a RAMPA ao longo do tempo — volume e opacidade do
 // `<video>` — com e sem a marca, nas duas pontas: a entrada dura 1,2 s em vez de 0,6, e a saída

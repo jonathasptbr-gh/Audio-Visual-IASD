@@ -38,6 +38,11 @@ const faderWrapEl = document.querySelector('.fader-wrap');
 const deckEl = document.querySelector('.deck');
 const pvCastBtnEl = document.getElementById('pvCastBtn');
 const fsCtlEl = document.getElementById('pvFsCtl');
+// A BARRA DE VOLUME DA TELA CHEIA (v1.12.24) e a porta da tela cheia do vídeo no Modo Fácil.
+const pvVolumeEl = document.getElementById('pvVolume');
+const pvVolumeNivelEl = document.getElementById('pvVolumeNivel');
+const pvVolumeNumEl = document.getElementById('pvVolumeNum');
+const simpleFsBtnEl = document.getElementById('simpleFsBtn');
 const simpleNpNameEl = document.getElementById('simpleNpName');
 const simplePlayEl = document.getElementById('simplePlay');
 const simpleStopEl = document.getElementById('simpleStop');
@@ -387,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.24';
+const WEB_VERSION = '1.12.25';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1700,6 +1705,11 @@ let fimJaTratado = false;
 //
 // Uma variável, três defeitos: o estado que faltava era esse.
 let midiaNoAr = false;
+// A TELA CHEIA ATUAL DA PRÉVIA É DO VÍDEO DO MODO FÁCIL (v1.12.24) — aberta por
+// `acertarTelaCheiaDoVideo` ou pelo `#simpleFsBtn`, e por isso é ela que SAI sozinha quando o vídeo
+// acaba ou é trocado. Aqui no topo pelo motivo do bloco abaixo: `renderSimple` roda na carga.
+let fsDoVideo = false;
+let pvVolumeTimer = null;
 // ===== A COREOGRAFIA DA ESCOLHA NO MODO FÁCIL (v1.11.12) — o estado mora AQUI, no topo,
 // porque `closeHymnSearch` roda durante a CARGA do módulo (via `renderSimpleGate`) e um
 // `let` declarado depois dela seria zona morta temporal. `simpleSel` é a linha que o
@@ -13567,6 +13577,8 @@ async function send(id, daFila, recPronto) {
   // acima), e a página seguinte com vídeo toca sozinha. O laço da última página
   // continua fechado pelo `deckVideoSemGatilho`.
   if (isDeck(currentItem)) deckVideoTalvezTocar(currentItem, deckPagina);
+  // O VÍDEO DO MODO FÁCIL ENTRA EM TELA CHEIA — e a mídia que o troca por outra coisa a fecha.
+  acertarTelaCheiaDoVideo(true);
   if (currentItem && currentItem.kind === 'youtube') {
     // Zera a UI de transporte; o display-status remoto assume em seguida.
     seekEl.value = 0; seekEl.max = 0; seekEl.disabled = true;
@@ -17363,6 +17375,9 @@ function resetAfterEnd() {
   // ele desfaria a linha acima, que devolve a barra de propósito para o ▶ poder
   // repetir a faixa. O cartão do player já é republicado pelo `setPlaying`.
   marcarNoAr();
+  // O FIM DO VÍDEO FECHA A TELA CHEIA DO MODO FÁCIL (o avanço da fila não passa por aqui: ele
+  // chama `send` direto, e o vídeo seguinte herda a tela cheia).
+  acertarTelaCheiaDoVideo(false);
 }
 
 // TODO `send` DAQUI PASSA `daFila` (v5.312): a imagem que chega pelo avanço
@@ -17518,6 +17533,7 @@ async function pararMidia(tipo) {
   // durante todo o esmaecimento do `clearFaded` (ver `midiaNoAr`).
   midiaNoAr = false;
   midiaNoArId = '';
+  acertarTelaCheiaDoVideo(false);
   await persistCurrent();   // solta o detentor da cena — ver `persistCurrent`
   setPlaying(false);
   // Item de LINK: o `clear` derruba a cena, e o próximo ▶ precisa passar pelo
@@ -39075,6 +39091,9 @@ function fecharFader() {
 // Mexer no fader enquanto ele está no ar reinicia a contagem (`peekVolume` é
 // chamada de novo): recolher debaixo do dedo seria o oposto do que ela faz.
 function peekVolume() {
+  // EM TELA CHEIA o fader não está à vista: quem responde é a barra da prévia — também quando a
+  // tecla vai ao SISTEMA e o número do app não muda (o teto e o zero são justamente a resposta).
+  mostrarVolumeDaTelaCheia();
   // No Modo Fácil a barra de volume já é a lateral inteira da tela: não há o
   // que espiar, e mexer numa classe do deck escondido não teria efeito nenhum.
   if (appMode === 'simple') return;
@@ -39227,6 +39246,7 @@ function applyVolume(v) {
   if (volume > 0 && muted) { muted = false; cmd({ type: 'mute', muted }); }
   cmd({ type: 'volume', volume });
   renderControls();   // e por ele o fader e a leitura do Modo Fácil
+  mostrarVolumeDaTelaCheia();
 }
 
 /**
@@ -39460,6 +39480,7 @@ function renderTemaTile() {
 // mudo por conta própria. Se a regra mudar lá, muda aqui junto.
 function renderSimple() {
   if (appMode !== 'simple') return;
+  renderSimpleFsBtn();
   simpleNpNameEl.textContent = npNameInnerEl.textContent || 'Nada tocando';
   simplePlayEl.querySelector('.msym').textContent = playPauseEl.querySelector('.msym').textContent;
   // O botão espelhado deixou de ter glifo na v1.3.5 (subiu para a preview e
@@ -40541,6 +40562,103 @@ renderBuscaLimpar();
   if (conn && conn.addEventListener) conn.addEventListener('change', refreshCollectionsIfVisible);
 })();
 
+// A TELA CHEIA DA PRÉVIA, com a trava de paisagem (permitida só com o elemento JÁ em tela cheia).
+// Devolve se ENTROU: o pedido exige ATIVAÇÃO DO USUÁRIO (o Chromium recusa sem um toque nos
+// últimos ~5 s, também no WebView — `mediaPlaybackRequiresUserGesture` é só do autoplay), e quem
+// chama fora de um toque precisa saber que não deu.
+async function entrarTelaCheiaDaPrevia() {
+  try {
+    if (previewEl.requestFullscreen) await previewEl.requestFullscreen();
+    else if (previewEl.webkitRequestFullscreen) previewEl.webkitRequestFullscreen();
+    else return false;
+  } catch (_) { return false; }
+  try { await (screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')); } catch (_) {}
+  return document.fullscreenElement === previewEl;
+}
+
+// ===== O VÍDEO DO MODO FÁCIL ENTRA EM TELA CHEIA (v1.12.24) =====
+// Pedido do operador: *"no modo simples, quando tocar um vídeo … ligue o modo tela cheia, já que
+// não temos o auxiliar de leitura (não tem texto) e não temos o preview no modo simples"*. A tela
+// cheia é a MESMA do avançado (a `.preview` no top layer, paisagem nativa pelo `onShowCustomView`),
+// e vale COM ou SEM tela conectada: com TV o operador também quer ver o vídeo, e sem TV ela é a
+// projeção — o som segue a regra de sempre (`acertarSaidaDeAudio`), nada muda aqui.
+//
+// QUAL MÍDIA: `kind === 'video'` (o episódio da série e o download do YouTube entram assim; o
+// "só áudio" de um item editado já chega como `audio`) e SEM leitura — a régua da placa
+// (`simplesSemLeitura`): um vídeo com letra tem o auxiliar, e a premissa do pedido não vale.
+function videoDoModoFacil() {
+  return appMode === 'simple' && midiaNoAr && !!currentItem && currentItem.kind === 'video'
+    && simplesSemLeitura();
+}
+// A PORTA DE (RE)ENTRADA: o pedido automático só vale DENTRO da ativação do toque que escolheu
+// o vídeo — um vídeo que BAIXA antes de projetar (o "tocar agora" do YouTube, o episódio que
+// ainda não desceu) chega minutos depois, e o Chromium recusa. Sem esta porta, a recusa seria um
+// recurso que não acontece, sem nada na tela; ela também é o caminho de volta depois do voltar.
+function renderSimpleFsBtn() {
+  if (!simpleFsBtnEl) return;
+  simpleFsBtnEl.hidden = !(videoDoModoFacil() && (previewEl.requestFullscreen || previewEl.webkitRequestFullscreen));
+}
+/** [entrar] só no `send` — a cena NOVA. Os outros chamadores (fim, parar) só podem SAIR: uma
+ *  tela cheia que o operador fechou não volta sozinha por um redesenho. */
+function acertarTelaCheiaDoVideo(entrar) {
+  renderSimpleFsBtn();
+  const nela = document.fullscreenElement === previewEl;
+  if (videoDoModoFacil()) {
+    if (entrar && !document.fullscreenElement) {
+      fsDoVideo = true;
+      entrarTelaCheiaDaPrevia().then((ok) => {
+        if (!ok && document.fullscreenElement !== previewEl) fsDoVideo = false;
+        if (!ok) diagC('tela cheia do vídeo: o pedido foi recusado (sem toque recente) — fica o botão');
+      });
+    }
+    return;
+  }
+  // A SAÍDA AUTOMÁTICA é só da tela cheia que ESTA regra (ou o botão do Modo Fácil) abriu: a do
+  // avançado, pedida pelo ⛶ da prévia, continua do operador.
+  if (nela && fsDoVideo) {
+    fsDoVideo = false;
+    try { document.exitFullscreen(); } catch (_) {}
+  }
+}
+if (simpleFsBtnEl) {
+  simpleFsBtnEl.addEventListener('click', () => {
+    if (!videoDoModoFacil()) return;
+    fsDoVideo = true;
+    entrarTelaCheiaDaPrevia().then((ok) => { if (!ok && document.fullscreenElement !== previewEl) fsDoVideo = false; });
+  });
+}
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement === previewEl) return;
+  fsDoVideo = false;
+  esconderVolumeDaTelaCheia();
+  // A VOLTA AO RETRATO remede o corpo do Modo Fácil: a caixa da Biblioteca se mede na zona de
+  // leitura, e a rotação de volta chega depois deste evento (o `resize` dela também remede).
+  if (appMode === 'simple') { medirCorpoSimplesDepois(); setTimeout(() => { if (simplesComBarra()) medirCorpoSimples(); }, 600); }
+});
+
+// ===== A BARRA DE VOLUME DA TELA CHEIA (v1.12.24) — nos DOIS modos =====
+// Pedido do operador: *"em tela cheia, mostre uma barra momentânea quando o volume for alterado.
+// Hoje não há retorno visual"*. Fora da tela cheia quem responde é o fader que a tecla acende
+// (`peekVolume`) ou o número do Modo Fácil; dentro dela o deck não existe à vista. A barra mora
+// DENTRO da `.preview` (só o elemento em tela cheia e os filhos dele são pintados) e some sozinha.
+// O número é o do APP (`volume`, o mesmo do fader), não o do sistema: é ele que vai ao telão e às
+// telas da rede. Sem TV a tela cheia É a projeção — daí ela ser PASSAGEIRA e pequena, no topo.
+const PV_VOLUME_MS = 2000;
+function mostrarVolumeDaTelaCheia() {
+  if (!pvVolumeEl || document.fullscreenElement !== previewEl) return;
+  const pct = muted ? 0 : Math.round(volume * 100);
+  pvVolumeNivelEl.style.width = pct + '%';
+  pvVolumeNumEl.textContent = String(pct);
+  pvVolumeEl.classList.toggle('mudo', !!muted);
+  pvVolumeEl.classList.add('visivel');
+  clearTimeout(pvVolumeTimer);
+  pvVolumeTimer = setTimeout(esconderVolumeDaTelaCheia, PV_VOLUME_MS);
+}
+function esconderVolumeDaTelaCheia() {
+  clearTimeout(pvVolumeTimer); pvVolumeTimer = null;
+  if (pvVolumeEl) pvVolumeEl.classList.remove('visivel');
+}
+
 // Preview: FORA do fullscreen — toque simples coloca a PRÓPRIA preview em tela
 // cheia (landscape); pressionar longo (~500 ms) abre as configurações de
 // Exibição (fade/fit). A preview em tela cheia é a projeção direta pelo Controle
@@ -40610,13 +40728,7 @@ renderBuscaLimpar();
     });
   }
 
-  async function enterFullscreen() {
-    try {
-      if (previewEl.requestFullscreen) await previewEl.requestFullscreen();
-      else if (previewEl.webkitRequestFullscreen) previewEl.webkitRequestFullscreen();
-      try { await (screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')); } catch (_) {}
-    } catch (_) {}
-  }
+  function enterFullscreen() { entrarTelaCheiaDaPrevia(); }
   function exitFullscreen() { try { if (document.exitFullscreen) document.exitFullscreen(); } catch (_) {} }
   document.addEventListener('fullscreenchange', () => {
     // Nada a sincronizar nos botões: dentro da tela cheia quem os esconde é o

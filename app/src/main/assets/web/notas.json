@@ -1,8 +1,17 @@
 [
   {
-    "versao": "1.12.24",
+    "versao": "1.12.25",
     "itens": [
       "Editor de mídia: o fade de entrada e o de saída agora duram o dobro do fade comum."
+    ]
+  },
+  {
+    "versao": "1.12.24",
+    "itens": [
+      "Modo Fácil: ao tocar um vídeo, ele abre em tela cheia no celular e sai sozinho quando o vídeo acaba.",
+      "Modo Fácil: se a tela cheia não abrir sozinha, toque no botão ao lado do nome do vídeo.",
+      "Modo Fácil: a tela cheia do vídeo tem só os botões de sair e de tocar/pausar.",
+      "Tela cheia: ao mudar o volume aparece uma barra com o nível, que some sozinha."
     ]
   },
   {

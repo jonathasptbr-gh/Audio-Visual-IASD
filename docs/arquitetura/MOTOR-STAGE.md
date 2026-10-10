@@ -179,11 +179,11 @@ escrevia o volume direto no alvo e a mídia entrava no talo enquanto o visual
 ainda esmaecia — a saída tinha rampa, a entrada não, e a assimetria era audível
 a cada troca de hino. Agora, com `fadeIn` ligado, `rampVolume(0, volume,
 fadeTime)` roda **depois** de `play()` **e do `applyMedia()`** — os dois
-escrevem o volume alvo (e o `play()` limpa o `rampTimer`). Até a v1.12.24 ela
+escrevem o volume alvo (e o `play()` limpa o `rampTimer`). Antes da v1.12.25 ela
 vinha antes do `applyMedia()`, que atropelava o primeiro passo: MEDIDO, volume
 1 por ~50 ms no início de toda entrada.
 
-**As marcas do ITEM EDITADO dobram o fade (v1.12.24).** O `FADE` da tela já
+**As marcas do ITEM EDITADO dobram o fade (v1.12.25).** O `FADE` da tela já
 liga entrada e saída em todo item; `edicao.fadeEntrada`/`fadeSaida` ALONGAM a
 ponta que nomeiam para `fadeDaMarca()` = 2 × `fadeTime`, limitado à METADE do
 trecho (`duracaoDoTrecho`: `fim − inicio`, ou a duração do arquivo, ou o
