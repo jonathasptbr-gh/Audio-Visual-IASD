@@ -430,13 +430,19 @@ checar(aberta === true && vista.titulo === 'Escolher a mídia' && vista.busca &&
 // para escolher a mídia para edição, a sombra de corte superior da fronteira da lista está sem margem
 // com a caixa de texto da busca; a sombra está colando na caixa"* — a tira mora no topo do scroller, e
 // o scroller começava 5,6px abaixo do campo.
+// Mede com a janela ASSENTADA (v1.12.25): a lista ENTRA deslizando 8px (`edicao-entra`), e medida no meio
+// dela a folga sai MAIOR. O piso de 14px desta asserção só passava assim: assentada, a folga é o `--sp-5`
+// (9,6px) que a regra escreve — MEDIDO, 9,6 em 6 de 6, e 12,1/13,1 nas rodadas que pegaram a animação no
+// fim. A régua é a do CSS: ≥ 9 (o `--sp-5`), contra os 5,6 de antes. O spinner é infinito e fica de fora.
+await esperar(app, () => document.getAnimations().every((x) => x.playState !== 'running'
+  || x.effect.getTiming().iterations === Infinity), null, 5000);
 const folgaBusca = await app.evaluate(() => {
   const campo = document.querySelector('#edicaoBuscaCaixa .lib-search-campo').getBoundingClientRect();
   const lista = document.getElementById('edicaoLista').getBoundingClientRect();
   return { campoAteLista: +(lista.top - campo.bottom).toFixed(1) };
 });
-checar(folgaBusca.campoAteLista >= 14,
-  'C · a lista do seletor começa ≥ 14px abaixo do CAMPO de busca (eram 5,6px, e a sombra de cima colava nele)',
+checar(folgaBusca.campoAteLista >= 9,
+  'C · a lista do seletor começa ≥ 9px (o `--sp-5`) abaixo do CAMPO de busca (eram 5,6px, e a sombra de cima colava nele)',
   JSON.stringify(folgaBusca));
 
 // C1c · "Importar arquivo" é um botão BAIXO, do tamanho dos botões do fecho do formulário (v1.12.7): ícone
