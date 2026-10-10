@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.12.28",
+    "itens": [
+      "Verificação: a lista aparece inteira na hora, e cada item ganha o check quando é conferido.",
+      "Verificação: o botão Leve saiu (ela roda sozinha ao abrir); o que fica é \"Verificação completa\".",
+      "A Verificação completa agora só faz o download de teste, somando à verificação já feita.",
+      "O resumo mostra só quantos funcionaram e quantos falharam.",
+      "Fonte das músicas: a verificação diz se o servidor da LouvorJA respondeu e recusou, ou não respondeu."
+    ]
+  },
+  {
     "versao": "1.12.27",
     "itens": [
       "Verificação: dois botões, Leve (a de sempre) e Completa.",

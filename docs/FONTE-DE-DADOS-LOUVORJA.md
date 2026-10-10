@@ -545,7 +545,10 @@ se houver `url_*`, baixe via `fileUrl(path)`.
   seguro, nunca `file://`); `audiovisualiasd.com.br` é só a página de download,
   e ela não faz chamada nenhuma à LouvorJA. Se o `fetch` falhar por CORS, a
   sincronização e a busca ao vivo param — a busca no que **já** foi baixado
-  (OPFS/IndexedDB) continua funcionando offline.
+  (OPFS/IndexedDB) continua funcionando offline. **O `fetch` não distingue isso de
+  "ninguém respondeu"** (os dois são `TypeError`); a Verificação do Sistema
+  separa os dois com `Louvorja.sondarBanco` (o mesmo endereço em `no-cors`, que
+  resolve com QUALQUER resposta HTTP) — v1.12.28.
 
 ---
 

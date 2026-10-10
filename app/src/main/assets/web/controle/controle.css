@@ -8185,6 +8185,19 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .teste-item--mudo .teste-marca { color: var(--warn); }
 .teste-item--mudo .teste-nota { color: var(--warn-text); }
 .teste-item--na { opacity: var(--op-inativo); }
+/* OS ESTADOS DA TELA (v1.12.28): a linha que a leve ainda não alcançou
+   (`pendente`, círculo vazio), o download de teste andando (`curso`, o arco
+   que gira) e a linha do download antes de a completa ser pedida (`espera`,
+   apagada como o `na`). Nenhum deles é desfecho, então nenhum tem cor de
+   desfecho: é o `--muted` das notas. */
+.teste-item--pendente .teste-marca,
+.teste-item--curso .teste-marca { color: var(--muted); }
+.teste-item--espera { opacity: var(--op-inativo); }
+.teste-item--curso .teste-marca svg { animation: teste-gira 1s linear infinite; }
+@keyframes teste-gira { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .teste-item--curso .teste-marca svg { animation: none; }
+}
 
 .hist-sessao {
   background: var(--poco); border-radius: var(--radius-card);
@@ -10129,8 +10142,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 
 /* ---------- O SALVAR DA VERIFICAÇÃO (v1.10.3) ----------
    Mesma receita dos três destinos acima, e pelo MESMO motivo: a 320px com a
-   fonte do sistema a 1,5× a faixa já carrega dois rótulos (Leve · Completa,
-   v1.12.27) em ~297px de largura útil, e um terceiro não cabe. É o caso declarado da
+   fonte do sistema a 1,5× o primário ("Verificação completa", v1.12.28) pede
+   quase toda a largura útil (~297px), e um segundo rótulo não cabe. É o caso declarado da
    v1.8.57 (botão sem rótulo é QUADRADO, e numa faixa de fecho o número é
    `--quad-faixa`).
 

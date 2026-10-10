@@ -352,8 +352,8 @@ try {
   await pg.waitForSelector('#fadePopup.open', { timeout: 5000 });
   await pg.click('#testeTile');
   await pg.waitForSelector('#testePopup.open', { timeout: 5000 });
-  await pg.waitForFunction(() => !document.getElementById('testeRodar').disabled
-    && document.querySelectorAll('#testeList .teste-item').length > 0, null, { timeout: 25000 });
+  await pg.waitForFunction(() => !testeRodando && testeResultado
+    && document.querySelectorAll('#testeList .teste-item--ok').length > 0, null, { timeout: 25000 });
   const tela = await pg.evaluate(() => {
     const cor = (sel) => {
       const el = document.querySelector(sel + ' .teste-marca');
@@ -743,8 +743,8 @@ try {
     'M1 · e sem ponte ele não é desenhado nem ocupa lugar — gravar arquivo é o seletor do sistema, '
     + 'e o navegador não o tem', JSON.stringify(semPonteSalvar));
 
-  // M2 · O QUADRADO DA FAIXA. Dois rótulos não cabem lado a lado — MEDIDO, a
-  // 320px com a fonte a 1,5× sobram 286px e só "Verificar de novo" pede 224.
+  // M2 · O QUADRADO DA FAIXA. Dois rótulos não cabem lado a lado — o primário
+  // ("Verificação completa", v1.12.28) pede quase a faixa inteira.
   // É o caso declarado da v1.8.57, e a faixa com irmão tem UMA altura (v1.8.61).
   const caixa = await pg.evaluate(async () => {
     const sv = document.getElementById('testeSalvar');
@@ -757,7 +757,7 @@ try {
     // defeito do app, que é a primeira classe que a campanha da v5.316 teve de
     // corrigir uma a uma.
     while (testeRodando || !testeResultado) await new Promise((r) => setTimeout(r, 20));
-    const go = document.getElementById('testeRodar');
+    const go = document.getElementById('testeCompleta');
     const a = sv.getBoundingClientRect(); const b = go.getBoundingClientRect();
     const svg = sv.querySelector('svg').getBoundingClientRect();
     return {

@@ -335,7 +335,6 @@ const pacoteListaEl = document.getElementById('pacoteLista');
 const pacoteNotaEl = document.getElementById('pacoteNota');
 const testeResumoEl = document.getElementById('testeResumo');
 const testeListEl = document.getElementById('testeList');
-const testeRodarEl = document.getElementById('testeRodar');
 const testeSalvarEl = document.getElementById('testeSalvar');
 const testeCompletaEl = document.getElementById('testeCompleta');
 
@@ -393,7 +392,7 @@ const cronoLimparEl = document.getElementById('cronoLimpar');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.12.27';
+const WEB_VERSION = '1.12.28';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -28870,7 +28869,7 @@ const TESTES = [
   // apareciam e a barra andava; só os BYTES não vinham.
   {
     id: 'fonte-banco', area: 'A fonte das músicas', titulo: 'A lista de hinos e álbuns responde',
-    prazo: TESTE_PRAZO_REDE, rede: true,
+    prazo: TESTE_PRAZO_REDE, rede: true, fonte: true,
     fn: async () => {
       if (!navigator.onLine) return tNa('o aparelho está sem internet');
       const cat = await Louvorja.fetchList(Louvorja.CATEGORIES_FILE);
@@ -28881,7 +28880,7 @@ const TESTES = [
   },
   {
     id: 'fonte-arquivo', area: 'A fonte das músicas', titulo: 'O servidor entrega os arquivos de música',
-    prazo: TESTE_PRAZO_REDE, rede: true,
+    prazo: TESTE_PRAZO_REDE, rede: true, fonte: true,
     fn: async () => {
       // ===== A CHECAGEM QUE TERIA PEGO A v1.9.13 =====
       //
@@ -28916,7 +28915,7 @@ const TESTES = [
   },
   {
     id: 'fonte-arquivo-imagem', area: 'A fonte das músicas', titulo: 'O servidor entrega as imagens de fundo',
-    prazo: TESTE_PRAZO_REDE, rede: true,
+    prazo: TESTE_PRAZO_REDE, rede: true, fonte: true,
     fn: async () => {
       // ===== A CHECAGEM QUE FALTAVA — O ÁUDIO E A FOTO SÃO DOIS HOSTS =====
       //
@@ -28994,7 +28993,7 @@ const TESTES = [
   },
   {
     id: 'fonte-biblia', area: 'A fonte das músicas', titulo: 'A Bíblia responde',
-    prazo: TESTE_PRAZO_REDE, rede: true,
+    prazo: TESTE_PRAZO_REDE, rede: true, fonte: true,
     fn: async () => {
       if (!navigator.onLine) return tNa('o aparelho está sem internet');
       const l = await Louvorja.fetchList('pt_bible_version');
@@ -30049,7 +30048,7 @@ async function rodarUmaChecagem(c) {
     // chega como resposta.
     const semResposta = (e instanceof TypeError) || /failed to fetch|networkerror|load failed/i.test(String(e && e.message));
     r = (c.rede && semResposta)
-      ? { v: TESTE_MUDO, nota: 'a internet não respondeu' }
+      ? (c.fonte ? await testeFonteSemResposta() : { v: TESTE_MUDO, nota: 'a internet não respondeu' })
       : { v: TESTE_FALHOU, nota: testeMsg(e) };
   }
   if (!r || typeof r !== 'object' || !r.v) r = { v: TESTE_FALHOU, nota: 'a checagem não devolveu desfecho' };
@@ -30082,9 +30081,14 @@ const TESTE_DL_SERIE = 'Provai e Vede';
 // Uma JANELA de velocidade: amostras a cada megabyte dão picos absurdos entre
 // duas que chegam juntas; dois segundos é o menor trecho que mede a rede.
 const TESTE_DL_JANELA_MS = 2000;
-// Um vão MAIOR que isto entre dois megabytes é uma PARADA — o que o operador
-// sente como "travou".
+// UMA PARADA é um vão entre dois avisos de progresso muito maior que o normal
+// DAQUELE download — o que o operador sente como "travou". O shell avisa a cada
+// MEGABYTE, e a 0,1 MB/s isso já é um aviso a cada 10 s: com um piso fixo de
+// 5 s (v1.12.27) TODO vão contava como parada, e o primeiro Registro de
+// aparelho saiu com "12 paradas" que eram só o compasso de 1 MB (v1.12.28).
+// A régua é relativa ao vão MEDIANO, com o piso de 5 s por baixo.
 const TESTE_DL_PARADA_MS = 5000;
+const TESTE_DL_PARADA_X = 3;
 
 const TESTE_DL = {
   id: 'yt-download', area: 'Download do YouTube', titulo: 'Baixar um episódio anterior do Provai e Vede',
@@ -30096,6 +30100,7 @@ const TESTE_DL = {
 };
 
 let testeCompleta = false;     // a rodada em curso é a COMPLETA
+let testeParcial = null;       // as linhas que já chegaram, durante a leve
 let testeDl = null;            // a medida da rodada em curso (e o progresso que o resumo lê)
 let testeDlCancelar = null;    // o cancelamento do download, só enquanto ele anda
 let testeDlCanceladoAntes = false;
@@ -30204,13 +30209,18 @@ function testeDlContas(m) {
     if (c.baixando > 0) c.mbpsMedia = (fimRede[1] * 8) / (c.baixando / 1000) / 1e6;
     if (m.tNativo != null) c.juncao = m.tNativo - fimRede[0];
     // JANELAS de no mínimo dois segundos, e a PARADA mais longa.
+    const vaos = [];
+    for (let i = 1; i < a.length && a[i][0] <= fimRede[0]; i++) vaos.push(a[i][0] - a[i - 1][0]);
+    const ord = vaos.slice().sort((x, y) => x - y);
+    c.vaoMediano = ord.length ? ord[Math.floor((ord.length - 1) / 2)] : null;
+    const limiar = Math.max(TESTE_DL_PARADA_MS, TESTE_DL_PARADA_X * (c.vaoMediano || 0));
     let ini = a[0];
     let maior = 0; let paradas = 0;
     for (let i = 1; i < a.length; i++) {
       const gap = a[i][0] - a[i - 1][0];
       if (a[i][0] > fimRede[0]) break;
       if (gap > maior) maior = gap;
-      if (gap >= TESTE_DL_PARADA_MS) paradas++;
+      if (gap >= limiar) paradas++;
       const dt = a[i][0] - ini[0];
       if (dt >= TESTE_DL_JANELA_MS) {
         const v = ((a[i][1] - ini[1]) * 8) / (dt / 1000) / 1e6;
@@ -30276,7 +30286,7 @@ async function testeDownloadCompleto() {
       altura: m.teto, aviso: 'nenhum', medida: m, semResgate: true,
       // SÓ O RESUMO: redesenhar a lista inteira a cada megabyte seria trabalho
       // à toa, e o resto da folha não muda enquanto o download anda.
-      onPct: () => { if (testeResumoEl && testeRodando) testeResumoEl.textContent = testeDlResumo(); },
+      onPct: () => { if (testeRodando) atualizarLinhaDoTeste({ id: TESTE_DL.id }); },
     });
     try { m.diag = String((await AVNative.ytDiag()) || ''); } catch (_) { m.diag = ''; }
     if (rec) {
@@ -30366,7 +30376,8 @@ function blocoDownloadDeTeste(m) {
     + ' · TOTAL ' + fmtSeg(c.total));
   l.push('    velocidade: média ' + fmtMbps(c.mbpsMedia) + ' · janelas de 2 s: mín ' + fmtMbps(c.mbpsMin)
     + ' · máx ' + fmtMbps(c.mbpsMax) + ' · maior vão ' + fmtSeg(c.maiorVao)
-    + ' · paradas de 5 s ou mais: ' + (c.paradas == null ? '?' : c.paradas) + ' · ' + c.amostras + ' amostras');
+    + ' · paradas (vão ≥ ' + TESTE_DL_PARADA_X + '× o mediano e ≥ 5 s): ' + (c.paradas == null ? '?' : c.paradas)
+    + ' · ' + c.amostras + ' amostras, uma por MB (vão mediano ' + fmtSeg(c.vaoMediano) + ')');
   if (c.razao) l.push('    razão: baixou ' + c.razao.toFixed(1).replace('.', ',') + '× mais rápido que a duração do vídeo');
   if (m.cancelado) l.push('    cancelado: ' + m.cancelado);
   const lp = m.limpeza || {};
@@ -30395,85 +30406,137 @@ function testeDlResumo() {
     + (ult[2] ? ' de ' + fmtBytes(ult[2]) : '');
 }
 
+// ===== "A INTERNET NÃO RESPONDEU" ERA A FRASE ERRADA PARA A FONTE (v1.12.28) =====
+//
+// Um Registro do operador trouxe as quatro linhas da fonte em *"a internet não
+// respondeu"* três linhas abaixo de *"Há internet agora ✓ Wi-Fi"* — e esta
+// sonda vai ao MESMO servidor (`/file/`, em `no-cors`) — com um vídeo de 16 MB
+// baixado na mesma rodada. O `TypeError` do `fetchList` tem DUAS causas, e o
+// `fetch` não diz qual: ninguém respondeu, ou o servidor respondeu sem a
+// permissão de CORS (o pedido leva o `Api-Token`, que exige pré-checagem) e o
+// navegador não deixou o app ler. Na segunda o app inteiro para de baixar do
+// banco — catálogo, músicas novas, Bíblia —, e chamá-la de "a internet não
+// respondeu" mandava o operador olhar o Wi-Fi. Quem decide é uma segunda ida
+// ao banco em `no-cors` (`Louvorja.sondarBanco`), com prazo próprio.
+const TESTE_FONTE_SONDA_MS = 5000;
+async function testeFonteSemResposta() {
+  let alcanca = null;
+  try {
+    alcanca = await Promise.race([
+      Louvorja.sondarBanco(),
+      new Promise((res) => setTimeout(() => res(null), TESTE_FONTE_SONDA_MS)),
+    ]);
+  } catch (_) { alcanca = null; }
+  if (alcanca === true) {
+    return { v: TESTE_FALHOU, nota: 'o servidor da LouvorJA respondeu, mas o app não conseguiu ler a resposta '
+      + '(veio sem permissão de acesso — CORS — ou com um erro do servidor) — enquanto durar, o catálogo, '
+      + 'as músicas novas e a Bíblia não baixam' };
+  }
+  return { v: TESTE_MUDO, nota: 'o servidor da LouvorJA não respondeu' };
+}
+
 let testeRodando = false;
 let testeResultado = null;
 
 /**
- * Roda a bateria inteira e guarda o resultado. Devolve-o também, para quem
+ * Roda a bateria LEVE inteira e guarda o resultado. Devolve-o também, para quem
  * quiser desenhar.
  *
  * A ORDEM DO RELATÓRIO É A DA TABELA, nunca a de chegada: com quatro rodando de
  * cada vez a ordem de término é o acaso da rede, e uma lista que se reorganiza
- * a cada toque não se lê duas vezes.
+ * a cada toque não se lê duas vezes. **Na TELA cada linha acende quando a dela
+ * chega** (`testeParcial` + `atualizarLinhaDoTeste`, v1.12.28): as linhas já
+ * existem desde o começo, então nada anda — só a marca de cada uma muda.
  *
- * `opts.completa` (v1.12.27) acrescenta, DEPOIS da bateria leve e sozinha, o
- * download de teste (`TESTE_DL`) — e é a única diferença: a leve é a mesma
- * tabela de sempre, e nunca baixa nada.
+ * A COMPLETA NÃO PASSA POR AQUI (v1.12.28): ela é `rodarDownloadDeTeste`, que
+ * roda SÓ a linha do download sobre o resultado que esta deixou.
  */
-async function rodarAutoteste(opts) {
+async function rodarAutoteste() {
   if (testeRodando) return testeResultado;
   testeRodando = true;
-  const completa = !!(opts && opts.completa);
-  testeCompleta = completa;
+  testeCompleta = false;
   testeDl = null;
   testeDlCanceladoAntes = false;
+  testeParcial = new Map();
   const t0 = Date.now();
   // FOTOGRAFADO UMA VEZ: se o operador der play no meio da rodada, metade das
   // checagens teria visto um estado e metade o outro.
   const haCena = midiaNoAr;
   const ordem = new Map(TESTES.map((c, i) => [c.id, i]));
   const itens = [];
+  const chegou = (it) => { itens.push(it); testeParcial.set(it.id, it); atualizarLinhaDoTeste(it); };
   try {
     await runLimited(TESTES, TESTE_CONCORRENCIA, async (c) => {
       if (c.cena && haCena) {
-        itens.push({
+        chegou({
           id: c.id, area: c.area, titulo: c.titulo, v: TESTE_NA,
           nota: 'há mídia no ar — esta não roda durante uma projeção', ms: 0,
         });
         return;
       }
-      itens.push(await rodarUmaChecagem(c));
+      chegou(await rodarUmaChecagem(c));
     });
-    // EM SÉRIE, DEPOIS DA LEVE: a bateria leve mede o app parado, e um download
-    // de centenas de megabytes ao lado mudaria o que ela mede (rede, disco).
-    if (completa) {
-      desenharTeste();
-      if (haCena) {
-        itens.push({ id: TESTE_DL.id, area: TESTE_DL.area, titulo: TESTE_DL.titulo, v: TESTE_NA,
-          nota: 'há mídia no ar — o download de teste não roda durante uma projeção', ms: 0 });
-      } else {
-        itens.push(await rodarUmaChecagem(TESTE_DL));
-      }
-    }
     // O RESULTADO É GUARDADO ANTES DE SOLTAR A TRAVA, e a ordem importa: entre
     // `testeRodando = false` e a atribuição existe uma janela em que a folha se
     // desenharia como "pronta" mostrando o resultado da rodada ANTERIOR — e é
     // exatamente nessa janela que um segundo toque cairia.
     itens.sort((a, b) => (ordem.has(a.id) ? ordem.get(a.id) : 1e9)
       - (ordem.has(b.id) ? ordem.get(b.id) : 1e9));
-    const conta = (v) => itens.filter((x) => x.v === v).length;
-    testeResultado = {
-      em: Date.now(),
-      ms: Date.now() - t0,
-      completa,
-      // A MEDIDA do download, quando houve rodada completa — o objeto que a
-      // linha resume e o Registro detalha (`blocoDownloadDeTeste`).
-      download: completa ? testeDl : null,
-      itens,
-      ok: conta(TESTE_OK),
-      falhou: conta(TESTE_FALHOU),
-      mudo: conta(TESTE_MUDO),
-      na: conta(TESTE_NA),
-    };
+    testeResultado = testeContar({ em: Date.now(), ms: Date.now() - t0, completa: false, download: null, itens });
+  } finally {
+    testeRodando = false;
+    testeParcial = null;
+  }
+  // UMA LINHA NA LINHA DO TEMPO, com o placar. Ela é o que amarra "o operador
+  // testou" ao que veio depois, num Registro lido a distância.
+  diagC('verificação leve do sistema: ' + testePlacar(testeResultado));
+  return testeResultado;
+}
+
+// AS QUATRO CONTAS, de UM lugar: a leve as faz uma vez, e a completa as refaz
+// depois de pôr a linha do download no MESMO objeto.
+function testeContar(r) {
+  const conta = (v) => r.itens.filter((x) => x.v === v).length;
+  return Object.assign(r, { ok: conta(TESTE_OK), falhou: conta(TESTE_FALHOU), mudo: conta(TESTE_MUDO), na: conta(TESTE_NA) });
+}
+const testePlacar = (r) => r.ok + ' ok · ' + r.falhou + ' com falha · ' + r.mudo + ' sem resposta · '
+  + r.na + ' não se aplica';
+
+/**
+ * A VERIFICAÇÃO COMPLETA (v1.12.28): SÓ a linha do download, por cima da leve.
+ *
+ * Pedido do operador: *"sem o botão Leve, deixe apenas o botão da verificação
+ * profunda; ela funciona como uma opção além do processo já feito"*. A leve
+ * roda ao abrir a folha, então refazer as 41 linhas aqui seria repetir o que
+ * acabou de aparecer na tela. **O resultado continua UM objeto**: a linha
+ * `TESTE_DL` entra no `testeResultado` da leve (substituindo a de uma completa
+ * anterior), as contas são refeitas e ele passa a se dizer `completa` — o
+ * Registro, a tela e o "Salvar registro" seguem lendo a mesma coisa.
+ *
+ * SEM uma leve na mão ele não roda (o botão fica apagado até ela terminar):
+ * a completa é "além do que já foi feito", e sem o feito não há o que somar.
+ */
+async function rodarDownloadDeTeste() {
+  if (testeRodando || !testeResultado) return testeResultado;
+  testeRodando = true;
+  testeCompleta = true;
+  testeDl = null;
+  testeDlCanceladoAntes = false;
+  atualizarLinhaDoTeste({ id: TESTE_DL.id, v: 'curso', nota: 'preparando…' });
+  let it;
+  try {
+    it = await rodarUmaChecagem(TESTE_DL);
+    const r = testeResultado;
+    r.itens = r.itens.filter((x) => x.id !== TESTE_DL.id).concat([it]);
+    r.completa = true;
+    r.download = testeDl;
+    r.emCompleta = Date.now();
+    testeContar(r);
   } finally {
     testeRodando = false;
     testeCompleta = false;
   }
-  // UMA LINHA NA LINHA DO TEMPO, com o placar. Ela é o que amarra "o operador
-  // testou" ao que veio depois, num Registro lido a distância.
-  diagC('verificação ' + (completa ? 'completa' : 'leve') + ' do sistema: ' + testeResultado.ok + ' ok · '
-    + testeResultado.falhou + ' com falha · ' + testeResultado.mudo + ' sem resposta · '
-    + testeResultado.na + ' não se aplica');
+  diagC('verificação completa do sistema: ' + testePlacar(testeResultado));
   return testeResultado;
 }
 
@@ -38210,9 +38273,9 @@ function openHistPopup() {
 //
 // ELA RODA AO ABRIR. Um toque que abre uma lista vazia com um botão "verificar"
 // embaixo é dois toques para a mesma intenção — quem abriu esta folha já pediu
-// o teste (a LEVE). O botão "Leve" existe para a SEGUNDA rodada, que é o gesto
-// de quem acabou de consertar alguma coisa e quer confirmar; a "Completa" só
-// roda pedida, porque baixa um vídeo inteiro (v1.12.27).
+// o teste (a LEVE) — e é ela a SEGUNDA rodada também: reabrir a folha roda de
+// novo (o botão "Leve" saiu na v1.12.28, a pedido). A "Completa" só roda
+// pedida, porque baixa um vídeo inteiro.
 function openTestePopup() {
   testePopupEl.classList.add('open');
   desenharTeste();
@@ -39074,7 +39137,7 @@ async function salvarRegistroDaVerificacao() {
   }
 }
 
-async function dispararTeste(completa) {
+async function dispararTeste() {
   if (testeRodando) return;
   // O ARO NO TILE segue girando com a folha fechada: o operador pode fechar e a
   // rodada continua — o resultado o espera na próxima abertura.
@@ -39092,7 +39155,7 @@ async function dispararTeste(completa) {
   // esperar já ergue a trava, e é por isso que o desenho vem depois da
   // chamada e antes do `await`. Guardar a Promise é o que mantém o `await`
   // sobre a MESMA rodada — um segundo `rodarAutoteste()` devolveria a trava.
-  const rodada = rodarAutoteste({ completa: completa === true });
+  const rodada = rodarAutoteste();
   desenharTeste();
   try { await rodada; } catch (_) { /* o desenho mostra o que houve */ }
   if (testeTileEl) testeTileEl.classList.remove('qs-trabalhando');
@@ -39102,13 +39165,138 @@ async function dispararTeste(completa) {
   renderDiag();
 }
 
+// A COMPLETA, pelo botão: a mesma coreografia, sobre `rodarDownloadDeTeste`.
+async function dispararTesteCompleto() {
+  if (testeRodando || !testeResultado) return;
+  if (testeTileEl) testeTileEl.classList.add('qs-trabalhando');
+  const rodada = rodarDownloadDeTeste();
+  desenharTeste();
+  try { await rodada; } catch (_) { /* o desenho mostra o que houve */ }
+  if (testeTileEl) testeTileEl.classList.remove('qs-trabalhando');
+  desenharTeste();
+  renderDiag();
+}
+
 // O DESENHO LÊ A MESMA ESTRUTURA QUE O REGISTRO ESCREVE. Duas leituras da mesma
 // rodada divergiriam no primeiro ajuste, e o que sairia é uma tela que discorda
 // do arquivo que o operador mandou — exatamente o artefato que este projeto
 // trata como o pior que sabe produzir.
+//
+// Os três estados a mais são só da TELA (v1.12.28) e nunca entram no
+// resultado: `pendente` (a leve ainda não chegou nela), `curso` (o download de
+// teste andando) e `espera` (a linha do download antes de alguém pedir a
+// completa).
 const TESTE_ROTULO = {
   ok: 'funcionou', falhou: 'não funcionou', mudo: 'não respondeu', na: 'não se aplica',
+  pendente: 'verificando', curso: 'em andamento', espera: 'só na verificação completa',
 };
+const TESTE_DL_ESPERA = 'só na verificação completa — baixa um vídeo e o apaga no fim';
+
+// O ESTADO DE UMA LINHA AGORA: o que chegou nesta rodada, o resultado guardado,
+// ou "ainda não". É a ÚNICA pergunta que o desenho faz por linha.
+function estadoDaLinhaDoTeste(c) {
+  if (c.id === TESTE_DL.id) {
+    if (testeRodando && testeCompleta) return { id: c.id, v: 'curso', nota: testeDlResumo() };
+    const feita = testeResultado && !(testeRodando && !testeCompleta)
+      && testeResultado.itens.find((x) => x.id === c.id);
+    return feita || { id: c.id, v: 'espera', nota: TESTE_DL_ESPERA };
+  }
+  if (testeParcial) return testeParcial.get(c.id) || { id: c.id, v: 'pendente', nota: '' };
+  const r = testeResultado && testeResultado.itens.find((x) => x.id === c.id);
+  return r || { id: c.id, v: 'pendente', nota: '' };
+}
+
+// AS LINHAS EXISTEM DESDE O COMEÇO (v1.12.28). Pedido do operador: *"em vez de
+// deixar a janela vazia durante a verificação, mantenha a lista dos itens a
+// serem verificados visível, dando o check conforme cada um é verificado"*. A
+// lista é montada UMA vez, com todas as linhas da tabela mais a do download, e
+// daí em diante cada linha só troca de marca e de nota NO LUGAR: a ordem e o
+// número de linhas são os mesmos do começo ao fim. (A rolagem não depende
+// disso — MEDIDO, recriar a lista inteira também a preserva no Chromium.)
+function montarListaDoTeste() {
+  testeListEl.innerHTML = '';
+  let area = '';
+  for (const c of TESTES.concat([TESTE_DL])) {
+    if (c.area !== area) {
+      area = c.area;
+      const cab = document.createElement('li');
+      cab.className = 'teste-area';
+      cab.textContent = area;
+      testeListEl.appendChild(cab);
+    }
+    const li = document.createElement('li');
+    li.dataset.teste = c.id;
+    const marca = document.createElement('span');
+    marca.className = 'teste-marca';
+    marca.setAttribute('aria-hidden', 'true');
+    const txt = document.createElement('span');
+    txt.className = 'teste-texto';
+    const t = document.createElement('span');
+    t.className = 'teste-titulo';
+    t.textContent = c.titulo;
+    const n = document.createElement('span');
+    n.className = 'teste-nota';
+    txt.appendChild(t);
+    txt.appendChild(n);
+    li.appendChild(marca);
+    li.appendChild(txt);
+    testeListEl.appendChild(li);
+    pintarLinhaDoTeste(li, c.titulo, estadoDaLinhaDoTeste(c));
+  }
+}
+
+function pintarLinhaDoTeste(li, titulo, it) {
+  li.className = 'teste-item teste-item--' + it.v;
+  // O SÍMBOLO É DESENHADO, e não um glifo da fonte: o subset tem 31
+  // codepoints e um de fora não desenha NADA (ver `tools/glifos.test.mjs`).
+  const marca = li.querySelector('.teste-marca');
+  if (marca.dataset.v !== it.v) { marca.innerHTML = svgDoDesfecho(it.v); marca.dataset.v = it.v; }
+  const n = li.querySelector('.teste-nota');
+  n.textContent = it.nota || '';
+  n.hidden = !it.nota;
+  // O DESFECHO EM PALAVRA vai no rótulo de acessibilidade, nunca na linha: a
+  // cor e o desenho já o dizem, e repeti-lo em texto acrescentaria uma
+  // terceira cópia da mesma resposta em cada linha.
+  li.setAttribute('aria-label', titulo + ': ' + (TESTE_ROTULO[it.v] || it.v) + (it.nota ? '. ' + it.nota : ''));
+}
+
+// UMA linha, no lugar — é o que a rodada chama a cada resposta.
+function atualizarLinhaDoTeste(it) {
+  if (!testeListEl) return;
+  const c = TESTES.find((x) => x.id === it.id) || (it.id === TESTE_DL.id ? TESTE_DL : null);
+  if (!c) return;
+  const li = testeListEl.querySelector('[data-teste="' + it.id + '"]');
+  if (!li) { montarListaDoTeste(); return; }
+  pintarLinhaDoTeste(li, c.titulo, estadoDaLinhaDoTeste(c));
+  if (testeRodando) desenharResumoDoTeste();
+}
+
+// O RESUMO SÓ CONTA O QUE O OPERADOR PRECISA SABER (v1.12.28): quantas
+// funcionaram e quantas FALHARAM de verdade. Pedido: *"pode remover do resumo o
+// 'não se aplica' e semelhantes; deixe apenas quantos estão ok e quantos
+// realmente falharam"*. "Não respondeu" fica de fora pela mesma regra que o
+// separa de "não funcionou" — ele não é falha do app —, e continua à vista na
+// PRÓPRIA linha, com a marca e a nota. O Registro segue com as quatro contas.
+function desenharResumoDoTeste() {
+  const r = testeResultado;
+  if (testeRodando && testeCompleta) {
+    // A COMPLETA: o resumo é o PROGRESSO do download — é a única coisa
+    // andando, e minutos de texto parado se leriam como travado.
+    testeResumoEl.textContent = testeDlResumo();
+    testeResumoEl.className = 'teste-resumo teste-resumo--rodando';
+  } else if (testeRodando) {
+    const feitas = testeParcial ? testeParcial.size : 0;
+    testeResumoEl.textContent = 'Verificando ' + TESTES.length + ' partes do app… ' + feitas + ' de ' + TESTES.length;
+    testeResumoEl.className = 'teste-resumo teste-resumo--rodando';
+  } else if (!r) {
+    testeResumoEl.textContent = '';
+    testeResumoEl.className = 'teste-resumo';
+  } else {
+    testeResumoEl.textContent = r.ok + ' funcionaram · ' + r.falhou + ' com falha';
+    testeResumoEl.className = 'teste-resumo ' + (r.falhou ? 'teste-resumo--ruim' : 'teste-resumo--bom');
+  }
+}
+
 function desenharTeste() {
   if (!testeListEl || !testeResumoEl) return;
   const r = testeResultado;
@@ -39126,89 +39314,31 @@ function desenharTeste() {
     testeSalvarEl.setAttribute('aria-label', testeSalvarEl.title);
   }
   desenharBotoesDoTeste();
-  if (testeRodando) {
-    // NA COMPLETA, depois da bateria leve, o resumo vira o PROGRESSO do download
-    // — é a única coisa andando, e minutos de "Verificando…" parado se leriam
-    // como travado.
-    testeResumoEl.textContent = testeCompleta && testeDl
-      ? testeDlResumo()
-      : 'Verificando ' + TESTES.length + ' partes do app' + (testeCompleta ? ' (completa: depois, um download de teste)' : '') + '…';
-    testeResumoEl.className = 'teste-resumo teste-resumo--rodando';
-  } else if (!r) {
-    testeResumoEl.textContent = '';
-    testeResumoEl.className = 'teste-resumo';
-  } else {
-    // A FRASE DIZ O DESFECHO, e o número vem atrás. "Tudo respondeu" é o que o
-    // operador precisa ler em uma olhada; "31 ok · 0 com falha" é o que ele
-    // confere depois.
-    const ruim = r.falhou + r.mudo;
-    const partes = [r.ok + ' funcionaram'];
-    if (r.falhou) partes.push(r.falhou + ' com falha');
-    if (r.mudo) partes.push(r.mudo + ' sem resposta');
-    if (r.na) partes.push(r.na + ' não se aplicam');
-    testeResumoEl.textContent = (ruim ? 'Há o que ver — ' : 'Tudo respondeu — ') + partes.join(' · ');
-    testeResumoEl.className = 'teste-resumo ' + (ruim ? 'teste-resumo--ruim' : 'teste-resumo--bom');
-  }
-  testeListEl.innerHTML = '';
-  if (!r) return;
-  let area = '';
-  for (const it of r.itens) {
-    if (it.area !== area) {
-      area = it.area;
-      const cab = document.createElement('li');
-      cab.className = 'teste-area';
-      cab.textContent = area;
-      testeListEl.appendChild(cab);
-    }
-    const li = document.createElement('li');
-    li.className = 'teste-item teste-item--' + it.v;
-    const marca = document.createElement('span');
-    marca.className = 'teste-marca';
-    // O SÍMBOLO É DESENHADO, e não um glifo da fonte: o subset tem 31
-    // codepoints e um de fora não desenha NADA (ver `tools/glifos.test.mjs`).
-    marca.innerHTML = svgDoDesfecho(it.v);
-    marca.setAttribute('aria-hidden', 'true');
-    const txt = document.createElement('span');
-    txt.className = 'teste-texto';
-    const t = document.createElement('span');
-    t.className = 'teste-titulo';
-    t.textContent = it.titulo;
-    txt.appendChild(t);
-    if (it.nota) {
-      const n = document.createElement('span');
-      n.className = 'teste-nota';
-      n.textContent = it.nota;
-      txt.appendChild(n);
-    }
-    // O DESFECHO EM PALAVRA vai no rótulo de acessibilidade, nunca na linha: a
-    // cor e o desenho já o dizem, e repeti-lo em texto acrescentaria uma
-    // terceira cópia da mesma resposta em cada uma das trinta e quatro linhas.
-    li.setAttribute('aria-label', it.titulo + ': ' + (TESTE_ROTULO[it.v] || it.v) + (it.nota ? '. ' + it.nota : ''));
-    li.appendChild(marca);
-    li.appendChild(txt);
-    testeListEl.appendChild(li);
+  desenharResumoDoTeste();
+  if (!testeListEl.querySelector('[data-teste]')) { montarListaDoTeste(); return; }
+  for (const c of TESTES.concat([TESTE_DL])) {
+    const li = testeListEl.querySelector('[data-teste="' + c.id + '"]');
+    if (!li) { montarListaDoTeste(); return; }
+    pintarLinhaDoTeste(li, c.titulo, estadoDaLinhaDoTeste(c));
   }
 }
 
-// OS DOIS BOTÕES DA FAIXA (v1.12.27). A LEVE é a bateria de sempre; a COMPLETA
-// é ela mais o download de teste — e, enquanto a completa anda, o MESMO botão
-// vira "Cancelar" (mesma caixa, então nada na faixa se move). Fora do app não
-// há download a testar: a completa fica APAGADA, com o `title` dizendo por quê.
+// O BOTÃO DA FAIXA (v1.12.28): só a COMPLETA. A leve roda sozinha ao abrir a
+// folha, e o botão "Leve" saiu a pedido (*"não precisa existir"*). Enquanto a
+// completa anda, o MESMO botão vira "Cancelar" (mesma caixa, então nada na
+// faixa se move). Ele fica APAGADO, com o `title` dizendo por quê, fora do
+// app (não há download a testar) e enquanto a leve não terminou (a completa é
+// "além do que já foi feito").
 function desenharBotoesDoTeste() {
-  if (testeRodarEl) {
-    testeRodarEl.disabled = testeRodando;
-    testeRodarEl.title = testeRodando ? 'Espere a verificação terminar'
-      : 'Verificação leve: confere cada parte do app em segundos, sem baixar nada';
-  }
   if (!testeCompletaEl) return;
   const cancela = testeRodando && testeCompleta;
-  testeCompletaEl.textContent = cancela ? 'Cancelar' : 'Completa';
+  testeCompletaEl.textContent = cancela ? 'Cancelar' : 'Verificação completa';
   testeCompletaEl.classList.toggle('teste-cancelar', cancela);
-  testeCompletaEl.disabled = cancela ? false : (testeRodando || !window.__NATIVE__);
+  testeCompletaEl.disabled = cancela ? false : (testeRodando || !testeResultado || !window.__NATIVE__);
   testeCompletaEl.title = cancela ? 'Parar a verificação completa e apagar o download de teste'
     : !window.__NATIVE__ ? 'O download de teste só existe no app Android'
-      : testeRodando ? 'Espere a verificação terminar'
-        : 'Verificação completa: a leve, mais o download de um episódio anterior do Provai e Vede, medido e apagado no fim';
+      : (testeRodando || !testeResultado) ? 'Espere a verificação terminar'
+        : 'Verificação completa: baixa um episódio anterior do Provai e Vede, mede o download e o apaga no fim';
   testeCompletaEl.setAttribute('aria-label', testeCompletaEl.title);
 }
 
@@ -39219,13 +39349,17 @@ function cancelarTesteCompleto() {
   desenharTeste();
 }
 
-// ✓ / ✕ / — / ponto, os quatro desenhados à mão pelo motivo do comentário acima.
+// ✓ / ✕ / ! / — desenhados à mão pelo motivo do comentário acima, mais os três
+// da TELA: o círculo vazio (`pendente`), o arco que gira (`curso`) e o traço
+// apagado (`espera`, o mesmo do `na`).
 function svgDoDesfecho(v) {
   const abre = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" '
     + 'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
   if (v === TESTE_OK) return abre + '<path d="M4 12.8l5 5L20 6.5"/></svg>';
   if (v === TESTE_FALHOU) return abre + '<path d="M6 6l12 12M18 6L6 18"/></svg>';
   if (v === TESTE_MUDO) return abre + '<path d="M12 7v6"/><path d="M12 17h.01"/></svg>';
+  if (v === 'pendente') return abre + '<circle cx="12" cy="12" r="6.5"/></svg>';
+  if (v === 'curso') return abre + '<path d="M12 5.5a6.5 6.5 0 1 1-6.5 6.5"/></svg>';
   return abre + '<path d="M6 12h12"/></svg>';
 }
 function closeHistPopup() {
@@ -39381,10 +39515,9 @@ histOpenRowEl.addEventListener('click', openHistPopup);
 if (testeTileEl) testeTileEl.addEventListener('click', openTestePopup);
 if (telaTileEl) telaTileEl.addEventListener('click', openTelaPopup);
 if (pacoteTileEl) pacoteTileEl.addEventListener('click', openPacotePopup);
-if (testeRodarEl) testeRodarEl.addEventListener('click', () => dispararTeste(false));
 if (testeCompletaEl) testeCompletaEl.addEventListener('click', () => {
   if (testeRodando && testeCompleta) cancelarTesteCompleto();
-  else dispararTeste(true);
+  else dispararTesteCompleto();
 });
 if (testeSalvarEl) {
   // REVELADO AQUI, e não no `renderVersionLabel` — a mesma armadilha do
